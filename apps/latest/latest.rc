@@ -1,0 +1,3 @@
+// The launcher has the editor's icons: it registers itself for .stardraft files (DefaultIcon "<exe>",1).
+1 ICON "../editor/res/stardraft.ico"
+2 ICON "../editor/res/stardraft-document.ico"

@@ -1,0 +1,11 @@
+# Accepted exceptions for tools/ui_text_lint.py, one per line: check | file | 'text' | reason.
+# The text is the first 120 characters of the string, as the tool prints it (Python repr). Line numbers are not part
+# of an entry, so an entry stays valid when the code moves.
+word:may | apps/editor/main.cpp | 'May' | the month name in a file date, not the word "may"
+word:enable | apps/editor/main.cpp | 'Enable' | an iscript animation name from the game data (Enable, Disable)
+word:enabled | apps/editor/briefing_view.inc | 'Skip tutorial enabled' | the briefing action name as StarEdit and the game show it
+word:enable | apps/editor/briefing_view.inc | 'Enable Skip Tutorial button.' | the classic StarEdit text of the briefing action
+label-colon | apps/editor/main.cpp | 'Unknown block:' | not a form label: the block's id follows the colon
+term:player-n | apps/editor/main.cpp | 'player 2' | search text that the self-test types into a picker, not a UI text
+last-stop | apps/editor/briefing_view.inc | '. Play' | a piece of the classic StarEdit action text; the sentence continues in the next piece
+term:pick | research/data/trigger_blocks.json | 'Picks a whole number in the range. The number is the same on the machine of each player.' | generated block docs; fix in research/data/trigger_blocks.json

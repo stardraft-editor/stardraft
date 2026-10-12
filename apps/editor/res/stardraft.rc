@@ -1,0 +1,10 @@
+// The editor's icons (tools/icongen; copy new ones with python tools/import_icons.py).
+// Icon 1 (index 0): the program. Icon 2 (index 1): .stardraft files (DefaultIcon "<exe>",1).
+1 ICON "stardraft.ico"
+2 ICON "stardraft-document.ico"
+
+// The UI icons: one row of white icons per size; column = UiIcon value (ui_icons.h).
+116 RCDATA "atlas-16.png"
+120 RCDATA "atlas-20.png"
+124 RCDATA "atlas-24.png"
+132 RCDATA "atlas-32.png"

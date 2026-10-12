@@ -1,0 +1,19 @@
+build/
+/StarDraft-latest.exe
+/.issues-token
+out/
+*.tmp
+__pycache__/
+
+# The icon tool (local only; its output is copied into apps/editor/res by tools/import_icons.py)
+tools/icongen/
+
+# Local only: the research scripts and data, and internal notes (not part of the repository)
+research/
+docs/dev/FORMATS.md
+docs/dev/TRIGGERS.md
+docs/project/LAUNCH_0.5.md
+docs/project/RELEASE_CHECKLIST.md
+
+# Claude Code: local settings, skills, agents and worktrees (not part of the repository)
+.claude/

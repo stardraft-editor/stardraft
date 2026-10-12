@@ -1,0 +1,83 @@
+# Builds stardraft.exe on every push (and on pull requests) and keeps it as a downloadable artifact.
+# Pushes to main also refresh the release (StarDraft 0.5 Alpha): the tag moves to the pushed commit and the zip is
+# replaced; the release is made on the first push. StarDraft's Check for updates reads "(build <commit>)" in its title.
+# The tests need a StarCraft: Remastered install, so they are not run here.
+name: Build
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write  # to move the release tag and replace its zip
+
+env:
+  RELEASE_TAG: v0.5.0-alpha
+  RELEASE_NAME: StarDraft 0.5 Alpha
+  RELEASE_ZIP: StarDraft-0.5-alpha-win64.zip
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The UI text rules (docs/dev/PRINCIPLES.md, "Text"): a new violation stops the build. Needs only Python.
+      - name: Check the UI text
+        run: python -I tools/ui_text_lint.py
+
+      # FetchContent sources (SDL3, StormLib, CascLib, stb): cached by the CMake file that pins them.
+      - uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Configure
+        env:
+          STARDRAFT_ISSUES_TOKEN: ${{ secrets.STARDRAFT_ISSUES_TOKEN }}  # crash reports go to Issues (apps/editor/crash.inc)
+        run: cmake -S . -B build -A x64  # the newest Visual Studio on the runner
+
+      - name: Build
+        run: cmake --build build --config Release --target stardraft_editor --parallel
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stardraft-${{ github.sha }}
+          path: build/Release/stardraft.exe
+          if-no-files-found: error
+
+      # The symbols of this build: open a crash report's crash.dmp with them (Visual Studio or WinDbg).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stardraft-symbols-${{ github.sha }}
+          path: build/Release/stardraft.pdb
+          retention-days: 90
+
+      - name: Update the release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}  # a new release is posted in Discord
+        run: |
+          $zip = $env:RELEASE_ZIP
+          Copy-Item docs/user/CHANGELOG.md README.txt -Force  # the notes, in the zip beside the program
+          Compress-Archive -Force -Path build/Release/stardraft.exe, README.txt -DestinationPath $zip
+          git tag -f $env:RELEASE_TAG $env:GITHUB_SHA
+          git push -f origin "refs/tags/$env:RELEASE_TAG"
+          $short = $env:GITHUB_SHA.Substring(0, 7)
+          $title = "$env:RELEASE_NAME (build $short)"
+          gh release view $env:RELEASE_TAG *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $env:RELEASE_TAG $zip --title $title --latest --notes-file docs/user/CHANGELOG.md
+            if ($env:DISCORD_RELEASE_WEBHOOK) {
+              $url = gh release view $env:RELEASE_TAG --json url --jq .url
+              $body = @{ content = "**$title** is out: $url" } | ConvertTo-Json
+              Invoke-RestMethod -Uri $env:DISCORD_RELEASE_WEBHOOK -Method Post -ContentType 'application/json' -Body $body
+            }
+          } else {
+            gh release upload $env:RELEASE_TAG $zip --clobber
+            gh release edit $env:RELEASE_TAG --title $title --latest --notes-file docs/user/CHANGELOG.md
+          }
