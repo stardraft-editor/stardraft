@@ -2,6 +2,11 @@
 
 StarDraft is a combined map editor and EUD editor for StarCraft: Remastered, for Windows (64-bit).
 
+## 0.5.0.1
+
+- Each new version is now a release of its own (0.5.0.1, 0.5.1, ...), with the version in its name.
+- Help > Check for updates finds this version: a test of the update from 0.5 Alpha.
+
 ## 0.5 Alpha
 
 The first public version. This is an alpha: please save often, keep copies of your maps, and report issues.

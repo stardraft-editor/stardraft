@@ -204,7 +204,11 @@ if(WIN32)
         endif()
     endif()
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/.issues-token)
-    set(STARDRAFT_VERSION_NAME "0.5 Alpha")  # the release's name: "StarDraft 0.5 Alpha"; change it with .github/workflows/build.yml
+    # The version the program says: a release build gets it from its tag (-DSTARDRAFT_VERSION_NAME=0.5.0.1, see
+    # .github/workflows/build.yml); other builds say this one.
+    if(NOT STARDRAFT_VERSION_NAME)
+        set(STARDRAFT_VERSION_NAME "0.5 Alpha")
+    endif()
     target_compile_definitions(stardraft_editor PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_COMMIT="${STARDRAFT_COMMIT}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
     if(MSVC)  # symbols for Release, to read crash dumps
         target_compile_options(stardraft_editor PRIVATE $<$<CONFIG:Release>:/Zi>)

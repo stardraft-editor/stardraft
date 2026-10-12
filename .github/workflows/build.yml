@@ -1,22 +1,19 @@
 # Builds stardraft.exe on every push (and on pull requests) and keeps it as a downloadable artifact.
-# Pushes to main also refresh the release (StarDraft 0.5 Alpha): the tag moves to the pushed commit and the zip is
-# replaced; the release is made on the first push. StarDraft's Check for updates reads "(build <commit>)" in its title.
-# The tests need a StarCraft: Remastered install, so they are not run here.
+# A tag v<version> (v0.5.0.1) makes a new release of that commit: "StarDraft <version> (build <commit>)", with
+# StarDraft-<version>-win64.zip, marked Latest; its text is the "## <version>" section of docs/user/CHANGELOG.md.
+# StarDraft's Check for updates reads "(build <commit>)" in the newest release's title. Each release keeps its own
+# download count. The tests need a StarCraft: Remastered install, so they are not run here.
 name: Build
 
 on:
   push:
     branches: ['**']
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: write  # to move the release tag and replace its zip
-
-env:
-  RELEASE_TAG: v0.5.0-alpha
-  RELEASE_NAME: StarDraft 0.5 Alpha
-  RELEASE_ZIP: StarDraft-0.5-alpha-win64.zip
+  contents: write  # to make a release
 
 jobs:
   windows:
@@ -35,9 +32,16 @@ jobs:
           key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
 
       - name: Configure
+        shell: pwsh
         env:
           STARDRAFT_ISSUES_TOKEN: ${{ secrets.STARDRAFT_ISSUES_TOKEN }}  # crash reports go to Issues (apps/editor/crash.inc)
-        run: cmake -S . -B build -A x64  # the newest Visual Studio on the runner
+        run: |
+          # A release tag (v0.5.0.1): the program says that version; other builds keep the version in CMakeLists.txt.
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            cmake -S . -B build -A x64 "-DSTARDRAFT_VERSION_NAME=$($env:GITHUB_REF_NAME.Substring(1))"
+          } else {
+            cmake -S . -B build -A x64  # the newest Visual Studio on the runner
+          }
 
       - name: Build
         run: cmake --build build --config Release --target stardraft_editor --parallel
@@ -55,29 +59,34 @@ jobs:
           path: build/Release/stardraft.pdb
           retention-days: 90
 
-      - name: Update the release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Make the release
+        if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}  # a new release is posted in Discord
         run: |
-          $zip = $env:RELEASE_ZIP
-          Copy-Item docs/user/CHANGELOG.md README.txt -Force  # the notes, in the zip beside the program
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          $zip = "StarDraft-$version-win64.zip"
+          Copy-Item docs/user/CHANGELOG.md README.txt -Force  # the changelog, in the zip beside the program
           Compress-Archive -Force -Path build/Release/stardraft.exe, README.txt -DestinationPath $zip
-          git tag -f $env:RELEASE_TAG $env:GITHUB_SHA
-          git push -f origin "refs/tags/$env:RELEASE_TAG"
-          $short = $env:GITHUB_SHA.Substring(0, 7)
-          $title = "$env:RELEASE_NAME (build $short)"
-          gh release view $env:RELEASE_TAG *> $null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create $env:RELEASE_TAG $zip --title $title --latest --notes-file docs/user/CHANGELOG.md
-            if ($env:DISCORD_RELEASE_WEBHOOK) {
-              $url = gh release view $env:RELEASE_TAG --json url --jq .url
-              $body = @{ content = "**$title** is out: $url" } | ConvertTo-Json
-              Invoke-RestMethod -Uri $env:DISCORD_RELEASE_WEBHOOK -Method Post -ContentType 'application/json' -Body $body
+          # The release's text: the changelog's "## <version>" section.
+          $notes = @(); $in = $false
+          foreach ($line in Get-Content docs/user/CHANGELOG.md -Encoding utf8) {
+            if ($line -match '^## (.+)$') {
+              if ($in) { break }
+              $h = $Matches[1].Trim()
+              $in = $h -eq $version -or $h.StartsWith("$version ")
+              continue
             }
-          } else {
-            gh release upload $env:RELEASE_TAG $zip --clobber
-            gh release edit $env:RELEASE_TAG --title $title --latest --notes-file docs/user/CHANGELOG.md
+            if ($in) { $notes += $line }
+          }
+          if (-not ($notes -join '').Trim()) { $notes = @("See docs/user/CHANGELOG.md.") }
+          Set-Content notes.md ($notes -join "`n") -Encoding utf8
+          $title = "StarDraft $version (build $($env:GITHUB_SHA.Substring(0, 7)))"
+          gh release create $env:GITHUB_REF_NAME $zip --title $title --latest --verify-tag --notes-file notes.md
+          if ($env:DISCORD_RELEASE_WEBHOOK) {
+            $url = gh release view $env:GITHUB_REF_NAME --json url --jq .url
+            $body = @{ content = "**$title** is out: $url" } | ConvertTo-Json
+            Invoke-RestMethod -Uri $env:DISCORD_RELEASE_WEBHOOK -Method Post -ContentType 'application/json' -Body $body
           }

@@ -165,7 +165,16 @@ token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, 
 ## Commits and releases
 
 
-Commit messages say what changed for the user, in a few lines. Every push to `main` builds `stardraft.exe` on GitHub
-and replaces the zip of the release (tag `v0.5.0-alpha`, "StarDraft 0.5 Alpha (build <commit>)"). The version
-changes only when we decide it does: then change `RELEASE_*` in `.github/workflows/build.yml` and
-`STARDRAFT_VERSION_NAME` in `CMakeLists.txt` together. Run the tests before you push.
+Commit messages say what changed for the user, in a few lines. Every push builds `stardraft.exe` on GitHub (an
+artifact of the run); a push does not change a release. Run the tests before you push.
+
+A release is a tag. To release version 0.5.1:
+
+1. Put a `## 0.5.1` section at the top of `docs/user/CHANGELOG.md` (the newest version first): what is new, and the
+   known problems that are left.
+2. Commit, then `git tag v0.5.1` and `git push origin main v0.5.1`.
+
+CI builds the tagged commit as version 0.5.1 and makes the release "StarDraft 0.5.1 (build <commit>)" with
+`StarDraft-0.5.1-win64.zip`, marked Latest. Its text is the changelog's `## 0.5.1` section, and Discord gets a post.
+Check for updates finds it. Each release keeps its own download count: `gh api repos/stardraft-editor/stardraft/releases
+--jq '.[] | "\(.tag_name)  \([.assets[].download_count] | add)"'` lists them.
