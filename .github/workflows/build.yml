@@ -1,6 +1,7 @@
 # Builds stardraft.exe on every push (and on pull requests) and keeps it as a downloadable artifact.
 # A tag v<version> (v0.5.0.1) makes a new release of that commit: "StarDraft <version> (build <commit>)", with
-# StarDraft-<version>-win64.zip, marked Latest; its text is the "## <version>" section of docs/user/CHANGELOG.md.
+# StarDraft-<version>-win64.zip, marked Latest; its text is the "## <version>" section of docs/user/CHANGELOG.md
+# (what is new), then the base changelog (its last section, what StarDraft is) for new visitors.
 # StarDraft's Check for updates reads "(build <commit>)" in the newest release's title. Each release keeps its own
 # download count. The tests need a StarCraft: Remastered install, so they are not run here.
 name: Build
@@ -70,18 +71,18 @@ jobs:
           $zip = "StarDraft-$version-win64.zip"
           Copy-Item docs/user/CHANGELOG.md README.txt -Force  # the changelog, in the zip beside the program
           Compress-Archive -Force -Path build/Release/stardraft.exe, README.txt -DestinationPath $zip
-          # The release's text: the changelog's "## <version>" section.
-          $notes = @(); $in = $false
+          # The release's text: what is new in this version (the changelog's "## <version>" section), then the base
+          # changelog (its last section: what StarDraft is and does, how to start), so a new visitor understands it.
+          $sections = [ordered]@{}; $name = $null
           foreach ($line in Get-Content docs/user/CHANGELOG.md -Encoding utf8) {
-            if ($line -match '^## (.+)$') {
-              if ($in) { break }
-              $h = $Matches[1].Trim()
-              $in = $h -eq $version -or $h.StartsWith("$version ")
-              continue
-            }
-            if ($in) { $notes += $line }
+            if ($line -match '^## (.+)$') { $name = $Matches[1].Trim(); $sections[$name] = @(); continue }
+            if ($name) { $sections[$name] += $line }
           }
-          if (-not ($notes -join '').Trim()) { $notes = @("See docs/user/CHANGELOG.md.") }
+          $mine = $sections.Keys | Where-Object { $_ -eq $version -or $_.StartsWith("$version ") } | Select-Object -First 1
+          $base = @($sections.Keys)[-1]
+          $notes = @()
+          if ($mine -and $mine -ne $base) { $notes += "## What is new in $version"; $notes += $sections[$mine]; $notes += '' }
+          if ($base) { $notes += "## About StarDraft ($base)"; $notes += $sections[$base] }
           Set-Content notes.md ($notes -join "`n") -Encoding utf8
           $title = "StarDraft $version (build $($env:GITHUB_SHA.Substring(0, 7)))"
           gh release create $env:GITHUB_REF_NAME $zip --title $title --latest --verify-tag --notes-file notes.md
