@@ -83,7 +83,10 @@ jobs:
           $notes = @()
           if ($mine -and $mine -ne $base) { $notes += "## What is new in $version"; $notes += $sections[$mine]; $notes += '' }
           if ($base) { $notes += "## About StarDraft ($base)"; $notes += $sections[$base] }
-          Set-Content notes.md ($notes -join "`n") -Encoding utf8
+          # Screenshots: the changelog's images/... paths become full addresses at this tag (the release text has no folder).
+          $raw = "https://raw.githubusercontent.com/$($env:GITHUB_REPOSITORY)/$($env:GITHUB_REF_NAME)/docs/user/"
+          $text = ($notes -join "`n") -replace '\]\((images/[^)\s]+)\)', "]($raw`$1)"
+          Set-Content notes.md $text -Encoding utf8
           $title = "StarDraft $version (build $($env:GITHUB_SHA.Substring(0, 7)))"
           gh release create $env:GITHUB_REF_NAME $zip --title $title --latest --verify-tag --notes-file notes.md
           if ($env:DISCORD_RELEASE_WEBHOOK) {
