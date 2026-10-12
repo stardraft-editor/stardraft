@@ -1434,7 +1434,8 @@ render::Scene buildScene() {
     }
     if (app.mode == Mode::Units) {
         // With a unit picked, the unit under the mouse does not matter: a click places there (it does not select).
-        if (app.palette >= 0 && (app.drag == Drag::None || app.drag == Drag::PendingPlace || app.drag == Drag::PlaceStroke)) {
+        // (Not with Spray: it places random picks around the mouse, not this one in the middle; GitHub feedback #99.)
+        if (app.palette >= 0 && !objectSprayOn() && (app.drag == Drag::None || app.drag == Drag::PendingPlace || app.drag == Drag::PlaceStroke)) {
             // Ghost of the unit to place, with where correction would put it.
             const UnitType& t = ed.unitTypes()[uint16_t(app.palette)];
             float gx = wx, gy = wy;
@@ -1480,7 +1481,7 @@ render::Scene buildScene() {
             d.x = x, d.y = y, d.owner = uint8_t(std::min<int>(owner, 11)), d.alpha = 0.6f, d.air = true;
             addImage(s, d);
         };
-        if (app.palette >= 0 && !app.pastingItems) ghost(uint16_t(app.palette), cx, cy, uint8_t(app.playerOwner));
+        if (app.palette >= 0 && !app.pastingItems && !objectSprayOn()) ghost(uint16_t(app.palette), cx, cy, uint8_t(app.playerOwner));
         if (app.drag == Drag::MoveSprite && app.dragMoved)
             for (int i : app.selSprites)
                 if (i >= 0 && i < int(ed.sprites().size())) {
@@ -1520,7 +1521,7 @@ render::Scene buildScene() {
         if (app.drag == Drag::BoxSelect)
             s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF40FFu, false, 1, true}),
                 s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF4020u, true, 1, true});
-    } else if (app.mode == Mode::Doodads && app.palette >= 0) {
+    } else if (app.mode == Mode::Doodads && app.palette >= 0 && !objectSprayOn()) {
         if (const DoodadType* d = ed.doodadTypes().find(uint16_t(app.palette))) {
             int tx, ty;
             ed.doodadOrigin(*d, int(wx), int(wy), tx, ty);
@@ -17006,13 +17007,11 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SetFocus(hwnd);
         if (app.drag == Drag::None) gRightDown = true, gRightX = GET_X_LPARAM(lp), gRightY = GET_Y_LPARAM(lp), SetCapture(hwnd);
         return 0;
-    case WM_MBUTTONDOWN:  // the middle button scrolls the map
+    case WM_MBUTTONDOWN:  // the middle button drags the map: it follows the mouse, as in an image editor (GitHub feedback #101)
         SetFocus(hwnd);
         SetCapture(hwnd);
         panX = anchorX = curX = GET_X_LPARAM(lp), panY = anchorY = curY = GET_Y_LPARAM(lp);
-        app.drag = Drag::AutoPan;
-        lastTick = std::chrono::steady_clock::now();
-        SetTimer(hwnd, kAutoPanTimer, 10, nullptr);
+        app.drag = Drag::Pan;
         SetCursor(LoadCursor(nullptr, IDC_SIZEALL));
         return 0;
     case WM_RBUTTONUP: {
@@ -18321,10 +18320,19 @@ void paintTopBar(HWND hwnd) {
     // The right end: Build (a project; its icon and name), then Report feedback in the corner.
     {
         int rx = int(rc.right) - scale(8);
-        const RECT fb{rx - b, y, rx, y + b};
+        // The icon and its label "Report feedback" (GitHub feedback #96).
+        HGDIOBJ ofb = SelectObject(mem, app.font);
+        const std::wstring fbText = L"Report feedback";
+        const int fbw = b + ui::textWidth(mem, fbText) + scale(12);
+        const RECT fb{rx - fbw, y, rx, y + b};
         const bool fhot = ui::hot(fb);
         if (fhot) ui::box(mem, fb, kCtlHot, CLR_NONE);
-        uiIcon(mem, fb, UiIcon::Feedback, fhot ? kFeedback : kDim, scale(16));  // quiet; its color under the mouse
+        uiIcon(mem, {fb.left + scale(4), y, fb.left + scale(4) + b - scale(8), y + b}, UiIcon::Feedback, fhot ? kFeedback : kDim, scale(16));  // quiet; its color under the mouse
+        SetBkMode(mem, TRANSPARENT);
+        SetTextColor(mem, fhot ? kText : kDim);
+        RECT fbt{fb.left + b - scale(2), y, fb.right - scale(6), y + b};
+        DrawTextW(mem, fbText.c_str(), -1, &fbt, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+        SelectObject(mem, ofb);
         gTopBarSurface.hits.push_back({fb, nullptr, [] { command(ID_HELP_FEEDBACK); }, L"Report feedback: what works, what does not, ideas", IDC_HAND, {}});
         (void)rx;
         if (activeProject()) {
@@ -25532,7 +25540,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             renderNow();
             slowAdd(L"the map's frame", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - r0).count());
             const double total = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - loopStart).count();
-            if (total > 40 && GetTickCount64() - lastSlowLog > 1000 && !gSelfTest && !gBackground) {  // at most one line a second
+            // (Only when STARDRAFT_SLOW_FRAMES is set: a tool for finding slow parts, not for users. GitHub feedback #95.)
+            static const bool slowLog = getenv("STARDRAFT_SLOW_FRAMES") != nullptr;
+            if (slowLog && total > 40 && GetTickCount64() - lastSlowLog > 1000 && !gSelfTest && !gBackground) {  // at most one line a second
                 lastSlowLog = GetTickCount64();
                 std::sort(slowParts.begin(), slowParts.end(), [](const SlowPart& a, const SlowPart& b) { return a.ms > b.ms; });
                 std::wstring line = L"Slow frame: " + std::to_wstring(int(total)) + L" ms:";

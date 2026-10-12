@@ -2,6 +2,15 @@
 
 StarDraft is a combined map editor and EUD editor for StarCraft: Remastered, for Windows (64-bit).
 
+## 0.5.0.2
+
+- The middle mouse button drags the map: the map follows the mouse, with no speed-up.
+- With Spray, the map shows only the spray circle: no single unit, doodad or sprite in the middle (Spray places
+  random picks around the mouse).
+- The top bar's feedback button says "Report feedback".
+- The start page asks for your feedback: right-click anything and select "Report feedback on …".
+- The log no longer lists slow frames.
+
 ## 0.5.0.1
 
 - Each new version is now a release of its own (0.5.0.1, 0.5.1, ...), with the version in its name.
