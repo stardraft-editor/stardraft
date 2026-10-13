@@ -90,6 +90,31 @@ int tilesPad() { return scale(4); }
 
 void tilesScrollTo(int pos);
 
+// Favorites (GitHub feedback #111): tiles the user keeps for each tileset, in the program settings (not in the map).
+// Right-click a tile in the list to add it or take it out; the filter box shows them.
+std::vector<uint16_t>& tilesFavorites(int era) {
+    static std::vector<uint16_t> fav[8];
+    static bool loaded[8] = {};
+    era &= 7;
+    if (!loaded[era]) {
+        loaded[era] = true;
+        const std::wstring name = L"TileFavorites" + std::to_wstring(era);
+        DWORD size = 0;
+        if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", name.c_str(), RRF_RT_REG_BINARY, nullptr, nullptr, &size) == ERROR_SUCCESS && size >= 2) {
+            fav[era].resize(size / 2);
+            RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", name.c_str(), RRF_RT_REG_BINARY, nullptr, fav[era].data(), &size);
+        }
+    }
+    return fav[era];
+}
+void tilesSetFilter(int index);
+void tilesSaveFavorites(int era) {
+    if (gSelfTest) return;  // tests never change the user's settings
+    const auto& f = tilesFavorites(era);
+    const std::wstring name = L"TileFavorites" + std::to_wstring(era & 7);
+    RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", name.c_str(), REG_BINARY, f.data(), DWORD(f.size() * 2));
+}
+
 // The filter box for the map's tileset: all tiles, each terrain type of Isometric mode that has tiles, the doodads'
 // tiles, the null tiles. The choice stays when its name is in the new list too.
 void tilesFillFilters() {
@@ -99,6 +124,7 @@ void tilesFillFilters() {
     gTiles.filters.clear();
     gTiles.filters.push_back({L"All tiles", 0, 0});
     gTiles.filters.push_back({L"All tiles but the null tiles", 4, 0});  // (feedback #49)
+    gTiles.filters.push_back({L"Favorites", 5, 0});
     const IsomTerrainTable* t = IsomTerrainTable::forEra(app.ed->era());
     const auto& gs = app.ed->tileGroups();
     if (t)
@@ -120,6 +146,10 @@ bool tilesInFilter(uint16_t v) {
     if (gTiles.filter <= 0 || gTiles.filter >= int(gTiles.filters.size())) return true;
     const auto& f = gTiles.filters[size_t(gTiles.filter)];
     if (f.kind == 3) return tilesIsNull(v);
+    if (f.kind == 5) {
+        const auto& fav = tilesFavorites(app.ed->era());
+        return std::find(fav.begin(), fav.end(), v) != fav.end();
+    }
     if (tilesIsNull(v)) return false;
     if (f.kind == 4) return true;  // every tile that is not null
     const Editor::TileGroupEntry* e = tilesEntryOfGroup(v >> 4);
@@ -420,6 +450,38 @@ LRESULT CALLBACK tilesListProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             SetCapture(hwnd);
         }
         SetFocus(app.view);
+        return 0;
+    }
+    case WM_RBUTTONUP: {  // a tile: add it (or the selected tiles, when it is one of them) to the favorites, or take it out
+        const int v = tilesHit(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
+        if (v < 0 || !app.ed) break;
+        std::vector<uint16_t> which{uint16_t(v)};
+        if (gTiles.chosen.size() > 1 && std::find(gTiles.chosen.begin(), gTiles.chosen.end(), uint16_t(v)) != gTiles.chosen.end()) which = gTiles.chosen;
+        auto& fav = tilesFavorites(app.ed->era());
+        const bool in = std::find(fav.begin(), fav.end(), uint16_t(v)) != fav.end();
+        HMENU m = CreatePopupMenu();
+        const std::wstring n = which.size() > 1 ? L" (" + std::to_wstring(which.size()) + L" tiles)" : L"";
+        AppendMenuW(m, MF_STRING, 1, ((in ? L"Remove from favorites" : L"Add to favorites") + n).c_str());
+        AppendMenuW(m, MF_STRING, 2, L"Show the favorites");
+        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+        ClientToScreen(hwnd, &pt);
+        gMenuShown = true;
+        const int pick = popupMenu(m, TPM_RIGHTBUTTON, pt.x, pt.y, hwnd);
+        DestroyMenu(m);
+        if (pick == 1) {
+            for (uint16_t t : which) {
+                const auto it = std::find(fav.begin(), fav.end(), t);
+                if (in && it != fav.end()) fav.erase(it);
+                else if (!in && it == fav.end()) fav.push_back(t);
+            }
+            tilesSaveFavorites(app.ed->era());
+            setMessage(std::wstring(in ? L"Removed from the favorites: " : L"Added to the favorites: ") + std::to_wstring(which.size()) +
+                       (which.size() == 1 ? L" tile" : L" tiles") + L". The Favorites filter shows them.");
+            if (gTiles.filter < int(gTiles.filters.size()) && gTiles.filters[size_t(gTiles.filter)].kind == 5) tilesRebuild();
+        } else if (pick == 2) {
+            for (size_t i = 0; i < gTiles.filters.size(); ++i)
+                if (gTiles.filters[i].kind == 5) tilesSetFilter(int(i));
+        }
         return 0;
     }
     case WM_LBUTTONUP:

@@ -25147,6 +25147,29 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 o << "the box selects the tiles in it: " << gTiles.chosen.size() << " of " << want << " " << (gTiles.chosen.size() == want ? "yes" : "NO") << "\n";
                 continue;
             }
+            if (s == "tilefav:") {  // tilefav.txt, tilefav.png: the Favorites filter of the Tiles list shows the favorite tiles (#111)
+                std::ofstream o(fs::path(datashots) / "tilefav.txt");
+                setWorkspace(Workspace::Map);
+                command(ID_MODE_TERRAIN);
+                app.terrainRect = true;
+                fillToolCombo();
+                tilesFresh();
+                tilesRebuild();
+                auto& fav = tilesFavorites(app.ed->era());
+                const auto was = fav;
+                fav = {uint16_t(2 << 4), uint16_t(5 << 4 | 1), uint16_t(7 << 4 | 2)};
+                int favFilter = -1;
+                for (size_t i = 0; i < gTiles.filters.size(); ++i)
+                    if (gTiles.filters[i].kind == 5) favFilter = int(i);
+                if (favFilter >= 0) tilesSetFilter(favFilter);
+                for (int i = 0; i < 5; ++i) pump();
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "tilefav.png", app.main);
+                o << "the Favorites filter shows the 3 favorite tiles " << (favFilter >= 0 && gTiles.values == fav ? "yes" : "NO") << " (" << gTiles.values.size() << ")\n";
+                fav = was;  // (the user's favorites as they were; nothing was saved)
+                tilesSetFilter(0);
+                continue;
+            }
             if (s == "enterunit:") {  // enterunit.txt: Enter on a selected unit opens Unit properties (GitHub feedback #115)
                 std::ofstream o(fs::path(datashots) / "enterunit.txt");
                 static bool opened;
