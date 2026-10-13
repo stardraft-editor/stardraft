@@ -107,6 +107,12 @@ Make StarDraft 2 a more powerful creation suite.
 
   The generator makes terrain from amounts and a shape. Mappers cannot give it rules, such as where bases, paths and
   high ground must be.
+- [ ] **R52 Compatibility import layer.** *Tag:* Capability.
+  Import the projects of other map and EUD editors, such as EUD Editor 2, EUD Editor 3 and euddraft projects, as
+  StarDraft 2 projects.
+
+  Mappers who use other programs must make their work again to move to StarDraft 2. The import reads their data
+  edits, triggers and scripts, and tells what it could not import.
 - [ ] **R51 Advanced EUD capabilities.** *Tag:* EUD.
   Blocks for queues and deques (with their methods and loops), byte readers and writers, text compare and search for
   chat commands, text to number, drawing, and background music.
