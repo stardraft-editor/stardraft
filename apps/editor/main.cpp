@@ -17227,9 +17227,11 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             }
             break;
         case VK_F2: command(ID_EDIT_RENAME); break;
-        case VK_RETURN:  // the selected location: its properties
+        case VK_RETURN:  // the selected location or unit: its properties (a unit: GitHub feedback #115)
             if (app.mode == Mode::Locations && app.ed && app.ed->locationUsed(app.ed->selectedLocation()) && app.drag == Drag::None)
                 showLocationEdit(app.ed->selectedLocation());
+            else if (app.mode == Mode::Units && app.ed && !app.ed->selection().empty() && app.drag == Drag::None && !app.pasting)
+                showUnitProperties(app.ed->selection().front());
             break;
         case VK_LEFT: case VK_RIGHT: case VK_UP: case VK_DOWN:
             // Selected units: the arrows move them (1 pixel, Shift 8, with snap a tile); else they move the view.
@@ -25063,6 +25065,22 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                 capture(fs::path(datashots) / "rampshot.png", app.main);
                 std::ofstream(fs::path(datashots) / "rampshot.txt") << placed << " ramps placed\n";
+                continue;
+            }
+            if (s == "enterunit:") {  // enterunit.txt: Enter on a selected unit opens Unit properties (GitHub feedback #115)
+                std::ofstream o(fs::path(datashots) / "enterunit.txt");
+                static bool opened;
+                opened = false;
+                setWorkspace(Workspace::Map);
+                command(ID_MODE_UNITS);
+                if (app.ed && !app.ed->units().empty()) {
+                    app.ed->clearSelection();
+                    app.ed->select(0, false);
+                    gUnitPropsHook = [](HWND w) { opened = true, PostMessageW(w, WM_CLOSE, 0, 0); };
+                    SendMessageW(app.view, WM_KEYDOWN, VK_RETURN, 0);
+                    gUnitPropsHook = nullptr;
+                }
+                o << "Enter on a selected unit opens Unit properties " << (opened ? "yes" : "NO") << "\n";
                 continue;
             }
             if (s == "popupfeedback:") {  // popupfeedback.txt: a right click in Unit properties gives feedback on it (GitHub feedback #97)
