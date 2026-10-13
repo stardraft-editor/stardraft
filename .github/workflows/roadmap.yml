@@ -1,12 +1,12 @@
-# The website (https://stardraft-editor.github.io): copies the page that tools/build_site.py made in docs/ to the
-# stardraft-editor/stardraft-editor.github.io repository, which GitHub Pages serves at the root address.
-# SITE_DEPLOY_KEY: the private half of a write deploy key of that repository (only that repository).
-name: Website
+# The website (https://stardraft-editor.github.io) is managed in stardraft-editor/stardraft-editor.github.io. Its
+# roadmap comes from docs/project/ROADMAP.md here: a push that changes ROADMAP.md runs that repository's build.py with it
+# and pushes the new index.html there. SITE_DEPLOY_KEY: the private half of a write deploy key of that repository only.
+name: Roadmap
 
 on:
   push:
     branches: [main]
-    paths: [docs/index.html, docs/.nojekyll, docs/assets/**, .github/workflows/site.yml]
+    paths: [docs/project/ROADMAP.md, .github/workflows/roadmap.yml]
   workflow_dispatch:
 
 concurrency:
@@ -14,12 +14,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
+  website:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Copy the page to stardraft-editor.github.io
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build the website with this ROADMAP.md and push it
         env:
           SITE_DEPLOY_KEY: ${{ secrets.SITE_DEPLOY_KEY }}
         run: |
@@ -29,16 +31,14 @@ jobs:
           ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
           export GIT_SSH_COMMAND="ssh -i ~/.ssh/site_key -o IdentitiesOnly=yes"
           git clone --depth 1 git@github.com:stardraft-editor/stardraft-editor.github.io.git site
-          # Everything but .git and the README is the page: replace it with docs/.
-          find site -mindepth 1 -maxdepth 1 ! -name .git ! -name README.md -exec rm -rf {} +
-          cp -r docs/index.html docs/.nojekyll docs/assets site/
+          python site/build.py --roadmap docs/project/ROADMAP.md
           cd site
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add index.html
           if git diff --cached --quiet; then
-            echo "The site is already up to date."
+            echo "The page is up to date."
           else
-            git commit -m "Site from stardraft@${GITHUB_SHA::7}"
+            git commit -m "Page from the roadmap (stardraft@${GITHUB_SHA::7})"
             git push origin HEAD:main
           fi

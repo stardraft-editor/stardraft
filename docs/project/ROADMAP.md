@@ -5,8 +5,9 @@ The *Tag:* of each item names its area: EUD, Terrain, UMS (triggers without EUD)
 interface and experience), Capability (a new thing StarDraft 2 can do), Mods or Platform.
 
 Each item has a title that names the feature, then one or two short sentences that tell what the feature is. The
-website (docs/index.html, made by tools/build_site.py) shows only these. The next paragraph tells the problem that
-the feature solves, and other notes. The sentence under each section heading also shows on the website.
+website (https://stardraft-editor.github.io, made by build.py in stardraft-editor/stardraft-editor.github.io) shows
+only these, and the sentence under each section heading. The next paragraph tells the problem that the feature solves,
+and other notes. A push of this file updates the website (the Roadmap workflow).
 
 ## Now
 
