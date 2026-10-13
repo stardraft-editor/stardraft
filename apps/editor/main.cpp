@@ -2421,6 +2421,8 @@ void activateDoc(int i) {
     setMessage(L"Switched to " + docTitle(i));
 }
 
+void forgetProject(const EudProject* pr);
+
 // Opens `ed` in a new tab. Opening a file (`replaceBlank`) instead takes the place of the active tab
 // when that is the untouched blank map the editor starts with.
 void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank) {
@@ -2433,7 +2435,10 @@ void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank) {
     bool reuse = replaceBlank && gActive >= 0 && app.ed && page != kPageNew &&
                  (page == kPageStart || freshProject || (!app.ed->modified() && app.ed->path().empty() && !app.ed->canUndo()));
     if (std::exchange(gReplacePage, false) && page && app.ed) reuse = true;
-    if (reuse && freshProject) dropUnsavedProject(gDocs[size_t(gActive)].project), gDocs[size_t(gActive)].project.reset();
+    if (reuse && freshProject) {
+        forgetProject(gDocs[size_t(gActive)].project.get());
+        dropUnsavedProject(gDocs[size_t(gActive)].project), gDocs[size_t(gActive)].project.reset();
+    }
     if (!reuse) {
         stashActive();
         gDocs.emplace_back();
@@ -2454,7 +2459,6 @@ void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank) {
 }
 
 bool confirmDiscard();
-void forgetProject(const EudProject* pr);
 void newMap();
 void newUntitledProject();
 void openStartPage();
@@ -7059,6 +7063,7 @@ void dataFormRepaint() {
 // range (yellow), and its weapons' ranges: ground (red) and air (blue), its turret's too. From units.dat and
 // weapons.dat: the project's (with its edits) or the game's. A range counts from the unit's edge, as the game's.
 void dataLoadForProject();
+void dataRebuildList();
 const DatTable* rangeTable(const std::string& name) {
     if (activeProject()) dataLoadForProject();  // the project's tables with their saved edits (once; then at once)
     if (gData.project && gData.project == activeProject())
@@ -7229,8 +7234,8 @@ std::vector<std::unique_ptr<DatTable>> loadDatTables(const EudProject& pr, std::
 }
 
 // Loads (or reloads, for another project) the tables: the game's .dat files plus the project's edits.
-// A project file of the open tables or extras did not load: nothing is saved over it, and the next show loads again
-// (so a repaired file is taken).
+// A project file of the open tables or extras did not load: nothing is saved over it. Build reads the files again
+// (writeDatEdits), and when they load then, the workspace loads them too.
 bool dataLoadFailed() {
     for (const auto& t : gData.tables)
         if (t && t->editsFailed()) return true;
@@ -7239,7 +7244,7 @@ bool dataLoadFailed() {
 
 void dataLoadForProject() {
     const EudProject* pr = activeProject();
-    if (pr == gData.project && (!gData.tables.empty() || !pr) && !dataLoadFailed()) return;
+    if (pr == gData.project && (!gData.tables.empty() || !pr)) return;
     gData.entry = 0, gData.listScroll = gData.formScroll = 0;
     gData.project = pr;
     gData.tables.clear();
@@ -7257,7 +7262,8 @@ bool writeDatEdits(EudProject& pr, std::string& err, std::vector<std::string>* n
     std::vector<std::unique_ptr<DatTable>> loaded;
     std::vector<std::unique_ptr<DatTable>>* tables = &gData.tables;
     // Not open here, or a file of the open project did not load (it may be repaired now): from disk.
-    if (gData.project != &pr || gData.tables.empty() || dataLoadFailed()) loaded = loadDatTables(pr, err), err.clear(), tables = &loaded;
+    const bool reread = gData.project == &pr && dataLoadFailed();
+    if (gData.project != &pr || gData.tables.empty() || reread) loaded = loadDatTables(pr, err), err.clear(), tables = &loaded;
     std::vector<const DatTable*> list;
     std::vector<std::unique_ptr<DatTable>> retried;
     for (size_t i = 0; i < tables->size(); ++i) {
@@ -7276,7 +7282,12 @@ bool writeDatEdits(EudProject& pr, std::string& err, std::vector<std::string>* n
             for (std::string& m : t->unappliedSoundFiles()) notes->push_back(std::move(m));
         list.push_back(t);
     }
-    return pr.writeGenerated(list, err) && writeExtrasEdits(pr, err);
+    const bool ok = pr.writeGenerated(list, err) && writeExtrasEdits(pr, err);
+    if (ok && reread) {  // the repaired files load now: the Data workspace takes them (now when it shows, else at its next show)
+        gData.project = nullptr, gData.tables.clear();
+        if (gWorkspace == Workspace::Data) dataLoadForProject(), dataRebuildList();
+    }
+    return ok;
 }
 
 // False when a save failed (its error is the status message).
@@ -17453,6 +17464,7 @@ void cancelStep() {
 
 LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     static int panX = 0, panY = 0;
+    static bool panByMiddle = false;  // the Pan drag is the middle button's (Options > Middle button > Drag), not a right-drag
     // Middle button: autoscroll. The camera keeps moving toward the cursor, at a speed growing with its
     // distance from where the button went down, until the button is released.
     static int anchorX = 0, anchorY = 0, curX = 0, curY = 0;
@@ -17510,7 +17522,8 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SetCapture(hwnd);
         panX = anchorX = curX = GET_X_LPARAM(lp), panY = anchorY = curY = GET_Y_LPARAM(lp);
         if (gMiddleDrag) {  // Options > Middle button > Drag: the map follows the mouse, as with a right-drag
-            app.drag = Drag::Pan;
+            if (app.drag == Drag::Pan) return 0;  // a right-drag goes on
+            app.drag = Drag::Pan, panByMiddle = true;
             SetCursor(LoadCursor(nullptr, IDC_SIZEALL));
             return 0;
         }
@@ -17522,6 +17535,7 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_RBUTTONUP: {
         const bool wasDown = std::exchange(gRightDown, false);
         if (wasDown && GetCapture() == hwnd && app.drag != Drag::Pan) ReleaseCapture();
+        if (app.drag == Drag::Pan && panByMiddle) return 0;  // a middle-button drag goes on
         if (app.drag == Drag::Pan) {  // the end of a right-drag: the camera stays there (no menu)
             app.drag = Drag::None;
             ReleaseCapture();
@@ -17547,8 +17561,7 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_MBUTTONUP: {
-        ReleaseCapture();
-        if (app.drag == Drag::Pan || app.drag == Drag::AutoPan) app.drag = Drag::None;
+        if (app.drag == Drag::AutoPan || (app.drag == Drag::Pan && panByMiddle)) app.drag = Drag::None, panByMiddle = false, ReleaseCapture();
         KillTimer(hwnd, kAutoPanTimer);
         app.dirty = true;
         return 0;
@@ -17580,7 +17593,7 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             pieTrack(sp);
         }
         if (gRightDown && app.drag == Drag::None && (wp & MK_RBUTTON) && (std::abs(x - gRightX) > 4 || std::abs(y - gRightY) > 4)) {
-            app.drag = Drag::Pan, panX = gRightX, panY = gRightY;  // a right-drag: the map follows the mouse
+            app.drag = Drag::Pan, panX = gRightX, panY = gRightY, panByMiddle = false;  // a right-drag: the map follows the mouse
             SetCursor(LoadCursor(nullptr, IDC_SIZEALL));
         }
         if (app.drag == Drag::Pan) {
@@ -25758,11 +25771,16 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 const float moved = x1 - app.camX;
                 for (int i = 0; i < 20; ++i) pump(), Sleep(15);
                 const bool still = std::abs(x1 - moved - app.camX) < 0.01f;
-                SendMessageW(app.view, WM_MBUTTONUP, 0, MAKELPARAM(500, 300));
+                SendMessageW(app.view, WM_RBUTTONDOWN, MK_RBUTTON | MK_MBUTTON, MAKELPARAM(500, 300));  // a right click during it
+                SendMessageW(app.view, WM_RBUTTONUP, MK_MBUTTON, MAKELPARAM(500, 300));
+                const float x2 = app.camX;
+                SendMessageW(app.view, WM_MOUSEMOVE, MK_MBUTTON, MAKELPARAM(550, 300));
+                const bool rightKeeps = app.drag == Drag::Pan && std::abs(x2 - 50.0f / app.zoom - app.camX) < 0.01f;
+                SendMessageW(app.view, WM_MBUTTONUP, 0, MAKELPARAM(550, 300));
                 gMiddleDrag = middleDrag;
                 o << "Middle button: Drag: the map follows the mouse " << (std::abs(moved - 100.0f / app.zoom) < 0.01f && std::abs(app.camY - y1) < 0.01f ? "yes" : "NO")
-                  << " (" << x1 << " -> " << x1 - moved << "), and stays when the mouse stays " << (still ? "yes" : "NO") << ", the drag ends on release "
-                  << (app.drag == Drag::None ? "yes" : "NO") << "\n";
+                  << " (" << x1 << " -> " << x1 - moved << "), and stays when the mouse stays " << (still ? "yes" : "NO") << ", a right click does not end it "
+                  << (rightKeeps ? "yes" : "NO") << ", the drag ends on release " << (app.drag == Drag::None ? "yes" : "NO") << "\n";
                 continue;
             }
             if (s == "loadfail:") {  // loadfail.txt: a triggers.json that does not load is not saved over; once repaired, Build takes it
