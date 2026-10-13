@@ -165,6 +165,7 @@ enum : int {
     ID_CRASH_MODE = 980,   // + Options > Crash reports: 0 ask, 1 send, 2 do not send
     ID_MIDDLE_MODE = 984,  // + Options > Middle mouse click and hold: 0 pan the map (the default), 1 drag the map
     ID_OPT_MAPSDEFAULT = 986,  // Options > Maps: .scm and .scx open with StarDraft 2
+    ID_OPT_RESTART = 987,      // Options > Language > Restart now: StarDraft 2 starts again in the chosen language
 };
 // View > Grid size: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
 struct GridPreset {
@@ -2479,6 +2480,7 @@ bool closeDoc(int i) {
     return true;
 }
 
+void restartProgram();
 bool closeAllDocs() {
     while (!gDocs.empty()) {
         int i = gActive >= 0 ? gActive : 0;
@@ -2493,6 +2495,33 @@ bool closeAllDocs() {
         if (!gDocs.empty()) activateDoc(std::min(i, int(gDocs.size()) - 1));
     }
     return true;
+}
+
+// Program options > Language: StarDraft 2 starts again, in the chosen language. The open maps and projects open again
+// (each modified one asks to be saved first, as on exit; Cancel stops the restart). The new program waits until this one
+// has ended (its settings saved), then opens them (the list: HKCU\\Software\\StarDraft\\Reopen).
+void restartProgram() {
+    std::wstring reopen;  // REG_MULTI_SZ
+    for (int i = 0; i < int(gDocs.size()); ++i) {
+        if (gDocs[size_t(i)].page) continue;
+        if (const auto& pr = gDocs[size_t(i)].project) reopen += pr->folder().wstring() + L'\0';
+        else if (const Editor* ed = docEditor(i); ed && !ed->path().empty()) reopen += ed->path().wstring() + L'\0';
+    }
+    if (!closeAllDocs()) return;
+    reopen += L'\0';
+    RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"Reopen", REG_MULTI_SZ, reopen.c_str(), DWORD(reopen.size() * sizeof(wchar_t)));
+    wchar_t self[MAX_PATH], dir[MAX_PATH];
+    GetModuleFileNameW(nullptr, self, MAX_PATH);
+    GetCurrentDirectoryW(MAX_PATH, dir);
+    std::wstring cmd = L"\"" + std::wstring(self) + L"\" --restart " + std::to_wstring(GetCurrentProcessId());
+    STARTUPINFOW si{sizeof si};
+    PROCESS_INFORMATION pi{};
+    if (!CreateProcessW(self, cmd.data(), nullptr, nullptr, FALSE, 0, nullptr, dir, &si, &pi)) {
+        setMessage(L"StarDraft 2 could not start again. Close it and start it to show the new language.");
+        return;
+    }
+    CloseHandle(pi.hThread), CloseHandle(pi.hProcess);
+    PostMessageW(app.main, WM_CLOSE, 0, 0);
 }
 
 // Dragging a tab sideways moves it (GitHub feedback #82): the tab that is dragged, and where the press was.
@@ -3378,6 +3407,7 @@ void openAny(const fs::path& path) {
         }
     }
     openMap(path.wstring());
+    if (app.ed && fs::equivalent(app.ed->path(), path, ec)) mapFileOpened(path);  // a map file by itself: ask once if maps open with StarDraft 2
 }
 
 void triggersRefresh(const std::string& select);
@@ -3424,7 +3454,6 @@ void openMap(const std::wstring& path) {
     }
     addDocument(std::move(ed), true);  // replaces the untouched startup map
     addRecent(gRecentMaps, path);
-    mapFileOpened(path);  // the first map file opened: ask if maps open with StarDraft 2
     setMessage(L"Opened " + fs::path(path).filename().wstring() + L" (" + widen(tilesetName(app.ed->era())) + L")");
     if (app.ed->isomRebuilt())  // a map made by a tool that writes only the tiles (or protected)
         logLine(L"The map had no isometric terrain data (ISOM). StarDraft 2 made it from the tiles, so the isometric tools work. Saving the map keeps it.");
@@ -4342,13 +4371,22 @@ void commandBody(int id) {
     case ID_OPT_LANG:
     case ID_OPT_LANG + 1:
     case ID_OPT_LANG + 2:
-    case ID_OPT_LANG + 3: {  // the language applies at the next start (the texts are made at the start)
+    case ID_OPT_LANG + 3: {  // the language applies at a start (the texts are made then): restart now, or later
         static const wchar_t* const kCodes[] = {L"auto", L"en", L"ko", L"es"};
         gLanguage = kCodes[id - ID_OPT_LANG];
         if (!gSelfTest) RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"Language", REG_SZ, gLanguage.c_str(), DWORD((gLanguage.size() + 1) * sizeof(wchar_t)));
-        setMessage(L"The language changes at the next start of StarDraft 2");
+        if (uiLanguageChosen(gLanguage) == gUiLang) break;  // the language in use
+        optionsRefresh();  // its Restart now button
+        if (!gSelfTest && !gBackground &&
+            themedMessageBox(app.main, L"StarDraft 2 shows the new language after a restart. Restart now? Your open maps and projects open again.",
+                             L"Language", MB_YESNO | MB_ICONQUESTION) == IDYES)
+            restartProgram();
+        else setMessage(L"The language changes when StarDraft 2 starts again");
         break;
     }
+    case ID_OPT_RESTART:
+        if (!gSelfTest && !gBackground) restartProgram();
+        break;
     case ID_THEME_DARK:
     case ID_THEME_LIGHT: applyTheme(id == ID_THEME_LIGHT, gAccentIndex); break;
     case ID_OPT_LASTPROJECT:
@@ -6424,6 +6462,8 @@ struct QuickPicker {
     bool open = false;        // Quick open: value = an open tab, kRecentProjectRow + recent project, kRecentMapRow + recent map
     std::vector<std::wstring> words;  // what is typed, word by word (the rows show where each word is in the name)
     RECT searchRow{};                 // the search row: the icon, the box, the count
+    HWND focus = nullptr;             // the window that had the focus before (it gets it back)
+    std::vector<PaletteUnit> openRows;  // Quick open's rows, made once when it opens
 };
 std::wstring entryName(const std::string& dat, int v);
 const UnitPalette::Bitmap* entryIcon(int tab, int e);
@@ -6435,12 +6475,13 @@ constexpr int kRecentProjectRow = 1000, kRecentMapRow = 2000, kBrowseProjectRow 
 
 void quickPickClose() {
     if (!gQuick.wnd) return;
-    HWND w = gQuick.wnd;
+    HWND w = gQuick.wnd, back = gQuick.focus;
     HFONT f = gQuick.font;
     gQuick = {};
     DestroyWindow(w);
     if (f) DeleteObject(f);
-    if (!gBackground) SetFocus(app.view);
+    // The focus goes back where it was (a hidden view, as the map is in the other workspaces, would take the keys).
+    if (!gBackground) SetFocus(back && IsWindow(back) && IsWindowVisible(back) ? back : IsWindowVisible(app.view) ? app.view : app.main);
 }
 
 void quickPickChoose() {
@@ -6527,9 +6568,14 @@ std::vector<PaletteUnit> quickOpenItems() {
         std::transform(u.hay.begin(), u.hay.end(), u.hay.begin(), ::towlower);
         out.push_back(std::move(u));
     };
-    auto same = [](const fs::path& a, const fs::path& b) {
-        std::error_code ec;
-        return !a.empty() && !b.empty() && fs::equivalent(a, b, ec);
+    auto same = [](const fs::path& a, const fs::path& b) {  // as text: no disk access (a network share can make it wait)
+        auto key = [](const fs::path& p) {
+            std::wstring s = p.lexically_normal().make_preferred().wstring();
+            std::transform(s.begin(), s.end(), s.begin(), ::towlower);
+            while (!s.empty() && s.back() == L'\\') s.pop_back();
+            return s;
+        };
+        return !a.empty() && !b.empty() && key(a) == key(b);
     };
     std::vector<fs::path> openProjects, openMaps;
     for (int i = 0; i < int(gDocs.size()); ++i) {
@@ -6584,7 +6630,7 @@ void quickPickFill() {
         std::wistringstream in(filter);
         for (std::wstring w; in >> w;) words.push_back(w);
     }
-    for (auto& u : gQuick.data ? dataJumpItems() : gQuick.open ? quickOpenItems() : quickPickItems()) {
+    for (auto& u : gQuick.data ? dataJumpItems() : gQuick.open ? gQuick.openRows : quickPickItems()) {
         int sc = 0;
         for (const auto& w : words) {
             const int ws = fuzzyScore(u.hay, w);
@@ -6905,6 +6951,8 @@ void showQuickPicker(bool replace, bool open) {
     SendMessageW(gQuick.edit, WM_SETFONT, WPARAM(gQuick.font), TRUE);
     gQuick.data = data;
     gQuick.open = open;
+    gQuick.focus = GetFocus();
+    if (open) gQuick.openRows = quickOpenItems();
     gQuick.mode = app.mode;
     gQuick.replace = replace && !data && !open;
     static const wchar_t* cues[kModeCount] = {L"Paint a terrain", L"Place a unit", L"Place a doodad", L"Go to a location", L"Place a sprite"};
@@ -23412,15 +23460,25 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     std::wstring pathshots = argc > 3 && std::wstring(argv[2]) == L"--pathshots" ? argv[3] : L"";
     std::vector<std::wstring> shotSpecs;
     for (int i = 4; !datashots.empty() && i < argc; ++i) shotSpecs.push_back(argv[i]);
+    // `--restart <pid>` (Program options > Language): the old program ends first (it saves its settings on the way).
+    const bool restarted = argc > 2 && std::wstring(argv[1]) == L"--restart";
+    if (restarted)
+        if (HANDLE old = OpenProcess(SYNCHRONIZE, FALSE, DWORD(_wtoi(argv[2])))) WaitForSingleObject(old, 15000), CloseHandle(old);
     gSelfTest = !selftest.empty() || !datashots.empty() || !pathshots.empty();  // before opening anything: tests leave the user's settings alone
     gSettingsOff = gSelfTest || !screenshot.empty();  // a screenshot run: the defaults, and nothing saved
     loadAppSettings();  // the options as the user left them (not in tests)
     app.renderer.setQuality(app.quality), app.renderer.setCarbot(app.carbot);
     gSilent = !selftest.empty() || !datashots.empty() || !screenshot.empty() || !pathshots.empty();
     const auto openStart = std::chrono::steady_clock::now();
-    if (argc > 1 && screenshot.empty()) openAny(argv[1]);
-    else if (argc <= 1) openStartPage();  // the start page first: the last project (Options) opens in its place
-    if (argc <= 1 && gOpenLastProject && !gRecentProjects.empty()) {  // Options: the last project
+    if (argc > 1 && screenshot.empty() && !restarted) openAny(argv[1]);
+    else if (argc <= 1 || restarted) openStartPage();  // the start page first: the last project (Options) opens in its place
+    if (restarted) {  // what the old program had open
+        const auto reopen = readRegList(L"Reopen");
+        RegDeleteKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"Reopen");
+        std::error_code ec;
+        for (const auto& p : reopen)
+            if (fs::exists(p, ec)) openAny(p);
+    } else if (argc <= 1 && gOpenLastProject && !gRecentProjects.empty()) {  // Options: the last project
         std::error_code ec;
         if (fs::exists(gRecentProjects.front(), ec)) openAny(gRecentProjects.front());
     }
@@ -23429,6 +23487,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     // SDL renders into the viewport child window through its GPU API. The file opens first, while the device thread
     // works: the open does not use the device, and renderNow draws nothing until rendererOk (app.dirty stays set, so
     // the first frame draws after the attach).
+    // SDL would register its own drop target on the view (and drop what it gets): off, so a file dropped on the map
+    // goes on to the main window (WM_DROPFILES), as on every other part of the window.
+    SDL_SetEventEnabled(SDL_EVENT_DROP_FILE, false), SDL_SetEventEnabled(SDL_EVENT_DROP_TEXT, false);
     SDL_PropertiesID props = SDL_CreateProperties();
     SDL_SetPointerProperty(props, SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER, app.view);
     app.sdlView = SDL_CreateWindowWithProperties(props);

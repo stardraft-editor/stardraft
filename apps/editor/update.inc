@@ -36,9 +36,10 @@ inline std::wstring associationExe() {
     wchar_t self[MAX_PATH];
     GetModuleFileNameW(nullptr, self, MAX_PATH);
     if (fs::path(self).filename().wstring().rfind(L"stardraft-latest-", 0) != 0) return self;
+    wchar_t launcher[MAX_PATH] = L"";  // the launcher says where it is
     std::error_code ec;
-    const fs::path launcher = fs::current_path(ec) / L"StarDraft-latest.exe";  // (the launcher starts the copy in its folder)
-    return fs::exists(launcher, ec) ? launcher.wstring() : std::wstring(self);
+    if (GetEnvironmentVariableW(L"STARDRAFT_LAUNCHER", launcher, MAX_PATH) && fs::exists(launcher, ec)) return launcher;
+    return self;
 }
 
 // Maps (.scm, .scx): StarDraft 2 is in Explorer's Open with list for them, and with `makeDefault` it is the program a
@@ -46,10 +47,15 @@ inline std::wstring associationExe() {
 // only Settings > Default apps changes it, and this returns false.
 inline const wchar_t* const kMapExtensions[] = {L".scm", L".scx"};
 inline bool userChoiceElsewhere(const wchar_t* ext) {
-    wchar_t progId[256] = L"";
-    DWORD size = sizeof progId;
-    const std::wstring key = std::wstring(L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\") + ext + L"\\UserChoice";
-    return !RegGetValueW(HKEY_CURRENT_USER, key.c_str(), L"ProgId", RRF_RT_REG_SZ, nullptr, progId, &size) && std::wstring(progId) != L"StarDraft.Map";
+    // UserChoice, and UserChoiceLatest (where Windows 11 keeps it, often without UserChoice).
+    for (const wchar_t* sub : {L"\\UserChoice", L"\\UserChoiceLatest"}) {
+        wchar_t progId[256] = L"";
+        DWORD size = sizeof progId;
+        const std::wstring key = std::wstring(L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\") + ext + sub;
+        if (!RegGetValueW(HKEY_CURRENT_USER, key.c_str(), L"ProgId", RRF_RT_REG_SZ, nullptr, progId, &size) && std::wstring(progId) != L"StarDraft.Map")
+            return true;
+    }
+    return false;
 }
 inline bool mapsOpenWithStarDraft() {
     for (const wchar_t* ext : kMapExtensions) {

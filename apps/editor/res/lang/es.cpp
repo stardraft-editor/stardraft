@@ -1729,7 +1729,6 @@ constexpr UiText kRows[] = {
     {L"Language", L"Idioma"},
     {L"Automatic", L"Autom\u00E1tico"},
     {L"Follow the language of Windows", L"Sigue el idioma de Windows"},
-    {L"Applies at the next start", L"Se aplica al iniciar StarDraft 2 de nuevo"},
     {L"The language changes at the next start of StarDraft 2", L"El idioma cambia al iniciar StarDraft 2 de nuevo"},
     {L"Randomize seed", L"Semilla aleatoria"},
     {L"Randomize values", L"Valores aleatorios"},
@@ -1811,6 +1810,13 @@ constexpr UiText kRows[] = {
     {L"Open .scm and .scx maps with StarDraft 2 when you double-click them? Program options > Maps changes this later.", L"\u00BFAbrir los mapas .scm y .scx con StarDraft 2 al hacer doble clic? Opciones del programa > Mapas lo cambia m\u00E1s tarde."},
     {L"Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.", L"Windows conserva el programa que eligi\u00F3 para los mapas .scm o .scx. En Aplicaciones predeterminadas, busque .scm y .scx y seleccione StarDraft 2."},
     {L"Default apps", L"Aplicaciones predeterminadas"},
+    {L"StarDraft 2 shows the new language after a restart. Restart now? Your open maps and projects open again.", L"StarDraft 2 muestra el nuevo idioma despu\u00E9s de reiniciar. \u00BFReiniciar ahora? Sus mapas y proyectos abiertos se abren de nuevo."},
+    {L"The language changes when StarDraft 2 starts again", L"El idioma cambia cuando StarDraft 2 se inicia de nuevo"},
+    {L"StarDraft 2 could not start again. Close it and start it to show the new language.", L"StarDraft 2 no pudo iniciarse de nuevo. Ci\u00E9rrelo e in\u00EDcielo para ver el nuevo idioma."},
+    {L"Restart now", L"Reiniciar ahora"},
+    {L"Start StarDraft 2 again in the new language. Your open maps and projects open again.", L"Iniciar StarDraft 2 de nuevo en el nuevo idioma. Sus mapas y proyectos abiertos se abren de nuevo."},
+    {L"The new language shows after a restart", L"El nuevo idioma se muestra despu\u00E9s de reiniciar"},
+    {L"A new language shows after a restart", L"Un nuevo idioma se muestra despu\u00E9s de reiniciar"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

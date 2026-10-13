@@ -1730,7 +1730,6 @@ constexpr UiText kRows[] = {
     {L"Language", L"\uC5B8\uC5B4"},
     {L"Automatic", L"\uC790\uB3D9"},
     {L"Follow the language of Windows", L"Windows \uC5B8\uC5B4\uB97C \uB530\uB985\uB2C8\uB2E4"},
-    {L"Applies at the next start", L"\uB2E4\uC74C \uC2DC\uC791 \uB54C \uC801\uC6A9\uB429\uB2C8\uB2E4"},
     {L"The language changes at the next start of StarDraft 2", L"StarDraft\uB97C \uB2E4\uC74C\uC5D0 \uC2DC\uC791\uD558\uBA74 \uC5B8\uC5B4\uAC00 \uBC14\uB01D\uB2C8\uB2E4"},
     {L"Randomize seed", L"\uC2DC\uB4DC \uBB34\uC791\uC704"},
     {L"Randomize values", L"\uAC12 \uBB34\uC791\uC704"},
@@ -1812,6 +1811,13 @@ constexpr UiText kRows[] = {
     {L"Open .scm and .scx maps with StarDraft 2 when you double-click them? Program options > Maps changes this later.", L".scm \uBC0F .scx \uB9F5\uC744 \uB450 \uBC88 \uD074\uB9AD\uD560 \uB54C StarDraft 2\uB85C \uC5F4\uAE4C\uC694? \uB098\uC911\uC5D0 \uD504\uB85C\uADF8\uB7A8 \uC635\uC158 > \uB9F5\uC5D0\uC11C \uBC14\uAFC0 \uC218 \uC788\uC2B5\uB2C8\uB2E4."},
     {L"Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.", L"Windows\uB294 .scm \uB610\uB294 .scx \uB9F5\uC5D0 \uB300\uD574 \uC120\uD0DD\uD55C \uD504\uB85C\uADF8\uB7A8\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4. \uAE30\uBCF8 \uC571\uC5D0\uC11C .scm \uBC0F .scx\uB97C \uAC80\uC0C9\uD558\uACE0 StarDraft 2\uB97C \uC120\uD0DD\uD558\uC138\uC694."},
     {L"Default apps", L"\uAE30\uBCF8 \uC571"},
+    {L"StarDraft 2 shows the new language after a restart. Restart now? Your open maps and projects open again.", L"StarDraft 2\uB294 \uB2E4\uC2DC \uC2DC\uC791\uD55C \uD6C4\uC5D0 \uC0C8 \uC5B8\uC5B4\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4. \uC9C0\uAE08 \uB2E4\uC2DC \uC2DC\uC791\uD560\uAE4C\uC694? \uC5F4\uB9B0 \uB9F5\uACFC \uD504\uB85C\uC81D\uD2B8\uAC00 \uB2E4\uC2DC \uC5F4\uB9BD\uB2C8\uB2E4."},
+    {L"The language changes when StarDraft 2 starts again", L"StarDraft 2\uAC00 \uB2E4\uC2DC \uC2DC\uC791\uB418\uBA74 \uC5B8\uC5B4\uAC00 \uBC14\uB01D\uB2C8\uB2E4"},
+    {L"StarDraft 2 could not start again. Close it and start it to show the new language.", L"StarDraft 2\uB97C \uB2E4\uC2DC \uC2DC\uC791\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uB2EB\uC740 \uD6C4 \uB2E4\uC2DC \uC2DC\uC791\uD558\uBA74 \uC0C8 \uC5B8\uC5B4\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4."},
+    {L"Restart now", L"\uC9C0\uAE08 \uB2E4\uC2DC \uC2DC\uC791"},
+    {L"Start StarDraft 2 again in the new language. Your open maps and projects open again.", L"\uC0C8 \uC5B8\uC5B4\uB85C StarDraft 2\uB97C \uB2E4\uC2DC \uC2DC\uC791\uD569\uB2C8\uB2E4. \uC5F4\uB9B0 \uB9F5\uACFC \uD504\uB85C\uC81D\uD2B8\uAC00 \uB2E4\uC2DC \uC5F4\uB9BD\uB2C8\uB2E4."},
+    {L"The new language shows after a restart", L"\uC0C8 \uC5B8\uC5B4\uB294 \uB2E4\uC2DC \uC2DC\uC791\uD55C \uD6C4\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4"},
+    {L"A new language shows after a restart", L"\uC0C8 \uC5B8\uC5B4\uB294 \uB2E4\uC2DC \uC2DC\uC791\uD55C \uD6C4\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

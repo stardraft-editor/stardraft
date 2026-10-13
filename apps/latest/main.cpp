@@ -66,6 +66,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR args, int) {
     if (args && *args) cmd += L" " + std::wstring(args);
     STARTUPINFOW si{sizeof si};
     PROCESS_INFORMATION pi{};
+    SetEnvironmentVariableW(L"STARDRAFT_LAUNCHER", self);  // the copy links maps and projects to this program, not to itself
     if (!CreateProcessW(run.c_str(), cmd.data(), nullptr, nullptr, FALSE, 0, nullptr, here.c_str(), &si, &pi)) {
         MessageBoxW(nullptr, L"Cannot start StarDraft", L"StarDraft-latest", MB_ICONERROR);
         return 1;

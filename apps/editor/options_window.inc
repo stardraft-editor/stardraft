@@ -85,8 +85,14 @@ void optionsPaint(HWND hwnd) {
             {L"Automatic", L"Follow the language of Windows"}, {L"English", L"English"}, {L"한국어", L"Korean"}, {L"Español", L"Spanish"}};
         segmented(y, choices, chosen, [](int i) { command(ID_OPT_LANG + i); }, "language");
     }
+    const bool restartDue = uiLanguageChosen(gLanguage) != gUiLang;  // another language than the one in use
+    if (restartDue) {
+        const int x = gOptions.parts["language.3"].right + scale(12);
+        ui::smallButton(mem, x, y, rowH, L"Restart now", [] { command(ID_OPT_RESTART); },
+                        L"Start StarDraft 2 again in the new language. Your open maps and projects open again.");
+    }
     y += rowH;
-    note(fx, y - scale(4), L"Applies at the next start");
+    note(fx, y - scale(4), restartDue ? L"The new language shows after a restart" : L"A new language shows after a restart");
     y += scale(20);
     ui::fieldLabel(mem, l, y, L"Accent color", false);
     {

@@ -1726,7 +1726,6 @@ The deaths of 	사망 수:
 Language	언어
 Automatic	자동
 Follow the language of Windows	Windows 언어를 따릅니다
-Applies at the next start	다음 시작 때 적용됩니다
 The language changes at the next start of StarDraft 2	StarDraft를 다음에 시작하면 언어가 바뀝니다
 Randomize seed	시드 무작위
 Randomize values	값 무작위
@@ -1808,3 +1807,10 @@ Maps (.scm, .scx) open with StarDraft 2	맵(.scm, .scx)은 StarDraft 2로 열립
 Open .scm and .scx maps with StarDraft 2 when you double-click them? Program options > Maps changes this later.	.scm 및 .scx 맵을 두 번 클릭할 때 StarDraft 2로 열까요? 나중에 프로그램 옵션 > 맵에서 바꿀 수 있습니다.
 Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.	Windows는 .scm 또는 .scx 맵에 대해 선택한 프로그램을 유지합니다. 기본 앱에서 .scm 및 .scx를 검색하고 StarDraft 2를 선택하세요.
 Default apps	기본 앱
+StarDraft 2 shows the new language after a restart. Restart now? Your open maps and projects open again.	StarDraft 2는 다시 시작한 후에 새 언어를 표시합니다. 지금 다시 시작할까요? 열린 맵과 프로젝트가 다시 열립니다.
+The language changes when StarDraft 2 starts again	StarDraft 2가 다시 시작되면 언어가 바뀝니다
+StarDraft 2 could not start again. Close it and start it to show the new language.	StarDraft 2를 다시 시작하지 못했습니다. 닫은 후 다시 시작하면 새 언어가 표시됩니다.
+Restart now	지금 다시 시작
+Start StarDraft 2 again in the new language. Your open maps and projects open again.	새 언어로 StarDraft 2를 다시 시작합니다. 열린 맵과 프로젝트가 다시 열립니다.
+The new language shows after a restart	새 언어는 다시 시작한 후에 표시됩니다
+A new language shows after a restart	새 언어는 다시 시작한 후에 표시됩니다

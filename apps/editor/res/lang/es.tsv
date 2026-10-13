@@ -1725,7 +1725,6 @@ The deaths of 	Las muertes de
 Language	Idioma
 Automatic	Automático
 Follow the language of Windows	Sigue el idioma de Windows
-Applies at the next start	Se aplica al iniciar StarDraft 2 de nuevo
 The language changes at the next start of StarDraft 2	El idioma cambia al iniciar StarDraft 2 de nuevo
 Randomize seed	Semilla aleatoria
 Randomize values	Valores aleatorios
@@ -1807,3 +1806,10 @@ Maps (.scm, .scx) open with StarDraft 2	Los mapas (.scm, .scx) se abren con Star
 Open .scm and .scx maps with StarDraft 2 when you double-click them? Program options > Maps changes this later.	¿Abrir los mapas .scm y .scx con StarDraft 2 al hacer doble clic? Opciones del programa > Mapas lo cambia más tarde.
 Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.	Windows conserva el programa que eligió para los mapas .scm o .scx. En Aplicaciones predeterminadas, busque .scm y .scx y seleccione StarDraft 2.
 Default apps	Aplicaciones predeterminadas
+StarDraft 2 shows the new language after a restart. Restart now? Your open maps and projects open again.	StarDraft 2 muestra el nuevo idioma después de reiniciar. ¿Reiniciar ahora? Sus mapas y proyectos abiertos se abren de nuevo.
+The language changes when StarDraft 2 starts again	El idioma cambia cuando StarDraft 2 se inicia de nuevo
+StarDraft 2 could not start again. Close it and start it to show the new language.	StarDraft 2 no pudo iniciarse de nuevo. Ciérrelo e inícielo para ver el nuevo idioma.
+Restart now	Reiniciar ahora
+Start StarDraft 2 again in the new language. Your open maps and projects open again.	Iniciar StarDraft 2 de nuevo en el nuevo idioma. Sus mapas y proyectos abiertos se abren de nuevo.
+The new language shows after a restart	El nuevo idioma se muestra después de reiniciar
+A new language shows after a restart	Un nuevo idioma se muestra después de reiniciar
