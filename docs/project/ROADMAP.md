@@ -10,6 +10,9 @@ The groups in *For:* are the groups in README.md, "Who StarDraft is for".
   workspace. *For:* EUD.
 - [ ] **R37 More terrain generation tools.** The generator makes only terrain. Mappers must place doodads and
   decoration by hand. Add tools such as scattering doodads that fit the terrain. *For:* melee, UMS and campaign.
+- [ ] **R38 How the checkers work.** The Triggers workspace marks EUD errors and desync risks, but mappers cannot see
+  what the checkers look at and what they cannot find. Explain each check in the help (the rule, an example, what it
+  does not cover), and link to it from each mark. *For:* EUD.
 - [ ] **R33 Unit range overlay.** The map does not show the ranges of units: weapons, sight, detection and psi fields.
   Mappers must find the values in the data. Draw the ranges of the selected units on the map. *For:* melee, UMS and
   campaign, EUD.
