@@ -559,6 +559,11 @@ struct App {
     int megatileColorsEra = -1;  // the tileset object is loaded again in place when the map's tileset changes
     std::vector<uint32_t> miniTerrain;    // one pixel per map tile
     uint64_t miniTerrainRev = 0;
+    HBITMAP miniCache = nullptr;  // the terrain and the unit dots, without the view
+    uint64_t miniCacheRev = 0, miniCacheTerrainRev = 0;  // the cache key; the revisions start above 0
+    int miniCacheW = 0, miniCacheH = 0;
+    RECT miniInvalidView{};  // what renderNow last invalidated the minimap for
+    uint64_t miniInvalidRev = 0, miniInvalidTerrainRev = 0;
     HFONT font = nullptr;
     HACCEL accel = nullptr;
     UINT dpi = 96;
@@ -1705,13 +1710,46 @@ void rebuildMinimapTerrain() {
     app.miniTerrainRev = ed.terrainRevision();
 }
 
+// The current view in minimap pixels.
+RECT minimapView(const RECT& r, float sc) {
+    int vw, vh;
+    viewSize(vw, vh);
+    return {r.left + int(app.camX * sc), r.top + int(app.camY * sc), r.left + int((app.camX + vw / app.zoom) * sc),
+            r.top + int((app.camY + vh / app.zoom) * sc)};
+}
+
+// The terrain and the unit dots (no view) on a black background.
+void drawMinimapMap(HDC mem, const RECT& c, const RECT& r, float sc) {
+    Editor& ed = *app.ed;
+    FillRect(mem, &c, HBRUSH(GetStockObject(BLACK_BRUSH)));
+    // Terrain, one texel per tile, stretched with smoothing.
+    BITMAPINFO bi{};
+    bi.bmiHeader = {sizeof(BITMAPINFOHEADER), ed.width(), -int(ed.height()), 1, 32, BI_RGB};
+    SetStretchBltMode(mem, HALFTONE);
+    StretchDIBits(mem, r.left, r.top, r.right - r.left, r.bottom - r.top, 0, 0, ed.width(), ed.height(), app.miniTerrain.data(),
+                  &bi, DIB_RGB_COLORS, SRCCOPY);
+    // Units as player-colored dots.
+    static const COLORREF colors[12] = {RGB(244, 4, 4),   RGB(12, 72, 204),   RGB(44, 180, 148), RGB(136, 64, 156),
+                                        RGB(248, 140, 20), RGB(112, 48, 20),  RGB(204, 224, 208), RGB(252, 252, 56),
+                                        RGB(8, 128, 8),   RGB(252, 252, 124), RGB(236, 196, 176), RGB(64, 104, 212)};
+    static HBRUSH brushes[12] = {};  // made once, kept for the life of the program
+    for (const Unit& u : ed.units()) {
+        int x = r.left + int(u.x * sc), y = r.top + int(u.y * sc);
+        int d = std::max(2, int(ed.unitBox(u).right - ed.unitBox(u).left) * int(sc * 100) / 100);
+        d = std::clamp(d, 2, 6);
+        RECT dot{x - d / 2, y - d / 2, x - d / 2 + d, y - d / 2 + d};
+        const int o = std::min<int>(u.owner, 11);
+        if (!brushes[o]) brushes[o] = CreateSolidBrush(colors[o]);
+        FillRect(mem, &dot, brushes[o]);
+    }
+}
+
 void paintMinimap(HDC dc) {
     RECT c;
     GetClientRect(app.minimap, &c);
     HDC mem = CreateCompatibleDC(dc);
     HBITMAP bmp = CreateCompatibleBitmap(dc, c.right, c.bottom);
     HGDIOBJ old = SelectObject(mem, bmp);
-    FillRect(mem, &c, HBRUSH(GetStockObject(BLACK_BRUSH)));
     if (app.ed && app.ed->isOpen()) {
         Editor& ed = *app.ed;
         if (app.miniTerrainRev != ed.terrainRevision() || app.megatileColorsFor != &ed.tileset() || app.megatileColorsEra != ed.era())
@@ -1719,30 +1757,32 @@ void paintMinimap(HDC dc) {
         RECT r;
         float sc;
         minimapRect(r, sc);
-        // Terrain, one texel per tile, stretched with smoothing.
-        BITMAPINFO bi{};
-        bi.bmiHeader = {sizeof(BITMAPINFOHEADER), ed.width(), -int(ed.height()), 1, 32, BI_RGB};
-        SetStretchBltMode(mem, HALFTONE);
-        StretchDIBits(mem, r.left, r.top, r.right - r.left, r.bottom - r.top, 0, 0, ed.width(), ed.height(), app.miniTerrain.data(),
-                      &bi, DIB_RGB_COLORS, SRCCOPY);
-        // Units as player-colored dots.
-        static const COLORREF colors[12] = {RGB(244, 4, 4),   RGB(12, 72, 204),   RGB(44, 180, 148), RGB(136, 64, 156),
-                                            RGB(248, 140, 20), RGB(112, 48, 20),  RGB(204, 224, 208), RGB(252, 252, 56),
-                                            RGB(8, 128, 8),   RGB(252, 252, 124), RGB(236, 196, 176), RGB(64, 104, 212)};
-        for (const Unit& u : ed.units()) {
-            int x = r.left + int(u.x * sc), y = r.top + int(u.y * sc);
-            int d = std::max(2, int(ed.unitBox(u).right - ed.unitBox(u).left) * int(sc * 100) / 100);
-            d = std::clamp(d, 2, 6);
-            RECT dot{x - d / 2, y - d / 2, x - d / 2 + d, y - d / 2 + d};
-            HBRUSH b = CreateSolidBrush(colors[std::min<int>(u.owner, 11)]);
-            FillRect(mem, &dot, b);
-            DeleteObject(b);
+        // The map picture comes from the cache; it is drawn again only when the map or the minimap size changes.
+        if (!app.miniCache || app.miniCacheRev != ed.revision() || app.miniCacheTerrainRev != ed.terrainRevision() ||
+            app.miniCacheW != c.right || app.miniCacheH != c.bottom) {
+            if (app.miniCache) DeleteObject(app.miniCache);
+            app.miniCache = CreateCompatibleBitmap(dc, c.right, c.bottom);
+            app.miniCacheRev = app.miniCacheTerrainRev = 0;
+            if (app.miniCache) {
+                HDC cdc = CreateCompatibleDC(dc);
+                HGDIOBJ cold = SelectObject(cdc, app.miniCache);
+                drawMinimapMap(cdc, c, r, sc);
+                SelectObject(cdc, cold);
+                DeleteDC(cdc);
+                app.miniCacheRev = ed.revision(), app.miniCacheTerrainRev = ed.terrainRevision();
+                app.miniCacheW = c.right, app.miniCacheH = c.bottom;
+            }
         }
-        // Current view.
-        int vw, vh;
-        viewSize(vw, vh);
-        RECT v{r.left + int(app.camX * sc), r.top + int(app.camY * sc), r.left + int((app.camX + vw / app.zoom) * sc),
-               r.top + int((app.camY + vh / app.zoom) * sc)};
+        if (app.miniCache) {
+            HDC cdc = CreateCompatibleDC(dc);
+            HGDIOBJ cold = SelectObject(cdc, app.miniCache);
+            BitBlt(mem, 0, 0, c.right, c.bottom, cdc, 0, 0, SRCCOPY);
+            SelectObject(cdc, cold);
+            DeleteDC(cdc);
+        } else
+            drawMinimapMap(mem, c, r, sc);
+        // Current view: drawn on each paint, never on the cache (fillAlpha blends onto its target).
+        RECT v = minimapView(r, sc);
         fillAlpha(mem, v, kAccent, 36);  // the view: a light tint, the line in the accent
         HPEN pen = CreatePen(PS_SOLID, 1, kAccentBright);
         HGDIOBJ op = SelectObject(mem, pen);
@@ -1751,7 +1791,8 @@ void paintMinimap(HDC dc) {
         SelectObject(mem, op);
         SelectObject(mem, ob);
         DeleteObject(pen);
-    }
+    } else
+        FillRect(mem, &c, HBRUSH(GetStockObject(BLACK_BRUSH)));
     BitBlt(dc, 0, 0, c.right, c.bottom, mem, 0, 0, SRCCOPY);
     SelectObject(mem, old);
     DeleteObject(bmp);
@@ -1783,6 +1824,9 @@ LRESULT CALLBACK minimapProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case WM_ERASEBKGND:
         return 1;
+    case WM_SIZE:  // the picture is fitted to the size; MoveWindow repaints only the new part
+        InvalidateRect(hwnd, nullptr, FALSE);
+        break;
     case WM_LBUTTONDOWN:
         SetCapture(hwnd);
         minimapJump(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
@@ -1845,7 +1889,16 @@ void renderNow() {
     while (!app.frameTimes.empty() && t1 - app.frameTimes.front() > std::chrono::seconds(1)) app.frameTimes.pop_front();
     app.dirty = app.renderer.stats().imagesPending > 0;  // keep going until all sprites are loaded
     if (pathOverlayBusy()) app.dirty = true;               // ... and until the paths are ready
-    if (app.minimap) InvalidateRect(app.minimap, nullptr, FALSE);
+    if (app.minimap) {  // only when the minimap's picture changes
+        RECT r;
+        float sc;
+        minimapRect(r, sc);
+        const RECT v = minimapView(r, sc);
+        if (!EqualRect(&v, &app.miniInvalidView) || ed.revision() != app.miniInvalidRev || ed.terrainRevision() != app.miniInvalidTerrainRev) {
+            app.miniInvalidView = v, app.miniInvalidRev = ed.revision(), app.miniInvalidTerrainRev = ed.terrainRevision();
+            InvalidateRect(app.minimap, nullptr, FALSE);
+        }
+    }
     if (ed.revision() != app.editorRev) {
         app.editorRev = ed.revision();
         updateTitle();
