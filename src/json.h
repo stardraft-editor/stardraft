@@ -3,6 +3,7 @@
 // project files (triggers.json, the Data workspace's strings, requirements and button sets).
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <cstdio>
 #include <initializer_list>
 #include <string>
@@ -99,7 +100,8 @@ struct JsonParser {
             case 'r': out += '\r'; break;
             case 't': out += '\t'; break;
             case 'u': {
-                unsigned cp = i + 4 <= t.size() ? unsigned(std::stoul(t.substr(i, 4), nullptr, 16)) : 0;
+                unsigned cp = 0;
+                if (i + 4 > t.size() || std::from_chars(t.data() + i, t.data() + i + 4, cp, 16).ptr != t.data() + i + 4) return ok = false, out;  // a bad \u escape
                 i += 4;
                 if (cp < 0x80) out += char(cp);
                 else if (cp < 0x800) out += char(0xC0 | cp >> 6), out += char(0x80 | (cp & 0x3F));
@@ -145,7 +147,9 @@ struct JsonParser {
             size_t end = i;
             while (end < t.size() && (isdigit(static_cast<unsigned char>(t[end])) || t[end] == '-' || t[end] == '.' || t[end] == 'e' || t[end] == 'E' || t[end] == '+')) ++end;
             if (end == i) return ok = false, v;
-            v.type = Json::Type::Number, v.n = std::stod(t.substr(i, end - i)), i = end;
+            const auto r = std::from_chars(t.data() + i, t.data() + end, v.n);
+            if (r.ec != std::errc() || r.ptr != t.data() + end) return ok = false, v;  // not a number, or too large
+            v.type = Json::Type::Number, i = end;
         }
         return v;
     }

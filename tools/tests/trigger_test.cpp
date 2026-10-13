@@ -164,6 +164,11 @@ int main(int argc, char** argv) {
     check(!triggerExpression("gold / 0", vars, 0).ok && !triggerExpression("nope + 1", vars, 0).ok && !triggerExpression("boss + 1", vars, 0).ok,
           "division by zero, unknown names and units in numbers are refused");
     check(!triggerExpression("counter", vars, 0).ok && triggerExpression("counter", vars, 1).ok, "counter only inside Repeat");
+    for (const char* big : {"12345678901234567890", "0x12345678901234567"}) {  // too large: a checker error, not an exception
+        const TriggerExprResult r = triggerExpression(big, vars, 0);
+        check(!r.ok && r.error == "A number is too large. Use a smaller number.", std::string("a too large number is refused: ") + big + " -> " + r.error);
+    }
+    check(triggerExpression("9223372036854775807", vars, 0).ok && triggerExpression("0x7FFFFFFFFFFFFFFF", vars, 0).ok, "the largest numbers are accepted");
 
     // A set of triggers: start resources, a unit loop, a timer, an If, a picked unit.
     TriggerMapInfo map;
@@ -1286,6 +1291,15 @@ int main(int argc, char** argv) {
     for (const char* kept : {"\"color\": \"red\"", "\"facing\": \"north\"", "\"note\": {\"by\": \"x\"}", "\"type\": \"act.teleport\"", "\"to\": \"64\"",
                              "\"after\": [", "\"finally\": ["})
         check(f2.find(kept) != std::string::npos, std::string("kept when saved: ") + kept);
+    for (const char* bad : {R"({"format": "stardraft-triggers", "version": 1e400, "categories": []})",
+                            R"({"format": "stardraft-trigg\uZZZZers", "version": 3, "categories": []})",
+                            R"({"format": "stardraft-triggers", "version": e, "categories": []})",
+                            R"({"format": "stardraft-triggers", "version": -, "categories": []})"}) {  // a damaged file: an error, not an exception
+        std::ofstream(dir / "damaged.json", std::ios::binary) << bad;
+        TriggerSet damaged;
+        std::string e;
+        check(!damaged.load(dir / "damaged.json", e) && !e.empty(), std::string("a damaged file is not valid: ") + bad);
+    }
     std::ofstream(dir / "newer.json") << R"({"format": "stardraft-triggers", "version": 99, "categories": []})";
     TriggerSet newer;
     check(newer.load(dir / "newer.json", err) && newer.newerFormat() && !newer.save(dir / "newer.json", err) &&

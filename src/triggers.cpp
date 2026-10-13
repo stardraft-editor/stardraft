@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -658,10 +659,10 @@ struct ExprParser {
                 end = i + 2;
                 while (end < t.size() && std::isxdigit(static_cast<unsigned char>(t[end]))) ++end;
                 if (end == i + 2) return fail("A hex number has no digits");
-                v = std::stoll(t.substr(i + 2, end - i - 2), nullptr, 16);
+                if (std::from_chars(t.data() + i + 2, t.data() + end, v, 16).ec != std::errc()) return fail("A number is too large. Use a smaller number.");
             } else {
                 while (end < t.size() && std::isdigit(static_cast<unsigned char>(t[end]))) ++end;
-                v = std::stoll(t.substr(i, end - i));
+                if (std::from_chars(t.data() + i, t.data() + end, v).ec != std::errc()) return fail("A number is too large. Use a smaller number.");
             }
             const bool hex = end > i + 1 && (t[i + 1] == 'x' || t[i + 1] == 'X');
             out = {hex ? "0x" + t.substr(i + 2, end - i - 2) : std::to_string(v), true, v};  // hex stays hex (masks, addresses)

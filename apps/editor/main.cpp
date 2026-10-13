@@ -13030,9 +13030,9 @@ int trigSentence(HDC dc, const TriggerDef& d, const TriggerCall& c, int x0, int 
                                                   : dd.params[size_t(p)].type == "ButtonIndex" ? trigButtonIndexText(dd, cc, v, &chipIcon)
                                                   : dd.params[size_t(p)].type == "GameString"  ? trigGameStringText(v)
                                                                                                : trigValueText(vtype, v);
-                        if (const TriggerType* tt = triggerType(vtype); tt && trigIsNumberText(v)) {  // the entry's icon in the chip
-                            if (tt->picker == TriggerPicker::UnitType || tt->picker == TriggerPicker::UnitFilter) chipIcon = datRefIcon("units", uint32_t(std::stoul(v)));
-                            else if (tt->picker == TriggerPicker::DatEntry && datHasIcons(tt->of)) chipIcon = datRefIcon(tt->of, uint32_t(std::stoul(v)));
+                        if (const TriggerType* tt = triggerType(vtype); tt && trigIsNumberText(v) && v.size() <= 9) {  // the entry's icon in the chip (a longer number is no entry: no icon)
+                            if (tt->picker == TriggerPicker::UnitType || tt->picker == TriggerPicker::UnitFilter) chipIcon = datRefIcon("units", uint32_t(std::atoi(v.c_str())));
+                            else if (tt->picker == TriggerPicker::DatEntry && datHasIcons(tt->of)) chipIcon = datRefIcon(tt->of, uint32_t(std::atoi(v.c_str())));
                         }
                         if (const TriggerType* tt = triggerType(vtype); tt && tt->picker == TriggerPicker::Button) {  // a button: its icon
                             Button bb;
