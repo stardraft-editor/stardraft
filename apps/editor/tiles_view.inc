@@ -437,7 +437,7 @@ LRESULT CALLBACK tilesListProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 gTiles.chosen.push_back(uint16_t(v));
             }
             gTiles.picked = gTiles.chosen.back();
-            setMessage(L"Selected " + std::to_wstring(gTiles.chosen.size()) + L" tiles: Spray places one of them at random");
+            setMessage(L"Selected " + std::to_wstring(gTiles.chosen.size()) + L" tiles: Brush, Spray and Fill place one of them at random");
             InvalidateRect(gTiles.list, nullptr, FALSE);
             app.dirty = true;
         } else if (v >= 0) {
@@ -489,7 +489,7 @@ LRESULT CALLBACK tilesListProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             gTiles.boxing = false;
             ReleaseCapture();
             if (gTiles.boxed && gTiles.chosen.size() > 1)
-                setMessage(L"Selected " + std::to_wstring(gTiles.chosen.size()) + L" tiles: Spray and Fill place one of them at random");
+                setMessage(L"Selected " + std::to_wstring(gTiles.chosen.size()) + L" tiles: Brush, Spray and Fill place one of them at random");
             InvalidateRect(hwnd, nullptr, FALSE);
         }
         return 0;
@@ -731,6 +731,16 @@ void tilesFillSelection() {
     tilesPlacedMessage(tilesPlaceRandom(cells), L"Filled the selection:");
 }
 
+// The brush at a tile (part of its stroke): the picked tile in the footprint; with several tiles selected in the list,
+// a scatter: each tile of the footprint one of them at random (GitHub feedback #120).
+int tilesBrushAt(int tx, int ty) {
+    if (gTiles.chosen.size() < 2) return app.ed->placeTileCells(tilesFootprint(tx, ty), uint16_t(gTiles.picked));
+    std::mt19937 rng(app.spraySeed++);
+    std::vector<Editor::TileAt> cells;
+    for (const auto& [x, y] : tilesFootprint(tx, ty)) cells.push_back({x, y, gTiles.chosen[rng() % gTiles.chosen.size()]});
+    return app.ed->placeTileValues(cells);
+}
+
 // A click on the map in Rectangle mode. Select: a rectangle of tiles, or a paste of the copied tiles. Ctrl: pick the
 // tile under the cursor. Brush: the picked tile in the brush's footprint, and on along the drag (one undo step for the
 // stroke). Spray: random tiles of the footprint, again while the button is held. Fill: the connected tiles.
@@ -783,7 +793,7 @@ bool tilesMouseDown(float wx, float wy, WPARAM keys) {
         app.drag = Drag::Spray;
         return true;
     }
-    gTilesStrokePlaced = ed.placeTileCells(tilesFootprint(tx, ty), uint16_t(gTiles.picked));
+    gTilesStrokePlaced = tilesBrushAt(tx, ty);
     app.drag = Drag::Tiles;
     return true;
 }
@@ -793,7 +803,7 @@ void tilesMouseMove(float wx, float wy) {
     if (!app.ed || gTiles.picked < 0) return;
     int tx, ty;
     tilesAt(wx, wy, tx, ty);
-    gTilesStrokePlaced += app.ed->placeTileCells(tilesFootprint(tx, ty), uint16_t(gTiles.picked));
+    gTilesStrokePlaced += tilesBrushAt(tx, ty);
 }
 
 // The end of a Brush or Spray stroke in Rectangle mode.

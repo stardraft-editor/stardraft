@@ -18022,7 +18022,7 @@ std::vector<StripItem> stripTools(Mode m) {
     case Mode::Terrain:
         if (app.terrainRect)  // Rectangle: the same tools on tiles as they are
             return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc comes back here.", TSelect, true},
-                    {UiIcon::Brush, L"Brush: place the tile selected in the Tiles list, with the brush's size and shape", TBrush, false},
+                    {UiIcon::Brush, L"Brush: place the tile selected in the Tiles list, with the brush's size and shape. Several tiles selected: each tile one of them at random (a scatter).", TBrush, false},
                     {UiIcon::Spray, L"Spray: the tile at random places in the brush (Density). Hold the button to spray more.", TSpray, false},
                     {UiIcon::Fill, L"Fill: in the selection, all of it; else the connected tiles of one value. Several tiles selected in the list: each tile at random. Shift+click: every tile of that value (in the selection, if there is one).", TFill, false}};
         return {{UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc comes back here.", TSelect, true},
@@ -25356,6 +25356,34 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(gTiles.list, WM_LBUTTONUP, 0, at(2, 1));
                 const size_t want = std::min<size_t>(gTiles.values.size(), size_t(std::min(3, gTiles.perRow)) * 2);
                 o << "the box selects the tiles in it: " << gTiles.chosen.size() << " of " << want << " " << (gTiles.chosen.size() == want ? "yes" : "NO") << "\n";
+                continue;
+            }
+            if (s == "scatter:") {  // scatter.txt: Rectangle Brush with two tiles selected: each tile of the brush is one of them (#120)
+                std::ofstream o(fs::path(datashots) / "scatter.txt");
+                newMap(64, 64, 0, 1);
+                Editor& ed = *app.ed;
+                setWorkspace(Workspace::Map);
+                command(ID_MODE_TERRAIN);
+                app.terrainRect = true, app.brushShape = Brush::Square, app.brushSize = 4;
+                fillToolCombo();
+                tilesFresh();
+                centerOn(ed.width() * 16.0f, ed.height() * 16.0f, 1);
+                for (int i = 0; i < 3; ++i) pump();
+                const std::vector<uint16_t> two{uint16_t(2 << 4), uint16_t(3 << 4)};
+                gTiles.chosen = two, gTiles.picked = two.back();
+                app.toolByMode[int(Mode::Terrain)] = TBrush;
+                const float cx = ed.width() * 16.0f + 16, cy = ed.height() * 16.0f + 16;
+                int sx, sy;
+                toScreen(cx, cy, sx, sy);
+                SendMessageW(app.view, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(sx, sy));
+                SendMessageW(app.view, WM_LBUTTONUP, 0, MAKELPARAM(sx, sy));
+                int a = 0, b = 0, other = 0;
+                for (const auto& [x, y] : tilesFootprint(int(cx) / 32, int(cy) / 32)) {
+                    const uint16_t v = ed.terrain().tiles[size_t(y) * ed.width() + x];
+                    (v == two[0] ? a : v == two[1] ? b : other)++;
+                }
+                o << "the brush scatters the 2 selected tiles: " << a << " and " << b << ", others " << other << " "
+                  << (other == 0 && a && b ? "yes" : "NO") << "\n";
                 continue;
             }
             if (s == "footprint:") {  // footprint.txt: Rectangle brush sizes count tiles: a square of size n is n x n tiles (#121)
