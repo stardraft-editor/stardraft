@@ -32,45 +32,9 @@ namespace update {
 // A GET; api.github.com gets the token (the repository is private). A redirect (a release asset is served from
 // another host, with its own signed address) is followed without it. `file`: write the body there.
 bool get(const std::wstring& url, std::string* body, const fs::path* file = nullptr, const wchar_t* accept = L"application/vnd.github+json", int hops = 0) {
-    URL_COMPONENTS uc{sizeof uc};
-    wchar_t host[256] = L"", path[2048] = L"";
-    uc.lpszHostName = host, uc.dwHostNameLength = 256, uc.lpszUrlPath = path, uc.dwUrlPathLength = 2048;
-    if (!WinHttpCrackUrl(url.c_str(), 0, 0, &uc)) return false;
-    bool ok = false;
-    HINTERNET s = WinHttpOpen(L"StarDraft", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
-    HINTERNET c = s ? WinHttpConnect(s, host, uc.nPort, 0) : nullptr;
-    HINTERNET q = c ? WinHttpOpenRequest(c, L"GET", path, nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE) : nullptr;
-    std::wstring headers = L"Accept: " + std::wstring(accept) + L"\r\n";
-    if (_wcsicmp(host, L"api.github.com") == 0 && !crash::token().empty()) headers += L"Authorization: Bearer " + widen(crash::token()) + L"\r\n";
-    if (q) {
-        DWORD off = WINHTTP_DISABLE_REDIRECTS;
-        WinHttpSetOption(q, WINHTTP_OPTION_DISABLE_FEATURE, &off, sizeof off);
-    }
-    std::wstring redirect;
-    if (q && WinHttpSendRequest(q, headers.c_str(), DWORD(-1), WINHTTP_NO_REQUEST_DATA, 0, 0, 0) && WinHttpReceiveResponse(q, nullptr)) {
-        DWORD status = 0, size = sizeof status;
-        WinHttpQueryHeaders(q, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, WINHTTP_HEADER_NAME_BY_INDEX, &status, &size, WINHTTP_NO_HEADER_INDEX);
-        if (status >= 300 && status < 400) {
-            wchar_t loc[4096] = L"";
-            DWORD n = sizeof loc;
-            if (WinHttpQueryHeaders(q, WINHTTP_QUERY_LOCATION, WINHTTP_HEADER_NAME_BY_INDEX, loc, &n, WINHTTP_NO_HEADER_INDEX)) redirect = loc;
-        }
-        std::ofstream out;
-        if (file) out.open(*file, std::ios::binary);
-        ok = status == 200 && (!file || out);
-        for (DWORD n = 0; ok && WinHttpQueryDataAvailable(q, &n) && n;) {
-            std::string chunk(n, '\0');
-            DWORD read = 0;
-            if (!WinHttpReadData(q, chunk.data(), n, &read)) ok = false;
-            else if (file) out.write(chunk.data(), read);
-            else body->append(chunk.data(), read);
-        }
-    }
-    if (q) WinHttpCloseHandle(q);
-    if (c) WinHttpCloseHandle(c);
-    if (s) WinHttpCloseHandle(s);
-    if (!redirect.empty() && hops < 5) return get(redirect, body, file, accept, hops + 1);
-    return ok;
+    const HttpReply r = httpRequest(url, L"GET", accept, crash::token(), "", body, file, false);
+    if (!r.location.empty() && hops < 5) return get(r.location, body, file, accept, hops + 1);
+    return r.status == 200 && r.complete;
 }
 
 // A string value after `"key":"` (from `from` on); "" when there is none.

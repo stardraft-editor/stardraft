@@ -1029,6 +1029,7 @@ const std::wstring& buildStamp() {
     return stamp;
 }
 
+#include "github.inc"
 #include "crash.inc"
 
 void updateTitle() {

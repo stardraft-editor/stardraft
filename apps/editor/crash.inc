@@ -194,32 +194,6 @@ std::string token() {
     return t;
 }
 
-// A request to GitHub's API; the answer's body, or "" on failure (`status` the HTTP status).
-std::string github(const wchar_t* method, const std::wstring& path, const std::string& body, DWORD& status) {
-    status = 0;
-    std::string out;
-    HINTERNET s = WinHttpOpen(L"StarDraft 2", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
-    if (!s) return out;
-    HINTERNET c = WinHttpConnect(s, L"api.github.com", INTERNET_DEFAULT_HTTPS_PORT, 0);
-    HINTERNET q = c ? WinHttpOpenRequest(c, method, path.c_str(), nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE) : nullptr;
-    if (q) {
-        const std::wstring headers = L"Authorization: Bearer " + widen(token()) + L"\r\nAccept: application/vnd.github+json\r\nContent-Type: application/json\r\n";
-        if (WinHttpSendRequest(q, headers.c_str(), DWORD(-1), LPVOID(body.data()), DWORD(body.size()), DWORD(body.size()), 0) && WinHttpReceiveResponse(q, nullptr)) {
-            DWORD size = sizeof status;
-            WinHttpQueryHeaders(q, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, WINHTTP_HEADER_NAME_BY_INDEX, &status, &size, WINHTTP_NO_HEADER_INDEX);
-            for (DWORD n = 0; WinHttpQueryDataAvailable(q, &n) && n;) {
-                std::string chunk(n, '\0');
-                DWORD read = 0;
-                if (!WinHttpReadData(q, chunk.data(), n, &read)) break;
-                out.append(chunk.data(), read);
-            }
-        }
-        WinHttpCloseHandle(q);
-    }
-    if (c) WinHttpCloseHandle(c);
-    WinHttpCloseHandle(s);
-    return out;
-}
 std::string json(const std::string& s) {
     std::string o = "\"";
     for (unsigned char ch : s) {
@@ -264,15 +238,22 @@ bool send(const fs::path& dir) {
     if (report.size() > 60000) report.resize(60000);
     const std::string t = title(report), body = "```\n" + report + "```\n";
     // The same crash: a comment on its open issue; a new one: a new issue.
-    DWORD status = 0;
-    const std::string found = github(L"GET", L"/search/issues?q=" + urlEncode("repo:" + utf8(kRepo) + " is:issue is:open in:title \"" + t + "\""), "", status);
+    // A search that was not read completely posts nothing: the report stays for the next start.
+    std::string found;
+    const HttpReply search = httpRequest(L"https://api.github.com/search/issues?q=" + urlEncode("repo:" + utf8(kRepo) + " is:issue is:open in:title \"" + t + "\""),
+                                         L"GET", L"application/vnd.github+json", token(), "", &found, nullptr, true);
+    if (!search.complete) return false;
     const size_t num = found.find("\"number\":");
-    if (status == 200 && num != std::string::npos && found.find("\"total_count\":0") == std::string::npos) {
+    DWORD status = 0;
+    if (search.status == 200 && num != std::string::npos && found.find("\"total_count\":0") == std::string::npos) {
         const std::string n = std::to_string(std::atoi(found.c_str() + num + 9));
-        github(L"POST", L"/repos/" + std::wstring(kRepo) + L"/issues/" + widen(n) + L"/comments", "{\"body\":" + json(body) + "}", status);
+        status = httpRequest(L"https://api.github.com/repos/" + std::wstring(kRepo) + L"/issues/" + widen(n) + L"/comments", L"POST", L"application/vnd.github+json",
+                             token(), "{\"body\":" + json(body) + "}", nullptr, nullptr, true).status;
     } else {
-        github(L"POST", L"/repos/" + std::wstring(kRepo) + L"/issues", "{\"title\":" + json(t) + ",\"body\":" + json(body) + ",\"labels\":[\"crash\"]}", status);
+        status = httpRequest(L"https://api.github.com/repos/" + std::wstring(kRepo) + L"/issues", L"POST", L"application/vnd.github+json", token(),
+                             "{\"title\":" + json(t) + ",\"body\":" + json(body) + ",\"labels\":[\"crash\"]}", nullptr, nullptr, true).status;
     }
+    // 201: sent, even when the reply's body was cut off (it is not used; a retry would post the report again).
     if (status != 201) return false;
     std::ofstream(dir / "sent") << "sent";
     return true;

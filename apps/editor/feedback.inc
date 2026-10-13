@@ -293,17 +293,20 @@ bool sendFeedbackFile(const fs::path& file) {
     std::getline(in, title);
     body.assign(std::istreambuf_iterator<char>(in), {});
     in.close();
-    DWORD status = 0;
-    const std::string reply = crash::github(L"POST", L"/repos/" + std::wstring(crash::kRepo) + L"/issues",
-                                            "{\"title\":" + crash::json(title) + ",\"body\":" + crash::json(body) + ",\"labels\":[\"feedback\"]}", status);
-    if (status != 201) return false;
+    std::string reply;
+    const HttpReply r = httpRequest(L"https://api.github.com/repos/" + std::wstring(crash::kRepo) + L"/issues", L"POST", L"application/vnd.github+json", crash::token(),
+                                    "{\"title\":" + crash::json(title) + ",\"body\":" + crash::json(body) + ",\"labels\":[\"feedback\"]}", &reply, nullptr, true);
+    // A reply that was not read completely, or has no link, keeps the file: the next start sends it again (a possible
+    // second issue is better than a lost note).
+    if (r.status != 201 || !r.complete) return false;
     // The issue's number and page (the first "html_url" of the reply is the issue's), kept in sent.tsv: one line each,
     // "number<TAB>page<TAB>title", so the feedback window can list them.
     long number = 0;
     std::string page;
     if (const size_t a = reply.find("\"number\":"); a != std::string::npos) number = std::strtol(reply.c_str() + a + 9, nullptr, 10);
     if (const size_t a = reply.find("\"html_url\":\""); a != std::string::npos) page = reply.substr(a + 12, reply.find('"', a + 12) - a - 12);
-    if (number > 0 && !page.empty()) {
+    if (number <= 0 || page.empty()) return false;
+    {
         std::lock_guard<std::mutex> lock(gSentMutex);
         std::ofstream(feedbackFolder() / "sent.tsv", std::ios::binary | std::ios::app) << number << '\t' << page << '\t' << title << '\n';
     }
