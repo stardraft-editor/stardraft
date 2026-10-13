@@ -2,6 +2,43 @@
 
 StarDraft is a combined map editor and EUD editor for StarCraft: Remastered, for Windows (64-bit).
 
+## 0.5.0.5
+
+### Map
+
+- View > Layers: show or hide terrain, doodads, sprites, units and locations. A hidden layer cannot be edited.
+- View > Show minimap: the minimap can hide, so the panel under it gets the whole side.
+- The middle mouse button scrolls the map as before 0.5.0.2: the farther the mouse from where you pressed, the
+  faster. A right-drag moves the map with the mouse.
+- Ctrl+1 to Ctrl+9 go to the items of the side bar in order, also in a classic map (Ctrl+2 Map data, Ctrl+3 Map
+  triggers).
+- A paste stays on the mouse after a click: click again to paste again. Right-click or Esc stops.
+- The map's title and description keep their new lines in StarCraft.
+
+![The map without its doodads (View > Layers)](images/0.5.0.5/layers.png)
+
+### Tiles (Rectangle mode)
+
+- The brush size counts tiles: size 2 is 2 x 2 tiles. The size row says tiles or diamonds.
+- With several tiles selected in the Tiles list, the Brush scatters them: each tile is one of them at random.
+- The isometric brush paints over null tiles.
+
+### Triggers
+
+- If and For each buttons beside Add an action: each opens a list of its blocks.
+- A click away from a value no longer leaves its chip highlighted.
+
+![If and For each beside Add an action](images/0.5.0.5/if_for_each.png)
+
+### Settings and crash reports
+
+- StarDraft keeps the options of the menus (graphics, grid, snap, doodad placing, layers, the palette's view and
+  more) after a restart or an update.
+- A crash keeps its report on this computer. At the next start, StarDraft asks if it can send it (Send, Always send,
+  Do not send). Program options > Crash reports: Ask, Send or Do not send.
+
+![The question after a crash](images/0.5.0.5/crash_question.png)
+
 ## 0.5.0.4
 
 ### Ranges on the map
