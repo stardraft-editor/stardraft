@@ -14,6 +14,16 @@ StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, f
 - Data: pin entries to the top of the list (right-click an entry).
 - Program options > Mouse: choose whether the middle mouse button pans or drags the map.
 
+![StarDraft 2 in Chinese](images/0.5.0.7/chinese.png)
+
+![Quick open (Ctrl+Shift+O)](images/0.5.0.7/quick-open.png)
+
+![Map properties: text colors](images/0.5.0.7/map-text-colors.png)
+
+![Data: pinned entries](images/0.5.0.7/data-pins.png)
+
+![Program options: Mouse and Maps](images/0.5.0.7/program-options.png)
+
 ### Map
 
 - Unit ranges (View > Show ranges) match the game: sight, target acquisition, ground and air. They follow units while
@@ -23,6 +33,10 @@ StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, f
 - No player selector in Doodads mode.
 - Terrain paste fits units to the pasted terrain.
 - Faster start-up, doodad spray, unit spray and paste, and minimap.
+
+![Unit ranges: sight, ground and air](images/0.5.0.7/unit-ranges.png)
+
+![Siege tank turret](images/0.5.0.7/siege-tank.png)
 
 ### Data
 

@@ -26201,8 +26201,13 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 capture(fs::path(datashots) / "maptext.png", app.main);
                 continue;
             }
-            if (s == "quickopen:") {  // quickopen.txt, quickopen.png: Ctrl+Shift+O lists the open tabs, then the recent files
+            if (s == "quickopen:" || s == "quickopen:demo") {  // quickopen.txt, quickopen.png: Ctrl+Shift+O lists the open tabs, then
+                // the recent files; demo: sample recent files (for pictures: not the user's), only in this run
                 std::ofstream o(fs::path(datashots) / "quickopen.txt");
+                if (s == "quickopen:demo") {
+                    gRecentProjects = {L"C:\\StarDraft Projects\\Desert Strike", L"C:\\StarDraft Projects\\Zone Control", L"C:\\StarDraft Projects\\Bound Survival"};
+                    gRecentMaps = {L"C:\\Maps\\(4)Fighting Spirit.scx", L"C:\\Maps\\(2)Destination.scx", L"C:\\Maps\\(8)Big Game Hunters.scm"};
+                }
                 command(ID_QUICKOPEN);
                 for (int i = 0; i < 3; ++i) pump();
                 o << "it opens " << (gQuick.wnd && gQuick.open ? "yes" : "NO") << ", rows " << gQuick.shown.size() << "\n";
