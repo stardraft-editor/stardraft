@@ -1764,7 +1764,7 @@ The volume of every sound StarDraft 2 plays, from the next sound on	StarDraft 2 
 The unit size is rounded up to walk tiles (8 pixels each). Going up or down, the unit needs a gap of %d walk tiles (%d pixels). Going left or right, it needs a gap of %d walk tiles (%d pixels).	单位大小会向上取整为行走格(每格 8 像素)。向上或向下移动时，单位需要 %d 个行走格 (%d 像素) 的间隙。向左或向右移动时，需要 %d 个行走格 (%d 像素) 的间隙。
 Follow the animation's current instruction	跟随动画的当前指令
 Variables, and triggers that a Run a trigger block runs	变量，以及“执行触发器”块运行的触发器
-Build puts this code into generated\triggers.eps unchanged.	构建时，此代码会原样写入 generated\triggers.eps。
+Build puts this code into generated\\triggers.eps unchanged.	构建时，此代码会原样写入 generated\\triggers.eps。
 The game calculates this value while it runs	游戏在运行时计算此值
 0 means all that match the other values	0 表示所有与其他值匹配的项
 First, select the list. Then the index can be 0 to the number of items minus 1.	先选择列表。然后索引可以是 0 到项数减 1。

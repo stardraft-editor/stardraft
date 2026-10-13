@@ -687,7 +687,7 @@ constexpr UiText kRows[] = {
     {L"Select on the map\u2026", L"Seleccionar en el mapa\u2026"},
     {L"One unit", L"Una unidad"},
     {L"Type a number of seconds, for example 2.5", L"Escriba un n\u00FAmero de segundos, por ejemplo 2.5"},
-    {L"Build puts this code into generated\triggers.eps unchanged.", L"Compilar pone este c\u00F3digo en generated\triggers.eps sin cambios."},
+    {L"Build puts this code into generated\\triggers.eps unchanged.", L"Compilar pone este c\u00F3digo en generated\\triggers.eps sin cambios."},
     {L"The path of a sound file in the map (sound\\\u2026\\name.wav)", L"La ruta de un archivo de sonido del mapa (sound\\\u2026\\name.wav)"},
     {L"Build makes sure that this file is in the map", L"Al compilar se asegura de que este archivo est\u00E9 en el mapa"},
     {L"a number or a constant here", L"aqu\u00ED un n\u00FAmero o una constante"},

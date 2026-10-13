@@ -687,7 +687,7 @@ constexpr UiText kRows[] = {
     {L"Select on the map\u2026", L"\uB9F5\uC5D0\uC11C \uC120\uD0DD\u2026"},
     {L"One unit", L"\uC720\uB2DB \uD558\uB098"},
     {L"Type a number of seconds, for example 2.5", L"\uCD08 \uB2E8\uC704 \uC22B\uC790\uB97C \uC785\uB825\uD569\uB2C8\uB2E4. \uC608: 2.5"},
-    {L"Build puts this code into generated\triggers.eps unchanged.", L"\uBE4C\uB4DC\uD560 \uB54C \uC774 \uCF54\uB4DC\uAC00 generated\triggers.eps\uC5D0 \uADF8\uB300\uB85C \uB4E4\uC5B4\uAC11\uB2C8\uB2E4."},
+    {L"Build puts this code into generated\\triggers.eps unchanged.", L"\uBE4C\uB4DC\uD560 \uB54C \uC774 \uCF54\uB4DC\uAC00 generated\\triggers.eps\uC5D0 \uADF8\uB300\uB85C \uB4E4\uC5B4\uAC11\uB2C8\uB2E4."},
     {L"The path of a sound file in the map (sound\\\u2026\\name.wav)", L"\uB9F5 \uC548\uC758 \uC0AC\uC6B4\uB4DC \uD30C\uC77C \uACBD\uB85C (sound\\\u2026\\name.wav)"},
     {L"Build makes sure that this file is in the map", L"\uBE4C\uB4DC\uD560 \uB54C \uC774 \uD30C\uC77C\uC774 \uB9F5\uC5D0 \uB4E4\uC5B4\uAC11\uB2C8\uB2E4"},
     {L"a number or a constant here", L"\uC5EC\uAE30\uC5D0\uB294 \uC22B\uC790 \uB610\uB294 \uC0C1\uC218"},

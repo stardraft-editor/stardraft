@@ -79,9 +79,15 @@ bool mapPropsChanged(const MapPropsDialog& d) { return d.baseSet && (d.era != d.
 bool mapPropsTextChanged(const MapPropsDialog& d) { return d.baseSet && (d.nameText != d.nameBase || d.descText != d.descBase); }
 
 // The title and the description into the map (one undo step); then they are the map's values.
+// A text the page did not change keeps the map's bytes (the box can write a code in another, equal way).
+std::string mapPropsNameBytes(const MapPropsDialog& d) {
+    return d.nameText != d.nameBase ? mapTextLineEnds(narrow(d.nameText)) : app.ed->scenarioName();
+}
+std::string mapPropsDescBytes(const MapPropsDialog& d) {
+    return d.descText != d.descBase ? mapTextLineEnds(narrow(d.descText)) : app.ed->scenarioDescription();
+}
 void mapPropsApplyText(MapPropsDialog& d) {
-    auto fromCrlf = [](const std::wstring& w) { return mapTextLineEnds(narrow(w)); };
-    app.ed->setScenarioText(fromCrlf(d.nameText), fromCrlf(d.descText));
+    app.ed->setScenarioText(mapPropsNameBytes(d), mapPropsDescBytes(d));
     d.nameBase = d.nameText, d.descBase = d.descText;
     updateTitle();
     app.dirty = true;
@@ -101,7 +107,7 @@ bool mapPropsApply(MapPropsDialog& d) {
     if (!text && !resize) return true;
     std::string err;
     app.ed->beginStroke();
-    if (text) app.ed->setScenarioText(fromCrlf(d.nameText), fromCrlf(d.descText));
+    if (text) app.ed->setScenarioText(mapPropsNameBytes(d), mapPropsDescBytes(d));
     bool ok = true;
     if (resize) {
         // Where the old map goes in the new one: the anchor's share of the size difference.

@@ -66,11 +66,13 @@ inline UiLang uiLanguageChosen(const std::wstring& setting) {
     if (code == L"ru") return UiLang::Russian;
     if (code == L"zh") return UiLang::Chinese;
     if (code == L"en") return UiLang::English;
-    switch (PRIMARYLANGID(GetUserDefaultUILanguage())) {
+    const LANGID ui = GetUserDefaultUILanguage();
+    if (PRIMARYLANGID(ui) == LANG_CHINESE)  // simplified (China, Singapore); traditional Chinese Windows: English
+        return SUBLANGID(ui) == SUBLANG_CHINESE_SIMPLIFIED || SUBLANGID(ui) == SUBLANG_CHINESE_SINGAPORE ? UiLang::Chinese : UiLang::English;
+    switch (PRIMARYLANGID(ui)) {
     case LANG_KOREAN: return UiLang::Korean;
     case LANG_SPANISH: return UiLang::Spanish;
     case LANG_RUSSIAN: return UiLang::Russian;
-    case LANG_CHINESE: return UiLang::Chinese;
     default: return UiLang::English;
     }
 }

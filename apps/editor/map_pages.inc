@@ -246,8 +246,13 @@ const std::vector<std::pair<unsigned char, const wchar_t*>>& textPaletteCodes(Te
     return p == TextPalette::Game ? game : scenario;
 }
 // A code's color in the box (1, and the palette's pale blue: the normal color); 0xFFFFFFFF: not a color of the palette.
+// The scenario's pale blue (02, and 1A that the game draws the same) looks as the normal color but keeps its code: a
+// color one step apart for each.
+constexpr COLORREF kPaleBlue02 = RGB(184, 184, 231), kPaleBlue1A = RGB(184, 184, 230);
 COLORREF textCodeColor(TextPalette p, unsigned char c) {
     if (c == 1) return kRichDefault;
+    if (p == TextPalette::Scenario && c == 2) return kPaleBlue02;
+    if (p == TextPalette::Scenario && c == 0x1A) return kPaleBlue1A;
     if (p == TextPalette::Scenario) {
         const COLORREF col = briefingTextColor(c, kRichDefault);
         return col == kInvisibleText ? 0xFFFFFFFF : col == RGB(184, 184, 232) ? kRichDefault : col;
@@ -258,6 +263,8 @@ COLORREF textCodeColor(TextPalette p, unsigned char c) {
 // A color's code in the palette (0: the normal color, or none).
 unsigned char textColorCode(TextPalette p, COLORREF c) {
     if (c == kRichDefault) return 0;
+    if (p == TextPalette::Scenario && c == kPaleBlue02) return 2;
+    if (p == TextPalette::Scenario && c == kPaleBlue1A) return 0x1A;
     for (const auto& [code, name] : textPaletteCodes(p))
         if (code != 1 && textCodeColor(p, code) == c) return code;
     return 0;
@@ -359,6 +366,45 @@ std::wstring mapTextFromBox(HWND re, TextPalette palette) {
         done += ch;
     }
     return done;
+}
+
+// A paste (or a drop) can bring colors and fonts from elsewhere: true when the box has a color the palette does not
+// have, or another font than the box's; then the text goes in again (mapTextToBox) in the palette's look.
+bool mapBoxForeign(HWND re, TextPalette palette) {
+    IRichEditOle* ole = nullptr;
+    ITextDocument* doc = nullptr;
+    static const GUID iidTextDocument = {0x8CC497C0, 0xA1DF, 0x11CE, {0x80, 0x98, 0x00, 0xAA, 0x00, 0x47, 0xBE, 0x5D}};
+    if (SendMessageW(re, EM_GETOLEINTERFACE, 0, LPARAM(&ole)) && ole) ole->QueryInterface(iidTextDocument, reinterpret_cast<void**>(&doc)), ole->Release();
+    if (!doc) return false;
+    LOGFONTW lf{};
+    GetObjectW(app.font, sizeof lf, &lf);
+    bool foreign = false;
+    ITextRange* r = nullptr;
+    const long n = long(richText(re).size());
+    if (SUCCEEDED(doc->Range(0, 0, &r)) && r) {
+        for (long start = 0; start < n && !foreign;) {
+            long moved = 0, end = 0;
+            r->SetRange(start, start);
+            if (FAILED(r->MoveEnd(tomCharFormat, 1, &moved)) || !moved) break;
+            r->GetEnd(&end);
+            if (end <= start) break;
+            ITextFont* font = nullptr;
+            if (SUCCEEDED(r->GetFont(&font)) && font) {
+                long fore = 0;
+                BSTR name = nullptr;
+                font->GetForeColor(&fore);
+                font->GetName(&name);
+                const COLORREF c = fore == tomAutoColor ? kRichDefault : COLORREF(fore);
+                foreign = (c != kRichDefault && !textColorCode(palette, c)) || (name && _wcsicmp(name, lf.lfFaceName) != 0);
+                if (name) SysFreeString(name);
+                font->Release();
+            }
+            start = end;
+        }
+        r->Release();
+    }
+    doc->Release();
+    return foreign;
 }
 
 // A chip: the box that had the focus last colors its selected text (or the text typed next) with the code's color.
@@ -531,6 +577,7 @@ LRESULT CALLBACK mapPropsProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_CREATE: {
         d->wnd = hwnd;
+        d->lastBox = nullptr;  // (the boxes are made again: an old one is gone)
         const PropsLayout l = propsLayout();
         LoadLibraryW(L"Msftedit.dll");
         auto edit = [&](int id, int y, int hgt, DWORD extra, const std::wstring& text) {  // the only native controls: the texts (rich: colors)
@@ -562,6 +609,17 @@ LRESULT CALLBACK mapPropsProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_COMMAND:
         if (HIWORD(wp) == EN_SETFOCUS) d->lastBox = HWND(lp);  // the color chips color this box's text
         if (HIWORD(wp) == EN_SETFOCUS || HIWORD(wp) == EN_KILLFOCUS) InvalidateRect(hwnd, nullptr, FALSE);  // the focus frame
+        if (HIWORD(wp) == EN_CHANGE && (HWND(lp) == d->name || HWND(lp) == d->desc)) {
+            static bool again = false;  // (putting the text in again changes it too)
+            if (!again && mapBoxForeign(HWND(lp), TextPalette::Scenario)) {
+                again = true;
+                CHARRANGE sel;
+                SendMessageW(HWND(lp), EM_EXGETSEL, 0, LPARAM(&sel));
+                mapTextToBox(HWND(lp), mapTextFromBox(HWND(lp), TextPalette::Scenario));
+                SendMessageW(HWND(lp), EM_EXSETSEL, 0, LPARAM(&sel));
+                again = false;
+            }
+        }
         if (HIWORD(wp) == EN_CHANGE) mapPageChanged();
         return 0;
     case WM_CTLCOLOREDIT:

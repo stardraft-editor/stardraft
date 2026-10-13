@@ -5,7 +5,7 @@
 
 constexpr UINT WM_UPDATE_FOUND = WM_APP + 32;  // lp: std::wstring* (the release's title), deleted by the receiver
 
-bool closeAllDocs();
+bool closeAllDocs(std::vector<std::wstring>* reopen);
 
 // A value under HKCU\Software\Classes\<key> (for this Windows user, no administrator needed): the key's default value,
 // or the named one. Written only when it changes; true then.

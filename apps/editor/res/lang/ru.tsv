@@ -1766,7 +1766,7 @@ Follow the animation's current instruction	Следовать текущей и�
 Variables, and triggers that a Run a trigger block runs	Переменные и триггеры, которые запускает блок «Запустить триггер»
  uses of it	 ссылок на неё
 's properties	 — свойства
-Build puts this code into generated\triggers.eps unchanged.	«Сборка» помещает этот код в generated\triggers.eps без изменений.
+Build puts this code into generated\\triggers.eps unchanged.	«Сборка» помещает этот код в generated\\triggers.eps без изменений.
 The game calculates this value while it runs	Игра вычисляет это значение во время работы
 0 means all that match the other values	0 означает все, которые совпадают с другими значениями
 First, select the list. Then the index can be 0 to the number of items minus 1.	Сначала выберите список. Затем индекс может быть от 0 до числа элементов минус 1.

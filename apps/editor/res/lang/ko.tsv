@@ -683,7 +683,7 @@ Unit variables	유닛 변수
 Select on the map…	맵에서 선택…
 One unit	유닛 하나
 Type a number of seconds, for example 2.5	초 단위 숫자를 입력합니다. 예: 2.5
-Build puts this code into generated\triggers.eps unchanged.	빌드할 때 이 코드가 generated\triggers.eps에 그대로 들어갑니다.
+Build puts this code into generated\\triggers.eps unchanged.	빌드할 때 이 코드가 generated\\triggers.eps에 그대로 들어갑니다.
 The path of a sound file in the map (sound\\…\\name.wav)	맵 안의 사운드 파일 경로 (sound\\…\\name.wav)
 Build makes sure that this file is in the map	빌드할 때 이 파일이 맵에 들어갑니다
 a number or a constant here	여기에는 숫자 또는 상수

@@ -1768,7 +1768,7 @@ constexpr UiText kRows[] = {
     {L"The unit size is rounded up to walk tiles (8 pixels each). Going up or down, the unit needs a gap of %d walk tiles (%d pixels). Going left or right, it needs a gap of %d walk tiles (%d pixels).", L"\u5355\u4F4D\u5927\u5C0F\u4F1A\u5411\u4E0A\u53D6\u6574\u4E3A\u884C\u8D70\u683C(\u6BCF\u683C 8 \u50CF\u7D20)\u3002\u5411\u4E0A\u6216\u5411\u4E0B\u79FB\u52A8\u65F6\uFF0C\u5355\u4F4D\u9700\u8981 %d \u4E2A\u884C\u8D70\u683C (%d \u50CF\u7D20) \u7684\u95F4\u9699\u3002\u5411\u5DE6\u6216\u5411\u53F3\u79FB\u52A8\u65F6\uFF0C\u9700\u8981 %d \u4E2A\u884C\u8D70\u683C (%d \u50CF\u7D20) \u7684\u95F4\u9699\u3002"},
     {L"Follow the animation's current instruction", L"\u8DDF\u968F\u52A8\u753B\u7684\u5F53\u524D\u6307\u4EE4"},
     {L"Variables, and triggers that a Run a trigger block runs", L"\u53D8\u91CF\uFF0C\u4EE5\u53CA\u201C\u6267\u884C\u89E6\u53D1\u5668\u201D\u5757\u8FD0\u884C\u7684\u89E6\u53D1\u5668"},
-    {L"Build puts this code into generated\triggers.eps unchanged.", L"\u6784\u5EFA\u65F6\uFF0C\u6B64\u4EE3\u7801\u4F1A\u539F\u6837\u5199\u5165 generated\triggers.eps\u3002"},
+    {L"Build puts this code into generated\\triggers.eps unchanged.", L"\u6784\u5EFA\u65F6\uFF0C\u6B64\u4EE3\u7801\u4F1A\u539F\u6837\u5199\u5165 generated\\triggers.eps\u3002"},
     {L"The game calculates this value while it runs", L"\u6E38\u620F\u5728\u8FD0\u884C\u65F6\u8BA1\u7B97\u6B64\u503C"},
     {L"0 means all that match the other values", L"0 \u8868\u793A\u6240\u6709\u4E0E\u5176\u4ED6\u503C\u5339\u914D\u7684\u9879"},
     {L"First, select the list. Then the index can be 0 to the number of items minus 1.", L"\u5148\u9009\u62E9\u5217\u8868\u3002\u7136\u540E\u7D22\u5F15\u53EF\u4EE5\u662F 0 \u5230\u9879\u6570\u51CF 1\u3002"},

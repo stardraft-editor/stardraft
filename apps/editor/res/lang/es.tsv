@@ -683,7 +683,7 @@ Unit variables	Variables de unidad
 Select on the map…	Seleccionar en el mapa…
 One unit	Una unidad
 Type a number of seconds, for example 2.5	Escriba un número de segundos, por ejemplo 2.5
-Build puts this code into generated\triggers.eps unchanged.	Compilar pone este código en generated\triggers.eps sin cambios.
+Build puts this code into generated\\triggers.eps unchanged.	Compilar pone este código en generated\\triggers.eps sin cambios.
 The path of a sound file in the map (sound\\…\\name.wav)	La ruta de un archivo de sonido del mapa (sound\\…\\name.wav)
 Build makes sure that this file is in the map	Al compilar se asegura de que este archivo esté en el mapa
 a number or a constant here	aquí un número o una constante

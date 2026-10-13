@@ -2481,11 +2481,17 @@ bool closeDoc(int i) {
 }
 
 void restartProgram();
-bool closeAllDocs() {
+// `reopen`: each closed tab's project folder or map file, as it is after its save question (an untitled map saved then
+// has its new name).
+bool closeAllDocs(std::vector<std::wstring>* reopen = nullptr) {
     while (!gDocs.empty()) {
         int i = gActive >= 0 ? gActive : 0;
         activateDoc(i);
         if (!confirmDiscard()) return false;
+        if (reopen && !gDocs[size_t(i)].page) {
+            if (const auto& pr = gDocs[size_t(i)].project) reopen->push_back(pr->folder().wstring());
+            else if (app.ed && !app.ed->path().empty()) reopen->push_back(app.ed->path().wstring());
+        }
         mapPageClose();
         app.ed.reset();
         gAnims.clear(), gAnimsFor = nullptr;
@@ -2501,13 +2507,10 @@ bool closeAllDocs() {
 // (each modified one asks to be saved first, as on exit; Cancel stops the restart). The new program waits until this one
 // has ended (its settings saved), then opens them (the list: HKCU\\Software\\StarDraft\\Reopen).
 void restartProgram() {
+    std::vector<std::wstring> files;
+    if (!closeAllDocs(&files)) return;
     std::wstring reopen;  // REG_MULTI_SZ
-    for (int i = 0; i < int(gDocs.size()); ++i) {
-        if (gDocs[size_t(i)].page) continue;
-        if (const auto& pr = gDocs[size_t(i)].project) reopen += pr->folder().wstring() + L'\0';
-        else if (const Editor* ed = docEditor(i); ed && !ed->path().empty()) reopen += ed->path().wstring() + L'\0';
-    }
-    if (!closeAllDocs()) return;
+    for (const auto& f : files) reopen += f + L'\0';
     reopen += L'\0';
     RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"Reopen", REG_MULTI_SZ, reopen.c_str(), DWORD(reopen.size() * sizeof(wchar_t)));
     wchar_t self[MAX_PATH], dir[MAX_PATH];
@@ -2518,6 +2521,7 @@ void restartProgram() {
     PROCESS_INFORMATION pi{};
     if (!CreateProcessW(self, cmd.data(), nullptr, nullptr, FALSE, 0, nullptr, dir, &si, &pi)) {
         setMessage(L"StarDraft 2 could not start again. Close it and start it to show the new language.");
+        openStartPage();  // (the tabs are closed: a page, as File > Close all leaves)
         return;
     }
     CloseHandle(pi.hThread), CloseHandle(pi.hProcess);
@@ -14687,7 +14691,7 @@ bool valuePopCheck() {
         return true;
     }
     if (!vp.number) {
-        vp.hint = vp.spec.type == "Code"    ? L"Build puts this code into generated\triggers.eps unchanged."
+        vp.hint = vp.spec.type == "Code"    ? L"Build puts this code into generated\\triggers.eps unchanged."
                   : vp.spec.type == "Sound" ? (text.empty() ? L"The path of a sound file in the map (sound\\\x2026\\name.wav)" : L"Build makes sure that this file is in the map")
                                             : L"";  // (no letter count: a name or a text needs none)
         return true;
