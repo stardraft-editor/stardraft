@@ -1,0 +1,1736 @@
+Fine	정밀
+Small	작게
+Normal	보통
+Large	크게
+Huge	매우 크게
+GridX	격자 X
+GridY	격자 Y
+&Clear list	목록 지우기(&C)
+None	없음
+Terrain	지형
+Units	유닛
+Doodads	장식물
+Locations	위치
+Sprites	스프라이트
+Brush	브러시
+Spray	스프레이
+Fill	채우기
+Replace (click terrain)	바꾸기 (지형 클릭)
+Select / copy	선택 / 복사
+Place / select	배치 / 선택
+Replace (click unit)	바꾸기 (유닛 클릭)
+Place	배치
+Terran 	테란 
+Zerg 	저그 
+Protoss 	프로토스 
+(Select / move)	(선택 / 이동)
+(Terrain editing needs ISOM data. Only Badlands has it now.)	(지형 편집에는 ISOM 데이터가 필요합니다. 지금은 Badlands에만 있습니다.)
+Select	선택
+Edit	편집
+%d, %d  (tile %d, %d)	%d, %d  (타일 %d, %d)
+%zu selected	%zu개 선택됨
+%zu fps  %d sprites	%zu fps  스프라이트 %d개
+Jan	1월
+Feb	2월
+Mar	3월
+Apr	4월
+May	5월
+Jun	6월
+Jul	7월
+Aug	8월
+Sep	9월
+Oct	10월
+Nov	11월
+Dec	12월
+built %s %u %02u:%02u	빌드 %s %u %02u:%02u
+StarDraft 	StarDraft 
+Untitled	제목 없음
+Badlands	Badlands
+Space Platform	Space Platform
+Installation	Installation
+Ash World	Ash World
+Jungle	Jungle
+Desert	Desert
+Ice	Ice
+Twilight	Twilight
+OK	확인
+Cancel	취소
+Segoe UI	Segoe UI
+Rename location	위치 이름 변경
+Low ground	낮은 지대
+Medium ground	중간 지대
+High ground	높은 지대
+Low air	낮은 공중
+Medium air	중간 공중
+High air	높은 공중
+P&roperties…\tEnter	속성(&R)…\tEnter
+Re&name\tF2	이름 변경(&N)\tF2
+&Delete\tDel	삭제(&D)\tDel
+Elevations in the location	위치의 고도
+&All elevations	모든 고도(&A)
+: all elevations are in the location	: 모든 고도가 위치에 포함됩니다
+ is in the location	 위치에 포함됩니다
+ is not in the location	 위치에 포함되지 않습니다
+StarCraft maps (*.scx;*.scm)*.scx;*.scmScenario data (*.chk)*.chkAll files*.*	StarCraft 맵 (*.scx;*.scm)*.scx;*.scm시나리오 데이터 (*.chk)*.chk모든 파일*.*
+Maps and projects (*.scx;*.scm;*.chk;*.stardraft;*.eds)*.scx;*.scm;*.chk;*.stardraft;*.edsStarCraft maps (*.scx;*.scm)*.scx;*.scmStarDraft projects (*.stardraft;*.eds)*.stardraft;*.edsScenario data (*.chk)*.chkAll files*.*	맵 및 프로젝트 (*.scx;*.scm;*.chk;*.stardraft;*.eds)*.scx;*.scm;*.chk;*.stardraft;*.edsStarCraft 맵 (*.scx;*.scm)*.scx;*.scmStarDraft 프로젝트 (*.stardraft;*.eds)*.stardraft;*.eds시나리오 데이터 (*.chk)*.chk모든 파일*.*
+Select the StarCraft: Remastered folder. It contains .build.info.	StarCraft: Remastered 폴더를 선택하세요. 이 폴더에는 .build.info가 있습니다.
+Not a StarCraft: Remastered folder	StarCraft: Remastered 폴더가 아닙니다
+Could not read the game data in this folder:\r\n	이 폴더의 게임 데이터를 읽을 수 없습니다:\r\n
+StarCraft folder	StarCraft 폴더
+StarDraft uses this folder after the next start:\r\n	StarDraft는 다음 시작부터 이 폴더를 사용합니다:\r\n
+\r\nTo use it now, restart StarDraft.	\r\n지금 사용하려면 StarDraft를 다시 시작하세요.
+Start	시작
+Untitled 	제목 없음 
+ (project)	 (프로젝트)
+ (map)	 (맵)
+Switched to 	전환함: 
+Moved the tab "	탭을 이동함: "
+Cascadia Mono	Cascadia Mono
+(older lines dropped)\r\n	(오래된 줄 삭제됨)\r\n
+ERROR  	오류  
+Log	로그
+Build needs an EUD project. Use File > Project > New project or Open project.	빌드에는 EUD 프로젝트가 필요합니다. 파일 > 프로젝트 > 새 프로젝트 또는 프로젝트 열기를 사용하세요.
+A build is already running	이미 빌드가 실행 중입니다
+StarCraft will not start this map:\r\n\r\n	StarCraft에서 이 맵을 시작할 수 없습니다:\r\n\r\n
+\r\nTo set the players, use Scenario > Players and forces. Build the map anyway?	\r\n플레이어를 설정하려면 시나리오 > 플레이어 및 포스를 사용하세요. 그래도 맵을 빌드하시겠습니까?
+Build	빌드
+&Build	빌드(&B)
+Do &not build	빌드 안 함(&N)
+Did not build the map: 	맵을 빌드하지 못했습니다: 
+ is not found (see the Project page)	 을(를) 찾을 수 없습니다 (프로젝트 페이지 참조)
+Could not write the .dat edits	.dat 편집 내용을 쓸 수 없습니다
+Could not save the project's map	프로젝트의 맵을 저장할 수 없습니다
+Building the map…	맵을 빌드하는 중…
+Built 	빌드 완료: 
+Could not build the map (see the log)	맵을 빌드할 수 없습니다 (로그 참조)
+the project file	프로젝트 파일
+the map you edit here (Brood War format)	여기서 편집하는 맵 (Brood War 형식)
+euddraft's build file: Build writes it	euddraft의 빌드 파일: 빌드가 이 파일을 씁니다
+the built map: Build (Ctrl+B) writes the output file instead	빌드된 맵: 빌드(Ctrl+B)가 대신 출력 파일을 씁니다
+the built map: Build (Ctrl+B) writes it	빌드된 맵: 빌드(Ctrl+B)가 이 파일을 씁니다
+your code (epScript). To add more, use File > Project > Add script.	사용자 코드(epScript). 더 추가하려면 파일 > 프로젝트 > 스크립트 추가를 사용하세요.
+StarDraft makes the folder 	StarDraft가 폴더를 만듭니다: 
+\\ in the location above:\r\n\r\n	\\ 위 위치에:\r\n\r\n
+\r\nOn the first build, StarDraft downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n첫 빌드에서 StarDraft는 GitHub에서 euddraft를 자신의 폴더로 내려받습니다.\r\nStarDraft는 이 컴퓨터의 다른 사본을 변경하지 않습니다. 열어 둔 맵은\r\n일반 맵으로 유지됩니다. 프로젝트만 빌드할 수 있습니다.
+Name	이름
+Location	위치
+Browse…	찾아보기…
+Output file	출력 파일
+<name>_EUD.scx in the project folder	프로젝트 폴더의 <name>_EUD.scx
+Start from	시작 기준
+The open map (	열린 맵 (
+A new blank map (128 x 128 Badlands)	새 빈 맵 (128 x 128 Badlands)
+Create	만들기
+Select the folder for the project	프로젝트 폴더를 선택하세요
+Created the project 	프로젝트를 만들었습니다: 
+ (Build: Ctrl+B)	 (빌드: Ctrl+B)
+. The map's classic triggers, settings and briefings stay in the map. Scenario > Classic triggers shows the triggers.	. 맵의 기존 트리거, 설정, 브리핑은 맵에 남습니다. 시나리오 > 기존 트리거에서 트리거를 볼 수 있습니다.
+New EUD project	새 EUD 프로젝트
+Could not create the project	프로젝트를 만들 수 없습니다
+StarCraft Brood War map (*.scx)*.scx	StarCraft Brood War 맵 (*.scx)*.scx
+Select the file for the built map	빌드된 맵의 파일을 선택하세요
+Project settings belong to a project. Use File > Project > New project or Open project.	프로젝트 설정은 프로젝트에 속합니다. 파일 > 프로젝트 > 새 프로젝트 또는 프로젝트 열기를 사용하세요.
+Human	사람
+Computer	컴퓨터
+Rescuable	구출 가능
+Neutral	중립
+Closed	닫힘
+Unused	사용 안 함
+Zerg	저그
+Terran	테란
+Protoss	프로토스
+User select	사용자 선택
+Random	무작위
+Random starts	무작위 시작
+Allies	동맹
+Allied victory	동맹 승리
+Shared vision	시야 공유
+Player 	플레이어 
+ owns units but has no start location	 은(는) 유닛이 있지만 시작 위치가 없습니다
+Set at least two players to Human or Computer (	플레이어를 최소 두 명 사람 또는 컴퓨터로 설정하세요 (
+ now)	 지금)
+Set at least one player to Human	플레이어를 최소 한 명 사람으로 설정하세요
+Player's choice	플레이어 선택
+Custom 	사용자 지정 
+ (multiplayer only)	 (멀티플레이어 전용)
+✓  StarCraft can start this map	✓  StarCraft에서 이 맵을 시작할 수 있습니다
+Set the players and forces	플레이어와 포스 설정
+Could not open the project	프로젝트를 열 수 없습니다
+Opened the project 	프로젝트를 열었습니다: 
+ scripts; Build: Ctrl+B)	 스크립트; 빌드: Ctrl+B)
+epScript (*.eps)*.epseudplib Python (*.py)*.py	epScript (*.eps)*.epseudplib Python (*.py)*.py
+Add a script: select one, or type the name of a new one	스크립트 추가: 하나를 선택하거나 새 스크립트의 이름을 입력하세요
+Could not save the project	프로젝트를 저장할 수 없습니다
+Added 	추가함: 
+ to the project	 (프로젝트에)
+Could not open the map	맵을 열 수 없습니다
+Opened 	열었습니다: 
+Could not create the map	맵을 만들 수 없습니다
+Created a new 	새로 만들었습니다: 
+ map (	 맵 (
+StarDraft project (*.stardraft)*.stardraft	StarDraft 프로젝트 (*.stardraft)*.stardraft
+Save the project (StarDraft makes a folder with its name here)	프로젝트를 저장하세요 (StarDraft가 여기에 프로젝트 이름의 폴더를 만듭니다)
+The name cannot hold \\ / : * ? " < > |	이름에는 \\ / : * ? " < > |를 사용할 수 없습니다
+Save project	프로젝트 저장
+ is there already and is not empty.	 이(가) 이미 있으며 비어 있지 않습니다.
+Could not save the map	맵을 저장할 수 없습니다
+Could not copy 	복사할 수 없습니다: 
+Saved the project to 	프로젝트를 저장했습니다: 
+Saved 	저장함: 
+Light	밝게
+Dark	어둡게
+ theme, accent color 	 테마, 강조 색상 
+Save the new project?	새 프로젝트를 저장하시겠습니까?
+Unsaved changes	저장되지 않은 변경 내용
+&Save	저장(&S)
+Do &not save	저장 안 함(&N)
+Save changes to the map?	맵의 변경 내용을 저장하시겠습니까?
+Map &data (units, upgrades, technologies)	맵 데이터(&D) (유닛, 업그레이드, 기술)
+Nothing copied: select doodads and press Ctrl+C	복사된 항목이 없습니다. 장식물을 선택하고 Ctrl+C를 누르세요
+Nothing copied: select sprites and press Ctrl+C	복사된 항목이 없습니다. 스프라이트를 선택하고 Ctrl+C를 누르세요
+Paste: click to place the copy. Shift+click pastes again. Esc goes back to Select.	붙여넣기: 클릭하여 복사본을 배치합니다. Shift+클릭하면 다시 붙여넣습니다. Esc를 누르면 선택으로 돌아갑니다.
+Nothing copied: select a location and press Ctrl+C	복사된 항목이 없습니다. 위치를 선택하고 Ctrl+C를 누르세요
+All location slots are in use	모든 위치 슬롯이 사용 중입니다
+Pasted 	붙여넣음: 
+Nothing copied: select terrain with the Select tool and press Ctrl+C	복사된 항목이 없습니다. 선택 도구로 지형을 선택하고 Ctrl+C를 누르세요
+Paste tiles: click to place them. Shift+click pastes again. Esc cancels.	타일 붙여넣기: 클릭하여 배치합니다. Shift+클릭하면 다시 붙여넣습니다. Esc를 누르면 취소됩니다.
+Paste terrain: click to place it. Press R to turn it. Shift+click pastes again. Esc cancels.	지형 붙여넣기: 클릭하여 배치합니다. R을 누르면 회전합니다. Shift+클릭하면 다시 붙여넣습니다. Esc를 누르면 취소됩니다.
+Paste 	붙여넣기 
+ units: click to place them. Shift+click pastes again. Esc or right-click cancels.	 유닛: 클릭하여 배치합니다. Shift+클릭하면 다시 붙여넣습니다. Esc 또는 오른쪽 클릭하면 취소됩니다.
+ is gone; removed from the list	 이(가) 없어져서 목록에서 제거했습니다
+This tab is a classic map. This command needs a project. File > Project > Make this map a project makes one.	이 탭은 일반 맵입니다. 이 명령에는 프로젝트가 필요합니다. 파일 > 프로젝트 > 이 맵을 프로젝트로 만들기를 사용하세요.
+This command is for classic maps only	이 명령은 일반 맵 전용입니다
+StarDraft project (*.stardraft;*.eds)*.stardraft;*.eds	StarDraft 프로젝트 (*.stardraft;*.eds)*.stardraft;*.eds
+StarDraft	StarDraft
+Trigger code needs an EUD project	트리거 코드에는 EUD 프로젝트가 필요합니다
+StarCraft can start this map	StarCraft에서 이 맵을 시작할 수 있습니다
+Check that StarCraft can start the map	StarCraft에서 맵을 시작할 수 있는지 확인
+ toolbar on the 	 툴바, 위치: 
+Gave 	지급함: 
+ selected units to Player 	 선택한 유닛을 플레이어 
+ (resources and critters stay neutral)	 (자원과 크리터는 중립으로 유지됩니다)
+do not snap	맞추지 않음
+snap to tiles (32 px)	타일에 맞춤 (32 px)
+snap to half tiles (16 px)	반 타일에 맞춤 (16 px)
+snap to quarter tiles (8 px)	1/4 타일에 맞춤 (8 px)
+Grid: 	격자: 
+Copied 	복사함: 
+First, select an area with the Select tool	먼저 선택 도구로 영역을 선택하세요
+Copied the terrain selection	지형 선택을 복사했습니다
+First, select an area with the Select / copy tool	먼저 선택 / 복사 도구로 영역을 선택하세요
+First, select doodads	먼저 장식물을 선택하세요
+First, select sprites	먼저 스프라이트를 선택하세요
+Copied the location	위치를 복사했습니다
+First, select a location	먼저 위치를 선택하세요
+Nothing to cut there: make the selection larger	잘라낼 내용이 없습니다. 선택 영역을 더 크게 하세요
+Cut the terrain: 	지형을 잘라냈습니다: 
+ null tiles in its place (one undo step)	 개의 null 타일로 대체했습니다 (실행 취소 1단계)
+Select units to duplicate	복제할 유닛을 선택하세요
+Deleted 	삭제함: 
+Selected 	선택함: 
+StarDraft looks for a newer release on start	StarDraft는 시작할 때 새 릴리스를 확인합니다
+StarDraft does not look for a newer release on start	StarDraft는 시작할 때 새 릴리스를 확인하지 않습니다
+StarDraft sends an anonymous report when it crashes	StarDraft는 충돌할 때 익명 보고서를 보냅니다
+StarDraft does not send crash reports (a report stays on this computer)	StarDraft는 충돌 보고서를 보내지 않습니다 (보고서는 이 컴퓨터에 남습니다)
+The last project opens when StarDraft starts	StarDraft를 시작하면 마지막 프로젝트가 열립니다
+StarDraft starts with no project open	StarDraft는 프로젝트를 열지 않고 시작합니다
+Units: can be on top of others	유닛: 다른 유닛 위에 놓을 수 있음
+Units: cannot be on top of others (air units also)	유닛: 다른 유닛 위에 놓을 수 없음 (공중 유닛도 포함)
+Units: place anywhere (terrain edits do not move them)	유닛: 어디에나 배치 (지형을 편집해도 유닛은 이동하지 않음)
+Units: place only where it fits	유닛: 맞는 곳에만 배치
+Units: move to the nearest place where it fits	유닛: 맞는 가장 가까운 곳으로 이동
+Doodads: place anywhere on the map (StarDraft does not check the terrain)	장식물: 맵의 어디에나 배치 (StarDraft는 지형을 확인하지 않음)
+Doodads: move to the nearest place where it fits	장식물: 맞는 가장 가까운 곳으로 이동
+Doodads: place only where it fits	장식물: 맞는 곳에만 배치
+Carbot (cartooned) graphics	Carbot (만화풍) 그래픽
+Grid: width, height, x offset, y offset (map pixels)	격자: 너비, 높이, x 오프셋, y 오프셋 (맵 픽셀)
+Type the width and the height (and the offsets), for example 48, 48, 16, 0	너비와 높이(및 오프셋)를 입력하세요. 예: 48, 48, 16, 0
+ pixels, offset 	 픽셀, 오프셋 
+ selected: drag to move, Delete removes, Ctrl+C copies	 선택됨: 끌어서 이동, Delete로 삭제, Ctrl+C로 복사
+Placed 	배치함: 
+ (moved to the nearest valid spot)	 (가장 가까운 유효한 위치로 이동함)
+Cannot place here:	여기에는 배치할 수 없습니다:
+ (no valid spot nearby)	 (근처에 유효한 위치가 없음)
+: Ctrl+V pastes a copy where the mouse is	: Ctrl+V로 마우스 위치에 복사본을 붙여넣습니다
+ units (the other units do not fit here)	 유닛 (나머지 유닛은 여기에 맞지 않음)
+. To stop, right-click or press Esc.	. 중지하려면 오른쪽 클릭하거나 Esc를 누르세요.
+Sprayed 	스프레이함: 
+Replaced 	대체함: 
+ (selection)	 (선택 영역)
+Replace: select the new type in the list. Then click a unit of the type to replace.	대체: 목록에서 새 종류를 선택하세요. 그런 다음 대체할 종류의 유닛을 클릭하세요.
+Painting 	칠하는 중: 
+ (selected with Ctrl+click)	 (Ctrl+클릭으로 선택됨)
+Pasted terrain	지형을 붙여넣었습니다
+New variants for 	새 변형: 
+Filled with 	채움: 
+, in selection)	, 선택 영역 안)
+Placed sprite 	스프라이트를 배치함: 
+Did not place the sprite: it is outside the map	스프라이트를 배치하지 못했습니다: 맵 밖입니다
+Placed doodad	장식물을 배치했습니다
+Did not place the doodad: 	장식물을 배치하지 못했습니다: 
+ doodads (the others do not fit there)	 장식물 (나머지는 그곳에 맞지 않음)
+Moved 	이동함: 
+The units do not fit there. They stay where they were.	유닛이 그곳에 맞지 않습니다. 원래 위치에 그대로 있습니다.
+The units do not fit along the drag. They stay where they were.	유닛이 끄는 경로에 맞지 않습니다. 원래 위치에 그대로 있습니다.
+Pasted terrain. To stop pasting, right-click or press Esc.	지형을 붙여넣었습니다. 붙여넣기를 중지하려면 오른쪽 클릭하거나 Esc를 누르세요.
+ tiles. Press Ctrl+C to copy them.	 타일. Ctrl+C를 눌러 복사하세요.
+Selected the terrain. Press Ctrl+C to copy it. Replace works in it.	지형을 선택했습니다. Ctrl+C를 눌러 복사하세요. 대체는 그 안에서 작동합니다.
+Cleared the terrain selection	지형 선택을 해제했습니다
+Created 	생성함: 
+ (inverted: it holds air units only)	 (반전됨: 공중 유닛만 포함)
+The doodads stay: 	장식물은 그대로 있습니다: 
+The sprites stay: outside the map	스프라이트는 그대로 있습니다: 맵 밖
+Independent	독립
+Other	기타
+Platform	플랫폼
+Ash	재
+Traps and doors	함정과 문
+Effects	효과
+(unnamed)	(이름 없음)
+All doodads	모든 장식물
+All sprites	모든 스프라이트
+All units	모든 유닛
+Segoe MDL2 Assets	Segoe MDL2 Assets
+Placing sprite 	스프라이트 배치 중: 
+Placing doodad 	장식물 배치 중: 
+: click to place it (green if it fits, red if it does not)	: 클릭하여 배치합니다 (맞으면 녹색, 맞지 않으면 빨간색)
+Placing 	배치 중: 
+: click to place. Drag to place a row. Right-click to stop.	: 클릭하여 배치합니다. 끌면 한 줄로 배치합니다. 오른쪽 클릭으로 중지합니다.
+&List	목록(&L)
+&Grid: icons	격자: 아이콘(&G)
+Grid: &sprites	격자: 스프라이트(&S)
+&Grid	격자(&G)
+&Normal	보통(&N)
+L&arge	크게(&A)
+Other 	기타 
+Units and buildings	유닛과 건물
+Low ground and other	낮은 지대와 기타
+: each click or spray places one of them, at random	: 클릭하거나 스프레이할 때마다 무작위로 하나를 배치합니다
+Location 	위치 
+ units with 	 유닛, 대상: 
+ doodads (the others: the new one does not fit there)	 장식물 (나머지: 새 장식물이 그곳에 맞지 않음)
+ sprites with 	 스프라이트, 대상: 
+Paint a terrain	지형 칠하기
+Place a unit	유닛 배치
+Place a doodad	장식물 배치
+Go to a location	위치로 이동
+Place a sprite	스프라이트 배치
+Replace with a unit	유닛으로 대체
+Replace with a doodad	장식물로 대체
+Replace with a sprite	스프라이트로 대체
+Go to a .dat entry	.dat 항목으로 이동
+Map	맵
+the Map workspace	맵 작업 공간
+Data	데이터
+Data: the map's units, upgrades and technologies	데이터: 맵의 유닛, 업그레이드, 기술
+the Data workspace	데이터 작업 공간
+Triggers	트리거
+Classic triggers	클래식 트리거
+the Triggers workspace	트리거 작업 공간
+Classic	클래식
+Classic triggers (the map's own triggers)	클래식 트리거 (맵 자체의 트리거)
+Briefing	브리핑
+the Briefing workspace	브리핑 작업 공간
+Assets	에셋
+the Assets workspace	에셋 작업 공간
+Properties	속성
+Map properties: the title, size and tileset, players and forces (Ctrl+M)	맵 속성: 제목, 크기, 타일셋, 플레이어, 포스 (Ctrl+M)
+Project	프로젝트
+the Project page	프로젝트 페이지
+Build the map of the project with euddraft (Ctrl+B)	euddraft로 프로젝트의 맵을 빌드합니다 (Ctrl+B)
+Could not read the project's 	프로젝트를 읽을 수 없습니다: 
+'s values	의 값
+'s values onto 	의 값을 다음에 적용: 
+ fields)	 필드)
+Reset 	초기화: 
+ to the game's values	 (게임 값으로)
+&Copy values\tCtrl+C	값 복사(&C)\tCtrl+C
+&Paste values	값 붙여넣기(&P)
+\tCtrl+V	\tCtrl+V
+&Reset to the game's values	게임 값으로 초기화(&R)
+&Copy 	복사(&C) 
+&Paste 	붙여넣기(&P) 
+&Reset to the game's value	게임 값으로 초기화(&R)
+ to the game's value	 (게임 값으로)
+(no title)	(제목 없음)
+   (not a title)	   (제목이 아님)
+= %g hit points	= 체력 %g
+= %g s (fastest)	= %g초 (가장 빠름)
+Search 	검색 
+Cloaked	클로킹
+Burrowed	버로우
+In transit	이동 중
+Hallucinated	환각
+Invincible	무적
+Owner	소유자
+ (neutral)	 (중립)
+Hit points %	체력 %
+Resources	자원
+Shields %	실드 %
+Hangar	격납고
+Energy %	에너지 %
+X (pixels)	X (픽셀)
+Y (pixels)	Y (픽셀)
+Edit unit type in Data (	데이터에서 유닛 종류 편집 (
+To edit unit types, use an EUD project (File > Project)	유닛 종류를 편집하려면 EUD 프로젝트를 사용하세요 (파일 > 프로젝트)
+ units selected. Changes apply to all of them.	 유닛이 선택되었습니다. 변경 사항은 모두에 적용됩니다.
+Unit 	유닛 
+  ·  serial 	  ·  일련번호 
+Unit properties	유닛 속성
+Left	왼쪽
+Top	위쪽
+Right	오른쪽
+Bottom	아래쪽
+Type a number in each edge	각 가장자리에 숫자를 입력하세요
+Right must be more than left	오른쪽은 왼쪽보다 커야 합니다
+Bottom must be more than top	아래쪽은 위쪽보다 커야 합니다
+ pixels  ·  	 픽셀  ·  
+Size	크기
+Inverted	반전
+No	아니요
+Left and right	왼쪽과 오른쪽
+Top and bottom	위쪽과 아래쪽
+Left and right, top and bottom	왼쪽과 오른쪽, 위쪽과 아래쪽
+Changed the location "	위치를 변경했습니다: "
+Could not change the location: 	위치를 변경할 수 없습니다: 
+Location properties	위치 속성
+Read only. StarCraft: Remastered does not use a change to this value.	읽기 전용입니다. StarCraft: Remastered는 이 값의 변경을 사용하지 않습니다.
+Read only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	이 사운드는 읽기 전용입니다. 게임은 맵의 코드가 실행되기 전에 Preload 플래그가 있는 사운드를 불러오므로, 파일을 변경해도 효과가 없습니다.
+Read only. StarDraft does not know where the game keeps this value.	읽기 전용입니다. StarDraft는 게임이 이 값을 어디에 보관하는지 알지 못합니다.
+* Needs verification	* 확인 필요
+1 tile: 32 x 32 px	1 타일: 32 x 32 px
+Drag to move the addon	끌어서 애드온을 이동합니다
+Drag to change the width. Hold Shift for single pixels.	끌어서 너비를 변경합니다. Shift를 누르면 픽셀 단위로 변경합니다.
+Drag to change the height. Hold Shift for single pixels.	끌어서 높이를 변경합니다. Shift를 누르면 픽셀 단위로 변경합니다.
+Drag to change the direction	끌어서 방향을 변경합니다
+Click for a random direction	클릭하면 무작위 방향이 됩니다
+Drag to change: 	끌어서 변경: 
+Drag to change the attack angle	끌어서 공격 각도를 변경합니다
+Drag to change the launch spin	끌어서 발사 회전을 변경합니다
+Drag to move the point where the graphic starts	끌어서 그래픽이 시작되는 지점을 이동합니다
+%d frames to top speed  ·  %.2f px/frame  ·  %d frames for 8 tiles	최고 속도까지 %d 프레임  ·  %.2f px/프레임  ·  8 타일에 %d 프레임
+turns back in a curve %.1f tiles wide, in %d frames	너비 %.1f 타일의 곡선으로 %d 프레임 동안 되돌아갑니다
+does not turn	회전하지 않음
+The path when the unit turns back at top speed	최고 속도에서 유닛이 되돌아갈 때의 경로
+The path of this unit when it moves right at top speed and turns back (a half turn). The ring is where it starts, the dot where it moves away. A larger Turn Radius turns faster: the curve is tighter.	이 유닛이 최고 속도로 오른쪽으로 이동하다가 되돌아갈 때(반 바퀴)의 경로입니다. 고리는 시작 지점이고, 점은 멀어지는 지점입니다. 회전 반경이 클수록 더 빨리 돕니다. 곡선이 더 좁아집니다.
+Init	초기화
+Death	죽음
+Ground attack	지상 공격
+Air attack	공중 공격
+Unused 1	미사용 1
+Ground attack repeat	지상 공격 반복
+Air attack repeat	공중 공격 반복
+Cast spell	주문 시전
+Ground attack end	지상 공격 종료
+Air attack end	공중 공격 종료
+Unused 2	미사용 2
+Walking	걷기
+Walking end	걷기 종료
+Special 1	특수 1
+Special 2	특수 2
+Almost built	거의 완성
+Built	완성
+Landing	착륙
+Lift-off	이륙
+Working	작동 중
+Working end	작동 종료
+Warp in	워프 인
+Unused 3	미사용 3
+Editor init	에디터 초기화
+Disable	비활성화
+Burrow	버로우
+Unburrow	언버로우
+Enable	활성화
+Drag to put a target. The image turns to it at the turn rate of its unit, as a turret does.	드래그하여 목표를 놓습니다. 이미지는 포탑처럼 유닛의 회전 속도로 목표를 향해 돕니다.
+Start again	다시 시작
+Play or pause	재생 또는 일시정지
+One game tick	게임 틱 1회
+Play on as a unit does: attacks repeat, and a script that waits for its order starts again	유닛처럼 계속 재생: 공격이 반복되고, 명령을 기다리는 스크립트가 다시 시작됩니다
+Sounds of the script: on or off	스크립트의 소리: 켜기 또는 끄기
+The code of the script: show or hide	스크립트의 코드: 표시 또는 숨기기
+frame %d  ·  tick %d%s	프레임 %d  ·  틱 %d%s
+  ·  end	  ·  끝
+Drag to turn the image. This removes the target.	드래그하여 이미지를 돌립니다. 목표가 제거됩니다.
+Could not play the sound	소리를 재생할 수 없습니다
+No sound device is available	사용할 수 있는 사운드 장치가 없습니다
+Pause	일시정지
+Play	재생
+Volume	볼륨
+The volume of every sound StarDraft plays (the next sound plays at it)	StarDraft가 재생하는 모든 소리의 볼륨 (다음 소리부터 적용됩니다)
+no file	파일 없음
+cannot read the file	파일을 읽을 수 없습니다
+Medium	중간
+%g per attack (%d hit%s). About %.1f per second.	공격당 %g (타격 %d회%s). 초당 약 %.1f.
+Less armor	방어력 낮음
+More armor	방어력 높음
+1 walk tile: 8 x 8 px	이동 타일 1칸: 8 x 8 px
+gap: %d x %d walk tiles	간격: 이동 타일 %d x %d칸
+Terrain stops the unit size at walk tiles (8 pixels). Going up or down, the unit needs a gap of %d walk tiles (%d pixels). Going left or right, %d (%d pixels).	지형은 이동 타일(8픽셀) 단위로 유닛 크기를 막습니다. 위나 아래로 가려면 유닛에 이동 타일 %d칸(%d픽셀)의 간격이 필요합니다. 왼쪽이나 오른쪽으로는 %d칸(%d픽셀)입니다.
+Iscript 	Iscript 
+Follow	따라가기
+Follow the instruction the player is on	플레이어가 있는 명령을 따라갑니다
+Go to the label	레이블로 이동
+Open it	열기
+Images	이미지
+Sounds	사운드
+Weapons	무기
+: open it	: 열기
+→ loops	→ 반복
+Frames and their waits (24 ticks a second). Yellow: a sound. Red: an attack. Click or drag to go to a tick.	프레임과 대기 시간 (초당 24틱). 노란색: 소리. 빨간색: 공격. 클릭하거나 드래그하여 틱으로 이동합니다.
+No portrait file	초상화 파일 없음
+The portrait's video cannot be read	초상화의 비디오를 읽을 수 없습니다
+Unit size	유닛 크기
+Placement box	배치 상자
+Addon position	애드온 위치
+Direction	방향
+Sight	시야
+Target acquisition	목표 탐지
+Ground weapon	지상 무기
+Air weapon	공중 무기
+Maximum range	최대 사거리
+Minimum range	최소 사거리
+Outer splash	바깥쪽 스플래시
+Medium splash	중간 스플래시
+Inner splash	안쪽 스플래시
+Attack angle	공격 각도
+Launch spin	발사 회전
+Start point	시작 지점
+does not move	움직이지 않음
+Top speed	최고 속도
+Acceleration	가속도
+Halt distance	정지 거리
+Turn radius	회전 반경
+Health bar	체력 바
+Selection circle	선택 원
+Players (the map's settings)	플레이어 (맵 설정)
+Can build	건설 가능
+Start level	시작 레벨
+Available	사용 가능
+Max level	최대 레벨
+Researched	연구 완료
+Yes	예
+A level from 0 to 255	0에서 255까지의 레벨
+Default	기본값
+On: this player has the default's values	켜짐: 이 플레이어는 기본값을 사용합니다
+Can the player build this unit	플레이어가 이 유닛을 건설할 수 있는지 여부
+Is the technology available to the player	플레이어가 이 기술을 사용할 수 있는지 여부
+Does the player start with it researched	플레이어가 연구를 완료한 상태로 시작하는지 여부
+Could not read the .dat file of the game	게임의 .dat 파일을 읽을 수 없습니다
+To edit .dat files, use an EUD project.\r\n\r\nFile > Project > New project makes one from the open map. File > Project > Open project opens one.	.dat 파일을 편집하려면 EUD 프로젝트를 사용하십시오.\r\n\r\n파일 > 프로젝트 > 새 프로젝트로 열린 맵에서 프로젝트를 만듭니다. 파일 > 프로젝트 > 프로젝트 열기로 프로젝트를 엽니다.
+.dat entry 	.dat 항목 
+Yes (	예 (
+not used by this entry	이 항목에서 사용하지 않음
+Not a number: 	숫자가 아님: 
+ (preview)	 (미리보기)
+References	참조
+Flingy	Flingy
+Upgrades	업그레이드
+Tech data	기술 데이터
+Orders	명령
+SFX data	SFX 데이터
+Port data	Port 데이터
+Showing changed 	변경된 항목 표시 중 
+Showing all 	모두 표시 중 
+Search units	유닛 검색
+Changed	변경됨
+Triggers are in the Triggers workspace of a project.	트리거는 프로젝트의 트리거 작업 공간에 있습니다.
+Not available yet: graphics, sounds, portraits and fonts that you import into the map.	아직 사용할 수 없음: 맵으로 가져오는 그래픽, 사운드, 초상화, 글꼴.
+Project: 	프로젝트: 
+No project is open. File > Project > New project makes one from the open map. File > Project > Open project opens one.	열린 프로젝트가 없습니다. 파일 > 프로젝트 > 새 프로젝트로 열린 맵에서 프로젝트를 만듭니다. 파일 > 프로젝트 > 프로젝트 열기로 프로젝트를 엽니다.
+Did not save the triggers: a newer StarDraft made triggers.json	트리거를 저장하지 않았습니다: 더 새로운 StarDraft가 triggers.json을 만들었습니다
+  (off)	  (꺼짐)
+Added a variable. Press F2 to rename it.	변수를 추가했습니다. F2를 눌러 이름을 바꿉니다.
+Added from a template: 	템플릿에서 추가함: 
+the folder "	폴더 "
+" and everything in it	" 및 그 안의 모든 항목
+the variable "	변수 "
+the trigger "	트리거 "
+Delete 	삭제: 
+Delete	삭제
+&Delete	삭제(&D)
+New &trigger	새 트리거(&T)
+New trigger from a te&mplate	템플릿에서 새 트리거(&M)
+New &folder	새 폴더(&F)
+New &variable	새 변수(&V)
+&Copy\tCtrl+C	복사(&C)\tCtrl+C
+Cu&t\tCtrl+X	잘라내기(&T)\tCtrl+X
+&Paste\tCtrl+V	붙여넣기(&P)\tCtrl+V
+&Rename\tF2	이름 바꾸기(&R)\tF2
+D&uplicate\tCtrl+D	복제(&U)\tCtrl+D
+Turn &off	끄기(&O)
+Turn &on	켜기(&O)
+De&lete\tDel	삭제(&L)\tDel
+Terran Marine	테란 마린
+Terran Marine (Custom Name)	테란 마린 (사용자 지정 이름)
+Custom Name (Terran Marine)	사용자 지정 이름 (테란 마린)
+Custom Name	사용자 지정 이름
+Unit names	유닛 이름
+a value of the property's type	속성 형식의 값
+Everything	전체
+Recent	최근
+Add a condition	조건 추가
+Add an action	액션 추가
+Search conditions	조건 검색
+Search actions	액션 검색
+Add condition	조건 추가
+Add action	액션 추가
+ (Player 	 (플레이어 
+unit #	유닛 #
+ (gone from the map)	 (맵에서 사라짐)
+Any unit	모든 유닛
+Men	인간형
+Buildings	건물
+Factories	생산 건물
+unit type #	유닛 종류 #
+(unit type)	(유닛 종류)
+(location)	(위치)
+(a property)	(속성)
+Switch 	스위치 
+(text)	(텍스트)
+(a unit)	(유닛)
+(a variable)	(변수)
+(a sound)	(사운드)
+(a trigger)	(트리거)
+(code)	(코드)
+(a button)	(버튼)
+(game text)	(게임 텍스트)
+(button)	(버튼)
+a new button	새 버튼
+unknown value 	알 수 없는 값 
+missing value	값 없음
+Turn off	끄기
+Turn on	켜기
+Duplicate	복제
+Unknown block: 	알 수 없는 블록: 
+Kind	종류
+ items (0 to 	 항목 (0에서 
+Default value	기본값
+Room for	공간:
+Value	값
+Maximum length	최대 길이
+Text	텍스트
+Description	설명
+Zoom 100%	확대 100%
+Variables, and triggers that Run a trigger runs	변수, 그리고 트리거 실행 블록이 실행하는 트리거
+These triggers run once, when the map starts	이 트리거는 맵이 시작될 때 한 번 실행됩니다
+These triggers run each trigger cycle while the game runs	이 트리거는 게임이 실행되는 동안 트리거 주기마다 실행됩니다
+A folder in 	폴더 위치: 
+New trigger	새 트리거
+From a template…	템플릿에서…
+New folder	새 폴더
+New variable	새 변수
+Triggers belong to an EUD project	트리거는 EUD 프로젝트에 속합니다
+⏱ about 	⏱ 약 
+ actions each run	 액션을 매번 실행
+Conditions	조건
+Actions	액션
+Use only letters, digits and _ in a variable name. Not accepted: 	변수 이름에는 문자, 숫자, _만 사용하십시오. 허용되지 않음: 
+ was not taken	 사용할 수 없습니다
+There is already a variable with the name 	이미 이름이 같은 변수가 있습니다: 
+Renamed the variable and 	변수 이름을 바꿨고 
+ uses of it	 곳의 사용처도 바꿨습니다
+Renamed the trigger and 	트리거 이름을 바꿨고 
+ Run a trigger blocks	 개의 트리거 실행 블록도 바꿨습니다
+Redo	다시 실행
+Undo	실행 취소
+Add a &condition…	조건 추가(&C)…
+Add an &action…	액션 추가(&A)…
+Add to 	추가: 
+&Unfold	펼치기(&U)
+&Fold	접기(&F)
+Move &up\tAlt+Up	위로 이동(&U)\tAlt+Up
+Move &down\tAlt+Down	아래로 이동(&D)\tAlt+Down
+Turn o&ff	끄기(&F)
+Show the &code	코드 표시(&C)
+Click the unit to use. Esc goes back to the triggers.	사용할 유닛을 클릭합니다. Esc를 누르면 트리거로 돌아갑니다.
+There is no unit there. Click a unit, or press Esc to go back.	그 위치에 유닛이 없습니다. 유닛을 클릭하거나 Esc를 눌러 돌아갑니다.
+Variables	변수
+Search values from the game	게임의 값 검색
+Another value from the game…	게임의 다른 값…
+A number or variable instead…	숫자 또는 변수 사용…
+" has no clear type yet (	"의 형식이 아직 명확하지 않습니다 (
+). Type it as a number.	). 숫자로 입력합니다.
+Search: game text (or a variable)	검색: 게임 텍스트 (또는 변수)
+Buttons of 	버튼: 
++ A new button	+ 새 버튼
+Buttons	버튼
+Search: button	검색: 버튼
+Advanced (eudplib names)	고급 (eudplib 이름)
+Search the 	검색: 
+'s properties	의 속성
+All, by number	전체, 번호순
+Search: 	검색: 
+ (or a variable)	 (또는 변수)
+On a specific line	특정 줄
+line 12 (center of the screen)	12번째 줄 (화면 가운데)
+Type a number or an expression…	숫자 또는 식을 입력…
+A value from the game…	게임의 값…
+Groups	그룹
+Search unit types	유닛 종류 검색
+Search the map's locations	맵의 위치 검색
+Switch number	스위치 번호
+Sounds in the map	맵의 사운드
+The map has no sounds. Type the path of a sound.	맵에 사운드가 없습니다. 사운드 경로를 입력합니다.
+Search the map's sounds	맵의 사운드 검색
+There is no variable of this kind. Right-click Definitions, then New variable.	이 종류의 변수가 없습니다. 정의를 오른쪽 클릭한 다음 새 변수를 선택합니다.
+Search variables	변수 검색
+Definitions	정의
+There are no triggers in Definitions. Right-click Definitions, then New trigger.	정의에 트리거가 없습니다. 정의를 오른쪽 클릭한 다음 새 트리거를 선택합니다.
+Search triggers	트리거 검색
+the unit	그 유닛
+For each unit	각 유닛마다
+the next created unit	다음에 생성된 유닛
+Created	생성됨
+Unit variables	유닛 변수
+Select on the map…	맵에서 선택…
+One unit	유닛 하나
+Type a number of seconds, for example 2.5	초 단위 숫자를 입력합니다. 예: 2.5
+epScript, used as written.	epScript, 쓴 그대로 사용됩니다.
+The path of a sound file in the map (sound\\…\\name.wav)	맵 안의 사운드 파일 경로 (sound\\…\\name.wav)
+Build makes sure that this file is in the map	빌드할 때 이 파일이 맵에 들어갑니다
+a number or a constant here	여기에는 숫자 또는 상수
+a plain number here	여기에는 일반 숫자
+Worked out while the game runs.	게임이 실행되는 동안 계산됩니다.
+Use a value from 	다음의 값을 사용: 
+%.2g seconds	%.2g초
+ at Fastest (24 frames a second)	 (최고속 기준, 초당 24프레임)
+ of game time	 (게임 시간)
+0 means all of them	0은 전부를 뜻합니다
+the game keeps it as 	게임에서의 저장 형태: 
+current player	현재 플레이어
+Loop	반복
+  ·  out of range	  ·  범위 밖
+per player	플레이어별
+list of 	목록: 
+Constants	상수
+No variables	변수 없음
+No match	일치하는 항목 없음
+  (set while the game runs)	  (게임이 실행되는 동안 설정됨)
+Use default	기본값 사용
+Yellow	노랑
+White	흰색
+Gray	회색
+Red	빨강
+Green	초록
+Red (Player 1)	빨강 (플레이어 1)
+Blue (Player 2)	파랑 (플레이어 2)
+Teal (Player 3)	청록 (플레이어 3)
+Purple (Player 4)	보라 (플레이어 4)
+Orange (Player 5)	주황 (플레이어 5)
+Brown (Player 6)	갈색 (플레이어 6)
+White (Player 7)	흰색 (플레이어 7)
+Yellow (Player 8)	노랑 (플레이어 8)
+Green (Player 9)	초록 (플레이어 9)
+Brighter yellow (Player 10)	밝은 노랑 (플레이어 10)
+Pinkish (Player 11)	분홍빛 (플레이어 11)
+Dark cyan (Player 12)	진한 청록 (플레이어 12)
+Gray-green	회녹색
+Blue-gray	청회색
+Turquoise	터콰이즈
+A player's color (as the game shows that player's color)	플레이어의 색상 (게임에서 해당 플레이어의 색상으로 표시됨)
+'s name	의 이름
+game text 	게임 텍스트 
+HEX	HEX
+text (EPD)	텍스트 (EPD)
+align right	오른쪽 정렬
+align center	가운데 정렬
+code %02X	코드 %02X
+the current player	현재 플레이어
+Whose color	누구의 색상
+This loop	이 반복
+Texts	텍스트
+the current player's name	현재 플레이어의 이름
+Players	플레이어
+A text of the game…	게임의 텍스트…
+A calculation…	계산식…
+Calculations	계산식
+Insert value	값 삽입
+A calculation   for example gold * 2 + 1	계산식   예: gold * 2 + 1
+Search: a text of the game	검색: 게임의 텍스트
+Show as 	표시 형식: 
+Show as	표시 형식
+Remove	제거
+Change the value…	값 변경…
+A value in the text	텍스트 안의 값
+Visual	비주얼
+Raw	원시
+From the game…	게임에서…
+Insert value ▾	값 삽입 ▾
+No clear type yet (	아직 명확한 종류 없음 (
+First, select the list. Then the index has its range.	먼저 목록을 선택합니다. 그러면 인덱스의 범위가 정해집니다.
+Which item of 	어느 항목: 
+  (0 to 	  (0 ~ 
+Other…	기타…
+A variable or number	변수 또는 숫자
+Which player	어느 플레이어
+Which player of 	어느 플레이어: 
+  (0 to 7: Player 1 is 0)	  (0 ~ 7: 플레이어 1은 0)
+Text   @ puts in a value. Click a value to change it.	텍스트   @ 는 값을 넣습니다. 값을 클릭하면 변경할 수 있습니다.
+Name   letters, digits and _	이름   문자, 숫자, _
+Templates	템플릿
+Select another unit on the map…	맵에서 다른 유닛 선택…
+No unit (empty)	유닛 없음 (비어 있음)
+Maximum length (letters)   1 to 	최대 길이 (글자 수)   1 ~ 
+The text cannot hold more. Each text variable uses this much room in the map.	텍스트에 더 넣을 수 없습니다. 텍스트 변수마다 맵에서 이만큼의 공간을 차지합니다.
+Room for (units)   1 to 1700	공간 (유닛 수)   1 ~ 1700
+Size   1 to 4096	크기   1 ~ 4096
+Default value of each item	각 항목의 기본값
+   1 on, 0 off	   1은 켜짐, 0은 꺼짐
+Zoom 	확대 
+% (Ctrl+0 resets it)	% (Ctrl+0으로 초기화)
+&Copy all	모두 복사(&C)
+Select &all\tCtrl+A	모두 선택(&A)\tCtrl+A
+Cut 	잘라내기 
+Duplicated	복제됨
+Pasted	붙여넣음
+This project's map has no classic triggers. Use the Triggers workspace.	이 프로젝트의 맵에는 클래식 트리거가 없습니다. 트리거 작업 공간을 사용합니다.
+The map's Data page is for classic maps. In a project, use the Data workspace.	맵의 데이터 페이지는 클래식 맵용입니다. 프로젝트에서는 데이터 작업 공간을 사용합니다.
+This tab is a classic map. Data, Triggers and Project need a project. File > Project > Make this map a project makes one.	이 탭은 클래식 맵입니다. 데이터, 트리거, 프로젝트는 프로젝트가 필요합니다. 파일 > 프로젝트 > 이 맵을 프로젝트로 만들기를 선택하면 프로젝트가 만들어집니다.
+Let go: no change	놓으면 변경 없음
+ unit (	 유닛 (
+ units (	 유닛 (
+, Player 	, 플레이어 
+ doodad (	 장식물 (
+ doodads (	 장식물 (
+ sprite (	 스프라이트 (
+ sprites (	 스프라이트 (
+&Replace with…	바꾸기(&R)…
+Convert to t&errain	지형으로 변환(&E)
+Select all of this t&ype	같은 종류 모두 선택(&Y)
+Select all of this type for Player 	플레이어 가 소유한 같은 종류 모두 선택 
+&Select (no placing)\tEsc	선택(&S) (배치 안 함)\tEsc
+P&roperties…	속성(&R)…
+: select	: 선택
+Converted 	변환됨: 
+ to terrain	 을(를) 지형으로
+Cleared the selection	선택을 해제했습니다
+Painted the terrain and removed 	지형을 칠하고 그 위에 남을 수 없는 
+ that cannot stay on it	 을(를) 제거했습니다
+Brush size %g	브러시 크기 %g
+Turned the terrain; its 	지형을 회전했습니다. 그 
+ doodads cannot turn, so they are not included	 장식물은 회전할 수 없어서 포함되지 않습니다
+Turned the terrain (R turns clockwise, Shift+R turns back)	지형을 회전했습니다 (R은 시계 방향, Shift+R은 반대 방향)
+Select: drag a rectangle of tiles to copy (Ctrl+C). Esc comes back here.	선택: 복사(Ctrl+C)할 타일 영역을 드래그합니다. Esc를 누르면 여기로 돌아옵니다.
+Brush: place the tile selected in the Tiles list, with the brush's size and shape	브러시: 타일 목록에서 선택한 타일을 브러시의 크기와 모양으로 배치합니다
+Spray: the tile at random places in the brush (Density). Hold the button to spray more.	스프레이: 브러시 안의 무작위 위치에 타일을 놓습니다 (밀도). 버튼을 누르고 있으면 더 뿌립니다.
+Fill: the connected tiles of one value. Shift+click: every tile of that value (in the selection, if there is one).	채우기: 같은 값으로 이어진 타일. Shift+클릭: 그 값의 모든 타일 (선택 영역이 있으면 그 안에서).
+Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc comes back here.	선택: 복사(Ctrl+C) 또는 이동할 지형 영역을 드래그합니다. Esc를 누르면 여기로 돌아옵니다.
+Brush: paint the terrain selected in the list	브러시: 목록에서 선택한 지형을 칠합니다
+Spray: random dabs of the terrain (Density). Hold the button to spray more.	스프레이: 지형을 무작위로 흩뿌립니다 (밀도). 버튼을 누르고 있으면 더 뿌립니다.
+Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one).	채우기: 같은 지형으로 이어진 영역. Shift+클릭: 그 지형의 모든 곳 (선택 영역이 있으면 그 안에서).
+Select units: click or drag a box; drag them to move. Esc comes back here.	유닛 선택: 클릭하거나 상자를 드래그합니다. 드래그하면 이동합니다. Esc를 누르면 여기로 돌아옵니다.
+Place the unit selected in the list	목록에서 선택한 유닛을 배치합니다
+Spray: random units of the selected kinds (Density). Hold the button to spray more.	스프레이: 선택한 종류의 유닛을 무작위로 놓습니다 (밀도). 버튼을 누르고 있으면 더 뿌립니다.
+Select a doodad: click it; drag it to move. Esc comes back here.	장식물 선택: 클릭하면 선택되고 드래그하면 이동합니다. Esc를 누르면 여기로 돌아옵니다.
+Place the doodads selected in the list	목록에서 선택한 장식물을 배치합니다
+Spray: random doodads of the selected kinds (Density). Hold the button to spray more.	스프레이: 선택한 종류의 장식물을 무작위로 놓습니다 (밀도). 버튼을 누르고 있으면 더 뿌립니다.
+Select a sprite: click it; drag it to move. Esc comes back here.	스프라이트 선택: 클릭하면 선택되고 드래그하면 이동합니다. Esc를 누르면 여기로 돌아옵니다.
+Place the sprites selected in the list (several: each one at random); drag to place more	목록에서 선택한 스프라이트를 배치합니다 (여러 개: 각각 무작위로). 드래그하면 더 배치합니다
+Spray: random sprites of the selected kinds (Density). Hold the button to spray more.	스프레이: 선택한 종류의 스프라이트를 무작위로 놓습니다 (밀도). 버튼을 누르고 있으면 더 뿌립니다.
+Select, move and resize locations; drag on empty ground to make one	위치를 선택, 이동, 크기 조절합니다. 빈 땅에서 드래그하면 새 위치를 만듭니다
+Rectangle: the tools place tiles as they are. Select a tile in the Tiles list.	사각형: 도구가 타일을 그대로 배치합니다. 타일 목록에서 타일을 선택합니다.
+Isometric: the tools paint terrains and correct the edges between them	아이소메트릭: 도구가 지형을 칠하고 지형 사이의 가장자리를 보정합니다
+Isometric	아이소메트릭
+Isometric: paint terrains, with the edges corrected	아이소메트릭: 가장자리를 보정하며 지형을 칠합니다
+Rectangle	사각형
+Rectangle: place tiles as they are (no terrain correction)	사각형: 타일을 그대로 배치합니다 (지형 보정 없음)
+Select what to place in the list	목록에서 배치할 것을 선택합니다
+Brush shape: diamond	브러시 모양: 마름모
+Brush shape: square	브러시 모양: 사각형
+Brush shape: circle	브러시 모양: 원
+One step more	한 단계 늘리기
+One step less	한 단계 줄이기
+Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).	브러시 크기: 1 ~ 32. 클릭하여 크기를 입력합니다. - 와 + 및 마우스 휠로 변경합니다 (지도에서는 Alt+휠도 가능).
+Density	밀도
+Density: the number of dabs (Rectangle: tiles) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it.	밀도: 스프레이 한 번에 놓이는 점의 수 (사각형: 타일 수), 1 ~ 50. 클릭하여 숫자를 입력합니다. - 와 + 및 마우스 휠로 변경합니다.
+Density: the number of units each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	밀도: 스프레이 한 번에 놓이는 유닛의 수 (들어갈 수 있는 곳에), 1 ~ 50. 클릭하여 숫자를 입력합니다. - 와 + 및 마우스 휠로 변경합니다.
+Density: the number of doodads each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	밀도: 스프레이 한 번에 놓이는 장식물의 수 (들어갈 수 있는 곳에), 1 ~ 50. 클릭하여 숫자를 입력합니다. - 와 + 및 마우스 휠로 변경합니다.
+No symmetry	대칭 없음
+Mirror left and right	좌우 대칭
+Mirror top and bottom	상하 대칭
+Mirror across the diagonal	대각선 대칭
+Mirror across the other diagonal	다른 대각선 대칭
+Turn a half turn	180도 회전
+Turn in quarter turns (4 ways)	90도 단위 회전 (4방향)
+. Right-click: move it to the other side.	. 오른쪽 클릭: 반대쪽으로 이동합니다.
+ panel on the 	 패널, 위치: 
+New project (Ctrl+N)	새 프로젝트 (Ctrl+N)
+Open (Ctrl+O)	열기 (Ctrl+O)
+Save (Ctrl+S)	저장 (Ctrl+S)
+Undo (Ctrl+Z)	실행 취소 (Ctrl+Z)
+Redo (Ctrl+Y)	다시 실행 (Ctrl+Y)
+Cut (Ctrl+X)	잘라내기 (Ctrl+X)
+Copy (Ctrl+C)	복사 (Ctrl+C)
+Paste (Ctrl+V)	붙여넣기 (Ctrl+V)
+Delete (Del)	삭제 (Del)
+Quick search: find the mode's units, terrains, doodads, sprites or locations (Q)	빠른 검색: 모드의 유닛, 지형, 장식물, 스프라이트 또는 위치를 찾습니다 (Q)
+Report feedback	피드백 보내기
+Report feedback: what works, what does not, ideas	피드백 보내기: 잘 되는 것, 안 되는 것, 아이디어
+Building	빌드 중
+Build the project's map with euddraft (Ctrl+B)	euddraft로 프로젝트 맵을 빌드합니다 (Ctrl+B)
+Debug mode off: Build makes the map to release	디버그 모드 끔: 빌드하면 배포용 맵이 만들어집니다
+Debug mode on: Build adds index checks and the trace for epTrace	디버그 모드 켬: 빌드에 인덱스 검사와 epTrace용 추적이 추가됩니다
+Debug mode is on: Build adds index checks and the trace for epTrace (turn it off for the map that you release)	디버그 모드가 켜져 있습니다: 빌드에 인덱스 검사와 epTrace용 추적이 추가됩니다 (배포할 맵은 끄십시오)
+Debug mode: Build adds index checks and the trace for epTrace (Project page > Build)	디버그 모드: 빌드에 인덱스 검사와 epTrace용 추적이 추가됩니다 (프로젝트 페이지 > 빌드)
+&New EUD project\tCtrl+Shift+N	새 EUD 프로젝트(&N)\tCtrl+Shift+N
+&Open project…\tCtrl+Shift+O	프로젝트 열기(&O)…\tCtrl+Shift+O
+&Make this map a project…	이 맵을 프로젝트로 만들기(&M)…
+&Build\tCtrl+B	빌드(&B)\tCtrl+B
+&Add script…	스크립트 추가(&A)…
+Open project &folder	프로젝트 폴더 열기(&F)
+Project &settings	프로젝트 설정(&S)
+&New project\tCtrl+N	새 프로젝트(&N)\tCtrl+N
+&Open…\tCtrl+O	열기(&O)…\tCtrl+O
+Recent &maps	최근 맵(&M)
+Recent pro&jects	최근 프로젝트(&J)
+&Project	프로젝트(&P)
+&Save\tCtrl+S	저장(&S)\tCtrl+S
+Save &as…\tCtrl+Shift+S	다른 이름으로 저장(&A)…\tCtrl+Shift+S
+&Close\tCtrl+W	닫기(&C)\tCtrl+W
+Close a&ll\tCtrl+Shift+W	모두 닫기(&L)\tCtrl+Shift+W
+E&xit	종료(&X)
+&Undo\tCtrl+Z	실행 취소(&U)\tCtrl+Z
+&Redo\tCtrl+Y	다시 실행(&R)\tCtrl+Y
+&Duplicate\tCtrl+D	복제(&D)\tCtrl+D
+&Quick picker (units; in Data, any entry)…\tQ	빠른 선택(&Q) (유닛, 데이터에서는 모든 항목)…\tQ
+Re&name location\tF2	위치 이름 변경(&N)\tF2
+&High definition (2x, default)	고해상도(&H) (2x, 기본값)
+High definition (&4x)	고해상도 (4x)(&4)
+&Standard definition	표준 해상도(&S)
+&Carbot (cartooned)	카툰 (Carbot)(&C)
+Show &locations	위치 표시(&L)
+Show &grid\tG	격자 표시(&G)\tG
+ pixels)	 픽셀)
+&Custom…	사용자 지정(&C)…
+Grid si&ze	격자 크기(&Z)
+Show town a&reas	마을 영역 표시(&A)
+Zoom &in\t+	확대(&I)\t+
+Zoom &out\t-	축소(&O)\t-
+&Actual size\tCtrl+0	실제 크기(&A)\tCtrl+0
+&Fit map\tCtrl+F	맵에 맞추기(&F)\tCtrl+F
+&Log\tCtrl+L	로그(&L)\tCtrl+L
+Trigger &code pane	트리거 코드 창(&C)
+Control &kit	컨트롤 키트(&K)
+&Map workspace\tCtrl+1	맵 작업 공간(&M)\tCtrl+1
+&Data workspace\tCtrl+2	데이터 작업 공간(&D)\tCtrl+2
+&Triggers workspace\tCtrl+3	트리거 작업 공간(&T)\tCtrl+3
+&Briefing workspace\tCtrl+4	브리핑 작업 공간(&B)\tCtrl+4
+&Assets workspace\tCtrl+5	에셋 작업 공간(&A)\tCtrl+5
+&Project page\tCtrl+6	프로젝트 페이지(&P)\tCtrl+6
+&Terrain\tT	지형(&T)\tT
+&Units\tU	유닛(&U)\tU
+&Doodads\tD	장식물(&D)\tD
+&Sprites\tS	스프라이트(&S)\tS
+&Locations\tL	위치(&L)\tL
+&File	파일(&F)
+&Edit	편집(&E)
+&View	보기(&V)
+&Mode	모드(&M)
+&Map properties (title, size, tileset)\tCtrl+M	맵 속성 (제목, 크기, 타일셋)(&M)\tCtrl+M
+&Players and forces\tCtrl+P	플레이어와 포스(&P)\tCtrl+P
+Classic &triggers	클래식 트리거(&T)
+&Check that StarCraft can start the map	스타크래프트가 맵을 시작할 수 있는지 확인(&C)
+&Scenario	시나리오(&S)
+&Do not snap	맞춤 안 함(&D)
+Snap to &tiles (32 px)	타일에 맞춤 (32 px)(&T)
+Snap to &half tiles (16 px)	반 타일에 맞춤 (16 px)(&H)
+Snap to &quarter tiles (8 px)	1/4 타일에 맞춤 (8 px)(&Q)
+Place &only where it fits	들어맞는 곳에만 배치(&O)
+&Move to the nearest place where it fits	들어맞는 가장 가까운 곳으로 이동(&M)
+Place &anywhere	어디든 배치(&A)
+&Can be on top of others	다른 것 위에 놓을 수 있음(&C)
+Dragged units go &back to the last place where they fit	끌어온 유닛은 마지막으로 들어맞은 곳으로 돌아감(&B)
+Snap to tiles (32 px): always, a doodad is made of tiles	타일에 맞춤 (32 px): 항상, 장식물은 타일로 이루어져 있습니다
+Can be on top of others: no, a doodad replaces the tiles under it	다른 것 위에 놓을 수 있음: 아니요, 장식물은 아래의 타일을 대체합니다
+Place anywhere: always	어디든 배치: 항상
+Can be on top of others: always	다른 것 위에 놓을 수 있음: 항상
+&Names in lines that fit in the location	위치에 들어가는 줄로 이름 표시(&N)
+&Units	유닛(&U)
+&Doodads	장식물(&D)
+&Sprites	스프라이트(&S)
+&Locations	위치(&L)
+Terrain copy includes u&nits	지형 복사에 유닛 포함(&N)
+Terrain copy includes d&oodads	지형 복사에 장식물 포함(&O)
+&Program options…\tCtrl+,	프로그램 옵션(&P)…\tCtrl+,
+&Options	옵션(&O)
+Report &feedback…	피드백 보내기(&F)…
+Report an &issue on GitHub	GitHub에 문제 보고(&I)
+Join &Discord	Discord 참여(&D)
+StarDraft on &GitHub	GitHub의 StarDraft(&G)
+Check for &updates	업데이트 확인(&U)
+&About StarDraft	StarDraft 정보(&A)
+&Help	도움말(&H)
+A newer release is available: 	새 릴리스가 있습니다: 
+. Use Help > Check for updates.	. 도움말 > 업데이트 확인을 사용하십시오.
+Sent the feedback as #	피드백을 #
+. Thank you.	번으로 보냈습니다. 감사합니다.
+Sent the feedback. Thank you.	피드백을 보냈습니다. 감사합니다.
+This build cannot send feedback. The feedback is in 	이 빌드는 피드백을 보낼 수 없습니다. 피드백은 다음 위치에 있습니다: 
+StarDraft cannot send the feedback now. It sends it at the next start.	StarDraft가 지금 피드백을 보낼 수 없습니다. 다음 시작 때 보냅니다.
+Minimap	미니맵
+Density: low	밀도: 낮음
+Density: medium	밀도: 중간
+Density: high	밀도: 높음
+Size %d	크기 %d
+Filter	필터
+Search	검색
+View ▾	보기 ▾
+Map data	맵 데이터
+Could not start the GPU renderer	GPU 렌더러를 시작할 수 없습니다
+Terran Marine (Space Marine)	테란 마린 (스페이스 마린)
+Space Marine (Terran Marine)	스페이스 마린 (테란 마린)
+Space Marine	스페이스 마린
+Player &1	플레이어 &1
+Player &2	플레이어 &2
+&Show the grid	격자 표시(&S)
+&Owner	소유자(&O)
+Player 1	플레이어 1
+Player 2	플레이어 2
+Player 3	플레이어 3
+All players	모든 플레이어
+Force 1	포스 1
+Force 2	포스 2
+Player	플레이어
+Test	테스트
+Save changes to the map? This text is long, so that it wraps to a second line in the box.	맵의 변경 내용을 저장하시겠습니까? 이 텍스트는 길어서 상자 안에서 두 번째 줄로 넘어갑니다.
+Message box test	메시지 상자 테스트
+Icon	아이콘
+rounds[0]	rounds[0]
+terran marine	테란 마린
+kills of	다음의 킬 수:
+player 2	플레이어 2
+Resized by the test	테스트로 크기가 바뀌었습니다
+Test Marine	테스트 마린
+The marine icon is a bit blurry.\r\nSecond line.	마린 아이콘이 약간 흐릿합니다.\r\n둘째 줄.
+Marine	마린
+const a = 1;\r\nconst b = a + 2;\r\nsimpleprint(b);	const a = 1;\r\nconst b = a + 2;\r\nsimpleprint(b);
+mouse move	마우스 이동
+the map's frame	맵의 프레임
+Slow frame: 	느린 프레임: 
+A map creation tool for EUD-powered maps for StarCraft: Remastered	스타크래프트 리마스터용 EUD 맵을 만드는 맵 제작 도구
+Named in tribute to the original StarDraft by Camelot Systems.	Camelot Systems의 원조 StarDraft에 경의를 표하여 이름을 지었습니다.
+GitHub: github.com/stardraft-editor/stardraft	GitHub: github.com/stardraft-editor/stardraft
+Join the Discord server	Discord 서버 참여
+Close	닫기
+About StarDraft	StarDraft 정보
+Force 	포스 
+Nobody	없음
+First, select the players of the briefing	먼저 브리핑 대상 플레이어를 선택하십시오
+No action	동작 없음
+Wait	대기
+Play sound	소리 재생
+Text message	텍스트 메시지
+Mission objectives	임무 목표
+Show portrait	초상화 표시
+Hide portrait	초상화 숨기기
+Talking portrait	말하는 초상화
+Transmission	전송
+Skip tutorial enabled	튜토리얼 건너뛰기 사용
+Unknown	알 수 없음
+Slot 	슬롯 
+Objectives	목표
+No text at this time	이 시점에 텍스트 없음
+Click or drag to go to a time	클릭하거나 끌어서 시간으로 이동
+Slot	슬롯
+Edit the text under the list (with its colors)	목록 아래의 텍스트 편집 (색상 포함)
+(a WAV file)	(WAV 파일)
+A sound of the map, or of the game (by its path)	맵 또는 게임의 소리 (경로로 지정)
+ seconds long	 초 길이
+Pause for	대기:
+Pause for (seconds)	대기 (초)
+for current player.	현재 플레이어용.
+Display the following text for	다음 텍스트 표시:
+Display the text for (seconds)	텍스트 표시 (초)
+Set Mission Objectives for current player to:	현재 플레이어의 임무 목표를 다음으로 설정:
+Show portrait of	초상화 표시:
+in slot	슬롯:
+Hide portrait in slot	초상화 숨기기, 슬롯:
+Show speaking animation for	말하는 애니메이션 표시:
+Speaking animation for (seconds)	말하는 애니메이션 (초)
+. Play	. 재생
+. Modify transmission duration:	. 전송 시간 수정:
+Set	설정
+Add	더하기
+Subtract	빼기
+Transmission duration	전송 시간
+Set: the duration is the time. Add, Subtract: the WAV file's length plus or minus the time.	설정: 시간이 곧 전송 시간입니다. 더하기, 빼기: WAV 파일의 길이에 시간을 더하거나 뺍니다.
+Transmission duration (seconds)	전송 시간 (초)
+seconds. Display the following text:	초. 다음 텍스트 표시:
+Enable Skip Tutorial button.	튜토리얼 건너뛰기 버튼을 활성화합니다.
+New briefing	새 브리핑
+A briefing for other players: its own actions	다른 플레이어용 브리핑: 고유한 동작
+Delete the briefing for 	다음 브리핑 삭제: 
+Delete briefing	브리핑 삭제
+Delete it and its actions	브리핑과 동작 삭제
+For	대상:
+A briefing for these players is there already: the two are now one	이 플레이어들의 브리핑이 이미 있습니다. 두 브리핑이 하나가 되었습니다
+Every player	모든 플레이어
+The players of this force	이 포스의 플레이어들
+Duplicate (Ctrl+D)	복제 (Ctrl+D)
+This briefing has no actions. Add actions to show text, portraits and sounds before the game starts.	이 브리핑에는 동작이 없습니다. 게임 시작 전에 텍스트, 초상화, 소리를 표시하는 동작을 추가하십시오.
+Action	동작
+Preview as	미리 보기 대상
+Preview as this player: their own briefing, the group's and all players'	이 플레이어로 미리 보기: 해당 플레이어의 브리핑, 그룹 브리핑, 모든 플레이어 브리핑
+From the start	처음부터
+Pause (Space)	일시 정지 (Space)
+Play (Space)	재생 (Space)
+Technologies	기술
+Hit points	체력
+Shields	실드
+Armor	방어력
+Build time	생산 시간
+Minerals	미네랄
+Gas	가스
+Minerals per level	레벨당 미네랄
+Gas per level	레벨당 가스
+Time	시간
+Time per level	레벨당 시간
+Energy	에너지
+Weapon	무기
+Damage	대미지
+Bonus	보너스
+Map data: no change	맵 데이터: 변경 없음
+Set the map data	맵 데이터 설정
+No sound	소리 없음
+ (EUD value)	 (EUD 값)
+To player	대상 플레이어
+Destination	목적지
+Duration (ms)	지속 시간 (ms)
+Comparison	비교
+Number	숫자
+Unit	유닛
+Resource	자원
+Score	점수
+Switch	스위치
+State	상태
+Modifier	수정자
+Sound	소리
+Time (ms)	시간 (ms)
+Seconds	초
+Count (0: all)	개수 (0: 전체)
+AI script	AI 스크립트
+Order	명령
+Status	상태
+Percent	퍼센트
+Condition 	조건 
+Action 	액션 
+Type 	종류 
+ (not a game type)	 (게임 종류 아님)
+Copied the trigger	트리거를 복사했습니다
+Copied the action	액션을 복사했습니다
+Copied the condition	조건을 복사했습니다
+Pasted the trigger	트리거를 붙여넣었습니다
+The list is full	목록이 가득 찼습니다
+Pasted the action	액션을 붙여넣었습니다
+Pasted the condition	조건을 붙여넣었습니다
+  EUD	  EUD
+No players	플레이어 없음
+Add a trigger	트리거 추가
+Add a trigger after the selected one	선택한 트리거 뒤에 트리거 추가
+Always show	항상 표시
+Show the triggers of	표시할 트리거:
+All triggers	모든 트리거
+The project's map has these classic triggers. The built map keeps them; they run with the project's triggers.	프로젝트의 맵에 이 클래식 트리거가 있습니다. 빌드한 맵은 이를 유지하며, 프로젝트의 트리거와 함께 실행됩니다.
+ conditions and actions have EUD values. They stay as they are.	 조건과 액션에 EUD 값이 있습니다. 그대로 유지됩니다.
+Classic triggers: no change	클래식 트리거: 변경 없음
+Set the classic triggers	클래식 트리거 설정
+Hello from StarDraft	StarDraft에서 안녕하세요
+the menu item 	메뉴 항목 
+the menu item Copy	메뉴 항목 복사
+StarDraft stopped because of an error. The crash report is in 	StarDraft가 오류로 중단되었습니다. 충돌 보고서 위치: 
+ (crash reports are off).	 (충돌 보고서 꺼짐).
+StarDraft stopped	StarDraft 중단됨
+" --send-crash "	" --send-crash "
+StarDraft stopped because of an error. StarDraft sends a crash report to the developers so that they can repair the error.	StarDraft가 오류로 중단되었습니다. 개발자가 오류를 수정할 수 있도록 StarDraft가 충돌 보고서를 보냅니다.
+Authorization: Bearer 	Authorization: Bearer 
+\r\nAccept: application/vnd.github+json\r\nContent-Type: application/json\r\n	\r\nAccept: application/vnd.github+json\r\nContent-Type: application/json\r\n
+Could not read 	읽을 수 없습니다: 
+Strings	문자열
+button set	버튼 세트
+Button set 	버튼 세트 
+%zu / %zu bytes	%zu / %zu bytes
+. Too much: Build stops.	. 너무 큼: 빌드가 중단됩니다.
+Must have	필수
+End of the level's list	레벨 목록의 끝
+Step 0x	단계 0x
+Step	단계
+Requirements to make	생산 요건
+Requirements to research	연구 요건
+Requirements to use	사용 요건
+Requirements	요건
+Use	사용
+The game's list	게임의 목록
+Always	항상
+Nothing is needed: an empty list	필요한 것 없음: 빈 목록
+Disabled	사용 안 함
+No list: the entry's offset is 0, as EUD Editor's "Do not use". Not checked in the game yet.	목록 없음: 항목의 오프셋은 EUD Editor의 "Do not use"처럼 0입니다. 게임에서는 아직 확인하지 않았습니다.
+Custom	사용자 지정
+Your own steps. Change a step below, or click here to start from the game's list.	직접 만든 단계입니다. 아래에서 단계를 바꾸거나, 여기를 클릭하면 게임의 목록에서 시작합니다.
+Remove the step	단계 제거
+Add a step	단계 추가
+Memory all requirement lists use together	모든 요건 목록이 함께 사용하는 메모리
+Wireframe	와이어프레임
+Group	그룹
+Transport	수송
+Not found	찾을 수 없음
+The wireframe	와이어프레임
+The group wireframe	그룹 와이어프레임
+The transport wireframe	수송 와이어프레임
+: the game has none for this unit	: 게임에 이 유닛용 항목이 없습니다
+ at full health	 체력이 가득 찼을 때
+ and full shields	 및 실드가 가득 찼을 때
+, as View shows the art. Frame 	, 보기가 그림을 표시하는 방식입니다. 프레임 
+Display	표시
+Button set	버튼 세트
+The command card the unit shows. Its own set is the unit's number.	유닛이 표시하는 명령 카드입니다. 고유 세트는 유닛 번호입니다.
+Other (0x%06X, 0x%06X)	기타 (0x%06X, 0x%06X)
+Status panel	상태 패널
+What the panel at the bottom shows when the unit is selected: a building's, a unit's, a transport's (its cargo), and so on	유닛을 선택했을 때 아래쪽 패널에 표시되는 내용입니다: 건물, 유닛, 수송선(탑승 유닛) 등
+The picture in the selection panel when the unit is selected alone	유닛 하나만 선택했을 때 선택 패널에 표시되는 그림
+Group wireframe	그룹 와이어프레임
+The small picture when units are selected together	유닛을 함께 선택했을 때 표시되는 작은 그림
+Transport wireframe	수송 와이어프레임
+The picture inside a transport	수송선 안의 그림
+(no text)	(텍스트 없음)
+ buttons in this place. The game shows the first whose condition holds. Click again for the next one.	 개의 버튼이 이 위치에 있습니다. 게임은 조건이 맞는 첫 번째 버튼을 표시합니다. 다시 클릭하면 다음 버튼입니다.
+Add a button here	여기에 버튼 추가
+Shares its place with another button: the game shows the first whose condition holds (the higher one in this list)	다른 버튼과 위치를 공유합니다: 게임은 조건이 맞는 첫 번째 버튼(목록에서 위쪽)을 표시합니다
+Earlier: checked before the one above	앞: 위의 버튼보다 먼저 확인
+Later	뒤
+Remove the button	버튼 제거
+Add a button	버튼 추가
+Button	버튼
+Button 	버튼 
+No buttons	버튼 없음
+Position	배치
+Row 	행 
+, column 	, 열 
+Function 0x%06X	함수 0x%06X
+Shown when	표시 조건
+When the game shows the button (a function of the game)	게임이 버튼을 표시하는 조건 (게임의 함수)
+What the button does (a function of the game)	버튼이 하는 일 (게임의 함수)
+Shown when: value	표시 조건: 값
+Action: value	액션: 값
+Display raw value	원시 값 표시
+Show each tooltip's string as the game stores it: the hotkey and type characters, and codes as <01>	각 툴팁의 문자열을 게임이 저장한 대로 표시합니다: 단축키와 종류 문자, <01> 같은 코드
+Tooltip, not usable	툴팁, 사용 불가
+Tooltip	툴팁
+Edit the text (string 	텍스트 편집 (문자열 
+; every button that uses it changes)	; 이를 사용하는 모든 버튼이 바뀝니다)
+Another string	다른 문자열
+String 	문자열 
+Open this string in the Strings tab	이 문자열을 문자열 탭에서 열기
+Copy a button from a set…	세트에서 버튼 복사…
+Top left	왼쪽 위
+Top center	위 중앙
+Top right	오른쪽 위
+Center	중앙
+Bottom left	왼쪽 아래
+Bottom center	아래 중앙
+Bottom right	오른쪽 아래
+Normal (back to the text's own color)	기본 (텍스트 원래 색으로 복귀)
+Align right	오른쪽 정렬
+Align center	가운데 정렬
+Pale blue	연한 파랑
+Light green	연한 초록
+Invisible (the text after it is not shown)	투명 (뒤의 텍스트는 표시되지 않음)
+. Puts <	. 삽입: <
+> in at the cursor; with text selected, colors only that text.	> 커서 위치에 넣습니다. 텍스트를 선택하면 그 텍스트에만 색을 적용합니다.
+stat_txt.tbl string 	stat_txt.tbl 문자열 
+As the game shows it	게임에 표시되는 대로
+The text as the game shows it	게임에 표시되는 텍스트
+Command	명령
+Make a unit	유닛 생산
+Upgrade	업그레이드
+Use a technology	기술 사용
+Research a technology	기술 연구
+Morph a unit	유닛 변이
+Hotkey	단축키
+Esc	Esc
+Space	스페이스
+The key that presses the button	버튼을 누르는 키
+Type	종류
+What the tooltip shows with the text: the cost of a unit, an upgrade or a technology	툴팁이 텍스트와 함께 표시하는 내용: 유닛, 업그레이드 또는 기술의 비용
+The text box shows the string as the game stores it: a button's text starts with its hotkey and type characters. Off: the box shows the text only, and the Hotkey and Type fields show those characters. The dark box on the right shows the text as the game shows it.	텍스트 상자에 게임이 저장한 대로 문자열이 표시됩니다. 버튼의 텍스트는 단축키와 종류 문자로 시작합니다. 끄면 텍스트 상자에는 텍스트만 표시되고, 단축키와 종류 필드에 해당 문자가 표시됩니다. 오른쪽의 어두운 상자는 게임에 표시되는 대로 텍스트를 보여 줍니다.
+Size of all strings together; they must fit in the game's copy	모든 문자열의 합계 크기입니다. 게임의 복사본에 들어가야 합니다
+the map	맵
+the minimap	미니맵
+the data list	데이터 목록
+the data form	데이터 양식
+the trigger	트리거
+the quick picker	빠른 선택기
+the triggers	트리거
+the code	코드
+Feedback on 	피드백: 
+Feedback is anonymous. Do not include sensitive or private information. Ctrl+Enter sends it.	피드백은 익명입니다. 민감하거나 개인적인 정보는 포함하지 마십시오. Ctrl+Enter로 보냅니다.
+Send	보내기
+This build cannot send feedback. StarDraft keeps it in 	이 빌드는 피드백을 보낼 수 없습니다. StarDraft가 다음 위치에 보관합니다: 
+Sending the feedback…	피드백을 보내는 중…
+Report feedback on 	피드백 보고: 
+%zu B	%zu B
+%.0f KB	%.0f KB
+%.1f MB	%.1f MB
+Rename the sound	소리 이름 바꾸기
+A file of that name is in the map already	같은 이름의 파일이 이미 맵에 있습니다
+Length	길이
+Stop	정지
+The map names this sound, but neither the map nor the game has the file	맵에 이 소리의 이름은 있지만, 맵과 게임 모두 파일이 없습니다
+Missing	누락
+Game 	게임 
+Removed the sound. 	소리를 제거했습니다. 
+ briefings still use it.	 개의 브리핑이 아직 사용합니다.
+Removed the sound	소리를 제거했습니다
+Remove the file from the map	맵에서 파일 제거
+Remove the reference from the map	맵에서 참조 제거
+The map has it	맵에 있음
+Add to the map's sounds, by reference: the game plays its own file, the map does not hold it	맵의 소리에 참조로 추가: 게임이 자체 파일을 재생하며, 맵은 파일을 포함하지 않습니다
+The map has no sounds of its own. Import sounds adds WAV or OGG files.	맵에 자체 소리가 없습니다. 소리 가져오기로 WAV 또는 OGG 파일을 추가합니다.
+Import sounds…	소리 가져오기…
+WAV or OGG files. StarDraft saves them in the map (staredit\\wav\\).	WAV 또는 OGG 파일. StarDraft가 맵(staredit\\wav\\)에 저장합니다.
+Rename	이름 바꾸기
+The briefings that use the file change with it	파일을 사용하는 브리핑도 함께 바뀝니다
+Sounds of the game	게임의 소리
+StarDraft found no game sounds (Options > Program options: StarCraft folder)	StarDraft가 게임 소리를 찾지 못했습니다 (옵션 > 프로그램 옵션: StarCraft 폴더)
+No game sound has these words	이 단어가 들어 있는 게임 소리가 없습니다
+Briefings	브리핑
+Open it in the Briefing workspace	브리핑 작업 공간에서 열기
+Search the game's sounds	게임의 소리 검색
+Controller	컨트롤러
+Race	종족
+Force	포스
+Color	색상
+Custom color… (multiplayer only)	사용자 지정 색상… (멀티플레이어 전용)
+Forces	포스
+Title	제목
+Tileset	타일셋
+Size (tiles)	크기 (타일)
+Map content at	맵 내용 위치:
+New ground	새 지면
+Change the size and tileset	크기와 타일셋 변경
+Reset	초기화
+Set the new size and tileset in the map (one undo step)	새 크기와 타일셋을 맵에 적용합니다 (실행 취소 1단계)
+The map's size and tileset again	맵의 크기와 타일셋을 다시 불러옵니다
+Map properties	맵 속성
+Players and forces	플레이어와 포스
+Changes that are not applied	적용되지 않은 변경 사항
+Apply	적용
+Revert	되돌리기
+Set these values in the map (one undo step)	이 값을 맵에 적용합니다 (실행 취소 1단계)
+Show the map's values again	맵의 값을 다시 표시합니다
+Map data: cannot read the game's units.dat, weapons.dat, upgrades.dat and techdata.dat	맵 데이터: 게임의 units.dat, weapons.dat, upgrades.dat, techdata.dat를 읽을 수 없습니다
+These pages have changes that are not applied: 	다음 페이지에 적용되지 않은 변경 사항이 있습니다: 
+.\n\nApply them to the map?	.\n\n맵에 적용하시겠습니까?
+&Apply	적용(&A)
+Do &not apply	적용 안 함(&N)
+Changed by the test	테스트에서 변경됨
+The map becomes 	맵이 다음 크기가 됩니다: 
+ tiles. What is outside the new size goes.\r\n	 타일. 새 크기 밖의 내용은 사라집니다.\r\n
+Each terrain becomes the 	각 지형은 다음 타일셋의 
+ terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. The doodads go (each tileset has its own).\r\n	 같은 이름 또는 같은 종류(예: 물이나 높은 지대)의 지형으로 바뀝니다. 해당하는 지형이 없으면 새 지면의 지형이 됩니다. 장식물은 사라집니다 (타일셋마다 고유한 장식물이 있습니다).\r\n
+The map keeps its size and tileset: 	맵의 크기와 타일셋이 유지됩니다: 
+Set the map properties: 	맵 속성 설정: 
+Set the map properties	맵 속성 설정
+&Yes	예(&Y)
+&No	아니요(&N)
+&Retry	다시 시도(&R)
+Make standard StarCraft maps.	표준 스타크래프트 맵을 만듭니다.
+Make maps with your own units, weapons and game rules. Change the game's data, and make new triggers with blocks or with your own code.	직접 만든 유닛, 무기, 게임 규칙으로 맵을 만듭니다. 게임 데이터를 변경하고, 블록이나 직접 작성한 코드로 새 트리거를 만들 수 있습니다.
+Custom MPQs and data files, for 1.16.1 and Remastered.	사용자 지정 MPQ 및 데이터 파일 (1.16.1 및 Remastered용).
+Classic project	클래식 프로젝트
+EUD project	EUD 프로젝트
+Campaign project	캠페인 프로젝트
+Mod project	모드 프로젝트
+A project with all the maps of your campaign. Go from one map to the next, and copy data and terrain between the maps.	캠페인의 모든 맵을 담은 프로젝트입니다. 한 맵에서 다음 맵으로 이동하고, 맵 간에 데이터와 지형을 복사할 수 있습니다.
+Make mods with your own graphics and game files. Use your own MPQs and data files, for StarCraft 1.16.1 and Remastered.	직접 만든 그래픽과 게임 파일로 모드를 만듭니다. 스타크래프트 1.16.1 및 Remastered용 MPQ와 데이터 파일을 사용합니다.
+Land scale	대륙 크기
+Coastline	해안선
+Detail	디테일
+Roughness	거칠기
+New classic project	새 클래식 프로젝트
+Mirror both (4 players)	양쪽 대칭 (4 플레이어)
+Turn 180 degrees (2 players)	180도 회전 (2 플레이어)
+Brush 1 (whole diamonds)	브러시 1 (마름모 전체)
+Brush 0.5 (single corners)	브러시 0.5 (모서리 하나)
+ (water)	 (물)
+ (high ground)	 (높은 지대)
+Select the map whose terrain to use	지형을 사용할 맵 선택
+The map 	맵 
+ is not found	 을(를) 찾을 수 없습니다
+Type a name for the project	프로젝트 이름을 입력하십시오
+Type the folder for the project	프로젝트 폴더를 입력하십시오
+There is already a folder 	이미 폴더가 있습니다: 
+. Type another name, for example 	. 다른 이름을 입력하십시오. 예: 
+Select the map to copy into the project	프로젝트에 복사할 맵 선택
+Could not generate the map	맵을 생성할 수 없습니다
+Generated a map: 	맵 생성됨: 
+ (seed 	 (시드 
+Created a map: 	맵 만듦: 
+Back	뒤로
+Select a different kind (Esc)	다른 종류 선택 (Esc)
+filled with 	채움: 
+an imported map	가져온 맵
+imported from 	가져온 위치: 
+The tileset, the size and the terrain come from the map.	타일셋, 크기, 지형은 맵에서 가져옵니다.
+the tileset 	타일셋 
+Width	너비
+Height	높이
+The terrain of a map	맵의 지형
+Import an existing map	기존 맵 가져오기
+Generate	생성
+Blank map filled with	빈 맵, 채움:
+The terrain, tiles and doodads of a map that you have (.scm or .scx); no units, locations or triggers	가지고 있는 맵(.scm 또는 .scx)의 지형, 타일, 장식물. 유닛, 위치, 트리거는 없습니다
+A copy of a map that you have (.scm or .scx): its terrain, units, triggers and settings	가지고 있는 맵(.scm 또는 .scx)의 복사본: 지형, 유닛, 트리거, 설정
+Land, water and high ground from a seed and the settings next to the preview	시드와 미리보기 옆의 설정으로 만든 땅, 물, 높은 지대
+The terrain on the whole map	맵 전체의 지형
+The new map gets the map's size, tileset, terrain and doodads. The file stays as it is.	새 맵은 해당 맵의 크기, 타일셋, 지형, 장식물을 가집니다. 파일은 그대로 유지됩니다.
+StarDraft copies the map into the project folder. The file stays as it is.	StarDraft가 맵을 프로젝트 폴더에 복사합니다. 파일은 그대로 유지됩니다.
+Seed	시드
+New seed	새 시드
+Symmetry	대칭
+Randomize	무작위
+New amounts, shape and seed	새 양, 모양, 시드
+Randomize all	모두 무작위
+The tileset too (not the size)	타일셋도 (크기는 제외)
+Amounts	양
+Shape	모양
+Make the project folder and its map	프로젝트 폴더와 맵 만들기
+Make the map in this tab	이 탭에 맵 만들기
+Removed 	제거됨: 
+ from the list	 (목록에서)
+StarDraft is alpha software. Errors can occur. Make backup copies of your projects and maps before you edit them. Your feedback makes StarDraft better: right-click anything and select "Report feedback on …".	StarDraft는 알파 소프트웨어입니다. 오류가 발생할 수 있습니다. 편집하기 전에 프로젝트와 맵의 백업 사본을 만드십시오. 여러분의 피드백이 StarDraft를 더 좋게 만듭니다. 아무 항목이나 마우스 오른쪽 버튼으로 클릭하고 "…에 대한 피드백 보내기"를 선택하십시오.
+Coming later	곧 제공 예정
+Campaign projects come in a later version	캠페인 프로젝트는 이후 버전에서 제공됩니다
+Mod projects come in a later version	모드 프로젝트는 이후 버전에서 제공됩니다
+Remove from the list	목록에서 제거
+Open…	열기…
+A project or a map (Ctrl+O)	프로젝트 또는 맵 (Ctrl+O)
+The map to copy (.scm or .scx)	복사할 맵 (.scm 또는 .scx)
+Could not open the page	페이지를 열 수 없습니다
+Appearance	모양
+Theme	테마
+Dark theme (default)	어두운 테마 (기본값)
+Light theme	밝은 테마
+Accent color	강조 색상
+ (default)	 (기본값)
+Animate units	유닛 애니메이션
+Units on the map play their animations	맵의 유닛이 애니메이션을 재생합니다
+Custom names	사용자 지정 이름
+How lists name a unit that has a custom name in the map	맵에서 사용자 지정 이름을 가진 유닛을 목록에서 표시하는 방법
+Open the last project on start	시작할 때 마지막 프로젝트 열기
+Look for updates on start	시작할 때 업데이트 확인
+Release builds only	릴리스 빌드만
+Check now	지금 확인
+Look for a newer release now	지금 새 릴리스 확인
+Send anonymous crash reports	익명 충돌 보고서 보내기
+The version, Windows, the video card, where it crashed and the last log lines; no maps	버전, Windows, 그래픽 카드, 충돌 위치, 마지막 로그 줄. 맵은 포함되지 않습니다
+Working folder	작업 폴더
+Browse 26	찾아보기 26
+The working folder: where new projects go	작업 폴더: 새 프로젝트가 저장되는 위치
+New projects go to 	새 프로젝트 저장 위치: 
+Select the folder where new projects go	새 프로젝트를 저장할 폴더 선택
+Documents\\StarDraft	Documents\\StarDraft
+New projects go here. A project that you open stays where it is.	새 프로젝트는 여기에 저장됩니다. 여는 프로젝트는 원래 위치에 그대로 있습니다.
+Select the StarCraft: Remastered folder	StarCraft: Remastered 폴더 선택
+From the next start: 	다음 시작부터: 
+A new folder is used from the next start	새 폴더는 다음 시작부터 사용됩니다
+Program options	프로그램 옵션
+Expansion	확장팩
+%s: %d buildable tiles, %d mineral fields (%u), %d geysers (%u)	%s: 건설 가능 타일 %d개, 미네랄 %d개 (%u), 가스 %d개 (%u)
+Ground path from %s to %s: %.0f tiles (for a %hs)	%s에서 %s까지 지상 경로: %.0f 타일 (%hs 기준)
+No ground path from %s to %s: units must fly or go by transport	%s에서 %s까지 지상 경로가 없습니다: 유닛은 날아가거나 수송선으로 이동해야 합니다
+Shaded: units cannot walk there. Each tint: a separate ground area. 	음영: 유닛이 걸어갈 수 없는 곳입니다. 각 색조: 별도의 지상 영역입니다. 
+Lines: the shortest ground paths between the start locations. 	선: 시작 위치 사이의 가장 짧은 지상 경로입니다. 
+Green tiles: buildable tiles near a base. Orange boxes: its resources.	녹색 타일: 기지 근처의 건설 가능 타일입니다. 주황색 상자: 해당 자원입니다.
+The walkable ground does not show	걸어갈 수 있는 지상이 표시되지 않습니다
+The paths between bases do not show	기지 사이의 경로가 표시되지 않습니다
+The town areas do not show	마을 영역이 표시되지 않습니다
+Paths are for a 	경로 기준: 
+Could not save the project: 	프로젝트를 저장할 수 없습니다: 
+Linked 	연결됨: 
+ to the build	 (빌드에)
+This code comes from the Data workspace. To remove it, undo the .dat edits.	이 코드는 데이터 작업 공간에서 온 것입니다. 제거하려면 .dat 편집을 실행 취소하십시오.
+Removed the link to 	연결 제거됨: 
+. The file stays where it is.	. 파일은 원래 위치에 그대로 있습니다.
+ from the build. The file stays in the folder.	 (빌드에서). 파일은 폴더에 그대로 있습니다.
+euddraft found an error in 	euddraft에서 오류를 찾았습니다: 
+, line 	, 줄 
+epScript (*.eps)*.epsScripts (*.eps;*.py)*.eps;*.pyAll files*.*	epScript (*.eps)*.epsScripts (*.eps;*.py)*.eps;*.py모든 파일*.*
+Link a file to the build	빌드에 파일 연결
+Build now writes 	이제 빌드가 다음에 씁니다: 
+Sounds (*.ogg;*.wav)*.ogg;*.wav	사운드 (*.ogg;*.wav)*.ogg;*.wav
+Background music	배경 음악
+Could not read the sound file	사운드 파일을 읽을 수 없습니다
+Could not copy the file into the project: 	파일을 프로젝트에 복사할 수 없습니다: 
+Background music: 	배경 음악: 
+epTrace closed without a report (see the log)	epTrace가 보고서 없이 닫혔습니다 (로그 참조)
+epTrace closed: no samples (see the log)	epTrace가 닫혔습니다: 샘플이 없습니다 (로그 참조)
+epTrace closed: the report is on the Project page and in the log	epTrace가 닫혔습니다: 보고서는 프로젝트 페이지와 로그에 있습니다
+epTrace.exe is not in the euddraft folder	epTrace.exe가 euddraft 폴더에 없습니다
+No trace file: build the map with Trace build on	추적 파일이 없습니다: 추적 빌드를 켜고 맵을 빌드하십시오
+epTrace did not start: it needs administrator rights	epTrace가 시작되지 않았습니다: 관리자 권한이 필요합니다
+Could not start epTrace (error 	epTrace를 시작할 수 없습니다 (오류 
+epTrace is open: play the map, then close epTrace's window (it writes the report then)	epTrace가 열려 있습니다: 맵을 플레이한 다음 epTrace 창을 닫으십시오 (그때 보고서를 씁니다)
+Trace file	추적 파일
+None yet: Build writes it	아직 없음: 빌드가 만듭니다
+None: Trace build is off	없음: 추적 빌드가 꺼져 있습니다
+Start epTrace	epTrace 시작
+epTrace is open	epTrace가 열려 있습니다
+Start the map in StarCraft first. epTrace asks for administrator rights, shows the lines that run, and writes its report when you close its window	먼저 StarCraft에서 맵을 시작하십시오. epTrace는 관리자 권한을 요청하고, 실행되는 줄을 표시하며, 창을 닫으면 보고서를 씁니다
+Report	보고서
+None yet: close epTrace's window to write it	아직 없음: epTrace 창을 닫으면 만들어집니다
+No samples: no script line ran each trigger cycle while epTrace looked	샘플 없음: epTrace가 보는 동안 트리거 주기마다 실행된 스크립트 줄이 없습니다
+ samples on 	 샘플, 대상: 
+ lines  ·  	 줄  ·  
+Open the report	보고서 열기
+Each script with the samples on each of its lines	각 스크립트와 각 줄의 샘플 수
+ (click: the block in the Triggers workspace)	 (클릭: 트리거 작업 공간의 블록)
+ (click: open the script)	 (클릭: 스크립트 열기)
+Hide the script's code	스크립트 코드 숨기기
+Show the selected script's code	선택한 스크립트의 코드 표시
+EUD project  ·  built	EUD 프로젝트  ·  빌드됨
+EUD project  ·  not built yet	EUD 프로젝트  ·  아직 빌드되지 않음
+Files	파일
+Folder	폴더
+Open folder	폴더 열기
+Source map	원본 맵
+In the project folder	프로젝트 폴더 안
+Where Build writes the map	빌드가 맵을 쓰는 위치
+Found by StarDraft	StarDraft가 찾음
+Change…	변경…
+The game's data StarDraft reads	StarDraft가 읽는 게임 데이터
+Downloaded on the first build	첫 빌드에서 다운로드됨
+Options	옵션
+EUD Turbo	EUD 터보
+A shorter trigger cycle: the triggers run more often (euddraft's eudTurbo)	더 짧은 트리거 주기: 트리거가 더 자주 실행됩니다 (euddraft의 eudTurbo)
+EUD Turbo on	EUD 터보 켜짐
+EUD Turbo off	EUD 터보 꺼짐
+More units and sprites	더 많은 유닛과 스프라이트
+Room for more sprites, images, bullets and orders (euddraft's unlimiter)	스프라이트, 이미지, 총알, 명령을 위한 공간이 늘어납니다 (euddraft의 unlimiter)
+More units and sprites on	더 많은 유닛과 스프라이트 켜짐
+More units and sprites off	더 많은 유닛과 스프라이트 꺼짐
+Air units do not push apart	공중 유닛이 서로 밀어내지 않음
+Air units can stay on top of each other (euddraft's noAirCollision)	공중 유닛이 서로 겹칠 수 있습니다 (euddraft의 noAirCollision)
+Air units push apart	공중 유닛이 서로 밀어냄
+Debug build	디버그 빌드
+Debug build off	디버그 빌드 꺼짐
+Debug build on	디버그 빌드 켜짐
+The triggers check each list index that the game calculates. An index out of range shows a message on the screen, and the triggers use the first item. Turn it off for the map that you release.	트리거가 게임이 계산하는 모든 목록 인덱스를 확인합니다. 범위를 벗어난 인덱스는 화면에 메시지를 표시하고, 트리거는 첫 번째 항목을 사용합니다. 배포하는 맵에서는 끄십시오.
+Trace build (epTrace)	추적 빌드 (epTrace)
+Trace build off	추적 빌드 꺼짐
+Trace build on: build the map again to use epTrace	추적 빌드 켜짐: epTrace를 쓰려면 맵을 다시 빌드하십시오
+The scripts record each line that they run, and Build writes a trace file beside the map. epTrace reads it while the map plays in StarCraft and shows which lines use the most time. The map runs more slowly: turn it off for the map that you release.	스크립트가 실행하는 각 줄을 기록하고, 빌드는 맵 옆에 추적 파일을 만듭니다. epTrace는 StarCraft에서 맵이 실행되는 동안 이 파일을 읽어 어떤 줄이 시간을 가장 많이 쓰는지 보여 줍니다. 맵이 더 느리게 실행되므로 배포할 맵에서는 끄십시오.
+Plays again and again for every player (euddraft's bgmplayer)	모든 플레이어에게 계속 반복 재생합니다 (euddraft의 bgmplayer)
+No background music	배경 음악 없음
+Files in memory	메모리에 올릴 파일
+Take it out	제거
+Add a file…	파일 추가…
+All files*.*	모든 파일*.*
+A file to load into memory	메모리에 불러올 파일
+Memory address (for example 0x58A364)	메모리 주소 (예: 0x58A364)
+The file loads into memory when the map starts	맵이 시작될 때 파일을 메모리에 불러옵니다
+Loads a file's bytes into the game's memory when the map starts (euddraft's dataDumper)	맵이 시작될 때 파일의 바이트를 게임 메모리에 불러옵니다 (euddraft의 dataDumper)
+Scripts	스크립트
+Build runs these in order, from the top. onPluginStart runs once when the map starts; beforeTriggerExec and afterTriggerExec run each trigger cycle	빌드는 위에서부터 순서대로 실행합니다. onPluginStart는 맵이 시작될 때 한 번 실행되고, beforeTriggerExec와 afterTriggerExec는 트리거 주기마다 실행됩니다
+from the Data workspace	데이터 작업 공간에서
+euddraft plugin	euddraft 플러그인
+linked  ·  not found: Build stops	연결됨  ·  찾을 수 없음: 빌드가 중지됩니다
+not found: Build stops	찾을 수 없음: 빌드가 중지됩니다
+linked  ·  changed 	연결됨  ·  변경됨 
+  after the last build	  마지막 빌드 이후
+A linked file. StarDraft builds it as it is and does not change it: 	연결된 파일입니다. StarDraft는 이 파일을 그대로 빌드하며 변경하지 않습니다: 
+Open in your editor	편집기에서 열기
+Show in folder	폴더에서 보기
+Earlier	이전
+Comes from the Data workspace	데이터 작업 공간에서 가져옴
+Remove link (the file stays)	링크 제거 (파일은 남습니다)
+Take it out of the build (the file stays)	빌드에서 제외 (파일은 남습니다)
+New script	새 스크립트
+Link a file…	파일 연결…
+An .eps file from anywhere on disk. StarDraft builds it as it is and does not change it.	디스크의 어느 위치에 있든 .eps 파일입니다. StarDraft는 이 파일을 그대로 빌드하며 변경하지 않습니다.
+Could not read the sound	사운드를 읽을 수 없습니다
+Sounds (WAV, OGG)*.wav;*.ogg	사운드 (WAV, OGG)*.wav;*.ogg
+Could not read the sound: 	사운드를 읽을 수 없습니다: 
+Imported 	가져옴 
+Game	게임
+A sound of the game…	게임의 사운드…
+Game sound	게임 사운드
+Null tiles	널 타일
+Doodad #	장식물 #
+, row 	, 행 
+Not in Blizzard's maps	블리자드 맵에 없음
+Group 	그룹 
+, tile 	, 타일 
+Null tile	널 타일
+All tiles	모든 타일
+All tiles but the null tiles	널 타일을 제외한 모든 타일
+Doodad tiles	장식물 타일
+No tiles agree with the search and the filter	검색어와 필터에 맞는 타일이 없습니다
+Click a tile to place it	타일을 클릭하여 배치하십시오
+: click or drag to place it (the brush's size and shape)	: 클릭하거나 드래그하여 배치합니다 (브러시의 크기와 모양)
+the Tiles list	타일 목록
+ tiles: Spray places one of them at random	 타일: 스프레이가 이 중 하나를 무작위로 배치합니다
+Search tiles: group number, terrain, doodad	타일 검색: 그룹 번호, 지형, 장식물
+ 1 tile	 타일 1개
+The tiles are the same already	타일이 이미 같습니다
+. Removed 	. 제거됨 
+ doodad under them	 그 아래의 장식물
+ doodads under them	 그 아래의 장식물
+ unit that cannot stand there	 그곳에 설 수 없는 유닛
+ units that cannot stand there	 그곳에 설 수 없는 유닛
+Replaced	교체됨
+Filled	채움
+Select a tile in the Tiles list first (or Ctrl+click a tile on the map)	먼저 타일 목록에서 타일을 선택하십시오 (또는 맵에서 타일을 Ctrl+클릭하십시오)
+Placed	배치됨
+Only the player on this computer sees or hears it.	이 컴퓨터의 플레이어만 보거나 듣습니다.
+It acts for the current player. Put it in For each player.	현재 플레이어를 위해 동작합니다. 각 플레이어 안에 넣으십시오.
+It holds up the other triggers of the player until it is complete.	완료될 때까지 해당 플레이어의 다른 트리거를 멈춥니다.
+It reads or writes game memory at an address.	주소의 게임 메모리를 읽거나 씁니다.
+It goes through units, up to 1,700 each time it runs.	실행할 때마다 유닛을 최대 1,700개까지 순회합니다.
+Inside it, "the unit" is the unit of this round.	그 안에서 "해당 유닛"은 이번 회차의 유닛입니다.
+Inside it, counter is the number of this round.	그 안에서 카운터는 이번 회차의 번호입니다.
+Inside it, the current player is the player of this round.	그 안에서 현재 플레이어는 이번 회차의 플레이어입니다.
+Its value is not the same on each computer. Use it only for what a player sees or hears.	값이 컴퓨터마다 다릅니다. 플레이어가 보거나 듣는 것에만 사용하십시오.
+  ·  advanced	  ·  고급
+What it does	동작
+Values	값
+  ·  default value: 	  ·  기본값: 
+Holds	포함
+ (conditions)	 (조건)
+ (actions)	 (동작)
+Example	예시
+Watch out	주의
+Effects and cost	효과와 비용
+About 	정보: 
+ each time it runs	 실행할 때마다
+, and the blocks in it.	, 그리고 그 안의 블록.
+the help for 	도움말: 
+a block	블록
+Block help	블록 도움말
+Block help: 	블록 도움말: 
+Select a block, then press F1 for its help	블록을 선택한 다음 F1을 누르면 도움말이 표시됩니다
+ (about 	 (약 
+The trigger costs about 	이 트리거의 비용은 약 
+ actions each run (it was 	 동작/실행입니다 (이전에는 
+). Ctrl+Z undoes it.	). Ctrl+Z로 되돌립니다.
+euddraft found an error in line 	euddraft가 오류를 발견했습니다: 줄 
+ of the triggers' code: 	 (트리거 코드): 
+ (see the log)	 (로그 참조)
+Drag to move	드래그하여 이동
+(empty)	(비어 있음)
+changed  ·  	변경됨  ·  
+  ·  changed  ·  	  ·  변경됨  ·  
+Put back the game's values	게임의 값으로 되돌리기
+No other data uses this entry	이 항목을 사용하는 다른 데이터가 없습니다
+StarDraft.Project	StarDraft.Project
+StarDraft project	StarDraft 프로젝트
+StarDraft.Project\\DefaultIcon	StarDraft.Project\\DefaultIcon
+StarDraft.Project\\shell\\open\\command	StarDraft.Project\\shell\\open\\command
+Accept: 	허용: 
+Could not get the newest release from GitHub. Make sure that the computer is connected to the internet.	GitHub에서 최신 릴리스를 가져올 수 없습니다. 컴퓨터가 인터넷에 연결되어 있는지 확인하십시오.
+Check for updates	업데이트 확인
+StarDraft is up to date (	StarDraft는 최신 버전입니다 (
+.\n\nThis is not a release build. Open the release page?	.\n\n릴리스 빌드가 아닙니다. 릴리스 페이지를 여시겠습니까?
+&Open the release page	릴리스 페이지 열기(&O)
+.\n\nDownload and install it? StarDraft starts again after it.	.\n\n다운로드하여 설치하시겠습니까? 설치 후 StarDraft가 다시 시작됩니다.
+&Install	설치(&I)
+Downloading 	다운로드 중 
+\n\nThe release page opens: get the zip from there.	\n\n릴리스 페이지가 열립니다. 그곳에서 zip 파일을 받으십시오.
+The download did not complete.	다운로드가 완료되지 않았습니다.
+" -xf "	" -xf "
+Could not unpack the download.	다운로드한 파일의 압축을 풀 수 없습니다.
+Could not replace the program file in 	프로그램 파일을 교체할 수 없습니다: 
+Could not put the new program in 	새 프로그램을 넣을 수 없습니다: 
+"the current player" has a value only in For each player	"현재 플레이어"는 각 플레이어 안에서만 값이 있습니다
+Select a player	플레이어를 선택하십시오
+Unknown value 	알 수 없는 값 
+Select a unit group	유닛 그룹을 선택하십시오
+ is not a unit group	 은(는) 유닛 그룹이 아닙니다
+Select a property	속성을 선택하십시오
+: StarDraft cannot build this block yet	: StarDraft가 아직 이 블록을 빌드할 수 없습니다
+A value from the game is a number. You cannot use it here	게임의 값은 숫자입니다. 여기에서는 사용할 수 없습니다
+). Type it as a number	). 숫자로 입력하십시오
+Use a player number from 0 to 26 (Player 1 is 0)	0에서 26까지의 플레이어 번호를 사용하십시오 (플레이어 1은 0)
+" is not a player, a variable or a number	"은(는) 플레이어, 변수, 숫자가 아닙니다
+" is not a 	"은(는) 다음이 아닙니다: 
+Select a sound	사운드를 선택하십시오
+The map has no sound 	맵에 사운드가 없습니다: 
+Select a trigger	트리거를 선택하십시오
+There is no trigger in Definitions with the name 	정의에 이름이 같은 트리거가 없습니다: 
+ is off. Turn it on, or select another trigger	 은(는) 꺼져 있습니다. 켜거나 다른 트리거를 선택하십시오
+Set up the button	버튼 설정
+This is a group of units. Select one unit type	유닛 그룹입니다. 유닛 종류를 하나 선택하십시오
+There is no unit type 	유닛 종류가 없습니다: 
+There is no unit type with the name 	이름이 같은 유닛 종류가 없습니다: 
+Use a location from 1 to 255	1에서 255까지의 위치를 사용하십시오
+The map has no location 	맵에 위치가 없습니다: 
+Select a location	위치를 선택하십시오
+Use a switch from 1 to 256	1에서 256까지의 스위치를 사용하십시오
+Use a value from 0 to 	0에서 다음까지의 값을 사용하십시오: 
+ has no property 	 에 없는 속성: 
+Unit #	유닛 #
+ has the same type, owner and position. Move one of them, or StarDraft can find the wrong unit	 의 종류, 소유자, 위치가 같습니다. 하나를 옮기십시오. 그렇지 않으면 StarDraft가 잘못된 유닛을 찾을 수 있습니다
+"the unit" has a value only in For each unit	"해당 유닛"은 각 유닛 안에서만 값이 있습니다
+The selected unit is not on the map now	선택한 유닛이 지금 맵에 없습니다
+Select a unit	유닛을 선택하십시오
+ is not a unit variable	 은(는) 유닛 변수가 아닙니다
+The default value of 	기본값: 
+ is a unit on the map. That unit is not on the map now	 은(는) 맵에 있는 유닛입니다. 그 유닛이 지금 맵에 없습니다
+Select a variable	변수를 선택하십시오
+There is no variable with the name 	이름이 같은 변수가 없습니다: 
+ is a 	 은(는) 
+. Use a 	입니다. 다음을 사용하십시오: 
+ is a constant. You cannot change it	 은(는) 상수입니다. 변경할 수 없습니다
+ acts for the current player. Put it in For each player	 은(는) 현재 플레이어를 위해 동작합니다. 각 플레이어 안에 넣으십시오
+: the other triggers of the player stop until it is complete	: 완료될 때까지 해당 플레이어의 다른 트리거가 멈춥니다
+. Show text and Talking portrait do not stop them	. 텍스트 표시와 대화 초상화는 멈추지 않습니다
+Reads or writes game memory at an address. Remastered permits only some addresses	주소의 게임 메모리를 읽거나 씁니다. Remastered는 일부 주소만 허용합니다
+ is not the same on each computer. Use it in Run local block, or only for what a player sees or hears: if it changes the game, the game desyncs	 은(는) 컴퓨터마다 다릅니다. 로컬 블록 실행 안에서 사용하거나 플레이어가 보거나 듣는 것에만 사용하십시오. 게임을 바꾸면 게임의 동기화가 어긋납니다
+Use Player 1 to Player 8, or the current player	플레이어 1에서 플레이어 8까지, 또는 현재 플레이어를 사용하십시오
+Triggers do not run each second, so they can miss Exactly. Use At least or At most	트리거는 매초 실행되지 않으므로 정확히 같음을 놓칠 수 있습니다. 이상 또는 이하를 사용하십시오
+Unknown condition 	알 수 없는 조건 
+ has no conditions	 에 조건이 없습니다
+Type the chat text	채팅 텍스트를 입력하십시오
+A chat text cannot have "	채팅 텍스트에는 "
+" in it	"를 넣을 수 없습니다
+A chat text has at most 78 letters	채팅 텍스트는 최대 78자입니다
+Use a player from 0 to 7 (Player 1 is 0)	0에서 7까지의 플레이어를 사용하십시오 (플레이어 1은 0)
+Use an item of 	다음의 항목을 사용하십시오: 
+ from 0 to 	 에서 0부터 
+This is yes or no. Use exactly or not	예 또는 아니요입니다. 정확히 같음 또는 같지 않음을 사용하십시오
+Compares 	비교: 
+ as a number	 숫자로
+ is not a number. Use set to	 은(는) 숫자가 아닙니다. 설정을 사용하십시오
+Unknown action 	알 수 없는 동작 
+The text has a value that is not there. Insert it again	텍스트에 없는 값이 있습니다. 다시 삽입하십시오
+Select a text variable	텍스트 변수를 선택하십시오
+ is not a text variable	 은(는) 텍스트 변수가 아닙니다
+Select a text of the game	게임의 텍스트를 선택하십시오
+Select a number per player	플레이어별 숫자를 선택하십시오
+ is not a number per player	 은(는) 플레이어별 숫자가 아닙니다
+The text has more than two {}. Use at most two: one for each value	텍스트에 {}가 두 개를 넘습니다. 값마다 하나씩, 최대 두 개를 사용하십시오
+For each player accepts all players, Player 1 to Player 8, or a force	각 플레이어는 모든 플레이어, 플레이어 1에서 플레이어 8, 또는 포스를 받습니다
+For each unit accepts one unit type or Any unit	각 유닛은 유닛 종류 하나 또는 모든 유닛을 받습니다
+For each unit accepts the units of one player or of all players	각 유닛은 한 플레이어 또는 모든 플레이어의 유닛을 받습니다
+Slow: the actions in it run for each unit (up to 1,700) each time. Keep them short	느림: 그 안의 동작이 매번 각 유닛(최대 1,700)에 대해 실행됩니다. 짧게 유지하십시오
+For each new unit accepts the units of one player or of all players	각 새 유닛은 한 플레이어 또는 모든 플레이어의 유닛을 받습니다
+Run local block: a random number here changes the random numbers on this computer only, and the game desyncs. Make it outside	로컬 블록 실행: 여기의 난수는 이 컴퓨터의 난수만 바꾸며 게임의 동기화가 어긋납니다. 밖에서 만드십시오
+Run local block: 	로컬 블록 실행: 
+ holds up the triggers on this computer only, and the game desyncs	 은(는) 이 컴퓨터의 트리거만 멈추며 게임의 동기화가 어긋납니다
+Run local block: the value changes on this computer only. Use it only for what this player sees: if a trigger that changes the game reads it, the game desyncs	로컬 블록 실행: 값이 이 컴퓨터에서만 바뀝니다. 이 플레이어가 보는 것에만 사용하십시오. 게임을 바꾸는 트리거가 이 값을 읽으면 게임의 동기화가 어긋납니다
+Run local block: StarDraft cannot tell what 	로컬 블록 실행: StarDraft가 무엇이 바뀌는지 알 수 없습니다: 
+ changes. Change only what this player sees, or the game desyncs	 이 플레이어가 보는 것만 바꾸십시오. 그렇지 않으면 게임의 동기화가 어긋납니다
+ changes the game on this computer only: the other computers do not do it, and the game desyncs. Put it outside	 은(는) 이 컴퓨터에서만 게임을 바꿉니다. 다른 컴퓨터는 실행하지 않으므로 게임의 동기화가 어긋납니다. 밖에 넣으십시오
+ goes on only while its trigger runs again: in On map start it runs one time. Put it in a trigger in On every trigger cycle	 은(는) 트리거가 다시 실행되는 동안에만 계속됩니다. 맵 시작 시에는 한 번만 실행됩니다. 매 트리거 주기마다의 트리거에 넣으십시오
+Put Pause in a Sequence: outside one, it does nothing. After a delay waits without a Sequence	일시 정지는 시퀀스 안에 넣으십시오. 밖에서는 아무 동작도 하지 않습니다. 지연 후는 시퀀스 없이 기다립니다
+Put Leave the loop in a loop (Repeat, While, For each)	반복 종료는 반복문(반복, 동안, 각각) 안에 넣으십시오
+ in For each unit changes the units that the loop goes through: the loop can miss units or stop. Do it after the loop, or change only "the unit"	 은(는) 각 유닛 안에서 반복문이 순회하는 유닛을 바꿉니다. 반복문이 유닛을 놓치거나 멈출 수 있습니다. 반복문 뒤에서 하거나 "해당 유닛"만 바꾸십시오
+The loop goes through the units of one player. A unit that goes to another player leaves that list: the loop can miss units or stop. Loop through the units of all players	반복문은 한 플레이어의 유닛을 순회합니다. 다른 플레이어로 가는 유닛은 목록에서 빠지므로 반복문이 유닛을 놓치거나 멈출 수 있습니다. 모든 플레이어의 유닛을 순회하십시오
+The deaths of 	사망 수: 
+ also go up when a 	 또한 증가합니다. 
+ dies in the game. To keep a number, use a variable	 이(가) 게임에서 죽을 때. 숫자를 유지하려면 변수를 사용하십시오
+"the unit" has a value only in For each unit or For each new unit	"해당 유닛"은 각 유닛 또는 각 새 유닛 안에서만 값이 있습니다
+Language	언어
+Automatic	자동
+Follow the language of Windows	Windows 언어를 따릅니다
+Applies at the next start	다음 시작 때 적용됩니다
+The language changes at the next start of StarDraft	StarDraft를 다음에 시작하면 언어가 바뀝니다
