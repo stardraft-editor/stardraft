@@ -1,0 +1,16 @@
+{
+  "runs": [
+    {"map": "Maps/(2)Bottleneck.scm", "specs": ["quickopen:demo", "maptext:", "datapin:", "options:"]},
+    {"map": "Maps/(2)Bottleneck.scm", "specs": ["ranges:", "view:hd2", "cam:1224:1024:3", "viewshot:tank_hd2"]},
+    {"map": "Maps/(2)Bottleneck.scm", "env": {"STARDRAFT_LANG": "zh"}, "specs": ["ws:map"]}
+  ],
+  "shots": [
+    {"run": 2, "from": "ws_map.png", "to": "chinese.png", "crop": [0, 0, 1100, 700], "alt": "StarDraft 2 in Chinese"},
+    {"run": 0, "from": "quickopen.png", "to": "quick-open.png", "alt": "Quick open (Ctrl+Shift+O)"},
+    {"run": 0, "from": "maptext.png", "to": "map-text-colors.png", "crop": [80, 190, 620, 200], "alt": "Map properties: text colors"},
+    {"run": 0, "from": "datapin.png", "to": "data-pins.png", "crop": [70, 120, 950, 400], "alt": "Data: pinned entries"},
+    {"run": 0, "from": "options_dark.png", "to": "program-options.png", "alt": "Program options: Mouse and Maps"},
+    {"run": 1, "from": "ranges.png", "to": "unit-ranges.png", "crop": [760, 215, 680, 585], "alt": "Unit ranges: sight, ground and air"},
+    {"run": 1, "from": "tank_hd2.png", "to": "siege-tank.png", "crop": [520, 300, 300, 300], "scale": 2, "alt": "Siege tank turret"}
+  ]
+}

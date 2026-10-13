@@ -62,7 +62,7 @@ Known failures (they come from before 0.5 and are on the list to fix): `editor_t
 map (on Terran01: 2 about pasting; more on other maps); `tools_test` fails "2.1 sprayed doodads fit" and "2.3 every sprayed unit passes
 checkPlacement".
 
-Run the whole set before you push to `main`.
+Run the tests that a change needs; the whole set when the owner asks for it.
 
 ### UI text
 
@@ -140,8 +140,7 @@ are in `docs/dev/PRINCIPLES.md`. Read them before a change. The rules here are f
 ## Crash reports, feedback and updates
 
 All three use GitHub, with the token in the repository secret `STARDRAFT_ISSUES_TOKEN`: a fine-grained token for
-this repository only, with **Issues: read and write** and **Contents: read** (the repository is private, so reading
-releases needs it). CI builds it into the program. A build made here reads the token from `.issues-token` in the
+this repository only, with **Issues: read and write** and **Contents: read**. CI builds it into the program. A build made here reads the token from `.issues-token` in the
 repository's root (one line; not in git); without it, reports and feedback stay on disk and go when a build with a
 token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, at build time or when StarDraft runs. All three send their requests through `apps/editor/github.inc`; a feedback file stays when GitHub's reply cannot be read.
 
@@ -149,8 +148,9 @@ token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, 
   video card, the exception, the stack, the last log lines) into `%LOCALAPPDATA%\StarDraft\crashes\<time>\` and
   sends the report at once, with no user action: an issue with the label `crash`, or a comment on the open issue for
   the same place. Reports that could not go are sent at the next start. `stardraft.exe --crash-test` crashes on
-  purpose. Each CI run keeps the build's `stardraft.pdb` (artifact `stardraft-symbols-<commit>`, 90 days): open
-  `crash.dmp` with it to get function names and lines.
+  purpose. Each CI run keeps the build's `stardraft.pdb` (artifact `stardraft-symbols-<commit>`, 90 days), and each
+  release keeps it for good in the draft release `symbols-v<version>`: open `crash.dmp` with it to get function names
+  and lines.
 - **Feedback** (`apps/editor/feedback.inc`): a right click on almost anything gives "Report feedback on <the
   thing>...", and Help > Report feedback. Every context menu goes through `popupMenu()`, which adds the item; where a
   right click opens no menu, the main loop opens one with only that item. A painted pane names what is under the
@@ -164,17 +164,45 @@ token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, 
 
 ## Commits and releases
 
-
 Commit messages say what changed for the user, in a few lines. Every push builds `stardraft.exe` on GitHub (an
-artifact of the run); a push does not change a release. Run the tests before you push.
+artifact of the run). A push never makes a release: push when the work is done. Build before you push; run the tests
+that a change needs.
 
-A release is a tag. To release version 0.5.1:
+A release is a tag `v<version>`. The owner says when, and approves the scope and the release notes. Then
+`tools/release.py` does the rest (`python -I tools/release.py` lists its commands):
 
-1. Put a `## 0.5.1` section at the top of `docs/user/CHANGELOG.md` (the newest version first): what is new, and the
-   known problems that are left.
-2. Commit, then `git tag v0.5.1` and `git push origin main v0.5.1`.
+1. `release.py pending`: the newest release, the commits after it (`*`: not pushed) and the next version number. The
+   release notes come from this list.
+2. A `## <version>` section at the top of `docs/user/CHANGELOG.md`, in the groups the file uses (New, Map, Data,
+   Triggers, Fixes, Known problems). Each line names a feature that users get, as a short fact: "New language support:
+   Russian and Chinese (simplified)." No changes for developers only (CI, build, tests), no label renames, no
+   implementation details; the program is not an actor ("asks", "shows its ...").
+3. Screenshots, one for each visible change, at most 10: write `tools/shots/<version>.json` (see
+   `tools/shots/README.md`) and run `release.py shots <version>`. Put each `![...](images/<version>/...)` line that it
+   writes under its group.
+4. `release.py check <version>` changes nothing. It checks that the version comes after the newest tag, the push
+   account works, nothing else is open, the section and its pictures are good, the UI text and the translation tables
+   pass, and all targets build (in `build`, the testing build).
+5. `release.py publish <version> --yes` checks again, then commits "Changelog <version>" (the section and its
+   pictures), tags `v<version>`, and pushes `main` and the tag together as `milestone-dev` (gh's active account stays
+   as it is). Then it waits for CI (about 8 minutes) and confirms the release. `--dry-run` shows the commands only.
 
-CI builds the tagged commit as version 0.5.1 and makes the release "StarDraft 0.5.1 (build <commit>)" with
-`StarDraft-0.5.1-win64.zip`, marked Latest. Its text is the changelog's `## 0.5.1` section, and Discord gets a post.
-Check for updates finds it. Each release keeps its own download count: `gh api repos/stardraft-editor/stardraft/releases
+CI (`.github/workflows/build.yml`) checks the tag first (`release.py ci-check`: a version, its section, its pictures,
+a commit on `main`). Then it builds that commit as that version and makes the release "StarDraft 2 - v<version> (build
+<commit>)" with `StarDraft-<version>-win64.zip` (only `stardraft.exe`), marked Latest. Its text is the version's
+section, then the changelog's last section (what StarDraft is), with the pictures as addresses at the tag
+(`release.py notes <version>` shows the text). Discord gets one post with the pictures. The symbols (`stardraft.pdb`)
+go to the draft release `symbols-v<version>`, which only the repository's members see, for crash reports. Check for
+updates finds the release. Each release keeps its own download count: `gh api repos/stardraft-editor/stardraft/releases
 --jq '.[] | "\(.tag_name)  \([.assets[].download_count] | add)"'` lists them.
+
+**When a release run fails.**
+
+- Before the release is there (the tag check, the build): fix it on `main`, delete the tag (`git tag -d v<version>`,
+  `git push origin :refs/tags/v<version>`) and run `release.py publish <version> --yes` again. Nobody has the release.
+- After the release is there (a Discord post did not go; the run is red): post again with Actions > Post screenshots
+  to Discord. Re-run of the run puts the zip and the text in the release again, without a post.
+- A release that people have is never moved: fix it in a new version.
+
+The website (`stardraft-editor/stardraft-editor.github.io`) needs no release step: its download button gets the newest
+release. A change to `docs/project/ROADMAP.md` builds it again (`.github/workflows/roadmap.yml`).

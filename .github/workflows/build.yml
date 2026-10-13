@@ -1,7 +1,9 @@
-# Builds stardraft.exe on every push (and on pull requests) and keeps it as a downloadable artifact.
-# A tag v<version> (v0.5.0.1) makes a new release of that commit: "StarDraft <version> (build <commit>)", with
-# StarDraft-<version>-win64.zip, marked Latest; its text is the "## <version>" section of docs/user/CHANGELOG.md
-# (what is new), then the base changelog (its last section, what StarDraft is) for new visitors.
+# Builds stardraft.exe on every push (and on pull requests) and keeps it as a downloadable artifact. A push to a
+# branch never makes a release.
+# A tag v<version> (v0.5.0.1; `python -I tools/release.py publish <version> --yes` makes it) makes the release of that
+# commit: "StarDraft 2 - v<version> (build <commit>)", with StarDraft-<version>-win64.zip (stardraft.exe only), marked
+# Latest; its text is the "## <version>" section of docs/user/CHANGELOG.md (what is new), then the base changelog (its
+# last section, what StarDraft is) for new visitors. The symbols go to a draft release symbols-v<version>.
 # StarDraft's Check for updates reads "(build <commit>)" in the newest release's title. Each release keeps its own
 # download count. The tests need a StarCraft: Remastered install, so they are not run here.
 name: Build
@@ -9,18 +11,31 @@ name: Build
 on:
   push:
     branches: ['**']
-    tags: ['v*']
+    tags: ['v[0-9]*']
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: write  # to make a release
 
+# A newer push to the same branch stops its older build (only the newest one counts); a tag's run always goes to its end.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 jobs:
   windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      # A release tag: the tag is a version, its changelog section and pictures are good, and the commit is on main.
+      # Checked first, so a bad tag stops in seconds and not after the build.
+      - name: Check the release tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -I tools/release.py ci-check $env:GITHUB_REF_NAME
 
       # The UI text rules (docs/dev/PRINCIPLES.md, "Text"): a new violation stops the build. Needs only Python.
       - name: Check the UI text
@@ -81,43 +96,52 @@ jobs:
           DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}  # a new release is posted in Discord (#updates)
           DISCORD_GENERAL_WEBHOOK: ${{ secrets.DISCORD_GENERAL_WEBHOOK }}  # and in #general (a webhook of that channel)
         run: |
-          $version = $env:GITHUB_REF_NAME.Substring(1)
+          $tag = $env:GITHUB_REF_NAME; $version = $tag.Substring(1)
           $zip = "StarDraft-$version-win64.zip"
           Compress-Archive -Force -Path build/Release/stardraft.exe -DestinationPath $zip  # the program only (the notes are on the release page)
-          # The release's text: what is new in this version (the changelog's "## <version>" section), then the base
-          # changelog (its last section: what StarDraft is and does, how to start), so a new visitor understands it.
-          $sections = [ordered]@{}; $name = $null
-          foreach ($line in Get-Content docs/user/CHANGELOG.md -Encoding utf8) {
-            if ($line -match '^## (.+)$') { $name = $Matches[1].Trim(); $sections[$name] = @(); continue }
-            if ($name) { $sections[$name] += $line }
+          # The text: what is new in this version (its changelog section), then the base changelog (what StarDraft is
+          # and does, how to start) for new visitors; picture paths become addresses at this tag. tools/release.py
+          # makes it, the same text that `release.py notes <version>` shows before a release.
+          python -I tools/release.py notes $version --tag $tag --out notes.md
+          if ($LASTEXITCODE) { throw "No release text for $version" }
+          $title = python -I tools/release.py title $version
+          # A run again (Re-run of a failed run) puts the zip and the text in the release that is there; only a new
+          # release is posted in Discord.
+          gh release view $tag --json name *> $null
+          $new = $LASTEXITCODE -ne 0
+          if ($new) {
+            gh release create $tag $zip --title $title --latest --verify-tag --notes-file notes.md
+          } else {
+            gh release upload $tag $zip --clobber
+            if (-not $LASTEXITCODE) { gh release edit $tag --title $title --notes-file notes.md --latest }
           }
-          $mine = $sections.Keys | Where-Object { $_ -eq $version -or $_.StartsWith("$version ") } | Select-Object -First 1
-          $base = @($sections.Keys)[-1]
-          $notes = @()
-          if ($mine -and $mine -ne $base) { $notes += "## What is new in $version"; $notes += $sections[$mine]; $notes += '' }
-          if ($base) { $notes += "## About StarDraft ($base)"; $notes += $sections[$base] }
-          # Screenshots: the changelog's images/... paths become full addresses at this tag (the release text has no folder).
-          $raw = "https://raw.githubusercontent.com/$($env:GITHUB_REPOSITORY)/$($env:GITHUB_REF_NAME)/docs/user/"
-          $text = ($notes -join "`n") -replace '\]\((images/[^)\s]+)\)', "]($raw`$1)"
-          Set-Content notes.md $text -Encoding utf8
-          $title = "StarDraft 2 - v$version (build $($env:GITHUB_SHA.Substring(0, 7)))"
-          gh release create $env:GITHUB_REF_NAME $zip --title $title --latest --verify-tag --notes-file notes.md
+          if ($LASTEXITCODE) { throw "The release $tag was not made ($LASTEXITCODE)" }
+          # The symbols (stardraft.pdb), to read crash reports' crash.dmp files: a draft release symbols-<tag>, which
+          # only the repository's members see, kept for good (an artifact goes after 90 days). Not on the release page.
+          $sym = "StarDraft-$version-symbols.zip"
+          Compress-Archive -Force -Path build/Release/stardraft.pdb -DestinationPath $sym
+          $kept = @(gh release list --limit 200 --json tagName --jq '.[].tagName')
+          if ($kept -contains "symbols-$tag") {
+            gh release upload "symbols-$tag" $sym --clobber
+          } else {
+            gh release create "symbols-$tag" $sym --draft --target $env:GITHUB_SHA --title "Symbols of $title" `
+              --notes "stardraft.pdb of $title, for its crash reports (crash.dmp). A draft: only the repository's members see it."
+          }
+          if ($LASTEXITCODE) { throw "The symbols were not kept ($LASTEXITCODE)" }
+          if (-not $new) { Write-Output 'The release was there already: no Discord post.'; exit 0 }
           # Discord: one post in each channel that has a webhook (a webhook posts in its own channel only), with the
-          # screenshots of this version's changelog section as files (at most 10; Discord cannot load the private
-          # repository's image addresses).
+          # screenshots of this version's changelog section as files (at most 10). A post that does not go makes the
+          # run fail after the release is out: post again with Actions > Post screenshots to Discord.
           $hooks = @($env:DISCORD_RELEASE_WEBHOOK, $env:DISCORD_GENERAL_WEBHOOK) | Where-Object { $_ }
-          if ($hooks) {
-            $url = gh release view $env:GITHUB_REF_NAME --json url --jq .url
-            @{ content = "**$title** is out: $url" } | ConvertTo-Json | Set-Content payload.json -Encoding utf8NoBOM
-            $images = @()
-            if ($mine) {
-              $images = @([regex]::Matches(($sections[$mine] -join "`n"), '\]\((images/[^)\s]+)\)') |
-                ForEach-Object { "docs/user/" + $_.Groups[1].Value } | Where-Object { Test-Path $_ } | Select-Object -Unique -First 10)
-            }
-            foreach ($hook in $hooks) {
-              $form = @('-sS', '--fail-with-body', '-F', 'payload_json=<payload.json')
-              for ($i = 0; $i -lt $images.Count; $i++) { $form += @('-F', "files[$i]=@$($images[$i])") }
-              curl.exe @form $hook
-              if ($LASTEXITCODE -ne 0) { Write-Warning "The Discord post did not go ($LASTEXITCODE)" }
-            }
+          if (-not $hooks) { throw 'No Discord webhook (DISCORD_RELEASE_WEBHOOK, DISCORD_GENERAL_WEBHOOK): the release is out, not posted' }
+          $url = gh release view $tag --json url --jq .url
+          @{ content = "**$title** is out: $url" } | ConvertTo-Json | Set-Content payload.json -Encoding utf8NoBOM
+          $images = @(python -I tools/release.py notes $version --images)
+          $failed = 0
+          foreach ($hook in $hooks) {
+            $form = @('-sS', '--fail-with-body', '-F', 'payload_json=<payload.json')
+            for ($i = 0; $i -lt $images.Count; $i++) { $form += @('-F', "files[$i]=@$($images[$i])") }
+            curl.exe @form $hook
+            if ($LASTEXITCODE -ne 0) { $failed++; Write-Warning "A Discord post did not go ($LASTEXITCODE)" }
           }
+          if ($failed) { throw "$failed Discord posts did not go: post again with Actions > Post screenshots to Discord" }
