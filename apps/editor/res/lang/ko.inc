@@ -1563,7 +1563,6 @@ inline constexpr UiText kLangKo[] = {
     {L"All tiles", L"\uBAA8\uB4E0 \uD0C0\uC77C"},
     {L"All tiles but the null tiles", L"\uB110 \uD0C0\uC77C\uC744 \uC81C\uC678\uD55C \uBAA8\uB4E0 \uD0C0\uC77C"},
     {L"Doodad tiles", L"\uC7A5\uC2DD\uBB3C \uD0C0\uC77C"},
-    {L"No tiles agree with the search and the filter", L"\uAC80\uC0C9\uC5B4\uC640 \uD544\uD130\uC5D0 \uB9DE\uB294 \uD0C0\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4"},
     {L"Click a tile to place it", L"\uD0C0\uC77C\uC744 \uD074\uB9AD\uD558\uC5EC \uBC30\uCE58\uD558\uC2ED\uC2DC\uC624"},
     {L": click or drag to place it (the brush's size and shape)", L": \uD074\uB9AD\uD558\uAC70\uB098 \uB4DC\uB798\uADF8\uD558\uC5EC \uBC30\uCE58\uD569\uB2C8\uB2E4 (\uBE0C\uB7EC\uC2DC\uC758 \uD06C\uAE30\uC640 \uBAA8\uC591)"},
     {L"the Tiles list", L"\uD0C0\uC77C \uBAA9\uB85D"},

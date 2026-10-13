@@ -5975,6 +5975,11 @@ void paintUnitPalette(HWND hwnd) {
             else drawMatched(mem, t, e.label, words, kText);
         }
     }
+    if (app.ed && gPal.entries.empty()) {  // nothing agrees with the search: only None, dim, where the first row goes
+        SetTextColor(mem, kDim);
+        RECT t{scale(6), 0, rc.right - scale(6), scale(30)};
+        DrawTextW(mem, tr(L"None"), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+    }
     SelectClipRgn(mem, nullptr);
     DeleteObject(clip);
     if (unitPaletteFooter()) {
@@ -19203,6 +19208,25 @@ HMENU buildMenu() {
     return bar;
 }
 
+// The Locations list with no rows (a search that agrees with no location): only None, dim, where the first row goes.
+// It is painted, not a row: a row could be selected and would move app.items' indexes.
+LRESULT CALLBACK emptyListProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
+    const LRESULT r = DefSubclassProc(hwnd, msg, wp, lp);
+    if (msg == WM_PAINT && app.ed && app.ed->isOpen() && SendMessageW(hwnd, LB_GETCOUNT, 0, 0) == 0) {
+        RECT rc;
+        GetClientRect(hwnd, &rc);
+        HDC dc = GetDC(hwnd);
+        SetBkMode(dc, TRANSPARENT);
+        SetTextColor(dc, kDim);
+        HGDIOBJ of = SelectObject(dc, app.font);
+        RECT t{scale(10), 0, rc.right - scale(8), scale(30)};
+        DrawTextW(dc, tr(L"None"), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+        SelectObject(dc, of);
+        ReleaseDC(hwnd, dc);
+    }
+    return r;
+}
+
 LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_COMMAND && LOWORD(wp) >= ID_ACCENT && LOWORD(wp) < ID_ACCENT + theme::kAccentCount) {
         applyTheme(gLightTheme, LOWORD(wp) - ID_ACCENT);
@@ -19442,6 +19466,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         app.list = CreateWindowExW(0, WC_LISTBOXW, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT | LBS_EXTENDEDSEL |
                                                                LBS_OWNERDRAWFIXED | LBS_HASSTRINGS,
                                    0, 0, 0, 0, hwnd, HMENU(IDC_LIST), app.inst, nullptr);
+        SetWindowSubclass(app.list, emptyListProc, 47, 0);
         gPal.search = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 0, 0, 0, 0, hwnd,
                                       HMENU(IDC_UNITSEARCH), app.inst, nullptr);
         SendMessageW(gPal.search, EM_SETCUEBANNER, TRUE, LPARAM(L"Search")); addSearchClear(gPal.search);  // an x clears it
@@ -23300,6 +23325,33 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 o << "terrain " << (terrain ? "yes" : "NO") << ", unit " << (unit ? "yes" : "NO") << ", doodad " << (doodad ? "yes" : "NO") << ", location "
                   << (location ? "yes" : "NO") << "\n";
                 setMode(Mode::Units), app.palette = -1, gPal.chosen.clear();
+                continue;
+            }
+            if (s == "emptynone:") {  // emptynone_<palette|locations>[_light].png/.txt: a search that agrees with nothing: only None
+                std::ofstream o(fs::path(datashots) / "emptynone.txt");
+                setWorkspace(Workspace::Map);
+                const bool wasLight = gLightTheme;
+                for (int light = 0; light < 2; ++light) {
+                    applyTheme(light != 0, gAccentIndex);
+                    const std::string suffix = light ? "_light" : "";
+                    setMode(Mode::Units);
+                    SetWindowTextW(gPal.search, L"zzqqxxnothing");
+                    rebuildUnitPalette();
+                    for (int i = 0; i < 8; ++i) pump();
+                    capture(fs::path(datashots) / ("emptynone_palette" + suffix + ".png"));
+                    o << "palette rows " << gPal.entries.size() << (gPal.entries.empty() ? "" : " WRONG");
+                    SetWindowTextW(gPal.search, L"");
+                    setMode(Mode::Locations);
+                    SetWindowTextW(app.filter, L"zzqqxxnothing");
+                    rebuildList();
+                    for (int i = 0; i < 8; ++i) pump();
+                    capture(fs::path(datashots) / ("emptynone_locations" + suffix + ".png"));
+                    const LRESULT rows = SendMessageW(app.list, LB_GETCOUNT, 0, 0);
+                    o << ", Locations rows " << rows << (rows == 0 ? "" : " WRONG") << "\n";
+                    SetWindowTextW(app.filter, L"");
+                }
+                applyTheme(wasLight, gAccentIndex);
+                setMode(Mode::Units), rebuildUnitPalette();
                 continue;
             }
             if (s == "selshape:") {  // selshape.png: a terrain selection made with the diamond brush shape

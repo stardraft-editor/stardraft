@@ -320,7 +320,7 @@ void paintTilesList(HWND hwnd) {
         if (gTiles.values.empty()) {
             RECT t{scale(8), scale(8), rc.right - scale(8), viewH};
             SetTextColor(mem, kDim);
-            DrawTextW(mem, L"No tiles agree with the search and the filter", -1, &t, DT_WORDBREAK | DT_NOPREFIX);
+            DrawTextW(mem, tr(L"None"), -1, &t, DT_SINGLELINE | DT_NOPREFIX);
         }
     }
     if (gTiles.boxing && gTiles.boxed) {  // the box being dragged

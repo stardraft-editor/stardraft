@@ -1562,7 +1562,6 @@ inline constexpr UiText kLangEs[] = {
     {L"All tiles", L"Todos los tiles"},
     {L"All tiles but the null tiles", L"Todos los tiles menos los nulos"},
     {L"Doodad tiles", L"Tiles de decorado"},
-    {L"No tiles agree with the search and the filter", L"Ning\u00FAn tile coincide con la b\u00FAsqueda y el filtro"},
     {L"Click a tile to place it", L"Haga clic en un tile para colocarlo"},
     {L": click or drag to place it (the brush's size and shape)", L": haga clic o arrastre para colocarlo (tama\u00F1o y forma del pincel)"},
     {L"the Tiles list", L"la lista de Tiles"},
