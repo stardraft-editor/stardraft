@@ -420,7 +420,8 @@ enum DoodadTool { DPlace, DSpray };
 enum SpriteTool { SPlace, SSpray };
 // A spray tool is on: Units, Doodads or Sprites (their radius, density and the circle on the map).
 bool objectSprayOn();
-void dialogMessage(MSG& msg, HWND dlg);  // feedback.inc: a modal window's message (a right click: Report feedback)
+void dialogMessage(MSG& msg, HWND dlg);
+void mapPageFlush();  // map_pages.inc: a text being typed on a map page goes into the map now  // feedback.inc: a modal window's message (a right click: Report feedback)
 void stripToolByKey(int key);  // the keys V, B, A, F (the strip's tools)
 std::wstring entryName(const std::string& dat, int v);
 
@@ -2717,6 +2718,7 @@ std::string gTrigBuildError;
 bool trigShowBuildError(const std::string& logLine);
 
 void compileProject() {
+    mapPageFlush();  // a text being typed on a map page is in the build too
     EudProject* pr = activeProject();
     if (!app.ed || !pr) {
         setMessage(L"Build needs an EUD project. Use File > Project > New project or Open project.");
@@ -3442,6 +3444,7 @@ bool isUnsavedProject(const EudProject* pr);
 bool unsavedProjectTouched(const EudProject& pr);
 bool saveMap(bool as) {
     if (!app.ed || !app.ed->isOpen()) return false;
+    mapPageFlush();  // a text being typed on a map page is saved too
     if (isUnsavedProject(activeProject())) return saveUnsavedProject();
     std::wstring path = app.ed->path().wstring();
     bool programFiles = path.find(L"Program Files") != std::wstring::npos;
@@ -25841,6 +25844,10 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             // An open dropdown list takes the typed letters (D goes to "Dirt", not to Doodads mode).
             if (!editFocus && _wcsicmp(cls, WC_COMBOBOXW) == 0 && SendMessageW(GetFocus(), CB_GETDROPPEDSTATE, 0, 0)) editFocus = true;
             if (!editFocus && _wcsicmp(cls, L"ComboLBox") == 0) editFocus = true;
+            // The trigger pane: a typed letter or number opens its block picker (the plain-key shortcuts wait).
+            if (!editFocus && _wcsicmp(cls, L"StarDraftTrigPane") == 0 && msg.message == WM_KEYDOWN && !(GetKeyState(VK_CONTROL) & 0x8000) &&
+                !(GetKeyState(VK_MENU) & 0x8000) && ((msg.wParam >= 'A' && msg.wParam <= 'Z') || (msg.wParam >= '0' && msg.wParam <= '9')))
+                editFocus = true;
             // A map page's control: its keys (Tab between the fields, the lists' keys) before the shortcuts.
             const bool pageFocus = mapPageHasFocus();
             if (pageFocus && msg.message == WM_KEYDOWN && msg.wParam == VK_TAB && IsDialogMessageW(gMp.wnd, &msg)) continue;

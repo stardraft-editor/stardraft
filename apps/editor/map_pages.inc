@@ -520,6 +520,7 @@ void mapPageInvalidateBar() {
 
 void mapPageAutoApply();
 void mapPageCommit();
+void mapPageFlush();
 // After an edit on the page: the change goes into the map at once, one undo step (a typed text a moment after the last
 // key). GitHub feedback #102: no Apply.
 void mapPageChanged() {
@@ -932,12 +933,23 @@ void mapPageCommit() {
     if (!c || !app.ed || gMp.kind == kMpProps) return;
     mapPageReadBack();
     if (!mapPageCopyChanged(gMp.kind, *c)) return;
+    // The map changed elsewhere (an undo) after the copy's last commit: the copy is old. The page shows the map again
+    // (the change made since is lost, so that an old copy never writes over the undo).
+    if (c->revision != app.ed->revision()) return mapPageReload();
     if (mapPageApplyCopy(gMp.kind, *c)) mapPageRebase(gMp.kind, *c), c->revision = app.ed->revision();
     const bool now = mapPageCopyChanged(gMp.kind, *c);
     if (now != c->changed) {
         c->changed = now;
         if (gWsBar) InvalidateRect(gWsBar, nullptr, FALSE);
     }
+}
+
+// A text being typed goes into the map now (before a save, a build, or the map closes).
+void mapPageFlush() {
+    if (!gMp.ready || gMp.ed != app.ed.get()) return;
+    KillTimer(gMp.wnd, 2), gMp.typing = false;
+    if (gMp.kind == kMpProps) mapPageAutoApply();
+    else mapPageCommit();
 }
 
 // Apply (the bar's button): the copy into the map as one undo step, then the map's values again.
@@ -959,7 +971,7 @@ void mapPageRevert() {
 
 // Leaving the map (closing its tab, or StarDraft) with changes that are not applied: apply them, or not, or stay.
 bool mapPagesConfirm() {
-    if (gMp.wnd && gMp.ed == app.ed.get()) mapPageChanged();
+    if (gMp.wnd && gMp.ed == app.ed.get()) mapPageFlush();
     MapPageCopies* c = mapPageCopies(false);
     if (!c) return true;
     std::wstring names;
@@ -1034,10 +1046,13 @@ void mapPagesDatashot(const fs::path& dir) {
     const char* const names[kMpCount] = {"props", "players", "classic_triggers", "classic_settings"};
     {  // Map properties with players and forces: each change goes into the map at once; the size waits for its button.
         command(ID_WS_MAP);
+        const uint64_t revBefore = app.ed->revision();
         const auto t0 = std::chrono::steady_clock::now();
         command(ID_SCEN_PROPS);
         const double openMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
         settle();
+        for (int i = 0; i < 20; ++i) pump(), Sleep(30), mapPageReloadIfStale();  // its timer (a translated name must not go in)
+        const bool unchanged = app.ed->revision() == revBefore;
         const bool open = gMp.wnd && gMp.kind == kMpProps && gMapProps && gPlayersDlg && gMp.content[1];
         capture(dir / ("mappage_props" + light + ".png"), app.main);
         bool title = false, titleUndo = false, player = false, sizeWaits = false, sizeSet = false, ctrlP = false;
@@ -1082,7 +1097,7 @@ void mapPagesDatashot(const fs::path& dir) {
         log << "props: one page with players and forces " << yes(open) << " (opened in " << int(openMs) << " ms), the title goes into the map at once "
             << yes(title) << ", undo gives it back on the page " << yes(titleUndo) << ", a player's change at once " << yes(player)
             << ", the size waits for its button (the dot) " << yes(sizeWaits) << ", the button sets it " << yes(sizeSet)
-            << ", Players and forces scrolls to them " << yes(ctrlP) << "\n";
+            << ", Players and forces scrolls to them " << yes(ctrlP) << ", opening it leaves the map as it was " << yes(unchanged) << "\n";
         command(ID_WS_MAP);
     }
     for (int k = kMpClassicTrig; k < kMpCount; ++k) {

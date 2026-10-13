@@ -100,13 +100,25 @@ inline BOOL uiTextExtent(HDC dc, const wchar_t* text, int count, LPSIZE sz) {
     return (GetTextExtentPoint32W)(dc, shown.c_str(), int(shown.size()), sz);
 }
 
+// A text box keeps its text as it is: it holds the user's data (a force name, a map string), which must not be
+// translated and then saved translated. Class names: Edit, RichEdit, and a combo box that can be typed in.
+inline bool uiTextBoxClass(const wchar_t* cls, DWORD style) {
+    if (!cls || IS_INTRESOURCE(cls)) return false;
+    return _wcsicmp(cls, L"Edit") == 0 || _wcsnicmp(cls, L"RichEdit", 8) == 0 ||
+           (_wcsicmp(cls, L"ComboBox") == 0 && (style & 3) == CBS_DROPDOWN);
+}
+inline bool uiTextBox(HWND hwnd) {
+    wchar_t cls[32] = L"";
+    return hwnd && GetClassNameW(hwnd, cls, 32) && uiTextBoxClass(cls, DWORD(GetWindowLongPtrW(hwnd, GWL_STYLE)));
+}
+
 inline BOOL uiSetWindowText(HWND hwnd, const wchar_t* text) {
-    return (SetWindowTextW)(hwnd, tr(text));
+    return (SetWindowTextW)(hwnd, uiTextBox(hwnd) ? text : tr(text));
 }
 
 inline HWND uiCreateWindow(DWORD ex, const wchar_t* cls, const wchar_t* name, DWORD style, int x, int y, int w, int h, HWND parent,
                            HMENU menu, HINSTANCE inst, void* param) {
-    return (CreateWindowExW)(ex, cls, tr(name), style, x, y, w, h, parent, menu, inst, param);
+    return (CreateWindowExW)(ex, cls, uiTextBoxClass(cls, style) ? name : tr(name), style, x, y, w, h, parent, menu, inst, param);
 }
 
 inline int uiMessageBox(HWND owner, const wchar_t* text, const wchar_t* caption, UINT flags) {
@@ -128,7 +140,9 @@ inline BOOL uiInsertMenu(HMENU menu, UINT pos, UINT flags, UINT_PTR id, const wc
 
 inline LRESULT uiSendMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (gUiLang != UiLang::English && lp) {
-        if (msg == WM_SETTEXT || msg == CB_ADDSTRING || msg == CB_INSERTSTRING) {  // (combo boxes: the item's text, not data)
+        if (msg == WM_SETTEXT && uiTextBox(hwnd)) {
+            // a text box: its text stays (see uiTextBox)
+        } else if (msg == WM_SETTEXT || msg == CB_ADDSTRING || msg == CB_INSERTSTRING) {  // (combo boxes: the item's text, not data)
             lp = LPARAM(tr(reinterpret_cast<const wchar_t*>(lp)));
         } else if (msg == TTM_ADDTOOLW || msg == TTM_UPDATETIPTEXTW) {  // the tooltip control copies the text
             auto* ti = reinterpret_cast<TTTOOLINFOW*>(lp);
