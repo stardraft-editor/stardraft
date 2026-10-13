@@ -560,7 +560,6 @@ D&uplicate\tCtrl+D	복제(&U)\tCtrl+D
 Turn &off	끄기(&O)
 Turn &on	켜기(&O)
 De&lete\tDel	삭제(&L)\tDel
-Terran Marine	테란 마린
 Terran Marine (Custom Name)	테란 마린 (사용자 지정 이름)
 Custom Name (Terran Marine)	사용자 지정 이름 (테란 마린)
 Custom Name	사용자 지정 이름
@@ -1002,7 +1001,6 @@ player 2	플레이어 2
 Resized by the test	테스트로 크기가 바뀌었습니다
 Test Marine	테스트 마린
 The marine icon is a bit blurry.\r\nSecond line.	마린 아이콘이 약간 흐릿합니다.\r\n둘째 줄.
-Marine	마린
 const a = 1;\r\nconst b = a + 2;\r\nsimpleprint(b);	const a = 1;\r\nconst b = a + 2;\r\nsimpleprint(b);
 mouse move	마우스 이동
 the map's frame	맵의 프레임

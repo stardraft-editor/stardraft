@@ -560,7 +560,6 @@ D&uplicate\tCtrl+D	D&uplicar\tCtrl+D
 Turn &off	&Desactivar
 Turn &on	&Activar
 De&lete\tDel	Elimi&nar\tDel
-Terran Marine	Marine Terran
 Terran Marine (Custom Name)	Marine Terran (nombre personalizado)
 Custom Name (Terran Marine)	Nombre personalizado (Marine Terran)
 Custom Name	Nombre personalizado
@@ -1002,7 +1001,6 @@ player 2	jugador 2
 Resized by the test	Tamaño cambiado por la prueba
 Test Marine	Marine de prueba
 The marine icon is a bit blurry.\r\nSecond line.	El icono del marine está un poco borroso.\r\nSegunda línea.
-Marine	Marine
 const a = 1;\r\nconst b = a + 2;\r\nsimpleprint(b);	const a = 1;\r\nconst b = a + 2;\r\nsimpleprint(b);
 mouse move	movimiento del ratón
 the map's frame	el marco del mapa
