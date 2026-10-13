@@ -1755,4 +1755,13 @@ inline constexpr UiText kLangEs[] = {
     {L"Player 10", L"Jugador 10"},
     {L"Player 11", L"Jugador 11"},
     {L"Player 12", L"Jugador 12"},
+    {L"Show ranges of the selected u&nits", L"Mostrar el alcance de las u&nidades seleccionadas"},
+    {L"Ranges are hidden", L"El alcance est\u00E1 oculto"},
+    {L"Ranges of the selected units: sight (yellow), ground weapon (red), air weapon (blue)", L"Alcance de las unidades seleccionadas: visi\u00F3n (amarillo), arma terrestre (rojo), arma a\u00E9rea (azul)"},
+    {L"Favorites", L"Favoritos"},
+    {L"Add to favorites", L"Agregar a favoritos"},
+    {L"Remove from favorites", L"Quitar de favoritos"},
+    {L"Show the favorites", L"Mostrar los favoritos"},
+    {L"&Fill selection with the selected tiles", L"&Rellenar la selecci\u00F3n con las fichas seleccionadas"},
+    {L"Fill: in the selection, all of it; else the connected tiles of one value. Several tiles selected in the list: each tile at random. Shift+click: every tile of that value (in the selection, if there is one).", L"Rellenar: en la selecci\u00F3n, toda ella; si no, las fichas conectadas de un valor. Varias fichas seleccionadas en la lista: cada ficha al azar. May\u00FAs+clic: todas las fichas de ese valor (en la selecci\u00F3n, si hay una)."},
 };

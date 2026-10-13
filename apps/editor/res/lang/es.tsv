@@ -1753,3 +1753,12 @@ Player 9	Jugador 9
 Player 10	Jugador 10
 Player 11	Jugador 11
 Player 12	Jugador 12
+Show ranges of the selected u&nits	Mostrar el alcance de las u&nidades seleccionadas
+Ranges are hidden	El alcance está oculto
+Ranges of the selected units: sight (yellow), ground weapon (red), air weapon (blue)	Alcance de las unidades seleccionadas: visión (amarillo), arma terrestre (rojo), arma aérea (azul)
+Favorites	Favoritos
+Add to favorites	Agregar a favoritos
+Remove from favorites	Quitar de favoritos
+Show the favorites	Mostrar los favoritos
+&Fill selection with the selected tiles	&Rellenar la selección con las fichas seleccionadas
+Fill: in the selection, all of it; else the connected tiles of one value. Several tiles selected in the list: each tile at random. Shift+click: every tile of that value (in the selection, if there is one).	Rellenar: en la selección, toda ella; si no, las fichas conectadas de un valor. Varias fichas seleccionadas en la lista: cada ficha al azar. Mayús+clic: todas las fichas de ese valor (en la selección, si hay una).

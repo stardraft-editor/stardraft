@@ -1756,4 +1756,13 @@ inline constexpr UiText kLangKo[] = {
     {L"Player 10", L"\uD50C\uB808\uC774\uC5B4 10"},
     {L"Player 11", L"\uD50C\uB808\uC774\uC5B4 11"},
     {L"Player 12", L"\uD50C\uB808\uC774\uC5B4 12"},
+    {L"Show ranges of the selected u&nits", L"\uC120\uD0DD\uD55C \uC720\uB2DB\uC758 \uC0AC\uAC70\uB9AC \uD45C\uC2DC(&N)"},
+    {L"Ranges are hidden", L"\uC0AC\uAC70\uB9AC\uB97C \uC228\uACBC\uC2B5\uB2C8\uB2E4"},
+    {L"Ranges of the selected units: sight (yellow), ground weapon (red), air weapon (blue)", L"\uC120\uD0DD\uD55C \uC720\uB2DB\uC758 \uC0AC\uAC70\uB9AC: \uC2DC\uC57C(\uB178\uB791), \uC9C0\uC0C1 \uBB34\uAE30(\uBE68\uAC15), \uACF5\uC911 \uBB34\uAE30(\uD30C\uB791)"},
+    {L"Favorites", L"\uC990\uACA8\uCC3E\uAE30"},
+    {L"Add to favorites", L"\uC990\uACA8\uCC3E\uAE30\uC5D0 \uCD94\uAC00"},
+    {L"Remove from favorites", L"\uC990\uACA8\uCC3E\uAE30\uC5D0\uC11C \uC81C\uAC70"},
+    {L"Show the favorites", L"\uC990\uACA8\uCC3E\uAE30 \uD45C\uC2DC"},
+    {L"&Fill selection with the selected tiles", L"\uC120\uD0DD \uC601\uC5ED\uC744 \uC120\uD0DD\uD55C \uD0C0\uC77C\uB85C \uCC44\uC6B0\uAE30(&F)"},
+    {L"Fill: in the selection, all of it; else the connected tiles of one value. Several tiles selected in the list: each tile at random. Shift+click: every tile of that value (in the selection, if there is one).", L"\uCC44\uC6B0\uAE30: \uC120\uD0DD \uC601\uC5ED \uC548\uC5D0\uC11C\uB294 \uC804\uCCB4\uB97C, \uADF8 \uBC16\uC5D0\uC11C\uB294 \uAC19\uC740 \uAC12\uC73C\uB85C \uC774\uC5B4\uC9C4 \uD0C0\uC77C\uC744 \uCC44\uC6C1\uB2C8\uB2E4. \uBAA9\uB85D\uC5D0\uC11C \uC5EC\uB7EC \uD0C0\uC77C\uC744 \uC120\uD0DD\uD558\uBA74 \uAC01 \uD0C0\uC77C\uC744 \uBB34\uC791\uC704\uB85C \uB193\uC2B5\uB2C8\uB2E4. Shift+\uD074\uB9AD: \uADF8 \uAC12\uC758 \uBAA8\uB4E0 \uD0C0\uC77C(\uC120\uD0DD \uC601\uC5ED\uC774 \uC788\uC73C\uBA74 \uADF8 \uC548\uC5D0\uC11C)."},
 };

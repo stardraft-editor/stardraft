@@ -1754,3 +1754,12 @@ Player 9	플레이어 9
 Player 10	플레이어 10
 Player 11	플레이어 11
 Player 12	플레이어 12
+Show ranges of the selected u&nits	선택한 유닛의 사거리 표시(&N)
+Ranges are hidden	사거리를 숨겼습니다
+Ranges of the selected units: sight (yellow), ground weapon (red), air weapon (blue)	선택한 유닛의 사거리: 시야(노랑), 지상 무기(빨강), 공중 무기(파랑)
+Favorites	즐겨찾기
+Add to favorites	즐겨찾기에 추가
+Remove from favorites	즐겨찾기에서 제거
+Show the favorites	즐겨찾기 표시
+&Fill selection with the selected tiles	선택 영역을 선택한 타일로 채우기(&F)
+Fill: in the selection, all of it; else the connected tiles of one value. Several tiles selected in the list: each tile at random. Shift+click: every tile of that value (in the selection, if there is one).	채우기: 선택 영역 안에서는 전체를, 그 밖에서는 같은 값으로 이어진 타일을 채웁니다. 목록에서 여러 타일을 선택하면 각 타일을 무작위로 놓습니다. Shift+클릭: 그 값의 모든 타일(선택 영역이 있으면 그 안에서).

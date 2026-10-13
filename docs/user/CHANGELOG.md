@@ -2,6 +2,41 @@
 
 StarDraft is a combined map editor and EUD editor for StarCraft: Remastered, for Windows (64-bit).
 
+## 0.5.0.4
+
+### Ranges on the map
+
+View > Show ranges of the selected units: around each selected unit, its sight range (yellow), its ground weapon's
+range (red) and its air weapon's range (blue). A tank's or goliath's turret counts too. EUD projects use their own
+units.dat and weapons.dat.
+
+![The ranges of a goliath and a siege tank](images/0.5.0.4/ranges.png)
+
+### Tiles (Rectangle mode)
+
+- The selection box is whole tiles while you drag it.
+- Fill in the selection fills all of it. With several tiles selected in the Tiles list, each tile is one of them at
+  random. The map's right-click menu also has Fill selection.
+- Drag a box over tiles in the Tiles list to select them all. Ctrl+drag adds to the selection.
+- Favorites: right-click a tile (or the selected tiles) in the Tiles list and select Add to favorites. The
+  Favorites filter shows them. StarDraft keeps them for each tileset.
+
+![A box dragged over the Tiles list](images/0.5.0.4/tile_box.png) ![The Favorites filter](images/0.5.0.4/tile_favorites.png)
+
+### Triggers
+
+- Increase or decrease a unit's hit points, shields or energy. An increase stops at the unit's maximum. A decrease
+  stops at 0, and a unit with no hit points dies.
+- Order one unit: with no target (stop, hold position, burrow, siege mode …), to a location, to a point (x, y), or
+  on another unit (attack, follow, repair, load, spells).
+- The generated code is shorter: StarDraft's helper functions are in a file of their own (generated/sdlib.eps), and
+  triggers.eps uses only the ones it needs.
+
+### Other changes
+
+- Enter on a selected unit opens Unit properties.
+- New releases are also posted in the Discord's #general channel.
+
 ## 0.5.0.3
 
 ### Korean and Spanish
