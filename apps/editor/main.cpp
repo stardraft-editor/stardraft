@@ -25031,6 +25031,37 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 capture(fs::path(datashots) / (s.substr(9) + ".png"), app.view);
                 continue;
             }
+            if (s == "rampshot:") {  // rampshot.png: a new jungle map, high dirt painted, a ramp placed on its cliff (GitHub feedback #93)
+                newMap(64, 64, 4, 1);
+                Editor& ed = *app.ed;
+                for (int dy = -8; dy <= 8; ++dy)
+                    for (int dx = -16; dx <= 16; dx += 2)
+                        if (std::abs(dx) / 2 + std::abs(dy) <= 8) ed.paintTerrain((32 + dx) * 32, (32 + dy) * 32, 2, 1);
+                for (int y = 30; y <= 44; ++y)
+                    for (int x = 34; x <= 56; ++x) ed.paintTerrain(x * 32, y * 32, 2, 1);
+                int placed = 0, firstX = 32 * 32, firstY = 32 * 32;
+                for (uint16_t id : {uint16_t(12), uint16_t(13), uint16_t(10), uint16_t(8)}) {
+                    const DoodadType* t = ed.doodadTypes().find(id);
+                    if (!t) continue;
+                    for (int y = 0; y + t->height <= 64 && placed < 4; ++y)
+                        for (int x = 0; x + t->width <= 64; ++x)
+                            if (doodadFits(ed.chk(), *t, x, y, true) && !ed.doodadOverlaps(*t, x, y)) {
+                                ed.placeDoodad(id, uint16_t(x * 32 + t->width * 16), uint16_t(y * 32 + t->height * 16), true);
+                                if (!placed) firstX = x * 32 + t->width * 16, firstY = y * 32 + t->height * 16;
+                                ++placed;
+                                break;
+                            }
+                }
+                setWorkspace(Workspace::Map);
+                setMode(Mode::Doodads);
+                for (int i = 0; i < 3; ++i) pump();
+                centerOn(firstX, firstY, 1);
+                settle();
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "rampshot.png", app.main);
+                std::ofstream(fs::path(datashots) / "rampshot.txt") << placed << " ramps placed\n";
+                continue;
+            }
             if (s == "popupfeedback:") {  // popupfeedback.txt: a right click in Unit properties gives feedback on it (GitHub feedback #97)
                 std::ofstream o(fs::path(datashots) / "popupfeedback.txt");
                 static std::wstring on;

@@ -2,6 +2,52 @@
 
 StarDraft is a combined map editor and EUD editor for StarCraft: Remastered, for Windows (64-bit).
 
+## 0.5.0.3
+
+### Korean and Spanish
+
+StarDraft is now in Korean (한국어) and Spanish (Español). The language follows Windows. To change it, use
+Options > Program options > Language (it applies at the next start). Game names (units, weapons) stay as the game
+files give them.
+
+![StarDraft in Korean: the map with a new ramp](images/0.5.0.3/korean_map.png)
+
+![The start page in Korean](images/0.5.0.3/korean_start.png)
+
+![Program options in Korean, with the language and the map unit limit](images/0.5.0.3/korean_options.png)
+
+### Doodads
+
+- Doodads go only on the terrain they are made for: StarDraft now checks every tile under a doodad, not only its
+  top row. Doodads no longer go over the wrong terrain (for example, over rocky ground at a corner).
+- Ramps and other cliff doodads go on cliffs that you paint in StarDraft, on all tilesets.
+- Space Platform: Solar Array, Low Platform and Dark Platform have their correct names.
+
+![A ramp on a cliff painted in StarDraft](images/0.5.0.3/ramp.png)
+
+### Map pages
+
+- Classic triggers, Map data and Players set each change in the map at once. There is no Apply button. Each change
+  is one undo step.
+- Map data: each weapon shows what it attacks (ground, air, or ground and air).
+- Map data: to rename a unit, click the pencil button next to its name. The name shows as Program options > Unit
+  names sets it.
+
+![Map data: weapons with their targets, and a renamed unit](images/0.5.0.3/map_data.png)
+
+![Classic triggers without Apply](images/0.5.0.3/classic_triggers.png)
+
+### Other changes
+
+- Keys for the tools of each mode: V select, B brush or place, A spray, F fill.
+- Program options > Map unit limit: the most units a map can have (3400 for standard maps, 1700 for EUD projects).
+  Placing, spraying and pasting units stop at the limit.
+- Triggers: a new condition, "the current player is (less than, more than, exactly, …) Player N", for If blocks
+  in For each player.
+- New map: the buttons are Randomize seed, Randomize values and Randomize all.
+- Right-click "Report feedback on …" works in the windows over the main window too (Unit properties, a location,
+  Program options).
+
 ## 0.5.0.2
 
 - The middle mouse button drags the map: the map follows the mouse, with no speed-up.
