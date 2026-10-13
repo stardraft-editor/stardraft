@@ -963,7 +963,8 @@ void setMode(Mode m) {
     ShowWindow(app.density, SW_HIDE);  // density: a number box in the tool strip
     (void)spray;
 
-    ShowWindow(app.owner, mapWs && (m == Mode::Units || m == Mode::Doodads || m == Mode::Sprites) ? SW_SHOW : SW_HIDE);
+    // The player: for units and sprites (their owner and color). Doodads have no player (they are placed as player 1).
+    ShowWindow(app.owner, mapWs && (m == Mode::Units || m == Mode::Sprites) ? SW_SHOW : SW_HIDE);
     if (app.view) layout();
     fillToolCombo();
     app.terrainPasting = false;
@@ -19067,7 +19068,7 @@ void layout() {
     switch (app.mode) {
     case Mode::Terrain: break;
     case Mode::Units: row(app.owner, nullptr); break;
-    case Mode::Doodads: row(app.owner, nullptr); break;
+    case Mode::Doodads: break;
     case Mode::Sprites: row(app.owner, nullptr); break;
     case Mode::Locations: break;
     }
