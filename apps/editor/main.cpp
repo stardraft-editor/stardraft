@@ -162,6 +162,7 @@ enum : int {
     ID_LAYER = 990,         // + View > Layers: 0 terrain, 1 doodads, 2 sprites, 3 units
     ID_RAIL_KEY = 1000,     // + n: Ctrl+1 to Ctrl+9, the n-th item of the side bar (the tab's mode: a classic map or a project)
     ID_CRASH_MODE = 980,   // + Options > Crash reports: 0 ask, 1 send, 2 do not send
+    ID_MIDDLE_MODE = 984,  // + Options > Middle button: 0 scroll (the default), 1 drag the map
 };
 // View > Grid size: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
 struct GridPreset {
@@ -321,6 +322,9 @@ void setCrashReports(int mode) {
     const DWORD v = DWORD(gCrashReports);
     RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"CrashReports", REG_DWORD, &v, sizeof v);
 }
+// Options > Middle button: false scroll (the map moves toward the mouse, the faster the farther the mouse is from
+// where the button went down; the default), true drag (the map follows the mouse, as with a right-drag).
+bool gMiddleDrag = false;
 // Options: the most units a map may have (GitHub feedback #103): standard maps, and maps of EUD projects.
 int gUnitLimitClassic = 3400, gUnitLimitEud = 1700;
 std::wstring gLanguage = L"auto";  // Options > Language: auto, en, ko or es (a change applies at the next start)
@@ -350,6 +354,8 @@ void loadRecent() {
     onSize = sizeof on;
     if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"CrashReports", RRF_RT_REG_DWORD, nullptr, &on, &onSize) == ERROR_SUCCESS)
         gCrashReports = std::clamp(int(on), 0, 2);
+    onSize = sizeof on;
+    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"MiddleDrag", RRF_RT_REG_DWORD, nullptr, &on, &onSize) == ERROR_SUCCESS) gMiddleDrag = on != 0;
     onSize = sizeof on;
     if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"UnitLimitClassic", RRF_RT_REG_DWORD, nullptr, &on, &onSize) == ERROR_SUCCESS && on)
         gUnitLimitClassic = int(on);
@@ -4309,6 +4315,15 @@ void commandBody(int id) {
         setMessage(gCrashReports == 1 ? L"StarDraft 2 sends an anonymous report when it crashes"
                    : gCrashReports == 2 ? L"StarDraft 2 does not send crash reports (a report stays on this computer)"
                                         : L"After a crash, StarDraft 2 asks at the next start if it can send the report");
+        break;
+    case ID_MIDDLE_MODE:
+    case ID_MIDDLE_MODE + 1:
+        gMiddleDrag = id == ID_MIDDLE_MODE + 1;
+        if (!gSelfTest) {  // tests never change the user's settings
+            const DWORD on = gMiddleDrag ? 1 : 0;
+            RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"MiddleDrag", REG_DWORD, &on, sizeof on);
+        }
+        setMessage(gMiddleDrag ? L"The middle button drags the map" : L"The middle button scrolls the map");
         break;
     case ID_OPT_LANG:
     case ID_OPT_LANG + 1:
@@ -17469,6 +17484,11 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SetFocus(hwnd);
         SetCapture(hwnd);
         panX = anchorX = curX = GET_X_LPARAM(lp), panY = anchorY = curY = GET_Y_LPARAM(lp);
+        if (gMiddleDrag) {  // Options > Middle button > Drag: the map follows the mouse, as with a right-drag
+            app.drag = Drag::Pan;
+            SetCursor(LoadCursor(nullptr, IDC_SIZEALL));
+            return 0;
+        }
         app.drag = Drag::AutoPan;
         lastTick = std::chrono::steady_clock::now();
         SetTimer(hwnd, kAutoPanTimer, 10, nullptr);
@@ -25702,6 +25722,22 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(app.view, WM_MBUTTONUP, 0, MAKELPARAM(500, 300));
                 o << "the middle button scrolls the map while held " << (app.camX > x0 && std::abs(app.camY - y0) < 1 ? "yes" : "NO") << " (" << x0
                   << " -> " << app.camX << ")\n";
+                // Options > Middle button > Drag (set here, not through the command, so the user's setting stays): the map
+                // follows the mouse, as with a right-drag, and does not keep moving while the mouse stands still.
+                const bool middleDrag = std::exchange(gMiddleDrag, true);
+                centerOn(app.ed->width() * 16.0f, app.ed->height() * 16.0f, 1);
+                for (int i = 0; i < 3; ++i) pump();
+                const float x1 = app.camX, y1 = app.camY;
+                SendMessageW(app.view, WM_MBUTTONDOWN, MK_MBUTTON, MAKELPARAM(400, 300));
+                SendMessageW(app.view, WM_MOUSEMOVE, MK_MBUTTON, MAKELPARAM(500, 300));  // 100 px to the right
+                const float moved = x1 - app.camX;
+                for (int i = 0; i < 20; ++i) pump(), Sleep(15);
+                const bool still = std::abs(x1 - moved - app.camX) < 0.01f;
+                SendMessageW(app.view, WM_MBUTTONUP, 0, MAKELPARAM(500, 300));
+                gMiddleDrag = middleDrag;
+                o << "Middle button: Drag: the map follows the mouse " << (std::abs(moved - 100.0f / app.zoom) < 0.01f && std::abs(app.camY - y1) < 0.01f ? "yes" : "NO")
+                  << " (" << x1 << " -> " << x1 - moved << "), and stays when the mouse stays " << (still ? "yes" : "NO") << ", the drag ends on release "
+                  << (app.drag == Drag::None ? "yes" : "NO") << "\n";
                 continue;
             }
             if (s == "layers:") {  // layers.txt, layers_<name>.png: View > Layers hides each layer (#117)

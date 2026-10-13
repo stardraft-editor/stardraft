@@ -112,6 +112,15 @@ void optionsPaint(HWND hwnd) {
     y += rowH;
     y += volumeRow(mem, l.x0, y, l.labelW, std::min<int>(l.colRight, fx + scale(260)), hitsOut()) + pad;  // (an SFX entry has it too)
 
+    // Mouse: what the middle button does on the map (a right-drag always drags it).
+    y = ui::sectionHeader(mem, l, y, L"Mouse");
+    ui::fieldLabel(mem, l, y, L"Middle button", false);
+    segmented(y,
+              {{L"Scroll", L"The farther the mouse is from where you pressed, the faster the map moves toward it (default)"},
+               {L"Drag", L"The map moves with the mouse, as with a right-drag"}},
+              gMiddleDrag ? 1 : 0, [](int i) { command(ID_MIDDLE_MODE + i); }, "middle");
+    y += rowH + pad;
+
     // Unit names: a unit with a custom name (the map's unit settings), in every list that names it.
     y = ui::sectionHeader(mem, l, y, L"Unit names");
     {

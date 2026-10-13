@@ -185,7 +185,9 @@ The `new:` (the cards), `new:map`, `new:project`, `new:generate`, `start:` and `
 
 ## The map's right-click menu and Location properties
 
-The right button does not pan (the middle button does). While you place, paste or paint, a right click stops it and
+A right-drag moves the map with the mouse. The middle button scrolls it (the farther the mouse from where you pressed,
+the faster) or, with Program options > Mouse > Middle button > Drag, moves it with the mouse as a right-drag does. The
+left button never moves the map. While you place, paste or paint, a right click stops it and
 goes back to Select. In Select, a right click opens the map's menu through `popupMenu()` (`mapMenu`, `mapMenuPick`);
 the thing under the mouse is selected first when it is not selected.
 

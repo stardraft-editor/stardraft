@@ -1788,6 +1788,14 @@ constexpr UiText kRows[] = {
     {L"If", L"Si"},
     {L"Named after StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.", L"Su nombre viene de StarDraft de Camelot Systems (1998), que inici\u00F3 la escena de mods de StarCraft."},
     {L"StarDraft 2 aims to be its spiritual successor for StarCraft makers in 2026 and later.", L"StarDraft 2 quiere ser su sucesor espiritual para los creadores de StarCraft en 2026 y despu\u00E9s."},
+    {L"Mouse", L"Rat\u00F3n"},
+    {L"Middle button", L"Bot\u00F3n central"},
+    {L"Scroll", L"Desplazar"},
+    {L"Drag", L"Arrastrar"},
+    {L"The farther the mouse is from where you pressed, the faster the map moves toward it (default)", L"Cuanto m\u00E1s lejos est\u00E1 el rat\u00F3n del punto donde puls\u00F3, m\u00E1s r\u00E1pido se mueve el mapa hacia \u00E9l (predeterminado)"},
+    {L"The map moves with the mouse, as with a right-drag", L"El mapa se mueve con el rat\u00F3n, como al arrastrar con el bot\u00F3n derecho"},
+    {L"The middle button drags the map", L"El bot\u00F3n central arrastra el mapa"},
+    {L"The middle button scrolls the map", L"El bot\u00F3n central desplaza el mapa"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

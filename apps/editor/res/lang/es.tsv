@@ -1784,3 +1784,11 @@ Loops	Bucles
 If	Si
 Named after StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.	Su nombre viene de StarDraft de Camelot Systems (1998), que inició la escena de mods de StarCraft.
 StarDraft 2 aims to be its spiritual successor for StarCraft makers in 2026 and later.	StarDraft 2 quiere ser su sucesor espiritual para los creadores de StarCraft en 2026 y después.
+Mouse	Ratón
+Middle button	Botón central
+Scroll	Desplazar
+Drag	Arrastrar
+The farther the mouse is from where you pressed, the faster the map moves toward it (default)	Cuanto más lejos está el ratón del punto donde pulsó, más rápido se mueve el mapa hacia él (predeterminado)
+The map moves with the mouse, as with a right-drag	El mapa se mueve con el ratón, como al arrastrar con el botón derecho
+The middle button drags the map	El botón central arrastra el mapa
+The middle button scrolls the map	El botón central desplaza el mapa

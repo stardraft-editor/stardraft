@@ -1789,6 +1789,14 @@ constexpr UiText kRows[] = {
     {L"If", L"If"},
     {L"Named after StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.", L"\uC2A4\uD0C0\uD06C\uB798\uD504\uD2B8 \uBAA8\uB529\uC758 \uC2DC\uC791\uC774 \uB41C Camelot Systems\uC758 StarDraft(1998)\uC5D0\uC11C \uC774\uB984\uC744 \uB530\uC654\uC2B5\uB2C8\uB2E4."},
     {L"StarDraft 2 aims to be its spiritual successor for StarCraft makers in 2026 and later.", L"StarDraft 2\uB294 2026\uB144 \uC774\uD6C4\uC758 \uC2A4\uD0C0\uD06C\uB798\uD504\uD2B8 \uC81C\uC791\uC790\uB97C \uC704\uD55C \uC815\uC2E0\uC801 \uD6C4\uC18D\uC791\uC744 \uBAA9\uD45C\uB85C \uD569\uB2C8\uB2E4."},
+    {L"Mouse", L"\uB9C8\uC6B0\uC2A4"},
+    {L"Middle button", L"\uAC00\uC6B4\uB370 \uBC84\uD2BC"},
+    {L"Scroll", L"\uC2A4\uD06C\uB864"},
+    {L"Drag", L"\uB04C\uAE30"},
+    {L"The farther the mouse is from where you pressed, the faster the map moves toward it (default)", L"\uB9C8\uC6B0\uC2A4\uAC00 \uB204\uB978 \uACF3\uC5D0\uC11C \uBA40\uC218\uB85D \uB9F5\uC774 \uADF8\uCABD\uC73C\uB85C \uB354 \uBE68\uB9AC \uC6C0\uC9C1\uC785\uB2C8\uB2E4 (\uAE30\uBCF8\uAC12)"},
+    {L"The map moves with the mouse, as with a right-drag", L"\uC624\uB978\uCABD \uB04C\uAE30\uC640 \uAC19\uC774 \uB9F5\uC774 \uB9C8\uC6B0\uC2A4\uB97C \uB530\uB77C \uC6C0\uC9C1\uC785\uB2C8\uB2E4"},
+    {L"The middle button drags the map", L"\uAC00\uC6B4\uB370 \uBC84\uD2BC\uC73C\uB85C \uB9F5\uC744 \uB055\uB2C8\uB2E4"},
+    {L"The middle button scrolls the map", L"\uAC00\uC6B4\uB370 \uBC84\uD2BC\uC73C\uB85C \uB9F5\uC744 \uC2A4\uD06C\uB864\uD569\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
