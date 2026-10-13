@@ -425,6 +425,10 @@ int main(int argc, char** argv) {
         ally.args[size_t(TriggerDef::find("act.alliance")->param("who"))] = "P3";
         richest.lists[0] = {most};
         richest.lists[1] = {ally};
+        richest.lists[1][0].args[size_t(TriggerDef::find("act.alliance")->param("player"))] = "P1";  // (not "foes": for Player 3 that would be Player 3's)
+        TriggerCall byVar = make("act.ai");  // who: a variable (one player)
+        byVar.args[size_t(TriggerDef::find("act.ai")->param("who"))] = "gold";
+        richest.lists[1].push_back(byVar);
         t.actions.push_back(richest);
         set.roots[2].children.push_back(t);
     }
@@ -803,8 +807,9 @@ int main(int argc, char** argv) {
     check(code.find("0x02 >> plWho") != std::string::npos && code.find("0xFF >> plWho") != std::string::npos && code.find("Victory();") != std::string::npos &&
               code.find("Defeat();") != std::string::npos,
           "Victory for Player 2 and Defeat for all players (each as the current player in turn)");
-    check(code.find("setcurpl(P3);") != std::string::npos && code.find("function sd_as") != std::string::npos && code.find("0x04 >> plWho") != std::string::npos,
+    check(code.find("setcurpl(p);") != std::string::npos && code.find("function sd_as") != std::string::npos && code.find("0x04 >> plWho") != std::string::npos,
           "a current-player condition checked as Player 3, an action for Player 3 (who)");
+    check(code.find("setcurpl(v_gold);") != std::string::npos && code.find("(P3) != 0)") != std::string::npos, "who: a variable gives one player; a condition takes its player as a value");
     check(code.find("TrgPlayer(getcurpl()).terranSupplyMax = 300;") != std::string::npos &&
               code.find("TrgPlayer(getcurpl()).mineral += bread(sd_upgradeAddr(getcurpl(), 50));") != std::string::npos &&
               code.find("(TrgPlayer(getcurpl()).gas >= 100)") != std::string::npos,

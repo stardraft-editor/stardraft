@@ -1386,7 +1386,6 @@ std::string pickedLookup(const TriggerMapInfo::PlacedUnit& u) {
            "_gen = cu.uniquenessIdentifier;\n        }\n";
 }
 
-std::string codeWithoutMarks(const std::string& code);  // (below: the code without its block marks)
 
 struct Gen {
     const TriggerMapInfo& map;
@@ -1400,7 +1399,21 @@ struct Gen {
 
     // A block's "who" (the player it acts for): the players' mask (bits 0-7); 0 for the current player. An action takes
     // a player, all players or a force; a value that is none of these is an error.
+    // A "who" that is a variable, a number or a value from the game: its expression (one player, 0 to 11); "" when it is
+    // the current player, a player by name or a group (whoMask).
+    std::string whoExpr(const TriggerCall& c, const TriggerDef& d) {
+        const int i = d.param("who");
+        if (i < 0) return "";
+        const bool block = i < int(c.argBlocks.size()) && !c.argBlocks[size_t(i)].empty();
+        const std::string who = raw(c, d, "who");
+        static const std::set<std::string> named = {"", "CurrentPlayer", "AllPlayers", "Foes", "Allies", "NeutralPlayers", "NonAlliedVictoryPlayers"};
+        const bool byName = named.count(who) || (who.size() >= 2 && who[0] == 'P' && std::isdigit(static_cast<unsigned char>(who[1]))) ||
+                            who.rfind("Force", 0) == 0;
+        return block || !byName ? value(c, d, i) : "";
+    }
+
     unsigned whoMask(const TriggerCall& c, const TriggerDef& d) {
+        if (!whoExpr(c, d).empty()) return 0;
         const std::string who = raw(c, d, "who");
         if (who.empty() || who == "CurrentPlayer") return 0;
         unsigned mask = 0;
@@ -1870,7 +1883,8 @@ struct Gen {
         if ((d.id == "cond.elapsed" || d.id == "cond.countdown") && raw(c, d, "cmp") == "Exactly")
             issue(TriggerIssue::Level::Warning, &c, d.param("cmp"), "Triggers do not run each second, so they can miss Exactly. Use At least or At most");
         for (size_t i = 0; i < d.params.size() && i < c.args.size(); ++i)
-            if ((d.params[i].type == "Player" || d.params[i].type == "PlayerGroup") && c.args[i] == "CurrentPlayer" && !playerLoops)
+            if ((d.params[i].type == "Player" || d.params[i].type == "PlayerGroup") && c.args[i] == "CurrentPlayer" && !playerLoops &&
+                !(i < c.argBlocks.size() && !c.argBlocks[i].empty()))  // (a value block in its place: that value)
                 issue(TriggerIssue::Level::Warning, &c, int(i), "\"the current player\" has a value only in For each player");
     }
 
@@ -1890,16 +1904,17 @@ struct Gen {
         curTitle = d ? d->title : c.def;
         std::string body = conditionBody(c);
         if (d && d->param("who") >= 0) {  // as another player: a function sets the current player around it
-            const std::string who = raw(c, *d, "who");
-            if (!who.empty() && who != "CurrentPlayer") {
-                const bool player = who.size() >= 2 && who[0] == 'P' && std::isdigit(static_cast<unsigned char>(who[1])) && std::atoi(who.c_str() + 1) >= 1 &&
-                                    std::atoi(who.c_str() + 1) <= 12;
+            const std::string who = raw(c, *d, "who"), expr = whoExpr(c, *d);
+            if (!expr.empty() || (!who.empty() && who != "CurrentPlayer")) {
+                const bool player = !expr.empty() || (who.size() >= 2 && who[0] == 'P' && std::isdigit(static_cast<unsigned char>(who[1])) &&
+                                                      std::atoi(who.c_str() + 1) >= 1 && std::atoi(who.c_str() + 1) <= 12);
                 if (!player) issue(TriggerIssue::Level::Error, &c, d->param("who"), d->title + " accepts the current player or Player 1 to Player 12");
                 else {
+                    // The player goes in as the function's value, so a value of the trigger (a loop's player) is read where it is.
                     const std::string fn = "sd_as" + std::to_string(++endLoops);
-                    asPlayerFns += "function " + fn + "() {  // " + d->title + " for " + who + "\n    const cp = getcurpl();\n    setcurpl(" + who +
-                                   ");\n    var r = 0;\n    if (" + codeWithoutMarks(body) + ") r = 1;\n    setcurpl(cp);\n    return r;\n}\n";
-                    body = "(" + fn + "() != 0)";
+                    asPlayerFns += mark(c, "function " + fn + "(p) {  // " + d->title + "\n    const cp = getcurpl();\n    setcurpl(p);\n    var r = 0;\n    if (" +
+                                               body + ") r = 1;\n    setcurpl(cp);\n    return r;\n}\n");
+                    body = "(" + fn + "(" + (expr.empty() ? who : expr) + ") != 0)";
                 }
             }
         }
@@ -2038,7 +2053,10 @@ struct Gen {
         std::string out = actionBody(c);
         localDepth -= shows;
         if (d && !d->condition && d->param("who") >= 0 && !out.empty()) {  // for other players: as each of them, the current player
-            if (const unsigned mask = whoMask(c, *d)) {
+            if (const std::string expr = whoExpr(c, *d); !expr.empty()) {  // one player from a value
+                const std::string n = std::to_string(++endLoops);
+                out = "{\n    const cpWho" + n + " = getcurpl();\n    setcurpl(" + expr + ");\n" + indentLines(out, "    ") + "    setcurpl(cpWho" + n + ");\n}\n";
+            } else if (const unsigned mask = whoMask(c, *d)) {
                 const std::string n = std::to_string(++endLoops);
                 char m[16];
                 std::snprintf(m, sizeof m, "0x%02X", mask);
@@ -2312,6 +2330,13 @@ struct Gen {
             --loops;
             return "{" + tag + "\n    var " + w + " = 0;\n    while (" + w + " < " + limit + ") {\n        if (!(" + cond + ")) break;\n        " + w + "++;\n" +
                    indentLines(inner, "    ") + "    }\n}\n";
+        }
+        if (id == "act.alliance" && d->param("who") >= 0) {
+            const std::string who = raw(c, *d, "who"), toward = raw(c, *d, "player");
+            const bool other = !whoExpr(c, *d).empty() || (!who.empty() && who != "CurrentPlayer");
+            if (other && (toward == "CurrentPlayer" || toward == "Foes" || toward == "Allies"))
+                issue(TriggerIssue::Level::Error, &c, d->param("player"),
+                      "For another player, select the players here by number, or all players, or a force (the current player, allies and enemies change with the player)");
         }
         if (id == "act.foreachplayer") {
             const std::string group = raw(c, *d, "players");
@@ -2695,7 +2720,6 @@ std::string stripMarks(const std::string& code, const std::vector<TriggerCodeLin
     return out;
 }
 std::string stripMarks(const std::string& code) { return stripMarks(code, {}, nullptr); }
-std::string codeWithoutMarks(const std::string& code) { return stripMarks(code); }
 }  // namespace
 
 int triggerErrorLine(const std::string& line) {
