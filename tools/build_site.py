@@ -387,6 +387,10 @@ h1 img {{ width: 1.05em; height: 1.05em; filter: drop-shadow(0 0 24px rgba(92, 2
 .btn.primary {{ background: var(--accent); border-color: var(--accent); color: var(--on-accent); }}
 .btn.primary:hover {{ filter: brightness(1.08); }}
 .note {{ margin: 16px 0 0; font: 0.8rem var(--mono); color: var(--muted); letter-spacing: 0.02em; }}
+.note.release + .note {{ margin-top: 6px; }}
+.note.release a {{ color: var(--muted); }}
+.note.release a:hover {{ color: var(--text); }}
+#version:not(:empty)::after {{ content: " · "; }}
 .video {{ position: relative; aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--line); }}
 .video::after {{ content: ""; position: absolute; inset: -6px; border: 1px solid var(--grid); pointer-events: none; }}
 .video iframe {{ position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }}
@@ -446,9 +450,10 @@ footer a:hover {{ color: var(--text); }}
     <p class="lede"><span data-i18n="lede">{L[lede]}</span></p>
     <p class="heritage"><span data-i18n="heritage">{L[heritage]}</span></p>
     <div class="actions">
-      <a class="btn primary" href="{repo}/releases/latest"><span data-i18n="download">{L[download]}</span></a>
+      <a class="btn primary" id="download" href="{repo}/releases/latest"><span data-i18n="download">{L[download]}</span></a>
       <a class="btn" href="{discord}"><span data-i18n="discord">{L[discord]}</span></a>
     </div>
+    <p class="note release"><span id="version"></span><a href="{repo}/blob/main/docs/user/CHANGELOG.md"><span data-i18n="changelog">{L[changelog]}</span></a></p>
     <p class="note"><span data-i18n="builds">{L[builds]}</span></p>
     </div>
     <div class="carousel">
@@ -598,6 +603,17 @@ footer a:hover {{ color: var(--text); }}
     try {{ localStorage.setItem("lang", b.dataset.lang); }} catch (e) {{}}
   }}));
 }})();
+
+// The download button: the newest release's Windows zip and its version, from GitHub's API. Without it (offline, rate
+// limit), the button opens the newest release's page.
+fetch("https://api.github.com/repos/stardraft-editor/stardraft/releases/latest")
+  .then(r => r.ok ? r.json() : Promise.reject(r.status))
+  .then(rel => {{
+    const zip = (rel.assets || []).find(a => a.name.toLowerCase().endsWith("win64.zip"));
+    if (zip) document.getElementById("download").href = zip.browser_download_url;
+    document.getElementById("version").textContent = rel.tag_name || "";
+  }})
+  .catch(() => {{}});
 
 // The screenshots carousel: the arrows (and the arrow keys) scroll the slides, from the last to the first again.
 // It plays by itself until the viewer uses it (an arrow, a key, a swipe or a scroll): a faint ring around the next
