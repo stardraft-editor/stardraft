@@ -252,7 +252,9 @@ extern bool gSelfTest;
 double gOpenMs = 0;  // how long opening the file given on the command line took (perf:)
 // Start-up steps and when each was done (ms since the program started), for perf:.
 std::vector<std::pair<const char*, double>> gStartMarks;
+bool gStartUp = true;  // false after the start-up: later opens add no marks
 void startMark(const char* what) {
+    if (!gStartUp) return;
     static const auto t0 = std::chrono::steady_clock::now();
     gStartMarks.push_back({what, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count()});
 }
@@ -2364,9 +2366,13 @@ void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank) {
     gDocs[size_t(gActive)].page = std::exchange(gNewDocPage, 0);
     if (app.ed->path().empty() && (!reuse || page) && !gDocs[size_t(gActive)].page) gDocs[size_t(gActive)].untitled = ++gUntitledCount;
     app.hasTerrainSel = app.pasting = app.terrainPasting = false;
+    startMark("open: add the tab");
     layout();  // the minimap takes this map's shape
+    startMark("open: layout");
     showActive();
+    startMark("open: show the map");
     fitMap();
+    startMark("open: fit the map");
     if (gWorkspace >= Workspace::Properties) setWorkspace(Workspace::Map);  // a new map opens on the map, not on a map page
 }
 
@@ -3266,6 +3272,7 @@ void openProject(const fs::path& edsOrFolder) {
 // File > Open and the command line: a project (project.stardraft, a .eds, a folder), or a map. A project's map opens
 // as that project.
 void openAny(const fs::path& path) {
+    startMark("open: start");
     std::error_code ec;
     if (path.extension() == ".stardraft" || path.extension() == ".eds" || fs::is_directory(path, ec)) {
         openProject(path);
@@ -23082,6 +23089,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     }
     if (!gBackground) crash::sendPending(), sendPendingFeedback();
     if (!gBackground && !gSelfTest) crash::askToSend();  // after a crash: send its report? (Options > Crash reports: Ask)
+    startMark("before the main window");
     HWND hwnd;
     if (gBackground) {
         int offX = GetSystemMetrics(SM_XVIRTUALSCREEN) + GetSystemMetrics(SM_CXVIRTUALSCREEN) + 100;
@@ -23095,6 +23103,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     }
     app.accel = buildAccelerators();
     SetWindowsHookExW(WH_GETMESSAGE, wordDeleteHook, nullptr, GetCurrentThreadId());
+    startMark("main window created");
     UpdateWindow(hwnd);
 
     startMark("main window");
@@ -23102,23 +23111,6 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     layout();
     if (!openGameData()) return device.wait(), 0;
     startMark("game data");
-
-    // SDL renders into the viewport child window through its GPU API.
-    SDL_PropertiesID props = SDL_CreateProperties();
-    SDL_SetPointerProperty(props, SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER, app.view);
-    app.sdlView = SDL_CreateWindowWithProperties(props);
-    SDL_DestroyProperties(props);
-    std::string err;
-    const bool deviceOk = device.get();
-    if (!deviceOk) err = deviceErr;
-    app.rendererOk = app.sdlView && deviceOk && app.renderer.attach(app.sdlView, err);
-    if (!app.rendererOk) {
-        themedMessageBox(hwnd, widen(app.sdlView ? err : SDL_GetError()).c_str(), L"Could not start the GPU renderer", MB_ICONERROR);
-        return 1;
-    }
-    app.renderer.setQuality(app.quality);
-    app.renderer.setLoadBudget(12);
-    startMark("renderer");
 
     int argc = 0;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
@@ -23146,6 +23138,26 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     }
     gOpenMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - openStart).count();
     startMark("file opened");
+    // SDL renders into the viewport child window through its GPU API. The file opens first, while the device thread
+    // works: the open does not use the device, and renderNow draws nothing until rendererOk (app.dirty stays set, so
+    // the first frame draws after the attach).
+    SDL_PropertiesID props = SDL_CreateProperties();
+    SDL_SetPointerProperty(props, SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER, app.view);
+    app.sdlView = SDL_CreateWindowWithProperties(props);
+    SDL_DestroyProperties(props);
+    std::string err;
+    const bool deviceOk = device.get();
+    if (!deviceOk) err = deviceErr;
+    startMark("GPU device");
+    app.rendererOk = app.sdlView && deviceOk && app.renderer.attach(app.sdlView, err);
+    if (!app.rendererOk) {
+        themedMessageBox(hwnd, widen(app.sdlView ? err : SDL_GetError()).c_str(), L"Could not start the GPU renderer", MB_ICONERROR);
+        return 1;
+    }
+    app.renderer.setQuality(app.quality);
+    app.renderer.setLoadBudget(12);
+    startMark("renderer");
+    gStartUp = false;
     LocalFree(argv);
     if (!datashots.empty() && app.ed) {
         setWorkspace(Workspace::Data);
