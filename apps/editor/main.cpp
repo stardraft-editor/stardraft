@@ -3743,7 +3743,87 @@ bool mapCommand(int id) {
 }
 
 void mapPageShowPlayers();  // map_pages.inc: the Map properties page, scrolled to players and forces
+// The options of the menus (View, Options, Edit) and the palette's view: kept in HKCU\Software\StarDraft\Settings,
+// so they stay after StarDraft starts again, also after an update (GitHub feedback #122). Saved after each command
+// (only what changed), read at the start; tests use the defaults and save nothing.
+struct AppSetting {
+    const wchar_t* name;
+    int (*get)();
+    void (*set)(int);
+};
+const std::vector<AppSetting>& appSettings() {
+#define SD_SETTING(key, expr, type) {L"" key, [] { return int(expr); }, [](int v) { expr = type(v); }}
+    static const std::vector<AppSetting> all = {
+        SD_SETTING("Quality", app.quality, GraphicsQuality),
+        SD_SETTING("Carbot", app.carbot, bool),
+        SD_SETTING("ShowLocations", app.showLocations, bool),
+        SD_SETTING("ShowGrid", app.showGrid, bool),
+        SD_SETTING("Correction", app.correction, bool),
+        SD_SETTING("AllowIllegalUnits", app.allowIllegalUnits, bool),
+        SD_SETTING("AllowStacking", app.allowStacking, bool),
+        SD_SETTING("DragSnapBack", app.dragSnapBack, bool),
+        SD_SETTING("Animate", app.animate, bool),
+        SD_SETTING("DoodadCheck", app.doodadCheck, bool),
+        SD_SETTING("DoodadNearest", app.doodadNearest, bool),
+        SD_SETTING("UnitGrid", app.unitGrid, int),
+        SD_SETTING("SpriteGrid", app.spriteGrid, int),
+        SD_SETTING("LocationGrid", app.locationGrid, int),
+        SD_SETTING("LocationWrap", app.locationWrap, bool),
+        SD_SETTING("CopyUnitsWithTerrain", app.copyUnitsWithTerrain, bool),
+        SD_SETTING("CopyDoodadsWithTerrain", app.copyDoodadsWithTerrain, bool),
+        SD_SETTING("BrushShape", app.brushShape, Brush::Shape),
+        SD_SETTING("ShowRanges", gShowRanges, bool),
+    };
+#undef SD_SETTING
+    return all;
+}
+int paletteViewBits() {
+    int bits = 0;
+    for (int m = 0; m < kModeCount; ++m) bits |= (gViewByMode[m].grid | gViewByMode[m].sprites << 1 | gViewByMode[m].large << 2) << (m * 3);
+    return bits;
+}
+std::map<std::wstring, int> gSavedSettings;  // what the registry has (written only when a value differs)
+void saveAppSettings() {
+    if (gSelfTest) return;
+    HKEY k;
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Settings", 0, nullptr, 0, KEY_SET_VALUE, nullptr, &k, nullptr) != ERROR_SUCCESS) return;
+    auto put = [&](const wchar_t* name, int v) {
+        auto it = gSavedSettings.find(name);
+        if (it != gSavedSettings.end() && it->second == v) return;
+        const DWORD d = DWORD(v);
+        RegSetValueExW(k, name, 0, REG_DWORD, reinterpret_cast<const BYTE*>(&d), sizeof d);
+        gSavedSettings[name] = v;
+    };
+    for (const AppSetting& a : appSettings()) put(a.name, a.get());
+    put(L"PaletteViews", paletteViewBits());
+    RegCloseKey(k);
+}
+void loadAppSettings() {
+    if (gSelfTest) return;
+    auto get = [](const wchar_t* name, int& v) {
+        DWORD d = 0, size = sizeof d;
+        if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Settings", name, RRF_RT_REG_DWORD, nullptr, &d, &size) != ERROR_SUCCESS) return false;
+        v = int(d);
+        return true;
+    };
+    for (const AppSetting& a : appSettings())
+        if (int v = 0; get(a.name, v)) a.set(v), gSavedSettings[a.name] = v;
+    if (int v = 0; get(L"PaletteViews", v)) {
+        for (int m = 0; m < kModeCount; ++m) {
+            const int b = v >> (m * 3);
+            gViewByMode[m] = {(b & 1) != 0, (b & 2) != 0, (b & 4) != 0};
+        }
+        gSavedSettings[L"PaletteViews"] = v;
+    }
+}
+
+void commandBody(int id);
 void command(int id) {
+    commandBody(id);
+    saveAppSettings();  // an option the command changed stays for the next start
+}
+
+void commandBody(int id) {
     // No map (a page tab): its commands do nothing, also from a shortcut or the top bar (their menu items are gray).
     if (!docOpen() && mapCommand(id)) return;
     // A map page shows: the Edit commands are not for the map that does not show (undo and redo are).
@@ -5892,6 +5972,7 @@ void setUnitPaletteView(int id) {
     if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE) gPal.large = id == ID_PAL_LARGE;
     gViewByMode[int(app.mode)] = {gPal.grid, gPal.sprites, gPal.large};
     layoutUnitPalette();
+    saveAppSettings();
 }
 
 std::pair<std::wstring, std::wstring> paletteGoGroup(const std::wstring& section);
@@ -22832,6 +22913,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     std::vector<std::wstring> shotSpecs;
     for (int i = 4; !datashots.empty() && i < argc; ++i) shotSpecs.push_back(argv[i]);
     gSelfTest = !selftest.empty() || !datashots.empty() || !pathshots.empty();  // before opening anything: tests leave the user's settings alone
+    loadAppSettings();  // the options as the user left them (not in tests)
+    app.renderer.setQuality(app.quality), app.renderer.setCarbot(app.carbot);
     gSilent = !selftest.empty() || !datashots.empty() || !screenshot.empty() || !pathshots.empty();
     const auto openStart = std::chrono::steady_clock::now();
     if (argc > 1 && screenshot.empty()) openAny(argv[1]);
@@ -25215,6 +25298,30 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(gTiles.list, WM_LBUTTONUP, 0, at(2, 1));
                 const size_t want = std::min<size_t>(gTiles.values.size(), size_t(std::min(3, gTiles.perRow)) * 2);
                 o << "the box selects the tiles in it: " << gTiles.chosen.size() << " of " << want << " " << (gTiles.chosen.size() == want ? "yes" : "NO") << "\n";
+                continue;
+            }
+            if (s == "settings:") {  // settings.txt: the options are saved and read again (#122). Only when the user has none saved
+                std::ofstream o(fs::path(datashots) / "settings.txt");  // yet: the key is removed again after
+                HKEY k;
+                if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Settings", 0, KEY_READ, &k) == ERROR_SUCCESS) {
+                    RegCloseKey(k);
+                    o << "skipped: the user has saved settings\n";
+                    continue;
+                }
+                const bool grid = app.showGrid, anim = app.animate;
+                const int unitGrid = app.unitGrid;
+                gSelfTest = false;
+                app.showGrid = !grid, app.animate = !anim, app.unitGrid = 16;
+                saveAppSettings();
+                app.showGrid = grid, app.animate = anim, app.unitGrid = unitGrid;
+                gSavedSettings.clear();
+                loadAppSettings();
+                const bool ok = app.showGrid == !grid && app.animate == !anim && app.unitGrid == 16;
+                app.showGrid = grid, app.animate = anim, app.unitGrid = unitGrid;
+                RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Settings");
+                gSavedSettings.clear();
+                gSelfTest = true;
+                o << "options saved and read again " << (ok ? "yes" : "NO") << "\n";
                 continue;
             }
             if (s == "descedit:") {  // descedit.txt: a description of two lines typed on Map properties keeps StarCraft's \r\n (#124)
