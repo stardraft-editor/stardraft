@@ -1,0 +1,44 @@
+name: Post screenshots to Discord
+
+# Run by hand (Actions > Post screenshots to Discord > Run workflow): the screenshots of a version's changelog section
+# (docs/user/images/<version>/...), posted as files in each Discord channel that has a webhook. A release posts them
+# itself (build.yml); this is for a release that went out before that.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The version, as in the changelog (for example 0.5.0.5)
+        required: true
+
+jobs:
+  post:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Post
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+          DISCORD_GENERAL_WEBHOOK: ${{ secrets.DISCORD_GENERAL_WEBHOOK }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          $sections = [ordered]@{}; $name = $null
+          foreach ($line in Get-Content docs/user/CHANGELOG.md -Encoding utf8) {
+            if ($line -match '^## (.+)$') { $name = $Matches[1].Trim(); $sections[$name] = @(); continue }
+            if ($name) { $sections[$name] += $line }
+          }
+          $mine = $sections.Keys | Where-Object { $_ -eq $env:VERSION -or $_.StartsWith("$($env:VERSION) ") } | Select-Object -First 1
+          if (-not $mine) { throw "No section ## $($env:VERSION) in the changelog" }
+          $images = @([regex]::Matches(($sections[$mine] -join "`n"), '\]\((images/[^)\s]+)\)') |
+            ForEach-Object { "docs/user/" + $_.Groups[1].Value } | Where-Object { Test-Path $_ } | Select-Object -Unique -First 10)
+          if (-not $images) { throw "No screenshots in the section of $($env:VERSION)" }
+          $url = gh release view "v$($env:VERSION)" --json url --jq .url
+          @{ content = "Screenshots of StarDraft $($env:VERSION): $url" } | ConvertTo-Json | Set-Content payload.json -Encoding utf8NoBOM
+          $hooks = @($env:DISCORD_RELEASE_WEBHOOK, $env:DISCORD_GENERAL_WEBHOOK) | Where-Object { $_ }
+          foreach ($hook in $hooks) {
+            $form = @('-sS', '--fail-with-body', '-F', 'payload_json=<payload.json')
+            for ($i = 0; $i -lt $images.Count; $i++) { $form += @('-F', "files[$i]=@$($images[$i])") }
+            curl.exe @form $hook
+            if ($LASTEXITCODE -ne 0) { throw "The Discord post did not go ($LASTEXITCODE)" }
+          }
