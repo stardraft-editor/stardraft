@@ -7,24 +7,90 @@ constexpr UINT WM_UPDATE_FOUND = WM_APP + 32;  // lp: std::wstring* (the release
 
 bool closeAllDocs();
 
-// project.stardraft opens with `exe` (for this Windows user: HKCU\Software\Classes, no administrator needed).
-// Written only when it changes; Explorer is told then.
+// A value under HKCU\Software\Classes\<key> (for this Windows user, no administrator needed): the key's default value,
+// or the named one. Written only when it changes; true then.
+inline bool putClassesValue(const std::wstring& key, const std::wstring& value, const wchar_t* name = nullptr, DWORD type = REG_SZ) {
+    HKEY k;
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, (L"Software\\Classes\\" + key).c_str(), 0, nullptr, 0, KEY_READ | KEY_WRITE, nullptr, &k, nullptr)) return false;
+    wchar_t now[1024] = L"";
+    DWORD size = sizeof now, had = 0;
+    const bool same = !RegQueryValueExW(k, name, nullptr, &had, reinterpret_cast<BYTE*>(now), &size) && had == type && value == now;
+    if (!same) RegSetValueExW(k, name, 0, type, reinterpret_cast<const BYTE*>(value.c_str()), type == REG_NONE ? 0 : DWORD((value.size() + 1) * sizeof(wchar_t)));
+    RegCloseKey(k);
+    return !same;
+}
+
+// project.stardraft opens with `exe`. Explorer is told when something changed.
 inline void registerProjectFiles(const std::wstring& exe) {
-    auto put = [](const std::wstring& key, const std::wstring& value) {
-        HKEY k;
-        if (RegCreateKeyExW(HKEY_CURRENT_USER, (L"Software\\Classes\\" + key).c_str(), 0, nullptr, 0, KEY_READ | KEY_WRITE, nullptr, &k, nullptr)) return false;
-        wchar_t now[1024] = L"";
-        DWORD size = sizeof now;
-        const bool same = !RegQueryValueExW(k, nullptr, nullptr, nullptr, reinterpret_cast<BYTE*>(now), &size) && value == now;
-        if (!same) RegSetValueExW(k, nullptr, 0, REG_SZ, reinterpret_cast<const BYTE*>(value.c_str()), DWORD((value.size() + 1) * sizeof(wchar_t)));
-        RegCloseKey(k);
-        return !same;
-    };
+    auto put = [](const std::wstring& key, const std::wstring& value) { return putClassesValue(key, value); };
     bool changed = put(L".stardraft", L"StarDraft.Project");
     changed |= put(L"StarDraft.Project", L"StarDraft 2 project");
     changed |= put(L"StarDraft.Project\\DefaultIcon", L"\"" + exe + L"\",1");  // the second icon: the document icon
     changed |= put(L"StarDraft.Project\\shell\\open\\command", L"\"" + exe + L"\" \"%1\"");
     if (changed) SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
+}
+
+// The program that file types open: this one, or StarDraft-latest.exe for a copy that the launcher started (the copy
+// is deleted later; the launcher starts the newest build with the file).
+inline std::wstring associationExe() {
+    wchar_t self[MAX_PATH];
+    GetModuleFileNameW(nullptr, self, MAX_PATH);
+    if (fs::path(self).filename().wstring().rfind(L"stardraft-latest-", 0) != 0) return self;
+    std::error_code ec;
+    const fs::path launcher = fs::current_path(ec) / L"StarDraft-latest.exe";  // (the launcher starts the copy in its folder)
+    return fs::exists(launcher, ec) ? launcher.wstring() : std::wstring(self);
+}
+
+// Maps (.scm, .scx): StarDraft 2 is in Explorer's Open with list for them, and with `makeDefault` it is the program a
+// double-click opens. Windows keeps a program that the user chose in its own Open with window (a UserChoice): then
+// only Settings > Default apps changes it, and this returns false.
+inline const wchar_t* const kMapExtensions[] = {L".scm", L".scx"};
+inline bool userChoiceElsewhere(const wchar_t* ext) {
+    wchar_t progId[256] = L"";
+    DWORD size = sizeof progId;
+    const std::wstring key = std::wstring(L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\") + ext + L"\\UserChoice";
+    return !RegGetValueW(HKEY_CURRENT_USER, key.c_str(), L"ProgId", RRF_RT_REG_SZ, nullptr, progId, &size) && std::wstring(progId) != L"StarDraft.Map";
+}
+inline bool mapsOpenWithStarDraft() {
+    for (const wchar_t* ext : kMapExtensions) {
+        wchar_t now[256] = L"";
+        DWORD size = sizeof now;
+        if (RegGetValueW(HKEY_CURRENT_USER, (std::wstring(L"Software\\Classes\\") + ext).c_str(), nullptr, RRF_RT_REG_SZ, nullptr, now, &size) ||
+            std::wstring(now) != L"StarDraft.Map" || userChoiceElsewhere(ext))
+            return false;
+    }
+    return true;
+}
+inline bool registerMapFiles(const std::wstring& exe, bool makeDefault) {
+    bool changed = putClassesValue(L"StarDraft.Map", L"StarDraft 2 map");
+    changed |= putClassesValue(L"StarDraft.Map\\DefaultIcon", L"\"" + exe + L"\",1");
+    changed |= putClassesValue(L"StarDraft.Map\\shell\\open\\command", L"\"" + exe + L"\" \"%1\"");
+    bool ours = true;
+    for (const wchar_t* ext : kMapExtensions) {
+        changed |= putClassesValue(std::wstring(ext) + L"\\OpenWithProgids", L"", L"StarDraft.Map", REG_NONE);
+        if (makeDefault) changed |= putClassesValue(ext, L"StarDraft.Map");
+        ours = ours && !userChoiceElsewhere(ext);
+    }
+    if (changed) SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
+    return ours;
+}
+// Program options > Maps, and the question at start: maps open with StarDraft 2. Where Windows keeps another program
+// that the user chose, its Default apps settings open.
+inline void makeMapsDefault(HWND owner) {
+    if (registerMapFiles(associationExe(), true)) return setMessage(L"Maps (.scm, .scx) open with StarDraft 2");
+    themedMessageBox(owner,
+                     L"Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select "
+                     L"StarDraft 2.",
+                     L"Default apps", MB_ICONINFORMATION);
+    ShellExecuteW(nullptr, L"open", L"ms-settings:defaultapps", nullptr, nullptr, SW_SHOWNORMAL);
+}
+constexpr UINT WM_ASK_MAPS = WM_APP + 33;  // at start: ask once if maps open with StarDraft 2
+inline void askMapsDefault(HWND owner) {
+    const DWORD one = 1;
+    RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"AskedMapsDefault", REG_DWORD, &one, sizeof one);
+    if (themedMessageBox(owner, L"Open .scm and .scx maps with StarDraft 2 when you double-click them? Program options > Maps changes this later.",
+                         L"StarDraft 2", MB_YESNO | MB_ICONQUESTION) == IDYES)
+        makeMapsDefault(owner);
 }
 
 namespace update {
@@ -83,6 +149,12 @@ void atStart() {
     wchar_t self[MAX_PATH];
     GetModuleFileNameW(nullptr, self, MAX_PATH);
     if (fs::path(self).filename().wstring().rfind(L"stardraft-latest-", 0) != 0) registerProjectFiles(self);
+    registerMapFiles(associationExe(), false);  // in Explorer's Open with list for maps (the default only when asked)
+    {  // once: ask if maps open with StarDraft 2 (after the window shows)
+        DWORD asked = 0, size = sizeof asked;
+        RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"AskedMapsDefault", RRF_RT_REG_DWORD, nullptr, &asked, &size);
+        if (!asked && !mapsOpenWithStarDraft()) PostMessageW(app.main, WM_ASK_MAPS, 0, 0);
+    }
     std::error_code ec;
     fs::remove(fs::path(self).replace_extension(L".exe.old"), ec);
     if (!releaseBuild() || !gCheckUpdates) return;  // File > Options > Look for updates on start (on by default)

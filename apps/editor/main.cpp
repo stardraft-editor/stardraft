@@ -137,6 +137,7 @@ enum : int {
     ID_MODE_TERRAIN = 500, ID_MODE_UNITS, ID_MODE_DOODADS, ID_MODE_LOCATIONS, ID_MODE_SPRITES,
     ID_PLAYER_1 = 600,  // + player index, keys 1-9
     ID_QUICKPICK = 660,
+    ID_QUICKOPEN = 661,  // File > Quick open (Ctrl+Shift+O): an open tab, a recent project or map
     ID_PROJ_NEW = 700, ID_PROJ_OPEN, ID_PROJ_COMPILE, ID_PROJ_FOLDER, ID_PROJ_ADDSCRIPT, ID_PROJ_SETTINGS, ID_PROJ_FROMMAP,
     ID_WS_MAP = 720, ID_WS_DATA, ID_WS_TRIGGERS, ID_WS_ASSETS, ID_WS_PROJECT, ID_WS_BRIEFING, ID_WS_FILES,
     ID_DOCK_MINI_LEFT = 740, ID_DOCK_MINI_RIGHT, ID_DOCK_TOOLS_LEFT, ID_DOCK_TOOLS_RIGHT,
@@ -163,6 +164,7 @@ enum : int {
     ID_RAIL_KEY = 1000,     // + n: Ctrl+1 to Ctrl+9, the n-th item of the side bar (the tab's mode: a classic map or a project)
     ID_CRASH_MODE = 980,   // + Options > Crash reports: 0 ask, 1 send, 2 do not send
     ID_MIDDLE_MODE = 984,  // + Options > Middle mouse click and hold: 0 pan the map (the default), 1 drag the map
+    ID_OPT_MAPSDEFAULT = 986,  // Options > Maps: .scm and .scx open with StarDraft 2
 };
 // View > Grid size: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
 struct GridPreset {
@@ -723,7 +725,7 @@ void optionsRefresh();  // the Options window shows the options' new values
 void aboutOpen(const std::wstring& url);
 extern const wchar_t* const kDiscordInvite;
 void setPlayer(int i);
-void showQuickPicker(bool replace = false);  // replace: Replace with... for the selection
+void showQuickPicker(bool replace = false, bool open = false);  // replace: Replace with... for the selection; open: Quick open
 void replaceSelectionWith(int v);
 
 int scale(int v) { return MulDiv(v, int(app.dpi), 96); }
@@ -3995,6 +3997,7 @@ void commandBody(int id) {
         else trigCopy(id == ID_EDIT_CUT);
         return;
     }
+    if (id == ID_QUICKOPEN) return showQuickPicker(false, true);
     if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax)) {
         const bool project = id >= ID_RECENT_PROJECT;
         auto& list = project ? gRecentProjects : gRecentMaps;
@@ -4322,6 +4325,9 @@ void commandBody(int id) {
         setMessage(gCrashReports == 1 ? L"StarDraft 2 sends an anonymous report when it crashes"
                    : gCrashReports == 2 ? L"StarDraft 2 does not send crash reports (a report stays on this computer)"
                                         : L"After a crash, StarDraft 2 asks at the next start if it can send the report");
+        break;
+    case ID_OPT_MAPSDEFAULT:
+        if (!gSelfTest && !gBackground) makeMapsDefault(app.main);  // (tests leave the user's settings)
         break;
     case ID_MIDDLE_MODE:
     case ID_MIDDLE_MODE + 1:
@@ -6414,6 +6420,7 @@ struct QuickPicker {
     bool data = false;  // Data workspace: value = tab * 10000 + entry, section = the .dat's title
     Mode mode = Mode::Units;  // the map mode it picks for
     bool replace = false;     // Replace with...: the pick replaces the selected units, doodads or sprites
+    bool open = false;        // Quick open: value = an open tab, kRecentProjectRow + recent project, kRecentMapRow + recent map
     std::vector<std::wstring> words;  // what is typed, word by word (the rows show where each word is in the name)
     RECT searchRow{};                 // the search row: the icon, the box, the count
 };
@@ -6422,6 +6429,8 @@ const UnitPalette::Bitmap* entryIcon(int tab, int e);
 void dataGoTo(const std::string& dat, int e);
 std::wstring datTitle(const std::string& name);
 QuickPicker gQuick;
+// Quick open's rows (value): an open tab is its index; then these plus the index in the recent list; the last row browses.
+constexpr int kRecentProjectRow = 1000, kRecentMapRow = 2000, kBrowseProjectRow = 3000;
 
 void quickPickClose() {
     if (!gQuick.wnd) return;
@@ -6436,8 +6445,15 @@ void quickPickClose() {
 void quickPickChoose() {
     int i = int(SendMessageW(gQuick.list, LB_GETCURSEL, 0, 0));
     int v = i >= 0 && i < int(gQuick.shown.size()) ? gQuick.shown[size_t(i)].value : -1;
-    const bool data = gQuick.data, replace = gQuick.replace;
+    const bool data = gQuick.data, replace = gQuick.replace, open = gQuick.open;
     quickPickClose();
+    if (open) {
+        if (v >= 0 && v < int(gDocs.size())) activateDoc(v);
+        else if (v >= kRecentProjectRow && v < kRecentProjectRow + kRecentMax) command(ID_RECENT_PROJECT + (v - kRecentProjectRow));
+        else if (v >= kRecentMapRow && v < kRecentMapRow + kRecentMax) command(ID_RECENT_MAP + (v - kRecentMapRow));
+        else if (v == kBrowseProjectRow) command(ID_PROJ_OPEN);
+        return;
+    }
     if (data) {
         if (v >= 0) {
             dataGoTo(DatSchema::all()[size_t(v / 10000)].name, v % 10000);
@@ -6500,6 +6516,43 @@ std::vector<PaletteUnit> quickPickItems() {
     return out;
 }
 
+// Quick open's rows: the open tabs (not the start and New pages), then the recent projects and maps that no tab has.
+// A row is found by its name only (the project's or the map file's), not by its folder, which shows under it.
+std::vector<PaletteUnit> quickOpenItems() {
+    std::vector<PaletteUnit> out;
+    auto add = [&](int value, const std::wstring& label, const std::wstring& section) {
+        PaletteUnit u;
+        u.value = value, u.label = label, u.section = section, u.hay = label;
+        std::transform(u.hay.begin(), u.hay.end(), u.hay.begin(), ::towlower);
+        out.push_back(std::move(u));
+    };
+    auto same = [](const fs::path& a, const fs::path& b) {
+        std::error_code ec;
+        return !a.empty() && !b.empty() && fs::equivalent(a, b, ec);
+    };
+    std::vector<fs::path> openProjects, openMaps;
+    for (int i = 0; i < int(gDocs.size()); ++i) {
+        const Editor* ed = docEditor(i);
+        if (!ed || gDocs[size_t(i)].page) continue;
+        const auto& pr = gDocs[size_t(i)].project;
+        if (pr) openProjects.push_back(pr->folder());
+        else openMaps.push_back(ed->path());
+        add(i, docTitle(i, false), std::wstring(tr(pr ? L"Open tab: project" : L"Open tab: map")) +
+                                       (pr ? L"  \x00B7  " + pr->folder().wstring() : ed->path().empty() ? L"" : L"  \x00B7  " + ed->path().parent_path().wstring()));
+    }
+    for (size_t k = 0; k < gRecentProjects.size() && k < size_t(kRecentMax); ++k) {
+        const fs::path f = gRecentProjects[k];
+        if (std::any_of(openProjects.begin(), openProjects.end(), [&](const fs::path& o) { return same(o, f); })) continue;
+        add(kRecentProjectRow + int(k), f.filename().wstring(), std::wstring(tr(L"Recent project")) + L"  \x00B7  " + f.parent_path().wstring());
+    }
+    for (size_t k = 0; k < gRecentMaps.size() && k < size_t(kRecentMax); ++k) {
+        const fs::path f = gRecentMaps[k];
+        if (std::any_of(openMaps.begin(), openMaps.end(), [&](const fs::path& o) { return same(o, f); })) continue;
+        add(kRecentMapRow + int(k), f.filename().wstring(), std::wstring(tr(L"Recent map")) + L"  \x00B7  " + f.parent_path().wstring());
+    }
+    return out;
+}
+
 // Every entry of every .dat, for the Data workspace's jump box.
 std::vector<PaletteUnit> dataJumpItems() {
     std::vector<PaletteUnit> out;
@@ -6530,7 +6583,7 @@ void quickPickFill() {
         std::wistringstream in(filter);
         for (std::wstring w; in >> w;) words.push_back(w);
     }
-    for (auto& u : gQuick.data ? dataJumpItems() : quickPickItems()) {
+    for (auto& u : gQuick.data ? dataJumpItems() : gQuick.open ? quickOpenItems() : quickPickItems()) {
         int sc = 0;
         for (const auto& w : words) {
             const int ws = fuzzyScore(u.hay, w);
@@ -6544,6 +6597,11 @@ void quickPickFill() {
     }
     std::stable_sort(scored.begin(), scored.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
     if (scored.size() > 400) scored.erase(scored.begin() + 400, scored.end());  // enough to scroll; keeps the list quick
+    if (gQuick.open) {  // last, whatever is typed: the Open project window
+        PaletteUnit u;
+        u.value = kBrowseProjectRow, u.label = tr(L"Browse for a project\x2026"), u.section = tr(L"File > Project > Open project");
+        scored.push_back({0, std::move(u)});
+    }
     gQuick.shown.clear();
     gQuick.words = words;
     if (gQuick.wnd) InvalidateRect(gQuick.wnd, &gQuick.searchRow, FALSE);  // the count
@@ -6715,11 +6773,17 @@ LRESULT CALLBACK quickPickProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (sel) ui::box(dc, {r.left + scale(2), r.top + scale(2), r.right - scale(2), r.bottom - scale(2)}, kSel, kSel, scale(8));
         const int pic = scale(36);
         RECT box{r.left + scale(10), (r.top + r.bottom - pic) / 2, r.left + scale(10) + pic, (r.top + r.bottom - pic) / 2 + pic};
-        const auto* bmp = gQuick.data ? entryIcon(u.value / 10000, u.value % 10000)
+        const auto* bmp = gQuick.open ? nullptr
+                          : gQuick.data ? entryIcon(u.value / 10000, u.value % 10000)
                           : gQuick.mode == Mode::Locations ? nullptr : unitPaletteBitmap(u.value, gQuick.mode);
         // A unit with nothing to show (the palette shows the game's "BLANK" placeholder): a dim unit icon in its place.
         const bool blank = !gQuick.data && gQuick.mode == Mode::Units && gBlankUnits.count(u.value);
-        if (bmp && bmp->bmp && !blank) drawFitted(dc, *bmp, box);
+        if (gQuick.open) {  // a tab, a recent project or map, or Browse
+            const bool project = u.value < kRecentProjectRow ? u.value < int(gDocs.size()) && gDocs[size_t(u.value)].project != nullptr
+                                                             : u.value < kRecentMapRow;
+            uiIcon(dc, box, u.value == kBrowseProjectRow ? UiIcon::Open : project ? UiIcon::Project : UiIcon::Map,
+                   u.value < kRecentProjectRow ? kText : kFaint, scale(20));
+        } else if (bmp && bmp->bmp && !blank) drawFitted(dc, *bmp, box);
         else uiIcon(dc, box, gQuick.mode == Mode::Locations && !gQuick.data ? UiIcon::Locations : UiIcon::Units, kFaint, scale(20));
         SetBkMode(dc, TRANSPARENT);
         const int x = box.right + scale(12), right = r.right - scale(12), mid = (r.top + r.bottom) / 2;
@@ -6797,12 +6861,12 @@ LRESULT CALLBACK quickPickProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
-void showQuickPicker(bool replace) {
-    if (!app.ed || !app.ed->isOpen()) return;
+void showQuickPicker(bool replace, bool open) {
+    if (!open && (!app.ed || !app.ed->isOpen())) return;
     if (gQuick.wnd) return quickPickClose();
-    const bool data = gWorkspace == Workspace::Data && activeProject();
+    const bool data = !open && gWorkspace == Workspace::Data && activeProject();
     RECT v;
-    GetWindowRect(data ? gDataWnd : app.view, &v);
+    GetWindowRect(open ? app.main : data ? gDataWnd : app.view, &v);
     const int w = scale(620), h = scale(600), pad = scale(14), rowH = scale(32);
     const int x = (v.left + v.right - w) / 2, y = v.top + std::max(0, int(v.bottom - v.top - h) / 3);
     gQuick.wnd = CreateWindowExW(WS_EX_TOOLWINDOW | (gBackground ? WS_EX_NOACTIVATE : 0), L"StarDraftQuickPick", L"", WS_POPUP | WS_BORDER | WS_CLIPCHILDREN,
@@ -6839,11 +6903,14 @@ void showQuickPicker(bool replace) {
     SetWindowSubclass(gQuick.list, clickPickList, 2, DWORD_PTR(&quickPickChoose));
     SendMessageW(gQuick.edit, WM_SETFONT, WPARAM(gQuick.font), TRUE);
     gQuick.data = data;
+    gQuick.open = open;
     gQuick.mode = app.mode;
-    gQuick.replace = replace && !data;
+    gQuick.replace = replace && !data && !open;
     static const wchar_t* cues[kModeCount] = {L"Paint a terrain", L"Place a unit", L"Place a doodad", L"Go to a location", L"Place a sprite"};
     static const wchar_t* replaceCues[kModeCount] = {L"", L"Replace with a unit", L"Replace with a doodad", L"", L"Replace with a sprite"};
-    SendMessageW(gQuick.edit, EM_SETCUEBANNER, TRUE, LPARAM(data ? L"Go to a .dat entry" : gQuick.replace ? replaceCues[int(app.mode)] : cues[int(app.mode)]));
+    SendMessageW(gQuick.edit, EM_SETCUEBANNER, TRUE,
+                 LPARAM(open ? tr(L"Go to an open tab, or open a recent project or map") : data ? L"Go to a .dat entry"
+                        : gQuick.replace ? replaceCues[int(app.mode)] : cues[int(app.mode)]));
     SetWindowTheme(gQuick.list, gLightTheme ? L"Explorer" : L"DarkMode_Explorer", nullptr);  // the scroll bar in the theme (no frame)
     SetWindowSubclass(gQuick.edit, quickEditProc, 1, 0);
     quickPickFill();
@@ -19260,7 +19327,7 @@ HMENU buildMenu() {
     HMENU file = CreatePopupMenu(), edit = CreatePopupMenu(), view = CreatePopupMenu(), mode = CreatePopupMenu();
     HMENU project = CreatePopupMenu();
     AppendMenuW(project, MF_STRING, ID_PROJ_NEW, L"&New EUD project\tCtrl+Shift+N");
-    AppendMenuW(project, MF_STRING, ID_PROJ_OPEN, L"&Open project\x2026\tCtrl+Shift+O");
+    AppendMenuW(project, MF_STRING, ID_PROJ_OPEN, L"&Open project\x2026");
     AppendMenuW(project, MF_STRING, ID_PROJ_FROMMAP, L"&Make this map a project\x2026");
     AppendMenuW(project, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(project, MF_STRING, ID_PROJ_COMPILE, L"&Build\tCtrl+B");
@@ -19270,6 +19337,7 @@ HMENU buildMenu() {
     AppendMenuW(project, MF_STRING, ID_PROJ_SETTINGS, L"Project &settings");
     AppendMenuW(file, MF_STRING, ID_FILE_NEW, L"&New project	Ctrl+N");
     AppendMenuW(file, MF_STRING, ID_FILE_OPEN, L"&Open\x2026	Ctrl+O");
+    AppendMenuW(file, MF_STRING, ID_QUICKOPEN, L"&Quick open\x2026\tCtrl+Shift+O");
     gRecentMapsMenu = CreatePopupMenu(), gRecentProjectsMenu = CreatePopupMenu();
     AppendMenuW(file, MF_POPUP, UINT_PTR(gRecentMapsMenu), L"Recent &maps");
     AppendMenuW(file, MF_POPUP, UINT_PTR(gRecentProjectsMenu), L"Recent pro&jects");
@@ -19454,6 +19522,26 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     switch (msg) {
+    case WM_DROPFILES: {  // maps, project.stardraft files and project folders dropped on the window open
+        HDROP drop = HDROP(wp);
+        const UINT n = DragQueryFileW(drop, 0xFFFFFFFF, nullptr, 0);
+        std::vector<fs::path> files;
+        for (UINT i = 0; i < n; ++i) {
+            std::wstring f(size_t(DragQueryFileW(drop, i, nullptr, 0)), L'\0');
+            DragQueryFileW(drop, i, f.data(), UINT(f.size() + 1));
+            files.emplace_back(f);
+        }
+        DragFinish(drop);
+        for (const fs::path& f : files) {
+            std::wstring ext = f.extension().wstring();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::towlower);
+            std::error_code ec;
+            if (ext == L".scm" || ext == L".scx" || ext == L".chk" || ext == L".stardraft" || ext == L".eds" || fs::is_directory(f, ec)) openAny(f);
+            else setMessage(L"Did not open " + f.filename().wstring() + L": StarDraft 2 opens maps (.scm, .scx, .chk) and projects");
+        }
+        return 0;
+    }
+    case WM_ASK_MAPS: askMapsDefault(hwnd); return 0;
     case WM_UPDATE_FOUND: {
         std::unique_ptr<std::wstring> title(reinterpret_cast<std::wstring*>(lp));
         setMessage(L"A newer release is available: " + *title + L". Use Help > Check for updates.");
@@ -19840,7 +19928,7 @@ HACCEL buildAccelerators() {
         {FCONTROL | FVIRTKEY, VK_OEM_COMMA, ID_OPT_WINDOW},  // File > Options
         {FCONTROL | FVIRTKEY, 'W', ID_FILE_CLOSE},
         {FCONTROL | FSHIFT | FVIRTKEY, 'W', ID_FILE_CLOSEALL},
-        {FCONTROL | FVIRTKEY, VK_TAB, ID_TAB_NEXT},     {FCONTROL | FSHIFT | FVIRTKEY, VK_TAB, ID_TAB_PREV},    {FCONTROL | FVIRTKEY, 'N', ID_FILE_NEW}, {FCONTROL | FSHIFT | FVIRTKEY, 'N', ID_PROJ_NEW}, {FCONTROL | FSHIFT | FVIRTKEY, 'O', ID_PROJ_OPEN},         {FCONTROL | FVIRTKEY, 'O', ID_FILE_OPEN},        {FCONTROL | FVIRTKEY, 'S', ID_FILE_SAVE},
+        {FCONTROL | FVIRTKEY, VK_TAB, ID_TAB_NEXT},     {FCONTROL | FSHIFT | FVIRTKEY, VK_TAB, ID_TAB_PREV},    {FCONTROL | FVIRTKEY, 'N', ID_FILE_NEW}, {FCONTROL | FSHIFT | FVIRTKEY, 'N', ID_PROJ_NEW}, {FCONTROL | FSHIFT | FVIRTKEY, 'O', ID_QUICKOPEN},         {FCONTROL | FVIRTKEY, 'O', ID_FILE_OPEN},        {FCONTROL | FVIRTKEY, 'S', ID_FILE_SAVE},
         {FCONTROL | FSHIFT | FVIRTKEY, 'S', ID_FILE_SAVEAS}, {FCONTROL | FVIRTKEY, 'Z', ID_EDIT_UNDO},
         {FCONTROL | FVIRTKEY, 'Y', ID_EDIT_REDO},        {FCONTROL | FSHIFT | FVIRTKEY, 'Z', ID_EDIT_REDO},
         {FCONTROL | FVIRTKEY, 'X', ID_EDIT_CUT},         {FCONTROL | FVIRTKEY, 'C', ID_EDIT_COPY},
@@ -25829,6 +25917,42 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 }
                 continue;
             }
+            if (s == "quickopen:") {  // quickopen.txt, quickopen.png: Ctrl+Shift+O lists the open tabs, then the recent files
+                std::ofstream o(fs::path(datashots) / "quickopen.txt");
+                command(ID_QUICKOPEN);
+                for (int i = 0; i < 3; ++i) pump();
+                o << "it opens " << (gQuick.wnd && gQuick.open ? "yes" : "NO") << ", rows " << gQuick.shown.size() << "\n";
+                for (const auto& u : gQuick.shown) o << "  " << narrow(u.label) << " | " << narrow(u.section) << "\n";
+                if (gQuick.wnd) {
+                    RedrawWindow(gQuick.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                    capture(fs::path(datashots) / "quickopen.png", gQuick.wnd);
+                    // Typing a part of the open map's name: the open tab first; a folder's name finds nothing.
+                    SetWindowTextW(gQuick.edit, L"bottle");
+                    for (int i = 0; i < 3; ++i) pump();
+                    o << "\"bottle\" finds the open tab first " << (!gQuick.shown.empty() && gQuick.shown[0].value == gActive ? "yes" : "NO") << "\n";
+                    SetWindowTextW(gQuick.edit, L"starcraft remastered");
+                    for (int i = 0; i < 3; ++i) pump();
+                    o << "a folder's name finds only the browse row " << (gQuick.shown.size() == 1 && gQuick.shown[0].value == kBrowseProjectRow ? "yes" : "NO") << "\n";
+                    quickPickClose();
+                }
+                continue;
+            }
+            if (s.rfind("drop:", 0) == 0) {  // drop.txt: a file dropped on the window opens (drop:<path>)
+                std::ofstream o(fs::path(datashots) / "drop.txt");
+                const std::wstring file = widen(s.substr(5));
+                const size_t bytes = sizeof(DROPFILES) + (file.size() + 2) * sizeof(wchar_t);
+                HGLOBAL h = GlobalAlloc(GHND, bytes);
+                auto* df = static_cast<DROPFILES*>(GlobalLock(h));
+                df->pFiles = sizeof(DROPFILES), df->fWide = TRUE;
+                std::memcpy(reinterpret_cast<char*>(df) + sizeof(DROPFILES), file.c_str(), (file.size() + 1) * sizeof(wchar_t));
+                GlobalUnlock(h);
+                const size_t before = gDocs.size();
+                SendMessageW(app.main, WM_DROPFILES, WPARAM(h), 0);  // (the window frees it: DragFinish)
+                for (int i = 0; i < 3; ++i) pump();
+                o << "the dropped file opens " << (gDocs.size() == before + 1 || (app.ed && app.ed->path() == fs::path(file)) ? "yes" : "NO") << " ("
+                  << narrow(docTitle(gActive)) << ")\n";
+                continue;
+            }
             if (s == "midpan:") {  // midpan.txt: the middle button held away from where it was pressed scrolls the map
                 std::ofstream o(fs::path(datashots) / "midpan.txt");
                 setWorkspace(Workspace::Map);
@@ -27013,7 +27137,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
         if (screenshot.empty()) openStartPage();
         if (!app.ed) newUntitledProject();  // a new project (not saved yet): every workspace works
     }
-    if (!gBackground) update::atStart();
+    if (!gBackground) DragAcceptFiles(app.main, TRUE), update::atStart();  // files dropped on the window open
     if (!screenshot.empty()) {
         capture(fs::path(screenshot));
         app.renderer.shutdown();

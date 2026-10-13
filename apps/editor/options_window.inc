@@ -164,6 +164,12 @@ void optionsPaint(HWND hwnd) {
                {L"Send", L"Send an anonymous report after a crash: the version, Windows, the video card, where it crashed and the last log lines; no maps"},
                {L"Do not send", L"The reports stay on this computer"}},
               gCrashReports, [](int i) { command(ID_CRASH_MODE + i); }, "crashreports");
+    y += rowH;
+    // Maps (.scm, .scx): the program a double-click opens them with.
+    ui::fieldLabel(mem, l, y, L"Maps", false);
+    if (mapsOpenWithStarDraft()) note(fx, y + (rowH - scale(20)) / 2, L"Maps (.scm, .scx) open with StarDraft 2");
+    else ui::smallButton(mem, fx, y, rowH, L"Open maps with StarDraft 2", [] { command(ID_OPT_MAPSDEFAULT); },
+                         L"Make StarDraft 2 the program that opens .scm and .scx maps");
     y += rowH + pad;
 
     // The working folder: where new projects go.

@@ -872,7 +872,7 @@ Debug mode on: Build adds index checks and the trace for epTrace	Modo de depurac
 Debug mode is on: Build adds index checks and the trace for epTrace (turn it off for the map that you release)	El modo de depuración está activado: Compilar añade comprobaciones de índices y el rastreo para epTrace (desactívelo para el mapa que publique)
 Debug mode: Build adds index checks and the trace for epTrace (Project page > Build)	Modo de depuración: Compilar añade comprobaciones de índices y el rastreo para epTrace (página Proyecto > Compilar)
 &New EUD project\tCtrl+Shift+N	&Nuevo proyecto EUD\tCtrl+Shift+N
-&Open project…\tCtrl+Shift+O	&Abrir proyecto…\tCtrl+Shift+O
+&Open project…	&Abrir proyecto…
 &Make this map a project…	&Convertir este mapa en proyecto…
 &Build\tCtrl+B	&Compilar\tCtrl+B
 &Add script…	&Añadir script…
@@ -1792,3 +1792,18 @@ Drag map	Arrastrar mapa
 Pan map	Desplazar mapa
 Middle mouse click and hold drags the map	Mantener pulsado el botón central arrastra el mapa
 Middle mouse click and hold pans the map	Mantener pulsado el botón central desplaza el mapa
+&Quick open…\tCtrl+Shift+O	Apertura &rápida…\tCtrl+Shift+O
+Go to an open tab, or open a recent project or map	Ir a una pestaña abierta, o abrir un proyecto o mapa reciente
+Open tab: project	Pestaña abierta: proyecto
+Open tab: map	Pestaña abierta: mapa
+Recent project	Proyecto reciente
+Recent map	Mapa reciente
+Browse for a project…	Buscar un proyecto…
+File > Project > Open project	Archivo > Proyecto > Abrir proyecto
+Maps	Mapas
+Open maps with StarDraft 2	Abrir mapas con StarDraft 2
+Make StarDraft 2 the program that opens .scm and .scx maps	Hacer de StarDraft 2 el programa que abre los mapas .scm y .scx
+Maps (.scm, .scx) open with StarDraft 2	Los mapas (.scm, .scx) se abren con StarDraft 2
+Open .scm and .scx maps with StarDraft 2 when you double-click them? Program options > Maps changes this later.	¿Abrir los mapas .scm y .scx con StarDraft 2 al hacer doble clic? Opciones del programa > Mapas lo cambia más tarde.
+Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.	Windows conserva el programa que eligió para los mapas .scm o .scx. En Aplicaciones predeterminadas, busque .scm y .scx y seleccione StarDraft 2.
+Default apps	Aplicaciones predeterminadas

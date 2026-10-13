@@ -872,7 +872,7 @@ Debug mode on: Build adds index checks and the trace for epTrace	디버그 모�
 Debug mode is on: Build adds index checks and the trace for epTrace (turn it off for the map that you release)	디버그 모드가 켜져 있습니다: 빌드에 인덱스 검사와 epTrace용 추적이 추가됩니다 (배포할 맵은 끄십시오)
 Debug mode: Build adds index checks and the trace for epTrace (Project page > Build)	디버그 모드: 빌드에 인덱스 검사와 epTrace용 추적이 추가됩니다 (프로젝트 페이지 > 빌드)
 &New EUD project\tCtrl+Shift+N	새 EUD 프로젝트(&N)\tCtrl+Shift+N
-&Open project…\tCtrl+Shift+O	프로젝트 열기(&O)…\tCtrl+Shift+O
+&Open project…	프로젝트 열기(&O)…
 &Make this map a project…	이 맵을 프로젝트로 만들기(&M)…
 &Build\tCtrl+B	빌드(&B)\tCtrl+B
 &Add script…	스크립트 추가(&A)…
@@ -1793,3 +1793,18 @@ Drag map	맵 끌기
 Pan map	맵 패닝
 Middle mouse click and hold drags the map	마우스 가운데 버튼을 누르고 있으면 맵을 끕니다
 Middle mouse click and hold pans the map	마우스 가운데 버튼을 누르고 있으면 맵을 패닝합니다
+&Quick open…\tCtrl+Shift+O	빠른 열기(&Q)…\tCtrl+Shift+O
+Go to an open tab, or open a recent project or map	열린 탭으로 가거나 최근 프로젝트나 맵을 엽니다
+Open tab: project	열린 탭: 프로젝트
+Open tab: map	열린 탭: 맵
+Recent project	최근 프로젝트
+Recent map	최근 맵
+Browse for a project…	프로젝트 찾아보기…
+File > Project > Open project	파일 > 프로젝트 > 프로젝트 열기
+Maps	맵
+Open maps with StarDraft 2	StarDraft 2로 맵 열기
+Make StarDraft 2 the program that opens .scm and .scx maps	.scm 및 .scx 맵을 여는 프로그램을 StarDraft 2로 합니다
+Maps (.scm, .scx) open with StarDraft 2	맵(.scm, .scx)은 StarDraft 2로 열립니다
+Open .scm and .scx maps with StarDraft 2 when you double-click them? Program options > Maps changes this later.	.scm 및 .scx 맵을 두 번 클릭할 때 StarDraft 2로 열까요? 나중에 프로그램 옵션 > 맵에서 바꿀 수 있습니다.
+Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.	Windows는 .scm 또는 .scx 맵에 대해 선택한 프로그램을 유지합니다. 기본 앱에서 .scm 및 .scx를 검색하고 StarDraft 2를 선택하세요.
+Default apps	기본 앱
