@@ -16004,6 +16004,8 @@ LRESULT CALLBACK trigPaneProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_LBUTTONDOWN: {
         POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
         SetFocus(hwnd);  // Ctrl+C / X / V act on blocks while the pane has focus
+        // A click: the value chip shown as focused is no longer (a click on a value focuses that one; GitHub feedback #119).
+        if (gTP.focus.ref.index >= 0) gTP.focus = {}, gTP.focus.ref.index = -1, InvalidateRect(hwnd, nullptr, FALSE);
         if (PtInRect(&gTP.codeToggle, pt)) return showTriggerCode(), 0;
         for (const auto& [ar, fix] : gTrigFixLinks)
             if (PtInRect(&ar, pt)) {
@@ -25298,6 +25300,23 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(gTiles.list, WM_LBUTTONUP, 0, at(2, 1));
                 const size_t want = std::min<size_t>(gTiles.values.size(), size_t(std::min(3, gTiles.perRow)) * 2);
                 o << "the box selects the tiles in it: " << gTiles.chosen.size() << " of " << want << " " << (gTiles.chosen.size() == want ? "yes" : "NO") << "\n";
+                continue;
+            }
+            if (s == "chipfocus:") {  // chipfocus.txt: a click in the trigger pane away from a value clears the focused chip (#119)
+                std::ofstream o(fs::path(datashots) / "chipfocus.txt");
+                setWorkspace(Workspace::Triggers);
+                for (int i = 0; i < 5; ++i) pump();
+                if (!gTE.pane) {
+                    o << "no trigger pane (needs a project)\n";
+                    continue;
+                }
+                gTP.focus.ref.index = 0;  // as after a value's pop-out closed
+                RECT r;
+                GetClientRect(gTE.pane, &r);
+                SendMessageW(gTE.pane, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(r.right - 4, r.bottom - 4));
+                SendMessageW(gTE.pane, WM_LBUTTONUP, 0, MAKELPARAM(r.right - 4, r.bottom - 4));
+                o << "a click away from the values clears the focused chip " << (gTP.focus.ref.index < 0 ? "yes" : "NO") << "\n";
+                setWorkspace(Workspace::Map);
                 continue;
             }
             if (s == "settings:") {  // settings.txt: the options are saved and read again (#122). Only when the user has none saved
