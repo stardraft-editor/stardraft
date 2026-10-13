@@ -10,7 +10,7 @@ the feature solves, and other notes. The sentence under each section heading als
 
 ## Now
 
-Accelerated improvements, and the missing features that early user feedback asks for.
+Accelerated improvements, and the missing features based on early user feedback.
 
 - [ ] **R36 Clickable build errors.** *Tag:* EUD.
   Click a build error in the Log to open its trigger and block in the Triggers workspace.
