@@ -2762,7 +2762,7 @@ void createLogPanel() {
 // A build starts: a separator line; the log stays as it is (it opens by itself if the build fails).
 void showBuildLog(bool) { logLine(L"------------------------------------------------------------"); }
 
-bool writeDatEdits(EudProject& pr, std::string& err);
+bool writeDatEdits(EudProject& pr, std::string& err, std::vector<std::string>* notes = nullptr);
 bool writeTriggerCode(EudProject& pr, std::string& err);
 
 // Compile: save the map into the project, then run euddraft on a thread; its output streams into the
@@ -2807,7 +2807,8 @@ void compileProject() {
         updateStatus();
         return;
     }
-    if (!writeDatEdits(*pr, err)) {
+    std::vector<std::string> datNotes;  // logged as errors after the reset below
+    if (!writeDatEdits(*pr, err, &datNotes)) {
         themedMessageBox(app.main, widen(err).c_str(), L"Could not write the .dat edits", MB_ICONERROR);
         return;
     }
@@ -2819,6 +2820,7 @@ void compileProject() {
     gLog.errors = 0, gLog.latestError = false;  // a new build: the errors of the last one go (#85); the log keeps their lines
     if (gLog.wnd) InvalidateRect(gLog.wnd, nullptr, FALSE);
     showBuildLog(true);
+    for (const std::string& m : datNotes) logLine(widen(m), true);
     buildLogAppend(L"Compiling " + pr->file().wstring());
     gTrigBuildError.clear();
     gBuilding = true;
@@ -7138,10 +7140,10 @@ void dataLoadForProject() {
 }
 
 // Before a build: every table's edits saved, and generated/<name>.eps written for each that has some.
-bool writeDatEdits(EudProject& pr, std::string& err) {
+bool writeDatEdits(EudProject& pr, std::string& err, std::vector<std::string>* notes) {
     std::vector<std::unique_ptr<DatTable>> loaded;
     std::vector<std::unique_ptr<DatTable>>* tables = &gData.tables;
-    if (gData.project != &pr || gData.tables.empty()) loaded = loadDatTables(pr, err), tables = &loaded;  // not open here: from disk
+    if (gData.project != &pr || gData.tables.empty()) loaded = loadDatTables(pr, err), err.clear(), tables = &loaded;  // not open here: from disk
     std::vector<const DatTable*> list;
     std::vector<std::unique_ptr<DatTable>> retried;
     for (size_t i = 0; i < tables->size(); ++i) {
@@ -7156,7 +7158,8 @@ bool writeDatEdits(EudProject& pr, std::string& err) {
             if (!r->load(app.data, sc, err) || !r->loadEdits(pr.datFile(sc.name), err)) return false;
             t = retried.emplace_back(std::move(r)).get();
         } else if (!t->saveEdits(pr.datFile(t->schema().name), err)) return false;
-        for (const std::string& m : t->unappliedSoundFiles()) logLine(widen(m), true);
+        if (notes)
+            for (std::string& m : t->unappliedSoundFiles()) notes->push_back(std::move(m));
         list.push_back(t);
     }
     return pr.writeGenerated(list, err) && writeExtrasEdits(pr, err);
