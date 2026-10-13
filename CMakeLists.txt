@@ -185,9 +185,10 @@ target_link_libraries(terrain_render_test PRIVATE stardraft_render)
 
 # --- Windows editor (native Win32 shell) ------------------------------------------------------
 if(WIN32)
-    add_executable(stardraft_editor WIN32 apps/editor/main.cpp apps/editor/vorbis.c apps/editor/stardraft.manifest apps/editor/res/stardraft.rc)
+    add_executable(stardraft_editor WIN32 apps/editor/main.cpp apps/editor/vorbis.c apps/editor/stb_image.cpp apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp apps/editor/stardraft.manifest apps/editor/res/stardraft.rc)
     target_include_directories(stardraft_editor PRIVATE ${stb_SOURCE_DIR})
     set_source_files_properties(apps/editor/vorbis.c PROPERTIES COMPILE_OPTIONS "$<$<C_COMPILER_ID:MSVC>:/W0>")
+    set_source_files_properties(apps/editor/stb_image.cpp PROPERTIES COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:MSVC>:/W0>")
     target_link_libraries(stardraft_editor PRIVATE stardraft_render comctl32 dwmapi shell32 ole32 comdlg32 uxtheme msimg32 gdiplus dbghelp winhttp)
     # Crash reports: the commit, and the token that sends them to GitHub as issues (CI gives it; see crash.inc).
     execute_process(COMMAND git rev-parse --short HEAD WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} OUTPUT_VARIABLE STARDRAFT_COMMIT

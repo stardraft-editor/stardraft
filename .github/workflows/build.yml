@@ -26,7 +26,7 @@ jobs:
       - name: Check the UI text
         run: python -I tools/ui_text_lint.py
 
-      # The translation tables (apps/editor/res/lang/*.inc) are made from the *.tsv files: a table that is not made
+      # The translation tables (apps/editor/res/lang/*.cpp) are made from the *.tsv files: a table that is not made
       # again after a change to its .tsv stops the build.
       - name: Check the translation tables
         run: |

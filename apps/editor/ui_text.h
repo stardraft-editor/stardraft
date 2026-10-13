@@ -1,6 +1,6 @@
 // The program's text in other languages (GitHub feedback #104). The English text is the key: tr() returns the
 // translation for the language in use, or the text itself when there is none (English, a text that is not in the
-// tables, a file name, a map's name). The tables are res/lang/ko.inc and res/lang/es.inc; tools/ui_lang_gen.py makes
+// tables, a file name, a map's name). The tables are res/lang/ko.cpp and res/lang/es.cpp; tools/ui_lang_gen.py makes
 // them from res/lang/ko.tsv and es.tsv (English<TAB>translation, with backslash escapes).
 //
 // The text is translated where it reaches the screen, so the call sites keep the English. The macros below replace
@@ -27,18 +27,19 @@ struct UiText {
     const wchar_t* en;
     const wchar_t* text;
 };
-#include "res/lang/ko.inc"  // kLangKo: the Korean translations (generated)
-#include "res/lang/es.inc"  // kLangEs: the Spanish translations (generated)
+#include <span>
+std::span<const UiText> langTableKo();  // res/lang/ko.cpp: the Korean translations (generated)
+std::span<const UiText> langTableEs();  // res/lang/es.cpp: the Spanish translations (generated)
 
 inline const std::unordered_map<std::wstring_view, const wchar_t*>& uiTable(UiLang lang) {
     static const auto ko = [] {
         std::unordered_map<std::wstring_view, const wchar_t*> m;
-        for (const UiText& e : kLangKo) m.emplace(e.en, e.text);
+        for (const UiText& e : langTableKo()) m.emplace(e.en, e.text);
         return m;
     }();
     static const auto es = [] {
         std::unordered_map<std::wstring_view, const wchar_t*> m;
-        for (const UiText& e : kLangEs) m.emplace(e.en, e.text);
+        for (const UiText& e : langTableEs()) m.emplace(e.en, e.text);
         return m;
     }();
     return lang == UiLang::Korean ? ko : es;

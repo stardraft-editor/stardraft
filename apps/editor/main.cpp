@@ -52,8 +52,6 @@ using std::min;
 #include <unordered_map>
 #include <vector>
 
-#define STBI_ONLY_PNG
-#define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include "res/ui_icons.h"
 #include "stardraft/editor.h"
