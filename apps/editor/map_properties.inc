@@ -4,7 +4,8 @@
 // the size and the tileset change only with their button, "Change the size and tileset".
 
 struct MapPropsDialog {
-    HWND wnd = nullptr, name = nullptr, desc = nullptr;  // the texts are edit boxes; the rest is painted (map_pages.inc)
+    HWND wnd = nullptr, name = nullptr, desc = nullptr;  // the texts are rich boxes (in the game's colors); the rest is painted (map_pages.inc)
+    HWND lastBox = nullptr;                              // the text box that had the focus last (the color chips color its text)
     std::wstring nameText, descText;
     int era = 0, w = 0, h = 0, anchorIndex = 0;
     uint16_t fillTerrain = 1;
@@ -44,9 +45,11 @@ void mapPropsInfo(MapPropsDialog& d) {
 }
 
 // What the page shows, read back.
+enum class TextPalette;
+std::wstring mapTextFromBox(HWND re, TextPalette palette);  // map_pages.inc: a box's text with its colors as the game's color codes
 void mapPropsRead(MapPropsDialog& d) {  // (the rest is set by the page's pickers)
-    if (d.name) d.nameText = windowText(d.name);
-    if (d.desc) d.descText = windowText(d.desc);
+    if (d.name) d.nameText = mapTextFromBox(d.name, TextPalette(1));  // (TextPalette::Scenario)
+    if (d.desc) d.descText = mapTextFromBox(d.desc, TextPalette(1));
 }
 
 // A map text's line ends as StarCraft has them: \r\n (Blizzard's maps; with \n alone the game shows no new line,

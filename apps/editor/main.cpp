@@ -25979,6 +25979,30 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 }
                 continue;
             }
+            if (s == "maptext:") {  // maptext.txt, maptext.png: the title and description in the scenario's colors (WYSIWYG)
+                std::ofstream o(fs::path(datashots) / "maptext.txt");
+                const std::string title = "\x03Green \x06white\x01 normal", desc = "Line one \x07red\r\n\x04light green \x13" "centered\x01 end";
+                app.ed->setScenarioText(title, desc);
+                setWorkspace(Workspace::Properties);
+                for (int i = 0; i < 5; ++i) pump();
+                if (!gMapProps || !gMapProps->name) {
+                    o << "the page shows NO\n";
+                    continue;
+                }
+                o << "the title reads back the same " << (narrow(mapTextFromBox(gMapProps->name, TextPalette::Scenario)) == title ? "yes" : "NO") << " ("
+                  << narrow(richText(gMapProps->name)) << ")\n";
+                o << "the description reads back the same " << (narrow(mapTextFromBox(gMapProps->desc, TextPalette::Scenario)) == desc ? "yes" : "NO") << "\n";
+                // The chips: the first word of the description becomes red.
+                gMapProps->lastBox = gMapProps->desc;
+                CHARRANGE word{0, 4};
+                SendMessageW(gMapProps->desc, EM_EXSETSEL, 0, LPARAM(&word));
+                mapTextColor(7);
+                const std::string now = narrow(mapTextFromBox(gMapProps->desc, TextPalette::Scenario));
+                o << "a chip colors the selected word " << (now.rfind("\x07Line\x01", 0) == 0 ? "yes" : "NO") << "\n";
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "maptext.png", app.main);
+                continue;
+            }
             if (s == "quickopen:") {  // quickopen.txt, quickopen.png: Ctrl+Shift+O lists the open tabs, then the recent files
                 std::ofstream o(fs::path(datashots) / "quickopen.txt");
                 command(ID_QUICKOPEN);

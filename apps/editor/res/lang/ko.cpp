@@ -1818,6 +1818,7 @@ constexpr UiText kRows[] = {
     {L"Start StarDraft 2 again in the new language. Your open maps and projects open again.", L"\uC0C8 \uC5B8\uC5B4\uB85C StarDraft 2\uB97C \uB2E4\uC2DC \uC2DC\uC791\uD569\uB2C8\uB2E4. \uC5F4\uB9B0 \uB9F5\uACFC \uD504\uB85C\uC81D\uD2B8\uAC00 \uB2E4\uC2DC \uC5F4\uB9BD\uB2C8\uB2E4."},
     {L"The new language shows after a restart", L"\uC0C8 \uC5B8\uC5B4\uB294 \uB2E4\uC2DC \uC2DC\uC791\uD55C \uD6C4\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4"},
     {L"A new language shows after a restart", L"\uC0C8 \uC5B8\uC5B4\uB294 \uB2E4\uC2DC \uC2DC\uC791\uD55C \uD6C4\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4"},
+    {L"Text color", L"\uAE00\uC790 \uC0C9"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

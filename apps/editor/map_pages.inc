@@ -219,20 +219,176 @@ LRESULT CALLBACK playersDialogProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 
-// --- Map properties' fields (on the Map properties page): painted with the kit; the title and description are edit boxes
+// --- Game text in its colors (WYSIWYG): the title and description of the map -------------------------------------
+// The text shows in its colors and the color codes do not show; the chips color the selected text (or the text typed
+// next). Other codes (align right 12, align center 13, invisible 0B, ...) show as <12> tags, and a <03> tag that is
+// typed becomes its code. Read back, the text has the codes again (the map's bytes).
+// The game has two sets of text colors: the in-game one (messages, unit names: the long list with the players'
+// colors) and the one of mission briefings and the scenario's title and description (pale blue, green, light green,
+// gray, white, red).
+enum class TextPalette { Game, Scenario };
+
+extern COLORREF kRichDefault, kRichBack;
+const std::vector<std::pair<unsigned char, const wchar_t*>>& richColorCodes();
+COLORREF richCodeColor(unsigned char code);
+std::wstring richText(HWND re);
+
+// The palette's chips: code and name (code 1: the normal color).
+const std::vector<std::pair<unsigned char, const wchar_t*>>& textPaletteCodes(TextPalette p) {
+    static const std::vector<std::pair<unsigned char, const wchar_t*>> game = [] {
+        std::vector<std::pair<unsigned char, const wchar_t*>> v;
+        for (const auto& c : richColorCodes())
+            if (c.first != 0xFF) v.push_back(c);  // (a player's color: triggers only)
+        return v;
+    }();
+    static const std::vector<std::pair<unsigned char, const wchar_t*>> scenario = {
+        {1, L"Normal (back to the text's own color)"}, {3, L"Green"}, {4, L"Light green"}, {5, L"Gray"}, {6, L"White"}, {7, L"Red"}};
+    return p == TextPalette::Game ? game : scenario;
+}
+// A code's color in the box (1, and the palette's pale blue: the normal color); 0xFFFFFFFF: not a color of the palette.
+COLORREF textCodeColor(TextPalette p, unsigned char c) {
+    if (c == 1) return kRichDefault;
+    if (p == TextPalette::Scenario) {
+        const COLORREF col = briefingTextColor(c, kRichDefault);
+        return col == kInvisibleText ? 0xFFFFFFFF : col == RGB(184, 184, 232) ? kRichDefault : col;
+    }
+    if (c == 2) return kRichDefault;
+    return richCodeColor(c);
+}
+// A color's code in the palette (0: the normal color, or none).
+unsigned char textColorCode(TextPalette p, COLORREF c) {
+    if (c == kRichDefault) return 0;
+    for (const auto& [code, name] : textPaletteCodes(p))
+        if (code != 1 && textCodeColor(p, code) == c) return code;
+    return 0;
+}
+
+void mapTextToBox(HWND re, const std::wstring& text, TextPalette palette = TextPalette::Scenario) {
+    SendMessageW(re, WM_SETREDRAW, FALSE, 0);
+    SetWindowTextW(re, L"");
+    COLORREF color = kRichDefault;
+    std::wstring run;
+    auto flush = [&] {
+        if (run.empty()) return;
+        CHARRANGE end{-1, -1};
+        SendMessageW(re, EM_EXSETSEL, 0, LPARAM(&end));
+        CHARFORMAT2W cf{};
+        cf.cbSize = sizeof cf, cf.dwMask = CFM_COLOR, cf.crTextColor = color;
+        SendMessageW(re, EM_SETCHARFORMAT, SCF_SELECTION, LPARAM(&cf));
+        SendMessageW(re, EM_REPLACESEL, FALSE, LPARAM(run.c_str()));
+        run.clear();
+    };
+    for (const wchar_t ch : text) {
+        if (ch < 0x20 && ch != L'\r' && ch != L'\n' && ch != L'\t') {
+            const COLORREF c = textCodeColor(palette, (unsigned char)ch);
+            if (c != 0xFFFFFFFF) {  // a color: what follows has it
+                flush();
+                color = c;
+                continue;
+            }
+            wchar_t tag[8];
+            std::swprintf(tag, 8, L"<%02X>", unsigned(ch));
+            run += tag;
+            continue;
+        }
+        run += ch;
+    }
+    flush();
+    CHARRANGE start{0, 0};
+    SendMessageW(re, EM_EXSETSEL, 0, LPARAM(&start));
+    CHARFORMAT2W cf{};  // typing at the start: the normal color
+    cf.cbSize = sizeof cf, cf.dwMask = CFM_COLOR, cf.crTextColor = kRichDefault;
+    SendMessageW(re, EM_SETCHARFORMAT, SCF_SELECTION, LPARAM(&cf));
+    SendMessageW(re, WM_SETREDRAW, TRUE, 0);
+    InvalidateRect(re, nullptr, TRUE);
+}
+
+std::wstring mapTextFromBox(HWND re, TextPalette palette) {
+    const std::wstring text = richText(re);  // (a line end is one \r, as the box counts)
+    std::wstring out;
+    COLORREF color = kRichDefault;
+    auto put = [&](COLORREF c) {  // a change of color: its code
+        if (c == COLORREF(tomAutoColor)) c = kRichDefault;
+        if (c == color) return;
+        const unsigned char code = textColorCode(palette, c);
+        out += wchar_t(code ? code : 1);
+        color = code ? c : kRichDefault;
+    };
+    IRichEditOle* ole = nullptr;
+    ITextDocument* doc = nullptr;
+    static const GUID iidTextDocument = {0x8CC497C0, 0xA1DF, 0x11CE, {0x80, 0x98, 0x00, 0xAA, 0x00, 0x47, 0xBE, 0x5D}};
+    if (SendMessageW(re, EM_GETOLEINTERFACE, 0, LPARAM(&ole)) && ole) ole->QueryInterface(iidTextDocument, reinterpret_cast<void**>(&doc)), ole->Release();
+    ITextRange* r = nullptr;
+    const long n = long(text.size());
+    if (doc && SUCCEEDED(doc->Range(0, 0, &r)) && r) {
+        for (long start = 0; start < n;) {  // run by run: a run has one look
+            long moved = 0, end = 0;
+            r->SetRange(start, start);
+            if (FAILED(r->MoveEnd(tomCharFormat, 1, &moved)) || !moved) break;
+            r->GetEnd(&end);
+            if (end <= start) break;
+            end = std::min(end, n);
+            ITextFont* font = nullptr;
+            long fore = long(kRichDefault);
+            if (SUCCEEDED(r->GetFont(&font)) && font) font->GetForeColor(&fore), font->Release();
+            put(COLORREF(fore));
+            for (long i = start; i < end; ++i) out += text[size_t(i)];
+            start = end;
+        }
+        r->Release();
+    } else
+        out = text;
+    if (doc) doc->Release();
+    // The box's line ends (\r) as the map's (\r\n), and the <12> tags as their codes.
+    std::wstring done;
+    for (size_t i = 0; i < out.size(); ++i) {
+        const wchar_t ch = out[i];
+        if (ch == L'\r') {
+            done += L"\r\n";
+            if (i + 1 < out.size() && out[i + 1] == L'\n') ++i;
+            continue;
+        }
+        if (ch == L'<' && i + 3 < out.size() && out[i + 3] == L'>' && iswxdigit(out[i + 1]) && iswxdigit(out[i + 2])) {
+            const unsigned v = unsigned(std::wcstoul(out.substr(i + 1, 2).c_str(), nullptr, 16));
+            if (v >= 1 && v < 0x20 && v != '\r' && v != '\n') {
+                done += wchar_t(v);
+                i += 3;
+                continue;
+            }
+        }
+        done += ch;
+    }
+    return done;
+}
+
+// A chip: the box that had the focus last colors its selected text (or the text typed next) with the code's color.
+void mapTextColor(unsigned char code) {
+    MapPropsDialog* d = gMapProps;
+    if (!d) return;
+    HWND re = d->lastBox ? d->lastBox : d->desc;
+    if (!re) return;
+    CHARFORMAT2W cf{};
+    cf.cbSize = sizeof cf, cf.dwMask = CFM_COLOR, cf.crTextColor = textCodeColor(TextPalette::Scenario, code);
+    SendMessageW(re, EM_SETCHARFORMAT, SCF_SELECTION, LPARAM(&cf));
+    SetFocus(re);
+    mapPageChanged();  // (a color sends no EN_CHANGE)
+}
+
+// --- Map properties' fields (on the Map properties page): painted with the kit; the title and description are rich boxes
 
 ui::Surface gPropsSurface;  // the dropdowns' and buttons' click areas
 
 // The page's rows (the same at its making and at each paint).
 struct PropsLayout {
-    int pad, rowH, pitch, labelW, boxW, x1, nameY, descY, descH, terrainY, tilesetY, sizeY, anchorY, fillY, infoY, infoH, buttonsY, height;
+    int pad, rowH, pitch, labelW, boxW, x1, nameY, colorsY, descY, descH, terrainY, tilesetY, sizeY, anchorY, fillY, infoY, infoH, buttonsY, height;
 };
 PropsLayout propsLayout() {
     PropsLayout l{};
     l.pad = scale(ui::kDialogPad), l.rowH = scale(ui::kFieldH), l.pitch = l.rowH + scale(8), l.labelW = scale(120), l.boxW = scale(440);
     l.x1 = l.pad + l.labelW;
     l.nameY = l.pad + l.pitch;  // under the "Map" heading
-    l.descY = l.nameY + l.pitch, l.descH = scale(84);
+    l.colorsY = l.nameY + l.pitch;  // the color chips
+    l.descY = l.colorsY + l.pitch, l.descH = scale(84);
     l.terrainY = l.descY + l.descH + l.pad;
     l.tilesetY = l.terrainY + l.pitch;
     l.sizeY = l.tilesetY + l.pitch, l.anchorY = l.sizeY + l.pitch, l.fillY = l.anchorY + l.pitch;
@@ -279,7 +435,31 @@ void propsPaint(HWND hwnd, MapPropsDialog& d) {
         DrawTextW(mem, t, -1, &r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
     };
     heading(L"Map", l.pad);
-    label(L"Title", l.nameY), label(L"Description", l.descY);
+    label(L"Title", l.nameY), label(L"Text color", l.colorsY), label(L"Description", l.descY);
+    // The text boxes' frames (the boxes are 1 pixel inside them; the focused one in the accent).
+    for (const auto& [box, y, h] : {std::tuple{d.name, l.nameY, l.rowH}, std::tuple{d.desc, l.descY, l.descH}})
+        ui::box(mem, {l.x1, y, right, y + h}, CLR_NONE, box && GetFocus() == box ? kAccent : kBorder);
+    {  // the color chips: they color the selected text of the title or the description (the one that had the focus)
+        const int s = scale(16), gap = scale(4), top = l.colorsY + (l.rowH - s) / 2;
+        int x = l.x1;
+        for (const auto& [code, name] : textPaletteCodes(TextPalette::Scenario)) {  // (the scenario's colors, as briefings have)
+            const RECT sw{x, top, x + s, top + s};
+            const bool over = ui::hot(sw);
+            if (over) {
+                RECT ring = sw;
+                InflateRect(&ring, scale(2), scale(2));
+                ui::box(mem, ring, CLR_NONE, kBorderHot);
+            }
+            ui::box(mem, sw, code == 1 ? kRichBack : textCodeColor(TextPalette::Scenario, code), code == 1 ? kBorder : CLR_NONE);
+            if (code == 1) {  // normal: the game's default color as a dot
+                const int m = s / 2 - scale(3);
+                ui::box(mem, {sw.left + m, sw.top + m, sw.right - m, sw.bottom - m}, kRichDefault, CLR_NONE);
+            }
+            const unsigned char c = code;
+            hitsOut().push_back({sw, nullptr, [c] { mapTextColor(c); }, name, IDC_HAND, {}});
+            x += s + gap;
+        }
+    }
     heading(L"Terrain", l.terrainY);
     label(L"Tileset", l.tilesetY), label(L"Size (tiles)", l.sizeY), label(L"Map content at", l.anchorY), label(L"New ground", l.fillY);
     auto pick = [](const wchar_t* prompt, std::vector<ListPickItem> items, const std::string& cur, RECT b, auto set) {
@@ -352,11 +532,18 @@ LRESULT CALLBACK mapPropsProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_CREATE: {
         d->wnd = hwnd;
         const PropsLayout l = propsLayout();
-        auto edit = [&](int id, int y, int hgt, DWORD extra, const std::wstring& text) {  // the only native controls: the texts
-            HWND h = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, text.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | extra, l.x1, y, l.boxW, hgt, hwnd,
+        LoadLibraryW(L"Msftedit.dll");
+        auto edit = [&](int id, int y, int hgt, DWORD extra, const std::wstring& text) {  // the only native controls: the texts (rich: colors)
+            HWND h = CreateWindowExW(0, MSFTEDIT_CLASS, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | extra, l.x1 + 1, y + 1, l.boxW - 2, hgt - 2, hwnd,
                                      HMENU(INT_PTR(id)), app.inst, nullptr);
             SendMessageW(h, WM_SETFONT, WPARAM(app.font), TRUE);
-            darkControl(h, L"DarkMode_CFD");
+            SendMessageW(h, EM_SETBKGNDCOLOR, 0, LPARAM(kRichBack));
+            CHARFORMAT2W cf{};
+            cf.cbSize = sizeof cf, cf.dwMask = CFM_COLOR, cf.crTextColor = kRichDefault;
+            SendMessageW(h, EM_SETCHARFORMAT, SCF_ALL, LPARAM(&cf));
+            SendMessageW(h, EM_SETEVENTMASK, 0, ENM_CHANGE);
+            darkControl(h, L"DarkMode_Explorer");
+            mapTextToBox(h, text);
             return h;
         };
         d->name = edit(1601, l.nameY, l.rowH, ES_AUTOHSCROLL, d->nameText);
@@ -365,7 +552,7 @@ LRESULT CALLBACK mapPropsProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SetWindowPos(hwnd, nullptr, 0, 0, l.x1 + l.boxW + l.pad, l.height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);  // as big as its content
         if (!d->baseSet) {  // the map's values as the page shows them: "no change" is these
             d->baseSet = true;
-            d->nameBase = windowText(d->name), d->descBase = windowText(d->desc);
+            d->nameBase = mapTextFromBox(d->name, TextPalette::Scenario), d->descBase = mapTextFromBox(d->desc, TextPalette::Scenario);
             d->eraBase = d->era, d->wBase = d->w, d->hBase = d->h;
         }
         return 0;
@@ -373,6 +560,8 @@ LRESULT CALLBACK mapPropsProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_PAINT: propsPaint(hwnd, *d); return 0;
     case WM_ERASEBKGND: return 1;
     case WM_COMMAND:
+        if (HIWORD(wp) == EN_SETFOCUS) d->lastBox = HWND(lp);  // the color chips color this box's text
+        if (HIWORD(wp) == EN_SETFOCUS || HIWORD(wp) == EN_KILLFOCUS) InvalidateRect(hwnd, nullptr, FALSE);  // the focus frame
         if (HIWORD(wp) == EN_CHANGE) mapPageChanged();
         return 0;
     case WM_CTLCOLOREDIT:
@@ -519,7 +708,7 @@ void mapPageChanged() {
     if (!c) return;
     wchar_t cls[16] = L"";
     GetClassNameW(GetFocus(), cls, 16);
-    if (_wcsicmp(cls, WC_EDITW) == 0 && IsChild(gMp.wnd, GetFocus())) {  // typing: when it stops
+    if ((_wcsicmp(cls, WC_EDITW) == 0 || _wcsicmp(cls, MSFTEDIT_CLASS) == 0) && IsChild(gMp.wnd, GetFocus())) {  // typing: when it stops
         gMp.typing = true, SetTimer(gMp.wnd, 2, 500, nullptr);
         return;
     }

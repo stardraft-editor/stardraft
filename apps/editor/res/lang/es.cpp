@@ -1817,6 +1817,7 @@ constexpr UiText kRows[] = {
     {L"Start StarDraft 2 again in the new language. Your open maps and projects open again.", L"Iniciar StarDraft 2 de nuevo en el nuevo idioma. Sus mapas y proyectos abiertos se abren de nuevo."},
     {L"The new language shows after a restart", L"El nuevo idioma se muestra despu\u00E9s de reiniciar"},
     {L"A new language shows after a restart", L"Un nuevo idioma se muestra despu\u00E9s de reiniciar"},
+    {L"Text color", L"Color del texto"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
