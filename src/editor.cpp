@@ -88,7 +88,10 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
         error = "map has no valid DIM section";
         return false;
     }
-    if (types_.size() == 0 && (!types_.load(data_, error) || !unitSprites_.load(data_, error))) return false;
+    if (!unitDataLoaded_) {
+        if (!types_.load(data_, error) || !unitSprites_.load(data_, error)) return false;
+        unitDataLoaded_ = true;
+    }
     step("unit types and sprites");
 
     chk_ = std::move(chk);
@@ -111,6 +114,7 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
     step("terrain, tileset, units");
     if (tileset_.groups.empty()) {
         error = "could not load tileset " + std::string(tilesetName(era_));
+        if (!tilesetError_.empty()) error += ": " + tilesetError_;
         return false;
     }
     open_ = true;
@@ -133,7 +137,10 @@ bool Editor::newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terr
     finishFiles();
     Chk chk;
     if (!createNewScenario(chk, data_, width, height, era, terrain, error)) return false;
-    if (types_.size() == 0 && (!types_.load(data_, error) || !unitSprites_.load(data_, error))) return false;
+    if (!unitDataLoaded_) {
+        if (!types_.load(data_, error) || !unitSprites_.load(data_, error)) return false;
+        unitDataLoaded_ = true;
+    }
     chk_ = std::move(chk);
     files_.clear();
     asArchive_ = true;
@@ -145,7 +152,10 @@ bool Editor::newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terr
     reload();
     open_ = !tileset_.groups.empty();
     modified_ = false;
-    if (!open_) error = "could not load tileset";
+    if (!open_) {
+        error = "could not load tileset " + std::string(tilesetName(era_));
+        if (!tilesetError_.empty()) error += ": " + tilesetError_;
+    }
     return open_;
 }
 
@@ -216,8 +226,14 @@ void Editor::reload() {
     era_ = readEra(chk_);
     if (era_ != loadedEra_) {
         std::string err;
-        if (tileset_.load(data_, era_, err)) doodadTypes_.load(data_, tileset_, era_, err);
-        loadedEra_ = era_;
+        if (tileset_.load(data_, era_, err)) {
+            doodadTypes_.load(data_, tileset_, era_, err);
+            tilesetError_.clear();
+            loadedEra_ = era_;
+        } else {
+            tilesetError_ = err;
+            loadedEra_ = 0xFFFF;  // the next reload tries again
+        }
     }
     reloadTerrain();
     std::string err;

@@ -92,6 +92,9 @@ public:
     // epScript: one masked SetMemoryX per dword holding changed bytes, run once at map start. sfxdata.dat Sound
     // File: a pointer to a copy of the file name (see soundPreloaded).
     std::string editsScript() const;
+    // One message per changed sfxdata.dat Sound File that editsScript leaves out (a file past the end of
+    // sfxdata.tbl, or a Preload sound).
+    std::vector<std::string> unappliedSoundFiles() const;
 
     const DatField* field(const std::string& name) const;
     // A value the game keeps as a pointer to a string, not as the .dat's index (sfxdata.dat Sound File).

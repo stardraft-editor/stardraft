@@ -4,6 +4,7 @@
 #include <cctype>
 
 #include "byteio.h"
+#include "tbl.h"
 #include "stardraft/game_data.h"
 #include "stardraft/terrain.h"
 #include "stardraft/tileset.h"
@@ -103,18 +104,6 @@ constexpr size_t kAttackUnitOrder = 5436, kShieldEnable = 2472, kShieldAmount = 
                  kSpecialFlags = 7032, kPlacementBox = 11284, kUnitSize = 12580, kGroupFlags = 16684,
                  kAvailability = 19420;
 
-std::vector<std::string> readTbl(const Bytes& tbl) {
-    std::vector<std::string> out;
-    if (tbl.size() < 2) return out;
-    uint16_t n = readU16(tbl, 0);
-    for (uint16_t i = 0; i < n && 2 + 2 * i + 1 < tbl.size(); ++i) {
-        size_t o = readU16(tbl, 2 + 2 * i), e = o;
-        while (e < tbl.size() && tbl[e]) ++e;
-        out.emplace_back(tbl.begin() + std::min(o, tbl.size()), tbl.begin() + e);
-    }
-    return out;
-}
-
 bool iequals(std::string_view a, std::string_view b) {
     return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) {
                return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
@@ -130,24 +119,33 @@ bool UnitTypes::load(const GameData& data, std::string& error) {
         error = "unexpected units.dat size " + std::to_string(dat.size());
         return false;
     }
-    std::vector<std::string> strings;
-    if (data.readFile("rez\\stat_txt.tbl", tbl, error)) strings = readTbl(tbl);
-    error.clear();
+    if (!data.readFile("rez\\stat_txt.tbl", tbl, error)) return false;
+    TblStrings parsed = parseTbl(tbl);
+    if (parsed.bad) {
+        error = tblDamaged("rez\\stat_txt.tbl", parsed.bad);
+        return false;
+    }
+    if (parsed.strings.size() < size_t(kCount)) {
+        error = "rez\\stat_txt.tbl has " + std::to_string(parsed.strings.size()) + " strings, not " +
+                std::to_string(kCount) + " or more";
+        return false;
+    }
+    const std::vector<std::string>& strings = parsed.strings;
     statTxt_ = strings;
 
     types_.resize(kCount);
     for (uint16_t i = 0; i < kCount; ++i) {
         UnitType& t = types_[i];
         t.id = i;
-        t.name = i < strings.size() ? strings[i] : "Unit " + std::to_string(i);
-        if (2 + 2 * size_t(i) + 1 < tbl.size()) {
-            // The two strings after the name, each NUL-terminated.
-            size_t o = readU16(tbl, 2 + 2 * size_t(i)) + t.name.size() + 1;
+        t.name = strings[i];
+        {
+            // The two strings after the name, each NUL-terminated. They are optional: a start past the end gives "".
+            size_t o = std::min<size_t>(readU16(tbl, 2 + 2 * size_t(i)) + t.name.size() + 1, tbl.size());
             auto next = [&]() {
                 size_t e = o;
                 while (e < tbl.size() && tbl[e]) ++e;
-                std::string part(tbl.begin() + long(std::min(o, tbl.size())), tbl.begin() + long(e));
-                o = e + 1;
+                std::string part(tbl.begin() + long(o), tbl.begin() + long(e));
+                o = std::min(e + 1, tbl.size());
                 return part == "*" ? std::string() : part;
             };
             t.subtitle = next();

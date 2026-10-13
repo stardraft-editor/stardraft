@@ -6,6 +6,7 @@
 #include <set>
 
 #include "byteio.h"
+#include "tbl.h"
 #include "stardraft/game_data.h"
 #include "stardraft/terrain.h"
 #include "stardraft/tileset.h"
@@ -56,18 +57,6 @@ namespace {
 
 constexpr size_t kUnits = 228, kFlingies = 209, kSprites = 517, kImages = 999;
 constexpr uint16_t kNoUnit = 228;
-
-std::vector<std::string> readTbl(const Bytes& tbl) {
-    std::vector<std::string> out;
-    if (tbl.size() < 2) return out;
-    uint16_t n = readU16(tbl, 0);
-    for (uint16_t i = 0; i < n && 2 + 2 * size_t(i) + 1 < tbl.size(); ++i) {
-        size_t o = readU16(tbl, 2 + 2 * i), e = o;
-        while (e < tbl.size() && tbl[e]) ++e;
-        out.emplace_back(tbl.begin() + std::min(o, tbl.size()), tbl.begin() + e);
-    }
-    return out;
-}
 
 // Decode an 8-bit RLE PCX; returns palette indices.
 std::vector<uint8_t> decodePcx(const Bytes& pcx, int& w, int& h) {
@@ -424,6 +413,11 @@ bool UnitSprites::load(const GameData& data, std::string& error) {
         error = "unexpected .dat sizes";
         return false;
     }
+    TblStrings paths = parseTbl(tbl);
+    if (paths.bad) {
+        error = tblDamaged("arr\\images.tbl", paths.bad);
+        return false;
+    }
     unitFlingy_.assign(units.begin(), units.begin() + kUnits);
     unitSubunit_.resize(kUnits);
     unitDirection_.assign(units.begin() + 2244, units.begin() + 2244 + kUnits);
@@ -459,7 +453,7 @@ bool UnitSprites::load(const GameData& data, std::string& error) {
                 for (size_t i = 0; i < kImages; ++i) imageOverlays_[k][i] = readU32(images, at[k] + 4 * i);
         }
     }
-    imagePaths_ = readTbl(tbl);
+    imagePaths_ = std::move(paths.strings);
     loadScripts(data, images);
 
     // Player colors: tunit.pcx holds 8 palette indices per player, side by side.

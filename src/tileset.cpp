@@ -15,6 +15,10 @@ const char* tilesetName(uint16_t era) {
 
 bool Tileset::load(const GameData& data, uint16_t era, std::string& error) {
     this->era = era;
+    groups.clear();
+    megatiles.clear();
+    minitiles.clear();
+    minitileFlags.clear();
     std::string base = std::string("TileSet\\") + tilesetName(era);
     Bytes cv5, vx4, vr4, wpe, vf4;
     if (!data.readFile(base + ".cv5", cv5, error) || !data.readFile(base + ".vx4ex", vx4, error) ||
@@ -25,6 +29,18 @@ bool Tileset::load(const GameData& data, uint16_t era, std::string& error) {
         error = base + ".wpe is too small";
         return false;
     }
+    // Whole records only: a partial record is a damaged file.
+    const struct {
+        const Bytes& file;
+        const char* ext;
+        size_t record;
+    } records[] = {{cv5, ".cv5", 52}, {vx4, ".vx4ex", 64}, {vr4, ".vr4", 64}, {vf4, ".vf4", 32}};
+    for (const auto& r : records)
+        if (r.file.size() % r.record) {
+            error = base + r.ext + " is " + std::to_string(r.file.size()) + " bytes, not a multiple of " +
+                    std::to_string(r.record);
+            return false;
+        }
 
     groups.resize(cv5.size() / 52);
     for (size_t i = 0; i < groups.size(); ++i) {

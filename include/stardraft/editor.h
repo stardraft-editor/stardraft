@@ -542,6 +542,8 @@ private:
     void pruneUnits(const std::vector<int>& wasPlaceable);
     int removedByTerrain_ = 0;
     uint16_t loadedEra_ = 0xFFFF;
+    std::string tilesetError_;     // why the last tileset load failed ("" after a good load)
+    bool unitDataLoaded_ = false;  // unit types and sprites are loaded (a failed load is tried again on the next open)
     mutable std::vector<TileGroupEntry> tileGroups_;  // for tileGroupsEra_ (built on first use)
     mutable int tileGroupsEra_ = -1;
 

@@ -8,6 +8,7 @@
 #include <sstream>
 
 #include "file_write.h"
+#include "tbl.h"
 #include "stardraft/game_data.h"
 
 namespace stardraft {
@@ -116,16 +117,13 @@ bool DatTable::load(const GameData& data, const DatSchema& schema, std::string& 
     names_.clear();
     if (schema.name == "sfxdata") {
         Bytes tbl;
-        std::string err;
-        if (data.readFile("arr\\sfxdata.tbl", tbl, err) && tbl.size() >= 2) {
-            const size_t n = size_t(tbl[0] | tbl[1] << 8);
-            for (size_t i = 0; i < n && 3 + 2 * i < tbl.size(); ++i) {
-                size_t at = size_t(tbl[2 + 2 * i] | tbl[3 + 2 * i] << 8);
-                std::string s;
-                while (at < tbl.size() && tbl[at]) s += char(tbl[at++]);
-                names_.push_back(std::move(s));
-            }
+        if (!data.readFile("arr\\sfxdata.tbl", tbl, error)) return false;
+        TblStrings parsed = parseTbl(tbl);
+        if (parsed.bad) {
+            error = tblDamaged("arr\\sfxdata.tbl", parsed.bad);
+            return false;
         }
+        names_ = std::move(parsed.strings);
     }
     return true;
 }
@@ -267,6 +265,24 @@ std::string DatTable::editsScript() const {
     }
     o << "}\n";
     return o.str();
+}
+
+std::vector<std::string> DatTable::unappliedSoundFiles() const {
+    // The same condition as the Sound File case in editsScript.
+    std::vector<std::string> out;
+    for (const auto& f : schema_->fields) {
+        if (!f.memory || !pointerField(f)) continue;
+        for (int e = f.first; e <= f.last; ++e) {
+            if (!changed(f, e)) continue;
+            const uint32_t v = value(f, e);
+            const std::string sound = "Sound " + std::to_string(e) + " is not changed: ";
+            if (soundPreloaded(e)) out.push_back(sound + "the game loads it before the map's code runs (Preload).");
+            else if (v > names_.size())
+                out.push_back(sound + "file " + std::to_string(v) + " is past the " + std::to_string(names_.size()) +
+                              " names in sfxdata.tbl.");
+        }
+    }
+    return out;
 }
 
 }  // namespace stardraft

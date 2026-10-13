@@ -7099,18 +7099,25 @@ const UnitPalette::Bitmap* datRefIcon(const std::string& dat, uint32_t v) {
 }
 bool datHasIcons(const std::string& dat) { return dat == "units" || dat == "icons" || dat == "weapons" || dat == "upgrades" || dat == "techdata" || dat == "orders"; }
 
-// The game's tables, each with the project's edits on top (dat/<name>.dat).
+// The game's tables, each with the project's edits on top (dat/<name>.dat). A game table that does not load is null;
+// err gets the first such error. No message box: this can run from a paint.
 std::vector<std::unique_ptr<DatTable>> loadDatTables(const EudProject& pr, std::string& err) {
     std::vector<std::unique_ptr<DatTable>> out;
+    std::string first;
     for (const auto& sc : DatSchema::all()) {
         auto t = std::make_unique<DatTable>();
-        if (!t->load(app.data, sc, err)) t.reset();
-        else if (!t->loadEdits(pr.datFile(sc.name), err)) {
+        if (!t->load(app.data, sc, err)) {
+            logLine(widen(err), true);
+            setMessage(widen(err));
+            if (first.empty()) first = err;
+            t.reset();
+        } else if (!t->loadEdits(pr.datFile(sc.name), err)) {
             themedMessageBox(app.main, widen(err).c_str(), (L"Could not read the project's " + widen(sc.name) + L".dat").c_str(), MB_ICONERROR);
             err.clear();
         }
         out.push_back(std::move(t));
     }
+    err = first;
     return out;
 }
 
@@ -7136,10 +7143,21 @@ bool writeDatEdits(EudProject& pr, std::string& err) {
     std::vector<std::unique_ptr<DatTable>>* tables = &gData.tables;
     if (gData.project != &pr || gData.tables.empty()) loaded = loadDatTables(pr, err), tables = &loaded;  // not open here: from disk
     std::vector<const DatTable*> list;
-    for (const auto& t : *tables) {
-        if (!t) continue;
-        if (!t->saveEdits(pr.datFile(t->schema().name), err)) return false;
-        list.push_back(t.get());
+    std::vector<std::unique_ptr<DatTable>> retried;
+    for (size_t i = 0; i < tables->size(); ++i) {
+        const DatTable* t = (*tables)[i].get();
+        if (!t) {
+            // The game table did not load. Without project edits for it, nothing is lost; with edits, the build stops
+            // when it still does not load, as it would drop them.
+            const DatSchema& sc = DatSchema::all()[i];
+            std::error_code ec;
+            if (!std::filesystem::exists(pr.datFile(sc.name), ec)) continue;
+            auto r = std::make_unique<DatTable>();
+            if (!r->load(app.data, sc, err) || !r->loadEdits(pr.datFile(sc.name), err)) return false;
+            t = retried.emplace_back(std::move(r)).get();
+        } else if (!t->saveEdits(pr.datFile(t->schema().name), err)) return false;
+        for (const std::string& m : t->unappliedSoundFiles()) logLine(widen(m), true);
+        list.push_back(t);
     }
     return pr.writeGenerated(list, err) && writeExtrasEdits(pr, err);
 }
