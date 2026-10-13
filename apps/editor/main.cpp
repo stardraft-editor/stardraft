@@ -420,6 +420,7 @@ enum DoodadTool { DPlace, DSpray };
 enum SpriteTool { SPlace, SSpray };
 // A spray tool is on: Units, Doodads or Sprites (their radius, density and the circle on the map).
 bool objectSprayOn();
+void dialogMessage(MSG& msg, HWND dlg);  // feedback.inc: a modal window's message (a right click: Report feedback)
 void stripToolByKey(int key);  // the keys V, B, A, F (the strip's tools)
 std::wstring entryName(const std::string& dat, int v);
 
@@ -3017,8 +3018,7 @@ void showProjectDialog() {
     EnableWindow(app.main, FALSE);
     if (gProjectHook) gProjectHook(wnd);
     MSG msg;
-    while (IsWindow(wnd) && GetMessageW(&msg, nullptr, 0, 0))
-        if (!IsDialogMessageW(wnd, &msg)) TranslateMessage(&msg), DispatchMessageW(&msg);
+    while (IsWindow(wnd) && GetMessageW(&msg, nullptr, 0, 0)) dialogMessage(msg, wnd);
     EnableWindow(app.main, TRUE);
     if (!gBackground) SetForegroundWindow(app.main);
     gProjDlg = nullptr;
@@ -7576,8 +7576,7 @@ void showUnitProperties(int index) {
     EnableWindow(app.main, FALSE);
     if (gUnitPropsHook) gUnitPropsHook(wnd);
     MSG msg;
-    while (IsWindow(wnd) && GetMessageW(&msg, nullptr, 0, 0))
-        if (!IsDialogMessageW(wnd, &msg)) TranslateMessage(&msg), DispatchMessageW(&msg);
+    while (IsWindow(wnd) && GetMessageW(&msg, nullptr, 0, 0)) dialogMessage(msg, wnd);
     EnableWindow(app.main, TRUE);
     if (!gBackground) SetForegroundWindow(app.main);
     gUnitDlg = nullptr;
@@ -7816,8 +7815,7 @@ void showLocationEdit(int loc) {
     EnableWindow(app.main, FALSE);
     if (gLocEditHook) gLocEditHook(wnd);
     MSG msg;
-    while (IsWindow(wnd) && GetMessageW(&msg, nullptr, 0, 0))
-        if (!IsDialogMessageW(wnd, &msg)) TranslateMessage(&msg), DispatchMessageW(&msg);
+    while (IsWindow(wnd) && GetMessageW(&msg, nullptr, 0, 0)) dialogMessage(msg, wnd);
     EnableWindow(app.main, TRUE);
     if (!gBackground) SetForegroundWindow(app.main);
     gLocDlg = nullptr;
@@ -25031,6 +25029,28 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 app.dirty = true;
                 for (int i = 0; i < 6; ++i) pump();
                 capture(fs::path(datashots) / (s.substr(9) + ".png"), app.view);
+                continue;
+            }
+            if (s == "popupfeedback:") {  // popupfeedback.txt: a right click in Unit properties gives feedback on it (GitHub feedback #97)
+                std::ofstream o(fs::path(datashots) / "popupfeedback.txt");
+                static std::wstring on;
+                static bool fromIt;
+                on.clear(), fromIt = false;
+                if (!app.ed || app.ed->units().empty()) {
+                    o << "no units\n";
+                    continue;
+                }
+                gUnitPropsHook = [](HWND w) {
+                    const HWND child = GetWindow(w, GW_CHILD);
+                    fromIt = child && feedbackRoot(child) == w;
+                    RECT r;
+                    GetWindowRect(child, &r);
+                    on = feedbackThing(POINT{(r.left + r.right) / 2, (r.top + r.bottom) / 2});
+                    PostMessageW(w, WM_CLOSE, 0, 0);
+                };
+                showUnitProperties(0);
+                gUnitPropsHook = nullptr;
+                o << "a right click there gives feedback from the window " << (fromIt ? "yes" : "NO") << ", on \"" << narrow(on) << "\"\n";
                 continue;
             }
             if (s == "toolkeys:") {  // toolkeys.txt: the keys V, B, A, F pick the tools of each mode (GitHub feedback #98)

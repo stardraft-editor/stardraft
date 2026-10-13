@@ -107,6 +107,10 @@ std::wstring feedbackThingIn(HWND w, POINT pt) {
         for (const auto& [c, name] : panes)
             if (_wcsicmp(cls, c) == 0) return name;
     }
+    if (const HWND root = GetAncestor(w, GA_ROOT); root && root != app.main) {  // a window over the main window: its title
+        const std::wstring title = windowText(root);
+        if (!title.empty()) return title;
+    }
     static const wchar_t* ws[] = {L"the Map workspace", L"the Data workspace", L"the Triggers workspace", L"the Assets workspace",
                                   L"the Project page", L"the Briefing workspace", L"the Assets workspace"};
     return ws[int(gWorkspace)];
@@ -337,6 +341,7 @@ void showFeedbackDialog(const std::wstring& on) {
     FeedbackDialog d;
     d.on = on;
     gFbDlg = &d;
+    const HWND from = GetActiveWindow();  // the window the feedback is from
     RECT mr;
     GetWindowRect(app.main, &mr);
     const int w = scale(600), h = scale(340);
@@ -344,13 +349,18 @@ void showFeedbackDialog(const std::wstring& on) {
                                L"Report feedback", WS_CAPTION | WS_SYSMENU | (gBackground ? 0 : WS_VISIBLE), mr.left + (mr.right - mr.left - w) / 2,
                                mr.top + (mr.bottom - mr.top - h) / 2, w, h, app.main, nullptr, app.inst, nullptr);
     if (gBackground) ShowWindow(wnd, SW_SHOWNOACTIVATE);
+    // From a window over the main window (Unit properties): that one waits too, and is active again after.
+    const HWND over = from && from != app.main && from != wnd && IsWindowEnabled(from) ? from : nullptr;
+    const bool mainOn = IsWindowEnabled(app.main) != FALSE;
+    if (over) EnableWindow(over, FALSE);
     EnableWindow(app.main, FALSE);
     if (gFeedbackHook) gFeedbackHook(wnd);
     MSG msg;
     while (IsWindow(wnd) && GetMessageW(&msg, nullptr, 0, 0))
         if (!IsDialogMessageW(wnd, &msg)) TranslateMessage(&msg), DispatchMessageW(&msg);
-    EnableWindow(app.main, TRUE);
-    if (!gBackground) SetForegroundWindow(app.main);
+    if (mainOn) EnableWindow(app.main, TRUE);
+    if (over) EnableWindow(over, TRUE);
+    if (!gBackground) SetForegroundWindow(over ? over : app.main);
     gFbDlg = nullptr;
     if (!d.accepted) return;
     // Written to a file first: it waits there if it cannot go now.
@@ -394,6 +404,16 @@ int popupMenu(HMENU m, UINT flags, int x, int y, HWND owner) {
     return 0;
 }
 
+// The window a right click on `w` gives feedback from: the main window, or a window of StarDraft over it (Unit
+// properties, a location, Program options; GitHub feedback #97) that takes input now; not the feedback window itself.
+HWND feedbackRoot(HWND w) {
+    const HWND root = GetAncestor(w, GA_ROOT);
+    if (!root || !IsWindowEnabled(root) || (root != app.main && GetWindow(root, GW_OWNER) != app.main)) return nullptr;
+    wchar_t cls[64] = L"";
+    GetClassNameW(root, cls, 64);
+    return _wcsicmp(cls, L"StarDraftFeedback") == 0 ? nullptr : root;
+}
+
 // The main loop, after a right click was handled: when nothing opened a menu, the menu with only the feedback item.
 // The map view (a right click there cancels or moves) and text boxes (their own menu) are left alone.
 void feedbackAfterRightClick(const MSG& msg) {
@@ -401,10 +421,18 @@ void feedbackAfterRightClick(const MSG& msg) {
     wchar_t cls[64] = L"";
     GetClassNameW(msg.hwnd, cls, 64);
     if (msg.hwnd == app.view || _wcsicmp(cls, WC_EDITW) == 0 || _wcsicmp(cls, MSFTEDIT_CLASS) == 0) return;
-    if (!IsWindowEnabled(app.main) || GetAncestor(msg.hwnd, GA_ROOT) != app.main) return;  // a dialog is open
+    const HWND root = feedbackRoot(msg.hwnd);
+    if (!root) return;
     POINT pt;
     GetCursorPos(&pt);
     HMENU m = CreatePopupMenu();
-    popupMenu(m, TPM_RIGHTBUTTON, pt.x, pt.y, app.main);
+    popupMenu(m, TPM_RIGHTBUTTON, pt.x, pt.y, root);
     DestroyMenu(m);
+}
+
+void dialogMessage(MSG& msg, HWND dlg) {
+    const bool rightClick = msg.message == WM_RBUTTONUP;
+    if (rightClick) gMenuShown = false;
+    if (!IsDialogMessageW(dlg, &msg)) TranslateMessage(&msg), DispatchMessageW(&msg);
+    if (rightClick) feedbackAfterRightClick(msg);
 }
