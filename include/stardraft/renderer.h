@@ -39,6 +39,10 @@ struct SpriteDraw {
     float alpha = 1;
     bool air = false;    // drawn above all ground sprites
     float depthBias = 0; // small tie-breaker (e.g. turrets above their base)
+    // The sprite's place for the drawing order when this image sits away from it (a turret at its base's overlay
+    // point, an overlay): the game orders sprites, so an image's offset inside its sprite does not count.
+    bool hasSortY = false;
+    float sortY = 0;
     bool shadow = false; // draw as a translucent shadow on the ground, below every unit
     bool tintRed = false; // highlight (e.g. a placement that is not allowed)
     bool ground = false;  // drawn on the ground under every unit, above shadows (selection circles)

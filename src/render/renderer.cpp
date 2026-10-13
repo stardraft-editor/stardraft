@@ -682,7 +682,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         in.uv[0] = s.flip ? u1 : u0, in.uv[1] = f.v0 / t->texH, in.uv[2] = s.flip ? u0 : u1, in.uv[3] = f.v1 / t->texH;
         const float* rgb = kPlayerRgb[std::min<int>(s.owner, 11)];
         in.color[0] = rgb[0], in.color[1] = rgb[1], in.color[2] = rgb[2], in.color[3] = s.alpha;
-        float yn = std::clamp(s.y / mapPxH, 0.0f, 1.0f);
+        float yn = std::clamp((s.hasSortY ? s.sortY : s.y) / mapPxH, 0.0f, 1.0f);
         in.depth = std::clamp((s.air ? 0.2f - 0.15f * yn : 0.95f - 0.7f * yn) - s.depthBias, 0.0f, 1.0f);
         if (s.shadow) in.depth = 0.99f;  // on the ground: never covers a unit
         if (s.ground) {

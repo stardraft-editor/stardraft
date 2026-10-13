@@ -498,7 +498,9 @@ int UnitSprites::subunitImage(uint16_t unitType) const {
 
 int UnitSprites::defaultFrame(uint16_t unitType, int image, bool& flip) const {
     flip = false;
-    if (image < 0 || size_t(image) >= imageTurns_.size() || !imageTurns_[image]) return 0;
+    if (image < 0 || size_t(image) >= imageTurns_.size()) return 0;
+    // An image that does not turn: the frame its Init rests on (a sieged tank's base: deployed).
+    if (!imageTurns_[image]) return size_t(image) < scripts_.size() ? scripts_[image].initFrame : 0;
     // Turning graphics hold 17 frames (up .. down via right); the left side is mirrored.
     // Face down-right (direction 12 of 32) unless units.dat fixes a direction.
     int dir = unitType < unitDirection_.size() && unitDirection_[unitType] < 32 ? unitDirection_[unitType] : 12;

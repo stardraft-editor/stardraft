@@ -1107,6 +1107,7 @@ void addImage(render::Scene& s, const render::SpriteDraw& d) {
         ov.frame = turns ? sp.script(o.image).initFrame / 17 * 17 + d.frame % 17 : sp.script(o.image).initFrame;
         ov.flip = turns && d.flip;
         ov.x = d.x + (d.flip ? -o.x : o.x), ov.y = d.y + o.y;
+        ov.hasSortY = true, ov.sortY = d.hasSortY ? d.sortY : d.y;  // ordered with its sprite
         ov.depthBias = d.depthBias + 0.0002f;
         ov.shadow = false;
         ov.glow = sp.drawFunction(o.image) == 9;
@@ -1116,6 +1117,7 @@ void addImage(render::Scene& s, const render::SpriteDraw& d) {
         render::SpriteDraw sh = d;
         sh.image = o.image;
         sh.x = d.x + (d.flip ? -o.x : o.x), sh.y = d.y + o.y;
+        sh.hasSortY = true, sh.sortY = d.hasSortY ? d.sortY : d.y;
         sh.shadow = sp.isShadow(o.image);
         sh.air = false;
         sh.tintRed = false;
@@ -1189,9 +1191,11 @@ void addUnitSprites(render::Scene& s, const Unit& u, float dx, float dy, float a
         st.frame = sp.defaultFrame(u.type, sub, st.flip);
         if (anim && anim->sub.running()) st.frame = sp.animatedFrame(u.type, sub, anim->sub.frame(), st.flip);
         st.depthBias = 0.0005f;
-        // The turret sits at the base's special-overlay offset for the base's current frame.
+        // The turret sits at the base's special-overlay offset for the base's current frame, and is ordered at the
+        // unit's place (as the game orders the turret's sprite), so it shows on top of its base.
         auto [tx, ty] = sp.specialOffset(d.image, d.frame);
         st.x = d.x + (d.flip ? -tx : tx), st.y = d.y + ty;
+        st.hasSortY = true, st.sortY = d.y;
         addImage(s, st);
     }
 }
