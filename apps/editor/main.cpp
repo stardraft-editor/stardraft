@@ -25217,6 +25217,35 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 o << "the box selects the tiles in it: " << gTiles.chosen.size() << " of " << want << " " << (gTiles.chosen.size() == want ? "yes" : "NO") << "\n";
                 continue;
             }
+            if (s == "descedit:") {  // descedit.txt: a description of two lines typed on Map properties keeps StarCraft's \r\n (#124)
+                std::ofstream o(fs::path(datashots) / "descedit.txt");
+                command(ID_WS_MAP);
+                command(ID_SCEN_PROPS);
+                for (int i = 0; i < 5; ++i) pump();
+                const std::string before = app.ed->scenarioDescription();
+                bool ok = false;
+                if (gMapProps && gMapProps->desc) {
+                    SetWindowTextW(gMapProps->desc, L"Line one\r\nLine two");
+                    for (int i = 0; i < 5; ++i) pump();
+                    mapPageFlush();  // (typed text goes in when the typing stops)
+                    ok = app.ed->scenarioDescription() == "Line one\r\nLine two";
+                    for (char ch : app.ed->scenarioDescription()) o << (ch == '\r' ? std::string("\\r") : ch == '\n' ? std::string("\\n") : std::string(1, ch));
+                    o << " (map; it was " << before.size() << " bytes), ";
+                    mapPageReload();  // the page reads it again: one line end each, not \r\r\n
+                    ok = ok && gMapProps && windowText(gMapProps->desc) == L"Line one\r\nLine two";
+                    app.ed->undo();
+                }
+                o << "a description of two lines keeps \\r\\n, and shows again as it was " << (ok ? "yes" : "NO") << "\n";
+                command(ID_WS_MAP);
+                continue;
+            }
+            if (s == "desc:") {  // desc.txt (appended): the map's description, line ends shown (\r, \n)
+                std::ofstream o(fs::path(datashots) / "desc.txt", std::ios::app);
+                std::string d;
+                for (char ch : app.ed->scenarioDescription()) d += ch == '\r' ? std::string("\\r") : ch == '\n' ? std::string("\\n") : std::string(1, ch);
+                o << narrow(app.ed->path().filename().wstring()) << ": " << d << "\n";
+                continue;
+            }
             if (s == "ranges:") {  // ranges.png: View > Show ranges of the selected units: a goliath and a siege tank (#109)
                 newMap(64, 64, 0, 1);
                 Editor& ed = *app.ed;

@@ -49,13 +49,21 @@ void mapPropsRead(MapPropsDialog& d) {  // (the rest is set by the page's picker
     if (d.desc) d.descText = windowText(d.desc);
 }
 
+// A map text's line ends as StarCraft has them: \r\n (Blizzard's maps; with \n alone the game shows no new line,
+// GitHub feedback #124). A \r\n stays; a \n alone gets its \r.
+std::string mapTextLineEnds(const std::string& s) {
+    std::string out;
+    for (char ch : s) {
+        if (ch == '\r') continue;
+        if (ch == '\n') out += '\r';
+        out += ch;
+    }
+    return out;
+}
+
 // The working copy from the map (the fields show it when the page is made).
 void mapPropsLoad(MapPropsDialog& d) {
-    auto toCrlf = [](const std::string& s) {
-        std::wstring w = widen(s), o;
-        for (wchar_t c : w) c == L'\n' ? o += L"\r\n" : o += c;
-        return o;
-    };
+    auto toCrlf = [](const std::string& s) { return widen(mapTextLineEnds(s)); };  // (the text box's line ends are \r\n too)
     d = MapPropsDialog{};
     d.nameText = toCrlf(app.ed->scenarioName()), d.descText = toCrlf(app.ed->scenarioDescription());
     d.era = app.ed->era() & 7, d.w = app.ed->width(), d.h = app.ed->height();
@@ -69,11 +77,7 @@ bool mapPropsTextChanged(const MapPropsDialog& d) { return d.baseSet && (d.nameT
 
 // The title and the description into the map (one undo step); then they are the map's values.
 void mapPropsApplyText(MapPropsDialog& d) {
-    auto fromCrlf = [](const std::wstring& w) {
-        std::string s = narrow(w);
-        std::erase(s, '\r');
-        return s;
-    };
+    auto fromCrlf = [](const std::wstring& w) { return mapTextLineEnds(narrow(w)); };
     app.ed->setScenarioText(fromCrlf(d.nameText), fromCrlf(d.descText));
     d.nameBase = d.nameText, d.descBase = d.descText;
     updateTitle();
@@ -86,13 +90,9 @@ bool mapPropsApplyTerrain(MapPropsDialog& d) {
     return mapPropsApply(d);
 }
 
-// Apply: the text with \n (the game's line ends), and the terrain, as one undo step. False: the map stays as it was.
+// Apply: the text with \r\n (the game's line ends), and the terrain, as one undo step. False: the map stays as it was.
 bool mapPropsApply(MapPropsDialog& d) {
-    auto fromCrlf = [](const std::wstring& w) {
-        std::string s = narrow(w);
-        std::erase(s, '\r');
-        return s;
-    };
+    auto fromCrlf = [](const std::wstring& w) { return mapTextLineEnds(narrow(w)); };
     const bool text = d.nameText != d.nameBase || d.descText != d.descBase;  // a text the page did not change stays byte for byte
     const bool resize = d.w != app.ed->width() || d.h != app.ed->height() || d.era != app.ed->era();
     if (!text && !resize) return true;
