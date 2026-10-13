@@ -159,6 +159,7 @@ enum : int {
     ID_GRID_CUSTOM = 958,
     ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish
     ID_TOOL_KEY = 970,  // + the tool of the keys V, B, A, F: select, brush or place, spray, fill (GitHub feedback #98)
+    ID_VIEW_RANGES = 975,  // View > Show ranges of the selected units (GitHub feedback #109)
 };
 // View > Grid size: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
 struct GridPreset {
@@ -414,6 +415,8 @@ void tilesMouseUp(float wx, float wy);
 void tilesMouseMove(float wx, float wy);
 void tilesSprayAt(float wx, float wy);
 void tilesScene(render::Scene& s, float wx, float wy);
+bool gShowRanges = false;  // View > Show ranges of the selected units
+void rangesScene(render::Scene& s);
 bool tilesDatashot(const std::string& spec, const fs::path& dir);
 enum UnitTool { UPlace, USpray, UReplace };
 enum DoodadTool { DPlace, DSpray };
@@ -1426,6 +1429,8 @@ render::Scene buildScene() {
             }
         }
     }
+
+    if (gShowRanges && app.mode == Mode::Units) rangesScene(s);
 
     // Symmetry axes.
     if (const int mm = ed.mirrors()) {
@@ -3624,6 +3629,7 @@ void updateMenus() {
     CheckMenuItem(m, ID_OPT_LOCWRAP, app.locationWrap ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuItem(m, ID_EDIT_TERRAINDOODADS, app.copyDoodadsWithTerrain ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuItem(m, ID_VIEW_GRID, app.showGrid ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(m, ID_VIEW_RANGES, gShowRanges ? MF_CHECKED : MF_UNCHECKED);
     {
         bool preset = false;
         for (int k = 0; k < int(std::size(kGridPresets)); ++k) {
@@ -4126,6 +4132,12 @@ void command(int id) {
         break;
     case ID_VIEW_GRID:
         app.showGrid = !app.showGrid;
+        app.dirty = true;
+        break;
+    case ID_VIEW_RANGES:
+        gShowRanges = !gShowRanges;
+        setMessage(gShowRanges ? L"Ranges of the selected units: sight (yellow), ground weapon (red), air weapon (blue)" : L"Ranges are hidden");
+        updateMenus();
         app.dirty = true;
         break;
     case ID_TOOL_KEY: case ID_TOOL_KEY + 1: case ID_TOOL_KEY + 2: case ID_TOOL_KEY + 3: stripToolByKey(id - ID_TOOL_KEY); break;
@@ -6743,6 +6755,61 @@ struct DataView {
 DataView gData;
 void dataFormRepaint() {
     if (gData.form) InvalidateRect(gData.form, nullptr, FALSE);
+}
+
+// View > Show ranges of the selected units (GitHub feedback #109): around each selected unit (Units mode), its sight
+// range (yellow), and its weapons' ranges: ground (red) and air (blue), its turret's too. From units.dat and
+// weapons.dat: the project's (with its edits) or the game's. A range counts from the unit's edge, as the game's.
+const DatTable* rangeTable(const std::string& name) {
+    if (gData.project && gData.project == activeProject())
+        for (const auto& t : gData.tables)
+            if (t && t->schema().name == name) return t.get();
+    static std::map<std::string, std::unique_ptr<DatTable>> stock;
+    auto& t = stock[name];
+    if (!t) {
+        const DatSchema* schema = DatSchema::find(name);
+        auto loaded = std::make_unique<DatTable>();
+        std::string err;
+        if (!schema || !loaded->load(app.data, *schema, err)) return nullptr;
+        t = std::move(loaded);
+    }
+    return t.get();
+}
+void rangesScene(render::Scene& s) {
+    if (!app.ed) return;
+    const DatTable* units = rangeTable("units");
+    const DatTable* weapons = rangeTable("weapons");
+    if (!units || !weapons) return;
+    const DatField *sight = units->field("Sight Range"), *ground = units->field("Ground Weapon"), *air = units->field("Air Weapon"),
+                   *sub = units->field("Subunit 1"), *range = weapons->field("Maximum Range");
+    if (!sight || !ground || !air || !sub || !range) return;
+    const float d = std::max(1.0f, 1.6f / app.zoom);
+    auto circle = [&](float cx, float cy, float r, uint32_t color) {
+        if (r <= 0) return;
+        const int n = std::clamp(int(r / 6), 48, 360);
+        for (int k = 0; k < n; ++k) {
+            const float a = float(k) * 6.2831853f / float(n);
+            const float x = cx + r * std::cos(a), y = cy + r * std::sin(a);
+            s.rects.push_back({x - d, y - d, x + d, y + d, color, true});
+        }
+    };
+    const auto& list = app.ed->units();
+    int shown = 0;
+    for (int i : app.ed->selection()) {
+        if (i < 0 || i >= int(list.size()) || ++shown > 64) continue;  // (a big selection: the first 64)
+        const Unit& u = list[size_t(i)];
+        if (u.type >= app.ed->unitTypes().size()) continue;
+        const UnitType& t = app.ed->unitTypes()[u.type];
+        const float edge = std::max(t.placementWidth, t.placementHeight) / 2.0f, cx = u.x, cy = u.y;
+        circle(cx, cy, units->value(*sight, u.type) * 32.0f, 0xFFE040C0u);
+        for (const int ut : {int(u.type), int(units->value(*sub, u.type))}) {
+            if (ut < 0 || ut >= 228) continue;
+            const uint32_t g = units->value(*ground, ut), a = units->value(*air, ut);
+            if (g < 130) circle(cx, cy, edge + float(weapons->value(*range, int(g))), 0xFF5050E0u);
+            if (a < 130 && a != g) circle(cx, cy, edge + float(weapons->value(*range, int(a))), 0x50A0FFE0u);
+            else if (a < 130) circle(cx, cy, edge + float(weapons->value(*range, int(a))) + d * 2, 0x50A0FFE0u);  // the same weapon: beside the red
+        }
+    }
 }
 
 DatTable* datTable(int tab) { return tab >= 0 && tab < int(gData.tables.size()) ? gData.tables[size_t(tab)].get() : nullptr; }
@@ -18786,6 +18853,7 @@ HMENU buildMenu() {
         AppendMenuW(view, MF_POPUP, UINT_PTR(sizes), L"Grid si&ze");
     }
     AppendMenuW(view, MF_STRING, ID_VIEW_TOWNS, L"Show town a&reas");
+    AppendMenuW(view, MF_STRING, ID_VIEW_RANGES, L"Show ranges of the selected u&nits");
     AppendMenuW(view, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(view, MF_STRING, ID_VIEW_ZOOMIN, L"Zoom &in\t+");
     AppendMenuW(view, MF_STRING, ID_VIEW_ZOOMOUT, L"Zoom &out\t-");
@@ -25145,6 +25213,26 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(gTiles.list, WM_LBUTTONUP, 0, at(2, 1));
                 const size_t want = std::min<size_t>(gTiles.values.size(), size_t(std::min(3, gTiles.perRow)) * 2);
                 o << "the box selects the tiles in it: " << gTiles.chosen.size() << " of " << want << " " << (gTiles.chosen.size() == want ? "yes" : "NO") << "\n";
+                continue;
+            }
+            if (s == "ranges:") {  // ranges.png: View > Show ranges of the selected units: a goliath and a siege tank (#109)
+                newMap(64, 64, 0, 1);
+                Editor& ed = *app.ed;
+                setWorkspace(Workspace::Map);
+                command(ID_MODE_UNITS);
+                const float cx = ed.width() * 16.0f, cy = ed.height() * 16.0f;
+                const PlaceResult g = ed.placeUnit(*ed.unitTypes().findByName("Terran Goliath"), 0, int(cx - 160), int(cy), true);
+                const PlaceResult t = ed.placeUnit(30, 0, int(cx + 200), int(cy), true);
+                ed.clearSelection();
+                if (g.placed) ed.select(g.index, true);
+                if (t.placed) ed.select(t.index, true);
+                if (!gShowRanges) command(ID_VIEW_RANGES);
+                centerOn(cx, cy, 0.5f);
+                for (int i = 0; i < 3; ++i) pump();
+                settle();
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "ranges.png", app.main);
+                command(ID_VIEW_RANGES);
                 continue;
             }
             if (s == "tilefav:") {  // tilefav.txt, tilefav.png: the Favorites filter of the Tiles list shows the favorite tiles (#111)
