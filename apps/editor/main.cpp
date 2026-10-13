@@ -160,6 +160,7 @@ enum : int {
     ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish
     ID_TOOL_KEY = 970,  // + the tool of the keys V, B, A, F: select, brush or place, spray, fill (GitHub feedback #98)
     ID_VIEW_RANGES = 975,  // View > Show ranges of the selected units (GitHub feedback #109)
+    ID_CRASH_MODE = 980,   // + Options > Crash reports: 0 ask, 1 send, 2 do not send
 };
 // View > Grid size: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
 struct GridPreset {
@@ -296,7 +297,15 @@ constexpr int kRecentMax = 10;
 std::vector<std::wstring> gRecentMaps, gRecentProjects;
 bool gOpenLastProject = false;  // Options: open the last project on start (off unless chosen)
 bool gCheckUpdates = true;      // Options: look for a newer release on start (on unless turned off)
-bool gSendCrashReports = true;  // Options: send anonymous crash reports (on unless turned off)
+// Options > Crash reports (GitHub feedback #45): 0 ask after a crash (the default), 1 send, 2 do not send. A crash always
+// keeps its report on this computer; only "send" (or a yes to the question) sends it.
+int gCrashReports = 0;
+void setCrashReports(int mode) {
+    gCrashReports = std::clamp(mode, 0, 2);
+    if (gSelfTest) return;  // tests never change the user's settings
+    const DWORD v = DWORD(gCrashReports);
+    RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"CrashReports", REG_DWORD, &v, sizeof v);
+}
 // Options: the most units a map may have (GitHub feedback #103): standard maps, and maps of EUD projects.
 int gUnitLimitClassic = 3400, gUnitLimitEud = 1700;
 std::wstring gLanguage = L"auto";  // Options > Language: auto, en, ko or es (a change applies at the next start)
@@ -324,8 +333,8 @@ void loadRecent() {
     onSize = sizeof on;
     if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"CheckUpdates", RRF_RT_REG_DWORD, nullptr, &on, &onSize) == ERROR_SUCCESS) gCheckUpdates = on != 0;
     onSize = sizeof on;
-    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"SendCrashReports", RRF_RT_REG_DWORD, nullptr, &on, &onSize) == ERROR_SUCCESS)
-        gSendCrashReports = on != 0;
+    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"CrashReports", RRF_RT_REG_DWORD, nullptr, &on, &onSize) == ERROR_SUCCESS)
+        gCrashReports = std::clamp(int(on), 0, 2);
     onSize = sizeof on;
     if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"UnitLimitClassic", RRF_RT_REG_DWORD, nullptr, &on, &onSize) == ERROR_SUCCESS && on)
         gUnitLimitClassic = int(on);
@@ -4138,14 +4147,13 @@ void commandBody(int id) {
         }
         setMessage(gCheckUpdates ? L"StarDraft looks for a newer release on start" : L"StarDraft does not look for a newer release on start");
         break;
-    case ID_OPT_CRASHREPORTS:
-        gSendCrashReports = !gSendCrashReports;
-        if (!gSelfTest) {
-            const DWORD on = gSendCrashReports ? 1 : 0;
-            RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"SendCrashReports", REG_DWORD, &on, sizeof on);
-        }
-        setMessage(gSendCrashReports ? L"StarDraft sends an anonymous report when it crashes"
-                                     : L"StarDraft does not send crash reports (a report stays on this computer)");
+    case ID_CRASH_MODE:
+    case ID_CRASH_MODE + 1:
+    case ID_CRASH_MODE + 2:
+        setCrashReports(id - ID_CRASH_MODE);
+        setMessage(gCrashReports == 1 ? L"StarDraft sends an anonymous report when it crashes"
+                   : gCrashReports == 2 ? L"StarDraft does not send crash reports (a report stays on this computer)"
+                                        : L"After a crash, StarDraft asks at the next start if it can send the report");
         break;
     case ID_OPT_LANG:
     case ID_OPT_LANG + 1:
@@ -22905,6 +22913,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     }
     crash::gQuiet = gBackground;
     if (!gBackground) crash::sendPending(), sendPendingFeedback();
+    if (!gBackground && !gSelfTest) crash::askToSend();  // after a crash: send its report? (Options > Crash reports: Ask)
     HWND hwnd;
     if (gBackground) {
         int offX = GetSystemMetrics(SM_XVIRTUALSCREEN) + GetSystemMetrics(SM_CXVIRTUALSCREEN) + 100;
@@ -25341,6 +25350,37 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(gTiles.list, WM_LBUTTONUP, 0, at(2, 1));
                 const size_t want = std::min<size_t>(gTiles.values.size(), size_t(std::min(3, gTiles.perRow)) * 2);
                 o << "the box selects the tiles in it: " << gTiles.chosen.size() << " of " << want << " " << (gTiles.chosen.size() == want ? "yes" : "NO") << "\n";
+                continue;
+            }
+            if (s == "crashask:") {  // crashask.txt, crashask.png: after a crash, the next start asks; Esc (Do not send) keeps it here (#45)
+                std::ofstream o(fs::path(datashots) / "crashask.txt");
+                if (!crash::unsentReports().empty() || crash::token().empty()) {
+                    o << "skipped: " << (crash::token().empty() ? "this build has no token" : "this computer has unsent reports") << "\n";
+                    continue;
+                }
+                const fs::path dir = crash::folder() / ("selftest-" + std::to_string(GetCurrentProcessId()));
+                std::error_code ec;
+                fs::create_directories(dir, ec);
+                std::ofstream(dir / "report.txt") << "a test report";
+                static fs::path shot;
+                shot = fs::path(datashots) / "crashask.png";
+                static bool asked;
+                asked = false;
+                gMsgBoxHook = [](HWND w) {
+                    asked = true;
+                    for (int i = 0; i < 3; ++i) pump();
+                    capture(shot, w);
+                    PostMessageW(w, WM_KEYDOWN, VK_ESCAPE, 0);
+                };
+                const int mode = gCrashReports;
+                gCrashReports = 0;
+                crash::askToSend();
+                gMsgBoxHook = nullptr, gCrashReports = mode;
+                std::string sent;
+                std::getline(std::ifstream(dir / "sent"), sent);
+                o << "the question shows " << (asked ? "yes" : "NO") << ", Do not send keeps the report here (" << sent << ") "
+                  << (sent.find("said no") != std::string::npos ? "yes" : "NO") << "\n";
+                fs::remove_all(dir, ec);
                 continue;
             }
             if (s == "ifbuttons:") {  // ifbuttons.txt, ifbuttons.png: the If and For each buttons beside "Add an action" in a new trigger

@@ -148,8 +148,13 @@ void optionsPaint(HWND hwnd) {
         ui::smallButton(mem, x, y, rowH, L"Check now", [] { command(ID_HELP_UPDATES); }, L"Look for a newer release now");
     }
     y += rowH;
-    checkRow(y, L"Send anonymous crash reports", gSendCrashReports, ID_OPT_CRASHREPORTS, "crashreports",
-             L"The version, Windows, the video card, where it crashed and the last log lines; no maps");
+    // Crash reports (GitHub feedback #45): a crash always keeps its report on this computer; ask, send or not.
+    ui::fieldLabel(mem, l, y, L"Crash reports", false);
+    segmented(y,
+              {{L"Ask", L"After a crash, StarDraft asks at the next start if it can send the report (default)"},
+               {L"Send", L"Send an anonymous report after a crash: the version, Windows, the video card, where it crashed and the last log lines; no maps"},
+               {L"Do not send", L"The reports stay on this computer"}},
+              gCrashReports, [](int i) { command(ID_CRASH_MODE + i); }, "crashreports");
     y += rowH + pad;
 
     // The working folder: where new projects go.

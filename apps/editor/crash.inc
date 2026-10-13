@@ -148,9 +148,12 @@ LONG WINAPI onCrash(EXCEPTION_POINTERS* ep) {
         std::ofstream(dir / "sent") << "a test run: not sent";
         return EXCEPTION_EXECUTE_HANDLER;
     }
-    if (!gSendCrashReports) {  // Program options > Send anonymous crash reports is off: the report stays on disk
-        std::ofstream(dir / "sent") << "not sent: crash reports are off";
-        MessageBoxW(nullptr, (L"StarDraft stopped because of an error. The crash report is in " + dir.wstring() + L" (crash reports are off).").c_str(),
+    if (gCrashReports != 1) {  // Ask (the next start asks) or Do not send: the report stays on disk
+        if (gCrashReports == 2) std::ofstream(dir / "sent") << "not sent: crash reports are off";
+        MessageBoxW(nullptr,
+                    (L"StarDraft stopped because of an error. The crash report is in " + dir.wstring() +
+                     (gCrashReports == 2 ? L" (crash reports are off)." : L". At the next start, StarDraft asks if it can send it."))
+                        .c_str(),
                     L"StarDraft stopped", MB_ICONERROR | MB_TOPMOST);
         return EXCEPTION_EXECUTE_HANDLER;
     }
@@ -277,7 +280,7 @@ bool send(const fs::path& dir) {
 
 // At start, on a thread: reports that did not go yet (no network then). Reports older than 30 days go away.
 void sendPending() {
-    if (token().empty() || !gSendCrashReports) return;
+    if (token().empty() || gCrashReports != 1) return;
     std::thread([] {
         std::error_code ec;
         const auto old = fs::file_time_type::clock::now() - std::chrono::hours(24 * 30);
@@ -286,6 +289,34 @@ void sendPending() {
             else if (fs::exists(e.path() / "report.txt", ec) && !fs::exists(e.path() / "sent", ec)) send(e.path());
         }
     }).detach();
+}
+
+// The reports on this computer that did not go and were not refused.
+std::vector<fs::path> unsentReports() {
+    std::vector<fs::path> out;
+    std::error_code ec;
+    for (const auto& e : fs::directory_iterator(folder(), ec))
+        if (fs::exists(e.path() / "report.txt", ec) && !fs::exists(e.path() / "sent", ec)) out.push_back(e.path());
+    return out;
+}
+
+// At start, with Options > Crash reports: Ask: the reports of the last crash: send them, always send, or not.
+void askToSend() {
+    if (gCrashReports != 0 || token().empty()) return;
+    const auto reports = unsentReports();
+    if (reports.empty()) return;
+    const std::wstring q = L"StarDraft stopped because of an error the last time. Send the crash report to the developers, so that they can "
+                           L"repair the error?\n\nThe report has the version, Windows, the video card, where it crashed and the last log lines. "
+                           L"It has no maps. It is in " + reports.front().parent_path().wstring() + L".";
+    const int r = themedMessageBox(app.main, q.c_str(), L"Crash report", MB_YESNOCANCEL | MB_ICONQUESTION, {L"&Send", L"&Always send", L"Do &not send"});
+    if (r == IDNO) setCrashReports(1);  // Always send: from now on, without the question
+    if (r == IDYES || r == IDNO) {
+        std::thread([reports] {
+            for (const auto& d : reports) send(d);
+        }).detach();
+    } else {
+        for (const auto& d : reports) std::ofstream(d / "sent") << "not sent: the user said no";
+    }
 }
 
 }  // namespace crash
