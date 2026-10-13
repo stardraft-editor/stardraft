@@ -83,8 +83,7 @@ jobs:
         run: |
           $version = $env:GITHUB_REF_NAME.Substring(1)
           $zip = "StarDraft-$version-win64.zip"
-          Copy-Item docs/user/CHANGELOG.md README.txt -Force  # the changelog, in the zip beside the program
-          Compress-Archive -Force -Path build/Release/stardraft.exe, README.txt -DestinationPath $zip
+          Compress-Archive -Force -Path build/Release/stardraft.exe -DestinationPath $zip  # the program only (the notes are on the release page)
           # The release's text: what is new in this version (the changelog's "## <version>" section), then the base
           # changelog (its last section: what StarDraft is and does, how to start), so a new visitor understands it.
           $sections = [ordered]@{}; $name = $null
