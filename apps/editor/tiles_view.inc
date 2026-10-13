@@ -630,7 +630,7 @@ std::vector<std::pair<int, int>> tilesFootprint(int cx, int cy) {
             const float x = dx - mid, y = dy - mid;
             const bool in = app.brushShape == Brush::Square ? true
                           : app.brushShape == Brush::Circle ? x * x + y * y <= r * r + r + 0.25f
-                                                            : std::abs(x) + std::abs(y) <= r + 0.01f;
+                                                            : std::abs(x) + std::abs(y) <= r + 0.5f;  // (even sizes: the tiles touch the middle)
             if (in) out.push_back({cx + dx, cy + dy});
         }
     return out;
@@ -656,6 +656,7 @@ void tilesSprayAt(float wx, float wy) {
     int tx, ty;
     tilesAt(wx, wy, tx, ty);
     const auto foot = tilesFootprint(tx, ty);
+    if (foot.empty()) return;
     std::mt19937 rng(app.spraySeed++);
     // Each dab: one of the selected tiles, at random (Ctrl+click or Shift+click in the grid; one tile: that tile).
     std::vector<Editor::TileAt> cells;

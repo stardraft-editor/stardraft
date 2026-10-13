@@ -349,11 +349,15 @@ void Editor::paintTerrain(int px, int py, uint16_t terrain, int brushSize) {
     if (isom_.paintAtPixel(px, py, terrain, brushSize)) {
         // Null tiles under the brush (placed in Rectangle mode) get the terrain's tiles, also where the ISOM terrain
         // is the painted one already (GitHub feedback #118).
+        // Only the tiles in the painted diamond (brushSize diamonds of 64 x 32 px), not a box around it.
         const TerrainLayer tiles = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
-        const int rw = brushSize * 64 / 2 + 64, rh = brushSize * 32 / 2 + 32;
-        for (int ty = std::max(0, (py - rh) / 32); ty <= std::min(int(height_) - 1, (py + rh) / 32); ++ty)
-            for (int tx = std::max(0, (px - rw) / 32); tx <= std::min(int(width_) - 1, (px + rw) / 32); ++tx)
-                if (size_t(ty) * width_ + tx < tiles.tiles.size() && tiles.tiles[size_t(ty) * width_ + tx] == 0) isom_.markRectDirty(tx / 2, ty);
+        const float hw = brushSize * 32.0f, hh = brushSize * 16.0f;
+        for (int ty = std::max(0, int(py - hh) / 32); ty <= std::min(int(height_) - 1, int(py + hh) / 32); ++ty)
+            for (int tx = std::max(0, int(px - hw) / 32); tx <= std::min(int(width_) - 1, int(px + hw) / 32); ++tx) {
+                const float dx = std::abs(tx * 32 + 16 - float(px)) / hw, dy = std::abs(ty * 32 + 16 - float(py)) / hh;
+                if (dx + dy <= 1.0f && size_t(ty) * width_ + tx < tiles.tiles.size() && tiles.tiles[size_t(ty) * width_ + tx] == 0)
+                    isom_.markRectDirty(tx / 2, ty);
+            }
         std::string err;
         isom_.store(chk_, err);
         commit(true);

@@ -3825,8 +3825,9 @@ int paletteViewBits() {
     return bits;
 }
 std::map<std::wstring, int> gSavedSettings;  // what the registry has (written only when a value differs)
+bool gSettingsOff = false;                   // tests and screenshot runs: the defaults, and nothing saved
 void saveAppSettings() {
-    if (gSelfTest) return;
+    if (gSelfTest || gSettingsOff) return;
     HKEY k;
     if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Settings", 0, nullptr, 0, KEY_SET_VALUE, nullptr, &k, nullptr) != ERROR_SUCCESS) return;
     auto put = [&](const wchar_t* name, int v) {
@@ -3841,7 +3842,7 @@ void saveAppSettings() {
     RegCloseKey(k);
 }
 void loadAppSettings() {
-    if (gSelfTest) return;
+    if (gSelfTest || gSettingsOff) return;
     auto get = [](const wchar_t* name, int& v) {
         DWORD d = 0, size = sizeof d;
         if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Settings", name, RRF_RT_REG_DWORD, nullptr, &d, &size) != ERROR_SUCCESS) return false;
@@ -3865,7 +3866,13 @@ void command(int id) {
     saveAppSettings();  // an option the command changed stays for the next start
 }
 
+bool modeLayerHidden();
+void modeLayerHiddenMessage();
 void commandBody(int id) {
+    // The active mode's layer is hidden (View > Layers): the edits of the map are refused.
+    if (gWorkspace == Workspace::Map && modeLayerHidden() &&
+        (id == ID_EDIT_SELECTALL || id == ID_EDIT_DELETE || id == ID_EDIT_CUT || id == ID_EDIT_COPY || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE))
+        return modeLayerHiddenMessage();
     // No map (a page tab): its commands do nothing, also from a shortcut or the top bar (their menu items are gray).
     if (!docOpen() && mapCommand(id)) return;
     // A map page shows: the Edit commands are not for the map that does not show (undo and redo are).
@@ -4682,6 +4689,21 @@ bool pipette(float wx, float wy) {
     return false;
 }
 
+// View > Layers: the active mode's layer is hidden. Its map edits are refused (nothing changes that does not show).
+bool modeLayerHidden() {
+    switch (app.mode) {
+    case Mode::Terrain: return !gLayers.terrain;
+    case Mode::Units: return !gLayers.units;
+    case Mode::Doodads: return !gLayers.doodads;
+    case Mode::Sprites: return !gLayers.sprites;
+    case Mode::Locations: return !app.showLocations;
+    }
+    return false;
+}
+void modeLayerHiddenMessage() {
+    setMessage(std::wstring(kModeNames[int(app.mode)]) + L": this layer is hidden. View > Layers shows it again (then you can edit it).");
+}
+
 void mouseDown(int sx, int sy, WPARAM keys) {
     if (!app.ed || !app.ed->isOpen()) return;
     Editor& ed = *app.ed;
@@ -4691,6 +4713,7 @@ void mouseDown(int sx, int sy, WPARAM keys) {
         app.dirty = true;
         return;
     }
+    if (modeLayerHidden()) return modeLayerHiddenMessage();
     if (trigUnitPickClick(wx, wy)) return;
     if (app.pasting) {
         // Paste mode stays on (another click pastes again) until a right click or Escape; the pasted
@@ -18397,6 +18420,7 @@ void paintToolStrip(HWND hwnd) {
         for (int k = 0; k < 3; ++k) {
             ui::iconButton(mem, {x, y, x + b, y + b}, shapes[k].icon, [k] {
                 app.brushShape = Brush::Shape(k);
+                saveAppSettings();
                 InvalidateRect(app.tool, nullptr, FALSE);
                 SetFocus(app.view);
             }, shapes[k].tip, ui::Icon::Boxed, int(app.brushShape) == k);
@@ -18829,7 +18853,7 @@ void layout() {
     mini = std::clamp(mini, scale(40), std::max(scale(40), (h - mtop) / 2));
     const int miniX = miniRight ? rx : lx;
     if (!miniShown) mini = -pad;  // (no room for it: the panel starts at the top)
-    ShowWindow(app.minimap, miniShown ? SW_SHOWNA : SW_HIDE);
+    ShowWindow(app.minimap, miniShown && gWorkspace == Workspace::Map ? SW_SHOWNA : SW_HIDE);  // (other workspaces: never)
     if (miniShown) MoveWindow(app.minimap, miniX + pad, mtop + pad, miniW, mini, TRUE);
     // The modes: one segmented control in the top tool bar, after the file and edit icons (the segments side by side,
     // with a line between them).
@@ -22983,6 +23007,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
         LocalFree(av);
     }
     crash::gQuiet = gBackground;
+    {  // Options > Crash reports, before the reports of an earlier crash are sent or asked about (loadRecent reads it later)
+        DWORD v = 0, size = sizeof v;
+        if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"CrashReports", RRF_RT_REG_DWORD, nullptr, &v, &size) == ERROR_SUCCESS)
+            gCrashReports = std::clamp(int(v), 0, 2);
+    }
     if (!gBackground) crash::sendPending(), sendPendingFeedback();
     if (!gBackground && !gSelfTest) crash::askToSend();  // after a crash: send its report? (Options > Crash reports: Ask)
     HWND hwnd;
@@ -23036,6 +23065,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     std::vector<std::wstring> shotSpecs;
     for (int i = 4; !datashots.empty() && i < argc; ++i) shotSpecs.push_back(argv[i]);
     gSelfTest = !selftest.empty() || !datashots.empty() || !pathshots.empty();  // before opening anything: tests leave the user's settings alone
+    gSettingsOff = gSelfTest || !screenshot.empty();  // a screenshot run: the defaults, and nothing saved
     loadAppSettings();  // the options as the user left them (not in tests)
     app.renderer.setQuality(app.quality), app.renderer.setCarbot(app.carbot);
     gSilent = !selftest.empty() || !datashots.empty() || !screenshot.empty() || !pathshots.empty();
@@ -25441,6 +25471,15 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     o << "without " << names[k] << ": " << now << " of " << all << " sprites\n";
                     command(ID_LAYER + k);  // show again
                 }
+                {  // a hidden layer is not edited: Units hidden, Delete after Select all changes nothing
+                    command(ID_MODE_UNITS);
+                    const size_t n = app.ed->units().size();
+                    command(ID_LAYER + 3);
+                    command(ID_EDIT_SELECTALL), command(ID_EDIT_DELETE);
+                    const bool kept = app.ed->units().size() == n;
+                    command(ID_LAYER + 3);
+                    o << "a hidden layer is not edited (Select all, Delete) " << (kept ? "yes" : "NO") << "\n";
+                }
                 continue;
             }
             if (s == "minimaphide:") {  // minimaphide.txt, minimaphide.png: View > Show minimap off: the panel takes the whole side (#127)
@@ -25458,6 +25497,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                 capture(fs::path(datashots) / "minimaphide.png", app.main);
                 command(ID_VIEW_MINIMAP);  // show again
+                command(ID_SCEN_PROPS);  // another workspace (a plain map has Map properties)
+                layout();
+                const bool notOnTriggers = gWorkspace != Workspace::Map && !IsWindowVisible(app.minimap);
+                setWorkspace(Workspace::Map);
+                o << "not over another workspace (Map properties) " << (notOnTriggers ? "yes" : "NO") << ", ";
                 o << "the minimap hides, and the panel moves up " << (hidden && after.top < before.top ? "yes" : "NO") << " (" << before.top << " -> "
                   << after.top << "), shows again " << (IsWindowVisible(app.minimap) ? "yes" : "NO") << "\n";
                 continue;
@@ -25527,8 +25571,16 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     o << "size " << n << ": " << got << " tiles\n";
                     ok = ok && got == size_t(n * n);
                 }
+                bool none = false;  // every shape and size has tiles (an empty footprint: a spray divides by zero)
+                for (int sh = 0; sh < 3; ++sh)
+                    for (int n = 1; n <= 8; ++n) {
+                        app.brushShape = Brush::Shape(sh), app.brushSize = float(n);
+                        const size_t got = tilesFootprint(10, 10).size();
+                        none = none || got == 0;
+                        o << "shape " << sh << " size " << n << ": " << got << "\n";
+                    }
                 app.brushSize = size, app.brushShape = shape;
-                o << "a square of size n is n x n tiles " << (ok ? "yes" : "NO") << "\n";
+                o << "a square of size n is n x n tiles " << (ok ? "yes" : "NO") << ", every shape and size has tiles " << (none ? "NO" : "yes") << "\n";
                 continue;
             }
             if (s == "pastestay:") {  // pastestay.txt: a paste of tiles stays on the mouse after clicks; Esc ends it (#123)
