@@ -3013,7 +3013,7 @@ void projectDialogInfo(ProjectDialog& d) {
         {L"project.stardraft", L"the project file"},
         {n + L".scx", L"the map you edit here (Brood War format)"},
         {n + L".eds", L"euddraft's build file: Build writes it"},
-        {n + L"_EUD.scx", d.output && GetWindowTextLengthW(d.output) ? L"the built map: Build (Ctrl+B) writes the output file instead"
+        {n + L"_EUD.scx", d.output && GetWindowTextLengthW(d.output) ? L"the built map: Build (Ctrl+B) writes it to the Output file"
                                                                      : L"the built map: Build (Ctrl+B) writes it"},
         {L"scripts\\main.eps", L"your code (epScript). To add more, use File > Project > Add script."},
     };
@@ -3166,7 +3166,7 @@ bool createProject(const fs::path& parent, const std::string& name, bool fromOpe
     // L.4: the map's classic triggers, settings and briefings stay in the project's map (the built map keeps them).
     const bool classic = fromOpenMap && (!app.ed->classicTriggers().triggers.empty() || !app.ed->chk().effective("MBRF").empty());
     setMessage(L"Created the project " + widen(name) + L" in " + pr.folder().wstring() + L" (Build: Ctrl+B)" +
-               (classic ? L". The map's classic triggers, settings and briefings stay in the map. Scenario > Classic triggers shows the triggers." : L""));
+               (classic ? L". The project's map keeps its classic triggers, unit, upgrade and technology settings, and briefings. Scenario > Classic triggers shows the triggers." : L""));
     return true;
 }
 
@@ -3227,7 +3227,7 @@ std::wstring pickOutputFile(HWND owner, const std::wstring& current) {
 // File > Project > Project settings: the Project page, with the output file ready to type.
 void showProjectSettings() {
     if (!activeProject()) {
-        setMessage(L"Project settings belong to a project. Use File > Project > New project or Open project.");
+        setMessage(L"Project settings need a project. Use File > Project > New EUD project or Open project.");
         return;
     }
     setWorkspace(Workspace::Project);
@@ -3862,7 +3862,7 @@ void paste() {
         // it (GitHub feedback #83: Ctrl+V did nothing).
         if (app.terrainRect ? !app.ed->hasTileClipboard() : !app.ed->hasTerrainClipboard()) {
             if (!(app.terrainRect ? app.ed->hasTerrainClipboard() : app.ed->hasTileClipboard()))
-                return setMessage(L"Nothing copied: select terrain with the Select tool and press Ctrl+C");
+                return setMessage(L"Nothing copied: select terrain with the Select / copy tool and press Ctrl+C");
             setTerrainRect(!app.terrainRect);
         }
         app.toolByMode[int(Mode::Terrain)] = TSelect;
@@ -4225,7 +4225,7 @@ void commandBody(int id) {
                 setMessage(L"Copied " + std::to_wstring(app.ed->tileClipboardWidth()) + L" x " + std::to_wstring(app.ed->tileClipboardHeight()) +
                            L" tiles");
             else
-                setMessage(L"First, select an area with the Select tool");
+                setMessage(L"First, select an area with the Select / copy tool");
         } else if (app.mode == Mode::Terrain) {
             if (app.hasTerrainSel && app.ed->copyTerrain(app.terrainSel, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, selectShape()))
                 setMessage(L"Copied the terrain selection");
@@ -4940,7 +4940,7 @@ void mouseDown(int sx, int sy, WPARAM keys) {
                 setMessage(L"Replaced " + std::to_wstring(n) + L" " + unitShortName(ed.unitTypes()[from]) + L" with " +
                            unitShortName(ed.unitTypes()[uint16_t(app.palette)]) + (inSel ? L" (selection)" : L""));
             } else {
-                setMessage(L"Replace: select the new type in the list. Then click a unit of the type to replace.");
+                setMessage(L"Replace: select the new type in the list. Then click a unit. All units of the clicked unit's type change to the new type. If the clicked unit is one of several selected units, only the selected units of that type change.");
             }
             break;
         }
@@ -5256,7 +5256,7 @@ void mouseUp(int sx, int sy, WPARAM keys) {
             setMessage(L"Selected " + std::to_wstring((r.right - r.left) / 32) + L" x " + std::to_wstring((r.bottom - r.top) / 32) +
                        L" tiles. Press Ctrl+C to copy them.");
         else
-            setMessage(app.hasTerrainSel ? L"Selected the terrain. Press Ctrl+C to copy it. Replace works in it." : L"Cleared the terrain selection");
+            setMessage(app.hasTerrainSel ? L"Selected the terrain. Press Ctrl+C to copy it. Replace changes only the selected area." : L"Cleared the terrain selection");
         break;
     }
     case Drag::LocCreate: {
@@ -5266,7 +5266,7 @@ void mouseUp(int sx, int sy, WPARAM keys) {
             const bool inverted = GetKeyState(VK_CONTROL) < 0 || GetKeyState(VK_SHIFT) < 0;
             int i = ed.createLocation(r, inverted);
             if (i >= 0) rebuildList(), setMessage(L"Created " + widen(ed.locationName(i)) + (inverted ? L" (inverted: it holds air units only)" : L""));
-            else setMessage(L"All location slots are in use");
+            else setMessage(L"Could not create the location: all location slots are in use");
         } else {
             ed.selectLocation(-1);
         }
@@ -5291,7 +5291,7 @@ void mouseUp(int sx, int sy, WPARAM keys) {
         if (app.dragMoved && !app.selSprites.empty()) {
             if (ed.moveSprites(app.selSprites, int(snapRound(wx - app.dragWX, app.spriteGrid)), int(snapRound(wy - app.dragWY, app.spriteGrid))))
                 setMessage(L"Moved " + std::to_wstring(app.selSprites.size()) + L" sprites");
-            else setMessage(L"The sprites stay: outside the map");
+            else setMessage(L"Could not move the sprites: the new place is outside the map");
         }
         break;
     default: break;
@@ -8449,7 +8449,7 @@ std::wstring datFieldReadOnly(const std::string& dat, const DatField& f, int ent
         {"sprites", "Health Bar"},     {"sprites", "Sel.Circle Image"}, {"sprites", "Sel.Circle Offset"}, {"images", "GRP File"},
         {"images", "Shield Overlay"},  {"images", "Attack Overlay"},    {"images", "Damage Overlay"},    {"images", "Special Overlay"},
         {"images", "Landing Dust Overlay"}, {"images", "Lift-Off Overlay"}};
-    if (readOnly.count({dat, f.name})) return L"Read only. StarCraft: Remastered does not use a change to this value.";
+    if (readOnly.count({dat, f.name})) return L"Read only. A change to this value has no effect in StarCraft: Remastered.";
     if (const DatTable* t = datTable(datTabOf(dat)); t && t->pointerField(f) && t->soundPreloaded(entry))
         return L"Read only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a "
                L"change to the file has no effect.";
@@ -10037,7 +10037,7 @@ int volumeRow(HDC dc, int x, int y, int labelW, int right, std::vector<DataWidge
                         if (v != gDock.volume)
                             if (gDock.volume = v; HWND w = GetCapture()) InvalidateRect(w, nullptr, FALSE);  // (the window being dragged in)
                     },
-                    nullptr, L"The volume of every sound StarDraft 2 plays (the next sound plays at it)", IDC_HAND, {}};
+                    nullptr, L"The volume of every sound StarDraft 2 plays, from the next sound on", IDC_HAND, {}};
     h.release = [] { saveDock(); };
     h.click = [] { saveDock(); };  // a click on the track (no drag) sets it too
     h.notEdit = true;
@@ -10098,7 +10098,7 @@ int widgetSoundPlayer(HDC dc, int sfx, int x, int y, int w) {
     } else {
         SetTextColor(dc, kDim);
         RECT t{wx0, cr.top, wx1, cr.bottom};
-        DrawTextW(dc, path.empty() ? L"no file" : L"cannot read the file", -1, &t, DT_SINGLELINE | DT_VCENTER);
+        DrawTextW(dc, path.empty() ? L"no file" : L"Could not read the sound file", -1, &t, DT_SINGLELINE | DT_VCENTER);
     }
     SetTextColor(dc, kDim);
     RECT tt{wx1 + scale(10), cr.top, cr.right - scale(12), cr.bottom};
@@ -10241,7 +10241,7 @@ int widgetPathing(HDC dc, int u, int x, int y, int size) {
     needsVerification(dc, {cr.left, cr.top, cr.right, cr.bottom - scale(22)},
                       L"Not checked against OpenBW: that a unit needs a gap as wide as its size, rounded up to walk tiles. Pathing can be stricter.");
     wchar_t tip[200];
-    std::swprintf(tip, 200, L"Terrain stops the unit size at walk tiles (8 pixels). Going up or down, the unit needs a gap of %d walk tiles (%d pixels). Going left or right, %d (%d pixels).",
+    std::swprintf(tip, 200, L"The unit size is rounded up to walk tiles (8 pixels each). Going up or down, the unit needs a gap of %d walk tiles (%d pixels). Going left or right, it needs a gap of %d walk tiles (%d pixels).",
                   nw, nw * 8, nh, nh * 8);
     gWidgetHits.push_back({cr, nullptr, nullptr, tip, IDC_ARROW, {"Unit Size Left", "Unit Size Up", "Unit Size Right", "Unit Size Down"}});
     return size;
@@ -10322,7 +10322,7 @@ int widgetIscriptListing(HDC dc, int image, int x, int y, int w) {
         ui::smallButton(dc, x + w - ui::textWidth(dc, L"Follow") - scale(20), y, scale(22), L"Follow", [] {
             gListing.first = -1;
             InvalidateRect(gData.form, nullptr, FALSE);
-        }, L"Follow the instruction the player is on");
+        }, L"Follow the animation's current instruction");
     y += scale(24);
     const int rowH = scale(18), shown = std::min<int>(int(lines.size()), 24), h = shown * rowH + scale(16);
     RECT cr{x, y, x + w, y + h};
@@ -13715,7 +13715,7 @@ void paintTrigPaneAt(HWND hwnd) {
         trigDrawTitle(mem, widen(node->name), x0, w, y, !category);
         SelectObject(mem, app.font);
         // What runs there: a tooltip on the title.
-        static const wchar_t* about[] = {L"Variables, and triggers that Run a trigger runs", L"These triggers run once, when the map starts",
+        static const wchar_t* about[] = {L"Variables, and triggers that a Run a trigger block runs", L"These triggers run once, when the map starts",
                                          L"These triggers run each trigger cycle while the game runs"};
         const int cat = gTE.sel.empty() ? 0 : std::clamp(gTE.sel[0], 0, 2);
         gTP.tips.push_back({{x0, titleY, x0 + w / 2, titleY + scale(34)}, category ? about[cat] : L"A folder in " + widen(gTE.set.roots[size_t(cat)].name), kBorderHot});
@@ -14605,7 +14605,7 @@ bool valuePopCheck() {
         return true;
     }
     if (!vp.number) {
-        vp.hint = vp.spec.type == "Code"    ? L"epScript, used as written."
+        vp.hint = vp.spec.type == "Code"    ? L"Build puts this code into generated\triggers.eps unchanged."
                   : vp.spec.type == "Sound" ? (text.empty() ? L"The path of a sound file in the map (sound\\\x2026\\name.wav)" : L"Build makes sure that this file is in the map")
                                             : L"";  // (no letter count: a name or a text needs none)
         return true;
@@ -14618,7 +14618,7 @@ bool valuePopCheck() {
     if (vp.spec.constantOnly && !r.constant)
         return vp.hint = vp.spec.constantsNamed ? L"a number or a constant here" : L"a plain number here", vp.hintBad = true, false;
     if (!r.constant) {
-        vp.hint = L"Worked out while the game runs.";
+        vp.hint = L"The game calculates this value while it runs";
         return true;
     }
     if (vp.spec.max >= vp.spec.min && (r.value < vp.spec.min || r.value > vp.spec.max))
@@ -14634,7 +14634,7 @@ bool valuePopCheck() {
     if (label.find("frames") != std::string::npos) h = L"\x2248 " + seconds(double(r.value) / 24.0) + L" at Fastest (24 frames a second)";
     else if (vp.spec.type == "Seconds") h = L"= " + seconds(double(r.value)) + L" of game time";
     else if (vp.spec.type == "Milliseconds") h = L"= " + seconds(double(r.value) / 1000.0);
-    else if (vp.spec.type == "Count" && r.value == 0) h = L"0 means all of them";
+    else if (vp.spec.type == "Count" && r.value == 0) h = L"0 means all that match the other values";
     else if (vp.spec.type == "Percent") h = std::to_wstring(r.value) + L"%";
     if (vp.spec.prop && vp.spec.prop->scale > 1)
         h += (h.empty() ? L"" : L"; ") + std::wstring(L"the game keeps it as ") + std::to_wstring(r.value * vp.spec.prop->scale) + L" (\x00D7" +
@@ -16188,7 +16188,7 @@ void trigEditText(TrigParamHit h, const std::string& value, bool, bool) {
     if (p.type == "Index") {
         const TriggerNode* list = trigIndexList(*d, *call);
         if (!list) {
-            setMessage(L"First, select the list. Then the index has its range.");
+            setMessage(L"First, select the list. Then the index can be 0 to the number of items minus 1.");
             return;
         }
         const int size = triggerListSize(list->variable, gTE.set.variables());
@@ -16395,7 +16395,7 @@ void trigEditVariableField(TrigVarHit h) {
     ValuePopSpec spec;
     if (h.field == 1 && v->variable.kind == TriggerVariable::Kind::Text) {
         spec.title = L"Maximum length (letters)   1 to " + std::to_wstring(TriggerVariable::kTextRoomMax);
-        spec.help = L"The text cannot hold more. Each text variable uses this much room in the map.";
+        spec.help = L"Each text variable reserves space in the map for this many letters. A longer text overwrites other data in the map.";
         spec.type = "Number", spec.min = 1, spec.max = TriggerVariable::kTextRoomMax, spec.constantOnly = true;
         spec.initial = std::to_string(v->variable.size);
     } else if (h.field == 1 && v->variable.kind == TriggerVariable::Kind::UnitGroup) {
@@ -18478,24 +18478,24 @@ std::vector<StripItem> stripTools(Mode m) {
     switch (m) {
     case Mode::Terrain:
         if (app.terrainRect)  // Rectangle: the same tools on tiles as they are
-            return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc comes back here.", TSelect, true},
-                    {UiIcon::Brush, L"Brush: place the tile selected in the Tiles list, with the brush's size and shape. Several tiles selected: each tile one of them at random (a scatter).", TBrush, false},
-                    {UiIcon::Spray, L"Spray: the tile at random places in the brush (Density). Hold the button to spray more.", TSpray, false},
-                    {UiIcon::Fill, L"Fill: in the selection, all of it; else the connected tiles of one value. Several tiles selected in the list: each tile at random. Shift+click: every tile of that value (in the selection, if there is one).", TFill, false}};
-        return {{UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc comes back here.", TSelect, true},
+            return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.", TSelect, true},
+                    {UiIcon::Brush, L"Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, each tile of the brush gets one of the selected tiles at random.", TBrush, false},
+                    {UiIcon::Spray, L"Spray: place the tile at random spots in the brush (Density). Hold the button to spray more.", TSpray, false},
+                    {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, each filled tile gets one of them at random.", TFill, false}};
+        return {{UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.", TSelect, true},
                 {UiIcon::Brush, L"Brush: paint the terrain selected in the list", TBrush, false},
                 {UiIcon::Spray, L"Spray: random dabs of the terrain (Density). Hold the button to spray more.", TSpray, false},
                 {UiIcon::Fill, L"Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one).", TFill, false}};
     case Mode::Units:
-        return {{UiIcon::Select, L"Select units: click or drag a box; drag them to move. Esc comes back here.", UPlace, true},
+        return {{UiIcon::Select, L"Select units: click or drag a box; drag them to move. Esc returns to the Select tool.", UPlace, true},
                 {UiIcon::Add, L"Place the unit selected in the list", UPlace, false},
                 {UiIcon::Spray, L"Spray: random units of the selected kinds (Density). Hold the button to spray more.", USpray, false}};
     case Mode::Doodads:
-        return {{UiIcon::Select, L"Select a doodad: click it; drag it to move. Esc comes back here.", DPlace, true},
+        return {{UiIcon::Select, L"Select a doodad: click it; drag it to move. Esc returns to the Select tool.", DPlace, true},
                 {UiIcon::Brush, L"Place the doodads selected in the list", DPlace, false},
                 {UiIcon::Spray, L"Spray: random doodads of the selected kinds (Density). Hold the button to spray more.", DSpray, false}};
     case Mode::Sprites:
-        return {{UiIcon::Select, L"Select a sprite: click it; drag it to move. Esc comes back here.", SPlace, true},
+        return {{UiIcon::Select, L"Select a sprite: click it; drag it to move. Esc goes to Select.", SPlace, true},
                 {UiIcon::Add, L"Place the sprites selected in the list (several: each one at random); drag to place more", SPlace, false},
                 {UiIcon::Spray, L"Spray: random sprites of the selected kinds (Density). Hold the button to spray more.", SSpray, false}};
     case Mode::Locations: return {{UiIcon::Select, L"Select, move and resize locations; drag on empty ground to make one", 0, true}};
@@ -19145,7 +19145,7 @@ void paintTopBar(HWND hwnd) {
                                    if (!p) return;
                                    const bool on = p->debugBuild() || p->traceBuild();  // now (the Project page can change it)
                                    p->setDebugBuild(!on), p->setTraceBuild(!on);
-                                   projectSave(*p, on ? L"Debug mode off: Build makes the map to release"
+                                   projectSave(*p, on ? L"Debug mode off: Build does not add index checks or the trace for epTrace"
                                                       : L"Debug mode on: Build adds index checks and the trace for epTrace");
                                    projectFormRefresh();
                                    InvalidateRect(hwnd, nullptr, FALSE);
@@ -19434,7 +19434,7 @@ HMENU buildMenu() {
     AppendMenuW(edit, MF_STRING, ID_EDIT_COPY, L"&Copy\tCtrl+C");
     AppendMenuW(edit, MF_STRING, ID_EDIT_PASTE, L"&Paste\tCtrl+V");
     AppendMenuW(edit, MF_STRING, ID_EDIT_DUPLICATE, L"&Duplicate\tCtrl+D");
-    AppendMenuW(edit, MF_STRING, ID_QUICKPICK, L"&Quick picker (units; in Data, any entry)\x2026\tQ");
+    AppendMenuW(edit, MF_STRING, ID_QUICKPICK, L"&Quick picker (the mode's units, terrains, doodads, sprites or locations; in Data, any entry)\x2026\tQ");
     AppendMenuW(edit, MF_STRING, ID_EDIT_DELETE, L"&Delete\tDel");
     AppendMenuW(edit, MF_STRING, ID_EDIT_SELECTALL, L"Select &all\tCtrl+A");
     AppendMenuW(edit, MF_STRING, ID_EDIT_RENAME, L"Re&name location\tF2");

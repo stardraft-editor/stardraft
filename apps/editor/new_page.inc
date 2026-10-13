@@ -745,8 +745,8 @@ void paintNewPage(HDC mem, RECT rc) {
         y += scale(ui::kFormRowH);
         HGDIOBJ of = SelectObject(mem, ui::smallFont());
         y = newParagraph(mem, {x3, y, x3 + fw, y + scale(100)},
-                         gNew.terrainOnly ? L"The new map gets the map's size, tileset, terrain and doodads. The file stays as it is."
-                                          : L"StarDraft 2 copies the map into the project folder. The file stays as it is.",
+                         gNew.terrainOnly ? L"The new map gets the map's size, tileset, terrain and doodads. StarDraft 2 does not change the map's file."
+                                          : L"StarDraft 2 copies the map into the project folder. StarDraft 2 does not change the original file.",
                          kDim) + scale(8);
         SelectObject(mem, of);
     } else {
@@ -793,7 +793,7 @@ void paintNewPage(HDC mem, RECT rc) {
         gy += fl.rowH + scale(4);
         {  // above the sliders: they stay in their place when a tileset has more or fewer sliders
             const int lx = ui::smallButton(mem, gx, gy, rowH, L"Randomize values", [] { newRandomize(false); }, L"New amounts, shape and seed");
-            ui::smallButton(mem, lx + scale(8), gy, rowH, L"Randomize all", [] { newRandomize(true); }, L"The tileset too (not the size)");
+            ui::smallButton(mem, lx + scale(8), gy, rowH, L"Randomize all", [] { newRandomize(true); }, L"Randomize the tileset, the amounts, the shape and the seed (not the size)");
             gy += rowH + scale(8);
         }
         gy = ui::sectionHeader(mem, layoutFor(gx, gw), gy, L"Amounts");

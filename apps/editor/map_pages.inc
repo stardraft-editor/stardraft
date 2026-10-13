@@ -514,7 +514,7 @@ void propsPaint(HWND hwnd, MapPropsDialog& d) {
     d.resetRect = {d.changeRect.right + scale(ui::kButtonGap), l.buttonsY, d.changeRect.right + scale(ui::kButtonGap) + rw, l.buttonsY + bh};
     ui::button(mem, d.changeRect, L"Change the size and tileset", ui::Tone::Primary, [] { mapPageApplyTerrain(); },
                L"Set the new size and tileset in the map (one undo step)", differs);
-    ui::button(mem, d.resetRect, L"Reset", ui::Tone::Normal, [] { mapPageReload(); }, L"The map's size and tileset again", differs);
+    ui::button(mem, d.resetRect, L"Reset", ui::Tone::Normal, [] { mapPageReload(); }, L"Discard the changes that are not applied and show the map's values", differs);
     gPropsSurface.end(hwnd);
     BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
     SelectObject(mem, of), SelectObject(mem, ob);
@@ -879,7 +879,7 @@ void mapPagePaint(HWND hwnd) {
     gMp.revertRect = {int(rc.right) - pad - rw, by, int(rc.right) - pad, by + scale(ui::kButtonH)};
     gMp.applyRect = {gMp.revertRect.left - scale(ui::kButtonGap) - aw, by, gMp.revertRect.left - scale(ui::kButtonGap), by + scale(ui::kButtonH)};
     ui::button(mem, gMp.applyRect, apply, ui::Tone::Primary, [] { mapPageApply(); }, L"Set these values in the map (one undo step)", changed);
-    ui::button(mem, gMp.revertRect, revert, ui::Tone::Normal, [] { mapPageRevert(); }, L"Show the map's values again", changed);
+    ui::button(mem, gMp.revertRect, revert, ui::Tone::Normal, [] { mapPageRevert(); }, L"Discard the changes that are not applied", changed);
     gMp.surface.end(hwnd);
     BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
     SelectObject(mem, of), SelectObject(mem, ob);
@@ -979,7 +979,7 @@ bool mapPageOpen(int kind) {
     MapPageCopy& c = copies->kinds[kind];
     if (c.data && !c.changed && c.revision != app.ed->revision()) c.data.reset();  // the map changed: read it again
     if (!c.data && !mapPageLoad(kind, c)) {
-        setMessage(L"Map data: cannot read the game's units.dat, weapons.dat, upgrades.dat and techdata.dat");
+        setMessage(L"Could not read the game data files units.dat, weapons.dat, upgrades.dat and techdata.dat. Select the StarCraft folder in Options > Program options, then restart StarDraft 2.");
         return false;
     }
     void* players = nullptr;

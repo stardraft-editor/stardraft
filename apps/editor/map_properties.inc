@@ -36,10 +36,10 @@ uint16_t mapPropsFirstTerrain(int era) {
 void mapPropsInfo(MapPropsDialog& d) {
     std::wstring t;
     if (d.w != app.ed->width() || d.h != app.ed->height())
-        t += L"The map becomes " + std::to_wstring(d.w) + L" x " + std::to_wstring(d.h) + L" tiles. What is outside the new size goes.\r\n";
+        t += L"The map becomes " + std::to_wstring(d.w) + L" x " + std::to_wstring(d.h) + L" tiles. StarDraft 2 deletes the parts of the map outside the new size.\r\n";
     if (d.era != app.ed->era())
         t += L"Each terrain becomes the " + std::wstring(kTilesetNames[d.era & 7]) +
-             L" terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. The doodads go (each tileset has its own).\r\n";
+             L" terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. StarDraft 2 deletes the doodads, because each tileset has its own doodads.\r\n";
     d.infoText = t;
     if (d.wnd) InvalidateRect(d.wnd, nullptr, FALSE);
 }

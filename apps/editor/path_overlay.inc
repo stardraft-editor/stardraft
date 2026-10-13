@@ -96,7 +96,7 @@ std::wstring baseName(const Base& b) {
 
 std::wstring baseText(const Base& b) {
     wchar_t buf[200];
-    std::swprintf(buf, 200, L"%s: %d buildable tiles, %d mineral fields (%u), %d geysers (%u)", baseName(b).c_str(), int(b.buildable.size()), b.minerals,
+    std::swprintf(buf, 200, L"%s: %d buildable tiles, %d mineral fields (%u minerals in total), %d geysers (%u gas in total)", baseName(b).c_str(), int(b.buildable.size()), b.minerals,
                   b.mineralAmount, b.geysers, b.gasAmount);
     return buf;
 }
@@ -115,7 +115,7 @@ std::wstring pathText(const PathingAnalysis& a, const GroundPath& p) {
 // What the colors mean (the status bar when an overlay goes on, and when the mouse leaves a path).
 std::wstring pathLegendText() {
     std::wstring s;
-    if (gPath.walk) s += L"Shaded: units cannot walk there. Each tint: a separate ground area. ";
+    if (gPath.walk) s += L"Shaded: units cannot walk there. Each tint marks a ground area that units cannot walk to from the largest area (no tint). ";
     if (gPath.paths) s += L"Lines: the shortest ground paths between the start locations. ";
     if (gPath.towns) s += L"Green tiles: buildable tiles near a base. Orange boxes: its resources.";
     while (!s.empty() && s.back() == L' ') s.pop_back();

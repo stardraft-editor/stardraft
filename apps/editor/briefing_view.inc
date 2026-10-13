@@ -716,7 +716,7 @@ std::vector<BriefWord> briefSentence(const BriefingAction& a) {
                          std::string picked;
                          if (showListPicker(L"Transmission duration", items, "", at, picked)) briefEditSelected([&](BriefingAction& x) { x.modifier = uint8_t(std::stoi(picked)); });
                      },
-                     nullptr, L"Set: the duration is the time. Add, Subtract: the WAV file's length plus or minus the time."});
+                     nullptr, L"With Set, the transmission lasts as many seconds as the next field shows. With Add, it lasts the WAV file's length plus those seconds. With Subtract, it lasts the WAV file's length minus those seconds, but not below 0."});
         time(L"Transmission duration (seconds)"), say(L"seconds. Display the following text:"), text();
         break;
     }
@@ -845,7 +845,7 @@ void paintBriefing(HWND hwnd) {
             briefCommitText();
             briefSetWho(who);
             briefPlay(false);
-        }, L"A briefing for other players: its own actions");
+        }, L"Show a new briefing for the first player with no briefing of their own");
         if (n)
             ui::smallButton(mem, ax + scale(8), y, scale(24), L"Delete", [] {
                 if (themedMessageBox(app.main, (L"Delete the briefing for " + whoName(gBrief.who) + L"?").c_str(), L"Delete briefing", MB_OKCANCEL | MB_ICONWARNING, {L"&Delete", L"Cancel"}) != IDOK) return;
@@ -855,7 +855,7 @@ void paintBriefing(HWND hwnd) {
                 std::array<bool, 27> p1{};
                 p1[0] = true;
                 briefSetWho(list.empty() ? p1 : list.front());
-            }, L"Delete it and its actions", ui::Tone::Danger);
+            }, L"Delete the briefing and its actions", ui::Tone::Danger);
         y += scale(36);
         // Whom it is for: a check box for each; the briefing's triggers change with them.
         y = ui::sideGroup(mem, x, y, w, L"For", true) + scale(4);
@@ -866,7 +866,7 @@ void paintBriefing(HWND hwnd) {
                 const auto before = gBrief.who;
                 const auto list = briefList();
                 if (std::find(list.begin(), list.end(), now) != list.end() && briefActionCount(before))
-                    setMessage(L"A briefing for these players is there already: the two are now one");
+                    setMessage(L"A briefing for these players already exists. The actions of both briefings are now in the existing briefing.");
                 if (briefActionCount(before))
                     briefEdit([&](std::vector<BriefingTrigger>& b) {
                         for (auto& t : b)
@@ -1093,7 +1093,7 @@ void paintBriefing(HWND hwnd) {
                 for (int p : players) items.push_back({ownerName(p), L"", std::to_string(p)});
                 std::string picked;
                 if (showListPicker(L"Preview as", items, std::to_string(gBrief.player), belowBox(b), picked)) gBrief.player = std::stoi(picked), briefSeek(0);
-            }, L"Preview as this player: their own briefing, the group's and all players'");
+            }, L"The player to preview. The preview plays the briefings for that player, for its force and for all players.");
             top += rowH + scale(6);
         }
         RECT pv{px, top, px + previewW, top + previewW * 520 / 640};  // the 640 x 480 screen, and a margin under it
@@ -1102,7 +1102,7 @@ void paintBriefing(HWND hwnd) {
         partDone(2);
         int ty = pv.bottom + scale(10);
         const int bs = scale(32);
-        glyphButton(mem, {px, ty, px + bs, ty + bs}, UiIcon::ToStart, false, [] { briefSeek(0); }, L"From the start");
+        glyphButton(mem, {px, ty, px + bs, ty + bs}, UiIcon::ToStart, false, [] { briefSeek(0); }, L"Go to the start");
         glyphButton(mem, {px + bs + scale(6), ty, px + 2 * bs + scale(6), ty + bs}, gBrief.playing ? UiIcon::Pause : UiIcon::Play, false, [] { briefPlay(!gBrief.playing); },
                     gBrief.playing ? L"Pause (Space)" : L"Play (Space)");
         RECT tt{px + 2 * bs + scale(18), ty, px + previewW, ty + bs};

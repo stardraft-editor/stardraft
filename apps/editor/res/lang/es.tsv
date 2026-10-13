@@ -106,7 +106,7 @@ Could not build the map (see the log)	No se pudo compilar el mapa (vea el regist
 the project file	el archivo del proyecto
 the map you edit here (Brood War format)	el mapa que se edita aquí (formato Brood War)
 euddraft's build file: Build writes it	archivo de compilación de euddraft: Compilar lo escribe
-the built map: Build (Ctrl+B) writes the output file instead	el mapa compilado: Compilar (Ctrl+B) escribe el archivo de salida en su lugar
+the built map: Build (Ctrl+B) writes it to the Output file	el mapa compilado: Compilar (Ctrl+B) lo escribe en el archivo de salida
 the built map: Build (Ctrl+B) writes it	el mapa compilado: Compilar (Ctrl+B) lo escribe
 your code (epScript). To add more, use File > Project > Add script.	su código (epScript). Para añadir más, use Archivo > Proyecto > Añadir script.
 StarDraft 2 makes the folder 	StarDraft 2 crea la carpeta 
@@ -124,12 +124,12 @@ Create	Crear
 Select the folder for the project	Seleccione la carpeta del proyecto
 Created the project 	Proyecto creado: 
  (Build: Ctrl+B)	 (Compilar: Ctrl+B)
-. The map's classic triggers, settings and briefings stay in the map. Scenario > Classic triggers shows the triggers.	. Los disparadores clásicos, la configuración y los briefings del mapa permanecen en el mapa. Escenario > Disparadores clásicos muestra los disparadores.
+. The project's map keeps its classic triggers, unit, upgrade and technology settings, and briefings. Scenario > Classic triggers shows the triggers.	. El mapa del proyecto conserva sus disparadores clásicos, la configuración de unidades, mejoras y tecnologías, y sus briefings. Escenario > Disparadores clásicos muestra los disparadores.
 New EUD project	Nuevo proyecto EUD
 Could not create the project	No se pudo crear el proyecto
 StarCraft Brood War map (*.scx)*.scx	Mapa de StarCraft Brood War (*.scx)*.scx
 Select the file for the built map	Seleccione el archivo del mapa compilado
-Project settings belong to a project. Use File > Project > New project or Open project.	La configuración pertenece a un proyecto. Use Archivo > Proyecto > Nuevo proyecto o Abrir proyecto.
+Project settings need a project. Use File > Project > New EUD project or Open project.	La configuración del proyecto necesita un proyecto. Use Archivo > Proyecto > Nuevo proyecto EUD o Abrir proyecto.
 Human	Humano
 Computer	Computadora
 Rescuable	Rescatable
@@ -190,9 +190,9 @@ Nothing copied: select doodads and press Ctrl+C	No se copió nada: seleccione de
 Nothing copied: select sprites and press Ctrl+C	No se copió nada: seleccione sprites y pulse Ctrl+C
 Paste: click to place the copy. Shift+click pastes again. Esc goes back to Select.	Pegar: haga clic para colocar la copia. Mayús+clic vuelve a pegar. Esc vuelve a Seleccionar.
 Nothing copied: select a location and press Ctrl+C	No se copió nada: seleccione una ubicación y pulse Ctrl+C
-All location slots are in use	Todas las ranuras de ubicación están en uso
+Could not create the location: all location slots are in use	No se pudo crear la ubicación: todas las ranuras de ubicación están en uso
 Pasted 	Pegado: 
-Nothing copied: select terrain with the Select tool and press Ctrl+C	No se copió nada: seleccione terreno con la herramienta Seleccionar y pulse Ctrl+C
+Nothing copied: select terrain with the Select / copy tool and press Ctrl+C	No se copió nada: seleccione terreno con la herramienta Seleccionar / copiar y pulse Ctrl+C
 Paste tiles: click to place them. Shift+click pastes again. Esc cancels.	Pegar tiles: haga clic para colocarlos. Mayús+clic vuelve a pegar. Esc cancela.
 Paste terrain: click to place it. Press R to turn it. Shift+click pastes again. Esc cancels.	Pegar terreno: haga clic para colocarlo. Pulse R para girarlo. Mayús+clic vuelve a pegar. Esc cancela.
 Paste 	Pegar 
@@ -257,7 +257,7 @@ Cannot place here:	No se puede colocar aquí:
 Sprayed 	Rociado: 
 Replaced 	Reemplazado: 
  (selection)	 (selección)
-Replace: select the new type in the list. Then click a unit of the type to replace.	Reemplazar: seleccione el tipo nuevo en la lista. Luego haga clic en una unidad del tipo que quiere reemplazar.
+Replace: select the new type in the list. Then click a unit. All units of the clicked unit's type change to the new type. If the clicked unit is one of several selected units, only the selected units of that type change.	Reemplazar: seleccione el tipo nuevo en la lista. Luego haga clic en una unidad. Todas las unidades de ese tipo cambian al tipo nuevo. Si la unidad en la que hace clic está entre varias unidades seleccionadas, solo cambian las seleccionadas de ese tipo.
 Painting 	Pintando 
  (selected with Ctrl+click)	 (seleccionado con Ctrl+clic)
 Pasted terrain	Terreno pegado
@@ -274,12 +274,12 @@ The units do not fit there. They stay where they were.	Las unidades no caben ah�
 The units do not fit along the drag. They stay where they were.	Las unidades no caben a lo largo del arrastre. Se quedan donde estaban.
 Pasted terrain. To stop pasting, right-click or press Esc.	Terreno pegado. Para dejar de pegar, haga clic derecho o pulse Esc.
  tiles. Press Ctrl+C to copy them.	 tiles. Pulse Ctrl+C para copiarlos.
-Selected the terrain. Press Ctrl+C to copy it. Replace works in it.	Terreno seleccionado. Pulse Ctrl+C para copiarlo. Reemplazar funciona dentro de él.
+Selected the terrain. Press Ctrl+C to copy it. Replace changes only the selected area.	Terreno seleccionado. Pulse Ctrl+C para copiarlo. Reemplazar cambia solo el área seleccionada.
 Cleared the terrain selection	Selección de terreno borrada
 Created 	Creado: 
  (inverted: it holds air units only)	 (invertido: solo contiene unidades aéreas)
 The doodads stay: 	Los decorados se quedan: 
-The sprites stay: outside the map	Los sprites se quedan: fuera del mapa
+Could not move the sprites: the new place is outside the map	No se pudieron mover los sprites: la nueva posición está fuera del mapa
 Independent	Independiente
 Other	Otro
 Platform	Plataforma
@@ -394,7 +394,7 @@ Left and right, top and bottom	Izquierda y derecha, arriba y abajo
 Changed the location "	Ubicación cambiada: "
 Could not change the location: 	No se pudo cambiar la ubicación: 
 Location properties	Propiedades de la ubicación
-Read only. StarCraft: Remastered does not use a change to this value.	Solo lectura. StarCraft: Remastered no usa un cambio de este valor.
+Read only. A change to this value has no effect in StarCraft: Remastered.	Solo lectura. Un cambio en este valor no tiene efecto en StarCraft: Remastered.
 Read only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	Solo lectura para este sonido. El juego carga los sonidos con la marca Preload antes de que se ejecute el código del mapa, por lo que un cambio en el archivo no tiene efecto.
 Read only. StarDraft 2 does not know where the game keeps this value.	Solo lectura. StarDraft 2 no sabe dónde guarda el juego este valor.
 * Needs verification	* Necesita verificación
@@ -456,7 +456,7 @@ No sound device is available	No hay ningún dispositivo de sonido disponible
 Pause	Pausa
 Play	Reproducir
 Volume	Volumen
-The volume of every sound StarDraft 2 plays (the next sound plays at it)	El volumen de todos los sonidos que reproduce StarDraft 2 (el siguiente sonido se reproduce con este volumen)
+The volume of every sound StarDraft 2 plays, from the next sound on	El volumen de todos los sonidos que reproduce StarDraft 2, a partir del siguiente sonido
 no file	sin archivo
 cannot read the file	no se puede leer el archivo
 Medium	Medio
@@ -465,10 +465,10 @@ Less armor	Menos armadura
 More armor	Más armadura
 1 walk tile: 8 x 8 px	1 tile de paso: 8 x 8 px
 gap: %d x %d walk tiles	hueco: %d x %d tiles de paso
-Terrain stops the unit size at walk tiles (8 pixels). Going up or down, the unit needs a gap of %d walk tiles (%d pixels). Going left or right, %d (%d pixels).	El terreno limita el tamaño de la unidad a tiles de paso (8 píxeles). Hacia arriba o hacia abajo, la unidad necesita un hueco de %d tiles de paso (%d píxeles). Hacia la izquierda o la derecha, %d (%d píxeles).
+The unit size is rounded up to walk tiles (8 pixels each). Going up or down, the unit needs a gap of %d walk tiles (%d pixels). Going left or right, it needs a gap of %d walk tiles (%d pixels).	El tamaño de la unidad se redondea hacia arriba a tiles de paso (8 píxeles cada uno). Hacia arriba o hacia abajo, la unidad necesita un hueco de %d tiles de paso (%d píxeles). Hacia la izquierda o la derecha, necesita un hueco de %d tiles de paso (%d píxeles).
 Iscript 	Iscript 
 Follow	Seguir
-Follow the instruction the player is on	Seguir la instrucción en la que está el jugador
+Follow the animation's current instruction	Seguir la instrucción actual de la animación
 Go to the label	Ir a la etiqueta
 Open it	Abrirlo
 Images	Imágenes
@@ -610,7 +610,7 @@ Maximum length	Longitud máxima
 Text	Texto
 Description	Descripción
 Zoom 100%	Zoom 100%
-Variables, and triggers that Run a trigger runs	Variables y disparadores que ejecuta un bloque Ejecutar un disparador
+Variables, and triggers that a Run a trigger block runs	Variables y disparadores que ejecuta un bloque Ejecutar un disparador
 These triggers run once, when the map starts	Estos disparadores se ejecutan una vez, cuando empieza el mapa
 These triggers run each trigger cycle while the game runs	Estos disparadores se ejecutan en cada ciclo de disparadores mientras dura el juego
 A folder in 	Una carpeta en 
@@ -647,7 +647,6 @@ Variables	Variables
 Search values from the game	Buscar valores del juego
 Another value from the game…	Otro valor del juego…
 A number or variable instead…	Un número o una variable en su lugar…
-" has no clear type yet (	" aún no tiene un tipo claro (
 ). Type it as a number.	). Escríbalo como número.
 Search: game text (or a variable)	Buscar: texto del juego (o una variable)
 Buttons of 	Botones de 
@@ -684,17 +683,17 @@ Unit variables	Variables de unidad
 Select on the map…	Seleccionar en el mapa…
 One unit	Una unidad
 Type a number of seconds, for example 2.5	Escriba un número de segundos, por ejemplo 2.5
-epScript, used as written.	epScript, se usa tal como está escrito.
+Build puts this code into generated\triggers.eps unchanged.	Compilar pone este código en generated\triggers.eps sin cambios.
 The path of a sound file in the map (sound\\…\\name.wav)	La ruta de un archivo de sonido del mapa (sound\\…\\name.wav)
 Build makes sure that this file is in the map	Al compilar se asegura de que este archivo esté en el mapa
 a number or a constant here	aquí un número o una constante
 a plain number here	aquí un número simple
-Worked out while the game runs.	Se calcula mientras se ejecuta el juego.
+The game calculates this value while it runs	El juego calcula este valor mientras se ejecuta
 Use a value from 	Usar un valor de 
 %.2g seconds	%.2g segundos
  at Fastest (24 frames a second)	 a velocidad máxima (24 fotogramas por segundo)
  of game time	 de tiempo de juego
-0 means all of them	0 significa todos
+0 means all that match the other values	0 significa todos los que coinciden con los demás valores
 the game keeps it as 	el juego lo guarda como 
 current player	jugador actual
 Loop	Bucle
@@ -756,7 +755,7 @@ Raw	Sin procesar
 From the game…	Del juego…
 Insert value ▾	Insertar valor ▾
 No clear type yet (	Aún sin un tipo claro (
-First, select the list. Then the index has its range.	Primero seleccione la lista. Después el índice tendrá su rango.
+First, select the list. Then the index can be 0 to the number of items minus 1.	Primero seleccione la lista. Después el índice puede ser de 0 al número de elementos menos 1.
 Which item of 	Qué elemento de 
   (0 to 	  (0 a 
 Other…	Otro…
@@ -770,7 +769,7 @@ Templates	Plantillas
 Select another unit on the map…	Seleccionar otra unidad en el mapa…
 No unit (empty)	Ninguna unidad (vacío)
 Maximum length (letters)   1 to 	Longitud máxima (letras)   1 a 
-The text cannot hold more. Each text variable uses this much room in the map.	El texto no puede contener más. Cada variable de texto usa este espacio en el mapa.
+Each text variable reserves space in the map for this many letters. A longer text overwrites other data in the map.	Cada variable de texto reserva espacio en el mapa para esta cantidad de letras. Un texto más largo sobrescribe otros datos del mapa.
 Room for (units)   1 to 1700	Espacio para (unidades)   1 a 1700
 Size   1 to 4096	Tamaño   1 a 4096
 Default value of each item	Valor predeterminado de cada elemento
@@ -809,21 +808,21 @@ Brush size %g	Tamaño del pincel %g
 Turned the terrain; its 	Se giró el terreno; sus 
  doodads cannot turn, so they are not included	 decorados no pueden girar, por lo que no se incluyen
 Turned the terrain (R turns clockwise, Shift+R turns back)	Se giró el terreno (R gira a la derecha, Shift+R gira hacia atrás)
-Select: drag a rectangle of tiles to copy (Ctrl+C). Esc comes back here.	Seleccionar: arrastre un rectángulo de tiles para copiar (Ctrl+C). Esc vuelve aquí.
+Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.	Seleccionar: arrastre un rectángulo de tiles para copiar (Ctrl+C). Esc vuelve a Seleccionar.
 Brush: place the tile selected in the Tiles list, with the brush's size and shape	Pincel: coloca el tile seleccionado en la lista Tiles, con el tamaño y la forma del pincel
-Spray: the tile at random places in the brush (Density). Hold the button to spray more.	Spray: el tile en lugares al azar dentro del pincel (Densidad). Mantenga pulsado el botón para rociar más.
+Spray: place the tile at random spots in the brush (Density). Hold the button to spray more.	Spray: coloca el tile en lugares al azar dentro del pincel (Densidad). Mantenga pulsado el botón para rociar más.
 Fill: the connected tiles of one value. Shift+click: every tile of that value (in the selection, if there is one).	Relleno: los tiles conectados de un mismo valor. Shift+clic: todos los tiles de ese valor (dentro de la selección, si la hay).
-Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc comes back here.	Seleccionar: arrastre un rectángulo de terreno para copiar (Ctrl+C) o mover. Esc vuelve aquí.
+Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.	Seleccionar: arrastre un rectángulo de terreno para copiar (Ctrl+C) o mover. Esc vuelve a la herramienta Seleccionar.
 Brush: paint the terrain selected in the list	Pincel: pinta el terreno seleccionado en la lista
 Spray: random dabs of the terrain (Density). Hold the button to spray more.	Spray: toques al azar del terreno (Densidad). Mantenga pulsado el botón para rociar más.
 Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one).	Relleno: el área conectada de un mismo terreno. Shift+clic: todos los lugares de ese terreno (dentro de la selección, si la hay).
-Select units: click or drag a box; drag them to move. Esc comes back here.	Seleccionar unidades: haga clic o arrastre un cuadro; arrástrelas para moverlas. Esc vuelve aquí.
+Select units: click or drag a box; drag them to move. Esc returns to the Select tool.	Seleccionar unidades: haga clic o arrastre un cuadro; arrástrelas para moverlas. Esc vuelve a la herramienta Seleccionar.
 Place the unit selected in the list	Coloca la unidad seleccionada en la lista
 Spray: random units of the selected kinds (Density). Hold the button to spray more.	Spray: unidades al azar de los tipos seleccionados (Densidad). Mantenga pulsado el botón para rociar más.
-Select a doodad: click it; drag it to move. Esc comes back here.	Seleccionar un decorado: haga clic en él; arrástrelo para moverlo. Esc vuelve aquí.
+Select a doodad: click it; drag it to move. Esc returns to the Select tool.	Seleccionar un decorado: haga clic en él; arrástrelo para moverlo. Esc vuelve a la herramienta Seleccionar.
 Place the doodads selected in the list	Coloca los decorados seleccionados en la lista
 Spray: random doodads of the selected kinds (Density). Hold the button to spray more.	Spray: decorados al azar de los tipos seleccionados (Densidad). Mantenga pulsado el botón para rociar más.
-Select a sprite: click it; drag it to move. Esc comes back here.	Seleccionar un sprite: haga clic en él; arrástrelo para moverlo. Esc vuelve aquí.
+Select a sprite: click it; drag it to move. Esc goes to Select.	Seleccionar un sprite: haga clic en él; arrástrelo para moverlo. Esc vuelve a Seleccionar.
 Place the sprites selected in the list (several: each one at random); drag to place more	Coloca los sprites seleccionados en la lista (varios: cada uno al azar); arrastre para colocar más
 Spray: random sprites of the selected kinds (Density). Hold the button to spray more.	Spray: sprites al azar de los tipos seleccionados (Densidad). Mantenga pulsado el botón para rociar más.
 Select, move and resize locations; drag on empty ground to make one	Seleccione, mueva y cambie el tamaño de las ubicaciones; arrastre sobre el suelo vacío para crear una
@@ -867,7 +866,7 @@ Report feedback	Enviar comentarios
 Report feedback: what works, what does not, ideas	Enviar comentarios: qué funciona, qué no, ideas
 Building	Compilando
 Build the project's map with euddraft (Ctrl+B)	Compilar el mapa del proyecto con euddraft (Ctrl+B)
-Debug mode off: Build makes the map to release	Modo de depuración desactivado: Compilar crea el mapa para publicar
+Debug mode off: Build does not add index checks or the trace for epTrace	Modo de depuración desactivado: Compilar no añade comprobaciones de índices ni el rastreo para epTrace
 Debug mode on: Build adds index checks and the trace for epTrace	Modo de depuración activado: Compilar añade comprobaciones de índices y el rastreo para epTrace
 Debug mode is on: Build adds index checks and the trace for epTrace (turn it off for the map that you release)	El modo de depuración está activado: Compilar añade comprobaciones de índices y el rastreo para epTrace (desactívelo para el mapa que publique)
 Debug mode: Build adds index checks and the trace for epTrace (Project page > Build)	Modo de depuración: Compilar añade comprobaciones de índices y el rastreo para epTrace (página Proyecto > Compilar)
@@ -891,7 +890,7 @@ E&xit	&Salir
 &Undo\tCtrl+Z	&Deshacer\tCtrl+Z
 &Redo\tCtrl+Y	&Rehacer\tCtrl+Y
 &Duplicate\tCtrl+D	&Duplicar\tCtrl+D
-&Quick picker (units; in Data, any entry)…\tQ	Selector &rápido (unidades; en Datos, cualquier entrada)…\tQ
+&Quick picker (the mode's units, terrains, doodads, sprites or locations; in Data, any entry)…\tQ	Selector &rápido (unidades, terrenos, decorados, sprites o ubicaciones del modo; en Datos, cualquier entrada)…\tQ
 Re&name location\tF2	Cambiar &nombre de la ubicación\tF2
 &High definition (2x, default)	Alta &definición (2x, predeterminado)
 High definition (&4x)	Alta definición (&4x)
@@ -1050,25 +1049,25 @@ Set	Establecer
 Add	Sumar
 Subtract	Restar
 Transmission duration	Duración de la transmisión
-Set: the duration is the time. Add, Subtract: the WAV file's length plus or minus the time.	Establecer: la duración es el tiempo. Sumar, Restar: la duración del archivo WAV más o menos el tiempo.
+With Set, the transmission lasts as many seconds as the next field shows. With Add, it lasts the WAV file's length plus those seconds. With Subtract, it lasts the WAV file's length minus those seconds, but not below 0.	Con Establecer, la transmisión dura tantos segundos como muestra el campo siguiente. Con Sumar, dura la longitud del archivo WAV más esos segundos. Con Restar, dura la longitud del archivo WAV menos esos segundos, sin bajar de 0.
 Transmission duration (seconds)	Duración de la transmisión (segundos)
 seconds. Display the following text:	segundos. Mostrar el siguiente texto:
 Enable Skip Tutorial button.	Activar el botón Omitir tutorial.
 New briefing	Nuevo briefing
-A briefing for other players: its own actions	Un briefing para otros jugadores: sus propias acciones
+Show a new briefing for the first player with no briefing of their own	Mostrar un briefing nuevo para el primer jugador sin briefing propio
 Delete the briefing for 	Eliminar el briefing de 
 Delete briefing	Eliminar briefing
-Delete it and its actions	Eliminarlo junto con sus acciones
+Delete the briefing and its actions	Eliminar el briefing y sus acciones
 For	Para
-A briefing for these players is there already: the two are now one	Ya existe un briefing para estos jugadores: los dos ahora son uno
+A briefing for these players already exists. The actions of both briefings are now in the existing briefing.	Ya existe un briefing para estos jugadores. Las acciones de los dos briefings están ahora en el briefing existente.
 Every player	Todos los jugadores
 The players of this force	Los jugadores de esta fuerza
 Duplicate (Ctrl+D)	Duplicar (Ctrl+D)
 This briefing has no actions. Add actions to show text, portraits and sounds before the game starts.	Este briefing no tiene acciones. Añada acciones para mostrar texto, retratos y sonidos antes de que empiece la partida.
 Action	Acción
 Preview as	Vista previa como
-Preview as this player: their own briefing, the group's and all players'	Vista previa como este jugador: su propio briefing, el del grupo y el de todos los jugadores
-From the start	Desde el inicio
+The player to preview. The preview plays the briefings for that player, for its force and for all players.	El jugador de la vista previa. La vista previa reproduce los briefings de ese jugador, de su fuerza y de todos los jugadores.
+Go to the start	Ir al inicio
 Pause (Space)	Pausar (Space)
 Play (Space)	Reproducir (Space)
 Technologies	Tecnologías
@@ -1146,7 +1145,7 @@ Strings	Cadenas
 button set	conjunto de botones
 Button set 	Conjunto de botones 
 %zu / %zu bytes	%zu / %zu bytes
-. Too much: Build stops.	. Demasiado: la compilación se detiene.
+. The total is more than the game has room for. Build stops.	. El total supera el espacio que tiene el juego. La compilación se detiene.
 Must have	Obligatorio
 End of the level's list	Fin de la lista del nivel
 Step 0x	Paso 0x
@@ -1179,10 +1178,10 @@ The transport wireframe	El wireframe de transporte
 , as View shows the art. Frame 	, como Ver muestra la imagen. Fotograma 
 Display	Mostrar
 Button set	Conjunto de botones
-The command card the unit shows. Its own set is the unit's number.	La tarjeta de comandos que muestra la unidad. Su propio conjunto es el número de la unidad.
+The command card that the unit shows. The default value is the set with the unit's number.	La tarjeta de comandos que muestra la unidad. El valor predeterminado es el conjunto con el número de la unidad.
 Other (0x%06X, 0x%06X)	Otro (0x%06X, 0x%06X)
 Status panel	Panel de estado
-What the panel at the bottom shows when the unit is selected: a building's, a unit's, a transport's (its cargo), and so on	Lo que muestra el panel inferior cuando se selecciona la unidad: el de un edificio, el de una unidad, el de un transporte (su carga), etc.
+What the panel at the bottom shows when the unit is selected, for example a building's, a unit's or a transport's (its cargo)	Lo que muestra el panel inferior al seleccionar la unidad, por ejemplo el de un edificio, el de una unidad o el de un transporte (su carga)
 The picture in the selection panel when the unit is selected alone	La imagen del panel de selección cuando la unidad se selecciona sola
 Group wireframe	Wireframe de grupo
 The small picture when units are selected together	La imagen pequeña cuando se seleccionan varias unidades juntas
@@ -1204,13 +1203,13 @@ Row 	Fila
 , column 	, columna 
 Function 0x%06X	Función 0x%06X
 Shown when	Se muestra cuando
-When the game shows the button (a function of the game)	Cuándo muestra el juego el botón (una función del juego)
-What the button does (a function of the game)	Lo que hace el botón (una función del juego)
+The game's condition for showing the button	La condición del juego para mostrar el botón
+Select the action that the button performs	Seleccione la acción que realiza el botón
 Shown when: value	Se muestra cuando: valor
 Action: value	Acción: valor
 Display raw value	Mostrar valor sin procesar
 Show each tooltip's string as the game stores it: the hotkey and type characters, and codes as <01>	Muestra la cadena de cada tooltip tal como la guarda el juego: los caracteres de tecla rápida y de tipo, y los códigos como <01>
-Tooltip, not usable	Tooltip, no utilizable
+Tooltip when grayed	Tooltip cuando está en gris
 Tooltip	Tooltip
 Edit the text (string 	Editar el texto (cadena 
 ; every button that uses it changes)	; cambian todos los botones que la usan)
@@ -1247,9 +1246,9 @@ Esc	Esc
 Space	Espacio
 The key that presses the button	La tecla que pulsa el botón
 Type	Tipo
-What the tooltip shows with the text: the cost of a unit, an upgrade or a technology	Lo que muestra el tooltip junto con el texto: el coste de una unidad, una mejora o una tecnología
+The kind of button. For a unit, an upgrade or a technology, the game's tooltip shows the cost.	El tipo de botón. Para una unidad, una mejora o una tecnología, el tooltip del juego muestra el coste.
 The text box shows the string as the game stores it: a button's text starts with its hotkey and type characters. Off: the box shows the text only, and the Hotkey and Type fields show those characters. The dark box on the right shows the text as the game shows it.	El cuadro de texto muestra la cadena tal como la guarda el juego: el texto de un botón empieza con sus caracteres de tecla rápida y de tipo. Desactivado: el cuadro muestra solo el texto, y los campos Tecla rápida y Tipo muestran esos caracteres. El cuadro oscuro de la derecha muestra el texto como lo muestra el juego.
-Size of all strings together; they must fit in the game's copy	Tamaño de todas las cadenas juntas; deben caber en la copia del juego
+Size of all strings together. The game has room for at most the number after the slash.	Tamaño de todas las cadenas juntas. El juego admite como máximo el número tras la barra.
 the map	el mapa
 the minimap	el minimapa
 the data list	la lista de datos
@@ -1285,10 +1284,10 @@ The map has no sounds of its own. Import sounds adds WAV or OGG files.	El mapa n
 Import sounds…	Importar sonidos…
 WAV or OGG files. StarDraft 2 saves them in the map (staredit\\wav\\).	Archivos WAV u OGG. StarDraft 2 los guarda en el mapa (staredit\\wav\\).
 Rename	Cambiar nombre
-The briefings that use the file change with it	Los briefings que usan el archivo cambian con él
+Rename the file in the map. The briefings that play it also use the new name.	Cambia el nombre del archivo en el mapa. Los briefings que lo reproducen también usan el nombre nuevo.
 Sounds of the game	Sonidos del juego
 StarDraft 2 found no game sounds (Options > Program options: StarCraft folder)	StarDraft 2 no encontró sonidos del juego (Opciones > Opciones del programa: carpeta de StarCraft)
-No game sound has these words	Ningún sonido del juego contiene estas palabras
+No game sound name contains the search text	Ningún nombre de sonido del juego contiene el texto de búsqueda
 Briefings	Briefings
 Open it in the Briefing workspace	Abrir en el espacio de trabajo de Briefing
 Search the game's sounds	Buscar en los sonidos del juego
@@ -1306,24 +1305,24 @@ New ground	Terreno nuevo
 Change the size and tileset	Cambiar el tamaño y el tileset
 Reset	Restablecer
 Set the new size and tileset in the map (one undo step)	Aplica el nuevo tamaño y tileset en el mapa (un paso de deshacer)
-The map's size and tileset again	El tamaño y el tileset del mapa otra vez
+Discard the changes that are not applied and show the map's values	Descarta los cambios sin aplicar y muestra los valores del mapa
 Map properties	Propiedades del mapa
 Players and forces	Jugadores y fuerzas
 Changes that are not applied	Cambios sin aplicar
 Apply	Aplicar
 Revert	Revertir
 Set these values in the map (one undo step)	Aplica estos valores en el mapa (un paso de deshacer)
-Show the map's values again	Muestra otra vez los valores del mapa
-Map data: cannot read the game's units.dat, weapons.dat, upgrades.dat and techdata.dat	Datos del mapa: no se pueden leer units.dat, weapons.dat, upgrades.dat y techdata.dat del juego
+Discard the changes that are not applied	Descarta los cambios sin aplicar
+Could not read the game data files units.dat, weapons.dat, upgrades.dat and techdata.dat. Select the StarCraft folder in Options > Program options, then restart StarDraft 2.	No se pudieron leer los archivos de datos del juego units.dat, weapons.dat, upgrades.dat y techdata.dat. Seleccione la carpeta de StarCraft en Opciones > Opciones del programa y reinicie StarDraft 2.
 These pages have changes that are not applied: 	Estas páginas tienen cambios sin aplicar: 
 .\n\nApply them to the map?	.\n\n¿Desea aplicarlos al mapa?
 &Apply	&Aplicar
 Do &not apply	&No aplicar
 Changed by the test	Cambiado por la prueba
 The map becomes 	El mapa pasa a tener 
- tiles. What is outside the new size goes.\r\n	 casillas. Lo que queda fuera del nuevo tamaño se elimina.\r\n
+ tiles. StarDraft 2 deletes the parts of the map outside the new size.\r\n	 casillas. StarDraft 2 elimina las partes del mapa fuera del nuevo tamaño.\r\n
 Each terrain becomes the 	Cada terreno pasa a ser el terreno del mismo nombre o del mismo tipo (por ejemplo agua o terreno alto) del tileset 
- terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. The doodads go (each tileset has its own).\r\n	 . Si no hay ninguno, pasa a ser el terreno del terreno nuevo. Los decorados se eliminan (cada tileset tiene los suyos).\r\n
+ terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. StarDraft 2 deletes the doodads, because each tileset has its own doodads.\r\n	del mismo nombre o del mismo tipo (por ejemplo agua o terreno alto). Si no hay ninguno, pasa a ser el terreno nuevo. StarDraft 2 elimina los decorados, porque cada tileset tiene sus propios decorados.\r\n
 The map keeps its size and tileset: 	El mapa conserva su tamaño y tileset: 
 Set the map properties: 	Establecer las propiedades del mapa: 
 Set the map properties	Establecer las propiedades del mapa
@@ -1378,15 +1377,15 @@ The terrain, tiles and doodads of a map that you have (.scm or .scx); no units, 
 A copy of a map that you have (.scm or .scx): its terrain, units, triggers and settings	Una copia de un mapa que tenga (.scm o .scx): su terreno, unidades, disparadores y ajustes
 Land, water and high ground from a seed and the settings next to the preview	Tierra, agua y terreno alto a partir de una semilla y los ajustes junto a la vista previa
 The terrain on the whole map	El terreno de todo el mapa
-The new map gets the map's size, tileset, terrain and doodads. The file stays as it is.	El mapa nuevo recibe el tamaño, el tileset, el terreno y los decorados del mapa. El archivo no cambia.
-StarDraft 2 copies the map into the project folder. The file stays as it is.	StarDraft 2 copia el mapa en la carpeta del proyecto. El archivo no cambia.
+The new map gets the map's size, tileset, terrain and doodads. StarDraft 2 does not change the map's file.	El mapa nuevo recibe el tamaño, el tileset, el terreno y los decorados del mapa. StarDraft 2 no cambia el archivo del mapa.
+StarDraft 2 copies the map into the project folder. StarDraft 2 does not change the original file.	StarDraft 2 copia el mapa en la carpeta del proyecto. No cambia el archivo original.
 Seed	Semilla
 New seed	Nueva semilla
 Symmetry	Simetría
 Randomize	Aleatorio
 New amounts, shape and seed	Nuevas cantidades, forma y semilla
 Randomize all	Todo aleatorio
-The tileset too (not the size)	También el tileset (no el tamaño)
+Randomize the tileset, the amounts, the shape and the seed (not the size)	Aleatorizar el tileset, las cantidades, la forma y la semilla (no el tamaño)
 Amounts	Cantidades
 Shape	Forma
 Make the project folder and its map	Crear la carpeta del proyecto y su mapa
@@ -1422,18 +1421,18 @@ The version, Windows, the video card, where it crashed and the last log lines; n
 Working folder	Carpeta de trabajo
 The working folder: where new projects go	La carpeta de trabajo: donde se guardan los proyectos nuevos
 New projects go to 	Los proyectos nuevos se guardan en 
-Select the folder where new projects go	Seleccione la carpeta donde se guardan los proyectos nuevos
+Select the folder where StarDraft 2 makes new projects	Seleccione la carpeta donde StarDraft 2 crea los proyectos nuevos
 Documents\\StarDraft	Documents\\StarDraft
-New projects go here. A project that you open stays where it is.	Los proyectos nuevos se guardan aquí. Un proyecto que abra permanece donde está.
+StarDraft 2 makes new projects in this folder. It does not move a project that you open from another folder.	StarDraft 2 crea los proyectos nuevos en esta carpeta. No mueve un proyecto que abra desde otra carpeta.
 Select the StarCraft: Remastered folder	Seleccione la carpeta de StarCraft: Remastered
 From the next start: 	Desde el próximo inicio: 
 A new folder is used from the next start	Se usará una carpeta nueva desde el próximo inicio
 Program options	Opciones del programa
 Expansion	Expansión
-%s: %d buildable tiles, %d mineral fields (%u), %d geysers (%u)	%s: %d casillas construibles, %d campos de minerales (%u), %d géiseres (%u)
+%s: %d buildable tiles, %d mineral fields (%u minerals in total), %d geysers (%u gas in total)	%s: %d casillas construibles, %d campos de minerales (%u minerales en total), %d géiseres (%u de gas en total)
 Ground path from %s to %s: %.0f tiles (for a %hs)	Ruta terrestre de %s a %s: %.0f casillas (para un %hs)
 No ground path from %s to %s: units must fly or go by transport	No hay ruta terrestre de %s a %s: las unidades deben volar o ir en transporte
-Shaded: units cannot walk there. Each tint: a separate ground area. 	Sombreado: las unidades no pueden caminar allí. Cada tono: un área terrestre separada. 
+Shaded: units cannot walk there. Each tint marks a ground area that units cannot walk to from the largest area (no tint). 	Sombreado: las unidades no pueden caminar allí. Cada tono marca un área terrestre a la que las unidades no pueden llegar a pie desde el área más grande (sin tono). 
 Lines: the shortest ground paths between the start locations. 	Líneas: las rutas terrestres más cortas entre las ubicaciones iniciales. 
 Green tiles: buildable tiles near a base. Orange boxes: its resources.	Casillas verdes: casillas construibles cerca de una base. Cajas naranjas: sus recursos.
 The walkable ground does not show	El terreno transitable no se muestra
@@ -1445,8 +1444,8 @@ Linked 	Vinculado
  to the build	 a la compilación
 This code comes from the Data workspace. To remove it, undo the .dat edits.	Este código viene del espacio de trabajo Datos. Para quitarlo, deshaga las ediciones de .dat.
 Removed the link to 	Se quitó el vínculo con 
-. The file stays where it is.	. El archivo permanece donde está.
- from the build. The file stays in the folder.	 de la compilación. El archivo permanece en la carpeta.
+. StarDraft 2 does not delete the file.	. StarDraft 2 no elimina el archivo.
+ from the build. The file is still in the project folder.	 de la compilación. El archivo sigue en la carpeta del proyecto.
 euddraft found an error in 	euddraft encontró un error en 
 , line 	, línea 
 epScript (*.eps)*.epsScripts (*.eps;*.py)*.eps;*.pyAll files*.*	epScript (*.eps)*.epsScripts (*.eps;*.py)*.eps;*.pyTodos los archivos*.*
@@ -1477,7 +1476,7 @@ No samples: no script line ran each trigger cycle while epTrace looked	Sin muest
  samples on 	 muestras en 
  lines  ·  	 líneas  ·  
 Open the report	Abrir el informe
-Each script with the samples on each of its lines	Cada script con las muestras de cada una de sus líneas
+Open the report in Notepad, which shows how often epTrace found each script line running	Abrir el informe en el Bloc de notas, que muestra cuántas veces epTrace encontró cada línea del script en ejecución
  (click: the block in the Triggers workspace)	 (clic: el bloque en el espacio de trabajo Disparadores)
  (click: open the script)	 (clic: abrir el script)
 Hide the script's code	Ocultar el código del script
@@ -1492,7 +1491,7 @@ In the project folder	En la carpeta del proyecto
 Where Build writes the map	Dónde escribe el mapa Compilar
 Found by StarDraft 2	Encontrado por StarDraft 2
 Change…	Cambiar…
-The game's data StarDraft 2 reads	Los datos del juego que lee StarDraft 2
+The folder that StarDraft 2 reads game data from	La carpeta de la que StarDraft 2 lee los datos del juego
 Downloaded on the first build	Se descarga en la primera compilación
 Options	Opciones
 EUD Turbo	EUD Turbo
@@ -1532,22 +1531,22 @@ linked  ·  not found: Build stops	vinculado  ·  no encontrado: Compilar se det
 not found: Build stops	no encontrado: Compilar se detiene
 linked  ·  changed 	vinculado  ·  cambiado 
   after the last build	  después de la última compilación
-A linked file. StarDraft 2 builds it as it is and does not change it: 	Un archivo vinculado. StarDraft 2 lo compila tal como está y no lo modifica: 
+A linked file. StarDraft 2 does not copy or change it: 	Un archivo vinculado. StarDraft 2 no lo copia ni lo modifica: 
 Open in your editor	Abrir en su editor
 Show in folder	Mostrar en la carpeta
 Earlier	Anterior
 Comes from the Data workspace	Procede del espacio de trabajo Datos
-Remove link (the file stays)	Quitar vínculo (el archivo se conserva)
-Take it out of the build (the file stays)	Quitar de la compilación (el archivo se conserva)
+Remove the link. StarDraft 2 does not delete the file.	Quitar el vínculo. StarDraft 2 no elimina el archivo.
+Remove from the build (the file stays in the project folder)	Quitar de la compilación (el archivo permanece en la carpeta del proyecto)
 New script	Nuevo script
 Link a file…	Vincular un archivo…
-An .eps file from anywhere on disk. StarDraft 2 builds it as it is and does not change it.	Un archivo .eps de cualquier lugar del disco. StarDraft 2 lo compila tal como está y no lo modifica.
+Add an .eps or .py file from anywhere on disk to the build. StarDraft 2 does not copy or change it.	Añadir un archivo .eps o .py de cualquier lugar del disco a la compilación. StarDraft 2 no lo copia ni lo modifica.
 Could not read the sound	No se pudo leer el sonido
 Sounds (WAV, OGG)*.wav;*.ogg	Sonidos (WAV, OGG)*.wav;*.ogg
 Could not read the sound: 	No se pudo leer el sonido: 
 Imported 	Importado 
 Game	Juego
-A sound of the game…	Un sonido del juego…
+Select a game sound…	Seleccionar un sonido del juego…
 Game sound	Sonido del juego
 Null tiles	Tiles nulos
 Doodad #	Decorado #
@@ -1580,9 +1579,9 @@ It acts for the current player. Put it in For each player.	Actúa para el jugado
 It holds up the other triggers of the player until it is complete.	Detiene los demás disparadores del jugador hasta que termina.
 It reads or writes game memory at an address.	Lee o escribe la memoria del juego en una dirección.
 It goes through units, up to 1,700 each time it runs.	Recorre unidades, hasta 1.700 cada vez que se ejecuta.
-Inside it, "the unit" is the unit of this round.	Dentro de él, "la unidad" es la unidad de esta vuelta.
-Inside it, counter is the number of this round.	Dentro de él, el contador es el número de esta vuelta.
-Inside it, the current player is the player of this round.	Dentro de él, el jugador actual es el jugador de esta vuelta.
+Inside it, "the unit" is the unit that the loop handles now.	Dentro de él, "la unidad" es la unidad que el bucle recorre ahora.
+Inside it, counter is the round number (0 is the first), the number, or the index of the item.	Dentro de él, el contador es el número de la vuelta (la primera es 0), el número o el índice del elemento.
+Inside it, the current player is the player that the current run is for.	Dentro de él, el jugador actual es el jugador al que va dirigida la ejecución actual.
 Its value is not the same on each computer. Use it only for what a player sees or hears.	Su valor no es el mismo en cada equipo. Úselo solo para lo que un jugador ve o oye.
   ·  advanced	  ·  avanzado
 What it does	Qué hace
@@ -1641,7 +1640,6 @@ Select a unit group	Seleccione un grupo de unidades
 Select a property	Seleccione una propiedad
 : StarDraft 2 cannot build this block yet	: StarDraft 2 aún no puede compilar este bloque
 A value from the game is a number. You cannot use it here	Un valor del juego es un número. No se puede usar aquí
-). Type it as a number	). Escríbalo como número
 Use a player number from 0 to 26 (Player 1 is 0)	Use un número de jugador de 0 a 26 (el Jugador 1 es 0)
 " is not a player, a variable or a number	" no es un jugador, una variable ni un número
 " is not a 	" no es un 
@@ -1679,7 +1677,6 @@ There is no variable with the name 	No hay ninguna variable con el nombre
 Reads or writes game memory at an address. Remastered permits only some addresses	Lee o escribe la memoria del juego en una dirección. Remastered solo permite algunas direcciones
  is not the same on each computer. Use it in Run local block, or only for what a player sees or hears: if it changes the game, the game desyncs	 no es igual en cada equipo. Úselo en Ejecutar bloque local, o solo para lo que un jugador ve o oye: si cambia el juego, el juego se desincroniza
 Use Player 1 to Player 8, or the current player	Use Jugador 1 a Jugador 8, o el jugador actual
-Triggers do not run each second, so they can miss Exactly. Use At least or At most	Los disparadores no se ejecutan cada segundo, por lo que pueden omitir Exactamente. Use Al menos o Como máximo
 Unknown condition 	Condición desconocida 
  has no conditions	 no tiene condiciones
 Type the chat text	Escriba el texto del chat
@@ -1694,7 +1691,7 @@ Compares 	Compara
  as a number	 como número
  is not a number. Use set to	 no es un número. Use establecer a
 Unknown action 	Acción desconocida 
-The text has a value that is not there. Insert it again	El texto tiene un valor que no existe. Insértelo de nuevo
+A value in the text is missing. Insert it again.	Falta un valor del texto. Insértelo de nuevo.
 Select a text variable	Seleccione una variable de texto
  is not a text variable	 no es una variable de texto
 Select a text of the game	Seleccione un texto del juego
@@ -1714,7 +1711,7 @@ Run local block: StarDraft 2 cannot tell what 	Ejecutar bloque local: StarDraft 
  changes. Change only what this player sees, or the game desyncs	 . Cambie solo lo que ve este jugador, o el juego se desincroniza
  changes the game on this computer only: the other computers do not do it, and the game desyncs. Put it outside	 cambia el juego solo en este equipo: los demás equipos no lo hacen y el juego se desincroniza. Colóquelo fuera
  goes on only while its trigger runs again: in On map start it runs one time. Put it in a trigger in On every trigger cycle	 continúa solo mientras su disparador se ejecuta de nuevo: en Al iniciar el mapa se ejecuta una vez. Colóquelo en un disparador de En cada ciclo de disparadores
-Put Pause in a Sequence: outside one, it does nothing. After a delay waits without a Sequence	Ponga Pausa en una Secuencia: fuera de una, no hace nada. Después de una espera espera sin una Secuencia
+Put Pause in a Sequence: outside one, it does nothing. To wait outside a Sequence, use After a delay.	Ponga Pausa en una Secuencia: fuera de una, no hace nada. Para esperar fuera de una Secuencia, use Después de una espera.
 Put Leave the loop in a loop (Repeat, While, For each)	Ponga Salir del bucle en un bucle (Repetir, Mientras, Para cada)
  in For each unit changes the units that the loop goes through: the loop can miss units or stop. Do it after the loop, or change only "the unit"	 en Para cada unidad cambia las unidades que recorre el bucle: el bucle puede omitir unidades o detenerse. Hágalo después del bucle, o cambie solo "la unidad"
 The loop goes through the units of one player. A unit that goes to another player leaves that list: the loop can miss units or stop. Loop through the units of all players	El bucle recorre las unidades de un jugador. Una unidad que pasa a otro jugador sale de esa lista: el bucle puede omitir unidades o detenerse. Recorra las unidades de todos los jugadores
@@ -1756,7 +1753,7 @@ Add to favorites	Agregar a favoritos
 Remove from favorites	Quitar de favoritos
 Show the favorites	Mostrar los favoritos
 &Fill selection with the selected tiles	&Rellenar la selección con las fichas seleccionadas
-Fill: in the selection, all of it; else the connected tiles of one value. Several tiles selected in the list: each tile at random. Shift+click: every tile of that value (in the selection, if there is one).	Rellenar: en la selección, toda ella; si no, las fichas conectadas de un valor. Varias fichas seleccionadas en la lista: cada ficha al azar. Mayús+clic: todas las fichas de ese valor (en la selección, si hay una).
+Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, each filled tile gets one of them at random.	Relleno: haga clic dentro de la selección para rellenarla entera. Haga clic fuera de la selección para rellenar los tiles conectados iguales al tile en el que hace clic. Shift+clic rellena todos los tiles iguales a ese tile (dentro de la selección, si la hay). Con varios tiles seleccionados en la lista de Tiles, cada tile rellenado recibe uno de ellos al azar.
 Crash reports	Informes de errores
 Ask	Preguntar
 Do not send	No enviar
@@ -1803,7 +1800,7 @@ Maps	Mapas
 Open maps with StarDraft 2	Abrir mapas con StarDraft 2
 Make StarDraft 2 the program that opens .scm and .scx maps	Hacer de StarDraft 2 el programa que abre los mapas .scm y .scx
 Maps (.scm, .scx) open with StarDraft 2	Los mapas (.scm, .scx) se abren con StarDraft 2
-Open .scm and .scx maps with StarDraft 2 when you double-click them? Program options > Maps changes this later.	¿Abrir los mapas .scm y .scx con StarDraft 2 al hacer doble clic? Opciones del programa > Mapas lo cambia más tarde.
+Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Program options > Maps.	¿Abrir los mapas .scm y .scx con StarDraft 2 al hacer doble clic? Puede hacer que StarDraft 2 los abra más tarde en Opciones del programa > Mapas.
 Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.	Windows conserva el programa que eligió para los mapas .scm o .scx. En Aplicaciones predeterminadas, busque .scm y .scx y seleccione StarDraft 2.
 Default apps	Aplicaciones predeterminadas
 StarDraft 2 shows the new language after a restart. Restart now? Your open maps and projects open again.	StarDraft 2 muestra el nuevo idioma después de reiniciar. ¿Reiniciar ahora? Sus mapas y proyectos abiertos se abren de nuevo.
@@ -1814,3 +1811,5 @@ Start StarDraft 2 again in the new language. Your open maps and projects open ag
 The new language shows after a restart	El nuevo idioma se muestra después de reiniciar
 A new language shows after a restart	Un nuevo idioma se muestra después de reiniciar
 Text color	Color del texto
+Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, each tile of the brush gets one of the selected tiles at random.	Pincel: coloca el tile seleccionado en la lista Tiles, con el tamaño y la forma del pincel. Con varios tiles seleccionados, cada tile del pincel recibe uno de los tiles seleccionados al azar.
+. At the next start, StarDraft 2 asks if you want to send the crash report.	. En el próximo inicio, StarDraft 2 le pregunta si quiere enviar el informe de fallo.

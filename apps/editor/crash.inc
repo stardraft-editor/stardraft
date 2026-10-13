@@ -153,7 +153,7 @@ LONG WINAPI onCrash(EXCEPTION_POINTERS* ep) {
         if (gCrashReports == 2) std::ofstream(dir / "sent") << "not sent: crash reports are off";
         MessageBoxW(nullptr,
                     (L"StarDraft 2 stopped because of an error. The crash report is in " + dir.wstring() +
-                     (gCrashReports == 2 ? L" (crash reports are off)." : L". At the next start, StarDraft 2 asks if it can send it."))
+                     (gCrashReports == 2 ? L" (crash reports are off)." : L". At the next start, StarDraft 2 asks if you want to send the crash report."))
                         .c_str(),
                     L"StarDraft 2 stopped", MB_ICONERROR | MB_TOPMOST);
         return EXCEPTION_EXECUTE_HANDLER;

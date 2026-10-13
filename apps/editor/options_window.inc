@@ -191,14 +191,14 @@ void optionsPaint(HWND hwnd) {
         ui::buttonsRight(mem, l.colRight, by,
                          {{browse, ui::Tone::Normal,
                            [hwnd] {
-                               const std::wstring f = pickFolderTitled(L"The working folder: where new projects go");
+                               const std::wstring f = pickFolderTitled(L"Working folder");
                                if (f.empty()) return;
                                gProjectsFolder = fs::path(f).make_preferred().wstring();
                                saveRecent();
                                setMessage(L"New projects go to " + gProjectsFolder);
                                InvalidateRect(hwnd, nullptr, FALSE);
                            },
-                           L"Select the folder where new projects go"},
+                           L"Select the folder where StarDraft 2 makes new projects"},
                           {def, ui::Tone::Normal,
                            [hwnd] {
                                gProjectsFolder.clear();
@@ -209,7 +209,7 @@ void optionsPaint(HWND hwnd) {
                            L"Documents\\StarDraft"}});
         gOptions.parts["workfolder"] = field;
         y += rowH;
-        note(l.x0, y - scale(4), L"New projects go here. A project that you open stays where it is.");
+        note(l.x0, y - scale(4), L"StarDraft 2 makes new projects in this folder. It does not move a project that you open from another folder.");
         y += scale(20) + pad;
     }
 

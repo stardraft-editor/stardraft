@@ -144,8 +144,8 @@ bool projectRemoveScript(const std::string& name) {
     }
     pr->removeSection(name);
     triggersSave(*pr, {});
-    setMessage(EudProject::isLinked(name) ? L"Removed the link to " + widen(name) + L". The file stays where it is."
-                                          : L"Removed " + widen(name) + L" from the build. The file stays in the folder.");
+    setMessage(EudProject::isLinked(name) ? L"Removed the link to " + widen(name) + L". StarDraft 2 does not delete the file."
+                                          : L"Removed " + widen(name) + L" from the build. The file is still in the project folder.");
     return true;
 }
 // A failed build: when euddraft names a script's module and line (a linked file, a file it imports, scripts/...), the
@@ -398,7 +398,7 @@ int paintEpTrace(HDC mem, const FormLayout& l, int y, int rowH, const EudProject
         if (has)
             ui::smallButton(mem, l.colRight - ui::textWidth(mem, L"Open the report") - scale(20), y, rowH, L"Open the report", [f = pr.traceReport()] {
                 ShellExecuteW(app.main, L"open", L"notepad.exe", (L"\"" + f.wstring() + L"\"").c_str(), nullptr, SW_SHOWNORMAL);
-            }, L"Each script with the samples on each of its lines");
+            }, L"Open the report in Notepad, which shows how often epTrace found each script line running");
     }
     y += rowH + scale(4);
     if (!has || gProj.report.lines.empty()) return y + scale(20);
@@ -517,7 +517,7 @@ void paintProjectPage(HWND hwnd) {
                                                                                              chooseInstallFolder();
                                                                                              projectFormRefresh();
                                                                                          }}},
-            L"The game's data StarDraft 2 reads");
+            L"The folder that StarDraft 2 reads game data from");
         const auto use = euddraft::find({});
         row(L"euddraft", use ? widen(use->version) + L"   " + fs::path(use->exe).parent_path().make_preferred().wstring() : L"Downloaded on the first build", nullptr, {});
         y += scale(12);
@@ -622,7 +622,7 @@ void paintProjectPage(HWND hwnd) {
                 SetTextColor(mem, kDim);
                 RECT a{r.right - scale(200), r.top, r.right - scale(40), r.bottom};
                 DrawTextW(mem, (L"at " + widen(at)).c_str(), -1, &a, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
-                ui::rowActions(mem, r, {{UiIcon::Close, L"Take it out", [i] {
+                ui::rowActions(mem, r, {{UiIcon::Close, L"Remove from the list", [i] {
                                              EudProject* p = activeProject();
                                              if (!p) return;
                                              auto ls = p->sectionLines("dataDumper");
@@ -691,7 +691,7 @@ void paintProjectPage(HWND hwnd) {
             ui::listRow(mem, r, on, ui::hot(r));
             std::wstring tip;
             if (script)
-                tip = (linked ? L"A linked file. StarDraft 2 builds it as it is and does not change it: " : L"") + fs::path(file).make_preferred().wstring();
+                tip = (linked ? L"A linked file. StarDraft 2 does not copy or change it: " : L"") + fs::path(file).make_preferred().wstring();
             hitsOut().push_back({r, nullptr, [name] {
                                      gProj.selected = name;
                                      InvalidateRect(gProj.wnd, nullptr, FALSE);
@@ -735,8 +735,8 @@ void paintProjectPage(HWND hwnd) {
             acts.push_back({UiIcon::MoveDown, L"Later", [name] { projectMoveScript(name, 1); }, ui::Tone::Normal, false, movable && idx + 1 < gProj.sections.size()});
             acts.push_back({UiIcon::Close,
                             generated ? L"Comes from the Data workspace"
-                            : linked  ? L"Remove link (the file stays)"
-                                      : L"Take it out of the build (the file stays)",
+                            : linked  ? L"Remove the link. StarDraft 2 does not delete the file."
+                                      : L"Remove from the build (the file stays in the project folder)",
                             [name] { projectRemoveScript(name); }, ui::Tone::Danger, false, !generated});
             ui::rowActions(mem, r, acts, on);
             y += rowH;
@@ -748,7 +748,7 @@ void paintProjectPage(HWND hwnd) {
             projectFormRefresh();
         });
         ui::smallButton(mem, ax + scale(8), y, rowH, L"Link a file\x2026", [] { projectAddExistingScript(); },
-                 L"An .eps file from anywhere on disk. StarDraft 2 builds it as it is and does not change it.");
+                 L"Add an .eps or .py file from anywhere on disk to the build. StarDraft 2 does not copy or change it.");
         y += rowH + scale(24);
         if (pr->traceBuild() || projectTraceReport(*pr)) y = paintEpTrace(mem, l, y, rowH, *pr, rel);
     }

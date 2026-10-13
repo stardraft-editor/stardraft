@@ -2157,7 +2157,7 @@ struct Gen {
                 } else if (gameValues && p.value >= 0 && p.value < int(gameValues->size())) {
                     values += ", " + valueBlock((*gameValues)[size_t(p.value)]);
                 } else {
-                    issue(TriggerIssue::Level::Error, &c, d->param("text"), "The text has a value that is not there. Insert it again");
+                    issue(TriggerIssue::Level::Error, &c, d->param("text"), "A value in the text is missing. Insert it again.");
                     values += ", 0";
                 }
             }
@@ -2500,7 +2500,7 @@ struct Gen {
             return out + "}\n";
         }
         if (id == "act.pause") {  // its place in a Sequence makes its code (above)
-            issue(TriggerIssue::Level::Error, &c, -1, "Put Pause in a Sequence: outside one, it does nothing. After a delay waits without a Sequence");
+            issue(TriggerIssue::Level::Error, &c, -1, "Put Pause in a Sequence: outside one, it does nothing. To wait outside a Sequence, use After a delay.");
             return std::string();
         }
         if (id == "act.after" || id == "act.every") {

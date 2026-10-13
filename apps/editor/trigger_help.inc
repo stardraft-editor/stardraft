@@ -30,9 +30,9 @@ std::vector<std::wstring> blockEffectTexts(const TriggerDef& d) {
     if (d.has("blocking")) out.push_back(L"It holds up the other triggers of the player until it is complete.");
     if (d.has("memory")) out.push_back(L"It reads or writes game memory at an address.");
     if (d.has("unitloop")) out.push_back(L"It goes through units, up to 1,700 each time it runs.");
-    if (d.has("theunit")) out.push_back(L"Inside it, \"the unit\" is the unit of this round.");
-    if (d.has("counter")) out.push_back(L"Inside it, counter is the number of this round.");
-    if (d.has("curplayer")) out.push_back(L"Inside it, the current player is the player of this round.");
+    if (d.has("theunit")) out.push_back(L"Inside it, \"the unit\" is the unit that the loop handles now.");
+    if (d.has("counter")) out.push_back(L"Inside it, counter is the round number (0 is the first), the number, or the index of the item.");
+    if (d.has("curplayer")) out.push_back(L"Inside it, the current player is the player that the current run is for.");
     if (d.has("differs")) out.push_back(L"Its value is not the same on each computer. Use it only for what a player sees or hears.");
     return out;
 }

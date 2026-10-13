@@ -415,7 +415,7 @@ int capacityBar(HDC dc, const FormLayout& l, int y, size_t used, size_t room, co
     RECT t{r.right + scale(12), y, l.colRight, y + l.rowH};
     SetTextColor(dc, over ? kBad : kDim);
     DrawTextW(dc, num, -1, &t, DT_SINGLELINE | DT_VCENTER | DT_RIGHT);
-    hitsOut().push_back({{l.x0, y, l.colRight, y + l.rowH}, nullptr, nullptr, what + (over ? L". Too much: Build stops." : L"."), IDC_ARROW, {}});
+    hitsOut().push_back({{l.x0, y, l.colRight, y + l.rowH}, nullptr, nullptr, what + (over ? L". The total is more than the game has room for. Build stops." : L"."), IDC_ARROW, {}});
     return y + l.rowH;
 }
 
@@ -645,7 +645,7 @@ int paintUnitDisplay(HDC dc, int u, int y) {
                 gExtras.buttons.setUnitSet(u, std::stoi(picked));
                 extrasChanged();
             },
-            L"The command card the unit shows. Its own set is the unit's number.", argIcon("buttons", set), set, openEntry("buttons", set));
+            L"The command card that the unit shows. The default value is the set with the unit's number.", argIcon("buttons", set), set, openEntry("buttons", set));
     y += l.rowH;
     // The status panel: one of the kinds (two functions of the game's code).
     const uint32_t st = gExtras.looks.status(u), di = gExtras.looks.display(u);
@@ -667,7 +667,7 @@ int paintUnitDisplay(HDC dc, int u, int y) {
                     n.status = own ? 0 : k.status, n.display = own ? 0 : k.display;
                 });
             },
-            L"What the panel at the bottom shows when the unit is selected: a building's, a unit's, a transport's (its cargo), and so on");
+            L"What the panel at the bottom shows when the unit is selected, for example a building's, a unit's or a transport's (its cargo)");
     y += l.rowH;
     // Wireframes: the unit whose picture shows (its own by default); group and transport have fewer.
     struct Wire {
@@ -1003,7 +1003,7 @@ void paintButtonsForm(HDC dc, RECT rc, int& y) {
                     if (showListPicker(cond ? L"Shown when" : L"Action", items, std::to_string(fn), belowBox(r), picked))
                         edit([&](Button& x) { (cond ? x.condition : x.action) = uint32_t(std::stoul(picked)); });
                 },
-                nullptr, -1, nullptr, cond ? L"When the game shows the button (a function of the game)" : L"What the button does (a function of the game)");
+                nullptr, -1, nullptr, cond ? L"The game's condition for showing the button" : L"Select the action that the button performs");
             if (d && d->arg) {
                 const uint16_t v = cond ? b.conditionArg : b.actionArg;
                 const char* kind = d->arg;
@@ -1028,7 +1028,7 @@ void paintButtonsForm(HDC dc, RECT rc, int& y) {
         for (int which = 0; which < 2; ++which) {
             const uint16_t s = which ? b.disabledString : b.enabledString;
             const bool strChanged = s && gExtras.strings.changed(s - 1);
-            fieldLabel(dc, l, y, which ? L"Tooltip, not usable" : L"Tooltip", (sb && (which ? sb->disabledString != s : sb->enabledString != s)) || strChanged);
+            fieldLabel(dc, l, y, which ? L"Tooltip when grayed" : L"Tooltip", (sb && (which ? sb->disabledString != s : sb->enabledString != s)) || strChanged);
             RECT box{l.x0 + l.labelW, y + scale(2), l.colRight - scale(30), y + l.rowH - scale(2)};
             const bool hot = mouseIn(box);
             // The game's text colors read on a dark ground only: the box stays dark in the light theme.
@@ -1057,7 +1057,7 @@ void paintButtonsForm(HDC dc, RECT rc, int& y) {
                                      POINT pt{box.left, box.bottom + scale(4)};
                                      ClientToScreen(gData.form, &pt);
                                      std::string out = body;
-                                     if (!editGameText(which ? L"Tooltip, not usable" : L"Tooltip", out, pt)) return;
+                                     if (!editGameText(which ? L"Tooltip when grayed" : L"Tooltip", out, pt)) return;
                                      if (crlf) {  // the string's own line ends
                                          std::string o;
                                          for (char ch : out) ch == '\n' ? o += "\r\n" : o += ch;
@@ -1219,7 +1219,7 @@ void buttonPopPaint(HWND hwnd) {
     }
     for (int which = 0; which < 2; ++which) {
         const uint16_t s = which ? b.disabledString : b.enabledString;
-        row(which ? L"Tooltip, not usable" : L"Tooltip", s ? statString(s) : L"None", [which](RECT r) {
+        row(which ? L"Tooltip when grayed" : L"Tooltip", s ? statString(s) : L"None", [which](RECT r) {
             std::string picked;
             Button& x = gButtonPop->b;
             if (showListPicker(L"Tooltip", entryItems("strings", true), std::to_string(which ? x.disabledString : x.enabledString), belowBox(r), picked))
@@ -1495,7 +1495,7 @@ void paintStringsForm(HDC dc, RECT rc, int& y) {
                     std::string picked;
                     if (showListPicker(L"Type", items, "", belowBox(r), picked)) setPrefix(has ? hot : 'a', std::stoi(picked));
                 },
-                L"What the tooltip shows with the text: the cost of a unit, an upgrade or a technology", nullptr, has ? type : -1);
+                L"The kind of button. For a unit, an upgrade or a technology, the game's tooltip shows the cost.", nullptr, has ? type : -1);
         y += l.rowH + scale(8);
     }
     // Raw: every character of the string as it is stored (a button's hotkey and type characters, codes as <01>).
@@ -1523,7 +1523,7 @@ void paintStringsForm(HDC dc, RECT rc, int& y) {
     y += editH + scale(6);
     y = colorCodeButtons(dc, l, y, gExtras.textEdit, [] { gExtras.textDirty = true; });
     // Room: the game copies the strings over its own.
-    y = capacityBar(dc, l, y, gExtras.strings.build().size(), gExtras.strings.capacity(), L"Size of all strings together; they must fit in the game's copy");
+    y = capacityBar(dc, l, y, gExtras.strings.build().size(), gExtras.strings.capacity(), L"Size of all strings together. The game has room for at most the number after the slash.");
     if (l.twoCol) y = std::max(y, picBottom);
     (void)top;
     y += scale(14);

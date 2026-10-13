@@ -107,7 +107,7 @@ inline void askMapsDefault(HWND owner) {
     if (askedMapsDefault()) return;  // (two maps opened at once: one question)
     const DWORD one = 1;
     RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"AskedMapsDefault", REG_DWORD, &one, sizeof one);
-    if (themedMessageBox(owner, L"Open .scm and .scx maps with StarDraft 2 when you double-click them? Program options > Maps changes this later.",
+    if (themedMessageBox(owner, L"Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Program options > Maps.",
                          L"StarDraft 2", MB_YESNO | MB_ICONQUESTION) == IDYES)
         makeMapsDefault(owner);
 }

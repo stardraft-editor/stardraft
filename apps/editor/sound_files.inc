@@ -199,7 +199,7 @@ bool pickSound(POINT at, const std::string& current, std::string& out) {
     std::vector<ListPickItem> items{{L"None", L"", ""}};
     for (const auto& w : mapSounds()) items.push_back({widen(w), app.ed->archiveFile(w) ? L"Map" : L"Game", w});
     items.push_back({L"Import sounds\x2026", L"", "\x01"});
-    items.push_back({L"A sound of the game\x2026", L"", "\x02"});
+    items.push_back({L"Select a game sound\x2026", L"", "\x02"});
     std::string picked;
     if (!showListPicker(L"Sound", items, current, at, picked)) return false;
     if (picked == "\x01") {
