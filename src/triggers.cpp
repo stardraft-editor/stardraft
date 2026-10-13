@@ -167,6 +167,8 @@ std::map<std::string, TriggerType> makeTypes() {
         add("ButtonAction", "what it does", TriggerPicker::Choice, acts, "A function of the game that the button runs.");
     }
     add("Researched", "researched or not", TriggerPicker::Choice, {{"1", "researched"}, {"0", "not researched"}});
+    add("VitalChange", "increase or decrease", TriggerPicker::Choice, {{"1", "increase"}, {"0", "decrease"}});
+    add("UnitVital", "hit points, shields or energy", TriggerPicker::Choice, {{"0", "hit points"}, {"1", "shields"}, {"2", "energy"}});
     std::vector<TriggerChoice> ids;
     for (int i = 1; i <= 12; ++i) ids.push_back({"P" + std::to_string(i), "Player " + std::to_string(i)});
     ids.push_back({"getcurpl()", "the current player"});
@@ -2010,6 +2012,11 @@ struct Gen {
         const std::string& id = d->id;
         loopChecks(c, *d);
         if (id == "act.donothing") return "";
+        if (id == "act.unitvital") {  // up to the unit's most; down to 0 (no hit points: the unit dies)
+            helpers.insert("vital"), helpers.insert("upgrade");
+            return "sd_vital(" + unitRef(c, d->param("unit"), raw(c, *d, "unit")) + ", " + raw(c, *d, "vital") + ", " + raw(c, *d, "mod") + ", " +
+                   arg(c, *d, "n") + ");" + tag + "\n";
+        }
         if (id == "act.comment") return "// " + raw(c, *d, "text") + "\n";
         const bool all = raw(c, *d, "to") == "all";
         if (id == "act.display") return std::string(all ? "DisplayTextAll(" : "DisplayText(") + arg(c, *d, "text") + ");" + tag + "\n";
@@ -2847,6 +2854,23 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
         if (g.helpers.count("tech"))
             out += "function sd_techAddr(pl, t) {  // whether a player has researched a technology (0-23, then 24-43)\n    if (t < 24) return 0x58CF44 + pl * 24 + t;\n"
                    "    return 0x58F140 + pl * 20 + (t - 24);\n}\n";
+        if (g.helpers.count("vital"))
+            out += "function sd_maxEnergy(u: CUnit) {  // as StarCraft: 250 for a hero or with the unit's energy upgrade, else 200\n"
+                   "    const t = u.unitType;\n    if (t.baseProperty.Hero) return 250 * 256;\n    var g = -1;\n"
+                   "    if (t == 1) g = 21;\n    else if (t == 8) g = 22;\n    else if (t == 9) g = 19;\n    else if (t == 12) g = 23;\n"
+                   "    else if (t == 34) g = 51;\n    else if (t == 45) g = 31;\n    else if (t == 46) g = 32;\n    else if (t == 67) g = 40;\n"
+                   "    else if (t == 71) g = 44;\n    else if (t == 60) g = 47;\n    else if (t == 63) g = 49;\n"
+                   "    if (g >= 0 && bread(sd_upgradeAddr(u.owner, g)) > 0) return 250 * 256;\n    return 200 * 256;\n}\n"
+                   "function sd_vital(u: CUnit, kind, up, n) {  // kind 0 hit points, 1 shields, 2 energy; up 1 increase, 0 decrease\n"
+                   "    const d = n * 256;\n    var now = 0;\n    var most = 0;\n"
+                   "    if (kind == 0) { now = u.hp; most = u.unitType.maxHp; }\n"
+                   "    else if (kind == 1) { now = u.shield; most = u.unitType.maxShield * 256; }\n"
+                   "    else { now = u.energy; most = sd_maxEnergy(u); }\n"
+                   "    if (up) {\n        if (now >= most || most - now <= d) now = most;\n        else now += d;\n"
+                   "    } else if (now <= d || (kind == 0 && now - d < 256)) {\n"
+                   "        if (kind == 0) { u.die(); return; }  // no hit points: the unit dies\n        now = 0;\n"
+                   "    } else now -= d;\n"
+                   "    if (kind == 0) u.hp = now;\n    else if (kind == 1) u.shield = now;\n    else u.energy = now;\n}\n";
         if (g.helpers.count("max")) out += "function sd_max(a, b) {\n    if (a > b) return a;\n    return b;\n}\n";
         if (g.helpers.count("ldir"))
             out += "function sd_ldirX(d, a) {  // the x of a point d pixels away in direction a (0-255, 0 is up)\n    const x, y = lengthdir_256(d, a);\n    return x;\n}\n"

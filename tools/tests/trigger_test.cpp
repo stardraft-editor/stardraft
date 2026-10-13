@@ -396,7 +396,8 @@ int main(int argc, char** argv) {
         ifChat.lists[0] = {block("cond.chat", {"-help"}), block("cond.pname", {"P1", "\"Commander\""})};
         ifChat.lists[1] = {block("act.showtext", {"Type -go to start", "chat", "all"})};
         TriggerCall newUnits = make("act.foreachnewunit");
-                newUnits.lists[0] = {block("act.groupadd", {"the unit", "zerglings"})};
+                newUnits.lists[0] = {block("act.groupadd", {"the unit", "zerglings"}), block("act.unitvital", {"1", "the unit", "0", "20"}),
+                             block("act.unitvital", {"0", "the unit", "2", "5"})};
         TriggerCall group = make("act.foreachgroup");
         group.args[0] = "zerglings";
         group.lists[0] = {block("act.setloc", {"1", "100", "100"})};
@@ -779,6 +780,9 @@ int main(int argc, char** argv) {
               code.find("bwrite(sd_techAddr(getcurpl(), EncodeTech(\"Stim Packs\")), 1);") != std::string::npos && code.find("function sd_upgradeAddr(pl, u)") != std::string::npos &&
               code.find("(bread(sd_techAddr(getcurpl(), EncodeTech(\"Stim Packs\"))) != 0)") != std::string::npos && code.find("(bread(sd_upgradeAddr(getcurpl(), EncodeUpgrade(\"Terran Infantry Weapons\"))) < 3)") != std::string::npos,
           "upgrades and technology: set, add, check (with their helper functions)");
+    check(code.find(", 0, 1, 20);") != std::string::npos && code.find(", 2, 0, 5);") != std::string::npos && code.find("function sd_vital(u: CUnit") != std::string::npos &&
+              code.find("function sd_maxEnergy(u: CUnit)") != std::string::npos,
+          "a unit's hit points, shields or energy: increase (up to the most) and decrease (no hit points: dies)");
     check(code.find("(getcurpl() < P5)") != std::string::npos, "the current player compared with a player (inside For each player)");
     check(code.find("TrgPlayer(getcurpl()).terranSupplyMax = 300;") != std::string::npos &&
               code.find("TrgPlayer(getcurpl()).mineral += bread(sd_upgradeAddr(getcurpl(), 50));") != std::string::npos &&
