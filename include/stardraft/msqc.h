@@ -7,27 +7,6 @@
 
 namespace stardraft {
 
-struct MsqcEntry {
-    // Conditions, all of which must hold (joined by ";" in the file): KeyDown(A), KeyUp(A), KeyPress(A), a key name
-    // (key down), MouseDown(L|R|M), MouseUp(..), MousePress(..), NotTyping, mouse (the mouse position), val,<v>,
-    // xy,<v>[,<v>], 0x<address>[,<comparison>],<value>, or a condition written in epScript.
-    std::vector<std::string> conditions;
-    // What it sends: "<unit>, <amount>" (added to that death count of the player), "<array>, <amount>", a location
-    // (for mouse), or units for val / xy.
-    std::string result;
-    bool operator==(const MsqcEntry&) const = default;
-};
-
-struct MsqcConfig {
-    // Settings; empty: the plugin's default (Valkyrie, location 0, player 11, 128,128, debug on).
-    std::string unit, location, player, xy, debug;
-    std::vector<MsqcEntry> entries;
-    bool operator==(const MsqcConfig&) const = default;
-};
-
-MsqcConfig parseMsqc(const std::vector<std::string>& lines);
-std::vector<std::string> writeMsqc(const MsqcConfig& c);
-
 // The plugin's key names (VirtualKeyCode names), in a useful order for a picker.
 const std::vector<std::string>& msqcKeys();
 

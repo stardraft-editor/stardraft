@@ -509,15 +509,6 @@ bool mapPageCopyChanged(int kind, const MapPageCopy& c) {
 int mapPageHeaderH() { return scale(56) + (gMp.kind == kMpClassicSettings ? scale(40) : 0); }
 int mapPageFooterH() { return 0; }  // no Apply bar: every change goes into the map at once (GitHub feedback #102)
 
-// The bar's part of the page, for a repaint.
-void mapPageInvalidateBar() {
-    if (!gMp.wnd) return;
-    RECT rc;
-    GetClientRect(gMp.wnd, &rc);
-    rc.top = rc.bottom - mapPageFooterH();
-    InvalidateRect(gMp.wnd, &rc, FALSE);
-}
-
 void mapPageAutoApply();
 void mapPageCommit();
 void mapPageFlush();

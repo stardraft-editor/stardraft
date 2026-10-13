@@ -370,12 +370,6 @@ bool EudProject::writeGeneratedScript(const std::string& name, const std::string
 bool EudProject::turbo() const {
     return std::any_of(sections_.begin(), sections_.end(), [](const Section& s) { return s.name == "eudTurbo"; });
 }
-void EudProject::setTurbo(bool on) {
-    if (on == turbo()) return;
-    if (!on) return void(removeSection("eudTurbo"));
-    sections_.insert(sections_.begin() + (sections_.empty() ? 0 : 1), {"eudTurbo", {}});  // a plugin: right after [main]
-}
-
 bool EudProject::debugBuild() const { return mainValue("debug") == "1"; }
 void EudProject::setDebugBuild(bool on) {
     if (on == debugBuild() || sections_.empty()) return;

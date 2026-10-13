@@ -2563,7 +2563,7 @@ LRESULT CALLBACK tabsProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
 constexpr UINT WM_BUILD_LINE = WM_APP + 20, WM_BUILD_DONE = WM_APP + 21;
 bool gBuilding = false;
-HWND gBuildLog = nullptr, gBuildLogText = nullptr;
+HWND gBuildLogText = nullptr;
 HFONT gMonoFont = nullptr;
 
 HFONT monoFont() {
@@ -5709,7 +5709,6 @@ void handle(HDC dc, int x, int y, COLORREF c) {
     DeleteObject(b);
 }
 const double kPi = 3.14159265358979323846;
-RECT inflated(RECT bounds, int by) { return {bounds.left - by, bounds.top - by, bounds.right + by, bounds.bottom + by}; }
 
 // The game's distance (OpenBW xy_length): not a circle. With x the longer side and y the shorter,
 // x - x/16 + 3y/8 - x/64 + 3y/256 when y is over x/4, else x. So a range is a polygon.
@@ -9237,8 +9236,6 @@ int widgetSprite(HDC dc, int s, int x, int y, int size) {
 
 // --- images: a player for the animations of its script ---
 
-UnitSprites& dataSpritesOrMain() { return dataSprites(); }
-
 // Where the image player was painted (its parts), so a tick paints only those: the rest of the form stays.
 struct PlayerArea {
     bool valid = false;
@@ -11868,11 +11865,6 @@ TriggerCall trigMake(const char* id, std::vector<std::string> args) {
         if (!args[i].empty()) c.args[i] = args[i];
     return c;
 }
-TriggerCall trigWrap(const char* id, std::vector<std::string> args, std::vector<TriggerCall> inner, size_t list = 0) {
-    TriggerCall c = trigMake(id, std::move(args));
-    if (list < c.lists.size()) c.lists[list] = std::move(inner);
-    return c;
-}
 
 // The templates are in the library (triggerTemplates); the tree's menus and the empty category list them.
 struct TrigTemplate {
@@ -12671,18 +12663,6 @@ TrigListRef trigInside(const TrigBlockRef& b, int n) {
     return r;
 }
 bool trigSameBlock(const TrigBlockRef& a, const TrigBlockRef& b) { return a.index >= 0 && a.index == b.index && a.list == b.list; }
-// Is a block inside a For each unit (so "the unit" means something there)?
-bool trigInsideBlock(TriggerNode& t, const TrigListRef& r, const char* id) {
-    TrigListRef walk;
-    walk.list = r.via.empty() ? r.list : r.via[0].first;
-    for (size_t i = 0; i < r.via.size(); ++i) {
-        TrigBlockRef b{walk, r.via[i].second};
-        if (const TriggerCall* c = trigBlock(t, b); c && c->def == id) return true;
-        walk.via.push_back(r.via[i]);
-        walk.list = i + 1 < r.via.size() ? r.via[i + 1].first : r.list;
-    }
-    return false;
-}
 // Is a list inside a block with an effect (from the block library: theunit, counter, curplayer)?
 bool trigInsideEffect(TriggerNode& t, const TrigListRef& r, const char* effect) {
     TrigListRef walk;
@@ -13121,20 +13101,6 @@ std::wstring trigIssueText(const std::vector<const TriggerIssue*>& issues, COLOR
     }
     color = worst == 0 ? kTrigRed : worst == 1 ? kTrigAmber : trigPurple();
     return t;
-}
-
-// The checker's notes under a block.
-int trigDrawIssues(HDC dc, const TriggerCall* c, int x, int y, int w) {
-    int h = 0;
-    for (const TriggerIssue* i : trigIssuesOf(c)) {
-        const COLORREF col = i->level == TriggerIssue::Level::Error ? kTrigRed : i->level == TriggerIssue::Level::Warning ? kTrigAmber : trigPurple();
-        SetTextColor(dc, col);
-        const std::wstring m = (i->level == TriggerIssue::Level::Error ? L"\x2716 " : i->level == TriggerIssue::Level::Warning ? L"\x26A0 " : L"\x25C6 ") + widen(i->message);
-        RECT r{x, y + h, x + w, y + h + scale(20)};
-        DrawTextW(dc, m.c_str(), -1, &r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-        h += scale(20);
-    }
-    return h;
 }
 
 void trigDrawList(HDC mem, TriggerNode& t, const TrigListRef& ref, int x, int w, int& y, bool dimAll);
@@ -16454,23 +16420,6 @@ LRESULT CALLBACK trigInfoProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 // --- Show code -----------------------------------------------------------------------------------------------------
-
-HWND gTrigCodeWnd = nullptr, gTrigCodeText = nullptr;
-
-LRESULT CALLBACK trigCodeProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_SIZE:
-        if (gTrigCodeText) MoveWindow(gTrigCodeText, 0, 0, LOWORD(lp), HIWORD(lp), TRUE);
-        return 0;
-    case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORSTATIC:
-        SetTextColor(HDC(wp), kText);
-        SetBkColor(HDC(wp), kBg);
-        return LRESULT(app.bgBrush);
-    case WM_CLOSE: ShowWindow(hwnd, SW_HIDE); return 0;
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
 
 std::string trigGeneratedCode(std::vector<TriggerIssue>& issues) {
     return gTE.set.generate(trigMapInfo(), issues, TriggerBuildOptions{gTE.project && gTE.project->debugBuild()});

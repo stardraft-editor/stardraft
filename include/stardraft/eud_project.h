@@ -51,7 +51,6 @@ public:
     std::filesystem::path edsFile() const { return folder() / (name_ + ".eds"); }
     std::filesystem::path folder() const { return file_.parent_path(); }
     std::string name() const { return name_; }
-    void setName(const std::string& name) { name_ = name; }  // call save() to keep it
     std::filesystem::path inputMap() const;   // [main] input, resolved against the folder
     std::filesystem::path outputMap() const;  // [main] output
     // Where Build writes the map: kept relative when inside the project folder, else as a full path.
@@ -86,7 +85,6 @@ public:
     // EUD Turbo: euddraft's eudTurbo plugin ([eudTurbo]), which makes the triggers run every frame. On in new
     // projects. Call save() to keep a change.
     bool turbo() const;
-    void setTurbo(bool on);
     // Debug build ("debug: 1" in [project]; not written to the .eds): the triggers' code checks indexes worked out in
     // the game and shows a message for one out of range (TriggerBuildOptions::debug). Call save() to keep a change.
     bool debugBuild() const;

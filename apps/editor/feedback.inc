@@ -181,21 +181,6 @@ std::vector<SentFeedback> sentFeedback() {
 
 int paintedMenu(HMENU h, int x, int y, HWND owner);  // context_menu.inc
 
-// A menu of the feedback sent from this computer; the one picked opens on GitHub.
-void showSentFeedbackMenu(HWND owner, POINT at) {
-    const auto sent = sentFeedback();
-    HMENU m = CreatePopupMenu();
-    for (size_t i = 0; i < sent.size() && i < 30; ++i) {
-        std::wstring t = L"#" + std::to_wstring(sent[i].number) + L"  " + sent[i].title;
-        for (size_t p = t.find(L'&'); p != std::wstring::npos; p = t.find(L'&', p + 2)) t.insert(p, 1, L'&');
-        AppendMenuW(m, MF_STRING, UINT_PTR(1 + i), t.c_str());
-    }
-    if (sent.empty()) AppendMenuW(m, MF_STRING | MF_GRAYED, 0, L"None");
-    const int pick = paintedMenu(m, at.x, at.y, owner);
-    DestroyMenu(m);
-    if (pick > 0 && size_t(pick) <= sent.size()) ShellExecuteW(nullptr, L"open", sent[size_t(pick - 1)].page.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
-}
-
 // The text box: Ctrl+Enter sends (as the Send button does, when there is text).
 LRESULT CALLBACK feedbackTextProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
     const bool ctrl = GetKeyState(VK_CONTROL) < 0;

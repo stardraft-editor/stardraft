@@ -121,10 +121,6 @@ public:
     // Per-frame budget (ms) for loading new sprite images; the rest load on later frames.
     void setLoadBudget(double ms);
     Stats stats() const;
-    std::string lastError() const;
-
-    // Size of an image's frame box in map pixels (for hit-testing and layout), or 0 if unknown.
-    bool imageBox(int image, float& width, float& height);
 
 private:
     struct Impl;

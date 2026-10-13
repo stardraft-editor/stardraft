@@ -460,26 +460,6 @@ const wchar_t* briefTypeName(uint8_t t) {
                                  L"Talking portrait", L"Transmission", L"Skip tutorial enabled"};
     return t < 10 ? n[t] : L"Unknown";
 }
-std::wstring briefSummary(const BriefingAction& a) {
-    auto secs = [](uint32_t ms) {
-        wchar_t b[24];
-        std::swprintf(b, 24, L"%g s", ms / 1000.0);
-        return std::wstring(b);
-    };
-    auto slot = [&] { return L"slot " + std::to_wstring(a.slot + 1); };
-    switch (a.type) {
-    case BriefingAction::Wait: return secs(a.time);
-    case BriefingAction::PlayWav: return widen(a.wav);
-    case BriefingAction::TextMessage:
-    case BriefingAction::Objectives: return stringLine(a.text);
-    case BriefingAction::ShowPortrait: return entryName("units", a.unit) + L", " + slot();
-    case BriefingAction::HidePortrait: return slot();
-    case BriefingAction::SpeakingPortrait: return slot() + L", " + secs(a.time);
-    case BriefingAction::Transmission: return slot() + L": " + stringLine(a.text);
-    }
-    return L"";
-}
-
 // The briefing window, as a wireframe at time t: the game's 640 x 480 layout, scaled to `r` (4:3). Portrait slots
 // 1 and 4 on the sides, 2 and 3 on top; the message in the middle; Objectives at the bottom left.
 void paintBriefingWindow(HDC dc, RECT r) {

@@ -496,7 +496,6 @@ void Renderer::setCarbot(bool carbot) {
 }
 void Renderer::setLoadBudget(double ms) { impl_->loadBudgetMs = ms; }
 Stats Renderer::stats() const { return impl_->stats; }
-std::string Renderer::lastError() const { return impl_->error; }
 
 void Renderer::setPlayerColors(const uint32_t rgb[12]) {
     for (int i = 0; i < 12; ++i)
@@ -647,14 +646,6 @@ ImageTex* Renderer::Impl::image(int id, Clock::time_point frameStart, bool& pend
         loadImage(id, t);
     }
     return t.failed || !t.diffuse ? nullptr : &t;
-}
-
-bool Renderer::imageBox(int image, float& width, float& height) {
-    bool pending = false;
-    ImageTex* t = impl_->image(image, Clock::now(), pending);
-    if (!t) return false;
-    width = t->boxW, height = t->boxH;
-    return true;
 }
 
 // --- Frame ---------------------------------------------------------------------------------------

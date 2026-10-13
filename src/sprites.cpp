@@ -351,14 +351,12 @@ bool ImageAnim::tick() {
             frame_ = readU16(d, a);
             break;
         case 0x05:  // wait
-            last_ = a - 1;
             if (d[a]) {
                 wait_ = d[a];
                 return frame_ != before;
             }
             break;
         case 0x06: {  // waitrand
-            last_ = a - 1;
             const int lo = d[a], hi = std::max<int>(d[a], d[a + 1]);
             wait_ = lo + int(rand() % uint32_t(hi - lo + 1));
             if (wait_) return frame_ != before;
@@ -372,7 +370,6 @@ bool ImageAnim::tick() {
         case 0x36: pc_ = ret_; break;                       // return
         case 0x16:                                          // end
         case 0x30:                                          // ignorerest
-            last_ = a - 1;
             stopped_ = true;
             return frame_ != before;
         default: break;

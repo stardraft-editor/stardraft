@@ -1092,8 +1092,6 @@ bool classicCommandInProject(int id) {
     return id == ID_SCEN_CLASSICTRIG ? triggers : id == ID_SCEN_CLASSIC ? settings : false;
 }
 
-bool classicTriggersAvailable() { return app.ed && app.ed->isOpen() && (classicMode() || (projectMode() && classicCommandInProject(ID_SCEN_CLASSICTRIG))); }
-
 // The Classic triggers page's working copy from the map.
 void ctLoad(ClassicTrigDialog& d) {
     d = ClassicTrigDialog{};

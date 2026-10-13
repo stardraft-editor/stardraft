@@ -9,59 +9,6 @@
 
 namespace stardraft {
 
-namespace {
-std::string trim(const std::string& s) {
-    const size_t a = s.find_first_not_of(" \t\r"), b = s.find_last_not_of(" \t\r");
-    return a == std::string::npos ? std::string() : s.substr(a, b - a + 1);
-}
-}  // namespace
-
-MsqcConfig parseMsqc(const std::vector<std::string>& lines) {
-    MsqcConfig c;
-    for (const auto& raw : lines) {
-        const std::string line = trim(raw);
-        if (line.empty() || line[0] == '#' || line[0] == ';') continue;
-        const size_t colon = line.find(" : ") != std::string::npos ? line.find(" : ") : line.find(':');
-        if (colon == std::string::npos) continue;
-        const std::string key = trim(line.substr(0, colon)), value = trim(line.substr(colon + (line.compare(colon, 3, " : ") == 0 ? 3 : 1)));
-        if (key == "QCUnit" || key == "QCUnitID") c.unit = value;
-        else if (key == "QCLoc") c.location = value;
-        else if (key == "QCPlayer") c.player = value;
-        else if (key == "QC_XY") c.xy = value;
-        else if (key == "QCDebug" || key == "QCSafety") c.debug = value;
-        else {
-            MsqcEntry e;
-            size_t p = 0;
-            while (p <= key.size()) {
-                const size_t q = key.find(';', p);
-                const std::string part = trim(key.substr(p, q == std::string::npos ? std::string::npos : q - p));
-                if (!part.empty()) e.conditions.push_back(part);
-                if (q == std::string::npos) break;
-                p = q + 1;
-            }
-            e.result = value;
-            c.entries.push_back(std::move(e));
-        }
-    }
-    return c;
-}
-
-std::vector<std::string> writeMsqc(const MsqcConfig& c) {
-    std::vector<std::string> out;
-    if (!c.unit.empty()) out.push_back("QCUnit : " + c.unit);
-    if (!c.location.empty()) out.push_back("QCLoc : " + c.location);
-    if (!c.player.empty()) out.push_back("QCPlayer : " + c.player);
-    if (!c.xy.empty()) out.push_back("QC_XY : " + c.xy);
-    if (!c.debug.empty()) out.push_back("QCDebug : " + c.debug);
-    for (const auto& e : c.entries) {
-        if (e.conditions.empty()) continue;
-        std::string key;
-        for (size_t i = 0; i < e.conditions.size(); ++i) key += (i ? "; " : "") + e.conditions[i];
-        out.push_back(key + " : " + e.result);
-    }
-    return out;
-}
-
 const std::vector<std::string>& msqcKeys() {
     static const std::vector<std::string> keys = [] {
         std::vector<std::string> k;

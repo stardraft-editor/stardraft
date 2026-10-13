@@ -96,7 +96,6 @@ void triggersRefresh(const std::string& select = {}) {
     if (!select.empty()) gProj.selected = select;
     projectFormRefresh();
 }
-std::string triggersSelected() { return gProj.selected; }
 void triggersSave(EudProject& pr, const std::string& select) {
     gProj.selected = select;
     projectSave(pr);

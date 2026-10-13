@@ -91,8 +91,6 @@ public:
     bool tick();
     // The frame the script shows (for turning images the base of a 17-frame facing set).
     int frame() const { return frame_; }
-    // Where the instruction it stopped on last (a wait, an end) is in iscript.bin.
-    size_t lastOffset() const { return last_; }
     bool running() const { return !stopped_; }
     // The sounds (sfxdata.dat entries) the script asked for since the last call: playsnd, playsndrand,
     // playsndbtwn, attackmelee.
@@ -103,7 +101,6 @@ public:
 private:
     std::vector<int> sounds_;
     bool attacked_ = false;
-    size_t last_ = 0;
     const Bytes* code_ = nullptr;
     size_t pc_ = 0, ret_ = 0;
     int wait_ = 0, frame_ = 0;
@@ -157,8 +154,6 @@ public:
     // a walking sprite on its stage).
     std::pair<double, double> position() const { return {px_, py_}; }
     void setPosition(double x, double y) { px_ = x, py_ = y; }
-    // The order signals the script gave (sigorder; the warp flash gives 1 when it ends), since the last call.
-    int takeSignals() { return std::exchange(signals_, 0); }
     // A Protoss building warping in, as order_IncompleteWarping does it: the building's shape filled with the warp
     // texture as script 193 plays it (draw function 12), and at that script's order signal, the images again with
     // the Warp in animation (its warp flash).
