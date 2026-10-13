@@ -1138,6 +1138,25 @@ void mapPagesDatashot(const fs::path& dir) {
         const bool undone = !inMap() && !shows() && !mapPageHasChanges(k);
         log << names[k] << ": a change goes into the map at once (no Apply) " << yes(atOnce) << ", there again on the page " << yes(back)
             << ", one undo gives the map's value back and the page shows it " << yes(undone) << "\n";
+        if (k == kMpClassicSettings) {  // the unit's rename button: the name box in place of the title; Enter sets the name (#91)
+            mapPageShowTab(kClassicUnits);
+            classicSelect(kClassicUnits, 3);  // the goliath
+            ClassicPage& pg = gClassic->pages[kClassicUnits];
+            const bool button = IsWindowVisible(pg.rename) != FALSE;
+            SendMessageW(pg.wnd, WM_COMMAND, MAKEWPARAM(kCsRename, BN_CLICKED), LPARAM(pg.rename));
+            const bool box = IsWindowVisible(pg.name) && !IsWindowVisible(pg.title);
+            SetWindowTextW(pg.name, L"Walker");
+            settle();
+            capture(dir / ("mappage_rename" + light + ".png"), app.main);
+            SendMessageW(pg.name, WM_KEYDOWN, VK_RETURN, 0);
+            settle();
+            const bool set = app.ed->unitSettingName(3) == "Walker" && IsWindowVisible(pg.title) && windowText(pg.title).find(L"Walker") != std::wstring::npos;
+            capture(dir / ("mappage_renamed" + light + ".png"), app.main);
+            app.ed->undo();
+            mapPageReloadIfStale();
+            log << names[k] << ": the rename button " << yes(button) << ", the name box in place of the title " << yes(box)
+                << ", Enter sets the name, the title shows it " << yes(set) << "\n";
+        }
         command(ID_WS_MAP);
     }
 }

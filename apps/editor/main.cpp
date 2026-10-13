@@ -4916,6 +4916,11 @@ std::wstring unitSection(const UnitType& t, int& race) {
 // Palette label: the short name and StarEdit's subtitle ("Siege Tank (Tank Mode)").
 // A unit's name with its custom name (the map's unit settings), as Program options > Unit names says (feedback #68).
 // The custom names are read once for each version of the map.
+// A unit's game name with its custom name `c`, in the format of Program options > Unit names.
+std::wstring formatUnitName(const std::wstring& game, const std::wstring& c) {
+    if (c.empty() || c == game || gDock.unitNames == 0) return game;
+    return gDock.unitNames == 1 ? game + L" (" + c + L")" : gDock.unitNames == 2 ? c + L" (" + game + L")" : c;
+}
 std::wstring withCustomName(const std::wstring& game, int u) {
     if (!app.ed || u < 0 || u >= kSettingUnits || gDock.unitNames == 0) return game;
     static const Editor* forEd = nullptr;
@@ -4928,9 +4933,7 @@ std::wstring withCustomName(const std::wstring& game, int u) {
         for (int i = 0; i < kSettingUnits; ++i)
             if (!s.units[size_t(i)].useDefault && s.units[size_t(i)].nameString) custom[size_t(i)] = widen(app.ed->unitSettingName(i));
     }
-    const std::wstring& c = custom[size_t(u)];
-    if (c.empty() || c == game) return game;
-    return gDock.unitNames == 1 ? game + L" (" + c + L")" : gDock.unitNames == 2 ? c + L" (" + game + L")" : c;
+    return formatUnitName(game, custom[size_t(u)]);
 }
 // Program options > Unit names: the list of the four ways (after ListPickItem; options_window.inc calls it).
 void pickUnitNames(RECT b);

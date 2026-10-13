@@ -776,9 +776,9 @@ void paintNewPage(HDC mem, RECT rc) {
         fl.rowH = scale(ui::kFormRowH);
         const int gTop = gy;
         fieldLabel(mem, fl, gy, L"Seed", false);
-        const int bw = ui::buttonWidth(mem, L"New seed");
+        const int bw = ui::buttonWidth(mem, L"Randomize seed");
         newPlaceEdit(gNew.seed, {gx + labelW, gy + scale(4), gr - bw - scale(8), gy + scale(4) + fieldH}, true, 0, footerTop);
-        ui::button(mem, {gr - bw, gy + scale(2), gr, gy + scale(2) + scale(ui::kButtonH)}, L"New seed", ui::Tone::Normal, [] {
+        ui::button(mem, {gr - bw, gy + scale(2), gr, gy + scale(2) + scale(ui::kButtonH)}, L"Randomize seed", ui::Tone::Normal, [] {
             if (gNew.seed) SetWindowTextW(gNew.seed, std::to_wstring((GetTickCount64() * 2654435761ull >> 8) % 999999 + 1).c_str());
             newChanged();
         });
@@ -792,7 +792,7 @@ void paintNewPage(HDC mem, RECT rc) {
         });
         gy += fl.rowH + scale(4);
         {  // above the sliders: they stay in their place when a tileset has more or fewer sliders
-            const int lx = ui::smallButton(mem, gx, gy, rowH, L"Randomize", [] { newRandomize(false); }, L"New amounts, shape and seed");
+            const int lx = ui::smallButton(mem, gx, gy, rowH, L"Randomize values", [] { newRandomize(false); }, L"New amounts, shape and seed");
             ui::smallButton(mem, lx + scale(8), gy, rowH, L"Randomize all", [] { newRandomize(true); }, L"The tileset too (not the size)");
             gy += rowH + scale(8);
         }

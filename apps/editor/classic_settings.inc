@@ -12,7 +12,8 @@ constexpr int kClassicPlayers = 8;  // players 1-8 show; 9-12 stay as they are
 // Control ids on a page.
 enum : int {
     kCsField = 100,         // + field (the value fields of the kind)
-    kCsName = 120,          // units: the name
+    kCsName = 120,          // units: the name (in place of the title while it is renamed)
+    kCsRename = 121,        // units: the rename button after the title
     kCsUseDefault = 200,
     kCsPlayerDefault = 300,  // + player
     kCsPlayerA = 320,        // + player: units can build; upgrades max level; techs available
@@ -26,7 +27,8 @@ enum : int {
 constexpr int kCsWeaponRows = 3;
 
 struct ClassicPage {
-    HWND wnd = nullptr, search = nullptr, list = nullptr, title = nullptr, useDefault = nullptr, name = nullptr;
+    HWND wnd = nullptr, search = nullptr, list = nullptr, title = nullptr, useDefault = nullptr, name = nullptr, rename = nullptr;
+    std::string nameBefore;  // the name when the rename started (Esc gives it back)
     std::vector<HWND> fields;
     HWND weaponName[kCsWeaponRows]{}, weaponDamage[kCsWeaponRows]{}, weaponBonus[kCsWeaponRows]{};
     HWND globalA = nullptr, globalB = nullptr;
@@ -61,8 +63,14 @@ int classicEntryCount(int tab) {
     return tab == kClassicUnits ? kSettingUnits : tab == kClassicUpgrades ? (bw ? kSettingUpgrades : kOriginalUpgrades) : (bw ? kSettingTechs : kOriginalTechs);
 }
 
+std::wstring formatUnitName(const std::wstring& game, const std::wstring& c);
 std::wstring classicEntryName(int tab, int e) {
-    if (tab == kClassicUnits) return unitDisplayName(e);
+    if (tab == kClassicUnits && app.ed && e >= 0 && e < int(app.ed->unitTypes().size())) {  // with the page's name (Program options > Unit names)
+        const UnitType& t = app.ed->unitTypes()[uint16_t(e)];
+        const std::wstring game = widen(t.name) + (t.subtitle.empty() ? L"" : L" (" + widen(t.subtitle) + L")");
+        const bool own = !gClassic->units.units[size_t(e)].useDefault;
+        return formatUnitName(game, own ? widen(gClassic->names[size_t(e)]) : L"");
+    }
     std::wstring n = entryName(tab == kClassicUpgrades ? "upgrades" : "techdata", e);
     return n.empty() ? L"(" + std::to_wstring(e) + L")" : n;
 }
@@ -154,6 +162,12 @@ std::vector<int> classicUnitWeapons(int u) {
         if (w < limit && std::find(out.begin(), out.end(), int(w)) == out.end()) out.push_back(w);
     return out;
 }
+// What the unit's weapon `w` attacks: its slots (ground, air, and its turret's) tell it (GitHub feedback #92).
+const wchar_t* classicWeaponTargets(int u, int w) {
+    const auto& slots = gClassic->def->unitWeapons[size_t(u)];
+    const bool ground = slots[0] == w || slots[2] == w, air = slots[1] == w || slots[3] == w;
+    return ground && air ? L"ground and air" : air ? L"air" : L"ground";
+}
 // Does a unit other than `u` with its own settings use weapon `w`? (Then the weapon's values stay when `u` changes.)
 bool classicWeaponUsedByOther(int w, int u) {
     for (int o = 0; o < kSettingUnits; ++o)
@@ -236,6 +250,21 @@ void classicFill(int tab) {
     const size_t i = size_t(e);
     d.filling = true;
     SetWindowTextW(pg.title, classicEntryName(tab, e).c_str());
+    if (pg.rename && GetFocus() != pg.name) {  // the title with the rename button after it (GitHub feedback #91)
+        RECT tr;
+        GetWindowRect(pg.title, &tr);
+        MapWindowPoints(nullptr, pg.wnd, reinterpret_cast<POINT*>(&tr), 2);
+        HDC dc = GetDC(pg.title);
+        HGDIOBJ of = SelectObject(dc, ui::titleFont());
+        SIZE ts{};
+        const std::wstring text = windowText(pg.title);
+        GetTextExtentPoint32W(dc, text.c_str(), int(text.size()), &ts);
+        SelectObject(dc, of), ReleaseDC(pg.title, dc);
+        const int bs = scale(26);
+        SetWindowPos(pg.rename, nullptr, std::min<int>(tr.left + ts.cx + scale(10), tr.right - bs), tr.top + (tr.bottom - tr.top - bs) / 2, bs, bs,
+                     SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        ShowWindow(pg.title, SW_SHOW), ShowWindow(pg.name, SW_HIDE);
+    }
     const bool def = classicUseDefault(tab, e);
     classicCheck(pg.useDefault, def);
     for (int f = 0; f < int(pg.fields.size()); ++f) {
@@ -256,7 +285,7 @@ void classicFill(int tab) {
             if (!has) continue;
             const size_t w = size_t(ws[size_t(k)]);
             const UnitSettings::Weapon& v = def ? d.def->units.weapons[w] : d.units.weapons[w];
-            SetWindowTextW(pg.weaponName[k], entryName("weapons", int(w)).c_str());
+            SetWindowTextW(pg.weaponName[k], (entryName("weapons", int(w)) + L": " + tr(classicWeaponTargets(e, int(w)))).c_str());
             classicSetNumber(pg.weaponDamage[k], v.damage), classicSetNumber(pg.weaponBonus[k], v.bonus);
             classicSetReadOnly(pg.weaponDamage[k], false), classicSetReadOnly(pg.weaponBonus[k], false);
         }
@@ -321,6 +350,19 @@ void classicSelect(int tab, int e) {
     classicFill(tab);
 }
 
+// The name box: Enter keeps the name, Esc gives the name before back; both leave the box (the title shows again).
+LRESULT CALLBACK classicNameProc(HWND h, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
+    if (msg == WM_GETDLGCODE && (wp == VK_RETURN || wp == VK_ESCAPE)) return DLGC_WANTALLKEYS;
+    if (msg == WM_KEYDOWN && (wp == VK_RETURN || wp == VK_ESCAPE)) {
+        ClassicPage& pg = gClassic->pages[kClassicUnits];
+        if (wp == VK_ESCAPE) SetWindowTextW(h, widen(pg.nameBefore).c_str());
+        SetFocus(pg.list);
+        return 0;
+    }
+    if (msg == WM_CHAR && (wp == VK_RETURN || wp == VK_ESCAPE)) return 0;  // no beep
+    return DefSubclassProc(h, msg, wp, lp);
+}
+
 // A field changed: into the settings of the selected entry.
 void classicCommand(int tab, int id, int code) {
     ClassicDialog& d = *gClassic;
@@ -331,6 +373,21 @@ void classicCommand(int tab, int id, int code) {
     if (id == kCsList && code == LBN_SELCHANGE) {
         const LRESULT k = SendMessageW(pg.list, LB_GETCURSEL, 0, 0);
         if (k >= 0 && k < LRESULT(pg.shown.size())) pg.entry = pg.shown[size_t(k)], classicFill(tab);
+        return;
+    }
+    if (id == kCsRename && code == BN_CLICKED) {  // the name box in place of the title
+        RECT tr;
+        GetWindowRect(pg.title, &tr);
+        MapWindowPoints(nullptr, pg.wnd, reinterpret_cast<POINT*>(&tr), 2);
+        pg.nameBefore = classicUseDefault(tab, e) ? "" : d.names[i];
+        RECT fr{};  // as wide as the fields under it
+        GetWindowRect(pg.fields[0], &fr);
+        MapWindowPoints(nullptr, pg.wnd, reinterpret_cast<POINT*>(&fr), 2);
+        SetWindowPos(pg.name, nullptr, tr.left, tr.top + (tr.bottom - tr.top - scale(ui::kFieldH)) / 2, fr.right - tr.left, scale(ui::kFieldH),
+                     SWP_NOZORDER | SWP_SHOWWINDOW);
+        ShowWindow(pg.title, SW_HIDE), ShowWindow(pg.rename, SW_HIDE);
+        SetFocus(pg.name);
+        SendMessageW(pg.name, EM_SETSEL, 0, -1);
         return;
     }
     if (d.filling) return;
@@ -488,10 +545,23 @@ LRESULT CALLBACK classicPageProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             pg.fields.push_back(edit(kCsField + f, x0 + labelW, y, numW));
             y += step;
         }
-        if (t == kClassicUnits) {
-            label(L"Name", x0, y, labelW);
-            pg.name = edit(kCsName, x0 + labelW, y, numW, false);  // ends where the fields above end
-            y += step;
+        if (t == kClassicUnits) {  // the name: renamed in place of the title (its button)
+            pg.name = edit(kCsName, x0, pad, scale(320), false);
+            ShowWindow(pg.name, SW_HIDE);
+            SetWindowSubclass(pg.name, classicNameProc, 0, 0);
+            pg.rename = CreateWindowExW(0, WC_BUTTONW, L"\x270E", WS_CHILD | WS_TABSTOP | BS_PUSHBUTTON, x0, pad, scale(26), scale(26), hwnd,
+                                        HMENU(INT_PTR(kCsRename)), app.inst, nullptr);
+            font(pg.rename);
+            darkControl(pg.rename, L"DarkMode_Explorer");
+            HWND tips = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, 0, 0, 0, 0, hwnd, nullptr,
+                                        app.inst, nullptr);
+            styleTips(tips);
+            TOOLINFOW ti{sizeof ti};
+            ti.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
+            ti.hwnd = hwnd, ti.uId = UINT_PTR(pg.rename);
+            wchar_t tipText[] = L"Rename the unit (empty: the game's name)";
+            ti.lpszText = tipText;
+            SendMessageW(tips, TTM_ADDTOOLW, 0, LPARAM(&ti));
         }
         // Players: the default for all, and players 1-8 (each uses the default, or its own values).
         int py = formTop - step;
