@@ -1283,6 +1283,17 @@ void diamondOutline(render::Scene& s, const std::set<std::pair<int, int>>& set, 
 
 std::vector<std::pair<int, uint16_t>> ghostTiles;  // doodad preview tiles, set by buildScene
 
+// The terrain selection being dragged from the press to (wx, wy). Rectangle: whole tiles, the tile of the press and the
+// tile under the mouse both in it (GitHub feedback #112); Isometric: as dragged.
+Rect terrainSelectRect(float wx, float wy) {
+    Rect r = Rect{int(app.dragWX), int(app.dragWY), int(wx), int(wy)}.normalized();
+    if (!app.terrainRect || !app.ed) return r;
+    const int w = app.ed->width(), h = app.ed->height();
+    const int x0 = std::clamp(r.left / 32, 0, w - 1), y0 = std::clamp(r.top / 32, 0, h - 1);
+    const int x1 = std::clamp((r.right - 1) / 32, x0, w - 1), y1 = std::clamp((r.bottom - 1) / 32, y0, h - 1);
+    return Rect{x0 * 32, y0 * 32, (x1 + 1) * 32, (y1 + 1) * 32};
+}
+
 render::Scene buildScene() {
     render::Scene s;
     ghostTiles.clear();
@@ -1398,7 +1409,7 @@ render::Scene buildScene() {
     // Terrain selection (copy area).
     const bool dragging = app.mode == Mode::Terrain && app.drag == Drag::TerrainSelect;
     if (dragging || (app.mode == Mode::Terrain && app.hasTerrainSel)) {
-        const Rect r = dragging ? Rect{int(app.dragWX), int(app.dragWY), int(wx), int(wy)}.normalized() : app.terrainSel;
+        const Rect r = dragging ? terrainSelectRect(wx, wy) : app.terrainSel;
         if (selectShape() == Editor::SelectShape::Rect) outline(s, r, 0xFFD040FFu, 1.5f);
         else {  // a diamond or an ellipse: dots along it (the box dim around it)
             outline(s, r, 0xFFD04050u, 1.0f);
@@ -4876,11 +4887,7 @@ void mouseUp(int sx, int sy, WPARAM keys) {
         break;
     case Drag::Tiles: tilesMouseUp(wx, wy); break;
     case Drag::TerrainSelect: {
-        Rect r = Rect{int(app.dragWX), int(app.dragWY), int(wx), int(wy)}.normalized();
-        if (app.terrainRect && app.dragMoved) {  // Rectangle: whole tiles
-            r.left = std::max(0, r.left) / 32 * 32, r.top = std::max(0, r.top) / 32 * 32;
-            r.right = std::min(ed.width() * 32, (r.right + 31) / 32 * 32), r.bottom = std::min(ed.height() * 32, (r.bottom + 31) / 32 * 32);
-        }
+        const Rect r = app.terrainRect && !app.dragMoved ? Rect{} : terrainSelectRect(wx, wy);  // Rectangle: a click clears it
         app.hasTerrainSel = r.right - r.left >= 32 && r.bottom - r.top >= 32;
         app.terrainSel = r;
         if (app.terrainRect && app.hasTerrainSel)
@@ -16882,7 +16889,8 @@ void pieRelease() {
 // The map's right-click menu, for the active mode: what is under the mouse is selected first (when it is not
 // already), then Cut, Copy, Paste, Duplicate, Delete and Select all act on the mode's selection and its own copy
 // buffer. Units add Properties; a location adds its own menu (rename, elevations).
-enum { ID_MAPMENU_PROPS = 9001, ID_MAPMENU_SELECT, ID_MAPMENU_REPLACE, ID_MAPMENU_SAMETYPE, ID_MAPMENU_SAMETYPE_PLAYER, ID_MAPMENU_TOTERRAIN };
+enum { ID_MAPMENU_PROPS = 9001, ID_MAPMENU_SELECT, ID_MAPMENU_REPLACE, ID_MAPMENU_SAMETYPE, ID_MAPMENU_SAMETYPE_PLAYER, ID_MAPMENU_TOTERRAIN,
+       ID_MAPMENU_FILLSEL };
 int gMapMenuUnit = -1, gMapMenuLocation = -1, gMapMenuDoodad = -1, gMapMenuSprite = -1;
 
 // "Select all of this type": every unit (of `forPlayer`: only the same player's), doodad or sprite on the map of the
@@ -16958,6 +16966,7 @@ HMENU mapMenu(float wx, float wy) {
     item(ID_EDIT_DELETE, L"&Delete\tDel", has && !terrain);
     item(ID_MAPMENU_REPLACE, L"&Replace with\x2026", has && (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites));
     if (app.mode == Mode::Doodads) item(ID_MAPMENU_TOTERRAIN, L"Convert to t&errain", has);
+    if (terrain && app.terrainRect) item(ID_MAPMENU_FILLSEL, L"&Fill selection with the selected tiles", has && gTiles.picked >= 0);  // (#114)
     AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
     item(ID_EDIT_SELECTALL, L"Select &all\tCtrl+A", !terrain && app.mode != Mode::Locations);
     // On a unit, doodad or sprite: all of its type on the map (units: also only its player's).
@@ -16989,6 +16998,7 @@ void mapMenuPick(int pick) {
     if (pick == ID_MAPMENU_PROPS && gMapMenuUnit >= 0) showUnitProperties(gMapMenuUnit);
     else if (pick == ID_MAPMENU_SELECT) enterSelection(), setMessage(std::wstring(kModeNames[int(app.mode)]) + L": select");
     else if (pick == ID_MAPMENU_REPLACE) showQuickPicker(true);
+    else if (pick == ID_MAPMENU_FILLSEL) tilesFillSelection();
     else if (pick == ID_MAPMENU_SAMETYPE || pick == ID_MAPMENU_SAMETYPE_PLAYER) selectSameType(pick == ID_MAPMENU_SAMETYPE_PLAYER);
     else if (pick == ID_MAPMENU_TOTERRAIN && app.ed) {
         // The selected doodads (the one under the mouse is selected by the menu): their tiles stay as plain terrain.
@@ -17813,7 +17823,7 @@ std::vector<StripItem> stripTools(Mode m) {
             return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc comes back here.", TSelect, true},
                     {UiIcon::Brush, L"Brush: place the tile selected in the Tiles list, with the brush's size and shape", TBrush, false},
                     {UiIcon::Spray, L"Spray: the tile at random places in the brush (Density). Hold the button to spray more.", TSpray, false},
-                    {UiIcon::Fill, L"Fill: the connected tiles of one value. Shift+click: every tile of that value (in the selection, if there is one).", TFill, false}};
+                    {UiIcon::Fill, L"Fill: in the selection, all of it; else the connected tiles of one value. Several tiles selected in the list: each tile at random. Shift+click: every tile of that value (in the selection, if there is one).", TFill, false}};
         return {{UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc comes back here.", TSelect, true},
                 {UiIcon::Brush, L"Brush: paint the terrain selected in the list", TBrush, false},
                 {UiIcon::Spray, L"Spray: random dabs of the terrain (Density). Hold the button to spray more.", TSpray, false},
@@ -25065,6 +25075,56 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                 capture(fs::path(datashots) / "rampshot.png", app.main);
                 std::ofstream(fs::path(datashots) / "rampshot.txt") << placed << " ramps placed\n";
+                continue;
+            }
+            if (s == "tilesel:") {  // tilesel.txt: Rectangle mode: the selection in whole tiles (#112); Fill in it with 2 tiles (#114)
+                std::ofstream o(fs::path(datashots) / "tilesel.txt");
+                newMap(64, 64, 0, 1);  // no doodads in the way
+                app.brushShape = Brush::Square;  // the selection: a square (a diamond leaves its corners out)
+                Editor& ed = *app.ed;
+                setWorkspace(Workspace::Map);
+                command(ID_MODE_TERRAIN);
+                app.terrainRect = true;
+                fillToolCombo();
+                tilesFresh();
+                centerOn(ed.width() * 16.0f, ed.height() * 16.0f, 1);
+                for (int i = 0; i < 3; ++i) pump();
+                auto drag = [&](float x0, float y0, float x1, float y1) {
+                    int sx0, sy0, sx1, sy1;
+                    toScreen(x0, y0, sx0, sy0), toScreen(x1, y1, sx1, sy1);
+                    SendMessageW(app.view, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(sx0, sy0));
+                    SendMessageW(app.view, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM((sx0 + sx1) / 2, (sy0 + sy1) / 2));
+                    SendMessageW(app.view, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(sx1, sy1));
+                    SendMessageW(app.view, WM_LBUTTONUP, 0, MAKELPARAM(sx1, sy1));
+                };
+                app.toolByMode[int(Mode::Terrain)] = TSelect;
+                const float cx = ed.width() * 16.0f, cy = ed.height() * 16.0f;
+                drag(cx + 5, cy + 7, cx + 3 * 32 + 20, cy + 2 * 32 + 3);  // inside tiles, not on their edges
+                const int tx = int(cx + 5) / 32, ty = int(cy + 7) / 32;
+                const Rect want{tx * 32, ty * 32, (tx + 4) * 32, (ty + 3) * 32};
+                const Rect& got = app.terrainSel;
+                const bool whole = app.hasTerrainSel && got.left == want.left && got.top == want.top && got.right == want.right && got.bottom == want.bottom;
+                o << "the selection is whole tiles, from the tile of the press to the tile of the release " << (whole ? "yes" : "NO") << " (" << got.left
+                  << "," << got.top << " - " << got.right << "," << got.bottom << ")\n";
+                // Fill with two tiles picked, clicked in the selection: every tile of it is one of the two.
+                const std::vector<uint16_t> two{uint16_t(2 << 4), uint16_t(3 << 4)};
+                gTiles.chosen = two, gTiles.picked = two.back();
+                app.toolByMode[int(Mode::Terrain)] = TFill;
+                int sx, sy;
+                toScreen(cx + 40, cy + 40, sx, sy);
+                const uint64_t rev = ed.revision();
+                SendMessageW(app.view, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(sx, sy));
+                SendMessageW(app.view, WM_LBUTTONUP, 0, MAKELPARAM(sx, sy));
+                int a = 0, b = 0, other = 0;
+                for (int y = ty; y < ty + 3; ++y)
+                    for (int x = tx; x < tx + 4; ++x) {
+                        const uint16_t v = ed.terrain().tiles[size_t(y) * ed.width() + x];
+                        (v == two[0] ? a : v == two[1] ? b : other)++;
+                    }
+                o << "Fill in the selection: all 12 tiles are the 2 selected tiles " << (other == 0 ? "yes" : "NO") << ", both used " << (a && b ? "yes" : "NO")
+                  << " (" << a << " and " << b << "), one undo step ";
+                ed.undo();
+                o << (ed.revision() != rev && ed.terrain().tiles[size_t(ty) * ed.width() + tx] != two[0] + 0 * b ? "yes" : "?") << "\n";
                 continue;
             }
             if (s == "enterunit:") {  // enterunit.txt: Enter on a selected unit opens Unit properties (GitHub feedback #115)

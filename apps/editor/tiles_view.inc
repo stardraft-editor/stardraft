@@ -550,6 +550,20 @@ void tilesSprayAt(float wx, float wy) {
     gTilesStrokePlaced += app.ed->placeTileValues(cells);
 }
 
+// The picked tile in `cells` (one undo step); with several tiles picked (Shift+click in the list), each cell gets one of
+// them at random.
+int tilesPlaceRandom(const std::vector<std::pair<int, int>>& cells) {
+    Editor& ed = *app.ed;
+    if (gTiles.chosen.size() < 2) return ed.placeTileCells(cells, uint16_t(gTiles.picked));
+    std::mt19937 rng(app.spraySeed++);
+    std::vector<Editor::TileAt> values;
+    for (const auto& [x, y] : cells) values.push_back({x, y, gTiles.chosen[rng() % gTiles.chosen.size()]});
+    ed.beginStroke();
+    const int n = ed.placeTileValues(values);
+    ed.endStroke();
+    return n;
+}
+
 // Fill in Rectangle mode: the connected tiles (4 ways) of the value under the cursor; with Shift (or Replace) every
 // tile of that value, in the selection if there is one. One undo step.
 void tilesFill(int tx, int ty, bool every) {
@@ -584,8 +598,20 @@ void tilesFill(int tx, int ty, bool every) {
         }
     }
     ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
-    const int n = ed.placeTileCells(cells, uint16_t(gTiles.picked));
-    tilesPlacedMessage(n, every ? L"Replaced" : L"Filled");
+    tilesPlacedMessage(tilesPlaceRandom(cells), every ? L"Replaced" : L"Filled");
+}
+
+// Fill selection (Rectangle mode; GitHub feedback #114): every tile in the selection (in its shape), one undo step.
+void tilesFillSelection() {
+    if (!app.ed || !app.hasTerrainSel || gTiles.picked < 0) return;
+    Editor& ed = *app.ed;
+    const int w = ed.width(), h = ed.height();
+    std::vector<std::pair<int, int>> cells;
+    for (int y = std::max(0, app.terrainSel.top / 32); y <= std::min(h - 1, (app.terrainSel.bottom - 1) / 32); ++y)
+        for (int x = std::max(0, app.terrainSel.left / 32); x <= std::min(w - 1, (app.terrainSel.right - 1) / 32); ++x)
+            if (Editor::inSelectShape(app.terrainSel, selectShape(), x * 32 + 16, y * 32 + 16)) cells.push_back({x, y});
+    ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
+    tilesPlacedMessage(tilesPlaceRandom(cells), L"Filled the selection:");
 }
 
 // A click on the map in Rectangle mode. Select: a rectangle of tiles, or a paste of the copied tiles. Ctrl: pick the
@@ -618,6 +644,12 @@ bool tilesMouseDown(float wx, float wy, WPARAM keys) {
     }
     if (gTiles.picked < 0) {
         setMessage(L"Select a tile in the Tiles list first (or Ctrl+click a tile on the map)");
+        app.drag = Drag::None;
+        return true;
+    }
+    if (tool == TFill && !(keys & MK_SHIFT) && app.hasTerrainSel &&
+        Editor::inSelectShape(app.terrainSel, selectShape(), int(wx), int(wy))) {  // in the selection: all of it
+        tilesFillSelection();
         app.drag = Drag::None;
         return true;
     }
