@@ -161,6 +161,7 @@ enum : int {
     ID_TOOL_KEY = 970,  // + the tool of the keys V, B, A, F: select, brush or place, spray, fill (GitHub feedback #98)
     ID_VIEW_RANGES = 975,  // View > Show ranges of the selected units (GitHub feedback #109)
     ID_VIEW_MINIMAP = 976,  // View > Show minimap (GitHub feedback #127)
+    ID_LAYER = 990,         // + View > Layers: 0 terrain, 1 doodads, 2 sprites, 3 units
     ID_CRASH_MODE = 980,   // + Options > Crash reports: 0 ask, 1 send, 2 do not send
 };
 // View > Grid size: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
@@ -429,6 +430,10 @@ void tilesMouseMove(float wx, float wy);
 void tilesSprayAt(float wx, float wy);
 void tilesScene(render::Scene& s, float wx, float wy);
 bool gShowRanges = false;  // View > Show ranges of the selected units
+// View > Layers (GitHub feedback #117): the map's layers that show. Locations: app.showLocations.
+struct MapLayers {
+    bool terrain = true, doodads = true, sprites = true, units = true;
+} gLayers;
 void rangesScene(render::Scene& s);
 bool tilesDatashot(const std::string& spec, const fs::path& dir);
 enum UnitTool { UPlace, USpray, UReplace };
@@ -1338,8 +1343,17 @@ render::Scene buildScene() {
     // View > Show town areas.
     addPathOverlays(s);
 
-    // Doodad overlays and other map sprites (THG2).
+    // Doodad overlays and other map sprites (THG2). View > Layers: a doodad's overlay goes with the doodads, the rest with
+    // the sprites.
+    std::set<std::tuple<uint16_t, uint16_t, uint16_t>> overlays;  // (x, y, sprite) of the doodads' overlays
+    if (gLayers.doodads != gLayers.sprites)
+        for (const Doodad& dd : ed.doodads())
+            if (const DoodadType* t = ed.doodadTypes().find(dd.id); t && t->overlaySprite) overlays.insert({dd.x, dd.y, t->overlaySprite});
     for (const MapSprite& m : ed.sprites()) {
+        if (!gLayers.doodads || !gLayers.sprites) {
+            const bool overlay = (m.flags & SpriteFlag::DrawAsSprite) && overlays.count({m.x, m.y, m.id});
+            if (overlay ? !gLayers.doodads : !gLayers.sprites) continue;
+        }
         render::SpriteDraw d;
         if (m.flags & SpriteFlag::DrawAsSprite) {
             d.image = sp.imageForSprite(m.id);
@@ -1358,7 +1372,7 @@ render::Scene buildScene() {
     if (moveDX || moveDY)
         for (size_t i = 0; i < units.size(); ++i)
             if (!ed.isSelected(int(i))) others.push_back(units[i]);
-    for (size_t i = 0; i < units.size(); ++i) {
+    for (size_t i = 0; i < units.size() && gLayers.units; ++i) {
         bool sel = (moveDX || moveDY) && ed.isSelected(int(i));
         bool red = false;
         if (sel) {
@@ -1783,10 +1797,16 @@ void renderNow() {
     if (!app.rendererOk || !app.ed || !app.ed->isOpen()) return;
     Editor& ed = *app.ed;
     clampCamera();
-    if (ed.terrainRevision() != app.terrainRev) {
+    static MapLayers uploaded;
+    if (ed.terrainRevision() != app.terrainRev || uploaded.terrain != gLayers.terrain || uploaded.doodads != gLayers.doodads) {
         app.renderer.setSources(&app.data, &ed.unitSprites(), &ed.tileset(), ed.era());
-        app.renderer.updateTerrain(ed.terrain());
-        app.terrainRev = ed.terrainRevision();
+        if (gLayers.terrain && gLayers.doodads) app.renderer.updateTerrain(ed.terrain());
+        else {  // View > Layers: no terrain (black), or the terrain without the doodads' tiles (StarEdit's copy, TILE)
+            TerrainLayer t = gLayers.terrain ? readTerrain(ed.chk(), ed.chk().has("TILE") ? "TILE" : "MTXM") : ed.terrain();
+            if (!gLayers.terrain) std::fill(t.tiles.begin(), t.tiles.end(), uint16_t(0));
+            app.renderer.updateTerrain(t);
+        }
+        app.terrainRev = ed.terrainRevision(), uploaded = gLayers;
     }
     auto t0 = std::chrono::steady_clock::now();
     {
@@ -3645,6 +3665,10 @@ void updateMenus() {
     CheckMenuItem(m, ID_VIEW_RANGES, gShowRanges ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuItem(m, ID_VIEW_MINIMAP, gDock.minimapHidden ? MF_UNCHECKED : MF_CHECKED);
     {
+        const bool shown[4] = {gLayers.terrain, gLayers.doodads, gLayers.sprites, gLayers.units};
+        for (int k = 0; k < 4; ++k) CheckMenuItem(m, ID_LAYER + k, shown[k] ? MF_CHECKED : MF_UNCHECKED);
+    }
+    {
         bool preset = false;
         for (int k = 0; k < int(std::size(kGridPresets)); ++k) {
             const bool on = gDock.gridW == kGridPresets[k].px && gDock.gridH == kGridPresets[k].px && !gDock.gridX && !gDock.gridY;
@@ -3787,6 +3811,10 @@ const std::vector<AppSetting>& appSettings() {
         SD_SETTING("CopyDoodadsWithTerrain", app.copyDoodadsWithTerrain, bool),
         SD_SETTING("BrushShape", app.brushShape, Brush::Shape),
         SD_SETTING("ShowRanges", gShowRanges, bool),
+        SD_SETTING("LayerTerrain", gLayers.terrain, bool),
+        SD_SETTING("LayerDoodads", gLayers.doodads, bool),
+        SD_SETTING("LayerSprites", gLayers.sprites, bool),
+        SD_SETTING("LayerUnits", gLayers.units, bool),
     };
 #undef SD_SETTING
     return all;
@@ -3938,6 +3966,19 @@ void commandBody(int id) {
         gDock.minimapRight = id == ID_DOCK_MINI_RIGHT, gDock.minimapHidden = false;
         saveDock(), layout();
         return;
+    case ID_LAYER:
+    case ID_LAYER + 1:
+    case ID_LAYER + 2:
+    case ID_LAYER + 3: {
+        bool* layer[4] = {&gLayers.terrain, &gLayers.doodads, &gLayers.sprites, &gLayers.units};
+        static const wchar_t* const names[4] = {L"Terrain", L"Doodads", L"Sprites", L"Units"};
+        bool& on = *layer[id - ID_LAYER];
+        on = !on;
+        setMessage(std::wstring(names[id - ID_LAYER]) + (on ? L" show" : L" are hidden (View > Layers)"));
+        updateMenus();
+        app.dirty = true;
+        break;
+    }
     case ID_VIEW_MINIMAP:
         gDock.minimapHidden = !gDock.minimapHidden;
         saveDock(), layout(), updateMenus();
@@ -19008,6 +19049,15 @@ HMENU buildMenu() {
     AppendMenuW(view, MF_STRING, ID_VIEW_TOWNS, L"Show town a&reas");
     AppendMenuW(view, MF_STRING, ID_VIEW_RANGES, L"Show ranges of the selected u&nits");
     AppendMenuW(view, MF_STRING, ID_VIEW_MINIMAP, L"Show &minimap");
+    {  // the map's layers that show (GitHub feedback #117)
+        HMENU layers = CreatePopupMenu();
+        AppendMenuW(layers, MF_STRING, ID_LAYER, L"&Terrain");
+        AppendMenuW(layers, MF_STRING, ID_LAYER + 1, L"&Doodads");
+        AppendMenuW(layers, MF_STRING, ID_LAYER + 2, L"&Sprites");
+        AppendMenuW(layers, MF_STRING, ID_LAYER + 3, L"&Units");
+        AppendMenuW(layers, MF_STRING, ID_VIEW_LOCATIONS, L"&Locations");
+        AppendMenuW(view, MF_POPUP, UINT_PTR(layers), L"La&yers");
+    }
     AppendMenuW(view, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(view, MF_STRING, ID_VIEW_ZOOMIN, L"Zoom &in\t+");
     AppendMenuW(view, MF_STRING, ID_VIEW_ZOOMOUT, L"Zoom &out\t-");
@@ -25371,6 +25421,26 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(gTiles.list, WM_LBUTTONUP, 0, at(2, 1));
                 const size_t want = std::min<size_t>(gTiles.values.size(), size_t(std::min(3, gTiles.perRow)) * 2);
                 o << "the box selects the tiles in it: " << gTiles.chosen.size() << " of " << want << " " << (gTiles.chosen.size() == want ? "yes" : "NO") << "\n";
+                continue;
+            }
+            if (s == "layers:") {  // layers.txt, layers_<name>.png: View > Layers hides each layer (#117)
+                std::ofstream o(fs::path(datashots) / "layers.txt");
+                setWorkspace(Workspace::Map);
+                command(ID_MODE_DOODADS);
+                fitMap();
+                for (int i = 0; i < 3; ++i) pump();
+                const size_t all = buildScene().sprites.size();
+                static const char* const names[4] = {"terrain", "doodads", "sprites", "units"};
+                for (int k = 0; k < 4; ++k) {
+                    command(ID_LAYER + k);  // hide
+                    for (int i = 0; i < 3; ++i) pump();
+                    settle();
+                    const size_t now = buildScene().sprites.size();
+                    RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                    capture(fs::path(datashots) / (std::string("layers_no_") + names[k] + ".png"), app.view);
+                    o << "without " << names[k] << ": " << now << " of " << all << " sprites\n";
+                    command(ID_LAYER + k);  // show again
+                }
                 continue;
             }
             if (s == "minimaphide:") {  // minimaphide.txt, minimaphide.png: View > Show minimap off: the panel takes the whole side (#127)
