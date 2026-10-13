@@ -17365,11 +17365,13 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SetFocus(hwnd);
         if (app.drag == Drag::None) gRightDown = true, gRightX = GET_X_LPARAM(lp), gRightY = GET_Y_LPARAM(lp), SetCapture(hwnd);
         return 0;
-    case WM_MBUTTONDOWN:  // the middle button drags the map: it follows the mouse, as in an image editor (GitHub feedback #101)
+    case WM_MBUTTONDOWN:  // the middle button scrolls the map: the farther the mouse from where it was pressed, the faster
         SetFocus(hwnd);
         SetCapture(hwnd);
         panX = anchorX = curX = GET_X_LPARAM(lp), panY = anchorY = curY = GET_Y_LPARAM(lp);
-        app.drag = Drag::Pan;
+        app.drag = Drag::AutoPan;
+        lastTick = std::chrono::steady_clock::now();
+        SetTimer(hwnd, kAutoPanTimer, 10, nullptr);
         SetCursor(LoadCursor(nullptr, IDC_SIZEALL));
         return 0;
     case WM_RBUTTONUP: {
@@ -25451,6 +25453,20 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(gTiles.list, WM_LBUTTONUP, 0, at(2, 1));
                 const size_t want = std::min<size_t>(gTiles.values.size(), size_t(std::min(3, gTiles.perRow)) * 2);
                 o << "the box selects the tiles in it: " << gTiles.chosen.size() << " of " << want << " " << (gTiles.chosen.size() == want ? "yes" : "NO") << "\n";
+                continue;
+            }
+            if (s == "midpan:") {  // midpan.txt: the middle button held away from where it was pressed scrolls the map
+                std::ofstream o(fs::path(datashots) / "midpan.txt");
+                setWorkspace(Workspace::Map);
+                centerOn(app.ed->width() * 16.0f, app.ed->height() * 16.0f, 1);
+                for (int i = 0; i < 3; ++i) pump();
+                const float x0 = app.camX, y0 = app.camY;
+                SendMessageW(app.view, WM_MBUTTONDOWN, MK_MBUTTON, MAKELPARAM(400, 300));
+                SendMessageW(app.view, WM_MOUSEMOVE, MK_MBUTTON, MAKELPARAM(500, 300));  // 100 px to the right
+                for (int i = 0; i < 20; ++i) pump(), Sleep(15);
+                SendMessageW(app.view, WM_MBUTTONUP, 0, MAKELPARAM(500, 300));
+                o << "the middle button scrolls the map while held " << (app.camX > x0 && std::abs(app.camY - y0) < 1 ? "yes" : "NO") << " (" << x0
+                  << " -> " << app.camX << ")\n";
                 continue;
             }
             if (s == "layers:") {  // layers.txt, layers_<name>.png: View > Layers hides each layer (#117)
