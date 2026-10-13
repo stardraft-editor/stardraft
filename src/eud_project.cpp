@@ -1,4 +1,5 @@
 #include "stardraft/eud_project.h"
+#include "stardraft/triggers.h"
 
 #include "stardraft/dat_edit.h"
 
@@ -366,6 +367,8 @@ bool EudProject::writeGeneratedScript(const std::string& name, const std::string
     } else {
         fs::create_directories(file.parent_path(), ec);
         std::ofstream(file, std::ios::binary) << code;
+        // The triggers import their helpers from a file of their own next to them (not a plugin: no .eds section).
+        if (name == "triggers.eps") std::ofstream(file.parent_path() / "sdlib.eps", std::ios::binary) << TriggerSet::helperLibrary();
         if (it == sections_.end()) {
             // After [main] and the generated .dat code, before the scripts.
             auto at = sections_.begin() + 1;

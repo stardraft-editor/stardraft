@@ -779,15 +779,15 @@ int main(int argc, char** argv) {
               code.find("SetWireframes($U(\"Terran Marine\"), $U(\"Zerg Zergling\"));") != std::string::npos && code.find("SetPName(getcurpl(), \"Veteran\");") != std::string::npos,
           "more actions: kills, text on a line, goal leaderboards, next map, wireframes, names");
     check(code.find("bwrite(sd_upgradeAddr(getcurpl(), EncodeUpgrade(\"Terran Infantry Weapons\")), bread(sd_upgradeAddr(getcurpl(), EncodeUpgrade(\"Terran Infantry Weapons\"))) + 1);") != std::string::npos &&
-              code.find("bwrite(sd_techAddr(getcurpl(), EncodeTech(\"Stim Packs\")), 1);") != std::string::npos && code.find("function sd_upgradeAddr(pl, u)") != std::string::npos &&
+              code.find("bwrite(sd_techAddr(getcurpl(), EncodeTech(\"Stim Packs\")), 1);") != std::string::npos && (code.find("import .sdlib.f_sd_upgradeAddr;") != std::string::npos && TriggerSet::helperLibrary().find("function sd_upgradeAddr(pl, u)")) != std::string::npos &&
               code.find("(bread(sd_techAddr(getcurpl(), EncodeTech(\"Stim Packs\"))) != 0)") != std::string::npos && code.find("(bread(sd_upgradeAddr(getcurpl(), EncodeUpgrade(\"Terran Infantry Weapons\"))) < 3)") != std::string::npos,
           "upgrades and technology: set, add, check (with their helper functions)");
-    check(code.find(", 0, 1, 20);") != std::string::npos && code.find(", 2, 0, 5);") != std::string::npos && code.find("function sd_vital(u: CUnit") != std::string::npos &&
-              code.find("function sd_maxEnergy(u: CUnit)") != std::string::npos,
+    check(code.find(", 0, 1, 20);") != std::string::npos && code.find(", 2, 0, 5);") != std::string::npos && (code.find("import .sdlib.f_sd_vital;") != std::string::npos && TriggerSet::helperLibrary().find("function sd_vital(u: CUnit")) != std::string::npos &&
+              TriggerSet::helperLibrary().find("function sd_maxEnergy(u: CUnit)") != std::string::npos,
           "a unit's hit points, shields or energy: increase (up to the most) and decrease (no hit points: dies)");
     check(code.find("EncodeUnitOrder(\"Burrow\"), ") != std::string::npos && code.find("sd_orderAt(") != std::string::npos &&
               code.find("EncodeUnitOrder(\"Move\"), 512, 640, 0);") != std::string::npos && code.find("EncodeUnitOrder(\"Follow\")") != std::string::npos &&
-              code.find("function sd_order(u: CUnit") != std::string::npos,
+              (code.find("import .sdlib.f_sd_orderAt;") != std::string::npos && TriggerSet::helperLibrary().find("function sd_order(u: CUnit")) != std::string::npos,
           "one unit's order: none, at a location, at a point, on a unit");
     check(code.find("(getcurpl() < P5)") != std::string::npos, "the current player compared with a player (inside For each player)");
     check(code.find("TrgPlayer(getcurpl()).terranSupplyMax = 300;") != std::string::npos &&
@@ -809,7 +809,7 @@ int main(int argc, char** argv) {
               code.find("SetDeathsX(P1, SetTo, 1, $U(\"Terran Marine\"), 0xFF00);") != std::string::npos && code.find("DeathsX(P1, AtLeast, 1, $U(\"Terran Marine\"), 0xFF00)") != std::string::npos,
           "kill and remove all, deaths by bits");
     check(code.find("cu1.reset_buildq();") != std::string::npos && code.find("break;  // Leave the loop") != std::string::npos &&
-              code.find("v_gold = sd_max(sqrt(v_gold), 10);") != std::string::npos && code.find("function sd_max(a, b)") != std::string::npos,
+              code.find("v_gold = sd_max(sqrt(v_gold), 10);") != std::string::npos && (code.find("import .sdlib.f_sd_max;") != std::string::npos && TriggerSet::helperLibrary().find("function sd_max(a, b)")) != std::string::npos,
           "a build queue cleared, leaving a loop, the larger of a square root and 10");
     check(code.find("!(v_boss != 0 && v_boss.order != 0 && v_boss.uniquenessIdentifier == v_boss_gen) && "
                     "(v_boss != 0 && v_boss.order != 0 && v_boss.uniquenessIdentifier == v_boss_gen)") != std::string::npos,
@@ -1418,7 +1418,8 @@ H1: 00
                 if (i.level == TriggerIssue::Level::Error) ++buildErrors, std::printf("      error: %s\n", i.message.c_str());
             check(buildErrors == 0, "no errors against the real map");
             fs::create_directories(pr.folder() / "generated");
-            std::ofstream(pr.folder() / "generated" / "triggers.eps", std::ios::binary) << eps;
+            std::ofstream(pr.folder() / "generated" / "triggers.eps", std::ios::binary) << eps,
+                std::ofstream(pr.folder() / "generated" / "sdlib.eps", std::ios::binary) << TriggerSet::helperLibrary();
             pr.addScript("generated/triggers.eps");
             pr.setSectionLines("MSQC", msqcLinesFor(eps));
             pr.setSectionLines("chatEvent", triggerChatLines(eps));
@@ -1428,7 +1429,8 @@ H1: 00
             if (!r.ok) std::printf("%s\n", log.c_str());
             check(r.ok, "euddraft builds the map with the generated triggers");
             auto buildWith = [&](const std::string& eps, std::string& out) {
-                std::ofstream(pr.folder() / "generated" / "triggers.eps", std::ios::binary) << eps;
+                std::ofstream(pr.folder() / "generated" / "triggers.eps", std::ios::binary) << eps,
+                std::ofstream(pr.folder() / "generated" / "sdlib.eps", std::ios::binary) << TriggerSet::helperLibrary();
                 pr.setSectionLines("MSQC", msqcLinesFor(eps));  // the plugins' lines follow the code (as Build does)
                 pr.setSectionLines("chatEvent", triggerChatLines(eps));
                 std::string saveErr;
@@ -1475,7 +1477,8 @@ H1: 00
                       "a euddraft error (line " + std::to_string(line) + ") names the block it came from: the Raw epScript block in Broken");
             }
             {  // R5: a linked .eps outside the project folder (with a file it imports), built as it is
-                std::ofstream(pr.folder() / "generated" / "triggers.eps", std::ios::binary) << eps;  // the good triggers again
+                std::ofstream(pr.folder() / "generated" / "triggers.eps", std::ios::binary) << eps,
+                std::ofstream(pr.folder() / "generated" / "sdlib.eps", std::ios::binary) << TriggerSet::helperLibrary();  // the good triggers again
                 pr.setSectionLines("MSQC", msqcLinesFor(eps));
                 pr.setSectionLines("chatEvent", triggerChatLines(eps));
                 const fs::path linkDir = dir / "linked";

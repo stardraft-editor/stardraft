@@ -283,6 +283,8 @@ public:
     // still produced (for viewing) but should not be built.
     // `lines` (when given) gets the block that made each line (lines[0] is line 1), so that an error that euddraft
     // finds in a line can select its block.
+    // The helper functions the generated code imports (generated/sdlib.eps, next to triggers.eps).
+    static std::string helperLibrary();
     std::string generate(const TriggerMapInfo& map, std::vector<TriggerIssue>& issues, const TriggerBuildOptions& options = {},
                          std::vector<TriggerCodeLine>* lines = nullptr) const;
     // Rough triggers per run of a trigger (loops multiply what they hold; unit loops by `units`, a loop over one

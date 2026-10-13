@@ -2655,6 +2655,67 @@ int triggerErrorLine(const std::string& line) {
     return -1;
 }
 
+// The helper functions of the generated triggers: one file of their own (generated/sdlib.eps), which the
+// triggers import from (only what they use; eudplib compiles a function only when it is called).
+std::string TriggerSet::helperLibrary() {
+    std::string out = "// StarDraft's helper functions for the generated triggers (triggers.eps imports them). Generated: do not edit.\n\n";
+        out += "function sd_upgradeAddr(pl, u) {  // a player's level of an upgrade (0-45, then 46-60)\n    if (u < 46) return 0x58D2B0 + pl * 46 + u;\n"
+               "    return 0x58F32C + pl * 15 + (u - 46);\n}\n";
+    out += "function sd_techAddr(pl, t) {  // whether a player has researched a technology (0-23, then 24-43)\n    if (t < 24) return 0x58CF44 + pl * 24 + t;\n"
+               "    return 0x58F140 + pl * 20 + (t - 24);\n}\n";
+    out += "function sd_order(u: CUnit, order, x, y, t) {  // the unit's order now, with its place and its target unit (0: none)\n"
+               "    u.orderID = order;\n    u.orderState = 0;\n    u.orderTargetX = x;\n    u.orderTargetY = y;\n    u.orderTarget = t;\n}\n"
+               "function sd_orderAt(u: CUnit, order, a) {  // at the middle of a location (its address)\n"
+               "    sd_order(u, order, (dwread(a) + dwread(a + 8)) / 2, (dwread(a + 4) + dwread(a + 12)) / 2, 0);\n}\n";
+    out += "function sd_maxEnergy(u: CUnit) {  // as StarCraft: 250 for a hero or with the unit's energy upgrade, else 200\n"
+               "    const t = u.unitType;\n    if (t.baseProperty.Hero) return 250 * 256;\n    var g = -1;\n"
+               "    if (t == 1) g = 21;\n    else if (t == 8) g = 22;\n    else if (t == 9) g = 19;\n    else if (t == 12) g = 23;\n"
+               "    else if (t == 34) g = 51;\n    else if (t == 45) g = 31;\n    else if (t == 46) g = 32;\n    else if (t == 67) g = 40;\n"
+               "    else if (t == 71) g = 44;\n    else if (t == 60) g = 47;\n    else if (t == 63) g = 49;\n"
+               "    if (g >= 0 && bread(sd_upgradeAddr(u.owner, g)) > 0) return 250 * 256;\n    return 200 * 256;\n}\n"
+               "function sd_vital(u: CUnit, kind, up, n) {  // kind 0 hit points, 1 shields, 2 energy; up 1 increase, 0 decrease\n"
+               "    const d = n * 256;\n    var now = 0;\n    var most = 0;\n"
+               "    if (kind == 0) { now = u.hp; most = u.unitType.maxHp; }\n"
+               "    else if (kind == 1) { now = u.shield; most = u.unitType.maxShield * 256; }\n"
+               "    else { now = u.energy; most = sd_maxEnergy(u); }\n"
+               "    if (up) {\n        if (now >= most || most - now <= d) now = most;\n        else now += d;\n"
+               "    } else if (now <= d || (kind == 0 && now - d < 256)) {\n"
+               "        if (kind == 0) { u.die(); return; }  // no hit points: the unit dies\n        now = 0;\n"
+               "    } else now -= d;\n"
+               "    if (kind == 0) u.hp = now;\n    else if (kind == 1) u.shield = now;\n    else u.energy = now;\n}\n";
+    out += "function sd_max(a, b) {\n    if (a > b) return a;\n    return b;\n}\n";
+    out += "function sd_ldirX(d, a) {  // the x of a point d pixels away in direction a (0-255, 0 is up)\n    const x, y = lengthdir_256(d, a);\n    return x;\n}\n"
+               "function sd_ldirY(d, a) {\n    const x, y = lengthdir_256(d, a);\n    return y;\n}\n";
+    out += "const sd_selection = EUDArray(1);\nfunction sd_select(ptr) {  // one unit, as if the player clicked it\n    sd_selection[0] = ptr;\n"
+               "    QueueGameCommand_Select(1, sd_selection);\n}\n";
+    out += "function sd_groupAdd(g, room, u: CUnit) {  // a unit group: how many, then each unit's address and generation\n"
+               "    const a = EUDArray.cast(g);\n    const n = a[0];\n    if (n >= room) return;\n"
+               "    for (var i = 0; i < n; i++) {\n        if (a[1 + 2 * i] == u.ptr) return;  // in it already\n    }\n"
+               "    a[1 + 2 * n] = u.ptr;\n    a[2 + 2 * n] = u.uniquenessIdentifier;\n    a[0] = n + 1;\n}\n";
+    out += "// A button's address in its set (0x5187E8 + 12 x set: count, address). The first change copies the set into\n"
+               "// the map (room for 32 buttons), so the game's own buttons are not written.\n"
+               "const sd_buttonCopied = EUDArray(250);\n"
+               "function sd_button(set, index) {\n"
+               "    if (sd_buttonCopied[set] == 0) {\n"
+               "        const copy = Db(20 * 32);\n"
+               "        memcpy(copy, dwread(0x5187EC + 12 * set), 20 * dwread(0x5187E8 + 12 * set));\n"
+               "        dwwrite(0x5187EC + 12 * set, copy);\n"
+               "        sd_buttonCopied[set] = 1;\n"
+               "    }\n"
+               "    return dwread(0x5187EC + 12 * set) + 20 * index;\n"
+               "}\n"
+               "// A whole button: its 20 bytes; a number past the set's last button adds it (the set grows).\n"
+               "function sd_setButton(set, index, place, icon, condition, action, conditionValue, actionValue, tooltip, tooltipNotUsable) {\n"
+               "    const b = sd_button(set, index);\n"
+               "    if (index >= dwread(0x5187E8 + 12 * set)) dwwrite(0x5187E8 + 12 * set, index + 1);\n"
+               "    wwrite(b, place);\n    wwrite(b + 2, icon);\n    dwwrite(b + 4, condition);\n    dwwrite(b + 8, action);\n"
+               "    wwrite(b + 12, conditionValue);\n    wwrite(b + 14, actionValue);\n    wwrite(b + 16, tooltip);\n    wwrite(b + 18, tooltipNotUsable);\n"
+               "}\n";
+    out += "function sd_min(a, b) {\n    if (a < b) return a;\n    return b;\n}\n";
+    out += "function sd_locAddr(loc) {  // a location's left, top, right, bottom\n    return 0x58DC60 + 20 * (loc - 1);\n}\n";
+    return out;
+}
+
 std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerIssue>& issues, const TriggerBuildOptions& options,
                                  std::vector<TriggerCodeLine>* lines) const {
     Gen g{map, issues};
@@ -2849,6 +2910,28 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
         if (it != map.units.end()) picked += pickedLookup(*it);
     }
     std::string out = "// Generated by StarDraft from triggers.json. Do not edit: it is rewritten on every build.\n\n";
+    {  // the imports first: euddraft takes them only before the other statements
+        // The helpers come from generated/sdlib.eps (TriggerSet::helperLibrary): only the ones the triggers use.
+        static const std::pair<const char*, const char*> kNames[] = {
+            {"upgrade", "sd_upgradeAddr"},
+            {"tech", "sd_techAddr"},
+            {"order", "sd_order sd_orderAt"},
+            {"vital", "sd_vital"},
+            {"max", "sd_max"},
+            {"ldir", "sd_ldirX sd_ldirY"},
+            {"select", "sd_select"},
+            {"groups", "sd_groupAdd"},
+            {"buttons", "sd_button sd_setButton"},
+            {"min", "sd_min"},
+            {"loc", "sd_locAddr"}};
+        std::string imports;
+        for (const auto& [key, list] : kNames)
+            if (g.helpers.count(key)) {
+                std::istringstream in(list);
+                for (std::string n; in >> n;) imports += "import .sdlib.f_" + n + ";\n";  // a function of the file next to this one (epScript's name: f_ + its name)
+            }
+        if (!imports.empty()) out += "// Helpers (generated/sdlib.eps)\n" + imports + "\n";
+    }
     if (!constDecls.empty()) out += "// Constants\n" + constDecls + "\n";
     if (!decls.empty()) out += "// Variables\n" + decls + "\n";
     // Keys and mouse buttons the triggers read: euddraft's MSQC plugin fills these (Build writes its [MSQC] lines).
@@ -2862,69 +2945,6 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
         out += "\n";
     }
     if (!g.helpers.empty()) {
-        out += "// Helpers\n";
-        if (g.helpers.count("upgrade"))
-            out += "function sd_upgradeAddr(pl, u) {  // a player's level of an upgrade (0-45, then 46-60)\n    if (u < 46) return 0x58D2B0 + pl * 46 + u;\n"
-                   "    return 0x58F32C + pl * 15 + (u - 46);\n}\n";
-        if (g.helpers.count("tech"))
-            out += "function sd_techAddr(pl, t) {  // whether a player has researched a technology (0-23, then 24-43)\n    if (t < 24) return 0x58CF44 + pl * 24 + t;\n"
-                   "    return 0x58F140 + pl * 20 + (t - 24);\n}\n";
-        if (g.helpers.count("order"))
-            out += "function sd_order(u: CUnit, order, x, y, t) {  // the unit's order now, with its place and its target unit (0: none)\n"
-                   "    u.orderID = order;\n    u.orderState = 0;\n    u.orderTargetX = x;\n    u.orderTargetY = y;\n    u.orderTarget = t;\n}\n"
-                   "function sd_orderAt(u: CUnit, order, a) {  // at the middle of a location (its address)\n"
-                   "    sd_order(u, order, (dwread(a) + dwread(a + 8)) / 2, (dwread(a + 4) + dwread(a + 12)) / 2, 0);\n}\n";
-        if (g.helpers.count("vital"))
-            out += "function sd_maxEnergy(u: CUnit) {  // as StarCraft: 250 for a hero or with the unit's energy upgrade, else 200\n"
-                   "    const t = u.unitType;\n    if (t.baseProperty.Hero) return 250 * 256;\n    var g = -1;\n"
-                   "    if (t == 1) g = 21;\n    else if (t == 8) g = 22;\n    else if (t == 9) g = 19;\n    else if (t == 12) g = 23;\n"
-                   "    else if (t == 34) g = 51;\n    else if (t == 45) g = 31;\n    else if (t == 46) g = 32;\n    else if (t == 67) g = 40;\n"
-                   "    else if (t == 71) g = 44;\n    else if (t == 60) g = 47;\n    else if (t == 63) g = 49;\n"
-                   "    if (g >= 0 && bread(sd_upgradeAddr(u.owner, g)) > 0) return 250 * 256;\n    return 200 * 256;\n}\n"
-                   "function sd_vital(u: CUnit, kind, up, n) {  // kind 0 hit points, 1 shields, 2 energy; up 1 increase, 0 decrease\n"
-                   "    const d = n * 256;\n    var now = 0;\n    var most = 0;\n"
-                   "    if (kind == 0) { now = u.hp; most = u.unitType.maxHp; }\n"
-                   "    else if (kind == 1) { now = u.shield; most = u.unitType.maxShield * 256; }\n"
-                   "    else { now = u.energy; most = sd_maxEnergy(u); }\n"
-                   "    if (up) {\n        if (now >= most || most - now <= d) now = most;\n        else now += d;\n"
-                   "    } else if (now <= d || (kind == 0 && now - d < 256)) {\n"
-                   "        if (kind == 0) { u.die(); return; }  // no hit points: the unit dies\n        now = 0;\n"
-                   "    } else now -= d;\n"
-                   "    if (kind == 0) u.hp = now;\n    else if (kind == 1) u.shield = now;\n    else u.energy = now;\n}\n";
-        if (g.helpers.count("max")) out += "function sd_max(a, b) {\n    if (a > b) return a;\n    return b;\n}\n";
-        if (g.helpers.count("ldir"))
-            out += "function sd_ldirX(d, a) {  // the x of a point d pixels away in direction a (0-255, 0 is up)\n    const x, y = lengthdir_256(d, a);\n    return x;\n}\n"
-                   "function sd_ldirY(d, a) {\n    const x, y = lengthdir_256(d, a);\n    return y;\n}\n";
-        if (g.helpers.count("select"))
-            out += "const sd_selection = EUDArray(1);\nfunction sd_select(ptr) {  // one unit, as if the player clicked it\n    sd_selection[0] = ptr;\n"
-                   "    QueueGameCommand_Select(1, sd_selection);\n}\n";
-        if (g.helpers.count("groups"))
-            out += "function sd_groupAdd(g, room, u: CUnit) {  // a unit group: how many, then each unit's address and generation\n"
-                   "    const a = EUDArray.cast(g);\n    const n = a[0];\n    if (n >= room) return;\n"
-                   "    for (var i = 0; i < n; i++) {\n        if (a[1 + 2 * i] == u.ptr) return;  // in it already\n    }\n"
-                   "    a[1 + 2 * n] = u.ptr;\n    a[2 + 2 * n] = u.uniquenessIdentifier;\n    a[0] = n + 1;\n}\n";
-        if (g.helpers.count("buttons"))
-            out += "// A button's address in its set (0x5187E8 + 12 x set: count, address). The first change copies the set into\n"
-                   "// the map (room for 32 buttons), so the game's own buttons are not written.\n"
-                   "const sd_buttonCopied = EUDArray(250);\n"
-                   "function sd_button(set, index) {\n"
-                   "    if (sd_buttonCopied[set] == 0) {\n"
-                   "        const copy = Db(20 * 32);\n"
-                   "        memcpy(copy, dwread(0x5187EC + 12 * set), 20 * dwread(0x5187E8 + 12 * set));\n"
-                   "        dwwrite(0x5187EC + 12 * set, copy);\n"
-                   "        sd_buttonCopied[set] = 1;\n"
-                   "    }\n"
-                   "    return dwread(0x5187EC + 12 * set) + 20 * index;\n"
-                   "}\n"
-                   "// A whole button: its 20 bytes; a number past the set's last button adds it (the set grows).\n"
-                   "function sd_setButton(set, index, place, icon, condition, action, conditionValue, actionValue, tooltip, tooltipNotUsable) {\n"
-                   "    const b = sd_button(set, index);\n"
-                   "    if (index >= dwread(0x5187E8 + 12 * set)) dwwrite(0x5187E8 + 12 * set, index + 1);\n"
-                   "    wwrite(b, place);\n    wwrite(b + 2, icon);\n    dwwrite(b + 4, condition);\n    dwwrite(b + 8, action);\n"
-                   "    wwrite(b + 12, conditionValue);\n    wwrite(b + 14, actionValue);\n    wwrite(b + 16, tooltip);\n    wwrite(b + 18, tooltipNotUsable);\n"
-                   "}\n";
-        if (g.helpers.count("min")) out += "function sd_min(a, b) {\n    if (a < b) return a;\n    return b;\n}\n";
-        if (g.helpers.count("loc")) out += "function sd_locAddr(loc) {  // a location's left, top, right, bottom\n    return 0x58DC60 + 20 * (loc - 1);\n}\n";
         if (g.helpers.count("index")) {  // the debug build: where each checked index is, and whether its message was shown
             std::string sites;
             for (size_t k = 0; k < g.sites.size(); ++k) sites += (k ? ", " : "") + std::string("Db(") + quote(g.sites[k]) + ")";
