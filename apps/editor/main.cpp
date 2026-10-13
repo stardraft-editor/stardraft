@@ -23671,8 +23671,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 if (loc >= 0) app.ed->undo(), app.ed->undo();
                 continue;
             }
-            if (s.rfind("spray:", 0) == 0) {  // spray:<name part>[:<sprays>]: Doodads > Spray with every doodad whose name has
-                // that part, sprayed at random places of the view and kept (for a picture: ws:map after it); spray.txt says how many
+            if (s.rfind("spray:", 0) == 0) {  // spray:<name part>[#<from>-<to>,...][:<sprays>]: Doodads > Spray with every doodad
+                // whose name or section has that part (and, with #, whose number "#n" is in a range), sprayed at random places of
+                // the view and kept (for a picture: ws:map after it); spray.txt says how many
                 const size_t c = s.find(':', 6);
                 std::wstring part = widen(s.substr(6, c == std::string::npos ? std::string::npos : c - 6));
                 const int sprays = c == std::string::npos ? 12 : std::max(1, std::atoi(s.c_str() + c + 1));
@@ -23681,13 +23682,32 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     return w;
                 };
                 part = lower(part);
+                std::vector<std::pair<int, int>> ranges;  // dirt#252-255,223-233: only those numbers
+                if (const size_t h = part.find(L'#'); h != std::wstring::npos) {
+                    for (size_t p = h + 1; p < part.size();) {
+                        const int a = _wtoi(part.c_str() + p);
+                        const size_t dash = part.find(L'-', p), comma = part.find(L',', p);
+                        const int b = dash != std::wstring::npos && dash < comma ? _wtoi(part.c_str() + dash + 1) : a;
+                        ranges.push_back({a, b});
+                        p = comma == std::wstring::npos ? part.size() : comma + 1;
+                    }
+                    part.resize(h);
+                }
+                auto numberIn = [&](const std::wstring& label) {
+                    if (ranges.empty()) return true;
+                    const size_t h = label.find(L'#');
+                    const int n = h == std::wstring::npos ? -1 : _wtoi(label.c_str() + h + 1);
+                    for (const auto& [a, b] : ranges)
+                        if (n >= a && n <= b) return true;
+                    return false;
+                };
                 setWorkspace(Workspace::Map);
                 setMode(Mode::Doodads);
                 gPal.chosen.clear();
                 bool inSection = false;  // the part names a section of the palette (doodads are listed as "#n w x h")
                 for (const auto& e : gPal.entries) {
-                    if (e.value < 0) inSection = lower(e.label).find(part) != std::wstring::npos;
-                    else if (inSection || lower(e.label).find(part) != std::wstring::npos) gPal.chosen.push_back(e.value);
+                    if (e.value < 0) inSection = lower(e.label) == part || lower(e.label).find(part) != std::wstring::npos && ranges.empty();
+                    else if ((inSection || lower(e.label).find(part) != std::wstring::npos) && numberIn(e.label)) gPal.chosen.push_back(e.value);
                 }
                 app.palette = gPal.chosen.empty() ? -1 : gPal.chosen.front();
                 app.toolByMode[int(Mode::Doodads)] = DSpray, fillToolCombo();
@@ -23704,8 +23724,12 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 std::ofstream o(fs::path(datashots) / "spray.txt", std::ios::app);
                 o << "spray " << narrow(part) << ": " << gPal.chosen.size() << " kinds, " << (app.ed->doodads().size() - n0) << " doodads in " << sprays
                   << " sprays (the palette lists " << gPal.entries.size() << ")";
+                bool listing = false;  // none chosen: the sections to pick from, and the numbers in the named section
                 for (const auto& e : gPal.entries)
-                    if (gPal.chosen.empty() && e.value < 0) o << "; " << narrow(e.label);  // the sections, to pick from
+                    if (gPal.chosen.empty()) {
+                        if (e.value < 0) listing = lower(e.label) == part, o << "; " << narrow(e.label);
+                        else if (listing) o << " " << narrow(e.label.substr(0, e.label.find(L' '))) << "=" << e.value;
+                    }
                 o << std::endl;
                 continue;
             }
