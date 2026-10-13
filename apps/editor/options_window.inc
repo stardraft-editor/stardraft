@@ -76,6 +76,18 @@ void optionsPaint(HWND hwnd) {
     segmented(y, {{L"Dark", L"Dark theme (default)"}, {L"Light", L"Light theme"}}, gLightTheme ? 1 : 0,
               [](int i) { command(i ? ID_THEME_LIGHT : ID_THEME_DARK); }, "theme");
     y += rowH;
+    // The language: a choice that applies at the next start (the names of the languages are in their own language).
+    ui::fieldLabel(mem, l, y, L"Language", false);
+    {
+        const std::wstring& lang = gLanguage;
+        const int chosen = lang == L"en" ? 1 : lang == L"ko" ? 2 : lang == L"es" ? 3 : 0;
+        const std::vector<std::pair<std::wstring, std::wstring>> choices = {
+            {L"Automatic", L"Follow the language of Windows"}, {L"English", L"English"}, {L"한국어", L"Korean"}, {L"Español", L"Spanish"}};
+        segmented(y, choices, chosen, [](int i) { command(ID_OPT_LANG + i); }, "language");
+    }
+    y += rowH;
+    note(fx, y - scale(4), L"Applies at the next start");
+    y += scale(20);
     ui::fieldLabel(mem, l, y, L"Accent color", false);
     {
         const int s = scale(20), top = y + (rowH - s) / 2;

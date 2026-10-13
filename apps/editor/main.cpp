@@ -71,6 +71,7 @@ using std::min;
 #include "stardraft/terrain_gen.h"
 #include "stardraft/wireframes.h"
 #include "stardraft/pathing.h"
+#include "ui_text.h"  // the program's text in other languages: the macros for DrawTextW, MessageBoxW and the others
 
 using namespace stardraft;
 namespace fs = std::filesystem;
@@ -156,6 +157,7 @@ enum : int {
     ID_PAL_LIST = 620, ID_PAL_ICONS, ID_PAL_SPRITES, ID_PAL_NORMAL, ID_PAL_LARGE,
     ID_GRID_SIZE = 950,  // + the preset (kGridPresets); View > Grid size
     ID_GRID_CUSTOM = 958,
+    ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish
 };
 // View > Grid size: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
 struct GridPreset {
@@ -293,6 +295,7 @@ std::vector<std::wstring> gRecentMaps, gRecentProjects;
 bool gOpenLastProject = false;  // Options: open the last project on start (off unless chosen)
 bool gCheckUpdates = true;      // Options: look for a newer release on start (on unless turned off)
 bool gSendCrashReports = true;  // Options: send anonymous crash reports (on unless turned off)
+std::wstring gLanguage = L"auto";  // Options > Language: auto, en, ko or es (a change applies at the next start)
 std::wstring gProjectsFolder;
 HMENU gRecentMapsMenu = nullptr, gRecentProjectsMenu = nullptr;
 
@@ -319,6 +322,14 @@ void loadRecent() {
     onSize = sizeof on;
     if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"SendCrashReports", RRF_RT_REG_DWORD, nullptr, &on, &onSize) == ERROR_SUCCESS)
         gSendCrashReports = on != 0;
+}
+
+// The language (Program options > Language), before the menus are made: their texts are translated when they are added.
+void loadLanguage() {
+    wchar_t lang[16] = L"";
+    DWORD langSize = sizeof lang;
+    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"Language", RRF_RT_REG_SZ, nullptr, lang, &langSize) == ERROR_SUCCESS) gLanguage = lang;
+    gUiLang = uiLanguageChosen(gLanguage);
 }
 
 void saveRecent() {
@@ -847,7 +858,7 @@ void rebuildList() {
             SendMessageW(app.list, LB_ADDSTRING, 0, LPARAM(label.c_str()));
         }
         if (app.mode == Mode::Terrain && app.items.empty())
-            SendMessageW(app.list, LB_ADDSTRING, 0, LPARAM(L"(Terrain editing needs ISOM data. Only Badlands has it now.)"));
+            SendMessageW(app.list, LB_ADDSTRING, 0, LPARAM(tr(L"(Terrain editing needs ISOM data. Only Badlands has it now.)")));
         // Keep the previous choice if still listed.
         if (app.mode != Mode::Units) {
             auto it = std::find(app.items.begin(), app.items.end(), app.palette);
@@ -4016,6 +4027,16 @@ void command(int id) {
         setMessage(gSendCrashReports ? L"StarDraft sends an anonymous report when it crashes"
                                      : L"StarDraft does not send crash reports (a report stays on this computer)");
         break;
+    case ID_OPT_LANG:
+    case ID_OPT_LANG + 1:
+    case ID_OPT_LANG + 2:
+    case ID_OPT_LANG + 3: {  // the language applies at the next start (the texts are made at the start)
+        static const wchar_t* const kCodes[] = {L"auto", L"en", L"ko", L"es"};
+        gLanguage = kCodes[id - ID_OPT_LANG];
+        if (!gSelfTest) RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"Language", REG_SZ, gLanguage.c_str(), DWORD((gLanguage.size() + 1) * sizeof(wchar_t)));
+        setMessage(L"The language changes at the next start of StarDraft");
+        break;
+    }
     case ID_THEME_DARK:
     case ID_THEME_LIGHT: applyTheme(id == ID_THEME_LIGHT, gAccentIndex); break;
     case ID_OPT_LASTPROJECT:
@@ -22470,6 +22491,7 @@ bool wheelOverDropdown(const MSG& m) {
 
 int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     app.inst = inst;
+    loadLanguage();
     {
         int ac = 0;
         LPWSTR* av = CommandLineToArgvW(GetCommandLineW(), &ac);
