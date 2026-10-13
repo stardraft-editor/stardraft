@@ -13,6 +13,7 @@ struct PaintedMenu {
         std::wstring text, keys;  // the text (no '&'), the keys after a tab
         wchar_t mnemonic = 0;     // the letter after '&' (lower case)
         bool separator = false, gray = false, checked = false, radio = false;
+        bool reason = false;  // a grayed item that tells why after its colon: the reason is painted in kDim
         HMENU sub = nullptr;
         HBITMAP bmp = nullptr;
         RECT r{};  // in the window
@@ -39,6 +40,15 @@ int gMenuBarOpen = -1;  // the menu bar's menu that shows (drawn as pressed in t
 MenuLoop* gMenuLoop = nullptr;
 HWND gMenuForegroundTest = nullptr;  // self-test: the window taken as in front (to test that the menus close)
 
+// A grayed item whose text after the first ':' tells why it cannot be changed (its item data). The name stays faint,
+// the reason is painted in kDim, so that it is easy to read.
+const ULONG_PTR kMenuReason = 1;
+void markMenuReason(HMENU m, UINT id) {
+    MENUITEMINFOW mi{sizeof mi};
+    mi.fMask = MIIM_DATA, mi.dwItemData = kMenuReason;
+    SetMenuItemInfoW(m, id, FALSE, &mi);
+}
+
 // Self-tests: the open menu's window (painted, or the system's), and closing the menus.
 HWND openMenuWindow() {
     if (gMenuLoop && !gMenuLoop->stack.empty()) return gMenuLoop->stack.front()->wnd;
@@ -58,7 +68,7 @@ void read(PaintedMenu& m, HMENU h) {
     for (int i = 0; i < n; ++i) {
         wchar_t buf[512] = L"";
         MENUITEMINFOW mi{sizeof mi};
-        mi.fMask = MIIM_FTYPE | MIIM_STATE | MIIM_ID | MIIM_SUBMENU | MIIM_STRING | MIIM_BITMAP;
+        mi.fMask = MIIM_FTYPE | MIIM_STATE | MIIM_ID | MIIM_SUBMENU | MIIM_STRING | MIIM_BITMAP | MIIM_DATA;
         mi.dwTypeData = buf, mi.cch = 511;
         if (!GetMenuItemInfoW(h, UINT(i), TRUE, &mi)) continue;
         PaintedMenu::Item it;
@@ -67,6 +77,7 @@ void read(PaintedMenu& m, HMENU h) {
         it.gray = (mi.fState & (MFS_GRAYED | MFS_DISABLED)) != 0;
         it.checked = (mi.fState & MFS_CHECKED) != 0;
         it.radio = (mi.fType & MFT_RADIOCHECK) != 0;
+        it.reason = it.gray && mi.dwItemData == kMenuReason;
         if (UINT_PTR(mi.hbmpItem) > UINT_PTR(HBMMENU_POPUP_MINIMIZE) && mi.hbmpItem != HBMMENU_CALLBACK) it.bmp = mi.hbmpItem;
         std::wstring s = buf;
         if (const size_t tab = s.find(L'\t'); tab != std::wstring::npos) it.keys = s.substr(tab + 1), s.resize(tab);
@@ -139,8 +150,18 @@ void paint(PaintedMenu& m, HDC out, RECT rc) {
             } else uiIcon(dc, icon, UiIcon::Check, kAccent, scale(16));
         }
         RECT t{r.left + scale(kIconW), r.top, r.right - scale(it.sub ? kSubW : 10), r.bottom};
+        const size_t colon = it.reason ? it.text.find(L':') : std::wstring::npos;
         SetTextColor(dc, fg);
-        DrawTextW(dc, it.text.c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
+        if (colon == std::wstring::npos) DrawTextW(dc, it.text.c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
+        else {  // the name (with its colon) faint, the reason after it in kDim
+            SIZE a{};
+            GetTextExtentPoint32W(dc, it.text.c_str(), int(colon + 1), &a);
+            DrawTextW(dc, it.text.c_str(), int(colon + 1), &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
+            RECT rest = t;
+            rest.left = std::min(t.right, t.left + a.cx);
+            SetTextColor(dc, kDim);
+            DrawTextW(dc, it.text.c_str() + colon + 1, -1, &rest, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
+        }
         if (!it.keys.empty()) {
             SetTextColor(dc, it.gray ? kFaint : kDim);
             DrawTextW(dc, it.keys.c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);

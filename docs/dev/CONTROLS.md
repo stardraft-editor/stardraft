@@ -251,7 +251,9 @@ and the terrain copy. Its last item, after a separator, is "Program options…" 
 of the program. There is no Options item in File.
 
 **The rules of each kind.** Each kind has a submenu with the same items, in the same words. A rule that does not
-change for a kind shows grayed, with its value (a check mark or a radio mark) and the reason after a colon.
+change for a kind shows grayed, with its value (a check mark or a radio mark) and the reason after a colon. The name
+is in `kFaint`; the reason is in `kDim` (`markMenuReason()`), so it is easy to read on the menu and on the row under
+the mouse.
 
 | Item | Units | Doodads | Sprites | Locations |
 |---|---|---|---|---|

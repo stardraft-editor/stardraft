@@ -19166,17 +19166,23 @@ HMENU buildMenu() {
     AppendMenuW(units, MF_STRING, ID_OPT_STACK, L"&Can be on top of others");
     AppendMenuW(units, MF_STRING, ID_OPT_DRAGBACK, L"Dragged units go &back to the last place where they fit");
     AppendMenuW(doodads, MF_STRING | MF_GRAYED | MF_CHECKED, ID_FIXED_DOODAD_SNAP, L"Snap to tiles (32 px): always, a doodad is made of tiles");
+    markMenuReason(doodads, ID_FIXED_DOODAD_SNAP);
     AppendMenuW(doodads, MF_SEPARATOR, 0, nullptr);
     placeItems(doodads, ID_DOODAD_FIT, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE);
     AppendMenuW(doodads, MF_STRING | MF_GRAYED, ID_FIXED_DOODAD_STACK, L"Can be on top of others: no, a doodad replaces the tiles under it");
+    markMenuReason(doodads, ID_FIXED_DOODAD_STACK);
     snapItems(sprites, ID_SNAP_SPRITES);
     AppendMenuW(sprites, MF_STRING | MF_GRAYED | MF_CHECKED, ID_FIXED_SPRITE_PLACE, L"Place anywhere: always");
+    markMenuReason(sprites, ID_FIXED_SPRITE_PLACE);
     AppendMenuW(sprites, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(sprites, MF_STRING | MF_GRAYED | MF_CHECKED, ID_FIXED_SPRITE_STACK, L"Can be on top of others: always");
+    markMenuReason(sprites, ID_FIXED_SPRITE_STACK);
     snapItems(locations, ID_SNAP_LOCATIONS);
     AppendMenuW(locations, MF_STRING | MF_GRAYED | MF_CHECKED, ID_FIXED_LOC_PLACE, L"Place anywhere: always");
+    markMenuReason(locations, ID_FIXED_LOC_PLACE);
     AppendMenuW(locations, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(locations, MF_STRING | MF_GRAYED | MF_CHECKED, ID_FIXED_LOC_STACK, L"Can be on top of others: always");
+    markMenuReason(locations, ID_FIXED_LOC_STACK);
     AppendMenuW(locations, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(locations, MF_STRING, ID_OPT_LOCWRAP, L"&Names in lines that fit in the location");
     AppendMenuW(options, MF_POPUP, UINT_PTR(units), L"&Units");
@@ -22684,8 +22690,8 @@ int runSelfTest(const fs::path& dir) {
                 for (int light = 0; light < 2; ++light)
                     for (int a = 0; a < theme::kAccentCount; ++a) {
                         setThemeColors(light != 0, a);
-                        for (const auto& [fg, bg] : {std::pair{kText, kBg}, {kText, kPanel}, {kText, kCtl}, {kText, kSel}, {kDim, kBg}, {kDim, kCtl},
-                                                     {kAccent, kBg}, {kAccent, kPanel}, {kAccent, kSel}, {kOnText, kAccentFill}, {kGood, kBg}, {kWarn, kBg},
+                        for (const auto& [fg, bg] : {std::pair{kText, kBg}, {kText, kPanel}, {kText, kCtl}, {kText, kSel}, {kDim, kBg}, {kDim, kPanel},
+                                                     {kDim, kCtl}, {kDim, kSel}, {kAccent, kBg}, {kAccent, kPanel}, {kAccent, kSel}, {kOnText, kAccentFill}, {kGood, kBg}, {kWarn, kBg},
                                                      {kBad, kBg}})
                             low += contrast(fg, bg) < 4.5;
                     }
@@ -24640,6 +24646,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                         const Pair pairs[] = {{"text/bg", kText, kBg},           {"text/panel", kText, kPanel},     {"text/ctl", kText, kCtl},
                                               {"text/rowhot", kText, kRowHot},   {"text/sel", kText, kSel},         {"text/selhot", kText, kSelHot},
                                               {"dim/bg", kDim, kBg},             {"dim/panel", kDim, kPanel},       {"dim/ctl", kDim, kCtl},
+                                              {"dim/sel", kDim, kSel},
                                               {"accent/bg", kAccent, kBg},       {"accent/panel", kAccent, kPanel}, {"accent/ctl", kAccent, kCtl},
                                               {"accent/sel", kAccent, kSel},     {"ontext/fill", kOnText, kAccentFill}, {"good/bg", kGood, kBg},
                                               {"warn/bg", kWarn, kBg},           {"bad/bg", kBad, kBg}};
