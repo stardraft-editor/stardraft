@@ -1424,7 +1424,6 @@ constexpr UiText kRows[] = {
     {L"Send anonymous crash reports", L"Enviar informes de fallos an\u00F3nimos"},
     {L"The version, Windows, the video card, where it crashed and the last log lines; no maps", L"La versi\u00F3n, Windows, la tarjeta de video, d\u00F3nde fall\u00F3 y las \u00FAltimas l\u00EDneas del registro; sin mapas"},
     {L"Working folder", L"Carpeta de trabajo"},
-    {L"Browse 26", L"Examinar 26"},
     {L"The working folder: where new projects go", L"La carpeta de trabajo: donde se guardan los proyectos nuevos"},
     {L"New projects go to ", L"Los proyectos nuevos se guardan en "},
     {L"Select the folder where new projects go", L"Seleccione la carpeta donde se guardan los proyectos nuevos"},

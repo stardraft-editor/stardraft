@@ -1425,7 +1425,6 @@ constexpr UiText kRows[] = {
     {L"Send anonymous crash reports", L"\uC775\uBA85 \uCDA9\uB3CC \uBCF4\uACE0\uC11C \uBCF4\uB0B4\uAE30"},
     {L"The version, Windows, the video card, where it crashed and the last log lines; no maps", L"\uBC84\uC804, Windows, \uADF8\uB798\uD53D \uCE74\uB4DC, \uCDA9\uB3CC \uC704\uCE58, \uB9C8\uC9C0\uB9C9 \uB85C\uADF8 \uC904. \uB9F5\uC740 \uD3EC\uD568\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4"},
     {L"Working folder", L"\uC791\uC5C5 \uD3F4\uB354"},
-    {L"Browse 26", L"\uCC3E\uC544\uBCF4\uAE30 26"},
     {L"The working folder: where new projects go", L"\uC791\uC5C5 \uD3F4\uB354: \uC0C8 \uD504\uB85C\uC81D\uD2B8\uAC00 \uC800\uC7A5\uB418\uB294 \uC704\uCE58"},
     {L"New projects go to ", L"\uC0C8 \uD504\uB85C\uC81D\uD2B8 \uC800\uC7A5 \uC704\uCE58: "},
     {L"Select the folder where new projects go", L"\uC0C8 \uD504\uB85C\uC81D\uD2B8\uB97C \uC800\uC7A5\uD560 \uD3F4\uB354 \uC120\uD0DD"},

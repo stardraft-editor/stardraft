@@ -160,7 +160,7 @@ void optionsPaint(HWND hwnd) {
     // The working folder: where new projects go.
     y = ui::sectionHeader(mem, l, y, L"Working folder");
     {
-        const std::wstring browse = L"Browse 26", def = L"Default";
+        const std::wstring browse = L"Browse\x2026", def = L"Default";
         const int bw = ui::buttonWidth(mem, browse), dw = ui::buttonWidth(mem, def), gap = scale(ui::kButtonGap);
         const RECT field{l.x0, fieldTop(y), l.colRight - bw - dw - 2 * gap, fieldTop(y) + fieldH};
         ui::fieldBox(mem, field, ui::Field::ReadOnly);
