@@ -195,7 +195,8 @@ if(WIN32)
     # commit names that commit with no configure step.
     set(STARDRAFT_BUILD_INFO ${CMAKE_BINARY_DIR}/generated/build_info.h)
     add_custom_target(stardraft_build_info COMMAND ${CMAKE_COMMAND} -DSTARDRAFT_SOURCE_DIR=${CMAKE_SOURCE_DIR}
-                      -DSTARDRAFT_BUILD_INFO=${STARDRAFT_BUILD_INFO} -P ${CMAKE_SOURCE_DIR}/cmake/build_info.cmake VERBATIM)
+                      -DSTARDRAFT_BUILD_INFO=${STARDRAFT_BUILD_INFO} -P ${CMAKE_SOURCE_DIR}/cmake/build_info.cmake
+                      BYPRODUCTS ${STARDRAFT_BUILD_INFO} VERBATIM)  # Ninja reads the header again after the step
     add_dependencies(stardraft_editor stardraft_build_info)
     # CI gives it in the environment; a build made here reads .issues-token in the repository's root (not in git).
     # Empty: reports and feedback stay on disk until a build with a token starts.
