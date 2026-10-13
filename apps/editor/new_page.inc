@@ -704,7 +704,7 @@ void paintNewPage(HDC mem, RECT rc) {
 
     // Start: a blank map filled with a terrain (the dropdown in its row), generated, or (an EUD project) imported.
     y = ui::sectionHeader(mem, layoutFor(x3, w3), top, L"Start");
-    for (int k = 0; k < 4; ++k) {
+    for (int k = 0; k < 3; ++k) {  // (3, "The terrain of a map", is not offered)
         if (k == 2 && !gNew.project) continue;  // Import an existing map: a project (a classic map: File > Open)
         const bool on = k == 3 ? gNew.terrainOnly : k == 2 ? gNew.copyMap : !gNew.copyMap && !gNew.terrainOnly && gNew.generate == (k == 1);
         const int h = k == 0 ? fieldH + scale(8) : rowH;
