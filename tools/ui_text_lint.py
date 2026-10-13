@@ -253,26 +253,26 @@ def extract(repo):
             if surf in ("log", "nonui"):
                 continue
             out.append({"file": rel, "line": r["line"], "text": r["text"], "surface": surf})
-    path = repo / "research/data/trigger_blocks.json"
-    if not path.exists():  # research/ is local only (not in the repository): no block texts to check
-        return out
-    raw = path.read_text(encoding="utf-8")
-    bj = json.loads(raw)
-    rawl = raw.split("\n")
-
-    def lineof(s):
-        needle = json.dumps(s, ensure_ascii=False)[1:-1][:60]
-        return next((k + 1 for k, l in enumerate(rawl) if needle in l), 0)
-
-    rel = "research/data/trigger_blocks.json"
-    for cats in bj["categories"].values():
-        for c in cats:
-            out.append({"file": rel, "line": lineof(c), "text": c, "surface": "block.category"})
-    for b in bj["blocks"]:
-        for f in ("title", "sentence", "docs", "example", "pitfalls"):
-            v = b.get(f)
-            if isinstance(v, str) and v:
-                out.append({"file": rel, "line": lineof(v), "text": v, "surface": "block." + f})
+    # The block texts: the rows of kTriggerCategories and kTriggerBlocks (see TriggerBlockRow in src/triggers.cpp).
+    rel = "src/data/trigger_blocks.inc"
+    table, block_fields = None, {3: "title", 4: "sentence", 12: "docs", 13: "pitfalls", 14: "example"}
+    for n, line in enumerate((repo / rel).read_text(encoding="utf-8").split("\n"), 1):
+        m = re.match(r"static const (\w+)", line)
+        if m:
+            table = m.group(1)
+            continue
+        if table not in ("TriggerCategoryRow", "TriggerBlockRow") or not line.startswith("    {"):
+            continue
+        cells = [unescape(m.group(1)) if m.group(1) is not None else int(m.group(2))
+                 for m in re.finditer(r'"((?:[^"\\]|\\.)*)"|(-?\d+)', line)]
+        if table == "TriggerCategoryRow":
+            out.append({"file": rel, "line": n, "text": cells[1], "surface": "block.category"})
+            continue
+        if len(cells) != 15:
+            raise SystemExit(f"{rel}:{n}: a TriggerBlockRow with {len(cells)} fields, not 15")
+        for k, f in block_fields.items():
+            if cells[k]:
+                out.append({"file": rel, "line": n, "text": cells[k], "surface": "block." + f})
     return out
 
 
