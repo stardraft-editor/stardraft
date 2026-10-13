@@ -1270,6 +1270,10 @@ bool Editor::pasteTerrain(int px, int py, bool correct) {
                 doodadOrigin(*t, cx, cy, tx, ty);
                 stardraft::placeDoodad(chk_, *t, tileset_, tx, ty, d.owner, false);
             }
+    }
+    reloadTerrain();  // the unit check reads terrain_; the store and the doodads changed MTXM
+    for (size_t k = 0; k < origins.size(); ++k) {
+        const int opx = origins[k].first * 64, opy = origins[k].second * 32;
         for (Unit u : terrainClip_.units) {
             if (unitLimit_ > 0 && int(units_.size()) >= unitLimit_) break;
             int ux = opx + int16_t(u.x), uy = opy + int16_t(u.y);

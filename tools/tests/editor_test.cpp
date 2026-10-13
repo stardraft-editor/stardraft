@@ -149,6 +149,52 @@ static void placementOptions(const GameData& data, const char* map) {
         pe.undo();
     }
     pe.setAllowIllegalUnits(false);
+
+    // Terrain paste: the units fit the pasted terrain. A marine copied on unwalkable ground (Units anywhere) is
+    // pasted where the ground is open before the paste; the paste makes its spot unwalkable.
+    if (wx >= 0 && pe.canPaintTerrain()) {
+        pe.setAllowIllegalUnits(true);
+        const PlaceResult wm = pe.placeUnit(marine, 0, wx, wy, false);
+        const int cx = (wx / 64 - 4) | 1, cy = (wy / 32 - 4) & ~1;
+        const Rect clip{cx * 64, cy * 32, cx * 64 + 768, cy * 32 + 320};
+        const bool copied = wm.placed && pe.copyTerrain(clip, true, false);
+        pe.undo();
+        pe.setAllowIllegalUnits(false);
+        // A corner where the marine's new spot is open ground and no unit is in the pasted area.
+        int dx = -1, dy = -1;
+        for (int y = 2; copied && y * 32 + 320 < pe.height() * 32 && dx < 0; y += 2)
+            for (int x = 1; x * 64 + 768 < pe.width() * 32 && dx < 0; x += 2) {
+                Unit probe = wm.unit;
+                probe.x = uint16_t(x * 64 + (wm.unit.x - clip.left)), probe.y = uint16_t(y * 32 + (wm.unit.y - clip.top));
+                const Rect dest{x * 64, y * 32, x * 64 + 768, y * 32 + 320};
+                bool empty = true;
+                for (const Unit& u : pe.units()) empty = empty && !dest.contains(u.x, u.y);
+                if (empty && checkPlacement(pe.placementContext(), probe).empty()) dx = x, dy = y;
+            }
+        CHECK(copied && dx >= 0 && pe.units().size() == n, "terrain paste: a marine on unwalkable ground copied with its terrain, and open ground to paste it on");
+        if (dx >= 0) {
+            const int mx = dx * 64 + (wm.unit.x - clip.left), my = dy * 32 + (wm.unit.y - clip.top);
+            auto addedFit = [&] {
+                bool ok = true;
+                for (size_t i = n; i < pe.units().size(); ++i) ok = ok && fits(i);
+                return ok;
+            };
+            bool marineAdded = false;
+            CHECK(pe.pasteTerrain(dx * 64, dy * 32, true), "terrain paste with correction: done");
+            for (size_t i = n; i < pe.units().size(); ++i) marineAdded = marineAdded || pe.units()[i].type == marine;
+            CHECK(marineAdded && addedFit(), "terrain paste with correction: the marine goes to a spot where it fits the pasted terrain");
+            pe.undo();
+            CHECK(pe.pasteTerrain(dx * 64, dy * 32, false), "terrain paste without correction: done");
+            Unit probe = wm.unit;
+            probe.x = uint16_t(mx), probe.y = uint16_t(my);
+            const auto issues = checkPlacement(pe.placementContext(), probe);
+            CHECK(std::find(issues.begin(), issues.end(), PlacementIssue::Unwalkable) != issues.end(), "terrain paste: the marine's spot is unwalkable after the paste");
+            bool onSpot = false;
+            for (size_t i = n; i < pe.units().size(); ++i) onSpot = onSpot || (pe.units()[i].type == marine && at(i, mx, my));
+            CHECK(!onSpot && addedFit(), "terrain paste without correction: the marine is not put on the unwalkable spot");
+            pe.undo();
+        }
+    }
 }
 
 // The Options menu's rules for each kind. Snap (units, sprites, locations): none, tiles, half and quarter tiles.
