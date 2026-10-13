@@ -4,8 +4,11 @@ ROADMAP.md is the source. The page shows its "## Now", "## Next" and "## Later" 
 "- [ ] **R<n> Title.** *Tag:* area." and then, indented, a short paragraph that tells what the feature is.
 The page shows the title and that paragraph. The paragraphs after it are only in ROADMAP.md.
 
-    python tools/build_site.py          write docs/index.html and docs/assets
+    python tools/build_site.py          write docs/index.html, docs/ko/index.html (Korean) and docs/assets
     python tools/build_site.py --check  exit 1 if they are out of date
+
+The Korean page has the same pictures; its texts are KO, KO_PERSONAS, KO_INTROS, KO_TAGS and KO_ROADMAP below. A
+roadmap item without Korean shows in English there, and the build says which ones.
 
 The screenshots in docs/assets/shots are datashots (not made here), all in a 2100 x 1300 window and cut to the same
 1890 x 1260 box (x 8 or 202, y 30), as WebP. The Data workspace needs this width: narrower, its pages go to one column.
@@ -53,6 +56,142 @@ PERSONAS = [
 ]
 BUCKETS = ["Now", "Next", "Later"]
 
+# The page's texts. The English ones are the source; KO has the same keys. The roadmap's English is ROADMAP.md; its
+# Korean is in KO_ROADMAP (by item id: the title and the summary), KO_INTROS and KO_TAGS.
+_ISSUES = REPO + "/issues"
+EN = {
+    "description": "StarDraft 2 is a StarCraft creation suite for map and mod creators, and the spiritual successor to "
+                   "StarDraft by Camelot Systems.",
+    "lede": "A StarCraft creation suite for map and mod creators. Built by the community, for the community.",
+    "heritage": "StarDraft 2 aims to be the spiritual successor to StarDraft, the 1998 editor by Camelot Systems that "
+                "powered the StarCraft modding community of the early 2000s.",
+    "download": "Download for Windows", "discord": "Join the Discord", "builds": "Mac and Linux builds coming soon",
+    "shots": "Screenshots", "shot": "Screenshot", "prev": "Previous screenshot", "next": "Next screenshot",
+    "close": "Close", "of": "{k} of {n}",
+    "cap1": "Map editing in HD, SD or Carbot graphics",
+    "cap2": "Quick search: press Q to find any unit or tile",
+    "cap3": "Terrain generation from a tileset, amounts and shape",
+    "cap4": "EUD triggers as blocks, with the epScript beside them",
+    "cap5": "Unit editing with a live range preview",
+    "cap6": "Weapon editing: damage for each size, upgrades and range",
+    "cap7": "Button set editing with a live command card",
+    "cap8": "iScript player for every unit animation",
+    "cap9": "Briefing editing with a timeline and preview",
+    "cap10": "Multi-language support",
+    "alt1": "The Map workspace in HD graphics: the jungle map Crescent Dyne",
+    "alt2": "The quick picker over the map Cave Wars: protoss typed, and the matching units",
+    "alt3": "The new map page: a generated jungle map with sliders for each terrain and the shape",
+    "alt4": "The Triggers workspace: a hero power on the Q key as blocks, and its epScript",
+    "alt5": "The Data workspace: Jim Raynor with changed hit points and armor, and his weapon ranges",
+    "alt6": "A weapon in the Data workspace: its damage against each unit size and upgrade, and its range",
+    "alt7": "Infested Kerrigan's button set: its buttons, their command card and the selected button's fields",
+    "alt8": "The image player: the marine's animations, played frame by frame",
+    "alt9": "The Briefing workspace of Underdogs: Kerrigan and Raynor talk in the preview, beside the briefing actions",
+    "alt10": "Program options in Korean, over the Triggers workspace in Korean",
+    "who": "Who it is for", "video": "StarDraft 2 video", "roadmap": "Roadmap",
+    "sourced": f'Sourced from <a href="{_ISSUES}">user reports</a> and <a href="{FEEDBACK}">feedback</a>.',
+    "Now": "Now", "Next": "Next", "Later": "Later", "empty": "Nothing listed yet.", "link": "Link to this item",
+    "soon": "Coming soon", "feedback": "Feedback",
+    "way1": "In StarDraft 2", "way1text": "Right-click the part that is wrong and select <em>Report feedback on &hellip;</em>",
+    "way2": "On Discord", "way2text": f'Post in the <a href="{FEEDBACK}">#feedback</a> channel.',
+    "way3": "On GitHub", "way3text": f'<a href="{_ISSUES}">Open an issue</a>.',
+    "changelog": "Changelog", "report": "Report a problem",
+}
+KO = {
+    "description": "StarDraft 2는 맵·모드 제작자를 위한 스타크래프트 제작 도구 모음이며, Camelot Systems의 StarDraft를 잇는 "
+                   "정신적 후속작입니다.",
+    "lede": "맵·모드 제작자를 위한 스타크래프트 제작 도구 모음. 커뮤니티가, 커뮤니티를 위해 만듭니다.",
+    "heritage": "StarDraft 2는 2000년대 초 스타크래프트 모딩 커뮤니티를 이끈 1998년 Camelot Systems의 에디터, StarDraft의 "
+                "정신적 후속작을 목표로 합니다.",
+    "download": "Windows용 다운로드", "discord": "Discord 참여하기", "builds": "Mac·Linux 버전 출시 예정",
+    "shots": "스크린샷", "shot": "스크린샷", "prev": "이전 스크린샷", "next": "다음 스크린샷", "close": "닫기",
+    "of": "{n}장 중 {k}",
+    "cap1": "HD·SD·Carbot 그래픽으로 맵 편집",
+    "cap2": "빠른 검색: Q를 눌러 유닛이나 타일 찾기",
+    "cap3": "타일셋, 비율, 모양으로 지형 생성",
+    "cap4": "블록으로 만드는 EUD 트리거와 바로 옆의 epScript",
+    "cap5": "실시간 사거리 미리보기와 함께하는 유닛 편집",
+    "cap6": "무기 편집: 크기별 피해, 업그레이드, 사거리",
+    "cap7": "실시간 명령 카드와 함께하는 버튼 세트 편집",
+    "cap8": "모든 유닛 애니메이션을 재생하는 iScript 플레이어",
+    "cap9": "타임라인과 미리보기로 브리핑 편집",
+    "cap10": "다국어 지원",
+    "alt1": "HD 그래픽의 맵 작업 공간: 정글 맵 Crescent Dyne",
+    "alt2": "Cave Wars 맵 위의 빠른 검색: protoss를 입력하고 일치하는 유닛이 표시됨",
+    "alt3": "새 맵 페이지: 생성된 정글 맵과 지형별 비율, 모양 슬라이더",
+    "alt4": "트리거 작업 공간: Q 키로 쓰는 영웅 능력 블록과 그 epScript",
+    "alt5": "데이터 작업 공간: 체력과 방어력을 바꾼 짐 레이너와 무기 사거리",
+    "alt6": "데이터 작업 공간의 무기: 유닛 크기와 업그레이드별 피해, 사거리",
+    "alt7": "감염된 케리건의 버튼 세트: 버튼, 명령 카드, 선택한 버튼의 항목",
+    "alt8": "이미지 플레이어: 마린의 애니메이션을 프레임 단위로 재생",
+    "alt9": "Underdogs의 브리핑 작업 공간: 미리보기에서 케리건과 레이너가 대화하고, 옆에 브리핑 액션이 있음",
+    "alt10": "한국어로 된 프로그램 옵션과 한국어 트리거 작업 공간",
+    "who": "이런 분들을 위해", "video": "StarDraft 2 영상", "roadmap": "로드맵",
+    "sourced": f'사용자 <a href="{_ISSUES}">제보</a>와 <a href="{FEEDBACK}">피드백</a>을 바탕으로 정합니다.',
+    "Now": "지금", "Next": "다음", "Later": "나중에", "empty": "아직 없습니다.", "link": "이 항목 링크",
+    "soon": "출시 예정", "feedback": "피드백",
+    "way1": "StarDraft 2에서",
+    "way1text": "잘못된 부분을 마우스 오른쪽 버튼으로 클릭하고 <em>피드백 보고: &hellip;</em>를 선택하세요.",
+    "way2": "Discord에서", "way2text": f'<a href="{FEEDBACK}">#feedback</a> 채널에 글을 남겨 주세요.',
+    "way3": "GitHub에서", "way3text": f'<a href="{_ISSUES}">이슈를 여세요</a>.',
+    "changelog": "변경 내역", "report": "문제 신고",
+}
+KO_PERSONAS = {
+    "melee": ("밀리 맵 제작자", "브러시, 스프레이, 채우기, 바꾸기, 대칭으로 지형을 칠하거나 맵 전체를 생성하세요. 각 기지의 "
+                              "타운 영역을 HD, SD, Carbot 그래픽으로 확인할 수 있습니다."),
+    "ums": ("유즈맵·캠페인 제작자", "현대적인 클래식 트리거 에디터, 유닛·업그레이드·기술 설정, 미리보기가 있는 미션 브리핑. "
+                                 "캠페인 프로젝트는 곧 지원됩니다."),
+    "eud": ("EUD 맵 제작자", "유닛, 무기, 이미지, 스프라이트 데이터를 편집하고, 트리거를 평범한 문장으로 된 블록이나 직접 만든 "
+                            "epScript 파일로 작성하세요. 빌드하기 전에 EUD 오류와 디싱크를 검사합니다."),
+    "mod": ("모드 제작자", "통합 모드 편집: 커스텀 모드 파일로 맵을 만들고 한곳에서 관리하세요. 스타크래프트: 리마스터와 1.16.1 "
+                         "모드를 모두 지원합니다."),
+}
+KO_INTROS = {
+    "Now": "사용자가 알려 준 부족한 기능과 편의 기능을 더합니다.",
+    "Next": "StarDraft 2를 더 강력한 제작 도구로 만듭니다.",
+    "Later": "더 큰 다음 단계를 탐구합니다.",
+}
+KO_TAGS = {"Terrain": "지형", "UMS": "유즈맵", "Capability": "기능", "Mods": "모드", "Platform": "플랫폼"}
+KO_ROADMAP = {
+    "R36": ("클릭할 수 있는 빌드 오류", "로그의 빌드 오류를 클릭하면 트리거 작업 공간에서 그 트리거와 블록이 열립니다."),
+    "R39": ("맵 그래픽으로 보는 타일", "타일 목록이 각 타일을 맵의 그래픽(HD, SD, Carbot)으로 보여 줍니다."),
+    "R8": ("미리 배치된 유닛의 그래픽", "미리 배치된 유닛이 맵의 데이터 편집에 따른 그래픽으로 표시됩니다."),
+    "R2": ("지형 렌더링 정확도", "모든 타일셋이 HD, SD, Carbot에서 게임과 똑같이 보입니다."),
+    "R50": ("더 많은 EUD 트리거 블록", "자주 쓰는 맵 작업을 위한 블록: 화면 중앙 맞추기, 건물 대기열, 애니메이션 재생, "
+                                     "스프라이트 배치, 스프라이트 효과."),
+    "R37": ("지형 장식 도구", "지형에 장식물과 장식을 놓는 도구. 예를 들어 맞는 곳에만 장식물을 뿌리는 장식물 스프레이."),
+    "R40": ("떠 있는 팔레트", "각 팔레트(지형, 타일, 유닛, 장식물, 스프라이트)를 떠 있는 창으로 엽니다. 여러 개를 함께 열고 "
+                            "각각 다른 필터를 쓸 수 있습니다."),
+    "R38": ("검사기 문서", "EUD·디싱크 검사마다 도움말이 있습니다: 규칙, 예시, 검사가 찾지 못하는 것. 트리거 작업 공간의 각 "
+                         "표시에서 도움말로 연결됩니다."),
+    "R33": ("유닛 사거리 오버레이", "선택한 유닛의 무기 사거리, 시야, 탐지 범위, 사이오닉 영역을 맵에 표시합니다."),
+    "R34": ("지형 플래그 오버레이", "어느 지형을 걸을 수 있는지, 얼마나 높은지, 어느 지형이 엄폐를 주거나 시야를 막는지 맵에 "
+                                 "표시합니다."),
+    "R32": ("전장의 안개 미리보기", "플레이어를 선택하면 게임을 시작할 때 그 플레이어의 전장의 안개를 볼 수 있습니다."),
+    "R14": ("정확한 타이머", "긴 게임에서도 정확한 \"N초 후\"와 \"N초마다\" 블록."),
+    "R23": ("트리거 일괄 생성", "패턴 하나로 트리거를 여러 개 만듭니다: 플레이어, 로케이션, 유닛 종류마다 트리거 하나씩."),
+    "R25": ("캠페인 프로젝트", "캠페인의 모든 맵을 순서대로 프로젝트 하나에 둡니다."),
+    "R35": ("길찾기 영역 오버레이", "유닛이 길을 찾을 때 쓰는 영역을 보여 줍니다. 유닛이 왜 그 길로 가거나 막히는지 알 수 "
+                                 "있습니다."),
+    "R31": ("리플레이 미리보기", "컴퓨터 플레이어로 맵의 리플레이를 만들어 스타크래프트에서 봅니다."),
+    "R42": ("scmscx.com에서 맵 가져오기", "[scmscx.com](https://scmscx.com)에서 맵을 찾아 StarDraft 2에서 엽니다."),
+    "R49": ("새로워진 지형 생성", "웨이브 함수 붕괴(wave function collapse) 같은 제약 기반 방법으로 맵을 생성합니다: 지형 "
+                               "규칙을 정하면 그 규칙을 따르는 맵이 나옵니다."),
+    "R26": ("리마스터 모드 지원", "스타크래프트: 리마스터 모드(MPQ 또는 폴더)를 게임 파일 위에 불러와 맵을 만듭니다."),
+    "R41": ("전투 시뮬레이터", "유닛 수와 업그레이드를 정해 유닛끼리의 전투를 시뮬레이션합니다. 누가 이기는지, 남은 체력, "
+                             "전투 시간을 볼 수 있습니다."),
+    "R45": ("맵 게시", "StarDraft 2에서 [scmscx.com](https://scmscx.com)에 맵을 올립니다."),
+    "R46": ("1.16.1 모드 지원", "[Cosmonarchy](https://cosmonarchy.com/) 같은 스타크래프트 1.16.1 모드를 불러와 맵을 "
+                              "만듭니다."),
+    "R47": ("버전 기록", "맵이나 프로젝트의 두 버전을 비교하고 변경 사항을 합칩니다."),
+    "R48": ("맵 템플릿", "디펜스 맵이나 RPG 같은 템플릿에서 레이아웃과 트리거가 갖춰진 맵을 시작합니다."),
+    "R43": ("공동 편집", "두 명 이상이 같은 맵이나 프로젝트를 동시에 편집합니다."),
+    "R28": ("macOS 버전", "macOS용 StarDraft 2."),
+    "R29": ("Linux 버전", "Linux용 StarDraft 2."),
+    "R30": ("웹 버전", "설치 없이 브라우저에서 쓰는 StarDraft 2."),
+}
+PAGES = {"en": (EN, ROOT / "docs" / "index.html", ""), "ko": (KO, ROOT / "docs" / "ko" / "index.html", "../")}
+
 
 def parse(text):
     """The items, and the sentence under each section heading."""
@@ -99,53 +238,63 @@ def inline(s):
     return re.sub(r"\*(.+?)\*", r"<em>\1</em>", s)
 
 
-def item_html(i):
-    tags = i["tags"]
+def item_html(i, lang, L):
+    title, text = KO_ROADMAP.get(i["id"], (i["title"], i["text"])) if lang == "ko" else (i["title"], i["text"])
+    tags = [KO_TAGS.get(t, t) if lang == "ko" else t for t in i["tags"]]
     rid = f'R{int(i["id"][1:]):04}'  # R36 shows as R0036
     anchor = rid.lower()
     # The last line: the id, which links to the item (to copy a link to it), then the tags.
-    meta = " · ".join([f'<a class="rid" href="#{anchor}" title="Link to this item">#{rid}</a>'] +
-                      [html.escape(t) for t in tags])
-    return (f'        <li class="item" id="{anchor}"><h4>{inline(i["title"])}</h4>'
-            f'<p>{inline(i["text"])}</p><p class="who">{meta}</p></li>')
+    meta = " · ".join([f'<a class="rid" href="#{anchor}" title="{L["link"]}">#{rid}</a>'] + [html.escape(t) for t in tags])
+    return (f'        <li class="item" id="{anchor}"><h4>{inline(title)}</h4>'
+            f'<p>{inline(text)}</p><p class="who">{meta}</p></li>')
 
 
-def build(items, intros):
+def build(items, intros, lang):
+    L, _, base = PAGES[lang]
+    L = dict(L, **{f"of{k}": L["of"].format(k=k, n=10) for k in range(1, 11)})
+    persona = lambda pid, n, t: KO_PERSONAS[pid] if lang == "ko" else (n, t)
     personas = "\n".join(
         f'      <div class="persona{" soon" if pid == "mod" else ""}"><span class="tile">{icon(ic)}</span>'
-        f'<h3>{html.escape(n)}</h3><p>{html.escape(t)}</p>'
-        f'{"<p class=badge>Coming soon</p>" if pid == "mod" else ""}</div>'
+        f'<h3>{html.escape(persona(pid, n, t)[0])}</h3><p>{html.escape(persona(pid, n, t)[1])}</p>'
+        f'{"<p class=badge>" + L["soon"] + "</p>" if pid == "mod" else ""}</div>'
         for pid, n, ic, t in PERSONAS)
     buckets = []
     for name in BUCKETS:
-        cards = "\n".join(item_html(i) for i in items if i["bucket"] == name)
-        body = f'<ul class="items">\n{cards}\n      </ul>' if cards else '<p class="empty">Nothing listed yet.</p>'
-        intro = f'<p>{inline(intros[name])}</p>' if intros.get(name) else ""
-        buckets.append(f'      <div class="bucket" id="{name.lower()}">\n        <div class="rail"><h3>{name}</h3>'
+        cards = "\n".join(item_html(i, lang, L) for i in items if i["bucket"] == name)
+        body = f'<ul class="items">\n{cards}\n      </ul>' if cards else f'<p class="empty">{L["empty"]}</p>'
+        text = KO_INTROS.get(name, intros.get(name)) if lang == "ko" else intros.get(name)
+        intro = f'<p>{inline(text)}</p>' if text else ""
+        buckets.append(f'      <div class="bucket" id="{name.lower()}">\n        <div class="rail"><h3>{L[name]}</h3>'
                        f'{intro}</div>\n      {body}\n      </div>')
+    ko = lang == "ko"
     return TEMPLATE.format(personas=personas, buckets="\n".join(buckets), repo=REPO, discord=DISCORD, feedback=FEEDBACK, video=VIDEO,
-                           i_select=icon("select"), i_feedback=icon("feedback"), i_issue=icon("issue"))
+                           i_select=icon("select"), i_feedback=icon("feedback"), i_issue=icon("issue"), L=L, lang=lang,
+                           base=base, cur_en="" if ko else ' aria-current="page"', cur_ko=' aria-current="page"' if ko else "",
+                           fonts="&family=Noto+Sans+KR:wght@400;500;600" if ko else "",
+                           hangul='"Noto Sans KR", ' if ko else "")
 
 
 TEMPLATE = """<!doctype html>
-<!-- Generated by tools/build_site.py from docs/project/ROADMAP.md. Do not edit. -->
-<html lang="en">
+<!-- Generated by tools/build_site.py from docs/project/ROADMAP.md (Korean: KO in build_site.py). Do not edit. -->
+<html lang="{lang}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>StarDraft 2</title>
-<meta name="description" content="StarDraft 2 is a StarCraft creation suite for map and mod creators, and the spiritual successor to StarDraft by Camelot Systems.">
+<meta name="description" content="{L[description]}">
+<link rel="alternate" hreflang="en" href="{base}./">
+<link rel="alternate" hreflang="ko" href="{base}ko/">
 <meta name="color-scheme" content="dark">
-<link rel="icon" type="image/png" sizes="32x32" href="assets/app-32.png">
+<link rel="icon" type="image/png" sizes="32x32" href="{base}assets/app-32.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600{fonts}&display=swap">
 <style>
 :root {{
   --bg: #0c0e11; --raise: #13161a; --line: #252a31; --grid: rgba(92, 224, 150, 0.06);
   --text: #e9e5dc; --muted: #8e939b; --accent: #5ce096; --on-accent: #04130a;
-  --display: "Chakra Petch", system-ui, sans-serif;
-  --sans: "IBM Plex Sans", system-ui, sans-serif;
+  --display: "Chakra Petch", {hangul}system-ui, sans-serif;
+  --sans: "IBM Plex Sans", {hangul}system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
 }}
 * {{ box-sizing: border-box; }}
@@ -166,6 +315,10 @@ header::before {{ content: ""; position: absolute; inset: 0; pointer-events: non
   background-size: 32px 32px; background-position: -1px -1px;
   -webkit-mask-image: linear-gradient(#000 40%, transparent);
           mask-image: linear-gradient(#000 40%, transparent); }}
+.langs {{ position: absolute; top: 24px; left: 0; right: 0; text-align: right; font: 0.75rem var(--mono);
+         color: var(--muted); z-index: 1; }}
+.langs a {{ color: var(--muted); text-decoration: none; padding: 4px; }}
+.langs a:hover, .langs a[aria-current] {{ color: var(--text); }}
 .hero {{ position: relative; display: grid; gap: 48px 64px; align-items: center; }}
 @media (min-width: 1000px) {{ .hero {{ grid-template-columns: 5fr 6fr; }} }}
 .shot {{ display: block; width: 100%; height: auto; border: 1px solid var(--line);
@@ -271,75 +424,74 @@ footer a:hover {{ color: var(--text); }}
 </head>
 <body>
 <header>
+  <nav class="wrap langs" aria-label="Language"><a href="{base}./" hreflang="en"{cur_en}>EN</a> | <a href="{base}ko/" hreflang="ko"{cur_ko}>KR</a></nav>
   <div class="wrap hero">
     <div>
-    <h1><img src="assets/app-256.png" alt="">StarDraft 2</h1>
-    <p class="lede">A StarCraft creation suite for map and mod creators. Built by the community, for the
-      community.</p>
-    <p class="heritage">StarDraft 2 aims to be the spiritual successor to StarDraft, the 1998 editor by Camelot
-      Systems that powered the StarCraft modding community of the early 2000s.</p>
+    <h1><img src="{base}assets/app-256.png" alt="">StarDraft 2</h1>
+    <p class="lede">{L[lede]}</p>
+    <p class="heritage">{L[heritage]}</p>
     <div class="actions">
-      <a class="btn primary" href="{repo}/releases/latest">Download for Windows</a>
-      <a class="btn" href="{discord}">Join the Discord</a>
+      <a class="btn primary" href="{repo}/releases/latest">{L[download]}</a>
+      <a class="btn" href="{discord}">{L[discord]}</a>
     </div>
-    <p class="note">Mac and Linux builds coming soon</p>
+    <p class="note">{L[builds]}</p>
     </div>
     <div class="carousel">
-      <div class="slides" id="slides" tabindex="0" aria-label="Screenshots">
-        <figure class="slide" aria-label="1 of 10">
-          <img class="shot" src="assets/shots/map.webp" width="1890" height="1260"
-            alt="The Map workspace in HD graphics: the jungle map Crescent Dyne">
-          <figcaption>Map editing in HD, SD or Carbot graphics &middot; <a href="https://scmscx.com/map/hksRyYbr">Crescent Dyne</a></figcaption>
+      <div class="slides" id="slides" tabindex="0" aria-label="{L[shots]}">
+        <figure class="slide" aria-label="{L[of1]}">
+          <img class="shot" src="{base}assets/shots/map.webp" width="1890" height="1260"
+            alt="{L[alt1]}">
+          <figcaption>{L[cap1]} &middot; <a href="https://scmscx.com/map/hksRyYbr">Crescent Dyne</a></figcaption>
         </figure>
-        <figure class="slide" aria-label="2 of 10">
-          <img class="shot" src="assets/shots/quick.webp" width="1890" height="1260" loading="lazy"
-            alt="The quick picker over the map Cave Wars: protoss typed, and the matching units">
-          <figcaption>Quick search: press Q to find any unit or tile &middot; <a href="https://scmscx.com/map/3pV5r4BV">Cave Wars</a></figcaption>
+        <figure class="slide" aria-label="{L[of2]}">
+          <img class="shot" src="{base}assets/shots/quick.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt2]}">
+          <figcaption>{L[cap2]} &middot; <a href="https://scmscx.com/map/3pV5r4BV">Cave Wars</a></figcaption>
         </figure>
-        <figure class="slide" aria-label="3 of 10">
-          <img class="shot" src="assets/shots/generate.webp" width="1890" height="1260" loading="lazy"
-            alt="The new map page: a generated jungle map with sliders for each terrain and the shape">
-          <figcaption>Terrain generation from a tileset, amounts and shape</figcaption>
+        <figure class="slide" aria-label="{L[of3]}">
+          <img class="shot" src="{base}assets/shots/generate.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt3]}">
+          <figcaption>{L[cap3]}</figcaption>
         </figure>
-        <figure class="slide" aria-label="4 of 10">
-          <img class="shot" src="assets/shots/triggers.webp" width="1890" height="1260" loading="lazy"
-            alt="The Triggers workspace: a hero power on the Q key as blocks, and its epScript">
-          <figcaption>EUD triggers as blocks, with the epScript beside them</figcaption>
+        <figure class="slide" aria-label="{L[of4]}">
+          <img class="shot" src="{base}assets/shots/triggers.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt4]}">
+          <figcaption>{L[cap4]}</figcaption>
         </figure>
-        <figure class="slide" aria-label="5 of 10">
-          <img class="shot" src="assets/shots/data.webp" width="1890" height="1260" loading="lazy"
-            alt="The Data workspace: Jim Raynor with changed hit points and armor, and his weapon ranges">
-          <figcaption>Unit editing with a live range preview</figcaption>
+        <figure class="slide" aria-label="{L[of5]}">
+          <img class="shot" src="{base}assets/shots/data.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt5]}">
+          <figcaption>{L[cap5]}</figcaption>
         </figure>
-        <figure class="slide" aria-label="6 of 10">
-          <img class="shot" src="assets/shots/weapons.webp" width="1890" height="1260" loading="lazy"
-            alt="A weapon in the Data workspace: its damage against each unit size and upgrade, and its range">
-          <figcaption>Weapon editing: damage for each size, upgrades and range</figcaption>
+        <figure class="slide" aria-label="{L[of6]}">
+          <img class="shot" src="{base}assets/shots/weapons.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt6]}">
+          <figcaption>{L[cap6]}</figcaption>
         </figure>
-        <figure class="slide" aria-label="7 of 10">
-          <img class="shot" src="assets/shots/buttons.webp" width="1890" height="1260" loading="lazy"
-            alt="Infested Kerrigan's button set: its buttons, their command card and the selected button's fields">
-          <figcaption>Button set editing with a live command card</figcaption>
+        <figure class="slide" aria-label="{L[of7]}">
+          <img class="shot" src="{base}assets/shots/buttons.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt7]}">
+          <figcaption>{L[cap7]}</figcaption>
         </figure>
-        <figure class="slide" aria-label="8 of 10">
-          <img class="shot" src="assets/shots/images.webp" width="1890" height="1260" loading="lazy"
-            alt="The image player: the marine's animations, played frame by frame">
-          <figcaption>iScript player for every unit animation</figcaption>
+        <figure class="slide" aria-label="{L[of8]}">
+          <img class="shot" src="{base}assets/shots/images.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt8]}">
+          <figcaption>{L[cap8]}</figcaption>
         </figure>
-        <figure class="slide" aria-label="9 of 10">
-          <img class="shot" src="assets/shots/briefing.webp" width="1890" height="1260" loading="lazy"
-            alt="The Briefing workspace of Underdogs: Kerrigan and Raynor talk in the preview, beside the briefing actions">
-          <figcaption>Briefing editing with a timeline and preview &middot; <a href="https://staredit.net/topic/18491/">Underdogs</a></figcaption>
+        <figure class="slide" aria-label="{L[of9]}">
+          <img class="shot" src="{base}assets/shots/briefing.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt9]}">
+          <figcaption>{L[cap9]} &middot; <a href="https://staredit.net/topic/18491/">Underdogs</a></figcaption>
         </figure>
-        <figure class="slide" aria-label="10 of 10">
-          <img class="shot" src="assets/shots/korean.webp" width="1890" height="1260" loading="lazy"
-            alt="Program options in Korean, over the Triggers workspace in Korean">
-          <figcaption>Multi-language support</figcaption>
+        <figure class="slide" aria-label="{L[of10]}">
+          <img class="shot" src="{base}assets/shots/korean.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt10]}">
+          <figcaption>{L[cap10]}</figcaption>
         </figure>
       </div>
       <div class="controls">
-        <button class="arrow" data-step="-1" aria-label="Previous screenshot"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3L5 8L10 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-        <button class="arrow" data-step="1" aria-label="Next screenshot"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6 3L11 8L6 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><svg class="ring" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="13.5"/></svg></button>
+        <button class="arrow" data-step="-1" aria-label="{L[prev]}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3L5 8L10 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button class="arrow" data-step="1" aria-label="{L[next]}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6 3L11 8L6 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><svg class="ring" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="13.5"/></svg></button>
       </div>
     </div>
   </div>
@@ -347,7 +499,7 @@ footer a:hover {{ color: var(--text); }}
 
 <section>
   <div class="wrap">
-    <h2>Who it is for</h2>
+    <h2>{L[who]}</h2>
     <div class="personas">
 {personas}
     </div>
@@ -357,7 +509,7 @@ footer a:hover {{ color: var(--text); }}
 <section id="video">
   <div class="wrap">
     <div class="video">
-      <iframe src="https://www.youtube-nocookie.com/embed/{video}" title="StarDraft 2 video" loading="lazy"
+      <iframe src="https://www.youtube-nocookie.com/embed/{video}" title="{L[video]}" loading="lazy"
         referrerpolicy="strict-origin-when-cross-origin"
         allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen></iframe>
     </div>
@@ -366,8 +518,8 @@ footer a:hover {{ color: var(--text); }}
 
 <section id="roadmap">
   <div class="wrap">
-    <h2>Roadmap</h2>
-    <p class="sub">Sourced from <a href="{repo}/issues">user reports</a> and <a href="{feedback}">feedback</a>.</p>
+    <h2>{L[roadmap]}</h2>
+    <p class="sub">{L[sourced]}</p>
     <div class="buckets">
 {buckets}
     </div>
@@ -376,30 +528,29 @@ footer a:hover {{ color: var(--text); }}
 
 <section id="feedback">
   <div class="wrap">
-    <h2>Feedback</h2>
+    <h2>{L[feedback]}</h2>
     <div class="ways">
-      <div class="way"><h3>{i_select}In StarDraft 2</h3><p>Right-click the part that is wrong and select
-        <em>Report feedback on &hellip;</em></p></div>
-      <div class="way"><h3>{i_feedback}On Discord</h3><p>Post in the <a href="{feedback}">#feedback</a> channel.</p></div>
-      <div class="way"><h3>{i_issue}On GitHub</h3><p><a href="{repo}/issues">Open an issue</a>.</p></div>
+      <div class="way"><h3>{i_select}{L[way1]}</h3><p>{L[way1text]}</p></div>
+      <div class="way"><h3>{i_feedback}{L[way2]}</h3><p>{L[way2text]}</p></div>
+      <div class="way"><h3>{i_issue}{L[way3]}</h3><p>{L[way3text]}</p></div>
     </div>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
-    <a href="{repo}">GitHub</a><a href="{repo}/blob/main/docs/user/CHANGELOG.md">Changelog</a><a href="{discord}">Discord</a><a href="{repo}/issues">Report a problem</a>
+    <a href="{repo}">GitHub</a><a href="{repo}/blob/main/docs/user/CHANGELOG.md">{L[changelog]}</a><a href="{discord}">Discord</a><a href="{repo}/issues">{L[report]}</a>
   </div>
 </footer>
-<dialog class="lightbox" id="lightbox" aria-label="Screenshot" tabindex="-1">
+<dialog class="lightbox" id="lightbox" aria-label="{L[shot]}" tabindex="-1">
   <div class="frame">
   <img id="lb-img" src="" alt="">
   <div class="bar">
     <p id="lb-cap"></p>
     <div class="controls">
-      <button class="arrow" data-step="-1" aria-label="Previous screenshot"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3L5 8L10 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button class="arrow" data-step="1" aria-label="Next screenshot"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6 3L11 8L6 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button class="close" aria-label="Close"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4L12 12M12 4L4 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+      <button class="arrow" data-step="-1" aria-label="{L[prev]}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3L5 8L10 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="arrow" data-step="1" aria-label="{L[next]}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6 3L11 8L6 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="close" aria-label="{L[close]}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4L12 12M12 4L4 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
     </div>
   </div>
   </div>
@@ -467,14 +618,20 @@ footer a:hover {{ color: var(--text); }}
 """
 
 if __name__ == "__main__":
-    page = build(*parse(ROADMAP.read_text(encoding="utf-8")))
+    items, intros = parse(ROADMAP.read_text(encoding="utf-8"))
+    missing = [i["id"] for i in items if i["id"] not in KO_ROADMAP]
+    if missing:  # the Korean page shows these in English until KO_ROADMAP has them
+        print("No Korean text for " + ", ".join(missing) + " (KO_ROADMAP in tools/build_site.py)", file=sys.stderr)
+    pages = {out: build(items, intros, lang) for lang, (_, out, _) in PAGES.items()}
     assets = {OUT.parent / "assets" / f"app-{n}.png": ICONS / "app" / "png" / f"app-{n}.png" for n in (32, 256)}
     if "--check" in sys.argv:
-        current = OUT.read_text(encoding="utf-8") if OUT.exists() else ""
-        if current != page or any(not d.exists() or d.read_bytes() != s.read_bytes() for d, s in assets.items()):
-            sys.exit("docs/index.html is out of date: run python tools/build_site.py")
+        stale = [out for out, page in pages.items() if not out.exists() or out.read_text(encoding="utf-8") != page]
+        if stale or any(not d.exists() or d.read_bytes() != s.read_bytes() for d, s in assets.items()):
+            sys.exit("The website is out of date: run python tools/build_site.py")
     else:
         for dst, src in assets.items():
             dst.parent.mkdir(exist_ok=True)
             shutil.copyfile(src, dst)
-        OUT.write_text(page, encoding="utf-8", newline="\n")
+        for out, page in pages.items():
+            out.parent.mkdir(exist_ok=True)
+            out.write_text(page, encoding="utf-8", newline="\n")
