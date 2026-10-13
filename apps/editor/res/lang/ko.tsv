@@ -1233,8 +1233,8 @@ Invisible (the text after it is not shown)	투명 (뒤의 텍스트는 표시되
 . Puts <	. 삽입: <
 > in at the cursor; with text selected, colors only that text.	> 커서 위치에 넣습니다. 텍스트를 선택하면 그 텍스트에만 색을 적용합니다.
 stat_txt.tbl string 	stat_txt.tbl 문자열 
-As the game shows it	게임에 표시되는 대로
-The text as the game shows it	게임에 표시되는 텍스트
+Game preview	게임 미리보기
+Game preview: the text as the game shows it	게임 미리보기: 게임에 표시되는 텍스트
 Command	명령
 Make a unit	유닛 생산
 Upgrade	업그레이드
@@ -1247,7 +1247,7 @@ Space	스페이스
 The key that presses the button	버튼을 누르는 키
 Type	종류
 The kind of button. For a unit, an upgrade or a technology, the game's tooltip shows the cost.	버튼의 종류입니다. 유닛, 업그레이드 또는 기술이면 게임의 툴팁에 비용이 표시됩니다.
-The text box shows the string as the game stores it: a button's text starts with its hotkey and type characters. Off: the box shows the text only, and the Hotkey and Type fields show those characters. The dark box on the right shows the text as the game shows it.	텍스트 상자에 게임이 저장한 대로 문자열이 표시됩니다. 버튼의 텍스트는 단축키와 종류 문자로 시작합니다. 끄면 텍스트 상자에는 텍스트만 표시되고, 단축키와 종류 필드에 해당 문자가 표시됩니다. 오른쪽의 어두운 상자는 게임에 표시되는 대로 텍스트를 보여 줍니다.
+The text box shows the string as the game stores it: a button's text starts with its hotkey and type characters. Off: the box shows the text only, and the Hotkey and Type fields show those characters. The dark box on the right is the game preview.	텍스트 상자에 게임이 저장한 대로 문자열이 표시됩니다. 버튼의 텍스트는 단축키와 종류 문자로 시작합니다. 끄면 텍스트 상자에는 텍스트만 표시되고, 단축키와 종류 필드에 해당 문자가 표시됩니다. 오른쪽의 어두운 상자는 게임 미리보기입니다.
 Size of all strings together. The game has room for at most the number after the slash.	모든 문자열의 합계 크기입니다. 게임이 담을 수 있는 최대 크기는 슬래시 뒤의 숫자입니다.
 the map	맵
 the minimap	미니맵

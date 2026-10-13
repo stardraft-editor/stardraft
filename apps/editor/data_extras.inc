@@ -1451,10 +1451,10 @@ void paintStringsForm(HDC dc, RECT rc, int& y) {
             HGDIOBJ of2 = SelectObject(dc, ui::smallFont());
             SetTextColor(dc, RGB(120, 124, 130));
             RECT cap{pb.left + scale(10), pb.bottom - scale(18), pb.right - scale(8), pb.bottom - scale(3)};
-            DrawTextW(dc, L"As the game shows it", -1, &cap, DT_SINGLELINE | DT_RIGHT | DT_VCENTER | DT_NOPREFIX);
+            DrawTextW(dc, L"Game preview", -1, &cap, DT_SINGLELINE | DT_RIGHT | DT_VCENTER | DT_NOPREFIX);
             SelectObject(dc, of2);
         }
-        hitsOut().push_back({pb, nullptr, nullptr, L"The text as the game shows it", IDC_ARROW, {}});
+        hitsOut().push_back({pb, nullptr, nullptr, L"Game preview: the text as the game shows it", IDC_ARROW, {}});
         picBottom = pb.bottom;
     }
     if (!l.twoCol) y = picBottom + scale(12);
@@ -1506,7 +1506,7 @@ void paintStringsForm(HDC dc, RECT rc, int& y) {
         InvalidateRect(gData.form, nullptr, FALSE);
     }, L"The text box shows the string as the game stores it: a button's text starts with its hotkey and type "
        L"characters. Off: the box shows the text only, and the Hotkey and Type fields show those characters. The dark box on "
-       L"the right shows the text as the game shows it.");
+       L"the right is the game preview.");
     y += l.rowH;
     // The text: an edit box over the field column, with a box drawn around it as the value boxes have.
     stringsShowEdit(true);

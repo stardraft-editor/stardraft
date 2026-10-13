@@ -1233,8 +1233,8 @@ Invisible (the text after it is not shown)	Invisible (el texto que sigue no se m
 . Puts <	. Inserta <
 > in at the cursor; with text selected, colors only that text.	> en el cursor; con texto seleccionado, colorea solo ese texto.
 stat_txt.tbl string 	Cadena de stat_txt.tbl 
-As the game shows it	Como lo muestra el juego
-The text as the game shows it	El texto como lo muestra el juego
+Game preview	Vista previa del juego
+Game preview: the text as the game shows it	Vista previa del juego: el texto como lo muestra el juego
 Command	Comando
 Make a unit	Fabricar una unidad
 Upgrade	Mejora
@@ -1247,7 +1247,7 @@ Space	Espacio
 The key that presses the button	La tecla que pulsa el botón
 Type	Tipo
 The kind of button. For a unit, an upgrade or a technology, the game's tooltip shows the cost.	El tipo de botón. Para una unidad, una mejora o una tecnología, el tooltip del juego muestra el coste.
-The text box shows the string as the game stores it: a button's text starts with its hotkey and type characters. Off: the box shows the text only, and the Hotkey and Type fields show those characters. The dark box on the right shows the text as the game shows it.	El cuadro de texto muestra la cadena tal como la guarda el juego: el texto de un botón empieza con sus caracteres de tecla rápida y de tipo. Desactivado: el cuadro muestra solo el texto, y los campos Tecla rápida y Tipo muestran esos caracteres. El cuadro oscuro de la derecha muestra el texto como lo muestra el juego.
+The text box shows the string as the game stores it: a button's text starts with its hotkey and type characters. Off: the box shows the text only, and the Hotkey and Type fields show those characters. The dark box on the right is the game preview.	El cuadro de texto muestra la cadena tal como la guarda el juego: el texto de un botón empieza con sus caracteres de tecla rápida y de tipo. Desactivado: el cuadro muestra solo el texto, y los campos Tecla rápida y Tipo muestran esos caracteres. El cuadro oscuro de la derecha es la vista previa del juego.
 Size of all strings together. The game has room for at most the number after the slash.	Tamaño de todas las cadenas juntas. El juego admite como máximo el número tras la barra.
 the map	el mapa
 the minimap	el minimapa
