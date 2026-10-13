@@ -264,6 +264,7 @@ Chk Editor::restore(const Snapshot& s) {
 }
 
 std::vector<Editor::Snapshot::File> Editor::fileStates(const std::vector<std::string>& names) const {
+    if (names.empty()) return {};  // (a map edit: no wait for the files still being read)
     finishFiles();
     std::vector<Snapshot::File> out;
     for (const std::string& n : names) {
@@ -283,6 +284,7 @@ std::vector<Editor::Snapshot::File> Editor::fileStates(const std::vector<Snapsho
 }
 
 void Editor::restoreFiles(const std::vector<Snapshot::File>& files) {
+    if (files.empty()) return;
     finishFiles();
     for (const auto& f : files)
         std::erase_if(files_, [&](const ArchiveFile& a) { return a.name == f.name; });

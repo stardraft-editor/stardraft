@@ -3876,6 +3876,7 @@ void command(int id) {
 bool modeLayerHidden();
 void modeLayerHiddenMessage();
 int railItemId(size_t n);  // the side bar's n-th item's command (0: none)
+void repaintSoundViews();  // files_view.inc
 void commandBody(int id) {
     // The active mode's layer is hidden (View > Layers): the edits of the map are refused.
     if (gWorkspace == Workspace::Map && modeLayerHidden() &&
@@ -4087,7 +4088,7 @@ void commandBody(int id) {
         else if (gWorkspace == Workspace::Data && !redo && gDataMapEdits > 0 && open)  // the Players section's edits: the map's undo
             --gDataMapEdits, app.ed->undo(), dataFormRepaint();
         else if (gWorkspace == Workspace::Data) dataUndo(redo);
-        else if (open) redo ? app.ed->redo() : app.ed->undo(), app.terrainRev = 0, rebuildList();
+        else if (open) redo ? app.ed->redo() : app.ed->undo(), app.terrainRev = 0, rebuildList(), repaintSoundViews();
         break;
     }
     case ID_EDIT_COPY:

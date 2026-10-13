@@ -56,6 +56,12 @@ void filesRename(const std::string& from) {
     InvalidateRect(gFiles.wnd, nullptr, FALSE);
 }
 
+// After an undo or redo step: the sound files and the briefings that play them can be different.
+void repaintSoundViews() {
+    if (gFiles.wnd) InvalidateRect(gFiles.wnd, nullptr, FALSE);
+    if (gBrief.wnd) InvalidateRect(gBrief.wnd, nullptr, FALSE);
+}
+
 void paintFiles(HWND hwnd) {
     gFiles.surface.begin(hwnd);
     gFiles.rows.clear();
