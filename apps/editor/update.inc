@@ -84,8 +84,21 @@ inline void makeMapsDefault(HWND owner) {
                      L"Default apps", MB_ICONINFORMATION);
     ShellExecuteW(nullptr, L"open", L"ms-settings:defaultapps", nullptr, nullptr, SW_SHOWNORMAL);
 }
-constexpr UINT WM_ASK_MAPS = WM_APP + 33;  // at start: ask once if maps open with StarDraft 2
+constexpr UINT WM_ASK_MAPS = WM_APP + 33;  // after a map file opened: ask once if maps open with StarDraft 2
+inline bool askedMapsDefault() {
+    DWORD asked = 0, size = sizeof asked;
+    RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"AskedMapsDefault", RRF_RT_REG_DWORD, nullptr, &asked, &size);
+    return asked != 0;
+}
+// A .scm or .scx file opened (not a new map, not a project): the first time, the question follows (after the map shows).
+inline void mapFileOpened(const fs::path& file) {
+    std::wstring ext = file.extension().wstring();
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::towlower);
+    if (gBackground || gSelfTest || (ext != L".scm" && ext != L".scx") || askedMapsDefault() || mapsOpenWithStarDraft()) return;
+    PostMessageW(app.main, WM_ASK_MAPS, 0, 0);
+}
 inline void askMapsDefault(HWND owner) {
+    if (askedMapsDefault()) return;  // (two maps opened at once: one question)
     const DWORD one = 1;
     RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"AskedMapsDefault", REG_DWORD, &one, sizeof one);
     if (themedMessageBox(owner, L"Open .scm and .scx maps with StarDraft 2 when you double-click them? Program options > Maps changes this later.",
@@ -149,12 +162,7 @@ void atStart() {
     wchar_t self[MAX_PATH];
     GetModuleFileNameW(nullptr, self, MAX_PATH);
     if (fs::path(self).filename().wstring().rfind(L"stardraft-latest-", 0) != 0) registerProjectFiles(self);
-    registerMapFiles(associationExe(), false);  // in Explorer's Open with list for maps (the default only when asked)
-    {  // once: ask if maps open with StarDraft 2 (after the window shows)
-        DWORD asked = 0, size = sizeof asked;
-        RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"AskedMapsDefault", RRF_RT_REG_DWORD, nullptr, &asked, &size);
-        if (!asked && !mapsOpenWithStarDraft()) PostMessageW(app.main, WM_ASK_MAPS, 0, 0);
-    }
+    registerMapFiles(associationExe(), false);  // in Explorer's Open with list for maps (the default when asked: mapFileOpened)
     std::error_code ec;
     fs::remove(fs::path(self).replace_extension(L".exe.old"), ec);
     if (!releaseBuild() || !gCheckUpdates) return;  // File > Options > Look for updates on start (on by default)
