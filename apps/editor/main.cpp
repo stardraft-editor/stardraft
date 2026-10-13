@@ -158,6 +158,7 @@ enum : int {
     ID_GRID_SIZE = 950,  // + the preset (kGridPresets); View > Grid size
     ID_GRID_CUSTOM = 958,
     ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish
+    ID_TOOL_KEY = 970,  // + the tool of the keys V, B, A, F: select, brush or place, spray, fill (GitHub feedback #98)
 };
 // View > Grid size: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
 struct GridPreset {
@@ -411,6 +412,7 @@ enum DoodadTool { DPlace, DSpray };
 enum SpriteTool { SPlace, SSpray };
 // A spray tool is on: Units, Doodads or Sprites (their radius, density and the circle on the map).
 bool objectSprayOn();
+void stripToolByKey(int key);  // the keys V, B, A, F (the strip's tools)
 std::wstring entryName(const std::string& dat, int v);
 
 // The colors (docs/dev/CONTROLS.md). Every control takes its colors from these. The values here are the dark theme's;
@@ -4094,6 +4096,7 @@ void command(int id) {
         app.showGrid = !app.showGrid;
         app.dirty = true;
         break;
+    case ID_TOOL_KEY: case ID_TOOL_KEY + 1: case ID_TOOL_KEY + 2: case ID_TOOL_KEY + 3: stripToolByKey(id - ID_TOOL_KEY); break;
     case ID_GRID_CUSTOM: {  // the grid's width, height and offset, in map pixels
         std::wstring text = std::to_wstring(gDock.gridW) + L", " + std::to_wstring(gDock.gridH) + L", " + std::to_wstring(gDock.gridX) + L", " +
                             std::to_wstring(gDock.gridY);
@@ -17783,6 +17786,35 @@ std::vector<StripItem> stripTools(Mode m) {
     }
     return {};
 }
+// A tool of the strip: as its button does.
+void pickStripTool(const StripItem& it) {
+    if (it.select) enterSelection(), setMessage(std::wstring(kModeNames[int(app.mode)]) + L": select");
+    else {
+        app.toolByMode[int(app.mode)] = it.tool;
+        app.terrainPasting = false;
+        fillToolCombo();  // the strip's rows (size, density) follow the tool
+        if (app.palette < 0 && app.mode != Mode::Terrain) setMessage(L"Select what to place in the list");
+        updateStatus();
+    }
+    InvalidateRect(app.tool, nullptr, FALSE);
+    tilesSync();
+    SetFocus(app.view);
+}
+// The key of a strip tool (ID_TOOL_KEY + it): 0 V select, 1 B brush or place, 2 A spray, 3 F fill; -1 none.
+int stripToolKey(const StripItem& it) {
+    if (it.select) return 0;
+    if (it.icon == UiIcon::Spray) return 2;
+    if (it.icon == UiIcon::Fill) return 3;
+    if (it.icon == UiIcon::Brush || it.icon == UiIcon::Add) return 1;
+    return -1;
+}
+// The keys V, B, A, F: the active mode's tool of that key (the Map workspace only).
+void stripToolByKey(int key) {
+    if (gWorkspace != Workspace::Map) return;
+    for (const StripItem& it : stripTools(app.mode))
+        if (stripToolKey(it) == key) return pickStripTool(it);
+}
+
 // Whether the active mode is in its selection: its Select tool with nothing picked.
 bool inSelection() {
     for (const StripItem& it : stripTools(app.mode))
@@ -18043,20 +18075,9 @@ void paintToolStrip(HWND hwnd) {
         // Select: the tool with nothing picked. Place (the same tool): with a pick. The others: their tool.
         const bool shared = std::count_if(tools.begin(), tools.end(), [&](const StripItem& o) { return o.tool == it.tool; }) > 1;
         const bool on = currentTool() == it.tool && (!shared || it.select != picked) && (app.mode == Mode::Terrain || !it.select || !picked);
-        ui::iconButton(mem, {x, y, x + b, y + b}, it.icon, [it] {
-            if (it.select) enterSelection(), setMessage(std::wstring(kModeNames[int(app.mode)]) + L": select");
-            else {
-                app.toolByMode[int(app.mode)] = it.tool;
-                app.terrainPasting = false;
-                fillToolCombo();  // the strip's rows (size, density) follow the tool
-                if (app.palette < 0 && app.mode != Mode::Terrain)
-                    setMessage(L"Select what to place in the list");
-                updateStatus();
-            }
-            InvalidateRect(app.tool, nullptr, FALSE);
-            tilesSync();
-            SetFocus(app.view);
-        }, it.tip, ui::Icon::Boxed, on);
+        const int key = stripToolKey(it);
+        ui::iconButton(mem, {x, y, x + b, y + b}, it.icon, [it] { pickStripTool(it); },
+                       key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAF"[key]) + L")" : std::wstring(it.tip), ui::Icon::Boxed, on);
         next();
     }
     if (app.mode == Mode::Terrain) {
@@ -19204,7 +19225,8 @@ HACCEL buildAccelerators() {
         {FCONTROL | FVIRTKEY, '0', ID_VIEW_ZOOM100},     {FCONTROL | FVIRTKEY, 'F', ID_VIEW_FIT},
         {FVIRTKEY, 'T', ID_MODE_TERRAIN},                {FVIRTKEY, 'U', ID_MODE_UNITS},
         {FVIRTKEY, 'D', ID_MODE_DOODADS},                {FVIRTKEY, 'L', ID_MODE_LOCATIONS}, {FVIRTKEY, 'S', ID_MODE_SPRITES},
-        {FVIRTKEY, 'G', ID_VIEW_GRID},                   {FCONTROL | FVIRTKEY, '1', ID_WS_MAP},
+        {FVIRTKEY, 'G', ID_VIEW_GRID},                   {FVIRTKEY, 'V', ID_TOOL_KEY},     {FVIRTKEY, 'B', ID_TOOL_KEY + 1},
+        {FVIRTKEY, 'A', ID_TOOL_KEY + 2},                {FVIRTKEY, 'F', ID_TOOL_KEY + 3},                   {FCONTROL | FVIRTKEY, '1', ID_WS_MAP},
         {FCONTROL | FVIRTKEY, '2', ID_WS_DATA},   {FCONTROL | FVIRTKEY, '3', ID_WS_TRIGGERS},
         {FCONTROL | FVIRTKEY, '4', ID_WS_BRIEFING}, {FCONTROL | FVIRTKEY, '5', ID_WS_FILES}, {FCONTROL | FVIRTKEY, '6', ID_WS_PROJECT},                   {FCONTROL | FVIRTKEY, 'B', ID_PROJ_COMPILE}, {FCONTROL | FVIRTKEY, 'P', ID_SCEN_PLAYERS}, {FCONTROL | FVIRTKEY, 'M', ID_SCEN_PROPS}, {FCONTROL | FVIRTKEY, 'L', ID_VIEW_LOG},                   {FVIRTKEY, 'Q', ID_QUICKPICK},
         {FVIRTKEY, '1', ID_PLAYER_1},     {FVIRTKEY, '2', ID_PLAYER_1 + 1}, {FVIRTKEY, '3', ID_PLAYER_1 + 2},
@@ -24964,6 +24986,21 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 app.dirty = true;
                 for (int i = 0; i < 6; ++i) pump();
                 capture(fs::path(datashots) / (s.substr(9) + ".png"), app.view);
+                continue;
+            }
+            if (s == "toolkeys:") {  // toolkeys.txt: the keys V, B, A, F pick the tools of each mode (GitHub feedback #98)
+                std::ofstream o(fs::path(datashots) / "toolkeys.txt");
+                setWorkspace(Workspace::Map);
+                struct Case { int modeId; Mode mode; int key, tool; const char* what; };
+                const Case cases[] = {{ID_MODE_TERRAIN, Mode::Terrain, 1, TBrush, "Terrain B brush"}, {ID_MODE_TERRAIN, Mode::Terrain, 2, TSpray, "Terrain A spray"},
+                                      {ID_MODE_TERRAIN, Mode::Terrain, 3, TFill, "Terrain F fill"},   {ID_MODE_TERRAIN, Mode::Terrain, 0, TSelect, "Terrain V select"},
+                                      {ID_MODE_UNITS, Mode::Units, 2, USpray, "Units A spray"},       {ID_MODE_UNITS, Mode::Units, 1, UPlace, "Units B place"},
+                                      {ID_MODE_DOODADS, Mode::Doodads, 2, DSpray, "Doodads A spray"}, {ID_MODE_SPRITES, Mode::Sprites, 2, SSpray, "Sprites A spray"}};
+                for (const Case& c : cases) {
+                    command(c.modeId);
+                    SendMessageW(app.main, WM_COMMAND, MAKEWPARAM(ID_TOOL_KEY + c.key, 1), 0);  // as the accelerator sends it
+                    o << c.what << ": " << (app.mode == c.mode && currentTool() == c.tool ? "yes" : "NO") << "\n";
+                }
                 continue;
             }
             if (s == "rampfit:") {  // rampfit.txt: per tileset, a new map with painted high ground; where each doodad that needs terrain fits
