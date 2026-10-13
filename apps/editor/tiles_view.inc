@@ -618,14 +618,19 @@ void tilesAt(float wx, float wy, int& tx, int& ty) {
 
 // The tiles a brush of the tool strip's size and shape covers around tile (cx, cy): size 0.5 and 1 one tile, then a
 // "radius" of size - 1 tiles; diamond, square or circle.
+// The brush's tiles: size n is n tiles across (size 2: 2 x 2 tiles; GitHub feedback #121), around the tile at the mouse
+// (an even size: the tile at the mouse is the one left of and above the middle).
 std::vector<std::pair<int, int>> tilesFootprint(int cx, int cy) {
     std::vector<std::pair<int, int>> out;
-    const int k = std::max(0, int(std::lround(app.brushSize)) - 1);
-    for (int dy = -k; dy <= k; ++dy)
-        for (int dx = -k; dx <= k; ++dx) {
+    const int n = std::max(1, int(std::lround(app.brushSize)));
+    const int lo = -(n - 1) / 2, hi = n / 2;
+    const float mid = (lo + hi) / 2.0f, r = (n - 1) / 2.0f;
+    for (int dy = lo; dy <= hi; ++dy)
+        for (int dx = lo; dx <= hi; ++dx) {
+            const float x = dx - mid, y = dy - mid;
             const bool in = app.brushShape == Brush::Square ? true
-                          : app.brushShape == Brush::Circle ? dx * dx + dy * dy <= k * k + k
-                                                            : std::abs(dx) + std::abs(dy) <= k;
+                          : app.brushShape == Brush::Circle ? x * x + y * y <= r * r + r + 0.25f
+                                                            : std::abs(x) + std::abs(y) <= r + 0.01f;
             if (in) out.push_back({cx + dx, cy + dy});
         }
     return out;

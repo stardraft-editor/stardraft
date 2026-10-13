@@ -18354,7 +18354,7 @@ void paintToolStrip(HWND hwnd) {
     }
     if (x > 0) x = 0, y += b + gap;
     // The brush size and the spray's density: number boxes (the name, the value, up and down arrows).
-    auto numberRow = [&](int which, const wchar_t* name, const wchar_t* tip) {
+    auto numberRow = [&](int which, const wchar_t* name, const wchar_t* tip, const wchar_t* unit = nullptr) {
         const int h = scale(26), lw = scale(64);
         SetTextColor(mem, kDim);
         RECT lt{0, y, lw, y + h};
@@ -18380,10 +18380,16 @@ void paintToolStrip(HWND hwnd) {
         gStrip.hits.push_back({up, nullptr, [which] { stripNumberStep(which, 1); }, L"One step more", IDC_HAND, {}});
         gStrip.hits.push_back({down, nullptr, [which] { stripNumberStep(which, -1); }, L"One step less", IDC_HAND, {}});
         gStripNumbers.push_back({vb, which});
+        if (unit && vb.right + scale(6) < rc.right) {  // what the number counts (GitHub feedback #121)
+            SetTextColor(mem, kDim);
+            RECT ut{vb.right + scale(6), y, rc.right, y + h};
+            DrawTextW(mem, unit, -1, &ut, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
+        }
         y += h + gap;
     };
     if (stripHasSize())
-        numberRow(kNumSize, L"Size", L"Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).");
+        numberRow(kNumSize, L"Size", L"Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).",
+                  app.mode != Mode::Terrain ? nullptr : app.terrainRect ? L"tiles" : L"diamonds");
     if (stripHasDensity())
         numberRow(kNumDensity, L"Density", app.mode == Mode::Terrain ? L"Density: the number of dabs (Rectangle: tiles) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it."
                                          : app.mode == Mode::Units ? L"Density: the number of units each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it."
@@ -25350,6 +25356,22 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(gTiles.list, WM_LBUTTONUP, 0, at(2, 1));
                 const size_t want = std::min<size_t>(gTiles.values.size(), size_t(std::min(3, gTiles.perRow)) * 2);
                 o << "the box selects the tiles in it: " << gTiles.chosen.size() << " of " << want << " " << (gTiles.chosen.size() == want ? "yes" : "NO") << "\n";
+                continue;
+            }
+            if (s == "footprint:") {  // footprint.txt: Rectangle brush sizes count tiles: a square of size n is n x n tiles (#121)
+                std::ofstream o(fs::path(datashots) / "footprint.txt");
+                const float size = app.brushSize;
+                const auto shape = app.brushShape;
+                app.brushShape = Brush::Square;
+                bool ok = true;
+                for (int n = 1; n <= 5; ++n) {
+                    app.brushSize = float(n);
+                    const size_t got = tilesFootprint(10, 10).size();
+                    o << "size " << n << ": " << got << " tiles\n";
+                    ok = ok && got == size_t(n * n);
+                }
+                app.brushSize = size, app.brushShape = shape;
+                o << "a square of size n is n x n tiles " << (ok ? "yes" : "NO") << "\n";
                 continue;
             }
             if (s == "pastestay:") {  // pastestay.txt: a paste of tiles stays on the mouse after clicks; Esc ends it (#123)
