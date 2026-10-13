@@ -25,6 +25,11 @@ struct TilesView {
     int picked = -1;        // the tile value to place (group << 4 | subtile), -1: none
     std::vector<uint16_t> chosen;  // Ctrl+click and Shift+click: several tiles; Spray places one of them at random (#81)
     int hover = -1;         // the tile value under the mouse in the list
+    // A box dragged over the grid selects the tiles in it (GitHub feedback #110): from the press, in content pixels
+    // (the scroll added); Ctrl+drag adds to the tiles selected before.
+    bool boxing = false, boxed = false;
+    POINT boxFrom{}, boxTo{};
+    std::vector<uint16_t> boxBase;
     const Editor* builtFor = nullptr;
     int builtEra = -1;
     std::map<uint16_t, std::vector<uint8_t>> pixels;  // 32 x 32 BGRA per tile value, for builtFor's tileset
@@ -202,6 +207,25 @@ int tilesHit(int x, int y) {
     return k < gTiles.values.size() ? gTiles.values[k] : -1;
 }
 
+// The box: the tiles whose cells it touches, added to the ones selected before it.
+void tilesBoxSelect() {
+    const int pad = tilesPad(), step = tilesCell() + tilesGap();
+    const int x0 = std::min(gTiles.boxFrom.x, gTiles.boxTo.x), x1 = std::max(gTiles.boxFrom.x, gTiles.boxTo.x);
+    const int y0 = std::min(gTiles.boxFrom.y, gTiles.boxTo.y), y1 = std::max(gTiles.boxFrom.y, gTiles.boxTo.y);
+    const int c0 = std::max(0, (x0 - pad) / step), c1 = std::min(gTiles.perRow - 1, (x1 - pad) / step);
+    const int r0 = std::max(0, (y0 - pad) / step), r1 = std::max(0, (y1 - pad) / step);
+    std::vector<uint16_t> chosen = gTiles.boxBase;
+    for (int r = r0; r <= r1; ++r)
+        for (int c = c0; c <= c1; ++c) {
+            const size_t k = size_t(r) * size_t(gTiles.perRow) + size_t(c);
+            if (k < gTiles.values.size() && std::find(chosen.begin(), chosen.end(), gTiles.values[k]) == chosen.end()) chosen.push_back(gTiles.values[k]);
+        }
+    if (chosen.empty()) return;
+    gTiles.chosen = chosen;
+    gTiles.picked = chosen.back();
+    InvalidateRect(gTiles.list, nullptr, FALSE);
+}
+
 // The tile's picture: its megatile, as the map shows it in SD.
 const std::vector<uint8_t>& tilesPixels(uint16_t value) {
     if (gTiles.pixels.size() > 4096 && !gTiles.pixels.count(value)) gTiles.pixels.clear();  // a long scroll: keep the memory small
@@ -268,6 +292,11 @@ void paintTilesList(HWND hwnd) {
             SetTextColor(mem, kDim);
             DrawTextW(mem, L"No tiles agree with the search and the filter", -1, &t, DT_WORDBREAK | DT_NOPREFIX);
         }
+    }
+    if (gTiles.boxing && gTiles.boxed) {  // the box being dragged
+        RECT b{std::min(gTiles.boxFrom.x, gTiles.boxTo.x), std::min(gTiles.boxFrom.y, gTiles.boxTo.y) - gTiles.scroll,
+               std::max(gTiles.boxFrom.x, gTiles.boxTo.x), std::max(gTiles.boxFrom.y, gTiles.boxTo.y) - gTiles.scroll};
+        ui::box(mem, b, CLR_NONE, kAccent);
     }
     // The tile under the mouse (or the picked one).
     RECT f{0, viewH, rc.right, rc.bottom};
@@ -347,6 +376,12 @@ LRESULT CALLBACK tilesListProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_MOUSEMOVE: {
+        if (gTiles.boxing && (wp & MK_LBUTTON)) {  // the box: the tiles in it, as it grows
+            gTiles.boxTo = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp) + gTiles.scroll};
+            if (std::abs(gTiles.boxTo.x - gTiles.boxFrom.x) + std::abs(gTiles.boxTo.y - gTiles.boxFrom.y) > scale(6)) gTiles.boxed = true;
+            if (gTiles.boxed) tilesBoxSelect();
+            InvalidateRect(hwnd, nullptr, FALSE);
+        }
         const int v = tilesHit(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
         if (v != gTiles.hover) gTiles.hover = v, InvalidateRect(hwnd, nullptr, FALSE);
         TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
@@ -378,9 +413,24 @@ LRESULT CALLBACK tilesListProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         } else if (v >= 0) {
             tilesPick(v, false);
         }
+        if (v >= 0 && !(wp & MK_SHIFT)) {  // a drag from here: a box (Ctrl: added to the tiles selected before)
+            gTiles.boxing = true, gTiles.boxed = false;
+            gTiles.boxFrom = gTiles.boxTo = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp) + gTiles.scroll};
+            gTiles.boxBase = (wp & MK_CONTROL) ? gTiles.chosen : std::vector<uint16_t>{};
+            SetCapture(hwnd);
+        }
         SetFocus(app.view);
         return 0;
     }
+    case WM_LBUTTONUP:
+        if (gTiles.boxing) {
+            gTiles.boxing = false;
+            ReleaseCapture();
+            if (gTiles.boxed && gTiles.chosen.size() > 1)
+                setMessage(L"Selected " + std::to_wstring(gTiles.chosen.size()) + L" tiles: Spray and Fill place one of them at random");
+            InvalidateRect(hwnd, nullptr, FALSE);
+        }
+        return 0;
     }
     return DefWindowProcW(hwnd, msg, wp, lp);
 }

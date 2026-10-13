@@ -25127,6 +25127,26 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 o << (ed.revision() != rev && ed.terrain().tiles[size_t(ty) * ed.width() + tx] != two[0] + 0 * b ? "yes" : "?") << "\n";
                 continue;
             }
+            if (s == "tilebox:") {  // tilebox.txt, tilebox.png: a box dragged over the Tiles list selects the tiles in it (#110)
+                std::ofstream o(fs::path(datashots) / "tilebox.txt");
+                setWorkspace(Workspace::Map);
+                command(ID_MODE_TERRAIN);
+                app.terrainRect = true;
+                fillToolCombo();
+                for (int i = 0; i < 5; ++i) pump();
+                tilesFresh();
+                const int pad = tilesPad(), step = tilesCell() + tilesGap(), half = tilesCell() / 2;
+                auto at = [&](int col, int row) { return MAKELPARAM(pad + col * step + half, pad + row * step + half - gTiles.scroll); };
+                SendMessageW(gTiles.list, WM_LBUTTONDOWN, MK_LBUTTON, at(0, 0));
+                SendMessageW(gTiles.list, WM_MOUSEMOVE, MK_LBUTTON, at(1, 1));
+                SendMessageW(gTiles.list, WM_MOUSEMOVE, MK_LBUTTON, at(2, 1));
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "tilebox.png", app.main);
+                SendMessageW(gTiles.list, WM_LBUTTONUP, 0, at(2, 1));
+                const size_t want = std::min<size_t>(gTiles.values.size(), size_t(std::min(3, gTiles.perRow)) * 2);
+                o << "the box selects the tiles in it: " << gTiles.chosen.size() << " of " << want << " " << (gTiles.chosen.size() == want ? "yes" : "NO") << "\n";
+                continue;
+            }
             if (s == "enterunit:") {  // enterunit.txt: Enter on a selected unit opens Unit properties (GitHub feedback #115)
                 std::ofstream o(fs::path(datashots) / "enterunit.txt");
                 static bool opened;
