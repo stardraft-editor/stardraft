@@ -507,7 +507,7 @@ bool mapPageCopyChanged(int kind, const MapPageCopy& c) {
 }
 
 int mapPageHeaderH() { return scale(56) + (gMp.kind == kMpClassicSettings ? scale(40) : 0); }
-int mapPageFooterH() { return gMp.kind == kMpProps ? 0 : scale(ui::kButtonH) + 2 * scale(14); }  // Map properties: no bar
+int mapPageFooterH() { return 0; }  // no Apply bar: every change goes into the map at once (GitHub feedback #102)
 
 // The bar's part of the page, for a repaint.
 void mapPageInvalidateBar() {
@@ -519,25 +519,20 @@ void mapPageInvalidateBar() {
 }
 
 void mapPageAutoApply();
-// After an edit on the page: Apply follows the copy, and the rail's dot. Map properties: the change goes into the map
-// (a typed text a moment after the last key).
+void mapPageCommit();
+// After an edit on the page: the change goes into the map at once, one undo step (a typed text a moment after the last
+// key). GitHub feedback #102: no Apply.
 void mapPageChanged() {
     MapPageCopy* c = gMp.ready ? mapPageOpenCopy() : nullptr;
     if (!c) return;
-    if (gMp.kind == kMpProps) {
-        wchar_t cls[16] = L"";
-        GetClassNameW(GetFocus(), cls, 16);
-        if (_wcsicmp(cls, WC_EDITW) == 0) gMp.typing = true, SetTimer(gMp.wnd, 2, 500, nullptr);  // typing: when it stops
-        else mapPageAutoApply();
+    wchar_t cls[16] = L"";
+    GetClassNameW(GetFocus(), cls, 16);
+    if (_wcsicmp(cls, WC_EDITW) == 0 && IsChild(gMp.wnd, GetFocus())) {  // typing: when it stops
+        gMp.typing = true, SetTimer(gMp.wnd, 2, 500, nullptr);
         return;
     }
-    mapPageReadBack();
-    const bool now = mapPageCopyChanged(gMp.kind, *c);
-    if (now != c->changed) {
-        c->changed = now;
-        if (gWsBar) InvalidateRect(gWsBar, nullptr, FALSE);
-    }
-    mapPageInvalidateBar();
+    if (gMp.kind == kMpProps) mapPageAutoApply();
+    else mapPageCommit();
 }
 
 // --- The view: the content, scrolled when the page is smaller than it -------------------------------------------
@@ -722,7 +717,7 @@ LRESULT CALLBACK mapPageProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_ERASEBKGND: return 1;
     case WM_TIMER:
         if (wp == 1) mapPageReloadIfStale();
-        if (wp == 2) KillTimer(hwnd, 2), gMp.typing = false, mapPageAutoApply();  // the typing stopped
+        if (wp == 2) KillTimer(hwnd, 2), gMp.typing = false, gMp.kind == kMpProps ? mapPageAutoApply() : mapPageCommit();  // the typing stopped
         return 0;
     case WM_COMMAND: return 0;  // Enter and Esc (the dialog keys): nothing; Apply is a click
     }
@@ -781,8 +776,9 @@ void mapPageMakeContent() {
 // Closes the open page (its window goes; its copy stays with the tab).
 void mapPageClose() {
     if (!gMp.wnd) return;
-    if (gMp.kind == kMpProps) KillTimer(gMp.wnd, 2), gMp.typing = false, mapPageAutoApply();  // a text being typed goes into the map
-    else mapPageChanged();  // the fields into the copy, and whether it has changes
+    KillTimer(gMp.wnd, 2), gMp.typing = false;  // a text being typed goes into the map
+    if (gMp.kind == kMpProps) mapPageAutoApply();
+    else mapPageCommit();
     gMp.ready = false;
     KillTimer(gMp.wnd, 1);
     DestroyWindow(gMp.wnd);
@@ -851,13 +847,14 @@ void mapPageReload() {
 void mapPageReloadIfStale() {
     MapPageCopy* c = gMp.ready ? mapPageOpenCopy() : nullptr;
     if (!c || !app.ed || gMp.ed != app.ed.get()) return;
-    if (gMp.kind == kMpProps) {  // set at once: the map changed elsewhere (an undo) when the copy's revision is old
-        if (gMp.typing) return;  // a text being typed goes in first
-        if (c->revision != app.ed->revision() && !c->changed) mapPageReload();
-        return;
+    // Set at once: the map changed elsewhere (an undo) when the copy's revision is old.
+    if (gMp.typing) return;  // a text being typed goes in first
+    if (gMp.kind != kMpProps) {  // a change the page did not report yet (not while a text has the focus: its typing)
+        wchar_t cls[16] = L"";
+        GetClassNameW(GetFocus(), cls, 16);
+        if (_wcsicmp(cls, WC_EDITW) != 0 || !IsChild(gMp.wnd, GetFocus())) mapPageCommit();
     }
-    mapPageChanged();
-    if (!c->changed && c->revision != app.ed->revision()) mapPageReload();
+    if (c->revision != app.ed->revision() && !c->changed) mapPageReload();
 }
 
 // Map properties: what changed goes into the map now (each an undo step): the title and the description, players and
@@ -906,6 +903,41 @@ bool mapPageApplyCopy(int kind, MapPageCopy& c) {
     case kMpClassicSettings: return classicApply(*static_cast<ClassicDialog*>(c.data.get()));
     }
     return false;
+}
+
+// The copy's values are the map's now (after they went into it): what the copy compares with for a change.
+void mapPageRebase(int kind, MapPageCopy& c) {
+    switch (kind) {
+    case kMpPlayers: {
+        auto& d = *static_cast<PlayersDialog*>(c.data.get());
+        d.basePlayers = d.players, d.baseForces = d.forces;
+        break;
+    }
+    case kMpClassicTrig: {
+        auto& d = *static_cast<ClassicTrigDialog*>(c.data.get());
+        d.before = d.trig.triggers;
+        break;
+    }
+    case kMpClassicSettings: {
+        auto& d = *static_cast<ClassicDialog*>(c.data.get());
+        d.namesBefore = d.names, d.unitsBefore = d.units, d.upgradesBefore = d.upgrades, d.techsBefore = d.techs;
+        break;
+    }
+    }
+}
+
+// The page's change into the map now (one undo step), without reading the page again (it keeps its place and focus).
+void mapPageCommit() {
+    MapPageCopy* c = gMp.ready ? mapPageOpenCopy() : nullptr;
+    if (!c || !app.ed || gMp.kind == kMpProps) return;
+    mapPageReadBack();
+    if (!mapPageCopyChanged(gMp.kind, *c)) return;
+    if (mapPageApplyCopy(gMp.kind, *c)) mapPageRebase(gMp.kind, *c), c->revision = app.ed->revision();
+    const bool now = mapPageCopyChanged(gMp.kind, *c);
+    if (now != c->changed) {
+        c->changed = now;
+        if (gWsBar) InvalidateRect(gWsBar, nullptr, FALSE);
+    }
 }
 
 // Apply (the bar's button): the copy into the map as one undo step, then the map's values again.
@@ -968,9 +1000,10 @@ void mapPageThemeChanged() {
 // Tests: the page that shows; Apply (or Revert) clicked through the click area the bar's paint made.
 HWND mapPageWindow() { return gMp.wnd; }
 bool mapPageClickButton(bool apply) {
-    if (gMp.ready && gMp.kind == kMpProps) {  // no bar: changes go in at once; "Revert" shows the map's values again
+    if (gMp.ready) {  // no bar: changes go in at once; "Revert" shows the map's values again
         KillTimer(gMp.wnd, 2), gMp.typing = false;
-        if (apply) mapPageAutoApply(), mapPageApplyTerrain();
+        if (gMp.kind == kMpProps && apply) mapPageAutoApply(), mapPageApplyTerrain();
+        else if (apply) mapPageCommit();
         else mapPageReload();
         return true;
     }
@@ -1094,21 +1127,16 @@ void mapPagesDatashot(const fs::path& dir) {
             return int(app.ed->unitSettings().units[0].useDefault) == target;
         };
         change();
-        const bool applyOn = mapPageHasChanges(k) && shows();
-        command(ID_WS_MAP);  // leave the page with the change
-        const bool away = !gMp.wnd && mapPageHasChanges(k) && app.ed->revision() == rev && !inMap();
-        command(id);  // and back
+        const bool atOnce = !mapPageHasChanges(k) && shows() && inMap() && app.ed->revision() != rev;
+        command(ID_WS_MAP);  // leave the page, and back: the change is the map's
+        command(id);
         settle();
-        const bool back = mapPageHasChanges(k) && shows();
+        const bool back = shows() && inMap();
         capture(dir / ("mappage_" + std::string(names[k]) + "_changed" + light + ".png"), app.main);
-        const bool reverted = mapPageClickButton(false) && !mapPageHasChanges(k) && !shows() && app.ed->revision() == rev;
-        change();
-        const bool applied = mapPageClickButton(true) && !mapPageHasChanges(k) && inMap() && shows();
         app.ed->undo();
         mapPageReloadIfStale();  // as the page's timer does
         const bool undone = !inMap() && !shows() && !mapPageHasChanges(k);
-        log << names[k] << ": a change turns on Apply and the dot " << yes(applyOn) << ", kept when the page is left (the map as it was) " << yes(away)
-            << ", there again on the page " << yes(back) << ", Revert " << yes(reverted) << ", Apply sets it " << yes(applied)
+        log << names[k] << ": a change goes into the map at once (no Apply) " << yes(atOnce) << ", there again on the page " << yes(back)
             << ", one undo gives the map's value back and the page shows it " << yes(undone) << "\n";
         command(ID_WS_MAP);
     }
