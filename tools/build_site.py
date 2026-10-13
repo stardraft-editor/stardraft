@@ -1,4 +1,6 @@
-"""Builds the static website (docs/index.html, served by GitHub Pages) from docs/project/ROADMAP.md.
+"""Builds the static website (docs/index.html) from docs/project/ROADMAP.md. The Website workflow
+(.github/workflows/site.yml) copies it to stardraft-editor/stardraft-editor.github.io, served at
+https://stardraft-editor.github.io, on each push to main.
 
 ROADMAP.md is the source. The page shows its "## Now", "## Next" and "## Later" sections. An item is
 "- [ ] **R<n> Title.** *Tag:* area." and then, indented, a short paragraph that tells what the feature is.

@@ -1,0 +1,44 @@
+# The website (https://stardraft-editor.github.io): copies the page that tools/build_site.py made in docs/ to the
+# stardraft-editor/stardraft-editor.github.io repository, which GitHub Pages serves at the root address.
+# SITE_DEPLOY_KEY: the private half of a write deploy key of that repository (only that repository).
+name: Website
+
+on:
+  push:
+    branches: [main]
+    paths: [docs/index.html, docs/.nojekyll, docs/assets/**, .github/workflows/site.yml]
+  workflow_dispatch:
+
+concurrency:
+  group: website
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy the page to stardraft-editor.github.io
+        env:
+          SITE_DEPLOY_KEY: ${{ secrets.SITE_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SITE_DEPLOY_KEY" > ~/.ssh/site_key
+          chmod 600 ~/.ssh/site_key
+          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/site_key -o IdentitiesOnly=yes"
+          git clone --depth 1 git@github.com:stardraft-editor/stardraft-editor.github.io.git site
+          # Everything but .git and the README is the page: replace it with docs/.
+          find site -mindepth 1 -maxdepth 1 ! -name .git ! -name README.md -exec rm -rf {} +
+          cp -r docs/index.html docs/.nojekyll docs/assets site/
+          cd site
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The site is already up to date."
+          else
+            git commit -m "Site from stardraft@${GITHUB_SHA::7}"
+            git push origin HEAD:main
+          fi
