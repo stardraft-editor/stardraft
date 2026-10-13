@@ -4,11 +4,12 @@ ROADMAP.md is the source. The page shows its "## Now", "## Next" and "## Later" 
 "- [ ] **R<n> Title.** *Tag:* area." and then, indented, a short paragraph that tells what the feature is.
 The page shows the title and that paragraph. The paragraphs after it are only in ROADMAP.md.
 
-    python tools/build_site.py          write docs/index.html, docs/ko/index.html (Korean) and docs/assets
+    python tools/build_site.py          write docs/index.html and docs/assets
     python tools/build_site.py --check  exit 1 if they are out of date
 
-The Korean page has the same pictures; its texts are KO, KO_PERSONAS, KO_INTROS, KO_TAGS and KO_ROADMAP below. A
-roadmap item without Korean shows in English there, and the build says which ones.
+The page is in English and Korean: a script in it swaps each text (data-i18n) for its Korean from KO, KO_PERSONAS,
+KO_INTROS, KO_TAGS and KO_ROADMAP below, by the browser's language or the EN | KR switch. A roadmap item without Korean
+stays in English, and the build says which ones.
 
 The screenshots in docs/assets/shots are datashots (not made here), all in a 2100 x 1300 window and cut to the same
 1890 x 1260 box (x 8 or 202, y 30), as WebP. The Data workspace needs this width: narrower, its pages go to one column.
@@ -25,6 +26,7 @@ back to the value it had before.
     In Korean: AshenCrown.eds ... trig:2:2 options:  (korean.webp: options_dark.png over the dimmed triggers page)
 """
 import html
+import json
 import pathlib
 import re
 import shutil
@@ -190,7 +192,6 @@ KO_ROADMAP = {
     "R29": ("Linux 버전", "Linux용 StarDraft 2."),
     "R30": ("웹 버전", "설치 없이 브라우저에서 쓰는 StarDraft 2."),
 }
-PAGES = {"en": (EN, ROOT / "docs" / "index.html", ""), "ko": (KO, ROOT / "docs" / "ko" / "index.html", "../")}
 
 
 def parse(text):
@@ -238,63 +239,73 @@ def inline(s):
     return re.sub(r"\*(.+?)\*", r"<em>\1</em>", s)
 
 
-def item_html(i, lang, L):
-    title, text = KO_ROADMAP.get(i["id"], (i["title"], i["text"])) if lang == "ko" else (i["title"], i["text"])
-    tags = [KO_TAGS.get(t, t) if lang == "ko" else t for t in i["tags"]]
+def item_html(i):
     rid = f'R{int(i["id"][1:]):04}'  # R36 shows as R0036
     anchor = rid.lower()
     # The last line: the id, which links to the item (to copy a link to it), then the tags.
-    meta = " · ".join([f'<a class="rid" href="#{anchor}" title="{L["link"]}">#{rid}</a>'] + [html.escape(t) for t in tags])
-    return (f'        <li class="item" id="{anchor}"><h4>{inline(title)}</h4>'
-            f'<p>{inline(text)}</p><p class="who">{meta}</p></li>')
+    meta = " · ".join([f'<a class="rid" href="#{anchor}" title="{EN["link"]}" data-i18n-title="link">#{rid}</a>'] +
+                      [f'<span data-i18n="tag.{tag}">{html.escape(tag)}</span>' for tag in i["tags"]])
+    k = i["id"]
+    return (f'        <li class="item" id="{anchor}"><h4 data-i18n="{k}.t">{inline(i["title"])}</h4>'
+            f'<p data-i18n="{k}.p">{inline(i["text"])}</p><p class="who">{meta}</p></li>')
 
 
-def build(items, intros, lang):
-    L, _, base = PAGES[lang]
-    L = dict(L, **{f"of{k}": L["of"].format(k=k, n=10) for k in range(1, 11)})
-    persona = lambda pid, n, t: KO_PERSONAS[pid] if lang == "ko" else (n, t)
+def korean(items):
+    """The Korean of each data-i18n key in the page (inline Markdown already made HTML)."""
+    ko = dict(KO, **{f"of{k}": KO["of"].format(k=k, n=10) for k in range(1, 11)})
+    for pid, (n, text) in KO_PERSONAS.items():
+        ko[f"persona.{pid}.n"], ko[f"persona.{pid}.t"] = html.escape(n), html.escape(text)
+    for name, text in KO_INTROS.items():
+        ko[f"intro.{name}"] = inline(text)
+    for tag, text in KO_TAGS.items():
+        ko[f"tag.{tag}"] = html.escape(text)
+    for i in items:
+        if i["id"] in KO_ROADMAP:
+            title, text = KO_ROADMAP[i["id"]]
+            ko[i["id"] + ".t"], ko[i["id"] + ".p"] = inline(title), inline(text)
+    return ko
+
+
+def build(items, intros):
+    L = dict(EN, **{f"of{k}": EN["of"].format(k=k, n=10) for k in range(1, 11)})
     personas = "\n".join(
         f'      <div class="persona{" soon" if pid == "mod" else ""}"><span class="tile">{icon(ic)}</span>'
-        f'<h3>{html.escape(persona(pid, n, t)[0])}</h3><p>{html.escape(persona(pid, n, t)[1])}</p>'
-        f'{"<p class=badge>" + L["soon"] + "</p>" if pid == "mod" else ""}</div>'
-        for pid, n, ic, t in PERSONAS)
+        f'<h3 data-i18n="persona.{pid}.n">{html.escape(n)}</h3><p data-i18n="persona.{pid}.t">{html.escape(text)}</p>'
+        f'{"<p class=badge data-i18n=soon>" + L["soon"] + "</p>" if pid == "mod" else ""}</div>'
+        for pid, n, ic, text in PERSONAS)
     buckets = []
     for name in BUCKETS:
-        cards = "\n".join(item_html(i, lang, L) for i in items if i["bucket"] == name)
-        body = f'<ul class="items">\n{cards}\n      </ul>' if cards else f'<p class="empty">{L["empty"]}</p>'
-        text = KO_INTROS.get(name, intros.get(name)) if lang == "ko" else intros.get(name)
-        intro = f'<p>{inline(text)}</p>' if text else ""
-        buckets.append(f'      <div class="bucket" id="{name.lower()}">\n        <div class="rail"><h3>{L[name]}</h3>'
-                       f'{intro}</div>\n      {body}\n      </div>')
-    ko = lang == "ko"
-    return TEMPLATE.format(personas=personas, buckets="\n".join(buckets), repo=REPO, discord=DISCORD, feedback=FEEDBACK, video=VIDEO,
-                           i_select=icon("select"), i_feedback=icon("feedback"), i_issue=icon("issue"), L=L, lang=lang,
-                           base=base, cur_en="" if ko else ' aria-current="page"', cur_ko=' aria-current="page"' if ko else "",
-                           fonts="&family=Noto+Sans+KR:wght@400;500;600" if ko else "",
-                           hangul='"Noto Sans KR", ' if ko else "")
+        cards = "\n".join(item_html(i) for i in items if i["bucket"] == name)
+        body = (f'<ul class="items">\n{cards}\n      </ul>' if cards
+                else f'<p class="empty" data-i18n="empty">{L["empty"]}</p>')
+        intro = f'<p data-i18n="intro.{name}">{inline(intros[name])}</p>' if intros.get(name) else ""
+        buckets.append(f'      <div class="bucket" id="{name.lower()}">\n        <div class="rail">'
+                       f'<h3 data-i18n="{name}">{L[name]}</h3>{intro}</div>\n      {body}\n      </div>')
+    ko_json = json.dumps(korean(items), ensure_ascii=False, indent=1).replace("</", "<\\/")
+    return TEMPLATE.format(personas=personas, buckets="\n".join(buckets), repo=REPO, discord=DISCORD, feedback=FEEDBACK,
+                           video=VIDEO, i_select=icon("select"), i_feedback=icon("feedback"), i_issue=icon("issue"), L=L,
+                           ko_json=ko_json)
 
 
 TEMPLATE = """<!doctype html>
-<!-- Generated by tools/build_site.py from docs/project/ROADMAP.md (Korean: KO in build_site.py). Do not edit. -->
-<html lang="{lang}">
+<!-- Generated by tools/build_site.py from docs/project/ROADMAP.md (Korean: the KO tables in build_site.py). Do not edit. -->
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>StarDraft 2</title>
-<meta name="description" content="{L[description]}">
-<link rel="alternate" hreflang="en" href="{base}./">
-<link rel="alternate" hreflang="ko" href="{base}ko/">
+<meta name="description" content="{L[description]}" data-i18n-content="description">
 <meta name="color-scheme" content="dark">
-<link rel="icon" type="image/png" sizes="32x32" href="{base}assets/app-32.png">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/app-32.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600{fonts}&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600&display=swap">
 <style>
 :root {{
   --bg: #0c0e11; --raise: #13161a; --line: #252a31; --grid: rgba(92, 224, 150, 0.06);
   --text: #e9e5dc; --muted: #8e939b; --accent: #5ce096; --on-accent: #04130a;
-  --display: "Chakra Petch", {hangul}system-ui, sans-serif;
-  --sans: "IBM Plex Sans", {hangul}system-ui, sans-serif;
+  --display: "Chakra Petch", "Noto Sans KR", system-ui, sans-serif;
+  --sans: "IBM Plex Sans", "Noto Sans KR", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
 }}
 * {{ box-sizing: border-box; }}
@@ -317,8 +328,8 @@ header::before {{ content: ""; position: absolute; inset: 0; pointer-events: non
           mask-image: linear-gradient(#000 40%, transparent); }}
 .langs {{ position: absolute; top: 24px; left: 0; right: 0; text-align: right; font: 0.75rem var(--mono);
          color: var(--muted); z-index: 1; }}
-.langs a {{ color: var(--muted); text-decoration: none; padding: 4px; }}
-.langs a:hover, .langs a[aria-current] {{ color: var(--text); }}
+.langs button {{ font: inherit; color: var(--muted); background: none; border: 0; padding: 4px; cursor: pointer; }}
+.langs button:hover, .langs button[aria-pressed="true"] {{ color: var(--text); }}
 .hero {{ position: relative; display: grid; gap: 48px 64px; align-items: center; }}
 @media (min-width: 1000px) {{ .hero {{ grid-template-columns: 5fr 6fr; }} }}
 .shot {{ display: block; width: 100%; height: auto; border: 1px solid var(--line);
@@ -424,74 +435,74 @@ footer a:hover {{ color: var(--text); }}
 </head>
 <body>
 <header>
-  <nav class="wrap langs" aria-label="Language"><a href="{base}./" hreflang="en"{cur_en}>EN</a> | <a href="{base}ko/" hreflang="ko"{cur_ko}>KR</a></nav>
+  <nav class="wrap langs" aria-label="Language"><button data-lang="en" aria-pressed="true">EN</button> | <button data-lang="ko" aria-pressed="false">KR</button></nav>
   <div class="wrap hero">
     <div>
-    <h1><img src="{base}assets/app-256.png" alt="">StarDraft 2</h1>
-    <p class="lede">{L[lede]}</p>
-    <p class="heritage">{L[heritage]}</p>
+    <h1><img src="assets/app-256.png" alt="">StarDraft 2</h1>
+    <p class="lede"><span data-i18n="lede">{L[lede]}</span></p>
+    <p class="heritage"><span data-i18n="heritage">{L[heritage]}</span></p>
     <div class="actions">
-      <a class="btn primary" href="{repo}/releases/latest">{L[download]}</a>
-      <a class="btn" href="{discord}">{L[discord]}</a>
+      <a class="btn primary" href="{repo}/releases/latest"><span data-i18n="download">{L[download]}</span></a>
+      <a class="btn" href="{discord}"><span data-i18n="discord">{L[discord]}</span></a>
     </div>
-    <p class="note">{L[builds]}</p>
+    <p class="note"><span data-i18n="builds">{L[builds]}</span></p>
     </div>
     <div class="carousel">
-      <div class="slides" id="slides" tabindex="0" aria-label="{L[shots]}">
-        <figure class="slide" aria-label="{L[of1]}">
-          <img class="shot" src="{base}assets/shots/map.webp" width="1890" height="1260"
-            alt="{L[alt1]}">
-          <figcaption>{L[cap1]} &middot; <a href="https://scmscx.com/map/hksRyYbr">Crescent Dyne</a></figcaption>
+      <div class="slides" id="slides" tabindex="0" aria-label="{L[shots]}" data-i18n-aria-label="shots">
+        <figure class="slide" aria-label="{L[of1]}" data-i18n-aria-label="of1">
+          <img class="shot" src="assets/shots/map.webp" width="1890" height="1260"
+            alt="{L[alt1]}" data-i18n-alt="alt1">
+          <figcaption><span data-i18n="cap1">{L[cap1]}</span> &middot; <a href="https://scmscx.com/map/hksRyYbr">Crescent Dyne</a></figcaption>
         </figure>
-        <figure class="slide" aria-label="{L[of2]}">
-          <img class="shot" src="{base}assets/shots/quick.webp" width="1890" height="1260" loading="lazy"
-            alt="{L[alt2]}">
-          <figcaption>{L[cap2]} &middot; <a href="https://scmscx.com/map/3pV5r4BV">Cave Wars</a></figcaption>
+        <figure class="slide" aria-label="{L[of2]}" data-i18n-aria-label="of2">
+          <img class="shot" src="assets/shots/quick.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt2]}" data-i18n-alt="alt2">
+          <figcaption><span data-i18n="cap2">{L[cap2]}</span> &middot; <a href="https://scmscx.com/map/3pV5r4BV">Cave Wars</a></figcaption>
         </figure>
-        <figure class="slide" aria-label="{L[of3]}">
-          <img class="shot" src="{base}assets/shots/generate.webp" width="1890" height="1260" loading="lazy"
-            alt="{L[alt3]}">
-          <figcaption>{L[cap3]}</figcaption>
+        <figure class="slide" aria-label="{L[of3]}" data-i18n-aria-label="of3">
+          <img class="shot" src="assets/shots/generate.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt3]}" data-i18n-alt="alt3">
+          <figcaption><span data-i18n="cap3">{L[cap3]}</span></figcaption>
         </figure>
-        <figure class="slide" aria-label="{L[of4]}">
-          <img class="shot" src="{base}assets/shots/triggers.webp" width="1890" height="1260" loading="lazy"
-            alt="{L[alt4]}">
-          <figcaption>{L[cap4]}</figcaption>
+        <figure class="slide" aria-label="{L[of4]}" data-i18n-aria-label="of4">
+          <img class="shot" src="assets/shots/triggers.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt4]}" data-i18n-alt="alt4">
+          <figcaption><span data-i18n="cap4">{L[cap4]}</span></figcaption>
         </figure>
-        <figure class="slide" aria-label="{L[of5]}">
-          <img class="shot" src="{base}assets/shots/data.webp" width="1890" height="1260" loading="lazy"
-            alt="{L[alt5]}">
-          <figcaption>{L[cap5]}</figcaption>
+        <figure class="slide" aria-label="{L[of5]}" data-i18n-aria-label="of5">
+          <img class="shot" src="assets/shots/data.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt5]}" data-i18n-alt="alt5">
+          <figcaption><span data-i18n="cap5">{L[cap5]}</span></figcaption>
         </figure>
-        <figure class="slide" aria-label="{L[of6]}">
-          <img class="shot" src="{base}assets/shots/weapons.webp" width="1890" height="1260" loading="lazy"
-            alt="{L[alt6]}">
-          <figcaption>{L[cap6]}</figcaption>
+        <figure class="slide" aria-label="{L[of6]}" data-i18n-aria-label="of6">
+          <img class="shot" src="assets/shots/weapons.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt6]}" data-i18n-alt="alt6">
+          <figcaption><span data-i18n="cap6">{L[cap6]}</span></figcaption>
         </figure>
-        <figure class="slide" aria-label="{L[of7]}">
-          <img class="shot" src="{base}assets/shots/buttons.webp" width="1890" height="1260" loading="lazy"
-            alt="{L[alt7]}">
-          <figcaption>{L[cap7]}</figcaption>
+        <figure class="slide" aria-label="{L[of7]}" data-i18n-aria-label="of7">
+          <img class="shot" src="assets/shots/buttons.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt7]}" data-i18n-alt="alt7">
+          <figcaption><span data-i18n="cap7">{L[cap7]}</span></figcaption>
         </figure>
-        <figure class="slide" aria-label="{L[of8]}">
-          <img class="shot" src="{base}assets/shots/images.webp" width="1890" height="1260" loading="lazy"
-            alt="{L[alt8]}">
-          <figcaption>{L[cap8]}</figcaption>
+        <figure class="slide" aria-label="{L[of8]}" data-i18n-aria-label="of8">
+          <img class="shot" src="assets/shots/images.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt8]}" data-i18n-alt="alt8">
+          <figcaption><span data-i18n="cap8">{L[cap8]}</span></figcaption>
         </figure>
-        <figure class="slide" aria-label="{L[of9]}">
-          <img class="shot" src="{base}assets/shots/briefing.webp" width="1890" height="1260" loading="lazy"
-            alt="{L[alt9]}">
-          <figcaption>{L[cap9]} &middot; <a href="https://staredit.net/topic/18491/">Underdogs</a></figcaption>
+        <figure class="slide" aria-label="{L[of9]}" data-i18n-aria-label="of9">
+          <img class="shot" src="assets/shots/briefing.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt9]}" data-i18n-alt="alt9">
+          <figcaption><span data-i18n="cap9">{L[cap9]}</span> &middot; <a href="https://staredit.net/topic/18491/">Underdogs</a></figcaption>
         </figure>
-        <figure class="slide" aria-label="{L[of10]}">
-          <img class="shot" src="{base}assets/shots/korean.webp" width="1890" height="1260" loading="lazy"
-            alt="{L[alt10]}">
-          <figcaption>{L[cap10]}</figcaption>
+        <figure class="slide" aria-label="{L[of10]}" data-i18n-aria-label="of10">
+          <img class="shot" src="assets/shots/korean.webp" width="1890" height="1260" loading="lazy"
+            alt="{L[alt10]}" data-i18n-alt="alt10">
+          <figcaption><span data-i18n="cap10">{L[cap10]}</span></figcaption>
         </figure>
       </div>
       <div class="controls">
-        <button class="arrow" data-step="-1" aria-label="{L[prev]}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3L5 8L10 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-        <button class="arrow" data-step="1" aria-label="{L[next]}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6 3L11 8L6 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><svg class="ring" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="13.5"/></svg></button>
+        <button class="arrow" data-step="-1" aria-label="{L[prev]}" data-i18n-aria-label="prev"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3L5 8L10 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button class="arrow" data-step="1" aria-label="{L[next]}" data-i18n-aria-label="next"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6 3L11 8L6 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><svg class="ring" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="13.5"/></svg></button>
       </div>
     </div>
   </div>
@@ -499,7 +510,7 @@ footer a:hover {{ color: var(--text); }}
 
 <section>
   <div class="wrap">
-    <h2>{L[who]}</h2>
+    <h2><span data-i18n="who">{L[who]}</span></h2>
     <div class="personas">
 {personas}
     </div>
@@ -509,7 +520,7 @@ footer a:hover {{ color: var(--text); }}
 <section id="video">
   <div class="wrap">
     <div class="video">
-      <iframe src="https://www.youtube-nocookie.com/embed/{video}" title="{L[video]}" loading="lazy"
+      <iframe src="https://www.youtube-nocookie.com/embed/{video}" title="{L[video]}" data-i18n-title="video" loading="lazy"
         referrerpolicy="strict-origin-when-cross-origin"
         allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen></iframe>
     </div>
@@ -518,8 +529,8 @@ footer a:hover {{ color: var(--text); }}
 
 <section id="roadmap">
   <div class="wrap">
-    <h2>{L[roadmap]}</h2>
-    <p class="sub">{L[sourced]}</p>
+    <h2><span data-i18n="roadmap">{L[roadmap]}</span></h2>
+    <p class="sub"><span data-i18n="sourced">{L[sourced]}</span></p>
     <div class="buckets">
 {buckets}
     </div>
@@ -528,34 +539,62 @@ footer a:hover {{ color: var(--text); }}
 
 <section id="feedback">
   <div class="wrap">
-    <h2>{L[feedback]}</h2>
+    <h2><span data-i18n="feedback">{L[feedback]}</span></h2>
     <div class="ways">
-      <div class="way"><h3>{i_select}{L[way1]}</h3><p>{L[way1text]}</p></div>
-      <div class="way"><h3>{i_feedback}{L[way2]}</h3><p>{L[way2text]}</p></div>
-      <div class="way"><h3>{i_issue}{L[way3]}</h3><p>{L[way3text]}</p></div>
+      <div class="way"><h3>{i_select}<span data-i18n="way1">{L[way1]}</span></h3><p><span data-i18n="way1text">{L[way1text]}</span></p></div>
+      <div class="way"><h3>{i_feedback}<span data-i18n="way2">{L[way2]}</span></h3><p><span data-i18n="way2text">{L[way2text]}</span></p></div>
+      <div class="way"><h3>{i_issue}<span data-i18n="way3">{L[way3]}</span></h3><p><span data-i18n="way3text">{L[way3text]}</span></p></div>
     </div>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
-    <a href="{repo}">GitHub</a><a href="{repo}/blob/main/docs/user/CHANGELOG.md">{L[changelog]}</a><a href="{discord}">Discord</a><a href="{repo}/issues">{L[report]}</a>
+    <a href="{repo}">GitHub</a><a href="{repo}/blob/main/docs/user/CHANGELOG.md"><span data-i18n="changelog">{L[changelog]}</span></a><a href="{discord}">Discord</a><a href="{repo}/issues"><span data-i18n="report">{L[report]}</span></a>
   </div>
 </footer>
-<dialog class="lightbox" id="lightbox" aria-label="{L[shot]}" tabindex="-1">
+<dialog class="lightbox" id="lightbox" aria-label="{L[shot]}" data-i18n-aria-label="shot" tabindex="-1">
   <div class="frame">
   <img id="lb-img" src="" alt="">
   <div class="bar">
     <p id="lb-cap"></p>
     <div class="controls">
-      <button class="arrow" data-step="-1" aria-label="{L[prev]}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3L5 8L10 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button class="arrow" data-step="1" aria-label="{L[next]}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6 3L11 8L6 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button class="close" aria-label="{L[close]}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4L12 12M12 4L4 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+      <button class="arrow" data-step="-1" aria-label="{L[prev]}" data-i18n-aria-label="prev"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3L5 8L10 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="arrow" data-step="1" aria-label="{L[next]}" data-i18n-aria-label="next"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6 3L11 8L6 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="close" aria-label="{L[close]}" data-i18n-aria-label="close"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4L12 12M12 4L4 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
     </div>
   </div>
   </div>
 </dialog>
 <script>
+// The language: the viewer's choice (EN | KR, kept in this browser), else ?lang=ko or en in the address, else the
+// browser's languages (Korean first: Korean). The page is written in English; KO has the Korean of each data-i18n key.
+(() => {{
+  const KO = {ko_json};
+  const ATTRS = ["alt", "aria-label", "title", "content"];
+  const texts = [...document.querySelectorAll("[data-i18n]")].map(e => [e, e.dataset.i18n, e.innerHTML]);
+  const attrs = ATTRS.flatMap(a => [...document.querySelectorAll(`[data-i18n-${{a}}]`)]
+    .map(e => [e, a, e.getAttribute(`data-i18n-${{a}}`), e.getAttribute(a)]));
+  const set = lang => {{
+    const ko = lang === "ko";
+    document.documentElement.lang = lang;
+    for (const [e, k, en] of texts) e.innerHTML = ko && k in KO ? KO[k] : en;
+    for (const [e, a, k, en] of attrs) e.setAttribute(a, ko && k in KO ? KO[k] : en);
+    document.querySelectorAll(".langs button").forEach(b => b.setAttribute("aria-pressed", b.dataset.lang === lang));
+  }};
+  let lang = null;
+  try {{ lang = localStorage.getItem("lang"); }} catch (e) {{}}
+  const asked = new URLSearchParams(location.search).get("lang");
+  if (asked === "ko" || asked === "en") lang = asked;
+  if (lang !== "ko" && lang !== "en")
+    lang = (navigator.languages || [navigator.language]).find(l => /^(ko|en)(-|$)/i.test(l || ""))?.slice(0, 2).toLowerCase() || "en";
+  set(lang);
+  document.querySelectorAll(".langs button").forEach(b => b.addEventListener("click", () => {{
+    set(b.dataset.lang);
+    try {{ localStorage.setItem("lang", b.dataset.lang); }} catch (e) {{}}
+  }}));
+}})();
+
 // The screenshots carousel: the arrows (and the arrow keys) scroll the slides, from the last to the first again.
 // It plays by itself until the viewer uses it (an arrow, a key, a swipe or a scroll): a faint ring around the next
 // arrow fills up, and when it closes the next slide shows. The ring stops while the mouse is over the carousel. With
@@ -620,18 +659,16 @@ footer a:hover {{ color: var(--text); }}
 if __name__ == "__main__":
     items, intros = parse(ROADMAP.read_text(encoding="utf-8"))
     missing = [i["id"] for i in items if i["id"] not in KO_ROADMAP]
-    if missing:  # the Korean page shows these in English until KO_ROADMAP has them
+    if missing:  # in Korean, these show in English until KO_ROADMAP has them
         print("No Korean text for " + ", ".join(missing) + " (KO_ROADMAP in tools/build_site.py)", file=sys.stderr)
-    pages = {out: build(items, intros, lang) for lang, (_, out, _) in PAGES.items()}
+    page = build(items, intros)
     assets = {OUT.parent / "assets" / f"app-{n}.png": ICONS / "app" / "png" / f"app-{n}.png" for n in (32, 256)}
     if "--check" in sys.argv:
-        stale = [out for out, page in pages.items() if not out.exists() or out.read_text(encoding="utf-8") != page]
-        if stale or any(not d.exists() or d.read_bytes() != s.read_bytes() for d, s in assets.items()):
-            sys.exit("The website is out of date: run python tools/build_site.py")
+        current = OUT.read_text(encoding="utf-8") if OUT.exists() else ""
+        if current != page or any(not d.exists() or d.read_bytes() != s.read_bytes() for d, s in assets.items()):
+            sys.exit("docs/index.html is out of date: run python tools/build_site.py")
     else:
         for dst, src in assets.items():
             dst.parent.mkdir(exist_ok=True)
             shutil.copyfile(src, dst)
-        for out, page in pages.items():
-            out.parent.mkdir(exist_ok=True)
-            out.write_text(page, encoding="utf-8", newline="\n")
+        OUT.write_text(page, encoding="utf-8", newline="\n")
