@@ -427,7 +427,7 @@ int main(int argc, char** argv) {
     TriggerCall rich2 = block("cond.prop.player", {"getcurpl()", "gas", ">=", "100"});
     TriggerCall upg = block("cond.upgrade", {"getcurpl()", "7", "<", "3"});
     TriggerCall ifTech = make("act.if");
-    ifTech.lists[0] = {hasStim, rich2, upg};
+    ifTech.lists[0] = {hasStim, rich2, upg, block("cond.curplayer", {"<", "P5"})};
     ifTech.lists[1] = {block("act.playername", {"getcurpl()", "Veteran"})};
     eachP3.lists[0].push_back(ifTech);
     // Keys and mouse buttons (euddraft's MSQC plugin sends them; Build writes its setup).
@@ -779,6 +779,7 @@ int main(int argc, char** argv) {
               code.find("bwrite(sd_techAddr(getcurpl(), EncodeTech(\"Stim Packs\")), 1);") != std::string::npos && code.find("function sd_upgradeAddr(pl, u)") != std::string::npos &&
               code.find("(bread(sd_techAddr(getcurpl(), EncodeTech(\"Stim Packs\"))) != 0)") != std::string::npos && code.find("(bread(sd_upgradeAddr(getcurpl(), EncodeUpgrade(\"Terran Infantry Weapons\"))) < 3)") != std::string::npos,
           "upgrades and technology: set, add, check (with their helper functions)");
+    check(code.find("(getcurpl() < P5)") != std::string::npos, "the current player compared with a player (inside For each player)");
     check(code.find("TrgPlayer(getcurpl()).terranSupplyMax = 300;") != std::string::npos &&
               code.find("TrgPlayer(getcurpl()).mineral += bread(sd_upgradeAddr(getcurpl(), 50));") != std::string::npos &&
               code.find("(TrgPlayer(getcurpl()).gas >= 100)") != std::string::npos,
