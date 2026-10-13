@@ -1471,7 +1471,7 @@ std::optional<std::pair<uint16_t, uint16_t>> Editor::findValidPosition(const Uni
             u.x = uint16_t(p.first);
             u.y = uint16_t(p.second);
             if (building) snapToGrid(t, u.x, u.y);
-            if (checkPlacement(ctx, u).empty()) return std::make_pair(u.x, u.y);
+            if (placementOk(ctx, u)) return std::make_pair(u.x, u.y);
         }
     }
     return std::nullopt;
@@ -1481,13 +1481,13 @@ uint32_t Editor::nextFreeSerial(const std::vector<Unit>& units) const { return n
 
 Unit Editor::correctedOrSame(Unit u, bool correct, const std::vector<Unit>& against) const {
     if (!correct || allowIllegalUnits_) return u;
-    if (checkPlacement(placementContext(&against), u).empty()) return u;
+    if (placementOk(placementContext(&against), u)) return u;
     if (auto p = findValidPosition(u, 320, &against)) u.x = p->first, u.y = p->second;
     return u;
 }
 
 std::optional<Unit> Editor::fitted(Unit u, bool correct, const std::vector<Unit>& against) const {
-    if (allowIllegalUnits_ || checkPlacement(placementContext(&against), u).empty()) return u;
+    if (allowIllegalUnits_ || placementOk(placementContext(&against), u)) return u;
     if (!correct) return std::nullopt;
     auto p = findValidPosition(u, 320, &against);
     if (!p) return std::nullopt;
@@ -1563,6 +1563,7 @@ int Editor::sprayUnits(const std::vector<uint16_t>& types, uint8_t owner, int x,
     std::uniform_real_distribution<double> unit(-1, 1);
     std::vector<Unit> added;
     std::vector<Unit> all = units_;
+    SerialCounter serials(all);
     for (int i = 0; i < count; ++i) {
         uint16_t type = types[rng() % types.size()];
         if (type >= types_.size()) continue;
@@ -1577,8 +1578,8 @@ int Editor::sprayUnits(const std::vector<uint16_t>& types, uint8_t owner, int x,
             snapToGrid(t, ux, uy);
             uint8_t who = (t.availability & UnitAvail::NonNeutral) ? owner : uint8_t(11);
             Unit u = makeUnit(t, who, ux, uy);
-            if (!allowIllegalUnits_ && !checkPlacement(placementContext(&all), u).empty()) continue;  // only valid spots
-            u.serial = nextFreeSerial(all);
+            if (!allowIllegalUnits_ && !placementOk(placementContext(&all), u)) continue;  // only valid spots
+            u.serial = serials.take();
             all.push_back(u);
             added.push_back(u);
         }
@@ -1727,7 +1728,7 @@ int Editor::moveSelection(int dx, int dy, bool correct) {
     bool fits = true;
     if (!allowIllegalUnits_) {
         const PlacementContext ctx = placementContext(&others);
-        for (const Unit& u : moved) fits = fits && checkPlacement(ctx, u).empty();
+        for (const Unit& u : moved) fits = fits && placementOk(ctx, u);
     }
     if (!fits) {
         if (!correct) return 0;  // refused: the units stay where they were
@@ -1770,6 +1771,7 @@ void Editor::copySelection() {
 int Editor::paste(int x, int y, bool correct) {
     if (clipboard_.empty()) return 0;
     std::vector<Unit> all = units_;
+    SerialCounter serials(all);
     for (Unit u : clipboard_) {
         if (unitLimit_ > 0 && int(all.size()) >= unitLimit_) break;
         int nx = x + int16_t(u.x), ny = y + int16_t(u.y);
@@ -1778,7 +1780,7 @@ int Editor::paste(int x, int y, bool correct) {
         if (u.type < types_.size()) snapToGrid(types_[u.type], u.x, u.y);
         std::optional<Unit> f = fitted(u, correct, all);
         if (!f) continue;  // no spot where it fits: not pasted, as placing refuses
-        f->serial = nextFreeSerial(all);
+        f->serial = serials.take();
         all.push_back(*f);
     }
     const int count = int(all.size() - units_.size());

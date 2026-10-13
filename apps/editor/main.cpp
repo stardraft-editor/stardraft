@@ -1223,7 +1223,7 @@ bool selectionFitsAt(float dx, float dy) {
         m.x = uint16_t(std::clamp(int(std::lround(m.x + dx)), 0, ed.width() * 32 - 1));
         m.y = uint16_t(std::clamp(int(std::lround(m.y + dy)), 0, ed.height() * 32 - 1));
         if (m.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[m.type], m.x, m.y);
-        if (!checkPlacement(ctx, m).empty()) return false;
+        if (!placementOk(ctx, m)) return false;
     }
     return true;
 }
@@ -1493,7 +1493,7 @@ render::Scene buildScene() {
             u.x = uint16_t(std::clamp(int(pwx) + int16_t(u.x), 0, ed.width() * 32 - 1));
             u.y = uint16_t(std::clamp(int(pwy) + int16_t(u.y), 0, ed.height() * 32 - 1));
             if (u.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[u.type], u.x, u.y);
-            bool red = !app.allowIllegalUnits && !checkPlacement(ed.placementContext(&placed), u).empty();
+            bool red = !app.allowIllegalUnits && !placementOk(ed.placementContext(&placed), u);
             addUnitSprites(s, u, 0, 0, 0.7f, red);
             outline(s, ed.unitBox(u), red ? 0xFF4040C0u : 0x40FF40C0u);
             placed.push_back(u);

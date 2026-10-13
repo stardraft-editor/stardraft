@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <set>
 
 #include "byteio.h"
 #include "stardraft/game_data.h"
@@ -73,11 +72,25 @@ void writeUnits(Chk& chk, const std::vector<Unit>& units) {
 }
 
 uint32_t nextSerial(const std::vector<Unit>& units) {
-    std::set<uint32_t> used;
-    for (const auto& u : units) used.insert(u.serial);
+    // The answer is at most units.size(), so larger serials do not matter.
+    std::vector<bool> used(units.size() + 1, false);
+    for (const auto& u : units)
+        if (u.serial < used.size()) used[u.serial] = true;
     uint32_t s = 0;
-    while (used.count(s)) ++s;
+    while (used[s]) ++s;
     return s;
+}
+
+SerialCounter::SerialCounter(const std::vector<Unit>& units) : used_(units.size() + 1, false) {
+    for (const auto& u : units)
+        if (u.serial < used_.size()) used_[u.serial] = true;
+        else high_.push_back(u.serial);
+    std::sort(high_.begin(), high_.end());
+}
+
+uint32_t SerialCounter::take() {
+    while (next_ < used_.size() ? bool(used_[next_]) : std::binary_search(high_.begin(), high_.end(), next_)) ++next_;
+    return next_++;  // the serials given are not used again
 }
 
 // --- units.dat / stat_txt.tbl --------------------------------------------------------------------
@@ -249,13 +262,11 @@ bool isAir(const UnitType& t, const Unit& u) {
     return t.is(UnitFlag::FlyingBuilding) && (u.state & UnitState::InTransit);
 }
 
-}  // namespace
-
-std::vector<PlacementIssue> checkPlacement(const PlacementContext& ctx, const Unit& unit, int self) {
-    std::vector<PlacementIssue> issues;
+// The placement rules. With `first`, it stops at the first issue (for a yes-or-no answer).
+void collectIssues(const PlacementContext& ctx, const Unit& unit, int self, bool first, std::vector<PlacementIssue>& issues) {
     if (!ctx.types || unit.type >= ctx.types->size()) {
         issues.push_back(PlacementIssue::BadType);
-        return issues;
+        return;
     }
     const UnitType& t = (*ctx.types)[unit.type];
     const bool flyer = isAir(t, unit);
@@ -265,24 +276,28 @@ std::vector<PlacementIssue> checkPlacement(const PlacementContext& ctx, const Un
 
     if (box.left < 0 || box.top < 0 || box.right > mapPxW || box.bottom > mapPxH)
         issues.push_back(PlacementIssue::OutOfBounds);
+    if (first && !issues.empty()) return;
 
     if (ctx.terrain && ctx.tileset && !flyer) {
         const Box c{std::max(box.left, 0), std::max(box.top, 0), std::min(box.right, mapPxW), std::min(box.bottom, mapPxH)};
-        bool walkable = true, buildable = true;
-        for (int py = c.top / 8; py * 8 < c.bottom; ++py)
-            for (int px = c.left / 8; px * 8 < c.right; ++px) {
+        bool walkable = true, buildable = true, stop = false;
+        for (int py = c.top / 8; !stop && py * 8 < c.bottom; ++py)
+            for (int px = c.left / 8; !stop && px * 8 < c.right; ++px) {
                 uint16_t tile = ctx.terrain->tiles[size_t(py / 4) * ctx.terrain->width + px / 4];
                 int mega = ctx.tileset->megatileFor(tile);
                 const TileGroup* g = ctx.tileset->groupFor(tile);
                 if (mega < 0 || size_t(mega) >= ctx.tileset->minitileFlags.size() || !g) {
                     walkable = buildable = false;
+                    stop = first;
                     continue;
                 }
                 if (!(ctx.tileset->minitileFlags[mega][(py % 4) * 4 + px % 4] & Tileset::kWalkable)) walkable = false;
                 if (g->buildability & Tileset::kUnbuildable) buildable = false;
+                stop = first && !(building ? buildable : walkable);
             }
         if (building && !buildable) issues.push_back(PlacementIssue::Unbuildable);
         if (!building && !walkable) issues.push_back(PlacementIssue::Unwalkable);
+        if (first && !issues.empty()) return;
     }
 
     if (ctx.units) {
@@ -315,11 +330,25 @@ std::vector<PlacementIssue> checkPlacement(const PlacementContext& ctx, const Un
                 Box ob = otherBuilding ? placementBox(ot, o) : collisionBox(ot, o);
                 if (box.overlaps(ob)) issues.push_back(PlacementIssue::OverlapsUnit);
             }
+            if (first && !issues.empty()) return;
         }
         std::sort(issues.begin(), issues.end());
         issues.erase(std::unique(issues.begin(), issues.end()), issues.end());
     }
+}
+
+}  // namespace
+
+std::vector<PlacementIssue> checkPlacement(const PlacementContext& ctx, const Unit& unit, int self) {
+    std::vector<PlacementIssue> issues;
+    collectIssues(ctx, unit, self, false, issues);
     return issues;
+}
+
+bool placementOk(const PlacementContext& ctx, const Unit& unit, int self) {
+    std::vector<PlacementIssue> issues;
+    collectIssues(ctx, unit, self, true, issues);
+    return issues.empty();
 }
 
 PlaceResult placeUnit(std::vector<Unit>& units, const PlacementContext& ctx, uint16_t type, uint8_t owner,
