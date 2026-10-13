@@ -2,6 +2,7 @@
 
 #include "stardraft/dat_edit.h"
 #include "stardraft/dat_extras.h"
+#include "file_write.h"
 #include "json.h"
 #include "stardraft/msqc.h"
 
@@ -1190,13 +1191,7 @@ bool TriggerSet::save(const fs::path& file, std::string& error) const {
         error = file.string() + " was made by a newer StarDraft (format " + std::to_string(fileVersion) + "): not saved, so nothing in it is lost";
         return false;
     }
-    std::ofstream out(file, std::ios::binary);
-    out << text();
-    if (!out) {
-        error = "could not write " + file.string();
-        return false;
-    }
-    return true;
+    return writeFile(file, text(), error);
 }
 
 TriggerNode* TriggerSet::at(const std::vector<int>& path) {

@@ -3,6 +3,7 @@
 #include <climits>
 #include <tuple>
 #include "byteio.h"
+#include "file_write.h"
 
 #include <atomic>
 #include <chrono>
@@ -197,12 +198,8 @@ bool Editor::save(const std::filesystem::path& path, std::string& error) {
             return false;
         }
         if (!writeMap(path, raw, files_, error)) return false;
-    } else {
-        std::ofstream out(path, std::ios::binary);
-        if (!out.write(reinterpret_cast<const char*>(raw.data()), std::streamsize(raw.size()))) {
-            error = "cannot write " + path.string();
-            return false;
-        }
+    } else if (!writeFile(path, std::string_view(reinterpret_cast<const char*>(raw.data()), raw.size()), error)) {
+        return false;
     }
     path_ = path;
     modified_ = false;

@@ -3469,7 +3469,10 @@ bool saveUnsavedProjectTo(const fs::path& chosen) {
             for (const auto& [a, b] : {std::pair<std::string, std::string>{"Untitled_EUD.scx", name + "_EUD.scx"}, {"Untitled.scx", name + ".scx"},
                                        {"name: Untitled", "name: " + name}, {"Untitled.eds", name + ".eds"}})
                 for (size_t p = text.find(a); p != std::string::npos; p = text.find(a, p + b.size())) text.replace(p, a.size(), b);
-            std::ofstream(dest / EudProject::kFileName, std::ios::binary) << text;
+            std::ofstream out(dest / EudProject::kFileName, std::ios::binary);
+            out << text;
+            out.close();
+            if (!out) return themedMessageBox(app.main, (L"Could not write " + (dest / EudProject::kFileName).wstring()).c_str(), L"Save project", MB_ICONERROR), false;
             continue;
         }
         fs::copy_file(it->path(), to, fs::copy_options::overwrite_existing, ec);
@@ -11766,8 +11769,8 @@ void trigLoadForProject() {
     if (pr && gTE.set.newerFormat())
         logLine(L"A newer StarDraft 2 made triggers.json. This StarDraft 2 shows what it can and does not save the file. Nothing in it is lost.", true);
     else if (pr && (gTE.set.upgradeNames(trigMapInfo()) > 0 || gTE.set.fileVersion < TriggerSet::kFormatVersion) && fs::exists(triggersFile(*pr))) {
-        gTE.set.save(triggersFile(*pr), err);
-        logLine(L"triggers.json is now in the current format (version " + std::to_wstring(TriggerSet::kFormatVersion) + L")");
+        if (!gTE.set.save(triggersFile(*pr), err)) logLine(widen(err), true);
+        else logLine(L"triggers.json is now in the current format (version " + std::to_wstring(TriggerSet::kFormatVersion) + L")");
     }
     trigHistoryReset();
     if (gTE.tree) trigRefreshTree({1});

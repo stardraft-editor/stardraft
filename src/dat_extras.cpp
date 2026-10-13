@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 
+#include "file_write.h"
 #include "json.h"
 #include "stardraft/game_data.h"
 
@@ -28,10 +29,7 @@ bool readText(const fs::path& file, std::string& out) {
 bool writeText(const fs::path& file, const std::string& text, std::string& error) {
     std::error_code ec;
     fs::create_directories(file.parent_path(), ec);
-    std::ofstream out(file, std::ios::binary);
-    if (!out) return error = "cannot write " + file.string(), false;
-    out << text;
-    return true;
+    return writeFile(file, text, error);
 }
 // Parses edits text (a JSON object of version 1). Empty text is no edits (true, `j` empty).
 bool parseJson(const std::string& text, const char* what, Json& j, std::string& error) {

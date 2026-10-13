@@ -7,6 +7,7 @@
 #include <set>
 #include <sstream>
 
+#include "file_write.h"
 #include "stardraft/game_data.h"
 
 namespace stardraft {
@@ -183,13 +184,7 @@ bool DatTable::saveEdits(const std::filesystem::path& file, std::string& error) 
         return true;
     }
     std::filesystem::create_directories(file.parent_path(), ec);
-    std::ofstream out(file, std::ios::binary);
-    out.write(reinterpret_cast<const char*>(data_.data()), std::streamsize(data_.size()));
-    if (!out) {
-        error = "cannot write " + file.string();
-        return false;
-    }
-    return true;
+    return writeFile(file, std::string_view(reinterpret_cast<const char*>(data_.data()), data_.size()), error);
 }
 
 std::vector<std::pair<uint32_t, uint32_t>> DatField::memoryRanges() const {

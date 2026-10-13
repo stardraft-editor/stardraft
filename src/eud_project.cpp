@@ -2,6 +2,7 @@
 #include "stardraft/triggers.h"
 
 #include "stardraft/dat_edit.h"
+#include "file_write.h"
 
 #include <algorithm>
 #include <fstream>
@@ -71,15 +72,15 @@ bool EudProject::create(const fs::path& parent, const std::string& name, const f
         error = "could not copy the map: " + ec.message();
         return false;
     }
-    {
-        std::ofstream eps(dir / "scripts" / "main.eps", std::ios::binary);
-        eps << "// " << name << ": your code. euddraft builds this file into the map.\n"
-               "// onPluginStart runs once when the map starts; beforeTriggerExec and afterTriggerExec run every\n"
-               "// trigger cycle.\n\n"
-               "function onPluginStart() {\n}\n\n"
-               "function beforeTriggerExec() {\n}\n\n"
-               "function afterTriggerExec() {\n}\n";
-    }
+    if (!writeFile(dir / "scripts" / "main.eps",
+                   "// " + name + ": your code. euddraft builds this file into the map.\n"
+                   "// onPluginStart runs once when the map starts; beforeTriggerExec and afterTriggerExec run every\n"
+                   "// trigger cycle.\n\n"
+                   "function onPluginStart() {\n}\n\n"
+                   "function beforeTriggerExec() {\n}\n\n"
+                   "function afterTriggerExec() {\n}\n",
+                   error))
+        return false;
     out = {};
     out.file_ = dir / kFileName;
     out.name_ = name;
@@ -180,25 +181,9 @@ std::string EudProject::text(bool eds) const {
     return o.str();
 }
 
-bool EudProject::save(std::string& error) const {
-    std::ofstream f(file_, std::ios::binary);
-    f << text(false);
-    if (!f) {
-        error = "cannot write " + file_.string();
-        return false;
-    }
-    return true;
-}
+bool EudProject::save(std::string& error) const { return writeFile(file_, text(false), error); }
 
-bool EudProject::writeEds(std::string& error) const {
-    std::ofstream f(edsFile(), std::ios::binary);
-    f << text(true);
-    if (!f) {
-        error = "cannot write " + edsFile().string();
-        return false;
-    }
-    return true;
-}
+bool EudProject::writeEds(std::string& error) const { return writeFile(edsFile(), text(true), error); }
 
 std::string EudProject::mainValue(const std::string& key) const {
     std::string k, v;
@@ -335,6 +320,7 @@ bool EudProject::scriptError(const std::string& log, ScriptError& out) const {
 bool EudProject::writeGenerated(const std::vector<const DatTable*>& tables, std::string& error) {
     std::error_code ec;
     bool changedEds = false;
+    std::string writeError;
     for (const DatTable* t : tables) {
         const std::string section = "generated/" + t->schema().name + ".eps";
         const fs::path file = folder() / section;
@@ -345,14 +331,15 @@ bool EudProject::writeGenerated(const std::vector<const DatTable*>& tables, std:
             continue;
         }
         fs::create_directories(file.parent_path(), ec);
-        std::ofstream(file, std::ios::binary) << t->editsScript();
+        if (!writeFile(file, t->editsScript(), writeError)) break;  // the sections changed until now are still saved
         if (it == sections_.end()) {
             // Right after [main]: before the scripts, so they run with the edited values in place.
             sections_.insert(sections_.begin() + 1, {section, {}});
             changedEds = true;
         }
     }
-    return !changedEds || save(error);
+    if (changedEds && !save(error)) return false;
+    return writeError.empty() || (error = writeError, false);
 }
 
 bool EudProject::writeGeneratedScript(const std::string& name, const std::string& code, std::string& error) {
@@ -366,9 +353,9 @@ bool EudProject::writeGeneratedScript(const std::string& name, const std::string
         if (it != sections_.end()) sections_.erase(it), changedEds = true;
     } else {
         fs::create_directories(file.parent_path(), ec);
-        std::ofstream(file, std::ios::binary) << code;
+        if (!writeFile(file, code, error)) return false;
         // The triggers import their helpers from a file of their own next to them (not a plugin: no .eds section).
-        if (name == "triggers.eps") std::ofstream(file.parent_path() / "sdlib.eps", std::ios::binary) << TriggerSet::helperLibrary();
+        if (name == "triggers.eps" && !writeFile(file.parent_path() / "sdlib.eps", TriggerSet::helperLibrary(), error)) return false;
         if (it == sections_.end()) {
             // After [main] and the generated .dat code, before the scripts.
             auto at = sections_.begin() + 1;
