@@ -415,7 +415,8 @@ int main(int argc, char** argv) {
         dx.args = {"64", "32"};
         setX.argBlocks.resize(setX.args.size());
         setX.argBlocks[1] = {dx};
-        t.actions = {local, ifChat, newUnits, group, humans, trains, block("act.dilateloc", {"1", "16", "16"}), block("act.srand", {"42"}), setX};
+        t.actions = {local, ifChat, newUnits, group, humans, trains, block("act.dilateloc", {"1", "16", "16"}), block("act.srand", {"42"}), setX,
+                     block("act.victory", {"P2"}), block("act.defeat", {"AllPlayers"})};
         set.roots[2].children.push_back(t);
     }
     TriggerCall eachP3 = make("act.foreachplayer");
@@ -790,6 +791,9 @@ int main(int argc, char** argv) {
               code.find("import .sdlib.f_sd_orderAt;") != std::string::npos && TriggerSet::helperLibrary().find("function sd_order(u: CUnit") != std::string::npos,
           "one unit's order: none, at a location, at a point, on a unit");
     check(code.find("(getcurpl() < P5)") != std::string::npos, "the current player compared with a player (inside For each player)");
+    check(code.find("0x02 >> plEnd") != std::string::npos && code.find("0xFF >> plEnd") != std::string::npos && code.find("            Victory();") != std::string::npos &&
+              code.find("            Defeat();") != std::string::npos,
+          "Victory for Player 2 and Defeat for all players (each as the current player in turn)");
     check(code.find("TrgPlayer(getcurpl()).terranSupplyMax = 300;") != std::string::npos &&
               code.find("TrgPlayer(getcurpl()).mineral += bread(sd_upgradeAddr(getcurpl(), 50));") != std::string::npos &&
               code.find("(TrgPlayer(getcurpl()).gas >= 100)") != std::string::npos,

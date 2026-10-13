@@ -1393,6 +1393,7 @@ struct Gen {
     const TriggerNode* trigger = nullptr;
     std::string globals;  // timers, declared at the top
     std::set<std::string> helpers;  // helper functions the code uses (sd_upgradeAddr, ...)
+    int endLoops = 0;               // Victory and Defeat for other players: their loop variables' numbers
     // Triggers in Definitions, by name, and every trigger's function. Run a trigger records what runs what.
     std::map<std::string, const TriggerNode*> definitions;
     std::map<const TriggerNode*, std::string> fnOf;
@@ -1827,7 +1828,9 @@ struct Gen {
     }
 
     void blockChecks(const TriggerCall& c, const TriggerDef& d) {
-        if (d.has("cp") && !playerLoops) issue(TriggerIssue::Level::Warning, &c, -1, d.title + " acts for the current player. Put it in For each player");
+        const bool forOthers = d.param("who") >= 0 && !raw(c, d, "who").empty() && raw(c, d, "who") != "CurrentPlayer";  // (Victory, Defeat)
+        if (d.has("cp") && !playerLoops && !forOthers)
+            issue(TriggerIssue::Level::Warning, &c, -1, d.title + " acts for the current player. Put it in For each player");
         if (d.has("local") && raw(c, d, "to") == "current" && !playerLoops)
             issue(TriggerIssue::Level::Warning, &c, d.param("to"), "\"the current player\" has a value only in For each player");
         if (d.has("blocking"))
@@ -2262,6 +2265,30 @@ struct Gen {
             --loops;
             return "{" + tag + "\n    var " + w + " = 0;\n    while (" + w + " < " + limit + ") {\n        if (!(" + cond + ")) break;\n        " + w + "++;\n" +
                    indentLines(inner, "    ") + "    }\n}\n";
+        }
+        if (id == "act.victory" || id == "act.defeat") {  // for the current player (the game's action), or for other players
+            const std::string who = raw(c, *d, "who"), action = id == "act.victory" ? "Victory();" : "Defeat();";
+            if (who.empty() || who == "CurrentPlayer") return action + tag + "\n";
+            unsigned mask = 0;
+            if (who == "AllPlayers") mask = 0xFF;
+            else if (who.size() >= 2 && who[0] == 'P' && std::isdigit(static_cast<unsigned char>(who[1]))) {
+                const int pn = std::atoi(who.c_str() + 1);
+                if (pn >= 1 && pn <= 8) mask = 1u << (pn - 1);
+            } else if (who.rfind("Force", 0) == 0) {
+                const int f = std::atoi(who.c_str() + 5) - 1;
+                for (int pl = 0; pl < 8; ++pl)
+                    if (map.playerForce[pl] == f) mask |= 1u << pl;
+            }
+            if (!mask) {
+                issue(TriggerIssue::Level::Error, &c, d->param("who"), "Victory and Defeat accept the current player, Player 1 to Player 8, all players, or a force");
+                return "";
+            }
+            const std::string n = std::to_string(++endLoops);
+            char m[16];
+            std::snprintf(m, sizeof m, "0x%02X", mask);
+            return "{" + tag + "\n    const cpEnd" + n + " = getcurpl();\n    for (var plEnd" + n + " = 0; plEnd" + n + " < 8; plEnd" + n + "++) {\n        if (((" + m +
+                   " >> plEnd" + n + ") & 1) != 0 && playerexist(plEnd" + n + ")) {\n            setcurpl(plEnd" + n + ");\n            " + action +
+                   "\n        }\n    }\n    setcurpl(cpEnd" + n + ");\n}\n";
         }
         if (id == "act.foreachplayer") {
             const std::string group = raw(c, *d, "players");
