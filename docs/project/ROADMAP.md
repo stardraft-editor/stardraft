@@ -115,7 +115,7 @@ Make StarDraft 2 a more powerful creation suite.
 
 ## Later
 
-Explore the big next steps.
+Exploring the next evolution of StarCraft creations.
 
 - [ ] **R26 Remastered mod support.** *Tag:* Mods.
   Load a StarCraft: Remastered mod (MPQ or folder) on top of the game's files, and make maps with it.

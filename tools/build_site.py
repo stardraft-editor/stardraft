@@ -151,7 +151,7 @@ KO_PERSONAS = {
 KO_INTROS = {
     "Now": "사용자가 알려 준 부족한 기능과 편의 기능을 더합니다.",
     "Next": "StarDraft 2를 더 강력한 제작 도구로 만듭니다.",
-    "Later": "더 큰 다음 단계를 탐구합니다.",
+    "Later": "스타크래프트 창작의 다음 진화를 탐구합니다.",
 }
 KO_TAGS = {"Terrain": "지형", "UMS": "유즈맵", "Capability": "기능", "Mods": "모드", "Platform": "플랫폼"}
 KO_ROADMAP = {
