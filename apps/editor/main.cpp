@@ -6760,7 +6760,9 @@ void dataFormRepaint() {
 // View > Show ranges of the selected units (GitHub feedback #109): around each selected unit (Units mode), its sight
 // range (yellow), and its weapons' ranges: ground (red) and air (blue), its turret's too. From units.dat and
 // weapons.dat: the project's (with its edits) or the game's. A range counts from the unit's edge, as the game's.
+void dataLoadForProject();
 const DatTable* rangeTable(const std::string& name) {
+    if (activeProject()) dataLoadForProject();  // the project's tables with their saved edits (once; then at once)
     if (gData.project && gData.project == activeProject())
         for (const auto& t : gData.tables)
             if (t && t->schema().name == name) return t.get();
