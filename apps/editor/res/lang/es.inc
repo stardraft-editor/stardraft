@@ -1619,7 +1619,6 @@ inline constexpr UiText kLangEs[] = {
     {L"  \u00B7  changed  \u00B7  ", L"  \u00B7  cambiado  \u00B7  "},
     {L"Put back the game's values", L"Restaurar los valores del juego"},
     {L"No other data uses this entry", L"Ning\u00FAn otro dato usa esta entrada"},
-    {L"StarDraft 2.Project", L"StarDraft 2.Project"},
     {L"StarDraft 2 project", L"Proyecto de StarDraft 2"},
     {L"StarDraft 2.Project\\DefaultIcon", L"StarDraft 2.Project\\DefaultIcon"},
     {L"StarDraft 2.Project\\shell\\open\\command", L"StarDraft 2.Project\\shell\\open\\command"},

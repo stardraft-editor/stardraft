@@ -1620,7 +1620,6 @@ inline constexpr UiText kLangKo[] = {
     {L"  \u00B7  changed  \u00B7  ", L"  \u00B7  \uBCC0\uACBD\uB428  \u00B7  "},
     {L"Put back the game's values", L"\uAC8C\uC784\uC758 \uAC12\uC73C\uB85C \uB418\uB3CC\uB9AC\uAE30"},
     {L"No other data uses this entry", L"\uC774 \uD56D\uBAA9\uC744 \uC0AC\uC6A9\uD558\uB294 \uB2E4\uB978 \uB370\uC774\uD130\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4"},
-    {L"StarDraft 2.Project", L"StarDraft 2.Project"},
     {L"StarDraft 2 project", L"StarDraft 2 \uD504\uB85C\uC81D\uD2B8"},
     {L"StarDraft 2.Project\\DefaultIcon", L"StarDraft 2.Project\\DefaultIcon"},
     {L"StarDraft 2.Project\\shell\\open\\command", L"StarDraft 2.Project\\shell\\open\\command"},

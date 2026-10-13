@@ -20,10 +20,10 @@ inline void registerProjectFiles(const std::wstring& exe) {
         RegCloseKey(k);
         return !same;
     };
-    bool changed = put(L".stardraft", L"StarDraft 2.Project");
-    changed |= put(L"StarDraft 2.Project", L"StarDraft 2 project");
-    changed |= put(L"StarDraft 2.Project\\DefaultIcon", L"\"" + exe + L"\",1");  // the second icon: the document icon
-    changed |= put(L"StarDraft 2.Project\\shell\\open\\command", L"\"" + exe + L"\" \"%1\"");
+    bool changed = put(L".stardraft", L"StarDraft.Project");
+    changed |= put(L"StarDraft.Project", L"StarDraft 2 project");
+    changed |= put(L"StarDraft.Project\\DefaultIcon", L"\"" + exe + L"\",1");  // the second icon: the document icon
+    changed |= put(L"StarDraft.Project\\shell\\open\\command", L"\"" + exe + L"\" \"%1\"");
     if (changed) SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
 }
 
@@ -37,7 +37,7 @@ bool get(const std::wstring& url, std::string* body, const fs::path* file = null
     uc.lpszHostName = host, uc.dwHostNameLength = 256, uc.lpszUrlPath = path, uc.dwUrlPathLength = 2048;
     if (!WinHttpCrackUrl(url.c_str(), 0, 0, &uc)) return false;
     bool ok = false;
-    HINTERNET s = WinHttpOpen(L"StarDraft 2", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+    HINTERNET s = WinHttpOpen(L"StarDraft", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     HINTERNET c = s ? WinHttpConnect(s, host, uc.nPort, 0) : nullptr;
     HINTERNET q = c ? WinHttpOpenRequest(c, L"GET", path, nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE) : nullptr;
     std::wstring headers = L"Accept: " + std::wstring(accept) + L"\r\n";
