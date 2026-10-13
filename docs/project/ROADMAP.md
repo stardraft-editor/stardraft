@@ -10,7 +10,7 @@ the feature solves, and other notes. The sentence under each section heading als
 
 ## Now
 
-Add the missing features and quality-of-life improvements that users report.
+Accelerated improvements, and the missing features that early user feedback asks for.
 
 - [ ] **R36 Clickable build errors.** *Tag:* EUD.
   Click a build error in the Log to open its trigger and block in the Triggers workspace.
@@ -115,7 +115,7 @@ Make StarDraft 2 a more powerful creation suite.
 
 ## Later
 
-Exploring the next evolution of StarCraft creations.
+Exploring how to enable the next evolution of StarCraft creations.
 
 - [ ] **R26 Remastered mod support.** *Tag:* Mods.
   Load a StarCraft: Remastered mod (MPQ or folder) on top of the game's files, and make maps with it.
