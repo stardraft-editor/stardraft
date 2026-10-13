@@ -20,7 +20,7 @@
 #include <string_view>
 #include <unordered_map>
 
-enum class UiLang { English, Korean, Spanish };
+enum class UiLang { English, Korean, Spanish, Russian, Chinese };  // Chinese: simplified
 inline UiLang gUiLang = UiLang::English;  // the language in use (set at the start, see uiLanguageChosen)
 
 struct UiText {
@@ -30,19 +30,17 @@ struct UiText {
 #include <span>
 std::span<const UiText> langTableKo();  // res/lang/ko.cpp: the Korean translations (generated)
 std::span<const UiText> langTableEs();  // res/lang/es.cpp: the Spanish translations (generated)
+std::span<const UiText> langTableRu();  // res/lang/ru.cpp: the Russian translations (generated)
+std::span<const UiText> langTableZh();  // res/lang/zh.cpp: the Chinese (simplified) translations (generated)
 
 inline const std::unordered_map<std::wstring_view, const wchar_t*>& uiTable(UiLang lang) {
-    static const auto ko = [] {
+    auto make = [](std::span<const UiText> rows) {
         std::unordered_map<std::wstring_view, const wchar_t*> m;
-        for (const UiText& e : langTableKo()) m.emplace(e.en, e.text);
+        for (const UiText& e : rows) m.emplace(e.en, e.text);
         return m;
-    }();
-    static const auto es = [] {
-        std::unordered_map<std::wstring_view, const wchar_t*> m;
-        for (const UiText& e : langTableEs()) m.emplace(e.en, e.text);
-        return m;
-    }();
-    return lang == UiLang::Korean ? ko : es;
+    };
+    static const auto ko = make(langTableKo()), es = make(langTableEs()), ru = make(langTableRu()), zh = make(langTableZh());
+    return lang == UiLang::Korean ? ko : lang == UiLang::Spanish ? es : lang == UiLang::Russian ? ru : zh;
 }
 
 // The translation of an English text (a pointer into the tables, or the text itself: it stays valid as long as it was).
@@ -65,10 +63,14 @@ inline UiLang uiLanguageChosen(const std::wstring& setting) {
     if (GetEnvironmentVariableW(L"STARDRAFT_LANG", env, 16)) code = env;
     if (code == L"ko") return UiLang::Korean;
     if (code == L"es") return UiLang::Spanish;
+    if (code == L"ru") return UiLang::Russian;
+    if (code == L"zh") return UiLang::Chinese;
     if (code == L"en") return UiLang::English;
     switch (PRIMARYLANGID(GetUserDefaultUILanguage())) {
     case LANG_KOREAN: return UiLang::Korean;
     case LANG_SPANISH: return UiLang::Spanish;
+    case LANG_RUSSIAN: return UiLang::Russian;
+    case LANG_CHINESE: return UiLang::Chinese;
     default: return UiLang::English;
     }
 }

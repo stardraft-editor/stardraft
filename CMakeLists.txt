@@ -185,7 +185,7 @@ target_link_libraries(terrain_render_test PRIVATE stardraft_render)
 
 # --- Windows editor (native Win32 shell) ------------------------------------------------------
 if(WIN32)
-    add_executable(stardraft_editor WIN32 apps/editor/main.cpp apps/editor/vorbis.c apps/editor/stb_image.cpp apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp apps/editor/stardraft.manifest apps/editor/res/stardraft.rc)
+    add_executable(stardraft_editor WIN32 apps/editor/main.cpp apps/editor/vorbis.c apps/editor/stb_image.cpp apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp apps/editor/stardraft.manifest apps/editor/res/stardraft.rc)
     target_include_directories(stardraft_editor PRIVATE ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
     set_source_files_properties(apps/editor/vorbis.c PROPERTIES COMPILE_OPTIONS "$<$<C_COMPILER_ID:MSVC>:/W0>")
     set_source_files_properties(apps/editor/stb_image.cpp PROPERTIES COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:MSVC>:/W0>")

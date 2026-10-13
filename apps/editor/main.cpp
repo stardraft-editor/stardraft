@@ -156,7 +156,7 @@ enum : int {
     ID_PAL_LIST = 620, ID_PAL_ICONS, ID_PAL_SPRITES, ID_PAL_NORMAL, ID_PAL_LARGE,
     ID_GRID_SIZE = 950,  // + the preset (kGridPresets); View > Grid size
     ID_GRID_CUSTOM = 958,
-    ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish
+    ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese
     ID_TOOL_KEY = 970,  // + the tool of the keys V, B, A, F: select, brush or place, spray, fill (GitHub feedback #98)
     ID_VIEW_RANGES = 975,  // View > Show ranges of the selected units (GitHub feedback #109)
     ID_VIEW_MINIMAP = 976,  // View > Show minimap (GitHub feedback #127)
@@ -4371,8 +4371,10 @@ void commandBody(int id) {
     case ID_OPT_LANG:
     case ID_OPT_LANG + 1:
     case ID_OPT_LANG + 2:
-    case ID_OPT_LANG + 3: {  // the language applies at a start (the texts are made then): restart now, or later
-        static const wchar_t* const kCodes[] = {L"auto", L"en", L"ko", L"es"};
+    case ID_OPT_LANG + 3:
+    case ID_OPT_LANG + 4:
+    case ID_OPT_LANG + 5: {  // the language applies at a start (the texts are made then): restart now, or later
+        static const wchar_t* const kCodes[] = {L"auto", L"en", L"ko", L"es", L"ru", L"zh"};
         gLanguage = kCodes[id - ID_OPT_LANG];
         if (!gSelfTest) RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"Language", REG_SZ, gLanguage.c_str(), DWORD((gLanguage.size() + 1) * sizeof(wchar_t)));
         if (uiLanguageChosen(gLanguage) == gUiLang) break;  // the language in use
@@ -5336,6 +5338,9 @@ std::wstring withCustomName(const std::wstring& game, int u) {
 }
 // Program options > Unit names: the list of the four ways (after ListPickItem; options_window.inc calls it).
 void pickUnitNames(RECT b);
+int languageChoice();                  // Program options > Language: the choice (kLanguageChoices)
+const wchar_t* languageChoiceName(int i);
+void pickLanguage(RECT b);
 
 std::wstring unitPaletteLabel(const UnitType& t) {
     return unitShortName(t) + (t.subtitle.empty() ? L"" : L" (" + widen(t.subtitle) + L")");
@@ -12502,6 +12507,27 @@ LRESULT CALLBACK listPickProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 bool showListPicker(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, POINT at, std::string& out);
+// Program options > Language: the languages, each by its own name (Automatic: the language of Windows).
+struct LanguageChoice {
+    const wchar_t* code;
+    const wchar_t* name;
+};
+const LanguageChoice kLanguageChoices[] = {{L"auto", L"Automatic (the language of Windows)"}, {L"en", L"English"}, {L"ko", L"\uD55C\uAD6D\uC5B4"},
+                                           {L"es", L"Espa\u00F1ol"}, {L"ru", L"\u0420\u0443\u0441\u0441\u043A\u0438\u0439"},
+                                           {L"zh", L"\u7B80\u4F53\u4E2D\u6587"}};
+const wchar_t* languageChoiceName(int i) { return kLanguageChoices[std::clamp(i, 0, int(std::size(kLanguageChoices)) - 1)].name; }
+int languageChoice() {
+    for (int i = 0; i < int(std::size(kLanguageChoices)); ++i)
+        if (gLanguage == kLanguageChoices[i].code) return i;
+    return 0;
+}
+void pickLanguage(RECT b) {
+    std::vector<ListPickItem> items;
+    for (int i = 0; i < int(std::size(kLanguageChoices)); ++i) items.push_back({kLanguageChoices[i].name, L"", std::to_string(i)});
+    std::string out;
+    if (showListPicker(L"Language", items, std::to_string(languageChoice()), belowBox(b), out)) command(ID_OPT_LANG + std::stoi(out));
+}
+
 void pickUnitNames(RECT b) {
     static const wchar_t* const kNames[4] = {L"Terran Marine", L"Terran Marine (Custom Name)", L"Custom Name (Terran Marine)", L"Custom Name"};
     std::vector<ListPickItem> items;

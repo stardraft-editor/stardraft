@@ -8,7 +8,7 @@ tr() looks up in apps/editor/ui_text.h, so it must be the exact text of the call
 with # are skipped. A translation that is equal to another English key is reported: tr() would translate it again.
 
 The output is a C++ file per language: a table of {L"English", L"translation"}, with non-ASCII characters as \\uXXXX,
-and the function that returns it (langTableKo or langTableEs, declared in apps/editor/ui_text.h).
+and the function that returns it (langTableKo, langTableEs, langTableRu or langTableZh, declared in apps/editor/ui_text.h).
 """
 import argparse
 import sys
@@ -17,7 +17,7 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-LANGS = {"ko": "langTableKo", "es": "langTableEs"}
+LANGS = {"ko": "langTableKo", "es": "langTableEs", "ru": "langTableRu", "zh": "langTableZh"}
 
 
 def unescape(s):
@@ -96,7 +96,10 @@ def main():
             if tr in keys and tr != en:
                 print("note: %s: the translation %r is also an English key (tr() would translate it again)" % (code, tr), file=sys.stderr)
             out.append("    {%s, %s}," % (cpp_literal(en), cpp_literal(tr)))
-        out += ["};", "}  // namespace", "std::span<const UiText> %s() { return kRows; }" % name]
+        if rows:
+            out += ["};", "}  // namespace", "std::span<const UiText> %s() { return kRows; }" % name]
+        else:  # no translations yet: an empty table (an array cannot have no element)
+            out = out[:2] + ["std::span<const UiText> %s() { return {}; }" % name]
         (lang_dir / (code + ".cpp")).write_text("\n".join(out) + "\n", encoding="utf-8", newline="\n")
         print("%s: %d texts" % (code, len(rows)))
 

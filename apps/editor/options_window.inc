@@ -79,15 +79,13 @@ void optionsPaint(HWND hwnd) {
     // The language: a choice that applies at the next start (the names of the languages are in their own language).
     ui::fieldLabel(mem, l, y, L"Language", false);
     {
-        const std::wstring& lang = gLanguage;
-        const int chosen = lang == L"en" ? 1 : lang == L"ko" ? 2 : lang == L"es" ? 3 : 0;
-        const std::vector<std::pair<std::wstring, std::wstring>> choices = {
-            {L"Automatic", L"Follow the language of Windows"}, {L"English", L"English"}, {L"한국어", L"Korean"}, {L"Español", L"Spanish"}};
-        segmented(y, choices, chosen, [](int i) { command(ID_OPT_LANG + i); }, "language");
+        const RECT box{fx, fieldTop(y), std::min<int>(l.colRight, fx + scale(260)), fieldTop(y) + fieldH};
+        ui::pickBox(mem, box, languageChoiceName(languageChoice()), false, [](RECT b) { pickLanguage(b); }, L"The language of the program's texts");
+        gOptions.parts["language"] = box;
     }
     const bool restartDue = uiLanguageChosen(gLanguage) != gUiLang;  // another language than the one in use
     if (restartDue) {
-        const int x = gOptions.parts["language.3"].right + scale(12);
+        const int x = gOptions.parts["language"].right + scale(12);
         ui::smallButton(mem, x, y, rowH, L"Restart now", [] { command(ID_OPT_RESTART); },
                         L"Start StarDraft 2 again in the new language. Your open maps and projects open again.");
     }
