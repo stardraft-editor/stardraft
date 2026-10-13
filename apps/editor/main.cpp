@@ -2206,7 +2206,7 @@ int applyUnitLimit(Editor& ed) {
 }
 bool atUnitLimit(const Editor& ed) { return ed.unitLimit() > 0 && int(ed.units().size()) >= ed.unitLimit(); }
 std::wstring unitLimitText(const Editor& ed) {
-    return L"The map has " + std::to_wstring(ed.unitLimit()) + L" units: the most it may have (Program options > Map unit limit)";
+    return L"The map has " + std::to_wstring(ed.unitLimit()) + L" units: the limit (Program options > Map unit limit)";
 }
 bool projectMode() { return activeProject() != nullptr; }
 
