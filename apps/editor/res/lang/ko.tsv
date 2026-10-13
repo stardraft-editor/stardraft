@@ -1782,3 +1782,8 @@ If ▾	If ▾
 For each ▾	For each ▾
 Add an If block: one of the kinds of If	If 블록 추가: If의 종류 중 하나
 Add a loop: For each player, unit, number or item, or Repeat	반복 추가: 각 플레이어, 유닛, 숫자 또는 항목마다, 또는 반복
+Add a &condition	조건 추가(&C)
+Add an &action	동작 추가(&A)
+&Search…	검색(&S)…
+Loops	반복
+If	If

@@ -1294,7 +1294,8 @@ bool showButtonPopup(std::string& text, POINT at) {
     ShowWindow(p.wnd, gBackground ? SW_SHOWNOACTIVATE : SW_SHOW);
     if (gButtonPopHook) gButtonPopHook(p.wnd);
     MSG msg;
-    while (!p.done && GetMessageW(&msg, nullptr, 0, 0)) TranslateMessage(&msg), DispatchMessageW(&msg);
+    while (!p.done && GetMessageW(&msg, nullptr, 0, 0))
+        if (!popoutEatsPress(msg, p.wnd)) TranslateMessage(&msg), DispatchMessageW(&msg);
     gHitsOf.erase(p.wnd);  // its hits go with it
     DestroyWindow(p.wnd);
     gButtonPop = outer;

@@ -1784,4 +1784,9 @@ inline constexpr UiText kLangKo[] = {
     {L"For each \u25BE", L"For each \u25BE"},
     {L"Add an If block: one of the kinds of If", L"If \uBE14\uB85D \uCD94\uAC00: If\uC758 \uC885\uB958 \uC911 \uD558\uB098"},
     {L"Add a loop: For each player, unit, number or item, or Repeat", L"\uBC18\uBCF5 \uCD94\uAC00: \uAC01 \uD50C\uB808\uC774\uC5B4, \uC720\uB2DB, \uC22B\uC790 \uB610\uB294 \uD56D\uBAA9\uB9C8\uB2E4, \uB610\uB294 \uBC18\uBCF5"},
+    {L"Add a &condition", L"\uC870\uAC74 \uCD94\uAC00(&C)"},
+    {L"Add an &action", L"\uB3D9\uC791 \uCD94\uAC00(&A)"},
+    {L"&Search\u2026", L"\uAC80\uC0C9(&S)\u2026"},
+    {L"Loops", L"\uBC18\uBCF5"},
+    {L"If", L"If"},
 };

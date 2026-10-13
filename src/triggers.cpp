@@ -559,7 +559,7 @@ TriggerCall TriggerCall::make(const TriggerDef& d) {
     c.argBlocks.resize(d.params.size());
     c.lists.resize(d.lists.size());
     // An If starts with Always as its condition; the lists of actions start empty (no Do nothing placeholders).
-    if (d.id == "act.if") c.lists[0].push_back(make(*TriggerDef::find("cond.always")));
+    if (d.id == "act.if" || d.id == "act.ifthen") c.lists[0].push_back(make(*TriggerDef::find("cond.always")));
     return c;
 }
 
@@ -2241,7 +2241,7 @@ struct Gen {
             else gen = unitRef(c, d->param("unit"), from) + ".uniquenessIdentifier";
             return var + " = " + unitEpd(c, *d) + ";" + tag + "\n" + var + "_gen = " + gen + ";\n";
         }
-        if (id == "act.if") {
+        if (id == "act.if" || id == "act.ifthen") {  // (If: no Else)
             std::string cond = c.lists.empty() ? "" : conditions(c.lists[0], "&&");
             if (cond.empty()) cond = "Never()";
             std::string out = "if (" + cond + ") {" + tag + "\n" + body(c, 1) + "}";

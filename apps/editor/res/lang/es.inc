@@ -1783,4 +1783,9 @@ inline constexpr UiText kLangEs[] = {
     {L"For each \u25BE", L"Para cada \u25BE"},
     {L"Add an If block: one of the kinds of If", L"Agregar un bloque Si: uno de los tipos de Si"},
     {L"Add a loop: For each player, unit, number or item, or Repeat", L"Agregar un bucle: para cada jugador, unidad, n\u00FAmero o elemento, o Repetir"},
+    {L"Add a &condition", L"Agregar una &condici\u00F3n"},
+    {L"Add an &action", L"Agregar una &acci\u00F3n"},
+    {L"&Search\u2026", L"&Buscar\u2026"},
+    {L"Loops", L"Bucles"},
+    {L"If", L"Si"},
 };

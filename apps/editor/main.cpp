@@ -442,7 +442,8 @@ enum DoodadTool { DPlace, DSpray };
 enum SpriteTool { SPlace, SSpray };
 // A spray tool is on: Units, Doodads or Sprites (their radius, density and the circle on the map).
 bool objectSprayOn();
-void dialogMessage(MSG& msg, HWND dlg);
+void dialogMessage(MSG& msg, HWND dlg);  // feedback.inc
+bool popoutEatsPress(const MSG& m, HWND pop);  // a press outside a pop-out only closes it
 void mapPageFlush();  // map_pages.inc: a text being typed on a map page goes into the map now  // feedback.inc: a modal window's message (a right click: Report feedback)
 void stripToolByKey(int key);  // the keys V, B, A, F (the strip's tools)
 std::wstring entryName(const std::string& dat, int v);
@@ -12154,6 +12155,18 @@ void pickUnitNames(RECT b) {
 }
 
 // Shows the picker at a screen point; true and `out` when something was picked.
+// A pop-out's message loop: a mouse press outside the pop-out (and outside the pop-outs it opened) only closes it (the
+// pop-out closes when it loses activation); the press does not go on to the window under it, so it cannot open a
+// second pop-out.
+bool popoutEatsPress(const MSG& m, HWND pop) {
+    if (m.message != WM_LBUTTONDOWN && m.message != WM_RBUTTONDOWN && m.message != WM_MBUTTONDOWN && m.message != WM_NCLBUTTONDOWN &&
+        m.message != WM_NCRBUTTONDOWN && m.message != WM_LBUTTONDBLCLK)
+        return false;
+    for (HWND w = GetAncestor(m.hwnd, GA_ROOT); w; w = GetWindow(w, GW_OWNER))
+        if (w == pop) return false;  // in it, or in a pop-out it opened
+    return true;
+}
+
 bool showListPicker(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, POINT at, std::string& out) {
     if (gListWheel) {  // the mouse wheel over the dropdown: the next or the previous item, no list
         if (items.empty()) return false;
@@ -12222,7 +12235,8 @@ bool showListPicker(const std::wstring& prompt, std::vector<ListPickItem> items,
     if (!gBackground) SetFocus(lp.edit);
     if (gListPickHook) gListPickHook(lp.wnd);
     MSG msg;
-    while (!lp.done && GetMessageW(&msg, nullptr, 0, 0)) TranslateMessage(&msg), DispatchMessageW(&msg);
+    while (!lp.done && GetMessageW(&msg, nullptr, 0, 0))
+        if (!popoutEatsPress(msg, lp.wnd)) TranslateMessage(&msg), DispatchMessageW(&msg);
     DestroyWindow(lp.wnd);
     gListPick = nullptr;
     if (lp.picked) out = lp.result;
@@ -12665,7 +12679,6 @@ struct TrigFoldHit {
 struct TrigAddHit {  // "+ Add" under a list
     TrigListRef list;
     RECT r{};
-    int group = 0;  // 0: the block picker; 1: If blocks, 2: loops (the buttons next to "Add an action")
 };
 struct TrigVarHit {  // a field of the variable form
     int field = 0;   // 0 kind, 1 size, 2 starting value, 3 description
@@ -13084,50 +13097,13 @@ int trigDrawIssues(HDC dc, const TriggerCall* c, int x, int y, int w) {
 
 void trigDrawList(HDC mem, TriggerNode& t, const TrigListRef& ref, int x, int w, int& y, bool dimAll);
 
-// "Add a condition" / "Add an action" under a list: a row as wide as the blocks (the kit's add row). Actions: with the
-// buttons If and For each beside it, each a list of its blocks (the flow blocks without the picker's search).
+// "Add a condition" / "Add an action" under a list: a row as wide as the blocks (the kit's add row).
 void trigDrawAdd(HDC mem, const TrigListRef& ref, bool condition, int x, int w, int& y) {
     const wchar_t* label = condition ? L"Add a condition" : L"Add an action";
-    static const wchar_t* const kGroups[2] = {L"If \x25BE", L"For each \x25BE"};
-    int bw[2] = {}, buttons = 0;
-    if (!condition)
-        for (int k = 0; k < 2; ++k) bw[k] = ui::buttonWidth(mem, kGroups[k]), buttons += bw[k] + scale(6);
-    RECT r{x, y, x + w - buttons, y + scale(30)};
+    RECT r{x, y, x + w, y + scale(30)};
     ui::addRowFace(mem, r, label, ui::hotIn(gTE.pane, r));
-    gTP.adds.push_back({ref, r, 0});
-    int bx = r.right + scale(6);
-    for (int k = 0; k < 2 && !condition; ++k) {
-        RECT br{bx, y + (scale(30) - scale(ui::kButtonH)) / 2, bx + bw[k], y + (scale(30) + scale(ui::kButtonH)) / 2};
-        ui::buttonFace(mem, br, kGroups[k], ui::Tone::Normal, ui::hotIn(gTE.pane, br) ? ui::State::Hot : ui::State::Normal);
-        gTP.adds.push_back({ref, br, k + 1});
-        gTP.tips.push_back({br, k == 0 ? L"Add an If block: one of the kinds of If" : L"Add a loop: For each player, unit, number or item, or Repeat", kBorderHot});
-        bx = br.right + scale(6);
-    }
+    gTP.adds.push_back({ref, r});
     y += scale(36);
-}
-
-// The If and For each buttons beside "Add an action": a list of the blocks of that group; the one picked goes at the
-// end of the list.
-void trigAddTo(TrigListRef ref, int at, const TriggerDef& d);
-void trigAddFromGroup(const TrigAddHit& a) {
-    static const char* const kIf[] = {"act.if", "act.while", "act.once", "act.local"};
-    static const char* const kLoops[] = {"act.foreachplayer", "act.foreachplayerof", "act.foreachunit", "act.foreachnewunit", "act.foreachgroup",
-                                         "act.foreachitem", "act.forrange", "act.repeat"};
-    std::vector<ListPickItem> items;
-    auto add = [&](const char* id) {
-        if (const TriggerDef* d = TriggerDef::find(id)) items.push_back({widen(d->title), L"", id});
-    };
-    if (a.group == 1)
-        for (const char* id : kIf) add(id);
-    else
-        for (const char* id : kLoops) add(id);
-    POINT pt{a.r.left, a.r.bottom + scale(4)};
-    ClientToScreen(gTE.pane, &pt);
-    std::string pick;
-    if (!showListPicker(a.group == 1 ? L"If" : L"For each", items, "", pt, pick) || pick.empty()) return;
-    TriggerNode* t = trigSelected();
-    std::vector<TriggerCall>* list = t ? trigResolve(*t, a.list) : nullptr;
-    if (const TriggerDef* d = TriggerDef::find(pick); list && d) trigAddTo(a.list, int(list->size()), *d);
 }
 
 void trigDrawList(HDC mem, TriggerNode& t, const TrigListRef& ref, int x, int w, int& y, bool dimAll) {
@@ -13205,7 +13181,7 @@ void trigDrawList(HDC mem, TriggerNode& t, const TrigListRef& ref, int x, int w,
             for (size_t l = 0; l < d->lists.size(); ++l) {
                 const TriggerListDef& ld = d->lists[l];
                 // Labels say which list is which; an If's own conditions and a single "Do" need none.
-                const bool label = !(d->id == "act.if" && l == 0) && d->lists.size() > 1;
+                const bool label = !((d->id == "act.if" || d->id == "act.ifthen") && l == 0) && d->lists.size() > 1;
                 if (label) {
                     SetTextColor(mem, ld.condition ? trigConditionLabel() : ld.title == "Else" ? trigElseLabel() : kGood);
                     RECT pl{ix, y, ix + iw, y + scale(24)};
@@ -13702,10 +13678,32 @@ void trigPaneMenu(POINT screen) {
     if (!t) return;
     TriggerCall* sel = trigBlock(*t, gTP.sel);
     const TriggerDef* sd = sel ? TriggerDef::find(sel->def) : nullptr;
-    enum { AddCond = 1, AddAct, Up, Down, Toggle, Delete, Fold, Copy, Cut, Paste, Code, Duplicate, Inside = 100 };
+    enum { AddCond = 1, AddAct, Up, Down, Toggle, Delete, Fold, Copy, Cut, Paste, Code, Duplicate, Inside = 100, Block = 1000 };
     HMENU m = CreatePopupMenu();
-    AppendMenuW(m, MF_STRING, AddCond, L"Add a &condition\x2026");
-    AppendMenuW(m, MF_STRING, AddAct, L"Add an &action\x2026");
+    // Add a condition, Add an action: submenus of the picker's categories and their blocks (as the Add window lists
+    // them), and Search... (the window). The block goes after the selected block of its kind, else at the end.
+    std::vector<const TriggerDef*> blocks;  // Block + index
+    auto addMenu = [&](bool cond) {
+        HMENU sub = CreatePopupMenu();
+        AppendMenuW(sub, MF_STRING, cond ? AddCond : AddAct, L"&Search\x2026");
+        AppendMenuW(sub, MF_SEPARATOR, 0, nullptr);
+        for (const std::string& cat : TriggerDef::categories(cond)) {
+            HMENU cm = CreatePopupMenu();
+            int n = 0;
+            for (const auto& d : TriggerDef::all()) {
+                if (d.value || d.condition != cond || d.tier == "replaced" || d.tier == "hidden" || d.category != cat) continue;
+                std::wstring title = widen(d.title);
+                for (size_t q = title.find(L'&'); q != std::wstring::npos; q = title.find(L'&', q + 2)) title.insert(q, 1, L'&');
+                AppendMenuW(cm, MF_STRING, UINT_PTR(Block + blocks.size()), title.c_str());
+                blocks.push_back(&d), ++n;
+            }
+            if (n) AppendMenuW(sub, MF_POPUP, UINT_PTR(cm), widen(cat).c_str());
+            else DestroyMenu(cm);
+        }
+        AppendMenuW(m, MF_POPUP, UINT_PTR(sub), cond ? L"Add a &condition" : L"Add an &action");
+    };
+    addMenu(true);
+    addMenu(false);
     if (sd)
         for (size_t l = 0; l < sd->lists.size(); ++l)
             AppendMenuW(m, MF_STRING, Inside + l, (L"Add to " + widen(sd->lists[l].title) + L"\x2026").c_str());
@@ -13726,6 +13724,12 @@ void trigPaneMenu(POINT screen) {
     AppendMenuW(m, MF_STRING, Code, L"Show the &code");
     const int pick = popupMenu(m, TPM_RIGHTBUTTON, screen.x, screen.y, gTE.wnd);
     DestroyMenu(m);
+    if (pick >= Block && pick < Block + int(blocks.size())) {  // a block from the Add submenus
+        const TriggerDef& d = *blocks[size_t(pick - Block)];
+        const auto [ref, at] = trigAddTarget(d.condition);
+        trigAddTo(ref, at, d);
+        return;
+    }
     if (pick >= Inside && sel) return trigAddWithPicker(trigInside(gTP.sel, pick - Inside), -1);
     switch (pick) {
     case AddCond:
@@ -15709,7 +15713,7 @@ bool showValuePopup(const ValuePopSpec& spec, POINT at, std::string& out) {
     if (gValuePopHook) gValuePopHook(vp.wnd);
     MSG msg;
     while (!vp.done && GetMessageW(&msg, nullptr, 0, 0))
-        if (!IsDialogMessageW(vp.wnd, &msg)) TranslateMessage(&msg), DispatchMessageW(&msg);
+        if (!popoutEatsPress(msg, vp.wnd) && !IsDialogMessageW(vp.wnd, &msg)) TranslateMessage(&msg), DispatchMessageW(&msg);
     if (vp.rich && vp.accepted) gTE.textValuesOut = vp.richValues;
     if (vp.doc) vp.doc->Release(), vp.doc = nullptr;
     DestroyWindow(vp.wnd);
@@ -16180,10 +16184,7 @@ LRESULT CALLBACK trigPaneProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 return 0;
             }
         for (const auto& a : gTP.adds)
-            if (PtInRect(&a.r, pt)) {
-                const TrigAddHit hit = a;  // (adding repaints, which clears the hits)
-                return hit.group ? trigAddFromGroup(hit) : trigAddWithPicker(hit.list, -1), 0;
-            }
+            if (PtInRect(&a.r, pt)) return trigAddWithPicker(a.list, -1), 0;
         for (int sec = 0; sec < 2; ++sec)
             if (PtInRect(&gTP.heading[sec], pt)) {
                 gTP.collapsed[sec] = !gTP.collapsed[sec];
@@ -25689,18 +25690,32 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 fs::remove_all(dir, ec);
                 continue;
             }
-            if (s == "ifbuttons:") {  // ifbuttons.txt, ifbuttons.png: the If and For each buttons beside "Add an action" in a new trigger
-                std::ofstream o(fs::path(datashots) / "ifbuttons.txt");
+            if (s == "trigaddmenu:") {  // trigaddmenu.txt: the trigger pane's menu: Add an action > If > If adds an If block
+                std::ofstream o(fs::path(datashots) / "trigaddmenu.txt");
                 newUntitledProject();
                 for (int i = 0; i < 5; ++i) pump();
                 command(ID_WS_TRIGGERS);
-                trigAdd({1}, false);  // a trigger in On map start, selected
+                trigAdd({1}, false);  // a trigger, selected
                 for (int i = 0; i < 5; ++i) pump();
-                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
-                int groups = 0;
-                for (const auto& a : gTP.adds) groups |= a.group ? 1 << a.group : 0;
-                capture(fs::path(datashots) / "ifbuttons.png", app.main);
-                o << "If and For each beside Add an action " << (groups == 6 ? "yes" : "NO") << "\n";
+                static int step;
+                step = 0;
+                const UINT_PTR timer = SetTimer(nullptr, 0, 60, [](HWND, UINT, UINT_PTR, DWORD) {
+                    if (!gMenuLoop) return;
+                    using namespace menu_impl;
+                    if (step == 0) openSub(*gMenuLoop, 0, 1, true, gTE.wnd);       // Add an action
+                    else if (step == 1) openSub(*gMenuLoop, 1, 2, true, gTE.wnd);  // If (after Search... and the line)
+                    else if (step == 2) choose(*gMenuLoop, 2, 0, true, gTE.wnd);   // If
+                    else if (step > 20) closeMenus();
+                    ++step;
+                });
+                RECT r;
+                GetWindowRect(gTE.pane, &r);
+                trigPaneMenu({r.left + 40, r.top + 40});
+                KillTimer(nullptr, timer);
+                for (int i = 0; i < 5; ++i) pump();
+                TriggerNode* t = trigSelected();
+                const bool added = t && !t->actions.empty() && t->actions.back().def == "act.ifthen";
+                o << "Add an action > If > If adds an If block " << (added ? "yes" : "NO") << " (" << (t && !t->actions.empty() ? t->actions.back().def : "none") << ")\n";
                 continue;
             }
             if (s == "chipfocus:") {  // chipfocus.txt: a click in the trigger pane away from a value clears the focused chip (#119)

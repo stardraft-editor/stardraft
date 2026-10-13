@@ -416,7 +416,8 @@ int main(int argc, char** argv) {
         setX.argBlocks.resize(setX.args.size());
         setX.argBlocks[1] = {dx};
         t.actions = {local, ifChat, newUnits, group, humans, trains, block("act.dilateloc", {"1", "16", "16"}), block("act.srand", {"42"}), setX,
-                     block("act.victory", {"P2"}), block("act.defeat", {"AllPlayers"})};
+                     block("act.victory", {"P2"}), block("act.defeat", {"AllPlayers"}), make("act.ifthen")};
+        t.actions.back().lists[1] = {block("act.srand", {"7"})};  // If (no Else): if (...) { ... }
         set.roots[2].children.push_back(t);
     }
     TriggerCall eachP3 = make("act.foreachplayer");
