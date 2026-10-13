@@ -90,10 +90,22 @@ jobs:
           Set-Content notes.md $text -Encoding utf8
           $title = "StarDraft $version (build $($env:GITHUB_SHA.Substring(0, 7)))"
           gh release create $env:GITHUB_REF_NAME $zip --title $title --latest --verify-tag --notes-file notes.md
-          # Discord: one post in each channel that has a webhook (a webhook posts in its own channel only).
+          # Discord: one post in each channel that has a webhook (a webhook posts in its own channel only), with the
+          # screenshots of this version's changelog section as files (at most 10; Discord cannot load the private
+          # repository's image addresses).
           $hooks = @($env:DISCORD_RELEASE_WEBHOOK, $env:DISCORD_GENERAL_WEBHOOK) | Where-Object { $_ }
           if ($hooks) {
             $url = gh release view $env:GITHUB_REF_NAME --json url --jq .url
-            $body = @{ content = "**$title** is out: $url" } | ConvertTo-Json
-            foreach ($hook in $hooks) { Invoke-RestMethod -Uri $hook -Method Post -ContentType 'application/json' -Body $body }
+            @{ content = "**$title** is out: $url" } | ConvertTo-Json | Set-Content payload.json -Encoding utf8NoBOM
+            $images = @()
+            if ($mine) {
+              $images = @([regex]::Matches(($sections[$mine] -join "`n"), '\]\((images/[^)\s]+)\)') |
+                ForEach-Object { "docs/user/" + $_.Groups[1].Value } | Where-Object { Test-Path $_ } | Select-Object -Unique -First 10)
+            }
+            foreach ($hook in $hooks) {
+              $form = @('-sS', '--fail-with-body', '-F', 'payload_json=<payload.json')
+              for ($i = 0; $i -lt $images.Count; $i++) { $form += @('-F', "files[$i]=@$($images[$i])") }
+              curl.exe @form $hook
+              if ($LASTEXITCODE -ne 0) { Write-Warning "The Discord post did not go ($LASTEXITCODE)" }
+            }
           }
