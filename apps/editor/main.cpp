@@ -450,7 +450,7 @@ bool gShowRanges = false;  // View > Show ranges of the selected units
 struct MapLayers {
     bool terrain = true, doodads = true, sprites = true, units = true;
 } gLayers;
-void rangesScene(render::Scene& s);
+void rangesScene(render::Scene& s, float dx = 0, float dy = 0);
 bool tilesDatashot(const std::string& spec, const fs::path& dir);
 enum UnitTool { UPlace, USpray, UReplace };
 enum DoodadTool { DPlace, DSpray };
@@ -1294,16 +1294,6 @@ int mapSpriteAt(Editor& ed, int x, int y) {
     }
     return best >= 0 ? best : ed.spriteAt(x, y);
 }
-// True when mapSpriteAt(ed, x, y) finds a sprite, but faster: the overlay test only for the sprites near the point.
-bool spriteUnderPointer(Editor& ed, int x, int y) {
-    for (size_t i = 0; i < ed.sprites().size(); ++i) {
-        const MapSprite& m = ed.sprites()[i];
-        const int dx = int(m.x) - x, dy = int(m.y) - y;
-        if (dx * dx + dy * dy > 24 * 24 && !mapSpriteBox(ed, m).contains(x, y)) continue;
-        if (!spriteIsOverlay(int(i))) return true;
-    }
-    return false;
-}
 
 void diamondOutline(render::Scene& s, const std::set<std::pair<int, int>>& set, uint32_t rgba) {
     auto line = [&](float x0, float y0, float x1, float y1) {
@@ -1491,7 +1481,7 @@ render::Scene buildScene() {
         }
     }
 
-    if (gShowRanges && app.mode == Mode::Units) rangesScene(s);
+    if (gShowRanges && app.mode == Mode::Units) rangesScene(s, moveDX, moveDY);  // (they follow a unit being moved)
 
     // Symmetry axes.
     if (const int mm = ed.mirrors()) {
@@ -2859,12 +2849,13 @@ std::wstring playabilityText();
 std::string gTrigBuildError;
 bool trigShowBuildError(const std::string& logLine);
 
-void dataCommitEdit();
+bool dataCommitEdit();
 void stringsCommitEdit();
 
 void compileProject() {
     mapPageFlush();  // a text being typed on a map page is in the build too
-    dataCommitEdit(), stringsCommitEdit();  // and a value or text being typed in the Data workspace
+    stringsCommitEdit();  // and a text or value being typed in the Data workspace (not a number: no build, the status says why)
+    if (!dataCommitEdit()) return;
     EudProject* pr = activeProject();
     if (!app.ed || !pr) {
         setMessage(L"Build needs an EUD project. Use File > Project > New project or Open project.");
@@ -4406,7 +4397,7 @@ void commandBody(int id) {
         break;
     case ID_VIEW_RANGES:
         gShowRanges = !gShowRanges;
-        setMessage(gShowRanges ? L"Ranges of the selected units: sight (yellow), ground weapon (red), air weapon (blue)" : L"Ranges are hidden");
+        setMessage(gShowRanges ? L"Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue)" : L"Ranges are hidden");
         updateMenus();
         app.dirty = true;
         break;
@@ -4496,7 +4487,8 @@ bool trigUnitPickActive();
 LPCWSTR mapCursorAt(int x, int y) {
     if (app.drag == Drag::Pan || app.drag == Drag::AutoPan) return IDC_SIZEALL;
     if (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
-        // The move cursor where a press would pick and move a unit, doodad or sprite, and during that move.
+        // The move cursor over a selected unit, doodad or sprite that a press would move, and during that move; over
+        // one that is not selected, the arrow (a click selects it).
         if (app.drag == Drag::MoveUnits || app.drag == Drag::MoveDoodad || app.drag == Drag::MoveSprite) return IDC_SIZEALL;
         if (app.drag != Drag::None || !app.ed || !app.ed->isOpen() || modeLayerHidden() || app.pasting || app.pastingItems ||
             app.palette >= 0 || trigUnitPickActive())
@@ -4504,9 +4496,15 @@ LPCWSTR mapCursorAt(int x, int y) {
         Editor& ed = *app.ed;
         float wx, wy;
         toWorld(x, y, wx, wy);
-        const bool hit = app.mode == Mode::Units     ? currentTool() == UPlace && ed.unitAt(int(wx), int(wy)) >= 0
-                         : app.mode == Mode::Doodads ? currentTool() == DPlace && ed.doodadAt(int(wx), int(wy)) >= 0
-                                                     : spriteUnderPointer(ed, int(wx), int(wy));
+        auto in = [](const std::vector<int>& v, int i) { return i >= 0 && std::find(v.begin(), v.end(), i) != v.end(); };
+        bool hit = false;
+        if (app.mode == Mode::Units) {
+            const int u = currentTool() == UPlace && !ed.selection().empty() ? ed.unitAt(int(wx), int(wy)) : -1;
+            hit = u >= 0 && ed.isSelected(u);
+        } else if (app.mode == Mode::Doodads)
+            hit = currentTool() == DPlace && !app.selDoodads.empty() && in(app.selDoodads, ed.doodadAt(int(wx), int(wy)));
+        else
+            hit = !app.selSprites.empty() && in(app.selSprites, mapSpriteAt(ed, int(wx), int(wy)));
         return hit ? IDC_SIZEALL : IDC_ARROW;
     }
     if (app.mode != Mode::Locations || !app.ed || (app.drag != Drag::None && app.drag != Drag::LocResize)) return IDC_ARROW;
@@ -7065,12 +7063,12 @@ void dataFormRepaint() {
 }
 
 // View > Show ranges of the selected units (GitHub feedback #109): around each selected unit (Units mode), its sight
-// range (yellow), and its weapons' ranges: ground (red) and air (blue), its turret's too. From units.dat and
-// weapons.dat: the project's (with its edits) or the game's. A range counts from the unit's edge, as the game's.
+// (the tiles it sees, yellow), and its target acquisition (orange) and weapons' ranges: ground (red) and air (blue), its
+// turret's too. From units.dat and weapons.dat: the project's (with its edits) or the game's. A range counts from the
+// unit's size box, as the game's.
 void dataLoadForProject();
 void dataRebuildList();
 void dataShowTab(int tab);
-void dataSelect(int u);
 const DatTable* rangeTable(const std::string& name) {
     if (activeProject()) dataLoadForProject();  // the project's tables with their saved edits (once; then at once)
     if (gData.project && gData.project == activeProject())
@@ -7087,40 +7085,75 @@ const DatTable* rangeTable(const std::string& name) {
     }
     return t.get();
 }
-void rangesScene(render::Scene& s) {
+std::vector<bool> sightMask(int range, int& size);
+// The ranges as the Data workspace draws them (widgetUnitRanges): the tiles the unit sees (its sight mask, on the map's
+// tiles), and the target acquisition (orange), ground (red) and air (blue) ranges as the game measures them: from the
+// unit's size box, grown by the game's distance shape (rangeShape). While the units move, the ranges move with them
+// (dx, dy: the move so far).
+void rangesScene(render::Scene& s, float dx, float dy) {
     if (!app.ed) return;
     const DatTable* units = rangeTable("units");
     const DatTable* weapons = rangeTable("weapons");
     if (!units || !weapons) return;
-    const DatField *sight = units->field("Sight Range"), *ground = units->field("Ground Weapon"), *air = units->field("Air Weapon"),
-                   *sub = units->field("Subunit 1"), *range = weapons->field("Maximum Range");
-    if (!sight || !ground || !air || !sub || !range) return;
-    const float d = std::max(1.0f, 1.6f / app.zoom);
-    auto circle = [&](float cx, float cy, float r, uint32_t color) {
+    const DatField *sight = units->field("Sight Range"), *acqF = units->field("Target Acquisition Range"), *ground = units->field("Ground Weapon"),
+                   *air = units->field("Air Weapon"), *sub = units->field("Subunit 1"), *range = weapons->field("Maximum Range"),
+                   *sl = units->field("Unit Size Left"), *su = units->field("Unit Size Up"), *sr = units->field("Unit Size Right"),
+                   *sd = units->field("Unit Size Down");
+    if (!sight || !acqF || !ground || !air || !sub || !range || !sl || !su || !sr || !sd) return;
+    auto shape = [&](RECT box, int r, uint32_t color, float width, bool dashed) {
         if (r <= 0) return;
-        const int n = std::clamp(int(r / 6), 48, 360);
-        for (int k = 0; k < n; ++k) {
-            const float a = float(k) * 6.2831853f / float(n);
-            const float x = cx + r * std::cos(a), y = cy + r * std::sin(a);
-            s.rects.push_back({x - d, y - d, x + d, y + d, color, true});
+        const auto pts = rangeShape(box, double(r));
+        for (size_t k = 1; k < pts.size(); ++k) {
+            if (dashed && (k / 4) % 2) continue;  // dashes of 4 segments
+            render::RectDraw l;
+            l.x0 = float(pts[k - 1].x), l.y0 = float(pts[k - 1].y), l.x1 = float(pts[k].x), l.y1 = float(pts[k].y);
+            l.rgba = color, l.thickness = width, l.line = true;
+            s.rects.push_back(l);
         }
+    };
+    auto weaponRange = [&](int ut, const DatField& f) {
+        int w = int(units->value(f, ut));
+        const int turret = int(units->value(*sub, ut));
+        if (w >= 130 && turret < 228) w = int(units->value(f, turret));  // a turret's weapon
+        return w < 130 ? int(weapons->value(*range, w)) : 0;
     };
     const auto& list = app.ed->units();
     int shown = 0;
     for (int i : app.ed->selection()) {
         if (i < 0 || i >= int(list.size()) || ++shown > 64) continue;  // (a big selection: the first 64)
         const Unit& u = list[size_t(i)];
-        if (u.type >= app.ed->unitTypes().size()) continue;
-        const UnitType& t = app.ed->unitTypes()[u.type];
-        const float edge = std::max(t.placementWidth, t.placementHeight) / 2.0f, cx = u.x, cy = u.y;
-        circle(cx, cy, units->value(*sight, u.type) * 32.0f, 0xFFE040C0u);
-        for (const int ut : {int(u.type), int(units->value(*sub, u.type))}) {
-            if (ut < 0 || ut >= 228) continue;
-            const uint32_t g = units->value(*ground, ut), a = units->value(*air, ut);
-            if (g < 130) circle(cx, cy, edge + float(weapons->value(*range, int(g))), 0xFF5050E0u);
-            if (a < 130 && a != g) circle(cx, cy, edge + float(weapons->value(*range, int(a))), 0x50A0FFE0u);
-            else if (a < 130) circle(cx, cy, edge + float(weapons->value(*range, int(a))) + d * 2, 0x50A0FFE0u);  // the same weapon: beside the red
+        const int ut = u.type;
+        if (ut < 0 || ut >= 228) continue;
+        const float cxf = u.x + dx, cyf = u.y + dy;
+        const int cx = int(std::lround(cxf)), cy = int(std::lround(cyf));
+        // Sight: the tiles of the sight mask around the unit's tile, faintly filled, with their outline.
+        if (const int tiles = int(units->value(*sight, ut)); tiles > 0) {
+            int n = 0;
+            const auto mask = sightMask(tiles, n);
+            const int tx0 = int(std::floor(cxf / 32)) - n / 2, ty0 = int(std::floor(cyf / 32)) - n / 2;
+            auto in = [&](int x, int y) { return x >= 0 && y >= 0 && x < n && y < n && mask[size_t(y * n + x)]; };
+            for (int y = 0; y < n; ++y)
+                for (int x = 0; x < n; ++x) {
+                    if (!in(x, y)) continue;
+                    const float X = float((tx0 + x) * 32), Y = float((ty0 + y) * 32);
+                    s.rects.push_back({X, Y, X + 32, Y + 32, 0xE0E0F014u, true});
+                    auto edge = [&](float x0, float y0, float x1, float y1) {
+                        render::RectDraw l;
+                        l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = 0xFFE040C0u, l.thickness = 1, l.line = true;
+                        s.rects.push_back(l);
+                    };
+                    if (!in(x, y - 1)) edge(X, Y, X + 32, Y);
+                    if (!in(x, y + 1)) edge(X, Y + 32, X + 32, Y + 32);
+                    if (!in(x - 1, y)) edge(X, Y, X, Y + 32);
+                    if (!in(x + 1, y)) edge(X + 32, Y, X + 32, Y + 32);
+                }
         }
+        const RECT box{LONG(cx - int(units->value(*sl, ut))), LONG(cy - int(units->value(*su, ut))), LONG(cx + int(units->value(*sr, ut)) + 1),
+                       LONG(cy + int(units->value(*sd, ut)) + 1)};
+        const int acq = int(units->value(*acqF, ut)) * 32, g = weaponRange(ut, *ground), a = weaponRange(ut, *air);
+        shape(box, acq, 0xF0B446D0u, 1, false);
+        shape(box, g, 0xEB5A50F0u, 2, false);
+        shape(box, a, 0x5AAAF0F0u, 2, a == g);  // the same range as the ground weapon: blue dashes over the red line
     }
 }
 
@@ -7294,10 +7327,13 @@ bool writeDatEdits(EudProject& pr, std::string& err, std::vector<std::string>* n
     if (ok && reread) {  // the repaired files load now: the Data workspace takes them (now when it shows, else at its next show)
         const int tab = gData.datTab, entry = gData.entry;
         gData.project = nullptr, gData.tables.clear();
-        if (gWorkspace == Workspace::Data) {  // the same tab and entry again
+        if (gWorkspace == Workspace::Data) {  // the same tab and entry again (not a new place for Back)
             dataLoadForProject();
-            if (tab >= 0 && tab < dataTabCount()) dataShowTab(tab);
-            dataSelect(entry);
+            if (tab >= 0 && tab < dataTabCount()) {
+                dataShowTab(tab);
+                gData.entry = std::clamp(entry, tabFirstEntry(tab), std::max(tabFirstEntry(tab), tabEntries(tab) - 1));
+                if (size_t(tab) < gData.tabEntry.size()) gData.tabEntry[size_t(tab)] = gData.entry;
+            }
             dataRebuildList();
             if (gData.form) InvalidateRect(gData.form, nullptr, FALSE);
         }
@@ -7352,7 +7388,7 @@ void dataRebuildList() {
 
 int dataRowH() { return scale(26); }
 
-void dataCommitEdit();
+bool dataCommitEdit();
 
 // Back and forward through the entries looked at (arrows top right, the mouse's side buttons).
 struct DataPlace {
@@ -10963,17 +10999,19 @@ void dataDropdown(const DatField& f, RECT box) {
     if (showListPicker(datLabel(f.name), items, std::to_string(v), pt, picked)) dataSetValue(f, uint32_t(std::stoul(picked)));
 }
 
-void dataCommitEdit() {
-    if (gData.editing < 0 || !gData.edit) return;
+// False when the box held text that is not a number (the status says so; the value stays as it was).
+bool dataCommitEdit() {
+    if (gData.editing < 0 || !gData.edit) return true;
     const DatField* f = curField(gData.editing);
     gData.editing = -1;
     const std::wstring text = windowText(gData.edit);
     ShowWindow(gData.edit, SW_HIDE);
-    if (!f || text.empty()) return;
+    if (!f || text.empty()) return true;
     wchar_t* end = nullptr;
     const unsigned long long v = wcstoull(text.c_str(), &end, 0);  // decimal, or 0x hex
-    if (end && *end == 0) dataSetValue(*f, uint32_t(std::min<unsigned long long>(v, f->maxValue())));
-    else setMessage(L"Not a number: " + text);
+    if (end && *end == 0) return dataSetValue(*f, uint32_t(std::min<unsigned long long>(v, f->maxValue()))), true;
+    setMessage(L"Not a number: " + text);
+    return false;
 }
 
 void dataBeginEdit(int field, const RECT& r) {
@@ -17578,7 +17616,7 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_MBUTTONUP: {
         if (app.drag == Drag::AutoPan || (app.drag == Drag::Pan && panByMiddle)) app.drag = Drag::None, panByMiddle = false;
         if (wp & MK_RBUTTON) gRightX = GET_X_LPARAM(lp), gRightY = GET_Y_LPARAM(lp);  // a right-drag from here on starts here
-        if (GetCapture() == hwnd && !(wp & (MK_LBUTTON | MK_RBUTTON))) ReleaseCapture();
+        if (GetCapture() == hwnd && !(wp & MK_LBUTTON) && !((wp & MK_RBUTTON) && gRightDown)) ReleaseCapture();
         KillTimer(hwnd, kAutoPanTimer);
         app.dirty = true;
         return 0;
@@ -26153,6 +26191,24 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 settle();
                 RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                 capture(fs::path(datashots) / "ranges.png", app.main);
+                // While the goliath is dragged, its ranges move with it (ranges_drag.png); the cursor: the move cursor over a
+                // selected unit, the arrow over one that is not selected (ranges.txt).
+                std::ofstream o(fs::path(datashots) / "ranges.txt");
+                auto at = [&](float wx, float wy) { return std::pair<int, int>{int((wx - app.camX) * app.zoom), int((wy - app.camY) * app.zoom)}; };
+                const auto [gx, gy] = at(cx - 160, cy);
+                o << "the move cursor over a selected unit " << (mapCursorAt(gx, gy) == IDC_SIZEALL ? "yes" : "NO") << "\n";
+                SendMessageW(app.view, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(gx, gy));
+                const auto [mx, my] = at(cx - 160, cy + 160);
+                SendMessageW(app.view, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(gx + 10, gy + 10));
+                SendMessageW(app.view, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(mx, my));
+                for (int i = 0; i < 3; ++i) pump();
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "ranges_drag.png", app.main);
+                o << "a drag moves the unit " << (app.drag == Drag::MoveUnits ? "yes" : "NO") << "\n";
+                cancelStep();
+                SendMessageW(app.view, WM_LBUTTONUP, 0, MAKELPARAM(mx, my));
+                ed.clearSelection();
+                o << "the arrow over a unit that is not selected " << (mapCursorAt(gx, gy) == IDC_ARROW ? "yes" : "NO") << "\n";
                 command(ID_VIEW_RANGES);
                 continue;
             }

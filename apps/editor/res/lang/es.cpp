@@ -1755,7 +1755,7 @@ constexpr UiText kRows[] = {
     {L"Player 12", L"Jugador 12"},
     {L"Show ranges of the selected u&nits", L"Mostrar el alcance de las u&nidades seleccionadas"},
     {L"Ranges are hidden", L"El alcance est\u00E1 oculto"},
-    {L"Ranges of the selected units: sight (yellow), ground weapon (red), air weapon (blue)", L"Alcance de las unidades seleccionadas: visi\u00F3n (amarillo), arma terrestre (rojo), arma a\u00E9rea (azul)"},
+    {L"Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue)", L"Alcance de las unidades seleccionadas: visi\u00F3n (amarillo), adquisici\u00F3n de objetivo (naranja), arma terrestre (rojo), arma a\u00E9rea (azul)"},
     {L"Favorites", L"Favoritos"},
     {L"Add to favorites", L"Agregar a favoritos"},
     {L"Remove from favorites", L"Quitar de favoritos"},

@@ -1751,7 +1751,7 @@ Player 11	Jugador 11
 Player 12	Jugador 12
 Show ranges of the selected u&nits	Mostrar el alcance de las u&nidades seleccionadas
 Ranges are hidden	El alcance está oculto
-Ranges of the selected units: sight (yellow), ground weapon (red), air weapon (blue)	Alcance de las unidades seleccionadas: visión (amarillo), arma terrestre (rojo), arma aérea (azul)
+Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue)	Alcance de las unidades seleccionadas: visión (amarillo), adquisición de objetivo (naranja), arma terrestre (rojo), arma aérea (azul)
 Favorites	Favoritos
 Add to favorites	Agregar a favoritos
 Remove from favorites	Quitar de favoritos
