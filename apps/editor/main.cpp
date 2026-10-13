@@ -12572,6 +12572,7 @@ struct TrigFoldHit {
 struct TrigAddHit {  // "+ Add" under a list
     TrigListRef list;
     RECT r{};
+    int group = 0;  // 0: the block picker; 1: If blocks, 2: loops (the buttons next to "Add an action")
 };
 struct TrigVarHit {  // a field of the variable form
     int field = 0;   // 0 kind, 1 size, 2 starting value, 3 description
@@ -12990,13 +12991,50 @@ int trigDrawIssues(HDC dc, const TriggerCall* c, int x, int y, int w) {
 
 void trigDrawList(HDC mem, TriggerNode& t, const TrigListRef& ref, int x, int w, int& y, bool dimAll);
 
-// "Add a condition" / "Add an action" under a list: a row as wide as the blocks (the kit's add row).
+// "Add a condition" / "Add an action" under a list: a row as wide as the blocks (the kit's add row). Actions: with the
+// buttons If and For each beside it, each a list of its blocks (the flow blocks without the picker's search).
 void trigDrawAdd(HDC mem, const TrigListRef& ref, bool condition, int x, int w, int& y) {
     const wchar_t* label = condition ? L"Add a condition" : L"Add an action";
-    RECT r{x, y, x + w, y + scale(30)};
+    static const wchar_t* const kGroups[2] = {L"If \x25BE", L"For each \x25BE"};
+    int bw[2] = {}, buttons = 0;
+    if (!condition)
+        for (int k = 0; k < 2; ++k) bw[k] = ui::buttonWidth(mem, kGroups[k]), buttons += bw[k] + scale(6);
+    RECT r{x, y, x + w - buttons, y + scale(30)};
     ui::addRowFace(mem, r, label, ui::hotIn(gTE.pane, r));
-    gTP.adds.push_back({ref, r});
+    gTP.adds.push_back({ref, r, 0});
+    int bx = r.right + scale(6);
+    for (int k = 0; k < 2 && !condition; ++k) {
+        RECT br{bx, y + (scale(30) - scale(ui::kButtonH)) / 2, bx + bw[k], y + (scale(30) + scale(ui::kButtonH)) / 2};
+        ui::buttonFace(mem, br, kGroups[k], ui::Tone::Normal, ui::hotIn(gTE.pane, br) ? ui::State::Hot : ui::State::Normal);
+        gTP.adds.push_back({ref, br, k + 1});
+        gTP.tips.push_back({br, k == 0 ? L"Add an If block: one of the kinds of If" : L"Add a loop: For each player, unit, number or item, or Repeat", kBorderHot});
+        bx = br.right + scale(6);
+    }
     y += scale(36);
+}
+
+// The If and For each buttons beside "Add an action": a list of the blocks of that group; the one picked goes at the
+// end of the list.
+void trigAddTo(TrigListRef ref, int at, const TriggerDef& d);
+void trigAddFromGroup(const TrigAddHit& a) {
+    static const char* const kIf[] = {"act.if", "act.while", "act.once", "act.local"};
+    static const char* const kLoops[] = {"act.foreachplayer", "act.foreachplayerof", "act.foreachunit", "act.foreachnewunit", "act.foreachgroup",
+                                         "act.foreachitem", "act.forrange", "act.repeat"};
+    std::vector<ListPickItem> items;
+    auto add = [&](const char* id) {
+        if (const TriggerDef* d = TriggerDef::find(id)) items.push_back({widen(d->title), L"", id});
+    };
+    if (a.group == 1)
+        for (const char* id : kIf) add(id);
+    else
+        for (const char* id : kLoops) add(id);
+    POINT pt{a.r.left, a.r.bottom + scale(4)};
+    ClientToScreen(gTE.pane, &pt);
+    std::string pick;
+    if (!showListPicker(a.group == 1 ? L"If" : L"For each", items, "", pt, pick) || pick.empty()) return;
+    TriggerNode* t = trigSelected();
+    std::vector<TriggerCall>* list = t ? trigResolve(*t, a.list) : nullptr;
+    if (const TriggerDef* d = TriggerDef::find(pick); list && d) trigAddTo(a.list, int(list->size()), *d);
 }
 
 void trigDrawList(HDC mem, TriggerNode& t, const TrigListRef& ref, int x, int w, int& y, bool dimAll) {
@@ -16049,7 +16087,10 @@ LRESULT CALLBACK trigPaneProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 return 0;
             }
         for (const auto& a : gTP.adds)
-            if (PtInRect(&a.r, pt)) return trigAddWithPicker(a.list, -1), 0;
+            if (PtInRect(&a.r, pt)) {
+                const TrigAddHit hit = a;  // (adding repaints, which clears the hits)
+                return hit.group ? trigAddFromGroup(hit) : trigAddWithPicker(hit.list, -1), 0;
+            }
         for (int sec = 0; sec < 2; ++sec)
             if (PtInRect(&gTP.heading[sec], pt)) {
                 gTP.collapsed[sec] = !gTP.collapsed[sec];
@@ -25300,6 +25341,20 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(gTiles.list, WM_LBUTTONUP, 0, at(2, 1));
                 const size_t want = std::min<size_t>(gTiles.values.size(), size_t(std::min(3, gTiles.perRow)) * 2);
                 o << "the box selects the tiles in it: " << gTiles.chosen.size() << " of " << want << " " << (gTiles.chosen.size() == want ? "yes" : "NO") << "\n";
+                continue;
+            }
+            if (s == "ifbuttons:") {  // ifbuttons.txt, ifbuttons.png: the If and For each buttons beside "Add an action" in a new trigger
+                std::ofstream o(fs::path(datashots) / "ifbuttons.txt");
+                newUntitledProject();
+                for (int i = 0; i < 5; ++i) pump();
+                command(ID_WS_TRIGGERS);
+                trigAdd({1}, false);  // a trigger in On map start, selected
+                for (int i = 0; i < 5; ++i) pump();
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                int groups = 0;
+                for (const auto& a : gTP.adds) groups |= a.group ? 1 << a.group : 0;
+                capture(fs::path(datashots) / "ifbuttons.png", app.main);
+                o << "If and For each beside Add an action " << (groups == 6 ? "yes" : "NO") << "\n";
                 continue;
             }
             if (s == "chipfocus:") {  // chipfocus.txt: a click in the trigger pane away from a value clears the focused chip (#119)
