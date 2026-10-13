@@ -6,6 +6,7 @@
 // comment). Reports that could not go (no network) go at the next start. Sending needs a token that may open issues
 // on the repository, built in by CI (secret STARDRAFT_ISSUES_TOKEN); a build without one keeps the reports on disk.
 
+#include "build_info.h"  // STARDRAFT_COMMIT, written on each build (cmake/build_info.cmake)
 #ifndef STARDRAFT_VERSION_NAME
 #define STARDRAFT_VERSION_NAME "dev"
 #endif

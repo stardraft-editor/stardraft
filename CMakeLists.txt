@@ -186,13 +186,17 @@ target_link_libraries(terrain_render_test PRIVATE stardraft_render)
 # --- Windows editor (native Win32 shell) ------------------------------------------------------
 if(WIN32)
     add_executable(stardraft_editor WIN32 apps/editor/main.cpp apps/editor/vorbis.c apps/editor/stb_image.cpp apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp apps/editor/stardraft.manifest apps/editor/res/stardraft.rc)
-    target_include_directories(stardraft_editor PRIVATE ${stb_SOURCE_DIR})
+    target_include_directories(stardraft_editor PRIVATE ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
     set_source_files_properties(apps/editor/vorbis.c PROPERTIES COMPILE_OPTIONS "$<$<C_COMPILER_ID:MSVC>:/W0>")
     set_source_files_properties(apps/editor/stb_image.cpp PROPERTIES COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:MSVC>:/W0>")
     target_link_libraries(stardraft_editor PRIVATE stardraft_render comctl32 dwmapi shell32 ole32 comdlg32 uxtheme msimg32 gdiplus dbghelp winhttp)
     # Crash reports: the commit, and the token that sends them to GitHub as issues (CI gives it; see crash.inc).
-    execute_process(COMMAND git rev-parse --short HEAD WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} OUTPUT_VARIABLE STARDRAFT_COMMIT
-                    OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    # The commit: each build writes it into generated/build_info.h (cmake/build_info.cmake), so a build after a new
+    # commit names that commit with no configure step.
+    set(STARDRAFT_BUILD_INFO ${CMAKE_BINARY_DIR}/generated/build_info.h)
+    add_custom_target(stardraft_build_info COMMAND ${CMAKE_COMMAND} -DSTARDRAFT_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+                      -DSTARDRAFT_BUILD_INFO=${STARDRAFT_BUILD_INFO} -P ${CMAKE_SOURCE_DIR}/cmake/build_info.cmake VERBATIM)
+    add_dependencies(stardraft_editor stardraft_build_info)
     # CI gives it in the environment; a build made here reads .issues-token in the repository's root (not in git).
     # Empty: reports and feedback stay on disk until a build with a token starts.
     set(STARDRAFT_ISSUES_TOKEN "$ENV{STARDRAFT_ISSUES_TOKEN}")
@@ -210,7 +214,7 @@ if(WIN32)
     if(NOT STARDRAFT_VERSION_NAME)
         set(STARDRAFT_VERSION_NAME "0.5 Alpha")
     endif()
-    target_compile_definitions(stardraft_editor PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_COMMIT="${STARDRAFT_COMMIT}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
+    target_compile_definitions(stardraft_editor PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
     if(MSVC)  # symbols for Release, to read crash dumps
         target_compile_options(stardraft_editor PRIVATE $<$<CONFIG:Release>:/Zi>)
         target_link_options(stardraft_editor PRIVATE $<$<CONFIG:Release>:/DEBUG /OPT:REF /OPT:ICF>)
