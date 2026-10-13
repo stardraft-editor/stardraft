@@ -1287,12 +1287,12 @@ int mapSpriteAt(Editor& ed, int x, int y) {
     long long bestArea = 1LL << 62;
     for (size_t i = 0; i < ed.sprites().size(); ++i) {
         const MapSprite& m = ed.sprites()[i];
+        const Rect r = mapSpriteBox(ed, m);
+        if (!r.contains(x, y)) continue;  // (first: the overlay test below goes through every doodad)
         bool overlay = false;
         for (const Doodad& d : ed.doodads())
             if (const DoodadType* t = ed.doodadTypes().find(d.id); t && t->overlaySprite == m.id && d.x == m.x && d.y == m.y) overlay = true;
         if (overlay) continue;
-        const Rect r = mapSpriteBox(ed, m);
-        if (!r.contains(x, y)) continue;
         const long long area = 1LL * (r.right - r.left) * (r.bottom - r.top);
         if (area < bestArea) best = int(i), bestArea = area;
     }
@@ -7073,6 +7073,8 @@ void dataFormRepaint() {
 void dataLoadForProject();
 void dataRebuildList();
 void dataShowTab(int tab);
+void dataSelect(int u);
+extern bool gDataTravelling;
 const DatTable* rangeTable(const std::string& name) {
     if (activeProject()) dataLoadForProject();  // the project's tables with their saved edits (once; then at once)
     if (gData.project && gData.project == activeProject())
@@ -7121,36 +7123,32 @@ void rangesScene(render::Scene& s, float dx, float dy) {
         if (w >= 130 && turret < 228) w = int(units->value(f, turret));  // a turret's weapon
         return w < 130 ? int(weapons->value(*range, w)) : 0;
     };
-    const auto& list = app.ed->units();
+    Editor& ed = *app.ed;
+    const auto& list = ed.units();
+    const int mw = ed.width(), mh = ed.height();
+    std::vector<uint8_t> seen;  // the map's tiles that a selected unit sees (one area, so many units do not stack)
     int shown = 0;
-    for (int i : app.ed->selection()) {
+    for (int i : ed.selection()) {
         if (i < 0 || i >= int(list.size()) || ++shown > 64) continue;  // (a big selection: the first 64)
-        const Unit& u = list[size_t(i)];
+        Unit u = list[size_t(i)];
         const int ut = u.type;
         if (ut < 0 || ut >= 228) continue;
-        const float cxf = u.x + dx, cyf = u.y + dy;
-        const int cx = int(std::lround(cxf)), cy = int(std::lround(cyf));
-        // Sight: the tiles of the sight mask around the unit's tile, faintly filled, with their outline.
+        if (dx || dy) {  // where the drag draws and drops it (buildScene, Editor::moveSelection)
+            u.x = uint16_t(std::clamp(int(std::lround(u.x + dx)), 0, mw * 32 - 1));
+            u.y = uint16_t(std::clamp(int(std::lround(u.y + dy)), 0, mh * 32 - 1));
+            if (u.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[u.type], u.x, u.y);
+        }
+        const int cx = u.x, cy = u.y;
+        // Sight: the tiles of the sight mask around the unit's tile.
         if (const int tiles = int(units->value(*sight, ut)); tiles > 0) {
             int n = 0;
             const auto mask = sightMask(tiles, n);
-            const int tx0 = int(std::floor(cxf / 32)) - n / 2, ty0 = int(std::floor(cyf / 32)) - n / 2;
-            auto in = [&](int x, int y) { return x >= 0 && y >= 0 && x < n && y < n && mask[size_t(y * n + x)]; };
+            const int tx0 = cx / 32 - n / 2, ty0 = cy / 32 - n / 2;
+            if (seen.empty()) seen.assign(size_t(mw) * size_t(mh), 0);
             for (int y = 0; y < n; ++y)
-                for (int x = 0; x < n; ++x) {
-                    if (!in(x, y)) continue;
-                    const float X = float((tx0 + x) * 32), Y = float((ty0 + y) * 32);
-                    s.rects.push_back({X, Y, X + 32, Y + 32, 0xE0E0F014u, true});
-                    auto edge = [&](float x0, float y0, float x1, float y1) {
-                        render::RectDraw l;
-                        l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = 0xFFE040C0u, l.thickness = 1, l.line = true;
-                        s.rects.push_back(l);
-                    };
-                    if (!in(x, y - 1)) edge(X, Y, X + 32, Y);
-                    if (!in(x, y + 1)) edge(X, Y + 32, X + 32, Y + 32);
-                    if (!in(x - 1, y)) edge(X, Y, X, Y + 32);
-                    if (!in(x + 1, y)) edge(X + 32, Y, X + 32, Y + 32);
-                }
+                for (int x = 0; x < n; ++x)
+                    if (mask[size_t(y * n + x)] && tx0 + x >= 0 && ty0 + y >= 0 && tx0 + x < mw && ty0 + y < mh)
+                        seen[size_t(ty0 + y) * size_t(mw) + size_t(tx0 + x)] = 1;
         }
         const RECT box{LONG(cx - int(units->value(*sl, ut))), LONG(cy - int(units->value(*su, ut))), LONG(cx + int(units->value(*sr, ut)) + 1),
                        LONG(cy + int(units->value(*sd, ut)) + 1)};
@@ -7159,6 +7157,29 @@ void rangesScene(render::Scene& s, float dx, float dy) {
         shape(box, g, 0xEB5A50F0u, 2, false);
         shape(box, a, 0x5AAAF0F0u, 2, a == g);  // the same range as the ground weapon: blue dashes over the red line
     }
+    // The sight area: its tiles faintly filled (rows of seen tiles as one rectangle each) and its outline.
+    if (seen.empty()) return;
+    auto at = [&](int x, int y) { return x >= 0 && y >= 0 && x < mw && y < mh && seen[size_t(y) * size_t(mw) + size_t(x)]; };
+    auto edge = [&](float x0, float y0, float x1, float y1) {
+        render::RectDraw l;
+        l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = 0xFFE040C0u, l.thickness = 1, l.line = true;
+        s.rects.push_back(l);
+    };
+    for (int y = 0; y < mh; ++y)
+        for (int x = 0; x < mw; ++x) {
+            if (!at(x, y)) continue;
+            int run = x;
+            while (at(run + 1, y)) ++run;
+            s.rects.push_back({float(x * 32), float(y * 32), float((run + 1) * 32), float(y * 32 + 32), 0xE0E0F014u, true});
+            for (int k = x; k <= run; ++k) {
+                const float X = float(k * 32), Y = float(y * 32);
+                if (!at(k, y - 1)) edge(X, Y, X + 32, Y);
+                if (!at(k, y + 1)) edge(X, Y + 32, X + 32, Y + 32);
+            }
+            edge(float(x * 32), float(y * 32), float(x * 32), float(y * 32 + 32));
+            edge(float((run + 1) * 32), float(y * 32), float((run + 1) * 32), float(y * 32 + 32));
+            x = run;
+        }
 }
 
 DatTable* datTable(int tab) { return tab >= 0 && tab < int(gData.tables.size()) ? gData.tables[size_t(tab)].get() : nullptr; }
@@ -7334,9 +7355,10 @@ bool writeDatEdits(EudProject& pr, std::string& err, std::vector<std::string>* n
         if (gWorkspace == Workspace::Data) {  // the same tab and entry again (not a new place for Back)
             dataLoadForProject();
             if (tab >= 0 && tab < dataTabCount()) {
+                gDataTravelling = true;  // as Back and Forward go: the entry in view, no new Back step
                 dataShowTab(tab);
-                gData.entry = std::clamp(entry, tabFirstEntry(tab), std::max(tabFirstEntry(tab), tabEntries(tab) - 1));
-                if (size_t(tab) < gData.tabEntry.size()) gData.tabEntry[size_t(tab)] = gData.entry;
+                dataSelect(entry);
+                gDataTravelling = false;
             }
             dataRebuildList();
             if (gData.form) InvalidateRect(gData.form, nullptr, FALSE);
