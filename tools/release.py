@@ -11,6 +11,8 @@ the same way each time, after the owner approves the scope and the release notes
     publish <version> --yes     check, then commit the changelog and its pictures ("Changelog <version>"), tag
                                 v<version>, push main and the tag together, wait for CI and confirm the release.
                                 --dry-run: show the commands and change nothing.
+    untag <version>             Delete the tag v<version> here and on GitHub, when its run stopped before the release
+                                was made (then publish again). Refused when the release is there.
 
 CI uses these (they need only Python and git):
 
@@ -20,10 +22,11 @@ CI uses these (they need only Python and git):
                                 --images: the version's picture files, one on each line (the Discord post).
     title <version>             "StarDraft 2 - v<version> (build <commit>)", the commit of HEAD (7 characters, as
                                 cmake/build_info.cmake writes it: Check for updates compares the two).
-    ci-check <tag>              Before the tag's build: the tag is a version, its section and pictures are good, and
-                                the commit is on main.
+    ci-check <tag>              Before the tag's build: the tag is a version and the newest one, its section and
+                                pictures are good, and the commit is on main.
 """
 
+import calendar
 import json
 import os
 import re
@@ -152,7 +155,10 @@ def check_section(version, problems, warnings):
         if not (CHANGELOG.parent / r).is_file():
             problems.append(f"the picture {r} is not in docs/user/")
         elif not r.startswith(f"images/{version}/"):
-            warnings.append(f"the picture {r} is not in images/{version}/")
+            if git("ls-files", "--", f"docs/user/{r}", check=False):
+                warnings.append(f"the picture {r} is not in images/{version}/")
+            else:  # publish commits only images/<version>/: CI would not find it
+                problems.append(f"the picture {r} is not committed and not in images/{version}/")
         elif not re.fullmatch(r"[a-z0-9-]+\.png", Path(r).name):
             warnings.append(f"picture name {Path(r).name}: use small letters, digits and - (.png)")
     folder = IMAGES / version
@@ -200,6 +206,10 @@ def push_token():
 
 def gh_env(token):
     return {**os.environ, "GH_TOKEN": token}
+
+
+def push_env(token):
+    return {**os.environ, "RELEASE_PUSH_TOKEN": token, "GH_TOKEN": token}
 
 
 def push_git_args(token_env_name="RELEASE_PUSH_TOKEN"):
@@ -252,6 +262,13 @@ def cmd_ci_check(args):
         raise Fail(f"the tag {tag} is not v<version> (v0.5.0.8): no release")
     version = tag[1:]
     check_section(version, problems, warnings)
+    # Only the newest version is released: a run of an older tag again must not make it Latest (Check for updates
+    # would offer it to everyone). A post that did not go: Actions > Post screenshots to Discord.
+    remote = [l.split("refs/tags/v", 1)[1] for l in run(["git", "ls-remote", "--tags", "origin", "v*"], check=False).splitlines()
+              if "refs/tags/v" in l and not l.endswith("^{}")]
+    newer = [v for v in remote if VERSION_RE.match(v) and vkey(v) > vkey(version)]
+    if newer:
+        problems.append(f"v{max(newer, key=vkey)} is newer: an older tag makes no release")
     sha = os.environ.get("GITHUB_SHA") or git("rev-parse", "HEAD")
     if os.environ.get("GH_TOKEN"):  # the tag's commit is on main (main has it, or is it)
         status = run(["gh", "api", f"repos/{os.environ.get('GITHUB_REPOSITORY', REPO)}/compare/main...{sha}",
@@ -337,7 +354,7 @@ def cmd_publish(args):
         raise Fail("publish makes a public release: add --yes (or --dry-run to see the steps)")
     cmd_check(args)
     token = push_token()
-    env = {**os.environ, "RELEASE_PUSH_TOKEN": token, "GH_TOKEN": token}
+    env = push_env(token)
     tag = f"v{version}"
     open_paths = [l[3:].strip().strip('"') for l in git("status", "--porcelain", "--", "docs/user/CHANGELOG.md",
                                                          f"docs/user/images/{version}", f"tools/shots/{version}.json").splitlines()]
@@ -347,23 +364,39 @@ def cmd_publish(args):
         steps.append(["git", "commit", "-q", "-m", f"Changelog {version}"])
     steps.append(["git", "tag", tag])
     steps.append(["git", *push_git_args(), "push", "--atomic", "origin", "main", tag])
+    # main can move during the build: look again just before the tag
+    git("fetch", "--quiet", "origin", "main", check=False)
+    if git("rev-list", "--count", "HEAD..origin/main", check=False) not in ("", "0"):
+        raise Fail("GitHub's main has new commits: git pull --rebase, then publish again")
+    pushed_at = time.time()
     for s in steps:
         shown = " ".join(x if " " not in x else f'"{x}"' for x in s)
         print(("would run: " if dry else "> ") + shown)
-        if not dry:
+        if dry:
+            continue
+        try:
             run(s, env=env)
+        except Fail as e:
+            if "push" in s:  # nothing went to GitHub: take the tag back, so publish can run again
+                git("tag", "-d", tag, check=False)
+                raise Fail(f"{e}\nThe tag {tag} is deleted here; the commit stays. Fix the cause (git pull --rebase), "
+                           "then publish again.")
+            raise
     if dry:
         print("dry run: nothing changed")
         return
     sha = git("rev-parse", "HEAD")
-    # CI: the tag's run (its branch is the tag), to its end
+    # CI: the tag's run (its branch is the tag) made after the push, to its end. An older run of the same commit (a tag
+    # pushed again after untag) does not count.
     run_id, t = None, time.time()
     while not run_id and time.time() - t < 300:
         out = run(["gh", "run", "list", "--repo", REPO, "--workflow", "build.yml", "--branch", tag, "--limit", "5",
-                   "--json", "databaseId,headSha"], env=env, check=False)
-        for r in json.loads(out or "[]"):
-            if r["headSha"] == sha:
+                   "--json", "databaseId,headSha,createdAt"], env=env, check=False)
+        for r in json.loads(out or "[]"):  # newest first
+            made = calendar.timegm(time.strptime(r["createdAt"], "%Y-%m-%dT%H:%M:%SZ"))  # (UTC)
+            if r["headSha"] == sha and made >= pushed_at - 30:
                 run_id = r["databaseId"]
+                break
         if not run_id:
             time.sleep(10)
     if not run_id:
@@ -378,6 +411,22 @@ def cmd_publish(args):
         raise Fail(f"CI run {run_id}: {st['conclusion']}. gh run view {run_id} --log-failed; "
                    "docs/dev/DEVELOPING.md, \"When a release run fails\"")
     confirm(version, sha, env)
+
+
+def cmd_untag(args):
+    version = args[0]
+    tag = f"v{version}"
+    token = push_token()
+    env = push_env(token)
+    if run(["gh", "release", "view", tag, "--repo", REPO, "--json", "name"], env=env, check=False):
+        raise Fail(f"the release {tag} is there: a release that people can have is never moved. Make a new version.")
+    if git("tag", "-l", tag):
+        git("tag", "-d", tag)
+        print(f"deleted the tag {tag} here")
+    if run(["git", "ls-remote", "--tags", "origin", tag], check=False):
+        run(["git", *push_git_args(), "push", "origin", f":refs/tags/{tag}"], env=env)
+        print(f"deleted the tag {tag} on GitHub")
+    print(f"next: fix it on main, then publish {version} --yes")
 
 
 def confirm(version, sha, env):
@@ -468,10 +517,12 @@ def opt(args, name):
 
 
 COMMANDS = {"pending": (cmd_pending, 0), "notes": (cmd_notes, 1), "title": (cmd_title, 1), "ci-check": (cmd_ci_check, 1),
-            "check": (cmd_check, 1), "publish": (cmd_publish, 1), "shots": (cmd_shots, 1)}
+            "check": (cmd_check, 1), "publish": (cmd_publish, 1), "shots": (cmd_shots, 1), "untag": (cmd_untag, 1)}
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):  # texts in other languages, also into a pipe (-I ignores PYTHONUTF8)
+        stream.reconfigure(encoding="utf-8", errors="replace")
     if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS or len(sys.argv) - 2 < COMMANDS[sys.argv[1]][1]:
         print(__doc__)
         return 2

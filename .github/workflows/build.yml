@@ -105,33 +105,36 @@ jobs:
           python -I tools/release.py notes $version --tag $tag --out notes.md
           if ($LASTEXITCODE) { throw "No release text for $version" }
           $title = python -I tools/release.py title $version
-          # A run again (Re-run of a failed run) puts the zip and the text in the release that is there; only a new
-          # release is posted in Discord.
-          gh release view $tag --json name *> $null
-          $new = $LASTEXITCODE -ne 0
-          if ($new) {
-            gh release create $tag $zip --title $title --latest --verify-tag --notes-file notes.md
-          } else {
-            gh release upload $tag $zip --clobber
-            if (-not $LASTEXITCODE) { gh release edit $tag --title $title --notes-file notes.md --latest }
+          # A run again (Re-run of a failed run): a release that has its zip stays as it is (people can have that zip,
+          # and its symbols match it); a release without its zip gets this build's zip and symbols.
+          $assets = gh release view $tag --json assets --jq '.assets[].name' 2>$null
+          $exists = $LASTEXITCODE -eq 0
+          if ($exists -and @($assets) -contains $zip) {
+            Write-Output "The release $tag has its zip: nothing changes. A post that did not go: Actions > Post screenshots to Discord."
+            exit 0
           }
-          if ($LASTEXITCODE) { throw "The release $tag was not made ($LASTEXITCODE)" }
-          # The symbols (stardraft.pdb), to read crash reports' crash.dmp files: a draft release symbols-<tag>, which
-          # only the repository's members see, kept for good (an artifact goes after 90 days). Not on the release page.
+          # The symbols first (stardraft.pdb), so that the kept symbols match the zip that goes out: a draft release
+          # symbols-<tag>, which only the repository's members see, kept for good (an artifact goes after 90 days), to
+          # read crash reports' crash.dmp files. Not on the release page.
           $sym = "StarDraft-$version-symbols.zip"
           Compress-Archive -Force -Path build/Release/stardraft.pdb -DestinationPath $sym
           $kept = @(gh release list --limit 200 --json tagName --jq '.[].tagName')
           if ($kept -contains "symbols-$tag") {
-            gh release upload "symbols-$tag" $sym --clobber
+            gh release upload "symbols-$tag" $sym --clobber  # (its zip did not go out: these symbols replace them)
           } else {
             gh release create "symbols-$tag" $sym --draft --target $env:GITHUB_SHA --title "Symbols of $title" `
               --notes "stardraft.pdb of $title, for its crash reports (crash.dmp). A draft: only the repository's members see it."
           }
           if ($LASTEXITCODE) { throw "The symbols were not kept ($LASTEXITCODE)" }
-          if (-not $new) { Write-Output 'The release was there already: no Discord post.'; exit 0 }
+          if ($exists) {
+            gh release upload $tag $zip
+          } else {
+            gh release create $tag $zip --title $title --latest --verify-tag --notes-file notes.md
+          }
+          if ($LASTEXITCODE) { throw "The release $tag was not made ($LASTEXITCODE)" }
           # Discord: one post in each channel that has a webhook (a webhook posts in its own channel only), with the
           # screenshots of this version's changelog section as files (at most 10). A post that does not go makes the
-          # run fail after the release is out: post again with Actions > Post screenshots to Discord.
+          # run fail after the release is out: post again in that channel with Actions > Post screenshots to Discord.
           $hooks = @($env:DISCORD_RELEASE_WEBHOOK, $env:DISCORD_GENERAL_WEBHOOK) | Where-Object { $_ }
           if (-not $hooks) { throw 'No Discord webhook (DISCORD_RELEASE_WEBHOOK, DISCORD_GENERAL_WEBHOOK): the release is out, not posted' }
           $url = gh release view $tag --json url --jq .url
@@ -142,6 +145,9 @@ jobs:
             $form = @('-sS', '--fail-with-body', '-F', 'payload_json=<payload.json')
             for ($i = 0; $i -lt $images.Count; $i++) { $form += @('-F', "files[$i]=@$($images[$i])") }
             curl.exe @form $hook
-            if ($LASTEXITCODE -ne 0) { $failed++; Write-Warning "A Discord post did not go ($LASTEXITCODE)" }
+            if ($LASTEXITCODE -ne 0) {
+              $failed++
+              Write-Warning "The Discord post did not go to $(if ($hook -eq $env:DISCORD_RELEASE_WEBHOOK) { 'updates' } else { 'general' }) ($LASTEXITCODE)"
+            }
           }
           if ($failed) { throw "$failed Discord posts did not go: post again with Actions > Post screenshots to Discord" }

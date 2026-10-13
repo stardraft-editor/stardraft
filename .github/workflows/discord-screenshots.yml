@@ -9,6 +9,11 @@ on:
       version:
         description: The version, as in the changelog (for example 0.5.0.5)
         required: true
+      channel:
+        description: The channels to post in (the ones where the release's post did not go)
+        type: choice
+        options: [all, updates, general]
+        default: all
 
 jobs:
   post:
@@ -22,17 +27,21 @@ jobs:
           DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
           DISCORD_GENERAL_WEBHOOK: ${{ secrets.DISCORD_GENERAL_WEBHOOK }}
           VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ inputs.channel }}
         run: |
           $images = @(python -I tools/release.py notes $env:VERSION --images)
           if ($LASTEXITCODE) { throw "No section ## $($env:VERSION) in the changelog" }
-          if (-not $images) { throw "No screenshots in the section of $($env:VERSION)" }
+          # (no pictures: the post has the text only)
           # The text as the release's own post has it: "**<release name>** is out: <link>".
           $url = gh release view "v$($env:VERSION)" --json url --jq .url
           if ($LASTEXITCODE -or -not $url) { throw "No release v$($env:VERSION)" }
           $title = gh release view "v$($env:VERSION)" --json name --jq .name
           @{ content = "**$title** is out: $url" } | ConvertTo-Json | Set-Content payload.json -Encoding utf8NoBOM
-          $hooks = @($env:DISCORD_RELEASE_WEBHOOK, $env:DISCORD_GENERAL_WEBHOOK) | Where-Object { $_ }
-          if (-not $hooks) { throw 'No Discord webhook (DISCORD_RELEASE_WEBHOOK, DISCORD_GENERAL_WEBHOOK)' }
+          $hooks = @()
+          if ($env:CHANNEL -in 'all', 'updates') { $hooks += $env:DISCORD_RELEASE_WEBHOOK }
+          if ($env:CHANNEL -in 'all', 'general') { $hooks += $env:DISCORD_GENERAL_WEBHOOK }
+          $hooks = @($hooks | Where-Object { $_ })
+          if (-not $hooks) { throw "No Discord webhook for $($env:CHANNEL) (DISCORD_RELEASE_WEBHOOK, DISCORD_GENERAL_WEBHOOK)" }
           foreach ($hook in $hooks) {
             $form = @('-sS', '--fail-with-body', '-F', 'payload_json=<payload.json')
             for ($i = 0; $i -lt $images.Count; $i++) { $form += @('-F', "files[$i]=@$($images[$i])") }

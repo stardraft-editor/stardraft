@@ -198,11 +198,14 @@ updates finds the release. Each release keeps its own download count: `gh api re
 
 **When a release run fails.**
 
-- Before the release is there (the tag check, the build): fix it on `main`, delete the tag (`git tag -d v<version>`,
-  `git push origin :refs/tags/v<version>`) and run `release.py publish <version> --yes` again. Nobody has the release.
-- After the release is there (a Discord post did not go; the run is red): post again with Actions > Post screenshots
-  to Discord. Re-run of the run puts the zip and the text in the release again, without a post.
-- A release that people have is never moved: fix it in a new version.
+- Before the release is there (the tag check, the build): fix it on `main`, then `release.py untag <version>` (it
+  deletes the tag here and on GitHub) and `release.py publish <version> --yes` again. Nobody has the release.
+- The push stops (main moved on GitHub, or no network): publish deletes the tag here and keeps the "Changelog" commit.
+  `git pull --rebase`, then publish again.
+- After the release is there (a Discord post did not go; the run is red): post again in that channel with Actions >
+  Post screenshots to Discord. A re-run of the run changes nothing in a release that has its zip.
+- A release that people have is never moved, and only the newest version is released (CI refuses an older tag): fix
+  it in a new version.
 
 The website (`stardraft-editor/stardraft-editor.github.io`) needs no release step: its download button gets the newest
 release. A change to `docs/project/ROADMAP.md` builds it again (`.github/workflows/roadmap.yml`).
