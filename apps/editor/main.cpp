@@ -1282,6 +1282,16 @@ int mapSpriteAt(Editor& ed, int x, int y) {
     }
     return best >= 0 ? best : ed.spriteAt(x, y);
 }
+// True when mapSpriteAt(ed, x, y) finds a sprite, but faster: the overlay test only for the sprites near the point.
+bool spriteUnderPointer(Editor& ed, int x, int y) {
+    for (size_t i = 0; i < ed.sprites().size(); ++i) {
+        const MapSprite& m = ed.sprites()[i];
+        const int dx = int(m.x) - x, dy = int(m.y) - y;
+        if (dx * dx + dy * dy > 24 * 24 && !mapSpriteBox(ed, m).contains(x, y)) continue;
+        if (!spriteIsOverlay(int(i))) return true;
+    }
+    return false;
+}
 
 void diamondOutline(render::Scene& s, const std::set<std::pair<int, int>>& set, uint32_t rgba) {
     auto line = [&](float x0, float y0, float x1, float y1) {
@@ -4402,8 +4412,23 @@ int locationEdgesAt(float wx, float wy) {
 
 // The map view's cursor at a point of the view: the resize cursors on the selected location's edges and corners
 // (GitHub feedback #76), the move cursor while the camera moves, else the arrow.
+bool trigUnitPickActive();
 LPCWSTR mapCursorAt(int x, int y) {
     if (app.drag == Drag::Pan || app.drag == Drag::AutoPan) return IDC_SIZEALL;
+    if (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
+        // The move cursor where a press would pick and move a unit, doodad or sprite, and during that move.
+        if (app.drag == Drag::MoveUnits || app.drag == Drag::MoveDoodad || app.drag == Drag::MoveSprite) return IDC_SIZEALL;
+        if (app.drag != Drag::None || !app.ed || !app.ed->isOpen() || modeLayerHidden() || app.pasting || app.pastingItems ||
+            app.palette >= 0 || trigUnitPickActive())
+            return IDC_ARROW;
+        Editor& ed = *app.ed;
+        float wx, wy;
+        toWorld(x, y, wx, wy);
+        const bool hit = app.mode == Mode::Units     ? currentTool() == UPlace && ed.unitAt(int(wx), int(wy)) >= 0
+                         : app.mode == Mode::Doodads ? currentTool() == DPlace && ed.doodadAt(int(wx), int(wy)) >= 0
+                                                     : spriteUnderPointer(ed, int(wx), int(wy));
+        return hit ? IDC_SIZEALL : IDC_ARROW;
+    }
     if (app.mode != Mode::Locations || !app.ed || (app.drag != Drag::None && app.drag != Drag::LocResize)) return IDC_ARROW;
     int e = app.locEdges;
     if (app.drag == Drag::None) {
@@ -13803,6 +13828,8 @@ void trigStartUnitPick(TrigBlockRef ref, int param, std::vector<int> inner = {})
     setMessage(L"Click the unit to use. Esc goes back to the triggers.");
 }
 
+// True while a trigger action waits for a click on a unit in the map view.
+bool trigUnitPickActive() { return gUnitPick.active; }
 // The map view's click while picking: true when it was taken.
 bool trigUnitPickClick(float wx, float wy) {
     if (!gUnitPick.active || !app.ed) return false;
