@@ -160,6 +160,7 @@ enum : int {
     ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish
     ID_TOOL_KEY = 970,  // + the tool of the keys V, B, A, F: select, brush or place, spray, fill (GitHub feedback #98)
     ID_VIEW_RANGES = 975,  // View > Show ranges of the selected units (GitHub feedback #109)
+    ID_VIEW_MINIMAP = 976,  // View > Show minimap (GitHub feedback #127)
     ID_CRASH_MODE = 980,   // + Options > Crash reports: 0 ask, 1 send, 2 do not send
 };
 // View > Grid size: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
@@ -179,6 +180,7 @@ constexpr Mode kModeOrder[kModeCount] = {Mode::Terrain, Mode::Units, Mode::Dooda
 // on its own. Right-click the minimap or a toolbar to move it. Kept in HKCU\Software\StarDraft\Layout.
 struct Dock {
     bool minimapRight = false;
+    bool minimapHidden = false;  // View > Show minimap off: its side has the panel only (GitHub feedback #127)
     bool toolsRight[kModeCount] = {false, true, false, false, false};  // units on the right, the rest on the left
     int leftW = 280, rightW = 280, dataListW = 300;    // column widths, 96-dpi pixels; drag their edges
     bool triggerCode = false;                          // the Triggers workspace's code pane is shown
@@ -206,6 +208,7 @@ void loadDock() {
         if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Layout", name, RRF_RT_REG_DWORD, nullptr, &d, &size) == ERROR_SUCCESS) v = d != 0;
     };
     get(L"MinimapRight", gDock.minimapRight);
+    get(L"MinimapHidden", gDock.minimapHidden);
     for (int i = 0; i < kModeCount; ++i) get(kDockSideNames[i], gDock.toolsRight[i]);
     auto width = [](const wchar_t* name, int& v) {
         DWORD d = 0, size = sizeof d;
@@ -269,6 +272,7 @@ void saveDock() {
         RegSetValueExW(k, name, 0, REG_DWORD, reinterpret_cast<const BYTE*>(&d), sizeof d);
     };
     put(L"MinimapRight", gDock.minimapRight);
+    put(L"MinimapHidden", gDock.minimapHidden);
     {
         const DWORD v = DWORD(gDock.unitNames);
         RegSetValueExW(k, L"UnitNames", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&v), sizeof v);
@@ -3639,6 +3643,7 @@ void updateMenus() {
     CheckMenuItem(m, ID_EDIT_TERRAINDOODADS, app.copyDoodadsWithTerrain ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuItem(m, ID_VIEW_GRID, app.showGrid ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuItem(m, ID_VIEW_RANGES, gShowRanges ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(m, ID_VIEW_MINIMAP, gDock.minimapHidden ? MF_UNCHECKED : MF_CHECKED);
     {
         bool preset = false;
         for (int k = 0; k < int(std::size(kGridPresets)); ++k) {
@@ -3930,8 +3935,13 @@ void commandBody(int id) {
     }
     case ID_DOCK_MINI_LEFT:
     case ID_DOCK_MINI_RIGHT:
-        gDock.minimapRight = id == ID_DOCK_MINI_RIGHT;
+        gDock.minimapRight = id == ID_DOCK_MINI_RIGHT, gDock.minimapHidden = false;
         saveDock(), layout();
+        return;
+    case ID_VIEW_MINIMAP:
+        gDock.minimapHidden = !gDock.minimapHidden;
+        saveDock(), layout(), updateMenus();
+        setMessage(gDock.minimapHidden ? L"The minimap is hidden (View > Show minimap shows it again)" : L"The minimap shows");
         return;
     case ID_DOCK_TOOLS_LEFT:
     case ID_DOCK_TOOLS_RIGHT:
@@ -18763,8 +18773,9 @@ void layout() {
     if (std::find(others.begin(), others.end(), second) == others.end()) second = others.empty() ? app.mode : others.front();
     const bool secondShown = !others.empty();
     gPanelTab[toolsRight ? 1 : 0] = app.mode, gPanelTab[otherSide] = second;
-    const bool leftUsed = !miniRight || !toolsRight || (secondShown && otherSide == 0),
-               rightUsed = miniRight || toolsRight || (secondShown && otherSide == 1);
+    const bool miniShown = !gDock.minimapHidden;
+    const bool leftUsed = (miniShown && !miniRight) || !toolsRight || (secondShown && otherSide == 0),
+               rightUsed = (miniShown && miniRight) || toolsRight || (secondShown && otherSide == 1);
     const int leftW = scale(gDock.leftW), rightW = scale(gDock.rightW);
     const int lx = left, rx = int(rc.right) - rightW;
     const int viewL = left + (leftUsed ? leftW : 0), viewR = int(rc.right) - (rightUsed ? rightW : 0);
@@ -18776,7 +18787,9 @@ void layout() {
     if (app.ed && app.ed->isOpen() && app.ed->width()) mini = miniW * app.ed->height() / app.ed->width();
     mini = std::clamp(mini, scale(40), std::max(scale(40), (h - mtop) / 2));
     const int miniX = miniRight ? rx : lx;
-    MoveWindow(app.minimap, miniX + pad, mtop + pad, miniW, mini, TRUE);
+    if (!miniShown) mini = -pad;  // (no room for it: the panel starts at the top)
+    ShowWindow(app.minimap, miniShown ? SW_SHOWNA : SW_HIDE);
+    if (miniShown) MoveWindow(app.minimap, miniX + pad, mtop + pad, miniW, mini, TRUE);
     // The modes: one segmented control in the top tool bar, after the file and edit icons (the segments side by side,
     // with a line between them).
     {
@@ -18994,6 +19007,7 @@ HMENU buildMenu() {
     }
     AppendMenuW(view, MF_STRING, ID_VIEW_TOWNS, L"Show town a&reas");
     AppendMenuW(view, MF_STRING, ID_VIEW_RANGES, L"Show ranges of the selected u&nits");
+    AppendMenuW(view, MF_STRING, ID_VIEW_MINIMAP, L"Show &minimap");
     AppendMenuW(view, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(view, MF_STRING, ID_VIEW_ZOOMIN, L"Zoom &in\t+");
     AppendMenuW(view, MF_STRING, ID_VIEW_ZOOMOUT, L"Zoom &out\t-");
@@ -19225,6 +19239,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
         AppendMenuW(m, MF_STRING | (right ? 0 : MF_CHECKED), mini ? ID_DOCK_MINI_LEFT : ID_DOCK_TOOLS_LEFT, L"Left");
         AppendMenuW(m, MF_STRING | (right ? MF_CHECKED : 0), mini ? ID_DOCK_MINI_RIGHT : ID_DOCK_TOOLS_RIGHT, L"Right");
+        if (mini) AppendMenuW(m, MF_STRING, ID_VIEW_MINIMAP, L"Hide");
         if (pt.x == -1 && pt.y == -1) GetCursorPos(&pt);
         const int pick = popupMenu(m, TPM_RIGHTBUTTON, pt.x, pt.y, hwnd);
         DestroyMenu(m);
@@ -25356,6 +25371,25 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(gTiles.list, WM_LBUTTONUP, 0, at(2, 1));
                 const size_t want = std::min<size_t>(gTiles.values.size(), size_t(std::min(3, gTiles.perRow)) * 2);
                 o << "the box selects the tiles in it: " << gTiles.chosen.size() << " of " << want << " " << (gTiles.chosen.size() == want ? "yes" : "NO") << "\n";
+                continue;
+            }
+            if (s == "minimaphide:") {  // minimaphide.txt, minimaphide.png: View > Show minimap off: the panel takes the whole side (#127)
+                std::ofstream o(fs::path(datashots) / "minimaphide.txt");
+                setWorkspace(Workspace::Map);
+                for (int i = 0; i < 3; ++i) pump();
+                RECT before{};
+                GetWindowRect(app.tool, &before);
+                if (gDock.minimapHidden) command(ID_VIEW_MINIMAP);
+                command(ID_VIEW_MINIMAP);  // hide
+                for (int i = 0; i < 3; ++i) pump();
+                RECT after{};
+                GetWindowRect(app.tool, &after);
+                const bool hidden = !IsWindowVisible(app.minimap);
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "minimaphide.png", app.main);
+                command(ID_VIEW_MINIMAP);  // show again
+                o << "the minimap hides, and the panel moves up " << (hidden && after.top < before.top ? "yes" : "NO") << " (" << before.top << " -> "
+                  << after.top << "), shows again " << (IsWindowVisible(app.minimap) ? "yes" : "NO") << "\n";
                 continue;
             }
             if (s == "isomnull:") {  // isomnull.txt, isomnull.png: the isometric brush paints on null tiles (#118)
