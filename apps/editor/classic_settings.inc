@@ -497,7 +497,13 @@ LRESULT CALLBACK classicPageProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         const int pad = scale(ui::kDialogPad), rowH = scale(ui::kFieldH), gap = scale(8), step = rowH + gap;  // fields 24, rows 32 apart
         const int listW = scale(250), x0 = pad + listW + pad * 2, labelW = scale(130), numW = scale(90);
         const int x1 = x0 + labelW + numW + pad * 3;  // the players column
-        const int nameColW = scale(80), defColW = scale(90), aColW = t == kClassicUpgrades ? scale(100) : scale(110);
+        // The Default column: as wide as its text in the language in use (with the check box).
+        HDC mdc = GetDC(hwnd);
+        HGDIOBJ mof = SelectObject(mdc, app.font);
+        SIZE defText{};
+        GetTextExtentPoint32W(mdc, L"Default", 7, &defText);  // (translated by the wrapper)
+        SelectObject(mdc, mof), ReleaseDC(hwnd, mdc);
+        const int nameColW = std::max<int>(scale(80), defText.cx + scale(8)), defColW = std::max<int>(scale(90), defText.cx + scale(34)), aColW = t == kClassicUpgrades ? scale(100) : scale(110);
         const int right = x1 + nameColW + defColW + aColW * 2;
         auto font = [](HWND h, HFONT f = nullptr) { SendMessageW(h, WM_SETFONT, WPARAM(f ? f : app.font), TRUE); };
         auto label = [&](const std::wstring& s, int x, int y, int w, bool dim = false) {

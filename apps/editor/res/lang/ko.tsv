@@ -1732,3 +1732,25 @@ Automatic	자동
 Follow the language of Windows	Windows 언어를 따릅니다
 Applies at the next start	다음 시작 때 적용됩니다
 The language changes at the next start of StarDraft	StarDraft를 다음에 시작하면 언어가 바뀝니다
+Randomize seed	시드 무작위
+Randomize values	값 무작위
+ground and air	지상 및 공중
+air	공중
+ground	지상
+Rename the unit (empty: the game's name)	유닛 이름 바꾸기 (비우면 게임의 이름)
+Map unit limit	맵 유닛 제한
+Standard maps	일반 맵
+EUD projects	EUD 프로젝트
+Default value: 3400	기본값: 3400
+Default value: 1700	기본값: 1700
+StarCraft without mods takes at most 3400 units in a map.	모드가 없는 스타크래프트는 맵에 유닛을 최대 3400개까지 받습니다.
+The most units in a map   1 to 65535	맵의 최대 유닛 수   1 ~ 65535
+Player 4	플레이어 4
+Player 5	플레이어 5
+Player 6	플레이어 6
+Player 7	플레이어 7
+Player 8	플레이어 8
+Player 9	플레이어 9
+Player 10	플레이어 10
+Player 11	플레이어 11
+Player 12	플레이어 12

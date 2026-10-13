@@ -1731,3 +1731,25 @@ Automatic	Automático
 Follow the language of Windows	Sigue el idioma de Windows
 Applies at the next start	Se aplica al iniciar StarDraft de nuevo
 The language changes at the next start of StarDraft	El idioma cambia al iniciar StarDraft de nuevo
+Randomize seed	Semilla aleatoria
+Randomize values	Valores aleatorios
+ground and air	tierra y aire
+air	aire
+ground	tierra
+Rename the unit (empty: the game's name)	Cambiar el nombre de la unidad (vacío: el nombre del juego)
+Map unit limit	Límite de unidades del mapa
+Standard maps	Mapas estándar
+EUD projects	Proyectos EUD
+Default value: 3400	Valor predeterminado: 3400
+Default value: 1700	Valor predeterminado: 1700
+StarCraft without mods takes at most 3400 units in a map.	StarCraft sin mods admite como máximo 3400 unidades en un mapa.
+The most units in a map   1 to 65535	Máximo de unidades en un mapa   1 a 65535
+Player 4	Jugador 4
+Player 5	Jugador 5
+Player 6	Jugador 6
+Player 7	Jugador 7
+Player 8	Jugador 8
+Player 9	Jugador 9
+Player 10	Jugador 10
+Player 11	Jugador 11
+Player 12	Jugador 12
