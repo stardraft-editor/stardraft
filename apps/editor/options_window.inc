@@ -39,7 +39,7 @@ void optionsPaint(HWND hwnd) {
     const int pad = scale(ui::kDialogPad), rowH = scale(ui::kFormRowH), fieldH = scale(ui::kFieldH);
     const int footerH = pad + scale(ui::kButtonH) + pad, contentBottom = std::max<int>(0, rc.bottom - footerH);
     FormLayout l{};
-    l.x0 = pad, l.labelW = scale(150), l.rowH = rowH, l.colRight = rc.right - pad, l.colW = l.colRight - l.x0;
+    l.x0 = pad, l.labelW = scale(210), l.rowH = rowH, l.colRight = rc.right - pad, l.colW = l.colRight - l.x0;
     const int fx = l.x0 + l.labelW;  // the field column
     int y = pad - gOptions.scroll;
     IntersectClipRect(mem, 0, 0, rc.right, contentBottom);
@@ -112,13 +112,13 @@ void optionsPaint(HWND hwnd) {
     y += rowH;
     y += volumeRow(mem, l.x0, y, l.labelW, std::min<int>(l.colRight, fx + scale(260)), hitsOut()) + pad;  // (an SFX entry has it too)
 
-    // Mouse: what the middle button does on the map (a right-drag always drags it).
+    // Mouse: what holding the middle button does on the map (a right-drag always drags it).
     y = ui::sectionHeader(mem, l, y, L"Mouse");
-    ui::fieldLabel(mem, l, y, L"Middle button", false);
+    ui::fieldLabel(mem, l, y, L"Middle mouse click and hold", false);
     segmented(y,
-              {{L"Scroll", L"The farther the mouse is from where you pressed, the faster the map moves toward it (default)"},
-               {L"Drag", L"The map moves with the mouse, as with a right-drag"}},
-              gMiddleDrag ? 1 : 0, [](int i) { command(ID_MIDDLE_MODE + i); }, "middle");
+              {{L"Drag map", L"The map moves with the mouse, as with a right-drag"},
+               {L"Pan map", L"The farther the mouse is from where you pressed, the faster the map moves toward it (default)"}},
+              gMiddleDrag ? 0 : 1, [](int i) { command(ID_MIDDLE_MODE + (i == 0 ? 1 : 0)); }, "middle");
     y += rowH + pad;
 
     // Unit names: a unit with a custom name (the map's unit settings), in every list that names it.
@@ -296,7 +296,7 @@ void showOptions() {
     MONITORINFO mi{sizeof mi};
     GetMonitorInfoW(MonitorFromRect(&mr, MONITOR_DEFAULTTONEAREST), &mi);
     const int workH = mi.rcWork.bottom - mi.rcWork.top;
-    RECT r{0, 0, scale(600), std::min(scale(460), workH - scale(80))};
+    RECT r{0, 0, scale(720), std::min(scale(820), workH - scale(80))};
     AdjustWindowRectExForDpi(&r, style, FALSE, ex, UINT(app.dpi));
     const int w = r.right - r.left, h = r.bottom - r.top;
     int x = (mr.left + mr.right - w) / 2, y = std::max<int>(mi.rcWork.top, (mr.top + mr.bottom - h) / 2);

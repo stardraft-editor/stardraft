@@ -162,7 +162,7 @@ enum : int {
     ID_LAYER = 990,         // + View > Layers: 0 terrain, 1 doodads, 2 sprites, 3 units
     ID_RAIL_KEY = 1000,     // + n: Ctrl+1 to Ctrl+9, the n-th item of the side bar (the tab's mode: a classic map or a project)
     ID_CRASH_MODE = 980,   // + Options > Crash reports: 0 ask, 1 send, 2 do not send
-    ID_MIDDLE_MODE = 984,  // + Options > Middle button: 0 scroll (the default), 1 drag the map
+    ID_MIDDLE_MODE = 984,  // + Options > Middle mouse click and hold: 0 pan the map (the default), 1 drag the map
 };
 // View > Grid size: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
 struct GridPreset {
@@ -322,8 +322,8 @@ void setCrashReports(int mode) {
     const DWORD v = DWORD(gCrashReports);
     RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"CrashReports", REG_DWORD, &v, sizeof v);
 }
-// Options > Middle button: false scroll (the map moves toward the mouse, the faster the farther the mouse is from
-// where the button went down; the default), true drag (the map follows the mouse, as with a right-drag).
+// Options > Middle mouse click and hold: false pan the map (it moves toward the mouse, the faster the farther the mouse
+// is from where the button went down; the default), true drag the map (it follows the mouse, as with a right-drag).
 bool gMiddleDrag = false;
 // Options: the most units a map may have (GitHub feedback #103): standard maps, and maps of EUD projects.
 int gUnitLimitClassic = 3400, gUnitLimitEud = 1700;
@@ -2858,8 +2858,12 @@ std::wstring playabilityText();
 std::string gTrigBuildError;
 bool trigShowBuildError(const std::string& logLine);
 
+void dataCommitEdit();
+void stringsCommitEdit();
+
 void compileProject() {
     mapPageFlush();  // a text being typed on a map page is in the build too
+    dataCommitEdit(), stringsCommitEdit();  // and a value or text being typed in the Data workspace
     EudProject* pr = activeProject();
     if (!app.ed || !pr) {
         setMessage(L"Build needs an EUD project. Use File > Project > New project or Open project.");
@@ -4330,7 +4334,7 @@ void commandBody(int id) {
             const DWORD on = gMiddleDrag ? 1 : 0;
             RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"MiddleDrag", REG_DWORD, &on, sizeof on);
         }
-        setMessage(gMiddleDrag ? L"The middle button drags the map" : L"The middle button scrolls the map");
+        setMessage(gMiddleDrag ? L"Middle mouse click and hold drags the map" : L"Middle mouse click and hold pans the map");
         break;
     case ID_OPT_LANG:
     case ID_OPT_LANG + 1:
@@ -7064,6 +7068,8 @@ void dataFormRepaint() {
 // weapons.dat: the project's (with its edits) or the game's. A range counts from the unit's edge, as the game's.
 void dataLoadForProject();
 void dataRebuildList();
+void dataShowTab(int tab);
+void dataSelect(int u);
 const DatTable* rangeTable(const std::string& name) {
     if (activeProject()) dataLoadForProject();  // the project's tables with their saved edits (once; then at once)
     if (gData.project && gData.project == activeProject())
@@ -7255,6 +7261,7 @@ void dataLoadForProject() {
     gData.tables = loadDatTables(*pr, err);
     gData.undo.clear(), gData.redo.clear(), gData.saved.clear();
     for (const auto& t : gData.tables) gData.saved.push_back(t ? t->bytes() : Bytes{});
+    ++gData.edits;  // other tables: the caches keyed on the edit count (sprites, pictures, references) read them again
 }
 
 // Before a build: every table's edits saved, and generated/<name>.eps written for each that has some.
@@ -7284,8 +7291,15 @@ bool writeDatEdits(EudProject& pr, std::string& err, std::vector<std::string>* n
     }
     const bool ok = pr.writeGenerated(list, err) && writeExtrasEdits(pr, err);
     if (ok && reread) {  // the repaired files load now: the Data workspace takes them (now when it shows, else at its next show)
+        const int tab = gData.datTab, entry = gData.entry;
         gData.project = nullptr, gData.tables.clear();
-        if (gWorkspace == Workspace::Data) dataLoadForProject(), dataRebuildList();
+        if (gWorkspace == Workspace::Data) {  // the same tab and entry again
+            dataLoadForProject();
+            if (tab >= 0 && tab < dataTabCount()) dataShowTab(tab);
+            dataSelect(entry);
+            dataRebuildList();
+            if (gData.form) InvalidateRect(gData.form, nullptr, FALSE);
+        }
     }
     return ok;
 }
@@ -17464,7 +17478,7 @@ void cancelStep() {
 
 LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     static int panX = 0, panY = 0;
-    static bool panByMiddle = false;  // the Pan drag is the middle button's (Options > Middle button > Drag), not a right-drag
+    static bool panByMiddle = false;  // the Pan drag is the middle button's (Options: Drag map), not a right-drag
     // Middle button: autoscroll. The camera keeps moving toward the cursor, at a speed growing with its
     // distance from where the button went down, until the button is released.
     static int anchorX = 0, anchorY = 0, curX = 0, curY = 0;
@@ -17519,10 +17533,10 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_MBUTTONDOWN:  // the middle button scrolls the map: the farther the mouse from where it was pressed, the faster
         SetFocus(hwnd);
+        if (app.drag == Drag::Pan) return 0;  // a right-drag goes on
         SetCapture(hwnd);
         panX = anchorX = curX = GET_X_LPARAM(lp), panY = anchorY = curY = GET_Y_LPARAM(lp);
-        if (gMiddleDrag) {  // Options > Middle button > Drag: the map follows the mouse, as with a right-drag
-            if (app.drag == Drag::Pan) return 0;  // a right-drag goes on
+        if (gMiddleDrag) {  // Options > Middle mouse click and hold > Drag map: the map follows the mouse, as with a right-drag
             app.drag = Drag::Pan, panByMiddle = true;
             SetCursor(LoadCursor(nullptr, IDC_SIZEALL));
             return 0;
@@ -17534,7 +17548,7 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_RBUTTONUP: {
         const bool wasDown = std::exchange(gRightDown, false);
-        if (wasDown && GetCapture() == hwnd && app.drag != Drag::Pan) ReleaseCapture();
+        if (wasDown && GetCapture() == hwnd && app.drag != Drag::Pan && !(wp & MK_MBUTTON)) ReleaseCapture();  // (a held middle button keeps it)
         if (app.drag == Drag::Pan && panByMiddle) return 0;  // a middle-button drag goes on
         if (app.drag == Drag::Pan) {  // the end of a right-drag: the camera stays there (no menu)
             app.drag = Drag::None;
@@ -17561,7 +17575,9 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_MBUTTONUP: {
-        if (app.drag == Drag::AutoPan || (app.drag == Drag::Pan && panByMiddle)) app.drag = Drag::None, panByMiddle = false, ReleaseCapture();
+        if (app.drag == Drag::AutoPan || (app.drag == Drag::Pan && panByMiddle)) app.drag = Drag::None, panByMiddle = false;
+        if (wp & MK_RBUTTON) gRightX = GET_X_LPARAM(lp), gRightY = GET_Y_LPARAM(lp);  // a right-drag from here on starts here
+        if (GetCapture() == hwnd && !(wp & (MK_LBUTTON | MK_RBUTTON))) ReleaseCapture();
         KillTimer(hwnd, kAutoPanTimer);
         app.dirty = true;
         return 0;
@@ -25760,7 +25776,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(app.view, WM_MBUTTONUP, 0, MAKELPARAM(500, 300));
                 o << "the middle button scrolls the map while held " << (app.camX > x0 && std::abs(app.camY - y0) < 1 ? "yes" : "NO") << " (" << x0
                   << " -> " << app.camX << ")\n";
-                // Options > Middle button > Drag (set here, not through the command, so the user's setting stays): the map
+                // Options > Middle mouse click and hold > Drag map (set here, not through the command, so the user's setting stays): the map
                 // follows the mouse, as with a right-drag, and does not keep moving while the mouse stands still.
                 const bool middleDrag = std::exchange(gMiddleDrag, true);
                 centerOn(app.ed->width() * 16.0f, app.ed->height() * 16.0f, 1);
@@ -25778,9 +25794,14 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 const bool rightKeeps = app.drag == Drag::Pan && std::abs(x2 - 50.0f / app.zoom - app.camX) < 0.01f;
                 SendMessageW(app.view, WM_MBUTTONUP, 0, MAKELPARAM(550, 300));
                 gMiddleDrag = middleDrag;
-                o << "Middle button: Drag: the map follows the mouse " << (std::abs(moved - 100.0f / app.zoom) < 0.01f && std::abs(app.camY - y1) < 0.01f ? "yes" : "NO")
+                o << "Middle mouse click and hold: Drag map: the map follows the mouse " << (std::abs(moved - 100.0f / app.zoom) < 0.01f && std::abs(app.camY - y1) < 0.01f ? "yes" : "NO")
                   << " (" << x1 << " -> " << x1 - moved << "), and stays when the mouse stays " << (still ? "yes" : "NO") << ", a right click does not end it "
                   << (rightKeeps ? "yes" : "NO") << ", the drag ends on release " << (app.drag == Drag::None ? "yes" : "NO") << "\n";
+                // Esc while the middle button is held, then the release: the view does not keep the mouse.
+                SendMessageW(app.view, WM_MBUTTONDOWN, MK_MBUTTON, MAKELPARAM(400, 300));
+                cancelStep();
+                SendMessageW(app.view, WM_MBUTTONUP, 0, MAKELPARAM(400, 300));
+                o << "after Esc during a middle-button press, the release gives the mouse back " << (GetCapture() != app.view && app.drag == Drag::None ? "yes" : "NO") << "\n";
                 continue;
             }
             if (s == "loadfail:") {  // loadfail.txt: a triggers.json that does not load is not saved over; once repaired, Build takes it
