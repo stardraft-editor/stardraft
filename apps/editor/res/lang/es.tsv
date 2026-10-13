@@ -1762,3 +1762,22 @@ Remove from favorites	Quitar de favoritos
 Show the favorites	Mostrar los favoritos
 &Fill selection with the selected tiles	&Rellenar la selección con las fichas seleccionadas
 Fill: in the selection, all of it; else the connected tiles of one value. Several tiles selected in the list: each tile at random. Shift+click: every tile of that value (in the selection, if there is one).	Rellenar: en la selección, toda ella; si no, las fichas conectadas de un valor. Varias fichas seleccionadas en la lista: cada ficha al azar. Mayús+clic: todas las fichas de ese valor (en la selección, si hay una).
+Crash reports	Informes de errores
+Ask	Preguntar
+Do not send	No enviar
+&Send	&Enviar
+&Always send	Enviar &siempre
+Do &not send	&No enviar
+Crash report	Informe de error
+After a crash, StarDraft asks at the next start if it can send the report (default)	Tras un error, StarDraft pregunta al iniciar si puede enviar el informe (predeterminado)
+The reports stay on this computer	Los informes se quedan en este equipo
+Show &minimap	Mostrar &minimapa
+Hide	Ocultar
+La&yers	&Capas
+&Terrain	&Terreno
+tiles	fichas
+diamonds	rombos
+If ▾	Si ▾
+For each ▾	Para cada ▾
+Add an If block: one of the kinds of If	Agregar un bloque Si: uno de los tipos de Si
+Add a loop: For each player, unit, number or item, or Repeat	Agregar un bucle: para cada jugador, unidad, número o elemento, o Repetir

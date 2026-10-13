@@ -1763,3 +1763,22 @@ Remove from favorites	즐겨찾기에서 제거
 Show the favorites	즐겨찾기 표시
 &Fill selection with the selected tiles	선택 영역을 선택한 타일로 채우기(&F)
 Fill: in the selection, all of it; else the connected tiles of one value. Several tiles selected in the list: each tile at random. Shift+click: every tile of that value (in the selection, if there is one).	채우기: 선택 영역 안에서는 전체를, 그 밖에서는 같은 값으로 이어진 타일을 채웁니다. 목록에서 여러 타일을 선택하면 각 타일을 무작위로 놓습니다. Shift+클릭: 그 값의 모든 타일(선택 영역이 있으면 그 안에서).
+Crash reports	충돌 보고서
+Ask	묻기
+Do not send	보내지 않기
+&Send	보내기(&S)
+&Always send	항상 보내기(&A)
+Do &not send	보내지 않기(&N)
+Crash report	충돌 보고서
+After a crash, StarDraft asks at the next start if it can send the report (default)	충돌 후 다음 시작 때 보고서를 보내도 되는지 묻습니다(기본값)
+The reports stay on this computer	보고서는 이 컴퓨터에 남습니다
+Show &minimap	미니맵 표시(&M)
+Hide	숨기기
+La&yers	레이어(&Y)
+&Terrain	지형(&T)
+tiles	타일
+diamonds	다이아몬드
+If ▾	If ▾
+For each ▾	For each ▾
+Add an If block: one of the kinds of If	If 블록 추가: If의 종류 중 하나
+Add a loop: For each player, unit, number or item, or Repeat	반복 추가: 각 플레이어, 유닛, 숫자 또는 항목마다, 또는 반복
