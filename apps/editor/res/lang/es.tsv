@@ -27,7 +27,7 @@ Protoss 	Protoss
 (Terrain editing needs ISOM data. Only Badlands has it now.)	(La edición de terreno necesita datos ISOM. Por ahora solo Badlands los tiene.)
 Select	Seleccionar
 Edit	Editar
-%d, %d  (tile %d, %d)	%d, %d  (tile %d, %d)
+%d, %d  (tile %d, %d)	%d, %d  (casilla %d, %d)
 %zu selected	%zu seleccionados
 %zu fps  %d sprites	%zu fps  %d sprites
 Jan	ene
@@ -111,7 +111,7 @@ the built map: Build (Ctrl+B) writes it	el mapa compilado: Compilar (Ctrl+B) lo 
 your code (epScript). To add more, use File > Project > Add script.	su código (epScript). Para añadir más, use Archivo > Proyecto > Añadir script.
 StarDraft 2 makes the folder 	StarDraft 2 crea la carpeta 
 \\ in the location above:\r\n\r\n	\\ en la ubicación de arriba:\r\n\r\n
-\r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nEn la primera compilación, StarDraft 2 descarga euddraft de GitHub a su propia carpeta.\r\nStarDraft no cambia otras copias de este equipo. Un mapa que abra\r\nsigue siendo un mapa normal. Solo se puede compilar un proyecto.
+\r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nEn la primera compilación, StarDraft 2 descarga euddraft de GitHub a su propia carpeta.\r\nStarDraft 2 no cambia otras copias de este equipo. Un mapa que abra\r\nsigue siendo un mapa normal. Solo se puede compilar un proyecto.
 Name	Nombre
 Location	Ubicación
 Browse…	Examinar…
@@ -205,7 +205,7 @@ StarDraft 2	StarDraft 2
 Trigger code needs an EUD project	El código de disparadores necesita un proyecto EUD
 StarCraft can start this map	StarCraft puede iniciar este mapa
 Check that StarCraft can start the map	Comprobar que StarCraft puede iniciar el mapa
- toolbar on the 	 barra de herramientas en el 
+ toolbar on the 	 barra de herramientas a la 
 Gave 	Dadas 
  selected units to Player 	 unidades seleccionadas al jugador 
  (resources and critters stay neutral)	 (los recursos y los animales siguen neutrales)
@@ -324,7 +324,7 @@ the Map workspace	el espacio de trabajo Mapa
 Data	Datos
 Data: the map's units, upgrades and technologies	Datos: las unidades, mejoras y tecnologías del mapa
 the Data workspace	el espacio de trabajo Datos
-Triggers	Triggers
+Triggers	Disparadores
 Classic triggers	Disparadores clásicos
 the Triggers workspace	el espacio de trabajo Disparadores
 Classic	Clásico
@@ -333,14 +333,14 @@ Briefing	Briefing
 the Briefing workspace	el espacio de trabajo Briefing
 Assets	Recursos
 the Assets workspace	el espacio de trabajo Recursos
-Properties	Ajustes
+Properties	Propiedades
 Map properties: the title, size and tileset, players and forces (Ctrl+M)	Propiedades del mapa: título, tamaño y tileset, jugadores y fuerzas (Ctrl+M)
 Project	Proyecto
 the Project page	la página Proyecto
 Build the map of the project with euddraft (Ctrl+B)	Compilar el mapa del proyecto con euddraft (Ctrl+B)
 Could not read the project's 	No se pudo leer lo siguiente del proyecto: 
-'s values	: valores de
-'s values onto 	: valores en 
+'s values	 (valores)
+'s values onto 	 (valores) en 
  fields)	 campos)
 Reset 	Restablecer 
  to the game's values	 a los valores del juego
@@ -529,8 +529,8 @@ Tech data	Datos de tecnología
 Orders	Órdenes
 SFX data	Datos SFX
 Port data	Datos Port
-Showing changed 	Mostrando los cambiados 
-Showing all 	Mostrando todos 
+Showing changed 	Mostrando solo cambios: 
+Showing all 	Mostrando todo: 
 Search units	Buscar unidades
 Changed	Cambiado
 Triggers are in the Triggers workspace of a project.	Los disparadores están en el espacio de trabajo Disparadores de un proyecto.
@@ -654,7 +654,7 @@ Buttons of 	Botones de
 Buttons	Botones
 Search: button	Buscar: botón
 Advanced (eudplib names)	Avanzado (nombres de eudplib)
-Search the 	Buscar en 
+Search the 	Buscar propiedades de 
 's properties	propiedades de
 All, by number	Todos, por número
 Search: 	Buscar: 
@@ -726,7 +726,7 @@ Gray-green	Gris verdoso
 Blue-gray	Gris azulado
 Turquoise	Turquesa
 A player's color (as the game shows that player's color)	El color de un jugador (tal como el juego muestra el color de ese jugador)
-'s name	nombre de
+'s name	 — nombre
 game text 	texto del juego 
 HEX	HEX
 text (EPD)	texto (EPD)
@@ -883,7 +883,7 @@ Recent &maps	&Mapas recientes
 Recent pro&jects	Pro&yectos recientes
 &Project	&Proyecto
 &Save\tCtrl+S	&Guardar\tCtrl+S
-Save &as…\tCtrl+Shift+S	Guardar &como…\tCtrl+Shift+S
+Save &as…\tCtrl+Shift+S	Guardar com&o…\tCtrl+Shift+S
 &Close\tCtrl+W	&Cerrar\tCtrl+W
 Close a&ll\tCtrl+Shift+W	Cerrar &todo\tCtrl+Shift+W
 E&xit	&Salir
@@ -928,7 +928,7 @@ Control &kit	&Kit de controles
 &Players and forces\tCtrl+P	&Jugadores y fuerzas\tCtrl+P
 Classic &triggers	&Disparadores clásicos
 &Check that StarCraft can start the map	&Comprobar que StarCraft puede iniciar el mapa
-&Scenario	&Escenario
+&Scenario	Es&cenario
 &Do not snap	&No ajustar
 Snap to &tiles (32 px)	Ajustar a &casillas (32 px)
 Snap to &half tiles (16 px)	Ajustar a &medias casillas (16 px)
@@ -1593,7 +1593,7 @@ Holds	Contiene
 Example	Ejemplo
 Watch out	Atención
 Effects and cost	Efectos y coste
-About 	Acerca de 
+About 	Alrededor de 
  each time it runs	 cada vez que se ejecuta
 , and the blocks in it.	, y los bloques que contiene.
 the help for 	la ayuda de 
@@ -1813,3 +1813,47 @@ A new language shows after a restart	Un nuevo idioma se muestra después de rein
 Text color	Color del texto
 Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, each tile of the brush gets one of the selected tiles at random.	Pincel: coloca el tile seleccionado en la lista Tiles, con el tamaño y la forma del pincel. Con varios tiles seleccionados, cada tile del pincel recibe uno de los tiles seleccionados al azar.
 . At the next start, StarDraft 2 asks if you want to send the crash report.	. En el próximo inicio, StarDraft 2 le pregunta si quiere enviar el informe de fallo.
+&Pin to the top	&Fijar arriba
+Un&pin	&Desfijar
+\r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft 2 does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nEn la primera compilación, StarDraft 2 descarga euddraft de GitHub a su propia carpeta.\r\nStarDraft 2 no cambia otras copias de este equipo. Un mapa que abra\r\nsigue siendo un mapa normal. Solo se puede compilar un proyecto.
+ accepts the current player or Player 1 to Player 12	 acepta el jugador actual o del Jugador 1 al Jugador 12
+ accepts the current player, Player 1 to Player 8, all players, or a force	 acepta el jugador actual, del Jugador 1 al Jugador 8, todos los jugadores o una fuerza
+ are hidden (View > Layers)	 se ocultan (Ver > Capas)
+ has the same type, owner and position. Move one of them, or StarDraft can find the wrong unit	 tiene el mismo tipo, propietario y posición. Mueva una de ellas, o StarDraft podría encontrar la unidad equivocada
+ tiles)	 tiles)
+ tiles: Brush, Spray and Fill place one of them at random	 tiles: Pincel, Spray y Relleno colocan uno de ellos al azar
+ units: click to place them, and again to place more. Right-click or Esc stops.	 unidades: haga clic para colocarlas, y otra vez para colocar más. Clic derecho o Esc detiene.
+ units: the limit (Program options > Map unit limit)	 unidades: el límite (Opciones del programa > Límite de unidades del mapa)
+&Assets workspace	Espacio de trabajo de &recursos
+&Briefing workspace	Espacio de trabajo de &briefing
+&Project page	&Página del proyecto
+. At the next start, StarDraft 2 asks if it can send it.	. En el próximo inicio, StarDraft 2 pregunta si puede enviarlo.
+. The Favorites filter shows them.	. El filtro Favoritos los muestra.
+: StarDraft 2 opens maps (.scm, .scx, .chk) and projects	: StarDraft 2 abre mapas (.scm, .scx, .chk) y proyectos
+: StarDraft cannot build this block yet	: StarDraft aún no puede compilar este bloque
+: this layer is hidden. View > Layers shows it again (then you can edit it).	: esta capa está oculta. Ver > Capas la muestra otra vez (así puede editarla).
+Add a script	Añadir un script
+Added to the favorites: 	Añadido a favoritos: 
+After a crash, StarDraft 2 asks at the next start if it can send the report	Tras un error, StarDraft 2 pregunta al iniciar si puede enviar el informe
+Automatic (the language of Windows)	Automático (el idioma de Windows)
+Brush: place the tile selected in the Tiles list, with the brush's size and shape. Several tiles selected: each tile one of them at random (a scatter).	Pincel: coloca el tile seleccionado en la lista Tiles, con el tamaño y la forma del pincel. Si hay varios tiles seleccionados, cada posición recibe uno de ellos al azar (dispersión).
+Could not write 	No se pudo escribir 
+Did not open 	No se pudo abrir 
+English	English
+Español	Español
+Filled the selection:	Rellenada la selección:
+For another player, select the players here by number, or all players, or a force (the current player, allies and enemies change with the player)	Para otro jugador, seleccione aquí los jugadores por número, todos los jugadores o una fuerza (el jugador actual, los aliados y los enemigos cambian con el jugador)
+It acts for the player that you select. The current player has a value only in For each player.	Actúa para el jugador que seleccione. El jugador actual tiene un valor solo en Para cada jugador.
+Paste terrain: click to place it, and again to place more. Press R to turn it. Right-click or Esc stops.	Pegar terreno: haga clic para colocarlo, y otra vez para colocar más. Pulse R para girarlo. Clic derecho o Esc detiene.
+Paste tiles: click to place them, and again to place more. Right-click or Esc stops.	Pegar tiles: haga clic para colocarlos, y otra vez para colocar más. Clic derecho o Esc detiene.
+Paste: click to place the copy, and again to place more. Right-click or Esc stops.	Pegar: haga clic para colocar la copia, y otra vez para colocar más. Clic derecho o Esc detiene.
+Removed from the favorites: 	Quitado de favoritos: 
+Run local block: StarDraft cannot tell what 	Ejecutar bloque local: StarDraft no puede saber lo que 
+Send an anonymous report after a crash: the version, Windows, the video card, where it crashed and the last log lines; no maps	Enviar un informe anónimo tras un error: la versión, Windows, la tarjeta gráfica, dónde falló y las últimas líneas del registro; no los mapas
+StarDraft 2 - v	StarDraft 2 - v
+StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, Windows, the video card, where it crashed and the last log lines. It has no maps. It is in 	StarDraft 2 se detuvo la última vez por un error. ¿Enviar el informe de fallo a los desarrolladores para que puedan reparar el error?\n\nEl informe incluye la versión, Windows, la tarjeta gráfica, dónde falló y las últimas líneas del registro. No incluye mapas. Está en 
+Terran Marine	Marine Terran
+The language of the program's texts	Idioma de los textos del programa
+The map has 	El mapa tiene 
+The minimap is hidden (View > Show minimap shows it again)	El minimapa está oculto (Ver > Mostrar minimapa lo muestra de nuevo)
+The minimap shows	El minimapa se muestra

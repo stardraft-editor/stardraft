@@ -1,0 +1,1744 @@
+Fine	精细
+Small	小
+Normal	普通
+Large	大
+Huge	特大
+GridX	网格 X
+GridY	网格 Y
+&Clear list	清空列表(&C)
+None	无
+Terrain	地形
+Units	单位
+Doodads	装饰物
+Locations	位置
+Sprites	精灵
+Brush	笔刷
+Spray	喷洒
+Fill	填充
+Replace (click terrain)	替换 (点击地形)
+Select / copy	选择 / 复制
+Place / select	放置 / 选择
+Replace (click unit)	替换 (点击单位)
+Place	放置
+Terran 	人族 
+Zerg 	虫族 
+Protoss 	神族 
+(Select / move)	(选择 / 移动)
+(Terrain editing needs ISOM data. Only Badlands has it now.)	(地形编辑需要 ISOM 数据。目前只有荒原有这些数据。)
+Select	选择
+Edit	编辑
+%d, %d  (tile %d, %d)	%d, %d  (图块 %d, %d)
+%zu selected	已选择 %zu 个
+%zu fps  %d sprites	%zu fps  精灵 %d 个
+Jan	1月
+Feb	2月
+Mar	3月
+Apr	4月
+May	5月
+Jun	6月
+Jul	7月
+Aug	8月
+Sep	9月
+Oct	10月
+Nov	11月
+Dec	12月
+built %s %u %02u:%02u	构建于 %s %u %02u:%02u
+StarDraft 2 	StarDraft 2 
+Untitled	未命名
+Badlands	荒原
+Space Platform	太空平台
+Installation	设施
+Ash World	灰烬之地
+Jungle	丛林
+Desert	沙漠
+Ice	冰原
+Twilight	暮光
+OK	确定
+Cancel	取消
+Rename location	重命名位置
+Low ground	低地面
+Medium ground	中地面
+High ground	高地面
+Low air	低空
+Medium air	中空
+High air	高空
+P&roperties…\tEnter	属性(&R)…\tEnter
+Re&name\tF2	重命名(&N)\tF2
+&Delete\tDel	删除(&D)\tDel
+Elevations in the location	位置内的高度
+&All elevations	所有高度(&A)
+: all elevations are in the location	: 所有高度都在位置内
+ is in the location	 在位置内
+ is not in the location	 不在位置内
+Select the StarCraft: Remastered folder. It contains .build.info.	请选择 StarCraft: Remastered 文件夹。该文件夹包含 .build.info。
+Not a StarCraft: Remastered folder	这不是 StarCraft: Remastered 文件夹
+Could not read the game data in this folder:\r\n	无法读取此文件夹中的游戏数据：\r\n
+StarCraft folder	StarCraft 文件夹
+StarDraft 2 uses this folder after the next start:\r\n	StarDraft 2 将在下次启动时使用此文件夹：\r\n
+\r\nTo use it now, restart StarDraft 2.	\r\n若要立即使用，请重新启动 StarDraft 2。
+Start	开始
+Untitled 	未命名 
+ (project)	 (项目)
+ (map)	 (地图)
+Switched to 	已切换到 
+Moved the tab "	已移动标签页 "
+(older lines dropped)\r\n	(较早的行已删除)\r\n
+ERROR  	错误  
+Log	日志
+Build needs an EUD project. Use File > Project > New project or Open project.	构建需要 EUD 项目。请使用 文件 > 项目 > 新建项目 或 打开项目。
+A build is already running	构建已在运行
+StarCraft will not start this map:\r\n\r\n	StarCraft 无法启动此地图：\r\n\r\n
+\r\nTo set the players, use Scenario > Players and forces. Build the map anyway?	\r\n若要设置玩家，请使用 剧本 > 玩家和势力。仍要构建地图吗？
+Build	构建
+&Build	构建(&B)
+Do &not build	不构建(&N)
+Did not build the map: 	无法构建地图: 
+ is not found (see the Project page)	 未找到(见项目页面)
+Could not write the .dat edits	无法写入 .dat 的更改
+Could not save the project's map	无法保存项目的地图
+Building the map…	正在构建地图…
+Built 	已构建 
+Could not build the map (see the log)	无法构建地图(见日志)
+the project file	项目文件
+the map you edit here (Brood War format)	在此编辑的地图(Brood War 格式)
+euddraft's build file: Build writes it	euddraft 的构建文件：构建会写入它
+the built map: Build (Ctrl+B) writes it	构建后的地图：构建(Ctrl+B)会写入它
+your code (epScript). To add more, use File > Project > Add script.	你的代码 (epScript)。要添加更多，请使用 文件 > 项目 > 添加脚本。
+StarDraft 2 makes the folder 	StarDraft 2 将创建文件夹 
+\\ in the location above:\r\n\r\n	\\ 在上面的位置：\r\n\r\n
+\r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n首次编译时，StarDraft 2 会从 GitHub 把 euddraft 下载到它自己的文件夹。\r\nStarDraft 2 不会改动这台电脑上的其他副本。你打开的地图\r\n仍然是普通地图。只能编译项目。
+Name	名称
+Location	位置
+Browse…	浏览…
+Output file	输出文件
+<name>_EUD.scx in the project folder	项目文件夹中的 <name>_EUD.scx
+Start from	基于
+The open map (	当前打开的地图 (
+A new blank map (128 x 128 Badlands)	新建空白地图 (128 x 128 Badlands)
+Create	创建
+Select the folder for the project	请选择项目文件夹
+Created the project 	已创建项目 
+ (Build: Ctrl+B)	 (编译：Ctrl+B)
+New EUD project	新建 EUD 项目
+Could not create the project	无法创建项目
+Select the file for the built map	请选择编译后地图的文件
+Human	人类
+Computer	电脑
+Rescuable	可救援
+Neutral	中立
+Closed	关闭
+Unused	未使用
+Zerg	虫族
+Terran	人族
+Protoss	神族
+User select	玩家选择
+Random	随机
+Random starts	随机起始位置
+Allies	同盟
+Allied victory	同盟胜利
+Shared vision	共享视野
+Player 	玩家 
+ owns units but has no start location	 有单位，但没有起始位置
+Set at least two players to Human or Computer (	请将至少两名玩家设为人类或电脑 (
+ now)	 当前)
+Set at least one player to Human	请将至少一名玩家设为人类
+Player's choice	玩家选择
+Custom 	自定义颜色 
+ (multiplayer only)	 (仅多人游戏)
+✓  StarCraft can start this map	✓  StarCraft 可以启动此地图
+Set the players and forces	设置玩家和势力
+Could not open the project	无法打开项目
+Opened the project 	已打开项目 
+ scripts; Build: Ctrl+B)	 个脚本；编译：Ctrl+B)
+Add a script: select one, or type the name of a new one	添加脚本：选择一个，或输入新脚本的名称
+Could not save the project	无法保存项目
+Added 	已添加 
+ to the project	 到项目中
+Could not open the map	无法打开地图
+Opened 	已打开 
+Could not create the map	无法创建地图
+Created a new 	已新建 
+ map (	 地图 (
+Save the project (StarDraft 2 makes a folder with its name here)	保存项目 (StarDraft 2 会在此处创建一个以项目名称命名的文件夹)
+The name cannot hold \\ / : * ? " < > |	名称不能包含 \\ / : * ? " < > |
+Save project	保存项目
+ is there already and is not empty.	 已存在，且不为空。
+Could not save the map	无法保存地图
+Could not copy 	无法复制 
+Saved the project to 	项目已保存到 
+Saved 	已保存 
+Light	浅色
+Dark	深色
+ theme, accent color 	 主题，强调色 
+Save the new project?	要保存新项目吗？
+Unsaved changes	未保存的更改
+&Save	保存(&S)
+Do &not save	不保存(&N)
+Save changes to the map?	要保存对地图的更改吗？
+Map &data (units, upgrades, technologies)	地图数据(&D) (单位、升级、科技)
+Nothing copied: select doodads and press Ctrl+C	未复制任何内容：请选择装饰物并按 Ctrl+C
+Nothing copied: select sprites and press Ctrl+C	未复制任何内容：请选择精灵并按 Ctrl+C
+Paste: click to place the copy. Shift+click pastes again. Esc goes back to Select.	粘贴：点击放置副本。Shift+点击可再次粘贴。Esc 返回“选择”。
+Nothing copied: select a location and press Ctrl+C	未复制任何内容：请选择位置并按 Ctrl+C
+Pasted 	已粘贴 
+Paste tiles: click to place them. Shift+click pastes again. Esc cancels.	粘贴图块：点击放置。Shift+点击可再次粘贴。Esc 取消。
+Paste terrain: click to place it. Press R to turn it. Shift+click pastes again. Esc cancels.	粘贴地形：点击放置。按 R 旋转。Shift+点击可再次粘贴。Esc 取消。
+Paste 	粘贴 
+ units: click to place them. Shift+click pastes again. Esc or right-click cancels.	 个单位：点击放置。Shift+点击可再次粘贴。Esc 或右键取消。
+ is gone; removed from the list	 已不存在，已从列表中移除
+This tab is a classic map. This command needs a project. File > Project > Make this map a project makes one.	此标签页是经典地图。此命令需要项目。文件 > 项目 > 将此地图设为项目 可创建项目。
+This command is for classic maps only	此命令仅适用于经典地图
+StarDraft 2	StarDraft 2
+Trigger code needs an EUD project	触发器代码需要 EUD 项目
+StarCraft can start this map	StarCraft 可以启动此地图
+Check that StarCraft can start the map	检查 StarCraft 能否启动地图
+ toolbar on the 	 工具栏，位于 
+Gave 	已给予 
+ selected units to Player 	 个选中单位给玩家 
+ (resources and critters stay neutral)	 (资源和小动物保持中立)
+do not snap	不吸附
+snap to tiles (32 px)	吸附到图块 (32 px)
+snap to half tiles (16 px)	吸附到半图块 (16 px)
+snap to quarter tiles (8 px)	吸附到四分之一图块 (8 px)
+Grid: 	网格：
+Copied 	已复制 
+First, select an area with the Select tool	请先用选择工具选择一个区域
+Copied the terrain selection	已复制地形选区
+First, select an area with the Select / copy tool	请先用选择 / 复制工具选择一个区域
+First, select doodads	请先选择装饰物
+First, select sprites	请先选择精灵
+Copied the location	已复制地点
+First, select a location	请先选择一个地点
+Nothing to cut there: make the selection larger	这里没有可剪切的内容: 请扩大选择区域
+Cut the terrain: 	已剪切地形: 
+ null tiles in its place (one undo step)	 个空白瓦片放在原位 (一步撤销)
+Select units to duplicate	请选择要复制的单位
+Deleted 	已删除 
+Selected 	已选择 
+StarDraft 2 looks for a newer release on start	StarDraft 2 启动时检查新版本
+StarDraft 2 does not look for a newer release on start	StarDraft 2 启动时不检查新版本
+StarDraft 2 sends an anonymous report when it crashes	StarDraft 2 崩溃时发送匿名报告
+StarDraft 2 does not send crash reports (a report stays on this computer)	StarDraft 2 不发送崩溃报告 (报告留在这台电脑上)
+The last project opens when StarDraft 2 starts	启动 StarDraft 2 时打开上次的项目
+StarDraft 2 starts with no project open	StarDraft 2 启动时不打开任何项目
+Units: can be on top of others	单位: 可以叠放在其他单位上
+Units: cannot be on top of others (air units also)	单位: 不能叠放在其他单位上 (包括空中单位)
+Units: place anywhere (terrain edits do not move them)	单位: 可放在任何位置 (修改地形不会移动它们)
+Units: place only where it fits	单位: 只放在能容纳的位置
+Units: move to the nearest place where it fits	单位: 移动到最近的可用位置
+Doodads: place anywhere on the map (StarDraft 2 does not check the terrain)	装饰物: 可放在地图任意位置 (StarDraft 2 不检查地形)
+Doodads: move to the nearest place where it fits	装饰物: 移动到最近的可用位置
+Doodads: place only where it fits	装饰物: 只放在能容纳的位置
+Carbot (cartooned) graphics	Carbot (卡通风格) 图形
+Grid: width, height, x offset, y offset (map pixels)	网格: 宽度, 高度, x 偏移, y 偏移 (地图像素)
+Type the width and the height (and the offsets), for example 48, 48, 16, 0	输入宽度和高度 (以及偏移), 例如 48, 48, 16, 0
+ pixels, offset 	 像素, 偏移 
+ selected: drag to move, Delete removes, Ctrl+C copies	 个已选中: 拖动可移动, Delete 删除, Ctrl+C 复制
+Placed 	已放置 
+ (moved to the nearest valid spot)	 (已移动到最近的有效位置)
+Cannot place here:	此处无法放置:
+ (no valid spot nearby)	 (附近没有有效位置)
+: Ctrl+V pastes a copy where the mouse is	: Ctrl+V 在鼠标位置粘贴副本
+ units (the other units do not fit here)	 个单位 (其余单位在此放不下)
+. To stop, right-click or press Esc.	. 要停止, 请右键单击或按 Esc.
+Sprayed 	已喷洒 
+Replaced 	已替换 
+ (selection)	 (选区)
+Painting 	正在绘制 
+ (selected with Ctrl+click)	 (用 Ctrl+单击选择)
+Pasted terrain	已粘贴地形
+New variants for 	为 
+Filled with 	已填充为 
+, in selection)	, 选区内)
+Placed sprite 	已放置精灵 
+Did not place the sprite: it is outside the map	未放置精灵: 它在地图之外
+Placed doodad	已放置装饰物
+Did not place the doodad: 	未放置装饰物: 
+ doodads (the others do not fit there)	 个装饰物 (其余放不下)
+Moved 	已移动 
+The units do not fit there. They stay where they were.	单位在那里放不下. 它们留在原位.
+The units do not fit along the drag. They stay where they were.	沿拖动路径的单位放不下. 它们留在原位.
+Pasted terrain. To stop pasting, right-click or press Esc.	已粘贴地形. 要停止粘贴, 请右键单击或按 Esc.
+ tiles. Press Ctrl+C to copy them.	 个瓦片. 按 Ctrl+C 复制它们.
+Cleared the terrain selection	已清除地形选区
+Created 	已创建 
+ (inverted: it holds air units only)	 (反转: 只包含空中单位)
+The doodads stay: 	装饰物保持不动: 
+Independent	独立
+Other	其他
+Platform	平台
+Ash	灰烬
+Traps and doors	陷阱和门
+Effects	特效
+(unnamed)	(未命名)
+All doodads	所有装饰物
+All sprites	所有精灵
+All units	所有单位
+Placing sprite 	正在放置精灵 
+Placing doodad 	正在放置装饰物 
+: click to place it (green if it fits, red if it does not)	: 单击放置 (能放下时为绿色, 放不下时为红色)
+Placing 	正在放置 
+: click to place. Drag to place a row. Right-click to stop.	: 单击放置. 拖动可放置一排. 右键单击停止.
+&List	列表(&L)
+&Grid: icons	网格: 图标(&G)
+Grid: &sprites	网格: 精灵(&S)
+&Grid	网格(&G)
+&Normal	普通(&N)
+L&arge	大(&A)
+Other 	其他 
+Units and buildings	单位和建筑
+Low ground and other	低地和其他
+: each click or spray places one of them, at random	: 每次单击或喷洒都会随机放置其中一个
+Location 	地点 
+ units with 	 个单位为 
+ doodads (the others: the new one does not fit there)	 个装饰物 (其余: 新的放不下)
+ sprites with 	 个精灵为 
+Paint a terrain	绘制地形
+Place a unit	放置单位
+Place a doodad	放置装饰物
+Go to a location	转到地点
+Place a sprite	放置精灵
+Replace with a unit	替换为单位
+Replace with a doodad	替换为装饰物
+Replace with a sprite	替换为精灵
+Go to a .dat entry	转到 .dat 条目
+Map	地图
+the Map workspace	地图工作区
+Data	数据
+Data: the map's units, upgrades and technologies	数据: 地图的单位, 升级和科技
+the Data workspace	数据工作区
+Triggers	触发器
+Classic triggers	经典触发器
+the Triggers workspace	触发器工作区
+Classic	经典
+Classic triggers (the map's own triggers)	经典触发器 (地图自身的触发器)
+Briefing	简报
+the Briefing workspace	简报工作区
+Assets	素材
+the Assets workspace	素材工作区
+Properties	属性
+Map properties: the title, size and tileset, players and forces (Ctrl+M)	地图属性: 标题、大小和瓦片集、玩家和队伍 (Ctrl+M)
+Project	项目
+the Project page	项目页面
+Build the map of the project with euddraft (Ctrl+B)	使用 euddraft 编译项目的地图 (Ctrl+B)
+Could not read the project's 	无法读取项目文件 
+'s values	 的值
+'s values onto 	 的值到 
+ fields)	 个字段)
+Reset 	重置 
+ to the game's values	 为游戏的值
+&Copy values\tCtrl+C	复制值(&C)\tCtrl+C
+&Paste values	粘贴值(&P)
+\tCtrl+V	\tCtrl+V
+&Reset to the game's values	重置为游戏的值(&R)
+&Copy 	复制(&C) 
+&Paste 	粘贴(&P) 
+&Reset to the game's value	重置为游戏的值(&R)
+ to the game's value	 为游戏的值
+(no title)	(无标题)
+   (not a title)	   (不是标题)
+= %g hit points	= %g 生命值
+= %g s (fastest)	= %g 秒 (最快)
+Search 	搜索 
+Cloaked	隐形
+Burrowed	钻地
+In transit	运输中
+Hallucinated	幻觉
+Invincible	无敌
+Owner	所有者
+ (neutral)	 (中立)
+Hit points %	生命值 %
+Resources	资源
+Shields %	护盾 %
+Hangar	机库
+Energy %	能量 %
+X (pixels)	X (像素)
+Y (pixels)	Y (像素)
+Edit unit type in Data (	在数据中编辑单位类型 (
+To edit unit types, use an EUD project (File > Project)	要编辑单位类型，请使用 EUD 项目 (文件 > 项目)
+ units selected. Changes apply to all of them.	 个单位已选择。更改将应用于全部单位。
+Unit 	单位 
+  ·  serial 	  ·  序列号 
+Unit properties	单位属性
+Left	左
+Top	上
+Right	右
+Bottom	下
+Type a number in each edge	请为每条边输入数字
+Right must be more than left	右边必须大于左边
+Bottom must be more than top	下边必须大于上边
+ pixels  ·  	 像素  ·  
+Size	大小
+Inverted	反转
+No	否
+Left and right	左右
+Top and bottom	上下
+Left and right, top and bottom	左右、上下
+Changed the location "	已更改位置 "
+Could not change the location: 	无法更改位置: 
+Location properties	位置属性
+Read only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	此声音为只读。游戏会在地图代码运行前加载带有 Preload 标志的声音，因此更改文件不起作用。
+Read only. StarDraft 2 does not know where the game keeps this value.	只读。StarDraft 2 不知道游戏在哪里保存此值。
+* Needs verification	* 需要验证
+1 tile: 32 x 32 px	1 瓦片: 32 x 32 像素
+Drag to move the addon	拖动以移动附加组件
+Drag to change the width. Hold Shift for single pixels.	拖动以更改宽度。按住 Shift 可逐像素调整。
+Drag to change the height. Hold Shift for single pixels.	拖动以更改高度。按住 Shift 可逐像素调整。
+Drag to change the direction	拖动以更改方向
+Click for a random direction	单击可设为随机方向
+Drag to change: 	拖动以更改: 
+Drag to change the attack angle	拖动以更改攻击角度
+Drag to change the launch spin	拖动以更改发射旋转
+Drag to move the point where the graphic starts	拖动以移动图形的起始点
+%d frames to top speed  ·  %.2f px/frame  ·  %d frames for 8 tiles	达到最高速度需 %d 帧  ·  %.2f 像素/帧  ·  8 瓦片需 %d 帧
+turns back in a curve %.1f tiles wide, in %d frames	以弧线掉头，宽 %.1f 瓦片，用时 %d 帧
+does not turn	不转向
+The path when the unit turns back at top speed	以最高速度掉头时的路径
+The path of this unit when it moves right at top speed and turns back (a half turn). The ring is where it starts, the dot where it moves away. A larger Turn Radius turns faster: the curve is tighter.	此单位以最高速度向右移动并掉头(半圈)时的路径。圆环为起点，圆点为离开的位置。转向半径越大，转向越快：曲线越窄。
+Init	初始化
+Death	死亡
+Ground attack	地面攻击
+Air attack	空中攻击
+Unused 1	未使用 1
+Ground attack repeat	地面攻击重复
+Air attack repeat	空中攻击重复
+Cast spell	施法
+Ground attack end	地面攻击结束
+Air attack end	空中攻击结束
+Unused 2	未使用 2
+Walking	行走
+Walking end	行走结束
+Special 1	特殊 1
+Special 2	特殊 2
+Almost built	即将完成
+Built	完成
+Landing	降落
+Lift-off	起飞
+Working	工作
+Working end	工作结束
+Warp in	折跃
+Unused 3	未使用 3
+Editor init	编辑器初始化
+Disable	禁用
+Burrow	钻地
+Unburrow	出土
+Enable	启用
+Drag to put a target. The image turns to it at the turn rate of its unit, as a turret does.	拖动以放置目标。图像会以其单位的转向速率转向目标，就像炮塔一样。
+Start again	重新开始
+Play or pause	播放或暂停
+One game tick	一个游戏刻
+Play on as a unit does: attacks repeat, and a script that waits for its order starts again	像单位一样持续播放：攻击会重复，等待命令的脚本会重新开始
+Sounds of the script: on or off	脚本的声音：开或关
+The code of the script: show or hide	脚本的代码：显示或隐藏
+frame %d  ·  tick %d%s	帧 %d  ·  刻 %d%s
+  ·  end	  ·  结束
+Drag to turn the image. This removes the target.	拖动以旋转图像。这会移除目标。
+Could not play the sound	无法播放声音
+No sound device is available	没有可用的声音设备
+Pause	暂停
+Play	播放
+Volume	音量
+no file	无文件
+cannot read the file	无法读取文件
+Medium	中
+%g per attack (%d hit%s). About %.1f per second.	每次攻击 %g（%d 次命中%s）。每秒约 %.1f。
+Less armor	护甲较少
+More armor	护甲较多
+1 walk tile: 8 x 8 px	1 个行走格：8 x 8 px
+gap: %d x %d walk tiles	间隙：%d x %d 个行走格
+Iscript 	Iscript 
+Follow	跟随
+Go to the label	转到标签
+Open it	打开
+Images	图像
+Sounds	声音
+Weapons	武器
+: open it	: 打开
+→ loops	→ 循环
+Frames and their waits (24 ticks a second). Yellow: a sound. Red: an attack. Click or drag to go to a tick.	帧及其等待时间（每秒 24 刻）。黄色：声音。红色：攻击。点击或拖动以转到某一刻。
+No portrait file	没有头像文件
+The portrait's video cannot be read	无法读取头像视频
+Unit size	单位大小
+Placement box	放置框
+Addon position	附加建筑位置
+Direction	方向
+Sight	视野
+Target acquisition	索敌范围
+Ground weapon	地面武器
+Air weapon	空中武器
+Maximum range	最大射程
+Minimum range	最小射程
+Outer splash	外圈溅射
+Medium splash	中圈溅射
+Inner splash	内圈溅射
+Attack angle	攻击角度
+Launch spin	发射旋转
+Start point	起点
+does not move	不移动
+Top speed	最高速度
+Acceleration	加速度
+Halt distance	停止距离
+Turn radius	转弯半径
+Health bar	血条
+Selection circle	选择圈
+Players (the map's settings)	玩家（地图设置）
+Can build	可建造
+Start level	起始等级
+Available	可用
+Max level	最高等级
+Researched	已研究
+Yes	是
+A level from 0 to 255	0 到 255 之间的等级
+Default	默认值
+On: this player has the default's values	开：此玩家使用默认值
+Can the player build this unit	玩家能否建造此单位
+Is the technology available to the player	此科技对玩家是否可用
+Does the player start with it researched	玩家开局时是否已研究此科技
+Could not read the .dat file of the game	无法读取游戏的 .dat 文件
+To edit .dat files, use an EUD project.\r\n\r\nFile > Project > New project makes one from the open map. File > Project > Open project opens one.	要编辑 .dat 文件，请使用 EUD 项目。\r\n\r\n文件 > 项目 > 新建项目 会从打开的地图创建项目。文件 > 项目 > 打开项目 会打开一个项目。
+.dat entry 	.dat 条目 
+Yes (	是 (
+not used by this entry	此条目不使用
+Not a number: 	不是数字: 
+ (preview)	 (预览)
+References	引用
+Flingy	Flingy
+Upgrades	升级
+Tech data	科技数据
+Orders	命令
+SFX data	SFX 数据
+Port data	Port 数据
+Showing changed 	只显示已更改的 
+Showing all 	显示全部 
+Search units	搜索单位
+Changed	已更改
+Triggers are in the Triggers workspace of a project.	触发器位于项目的触发器工作区中。
+Not available yet: graphics, sounds, portraits and fonts that you import into the map.	暂不可用：导入到地图中的图形、声音、头像和字体。
+Project: 	项目: 
+No project is open. File > Project > New project makes one from the open map. File > Project > Open project opens one.	没有打开的项目。文件 > 项目 > 新建项目 会从打开的地图创建项目。文件 > 项目 > 打开项目 会打开一个项目。
+Did not save the triggers: a newer StarDraft 2 made triggers.json	未保存触发器：更新版本的 StarDraft 2 创建了 triggers.json
+  (off)	  (关闭)
+Added a variable. Press F2 to rename it.	已添加变量。按 F2 重命名。
+Added from a template: 	从模板添加: 
+the folder "	文件夹 "
+" and everything in it	" 及其中的所有内容
+the variable "	变量 "
+the trigger "	触发器 "
+Delete 	删除 
+Delete	删除
+&Delete	删除(&D)
+New &trigger	新建触发器(&T)
+New trigger from a te&mplate	从模板新建触发器(&M)
+New &folder	新建文件夹(&F)
+New &variable	新建变量(&V)
+&Copy\tCtrl+C	复制(&C)\tCtrl+C
+Cu&t\tCtrl+X	剪切(&T)\tCtrl+X
+&Paste\tCtrl+V	粘贴(&P)\tCtrl+V
+&Rename\tF2	重命名(&R)\tF2
+D&uplicate\tCtrl+D	创建副本(&U)\tCtrl+D
+Turn &off	禁用(&O)
+Turn &on	启用(&O)
+De&lete\tDel	删除(&L)\tDel
+Terran Marine (Custom Name)	人族陆战队员 (自定义名称)
+Custom Name (Terran Marine)	自定义名称 (人族陆战队员)
+Custom Name	自定义名称
+Unit names	单位名称
+a value of the property's type	属性类型的值
+Everything	全部
+Recent	最近使用
+Add a condition	添加条件
+Add an action	添加动作
+Search conditions	搜索条件
+Search actions	搜索动作
+Add condition	添加条件
+Add action	添加动作
+ (Player 	 (玩家 
+unit #	单位 #
+ (gone from the map)	 (已从地图上移除)
+Any unit	任意单位
+Men	步兵
+Buildings	建筑
+Factories	生产建筑
+unit type #	单位类型 #
+(unit type)	(单位类型)
+(location)	(地点)
+(a property)	(属性)
+Switch 	开关 
+(text)	(文本)
+(a unit)	(单位)
+(a variable)	(变量)
+(a sound)	(音效)
+(a trigger)	(触发器)
+(code)	(代码)
+(a button)	(按钮)
+(game text)	(游戏文本)
+(button)	(按钮)
+a new button	新按钮
+unknown value 	未知值 
+missing value	缺少值
+Turn off	禁用
+Turn on	启用
+Duplicate	创建副本
+Unknown block: 	未知块: 
+Kind	类型
+ items (0 to 	 项 (0 到 
+Default value	默认值
+Room for	可容纳
+Value	值
+Maximum length	最大长度
+Text	文本
+Description	描述
+Zoom 100%	缩放 100%
+These triggers run once, when the map starts	这些触发器在地图开始时运行一次
+These triggers run each trigger cycle while the game runs	游戏运行时，这些触发器在每个触发周期都会运行
+A folder in 	文件夹位于 
+New trigger	新建触发器
+From a template…	从模板…
+New folder	新建文件夹
+New variable	新建变量
+Triggers belong to an EUD project	触发器属于 EUD 项目
+⏱ about 	⏱ 约 
+ actions each run	 个动作每次运行
+Conditions	条件
+Actions	动作
+Use only letters, digits and _ in a variable name. Not accepted: 	变量名只能使用字母、数字和 _。不允许: 
+ was not taken	 不可用
+There is already a variable with the name 	已有同名变量: 
+Renamed the variable and 	已重命名变量，并更新了 
+ uses of it	 处引用
+Renamed the trigger and 	已重命名触发器，并更新了 
+ Run a trigger blocks	 个执行触发器块
+Redo	重做
+Undo	撤销
+Add a &condition…	添加条件(&C)…
+Add an &action…	添加动作(&A)…
+Add to 	添加到 
+&Unfold	展开(&U)
+&Fold	折叠(&F)
+Move &up\tAlt+Up	上移(&M)\tAlt+Up
+Move &down\tAlt+Down	下移(&D)\tAlt+Down
+Turn o&ff	禁用(&F)
+Show the &code	显示代码(&C)
+Click the unit to use. Esc goes back to the triggers.	点击要使用的单位。按 Esc 返回触发器。
+There is no unit there. Click a unit, or press Esc to go back.	那里没有单位。点击一个单位，或按 Esc 返回。
+Variables	变量
+Search values from the game	搜索游戏中的值
+Another value from the game…	游戏中的其他值…
+A number or variable instead…	改用数字或变量…
+). Type it as a number.	). 请按数字输入。
+Search: game text (or a variable)	搜索: 游戏文本 (或变量)
+Buttons of 	按钮: 
++ A new button	+ 新按钮
+Buttons	按钮
+Search: button	搜索: 按钮
+Advanced (eudplib names)	高级 (eudplib 名称)
+Search the 	搜索 
+'s properties	的属性
+All, by number	全部，按编号
+Search: 	搜索: 
+ (or a variable)	 (或变量)
+On a specific line	指定行
+line 12 (center of the screen)	第 12 行 (屏幕中央)
+Type a number or an expression…	输入数字或表达式…
+A value from the game…	游戏中的值…
+Groups	群组
+Search unit types	搜索单位类型
+Search the map's locations	搜索地图中的位置
+Switch number	开关编号
+Sounds in the map	地图中的声音
+The map has no sounds. Type the path of a sound.	地图中没有声音。输入声音的路径。
+Search the map's sounds	搜索地图中的声音
+There is no variable of this kind. Right-click Definitions, then New variable.	没有这种类型的变量。右键单击定义，然后选择新建变量。
+Search variables	搜索变量
+Definitions	定义
+There are no triggers in Definitions. Right-click Definitions, then New trigger.	定义中没有触发器。右键单击定义，然后选择新建触发器。
+Search triggers	搜索触发器
+the unit	该单位
+For each unit	对每个单位
+the next created unit	下一个创建的单位
+Created	已创建
+Unit variables	单位变量
+Select on the map…	在地图上选择…
+One unit	一个单位
+Type a number of seconds, for example 2.5	输入秒数，例如 2.5
+The path of a sound file in the map (sound\\…\\name.wav)	地图中声音文件的路径 (sound\\…\\name.wav)
+Build makes sure that this file is in the map	编译时会确保此文件在地图中
+a number or a constant here	此处填写数字或常量
+a plain number here	此处填写普通数字
+Use a value from 	请使用 
+%.2g seconds	%.2g秒
+ at Fastest (24 frames a second)	 (最快速度下，每秒 24 帧)
+ of game time	 的游戏时间
+the game keeps it as 	游戏保存为 
+current player	当前玩家
+Loop	循环
+  ·  out of range	  ·  超出范围
+per player	每个玩家
+list of 	列表: 
+Constants	常量
+No variables	没有变量
+No match	没有匹配项
+  (set while the game runs)	  (在游戏运行时设置)
+Use default	使用默认值
+Yellow	黄色
+White	白色
+Gray	灰色
+Red	红色
+Green	绿色
+Red (Player 1)	红色 (玩家 1)
+Blue (Player 2)	蓝色 (玩家 2)
+Teal (Player 3)	青色 (玩家 3)
+Purple (Player 4)	紫色 (玩家 4)
+Orange (Player 5)	橙色 (玩家 5)
+Brown (Player 6)	棕色 (玩家 6)
+White (Player 7)	白色 (玩家 7)
+Yellow (Player 8)	黄色 (玩家 8)
+Green (Player 9)	绿色 (玩家 9)
+Brighter yellow (Player 10)	亮黄色 (玩家 10)
+Pinkish (Player 11)	粉红色 (玩家 11)
+Dark cyan (Player 12)	深青色 (玩家 12)
+Gray-green	灰绿色
+Blue-gray	蓝灰色
+Turquoise	绿松石色
+A player's color (as the game shows that player's color)	玩家的颜色 (与游戏中显示该玩家颜色的方式相同)
+'s name	的名字
+game text 	游戏文本 
+HEX	HEX
+text (EPD)	文本 (EPD)
+align right	右对齐
+align center	居中对齐
+code %02X	代码 %02X
+the current player	当前玩家
+Whose color	谁的颜色
+This loop	此循环
+Texts	文本
+the current player's name	当前玩家的名字
+Players	玩家
+A text of the game…	游戏中的文本…
+A calculation…	计算式…
+Calculations	计算式
+Insert value	插入值
+A calculation   for example gold * 2 + 1	计算式   例如 gold * 2 + 1
+Search: a text of the game	搜索: 游戏中的文本
+Show as 	显示为 
+Show as	显示为
+Remove	移除
+Change the value…	更改值…
+A value in the text	文本中的值
+Visual	可视化
+Raw	源码
+From the game…	来自游戏…
+Insert value ▾	插入值 ▾
+No clear type yet (	尚无明确的类型 (
+Which item of 	哪一项属于 
+  (0 to 	  (0 至 
+Other…	其他…
+A variable or number	变量或数字
+Which player	哪个玩家
+Which player of 	哪个玩家属于 
+  (0 to 7: Player 1 is 0)	  (0 至 7: 玩家 1 为 0)
+Text   @ puts in a value. Click a value to change it.	文本   @ 插入一个值。单击值即可更改。
+Name   letters, digits and _	名称   字母、数字和 _
+Templates	模板
+Select another unit on the map…	在地图上选择其他单位…
+No unit (empty)	无单位 (空)
+Maximum length (letters)   1 to 	最大长度 (字符数)   1 至 
+Room for (units)   1 to 1700	可容纳 (单位数)   1 至 1700
+Size   1 to 4096	大小   1 至 4096
+Default value of each item	每项的默认值
+   1 on, 0 off	   1 为开，0 为关
+Zoom 	缩放 
+% (Ctrl+0 resets it)	% (Ctrl+0 重置)
+&Copy all	全部复制(&C)
+Select &all\tCtrl+A	全选(&A)\tCtrl+A
+Cut 	剪切 
+Duplicated	已创建副本
+Pasted	已粘贴
+This project's map has no classic triggers. Use the Triggers workspace.	本项目的地图没有经典触发器。请使用触发器工作区。
+The map's Data page is for classic maps. In a project, use the Data workspace.	地图的数据页仅用于经典地图。在项目中，请使用数据工作区。
+This tab is a classic map. Data, Triggers and Project need a project. File > Project > Make this map a project makes one.	此标签页是经典地图。数据、触发器和项目需要先有一个项目。文件 > 项目 > 将此地图设为项目 即可创建。
+Let go: no change	松开：不做更改
+ unit (	 个单位 (
+ units (	 个单位 (
+, Player 	, 玩家 
+ doodad (	 个装饰物 (
+ doodads (	 个装饰物 (
+ sprite (	 个精灵 (
+ sprites (	 个精灵 (
+&Replace with…	替换为(&R)…
+Convert to t&errain	转换为地形(&T)
+Select all of this t&ype	选择此类型全部(&Y)
+Select all of this type for Player 	选择此类型全部，玩家 
+&Select (no placing)\tEsc	选择(&S) (不放置)\tEsc
+P&roperties…	属性(&P)…
+: select	: 选择
+Converted 	已转换 
+ to terrain	 为地形
+Cleared the selection	已取消选择
+Painted the terrain and removed 	已绘制地形，并移除了 
+ that cannot stay on it	 它们无法留在地形上
+Brush size %g	笔刷大小 %g
+Turned the terrain; its 	已旋转地形；其 
+ doodads cannot turn, so they are not included	 个装饰物无法旋转，因此未包括在内
+Turned the terrain (R turns clockwise, Shift+R turns back)	已旋转地形 (R 顺时针，Shift+R 逆时针)
+Brush: place the tile selected in the Tiles list, with the brush's size and shape	笔刷：按笔刷的大小和形状放置图块列表中选中的图块
+Fill: the connected tiles of one value. Shift+click: every tile of that value (in the selection, if there is one).	填充：同一数值的相连图块。Shift+点击：该数值的所有图块（如有选区，则仅限选区内）。
+Brush: paint the terrain selected in the list	笔刷：绘制列表中选中的地形
+Spray: random dabs of the terrain (Density). Hold the button to spray more.	喷洒：随机点绘地形（密度）。按住按钮可喷洒更多。
+Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one).	填充：同一地形的相连区域。Shift+点击：该地形的所有位置（如有选区，则仅限选区内）。
+Place the unit selected in the list	放置列表中选中的单位
+Spray: random units of the selected kinds (Density). Hold the button to spray more.	喷洒：所选类型的随机单位（密度）。按住按钮可喷洒更多。
+Place the doodads selected in the list	放置列表中选中的装饰物
+Spray: random doodads of the selected kinds (Density). Hold the button to spray more.	喷洒：所选类型的随机装饰物（密度）。按住按钮可喷洒更多。
+Place the sprites selected in the list (several: each one at random); drag to place more	放置列表中选中的精灵（多个时各自随机）；拖动可放置更多
+Spray: random sprites of the selected kinds (Density). Hold the button to spray more.	喷洒：所选类型的随机精灵（密度）。按住按钮可喷洒更多。
+Select, move and resize locations; drag on empty ground to make one	选择、移动和调整位置大小；在空地上拖动可新建位置
+Rectangle: the tools place tiles as they are. Select a tile in the Tiles list.	矩形：工具按原样放置图块。在图块列表中选择一个图块。
+Isometric: the tools paint terrains and correct the edges between them	等距：工具绘制地形，并修正地形之间的边缘。
+Isometric	等距
+Isometric: paint terrains, with the edges corrected	等距：绘制地形，并修正边缘
+Rectangle	矩形
+Rectangle: place tiles as they are (no terrain correction)	矩形：按原样放置图块（不修正地形）
+Select what to place in the list	在列表中选择要放置的内容
+Brush shape: diamond	笔刷形状：菱形
+Brush shape: square	笔刷形状：方形
+Brush shape: circle	笔刷形状：圆形
+One step more	增加一步
+One step less	减少一步
+Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).	笔刷大小：1 至 32。点击可输入大小。- 和 + 以及鼠标滚轮可更改（地图上也可用 Alt+滚轮）。
+Density	密度
+Density: the number of dabs (Rectangle: tiles) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it.	密度：每次喷洒放置的点数（矩形：图块数），1 至 50。点击可输入数字。- 和 + 以及鼠标滚轮可更改。
+Density: the number of units each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	密度：每次喷洒放置的单位数（能放下的地方），1 至 50。点击可输入数字。- 和 + 以及鼠标滚轮可更改。
+Density: the number of doodads each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	密度：每次喷洒放置的装饰物数（能放下的地方），1 至 50。点击可输入数字。- 和 + 以及鼠标滚轮可更改。
+No symmetry	无对称
+Mirror left and right	左右镜像
+Mirror top and bottom	上下镜像
+Mirror across the diagonal	沿对角线镜像
+Mirror across the other diagonal	沿另一对角线镜像
+Turn a half turn	旋转 180 度
+Turn in quarter turns (4 ways)	按 90 度旋转（4 个方向）
+. Right-click: move it to the other side.	. 右键点击：移到另一侧。
+ panel on the 	 面板，位置： 
+New project (Ctrl+N)	新建项目 (Ctrl+N)
+Open (Ctrl+O)	打开 (Ctrl+O)
+Save (Ctrl+S)	保存 (Ctrl+S)
+Undo (Ctrl+Z)	撤销 (Ctrl+Z)
+Redo (Ctrl+Y)	重做 (Ctrl+Y)
+Cut (Ctrl+X)	剪切 (Ctrl+X)
+Copy (Ctrl+C)	复制 (Ctrl+C)
+Paste (Ctrl+V)	粘贴 (Ctrl+V)
+Delete (Del)	删除 (Del)
+Quick search: find the mode's units, terrains, doodads, sprites or locations (Q)	快速搜索：查找此模式中的单位、地形、装饰物、精灵或位置 (Q)
+Report feedback	提交反馈
+Report feedback: what works, what does not, ideas	提交反馈：哪些好用、哪些不好用、想法
+Building	生成中
+Build the project's map with euddraft (Ctrl+B)	使用 euddraft 生成项目地图 (Ctrl+B)
+Debug mode on: Build adds index checks and the trace for epTrace	调试模式开启：生成时添加索引检查和 epTrace 的跟踪信息
+Debug mode is on: Build adds index checks and the trace for epTrace (turn it off for the map that you release)	调试模式已开启：生成时添加索引检查和 epTrace 的跟踪信息（发布的地图请关闭）
+Debug mode: Build adds index checks and the trace for epTrace (Project page > Build)	调试模式：生成时添加索引检查和 epTrace 的跟踪信息（项目页面 > 生成）
+&New EUD project\tCtrl+Shift+N	新建 EUD 项目(&N)\tCtrl+Shift+N
+&Open project…	打开项目(&O)…
+&Make this map a project…	将此地图设为项目(&M)…
+&Build\tCtrl+B	生成(&B)\tCtrl+B
+&Add script…	添加脚本(&A)…
+Open project &folder	打开项目文件夹(&F)
+Project &settings	项目设置(&S)
+&New project\tCtrl+N	新建项目(&N)\tCtrl+N
+&Open…\tCtrl+O	打开(&O)…\tCtrl+O
+Recent &maps	最近的地图(&M)
+Recent pro&jects	最近的项目(&J)
+&Project	项目(&P)
+&Save\tCtrl+S	保存(&S)\tCtrl+S
+Save &as…\tCtrl+Shift+S	另存为(&A)…\tCtrl+Shift+S
+&Close\tCtrl+W	关闭(&C)\tCtrl+W
+Close a&ll\tCtrl+Shift+W	全部关闭(&L)\tCtrl+Shift+W
+E&xit	退出(&X)
+&Undo\tCtrl+Z	撤销(&U)\tCtrl+Z
+&Redo\tCtrl+Y	重做(&R)\tCtrl+Y
+&Duplicate\tCtrl+D	创建副本(&D)\tCtrl+D
+Re&name location\tF2	重命名地点(&N)\tF2
+&High definition (2x, default)	高清晰度(&H)（2x，默认值）
+High definition (&4x)	高清晰度（4x）(&4)
+&Standard definition	标准清晰度(&S)
+&Carbot (cartooned)	卡通（Carbot）(&C)
+Show &locations	显示地点(&L)
+Show &grid\tG	显示网格(&G)\tG
+ pixels)	 像素)
+&Custom…	自定义(&C)…
+Grid si&ze	网格大小(&Z)
+Show town a&reas	显示城镇区域(&R)
+Zoom &in\t+	放大(&I)\t+
+Zoom &out\t-	缩小(&O)\t-
+&Actual size\tCtrl+0	实际大小(&A)\tCtrl+0
+&Fit map\tCtrl+F	适应地图(&F)\tCtrl+F
+&Log\tCtrl+L	日志(&J)\tCtrl+L
+Trigger &code pane	触发器代码窗格(&W)
+Control &kit	控件工具包(&K)
+&Map workspace\tCtrl+1	地图工作区(&M)\tCtrl+1
+&Data workspace\tCtrl+2	数据工作区(&D)\tCtrl+2
+&Triggers workspace\tCtrl+3	触发器工作区(&T)\tCtrl+3
+&Briefing workspace\tCtrl+4	简报工作区(&B)\tCtrl+4
+&Assets workspace\tCtrl+5	资源工作区(&E)\tCtrl+5
+&Project page\tCtrl+6	项目页面(&P)\tCtrl+6
+&Terrain\tT	地形(&T)\tT
+&Units\tU	单位(&U)\tU
+&Doodads\tD	装饰物(&D)\tD
+&Sprites\tS	精灵(&S)\tS
+&Locations\tL	地点(&L)\tL
+&File	文件(&F)
+&Edit	编辑(&E)
+&View	视图(&V)
+&Mode	模式(&M)
+&Map properties (title, size, tileset)\tCtrl+M	地图属性（标题，大小，图块集）(&M)\tCtrl+M
+&Players and forces\tCtrl+P	玩家与势力(&P)\tCtrl+P
+Classic &triggers	经典触发器(&T)
+&Check that StarCraft can start the map	检查 StarCraft 能否启动地图(&C)
+&Scenario	场景(&S)
+&Do not snap	不对齐(&D)
+Snap to &tiles (32 px)	对齐到图块（32 像素）(&T)
+Snap to &half tiles (16 px)	对齐到半图块（16 像素）(&H)
+Snap to &quarter tiles (8 px)	对齐到四分之一图块（8 像素）(&Q)
+Place &only where it fits	仅在合适处放置(&O)
+&Move to the nearest place where it fits	移到最近的合适位置(&M)
+Place &anywhere	放置在任意位置(&A)
+&Can be on top of others	可以叠放在其他对象上(&C)
+Dragged units go &back to the last place where they fit	拖动的单位返回到上一个合适位置(&B)
+Snap to tiles (32 px): always, a doodad is made of tiles	对齐到图块（32 像素）：始终对齐，装饰物由图块组成
+Can be on top of others: no, a doodad replaces the tiles under it	可以叠放在其他对象上：否，装饰物会替换其下的图块
+Place anywhere: always	放置在任意位置：始终
+Can be on top of others: always	可以叠放在其他对象上：始终
+&Names in lines that fit in the location	在地点内能容纳的行中显示名称(&N)
+&Units	单位(&U)
+&Doodads	装饰物(&D)
+&Sprites	精灵(&S)
+&Locations	地点(&L)
+Terrain copy includes u&nits	地形复制包含单位(&N)
+Terrain copy includes d&oodads	地形复制包含装饰物(&O)
+&Program options…\tCtrl+,	程序选项(&P)…\tCtrl+,
+&Options	选项(&O)
+Report &feedback…	发送反馈(&F)…
+Report an &issue on GitHub	在 GitHub 上报告问题(&I)
+Join &Discord	加入 Discord(&D)
+StarDraft 2 on &GitHub	GitHub 上的 StarDraft 2(&G)
+Check for &updates	检查更新(&U)
+&About StarDraft 2	关于 StarDraft 2(&A)
+&Help	帮助(&H)
+A newer release is available: 	有更新的版本可用: 
+. Use Help > Check for updates.	. 请使用 帮助 > 检查更新.
+Sent the feedback as #	反馈已发送，编号为 #
+. Thank you.	. 谢谢.
+Sent the feedback. Thank you.	反馈已发送。谢谢。
+This build cannot send feedback. The feedback is in 	此版本无法发送反馈。反馈保存在 
+StarDraft 2 cannot send the feedback now. It sends it at the next start.	StarDraft 2 现在无法发送反馈。将在下次启动时发送。
+Minimap	小地图
+Density: low	密度：低
+Density: medium	密度：中
+Density: high	密度：高
+Size %d	大小 %d
+Filter	筛选
+Search	搜索
+View ▾	视图 ▾
+Map data	地图数据
+Could not start the GPU renderer	无法启动 GPU 渲染器
+Terran Marine (Space Marine)	人族陆战队员（太空陆战队员）
+Space Marine (Terran Marine)	太空陆战队员（人族陆战队员）
+Space Marine	太空陆战队员
+Player &1	玩家 &1
+Player &2	玩家 &2
+&Show the grid	显示网格(&S)
+&Owner	所有者(&O)
+Player 1	玩家 1
+Player 2	玩家 2
+Player 3	玩家 3
+All players	所有玩家
+Force 1	势力 1
+Force 2	势力 2
+Player	玩家
+Icon	图标
+A map creation tool for EUD-powered maps for StarCraft: Remastered	用于为 StarCraft: Remastered 制作 EUD 地图的地图编辑工具
+GitHub: github.com/stardraft-editor/stardraft	GitHub: github.com/stardraft-editor/stardraft
+Join the Discord server	加入 Discord 服务器
+Close	关闭
+About StarDraft 2	关于 StarDraft 2
+Force 	势力 
+Nobody	无人
+First, select the players of the briefing	请先选择任务简报的玩家
+No action	无动作
+Wait	等待
+Play sound	播放声音
+Text message	文本消息
+Mission objectives	任务目标
+Show portrait	显示肖像
+Hide portrait	隐藏肖像
+Talking portrait	说话的肖像
+Transmission	通讯
+Skip tutorial enabled	已启用跳过教程
+Unknown	未知
+Slot 	槽位 
+Objectives	目标
+No text at this time	此时没有文本
+Click or drag to go to a time	单击或拖动以跳到某个时间点
+Slot	槽位
+Edit the text under the list (with its colors)	编辑列表下方的文本 (含颜色)
+(a WAV file)	(WAV 文件)
+A sound of the map, or of the game (by its path)	地图或游戏中的声音 (按路径指定)
+ seconds long	 秒长
+Pause for	等待
+Pause for (seconds)	等待 (秒)
+for current player.	给当前玩家.
+Display the following text for	显示以下文本持续
+Display the text for (seconds)	文本显示时长 (秒)
+Set Mission Objectives for current player to:	将当前玩家的任务目标设为:
+Show portrait of	显示
+in slot	的肖像位于槽位
+Hide portrait in slot	隐藏肖像位于槽位
+Show speaking animation for	显示说话动画于
+Speaking animation for (seconds)	说话动画 (秒)
+. Play	. 播放
+. Modify transmission duration:	. 修改通讯时长:
+Set	设置
+Add	加上
+Subtract	减去
+Transmission duration	通讯时长
+Transmission duration (seconds)	通讯时长 (秒)
+seconds. Display the following text:	秒. 显示以下文本:
+Enable Skip Tutorial button.	启用“跳过教程”按钮.
+New briefing	新建任务简报
+Delete the briefing for 	删除以下对象的任务简报: 
+Delete briefing	删除任务简报
+For	对象
+Every player	所有玩家
+The players of this force	此势力的玩家
+Duplicate (Ctrl+D)	复制 (Ctrl+D)
+This briefing has no actions. Add actions to show text, portraits and sounds before the game starts.	此任务简报没有动作. 请添加动作, 以便在游戏开始前显示文本, 肖像和声音.
+Action	动作
+Preview as	预览为
+Pause (Space)	暂停 (Space)
+Play (Space)	播放 (Space)
+Technologies	科技
+Hit points	生命值
+Shields	护盾
+Armor	护甲
+Build time	生产时间
+Minerals	矿物
+Gas	瓦斯
+Minerals per level	每级矿物
+Gas per level	每级瓦斯
+Time	时间
+Time per level	每级时间
+Energy	能量
+Weapon	武器
+Damage	伤害
+Bonus	加成
+Map data: no change	地图数据: 不变
+Set the map data	设置地图数据
+No sound	无声音
+ (EUD value)	 (EUD 值)
+To player	对玩家
+Destination	目的地
+Duration (ms)	持续时间 (毫秒)
+Comparison	比较
+Number	数字
+Unit	单位
+Resource	资源
+Score	分数
+Switch	开关
+State	状态
+Modifier	修饰符
+Sound	声音
+Time (ms)	时间（毫秒）
+Seconds	秒
+Count (0: all)	数量（0：全部）
+AI script	AI 脚本
+Order	命令
+Status	状态
+Percent	百分比
+Condition 	条件 
+Action 	动作 
+Type 	类型 
+ (not a game type)	 （不是游戏类型）
+Copied the trigger	已复制触发器
+Copied the action	已复制动作
+Copied the condition	已复制条件
+Pasted the trigger	已粘贴触发器
+The list is full	列表已满
+Pasted the action	已粘贴动作
+Pasted the condition	已粘贴条件
+  EUD	  EUD
+No players	没有玩家
+Add a trigger	添加触发器
+Add a trigger after the selected one	在所选触发器后添加触发器
+Always show	始终显示
+Show the triggers of	显示触发器来自
+All triggers	所有触发器
+The project's map has these classic triggers. The built map keeps them; they run with the project's triggers.	项目的地图含有这些经典触发器。编译后的地图会保留它们；它们与项目的触发器一起运行。
+ conditions and actions have EUD values. They stay as they are.	 项条件和动作有 EUD 值。它们保持不变。
+Classic triggers: no change	经典触发器：无变化
+Set the classic triggers	设置经典触发器
+the menu item 	菜单项 
+StarDraft 2 stopped because of an error. The crash report is in 	StarDraft 2 因出错而停止。崩溃报告位于 
+ (crash reports are off).	 （崩溃报告已关闭）。
+StarDraft 2 stopped	StarDraft 2 已停止
+StarDraft 2 stopped because of an error. StarDraft 2 sends a crash report to the developers so that they can repair the error.	StarDraft 2 因出错而停止。StarDraft 2 会向开发者发送崩溃报告，以便他们修复错误。
+Could not read 	无法读取 
+Strings	字符串
+button set	按钮集
+Button set 	按钮集 
+%zu / %zu bytes	%zu / %zu 字节
+Must have	必需
+End of the level's list	关卡列表结束
+Step 0x	步骤 0x
+Step	步骤
+Requirements to make	生产要求
+Requirements to research	研究要求
+Requirements to use	使用要求
+Requirements	要求
+Use	使用
+The game's list	游戏中的列表
+Always	始终
+Nothing is needed: an empty list	不需要任何内容：空列表
+Disabled	禁用
+No list: the entry's offset is 0, as EUD Editor's "Do not use". Not checked in the game yet.	无列表：条目偏移为 0，与 EUD Editor 中的“Do not use”相同。游戏中尚未验证。
+Custom	自定义
+Your own steps. Change a step below, or click here to start from the game's list.	自定义步骤。修改下方的步骤，或点击此处从游戏中的列表开始。
+Remove the step	删除步骤
+Add a step	添加步骤
+Memory all requirement lists use together	所有要求列表共用的内存
+Wireframe	线框
+Group	编组
+Transport	运输单位
+Not found	未找到
+The wireframe	线框
+The group wireframe	编组线框
+The transport wireframe	运输单位线框
+: the game has none for this unit	: 游戏中此单位没有对应线框
+ at full health	 在满生命值时
+ and full shields	 且满护盾时
+, as View shows the art. Frame 	，按“视图”显示的图像。帧 
+Display	显示
+Button set	按钮集
+Other (0x%06X, 0x%06X)	其他（0x%06X, 0x%06X）
+Status panel	状态面板
+The picture in the selection panel when the unit is selected alone	只选中该单位时，选择面板中显示的图片
+Group wireframe	编组线框
+The small picture when units are selected together	同时选中多个单位时显示的小图片
+Transport wireframe	运输单位线框
+The picture inside a transport	运输单位内部的图片
+(no text)	（无文本）
+ buttons in this place. The game shows the first whose condition holds. Click again for the next one.	 个按钮在此位置。游戏显示第一个条件满足的按钮。再次点击可查看下一个。
+Add a button here	在此添加按钮
+Shares its place with another button: the game shows the first whose condition holds (the higher one in this list)	与另一按钮共用位置：游戏显示第一个条件满足的按钮（此列表中更靠上的那个）
+Earlier: checked before the one above	提前：先于上方的按钮检查
+Later	延后
+Remove the button	删除按钮
+Add a button	添加按钮
+Button	按钮
+Button 	按钮 
+No buttons	没有按钮
+Position	位置
+Row 	行 
+, column 	，列 
+Function 0x%06X	函数 0x%06X
+Shown when	显示条件
+Shown when: value	显示条件：值
+Action: value	动作：值
+Display raw value	显示原始值
+Show each tooltip's string as the game stores it: the hotkey and type characters, and codes as <01>	按游戏中的存储方式显示每个工具提示的字符串：快捷键和类型字符，代码显示为 <01>
+Tooltip	工具提示
+Edit the text (string 	编辑文本（字符串 
+; every button that uses it changes)	; 所有使用它的按钮都会随之改变）
+Another string	其他字符串
+String 	字符串 
+Open this string in the Strings tab	在“字符串”选项卡中打开此字符串
+Copy a button from a set…	从按钮组复制一个按钮…
+Top left	左上
+Top center	上方居中
+Top right	右上
+Center	居中
+Bottom left	左下
+Bottom center	下方居中
+Bottom right	右下
+Normal (back to the text's own color)	普通（文本自身的颜色）
+Align right	右对齐
+Align center	居中对齐
+Pale blue	浅蓝色
+Light green	浅绿色
+Invisible (the text after it is not shown)	不可见（之后的文本不显示）
+. Puts <	. 放入 <
+> in at the cursor; with text selected, colors only that text.	> 到光标处；选中文本时，只为该文本着色。
+stat_txt.tbl string 	stat_txt.tbl 字符串 
+Command	命令
+Make a unit	制造单位
+Upgrade	升级
+Use a technology	使用科技
+Research a technology	研究科技
+Morph a unit	变形单位
+Hotkey	快捷键
+Esc	Esc
+Space	空格
+The key that presses the button	按下该按钮的键
+Type	类型
+the map	地图
+the minimap	小地图
+the data list	数据列表
+the data form	数据表单
+the trigger	触发器
+the quick picker	快速选择器
+the triggers	触发器
+the code	代码
+Feedback on 	反馈: 
+Feedback is anonymous. Do not include sensitive or private information. Ctrl+Enter sends it.	反馈是匿名的。请勿包含敏感或私人信息。按 Ctrl+Enter 发送。
+Send	发送
+This build cannot send feedback. StarDraft 2 keeps it in 	此版本无法发送反馈。StarDraft 2 将其保存在 
+Sending the feedback…	正在发送反馈…
+Report feedback on 	提交反馈: 
+%zu B	%zu B
+%.0f KB	%.0f KB
+%.1f MB	%.1f MB
+Rename the sound	重命名声音
+A file of that name is in the map already	地图中已有同名文件
+Length	时长
+Stop	停止
+The map names this sound, but neither the map nor the game has the file	地图中有此声音的名称，但地图和游戏中都没有该文件
+Missing	缺失
+Game 	游戏 
+Removed the sound. 	已删除该声音。 
+ briefings still use it.	 个简报仍在使用它。
+Removed the sound	已删除该声音
+Remove the file from the map	从地图中删除文件
+Remove the reference from the map	从地图中删除引用
+The map has it	地图中已有
+Add to the map's sounds, by reference: the game plays its own file, the map does not hold it	按引用添加到地图的声音：游戏播放自己的文件，地图不包含该文件
+The map has no sounds of its own. Import sounds adds WAV or OGG files.	地图没有自己的声音。“导入声音”会添加 WAV 或 OGG 文件。
+Import sounds…	导入声音…
+WAV or OGG files. StarDraft 2 saves them in the map (staredit\\wav\\).	WAV 或 OGG 文件。StarDraft 2 将其保存在地图中（staredit\\wav\\）。
+Rename	重命名
+Sounds of the game	游戏声音
+StarDraft 2 found no game sounds (Options > Program options: StarCraft folder)	StarDraft 2 未找到游戏声音（选项 > 程序选项：StarCraft 文件夹）
+Briefings	简报
+Open it in the Briefing workspace	在简报工作区中打开
+Search the game's sounds	搜索游戏声音
+Controller	控制者
+Race	种族
+Force	队伍
+Color	颜色
+Custom color… (multiplayer only)	自定义颜色…（仅限多人游戏）
+Forces	队伍
+Title	标题
+Tileset	图块集
+Size (tiles)	大小（图块）
+Map content at	地图内容位置
+New ground	新地形
+Change the size and tileset	更改大小和图块集
+Reset	重置
+Set the new size and tileset in the map (one undo step)	将新的大小和图块集应用到地图（一步撤销）
+Map properties	地图属性
+Players and forces	玩家和队伍
+Changes that are not applied	未应用的更改
+Apply	应用
+Revert	还原
+Set these values in the map (one undo step)	将这些值应用到地图（一步撤销）
+These pages have changes that are not applied: 	以下页面有未应用的更改: 
+.\n\nApply them to the map?	。\n\n是否将这些更改应用到地图？
+&Apply	应用(&A)
+Do &not apply	不应用(&N)
+The map becomes 	地图将变为 
+Each terrain becomes the 	每种地形将变为 
+The map keeps its size and tileset: 	地图保持尺寸和图块集不变: 
+Set the map properties: 	设置地图属性: 
+Set the map properties	设置地图属性
+&Yes	是(&Y)
+&No	否(&N)
+&Retry	重试(&R)
+Make standard StarCraft maps.	制作标准的 StarCraft 地图。
+Make maps with your own units, weapons and game rules. Change the game's data, and make new triggers with blocks or with your own code.	用您自己的单位、武器和游戏规则制作地图。修改游戏数据，并用积木或您自己的代码制作新的触发器。
+Custom MPQs and data files, for 1.16.1 and Remastered.	自定义 MPQ 和数据文件，适用于 1.16.1 和 Remastered。
+Classic project	经典项目
+EUD project	EUD 项目
+Campaign project	战役项目
+Mod project	模组项目
+A project with all the maps of your campaign. Go from one map to the next, and copy data and terrain between the maps.	包含战役所有地图的项目。可以从一张地图切换到下一张，并在地图之间复制数据和地形。
+Make mods with your own graphics and game files. Use your own MPQs and data files, for StarCraft 1.16.1 and Remastered.	用您自己的图形和游戏文件制作模组。使用您自己的 MPQ 和数据文件，适用于 StarCraft 1.16.1 和 Remastered。
+Land scale	陆地规模
+Coastline	海岸线
+Detail	细节
+Roughness	粗糙度
+New classic project	新建经典项目
+Mirror both (4 players)	双向镜像（4 名玩家）
+Turn 180 degrees (2 players)	旋转 180 度（2 名玩家）
+Brush 1 (whole diamonds)	笔刷 1（完整菱形）
+Brush 0.5 (single corners)	笔刷 0.5（单个角）
+ (water)	 （水域）
+ (high ground)	 （高地）
+Select the map whose terrain to use	选择要使用其地形的地图
+The map 	找不到地图 
+Type a name for the project	请输入项目名称
+Type the folder for the project	请输入项目文件夹
+There is already a folder 	已存在文件夹 
+. Type another name, for example 	。请输入其他名称，例如 
+Select the map to copy into the project	选择要复制到项目中的地图
+Could not generate the map	无法生成地图
+Generated a map: 	已生成地图: 
+ (seed 	 (种子 
+Created a map: 	已创建地图: 
+Back	返回
+Select a different kind (Esc)	选择其他类型 (Esc)
+filled with 	填充为 
+an imported map	导入的地图
+imported from 	导入自 
+The tileset, the size and the terrain come from the map.	图块集、尺寸和地形都来自该地图。
+the tileset 	图块集 
+Width	宽度
+Height	高度
+The terrain of a map	地图的地形
+Import an existing map	导入现有地图
+Generate	生成
+Blank map filled with	空白地图，填充为
+The terrain, tiles and doodads of a map that you have (.scm or .scx); no units, locations or triggers	您已有的地图（.scm 或 .scx）中的地形、图块和装饰物；没有单位、位置和触发器
+A copy of a map that you have (.scm or .scx): its terrain, units, triggers and settings	您已有的地图（.scm 或 .scx）的副本：地形、单位、触发器和设置
+Land, water and high ground from a seed and the settings next to the preview	根据种子和预览旁的设置生成的陆地、水域和高地
+The terrain on the whole map	整张地图的地形
+Seed	种子
+New seed	新种子
+Symmetry	对称
+Randomize	随机
+New amounts, shape and seed	新的数量、形状和种子
+Randomize all	全部随机
+Amounts	数量
+Shape	形状
+Make the project folder and its map	创建项目文件夹和地图
+Make the map in this tab	在此标签页中创建地图
+Removed 	已从列表中移除 
+StarDraft 2 is alpha software. Errors can occur. Make backup copies of your projects and maps before you edit them. Your feedback makes StarDraft 2 better: right-click anything and select "Report feedback on …".	StarDraft 2 是 alpha 版软件。可能会出现错误。编辑前请备份您的项目和地图。您的反馈会让 StarDraft 2 变得更好：在任意内容上右键单击，然后选择 "对…提交反馈"。
+Coming later	稍后推出
+Campaign projects come in a later version	战役项目将在之后的版本中推出
+Mod projects come in a later version	模组项目将在之后的版本中推出
+Remove from the list	从列表中移除
+Open…	打开…
+A project or a map (Ctrl+O)	项目或地图 (Ctrl+O)
+The map to copy (.scm or .scx)	要复制的地图（.scm 或 .scx）
+Could not open the page	无法打开页面
+Appearance	外观
+Theme	主题
+Dark theme (default)	深色主题（默认）
+Light theme	浅色主题
+Accent color	强调色
+ (default)	 （默认）
+Animate units	单位动画
+Units on the map play their animations	地图上的单位播放其动画
+Custom names	自定义名称
+How lists name a unit that has a custom name in the map	列表中如何显示地图中已自定义名称的单位
+Open the last project on start	启动时打开上一个项目
+Look for updates on start	启动时检查更新
+Release builds only	仅正式版本
+Check now	立即检查
+Look for a newer release now	立即查找较新的版本
+Send anonymous crash reports	发送匿名崩溃报告
+The version, Windows, the video card, where it crashed and the last log lines; no maps	版本、Windows、显卡、崩溃位置和最后几行日志；不包括地图
+Working folder	工作文件夹
+The working folder: where new projects go	工作文件夹：新项目的保存位置
+New projects go to 	新项目保存到 
+Documents\\StarDraft	Documents\\StarDraft
+Select the StarCraft: Remastered folder	选择 StarCraft: Remastered 文件夹
+From the next start: 	从下次启动开始: 
+A new folder is used from the next start	新文件夹从下次启动时开始使用
+Program options	程序选项
+Expansion	资料片
+Ground path from %s to %s: %.0f tiles (for a %hs)	从 %s 到 %s 的地面路径：%.0f 个图块（单位尺寸：%hs）
+No ground path from %s to %s: units must fly or go by transport	从 %s 到 %s 没有地面路径：单位必须飞行，或乘坐运输单位
+Lines: the shortest ground paths between the start locations. 	线条：起始位置之间最短的地面路径。 
+Green tiles: buildable tiles near a base. Orange boxes: its resources.	绿色图块：基地附近可建造的图块。橙色方框：该基地的资源。
+The walkable ground does not show	不显示可行走的地面
+The paths between bases do not show	不显示基地之间的路径
+The town areas do not show	不显示城镇区域
+Paths are for a 	路径适用于 
+Could not save the project: 	无法保存项目： 
+Linked 	已关联 
+ to the build	 到构建
+This code comes from the Data workspace. To remove it, undo the .dat edits.	此代码来自数据工作区。要删除它，请撤销对 .dat 文件的编辑。
+Removed the link to 	已取消与 
+euddraft found an error in 	euddraft 发现错误，位于 
+, line 	，行 
+Link a file to the build	将文件关联到构建
+Build now writes 	构建现在将写入 
+Background music	背景音乐
+Could not read the sound file	无法读取声音文件
+Could not copy the file into the project: 	无法将文件复制到项目中： 
+Background music: 	背景音乐： 
+epTrace closed without a report (see the log)	epTrace 已关闭，未生成报告（见日志）
+epTrace closed: no samples (see the log)	epTrace 已关闭：没有采样（见日志）
+epTrace closed: the report is on the Project page and in the log	epTrace 已关闭：报告在项目页和日志中
+epTrace.exe is not in the euddraft folder	epTrace.exe 不在 euddraft 文件夹中
+No trace file: build the map with Trace build on	没有跟踪文件：请在开启跟踪构建的情况下构建地图
+epTrace did not start: it needs administrator rights	epTrace 未启动：需要管理员权限
+Could not start epTrace (error 	无法启动 epTrace（错误 
+epTrace is open: play the map, then close epTrace's window (it writes the report then)	epTrace 已打开：运行地图，然后关闭 epTrace 窗口（此时会写入报告）
+Trace file	跟踪文件
+None yet: Build writes it	尚无：构建时会生成
+None: Trace build is off	无：跟踪构建已关闭
+Start epTrace	启动 epTrace
+epTrace is open	epTrace 已打开
+Start the map in StarCraft first. epTrace asks for administrator rights, shows the lines that run, and writes its report when you close its window	请先在 StarCraft 中启动地图。epTrace 会请求管理员权限，显示正在运行的代码行，并在关闭其窗口时写入报告
+Report	报告
+None yet: close epTrace's window to write it	尚无：关闭 epTrace 窗口即可生成
+No samples: no script line ran each trigger cycle while epTrace looked	没有采样：epTrace 观察期间，没有任何脚本行在每个触发器周期中运行
+ samples on 	 次采样，位于 
+ lines  ·  	 行  ·  
+Open the report	打开报告
+ (click: the block in the Triggers workspace)	 （单击：触发器工作区中的代码块）
+ (click: open the script)	 （单击：打开脚本）
+Hide the script's code	隐藏脚本代码
+Show the selected script's code	显示所选脚本的代码
+EUD project  ·  built	EUD 项目  ·  已构建
+EUD project  ·  not built yet	EUD 项目  ·  尚未构建
+Files	文件
+Folder	文件夹
+Open folder	打开文件夹
+Source map	源地图
+In the project folder	在项目文件夹中
+Where Build writes the map	构建写入地图的位置
+Found by StarDraft 2	由 StarDraft 2 找到
+Change…	更改…
+Downloaded on the first build	在首次构建时下载
+Options	选项
+EUD Turbo	EUD Turbo
+A shorter trigger cycle: the triggers run more often (euddraft's eudTurbo)	更短的触发器周期：触发器运行得更频繁（euddraft 的 eudTurbo）
+EUD Turbo on	EUD Turbo 已开启
+EUD Turbo off	EUD Turbo 已关闭
+More units and sprites	更多单位和精灵
+Room for more sprites, images, bullets and orders (euddraft's unlimiter)	为更多精灵、图像、子弹和指令留出空间（euddraft 的 unlimiter）
+More units and sprites on	更多单位和精灵：已开启
+More units and sprites off	更多单位和精灵：已关闭
+Air units do not push apart	空中单位不会互相推开
+Air units can stay on top of each other (euddraft's noAirCollision)	空中单位可以相互重叠（euddraft 的 noAirCollision）
+Air units push apart	空中单位互相推开
+Debug build	调试构建
+Debug build off	调试构建已关闭
+Debug build on	调试构建已开启
+The triggers check each list index that the game calculates. An index out of range shows a message on the screen, and the triggers use the first item. Turn it off for the map that you release.	触发器会检查游戏计算出的每个列表索引。超出范围的索引会在屏幕上显示消息，触发器则使用第一项。发布的地图请关闭此选项。
+Trace build (epTrace)	跟踪构建（epTrace）
+Trace build off	跟踪构建已关闭
+Trace build on: build the map again to use epTrace	跟踪构建已开启：请重新构建地图以使用 epTrace
+The scripts record each line that they run, and Build writes a trace file beside the map. epTrace reads it while the map plays in StarCraft and shows which lines use the most time. The map runs more slowly: turn it off for the map that you release.	脚本会记录其运行的每一行，构建时会在地图旁生成跟踪文件。地图在 StarCraft 中运行时，epTrace 会读取该文件，并显示哪些代码行耗时最多。地图运行会变慢：发布的地图请关闭此选项。
+Plays again and again for every player (euddraft's bgmplayer)	为每位玩家循环播放（euddraft 的 bgmplayer）
+No background music	没有背景音乐
+Files in memory	内存中的文件
+Take it out	移除
+Add a file…	添加文件…
+A file to load into memory	要载入内存的文件
+Memory address (for example 0x58A364)	内存地址（例如 0x58A364）
+The file loads into memory when the map starts	地图启动时，文件会载入内存
+Loads a file's bytes into the game's memory when the map starts (euddraft's dataDumper)	地图启动时，将文件的字节载入游戏内存（euddraft 的 dataDumper）
+Scripts	脚本
+Build runs these in order, from the top. onPluginStart runs once when the map starts; beforeTriggerExec and afterTriggerExec run each trigger cycle	构建会从上到下按顺序运行这些脚本。onPluginStart 在地图启动时运行一次；beforeTriggerExec 和 afterTriggerExec 在每个触发器周期中运行
+from the Data workspace	来自数据工作区
+euddraft plugin	euddraft 插件
+linked  ·  not found: Build stops	已关联  ·  未找到：构建将停止
+not found: Build stops	未找到：构建将停止
+linked  ·  changed 	已关联  ·  已更改 
+  after the last build	  自上次构建后
+Open in your editor	在编辑器中打开
+Show in folder	在文件夹中显示
+Earlier	更早
+Comes from the Data workspace	来自数据工作区
+New script	新建脚本
+Link a file…	链接文件…
+Could not read the sound	无法读取声音
+Could not read the sound: 	无法读取声音: 
+Imported 	已导入 
+Game	游戏
+Game sound	游戏声音
+Null tiles	空瓦片
+Doodad #	装饰物 #
+, row 	, 行 
+Not in Blizzard's maps	不在暴雪地图中
+Group 	组 
+, tile 	, 瓦片 
+Null tile	空瓦片
+All tiles	所有瓦片
+All tiles but the null tiles	除空瓦片外的所有瓦片
+Doodad tiles	装饰物瓦片
+Click a tile to place it	点击瓦片以放置
+: click or drag to place it (the brush's size and shape)	: 点击或拖动以放置（画笔的大小和形状）
+the Tiles list	瓦片列表
+ tiles: Spray places one of them at random	 个瓦片：喷洒会随机放置其中一个
+Search tiles: group number, terrain, doodad	搜索瓦片：组号、地形、装饰物
+ 1 tile	 1 个瓦片
+The tiles are the same already	瓦片已经相同
+. Removed 	. 已移除 
+ doodad under them	 个位于其下的装饰物
+ doodads under them	 个位于其下的装饰物
+ unit that cannot stand there	 个无法站在那里的单位
+ units that cannot stand there	 个无法站在那里的单位
+Replaced	已替换
+Filled	已填充
+Select a tile in the Tiles list first (or Ctrl+click a tile on the map)	请先在瓦片列表中选择一个瓦片（或在地图上 Ctrl+点击瓦片）
+Placed	已放置
+Only the player on this computer sees or hears it.	只有这台电脑上的玩家能看到或听到它。
+It acts for the current player. Put it in For each player.	它为当前玩家执行。请将其放入“对每个玩家”中。
+It holds up the other triggers of the player until it is complete.	在它完成之前，会暂停该玩家的其他触发器。
+It reads or writes game memory at an address.	它读取或写入某个地址的游戏内存。
+It goes through units, up to 1,700 each time it runs.	它遍历单位，每次运行最多 1,700 个。
+Its value is not the same on each computer. Use it only for what a player sees or hears.	它的值在各台电脑上不同。只用于玩家看到或听到的内容。
+  ·  advanced	  ·  高级
+What it does	作用
+Values	值
+  ·  default value: 	  ·  默认值: 
+Holds	包含
+ (conditions)	（条件）
+ (actions)	（动作）
+Example	示例
+Watch out	注意
+Effects and cost	效果和开销
+About 	约 
+ each time it runs	 每次运行时
+, and the blocks in it.	, 以及其中的块。
+the help for 	帮助: 
+a block	一个块
+Block help	块帮助
+Block help: 	块帮助: 
+Select a block, then press F1 for its help	选择一个块，然后按 F1 查看其帮助
+ (about 	 (约 
+The trigger costs about 	此触发器每次运行的开销约为 
+ actions each run (it was 	 个动作（之前为 
+). Ctrl+Z undoes it.	）。Ctrl+Z 可撤销。
+euddraft found an error in line 	euddraft 在触发器代码的第 
+ of the triggers' code: 	 行发现错误: 
+ (see the log)	 （见日志）
+Drag to move	拖动以移动
+(empty)	（空）
+changed  ·  	已更改  ·  
+  ·  changed  ·  	  ·  已更改  ·  
+Put back the game's values	恢复游戏的值
+No other data uses this entry	没有其他数据使用此条目
+StarDraft 2 project	StarDraft 2 项目
+Could not get the newest release from GitHub. Make sure that the computer is connected to the internet.	无法从 GitHub 获取最新版本。请确保电脑已连接到互联网。
+Check for updates	检查更新
+StarDraft 2 is up to date (	StarDraft 2 已是最新版本 (
+.\n\nThis is not a release build. Open the release page?	.\n\n这不是正式发布版本。要打开发布页面吗？
+&Open the release page	打开发布页面(&O)
+.\n\nDownload and install it? StarDraft 2 starts again after it.	.\n\n要下载并安装吗？安装后 StarDraft 2 会重新启动。
+&Install	安装(&I)
+Downloading 	正在下载 
+\n\nThe release page opens: get the zip from there.	\n\n将打开发布页面：请从那里获取 zip 文件。
+The download did not complete.	下载未完成。
+Could not unpack the download.	无法解压下载的文件。
+Could not replace the program file in 	无法替换程序文件，位于 
+Could not put the new program in 	无法将新程序放入 
+"the current player" has a value only in For each player	“当前玩家”只在“对每个玩家”中有值
+Select a player	选择一个玩家
+Unknown value 	未知值 
+Select a unit group	选择一个单位组
+ is not a unit group	 不是单位组
+Select a property	选择一个属性
+: StarDraft 2 cannot build this block yet	: StarDraft 2 暂时无法构建此块
+A value from the game is a number. You cannot use it here	游戏中的值是数字，此处不能使用
+Use a player number from 0 to 26 (Player 1 is 0)	使用 0 到 26 之间的玩家编号（玩家 1 为 0）
+" is not a player, a variable or a number	" 不是玩家、变量或数字
+" is not a 	" 不是 
+Select a sound	选择声音
+The map has no sound 	地图中没有声音 
+Select a trigger	请选择触发器
+There is no trigger in Definitions with the name 	“定义”中没有触发器名为 
+ is off. Turn it on, or select another trigger	 已关闭。请开启它，或选择其他触发器
+Set up the button	设置按钮
+This is a group of units. Select one unit type	这是一组单位。请选择一种单位类型
+There is no unit type 	没有单位类型 
+There is no unit type with the name 	没有单位类型名为 
+Use a location from 1 to 255	请使用 1 到 255 之间的位置
+The map has no location 	地图中没有位置 
+Select a location	请选择位置
+Use a switch from 1 to 256	请使用 1 到 256 之间的开关
+Use a value from 0 to 	请使用 0 到 
+ has no property 	 没有属性 
+Unit #	单位 #
+ has the same type, owner and position. Move one of them, or StarDraft 2 can find the wrong unit	 的类型、所有者和位置相同。请移动其中一个，否则 StarDraft 2 可能找错单位
+"the unit" has a value only in For each unit	“该单位”只在“对每个单位”中有值
+The selected unit is not on the map now	选中的单位现在不在地图上
+Select a unit	请选择单位
+ is not a unit variable	 不是单位变量
+The default value of 	默认值为 
+ is a unit on the map. That unit is not on the map now	 是地图上的单位。该单位现在不在地图上
+Select a variable	请选择变量
+There is no variable with the name 	没有变量名为 
+ is a 	 是 
+. Use a 	。请使用 
+ is a constant. You cannot change it	 是常量。无法更改它
+ acts for the current player. Put it in For each player	 作用于当前玩家。请将它放入“对每个玩家”中
+: the other triggers of the player stop until it is complete	：该玩家的其他触发器会停止，直到它完成
+. Show text and Talking portrait do not stop them	。“显示文本”和“对话头像”不会使它们停止
+Reads or writes game memory at an address. Remastered permits only some addresses	在指定地址读取或写入游戏内存。Remastered 只允许部分地址
+ is not the same on each computer. Use it in Run local block, or only for what a player sees or hears: if it changes the game, the game desyncs	 在每台电脑上都不一样。请在“运行本地块”中使用它，或只用于玩家看到或听到的内容：如果它改变了游戏，游戏就会不同步
+Use Player 1 to Player 8, or the current player	请使用玩家 1 到玩家 8，或当前玩家
+Unknown condition 	未知条件 
+ has no conditions	 没有条件
+Type the chat text	请输入聊天文本
+A chat text cannot have "	聊天文本中不能包含“
+" in it	”
+A chat text has at most 78 letters	聊天文本最多 78 个字符
+Use a player from 0 to 7 (Player 1 is 0)	请使用 0 到 7 之间的玩家（玩家 1 为 0）
+Use an item of 	请使用 
+ from 0 to 	 中的项，编号从 0 到 
+This is yes or no. Use exactly or not	这是“是”或“否”。请使用“恰好”或“不是”
+Compares 	比较 
+ as a number	 作为数字
+ is not a number. Use set to	 不是数字。请使用“设置为”
+Unknown action 	未知动作 
+Select a text variable	请选择文本变量
+ is not a text variable	 不是文本变量
+Select a text of the game	请选择游戏中的文本
+Select a number per player	请选择每个玩家的数字
+ is not a number per player	 不是每个玩家的数字
+The text has more than two {}. Use at most two: one for each value	文本中的 {} 超过两个。最多使用两个：每个值一个
+For each player accepts all players, Player 1 to Player 8, or a force	“对每个玩家”接受所有玩家、玩家 1 到玩家 8，或一个势力
+For each unit accepts one unit type or Any unit	“对每个单位”接受一种单位类型或“任意单位”
+For each unit accepts the units of one player or of all players	“对每个单位”接受一个玩家或所有玩家的单位
+Slow: the actions in it run for each unit (up to 1,700) each time. Keep them short	慢：其中的动作每次都会对每个单位（最多 1,700 个）执行。请保持简短
+For each new unit accepts the units of one player or of all players	“对每个新单位”接受一个玩家或所有玩家的单位
+Run local block: a random number here changes the random numbers on this computer only, and the game desyncs. Make it outside	运行本地块：这里的随机数只会改变这台电脑上的随机数，游戏会不同步。请把它放在块外
+Run local block: 	运行本地块： 
+ holds up the triggers on this computer only, and the game desyncs	 只会暂停这台电脑上的触发器，游戏会不同步
+Run local block: the value changes on this computer only. Use it only for what this player sees: if a trigger that changes the game reads it, the game desyncs	运行本地块：该值只在这台电脑上改变。只用于这位玩家所看到的内容：如果会改变游戏的触发器读取它，游戏就会不同步
+Run local block: StarDraft 2 cannot tell what 	运行本地块：StarDraft 2 无法判断 
+ changes. Change only what this player sees, or the game desyncs	 改变了什么。只改变这位玩家所看到的内容，否则游戏会不同步
+ changes the game on this computer only: the other computers do not do it, and the game desyncs. Put it outside	 只在这台电脑上改变游戏：其他电脑不执行它，游戏会不同步。请把它放在外面
+ goes on only while its trigger runs again: in On map start it runs one time. Put it in a trigger in On every trigger cycle	 仅在其触发器再次运行时继续：在“地图开始时”中只运行一次。请把它放入“每个触发周期”的触发器中
+Put Leave the loop in a loop (Repeat, While, For each)	请将“跳出循环”放在循环（“重复”、“当”、“对每个”）中
+ in For each unit changes the units that the loop goes through: the loop can miss units or stop. Do it after the loop, or change only "the unit"	 在“对每个单位”中会改变循环遍历的单位：循环可能会漏掉单位或停止。请在循环之后执行，或只改变“该单位”
+The loop goes through the units of one player. A unit that goes to another player leaves that list: the loop can miss units or stop. Loop through the units of all players	循环遍历一个玩家的单位。转到另一个玩家的单位会离开该列表：循环可能会漏掉单位或停止。请遍历所有玩家的单位
+The deaths of 	死亡次数 
+ also go up when a 	 也会因 
+ dies in the game. To keep a number, use a variable	 在游戏中死亡而增加。要保留数字，请使用变量
+"the unit" has a value only in For each unit or For each new unit	“该单位”只在“对每个单位”或“对每个新单位”中有值
+Language	语言
+Automatic	自动
+Follow the language of Windows	跟随 Windows 语言
+The language changes at the next start of StarDraft 2	下次启动 StarDraft 2 时语言将改变
+Randomize seed	随机化种子
+Randomize values	随机化数值
+ground and air	地面和空中
+air	空中
+ground	地面
+Rename the unit (empty: the game's name)	重命名单位（留空：游戏中的名称）
+Map unit limit	地图单位上限
+Standard maps	标准地图
+EUD projects	EUD 项目
+Default value: 3400	默认值：3400
+Default value: 1700	默认值：1700
+StarCraft without mods takes at most 3400 units in a map.	不使用模组的 StarCraft 在地图中最多支持 3400 个单位。
+The most units in a map   1 to 65535	地图中的最大单位数   1 到 65535
+Player 4	玩家 4
+Player 5	玩家 5
+Player 6	玩家 6
+Player 7	玩家 7
+Player 8	玩家 8
+Player 9	玩家 9
+Player 10	玩家 10
+Player 11	玩家 11
+Player 12	玩家 12
+Show ranges of the selected u&nits	显示所选单位的范围(&N)
+Ranges are hidden	范围已隐藏
+Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue)	所选单位的范围：视野（黄色）、目标获取（橙色）、地面武器（红色）、空中武器（蓝色）
+Favorites	收藏
+Add to favorites	添加到收藏
+Remove from favorites	从收藏中移除
+Show the favorites	显示收藏
+&Fill selection with the selected tiles	用所选图块填充选区(&F)
+Crash reports	崩溃报告
+Ask	询问
+Do not send	不发送
+&Send	发送(&S)
+&Always send	始终发送(&A)
+Do &not send	不发送(&N)
+Crash report	崩溃报告
+After a crash, StarDraft 2 asks at the next start if it can send the report (default)	崩溃后，StarDraft 2 在下次启动时询问能否发送报告（默认）
+The reports stay on this computer	报告保留在这台计算机上
+Show &minimap	显示小地图(&M)
+Hide	隐藏
+La&yers	图层(&Y)
+&Terrain	地形(&T)
+tiles	图块
+diamonds	菱形
+If ▾	如果 ▾
+For each ▾	对每个 ▾
+Add an If block: one of the kinds of If	添加“如果”块：其中一种“如果”
+Add a loop: For each player, unit, number or item, or Repeat	添加循环：对每个玩家、单位、数字或项目，或重复
+Add a &condition	添加条件(&C)
+Add an &action	添加动作(&A)
+&Search…	搜索(&S)…
+Loops	循环
+If	如果
+Named after StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.	名称取自 1998 年 Camelot Systems 的 StarDraft，它开启了 StarCraft 模组圈。
+StarDraft 2 aims to be its spiritual successor for StarCraft makers in 2026 and later.	StarDraft 2 旨在成为它的精神续作，服务 2026 年及以后的 StarCraft 制作者。
+Mouse	鼠标
+The farther the mouse is from where you pressed, the faster the map moves toward it (default)	鼠标离按下位置越远，地图向它移动越快（默认）
+The map moves with the mouse, as with a right-drag	地图随鼠标移动，与右键拖动相同
+Middle mouse click and hold	按住鼠标中键
+Drag map	拖动地图
+Pan map	平移地图
+Middle mouse click and hold drags the map	按住鼠标中键拖动地图
+Middle mouse click and hold pans the map	按住鼠标中键平移地图
+&Quick open…\tCtrl+Shift+O	快速打开(&Q)…\tCtrl+Shift+O
+Go to an open tab, or open a recent project or map	切换到已打开的标签页，或打开最近的项目或地图
+Open tab: project	已打开的标签页：项目
+Open tab: map	已打开的标签页：地图
+Recent project	最近的项目
+Recent map	最近的地图
+Browse for a project…	浏览项目…
+File > Project > Open project	文件 > 项目 > 打开项目
+Maps	地图
+Open maps with StarDraft 2	用 StarDraft 2 打开地图
+Make StarDraft 2 the program that opens .scm and .scx maps	将 StarDraft 2 设为打开 .scm 和 .scx 地图的程序
+Maps (.scm, .scx) open with StarDraft 2	地图（.scm, .scx）用 StarDraft 2 打开
+Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.	Windows 会保留您为 .scm 或 .scx 地图选择的程序。在“默认应用”中搜索 .scm 和 .scx，然后选择 StarDraft 2。
+Default apps	默认应用
+StarDraft 2 shows the new language after a restart. Restart now? Your open maps and projects open again.	StarDraft 2 在重新启动后显示新语言。现在重启吗？已打开的地图和项目会再次打开。
+The language changes when StarDraft 2 starts again	语言在 StarDraft 2 再次启动时更改
+StarDraft 2 could not start again. Close it and start it to show the new language.	StarDraft 2 无法再次启动。请关闭后重新启动，以显示新语言。
+Restart now	立即重启
+Start StarDraft 2 again in the new language. Your open maps and projects open again.	以新语言重新启动 StarDraft 2。已打开的地图和项目会再次打开。
+The new language shows after a restart	重新启动后显示新语言
+A new language shows after a restart	重新启动后显示新语言
+Text color	文字颜色
+\r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft 2 does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n首次构建时，StarDraft 2 会从 GitHub 将 euddraft 下载到它自己的文件夹。\r\nStarDraft 2 不会更改这台计算机上的其他副本。您打开的地图\r\n仍是普通地图。只能构建项目。
+ accepts the current player or Player 1 to Player 12	 接受当前玩家或玩家 1 至 12
+ accepts the current player, Player 1 to Player 8, all players, or a force	 接受当前玩家、玩家 1 至 8、所有玩家或一个势力
+ are hidden (View > Layers)	 已隐藏（查看 > 图层）
+ has the same type, owner and position. Move one of them, or StarDraft can find the wrong unit	 与另一个单位的类型、拥有者和位置相同。请移动其中一个，否则 StarDraft 可能找错单位
+ tiles)	 个图块)
+ tiles: Brush, Spray and Fill place one of them at random	 个图块：画笔、喷涂和填充各随机放置其中之一
+ units: click to place them, and again to place more. Right-click or Esc stops.	 个单位：单击放置，再次单击可继续放置。右键单击或按 Esc 停止。
+ units: the limit (Program options > Map unit limit)	 个单位：上限（程序选项 > 地图单位上限）
+&Assets workspace	资源工作区(&A)
+&Briefing workspace	简报工作区(&B)
+&Project page	项目页面(&P)
+. At the next start, StarDraft 2 asks if it can send it.	. 下次启动时，StarDraft 2 会询问能否发送它。
+. The Favorites filter shows them.	. “收藏”筛选会显示它们。
+: StarDraft 2 opens maps (.scm, .scx, .chk) and projects	: StarDraft 2 可打开地图（.scm, .scx, .chk）和项目
+: StarDraft cannot build this block yet	: StarDraft 暂时无法构建此块
+: this layer is hidden. View > Layers shows it again (then you can edit it).	: 此图层已隐藏。查看 > 图层可再次显示它（然后即可编辑）。
+Add a script	添加脚本
+Added to the favorites: 	已加入收藏: 
+After a crash, StarDraft 2 asks at the next start if it can send the report	崩溃后，StarDraft 2 在下次启动时询问能否发送报告
+Automatic (the language of Windows)	自动（Windows 语言）
+Brush: place the tile selected in the Tiles list, with the brush's size and shape. Several tiles selected: each tile one of them at random (a scatter).	画笔：以画笔的大小和形状放置在“图块”列表中选中的图块。选中多个图块时，每个位置随机放置其中之一（散布）。
+Could not write 	无法写入 
+Did not open 	未能打开 
+English	English
+Español	Español
+Filled the selection:	已填充所选区域：
+For another player, select the players here by number, or all players, or a force (the current player, allies and enemies change with the player)	对于另一名玩家，在此按编号选择玩家，或选择所有玩家，或一个势力（当前玩家、盟友和敌人随玩家而变）
+It acts for the player that you select. The current player has a value only in For each player.	作用于您选择的玩家。当前玩家只在“对每个玩家”中有值。
+Paste terrain: click to place it, and again to place more. Press R to turn it. Right-click or Esc stops.	粘贴地形：单击放置，再次单击可继续放置。按 R 旋转。右键单击或 Esc 停止。
+Paste tiles: click to place them, and again to place more. Right-click or Esc stops.	粘贴图块：单击放置，再次单击可继续放置。右键单击或 Esc 停止。
+Paste: click to place the copy, and again to place more. Right-click or Esc stops.	粘贴：单击放置副本，再次单击可继续放置。右键单击或 Esc 停止。
+Removed from the favorites: 	已移出收藏: 
+Run local block: StarDraft cannot tell what 	运行本地块：StarDraft 无法判断 
+Send an anonymous report after a crash: the version, Windows, the video card, where it crashed and the last log lines; no maps	崩溃后发送匿名报告：版本、Windows、显卡、崩溃位置和最后的日志行；不包含地图
+StarDraft 2 - v	StarDraft 2 - v
+StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, Windows, the video card, where it crashed and the last log lines. It has no maps. It is in 	StarDraft 2 上次因错误而停止。是否将崩溃报告发送给开发者，以便他们修复该错误？\n\n报告包含版本、Windows、显卡、崩溃位置和最后的日志行。不包含地图。报告位于 
+Terran Marine	人类机枪兵
+The language of the program's texts	程序文本的语言
+The map has 	地图有 
+The minimap is hidden (View > Show minimap shows it again)	小地图已隐藏（视图 > 显示小地图即可再次显示）
+The minimap shows	小地图已显示

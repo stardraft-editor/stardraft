@@ -1,0 +1,1744 @@
+Fine	Точный
+Small	Мелкий
+Normal	Обычный
+Large	Крупный
+Huge	Огромный
+GridX	Сетка X
+GridY	Сетка Y
+&Clear list	&Очистить список
+None	Нет
+Terrain	Местность
+Units	Юниты
+Doodads	Декорации
+Locations	Локации
+Sprites	Спрайты
+Brush	Кисть
+Spray	Спрей
+Fill	Заливка
+Replace (click terrain)	Замена (клик по местности)
+Select / copy	Выбор / копирование
+Place / select	Размещение / выбор
+Replace (click unit)	Замена (клик по юниту)
+Place	Размещение
+Terran 	Терран 
+Zerg 	Зерг 
+Protoss 	Протосс 
+(Select / move)	(Выбор / перемещение)
+(Terrain editing needs ISOM data. Only Badlands has it now.)	(Для редактирования местности нужны данные ISOM. Сейчас они есть только для Пустошей.)
+Select	Выбор
+Edit	Правка
+%d, %d  (tile %d, %d)	%d, %d  (тайл %d, %d)
+%zu selected	Выбрано: %zu
+%zu fps  %d sprites	%zu fps  спрайтов: %d
+Jan	янв
+Feb	фев
+Mar	мар
+Apr	апр
+May	май
+Jun	июн
+Jul	июл
+Aug	авг
+Sep	сен
+Oct	окт
+Nov	ноя
+Dec	дек
+built %s %u %02u:%02u	сборка %s %u %02u:%02u
+StarDraft 2 	StarDraft 2 
+Untitled	Без названия
+Badlands	Пустоши
+Space Platform	Космическая платформа
+Installation	Установка
+Ash World	Пепельный мир
+Jungle	Джунгли
+Desert	Пустыня
+Ice	Ледяной мир
+Twilight	Сумерки
+OK	ОК
+Cancel	Отмена
+Rename location	Переименовать локацию
+Low ground	Низкая земля
+Medium ground	Средняя земля
+High ground	Высокая земля
+Low air	Низкий воздух
+Medium air	Средний воздух
+High air	Высокий воздух
+P&roperties…\tEnter	&Свойства…\tEnter
+Re&name\tF2	&Переименовать\tF2
+&Delete\tDel	&Удалить\tDel
+Elevations in the location	Высоты в локации
+&All elevations	&Все высоты
+: all elevations are in the location	: все высоты находятся в локации
+ is in the location	 находится в локации
+ is not in the location	 не находится в локации
+Select the StarCraft: Remastered folder. It contains .build.info.	Выберите папку StarCraft: Remastered. В ней есть .build.info.
+Not a StarCraft: Remastered folder	Это не папка StarCraft: Remastered
+Could not read the game data in this folder:\r\n	Не удалось прочитать данные игры в этой папке:\r\n
+StarCraft folder	Папка StarCraft
+StarDraft 2 uses this folder after the next start:\r\n	StarDraft 2 будет использовать эту папку после следующего запуска:\r\n
+\r\nTo use it now, restart StarDraft 2.	\r\nЧтобы использовать её сейчас, перезапустите StarDraft 2.
+Start	Запуск
+Untitled 	Без названия 
+ (project)	 (проект)
+ (map)	 (карта)
+Switched to 	Переключено на 
+Moved the tab "	Перемещена вкладка "
+(older lines dropped)\r\n	(старые строки удалены)\r\n
+ERROR  	ОШИБКА  
+Log	Журнал
+Build needs an EUD project. Use File > Project > New project or Open project.	Для сборки нужен проект EUD. Используйте Файл > Проект > Новый проект или Открыть проект.
+A build is already running	Сборка уже выполняется
+StarCraft will not start this map:\r\n\r\n	StarCraft не запустит эту карту:\r\n\r\n
+\r\nTo set the players, use Scenario > Players and forces. Build the map anyway?	\r\nЧтобы задать игроков, используйте Сценарий > Игроки и силы. Всё равно собрать карту?
+Build	Сборка
+&Build	&Сборка
+Do &not build	&Не собирать
+Did not build the map: 	Не удалось собрать карту: 
+ is not found (see the Project page)	 не найден (см. страницу «Проект»)
+Could not write the .dat edits	Не удалось записать изменения .dat
+Could not save the project's map	Не удалось сохранить карту проекта
+Building the map…	Сборка карты…
+Built 	Собрано 
+Could not build the map (see the log)	Не удалось собрать карту (см. журнал)
+the project file	файл проекта
+the map you edit here (Brood War format)	карта, которую вы редактируете здесь (формат Brood War)
+euddraft's build file: Build writes it	файл сборки euddraft: его записывает «Сборка»
+the built map: Build (Ctrl+B) writes it	собранная карта: «Сборка» (Ctrl+B) записывает её
+your code (epScript). To add more, use File > Project > Add script.	ваш код (epScript). Чтобы добавить ещё, используйте Файл > Проект > Добавить скрипт.
+StarDraft 2 makes the folder 	StarDraft 2 создаёт папку 
+\\ in the location above:\r\n\r\n	\\ в указанном выше месте:\r\n\r\n
+\r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nПри первой сборке StarDraft 2 загружает euddraft с GitHub в свою папку.\r\nStarDraft 2 не меняет другие копии на этом компьютере. Карта, которую вы открываете,\r\nостаётся обычной картой. Собрать можно только проект.
+Name	Имя
+Location	Расположение
+Browse…	Обзор…
+Output file	Выходной файл
+<name>_EUD.scx in the project folder	<name>_EUD.scx в папке проекта
+Start from	Начать с
+The open map (	Открытая карта (
+A new blank map (128 x 128 Badlands)	Новая пустая карта (128 x 128 Badlands)
+Create	Создать
+Select the folder for the project	Выберите папку для проекта
+Created the project 	Создан проект 
+ (Build: Ctrl+B)	 (Сборка: Ctrl+B)
+New EUD project	Новый проект EUD
+Could not create the project	Не удалось создать проект
+Select the file for the built map	Выберите файл собранной карты
+Human	Человек
+Computer	Компьютер
+Rescuable	Спасаемый
+Neutral	Нейтральный
+Closed	Закрыт
+Unused	Не используется
+Zerg	Зерг
+Terran	Терран
+Protoss	Протосс
+User select	Выбор игрока
+Random	Случайный
+Random starts	Случайные старты
+Allies	Союзники
+Allied victory	Победа союзников
+Shared vision	Общий обзор
+Player 	Игрок 
+ owns units but has no start location	 имеет юниты, но не имеет стартовой позиции
+Set at least two players to Human or Computer (	Назначьте не менее двух игроков «Человек» или «Компьютер» (
+ now)	 сейчас)
+Set at least one player to Human	Назначьте хотя бы одного игрока «Человек»
+Player's choice	Выбор игрока
+Custom 	Свой цвет 
+ (multiplayer only)	 (только для мультиплеера)
+✓  StarCraft can start this map	✓  StarCraft может запустить эту карту
+Set the players and forces	Задайте игроков и команды
+Could not open the project	Не удалось открыть проект
+Opened the project 	Открыт проект 
+ scripts; Build: Ctrl+B)	 скрипт(ов); Сборка: Ctrl+B)
+Add a script: select one, or type the name of a new one	Добавить скрипт: выберите один или введите имя нового
+Could not save the project	Не удалось сохранить проект
+Added 	Добавлен 
+ to the project	 в проект
+Could not open the map	Не удалось открыть карту
+Opened 	Открыто 
+Could not create the map	Не удалось создать карту
+Created a new 	Создана новая 
+ map (	 карта (
+Save the project (StarDraft 2 makes a folder with its name here)	Сохранить проект (StarDraft 2 создаёт здесь папку с его именем)
+The name cannot hold \\ / : * ? " < > |	Имя не может содержать \\ / : * ? " < > |
+Save project	Сохранить проект
+ is there already and is not empty.	 уже существует и не пуста.
+Could not save the map	Не удалось сохранить карту
+Could not copy 	Не удалось скопировать 
+Saved the project to 	Проект сохранён в 
+Saved 	Сохранено 
+Light	Светлая
+Dark	Тёмная
+ theme, accent color 	 тема, цвет акцента 
+Save the new project?	Сохранить новый проект?
+Unsaved changes	Несохранённые изменения
+&Save	&Сохранить
+Do &not save	&Не сохранять
+Save changes to the map?	Сохранить изменения карты?
+Map &data (units, upgrades, technologies)	&Данные карты (юниты, улучшения, технологии)
+Nothing copied: select doodads and press Ctrl+C	Ничего не скопировано: выберите декорации и нажмите Ctrl+C
+Nothing copied: select sprites and press Ctrl+C	Ничего не скопировано: выберите спрайты и нажмите Ctrl+C
+Paste: click to place the copy. Shift+click pastes again. Esc goes back to Select.	Вставка: щёлкните, чтобы разместить копию. Shift+щелчок вставляет снова. Esc возвращает к инструменту «Выделение».
+Nothing copied: select a location and press Ctrl+C	Ничего не скопировано: выберите локацию и нажмите Ctrl+C
+Pasted 	Вставлено 
+Paste tiles: click to place them. Shift+click pastes again. Esc cancels.	Вставка тайлов: щёлкните, чтобы разместить их. Shift+щелчок вставляет снова. Esc отменяет.
+Paste terrain: click to place it. Press R to turn it. Shift+click pastes again. Esc cancels.	Вставка местности: щёлкните, чтобы разместить её. Нажмите R, чтобы повернуть. Shift+щелчок вставляет снова. Esc отменяет.
+Paste 	Вставка 
+ units: click to place them. Shift+click pastes again. Esc or right-click cancels.	 юнит(ов): щёлкните, чтобы разместить их. Shift+щелчок вставляет снова. Esc или щелчок правой кнопкой отменяет.
+ is gone; removed from the list	 больше нет; удалён из списка
+This tab is a classic map. This command needs a project. File > Project > Make this map a project makes one.	Эта вкладка — классическая карта. Этой команде нужен проект. Файл > Проект > Сделать эту карту проектом создаёт его.
+This command is for classic maps only	Эта команда только для классических карт
+StarDraft 2	StarDraft 2
+Trigger code needs an EUD project	Код триггеров требует проект EUD
+StarCraft can start this map	StarCraft может запустить эту карту
+Check that StarCraft can start the map	Проверить, может ли StarCraft запустить карту
+ toolbar on the 	 панель инструментов, положение: 
+Gave 	Передано 
+ selected units to Player 	 выбранных юнитов игроку 
+ (resources and critters stay neutral)	 (ресурсы и животные остаются нейтральными)
+do not snap	без привязки
+snap to tiles (32 px)	привязка к тайлам (32 px)
+snap to half tiles (16 px)	привязка к половине тайла (16 px)
+snap to quarter tiles (8 px)	привязка к четверти тайла (8 px)
+Grid: 	Сетка: 
+Copied 	Скопировано 
+First, select an area with the Select tool	Сначала выделите область инструментом «Выделение»
+Copied the terrain selection	Выделенная местность скопирована
+First, select an area with the Select / copy tool	Сначала выделите область инструментом «Выделение / копирование»
+First, select doodads	Сначала выберите декорации
+First, select sprites	Сначала выберите спрайты
+Copied the location	Локация скопирована
+First, select a location	Сначала выберите локацию
+Nothing to cut there: make the selection larger	Здесь нечего вырезать: увеличьте выделение
+Cut the terrain: 	Рельеф вырезан: 
+ null tiles in its place (one undo step)	 null-тайлов на его месте (один шаг отмены)
+Select units to duplicate	Выберите юниты для дублирования
+Deleted 	Удалено 
+Selected 	Выбрано 
+StarDraft 2 looks for a newer release on start	StarDraft 2 при запуске проверяет наличие новой версии
+StarDraft 2 does not look for a newer release on start	StarDraft 2 при запуске не проверяет наличие новой версии
+StarDraft 2 sends an anonymous report when it crashes	StarDraft 2 отправляет анонимный отчёт о сбое
+StarDraft 2 does not send crash reports (a report stays on this computer)	StarDraft 2 не отправляет отчёты о сбоях (отчёт остаётся на этом компьютере)
+The last project opens when StarDraft 2 starts	При запуске StarDraft 2 открывается последний проект
+StarDraft 2 starts with no project open	StarDraft 2 запускается без открытого проекта
+Units: can be on top of others	Юниты: могут стоять поверх других
+Units: cannot be on top of others (air units also)	Юниты: нельзя ставить поверх других (в том числе воздушные)
+Units: place anywhere (terrain edits do not move them)	Юниты: размещать где угодно (изменения рельефа их не перемещают)
+Units: place only where it fits	Юниты: размещать только там, где они помещаются
+Units: move to the nearest place where it fits	Юниты: перемещать на ближайшее подходящее место
+Doodads: place anywhere on the map (StarDraft 2 does not check the terrain)	Декорации: размещать где угодно на карте (StarDraft 2 не проверяет рельеф)
+Doodads: move to the nearest place where it fits	Декорации: перемещать на ближайшее подходящее место
+Doodads: place only where it fits	Декорации: размещать только там, где они помещаются
+Carbot (cartooned) graphics	Графика Carbot (мультяшная)
+Grid: width, height, x offset, y offset (map pixels)	Сетка: ширина, высота, смещение по x, смещение по y (пиксели карты)
+Type the width and the height (and the offsets), for example 48, 48, 16, 0	Введите ширину и высоту (и смещения), например 48, 48, 16, 0
+ pixels, offset 	 пикс., смещение 
+ selected: drag to move, Delete removes, Ctrl+C copies	 выбрано: перетащите, чтобы переместить, Delete удаляет, Ctrl+C копирует
+Placed 	Размещено 
+ (moved to the nearest valid spot)	 (перемещено на ближайшее подходящее место)
+Cannot place here:	Здесь нельзя разместить:
+ (no valid spot nearby)	 (поблизости нет подходящего места)
+: Ctrl+V pastes a copy where the mouse is	: Ctrl+V вставляет копию там, где указатель мыши
+ units (the other units do not fit here)	 юнитов (остальные сюда не помещаются)
+. To stop, right-click or press Esc.	. Чтобы остановить, щёлкните правой кнопкой или нажмите Esc.
+Sprayed 	Распылено 
+Replaced 	Заменено 
+ (selection)	 (выделение)
+Painting 	Закрашивание 
+ (selected with Ctrl+click)	 (выбрано Ctrl+щелчком)
+Pasted terrain	Рельеф вставлен
+New variants for 	Новые варианты для 
+Filled with 	Заполнено 
+, in selection)	, в выделении)
+Placed sprite 	Размещён спрайт 
+Did not place the sprite: it is outside the map	Спрайт не размещён: он за пределами карты
+Placed doodad	Декорация размещена
+Did not place the doodad: 	Декорация не размещена: 
+ doodads (the others do not fit there)	 декораций (остальные туда не помещаются)
+Moved 	Перемещено 
+The units do not fit there. They stay where they were.	Юниты туда не помещаются. Они остаются на месте.
+The units do not fit along the drag. They stay where they were.	Юниты не помещаются по пути перетаскивания. Они остаются на месте.
+Pasted terrain. To stop pasting, right-click or press Esc.	Рельеф вставлен. Чтобы остановить вставку, щёлкните правой кнопкой или нажмите Esc.
+ tiles. Press Ctrl+C to copy them.	 тайлов. Нажмите Ctrl+C, чтобы скопировать их.
+Cleared the terrain selection	Выделение рельефа снято
+Created 	Создана 
+ (inverted: it holds air units only)	 (инвертирована: в ней только воздушные юниты)
+The doodads stay: 	Декорации остаются на месте: 
+Independent	Независимые
+Other	Прочее
+Platform	Платформа
+Ash	Пепел
+Traps and doors	Ловушки и двери
+Effects	Эффекты
+(unnamed)	(без имени)
+All doodads	Все декорации
+All sprites	Все спрайты
+All units	Все юниты
+Placing sprite 	Размещение спрайта 
+Placing doodad 	Размещение декорации 
+: click to place it (green if it fits, red if it does not)	: щёлкните, чтобы разместить (зелёным, если помещается, красным, если нет)
+Placing 	Размещение 
+: click to place. Drag to place a row. Right-click to stop.	: щёлкните, чтобы разместить. Перетащите, чтобы разместить ряд. Щёлкните правой кнопкой, чтобы остановить.
+&List	Сп&исок
+&Grid: icons	&Сетка: значки
+Grid: &sprites	Сетка: сп&райты
+&Grid	&Сетка
+&Normal	&Обычный
+L&arge	Кр&упный
+Other 	Прочее 
+Units and buildings	Юниты и здания
+Low ground and other	Низкий рельеф и прочее
+: each click or spray places one of them, at random	: каждый щелчок или распыление размещает один из них, случайно
+Location 	Локация 
+ units with 	 юнитов на 
+ doodads (the others: the new one does not fit there)	 декораций (остальные: новая туда не помещается)
+ sprites with 	 спрайтов на 
+Paint a terrain	Закрасить рельеф
+Place a unit	Разместить юнит
+Place a doodad	Разместить декорацию
+Go to a location	Перейти к локации
+Place a sprite	Разместить спрайт
+Replace with a unit	Заменить юнитом
+Replace with a doodad	Заменить декорацией
+Replace with a sprite	Заменить спрайтом
+Go to a .dat entry	Перейти к записи .dat
+Map	Карта
+the Map workspace	рабочая область «Карта»
+Data	Данные
+Data: the map's units, upgrades and technologies	Данные: юниты, улучшения и технологии карты
+the Data workspace	рабочая область «Данные»
+Triggers	Триггеры
+Classic triggers	Классические триггеры
+the Triggers workspace	рабочая область «Триггеры»
+Classic	Классический
+Classic triggers (the map's own triggers)	Классические триггеры (собственные триггеры карты)
+Briefing	Брифинг
+the Briefing workspace	рабочая область «Брифинг»
+Assets	Ассеты
+the Assets workspace	рабочая область «Ассеты»
+Properties	Свойства
+Map properties: the title, size and tileset, players and forces (Ctrl+M)	Свойства карты: название, размер и тайлсет, игроки и команды (Ctrl+M)
+Project	Проект
+the Project page	страница «Проект»
+Build the map of the project with euddraft (Ctrl+B)	Собрать карту проекта с помощью euddraft (Ctrl+B)
+Could not read the project's 	Не удалось прочитать файл проекта 
+'s values	 (значения)
+'s values onto 	 (значения) в 
+ fields)	 шт.)
+Reset 	Сбросить 
+ to the game's values	 к значениям игры
+&Copy values\tCtrl+C	&Копировать значения\tCtrl+C
+&Paste values	&Вставить значения
+\tCtrl+V	\tCtrl+V
+&Reset to the game's values	&Сбросить к значениям игры
+&Copy 	&Копировать 
+&Paste 	&Вставить 
+&Reset to the game's value	&Сбросить к значению игры
+ to the game's value	 к значению игры
+(no title)	(без названия)
+   (not a title)	   (не название)
+= %g hit points	= %g ед. здоровья
+= %g s (fastest)	= %g с (быстрее всего)
+Search 	Поиск 
+Cloaked	Маскировка
+Burrowed	Закопан
+In transit	В пути
+Hallucinated	Галлюцинация
+Invincible	Неуязвимость
+Owner	Владелец
+ (neutral)	 (нейтральный)
+Hit points %	Здоровье %
+Resources	Ресурсы
+Shields %	Щиты %
+Hangar	Ангар
+Energy %	Энергия %
+X (pixels)	X (пиксели)
+Y (pixels)	Y (пиксели)
+Edit unit type in Data (	Изменить тип юнита в разделе «Данные» (
+To edit unit types, use an EUD project (File > Project)	Чтобы изменить типы юнитов, используйте проект EUD (Файл > Проект)
+ units selected. Changes apply to all of them.	 юнит(ов) выбрано. Изменения применятся ко всем.
+Unit 	Юнит 
+  ·  serial 	  ·  серийный номер 
+Unit properties	Свойства юнита
+Left	Слева
+Top	Сверху
+Right	Справа
+Bottom	Снизу
+Type a number in each edge	Введите число для каждого края
+Right must be more than left	Значение «Справа» должно быть больше «Слева»
+Bottom must be more than top	Значение «Снизу» должно быть больше «Сверху»
+ pixels  ·  	 пикс.  ·  
+Size	Размер
+Inverted	Инвертировано
+No	Нет
+Left and right	Слева и справа
+Top and bottom	Сверху и снизу
+Left and right, top and bottom	Слева и справа, сверху и снизу
+Changed the location "	Изменено местоположение "
+Could not change the location: 	Не удалось изменить местоположение: 
+Location properties	Свойства местоположения
+Read only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	Этот звук только для чтения. Игра загружает звуки с флагом Preload до запуска кода карты, поэтому изменение файла не действует.
+Read only. StarDraft 2 does not know where the game keeps this value.	Только для чтения. StarDraft 2 не знает, где игра хранит это значение.
+* Needs verification	* Требуется проверка
+1 tile: 32 x 32 px	1 тайл: 32 x 32 пикс.
+Drag to move the addon	Перетащите, чтобы переместить аддон
+Drag to change the width. Hold Shift for single pixels.	Перетащите, чтобы изменить ширину. Удерживайте Shift для отдельных пикселей.
+Drag to change the height. Hold Shift for single pixels.	Перетащите, чтобы изменить высоту. Удерживайте Shift для отдельных пикселей.
+Drag to change the direction	Перетащите, чтобы изменить направление
+Click for a random direction	Нажмите для случайного направления
+Drag to change: 	Перетащите для изменения: 
+Drag to change the attack angle	Перетащите, чтобы изменить угол атаки
+Drag to change the launch spin	Перетащите, чтобы изменить вращение при запуске
+Drag to move the point where the graphic starts	Перетащите, чтобы переместить точку, с которой начинается графика
+%d frames to top speed  ·  %.2f px/frame  ·  %d frames for 8 tiles	%d кадр. до макс. скорости  ·  %.2f пикс./кадр  ·  %d кадр. на 8 тайлов
+turns back in a curve %.1f tiles wide, in %d frames	разворачивается по кривой шириной %.1f тайл. за %d кадр.
+does not turn	не поворачивает
+The path when the unit turns back at top speed	Путь при развороте на максимальной скорости
+The path of this unit when it moves right at top speed and turns back (a half turn). The ring is where it starts, the dot where it moves away. A larger Turn Radius turns faster: the curve is tighter.	Путь этого юнита, когда он движется вправо на максимальной скорости и разворачивается (полуоборот). Кольцо — место старта, точка — место, где он уходит. Больший радиус поворота поворачивает быстрее: кривая уже.
+Init	Инициализация
+Death	Смерть
+Ground attack	Наземная атака
+Air attack	Воздушная атака
+Unused 1	Не используется 1
+Ground attack repeat	Повтор наземной атаки
+Air attack repeat	Повтор воздушной атаки
+Cast spell	Применение заклинания
+Ground attack end	Конец наземной атаки
+Air attack end	Конец воздушной атаки
+Unused 2	Не используется 2
+Walking	Ходьба
+Walking end	Конец ходьбы
+Special 1	Специальное 1
+Special 2	Специальное 2
+Almost built	Почти построено
+Built	Построено
+Landing	Посадка
+Lift-off	Взлёт
+Working	Работа
+Working end	Конец работы
+Warp in	Варп-вход
+Unused 3	Не используется 3
+Editor init	Инициализация редактора
+Disable	Отключение
+Burrow	Зарыться
+Unburrow	Выкопаться
+Enable	Включить
+Drag to put a target. The image turns to it at the turn rate of its unit, as a turret does.	Перетащите, чтобы поставить цель. Изображение поворачивается к ней со скоростью поворота его юнита, как турель.
+Start again	Начать заново
+Play or pause	Воспроизвести или приостановить
+One game tick	Один игровой тик
+Play on as a unit does: attacks repeat, and a script that waits for its order starts again	Воспроизводить, как юнит: атаки повторяются, а скрипт, который ждёт свой приказ, начинается снова
+Sounds of the script: on or off	Звуки скрипта: вкл. или выкл.
+The code of the script: show or hide	Код скрипта: показать или скрыть
+frame %d  ·  tick %d%s	кадр %d  ·  тик %d%s
+  ·  end	  ·  конец
+Drag to turn the image. This removes the target.	Перетащите, чтобы повернуть изображение. Это удалит цель.
+Could not play the sound	Не удалось воспроизвести звук
+No sound device is available	Нет доступного звукового устройства
+Pause	Пауза
+Play	Воспроизвести
+Volume	Громкость
+no file	нет файла
+cannot read the file	не удалось прочитать файл
+Medium	Средний
+%g per attack (%d hit%s). About %.1f per second.	%g за атаку (попаданий: %d%s). Около %.1f в секунду.
+Less armor	Меньше брони
+More armor	Больше брони
+1 walk tile: 8 x 8 px	1 клетка ходьбы: 8 x 8 px
+gap: %d x %d walk tiles	зазор: %d x %d клеток ходьбы
+Iscript 	Iscript 
+Follow	Следовать
+Go to the label	Перейти к метке
+Open it	Открыть
+Images	Изображения
+Sounds	Звуки
+Weapons	Оружие
+: open it	: открыть
+→ loops	→ повтор
+Frames and their waits (24 ticks a second). Yellow: a sound. Red: an attack. Click or drag to go to a tick.	Кадры и их ожидания (24 тика в секунду). Жёлтый: звук. Красный: атака. Щёлкните или перетащите, чтобы перейти к тику.
+No portrait file	Нет файла портрета
+The portrait's video cannot be read	Не удалось прочитать видео портрета
+Unit size	Размер юнита
+Placement box	Рамка размещения
+Addon position	Положение аддона
+Direction	Направление
+Sight	Обзор
+Target acquisition	Обнаружение цели
+Ground weapon	Наземное оружие
+Air weapon	Воздушное оружие
+Maximum range	Максимальная дальность
+Minimum range	Минимальная дальность
+Outer splash	Внешний сплэш
+Medium splash	Средний сплэш
+Inner splash	Внутренний сплэш
+Attack angle	Угол атаки
+Launch spin	Вращение при запуске
+Start point	Начальная точка
+does not move	не движется
+Top speed	Максимальная скорость
+Acceleration	Ускорение
+Halt distance	Дистанция остановки
+Turn radius	Радиус поворота
+Health bar	Полоса здоровья
+Selection circle	Круг выделения
+Players (the map's settings)	Игроки (настройки карты)
+Can build	Может строить
+Start level	Начальный уровень
+Available	Доступно
+Max level	Максимальный уровень
+Researched	Исследовано
+Yes	Да
+A level from 0 to 255	Уровень от 0 до 255
+Default	По умолчанию
+On: this player has the default's values	Вкл.: у этого игрока значения по умолчанию
+Can the player build this unit	Может ли игрок построить этот юнит
+Is the technology available to the player	Доступна ли игроку эта технология
+Does the player start with it researched	Начинает ли игрок с уже исследованной технологией
+Could not read the .dat file of the game	Не удалось прочитать файл .dat игры
+To edit .dat files, use an EUD project.\r\n\r\nFile > Project > New project makes one from the open map. File > Project > Open project opens one.	Чтобы редактировать файлы .dat, используйте проект EUD.\r\n\r\nФайл > Проект > Новый проект создаёт проект из открытой карты. Файл > Проект > Открыть проект открывает проект.
+.dat entry 	.dat, запись 
+Yes (	Да (
+not used by this entry	не используется этой записью
+Not a number: 	Не число: 
+ (preview)	 (предпросмотр)
+References	Ссылки
+Flingy	Flingy
+Upgrades	Улучшения
+Tech data	Данные технологий
+Orders	Приказы
+SFX data	Данные SFX
+Port data	Данные Port
+Showing changed 	Показаны только изменённые 
+Showing all 	Показаны все 
+Search units	Поиск юнитов
+Changed	Изменено
+Triggers are in the Triggers workspace of a project.	Триггеры находятся в рабочем пространстве «Триггеры» проекта.
+Not available yet: graphics, sounds, portraits and fonts that you import into the map.	Пока недоступно: графика, звуки, портреты и шрифты, которые вы импортируете в карту.
+Project: 	Проект: 
+No project is open. File > Project > New project makes one from the open map. File > Project > Open project opens one.	Проект не открыт. Файл > Проект > Новый проект создаёт проект из открытой карты. Файл > Проект > Открыть проект открывает проект.
+Did not save the triggers: a newer StarDraft 2 made triggers.json	Триггеры не сохранены: более новая версия StarDraft 2 создала triggers.json
+  (off)	  (выкл.)
+Added a variable. Press F2 to rename it.	Добавлена переменная. Нажмите F2, чтобы переименовать её.
+Added from a template: 	Добавлено из шаблона: 
+the folder "	папку "
+" and everything in it	" и всё её содержимое
+the variable "	переменную "
+the trigger "	триггер "
+Delete 	Удалить 
+Delete	Удалить
+&Delete	&Удалить
+New &trigger	Новый &триггер
+New trigger from a te&mplate	Новый триггер по &шаблону
+New &folder	Новая &папка
+New &variable	Новая пе&ременная
+&Copy\tCtrl+C	&Копировать\tCtrl+C
+Cu&t\tCtrl+X	Вы&резать\tCtrl+X
+&Paste\tCtrl+V	Вста&вить\tCtrl+V
+&Rename\tF2	Переименов&ать\tF2
+D&uplicate\tCtrl+D	Д&ублировать\tCtrl+D
+Turn &off	Откл&ючить
+Turn &on	Вклю&чить
+De&lete\tDel	Удал&ить\tDel
+Terran Marine (Custom Name)	Терранский морпех (пользовательское имя)
+Custom Name (Terran Marine)	Пользовательское имя (терранский морпех)
+Custom Name	Пользовательское имя
+Unit names	Названия юнитов
+a value of the property's type	значение типа свойства
+Everything	Все
+Recent	Недавние
+Add a condition	Добавить условие
+Add an action	Добавить действие
+Search conditions	Поиск условий
+Search actions	Поиск действий
+Add condition	Добавить условие
+Add action	Добавить действие
+ (Player 	 (игрок 
+unit #	юнит №
+ (gone from the map)	 (нет на карте)
+Any unit	Любой юнит
+Men	Пехота
+Buildings	Здания
+Factories	Производственные здания
+unit type #	тип юнита №
+(unit type)	(тип юнита)
+(location)	(локация)
+(a property)	(свойство)
+Switch 	Переключатель 
+(text)	(текст)
+(a unit)	(юнит)
+(a variable)	(переменная)
+(a sound)	(звук)
+(a trigger)	(триггер)
+(code)	(код)
+(a button)	(кнопка)
+(game text)	(игровой текст)
+(button)	(кнопка)
+a new button	новая кнопка
+unknown value 	неизвестное значение 
+missing value	нет значения
+Turn off	Отключить
+Turn on	Включить
+Duplicate	Дублировать
+Unknown block: 	Неизвестный блок: 
+Kind	Тип
+ items (0 to 	 шт. (от 0 до 
+Default value	Значение по умолчанию
+Room for	Место для
+Value	Значение
+Maximum length	Максимальная длина
+Text	Текст
+Description	Описание
+Zoom 100%	Масштаб 100%
+These triggers run once, when the map starts	Эти триггеры запускаются один раз при старте карты
+These triggers run each trigger cycle while the game runs	Эти триггеры запускаются в каждом цикле триггеров во время игры
+A folder in 	Папка в 
+New trigger	Новый триггер
+From a template…	По шаблону…
+New folder	Новая папка
+New variable	Новая переменная
+Triggers belong to an EUD project	Триггеры входят в проект EUD
+⏱ about 	⏱ около 
+ actions each run	 действий при каждом запуске
+Conditions	Условия
+Actions	Действия
+Use only letters, digits and _ in a variable name. Not accepted: 	В имени переменной используйте только буквы, цифры и _. Не допускается: 
+ was not taken	 нельзя использовать
+There is already a variable with the name 	Переменная с таким именем уже есть: 
+Renamed the variable and 	Переменная переименована, обновлено ссылок на неё: 
+Renamed the trigger and 	Триггер переименован. Обновлено блоков «Запустить триггер»: 
+ Run a trigger blocks	 
+Redo	Повторить
+Undo	Отменить
+Add a &condition…	Добавить услови&е…
+Add an &action…	Добавить &действие…
+Add to 	Добавить в 
+&Unfold	&Развернуть
+&Fold	&Свернуть
+Move &up\tAlt+Up	&Переместить вверх\tAlt+Up
+Move &down\tAlt+Down	Переместить в&низ\tAlt+Down
+Turn o&ff	Откл&ючить
+Show the &code	П&оказать код
+Click the unit to use. Esc goes back to the triggers.	Нажмите на юнит, который нужно использовать. Esc возвращает к триггерам.
+There is no unit there. Click a unit, or press Esc to go back.	Там нет юнита. Нажмите на юнит или Esc, чтобы вернуться.
+Variables	Переменные
+Search values from the game	Поиск значений из игры
+Another value from the game…	Другое значение из игры…
+A number or variable instead…	Число или переменная вместо…
+). Type it as a number.	). Введите число.
+Search: game text (or a variable)	Поиск: игровой текст (или переменная)
+Buttons of 	Кнопки: 
++ A new button	+ Новая кнопка
+Buttons	Кнопки
+Search: button	Поиск: кнопка
+Advanced (eudplib names)	Дополнительно (имена eudplib)
+Search the 	Поиск свойств: 
+All, by number	Все, по номеру
+Search: 	Поиск: 
+ (or a variable)	 (или переменная)
+On a specific line	В определённой строке
+line 12 (center of the screen)	строка 12 (центр экрана)
+Type a number or an expression…	Введите число или выражение…
+A value from the game…	Значение из игры…
+Groups	Группы
+Search unit types	Поиск типов юнитов
+Search the map's locations	Поиск локаций карты
+Switch number	Номер переключателя
+Sounds in the map	Звуки на карте
+The map has no sounds. Type the path of a sound.	На карте нет звуков. Введите путь к звуку.
+Search the map's sounds	Поиск звуков карты
+There is no variable of this kind. Right-click Definitions, then New variable.	Переменных такого типа нет. Щёлкните правой кнопкой по пункту «Определения», затем выберите «Новая переменная».
+Search variables	Поиск переменных
+Definitions	Определения
+There are no triggers in Definitions. Right-click Definitions, then New trigger.	В «Определениях» нет триггеров. Щёлкните правой кнопкой по пункту «Определения», затем выберите «Новый триггер».
+Search triggers	Поиск триггеров
+the unit	этот юнит
+For each unit	Для каждого юнита
+the next created unit	следующий созданный юнит
+Created	Созданные
+Unit variables	Переменные юнита
+Select on the map…	Выбрать на карте…
+One unit	Один юнит
+Type a number of seconds, for example 2.5	Введите число секунд, например 2.5
+The path of a sound file in the map (sound\\…\\name.wav)	Путь к звуковому файлу на карте (sound\\…\\name.wav)
+Build makes sure that this file is in the map	Сборка следит, чтобы этот файл был в карте
+a number or a constant here	здесь число или константа
+a plain number here	здесь обычное число
+Use a value from 	Используйте значение от 
+%.2g seconds	%.2g сек
+ at Fastest (24 frames a second)	 на максимальной скорости (24 кадра в секунду)
+ of game time	 игрового времени
+the game keeps it as 	игра хранит как 
+current player	текущий игрок
+Loop	Цикл
+  ·  out of range	  ·  вне диапазона
+per player	для каждого игрока
+list of 	список из 
+Constants	Константы
+No variables	Нет переменных
+No match	Нет совпадений
+  (set while the game runs)	  (задаётся во время игры)
+Use default	Использовать значение по умолчанию
+Yellow	Жёлтый
+White	Белый
+Gray	Серый
+Red	Красный
+Green	Зелёный
+Red (Player 1)	Красный (игрок 1)
+Blue (Player 2)	Синий (игрок 2)
+Teal (Player 3)	Сине-зелёный (игрок 3)
+Purple (Player 4)	Фиолетовый (игрок 4)
+Orange (Player 5)	Оранжевый (игрок 5)
+Brown (Player 6)	Коричневый (игрок 6)
+White (Player 7)	Белый (игрок 7)
+Yellow (Player 8)	Жёлтый (игрок 8)
+Green (Player 9)	Зелёный (игрок 9)
+Brighter yellow (Player 10)	Ярко-жёлтый (игрок 10)
+Pinkish (Player 11)	Розовый (игрок 11)
+Dark cyan (Player 12)	Тёмно-голубой (игрок 12)
+Gray-green	Серо-зелёный
+Blue-gray	Сине-серый
+Turquoise	Бирюзовый
+A player's color (as the game shows that player's color)	Цвет игрока (как игра показывает цвет этого игрока)
+'s name	 — имя
+game text 	игровой текст 
+HEX	HEX
+text (EPD)	текст (EPD)
+align right	по правому краю
+align center	по центру
+code %02X	код %02X
+the current player	текущий игрок
+Whose color	Чей цвет
+This loop	Этот цикл
+Texts	Тексты
+the current player's name	имя текущего игрока
+Players	Игроки
+A text of the game…	Текст из игры…
+A calculation…	Вычисление…
+Calculations	Вычисления
+Insert value	Вставить значение
+A calculation   for example gold * 2 + 1	Вычисление   например gold * 2 + 1
+Search: a text of the game	Поиск: текст из игры
+Show as 	Показать как 
+Show as	Показать как
+Remove	Удалить
+Change the value…	Изменить значение…
+A value in the text	Значение в тексте
+Visual	Визуально
+Raw	Исходный
+From the game…	Из игры…
+Insert value ▾	Вставить значение ▾
+No clear type yet (	Тип пока не определён (
+Which item of 	Какой элемент в 
+  (0 to 	  (от 0 до 
+Other…	Другое…
+A variable or number	Переменная или число
+Which player	Какой игрок
+Which player of 	Какой игрок в 
+  (0 to 7: Player 1 is 0)	  (от 0 до 7: игрок 1 — это 0)
+Text   @ puts in a value. Click a value to change it.	Текст   @ вставляет значение. Щёлкните значение, чтобы его изменить.
+Name   letters, digits and _	Имя   буквы, цифры и _
+Templates	Шаблоны
+Select another unit on the map…	Выбрать другой юнит на карте…
+No unit (empty)	Нет юнита (пусто)
+Maximum length (letters)   1 to 	Максимальная длина (символов)   от 1 до 
+Room for (units)   1 to 1700	Место для (юнитов)   от 1 до 1700
+Size   1 to 4096	Размер   от 1 до 4096
+Default value of each item	Значение по умолчанию для каждого элемента
+   1 on, 0 off	   1 — вкл., 0 — выкл.
+Zoom 	Масштаб 
+% (Ctrl+0 resets it)	% (Ctrl+0 сбрасывает)
+&Copy all	&Копировать всё
+Select &all\tCtrl+A	Выделить &всё\tCtrl+A
+Cut 	Вырезать 
+Duplicated	Продублировано
+Pasted	Вставлено
+This project's map has no classic triggers. Use the Triggers workspace.	В карте этого проекта нет классических триггеров. Используйте рабочее пространство «Триггеры».
+The map's Data page is for classic maps. In a project, use the Data workspace.	Страница «Данные» карты предназначена для классических карт. В проекте используйте рабочее пространство «Данные».
+This tab is a classic map. Data, Triggers and Project need a project. File > Project > Make this map a project makes one.	Эта вкладка — классическая карта. «Данные», «Триггеры» и «Проект» доступны только в проекте. Файл > Проект > Сделать эту карту проектом создаст проект.
+Let go: no change	Отпустить: без изменений
+ unit (	 юнит (
+ units (	 юнитов (
+, Player 	, Игрок 
+ doodad (	 декорация (
+ doodads (	 декораций (
+ sprite (	 спрайт (
+ sprites (	 спрайтов (
+&Replace with…	&Заменить на…
+Convert to t&errain	Преобразовать в м&естность
+Select all of this t&ype	Выделить все этого &типа
+Select all of this type for Player 	Выделить все этого типа у Игрока 
+&Select (no placing)\tEsc	&Выделение (без размещения)\tEsc
+P&roperties…	Св&ойства…
+: select	: выделение
+Converted 	Преобразовано 
+ to terrain	 в местность
+Cleared the selection	Выделение снято
+Painted the terrain and removed 	Местность нарисована. Удалено 
+ that cannot stay on it	 — они не могут оставаться на ней
+Brush size %g	Размер кисти %g
+Turned the terrain; its 	Местность повёрнута; её 
+ doodads cannot turn, so they are not included	 декораций не могут поворачиваться, поэтому они не включены
+Turned the terrain (R turns clockwise, Shift+R turns back)	Местность повёрнута (R — по часовой стрелке, Shift+R — назад)
+Brush: place the tile selected in the Tiles list, with the brush's size and shape	Кисть: ставит тайл, выбранный в списке «Тайлы», с размером и формой кисти
+Fill: the connected tiles of one value. Shift+click: every tile of that value (in the selection, if there is one).	Заливка: соседние тайлы одного значения. Shift+клик: все тайлы этого значения (в выделении, если оно есть).
+Brush: paint the terrain selected in the list	Кисть: рисует местность, выбранную в списке
+Spray: random dabs of the terrain (Density). Hold the button to spray more.	Распыление: случайные мазки местности (Плотность). Удерживайте кнопку, чтобы распылить больше.
+Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one).	Заливка: связанная область одной местности. Shift+клик: все места этой местности (в выделении, если оно есть).
+Place the unit selected in the list	Размещает юнит, выбранный в списке
+Spray: random units of the selected kinds (Density). Hold the button to spray more.	Распыление: случайные юниты выбранных видов (Плотность). Удерживайте кнопку, чтобы распылить больше.
+Place the doodads selected in the list	Размещает декорации, выбранные в списке
+Spray: random doodads of the selected kinds (Density). Hold the button to spray more.	Распыление: случайные декорации выбранных видов (Плотность). Удерживайте кнопку, чтобы распылить больше.
+Place the sprites selected in the list (several: each one at random); drag to place more	Размещает спрайты, выбранные в списке (несколько: каждый выбирается случайно); перетащите, чтобы разместить больше
+Spray: random sprites of the selected kinds (Density). Hold the button to spray more.	Распыление: случайные спрайты выбранных видов (Плотность). Удерживайте кнопку, чтобы распылить больше.
+Select, move and resize locations; drag on empty ground to make one	Выделение, перемещение и изменение размера локаций; перетащите по пустому месту, чтобы создать локацию
+Rectangle: the tools place tiles as they are. Select a tile in the Tiles list.	Прямоугольник: инструменты ставят тайлы как есть. Выберите тайл в списке «Тайлы».
+Isometric: the tools paint terrains and correct the edges between them	Изометрия: инструменты рисуют местность и исправляют стыки между разными видами местности.
+Isometric	Изометрия
+Isometric: paint terrains, with the edges corrected	Изометрия: рисует местность с исправленными краями
+Rectangle	Прямоугольник
+Rectangle: place tiles as they are (no terrain correction)	Прямоугольник: ставит тайлы как есть (без коррекции местности)
+Select what to place in the list	Выберите в списке, что разместить
+Brush shape: diamond	Форма кисти: ромб
+Brush shape: square	Форма кисти: квадрат
+Brush shape: circle	Форма кисти: круг
+One step more	Ещё на один шаг
+One step less	На один шаг меньше
+Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).	Размер кисти: от 1 до 32. Щёлкните, чтобы ввести размер. Клавиши - и + и колесо мыши меняют его (на карте также Alt+колесо).
+Density	Плотность
+Density: the number of dabs (Rectangle: tiles) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it.	Плотность: число мазков (для прямоугольника: тайлов), которое ставит каждое распыление, от 1 до 50. Щёлкните, чтобы ввести число. Клавиши - и + и колесо мыши меняют его.
+Density: the number of units each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	Плотность: число юнитов, которое ставит каждое распыление (там, где они помещаются), от 1 до 50. Щёлкните, чтобы ввести число. Клавиши - и + и колесо мыши меняют его.
+Density: the number of doodads each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	Плотность: число декораций, которое ставит каждое распыление (там, где они помещаются), от 1 до 50. Щёлкните, чтобы ввести число. Клавиши - и + и колесо мыши меняют его.
+No symmetry	Без симметрии
+Mirror left and right	Зеркально слева направо
+Mirror top and bottom	Зеркально сверху вниз
+Mirror across the diagonal	Зеркально по диагонали
+Mirror across the other diagonal	Зеркально по другой диагонали
+Turn a half turn	Поворот на 180°
+Turn in quarter turns (4 ways)	Поворот на четверть оборота (4 варианта)
+. Right-click: move it to the other side.	. Правая кнопка: переместить на другую сторону.
+ panel on the 	 — панель, сторона: 
+New project (Ctrl+N)	Новый проект (Ctrl+N)
+Open (Ctrl+O)	Открыть (Ctrl+O)
+Save (Ctrl+S)	Сохранить (Ctrl+S)
+Undo (Ctrl+Z)	Отменить (Ctrl+Z)
+Redo (Ctrl+Y)	Повторить (Ctrl+Y)
+Cut (Ctrl+X)	Вырезать (Ctrl+X)
+Copy (Ctrl+C)	Копировать (Ctrl+C)
+Paste (Ctrl+V)	Вставить (Ctrl+V)
+Delete (Del)	Удалить (Del)
+Quick search: find the mode's units, terrains, doodads, sprites or locations (Q)	Быстрый поиск: найти юниты, местность, декорации, спрайты или локации этого режима (Q)
+Report feedback	Отправить отзыв
+Report feedback: what works, what does not, ideas	Отправить отзыв: что работает, что нет, идеи
+Building	Сборка
+Build the project's map with euddraft (Ctrl+B)	Собрать карту проекта с помощью euddraft (Ctrl+B)
+Debug mode on: Build adds index checks and the trace for epTrace	Режим отладки включён: «Собрать» добавляет проверки индексов и трассировку для epTrace
+Debug mode is on: Build adds index checks and the trace for epTrace (turn it off for the map that you release)	Режим отладки включён: «Собрать» добавляет проверки индексов и трассировку для epTrace (выключите его для карты, которую публикуете)
+Debug mode: Build adds index checks and the trace for epTrace (Project page > Build)	Режим отладки: «Собрать» добавляет проверки индексов и трассировку для epTrace (страница «Проект» > «Собрать»)
+&New EUD project\tCtrl+Shift+N	Новый проект &EUD\tCtrl+Shift+N
+&Open project…	&Открыть проект…
+&Make this map a project…	&Сделать эту карту проектом…
+&Build\tCtrl+B	Со&брать\tCtrl+B
+&Add script…	&Добавить скрипт…
+Open project &folder	Открыть &папку проекта
+Project &settings	&Настройки проекта
+&New project\tCtrl+N	&Новый проект\tCtrl+N
+&Open…\tCtrl+O	&Открыть…\tCtrl+O
+Recent &maps	Недавние к&арты
+Recent pro&jects	Недавние &проекты
+&Project	Проек&т
+&Save\tCtrl+S	&Сохранить\tCtrl+S
+Save &as…\tCtrl+Shift+S	Сохранить &как…\tCtrl+Shift+S
+&Close\tCtrl+W	&Закрыть\tCtrl+W
+Close a&ll\tCtrl+Shift+W	Закрыть вс&е\tCtrl+Shift+W
+E&xit	&Выход
+&Undo\tCtrl+Z	&Отменить\tCtrl+Z
+&Redo\tCtrl+Y	&Повторить\tCtrl+Y
+&Duplicate\tCtrl+D	&Дублировать\tCtrl+D
+Re&name location\tF2	Переименовать &местоположение\tF2
+&High definition (2x, default)	Высокое ра&зрешение (2x, по умолчанию)
+High definition (&4x)	Высокое разрешен&ие (4x)
+&Standard definition	Стан&дартное разрешение
+&Carbot (cartooned)	Carbot (&мультяшный)
+Show &locations	Показать местополо&жения
+Show &grid\tG	Показать с&етку\tG
+ pixels)	 пикселей)
+&Custom…	&Пользовательский…
+Grid si&ze	Размер &сетки
+Show town a&reas	Показать зоны &поселений
+Zoom &in\t+	&Увеличить\t+
+Zoom &out\t-	Умень&шить\t-
+&Actual size\tCtrl+0	&Реальный размер\tCtrl+0
+&Fit map\tCtrl+F	Вписать &карту\tCtrl+F
+&Log\tCtrl+L	Журна&л\tCtrl+L
+Trigger &code pane	Панель кода три&ггеров
+Control &kit	&Набор элементов управления
+&Map workspace\tCtrl+1	Рабочая &область карты\tCtrl+1
+&Data workspace\tCtrl+2	Рабочая область д&анных\tCtrl+2
+&Triggers workspace\tCtrl+3	Рабочая область &триггеров\tCtrl+3
+&Briefing workspace\tCtrl+4	Рабочая область &брифинга\tCtrl+4
+&Assets workspace\tCtrl+5	Рабочая область ресурсо&в\tCtrl+5
+&Project page\tCtrl+6	Страни&ца проекта\tCtrl+6
+&Terrain\tT	&Местность\tT
+&Units\tU	&Юниты\tU
+&Doodads\tD	&Декорации\tD
+&Sprites\tS	&Спрайты\tS
+&Locations\tL	Местополо&жения\tL
+&File	&Файл
+&Edit	&Правка
+&View	&Вид
+&Mode	&Режим
+&Map properties (title, size, tileset)\tCtrl+M	Свойства &карты (название, размер, набор тайлов)\tCtrl+M
+&Players and forces\tCtrl+P	&Игроки и группы\tCtrl+P
+Classic &triggers	Клас&сические триггеры
+&Check that StarCraft can start the map	Про&верить, может ли StarCraft запустить карту
+&Scenario	&Сценарий
+&Do not snap	&Не привязывать
+Snap to &tiles (32 px)	Привязать к &клеткам (32 пикс.)
+Snap to &half tiles (16 px)	Привязать к половинам клет&ок (16 пикс.)
+Snap to &quarter tiles (8 px)	Привязать к &четвертям клеток (8 пикс.)
+Place &only where it fits	Размещать &только там, где помещается
+&Move to the nearest place where it fits	&Переместить к ближайшему месту, где помещается
+Place &anywhere	Размещать &где угодно
+&Can be on top of others	&Можно ставить поверх других
+Dragged units go &back to the last place where they fit	Перетаскиваемые юниты &возвращаются к последнему месту, где помещались
+Snap to tiles (32 px): always, a doodad is made of tiles	Привязка к клеткам (32 пикс.): всегда, декорация состоит из клеток
+Can be on top of others: no, a doodad replaces the tiles under it	Можно ставить поверх других: нет, декорация заменяет клетки под собой
+Place anywhere: always	Размещать где угодно: всегда
+Can be on top of others: always	Можно ставить поверх других: всегда
+&Names in lines that fit in the location	&Имена в строках, которые помещаются в местоположении
+&Units	&Юниты
+&Doodads	&Декорации
+&Sprites	&Спрайты
+&Locations	&Местоположения
+Terrain copy includes u&nits	Копия местности включает ю&ниты
+Terrain copy includes d&oodads	Копия местности включает де&корации
+&Program options…\tCtrl+,	&Параметры программы…\tCtrl+,
+&Options	Пар&аметры
+Report &feedback…	Отправить о&тзыв…
+Report an &issue on GitHub	Сообщить о &проблеме на GitHub
+Join &Discord	Присоединиться к &Discord
+StarDraft 2 on &GitHub	StarDraft 2 на &GitHub
+Check for &updates	Проверить &обновления
+&About StarDraft 2	О про&грамме StarDraft 2
+&Help	Справ&ка
+A newer release is available: 	Доступна более новая версия: 
+. Use Help > Check for updates.	. Используйте Справка > Проверить обновления.
+Sent the feedback as #	Отзыв отправлен как #
+. Thank you.	. Спасибо.
+Sent the feedback. Thank you.	Отзыв отправлен. Спасибо.
+This build cannot send feedback. The feedback is in 	Эта сборка не может отправлять отзывы. Отзыв находится в 
+StarDraft 2 cannot send the feedback now. It sends it at the next start.	StarDraft 2 сейчас не может отправить отзыв. Он будет отправлен при следующем запуске.
+Minimap	Миникарта
+Density: low	Плотность: низкая
+Density: medium	Плотность: средняя
+Density: high	Плотность: высокая
+Size %d	Размер %d
+Filter	Фильтр
+Search	Поиск
+View ▾	Вид ▾
+Map data	Данные карты
+Could not start the GPU renderer	Не удалось запустить GPU-рендерер
+Terran Marine (Space Marine)	Терранский морпех (Космический морпех)
+Space Marine (Terran Marine)	Космический морпех (Терранский морпех)
+Space Marine	Космический морпех
+Player &1	Игрок &1
+Player &2	Игрок &2
+&Show the grid	&Показать сетку
+&Owner	&Владелец
+Player 1	Игрок 1
+Player 2	Игрок 2
+Player 3	Игрок 3
+All players	Все игроки
+Force 1	Группа 1
+Force 2	Группа 2
+Player	Игрок
+Icon	Значок
+A map creation tool for EUD-powered maps for StarCraft: Remastered	Инструмент для создания карт на основе EUD для StarCraft: Remastered
+GitHub: github.com/stardraft-editor/stardraft	GitHub: github.com/stardraft-editor/stardraft
+Join the Discord server	Присоединиться к серверу Discord
+Close	Закрыть
+About StarDraft 2	О программе StarDraft 2
+Force 	Группа 
+Nobody	Никто
+First, select the players of the briefing	Сначала выберите игроков брифинга
+No action	Нет действия
+Wait	Пауза
+Play sound	Воспроизвести звук
+Text message	Текстовое сообщение
+Mission objectives	Цели миссии
+Show portrait	Показать портрет
+Hide portrait	Скрыть портрет
+Talking portrait	Говорящий портрет
+Transmission	Передача
+Skip tutorial enabled	Пропуск обучения включён
+Unknown	Неизвестно
+Slot 	Слот 
+Objectives	Цели
+No text at this time	В этот момент текста нет
+Click or drag to go to a time	Нажмите или перетащите, чтобы перейти к моменту времени
+Slot	Слот
+Edit the text under the list (with its colors)	Изменить текст под списком (с его цветами)
+(a WAV file)	(файл WAV)
+A sound of the map, or of the game (by its path)	Звук карты или игры (по пути к файлу)
+ seconds long	 сек. длительность
+Pause for	Пауза на
+Pause for (seconds)	Пауза (секунды)
+for current player.	для текущего игрока.
+Display the following text for	Показать следующий текст в течение
+Display the text for (seconds)	Время показа текста (секунды)
+Set Mission Objectives for current player to:	Установить цели миссии для текущего игрока:
+Show portrait of	Показать портрет
+in slot	в слоте
+Hide portrait in slot	Скрыть портрет в слоте
+Show speaking animation for	Показать анимацию речи для
+Speaking animation for (seconds)	Анимация речи (секунды)
+. Play	. Воспроизвести
+. Modify transmission duration:	. Изменить длительность передачи:
+Set	Задать
+Add	Прибавить
+Subtract	Вычесть
+Transmission duration	Длительность передачи
+Transmission duration (seconds)	Длительность передачи (секунды)
+seconds. Display the following text:	сек. Показать следующий текст:
+Enable Skip Tutorial button.	Включить кнопку «Пропустить обучение».
+New briefing	Новый брифинг
+Delete the briefing for 	Удалить брифинг для: 
+Delete briefing	Удалить брифинг
+For	Для
+Every player	Все игроки
+The players of this force	Игроки этой группы
+Duplicate (Ctrl+D)	Дублировать (Ctrl+D)
+This briefing has no actions. Add actions to show text, portraits and sounds before the game starts.	В этом брифинге нет действий. Добавьте действия, чтобы показать текст, портреты и звуки до начала игры.
+Action	Действие
+Preview as	Предпросмотр как
+Pause (Space)	Пауза (Space)
+Play (Space)	Воспроизвести (Space)
+Technologies	Технологии
+Hit points	Очки здоровья
+Shields	Щиты
+Armor	Броня
+Build time	Время производства
+Minerals	Минералы
+Gas	Газ
+Minerals per level	Минералы за уровень
+Gas per level	Газ за уровень
+Time	Время
+Time per level	Время за уровень
+Energy	Энергия
+Weapon	Оружие
+Damage	Урон
+Bonus	Бонус
+Map data: no change	Данные карты: без изменений
+Set the map data	Задать данные карты
+No sound	Без звука
+ (EUD value)	 (значение EUD)
+To player	Для игрока
+Destination	Место назначения
+Duration (ms)	Длительность (мс)
+Comparison	Сравнение
+Number	Число
+Unit	Юнит
+Resource	Ресурс
+Score	Счёт
+Switch	Переключатель
+State	Состояние
+Modifier	Модификатор
+Sound	Звук
+Time (ms)	Время (мс)
+Seconds	Секунды
+Count (0: all)	Количество (0: все)
+AI script	Скрипт ИИ
+Order	Приказ
+Status	Статус
+Percent	Процент
+Condition 	Условие 
+Action 	Действие 
+Type 	Тип 
+ (not a game type)	 (не игровой тип)
+Copied the trigger	Триггер скопирован
+Copied the action	Действие скопировано
+Copied the condition	Условие скопировано
+Pasted the trigger	Триггер вставлен
+The list is full	Список заполнен
+Pasted the action	Действие вставлено
+Pasted the condition	Условие вставлено
+  EUD	  EUD
+No players	Нет игроков
+Add a trigger	Добавить триггер
+Add a trigger after the selected one	Добавить триггер после выбранного
+Always show	Всегда показывать
+Show the triggers of	Показывать триггеры
+All triggers	Все триггеры
+The project's map has these classic triggers. The built map keeps them; they run with the project's triggers.	На карте проекта есть эти классические триггеры. Собранная карта сохраняет их; они работают вместе с триггерами проекта.
+ conditions and actions have EUD values. They stay as they are.	 условий и действий имеют значения EUD. Они остаются как есть.
+Classic triggers: no change	Классические триггеры: без изменений
+Set the classic triggers	Задать классические триггеры
+the menu item 	пункт меню 
+StarDraft 2 stopped because of an error. The crash report is in 	StarDraft 2 остановлен из-за ошибки. Отчёт о сбое находится в 
+ (crash reports are off).	 (отчёты о сбоях отключены).
+StarDraft 2 stopped	StarDraft 2 остановлен
+StarDraft 2 stopped because of an error. StarDraft 2 sends a crash report to the developers so that they can repair the error.	StarDraft 2 остановлен из-за ошибки. StarDraft 2 отправляет разработчикам отчёт о сбое, чтобы они могли исправить ошибку.
+Could not read 	Не удалось прочитать 
+Strings	Строки
+button set	набор кнопок
+Button set 	Набор кнопок 
+%zu / %zu bytes	%zu / %zu Б
+Must have	Обязательно
+End of the level's list	Конец списка уровня
+Step 0x	Шаг 0x
+Step	Шаг
+Requirements to make	Требования для производства
+Requirements to research	Требования для исследования
+Requirements to use	Требования для использования
+Requirements	Требования
+Use	Использование
+The game's list	Список из игры
+Always	Всегда
+Nothing is needed: an empty list	Ничего не нужно: пустой список
+Disabled	Отключено
+No list: the entry's offset is 0, as EUD Editor's "Do not use". Not checked in the game yet.	Нет списка: смещение записи 0, как «Do not use» в EUD Editor. В игре ещё не проверено.
+Custom	Свой
+Your own steps. Change a step below, or click here to start from the game's list.	Свои шаги. Измените шаг ниже или нажмите здесь, чтобы начать со списка из игры.
+Remove the step	Удалить шаг
+Add a step	Добавить шаг
+Memory all requirement lists use together	Память, которую все списки требований используют вместе
+Wireframe	Вайрфрейм
+Group	Группа
+Transport	Транспорт
+Not found	Не найдено
+The wireframe	Вайрфрейм
+The group wireframe	Групповой вайрфрейм
+The transport wireframe	Транспортный вайрфрейм
+: the game has none for this unit	: в игре нет вайрфрейма для этого юнита
+ at full health	 при полном здоровье
+ and full shields	 и полных щитах
+, as View shows the art. Frame 	, как показывает «Вид». Кадр 
+Display	Отображение
+Button set	Набор кнопок
+Other (0x%06X, 0x%06X)	Другое (0x%06X, 0x%06X)
+Status panel	Панель статуса
+The picture in the selection panel when the unit is selected alone	Изображение в панели выбора, когда юнит выбран один
+Group wireframe	Групповой вайрфрейм
+The small picture when units are selected together	Маленькое изображение, когда юниты выбраны вместе
+Transport wireframe	Вайрфрейм транспорта
+The picture inside a transport	Изображение внутри транспорта
+(no text)	(нет текста)
+ buttons in this place. The game shows the first whose condition holds. Click again for the next one.	 кнопок в этом месте. Игра показывает первую, у которой выполнено условие. Нажмите ещё раз, чтобы увидеть следующую.
+Add a button here	Добавить кнопку здесь
+Shares its place with another button: the game shows the first whose condition holds (the higher one in this list)	Делит место с другой кнопкой: игра показывает первую, у которой выполнено условие (та, что выше в списке)
+Earlier: checked before the one above	Раньше: проверяется до кнопки выше
+Later	Позже
+Remove the button	Удалить кнопку
+Add a button	Добавить кнопку
+Button	Кнопка
+Button 	Кнопка 
+No buttons	Нет кнопок
+Position	Положение
+Row 	Ряд 
+, column 	, столбец 
+Function 0x%06X	Функция 0x%06X
+Shown when	Показывается, когда
+Shown when: value	Показывается, когда: значение
+Action: value	Действие: значение
+Display raw value	Показывать исходное значение
+Show each tooltip's string as the game stores it: the hotkey and type characters, and codes as <01>	Показывать строку каждой подсказки так, как её хранит игра: символы горячей клавиши и типа, коды как <01>
+Tooltip	Подсказка
+Edit the text (string 	Изменить текст (строка 
+; every button that uses it changes)	; изменятся все кнопки, которые его используют)
+Another string	Другая строка
+String 	Строка 
+Open this string in the Strings tab	Открыть эту строку на вкладке «Строки»
+Copy a button from a set…	Скопировать кнопку из набора…
+Top left	Сверху слева
+Top center	Сверху по центру
+Top right	Сверху справа
+Center	По центру
+Bottom left	Снизу слева
+Bottom center	Снизу по центру
+Bottom right	Снизу справа
+Normal (back to the text's own color)	Обычный (собственный цвет текста)
+Align right	Выровнять по правому краю
+Align center	Выровнять по центру
+Pale blue	Светло-синий
+Light green	Светло-зелёный
+Invisible (the text after it is not shown)	Невидимый (текст после него не показывается)
+. Puts <	. Вставляет <
+> in at the cursor; with text selected, colors only that text.	> в позицию курсора; если выделен текст, цвет применяется только к нему.
+stat_txt.tbl string 	Строка stat_txt.tbl 
+Command	Действие
+Make a unit	Создать юнит
+Upgrade	Улучшение
+Use a technology	Использовать технологию
+Research a technology	Исследовать технологию
+Morph a unit	Трансформировать юнит
+Hotkey	Горячая клавиша
+Esc	Esc
+Space	Пробел
+The key that presses the button	Клавиша, которая нажимает кнопку
+Type	Тип
+the map	карте
+the minimap	миникарте
+the data list	списке данных
+the data form	форме данных
+the trigger	триггере
+the quick picker	быстром выборе
+the triggers	триггерах
+the code	коде
+Feedback on 	Отзыв о 
+Feedback is anonymous. Do not include sensitive or private information. Ctrl+Enter sends it.	Отзыв анонимный. Не указывайте конфиденциальные или личные данные. Ctrl+Enter отправляет его.
+Send	Отправить
+This build cannot send feedback. StarDraft 2 keeps it in 	Эта сборка не может отправлять отзывы. StarDraft 2 сохраняет его в 
+Sending the feedback…	Отправка отзыва…
+Report feedback on 	Оставить отзыв о 
+%zu B	%zu Б
+%.0f KB	%.0f КБ
+%.1f MB	%.1f МБ
+Rename the sound	Переименовать звук
+A file of that name is in the map already	Файл с таким именем уже есть в карте
+Length	Длительность
+Stop	Остановить
+The map names this sound, but neither the map nor the game has the file	Карта указывает этот звук, но ни в карте, ни в игре нет файла
+Missing	Отсутствует
+Game 	Игра 
+Removed the sound. 	Звук удалён. Брифингов, которые ещё используют его: 
+ briefings still use it.	.
+Removed the sound	Звук удалён
+Remove the file from the map	Удалить файл из карты
+Remove the reference from the map	Удалить ссылку из карты
+The map has it	Есть в карте
+Add to the map's sounds, by reference: the game plays its own file, the map does not hold it	Добавить в звуки карты по ссылке: игра воспроизводит свой файл, карта его не содержит
+The map has no sounds of its own. Import sounds adds WAV or OGG files.	В карте нет собственных звуков. «Импортировать звуки» добавляет файлы WAV или OGG.
+Import sounds…	Импортировать звуки…
+WAV or OGG files. StarDraft 2 saves them in the map (staredit\\wav\\).	Файлы WAV или OGG. StarDraft 2 сохраняет их в карте (staredit\\wav\\).
+Rename	Переименовать
+Sounds of the game	Звуки игры
+StarDraft 2 found no game sounds (Options > Program options: StarCraft folder)	StarDraft 2 не нашёл звуков игры (Параметры > Настройки программы: папка StarCraft)
+Briefings	Брифинги
+Open it in the Briefing workspace	Открыть в рабочей области брифингов
+Search the game's sounds	Поиск по звукам игры
+Controller	Управление
+Race	Раса
+Force	Команда
+Color	Цвет
+Custom color… (multiplayer only)	Свой цвет… (только для мультиплеера)
+Forces	Команды
+Title	Название
+Tileset	Тайлсет
+Size (tiles)	Размер (тайлы)
+Map content at	Положение содержимого карты
+New ground	Новая местность
+Change the size and tileset	Изменить размер и тайлсет
+Reset	Сбросить
+Set the new size and tileset in the map (one undo step)	Применить новый размер и тайлсет к карте (один шаг отмены)
+Map properties	Свойства карты
+Players and forces	Игроки и команды
+Changes that are not applied	Неприменённые изменения
+Apply	Применить
+Revert	Откатить
+Set these values in the map (one undo step)	Применить эти значения к карте (один шаг отмены)
+These pages have changes that are not applied: 	На этих страницах есть неприменённые изменения: 
+.\n\nApply them to the map?	.\n\nПрименить их к карте?
+&Apply	&Применить
+Do &not apply	&Не применять
+The map becomes 	Карта станет размером 
+Each terrain becomes the 	Каждый ландшафт станет ландшафтом тайлсета 
+The map keeps its size and tileset: 	Карта сохранит размер и тайлсет: 
+Set the map properties: 	Задайте свойства карты: 
+Set the map properties	Свойства карты
+&Yes	&Да
+&No	&Нет
+&Retry	&Повторить
+Make standard StarCraft maps.	Создавайте стандартные карты StarCraft.
+Make maps with your own units, weapons and game rules. Change the game's data, and make new triggers with blocks or with your own code.	Создавайте карты с собственными юнитами, оружием и правилами игры. Меняйте данные игры и создавайте новые триггеры из блоков или собственного кода.
+Custom MPQs and data files, for 1.16.1 and Remastered.	Собственные MPQ и файлы данных для 1.16.1 и Remastered.
+Classic project	Классический проект
+EUD project	Проект EUD
+Campaign project	Проект кампании
+Mod project	Проект мода
+A project with all the maps of your campaign. Go from one map to the next, and copy data and terrain between the maps.	Проект со всеми картами вашей кампании. Переходите от одной карты к следующей и копируйте данные и ландшафт между картами.
+Make mods with your own graphics and game files. Use your own MPQs and data files, for StarCraft 1.16.1 and Remastered.	Создавайте моды с собственной графикой и игровыми файлами. Используйте собственные MPQ и файлы данных для StarCraft 1.16.1 и Remastered.
+Land scale	Масштаб суши
+Coastline	Береговая линия
+Detail	Детализация
+Roughness	Неровность
+New classic project	Новый классический проект
+Mirror both (4 players)	Зеркально по обеим осям (4 игрока)
+Turn 180 degrees (2 players)	Поворот на 180 градусов (2 игрока)
+Brush 1 (whole diamonds)	Кисть 1 (целые ромбы)
+Brush 0.5 (single corners)	Кисть 0.5 (одиночные углы)
+ (water)	 (вода)
+ (high ground)	 (возвышенность)
+Select the map whose terrain to use	Выберите карту, ландшафт которой нужно использовать
+The map 	Карта 
+ is not found	 не найдена
+Type a name for the project	Введите название проекта
+Type the folder for the project	Введите папку проекта
+There is already a folder 	Папка 
+. Type another name, for example 	 уже есть. Введите другое название, например 
+Select the map to copy into the project	Выберите карту, которую нужно скопировать в проект
+Could not generate the map	Не удалось сгенерировать карту
+Generated a map: 	Сгенерирована карта: 
+ (seed 	 (сид 
+Created a map: 	Создана карта: 
+Back	Назад
+Select a different kind (Esc)	Выберите другой тип (Esc)
+filled with 	заливка: 
+an imported map	импортированная карта
+imported from 	импортирована из 
+The tileset, the size and the terrain come from the map.	Тайлсет, размер и ландшафт берутся из карты.
+the tileset 	тайлсет 
+Width	Ширина
+Height	Высота
+The terrain of a map	Ландшафт карты
+Import an existing map	Импорт существующей карты
+Generate	Сгенерировать
+Blank map filled with	Пустая карта с заливкой
+The terrain, tiles and doodads of a map that you have (.scm or .scx); no units, locations or triggers	Ландшафт, тайлы и декорации карты, которая у вас есть (.scm или .scx); без юнитов, локаций и триггеров
+A copy of a map that you have (.scm or .scx): its terrain, units, triggers and settings	Копия карты, которая у вас есть (.scm или .scx): ландшафт, юниты, триггеры и настройки
+Land, water and high ground from a seed and the settings next to the preview	Суша, вода и возвышенности из сида и настроек рядом с предварительным просмотром
+The terrain on the whole map	Ландшафт всей карты
+Seed	Сид
+New seed	Новый сид
+Symmetry	Симметрия
+Randomize	Случайно
+New amounts, shape and seed	Новые количества, форма и сид
+Randomize all	Случайно всё
+Amounts	Количество
+Shape	Форма
+Make the project folder and its map	Создать папку проекта и его карту
+Make the map in this tab	Создать карту на этой вкладке
+Removed 	Удалено 
+ from the list	 из списка
+StarDraft 2 is alpha software. Errors can occur. Make backup copies of your projects and maps before you edit them. Your feedback makes StarDraft 2 better: right-click anything and select "Report feedback on …".	StarDraft 2 находится в альфа-версии. Возможны ошибки. Перед редактированием сделайте резервные копии своих проектов и карт. Ваши отзывы делают StarDraft 2 лучше: щёлкните правой кнопкой мыши по любому элементу и выберите "Отправить отзыв о …".
+Coming later	Будет позже
+Campaign projects come in a later version	Проекты кампаний появятся в следующей версии
+Mod projects come in a later version	Проекты модов появятся в следующей версии
+Remove from the list	Удалить из списка
+Open…	Открыть…
+A project or a map (Ctrl+O)	Проект или карта (Ctrl+O)
+The map to copy (.scm or .scx)	Карта для копирования (.scm или .scx)
+Could not open the page	Не удалось открыть страницу
+Appearance	Оформление
+Theme	Тема
+Dark theme (default)	Тёмная тема (по умолчанию)
+Light theme	Светлая тема
+Accent color	Акцентный цвет
+ (default)	 (по умолчанию)
+Animate units	Анимация юнитов
+Units on the map play their animations	Юниты на карте воспроизводят свою анимацию
+Custom names	Пользовательские имена
+How lists name a unit that has a custom name in the map	Как в списках называть юнит, которому задано имя на карте
+Open the last project on start	Открывать последний проект при запуске
+Look for updates on start	Проверять обновления при запуске
+Release builds only	Только релизные сборки
+Check now	Проверить сейчас
+Look for a newer release now	Искать новую версию сейчас
+Send anonymous crash reports	Отправлять анонимные отчёты о сбоях
+The version, Windows, the video card, where it crashed and the last log lines; no maps	Версия, Windows, видеокарта, место сбоя и последние строки журнала; карты не включаются
+Working folder	Рабочая папка
+The working folder: where new projects go	Рабочая папка: где сохраняются новые проекты
+New projects go to 	Новые проекты сохраняются в 
+Documents\\StarDraft	Documents\\StarDraft
+Select the StarCraft: Remastered folder	Выберите папку StarCraft: Remastered
+From the next start: 	Начиная со следующего запуска: 
+A new folder is used from the next start	Новая папка используется со следующего запуска
+Program options	Параметры программы
+Expansion	Дополнение
+Ground path from %s to %s: %.0f tiles (for a %hs)	Наземный путь от %s до %s: %.0f клеток (размер: %hs)
+No ground path from %s to %s: units must fly or go by transport	Нет наземного пути от %s до %s: юниты должны летать или перемещаться на транспорте
+Lines: the shortest ground paths between the start locations. 	Линии: самые короткие наземные пути между стартовыми позициями. 
+Green tiles: buildable tiles near a base. Orange boxes: its resources.	Зелёные клетки: клетки для строительства рядом с базой. Оранжевые рамки: её ресурсы.
+The walkable ground does not show	Проходимая земля не отображается
+The paths between bases do not show	Пути между базами не отображаются
+The town areas do not show	Области поселений не отображаются
+Paths are for a 	Пути рассчитаны для размера 
+Could not save the project: 	Не удалось сохранить проект: 
+Linked 	Связан 
+ to the build	 со сборкой
+This code comes from the Data workspace. To remove it, undo the .dat edits.	Этот код взят из рабочей области «Данные». Чтобы его удалить, отмените правки .dat.
+Removed the link to 	Удалена связь с 
+euddraft found an error in 	euddraft нашёл ошибку в 
+, line 	, строка 
+Link a file to the build	Связать файл со сборкой
+Build now writes 	Сборка теперь записывает 
+Background music	Фоновая музыка
+Could not read the sound file	Не удалось прочитать звуковой файл
+Could not copy the file into the project: 	Не удалось скопировать файл в проект: 
+Background music: 	Фоновая музыка: 
+epTrace closed without a report (see the log)	epTrace закрыт без отчёта (см. журнал)
+epTrace closed: no samples (see the log)	epTrace закрыт: нет выборок (см. журнал)
+epTrace closed: the report is on the Project page and in the log	epTrace закрыт: отчёт на странице «Проект» и в журнале
+epTrace.exe is not in the euddraft folder	epTrace.exe не находится в папке euddraft
+No trace file: build the map with Trace build on	Нет файла трассировки: соберите карту, когда включена сборка с трассировкой
+epTrace did not start: it needs administrator rights	epTrace не запустился: ему нужны права администратора
+Could not start epTrace (error 	Не удалось запустить epTrace (ошибка 
+epTrace is open: play the map, then close epTrace's window (it writes the report then)	epTrace открыт: сыграйте карту, затем закройте окно epTrace (тогда он запишет отчёт)
+Trace file	Файл трассировки
+None yet: Build writes it	Пока нет: сборка его создаст
+None: Trace build is off	Нет: сборка с трассировкой выключена
+Start epTrace	Запустить epTrace
+epTrace is open	epTrace открыт
+Start the map in StarCraft first. epTrace asks for administrator rights, shows the lines that run, and writes its report when you close its window	Сначала запустите карту в StarCraft. epTrace запрашивает права администратора, показывает выполняемые строки и записывает отчёт, когда вы закрываете его окно
+Report	Отчёт
+None yet: close epTrace's window to write it	Пока нет: закройте окно epTrace, чтобы он записал отчёт
+No samples: no script line ran each trigger cycle while epTrace looked	Нет выборок: за время наблюдения epTrace ни одна строка скрипта не выполнялась в каждом цикле триггеров
+ samples on 	 выборок на 
+ lines  ·  	 строках  ·  
+Open the report	Открыть отчёт
+ (click: the block in the Triggers workspace)	 (щелчок: блок в рабочей области «Триггеры»)
+ (click: open the script)	 (щелчок: открыть скрипт)
+Hide the script's code	Скрыть код скрипта
+Show the selected script's code	Показать код выбранного скрипта
+EUD project  ·  built	Проект EUD  ·  собран
+EUD project  ·  not built yet	Проект EUD  ·  ещё не собран
+Files	Файлы
+Folder	Папка
+Open folder	Открыть папку
+Source map	Исходная карта
+In the project folder	В папке проекта
+Where Build writes the map	Куда сборка записывает карту
+Found by StarDraft 2	Найдено StarDraft 2
+Change…	Изменить…
+Downloaded on the first build	Загружается при первой сборке
+Options	Параметры
+EUD Turbo	EUD Turbo
+A shorter trigger cycle: the triggers run more often (euddraft's eudTurbo)	Более короткий цикл триггеров: триггеры выполняются чаще (eudTurbo из euddraft)
+EUD Turbo on	EUD Turbo включён
+EUD Turbo off	EUD Turbo выключен
+More units and sprites	Больше юнитов и спрайтов
+Room for more sprites, images, bullets and orders (euddraft's unlimiter)	Место для большего числа спрайтов, изображений, снарядов и приказов (unlimiter из euddraft)
+More units and sprites on	Больше юнитов и спрайтов: включено
+More units and sprites off	Больше юнитов и спрайтов: выключено
+Air units do not push apart	Воздушные юниты не отталкиваются друг от друга
+Air units can stay on top of each other (euddraft's noAirCollision)	Воздушные юниты могут стоять друг над другом (noAirCollision из euddraft)
+Air units push apart	Воздушные юниты отталкиваются друг от друга
+Debug build	Отладочная сборка
+Debug build off	Отладочная сборка выключена
+Debug build on	Отладочная сборка включена
+The triggers check each list index that the game calculates. An index out of range shows a message on the screen, and the triggers use the first item. Turn it off for the map that you release.	Триггеры проверяют каждый индекс списка, который вычисляет игра. Индекс вне диапазона выводит сообщение на экран, а триггеры используют первый элемент. Для карты, которую вы выпускаете, выключите это.
+Trace build (epTrace)	Сборка с трассировкой (epTrace)
+Trace build off	Сборка с трассировкой выключена
+Trace build on: build the map again to use epTrace	Сборка с трассировкой включена: соберите карту заново, чтобы использовать epTrace
+The scripts record each line that they run, and Build writes a trace file beside the map. epTrace reads it while the map plays in StarCraft and shows which lines use the most time. The map runs more slowly: turn it off for the map that you release.	Скрипты записывают каждую выполняемую строку, а сборка создаёт файл трассировки рядом с картой. Пока карта играется в StarCraft, epTrace читает этот файл и показывает, какие строки занимают больше всего времени. Карта работает медленнее: для карты, которую вы выпускаете, выключите это.
+Plays again and again for every player (euddraft's bgmplayer)	Повторяется без конца для каждого игрока (bgmplayer из euddraft)
+No background music	Без фоновой музыки
+Files in memory	Файлы в памяти
+Take it out	Убрать
+Add a file…	Добавить файл…
+A file to load into memory	Файл для загрузки в память
+Memory address (for example 0x58A364)	Адрес в памяти (например, 0x58A364)
+The file loads into memory when the map starts	Файл загружается в память при запуске карты
+Loads a file's bytes into the game's memory when the map starts (euddraft's dataDumper)	Загружает байты файла в память игры при запуске карты (dataDumper из euddraft)
+Scripts	Скрипты
+Build runs these in order, from the top. onPluginStart runs once when the map starts; beforeTriggerExec and afterTriggerExec run each trigger cycle	Сборка выполняет их по порядку, сверху вниз. onPluginStart выполняется один раз при запуске карты; beforeTriggerExec и afterTriggerExec выполняются в каждом цикле триггеров
+from the Data workspace	из рабочей области «Данные»
+euddraft plugin	Плагин euddraft
+linked  ·  not found: Build stops	связан  ·  не найден: сборка останавливается
+not found: Build stops	не найден: сборка останавливается
+linked  ·  changed 	связан  ·  изменён 
+  after the last build	  после последней сборки
+Open in your editor	Открыть в редакторе
+Show in folder	Показать в папке
+Earlier	Ранее
+Comes from the Data workspace	Взято из рабочей области «Данные»
+New script	Новый скрипт
+Link a file…	Добавить ссылку на файл…
+Could not read the sound	Не удалось прочитать звук
+Could not read the sound: 	Не удалось прочитать звук: 
+Imported 	Импортировано 
+Game	Игра
+Game sound	Игровой звук
+Null tiles	Нулевые тайлы
+Doodad #	Декорация #
+, row 	, строка 
+Not in Blizzard's maps	Нет в картах Blizzard
+Group 	Группа 
+, tile 	, тайл 
+Null tile	Нулевой тайл
+All tiles	Все тайлы
+All tiles but the null tiles	Все тайлы, кроме нулевых
+Doodad tiles	Тайлы декораций
+Click a tile to place it	Щёлкните тайл, чтобы поместить его
+: click or drag to place it (the brush's size and shape)	: щёлкните или перетащите, чтобы поместить (размер и форма кисти)
+the Tiles list	список тайлов
+ tiles: Spray places one of them at random	 тайлов: Распылитель ставит один из них наугад
+Search tiles: group number, terrain, doodad	Поиск тайлов: номер группы, местность, декорация
+ 1 tile	 1 тайл
+The tiles are the same already	Тайлы уже одинаковы
+. Removed 	. Удалено 
+ doodad under them	 декорация под ними
+ doodads under them	 декорации под ними
+ unit that cannot stand there	 юнит, который не может стоять там
+ units that cannot stand there	 юнита, которые не могут стоять там
+Replaced	Заменено
+Filled	Заполнено
+Select a tile in the Tiles list first (or Ctrl+click a tile on the map)	Сначала выберите тайл в списке тайлов (или Ctrl+щелчок по тайлу на карте)
+Placed	Размещено
+Only the player on this computer sees or hears it.	Только игрок на этом компьютере видит или слышит это.
+It acts for the current player. Put it in For each player.	Он действует для текущего игрока. Поместите его в блок «Для каждого игрока».
+It holds up the other triggers of the player until it is complete.	Он задерживает остальные триггеры игрока, пока не завершится.
+It reads or writes game memory at an address.	Он читает или записывает память игры по адресу.
+It goes through units, up to 1,700 each time it runs.	Он перебирает юниты, до 1,700 за каждый запуск.
+Its value is not the same on each computer. Use it only for what a player sees or hears.	Значение не одинаково на каждом компьютере. Используйте его только для того, что видит или слышит игрок.
+  ·  advanced	  ·  дополнительно
+What it does	Что делает
+Values	Значения
+  ·  default value: 	  ·  значение по умолчанию: 
+Holds	Содержит
+ (conditions)	 (условия)
+ (actions)	 (действия)
+Example	Пример
+Watch out	Внимание
+Effects and cost	Эффекты и затраты
+About 	Около 
+ each time it runs	 при каждом запуске
+, and the blocks in it.	, а также блоки внутри него.
+the help for 	справка для 
+a block	блока
+Block help	Справка по блоку
+Block help: 	Справка по блоку: 
+Select a block, then press F1 for its help	Выберите блок, затем нажмите F1, чтобы открыть его справку
+ (about 	 (около 
+The trigger costs about 	Этот триггер тратит около 
+ actions each run (it was 	 действий за запуск (раньше было 
+). Ctrl+Z undoes it.	). Ctrl+Z отменяет.
+euddraft found an error in line 	euddraft нашёл ошибку в строке 
+ of the triggers' code: 	 кода триггеров: 
+ (see the log)	 (см. журнал)
+Drag to move	Перетащите, чтобы переместить
+(empty)	(пусто)
+changed  ·  	изменено  ·  
+  ·  changed  ·  	  ·  изменено  ·  
+Put back the game's values	Вернуть значения игры
+No other data uses this entry	Другие данные не используют эту запись
+StarDraft 2 project	Проект StarDraft 2
+Could not get the newest release from GitHub. Make sure that the computer is connected to the internet.	Не удалось получить последнюю версию с GitHub. Проверьте, что компьютер подключён к Интернету.
+Check for updates	Проверить обновления
+StarDraft 2 is up to date (	У StarDraft 2 установлена последняя версия (
+.\n\nThis is not a release build. Open the release page?	.\n\nЭто не релизная сборка. Открыть страницу релиза?
+&Open the release page	&Открыть страницу релиза
+.\n\nDownload and install it? StarDraft 2 starts again after it.	.\n\nСкачать и установить? После этого StarDraft 2 запустится снова.
+&Install	&Установить
+Downloading 	Скачивание 
+\n\nThe release page opens: get the zip from there.	\n\nОткроется страница релиза: скачайте zip-архив оттуда.
+The download did not complete.	Загрузка не завершена.
+Could not unpack the download.	Не удалось распаковать загруженный файл.
+Could not replace the program file in 	Не удалось заменить файл программы в 
+Could not put the new program in 	Не удалось поместить новую программу в 
+"the current player" has a value only in For each player	«Текущий игрок» имеет значение только в блоке «Для каждого игрока»
+Select a player	Выберите игрока
+Unknown value 	Неизвестное значение 
+Select a unit group	Выберите группу юнитов
+ is not a unit group	 не является группой юнитов
+Select a property	Выберите свойство
+: StarDraft 2 cannot build this block yet	: StarDraft 2 пока не может собрать этот блок
+A value from the game is a number. You cannot use it here	Значение из игры — это число. Здесь его нельзя использовать
+Use a player number from 0 to 26 (Player 1 is 0)	Используйте номер игрока от 0 до 26 (Игрок 1 — это 0)
+" is not a player, a variable or a number	" не является игроком, переменной или числом
+" is not a 	" не является 
+Select a sound	Выберите звук
+The map has no sound 	В карте нет звука 
+Select a trigger	Выберите триггер
+There is no trigger in Definitions with the name 	В «Определениях» нет триггера с именем 
+ is off. Turn it on, or select another trigger	 выключен. Включите его или выберите другой триггер
+Set up the button	Настройте кнопку
+This is a group of units. Select one unit type	Это группа юнитов. Выберите один тип юнита
+There is no unit type 	Нет типа юнита 
+There is no unit type with the name 	Нет типа юнита с именем 
+Use a location from 1 to 255	Используйте локацию от 1 до 255
+The map has no location 	На карте нет локации 
+Select a location	Выберите локацию
+Use a switch from 1 to 256	Используйте переключатель от 1 до 256
+Use a value from 0 to 	Используйте значение от 0 до 
+ has no property 	 не имеет свойства 
+Unit #	Юнит №
+ has the same type, owner and position. Move one of them, or StarDraft 2 can find the wrong unit	 имеет тот же тип, владельца и позицию. Переместите один из них, или StarDraft 2 может найти не тот юнит
+"the unit" has a value only in For each unit	«Текущий юнит» имеет значение только в «Для каждого юнита»
+The selected unit is not on the map now	Выбранного юнита сейчас нет на карте
+Select a unit	Выберите юнит
+ is not a unit variable	 не является переменной юнита
+The default value of 	Значение по умолчанию для 
+ is a unit on the map. That unit is not on the map now	 является юнитом на карте. Этого юнита сейчас нет на карте
+Select a variable	Выберите переменную
+There is no variable with the name 	Нет переменной с именем 
+ is a 	 — это 
+. Use a 	. Используйте 
+ is a constant. You cannot change it	 — это константа. Её нельзя изменить
+ acts for the current player. Put it in For each player	 действует для текущего игрока. Поместите это в «Для каждого игрока»
+: the other triggers of the player stop until it is complete	: другие триггеры игрока останавливаются, пока действие не завершится
+. Show text and Talking portrait do not stop them	. «Показать текст» и «Говорящий портрет» их не останавливают
+Reads or writes game memory at an address. Remastered permits only some addresses	Читает или записывает память игры по адресу. Remastered допускает только некоторые адреса
+ is not the same on each computer. Use it in Run local block, or only for what a player sees or hears: if it changes the game, the game desyncs	 различается на каждом компьютере. Используйте это в «Выполнить локальный блок» или только для того, что видит или слышит игрок: если это меняет игру, игра рассинхронизируется
+Use Player 1 to Player 8, or the current player	Используйте игроков с 1 по 8 или текущего игрока
+Unknown condition 	Неизвестное условие 
+ has no conditions	 не имеет условий
+Type the chat text	Введите текст чата
+A chat text cannot have "	В тексте чата нельзя использовать «
+" in it	»
+A chat text has at most 78 letters	Текст чата может содержать не более 78 букв
+Use a player from 0 to 7 (Player 1 is 0)	Используйте игрока от 0 до 7 (игрок 1 — это 0)
+Use an item of 	Используйте элемент из 
+ from 0 to 	 от 0 до 
+This is yes or no. Use exactly or not	Это «да» или «нет». Используйте «Точно» или «Не точно»
+Compares 	Сравнивает 
+ as a number	 как число
+ is not a number. Use set to	 не является числом. Используйте «Установить в»
+Unknown action 	Неизвестное действие 
+Select a text variable	Выберите текстовую переменную
+ is not a text variable	 не является текстовой переменной
+Select a text of the game	Выберите игровой текст
+Select a number per player	Выберите число для каждого игрока
+ is not a number per player	 не является числом для каждого игрока
+The text has more than two {}. Use at most two: one for each value	В тексте больше двух {}. Используйте не более двух: по одному для каждого значения
+For each player accepts all players, Player 1 to Player 8, or a force	«Для каждого игрока» принимает всех игроков, игроков с 1 по 8 или команду
+For each unit accepts one unit type or Any unit	«Для каждого юнита» принимает один тип юнита или «Любой юнит»
+For each unit accepts the units of one player or of all players	«Для каждого юнита» принимает юниты одного игрока или всех игроков
+Slow: the actions in it run for each unit (up to 1,700) each time. Keep them short	Медленно: действия внутри выполняются для каждого юнита (до 1700) каждый раз. Держите их короткими
+For each new unit accepts the units of one player or of all players	«Для каждого нового юнита» принимает юниты одного игрока или всех игроков
+Run local block: a random number here changes the random numbers on this computer only, and the game desyncs. Make it outside	Выполнить локальный блок: случайное число здесь меняет случайные числа только на этом компьютере, и игра рассинхронизируется. Создайте его вне блока
+Run local block: 	Выполнить локальный блок: 
+ holds up the triggers on this computer only, and the game desyncs	 приостанавливает триггеры только на этом компьютере, и игра рассинхронизируется
+Run local block: the value changes on this computer only. Use it only for what this player sees: if a trigger that changes the game reads it, the game desyncs	Выполнить локальный блок: значение меняется только на этом компьютере. Используйте его только для того, что видит этот игрок: если триггер, который меняет игру, считывает его, игра рассинхронизируется
+Run local block: StarDraft 2 cannot tell what 	Выполнить локальный блок: StarDraft 2 не может определить, что 
+ changes. Change only what this player sees, or the game desyncs	 меняет. Меняйте только то, что видит этот игрок, иначе игра рассинхронизируется
+ changes the game on this computer only: the other computers do not do it, and the game desyncs. Put it outside	 меняет игру только на этом компьютере: другие компьютеры этого не делают, и игра рассинхронизируется. Поместите это снаружи
+ goes on only while its trigger runs again: in On map start it runs one time. Put it in a trigger in On every trigger cycle	 продолжается, только пока его триггер запускается снова: в «При запуске карты» выполняется один раз. Поместите это в триггер «В каждом цикле триггеров»
+Put Leave the loop in a loop (Repeat, While, For each)	Поместите «Выйти из цикла» в цикл («Повторять», «Пока», «Для каждого»)
+ in For each unit changes the units that the loop goes through: the loop can miss units or stop. Do it after the loop, or change only "the unit"	 в «Для каждого юнита» меняет юниты, по которым проходит цикл: цикл может пропустить юниты или остановиться. Сделайте это после цикла или меняйте только «текущий юнит»
+The loop goes through the units of one player. A unit that goes to another player leaves that list: the loop can miss units or stop. Loop through the units of all players	Цикл проходит по юнитам одного игрока. Юнит, который переходит к другому игроку, выходит из этого списка: цикл может пропустить юниты или остановиться. Проходите по юнитам всех игроков
+The deaths of 	Смерти 
+ also go up when a 	 также увеличиваются, когда 
+ dies in the game. To keep a number, use a variable	 умирает в игре. Чтобы сохранить число, используйте переменную
+"the unit" has a value only in For each unit or For each new unit	«Текущий юнит» имеет значение только в «Для каждого юнита» или «Для каждого нового юнита»
+Language	Язык
+Automatic	Автоматически
+Follow the language of Windows	Следовать языку Windows
+The language changes at the next start of StarDraft 2	Язык изменится при следующем запуске StarDraft 2
+Randomize seed	Случайное зерно
+Randomize values	Случайные значения
+ground and air	наземные и воздушные
+air	воздушные
+ground	наземные
+Rename the unit (empty: the game's name)	Переименовать юнит (пусто: название игры)
+Map unit limit	Лимит юнитов на карте
+Standard maps	Стандартные карты
+EUD projects	Проекты EUD
+Default value: 3400	Значение по умолчанию: 3400
+Default value: 1700	Значение по умолчанию: 1700
+StarCraft without mods takes at most 3400 units in a map.	StarCraft без модов допускает не более 3400 юнитов на карте.
+The most units in a map   1 to 65535	Наибольшее число юнитов на карте   от 1 до 65535
+Player 4	Игрок 4
+Player 5	Игрок 5
+Player 6	Игрок 6
+Player 7	Игрок 7
+Player 8	Игрок 8
+Player 9	Игрок 9
+Player 10	Игрок 10
+Player 11	Игрок 11
+Player 12	Игрок 12
+Show ranges of the selected u&nits	Показать дальность выбранных ю&нитов
+Ranges are hidden	Дальность скрыта
+Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue)	Дальность выбранных юнитов: обзор (жёлтый), обнаружение цели (оранжевый), наземное оружие (красный), воздушное оружие (синий)
+Favorites	Избранное
+Add to favorites	Добавить в избранное
+Remove from favorites	Удалить из избранного
+Show the favorites	Показать избранное
+&Fill selection with the selected tiles	&Заполнить выделение выбранными тайлами
+Crash reports	Отчёты о сбоях
+Ask	Спрашивать
+Do not send	Не отправлять
+&Send	&Отправить
+&Always send	Отправлять &всегда
+Do &not send	&Не отправлять
+Crash report	Отчёт о сбое
+After a crash, StarDraft 2 asks at the next start if it can send the report (default)	После сбоя StarDraft 2 при следующем запуске спрашивает, можно ли отправить отчёт (по умолчанию)
+The reports stay on this computer	Отчёты остаются на этом компьютере
+Show &minimap	Показать &миникарту
+Hide	Скрыть
+La&yers	С&лои
+&Terrain	&Рельеф
+tiles	тайлы
+diamonds	ромбы
+If ▾	Если ▾
+For each ▾	Для каждого ▾
+Add an If block: one of the kinds of If	Добавить блок «Если»: один из видов «Если»
+Add a loop: For each player, unit, number or item, or Repeat	Добавить цикл: для каждого игрока, юнита, числа или элемента, либо повтор
+Add a &condition	Добавить &условие
+Add an &action	Добавить &действие
+&Search…	&Поиск…
+Loops	Циклы
+If	Если
+Named after StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.	Назван в честь StarDraft от Camelot Systems (1998), с которого началась сцена модов для StarCraft.
+StarDraft 2 aims to be its spiritual successor for StarCraft makers in 2026 and later.	StarDraft 2 стремится стать его духовным преемником для создателей карт StarCraft в 2026 году и позже.
+Mouse	Мышь
+The farther the mouse is from where you pressed, the faster the map moves toward it (default)	Чем дальше мышь от места нажатия, тем быстрее карта движется к ней (по умолчанию)
+The map moves with the mouse, as with a right-drag	Карта движется вместе с мышью, как при перетаскивании правой кнопкой
+Middle mouse click and hold	Зажатие средней кнопки мыши
+Drag map	Перетаскивание карты
+Pan map	Прокрутка карты
+Middle mouse click and hold drags the map	Зажатие средней кнопки мыши перетаскивает карту
+Middle mouse click and hold pans the map	Зажатие средней кнопки мыши прокручивает карту
+&Quick open…\tCtrl+Shift+O	&Быстрое открытие…\tCtrl+Shift+O
+Go to an open tab, or open a recent project or map	Перейти к открытой вкладке или открыть недавний проект или карту
+Open tab: project	Открытая вкладка: проект
+Open tab: map	Открытая вкладка: карта
+Recent project	Недавний проект
+Recent map	Недавняя карта
+Browse for a project…	Выбрать проект…
+File > Project > Open project	Файл > Проект > Открыть проект
+Maps	Карты
+Open maps with StarDraft 2	Открывать карты в StarDraft 2
+Make StarDraft 2 the program that opens .scm and .scx maps	Сделать StarDraft 2 программой для открытия карт .scm и .scx
+Maps (.scm, .scx) open with StarDraft 2	Карты (.scm, .scx) открываются в StarDraft 2
+Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.	Windows сохраняет программу, которую вы выбрали для карт .scm или .scx. В разделе «Приложения по умолчанию» найдите .scm и .scx и выберите StarDraft 2.
+Default apps	Приложения по умолчанию
+StarDraft 2 shows the new language after a restart. Restart now? Your open maps and projects open again.	StarDraft 2 покажет новый язык после перезапуска. Перезапустить сейчас? Открытые карты и проекты откроются снова.
+The language changes when StarDraft 2 starts again	Язык меняется при следующем запуске StarDraft 2
+StarDraft 2 could not start again. Close it and start it to show the new language.	StarDraft 2 не смог запуститься снова. Закройте его и запустите, чтобы показать новый язык.
+Restart now	Перезапустить сейчас
+Start StarDraft 2 again in the new language. Your open maps and projects open again.	Запустить StarDraft 2 снова на новом языке. Открытые карты и проекты откроются снова.
+The new language shows after a restart	Новый язык отображается после перезапуска
+A new language shows after a restart	Новый язык отображается после перезапуска
+Text color	Цвет текста
+\r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft 2 does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nПри первой сборке StarDraft 2 загружает euddraft с GitHub в свою папку.\r\nStarDraft 2 не меняет другие копии на этом компьютере. Открытая карта\r\nостаётся обычной картой. Собрать можно только проект.
+ accepts the current player or Player 1 to Player 12	 принимает текущего игрока или игроков с 1 по 12
+ accepts the current player, Player 1 to Player 8, all players, or a force	 принимает текущего игрока, игроков с 1 по 8, всех игроков или группу
+ are hidden (View > Layers)	 скрыты (Вид > Слои)
+ has the same type, owner and position. Move one of them, or StarDraft can find the wrong unit	 имеет тот же тип, того же владельца и ту же позицию. Переместите один из них, иначе StarDraft может найти не тот юнит
+ tiles)	 тайл(ов))
+ tiles: Brush, Spray and Fill place one of them at random	 тайл(ов): Кисть, Спрей и Заливка ставят один из них случайно
+ units: click to place them, and again to place more. Right-click or Esc stops.	 юнит(ов): щёлкните, чтобы разместить, и снова, чтобы разместить ещё. Правый клик или Esc — остановка.
+ units: the limit (Program options > Map unit limit)	 юнит(ов): предел (Параметры программы > Предел юнитов карты)
+&Assets workspace	Рабочая область &ресурсов
+&Briefing workspace	Рабочая область &брифингов
+&Project page	&Страница проекта
+. At the next start, StarDraft 2 asks if it can send it.	. При следующем запуске StarDraft 2 спросит, можно ли его отправить.
+. The Favorites filter shows them.	. Фильтр «Избранное» их показывает.
+: StarDraft 2 opens maps (.scm, .scx, .chk) and projects	: StarDraft 2 открывает карты (.scm, .scx, .chk) и проекты
+: StarDraft cannot build this block yet	: StarDraft пока не может собрать этот блок
+: this layer is hidden. View > Layers shows it again (then you can edit it).	: этот слой скрыт. Вид > Слои снова его показывает (тогда его можно редактировать).
+Add a script	Добавить скрипт
+Added to the favorites: 	Добавлено в избранное: 
+After a crash, StarDraft 2 asks at the next start if it can send the report	После сбоя StarDraft 2 при следующем запуске спрашивает, можно ли отправить отчёт
+Automatic (the language of Windows)	Автоматически (язык Windows)
+Brush: place the tile selected in the Tiles list, with the brush's size and shape. Several tiles selected: each tile one of them at random (a scatter).	Кисть: ставит тайл, выбранный в списке «Тайлы», с размером и формой кисти. Если выбрано несколько тайлов, каждое место получает один из них случайно (разброс).
+Could not write 	Не удалось записать 
+Did not open 	Не удалось открыть 
+English	English
+Español	Español
+Filled the selection:	Выделение заполнено:
+For another player, select the players here by number, or all players, or a force (the current player, allies and enemies change with the player)	Для другого игрока выберите здесь игроков по номеру, всех игроков или группу (текущий игрок, союзники и враги меняются вместе с игроком)
+It acts for the player that you select. The current player has a value only in For each player.	Действует для выбранного игрока. Текущий игрок имеет значение только в блоке «Для каждого игрока».
+Paste terrain: click to place it, and again to place more. Press R to turn it. Right-click or Esc stops.	Вставка рельефа: щёлкните, чтобы разместить, и снова, чтобы разместить ещё. R — повернуть. Правый клик или Esc — остановка.
+Paste tiles: click to place them, and again to place more. Right-click or Esc stops.	Вставка тайлов: щёлкните, чтобы разместить, и снова, чтобы разместить ещё. Правый клик или Esc — остановка.
+Paste: click to place the copy, and again to place more. Right-click or Esc stops.	Вставка: щёлкните, чтобы разместить копию, и снова, чтобы разместить ещё. Правый клик или Esc — остановка.
+Removed from the favorites: 	Удалено из избранного: 
+Run local block: StarDraft cannot tell what 	Локальный блок: StarDraft не может определить, что меняет 
+Send an anonymous report after a crash: the version, Windows, the video card, where it crashed and the last log lines; no maps	Отправлять анонимный отчёт после сбоя: версию, Windows, видеокарту, место сбоя и последние строки журнала; карты не отправляются
+StarDraft 2 - v	StarDraft 2 - v
+StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, Windows, the video card, where it crashed and the last log lines. It has no maps. It is in 	StarDraft 2 в прошлый раз остановился из-за ошибки. Отправить отчёт о сбое разработчикам, чтобы они могли исправить ошибку?\n\nВ отчёте есть версия, Windows, видеокарта, место сбоя и последние строки журнала. Карт в нём нет. Он находится в 
+Terran Marine	Терранский морпех
+The language of the program's texts	Язык текстов программы
+The map has 	Карта содержит 
+The minimap is hidden (View > Show minimap shows it again)	Миникарта скрыта (Вид > Показать миникарту: она снова появится)
+The minimap shows	Миникарта показана

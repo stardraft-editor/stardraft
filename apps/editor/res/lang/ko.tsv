@@ -77,8 +77,8 @@ Select the StarCraft: Remastered folder. It contains .build.info.	StarCraft: Rem
 Not a StarCraft: Remastered folder	StarCraft: Remastered 폴더가 아닙니다
 Could not read the game data in this folder:\r\n	이 폴더의 게임 데이터를 읽을 수 없습니다:\r\n
 StarCraft folder	StarCraft 폴더
-StarDraft 2 uses this folder after the next start:\r\n	StarDraft는 다음 시작부터 이 폴더를 사용합니다:\r\n
-\r\nTo use it now, restart StarDraft 2.	\r\n지금 사용하려면 StarDraft를 다시 시작하세요.
+StarDraft 2 uses this folder after the next start:\r\n	StarDraft 2는 다음 시작부터 이 폴더를 사용합니다:\r\n
+\r\nTo use it now, restart StarDraft 2.	\r\n지금 사용하려면 StarDraft 2를 다시 시작하세요.
 Start	시작
 Untitled 	제목 없음 
  (project)	 (프로젝트)
@@ -109,9 +109,9 @@ euddraft's build file: Build writes it	euddraft의 빌드 파일: 빌드가 이 
 the built map: Build (Ctrl+B) writes it to the Output file	빌드된 맵: 빌드(Ctrl+B)가 출력 파일에 씁니다
 the built map: Build (Ctrl+B) writes it	빌드된 맵: 빌드(Ctrl+B)가 이 파일을 씁니다
 your code (epScript). To add more, use File > Project > Add script.	사용자 코드(epScript). 더 추가하려면 파일 > 프로젝트 > 스크립트 추가를 사용하세요.
-StarDraft 2 makes the folder 	StarDraft가 폴더를 만듭니다: 
+StarDraft 2 makes the folder 	StarDraft 2가 폴더를 만듭니다: 
 \\ in the location above:\r\n\r\n	\\ 위 위치에:\r\n\r\n
-\r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n첫 빌드에서 StarDraft는 GitHub에서 euddraft를 자신의 폴더로 내려받습니다.\r\nStarDraft는 이 컴퓨터의 다른 사본을 변경하지 않습니다. 열어 둔 맵은\r\n일반 맵으로 유지됩니다. 프로젝트만 빌드할 수 있습니다.
+\r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n첫 빌드에서 StarDraft 2는 GitHub에서 euddraft를 자신의 폴더로 내려받습니다.\r\nStarDraft 2는 이 컴퓨터의 다른 사본을 변경하지 않습니다. 열어 둔 맵은\r\n일반 맵으로 유지됩니다. 프로젝트만 빌드할 수 있습니다.
 Name	이름
 Location	위치
 Browse…	찾아보기…
@@ -169,7 +169,7 @@ Could not create the map	맵을 만들 수 없습니다
 Created a new 	새로 만들었습니다: 
  map (	 맵 (
 StarDraft 2 project (*.stardraft)*.stardraft	StarDraft 2 프로젝트 (*.stardraft)*.stardraft
-Save the project (StarDraft 2 makes a folder with its name here)	프로젝트를 저장하세요 (StarDraft가 여기에 프로젝트 이름의 폴더를 만듭니다)
+Save the project (StarDraft 2 makes a folder with its name here)	프로젝트를 저장하세요 (StarDraft 2가 여기에 프로젝트 이름의 폴더를 만듭니다)
 The name cannot hold \\ / : * ? " < > |	이름에는 \\ / : * ? " < > |를 사용할 수 없습니다
 Save project	프로젝트 저장
  is there already and is not empty.	 이(가) 이미 있으며 비어 있지 않습니다.
@@ -228,18 +228,18 @@ Cut the terrain: 	지형을 잘라냈습니다:
 Select units to duplicate	복제할 유닛을 선택하세요
 Deleted 	삭제함: 
 Selected 	선택함: 
-StarDraft 2 looks for a newer release on start	StarDraft는 시작할 때 새 릴리스를 확인합니다
-StarDraft 2 does not look for a newer release on start	StarDraft는 시작할 때 새 릴리스를 확인하지 않습니다
-StarDraft 2 sends an anonymous report when it crashes	StarDraft는 충돌할 때 익명 보고서를 보냅니다
-StarDraft 2 does not send crash reports (a report stays on this computer)	StarDraft는 충돌 보고서를 보내지 않습니다 (보고서는 이 컴퓨터에 남습니다)
-The last project opens when StarDraft 2 starts	StarDraft를 시작하면 마지막 프로젝트가 열립니다
-StarDraft 2 starts with no project open	StarDraft는 프로젝트를 열지 않고 시작합니다
+StarDraft 2 looks for a newer release on start	StarDraft 2는 시작할 때 새 릴리스를 확인합니다
+StarDraft 2 does not look for a newer release on start	StarDraft 2는 시작할 때 새 릴리스를 확인하지 않습니다
+StarDraft 2 sends an anonymous report when it crashes	StarDraft 2는 충돌할 때 익명 보고서를 보냅니다
+StarDraft 2 does not send crash reports (a report stays on this computer)	StarDraft 2는 충돌 보고서를 보내지 않습니다 (보고서는 이 컴퓨터에 남습니다)
+The last project opens when StarDraft 2 starts	StarDraft 2를 시작하면 마지막 프로젝트가 열립니다
+StarDraft 2 starts with no project open	StarDraft 2는 프로젝트를 열지 않고 시작합니다
 Units: can be on top of others	유닛: 다른 유닛 위에 놓을 수 있음
 Units: cannot be on top of others (air units also)	유닛: 다른 유닛 위에 놓을 수 없음 (공중 유닛도 포함)
 Units: place anywhere (terrain edits do not move them)	유닛: 어디에나 배치 (지형을 편집해도 유닛은 이동하지 않음)
 Units: place only where it fits	유닛: 맞는 곳에만 배치
 Units: move to the nearest place where it fits	유닛: 맞는 가장 가까운 곳으로 이동
-Doodads: place anywhere on the map (StarDraft 2 does not check the terrain)	장식물: 맵의 어디에나 배치 (StarDraft는 지형을 확인하지 않음)
+Doodads: place anywhere on the map (StarDraft 2 does not check the terrain)	장식물: 맵의 어디에나 배치 (StarDraft 2는 지형을 확인하지 않음)
 Doodads: move to the nearest place where it fits	장식물: 맞는 가장 가까운 곳으로 이동
 Doodads: place only where it fits	장식물: 맞는 곳에만 배치
 Carbot (cartooned) graphics	Carbot (만화풍) 그래픽
@@ -529,7 +529,7 @@ Tech data	기술 데이터
 Orders	명령
 SFX data	SFX 데이터
 Port data	Port 데이터
-Showing changed 	변경된 항목 표시 중 
+Showing changed 	변경된 항목만 표시 중 
 Showing all 	모두 표시 중 
 Search units	유닛 검색
 Changed	변경됨
@@ -795,7 +795,7 @@ Let go: no change	놓으면 변경 없음
 &Replace with…	바꾸기(&R)…
 Convert to t&errain	지형으로 변환(&E)
 Select all of this t&ype	같은 종류 모두 선택(&Y)
-Select all of this type for Player 	플레이어 가 소유한 같은 종류 모두 선택 
+Select all of this type for Player 	같은 종류 모두 선택: 플레이어 
 &Select (no placing)\tEsc	선택(&S) (배치 안 함)\tEsc
 P&roperties…	속성(&R)…
 : select	: 선택
@@ -964,7 +964,7 @@ Sent the feedback as #	피드백을 #
 . Thank you.	번으로 보냈습니다. 감사합니다.
 Sent the feedback. Thank you.	피드백을 보냈습니다. 감사합니다.
 This build cannot send feedback. The feedback is in 	이 빌드는 피드백을 보낼 수 없습니다. 피드백은 다음 위치에 있습니다: 
-StarDraft 2 cannot send the feedback now. It sends it at the next start.	StarDraft가 지금 피드백을 보낼 수 없습니다. 다음 시작 때 보냅니다.
+StarDraft 2 cannot send the feedback now. It sends it at the next start.	StarDraft 2가 지금 피드백을 보낼 수 없습니다. 다음 시작 때 보냅니다.
 Minimap	미니맵
 Density: low	밀도: 낮음
 Density: medium	밀도: 중간
@@ -1144,7 +1144,7 @@ Could not read 	읽을 수 없습니다:
 Strings	문자열
 button set	버튼 세트
 Button set 	버튼 세트 
-%zu / %zu bytes	%zu / %zu bytes
+%zu / %zu bytes	%zu / %zu 바이트
 . The total is more than the game has room for. Build stops.	. 합계가 게임의 공간을 넘습니다. 빌드가 중단됩니다.
 Must have	필수
 End of the level's list	레벨 목록의 끝
@@ -1260,7 +1260,7 @@ the code	코드
 Feedback on 	피드백: 
 Feedback is anonymous. Do not include sensitive or private information. Ctrl+Enter sends it.	피드백은 익명입니다. 민감하거나 개인적인 정보는 포함하지 마십시오. Ctrl+Enter로 보냅니다.
 Send	보내기
-This build cannot send feedback. StarDraft 2 keeps it in 	이 빌드는 피드백을 보낼 수 없습니다. StarDraft가 다음 위치에 보관합니다: 
+This build cannot send feedback. StarDraft 2 keeps it in 	이 빌드는 피드백을 보낼 수 없습니다. StarDraft 2가 다음 위치에 보관합니다: 
 Sending the feedback…	피드백을 보내는 중…
 Report feedback on 	피드백 보고: 
 %zu B	%zu B
@@ -1282,11 +1282,11 @@ The map has it	맵에 있음
 Add to the map's sounds, by reference: the game plays its own file, the map does not hold it	맵의 소리에 참조로 추가: 게임이 자체 파일을 재생하며, 맵은 파일을 포함하지 않습니다
 The map has no sounds of its own. Import sounds adds WAV or OGG files.	맵에 자체 소리가 없습니다. 소리 가져오기로 WAV 또는 OGG 파일을 추가합니다.
 Import sounds…	소리 가져오기…
-WAV or OGG files. StarDraft 2 saves them in the map (staredit\\wav\\).	WAV 또는 OGG 파일. StarDraft가 맵(staredit\\wav\\)에 저장합니다.
+WAV or OGG files. StarDraft 2 saves them in the map (staredit\\wav\\).	WAV 또는 OGG 파일. StarDraft 2가 맵(staredit\\wav\\)에 저장합니다.
 Rename	이름 바꾸기
 Rename the file in the map. The briefings that play it also use the new name.	맵에 있는 파일 이름을 바꿉니다. 이 파일을 재생하는 브리핑도 새 이름을 씁니다.
 Sounds of the game	게임의 소리
-StarDraft 2 found no game sounds (Options > Program options: StarCraft folder)	StarDraft가 게임 소리를 찾지 못했습니다 (옵션 > 프로그램 옵션: StarCraft 폴더)
+StarDraft 2 found no game sounds (Options > Program options: StarCraft folder)	StarDraft 2가 게임 소리를 찾지 못했습니다 (옵션 > 프로그램 옵션: StarCraft 폴더)
 No game sound name contains the search text	검색어가 들어 있는 게임 사운드 이름이 없습니다
 Briefings	브리핑
 Open it in the Briefing workspace	브리핑 작업 공간에서 열기
@@ -1393,7 +1393,7 @@ Make the project folder and its map	프로젝트 폴더와 맵 만들기
 Make the map in this tab	이 탭에 맵 만들기
 Removed 	제거됨: 
  from the list	 (목록에서)
-StarDraft 2 is alpha software. Errors can occur. Make backup copies of your projects and maps before you edit them. Your feedback makes StarDraft 2 better: right-click anything and select "Report feedback on …".	StarDraft는 알파 소프트웨어입니다. 오류가 발생할 수 있습니다. 편집하기 전에 프로젝트와 맵의 백업 사본을 만드십시오. 여러분의 피드백이 StarDraft를 더 좋게 만듭니다. 아무 항목이나 마우스 오른쪽 버튼으로 클릭하고 "…에 대한 피드백 보내기"를 선택하십시오.
+StarDraft 2 is alpha software. Errors can occur. Make backup copies of your projects and maps before you edit them. Your feedback makes StarDraft 2 better: right-click anything and select "Report feedback on …".	StarDraft는 알파 소프트웨어입니다. 오류가 발생할 수 있습니다. 편집하기 전에 프로젝트와 맵의 백업 사본을 만드십시오. 여러분의 피드백이 StarDraft를 더 좋게 만듭니다. 아무 항목이나 마우스 오른쪽 버튼으로 클릭하고 "피드백 보고: …"를 선택하십시오.
 Coming later	곧 제공 예정
 Campaign projects come in a later version	캠페인 프로젝트는 이후 버전에서 제공됩니다
 Mod projects come in a later version	모드 프로젝트는 이후 버전에서 제공됩니다
@@ -1451,7 +1451,7 @@ euddraft found an error in 	euddraft에서 오류를 찾았습니다:
 , line 	, 줄 
 epScript (*.eps)*.epsScripts (*.eps;*.py)*.eps;*.pyAll files*.*	epScript (*.eps)*.epsScripts (*.eps;*.py)*.eps;*.py모든 파일*.*
 Link a file to the build	빌드에 파일 연결
-Build now writes 	이제 빌드가 다음에 씁니다: 
+Build now writes 	이제 빌드가 다음 위치에 씁니다: 
 Sounds (*.ogg;*.wav)*.ogg;*.wav	사운드 (*.ogg;*.wav)*.ogg;*.wav
 Background music	배경 음악
 Could not read the sound file	사운드 파일을 읽을 수 없습니다
@@ -1594,7 +1594,7 @@ Holds	포함
 Example	예시
 Watch out	주의
 Effects and cost	효과와 비용
-About 	정보: 
+About 	약 
  each time it runs	 실행할 때마다
 , and the blocks in it.	, 그리고 그 안의 블록.
 the help for 	도움말: 
@@ -1814,3 +1814,47 @@ A new language shows after a restart	새 언어는 다시 시작한 후에 표�
 Text color	글자 색
 Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, each tile of the brush gets one of the selected tiles at random.	브러시: 타일 목록에서 선택한 타일을 브러시의 크기와 모양으로 배치합니다. 타일을 여러 개 선택하면 브러시 안의 각 타일에 선택한 타일 중 하나를 무작위로 배치합니다.
 . At the next start, StarDraft 2 asks if you want to send the crash report.	. 다음 시작 때 StarDraft가 충돌 보고서를 보낼지 묻습니다.
+&Pin to the top	맨 위에 고정(&P)
+Un&pin	고정 해제(&P)
+\r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft 2 does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n첫 빌드에서 StarDraft 2는 GitHub에서 euddraft를 자신의 폴더로 내려받습니다.\r\nStarDraft 2는 이 컴퓨터의 다른 사본을 변경하지 않습니다. 열어 둔 맵은\r\n일반 맵으로 유지됩니다. 프로젝트만 빌드할 수 있습니다.
+ accepts the current player or Player 1 to Player 12	 은(는) 현재 플레이어 또는 플레이어 1~12를 받습니다
+ accepts the current player, Player 1 to Player 8, all players, or a force	 은(는) 현재 플레이어, 플레이어 1~8, 모든 플레이어 또는 포스를 받습니다
+ are hidden (View > Layers)	 레이어가 숨겨졌습니다(보기 > 레이어)
+ has the same type, owner and position. Move one of them, or StarDraft can find the wrong unit	 은(는) 종류, 소유자, 위치가 같습니다. 하나를 옮기십시오. 그렇지 않으면 StarDraft가 잘못된 유닛을 찾을 수 있습니다
+ tiles)	 타일)
+ tiles: Brush, Spray and Fill place one of them at random	 타일: 브러시, 스프레이, 채우기는 그중 하나를 무작위로 배치합니다
+ units: click to place them, and again to place more. Right-click or Esc stops.	 유닛: 클릭하여 배치합니다. 다시 클릭하면 더 배치합니다. 오른쪽 클릭 또는 Esc를 누르면 중지합니다.
+ units: the limit (Program options > Map unit limit)	 유닛: 한도(프로그램 옵션 > 맵 유닛 한도)
+&Assets workspace	에셋 작업 공간(&A)
+&Briefing workspace	브리핑 작업 공간(&B)
+&Project page	프로젝트 페이지(&P)
+. At the next start, StarDraft 2 asks if it can send it.	. 다음 시작 때 StarDraft 2가 보내도 되는지 묻습니다.
+. The Favorites filter shows them.	. 즐겨찾기 필터에 표시됩니다.
+: StarDraft 2 opens maps (.scm, .scx, .chk) and projects	: StarDraft 2는 맵(.scm, .scx, .chk)과 프로젝트를 엽니다
+: StarDraft cannot build this block yet	: StarDraft가 아직 이 블록을 빌드할 수 없습니다
+: this layer is hidden. View > Layers shows it again (then you can edit it).	: 이 레이어는 숨겨져 있습니다. 보기 > 레이어에서 다시 표시하면 편집할 수 있습니다.
+Add a script	스크립트 추가
+Added to the favorites: 	즐겨찾기에 추가함: 
+After a crash, StarDraft 2 asks at the next start if it can send the report	충돌 후 다음 시작 때 StarDraft 2가 보고서를 보내도 되는지 묻습니다
+Automatic (the language of Windows)	자동(Windows 언어)
+Brush: place the tile selected in the Tiles list, with the brush's size and shape. Several tiles selected: each tile one of them at random (a scatter).	브러시: 타일 목록에서 선택한 타일을 브러시의 크기와 모양으로 배치합니다. 타일을 여러 개 선택하면 각 자리에 그중 하나를 무작위로 배치합니다(흩뿌리기).
+Could not write 	다음 파일을 쓸 수 없습니다: 
+Did not open 	다음 파일을 열 수 없습니다: 
+English	English
+Español	Español
+Filled the selection:	선택 영역을 채움:
+For another player, select the players here by number, or all players, or a force (the current player, allies and enemies change with the player)	다른 플레이어의 경우, 여기에서 번호로 플레이어를 고르거나, 모든 플레이어 또는 포스를 고릅니다 (현재 플레이어, 아군과 적은 플레이어에 따라 바뀝니다)
+It acts for the player that you select. The current player has a value only in For each player.	선택한 플레이어에 대해 동작합니다. 현재 플레이어는 For each player에서만 값을 가집니다.
+Paste terrain: click to place it, and again to place more. Press R to turn it. Right-click or Esc stops.	지형 붙여넣기: 클릭하여 배치합니다. 다시 클릭하면 더 배치합니다. R을 누르면 회전합니다. 오른쪽 클릭 또는 Esc를 누르면 중지합니다.
+Paste tiles: click to place them, and again to place more. Right-click or Esc stops.	타일 붙여넣기: 클릭하여 배치합니다. 다시 클릭하면 더 배치합니다. 오른쪽 클릭 또는 Esc를 누르면 중지합니다.
+Paste: click to place the copy, and again to place more. Right-click or Esc stops.	붙여넣기: 클릭하여 복사본을 배치합니다. 다시 클릭하면 더 배치합니다. 오른쪽 클릭 또는 Esc를 누르면 중지합니다.
+Removed from the favorites: 	즐겨찾기에서 제거함: 
+Run local block: StarDraft cannot tell what 	로컬 블록 실행: StarDraft는 무엇이 
+Send an anonymous report after a crash: the version, Windows, the video card, where it crashed and the last log lines; no maps	충돌 후 익명 보고서를 보냅니다: 버전, Windows, 그래픽 카드, 충돌 위치, 마지막 로그 줄. 맵은 보내지 않습니다
+StarDraft 2 - v	StarDraft 2 - v
+StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, Windows, the video card, where it crashed and the last log lines. It has no maps. It is in 	지난번에 오류로 StarDraft 2가 멈췄습니다. 개발자가 오류를 고칠 수 있도록 충돌 보고서를 보낼까요?\n\n보고서에는 버전, Windows, 그래픽 카드, 충돌 위치와 마지막 로그 줄이 있습니다. 맵은 없습니다. 보고서는 다음 위치에 있습니다: 
+Terran Marine	테란 마린
+The language of the program's texts	프로그램 텍스트의 언어
+The map has 	맵에 
+The minimap is hidden (View > Show minimap shows it again)	미니맵이 숨겨져 있습니다 (보기 > 미니맵 표시로 다시 표시합니다)
+The minimap shows	미니맵이 표시됩니다

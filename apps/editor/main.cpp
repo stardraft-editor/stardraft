@@ -7511,8 +7511,62 @@ bool dataSaved() {
 }
 
 int dataRowH();
+// Data > right-click an entry > Pin to the top: pinned entries come first in their table's list, in the order they were
+// pinned, for this Windows user (HKCU\\Software\\StarDraft\\DataPins: a value per table, its entries comma-separated).
+std::map<std::string, std::vector<int>> gDataPins;
+bool gDataPinsLoaded = false;
+int gDataPinnedShown = 0;  // how many of the list's first rows are pinned (a line under the last one)
+std::string dataTabKey(int tab) {
+    const auto& all = DatSchema::all();
+    return tab >= 0 && tab < int(all.size()) ? all[size_t(tab)].name : tab == int(all.size()) ? "strings" : "buttons";
+}
+std::vector<int>& dataPins(int tab) {
+    if (!gDataPinsLoaded) {
+        gDataPinsLoaded = true;
+        HKEY k;
+        if (!gSelfTest && RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\StarDraft\\DataPins", 0, KEY_READ, &k) == ERROR_SUCCESS) {
+            for (DWORD i = 0;; ++i) {
+                wchar_t name[64], value[4096];
+                DWORD nameLen = 64, valueLen = sizeof value, type = 0;
+                if (RegEnumValueW(k, i, name, &nameLen, nullptr, &type, reinterpret_cast<BYTE*>(value), &valueLen) != ERROR_SUCCESS) break;
+                if (type != REG_SZ) continue;
+                auto& v = gDataPins[narrow(name)];
+                std::wistringstream in(value);
+                for (std::wstring part; std::getline(in, part, L',');)
+                    if (!part.empty()) v.push_back(_wtoi(part.c_str()));
+            }
+            RegCloseKey(k);
+        }
+    }
+    return gDataPins[dataTabKey(tab)];
+}
+bool dataPinned(int tab, int e) {
+    const auto& v = dataPins(tab);
+    return std::find(v.begin(), v.end(), e) != v.end();
+}
+void dataRebuildList();
+void dataTogglePin(int e) {
+    const int tab = gData.datTab;
+    auto& v = dataPins(tab);
+    const auto it = std::find(v.begin(), v.end(), e);
+    const bool pin = it == v.end();
+    if (pin) v.push_back(e);
+    else v.erase(it);
+    if (!gSelfTest) {  // (tests leave the user's settings alone)
+        std::wstring list;
+        for (int x : v) list += (list.empty() ? L"" : L",") + std::to_wstring(x);
+        RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft\\DataPins", widen(dataTabKey(tab)).c_str(), REG_SZ, list.c_str(),
+                        DWORD((list.size() + 1) * sizeof(wchar_t)));
+    }
+    dataRebuildList();
+    std::wstring name = tabEntryName(tab, e);
+    if (name.empty()) name = L"#" + std::to_wstring(e);
+    setMessage(pin ? L"Pinned " + name + L" to the top of the list" : L"Unpinned " + name);
+}
+
 void dataRebuildList() {
     gData.shown.clear();
+    gDataPinnedShown = 0;
     const int tab = gData.datTab;
     if (!curTable() && !extraTab(tab)) return;
     std::wstring filter = lowerText(gData.search);
@@ -7524,6 +7578,17 @@ void dataRebuildList() {
             if (fuzzyScore(hay, filter) < 0) continue;
         }
         gData.shown.push_back(e);
+    }
+    // The pinned entries that the list shows: first, in the order they were pinned.
+    std::vector<int> head;
+    for (int p : dataPins(tab))
+        if (std::find(gData.shown.begin(), gData.shown.end(), p) != gData.shown.end() &&
+            std::find(head.begin(), head.end(), p) == head.end())
+            head.push_back(p);
+    if (!head.empty()) {
+        std::erase_if(gData.shown, [&](int e) { return std::find(head.begin(), head.end(), e) != head.end(); });
+        gData.shown.insert(gData.shown.begin(), head.begin(), head.end());
+        gDataPinnedShown = int(head.size());
     }
     // A shorter list: the scroll goes back inside it (else the list shows empty rows below its end).
     RECT rc{};
@@ -7617,7 +7682,16 @@ void paintDataList(HWND hwnd) {
         DrawTextW(mem, idText.c_str(), -1, &id, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
         RECT box{scale(42), r.top + scale(2), scale(42) + rh - scale(4), r.bottom - scale(2)};
         if (const auto* b = tabEntryIcon(gData.datTab, u); b && b->bmp) drawFitted(mem, *b, box);
-        RECT t{box.right + scale(8), r.top, rc.right - scale(16), r.bottom};
+        const bool pinned = i < gDataPinnedShown;
+        RECT t{box.right + scale(8), r.top, rc.right - scale(pinned ? 34 : 16), r.bottom};
+        if (pinned) {  // a pin at the right; a line under the last pinned row
+            HGDIOBJ og = SelectObject(mem, glyphFont(11));
+            SetTextColor(mem, kDim);
+            RECT pr{rc.right - scale(33), r.top, rc.right - scale(18), r.bottom};
+            DrawTextW(mem, L"\xE718", 1, &pr, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
+            SelectObject(mem, og);
+            if (i == gDataPinnedShown - 1 && i + 1 < int(gData.shown.size())) fillAlpha(mem, {scale(6), r.bottom - 1, rc.right - scale(6), r.bottom}, kBorder, 255);
+        }
         std::wstring name = tabEntryName(gData.datTab, u);
         SetTextColor(mem, on ? kAccent : name.empty() ? kDim : kText);
         if (name.empty()) name = L"(unnamed)";
@@ -7728,12 +7802,15 @@ void dataEntryMenu(int u, POINT screen) {
                 (L"&Paste values" + (dataCanPasteEntry() ? L" of " + entryName(gDatClip.dat, gDatClip.entry) : std::wstring()) + L"\tCtrl+V").c_str());
     AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(m, MF_STRING | (changed ? 0 : MF_GRAYED), 3, L"&Reset to the game's values");
+    AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(m, MF_STRING, 4, dataPinned(gData.datTab, u) ? L"Un&pin" : L"&Pin to the top");
     gFeedbackOn = entryName(t->schema().name, u);
     const int pick = popupMenu(m, TPM_RIGHTBUTTON, screen.x, screen.y, gData.list);
     DestroyMenu(m);
     if (pick == 1) dataCopyEntry(u);
     else if (pick == 2) dataPasteEntry(u);
     else if (pick == 3) dataResetEntry(u);
+    else if (pick == 4) dataTogglePin(u);
 }
 
 void dataFieldMenu(const DatField& f, POINT screen) {
@@ -12523,7 +12600,12 @@ int languageChoice() {
 }
 void pickLanguage(RECT b) {
     std::vector<ListPickItem> items;
-    for (int i = 0; i < int(std::size(kLanguageChoices)); ++i) items.push_back({kLanguageChoices[i].name, L"", std::to_string(i)});
+    for (int i = 0; i < int(std::size(kLanguageChoices)); ++i) {
+        // A language with no translations yet is not offered (it would show English).
+        const std::wstring code = kLanguageChoices[i].code;
+        if ((code == L"ru" && langTableRu().empty()) || (code == L"zh" && langTableZh().empty())) continue;
+        items.push_back({kLanguageChoices[i].name, L"", std::to_string(i)});
+    }
     std::string out;
     if (showListPicker(L"Language", items, std::to_string(languageChoice()), belowBox(b), out)) command(ID_OPT_LANG + std::stoi(out));
 }
@@ -23589,6 +23671,44 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 if (loc >= 0) app.ed->undo(), app.ed->undo();
                 continue;
             }
+            if (s.rfind("spray:", 0) == 0) {  // spray:<name part>[:<sprays>]: Doodads > Spray with every doodad whose name has
+                // that part, sprayed at random places of the view and kept (for a picture: ws:map after it); spray.txt says how many
+                const size_t c = s.find(':', 6);
+                std::wstring part = widen(s.substr(6, c == std::string::npos ? std::string::npos : c - 6));
+                const int sprays = c == std::string::npos ? 12 : std::max(1, std::atoi(s.c_str() + c + 1));
+                auto lower = [](std::wstring w) {
+                    for (auto& ch : w) ch = wchar_t(towlower(ch));
+                    return w;
+                };
+                part = lower(part);
+                setWorkspace(Workspace::Map);
+                setMode(Mode::Doodads);
+                gPal.chosen.clear();
+                bool inSection = false;  // the part names a section of the palette (doodads are listed as "#n w x h")
+                for (const auto& e : gPal.entries) {
+                    if (e.value < 0) inSection = lower(e.label).find(part) != std::wstring::npos;
+                    else if (inSection || lower(e.label).find(part) != std::wstring::npos) gPal.chosen.push_back(e.value);
+                }
+                app.palette = gPal.chosen.empty() ? -1 : gPal.chosen.front();
+                app.toolByMode[int(Mode::Doodads)] = DSpray, fillToolCombo();
+                const size_t n0 = app.ed->doodads().size();
+                RECT vr;
+                GetClientRect(app.view, &vr);
+                std::mt19937 rng(7);
+                std::uniform_real_distribution<float> u(0.15f, 0.85f);
+                for (int k = 0; k < sprays && !gPal.chosen.empty(); ++k) {
+                    const LPARAM at = MAKELPARAM(int(vr.right * u(rng)), int(vr.bottom * u(rng)));
+                    SendMessageW(app.view, WM_LBUTTONDOWN, MK_LBUTTON, at);
+                    SendMessageW(app.view, WM_LBUTTONUP, 0, at);
+                }
+                std::ofstream o(fs::path(datashots) / "spray.txt", std::ios::app);
+                o << "spray " << narrow(part) << ": " << gPal.chosen.size() << " kinds, " << (app.ed->doodads().size() - n0) << " doodads in " << sprays
+                  << " sprays (the palette lists " << gPal.entries.size() << ")";
+                for (const auto& e : gPal.entries)
+                    if (gPal.chosen.empty() && e.value < 0) o << "; " << narrow(e.label);  // the sections, to pick from
+                o << std::endl;
+                continue;
+            }
             if (s == "spritetools:") {  // spritetools.txt: sprites: a drag places one at each new place; the spray places some; one undo step each
                 std::ofstream o(fs::path(datashots) / "spritetools.txt");
                 setWorkspace(Workspace::Map);
@@ -26003,6 +26123,30 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     for (int i = 0; i < 3; ++i) pump();
                     o << c.name << " " << (gWorkspace == c.want ? "yes" : "NO") << "\n";
                 }
+                continue;
+            }
+            if (s == "datapin:") {  // datapin.txt, datapin.png: Data > right-click an entry > Pin to the top
+                std::ofstream o(fs::path(datashots) / "datapin.txt");
+                if (!activeProject()) {
+                    std::error_code ec;
+                    fs::remove_all(fs::path(datashots) / "pinproject", ec);
+                    std::string perr;
+                    if (!createProject(datashots, "pinproject", true, perr)) {
+                        o << "project: NOT MADE (" << perr << ")\n";
+                        continue;
+                    }
+                }
+                setWorkspace(Workspace::Data);
+                dataGoTo("units", 0);
+                for (int i = 0; i < 3; ++i) pump();
+                dataTogglePin(32), dataTogglePin(7);  // Firebat, then SCV
+                for (int i = 0; i < 3; ++i) pump();
+                o << "pinned entries come first, in pin order " << (gData.shown.size() > 2 && gData.shown[0] == 32 && gData.shown[1] == 7 && gData.shown[2] == 0 ? "yes" : "NO")
+                  << " (" << (gData.shown.size() > 2 ? gData.shown[0] : -1) << ", " << (gData.shown.size() > 2 ? gData.shown[1] : -1) << ")\n";
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "datapin.png", app.main);
+                dataTogglePin(32), dataTogglePin(7);
+                o << "unpinned: the list's order again " << (!gData.shown.empty() && gData.shown[0] == 0 && gDataPinnedShown == 0 ? "yes" : "NO") << "\n";
                 continue;
             }
             if (s == "maptext:") {  // maptext.txt, maptext.png: the title and description in the scenario's colors (WYSIWYG)
