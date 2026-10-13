@@ -19,6 +19,7 @@ struct DataExtras {
     ButtonSets buttons;
     UnitLooks looks;
     std::string saved[4];   // the edits text as last saved: strings, buttons, requirements, unit display
+    bool loadFailed[4] = {};  // the project's file did not load: it is not saved over or removed
     int button = 0;         // the selected button of the open set
     HWND textEdit = nullptr;
     int textFor = -1;       // the string the edit box shows
@@ -50,6 +51,7 @@ bool setExtrasText(int k, const std::string& text, std::string& err) {
                                 : gExtras.reqs.setEditsText(text, err);
 }
 bool extrasSaveFile(int k, const fs::path& f, std::string& err) {
+    if (gExtras.loadFailed[k]) return err = f.string() + " did not load: not saved, so nothing in it is lost", false;
     return k == kExtraStrings ? gExtras.strings.saveEdits(f, err)
            : k == kExtraButtons ? gExtras.buttons.saveEdits(f, err)
            : k == kExtraLooks   ? gExtras.looks.saveEdits(f, err)
@@ -67,12 +69,14 @@ void extrasLoad(const EudProject* pr) {
     gExtras.button = 0, gExtras.textFor = -1;
     for (int k = 0; k < kExtraKinds; ++k) {
         gExtras.saved[k].clear();
+        gExtras.loadFailed[k] = false;
         if (!pr) continue;
         const fs::path f = extrasFile(*pr, k);
         const bool ok = k == kExtraStrings ? gExtras.strings.loadEdits(f, err)
                         : k == kExtraButtons ? gExtras.buttons.loadEdits(f, err)
                         : k == kExtraLooks   ? gExtras.looks.loadEdits(f, err)
                                              : gExtras.reqs.loadEdits(f, err);
+        gExtras.loadFailed[k] = !ok;
         if (!ok) themedMessageBox(app.main, widen(err).c_str(), (L"Could not read " + f.filename().wstring()).c_str(), MB_ICONERROR), err.clear();
         gExtras.saved[k] = extrasText(k);
     }
@@ -85,6 +89,9 @@ bool writeExtrasEdits(EudProject& pr, std::string& err) {
     ButtonSets buttons;
     UnitLooks looks;
     const bool open = gData.project == &pr;
+    if (open)
+        for (int k = 0; k < kExtraKinds; ++k)
+            if (gExtras.loadFailed[k]) return err = extrasFile(pr, k).string() + " did not load. Repair the file, then build again.", false;
     if (!open) {  // another project than the one the Data workspace shows: from disk
         if (!strings.load(app.data, err) || !strings.loadEdits(extrasFile(pr, kExtraStrings), err) || !reqs.loadEdits(extrasFile(pr, kExtraReqs), err) ||
             !buttons.loadEdits(extrasFile(pr, kExtraButtons), err) || !looks.loadEdits(extrasFile(pr, kExtraLooks), err))

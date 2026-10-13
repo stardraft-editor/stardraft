@@ -13593,9 +13593,10 @@ bool dataUndo(bool redo) {
         setExtrasText(k, std::string(b.begin(), b.end()), err);
         gExtras.saved[k] = extrasText(k);
         gExtras.textFor = -1;
+        std::string saveErr;
         if (gData.project) {
             const fs::path f = extrasFile(*gData.project, k);
-            extrasSaveFile(k, f, err);
+            extrasSaveFile(k, f, saveErr);
         }
         (redo ? gData.undo : gData.redo).push_back(s);
         ++gData.edits;
@@ -13607,7 +13608,7 @@ bool dataUndo(bool redo) {
         dataRebuildList();
         if (gData.form) InvalidateRect(gData.form, nullptr, FALSE);
         if (gDataWnd) InvalidateRect(gDataWnd, nullptr, FALSE);
-        setMessage(redo ? L"Redo" : L"Undo");
+        setMessage(!saveErr.empty() ? widen(saveErr) : redo ? L"Redo" : L"Undo");
         return true;
     }
     DatTable* t = datTable(s.tab);
@@ -13617,14 +13618,14 @@ bool dataUndo(bool redo) {
     if (size_t(s.tab) < gData.saved.size()) gData.saved[size_t(s.tab)] = t->bytes();
     (redo ? gData.undo : gData.redo).push_back(s);
     std::string err;
-    if (gData.project && !t->saveEdits(gData.project->datFile(t->schema().name), err)) setMessage(widen(err));
+    const bool saved = !gData.project || t->saveEdits(gData.project->datFile(t->schema().name), err);
     dataGoTo(DatSchema::all()[size_t(s.tab)].name, s.entry);
     dataRebuildList();
     if (gData.list) InvalidateRect(gData.list, nullptr, FALSE);
     if (gData.form) InvalidateRect(gData.form, nullptr, FALSE);
     if (gWsBar) InvalidateRect(gWsBar, nullptr, FALSE);
     if (gDataWnd) InvalidateRect(gDataWnd, nullptr, FALSE);
-    setMessage(redo ? L"Redo" : L"Undo");
+    setMessage(!saved ? widen(err) : redo ? L"Redo" : L"Undo");
     return true;
 }
 
@@ -16630,6 +16631,7 @@ bool writeTriggerCode(EudProject& pr, std::string& err) {
     TriggerSet set;
     if (gTE.project == &pr) set = gTE.set;
     else if (!set.load(triggersFile(pr), err)) return false;
+    if (set.loadFailed) return err = triggersFile(pr).string() + " is not valid trigger data. Repair the file, then build again.", false;
     bool any = false;
     std::function<void(const TriggerNode&)> walk = [&](const TriggerNode& n) {
         any |= n.kind == TriggerNode::Kind::Trigger || n.kind == TriggerNode::Kind::Variable;

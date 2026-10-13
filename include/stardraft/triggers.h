@@ -261,6 +261,7 @@ public:
     std::string text() const;  // the file's contents, as save writes them
     int fileVersion = kFormatVersion;  // of the file loaded
     bool newerFormat() const { return fileVersion > kFormatVersion; }
+    bool loadFailed = false;  // the file is not valid trigger data: save() refuses, so the file stays as it is
     // Files from before version 3 name unit types and locations; this turns the names into ids and numbers
     // (with the map's names). Returns how many changed.
     int upgradeNames(const TriggerMapInfo& map);

@@ -161,6 +161,7 @@ int DatTable::changedCount() const {
 
 bool DatTable::loadEdits(const std::filesystem::path& file, std::string& error) {
     std::error_code ec;
+    editsFailed_ = false;
     if (!std::filesystem::exists(file, ec)) {
         data_ = stock_;
         return true;
@@ -169,6 +170,7 @@ bool DatTable::loadEdits(const std::filesystem::path& file, std::string& error) 
     Bytes b((std::istreambuf_iterator<char>(in)), {});
     if (b.size() != stock_.size()) {
         error = file.string() + " is " + std::to_string(b.size()) + " bytes; a " + schema_->name + ".dat is " + std::to_string(stock_.size());
+        editsFailed_ = true;
         return false;
     }
     data_ = std::move(b);
@@ -176,6 +178,7 @@ bool DatTable::loadEdits(const std::filesystem::path& file, std::string& error) 
 }
 
 bool DatTable::saveEdits(const std::filesystem::path& file, std::string& error) const {
+    if (editsFailed_) return error = file.string() + " did not load: not saved, so nothing in it is lost", false;
     std::error_code ec;
     if (data_ == stock_) {
         std::filesystem::remove(file, ec);  // no edits: no file

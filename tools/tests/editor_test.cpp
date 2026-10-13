@@ -620,7 +620,7 @@ static void soundFileSteps(const GameData& data, const char* map) {
         CHECK(false, "sound files: the map opens");
         return;
     }
-    const std::string a = "staredit\wav\undo-a.wav", b = "staredit\wav\undo-b.wav";
+    const std::string a = "staredit\\wav\\undo-a.wav", b = "staredit\\wav\\undo-b.wav";
     const Bytes bytes{'R', 'I', 'F', 'F', 1, 2, 3, 4};
     auto has = [&](const std::string& n) { return e.archiveFile(n) != nullptr; };
     auto plays = [&](const std::string& n) {
@@ -647,7 +647,7 @@ static void soundFileSteps(const GameData& data, const char* map) {
     e.setBriefings(br);
     CHECK(plays(a), "sound files: a briefing plays it");
     CHECK(e.renameArchiveFile(a, b) && has(b) && !has(a) && plays(b) && !plays(a), "sound files: rename changes the file and the briefing");
-    CHECK(!e.renameArchiveFile(b, "STAREDIT\WAV\UNDO-B.WAV"), "sound files: rename to a path in the map (in another case) is refused");
+    CHECK(!e.renameArchiveFile(b, "STAREDIT\\WAV\\UNDO-B.WAV"), "sound files: rename to a path in the map (in another case) is refused");
     e.undo();
     CHECK(has(a) && !has(b) && plays(a) && !plays(b), "sound files: one undo of a rename puts back the file and the briefing");
     e.redo();

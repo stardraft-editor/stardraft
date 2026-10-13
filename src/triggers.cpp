@@ -1159,6 +1159,7 @@ bool TriggerSet::load(const fs::path& file, std::string& error) {
     Json root = p.value();
     if (!p.ok || root.type != Json::Type::Object) {
         error = file.string() + ": not valid trigger data";
+        loadFailed = true;
         return false;
     }
     fileVersion = root.integer("version", 1);
@@ -1189,6 +1190,10 @@ std::string TriggerSet::text() const {
 bool TriggerSet::save(const fs::path& file, std::string& error) const {
     if (newerFormat()) {
         error = file.string() + " was made by a newer StarDraft (format " + std::to_string(fileVersion) + "): not saved, so nothing in it is lost";
+        return false;
+    }
+    if (loadFailed) {
+        error = file.string() + " is not valid trigger data: not saved, so nothing in it is lost";
         return false;
     }
     return writeFile(file, text(), error);

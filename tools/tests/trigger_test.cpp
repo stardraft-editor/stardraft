@@ -1299,6 +1299,9 @@ int main(int argc, char** argv) {
         TriggerSet damaged;
         std::string e;
         check(!damaged.load(dir / "damaged.json", e) && !e.empty(), std::string("a damaged file is not valid: ") + bad);
+        damaged.roots[1].children.push_back(TriggerSet::newTrigger("added after the failed load"));
+        check(!damaged.save(dir / "damaged.json", e) && readText(dir / "damaged.json") == bad,
+              std::string("a damaged file is not saved over: ") + bad);
     }
     std::ofstream(dir / "newer.json") << R"({"format": "stardraft-triggers", "version": 99, "categories": []})";
     TriggerSet newer;

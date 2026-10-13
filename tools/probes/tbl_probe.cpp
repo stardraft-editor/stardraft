@@ -45,10 +45,12 @@ int main(int argc, char** argv) {
     }
     UnitTypes types;
     err.clear();
-    check(types.load(data, err), "UnitTypes " + err);
+    const bool typesOk = types.load(data, err);
+    check(typesOk, "UnitTypes " + err);
     UnitSprites sprites;
     err.clear();
-    check(sprites.load(data, err), "UnitSprites " + err);
+    const bool spritesOk = sprites.load(data, err);
+    check(spritesOk, "UnitSprites " + err);
     for (uint16_t era = 0; era < 8; ++era) {
         Tileset ts;
         err.clear();

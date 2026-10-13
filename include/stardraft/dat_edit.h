@@ -85,7 +85,8 @@ public:
     void setBytes(const Bytes& b) { if (b.size() == data_.size()) data_ = b; }
 
     // The project's edits: a complete .dat file (written only when something differs from stock;
-    // removed when nothing does). Loading a missing file is fine: no edits.
+    // removed when nothing does). Loading a missing file is fine: no edits. A file that does not load is not
+    // saved over or removed: saveEdits refuses until a load succeeds.
     bool loadEdits(const std::filesystem::path& file, std::string& error);
     bool saveEdits(const std::filesystem::path& file, std::string& error) const;
 
@@ -110,6 +111,7 @@ private:
     const DatSchema* schema_ = nullptr;
     Bytes stock_, data_;
     std::vector<std::string> names_;
+    bool editsFailed_ = false;  // the project's file did not load
 };
 
 }  // namespace stardraft
