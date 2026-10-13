@@ -10,6 +10,12 @@ The groups in *For:* are the groups in README.md, "Who StarDraft is for".
   workspace. *For:* EUD.
 - [ ] **R37 More terrain generation tools.** The generator makes only terrain. Mappers must place doodads and
   decoration by hand. Add tools such as scattering doodads that fit the terrain. *For:* melee, UMS and campaign.
+- [ ] **R39 Tiles in the map's graphics.** The Tiles list shows the tiles in SD, also when the map shows HD or Carbot.
+  Mappers cannot find a tile by the look that the map shows. Draw the list's tiles in the map's graphics. *For:* melee,
+  UMS and campaign.
+- [ ] **R40 Floating palettes.** The palettes (terrain, tiles, units, doodads, sprites) are fixed beside the map, and
+  only one of each shows. Mappers with a large screen or two screens cannot put them where they want. Let each palette
+  open as a floating window, with several open at once, each with its own filter. *For:* melee, UMS and campaign, EUD.
 - [ ] **R38 How the checkers work.** The Triggers workspace marks EUD errors and desync risks, but mappers cannot see
   what the checkers look at and what they cannot find. Explain each check in the help (the rule, an example, what it
   does not cover), and link to it from each mark. *For:* EUD.
@@ -45,6 +51,9 @@ The groups in *For:* are the groups in README.md, "Who StarDraft is for".
 - [ ] **R26 Mod loading (MPQ, folder).** StarDraft reads only the game's own files. Mappers cannot use the files of a
   mod. Load a mod (MPQ or folder) on top of the game's files. *For:* modders (not a group in README.md yet).
 - [ ] **R27 Cosmonarchy support.** The largest mod has needs of its own. These needs are not known yet. *For:* modders.
+- [ ] **R41 Combat simulator.** To balance custom units, mappers must play test fights in the game. Show a fight between
+  units (their counts, upgrades and the result: who wins, the hit points left, how long it takes). It needs a
+  simulation of the game itself, so it waits for that. *For:* EUD, modders.
 - [ ] **R28 macOS port.** StarDraft runs only on Windows.
 - [ ] **R29 Linux port.** StarDraft runs only on Windows.
 - [ ] **R30 Web build.** Users must install StarDraft to use it.
