@@ -3307,6 +3307,8 @@ void addProjectScript() {
     if (!fs::exists(file, ec)) {
         std::ofstream f(file, std::ios::binary);
         f << "// " << file.filename().string() << "\n\nfunction onPluginStart() {\n}\n";
+        f.close();
+        if (!f) return void(themedMessageBox(app.main, (L"Could not write " + file.wstring()).c_str(), L"Add a script", MB_ICONERROR));
     }
     fs::path rel = fs::relative(file, pr->folder(), ec);
     if (ec || rel.empty() || rel.native().rfind(L"..", 0) == 0) rel = file;  // outside the folder: keep the full path
