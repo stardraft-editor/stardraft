@@ -26,6 +26,13 @@ jobs:
       - name: Check the UI text
         run: python -I tools/ui_text_lint.py
 
+      # The translation tables (apps/editor/res/lang/*.inc) are made from the *.tsv files: a table that is not made
+      # again after a change to its .tsv stops the build.
+      - name: Check the translation tables
+        run: |
+          python -I tools/ui_lang_gen.py
+          git diff --exit-code -- apps/editor/res/lang
+
       # FetchContent sources (SDL3, StormLib, CascLib, stb): cached by the CMake file that pins them.
       - uses: actions/cache@v4
         with:
@@ -59,6 +66,11 @@ jobs:
           name: stardraft-symbols-${{ github.sha }}
           path: build/Release/stardraft.pdb
           retention-days: 90
+
+      # All the other targets (the test programs and tools): compiled only, not run. A target that does not compile
+      # stops the build (and the release); the editor above is already uploaded.
+      - name: Build all targets
+        run: cmake --build build --config Release --parallel
 
       - name: Make the release
         if: startsWith(github.ref, 'refs/tags/v')
