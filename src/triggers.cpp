@@ -168,6 +168,10 @@ std::map<std::string, TriggerType> makeTypes() {
     }
     add("Researched", "researched or not", TriggerPicker::Choice, {{"1", "researched"}, {"0", "not researched"}});
     add("VitalChange", "increase or decrease", TriggerPicker::Choice, {{"1", "increase"}, {"0", "decrease"}});
+    // The orders of one unit, by what they need: nothing, a place, or a unit (the eudplib order ids).
+    add("UnitOrderNone", "order", TriggerPicker::Choice, {{"1", "stop"}, {"107", "hold position"}, {"116", "burrow"}, {"118", "unburrow"}, {"98", "go into siege mode"}, {"99", "go into tank mode"}, {"109", "cloak"}, {"110", "decloak"}, {"72", "lift off"}, {"111", "unload all"}});
+    add("UnitOrderPoint", "order", TriggerPicker::Choice, {{"6", "move"}, {"14", "attack move"}, {"152", "patrol"}, {"112", "move and unload"}, {"71", "land"}, {"132", "place a spider mine"}, {"142", "cast Psionic Storm"}, {"119", "cast Dark Swarm"}, {"122", "cast EMP Shockwave"}, {"144", "cast Plague"}, {"146", "cast Ensnare"}, {"147", "cast Stasis Field"}, {"138", "cast Recall"}, {"139", "cast Scanner Sweep"}, {"181", "cast Disruption Web"}, {"186", "cast Maelstrom"}});
+    add("UnitOrderUnit", "order", TriggerPicker::Choice, {{"10", "attack"}, {"49", "follow"}, {"34", "repair"}, {"79", "gather"}, {"92", "load into"}, {"113", "cast Yamato Gun"}, {"115", "cast Lockdown"}, {"120", "cast Parasite"}, {"121", "cast Spawn Broodlings"}, {"141", "cast Defensive Matrix"}, {"143", "cast Irradiate"}, {"145", "cast Consume"}, {"148", "cast Hallucination"}, {"176", "heal"}, {"180", "cast Restoration"}, {"182", "cast Mind Control"}, {"184", "cast Feedback"}, {"185", "cast Optical Flare"}});
     add("UnitVital", "hit points, shields or energy", TriggerPicker::Choice, {{"0", "hit points"}, {"1", "shields"}, {"2", "energy"}});
     std::vector<TriggerChoice> ids;
     for (int i = 1; i <= 12; ++i) ids.push_back({"P" + std::to_string(i), "Player " + std::to_string(i)});
@@ -2012,6 +2016,17 @@ struct Gen {
         const std::string& id = d->id;
         loopChecks(c, *d);
         if (id == "act.donothing") return "";
+        if (id == "act.unitorder" || id == "act.unitorderat" || id == "act.unitorderxy" || id == "act.unitorderunit") {  // one unit's order, as a command gives it
+            helpers.insert("order");
+            const std::string u = unitRef(c, d->param("unit"), raw(c, *d, "unit")), o = datCode("orders", std::atoi(raw(c, *d, "order").c_str()));
+            if (id == "act.unitorderat") return "sd_orderAt(" + u + ", " + o + ", " + locAddr(arg(c, *d, "where")) + ");" + tag + "\n";
+            if (id == "act.unitorderxy") return "sd_order(" + u + ", " + o + ", " + arg(c, *d, "x") + ", " + arg(c, *d, "y") + ", 0);" + tag + "\n";
+            if (id == "act.unitorderunit") {
+                const std::string t = unitRef(c, d->param("target"), raw(c, *d, "target"));
+                return "sd_order(" + u + ", " + o + ", " + t + ".posX, " + t + ".posY, " + t + ".ptr);" + tag + "\n";
+            }
+            return "sd_order(" + u + ", " + o + ", " + u + ".posX, " + u + ".posY, 0);" + tag + "\n";
+        }
         if (id == "act.unitvital") {  // up to the unit's most; down to 0 (no hit points: the unit dies)
             helpers.insert("vital"), helpers.insert("upgrade");
             return "sd_vital(" + unitRef(c, d->param("unit"), raw(c, *d, "unit")) + ", " + raw(c, *d, "vital") + ", " + raw(c, *d, "mod") + ", " +
@@ -2854,6 +2869,11 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
         if (g.helpers.count("tech"))
             out += "function sd_techAddr(pl, t) {  // whether a player has researched a technology (0-23, then 24-43)\n    if (t < 24) return 0x58CF44 + pl * 24 + t;\n"
                    "    return 0x58F140 + pl * 20 + (t - 24);\n}\n";
+        if (g.helpers.count("order"))
+            out += "function sd_order(u: CUnit, order, x, y, t) {  // the unit's order now, with its place and its target unit (0: none)\n"
+                   "    u.orderID = order;\n    u.orderState = 0;\n    u.orderTargetX = x;\n    u.orderTargetY = y;\n    u.orderTarget = t;\n}\n"
+                   "function sd_orderAt(u: CUnit, order, a) {  // at the middle of a location (its address)\n"
+                   "    sd_order(u, order, (dwread(a) + dwread(a + 8)) / 2, (dwread(a + 4) + dwread(a + 12)) / 2, 0);\n}\n";
         if (g.helpers.count("vital"))
             out += "function sd_maxEnergy(u: CUnit) {  // as StarCraft: 250 for a hero or with the unit's energy upgrade, else 200\n"
                    "    const t = u.unitType;\n    if (t.baseProperty.Hero) return 250 * 256;\n    var g = -1;\n"
