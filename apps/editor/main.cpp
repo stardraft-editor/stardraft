@@ -19220,6 +19220,8 @@ LRESULT CALLBACK emptyListProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_P
         SetTextColor(dc, kDim);
         HGDIOBJ of = SelectObject(dc, app.font);
         RECT t{scale(10), 0, rc.right - scale(8), scale(30)};
+        RECT row{0, 0, rc.right, t.bottom};
+        FillRect(dc, &row, app.bgBrush);  // a paint of a part only: the text is not drawn on itself
         DrawTextW(dc, tr(L"None"), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
         SelectObject(dc, of);
         ReleaseDC(hwnd, dc);
