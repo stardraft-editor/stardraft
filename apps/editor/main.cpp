@@ -248,12 +248,21 @@ void loadDock() {
 
 extern bool gSelfTest;
 double gOpenMs = 0;  // how long opening the file given on the command line took (perf:)
-// Start-up steps and when each was done (ms since the program started), for perf:.
+// Start-up steps and when each was done (ms since the process was created), for perf:.
 std::vector<std::pair<const char*, double>> gStartMarks;
 bool gStartUp = true;  // false after the start-up: later opens add no marks
 void startMark(const char* what) {
     if (!gStartUp) return;
-    static const auto t0 = std::chrono::steady_clock::now();
+    // t0: the process creation (its age from the precise system clock), so the time before wWinMain is in the marks.
+    static const auto t0 = [] {
+        const auto now = std::chrono::steady_clock::now();
+        FILETIME created{}, x1{}, x2{}, x3{}, nowFt{};
+        if (!GetProcessTimes(GetCurrentProcess(), &created, &x1, &x2, &x3)) return now;
+        GetSystemTimePreciseAsFileTime(&nowFt);
+        const auto ft = [](FILETIME f) { return (uint64_t(f.dwHighDateTime) << 32) | f.dwLowDateTime; };
+        if (ft(nowFt) <= ft(created)) return now;
+        return now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double, std::micro>(double(ft(nowFt) - ft(created)) / 10.0));
+    }();
     gStartMarks.push_back({what, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count()});
 }
 // Test runs (--selftest, --datashots, --screenshot) play no sound: the user may be at the computer.
@@ -24988,19 +24997,18 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             if (s == "perf:") {  // perf: how long things take (start-up, opening, a paint of each workspace), to perf.txt
                 std::ofstream log(fs::path(datashots) / "perf.txt", std::ios::app);
                 log << std::unitbuf << std::fixed << std::setprecision(2);
-                FILETIME created{}, x1{}, x2{}, x3{};
-                GetProcessTimes(GetCurrentProcess(), &created, &x1, &x2, &x3);
-                FILETIME nowFt{};
-                GetSystemTimeAsFileTime(&nowFt);
-                const auto ft = [](FILETIME f) { return (uint64_t(f.dwHighDateTime) << 32) | f.dwLowDateTime; };
-                log << "start-up to ready (ms): " << double(ft(nowFt) - ft(created)) / 10000.0 << "\n";
+                // Start-up to ready: the "renderer" mark (ms since the process was created), before the test's own set-up.
+                for (const auto& [what, ms] : gStartMarks)
+                    if (std::string_view(what) == "renderer") log << "start-up to ready (ms): " << ms << "\n";
                 log << "open the file (ms): " << gOpenMs << "\n";
                 for (const auto& [what, ms] : gStartMarks) log << "  start: " << what << " at " << ms << "\n";
                 if (app.ed)
                     for (const auto& [what, ms] : app.ed->openSteps()) log << "  open: " << what << " " << ms << "\n";
+                static const char* wsNames[] = {"Map", "Data", "Triggers", "Assets", "Project", "Briefing", "Files", "Properties", "Players", "ClassicTriggers", "ClassicSettings"};
+                const auto shown = [](HWND w) { return w && IsWindowVisible(w); };
                 // A window's paint, n times: the average and the slowest.
-                auto paint = [&](const char* what, HWND w, int n = 10) {
-                    if (!w || !IsWindowVisible(w)) return void(log << what << ": not shown\n");
+                auto paint = [&](const std::string& what, HWND w, int n = 10) {
+                    if (!shown(w)) return void(log << what << ": NOT SHOWN (the workspace is " << wsNames[int(gWorkspace)] << ")\n");
                     double sum = 0, worst = 0, firstMs = 0;
                     for (int i = 0; i <= n; ++i) {
                         const auto t0 = std::chrono::steady_clock::now();
@@ -25011,38 +25019,92 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     }
                     log << what << " (ms): first " << firstMs << ", then " << sum / n << " average, " << worst << " slowest\n";
                 };
-                auto first = [&](const char* what, auto fn) {
+                auto first = [&](const std::string& what, auto fn) {
                     const auto t0 = std::chrono::steady_clock::now();
                     fn();
                     log << what << " (ms): " << std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count() << "\n";
                 };
-                first("map workspace, first show", [] { setWorkspace(Workspace::Map), pump(); });
+                // A workspace's first show (setWorkspace and one pump). A NOT SHOWN row when another workspace or no window
+                // shows: a refused workspace never shows, so there is no wait for it.
+                auto shows = [&](const char* what, Workspace ws, HWND (*wnd)()) {
+                    const auto t0 = std::chrono::steady_clock::now();
+                    setWorkspace(ws), pump();
+                    const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+                    if (gWorkspace != ws || !shown(wnd())) {
+                        log << what << ": NOT SHOWN (the workspace is " << wsNames[int(gWorkspace)] << ")\n";
+                        return false;
+                    }
+                    log << what << " (ms): " << ms << "\n";
+                    return true;
+                };
+                // The classic rows first: they need no project, so they compare with earlier runs.
+                if (shows("map workspace, first show", Workspace::Map, [] { return app.view; })) {
+                    double sum = 0, cpu = 0;
+                    for (int i = 0; i < 20; ++i) app.dirty = true, renderNow(), sum += app.frameMs, cpu += app.renderer.stats().cpuMs;
+                    log << "map frame (ms): " << sum / 20 << " average (with the art loads and the swapchain wait), cpu " << cpu / 20 << " average\n";
+                    int frames = 0;  // renderNow until no art is pending (at most 200 frames, as settle)
+                    while (frames < 200 && (renderNow(), ++frames, app.renderer.stats().imagesPending > 0)) {}
+                    const bool allArt = app.renderer.stats().imagesPending == 0;
+                    sum = cpu = 0;
+                    for (int i = 0; i < 20; ++i) app.dirty = true, renderNow(), sum += app.frameMs, cpu += app.renderer.stats().cpuMs;
+                    log << "map frame after the art (ms): " << sum / 20 << " average, cpu " << cpu / 20 << " average (the art loaded in " << frames
+                        << " frames" << (allArt ? "" : ", NOT ALL") << ")\n";
+                }
+                if (shows("briefing workspace, first show", Workspace::Briefing, [] { return gBrief.wnd; })) {
+                    paint("briefing", gBrief.wnd);
+                    log << "  briefing parts (ms): to the list " << gBriefPaintParts[0] << ", list and fields " << gBriefPaintParts[1] << ", preview "
+                        << gBriefPaintParts[2] << ", timeline and tooltips " << gBriefPaintParts[3] << "\n";
+                }
+                if (shows("files workspace, first show", Workspace::Files, [] { return gFiles.wnd; })) paint("files", gFiles.wnd);
+                // Then a project from the open map (in the scratch folder), for the Data, Triggers and Project rows.
+                bool made = activeProject() != nullptr;
+                if (!made) {
+                    std::error_code ec;
+                    fs::remove_all(fs::path(datashots) / "perfproject", ec);
+                    std::string perr;
+                    made = createProject(datashots, "perfproject", true, perr);
+                    if (!made) log << "project: NOT MADE (" << perr << ")\n";
+                }
+                if (!made) {
+                    for (const char* what : {"data workspace, first show", "triggers workspace, first show", "project workspace, first show"})
+                        log << what << ": NOT SHOWN (no project)\n";
+                } else {
+                    if (shows("data workspace, first show", Workspace::Data, [] { return gDataWnd; })) {
+                        for (const auto& [dat, e] : std::vector<std::pair<std::string, int>>{{"units", 0}, {"weapons", 0}, {"images", 239}, {"sprites", 0}, {"orders", 0}}) {
+                            first("data: go to " + dat, [&] { dataGoTo(dat, e), pump(); });
+                            paint("data form, " + dat, gData.form);
+                        }
+                        paint("data entry list", gData.list);
+                    }
+                    if (shows("triggers workspace, first show", Workspace::Triggers, [] { return gTE.wnd; })) {
+                        paint("triggers pane", gTE.pane);
+                        std::vector<TriggerIssue> is;
+                        first("triggers: check", [&] { (void)gTE.set.check(trigMapInfo()); });
+                        first("triggers: generate the code", [&] { (void)gTE.set.generate(trigMapInfo(), is); });
+                    }
+                    if (shows("project workspace, first show", Workspace::Project, [] { return gProj.wnd; })) paint("project page", gProj.wnd);
+                }
+                // The pages: the start page in a new tab (in this open run, not at launch), then its New card.
                 {
-                    double sum = 0;
-                    for (int i = 0; i < 20; ++i) app.dirty = true, renderNow(), sum += app.frameMs;
-                    log << "map frame (ms): " << sum / 20 << " average\n";
+                    const int doc = gActive;
+                    const auto t0 = std::chrono::steady_clock::now();
+                    openStartPage(), pump();
+                    const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+                    if (activePage() != kPageStart || !shown(gNew.wnd)) log << "start page, first show: NOT SHOWN (the page is " << activePage() << ")\n";
+                    else {
+                        log << "start page, first show (in the open run, not at launch) (ms): " << ms << "\n";
+                        paint("start page", gNew.wnd);
+                        const auto t1 = std::chrono::steady_clock::now();
+                        openNewPage(0), pump();  // what the New card does
+                        const double nms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t1).count();
+                        if (activePage() != kPageNew || !shown(gNew.wnd)) log << "new page, first show: NOT SHOWN (the page is " << activePage() << ")\n";
+                        else {
+                            log << "new page, first show (the preview is made later, on a timer) (ms): " << nms << "\n";
+                            paint("new page", gNew.wnd);
+                        }
+                    }
+                    if (doc >= 0 && doc < int(gDocs.size()) && doc != gActive) activateDoc(doc), pump();  // the map's tab again, for later specs
                 }
-                first("data workspace, first show", [] { setWorkspace(Workspace::Data), pump(); });
-                for (const auto& [dat, e] : std::vector<std::pair<std::string, int>>{{"units", 0}, {"weapons", 0}, {"images", 239}, {"sprites", 0}, {"orders", 0}}) {
-                    first(("data: go to " + dat).c_str(), [&] { dataGoTo(dat, e), pump(); });
-                    paint(("data form, " + dat).c_str(), gData.form);
-                }
-                paint("data entry list", gData.list);
-                first("triggers workspace, first show", [] { setWorkspace(Workspace::Triggers), pump(); });
-                paint("triggers pane", gTE.pane);
-                {
-                    std::vector<TriggerIssue> is;
-                    first("triggers: check", [&] { (void)gTE.set.check(trigMapInfo()); });
-                    first("triggers: generate the code", [&] { (void)gTE.set.generate(trigMapInfo(), is); });
-                }
-                first("briefing workspace, first show", [] { setWorkspace(Workspace::Briefing), pump(); });
-                paint("briefing", gBrief.wnd);
-                log << "  briefing parts (ms): to the list " << gBriefPaintParts[0] << ", list and fields " << gBriefPaintParts[1] << ", preview "
-                    << gBriefPaintParts[2] << ", timeline and tooltips " << gBriefPaintParts[3] << "\n";
-                first("files workspace, first show", [] { setWorkspace(Workspace::Files), pump(); });
-                paint("files", gFiles.wnd);
-                first("project workspace, first show", [] { setWorkspace(Workspace::Project), pump(); });
-                paint("project page", gProj.wnd);
                 PROCESS_MEMORY_COUNTERS pmc{sizeof pmc};
                 GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc);
                 log << "memory (MB): " << double(pmc.WorkingSetSize) / 1048576.0 << " working set, " << double(pmc.PeakWorkingSetSize) / 1048576.0 << " peak\n";
