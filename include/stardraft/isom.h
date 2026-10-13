@@ -113,6 +113,12 @@ public:
     // Corners inside a pixel rectangle (left, top, right, bottom; right/bottom exclusive).
     std::vector<std::pair<int, int>> cornersInRect(int left, int top, int right, int bottom) const;
 
+    // The tiles of rect (rx, ry) are made again on the next store(), also when its corners did not change (tiles that
+    // do not show the ISOM terrain, such as null tiles placed in Rectangle mode).
+    void markRectDirty(int rx, int ry) {
+        if (rx >= 0 && ry >= 0 && rx < rectCols_ && ry < rectRows_ && size_t(ry) * rectCols_ + rx < dirtyRects_.size()) dirtyRects_[size_t(ry) * rectCols_ + rx] = 1;
+    }
+
     // Write ISOM back to the chk, and regenerate TILE + MTXM for the changed area.
     bool store(Chk& chk, std::string& error);
 

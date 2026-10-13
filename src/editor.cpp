@@ -347,6 +347,13 @@ void Editor::paintTerrain(int px, int py, uint16_t terrain, int brushSize) {
     const std::vector<int> watch = placeableUnitsIn({px - reach, py - reach, px + reach, py + reach});
     const std::vector<uint8_t> intact = doodadsIntact();
     if (isom_.paintAtPixel(px, py, terrain, brushSize)) {
+        // Null tiles under the brush (placed in Rectangle mode) get the terrain's tiles, also where the ISOM terrain
+        // is the painted one already (GitHub feedback #118).
+        const TerrainLayer tiles = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
+        const int rw = brushSize * 64 / 2 + 64, rh = brushSize * 32 / 2 + 32;
+        for (int ty = std::max(0, (py - rh) / 32); ty <= std::min(int(height_) - 1, (py + rh) / 32); ++ty)
+            for (int tx = std::max(0, (px - rw) / 32); tx <= std::min(int(width_) - 1, (px + rw) / 32); ++tx)
+                if (size_t(ty) * width_ + tx < tiles.tiles.size() && tiles.tiles[size_t(ty) * width_ + tx] == 0) isom_.markRectDirty(tx / 2, ty);
         std::string err;
         isom_.store(chk_, err);
         commit(true);

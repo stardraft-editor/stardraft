@@ -25358,6 +25358,31 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 o << "the box selects the tiles in it: " << gTiles.chosen.size() << " of " << want << " " << (gTiles.chosen.size() == want ? "yes" : "NO") << "\n";
                 continue;
             }
+            if (s == "isomnull:") {  // isomnull.txt, isomnull.png: the isometric brush paints on null tiles (#118)
+                std::ofstream o(fs::path(datashots) / "isomnull.txt");
+                newMap(64, 64, 0, 1);
+                Editor& ed = *app.ed;
+                std::vector<std::pair<int, int>> cells;
+                for (int y = 20; y < 44; ++y)
+                    for (int x = 20; x < 44; ++x) cells.push_back({x, y});
+                ed.placeTileCells(cells, 0);  // a hole of null tiles
+                const auto before = ed.terrain().tiles;
+                const bool canPaint = ed.canPaintTerrain();
+                ed.paintTerrain(32 * 32, 32 * 32, 1, 2);  // dirt, size 2, in the middle of the hole
+                int changed = 0, dirt = 0;
+                for (size_t i = 0; i < before.size(); ++i) changed += before[i] != ed.terrain().tiles[i];
+                for (int y = 28; y < 36; ++y)
+                    for (int x = 28; x < 36; ++x) dirt += ed.terrain().tiles[size_t(y) * 64 + x] != 0;
+                setWorkspace(Workspace::Map);
+                centerOn(32 * 32, 32 * 32, 1);
+                for (int i = 0; i < 3; ++i) pump();
+                settle();
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "isomnull.png", app.main);
+                o << "can paint " << canPaint << ", tiles changed " << changed << ", tiles in the middle not null " << dirt << " "
+                  << (changed > 0 && dirt > 0 ? "yes" : "NO") << "\n";
+                continue;
+            }
             if (s == "scatter:") {  // scatter.txt: Rectangle Brush with two tiles selected: each tile of the brush is one of them (#120)
                 std::ofstream o(fs::path(datashots) / "scatter.txt");
                 newMap(64, 64, 0, 1);
