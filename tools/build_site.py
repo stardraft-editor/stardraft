@@ -91,7 +91,7 @@ EN = {
     "alt9": "The Briefing workspace of Underdogs: Kerrigan and Raynor talk in the preview, beside the briefing actions",
     "alt10": "Program options in Korean, over the Triggers workspace in Korean",
     "who": "Who it is for", "video": "StarDraft 2 video", "roadmap": "Roadmap",
-    "sourced": f'Sourced from <a href="{_ISSUES}">user reports</a> and <a href="{FEEDBACK}">feedback</a>.',
+    "sourced": f'Sourced from <a href="{_ISSUES}">user reports</a> and <a href="{FEEDBACK}">feedback</a>. Frequent releases are planned.',
     "Now": "Now", "Next": "Next", "Later": "Later", "empty": "Nothing listed yet.", "link": "Link to this item",
     "soon": "Coming soon", "feedback": "Feedback",
     "way1": "In StarDraft 2", "way1text": "Right-click the part that is wrong and select <em>Report feedback on &hellip;</em>",
@@ -129,7 +129,7 @@ KO = {
     "alt9": "Underdogs의 브리핑 작업 공간: 미리보기에서 케리건과 레이너가 대화하고, 옆에 브리핑 액션이 있음",
     "alt10": "한국어로 된 프로그램 옵션과 한국어 트리거 작업 공간",
     "who": "이런 분들을 위해", "video": "StarDraft 2 영상", "roadmap": "로드맵",
-    "sourced": f'사용자 <a href="{_ISSUES}">제보</a>와 <a href="{FEEDBACK}">피드백</a>을 바탕으로 정합니다.',
+    "sourced": f'사용자 <a href="{_ISSUES}">제보</a>와 <a href="{FEEDBACK}">피드백</a>을 바탕으로 정합니다. 자주 릴리스할 예정입니다.',
     "Now": "지금", "Next": "다음", "Later": "나중에", "empty": "아직 없습니다.", "link": "이 항목 링크",
     "soon": "출시 예정", "feedback": "피드백",
     "way1": "StarDraft 2에서",
@@ -179,6 +179,8 @@ KO_ROADMAP = {
     "R42": ("scmscx.com에서 맵 가져오기", "[scmscx.com](https://scmscx.com)에서 맵을 찾아 StarDraft 2에서 엽니다."),
     "R49": ("새로워진 지형 생성", "웨이브 함수 붕괴(wave function collapse) 같은 제약 기반 방법으로 맵을 생성합니다: 지형 "
                                "규칙을 정하면 그 규칙을 따르는 맵이 나옵니다."),
+    "R51": ("고급 EUD 기능", "큐와 덱(메서드와 반복문 포함), 바이트 읽기·쓰기, 채팅 명령을 위한 텍스트 비교·검색, 텍스트를 "
+                           "숫자로 바꾸기, 그리기, 배경 음악을 위한 블록."),
     "R26": ("리마스터 모드 지원", "스타크래프트: 리마스터 모드(MPQ 또는 폴더)를 게임 파일 위에 불러와 맵을 만듭니다."),
     "R41": ("전투 시뮬레이터", "유닛 수와 업그레이드를 정해 유닛끼리의 전투를 시뮬레이션합니다. 누가 이기는지, 남은 체력, "
                              "전투 시간을 볼 수 있습니다."),

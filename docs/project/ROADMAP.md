@@ -106,6 +106,12 @@ Make StarDraft 2 a more powerful creation suite.
 
   The generator makes terrain from amounts and a shape. Mappers cannot give it rules, such as where bases, paths and
   high ground must be.
+- [ ] **R51 Advanced EUD capabilities.** *Tag:* EUD.
+  Blocks for queues and deques (with their methods and loops), byte readers and writers, text compare and search for
+  chat commands, text to number, drawing, and background music.
+
+  These need epScript today: EUDQueue and EUDDeque with their methods and loops, EUDByteReader and EUDByteWriter,
+  strcmp, strnstr and memcmp (mainly to parse chat commands), f_parse (text to a number), drawing, and BGM.
 
 ## Later
 
