@@ -33,8 +33,10 @@ jobs:
           $images = @([regex]::Matches(($sections[$mine] -join "`n"), '\]\((images/[^)\s]+)\)') |
             ForEach-Object { "docs/user/" + $_.Groups[1].Value } | Where-Object { Test-Path $_ } | Select-Object -Unique -First 10)
           if (-not $images) { throw "No screenshots in the section of $($env:VERSION)" }
+          # The text as the release's own post has it: "**<release name>** is out: <link>".
           $url = gh release view "v$($env:VERSION)" --json url --jq .url
-          @{ content = "Screenshots of StarDraft $($env:VERSION): $url" } | ConvertTo-Json | Set-Content payload.json -Encoding utf8NoBOM
+          $title = gh release view "v$($env:VERSION)" --json name --jq .name
+          @{ content = "**$title** is out: $url" } | ConvertTo-Json | Set-Content payload.json -Encoding utf8NoBOM
           $hooks = @($env:DISCORD_RELEASE_WEBHOOK, $env:DISCORD_GENERAL_WEBHOOK) | Where-Object { $_ }
           foreach ($hook in $hooks) {
             $form = @('-sS', '--fail-with-body', '-F', 'payload_json=<payload.json')
