@@ -302,8 +302,8 @@ const IsomTerrainTable* IsomTerrainTable::forEra(uint16_t era) {
                                             "Mud"});
     static const IsomTerrainTable platform(24, {{24, 1, 2}, {38, 2, 4}, {52, 2, 8}, {66, 9, 2}, {80, 10, 2}, {94, 2, 11}, {108, 4, 12},
                                                 {122, 2, 13}, {136, 2, 14}},
-                                           {"Space", "Platform", "", "High Platform", "", "", "", "Low Platform", "Dark Platform", "Rusty Pit",
-                                            "Plating", "High Plating", "Elevated Catwalk", "Solar Array"});
+                                           {"Space", "Platform", "", "High Platform", "", "", "", "Solar Array", "Low Platform", "Rusty Pit",
+                                            "Plating", "High Plating", "Elevated Catwalk", "Dark Platform"});
     static const IsomTerrainTable install(8, {{22, 1, 2}, {36, 2, 3}, {50, 1, 4}, {64, 2, 5}, {78, 1, 6}, {92, 7, 1}},
                                           {"Substructure", "Floor", "Roof", "Substructure Plating", "Plating", "Substructure Panels",
                                            "Bottomless Pit"});

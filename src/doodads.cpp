@@ -16,6 +16,12 @@ bool DoodadTypes::load(const GameData& data, const Tileset& ts, uint16_t era, st
     data.readFile(std::string("TileSet\\") + tilesetName(era) + "\\dddata.bin", dd, error);
     error.clear();  // optional: without it doodads simply have no terrain requirements
 
+    auto ground = std::make_shared<DoodadGroundInfo>();
+    for (const TileGroup& tg : ts.groups) {
+        uint64_t k = (uint64_t(tg.type) << 48) ^ (uint64_t(tg.groundHeight) << 40);
+        for (int e = 0; e < 4; ++e) k ^= uint64_t(tg.edges[size_t(e)]) * (0x9E3779B97F4A7C15ull >> (e * 7)) + uint64_t(e);
+        ground->piece.push_back(k);
+    }
     // Doodad CV5 groups: index >= 1024, type 1. edges[0] = overlay sprite, edges[2] = group string,
     // extra[0] = doodad id, extra[1] = width, extra[2] = height. The first group of an id is row 0.
     std::map<uint16_t, size_t> index;
@@ -35,10 +41,11 @@ bool DoodadTypes::load(const GameData& data, const Tileset& ts, uint16_t era, st
         t.required.assign(size_t(t.width) * t.height, 0);
         if (dd.size() >= (size_t(id) + 1) * 512)
             for (int r = 0; r < t.height; ++r)
-                for (int c = 0; c < t.width; ++c) t.required[size_t(r) * t.width + c] = readU16(dd, id * 512 + (r * 16 + c) * 2);
+                for (int c = 0; c < t.width; ++c) t.required[size_t(r) * t.width + c] = readU16(dd, id * 512 + (r * t.width + c) * 2);
         for (int r = 0; r < t.height && size_t(g) + r < ts.groups.size(); ++r)
             for (int c = 0; c < t.width; ++c) t.inPalette |= ts.groups[g + size_t(r)].megatiles[size_t(c)] != 0;
         t.inPalette = t.inPalette && t.groupString != 0;
+        t.ground = ground;
         index[id] = types_.size();
         types_.push_back(std::move(t));
     }
@@ -109,10 +116,16 @@ bool doodadFits(const Chk& chk, const DoodadType& type, int tileX, int tileY, bo
     if (!checkTerrain) return true;
     // Compare against the editor's terrain (TILE, without doodads), falling back to MTXM.
     TerrainLayer under = readTerrain(chk, chk.has("TILE") ? "TILE" : "MTXM");
+    const DoodadGroundInfo* gi = type.ground.get();
     for (int r = 0; r < type.height; ++r)
         for (int c = 0; c < type.width; ++c) {
-            uint16_t need = type.required[size_t(r) * type.width + c];
-            if (need && uint16_t(under.tiles[size_t(tileY + r) * w + tileX + c] >> 4) != need) {
+            const size_t cell = size_t(r) * type.width + c;
+            const uint16_t need = type.required[cell];
+            const uint16_t g = uint16_t(under.tiles[size_t(tileY + r) * w + tileX + c] >> 4);
+            // The required group, or another variant of the same piece (a cliff piece that stacks another way: the
+            // terrain tools pick among them).
+            const bool ok = !need || g == need || (gi && g < gi->piece.size() && need < gi->piece.size() && gi->piece[g] == gi->piece[need]);
+            if (!ok) {
                 if (reason) *reason = "terrain underneath does not fit this doodad";
                 return false;
             }

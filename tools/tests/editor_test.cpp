@@ -189,6 +189,17 @@ static void placementRules(const GameData& data, const char* map) {
     CHECK(pe.placeDoodads({{type->id, a.x, a.y, 0}}, false, true) == 1 && spot && pe.doodads().back().x == spot->first && pe.doodads().back().y == spot->second,
           "doodads: with Move to the nearest place where it fits, a paste goes there");
     pe.undo();
+    // dddata.bin rows are the doodad's width long (GitHub feedback #93, #100): the map's own doodads fit their terrain.
+    {
+        int placed = 0, fit = 0;
+        for (const Doodad& d : pe.doodads())
+            if (const DoodadType* t = pe.doodadTypes().find(d.id)) {
+                ++placed;
+                fit += doodadFits(pe.chk(), *t, d.x / 32 - t->width / 2, d.y / 32 - t->height / 2, true);
+            }
+        std::printf("      %d of the map's %d doodads fit their terrain\n", fit, placed);
+        CHECK(placed == 0 || fit * 10 >= placed * 9, "doodads: the map's own doodads fit the terrain check");
+    }
     // Place only where it fits: the terrain check; the nearest place with the check fits the terrain.
     if (const auto fit = pe.nearestDoodadFit(type->id, a.x, a.y, true)) {
         int tx, ty;

@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <string>
+#include <memory>
 #include <vector>
 
 #include "stardraft/chk.h"
@@ -14,14 +15,21 @@ namespace stardraft {
 class GameData;
 struct Tileset;
 
+// Each tile group's piece (terrain type, edges, ground height): groups of the same piece are variants of one tile
+// (cliff pieces that differ only in how they stack), and a doodad fits on any of them.
+struct DoodadGroundInfo {
+    std::vector<uint64_t> piece;
+};
+
 struct DoodadType {
     uint16_t id = 0;             // DD2 number / dddata.bin index
     uint16_t firstGroup = 0;     // CV5 group of the top row; row r uses firstGroup + r
     uint16_t width = 0, height = 0;  // tiles
     uint16_t overlaySprite = 0;  // sprites.dat id drawn on top (0 = none)
     uint16_t groupString = 0;    // stat_txt string id (1-based: stat_txt.tbl's first string is 1) of the editor group
-    std::vector<uint16_t> required;  // width*height tile groups required underneath (0 = any)
+    std::vector<uint16_t> required;  // width*height tile groups required underneath (0 = any); dddata.bin rows are width long
     bool inPalette = false;          // has an editor group and tiles (placeholder ids have neither)
+    std::shared_ptr<const DoodadGroundInfo> ground;  // the tileset's groups (shared by all types)
 };
 
 class DoodadTypes {

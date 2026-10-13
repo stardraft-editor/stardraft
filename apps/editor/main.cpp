@@ -19234,6 +19234,26 @@ void popTypeHook(HWND w) {
     PostMessageW(w, WM_COMMAND, MAKEWPARAM(IDOK, BN_CLICKED), LPARAM(gValuePop->ok));
 }
 
+// Self-test tools: a placed doodad's top-left tile. Some maps store the center a tile off from x - width * 16: the
+// position (within one tile) where the most of its required groups are under it.
+std::pair<int, int> placedDoodadOrigin(const Editor& ed, const TerrainLayer& under, const DoodadType& t, const Doodad& d) {
+    std::pair<int, int> best{d.x / 32 - t.width / 2, d.y / 32 - t.height / 2};
+    int bestHits = -1;
+    for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx) {
+            const int tx = d.x / 32 - t.width / 2 + dx, ty = d.y / 32 - t.height / 2 + dy;
+            int hits = 0;
+            for (int r = 0; r < t.height; ++r)
+                for (int c = 0; c < t.width; ++c) {
+                    const int x = tx + c, y = ty + r;
+                    const uint16_t need = t.required[size_t(r) * t.width + c];
+                    if (need && x >= 0 && y >= 0 && x < ed.width() && y < ed.height() && (under.tiles[size_t(y) * ed.width() + x] >> 4) == need) ++hits;
+                }
+            if (hits > bestHits || (hits == bestHits && dx == 0 && dy == 0)) bestHits = hits, best = {tx, ty};
+        }
+    return best;
+}
+
 bool capture(const fs::path& file, HWND wnd) {
     settle();
     if (!wnd) wnd = app.main;
@@ -24919,6 +24939,162 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 app.dirty = true;
                 for (int i = 0; i < 6; ++i) pump();
                 capture(fs::path(datashots) / (s.substr(9) + ".png"), app.view);
+                continue;
+            }
+            if (s == "rampfit:") {  // rampfit.txt: per tileset, a new map with painted high ground; where each doodad that needs terrain fits
+                std::ofstream o(fs::path(datashots) / "rampfit.txt");
+                static uint16_t kLow[8] = {1, 2, 2, 2, 1, 1, 1, 1}, kHigh[8] = {2, 4, 3, 5, 2, 2, 2, 2};
+                if (const char* hi = getenv("RAMPFIT_HIGH")) kHigh[1] = uint16_t(atoi(hi));  // e.g. 13: Elevated Catwalk
+                for (uint16_t era = 0; era < 8; ++era) {
+                    Editor ed(app.data);
+                    std::string err;
+                    if (!ed.newMap(128, 64, era, kLow[era], err)) {
+                        o << "era " << era << ": " << err << "\n";
+                        continue;
+                    }
+                    // A diamond of high ground: straight cliffs in the four diagonal directions, as ramps need.
+                    for (int dy = -10; dy <= 10; ++dy)
+                        for (int dx = -20; dx <= 20; dx += 2)
+                            if (std::abs(dx) / 2 + std::abs(dy) <= 10) ed.paintTerrain((32 + dx) * 32, (32 + dy) * 32, kHigh[era], 1);
+                    // And a rectangle: horizontal and vertical cliffs.
+                    for (int y = 20; y <= 44; ++y)
+                        for (int x = 72; x <= 112; ++x) ed.paintTerrain(x * 32, y * 32, kHigh[era], 1);
+                    int noFit = 0, total = 0;
+                    std::string list;
+                    for (const DoodadType& t : ed.doodadTypes().all()) {
+                        if (!t.inPalette || std::all_of(t.required.begin(), t.required.end(), [](uint16_t v) { return v == 0; })) continue;
+                        const std::string group = ed.unitTypes().statText(t.groupString - 1u);
+                        if (getenv("RAMPFIT_ALL") == nullptr && group.find("amp") == std::string::npos) continue;
+                        ++total;
+                        int fits = 0;
+                        for (int y = 0; y + t.height <= 64; ++y)
+                            for (int x = 0; x + t.width <= 128; ++x) fits += doodadFits(ed.chk(), t, x, y, true);
+                        if (!fits) ++noFit, list += " " + std::to_string(t.id);
+                        if (!fits && group == "Cliff" && getenv("RAMPFIT_DUMP")) {  // the spot with the most required cells met
+                            const TerrainLayer under = readTerrain(ed.chk(), ed.chk().has("TILE") ? "TILE" : "MTXM");
+                            const auto& gs = ed.tileset().groups;
+                            int best = -1, bx = 0, by = 0;
+                            for (int y = 0; y + t.height <= 64; ++y)
+                                for (int x = 0; x + t.width <= 128; ++x) {
+                                    int hits = 0;
+                                    for (int r = 0; r < t.height; ++r)
+                                        for (int c = 0; c < t.width; ++c) {
+                                            const uint16_t need = t.required[size_t(r) * t.width + c];
+                                            hits += need && (under.tiles[size_t(y + r) * 128 + x + c] >> 4) == need;
+                                        }
+                                    if (hits > best) best = hits, bx = x, by = y;
+                                }
+                            auto desc = [&](uint16_t g) {
+                                if (g >= gs.size()) return std::string("?");
+                                const TileGroup& q = gs[g];
+                                std::string d = std::to_string(g) + "[t" + std::to_string(q.type) + " h" + std::to_string(q.groundHeight) + " e";
+                                for (auto e : q.edges) d += std::to_string(e) + ",";
+                                d += " x";
+                                for (auto e : q.extra) d += std::to_string(e) + ",";
+                                return d + "]";
+                            };
+                            std::string why;
+                            doodadFits(ed.chk(), t, bx, by, true, &why);
+                            int needs = 0;
+                            for (uint16_t v : t.required) needs += v != 0;
+                            for (int r = -2; r < t.height + 2; ++r) {  // the need grid, then the terrain there (2 tiles around)
+                                o << "      ";
+                                for (int c = -2; c < t.width + 2; ++c) {
+                                    const bool in = r >= 0 && c >= 0 && r < t.height && c < t.width;
+                                    o << (in ? std::to_string(t.required[size_t(r) * t.width + c]) : std::string(".")) << "	";
+                                }
+                                o << "|  ";
+                                for (int c = -2; c < t.width + 2; ++c) {
+                                    const int x = bx + c, y = by + r;
+                                    o << (x >= 0 && y >= 0 && x < 128 && y < 64 ? std::to_string(under.tiles[size_t(y) * 128 + x] >> 4) : std::string("#")) << "	";
+                                }
+                                o << "\n";
+                            }
+                            o << "    best " << bx << "," << by << ": " << best << " of " << needs << " needs met; " << why << "\n";
+                            for (int r = 0; r < t.height; ++r)
+                                for (int c = 0; c < t.width; ++c) {
+                                    const uint16_t need = t.required[size_t(r) * t.width + c];
+                                    const uint16_t g = uint16_t(under.tiles[size_t(by + r) * 128 + bx + c] >> 4);
+                                    if (need && need != g) o << "    need " << desc(need) << " got " << desc(g) << "\n";
+                                }
+                        }
+                        o << "era " << era << " doodad " << t.id << " (" << group << ", " << t.width << "x" << t.height << "): " << fits << " places\n";
+                    }
+                    o << "era " << era << ": " << noFit << " of " << total << " ramps fit nowhere:" << list << "\n";
+                }
+                continue;
+            }
+            if (s == "terrswatch:") {  // terrswatch.png: a patch of each terrain of the tileset, in id order left to right, top to bottom
+                Editor& ed = *app.ed;
+                const IsomTerrainTable* tt = IsomTerrainTable::forEra(ed.era());
+                int k = 0;
+                for (uint16_t t = 1; tt && t <= tt->terrainCount(); ++t) {
+                    if (!tt->isTerrain(t)) continue;
+                    const int cx = 12 + (k % 4) * 28, cy = 12 + (k / 4) * 28;
+                    for (int dy = -4; dy <= 4; dy += 2)
+                        for (int dx = -4; dx <= 4; dx += 2) ed.paintTerrain((cx + dx) * 32, (cy + dy) * 32, t, 4);
+                    ++k;
+                }
+                setWorkspace(Workspace::Map);
+                fitMap();
+                for (int i = 0; i < 3; ++i) pump();
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "terrswatch.png", app.view);
+                continue;
+            }
+            if (s == "ddcheck:") {  // ddcheck.txt (appended): how many of the map's doodads the terrain check refuses (Blizzard's: none)
+                std::ofstream o(fs::path(datashots) / "ddcheck.txt", std::ios::app);
+                Editor& ed = *app.ed;
+                int n = 0, refused = 0;
+                std::string first;
+                for (const Doodad& d : ed.doodads()) {
+                    const DoodadType* t = ed.doodadTypes().find(d.id);
+                    if (!t) continue;
+                    ++n;
+                    const TerrainLayer under = readTerrain(ed.chk(), ed.chk().has("TILE") ? "TILE" : "MTXM");
+                    const auto [ox, oy] = placedDoodadOrigin(ed, under, *t, d);
+                    if (const char* ctx = getenv("DDCTX"); ctx && atoi(ctx) == d.id) {  // the terrain around it (3 tiles)
+                        o << "doodad " << d.id << " at " << ox << "," << oy << "\n";
+                        for (int y = oy - 3; y < oy + t->height + 3; ++y) {
+                            for (int x = ox - 3; x < ox + t->width + 3; ++x)
+                                o << (x >= 0 && y >= 0 && x < ed.width() && y < ed.height() ? std::to_string(under.tiles[size_t(y) * ed.width() + x] >> 4) : "#") << "\t";
+                            o << "\n";
+                        }
+                    }
+                    if (!doodadFits(ed.chk(), *t, ox, oy, true)) {
+                        ++refused;
+                        if (first.empty()) first = std::to_string(d.id) + " at " + std::to_string(d.x / 32) + "," + std::to_string(d.y / 32);
+                    }
+                }
+                o << narrow(ed.path().filename().wstring()) << " era " << ed.era() << ": " << n << " doodads, " << refused << " refused" << (first.empty() ? "" : " (first: " + first + ")") << "\n";
+                continue;
+            }
+            if (s == "ddprobe:") {  // ddprobe.txt (appended): each placed doodad: dddata's need, its art, and the tile under each cell
+                std::ofstream o(fs::path(datashots) / "ddprobe.txt", std::ios::app);
+                Editor& ed = *app.ed;
+                const TerrainLayer under = readTerrain(ed.chk(), ed.chk().has("TILE") ? "TILE" : "MTXM");
+                const auto& ts = ed.tileset();
+                o << "MAP " << narrow(ed.path().filename().wstring()) << " era " << ed.era() << "\n";
+                for (const Doodad& d : ed.doodads()) {
+                    const DoodadType* t = ed.doodadTypes().find(d.id);
+                    if (!t) continue;
+                    const auto [tx, ty] = placedDoodadOrigin(ed, under, *t, d);
+                    o << "DD " << d.id << " " << t->width << "x" << t->height << " at " << tx << "," << ty << " group " << t->firstGroup << "\n";
+                    for (int r = 0; r < t->height; ++r) {
+                        o << "  ";
+                        for (int c = 0; c < t->width; ++c) {
+                            const size_t gi = size_t(t->firstGroup) + r;
+                            const bool art = gi < ts.groups.size() && ts.groups[gi].megatiles[size_t(c)];
+                            const uint16_t need = t->required[size_t(r) * t->width + c];
+                            const int x = tx + c, y = ty + r;
+                            const uint16_t g = x >= 0 && y >= 0 && x < ed.width() && y < ed.height() ? uint16_t(under.tiles[size_t(y) * ed.width() + x] >> 4) : 0;
+                            const TileGroup* ug = g < ts.groups.size() ? &ts.groups[g] : nullptr;
+                            o << (art ? "A" : "-") << need << "/" << g << "(t" << (ug ? ug->type : 0) << "h" << int(ug ? ug->groundHeight : 0) << "b"
+                              << int(ug ? ug->buildability : 0) << ") ";
+                        }
+                        o << "\n";
+                    }
+                }
                 continue;
             }
             if (s == "newpage:") {  // newpage.txt, newpage_gen.png, newpage_import.png: Create stays in its place; Generate makes a map

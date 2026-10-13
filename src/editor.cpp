@@ -1285,8 +1285,8 @@ void Editor::setScenarioText(const std::string& name, const std::string& descrip
 static char terrainRole(uint16_t era, uint16_t t) {
     static const char* const roles[8] = {
         "GHLVPRWSM",       // badlands: Dirt, High Dirt, Water, Grass, Asphalt, Rocky Ground, High Grass, Structure, Mud
-        "LG-H---MVRPWSS",  // platform: Space, Platform, -, High Platform, -, -, -, Low Platform, Dark Platform, Rusty Pit, Plating,
-                           // High Plating, Elevated Catwalk, Solar Array
+        "LG-H---SMRPWSV",  // platform: Space, Platform, -, High Platform, -, -, -, Solar Array, Low Platform, Rusty Pit, Plating,
+                           // High Plating, Elevated Catwalk, Dark Platform
         "RGHPPSL",         // installation: Substructure, Floor, Roof, Substructure Plating, Plating, Substructure Panels, Bottomless Pit
         "LGVPHWWR",        // ashworld: Magma, Dirt, Lava, Shale, High Dirt, High Lava, High Shale, Broken Rock
         "GHLVVRPSWWWTM",   // jungle: Dirt, High Dirt, Water, Jungle, Raised Jungle, Rocky Ground, Ruins, Temple, High Jungle,
