@@ -421,9 +421,12 @@ public:
     bool resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX, int shiftY, uint16_t fill, std::string& error);
     // A file of the map archive by its path (a briefing's sound), or nullptr.
     const ArchiveFile* archiveFile(const std::string& name) const;
-    // Adds (or replaces) a file in the map archive, such as a briefing's sound; saved with the map.
+    // Adds (or replaces) a file in the map archive, such as a briefing's sound; saved with the map. One undo step.
     void setArchiveFile(const std::string& name, Bytes data);
-    bool removeArchiveFile(const std::string& name);
+    void setArchiveFiles(std::vector<ArchiveFile> files);  // likewise, all in one undo step
+    bool removeArchiveFile(const std::string& name);      // one undo step
+    // A new path for a file; the briefings that play it use the new path. One undo step. False: no such file, or
+    // a file of that path (in any case) is in the map already.
     bool renameArchiveFile(const std::string& from, const std::string& to);
     // Game sounds the map names by path only (in its WAV list, without the file: the game plays its own).
     std::vector<std::string> soundReferences() const;
@@ -553,11 +556,22 @@ private:
             std::shared_ptr<const Bytes> data;
         };
         std::vector<Part> parts;
-        size_t ownBytes = 0;  // section data this snapshot added (not shared with the one before)
+        // A step that changed archive files: those files as they were (by path; absent: not in the archive).
+        struct File {
+            std::string name;
+            bool present = false;
+            size_t index = 0;  // its place in files_
+            Bytes data;
+        };
+        std::vector<File> files;
+        size_t ownBytes = 0;  // section and file data this snapshot added (not shared with the one before)
     };
     static Snapshot snapshot(const Chk& chk, const std::deque<Snapshot>& stack);
     static Chk restore(const Snapshot& s);
-    void pushUndo(const Chk& chk);
+    void pushUndo(const Chk& chk, const std::vector<std::string>& files = {});  // files: the archive files the step changes
+    std::vector<Snapshot::File> fileStates(const std::vector<std::string>& names) const;
+    std::vector<Snapshot::File> fileStates(const std::vector<Snapshot::File>& like) const;  // the same files as now
+    void restoreFiles(const std::vector<Snapshot::File>& files);
     // Takes back the last undo step when the edit it was for changed nothing; the redo steps come back too.
     void dropLastUndo();
     void endStrokeStep();  // the end of a stroke: drops its undo step when the stroke changed nothing

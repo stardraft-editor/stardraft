@@ -19,6 +19,7 @@
 #include "stardraft/game_data.h"
 #include "stardraft/sprites.h"
 #include "stardraft/map_file.h"
+#include "stardraft/briefing.h"
 
 using namespace stardraft;
 namespace fs = std::filesystem;
@@ -564,6 +565,56 @@ static void classicTriggersTest(const GameData& data, const char* map, const fs:
     CHECK(kept, "classic triggers: every trigger not edited keeps its bytes");
 }
 
+// Sound files of the map: import, rename and remove are each one undo step, and undo puts the archive and the
+// briefings back together (no briefing names a sound that the file list does not have).
+static void soundFileSteps(const GameData& data, const char* map) {
+    std::string err;
+    Editor e(data);
+    if (!e.open(map, err)) {
+        CHECK(false, "sound files: the map opens");
+        return;
+    }
+    const std::string a = "staredit\wav\undo-a.wav", b = "staredit\wav\undo-b.wav";
+    const Bytes bytes{'R', 'I', 'F', 'F', 1, 2, 3, 4};
+    auto has = [&](const std::string& n) { return e.archiveFile(n) != nullptr; };
+    auto plays = [&](const std::string& n) {
+        for (const auto& t : e.briefings())
+            for (const auto& x : t.actions)
+                if (x.wav == n) return true;
+        return false;
+    };
+    const size_t files0 = e.archiveFiles().size();
+    e.setArchiveFiles({{a, bytes}});
+    CHECK(has(a), "sound files: imported");
+    e.undo();
+    CHECK(!has(a) && e.archiveFiles().size() == files0, "sound files: undo of an import removes the file");
+    e.redo();
+    CHECK(has(a) && e.archiveFile(a)->data == bytes, "sound files: redo of an import adds it again");
+    // A briefing that plays it.
+    std::vector<BriefingTrigger> br = e.briefings();
+    BriefingTrigger t;
+    t.players[0] = true;
+    BriefingAction play;
+    play.type = BriefingAction::PlayWav, play.wav = a;
+    t.actions.push_back(play);
+    br.push_back(t);
+    e.setBriefings(br);
+    CHECK(plays(a), "sound files: a briefing plays it");
+    CHECK(e.renameArchiveFile(a, b) && has(b) && !has(a) && plays(b) && !plays(a), "sound files: rename changes the file and the briefing");
+    CHECK(!e.renameArchiveFile(b, "STAREDIT\WAV\UNDO-B.WAV"), "sound files: rename to a path in the map (in another case) is refused");
+    e.undo();
+    CHECK(has(a) && !has(b) && plays(a) && !plays(b), "sound files: one undo of a rename puts back the file and the briefing");
+    e.redo();
+    CHECK(has(b) && !has(a) && plays(b) && !plays(a), "sound files: redo of a rename");
+    CHECK(e.removeArchiveFile(b) && !has(b), "sound files: removed");
+    e.undo();
+    CHECK(has(b) && e.archiveFile(b)->data == bytes && plays(b), "sound files: undo of a remove brings the file back");
+    e.undo();
+    e.undo();
+    e.undo();
+    CHECK(!has(a) && !has(b) && !plays(a) && e.archiveFiles().size() == files0, "sound files: undo to the start");
+}
+
 int main(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: editor_test <install dir> <map> <scratch dir>\n");
@@ -574,6 +625,10 @@ int main(int argc, char** argv) {
     if (!data.open(argv[1], err)) {
         std::fprintf(stderr, "%s\n", err.c_str());
         return 1;
+    }
+    if (argc > 4 && std::string(argv[4]) == "sounds") {  // only the sound file checks
+        soundFileSteps(data, argv[2]);
+        return failures ? 1 : 0;
     }
     Editor ed(data);
     if (!ed.open(argv[2], err)) {
@@ -1318,6 +1373,7 @@ int main(int argc, char** argv) {
     }
 
     placementOptions(data, argv[2]);
+    soundFileSteps(data, argv[2]);
     placementRules(data, argv[2]);
     // A small brush (size 1) painted in many quick strokes on each tileset: the tiles fit their neighbors as in
     // Blizzard's maps (they have none that do not). A few spots can stay where no piece and no corner change fits.

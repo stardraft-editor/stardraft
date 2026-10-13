@@ -176,6 +176,7 @@ std::vector<std::string> importSounds(HWND owner) {
     const wchar_t* p = buf.data() + first.size() + 1;
     if (!*p) files.push_back(first);
     for (; *p; p += wcslen(p) + 1) files.push_back(fs::path(first) / p);
+    std::vector<ArchiveFile> read;
     for (const auto& f : files) {
         std::ifstream in(f, std::ios::binary);
         Bytes data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
@@ -185,9 +186,10 @@ std::vector<std::string> importSounds(HWND owner) {
             continue;
         }
         const std::string name = "staredit\\wav\\" + narrow(f.filename().wstring());
-        app.ed->setArchiveFile(name, std::move(data));
+        read.push_back({name, std::move(data)});
         added.push_back(name);
     }
+    app.ed->setArchiveFiles(std::move(read));  // one undo step
     if (!added.empty()) setMessage(L"Imported " + std::to_wstring(added.size()) + L" sounds"), updateTitle();
     return added;
 }

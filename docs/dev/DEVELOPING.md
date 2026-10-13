@@ -49,7 +49,7 @@ Give each test a new, empty scratch folder.
 | Self-test | `stardraft.exe <map> --selftest <dir>` | Drives the real program through a scripted session (every workspace) and saves a capture after each step; `selftest.txt` lists the results. Use `(2)Bottleneck.scm`. |
 | `trigger_test` | `trigger_test <dir> <install> <map.scx> [--update-lock]` (a Brood War map, e.g. `Maps\BroodWar\(2)Binary Burghs.scx`) | The block library, the checker, the generated epScript, and that euddraft builds a map with it. Linked .eps files (R5): saved relative, built with what they import, a missing one stops Build, an error names the file and line. |
 | `dat_test` | `dat_test <install> <map.scx> <dir>` | .dat editing, strings, requirements, buttons, unit display; euddraft builds a map with them. |
-| `editor_test` | `editor_test <install> <map> <dir>` | The editor document: placement, selection, copy and paste, undo, save and reopen. |
+| `editor_test` | `editor_test <install> <map> <dir> [sounds]` | The editor document: placement, selection, copy and paste, undo, save and reopen. |
 | `tools_test` | `tools_test <install> <badlands map> <dir>` | The terrain, doodad and unit tools. |
 | `classic_trigger_test` | `classic_trigger_test <install> <maps folder>... [--survey]`; `classic_trigger_test <install> --migrate <map> <dir>` | Classic triggers (L.2): every map's TRIG and MBRF read and write back byte-identical; `--survey`: the flags of each condition and action type. `--migrate` (L.4): the map made a project and built by euddraft. |
 | `briefing_test` | `briefing_test <install> [campaign folder]` | Briefings read and write back the same (campaign maps). |

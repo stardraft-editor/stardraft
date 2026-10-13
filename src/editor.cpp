@@ -263,8 +263,41 @@ Chk Editor::restore(const Snapshot& s) {
     return c;
 }
 
-void Editor::pushUndo(const Chk& chk) {
+std::vector<Editor::Snapshot::File> Editor::fileStates(const std::vector<std::string>& names) const {
+    finishFiles();
+    std::vector<Snapshot::File> out;
+    for (const std::string& n : names) {
+        if (std::any_of(out.begin(), out.end(), [&](const Snapshot::File& f) { return f.name == n; })) continue;
+        Snapshot::File f{n};
+        for (size_t i = 0; i < files_.size(); ++i)
+            if (files_[i].name == n) f.present = true, f.index = i, f.data = files_[i].data;
+        out.push_back(std::move(f));
+    }
+    return out;
+}
+
+std::vector<Editor::Snapshot::File> Editor::fileStates(const std::vector<Snapshot::File>& like) const {
+    std::vector<std::string> names;
+    for (const auto& f : like) names.push_back(f.name);
+    return fileStates(names);
+}
+
+void Editor::restoreFiles(const std::vector<Snapshot::File>& files) {
+    finishFiles();
+    for (const auto& f : files)
+        std::erase_if(files_, [&](const ArchiveFile& a) { return a.name == f.name; });
+    // Back in their places, the first place first, so each index is the one it had.
+    std::vector<const Snapshot::File*> back;
+    for (const auto& f : files)
+        if (f.present) back.push_back(&f);
+    std::sort(back.begin(), back.end(), [](const Snapshot::File* a, const Snapshot::File* b) { return a->index < b->index; });
+    for (const Snapshot::File* f : back) files_.insert(files_.begin() + long(std::min(f->index, files_.size())), {f->name, f->data});
+}
+
+void Editor::pushUndo(const Chk& chk, const std::vector<std::string>& files) {
     undo_.push_back(snapshot(chk, undo_));
+    undo_.back().files = fileStates(files);
+    for (const auto& f : undo_.back().files) undo_.back().ownBytes += f.data.size();
     undoBytes_ += undo_.back().ownBytes;
     while (undo_.size() > 1 && (undo_.size() > kUndoSteps || undoBytes_ > kUndoBytes)) {
         undoBytes_ -= std::min(undoBytes_, undo_.front().ownBytes);
@@ -310,6 +343,9 @@ void Editor::undo() {
     if (undo_.empty()) return;
     lastRedo_.clear();
     redo_.push_back(snapshot(chk_, redo_));
+    redo_.back().files = fileStates(undo_.back().files);
+    for (const auto& f : redo_.back().files) redo_.back().ownBytes += f.data.size();
+    restoreFiles(undo_.back().files);
     chk_ = restore(undo_.back());
     undoBytes_ -= std::min(undoBytes_, undo_.back().ownBytes);
     undo_.pop_back();
@@ -321,7 +357,10 @@ void Editor::redo() {
     if (redo_.empty()) return;
     lastRedo_.clear();
     undo_.push_back(snapshot(chk_, undo_));
+    undo_.back().files = fileStates(redo_.back().files);
+    for (const auto& f : undo_.back().files) undo_.back().ownBytes += f.data.size();
     undoBytes_ += undo_.back().ownBytes;
+    restoreFiles(redo_.back().files);
     chk_ = restore(redo_.back());
     redo_.pop_back();
     reload();
@@ -2289,35 +2328,48 @@ const ArchiveFile* Editor::archiveFile(const std::string& name) const {
 }
 
 void Editor::setArchiveFile(const std::string& name, Bytes data) {
-    finishFiles();
-    for (ArchiveFile& f : files_)
-        if (f.name == name) {
-            f.data = std::move(data);
-            modified_ = true, revision_ = nextRevision();
-            return;
-        }
-    files_.push_back({name, std::move(data)});
-    modified_ = true, revision_ = nextRevision();
+    std::vector<ArchiveFile> one;
+    one.push_back({name, std::move(data)});
+    setArchiveFiles(std::move(one));
+}
+
+void Editor::setArchiveFiles(std::vector<ArchiveFile> files) {
+    if (files.empty()) return;
+    std::vector<std::string> paths;
+    for (const auto& f : files) paths.push_back(f.name);
+    pushUndo(chk_, paths);
+    for (ArchiveFile& n : files) {
+        auto it = std::find_if(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == n.name; });
+        if (it != files_.end()) it->data = std::move(n.data);
+        else files_.push_back(std::move(n));
+    }
+    commit(false);
 }
 
 bool Editor::removeArchiveFile(const std::string& name) {
     finishFiles();
-    auto it = std::find_if(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == name; });
-    if (it == files_.end()) return false;
-    files_.erase(it);
-    modified_ = true, revision_ = nextRevision();
+    if (std::none_of(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == name; })) return false;
+    pushUndo(chk_, {name});  // the undo step keeps the file
+    std::erase_if(files_, [&](const ArchiveFile& f) { return f.name == name; });
+    commit(false);
     return true;
 }
 
 bool Editor::renameArchiveFile(const std::string& from, const std::string& to) {
     if (to.empty() || archiveFile(to)) return false;
-    for (ArchiveFile& f : files_)
-        if (f.name == from) {
-            f.name = to;
-            modified_ = true, revision_ = nextRevision();
-            return true;
-        }
-    return false;
+    auto it = std::find_if(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == from; });
+    if (it == files_.end()) return false;
+    // One step: the file's new path, and the briefings that play it name the new path.
+    pushUndo(chk_, {from, to});
+    it->name = to;
+    std::vector<BriefingTrigger> b = readBriefings(chk_, strings_);
+    bool used = false;
+    for (auto& t : b)
+        for (auto& a : t.actions)
+            if (a.wav == from) a.wav = to, used = true;
+    if (used) writeBriefings(chk_, strings_, b);
+    commit(false);
+    return true;
 }
 
 std::vector<std::string> Editor::soundReferences() const {

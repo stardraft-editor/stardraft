@@ -48,13 +48,10 @@ void filesRename(const std::string& from) {
     if (!prompt(L"Rename the sound", name) || name.empty()) return;
     const std::string to = narrow(name);
     if (to == from) return;
+    // One undo step: the file and the briefings that play it get the new path.
     if (!app.ed->renameArchiveFile(from, to)) return setMessage(L"A file of that name is in the map already");
-    // The briefings name it by its new path.
-    briefEdit([&](std::vector<BriefingTrigger>& b) {
-        for (auto& t : b)
-            for (auto& a : t.actions)
-                if (a.wav == from) a.wav = to;
-    });
+    InvalidateRect(gBrief.wnd, nullptr, FALSE);
+    updateTitle();
     gFiles.selected = to;
     InvalidateRect(gFiles.wnd, nullptr, FALSE);
 }
