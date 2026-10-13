@@ -222,6 +222,7 @@ const char* placementIssueName(PlacementIssue issue) {
     case PlacementIssue::OverlapsBuilding: return "overlaps_building";
     case PlacementIssue::NearResources: return "near_resources";
     case PlacementIssue::OverlapsUnit: return "overlaps_unit";
+    case PlacementIssue::UnitLimit: return "unit_limit";
     }
     return "unknown";
 }

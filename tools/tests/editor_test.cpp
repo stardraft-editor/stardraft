@@ -54,6 +54,15 @@ static void placementOptions(const GameData& data, const char* map) {
     const size_t mi = size_t(m.index), wi = size_t(w.index);
     const Unit m0 = pe.units()[mi], w0 = pe.units()[wi], w2 = pe.units()[size_t(w2r.index)];
     const size_t n = pe.units().size();
+    // The unit limit (GitHub feedback #103): at the limit, placing is refused; spraying adds nothing.
+    pe.setUnitLimit(int(n));
+    {
+        const PlaceResult over = pe.placeUnit(wraith, 0, m.unit.x + 512, m.unit.y, true);
+        const int sprayed = pe.sprayUnits({wraith}, 0, m.unit.x + 512, m.unit.y, 128, 5, 7);
+        CHECK(!over.placed && !over.issues.empty() && over.issues[0] == PlacementIssue::UnitLimit && sprayed == 0 && pe.units().size() == n,
+              "the unit limit: no unit is placed or sprayed when the map has that many");
+    }
+    pe.setUnitLimit(0);
 
     // Options off.
     pe.select(int(mi), false), pe.copySelection();

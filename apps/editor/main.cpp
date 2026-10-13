@@ -296,6 +296,8 @@ std::vector<std::wstring> gRecentMaps, gRecentProjects;
 bool gOpenLastProject = false;  // Options: open the last project on start (off unless chosen)
 bool gCheckUpdates = true;      // Options: look for a newer release on start (on unless turned off)
 bool gSendCrashReports = true;  // Options: send anonymous crash reports (on unless turned off)
+// Options: the most units a map may have (GitHub feedback #103): standard maps, and maps of EUD projects.
+int gUnitLimitClassic = 3400, gUnitLimitEud = 1700;
 std::wstring gLanguage = L"auto";  // Options > Language: auto, en, ko or es (a change applies at the next start)
 std::wstring gProjectsFolder;
 HMENU gRecentMapsMenu = nullptr, gRecentProjectsMenu = nullptr;
@@ -323,6 +325,12 @@ void loadRecent() {
     onSize = sizeof on;
     if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"SendCrashReports", RRF_RT_REG_DWORD, nullptr, &on, &onSize) == ERROR_SUCCESS)
         gSendCrashReports = on != 0;
+    onSize = sizeof on;
+    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"UnitLimitClassic", RRF_RT_REG_DWORD, nullptr, &on, &onSize) == ERROR_SUCCESS && on)
+        gUnitLimitClassic = int(on);
+    onSize = sizeof on;
+    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"UnitLimitEud", RRF_RT_REG_DWORD, nullptr, &on, &onSize) == ERROR_SUCCESS && on)
+        gUnitLimitEud = int(on);
 }
 
 // The language (Program options > Language), before the menus are made: their texts are translated when they are added.
@@ -2190,6 +2198,16 @@ EudProject* activeProject() { return gActive >= 0 && gActive < int(gDocs.size())
 // are there in a project only when its map has that classic data (L.4: a classic map made a project keeps it). The
 // menus, the shortcuts and the rail ask these functions. Classic tools add their commands to classicOnlyCommand.
 bool classicMode() { return gActive >= 0 && gActive < int(gDocs.size()) && !gDocs[size_t(gActive)].project; }
+// Program options > Map unit limit, into the editor before units go into the map (standard maps; EUD projects).
+int applyUnitLimit(Editor& ed) {
+    const int n = classicMode() ? gUnitLimitClassic : gUnitLimitEud;
+    ed.setUnitLimit(n);
+    return n;
+}
+bool atUnitLimit(const Editor& ed) { return ed.unitLimit() > 0 && int(ed.units().size()) >= ed.unitLimit(); }
+std::wstring unitLimitText(const Editor& ed) {
+    return L"The map has " + std::to_wstring(ed.unitLimit()) + L" units: the most it may have (Program options > Map unit limit)";
+}
 bool projectMode() { return activeProject() != nullptr; }
 
 bool projectOnlyCommand(int id) {
@@ -4233,6 +4251,7 @@ bool placePaletteUnit(float wx, float wy, bool correct) {
     const UnitType& t = ed.unitTypes()[type];
     uint8_t who = (t.availability & UnitAvail::NonNeutral) ? uint8_t(app.playerOwner) : uint8_t(11);
     snapUnitPoint(wx, wy);
+    applyUnitLimit(ed);
     PlaceResult r = ed.placeUnit(type, who, int(wx), int(wy), correct);
     ed.clearSelection();  // placed units are not selected (placing is not selecting)
     if (r.placed) {
@@ -4243,7 +4262,7 @@ bool placePaletteUnit(float wx, float wy, bool correct) {
     } else {
         std::wstring why;
         for (auto is : r.issues) why += L" " + widen(placementIssueName(is));
-        setMessage(L"Cannot place here:" + why + (correct ? L" (no valid spot nearby)" : L""));
+        setMessage(atUnitLimit(ed) ? unitLimitText(ed) : L"Cannot place here:" + why + (correct ? L" (no valid spot nearby)" : L""));
     }
     return r.placed;
 }
@@ -4385,8 +4404,10 @@ int sprayAt(float wx, float wy) {
     std::vector<uint16_t> picks;
     for (int v : selectedPalette()) picks.push_back(uint16_t(v));
     if (app.mode == Mode::Units) {
+        applyUnitLimit(ed);
         const int n = ed.sprayUnits(picks, uint8_t(app.playerOwner), int(wx), int(wy), sprayRadius(), sprayCount(), app.spraySeed++);
         ed.clearSelection();  // placed units are not selected (placing is not selecting)
+        if (atUnitLimit(ed)) setMessage(unitLimitText(ed));
         return n;
     }
     if (app.mode == Mode::Doodads) return ed.sprayDoodads(picks, int(wx), int(wy), sprayRadius(), sprayCount(), app.spraySeed++, app.doodadCheck);
@@ -4511,9 +4532,11 @@ void mouseDown(int sx, int sy, WPARAM keys) {
         // units are not selected, so the next paste does not move them.
         float pwx = wx, pwy = wy;
         snapUnitPoint(pwx, pwy);  // Options > Units snap: the middle of the copy in the middle of a grid cell
+        applyUnitLimit(ed);
         const int pasted = ed.paste(int(pwx), int(pwy), app.correction), copied = int(ed.clipboard().size());
-        setMessage((pasted < copied ? L"Pasted " + std::to_wstring(pasted) + L" of " + std::to_wstring(copied) + L" units (the other units do not fit here)"
-                                    : L"Pasted " + std::to_wstring(pasted) + L" units") + L". To stop, right-click or press Esc.");
+        setMessage(pasted < copied && atUnitLimit(ed) ? unitLimitText(ed)
+                   : (pasted < copied ? L"Pasted " + std::to_wstring(pasted) + L" of " + std::to_wstring(copied) + L" units (the other units do not fit here)"
+                                      : L"Pasted " + std::to_wstring(pasted) + L" units") + L". To stop, right-click or press Esc.");
         ed.clearSelection();
         app.drag = Drag::None;
         app.dirty = true;
@@ -4593,6 +4616,7 @@ void mouseDown(int sx, int sy, WPARAM keys) {
         if (tool == TSelect) {
             if (app.terrainPasting) {  // a brush of the copy: a click pastes it, a drag pastes it along the way (one undo step)
                 ed.beginStroke();
+                applyUnitLimit(ed);
                 if (ed.pasteTerrain(int(wx), int(wy), app.correction)) setMessage(L"Pasted terrain");
                 app.lastPlaceX = wx, app.lastPlaceY = wy;
                 app.drag = Drag::PasteStroke;
@@ -4758,6 +4782,7 @@ void mouseMove(int sx, int sy) {
     if (app.drag == Drag::PasteStroke && app.ed) {  // the copy again where the mouse is a whole copy away from the last one
         const Rect box = app.ed->terrainClipboardBox();
         if (std::abs(wx - app.lastPlaceX) >= float(std::max(32, box.right)) || std::abs(wy - app.lastPlaceY) >= float(std::max(32, box.bottom))) {
+            applyUnitLimit(*app.ed);
             app.ed->pasteTerrain(int(wx), int(wy), app.correction);
             app.lastPlaceX = wx, app.lastPlaceY = wy;
         }
@@ -4823,6 +4848,7 @@ void mouseUp(int sx, int sy, WPARAM keys) {
         const UnitType& t = ed.unitTypes()[type];
         uint8_t who = (t.availability & UnitAvail::NonNeutral) ? uint8_t(app.playerOwner) : uint8_t(11);
         snapUnitPoint(wx, wy);
+        applyUnitLimit(ed);
         PlaceResult r = ed.placeUnit(type, who, int(wx), int(wy), app.correction);
         ed.clearSelection();  // placed units are not selected (placing is not selecting)
         if (r.placed) {
@@ -4833,7 +4859,7 @@ void mouseUp(int sx, int sy, WPARAM keys) {
         } else {
             std::wstring why;
             for (auto is : r.issues) why += L" " + widen(placementIssueName(is));
-            setMessage(L"Cannot place here:" + why + (app.correction ? L" (no valid spot nearby)" : L""));
+            setMessage(atUnitLimit(ed) ? unitLimitText(ed) : L"Cannot place here:" + why + (app.correction ? L" (no valid spot nearby)" : L""));
         }
         break;
     }
@@ -5679,6 +5705,7 @@ void fadeIn(HWND w, int show) {
 #include "map_properties.inc"
 #include "about.inc"
 int volumeRow(HDC dc, int x, int y, int labelW, int right, std::vector<DataWidgetHit>& hits);
+void pickUnitLimit(int k, RECT b, HWND hwnd);  // Program options > Map unit limit: 0 standard maps, 1 EUD projects
 #include "options_window.inc"
 #include "classic_settings.inc"
 
@@ -15251,6 +15278,24 @@ LRESULT CALLBACK valuePopProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return LRESULT(app.bgBrush);
     }
     return DefWindowProcW(hwnd, msg, wp, lp);
+}
+
+// Program options > Map unit limit: the number in a value pop-out under its box `b` (in `hwnd`), kept in the registry.
+void pickUnitLimit(int k, RECT b, HWND hwnd) {
+    int& v = k == 0 ? gUnitLimitClassic : gUnitLimitEud;
+    ValuePopSpec spec;
+    spec.title = L"The most units in a map   1 to 65535";
+    spec.type = "Number", spec.min = 1, spec.max = 65535, spec.constantOnly = true, spec.initial = std::to_string(v);
+    POINT at{b.left, b.bottom + scale(4)};
+    ClientToScreen(hwnd, &at);
+    std::string out;
+    if (!showValuePopup(spec, at, out)) return;
+    v = std::clamp(std::atoi(out.c_str()), 1, 65535);
+    if (!gSelfTest) {
+        const DWORD d = DWORD(v);
+        RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", k == 0 ? L"UnitLimitClassic" : L"UnitLimitEud", REG_DWORD, &d, sizeof d);
+    }
+    InvalidateRect(hwnd, nullptr, FALSE);
 }
 
 // Shows the pop-out by a point on the screen; true and `out` when applied.

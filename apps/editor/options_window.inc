@@ -123,6 +123,21 @@ void optionsPaint(HWND hwnd) {
         y += rowH + pad;
     }
 
+    // Map unit limit: placing, spraying and pasting units stop there (GitHub feedback #103). pickUnitLimit: main.cpp.
+    y = ui::sectionHeader(mem, l, y, L"Map unit limit");
+    for (int k = 0; k < 2; ++k) {
+        int& limit = k == 0 ? gUnitLimitClassic : gUnitLimitEud;
+        ui::fieldLabel(mem, l, y, k == 0 ? L"Standard maps" : L"EUD projects", false);
+        const RECT box{fx, fieldTop(y), std::min<int>(l.colRight, fx + scale(120)), fieldTop(y) + fieldH};
+        ui::pickBox(mem, box, std::to_wstring(limit) + L" units", false,
+                    [hwnd, k](RECT b) { pickUnitLimit(k, b, hwnd); },
+                    k == 0 ? L"Default value: 3400" : L"Default value: 1700");
+        gOptions.parts[k == 0 ? "unitlimit.classic" : "unitlimit.eud"] = box;
+        y += rowH;
+    }
+    note(l.x0, y - scale(4), L"StarCraft without mods takes at most 3400 units in a map.");
+    y += scale(20) + pad;
+
     // Start.
     y = ui::sectionHeader(mem, l, y, L"Start");
     checkRow(y, L"Open the last project on start", gOpenLastProject, ID_OPT_LASTPROJECT, "lastproject");

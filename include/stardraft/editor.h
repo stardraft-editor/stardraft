@@ -216,6 +216,9 @@ public:
     // and terrain edits leave them alone. Off: a terrain edit removes the units it makes unplaceable
     // (units that were placeable before it).
     void setAllowIllegalUnits(bool allow) { allowIllegalUnits_ = allow; }
+    // The most units the map may have (0: no limit): placing, spraying and pasting stop there (GitHub feedback #103).
+    void setUnitLimit(int n) { unitLimit_ = n; }
+    int unitLimit() const { return unitLimit_; }
     // Unit stacking (PlacementContext::stacking) for every placement check.
     void setAllowStacking(bool allow) { allowStacking_ = allow; }
     bool allowStacking() const { return allowStacking_; }
@@ -524,6 +527,7 @@ private:
     DoodadTypes doodadTypes_;
     UnitSprites unitSprites_;
     bool allowIllegalUnits_ = false;
+    int unitLimit_ = 0;
     bool allowStacking_ = false;
     int doodadsRemovedByTerrain_ = 0;
     // Per doodad: are all its tiles still in MTXM?

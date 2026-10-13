@@ -1222,6 +1222,7 @@ bool Editor::pasteTerrain(int px, int py, bool correct) {
                 stardraft::placeDoodad(chk_, *t, tileset_, tx, ty, d.owner, false);
             }
         for (Unit u : terrainClip_.units) {
+            if (unitLimit_ > 0 && int(units_.size()) >= unitLimit_) break;
             int ux = opx + int16_t(u.x), uy = opy + int16_t(u.y);
             if (ux < 0 || uy < 0 || ux >= width_ * 32 || uy >= height_ * 32) continue;
             u.x = uint16_t(ux), u.y = uint16_t(uy);
@@ -1559,6 +1560,7 @@ int Editor::sprayUnits(const std::vector<uint16_t>& types, uint8_t owner, int x,
         do dx = unit(rng), dy = unit(rng);
         while (dx * dx + dy * dy > 1);
         for (auto [px, py] : symmetricPoints(int(x + dx * radius), int(y + dy * radius))) {
+            if (unitLimit_ > 0 && int(all.size()) >= unitLimit_) break;
             if (px < 0 || py < 0 || px >= width_ * 32 || py >= height_ * 32) continue;
             uint16_t ux = uint16_t(px), uy = uint16_t(py);
             snapToGrid(t, ux, uy);
@@ -1588,6 +1590,10 @@ PlaceResult Editor::placeUnit(uint16_t type, uint8_t owner, int x, int y, bool c
         r.issues.push_back(PlacementIssue::BadType);
         return r;
     }
+    if (unitLimit_ > 0 && int(units_.size()) >= unitLimit_) {
+        r.issues.push_back(PlacementIssue::UnitLimit);
+        return r;
+    }
     const UnitType& t = types_[type];
     uint16_t ux = uint16_t(std::clamp(x, 0, width_ * 32 - 1)), uy = uint16_t(std::clamp(y, 0, height_ * 32 - 1));
     snapToGrid(t, ux, uy);
@@ -1608,6 +1614,7 @@ PlaceResult Editor::placeUnit(uint16_t type, uint8_t owner, int x, int y, bool c
     // Mirror images (symmetry), each corrected or skipped if there is no valid spot.
     auto pts = symmetricPoints(x, y);
     for (size_t k = 1; k < pts.size(); ++k) {
+        if (unitLimit_ > 0 && int(units_.size()) >= unitLimit_) break;
         uint16_t mx = uint16_t(std::clamp(pts[k].first, 0, width_ * 32 - 1)), my = uint16_t(std::clamp(pts[k].second, 0, height_ * 32 - 1));
         snapToGrid(t, mx, my);
         Unit m = makeUnit(t, owner, mx, my);
@@ -1753,6 +1760,7 @@ int Editor::paste(int x, int y, bool correct) {
     if (clipboard_.empty()) return 0;
     std::vector<Unit> all = units_;
     for (Unit u : clipboard_) {
+        if (unitLimit_ > 0 && int(all.size()) >= unitLimit_) break;
         int nx = x + int16_t(u.x), ny = y + int16_t(u.y);
         u.x = uint16_t(std::clamp(nx, 0, width_ * 32 - 1));
         u.y = uint16_t(std::clamp(ny, 0, height_ * 32 - 1));
