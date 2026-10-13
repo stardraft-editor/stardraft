@@ -2454,6 +2454,7 @@ void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank) {
 }
 
 bool confirmDiscard();
+void forgetProject(const EudProject* pr);
 void newMap();
 void newUntitledProject();
 void openStartPage();
@@ -2469,6 +2470,7 @@ bool closeDoc(int i) {
     gAnims.clear(), gAnimsFor = nullptr;  // they held that editor's sprites (a new editor can get the same address)
     const auto pr = gDocs[size_t(i)].project;
     gDocs.erase(gDocs.begin() + i);
+    forgetProject(pr.get());
     dropUnsavedProject(pr);  // an unsaved project's folder goes with its tab
     gActive = -1;
     if (gDocs.empty()) openStartPage();  // the last tab closed: the start page
@@ -2484,6 +2486,7 @@ bool closeAllDocs() {
         mapPageClose();
         app.ed.reset();
         gAnims.clear(), gAnimsFor = nullptr;
+        forgetProject(gDocs[size_t(i)].project.get());
         gDocs.erase(gDocs.begin() + i);
         gActive = -1;
         if (!gDocs.empty()) activateDoc(std::min(i, int(gDocs.size()) - 1));
@@ -7122,7 +7125,8 @@ const UnitPalette::Bitmap* tabEntryIcon(int tab, int e);
 std::wstring tabTitle(int tab);
 std::wstring statString(int id);
 void extrasLoad(const EudProject* pr);
-void extrasSaved();
+bool extrasSaved();
+bool extrasLoadFailed();  // a project file of the extras did not load
 bool writeExtrasEdits(EudProject& pr, std::string& err);
 void stringsCommitEdit();
 void stringsShowEdit(bool show);
@@ -7225,9 +7229,17 @@ std::vector<std::unique_ptr<DatTable>> loadDatTables(const EudProject& pr, std::
 }
 
 // Loads (or reloads, for another project) the tables: the game's .dat files plus the project's edits.
+// A project file of the open tables or extras did not load: nothing is saved over it, and the next show loads again
+// (so a repaired file is taken).
+bool dataLoadFailed() {
+    for (const auto& t : gData.tables)
+        if (t && t->editsFailed()) return true;
+    return extrasLoadFailed();
+}
+
 void dataLoadForProject() {
     const EudProject* pr = activeProject();
-    if (pr == gData.project && (!gData.tables.empty() || !pr)) return;
+    if (pr == gData.project && (!gData.tables.empty() || !pr) && !dataLoadFailed()) return;
     gData.entry = 0, gData.listScroll = gData.formScroll = 0;
     gData.project = pr;
     gData.tables.clear();
@@ -7244,7 +7256,8 @@ void dataLoadForProject() {
 bool writeDatEdits(EudProject& pr, std::string& err, std::vector<std::string>* notes) {
     std::vector<std::unique_ptr<DatTable>> loaded;
     std::vector<std::unique_ptr<DatTable>>* tables = &gData.tables;
-    if (gData.project != &pr || gData.tables.empty()) loaded = loadDatTables(pr, err), err.clear(), tables = &loaded;  // not open here: from disk
+    // Not open here, or a file of the open project did not load (it may be repaired now): from disk.
+    if (gData.project != &pr || gData.tables.empty() || dataLoadFailed()) loaded = loadDatTables(pr, err), err.clear(), tables = &loaded;
     std::vector<const DatTable*> list;
     std::vector<std::unique_ptr<DatTable>> retried;
     for (size_t i = 0; i < tables->size(); ++i) {
@@ -7266,13 +7279,14 @@ bool writeDatEdits(EudProject& pr, std::string& err, std::vector<std::string>* n
     return pr.writeGenerated(list, err) && writeExtrasEdits(pr, err);
 }
 
-void dataSaved() {
+// False when a save failed (its error is the status message).
+bool dataSaved() {
     gDataMapEdits = 0;  // a data edit: Ctrl+Z goes to the data's undo
     ++gData.edits;
-    extrasSaved();
+    bool ok = extrasSaved();
     if (gData.refs) InvalidateRect(gData.refs, nullptr, FALSE);
     std::string err;
-    if (const DatTable* t = curTable(); t && gData.project && !t->saveEdits(gData.project->datFile(t->schema().name), err)) setMessage(widen(err));
+    if (const DatTable* t = curTable(); t && gData.project && !t->saveEdits(gData.project->datFile(t->schema().name), err)) setMessage(widen(err)), ok = false;
     if (const DatTable* t = curTable(); t && size_t(gData.datTab) < gData.saved.size() && gData.saved[size_t(gData.datTab)] != t->bytes()) {
         gData.undo.push_back({gData.datTab, gData.entry, gData.saved[size_t(gData.datTab)], t->bytes()});
         if (gData.undo.size() > 200) gData.undo.erase(gData.undo.begin());
@@ -7284,6 +7298,7 @@ void dataSaved() {
         RECT tabs{0, 0, 1 << 15, scale(34)};
         InvalidateRect(gDataWnd, &tabs, FALSE);  // the tab's changed dot
     }
+    return ok;
 }
 
 int dataRowH();
@@ -7474,9 +7489,9 @@ void dataPasteEntry(int u) {
     int n = 0;
     for (const auto& [fi, v] : gDatClip.values)
         if (fi >= 0 && fi < int(t->schema().fields.size()) && t->schema().fields[size_t(fi)].covers(u)) t->set(t->schema().fields[size_t(fi)], u, v), ++n;
-    dataSaved();
+    const bool saved = dataSaved();
     InvalidateRect(gData.form, nullptr, FALSE), InvalidateRect(gData.list, nullptr, FALSE);
-    setMessage(L"Pasted " + entryName(gDatClip.dat, gDatClip.entry) + L"'s values onto " + entryName(gDatClip.dat, u) + L" (" + std::to_wstring(n) + L" fields)");
+    if (saved) setMessage(L"Pasted " + entryName(gDatClip.dat, gDatClip.entry) + L"'s values onto " + entryName(gDatClip.dat, u) + L" (" + std::to_wstring(n) + L" fields)");
 }
 
 void dataResetEntry(int u) {
@@ -7484,9 +7499,9 @@ void dataResetEntry(int u) {
     if (!t) return;
     for (const auto& f : t->schema().fields)
         if (f.covers(u)) t->reset(f, u);
-    dataSaved();
+    const bool saved = dataSaved();
     InvalidateRect(gData.form, nullptr, FALSE), InvalidateRect(gData.list, nullptr, FALSE);
-    setMessage(L"Reset " + entryName(t->schema().name, u) + L" to the game's values");
+    if (saved) setMessage(L"Reset " + entryName(t->schema().name, u) + L" to the game's values");
 }
 
 bool dataXButton(WPARAM wp);
@@ -7530,12 +7545,10 @@ void dataFieldMenu(const DatField& f, POINT screen) {
         setMessage(L"Copied " + datLabel(f.name, false) + L": " + fieldValueText(f, gDatClip.fieldValue));
     } else if (pick == 2) {
         t->set(f, u, gDatClip.fieldValue);
-        dataSaved();
-        setMessage(L"Pasted " + datLabel(f.name, false));
+        if (dataSaved()) setMessage(L"Pasted " + datLabel(f.name, false));
     } else if (pick == 3) {
         t->reset(f, u);
-        dataSaved();
-        setMessage(L"Reset " + datLabel(f.name, false) + L" to the game's value");
+        if (dataSaved()) setMessage(L"Reset " + datLabel(f.name, false) + L" to the game's value");
     }
     InvalidateRect(gData.form, nullptr, FALSE), InvalidateRect(gData.list, nullptr, FALSE);
 }
@@ -11887,9 +11900,17 @@ std::vector<int> trigPathOf(HTREEITEM item) {
     return gTE.paths[size_t(it.lParam)];
 }
 
+// A tab with this project closed: the Data and Triggers workspaces drop what they hold of it, so a project opened
+// later at the same address loads its own files.
+void forgetProject(const EudProject* pr) {
+    if (!pr) return;
+    if (gTE.project == pr) gTE.project = nullptr, gTE.set = TriggerSet(), gTE.sel.clear(), trigHistoryReset();
+    if (gData.project == pr) gData.project = nullptr, gData.tables.clear(), gData.undo.clear(), gData.redo.clear(), gData.saved.clear();
+}
+
 void trigLoadForProject() {
     const EudProject* pr = activeProject();
-    if (pr == gTE.project && pr) return;
+    if (pr == gTE.project && pr && !gTE.set.loadFailed) return;  // (a file that did not load is read again)
     gTE.project = pr;
     gTE.set = TriggerSet();
     gTE.sel.clear();
@@ -16697,9 +16718,13 @@ void showTriggerCode() { gDock.triggerCode = !gDock.triggerCode, saveDock(), lay
 // checker finds errors.
 bool writeTriggerCode(EudProject& pr, std::string& err) {
     TriggerSet set;
-    if (gTE.project == &pr) set = gTE.set;
-    else if (!set.load(triggersFile(pr), err)) return false;
-    if (set.loadFailed) return err = triggersFile(pr).string() + " is not valid trigger data. Repair the file, then build again.", false;
+    if (gTE.project == &pr && !gTE.set.loadFailed) set = gTE.set;
+    else if (!set.load(triggersFile(pr), err)) return err += ". Repair the file, then build again.", false;
+    else if (gTE.project == &pr) {  // it did not load before and does now (repaired): the Triggers workspace takes it
+        gTE.set = set, gTE.sel.clear();
+        trigHistoryReset();
+        if (gTE.tree) trigRefreshTree({1});
+    }
     bool any = false;
     std::function<void(const TriggerNode&)> walk = [&](const TriggerNode& n) {
         any |= n.kind == TriggerNode::Kind::Trigger || n.kind == TriggerNode::Kind::Variable;
@@ -25738,6 +25763,43 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 o << "Middle button: Drag: the map follows the mouse " << (std::abs(moved - 100.0f / app.zoom) < 0.01f && std::abs(app.camY - y1) < 0.01f ? "yes" : "NO")
                   << " (" << x1 << " -> " << x1 - moved << "), and stays when the mouse stays " << (still ? "yes" : "NO") << ", the drag ends on release "
                   << (app.drag == Drag::None ? "yes" : "NO") << "\n";
+                continue;
+            }
+            if (s == "loadfail:") {  // loadfail.txt: a triggers.json that does not load is not saved over; once repaired, Build takes it
+                std::ofstream o(fs::path(datashots) / "loadfail.txt");
+                if (!activeProject()) {
+                    std::error_code ec;
+                    fs::remove_all(fs::path(datashots) / "loadfailproject", ec);
+                    std::string perr;
+                    if (!createProject(datashots, "loadfailproject", true, perr)) {
+                        o << "project: NOT MADE (" << perr << ")\n";
+                        continue;
+                    }
+                }
+                EudProject& pr = *gDocs[size_t(gActive)].project;
+                const fs::path file = triggersFile(pr);
+                const std::string bad = "{\"format\": \"stardraft-triggers\", \"version\": 1e400, \"categories\": []}";
+                std::ofstream(file, std::ios::binary | std::ios::trunc) << bad;
+                auto fileText = [&] {
+                    std::ifstream in(file, std::ios::binary);
+                    return std::string(std::istreambuf_iterator<char>(in), {});
+                };
+                setWorkspace(Workspace::Triggers);
+                for (int i = 0; i < 3; ++i) pump();
+                o << "the damaged file does not load " << (gTE.project == &pr && gTE.set.loadFailed ? "yes" : "NO") << "\n";
+                gTE.set.roots[1].children.push_back(TriggerSet::newTrigger("added after the failed load"));
+                trigSave();
+                o << "an edit does not save over it " << (fileText() == bad ? "yes" : "NO") << "\n";
+                std::string e;
+                o << "Build stops " << (!writeTriggerCode(pr, e) && e.find("Repair") != std::string::npos ? "yes" : "NO") << " (" << e << ")\n";
+                TriggerSet fixed;
+                fixed.roots[1].children.push_back(TriggerSet::newTrigger("repaired"));
+                std::ofstream(file, std::ios::binary | std::ios::trunc) << fixed.text();
+                e.clear();
+                const bool built = writeTriggerCode(pr, e);
+                o << "after the repair Build takes the file " << (built && !gTE.set.loadFailed && gTE.set.roots[1].children.size() == 1 ? "yes" : "NO") << " (" << e << ")\n";
+                trigSave();
+                o << "and an edit saves again " << (fileText() == gTE.set.text() ? "yes" : "NO") << "\n";
                 continue;
             }
             if (s == "layers:") {  // layers.txt, layers_<name>.png: View > Layers hides each layer (#117)

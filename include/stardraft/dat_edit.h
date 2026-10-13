@@ -89,6 +89,7 @@ public:
     // saved over or removed: saveEdits refuses until a load succeeds.
     bool loadEdits(const std::filesystem::path& file, std::string& error);
     bool saveEdits(const std::filesystem::path& file, std::string& error) const;
+    bool editsFailed() const { return editsFailed_; }  // the last loadEdits did not load the file
 
     // epScript: one masked SetMemoryX per dword holding changed bytes, run once at map start. sfxdata.dat Sound
     // File: a pointer to a copy of the file name (see soundPreloaded).

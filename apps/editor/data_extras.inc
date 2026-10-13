@@ -88,11 +88,10 @@ bool writeExtrasEdits(EudProject& pr, std::string& err) {
     Requirements reqs;
     ButtonSets buttons;
     UnitLooks looks;
-    const bool open = gData.project == &pr;
-    if (open)
-        for (int k = 0; k < kExtraKinds; ++k)
-            if (gExtras.loadFailed[k]) return err = extrasFile(pr, k).string() + " did not load. Repair the file, then build again.", false;
-    if (!open) {  // another project than the one the Data workspace shows: from disk
+    // Another project than the one the Data workspace shows, or a file of it did not load (it may be repaired now):
+    // from disk.
+    const bool open = gData.project == &pr && !extrasLoadFailed();
+    if (!open) {
         if (!strings.load(app.data, err) || !strings.loadEdits(extrasFile(pr, kExtraStrings), err) || !reqs.loadEdits(extrasFile(pr, kExtraReqs), err) ||
             !buttons.loadEdits(extrasFile(pr, kExtraButtons), err) || !looks.loadEdits(extrasFile(pr, kExtraLooks), err))
             return false;
@@ -325,8 +324,16 @@ int drawGameText(HDC dc, RECT r, const std::string& raw, COLORREF normal, int li
 
 // --- Common parts ----------------------------------------------------------------------------------------------
 
-// Saves and records an undo step for whatever changed (the .dat tables do theirs in dataSaved).
-void extrasSaved() {
+bool extrasLoadFailed() {
+    for (int k = 0; k < kExtraKinds; ++k)
+        if (gExtras.loadFailed[k]) return true;
+    return false;
+}
+
+// Saves and records an undo step for whatever changed (the .dat tables do theirs in dataSaved). False when a save
+// failed (its error is the status message).
+bool extrasSaved() {
+    bool ok = true;
     std::string err;
     for (int k = 0; k < kExtraKinds; ++k) {
         const std::string now = extrasText(k);
@@ -338,9 +345,10 @@ void extrasSaved() {
         gExtras.saved[k] = now;
         if (gData.project) {
             const fs::path f = extrasFile(*gData.project, k);
-            if (!extrasSaveFile(k, f, err)) setMessage(widen(err));
+            if (!extrasSaveFile(k, f, err)) setMessage(widen(err)), ok = false;
         }
     }
+    return ok;
 }
 void extrasChanged() {
     dataSaved();
