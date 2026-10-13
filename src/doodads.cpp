@@ -10,6 +10,28 @@
 
 namespace stardraft {
 
+namespace {
+
+// One tile of a terrain section as readTerrain() reads it: the last section of that name that holds the tile, else 0.
+uint16_t terrainTileAt(const Chk& chk, SectionName name, size_t i) {
+    for (auto it = chk.sections.rbegin(); it != chk.sections.rend(); ++it)
+        if (it->name == name && i < it->data.size() / 2) return readU16(it->data, i * 2);
+    return 0;
+}
+
+// The one section of that name, or nullptr when there is none or more than one.
+Section* onlySection(Chk& chk, SectionName name) {
+    Section* found = nullptr;
+    for (auto& s : chk.sections)
+        if (s.name == name) {
+            if (found) return nullptr;
+            found = &s;
+        }
+    return found;
+}
+
+}  // namespace
+
 bool DoodadTypes::load(const GameData& data, const Tileset& ts, uint16_t era, std::string& error) {
     types_.clear();
     Bytes dd;
@@ -115,13 +137,14 @@ bool doodadFits(const Chk& chk, const DoodadType& type, int tileX, int tileY, bo
     }
     if (!checkTerrain) return true;
     // Compare against the editor's terrain (TILE, without doodads), falling back to MTXM.
-    TerrainLayer under = readTerrain(chk, chk.has("TILE") ? "TILE" : "MTXM");
+    // Only the footprint tiles are read (a spray or a nearest-fit search checks many places).
+    const SectionName under = chk.has("TILE") ? "TILE" : "MTXM";
     const DoodadGroundInfo* gi = type.ground.get();
     for (int r = 0; r < type.height; ++r)
         for (int c = 0; c < type.width; ++c) {
             const size_t cell = size_t(r) * type.width + c;
             const uint16_t need = type.required[cell];
-            const uint16_t g = uint16_t(under.tiles[size_t(tileY + r) * w + tileX + c] >> 4);
+            const uint16_t g = uint16_t(terrainTileAt(chk, under, size_t(tileY + r) * w + tileX + c) >> 4);
             // The required group, or another variant of the same piece (a cliff piece that stacks another way: the
             // terrain tools pick among them).
             const bool ok = !need || g == need || (gi && g < gi->piece.size() && need < gi->piece.size() && gi->piece[g] == gi->piece[need]);
@@ -138,29 +161,59 @@ bool placeDoodad(Chk& chk, const DoodadType& type, const Tileset& ts, int tileX,
     if (!doodadFits(chk, type, tileX, tileY, checkTerrain, reason)) return false;
     uint16_t w = 0, h = 0;
     readDimensions(chk, w, h);
-    TerrainLayer mtxm = readTerrain(chk, "MTXM");
+    // One MTXM of the map's size: change only the footprint tiles. Else read all of it and write it back as one section.
+    Section* one = onlySection(chk, "MTXM");
+    const bool inPlace = one && one->data.size() == size_t(w) * h * 2;
+    TerrainLayer mtxm;
+    if (!inPlace) mtxm = readTerrain(chk, "MTXM");
     for (int r = 0; r < type.height; ++r) {
         size_t g = size_t(type.firstGroup) + r;
         if (g >= ts.groups.size()) break;
         for (int c = 0; c < type.width; ++c)
-            if (ts.groups[g].megatiles[c]) mtxm.tiles[size_t(tileY + r) * w + tileX + c] = uint16_t(g << 4 | c);
+            if (ts.groups[g].megatiles[c]) {
+                const size_t k = size_t(tileY + r) * w + tileX + c;
+                const uint16_t v = uint16_t(g << 4 | c);
+                if (inPlace) one->data[k * 2] = uint8_t(v), one->data[k * 2 + 1] = uint8_t(v >> 8);
+                else mtxm.tiles[k] = v;
+            }
     }
-    Bytes packed;
-    for (uint16_t v : mtxm.tiles) appendU16(packed, v);
-    chk.set("MTXM", std::move(packed));
+    if (!inPlace) {
+        Bytes packed;
+        for (uint16_t v : mtxm.tiles) appendU16(packed, v);
+        chk.set("MTXM", std::move(packed));
+    }
 
     Doodad d;
     d.id = type.id;
     d.x = uint16_t(tileX * 32 + type.width * 16);
     d.y = uint16_t(tileY * 32 + type.height * 16);
     d.owner = owner;
-    auto dds = readDoodads(chk);
-    dds.push_back(d);
-    writeDoodads(chk, dds);
+    // One DD2 (THG2) of whole records: append the record. Else read all and write them back as one section.
+    if (Section* dd2 = onlySection(chk, "DD2 "); dd2 && dd2->data.size() % 8 == 0) {
+        appendU16(dd2->data, d.id);
+        appendU16(dd2->data, d.x);
+        appendU16(dd2->data, d.y);
+        dd2->data.push_back(d.owner);
+        dd2->data.push_back(d.disabled);
+    } else {
+        auto dds = readDoodads(chk);
+        dds.push_back(d);
+        writeDoodads(chk, dds);
+    }
     if (type.overlaySprite) {
-        auto sprites = readSprites(chk);
-        sprites.push_back({type.overlaySprite, d.x, d.y, owner, 0, SpriteFlag::DrawAsSprite});
-        writeSprites(chk, sprites);
+        const MapSprite sp{type.overlaySprite, d.x, d.y, owner, 0, SpriteFlag::DrawAsSprite};
+        if (Section* thg2 = onlySection(chk, "THG2"); thg2 && thg2->data.size() % 10 == 0) {
+            appendU16(thg2->data, sp.id);
+            appendU16(thg2->data, sp.x);
+            appendU16(thg2->data, sp.y);
+            thg2->data.push_back(sp.owner);
+            thg2->data.push_back(sp.unused);
+            appendU16(thg2->data, sp.flags);
+        } else {
+            auto sprites = readSprites(chk);
+            sprites.push_back(sp);
+            writeSprites(chk, sprites);
+        }
     }
     return true;
 }
