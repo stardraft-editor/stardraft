@@ -25058,6 +25058,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 if (shows("files workspace, first show", Workspace::Files, [] { return gFiles.wnd; })) paint("files", gFiles.wnd);
                 // Then a project from the open map (in the scratch folder), for the Data, Triggers and Project rows.
                 bool made = activeProject() != nullptr;
+                const bool madeHere = !made;
                 if (!made) {
                     std::error_code ec;
                     fs::remove_all(fs::path(datashots) / "perfproject", ec);
@@ -25103,8 +25104,12 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                             paint("new page", gNew.wnd);
                         }
                     }
-                    if (doc >= 0 && doc < int(gDocs.size()) && doc != gActive) activateDoc(doc), pump();  // the map's tab again, for later specs
+                    if (gActive != doc && activePage()) closeDoc(gActive);  // the page tab goes
+                    if (doc >= 0 && doc < int(gDocs.size()) && doc != gActive) activateDoc(doc);
                 }
+                // The state before perf: for later specs: the map's tab, without the project made here, in Map.
+                if (madeHere && gActive >= 0 && gActive < int(gDocs.size())) gDocs[size_t(gActive)].project.reset(), updateTitle();
+                setWorkspace(Workspace::Map), pump();
                 PROCESS_MEMORY_COUNTERS pmc{sizeof pmc};
                 GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc);
                 log << "memory (MB): " << double(pmc.WorkingSetSize) / 1048576.0 << " working set, " << double(pmc.PeakWorkingSetSize) / 1048576.0 << " peak\n";
