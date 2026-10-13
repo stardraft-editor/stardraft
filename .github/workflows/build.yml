@@ -65,7 +65,8 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}  # a new release is posted in Discord
+          DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}  # a new release is posted in Discord (#updates)
+          DISCORD_GENERAL_WEBHOOK: ${{ secrets.DISCORD_GENERAL_WEBHOOK }}  # and in #general (a webhook of that channel)
         run: |
           $version = $env:GITHUB_REF_NAME.Substring(1)
           $zip = "StarDraft-$version-win64.zip"
@@ -89,8 +90,10 @@ jobs:
           Set-Content notes.md $text -Encoding utf8
           $title = "StarDraft $version (build $($env:GITHUB_SHA.Substring(0, 7)))"
           gh release create $env:GITHUB_REF_NAME $zip --title $title --latest --verify-tag --notes-file notes.md
-          if ($env:DISCORD_RELEASE_WEBHOOK) {
+          # Discord: one post in each channel that has a webhook (a webhook posts in its own channel only).
+          $hooks = @($env:DISCORD_RELEASE_WEBHOOK, $env:DISCORD_GENERAL_WEBHOOK) | Where-Object { $_ }
+          if ($hooks) {
             $url = gh release view $env:GITHUB_REF_NAME --json url --jq .url
             $body = @{ content = "**$title** is out: $url" } | ConvertTo-Json
-            Invoke-RestMethod -Uri $env:DISCORD_RELEASE_WEBHOOK -Method Post -ContentType 'application/json' -Body $body
+            foreach ($hook in $hooks) { Invoke-RestMethod -Uri $hook -Method Post -ContentType 'application/json' -Body $body }
           }
