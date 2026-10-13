@@ -418,6 +418,14 @@ int main(int argc, char** argv) {
         t.actions = {local, ifChat, newUnits, group, humans, trains, block("act.dilateloc", {"1", "16", "16"}), block("act.srand", {"42"}), setX,
                      block("act.victory", {"P2"}), block("act.defeat", {"AllPlayers"}), make("act.ifthen")};
         t.actions.back().lists[1] = {block("act.srand", {"7"})};  // If (no Else): if (...) { ... }
+        TriggerCall richest = make("act.ifthen");  // a condition and an action for another player than the current one
+        TriggerCall most = make("cond.mostresources");
+        most.args[size_t(TriggerDef::find("cond.mostresources")->param("who"))] = "P3";
+        TriggerCall ally = make("act.alliance");
+        ally.args[size_t(TriggerDef::find("act.alliance")->param("who"))] = "P3";
+        richest.lists[0] = {most};
+        richest.lists[1] = {ally};
+        t.actions.push_back(richest);
         set.roots[2].children.push_back(t);
     }
     TriggerCall eachP3 = make("act.foreachplayer");
@@ -792,9 +800,11 @@ int main(int argc, char** argv) {
               code.find("import .sdlib.f_sd_orderAt;") != std::string::npos && TriggerSet::helperLibrary().find("function sd_order(u: CUnit") != std::string::npos,
           "one unit's order: none, at a location, at a point, on a unit");
     check(code.find("(getcurpl() < P5)") != std::string::npos, "the current player compared with a player (inside For each player)");
-    check(code.find("0x02 >> plEnd") != std::string::npos && code.find("0xFF >> plEnd") != std::string::npos && code.find("            Victory();") != std::string::npos &&
-              code.find("            Defeat();") != std::string::npos,
+    check(code.find("0x02 >> plWho") != std::string::npos && code.find("0xFF >> plWho") != std::string::npos && code.find("Victory();") != std::string::npos &&
+              code.find("Defeat();") != std::string::npos,
           "Victory for Player 2 and Defeat for all players (each as the current player in turn)");
+    check(code.find("setcurpl(P3);") != std::string::npos && code.find("function sd_as") != std::string::npos && code.find("0x04 >> plWho") != std::string::npos,
+          "a current-player condition checked as Player 3, an action for Player 3 (who)");
     check(code.find("TrgPlayer(getcurpl()).terranSupplyMax = 300;") != std::string::npos &&
               code.find("TrgPlayer(getcurpl()).mineral += bread(sd_upgradeAddr(getcurpl(), 50));") != std::string::npos &&
               code.find("(TrgPlayer(getcurpl()).gas >= 100)") != std::string::npos,
@@ -874,7 +884,7 @@ int main(int argc, char** argv) {
     const auto found = bad.check(map);
     check(hasIssue(found, "has a value only in For each unit"), "checker: \"the unit\" outside a unit loop");
     check(hasIssue(found, "they can miss Exactly", TriggerIssue::Level::Warning), "checker: Exactly on game time");
-    check(hasIssue(found, "Put it in For each player", TriggerIssue::Level::Warning), "checker: current player outside For each player");
+    check(hasIssue(found, "has a value only in For each player", TriggerIssue::Level::Warning), "checker: current player outside For each player");
     check(hasIssue(found, "the other triggers of the player stop", TriggerIssue::Level::Warning), "checker: Wait");
     check(hasIssue(found, "no location Nowhere") && hasIssue(found, "Use a value from 1 to 255") && hasIssue(found, "no variable with the name gld"),
           "checker: unknown location, out of range, unknown variable");
@@ -914,7 +924,7 @@ int main(int argc, char** argv) {
         const std::vector<Sample> samples = {
             {"\"the unit\" outside a unit loop", [&](TriggerNode& t) { t.actions = {make("act.unitkill")}; }, "has a value only in For each unit",
              TriggerIssue::Level::Error},
-            {"current player where there is none", [&](TriggerNode& t) { t.actions = {make("act.ai")}; }, "Put it in For each player",
+            {"current player where there is none", [&](TriggerNode& t) { t.actions = {make("act.ai")}; }, "has a value only in For each player",
              TriggerIssue::Level::Warning},
             {"Wait", [&](TriggerNode& t) { t.actions = {make("act.wait")}; }, "the other triggers of the player stop", TriggerIssue::Level::Warning},
             {"Transmission", [&](TriggerNode& t) { t.actions = {make("act.transmission")}; }, "Show text and Talking portrait do not stop them",
@@ -1102,7 +1112,7 @@ int main(int argc, char** argv) {
             };
             const bool unitOk = !hasIssue(issuesWith(make("act.unitkill")), "has a value only in For each unit");
             const bool counterOk = !hasIssue(issuesWith(block("act.setvar", {"SetTo", "counter", "gold"})), "\"counter\" has a value only");
-            const bool playerOk = !hasIssue(issuesWith(make("act.ai")), "Put it in For each player", TriggerIssue::Level::Warning);
+            const bool playerOk = !hasIssue(issuesWith(make("act.ai")), "has a value only in For each player", TriggerIssue::Level::Warning);
             const bool same = unitOk == d.has("theunit") && counterOk == d.has("counter") && playerOk == d.has("curplayer");
             agree += same;
             if (!same) std::printf("      %s: the unit %d/%d, counter %d/%d, current player %d/%d (code/effect)\n", d.id.c_str(), unitOk, d.has("theunit"), counterOk,
