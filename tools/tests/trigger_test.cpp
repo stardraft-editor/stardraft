@@ -837,7 +837,7 @@ int main(int argc, char** argv) {
     TriggerCall exact = make("cond.elapsed");
     exact.args[0] = "Exactly";
     wrong.conditions.push_back(exact);
-    wrong.actions.push_back(make("act.victory"));  // current player outside For each player
+    wrong.actions.push_back(make("act.draw"));  // current player outside For each player (Draw: always the current player)
     wrong.actions.push_back(make("act.wait"));
     TriggerCall far = make("act.createunit");
     far.args[2] = "Nowhere";
@@ -914,7 +914,7 @@ int main(int argc, char** argv) {
         const std::vector<Sample> samples = {
             {"\"the unit\" outside a unit loop", [&](TriggerNode& t) { t.actions = {make("act.unitkill")}; }, "has a value only in For each unit",
              TriggerIssue::Level::Error},
-            {"current player where there is none", [&](TriggerNode& t) { t.actions = {make("act.victory")}; }, "Put it in For each player",
+            {"current player where there is none", [&](TriggerNode& t) { t.actions = {make("act.draw")}; }, "Put it in For each player",
              TriggerIssue::Level::Warning},
             {"Wait", [&](TriggerNode& t) { t.actions = {make("act.wait")}; }, "the other triggers of the player stop", TriggerIssue::Level::Warning},
             {"Transmission", [&](TriggerNode& t) { t.actions = {make("act.transmission")}; }, "Show text and Talking portrait do not stop them",
@@ -1102,7 +1102,7 @@ int main(int argc, char** argv) {
             };
             const bool unitOk = !hasIssue(issuesWith(make("act.unitkill")), "has a value only in For each unit");
             const bool counterOk = !hasIssue(issuesWith(block("act.setvar", {"SetTo", "counter", "gold"})), "\"counter\" has a value only");
-            const bool playerOk = !hasIssue(issuesWith(make("act.victory")), "Put it in For each player", TriggerIssue::Level::Warning);
+            const bool playerOk = !hasIssue(issuesWith(make("act.draw")), "Put it in For each player", TriggerIssue::Level::Warning);
             const bool same = unitOk == d.has("theunit") && counterOk == d.has("counter") && playerOk == d.has("curplayer");
             agree += same;
             if (!same) std::printf("      %s: the unit %d/%d, counter %d/%d, current player %d/%d (code/effect)\n", d.id.c_str(), unitOk, d.has("theunit"), counterOk,

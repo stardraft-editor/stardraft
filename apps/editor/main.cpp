@@ -12158,12 +12158,16 @@ void pickUnitNames(RECT b) {
 // A pop-out's message loop: a mouse press outside the pop-out (and outside the pop-outs it opened) only closes it (the
 // pop-out closes when it loses activation); the press does not go on to the window under it, so it cannot open a
 // second pop-out.
+UINT gEatButtonUp = 0;  // the button-up message of a press a pop-out ate (the main loop drops it)
 bool popoutEatsPress(const MSG& m, HWND pop) {
     if (m.message != WM_LBUTTONDOWN && m.message != WM_RBUTTONDOWN && m.message != WM_MBUTTONDOWN && m.message != WM_NCLBUTTONDOWN &&
         m.message != WM_NCRBUTTONDOWN && m.message != WM_LBUTTONDBLCLK)
         return false;
     for (HWND w = GetAncestor(m.hwnd, GA_ROOT); w; w = GetWindow(w, GW_OWNER))
         if (w == pop) return false;  // in it, or in a pop-out it opened
+    gEatButtonUp = m.message == WM_RBUTTONDOWN || m.message == WM_NCRBUTTONDOWN ? WM_RBUTTONUP
+                 : m.message == WM_MBUTTONDOWN                                ? WM_MBUTTONUP
+                                                                              : WM_LBUTTONUP;
     return true;
 }
 
@@ -13687,18 +13691,24 @@ void trigPaneMenu(POINT screen) {
         HMENU sub = CreatePopupMenu();
         AppendMenuW(sub, MF_STRING, cond ? AddCond : AddAct, L"&Search\x2026");
         AppendMenuW(sub, MF_SEPARATOR, 0, nullptr);
+        constexpr int kPart = 15;  // the most blocks in one submenu: a menu taller than the screen cannot show all (it does not scroll)
         for (const std::string& cat : TriggerDef::categories(cond)) {
-            HMENU cm = CreatePopupMenu();
-            int n = 0;
-            for (const auto& d : TriggerDef::all()) {
-                if (d.value || d.condition != cond || d.tier == "replaced" || d.tier == "hidden" || d.category != cat) continue;
-                std::wstring title = widen(d.title);
-                for (size_t q = title.find(L'&'); q != std::wstring::npos; q = title.find(L'&', q + 2)) title.insert(q, 1, L'&');
-                AppendMenuW(cm, MF_STRING, UINT_PTR(Block + blocks.size()), title.c_str());
-                blocks.push_back(&d), ++n;
+            std::vector<const TriggerDef*> list;
+            for (const auto& d : TriggerDef::all())
+                if (!d.value && d.condition == cond && d.tier != "replaced" && d.tier != "hidden" && d.category == cat) list.push_back(&d);
+            const int parts = (int(list.size()) + kPart - 1) / kPart;
+            for (int part = 0; part < parts; ++part) {
+                HMENU cm = CreatePopupMenu();
+                for (int k = part * kPart; k < std::min(int(list.size()), (part + 1) * kPart); ++k) {
+                    std::wstring title = widen(list[size_t(k)]->title);
+                    for (size_t q = title.find(L'&'); q != std::wstring::npos; q = title.find(L'&', q + 2)) title.insert(q, 1, L'&');
+                    AppendMenuW(cm, MF_STRING, UINT_PTR(Block + blocks.size()), title.c_str());
+                    blocks.push_back(list[size_t(k)]);
+                }
+                std::wstring name = widen(cat);
+                if (parts > 1) name += L" (" + std::to_wstring(part + 1) + L" of " + std::to_wstring(parts) + L")";
+                AppendMenuW(sub, MF_POPUP, UINT_PTR(cm), name.c_str());
             }
-            if (n) AppendMenuW(sub, MF_POPUP, UINT_PTR(cm), widen(cat).c_str());
-            else DestroyMenu(cm);
         }
         AppendMenuW(m, MF_POPUP, UINT_PTR(sub), cond ? L"Add a &condition" : L"Add an &action");
     };
@@ -19614,6 +19624,9 @@ HACCEL buildAccelerators() {
 // The mouse's back and forward buttons: in the Data workspace, over any of its panes (the list, the form, the tabs,
 // References, a preview), not only the list and the form. True when it took the message.
 bool appXButton(const MSG& msg) {
+    // (Also: the button-up of a press that closed a pop-out goes nowhere: it must not open a menu after it.)
+    if (gEatButtonUp && msg.message == gEatButtonUp) return gEatButtonUp = 0, true;
+    if (msg.message == WM_LBUTTONDOWN || msg.message == WM_RBUTTONDOWN || msg.message == WM_MBUTTONDOWN) gEatButtonUp = 0;
     if ((msg.message != WM_XBUTTONUP && msg.message != WM_XBUTTONDOWN && msg.message != WM_XBUTTONDBLCLK) || gWorkspace != Workspace::Data ||
         GetAncestor(msg.hwnd, GA_ROOT) != app.main)
         return false;

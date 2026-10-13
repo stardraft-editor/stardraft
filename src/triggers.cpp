@@ -1828,8 +1828,8 @@ struct Gen {
     }
 
     void blockChecks(const TriggerCall& c, const TriggerDef& d) {
-        const bool forOthers = d.param("who") >= 0 && !raw(c, d, "who").empty() && raw(c, d, "who") != "CurrentPlayer";  // (Victory, Defeat)
-        if (d.has("cp") && !playerLoops && !forOthers)
+        // (Victory, Defeat: their "who" value has its own warning when it is the current player outside For each player)
+        if (d.has("cp") && !playerLoops && d.param("who") < 0)
             issue(TriggerIssue::Level::Warning, &c, -1, d.title + " acts for the current player. Put it in For each player");
         if (d.has("local") && raw(c, d, "to") == "current" && !playerLoops)
             issue(TriggerIssue::Level::Warning, &c, d.param("to"), "\"the current player\" has a value only in For each player");
@@ -2371,7 +2371,7 @@ struct Gen {
             // switches, deaths, the random numbers, the trigger list's timing) is no longer the same, and the game
             // desyncs. What only shows or plays here is safe; variables are safe only while nothing that changes
             // the game reads them.
-            static const std::set<std::string> flow = {"act.if",        "act.repeat", "act.forrange", "act.foreachitem", "act.foreachplayer", "act.while",
+            static const std::set<std::string> flow = {"act.if", "act.ifthen",        "act.repeat", "act.forrange", "act.foreachitem", "act.foreachplayer", "act.while",
                                                        "act.foreachunit", "act.foreachnewunit", "act.once", "act.local", "act.after", "act.every", "act.sequence"};
             // Data only this computer uses (what it draws or plays: images, strings, sounds, wireframes, buttons, names,
             // colors) is safe; what the game sends over the network or simulates is not.

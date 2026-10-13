@@ -24,7 +24,9 @@ std::wstring blockKindText(const TriggerDef& d) { return d.condition ? L"conditi
 std::vector<std::wstring> blockEffectTexts(const TriggerDef& d) {
     std::vector<std::wstring> out;
     if (d.has("local")) out.push_back(L"Only the player on this computer sees or hears it.");
-    if (d.has("cp")) out.push_back(L"It acts for the current player. Put it in For each player.");
+    if (d.has("cp"))
+        out.push_back(d.param("who") >= 0 ? L"It acts for the player that you select. The current player has a value only in For each player."
+                                          : L"It acts for the current player. Put it in For each player.");
     if (d.has("blocking")) out.push_back(L"It holds up the other triggers of the player until it is complete.");
     if (d.has("memory")) out.push_back(L"It reads or writes game memory at an address.");
     if (d.has("unitloop")) out.push_back(L"It goes through units, up to 1,700 each time it runs.");
