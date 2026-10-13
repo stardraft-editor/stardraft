@@ -162,6 +162,7 @@ enum : int {
     ID_VIEW_RANGES = 975,  // View > Show ranges of the selected units (GitHub feedback #109)
     ID_VIEW_MINIMAP = 976,  // View > Show minimap (GitHub feedback #127)
     ID_LAYER = 990,         // + View > Layers: 0 terrain, 1 doodads, 2 sprites, 3 units
+    ID_RAIL_KEY = 1000,     // + n: Ctrl+1 to Ctrl+9, the n-th item of the side bar (the tab's mode: a classic map or a project)
     ID_CRASH_MODE = 980,   // + Options > Crash reports: 0 ask, 1 send, 2 do not send
 };
 // View > Grid size: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
@@ -3868,6 +3869,7 @@ void command(int id) {
 
 bool modeLayerHidden();
 void modeLayerHiddenMessage();
+int railItemId(size_t n);  // the side bar's n-th item's command (0: none)
 void commandBody(int id) {
     // The active mode's layer is hidden (View > Layers): the edits of the map are refused.
     if (gWorkspace == Workspace::Map && modeLayerHidden() &&
@@ -3985,6 +3987,14 @@ void commandBody(int id) {
         updateMenus();
         app.dirty = true;
         break;
+    }
+    case ID_RAIL_KEY: case ID_RAIL_KEY + 1: case ID_RAIL_KEY + 2: case ID_RAIL_KEY + 3: case ID_RAIL_KEY + 4:
+    case ID_RAIL_KEY + 5: case ID_RAIL_KEY + 6: case ID_RAIL_KEY + 7: case ID_RAIL_KEY + 8: {
+        // The side bar's items as it shows them (a classic map: Map, Map data, Map triggers, ...; a project: Map, Data,
+        // Triggers, ...), so Ctrl+n goes to the n-th, in each mode.
+        if (gWsBar) RedrawWindow(gWsBar, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);  // (the items of this tab)
+        if (const int item = railItemId(size_t(id - ID_RAIL_KEY))) command(item);
+        return;
     }
     case ID_VIEW_MINIMAP:
         gDock.minimapHidden = !gDock.minimapHidden;
@@ -6726,6 +6736,7 @@ struct WsHit {
     std::wstring name;  // for Report feedback
 };
 std::vector<WsHit> gWsHits;
+int railItemId(size_t n) { return n < gWsHits.size() ? gWsHits[n].id : 0; }
 int gWsHot = -1;
 
 // The rail: the active tab's workspaces as icon + label, top down; Build (a project) or Make project (a
@@ -19098,9 +19109,9 @@ HMENU buildMenu() {
     AppendMenuW(view, MF_STRING, ID_WS_MAP, L"&Map workspace\tCtrl+1");
     AppendMenuW(view, MF_STRING, ID_WS_DATA, L"&Data workspace\tCtrl+2");
     AppendMenuW(view, MF_STRING, ID_WS_TRIGGERS, L"&Triggers workspace\tCtrl+3");
-    AppendMenuW(view, MF_STRING, ID_WS_BRIEFING, L"&Briefing workspace\tCtrl+4");
-    AppendMenuW(view, MF_STRING, ID_WS_FILES, L"&Assets workspace\tCtrl+5");
-    AppendMenuW(view, MF_STRING, ID_WS_PROJECT, L"&Project page\tCtrl+6");
+    AppendMenuW(view, MF_STRING, ID_WS_BRIEFING, L"&Briefing workspace");  // (Ctrl+n: the side bar's n-th item)
+    AppendMenuW(view, MF_STRING, ID_WS_FILES, L"&Assets workspace");
+    AppendMenuW(view, MF_STRING, ID_WS_PROJECT, L"&Project page");
     AppendMenuW(mode, MF_STRING, ID_MODE_TERRAIN, L"&Terrain\tT");
     AppendMenuW(mode, MF_STRING, ID_MODE_UNITS, L"&Units\tU");
     AppendMenuW(mode, MF_STRING, ID_MODE_DOODADS, L"&Doodads\tD");
@@ -19583,9 +19594,10 @@ HACCEL buildAccelerators() {
         {FVIRTKEY, 'T', ID_MODE_TERRAIN},                {FVIRTKEY, 'U', ID_MODE_UNITS},
         {FVIRTKEY, 'D', ID_MODE_DOODADS},                {FVIRTKEY, 'L', ID_MODE_LOCATIONS}, {FVIRTKEY, 'S', ID_MODE_SPRITES},
         {FVIRTKEY, 'G', ID_VIEW_GRID},                   {FVIRTKEY, 'V', ID_TOOL_KEY},     {FVIRTKEY, 'B', ID_TOOL_KEY + 1},
-        {FVIRTKEY, 'A', ID_TOOL_KEY + 2},                {FVIRTKEY, 'F', ID_TOOL_KEY + 3},                   {FCONTROL | FVIRTKEY, '1', ID_WS_MAP},
-        {FCONTROL | FVIRTKEY, '2', ID_WS_DATA},   {FCONTROL | FVIRTKEY, '3', ID_WS_TRIGGERS},
-        {FCONTROL | FVIRTKEY, '4', ID_WS_BRIEFING}, {FCONTROL | FVIRTKEY, '5', ID_WS_FILES}, {FCONTROL | FVIRTKEY, '6', ID_WS_PROJECT},                   {FCONTROL | FVIRTKEY, 'B', ID_PROJ_COMPILE}, {FCONTROL | FVIRTKEY, 'P', ID_SCEN_PLAYERS}, {FCONTROL | FVIRTKEY, 'M', ID_SCEN_PROPS}, {FCONTROL | FVIRTKEY, 'L', ID_VIEW_LOG},                   {FVIRTKEY, 'Q', ID_QUICKPICK},
+        {FVIRTKEY, 'A', ID_TOOL_KEY + 2},                {FVIRTKEY, 'F', ID_TOOL_KEY + 3},                   {FCONTROL | FVIRTKEY, '1', ID_RAIL_KEY},
+        {FCONTROL | FVIRTKEY, '2', ID_RAIL_KEY + 1}, {FCONTROL | FVIRTKEY, '3', ID_RAIL_KEY + 2}, {FCONTROL | FVIRTKEY, '4', ID_RAIL_KEY + 3},
+        {FCONTROL | FVIRTKEY, '5', ID_RAIL_KEY + 4}, {FCONTROL | FVIRTKEY, '6', ID_RAIL_KEY + 5}, {FCONTROL | FVIRTKEY, '7', ID_RAIL_KEY + 6},
+        {FCONTROL | FVIRTKEY, '8', ID_RAIL_KEY + 7}, {FCONTROL | FVIRTKEY, '9', ID_RAIL_KEY + 8},                   {FCONTROL | FVIRTKEY, 'B', ID_PROJ_COMPILE}, {FCONTROL | FVIRTKEY, 'P', ID_SCEN_PLAYERS}, {FCONTROL | FVIRTKEY, 'M', ID_SCEN_PROPS}, {FCONTROL | FVIRTKEY, 'L', ID_VIEW_LOG},                   {FVIRTKEY, 'Q', ID_QUICKPICK},
         {FVIRTKEY, '1', ID_PLAYER_1},     {FVIRTKEY, '2', ID_PLAYER_1 + 1}, {FVIRTKEY, '3', ID_PLAYER_1 + 2},
         {FVIRTKEY, '4', ID_PLAYER_1 + 3}, {FVIRTKEY, '5', ID_PLAYER_1 + 4}, {FVIRTKEY, '6', ID_PLAYER_1 + 5},
         {FVIRTKEY, '7', ID_PLAYER_1 + 6}, {FVIRTKEY, '8', ID_PLAYER_1 + 7}, {FVIRTKEY, '9', ID_PLAYER_1 + 8},
@@ -19780,16 +19792,17 @@ void selfTestTwoModes(std::ofstream& log, const fs::path& dir, const fs::path& c
         GetWindowTextW(app.main, buf, 512);
         const std::wstring tab = docTitle(gActive), title = buf, mark = isProject ? L" (project)" : L" (map)", other = isProject ? L" (map)" : L" (project)";
         const bool titled = tab.find(mark) != std::wstring::npos && tab.find(other) == std::wstring::npos && title.rfind(tab, 0) == 0;
-        ctrlKey('2');  // Data: only in a project
-        if (isProject && gWorkspace != Workspace::Data) ctrlKey('2');  // (once more: the simulated Ctrl key can be lost)
-        const bool ctrl2 = (gWorkspace == Workspace::Data) == isProject;
+        ctrlKey('2');  // the side bar's second item: Data in a project, Map data in a classic map
+        const Workspace want2 = isProject ? Workspace::Data : Workspace::ClassicSettings;
+        if (gWorkspace != want2) ctrlKey('2');  // (once more: the simulated Ctrl key can be lost)
+        const bool ctrl2 = gWorkspace == want2;
         command(ID_WS_MAP);
         capture(dir / shotName);
         log << "two modes, " << (isProject ? "project" : "map") << " tab: rail has only its workspaces " << (rail ? "yes" : "NO")
             << ", project commands " << (isProject ? "enabled " : "grayed ") << (menus ? "yes" : "NO")
             << ", Make this map a project, Map, Briefing and Assets enabled " << (fromMap ? "yes" : "NO")
             << ", tab and title say" << narrow(mark) << " " << (titled ? "yes" : "NO")
-            << ", Ctrl+2 " << (isProject ? "opens Data " : "does nothing ") << (ctrl2 ? "yes" : "NO") << " (" << narrow(title) << ")\n";
+            << ", Ctrl+2 " << (isProject ? "opens Data " : "opens Map data ") << (ctrl2 ? "yes" : "NO") << " (" << narrow(title) << ")\n";
     };
     check(false, "62b_two_modes_map.png");
     {
@@ -25453,6 +25466,17 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(gTiles.list, WM_LBUTTONUP, 0, at(2, 1));
                 const size_t want = std::min<size_t>(gTiles.values.size(), size_t(std::min(3, gTiles.perRow)) * 2);
                 o << "the box selects the tiles in it: " << gTiles.chosen.size() << " of " << want << " " << (gTiles.chosen.size() == want ? "yes" : "NO") << "\n";
+                continue;
+            }
+            if (s == "railkeys:") {  // railkeys.txt: Ctrl+1, 2, 3 go to the side bar's items: a classic map: Map, Map data, Map triggers
+                std::ofstream o(fs::path(datashots) / "railkeys.txt");
+                const struct { int key; Workspace want; const char* name; } cases[] = {
+                    {1, Workspace::ClassicSettings, "Ctrl+2 Map data"}, {2, Workspace::ClassicTriggers, "Ctrl+3 Map triggers"}, {0, Workspace::Map, "Ctrl+1 Map"}};
+                for (const auto& c : cases) {
+                    SendMessageW(app.main, WM_COMMAND, MAKEWPARAM(ID_RAIL_KEY + c.key, 1), 0);
+                    for (int i = 0; i < 3; ++i) pump();
+                    o << c.name << " " << (gWorkspace == c.want ? "yes" : "NO") << "\n";
+                }
                 continue;
             }
             if (s == "midpan:") {  // midpan.txt: the middle button held away from where it was pressed scrolls the map
