@@ -3668,7 +3668,7 @@ void paste() {
         app.pastingItems = true;
         unitPaletteRepaint(), fillToolCombo();
         app.dirty = true;
-        setMessage(L"Paste: click to place the copy. Shift+click pastes again. Esc goes back to Select.");
+        setMessage(L"Paste: click to place the copy, and again to place more. Right-click or Esc stops.");
         return;
     }
     if (app.ed && app.mode == Mode::Locations) {  // a copy of the location, at the mouse
@@ -3708,8 +3708,8 @@ void paste() {
         fillToolCombo();
         app.terrainPasting = true;
         app.dirty = true;
-        setMessage(app.terrainRect ? L"Paste tiles: click to place them. Shift+click pastes again. Esc cancels."
-                                   : L"Paste terrain: click to place it. Press R to turn it. Shift+click pastes again. Esc cancels.");
+        setMessage(app.terrainRect ? L"Paste tiles: click to place them, and again to place more. Right-click or Esc stops."
+                                   : L"Paste terrain: click to place it, and again to place more. Press R to turn it. Right-click or Esc stops.");
         return;
     }
     if (!app.ed || !app.ed->canPaste()) return;
@@ -3725,7 +3725,7 @@ void paste() {
     app.pasting = true;
     app.dirty = true;
     setMessage(L"Paste " + std::to_wstring(app.ed->clipboard().size()) +
-               L" units: click to place them. Shift+click pastes again. Esc or right-click cancels.");
+               L" units: click to place them, and again to place more. Right-click or Esc stops.");
 }
 
 void openAny(const fs::path& path);
@@ -4796,7 +4796,7 @@ void mouseDown(int sx, int sy, WPARAM keys) {
             for (auto& it : items) it.x += int(snapToCell(wx, app.spriteGrid)), it.y += int(snapToCell(wy, app.spriteGrid));
             const int n = ed.placeSprites(items);
             setMessage(L"Pasted " + std::to_wstring(n) + L" sprites");
-            if (!(keys & MK_SHIFT)) app.pastingItems = false;
+            // (the copy stays on the mouse: click again to paste again; right-click or Esc stops; GitHub feedback #123)
         } else {
             selectItemAt(app.selSprites, mapSpriteAt(ed, int(wx), int(wy)), keys, Drag::MoveSprite);
         }
@@ -4833,7 +4833,7 @@ void mouseDown(int sx, int sy, WPARAM keys) {
             for (auto& it : items) it.x += int(wx), it.y += int(wy);
             const int n = ed.placeDoodads(items, app.doodadCheck, app.doodadNearest);
             setMessage(L"Pasted " + std::to_wstring(n) + L" of " + std::to_wstring(items.size()) + L" doodads (the others do not fit there)");
-            if (!(keys & MK_SHIFT)) app.pastingItems = false;
+            // (the copy stays on the mouse: click again to paste again; right-click or Esc stops; GitHub feedback #123)
         } else {
             // Nothing picked: select (Ctrl or Shift adds), drag to move, a drag on empty ground selects with a box.
             selectItemAt(app.selDoodads, ed.doodadAt(int(wx), int(wy)), keys, Drag::MoveDoodad);
@@ -25350,6 +25350,41 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(gTiles.list, WM_LBUTTONUP, 0, at(2, 1));
                 const size_t want = std::min<size_t>(gTiles.values.size(), size_t(std::min(3, gTiles.perRow)) * 2);
                 o << "the box selects the tiles in it: " << gTiles.chosen.size() << " of " << want << " " << (gTiles.chosen.size() == want ? "yes" : "NO") << "\n";
+                continue;
+            }
+            if (s == "pastestay:") {  // pastestay.txt: a paste of tiles stays on the mouse after clicks; Esc ends it (#123)
+                std::ofstream o(fs::path(datashots) / "pastestay.txt");
+                newMap(64, 64, 0, 1);
+                Editor& ed = *app.ed;
+                setWorkspace(Workspace::Map);
+                command(ID_MODE_TERRAIN);
+                app.terrainRect = true, app.brushShape = Brush::Square;
+                fillToolCombo();
+                centerOn(ed.width() * 16.0f, ed.height() * 16.0f, 1);
+                for (int i = 0; i < 3; ++i) pump();
+                app.toolByMode[int(Mode::Terrain)] = TSelect;
+                auto click = [&](float x, float y, WPARAM extra = 0) {
+                    int sx, sy;
+                    toScreen(x, y, sx, sy);
+                    SendMessageW(app.view, WM_LBUTTONDOWN, MK_LBUTTON | extra, MAKELPARAM(sx, sy));
+                    SendMessageW(app.view, WM_LBUTTONUP, 0, MAKELPARAM(sx, sy));
+                };
+                const float cx = ed.width() * 16.0f, cy = ed.height() * 16.0f;
+                int sx0, sy0, sx1, sy1;
+                toScreen(cx + 5, cy + 5, sx0, sy0), toScreen(cx + 70, cy + 70, sx1, sy1);
+                SendMessageW(app.view, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(sx0, sy0));
+                SendMessageW(app.view, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(sx1, sy1));
+                SendMessageW(app.view, WM_LBUTTONUP, 0, MAKELPARAM(sx1, sy1));
+                command(ID_EDIT_COPY);
+                command(ID_EDIT_PASTE);
+                const bool pasting = app.terrainPasting;
+                click(cx - 200, cy - 200);
+                const bool after1 = app.terrainPasting;
+                click(cx + 200, cy + 200);
+                const bool after2 = app.terrainPasting;
+                SendMessageW(app.view, WM_KEYDOWN, VK_ESCAPE, 0);
+                o << "the paste stays on the mouse after two clicks " << (pasting && after1 && after2 ? "yes" : "NO") << ", Esc ends it "
+                  << (!app.terrainPasting ? "yes" : "NO") << "\n";
                 continue;
             }
             if (s == "crashask:") {  // crashask.txt, crashask.png: after a crash, the next start asks; Esc (Do not send) keeps it here (#45)

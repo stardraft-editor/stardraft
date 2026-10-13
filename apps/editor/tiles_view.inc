@@ -740,7 +740,7 @@ bool tilesMouseDown(float wx, float wy, WPARAM keys) {
         if (app.terrainPasting && ed.hasTileClipboard()) {
             ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
             tilesPlacedMessage(ed.pasteTiles(tx, ty), L"Pasted");
-            app.terrainPasting = (keys & MK_SHIFT) != 0;
+            // The copy stays on the mouse, as a brush: click again to paste again; right-click or Esc stops (GitHub feedback #123).
             app.drag = Drag::None;
         } else {
             app.drag = Drag::TerrainSelect;
