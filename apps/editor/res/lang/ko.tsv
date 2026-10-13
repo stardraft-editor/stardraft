@@ -43,7 +43,7 @@ Oct	10월
 Nov	11월
 Dec	12월
 built %s %u %02u:%02u	빌드 %s %u %02u:%02u
-StarDraft 	StarDraft 
+StarDraft 2 	StarDraft 2 
 Untitled	제목 없음
 Badlands	Badlands
 Space Platform	Space Platform
@@ -77,8 +77,8 @@ Select the StarCraft: Remastered folder. It contains .build.info.	StarCraft: Rem
 Not a StarCraft: Remastered folder	StarCraft: Remastered 폴더가 아닙니다
 Could not read the game data in this folder:\r\n	이 폴더의 게임 데이터를 읽을 수 없습니다:\r\n
 StarCraft folder	StarCraft 폴더
-StarDraft uses this folder after the next start:\r\n	StarDraft는 다음 시작부터 이 폴더를 사용합니다:\r\n
-\r\nTo use it now, restart StarDraft.	\r\n지금 사용하려면 StarDraft를 다시 시작하세요.
+StarDraft 2 uses this folder after the next start:\r\n	StarDraft는 다음 시작부터 이 폴더를 사용합니다:\r\n
+\r\nTo use it now, restart StarDraft 2.	\r\n지금 사용하려면 StarDraft를 다시 시작하세요.
 Start	시작
 Untitled 	제목 없음 
  (project)	 (프로젝트)
@@ -109,9 +109,9 @@ euddraft's build file: Build writes it	euddraft의 빌드 파일: 빌드가 이 
 the built map: Build (Ctrl+B) writes the output file instead	빌드된 맵: 빌드(Ctrl+B)가 대신 출력 파일을 씁니다
 the built map: Build (Ctrl+B) writes it	빌드된 맵: 빌드(Ctrl+B)가 이 파일을 씁니다
 your code (epScript). To add more, use File > Project > Add script.	사용자 코드(epScript). 더 추가하려면 파일 > 프로젝트 > 스크립트 추가를 사용하세요.
-StarDraft makes the folder 	StarDraft가 폴더를 만듭니다: 
+StarDraft 2 makes the folder 	StarDraft가 폴더를 만듭니다: 
 \\ in the location above:\r\n\r\n	\\ 위 위치에:\r\n\r\n
-\r\nOn the first build, StarDraft downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n첫 빌드에서 StarDraft는 GitHub에서 euddraft를 자신의 폴더로 내려받습니다.\r\nStarDraft는 이 컴퓨터의 다른 사본을 변경하지 않습니다. 열어 둔 맵은\r\n일반 맵으로 유지됩니다. 프로젝트만 빌드할 수 있습니다.
+\r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n첫 빌드에서 StarDraft는 GitHub에서 euddraft를 자신의 폴더로 내려받습니다.\r\nStarDraft는 이 컴퓨터의 다른 사본을 변경하지 않습니다. 열어 둔 맵은\r\n일반 맵으로 유지됩니다. 프로젝트만 빌드할 수 있습니다.
 Name	이름
 Location	위치
 Browse…	찾아보기…
@@ -168,8 +168,8 @@ Opened 	열었습니다:
 Could not create the map	맵을 만들 수 없습니다
 Created a new 	새로 만들었습니다: 
  map (	 맵 (
-StarDraft project (*.stardraft)*.stardraft	StarDraft 프로젝트 (*.stardraft)*.stardraft
-Save the project (StarDraft makes a folder with its name here)	프로젝트를 저장하세요 (StarDraft가 여기에 프로젝트 이름의 폴더를 만듭니다)
+StarDraft 2 project (*.stardraft)*.stardraft	StarDraft 2 프로젝트 (*.stardraft)*.stardraft
+Save the project (StarDraft 2 makes a folder with its name here)	프로젝트를 저장하세요 (StarDraft가 여기에 프로젝트 이름의 폴더를 만듭니다)
 The name cannot hold \\ / : * ? " < > |	이름에는 \\ / : * ? " < > |를 사용할 수 없습니다
 Save project	프로젝트 저장
  is there already and is not empty.	 이(가) 이미 있으며 비어 있지 않습니다.
@@ -200,8 +200,8 @@ Paste 	붙여넣기
  is gone; removed from the list	 이(가) 없어져서 목록에서 제거했습니다
 This tab is a classic map. This command needs a project. File > Project > Make this map a project makes one.	이 탭은 일반 맵입니다. 이 명령에는 프로젝트가 필요합니다. 파일 > 프로젝트 > 이 맵을 프로젝트로 만들기를 사용하세요.
 This command is for classic maps only	이 명령은 일반 맵 전용입니다
-StarDraft project (*.stardraft;*.eds)*.stardraft;*.eds	StarDraft 프로젝트 (*.stardraft;*.eds)*.stardraft;*.eds
-StarDraft	StarDraft
+StarDraft 2 project (*.stardraft;*.eds)*.stardraft;*.eds	StarDraft 2 프로젝트 (*.stardraft;*.eds)*.stardraft;*.eds
+StarDraft 2	StarDraft 2
 Trigger code needs an EUD project	트리거 코드에는 EUD 프로젝트가 필요합니다
 StarCraft can start this map	StarCraft에서 이 맵을 시작할 수 있습니다
 Check that StarCraft can start the map	StarCraft에서 맵을 시작할 수 있는지 확인
@@ -228,18 +228,18 @@ Cut the terrain: 	지형을 잘라냈습니다:
 Select units to duplicate	복제할 유닛을 선택하세요
 Deleted 	삭제함: 
 Selected 	선택함: 
-StarDraft looks for a newer release on start	StarDraft는 시작할 때 새 릴리스를 확인합니다
-StarDraft does not look for a newer release on start	StarDraft는 시작할 때 새 릴리스를 확인하지 않습니다
-StarDraft sends an anonymous report when it crashes	StarDraft는 충돌할 때 익명 보고서를 보냅니다
-StarDraft does not send crash reports (a report stays on this computer)	StarDraft는 충돌 보고서를 보내지 않습니다 (보고서는 이 컴퓨터에 남습니다)
-The last project opens when StarDraft starts	StarDraft를 시작하면 마지막 프로젝트가 열립니다
-StarDraft starts with no project open	StarDraft는 프로젝트를 열지 않고 시작합니다
+StarDraft 2 looks for a newer release on start	StarDraft는 시작할 때 새 릴리스를 확인합니다
+StarDraft 2 does not look for a newer release on start	StarDraft는 시작할 때 새 릴리스를 확인하지 않습니다
+StarDraft 2 sends an anonymous report when it crashes	StarDraft는 충돌할 때 익명 보고서를 보냅니다
+StarDraft 2 does not send crash reports (a report stays on this computer)	StarDraft는 충돌 보고서를 보내지 않습니다 (보고서는 이 컴퓨터에 남습니다)
+The last project opens when StarDraft 2 starts	StarDraft를 시작하면 마지막 프로젝트가 열립니다
+StarDraft 2 starts with no project open	StarDraft는 프로젝트를 열지 않고 시작합니다
 Units: can be on top of others	유닛: 다른 유닛 위에 놓을 수 있음
 Units: cannot be on top of others (air units also)	유닛: 다른 유닛 위에 놓을 수 없음 (공중 유닛도 포함)
 Units: place anywhere (terrain edits do not move them)	유닛: 어디에나 배치 (지형을 편집해도 유닛은 이동하지 않음)
 Units: place only where it fits	유닛: 맞는 곳에만 배치
 Units: move to the nearest place where it fits	유닛: 맞는 가장 가까운 곳으로 이동
-Doodads: place anywhere on the map (StarDraft does not check the terrain)	장식물: 맵의 어디에나 배치 (StarDraft는 지형을 확인하지 않음)
+Doodads: place anywhere on the map (StarDraft 2 does not check the terrain)	장식물: 맵의 어디에나 배치 (StarDraft는 지형을 확인하지 않음)
 Doodads: move to the nearest place where it fits	장식물: 맞는 가장 가까운 곳으로 이동
 Doodads: place only where it fits	장식물: 맞는 곳에만 배치
 Carbot (cartooned) graphics	Carbot (만화풍) 그래픽
@@ -396,7 +396,7 @@ Could not change the location: 	위치를 변경할 수 없습니다:
 Location properties	위치 속성
 Read only. StarCraft: Remastered does not use a change to this value.	읽기 전용입니다. StarCraft: Remastered는 이 값의 변경을 사용하지 않습니다.
 Read only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	이 사운드는 읽기 전용입니다. 게임은 맵의 코드가 실행되기 전에 Preload 플래그가 있는 사운드를 불러오므로, 파일을 변경해도 효과가 없습니다.
-Read only. StarDraft does not know where the game keeps this value.	읽기 전용입니다. StarDraft는 게임이 이 값을 어디에 보관하는지 알지 못합니다.
+Read only. StarDraft 2 does not know where the game keeps this value.	읽기 전용입니다. StarDraft는 게임이 이 값을 어디에 보관하는지 알지 못합니다.
 * Needs verification	* 확인 필요
 1 tile: 32 x 32 px	1 타일: 32 x 32 px
 Drag to move the addon	끌어서 애드온을 이동합니다
@@ -456,7 +456,7 @@ No sound device is available	사용할 수 있는 사운드 장치가 없습니�
 Pause	일시정지
 Play	재생
 Volume	볼륨
-The volume of every sound StarDraft plays (the next sound plays at it)	StarDraft가 재생하는 모든 소리의 볼륨 (다음 소리부터 적용됩니다)
+The volume of every sound StarDraft 2 plays (the next sound plays at it)	StarDraft가 재생하는 모든 소리의 볼륨 (다음 소리부터 적용됩니다)
 no file	파일 없음
 cannot read the file	파일을 읽을 수 없습니다
 Medium	중간
@@ -537,7 +537,7 @@ Triggers are in the Triggers workspace of a project.	트리거는 프로젝트�
 Not available yet: graphics, sounds, portraits and fonts that you import into the map.	아직 사용할 수 없음: 맵으로 가져오는 그래픽, 사운드, 초상화, 글꼴.
 Project: 	프로젝트: 
 No project is open. File > Project > New project makes one from the open map. File > Project > Open project opens one.	열린 프로젝트가 없습니다. 파일 > 프로젝트 > 새 프로젝트로 열린 맵에서 프로젝트를 만듭니다. 파일 > 프로젝트 > 프로젝트 열기로 프로젝트를 엽니다.
-Did not save the triggers: a newer StarDraft made triggers.json	트리거를 저장하지 않았습니다: 더 새로운 StarDraft가 triggers.json을 만들었습니다
+Did not save the triggers: a newer StarDraft 2 made triggers.json	트리거를 저장하지 않았습니다: 더 새로운 StarDraft가 triggers.json을 만들었습니다
   (off)	  (꺼짐)
 Added a variable. Press F2 to rename it.	변수를 추가했습니다. F2를 눌러 이름을 바꿉니다.
 Added from a template: 	템플릿에서 추가함: 
@@ -955,9 +955,9 @@ Terrain copy includes d&oodads	지형 복사에 장식물 포함(&O)
 Report &feedback…	피드백 보내기(&F)…
 Report an &issue on GitHub	GitHub에 문제 보고(&I)
 Join &Discord	Discord 참여(&D)
-StarDraft on &GitHub	GitHub의 StarDraft(&G)
+StarDraft 2 on &GitHub	GitHub의 StarDraft 2(&G)
 Check for &updates	업데이트 확인(&U)
-&About StarDraft	StarDraft 정보(&A)
+&About StarDraft 2	StarDraft 2 정보(&A)
 &Help	도움말(&H)
 A newer release is available: 	새 릴리스가 있습니다: 
 . Use Help > Check for updates.	. 도움말 > 업데이트 확인을 사용하십시오.
@@ -965,7 +965,7 @@ Sent the feedback as #	피드백을 #
 . Thank you.	번으로 보냈습니다. 감사합니다.
 Sent the feedback. Thank you.	피드백을 보냈습니다. 감사합니다.
 This build cannot send feedback. The feedback is in 	이 빌드는 피드백을 보낼 수 없습니다. 피드백은 다음 위치에 있습니다: 
-StarDraft cannot send the feedback now. It sends it at the next start.	StarDraft가 지금 피드백을 보낼 수 없습니다. 다음 시작 때 보냅니다.
+StarDraft 2 cannot send the feedback now. It sends it at the next start.	StarDraft가 지금 피드백을 보낼 수 없습니다. 다음 시작 때 보냅니다.
 Minimap	미니맵
 Density: low	밀도: 낮음
 Density: medium	밀도: 중간
@@ -1006,11 +1006,10 @@ mouse move	마우스 이동
 the map's frame	맵의 프레임
 Slow frame: 	느린 프레임: 
 A map creation tool for EUD-powered maps for StarCraft: Remastered	스타크래프트 리마스터용 EUD 맵을 만드는 맵 제작 도구
-Named in tribute to the original StarDraft by Camelot Systems.	Camelot Systems의 원조 StarDraft에 경의를 표하여 이름을 지었습니다.
 GitHub: github.com/stardraft-editor/stardraft	GitHub: github.com/stardraft-editor/stardraft
 Join the Discord server	Discord 서버 참여
 Close	닫기
-About StarDraft	StarDraft 정보
+About StarDraft 2	StarDraft 2 정보
 Force 	포스 
 Nobody	없음
 First, select the players of the briefing	먼저 브리핑 대상 플레이어를 선택하십시오
@@ -1132,14 +1131,14 @@ The project's map has these classic triggers. The built map keeps them; they run
  conditions and actions have EUD values. They stay as they are.	 조건과 액션에 EUD 값이 있습니다. 그대로 유지됩니다.
 Classic triggers: no change	클래식 트리거: 변경 없음
 Set the classic triggers	클래식 트리거 설정
-Hello from StarDraft	StarDraft에서 안녕하세요
+Hello from StarDraft 2	StarDraft에서 안녕하세요
 the menu item 	메뉴 항목 
 the menu item Copy	메뉴 항목 복사
-StarDraft stopped because of an error. The crash report is in 	StarDraft가 오류로 중단되었습니다. 충돌 보고서 위치: 
+StarDraft 2 stopped because of an error. The crash report is in 	StarDraft가 오류로 중단되었습니다. 충돌 보고서 위치: 
  (crash reports are off).	 (충돌 보고서 꺼짐).
-StarDraft stopped	StarDraft 중단됨
+StarDraft 2 stopped	StarDraft 2 중단됨
 " --send-crash "	" --send-crash "
-StarDraft stopped because of an error. StarDraft sends a crash report to the developers so that they can repair the error.	StarDraft가 오류로 중단되었습니다. 개발자가 오류를 수정할 수 있도록 StarDraft가 충돌 보고서를 보냅니다.
+StarDraft 2 stopped because of an error. StarDraft 2 sends a crash report to the developers so that they can repair the error.	StarDraft가 오류로 중단되었습니다. 개발자가 오류를 수정할 수 있도록 StarDraft가 충돌 보고서를 보냅니다.
 Authorization: Bearer 	Authorization: Bearer 
 \r\nAccept: application/vnd.github+json\r\nContent-Type: application/json\r\n	\r\nAccept: application/vnd.github+json\r\nContent-Type: application/json\r\n
 Could not read 	읽을 수 없습니다: 
@@ -1262,7 +1261,7 @@ the code	코드
 Feedback on 	피드백: 
 Feedback is anonymous. Do not include sensitive or private information. Ctrl+Enter sends it.	피드백은 익명입니다. 민감하거나 개인적인 정보는 포함하지 마십시오. Ctrl+Enter로 보냅니다.
 Send	보내기
-This build cannot send feedback. StarDraft keeps it in 	이 빌드는 피드백을 보낼 수 없습니다. StarDraft가 다음 위치에 보관합니다: 
+This build cannot send feedback. StarDraft 2 keeps it in 	이 빌드는 피드백을 보낼 수 없습니다. StarDraft가 다음 위치에 보관합니다: 
 Sending the feedback…	피드백을 보내는 중…
 Report feedback on 	피드백 보고: 
 %zu B	%zu B
@@ -1284,11 +1283,11 @@ The map has it	맵에 있음
 Add to the map's sounds, by reference: the game plays its own file, the map does not hold it	맵의 소리에 참조로 추가: 게임이 자체 파일을 재생하며, 맵은 파일을 포함하지 않습니다
 The map has no sounds of its own. Import sounds adds WAV or OGG files.	맵에 자체 소리가 없습니다. 소리 가져오기로 WAV 또는 OGG 파일을 추가합니다.
 Import sounds…	소리 가져오기…
-WAV or OGG files. StarDraft saves them in the map (staredit\\wav\\).	WAV 또는 OGG 파일. StarDraft가 맵(staredit\\wav\\)에 저장합니다.
+WAV or OGG files. StarDraft 2 saves them in the map (staredit\\wav\\).	WAV 또는 OGG 파일. StarDraft가 맵(staredit\\wav\\)에 저장합니다.
 Rename	이름 바꾸기
 The briefings that use the file change with it	파일을 사용하는 브리핑도 함께 바뀝니다
 Sounds of the game	게임의 소리
-StarDraft found no game sounds (Options > Program options: StarCraft folder)	StarDraft가 게임 소리를 찾지 못했습니다 (옵션 > 프로그램 옵션: StarCraft 폴더)
+StarDraft 2 found no game sounds (Options > Program options: StarCraft folder)	StarDraft가 게임 소리를 찾지 못했습니다 (옵션 > 프로그램 옵션: StarCraft 폴더)
 No game sound has these words	이 단어가 들어 있는 게임 소리가 없습니다
 Briefings	브리핑
 Open it in the Briefing workspace	브리핑 작업 공간에서 열기
@@ -1381,7 +1380,7 @@ A copy of a map that you have (.scm or .scx): its terrain, units, triggers and s
 Land, water and high ground from a seed and the settings next to the preview	시드와 미리보기 옆의 설정으로 만든 땅, 물, 높은 지대
 The terrain on the whole map	맵 전체의 지형
 The new map gets the map's size, tileset, terrain and doodads. The file stays as it is.	새 맵은 해당 맵의 크기, 타일셋, 지형, 장식물을 가집니다. 파일은 그대로 유지됩니다.
-StarDraft copies the map into the project folder. The file stays as it is.	StarDraft가 맵을 프로젝트 폴더에 복사합니다. 파일은 그대로 유지됩니다.
+StarDraft 2 copies the map into the project folder. The file stays as it is.	StarDraft가 맵을 프로젝트 폴더에 복사합니다. 파일은 그대로 유지됩니다.
 Seed	시드
 New seed	새 시드
 Symmetry	대칭
@@ -1395,7 +1394,7 @@ Make the project folder and its map	프로젝트 폴더와 맵 만들기
 Make the map in this tab	이 탭에 맵 만들기
 Removed 	제거됨: 
  from the list	 (목록에서)
-StarDraft is alpha software. Errors can occur. Make backup copies of your projects and maps before you edit them. Your feedback makes StarDraft better: right-click anything and select "Report feedback on …".	StarDraft는 알파 소프트웨어입니다. 오류가 발생할 수 있습니다. 편집하기 전에 프로젝트와 맵의 백업 사본을 만드십시오. 여러분의 피드백이 StarDraft를 더 좋게 만듭니다. 아무 항목이나 마우스 오른쪽 버튼으로 클릭하고 "…에 대한 피드백 보내기"를 선택하십시오.
+StarDraft 2 is alpha software. Errors can occur. Make backup copies of your projects and maps before you edit them. Your feedback makes StarDraft 2 better: right-click anything and select "Report feedback on …".	StarDraft는 알파 소프트웨어입니다. 오류가 발생할 수 있습니다. 편집하기 전에 프로젝트와 맵의 백업 사본을 만드십시오. 여러분의 피드백이 StarDraft를 더 좋게 만듭니다. 아무 항목이나 마우스 오른쪽 버튼으로 클릭하고 "…에 대한 피드백 보내기"를 선택하십시오.
 Coming later	곧 제공 예정
 Campaign projects come in a later version	캠페인 프로젝트는 이후 버전에서 제공됩니다
 Mod projects come in a later version	모드 프로젝트는 이후 버전에서 제공됩니다
@@ -1493,9 +1492,9 @@ Open folder	폴더 열기
 Source map	원본 맵
 In the project folder	프로젝트 폴더 안
 Where Build writes the map	빌드가 맵을 쓰는 위치
-Found by StarDraft	StarDraft가 찾음
+Found by StarDraft 2	StarDraft가 찾음
 Change…	변경…
-The game's data StarDraft reads	StarDraft가 읽는 게임 데이터
+The game's data StarDraft 2 reads	StarDraft가 읽는 게임 데이터
 Downloaded on the first build	첫 빌드에서 다운로드됨
 Options	옵션
 EUD Turbo	EUD 터보
@@ -1535,7 +1534,7 @@ linked  ·  not found: Build stops	연결됨  ·  찾을 수 없음: 빌드가 �
 not found: Build stops	찾을 수 없음: 빌드가 중지됩니다
 linked  ·  changed 	연결됨  ·  변경됨 
   after the last build	  마지막 빌드 이후
-A linked file. StarDraft builds it as it is and does not change it: 	연결된 파일입니다. StarDraft는 이 파일을 그대로 빌드하며 변경하지 않습니다: 
+A linked file. StarDraft 2 builds it as it is and does not change it: 	연결된 파일입니다. StarDraft는 이 파일을 그대로 빌드하며 변경하지 않습니다: 
 Open in your editor	편집기에서 열기
 Show in folder	폴더에서 보기
 Earlier	이전
@@ -1544,7 +1543,7 @@ Remove link (the file stays)	링크 제거 (파일은 남습니다)
 Take it out of the build (the file stays)	빌드에서 제외 (파일은 남습니다)
 New script	새 스크립트
 Link a file…	파일 연결…
-An .eps file from anywhere on disk. StarDraft builds it as it is and does not change it.	디스크의 어느 위치에 있든 .eps 파일입니다. StarDraft는 이 파일을 그대로 빌드하며 변경하지 않습니다.
+An .eps file from anywhere on disk. StarDraft 2 builds it as it is and does not change it.	디스크의 어느 위치에 있든 .eps 파일입니다. StarDraft는 이 파일을 그대로 빌드하며 변경하지 않습니다.
 Could not read the sound	사운드를 읽을 수 없습니다
 Sounds (WAV, OGG)*.wav;*.ogg	사운드 (WAV, OGG)*.wav;*.ogg
 Could not read the sound: 	사운드를 읽을 수 없습니다: 
@@ -1619,17 +1618,17 @@ changed  ·  	변경됨  ·
   ·  changed  ·  	  ·  변경됨  ·  
 Put back the game's values	게임의 값으로 되돌리기
 No other data uses this entry	이 항목을 사용하는 다른 데이터가 없습니다
-StarDraft.Project	StarDraft.Project
-StarDraft project	StarDraft 프로젝트
-StarDraft.Project\\DefaultIcon	StarDraft.Project\\DefaultIcon
-StarDraft.Project\\shell\\open\\command	StarDraft.Project\\shell\\open\\command
+StarDraft 2.Project	StarDraft 2.Project
+StarDraft 2 project	StarDraft 2 프로젝트
+StarDraft 2.Project\\DefaultIcon	StarDraft 2.Project\\DefaultIcon
+StarDraft 2.Project\\shell\\open\\command	StarDraft 2.Project\\shell\\open\\command
 Accept: 	허용: 
 Could not get the newest release from GitHub. Make sure that the computer is connected to the internet.	GitHub에서 최신 릴리스를 가져올 수 없습니다. 컴퓨터가 인터넷에 연결되어 있는지 확인하십시오.
 Check for updates	업데이트 확인
-StarDraft is up to date (	StarDraft는 최신 버전입니다 (
+StarDraft 2 is up to date (	StarDraft는 최신 버전입니다 (
 .\n\nThis is not a release build. Open the release page?	.\n\n릴리스 빌드가 아닙니다. 릴리스 페이지를 여시겠습니까?
 &Open the release page	릴리스 페이지 열기(&O)
-.\n\nDownload and install it? StarDraft starts again after it.	.\n\n다운로드하여 설치하시겠습니까? 설치 후 StarDraft가 다시 시작됩니다.
+.\n\nDownload and install it? StarDraft 2 starts again after it.	.\n\n다운로드하여 설치하시겠습니까? 설치 후 StarDraft가 다시 시작됩니다.
 &Install	설치(&I)
 Downloading 	다운로드 중 
 \n\nThe release page opens: get the zip from there.	\n\n릴리스 페이지가 열립니다. 그곳에서 zip 파일을 받으십시오.
@@ -1644,7 +1643,7 @@ Unknown value 	알 수 없는 값
 Select a unit group	유닛 그룹을 선택하십시오
  is not a unit group	 은(는) 유닛 그룹이 아닙니다
 Select a property	속성을 선택하십시오
-: StarDraft cannot build this block yet	: StarDraft가 아직 이 블록을 빌드할 수 없습니다
+: StarDraft 2 cannot build this block yet	: StarDraft가 아직 이 블록을 빌드할 수 없습니다
 A value from the game is a number. You cannot use it here	게임의 값은 숫자입니다. 여기에서는 사용할 수 없습니다
 ). Type it as a number	). 숫자로 입력하십시오
 Use a player number from 0 to 26 (Player 1 is 0)	0에서 26까지의 플레이어 번호를 사용하십시오 (플레이어 1은 0)
@@ -1666,7 +1665,7 @@ Use a switch from 1 to 256	1에서 256까지의 스위치를 사용하십시오
 Use a value from 0 to 	0에서 다음까지의 값을 사용하십시오: 
  has no property 	 에 없는 속성: 
 Unit #	유닛 #
- has the same type, owner and position. Move one of them, or StarDraft can find the wrong unit	 의 종류, 소유자, 위치가 같습니다. 하나를 옮기십시오. 그렇지 않으면 StarDraft가 잘못된 유닛을 찾을 수 있습니다
+ has the same type, owner and position. Move one of them, or StarDraft 2 can find the wrong unit	 의 종류, 소유자, 위치가 같습니다. 하나를 옮기십시오. 그렇지 않으면 StarDraft가 잘못된 유닛을 찾을 수 있습니다
 "the unit" has a value only in For each unit	"해당 유닛"은 각 유닛 안에서만 값이 있습니다
 The selected unit is not on the map now	선택한 유닛이 지금 맵에 없습니다
 Select a unit	유닛을 선택하십시오
@@ -1715,7 +1714,7 @@ Run local block: a random number here changes the random numbers on this compute
 Run local block: 	로컬 블록 실행: 
  holds up the triggers on this computer only, and the game desyncs	 은(는) 이 컴퓨터의 트리거만 멈추며 게임의 동기화가 어긋납니다
 Run local block: the value changes on this computer only. Use it only for what this player sees: if a trigger that changes the game reads it, the game desyncs	로컬 블록 실행: 값이 이 컴퓨터에서만 바뀝니다. 이 플레이어가 보는 것에만 사용하십시오. 게임을 바꾸는 트리거가 이 값을 읽으면 게임의 동기화가 어긋납니다
-Run local block: StarDraft cannot tell what 	로컬 블록 실행: StarDraft가 무엇이 바뀌는지 알 수 없습니다: 
+Run local block: StarDraft 2 cannot tell what 	로컬 블록 실행: StarDraft가 무엇이 바뀌는지 알 수 없습니다: 
  changes. Change only what this player sees, or the game desyncs	 이 플레이어가 보는 것만 바꾸십시오. 그렇지 않으면 게임의 동기화가 어긋납니다
  changes the game on this computer only: the other computers do not do it, and the game desyncs. Put it outside	 은(는) 이 컴퓨터에서만 게임을 바꿉니다. 다른 컴퓨터는 실행하지 않으므로 게임의 동기화가 어긋납니다. 밖에 넣으십시오
  goes on only while its trigger runs again: in On map start it runs one time. Put it in a trigger in On every trigger cycle	 은(는) 트리거가 다시 실행되는 동안에만 계속됩니다. 맵 시작 시에는 한 번만 실행됩니다. 매 트리거 주기마다의 트리거에 넣으십시오
@@ -1731,7 +1730,7 @@ Language	언어
 Automatic	자동
 Follow the language of Windows	Windows 언어를 따릅니다
 Applies at the next start	다음 시작 때 적용됩니다
-The language changes at the next start of StarDraft	StarDraft를 다음에 시작하면 언어가 바뀝니다
+The language changes at the next start of StarDraft 2	StarDraft를 다음에 시작하면 언어가 바뀝니다
 Randomize seed	시드 무작위
 Randomize values	값 무작위
 ground and air	지상 및 공중
@@ -1770,7 +1769,7 @@ Do not send	보내지 않기
 &Always send	항상 보내기(&A)
 Do &not send	보내지 않기(&N)
 Crash report	충돌 보고서
-After a crash, StarDraft asks at the next start if it can send the report (default)	충돌 후 다음 시작 때 보고서를 보내도 되는지 묻습니다(기본값)
+After a crash, StarDraft 2 asks at the next start if it can send the report (default)	충돌 후 다음 시작 때 보고서를 보내도 되는지 묻습니다(기본값)
 The reports stay on this computer	보고서는 이 컴퓨터에 남습니다
 Show &minimap	미니맵 표시(&M)
 Hide	숨기기
@@ -1787,3 +1786,5 @@ Add an &action	동작 추가(&A)
 &Search…	검색(&S)…
 Loops	반복
 If	If
+Named after StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.	스타크래프트 모딩의 시작이 된 Camelot Systems의 StarDraft(1998)에서 이름을 따왔습니다.
+StarDraft 2 aims to be its spiritual successor for StarCraft makers in 2026 and later.	StarDraft 2는 2026년 이후의 스타크래프트 제작자를 위한 정신적 후속작을 목표로 합니다.

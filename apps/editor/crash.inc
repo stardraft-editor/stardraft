@@ -151,10 +151,10 @@ LONG WINAPI onCrash(EXCEPTION_POINTERS* ep) {
     if (gCrashReports != 1) {  // Ask (the next start asks) or Do not send: the report stays on disk
         if (gCrashReports == 2) std::ofstream(dir / "sent") << "not sent: crash reports are off";
         MessageBoxW(nullptr,
-                    (L"StarDraft stopped because of an error. The crash report is in " + dir.wstring() +
-                     (gCrashReports == 2 ? L" (crash reports are off)." : L". At the next start, StarDraft asks if it can send it."))
+                    (L"StarDraft 2 stopped because of an error. The crash report is in " + dir.wstring() +
+                     (gCrashReports == 2 ? L" (crash reports are off)." : L". At the next start, StarDraft 2 asks if it can send it."))
                         .c_str(),
-                    L"StarDraft stopped", MB_ICONERROR | MB_TOPMOST);
+                    L"StarDraft 2 stopped", MB_ICONERROR | MB_TOPMOST);
         return EXCEPTION_EXECUTE_HANDLER;
     }
     wchar_t self[MAX_PATH];
@@ -164,7 +164,7 @@ LONG WINAPI onCrash(EXCEPTION_POINTERS* ep) {
     PROCESS_INFORMATION pi{};
     if (CreateProcessW(self, cmd.data(), nullptr, nullptr, FALSE, DETACHED_PROCESS, nullptr, nullptr, &si, &pi)) CloseHandle(pi.hThread), CloseHandle(pi.hProcess);
     if (!gQuiet)
-        MessageBoxW(nullptr, L"StarDraft stopped because of an error. StarDraft sends a crash report to the developers so that they can repair the error.", L"StarDraft stopped",
+        MessageBoxW(nullptr, L"StarDraft 2 stopped because of an error. StarDraft 2 sends a crash report to the developers so that they can repair the error.", L"StarDraft 2 stopped",
                     MB_ICONERROR | MB_TOPMOST);
     return EXCEPTION_EXECUTE_HANDLER;
 }
@@ -198,7 +198,7 @@ std::string token() {
 std::string github(const wchar_t* method, const std::wstring& path, const std::string& body, DWORD& status) {
     status = 0;
     std::string out;
-    HINTERNET s = WinHttpOpen(L"StarDraft", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+    HINTERNET s = WinHttpOpen(L"StarDraft 2", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (!s) return out;
     HINTERNET c = WinHttpConnect(s, L"api.github.com", INTERNET_DEFAULT_HTTPS_PORT, 0);
     HINTERNET q = c ? WinHttpOpenRequest(c, method, path.c_str(), nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE) : nullptr;
@@ -305,7 +305,7 @@ void askToSend() {
     if (gCrashReports != 0 || token().empty()) return;
     const auto reports = unsentReports();
     if (reports.empty()) return;
-    const std::wstring q = L"StarDraft stopped because of an error the last time. Send the crash report to the developers, so that they can "
+    const std::wstring q = L"StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can "
                            L"repair the error?\n\nThe report has the version, Windows, the video card, where it crashed and the last log lines. "
                            L"It has no maps. It is in " + reports.front().parent_path().wstring() + L".";
     const int r = themedMessageBox(app.main, q.c_str(), L"Crash report", MB_YESNOCANCEL | MB_ICONQUESTION, {L"&Send", L"&Always send", L"Do &not send"});

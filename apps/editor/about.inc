@@ -54,11 +54,13 @@ void aboutPaint(HWND hwnd) {
     GetObjectW(app.font, sizeof lf, &lf);
     lf.lfHeight = lf.lfHeight * 2, lf.lfWeight = FW_SEMIBOLD;
     HFONT big = CreateFontIndirectW(&lf);
-    centered(L"StarDraft", big, kText, scale(40));
+    centered(L"StarDraft 2", big, kText, scale(40));
     DeleteObject(big);
-    centered(widen(STARDRAFT_VERSION_NAME) + (buildStamp().empty() ? L"" : L"  (" + buildStamp() + L")"), app.font, kDim, scale(22));
+    centered(L"v" + widen(STARDRAFT_VERSION_NAME) + (buildStamp().empty() ? L"" : L"  (" + buildStamp() + L")"), app.font, kDim, scale(22));
     centered(L"A map creation tool for EUD-powered maps for StarCraft: Remastered", app.font, kDim, scale(22));
-    centered(L"Named in tribute to the original StarDraft by Camelot Systems.", app.font, kDim, scale(22));
+    // The name: a tribute to StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.
+    centered(L"Named after StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.", app.font, kDim, scale(22));
+    centered(L"StarDraft 2 aims to be its spiritual successor for StarCraft makers in 2026 and later.", app.font, kDim, scale(22));
     y += scale(14);
 
     // The links: underlined when the mouse is on them.
@@ -155,12 +157,12 @@ void showAbout() {
     }
     // The same window as the other dialogs (a dialog frame; a tool window in test runs).
     const DWORD style = WS_CAPTION | WS_SYSMENU | WS_POPUP, ex = WS_EX_DLGMODALFRAME | (gBackground ? WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW : 0);
-    RECT r{0, 0, scale(440), scale(452)};
+    RECT r{0, 0, scale(600), scale(496)};  // (the lines about the name fit)
     AdjustWindowRectExForDpi(&r, style, FALSE, ex, UINT(app.dpi));
     RECT mr;
     GetWindowRect(app.main, &mr);
     const int w = r.right - r.left, h = r.bottom - r.top;
-    gAbout.wnd = CreateWindowExW(ex, L"StarDraftAbout", L"About StarDraft", style, (mr.left + mr.right - w) / 2, (mr.top + mr.bottom - h) / 2, w, h,
+    gAbout.wnd = CreateWindowExW(ex, L"StarDraftAbout", L"About StarDraft 2", style, (mr.left + mr.right - w) / 2, (mr.top + mr.bottom - h) / 2, w, h,
                                  app.main, nullptr, app.inst, nullptr);
     ShowWindow(gAbout.wnd, gSelfTest || gBackground ? SW_SHOWNOACTIVATE : SW_SHOW);
     UpdateWindow(gAbout.wnd);

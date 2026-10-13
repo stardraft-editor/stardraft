@@ -119,7 +119,7 @@ std::wstring feedbackThingIn(HWND w, POINT pt) {
 std::wstring feedbackThing(POINT screen) {
     if (!gFeedbackOn.empty()) return gFeedbackOn;
     HWND w = WindowFromPoint(screen);
-    if (!w) return L"StarDraft";
+    if (!w) return L"StarDraft 2";
     ScreenToClient(w, &screen);
     return feedbackThingIn(w, screen);
 }
@@ -378,7 +378,7 @@ void showFeedbackDialog(const std::wstring& on) {
                                           << typed << "\n\n---\nOn: " << crash::utf8(on) << "\nWorkspace: " << crash::utf8(crash::gWhere ? crash::gWhere() : L"")
                                           << "\nStarDraft " STARDRAFT_VERSION_NAME ", " << crash::gBuild << ", commit " STARDRAFT_COMMIT "\n" << crash::windowsVersion() << "\n";
     if (crash::token().empty()) {
-        setMessage(L"This build cannot send feedback. StarDraft keeps it in " + file.wstring() + L".");
+        setMessage(L"This build cannot send feedback. StarDraft 2 keeps it in " + file.wstring() + L".");
         return;
     }
     setMessage(L"Sending the feedback\x2026");

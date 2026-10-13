@@ -20,10 +20,10 @@ inline void registerProjectFiles(const std::wstring& exe) {
         RegCloseKey(k);
         return !same;
     };
-    bool changed = put(L".stardraft", L"StarDraft.Project");
-    changed |= put(L"StarDraft.Project", L"StarDraft project");
-    changed |= put(L"StarDraft.Project\\DefaultIcon", L"\"" + exe + L"\",1");  // the second icon: the document icon
-    changed |= put(L"StarDraft.Project\\shell\\open\\command", L"\"" + exe + L"\" \"%1\"");
+    bool changed = put(L".stardraft", L"StarDraft 2.Project");
+    changed |= put(L"StarDraft 2.Project", L"StarDraft 2 project");
+    changed |= put(L"StarDraft 2.Project\\DefaultIcon", L"\"" + exe + L"\",1");  // the second icon: the document icon
+    changed |= put(L"StarDraft 2.Project\\shell\\open\\command", L"\"" + exe + L"\" \"%1\"");
     if (changed) SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
 }
 
@@ -37,7 +37,7 @@ bool get(const std::wstring& url, std::string* body, const fs::path* file = null
     uc.lpszHostName = host, uc.dwHostNameLength = 256, uc.lpszUrlPath = path, uc.dwUrlPathLength = 2048;
     if (!WinHttpCrackUrl(url.c_str(), 0, 0, &uc)) return false;
     bool ok = false;
-    HINTERNET s = WinHttpOpen(L"StarDraft", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+    HINTERNET s = WinHttpOpen(L"StarDraft 2", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     HINTERNET c = s ? WinHttpConnect(s, host, uc.nPort, 0) : nullptr;
     HINTERNET q = c ? WinHttpOpenRequest(c, L"GET", path, nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE) : nullptr;
     std::wstring headers = L"Accept: " + std::wstring(accept) + L"\r\n";
@@ -138,7 +138,7 @@ void check() {
         return;
     }
     if (!newer(r)) {
-        themedMessageBox(app.main, (L"StarDraft is up to date (" + widen(r.title) + L").").c_str(), L"Check for updates", MB_ICONINFORMATION);
+        themedMessageBox(app.main, (L"StarDraft 2 is up to date (" + widen(r.title) + L").").c_str(), L"Check for updates", MB_ICONINFORMATION);
         return;
     }
     wchar_t selfBuf[MAX_PATH];
@@ -151,7 +151,7 @@ void check() {
             ShellExecuteW(nullptr, L"open", widen(r.page).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         return;
     }
-    if (themedMessageBox(app.main, (L"A newer release is available: " + widen(r.title) + L".\n\nDownload and install it? StarDraft starts again after it.").c_str(),
+    if (themedMessageBox(app.main, (L"A newer release is available: " + widen(r.title) + L".\n\nDownload and install it? StarDraft 2 starts again after it.").c_str(),
                          L"Check for updates", MB_YESNO | MB_ICONQUESTION, {L"&Install", L"Cancel"}) != IDYES)
         return;
     // Download and unpack.

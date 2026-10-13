@@ -654,7 +654,7 @@ void paintNewPage(HDC mem, RECT rc) {
             if (!gNew.warning.empty()) fy = newWarning(mem, x1, fy, x1 + w1, gNew.warning) + scale(8);
             else {
                 HGDIOBJ of = SelectObject(mem, ui::smallFont());
-                fy = newParagraph(mem, {x1, fy, x1 + w1, fy + scale(100)}, L"StarDraft makes the folder " + fs::path(newProjectFolder()).make_preferred().wstring(), kDim) + scale(8);
+                fy = newParagraph(mem, {x1, fy, x1 + w1, fy + scale(100)}, L"StarDraft 2 makes the folder " + fs::path(newProjectFolder()).make_preferred().wstring(), kDim) + scale(8);
                 SelectObject(mem, of);
             }
         }
@@ -746,7 +746,7 @@ void paintNewPage(HDC mem, RECT rc) {
         HGDIOBJ of = SelectObject(mem, ui::smallFont());
         y = newParagraph(mem, {x3, y, x3 + fw, y + scale(100)},
                          gNew.terrainOnly ? L"The new map gets the map's size, tileset, terrain and doodads. The file stays as it is."
-                                          : L"StarDraft copies the map into the project folder. The file stays as it is.",
+                                          : L"StarDraft 2 copies the map into the project folder. The file stays as it is.",
                          kDim) + scale(8);
         SelectObject(mem, of);
     } else {
@@ -875,8 +875,8 @@ void paintStartPage(HDC mem, RECT rc) {
     const int w = 4 * cardW + 3 * gap;
     const int x1 = std::max(pad, (int(rc.right) - w) / 2);
     // The alpha notice (information, not a warning): until 1.0, errors can occur; backup copies keep the work safe.
-    const wchar_t* notice = L"StarDraft is alpha software. Errors can occur. Make backup copies of your projects and maps before you edit them. "
-                             L"Your feedback makes StarDraft better: right-click anything and select \"Report feedback on \x2026\".";  // (#94)
+    const wchar_t* notice = L"StarDraft 2 is alpha software. Errors can occur. Make backup copies of your projects and maps before you edit them. "
+                             L"Your feedback makes StarDraft 2 better: right-click anything and select \"Report feedback on \x2026\".";  // (#94)
     RECT nc{0, 0, w - scale(22), 0};
     DrawTextW(mem, notice, -1, &nc, DT_WORDBREAK | DT_NOPREFIX | DT_CALCRECT);
     const int noticeH = int(nc.bottom - nc.top);

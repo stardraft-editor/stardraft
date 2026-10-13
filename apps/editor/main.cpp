@@ -1032,7 +1032,7 @@ const std::wstring& buildStamp() {
 #include "crash.inc"
 
 void updateTitle() {
-    const std::wstring app_ = L"StarDraft " + widen(STARDRAFT_VERSION_NAME);
+    const std::wstring app_ = L"StarDraft 2 - v" + widen(STARDRAFT_VERSION_NAME);  // the brand and the version: "StarDraft 2 - v0.5.0.6"
     std::wstring t = app_;
     if (app.ed && app.ed->isOpen())
         t = (gActive >= 0 ? docTitle(gActive) : std::wstring(L"Untitled")) + L" - " + app_;
@@ -1987,7 +1987,7 @@ std::wstring fileDialog(bool save) {
     ofn.hwndOwner = app.main;
     ofn.lpstrFilter = save ? L"StarCraft maps (*.scx;*.scm)\0*.scx;*.scm\0Scenario data (*.chk)\0*.chk\0All files\0*.*\0"
                            : L"Maps and projects (*.scx;*.scm;*.chk;*.stardraft;*.eds)\0*.scx;*.scm;*.chk;*.stardraft;*.eds\0StarCraft maps (*.scx;*.scm)\0*.scx;*.scm\0"
-                             L"StarDraft projects (*.stardraft;*.eds)\0*.stardraft;*.eds\0Scenario data (*.chk)\0*.chk\0All files\0*.*\0";
+                             L"StarDraft 2 projects (*.stardraft;*.eds)\0*.stardraft;*.eds\0Scenario data (*.chk)\0*.chk\0All files\0*.*\0";
     ofn.lpstrFile = buf;
     ofn.nMaxFile = MAX_PATH;
     ofn.Flags = OFN_EXPLORER | (save ? OFN_OVERWRITEPROMPT : OFN_FILEMUSTEXIST);
@@ -2091,7 +2091,7 @@ void logDataCheck(const fs::path& dir) {
     int missing = 0;
     for (const char* f : files)  // found in the storage (reading them all would take long: the HD ones are megabytes)
         if (!app.data.hasFile(f)) ++missing, logLine(L"Cannot find " + widen(f) + L" in the game data", true);
-    if (!missing) logLine(L"Game data check: StarDraft can read the unit, sprite and image files");
+    if (!missing) logLine(L"Game data check: StarDraft 2 can read the unit, sprite and image files");
 }
 
 // Ctrl+Backspace / Ctrl+Delete delete a word in every text box (Windows' edit control types a box
@@ -2184,7 +2184,7 @@ void chooseInstallFolder() {
     std::ofstream(saved) << narrow(dir.wstring());
     gInstallNext = dir;
     optionsRefresh();
-    themedMessageBox(app.main, (L"StarDraft uses this folder after the next start:\r\n" + dir.wstring() + L"\r\nTo use it now, restart StarDraft.").c_str(),
+    themedMessageBox(app.main, (L"StarDraft 2 uses this folder after the next start:\r\n" + dir.wstring() + L"\r\nTo use it now, restart StarDraft 2.").c_str(),
                      L"StarCraft folder", MB_ICONINFORMATION);
     logLine(L"StarCraft folder set to " + dir.wstring() + L" (from the next start)");
 }
@@ -2899,9 +2899,9 @@ void projectDialogInfo(ProjectDialog& d) {
     std::wstring sketch;
     for (const auto& r : rows) sketch += L"  " + r.first + std::wstring(col + 3 - r.first.size(), L' ') + r.second + L"\r\n";
     const std::wstring text =
-        L"StarDraft makes the folder " + n + L"\\ in the location above:\r\n\r\n" + sketch + L"\r\n"
-        L"On the first build, StarDraft downloads euddraft from GitHub into its own folder.\r\n"
-        L"StarDraft does not change other copies on this computer. A map that you open\r\n"
+        L"StarDraft 2 makes the folder " + n + L"\\ in the location above:\r\n\r\n" + sketch + L"\r\n"
+        L"On the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\n"
+        L"StarDraft 2 does not change other copies on this computer. A map that you open\r\n"
         L"stays a regular map. Only a project can be built.";
     SetWindowTextW(d.info, text.c_str());
 }
@@ -3329,7 +3329,7 @@ void openMap(const std::wstring& path) {
     addRecent(gRecentMaps, path);
     setMessage(L"Opened " + fs::path(path).filename().wstring() + L" (" + widen(tilesetName(app.ed->era())) + L")");
     if (app.ed->isomRebuilt())  // a map made by a tool that writes only the tiles (or protected)
-        logLine(L"The map had no isometric terrain data (ISOM). StarDraft made it from the tiles, so the isometric tools work. Saving the map keeps it.");
+        logLine(L"The map had no isometric terrain data (ISOM). StarDraft 2 made it from the tiles, so the isometric tools work. Saving the map keeps it.");
 }
 
 // New map of a tileset, filled with one terrain.
@@ -3424,12 +3424,12 @@ bool saveUnsavedProject() {
     const std::wstring initial = defaultProjectsFolder().wstring();
     OPENFILENAMEW ofn{sizeof ofn};
     ofn.hwndOwner = app.main;
-    ofn.lpstrFilter = L"StarDraft project (*.stardraft)\0*.stardraft\0";
+    ofn.lpstrFilter = L"StarDraft 2 project (*.stardraft)\0*.stardraft\0";
     ofn.lpstrDefExt = L"stardraft";
     ofn.lpstrFile = buf;
     ofn.nMaxFile = MAX_PATH;
     ofn.lpstrInitialDir = initial.c_str();
-    ofn.lpstrTitle = L"Save the project (StarDraft makes a folder with its name here)";
+    ofn.lpstrTitle = L"Save the project (StarDraft 2 makes a folder with its name here)";
     ofn.Flags = OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_NOREADONLYRETURN;
     std::error_code ec;
     fs::create_directories(initial, ec);
@@ -3924,7 +3924,7 @@ void commandBody(int id) {
         wchar_t buf[MAX_PATH] = L"";
         OPENFILENAMEW ofn{sizeof ofn};
         ofn.hwndOwner = app.main;
-        ofn.lpstrFilter = L"StarDraft project (*.stardraft;*.eds)\0*.stardraft;*.eds\0";
+        ofn.lpstrFilter = L"StarDraft 2 project (*.stardraft;*.eds)\0*.stardraft;*.eds\0";
         const std::wstring initial = defaultProjectsFolder().wstring();
         ofn.lpstrInitialDir = initial.c_str();
         ofn.lpstrFile = buf;
@@ -3953,7 +3953,7 @@ void commandBody(int id) {
     case ID_OPT_WINDOW: showOptions(); return;
     case ID_VIEW_LOG: logSetExpanded(!gLog.expanded); return;
     case ID_VIEW_KIT: showKitGallery(); return;
-    case ID_HELP_FEEDBACK: showFeedbackDialog(L"StarDraft"); return;
+    case ID_HELP_FEEDBACK: showFeedbackDialog(L"StarDraft 2"); return;
     case ID_HELP_ISSUE:
         ShellExecuteW(nullptr, L"open", (L"https://github.com/" + std::wstring(crash::kRepo) + L"/issues/new").c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         return;
@@ -4214,15 +4214,15 @@ void commandBody(int id) {
             const DWORD on = gCheckUpdates ? 1 : 0;
             RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"CheckUpdates", REG_DWORD, &on, sizeof on);
         }
-        setMessage(gCheckUpdates ? L"StarDraft looks for a newer release on start" : L"StarDraft does not look for a newer release on start");
+        setMessage(gCheckUpdates ? L"StarDraft 2 looks for a newer release on start" : L"StarDraft 2 does not look for a newer release on start");
         break;
     case ID_CRASH_MODE:
     case ID_CRASH_MODE + 1:
     case ID_CRASH_MODE + 2:
         setCrashReports(id - ID_CRASH_MODE);
-        setMessage(gCrashReports == 1 ? L"StarDraft sends an anonymous report when it crashes"
-                   : gCrashReports == 2 ? L"StarDraft does not send crash reports (a report stays on this computer)"
-                                        : L"After a crash, StarDraft asks at the next start if it can send the report");
+        setMessage(gCrashReports == 1 ? L"StarDraft 2 sends an anonymous report when it crashes"
+                   : gCrashReports == 2 ? L"StarDraft 2 does not send crash reports (a report stays on this computer)"
+                                        : L"After a crash, StarDraft 2 asks at the next start if it can send the report");
         break;
     case ID_OPT_LANG:
     case ID_OPT_LANG + 1:
@@ -4231,7 +4231,7 @@ void commandBody(int id) {
         static const wchar_t* const kCodes[] = {L"auto", L"en", L"ko", L"es"};
         gLanguage = kCodes[id - ID_OPT_LANG];
         if (!gSelfTest) RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"Language", REG_SZ, gLanguage.c_str(), DWORD((gLanguage.size() + 1) * sizeof(wchar_t)));
-        setMessage(L"The language changes at the next start of StarDraft");
+        setMessage(L"The language changes at the next start of StarDraft 2");
         break;
     }
     case ID_THEME_DARK:
@@ -4242,7 +4242,7 @@ void commandBody(int id) {
             const DWORD on = gOpenLastProject ? 1 : 0;
             RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"OpenLastProject", REG_DWORD, &on, sizeof on);
         }
-        setMessage(gOpenLastProject ? L"The last project opens when StarDraft starts" : L"StarDraft starts with no project open");
+        setMessage(gOpenLastProject ? L"The last project opens when StarDraft 2 starts" : L"StarDraft 2 starts with no project open");
         break;
     case ID_OPT_STACK:
         app.allowStacking = !app.allowStacking;
@@ -4275,7 +4275,7 @@ void commandBody(int id) {
     case ID_DOODAD_NEAREST:
     case ID_DOODAD_ANYWHERE:
         app.doodadCheck = id != ID_DOODAD_ANYWHERE, app.doodadNearest = id == ID_DOODAD_NEAREST;
-        setMessage(id == ID_DOODAD_ANYWHERE ? L"Doodads: place anywhere on the map (StarDraft does not check the terrain)"
+        setMessage(id == ID_DOODAD_ANYWHERE ? L"Doodads: place anywhere on the map (StarDraft 2 does not check the terrain)"
                    : id == ID_DOODAD_NEAREST ? L"Doodads: move to the nearest place where it fits"
                                              : L"Doodads: place only where it fits");
         break;
@@ -8092,7 +8092,7 @@ std::wstring datFieldReadOnly(const std::string& dat, const DatField& f, int ent
     if (const DatTable* t = datTable(datTabOf(dat)); t && t->pointerField(f) && t->soundPreloaded(entry))
         return L"Read only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a "
                L"change to the file has no effect.";
-    if (!f.memory) return L"Read only. StarDraft does not know where the game keeps this value.";
+    if (!f.memory) return L"Read only. StarDraft 2 does not know where the game keeps this value.";
     return L"";
 }
 
@@ -9678,7 +9678,7 @@ int volumeRow(HDC dc, int x, int y, int labelW, int right, std::vector<DataWidge
                         if (v != gDock.volume)
                             if (gDock.volume = v; HWND w = GetCapture()) InvalidateRect(w, nullptr, FALSE);  // (the window being dragged in)
                     },
-                    nullptr, L"The volume of every sound StarDraft plays (the next sound plays at it)", IDC_HAND, {}};
+                    nullptr, L"The volume of every sound StarDraft 2 plays (the next sound plays at it)", IDC_HAND, {}};
     h.release = [] { saveDock(); };
     h.click = [] { saveDock(); };  // a click on the track (no drag) sets it too
     h.notEdit = true;
@@ -10162,7 +10162,7 @@ int widgetTimeline(HDC dc, int image, int x, int y, int w) {
         RECT tt{x1 - scale(60), by + bh + scale(2), x1, cr.bottom - scale(2)};
         DrawTextW(dc, L"\x2192 loops", -1, &tt, DT_SINGLELINE | DT_VCENTER | DT_RIGHT);
     }
-    needsVerification(dc, {cr.right - scale(140), cr.top, cr.right, cr.top + scale(20)}, L"Not checked against OpenBW: the waits and the order of the script, as StarDraft plays it.");
+    needsVerification(dc, {cr.right - scale(140), cr.top, cr.right, cr.top + scale(20)}, L"Not checked against OpenBW: the waits and the order of the script, as StarDraft 2 plays it.");
     const int px = X(std::min(gImagePlayer.ticks, n - 1));
     line(dc, px, cr.top + scale(4), px, by + bh + scale(2), RGB(255, 255, 255), scale(2));
     gWidgetHits.push_back({{x0, cr.top, x1, cr.bottom},
@@ -11643,7 +11643,7 @@ void trigSave() {
     trigRecheck();
     trigHistoryRecord();
     if (!gTE.project) return;
-    if (gTE.set.newerFormat()) return setMessage(L"Did not save the triggers: a newer StarDraft made triggers.json");
+    if (gTE.set.newerFormat()) return setMessage(L"Did not save the triggers: a newer StarDraft 2 made triggers.json");
     std::string err;
     if (!gTE.set.save(triggersFile(*gTE.project), err)) logLine(widen(err), true);
 }
@@ -11759,7 +11759,7 @@ void trigLoadForProject() {
     std::string err;
     if (pr && !gTE.set.load(triggersFile(*pr), err)) logLine(widen(err), true);
     if (pr && gTE.set.newerFormat())
-        logLine(L"A newer StarDraft made triggers.json. This StarDraft shows what it can and does not save the file. Nothing in it is lost.", true);
+        logLine(L"A newer StarDraft 2 made triggers.json. This StarDraft 2 shows what it can and does not save the file. Nothing in it is lost.", true);
     else if (pr && (gTE.set.upgradeNames(trigMapInfo()) > 0 || gTE.set.fileVersion < TriggerSet::kFormatVersion) && fs::exists(triggersFile(*pr))) {
         gTE.set.save(triggersFile(*pr), err);
         logLine(L"triggers.json is now in the current format (version " + std::to_wstring(TriggerSet::kFormatVersion) + L")");
@@ -19188,10 +19188,10 @@ HMENU buildMenu() {
     AppendMenuW(help, MF_STRING, ID_HELP_FEEDBACK, L"Report &feedback\x2026");
     AppendMenuW(help, MF_STRING, ID_HELP_ISSUE, L"Report an &issue on GitHub");
     AppendMenuW(help, MF_STRING, ID_HELP_DISCORD, L"Join &Discord");
-    AppendMenuW(help, MF_STRING, ID_HELP_GITHUB, L"StarDraft on &GitHub");
+    AppendMenuW(help, MF_STRING, ID_HELP_GITHUB, L"StarDraft 2 on &GitHub");
     AppendMenuW(help, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(help, MF_STRING, ID_HELP_UPDATES, L"Check for &updates");
-    AppendMenuW(help, MF_STRING, ID_HELP_ABOUT, L"&About StarDraft");
+    AppendMenuW(help, MF_STRING, ID_HELP_ABOUT, L"&About StarDraft 2");
     {
         static HBITMAP glyph = feedbackBitmap(GetSystemMetricsForDpi(SM_CYMENUCHECK, UINT(app.dpi)));
         MENUITEMINFOW mi{sizeof mi};
@@ -19227,7 +19227,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             }
         } else {
             setMessage(crash::token().empty() ? L"This build cannot send feedback. The feedback is in " + feedbackFolder().wstring()
-                                              : L"StarDraft cannot send the feedback now. It sends it at the next start.");
+                                              : L"StarDraft 2 cannot send the feedback now. It sends it at the next start.");
         }
         if (wp) sendPendingFeedback();  // GitHub can be reached now: feedback that waits goes too
         return 0;
@@ -23046,11 +23046,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     HWND hwnd;
     if (gBackground) {
         int offX = GetSystemMetrics(SM_XVIRTUALSCREEN) + GetSystemMetrics(SM_CXVIRTUALSCREEN) + 100;
-        hwnd = CreateWindowExW(WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, L"StarDraftMain", L"StarDraft", WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, offX, 0,
+        hwnd = CreateWindowExW(WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, L"StarDraftMain", L"StarDraft 2", WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, offX, 0,
                                scale(2000), scale(1100), nullptr, buildMenu(), inst, nullptr);
         ShowWindow(hwnd, SW_SHOWNOACTIVATE);
     } else {
-        hwnd = CreateWindowExW(0, L"StarDraftMain", L"StarDraft", WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, CW_USEDEFAULT, CW_USEDEFAULT, 1600, 1000,
+        hwnd = CreateWindowExW(0, L"StarDraftMain", L"StarDraft 2", WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, CW_USEDEFAULT, CW_USEDEFAULT, 1600, 1000,
                                nullptr, buildMenu(), inst, nullptr);
         ShowWindow(hwnd, show == SW_SHOWDEFAULT ? SW_SHOWMAXIMIZED : show);
     }

@@ -1,6 +1,32 @@
-# StarDraft changelog
+# StarDraft 2 changelog
 
-StarDraft is a combined map editor and EUD editor for StarCraft: Remastered, for Windows (64-bit).
+StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows (64-bit).
+
+## 0.5.0.6
+
+### StarDraft 2
+
+StarDraft is now StarDraft 2. The name is a homage to the original StarDraft by Camelot Systems from 1998, which
+started the StarCraft modding scene. StarDraft 2 aims to be its spiritual successor for StarCraft makers in 2026 and
+later. The version numbers stay as they are.
+
+![Help > About StarDraft 2](images/0.5.0.6/about.png)
+
+### Triggers
+
+- No block acts only for the current player now. Victory, Defeat, Set alliance, Run an AI script and the "most" and
+  "fewest" conditions have a player value: the current player by default, or a player you select (actions: also all
+  players or a force).
+- If and Loops are categories of the Add list. If has two blocks: If, and If / else.
+- The right-click menu of a trigger has Add a condition and Add an action, with the same categories and blocks as the
+  Add list.
+- A click outside an open pop-out only closes it.
+- Draw ends the game for all players, with no warning about the current player.
+
+### Map
+
+- The middle mouse button scrolls the map as before 0.5.0.2 (the farther from where you pressed, the faster).
+- Ctrl+1 to Ctrl+9 go to the items of the side bar in order, also in a classic map.
 
 ## 0.5.0.5
 
@@ -141,14 +167,14 @@ The first public version. This is an alpha: please save often, keep copies of yo
 ### Start
 
 1. Unzip the release's zip file into a folder and run `stardraft.exe`. StarCraft: Remastered must be
-   installed. StarDraft reads the game's files from it (if it does not find them, use Options > Program options >
+   installed. StarDraft 2 reads the game's files from it (if it does not find them, use Options > Program options >
    StarCraft folder).
-2. StarDraft starts with a new project. File > Save asks where to keep it. A project is a folder with
+2. StarDraft 2 starts with a new project. File > Save asks where to keep it. A project is a folder with
    `project.stardraft`, the map, its scripts and its data changes. Double-click `project.stardraft` to open it.
 3. Build (Ctrl+B) makes the map to play (`<name>_EUD.scx`). The first build downloads
    [euddraft](https://github.com/armoha/euddraft). Copy the map into StarCraft's `Maps` folder to play it.
 
-StarDraft also opens and saves regular maps (.scm, .scx) without a project.
+StarDraft 2 also opens and saves regular maps (.scm, .scx) without a project.
 
 ### Maps
 
@@ -174,7 +200,7 @@ StarDraft also opens and saves regular maps (.scm, .scx) without a project.
 - Triggers are blocks in plain sentences that become epScript: values from the game, loops, keys and the mouse,
   text with colors, and the game's countdown timer. A checker marks EUD errors and desyncs, and the code shows beside
   the blocks.
-- Link your own .eps files. StarDraft builds them as they are, and a build error names the file and the line.
+- Link your own .eps files. StarDraft 2 builds them as they are, and a build error names the file and the line.
 - The bug button beside Build turns on debug mode: the triggers check their indexes in the game, and Build writes a
   trace file. epTrace (from euddraft) reads it while the map plays and shows which script lines use the most time.
   The Project page and the log show its report.
@@ -194,8 +220,8 @@ StarDraft also opens and saves regular maps (.scm, .scx) without a project.
 
 - Right-click buttons, labels, or panes and select "Report feedback on …", or use Help > Report feedback. Feedback is
   anonymous. Do not include private information.
-- If StarDraft crashes, it sends a crash report by itself (the version, Windows, the video card, where it crashed,
+- If StarDraft 2 crashes, it sends a crash report by itself (the version, Windows, the video card, where it crashed,
   the last log lines; no maps). Can be turned off in Program options.
-- Help > Check for updates gets the newest build. StarDraft also looks for one on start (Options > Program options
+- Help > Check for updates gets the newest build. StarDraft 2 also looks for one on start (Options > Program options
   to turn it off).
 

@@ -186,7 +186,7 @@ void paintFiles(HWND hwnd) {
         const auto added = importSounds(app.main);
         if (!added.empty()) gFiles.selected = added.front();
         InvalidateRect(gFiles.wnd, nullptr, FALSE);
-    }, L"WAV or OGG files. StarDraft saves them in the map (staredit\\wav\\).");
+    }, L"WAV or OGG files. StarDraft 2 saves them in the map (staredit\\wav\\).");
     if (!gFiles.selected.empty() && app.ed && app.ed->archiveFile(gFiles.selected)) {
         const std::string sel = gFiles.selected;
         linkButton(mem, ax + scale(8), y, rowH, L"Rename", [sel] { filesRename(sel); }, L"The briefings that use the file change with it", ui::Tone::Quiet);
@@ -213,7 +213,7 @@ void paintFiles(HWND hwnd) {
     if (!shown) {
         SetTextColor(mem, kDim);
         RECT t{l.x0 + scale(50), y, l.colRight, y + rowH};  // under the names
-        DrawTextW(mem, f.empty() ? L"StarDraft found no game sounds (Options > Program options: StarCraft folder)" : L"No game sound has these words", -1, &t, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+        DrawTextW(mem, f.empty() ? L"StarDraft 2 found no game sounds (Options > Program options: StarCraft folder)" : L"No game sound has these words", -1, &t, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
         y += rowH;
     }
     tableEnd();

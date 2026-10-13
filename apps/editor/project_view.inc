@@ -514,11 +514,11 @@ void paintProjectPage(HWND hwnd) {
              {L"Default", ui::Tone::Normal, [pr] { projectSetOutput(fs::path(pr->defaultOutputMap()).wstring()); }, L"In the project folder"}},
             L"Where Build writes the map");
         const std::wstring inst = currentInstallFolder();
-        row(L"StarCraft folder", inst.empty() ? L"Found by StarDraft" : inst, nullptr, {{L"Change\x2026", ui::Tone::Normal, [] {
+        row(L"StarCraft folder", inst.empty() ? L"Found by StarDraft 2" : inst, nullptr, {{L"Change\x2026", ui::Tone::Normal, [] {
                                                                                              chooseInstallFolder();
                                                                                              projectFormRefresh();
                                                                                          }}},
-            L"The game's data StarDraft reads");
+            L"The game's data StarDraft 2 reads");
         const auto use = euddraft::find({});
         row(L"euddraft", use ? widen(use->version) + L"   " + fs::path(use->exe).parent_path().make_preferred().wstring() : L"Downloaded on the first build", nullptr, {});
         y += scale(12);
@@ -692,7 +692,7 @@ void paintProjectPage(HWND hwnd) {
             ui::listRow(mem, r, on, ui::hot(r));
             std::wstring tip;
             if (script)
-                tip = (linked ? L"A linked file. StarDraft builds it as it is and does not change it: " : L"") + fs::path(file).make_preferred().wstring();
+                tip = (linked ? L"A linked file. StarDraft 2 builds it as it is and does not change it: " : L"") + fs::path(file).make_preferred().wstring();
             hitsOut().push_back({r, nullptr, [name] {
                                      gProj.selected = name;
                                      InvalidateRect(gProj.wnd, nullptr, FALSE);
@@ -749,7 +749,7 @@ void paintProjectPage(HWND hwnd) {
             projectFormRefresh();
         });
         ui::smallButton(mem, ax + scale(8), y, rowH, L"Link a file\x2026", [] { projectAddExistingScript(); },
-                 L"An .eps file from anywhere on disk. StarDraft builds it as it is and does not change it.");
+                 L"An .eps file from anywhere on disk. StarDraft 2 builds it as it is and does not change it.");
         y += rowH + scale(24);
         if (pr->traceBuild() || projectTraceReport(*pr)) y = paintEpTrace(mem, l, y, rowH, *pr, rel);
     }

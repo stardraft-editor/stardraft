@@ -151,7 +151,7 @@ void optionsPaint(HWND hwnd) {
     // Crash reports (GitHub feedback #45): a crash always keeps its report on this computer; ask, send or not.
     ui::fieldLabel(mem, l, y, L"Crash reports", false);
     segmented(y,
-              {{L"Ask", L"After a crash, StarDraft asks at the next start if it can send the report (default)"},
+              {{L"Ask", L"After a crash, StarDraft 2 asks at the next start if it can send the report (default)"},
                {L"Send", L"Send an anonymous report after a crash: the version, Windows, the video card, where it crashed and the last log lines; no maps"},
                {L"Do not send", L"The reports stay on this computer"}},
               gCrashReports, [](int i) { command(ID_CRASH_MODE + i); }, "crashreports");

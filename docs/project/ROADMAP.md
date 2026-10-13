@@ -1,7 +1,7 @@
 # Roadmap
 
-The problems that StarDraft does not solve yet, and the solution where it is clear. The simplest items are first.
-The groups in *For:* are the groups in README.md, "Who StarDraft is for".
+The problems that StarDraft 2 does not solve yet, and the solution where it is clear. The simplest items are first.
+The groups in *For:* are the groups in README.md, "Who StarDraft 2 is for".
 
 ## Next
 
@@ -37,7 +37,7 @@ The groups in *For:* are the groups in README.md, "Who StarDraft is for".
 - [ ] **R25 Campaign projects.** Each map of a campaign is a separate file. The settings drift between the maps, and
   mappers cannot see the campaign in one place. Keep the maps of a campaign in order in one project. *For:* UMS and
   campaign.
-- [ ] **R2 Terrain rendering accuracy.** Some terrain looks different in StarDraft and in the game. Not all tilesets are
+- [ ] **R2 Terrain rendering accuracy.** Some terrain looks different in StarDraft 2 and in the game. Not all tilesets are
   compared in HD, SD and Carbot. Compare each tileset with the game, and fix what differs. *For:* melee, UMS and
   campaign.
 - [ ] **R35 Pathfinder region overlay.** Units find paths through regions that the game makes when it loads a map.
@@ -48,13 +48,13 @@ The groups in *For:* are the groups in README.md, "Who StarDraft is for".
 
 ## Later
 
-- [ ] **R26 Mod loading (MPQ, folder).** StarDraft reads only the game's own files. Mappers cannot use the files of a
+- [ ] **R26 Mod loading (MPQ, folder).** StarDraft 2 reads only the game's own files. Mappers cannot use the files of a
   mod. Load a mod (MPQ or folder) on top of the game's files. *For:* modders (not a group in README.md yet).
 - [ ] **R27 Cosmonarchy support.** The largest mod has needs of its own. These needs are not known yet. *For:* modders.
 - [ ] **R41 Combat simulator.** To balance custom units, mappers must play test fights in the game. Show a fight between
   units (their counts, upgrades and the result: who wins, the hit points left, how long it takes). It needs a
   simulation of the game itself, so it waits for that. *For:* EUD, modders.
-- [ ] **R28 macOS port.** StarDraft runs only on Windows.
-- [ ] **R29 Linux port.** StarDraft runs only on Windows.
-- [ ] **R30 Web build.** Users must install StarDraft to use it.
+- [ ] **R28 macOS port.** StarDraft 2 runs only on Windows.
+- [ ] **R29 Linux port.** StarDraft 2 runs only on Windows.
+- [ ] **R30 Web build.** Users must install StarDraft 2 to use it.
 

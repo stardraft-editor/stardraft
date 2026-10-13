@@ -1214,7 +1214,7 @@ void classicTrigDatashot(const std::string& spec, const fs::path& dir) {
             if (HWND h = ctPicker("unit")) ctPick(h, 230);  // men
             ctAddEntry(1, 9);  // Display text message
             if (HWND h = ctPicker("text")) {  // a multi-line box sends no EN_CHANGE for WM_SETTEXT: as typing does
-                SetWindowTextW(h, L"Hello from StarDraft");
+                SetWindowTextW(h, L"Hello from StarDraft 2");
                 SendMessageW(gCt->wnd, WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(h), EN_CHANGE), LPARAM(h));
             }
             ctAddEntry(1, 9);

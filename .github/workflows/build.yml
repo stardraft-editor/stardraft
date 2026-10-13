@@ -88,7 +88,7 @@ jobs:
           $raw = "https://raw.githubusercontent.com/$($env:GITHUB_REPOSITORY)/$($env:GITHUB_REF_NAME)/docs/user/"
           $text = ($notes -join "`n") -replace '\]\((images/[^)\s]+)\)', "]($raw`$1)"
           Set-Content notes.md $text -Encoding utf8
-          $title = "StarDraft $version (build $($env:GITHUB_SHA.Substring(0, 7)))"
+          $title = "StarDraft 2 - v$version (build $($env:GITHUB_SHA.Substring(0, 7)))"
           gh release create $env:GITHUB_REF_NAME $zip --title $title --latest --verify-tag --notes-file notes.md
           # Discord: one post in each channel that has a webhook (a webhook posts in its own channel only), with the
           # screenshots of this version's changelog section as files (at most 10; Discord cannot load the private
