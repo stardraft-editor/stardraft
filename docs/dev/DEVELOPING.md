@@ -68,7 +68,7 @@ Run the whole set before you push to `main`.
 
 `python -I tools/ui_text_lint.py` checks the texts that users see against the rules in `docs/dev/PRINCIPLES.md` ("Text"). It
 extracts the strings of `apps/editor/main.cpp`, the `.inc` files of the editor, the checker messages in
-`src/triggers.cpp` and the block texts (where the block library's source is, which is not in the repository), and it reads `README.md` and
+`src/triggers.cpp` and the block texts (in `src/data/trigger_blocks.inc`), and it reads `README.md` and
 `docs/user/CHANGELOG.md`. It needs only Python, and GitHub runs it before the build. A new violation makes it exit with
 1. An accepted exception goes into `tools/ui_text_lint_baseline.txt`, one per line with its reason.
 

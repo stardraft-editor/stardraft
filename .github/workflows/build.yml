@@ -31,6 +31,7 @@ jobs:
       - name: Check the translation tables
         run: |
           python -I tools/ui_lang_gen.py
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }  # a bad .tsv row: no tables are made
           git diff --exit-code -- apps/editor/res/lang
 
       # FetchContent sources (SDL3, StormLib, CascLib, stb): cached by the CMake file that pins them.
