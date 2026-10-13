@@ -2,6 +2,43 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows (64-bit).
 
+## 0.5.0.7
+
+### New
+
+- New language support: Russian and Chinese (simplified).
+- Quick open (Ctrl+Shift+O): jump to an open tab, or open a recent project or map.
+- Drag and drop maps and projects onto the window to open them.
+- Open .scm and .scx maps in StarDraft 2 with a double-click (Program options > Maps).
+- Map properties: apply color to the title and description, with an inline preview.
+- Data: pin entries to the top of the list (right-click an entry).
+- Program options > Mouse: choose whether the middle mouse button pans or drags the map.
+
+### Map
+
+- Unit ranges (View > Show ranges) match the game: sight, target acquisition, ground and air. They follow units while
+  you drag them.
+- Siege tank turrets are drawn on top of the tank.
+- Move cursor over selected units, doodads and sprites.
+- No player selector in Doodads mode.
+- Terrain paste fits units to the pasted terrain.
+- Faster start-up, doodad spray, unit spray and paste, and minimap.
+
+### Data
+
+- Undo for importing, renaming and removing sounds.
+
+### Fixes
+
+- Very large numbers in trigger values no longer crash the program.
+- Failed saves show an error; project files that fail to load are no longer overwritten.
+- Damaged game string tables and tileset files show an error.
+- Feedback and crash reports are no longer lost or sent twice.
+- The Working folder button in Program options reads "Browse…".
+- Grayed items in the Options menu are easier to read.
+- Clearer texts throughout.
+- The New page no longer offers "The terrain of a map".
+
 ## 0.5.0.6
 
 ### StarDraft 2
