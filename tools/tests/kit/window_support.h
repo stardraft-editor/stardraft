@@ -27,7 +27,8 @@ public:
         routerFor(root);
     }
     ~ScriptedHost() override {
-        for (auto& r : routers_) r->root().attach(nullptr);
+        for (size_t i = 0; i < routers_.size(); ++i)
+            if (!closed_[i]) routers_[i]->root().attach(nullptr);  // (a closed window's views may be gone already)
     }
 
     // The router of the window (or the root) that `v` is in: the events of a window go through it.
@@ -37,6 +38,7 @@ public:
         for (auto& r : routers_)
             if (&r->root() == top) return *r;
         routers_.push_back(std::make_unique<draw::Router>(const_cast<draw::View&>(*top)));
+        closed_.push_back(false);
         return *routers_.back();
     }
 
@@ -69,12 +71,16 @@ public:
         content.setFrame({0, 0, spec.at.width(), spec.at.height()});
         content.attach(this);
         routerFor(content);
+        for (size_t i = 0; i < routers_.size(); ++i)
+            if (&routers_[i]->root() == &content) closed_[i] = false;  // (a window opened again at the same address)
     }
     void closeWindow(draw::View& content) override {
         for (auto it = windows.begin(); it != windows.end(); ++it)
             if (it->content == &content) {
                 windows.erase(it);
                 content.attach(nullptr);  // (its router stays: the events of the call that closed it may still come)
+                for (size_t i = 0; i < routers_.size(); ++i)
+                    if (&routers_[i]->root() == &content) closed_[i] = true;
                 return;
             }
     }
@@ -84,7 +90,8 @@ public:
         if (onOpen) onOpen(content);
     }
     void forget(const draw::View& v) override {
-        for (auto& r : routers_) r->forget(v);
+        for (size_t i = 0; i < routers_.size(); ++i)
+            if (!closed_[i]) routers_[i]->forget(v);
     }
 
     RecordingCanvas paintWindow(size_t i) {
@@ -96,6 +103,7 @@ public:
 private:
     std::string clip;
     std::vector<std::unique_ptr<draw::Router>> routers_;
+    std::vector<bool> closed_;  // per router: its window was closed (its views may be destroyed)
 };
 
 inline void clickIn(draw::Router& r, int x, int y, int button = 0) {
