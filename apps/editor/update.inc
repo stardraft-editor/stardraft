@@ -144,7 +144,9 @@ bool latest(Release& r) {
     if (const size_t a = r.title.find("(build "); a != std::string::npos) r.commit = r.title.substr(a + 7, r.title.find(')', a) - a - 7);
     for (size_t p = 0; (p = j.find("\"browser_download_url\":\"", p)) != std::string::npos; ++p) {
         const std::string u = jsonString(j, "browser_download_url", p);
-        if (u.size() < 4 || u.substr(u.size() - 4) != ".zip") continue;
+        // The Windows zip (StarDraft-<version>-win64.zip): a release can also have downloads for other systems.
+        static const std::string kWin64 = "-win64.zip";
+        if (u.size() < kWin64.size() || u.compare(u.size() - kWin64.size(), kWin64.size(), kWin64) != 0) continue;
         // The asset's "url" (api.github.com/.../releases/assets/<id>) comes before its browser_download_url.
         for (size_t k = j.rfind("\"url\":\"", p); k != std::string::npos; k = k ? j.rfind("\"url\":\"", k - 1) : std::string::npos) {
             const std::string a = jsonString(j, "url", k);
