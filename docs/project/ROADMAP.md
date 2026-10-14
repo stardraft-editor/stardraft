@@ -82,7 +82,7 @@ Make StarDraft 2 a more powerful creation suite.
 
   Wait stops all the triggers of a player. The timer blocks drift over a long game. Paused.
 - [ ] **R23 Batch trigger generation.** *Tag:* UMS.
-  Make many triggers from one pattern: one trigger for each player, location or unit type.
+  In Classic triggers, make many triggers from one pattern: one trigger for each player, location or unit type.
 
   Mappers make hundreds of triggers that differ in one value. They must make and change each trigger by hand.
 - [ ] **R25 Campaign projects.** *Tag:* UMS.
