@@ -604,3 +604,186 @@ KIT_TEST(tree_paint_and_cursor) {
     CHECK(tv.cursor({60, 13}) == draw::Cursor::Arrow);
     CHECK(tv.cursor({10, 117}) == draw::Cursor::Arrow);  // C has no children
 }
+
+// A click on the scroll bar's track ends its capture on the release: the next click reaches the view beside the tree.
+KIT_TEST(tree_track_click_releases_capture) {
+    draw::View root;
+    FakeHost host(root);
+    TreeView tv;
+    root.add(tv, {0, 0, 200, 130});
+    struct Probe : draw::View {
+        int downs = 0;
+        bool mouse(const draw::MouseEvent& e) override {
+            if (e.kind == draw::MouseKind::Down) ++downs;
+            return true;
+        }
+    } probe;
+    root.add(probe, {210, 0, 260, 130});
+    for (int i = 0; i < 30; ++i) tv.root().addChild(L"item " + std::to_wstring(i));
+    tv.refresh();
+    host.down(195, 100);  // the track below the thumb: a page down
+    CHECK(tv.scrollY() == 130);
+    host.up(195, 100);
+    host.click(230, 10);  // the probe gets the click, not the tree
+    CHECK(probe.downs == 1);
+    CHECK(tv.scrollY() == 130);
+    CHECK(tv.selected() == nullptr);
+}
+
+// Left on an open node without children selects its parent: the node has nothing to shut.
+KIT_TEST(tree_left_on_open_empty_folder) {
+    draw::View root;
+    FakeHost host(root);
+    TreeView tv;
+    root.add(tv, {0, 0, 200, 130});
+    sample(tv);
+    TreeNode* a = findLabel(tv.root(), L"A");
+    TreeNode& f = a->addChild(L"F");
+    f.addChild(L"x");
+    f.expanded = true;
+    tv.refresh();  // rows: A 0, a1 1, a2 2, F 3, x 4, B 5, C 6
+    host.click(60, 91);  // F
+    CHECK(tv.selected() == &f);
+    f.children.clear();  // the owner drags its only child away: F stays open, with no children
+    tv.refresh();
+    CHECK(f.expanded);
+    CHECK(host.press(draw::Key::Left));
+    CHECK(tv.selected() == a);
+    CHECK(f.expanded);  // nothing was shut
+}
+
+// The owner deletes the view while a type-ahead pause is pending: the pause runs and must not touch the view.
+KIT_TEST(tree_type_ahead_timer_after_deletion) {
+    draw::View root;
+    FakeHost host(root);
+    auto tv = std::make_unique<TreeView>();
+    root.add(*tv, {0, 0, 200, 130});
+    sample(*tv);
+    host.click(60, 13);
+    host.type("a");  // a pause is pending
+    CHECK(!host.timers.empty());
+    root.remove(*tv);  // the owner takes the view out and deletes it
+    tv.reset();
+    host.runTimers();  // runs without a view: nothing is written
+    CHECK(host.timers.empty());
+}
+
+// The owner rebuilds the model in onSelect, which runs while the mouse is down on a row. The press ends with the
+// refresh, so the moves after it start no drag from the freed node.
+KIT_TEST(tree_refresh_in_select_ends_press) {
+    draw::View root;
+    FakeHost host(root);
+    TreeView tv;
+    root.add(tv, {0, 0, 200, 130});
+    sample(tv);
+    bool rebuilt = false;
+    tv.onSelect = [&](TreeNode*) {
+        if (rebuilt) return;
+        rebuilt = true;
+        tv.root().children.clear();  // the node pressed on is freed here
+        tv.root().addChild(L"new");
+        tv.refresh();
+    };
+    std::vector<Move> moves;
+    ownerMoves(tv, moves);
+    host.down(60, 117);  // C
+    CHECK(rebuilt);
+    host.move(60, 29);  // no drag: no drop line and no move
+    auto c = host.paint();
+    CHECK(!c.drew("fill 4,"));
+    CHECK(!c.drew("fill 22,"));
+    host.up(60, 29);
+    CHECK(moves.empty());
+    CHECK(tv.root().children.size() == 1);
+}
+
+// A drag refreshed by the owner in mid-drag ends too: no line, and the release does nothing.
+KIT_TEST(tree_refresh_in_drag_cancels_it) {
+    draw::View root;
+    FakeHost host(root);
+    TreeView tv;
+    root.add(tv, {0, 0, 200, 130});
+    sample(tv);
+    std::vector<Move> moves;
+    ownerMoves(tv, moves);
+    host.down(60, 117);  // C
+    host.move(60, 29);
+    CHECK(host.paint().drew("fill 22,25,200,27 "));
+    tv.refresh();
+    CHECK(!host.paint().drew("fill 22,25,200,27 "));
+    host.up(60, 29);
+    CHECK(moves.empty());
+}
+
+// Drops after the last top-level row when that row is a leaf below an open folder: the pointer's level decides.
+// Rows: A 0, F 1 (open), x 2 (in F). Drag A below x at the left edge: after F at the top level.
+KIT_TEST(tree_drop_after_nested_row_at_outer_level) {
+    draw::View root;
+    FakeHost host(root);
+    TreeView tv;
+    root.add(tv, {0, 0, 200, 130});
+    TreeNode& a = tv.root().addChild(L"A");
+    TreeNode& f = tv.root().addChild(L"F");
+    f.addChild(L"x");
+    f.expanded = true;
+    tv.refresh();
+    std::vector<Move> moves;
+    ownerMoves(tv, moves);
+    host.down(60, 13);  // A
+    host.move(10, 72);  // the lower half of x, at the left edge: the top level
+    CHECK(host.paint().drew("fill 4,77,200,79 "));  // the line starts at the top level
+    host.up(10, 72);
+    CHECK(moves.size() == 1 && moves[0].node == L"A" && moves[0].parent.empty() && moves[0].index == 1);
+    CHECK(tv.root().children.size() == 2 && tv.root().children[0]->label == L"F" && tv.root().children[1].get() == &a);
+}
+
+// The same rows, the pointer inside F's level: after x, in F (the usual place).
+KIT_TEST(tree_drop_after_nested_row_at_own_level) {
+    draw::View root;
+    FakeHost host(root);
+    TreeView tv;
+    root.add(tv, {0, 0, 200, 130});
+    tv.root().addChild(L"A");
+    TreeNode& f = tv.root().addChild(L"F");
+    f.addChild(L"x");
+    f.expanded = true;
+    tv.refresh();
+    std::vector<Move> moves;
+    ownerMoves(tv, moves);
+    host.down(60, 13);  // A
+    host.move(60, 72);
+    CHECK(host.paint().drew("fill 22,77,200,79 "));  // at x's level
+    host.up(60, 72);
+    CHECK(moves.size() == 1 && moves[0].parent == L"F" && moves[0].index == 1);
+}
+
+// A row with a sibling after it: the level stops at the next row's level, so the drop cannot leave the folder
+// above the rows that follow inside it. Rows: A 0, a1 1, a2 2, B 0. Pointer at the left edge after a1: stays in A.
+KIT_TEST(tree_drop_after_row_not_past_next_sibling) {
+    draw::View root;
+    FakeHost host(root);
+    TreeView tv;
+    root.add(tv, {0, 0, 200, 130});
+    sample(tv);
+    std::vector<Move> moves;
+    ownerMoves(tv, moves);
+    host.down(60, 117);  // C
+    host.move(4, 46);  // the lower half of a1 at the left edge: a2 follows at its level, so after a1 in A
+    CHECK(host.paint().drew("fill 22,51,200,53 "));
+    host.up(4, 46);
+    CHECK(moves.size() == 1 && moves[0].parent == L"A" && moves[0].index == 1);
+}
+
+// The selected row keeps its fill under the mouse, as ui_kit's listRow does (no hover fill).
+KIT_TEST(tree_selected_row_under_mouse_keeps_fill) {
+    draw::View root;
+    FakeHost host(root);
+    TreeView tv;
+    root.add(tv, {0, 0, 200, 130});
+    sample(tv);
+    host.click(60, 13);  // A selected
+    host.move(60, 13);   // the mouse over it
+    auto c = host.paint();
+    CHECK(c.drew("fill 0,0,200,26 0x3f3017 255"));  // the selected fill
+    CHECK(!c.drew("0x523e1e"));                       // not the hot fill (selHot)
+}

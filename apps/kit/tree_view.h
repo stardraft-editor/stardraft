@@ -36,7 +36,8 @@ public:
     // The root: its children are the top rows. Change the model through it, then call refresh().
     TreeNode& root() { return root_; }
     // Rebuilds the rows after the model changed. Expanded nodes and the selection stay when still shown. A node the
-    // owner removed must not be used again (the view compares its address only until the next refresh).
+    // owner removed must not be used again (the view compares its address only until the next refresh). A press or
+    // a drag in progress ends: its node may be gone (onSelect may rebuild the model).
     void refresh();
 
     TreeNode* selected() const { return selected_; }
@@ -124,7 +125,7 @@ private:
     TreeNode* hover_ = nullptr;
     TreeNode* press_ = nullptr;  // the node a button was pressed on
     draw::Point pressAt_;
-    bool pressing_ = false, dragging_ = false, thumbDrag_ = false, scrollHot_ = false;
+    bool pressing_ = false, dragging_ = false, thumbDrag_ = false, trackPress_ = false, scrollHot_ = false;
     TreeNode* dragNode_ = nullptr;
     TreeNode* dragParent_ = nullptr;  // where the dragged node was when the drag began
     size_t dragIndex_ = 0;
@@ -133,6 +134,8 @@ private:
     std::wstring typed_;  // type-ahead: the letters typed in a row (lower case)
     int typeTimer_ = 0;
     bool typeTimerSet_ = false;
+    // The type-ahead timer's callback checks this before it touches the view: a view the owner deleted is not used.
+    std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
 };
 
 }  // namespace stardraft::kit
