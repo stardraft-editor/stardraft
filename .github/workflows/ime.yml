@@ -136,7 +136,7 @@ jobs:
       - name: Type Korean with 2-Set Korean
         run: |
           app=build/stardraft-next.app/Contents/MacOS/stardraft-next
-          for mode in system inline; do
+          for mode in inline system; do  # (inline first: is a lost first syllable the input method starting, or the mode?)
             flag=""; [ "$mode" = inline ] && flag="--ime-inline"
             "$app" --workspace triggers $flag --live 20 --snapshot ime-macos-$mode.png > ime-macos-$mode.txt 2>&1 &
             pid=$!
