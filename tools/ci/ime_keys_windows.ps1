@@ -16,6 +16,8 @@ public static class Ime {
     [DllImport("imm32.dll")] public static extern bool ImmSetConversionStatus(IntPtr c, uint conv, uint sentence);
     [DllImport("imm32.dll")] public static extern bool ImmReleaseContext(IntPtr w, IntPtr c);
     [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr w, IntPtr pid);
+    [DllImport("user32.dll")] public static extern IntPtr GetKeyboardLayout(uint thread);
     public static void Key(byte vk) { keybd_event(vk, 0, 0, UIntPtr.Zero); System.Threading.Thread.Sleep(60); keybd_event(vk, 0, 2, UIntPtr.Zero); System.Threading.Thread.Sleep(120); }
 }
 '@
@@ -35,10 +37,10 @@ Start-Sleep -Milliseconds 500
 $hkl = [Ime]::LoadKeyboardLayoutW("00000412", 1)
 [Ime]::PostMessageW($w, 0x0050, [IntPtr]::Zero, $hkl) | Out-Null
 Start-Sleep -Milliseconds 800
-$c = [Ime]::ImmGetContext($w)
-[Ime]::ImmSetOpenStatus($c, $true) | Out-Null
-[Ime]::ImmSetConversionStatus($c, 1, 0) | Out-Null  # IME_CMODE_NATIVE (Hangul)
-[Ime]::ImmReleaseContext($w, $c) | Out-Null
+$layout = [Ime]::GetKeyboardLayout([Ime]::GetWindowThreadProcessId($w, [IntPtr]::Zero))
+Write-Output ("keyboard layout of the window: {0:X8}" -f $layout.ToInt64())
+# The Hangul key (VK_HANGUL) turns Hangul input on (the IME starts in English letters).
+[Ime]::Key(0x15)
 Start-Sleep -Milliseconds 500
 foreach ($ch in $Keys.ToCharArray()) {
     if ($ch -eq ' ') { [Ime]::Key(0x20) } else { [Ime]::Key([byte][char]([string]$ch).ToUpper()) }

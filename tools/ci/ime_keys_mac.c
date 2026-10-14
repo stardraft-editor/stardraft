@@ -8,7 +8,21 @@
 #include <string.h>
 #include <unistd.h>
 
+// Enables the input source with that id (all installed ones are searched); its status, or -1 when there is none.
+static OSStatus enable(CFStringRef id) {
+    const void* keys[] = {kTISPropertyInputSourceID};
+    const void* values[] = {id};
+    CFDictionaryRef filter = CFDictionaryCreate(NULL, keys, values, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFArrayRef list = TISCreateInputSourceList(filter, true);
+    CFRelease(filter);
+    OSStatus s = list && CFArrayGetCount(list) ? TISEnableInputSource((TISInputSourceRef)CFArrayGetValueAtIndex(list, 0)) : -1;
+    if (list) CFRelease(list);
+    return s;
+}
+
 static int selectKorean(void) {
+    // The Korean input method first (2-Set Korean is one of its input modes).
+    printf("Korean input method: enable %d\n", (int)enable(CFSTR("com.apple.inputmethod.Korean")));
     const void* keys[] = {kTISPropertyInputSourceID};
     CFStringRef id = CFSTR("com.apple.inputmethod.Korean.2SetKorean");
     const void* values[] = {id};
