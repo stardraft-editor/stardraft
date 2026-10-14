@@ -55,6 +55,7 @@ using std::min;
 
 #include <stb_image.h>
 #include "../common/canvas.h"
+#include "../common/view.h"
 #include "res/ui_icons.h"
 #include "stardraft/editor.h"
 #include "stardraft/hd_assets.h"
@@ -5649,12 +5650,37 @@ void drawFitted(HDC dc, const UnitPalette::Bitmap& b, RECT box) {
     DeleteDC(src);
 }
 
+namespace ui {
+// A click area's cursor: the portable one (stardraft::draw::Cursor), made also from the Win32 cursor ids the panes use.
+struct HitCursor {
+    stardraft::draw::Cursor c = stardraft::draw::Cursor::Arrow;
+    HitCursor(stardraft::draw::Cursor k = stardraft::draw::Cursor::Arrow) : c(k) {}
+    HitCursor(LPCWSTR id) {
+        using stardraft::draw::Cursor;
+        c = id == IDC_HAND ? Cursor::Hand : id == IDC_IBEAM ? Cursor::IBeam : id == IDC_SIZEALL ? Cursor::SizeAll : id == IDC_SIZEWE ? Cursor::SizeWE
+          : id == IDC_SIZENS ? Cursor::SizeNS : id == IDC_NO ? Cursor::No : id == IDC_WAIT ? Cursor::Wait : Cursor::Arrow;
+    }
+    operator LPCWSTR() const {
+        using stardraft::draw::Cursor;
+        switch (c) {
+        case Cursor::Hand: return IDC_HAND;
+        case Cursor::IBeam: return IDC_IBEAM;
+        case Cursor::SizeAll: return IDC_SIZEALL;
+        case Cursor::SizeWE: return IDC_SIZEWE;
+        case Cursor::SizeNS: return IDC_SIZENS;
+        case Cursor::No: return IDC_NO;
+        case Cursor::Wait: return IDC_WAIT;
+        default: return IDC_ARROW;
+        }
+    }
+};
+}  // namespace ui
 struct DataWidgetHit {
     RECT r{};
     std::function<void(POINT)> drag;  // while the mouse is down and moves: the values from the mouse position
     std::function<void()> click;      // a click without a drag
     std::wstring tip;
-    LPCWSTR cursor = IDC_HAND;
+    ui::HitCursor cursor = IDC_HAND;
     std::vector<std::string> fields;  // the fields this part shows (the mouse over it marks them)
     std::function<void()> release;    // after a drag, when the mouse goes up
     std::function<void(int)> wheel;   // the mouse wheel over it: one step (1 the next, -1 the one before); a dropdown
@@ -5963,6 +5989,7 @@ void fadeIn(HWND w, int show) {
 
 #include "canvas_gdi.inc"
 #include "ui_kit.inc"
+#include "view_win32.inc"
 #include "game_text.inc"
 #include "context_menu.inc"
 #include "message_box.inc"
@@ -23625,6 +23652,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     qc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     qc.lpszClassName = L"StarDraftQuickPick";
     RegisterClassExW(&qc);
+    ui::registerViewClass(inst);
 
     // Self-test and screenshot runs work in the background: the window sits beyond the right edge of
     // the desktop, never activates and stays off the taskbar, so it does not take the user's focus.
