@@ -1,9 +1,10 @@
 """Checks the IME workflow's results: what stardraft-next's search field holds after the keys.
 
-    python ime_check.py korean|hanja|pinyin <run output>
+    python ime_check.py korean|hanja|hangul-english|pinyin <run output>
 
 korean: "gksrnrdj " typed: the field must be 한국어. hanja: 한, its Hanja (the first candidate), a space, "abc " in
-English letters, then 국 in Hangul again: one Hanja, " abc 국". pinyin: "zhongwen ": 中文.
+English letters, then 국 in Hangul again: one Hanja, " abc 국". hangul-english: the same without the Hanja: "한 abc 국".
+pinyin: "zhongwen ": 中文.
 """
 
 import re
@@ -14,6 +15,7 @@ CHECKS = {
     "korean": ("한국어", "Korean"),
     "hanja": ("[㐀-鿿豈-﫿] abc 국", "Hanja, then 한/영"),
     "pinyin": ("中文", "Pinyin"),
+    "hangul-english": ("한 abc 국", "한/영"),
 }
 
 
