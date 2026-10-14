@@ -10621,7 +10621,8 @@ void drawPortraitFrame(HDC dc, const PortraitVideo& v, int frame, RECT r);  // b
 RECT gPortraitArea{};
 bool gPortraitShown = false;
 int gPortraitFrameShown = -1;
-int widgetPortrait(HDC dc, int e, int x, int y, int w) {
+// A portraits.dat entry's file path, as portdata.tbl writes it ("tmarine\TMaFid0"), or "" for none.
+std::string portraitPath(int e) {
     static Bytes tbl;
     static const Editor* tblFor = nullptr;  // read again for another map or project (its own portdata.tbl, the game's folder set later)
     if (tblFor != app.ed.get() || tbl.empty()) {
@@ -10635,32 +10636,77 @@ int widgetPortrait(HDC dc, int e, int x, int y, int w) {
         const size_t o = size_t(tbl[2 + 2 * (file - 1)] | tbl[3 + 2 * (file - 1)] << 8);
         for (size_t i = o; i < tbl.size() && tbl[i]; ++i) path += char(tbl[i]);
     }
-    static std::map<std::tuple<std::string, int, bool>, std::vector<PortraitVideo>> cache;  // the clips of a path, by quality
-    if (cache.size() > 4 && !cache.count({path, int(app.quality), app.carbot})) cache.clear();  // a few portraits, not all of them
-    auto [it, fresh] = cache.try_emplace({path, int(app.quality), app.carbot});
-    if (fresh && !path.empty())
-        for (int v = 0; v < 8; ++v) {
+    return path;
+}
+
+// The clips of a portrait (GitHub #132: switching was slow with Remastered portraits). The files are read here (the
+// game's storage is read on this thread only); their videos are decoded on a thread of their own, and `ready` says
+// when. The last 24 portraits stay, so going back to one is at once.
+struct PortraitClips {
+    std::atomic<bool> ready{false};
+    std::vector<PortraitVideo> clips;
+};
+std::shared_ptr<PortraitClips> portraitClips(const std::string& path) {
+    using Key = std::tuple<std::string, int, bool>;
+    static std::map<Key, std::pair<uint64_t, std::shared_ptr<PortraitClips>>> cache;  // by the last use
+    static uint64_t uses = 0;
+    const Key key{path, int(app.quality), app.carbot};
+    if (auto it = cache.find(key); it != cache.end()) return it->second.first = ++uses, it->second.second;
+    if (cache.size() >= 24) {  // the one not used for the longest time goes
+        auto old = cache.begin();
+        for (auto it = cache.begin(); it != cache.end(); ++it)
+            if (it->second.first < old->second.first) old = it;
+        cache.erase(old);
+    }
+    auto entry = std::make_shared<PortraitClips>();
+    cache[key] = {++uses, entry};
+    std::vector<Bytes> files;
+    for (int v = 0; v < 8 && !path.empty(); ++v) {
+        Bytes f;
+        std::string err;
+        if (!readPortraitFile(app.data, path, v, app.quality, app.carbot, f, err)) break;
+        files.push_back(std::move(f));
+    }
+    std::thread([entry, files = std::move(files)] {
+        std::vector<PortraitVideo> clips;
+        for (const Bytes& f : files) {
             PortraitVideo pv;
             std::string err;
-            if (!loadPortrait(app.data, path, v, app.quality, app.carbot, pv, err) || pv.frames.empty()) break;
-            it->second.push_back(std::move(pv));
+            if (!decodeWebm(f, pv, err) || pv.frames.empty()) break;
+            clips.push_back(std::move(pv));
         }
+        entry->clips = std::move(clips);
+        entry->ready.store(true, std::memory_order_release);
+    }).detach();
+    return entry;
+}
+
+int widgetPortrait(HDC dc, int e, int x, int y, int w) {
+    const std::string path = portraitPath(e);
+    const std::shared_ptr<PortraitClips> clips = portraitClips(path);
+    const bool ready = clips->ready.load(std::memory_order_acquire);
+    if (ready) {  // the next and the previous entry's portraits, before they are needed
+        portraitClips(portraitPath(e + 1));
+        portraitClips(portraitPath(e - 1));
+    }
+    static const std::vector<PortraitVideo> none;
+    const std::vector<PortraitVideo>& shown = ready ? clips->clips : none;
     const int side = std::min(w, scale(240)), h = side * 7 / 8;
     const RECT box{x, y, x + side, y + h};
     canvas(dc, box);
     int total = 0;
-    for (const auto& c : it->second) total += int(c.frames.size());
+    for (const auto& c : shown) total += int(c.frames.size());
     if (!total) {
         SetTextColor(dc, kDim);
         RECT t = box;
-        DrawTextW(dc, path.empty() ? L"No portrait file" : L"The portrait's video cannot be read", -1, &t, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
+        DrawTextW(dc, path.empty() ? L"No portrait file" : !ready ? L"Loading the portrait 26" : L"The portrait's video cannot be read", -1, &t, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
         gPortraitShown = false;
         return h;
     }
     const uint64_t tenth = GetTickCount64() / 100;
     int f = int(tenth % uint64_t(total));  // 10 frames a second
     gPortraitFrameShown = int(tenth % 100000);
-    for (const auto& c : it->second) {
+    for (const auto& c : shown) {
         if (f < int(c.frames.size())) {
             const float k = std::min(float(side - scale(16)) / float(c.width), float(h - scale(16)) / float(c.height));
             const int pw = int(float(c.width) * k), ph = int(float(c.height) * k);
@@ -10673,7 +10719,7 @@ int widgetPortrait(HDC dc, int e, int x, int y, int w) {
     gPortraitArea = box, gPortraitShown = true;
     SetTextColor(dc, kDim);
     RECT nt{box.right + scale(12), y, x + w, y + scale(20)};
-    DrawTextW(dc, (widen(path) + L"  \x00B7  " + std::to_wstring(it->second.size()) + (it->second.size() == 1 ? L" clip" : L" clips")).c_str(), -1, &nt,
+    DrawTextW(dc, (widen(path) + L"  \x00B7  " + std::to_wstring(shown.size()) + (shown.size() == 1 ? L" clip" : L" clips")).c_str(), -1, &nt,
               DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
     return h;
 }
@@ -27701,6 +27747,34 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                 for (int i = 0; i < 10; ++i) pump(), Sleep(20);
                 capture(fs::path(datashots) / ("entry_" + dat + "_" + std::to_string(e) + ".png"));
+                continue;
+            }
+            if (s == "portraits:") {  // portraits.txt: Data > Portraits, entries 0..5: how long each switch takes (GitHub #132), then the clips
+                std::ofstream o(fs::path(datashots) / "portraits.txt");
+                command(ID_WS_DATA);
+                for (int i = 0; i < 5; ++i) pump();
+                double slowest = 0;
+                for (int e = 0; e < 6; ++e) {
+                    const auto t0 = std::chrono::steady_clock::now();
+                    dataGoTo("portdata", e);
+                    RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                    const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+                    slowest = std::max(slowest, ms);
+                    o << "entry " << e << ": " << int(ms) << " ms\n";
+                }
+                o << "switching stays under 300 ms " << (slowest < 300 ? "yes" : "NO") << "\n";
+                std::string path;  // the last of them with a portrait file
+                for (int e = 0; e < 6; ++e)
+                    if (!portraitPath(e).empty()) path = portraitPath(e);
+                bool loaded = false;  // its decoded clips arrive
+                for (int i = 0; i < 300 && !loaded && !path.empty(); ++i) {
+                    pump(), Sleep(20);
+                    loaded = portraitClips(path)->ready.load();
+                }
+                o << "the clips are decoded in the background " << (loaded && !portraitClips(path)->clips.empty() ? "yes" : "NO") << " (" << path << ", "
+                  << (path.empty() ? 0 : portraitClips(path)->clips.size()) << " clips)\n";
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "portraits.png");
                 continue;
             }
             if (s.rfind("set:", 0) == 0) {  // set:<dat>:<entry>:<field>:<value>: an edit, as the form makes it

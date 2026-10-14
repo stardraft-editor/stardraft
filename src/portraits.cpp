@@ -152,18 +152,23 @@ bool decodeWebm(std::span<const uint8_t> file, PortraitVideo& out, std::string& 
     return true;
 }
 
-bool loadPortrait(const GameData& data, const std::string& path, int index, GraphicsQuality quality, bool carbot, PortraitVideo& out,
-                  std::string& error) {
+bool readPortraitFile(const GameData& data, const std::string& path, int index, GraphicsQuality quality, bool carbot, Bytes& out,
+                      std::string& error) {
     // portdata.tbl writes "tmarine\TMaFid0"; the files add one digit: tmafid00.webm, tmafid01.webm, ...
     const std::string name = "portrait\\" + path + std::to_string(index) + ".webm";
     std::vector<std::string> tries;
     if (carbot) tries.push_back("Carbot\\" + name);
     tries.push_back(quality == GraphicsQuality::SD ? "SD\\" + name : quality == GraphicsQuality::HD2 ? "HD2\\" + name : name);
     tries.push_back(name);
-    Bytes file;
     for (const auto& t : tries)
-        if (data.readFile(t, file, error)) return decodeWebm(file, out, error);
+        if (data.readFile(t, out, error)) return true;
     return false;
+}
+
+bool loadPortrait(const GameData& data, const std::string& path, int index, GraphicsQuality quality, bool carbot, PortraitVideo& out,
+                  std::string& error) {
+    Bytes file;
+    return readPortraitFile(data, path, index, quality, carbot, file, error) && decodeWebm(file, out, error);
 }
 
 }  // namespace stardraft

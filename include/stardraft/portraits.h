@@ -27,5 +27,9 @@ bool decodeWebm(std::span<const uint8_t> file, PortraitVideo& out, std::string& 
 // `carbot`: the Carbot skin's (falls back to the normal art).
 bool loadPortrait(const GameData& data, const std::string& path, int index, GraphicsQuality quality, bool carbot, PortraitVideo& out,
                   std::string& error);
+// The same portrait's file only (not decoded): reading is quick, decoding (decodeWebm) is the slow part and can run on
+// another thread.
+bool readPortraitFile(const GameData& data, const std::string& path, int index, GraphicsQuality quality, bool carbot, Bytes& out,
+                      std::string& error);
 
 }  // namespace stardraft
