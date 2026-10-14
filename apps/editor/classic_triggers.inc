@@ -230,7 +230,7 @@ void ctUpdateHeader() {
     ClassicTrigDialog& d = *gCt;
     const ClassicTrigger* t = ctTrigger();
     SetWindowTextW(d.headTitle, t ? (L"Trigger " + std::to_wstring(d.sel + 1)).c_str() : L"None");
-    SetWindowTextW(d.headCount, !t ? L"" : widen(std::string(t->disabled() ? "Turned off. " : "") + std::to_string(t->actionCount()) + (t->actionCount() == 1 ? " action" : " actions")).c_str());
+    SetWindowTextW(d.headCount, !t ? L"" : widen(std::string(t->disabled() ? "Turned off, " : "") + std::to_string(t->actionCount()) + (t->actionCount() == 1 ? " action" : " actions")).c_str());
     SetWindowTextW(d.turnOff, t && t->disabled() ? L"Turn on" : L"Turn off");
     for (HWND h : {d.turnOff, d.deleteTrig, d.forces}) EnableWindow(h, t != nullptr);
     InvalidateRect(d.headTitle, nullptr, TRUE);
@@ -821,7 +821,7 @@ void ctToggleTriggers() {
     for (int i : targets) gCt->trig.triggers[size_t(i)].setDisabled(off);
     ctUpdateHeader();
     ctChanged();
-    setMessage(off ? (targets.size() > 1 ? L"Turned off the triggers" : L"Turned off the trigger") : (targets.size() > 1 ? L"Turned on the triggers" : L"Turned on the trigger"));
+    setMessage(off ? (targets.size() > 1 ? L"Turned off the triggers" : L"Turned off the trigger") : (targets.size() > 1 ? L"Turned on the triggers" : L"Turned on the trigger"));  // (after the change: its own message)
 }
 // Delete the triggers that ctTargets gives; the trigger after the first one deleted is selected.
 void ctDeleteTriggers() {
