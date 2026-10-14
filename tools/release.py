@@ -440,7 +440,9 @@ def confirm(version, sha, env):
     if latest != tag:
         problems.append(f"Latest is {latest}, not {tag}")
     zips = [a for a in rel["assets"] if a["name"] == f"StarDraft-{version}-win64.zip" and a["size"] > 0]
-    if not zips:  # (other systems' downloads may be there too)
+    # Other systems' downloads may be there too. They must not end in .zip: Check for updates in
+    # older builds takes a release's last .zip.
+    if not zips:
         problems.append(f"the downloads are {[a['name'] for a in rel['assets']]}: no StarDraft-{version}-win64.zip")
     if "](images/" in rel["body"]:
         problems.append("the release text has picture paths that are not addresses")
