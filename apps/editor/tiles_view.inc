@@ -99,11 +99,9 @@ std::vector<uint16_t>& tilesFavorites(int era) {
     if (!loaded[era]) {
         loaded[era] = true;
         const std::wstring name = L"TileFavorites" + std::to_wstring(era);
-        DWORD size = 0;
-        if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", name.c_str(), RRF_RT_REG_BINARY, nullptr, nullptr, &size) == ERROR_SUCCESS && size >= 2) {
-            fav[era].resize(size / 2);
-            RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", name.c_str(), RRF_RT_REG_BINARY, nullptr, fav[era].data(), &size);
-        }
+        std::vector<uint8_t> b;
+        if (prefs::bytes(name, b))  // tile values, 2 bytes each (low byte first)
+            for (size_t i = 0; i + 1 < b.size(); i += 2) fav[era].push_back(uint16_t(b[i] | b[i + 1] << 8));
     }
     return fav[era];
 }
@@ -112,7 +110,9 @@ void tilesSaveFavorites(int era) {
     if (gSelfTest) return;  // tests never change the user's settings
     const auto& f = tilesFavorites(era);
     const std::wstring name = L"TileFavorites" + std::to_wstring(era & 7);
-    RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", name.c_str(), REG_BINARY, f.data(), DWORD(f.size() * 2));
+    std::vector<uint8_t> b;
+    for (uint16_t v : f) b.push_back(uint8_t(v)), b.push_back(uint8_t(v >> 8));
+    prefs::setBytes(name, b);
 }
 
 // The filter box for the map's tileset: all tiles, each terrain type of Isometric mode that has tiles, the doodads'

@@ -69,6 +69,7 @@ using std::min;
 #include "stardraft/terrain_gen.h"
 #include "stardraft/wireframes.h"
 #include "stardraft/pathing.h"
+#include "stardraft/settings.h"
 #include "ui_text.h"  // the program's text in other languages: the macros for DrawTextW, MessageBoxW and the others
 
 using namespace stardraft;
@@ -95,6 +96,8 @@ std::string narrow(const std::wstring& w) {
     WideCharToMultiByte(CP_UTF8, 0, w.data(), int(w.size()), s.data(), n, nullptr, nullptr);
     return s;
 }
+
+#include "settings.inc"
 
 // A .dat field or section name as the UI shows it, in sentence case: "Target Acquisition Range" -> "Target acquisition
 // range", "Cost & availability" -> "Cost and availability". The schema names stay as they are (code and tests use
@@ -207,47 +210,21 @@ constexpr const wchar_t* kDockSideNames[] = {L"TerrainRight", L"UnitsRight", L"D
 static_assert(std::size(kDockSideNames) == kModeCount, "a dock side name for each mode");
 
 void loadDock() {
-    auto get = [](const wchar_t* name, bool& v) {
-        DWORD d = 0, size = sizeof d;
-        if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Layout", name, RRF_RT_REG_DWORD, nullptr, &d, &size) == ERROR_SUCCESS) v = d != 0;
-    };
+    auto get = [](const wchar_t* name, bool& v) { prefs::flag(std::wstring(L"Layout/") + name, v); };
     get(L"MinimapRight", gDock.minimapRight);
     get(L"MinimapHidden", gDock.minimapHidden);
     for (int i = 0; i < kModeCount; ++i) get(kDockSideNames[i], gDock.toolsRight[i]);
-    auto width = [](const wchar_t* name, int& v) {
-        DWORD d = 0, size = sizeof d;
-        if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Layout", name, RRF_RT_REG_DWORD, nullptr, &d, &size) == ERROR_SUCCESS)
-            v = std::clamp(int(d), kMinSideW, kMaxSideW);
-    };
-    width(L"LeftWidth", gDock.leftW), width(L"RightWidth", gDock.rightW), width(L"DataListWidth", gDock.dataListW);
+    auto number = [](const wchar_t* name, int& v, int lo, int hi) { prefs::number(std::wstring(L"Layout/") + name, v, lo, hi); };
+    number(L"LeftWidth", gDock.leftW, kMinSideW, kMaxSideW), number(L"RightWidth", gDock.rightW, kMinSideW, kMaxSideW);
+    number(L"DataListWidth", gDock.dataListW, kMinSideW, kMaxSideW);
     get(L"TriggerCode", gDock.triggerCode);
-    {
-        DWORD d = 0, size = sizeof d;
-        if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Layout", L"UnitNames", RRF_RT_REG_DWORD, nullptr, &d, &size) == ERROR_SUCCESS)
-            gDock.unitNames = std::clamp(int(d), 0, 3);
-    }
-    {
-        DWORD d = 0, size = sizeof d;
-        if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Layout", L"Volume", RRF_RT_REG_DWORD, nullptr, &d, &size) == ERROR_SUCCESS)
-            gDock.volume = std::clamp(int(d), 0, 100);
-    }
+    number(L"UnitNames", gDock.unitNames, 0, 3);
+    number(L"Volume", gDock.volume, 0, 100);
     get(L"ScriptPreview", gDock.scriptPreview);
-    {
-        DWORD d = 0, size = sizeof d;
-        if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Layout", L"LogHeight", RRF_RT_REG_DWORD, nullptr, &d, &size) == ERROR_SUCCESS)
-            gDock.logH = std::clamp(int(d), 80, 1200);
-    }
-    for (auto [name, v, lo, hi] : {std::tuple{L"GridWidth", &gDock.gridW, 1, 8192}, std::tuple{L"GridHeight", &gDock.gridH, 1, 8192},
-                                   std::tuple{L"GridX", &gDock.gridX, 0, 8191}, std::tuple{L"GridY", &gDock.gridY, 0, 8191}}) {
-        DWORD d = 0, size = sizeof d;
-        if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Layout", name, RRF_RT_REG_DWORD, nullptr, &d, &size) == ERROR_SUCCESS)
-            *v = std::clamp(int(d), lo, hi);
-    }
-    {
-        DWORD d = 0, size = sizeof d;
-        if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Layout", L"TriggerZoom", RRF_RT_REG_DWORD, nullptr, &d, &size) == ERROR_SUCCESS)
-            gDock.triggerZoom = std::clamp(int(d), 70, 200);
-    }
+    number(L"LogHeight", gDock.logH, 80, 1200);
+    number(L"GridWidth", gDock.gridW, 1, 8192), number(L"GridHeight", gDock.gridH, 1, 8192);
+    number(L"GridX", gDock.gridX, 0, 8191), number(L"GridY", gDock.gridY, 0, 8191);
+    number(L"TriggerZoom", gDock.triggerZoom, 70, 200);
 }
 
 extern bool gSelfTest;
@@ -280,34 +257,18 @@ SDL_AudioStream* openPlayback(const SDL_AudioSpec* spec) {
 
 void saveDock() {
     if (gSelfTest) return;  // the self-test moves panels without touching the user's layout
-    HKEY k;
-    if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Layout", 0, nullptr, 0, KEY_SET_VALUE, nullptr, &k, nullptr) != ERROR_SUCCESS) return;
-    auto put = [&](const wchar_t* name, bool v) {
-        DWORD d = v;
-        RegSetValueExW(k, name, 0, REG_DWORD, reinterpret_cast<const BYTE*>(&d), sizeof d);
-    };
+    auto put = [](const wchar_t* name, int v) { prefs::setNumber(std::wstring(L"Layout/") + name, v); };
     put(L"MinimapRight", gDock.minimapRight);
     put(L"MinimapHidden", gDock.minimapHidden);
-    {
-        const DWORD v = DWORD(gDock.unitNames);
-        RegSetValueExW(k, L"UnitNames", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&v), sizeof v);
-    }
-    {
-        const DWORD v = DWORD(gDock.volume);
-        RegSetValueExW(k, L"Volume", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&v), sizeof v);
-    }
+    put(L"UnitNames", gDock.unitNames);
+    put(L"Volume", gDock.volume);
     for (int i = 0; i < kModeCount; ++i) put(kDockSideNames[i], gDock.toolsRight[i]);
-    auto putW = [&](const wchar_t* name, int v) {
-        DWORD d = DWORD(v);
-        RegSetValueExW(k, name, 0, REG_DWORD, reinterpret_cast<const BYTE*>(&d), sizeof d);
-    };
-    putW(L"LeftWidth", gDock.leftW), putW(L"RightWidth", gDock.rightW), putW(L"DataListWidth", gDock.dataListW);
-    putW(L"LogHeight", gDock.logH);
-    putW(L"GridWidth", gDock.gridW), putW(L"GridHeight", gDock.gridH), putW(L"GridX", gDock.gridX), putW(L"GridY", gDock.gridY);
+    put(L"LeftWidth", gDock.leftW), put(L"RightWidth", gDock.rightW), put(L"DataListWidth", gDock.dataListW);
+    put(L"LogHeight", gDock.logH);
+    put(L"GridWidth", gDock.gridW), put(L"GridHeight", gDock.gridH), put(L"GridX", gDock.gridX), put(L"GridY", gDock.gridY);
     put(L"TriggerCode", gDock.triggerCode);
     put(L"ScriptPreview", gDock.scriptPreview);
-    putW(L"TriggerZoom", gDock.triggerZoom);
-    RegCloseKey(k);
+    put(L"TriggerZoom", gDock.triggerZoom);
 }
 
 // Recently opened maps and projects, and the folder projects usually go in (where the last one was made or
@@ -322,8 +283,7 @@ int gCrashReports = 0;
 void setCrashReports(int mode) {
     gCrashReports = std::clamp(mode, 0, 2);
     if (gSelfTest) return;  // tests never change the user's settings
-    const DWORD v = DWORD(gCrashReports);
-    RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"CrashReports", REG_DWORD, &v, sizeof v);
+    prefs::setNumber(L"CrashReports", gCrashReports);
 }
 // Options > Middle mouse click and hold: false pan the map (it moves toward the mouse, the faster the farther the mouse
 // is from where the button went down; the default), true drag the map (it follows the mouse, as with a right-drag).
@@ -334,61 +294,29 @@ std::wstring gLanguage = L"auto";  // Options > Language: auto, en, ko or es (a 
 std::wstring gProjectsFolder;
 HMENU gRecentMapsMenu = nullptr, gRecentProjectsMenu = nullptr;
 
-std::vector<std::wstring> readRegList(const wchar_t* name) {
-    std::vector<std::wstring> out;
-    DWORD size = 0;
-    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", name, RRF_RT_REG_MULTI_SZ, nullptr, nullptr, &size) != ERROR_SUCCESS || size < 4)
-        return out;
-    std::wstring buf(size / sizeof(wchar_t), L'\0');
-    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", name, RRF_RT_REG_MULTI_SZ, nullptr, buf.data(), &size) != ERROR_SUCCESS) return out;
-    for (const wchar_t* q = buf.c_str(); *q; q += wcslen(q) + 1) out.emplace_back(q);
-    return out;
-}
-
 void loadRecent() {
-    gRecentMaps = readRegList(L"RecentMaps"), gRecentProjects = readRegList(L"RecentProjects");
-    wchar_t buf[MAX_PATH] = L"";
-    DWORD size = sizeof buf;
-    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"ProjectsFolder", RRF_RT_REG_SZ, nullptr, buf, &size) == ERROR_SUCCESS) gProjectsFolder = buf;
-    DWORD on = 0, onSize = sizeof on;
-    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"OpenLastProject", RRF_RT_REG_DWORD, nullptr, &on, &onSize) == ERROR_SUCCESS) gOpenLastProject = on != 0;
-    onSize = sizeof on;
-    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"CheckUpdates", RRF_RT_REG_DWORD, nullptr, &on, &onSize) == ERROR_SUCCESS) gCheckUpdates = on != 0;
-    onSize = sizeof on;
-    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"CrashReports", RRF_RT_REG_DWORD, nullptr, &on, &onSize) == ERROR_SUCCESS)
-        gCrashReports = std::clamp(int(on), 0, 2);
-    onSize = sizeof on;
-    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"MiddleDrag", RRF_RT_REG_DWORD, nullptr, &on, &onSize) == ERROR_SUCCESS) gMiddleDrag = on != 0;
-    onSize = sizeof on;
-    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"UnitLimitClassic", RRF_RT_REG_DWORD, nullptr, &on, &onSize) == ERROR_SUCCESS && on)
-        gUnitLimitClassic = int(on);
-    onSize = sizeof on;
-    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"UnitLimitEud", RRF_RT_REG_DWORD, nullptr, &on, &onSize) == ERROR_SUCCESS && on)
-        gUnitLimitEud = int(on);
+    prefs::list(L"RecentMaps", gRecentMaps), prefs::list(L"RecentProjects", gRecentProjects);
+    prefs::text(L"ProjectsFolder", gProjectsFolder);
+    prefs::flag(L"OpenLastProject", gOpenLastProject);
+    prefs::flag(L"CheckUpdates", gCheckUpdates);
+    prefs::number(L"CrashReports", gCrashReports, 0, 2);
+    prefs::flag(L"MiddleDrag", gMiddleDrag);
+    int64_t limit = 0;
+    if (prefs::number(L"UnitLimitClassic", limit) && limit > 0) gUnitLimitClassic = int(std::min<int64_t>(limit, 65535));
+    if (prefs::number(L"UnitLimitEud", limit) && limit > 0) gUnitLimitEud = int(std::min<int64_t>(limit, 65535));
 }
 
 // The language (Program options > Language), before the menus are made: their texts are translated when they are added.
 void loadLanguage() {
-    wchar_t lang[16] = L"";
-    DWORD langSize = sizeof lang;
-    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"Language", RRF_RT_REG_SZ, nullptr, lang, &langSize) == ERROR_SUCCESS) gLanguage = lang;
+    prefs::text(L"Language", gLanguage);
     gUiLang = uiLanguageChosen(gLanguage);
 }
 
 void saveRecent() {
     if (gSelfTest) return;  // the self-test leaves the user's lists alone
-    HKEY k;
-    if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\StarDraft", 0, nullptr, 0, KEY_SET_VALUE, nullptr, &k, nullptr) != ERROR_SUCCESS) return;
-    auto putList = [&](const wchar_t* name, const std::vector<std::wstring>& list) {
-        std::wstring multi;
-        for (const auto& item : list) multi += item + L'\0';
-        multi += L'\0';
-        RegSetValueExW(k, name, 0, REG_MULTI_SZ, reinterpret_cast<const BYTE*>(multi.c_str()), DWORD(multi.size() * sizeof(wchar_t)));
-    };
-    putList(L"RecentMaps", gRecentMaps);
-    putList(L"RecentProjects", gRecentProjects);
-    RegSetValueExW(k, L"ProjectsFolder", 0, REG_SZ, reinterpret_cast<const BYTE*>(gProjectsFolder.c_str()), DWORD((gProjectsFolder.size() + 1) * sizeof(wchar_t)));
-    RegCloseKey(k);
+    prefs::setList(L"RecentMaps", gRecentMaps);
+    prefs::setList(L"RecentProjects", gRecentProjects);
+    prefs::setText(L"ProjectsFolder", gProjectsFolder);
 }
 
 // The File menu's two lists: "1  MyMap.scx    C:\Maps", newest first, and Clear.
@@ -2522,10 +2450,7 @@ bool closeAllDocs(std::vector<std::wstring>* reopen = nullptr) {
 void restartProgram() {
     std::vector<std::wstring> files;
     if (!closeAllDocs(&files)) return;
-    std::wstring reopen;  // REG_MULTI_SZ
-    for (const auto& f : files) reopen += f + L'\0';
-    reopen += L'\0';
-    RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"Reopen", REG_MULTI_SZ, reopen.c_str(), DWORD(reopen.size() * sizeof(wchar_t)));
+    prefs::setList(L"Reopen", files);  // (the new program opens them)
     wchar_t self[MAX_PATH], dir[MAX_PATH];
     GetModuleFileNameW(nullptr, self, MAX_PATH);
     GetCurrentDirectoryW(MAX_PATH, dir);
@@ -3773,9 +3698,8 @@ void applyTheme(bool light, int accent) {
     if (app.main) DrawMenuBar(app.main);
     app.dirty = true;
     if (!gSelfTest && !gBackground) {
-        const DWORD l = light ? 1 : 0, a = DWORD(gAccentIndex);
-        RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"LightTheme", REG_DWORD, &l, sizeof l);
-        RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"Accent", REG_DWORD, &a, sizeof a);
+        prefs::setNumber(L"LightTheme", light ? 1 : 0);
+        prefs::setNumber(L"Accent", gAccentIndex);
     }
     setMessage(std::wstring(light ? L"Light" : L"Dark") + L" theme, accent color " + theme::kAccents[gAccentIndex].name);
 }
@@ -4036,25 +3960,21 @@ std::map<std::wstring, int> gSavedSettings;  // what the registry has (written o
 bool gSettingsOff = false;                   // tests and screenshot runs: the defaults, and nothing saved
 void saveAppSettings() {
     if (gSelfTest || gSettingsOff) return;
-    HKEY k;
-    if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Settings", 0, nullptr, 0, KEY_SET_VALUE, nullptr, &k, nullptr) != ERROR_SUCCESS) return;
     auto put = [&](const wchar_t* name, int v) {
         auto it = gSavedSettings.find(name);
         if (it != gSavedSettings.end() && it->second == v) return;
-        const DWORD d = DWORD(v);
-        RegSetValueExW(k, name, 0, REG_DWORD, reinterpret_cast<const BYTE*>(&d), sizeof d);
+        prefs::setNumber(std::wstring(L"Settings/") + name, v);
         gSavedSettings[name] = v;
     };
     for (const AppSetting& a : appSettings()) put(a.name, a.get());
     put(L"PaletteViews", paletteViewBits());
-    RegCloseKey(k);
 }
 void loadAppSettings() {
     if (gSelfTest || gSettingsOff) return;
     auto get = [](const wchar_t* name, int& v) {
-        DWORD d = 0, size = sizeof d;
-        if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Settings", name, RRF_RT_REG_DWORD, nullptr, &d, &size) != ERROR_SUCCESS) return false;
-        v = int(d);
+        int64_t n = 0;
+        if (!prefs::number(std::wstring(L"Settings/") + name, n)) return false;
+        v = int(uint32_t(n));  // (a registry DWORD as it was read before: an int)
         return true;
     };
     for (const AppSetting& a : appSettings())
@@ -4418,10 +4338,7 @@ void commandBody(int id) {
     case ID_OPT_DRAGBACK: app.dragSnapBack = !app.dragSnapBack; break;
     case ID_OPT_UPDATECHECK:
         gCheckUpdates = !gCheckUpdates;
-        if (!gSelfTest) {
-            const DWORD on = gCheckUpdates ? 1 : 0;
-            RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"CheckUpdates", REG_DWORD, &on, sizeof on);
-        }
+        if (!gSelfTest) prefs::setNumber(L"CheckUpdates", gCheckUpdates ? 1 : 0);
         setMessage(gCheckUpdates ? L"StarDraft 2 looks for a newer release on start" : L"StarDraft 2 does not look for a newer release on start");
         break;
     case ID_CRASH_MODE:
@@ -4438,10 +4355,7 @@ void commandBody(int id) {
     case ID_MIDDLE_MODE:
     case ID_MIDDLE_MODE + 1:
         gMiddleDrag = id == ID_MIDDLE_MODE + 1;
-        if (!gSelfTest) {  // tests never change the user's settings
-            const DWORD on = gMiddleDrag ? 1 : 0;
-            RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"MiddleDrag", REG_DWORD, &on, sizeof on);
-        }
+        if (!gSelfTest) prefs::setNumber(L"MiddleDrag", gMiddleDrag ? 1 : 0);  // tests never change the user's settings
         setMessage(gMiddleDrag ? L"Middle mouse click and hold drags the map" : L"Middle mouse click and hold pans the map");
         break;
     case ID_OPT_LANG:
@@ -4452,7 +4366,7 @@ void commandBody(int id) {
     case ID_OPT_LANG + 5: {  // the language applies at a start (the texts are made then): restart now, or later
         static const wchar_t* const kCodes[] = {L"auto", L"en", L"ko", L"es", L"ru", L"zh"};
         gLanguage = kCodes[id - ID_OPT_LANG];
-        if (!gSelfTest) RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"Language", REG_SZ, gLanguage.c_str(), DWORD((gLanguage.size() + 1) * sizeof(wchar_t)));
+        if (!gSelfTest) prefs::setText(L"Language", gLanguage);
         if (uiLanguageChosen(gLanguage) == gUiLang) break;  // the language in use
         optionsRefresh();  // its Restart now button
         if (!gSelfTest && !gBackground &&
@@ -4469,10 +4383,7 @@ void commandBody(int id) {
     case ID_THEME_LIGHT: applyTheme(id == ID_THEME_LIGHT, gAccentIndex); break;
     case ID_OPT_LASTPROJECT:
         gOpenLastProject = !gOpenLastProject;
-        if (!gSelfTest) {
-            const DWORD on = gOpenLastProject ? 1 : 0;
-            RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"OpenLastProject", REG_DWORD, &on, sizeof on);
-        }
+        if (!gSelfTest) prefs::setNumber(L"OpenLastProject", gOpenLastProject ? 1 : 0);
         setMessage(gOpenLastProject ? L"The last project opens when StarDraft 2 starts" : L"StarDraft 2 starts with no project open");
         break;
     case ID_OPT_STACK:
@@ -7590,7 +7501,7 @@ bool dataSaved() {
 
 int dataRowH();
 // Data > right-click an entry > Pin to the top: pinned entries come first in their table's list, in the order they were
-// pinned, for this Windows user (HKCU\\Software\\StarDraft\\DataPins: a value per table, its entries comma-separated).
+// pinned, for this user (the settings' DataPins/<table>: its entries comma-separated).
 std::map<std::string, std::vector<int>> gDataPins;
 bool gDataPinsLoaded = false;
 int gDataPinnedShown = 0;  // how many of the list's first rows are pinned (a line under the last one)
@@ -7601,19 +7512,13 @@ std::string dataTabKey(int tab) {
 std::vector<int>& dataPins(int tab) {
     if (!gDataPinsLoaded) {
         gDataPinsLoaded = true;
-        HKEY k;
-        if (!gSelfTest && RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\StarDraft\\DataPins", 0, KEY_READ, &k) == ERROR_SUCCESS) {
-            for (DWORD i = 0;; ++i) {
-                wchar_t name[64], value[4096];
-                DWORD nameLen = 64, valueLen = sizeof value, type = 0;
-                if (RegEnumValueW(k, i, name, &nameLen, nullptr, &type, reinterpret_cast<BYTE*>(value), &valueLen) != ERROR_SUCCESS) break;
-                if (type != REG_SZ) continue;
-                auto& v = gDataPins[narrow(name)];
-                std::wistringstream in(value);
-                for (std::wstring part; std::getline(in, part, L',');)
-                    if (!part.empty()) v.push_back(_wtoi(part.c_str()));
-            }
-            RegCloseKey(k);
+        for (const std::wstring& name : gSelfTest ? std::vector<std::wstring>{} : prefs::names(L"DataPins")) {
+            std::wstring value;
+            if (!prefs::text(L"DataPins/" + name, value)) continue;
+            auto& v = gDataPins[narrow(name)];
+            std::wistringstream in(value);
+            for (std::wstring part; std::getline(in, part, L',');)
+                if (!part.empty()) v.push_back(_wtoi(part.c_str()));
         }
     }
     return gDataPins[dataTabKey(tab)];
@@ -7633,8 +7538,7 @@ void dataTogglePin(int e) {
     if (!gSelfTest) {  // (tests leave the user's settings alone)
         std::wstring list;
         for (int x : v) list += (list.empty() ? L"" : L",") + std::to_wstring(x);
-        RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft\\DataPins", widen(dataTabKey(tab)).c_str(), REG_SZ, list.c_str(),
-                        DWORD((list.size() + 1) * sizeof(wchar_t)));
+        prefs::setText(L"DataPins/" + widen(dataTabKey(tab)), list);
     }
     dataRebuildList();
     std::wstring name = tabEntryName(tab, e);
@@ -16346,10 +16250,7 @@ void pickUnitLimit(int k, RECT b, HWND hwnd) {
     std::string out;
     if (!showValuePopup(spec, at, out)) return;
     v = std::clamp(std::atoi(out.c_str()), 1, 65535);
-    if (!gSelfTest) {
-        const DWORD d = DWORD(v);
-        RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", k == 0 ? L"UnitLimitClassic" : L"UnitLimitEud", REG_DWORD, &d, sizeof d);
-    }
+    if (!gSelfTest) prefs::setNumber(k == 0 ? L"UnitLimitClassic" : L"UnitLimitEud", v);
     InvalidateRect(hwnd, nullptr, FALSE);
 }
 
@@ -23780,12 +23681,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
         const bool testRun = cmd.find(L"--selftest") != std::wstring::npos || cmd.find(L"--datashots") != std::wstring::npos ||
                              cmd.find(L"--pathshots") != std::wstring::npos ||
                              cmd.find(L"--screenshot") != std::wstring::npos;
-        DWORD light = 0, accent = 0, size = sizeof(DWORD);
-        if (!testRun) {
-            RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"LightTheme", RRF_RT_REG_DWORD, nullptr, &light, &size);
-            size = sizeof(DWORD);
-            RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"Accent", RRF_RT_REG_DWORD, nullptr, &accent, &size);
-        }
+        int64_t light = 0, accent = 0;
+        if (!testRun) prefs::number(L"LightTheme", light), prefs::number(L"Accent", accent);
         setThemeColors(light != 0, int(accent));
     }
     app.bgBrush = CreateSolidBrush(kBg);
@@ -23851,9 +23748,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     }
     crash::gQuiet = gBackground;
     {  // Options > Crash reports, before the reports of an earlier crash are sent or asked about (loadRecent reads it later)
-        DWORD v = 0, size = sizeof v;
-        if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"CrashReports", RRF_RT_REG_DWORD, nullptr, &v, &size) == ERROR_SUCCESS)
-            gCrashReports = std::clamp(int(v), 0, 2);
+        prefs::number(L"CrashReports", gCrashReports, 0, 2);
     }
     if (!gBackground) crash::sendPending(), sendPendingFeedback();
     if (!gBackground && !gSelfTest) crash::askToSend();  // after a crash: send its report? (Options > Crash reports: Ask)
@@ -23905,8 +23800,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     if (argc > 1 && screenshot.empty() && !restarted) openAny(argv[1]);
     else if (argc <= 1 || restarted) openStartPage();  // the start page first: the last project (Options) opens in its place
     if (restarted) {  // what the old program had open
-        const auto reopen = readRegList(L"Reopen");
-        RegDeleteKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"Reopen");
+        std::vector<std::wstring> reopen;
+        prefs::list(L"Reopen", reopen);
+        prefs::remove(L"Reopen");
         std::error_code ec;
         for (const auto& p : reopen)
             if (fs::exists(p, ec)) openAny(p);
@@ -27145,9 +27041,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             }
             if (s == "settings:") {  // settings.txt: the options are saved and read again (#122). Only when the user has none saved
                 std::ofstream o(fs::path(datashots) / "settings.txt");  // yet: the key is removed again after
-                HKEY k;
-                if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Settings", 0, KEY_READ, &k) == ERROR_SUCCESS) {
-                    RegCloseKey(k);
+                if (!prefs::names(L"Settings").empty()) {
                     o << "skipped: the user has saved settings\n";
                     continue;
                 }
@@ -27161,7 +27055,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 loadAppSettings();
                 const bool ok = app.showGrid == !grid && app.animate == !anim && app.unitGrid == 16;
                 app.showGrid = grid, app.animate = anim, app.unitGrid = unitGrid;
-                RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\StarDraft\\Settings");
+                for (const std::wstring& name : prefs::names(L"Settings")) prefs::remove(L"Settings/" + name);
                 gSavedSettings.clear();
                 gSelfTest = true;
                 o << "options saved and read again " << (ok ? "yes" : "NO") << "\n";

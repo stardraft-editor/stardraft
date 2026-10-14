@@ -78,6 +78,7 @@ Give each test a new, empty scratch folder.
 | `portrait_test`, `hd_test`, `new_map_test` | `<install> ...` (see the usage line in each) | Portrait videos, HD graphics, new maps. |
 | `paint_stress` | | Terrain correction: no cliff-stack breaks. |
 | `terrain_check` | `terrain_check <install> <maps folder>...` | Without the GPU: the HD, HD2 and Carbot tiles of each tileset against the SD megatiles; each map's MTXM tiles resolve; each map sprite (THG2) has graphics and the frame and images the game starts it with. |
+| `settings_test` | `settings_test <dir>` | Without game data: the settings file (each kind of value written and read again). |
 | `render_smoke_test` | `render_smoke_test [out.png]` | Without game data: the renderer's device and pipelines (each shader in the GPU API's format), and rectangles, lines and text in an offscreen frame. GitHub runs it on Linux (Vulkan on lavapipe). |
 | `terrain_render_test` | `terrain_render_test <install> [<maps folder>...]` | The map view's renderer, offscreen: no tile grid when zoomed out (mipmaps), every megatile in the HD, HD2 and Carbot atlases, and each map in SD at 100% the same as `render_map`. |
 
@@ -163,6 +164,13 @@ are in `docs/dev/PRINCIPLES.md`. Read them before a change. The rules here are f
 
 **Storage buffers in shaders.** SDL binds every storage buffer as a raw view. Read it as `ByteAddressBuffer`, never as
 `StructuredBuffer`: some drivers (GTX 1080) then read one float per field, and no sprite or rectangle draws.
+
+## Settings
+
+The program keeps its settings (options, layout, recent files) in `%APPDATA%\StarDraft\settings.json`
+(`stardraft::Settings`, `apps/editor/settings.inc`). A value the file does not have yet is read from the registry
+(`HKCU\Software\StarDraft`), where builds before the file kept it; the registry is not written. The environment
+variable `STARDRAFT_SETTINGS` gives another file. File associations stay in the registry.
 
 ## Crash reports, feedback and updates
 

@@ -92,9 +92,9 @@ inline void makeMapsDefault(HWND owner) {
 }
 constexpr UINT WM_ASK_MAPS = WM_APP + 33;  // after a map file opened: ask once if maps open with StarDraft 2
 inline bool askedMapsDefault() {
-    DWORD asked = 0, size = sizeof asked;
-    RegGetValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"AskedMapsDefault", RRF_RT_REG_DWORD, nullptr, &asked, &size);
-    return asked != 0;
+    bool asked = false;
+    prefs::flag(L"AskedMapsDefault", asked);
+    return asked;
 }
 // A .scm or .scx file opened (not a new map, not a project): the first time, the question follows (after the map shows).
 inline void mapFileOpened(const fs::path& file) {
@@ -105,8 +105,7 @@ inline void mapFileOpened(const fs::path& file) {
 }
 inline void askMapsDefault(HWND owner) {
     if (askedMapsDefault()) return;  // (two maps opened at once: one question)
-    const DWORD one = 1;
-    RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\StarDraft", L"AskedMapsDefault", REG_DWORD, &one, sizeof one);
+    prefs::setNumber(L"AskedMapsDefault", 1);
     if (themedMessageBox(owner, L"Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Program options > Maps.",
                          L"StarDraft 2", MB_YESNO | MB_ICONQUESTION) == IDYES)
         makeMapsDefault(owner);
