@@ -96,6 +96,14 @@ jobs:
           path: build/Release/render_smoke_test.exe
           retention-days: 7
 
+      # stardraft-next (the new shell's spike), to try by hand: the program and its fonts. Not in a release.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stardraft-next-windows-${{ github.sha }}
+          path: |
+            build/Release/stardraft-next.exe
+            build/Release/fonts
+
       - name: Make the release
         if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
@@ -209,6 +217,30 @@ jobs:
           build-gcc/commands_test
           build-gcc/platform_test "$RUNNER_TEMP"
 
+      # stardraft-next (the new shell's spike) with no window: a snapshot of each workspace, Korean and Chinese typed
+      # into a field. The pictures are kept with the run.
+      - name: Snapshot stardraft-next
+        env:
+          SDL_VIDEODRIVER: offscreen
+        run: |
+          build-gcc/stardraft-next --snapshot next-linux-map.png
+          build-gcc/stardraft-next --workspace triggers --type "한국어 입력 中文" --snapshot next-linux-triggers.png | tee next.txt
+          grep -q "search field: 한국어 입력 中文" next.txt
+          build-gcc/stardraft-next --workspace triggers --ime-inline --type "한국어 입" --compose "력" --snapshot next-linux-ime.png | tee ime.txt
+          grep -q "composing: 력" ime.txt
+
+      - name: Pack stardraft-next
+        if: always()
+        run: tar -C build-gcc -czf stardraft-next-linux.tar.gz stardraft-next fonts
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stardraft-next-linux-${{ github.sha }}
+          path: |
+            next-linux-*.png
+            stardraft-next-linux.tar.gz
+
   macos:
     runs-on: macos-15  # arm64, Xcode's clang and libc++
     steps:
@@ -235,6 +267,30 @@ jobs:
       - name: Run the renderer on Metal
         continue-on-error: true
         run: build/render_smoke_test "$RUNNER_TEMP/render_smoke.png"
+
+      # (GitHub's macOS machines have had a Metal device; if one has none, the snapshot fails and the run goes on)
+      - name: Snapshot stardraft-next (Metal)
+        continue-on-error: true
+        run: |
+          app=build/stardraft-next.app/Contents/MacOS/stardraft-next
+          "$app" --snapshot next-macos-map.png
+          "$app" --workspace triggers --type "한국어 입력 中文" --snapshot next-macos-triggers.png | tee next.txt
+          grep -q "search field: 한국어 입력 中文" next.txt
+          "$app" --workspace triggers --ime-inline --type "한국어 입" --compose "력" --snapshot next-macos-ime.png | tee ime.txt
+          grep -q "composing: 력" ime.txt
+
+      # The app in a tar (an artifact keeps no file modes: the program would not start); and the snapshots.
+      - name: Pack stardraft-next
+        if: always()
+        run: tar -C build -czf stardraft-next-macos.tar.gz stardraft-next.app
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stardraft-next-macos-${{ github.sha }}
+          path: |
+            next-macos-*.png
+            stardraft-next-macos.tar.gz
 
   # The tests with the game's data, on a self-hosted runner in WSL Ubuntu on the owner's PC (labels self-hosted, linux,
   # scdata; research/ports/PLAN.md 1.6). Off until the repository variable STARDRAFT_DATA_RUNNER is "on". The
