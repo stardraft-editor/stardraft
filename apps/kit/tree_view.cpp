@@ -23,6 +23,11 @@ int dragSlop() { return px(4); }
 int typeMs() { return 1000; }
 
 int arrowLeft(int depth) { return px(4) + depth * levelW(); }
+// The level a pointer x shows: the band of each level starts at its arrow.
+int levelAtX(int x) {
+    const int d = x - px(4);
+    return d < 0 ? 0 : d / levelW();
+}
 int iconLeft(int depth) { return arrowLeft(depth) + levelW(); }
 int textLeft(int depth, bool icons) { return iconLeft(depth) + (icons ? px(22) : 0); }
 
@@ -122,6 +127,9 @@ void TreeView::collect(TreeNode& parent, int parentRow, int depth) {
 }
 
 void TreeView::refresh() {
+    // A press or a drag ends here: its node may be gone (an onSelect may have rebuilt the model).
+    if (pressing_ || dragging_) cancelDrag();
+    press_ = dragNode_ = dragParent_ = nullptr;
     rows_.clear();
     icons_ = false;
     collect(root_, -1, 0);
@@ -246,8 +254,8 @@ void TreeView::paint(Canvas& c) {
         const int top = rowTop(r);
         const Rect box{0, top, right, top + rh};
         const bool sel = row.node == selected_, hot = row.node == hover_ && !dragging_;
-        if (sel) {  // as ui_kit's listRow: the selected fill and a bar on the left
-            c.fill(box, hot ? th.selHot : th.sel);
+        if (sel) {  // as ui_kit's listRow: the selected fill (also under the mouse) and a bar on the left
+            c.fill(box, th.sel);
             c.fill({0, top, px(2), top + rh}, th.accent);
         } else if (hot) {
             c.fill(box, th.rowHot);
@@ -303,8 +311,8 @@ bool TreeView::mouse(const draw::MouseEvent& e) {
     }
     case MouseKind::Up: {
         if (e.button != 0) return false;
-        if (thumbDrag_) {
-            thumbDrag_ = false;
+        if (thumbDrag_ || trackPress_) {
+            thumbDrag_ = trackPress_ = false;
             setCapture(false);
             invalidate();
             return true;
@@ -336,7 +344,8 @@ bool TreeView::pointerDown(const draw::MouseEvent& e) {
         if (e.pt.y >= th.top && e.pt.y < th.bottom) {
             thumbDrag_ = true;
             thumbGrab_ = e.pt.y - th.top;
-        } else {  // on the track: a page toward the click
+        } else {  // on the track: a page toward the click (the capture ends on the release)
+            trackPress_ = true;
             scrollTo(scrollY_ + (e.pt.y < th.top ? -height() : height()));
         }
         setCapture(true);
@@ -415,7 +424,14 @@ void TreeView::updateDrop(Point pt) {
         } else if (at2 == At::After && n.expanded && !n.children.empty()) {  // after an open folder: its first child
             parent = row.node, pos = 0, lineY = top + rh, depth = row.depth + 1;
         } else if (at2 == At::After) {
-            parent = row.parent, pos = row.index + 1, lineY = top + rh;
+            // After the row, at the level the pointer shows. An outer level puts the node after an ancestor, so it
+            // must be the ancestor's last row: the rows below must not be deeper than that level. The level is never
+            // deeper than the row.
+            const int below = r + 1 < rows_.size() ? rows_[r + 1].depth : 0;
+            const int level = std::clamp(levelAtX(pt.x), below, row.depth);
+            size_t a = r;
+            while (rows_[a].depth > level) a = size_t(rows_[a].parentRow);
+            parent = rows_[a].parent, pos = rows_[a].index + 1, lineY = top + rh, depth = level;
         } else {
             parent = row.node, pos = n.children.size(), box = true;
         }
@@ -485,7 +501,8 @@ bool TreeView::key(const draw::KeyEvent& e) {
     case draw::Key::PageDown: goRow(cur < 0 ? 0 : cur + page); return true;
     case draw::Key::Left: {  // an open node shuts; else the parent is selected
         if (cur < 0) goRow(0);
-        else if (rows_[size_t(cur)].node->expanded) toggle(rows_[size_t(cur)].node);
+        else if (rows_[size_t(cur)].node->expanded && !rows_[size_t(cur)].node->children.empty())
+            toggle(rows_[size_t(cur)].node);
         else if (rows_[size_t(cur)].parentRow >= 0) goRow(rows_[size_t(cur)].parentRow);
         return true;
     }
@@ -542,7 +559,9 @@ void TreeView::restartTypeTimer() {
     draw::Host* h = host();
     if (!h) return;
     if (typeTimerSet_) h->cancelTimer(typeTimer_);
-    typeTimer_ = h->timer(typeMs(), [this] {
+    std::weak_ptr<bool> alive = alive_;
+    typeTimer_ = h->timer(typeMs(), [this, alive] {
+        if (!alive.lock()) return;  // the view was deleted (its destructor could not cancel the timer)
         typed_.clear();
         typeTimerSet_ = false;
     });
