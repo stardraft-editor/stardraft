@@ -237,6 +237,9 @@ struct ClassicBlockKind {
 };
 const std::vector<ClassicBlockKind>& classicBlockKinds();
 const ClassicBlockKind& classicBlockKind(ClassicBatchKind kind);
+// New blocks can be added (the action picker's "Blocks"). Off until the API is stable (2026-10-15): the blocks of a map
+// still open, show and can be edited; only adding a new block is not offered.
+constexpr bool kClassicBatchesOffered = false;
 ClassicKind classicBatchValueKind(ClassicBatchKind kind);  // the kind of the values: Unit, Player or Location
 // A name that the header and the sentences can hold: letters, digits, spaces and underscores, at most 24, trimmed;
 // "unit" (the kind's name) when nothing is left.
