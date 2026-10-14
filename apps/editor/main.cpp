@@ -292,7 +292,7 @@ void setCrashReports(int mode) {
     prefs::setNumber(L"CrashReports", gCrashReports);
 }
 // Options > Middle mouse click and hold: false pan the map (it moves toward the mouse, the faster the farther the mouse
-// is from where the button went down; the default), true drag the map (it follows the mouse, as with a right-drag).
+// is from where the button went down; the default), true drag the map (it follows the mouse).
 bool gMiddleDrag = false;
 // Options: the most units a map may have (GitHub feedback #103): standard maps, and maps of EUD projects.
 int gUnitLimitClassic = 3400, gUnitLimitEud = 1700;
@@ -473,8 +473,7 @@ std::string wrapLocationName(const std::string& name, float w, float h) {
     for (size_t k = 0; k < lines.size(); ++k) out += (k ? "\n" : "") + lines[k];
     return out;
 }
-bool gRightDown = false;  // the right button is down on the map (a drag moves the camera, a click opens the menu)
-int gRightX = 0, gRightY = 0;
+bool gRightDown = false;  // the right button is down on the map (a click opens the menu; only the middle button pans)
 void restyleTips();
 // A title bar in the window's colors: its ground, its text, a quiet border (Windows 11; older Windows keep theirs).
 void titleColors(HWND w) {
@@ -17966,7 +17965,7 @@ void cancelStep() {
 
 LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     static int panX = 0, panY = 0;
-    static bool panByMiddle = false;  // the Pan drag is the middle button's (Options: Drag map), not a right-drag
+    static bool panByMiddle = false;  // the Pan drag is the middle button's (Options: Drag map)
     // Middle button: autoscroll. The camera keeps moving toward the cursor, at a speed growing with its
     // distance from where the button went down, until the button is released.
     static int anchorX = 0, anchorY = 0, curX = 0, curY = 0;
@@ -18015,16 +18014,16 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             }
         }
         return 0;
-    case WM_RBUTTONDOWN:  // the right button: a click opens the map's menu (WM_RBUTTONUP); a drag moves the camera
+    case WM_RBUTTONDOWN:  // the right button: a click opens the map's menu (WM_RBUTTONUP); only the middle button moves the camera
         SetFocus(hwnd);
-        if (app.drag == Drag::None) gRightDown = true, gRightX = GET_X_LPARAM(lp), gRightY = GET_Y_LPARAM(lp), SetCapture(hwnd);
+        if (app.drag == Drag::None) gRightDown = true, SetCapture(hwnd);
         return 0;
     case WM_MBUTTONDOWN:  // the middle button scrolls the map: the farther the mouse from where it was pressed, the faster
         SetFocus(hwnd);
-        if (app.drag == Drag::Pan) return 0;  // a right-drag goes on
+        if (app.drag == Drag::Pan) return 0;  // a middle-button drag goes on
         SetCapture(hwnd);
         panX = anchorX = curX = GET_X_LPARAM(lp), panY = anchorY = curY = GET_Y_LPARAM(lp);
-        if (gMiddleDrag) {  // Options > Middle mouse click and hold > Drag map: the map follows the mouse, as with a right-drag
+        if (gMiddleDrag) {  // Options > Middle mouse click and hold > Drag map: the map follows the mouse
             app.drag = Drag::Pan, panByMiddle = true;
             SetCursor(LoadCursor(nullptr, IDC_SIZEALL));
             return 0;
@@ -18037,15 +18036,7 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_RBUTTONUP: {
         const bool wasDown = std::exchange(gRightDown, false);
         if (wasDown && GetCapture() == hwnd && app.drag != Drag::Pan && !(wp & MK_MBUTTON)) ReleaseCapture();  // (a held middle button keeps it)
-        if (app.drag == Drag::Pan && panByMiddle) return 0;  // a middle-button drag goes on
-        if (app.drag == Drag::Pan) {  // the end of a right-drag: the camera stays there (no menu)
-            app.drag = Drag::None;
-            ReleaseCapture();
-            SetCursor(LoadCursor(nullptr, IDC_ARROW));
-            app.dirty = true;
-            return 0;
-        }
-        if (app.drag != Drag::None) return 0;  // during a drag: nothing
+        if (app.drag != Drag::None) return 0;  // during a drag (a middle-button pan too): nothing
         if (!inSelection()) {  // placing, pasting or painting: right-click stops it (back to Select)
             cancelStep();
             app.dirty = true;
@@ -18064,7 +18055,6 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case WM_MBUTTONUP: {
         if (app.drag == Drag::AutoPan || (app.drag == Drag::Pan && panByMiddle)) app.drag = Drag::None, panByMiddle = false;
-        if (wp & MK_RBUTTON) gRightX = GET_X_LPARAM(lp), gRightY = GET_Y_LPARAM(lp);  // a right-drag from here on starts here
         if (GetCapture() == hwnd && !(wp & MK_LBUTTON) && !((wp & MK_RBUTTON) && gRightDown)) ReleaseCapture();
         KillTimer(hwnd, kAutoPanTimer);
         app.dirty = true;
@@ -18095,10 +18085,6 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             POINT sp{x, y};
             ClientToScreen(hwnd, &sp);
             pieTrack(sp);
-        }
-        if (gRightDown && app.drag == Drag::None && (wp & MK_RBUTTON) && (std::abs(x - gRightX) > 4 || std::abs(y - gRightY) > 4)) {
-            app.drag = Drag::Pan, panX = gRightX, panY = gRightY, panByMiddle = false;  // a right-drag: the map follows the mouse
-            SetCursor(LoadCursor(nullptr, IDC_SIZEALL));
         }
         if (app.drag == Drag::Pan) {
             app.camX -= (x - panX) / app.zoom;
@@ -21616,7 +21602,7 @@ int runSelfTest(const fs::path& dir) {
         }
     }
     command(ID_EDIT_SNAPUNITS);
-    // Right click: the mode's menu; a right-drag moves the camera (feedback #58). With a unit selected: Copy, Cut,
+    // Right click: the mode's menu; a right-drag does not move the camera (only the middle button does, 2026-10-15). With a unit selected: Copy, Cut,
     // Duplicate and Delete are there; Paste only with something copied. Esc goes to the selection.
     {
         const float cam0 = app.camX;
@@ -21626,7 +21612,7 @@ int runSelfTest(const fs::path& dir) {
         SendMessageW(app.view, WM_RBUTTONDOWN, MK_RBUTTON, MAKELPARAM(200, 200));
         SendMessageW(app.view, WM_MOUSEMOVE, MK_RBUTTON, MAKELPARAM(260, 230));
         SendMessageW(app.view, WM_RBUTTONUP, 0, MAKELPARAM(260, 230));
-        const bool dragPans = app.camX != cam0;
+        const bool dragStill = app.camX == cam0;
         app.camX = cam0;
         ed.select(int(ed.units().size()) - 1, false);
         const Unit& su = ed.units().back();
@@ -21636,7 +21622,7 @@ int runSelfTest(const fs::path& dir) {
                            on(ID_EDIT_PASTE) == ed.canPaste();
         DestroyMenu(m);
         cancelStep();
-        log << "right click: no pan " << (clickStill ? "yes" : "NO") << ", a right-drag pans " << (dragPans ? "yes" : "NO")
+        log << "right click: no pan " << (clickStill ? "yes" : "NO") << ", a right-drag does not pan " << (dragStill ? "yes" : "NO")
             << ", the menu has cut, copy, paste, duplicate, delete "
             << (items ? "yes" : "NO") << ", Esc: palette " << app.palette << " (expect -1)\n";
     }
@@ -24163,7 +24149,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 std::ofstream(fs::path(datashots) / "portrait.txt") << "the portrait plays " << (gPortraitShown ? "yes" : "NO") << "\n";
                 continue;
             }
-            if (s == "rightpan:") {  // rightpan.txt: a right-drag on the map moves the camera; a right-click does not
+            if (s == "rightpan:") {  // rightpan.txt: a right-drag or a right-click on the map does not move the camera (only the middle button does)
                 std::ofstream o(fs::path(datashots) / "rightpan.txt");
                 setWorkspace(Workspace::Map);
                 const float x0 = app.camX, y0 = app.camY;
@@ -24171,12 +24157,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(app.view, WM_MOUSEMOVE, MK_RBUTTON, MAKELPARAM(360, 280));
                 SendMessageW(app.view, WM_MOUSEMOVE, MK_RBUTTON, MAKELPARAM(300, 250));
                 SendMessageW(app.view, WM_RBUTTONUP, 0, MAKELPARAM(300, 250));
-                const float dx = app.camX - x0, dy = app.camY - y0;
-                const bool moved = std::abs(dx - 100.0f / app.zoom) < 1.0f && std::abs(dy - 50.0f / app.zoom) < 1.0f && app.drag == Drag::None;
+                const bool still = app.camX == x0 && app.camY == y0 && app.drag == Drag::None;
                 const float x1 = app.camX;
                 SendMessageW(app.view, WM_RBUTTONDOWN, MK_RBUTTON, MAKELPARAM(400, 300));
                 SendMessageW(app.view, WM_RBUTTONUP, 0, MAKELPARAM(401, 300));
-                o << "a right-drag moves the camera with the mouse " << (moved ? "yes" : "NO") << ", a right-click does not move it " << (app.camX == x1 ? "yes" : "NO")
+                o << "a right-drag does not move the camera " << (still ? "yes" : "NO") << ", a right-click does not move it " << (app.camX == x1 ? "yes" : "NO")
                   << ", the mouse is free after " << (GetCapture() != app.view ? "yes" : "NO") << "\n";
                 continue;
             }
@@ -26773,7 +26758,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 o << "the middle button scrolls the map while held " << (app.camX > x0 && std::abs(app.camY - y0) < 1 ? "yes" : "NO") << " (" << x0
                   << " -> " << app.camX << ")\n";
                 // Options > Middle mouse click and hold > Drag map (set here, not through the command, so the user's setting stays): the map
-                // follows the mouse, as with a right-drag, and does not keep moving while the mouse stands still.
+                // follows the mouse, and does not keep moving while the mouse stands still.
                 const bool middleDrag = std::exchange(gMiddleDrag, true);
                 centerOn(app.ed->width() * 16.0f, app.ed->height() * 16.0f, 1);
                 for (int i = 0; i < 3; ++i) pump();
