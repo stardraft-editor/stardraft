@@ -168,15 +168,11 @@ bool projectShowScriptError(const std::string& log) {
 void projectAddExistingScript() {
     EudProject* pr = activeProject();
     if (!pr) return;
-    wchar_t buf[MAX_PATH] = L"";
-    OPENFILENAMEW ofn{sizeof ofn};
-    ofn.hwndOwner = app.main;
-    ofn.lpstrFilter = L"epScript (*.eps)\0*.eps\0Scripts (*.eps;*.py)\0*.eps;*.py\0All files\0*.*\0";
-    ofn.lpstrFile = buf;
-    ofn.nMaxFile = MAX_PATH;
-    ofn.lpstrTitle = L"Link a file to the build";
-    ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST;
-    if (GetOpenFileNameW(&ofn)) triggersAddFile(*pr, buf);
+    platform::FileDialog d;
+    d.owner = app.main;
+    d.filters = {{"epScript (*.eps)", "*.eps"}, {"Scripts (*.eps;*.py)", "*.eps;*.py"}, {"All files", "*.*"}};
+    d.title = narrow(L"Link a file to the build");
+    if (const auto picked = platform::openFileDialog(d)) triggersAddFile(*pr, *picked);
 }
 
 // The output file: relative to the project folder, .scx added; saved to the .eds.
@@ -205,16 +201,13 @@ std::wstring currentInstallFolder() {
 void projectChooseMusic() {
     EudProject* pr = activeProject();
     if (!pr) return;
-    wchar_t buf[MAX_PATH] = L"";
-    OPENFILENAMEW ofn{sizeof ofn};
-    ofn.hwndOwner = app.main;
-    ofn.lpstrFilter = L"Sounds (*.ogg;*.wav)\0*.ogg;*.wav\0";
-    ofn.lpstrFile = buf;
-    ofn.nMaxFile = MAX_PATH;
-    ofn.lpstrTitle = L"Background music";
-    ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST;
-    if (!GetOpenFileNameW(&ofn)) return;
-    const fs::path from = buf;
+    platform::FileDialog dlg;
+    dlg.owner = app.main;
+    dlg.filters = {{"Sounds (*.ogg;*.wav)", "*.ogg;*.wav"}};
+    dlg.title = narrow(L"Background music");
+    const auto picked = platform::openFileDialog(dlg);
+    if (!picked) return;
+    const fs::path from = *picked;
     std::ifstream in(from, std::ios::binary);
     Bytes data((std::istreambuf_iterator<char>(in)), {});
     DecodedSound d;
@@ -653,15 +646,13 @@ void paintProjectPage(HWND hwnd) {
             ui::smallButton(mem, l.x0 + l.labelW, ly, rowH, L"Add a file\x2026", [] {
                 EudProject* p = activeProject();
                 if (!p) return;
-                wchar_t buf[MAX_PATH] = L"";
-                OPENFILENAMEW ofn{sizeof ofn};
-                ofn.hwndOwner = app.main;
-                ofn.lpstrFilter = L"All files\0*.*\0";
-                ofn.lpstrFile = buf;
-                ofn.nMaxFile = MAX_PATH;
-                ofn.lpstrTitle = L"A file to load into memory";
-                ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST;
-                if (!GetOpenFileNameW(&ofn)) return;
+                platform::FileDialog d;
+                d.owner = app.main;
+                d.filters = {{"All files", "*.*"}};
+                d.title = narrow(L"A file to load into memory");
+                const auto picked = platform::openFileDialog(d);
+                if (!picked) return;
+                const std::wstring buf = picked->wstring();
                 std::wstring at = L"0x";
                 if (!prompt(L"Memory address (for example 0x58A364)", at) || at.size() < 3) return;
                 std::error_code ec;

@@ -72,6 +72,9 @@ using std::min;
 #include "stardraft/pathing.h"
 #include "stardraft/commands.h"
 #include "http.h"  // apps/common: HTTPS requests (github.inc)
+#include "dialogs.h"  // apps/common: the file and folder dialogs
+#include "crash_report.h"  // apps/common: the crash handler and sending reports (crash.inc)
+#include "update.h"  // apps/common: the self-update's system part (update.inc)
 #include "stardraft/settings.h"
 #include "ui_text.h"  // the program's text in other languages: the macros for DrawTextW, MessageBoxW and the others
 
@@ -2002,19 +2005,21 @@ bool gNoFileDialogs = false;   // the self-test: a file dialog is canceled at on
 std::wstring fileDialog(bool save) {
     ++gFileDialogs;
     if (gNoFileDialogs) return {};
-    wchar_t buf[MAX_PATH] = L"";
-    if (save && app.ed) wcsncpy_s(buf, app.ed->path().empty() ? L"Untitled.scx" : app.ed->path().wstring().c_str(), _TRUNCATE);
-    OPENFILENAMEW ofn{sizeof ofn};
-    ofn.hwndOwner = app.main;
-    ofn.lpstrFilter = save ? L"StarCraft maps (*.scx;*.scm)\0*.scx;*.scm\0Scenario data (*.chk)\0*.chk\0All files\0*.*\0"
-                           : L"Maps and projects (*.scx;*.scm;*.chk;*.stardraft;*.eds)\0*.scx;*.scm;*.chk;*.stardraft;*.eds\0StarCraft maps (*.scx;*.scm)\0*.scx;*.scm\0"
-                             L"StarDraft 2 projects (*.stardraft;*.eds)\0*.stardraft;*.eds\0Scenario data (*.chk)\0*.chk\0All files\0*.*\0";
-    ofn.lpstrFile = buf;
-    ofn.nMaxFile = MAX_PATH;
-    ofn.Flags = OFN_EXPLORER | (save ? OFN_OVERWRITEPROMPT : OFN_FILEMUSTEXIST);
-    ofn.lpstrDefExt = L"scx";
-    BOOL ok = save ? GetSaveFileNameW(&ofn) : GetOpenFileNameW(&ofn);
-    return ok ? std::wstring(buf) : std::wstring();
+    platform::FileDialog d;
+    d.owner = app.main;
+    if (save)
+        d.filters = {{"StarCraft maps (*.scx;*.scm)", "*.scx;*.scm"}, {"Scenario data (*.chk)", "*.chk"}, {"All files", "*.*"}};
+    else
+        d.filters = {{"Maps and projects (*.scx;*.scm;*.chk;*.stardraft;*.eds)", "*.scx;*.scm;*.chk;*.stardraft;*.eds"},
+                     {"StarCraft maps (*.scx;*.scm)", "*.scx;*.scm"},
+                     {"StarDraft 2 projects (*.stardraft;*.eds)", "*.stardraft;*.eds"},
+                     {"Scenario data (*.chk)", "*.chk"},
+                     {"All files", "*.*"}};
+    if (save && app.ed) d.fileName = app.ed->path().empty() ? fs::path(L"Untitled.scx") : app.ed->path();
+    d.defaultExtension = "scx";
+    d.askToReplace = true;
+    const auto picked = save ? platform::saveFileDialog(d) : platform::openFileDialog(d);
+    return picked ? picked->wstring() : std::wstring();
 }
 
 fs::path gInstallInUse, gInstallNext;  // the StarCraft folder in use; the one for the next start (File > Options)
@@ -2028,46 +2033,11 @@ fs::path settingsPath() {
 }
 
 std::wstring pickFolderTitled(const wchar_t* title) {
-    std::wstring out;
-    IFileOpenDialog* dlg = nullptr;
-    if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dlg)))) {
-        DWORD opts = 0;
-        dlg->GetOptions(&opts);
-        dlg->SetOptions(opts | FOS_PICKFOLDERS);
-        dlg->SetTitle(title);
-        if (SUCCEEDED(dlg->Show(app.main))) {
-            IShellItem* item = nullptr;
-            if (SUCCEEDED(dlg->GetResult(&item))) {
-                wchar_t* path = nullptr;
-                if (SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &path))) out = path, CoTaskMemFree(path);
-                item->Release();
-            }
-        }
-        dlg->Release();
-    }
-    return out;
+    const auto picked = platform::pickFolderDialog(app.main, narrow(title));
+    return picked ? picked->wstring() : std::wstring();
 }
 
-std::wstring pickFolder() {
-    std::wstring out;
-    IFileOpenDialog* dlg = nullptr;
-    if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dlg)))) {
-        DWORD opts = 0;
-        dlg->GetOptions(&opts);
-        dlg->SetOptions(opts | FOS_PICKFOLDERS);
-        dlg->SetTitle(L"Select the StarCraft: Remastered folder. It contains .build.info.");
-        if (SUCCEEDED(dlg->Show(app.main))) {
-            IShellItem* item = nullptr;
-            if (SUCCEEDED(dlg->GetResult(&item))) {
-                wchar_t* path = nullptr;
-                if (SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &path))) out = path, CoTaskMemFree(path);
-                item->Release();
-            }
-        }
-        dlg->Release();
-    }
-    return out;
-}
+std::wstring pickFolder() { return pickFolderTitled(L"Select the StarCraft: Remastered folder. It contains .build.info."); }
 
 // Where StarCraft: Remastered might be: Blizzard's registry entries, then the usual install folders. The
 // folder that works is the one with .build.info (CASC opens it); a folder above or below it is tried too.
@@ -3215,17 +3185,14 @@ extern HWND gStubWnd;
 
 // Picks the map Build writes (a .scx; asks before replacing nothing: Build overwrites it every time).
 std::wstring pickOutputFile(HWND owner, const std::wstring& current) {
-    wchar_t buf[MAX_PATH] = L"";
-    wcsncpy_s(buf, current.c_str(), _TRUNCATE);
-    OPENFILENAMEW ofn{sizeof ofn};
-    ofn.hwndOwner = owner;
-    ofn.lpstrFilter = L"StarCraft Brood War map (*.scx)\0*.scx\0";
-    ofn.lpstrFile = buf;
-    ofn.nMaxFile = MAX_PATH;
-    ofn.lpstrTitle = L"Select the file for the built map";
-    ofn.lpstrDefExt = L"scx";
-    ofn.Flags = OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_NOREADONLYRETURN;
-    return GetSaveFileNameW(&ofn) ? std::wstring(buf) : std::wstring();
+    platform::FileDialog d;
+    d.owner = owner;
+    d.filters = {{"StarCraft Brood War map (*.scx)", "*.scx"}};
+    d.fileName = current;
+    d.title = narrow(L"Select the file for the built map");
+    d.defaultExtension = "scx";
+    const auto picked = platform::saveFileDialog(d);
+    return picked ? picked->wstring() : std::wstring();
 }
 
 // File > Project > Project settings: the Project page, with the output file ready to type.
@@ -3419,19 +3386,16 @@ void triggersRefresh(const std::string& select);
 void addProjectScript() {
     EudProject* pr = activeProject();
     if (!pr) return;
-    wchar_t buf[MAX_PATH] = L"new.eps";
-    OPENFILENAMEW ofn{sizeof ofn};
-    ofn.hwndOwner = app.main;
-    ofn.lpstrFilter = L"epScript (*.eps)\0*.eps\0eudplib Python (*.py)\0*.py\0";
-    ofn.lpstrFile = buf;
-    ofn.nMaxFile = MAX_PATH;
-    const std::wstring dir = (pr->folder() / "scripts").wstring();
-    ofn.lpstrInitialDir = dir.c_str();
-    ofn.lpstrTitle = L"Add a script: select one, or type the name of a new one";
-    ofn.Flags = OFN_EXPLORER | OFN_PATHMUSTEXIST;
-    ofn.lpstrDefExt = L"eps";
-    if (!GetSaveFileNameW(&ofn)) return;
-    const fs::path file = buf;
+    platform::FileDialog d;
+    d.owner = app.main;
+    d.filters = {{"epScript (*.eps)", "*.eps"}, {"eudplib Python (*.py)", "*.py"}};
+    d.fileName = L"new.eps";
+    d.initialDir = pr->folder() / "scripts";
+    d.title = narrow(L"Add a script: select one, or type the name of a new one");
+    d.defaultExtension = "eps";
+    const auto picked = platform::saveFileDialog(d);
+    if (!picked) return;
+    const fs::path file = *picked;
     std::error_code ec;
     if (!fs::exists(file, ec)) {
         std::ofstream f(file, std::ios::binary);
@@ -3551,21 +3515,19 @@ bool saveUnsavedProjectTo(const fs::path& chosen);
 bool saveUnsavedProject() {
     EudProject* pr = activeProject();
     if (!pr || !app.ed) return false;
-    wchar_t buf[MAX_PATH] = L"Untitled";
-    const std::wstring initial = defaultProjectsFolder().wstring();
-    OPENFILENAMEW ofn{sizeof ofn};
-    ofn.hwndOwner = app.main;
-    ofn.lpstrFilter = L"StarDraft 2 project (*.stardraft)\0*.stardraft\0";
-    ofn.lpstrDefExt = L"stardraft";
-    ofn.lpstrFile = buf;
-    ofn.nMaxFile = MAX_PATH;
-    ofn.lpstrInitialDir = initial.c_str();
-    ofn.lpstrTitle = L"Save the project (StarDraft 2 makes a folder with its name here)";
-    ofn.Flags = OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_NOREADONLYRETURN;
+    const fs::path initial = defaultProjectsFolder();
+    platform::FileDialog d;
+    d.owner = app.main;
+    d.filters = {{"StarDraft 2 project (*.stardraft)", "*.stardraft"}};
+    d.defaultExtension = "stardraft";
+    d.fileName = L"Untitled";
+    d.initialDir = initial;
+    d.title = narrow(L"Save the project (StarDraft 2 makes a folder with its name here)");
     std::error_code ec;
     fs::create_directories(initial, ec);
-    if (!GetSaveFileNameW(&ofn)) return false;
-    return saveUnsavedProjectTo(buf);
+    const auto picked = platform::saveFileDialog(d);
+    if (!picked) return false;
+    return saveUnsavedProjectTo(picked->wstring());
 }
 // The same, to `chosen` (<folder>\<name>.stardraft: the project goes to <folder>\<name>\).
 bool saveUnsavedProjectTo(const fs::path& chosen) {
@@ -4051,16 +4013,11 @@ void commandBody(int id) {
     case ID_PROJ_NEW: openNewPage(1); return;
     case ID_PROJ_FROMMAP: showProjectDialog(); return;
     case ID_PROJ_OPEN: {
-        wchar_t buf[MAX_PATH] = L"";
-        OPENFILENAMEW ofn{sizeof ofn};
-        ofn.hwndOwner = app.main;
-        ofn.lpstrFilter = L"StarDraft 2 project (*.stardraft;*.eds)\0*.stardraft;*.eds\0";
-        const std::wstring initial = defaultProjectsFolder().wstring();
-        ofn.lpstrInitialDir = initial.c_str();
-        ofn.lpstrFile = buf;
-        ofn.nMaxFile = MAX_PATH;
-        ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST;
-        if (GetOpenFileNameW(&ofn)) openProject(buf);
+        platform::FileDialog d;
+        d.owner = app.main;
+        d.filters = {{"StarDraft 2 project (*.stardraft;*.eds)", "*.stardraft;*.eds"}};
+        d.initialDir = defaultProjectsFolder();
+        if (const auto picked = platform::openFileDialog(d)) openProject(picked->wstring());
         return;
     }
     case ID_RECENT_CLEAR_MAPS: gRecentMaps.clear(), saveRecent(), refreshRecentMenus(); return;

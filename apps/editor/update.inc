@@ -143,9 +143,9 @@ bool latest(Release& r) {
     if (const size_t a = r.title.find("(build "); a != std::string::npos) r.commit = r.title.substr(a + 7, r.title.find(')', a) - a - 7);
     for (size_t p = 0; (p = j.find("\"browser_download_url\":\"", p)) != std::string::npos; ++p) {
         const std::string u = jsonString(j, "browser_download_url", p);
-        // The Windows zip (StarDraft-<version>-win64.zip): a release can also have downloads for other systems.
-        static const std::string kWin64 = "-win64.zip";
-        if (u.size() < kWin64.size() || u.compare(u.size() - kWin64.size(), kWin64.size(), kWin64) != 0) continue;
+        // This system's download (StarDraft-<version>-win64.zip): a release can also have downloads for other systems.
+        static const std::string kOurs = stardraft::platform::releaseAssetSuffix();
+        if (u.size() < kOurs.size() || u.compare(u.size() - kOurs.size(), kOurs.size(), kOurs) != 0) continue;
         // The asset's "url" (api.github.com/.../releases/assets/<id>) comes before its browser_download_url.
         for (size_t k = j.rfind("\"url\":\"", p); k != std::string::npos; k = k ? j.rfind("\"url\":\"", k - 1) : std::string::npos) {
             const std::string a = jsonString(j, "url", k);
@@ -171,7 +171,7 @@ void atStart() {
     if (fs::path(self).filename().wstring().rfind(L"stardraft-latest-", 0) != 0) registerProjectFiles(self);
     registerMapFiles(associationExe(), false);  // in Explorer's Open with list for maps (the default when asked: mapFileOpened)
     std::error_code ec;
-    fs::remove(fs::path(self).replace_extension(L".exe.old"), ec);
+    fs::remove(stardraft::platform::oldProgramFile(self), ec);
     if (!releaseBuild() || !gCheckUpdates) return;  // File > Options > Look for updates on start (on by default)
     std::thread([main = app.main] {
         Release r;
@@ -192,9 +192,7 @@ void check() {
         themedMessageBox(app.main, (L"StarDraft 2 is up to date (" + widen(r.title) + L").").c_str(), L"Check for updates", MB_ICONINFORMATION);
         return;
     }
-    wchar_t selfBuf[MAX_PATH];
-    GetModuleFileNameW(nullptr, selfBuf, MAX_PATH);
-    const fs::path self = selfBuf;
+    const fs::path self = stardraft::platform::programFile();
     if (!releaseBuild() || _wcsicmp(self.filename().c_str(), L"stardraft.exe") != 0 || r.zip.empty()) {
         // A build made here: the release page, to get it by hand.
         if (themedMessageBox(app.main, (L"A newer release is available: " + widen(r.title) + L".\n\nThis is not a release build. Open the release page?").c_str(),
@@ -219,33 +217,17 @@ void check() {
         fs::remove_all(dir, ec);
     };
     if (!get(widen(r.zip), nullptr, &zip, L"application/octet-stream")) return fail(L"The download did not complete.");
-    // tar.exe (in Windows 10 and later) unpacks zip files.
-    wchar_t sys[MAX_PATH] = L"";
-    GetSystemDirectoryW(sys, MAX_PATH);
-    std::wstring cmd = L"\"" + (fs::path(sys) / L"tar.exe").wstring() + L"\" -xf \"" + zip.wstring() + L"\" -C \"" + dir.wstring() + L"\"";
-    STARTUPINFOW si{sizeof si};
-    PROCESS_INFORMATION pi{};
-    DWORD code = 1;
-    if (CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
-        WaitForSingleObject(pi.hProcess, 60000);
-        GetExitCodeProcess(pi.hProcess, &code);
-        CloseHandle(pi.hThread), CloseHandle(pi.hProcess);
-    }
     const fs::path fresh = dir / "stardraft.exe";
-    if (code != 0 || !fs::exists(fresh, ec)) return fail(L"Could not unpack the download.");
+    if (!stardraft::platform::unpackZip(zip, dir) || !fs::exists(fresh, ec)) return fail(L"Could not unpack the download.");
     // Close the documents (asks to save them), then put the new program in place and start it.
     if (!closeAllDocs()) return fs::remove_all(dir, ec), void();
-    const fs::path old = fs::path(self).replace_extension(L".exe.old");
-    fs::remove(old, ec);
-    if (!MoveFileExW(self.c_str(), old.c_str(), MOVEFILE_REPLACE_EXISTING)) return fail(L"Could not replace the program file in " + self.parent_path().wstring() + L".");
-    if (!MoveFileExW(fresh.c_str(), self.c_str(), MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING)) {
-        MoveFileExW(old.c_str(), self.c_str(), MOVEFILE_REPLACE_EXISTING);  // back as it was
-        return fail(L"Could not put the new program in " + self.parent_path().wstring() + L".");
+    switch (stardraft::platform::replaceProgram(self, fresh)) {
+    case stardraft::platform::Replace::OldNotMoved: return fail(L"Could not replace the program file in " + self.parent_path().wstring() + L".");
+    case stardraft::platform::Replace::NewNotPlaced: return fail(L"Could not put the new program in " + self.parent_path().wstring() + L".");
+    case stardraft::platform::Replace::Done: break;
     }
     fs::remove_all(dir, ec);
-    std::wstring run = L"\"" + self.wstring() + L"\"";
-    if (CreateProcessW(self.c_str(), run.data(), nullptr, nullptr, FALSE, 0, nullptr, self.parent_path().c_str(), &si, &pi))
-        CloseHandle(pi.hThread), CloseHandle(pi.hProcess);
+    stardraft::platform::startProgram(self);
     DestroyWindow(app.main);
 }
 

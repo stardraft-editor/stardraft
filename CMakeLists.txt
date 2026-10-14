@@ -257,18 +257,20 @@ if(STARDRAFT_RENDERER)
     target_link_libraries(render_smoke_test PRIVATE stardraft_render)
 endif()
 
-# --- What the shells ask of the system (apps/common): HTTPS requests --------------------------------
+# --- What the shells ask of the system (apps/common): HTTPS, dialogs (Windows), crash reports, updates -------
 if(WIN32)
-    add_library(stardraft_platform STATIC apps/common/http_win32.cpp)
-    target_link_libraries(stardraft_platform PUBLIC stardraft winhttp)
+    add_library(stardraft_platform STATIC apps/common/http_win32.cpp apps/common/dialogs_win32.cpp apps/common/crash_win32.cpp apps/common/crash_report.cpp apps/common/update_win32.cpp)
+    target_link_libraries(stardraft_platform PUBLIC stardraft winhttp comdlg32 ole32 dbghelp)
 else()
-    add_library(stardraft_platform STATIC apps/common/http_curl.cpp)
+    add_library(stardraft_platform STATIC apps/common/http_curl.cpp apps/common/crash_report.cpp apps/common/update_posix.cpp)
     target_link_libraries(stardraft_platform PUBLIC stardraft)
 endif()
 target_include_directories(stardraft_platform PUBLIC apps/common)
 # A request by hand (needs the network, so GitHub does not run it): http_get <url> [<file>]
 add_executable(http_get tools/http_get.cpp)
 target_link_libraries(http_get PRIVATE stardraft_platform)
+add_executable(platform_test tools/tests/platform_test.cpp)
+target_link_libraries(platform_test PRIVATE stardraft_platform)
 
 # --- Windows editor (native Win32 shell) ------------------------------------------------------
 if(WIN32 AND STARDRAFT_RENDERER)
