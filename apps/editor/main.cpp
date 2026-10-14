@@ -504,9 +504,6 @@ struct App {
     int megatileColorsEra = -1;  // the tileset object is loaded again in place when the map's tileset changes
     std::vector<uint32_t> miniTerrain;    // one pixel per map tile
     uint64_t miniTerrainRev = 0;
-    HBITMAP miniCache = nullptr;  // the terrain and the unit dots, without the view
-    uint64_t miniCacheRev = 0, miniCacheTerrainRev = 0;  // the cache key; the revisions start above 0
-    int miniCacheW = 0, miniCacheH = 0;
     RECT miniInvalidView{};  // what renderNow last invalidated the minimap for
     uint64_t miniInvalidRev = 0, miniInvalidTerrainRev = 0;
     HFONT font = nullptr;
@@ -1671,87 +1668,6 @@ RECT minimapView(const RECT& r, float sc) {
             r.top + int((app.camY + vh / app.zoom) * sc)};
 }
 
-// The terrain and the unit dots (no view) on a black background.
-void drawMinimapMap(HDC mem, const RECT& c, const RECT& r, float sc) {
-    Editor& ed = *app.ed;
-    FillRect(mem, &c, HBRUSH(GetStockObject(BLACK_BRUSH)));
-    // Terrain, one texel per tile, stretched with smoothing.
-    BITMAPINFO bi{};
-    bi.bmiHeader = {sizeof(BITMAPINFOHEADER), ed.width(), -int(ed.height()), 1, 32, BI_RGB};
-    SetStretchBltMode(mem, HALFTONE);
-    StretchDIBits(mem, r.left, r.top, r.right - r.left, r.bottom - r.top, 0, 0, ed.width(), ed.height(), app.miniTerrain.data(),
-                  &bi, DIB_RGB_COLORS, SRCCOPY);
-    // Units as player-colored dots.
-    static const COLORREF colors[12] = {RGB(244, 4, 4),   RGB(12, 72, 204),   RGB(44, 180, 148), RGB(136, 64, 156),
-                                        RGB(248, 140, 20), RGB(112, 48, 20),  RGB(204, 224, 208), RGB(252, 252, 56),
-                                        RGB(8, 128, 8),   RGB(252, 252, 124), RGB(236, 196, 176), RGB(64, 104, 212)};
-    static HBRUSH brushes[12] = {};  // made once, kept for the life of the program
-    for (const Unit& u : ed.units()) {
-        int x = r.left + int(u.x * sc), y = r.top + int(u.y * sc);
-        int d = std::max(2, int(ed.unitBox(u).right - ed.unitBox(u).left) * int(sc * 100) / 100);
-        d = std::clamp(d, 2, 6);
-        RECT dot{x - d / 2, y - d / 2, x - d / 2 + d, y - d / 2 + d};
-        const int o = std::min<int>(u.owner, 11);
-        if (!brushes[o]) brushes[o] = CreateSolidBrush(colors[o]);
-        FillRect(mem, &dot, brushes[o]);
-    }
-}
-
-void paintMinimap(HDC dc) {
-    RECT c;
-    GetClientRect(app.minimap, &c);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP bmp = CreateCompatibleBitmap(dc, c.right, c.bottom);
-    HGDIOBJ old = SelectObject(mem, bmp);
-    if (app.ed && app.ed->isOpen()) {
-        Editor& ed = *app.ed;
-        if (app.miniTerrainRev != ed.terrainRevision() || app.megatileColorsFor != &ed.tileset() || app.megatileColorsEra != ed.era())
-            rebuildMinimapTerrain();
-        RECT r;
-        float sc;
-        minimapRect(r, sc);
-        // The map picture comes from the cache; it is drawn again only when the map or the minimap size changes.
-        if (!app.miniCache || app.miniCacheRev != ed.revision() || app.miniCacheTerrainRev != ed.terrainRevision() ||
-            app.miniCacheW != c.right || app.miniCacheH != c.bottom) {
-            if (app.miniCache) DeleteObject(app.miniCache);
-            app.miniCache = CreateCompatibleBitmap(dc, c.right, c.bottom);
-            app.miniCacheRev = app.miniCacheTerrainRev = 0;
-            if (app.miniCache) {
-                HDC cdc = CreateCompatibleDC(dc);
-                HGDIOBJ cold = SelectObject(cdc, app.miniCache);
-                drawMinimapMap(cdc, c, r, sc);
-                SelectObject(cdc, cold);
-                DeleteDC(cdc);
-                app.miniCacheRev = ed.revision(), app.miniCacheTerrainRev = ed.terrainRevision();
-                app.miniCacheW = c.right, app.miniCacheH = c.bottom;
-            }
-        }
-        if (app.miniCache) {
-            HDC cdc = CreateCompatibleDC(dc);
-            HGDIOBJ cold = SelectObject(cdc, app.miniCache);
-            BitBlt(mem, 0, 0, c.right, c.bottom, cdc, 0, 0, SRCCOPY);
-            SelectObject(cdc, cold);
-            DeleteDC(cdc);
-        } else
-            drawMinimapMap(mem, c, r, sc);
-        // Current view: drawn on each paint, never on the cache (fillAlpha blends onto its target).
-        RECT v = minimapView(r, sc);
-        fillAlpha(mem, v, kAccent, 36);  // the view: a light tint, the line in the accent
-        HPEN pen = CreatePen(PS_SOLID, 1, kAccentBright);
-        HGDIOBJ op = SelectObject(mem, pen);
-        HGDIOBJ ob = SelectObject(mem, GetStockObject(NULL_BRUSH));
-        Rectangle(mem, v.left, v.top, v.right, v.bottom);
-        SelectObject(mem, op);
-        SelectObject(mem, ob);
-        DeleteObject(pen);
-    } else
-        FillRect(mem, &c, HBRUSH(GetStockObject(BLACK_BRUSH)));
-    BitBlt(dc, 0, 0, c.right, c.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, old);
-    DeleteObject(bmp);
-    DeleteDC(mem);
-}
-
 void minimapJump(int mx, int my) {
     if (!app.ed || !app.ed->isOpen()) return;
     RECT r;
@@ -1766,33 +1682,74 @@ void minimapJump(int mx, int my) {
     app.dirty = true;
 }
 
-LRESULT CALLBACK minimapProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_PAINT: {
-        PAINTSTRUCT ps;
-        HDC dc = BeginPaint(hwnd, &ps);
-        paintMinimap(dc);
-        EndPaint(hwnd, &ps);
-        return 0;
+// The minimap as a view: the terrain (one pixel per tile, scaled smooth), the units as player-colored dots, and the
+// current view as a tinted box. A click or a drag moves the view there.
+struct MinimapView final : stardraft::draw::View {
+    stardraft::draw::Bitmap terrain;  // the map's tiles, one pixel each
+    uint64_t terrainRev = 0;
+    bool dragging = false;
+
+    void paint(stardraft::draw::Canvas& c) override {
+        const stardraft::draw::Rect all{0, 0, width(), height()};
+        c.fill(all, RGB(0, 0, 0));
+        if (!app.ed || !app.ed->isOpen()) return;
+        Editor& ed = *app.ed;
+        if (app.miniTerrainRev != ed.terrainRevision() || app.megatileColorsFor != &ed.tileset() || app.megatileColorsEra != ed.era())
+            rebuildMinimapTerrain();
+        if (terrainRev != app.miniTerrainRev || terrain.width() != ed.width() || terrain.height() != ed.height()) {
+            terrain.resize(ed.width(), ed.height());
+            terrain.opaque = true;
+            uint32_t* px = terrain.pixels();
+            for (size_t i = 0; i < app.miniTerrain.size() && i < size_t(ed.width()) * ed.height(); ++i) {
+                const uint32_t v = app.miniTerrain[i];  // 0x00RRGGBB
+                px[i] = 0xFF000000u | (v & 0xFFu) << 16 | (v & 0xFF00u) | (v >> 16 & 0xFFu);
+            }
+            terrain.changed();
+            terrainRev = app.miniTerrainRev;
+        }
+        RECT r;
+        float sc;
+        minimapRect(r, sc);
+        c.bitmap(terrain, {0, 0, terrain.width(), terrain.height()}, r, true);
+        // Units as player-colored dots.
+        static const COLORREF colors[12] = {RGB(244, 4, 4),   RGB(12, 72, 204),   RGB(44, 180, 148), RGB(136, 64, 156),
+                                            RGB(248, 140, 20), RGB(112, 48, 20),  RGB(204, 224, 208), RGB(252, 252, 56),
+                                            RGB(8, 128, 8),   RGB(252, 252, 124), RGB(236, 196, 176), RGB(64, 104, 212)};
+        for (const Unit& u : ed.units()) {
+            const int x = r.left + int(u.x * sc), y = r.top + int(u.y * sc);
+            int d = std::max(2, int(ed.unitBox(u).right - ed.unitBox(u).left) * int(sc * 100) / 100);
+            d = std::clamp(d, 2, 6);
+            c.fill({x - d / 2, y - d / 2, x - d / 2 + d, y - d / 2 + d}, colors[std::min<int>(u.owner, 11)]);
+        }
+        // The current view: a light tint, the line in the accent.
+        const RECT v = minimapView(r, sc);
+        c.fill(v, kAccent, 36);
+        c.frame(v, kAccentBright);
     }
-    case WM_ERASEBKGND:
-        return 1;
-    case WM_SIZE:  // the picture is fitted to the size; MoveWindow repaints only the new part
-        InvalidateRect(hwnd, nullptr, FALSE);
-        break;
-    case WM_LBUTTONDOWN:
-        SetCapture(hwnd);
-        minimapJump(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
-        return 0;
-    case WM_MOUSEMOVE:
-        if (wp & MK_LBUTTON) minimapJump(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
-        return 0;
-    case WM_LBUTTONUP:
-        ReleaseCapture();
-        return 0;
+    bool mouse(const stardraft::draw::MouseEvent& e) override {
+        using stardraft::draw::MouseKind;
+        if (e.button != 0 && (e.kind == MouseKind::Down || e.kind == MouseKind::Up)) return false;  // (right click: the dock menu)
+        switch (e.kind) {
+        case MouseKind::Down:
+            dragging = true;
+            if (auto* h = host()) h->capture(*this, true);
+            minimapJump(e.pt.x, e.pt.y);
+            return true;
+        case MouseKind::Move:
+            if (dragging) minimapJump(e.pt.x, e.pt.y);
+            return true;
+        case MouseKind::Up:
+            if (dragging) {
+                dragging = false;
+                if (auto* h = host()) h->capture(*this, false);
+            }
+            return true;
+        default: return false;
+        }
     }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
+    stardraft::draw::Cursor cursor(stardraft::draw::Point) override { return stardraft::draw::Cursor::Hand; }
+};
+MinimapView gMinimap;
 
 // The view stays near the map: at most half a view past each edge; a map smaller than the view keeps its middle in
 // the view's middle on that axis. Every way the camera moves (drag, wheel, minimap, keys) passes here each frame.
@@ -20049,7 +20006,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         createWorkspaces(hwnd);
         app.status = CreateWindowExW(0, STATUSCLASSNAMEW, L"", WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP, 0, 0, 0, 0, hwnd,
                                      HMENU(IDC_STATUS), app.inst, nullptr);
-        app.minimap = CreateWindowExW(0, L"StarDraftMinimap", L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, hwnd, nullptr, app.inst, nullptr);
+        app.minimap = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, hwnd, nullptr, app.inst, &gMinimap);
         app.tabs = CreateWindowExW(0, L"StarDraftTabs", L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, hwnd, HMENU(IDC_TABS), app.inst, nullptr);
         gTopBar = CreateWindowExW(0, L"StarDraftTopBar", L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0, 0, 1, 1, hwnd, nullptr, app.inst, nullptr);
         for (HWND& t : gPanelTabs) t = CreateWindowExW(0, L"StarDraftPanelTabs", L"", WS_CHILD, 0, 0, 1, 1, hwnd, nullptr, app.inst, nullptr);
@@ -23575,12 +23532,6 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     vc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     vc.lpszClassName = L"StarDraftViewport";
     RegisterClassExW(&vc);
-    WNDCLASSEXW mc{sizeof mc};
-    mc.lpfnWndProc = minimapProc;
-    mc.hInstance = inst;
-    mc.hCursor = LoadCursor(nullptr, IDC_HAND);
-    mc.lpszClassName = L"StarDraftMinimap";
-    RegisterClassExW(&mc);
     WNDCLASSEXW tc{sizeof tc};
     tc.lpfnWndProc = tabsProc;
     tc.hInstance = inst;

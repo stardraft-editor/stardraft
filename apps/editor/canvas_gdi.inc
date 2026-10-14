@@ -124,8 +124,14 @@ public:
             HBITMAP bmp = nullptr;
             void* bits = nullptr;
             int w = 0, h = 0;
+            // An opaque bitmap drawn smooth: its last scaled copy (HALFTONE is slow; the minimap paints often).
+            HBITMAP scaled = nullptr;
+            Rect scaledSrc;
+            int scaledW = 0, scaledH = 0;
+            uint64_t scaledRev = 0;
             ~Dib() override {
                 if (bmp) DeleteObject(bmp);
+                if (scaled) DeleteObject(scaled);
             }
         };
         if (b.width() <= 0 || b.height() <= 0) return;
@@ -149,6 +155,30 @@ public:
             }
             GdiFlush();
             d->revision = b.revision();
+        }
+        const bool whole = src.left == 0 && src.top == 0 && src.right == b.width() && src.bottom == b.height();
+        if (b.opaque && smooth && alpha == 255 && whole) {  // as StretchDIBits with HALFTONE, through the scaled copy
+            const int dw = dst.width(), dh = dst.height();
+            if (dw <= 0 || dh <= 0) return;
+            const bool same = src.left == d->scaledSrc.left && src.top == d->scaledSrc.top && src.right == d->scaledSrc.right && src.bottom == d->scaledSrc.bottom;
+            HDC mem = CreateCompatibleDC(dc_);
+            if (!d->scaled || d->scaledW != dw || d->scaledH != dh || d->scaledRev != d->revision || !same) {
+                if (d->scaled) DeleteObject(d->scaled);
+                d->scaled = CreateCompatibleBitmap(dc_, dw, dh);
+                HGDIOBJ o = SelectObject(mem, d->scaled);
+                BITMAPINFO bi{};
+                bi.bmiHeader = {sizeof(BITMAPINFOHEADER), b.width(), -b.height(), 1, 32, BI_RGB};
+                SetStretchBltMode(mem, HALFTONE);
+                SetBrushOrgEx(mem, 0, 0, nullptr);
+                StretchDIBits(mem, 0, 0, dw, dh, 0, 0, b.width(), b.height(), d->bits, &bi, DIB_RGB_COLORS, SRCCOPY);
+                SelectObject(mem, o);
+                d->scaledW = dw, d->scaledH = dh, d->scaledRev = d->revision, d->scaledSrc = src;
+            }
+            HGDIOBJ o = SelectObject(mem, d->scaled);
+            BitBlt(dc_, dst.left, dst.top, dw, dh, mem, 0, 0, SRCCOPY);
+            SelectObject(mem, o);
+            DeleteDC(mem);
+            return;
         }
         HDC mem = CreateCompatibleDC(dc_);
         HGDIOBJ old = SelectObject(mem, d->bmp);
