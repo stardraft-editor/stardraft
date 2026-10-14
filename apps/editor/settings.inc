@@ -91,7 +91,11 @@ bool list(const std::wstring& name, std::vector<std::wstring>& v) {
 bool bytes(const std::wstring& name, std::vector<uint8_t>& v) {
     if (const auto t = store().text(narrow(name))) {
         v.clear();
-        for (size_t i = 0; i + 1 < t->size(); i += 2) v.push_back(uint8_t(std::stoi(t->substr(i, 2), nullptr, 16)));
+        for (size_t i = 0; i + 1 < t->size(); i += 2) {  // (a pair that is not hexadecimal ends the bytes)
+            unsigned b = 0;
+            if (std::from_chars(t->data() + i, t->data() + i + 2, b, 16).ptr != t->data() + i + 2) break;
+            v.push_back(uint8_t(b));
+        }
         return true;
     }
     std::vector<BYTE> b;
@@ -100,19 +104,18 @@ bool bytes(const std::wstring& name, std::vector<uint8_t>& v) {
     return true;
 }
 
-// The names under "Key/" (without it): the file's, else the registry key's values.
+// The names under "Key/" (without it): the file's and the registry key's values (each once).
 std::vector<std::wstring> names(const std::wstring& key) {
     std::vector<std::wstring> out;
     const std::string prefix = narrow(key) + "/";
     for (const auto& n : store().names(prefix)) out.push_back(widen(n.substr(prefix.size())));
-    if (!out.empty()) return out;
     HKEY k;
     if (RegOpenKeyExW(HKEY_CURRENT_USER, (L"Software\\StarDraft\\" + key).c_str(), 0, KEY_READ, &k) != ERROR_SUCCESS) return out;
     for (DWORD i = 0;; ++i) {
         wchar_t name[256];
         DWORD len = 256;
         if (RegEnumValueW(k, i, name, &len, nullptr, nullptr, nullptr, nullptr) != ERROR_SUCCESS) break;
-        out.emplace_back(name);
+        if (std::find(out.begin(), out.end(), name) == out.end()) out.emplace_back(name);
     }
     RegCloseKey(k);
     return out;

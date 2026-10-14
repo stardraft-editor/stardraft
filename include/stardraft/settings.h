@@ -1,8 +1,8 @@
 #pragma once
 
 // The program's settings in a file (a JSON object), for every system: numbers, texts and lists of texts by name.
-// Names may have parts ("Layout/Volume"). Each change writes the file again at once (it is small); a file that cannot
-// be read is the same as no file. Texts are UTF-8.
+// Names may have parts ("Layout/Volume"). Each change reads the file again (another program may have saved values),
+// then writes it at once (it is small); a file that cannot be read is the same as no file. Texts are UTF-8.
 
 #include <cstdint>
 #include <filesystem>
@@ -40,6 +40,9 @@ public:
     // JSON object of numbers, texts and lists of texts.
     static std::string toText(const std::map<std::string, Value>& values);
     static bool fromText(const std::string& text, std::map<std::string, Value>& values);
+
+    // The values as the file has them now.
+    void reload();
 
 private:
     bool save();
