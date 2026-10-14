@@ -152,14 +152,12 @@ struct JsonParser {
             if (end == i) return ok = false, v;
             // strtod and not from_chars: Apple's libc++ has no from_chars for double before macOS 26. The library
             // never calls setlocale, so the decimal point is '.'.
-            char buf[64];
-            if (end - i >= sizeof buf) return ok = false, v;
-            std::memcpy(buf, t.data() + i, end - i);
-            buf[end - i] = 0;
+            if (t[i] == '+') return ok = false, v;  // (from_chars and JSON do not take it; strtod does)
+            const std::string number = t.substr(i, end - i);
             char* stop = nullptr;
             errno = 0;
-            v.n = std::strtod(buf, &stop);
-            if (errno == ERANGE || stop != buf + (end - i)) return ok = false, v;  // not a number, or too large
+            v.n = std::strtod(number.c_str(), &stop);
+            if (errno == ERANGE || stop != number.c_str() + number.size()) return ok = false, v;  // not a number, or too large
             v.type = Json::Type::Number, i = end;
         }
         return v;

@@ -101,7 +101,9 @@ int runProcess(const std::vector<std::string>& args, const fs::path& workDir, co
     if (args.empty()) return -1;
     int fds[2];
     if (pipe(fds) != 0) return -1;
+    // Both ends close in other children (another runProcess at the same time); dup2 gives this child its own 1 and 2.
     fcntl(fds[0], F_SETFD, FD_CLOEXEC);
+    fcntl(fds[1], F_SETFD, FD_CLOEXEC);
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
     posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0);
