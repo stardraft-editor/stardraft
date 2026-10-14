@@ -17,6 +17,7 @@ def field(path):
 
 
 def main(hanja, pinyin):
+    sys.stdout.reconfigure(encoding="utf-8")  # (Windows' console code page has no Hangul)
     failed = 0
     checks = [(hanja, r"[㐀-鿿豈-﫿] abc 국", "Hanja, then 한/영"),
               (pinyin, r"中文", "Pinyin")]
