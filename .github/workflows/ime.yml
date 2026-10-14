@@ -198,17 +198,17 @@ jobs:
           live warmup "" "${ko}gksrnrdj " korean || true
           live inline --ime-inline "gksrnrdj " korean
           live system --ime-system "gksrnrdj " korean
-          # Hanja (Option+Return, 1 picks the first: SDL's text input client gives the input method the text it converts,
-          # cmake/patch_sdl.cmake), 한/영 (the English input source and back), then Pinyin - Simplified.
-          live hanja "" "gks{optreturn}{wait}{wait}1 {source:com.apple.keylayout.US}abc ${ko}rnr " hanja
-          live hangul-english "" "gks {source:com.apple.keylayout.US}abc ${ko}rnr " hangul-english
           # The same Hanja keys into a native text view (NSTextView): what the input method gives without SDL.
           ./ime_textview_mac 15 > ime-macos-textview.txt 2>&1 &
           pid=$!
           for i in $(seq 1 40); do grep -q "^ready" ime-macos-textview.txt && break; sleep 0.5; done
-          ./ime_keys_mac "${ko}gks{optreturn}{wait}{wait}1 " || true
+          ./ime_keys_mac "gks{optreturn}{wait}{wait}1 " || true
           wait $pid || true
           cat ime-macos-textview.txt
+          # Hanja (Option+Return, 1 picks the first: SDL's text input client gives the input method the text it converts,
+          # cmake/patch_sdl.cmake), 한/영 (the English input source and back), then Pinyin - Simplified.
+          live hanja "" "gks{optreturn}{wait}{wait}1 {source:com.apple.keylayout.US}abc ${ko}rnr " hanja
+          live hangul-english "" "gks {source:com.apple.keylayout.US}abc ${ko}rnr " hangul-english
           live warmup2 "" "{source:com.apple.inputmethod.SCIM.ITABC}zhongwen " pinyin || true
           live pinyin "" "zhongwen " pinyin
 
