@@ -125,7 +125,8 @@ public:
     // Whether Tab stops on it (and a click gives it the focus).
     virtual bool focusable() const { return false; }
     virtual void focusChanged(bool /*has*/) {}
-    // The mouse capture went elsewhere (the window lost it, or another view took it).
+    // The mouse capture left the view (it went to another view, the system took it, or the view let it go): the view
+    // ends what the capture was for.
     virtual void captureLost() {}
     virtual void resized() {}
 
@@ -137,6 +138,12 @@ public:
     int width() const { return frame_.width(); }
     int height() const { return frame_.height(); }
     bool visible() const { return visible_; }
+    // Visible, and so are all its parents: the view is on the screen.
+    bool shown() const {
+        for (const View* v = this; v; v = v->parent_)
+            if (!v->visible_) return false;
+        return true;
+    }
     void setVisible(bool v) {
         if (v != visible_) visible_ = v, invalidate();
     }
@@ -237,6 +244,7 @@ public:
         if (old) old->focusChanged(false);
         if (v) v->focusChanged(true);
     }
+    // The view that gets the mouse (null: none). The view that had it is told with captureLost.
     void setCapture(View* v) {
         View* old = captured_;
         captured_ = v;
