@@ -108,7 +108,7 @@ public:
     // `r` filled with `c`; `alpha` 255: opaque.
     virtual void fill(Rect r, Color c, uint8_t alpha = 255) = 0;
     // A box with rounded corners of `radius` px: filled with `fill`, with a `line` of `width` px inside `r`.
-    virtual void roundBox(Rect r, Color fill, Color line, int radius, int width = 1) = 0;
+    virtual void roundBox(Rect r, Color fill, Color line, float radius, int width = 1) = 0;
     // The same outline, smoothed (antialiased).
     virtual void smoothRoundOutline(Rect r, float radius, Color line, float width = 1.0f) = 0;
     // An ellipse in `r` (as a GDI Ellipse: `r` includes the outline).

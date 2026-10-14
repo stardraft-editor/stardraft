@@ -305,6 +305,14 @@ public:
             result = 0;
             return true;
         }
+        case WM_FEEDBACK_NAME: {  // Report feedback: what is under the mouse (the view's tip)
+            auto& q = *reinterpret_cast<FeedbackQuery*>(lp);
+            std::wstring t = router_.tip({q.pt.x, q.pt.y});
+            if (t.empty()) return false;
+            q.name = std::move(t);
+            result = 0;
+            return true;
+        }
         case WM_GETDLGCODE: result = DLGC_WANTALLKEYS | DLGC_WANTCHARS; return true;
         case WM_ACTIVATE:  // a Popup or Menu closes when another window takes the focus
             if (isWindow && LOWORD(wp) == WA_INACTIVE && (kind == stardraft::draw::WindowKind::Popup || kind == stardraft::draw::WindowKind::Menu)) {

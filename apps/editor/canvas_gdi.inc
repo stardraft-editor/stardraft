@@ -26,13 +26,14 @@ public:
     HDC dc() const { return dc_; }
 
     void fill(Rect r, Color c, uint8_t alpha) override { fillAlpha(dc_, toRECT(r), c, alpha); }
-    void roundBox(Rect r, Color fill, Color line, int radius, int width) override {
+    void roundBox(Rect r, Color fill, Color line, float radius, int width) override {
         HBRUSH b = fill == kNone ? nullptr : CreateSolidBrush(fill);
         HPEN p = line == kNone ? nullptr : CreatePen(PS_SOLID, width, line);
         HGDIOBJ ob = SelectObject(dc_, b ? HGDIOBJ(b) : GetStockObject(NULL_BRUSH)), op = SelectObject(dc_, p ? HGDIOBJ(p) : GetStockObject(NULL_PEN));
         // GDI: without a pen the fill stops 1 px short of the right and bottom; a wide pen is centered on the edge.
         const int in = p ? width / 2 : 0, out = p ? 0 : 1;
-        RoundRect(dc_, r.left + in, r.top + in, r.right + out, r.bottom + out, 2 * radius, 2 * radius);
+        const int d = int(std::lround(2 * radius));
+        RoundRect(dc_, r.left + in, r.top + in, r.right + out, r.bottom + out, d, d);
         SelectObject(dc_, ob), SelectObject(dc_, op);
         if (b) DeleteObject(b);
         if (p) DeleteObject(p);

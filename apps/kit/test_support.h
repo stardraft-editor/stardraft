@@ -58,8 +58,9 @@ public:
     }
 
     void fill(Rect x, Color k, uint8_t a) override { ops.push_back("fill " + r(x) + " " + c(k) + " " + std::to_string(a)); }
-    void roundBox(Rect x, Color f, Color l, int rad, int w) override {
-        ops.push_back("roundBox " + r(x) + " " + c(f) + " " + c(l) + " " + std::to_string(rad) + " " + std::to_string(w));
+    void roundBox(Rect x, Color f, Color l, float rad, int w) override {
+        const std::string rs = rad == float(int(rad)) ? std::to_string(int(rad)) : std::to_string(rad);
+        ops.push_back("roundBox " + r(x) + " " + c(f) + " " + c(l) + " " + rs + " " + std::to_string(w));
     }
     void smoothRoundOutline(Rect x, float, Color l, float) override { ops.push_back("smoothRoundOutline " + r(x) + " " + c(l)); }
     void ellipse(Rect x, Color f, Color l) override { ops.push_back("ellipse " + r(x) + " " + c(f) + " " + c(l)); }
