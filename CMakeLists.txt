@@ -190,6 +190,7 @@ target_link_libraries(commands_test PRIVATE stardraft)
 # library and its tests build without SDL3.
 option(STARDRAFT_RENDERER "Build the GPU renderer (SDL3) and its tools" ON)
 if(STARDRAFT_RENDERER)
+    option(STARDRAFT_SDL_DEBUG_IME "SDL logs the input method's calls on macOS (cmake/patch_sdl.cmake)" OFF)
     set(SDL_SHARED OFF CACHE BOOL "" FORCE)
     set(SDL_STATIC ON CACHE BOOL "" FORCE)
     set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
@@ -197,7 +198,7 @@ if(STARDRAFT_RENDERER)
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
         GIT_TAG release-3.4.18
         GIT_SHALLOW TRUE
-        PATCH_COMMAND ${CMAKE_COMMAND} -P ${CMAKE_SOURCE_DIR}/cmake/patch_sdl.cmake  # (macOS: Hanja; see the script)
+        PATCH_COMMAND ${CMAKE_COMMAND} -DDEBUG_IME=${STARDRAFT_SDL_DEBUG_IME} -P ${CMAKE_SOURCE_DIR}/cmake/patch_sdl.cmake  # (macOS: Hanja; see the script)
         UPDATE_DISCONNECTED TRUE)
     FetchContent_MakeAvailable(SDL3)
 

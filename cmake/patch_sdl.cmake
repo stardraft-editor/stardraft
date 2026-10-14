@@ -5,6 +5,15 @@
 
 set(file src/video/cocoa/SDL_cocoakeyboard.m)
 file(READ ${file} text)
+# -DDEBUG_IME=ON (STARDRAFT_SDL_DEBUG_IME): SDL logs each call of the input method (the IME workflow on macOS).
+if(DEBUG_IME AND text MATCHES "#if 0
+#define DEBUG_IME NSLog")
+    string(REPLACE "#if 0
+#define DEBUG_IME NSLog" "#if 1 // StarDraft: STARDRAFT_SDL_DEBUG_IME
+#define DEBUG_IME NSLog" text "${text}")
+    file(WRITE ${file} "${text}")
+    message(STATUS "SDL: the input method's calls are logged")
+endif()
 if(text MATCHES "StarDraft: the text being composed")
     return()  # (already changed)
 endif()
