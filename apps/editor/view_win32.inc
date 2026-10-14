@@ -329,9 +329,13 @@ public:
         case WM_MOUSEACTIVATE:
             if (kind == stardraft::draw::WindowKind::Tooltip) return result = MA_NOACTIVATE, true;
             return false;
-        case WM_NCHITTEST:
+        case WM_NCHITTEST: {
             if (kind == stardraft::draw::WindowKind::Tooltip) return result = HTTRANSPARENT, true;
+            POINT p{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            ScreenToClient(w, &p);
+            if (view_.sizeGrip({p.x, p.y})) return result = HTBOTTOMRIGHT, true;  // the grip resizes the window
             return false;
+        }
         }
         return false;
     }
