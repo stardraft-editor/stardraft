@@ -1,6 +1,7 @@
 #include "text_field.h"
 
 #include <algorithm>
+#include <unordered_map>
 
 namespace stardraft::kit {
 
@@ -19,11 +20,21 @@ size_t nextIndex(const std::wstring& s, size_t e, size_t end) {
 
 }  // namespace
 
-TextField::TextField() : alive_(std::make_shared<bool>(true)) {}
+TextField::TextField() : alive_(std::make_shared<bool>(true)) {
+    bar_.onScroll = [this](int pos) {
+        scrollY_ = pos;
+        invalidate();
+    };
+    bar_.setVisible(false);
+    add(bar_, {});
+}
 
 TextField::~TextField() {
     *alive_ = false;
     stopBlink();
+    // Destroyed while it has the focus: the host stops the input method (the view's parent is still set here).
+    if (focused_)
+        if (draw::Host* h = host()) h->textInput(*this, false, caretRect_);
 }
 
 // --- Settings -----------------------------------------------------------------------------------------------------
@@ -32,6 +43,7 @@ void TextField::setText(std::wstring t) {
     model_.setText(std::move(t));
     comp_.clear();
     compCur_ = 0;
+    breakAt_ = ~size_t(0);
     ++style_;
     invalidate();
 }
@@ -155,6 +167,9 @@ void TextField::relayout(draw::Canvas& c) {
     px_.assign(n + 1, 0);
     int x = 0;
     bool bold = fontDesc_.bold;  // the font the canvas has now
+    // A character's width is measured once per layout (per character and weight), not once per place in the text:
+    // a long text is laid out again with each edit.
+    std::unordered_map<uint64_t, int> widths;
     for (size_t d = 0; d < n;) {
         const bool b = fontDesc_.bold || attrAt(d).bold;
         if (b != bold) {
@@ -164,7 +179,17 @@ void TextField::relayout(draw::Canvas& c) {
             bold = b;
         }
         const size_t len = nextIndex(shown_, d, n) - d;
-        const int w = shown_[d] == '\n' ? 0 : c.measure(std::wstring_view(shown_).substr(d, len));
+        int w = 0;
+        if (shown_[d] != '\n') {
+            const uint64_t key = (uint64_t(shown_[d]) << 32) | (uint64_t(len == 2 ? shown_[d + 1] : 0) << 1) | (b ? 1u : 0u);
+            const auto it = widths.find(key);
+            if (it != widths.end()) {
+                w = it->second;
+            } else {
+                w = c.measure(std::wstring_view(shown_).substr(d, len));
+                widths.emplace(key, w);
+            }
+        }
         px_[d] = x;
         if (len == 2) px_[d + 1] = x;  // the second unit of a pair has no place of its own
         x += w;
@@ -223,6 +248,13 @@ void TextField::buildLines(int vw) {
         if (pe >= n) break;
         ps = pe + 1;
     }
+}
+
+size_t TextField::caretLine() const {
+    const size_t dc = displayCaret();
+    size_t li = lineOf(dc);
+    if (li > 0 && !composing() && model_.caret() == breakAt_ && !lines_[li - 1].last && lines_[li - 1].end == dc) --li;
+    return li;
 }
 
 size_t TextField::lineOf(size_t d) const {
@@ -284,7 +316,7 @@ void TextField::ensureCaretVisible() {
     ensured_ = k;
     const draw::Rect in = inner();
     const size_t dc = displayCaret();
-    const size_t li = lineOf(dc);
+    const size_t li = caretLine();
     const int cx = px_[dc] - px_[lines_[li].start];
     if (!(multiline() && wrap_)) {
         if (cx < scrollX_) scrollX_ = cx;
@@ -301,7 +333,7 @@ void TextField::ensureCaretVisible() {
 void TextField::updateCaretRect() {
     if (!fresh()) return;
     const size_t dc = displayCaret();
-    const size_t li = lineOf(dc);
+    const size_t li = caretLine();
     const int x = inner().left - scrollX_ + (px_[dc] - px_[lines_[li].start]);
     const int top = lineTop(li);
     caretRect_ = draw::Rect{x, top, x + 1, top + lineH_};
@@ -316,7 +348,7 @@ void TextField::paint(draw::Canvas& c) {
     if (hot_) line = th.borderHot;
     if (model_.readOnly()) fill = th.readOnly, line = th.readOnlyLine;
     if (changed_) fill = th.goodFill, line = th.goodLine;
-    if (hasFocus()) line = th.accent;
+    if (focused_ && !model_.readOnly()) line = th.accent;  // a read-only field never shows the focus line
     c.roundBox(draw::Rect{0, 0, width(), height()}, fill, line, px(kRadius));
 
     const draw::Font prev = c.setFont(c.font(fontDesc_));
@@ -358,9 +390,9 @@ void TextField::paint(draw::Canvas& c) {
             }
             c.setFont(c.font(fontDesc_));
         }
-        if (hasFocus() && caretOn_) {
+        if (focused_ && caretOn_) {
             const size_t dc = displayCaret();
-            const size_t li = lineOf(dc);
+            const size_t li = caretLine();
             const int x = baseX + (px_[dc] - px_[lines_[li].start]);
             const int top = lineTop(li);
             c.fill(draw::Rect{x, top, x + std::max(1, px(1)), top + lineH_}, th.text);
@@ -368,32 +400,38 @@ void TextField::paint(draw::Canvas& c) {
     }
     c.popClip();
     updateCaretRect();
-    drawBar(c);
+    syncBar();
     c.setFont(prev);
-    if (hasFocus()) syncInput();
+    if (focused_) syncInput();
 }
 
-void TextField::drawBar(draw::Canvas& c) const {
+// The bar is a child view (it takes the mouse and draws itself after this paint); this keeps its range, its
+// position and its place with the text. Each set is made only when it changes: a change invalidates.
+void TextField::syncBar() {
+    bar_.setVisible(barShown_);
     if (!barShown_) return;
-    const Theme& th = theme();
     const draw::Rect in = inner();
-    const int content = int(lines_.size()) * lineH_, vh = in.height();
-    const int maxY = content - vh;
-    const int thumbH = std::min(vh, std::max(px(16), vh * vh / std::max(1, content)));
-    const int thumbTop = in.top + (maxY > 0 ? int(static_cast<long long>(scrollY_) * (vh - thumbH) / maxY) : 0);
-    const bool lit = hot_ || dragging_;  // as scrollFace: a thin line at rest, the track and a wider thumb when used
-    const int tr = width() - px(2), tl = width() - px(8);
-    if (lit) c.fill(draw::Rect{tl, in.top, tr, in.bottom}, th.panel);
-    const draw::Rect thumb = lit ? draw::Rect{tl + px(1), thumbTop, tr, thumbTop + thumbH}
-                                 : draw::Rect{tr - px(3), thumbTop, tr, thumbTop + thumbH};
-    const draw::Color color = lit ? th.thumbHot : th.thumb;
-    c.roundBox(thumb, color, color, px(2));
+    const draw::Rect place{width() - px(8), in.top, width() - px(2), in.bottom};
+    const draw::Rect cur = bar_.frame();
+    if (cur.left != place.left || cur.top != place.top || cur.right != place.right || cur.bottom != place.bottom) bar_.setFrame(place);
+    const int total = int(lines_.size()) * lineH_, page = in.height();
+    if (total != barTotal_ || page != barPage_) {
+        barTotal_ = total, barPage_ = page;
+        bar_.setRange(total, page);
+    }
+    bar_.setPos(scrollY_);
+}
+
+void TextField::captureLost() {
+    dragging_ = false;  // the drag's selection stays; the mouse moves over the field no longer extend it
+    invalidate();
 }
 
 // --- Moves --------------------------------------------------------------------------------------------------------
 
 void TextField::moveTo(size_t m, bool extend, bool keepGoal) {
     model_.setCaret(m, extend);
+    breakAt_ = ~size_t(0);
     if (!keepGoal) goalX_ = -1;
     afterAction();
 }
@@ -420,7 +458,7 @@ void TextField::vertical(int dir, bool extend, int count) {
         return;
     }
     const size_t dc = displayCaret();
-    size_t li = lineOf(dc);
+    size_t li = caretLine();
     if (goalX_ < 0) goalX_ = px_[dc] - px_[lines_[li].start];
     size_t moved = 0;
     for (int k = 0; k < count; ++k) {
@@ -438,15 +476,15 @@ void TextField::vertical(int dir, bool extend, int count) {
     moveTo(target, extend, true);
 }
 
-size_t TextField::visualEdge(bool end) const {
+size_t TextField::visualEdge(bool end, bool& wrapEnd) const {
     const size_t m = model_.caret();
+    wrapEnd = false;
     if (!multiline()) return end ? model_.size() : 0;
     if (!fresh()) return end ? model_.lineEnd(m) : model_.lineStart(m);
-    const size_t li = lineOf(displayCaret());
-    const Line& L = lines_[li];
-    size_t d = end ? L.end : L.start;
-    if (end && lineOf(d) != li) --d;  // the end of a wrapped line: before the break (its space, or the last character)
-    return modelOf(d);
+    const Line& L = lines_[caretLine()];
+    // The end of a wrapped line is the next line's start in the text: the caret there is kept on this line (breakAt_).
+    wrapEnd = end && !L.last;
+    return modelOf(end ? L.end : L.start);
 }
 
 void TextField::copySelection() {
@@ -460,8 +498,6 @@ void TextField::paste() {
     if (!h) return;
     const std::string s = h->clipboardText();
     edit([&] { return model_.insert(fromUtf8(s), false); });
-    goalX_ = -1;
-    afterAction();
 }
 
 // --- Events -------------------------------------------------------------------------------------------------------
@@ -498,6 +534,7 @@ bool TextField::mouse(const draw::MouseEvent& e) {
         if (triple) model_.setSelection(model_.lineStart(m), model_.lineEnd(m));
         else model_.setCaret(m, (e.mods & draw::kShift) != 0);
         goalX_ = -1;
+        breakAt_ = ~size_t(0);
         dragging_ = true;
         if (draw::Host* h = host()) h->capture(*this, true);
         afterAction();
@@ -512,6 +549,7 @@ bool TextField::mouse(const draw::MouseEvent& e) {
         model_.wordAt(caretFromPoint(e.pt), from, to);
         model_.setSelection(from, to);
         goalX_ = -1;
+        breakAt_ = ~size_t(0);
         afterAction();
         return true;
     }
@@ -542,7 +580,9 @@ bool TextField::key(const draw::KeyEvent& e) {
     const size_t n = model_.size();
     const size_t m = model_.caret();
     const int page = std::max(1, inner().height() / lineH_);
-    if (ctrl) {  // Ctrl+letter: the editing shortcuts (letters are their ASCII capitals)
+    // Ctrl+letter: the editing shortcuts (letters are their ASCII capitals). Not with Alt: on some keyboards AltGr is
+    // Ctrl+Alt, and its letters (ą, ź, ż) are typed text.
+    if (ctrl && !(e.mods & draw::kAlt)) {
         switch (int(e.key)) {
         case 'A':
             model_.selectAll();
@@ -554,11 +594,7 @@ bool TextField::key(const draw::KeyEvent& e) {
             return true;
         case 'X':
             copySelection();
-            if (!ro) {
-                edit([&] { return model_.deleteSelection(); });
-                goalX_ = -1;
-                afterAction();
-            }
+            if (!ro) edit([&] { return model_.deleteSelection(); });
             return true;
         case 'V':
             paste();
@@ -567,8 +603,6 @@ bool TextField::key(const draw::KeyEvent& e) {
         case 'Z': {
             const bool redo = int(e.key) == 'Y' || shift;
             edit([&] { return redo ? model_.redo() : model_.undo(); });
-            goalX_ = -1;
-            afterAction();
             return true;
         }
         default: break;
@@ -596,30 +630,25 @@ bool TextField::key(const draw::KeyEvent& e) {
         vertical(e.key == Key::PageUp ? -1 : 1, shift, page);
         return true;
     case Key::Home:
-    case Key::End:
-        moveTo(ctrl ? (e.key == Key::Home ? 0 : n) : visualEdge(e.key == Key::End), shift);
+    case Key::End: {
+        const bool end = e.key == Key::End;
+        bool wrapEnd = false;
+        const size_t t = ctrl ? (end ? n : 0) : visualEdge(end, wrapEnd);
+        model_.setCaret(t, shift);
+        goalX_ = -1;
+        breakAt_ = wrapEnd ? model_.caret() : ~size_t(0);
+        afterAction();
         return true;
+    }
     case Key::Backspace:
-        if (!ro) {
-            edit([&] { return ctrl ? model_.backspaceWord() : model_.backspace(); });
-            goalX_ = -1;
-            afterAction();
-        }
+        if (!ro) edit([&] { return ctrl ? model_.backspaceWord() : model_.backspace(); });
         return true;
     case Key::Delete:
-        if (!ro) {
-            edit([&] { return ctrl ? model_.deleteWordForward() : model_.deleteForward(); });
-            goalX_ = -1;
-            afterAction();
-        }
+        if (!ro) edit([&] { return ctrl ? model_.deleteWordForward() : model_.deleteForward(); });
         return true;
     case Key::Enter:
         if (multiline() && !ctrl) {
-            if (!ro) {
-                edit([&] { return model_.insert(L"\n", false); });
-                goalX_ = -1;
-                afterAction();
-            }
+            if (!ro) edit([&] { return model_.insert(L"\n", false); });
             return true;
         }
         if (onEnter) {
@@ -636,17 +665,19 @@ bool TextField::key(const draw::KeyEvent& e) {
 }
 
 bool TextField::text(const draw::TextEvent& e) {
-    if (!hasFocus()) return false;
+    if (!focused_) return false;
     if (composing()) comp_.clear(), compCur_ = 0, ++style_;  // the input method commits what it showed
     const std::wstring w = fromUtf8(e.utf8);
     if (!model_.readOnly()) edit([&] { return model_.insert(w, true); });
-    goalX_ = -1;
-    afterAction();
+    else {
+        goalX_ = -1;
+        afterAction();
+    }
     return true;
 }
 
 bool TextField::compose(const draw::CompositionEvent& e) {
-    if (!hasFocus()) return false;
+    if (!focused_) return false;
     std::wstring c = model_.readOnly() ? std::wstring() : fromUtf8(e.utf8);
     const size_t cut = e.cursor > 0 ? std::min(size_t(e.cursor), e.utf8.size()) : 0;
     const size_t cur = std::min(fromUtf8(std::string_view(e.utf8).substr(0, cut)).size(), c.size());
@@ -659,7 +690,9 @@ bool TextField::compose(const draw::CompositionEvent& e) {
 }
 
 void TextField::focusChanged(bool has) {
+    focused_ = has;
     if (has) {
+        dragging_ = false;
         resetBlink();
         syncInput();
         return;
@@ -683,7 +716,7 @@ void TextField::afterAction() {
 
 void TextField::syncInput() {
     updateCaretRect();
-    if (draw::Host* h = host(); h && hasFocus()) h->textInput(*this, true, caretRect_);
+    if (draw::Host* h = host(); h && focused_) h->textInput(*this, true, caretRect_);
 }
 
 void TextField::armBlink() {
@@ -695,7 +728,7 @@ void TextField::armBlink() {
         blinkId_ = 0;
         caretOn_ = !caretOn_;
         invalidate();
-        if (hasFocus()) armBlink();
+        if (focused_) armBlink();
     });
 }
 
@@ -708,7 +741,7 @@ void TextField::stopBlink() {
 void TextField::resetBlink() {
     stopBlink();
     caretOn_ = true;
-    if (hasFocus()) armBlink();
+    if (focused_) armBlink();
 }
 
 }  // namespace stardraft::kit

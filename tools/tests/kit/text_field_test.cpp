@@ -1,3 +1,4 @@
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -595,4 +596,141 @@ KIT_TEST(text_field_surrogate_caret_keeps_pairs) {
     r.host.paint();
     r.host.press(Key::Right);
     CHECK(r.field.model().caret() == (sizeof(wchar_t) == 2 ? 2u : 1u));
+}
+
+namespace {
+
+// Whether a box is drawn with the accent line (the focus).
+bool accentBox(const test::RecordingCanvas& c) {
+    const std::string accent = test::RecordingCanvas::c(theme().accent);
+    for (const std::string& op : c.ops)
+        if (op.rfind("roundBox ", 0) == 0 && op.find(accent) != std::string::npos) return true;
+    return false;
+}
+
+}  // namespace
+
+KIT_TEST(text_field_altgr_letters_are_typed_text) {
+    Rig r;
+    r.host.click(20, 10);
+    r.host.type("abc");
+    // On Windows AltGr is Ctrl+Alt, and its letters (Polish ą is AltGr+A) are typed text, not shortcuts.
+    CHECK(!r.host.press(KA, kCtrl | draw::kAlt));
+    CHECK(!r.field.model().hasSelection());
+    CHECK(!r.host.press(KX, kCtrl | draw::kAlt));
+    CHECK(r.field.text() == L"abc");
+    r.host.type("\xC4\x85");  // ą
+    CHECK(r.field.text() == L"abc\x0105");
+    CHECK(r.host.press(KA, kCtrl));  // plain Ctrl+A still selects all
+    CHECK(r.field.model().hasSelection());
+}
+
+KIT_TEST(text_field_focus_look_follows_the_window) {
+    Rig r;
+    r.field.setText(L"abc");
+    r.host.click(20, 10);
+    CHECK(accentBox(r.host.paint()));
+    CHECK(carets(r.host.paint()).size() == 1);
+    // The window loses focus: the host calls focusChanged and the router keeps the view. No focus line, no caret, no
+    // text input.
+    r.field.focusChanged(false);
+    test::RecordingCanvas off = r.host.paint();
+    CHECK(!accentBox(off));
+    CHECK(carets(off).empty());
+    CHECK(!r.host.textInputOn);
+    r.field.focusChanged(true);
+    test::RecordingCanvas on = r.host.paint();
+    CHECK(accentBox(on));
+    CHECK(carets(on).size() == 1);
+}
+
+KIT_TEST(text_field_destroyed_while_focused_stops_the_input) {
+    draw::View root;
+    test::FakeHost host(root);
+    auto field = std::make_unique<TextField>();
+    root.add(*field, {0, 0, 200, 24});
+    host.click(20, 10);
+    CHECK(host.textInputOn);
+    field.reset();
+    CHECK(!host.textInputOn);
+}
+
+KIT_TEST(text_field_drag_ends_when_the_capture_is_lost) {
+    Rig r;
+    r.field.setText(L"abcdefghij");
+    r.host.paint();  // the layout the mouse goes by
+    r.host.down(xOf(0), 10);
+    r.host.move(xOf(3), 10);
+    CHECK(r.field.model().caret() == 3);
+    // The window loses the mouse (WM_CAPTURECHANGED): the drag ends, so moves over the field no longer select.
+    r.host.router.setCapture(nullptr);
+    r.host.move(xOf(5), 10);
+    CHECK(r.field.model().caret() == 3);
+    r.host.up(xOf(5), 10);
+}
+
+KIT_TEST(text_field_read_only_shows_no_focus_line) {
+    Rig r;
+    r.field.setReadOnly(true);
+    r.host.click(20, 10);
+    CHECK(r.host.router.focused() == &r.field);
+    CHECK(!accentBox(r.host.paint()));
+    r.field.setReadOnly(false);
+    CHECK(accentBox(r.host.paint()));
+}
+
+KIT_TEST(text_field_scroll_bar_takes_the_mouse) {
+    Rig r(200, 48);
+    r.field.setMultiline(true);
+    r.field.setText(L"a\na\na\na\na\na\na\na\na\na");  // ten lines: taller than the field
+    r.field.model().setCaret(0);
+    r.host.paint();
+    CHECK(r.field.scrollY() == 0);
+    // The bar's strip below the thumb: a click pages the text down, and the caret stays.
+    r.host.click(195, 40);
+    CHECK(r.field.scrollY() > 0);
+    CHECK(r.field.model().caret() == 0);
+    // The thumb: a drag scrolls the text with it.
+    r.host.paint();
+    const int before = r.field.scrollY();
+    r.host.down(195, 14);
+    r.host.move(195, 32);
+    r.host.up(195, 32);
+    CHECK(r.field.scrollY() > before);
+    CHECK(r.field.model().caret() == 0);
+}
+
+KIT_TEST(text_field_end_of_a_wrapped_line_stays_on_it) {
+    Rig r(61, 60);  // 49 px of text: seven characters a line
+    r.field.setMultiline(true);
+    r.field.setText(L"abcdefghij");  // wraps after "abcdefg"
+    r.host.paint();
+    r.host.click(20, 5);
+    r.host.paint();
+    r.host.press(Key::End);
+    CHECK(r.field.model().caret() == 7);
+    CHECK(r.field.caretRect().left == 55);  // after the 'g', on the first line
+    r.host.type("X");
+    CHECK(r.field.text() == L"abcdefgXhij");
+}
+
+KIT_TEST(text_field_up_from_after_an_emoji_keeps_the_pair) {
+    Rig r(200, 80);
+    r.field.setMultiline(true);
+    r.field.setText(L"\xD83D\xDE00\na");  // an emoji, a newline, "a"
+    r.host.click(20, 10);
+    r.field.model().setCaret(4);  // after the 'a', before any paint
+    r.host.press(Key::Up);
+    CHECK(r.field.model().caret() == 0);  // column 1 is inside the emoji above: its start, not its second half
+}
+
+KIT_TEST(text_field_change_may_destroy_the_field) {
+    draw::View root;
+    test::FakeHost host(root);
+    auto field = std::make_unique<TextField>();
+    root.add(*field, {0, 0, 200, 24});
+    field->onChange = [&field] { field.reset(); };  // the callback closes the field (a pop-out, say)
+    host.click(20, 10);
+    host.type("a");
+    CHECK(!field);
 }

@@ -125,6 +125,8 @@ public:
     // Whether Tab stops on it (and a click gives it the focus).
     virtual bool focusable() const { return false; }
     virtual void focusChanged(bool /*has*/) {}
+    // The mouse capture went elsewhere (the window lost it, or another view took it).
+    virtual void captureLost() {}
     virtual void resized() {}
 
     // The host that shows the view (the root's), and the view's place.
@@ -235,7 +237,11 @@ public:
         if (old) old->focusChanged(false);
         if (v) v->focusChanged(true);
     }
-    void setCapture(View* v) { captured_ = v; }
+    void setCapture(View* v) {
+        View* old = captured_;
+        captured_ = v;
+        if (old && old != v) old->captureLost();
+    }
     // A view leaves the tree: nothing keeps pointing at it.
     void forget(const View& v) {
         auto gone = [&](View* p) { return p && (p == &v || v.isAncestorOf(*p)); };

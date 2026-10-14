@@ -101,6 +101,7 @@ private:
     // Replaces [from, to) with `ins` (already sanitized), puts the caret and the anchor at `caret`, and records the step.
     bool replace(size_t from, size_t to, std::wstring_view ins, Kind kind, size_t caret);
     std::wstring sanitize(std::wstring_view s, size_t room) const;
+    size_t boundary(size_t pos) const;  // clamped; never inside a surrogate pair
 
     std::wstring text_;
     size_t caret_ = 0, anchor_ = 0;

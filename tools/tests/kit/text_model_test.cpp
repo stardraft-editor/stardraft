@@ -324,3 +324,43 @@ KIT_TEST(text_model_utf8) {
     CHECK(toUtf8(fromUtf8(round)) == round);
     CHECK(toUtf8(std::wstring(L"x") + wchar_t(0xD800)) == "x\xEF\xBF\xBD");  // a lone half
 }
+
+KIT_TEST(text_model_utf8_bad_bytes_keep_the_rest) {
+    // A sequence cut off by the next byte: one U+FFFD for the bytes before it, and the text after it stays.
+    CHECK(fromUtf8("ab\xE4" "c") == L"ab\xFFFD" L"c");
+    CHECK(fromUtf8("a\xC3") == L"a\xFFFD");  // cut off at the end
+    CHECK(fromUtf8("\xC3\xA4") == L"\xE4");  // a valid two-byte sequence
+}
+
+KIT_TEST(text_model_utf8_rejects_surrogates_and_big_code_points) {
+    // Encoded surrogates (ED A0 80) and code points above U+10FFFF (F4 90 80 80) are not text: each byte is U+FFFD.
+    CHECK(fromUtf8("\xED\xA0\x80") == L"\xFFFD\xFFFD\xFFFD");
+    CHECK(fromUtf8("\xF4\x90\x80\x80") == L"\xFFFD\xFFFD\xFFFD\xFFFD");
+    CHECK(fromUtf8("\xC0\xAF") == L"\xFFFD\xFFFD");  // an overlong form
+    for (wchar_t c : fromUtf8("\xED\xA0\x80\xF4\x90\x80\x80")) CHECK(!isHighSurrogate(c) && !isLowSurrogate(c));
+}
+
+KIT_TEST(text_model_caret_never_inside_a_pair) {
+    TextModel m;
+    m.setText(L"\xD83D\xDE00" L"a");  // a pair, then 'a'
+    m.setCaret(1);                    // inside the pair: the start of the pair
+    CHECK(m.caret() == 0);
+    m.setSelection(1, 2);
+    CHECK(m.anchor() == 0 && m.caret() == 2);
+    m.setCaret(3);
+    CHECK(m.caret() == 3);
+}
+
+KIT_TEST(text_model_newlines_are_words_of_their_own) {
+    TextModel m;
+    m.setMultiline(true);  // newlines are kept only in a multi-line text
+    m.setText(L"abc\n\n\ndef");  // newlines at 3, 4 and 5
+    size_t from = 0, to = 0;
+    m.wordAt(4, from, to);  // a double click on the middle newline selects that newline only
+    CHECK(from == 4 && to == 5);
+    CHECK(m.wordStartBefore(6) == 5);  // Ctrl+Left at the start of "def": one newline
+    CHECK(m.wordEndAfter(3) == 4);
+    m.setCaret(6);
+    CHECK(m.backspaceWord());  // Ctrl+Backspace: one newline goes
+    CHECK(m.text() == L"abc\n\ndef");
+}
