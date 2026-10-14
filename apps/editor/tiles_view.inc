@@ -32,7 +32,14 @@ struct TilesView {
     std::vector<uint16_t> boxBase;
     const Editor* builtFor = nullptr;
     int builtEra = -1;
-    std::map<uint16_t, std::vector<uint8_t>> pixels;  // 32 x 32 BGRA per tile value, for builtFor's tileset
+    struct Pixels {
+        int size = 32;  // 32 (SD) or 64 (HD2, Carbot)
+        std::vector<uint8_t> bgra;
+    };
+    std::map<uint16_t, Pixels> pixels;  // per tile value, for builtFor's tileset, in pixelsMode's art
+    int pixelsMode = -1;                // the map's art: 0 SD, 1 HD, 2 Carbot
+    HdTiles hd;                         // HD2 or Carbot megatiles (pixelsMode 1, 2) of hdEra
+    int hdEra = -1, hdMode = -1;
     bool shown = false;
     // The filter box's entries: kind 0 all, 1 a terrain type (terrain), 2 doodad tiles, 3 null tiles, 4 all but null.
     struct Filter {
@@ -256,19 +263,27 @@ void tilesBoxSelect() {
     InvalidateRect(gTiles.list, nullptr, FALSE);
 }
 
-// The tile's picture: its megatile, as the map shows it in SD.
-const std::vector<uint8_t>& tilesPixels(uint16_t value) {
+// The tile's picture: its megatile in the art the map shows: SD, HD (HD2 resolution is plenty here) or Carbot
+// (feedback #52: the grid was SD only).
+const TilesView::Pixels& tilesPixels(uint16_t value) {
+    const int mode = app.carbot ? 2 : app.quality == GraphicsQuality::SD ? 0 : 1;
+    if (mode != gTiles.pixelsMode) gTiles.pixels.clear(), gTiles.pixelsMode = mode;
     if (gTiles.pixels.size() > 4096 && !gTiles.pixels.count(value)) gTiles.pixels.clear();  // a long scroll: keep the memory small
+    if (mode && (gTiles.hdEra != app.ed->era() || gTiles.hdMode != mode)) {
+        std::string err;
+        gTiles.hdEra = app.ed->era(), gTiles.hdMode = mode;
+        if (!loadHdTiles(app.data, app.ed->era(), GraphicsQuality::HD2, gTiles.hd, err, mode == 2)) gTiles.hd = {};
+    }
     auto [it, fresh] = gTiles.pixels.try_emplace(value);
     if (fresh) {
-        TerrainLayer one;
-        one.width = one.height = 1;
-        one.tiles = {value};
-        const Image img = renderTerrain(app.ed->tileset(), one, 1);
-        it->second.resize(32 * 32 * 4);
-        for (size_t i = 0; i < 32 * 32 && i * 4 + 3 < img.rgba.size(); ++i) {
-            it->second[i * 4] = img.rgba[i * 4 + 2], it->second[i * 4 + 1] = img.rgba[i * 4 + 1], it->second[i * 4 + 2] = img.rgba[i * 4];
-            it->second[i * 4 + 3] = 255;
+        const HdTiles* hd = mode && !gTiles.hd.tiles.empty() ? &gTiles.hd : nullptr;
+        const Sprite pic = mapTilesPicture(app.ed->tileset(), {value}, 1, 0, 0, 1, 1, hd);
+        const int size = pic.width > 0 && pic.width == pic.height ? pic.width : 32;
+        it->second.size = size;
+        it->second.bgra.assign(size_t(size) * size * 4, 0);
+        for (size_t i = 0; i < size_t(size) * size && i * 4 + 3 < pic.rgba.size(); ++i) {
+            it->second.bgra[i * 4] = pic.rgba[i * 4 + 2], it->second.bgra[i * 4 + 1] = pic.rgba[i * 4 + 1], it->second.bgra[i * 4 + 2] = pic.rgba[i * 4];
+            it->second.bgra[i * 4 + 3] = 255;
         }
     }
     return it->second;
@@ -301,7 +316,9 @@ void paintTilesList(HWND hwnd) {
                 const uint16_t v = gTiles.values[k];
                 RECT c = tilesCellRect(int(k));
                 OffsetRect(&c, 0, -gTiles.scroll);
-                StretchDIBits(mem, c.left, c.top, c.right - c.left, c.bottom - c.top, 0, 0, 32, 32, tilesPixels(v).data(), &bi, DIB_RGB_COLORS,
+                const TilesView::Pixels& px = tilesPixels(v);
+                bi.bmiHeader.biWidth = px.size, bi.bmiHeader.biHeight = -px.size;
+                StretchDIBits(mem, c.left, c.top, c.right - c.left, c.bottom - c.top, 0, 0, px.size, px.size, px.bgra.data(), &bi, DIB_RGB_COLORS,
                               SRCCOPY);
                 if (v == gTiles.picked || (gTiles.chosen.size() > 1 && std::find(gTiles.chosen.begin(), gTiles.chosen.end(), v) != gTiles.chosen.end())) {
                     RECT o = c;
