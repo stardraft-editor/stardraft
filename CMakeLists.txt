@@ -87,7 +87,8 @@ add_library(stardraft
     src/new_map.cpp
     src/terrain_gen.cpp
     src/pathing.cpp
-    src/settings.cpp)
+    src/settings.cpp
+    src/commands.cpp)
 target_include_directories(stardraft PUBLIC include PRIVATE src ${stb_SOURCE_DIR})
 find_package(Threads REQUIRED)  # std::async; older glibc needs -pthread for it
 target_link_libraries(stardraft PRIVATE storm casc_static vpx PUBLIC Threads::Threads)
@@ -180,6 +181,8 @@ target_link_libraries(pathing_test PRIVATE stardraft)
 
 add_executable(settings_test tools/tests/settings_test.cpp)
 target_link_libraries(settings_test PRIVATE stardraft)
+add_executable(commands_test tools/tests/commands_test.cpp)
+target_link_libraries(commands_test PRIVATE stardraft)
 
 # --- GPU renderer (SDL3 GPU API) -------------------------------------------------------------
 # Direct3D 12 on Windows (Vulkan when asked: STARDRAFT_GPU_DRIVER=vulkan), Vulkan on Linux, Metal on macOS. Off: the

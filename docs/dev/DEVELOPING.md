@@ -78,6 +78,7 @@ Give each test a new, empty scratch folder.
 | `portrait_test`, `hd_test`, `new_map_test` | `<install> ...` (see the usage line in each) | Portrait videos, HD graphics, new maps. |
 | `paint_stress` | | Terrain correction: no cliff-stack breaks. |
 | `terrain_check` | `terrain_check <install> <maps folder>...` | Without the GPU: the HD, HD2 and Carbot tiles of each tileset against the SD megatiles; each map's MTXM tiles resolve; each map sprite (THG2) has graphics and the frame and images the game starts it with. |
+| `commands_test` | `commands_test` | Without game data: the command table (shortcuts, run by id, enabled, checked, menus). |
 | `settings_test` | `settings_test <dir>` | Without game data: the settings file (each kind of value written and read again). |
 | `render_smoke_test` | `render_smoke_test [out.png]` | Without game data: the renderer's device and pipelines (each shader in the GPU API's format), and rectangles, lines and text in an offscreen frame. GitHub runs it on Linux (Vulkan on lavapipe). |
 | `terrain_render_test` | `terrain_render_test <install> [<maps folder>...]` | The map view's renderer, offscreen: no tile grid when zoomed out (mipmaps), every megatile in the HD, HD2 and Carbot atlases, and each map in SD at 100% the same as `render_map`. |

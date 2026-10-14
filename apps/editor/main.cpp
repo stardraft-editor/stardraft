@@ -69,6 +69,7 @@ using std::min;
 #include "stardraft/terrain_gen.h"
 #include "stardraft/wireframes.h"
 #include "stardraft/pathing.h"
+#include "stardraft/commands.h"
 #include "stardraft/settings.h"
 #include "ui_text.h"  // the program's text in other languages: the macros for DrawTextW, MessageBoxW and the others
 
@@ -3726,6 +3727,11 @@ bool confirmDiscard() {
 
 // --- Commands --------------------------------------------------------------------------------------
 
+// The commands that are data (commands.inc): the Map workspace's. gCommandIds gives each one's Win32 id.
+stardraft::Commands gCommands;
+std::map<int, std::string> gCommandIds;
+void updateCommandMarks(HMENU m);
+
 HWND gTopBar = nullptr;  // the top tool bar (layout() places it)
 bool mapCommand(int id);
 // Calls f with the id of each command in the menu and its submenus.
@@ -3793,13 +3799,6 @@ void updateMenus() {
     CheckMenuItem(m, ID_EDIT_TERRAINUNITS, app.copyUnitsWithTerrain ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuItem(m, ID_OPT_LOCWRAP, app.locationWrap ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuItem(m, ID_EDIT_TERRAINDOODADS, app.copyDoodadsWithTerrain ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(m, ID_VIEW_GRID, app.showGrid ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(m, ID_VIEW_RANGES, gShowRanges ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(m, ID_VIEW_MINIMAP, gDock.minimapHidden ? MF_UNCHECKED : MF_CHECKED);
-    {
-        const bool shown[4] = {gLayers.terrain, gLayers.doodads, gLayers.sprites, gLayers.units};
-        for (int k = 0; k < 4; ++k) CheckMenuItem(m, ID_LAYER + k, shown[k] ? MF_CHECKED : MF_UNCHECKED);
-    }
     {
         bool preset = false;
         for (int k = 0; k < int(std::size(kGridPresets)); ++k) {
@@ -3809,13 +3808,8 @@ void updateMenus() {
         }
         CheckMenuItem(m, ID_GRID_CUSTOM, preset ? MF_UNCHECKED : MF_CHECKED);
     }
-    CheckMenuItem(m, ID_VIEW_LOCATIONS, app.showLocations ? MF_CHECKED : MF_UNCHECKED);
     pathOverlayMenus(m);
-    CheckMenuRadioItem(m, ID_VIEW_HD, ID_VIEW_CARBOT,
-                       app.carbot ? ID_VIEW_CARBOT
-                       : app.quality == GraphicsQuality::HD ? ID_VIEW_HD
-                       : app.quality == GraphicsQuality::HD2 ? ID_VIEW_HD2 : ID_VIEW_SD,
-                       MF_BYCOMMAND);
+    updateCommandMarks(m);  // the table's commands: grid, ranges, minimap, layers, locations, the graphics
 }
 
 void setTerrainRect(bool rect);
@@ -4045,6 +4039,12 @@ void commandBody(int id) {
                                  : L"This command is for classic maps only");
         return;
     }
+    if (const auto it = gCommandIds.find(id); it != gCommandIds.end()) {  // a command of the table (commands.inc)
+        gCommands.run(it->second);
+        updateMenus();
+        app.dirty = true;
+        return;
+    }
     switch (id) {
     case ID_PROJ_NEW: openNewPage(1); return;
     case ID_PROJ_FROMMAP: showProjectDialog(); return;
@@ -4104,19 +4104,6 @@ void commandBody(int id) {
         gDock.minimapRight = id == ID_DOCK_MINI_RIGHT, gDock.minimapHidden = false;
         saveDock(), layout();
         return;
-    case ID_LAYER:
-    case ID_LAYER + 1:
-    case ID_LAYER + 2:
-    case ID_LAYER + 3: {
-        bool* layer[4] = {&gLayers.terrain, &gLayers.doodads, &gLayers.sprites, &gLayers.units};
-        static const wchar_t* const names[4] = {L"Terrain", L"Doodads", L"Sprites", L"Units"};
-        bool& on = *layer[id - ID_LAYER];
-        on = !on;
-        setMessage(std::wstring(names[id - ID_LAYER]) + (on ? L" show" : L" are hidden (View > Layers)"));
-        updateMenus();
-        app.dirty = true;
-        break;
-    }
     case ID_RAIL_KEY: case ID_RAIL_KEY + 1: case ID_RAIL_KEY + 2: case ID_RAIL_KEY + 3: case ID_RAIL_KEY + 4:
     case ID_RAIL_KEY + 5: case ID_RAIL_KEY + 6: case ID_RAIL_KEY + 7: case ID_RAIL_KEY + 8: {
         // The side bar's items as it shows them (a classic map: Map, Map data, Map triggers, ...; a project: Map, Data,
@@ -4125,11 +4112,6 @@ void commandBody(int id) {
         if (const int item = railItemId(size_t(id - ID_RAIL_KEY))) command(item);
         return;
     }
-    case ID_VIEW_MINIMAP:
-        gDock.minimapHidden = !gDock.minimapHidden;
-        saveDock(), layout(), updateMenus();
-        setMessage(gDock.minimapHidden ? L"The minimap is hidden (View > Show minimap shows it again)" : L"The minimap shows");
-        return;
     case ID_DOCK_TOOLS_LEFT:
     case ID_DOCK_TOOLS_RIGHT:
         gDock.toolsRight[int(app.mode)] = id == ID_DOCK_TOOLS_RIGHT;
@@ -4421,24 +4403,6 @@ void commandBody(int id) {
                    : id == ID_DOODAD_NEAREST ? L"Doodads: move to the nearest place where it fits"
                                              : L"Doodads: place only where it fits");
         break;
-    case ID_VIEW_CARBOT:
-        // A graphics mode like the others: the Cartooned skin, at full (4x) resolution.
-        app.carbot = true, app.quality = GraphicsQuality::HD;
-        app.renderer.setQuality(app.quality), app.renderer.setCarbot(true);
-        setMessage(L"Carbot (cartooned) graphics");
-        unitPaletteRepaint();
-        app.dirty = true;
-        break;
-    case ID_VIEW_GRID:
-        app.showGrid = !app.showGrid;
-        app.dirty = true;
-        break;
-    case ID_VIEW_RANGES:
-        gShowRanges = !gShowRanges;
-        setMessage(gShowRanges ? L"Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue)" : L"Ranges are hidden");
-        updateMenus();
-        app.dirty = true;
-        break;
     case ID_TOOL_KEY: case ID_TOOL_KEY + 1: case ID_TOOL_KEY + 2: case ID_TOOL_KEY + 3: stripToolByKey(id - ID_TOOL_KEY); break;
     case ID_GRID_CUSTOM: {  // the grid's width, height and offset, in map pixels
         std::wstring text = std::to_wstring(gDock.gridW) + L", " + std::to_wstring(gDock.gridH) + L", " + std::to_wstring(gDock.gridX) + L", " +
@@ -4464,39 +4428,12 @@ void commandBody(int id) {
         break;
     }
     case ID_EDIT_RENAME: if (open) renameSelectedLocation(); break;
-    case ID_VIEW_HD:
-    case ID_VIEW_HD2:
-    case ID_VIEW_SD:
-        app.quality = id == ID_VIEW_HD ? GraphicsQuality::HD : id == ID_VIEW_HD2 ? GraphicsQuality::HD2 : GraphicsQuality::SD;
-        app.carbot = false;
-        app.renderer.setQuality(app.quality), app.renderer.setCarbot(false);
-        unitPaletteRepaint();
-        break;
-    case ID_VIEW_LOCATIONS: app.showLocations = !app.showLocations; break;
     case ID_VIEW_WALK:
     case ID_VIEW_PATHS:
     case ID_VIEW_TOWNS: pathOverlayToggle(id); break;
     case ID_PATHSIZE_SMALL:
     case ID_PATHSIZE_MEDIUM:
     case ID_PATHSIZE_LARGE: pathOverlaySize(id); break;
-    case ID_VIEW_ZOOMIN: { int w, h; viewSize(w, h); zoomAt(1.25f, w / 2, h / 2); break; }
-    case ID_VIEW_ZOOMOUT: { int w, h; viewSize(w, h); zoomAt(0.8f, w / 2, h / 2); break; }
-    case ID_VIEW_ZOOM100: {
-        if (gWorkspace == Workspace::Triggers) {  // the trigger pane back to its normal size
-            trigZoomReset();
-            break;
-        }
-        int w, h;
-        viewSize(w, h);
-        zoomAt(1.0f / app.zoom, w / 2, h / 2);
-        break;
-    }
-    case ID_VIEW_FIT: fitMap(); break;
-    case ID_MODE_TERRAIN: setMode(Mode::Terrain); break;
-    case ID_MODE_UNITS: setMode(Mode::Units); break;
-    case ID_MODE_DOODADS: setMode(Mode::Doodads); break;
-    case ID_MODE_LOCATIONS: setMode(Mode::Locations); break;
-    case ID_MODE_SPRITES: setMode(Mode::Sprites); break;
     }
     updateMenus();
     app.dirty = true;
@@ -19704,6 +19641,8 @@ void setMenuIcons(HMENU bar) {
     }
 }
 
+#include "commands.inc"
+
 HMENU buildMenu() {
     HMENU bar = CreateMenu();
     HMENU file = CreatePopupMenu(), edit = CreatePopupMenu(), view = CreatePopupMenu(), mode = CreatePopupMenu();
@@ -19745,13 +19684,10 @@ HMENU buildMenu() {
     AppendMenuW(edit, MF_STRING, ID_EDIT_DELETE, L"&Delete\tDel");
     AppendMenuW(edit, MF_STRING, ID_EDIT_SELECTALL, L"Select &all\tCtrl+A");
     AppendMenuW(edit, MF_STRING, ID_EDIT_RENAME, L"Re&name location\tF2");
-    AppendMenuW(view, MF_STRING, ID_VIEW_HD2, L"&High definition (2x, default)");
-    AppendMenuW(view, MF_STRING, ID_VIEW_HD, L"High definition (&4x)");
-    AppendMenuW(view, MF_STRING, ID_VIEW_SD, L"&Standard definition");
-    AppendMenuW(view, MF_STRING, ID_VIEW_CARBOT, L"&Carbot (cartooned)");
+    for (const char* id : {"view.hd2", "view.hd", "view.sd", "view.carbot"}) appendCommand(view, id);
     AppendMenuW(view, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(view, MF_STRING, ID_VIEW_LOCATIONS, L"Show &locations");
-    AppendMenuW(view, MF_STRING, ID_VIEW_GRID, L"Show &grid\tG");
+    appendCommand(view, "view.locations");
+    appendCommand(view, "view.grid");
     {  // the grid's size (GitHub feedback #87)
         HMENU sizes = CreatePopupMenu();
         for (int k = 0; k < int(std::size(kGridPresets)); ++k)
@@ -19762,22 +19698,16 @@ HMENU buildMenu() {
         AppendMenuW(view, MF_POPUP, UINT_PTR(sizes), L"Grid si&ze");
     }
     AppendMenuW(view, MF_STRING, ID_VIEW_TOWNS, L"Show town a&reas");
-    AppendMenuW(view, MF_STRING, ID_VIEW_RANGES, L"Show ranges of the selected u&nits");
-    AppendMenuW(view, MF_STRING, ID_VIEW_MINIMAP, L"Show &minimap");
+    appendCommand(view, "view.ranges");
+    appendCommand(view, "view.minimap");
     {  // the map's layers that show (GitHub feedback #117)
         HMENU layers = CreatePopupMenu();
-        AppendMenuW(layers, MF_STRING, ID_LAYER, L"&Terrain");
-        AppendMenuW(layers, MF_STRING, ID_LAYER + 1, L"&Doodads");
-        AppendMenuW(layers, MF_STRING, ID_LAYER + 2, L"&Sprites");
-        AppendMenuW(layers, MF_STRING, ID_LAYER + 3, L"&Units");
+        appendCommands(layers, "View/Layers");
         AppendMenuW(layers, MF_STRING, ID_VIEW_LOCATIONS, L"&Locations");
         AppendMenuW(view, MF_POPUP, UINT_PTR(layers), L"La&yers");
     }
     AppendMenuW(view, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(view, MF_STRING, ID_VIEW_ZOOMIN, L"Zoom &in\t+");
-    AppendMenuW(view, MF_STRING, ID_VIEW_ZOOMOUT, L"Zoom &out\t-");
-    AppendMenuW(view, MF_STRING, ID_VIEW_ZOOM100, L"&Actual size\tCtrl+0");
-    AppendMenuW(view, MF_STRING, ID_VIEW_FIT, L"&Fit map\tCtrl+F");
+    for (const char* id : {"view.zoomIn", "view.zoomOut", "view.actualSize", "view.fit"}) appendCommand(view, id);
     AppendMenuW(view, MF_STRING, ID_VIEW_LOG, L"&Log\tCtrl+L");
     AppendMenuW(view, MF_STRING, ID_VIEW_TRIGCODE, L"Trigger &code pane");
 #ifndef NDEBUG  // the control kit is for developers: only in debug builds (the kit: datashot opens it in any build)
@@ -19790,11 +19720,7 @@ HMENU buildMenu() {
     AppendMenuW(view, MF_STRING, ID_WS_BRIEFING, L"&Briefing workspace");  // (Ctrl+n: the side bar's n-th item)
     AppendMenuW(view, MF_STRING, ID_WS_FILES, L"&Assets workspace");
     AppendMenuW(view, MF_STRING, ID_WS_PROJECT, L"&Project page");
-    AppendMenuW(mode, MF_STRING, ID_MODE_TERRAIN, L"&Terrain\tT");
-    AppendMenuW(mode, MF_STRING, ID_MODE_UNITS, L"&Units\tU");
-    AppendMenuW(mode, MF_STRING, ID_MODE_DOODADS, L"&Doodads\tD");
-    AppendMenuW(mode, MF_STRING, ID_MODE_SPRITES, L"&Sprites\tS");
-    AppendMenuW(mode, MF_STRING, ID_MODE_LOCATIONS, L"&Locations\tL");
+    appendCommands(mode, "Mode");
     AppendMenuW(bar, MF_POPUP, UINT_PTR(file), L"&File");
     AppendMenuW(bar, MF_POPUP, UINT_PTR(edit), L"&Edit");
     AppendMenuW(bar, MF_POPUP, UINT_PTR(view), L"&View");
@@ -20316,10 +20242,7 @@ HACCEL buildAccelerators() {
         {FCONTROL | FVIRTKEY, 'X', ID_EDIT_CUT},         {FCONTROL | FVIRTKEY, 'C', ID_EDIT_COPY},
         {FCONTROL | FVIRTKEY, 'D', ID_EDIT_DUPLICATE},
         {FCONTROL | FVIRTKEY, 'V', ID_EDIT_PASTE},       {FCONTROL | FVIRTKEY, 'A', ID_EDIT_SELECTALL},
-        {FCONTROL | FVIRTKEY, '0', ID_VIEW_ZOOM100},     {FCONTROL | FVIRTKEY, 'F', ID_VIEW_FIT},
-        {FVIRTKEY, 'T', ID_MODE_TERRAIN},                {FVIRTKEY, 'U', ID_MODE_UNITS},
-        {FVIRTKEY, 'D', ID_MODE_DOODADS},                {FVIRTKEY, 'L', ID_MODE_LOCATIONS}, {FVIRTKEY, 'S', ID_MODE_SPRITES},
-        {FVIRTKEY, 'G', ID_VIEW_GRID},                   {FVIRTKEY, 'V', ID_TOOL_KEY},     {FVIRTKEY, 'B', ID_TOOL_KEY + 1},
+        {FVIRTKEY, 'V', ID_TOOL_KEY},     {FVIRTKEY, 'B', ID_TOOL_KEY + 1},
         {FVIRTKEY, 'A', ID_TOOL_KEY + 2},                {FVIRTKEY, 'F', ID_TOOL_KEY + 3},                   {FCONTROL | FVIRTKEY, '1', ID_RAIL_KEY},
         {FCONTROL | FVIRTKEY, '2', ID_RAIL_KEY + 1}, {FCONTROL | FVIRTKEY, '3', ID_RAIL_KEY + 2}, {FCONTROL | FVIRTKEY, '4', ID_RAIL_KEY + 3},
         {FCONTROL | FVIRTKEY, '5', ID_RAIL_KEY + 4}, {FCONTROL | FVIRTKEY, '6', ID_RAIL_KEY + 5}, {FCONTROL | FVIRTKEY, '7', ID_RAIL_KEY + 6},
@@ -20329,7 +20252,9 @@ HACCEL buildAccelerators() {
         {FVIRTKEY, '7', ID_PLAYER_1 + 6}, {FVIRTKEY, '8', ID_PLAYER_1 + 7}, {FVIRTKEY, '9', ID_PLAYER_1 + 8},
         {FVIRTKEY, '0', ID_PLAYER_1 + 9},
     };
-    return CreateAcceleratorTableW(a, int(std::size(a)));
+    std::vector<ACCEL> all(std::begin(a), std::end(a));
+    for (const ACCEL& c : commandAccelerators()) all.push_back(c);  // the table's (commands.inc): modes, grid, zoom
+    return CreateAcceleratorTableW(all.data(), int(all.size()));
 }
 
 // --- Self test ---------------------------------------------------------------------------------------
@@ -23753,6 +23678,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     if (!gBackground) crash::sendPending(), sendPendingFeedback();
     if (!gBackground && !gSelfTest) crash::askToSend();  // after a crash: send its report? (Options > Crash reports: Ask)
     startMark("before the main window");
+    registerMapCommands();  // (the menus and the keys are made from them)
     HWND hwnd;
     if (gBackground) {
         int offX = GetSystemMetrics(SM_XVIRTUALSCREEN) + GetSystemMetrics(SM_CXVIRTUALSCREEN) + 100;
