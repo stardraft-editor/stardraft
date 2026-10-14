@@ -32,6 +32,7 @@ struct SdlHost::Win {
     std::unique_ptr<draw::Router> router;
     WindowKind kind = WindowKind::Dialog;
     std::function<void()> closed;  // (popups: when the user dismisses them)
+    SDL_WindowID parent = 0;       // the window this one is opened from (0: a top window)
     bool dirty = true;             // to paint on the next turn
     bool claimed = false;          // claimed for the GPU device (a swapchain)
     bool composing = false;        // an input method's text is not committed yet
@@ -176,11 +177,13 @@ void clearColor(SDL_GPUColorTargetInfo& ct) {
     ct.load_op = SDL_GPU_LOADOP_CLEAR, ct.store_op = SDL_GPU_STOREOP_STORE;
 }
 
-// Paints `root` into a list of its own (ImGui's frame must be begun).
-std::unique_ptr<ImDrawList> recordView(SDL_GPUDevice* device, draw::View& root) {
+// Paints `root` (a window of w x h pixels) into a list of its own (ImGui's frame must be begun). The shapes and the
+// text are drawn with the font atlas's texture, which the list must name: a shape records no texture of its own.
+std::unique_ptr<ImDrawList> recordView(SDL_GPUDevice* device, draw::View& root, int w, int h) {
     auto list = std::make_unique<ImDrawList>(ImGui::GetDrawListSharedData());
     list->_ResetForNewFrame();
-    list->PushClipRectFullScreen();
+    list->PushClipRect(ImVec2(0, 0), ImVec2(float(w), float(h)));  // (this window only, not the frame's size)
+    list->PushTexture(ImGui::GetIO().Fonts->TexRef);
     ImguiCanvas canvas(*list, device);
     root.paintAll(canvas);
     return list;
@@ -195,19 +198,12 @@ void submit(SDL_GPUDevice* device, ImDrawList& list, int w, int h, SDL_GPUComman
     dd.DisplaySize = ImVec2(float(w), float(h));
     dd.FramebufferScale = ImVec2(1, 1);  // the list is in pixels already
     dd.Textures = &ImGui::GetPlatformIO().Textures;
-    std::fprintf(stderr, "TRACE s1 cmds=%d vtx=%d idx=%d\n", int(dd.CmdLists.Size), dd.TotalVtxCount, dd.TotalIdxCount);
-    for (ImTextureData* t : ImGui::GetPlatformIO().Textures) std::fprintf(stderr, "TRACE tex status=%d id=%llu\n", int(t->Status), (unsigned long long)t->TexID);
-    if (dd.CmdLists.Size) for (int k = 0; k < dd.CmdLists[0]->CmdBuffer.Size; ++k) std::fprintf(stderr, "TRACE cmd %d tex=%llu\n", k, (unsigned long long)dd.CmdLists[0]->CmdBuffer[k].GetTexID());
     ImGui_ImplSDLGPU3_PrepareDrawData(&dd, cmd);
-    for (ImTextureData* t : ImGui::GetPlatformIO().Textures) std::fprintf(stderr, "TRACE after prepare status=%d id=%llu\n", int(t->Status), (unsigned long long)t->TexID);
-    std::fprintf(stderr, "TRACE s2\n");
     SDL_GPUColorTargetInfo ct{};
     ct.texture = target;
     clearColor(ct);
     SDL_GPURenderPass* pass = SDL_BeginGPURenderPass(cmd, &ct, 1, nullptr);
-    std::fprintf(stderr, "TRACE s3\n");
     ImGui_ImplSDLGPU3_RenderDrawData(&dd, cmd, pass);
-    std::fprintf(stderr, "TRACE s4\n");
     SDL_EndGPURenderPass(pass);
     SDL_SubmitGPUCommandBuffer(cmd);
     (void)device;
@@ -236,21 +232,50 @@ SdlHost::~SdlHost() {
         if (c) SDL_DestroyCursor(c), c = nullptr;
 }
 
+void SdlHost::setScale(float s) {
+    scaleOverride_ = s > 0 ? s : 0;
+    const float own = wins_.empty() ? SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay()) : displayScale(wins_[0]->sdl);
+    applyScale(own > 0 ? own : 1.0f);
+}
+
+// The scale the windows lay out at: the program's (setScale), else the display's.
+void SdlHost::applyScale(float displayScaleOfWindow) {
+    const float s = scaleOverride_ > 0 ? scaleOverride_ : displayScaleOfWindow;
+    if (s == scale_ && kit::theme().dpi == int(96 * s + 0.5f)) return;
+    scale_ = s;
+    kit::theme().dpi = int(96 * s + 0.5f);
+    // The views lay out again: a resize would skip it when the pixel size is the same.
+    for (const auto& w : wins_) {
+        std::function<void(draw::View&)> relayout = [&](draw::View& v) {
+            v.resized();
+            for (draw::View* c : v.children()) relayout(*c);
+        };
+        relayout(*w->root);
+        w->dirty = true;
+    }
+}
+
+// SDL's window sizes are logical points: the pixels divided by the window's pixel density (set by the window's
+// display, after it is made, so the size is set once the density is known).
+void SdlHost::sizeInPixels(SDL_Window* sdl, int w, int h) {
+    const float d = SDL_GetWindowPixelDensity(sdl);
+    const float density = d > 0 ? d : 1.0f;
+    SDL_SetWindowSize(sdl, std::max(1, toLogical(w, density)), std::max(1, toLogical(h, density)));
+}
+
 bool SdlHost::show(draw::View& root, const std::wstring& title, int w, int h) {
-    // The logical size from the primary display's scale; the window's pixels are read back below.
-    const float guess = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
-    const float s = guess > 0 ? guess : 1.0f;
-    SDL_Window* sdl = SDL_CreateWindow(utf8Text(title).c_str(), std::max(1, toLogical(w, s)), std::max(1, toLogical(h, s)),
-                                       SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    SDL_Window* sdl = SDL_CreateWindow(utf8Text(title).c_str(), 1, 1,
+                                       SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN);
     if (!sdl) return false;
+    sizeInPixels(sdl, w, h);
+    applyScale(displayScale(sdl));  // (before the layout: the views are laid out at this scale)
     auto win = makeWin(sdl, root, WindowKind::Dialog, nullptr);
     if (!claim(*win)) {
         SDL_DestroyWindow(sdl);
         return false;
     }
-    scale_ = displayScale(sdl);
-    kit::theme().dpi = int(96 * scale_ + 0.5f);
     SDL_StartTextInput(sdl);
+    SDL_ShowWindow(sdl);
     wins_.push_back(std::move(win));
     return true;
 }
@@ -260,27 +285,29 @@ void SdlHost::run() {
 }
 
 void SdlHost::snapshot(draw::View& root, SDL_GPUTexture* target, int w, int h, SDL_GPUTextureFormat format) {
-    std::fprintf(stderr, "TRACE a\n");
+    // The pipeline is made for one format: the snapshot's own while it is drawn, the windows' after it.
+    const SDL_GPUTextureFormat before = format_;
+    const bool switched = rendererReady_ && before != format;
+    if (switched) ImGui_ImplSDLGPU3_Shutdown(), rendererReady_ = false;
     ensureRenderer(format);
-    std::fprintf(stderr, "TRACE b\n");
     root.attach(this);
     root.setFrame(Rect(0, 0, w, h));
-    std::fprintf(stderr, "TRACE c\n");
     ImGuiIO& io = ImGui::GetIO();
     io.DeltaTime = 1.0f / 60;
     io.DisplaySize = ImVec2(float(w), float(h));
     ImGui_ImplSDLGPU3_NewFrame();
-    std::fprintf(stderr, "TRACE d\n");
     ImGui::NewFrame();
-    std::fprintf(stderr, "TRACE e\n");
-    auto list = recordView(device_, root);
-    std::fprintf(stderr, "TRACE f\n");
+    auto list = recordView(device_, root, w, h);
     ImGui::Render();
-    std::fprintf(stderr, "TRACE g\n");
     SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device_);
     submit(device_, *list, w, h, cmd, target);
     SDL_WaitForGPUIdle(device_);
     root.attach(nullptr);
+    if (switched && before != SDL_GPU_TEXTUREFORMAT_INVALID) {
+        ImGui_ImplSDLGPU3_Shutdown();
+        rendererReady_ = false;
+        ensureRenderer(before);
+    }
 }
 
 // --- Windows ------------------------------------------------------------------------------------------------------
@@ -341,35 +368,74 @@ SdlHost::Win* SdlHost::rootWin(const draw::View& v) const {
     return nullptr;
 }
 
-void SdlHost::retire(size_t index) {
-    Win& w = *wins_[index];
-    SDL_HideWindow(w.sdl);
-    if (w.id == modal_) modal_ = 0;
-    if (w.root) w.root->attach(nullptr);
-    retired_.push_back(std::move(wins_[index]));
-    wins_.erase(wins_.begin() + std::ptrdiff_t(index));
+// Takes one window out of the host. It is hidden now and destroyed after this turn's events: SDL destroys a window's
+// children with it, so the children are retired before their parent (closeTree).
+void SdlHost::retire(SDL_WindowID id) {
+    for (size_t i = 0; i < wins_.size(); ++i) {
+        if (wins_[i]->id != id) continue;
+        Win& w = *wins_[i];
+        if (w.root && w.router->focused()) w.router->setFocus(nullptr);  // (the view that had the focus is told)
+        if (captureWin_ == id) SDL_CaptureMouse(false), captureWin_ = 0;
+        SDL_HideWindow(w.sdl);
+        if (w.id == modal_) modal_ = 0;
+        if (w.root) w.root->attach(nullptr);
+        retired_.push_back(std::move(wins_[i]));
+        wins_.erase(wins_.begin() + std::ptrdiff_t(i));
+        return;
+    }
+}
+
+// The window `id` and the windows opened from it (and from those), children first.
+void SdlHost::collectTree(SDL_WindowID id, std::vector<SDL_WindowID>& out) const {
+    for (const auto& w : wins_)
+        if (w->parent == id) collectTree(w->id, out);
+    out.push_back(id);
+}
+
+void SdlHost::closeTree(SDL_WindowID id) {
+    std::vector<SDL_WindowID> ids;
+    collectTree(id, ids);
+    std::vector<std::function<void()>> closed;
+    for (SDL_WindowID x : ids) {
+        Win* w = findWin(x);
+        if (!w) continue;
+        if (w->closed) closed.push_back(std::move(w->closed));
+        retire(x);
+    }
+    for (auto& f : closed) f();  // (after the windows are gone: a callback may open others)
+}
+
+bool SdlHost::inModal(SDL_WindowID id) const {
+    if (!modal_) return true;
+    while (id) {
+        if (id == modal_) return true;
+        const Win* w = findWin(id);
+        if (!w) return false;
+        id = w->parent;
+    }
+    return false;
 }
 
 void SdlHost::closeWindow(draw::View& content) {
-    for (size_t i = 0; i < wins_.size(); ++i)
-        if (wins_[i]->root == &content) return retire(i);
+    for (const auto& w : wins_)
+        if (w->root == &content) return closeTree(w->id);
 }
 
-void SdlHost::dismiss(SDL_WindowID id) {
-    for (size_t i = 0; i < wins_.size(); ++i)
-        if (wins_[i]->id == id) {
-            std::function<void()> closed = std::move(wins_[i]->closed);
-            retire(i);
-            if (closed) closed();
-            return;
-        }
-}
+void SdlHost::dismiss(SDL_WindowID id) { closeTree(id); }
 
+// A click outside the pop-outs closes them. The window that was clicked and the windows it is opened from stay: a
+// dialog opened from a menu item keeps its menu, and a submenu keeps its menu.
 void SdlHost::dismissPopupsExcept(SDL_WindowID keep) {
+    std::vector<SDL_WindowID> chain;
+    for (SDL_WindowID id = keep; id;) {
+        chain.push_back(id);
+        const Win* w = findWin(id);
+        id = w ? w->parent : 0;
+    }
     std::vector<SDL_WindowID> ids;
     for (const auto& w : wins_)
-        if (w->popup() && w->id != keep) ids.push_back(w->id);
-    for (SDL_WindowID id : ids) dismiss(id);
+        if (w->popup() && std::find(chain.begin(), chain.end(), w->id) == chain.end()) ids.push_back(w->id);
+    for (SDL_WindowID id : ids) dismiss(id);  // (a window already closed with its parent is skipped)
 }
 
 void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::WindowSpec& spec, std::function<void()> closed) {
@@ -379,9 +445,9 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
     SDL_Window* sdl = nullptr;
     if (spec.kind == WindowKind::Dialog) {
         // A dialog: a window of its own, centered on its opener.
-        sdl = SDL_CreateWindow(utf8Text(spec.title).c_str(), std::max(1, toLogical(width, parent->density)),
-                               std::max(1, toLogical(height, parent->density)), SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN);
+        sdl = SDL_CreateWindow(utf8Text(spec.title).c_str(), 1, 1, SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN);
         if (!sdl) return;
+        sizeInPixels(sdl, width, height);
         SDL_SetWindowParent(sdl, parent->sdl);
         int px = 0, py = 0, pwl = 0, phl = 0, dw = 0, dh = 0;
         SDL_GetWindowPosition(parent->sdl, &px, &py);
@@ -398,6 +464,7 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
         if (!sdl) return;
     }
     auto w = makeWin(sdl, content, spec.kind, std::move(closed));
+    w->parent = parent->id;
     if (!claim(*w)) {
         SDL_DestroyWindow(sdl);
         return;
@@ -457,7 +524,7 @@ void SdlHost::renderDirty() {
     ImGui_ImplSDLGPU3_NewFrame();
     ImGui::NewFrame();
     std::vector<std::unique_ptr<ImDrawList>> lists;
-    for (Win* w : todo) lists.push_back(recordView(device_, *w->root));
+    for (Win* w : todo) lists.push_back(recordView(device_, *w->root, w->pw, w->ph));
     ImGui::Render();  // (ImGui's own windows: none; the lists above are the frame)
     bool missed = false;
     for (size_t i = 0; i < todo.size(); ++i) {
@@ -488,7 +555,7 @@ void SdlHost::fireTimer(int id) {
 void SdlHost::dispatch(const SDL_Event& e) {
     if (gTimerEvent && e.type == gTimerEvent) return fireTimer(int(reinterpret_cast<intptr_t>(e.user.data1)));
     const SDL_WindowID wid = windowOf(e);
-    if (modal_ && wid != modal_ && isInput(e)) return;  // only the dialog that runModal shows takes input
+    if (!inModal(wid) && isInput(e)) return;  // only the dialog that runModal shows, and what it opened, takes input
     switch (e.type) {
     case SDL_EVENT_QUIT:
         quit_ = true;
@@ -506,13 +573,14 @@ void SdlHost::dispatch(const SDL_Event& e) {
         return;
     case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
         if (Win* w = findWin(wid)) {
+            applyScale(displayScale(w->sdl));  // (the views lay out at the new scale, even at the same pixel size)
             resize(*w);
-            if (w->kind == WindowKind::Dialog) {
-                scale_ = displayScale(w->sdl);
-                kit::theme().dpi = int(96 * scale_ + 0.5f);
-            }
         }
         for (const auto& w : wins_) w->dirty = true;
+        return;
+    case SDL_EVENT_WINDOW_FOCUS_LOST:
+        // Popups close when the program loses the keyboard focus (another program took it).
+        if (!SDL_GetKeyboardFocus()) dismissPopupsExcept(0);
         return;
     case SDL_EVENT_WINDOW_EXPOSED:
         if (Win* w = findWin(wid)) w->dirty = true;
@@ -559,8 +627,10 @@ void SdlHost::dispatch(const SDL_Event& e) {
         MouseEvent m;
         m.kind = MouseKind::Wheel;
         m.pt = {toPixels(e.wheel.mouse_x, w->density), toPixels(e.wheel.mouse_y, w->density)};
-        if (e.wheel.y != 0) m.wheel = e.wheel.y;
-        else m.wheel = e.wheel.x, m.horizontal = true;
+        float dx = e.wheel.x, dy = e.wheel.y;
+        if (e.wheel.direction == SDL_MOUSEWHEEL_FLIPPED) dx = -dx, dy = -dy;  // (natural scrolling: the system's)
+        if (dy != 0) m.wheel = dy;
+        else m.wheel = dx, m.horizontal = true;
         m.mods = modsOf(SDL_GetModState());
         w->router->mouse(m);
         return;
@@ -622,7 +692,8 @@ bool SdlHost::hasFocus(const draw::View& v) const {
 void SdlHost::capture(draw::View& v, bool on) {
     if (Win* w = rootWin(v)) {
         w->router->setCapture(on ? &v : nullptr);
-        SDL_CaptureMouse(on);
+        if (on) SDL_CaptureMouse(true), captureWin_ = w->id;
+        else if (captureWin_ == w->id) SDL_CaptureMouse(false), captureWin_ = 0;
     }
 }
 
@@ -679,6 +750,11 @@ void SdlHost::textInput(draw::View& v, bool on, Rect caret) {
 
 void SdlHost::forget(const draw::View& v) {
     for (const auto& w : wins_) w->router->forget(v);
+    // The captured view left: the system's capture ends too.
+    if (captureWin_) {
+        const Win* w = findWin(captureWin_);
+        if (!w || !w->router->captured()) SDL_CaptureMouse(false), captureWin_ = 0;
+    }
 }
 
 }  // namespace stardraft::kit_sdl
