@@ -11,6 +11,7 @@
 // the cursor's row. Single mode ignores Ctrl and Shift.
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -127,8 +128,10 @@ private:
     std::vector<bool> sel_;
     int cursor_ = -1, anchor_ = -1, hot_ = -1, top_ = 0;
     std::wstring typed_;
+    wchar_t lastLetter_ = 0;  // the letter of the last one-letter search (small; 0 after a move or a click)
     int typeTimer_ = 0;
     bool typeTimerOn_ = false;
+    std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);  // the timer's callback looks at it (see armTypeTimer)
     ScrollBar bar_{Axis::Vertical};
 };
 

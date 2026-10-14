@@ -1,3 +1,4 @@
+#include <memory>
 #include <initializer_list>
 #include <string>
 #include <vector>
@@ -582,4 +583,147 @@ KIT_TEST(list_empty_paints_nothing) {
     CHECK(list.rowHeight() == 20);
     list.setCount(0);
     CHECK(host.paint().texts().empty());  // no hint and no rows
+}
+
+// --- Fixes from review ----------------------------------------------------------------------------------------------
+
+KIT_TEST(list_type_timer_cancelled_on_delete) {
+    draw::View root;
+    FakeHost host(root);
+    auto list = std::make_unique<kit::ListView>();
+    root.add(*list, {0, 0, 200, 104});
+    const auto names = sampleNames();
+    list->label = [&](int i) { return names[size_t(i)]; };
+    list->setCount(int(names.size()));
+    list->focus();
+    host.type("b");  // the search timer is armed
+    CHECK(host.timers.size() == 1);
+    list.reset();  // still in its parent: the destructor cancels the timer
+    CHECK(host.timers.empty());
+}
+
+KIT_TEST(list_type_timer_after_removal_and_delete) {
+    draw::View root;
+    FakeHost host(root);
+    auto list = std::make_unique<kit::ListView>();
+    root.add(*list, {0, 0, 200, 104});
+    const auto names = sampleNames();
+    list->label = [&](int i) { return names[size_t(i)]; };
+    list->setCount(int(names.size()));
+    list->focus();
+    host.type("b");
+    root.remove(*list);  // out of its parent: no host, so no cancel
+    list.reset();
+    host.runTimers();  // the timer must not touch the deleted list (ASan reports a use after free if it does)
+}
+
+KIT_TEST(list_scrolls_before_on_select) {
+    draw::View root;
+    FakeHost host(root);
+    kit::ListView list;
+    root.add(list, {0, 0, 200, 104});
+    list.label = [](int i) { return L"Row " + std::to_wstring(i); };
+    list.setCount(40);
+    list.focus();
+    std::vector<int> seen;  // the scroll position when onSelect runs
+    list.onSelect = [&] { seen.push_back(list.scrollTop()); };
+    host.press(draw::Key::End);  // row 39: the list is scrolled to it before the selection is reported
+    CHECK(seen == ints({40 * kRow - 104}));
+    host.press(draw::Key::Home);
+    CHECK(seen.back() == 0);
+    host.press(draw::Key::End);
+    host.type("R");  // row 39 starts with r: the cursor stays
+    CHECK(seen.back() == 40 * kRow - 104);
+    host.runTimers();
+    host.type("R");  // the same letter again: the search wraps to row 0, and that row is scrolled to first
+    CHECK(seen.back() == 0);
+    CHECK(list.selection() == ints({0}));
+}
+
+KIT_TEST(list_on_select_may_destroy_the_list) {
+    draw::View root;
+    FakeHost host(root);
+    auto list = std::make_unique<kit::ListView>();
+    root.add(*list, {0, 0, 200, 260});
+    list->label = [](int i) { return L"Row " + std::to_wstring(i); };
+    list->setCount(10);
+    int activated = -1;
+    list->onActivate = [&](int i) { activated = i; };
+    host.click(10, 2 * kRow + 5);  // row 2 selected; no owner action yet
+    list->onSelect = [&] { list.reset(); };  // the owner takes the list down on the next selection
+    draw::MouseEvent e;
+    e.kind = draw::MouseKind::DoubleClick;  // row 5: the selection changes, the list goes, the activation still runs
+    e.pt = {10, 5 * kRow + 5};
+    host.router.mouse(e);
+    CHECK(activated == 5);
+    CHECK(!list);
+}
+
+KIT_TEST(list_one_letter_moves_past_the_match) {
+    draw::View root;
+    FakeHost host(root);
+    kit::ListView list;
+    root.add(list, {0, 0, 200, 104});
+    const std::vector<std::wstring> names = {L"Bat", L"Bee", L"Bird"};
+    list.label = [&](int i) { return names[size_t(i)]; };
+    list.setCount(3);
+    list.focus();
+    host.press(draw::Key::Home);  // the cursor on Bat
+    host.type("b");  // the first press: Bat already starts with b, so the cursor stays
+    CHECK(list.selection() == ints({0}));
+    host.runTimers();
+    host.type("b");  // the same letter after a pause: the next match, Bee
+    CHECK(list.selection() == ints({1}));
+    host.runTimers();
+    host.type("b");  // Bird, then back to Bat
+    CHECK(list.selection() == ints({2}));
+    host.runTimers();
+    host.type("b");
+    CHECK(list.selection() == ints({0}));
+    host.type("e");  // "be" (no pause): a longer search goes on from the cursor's row to Bee
+    CHECK(list.selection() == ints({1}));
+}
+
+KIT_TEST(list_click_ends_type_ahead) {
+    draw::View root;
+    FakeHost host(root);
+    kit::ListView list;
+    root.add(list, {0, 0, 200, 104});
+    const auto names = sampleNames();
+    list.label = [&](int i) { return names[size_t(i)]; };
+    list.setCount(int(names.size()));
+    list.setMode(kit::SelectMode::Multiple);
+    list.focus();
+    host.type("a");  // Apple
+    host.click(10, 3 * kRow + 5);  // Blueberry, within the search's second
+    host.press(draw::Key::Space);  // toggles Blueberry; it is not a space in a search
+    CHECK(list.selection().empty());
+    CHECK(list.cursor() == 3);
+}
+
+KIT_TEST(list_set_count_drops_hover_past_the_end) {
+    draw::View root;
+    FakeHost host(root);
+    kit::ListView list;
+    root.add(list, {0, 0, 200, 400});  // fits 15 rows: no scroll bar
+    list.label = [](int i) { return L"Row " + std::to_wstring(i); };
+    std::vector<int> hot;
+    list.paintRow = [&](draw::Canvas&, int i, draw::Rect, kit::RowState s) {
+        if (s.hot) hot.push_back(i);
+    };
+    list.setCount(10);
+    host.move(10, 8 * kRow + 5);  // row 8 under the mouse
+    host.paint();
+    CHECK(hot == ints({8}));
+    hot.clear();
+    list.setCount(9);  // still there
+    host.paint();
+    CHECK(hot == ints({8}));
+    hot.clear();
+    list.setCount(3);  // gone: no row is hot until the mouse moves again
+    host.paint();
+    CHECK(hot.empty());
+    host.move(10, 2 * kRow + 5);
+    host.paint();
+    CHECK(hot == ints({2}));
 }
