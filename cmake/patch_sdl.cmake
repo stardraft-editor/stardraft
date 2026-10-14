@@ -53,6 +53,25 @@ change("    // We're likely sending the composed text, so we reset the IME statu
     _committedText = [aString isKindOfClass:[NSAttributedString class]] ? [aString string] : aString;
     _selectedRange = NSMakeRange([_committedText length], 0);")
 
+change("    if ([aString length] == 0) {
+        [self unmarkText];
+        return;
+    }"
+"    // StarDraft: marked text that replaces committed text (2-Set Korean's Hanja replaces the syllable it committed):
+    // the committed characters go, as insertText's replacement does (one Backspace each).
+    if (!_markedText && (int)replacementRange.location != -1 && replacementRange.length > 0) {
+        for (NSUInteger i = 0; i < replacementRange.length; ++i) {
+            SDL_SendKeyboardKey(0, SDL_GLOBAL_KEYBOARD_ID, 0, SDL_SCANCODE_BACKSPACE, true);
+            SDL_SendKeyboardKey(0, SDL_GLOBAL_KEYBOARD_ID, 0, SDL_SCANCODE_BACKSPACE, false);
+        }
+        _committedText = nil;
+    }
+
+    if ([aString length] == 0) {
+        [self unmarkText];
+        return;
+    }")
+
 change("    DEBUG_IME(@\"attributedSubstringFromRange: (%d, %d)\", (int)aRange.location, (int)aRange.length);
     return nil;"
 "    DEBUG_IME(@\"attributedSubstringFromRange: (%d, %d)\", (int)aRange.location, (int)aRange.length);
@@ -73,6 +92,7 @@ change("- (NSInteger)conversationIdentifier
 - (NSAttributedString *)attributedString
 {
     NSString *have = _markedText ? _markedText : _committedText;
+    DEBUG_IME(@\"attributedString: %@\", have);
     return [[NSAttributedString alloc] initWithString:have ? have : @\"\"];
 }
 
