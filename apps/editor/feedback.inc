@@ -150,11 +150,17 @@ HBITMAP feedbackBitmap(int px) {
 
 // --- The dialog ------------------------------------------------------------------------------------------------------
 
+// Send keeps the dialog open: a spinner while the feedback goes, then a thank-you with a link to its issue.
 struct FeedbackDialog {
-    HWND wnd = nullptr, text = nullptr, note = nullptr;
+    HWND wnd = nullptr, text = nullptr, note = nullptr, discord = nullptr, status = nullptr, issue = nullptr;
     std::wstring on, typed;
     bool accepted = false;
+    int stage = 0;  // 0 typing, 1 sending, 2 done
+    int spin = 0;   // the spinner's lit dot
+    std::wstring page;  // the issue's page, when it went
 };
+constexpr UINT WM_FEEDBACK_DONE = WM_APP + 32;  // to the dialog: wp 1 sent (lp: the issue number), 0 kept to send later
+constexpr UINT_PTR kFeedbackSpin = 1;
 FeedbackDialog* gFbDlg = nullptr;
 void (*gFeedbackHook)(HWND) = nullptr;  // tests: sees the dialog, then closes it
 
@@ -180,6 +186,8 @@ std::vector<SentFeedback> sentFeedback() {
 }
 
 int paintedMenu(HMENU h, int x, int y, HWND owner);  // context_menu.inc
+void feedbackSend(FeedbackDialog& d);                            // below: Send
+void feedbackShowResult(FeedbackDialog& d, bool sent, long number);  // below: the thank-you (or kept to send later)
 
 // The text box: Ctrl+Enter sends (as the Send button does, when there is text).
 LRESULT CALLBACK feedbackTextProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
@@ -214,11 +222,34 @@ LRESULT CALLBACK feedbackDialogProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SendMessageW(d->text, EM_SETLIMITTEXT, 20000, 0);
         SetWindowSubclass(d->text, feedbackTextProc, 1, 0);
         darkControl(d->text, L"DarkMode_Explorer");
+        // After Send: the status (with the spinner at its left) and the issue's link, where the text box was.
+        d->status = CreateWindowExW(0, WC_STATICW, L"", WS_CHILD, pad + scale(28), y + editH / 2 - scale(22), w - scale(28), scale(20), hwnd, nullptr,
+                                    app.inst, nullptr);
+        SendMessageW(d->status, WM_SETFONT, WPARAM(app.font), TRUE);
+        d->issue = CreateWindowExW(0, WC_STATICW, L"", WS_CHILD | SS_NOTIFY, pad + scale(28), y + editH / 2 + scale(2), w - scale(28), scale(20), hwnd,
+                                   HMENU(1503), app.inst, nullptr);
+        SendMessageW(d->issue, WM_SETFONT, WPARAM(app.font), TRUE);
         y += editH + scale(8);
-        d->note = CreateWindowExW(0, WC_STATICW, L"Feedback is anonymous. Do not include sensitive or private information. Ctrl+Enter sends it.", WS_CHILD | WS_VISIBLE, pad, y, w,
-                                  scale(20), hwnd, nullptr, app.inst, nullptr);
+        d->note = CreateWindowExW(0, WC_STATICW,
+                                  L"Feedback is anonymous, and we publish it on our Discord server for review. Do not include sensitive or private "
+                                  L"information. Ctrl+Enter sends it.",
+                                  WS_CHILD | WS_VISIBLE, pad, y, w, scale(36), hwnd, nullptr, app.inst, nullptr);
         SendMessageW(d->note, WM_SETFONT, WPARAM(app.font), TRUE);
-        y += scale(20) + scale(24);
+        y += scale(38);
+        int linkW = scale(180);
+        if (HDC sdc = GetDC(hwnd)) {  // the link is as wide as its text (the hand cursor only over it)
+            HGDIOBJ of = SelectObject(sdc, app.font);
+            const std::wstring label = tr(std::wstring(L"Open the Discord server"));
+            SIZE sz{};
+            GetTextExtentPoint32W(sdc, label.c_str(), int(label.size()), &sz);
+            linkW = sz.cx + scale(4);
+            SelectObject(sdc, of);
+            ReleaseDC(hwnd, sdc);
+        }
+        d->discord = CreateWindowExW(0, WC_STATICW, L"Open the Discord server", WS_CHILD | WS_VISIBLE | SS_NOTIFY, pad, y, linkW, scale(20), hwnd,
+                                     HMENU(1502), app.inst, nullptr);
+        SendMessageW(d->discord, WM_SETFONT, WPARAM(app.font), TRUE);
+        y += scale(20) + scale(20);
         const wchar_t* names[2] = {L"Send", L"Cancel"};
         const int ids[2] = {IDOK, IDCANCEL};
         for (int i = 0; i < 2; ++i) {
@@ -238,18 +269,51 @@ LRESULT CALLBACK feedbackDialogProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_COMMAND: {
         const int id = LOWORD(wp);
         if (id == 1501 && HIWORD(wp) == EN_CHANGE) EnableWindow(GetDlgItem(hwnd, IDOK), GetWindowTextLengthW(d->text) > 0);
-        if (id == IDOK || id == IDCANCEL) {
+        if (id == 1502 && HIWORD(wp) == STN_CLICKED) ShellExecuteW(nullptr, L"open", kDiscordInvite, nullptr, nullptr, SW_SHOWNORMAL);
+        if (id == 1503 && HIWORD(wp) == STN_CLICKED && !d->page.empty()) ShellExecuteW(nullptr, L"open", d->page.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        if (id == IDOK && d->stage == 0) {
             d->typed = windowText(d->text);
-            d->accepted = id == IDOK && !d->typed.empty();
+            if (d->typed.empty()) return 0;
+            d->accepted = true;
+            feedbackSend(*d);
+        } else if (id == IDCANCEL) {
+            if (d->stage == 0) d->typed = windowText(d->text), d->accepted = false;
             DestroyWindow(hwnd);
         }
         return 0;
     }
+    case WM_TIMER:
+        if (wp == kFeedbackSpin) {
+            d->spin = (d->spin + 1) % 8;
+            RECT s{0, 0, scale(ui::kDialogPad) + scale(28), 0};
+            GetClientRect(hwnd, &s), s.right = scale(ui::kDialogPad) + scale(28);
+            InvalidateRect(hwnd, &s, TRUE);
+        }
+        return 0;
+    case WM_FEEDBACK_DONE: feedbackShowResult(*d, wp != 0, long(lp)); return 0;
+    case WM_SETCURSOR:
+        if (HWND(wp) == d->discord || (HWND(wp) == d->issue && !d->page.empty())) return SetCursor(LoadCursor(nullptr, IDC_HAND)), TRUE;
+        break;
     case WM_PAINT: {
         PAINTSTRUCT ps;
         HDC dc = BeginPaint(hwnd, &ps);
         RECT g{scale(12), scale(10), scale(12) + scale(20), scale(10) + scale(20)};
         uiIcon(dc, g, kFeedbackIcon, kFeedback, scale(16));
+        if (d->stage == 1) {  // the spinner: 8 dots in a ring, one lit, left of the status
+            RECT sr;
+            GetWindowRect(d->status, &sr);
+            MapWindowPoints(nullptr, hwnd, reinterpret_cast<POINT*>(&sr), 2);
+            const int cx = sr.left - scale(16), cy = (sr.top + sr.bottom) / 2, rr = scale(8), dot = std::max(1, scale(1));
+            for (int i = 0; i < 8; ++i) {
+                const double a = i * 3.14159265 / 4;
+                const int x = cx + int(std::lround(rr * std::cos(a))), y = cy + int(std::lround(rr * std::sin(a)));
+                const int age = (d->spin - i + 8) % 8;  // 0: lit
+                HBRUSH b = CreateSolidBrush(age == 0 ? kAccent : age < 3 ? kDim : kBorderStrong);
+                RECT dr{x - dot, y - dot, x + dot + 1, y + dot + 1};
+                FillRect(dc, &dr, b);
+                DeleteObject(b);
+            }
+        }
         EndPaint(hwnd, &ps);
         return 0;
     }
@@ -257,7 +321,8 @@ LRESULT CALLBACK feedbackDialogProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN: {
         HDC dc = HDC(wp);
-        SetTextColor(dc, HWND(lp) == d->note ? kDim : kText);
+        const bool link = HWND(lp) == d->discord || (HWND(lp) == d->issue && !d->page.empty());
+        SetTextColor(dc, link ? kAccent : HWND(lp) == d->note ? kDim : kText);
         SetBkColor(dc, msg == WM_CTLCOLORSTATIC ? kBg : kCtl);
         return LRESULT(msg == WM_CTLCOLORSTATIC ? app.bgBrush : app.ctlBrush);
     }
@@ -350,8 +415,12 @@ void showFeedbackDialog(const std::wstring& on) {
     if (over) EnableWindow(over, TRUE);
     if (!gBackground) SetForegroundWindow(over ? over : app.main);
     gFbDlg = nullptr;
-    if (!d.accepted) return;
-    // Written to a file first: it waits there if it cannot go now.
+}
+
+// Send: the feedback is written to a file first (it waits there if it cannot go now), then goes on a thread; the
+// dialog shows a spinner until the thread tells it the issue.
+void feedbackSend(FeedbackDialog& d) {
+    const std::wstring& on = d.on;
     SYSTEMTIME t;
     GetLocalTime(&t);
     char stamp[40];
@@ -365,12 +434,46 @@ void showFeedbackDialog(const std::wstring& on) {
     std::ofstream(file, std::ios::binary) << "Feedback on " << crash::utf8(on) << ": " << summary << "\n"
                                           << typed << "\n\n---\nOn: " << crash::utf8(on) << "\nWorkspace: " << crash::utf8(crash::gWhere ? crash::gWhere() : L"")
                                           << "\nStarDraft " STARDRAFT_VERSION_NAME ", " << crash::gBuild << ", commit " STARDRAFT_COMMIT "\n" << crash::windowsVersion() << "\n";
+    d.stage = 1;
+    ShowWindow(d.text, SW_HIDE);
+    ShowWindow(d.status, SW_SHOW);
+    EnableWindow(GetDlgItem(d.wnd, IDOK), FALSE);
     if (crash::token().empty()) {
-        setMessage(L"This build cannot send feedback. StarDraft 2 keeps it in " + file.wstring() + L".");
+        feedbackShowResult(d, false, 0);
+        SetWindowTextW(d.status, (L"This build cannot send feedback. StarDraft 2 keeps it in " + file.wstring() + L".").c_str());
         return;
     }
-    setMessage(L"Sending the feedback\x2026");
-    std::thread([file, main = app.main] { PostMessageW(main, WM_FEEDBACK_SENT, sendFeedbackFile(file) ? 1 : 0, 0); }).detach();
+    SetWindowTextW(d.status, L"Sending your feedback 26");
+    SetTimer(d.wnd, kFeedbackSpin, 90, nullptr);
+    setMessage(L"Sending the feedback 26");
+    std::thread([file, main = app.main, dlg = d.wnd] {
+        const bool sent = sendFeedbackFile(file);
+        long number = 0;
+        if (sent)
+            if (const auto list = sentFeedback(); !list.empty()) number = list[0].number;
+        PostMessageW(main, WM_FEEDBACK_SENT, sent ? 1 : 0, 0);
+        PostMessageW(dlg, WM_FEEDBACK_DONE, sent ? 1 : 0, LPARAM(number));  // (gone when the dialog was closed)
+    }).detach();
+}
+
+// After Send: "Thank you" with a link to the issue, or that the feedback waits to go at the next start. Close closes.
+void feedbackShowResult(FeedbackDialog& d, bool sent, long number) {
+    KillTimer(d.wnd, kFeedbackSpin);
+    d.stage = 2;
+    ShowWindow(d.text, SW_HIDE);
+    ShowWindow(d.status, SW_SHOW);
+    if (sent) {
+        SetWindowTextW(d.status, L"Thank you for your feedback.");
+        if (number > 0) {
+            d.page = L"https://github.com/" + std::wstring(crash::kRepo) + L"/issues/" + std::to_wstring(number);
+            SetWindowTextW(d.issue, (L"Open it on GitHub (#" + std::to_wstring(number) + L")").c_str());
+            ShowWindow(d.issue, SW_SHOW);
+        }
+    } else SetWindowTextW(d.status, L"StarDraft 2 could not send it now. It sends it when StarDraft 2 starts the next time.");
+    ShowWindow(GetDlgItem(d.wnd, IDOK), SW_HIDE);
+    SetWindowTextW(GetDlgItem(d.wnd, IDCANCEL), L"Close");
+    SetFocus(GetDlgItem(d.wnd, IDCANCEL));
+    InvalidateRect(d.wnd, nullptr, TRUE);
 }
 
 // Every context menu: the menu `m` with "Report feedback on ..." at the end. Returns the item picked (0 for none,

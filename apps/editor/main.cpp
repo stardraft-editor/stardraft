@@ -25641,6 +25641,20 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     SetWindowTextW(gFbDlg->text, L"The marine icon is a bit blurry.\r\nSecond line.");
                     for (int i = 0; i < 5; ++i) pump();
                     capture(shot, w);
+                    // After Send (nothing is sent here): the spinner, then the thank-you with the issue's link.
+                    FeedbackDialog& d = *gFbDlg;
+                    d.stage = 1;
+                    ShowWindow(d.text, SW_HIDE), ShowWindow(d.status, SW_SHOW);
+                    SetWindowTextW(d.status, L"Sending your feedback\x2026");
+                    EnableWindow(GetDlgItem(w, IDOK), FALSE);
+                    for (int i = 0; i < 5; ++i) pump();
+                    capture(shot.parent_path() / "feedback_sending.png", w);
+                    feedbackShowResult(d, true, 123);
+                    for (int i = 0; i < 5; ++i) pump();
+                    capture(shot.parent_path() / "feedback_sent.png", w);
+                    std::ofstream(shot.parent_path() / "feedback_sent.txt")
+                        << "after Send: the issue's link " << (IsWindowVisible(d.issue) && d.page.find(L"/issues/123") != std::wstring::npos ? "yes" : "NO")
+                        << ", Send hidden " << (!IsWindowVisible(GetDlgItem(w, IDOK)) ? "yes" : "NO") << "\n";
                     PostMessageW(w, WM_COMMAND, IDCANCEL, 0);
                 };
                 showFeedbackDialog(L"Marine");
