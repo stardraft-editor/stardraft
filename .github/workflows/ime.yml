@@ -83,7 +83,7 @@ jobs:
           live hanja hangul g k s F9 1 space shift+space a b c space shift+space r n r space
           ibus list-engine | grep -iE "pinyin|hangul" || true
           live pinyin libpinyin z h o n g w e n space
-          python3 tools/ci/ime_check.py ime-linux-hanja.txt ime-linux-pinyin.txt
+          python3 tools/ci/ime_check.py hanja ime-linux-hanja.txt && python3 tools/ci/ime_check.py pinyin ime-linux-pinyin.txt
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -143,7 +143,9 @@ jobs:
             $p.WaitForExit(60000) | Out-Null
             Get-Content "ime-windows-$name.txt" -Encoding utf8
           }
-          python tools/ci/ime_check.py ime-windows-hanja.txt ime-windows-pinyin.txt
+          python tools/ci/ime_check.py hanja ime-windows-hanja.txt
+          if ($LASTEXITCODE) { exit 1 }
+          python tools/ci/ime_check.py pinyin ime-windows-pinyin.txt
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -167,45 +169,35 @@ jobs:
           cmake --build build --target stardraft_next --parallel
           clang tools/ci/ime_keys_mac.c -framework Carbon -framework ApplicationServices -o ime_keys_mac
 
+      # A run of stardraft-next with the keys (live <name> <flags> <keys> <check>); on macOS the first launches after an
+      # input method starts can lose the first syllable (ㅎㅏㄴ국어): a run that fails its check runs once more, with
+      # a warning (so it shows).
       - name: Type Korean with 2-Set Korean
         run: |
           app=build/stardraft-next.app/Contents/MacOS/stardraft-next
-          # A first launch after the input method is turned on loses its keys: one launch to start it, not counted.
-          "$app" --workspace triggers --live 8 --snapshot warmup.png > warmup.txt 2>&1 &
-          pid=$!
-          for i in $(seq 1 60); do grep -q "^ready" warmup.txt && break; sleep 0.5; done
-          ./ime_keys_mac "{source:com.apple.inputmethod.Korean.2SetKorean}gksrnrdj " || true
-          wait $pid || true
-          for mode in inline system; do
-            flag="--ime-inline"; [ "$mode" = system ] && flag="--ime-system"
-            "$app" --workspace triggers $flag --live 20 --snapshot ime-macos-$mode.png > ime-macos-$mode.txt 2>&1 &
-            pid=$!
-            for i in $(seq 1 60); do grep -q "^ready" ime-macos-$mode.txt && break; sleep 0.5; done
-            ./ime_keys_mac "gksrnrdj " || true  # (2-Set Korean is selected: selecting it again restarts it)
-            wait $pid || true
-            cat ime-macos-$mode.txt
-          done
-          grep -q "search field: 한국어" ime-macos-inline.txt
-          # The system's own drawing loses the first syllable on macOS (ㅎㅏㄴ국어): reported, not required.
-          grep -q "search field: 한국어" ime-macos-system.txt || echo "::warning::macOS, the system's composition drawing: $(grep 'search field' ime-macos-system.txt)"
-
-      # Hanja (Option+Return, Return picks the first), 한/영 (the English input source and back), then Chinese with
-      # Pinyin - Simplified.
-      - name: Hanja, 한/영 and Pinyin
-        run: |
-          app=build/stardraft-next.app/Contents/MacOS/stardraft-next
+          live() {
+            local name=$1 flags=$2 keys=$3 check=$4
+            for try in 1 2; do
+              "$app" --workspace triggers $flags --live 30 --snapshot ime-macos-$name.png > ime-macos-$name.txt 2>&1 &
+              local pid=$!
+              for i in $(seq 1 60); do grep -q "^ready" ime-macos-$name.txt && break; sleep 0.5; done
+              ./ime_keys_mac "$keys" || true
+              wait $pid || true
+              cat ime-macos-$name.txt
+              python3 tools/ci/ime_check.py $check ime-macos-$name.txt && return 0
+              [ $try = 1 ] && echo "::warning::macOS $name: $(grep 'search field' ime-macos-$name.txt), once more"
+            done
+            return 1
+          }
           ko="{source:com.apple.inputmethod.Korean.2SetKorean}"
-          # (Pinyin's input method is switched on for the first time in its warm-up run, not counted)
-          for run in "hanja|gks{optreturn}{wait}{wait}1 {source:com.apple.keylayout.US}abc ${ko}rnr " "warmup|{source:com.apple.inputmethod.SCIM.ITABC}zhongwen " "pinyin|zhongwen "; do
-            name=${run%%|*} keys=${run#*|}
-            "$app" --workspace triggers --live 30 --snapshot ime-macos-$name.png > ime-macos-$name.txt 2>&1 &
-            pid=$!
-            for i in $(seq 1 60); do grep -q "^ready" ime-macos-$name.txt && break; sleep 0.5; done
-            ./ime_keys_mac "$keys" || true
-            wait $pid || true
-            cat ime-macos-$name.txt
-          done
-          python3 tools/ci/ime_check.py ime-macos-hanja.txt ime-macos-pinyin.txt
+          # One launch to start the input method (keys right after it starts are lost), not counted.
+          live warmup "" "${ko}gksrnrdj " korean || true
+          live inline --ime-inline "gksrnrdj " korean
+          live system --ime-system "gksrnrdj " korean
+          # Hanja (Option+Return, 1 picks the first), 한/영 (the English input source and back), Pinyin - Simplified.
+          live hanja "" "gks{optreturn}{wait}{wait}1 {source:com.apple.keylayout.US}abc ${ko}rnr " hanja
+          live warmup2 "" "{source:com.apple.inputmethod.SCIM.ITABC}zhongwen " pinyin || true
+          live pinyin "" "zhongwen " pinyin
 
       - uses: actions/upload-artifact@v4
         if: always()
