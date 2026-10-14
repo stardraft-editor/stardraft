@@ -78,6 +78,7 @@ public:
     explicit Win32Host(View& v) : view_(v), router_(v) { v.attach(this); }
     ~Win32Host() override {
         for (auto& [id, t] : timers_) KillTimer(wnd_, id);
+        if (tips_ && IsWindow(tips_)) DestroyWindow(tips_);
         view_.attach(nullptr);
     }
     HWND window() const { return wnd_; }
@@ -164,6 +165,23 @@ public:
     stardraft::draw::WindowKind kind = stardraft::draw::WindowKind::Dialog;
     bool isWindow = false;  // made by openWindow (else a pane's window that its owner made)
 
+    // hoverTip: the view's tip shows as a tooltip. One tool covers the view; the tooltip asks for its text (TTN_NEEDTEXT)
+    // where the mouse is, so a tip that is empty there shows nothing.
+    void hoverTipOn(HWND w) {
+        if (tips_ && IsWindow(tips_)) return;
+        tips_ = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, 0, 0, 0, 0, w, nullptr, app.inst, nullptr);
+        if (!tips_) return;
+        SendMessageW(tips_, TTM_SETMAXTIPWIDTH, 0, ::scale(360));
+        styleTips(tips_);
+        TOOLINFOW ti{sizeof ti};
+        ti.uFlags = TTF_SUBCLASS;
+        ti.hwnd = w;
+        ti.uId = 1;
+        ti.rect = {0, 0, 32767, 32767};
+        ti.lpszText = LPSTR_TEXTCALLBACKW;
+        SendMessageW(tips_, TTM_ADDTOOLW, 0, LPARAM(&ti));
+    }
+
     // The window's procedure calls this first; true: handled (`result` is the answer).
     bool message(HWND w, UINT msg, WPARAM wp, LPARAM lp, LRESULT& result) {
         wnd_ = w;
@@ -200,6 +218,7 @@ public:
                 TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, w, 0};
                 tracking_ = TrackMouseEvent(&tme) != 0;
             }
+            if (view_.hoverTip()) hoverTipOn(w);
             return router_.mouse(mouseEvent(MouseKind::Move, 0)) ? (result = 0, true) : false;
         case WM_MOUSELEAVE: {
             tracking_ = false;
@@ -222,6 +241,14 @@ public:
             e.kind = MouseKind::Wheel, e.pt = {pt.x, pt.y}, e.mods = keyMods();
             e.wheel = float(GET_WHEEL_DELTA_WPARAM(wp)) / WHEEL_DELTA, e.horizontal = msg == WM_MOUSEHWHEEL;
             return router_.mouse(e) ? (result = 0, true) : false;
+        }
+        case WM_NOTIFY: {  // the hover tooltip asks for its text: the view's tip where the mouse is
+            const auto* hdr = reinterpret_cast<const NMHDR*>(lp);
+            if (!tips_ || hdr->hwndFrom != tips_ || hdr->code != UINT(TTN_NEEDTEXTW)) return false;
+            tipText_ = router_.tip(mouse(view_));
+            reinterpret_cast<NMTTDISPINFOW*>(lp)->lpszText = tipText_.data();
+            result = 0;
+            return true;
         }
         case WM_SETCURSOR: {
             if (LOWORD(lp) != HTCLIENT) return false;
@@ -340,6 +367,8 @@ private:
     View& view_;
     stardraft::draw::Router router_;
     HWND wnd_ = nullptr;
+    HWND tips_ = nullptr;  // hoverTip: the tooltip (see hoverTipOn)
+    std::wstring tipText_;
     bool tracking_ = false, imeOn_ = false;
     wchar_t high_ = 0;
     std::map<UINT_PTR, std::function<void()>> timers_;
