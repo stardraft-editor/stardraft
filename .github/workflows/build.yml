@@ -198,6 +198,7 @@ jobs:
           python3 -I tools/ui_text_lint.py
           build-gcc/trigger_test "$RUNNER_TEMP/trigger_test"
           build-gcc/render_smoke_test "$RUNNER_TEMP/render_smoke.png"
+          build-gcc/settings_test "$RUNNER_TEMP"
 
   macos:
     runs-on: macos-15  # arm64, Xcode's clang and libc++
@@ -215,7 +216,9 @@ jobs:
           cmake --build build --parallel
 
       - name: Run the tests that need no game data
-        run: build/trigger_test "$RUNNER_TEMP/trigger_test"
+        run: |
+          build/trigger_test "$RUNNER_TEMP/trigger_test"
+          build/settings_test "$RUNNER_TEMP"
 
       # The renderer on Metal. GitHub's macOS machines may have no Metal device: a failure here does not stop the run.
       - name: Run the renderer on Metal
