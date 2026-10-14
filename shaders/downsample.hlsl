@@ -20,11 +20,15 @@ cbuffer DownsampleUniforms : register(b0, space3) {
 Texture2D source : register(t0, space2);
 SamplerState sourceSampler : register(s0, space2);
 
+// Each source texel at its center with the point sampler (the same as Load): Metal cannot read() a compressed texture.
 float4 PSMain(VSOut i) : SV_Target {
     int n = (int)factor;
     int2 base = int2(i.pos.xy) * n;
+    uint w, h;
+    source.GetDimensions(w, h);
+    float2 texel = 1.0 / float2(w, h);
     float4 sum = 0;
     for (int y = 0; y < n; ++y)
-        for (int x = 0; x < n; ++x) sum += source.Load(int3(base + int2(x, y), 0));
+        for (int x = 0; x < n; ++x) sum += source.SampleLevel(sourceSampler, (float2(base + int2(x, y)) + 0.5) * texel, 0);
     return sum / (n * n);
 }
