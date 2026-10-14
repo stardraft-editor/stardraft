@@ -815,6 +815,18 @@ struct Surface {
             }
             return result = 0, true;
         }
+        case WM_RBUTTONUP: {  // a right click on a part with a menu: the part's menu (the owner's popup)
+            const POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            for (auto it = hits.rbegin(); it != hits.rend(); ++it)
+                if (PtInRect(&it->r, pt) && it->context) {
+                    POINT screen = pt;
+                    ClientToScreen(w, &screen);
+                    auto context = it->context;
+                    context(screen);
+                    return result = 0, true;
+                }
+            return false;
+        }
         case WM_LBUTTONUP: {
             if (!grab.down) return false;
             ReleaseCapture();

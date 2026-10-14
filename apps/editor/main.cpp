@@ -5849,6 +5849,7 @@ struct DataWidgetHit {
     std::function<void(int)> wheel;   // the mouse wheel over it: one step (1 the next, -1 the one before); a dropdown
     std::wstring name;                // what feedback on it is about (else its tip)
     bool notEdit = false;             // a drag on it is not an edit of the data (the volume)
+    std::function<void(POINT)> context;  // a right click on it: the menu of the row (POINT: the screen position)
 };
 std::vector<DataWidgetHit> gWidgetHits;
 // Each painted surface's hits by window, for the mouse wheel over a dropdown (wheelOverDropdown).
@@ -25727,7 +25728,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     << "\n";
                 continue;
             }
-            if (s == "classictrig:" || s == "classictrig:set" || s == "classictrig:move" || s == "classictrig:batch") {  // L.2, R23: the Classic triggers window (classic_triggers.inc)
+            if (s.rfind("classictrig:", 0) == 0) {  // L.2, R23: the Classic triggers window and its states (classic_triggers.inc)
                 classicTrigDatashot(s, datashots);
                 continue;
             }
