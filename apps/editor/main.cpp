@@ -6078,6 +6078,7 @@ void fadeIn(HWND w, int show) {
 }
 
 #include "ui_kit.inc"
+#include "game_text.inc"
 #include "context_menu.inc"
 #include "message_box.inc"
 #include "map_properties.inc"
@@ -11322,12 +11323,13 @@ LRESULT CALLBACK dataFormProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_COMMAND:
-        if (HWND(lp) == gExtras.textEdit && HIWORD(wp) == EN_CHANGE && GetFocus() == gExtras.textEdit) {
+        if (HWND(lp) == gExtras.textEdit && HIWORD(wp) == EN_CHANGE) {  // the preview as it is typed
             gExtras.textDirty = true;
             RECT rc;
             GetClientRect(hwnd, &rc);
             InvalidateRect(hwnd, &rc, FALSE);
         }
+        if (HWND(lp) == gExtras.textEdit && HIWORD(wp) == EN_KILLFOCUS) stringsCommitEdit();
         return 0;
     case WM_PAINT: paintDataForm(hwnd); return 0;
     case WM_ERASEBKGND: return 1;
@@ -13254,7 +13256,7 @@ std::wstring trigValueText(const std::string& type, const std::string& v) {
             if (c.code == v) return widen(c.label);
         return widen(v);
     case TriggerPicker::Switch: return L"Switch " + widen(v);
-    case TriggerPicker::Text: return v.empty() ? L"(text)" : L"\"" + widen(v) + L"\"";
+    case TriggerPicker::Text: return v.empty() ? L"(text)" : L"\"" + gameTextPlain(v) + L"\"";
     case TriggerPicker::Number: return type == "Count" && v == "0" ? L"all" : v.empty() ? L"0" : widen(v);
     case TriggerPicker::UnitRef: return v.empty() ? L"(a unit)" : !v.empty() && v[0] == '@' ? trigPickedUnitName(v) : widen(v);
     case TriggerPicker::Variable: return v.empty() ? L"(a variable)" : widen(v);
@@ -14669,10 +14671,13 @@ struct ValuePop {
     bool hintBad = false;
     RECT hintRect{}, titleRect{}, previewRect{};
     std::string result;
-    // A text: Visual (the rich box, the default) or Raw (a plain box: the codes as <XX>, the values as {...}).
+    // A text: Preview (the rich box, the default) or Raw (a plain box: the codes as <XX>, the values as {...}).
     HWND rawEdit = nullptr;
     bool raw = false;
-    RECT segRect[2]{};  // the Visual and Raw segments in the title row
+    RECT segRect[2]{};    // the Preview and Raw segments in the title row
+    RECT alignRect[3]{};  // the align buttons after the colors (left, center, right)
+    HWND tips = nullptr;  // the swatches' and align buttons' names
+    int tipCount = 0;
 };
 ValuePop* gValuePop = nullptr;
 void (*gValuePopHook)(HWND) = nullptr;  // self-test
@@ -14827,34 +14832,11 @@ LRESULT CALLBACK valuePopEditKeys(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UIN
 }
 
 std::string richRawText(HWND re);
-// The Raw view of a game text: a control code (a color, below 0x20 except the line end) as <XX>, line ends as the box's.
-std::wstring textToRawView(const std::string& t) {
-    std::string out;
-    for (unsigned char ch : t) {
-        if (ch == '\n') out += "\r\n";
-        else if (ch < 0x20) {
-            char b[8];
-            std::snprintf(b, sizeof b, "<%02X>", ch);
-            out += b;
-        } else out += char(ch);
-    }
-    return widen(out);
-}
-// Back from the Raw view: <XX> (two hex digits) is that code; the box's line ends are "\n".
-std::string rawViewToText(const std::string& v) {
-    auto hex = [](char c) { return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1; };
-    std::string out;
-    for (size_t i = 0; i < v.size(); ++i) {
-        if (v[i] == '\r') continue;
-        if (v[i] == '<' && i + 3 < v.size() && v[i + 3] == '>' && hex(v[i + 1]) >= 0 && hex(v[i + 2]) >= 0) {
-            out += char(hex(v[i + 1]) * 16 + hex(v[i + 2]));
-            i += 3;
-            continue;
-        }
-        out += v[i];
-    }
-    return out;
-}
+// The Raw view of a game text: a control code (a color, below 0x20 except the line end) as <XX>, line ends as the box's,
+// a "<" that could read as a code as "<<" (as the game text editor's Raw, game_text.inc).
+std::wstring textToRawView(const std::string& t) { return gameTextToRaw(t, true); }
+// Back from the Raw view: <XX> (two hex digits, 01 to 1F) is that code, "<<" a "<"; the box's line ends are "\n".
+std::string rawViewToText(const std::string& v) { return gameTextFromRaw(widen(v), false); }
 void richSetText(HWND re, const std::string& raw, const std::vector<TriggerCall>* values);
 void richScanChips(HWND re);
 // Visual or Raw: the text goes over to the other box (Visual: the colors and the value chips; Raw: the codes).
@@ -14984,9 +14966,13 @@ const std::vector<std::pair<unsigned char, const wchar_t*>>& richColorCodes() {
         {0xFF, L"A player's color (as the game shows that player's color)"}};
     return c;
 }
+// Pale blue (02) looks as the normal color, one step apart: it keeps its code. 1A (almost black in the game): dark, but
+// readable in the box.
+constexpr COLORREF kRichPaleBlue = RGB(184, 184, 231);
 COLORREF richCodeColor(unsigned char code) {
-    if (code == 1 || code == 2 || code == 0xFF) return kRichDefault;
-    return gameTextColor(code, kRichDefault);
+    if (code == 1 || code == 0xFF) return kRichDefault;
+    if (code == 2) return kRichPaleBlue;
+    return textCodeLook(TextPalette::Game, code).color;
 }
 // A player's color in the box: the player's color in the game (the current player: the normal color), with the dashes.
 COLORREF richPlayerColor(const std::string& player) {
@@ -15003,6 +14989,8 @@ std::string richColorPlayer(COLORREF c) {
 // The code of a color in the box (0: normal, no code needed).
 unsigned char richColorCode(COLORREF c) {
     if (c == kRichDefault) return 0;
+    if (c == kRichPaleBlue) return 2;
+    if (c == richCodeColor(0x1A)) return 0x1A;
     for (const auto& [code, name] : richColorCodes())
         if (code != 1 && code != 0xFF && richCodeColor(code) == c) return code;
     return 0;
@@ -15314,6 +15302,13 @@ void richInsertChip(HWND re, const std::wstring& label, const std::string& token
 }
 // The text with values as rich text, and back.
 void richSetText(HWND re, const std::string& raw, const std::vector<TriggerCall>* values) {
+    // Each line's alignment (align right 12, center 13: the last one in the line counts), set on its paragraph at the end.
+    std::vector<int> lineAlign{0};
+    for (size_t i = 0; i < raw.size(); ++i) {
+        const char ch = raw[i];
+        if (ch == '\n' || (ch == '\r' && (i + 1 >= raw.size() || raw[i + 1] != '\n'))) lineAlign.push_back(0);  // (\r\n: one line end)
+        else if (ch == 0x12 || ch == 0x13) lineAlign.back() = ch == 0x13 ? 1 : 2;
+    }
     bool dotted = false;  // the color so far is a player's ({P2:c})
     gValuePop->chipEdit = true;  // the old chips go too
     SetWindowTextW(re, L"");
@@ -15333,13 +15328,14 @@ void richSetText(HWND re, const std::string& raw, const std::vector<TriggerCall>
             };
             for (const char ch : part.text) {
                 const unsigned char u = static_cast<unsigned char>(ch);
+                if (u == 0x12 || u == 0x13) continue;  // the line's alignment (below)
                 if (u < 0x20 && u != '\n' && u != '\r' && u != '\t') {
                     flush();
                     if (u == 1 || u == 2 || gameTextColor(u, 0xFFFFFFFF) != 0xFFFFFFFF) {  // a color: what follows has it
                         color = richCodeColor(u), dotted = false;
                         continue;
                     }
-                    static const std::map<unsigned char, std::wstring> named = {{0x12, L"align right"}, {0x13, L"align center"}, {0x0B, L"invisible"}};
+                    static const std::map<unsigned char, std::wstring> named = {{0x0B, L"hidden text"}, {0x14, L"hidden text (14)"}};
                     const auto nm = named.find(u);
                     wchar_t code[16];
                     std::swprintf(code, 16, L"code %02X", u);
@@ -15371,8 +15367,36 @@ void richSetText(HWND re, const std::string& raw, const std::vector<TriggerCall>
         gValuePop->chipToken[label] = token;
         richReplace(re, {richLength(re), richLength(re)}, label, true, color, dotted);
     }
+    // The lines' alignment: each paragraph (a line of the text) as its line has it.
+    const std::wstring text = richText(re);
+    LONG at = 0;
+    gValuePop->chipEdit = true;  // (chips in a line: their paragraph changes too)
+    for (size_t line = 0; line < lineAlign.size(); ++line) {
+        if (lineAlign[line]) {
+            CHARRANGE cr{at, at};
+            SendMessageW(re, EM_EXSETSEL, 0, LPARAM(&cr));
+            PARAFORMAT2 pf{};
+            pf.cbSize = sizeof pf, pf.dwMask = PFM_ALIGNMENT, pf.wAlignment = WORD(lineAlign[line] == 1 ? PFA_CENTER : PFA_RIGHT);
+            SendMessageW(re, EM_SETPARAFORMAT, 0, LPARAM(&pf));
+        }
+        const size_t next = text.find(L'\r', size_t(at));
+        if (next == std::wstring::npos) break;
+        at = LONG(next) + 1;
+    }
+    gValuePop->chipEdit = false;
     CHARRANGE start{0, 0};
     SendMessageW(re, EM_EXSETSEL, 0, LPARAM(&start));
+}
+// The alignment of the paragraph at `cp` as its code (0: left, none).
+char richAlignCode(ITextDocument* doc, LONG cp) {
+    ITextRange* lr = nullptr;
+    long a = tomAlignLeft;
+    if (doc && SUCCEEDED(doc->Range(cp, cp, &lr)) && lr) {
+        ITextPara* para = nullptr;
+        if (SUCCEEDED(lr->GetPara(&para)) && para) para->GetAlignment(&a), para->Release();
+        lr->Release();
+    }
+    return a == tomAlignCenter ? 0x13 : a == tomAlignRight ? 0x12 : 0;
 }
 std::string richRawText(HWND re) {
     std::string out;
@@ -15383,6 +15407,12 @@ std::string richRawText(HWND re) {
     const LONG n = LONG(text.size());
     COLORREF color = kRichDefault;  // the words' color so far (normal)
     bool dotted = false;     // ... a player's
+    bool lineStart = true;   // a line's alignment goes at its start
+    auto align = [&](LONG cp) {
+        if (!lineStart) return;
+        lineStart = false;
+        if (const char a = richAlignCode(doc, cp)) out += a;
+    };
     auto style = [&](COLORREF c, bool d) {  // a change of color: its code
         if (c == color && d == dotted) return;
         if (const std::string player = d ? richColorPlayer(c) : ""; !player.empty()) {
@@ -15405,6 +15435,7 @@ std::string richRawText(HWND re) {
             long e2 = end;
             while (e2 < n && richChipAt(re, e2) == id) ++e2;
             const auto it = gValuePop->chipToken.find(richChipName(text.substr(size_t(start), size_t(e2 - start))));
+            align(start);
             if (it != gValuePop->chipToken.end() && it->second.size() > 1) style(richForeAt(re, start), richDottedAt(re, start));  // the value's color
             if (it != gValuePop->chipToken.end()) out += it->second;
             start = e2;
@@ -15414,10 +15445,15 @@ std::string richRawText(HWND re) {
         long fore = long(kRichDefault);
         bool marked = false;
         if (SUCCEEDED(r->GetFont(&font)) && font) font->GetForeColor(&fore), marked = richMarked(font), font->Release();
-        style(COLORREF(fore), marked);  // the words' color
+        bool styled = false;
         for (long i = start; i < end; ++i) {
             wchar_t ch = text[size_t(i)];
-            if (ch == L'\r') ch = L'\n';  // the box's line ends
+            if (ch == L'\r' || ch == L'\v') {  // the box's line ends (\v: Shift+Enter's, not code 0B)
+                out += '\n', lineStart = true;
+                continue;
+            }
+            align(i);
+            if (!styled) style(COLORREF(fore), marked), styled = true;  // the words' color
             const std::string c = narrow(std::wstring(1, ch));
             out += c == "{" ? "{{" : c == "}" ? "}}" : c;
         }
@@ -15425,6 +15461,19 @@ std::string richRawText(HWND re) {
     }
     r->Release();
     return out;
+}
+
+// An align button: the selected lines (the caret's line) aligned (0 left, 1 center, 2 right).
+void richApplyAlign(int align) {
+    ValuePop& vp = *gValuePop;
+    PARAFORMAT2 pf{};
+    pf.cbSize = sizeof pf, pf.dwMask = PFM_ALIGNMENT, pf.wAlignment = WORD(align == 1 ? PFA_CENTER : align == 2 ? PFA_RIGHT : PFA_LEFT);
+    vp.chipEdit = true;
+    SendMessageW(vp.edit, EM_SETPARAFORMAT, 0, LPARAM(&pf));
+    vp.chipEdit = false;
+    InvalidateRect(vp.edit, nullptr, FALSE);
+    InvalidateRect(vp.wnd, nullptr, FALSE);
+    if (!gBackground) SetFocus(vp.edit);
 }
 
 void richApplyColor(unsigned char code) {
@@ -15584,6 +15633,17 @@ void richEditChip(LONG cp, POINT click, bool menu = false) {
     auto tokenParts = triggerTextParts(token);
     if (tokenParts.empty()) return;
     TriggerTextPart part = tokenParts[0];
+    if (part.kind == TriggerTextPart::Kind::Words) {  // a code (hidden text, code XX), not a value: it can only go
+        std::vector<ListPickItem> items{{L"Remove", L"", "remove"}};
+        std::string choice;
+        vp.picking = true;
+        const bool got = showListPicker(L"Code", items, "", at, choice);
+        vp.picking = false;
+        if (got && choice == "remove") richReplace(re, run, L"", false);
+        SetActiveWindow(vp.wnd);
+        if (!gBackground) SetFocus(re);
+        return;
+    }
     // The menu of a chip: its value, how it shows (eudplib's formats), Remove.
     auto chipMenu = [&](const std::wstring& first) {
         std::vector<ListPickItem> items{{first, L"", "value"}};
@@ -15851,6 +15911,11 @@ LRESULT CALLBACK valuePopProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_NOTIFY:
         if (p && reinterpret_cast<NMHDR*>(lp)->hwndFrom == p->edit && reinterpret_cast<NMHDR*>(lp)->code == EN_PROTECTED) return p->chipEdit ? 0 : 1;
+        if (p && reinterpret_cast<NMHDR*>(lp)->hwndFrom == p->edit && reinterpret_cast<NMHDR*>(lp)->code == EN_SELCHANGE) {
+            RECT row = p->hintRect;  // the align buttons: the caret's line (they reach a little past the hint row)
+            InflateRect(&row, 0, scale(6));
+            InvalidateRect(hwnd, &row, FALSE);
+        }
         return 0;
     case WM_ACTIVATE:
         if (LOWORD(wp) == WA_INACTIVE && p && !gBackground && !p->picking && !p->done) {
@@ -15919,7 +15984,7 @@ LRESULT CALLBACK valuePopProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             RECT t = p->titleRect;
             if (p->rich) {  // Visual | Raw: a segmented control at the right of the title row
                 SelectObject(dc, app.font);
-                const wchar_t* names[2] = {L"Visual", L"Raw"};
+                const wchar_t* names[2] = {L"Preview", L"Raw"};
                 int x = p->titleRect.right;
                 const int segH = scale(22), y0 = p->titleRect.top + (p->titleRect.bottom - p->titleRect.top - segH) / 2;
                 int widths[2];
@@ -15964,8 +16029,9 @@ LRESULT CALLBACK valuePopProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 ui::box(dc, er, CLR_NONE, GetFocus() == p->edit ? kAccentLine : kBorder, 4);
             }
             p->swatches.clear();
-            if (p->rich && !p->raw) {  // the text colors: select words, click one (Visual)
-                const int sz = scale(20), gap = scale(6);
+            for (RECT& ar : p->alignRect) ar = {};
+            if (p->rich && !p->raw) {  // the text colors: select words, click one (Preview)
+                const int sz = scale(18), gap = scale(5);
                 int x = p->hintRect.left;
                 const int y = p->hintRect.top + (p->hintRect.bottom - p->hintRect.top - sz) / 2 + scale(2);
                 for (const auto& [code, name] : richColorCodes()) {
@@ -15987,6 +16053,44 @@ LRESULT CALLBACK valuePopProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                     p->swatches.push_back({sw, code});
                     x += sz + gap;
                 }
+                // The align buttons: the caret's line's alignment on (center 13, right 12)
+                PARAFORMAT2 pf{};
+                pf.cbSize = sizeof pf;
+                SendMessageW(p->edit, EM_GETPARAFORMAT, 0, LPARAM(&pf));
+                const int now = !(pf.dwMask & PFM_ALIGNMENT) ? -1 : pf.wAlignment == PFA_CENTER ? 1 : pf.wAlignment == PFA_RIGHT ? 2 : 0;
+                static const wchar_t* glyphs[3] = {L"\xE8E4", L"\xE8E3", L"\xE8E2"};
+                const int b = scale(22), right = p->hintRect.right;
+                for (int k = 0; k < 3; ++k) {
+                    const RECT ar{right - (3 - k) * b, y + (sz - b) / 2, right - (2 - k) * b, y + (sz - b) / 2 + b};
+                    p->alignRect[k] = ar;
+                    POINT m;
+                    GetCursorPos(&m), ScreenToClient(hwnd, &m);
+                    const bool on = k == now, over = PtInRect(&ar, m) != 0;
+                    if (on) ui::box(dc, ar, kSel, kAccentLine, scale(4));
+                    else if (over) ui::box(dc, ar, kCtlHot, CLR_NONE, scale(4));
+                    ui::glyph(dc, ar, ui::Ico(glyphs[k]), on ? kAccent : over ? kText : kDim, 12);
+                }
+                // Their names as tooltips (the swatches and buttons have no text)
+                if (!p->tips) {
+                    p->tips = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, 0, 0, 0, 0, hwnd, nullptr, app.inst, nullptr);
+                    styleTips(p->tips);
+                }
+                for (int i = 0; i < p->tipCount; ++i) {
+                    TOOLINFOW ti{sizeof ti};
+                    ti.hwnd = hwnd, ti.uId = UINT_PTR(i + 1);
+                    SendMessageW(p->tips, TTM_DELTOOLW, 0, LPARAM(&ti));
+                }
+                p->tipCount = 0;
+                auto tip = [&](RECT r, const wchar_t* text) {
+                    TOOLINFOW ti{sizeof ti};
+                    ti.uFlags = TTF_SUBCLASS, ti.hwnd = hwnd, ti.uId = UINT_PTR(++p->tipCount), ti.rect = r, ti.lpszText = const_cast<wchar_t*>(text);
+                    SendMessageW(p->tips, TTM_ADDTOOLW, 0, LPARAM(&ti));
+                };
+                for (const auto& [r, code] : p->swatches)
+                    for (const auto& [c2, name] : richColorCodes())
+                        if (c2 == code) tip(r, name);
+                static const wchar_t* alignTips[3] = {L"Align left", L"Center the line (code 13)", L"Align right (code 12)"};
+                for (int k = 0; k < 3; ++k) tip(p->alignRect[k], alignTips[k]);
             }
             SelectObject(dc, of);
             if (p->spec.previewEntry >= 0) valuePopPreview(dc, *p);
@@ -16001,6 +16105,8 @@ LRESULT CALLBACK valuePopProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 if (PtInRect(&p->segRect[k], pt)) return valuePopSetRaw(k == 1), 0;
             for (const auto& [r, code] : p->swatches)
                 if (PtInRect(&r, pt)) return richApplyColor(code), 0;
+            for (int k = 0; k < 3; ++k)
+                if (PtInRect(&p->alignRect[k], pt)) return richApplyAlign(k), 0;
         }
         return 0;
     case WM_SETCURSOR:
@@ -16011,6 +16117,8 @@ LRESULT CALLBACK valuePopProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             for (const auto& [r, code] : p->swatches)
                 if (PtInRect(&r, pt)) return SetCursor(LoadCursor(nullptr, IDC_HAND)), TRUE;
             for (const RECT& r : p->segRect)
+                if (PtInRect(&r, pt)) return SetCursor(LoadCursor(nullptr, IDC_HAND)), TRUE;
+            for (const RECT& r : p->alignRect)
                 if (PtInRect(&r, pt)) return SetCursor(LoadCursor(nullptr, IDC_HAND)), TRUE;
         }
         break;
@@ -16093,7 +16201,7 @@ bool showValuePopup(const ValuePopSpec& spec, POINT at, std::string& out) {
         vp.edit = CreateWindowExW(0, MSFTEDIT_CLASS, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL, pad + 1, y + 1,
                                   w - 2 * pad - 4, eh * 6 - 2, vp.wnd, nullptr, app.inst, nullptr);
         SendMessageW(vp.edit, EM_SETBKGNDCOLOR, 0, LPARAM(kRichBack));
-        SendMessageW(vp.edit, EM_SETEVENTMASK, 0, ENM_PROTECTED | ENM_CHANGE);
+        SendMessageW(vp.edit, EM_SETEVENTMASK, 0, ENM_PROTECTED | ENM_CHANGE | ENM_SELCHANGE);
         SendMessageW(vp.edit, WM_SETFONT, WPARAM(app.font), TRUE);
         if (gTE.textValuesFor) vp.richValues = *gTE.textValuesFor;
         std::string initial = spec.initial;
@@ -16270,6 +16378,10 @@ void trigEditText(TrigParamHit h, const std::string& value, bool, bool) {
     }
     spec.help = spec.prop ? widen(spec.prop->notes) : L"";
     spec.code = type && type->picker == TriggerPicker::Code;
+    // A text the game shows (mission objectives, a transmission, a leaderboard's label, a player's name): its colors
+    // and lines in the rich box (Preview and Raw), as Display text has them.
+    if (p.type == "Text" && (d->id == "act.objectives" || d->id == "act.transmission" || d->id == "act.playername" || d->id.rfind("act.lb.", 0) == 0))
+        spec.colorsOnly = true;
     if (!triggerTypeClear(spec.type)) spec.help = L"No clear type yet (" + widen(spec.type) + L"). Type it as a number.";
     if (p.type == "Index") {
         const TriggerNode* list = trigIndexList(*d, *call);
@@ -20346,7 +20458,7 @@ void selfTestTwoModes(std::ofstream& log, const fs::path& dir, const fs::path& c
         command(ID_SCEN_PROPS);
         bool titleNow = false, kept = false, dot = false, reverted = false, mapSame = false;
         if (gMapProps) {
-            SetWindowTextW(gMapProps->name, L"Set at once");
+            SetWindowTextW(gameTextFocusBox(gMapProps->name), L"Set at once");
             titleNow = app.ed->scenarioName() == "Set at once";
             app.ed->undo();
             mapPageReloadIfStale();
@@ -24662,6 +24774,43 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 gButtonPopHook = nullptr;
                 continue;
             }
+            if (s.rfind("trigobj:", 0) == 0) {  // trigobj:<root>:<index>:<action>: a Set mission objectives text opens in the rich pop-out
+                std::vector<int> v;
+                std::stringstream ss(s.substr(8));
+                for (std::string x; std::getline(ss, x, ':');) v.push_back(std::atoi(x.c_str()));
+                std::ofstream o(fs::path(datashots) / "trigobj.txt");
+                if (v.size() < 3) continue;
+                setWorkspace(Workspace::Triggers);
+                for (int i = 0; i < 10; ++i) pump();
+                trigRefreshTree({v[0], v[1]});
+                for (int i = 0; i < 10; ++i) pump();
+                UpdateWindow(gTE.pane);
+                const TriggerDef* od = TriggerDef::find("act.objectives");
+                const TrigParamHit* hit = nullptr;
+                for (const auto& h : gTP.params)
+                    if (h.ref.list.via.empty() && h.ref.list.list == 1 && h.ref.index == v[2] && h.inner.empty() && h.param == od->param("text")) hit = &h;
+                if (!hit || !trigSelected()) {
+                    o << "the objectives text NOT found\n";
+                    continue;
+                }
+                static fs::path shotDir;
+                static std::string before;
+                static std::ofstream* out;
+                shotDir = datashots, out = &o;
+                before = trigSelected()->actions[size_t(v[2])].args[size_t(od->param("text"))];
+                gValuePopHook = [](HWND w) {
+                    for (int i = 0; i < 5; ++i) pump();
+                    *out << "it opens in the rich pop-out (colors, Preview and Raw) " << (gValuePop->rich && gValuePop->spec.colorsOnly ? "yes" : "NO") << "\n";
+                    *out << "it reads back the same " << (richRawText(gValuePop->edit) == before ? "yes" : "NO") << "\n";
+                    capture(shotDir / "trigobj.png", w);
+                    PostMessageW(w, WM_COMMAND, MAKEWPARAM(IDCANCEL, BN_CLICKED), LPARAM(gValuePop->cancel));
+                };
+                trigEditParam(*hit);
+                gValuePopHook = nullptr;
+                o << "the block shows the text without its codes " << (gameTextPlain(before).find(L'\x03') == std::wstring::npos ? "yes" : "NO") << " ("
+                  << narrow(gameTextPlain(before)) << ")\n";
+                continue;
+            }
             if (s.rfind("trigtext:", 0) == 0) {  // trigtext:<root>:<index>:<action>: Show text's text pop-out (rich text), captured and read back
                 std::vector<int> v;
                 std::stringstream ss(s.substr(9));
@@ -24757,7 +24906,20 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                             log << "line ends: " << (back3 == lines ? "same" : "DIFFERENT: " + shown(back3)) << "; after Enter, x and a chip: \""
                                 << shown(richRawText(gValuePop->edit)) << "\"\n";
                         }
-                        const std::string colored = "Hi \x06red\x01 back {gold} \x13 end";
+                        {  // pale blue (02) and 1A keep their codes; an align button aligns the caret's line
+                            const std::string codes = "\x02pale\x1A dark\x01 normal\nline two";
+                            richSetText(gValuePop->edit, codes, &gValuePop->richValues);
+                            log << "02 and 1A: \"" << shown(codes) << "\" reads back " << (richRawText(gValuePop->edit) == codes ? "the same" : "DIFFERENT: " + shown(richRawText(gValuePop->edit)))
+                                << "\n";
+                            const LONG two = LONG(richText(gValuePop->edit).find(L'\r')) + 2;
+                            CHARRANGE at2{two, two};
+                            SendMessageW(gValuePop->edit, EM_EXSETSEL, 0, LPARAM(&at2));
+                            richApplyAlign(2);
+                            const std::string right = richRawText(gValuePop->edit);
+                            log << "align right on line two: " << (right == "\x02pale\x1A dark\x01 normal\n\x12line two" ? "yes" : "NO: " + shown(right)) << "\n";
+                        }
+                        // A centered line: its code at the line's start (the game centers the whole line).
+                        const std::string colored = "\x13Hi \x06red\x01 back {gold} end";
                         richSetText(gValuePop->edit, colored, &gValuePop->richValues);
                         const std::string back2 = richRawText(gValuePop->edit);
                         log << "colors: \"" << shown(colored) << "\" reads back as \"" << shown(back2) << "\"" << (back2 == colored ? " (same)" : " (DIFFERENT)") << "\n";
@@ -25213,7 +25375,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 int nw = 0, nh = 0, era = -1;
                 bool applied = false;
                 if (gMapProps && std::sscanf(s.c_str(), "mapprops:%d:%d:%d", &nw, &nh, &era) == 3) {
-                    SetWindowTextW(gMapProps->name, L"Resized by the test");
+                    SetWindowTextW(gameTextFocusBox(gMapProps->name), L"Resized by the test");
                     // (as the page's pickers set them)
                     gMapProps->w = nw, gMapProps->h = nh, gMapProps->era = era, gMapProps->fillTerrain = mapPropsFirstTerrain(era);
                     gMapProps->anchorIndex = 4;  // center
@@ -26187,18 +26349,164 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     o << "the page shows NO\n";
                     continue;
                 }
-                o << "the title reads back the same " << (narrow(mapTextFromBox(gMapProps->name, TextPalette::Scenario)) == title ? "yes" : "NO") << " ("
-                  << narrow(richText(gMapProps->name)) << ")\n";
-                o << "the description reads back the same " << (narrow(mapTextFromBox(gMapProps->desc, TextPalette::Scenario)) == desc ? "yes" : "NO") << "\n";
-                // The chips: the first word of the description becomes red.
-                gMapProps->lastBox = gMapProps->desc;
+                auto shown = [](const std::string& b) {  // the bytes with the codes as <XX>
+                    std::string t;
+                    for (unsigned char ch : b) {
+                        char h[8];
+                        std::snprintf(h, sizeof h, "<%02X>", ch);
+                        t += ch < 0x20 ? std::string(h) : std::string(1, char(ch));
+                    }
+                    return t;
+                };
+                o << "the title reads back the same " << (gameTextGet(gMapProps->name) == title ? "yes" : "NO") << " ("
+                  << narrow(richText(gameTextFocusBox(gMapProps->name))) << ")\n";
+                o << "the description reads back the same " << (gameTextGet(gMapProps->desc) == desc ? "yes" : "NO") << "\n";
+                // A swatch: the first word of the description becomes red; the centered line stays centered.
+                HWND descBox = gameTextFocusBox(gMapProps->desc);
                 CHARRANGE word{0, 4};
-                SendMessageW(gMapProps->desc, EM_EXSETSEL, 0, LPARAM(&word));
-                mapTextColor(7);
-                const std::string now = narrow(mapTextFromBox(gMapProps->desc, TextPalette::Scenario));
-                o << "a chip colors the selected word " << (now.rfind("\x07Line\x01", 0) == 0 ? "yes" : "NO") << "\n";
+                SendMessageW(descBox, EM_EXSETSEL, 0, LPARAM(&word));
+                gameTextColorSelection(gMapProps->desc, 7);
+                std::string now = gameTextGet(gMapProps->desc);
+                o << "a swatch colors the selected word " << (now.rfind("\x07Line\x01", 0) == 0 ? "yes" : "NO") << " (" << shown(now) << ")\n";
+                o << "the centered line keeps its code at its start "
+                  << (now.find("\r\n\x13\x04light green centered\x01 end") != std::string::npos ? "yes" : "NO") << "\n";
+                mapPageFlush();
+                o << "the map has the change " << (app.ed->scenarioDescription() == now ? "yes" : "NO") << "\n";
+                // An align button: the first line goes right.
+                CHARRANGE first{2, 2};
+                SendMessageW(descBox, EM_EXSETSEL, 0, LPARAM(&first));
+                gameTextAlignSelection(gMapProps->desc, 2);
+                now = gameTextGet(gMapProps->desc);
+                o << "an align button aligns the caret's line " << (now.rfind("\x12\x07Line", 0) == 0 ? "yes" : "NO") << " (" << shown(now) << ")\n";
+                // Raw and back: the same bytes.
+                gameTextShowRaw(gMapProps->desc, true);
+                const std::string viaRaw = gameTextGet(gMapProps->desc);
+                o << "Raw shows the codes as tags " << (windowText(gameTextFocusBox(gMapProps->desc)).find(L"<12><07>Line<01>") == 0 ? "yes" : "NO") << " ("
+                  << narrow(windowText(gameTextFocusBox(gMapProps->desc))) << ")\n";
+                gameTextShowRaw(gMapProps->desc, false);
+                o << "Preview, Raw and Preview again keep the bytes " << (viaRaw == now && gameTextGet(gMapProps->desc) == now ? "yes" : "NO") << "\n";
                 RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                 capture(fs::path(datashots) / "maptext.png", app.main);
+                gameTextShowRaw(gMapProps->desc, true);
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "maptext_raw.png", app.main);
+                gameTextShowRaw(gMapProps->desc, false);
+                app.ed->undo(), app.ed->undo();
+                continue;
+            }
+            if (s == "gametext:") {  // gametext.txt, gametext_*.png: the game text editor in the briefing and in Data > Strings (a project)
+                std::ofstream o(fs::path(datashots) / "gametext.txt");
+                auto shown = [](const std::string& b) {  // the bytes with the codes as <XX>
+                    std::string t;
+                    for (unsigned char ch : b) {
+                        char h[8];
+                        std::snprintf(h, sizeof h, "<%02X>", ch);
+                        t += ch < 0x20 ? std::string(h) : std::string(1, char(ch));
+                    }
+                    return t;
+                };
+                // Raw and back: the bytes of texts that have "<" next to codes and tags.
+                {
+                    const std::vector<std::string> tricky = {"<\x07Hint\x01> Build a Pylon", "<<\x03x", "<0B> as text", "a<b", "\x0B", "end <", "<<", "x\r\ny <\x13z"};
+                    int ok = 0;
+                    for (const std::string& t : tricky) {
+                        const std::string back = gameTextFromRaw(gameTextToRaw(t, true), t.find("\r\n") != std::string::npos);
+                        ok += back == t;
+                        if (back != t) o << "  Raw changed " << shown(t) << " to " << shown(back) << "\n";
+                    }
+                    o << "Raw and back keep the bytes of " << ok << " of " << tricky.size() << " texts with \"<\" next to codes " << (ok == int(tricky.size()) ? "yes" : "NO") << "\n";
+                }
+                // The briefing: a text message with colors and a centered line, in the briefing's colors.
+                {
+                    std::vector<BriefingTrigger> b(1);
+                    b[0].players[0] = true;
+                    BriefingAction a;
+                    a.type = BriefingAction::TextMessage, a.time = 4000;
+                    a.text = "\x03Green\x01 words and \x06white\n\x13" "A centered \x07red line";
+                    b[0].actions.push_back(a);
+                    const auto before = app.ed->briefings();
+                    app.ed->setBriefings(b);
+                    setWorkspace(Workspace::Briefing);
+                    for (int i = 0; i < 5; ++i) pump();
+                    InvalidateRect(gBrief.wnd, nullptr, FALSE), UpdateWindow(gBrief.wnd);
+                    briefSelectRange(briefRowOf(0, 0), 1);
+                    for (int i = 0; i < 5; ++i) pump();
+                    InvalidateRect(gBrief.wnd, nullptr, FALSE), UpdateWindow(gBrief.wnd);
+                    o << "briefing: the editor shows the text " << (gBrief.text && IsWindowVisible(gBrief.text) ? "yes" : "NO") << "\n";
+                    o << "briefing: it reads back the same " << (gameTextGet(gBrief.text) == a.text ? "yes" : "NO") << " (" << shown(gameTextGet(gBrief.text)) << ")\n";
+                    HWND box = gameTextFocusBox(gBrief.text);
+                    SetFocus(box);
+                    CHARRANGE w{0, 5};
+                    SendMessageW(box, EM_EXSETSEL, 0, LPARAM(&w));
+                    gameTextColorSelection(gBrief.text, 7);  // "Green" becomes red
+                    SetFocus(gBrief.wnd);  // the text goes in (one undo step)
+                    for (int i = 0; i < 3; ++i) pump();
+                    const auto after = app.ed->briefings();
+                    const std::string got = after.empty() || after[0].actions.empty() ? "" : after[0].actions[0].text;
+                    o << "briefing: a swatch and the focus leaving put the change in the map "
+                      << (got == "\x07Green\x01 words and \x06white\n\x13" "A centered \x07red line" ? "yes" : "NO") << " (" << shown(got) << ")\n";
+                    RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                    capture(fs::path(datashots) / "gametext_briefing.png", app.main);
+                    // Shift+Enter's line break (\v) is a line end, not code 0B (hidden text).
+                    gameTextSet(gBrief.text, "one");
+                    CHARRANGE end{3, 3};
+                    SendMessageW(box, EM_EXSETSEL, 0, LPARAM(&end));
+                    SendMessageW(box, EM_REPLACESEL, TRUE, LPARAM(L"\vtwo"));
+                    o << "briefing: Shift+Enter's line break is a line end " << (gameTextGet(gBrief.text) == "one\ntwo" ? "yes" : "NO: " + shown(gameTextGet(gBrief.text))) << "\n";
+                    // Raw: a swatch after a typed "<" keeps the "<" (the code is a code).
+                    gameTextShowRaw(gBrief.text, true);
+                    HWND rawBox = gameTextFocusBox(gBrief.text);
+                    SetWindowTextW(rawBox, L"a<");
+                    SendMessageW(rawBox, EM_SETSEL, 2, 2);
+                    gameTextColorSelection(gBrief.text, 7);
+                    o << "briefing: in Raw, a swatch after a \"<\" puts the code after it " << (gameTextGet(gBrief.text) == "a<\x07" ? "yes" : "NO: " + shown(gameTextGet(gBrief.text)))
+                      << " (" << narrow(windowText(rawBox)) << ")\n";
+                    gameTextShowRaw(gBrief.text, false);
+                    gBrief.textDirty = false, gBrief.textFor = -1;
+                    app.ed->setBriefings(before);
+                }
+                // Data > Strings: a game string in the game's colors; Raw shows its codes.
+                if (activeProject()) {
+                    setWorkspace(Workspace::Data);
+                    for (int i = 0; i < 5; ++i) pump();
+                    dataShowTab(stringsTab());
+                    for (int i = 0; i < 3; ++i) pump();
+                    int id = 0;  // a string with a color code
+                    for (int k = 1; k <= gExtras.strings.count() && !id; ++k) {
+                        const std::string& t = gExtras.strings.text(k - 1);
+                        if (!buttonPrefix(t) && std::any_of(t.begin(), t.end(), [](char c) { return c >= 3 && c <= 7; }) && t.size() > 12) id = k;
+                    }
+                    dataSelect(id);
+                    for (int i = 0; i < 5; ++i) pump();
+                    RedrawWindow(gData.form, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                    o << "strings: entry " << id << " shows " << (gExtras.textEdit && IsWindowVisible(gExtras.textEdit) ? "yes" : "NO") << "\n";
+                    o << "strings: it reads back the same " << (id && gameTextGet(gExtras.textEdit) == gExtras.strings.text(id - 1) ? "yes" : "NO") << " ("
+                      << shown(id ? gExtras.strings.text(id - 1) : "") << ")\n";
+                    capture(fs::path(datashots) / "gametext_strings.png", app.main);
+                    gameTextShowRaw(gExtras.textEdit, true);
+                    RedrawWindow(gData.form, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                    capture(fs::path(datashots) / "gametext_strings_raw.png", app.main);
+                    o << "strings: Raw reads back the same " << (id && gameTextGet(gExtras.textEdit) == gExtras.strings.text(id - 1) ? "yes" : "NO") << "\n";
+                    gameTextShowRaw(gExtras.textEdit, false);
+                    // Every game string: into the editor and back, byte for byte (unchanged), and as read after an edit
+                    // that changes nothing (the codes as the editor writes them must mean the same: checked by the
+                    // runs of each color).
+                    int same = 0, all = 0, rewrites = 0;
+                    for (int k = 1; k <= gExtras.strings.count(); ++k) {
+                        const std::string& t = gExtras.strings.text(k - 1);
+                        if (buttonPrefix(t)) continue;
+                        ++all;
+                        gameTextSet(gExtras.textEdit, t);
+                        same += gameTextGet(gExtras.textEdit) == t;
+                        if (const std::string w = gameTextRead(*gameTextOf(gExtras.textEdit)); w != t) {
+                            ++rewrites;
+                            o << "  after an edit, " << k << ": " << shown(t) << "  ->  " << shown(w) << "\n";
+                        }
+                    }
+                    o << "strings: every game string reads back the same " << (same == all ? "yes" : "NO") << " (" << same << " of " << all << "; "
+                      << rewrites << " are written another way after an edit)\n";
+                    gExtras.textFor = -1;
+                }
                 continue;
             }
             if (s == "quickopen:" || s == "quickopen:demo") {  // quickopen.txt, quickopen.png: Ctrl+Shift+O lists the open tabs, then
@@ -26592,14 +26900,14 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 const std::string before = app.ed->scenarioDescription();
                 bool ok = false;
                 if (gMapProps && gMapProps->desc) {
-                    SetWindowTextW(gMapProps->desc, L"Line one\r\nLine two");
+                    SetWindowTextW(gameTextFocusBox(gMapProps->desc), L"Line one\r\nLine two");
                     for (int i = 0; i < 5; ++i) pump();
                     mapPageFlush();  // (typed text goes in when the typing stops)
                     ok = app.ed->scenarioDescription() == "Line one\r\nLine two";
                     for (char ch : app.ed->scenarioDescription()) o << (ch == '\r' ? std::string("\\r") : ch == '\n' ? std::string("\\n") : std::string(1, ch));
                     o << " (map; it was " << before.size() << " bytes), ";
                     mapPageReload();  // the page reads it again: one line end each, not \r\r\n
-                    ok = ok && gMapProps && windowText(gMapProps->desc) == L"Line one\r\nLine two";
+                    ok = ok && gMapProps && gameTextGet(gMapProps->desc) == "Line one\r\nLine two";
                     app.ed->undo();
                 }
                 o << "a description of two lines keeps \\r\\n, and shows again as it was " << (ok ? "yes" : "NO") << "\n";

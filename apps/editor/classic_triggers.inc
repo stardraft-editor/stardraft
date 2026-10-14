@@ -67,7 +67,7 @@ ClassicNames ctNames() {
         const int i = int(l) - 1;
         return i >= 0 && i < app.ed->locationCount() ? app.ed->locationName(i) : std::string();
     };
-    n.string = [](uint32_t id) { return gCt ? gCt->strings.get(id) : app.ed->strings().get(id); };
+    n.string = [](uint32_t id) { return gameTextStripped(gCt ? gCt->strings.get(id) : app.ed->strings().get(id)); };  // (without the codes)
     n.switchName = [](uint32_t s) { return app.ed->switchName(int(s)); };
     n.force = [](uint32_t f) { return app.ed->force(int(f)).name; };
     n.ai = gCt ? &gCt->ai : nullptr;
@@ -323,17 +323,13 @@ void ctBuildEditor() {
         font(lab);
         d.params.push_back(lab);
         HWND h = nullptr;
-        if (text) {
-            const std::string s = d.strings.get(v);
-            std::wstring w;
-            for (wchar_t ch : widen(s)) {  // line breaks as the edit box has them
-                if (ch == L'\n' && (w.empty() || w.back() != L'\r')) w += L'\r';
-                w += ch;
-            }
-            h = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, w.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN,
-                                x + labelW, y, d.editRight - d.editLeft - labelW - scale(16), scale(78), d.wnd, HMENU(INT_PTR(kCtParam + i)), app.inst, nullptr);
-            darkControl(h, L"DarkMode_CFD");
-            y += scale(78) - step;
+        if (text) {  // a game text editor: in-game text (the game's colors), lines with \r\n as StarEdit writes them
+            GameTextSpec spec;
+            spec.palette = TextPalette::Game, spec.multiline = true, spec.align = true, spec.crlf = true;
+            const int w = d.editRight - d.editLeft - labelW - scale(16), th = gameTextHeight(spec, w, scale(78));
+            h = gameTextCreate(d.wnd, kCtParam + i, {x + labelW, y, x + labelW + w, y + th}, spec);
+            gameTextSet(h, d.strings.get(v));
+            y += th - step;
         } else if (ctPickerIsList(p.kind)) {
             h = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL, x + labelW, y, pickW, scale(320), d.wnd,
                                 HMENU(INT_PTR(kCtParam + i)), app.inst, nullptr);
@@ -384,11 +380,7 @@ void ctParamChanged(int i, HWND h) {
     const ClassicParam& p = def->params[size_t(i)];
     uint32_t v = 0;
     if (p.kind == ClassicKind::Text) {
-        std::wstring w = windowText(h);
-        w.erase(std::remove(w.begin(), w.end(), L'\r'), w.end());  // the map's texts break lines with \r\n as StarEdit writes them
-        std::wstring crlf;
-        for (wchar_t ch : w) crlf += ch == L'\n' ? std::wstring(L"\r\n") : std::wstring(1, ch);
-        const std::string text = narrow(crlf);
+        const std::string text = gameTextGet(h);  // (the map's texts break lines with \r\n as StarEdit writes them)
         const uint32_t old = a ? classicValue(*a, p.field) : 0;
         if (text.empty()) v = 0;
         else if (old && d.ownStrings.count(old)) d.strings.set(old, text), v = old;  // a text this window made: changed in place
@@ -604,8 +596,9 @@ void ctChipClick(int kind, int i, int pi, RECT chip) {
     const ClassicParam& p = def->params[size_t(pi)];
     if (!ctPickerIsList(p.kind)) {
         if (pi < int(d.paramPickers.size()) && d.paramPickers[size_t(pi)]) {
-            SetFocus(d.paramPickers[size_t(pi)]);
-            SendMessageW(d.paramPickers[size_t(pi)], EM_SETSEL, 0, -1);
+            HWND box = p.kind == ClassicKind::Text ? gameTextFocusBox(d.paramPickers[size_t(pi)]) : d.paramPickers[size_t(pi)];  // (a text: its editor's box)
+            SetFocus(box);
+            SendMessageW(box, EM_SETSEL, 0, -1);
         }
         return;
     }
@@ -1211,9 +1204,11 @@ void classicTrigDatashot(const std::string& spec, const fs::path& dir) {
             if (HWND h = ctPicker("n")) SetWindowTextW(h, L"5");
             if (HWND h = ctPicker("unit")) ctPick(h, 230);  // men
             ctAddEntry(1, 9);  // Display text message
-            if (HWND h = ctPicker("text")) {  // a multi-line box sends no EN_CHANGE for WM_SETTEXT: as typing does
-                SetWindowTextW(h, L"Hello from StarDraft 2");
+            if (HWND h = ctPicker("text")) {  // as typing does (the editor tells the window)
+                SetWindowTextW(gameTextFocusBox(h), L"Hello from StarDraft 2");
                 SendMessageW(gCt->wnd, WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(h), EN_CHANGE), LPARAM(h));
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(dir / ("classic_triggers_text" + light + ".png"), app.main);  // the text's editor (the game's colors)
             }
             ctAddEntry(1, 9);
             ctPick(gCt->typeBox, 44);  // Create unit
@@ -1304,7 +1299,7 @@ void classicTrigDatashot(const std::string& spec, const fs::path& dir) {
         for (const ClassicTrigger& tr : t.triggers)
             if (tr.conditions[0].type == 3 && tr.conditions[0].amount == 5 && tr.conditions[0].unit == 230) made = &tr;
         const bool ok = made && made->runsFor(0) && made->actionCount() == 2 && made->actions[0].type == 44 && made->actions[0].unit == 37 &&
-                        made->actions[0].player == 0 && made->actions[1].type == 9 && e.strings().get(made->actions[1].text) == "Hello from StarDraft";
+                        made->actions[0].player == 0 && made->actions[1].type == 9 && e.strings().get(made->actions[1].text) == "Hello from StarDraft 2";
         log << what << ": " << t.triggers.size() << " triggers; the new one (player 1, Bring 5 men, Create unit, then the text) " << (ok ? "yes" : "NO")
             << "\n";
     };

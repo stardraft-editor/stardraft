@@ -4,16 +4,15 @@
 // the size and the tileset change only with their button, "Change the size and tileset".
 
 struct MapPropsDialog {
-    HWND wnd = nullptr, name = nullptr, desc = nullptr;  // the texts are rich boxes (in the game's colors); the rest is painted (map_pages.inc)
-    HWND lastBox = nullptr;                              // the text box that had the focus last (the color chips color its text)
-    std::wstring nameText, descText;
+    HWND wnd = nullptr, name = nullptr, desc = nullptr;  // the texts are game text editors (game_text.inc); the rest is painted (map_pages.inc)
+    std::string nameText, descText;                      // as bytes (the game's codes)
     int era = 0, w = 0, h = 0, anchorIndex = 0;
     uint16_t fillTerrain = 1;
     std::wstring infoText;           // what "Change the size and tileset" will do ("": the size and tileset are the map's)
     RECT changeRect{}, resetRect{};  // the two buttons (tests)
     // What the fields showed when the page first showed the map's values: a change is a difference from these.
     bool baseSet = false;
-    std::wstring nameBase, descBase;
+    std::string nameBase, descBase;
     int eraBase = 0, wBase = 0, hBase = 0;
 };
 MapPropsDialog* gMapProps = nullptr;  // the working copy of the page that shows (map_pages.inc)
@@ -45,11 +44,9 @@ void mapPropsInfo(MapPropsDialog& d) {
 }
 
 // What the page shows, read back.
-enum class TextPalette;
-std::wstring mapTextFromBox(HWND re, TextPalette palette);  // map_pages.inc: a box's text with its colors as the game's color codes
 void mapPropsRead(MapPropsDialog& d) {  // (the rest is set by the page's pickers)
-    if (d.name) d.nameText = mapTextFromBox(d.name, TextPalette(1));  // (TextPalette::Scenario)
-    if (d.desc) d.descText = mapTextFromBox(d.desc, TextPalette(1));
+    if (d.name) d.nameText = gameTextGet(d.name);
+    if (d.desc) d.descText = gameTextGet(d.desc);
 }
 
 // A map text's line ends as StarCraft has them: \r\n (Blizzard's maps; with \n alone the game shows no new line,
@@ -66,9 +63,8 @@ std::string mapTextLineEnds(const std::string& s) {
 
 // The working copy from the map (the fields show it when the page is made).
 void mapPropsLoad(MapPropsDialog& d) {
-    auto toCrlf = [](const std::string& s) { return widen(mapTextLineEnds(s)); };  // (the text box's line ends are \r\n too)
     d = MapPropsDialog{};
-    d.nameText = toCrlf(app.ed->scenarioName()), d.descText = toCrlf(app.ed->scenarioDescription());
+    d.nameText = app.ed->scenarioName(), d.descText = app.ed->scenarioDescription();  // (the editors keep them as they are)
     d.era = app.ed->era() & 7, d.w = app.ed->width(), d.h = app.ed->height();
     d.fillTerrain = mapPropsFirstTerrain(d.era);
 }
@@ -81,10 +77,10 @@ bool mapPropsTextChanged(const MapPropsDialog& d) { return d.baseSet && (d.nameT
 // The title and the description into the map (one undo step); then they are the map's values.
 // A text the page did not change keeps the map's bytes (the box can write a code in another, equal way).
 std::string mapPropsNameBytes(const MapPropsDialog& d) {
-    return d.nameText != d.nameBase ? mapTextLineEnds(narrow(d.nameText)) : app.ed->scenarioName();
+    return d.nameText != d.nameBase ? mapTextLineEnds(d.nameText) : app.ed->scenarioName();
 }
 std::string mapPropsDescBytes(const MapPropsDialog& d) {
-    return d.descText != d.descBase ? mapTextLineEnds(narrow(d.descText)) : app.ed->scenarioDescription();
+    return d.descText != d.descBase ? mapTextLineEnds(d.descText) : app.ed->scenarioDescription();
 }
 void mapPropsApplyText(MapPropsDialog& d) {
     app.ed->setScenarioText(mapPropsNameBytes(d), mapPropsDescBytes(d));
@@ -101,7 +97,6 @@ bool mapPropsApplyTerrain(MapPropsDialog& d) {
 
 // Apply: the text with \r\n (the game's line ends), and the terrain, as one undo step. False: the map stays as it was.
 bool mapPropsApply(MapPropsDialog& d) {
-    auto fromCrlf = [](const std::wstring& w) { return mapTextLineEnds(narrow(w)); };
     const bool text = d.nameText != d.nameBase || d.descText != d.descBase;  // a text the page did not change stays byte for byte
     const bool resize = d.w != app.ed->width() || d.h != app.ed->height() || d.era != app.ed->era();
     if (!text && !resize) return true;

@@ -203,51 +203,7 @@ const UnitPalette::Bitmap* tabEntryIcon(int tab, int e) {
 
 // --- Game text, drawn as the game colors it ------------------------------------------------------------------
 
-// The game's text colors (as StarCraft: Remastered draws them; codes 01 and 02: the text's own color, pale blue).
-COLORREF gameTextColor(unsigned char c, COLORREF normal) {
-    switch (c) {
-    case 1: return normal;                 // use default
-    case 2: return RGB(184, 184, 232);     // pale blue
-    case 3: return RGB(220, 220, 60);      // yellow
-    case 4: return RGB(255, 255, 255);     // white
-    case 5: return RGB(132, 116, 116);     // grey
-    case 6: return RGB(200, 24, 24);       // red
-    case 7: return RGB(16, 252, 24);       // green
-    case 8: return RGB(244, 4, 4);         // red (player 1)
-    case 0x0E: return RGB(12, 72, 204);    // blue (player 2)
-    case 0x0F: return RGB(44, 180, 148);   // teal (player 3)
-    case 0x10: return RGB(136, 64, 156);   // purple (player 4)
-    case 0x11: return RGB(248, 140, 20);   // orange (player 5)
-    case 0x15: return RGB(112, 48, 20);    // brown (player 6)
-    case 0x16: return RGB(204, 224, 208);  // white (player 7)
-    case 0x17: return RGB(252, 252, 56);   // yellow (player 8)
-    case 0x18: return RGB(8, 128, 8);      // green (player 9)
-    case 0x19: return RGB(252, 252, 124);  // brighter yellow (player 10)
-    case 0x1A: return RGB(0, 0, 24);       // "cyan" (the game draws it almost black)
-    case 0x1B: return RGB(236, 196, 176);  // pinkish (player 11)
-    case 0x1C: return RGB(64, 104, 212);   // dark cyan (player 12)
-    case 0x1D: return RGB(116, 164, 124);  // greygreen
-    case 0x1E: return RGB(144, 144, 184);  // bluegrey
-    case 0x1F: return RGB(0, 228, 252);    // turquoise
-    }
-    return 0xFFFFFFFF;
-}
-// Mission briefings color text in their own way (the same codes, other colors): 01 the text's own color, 00 02 1A
-// pale blue, 03 green, 04 light green, 05 gray, 06 white, 07 red; 0B and 14 make the text after them invisible.
-constexpr COLORREF kInvisibleText = 0xFFFFFFFE;
-COLORREF briefingTextColor(unsigned char c, COLORREF normal) {
-    switch (c) {
-    case 1: return normal;
-    case 0: case 2: case 0x1A: return RGB(184, 184, 232);  // pale blue
-    case 3: return RGB(16, 216, 24);                       // green
-    case 4: return RGB(160, 236, 160);                     // light green
-    case 5: return RGB(132, 132, 132);                     // gray
-    case 6: return RGB(255, 255, 255);                     // white
-    case 7: return RGB(220, 32, 32);                       // red
-    case 0x0B: case 0x14: return kInvisibleText;
-    }
-    return 0xFFFFFFFF;
-}
+// (The game's text colors, gameTextColor and briefingTextColor: game_text.inc.)
 // Draws `raw` (UTF-8 with the game's control bytes) in `r`, line by line; returns the height used. `briefing`: the
 // colors of mission briefings.
 int drawGameText(HDC dc, RECT r, const std::string& raw, COLORREF normal, int lineHeight = 0, bool briefing = false) {
@@ -1320,93 +1276,29 @@ bool showButtonPopup(std::string& text, POINT at) {
 
 // --- Strings tab -----------------------------------------------------------------------------------------------
 
-// The text the edit box shows: without the button prefix (the controls show it), or with it in raw mode.
-// Characters that do not show are codes: <01> and so on.
-std::wstring stringEditText(int id) {
+// The editor (game_text.inc) holds the text without a button's hotkey and type characters (the fields show them).
+std::string stringEditBody(int id) {
     const std::string& raw = gExtras.strings.text(id - 1);
-    std::string body = buttonPrefix(raw) && !gExtras.rawText ? raw.substr(2) : raw;
-    std::wstring w = widen(StatTxt::escape(body));
-    std::wstring o;
-    for (wchar_t c : w) {
-        if (c == L'\n') o += L"\r\n";
-        else o += c;
-    }
-    return o;
+    return buttonPrefix(raw) ? raw.substr(2) : raw;
+}
+std::string stringEditPrefix(int id) {
+    const std::string& raw = gExtras.strings.text(id - 1);
+    return buttonPrefix(raw) ? raw.substr(0, 2) : "";
 }
 void stringsCommitEdit() {
     if (!gExtras.textEdit || gExtras.textFor < 1 || !gExtras.textDirty) return;
     gExtras.textDirty = false;
     const int id = gExtras.textFor;
-    const std::string& raw = gExtras.strings.text(id - 1);
-    const std::string prefix = buttonPrefix(raw) && !gExtras.rawText ? raw.substr(0, 2) : "";
-    gExtras.strings.set(id - 1, prefix + StatTxt::unescape(narrow(windowText(gExtras.textEdit))));
+    const std::string text = stringEditPrefix(id) + gameTextGet(gExtras.textEdit);
+    if (text == gExtras.strings.text(id - 1)) return;
+    gExtras.strings.set(id - 1, text);
     extrasChanged();
 }
-DWORD gStringsSelStart = 0, gStringsSelEnd = 0;  // the edit box's selection when it last had the focus
-LRESULT CALLBACK stringsEditProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
-    if (msg == WM_KILLFOCUS) SendMessageW(hwnd, EM_GETSEL, WPARAM(&gStringsSelStart), LPARAM(&gStringsSelEnd)), stringsCommitEdit();
-    if (msg == WM_CHAR && wp == 1) return SendMessageW(hwnd, EM_SETSEL, 0, -1), 0;  // Ctrl+A
-    return DefSubclassProc(hwnd, msg, wp, lp);
-}
-// Puts a control code in at an edit box's cursor (its selection when it last had the focus); with text selected,
-// the code goes before it and "back to normal" (<01>) after it. `changed` marks the box's text as changed.
-void insertCode(HWND edit, unsigned char code, const std::function<void()>& changed) {
-    if (!edit) return;
-    wchar_t c[8];
-    std::swprintf(c, 8, L"<%02X>", code);
-    SetFocus(edit);
-    SendMessageW(edit, EM_SETSEL, gStringsSelStart, gStringsSelEnd);
-    std::wstring text = c;
-    if (gStringsSelEnd > gStringsSelStart && code != 1) {
-        const std::wstring all = windowText(edit);
-        if (gStringsSelEnd <= all.size()) text += all.substr(gStringsSelStart, gStringsSelEnd - gStringsSelStart) + L"<01>";
-    }
-    SendMessageW(edit, EM_REPLACESEL, TRUE, LPARAM(text.c_str()));
-    changed();
-    InvalidateRect(GetParent(edit), nullptr, FALSE);
-}
-// The color code buttons: a chip of the color and its code; the tooltip names it.
-// `briefing`: the codes and colors of mission briefings.
-int colorCodeButtons(HDC dc, const FormLayout& l, int y, HWND edit, std::function<void()> changed, bool briefing = false) {
-    static const std::vector<std::pair<unsigned char, const wchar_t*>> gameCodes = {
-        {1, L"Normal (back to the text's own color)"}, {3, L"Yellow"}, {4, L"White"}, {5, L"Gray"}, {6, L"Red"}, {7, L"Green"},
-        {8, L"Red (Player 1)"}, {0x0E, L"Blue (Player 2)"}, {0x0F, L"Teal (Player 3)"}, {0x10, L"Purple (Player 4)"}, {0x11, L"Orange (Player 5)"},
-        {0x15, L"Brown (Player 6)"}, {0x16, L"White (Player 7)"}, {0x17, L"Yellow (Player 8)"}, {0x12, L"Align right"}, {0x13, L"Align center"}};
-    static const std::vector<std::pair<unsigned char, const wchar_t*>> briefingCodes = {
-        {1, L"Normal (back to the text's own color)"}, {2, L"Pale blue"}, {3, L"Green"}, {4, L"Light green"}, {5, L"Gray"}, {6, L"White"},
-        {7, L"Red"}, {0x0B, L"Invisible (the text after it is not shown)"}, {0x12, L"Align right"}, {0x13, L"Align center"}};
-    const auto& codes = briefing ? briefingCodes : gameCodes;
-    const int h = scale(24), w = scale(48), gap = scale(4);
-    int x = l.x0;
-    for (const auto& [code, name] : codes) {
-        if (x + w > l.colRight) x = l.x0, y += h + gap;
-        RECT r{x, y, x + w, y + h};
-        const bool hot = mouseIn(r);
-        ui::box(dc, r, hot ? kCtlHot : kCtl, hot ? kBorderHot : kBorder);
-        wchar_t label[8];
-        std::swprintf(label, 8, L"%02X", code);
-        RECT t{r.left + scale(8), r.top, r.right - scale(4), r.bottom};
-        if (code == 0x12 || code == 0x13) {  // alignment: a glyph instead of a color
-            HGDIOBJ og = SelectObject(dc, glyphFont(12));
-            SetTextColor(dc, kText);
-            RECT g{r.left + scale(6), r.top, r.left + scale(20), r.bottom};
-            DrawTextW(dc, code == 0x12 ? L"\xE8E2" : L"\xE8E3", 1, &g, DT_SINGLELINE | DT_VCENTER | DT_CENTER);
-            SelectObject(dc, og);
-        } else {
-            RECT sw{r.left + scale(7), r.top + scale(7), r.left + scale(17), r.bottom - scale(7)};
-            const COLORREF c = code == 1 ? RGB(208, 208, 208) : briefing ? briefingTextColor(code, 0) : gameTextColor(code, 0);
-            if (c == kInvisibleText) roundBox(dc, sw, scale(2), kDim);  // invisible: an empty box
-            else fillAlpha(dc, sw, c, 255);
-        }
-        t.left = r.left + scale(22);
-        SetTextColor(dc, kDim);
-        DrawTextW(dc, label, -1, &t, DT_SINGLELINE | DT_VCENTER);
-        const unsigned char c = code;
-        hitsOut().push_back({r, nullptr, [c, edit, changed] { insertCode(edit, c, changed); }, std::wstring(name) + L". Puts <" + label + L"> in at the cursor; with text selected, colors only that text.",
-                               IDC_HAND, {}});
-        x += w + gap;
-    }
-    return y + h + scale(6);
+// The game's strings are in-game text: the game's colors (with the players' colors).
+GameTextSpec stringsTextSpec() {
+    GameTextSpec s;
+    s.palette = TextPalette::Game, s.multiline = true, s.align = true;
+    return s;
 }
 void stringsShowEdit(bool show) {
     if (!show) {
@@ -1414,10 +1306,8 @@ void stringsShowEdit(bool show) {
         return;
     }
     if (!gExtras.textEdit) {
-        gExtras.textEdit = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN, 0, 0, 10, 10, gData.form, nullptr,
-                                           GetModuleHandleW(nullptr), nullptr);
-        SendMessageW(gExtras.textEdit, WM_SETFONT, WPARAM(monoFont()), TRUE);
-        SetWindowSubclass(gExtras.textEdit, stringsEditProc, 1, 0);
+        gExtras.textEdit = gameTextCreate(gData.form, 1801, {0, 0, scale(400), scale(160)}, stringsTextSpec());
+        ShowWindow(gExtras.textEdit, SW_HIDE);
     }
 }
 
@@ -1434,10 +1324,7 @@ void paintStringsForm(HDC dc, RECT rc, int& y) {
     const int top = y;
     // The preview: a picture, in the right column (above the fields when narrow); its legend is the color codes.
     std::string previewRaw = raw;
-    if (gExtras.textDirty && gExtras.textEdit) {
-        const std::string prefix = buttonPrefix(raw) && !gExtras.rawText ? raw.substr(0, 2) : "";
-        previewRaw = prefix + StatTxt::unescape(narrow(windowText(gExtras.textEdit)));
-    }
+    if (gExtras.textDirty && gExtras.textEdit && gExtras.textFor == id) previewRaw = stringEditPrefix(id) + gameTextGet(gExtras.textEdit);
     int picBottom;
     {
         TEXTMETRICW tm;
@@ -1498,30 +1385,21 @@ void paintStringsForm(HDC dc, RECT rc, int& y) {
                 L"The kind of button. For a unit, an upgrade or a technology, the game's tooltip shows the cost.", nullptr, has ? type : -1);
         y += l.rowH + scale(8);
     }
-    // Raw: every character of the string as it is stored (a button's hotkey and type characters, codes as <01>).
-    ui::check(dc, {l.x0, y, l.x0 + scale(420), y + l.rowH}, L"Display raw value", gExtras.rawText, [] {
-        stringsCommitEdit();
-        gExtras.rawText = !gExtras.rawText;
-        gExtras.textFor = -1;  // the edit box shows the string again, the other way
-        InvalidateRect(gData.form, nullptr, FALSE);
-    }, L"The text box shows the string as the game stores it: a button's text starts with its hotkey and type "
-       L"characters. Off: the box shows the text only, and the Hotkey and Type fields show those characters. The dark box on "
-       L"the right is the game preview.");
-    y += l.rowH;
-    // The text: an edit box over the field column, with a box drawn around it as the value boxes have.
+    // The text: the editor over the field column (Preview: the text in the game's colors; Raw: the codes as <XX>).
     stringsShowEdit(true);
-    const int editH = scale(120);
-    RECT frame{l.x0, y, l.colRight, y + editH};
-    ui::fieldBox(dc, frame, GetFocus() == gExtras.textEdit ? ui::Field::Focus : gExtras.strings.changed(id - 1) ? ui::Field::Changed : ui::Field::Normal);
+    const RECT er{l.x0, y, l.colRight, y + gameTextHeight(stringsTextSpec(), l.colRight - l.x0, scale(120))};
     if (gExtras.textFor != id) {
         gExtras.textFor = id;
-        SetWindowTextW(gExtras.textEdit, stringEditText(id).c_str());
+        gameTextSet(gExtras.textEdit, stringEditBody(id));
         gExtras.textDirty = false;
     }
-    MoveWindow(gExtras.textEdit, frame.left + scale(8), frame.top + scale(6), frame.right - frame.left - scale(16), editH - scale(12), TRUE);
+    RECT now;
+    GetWindowRect(gExtras.textEdit, &now);
+    MapWindowPoints(nullptr, gData.form, reinterpret_cast<POINT*>(&now), 2);
+    if (!EqualRect(&now, &er)) SetWindowPos(gExtras.textEdit, nullptr, er.left, er.top, er.right - er.left, er.bottom - er.top, SWP_NOZORDER | SWP_NOACTIVATE);
+    gameTextSetChanged(gExtras.textEdit, gExtras.strings.changed(id - 1));
     ShowWindow(gExtras.textEdit, SW_SHOWNA);
-    y += editH + scale(6);
-    y = colorCodeButtons(dc, l, y, gExtras.textEdit, [] { gExtras.textDirty = true; });
+    y = er.bottom + scale(10);
     // Room: the game copies the strings over its own.
     y = capacityBar(dc, l, y, gExtras.strings.build().size(), gExtras.strings.capacity(), L"Size of all strings together. The game has room for at most the number after the slash.");
     if (l.twoCol) y = std::max(y, picBottom);

@@ -64,12 +64,13 @@ int classicEntryCount(int tab) {
 }
 
 std::wstring formatUnitName(const std::wstring& game, const std::wstring& c);
+bool editGameText(const std::wstring& title, std::string& text, POINT at);  // main.cpp: the game text pop-out (colors, Preview and Raw)
 std::wstring classicEntryName(int tab, int e) {
     if (tab == kClassicUnits && app.ed && e >= 0 && e < int(app.ed->unitTypes().size())) {  // with the page's name (Program options > Unit names)
         const UnitType& t = app.ed->unitTypes()[uint16_t(e)];
         const std::wstring game = widen(t.name) + (t.subtitle.empty() ? L"" : L" (" + widen(t.subtitle) + L")");
         const bool own = !gClassic->units.units[size_t(e)].useDefault;
-        return formatUnitName(game, own ? widen(gClassic->names[size_t(e)]) : L"");
+        return formatUnitName(game, own ? gameTextPlain(gClassic->names[size_t(e)]) : L"");  // (its colors: in the name's editor)
     }
     std::wstring n = entryName(tab == kClassicUpgrades ? "upgrades" : "techdata", e);
     return n.empty() ? L"(" + std::to_wstring(e) + L")" : n;
@@ -375,19 +376,17 @@ void classicCommand(int tab, int id, int code) {
         if (k >= 0 && k < LRESULT(pg.shown.size())) pg.entry = pg.shown[size_t(k)], classicFill(tab);
         return;
     }
-    if (id == kCsRename && code == BN_CLICKED) {  // the name box in place of the title
+    if (id == kCsRename && code == BN_CLICKED) {  // the name in the game text pop-out under the title (the game's colors)
         RECT tr;
         GetWindowRect(pg.title, &tr);
-        MapWindowPoints(nullptr, pg.wnd, reinterpret_cast<POINT*>(&tr), 2);
-        pg.nameBefore = classicUseDefault(tab, e) ? "" : d.names[i];
-        RECT fr{};  // as wide as the fields under it
-        GetWindowRect(pg.fields[0], &fr);
-        MapWindowPoints(nullptr, pg.wnd, reinterpret_cast<POINT*>(&fr), 2);
-        SetWindowPos(pg.name, nullptr, tr.left, tr.top + (tr.bottom - tr.top - scale(ui::kFieldH)) / 2, fr.right - tr.left, scale(ui::kFieldH),
-                     SWP_NOZORDER | SWP_SHOWWINDOW);
-        ShowWindow(pg.title, SW_HIDE), ShowWindow(pg.rename, SW_HIDE);
-        SetFocus(pg.name);
-        SendMessageW(pg.name, EM_SETSEL, 0, -1);
+        std::string text = classicUseDefault(tab, e) ? "" : d.names[i];
+        const std::wstring game = widen(app.ed->unitTypes()[uint16_t(e)].name);
+        if (!editGameText(L"Unit name   (empty: " + game + L")", text, {tr.left, tr.bottom + scale(4)})) return;
+        if (classicUseDefault(tab, e)) classicSetUseDefault(tab, e, false);  // a name of its own: the entry's own values
+        d.names[i] = text;
+        classicFollowDefault(tab, e);
+        classicFill(tab);
+        InvalidateRect(pg.list, nullptr, FALSE);
         return;
     }
     if (d.filling) return;

@@ -357,10 +357,11 @@ void briefNudge(int delta) {
 }
 // Edit's commands in the Briefing workspace (the text box keeps its own copy and paste).
 bool briefCommand(int id) {
-    if (GetFocus() == gBrief.text) {
+    if (gameTextHasFocus(gBrief.text)) {
+        HWND box = gameTextFocusBox(gBrief.text);
         const UINT m = id == ID_EDIT_COPY ? WM_COPY : id == ID_EDIT_CUT ? WM_CUT : id == ID_EDIT_PASTE ? WM_PASTE : id == ID_EDIT_DELETE ? WM_CLEAR : 0;
-        if (m) return SendMessageW(gBrief.text, m, 0, 0), true;
-        if (id == ID_EDIT_SELECTALL) return SendMessageW(gBrief.text, EM_SETSEL, 0, -1), true;
+        if (m) return SendMessageW(box, m, 0, 0), true;
+        if (id == ID_EDIT_SELECTALL) return SendMessageW(box, EM_SETSEL, 0, -1), true;
         return false;
     }
     switch (id) {
@@ -674,8 +675,8 @@ std::vector<BriefWord> briefSentence(const BriefingAction& a) {
         w.push_back({t.empty() ? L"(text)" : t, [](POINT) {
                          InvalidateRect(gBrief.wnd, nullptr, FALSE);
                          UpdateWindow(gBrief.wnd);  // the text box shows for this row, then gets the caret
-                         SetFocus(gBrief.text);
-                         SendMessageW(gBrief.text, EM_SETSEL, 0, -1);
+                         SetFocus(gameTextFocusBox(gBrief.text));
+                         SendMessageW(gameTextFocusBox(gBrief.text), EM_SETSEL, 0, -1);
                      },
                      nullptr, L"Edit the text under the list (with its colors)"});
     };
@@ -732,8 +733,13 @@ int briefRowOf(int trig, int act) {
     return -1;
 }
 
-// The selected action's text (when it has one): an edit box with the color code buttons. Its other values are
-// chips in its row.
+// The selected action's text (when it has one): a game text editor in the briefing's colors (game_text.inc). Its
+// other values are chips in its row.
+GameTextSpec briefTextSpec() {
+    GameTextSpec s;
+    s.palette = TextPalette::Scenario, s.multiline = true, s.align = true;  // (the line ends as the text has them)
+    return s;
+}
 int paintBriefingFields(HDC dc, const FormLayout& l, int y) {
     int ti, ai;
     if (!briefSelected(ti, ai)) {
@@ -741,28 +747,22 @@ int paintBriefingFields(HDC dc, const FormLayout& l, int y) {
         return y;
     }
     const BriefingAction& a = briefings()[size_t(ti)].actions[size_t(ai)];
-    // Text: an edit box (the control bytes as <XX>), with the color code buttons under it.
+    // Text: the editor (its colors under it).
     const bool hasText = a.type == BriefingAction::TextMessage || a.type == BriefingAction::Objectives || a.type == BriefingAction::Transmission;
     if (hasText) {
-        const int h = scale(110);
-        RECT frame{l.x0, y + scale(4), l.colRight, y + scale(4) + h};
-        ui::fieldBox(dc, frame, GetFocus() == gBrief.text ? ui::Field::Focus : ui::Field::Normal);
+        const int h = gameTextHeight(briefTextSpec(), l.colRight - l.x0, scale(110));
+        const RECT r{l.x0, y + scale(4), l.colRight, y + scale(4) + h};
         if (gBrief.textFor != gBrief.sel) {
             gBrief.textFor = gBrief.sel;
-            std::wstring w = widen(StatTxt::escape(a.text)), o;
-            for (wchar_t c : w) c == L'\n' ? o += L"\r\n" : o += c;
-            SetWindowTextW(gBrief.text, o.c_str());
+            gameTextSet(gBrief.text, a.text);
             gBrief.textDirty = false;
         }
-        MoveWindow(gBrief.text, frame.left + scale(8), frame.top + scale(6), frame.right - frame.left - scale(16), h - scale(12), TRUE);
+        RECT now;
+        GetWindowRect(gBrief.text, &now);
+        MapWindowPoints(nullptr, gBrief.wnd, reinterpret_cast<POINT*>(&now), 2);
+        if (!EqualRect(&now, &r)) SetWindowPos(gBrief.text, nullptr, r.left, r.top, r.right - r.left, r.bottom - r.top, SWP_NOZORDER | SWP_NOACTIVATE);
         ShowWindow(gBrief.text, SW_SHOWNA);
-        y = colorCodeButtons(
-            dc, l, frame.bottom + scale(6), gBrief.text,
-            [] {
-                gBrief.textDirty = true;
-                briefPreviewText();
-            },
-            true);
+        y = r.bottom + scale(6);
     } else if (gBrief.text) {
         ShowWindow(gBrief.text, SW_HIDE);
     }
@@ -1134,16 +1134,8 @@ void paintBriefing(HWND hwnd) {
     partDone(3);
 }
 
-// The text box's text, as the action keeps it (with the string's own line ends).
-std::string briefBoxText(const std::string& before) {
-    std::string text = StatTxt::unescape(narrow(windowText(gBrief.text)));
-    if (before.find("\r\n") != std::string::npos) {
-        std::string crlf;
-        for (char c : text) c == '\n' ? crlf += "\r\n" : crlf += c;
-        text = crlf;
-    }
-    return text;
-}
+// The text box's text, as the action keeps it (the editor keeps the text's own line ends).
+std::string briefBoxText(const std::string&) { return gameTextGet(gBrief.text); }
 void briefCommitText() {
     if (!gBrief.text || !gBrief.textDirty) return;
     gBrief.textDirty = false;
@@ -1159,16 +1151,6 @@ void briefPreviewText() {
     if (text == x.text) return;
     x.text = text;
     InvalidateRect(gBrief.wnd, nullptr, FALSE);
-}
-LRESULT CALLBACK briefTextProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
-    if (msg == WM_KILLFOCUS) SendMessageW(hwnd, EM_GETSEL, WPARAM(&gStringsSelStart), LPARAM(&gStringsSelEnd)), briefCommitText();
-    if (msg == WM_KEYUP) {
-        const LRESULT r = DefSubclassProc(hwnd, msg, wp, lp);
-        briefPreviewText();
-        return r;
-    }
-    if (msg == WM_CHAR && wp == 1) return SendMessageW(hwnd, EM_SETSEL, 0, -1), 0;  // Ctrl+A
-    return DefSubclassProc(hwnd, msg, wp, lp);
 }
 
 LRESULT CALLBACK briefWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
@@ -1187,7 +1169,8 @@ LRESULT CALLBACK briefWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     case WM_COMMAND:
-        if (HWND(lp) == gBrief.text && HIWORD(wp) == EN_CHANGE && GetFocus() == gBrief.text) gBrief.textDirty = true;
+        if (HWND(lp) == gBrief.text && HIWORD(wp) == EN_CHANGE) gBrief.textDirty = true, briefPreviewText();  // the preview as it is typed
+        if (HWND(lp) == gBrief.text && HIWORD(wp) == EN_KILLFOCUS) briefCommitText();                         // one undo step
         return 0;
     case WM_MOUSEWHEEL:
         if (GET_WHEEL_DELTA_WPARAM(wp) < 0 && gBriefAllShown) return 0;
@@ -1283,7 +1266,6 @@ void createBriefingView() {
     wc.hInstance = app.inst, wc.hCursor = LoadCursor(nullptr, IDC_ARROW), wc.lpfnWndProc = briefWndProc, wc.lpszClassName = L"StarDraftBriefing";
     RegisterClassExW(&wc);
     gBrief.wnd = CreateWindowExW(0, L"StarDraftBriefing", L"", WS_CHILD | WS_CLIPCHILDREN, 0, 0, 1, 1, app.main, nullptr, app.inst, nullptr);
-    gBrief.text = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN, 0, 0, 10, 10, gBrief.wnd, nullptr, app.inst, nullptr);
-    SendMessageW(gBrief.text, WM_SETFONT, WPARAM(monoFont()), TRUE);
-    SetWindowSubclass(gBrief.text, briefTextProc, 1, 0);
+    gBrief.text = gameTextCreate(gBrief.wnd, 1701, {0, 0, scale(400), scale(160)}, briefTextSpec());
+    ShowWindow(gBrief.text, SW_HIDE);
 }
