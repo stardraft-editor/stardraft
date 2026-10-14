@@ -1,0 +1,32 @@
+name: Post new issues to Discord
+
+# Each new issue (from GitHub, from feedback in StarDraft 2, or a crash report) goes to the Discord channel of the
+# webhook in the secret DISCORD_ISSUES_WEBHOOK: its number, title, labels, the first part of its text and its link.
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post
+        env:
+          DISCORD_ISSUES_WEBHOOK: ${{ secrets.DISCORD_ISSUES_WEBHOOK }}
+          ISSUE: ${{ toJson(github.event.issue) }}
+        run: |
+          if [ -z "$DISCORD_ISSUES_WEBHOOK" ]; then echo "No secret DISCORD_ISSUES_WEBHOOK"; exit 1; fi
+          # An embed: the title links to the issue; the text is cut to 500 characters. No mentions from the issue's text.
+          echo "$ISSUE" | jq '{
+            allowed_mentions: {parse: []},
+            embeds: [{
+              title: ("#" + (.number | tostring) + " " + .title)[0:256],
+              url: .html_url,
+              description: ((.body // "") | if length > 500 then .[0:500] + "…" else . end),
+              color: (if any(.labels[]; .name == "crash") then 15548997 else 5793266 end),
+              author: {name: .user.login, icon_url: .user.avatar_url},
+              footer: {text: ([.labels[].name] | if length > 0 then "Labels: " + join(", ") else "New issue" end)},
+              timestamp: .created_at
+            }]
+          }' > payload.json
+          curl -sS --fail-with-body -H "Content-Type: application/json" -d @payload.json "$DISCORD_ISSUES_WEBHOOK"
