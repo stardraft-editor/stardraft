@@ -101,6 +101,10 @@ public:
     // (remakeUnitsScript). Call save() to keep a change.
     bool remakeUnits() const;
     void setRemakeUnits(bool on);
+    // The doodads pinned to the top of the Doodads palette, in the order they were pinned ("doodadpins: 12,45" in
+    // [project]; not written to the .eds). Call save() to keep a change.
+    std::vector<uint16_t> doodadPins() const;
+    void setDoodadPins(const std::vector<uint16_t>& ids);
     // The code for that: each unit of `types` removed and made again on its place with the same owner, hit points,
     // shields, energy, resources and invincibility. The units that a new unit cannot copy stay as they are: not
     // finished, burrowed, loaded, hallucinations, lifted buildings, cloaked units, units with an add-on, an attached

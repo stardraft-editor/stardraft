@@ -165,7 +165,7 @@ std::string EudProject::text(bool eds) const {
         o << '[' << sections_[i].name << "]\r\n";
         for (const auto& l : sections_[i].lines) {
             std::string k, v;
-            if (eds && i == 0 && splitLine(l, k, v) && (k == "debug" || k == "trace" || k == "remake")) continue;  // StarDraft's own settings: not for euddraft
+            if (eds && i == 0 && splitLine(l, k, v) && (k == "debug" || k == "trace" || k == "remake" || k == "doodadpins")) continue;  // StarDraft's own settings: not for euddraft
             o << l << "\r\n";
         }
         // A trace build: euddraft's debug mode (any "debug" key turns it on, so it is written only when on).
@@ -389,6 +389,24 @@ void EudProject::setRemakeUnits(bool on) {
     std::string k, v;
     lines.erase(std::remove_if(lines.begin(), lines.end(), [&](const std::string& l) { return splitLine(l, k, v) && k == "remake"; }), lines.end());
     if (on) lines.push_back("remake: 1");
+}
+
+std::vector<uint16_t> EudProject::doodadPins() const {
+    std::vector<uint16_t> out;
+    std::stringstream ss(mainValue("doodadpins"));
+    for (std::string part; std::getline(ss, part, ',');)
+        if (!part.empty() && std::all_of(part.begin(), part.end(), [](char c) { return c >= '0' && c <= '9'; }) && part.size() < 6) out.push_back(uint16_t(std::stoi(part)));
+    return out;
+}
+void EudProject::setDoodadPins(const std::vector<uint16_t>& ids) {
+    if (sections_.empty()) return;
+    auto& lines = sections_.front().lines;
+    std::string k, v;
+    lines.erase(std::remove_if(lines.begin(), lines.end(), [&](const std::string& l) { return splitLine(l, k, v) && k == "doodadpins"; }), lines.end());
+    if (ids.empty()) return;
+    std::string line = "doodadpins: ";
+    for (size_t i = 0; i < ids.size(); ++i) line += (i ? "," : "") + std::to_string(ids[i]);
+    lines.push_back(line);
 }
 
 std::string EudProject::remakeUnitsScript(const std::vector<RemakeType>& types) {

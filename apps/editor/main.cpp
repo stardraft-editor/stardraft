@@ -604,6 +604,7 @@ struct UnitPalette {
     std::vector<Entry> entries;
     std::vector<int> chosen;  // picked units; several with Ctrl+click (spray and replace use them all)
     int scroll = 0, contentH = 0, hover = -1;
+    int pinned = 0;  // Doodads in a project: the pinned doodads first (entries 1..pinned, under a "Pinned" heading)
     std::map<std::tuple<int, int, int, bool>, Bitmap> bitmaps;  // (mode, value, owner, sprite)
     const void* bitmapsFor = nullptr;                      // editor the bitmaps were made with
     int bitmapsGraphics = -1;                              // ... gUnitGraphics (the unit graphics of the project's edits, or not)
@@ -5532,9 +5533,23 @@ void rebuildUnitPalette() {
         return true;
     };
     const bool literal = !filter.empty() && std::any_of(units.begin(), units.end(), contains);
+    auto shown = [&](const PaletteUnit& u) {
+        return (gPal.section.empty() || u.section == gPal.section) && (literal ? contains(u) : fuzzyScore(u.hay, filter) >= 0);
+    };
+    // Doodads in a project: the pinned ones first, in the order they were pinned; each stays in its place below too.
+    gPal.pinned = 0;
+    if (app.mode == Mode::Doodads)
+        if (const EudProject* pr = activeProject())
+            for (uint16_t id : pr->doodadPins())
+                for (const auto& u : units)
+                    if (u.value == id && shown(u)) {
+                        if (!gPal.pinned) gPal.entries.push_back({-1, L"Pinned", {}});
+                        gPal.entries.push_back({u.value, u.label, {}});
+                        ++gPal.pinned;
+                        break;
+                    }
     for (const auto& u : units) {
-        if (!gPal.section.empty() && u.section != gPal.section) continue;  // the section box
-        if (literal ? !contains(u) : fuzzyScore(u.hay, filter) < 0) continue;
+        if (!shown(u)) continue;
         if (!prev || prev->order != u.order) gPal.entries.push_back({-1, u.section, {}});
         gPal.entries.push_back({u.value, u.label, {}});
         prev = &u;
@@ -6069,6 +6084,13 @@ void paintUnitPalette(HWND hwnd) {
                 DrawTextW(mem, L"R", 1, &rt, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
             }
         }
+        if (gPal.pinned && i >= 1 && i <= size_t(gPal.pinned)) {  // a pinned doodad's copy at the top: the pin at its right
+            HGDIOBJ of = SelectObject(mem, glyphFont(11));
+            SetTextColor(mem, kDim);
+            RECT pr2{r.right - scale(22), r.top, r.right - scale(6), r.bottom};
+            DrawTextW(mem, L"ç18", 1, &pr2, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
+            SelectObject(mem, of);
+        }
         RECT box = r;
         if (gPal.grid) InflateRect(&box, -scale(3), -scale(3));
         else {  // a square for a unit or doodad; terrain swatches are wide, so twice as wide
@@ -6203,9 +6225,35 @@ void setUnitPaletteView(int id) {
 std::pair<std::wstring, std::wstring> paletteGoGroup(const std::wstring& section);
 
 // The palette's view menu: a list or a grid (units: a grid of command icons or of sprites), normal or large; then the
-// list's sections (units, doodads, sprites) under their group headings: the list scrolls to the one picked.
-void unitPaletteMenu(int sx, int sy) {
+// list's sections (units, sprites: under their group headings; doodads: only the categories): the list scrolls to the
+// one picked. `value`: the entry right-clicked (-1: none); a doodad in a project gets Pin to the top / Unpin first.
+constexpr int kPalPin = 0xDF00;  // the palette menu's Pin / Unpin item
+// Pins a doodad to the top of the Doodads palette, or unpins it; kept in the project at once (no project: nothing).
+void doodadPinToggle(int value) {
+    EudProject* pr = activeProject();
+    if (!pr || value < 0) return;
+    std::vector<uint16_t> pins = pr->doodadPins();
+    const auto it = std::find(pins.begin(), pins.end(), uint16_t(value));
+    const bool was = it != pins.end();
+    if (was) pins.erase(it);
+    else pins.push_back(uint16_t(value));
+    pr->setDoodadPins(pins);
+    std::string err;
+    if (!gSelfTest && !pr->save(err)) themedMessageBox(app.main, widen(err).c_str(), L"Could not save the project", MB_ICONERROR);
+    setMessage((was ? L"Unpinned " : L"Pinned to the top: ") + paletteItemName(value));
+    rebuildUnitPalette();
+    unitPaletteRepaint();
+}
+
+void unitPaletteMenu(int sx, int sy, int value) {
     HMENU m = CreatePopupMenu();
+    EudProject* pr = app.mode == Mode::Doodads && value >= 0 ? activeProject() : nullptr;  // pins are kept in the project
+    const std::vector<uint16_t> pins = pr ? pr->doodadPins() : std::vector<uint16_t>{};
+    const bool isPinned = std::find(pins.begin(), pins.end(), uint16_t(value)) != pins.end();
+    if (pr) {
+        AppendMenuW(m, MF_STRING, kPalPin, isPinned ? L"Un&pin" : L"&Pin to the top");
+        AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+    }
     AppendMenuW(m, MF_STRING, ID_PAL_LIST, L"&List");
     if (app.mode == Mode::Units) {
         AppendMenuW(m, MF_STRING, ID_PAL_ICONS, L"&Grid: icons");
@@ -6241,6 +6289,7 @@ void unitPaletteMenu(int sx, int sy) {
     }
     int id = popupMenu(m, TPM_RIGHTBUTTON, sx, sy, app.main);
     DestroyMenu(m);
+    if (id == kPalPin && pr) return doodadPinToggle(value);
     if (id >= kFirst && id < kFirst + int(sections.size())) {
         scrollUnitPalette(gPal.entries[sections[size_t(id - kFirst)]].rc.top);
         return;
@@ -6249,7 +6298,7 @@ void unitPaletteMenu(int sx, int sy) {
 }
 
 // A palette section's group in the View menu (a heading there) and its name under it: units by race ("Terran Ground Units":
-// Terran > Ground Units), sprites as doodads, units and buildings, other; doodads as high ground and the rest.
+// Terran > Ground Units), sprites as doodads, units and buildings, other; doodads have no group (only the categories).
 std::pair<std::wstring, std::wstring> paletteGoGroup(const std::wstring& section) {
     if (app.mode == Mode::Units) {
         const size_t sp = section.find(L' ');
@@ -6263,7 +6312,7 @@ std::pair<std::wstring, std::wstring> paletteGoGroup(const std::wstring& section
         if (section == L"Terran" || section == L"Zerg" || section == L"Protoss") return {L"Units and buildings", section};
         return {L"Other", section};
     }
-    if (app.mode == Mode::Doodads) return {section.starts_with(L"High ") ? L"High ground" : L"Low ground and other", section};
+    if (app.mode == Mode::Doodads) return {L"", section};  // only the categories, no group headings (2026-10-15)
     return {L"", section};
 }
 
@@ -6389,9 +6438,10 @@ LRESULT CALLBACK unitPaletteProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_RBUTTONUP: {
+        const int h = unitPaletteHit(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
         POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
         ClientToScreen(hwnd, &pt);
-        unitPaletteMenu(pt.x, pt.y);
+        unitPaletteMenu(pt.x, pt.y, h >= 0 ? gPal.entries[size_t(h)].value : -1);  // on a doodad of a project: Pin to the top
         return 0;
     }
     }
@@ -20268,7 +20318,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         } else if (id == IDC_PALVIEW) {
             RECT r;
             GetWindowRect(gPal.viewBtn, &r);
-            unitPaletteMenu(r.left, r.bottom);
+            unitPaletteMenu(r.left, r.bottom, -1);
             SetFocus(app.view);
         } else if (id == IDC_UNITSEARCH && code == EN_CHANGE) {
             gPal.scroll = 0;
@@ -26942,6 +26992,36 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 capture(fs::path(datashots) / "isomnull.png", app.main);
                 o << "can paint " << canPaint << ", tiles changed " << changed << ", tiles in the middle not null " << dirt << " "
                   << (changed > 0 && dirt > 0 ? "yes" : "NO") << "\n";
+                continue;
+            }
+            if (s == "doodadpin:") {  // doodadpin.txt, doodadpin.png: in a project, two doodads pinned to the top of the palette, then unpinned
+                std::ofstream o(fs::path(datashots) / "doodadpin.txt");
+                if (!activeProject()) {
+                    o << "open a project NO\n";
+                    continue;
+                }
+                setWorkspace(Workspace::Map);
+                setMode(Mode::Doodads);
+                rebuildUnitPalette();
+                std::vector<int> ids;  // the 5th and the 2nd doodad of the list
+                for (const auto& en : gPal.entries)
+                    if (en.value >= 0) ids.push_back(en.value);
+                if (ids.size() < 5) {
+                    o << "doodads in the palette NO\n";
+                    continue;
+                }
+                const std::vector<uint16_t> before = activeProject()->doodadPins();
+                doodadPinToggle(ids[4]), doodadPinToggle(ids[1]);
+                const bool top = gPal.pinned == 2 && gPal.entries[0].value < 0 && gPal.entries[1].value == ids[4] && gPal.entries[2].value == ids[1];
+                int copies = 0;
+                for (size_t k = 3; k < gPal.entries.size(); ++k) copies += gPal.entries[k].value == ids[4] || gPal.entries[k].value == ids[1];
+                const auto pins = activeProject()->doodadPins();
+                o << "pinned at the top in pin order " << (top ? "yes" : "NO") << ", and still in their places " << (copies == 2 ? "yes" : "NO")
+                  << ", kept in the project " << (pins.size() == before.size() + 2 ? "yes" : "NO") << "\n";
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "doodadpin.png", app.main);
+                doodadPinToggle(ids[4]), doodadPinToggle(ids[1]);
+                o << "unpinned: the list as before " << (gPal.pinned == 0 && activeProject()->doodadPins() == before ? "yes" : "NO") << "\n";
                 continue;
             }
             if (s == "isomtwo:") {  // isomtwo.txt, isomtwo.png: isometric terrain: click a terrain, Ctrl+click a second; left paints the first, right the second
