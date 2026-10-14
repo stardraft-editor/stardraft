@@ -63,6 +63,16 @@ Accelerated improvements, and the missing features based on early user feedback.
 
 Make StarDraft 2 a more powerful creation suite.
 
+- [ ] **R56 Signed program.** *Tag:* Platform.
+  StarDraft 2 has a code-signing certificate, so that Windows and antivirus programs trust it.
+
+  Windows shows a warning when users start StarDraft 2 for the first time, and some antivirus programs stop it. Users
+  cannot see that the program comes from the StarDraft 2 team.
+- [ ] **R55 Stacked units.** *Tag:* Capability.
+  Place units on top of each other, as in SCMDraft 2, and see a list of all the units under the cursor.
+
+  Mappers use stacked units for dense mineral fields and for buildings that attack very fast. StarDraft 2 does not
+  let units overlap, and a click selects only the top unit.
 - [ ] **R37 Terrain decoration tools.** *Tag:* Terrain.
   Tools that put doodads and decoration on the terrain, such as a doodad spray that puts doodads only where they fit.
 
@@ -79,6 +89,13 @@ Make StarDraft 2 a more powerful creation suite.
 
   The Triggers workspace marks EUD errors and desync risks, but mappers cannot see what the checkers look at and what
   they cannot find.
+- [ ] **R54 Built-in help articles.** *Tag:* UI.
+  Help articles in a sidebar of StarDraft 2, which are also on the website. Each article has a feedback button and
+  names its sources. The first articles explain the fields of the EUD Book.
+
+  Mappers must find help on many websites, and the program does not tell what a value does in the game (for example,
+  how build time changes to seconds). Much good help exists in the community (SCRMapDocs, the EUD Book, the euddraft
+  wiki, Staredit.net): link to it, with the permission of the authors.
 - [ ] **R33 Unit range overlay.** *Tag:* Capability.
   Show the weapon ranges, sight, detection and psi fields of the selected units on the map.
 
@@ -165,6 +182,10 @@ Make StarDraft 2 a more powerful creation suite.
 
 Exploring how to enable the next evolution of StarCraft creations.
 
+- [ ] **R57 Custom keyboard shortcuts.** *Tag:* UI.
+  A menu where users change the keyboard shortcuts of StarDraft 2.
+
+  The keyboard shortcuts are fixed. Users who come from other editors cannot use the keys that they know.
 - [ ] **R26 Remastered mod support.** *Tag:* Mods.
   Load a StarCraft: Remastered mod (MPQ or folder) on top of the game's files, and make maps with it.
 
