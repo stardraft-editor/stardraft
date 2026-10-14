@@ -47,6 +47,10 @@ namespace {
 
 enum class Workspace { Map, Triggers };
 
+struct TriggerRow {
+    std::string players, first, search;  // search: every action's text, lower case
+};
+
 struct App {
     SDL_Window* window = nullptr;
     render::Renderer renderer;
@@ -66,8 +70,11 @@ struct App {
     bool showGrid = false;
     GraphicsQuality quality = GraphicsQuality::HD2;
     bool carbot = false;
-    // Triggers
+    // Triggers, and the list's texts (made when a map opens) and the rows the search shows
     ClassicTriggers triggers;
+    std::vector<TriggerRow> rows;
+    std::vector<int> shown;
+    std::string shownFor = "\x01";
     int selectedTrigger = 0;
     char search[256] = "";
     char notes[4096] = "";
@@ -154,6 +161,7 @@ void openMap(const fs::path& path) {
     app.renderer.setSources(&app.data, &app.sprites, &app.ed->tileset(), app.ed->era());
     app.renderer.updateTerrain(app.ed->terrain());
     app.triggers = readClassicTriggers(app.ed->chk());
+    app.rows.clear(), app.shown.clear(), app.shownFor = "\x01";
     app.selectedTrigger = 0;
     app.fitPending = true;
     app.status = "Opened " + path.filename().string() + " (" + std::to_string(app.ed->width()) + " x " + std::to_string(app.ed->height()) + ")";
@@ -318,7 +326,8 @@ void mapWorkspace() {
                 app.camera.x -= d.x * scale.x / app.camera.zoom, app.camera.y -= d.y * scale.y / app.camera.zoom;
             }
         const float wx = app.camera.x + mx / app.camera.zoom, wy = app.camera.y + my / app.camera.zoom;
-        const int unit = app.ed->unitAt(int(wx), int(wy));
+        int unit = app.ed->unitAt(int(wx), int(wy));
+        if (unit >= 0 && app.ed->units()[size_t(unit)].type >= app.ed->unitTypes().size()) unit = -1;  // (a type past the game's list)
         char buf[200];
         std::snprintf(buf, sizeof buf, "%.0f, %.0f (tile %d, %d)  zoom %.0f%%%s%s", wx, wy, int(wx) / 32, int(wy) / 32, app.camera.zoom * 100,
                       unit >= 0 ? "  " : "", unit >= 0 ? app.ed->unitTypes()[app.ed->units()[size_t(unit)].type].name.c_str() : "");
@@ -351,21 +360,40 @@ void triggersWorkspace(bool focusSearch) {
     if (focusSearch) ImGui::SetKeyboardFocusHere();
     ImGui::SetNextItemWidth(-1);
     ImGui::InputTextWithHint("##search", "Search the triggers", app.search, sizeof app.search);
-    const std::string needle = lower(app.search);
     if (!app.ed) dimText("Open a classic map to see its triggers.");
-    for (int i = 0; i < int(app.triggers.triggers.size()); ++i) {
-        const ClassicTrigger& t = app.triggers.triggers[size_t(i)];
-        std::string players;
-        for (int g = 0; g < kClassicGroups; ++g)
-            if (t.runsFor(g)) players += (players.empty() ? "" : ", ") + classicPlayerName(uint32_t(g), names);
-        std::string first = t.actionCount() ? classicActionText(t.actions[0], names) : std::string("(no actions)");
-        std::string all = players + " " + first;
-        for (int a = 0; a < t.actionCount(); ++a) all += " " + classicActionText(t.actions[size_t(a)], names);
-        if (!needle.empty() && lower(all).find(needle) == std::string::npos) continue;
-        const std::string label = std::to_string(i + 1) + ". " + (players.empty() ? "(no player)" : players) + "##t" + std::to_string(i);
-        if (ImGui::Selectable(label.c_str(), app.selectedTrigger == i)) app.selectedTrigger = i;
-        ImGui::SameLine(), dimText("%s", first.c_str());
+    // Each trigger's texts are made once (when the map opens); the list is filtered again only when the search changes.
+    if (app.rows.size() != app.triggers.triggers.size()) {
+        app.rows.clear();
+        for (const ClassicTrigger& t : app.triggers.triggers) {
+            TriggerRow r;
+            for (int g = 0; g < kClassicGroups; ++g)
+                if (t.runsFor(g)) r.players += (r.players.empty() ? "" : ", ") + classicPlayerName(uint32_t(g), names);
+            if (r.players.empty()) r.players = "(no player)";
+            r.first = t.actionCount() ? classicActionText(t.actions[0], names) : std::string("(no actions)");
+            r.search = r.players;
+            for (int a = 0; a < t.actionCount(); ++a) r.search += " " + classicActionText(t.actions[size_t(a)], names);
+            r.search = lower(r.search);
+            app.rows.push_back(std::move(r));
+        }
+        app.shownFor = "\x01";  // (filter again)
     }
+    if (app.shownFor != app.search) {
+        const std::string needle = lower(app.search);
+        app.shown.clear();
+        for (int i = 0; i < int(app.rows.size()); ++i)
+            if (needle.empty() || app.rows[size_t(i)].search.find(needle) != std::string::npos) app.shown.push_back(i);
+        app.shownFor = app.search;
+    }
+    ImGuiListClipper clip;  // (only the rows that show are drawn)
+    clip.Begin(int(app.shown.size()));
+    while (clip.Step())
+        for (int k = clip.DisplayStart; k < clip.DisplayEnd; ++k) {
+            const int i = app.shown[size_t(k)];
+            const TriggerRow& r = app.rows[size_t(i)];
+            const std::string label = std::to_string(i + 1) + ". " + r.players + "##t" + std::to_string(i);
+            if (ImGui::Selectable(label.c_str(), app.selectedTrigger == i)) app.selectedTrigger = i;
+            ImGui::SameLine(), dimText("%s", r.first.c_str());
+        }
     ImGui::EndChild();
     ImGui::SameLine();
     ImGui::BeginChild("editor", {0, 0}, ImGuiChildFlags_Borders);

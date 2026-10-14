@@ -35,7 +35,7 @@ ImVec4 col(ImU32 c, float alpha = 1) {
 std::string firstFile(std::initializer_list<const char*> paths) {
     std::error_code ec;
     for (const char* p : paths)
-        if (std::filesystem::is_regular_file(p, ec)) return p;
+        if (std::filesystem::is_regular_file(std::filesystem::path(reinterpret_cast<const char8_t*>(p)), ec)) return p;  // (UTF-8)
     return {};
 }
 
