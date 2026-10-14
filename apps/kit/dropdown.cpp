@@ -1,7 +1,7 @@
 #include "dropdown.h"
 
 #include <algorithm>
-#include <cmath>
+#include <memory>
 
 #include "theme.h"
 
@@ -71,9 +71,12 @@ public:
             if (e.button == 0)
                 if (const int i = rowAt(e.pt); i >= 0) pick_(i);
             return e.button == 0;
-        case MouseKind::Wheel: {  // positive: away from the user, the list scrolls up
+        case MouseKind::Wheel: {  // positive: away from the user, the list scrolls up; a part of a notch waits
+            wheelAcc_ += e.wheel;
+            const int notches = int(wheelAcc_);  // whole notches, toward zero
+            wheelAcc_ -= float(notches);
             const int before = top_;
-            top_ = std::clamp(top_ - int(std::lround(e.wheel)), 0, maxTop());
+            top_ = std::clamp(top_ - notches, 0, maxTop());
             if (top_ != before) invalidate();
             return true;
         }
@@ -125,6 +128,7 @@ private:
 
     std::vector<DropdownItem> items_;
     int current_ = -1, hot_ = -1, top_ = 0;
+    float wheelAcc_ = 0;  // the wheel's notches that are not a whole one yet
     std::function<void(int)> pick_;
     std::function<void()> cancel_;
 };
@@ -135,10 +139,19 @@ Dropdown::Dropdown(std::vector<DropdownItem> items, int value) : items_(std::mov
 
 Dropdown::~Dropdown() {
     alive_.reset();  // the list's callbacks do nothing from now on
-    if (draw::Host* h = host(); h && list_) {
-        if (listOpen_) h->closeWindow(*list_);
-        h->forget(*list_);  // the host must not keep pointing at the list that goes with us
+    if (listOpen_ && listHost_) listHost_->closeWindow(*list_);
+    retireList();
+}
+
+void Dropdown::retireList() {
+    if (!list_) return;
+    if (!listHost_) {
+        list_.reset();
+        return;
     }
+    listHost_->forget(*list_);  // the host must not keep pointing at the list
+    auto dead = std::shared_ptr<List>(std::move(list_));
+    listHost_->timer(0, [dead] {});  // the list goes after the event that may be running in it
 }
 
 void Dropdown::setItems(std::vector<DropdownItem> items) {
@@ -167,9 +180,10 @@ void Dropdown::openList() {
     draw::Host* h = host();
     if (!h) return;
     std::weak_ptr<bool> alive = alive_;
-    if (list_) h->forget(*list_);  // the list made before (closed) goes now
+    retireList();  // the list made before (closed) goes now
     list_ = std::make_unique<List>(
         items_, value_, [this](int i) { pick(i); }, [this] { closeList(); });
+    listHost_ = h;
     const int rows = std::min(int(items_.size()), kVisibleRows);
     const int top = height() + px(2);
     const Rect at{0, top, width(), top + rows * px(kRowH) + 2 * px(2)};
@@ -179,8 +193,9 @@ void Dropdown::openList() {
         if (!alive.lock()) return;
         listOpen_ = false;  // closed by the host (a click outside): the click's press does not open it again
         justClosed_ = true;
-        if (draw::Host* hh = host()) hh->forget(*list_);
+        if (listHost_) listHost_->forget(*list_);
         invalidate();
+        if (enabled_) focus();  // the keys are the field's again
     });
     h->focus(*list_);
     invalidate();
@@ -189,12 +204,12 @@ void Dropdown::openList() {
 void Dropdown::closeList() {
     if (!listOpen_) return;
     listOpen_ = false;
-    if (draw::Host* h = host()) {
-        h->closeWindow(*list_);
-        h->forget(*list_);
+    if (listHost_) {
+        listHost_->closeWindow(*list_);
+        listHost_->forget(*list_);
     }
     invalidate();
-    focus();
+    if (enabled_) focus();  // a disabled field cannot take the focus
 }
 
 void Dropdown::pick(int i) {

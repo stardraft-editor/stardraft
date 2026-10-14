@@ -60,7 +60,13 @@ private:
     int value_ = -1;
     bool enabled_ = true, listOpen_ = false, hover_ = false, justClosed_ = false;
     float wheelAcc_ = 0;
+    // Lets go of the list (the host forgets it). It is deleted by a timer: its own event may be the one running.
+    void retireList();
+
     std::unique_ptr<List> list_;  // the last list made; it stays after it closed, until the next one opens
+    // The host that shows the list. Kept because the dropdown may have left the tree while the list is open. The host
+    // outlives the dropdown (as it does for every view in its tree).
+    draw::Host* listHost_ = nullptr;
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);  // what the list's callbacks check
 };
 
