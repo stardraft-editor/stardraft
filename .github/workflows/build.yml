@@ -226,6 +226,8 @@ jobs:
           build-gcc/stardraft-next --snapshot next-linux-map.png
           build-gcc/stardraft-next --workspace triggers --type "한국어 입력 中文" --snapshot next-linux-triggers.png | tee next.txt
           grep -q "search field: 한국어 입력 中文" next.txt
+          build-gcc/stardraft-next --workspace triggers --ime-inline --type "한국어 입" --compose "력" --snapshot next-linux-ime.png | tee ime.txt
+          grep -q "composing: 력" ime.txt
 
       - name: Pack stardraft-next
         if: always()
@@ -274,6 +276,8 @@ jobs:
           "$app" --snapshot next-macos-map.png
           "$app" --workspace triggers --type "한국어 입력 中文" --snapshot next-macos-triggers.png | tee next.txt
           grep -q "search field: 한국어 입력 中文" next.txt
+          "$app" --workspace triggers --ime-inline --type "한국어 입" --compose "력" --snapshot next-macos-ime.png | tee ime.txt
+          grep -q "composing: 력" ime.txt
 
       # The app in a tar (an artifact keeps no file modes: the program would not start); and the snapshots.
       - name: Pack stardraft-next
