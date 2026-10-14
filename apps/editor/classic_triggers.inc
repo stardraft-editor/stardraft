@@ -49,6 +49,7 @@ struct ClassicTrigDialog {
     std::wstring query;     // the search box's words: a trigger shows when its text has them all
     std::set<int> marked;   // the triggers chosen with Ctrl or Shift click (the list's actions take them all); empty: the selected one
     int anchor = -1;        // the trigger a Shift click reaches from
+    int hold = 0;           // > 0: the changes of a batch (a paste of several triggers) go into the map once, at the end
     std::vector<HWND> params;  // the labels and pickers of the selected entry (made again when it changes)
     std::vector<HWND> paramPickers;  // one per parameter of the type
     int editTop = 0, editLeft = 0, editRight = 0;
@@ -147,7 +148,7 @@ void ctChanged() {
     InvalidateRect(gCt->list, nullptr, FALSE);
     InvalidateRect(gCt->entries, nullptr, FALSE);
     ctUpdateHeader();  // the count of actions (a block, a trigger's rows) is the change's
-    mapPageChanged();
+    if (!gCt->hold) mapPageChanged();
 }
 
 // The text a search matches: the trigger's sentences (its conditions and actions, names of units, locations and
@@ -1002,14 +1003,17 @@ void ctCopy(bool trigger) {
 }
 void ctPaste() {
     ClassicTrigDialog& d = *gCt;
-    if (gCtClip.kind == 2) {  // each after the one before it: the selected trigger, then the pasted ones
+    if (gCtClip.kind == 2) {  // each after the one before it: the selected trigger, then the pasted ones (one undo step)
+        d.hold++;
         for (size_t k = 0; k < gCtClip.triggers.size(); ++k) {
             ClassicTrigger n = gCtClip.triggers[k];
             const auto& texts = gCtClip.triggerTexts[k];
             for (size_t i = 0; i < n.actions.size() && i < texts.size(); ++i) ctResolveTexts(n.actions[i], texts[i]);
             ctInsertTrigger(ctFreshCopy(n));
         }
+        d.hold--;
         d.marked.clear();
+        ctChanged();
         return setMessage(gCtClip.triggers.size() > 1 ? L"Pasted the triggers" : L"Pasted the trigger");
     }
     const ClassicTrigger* t = ctTrigger();
