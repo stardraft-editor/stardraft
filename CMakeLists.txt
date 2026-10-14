@@ -338,6 +338,32 @@ if(STARDRAFT_NEXT AND STARDRAFT_RENDERER)
         target_compile_options(stardraft_next PRIVATE /W4 /utf-8)
         target_link_options(stardraft_next PRIVATE /SUBSYSTEM:CONSOLE)  # (it prints what it does; a test run reads it)
     endif()
+
+    # --- The kit on SDL (apps/kit_sdl): SDL windows and a Dear ImGui canvas for the kit's views; kit_demo shows them.
+    # Its fonts are the same files as stardraft-next's; its icon atlases are copied to res/ beside it.
+    add_library(stardraft_kit_sdl STATIC apps/kit_sdl/canvas_imgui.cpp apps/kit_sdl/sdl_host.cpp)
+    target_include_directories(stardraft_kit_sdl PUBLIC apps/kit_sdl PRIVATE ${stb_SOURCE_DIR})
+    target_link_libraries(stardraft_kit_sdl PUBLIC stardraft_kit imgui SDL3::SDL3-static)
+    add_executable(kit_demo WIN32 MACOSX_BUNDLE apps/kit_sdl/kit_demo.cpp)
+    target_link_libraries(kit_demo PRIVATE stardraft_kit_sdl stardraft_render)
+    set_target_properties(kit_demo PROPERTIES OUTPUT_NAME kit-demo MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/next/Info.plist.in)
+    if(APPLE)
+        set(kitDemoDir $<TARGET_BUNDLE_CONTENT_DIR:kit_demo>/Resources)
+    else()
+        set(kitDemoDir $<TARGET_FILE_DIR:kit_demo>)
+    endif()
+    set(STARDRAFT_ATLASES ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-16.png ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-20.png
+                          ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-24.png ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-32.png)
+    add_custom_command(TARGET kit_demo POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${kitDemoDir}/res
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_ATLASES} ${kitDemoDir}/res)
+    if(STARDRAFT_FONT_FILES)
+        add_custom_command(TARGET kit_demo POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${kitDemoDir}/fonts
+                           COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_FONT_FILES} ${kitDemoDir}/fonts)
+    endif()
+    if(MSVC)
+        target_compile_options(kit_demo PRIVATE /W4 /utf-8)
+        target_link_options(kit_demo PRIVATE /SUBSYSTEM:CONSOLE)
+    endif()
 endif()
 
 # --- Windows editor (native Win32 shell) ------------------------------------------------------
