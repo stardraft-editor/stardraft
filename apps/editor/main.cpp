@@ -11329,6 +11329,7 @@ void dataSetValue(const DatField& f, uint32_t v) {
 }
 
 bool showListPicker(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, POINT at, std::string& out);
+bool showListPickerMulti(const std::wstring& prompt, std::vector<ListPickItem> items, std::set<std::string>& checked, const std::wstring& okText, POINT at);
 
 // The values a dropdown offers, in its order.
 std::vector<ListPickItem> dataDropdownItems(const DatField& f) {
@@ -12533,8 +12534,15 @@ struct ListPicker {
     bool done = false, picked = false;
     std::vector<std::wstring> words;  // what is typed, word by word (shown in the accent in each row)
     RECT searchRow{};
+    // Multi-pick (showListPickerMulti): a click or Enter checks a row, the list stays open; OK keeps the checks, Cancel
+    // or a click outside keeps the old ones.
+    bool multi = false;
+    std::set<std::string> checked;
+    std::wstring okText;
 };
 ListPicker* gListPick = nullptr;
+constexpr int kListPickOk = 7001, kListPickCancel = 7002;  // multi-pick: the footer's buttons
+constexpr int kListPickFooter = 44;                          // its height (scaled)
 
 // A row's text with the typed words in the accent (as the quick search shows them). Draws in `r`, vertically centered.
 void drawMatched(HDC dc, RECT r, const std::wstring& text, const std::vector<std::wstring>& words, COLORREF normal) {
@@ -12618,7 +12626,13 @@ void listPickChoose() {
     ListPicker& lp = *gListPick;
     const int i = int(SendMessageW(lp.list, LB_GETCURSEL, 0, 0));
     if (i < 0 || i >= int(lp.shown.size()) || lp.shown[size_t(i)] < 0) return;
-    lp.result = lp.items[size_t(lp.shown[size_t(i)])].value;
+    const std::string& value = lp.items[size_t(lp.shown[size_t(i)])].value;
+    if (lp.multi) {  // checks the row; the list stays open
+        if (!lp.checked.erase(value)) lp.checked.insert(value);
+        InvalidateRect(lp.list, nullptr, FALSE);
+        return;
+    }
+    lp.result = value;
     lp.picked = lp.done = true;
 }
 
@@ -12656,7 +12670,8 @@ LRESULT CALLBACK listPickProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_COMMAND:
         if (p && HWND(lp) == p->edit && HIWORD(wp) == EN_CHANGE) listPickFill();
-
+        if (p && LOWORD(wp) == kListPickOk) p->picked = p->done = true;
+        if (p && LOWORD(wp) == kListPickCancel) p->done = true;
         return 0;
     case WM_ACTIVATE:
         if (LOWORD(wp) == WA_INACTIVE && p && !gBackground) p->done = true;
@@ -12697,7 +12712,7 @@ LRESULT CALLBACK listPickProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             if (pic && pic->bmp) drawFitted(dc, *pic, box);
             x += scale(34);
         }
-        const bool current = it.value == p->current;
+        const bool current = p->multi ? p->checked.count(it.value) != 0 : it.value == p->current;  // (multi: the checked rows)
         const int checkW = scale(22);
         if (current) {
             const int cs = scale(16), cx = r.right - scale(8) - cs;
@@ -12786,17 +12801,8 @@ bool popoutEatsPress(const MSG& m, HWND pop) {
     return true;
 }
 
-bool showListPicker(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, POINT at, std::string& out) {
-    if (gListWheel) {  // the mouse wheel over the dropdown: the next or the previous item, no list
-        if (items.empty()) return false;
-        int k = -1;
-        for (int i = 0; i < int(items.size()); ++i)
-            if (items[size_t(i)].value == current) k = i;
-        const int next = k < 0 ? 0 : std::clamp(k + gListWheel, 0, int(items.size()) - 1);
-        if (next == k) return false;
-        out = items[size_t(next)].value;
-        return true;
-    }
+// Runs the picker (lp: its items and state) until it is picked or closed. True when picked.
+bool runListPicker(const std::wstring& prompt, ListPicker& lp, POINT at) {
     static bool registered = false;
     if (!registered) {
         WNDCLASSEXW wc{sizeof wc};
@@ -12804,8 +12810,6 @@ bool showListPicker(const std::wstring& prompt, std::vector<ListPickItem> items,
         RegisterClassExW(&wc);
         registered = true;
     }
-    ListPicker lp;
-    lp.items = std::move(items), lp.current = current;
     gListPick = &lp;
     gListPickAt = at;
     const bool icons = std::any_of(lp.items.begin(), lp.items.end(), [](const ListPickItem& i) { return i.icon >= 0; });
@@ -12813,7 +12817,8 @@ bool showListPicker(const std::wstring& prompt, std::vector<ListPickItem> items,
     for (const auto& it : lp.items)
         if (!it.section.empty()) sections.insert(it.section);
     const int rows = std::min<int>(14, int(lp.items.size() + sections.size()));
-    const int w = scale(380), pad = scale(8), eh = scale(30), h = 3 * pad + eh + std::max(2, rows) * scale(icons ? 34 : 28) + scale(6);
+    const int footer = lp.multi ? scale(kListPickFooter) : 0;  // multi-pick: OK and Cancel under the list
+    const int w = scale(380), pad = scale(8), eh = scale(30), h = 3 * pad + eh + std::max(2, rows) * scale(icons ? 34 : 28) + scale(6) + footer;
     HMONITOR mon = MonitorFromPoint(at, MONITOR_DEFAULTTONEAREST);
     MONITORINFO mi{sizeof mi};
     GetMonitorInfoW(mon, &mi);
@@ -12843,10 +12848,21 @@ bool showListPicker(const std::wstring& prompt, std::vector<ListPickItem> items,
     SendMessageW(lp.edit, EM_SETCUEBANNER, TRUE, LPARAM(prompt.c_str()));
     const int listTop = lp.searchRow.bottom + scale(9);
     lp.list = CreateWindowExW(0, WC_LISTBOXW, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT | LBS_OWNERDRAWFIXED,
-                              scale(4), listTop, w - scale(8), h - listTop - scale(4), lp.wnd, nullptr, app.inst, nullptr);
+                              scale(4), listTop, w - scale(8), h - listTop - scale(4) - footer, lp.wnd, nullptr, app.inst, nullptr);
     cleanScroll(lp.list);
     SendMessageW(lp.list, WM_SETFONT, WPARAM(app.font), TRUE);
     SetWindowTheme(lp.list, gLightTheme ? L"Explorer" : L"DarkMode_Explorer", nullptr);  // the scroll bar in the theme (no frame)
+    if (lp.multi) {  // OK (keeps the checks) and Cancel, as a pop-out has them
+        const int bw = scale(96), bh = scale(26), by = h - footer + (footer - bh) / 2 - scale(4);
+        HWND cancel = CreateWindowExW(0, WC_BUTTONW, L"Cancel", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, w - pad - 2 * bw - scale(8), by, bw, bh,
+                                      lp.wnd, HMENU(INT_PTR(kListPickCancel)), app.inst, nullptr);
+        HWND ok = CreateWindowExW(0, WC_BUTTONW, lp.okText.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, w - pad - bw, by, bw, bh, lp.wnd,
+                                  HMENU(INT_PTR(kListPickOk)), app.inst, nullptr);
+        for (HWND b : {cancel, ok}) {
+            SendMessageW(b, WM_SETFONT, WPARAM(app.font), TRUE);
+            darkControl(b, L"DarkMode_Explorer");
+        }
+    }
     SetWindowSubclass(lp.edit, listPickEditProc, 1, 0);
     SetWindowSubclass(lp.list, clickPickList, 2, DWORD_PTR(&listPickChoose));
     listPickFill();
@@ -12858,8 +12874,36 @@ bool showListPicker(const std::wstring& prompt, std::vector<ListPickItem> items,
         if (!popoutEatsPress(msg, lp.wnd)) TranslateMessage(&msg), DispatchMessageW(&msg);
     DestroyWindow(lp.wnd);
     gListPick = nullptr;
-    if (lp.picked) out = lp.result;
     return lp.picked;
+}
+
+bool showListPicker(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, POINT at, std::string& out) {
+    if (gListWheel) {  // the mouse wheel over the dropdown: the next or the previous item, no list
+        if (items.empty()) return false;
+        int k = -1;
+        for (int i = 0; i < int(items.size()); ++i)
+            if (items[size_t(i)].value == current) k = i;
+        const int next = k < 0 ? 0 : std::clamp(k + gListWheel, 0, int(items.size()) - 1);
+        if (next == k) return false;
+        out = items[size_t(next)].value;
+        return true;
+    }
+    ListPicker lp;
+    lp.items = std::move(items), lp.current = current;
+    if (!runListPicker(prompt, lp, at)) return false;
+    out = lp.result;
+    return true;
+}
+
+// The multi-pick (kit: showListPicker in multi mode): a row's click or Enter checks it, the list stays open. `checked`
+// holds the values checked at the start and gets the checked values when OK is clicked; Cancel, Esc and a click
+// outside leave it as it was. `okText`: the OK button ("Add").
+bool showListPickerMulti(const std::wstring& prompt, std::vector<ListPickItem> items, std::set<std::string>& checked, const std::wstring& okText, POINT at) {
+    ListPicker lp;
+    lp.items = std::move(items), lp.multi = true, lp.checked = checked, lp.okText = okText;
+    if (!runListPicker(prompt, lp, at)) return false;
+    checked = lp.checked;
+    return true;
 }
 
 // --- The block picker: categories on the left, blocks on the right, what one does below --------------------------

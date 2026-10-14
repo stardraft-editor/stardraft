@@ -416,6 +416,23 @@ int main(int argc, char** argv) {
         check(classicBatchName("  a;b=c_1  ", ClassicBatchKind::Unit) == "abc_1" && classicBatchName("", ClassicBatchKind::Player) == "player",
               "a variable's name keeps letters, digits, spaces and underscores; an empty name is the kind's name");
         check(encodeClassicTriggers(classicExpandBatches(work, strings)) == encodeClassicTriggers(out), "the expanded bytes are the same each time");
+        // The block kind table: one row per kind, each kind's values are its own kind's (the picker and the file use it).
+        bool rows = classicBlockKinds().size() == 3;
+        for (const ClassicBlockKind& k : classicBlockKinds()) rows = rows && classicBlockKind(k.kind).name == std::string(k.name) && k.label[0] != 0;
+        check(rows && classicBatchValueKind(ClassicBatchKind::Player) == ClassicKind::Player && classicBatchValueKind(ClassicBatchKind::Location) == ClassicKind::Location,
+              "the block kind table has a row for each kind, with its values' kind");
+        // Turn off (the trigger's disabled flag, bit 8) is kept through a read and a write, and a copy keeps it.
+        ClassicTrigger off = ClassicTrigger::make();
+        off.setDisabled(true);
+        off.addAction(makeClassicAction(9));
+        ClassicTriggers both;
+        both.triggers = {off, ClassicTrigger::make()};
+        Chk chk;
+        chk.sections.push_back({"TRIG", encodeClassicTriggers(both)});
+        const ClassicTriggers reread = readClassicTriggers(chk);
+        check(reread.triggers.size() == 2 && reread.triggers[0].disabled() && !reread.triggers[1].disabled() && (reread.triggers[0].flags & 8) == 8,
+              "a turned-off trigger (flags bit 8) is read as off, and written back as off");
+        check(encodeClassicTriggers(reread) == encodeClassicTriggers(both), "a turned-off trigger writes the same bytes");
     }
 
 
