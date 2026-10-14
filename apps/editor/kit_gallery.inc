@@ -326,7 +326,7 @@ void paintKitGallery(HWND hwnd) {
         }, L"Add a value (the list stays open while values are checked)");
         ui::addRow(mem, {col + scale(280), y + scale(3), col + scale(540), y + scale(3) + scale(30)}, L"Add a trigger", click,
                    L"Not usable: the list is full", false);
-        caption(col, y + scale(36), L"left: the row; right: not usable (gray, its tooltip gives the reason). Click the left one: a multi-pick list");
+        caption(col, y + scale(36), L"left: the row; right: not usable (gray, its tooltip gives the reason). Click the left one: a multi-pick list. In it: Space checks a row, Enter confirms (OK), Esc cancels, Tab does nothing");
         y += scale(36) + scale(18);
     }
 

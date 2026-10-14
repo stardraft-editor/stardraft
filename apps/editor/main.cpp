@@ -12652,9 +12652,17 @@ LRESULT CALLBACK listPickEditProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UIN
             if (next >= 0 && next < n) SendMessageW(gListPick->list, LB_SETCURSEL, next, 0);
             return 0;
         }
-        case VK_RETURN: listPickChoose(); return 0;
+        case VK_RETURN:  // a multi-pick: Enter is OK (the checks are kept)
+            if (gListPick->multi) gListPick->picked = gListPick->done = true;
+            else listPickChoose();
+            return 0;
         case VK_ESCAPE: gListPick->done = true; return 0;
+        case VK_SPACE:  // a multi-pick: Space checks the row (in a single pick, Space is a space of the search)
+            if (!gListPick->multi) break;
+            listPickChoose();
+            return 0;
         case VK_TAB:
+            if (gListPick->multi) return 0;  // a multi-pick: Tab does nothing (Enter confirms, Esc cancels)
             listPickChoose();
             gListPick->done = true;
             gTrigAdvance = GetKeyState(VK_SHIFT) < 0 ? -1 : 1;
@@ -12663,6 +12671,7 @@ LRESULT CALLBACK listPickEditProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UIN
     }
     if (msg == WM_GETDLGCODE) return DLGC_WANTALLKEYS;
     if (msg == WM_CHAR && (wp == L'\r' || wp == 27 || wp == L'\t')) return 0;
+    if (msg == WM_CHAR && wp == L' ' && gListPick && gListPick->multi) return 0;  // (Space checks a row; no space in the search)
     return DefSubclassProc(hwnd, msg, wp, lp);
 }
 
