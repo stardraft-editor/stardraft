@@ -18446,6 +18446,18 @@ bool paintDarkButton(HWND w) {
     const ui::Tone tone = type == BS_DEFPUSHBUTTON || GetPropW(w, L"sdOn") ? ui::Tone::Primary : ui::Tone::Normal;
     const HFONT font = HFONT(SendMessageW(w, WM_GETFONT, 0, 0));
     std::wstring t = text;
+    if ((GetWindowLongW(w, GWL_STYLE) & BS_CENTER) == BS_LEFT) {  // a value that opens a list (BS_LEFT): drawn as the dropdowns are
+        ui::fieldBox(dc, r, !enabled ? ui::Field::ReadOnly : GetFocus() == w ? ui::Field::Focus : s == ui::State::Hot ? ui::Field::Hot : ui::Field::Normal);
+        HGDIOBJ of = SelectObject(dc, font);
+        SetBkMode(dc, TRANSPARENT);
+        SetTextColor(dc, enabled ? kText : kFaint);
+        RECT tr{r.left + scale(6), r.top, r.right - scale(24), r.bottom};
+        DrawTextW(dc, t.c_str(), -1, &tr, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
+        SelectObject(dc, of);
+        if (enabled) ui::glyph(dc, {r.right - scale(20), r.top, r.right - scale(6), r.bottom}, UiIcon::Dropdown, s == ui::State::Hot ? kText : kDim, 9);
+        EndPaint(w, &ps);
+        return true;
+    }
     if (!t.empty() && t.back() == L'\x25BE') {  // a button that opens a menu ("View \x25BE"): its name, then a drawn chevron
         t.pop_back();
         while (!t.empty() && t.back() == L' ') t.pop_back();
