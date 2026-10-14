@@ -74,13 +74,14 @@ jobs:
             build/stardraft-next --workspace triggers --live 25 --snapshot ime-linux-$name.png > ime-linux-$name.txt 2>&1 &
             pid=$!
             for i in $(seq 1 60); do grep -q "^ready" ime-linux-$name.txt && break; sleep 0.5; done
-            ibus engine $engine
+            ibus engine $engine || echo "no ibus engine $engine"
             sleep 1
             for k in "$@"; do xdotool key --delay 150 "$k"; done
             wait $pid || true
             cat ime-linux-$name.txt
           }
           live hanja hangul g k s F9 1 space shift+space a b c space shift+space r n r space
+          ibus list-engine | grep -iE "pinyin|hangul" || true
           live pinyin libpinyin z h o n g w e n space
           python3 tools/ci/ime_check.py ime-linux-hanja.txt ime-linux-pinyin.txt
 
@@ -180,7 +181,7 @@ jobs:
             "$app" --workspace triggers $flag --live 20 --snapshot ime-macos-$mode.png > ime-macos-$mode.txt 2>&1 &
             pid=$!
             for i in $(seq 1 60); do grep -q "^ready" ime-macos-$mode.txt && break; sleep 0.5; done
-            ./ime_keys_mac "{source:com.apple.inputmethod.Korean.2SetKorean}gksrnrdj " || true
+            ./ime_keys_mac "gksrnrdj " || true  # (2-Set Korean is selected: selecting it again restarts it)
             wait $pid || true
             cat ime-macos-$mode.txt
           done
@@ -194,7 +195,7 @@ jobs:
         run: |
           app=build/stardraft-next.app/Contents/MacOS/stardraft-next
           ko="{source:com.apple.inputmethod.Korean.2SetKorean}"
-          for run in "hanja|${ko}gks{optreturn}{return} {source:com.apple.keylayout.US}abc ${ko}rnr " "pinyin|{source:com.apple.inputmethod.SCIM.ITABC}zhongwen "; do
+          for run in "hanja|gks{optreturn}{return} {source:com.apple.keylayout.US}abc ${ko}rnr " "pinyin|{source:com.apple.inputmethod.SCIM.ITABC}zhongwen "; do
             name=${run%%|*} keys=${run#*|}
             "$app" --workspace triggers --live 30 --snapshot ime-macos-$name.png > ime-macos-$name.txt 2>&1 &
             pid=$!
