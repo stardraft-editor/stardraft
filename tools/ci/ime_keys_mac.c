@@ -57,7 +57,7 @@ static CGKeyCode keyCode(char c) {
 int main(int argc, char** argv) {
     if (argc < 2) return fprintf(stderr, "usage: ime_keys_mac <keys>\n"), 2;
     if (selectKorean()) return 1;
-    usleep(800000);
+    usleep(2500000);  // (the input method starts: keys before that lose their composition)
     for (const char* c = argv[1]; *c; ++c) {
         const CGKeyCode k = keyCode(*c);
         if (k == 0xFFFF) continue;

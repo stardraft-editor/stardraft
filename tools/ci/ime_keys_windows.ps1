@@ -41,7 +41,7 @@ $layout = [Ime]::GetKeyboardLayout([Ime]::GetWindowThreadProcessId($w, [IntPtr]:
 Write-Output ("keyboard layout of the window: {0:X8}" -f $layout.ToInt64())
 # The Hangul key (VK_HANGUL) turns Hangul input on (the IME starts in English letters).
 [Ime]::Key(0x15)
-Start-Sleep -Milliseconds 500
+Start-Sleep -Milliseconds 2500  # (the IME starts: keys before that are lost)
 foreach ($ch in $Keys.ToCharArray()) {
     if ($ch -eq ' ') { [Ime]::Key(0x20) } else { [Ime]::Key([byte][char]([string]$ch).ToUpper()) }
 }
