@@ -19,8 +19,8 @@ enum : int {
     kCtDim = 1,      // a dim label
     kCtHead = 3,     // a section heading (a line under it)
 };
-// A picker's value that is the batch's variable (a field that holds it, not a value of the list).
-constexpr uint32_t kCtVariable = 0xFFFFFFF0u;
+// A picker's value that is a block's variable: kCtVariable plus the block's depth (a field that holds it, not a value).
+constexpr uint32_t kCtVariable = 0xFFFF0000u;
 // The groups that have a check box (players 1-8, all players, forces 1-4); the others stay as they are.
 constexpr int kCtGroups[] = {0, 1, 2, 3, 4, 5, 6, 7, 17, 18, 19, 20, 21};
 constexpr int kCtGroupCount = int(std::size(kCtGroups));
@@ -34,6 +34,7 @@ struct ClassicTrigDialog {
     int filter = -1;         // the group whose triggers show (-1: all)
     int sel = -1;            // the selected trigger
     int kind = 0, entry = -1;  // the selected condition (kind 0) or action (1)
+    std::set<int> collapsed;   // the action rows of collapsed blocks (by row; cleared when the trigger changes)
     HWND wnd = nullptr, filterBox = nullptr, list = nullptr, note = nullptr, entries = nullptr;
     HWND players[kCtGroupCount]{};
     HWND editTitle = nullptr, typeBox = nullptr, disabled = nullptr, always = nullptr, batch = nullptr;
@@ -87,23 +88,38 @@ ClassicAction* ctAction() {
     return t && gCt->kind == 1 && gCt->entry >= 0 && gCt->entry < t->actionCount() ? &t->actions[size_t(gCt->entry)] : nullptr;
 }
 int ctEntryCount(const ClassicTrigger& t, int kind) { return kind ? t.actionCount() : t.conditionCount(); }
-// Does a field of the entry at `index` hold the batch's variable?
-bool ctIsVariable(bool condition, int index, ClassicField f) {
-    const ClassicTrigger* t = ctTrigger();
-    return t && t->batch && classicBatchHasSlot(*t->batch, condition, index, f);
+// The variable slot k (classicVarField) of the action at `index` holds a variable: its block's depth plus 1, else 0.
+int ctVarOf(const ClassicTrigger& t, int index, int k) {
+    return index >= 0 && index < t.actionCount() ? t.actions[size_t(index)].var[size_t(k)] : 0;
 }
-// The most actions a trigger has: a batch's template keeps a place for its comment.
-int ctActionLimit(const ClassicTrigger& t) { return t.batch ? kClassicActions - 1 : kClassicActions; }
+// The blocks that hold the row at `row`, by depth (scope[d] is the block at depth d).
+std::vector<const ClassicBatch*> ctScopeOf(const ClassicTrigger& t, int row) {
+    std::vector<const ClassicBatch*> chain;
+    for (int i = 0; i < row && i < t.actionCount(); ++i) {
+        const ClassicAction& a = t.actions[size_t(i)];
+        chain.resize(std::min(chain.size(), size_t(a.depth)));
+        if (a.type == kClassicBlockType) chain.push_back(a.batch.get());
+    }
+    if (row >= 0 && row < t.actionCount()) chain.resize(std::min(chain.size(), size_t(t.actions[size_t(row)].depth)));
+    return chain;
+}
+// The most actions a trigger's rows have (each row is one action or a block with its children).
+int ctActionLimit(const ClassicTrigger&) { return kClassicActions; }
 
 // A trigger's line in the list: its conditions, then (dim) its actions.
 std::wstring ctTriggerLine(const ClassicTrigger& t, bool actions) {
     const ClassicNames n = ctNames();
     std::string s;
     const int count = actions ? t.actionCount() : t.conditionCount();
-    const ClassicBatch* batch = t.batch ? &*t.batch : nullptr;
-    for (int i = 0; i < count && s.size() < 300; ++i)
-        s += (s.empty() ? "" : " ") +
-             (actions ? classicActionText(t.actions[size_t(i)], n, batch, i) : classicConditionText(t.conditions[size_t(i)], n, batch, i));
+    for (int i = 0; i < count && s.size() < 300; ++i) {
+        if (actions) {
+            const ClassicAction& a = t.actions[size_t(i)];
+            const std::vector<const ClassicBatch*> scope = ctScopeOf(t, i);
+            s += (s.empty() ? "" : " ") + (a.type == kClassicBlockType ? classicBatchText(*a.batch, n) : classicActionText(a, n, &scope));
+        } else {
+            s += (s.empty() ? "" : " ") + classicConditionText(t.conditions[size_t(i)], n);
+        }
+    }
     if (s.empty()) s = actions ? "No actions" : "No conditions";
     for (char& c : s)
         if (c == '\r' || c == '\n' || (static_cast<unsigned char>(c) < 32 && c != '\t')) c = ' ';
@@ -127,6 +143,7 @@ void ctFillList() {
 }
 
 void ctBuildEditor();
+void ctUpdateBatchButton();
 
 int ctTrigRowH() { return scale(44); }
 int ctEntryRowH() { return scale(30); }
@@ -147,14 +164,16 @@ void ctShowSelected() {
 void ctSelectEntry(int kind, int entry) {
     ClassicTrigDialog& d = *gCt;
     d.kind = kind, d.entry = entry;
+    ctUpdateBatchButton();
     ctBuildEditor();
     InvalidateRect(d.entries, nullptr, FALSE);
 }
 
-// The batch button: "Make a batch" for a trigger, "Edit the batch" for a batch's template.
+// The block button: "Add a block" for a trigger, "Edit the block" when a block's row is selected.
 void ctUpdateBatchButton() {
     const ClassicTrigger* t = ctTrigger();
-    SetWindowTextW(gCt->batch, t && t->batch ? L"Edit the batch\x2026" : L"Make a batch\x2026");
+    const bool onBlock = t && gCt->kind == 1 && gCt->entry >= 0 && gCt->entry < t->actionCount() && t->actions[size_t(gCt->entry)].type == kClassicBlockType;
+    SetWindowTextW(gCt->batch, onBlock ? L"Edit the block\x2026" : L"Add a block\x2026");
     EnableWindow(gCt->batch, t != nullptr);
 }
 
@@ -162,6 +181,7 @@ void ctUpdateBatchButton() {
 void ctSelectTrigger(int index) {
     ClassicTrigDialog& d = *gCt;
     d.sel = index >= 0 && index < int(d.trig.triggers.size()) ? index : -1;
+    d.collapsed.clear();
     const ClassicTrigger* t = ctTrigger();
     d.filling = true;
     for (int g = 0; g < kCtGroupCount; ++g) {
@@ -219,11 +239,36 @@ std::vector<std::pair<uint32_t, std::wstring>> ctKindChoices(ClassicKind k) {
     return out;
 }
 
-// The picker's choices, and the batch's variable first when the selected trigger is a batch of this kind.
-std::vector<std::pair<uint32_t, std::wstring>> ctChoices(ClassicKind k, uint32_t current) {
+// The picker's choices, and the variables of the blocks that hold the selected action (a variable of this kind).
+// The variable slot (classicVarField) of a field, or -1.
+int ctVarSlotOfField(ClassicField f) {
+    for (int k = 0; k < kClassicVarFields; ++k)
+        if (classicVarField(k) == f) return k;
+    return -1;
+}
+// The depth of the block whose variable the field of the action at `index` holds, or -1 (a value).
+int ctVarDepthAt(const ClassicTrigger& t, int index, ClassicField f) {
+    const int slot = ctVarSlotOfField(f);
+    const int v = slot < 0 ? 0 : ctVarOf(t, index, slot);
+    return v ? v - 1 : -1;
+}
+// The same for the selected entry (a condition has none).
+int ctVarDepthOf(const ClassicCondition* c, ClassicField f) {
+    const ClassicTrigger* t = ctTrigger();
+    if (c || !t) return -1;
+    return ctVarDepthAt(*t, gCt->entry, f);
+}
+void ctPickValue(int pi, POINT at);
+std::vector<std::pair<uint32_t, std::wstring>> ctChoices(ClassicKind k, uint32_t current, ClassicField f) {
     std::vector<std::pair<uint32_t, std::wstring>> out;
-    if (gCt && ctTrigger() && ctTrigger()->batch && classicBatchValueKind(ctTrigger()->batch->kind) == k)
-        out.emplace_back(kCtVariable, widen(classicBatchVariableText(*ctTrigger()->batch)));
+    const int slot = ctVarSlotOfField(f);
+    if (const ClassicTrigger* t = ctTrigger(); t && slot >= 0 && gCt->kind == 1 && gCt->entry >= 0 && gCt->entry < t->actionCount()) {
+        const ClassicAction& a = t->actions[size_t(gCt->entry)];
+        const std::vector<const ClassicBatch*> scope = ctScopeOf(*t, gCt->entry);
+        for (size_t d = 0; d < scope.size(); ++d)
+            if (scope[d] && classicVarAllowed(a, slot, scope[d]->kind) && classicBatchValueKind(scope[d]->kind) == k)
+                out.emplace_back(kCtVariable + uint32_t(d), widen(classicBatchVariableText(*scope[d])));
+    }
     for (auto& p : ctKindChoices(k)) out.push_back(std::move(p));
     if (std::none_of(out.begin(), out.end(), [&](const auto& p) { return p.first == current; }))
         out.emplace_back(current, widen(classicValueText(k, current, ctNames())) + L" (EUD value)");
@@ -343,8 +388,8 @@ void ctBuildEditor() {
     }
     for (int i : order) {
         const ClassicParam& p = def->params[size_t(i)];
-        const bool variable = ctIsVariable(c != nullptr, d.entry, p.field);
-        const uint32_t v = variable ? kCtVariable : c ? classicValue(*c, p.field) : classicValue(*a, p.field);
+        const int varDepth = ctVarDepthOf(c, p.field);
+        const uint32_t v = varDepth >= 0 ? kCtVariable + uint32_t(varDepth) : c ? classicValue(*c, p.field) : classicValue(*a, p.field);
         const bool text = p.kind == ClassicKind::Text;
         if (text && col) col = 0, y += step;
         const int x = d.editLeft + col * colW;
@@ -360,12 +405,19 @@ void ctBuildEditor() {
             h = gameTextCreate(d.wnd, kCtParam + i, {x + labelW, y, x + labelW + w, y + th}, spec);
             gameTextSet(h, d.strings.get(v));
             y += th - step;
+        } else if (p.kind == ClassicKind::Unit) {  // a unit type: the searchable list (ctPickValue), as the chips
+            std::wstring label;
+            for (const auto& [value, text] : ctChoices(p.kind, v, p.field))
+                if (value == v) label = text;
+            h = CreateWindowExW(0, WC_BUTTONW, label.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_LEFT, x + labelW, y, pickW, rowH, d.wnd,
+                                HMENU(INT_PTR(kCtParam + i)), app.inst, nullptr);
+            darkControl(h, L"DarkMode_Explorer");
         } else if (ctPickerIsList(p.kind)) {
             h = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL, x + labelW, y, pickW, scale(320), d.wnd,
                                 HMENU(INT_PTR(kCtParam + i)), app.inst, nullptr);
             darkControl(h, L"DarkMode_CFD");
             int sel = -1;
-            for (const auto& [value, label] : ctChoices(p.kind, v)) {
+            for (const auto& [value, label] : ctChoices(p.kind, v, p.field)) {
                 const int k = int(SendMessageW(h, CB_ADDSTRING, 0, LPARAM(label.c_str())));
                 SendMessageW(h, CB_SETITEMDATA, WPARAM(k), LPARAM(value));
                 if (value == v && sel < 0) sel = k;
@@ -392,12 +444,15 @@ void ctSetValue(int i, uint32_t v) {
     const ClassicDef* def = c ? classicConditionDef(c->type) : a ? classicActionDef(a->type) : nullptr;
     if (!def || i < 0 || i >= int(def->params.size())) return;
     const ClassicParam& p = def->params[size_t(i)];
-    if (ClassicTrigger* t = ctTrigger(); t && t->batch) {  // the variable: the field holds it; a value: it does not
-        classicBatchSetSlot(*t->batch, c != nullptr, d.entry, p.field, v == kCtVariable);
-        if (v == kCtVariable) {
+    if (a && ctVarSlotOfField(p.field) >= 0) {  // the variable: the field holds its block's depth; a value: none
+        const int slot = ctVarSlotOfField(p.field);
+        if (v >= kCtVariable) {
+            a->var[size_t(slot)] = uint8_t(v - kCtVariable + 1);
+            setClassicValue(*a, p.field, 0);
             ctChanged();
             return;
         }
+        a->var[size_t(slot)] = 0;
     }
     if (c) setClassicValue(*c, p.field, v);
     else {
@@ -436,6 +491,7 @@ void ctParamChanged(int i, HWND h) {
         v = t.empty() ? 0 : uint32_t(std::min<unsigned long long>(wcstoull(t.c_str(), nullptr, 10), 0xFFFFFFFFull));
         if (p.kind == ClassicKind::Count) v = std::min<uint32_t>(v, 255);
         if (p.field == ClassicField::Unit) v = std::min<uint32_t>(v, 0xFFFF);
+        v = std::min<uint32_t>(v, kCtVariable - 1);  // a typed value never reads as a variable (kCtVariable and up)
     }
     ctSetValue(i, v);
 }
@@ -517,12 +573,24 @@ bool ctInsertCondition(const ClassicCondition& c, int at) {
 bool ctInsertAction(const ClassicAction& a, int at) {
     ClassicTrigger* t = ctTrigger();
     if (!t || !t->addAction(a, at)) return false;
+    gCt->collapsed.clear();  // the rows moved: the collapsed rows are not known any more
     ctSelectEntry(1, at < 0 ? t->actionCount() - 1 : at);
     ctChanged();
     return true;
 }
 // A new condition (action) of this type at the end of its list.
-bool ctAddEntry(int kind, uint8_t type) { return kind ? ctInsertAction(makeClassicAction(type), -1) : ctInsertCondition(makeClassicCondition(type), -1); }
+// A new action goes into the selected block (as its last child) when a block is selected.
+bool ctAddEntry(int kind, uint8_t type) {
+    if (!kind) return ctInsertCondition(makeClassicCondition(type), -1);
+    ClassicTrigger* t = ctTrigger();
+    if (t && gCt->kind == 1 && gCt->entry >= 0 && gCt->entry < t->actionCount() && t->actions[size_t(gCt->entry)].type == kClassicBlockType) {
+        ClassicAction a = makeClassicAction(type);
+        a.depth = uint8_t(t->actions[size_t(gCt->entry)].depth + 1);
+        gCt->collapsed.erase(gCt->entry);
+        return ctInsertAction(a, t->blockEnd(gCt->entry));
+    }
+    return ctInsertAction(makeClassicAction(type), -1);
+}
 void ctDuplicateEntry(int kind, int i) {
     ClassicTrigger* t = ctTrigger();
     if (!t || i < 0 || i >= ctEntryCount(*t, kind)) return;
@@ -539,6 +607,7 @@ void ctDeleteEntry(int kind, int i) {
     if (!t || i < 0 || i >= ctEntryCount(*t, kind)) return;
     if (kind) t->removeAction(i);
     else t->removeCondition(i);
+    gCt->collapsed.clear();
     const int n = ctEntryCount(*t, kind);
     ctSelectEntry(kind, n ? std::min(i, n - 1) : -1);
     ctChanged();
@@ -546,6 +615,7 @@ void ctDeleteEntry(int kind, int i) {
 void ctToggleEntry(int kind, int i) {
     ClassicTrigger* t = ctTrigger();
     if (!t || i < 0 || i >= ctEntryCount(*t, kind)) return;
+    if (kind && t->actions[size_t(i)].type == kClassicBlockType) return;  // a block is not turned off: its actions are
     uint8_t& f = kind ? t->actions[size_t(i)].flags : t->conditions[size_t(i)].flags;
     f ^= 2;
     ctSelectEntry(kind, i);
@@ -559,6 +629,7 @@ void ctMoveEntry(int kind, int from, int to) {
     if (from < 0 || from >= n || to < 0 || to >= n || to == from) return;
     if (kind) t->moveAction(from, to);
     else t->moveCondition(from, to);
+    gCt->collapsed.clear();
     ctSelectEntry(kind, to);
     ctChanged();
 }
@@ -639,17 +710,29 @@ void ctChipClick(int kind, int i, int pi, RECT chip) {
         }
         return;
     }
-    const uint32_t v = ctIsVariable(c != nullptr, d.entry, p.field) ? kCtVariable : c ? classicValue(*c, p.field) : classicValue(*a, p.field);
+    POINT pt{chip.left, chip.bottom + scale(2)};
+    ClientToScreen(d.entries, &pt);
+    ctPickValue(pi, pt);
+}
+
+// The searchable list of a parameter's values (a unit, a location, a switch, ...), with the variables that fit it
+// first. It opens below `at` (screen coordinates); one click selects.
+void ctPickValue(int pi, POINT at) {
+    ClassicCondition* c = ctCondition();
+    ClassicAction* a = ctAction();
+    const ClassicDef* def = c ? classicConditionDef(c->type) : a ? classicActionDef(a->type) : nullptr;
+    if (!def || pi < 0 || pi >= int(def->params.size())) return;
+    const ClassicParam& p = def->params[size_t(pi)];
+    const int vd = ctVarDepthOf(c, p.field);
+    const uint32_t v = vd >= 0 ? kCtVariable + uint32_t(vd) : c ? classicValue(*c, p.field) : classicValue(*a, p.field);
     std::vector<ListPickItem> items;
-    for (const auto& [value, label] : ctChoices(p.kind, v)) {
+    for (const auto& [value, label] : ctChoices(p.kind, v, p.field)) {
         ListPickItem it;
         it.label = label, it.value = std::to_string(value);
         items.push_back(std::move(it));
     }
-    POINT pt{chip.left, chip.bottom + scale(2)};
-    ClientToScreen(d.entries, &pt);
     std::string picked;
-    if (!showListPicker(ctKindLabel(p.kind, p.name), items, std::to_string(v), pt, picked) || picked.empty()) return;
+    if (!showListPicker(ctKindLabel(p.kind, p.name), items, std::to_string(v), at, picked) || picked.empty()) return;
     const uint32_t nv = uint32_t(std::stoul(picked));
     if (nv == v) return;
     ctSetValue(pi, nv);
@@ -691,9 +774,18 @@ void ctSentence(HDC dc, const E& e, int kind, int index, RECT area, bool dim, bo
         x += w;
         return r;
     };
+    if constexpr (std::is_same_v<E, ClassicAction>) {
+        if (e.type == kClassicBlockType) {  // a block: "For each unit in ..." (its chevron is painted by the list)
+            text(widen(classicBatchText(*e.batch, n)), word, false);
+            return;
+        }
+    }
+    std::vector<const ClassicBatch*> scope;
+    if constexpr (std::is_same_v<E, ClassicAction>)
+        if (kind == 1 && ctTrigger()) scope = ctScopeOf(*ctTrigger(), index);
     if (!def) {
         std::string s;
-        if constexpr (std::is_same_v<E, ClassicAction>) s = classicActionText(e, n);
+        if constexpr (std::is_same_v<E, ClassicAction>) s = classicActionText(e, n, &scope);
         else s = classicConditionText(e, n);
         for (char& ch : s)
             if (static_cast<unsigned char>(ch) < 32) ch = ' ';
@@ -716,8 +808,9 @@ void ctSentence(HDC dc, const E& e, int kind, int index, RECT area, bool dim, bo
         for (int pi = 0; pi < int(def->params.size()); ++pi) {
             const ClassicParam& p = def->params[size_t(pi)];
             if (key != p.name) continue;
-            const bool variable = ctIsVariable(kind == 0, index, p.field);
-            std::wstring v = variable ? widen(classicBatchVariableText(*ctTrigger()->batch)) : ctChipText(p, classicValue(e, p.field), n);
+            const int vd = kind == 1 && ctTrigger() ? ctVarDepthAt(*ctTrigger(), index, p.field) : -1;
+            std::wstring v = vd >= 0 && size_t(vd) < scope.size() && scope[size_t(vd)] ? widen(classicBatchVariableText(*scope[size_t(vd)]))
+                                                                                     : ctChipText(p, classicValue(e, p.field), n);
             if (x == area.left && !v.empty()) v[0] = towupper(v[0]);  // a sentence that starts with a value
             const RECT r = text(v, dim ? kFaint : kText, true);
             if (r.right > r.left)
@@ -727,6 +820,17 @@ void ctSentence(HDC dc, const E& e, int kind, int index, RECT area, bool dim, bo
     }
     text(run, word, false);
     if (classicEud(e)) text(L"  EUD", kDim, false);
+}
+
+// How many triggers the map gets for this trigger: 1, or more when its blocks make more than 64 slots.
+int ctPartsOf(const ClassicTrigger& t) {
+    bool blocks = false;
+    for (int i = 0; i < t.actionCount() && !blocks; ++i) blocks = t.actions[size_t(i)].type == kClassicBlockType;
+    if (!blocks) return 1;
+    ClassicTriggers one;
+    one.triggers.push_back(t);
+    StringTable scratch;
+    return int(classicExpandBatches(one, scratch).triggers.size());
 }
 
 // Paints the trigger list (list) or the conditions and actions (entries).
@@ -776,8 +880,9 @@ void ctPaint(HWND hwnd, bool isList) {
             const int right = r.right - scale(8) - scale(ui::kIconBox) * acts;
             RECT top{textX, r.top, right, (r.top + r.bottom) / 2 + scale(1)}, bottom{textX, top.bottom - scale(2), right, r.bottom};
             SetTextColor(mem, ui::rowText(sel));
-            const std::wstring what = t.batch ? L"Batch of " + std::to_wstring(t.batch->values.size()) + (t.batch->values.size() == 1 ? L" trigger: " : L" triggers: ") : L"";
-            const std::wstring head = std::to_wstring(i + 1) + L". " + what + ctTriggerLine(t, false);
+            const int parts = ctPartsOf(t);  // a trigger too long for 64 slots is several triggers in the map
+            const std::wstring split = parts > 1 ? L"Becomes " + std::to_wstring(parts) + L" triggers in the map. " : L"";
+            const std::wstring head = std::to_wstring(i + 1) + L". " + split + ctTriggerLine(t, false);
             DrawTextW(mem, head.c_str(), -1, &top, DT_SINGLELINE | DT_BOTTOM | DT_NOPREFIX | DT_END_ELLIPSIS);
             SetTextColor(mem, kDim);
             std::wstring who;
@@ -803,7 +908,13 @@ void ctPaint(HWND hwnd, bool isList) {
             const int count = t ? ctEntryCount(*t, kind) : 0;
             if (!count && !t) none(scale(10));  // (a trigger: its add row says it)
             const int rowH = ctEntryRowH(), acts = 3;
+            int hiddenEnd = -1;  // the children of a collapsed block are not shown: up to this row
             for (int i = 0; i < count; ++i) {
+                if (kind && i < hiddenEnd) continue;
+                hiddenEnd = -1;
+                const bool isBlock = kind && t->actions[size_t(i)].type == kClassicBlockType;
+                if (isBlock && d.collapsed.count(i)) hiddenEnd = t->blockEnd(i);
+                const int indent = kind ? t->actions[size_t(i)].depth * scale(18) : 0;
                 const RECT r{0, y, w, y + rowH};
                 y += rowH;
                 const bool sel = d.kind == kind && d.entry == i;
@@ -815,7 +926,19 @@ void ctPaint(HWND hwnd, bool isList) {
                 if (!visible(r)) continue;
                 const uint8_t flags = kind ? t->actions[size_t(i)].flags : t->conditions[size_t(i)].flags;
                 const bool off = (flags & 2) != 0;
-                const RECT area{scale(22), r.top, r.right - scale(8) - scale(ui::kIconBox) * acts, r.bottom};
+                if (isBlock) {  // the chevron: expanded (down) or collapsed (right); a click shows or hides the children
+                    const bool shut = d.collapsed.count(i) != 0;
+                    RECT chev{scale(6) + indent, r.top, scale(6) + indent + scale(14), r.bottom};
+                    SetTextColor(mem, ui::rowText(sel));
+                    DrawTextW(mem, shut ? L"\x25B8" : L"\x25BE", -1, &chev, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
+                    hitsOut().push_back({chev, nullptr, [i] {
+                                             if (gCt->collapsed.count(i)) gCt->collapsed.erase(i);
+                                             else gCt->collapsed.insert(i);
+                                             ctChanged();
+                                         },
+                                         shut ? L"Show the actions of the block" : L"Hide the actions of the block", IDC_HAND, {}});
+                }
+                const RECT area{scale(22) + indent, r.top, r.right - scale(8) - scale(ui::kIconBox) * acts, r.bottom};
                 if (kind) ctSentence(mem, t->actions[size_t(i)], 1, i, area, off, sel);
                 else ctSentence(mem, t->conditions[size_t(i)], 0, i, area, off, sel);
                 ui::rowActions(mem, r,
@@ -869,6 +992,16 @@ void ctKey(bool isList, WPARAM vk) {
     const ClassicTrigger* t = ctTrigger();
     if (!t || d.entry < 0) return;
     if (vk == VK_DELETE) return ctDeleteEntry(d.kind, d.entry);
+    if (ctrl && d.kind == 1 && (vk == VK_LEFT || vk == VK_RIGHT)) {  // Move in: into the block above; Move out: after the block
+        ClassicTrigger* m = ctTrigger();
+        const bool moved = vk == VK_RIGHT ? m->indentAction(d.entry) : m->outdentAction(d.entry);
+        if (moved) {
+            d.collapsed.clear();
+            ctChanged();
+            ctBuildEditor();
+        }
+        return;
+    }
     if (vk == VK_UP || vk == VK_DOWN) {
         const int to = d.entry + (vk == VK_UP ? -1 : 1);
         if (ctrl) return ctMoveEntry(d.kind, d.entry, to);
@@ -960,11 +1093,11 @@ INT_PTR CALLBACK ctBatchProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         SetWindowLongPtrW(dlg, DWLP_USER, lp);
         CtBatchDialog* st = state();
         st->shown = st->batch->kind;
-        SetWindowTextW(dlg, L"Batch of triggers");
+        SetWindowTextW(dlg, st->hadBatch ? L"Edit the block" : L"Add a block");
         SetDlgItemTextW(dlg, kCtBatchName, widen(st->batch->name).c_str());
-        SetDlgItemTextW(dlg, IDOK, st->hadBatch ? L"Save" : L"Make the batch");
+        SetDlgItemTextW(dlg, IDOK, st->hadBatch ? L"Save" : L"Add the block");
         SetDlgItemTextW(dlg, IDCANCEL, L"Cancel");
-        SetDlgItemTextW(dlg, kCtBatchRemove, L"Remove the batch");
+        SetDlgItemTextW(dlg, kCtBatchRemove, L"Remove the block");
         ShowWindow(GetDlgItem(dlg, kCtBatchRemove), st->hadBatch ? SW_SHOW : SW_HIDE);
         HWND kindBox = GetDlgItem(dlg, kCtBatchKind);
         int cur = 0;
@@ -1071,19 +1204,30 @@ INT_PTR ctBatchRun(CtBatchDialog& st) {
 void ctBatchClick() {
     ClassicTrigger* t = ctTrigger();
     if (!t) return;
-    if (!t->batch && t->actionCount() >= kClassicActions) return setMessage(L"A batch has at most 63 actions");  // the comment takes one place
-    ClassicBatch b = t->batch ? *t->batch : ClassicBatch{};
-    if (!t->batch) b.name = batchDefaultName(b.kind);
+    const int row = gCt->entry;
+    const bool editing = gCt->kind == 1 && row >= 0 && row < t->actionCount() && t->actions[size_t(row)].type == kClassicBlockType;
+    if (!editing && t->actionCount() >= kClassicActions) return setMessage(L"A trigger has at most 64 actions");
+    ClassicBatch b = editing ? *t->actions[size_t(row)].batch : ClassicBatch{};
+    if (!editing) b.name = batchDefaultName(b.kind);
     CtBatchDialog st;
-    st.batch = &b, st.hadBatch = t->batch.has_value();
+    st.batch = &b, st.hadBatch = editing;
     const INT_PTR r = ctBatchRun(st);
-    if (r == kCtBatchRemove) {
-        t->batch.reset();
-        setMessage(L"Removed the batch");
+    if (r == kCtBatchRemove && editing) {
+        t->unwrapAction(row);  // the block goes; its actions stay, one level out
+        gCt->collapsed.clear();
+        setMessage(L"Removed the block");
+        ctSelectEntry(1, -1);
+    } else if (r == IDOK && editing) {
+        t->actions[size_t(row)].batch = std::make_shared<ClassicBatch>(b);
+        t->pruneBlocks();
+        setMessage(L"Changed the block");
     } else if (r == IDOK) {
-        t->batch = b;
-        classicBatchPrune(*t);
-        setMessage(st.hadBatch ? L"Changed the batch" : L"Made a batch");
+        ClassicAction blk;
+        blk.type = kClassicBlockType;
+        blk.batch = std::make_shared<ClassicBatch>(b);
+        t->addAction(blk, -1);
+        setMessage(L"Added a block");
+        ctSelectEntry(1, t->actionCount() - 1);
     } else {
         return;
     }
@@ -1106,6 +1250,11 @@ void ctCommand(int id, int code) {
     }
     if (d.filling) return;
     if (id >= kCtParam && id < kCtParam + 32) {
+        if (code == BN_CLICKED) {  // a unit type's button: the searchable list below it
+            RECT rc;
+            GetWindowRect(GetDlgItem(d.wnd, id), &rc);
+            return ctPickValue(id - kCtParam, POINT{rc.left, rc.bottom + scale(2)});
+        }
         if (code == CBN_SELCHANGE || code == EN_CHANGE) ctParamChanged(id - kCtParam, GetDlgItem(d.wnd, id));
         return;
     }
@@ -1115,7 +1264,7 @@ void ctCommand(int id, int code) {
         const uint8_t type = uint8_t(SendMessageW(d.typeBox, CB_GETITEMDATA, WPARAM(k), 0));
         if (ClassicCondition* c = ctCondition()) *c = retypeClassicCondition(*c, type);
         else if (ClassicAction* a = ctAction()) *a = retypeClassicAction(*a, type);
-        if (t) classicBatchPrune(*t);  // a slot whose field the new type does not hold goes
+        if (t) t->pruneBlocks();  // a variable whose field the new type does not hold goes
         ctChanged();
         ctBuildEditor();
         return;
@@ -1172,7 +1321,7 @@ LRESULT CALLBACK classicTrigProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         // Right: the players, the conditions and actions, the selected entry.
         int y = pad;
         SetWindowLongPtrW(label(L"Players", x0, y, rightW - scale(210), false), GWLP_ID, kCtHead);
-        d->batch = CreateWindowExW(0, WC_BUTTONW, L"Make a batch\x2026", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, x0 + rightW - scale(200), y,
+        d->batch = CreateWindowExW(0, WC_BUTTONW, L"Add a block\x2026", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, x0 + rightW - scale(200), y,
                                    scale(200), rowH, hwnd, HMENU(INT_PTR(kCtBatch)), app.inst, nullptr);
         font(d->batch);
         darkControl(d->batch, L"DarkMode_Explorer");
@@ -1331,6 +1480,10 @@ bool ctCopyChanged(const ClassicTrigDialog& d) { return d.trig.triggers != d.bef
 // Apply: TRIG (and the new strings) as one undo step (Editor::setClassicTriggers). The values the page does not know
 // (EUD values, the bytes after the last trigger, the flags) stay as they are.
 bool ctApply(ClassicTrigDialog& d) {
+    if (!classicCanExpand(d.trig)) {  // a long trigger needs a switch that no trigger uses
+        setMessage(L"Could not set the classic triggers. A long trigger needs a switch that no trigger uses.");
+        return true;
+    }
     // The strings this page made that no action uses now go again.
     for (uint32_t id : d.ownStrings) {
         bool used = false;
@@ -1419,7 +1572,7 @@ void classicTrigDatashot(const std::string& spec, const fs::path& dir) {
     static std::vector<std::string> moveLog;
     mode = spec.substr(spec.find(':') + 1), out = dir, expected.clear(), moveLog.clear();
     const bool set = mode == "set", move = mode == "move", batch = mode == "batch";
-    Bytes beforeVariable;  // batch: the TRIG before the variable was picked (the last edit)
+    ClassicTrigger madeCopy;  // batch: the trigger that was made, as the page has it
     const bool wasModified = app.ed && app.ed->modified();
     const Bytes before = app.ed ? app.ed->chk().effective("TRIG") : Bytes();
     int shownTriggers = -1;
@@ -1502,42 +1655,25 @@ void classicTrigDatashot(const std::string& spec, const fs::path& dir) {
             // A trigger for player 1 with Create unit (a Zergling). The batch dialog is made as the window makes it,
             // but not shown (no focus): it selects Terran Marine, Terran Firebat and Zergling, then reads them back.
             // Then the unit is the batch's variable.
+            // A block of units (Terran Marine, Terran Firebat, Zergling) with a block of players (Player 1, Player 2)
+            // in it, and Create unit in the inner block: its unit is the outer variable, its player the inner one.
             ctPick(gCt->filterBox, 0);
             ctAddTrigger();
-            ctAddEntry(1, 44);
-            if (HWND h = ctPicker("unit")) ctPick(h, 37);
-            if (HWND h = ctPicker("player")) ctPick(h, 0);
-            ClassicBatch made;
-            made.name = "unit";
-            CtBatchDialog st;
-            st.batch = &made;
-            HWND dlg = CreateDialogIndirectParamW(app.inst, reinterpret_cast<LPCDLGTEMPLATEW>(ctBatchTemplate().data()), app.main, ctBatchProc, LPARAM(&st));
-            bool read = false, okOn = false;
-            if (dlg) {
-                const int kinds = int(SendMessageW(GetDlgItem(dlg, kCtBatchKind), CB_GETCOUNT, 0, 0));
-                HWND list = GetDlgItem(dlg, kCtBatchValues);
-                const int items = int(SendMessageW(list, LB_GETCOUNT, 0, 0));
-                for (int i = 0; i < items; ++i) {
-                    const uint32_t v = uint32_t(SendMessageW(list, LB_GETITEMDATA, WPARAM(i), 0));
-                    if (v == 0 || v == 1 || v == 37) SendMessageW(list, LB_SETSEL, TRUE, i);
-                }
-                SendMessageW(dlg, WM_COMMAND, MAKEWPARAM(kCtBatchValues, LBN_SELCHANGE), LPARAM(list));
-                okOn = IsWindowEnabled(GetDlgItem(dlg, IDOK)) != 0;
-                read = ctBatchCollect(dlg, st);
-                log << "batch dialog: 3 kinds " << (kinds == 3 ? "yes" : "NO") << ", " << items << " unit types " << (items == 228 ? "yes" : "NO")
-                    << ", OK on with values " << (okOn ? "yes" : "NO") << ", the values read back " << (read && made.values.size() == 3 ? "yes" : "NO") << "\n";
-                DestroyWindow(dlg);
-            }
-            if (read) {
-                ClassicTrigger* t = ctTrigger();
-                t->batch = made;
-                ctChanged();  // the batch is an edit of its own: one undo step
-                ctBuildEditor();
-                ctUpdateBatchButton();
-                beforeVariable = app.ed->chk().effective("TRIG");
-                if (HWND h = ctPicker("unit")) ctPick(h, kCtVariable);  // the unit is the variable, as the picker sets it
-                ctFillList();
-            }
+            ClassicTrigger* t = ctTrigger();
+            ClassicAction outer;
+            outer.type = kClassicBlockType, outer.depth = 0;
+            outer.batch = std::make_shared<ClassicBatch>(ClassicBatch{"unit", ClassicBatchKind::Unit, {0, 1, 37}});
+            ClassicAction inner;
+            inner.type = kClassicBlockType, inner.depth = 1;
+            inner.batch = std::make_shared<ClassicBatch>(ClassicBatch{"player", ClassicBatchKind::Player, {0, 1}});
+            ClassicAction make = makeClassicAction(44);  // Create unit
+            make.depth = 2, make.var[2] = 1, make.var[1] = 2;
+            t->addAction(outer, -1), t->addAction(inner, -1), t->addAction(make, -1);
+            madeCopy = *t;
+            ctFillList();
+            ctSelectEntry(1, 2);
+            log << "nested batch: " << (t->actionCount() == 3 ? "yes" : "NO") << "\n";
+            ctChanged();  // the blocks are an edit of the page: Apply writes them
         } else if (!gCt->shown.empty()) {
             ctSelectEntry(1, 0);
         }
@@ -1556,29 +1692,23 @@ void classicTrigDatashot(const std::string& spec, const fs::path& dir) {
     if (batch) {
         // The map has the template and the three triggers the batch makes; read back, the batch is the same; undone.
         const ClassicTriggers saved = app.ed->classicTriggers();
-        log << "one template and three triggers more " << (count == had + 4 ? "yes" : "NO") << "\n";
+        log << "the map has one trigger more (the blocks make six copies in it) " << (count == had + 1 ? "yes" : "NO") << "\n";
         // Each edit is one undo step (the page writes it into the map at once): the variable was the last one.
-        app.ed->undo();
-        const bool back1 = app.ed->chk().effective("TRIG") == beforeVariable;
-        app.ed->redo();
-        log << "one undo step gives back the TRIG before the variable was picked " << (back1 ? "yes" : "NO") << ", redo gives it back "
-            << (app.ed->chk().effective("TRIG") != beforeVariable ? "yes" : "NO") << "\n";
         const ClassicTriggers working = classicCollapseBatches(saved, app.ed->strings());
-        const ClassicBatch* found = nullptr;
-        for (const ClassicTrigger& tr : working.triggers)
-            if (tr.batch) found = &*tr.batch;
-        const bool same = found && found->values == std::vector<uint32_t>{0, 1, 37} && found->kind == ClassicBatchKind::Unit &&
-                          found->slots.size() == 1 && found->slots[0].index == 0 && found->slots[0].field == ClassicField::Unit;
-        log << "read back: one batch of Terran Marine, Terran Firebat and Zergling in the variable unit " << (same ? "yes" : "NO") << "\n";
+        const bool same = !working.triggers.empty() && working.triggers.back() == madeCopy;
+        log << "read back: the blocks are the same (the outer unit block with the player block in it) " << (same ? "yes" : "NO") << "\n";
         std::string ext = app.ed->path().extension().string(), err;
         const fs::path file = dir / ("classictrig_batch" + (ext.empty() ? std::string(".scx") : ext));
         Editor back(app.data);
         const bool reopened = app.ed->save(file, err) && back.open(file, err);
-        const ClassicBatch* again = nullptr;
         const ClassicTriggers reread = reopened ? classicCollapseBatches(back.classicTriggers(), back.strings()) : ClassicTriggers{};
-        for (const ClassicTrigger& tr : reread.triggers)
-            if (tr.batch) again = &*tr.batch;
-        log << "saved and opened again: the same batch " << (reopened && again && found && *again == *found ? "yes" : "NO " + err) << "\n";
+        const bool again = !reread.triggers.empty() && reread.triggers.back() == madeCopy;
+        log << "saved and opened again: the same blocks " << (reopened && again ? "yes" : "NO " + err) << "\n";
+        // The page makes an undo step for each change (adding the trigger, adding the block): undo back to the start.
+        int steps = 0;
+        while (steps < 6 && app.ed->chk().effective("TRIG") != before) app.ed->undo(), ++steps;
+        log << "undo steps back to the map before the page changed it: " << steps << (app.ed->chk().effective("TRIG") == before ? " (back at the start)" : " (NOT back at the start)")
+            << "\n";
         return;
     }
     if (move) {
