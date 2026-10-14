@@ -142,8 +142,6 @@ jobs:
             pid=$!
             for i in $(seq 1 60); do grep -q "^ready" ime-macos-$mode.txt && break; sleep 0.5; done
             ./ime_keys_mac "gksrnrdj " || true
-            # (if the posted keys did not arrive: System Events, which has its own permission)
-            osascript -e 'tell application "System Events" to keystroke "gksrnrdj "' || true
             wait $pid || true
             cat ime-macos-$mode.txt
           done
