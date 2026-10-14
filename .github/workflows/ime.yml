@@ -168,6 +168,7 @@ jobs:
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
           cmake --build build --target stardraft_next --parallel
           clang tools/ci/ime_keys_mac.c -framework Carbon -framework ApplicationServices -o ime_keys_mac
+          clang -fobjc-arc tools/ci/ime_textview_mac.m -framework Cocoa -o ime_textview_mac
 
       # A run of stardraft-next with the keys (live <name> <flags> <keys> <check>); on macOS the first launches after an
       # input method starts can lose the first syllable (ㅎㅏㄴ국어): a run that fails its check runs once more, with
@@ -200,6 +201,13 @@ jobs:
           live hanja "" "gks{optreturn}{wait}{wait}1 {source:com.apple.keylayout.US}abc ${ko}rnr " hanja ||
             echo "::warning::macOS Hanja: $(grep 'search field' ime-macos-hanja.txt) (Option+Return gave no Hanja)"
           live hangul-english "" "gks {source:com.apple.keylayout.US}abc ${ko}rnr " hangul-english
+          # The same Hanja keys into a native text view (NSTextView): what the input method gives without SDL.
+          ./ime_textview_mac 15 > ime-macos-textview.txt 2>&1 &
+          pid=$!
+          for i in $(seq 1 40); do grep -q "^ready" ime-macos-textview.txt && break; sleep 0.5; done
+          ./ime_keys_mac "${ko}gks{optreturn}{wait}{wait}1 " || true
+          wait $pid || true
+          cat ime-macos-textview.txt
           live warmup2 "" "{source:com.apple.inputmethod.SCIM.ITABC}zhongwen " pinyin || true
           live pinyin "" "zhongwen " pinyin
 
