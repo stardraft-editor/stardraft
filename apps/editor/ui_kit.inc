@@ -572,7 +572,7 @@ void chipFace(Paint p, RECT r, bool over, bool dim = false, bool bad = false, bo
     const COLORREF line = focused ? kAccent : dim ? kReadOnlyLine : bad ? kBad : over ? kAccentLine : kChipLine;
     if (focused) {
         box(*p, r, fill, CLR_NONE);
-        p->roundBox(r, kNone, line, scale(kRadius), 2);
+        p->roundBox(r, kNone, line, float(scale(kRadius)), 2);
         return;
     }
     box(*p, r, fill, line);
