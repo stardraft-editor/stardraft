@@ -47,11 +47,11 @@ void ProgressBar::stopTimer() {
 
 void ProgressBar::tick() {
     timer_ = 0;  // this step has run
-    if (!busy_) return;
+    if (!busy_ || !shown()) return;  // off the screen: no step; paint starts the animation again when it is shown
     phase_ += kStep;
     if (phase_ >= 1.0f) phase_ -= 1.0f;
     invalidate();
-    startTimer();  // the next step (not while the bar is off the window)
+    startTimer();  // the next step
 }
 
 void ProgressBar::paint(draw::Canvas& c) {

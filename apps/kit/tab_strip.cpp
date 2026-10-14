@@ -12,7 +12,7 @@ constexpr int kIconPx = 16;
 constexpr int kIconGap = 5;
 constexpr int kMinTabW = 90;    // a tab's width: its text, within these
 constexpr int kMaxTabW = 260;
-constexpr int kMinSqueezedW = 40;  // when the tabs do not all fit, each is this wide at least
+constexpr int kSegGap = 4;      // between the segments of a Segmented row (CONTROLS.md)
 constexpr int kDragSlop = 6;    // the mouse moves this far before a tab is dragged
 }  // namespace
 
@@ -21,6 +21,11 @@ void TabStrip::setTabs(std::vector<Tab> tabs) {
     sel_ = tabs_.empty() ? -1 : std::clamp(sel_, 0, count() - 1);
     hot_ = -1;
     hotClose_ = false;
+    // A press or drag was on the old tabs: it ends (the mouse is still held, so the strip keeps it until the release).
+    pressed_ = -1;
+    pressedClose_ = false;
+    drag_ = -1;
+    dragging_ = false;
     dirty_ = true;
     invalidate();
 }
@@ -43,15 +48,18 @@ void TabStrip::selectByUser(int i) {
     if (onSelect) onSelect(i);
 }
 
-// Each tab's width. Segmented: equal parts of the strip. Tabs: as wide as the text needs (within a range); when they do
-// not all fit, each is the same narrower width.
+// Each tab's width. Segmented: equal segments, a gap of 4 px between them (the gap is counted in the tab's width
+// except for the last). Tabs: as wide as the text needs (within a range); when they do not all fit, each is the same
+// narrower width (no scrolling: the tabs are narrow, but every one can be clicked).
 void TabStrip::measureWidths(draw::Canvas& c) {
     const int n = count(), w = width();
     widths_.assign(size_t(n), 0);
     if (n == 0) return;
     if (look_ == TabLook::Segmented) {
-        for (int i = 0; i < n; ++i) widths_[size_t(i)] = w / n;
-        widths_.back() += w - (w / n) * n;
+        const int gap = px(kSegGap);
+        const int inner = std::max(0, w - gap * (n - 1));
+        for (int i = 0; i < n; ++i) widths_[size_t(i)] = inner / n + (i + 1 < n ? gap : 0);
+        widths_.back() += inner - (inner / n) * n;
         return;
     }
     int total = 0;
@@ -63,7 +71,7 @@ void TabStrip::measureWidths(draw::Canvas& c) {
         total += widths_[size_t(i)];
     }
     if (total > w)
-        for (int& tw : widths_) tw = std::max(px(kMinSqueezedW), w / n);
+        for (int& tw : widths_) tw = std::max(1, w / n);
 }
 
 draw::Rect TabStrip::tabRect(int i) const {
@@ -73,8 +81,14 @@ draw::Rect TabStrip::tabRect(int i) const {
     return {x, 0, x + widths_[size_t(i)], height()};
 }
 
+draw::Rect TabStrip::boxRect(int i) const {
+    draw::Rect r = tabRect(i);
+    if (look_ == TabLook::Segmented && i + 1 < count()) r.right -= px(kSegGap);
+    return r;
+}
+
 draw::Rect TabStrip::closeRect(int i) const {
-    const draw::Rect r = tabRect(i);
+    const draw::Rect r = boxRect(i);
     const int cw = px(kCloseW), top = (height() - cw) / 2;
     const int left = r.right - px(kPad) / 2 - cw;
     return {left, top, left + cw, top + cw};
@@ -94,68 +108,77 @@ void TabStrip::setCapture(bool on) {
     if (auto* h = host()) h->capture(*this, on);
 }
 
+// The mouse capture went elsewhere (or the system took it) before the release: the press and the drag end here, so
+// plain mouse moves do not drag a tab.
+void TabStrip::captureLost() {
+    capturing_ = false;
+    pressed_ = -1;
+    pressedClose_ = false;
+    drag_ = -1;
+    dragging_ = false;
+    invalidate();
+}
+
 void TabStrip::paint(draw::Canvas& c) {
     if (dirty_) measureWidths(c), dirty_ = false;
     const Theme& th = theme();
     const int n = count(), w = width(), h = height(), rad = px(kRadius);
     if (n == 0) return;
-    if (look_ == TabLook::Segmented) c.roundBox({0, 0, w, h}, th.ctl, th.border, rad);
-    else c.fill({0, h - px(1), w, h}, th.border);  // the line under the flat tabs (their bars cover it)
+    if (look_ != TabLook::Segmented) c.fill({0, h - px(1), w, h}, th.border);  // the line under the flat tabs (their bars cover it)
     for (int i = 0; i < n; ++i) {
-        const draw::Rect r = tabRect(i);
+        const draw::Rect box = boxRect(i);
         const bool sel = i == sel_, hot = i == hot_;
         if (look_ == TabLook::Segmented) {
-            // Each segment's box is wider on its inner sides; the clip cuts it at the segment, so only the ends round.
-            draw::Rect ext = r;
-            if (i > 0) ext.left -= px(8);
-            if (i + 1 < n) ext.right += px(8);
-            c.pushClip(r);
-            if (sel) c.roundBox(ext, th.sel, th.accentLine, rad);
-            else if (hot) c.roundBox(ext, th.ctlHot, th.border, rad);
-            c.popClip();
-            if (i + 1 < n) c.fill({r.right - 1, r.top + 1, r.right, r.bottom - 1}, th.border);
+            // A button: the chosen one Primary, the others as the normal button (hot when the mouse is on it).
+            if (sel) c.roundBox(box, th.sel, th.accentLine, rad);
+            else if (hot) c.roundBox(box, th.ctlHot, th.borderHot, rad);
+            else c.roundBox(box, th.ctl, th.border, rad);
         } else {
-            if (sel) c.fill(r, th.ctl);
-            else if (hot) c.fill(r, th.hot);
-            if (sel) c.fill({r.left, r.bottom - px(2), r.right, r.bottom}, th.accent);
+            if (sel) c.fill(box, th.ctl);
+            else if (hot) c.fill(box, th.hot);
+            if (sel) c.fill({box.left, box.bottom - px(2), box.right, box.bottom}, th.accent);
         }
         const Color col = look_ == TabLook::Segmented ? (sel ? th.accent : th.text) : (sel || hot ? th.text : th.dim);
-        drawTab(c, i, r, col);
+        drawTab(c, i, box, col);
     }
-    if (hasFocus() && sel_ >= 0) c.frame(tabRect(sel_), th.accent);
+    if (hasFocus() && sel_ >= 0) c.frame(boxRect(sel_), th.accent);
 }
 
-// The icon, the text and the x (or the dot) of tab `i` in its rectangle `r`.
-void TabStrip::drawTab(draw::Canvas& c, int i, const draw::Rect& r, draw::Color col) const {
+// The icon, the text and the x (or the dot) of tab `i` in its box `box`.
+void TabStrip::drawTab(draw::Canvas& c, int i, const draw::Rect& box, draw::Color col) const {
     const Theme& th = theme();
     const Tab& t = tabs_[size_t(i)];
     const int h = height(), is = px(kIconPx), gap = px(kIconGap), pad = px(kPad), rad = px(kRadius);
     const draw::Rect cr = closeRect(i);
-    const int right = cr.left - px(2);  // the text ends before the x
+    const bool closeMark = t.changed || t.closable;
+    // The text ends before the x's place; a Segmented tab without an x uses its whole box, so the text is centered.
+    const bool reserve = look_ != TabLook::Segmented || closeMark;
+    const int right = reserve ? cr.left - px(2) : box.right - pad;
     const int top = (h - is) / 2;
     if (look_ == TabLook::Segmented) {
         // The icon and the name together in the middle; the name is cut when it does not fit; without room for it, the
         // icon alone.
         const int tw = t.text.empty() ? 0 : c.measure(t.text);
-        const int left = r.left + pad;
+        const int left = box.left + pad;
         const bool names = !t.text.empty() && (t.icon < 0 || is + gap + tw <= right - left);
         if (t.icon >= 0) {
             const int cw = is + (names ? gap + tw : 0);
-            const int x0 = (r.left + right) / 2 - cw / 2;
+            const int x0 = (left + right) / 2 - cw / 2;
             c.icon({x0, top, x0 + is, top + is}, t.icon, col, is);
             if (names) c.text({x0 + is + gap, 0, right, h}, t.text, col, draw::kLeft | draw::kMiddle | draw::kEllipsis);
         } else if (names) {
             c.text({left, 0, right, h}, t.text, col, draw::kCenter | draw::kMiddle | draw::kEllipsis);
         }
     } else {
-        int x = r.left + pad;
+        int x = box.left + pad;
         if (t.icon >= 0) {
             c.icon({x, top, x + is, top + is}, t.icon, col, is);
             x += is + gap;
         }
         if (!t.text.empty()) c.text({x, 0, right, h}, t.text, col, draw::kLeft | draw::kMiddle | draw::kEllipsis);
     }
-    // The unsaved dot (while the mouse is not on the tab), else the x of a closable tab.
+    // The unsaved dot (while the mouse is not on the tab), else the x of a closable tab. The x is a glyph written as
+    // an escape, so the source's encoding does not matter.
     const bool sel = i == sel_;
     const bool overTab = i == hot_;
     if (t.changed && !overTab) {
@@ -164,7 +187,7 @@ void TabStrip::drawTab(draw::Canvas& c, int i, const draw::Rect& r, draw::Color 
     } else if (t.closable) {
         const bool overClose = overTab && hotClose_;
         if (overClose) c.roundBox(cr, th.hot, draw::kNone, rad);
-        c.text(cr, L"×", overClose ? th.text : th.dim, draw::kMiddle | draw::kCenter);
+        c.text(cr, L"\u00d7", overClose ? th.text : th.dim, draw::kMiddle | draw::kCenter);
     }
 }
 
@@ -187,7 +210,7 @@ void TabStrip::dragTo(int x) {
         if (to < 0 || to == cur) break;
         moveTab(cur, to);
         cur = to;
-        if (dirty_) return;  // the owner changed the tabs in onMove
+        if (dirty_) return;  // the owner changed the tabs in onMove (the drag ended with them)
     }
     drag_ = cur;
 }
@@ -240,6 +263,7 @@ bool TabStrip::mouse(const draw::MouseEvent& e) {
         if (e.button != 0 || h.index < 0) return false;
         pressed_ = h.index;
         pressedClose_ = h.close && tabs_[size_t(h.index)].closable;
+        capturing_ = true;
         setCapture(true);
         if (pressedClose_) {
             invalidate();
@@ -248,18 +272,23 @@ bool TabStrip::mouse(const draw::MouseEvent& e) {
         drag_ = h.index;
         dragging_ = false;
         dragX_ = e.pt.x;
-        selectByUser(h.index);
+        selectByUser(h.index);  // (the owner may change the tabs here: nothing of the strip is used after it)
         return true;
     }
     case MouseKind::Up: {
-        if (e.button != 0 || pressed_ < 0) return false;
+        if (e.button != 0 || !capturing_) return false;
         const int p = pressed_;
         const bool wasClose = pressedClose_;
+        capturing_ = false;
         pressed_ = -1, pressedClose_ = false, drag_ = -1, dragging_ = false;
         setCapture(false);
         if (wasClose) {
             const Hit h = hitAt(e.pt);
-            if (h.index == p && h.close && onClose) onClose(p);
+            if (h.index == p && h.close && onClose) {
+                const std::weak_ptr<int> alive = alive_;
+                onClose(p);
+                if (alive.expired()) return true;  // the owner destroyed the strip
+            }
         }
         invalidate();
         return true;

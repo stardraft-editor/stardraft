@@ -30,11 +30,26 @@ void Slider::setStep(int step) {
     setInternal(snap(value_), false);
 }
 
-int Slider::snap(int v) const {
+// The arithmetic is in 64 bits: the range may span all of int, and a sum or difference of two ints may not fit in one.
+int Slider::snap(long long v) const {
     if (v <= minValue_) return minValue_;
     if (v >= maxValue_) return maxValue_;
-    const int k = (v - minValue_ + step_ / 2) / step_;  // the nearest step (v is above the minimum here)
-    return std::min(maxValue_, minValue_ + k * step_);
+    const long long k = (v - minValue_ + step_ / 2) / step_;  // the nearest step (v is above the minimum here)
+    return int(std::min<long long>(maxValue_, minValue_ + k * step_));
+}
+
+// The grid is the minimum plus whole steps, and the maximum always ends it. From a value that is off the grid, the
+// step goes to the grid point next to it (the top of a range 0..10 in steps of 3 goes to 9, then 6).
+int Slider::stepDown(int v) const {
+    if (v <= minValue_) return minValue_;
+    const long long k = (static_cast<long long>(v) - minValue_ - 1) / step_;  // the grid points below v
+    return int(std::max<long long>(minValue_, minValue_ + k * step_));
+}
+
+int Slider::stepUp(int v) const {
+    if (v >= maxValue_) return maxValue_;
+    const long long k = (static_cast<long long>(v) - minValue_) / step_ + 1;  // the grid points up to v, and one more
+    return int(std::min<long long>(maxValue_, minValue_ + k * step_));
 }
 
 int Slider::trackLeft() const { return px(kKnobR); }
@@ -44,14 +59,19 @@ int Slider::valueAt(int x) const {
     const int a = trackLeft(), b = trackRight();
     if (b <= a || maxValue_ <= minValue_) return minValue_;
     const double f = std::clamp(double(x - a) / double(b - a), 0.0, 1.0);
-    return snap(minValue_ + int(std::lround(f * double(maxValue_ - minValue_))));
+    const double span = double(maxValue_) - double(minValue_);
+    return snap(static_cast<long long>(std::llround(double(minValue_) + f * span)));
 }
 
-int Slider::pageStep() const { return std::max(step_, (maxValue_ - minValue_) / 10); }
+int Slider::pageStep() const {
+    const long long tenth = (static_cast<long long>(maxValue_) - minValue_) / 10;
+    return int(std::max<long long>(step_, tenth));
+}
 
 float Slider::fraction() const {
     if (maxValue_ <= minValue_) return 0.0f;
-    return float(value_ - minValue_) / float(maxValue_ - minValue_);
+    const double span = double(maxValue_) - double(minValue_);
+    return float((double(value_) - double(minValue_)) / span);
 }
 
 void Slider::setInternal(int v, bool notify) {
@@ -59,6 +79,13 @@ void Slider::setInternal(int v, bool notify) {
     value_ = v;
     invalidate();
     if (notify && onChange) onChange(v);
+}
+
+void Slider::captureLost() {
+    if (!dragging_) return;
+    dragging_ = false;
+    hot_ = false;
+    invalidate();
 }
 
 void Slider::paint(draw::Canvas& c) {
@@ -104,10 +131,14 @@ bool Slider::mouse(const draw::MouseEvent& e) {
         invalidate();
         return true;
     case MouseKind::Wheel: {
-        if (!enabled_ || e.horizontal || e.wheel == 0) return false;
-        const int notches = std::max(1, int(std::lround(std::fabs(e.wheel))));
-        const int dir = e.wheel > 0 ? 1 : -1;
-        for (int i = 0; i < notches; ++i) setInternal(snap(value_ + dir * step_), true);
+        // Fractions add up across events (a touchpad sends tenths of a notch): a step each whole notch.
+        if (!enabled_ || e.horizontal || !std::isfinite(e.wheel) || e.wheel == 0) return false;
+        if ((e.wheel > 0) != (wheelAcc_ > 0)) wheelAcc_ = 0;  // a turn the other way starts again
+        wheelAcc_ += e.wheel;
+        const float whole = std::trunc(wheelAcc_);
+        wheelAcc_ -= whole;
+        const int n = int(std::min(std::fabs(whole), 1000.0f));
+        for (int i = 0; i < n; ++i) setInternal(whole > 0 ? stepUp(value_) : stepDown(value_), true);
         return true;
     }
     default: return false;
@@ -118,11 +149,11 @@ bool Slider::key(const draw::KeyEvent& e) {
     if (!e.down || !enabled_) return false;
     switch (e.key) {
     case draw::Key::Left:
-    case draw::Key::Down: setInternal(snap(value_ - step_), true); return true;
+    case draw::Key::Down: setInternal(stepDown(value_), true); return true;
     case draw::Key::Right:
-    case draw::Key::Up: setInternal(snap(value_ + step_), true); return true;
-    case draw::Key::PageDown: setInternal(snap(value_ - pageStep()), true); return true;
-    case draw::Key::PageUp: setInternal(snap(value_ + pageStep()), true); return true;
+    case draw::Key::Up: setInternal(stepUp(value_), true); return true;
+    case draw::Key::PageDown: setInternal(snap(static_cast<long long>(value_) - pageStep()), true); return true;
+    case draw::Key::PageUp: setInternal(snap(static_cast<long long>(value_) + pageStep()), true); return true;
     case draw::Key::Home: setInternal(minValue_, true); return true;
     case draw::Key::End: setInternal(maxValue_, true); return true;
     default: return false;

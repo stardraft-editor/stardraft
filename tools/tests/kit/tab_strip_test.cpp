@@ -106,15 +106,15 @@ KIT_TEST(tab_strip_changed_dot_and_x_on_hover) {
     auto c = host.paint();
     // Unsaved: a dot (8 px, centered in the x's place) in the tab's text color (the tab is chosen).
     CHECK(c.drew("ellipse 73,11,82,20 " + C(th.text) + " none"));
-    CHECK(!c.drew("'" + utf8(L"×") + "'"));
+    CHECK(!c.drew("'" + utf8(L"\u00d7") + "'"));
     host.move(20, 15);  // the mouse on the tab: the x shows instead of the dot
     c = host.paint();
     CHECK(!c.drew("ellipse"));
-    CHECK(c.drew("'" + utf8(L"×") + "' " + C(th.dim) + " 5"));
+    CHECK(c.drew("'" + utf8(L"\u00d7") + "' " + C(th.dim) + " 5"));
     host.move(77, 15);  // on the x: its box lights up
     CHECK(host.paint().drew("roundBox 69,7,85,23 " + C(th.hot) + " none 4 1"));
     ts.setChanged(0, false);
-    CHECK(host.paint().drew("'" + utf8(L"×") + "' " + C(th.text) + " 5"));
+    CHECK(host.paint().drew("'" + utf8(L"\u00d7") + "' " + C(th.text) + " 5"));
     ts.setChanged(5, true);  // no such tab: nothing
     CHECK(ts.count() == 2);
 }
@@ -186,17 +186,19 @@ KIT_TEST(tab_strip_segmented_look) {
     ts.setTabs({{L"A"}, {L"B"}, {L"C"}});
     CHECK(ts.look() == kit::TabLook::Segmented);
     auto c = host.paint();
-    // One box with the chosen segment filled with the accent outline; each segment's box is clipped to its place (so
-    // only its ends round). Equal parts: 133, 133, and the last takes the rest (134).
-    CHECK(c.drew("roundBox 0,0,400,30 " + C(th.ctl) + " " + C(th.border) + " 4 1"));
-    CHECK(c.drew("clip 0,0,133,30"));
-    CHECK(c.drew("roundBox 0,0,141,30 " + C(th.sel) + " " + C(th.accentLine) + " 4 1"));
-    CHECK(c.drew("fill 132,1,133,29 " + C(th.border) + " 255"));
+    // Buttons 4 px apart (CONTROLS.md): the inner 392 px in three parts (130, 130, 132), each with the gap after it
+    // except the last. The chosen one is Primary (the accent fill and outline); the others are normal buttons.
+    CHECK(c.drew("roundBox 0,0,130,30 " + C(th.sel) + " " + C(th.accentLine) + " 4 1"));
+    CHECK(c.drew("roundBox 134,0,264,30 " + C(th.ctl) + " " + C(th.border) + " 4 1"));
+    CHECK(c.drew("roundBox 268,0,400,30 " + C(th.ctl) + " " + C(th.border) + " 4 1"));
+    CHECK(!c.drew("fill "));  // no line between the buttons
+    CHECK(c.texts() == std::vector<std::string>({"A", "B", "C"}));
+    CHECK(c.drew("text 10,0,120,30 'A' " + C(th.accent)));  // the chosen one's name in the accent
     host.click(200, 15);  // the middle segment
     CHECK(selected == std::vector<int>({1}));
     c = host.paint();
-    CHECK(c.drew("roundBox 125,0,274,30 " + C(th.sel) + " " + C(th.accentLine) + " 4 1"));
-    CHECK(c.texts() == std::vector<std::string>({"A", "B", "C"}));
+    CHECK(c.drew("roundBox 134,0,264,30 " + C(th.sel) + " " + C(th.accentLine) + " 4 1"));
+    CHECK(c.drew("roundBox 0,0,130,30 " + C(th.ctl) + " " + C(th.border) + " 4 1"));
     host.click(350, 15);  // the last
     CHECK(selected.back() == 2);
 }

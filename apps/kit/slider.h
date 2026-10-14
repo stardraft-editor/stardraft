@@ -1,8 +1,8 @@
 #pragma once
 // A slider for a whole number in a range (docs/dev/CONTROLS.md, "Sliders"): a track with the part up to the value in
 // the accent and a round knob. Drag, or click to jump. The arrow keys move by a step, PageUp and PageDown by a tenth
-// of the range, Home and End go to the ends; the wheel moves by a step. The value is snapped to the step (the ends
-// are always reached).
+// of the range, Home and End go to the ends; the wheel moves by a step per notch (fractions add up). The value is
+// snapped to the step (the ends are always reached).
 
 #include <functional>
 #include <string>
@@ -47,9 +47,12 @@ public:
     draw::Cursor cursor(draw::Point) override { return draw::Cursor::Arrow; }
     std::wstring tip(draw::Point) override { return tip_; }
     bool focusable() const override { return enabled_; }
+    void captureLost() override;
 
 private:
-    int snap(int v) const;       // into the range, to the step
+    int snap(long long v) const;  // into the range, to the nearest step
+    int stepDown(int v) const;    // the step below v (to the grid point under it, or the minimum)
+    int stepUp(int v) const;      // the step above v (to the grid point over it, or the maximum)
     int valueAt(int x) const;    // the value under x (the view's coordinates)
     int pageStep() const;        // PageUp and PageDown
     float fraction() const;      // the value's place on the track, 0 to 1
@@ -59,6 +62,7 @@ private:
 
     int minValue_ = 0, maxValue_ = 100, step_ = 1, value_ = 0;
     bool enabled_ = true, hot_ = false, dragging_ = false;
+    float wheelAcc_ = 0.0f;  // the wheel's part of a notch not yet a step
     std::wstring tip_;
 };
 

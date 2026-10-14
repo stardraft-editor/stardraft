@@ -48,6 +48,8 @@ public:
     draw::Cursor cursor(draw::Point) override { return enabled_ ? draw::Cursor::Hand : draw::Cursor::Arrow; }
     std::wstring tip(draw::Point) override { return tip_; }
     bool focusable() const override { return enabled_; }
+    void focusChanged(bool has) override;
+    void captureLost() override;
 
 protected:
     ChoiceBox(std::wstring label, bool on) : on_(on), label_(std::move(label)) {}
@@ -61,6 +63,8 @@ protected:
 private:
     std::wstring label_, tip_;
     bool changed_ = false, enabled_ = true, hot_ = false, down_ = false;
+    // The last focus came from the mouse (a click): the box shows no focus ring, only the keyboard's focus does.
+    bool pointer_ = false;
 };
 
 // A check box: a click or Space turns it on or off.
@@ -95,6 +99,9 @@ public:
     RadioButton* selected() const;
     // The buttons in the order they were made; the arrow keys go through them in this order.
     const std::vector<RadioButton*>& buttons() const { return buttons_; }
+    // The one button Tab stops on: the chosen one, else the first; a hidden or disabled button is not one. Null when
+    // none is.
+    RadioButton* tabStop() const;
     // Turns `b` on and the others off, without a change event.
     void select(RadioButton& b);
 
@@ -104,7 +111,7 @@ private:
 };
 
 // A radio button: a circle that is on when its group chose it. Click, Space, or an arrow key (which moves to the next
-// or the one before, and chooses it) changes the group.
+// or the one before, and chooses it) changes the group. Tab goes through a group once, at its tabStop().
 class RadioButton : public ChoiceBox {
 public:
     // In `group`; `on`: this one is the group's choice (the others go off).
@@ -117,6 +124,8 @@ public:
     // On: the group's other buttons go off. Off: this one only.
     void setOn(bool on) override;
     bool key(const draw::KeyEvent& e) override;
+    // The group has one Tab stop: its tabStop(). The arrow keys reach the others.
+    bool focusable() const override;
 
 protected:
     void activate() override;
