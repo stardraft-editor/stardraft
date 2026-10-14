@@ -88,7 +88,8 @@ add_library(stardraft
     src/terrain_gen.cpp
     src/pathing.cpp
     src/settings.cpp
-    src/commands.cpp)
+    src/commands.cpp
+    src/process.cpp)
 target_include_directories(stardraft PUBLIC include PRIVATE src ${stb_SOURCE_DIR})
 find_package(Threads REQUIRED)  # std::async; older glibc needs -pthread for it
 target_link_libraries(stardraft PRIVATE storm casc_static vpx PUBLIC Threads::Threads)
