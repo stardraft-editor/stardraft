@@ -16,11 +16,21 @@ static int selectKorean(void) {
     CFArrayRef list = TISCreateInputSourceList(filter, true);  // (also the ones not enabled yet)
     CFRelease(filter);
     if (!list || CFArrayGetCount(list) == 0) return fprintf(stderr, "no 2-Set Korean input source\n"), 1;
-    TISInputSourceRef src = (TISInputSourceRef)CFArrayGetValueAtIndex(list, 0);
-    OSStatus e = TISEnableInputSource(src), s = TISSelectInputSource(src);
-    printf("2-Set Korean: enable %d, select %d\n", (int)e, (int)s);
+    OSStatus e = TISEnableInputSource((TISInputSourceRef)CFArrayGetValueAtIndex(list, 0));
     CFRelease(list);
-    return s != noErr;
+    usleep(500000);
+    // (selected from a list made again: an input source enabled just now may not be selectable from the old one)
+    filter = CFDictionaryCreate(NULL, keys, values, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    list = TISCreateInputSourceList(filter, false);
+    CFRelease(filter);
+    OSStatus s = list && CFArrayGetCount(list) ? TISSelectInputSource((TISInputSourceRef)CFArrayGetValueAtIndex(list, 0)) : -1;
+    TISInputSourceRef now = TISCopyCurrentKeyboardInputSource();
+    CFStringRef nowId = now ? (CFStringRef)TISGetInputSourceProperty(now, kTISPropertyInputSourceID) : NULL;
+    char name[200] = "";
+    if (nowId) CFStringGetCString(nowId, name, sizeof name, kCFStringEncodingUTF8);
+    printf("2-Set Korean: enable %d, select %d, now %s; can post keys: %s\n", (int)e, (int)s, name, AXIsProcessTrusted() ? "yes" : "no");
+    if (list) CFRelease(list);
+    return 0;
 }
 
 static CGKeyCode keyCode(char c) {
