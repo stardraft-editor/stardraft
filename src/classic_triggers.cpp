@@ -842,13 +842,6 @@ constexpr const char* kMarkerText = "Batch Trigger marker - do not remove";
 constexpr size_t kBatchNameMax = 24;
 constexpr uint8_t kHeaderVersion = 1;
 
-const char* batchKindName(ClassicBatchKind k) {
-    switch (k) {
-    case ClassicBatchKind::Player: return "player";
-    case ClassicBatchKind::Location: return "location";
-    default: return "unit";
-    }
-}
 
 std::string trimmed(const std::string& s) {
     const size_t a = s.find_first_not_of(' '), b = s.find_last_not_of(' ');
@@ -898,7 +891,7 @@ bool decodeHeader(const Bytes& b, Header& h) {
         return true;
     };
     uint8_t version = 0, kind = 0, len = 0;
-    if (!byte(version) || version != kHeaderVersion || !byte(kind) || kind > 2 || !byte(len) || p + len > b.size()) return false;
+    if (!byte(version) || version != kHeaderVersion || !byte(kind) || kind >= classicBlockKinds().size() || !byte(len) || p + len > b.size()) return false;
     h.batch.kind = ClassicBatchKind(kind);
     h.batch.name.assign(b.begin() + std::ptrdiff_t(p), b.begin() + std::ptrdiff_t(p + len));
     p += len;
@@ -1177,9 +1170,23 @@ Bytes encodeOne(const ClassicTrigger& t) {
 
 }  // namespace
 
-ClassicKind classicBatchValueKind(ClassicBatchKind kind) {
-    return kind == ClassicBatchKind::Player ? K::Player : kind == ClassicBatchKind::Location ? K::Location : K::Unit;
+// The block kinds (R23). The picker, the block dialog and the file's kind byte come from this table.
+const std::vector<ClassicBlockKind>& classicBlockKinds() {
+    static const std::vector<ClassicBlockKind> kinds = {
+        {ClassicBatchKind::Unit, "Unit type", "unit", K::Unit},
+        {ClassicBatchKind::Player, "Player", "player", K::Player},
+        {ClassicBatchKind::Location, "Location", "location", K::Location},
+    };
+    return kinds;
 }
+
+const ClassicBlockKind& classicBlockKind(ClassicBatchKind kind) {
+    for (const ClassicBlockKind& k : classicBlockKinds())
+        if (k.kind == kind) return k;
+    return classicBlockKinds().front();
+}
+
+ClassicKind classicBatchValueKind(ClassicBatchKind kind) { return classicBlockKind(kind).values; }
 
 std::string classicBatchName(const std::string& name, ClassicBatchKind kind) {
     std::string out;
@@ -1188,7 +1195,7 @@ std::string classicBatchName(const std::string& name, ClassicBatchKind kind) {
         if (ok && out.size() < kBatchNameMax) out += c;
     }
     out = trimmed(out);
-    return out.empty() ? batchKindName(kind) : out;
+    return out.empty() ? classicBlockKind(kind).name : out;
 }
 
 std::string classicBatchVariableText(const ClassicBatch& b) { return "variable \"" + b.name + "\""; }

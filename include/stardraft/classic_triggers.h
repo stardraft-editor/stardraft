@@ -95,7 +95,10 @@ bool classicVarAllowed(const ClassicAction& a, int k, ClassicBatchKind kind);
 struct ClassicTrigger {
     std::array<ClassicCondition, kClassicConditions> conditions{};
     std::array<ClassicAction, kClassicActions> actions{};  // the working copy's rows (blocks with their children)
-    uint32_t flags = 0;  // bit 2 (4): preserve trigger; bit 3 (8): disabled; the rest the game sets while it runs
+    uint32_t flags = 0;  // bit 2 (4): preserve trigger; bit 3 (8): disabled (Turn off); the rest the game sets while it runs
+    static constexpr uint32_t kDisabled = 8;
+    bool disabled() const { return (flags & kDisabled) != 0; }
+    void setDisabled(bool off) { flags = off ? (flags | kDisabled) : (flags & ~kDisabled); }
     std::array<uint8_t, kClassicGroups> players{};  // who runs it: 0-7 players 1-8, 17 all players, 18-21 forces 1-4
     uint8_t currentAction = 0;
     // Working copy only: the switch that links the parts when the trigger is split (-1: none; see classic_triggers.cpp).
@@ -225,6 +228,15 @@ uint32_t classicStringId(StringTable& strings, const std::string& text);
 
 // --- Batches (R23) -------------------------------------------------------------------------------------------------
 
+// The block kinds: one row each (classic_triggers.cpp has the table). A new kind is a ClassicBatchKind value and a row.
+struct ClassicBlockKind {
+    ClassicBatchKind kind;
+    const char* label;  // "Unit type": the name in the picker and the dialog (sentence case)
+    const char* name;   // "unit": the variable's name in a new block
+    ClassicKind values; // what the values are: Unit, Player or Location
+};
+const std::vector<ClassicBlockKind>& classicBlockKinds();
+const ClassicBlockKind& classicBlockKind(ClassicBatchKind kind);
 ClassicKind classicBatchValueKind(ClassicBatchKind kind);  // the kind of the values: Unit, Player or Location
 // A name that the header and the sentences can hold: letters, digits, spaces and underscores, at most 24, trimmed;
 // "unit" (the kind's name) when nothing is left.

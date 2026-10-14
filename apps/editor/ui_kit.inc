@@ -141,10 +141,10 @@ int smallButton(HDC dc, int x, int y, int h, const std::wstring& text, std::func
 
 // "Add ..." under a list (blocks, rows, triggers): a row as wide as the list, so it is clear where the new item
 // goes. A quiet outline, a + and the text in dim; under the mouse the row's ground and the accent.
-void addRowFace(HDC dc, RECT r, const std::wstring& text, bool over) {
-    box(dc, r, over ? kRowHot : CLR_NONE, over ? kBorderHot : kBorder, 6);
+void addRowFace(HDC dc, RECT r, const std::wstring& text, bool over, bool enabled = true) {
+    box(dc, r, over && enabled ? kRowHot : CLR_NONE, over && enabled ? kBorderHot : kBorder, 6);
     const int is = scale(16);
-    const COLORREF c = over ? kAccent : kDim;
+    const COLORREF c = !enabled ? kFaint : over ? kAccent : kDim;
     const RECT ir{r.left + scale(10), (r.top + r.bottom - is) / 2, r.left + scale(10) + is, (r.top + r.bottom + is) / 2};
     uiIcon(dc, ir, UiIcon::Add, c, is);
     SetBkMode(dc, TRANSPARENT);
@@ -152,10 +152,10 @@ void addRowFace(HDC dc, RECT r, const std::wstring& text, bool over) {
     RECT t{ir.right + scale(8), r.top, r.right - scale(8), r.bottom};
     DrawTextW(dc, text.c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
 }
-// The row, with its click. Returns the bottom.
-int addRow(HDC dc, RECT r, const std::wstring& text, std::function<void()> click, const std::wstring& tip = L"") {
-    addRowFace(dc, r, text, hot(r));
-    hitsOut().push_back({r, nullptr, std::move(click), tip, IDC_HAND, {}});
+// The row, with its click. Returns the bottom. Not enabled (a limit is reached): gray, no click; the tooltip says why.
+int addRow(HDC dc, RECT r, const std::wstring& text, std::function<void()> click, const std::wstring& tip = L"", bool enabled = true) {
+    addRowFace(dc, r, text, enabled && hot(r), enabled);
+    hitsOut().push_back({r, nullptr, enabled ? std::move(click) : nullptr, tip, enabled ? IDC_HAND : IDC_ARROW, {}});
     return r.bottom;
 }
 

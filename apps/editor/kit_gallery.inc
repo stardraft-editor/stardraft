@@ -303,6 +303,33 @@ void paintKitGallery(HWND hwnd) {
         y += rowH + scale(18);
     }
 
+    // Add rows: a row that cannot be used is gray, with no click (its tooltip says why). The multi-pick list keeps open
+    // while values are checked (showListPickerMulti); OK keeps them, Cancel leaves them.
+    y = ui::sectionHeader(mem, l, y, L"Add rows and multi-pick");
+    {
+        label(L"Add row");
+        ui::addRow(mem, {col, y + scale(3), col + scale(260), y + scale(3) + scale(30)}, L"Add a value\x2026", [] {
+            static std::set<std::string> checked;
+            std::vector<ListPickItem> items;
+            for (int u = 0; u < 4; ++u) {
+                ListPickItem it;
+                it.label = u == 0 ? L"Terran Marine" : u == 1 ? L"Terran Ghost" : u == 2 ? L"Terran Vulture" : L"Terran Goliath";
+                it.value = std::to_string(u);
+                items.push_back(it);
+            }
+            POINT at{0, 0};
+            RECT rc{};
+            GetWindowRect(gKit.wnd, &rc);
+            at = {rc.left + 40, rc.top + 120};
+            if (showListPickerMulti(L"Search units", items, checked, L"Add", at)) ++gKit.clicks;
+            InvalidateRect(gKit.wnd, nullptr, FALSE);
+        }, L"Add a value (the list stays open while values are checked)");
+        ui::addRow(mem, {col + scale(280), y + scale(3), col + scale(540), y + scale(3) + scale(30)}, L"Add a trigger", click,
+                   L"Not usable: the list is full", false);
+        caption(col, y + scale(36), L"left: the row; right: not usable (gray, its tooltip gives the reason). Click the left one: a multi-pick list");
+        y += scale(36) + scale(18);
+    }
+
     // Value chips (trigger sentences, briefing actions).
     y = ui::sectionHeader(mem, l, y, L"Value chips");
     {
