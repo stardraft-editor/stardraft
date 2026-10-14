@@ -761,10 +761,17 @@ bool parseBatchHeader(const std::string& text, ClassicBatch& out) {
     return true;
 }
 
+// A batch's template without the entries after its last condition and action: a map from another editor can have
+// bytes there, which adding and removing the comment does not keep.
+void clearUnused(ClassicTrigger& t) {
+    for (size_t i = size_t(t.conditionCount()); i < t.conditions.size(); ++i) t.conditions[i] = {};
+    for (size_t i = size_t(t.actionCount()); i < t.actions.size(); ++i) t.actions[i] = {};
+}
+
 // The comment of a batch's template, one trigger for each value (the same order as the working copy's values).
 ClassicTrigger batchTrigger(const ClassicTrigger& body, const ClassicBatch& b, uint32_t value) {
     ClassicTrigger g = body;
-    g.flags &= 4u;  // preserve trigger stays; the others are the game's
+    g.flags &= 4u | 8u;  // preserve trigger and disabled stay; the others are the game's
     g.currentAction = 0;
     for (const ClassicBatchSlot& x : b.slots) {
         if (x.condition) {
@@ -836,7 +843,8 @@ ClassicTriggers classicCollapseBatches(const ClassicTriggers& in, const StringTa
             const size_t generated = b.values.size();
             ClassicTrigger t = v[i];
             t.removeAction(0);  // the comment is not part of the template
-            t.flags &= ~8u;     // disabled: the expanded template gets it again
+            // The template is always disabled; its copies say whether the batch is.
+            t.flags = (t.flags & ~8u) | (generated ? v[i + 1].flags & 8u : 0u);
             t.batch = std::move(b);
             classicBatchPrune(t);
             // Only the triggers that the batch makes are taken: each one must be the copy the batch gives. Any other
@@ -868,8 +876,8 @@ ClassicTriggers classicExpandBatches(const ClassicTriggers& in, StringTable& str
         const ClassicBatch b = *t.batch;
         ClassicTrigger body = t;
         body.batch.reset();
+        clearUnused(body);
         if (b.values.empty() || body.actionCount() >= kClassicActions) {  // nothing to make: the template as a trigger
-            body.flags &= ~8u;
             out.triggers.push_back(body);
             continue;
         }

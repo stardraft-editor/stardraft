@@ -328,6 +328,21 @@ int main(int argc, char** argv) {
         writeClassicTriggers(alteredSaved, altered);
         const ClassicTriggers alteredBack = classicCollapseBatches(readClassicTriggers(alteredSaved), strings);
         check(alteredBack.triggers.size() == 5 && !alteredBack.triggers[0].batch, "a changed copy is not taken into the batch");
+        // A template from another editor, with bytes after its last action, and turned off: read back as the same batch,
+        // and its copies stay off.
+        ClassicTrigger odd = tpl;
+        odd.actions[size_t(odd.actionCount())].flags = 4, odd.actions[size_t(odd.actionCount()) + 1].type = 9;
+        odd.flags |= 8;
+        ClassicTriggers oddWork;
+        oddWork.triggers = {odd};
+        const ClassicTriggers oddOut = classicExpandBatches(oddWork, strings);
+        Chk oddSaved;
+        writeClassicTriggers(oddSaved, oddOut);
+        const ClassicTriggers oddBack = classicCollapseBatches(readClassicTriggers(oddSaved), strings);
+        bool oddOff = oddOut.triggers.size() == 4;
+        for (size_t i = 1; oddOff && i < 4; ++i) oddOff = (oddOut.triggers[i].flags & 8) != 0;
+        check(oddBack.triggers.size() == 1 && oddBack.triggers[0].batch == b && valid(oddOut), "a template with bytes after its last action is read back as the batch");
+        check(oddOff && oddBack.triggers.size() == 1 && (oddBack.triggers[0].flags & 8), "a batch that is turned off makes copies that are off, and stays off");
         // Turned into a trigger: no comment, enabled, one trigger.
         ClassicTriggers plain;
         ClassicTrigger one = tpl;
