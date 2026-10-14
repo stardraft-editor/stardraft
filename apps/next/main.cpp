@@ -4,7 +4,10 @@
 //
 // usage: stardraft-next [map] [--install <dir>] [--light]
 //        stardraft-next [map] --snapshot <out.png> [--size <w>x<h>] [--workspace map|triggers] [--type <text>] [--scale <s>]
+//                       [--ime-inline [--compose <text>]]
 //
+// --ime-inline: the program draws the IME's text being composed at the caret (SDL_HINT_IME_IMPLEMENTED_UI), not the
+// system; --compose sends that text as the system's composition events would (a test of the drawing).
 // --snapshot draws a few frames without showing a window (no focus taken) and writes the last one; --type types the
 // text into the triggers' search field first (as text input events). With SDL_VIDEODRIVER=offscreen it needs no
 // display (GitHub runs it so).
@@ -28,6 +31,7 @@
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
+#include "imgui_internal.h"  // (the text field's caret for the IME: GImGui->PlatformImeData)
 #include "kit.h"
 #include "stardraft/classic_triggers.h"
 #include "stardraft/commands.h"
@@ -80,6 +84,8 @@ struct App {
     char notes[4096] = "";
     std::string status;
     std::string fonts;
+    bool imeInline = false;
+    std::string composition;  // the IME's text being composed (--ime-inline)
     float scale = 1;
     Commands commands;
     bool quit = false;
@@ -445,6 +451,20 @@ void frameUi(bool focusSearch) {
     ImGui::End();
 }
 
+// The text being composed, at the caret of the field that has the focus, underlined (--ime-inline).
+void drawComposition() {
+    const ImGuiPlatformImeData& ime = GImGui->PlatformImeData;
+    if (!app.imeInline || app.composition.empty() || !ime.WantVisible) return;
+    const next::kit::Theme& t = next::kit::theme();
+    ImDrawList* d = ImGui::GetForegroundDrawList();
+    const ImVec2 size = ImGui::CalcTextSize(app.composition.c_str());
+    const ImVec2 p = ime.InputPos;
+    const float h = ime.InputLineHeight > 0 ? ime.InputLineHeight : ImGui::GetFontSize();
+    d->AddRectFilled({p.x, p.y}, {p.x + size.x + 2, p.y + h}, t.ctl);
+    d->AddText({p.x + 1, p.y + (h - size.y) / 2}, t.text, app.composition.c_str());
+    d->AddLine({p.x + 1, p.y + h - 1}, {p.x + size.x + 1, p.y + h - 1}, t.accent, 2);
+}
+
 // --- Drawing ------------------------------------------------------------------------------------------------------
 
 // The map into its texture, then the UI into `target` (the window's swapchain texture or a snapshot's texture).
@@ -493,7 +513,7 @@ bool writeSnapshot(SDL_GPUTexture* tex, SDL_GPUTextureFormat format, uint32_t w,
 }  // namespace
 
 int main(int argc, char** argv) {
-    std::string mapArg, installArg, snapshot, typeText;
+    std::string mapArg, installArg, snapshot, typeText, composeText;
     std::string workspace = "map";
     int snapW = 1280, snapH = 800;
     float scaleArg = 0;
@@ -506,11 +526,14 @@ int main(int argc, char** argv) {
         else if (a == "--workspace") workspace = next();
         else if (a == "--type") typeText = next();
         else if (a == "--light") light = true;
+        else if (a == "--ime-inline") app.imeInline = true;
+        else if (a == "--compose") composeText = next();
         else if (a == "--scale") scaleArg = float(std::atof(next().c_str()));
         else if (a == "--size") std::sscanf(next().c_str(), "%dx%d", &snapW, &snapH);
         else mapArg = a;
     }
     const bool snapshotRun = !snapshot.empty();
+    if (app.imeInline) SDL_SetHint(SDL_HINT_IME_IMPLEMENTED_UI, "composition");
     if (!SDL_Init(SDL_INIT_VIDEO)) return std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()), 1;
 
     // The device first (the renderer makes it with its shader formats), then the window and ImGui on it.
@@ -573,6 +596,8 @@ int main(int argc, char** argv) {
             ImGui_ImplSDL3_ProcessEvent(&e);
             if (e.type == SDL_EVENT_QUIT || (e.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && e.window.windowID == SDL_GetWindowID(app.window))) app.quit = true;
             if (e.type == SDL_EVENT_DROP_FILE && e.drop.data) openMap(utf8Path(e.drop.data));  // (also macOS's Finder opens)
+            if (e.type == SDL_EVENT_TEXT_EDITING) app.composition = e.edit.text ? e.edit.text : "";
+            if (e.type == SDL_EVENT_TEXT_INPUT) app.composition.clear();  // (committed)
         }
         {
             std::lock_guard<std::mutex> lock(app.dialogMutex);
@@ -587,6 +612,7 @@ int main(int argc, char** argv) {
         ImGui::NewFrame();
         commandKeys();
         frameUi(snapshotRun && frame == 1 && !typed);
+        drawComposition();
         ImGui::Render();
         // --type: the text arrives as the system's text input (after the search field has the focus).
         if (snapshotRun && frame == 2 && !typed) {
@@ -596,6 +622,14 @@ int main(int argc, char** argv) {
             t.text.text = typeText.c_str();  // (ImGui reads it at once: the event is not queued)
             ImGui_ImplSDL3_ProcessEvent(&t);
             typed = true;
+            if (!composeText.empty()) {  // then a syllable being composed, as the IME sends it
+                SDL_Event c{};
+                c.type = SDL_EVENT_TEXT_EDITING;
+                c.edit.windowID = t.text.windowID;
+                c.edit.text = composeText.c_str();
+                c.edit.start = int(composeText.size()), c.edit.length = 0;
+                SDL_PushEvent(&c);  // (SDL copies the text)
+            }
         }
         SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(app.device);
         SDL_GPUTexture* target = snapTex;
@@ -610,6 +644,7 @@ int main(int argc, char** argv) {
             const bool ok = writeSnapshot(snapTex, uiFormat, w, h, snapshot);
             std::printf("%s %s\n", ok ? "wrote" : "could not write", snapshot.c_str());
             if (!typeText.empty()) std::printf("search field: %s\n", app.search);
+            if (!composeText.empty()) std::printf("composing: %s\n", app.composition.c_str());
             app.quit = true;
         }
     }
