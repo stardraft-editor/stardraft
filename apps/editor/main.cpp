@@ -6914,19 +6914,6 @@ int gWsHot = -1;
 
 // The rail: the active tab's workspaces as icon + label, top down; Build (a project) or Make project (a
 // map) at the bottom. A map tab shows only Map.
-HFONT railLabelFont() {
-    static HFONT f = nullptr;
-    static UINT forDpi = 0;
-    if (!f || forDpi != app.dpi) {
-        if (f) DeleteObject(f);
-        LOGFONTW lf{};
-        GetObjectW(app.font, sizeof lf, &lf);
-        lf.lfHeight = lf.lfHeight * 5 / 6;
-        f = CreateFontIndirectW(&lf);
-        forDpi = app.dpi;
-    }
-    return f;
-}
 
 bool mapPageChangesFor(int id);  // map_pages.inc: the page of rail item `id` has changes that are not applied
 int mapPageCommandOf(Workspace w) {
@@ -6935,129 +6922,103 @@ int mapPageCommandOf(Workspace w) {
                                                                                                 : ID_WS_MAP + int(w);  // ID_WS_* follow the Workspace order
 }
 
-void paintWsBar(HWND hwnd) {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-    HGDIOBJ ob = SelectObject(mem, back), of = SelectObject(mem, app.font);
-    const COLORREF railBg = kPanel, acc = kAccent, accBg = kSel, accLine = kAccentLine;
-    HBRUSH bg = CreateSolidBrush(railBg);
-    FillRect(mem, &rc, bg);
-    DeleteObject(bg);
-    SetBkMode(mem, TRANSPARENT);
-    auto fill = [&](RECT r, COLORREF c) {
-        HBRUSH b = CreateSolidBrush(c);
-        FillRect(mem, &r, b);
-        DeleteObject(b);
-    };
-    auto rounded = [&](RECT r, COLORREF fillC, COLORREF lineC) {
-        HBRUSH b = CreateSolidBrush(fillC);
-        HPEN p = CreatePen(PS_SOLID, 1, lineC);
-        HGDIOBJ obr = SelectObject(mem, b), op = SelectObject(mem, p);
-        RoundRect(mem, r.left, r.top, r.right, r.bottom, scale(9), scale(9));
-        SelectObject(mem, obr), SelectObject(mem, op);
-        DeleteObject(b), DeleteObject(p);
-    };
-    fill({rc.right - 1, 0, rc.right, rc.bottom}, kBorder);
-    gWsHits.clear();
-    // One item: icon over label.
-    auto item = [&](RECT r, UiIcon icon, const wchar_t* name, COLORREF color, COLORREF labelColor) {
-        RECT ir{r.left, r.top + scale(6), r.right, r.top + scale(30)};
-        uiIcon(mem, ir, icon, color, scale(16));
-        SelectObject(mem, railLabelFont());
-        SetTextColor(mem, labelColor);
-        RECT lr{r.left, r.top + scale(30), r.right, r.bottom - scale(4)};
-        DrawTextW(mem, name, -1, &lr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-    };
-    // One order for a classic map and an EUD project, so each item has the same place: Map, Data, Triggers (a classic map:
-    // the classic triggers), then in a project whose map has them the classic triggers, Briefing, Assets, Map properties,
-    // and last a project's Project. An item that the tab's mode does not have is left out. Assets
-    // is the Files workspace (Workspace::Files). The map pages (Properties, Players, Map data, classic triggers) are on
-    // while their page shows; a dot: the page has changes that are not applied.
-    const bool trigWs = commandInMode(ID_WS_TRIGGERS);
-    struct RailItem {
-        int id;
-        UiIcon icon;
-        const wchar_t* name;
-        std::wstring tip;
-        bool page;            // a map page (else a workspace)
-        Workspace ws = Workspace::Map;
-    };
-    const RailItem items[] = {
-        {ID_WS_MAP, UiIcon::Map, L"Map", L"the Map workspace", false, Workspace::Map},
-        {ID_SCEN_CLASSIC, UiIcon::Data, L"Data", L"Data: the map's units, upgrades and technologies", true},
-        {ID_WS_DATA, UiIcon::Data, L"Data", L"the Data workspace", false, Workspace::Data},
-        {trigWs ? 0 : ID_SCEN_CLASSICTRIG, UiIcon::Triggers, L"Triggers", L"Classic triggers", true},
-        {ID_WS_TRIGGERS, UiIcon::Triggers, L"Triggers", L"the Triggers workspace", false, Workspace::Triggers},
-        {trigWs ? ID_SCEN_CLASSICTRIG : 0, UiIcon::Log, L"Classic", L"Classic triggers (the map's own triggers)", true},
-        {ID_WS_BRIEFING, UiIcon::Briefing, L"Briefing", L"the Briefing workspace", false, Workspace::Briefing},
-        {ID_WS_FILES, UiIcon::Assets, L"Assets", L"the Assets workspace", false, Workspace::Files},
-        {ID_SCEN_PROPS, UiIcon::Tag, L"Properties", L"Map properties: the title, size and tileset, players and forces (Ctrl+M)", true},
-        {ID_WS_PROJECT, UiIcon::Project, L"Project", L"the Project page", false, Workspace::Project},  // after Properties: the classic map's order, then the project's own
-    };
-    const bool project = activeProject() != nullptr;
-    const int m = scale(6), itemH = scale(54);
-    int y = scale(8);
-    for (const RailItem& it : items) {
-        if (!it.id || !commandInMode(it.id)) continue;  // only the items of the tab's mode
-        RECT r{m, y, rc.right - m - 1, y + itemH};
-        const bool on = it.page ? gWorkspace >= Workspace::Properties && mapPageCommandOf(gWorkspace) == it.id : gWorkspace == it.ws,
-                   hot = gWsHot == it.id;
-        if (on || hot) rounded(r, on ? accBg : kHot, on ? accBg : kHot);
-        if (on) fill({0, r.top + scale(12), scale(3), r.bottom - scale(12)}, acc);
-        item(r, it.icon, it.name, on ? acc : kText, on ? acc : kDim);
-        if (it.page && mapPageChangesFor(it.id)) ui::changedDot(mem, r.right - scale(10), r.top + scale(10));
-        gWsHits.push_back({r, it.id, it.tip});
-        y += itemH + scale(4);
-    }
-    (void)accLine;
-    (void)project;
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, of), SelectObject(mem, ob);
-    DeleteObject(back);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
-}
-
-LRESULT CALLBACK wsBarProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_FEEDBACK_NAME: {
-        auto& q = *reinterpret_cast<FeedbackQuery*>(lp);
-        for (const auto& h : gWsHits)
-            if (PtInRect(&h.r, q.pt)) q.name = h.name;
-        return 0;
-    }
-    case WM_PAINT: paintWsBar(hwnd); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_MOUSEMOVE: {
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        int hot = -1;
-        for (const auto& h : gWsHits)
-            if (PtInRect(&h.r, pt)) hot = h.id;
-        if (hot != gWsHot) {
-            gWsHot = hot, InvalidateRect(hwnd, nullptr, FALSE);
-            if (hot == ID_PROJ_COMPILE) setHint(L"Build the map of the project with euddraft (Ctrl+B)");
+// The rail as a view (apps/common/view.h): its window is a view window (kViewClass) that shows gRail.
+struct RailView final : stardraft::draw::View {
+    void paint(stardraft::draw::Canvas& c) override {
+        using stardraft::draw::Rect;
+        const Rect rc{0, 0, width(), height()};
+        const COLORREF acc = kAccent, accBg = kSel;
+        c.fill(rc, kPanel);
+        c.fill({rc.right - 1, 0, rc.right, rc.bottom}, kBorder);
+        gWsHits.clear();
+        // One item: icon over label.
+        const stardraft::draw::Font label = c.font({stardraft::draw::Face::Ui, -railLabelHeight()});
+        auto item = [&](RECT r, UiIcon icon, const wchar_t* name, COLORREF color, COLORREF labelColor) {
+            c.icon({r.left, r.top + scale(6), r.right, r.top + scale(30)}, int(icon), color, scale(16));
+            const stardraft::draw::Font of = c.setFont(label);
+            c.text({r.left, r.top + scale(30), r.right, r.bottom - scale(4)}, name, labelColor, stardraft::draw::kCenter | stardraft::draw::kMiddle);
+            c.setFont(of);
+        };
+        // One order for a classic map and an EUD project, so each item has the same place: Map, Data, Triggers (a classic
+        // map: the classic triggers), then in a project whose map has them the classic triggers, Briefing, Assets, Map
+        // properties, and last a project's Project. An item that the tab's mode does not have is left out. Assets is the
+        // Files workspace (Workspace::Files). The map pages (Properties, Players, Map data, classic triggers) are on while
+        // their page shows; a dot: the page has changes that are not applied.
+        const bool trigWs = commandInMode(ID_WS_TRIGGERS);
+        struct RailItem {
+            int id;
+            UiIcon icon;
+            const wchar_t* name;
+            std::wstring tip;
+            bool page;  // a map page (else a workspace)
+            Workspace ws = Workspace::Map;
+        };
+        const RailItem items[] = {
+            {ID_WS_MAP, UiIcon::Map, L"Map", L"the Map workspace", false, Workspace::Map},
+            {ID_SCEN_CLASSIC, UiIcon::Data, L"Data", L"Data: the map's units, upgrades and technologies", true},
+            {ID_WS_DATA, UiIcon::Data, L"Data", L"the Data workspace", false, Workspace::Data},
+            {trigWs ? 0 : ID_SCEN_CLASSICTRIG, UiIcon::Triggers, L"Triggers", L"Classic triggers", true},
+            {ID_WS_TRIGGERS, UiIcon::Triggers, L"Triggers", L"the Triggers workspace", false, Workspace::Triggers},
+            {trigWs ? ID_SCEN_CLASSICTRIG : 0, UiIcon::Log, L"Classic", L"Classic triggers (the map's own triggers)", true},
+            {ID_WS_BRIEFING, UiIcon::Briefing, L"Briefing", L"the Briefing workspace", false, Workspace::Briefing},
+            {ID_WS_FILES, UiIcon::Assets, L"Assets", L"the Assets workspace", false, Workspace::Files},
+            {ID_SCEN_PROPS, UiIcon::Tag, L"Properties", L"Map properties: the title, size and tileset, players and forces (Ctrl+M)", true},
+            {ID_WS_PROJECT, UiIcon::Project, L"Project", L"the Project page", false, Workspace::Project},  // after Properties: the classic map's order, then the project's own
+        };
+        const int m = scale(6), itemH = scale(54);
+        int y = scale(8);
+        for (const RailItem& it : items) {
+            if (!it.id || !commandInMode(it.id)) continue;  // only the items of the tab's mode
+            RECT r{m, y, rc.right - m - 1, y + itemH};
+            const bool on = it.page ? gWorkspace >= Workspace::Properties && mapPageCommandOf(gWorkspace) == it.id : gWorkspace == it.ws,
+                       hot = gWsHot == it.id;
+            if (on || hot) c.roundBox(r, on ? accBg : kHot, on ? accBg : kHot, scale(9) / 2.0f);
+            if (on) c.fill({0, r.top + scale(12), scale(3), r.bottom - scale(12)}, acc);
+            item(r, it.icon, it.name, on ? acc : kText, on ? acc : kDim);
+            if (it.page && mapPageChangesFor(it.id)) ui::changedDot(c, r.right - scale(10), r.top + scale(10));
+            gWsHits.push_back({r, it.id, it.tip});
+            y += itemH + scale(4);
         }
-        TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
-        TrackMouseEvent(&tme);
-        return 0;
     }
-    case WM_MOUSELEAVE: gWsHot = -1, InvalidateRect(hwnd, nullptr, FALSE); return 0;
-    case WM_LBUTTONUP: {
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        for (const auto& h : gWsHits)
-            if (PtInRect(&h.r, pt)) {
-                command(h.id);
-                break;
+    bool mouse(const stardraft::draw::MouseEvent& e) override {
+        using stardraft::draw::MouseKind;
+        const POINT pt{e.pt.x, e.pt.y};
+        switch (e.kind) {
+        case MouseKind::Move: {
+            int hot = -1;
+            for (const auto& h : gWsHits)
+                if (PtInRect(&h.r, pt)) hot = h.id;
+            if (hot != gWsHot) {
+                gWsHot = hot, invalidate();
+                if (hot == ID_PROJ_COMPILE) setHint(L"Build the map of the project with euddraft (Ctrl+B)");
             }
-        return 0;
+            return true;
+        }
+        case MouseKind::Leave: gWsHot = -1, invalidate(); return true;
+        case MouseKind::Up:
+            if (e.button != 0) return false;
+            for (const auto& h : gWsHits)
+                if (PtInRect(&h.r, pt)) {
+                    command(h.id);
+                    break;
+                }
+            return true;
+        default: return false;
+        }
     }
+    std::wstring tip(stardraft::draw::Point p) override {  // (Report feedback names the item under the mouse)
+        for (const auto& h : gWsHits)
+            if (PtInRect(&h.r, POINT{p.x, p.y})) return h.name;
+        return {};
     }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
+    // The rail's labels: the UI font at 5/6 of its height.
+    static int railLabelHeight() {
+        LOGFONTW lf{};
+        GetObjectW(app.font, sizeof lf, &lf);
+        return lf.lfHeight * 5 / 6;
+    }
+};
+RailView gRail;
 
 // --- Data workspace (the ten .dat files) -----------------------------------------------------------------
 // A tab per .dat. The entry list on the left (icon, id, name; a dot where something is changed), the
@@ -11876,8 +11837,6 @@ void createWorkspaces(HWND parent) {
     WNDCLASSEXW wc{sizeof wc};
     wc.hInstance = app.inst;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.lpfnWndProc = wsBarProc, wc.lpszClassName = L"StarDraftWsBar";
-    RegisterClassExW(&wc);
     wc.lpfnWndProc = dataWndProc, wc.lpszClassName = L"StarDraftData";
     RegisterClassExW(&wc);
     wc.lpfnWndProc = dataListProc, wc.lpszClassName = L"StarDraftDataList";
@@ -11886,7 +11845,7 @@ void createWorkspaces(HWND parent) {
     RegisterClassExW(&wc);
     wc.lpfnWndProc = dataRefsProc, wc.lpszClassName = L"StarDraftDataRefs";
     RegisterClassExW(&wc);
-    gWsBar = CreateWindowExW(0, L"StarDraftWsBar", L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, parent, nullptr, app.inst, nullptr);
+    gWsBar = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, parent, nullptr, app.inst, &gRail);
     gDataWnd = CreateWindowExW(0, L"StarDraftData", L"", WS_CHILD | WS_CLIPCHILDREN, 0, 0, 1, 1, parent, nullptr, app.inst, nullptr);
     gData.search = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 0, 0, 1, 1, gDataWnd, nullptr, app.inst, nullptr);
     SendMessageW(gData.search, EM_SETCUEBANNER, TRUE, LPARAM(L"Search units")); addSearchClear(gData.search);  // an x clears it
