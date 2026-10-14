@@ -11683,7 +11683,7 @@ void layoutData() {
     RECT rc;
     GetClientRect(gDataWnd, &rc);
     const int pad = scale(8), rowH = scale(26), lw = dataListWidth(), top = dataTabsHeight();
-    const int bw = scale(86);
+    const int bw = rowH;  // the Changed toggle: an icon (GitHub #130), its name in the tooltip
     for (HWND h : {gData.search, gData.changedBtn, gData.list, gData.form}) ShowWindow(h, SW_SHOW);
     MoveWindow(gData.search, pad, top + pad, lw - 2 * pad - bw - scale(6), scale(ui::kFieldH), TRUE);  // one height for every search box
     MoveWindow(gData.changedBtn, lw - pad - bw, top + pad, bw, rowH, TRUE);
@@ -11908,6 +11908,14 @@ void createWorkspaces(HWND parent) {
     SendMessageW(gData.edit, WM_SETFONT, WPARAM(monoFont()), TRUE);
     darkControl(gData.search, L"DarkMode_CFD");
     darkControl(gData.changedBtn, L"DarkMode_Explorer");
+    SetPropW(gData.changedBtn, L"sdIcon", HANDLE(INT_PTR(int(UiIcon::Filter) + 1)));  // painted as this icon (paintDarkButton)
+    {
+        HWND tips = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX, 0, 0, 0, 0, gDataWnd, nullptr, app.inst, nullptr);
+        TOOLINFOW ti{sizeof ti};
+        ti.uFlags = TTF_IDISHWND | TTF_SUBCLASS, ti.hwnd = gDataWnd, ti.uId = UINT_PTR(gData.changedBtn);
+        ti.lpszText = const_cast<wchar_t*>(L"Changed: show only the entries that you changed (click again to show all)");
+        SendMessageW(tips, TTM_ADDTOOLW, 0, LPARAM(&ti));
+    }
     darkControl(gData.list, L"DarkMode_Explorer");
     darkControl(gData.form, L"DarkMode_Explorer");
 }
@@ -18278,6 +18286,13 @@ bool paintDarkButton(HWND w) {
     // A toggle button (the "sdOn" property) that is on looks like the default button.
     const ui::Tone tone = type == BS_DEFPUSHBUTTON || GetPropW(w, L"sdOn") ? ui::Tone::Primary : ui::Tone::Normal;
     const HFONT font = HFONT(SendMessageW(w, WM_GETFONT, 0, 0));
+    if (const INT_PTR icon = INT_PTR(GetPropW(w, L"sdIcon"))) {  // an icon button: the face, the icon in the middle (its name is the tooltip)
+        ui::buttonFace(dc, r, L"", tone, s, font);
+        const COLORREF c = !enabled ? kFaint : tone == ui::Tone::Primary ? RGB(255, 255, 255) : kText;
+        uiIcon(dc, r, UiIcon(int(icon) - 1), c, scale(16));
+        EndPaint(w, &ps);
+        return true;
+    }
     std::wstring t = text;
     if ((GetWindowLongW(w, GWL_STYLE) & BS_CENTER) == BS_LEFT) {  // a value that opens a list (BS_LEFT): drawn as the dropdowns are
         ui::fieldBox(dc, r, !enabled ? ui::Field::ReadOnly : GetFocus() == w ? ui::Field::Focus : s == ui::State::Hot ? ui::Field::Hot : ui::Field::Normal);
