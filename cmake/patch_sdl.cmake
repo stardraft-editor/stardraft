@@ -84,5 +84,36 @@ change("- (NSInteger)conversationIdentifier
 - (NSInteger)conversationIdentifier
 {")
 
+change("- (NSArray *)validAttributesForMarkedText
+{
+    return [NSArray array];
+}"
+"- (NSArray *)validAttributesForMarkedText
+{
+    // StarDraft: as a text view, the marked text's underline and clause segments (an input method's candidates use them).
+    return @[ NSUnderlineStyleAttributeName, NSUnderlineColorAttributeName, NSMarkedClauseSegmentAttributeName,
+              NSTextAlternativesAttributeName ];
+}")
+change("- (NSRange)selectedRange
+{
+    return _selectedRange;
+}"
+"- (NSRange)selectedRange
+{
+    DEBUG_IME(@\"selectedRange: (%d, %d)\", (int)_selectedRange.location, (int)_selectedRange.length);
+    return _selectedRange;
+}")
+change("- (NSRange)markedRange
+{
+    return _markedRange;
+}"
+"- (NSRange)markedRange
+{
+    // StarDraft: no marked text, no range (the range of the text that was marked stayed).
+    const NSRange r = _markedText ? _markedRange : NSMakeRange(NSNotFound, 0);
+    DEBUG_IME(@\"markedRange: (%d, %d)\", (int)r.location, (int)r.length);
+    return r;
+}")
+
 file(WRITE ${file} "${text}")
 message(STATUS "SDL: ${file} changed (the text for input methods)")
