@@ -15,11 +15,13 @@ std::filesystem::path programFile();
 // The name ending of this system's release download ("-win64.zip"); other systems' downloads end in other ways.
 const char* releaseAssetSuffix();
 
-// Unpacks a .zip into a folder (Windows: tar.exe; Linux: unzip; macOS: tar). False when it did not work.
-bool unpackZip(const std::filesystem::path& zip, const std::filesystem::path& dir);
+// Unpacks a release's archive (.zip, or .tar.gz on Linux and macOS) into a folder (Windows: tar.exe; Linux: unzip or
+// tar; macOS: tar). False when it did not work.
+bool unpackArchive(const std::filesystem::path& archive, const std::filesystem::path& dir);
 
 // Puts `fresh` in place of the running program `self`: self becomes oldProgramFile(self), fresh takes its name.
-enum class Replace { Done, OldNotMoved, NewNotPlaced };  // (NewNotPlaced: the old program is back in place)
+// NewNotPlaced: the old program is back in place. Broken: it could not be put back; it is at oldProgramFile(self).
+enum class Replace { Done, OldNotMoved, NewNotPlaced, Broken };
 Replace replaceProgram(const std::filesystem::path& self, const std::filesystem::path& fresh);
 std::filesystem::path oldProgramFile(const std::filesystem::path& self);  // stardraft.exe.old
 

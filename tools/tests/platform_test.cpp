@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
 
     // Unpacking a release's zip.
     std::ofstream(dir / "update.zip", std::ios::binary).write(reinterpret_cast<const char*>(kZip), sizeof kZip);
-    check(unpackZip(dir / "update.zip", dir / "unpacked") && read(dir / "unpacked" / "stardraft.exe") == "new program", "a zip unpacks");
+    check(unpackArchive(dir / "update.zip", dir / "unpacked") && read(dir / "unpacked" / "stardraft.exe") == "new program", "a zip unpacks");
 
     // Replacing a program file (a stand-in in the scratch folder).
     const fs::path program = dir / "stardraft.exe";
