@@ -19,6 +19,7 @@ static draw::Rect squareIn(draw::Rect r) {
     return {x, y, x + s, y + s};
 }
 
+// `size` is at 100 %; the glyph's pixel size is scaled here, once.
 void IconButton::drawGlyph(draw::Canvas& c, draw::Rect r, draw::Color col, int size) const {
     if (glyph_.icon >= 0) return c.icon(r, glyph_.icon, col, px(kIconPx));
     if (glyph_.glyph == 0) return;
@@ -41,12 +42,12 @@ void IconButton::paint(draw::Canvas& c) {
         if (on_) c.roundBox(r, th.sel, th.accentLine, rad);
         else if (over) c.roundBox(r, th.ctlHot, draw::kNone, rad);
         Color col = !enabled_ ? th.faint : on_ ? th.accentBright : tone_ == Tone::Danger ? th.bad : over ? th.text : th.dim;
-        drawGlyph(c, r, col, px(kBoxedGlyph));
+        drawGlyph(c, r, col, kBoxedGlyph);
     } else {
         if (over) c.roundBox(r, th.ctlHot, draw::kNone, rad);
         const Color rest = tone_ == Tone::Quiet && on_ ? th.warn : on_ || tone_ == Tone::Primary ? th.accent : th.dim;
         const Color lit = tone_ == Tone::Danger ? th.bad : tone_ == Tone::Quiet && on_ ? th.warn : tone_ == Tone::Primary || on_ ? th.accentBright : th.text;
-        drawGlyph(c, r, !enabled_ ? th.faint : over || focused ? lit : rest, px(kBareGlyph));
+        drawGlyph(c, r, !enabled_ ? th.faint : over || focused ? lit : rest, kBareGlyph);
     }
     if (focused) c.roundBox(r, draw::kNone, th.accent, rad);
 }
