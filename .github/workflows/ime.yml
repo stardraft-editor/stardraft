@@ -24,7 +24,7 @@ jobs:
           sudo apt-get install -y ninja-build pkg-config mesa-vulkan-drivers libasound2-dev libpulse-dev \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
             libxkbcommon-dev libwayland-dev libdecor-0-dev libdrm-dev libgbm-dev libegl1-mesa-dev libdbus-1-dev libudev-dev \
-            libibus-1.0-dev xvfb xdotool ibus ibus-hangul dbus-x11
+            libibus-1.0-dev xvfb xdotool ibus ibus-hangul dbus-x11 dconf-cli dconf-service
 
       - uses: actions/cache@v4
         with:
@@ -42,7 +42,9 @@ jobs:
           Xvfb :99 -screen 0 1400x900x24 &
           sleep 2
           eval "$(dbus-launch --sh-syntax)"
-          gsettings set org.freedesktop.ibus.engine.hangul initial-input-mode 'hangul' || true
+          # ibus-hangul starts in English letters unless told: Hangul from the start (before ibus starts)
+          dconf write /org/freedesktop/ibus/engine/hangul/initial-input-mode "'hangul'" || true
+          dconf read /org/freedesktop/ibus/engine/hangul/initial-input-mode || true
           ibus-daemon -drx
           sleep 3
           ibus engine hangul
@@ -55,7 +57,6 @@ jobs:
             for i in $(seq 1 60); do grep -q "^ready" ime-linux-$mode.txt && break; sleep 0.5; done
             ibus engine hangul
             sleep 1
-            xdotool key --delay 300 Hangul  # (ibus-hangul starts in English: the Hangul key turns Hangul on)
             for k in g k s r n r d j; do xdotool key --delay 120 $k; done
             xdotool key --delay 200 space
             wait $pid || true
