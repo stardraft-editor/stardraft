@@ -15,6 +15,7 @@
 #include <array>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -27,6 +28,32 @@ class StringTable;
 
 constexpr int kClassicConditions = 16, kClassicActions = 64, kClassicGroups = 27;
 constexpr size_t kClassicTriggerSize = 2400;
+
+// The field a parameter's value is in (see ClassicParam).
+enum class ClassicField : uint8_t {
+    Location, Player, Amount, Unit, Comparison, Resource,  // conditions (Resource: the byte at 16)
+    Text, Wav, Time, Number, Modifier,                     // actions (Location, Player and Unit as above)
+};
+
+// A batch (R23): one trigger, the template, that stands for one trigger for each value of a variable. The variable
+// is a unit type, a player or a location; the slots are the fields of the template that hold the variable. The
+// expanded TRIG (classicExpandBatches) is what the game and the other editors read: the template, disabled and with
+// a comment that names the batch, then one trigger for each value, in the template's order. A batch read from a map
+// (classicCollapseBatches) is the template only, with `batch` set and the comment taken away.
+enum class ClassicBatchKind : uint8_t { Unit, Player, Location };
+struct ClassicBatchSlot {
+    bool condition = false;  // a condition (true) or an action
+    uint8_t index = 0;       // its place in the list (0-based)
+    ClassicField field = ClassicField::Unit;
+    friend bool operator==(const ClassicBatchSlot&, const ClassicBatchSlot&) = default;
+};
+struct ClassicBatch {
+    std::string name = "unit";  // the variable's name: letters, digits, spaces and underscores (classicBatchName)
+    ClassicBatchKind kind = ClassicBatchKind::Unit;
+    std::vector<uint32_t> values;         // one trigger each (none: the template is not a batch)
+    std::vector<ClassicBatchSlot> slots;  // the fields that hold the variable
+    friend bool operator==(const ClassicBatch&, const ClassicBatch&) = default;
+};
 
 struct ClassicCondition {
     uint32_t location = 0;  // 1-based location number (64: Anywhere); 0: none
@@ -63,12 +90,14 @@ struct ClassicTrigger {
     uint32_t flags = 0;  // bit 2 (4): preserve trigger; bit 3 (8): disabled; the rest the game sets while it runs
     std::array<uint8_t, kClassicGroups> players{};  // who runs it: 0-7 players 1-8, 17 all players, 18-21 forces 1-4
     uint8_t currentAction = 0;
+    std::optional<ClassicBatch> batch;  // a batch's template (see ClassicBatch); the expanded TRIG does not keep it
     friend bool operator==(const ClassicTrigger&, const ClassicTrigger&) = default;
 
     // How many conditions (actions) show: those before the first one of type 0.
     int conditionCount() const;
     int actionCount() const;
     // Add (at the end of the list; false when it is full), remove (the rest move up), move from one place to another.
+    // The slots of a batch move with their entries. A batch's template has room for one action less (its comment).
     bool addCondition(const ClassicCondition& c, int at = -1);
     bool addAction(const ClassicAction& a, int at = -1);
     void removeCondition(int i);
@@ -91,11 +120,6 @@ void writeClassicTriggers(Chk& chk, const ClassicTriggers& t);
 
 // --- What the conditions and actions are ---------------------------------------------------------------------
 
-// The field a parameter's value is in.
-enum class ClassicField : uint8_t {
-    Location, Player, Amount, Unit, Comparison, Resource,  // conditions (Resource: the byte at 16)
-    Text, Wav, Time, Number, Modifier,                     // actions (Location, Player and Unit as above)
-};
 // What kind of value a parameter holds (which picker it gets).
 enum class ClassicKind : uint8_t {
     Player, Comparison, Number, Unit, Location, Resource, Score, Switch, SwitchState, SwitchAction, Modifier, Text,
@@ -161,8 +185,9 @@ struct ClassicNames {
     const std::vector<ClassicAiScript>* ai = nullptr;
 };
 std::string classicValueText(ClassicKind kind, uint32_t v, const ClassicNames& names);
-std::string classicConditionText(const ClassicCondition& c, const ClassicNames& names);
-std::string classicActionText(const ClassicAction& a, const ClassicNames& names);
+// `batch` and `index` (the entry's place in its list): a slot of the batch shows its variable, not its value.
+std::string classicConditionText(const ClassicCondition& c, const ClassicNames& names, const ClassicBatch* batch = nullptr, int index = -1);
+std::string classicActionText(const ClassicAction& a, const ClassicNames& names, const ClassicBatch* batch = nullptr, int index = -1);
 std::string classicPlayerName(uint32_t group, const ClassicNames& names);
 
 // Is this a condition or action that only an EUD editor makes (a player or unit past the game's lists, a mask)?
@@ -171,5 +196,25 @@ bool classicEud(const ClassicAction& a);
 
 // The id of a map string with this text: an existing string with the same text, else a new one. 0 for "".
 uint32_t classicStringId(StringTable& strings, const std::string& text);
+
+// --- Batches (R23) -------------------------------------------------------------------------------------------------
+
+ClassicKind classicBatchValueKind(ClassicBatchKind kind);  // the kind of the values: Unit, Player or Location
+// A name that the header and the sentences can hold: letters, digits, spaces and underscores, at most 24, trimmed;
+// "unit" (the kind's name) when nothing is left.
+std::string classicBatchName(const std::string& name, ClassicBatchKind kind);
+bool classicBatchHasSlot(const ClassicBatch& b, bool condition, int index, ClassicField field);
+// Turns a slot on or off. A slot's field must hold the batch's kind of value (classicBatchValueKind).
+void classicBatchSetSlot(ClassicBatch& b, bool condition, int index, ClassicField field, bool on);
+// Drops the slots that point to no entry, or to a field that does not hold the batch's kind of value.
+void classicBatchPrune(ClassicTrigger& t);
+// The variable as a sentence shows it: variable "unit".
+std::string classicBatchVariableText(const ClassicBatch& b);
+// The working copy of a map's TRIG: each batch in the map becomes its template (`batch` set, the comment taken away,
+// the generated triggers gone). A trigger that is not a batch stays as it is.
+ClassicTriggers classicCollapseBatches(const ClassicTriggers& t, const StringTable& strings);
+// The TRIG to write for a working copy: each batch becomes its template (disabled, with the comment that names the
+// batch) and one trigger for each value. Adds the comments' strings, and blanks those of batches that are gone.
+ClassicTriggers classicExpandBatches(const ClassicTriggers& t, StringTable& strings);
 
 }  // namespace stardraft

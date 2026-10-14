@@ -222,7 +222,123 @@ int main(int argc, char** argv) {
         check(texts && classicConditionDefs().size() == 23 && classicActionDefs().size() == 59, "every condition and action has a sentence with its values");
     }
 
-    int maps = 0, openFail = 0, trigFail = 0, mbrfFail = 0, withTrig = 0, eudMaps = 0;
+    // Batches (R23): the expanded TRIG is what the game reads; the working copy has the template with its batch.
+    {
+        auto header = [](const StringTable& s, const ClassicTrigger& t) { return t.actionCount() && t.actions[0].type == 47 ? s.get(t.actions[0].text) : std::string(); };
+        auto valid = [](const ClassicTriggers& t) {  // every entry before a list's end has a type; nothing after the end
+            for (const ClassicTrigger& tr : t.triggers) {
+                const int nc = tr.conditionCount(), na = tr.actionCount();
+                for (int i = 0; i < nc; ++i) if (!tr.conditions[size_t(i)].type) return false;
+                for (int i = 0; i < na; ++i) if (!tr.actions[size_t(i)].type) return false;
+                for (int i = nc; i < kClassicConditions; ++i) if (tr.conditions[size_t(i)] != ClassicCondition{}) return false;
+                for (int i = na; i < kClassicActions; ++i) if (tr.actions[size_t(i)] != ClassicAction{}) return false;
+            }
+            return true;
+        };
+        StringTable strings;
+        ClassicTrigger tpl = ClassicTrigger::make();
+        tpl.addAction(makeClassicAction(44)), tpl.addAction(makeClassicAction(9));  // Create unit; Display text message
+        tpl.actions[0].unit = 0, tpl.actions[0].player = 0;
+        ClassicBatch b;
+        b.name = "unit", b.kind = ClassicBatchKind::Unit, b.values = {0, 1, 36};
+        classicBatchSetSlot(b, false, 0, ClassicField::Unit, true);
+        tpl.batch = b;
+        ClassicTriggers work;
+        work.triggers = {tpl, ClassicTrigger::make()};
+        work.tail = {1, 2, 3};
+        const ClassicTriggers out = classicExpandBatches(work, strings);
+        check(out.triggers.size() == 5 && out.tail == work.tail, "a batch of 3 expands to its template and 3 triggers, then the other trigger");
+        const bool head = out.triggers.size() == 5 && (out.triggers[0].flags & 8) && header(strings, out.triggers[0]).rfind("StarDraft batch of 3 triggers: ", 0) == 0 &&
+                          out.triggers[0].actionCount() == 3 && out.triggers[0].actions[1].type == 44;
+        check(head, "the template is disabled, its first action is the comment that names the batch, its values follow it");
+        bool made = out.triggers.size() == 5;
+        const uint16_t units[3] = {0, 1, 36};
+        for (int i = 0; made && i < 3; ++i) {
+            const ClassicTrigger& g = out.triggers[size_t(i + 1)];
+            made = !(g.flags & 8) && g.actionCount() == 2 && g.actions[0].type == 44 && g.actions[0].unit == units[i] && g.actions[1].type == 9 &&
+                   g.conditionCount() == 1 && g.conditions[0].type == 22 && header(strings, g).empty();
+        }
+        check(made, "each value makes one enabled trigger with its unit in the slot, and no comment");
+        check(valid(out) && out.triggers[4] == work.triggers[1], "the expanded TRIG is valid, and the other trigger stays as it was");
+        const Bytes bytes = encodeClassicTriggers(out);
+        Chk saved;
+        writeClassicTriggers(saved, out);
+        const StringTable reread = strings;
+        ClassicTriggers back = classicCollapseBatches(readClassicTriggers(saved), reread);
+        check(back.triggers.size() == 2 && back.triggers[0].batch == b && back.triggers[0].actionCount() == 2 && back.triggers[0] == work.triggers[0],
+              "a saved batch is read back as its template with the same batch");
+        StringTable again = reread;
+        check(encodeClassicTriggers(classicExpandBatches(back, again)) == bytes, "read back and expanded again, the bytes are the same");
+        // Adding an action before the slot moves the slot; a slot whose field the new type lacks goes.
+        ClassicTrigger moved = back.triggers[0];
+        moved.addAction(makeClassicAction(9), 0);
+        check(classicBatchHasSlot(*moved.batch, false, 1, ClassicField::Unit) && !classicBatchHasSlot(*moved.batch, false, 0, ClassicField::Unit),
+              "a slot moves with its action when an action is added before it");
+        moved.actions[1] = retypeClassicAction(moved.actions[1], 9);
+        classicBatchPrune(moved);
+        check(moved.batch->slots.empty(), "a slot whose field the new type does not have is dropped");
+        // A batch's comment takes the last place: a template with 64 actions cannot take one more action.
+        ClassicTrigger full = ClassicTrigger::make();
+        for (int i = 0; i < kClassicActions - 1; ++i) full.addAction(makeClassicAction(9));
+        full.batch = b;
+        check(!full.addAction(makeClassicAction(9)) && full.actionCount() == kClassicActions - 1, "a batch's template has room for 63 actions");
+        check(classicBatchName("  a;b=c_1  ", ClassicBatchKind::Unit) == "abc_1" && classicBatchName("", ClassicBatchKind::Player) == "player",
+              "a variable's name keeps letters, digits, spaces and underscores; an empty name is the kind's name");
+        // A comment that names a batch with the wrong count is not a batch: it stays as it is.
+        ClassicTriggers bad;
+        ClassicTrigger fake = ClassicTrigger::make();
+        fake.flags = 8, fake.addAction(makeClassicAction(47), 0), fake.actions[0].text = strings.add("StarDraft batch of 2 triggers: name=unit; kind=unit; values=0; slots=a1.unit");
+        bad.triggers = {fake, ClassicTrigger::make()};
+        check(classicCollapseBatches(bad, strings).triggers.size() == 2 && !classicCollapseBatches(bad, strings).triggers[0].batch, "a comment with the wrong count is not a batch");
+        // Two batches in a row, and a batch whose slot is a player.
+        ClassicTrigger pl = ClassicTrigger::make();
+        pl.addAction(makeClassicAction(44));  // Create unit for a player: the player is the variable
+        ClassicBatch pb;
+        pb.kind = ClassicBatchKind::Player, pb.name = "player", pb.values = {0, 1};
+        classicBatchSetSlot(pb, false, 0, ClassicField::Player, true);
+        pl.batch = pb;
+        ClassicTriggers two;
+        two.triggers = {tpl, pl};
+        const ClassicTriggers expanded2 = classicExpandBatches(two, strings);
+        Chk saved2;
+        writeClassicTriggers(saved2, expanded2);
+        const ClassicTriggers collapsed2 = classicCollapseBatches(readClassicTriggers(saved2), strings);
+        check(expanded2.triggers.size() == 4 + 3 && collapsed2.triggers.size() == 2 && collapsed2.triggers[1].batch == pb &&
+                  expanded2.triggers[5].actions[0].player == 0 && expanded2.triggers[6].actions[0].player == 1,
+              "two batches in a row expand and read back as two batches");
+        // A number field (Give units to player: to) is a slot too, and it reads back.
+        ClassicTrigger give = ClassicTrigger::make();
+        give.addAction(makeClassicAction(48));
+        ClassicBatch gb;
+        gb.kind = ClassicBatchKind::Player, gb.name = "player", gb.values = {0, 1};
+        classicBatchSetSlot(gb, false, 0, ClassicField::Number, true);
+        give.batch = gb;
+        ClassicTriggers giveWork;
+        giveWork.triggers = {give};
+        const ClassicTriggers giveOut = classicExpandBatches(giveWork, strings);
+        Chk giveSaved;
+        writeClassicTriggers(giveSaved, giveOut);
+        const ClassicTriggers giveBack = classicCollapseBatches(readClassicTriggers(giveSaved), strings);
+        check(giveOut.triggers.size() == 3 && giveOut.triggers[2].actions[0].number == 1 && giveBack.triggers.size() == 1 && giveBack.triggers[0].batch == gb,
+              "a batch whose variable is a number field is read back with the same slot");
+        // A copy that another editor changed: the batch is not read (the triggers stay as they are).
+        ClassicTriggers altered = out;
+        altered.triggers[2].conditions[0].amount = 99;
+        Chk alteredSaved;
+        writeClassicTriggers(alteredSaved, altered);
+        const ClassicTriggers alteredBack = classicCollapseBatches(readClassicTriggers(alteredSaved), strings);
+        check(alteredBack.triggers.size() == 5 && !alteredBack.triggers[0].batch, "a changed copy is not taken into the batch");
+        // Turned into a trigger: no comment, enabled, one trigger.
+        ClassicTriggers plain;
+        ClassicTrigger one = tpl;
+        one.batch.reset();
+        plain.triggers = {one};
+        const ClassicTriggers plainOut = classicExpandBatches(plain, strings);
+        check(plainOut.triggers.size() == 1 && !(plainOut.triggers[0].flags & 8) && plainOut.triggers[0].actionCount() == 2, "a trigger without a batch is written as it is, enabled");
+        check(encodeClassicTriggers(out) == bytes && !bytes.empty(), "the expanded bytes are the same each time");
+    }
+
+    int maps = 0, openFail = 0, trigFail = 0, mbrfFail = 0, withTrig = 0, eudMaps = 0, batchFail = 0;
     size_t triggers = 0, conditions = 0, actions = 0, eudEntries = 0, unknownTypes = 0, hidden = 0, tails = 0;
     std::map<int, std::map<int, int>> condFlags, actFlags;  // type -> flags -> count
     std::map<int, int> condTypes, actTypes;
@@ -248,6 +364,14 @@ int main(int argc, char** argv) {
         if (encodeClassicTriggers(readClassicTriggers(m)) != chk.effective("MBRF")) ++mbrfFail, std::printf("FAIL MBRF %s\n", name.c_str());
         if (!t.tail.empty()) ++tails;
         const StringTable strings = StringTable::read(chk);
+        // Batches (R23): a map without batches is the same when it is read as the editor's working copy and written
+        // again; a map's TRIG is not changed by the batch code.
+        {
+            StringTable copy = strings;
+            const ClassicTriggers working = classicCollapseBatches(t, strings);
+            if (working.triggers != t.triggers) ++batchFail, std::printf("FAIL batch: a map without batches changes %s\n", name.c_str());
+            if (encodeClassicTriggers(classicExpandBatches(working, copy)) != chk.effective("TRIG")) ++batchFail, std::printf("FAIL batch: TRIG changes %s\n", name.c_str());
+        }
         ClassicNames names;
         names.string = [&](uint32_t id) { return id <= strings.size() ? strings.get(id) : std::string(); };
         names.ai = &ai;
@@ -291,6 +415,7 @@ int main(int argc, char** argv) {
     std::printf("%d maps (%d with classic triggers): %d did not open; %zu triggers, %zu conditions, %zu actions; %zu EUD entries in %d maps, "
                 "%zu entries of types the game does not have, %zu entries after the end of a list, %zu maps with bytes after the last trigger\n",
                 maps, withTrig, openFail, triggers, conditions, actions, eudEntries, eudMaps, unknownTypes, hidden, tails);
-    std::printf("round trip: TRIG %d maps differ, MBRF %d maps differ; list checks %d failed\n", trigFail, mbrfFail, failed);
-    return trigFail || mbrfFail || failed ? 1 : 0;
+    std::printf("round trip: TRIG %d maps differ, MBRF %d maps differ; list checks %d failed; batch checks on the maps %d failed\n", trigFail, mbrfFail,
+                failed, batchFail);
+    return trigFail || mbrfFail || failed || batchFail ? 1 : 0;
 }

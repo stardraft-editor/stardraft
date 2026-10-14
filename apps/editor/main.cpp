@@ -25683,7 +25683,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     << "\n";
                 continue;
             }
-            if (s == "classictrig:" || s == "classictrig:set" || s == "classictrig:move") {  // L.2: the Classic triggers window (classic_triggers.inc)
+            if (s == "classictrig:" || s == "classictrig:set" || s == "classictrig:move" || s == "classictrig:batch") {  // L.2, R23: the Classic triggers window (classic_triggers.inc)
                 classicTrigDatashot(s, datashots);
                 continue;
             }
