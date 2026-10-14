@@ -245,6 +245,47 @@ static void placementRules(const GameData& data, const char* map) {
     CHECK(pe.placeDoodads({{type->id, a.x, a.y, 0}}, false, true) == 1 && spot && pe.doodads().back().x == spot->first && pe.doodads().back().y == spot->second,
           "doodads: with Move to the nearest place where it fits, a paste goes there");
     pe.undo();
+    // Doodads overlap only where both have a tile: the empty corner of a ramp or cliff piece takes the next piece
+    // (Discord 2026-10-14: the next segment of a ramp was refused).
+    {
+        const auto& groups = pe.tileset().groups;
+        auto tile = [&](const DoodadType& k, int c, int r) {
+            const size_t g = size_t(k.firstGroup) + size_t(r);
+            return g < groups.size() && groups[g].megatiles[size_t(c)] != 0;
+        };
+        // A doodad with tiles and an empty cell, and an offset where a second one overlaps its rectangle but no tile.
+        const DoodadType* holed = nullptr;
+        int ox = 0, oy = 0;
+        for (const auto& t : pe.doodadTypes().all()) {
+            if (holed || t.width > 8 || t.height > 8) continue;
+            bool any = false;
+            for (int r = 0; r < t.height; ++r)
+                for (int c = 0; c < t.width; ++c) any |= tile(t, c, r);
+            if (!any) continue;
+            for (int dy = -int(t.height) + 1; dy < t.height && !holed; ++dy)
+                for (int dx = -int(t.width) + 1; dx < t.width && !holed; ++dx) {
+                    if (!dx && !dy) continue;
+                    bool meet = false;
+                    for (int r = 0; r < t.height && !meet; ++r)
+                        for (int c = 0; c < t.width && !meet; ++c) {
+                            const int c2 = c - dx, r2 = r - dy;
+                            meet = c2 >= 0 && r2 >= 0 && c2 < t.width && r2 < t.height && tile(t, c, r) && tile(t, c2, r2);
+                        }
+                    if (!meet) holed = &t, ox = dx, oy = dy;
+                }
+        }
+        if (holed) {
+            const int hx = pe.width() / 4, hy = pe.height() / 4;
+            const size_t n0 = pe.doodads().size();
+            CHECK(pe.placeDoodad(holed->id, hx * 32 + holed->width * 16, hy * 32 + holed->height * 16, false), "doodads: a doodad with an empty cell is placed");
+            CHECK(!pe.doodadOverlaps(*holed, hx + ox, hy + oy) &&
+                      pe.placeDoodad(holed->id, (hx + ox) * 32 + holed->width * 16, (hy + oy) * 32 + holed->height * 16, false) && pe.doodads().size() == n0 + 2,
+                  "doodads: a doodad goes where the rectangles overlap but no tiles do (the next piece of a ramp)");
+            CHECK(pe.doodadOverlaps(*holed, hx, hy), "doodads: a doodad on another doodad's tiles is refused");
+            std::printf("      doodad %u (%ux%u): a second one at the offset %d,%d\n", holed->id, holed->width, holed->height, ox, oy);
+            pe.undo(), pe.undo();
+        } else std::printf("      no doodad with tiles and empty cells: the overlap check by cells is not tested\n");
+    }
     // dddata.bin rows are the doodad's width long (GitHub feedback #93, #100): the map's own doodads fit their terrain.
     {
         int placed = 0, fit = 0;

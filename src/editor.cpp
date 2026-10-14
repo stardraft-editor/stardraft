@@ -1864,12 +1864,33 @@ void Editor::doodadOrigin(const DoodadType& t, int x, int y, int& tileX, int& ti
     tileY = int(std::lround((y - t.height * 16) / 32.0));
 }
 
+// Two doodads overlap only where both have a tile: the empty corners of a ramp or cliff piece take the next piece (a
+// test of the rectangles refused the next segment of a ramp, Discord 2026-10-14). A doodad with no tile at all (only
+// its sprite) takes its whole rectangle.
 bool Editor::doodadOverlaps(const DoodadType& t, int tileX, int tileY) const {
+    auto tile = [&](const DoodadType& k, int c, int r) {
+        const size_t g = size_t(k.firstGroup) + size_t(r);
+        return g < tileset_.groups.size() && size_t(c) < tileset_.groups[g].megatiles.size() && tileset_.groups[g].megatiles[size_t(c)] != 0;
+    };
+    auto hasTiles = [&](const DoodadType& k) {
+        for (int r = 0; r < k.height; ++r)
+            for (int c = 0; c < k.width; ++c)
+                if (tile(k, c, r)) return true;
+        return false;
+    };
+    const bool tTiles = hasTiles(t);
+    auto solid = [&](const DoodadType& k, bool kTiles, int c, int r) { return !kTiles || tile(k, c, r); };
     for (const Doodad& d : doodads_) {
         const DoodadType* o = doodadTypes_.find(d.id);
         if (!o) continue;
         int ox = (d.x - o->width * 16) / 32, oy = (d.y - o->height * 16) / 32;
-        if (tileX < ox + o->width && ox < tileX + t.width && tileY < oy + o->height && oy < tileY + t.height) return true;
+        const int x0 = std::max(tileX, ox), x1 = std::min(tileX + int(t.width), ox + int(o->width));
+        const int y0 = std::max(tileY, oy), y1 = std::min(tileY + int(t.height), oy + int(o->height));
+        if (x0 >= x1 || y0 >= y1) continue;
+        const bool oTiles = hasTiles(*o);
+        for (int y = y0; y < y1; ++y)
+            for (int x = x0; x < x1; ++x)
+                if (solid(t, tTiles, x - tileX, y - tileY) && solid(*o, oTiles, x - ox, y - oy)) return true;
     }
     return false;
 }
