@@ -54,6 +54,7 @@ using std::min;
 #include <vector>
 
 #include <stb_image.h>
+#include "../common/canvas.h"
 #include "res/ui_icons.h"
 #include "stardraft/editor.h"
 #include "stardraft/hd_assets.h"
@@ -5960,6 +5961,7 @@ void fadeIn(HWND w, int show) {
     });
 }
 
+#include "canvas_gdi.inc"
 #include "ui_kit.inc"
 #include "game_text.inc"
 #include "context_menu.inc"
