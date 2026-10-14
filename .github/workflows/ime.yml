@@ -1,6 +1,8 @@
 # Korean typed with each system's own input method (IME) into stardraft-next (research/ports/PLAN.md, phase 4: the
 # main risk of the new shell). On GitHub's machines only: each takes the focus and sends keys, as a person would.
 # The keys are the Korean 2-set layout's: "gksrnrdj" makes 한국어 (ㅎㅏㄴ ㄱㅜㄱ ㅇㅓ), the space commits.
+# Then: the Hanja of 한 (the Hanja key, the first candidate), 한/영 (English letters, then Hangul again: "abc 국"),
+# and Chinese with Pinyin ("zhongwen" makes 中文).
 # Each job keeps what stardraft-next printed (every composition and text event) and its snapshot.
 name: IME
 
@@ -24,7 +26,7 @@ jobs:
           sudo apt-get install -y ninja-build pkg-config mesa-vulkan-drivers libasound2-dev libpulse-dev \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
             libxkbcommon-dev libwayland-dev libdecor-0-dev libdrm-dev libgbm-dev libegl1-mesa-dev libdbus-1-dev libudev-dev \
-            libibus-1.0-dev xvfb xdotool ibus ibus-hangul dbus-x11 dconf-cli dconf-service
+            libibus-1.0-dev xvfb xdotool ibus ibus-hangul ibus-libpinyin dbus-x11 dconf-cli dconf-service
 
       - uses: actions/cache@v4
         with:
@@ -66,6 +68,22 @@ jobs:
           grep -q "search field: 한국어" ime-linux-inline.txt
           grep -q '^composing: "하"' ime-linux-inline.txt
 
+          # Hanja (F9 in ibus-hangul, 1 picks the first), 한/영 (Shift+Space), then Chinese with ibus-libpinyin.
+          live() {  # live <name> <engine> <keys...>
+            name=$1 engine=$2; shift 2
+            build/stardraft-next --workspace triggers --live 25 --snapshot ime-linux-$name.png > ime-linux-$name.txt 2>&1 &
+            pid=$!
+            for i in $(seq 1 60); do grep -q "^ready" ime-linux-$name.txt && break; sleep 0.5; done
+            ibus engine $engine
+            sleep 1
+            for k in "$@"; do xdotool key --delay 150 "$k"; done
+            wait $pid || true
+            cat ime-linux-$name.txt
+          }
+          live hanja hangul g k s F9 1 space shift+space a b c space shift+space r n r space
+          live pinyin libpinyin z h o n g w e n space
+          python3 tools/ci/ime_check.py ime-linux-hanja.txt ime-linux-pinyin.txt
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -92,6 +110,7 @@ jobs:
         run: |
           $l = Get-WinUserLanguageList
           $l.Add("ko-KR")
+          $l.Add("zh-CN")
           Set-WinUserLanguageList $l -Force
           Get-WinUserLanguageList | Format-List LanguageTag, InputMethodTips
 
@@ -104,12 +123,26 @@ jobs:
             $a += $(if ($mode -eq "inline") { "--ime-inline" } else { "--ime-system" })
             $p = Start-Process build/Release/stardraft-next.exe -ArgumentList $a -RedirectStandardOutput "ime-windows-$mode.txt" -PassThru
             for ($i = 0; $i -lt 60 -and -not (Select-String -Path "ime-windows-$mode.txt" -Pattern "^ready" -Quiet -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Milliseconds 500 }
-            pwsh -File tools/ci/ime_keys_windows.ps1 -ProcessId $p.Id -Keys "gksrnrdj "
+            pwsh -File tools/ci/ime_keys_windows.ps1 -ProcessId $p.Id -Keys "{layout:00000412}{hangul}gksrnrdj "
             $p.WaitForExit(60000) | Out-Null
             Get-Content "ime-windows-$mode.txt" -Encoding utf8
             if (-not (Select-String -Path "ime-windows-$mode.txt" -Pattern "search field: 한국어" -Encoding utf8 -Quiet)) { $failed++ }
           }
           if ($failed) { throw "Korean did not arrive in $failed of 2 runs" }
+
+      # Hanja (the Hanja key, 1 picks the first), 한/영 (the Hangul key), then Chinese with Microsoft Pinyin.
+      - name: Hanja, 한/영 and Pinyin with the Microsoft IMEs
+        shell: pwsh
+        run: |
+          foreach ($run in @(@("hanja", "{layout:00000412}{hangul}gks{hanja}1 {hangul}abc {hangul}rnr "), @("pinyin", "{layout:00000804}zhongwen "))) {
+            $name = $run[0]
+            $p = Start-Process build/Release/stardraft-next.exe -ArgumentList @("--workspace", "triggers", "--live", "30", "--snapshot", "ime-windows-$name.png") -RedirectStandardOutput "ime-windows-$name.txt" -PassThru
+            for ($i = 0; $i -lt 60 -and -not (Select-String -Path "ime-windows-$name.txt" -Pattern "^ready" -Quiet -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Milliseconds 500 }
+            pwsh -File tools/ci/ime_keys_windows.ps1 -ProcessId $p.Id -Keys $run[1]
+            $p.WaitForExit(60000) | Out-Null
+            Get-Content "ime-windows-$name.txt" -Encoding utf8
+          }
+          python tools/ci/ime_check.py ime-windows-hanja.txt ime-windows-pinyin.txt
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -140,20 +173,37 @@ jobs:
           "$app" --workspace triggers --live 8 --snapshot warmup.png > warmup.txt 2>&1 &
           pid=$!
           for i in $(seq 1 60); do grep -q "^ready" warmup.txt && break; sleep 0.5; done
-          ./ime_keys_mac "gksrnrdj " || true
+          ./ime_keys_mac "{source:com.apple.inputmethod.Korean.2SetKorean}gksrnrdj " || true
           wait $pid || true
           for mode in inline system; do
             flag="--ime-inline"; [ "$mode" = system ] && flag="--ime-system"
             "$app" --workspace triggers $flag --live 20 --snapshot ime-macos-$mode.png > ime-macos-$mode.txt 2>&1 &
             pid=$!
             for i in $(seq 1 60); do grep -q "^ready" ime-macos-$mode.txt && break; sleep 0.5; done
-            ./ime_keys_mac "gksrnrdj " || true
+            ./ime_keys_mac "{source:com.apple.inputmethod.Korean.2SetKorean}gksrnrdj " || true
             wait $pid || true
             cat ime-macos-$mode.txt
           done
           grep -q "search field: 한국어" ime-macos-inline.txt
           # The system's own drawing loses the first syllable on macOS (ㅎㅏㄴ국어): reported, not required.
           grep -q "search field: 한국어" ime-macos-system.txt || echo "::warning::macOS, the system's composition drawing: $(grep 'search field' ime-macos-system.txt)"
+
+      # Hanja (Option+Return, Return picks the first), 한/영 (the English input source and back), then Chinese with
+      # Pinyin - Simplified.
+      - name: Hanja, 한/영 and Pinyin
+        run: |
+          app=build/stardraft-next.app/Contents/MacOS/stardraft-next
+          ko="{source:com.apple.inputmethod.Korean.2SetKorean}"
+          for run in "hanja|${ko}gks{optreturn}{return} {source:com.apple.keylayout.US}abc ${ko}rnr " "pinyin|{source:com.apple.inputmethod.SCIM.ITABC}zhongwen "; do
+            name=${run%%|*} keys=${run#*|}
+            "$app" --workspace triggers --live 30 --snapshot ime-macos-$name.png > ime-macos-$name.txt 2>&1 &
+            pid=$!
+            for i in $(seq 1 60); do grep -q "^ready" ime-macos-$name.txt && break; sleep 0.5; done
+            ./ime_keys_mac "$keys" || true
+            wait $pid || true
+            cat ime-macos-$name.txt
+          done
+          python3 tools/ci/ime_check.py ime-macos-hanja.txt ime-macos-pinyin.txt
 
       - uses: actions/upload-artifact@v4
         if: always()
