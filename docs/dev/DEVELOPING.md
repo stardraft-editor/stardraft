@@ -8,7 +8,7 @@ texts follow.
 | Folder | What is in it |
 |---|---|
 | `include/stardraft/`, `src/` | The library, without a window or a GPU: map files (`chk`, `map_file`: scenario.chk and the .scm/.scx archive), game data from the install (`game_data`: CASC), tilesets and ISOM terrain, units, sprites and iscript (`sprites`), doodads, locations, strings, the editor document with undo (`editor`), a classic map's unit, upgrade and tech settings (`classic_settings`) and triggers (`classic_triggers`), .dat editing (`dat_edit`, `dat_extras`), EUD projects and euddraft (`eud_project`, `euddraft`), triggers and their epScript (`triggers`), keys and mouse (`msqc`), briefings, portraits. |
-| `src/render/`, `shaders/` | The map view's renderer: SDL3 GPU (D3D12), HLSL compiled by `dxc` at build time. |
+| `src/render/`, `shaders/` | The map view's renderer: SDL3 GPU (Direct3D 12 on Windows, Vulkan on Linux, Metal on macOS). HLSL, compiled to DXIL by `dxc` at build time; the SPIR-V and MSL in `shaders/gen/` are generated (see below). |
 | `apps/editor/` | The Windows program. `main.cpp` is the shell and most workspaces; the `.inc` files are parts of it: `ui_kit.inc` (the control kit), `data_extras.inc` (Strings, Buttons, requirements, unit display), `briefing_view.inc`, `files_view.inc`, `sound_files.inc`, `project_view.inc`, `kit_gallery.inc` (View > Control kit), `tiles_view.inc` (Terrain mode's Rectangle: the tools on tiles as they are, and the grid of every tile), `classic_settings.inc` (Scenario > Classic settings: a classic map's unit, upgrade and tech settings), `classic_triggers.inc` (Scenario > Classic triggers: a classic map's TRIG), `trigger_help.inc` (the block help page on F1, the fixes for heavy triggers, a euddraft error that selects its block), `trigger_selftest.inc` (the self-test's checks of those). |
 | `src/data/` | Generated tables (see below). Do not edit them by hand. |
 | `tools/` | Tools (each a CMake target) and the UI text lint. `tools/tests/`: the test programs; `tools/probes/`: one-off programs from finding out how the game works. |
@@ -38,10 +38,16 @@ stb and libvpx.
 ### Linux and macOS
 
 The library, the tools and the tests also build on Linux (GCC or Clang) and macOS (Xcode's Clang); GitHub builds
-them on each push. The editor is Windows only, and the renderer is off by default there (`STARDRAFT_RENDERER`):
+them on each push. The editor is Windows only; the renderer and its tests use Vulkan on Linux and Metal on macOS.
+On Linux, SDL needs the X11 or Wayland headers (SDL's `docs/README-linux.md`), or `-DSDL_UNIX_CONSOLE_BUILD=ON`
+for the tools only; `-DSTARDRAFT_RENDERER=OFF` builds without SDL.
 
     cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
     cmake --build build
+
+The renderer's tools render offscreen; with no display, set `SDL_VIDEODRIVER=offscreen`. On Windows,
+`STARDRAFT_GPU_DRIVER=vulkan` (an environment variable) makes the renderer, the editor's map view included, use
+Vulkan instead of Direct3D 12.
 
 What does not work there:
 
@@ -55,7 +61,8 @@ folder, or asks for it; Options > Program options > StarCraft folder changes it.
 
 ## Tests
 
-The tests need the StarCraft install; they do not run on GitHub. In the commands, `<install>` is the folder with
+Most tests need the StarCraft install, so GitHub does not run them (it runs `trigger_test` without a map and
+`render_smoke_test`). In the commands, `<install>` is the folder with
 `.build.info` (usually `C:\Program Files (x86)\Starcraft Remastered\StarCraft`) and maps come from its `Maps` folder.
 Give each test a new, empty scratch folder.
 
@@ -71,6 +78,7 @@ Give each test a new, empty scratch folder.
 | `portrait_test`, `hd_test`, `new_map_test` | `<install> ...` (see the usage line in each) | Portrait videos, HD graphics, new maps. |
 | `paint_stress` | | Terrain correction: no cliff-stack breaks. |
 | `terrain_check` | `terrain_check <install> <maps folder>...` | Without the GPU: the HD, HD2 and Carbot tiles of each tileset against the SD megatiles; each map's MTXM tiles resolve; each map sprite (THG2) has graphics and the frame and images the game starts it with. |
+| `render_smoke_test` | `render_smoke_test [out.png]` | Without game data: the renderer's device and pipelines (each shader in the GPU API's format), and rectangles, lines and text in an offscreen frame. GitHub runs it on Linux (Vulkan on lavapipe). |
 | `terrain_render_test` | `terrain_render_test <install> [<maps folder>...]` | The map view's renderer, offscreen: no tile grid when zoomed out (mipmaps), every megatile in the HD, HD2 and Carbot atlases, and each map in SD at 100% the same as `render_map`. |
 
 Known failures (they come from before 0.5 and are on the list to fix): `editor_test` fails checks that depend on the
@@ -141,6 +149,7 @@ the tables by hand.
 | `src/data/tile_edges.inc` | the CV5 files from CASC |
 | `src/data/eud_names.inc` | eudplib's name tables (in euddraft) |
 | `apps/editor/res/` (icons, UI icon atlases, `ui_icons.h`) | the icon tool (`python tools/import_icons.py`) |
+| `shaders/gen/` (SPIR-V and MSL) | `shaders/*.hlsl`, by `python -I tools/gen_shaders.py --shadercross <program>` (its text says which SDL_shadercross). After a change to a shader, run it and commit the result: GitHub checks that `shaders/gen/sources.txt` matches the shaders. |
 
 EUD Editor 2 and 3 are MIT licensed (LeeJungHun); `NOTICE.md` has the credits.
 
