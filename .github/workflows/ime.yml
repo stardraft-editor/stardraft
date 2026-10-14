@@ -47,7 +47,7 @@ jobs:
           sleep 3
           ibus engine hangul
           ibus engine
-          export SDL_VIDEODRIVER=x11 SDL_IM_MODULE=ibus
+          export SDL_VIDEODRIVER=x11 SDL_IM_MODULE=ibus XMODIFIERS=@im=ibus
           for mode in system inline; do
             flag=""; [ "$mode" = inline ] && flag="--ime-inline"
             build/stardraft-next --workspace triggers $flag --live 20 --snapshot ime-linux-$mode.png > ime-linux-$mode.txt 2>&1 &
@@ -55,8 +55,7 @@ jobs:
             for i in $(seq 1 60); do grep -q "^ready" ime-linux-$mode.txt && break; sleep 0.5; done
             ibus engine hangul
             sleep 1
-            win=$(xdotool search --name "StarDraft 2" | head -1)
-            xdotool windowactivate --sync "$win" || true
+            xdotool key --delay 300 Hangul  # (ibus-hangul starts in English: the Hangul key turns Hangul on)
             for k in g k s r n r d j; do xdotool key --delay 120 $k; done
             xdotool key --delay 200 space
             wait $pid || true
@@ -104,7 +103,7 @@ jobs:
             if ($mode -eq "inline") { $a += "--ime-inline" }
             $p = Start-Process build/Release/stardraft-next.exe -ArgumentList $a -RedirectStandardOutput "ime-windows-$mode.txt" -PassThru
             for ($i = 0; $i -lt 60 -and -not (Select-String -Path "ime-windows-$mode.txt" -Pattern "^ready" -Quiet -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Milliseconds 500 }
-            pwsh -File tools/ci/ime_keys_windows.ps1 -Title "StarDraft 2 (next)" -Keys "gksrnrdj "
+            pwsh -File tools/ci/ime_keys_windows.ps1 -ProcessId $p.Id -Keys "gksrnrdj "
             $p.WaitForExit(60000) | Out-Null
             Get-Content "ime-windows-$mode.txt" -Encoding utf8
             if (-not (Select-String -Path "ime-windows-$mode.txt" -Pattern "search field: 한국어" -Encoding utf8 -Quiet)) { $failed++ }
@@ -142,6 +141,8 @@ jobs:
             pid=$!
             for i in $(seq 1 60); do grep -q "^ready" ime-macos-$mode.txt && break; sleep 0.5; done
             ./ime_keys_mac "gksrnrdj " || true
+            # (if the posted keys did not arrive: System Events, which has its own permission)
+            osascript -e 'tell application "System Events" to keystroke "gksrnrdj "' || true
             wait $pid || true
             cat ime-macos-$mode.txt
           done

@@ -1,7 +1,7 @@
 # Types Korean with the Microsoft Korean IME into a window (CI only: it takes the focus and sends keys).
-# usage: ime_keys_windows.ps1 <window title> <keys>
+# usage: ime_keys_windows.ps1 <process id> <keys>
 # <keys>: the keys of the Korean 2-set layout (dubeolsik), "gksrnrdj" for 한국어; a space at the end commits.
-param([string]$Title, [string]$Keys)
+param([int]$ProcessId, [string]$Keys)
 
 Add-Type -TypeDefinition @'
 using System;
@@ -21,8 +21,14 @@ public static class Ime {
 '@
 
 $w = [IntPtr]::Zero
-for ($i = 0; $i -lt 50 -and $w -eq [IntPtr]::Zero; $i++) { $w = [Ime]::FindWindowW($null, $Title); Start-Sleep -Milliseconds 200 }
-if ($w -eq [IntPtr]::Zero) { throw "no window '$Title'" }
+for ($i = 0; $i -lt 50 -and $w -eq [IntPtr]::Zero; $i++) {
+    $proc = Get-Process -Id $ProcessId
+    $proc.Refresh()
+    $w = $proc.MainWindowHandle
+    if ($w -eq [IntPtr]::Zero) { Start-Sleep -Milliseconds 200 }
+}
+if ($w -eq [IntPtr]::Zero) { throw "process $ProcessId has no window" }
+Write-Output "window $w"
 [Ime]::SetForegroundWindow($w) | Out-Null
 Start-Sleep -Milliseconds 500
 # The Korean layout for the window (WM_INPUTLANGCHANGEREQUEST), then the IME open in Hangul mode.
@@ -37,4 +43,4 @@ Start-Sleep -Milliseconds 500
 foreach ($ch in $Keys.ToCharArray()) {
     if ($ch -eq ' ') { [Ime]::Key(0x20) } else { [Ime]::Key([byte][char]([string]$ch).ToUpper()) }
 }
-Write-Output "sent $($Keys.Length) keys to '$Title'"
+Write-Output "sent $($Keys.Length) keys to process $ProcessId"
