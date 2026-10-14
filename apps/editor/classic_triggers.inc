@@ -1086,10 +1086,12 @@ void ctPickValue(int pi, POINT at) {
 }
 
 // "+ condition", "+ action": the game's conditions (actions) to select from.
-// The blocks come first in the actions' list (a section "Blocks"), then the actions (section "Actions").
-void ctAddClick(int kind, RECT link) {
+// When new blocks are offered (kClassicBatchesOffered), they come first in the actions' list (a section "Blocks"),
+// then the actions (section "Actions").
+std::vector<ListPickItem> ctAddItems(int kind) {
     std::vector<ListPickItem> items;
-    if (kind)
+    const bool blocks = kind && kClassicBatchesOffered;
+    if (blocks)
         for (const ClassicBlockKind& k : classicBlockKinds()) {
             ListPickItem it;
             it.label = L"For each " + widen(k.name), it.section = L"Blocks", it.value = "block:" + std::to_string(int(k.kind));
@@ -1098,9 +1100,14 @@ void ctAddClick(int kind, RECT link) {
     for (const ClassicDef* def : kind ? classicActionDefs() : classicConditionDefs()) {
         ListPickItem it;
         it.label = widen(def->name), it.value = std::to_string(def->type);
-        if (kind) it.section = L"Actions";
+        if (blocks) it.section = L"Actions";
         items.push_back(std::move(it));
     }
+    return items;
+}
+
+void ctAddClick(int kind, RECT link) {
+    std::vector<ListPickItem> items = ctAddItems(kind);
     POINT pt{link.left, link.bottom + scale(2)};
     ClientToScreen(gCt->entries, &pt);
     std::string picked;
@@ -2382,6 +2389,11 @@ void classicTrigDatashot(const std::string& spec, const fs::path& dir) {
                 expected = v;
             }
         } else if (mode == "batch") {
+            {  // New blocks are not offered while kClassicBatchesOffered is off; the map's blocks still work (below).
+                const auto items = ctAddItems(1);
+                const bool none = std::none_of(items.begin(), items.end(), [](const ListPickItem& it) { return it.value.rfind("block:", 0) == 0; });
+                log << "batch: the action picker offers new blocks only when they are on " << (none != kClassicBatchesOffered ? "yes" : "NO") << "\n";
+            }
             // A trigger for player 1 with Create unit (a Zergling). The batch dialog is made as the window makes it,
             // but not shown (no focus): it selects Terran Marine, Terran Firebat and Zergling, then reads them back.
             // Then the unit is the batch's variable.
