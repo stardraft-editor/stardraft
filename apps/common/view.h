@@ -7,6 +7,8 @@
 
 #include <cstdint>
 #include <functional>
+#include <utility>
+#include <vector>
 #include <string>
 #include <string_view>
 
@@ -96,14 +98,23 @@ public:
     virtual void closeWindow(View& content) = 0;
     // Opens `content` as openWindow does and returns when it closes; the program's other windows wait.
     virtual void runModal(View& from, View& content, const WindowSpec& spec) = 0;
+    // `v` (or a view under it) leaves the host's views: the focus, the capture and the hover forget it.
+    virtual void forget(const View& v) = 0;
 };
 
 class View {
 public:
-    virtual ~View() = default;
+    virtual ~View() {
+        if (parent_) parent_->remove(*this);
+        for (View* c : children_) c->parent_ = nullptr;
+    }
 
+    // What the view draws, in its own coordinates (its children draw after it, each in its frame).
     virtual void paint(Canvas&) {}
-    // true: the view used the event.
+    // After the children (a focus ring, a drag's line over them).
+    virtual void paintOver(Canvas&) {}
+    // true: the view used the event. A mouse event goes to the deepest child under the mouse first, then to its
+    // parents; a key or text event goes to the view with the focus first, then to its parents.
     virtual bool mouse(const MouseEvent&) { return false; }
     virtual bool key(const KeyEvent&) { return false; }
     virtual bool text(const TextEvent&) { return false; }
@@ -111,27 +122,208 @@ public:
     virtual Cursor cursor(Point) { return Cursor::Arrow; }
     // The tooltip at `pt` (empty: none).
     virtual std::wstring tip(Point) { return {}; }
+    // Whether Tab stops on it (and a click gives it the focus).
+    virtual bool focusable() const { return false; }
     virtual void focusChanged(bool /*has*/) {}
     virtual void resized() {}
 
-    // Where the host shows the view, and its size.
-    Host* host() const { return host_; }
-    int width() const { return w_; }
-    int height() const { return h_; }
-    void invalidate() {
-        if (host_) host_->invalidate(*this);
+    // The host that shows the view (the root's), and the view's place.
+    Host* host() const { return parent_ ? parent_->host() : host_; }
+    View* parent() const { return parent_; }
+    const std::vector<View*>& children() const { return children_; }
+    Rect frame() const { return frame_; }  // in the parent's coordinates; a root's is its window's client area
+    int width() const { return frame_.width(); }
+    int height() const { return frame_.height(); }
+    bool visible() const { return visible_; }
+    void setVisible(bool v) {
+        if (v != visible_) visible_ = v, invalidate();
     }
+    void invalidate() {
+        if (Host* h = host()) h->invalidate(*this);
+    }
+    void setFrame(Rect r) {
+        const bool sized = r.width() != frame_.width() || r.height() != frame_.height();
+        frame_ = r;
+        if (sized) resized();
+        invalidate();
+    }
+    void setSize(int w, int h) { setFrame({frame_.left, frame_.top, frame_.left + w, frame_.top + h}); }
+    // Children: painted in the order added (the last on top), and found under the mouse last first.
+    void add(View& c, Rect frame) {
+        if (c.parent_) c.parent_->remove(c);
+        c.parent_ = this, c.host_ = nullptr;
+        children_.push_back(&c);
+        c.setFrame(frame);
+    }
+    void remove(View& c) {
+        for (size_t i = 0; i < children_.size(); ++i)
+            if (children_[i] == &c) {
+                if (Host* h = host()) h->forget(c);
+                children_.erase(children_.begin() + std::ptrdiff_t(i));
+                c.parent_ = nullptr;
+                invalidate();
+                return;
+            }
+    }
+    // Where (0, 0) of this view is in the root's coordinates.
+    Point origin() const {
+        Point o{0, 0};
+        for (const View* v = this; v->parent_; v = v->parent_) o.x += v->frame_.left, o.y += v->frame_.top;
+        return o;
+    }
+    bool isAncestorOf(const View& v) const {
+        for (const View* p = v.parent_; p; p = p->parent_)
+            if (p == this) return true;
+        return false;
+    }
+    void focus() {
+        if (Host* h = host()) h->focus(*this);
+    }
+    bool hasFocus() const {
+        const Host* h = host();
+        return h && h->hasFocus(*this);
+    }
+
     // (For hosts.)
     void attach(Host* h) { host_ = h; }
-    void setSize(int w, int h) {
-        if (w == w_ && h == h_) return;
-        w_ = w, h_ = h;
-        resized();
+    void paintAll(Canvas& c) {
+        paint(c);
+        for (View* ch : children_)
+            if (ch->visible_ && !ch->frame_.empty()) {
+                c.pushView(ch->frame_);
+                ch->paintAll(c);
+                c.popView();
+            }
+        paintOver(c);
+    }
+    // The deepest visible view at `pt` (this view's coordinates), and `pt` in its coordinates.
+    View* viewAt(Point pt, Point& local) {
+        for (auto it = children_.rbegin(); it != children_.rend(); ++it) {
+            View* ch = *it;
+            if (ch->visible_ && ch->frame_.contains(pt)) return ch->viewAt({pt.x - ch->frame_.left, pt.y - ch->frame_.top}, local);
+        }
+        local = pt;
+        return this;
+    }
+    // The views Tab goes through, in order (visible, focusable).
+    void focusChain(std::vector<View*>& out) {
+        if (!visible_) return;
+        if (focusable()) out.push_back(this);
+        for (View* ch : children_) ch->focusChain(out);
     }
 
 private:
     Host* host_ = nullptr;
-    int w_ = 0, h_ = 0;
+    View* parent_ = nullptr;
+    std::vector<View*> children_;
+    Rect frame_;
+    bool visible_ = true;
+};
+
+// What a host does with its root view: sends each event to the right view, keeps the focus, the mouse capture and
+// the view under the mouse. Every host has one; coordinates in its events are the root's.
+class Router {
+public:
+    explicit Router(View& root) : root_(root) {}
+    View& root() const { return root_; }
+    View* focused() const { return focused_; }
+    View* captured() const { return captured_; }
+    void setFocus(View* v) {
+        if (v == focused_) return;
+        View* old = focused_;
+        focused_ = v;
+        if (old) old->focusChanged(false);
+        if (v) v->focusChanged(true);
+    }
+    void setCapture(View* v) { captured_ = v; }
+    // A view leaves the tree: nothing keeps pointing at it.
+    void forget(const View& v) {
+        auto gone = [&](View* p) { return p && (p == &v || v.isAncestorOf(*p)); };
+        if (gone(focused_)) focused_ = nullptr;
+        if (gone(captured_)) captured_ = nullptr;
+        if (gone(hovered_)) hovered_ = nullptr;
+    }
+
+    bool mouse(MouseEvent e) {
+        if (e.kind == MouseKind::Leave) {
+            if (View* h = std::exchange(hovered_, nullptr)) h->mouse(e);
+            return true;
+        }
+        if (captured_) {
+            const Point o = captured_->origin();
+            e.pt = {e.pt.x - o.x, e.pt.y - o.y};
+            return captured_->mouse(e);
+        }
+        Point local;
+        View* v = root_.viewAt(e.pt, local);
+        if (v != hovered_ && e.kind != MouseKind::Wheel) {
+            if (hovered_) {
+                MouseEvent leave;
+                leave.kind = MouseKind::Leave;
+                hovered_->mouse(leave);
+            }
+            hovered_ = v;
+        }
+        if (e.kind == MouseKind::Down || e.kind == MouseKind::DoubleClick)  // the focus: the first focusable view up from it
+            for (View* f = v; f; f = f->parent())
+                if (f->focusable()) {
+                    f->focus();
+                    break;
+                }
+        for (View* t = v; t; t = t->parent()) {  // the view, then its parents, each in its own coordinates
+            const Point o = t->origin();
+            MouseEvent te = e;
+            te.pt = {e.pt.x - o.x, e.pt.y - o.y};
+            if (t->mouse(te)) return true;
+        }
+        return false;
+    }
+    bool key(const KeyEvent& e) {
+        for (View* t = focused_ ? focused_ : &root_; t; t = t->parent())
+            if (t->key(e)) return true;
+        if (e.down && e.key == Key::Tab && !(e.mods & (kCtrl | kAlt))) return tab((e.mods & kShift) != 0);
+        return false;
+    }
+    bool text(const TextEvent& e) {
+        for (View* t = focused_ ? focused_ : &root_; t; t = t->parent())
+            if (t->text(e)) return true;
+        return false;
+    }
+    bool compose(const CompositionEvent& e) { return focused_ && focused_->compose(e); }
+    Cursor cursor(Point pt) {
+        if (captured_) {
+            const Point o = captured_->origin();
+            return captured_->cursor({pt.x - o.x, pt.y - o.y});
+        }
+        Point local;
+        return root_.viewAt(pt, local)->cursor(local);
+    }
+    std::wstring tip(Point pt) {
+        Point local;
+        for (View* v = root_.viewAt(pt, local); v; v = v->parent()) {
+            const Point o = v->origin();
+            std::wstring t = v->tip({pt.x - o.x, pt.y - o.y});
+            if (!t.empty()) return t;
+        }
+        return {};
+    }
+    // Tab: the next (with Shift: the one before) focusable view.
+    bool tab(bool back) {
+        std::vector<View*> chain;
+        root_.focusChain(chain);
+        if (chain.empty()) return false;
+        size_t i = 0;
+        while (i < chain.size() && chain[i] != focused_) ++i;
+        if (i == chain.size()) i = back ? 0 : chain.size() - 1;
+        chain[back ? (i + chain.size() - 1) % chain.size() : (i + 1) % chain.size()]->focus();
+        return true;
+    }
+
+private:
+    View& root_;
+    View* focused_ = nullptr;
+    View* captured_ = nullptr;
+    View* hovered_ = nullptr;
 };
 
 }  // namespace stardraft::draw

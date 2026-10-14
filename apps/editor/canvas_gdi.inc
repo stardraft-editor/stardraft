@@ -81,6 +81,11 @@ public:
         RestoreDC(dc_, clips_.back());
         clips_.pop_back();
     }
+    void pushView(Rect r) override {
+        pushClip(r);
+        OffsetViewportOrgEx(dc_, r.left, r.top, nullptr);
+    }
+    void popView() override { popClip(); }
     void polyline(const Point* pts, int n, Color c, int width, LineStyle style) override {
         if (n < 2) return;
         HPEN p = makePen(c, width, style);

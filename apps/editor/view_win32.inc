@@ -75,7 +75,7 @@ inline LPCWSTR cursorId(Cursor c) {
 
 class Win32Host final : public Host {
 public:
-    explicit Win32Host(View& v) : view_(v) { v.attach(this); }
+    explicit Win32Host(View& v) : view_(v), router_(v) { v.attach(this); }
     ~Win32Host() override {
         for (auto& [id, t] : timers_) KillTimer(wnd_, id);
         view_.attach(nullptr);
@@ -85,20 +85,25 @@ public:
     void invalidate(View&) override {
         if (wnd_) InvalidateRect(wnd_, nullptr, FALSE);
     }
-    void focus(View&) override {
-        if (wnd_) SetFocus(wnd_);
+    void focus(View& v) override {
+        router_.setFocus(&v);
+        if (wnd_ && GetFocus() != wnd_) SetFocus(wnd_);
+        invalidate(v);
     }
-    bool hasFocus(const View&) const override { return wnd_ && GetFocus() == wnd_; }
-    void capture(View&, bool on) override {
+    bool hasFocus(const View& v) const override { return wnd_ && GetFocus() == wnd_ && router_.focused() == &v; }
+    void capture(View& v, bool on) override {
+        router_.setCapture(on ? &v : nullptr);
         if (on) SetCapture(wnd_);
         else if (GetCapture() == wnd_) ReleaseCapture();
     }
-    stardraft::draw::Point mouse(const View&) const override {
+    stardraft::draw::Point mouse(const View& v) const override {
         POINT m;
         cursorPos(m);
         ScreenToClient(wnd_, &m);
-        return {m.x, m.y};
+        const auto o = v.origin();
+        return {m.x - o.x, m.y - o.y};
     }
+    void forget(const View& v) override { router_.forget(v); }
     void setCursor(Cursor c) override { SetCursor(LoadCursor(nullptr, cursorId(c))); }
     std::string clipboardText() override {
         std::string out;
@@ -132,8 +137,10 @@ public:
         KillTimer(wnd_, UINT_PTR(id));
         timers_.erase(UINT_PTR(id));
     }
-    void textInput(View&, bool on, stardraft::draw::Rect caret) override {
+    void textInput(View& v, bool on, stardraft::draw::Rect caret) override {
         imeOn_ = on;
+        const auto o = v.origin();
+        caret = {caret.left + o.x, caret.top + o.y, caret.right + o.x, caret.bottom + o.y};
         if (HIMC imc = ImmGetContext(wnd_)) {
             COMPOSITIONFORM cf{CFS_POINT, {caret.left, caret.top}, {}};
             ImmSetCompositionWindow(imc, &cf);
@@ -166,21 +173,21 @@ public:
             return e;
         };
         switch (msg) {
-        case WM_SIZE: view_.setSize(LOWORD(lp), HIWORD(lp)); return false;
+        case WM_SIZE: view_.setFrame({0, 0, LOWORD(lp), HIWORD(lp)}); return false;
         case WM_ERASEBKGND: result = 1; return true;
         case WM_PAINT: {
             PAINTSTRUCT ps;
             HDC dc = BeginPaint(w, &ps);
             RECT rc;
             GetClientRect(w, &rc);
-            view_.setSize(rc.right, rc.bottom);
+            if (view_.width() != rc.right || view_.height() != rc.bottom) view_.setFrame({0, 0, int(rc.right), int(rc.bottom)});
             HDC mem = CreateCompatibleDC(dc);
             HBITMAP bmp = CreateCompatibleBitmap(dc, std::max(1L, rc.right), std::max(1L, rc.bottom));
             HGDIOBJ ob = SelectObject(mem, bmp), of = SelectObject(mem, app.font);
             GdiCanvas gdi(mem);
             Canvas& c = gdi;
             c.fill(rc, kBg);
-            view_.paint(c);
+            view_.paintAll(c);
             BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
             SelectObject(mem, of), SelectObject(mem, ob);
             DeleteObject(bmp), DeleteDC(mem);
@@ -193,20 +200,20 @@ public:
                 TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, w, 0};
                 tracking_ = TrackMouseEvent(&tme) != 0;
             }
-            return view_.mouse(mouseEvent(MouseKind::Move, 0)) ? (result = 0, true) : false;
+            return router_.mouse(mouseEvent(MouseKind::Move, 0)) ? (result = 0, true) : false;
         case WM_MOUSELEAVE: {
             tracking_ = false;
             MouseEvent e;
             e.kind = MouseKind::Leave;
-            return view_.mouse(e) ? (result = 0, true) : false;
+            return router_.mouse(e) ? (result = 0, true) : false;
         }
-        case WM_LBUTTONDOWN: return view_.mouse(mouseEvent(MouseKind::Down, 0)) ? (result = 0, true) : false;
-        case WM_RBUTTONDOWN: return view_.mouse(mouseEvent(MouseKind::Down, 1)) ? (result = 0, true) : false;
-        case WM_MBUTTONDOWN: return view_.mouse(mouseEvent(MouseKind::Down, 2)) ? (result = 0, true) : false;
-        case WM_LBUTTONUP: return view_.mouse(mouseEvent(MouseKind::Up, 0)) ? (result = 0, true) : false;
-        case WM_RBUTTONUP: return view_.mouse(mouseEvent(MouseKind::Up, 1)) ? (result = 0, true) : false;
-        case WM_MBUTTONUP: return view_.mouse(mouseEvent(MouseKind::Up, 2)) ? (result = 0, true) : false;
-        case WM_LBUTTONDBLCLK: return view_.mouse(mouseEvent(MouseKind::DoubleClick, 0)) ? (result = 0, true) : false;
+        case WM_LBUTTONDOWN: return router_.mouse(mouseEvent(MouseKind::Down, 0)) ? (result = 0, true) : false;
+        case WM_RBUTTONDOWN: return router_.mouse(mouseEvent(MouseKind::Down, 1)) ? (result = 0, true) : false;
+        case WM_MBUTTONDOWN: return router_.mouse(mouseEvent(MouseKind::Down, 2)) ? (result = 0, true) : false;
+        case WM_LBUTTONUP: return router_.mouse(mouseEvent(MouseKind::Up, 0)) ? (result = 0, true) : false;
+        case WM_RBUTTONUP: return router_.mouse(mouseEvent(MouseKind::Up, 1)) ? (result = 0, true) : false;
+        case WM_MBUTTONUP: return router_.mouse(mouseEvent(MouseKind::Up, 2)) ? (result = 0, true) : false;
+        case WM_LBUTTONDBLCLK: return router_.mouse(mouseEvent(MouseKind::DoubleClick, 0)) ? (result = 0, true) : false;
         case WM_MOUSEWHEEL:
         case WM_MOUSEHWHEEL: {
             POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
@@ -214,11 +221,11 @@ public:
             MouseEvent e;
             e.kind = MouseKind::Wheel, e.pt = {pt.x, pt.y}, e.mods = keyMods();
             e.wheel = float(GET_WHEEL_DELTA_WPARAM(wp)) / WHEEL_DELTA, e.horizontal = msg == WM_MOUSEHWHEEL;
-            return view_.mouse(e) ? (result = 0, true) : false;
+            return router_.mouse(e) ? (result = 0, true) : false;
         }
         case WM_SETCURSOR: {
             if (LOWORD(lp) != HTCLIENT) return false;
-            setCursor(view_.cursor(mouse(view_)));
+            setCursor(router_.cursor(mouse(view_)));
             result = TRUE;
             return true;
         }
@@ -229,7 +236,7 @@ public:
             KeyEvent e;
             e.key = keyFromVk(wp), e.down = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN, e.repeat = (lp & (1 << 30)) != 0, e.mods = keyMods();
             if (e.key == Key::None) return false;
-            return view_.key(e) ? (result = 0, true) : false;
+            return router_.key(e) ? (result = 0, true) : false;
         }
         case WM_CHAR: {
             if (wp < 32 || wp == 127) return false;  // (control keys come as key events)
@@ -242,7 +249,7 @@ public:
             if (high_ && IS_LOW_SURROGATE(wchar_t(wp))) t.push_back(high_);
             high_ = 0;
             t.push_back(wchar_t(wp));
-            return view_.text({narrow(t)}) ? (result = 0, true) : false;
+            return router_.text({narrow(t)}) ? (result = 0, true) : false;
         }
         case WM_IME_STARTCOMPOSITION:
             if (!imeOn_) return false;
@@ -256,15 +263,15 @@ public:
                 const LONG n = ImmGetCompositionStringW(imc, GCS_RESULTSTR, nullptr, 0);
                 std::wstring s(size_t(std::max(0L, n)) / sizeof(wchar_t), L'\0');
                 if (n > 0) ImmGetCompositionStringW(imc, GCS_RESULTSTR, s.data(), DWORD(n));
-                view_.compose({});
-                if (!s.empty()) view_.text({narrow(s)});
+                router_.compose({});
+                if (!s.empty()) router_.text({narrow(s)});
             }
             if (lp & GCS_COMPSTR) {
                 const LONG n = ImmGetCompositionStringW(imc, GCS_COMPSTR, nullptr, 0);
                 std::wstring s(size_t(std::max(0L, n)) / sizeof(wchar_t), L'\0');
                 if (n > 0) ImmGetCompositionStringW(imc, GCS_COMPSTR, s.data(), DWORD(n));
                 const LONG cur = ImmGetCompositionStringW(imc, GCS_CURSORPOS, nullptr, 0);
-                view_.compose({narrow(s), int(narrow(s.substr(0, size_t(std::clamp<LONG>(cur, 0, LONG(s.size()))))).size())});
+                router_.compose({narrow(s), int(narrow(s.substr(0, size_t(std::clamp<LONG>(cur, 0, LONG(s.size()))))).size())});
             }
             ImmReleaseContext(w, imc);
             result = 0;
@@ -272,15 +279,22 @@ public:
         }
         case WM_IME_ENDCOMPOSITION:
             if (!imeOn_) return false;
-            view_.compose({});
+            router_.compose({});
             result = 0;
             return true;
         case WM_IME_CHAR:
             if (!imeOn_) return false;
             result = 0;
             return true;  // (the result string came with WM_IME_COMPOSITION)
-        case WM_SETFOCUS: view_.focusChanged(true); return false;
-        case WM_KILLFOCUS: view_.focusChanged(false); return false;
+        case WM_SETFOCUS:
+            if (View* f = router_.focused()) f->focusChanged(true), invalidate(*f);
+            return false;
+        case WM_KILLFOCUS:
+            if (View* f = router_.focused()) f->focusChanged(false), invalidate(*f);
+            return false;
+        case WM_CAPTURECHANGED:
+            if (HWND(lp) != w) router_.setCapture(nullptr);
+            return false;
         case WM_TIMER: {
             auto it = timers_.find(wp);
             if (it == timers_.end()) return false;
@@ -316,6 +330,7 @@ public:
 
 private:
     View& view_;
+    stardraft::draw::Router router_;
     HWND wnd_ = nullptr;
     bool tracking_ = false, imeOn_ = false;
     wchar_t high_ = 0;
