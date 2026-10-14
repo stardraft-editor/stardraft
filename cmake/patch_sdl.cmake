@@ -10,6 +10,15 @@ file(READ ${file} text)
 
 if(DEBUG_IME AND text MATCHES "#if 0\n#define DEBUG_IME NSLog")
     string(REPLACE "#if 0\n#define DEBUG_IME NSLog" "#if 1 // StarDraft: STARDRAFT_SDL_DEBUG_IME\n#define DEBUG_IME NSLog" text "${text}")
+    # (and what the input method asks the client about: the methods it would call)
+    string(REPLACE "@implementation SDL3TranslatorResponder\n" "@implementation SDL3TranslatorResponder\n
+- (BOOL)respondsToSelector:(SEL)aSelector
+{
+    BOOL r = [super respondsToSelector:aSelector];
+    NSLog(@\"respondsToSelector: %@ %d\", NSStringFromSelector(aSelector), (int)r);
+    return r;
+}
+" text "${text}")
     file(WRITE ${file} "${text}")
     message(STATUS "SDL: the input method's calls are logged")
 endif()
