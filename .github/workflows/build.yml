@@ -230,6 +230,12 @@ jobs:
           build-gcc/stardraft-next --workspace triggers --ime-inline --type "한국어 입" --compose "력" --snapshot next-linux-ime.png | tee ime.txt
           grep -q "composing: 력" ime.txt
 
+      # The control kit on SDL (apps/kit_sdl): its widgets and the Canvas's drawing in one picture.
+      - name: Snapshot the kit demo
+        env:
+          SDL_VIDEODRIVER: offscreen
+        run: build-gcc/kit-demo --snapshot kit-demo-linux.png
+
       - name: Pack stardraft-next
         if: always()
         run: tar -C build-gcc -czf stardraft-next-linux.tar.gz stardraft-next fonts
@@ -240,6 +246,7 @@ jobs:
           name: stardraft-next-linux-${{ github.sha }}
           path: |
             next-linux-*.png
+            kit-demo-linux.png
             stardraft-next-linux.tar.gz
 
   macos:
@@ -281,6 +288,10 @@ jobs:
           "$app" --workspace triggers --ime-inline --type "한국어 입" --compose "력" --snapshot next-macos-ime.png | tee ime.txt
           grep -q "composing: 력" ime.txt
 
+      - name: Snapshot the kit demo (Metal)
+        continue-on-error: true
+        run: build/kit-demo.app/Contents/MacOS/kit-demo --snapshot kit-demo-macos.png
+
       # The app in a tar (an artifact keeps no file modes: the program would not start); and the snapshots.
       - name: Pack stardraft-next
         if: always()
@@ -292,6 +303,7 @@ jobs:
           name: stardraft-next-macos-${{ github.sha }}
           path: |
             next-macos-*.png
+            kit-demo-macos.png
             stardraft-next-macos.tar.gz
 
   # The tests with the game's data, on a self-hosted runner in WSL Ubuntu on the owner's PC (labels self-hosted, linux,
