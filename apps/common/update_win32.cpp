@@ -17,7 +17,7 @@ fs::path programFile() {
 
 const char* releaseAssetSuffix() { return "-win64.zip"; }
 
-bool unpackZip(const fs::path& zip, const fs::path& dir) {
+bool unpackArchive(const fs::path& zip, const fs::path& dir) {
     // tar.exe (in Windows 10 and later) unpacks zip files.
     wchar_t sys[MAX_PATH] = L"";
     GetSystemDirectoryW(sys, MAX_PATH);

@@ -218,12 +218,15 @@ void check() {
     };
     if (!get(widen(r.zip), nullptr, &zip, L"application/octet-stream")) return fail(L"The download did not complete.");
     const fs::path fresh = dir / "stardraft.exe";
-    if (!stardraft::platform::unpackZip(zip, dir) || !fs::exists(fresh, ec)) return fail(L"Could not unpack the download.");
+    if (!stardraft::platform::unpackArchive(zip, dir) || !fs::exists(fresh, ec)) return fail(L"Could not unpack the download.");
     // Close the documents (asks to save them), then put the new program in place and start it.
     if (!closeAllDocs()) return fs::remove_all(dir, ec), void();
     switch (stardraft::platform::replaceProgram(self, fresh)) {
     case stardraft::platform::Replace::OldNotMoved: return fail(L"Could not replace the program file in " + self.parent_path().wstring() + L".");
     case stardraft::platform::Replace::NewNotPlaced: return fail(L"Could not put the new program in " + self.parent_path().wstring() + L".");
+    case stardraft::platform::Replace::Broken:
+        return fail(L"Could not put the new program in " + self.parent_path().wstring() + L". The old program is " +
+                    stardraft::platform::oldProgramFile(self).wstring() + L".");
     case stardraft::platform::Replace::Done: break;
     }
     fs::remove_all(dir, ec);

@@ -23,6 +23,8 @@ struct FileDialog {
     std::string defaultExtension;       // added to a typed name without one ("scx")
     std::string title;                  // the system's when empty
     bool askToReplace = false;          // save: ask before an existing file is replaced
+    bool pathMustExist = false;         // save: the folder must be there
+    bool noReadOnly = false;            // save: a read-only file is refused
 };
 
 std::optional<std::filesystem::path> openFileDialog(const FileDialog& d);

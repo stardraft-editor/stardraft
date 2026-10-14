@@ -3191,6 +3191,7 @@ std::wstring pickOutputFile(HWND owner, const std::wstring& current) {
     d.fileName = current;
     d.title = narrow(L"Select the file for the built map");
     d.defaultExtension = "scx";
+    d.pathMustExist = d.noReadOnly = true;
     const auto picked = platform::saveFileDialog(d);
     return picked ? picked->wstring() : std::wstring();
 }
@@ -3393,6 +3394,7 @@ void addProjectScript() {
     d.initialDir = pr->folder() / "scripts";
     d.title = narrow(L"Add a script: select one, or type the name of a new one");
     d.defaultExtension = "eps";
+    d.pathMustExist = true;
     const auto picked = platform::saveFileDialog(d);
     if (!picked) return;
     const fs::path file = *picked;
@@ -3523,6 +3525,7 @@ bool saveUnsavedProject() {
     d.fileName = L"Untitled";
     d.initialDir = initial;
     d.title = narrow(L"Save the project (StarDraft 2 makes a folder with its name here)");
+    d.pathMustExist = d.noReadOnly = true;
     std::error_code ec;
     fs::create_directories(initial, ec);
     const auto picked = platform::saveFileDialog(d);

@@ -67,7 +67,8 @@ std::vector<std::filesystem::path> openFilesDialog(const FileDialog& d) {
 
 std::optional<std::filesystem::path> saveFileDialog(const FileDialog& d) {
     std::vector<wchar_t> buf(MAX_PATH, 0);
-    if (!run(d, true, OFN_PATHMUSTEXIST | OFN_NOREADONLYRETURN | (d.askToReplace ? OFN_OVERWRITEPROMPT : 0), buf)) return std::nullopt;
+    const DWORD flags = (d.pathMustExist ? OFN_PATHMUSTEXIST : 0) | (d.noReadOnly ? OFN_NOREADONLYRETURN : 0) | (d.askToReplace ? OFN_OVERWRITEPROMPT : 0);
+    if (!run(d, true, flags, buf)) return std::nullopt;
     return std::filesystem::path(buf.data());
 }
 

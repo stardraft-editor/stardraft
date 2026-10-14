@@ -40,11 +40,14 @@ const char* releaseAssetSuffix() {
 #endif
 }
 
-bool unpackZip(const fs::path& zip, const fs::path& dir) {
+bool unpackArchive(const fs::path& archive, const fs::path& dir) {
+    const bool zip = archive.extension() == ".zip";
 #ifdef __APPLE__
-    const std::vector<std::string> args = {"tar", "-xf", zip.string(), "-C", dir.string()};  // bsdtar reads zip files
+    (void)zip;
+    const std::vector<std::string> args = {"tar", "-xf", archive.string(), "-C", dir.string()};  // bsdtar reads both
 #else
-    const std::vector<std::string> args = {"unzip", "-o", "-q", zip.string(), "-d", dir.string()};
+    const std::vector<std::string> args = zip ? std::vector<std::string>{"unzip", "-o", "-q", archive.string(), "-d", dir.string()}
+                                              : std::vector<std::string>{"tar", "-xzf", archive.string(), "-C", dir.string()};
 #endif
     return runProcess(args, {}, nullptr) == 0;
 }
@@ -67,8 +70,9 @@ Replace replaceProgram(const fs::path& self, const fs::path& fresh) {
         fs::copy(fresh, self, fs::copy_options::recursive, ec);  // (another file system)
         if (ec) {
             std::error_code back;
+            fs::remove_all(self, back);  // (what was copied of it)
             fs::rename(old, self, back);  // back as it was
-            return Replace::NewNotPlaced;
+            return back ? Replace::Broken : Replace::NewNotPlaced;
         }
     }
     fs::permissions(self, fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec, fs::perm_options::add, ec);
@@ -76,10 +80,15 @@ Replace replaceProgram(const fs::path& self, const fs::path& fresh) {
 }
 
 bool startProgram(const fs::path& exe) {
-    const std::string path = exe.string();
+    const std::string path = exe.string(), dir = exe.parent_path().string();
     char* argv[] = {const_cast<char*>(path.c_str()), nullptr};
+    posix_spawn_file_actions_t actions;
+    posix_spawn_file_actions_init(&actions);
+    posix_spawn_file_actions_addchdir_np(&actions, dir.c_str());  // (its folder the working folder, as on Windows)
     pid_t pid = 0;
-    return posix_spawn(&pid, path.c_str(), nullptr, nullptr, argv, environ) == 0;
+    const bool started = posix_spawn(&pid, path.c_str(), &actions, nullptr, argv, environ) == 0;
+    posix_spawn_file_actions_destroy(&actions);
+    return started;
 }
 
 }  // namespace stardraft::platform
