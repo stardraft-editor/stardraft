@@ -1,5 +1,11 @@
-// Types Korean with macOS's 2-Set Korean input source (CI only: it selects an input source and posts keys).
-// usage: ime_keys_mac <keys>   (<keys>: the 2-set layout's keys, "gksrnrdj" for 한국어; a space commits)
+// Types with macOS's input methods (CI only: it selects input sources and posts keys).
+// usage: ime_keys_mac <sequence>
+// <sequence>: keys as typed ("gksrnrdj" is 한국어 on 2-Set Korean; a space commits), and in braces:
+//   {source:<id>}  that input source, enabled and selected (com.apple.inputmethod.Korean.2SetKorean,
+//                  com.apple.keylayout.ABC, com.apple.inputmethod.SCIM.ITABC); the input method it is a mode of is
+//                  enabled first
+//   {optreturn}    Option+Return (2-Set Korean: the Hanja of the syllable being composed)
+//   {return} {down} {wait}
 // Build: clang ime_keys_mac.c -framework Carbon -framework ApplicationServices -o ime_keys_mac
 
 #include <ApplicationServices/ApplicationServices.h>
@@ -8,64 +14,83 @@
 #include <string.h>
 #include <unistd.h>
 
-// Enables the input source with that id (all installed ones are searched); its status, or -1 when there is none.
-static OSStatus enable(CFStringRef id) {
+static CFArrayRef sources(CFStringRef id, bool all) {
     const void* keys[] = {kTISPropertyInputSourceID};
     const void* values[] = {id};
     CFDictionaryRef filter = CFDictionaryCreate(NULL, keys, values, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    CFArrayRef list = TISCreateInputSourceList(filter, true);
+    CFArrayRef list = TISCreateInputSourceList(filter, all);
     CFRelease(filter);
+    return list;
+}
+
+static OSStatus enable(CFStringRef id) {
+    CFArrayRef list = sources(id, true);  // (also the ones not enabled yet)
     OSStatus s = list && CFArrayGetCount(list) ? TISEnableInputSource((TISInputSourceRef)CFArrayGetValueAtIndex(list, 0)) : -1;
     if (list) CFRelease(list);
     return s;
 }
 
-static int selectKorean(void) {
-    // The Korean input method first (2-Set Korean is one of its input modes).
-    printf("Korean input method: enable %d\n", (int)enable(CFSTR("com.apple.inputmethod.Korean")));
-    const void* keys[] = {kTISPropertyInputSourceID};
-    CFStringRef id = CFSTR("com.apple.inputmethod.Korean.2SetKorean");
-    const void* values[] = {id};
-    CFDictionaryRef filter = CFDictionaryCreate(NULL, keys, values, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    CFArrayRef list = TISCreateInputSourceList(filter, true);  // (also the ones not enabled yet)
-    CFRelease(filter);
-    if (!list || CFArrayGetCount(list) == 0) return fprintf(stderr, "no 2-Set Korean input source\n"), 1;
-    OSStatus e = TISEnableInputSource((TISInputSourceRef)CFArrayGetValueAtIndex(list, 0));
-    CFRelease(list);
+static void selectSource(const char* name) {
+    CFStringRef id = CFStringCreateWithCString(NULL, name, kCFStringEncodingUTF8);
+    // The input method first (an input mode such as 2-Set Korean is one of its modes): the id without its last part.
+    const char* dot = strrchr(name, '.');
+    if (strncmp(name, "com.apple.inputmethod.", 22) == 0 && dot) {
+        char parent[200];
+        snprintf(parent, sizeof parent, "%.*s", (int)(dot - name), name);
+        CFStringRef p = CFStringCreateWithCString(NULL, parent, kCFStringEncodingUTF8);
+        printf("%s: enable %d\n", parent, (int)enable(p));
+        CFRelease(p);
+    }
+    OSStatus e = enable(id);
     usleep(500000);
     // (selected from a list made again: an input source enabled just now may not be selectable from the old one)
-    filter = CFDictionaryCreate(NULL, keys, values, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    list = TISCreateInputSourceList(filter, false);
-    CFRelease(filter);
+    CFArrayRef list = sources(id, false);
     OSStatus s = list && CFArrayGetCount(list) ? TISSelectInputSource((TISInputSourceRef)CFArrayGetValueAtIndex(list, 0)) : -1;
-    TISInputSourceRef now = TISCopyCurrentKeyboardInputSource();
-    CFStringRef nowId = now ? (CFStringRef)TISGetInputSourceProperty(now, kTISPropertyInputSourceID) : NULL;
-    char name[200] = "";
-    if (nowId) CFStringGetCString(nowId, name, sizeof name, kCFStringEncodingUTF8);
-    printf("2-Set Korean: enable %d, select %d, now %s; can post keys: %s\n", (int)e, (int)s, name, AXIsProcessTrusted() ? "yes" : "no");
     if (list) CFRelease(list);
-    return 0;
+    TISInputSourceRef now = TISCopyCurrentKeyboardInputSource();
+    char nowName[200] = "";
+    if (now) CFStringGetCString((CFStringRef)TISGetInputSourceProperty(now, kTISPropertyInputSourceID), nowName, sizeof nowName, kCFStringEncodingUTF8);
+    printf("%s: enable %d, select %d, now %s\n", name, (int)e, (int)s, nowName);
+    CFRelease(id);
+    usleep(2500000);  // (the input method starts: keys before that lose their composition)
+}
+
+static void post(CGKeyCode k, CGEventFlags flags) {
+    CGEventRef down = CGEventCreateKeyboardEvent(NULL, k, true), up = CGEventCreateKeyboardEvent(NULL, k, false);
+    CGEventSetFlags(down, flags), CGEventSetFlags(up, flags);
+    CGEventPost(kCGHIDEventTap, down), usleep(60000);
+    CGEventPost(kCGHIDEventTap, up), usleep(150000);
+    CFRelease(down), CFRelease(up);
 }
 
 static CGKeyCode keyCode(char c) {
-    static const char* const kLetters = "asdfhgzxcv bqweryt123465=97-80]ou[ip lj'k;\\,/nm.";  // US layout key codes 0..47
+    static const char* const kLetters = "asdfhgzxcv\x01" "bqweryt123465=97-80]ou[ip\x01lj'k;\\,/nm.";  // US key codes 0..47
     if (c == ' ') return kVK_Space;
     const char* p = strchr(kLetters, c);
-    return p ? (CGKeyCode)(p - kLetters) : 0xFFFF;
+    return p && *p != '\x01' ? (CGKeyCode)(p - kLetters) : 0xFFFF;
 }
 
 int main(int argc, char** argv) {
-    if (argc < 2) return fprintf(stderr, "usage: ime_keys_mac <keys>\n"), 2;
-    if (selectKorean()) return 1;
-    usleep(2500000);  // (the input method starts: keys before that lose their composition)
-    for (const char* c = argv[1]; *c; ++c) {
-        const CGKeyCode k = keyCode(*c);
-        if (k == 0xFFFF) continue;
-        CGEventRef down = CGEventCreateKeyboardEvent(NULL, k, true), up = CGEventCreateKeyboardEvent(NULL, k, false);
-        CGEventPost(kCGHIDEventTap, down), usleep(60000);
-        CGEventPost(kCGHIDEventTap, up), usleep(120000);
-        CFRelease(down), CFRelease(up);
+    if (argc < 2) return fprintf(stderr, "usage: ime_keys_mac <sequence>\n"), 2;
+    printf("can post keys: %s\n", AXIsProcessTrusted() ? "yes" : "no");
+    for (const char* c = argv[1]; *c;) {
+        if (*c == '{') {
+            const char* end = strchr(c, '}');
+            if (!end) return fprintf(stderr, "no } in %s\n", c), 2;
+            char token[240];
+            snprintf(token, sizeof token, "%.*s", (int)(end - c - 1), c + 1);
+            c = end + 1;
+            if (strncmp(token, "source:", 7) == 0) selectSource(token + 7);
+            else if (strcmp(token, "optreturn") == 0) post(kVK_Return, kCGEventFlagMaskAlternate), usleep(800000);
+            else if (strcmp(token, "return") == 0) post(kVK_Return, 0);
+            else if (strcmp(token, "down") == 0) post(kVK_DownArrow, 0);
+            else if (strcmp(token, "wait") == 0) usleep(500000);
+            else return fprintf(stderr, "unknown key {%s}\n", token), 2;
+            continue;
+        }
+        const CGKeyCode k = keyCode(*c++);
+        if (k != 0xFFFF) post(k, 0);
     }
-    printf("sent %zu keys\n", strlen(argv[1]));
+    printf("sent %s\n", argv[1]);
     return 0;
 }
