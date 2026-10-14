@@ -817,7 +817,9 @@ void ctClickTrigger(int i) {
 void ctToggleTriggers() {
     const std::vector<int> targets = ctTargets();
     if (targets.empty()) return;
-    const bool off = !gCt->trig.triggers[size_t(targets[0])].disabled();
+    // The button shows the selected trigger's state: that decides, when it is one of the targets.
+    const int shown = std::find(targets.begin(), targets.end(), gCt->sel) != targets.end() ? gCt->sel : targets[0];
+    const bool off = !gCt->trig.triggers[size_t(shown)].disabled();
     for (int i : targets) gCt->trig.triggers[size_t(i)].setDisabled(off);
     ctUpdateHeader();
     ctChanged();
@@ -1310,8 +1312,8 @@ void ctPaint(HWND hwnd, bool isList) {
             y += rowH;
             const bool sel = i == d.sel, checked = d.marked.count(i) != 0;
             const ClassicTrigger& t = d.trig.triggers[size_t(i)];
-            const std::wstring cond = ctTriggerLine(t, false), acts = ctTriggerLine(t, true);
             if (visible(r)) {
+                const std::wstring cond = ctTriggerLine(t, false), acts = ctTriggerLine(t, true);  // (built for the rows shown only)
                 ui::listRow(mem, r, sel || checked, ui::hot(r));
                 hitsOut().push_back({r, nullptr, [i] { ctClickTrigger(i); }, (cond.empty() ? L"" : cond + L". ") + acts, IDC_ARROW, {}});
                 hitsOut().back().context = [i](POINT p) { ctTriggerMenu(p, i); };
@@ -1469,7 +1471,7 @@ void ctKey(bool isList, WPARAM vk) {
         if (isList) {
             if (d.sel < 0) return;  // (no trigger selected: nothing to cut)
             ctCopy(true);
-            return ctDeleteTrigger(d.sel);
+            return ctDeleteTriggers();  // (the checked ones, as the copy took them)
         }
         if (d.entry < 0) return;
         ctCopy(false);
@@ -1675,6 +1677,7 @@ INT_PTR CALLBACK ctBatchProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         if (n > 0) SendMessageW(list, LB_SETCURSEL, WPARAM(std::min(cur, n - 1)), 0);
         EnableWindow(GetDlgItem(dlg, IDOK), n > 0);
         EnableWindow(GetDlgItem(dlg, kCtBatchRemoveValue), n > 0);
+        EnableWindow(GetDlgItem(dlg, kCtBatchKind), n == 0);  // the kind is locked while the block has values
         return TRUE;
     }
     if (id == IDOK) {
@@ -2235,9 +2238,9 @@ VOID CALLBACK ctShotTimer(HWND, UINT, UINT_PTR id, DWORD) {
 // Runs `open` (a modal pop-out of the page) with the timer that captures it to `file`. The log says what the shot did.
 void ctModalShot(CtShot kind, const fs::path& file, const std::function<void()>& open) {
     gCtShotFile = file, gCtShotKind = kind;
-    SetTimer(nullptr, 0x5C7, 500, ctShotTimer);
+    const UINT_PTR timer = SetTimer(nullptr, 0, 500, ctShotTimer);  // (a timer of the thread: its id is the one returned)
     open();
-    KillTimer(nullptr, 0x5C7);
+    if (timer) KillTimer(nullptr, timer);
     gCtShotKind = CtShot::None;
 }
 
@@ -2265,6 +2268,8 @@ void classicTrigDatashot(const std::string& spec, const fs::path& dir) {
         const std::string light = gLightTheme ? "_light" : "";
         // The states of the page (classictrig:<state>): the page as the map has it, then the state. A pop-out is captured
         // by its own timer (classictrig_popout_<state>.png) and closed; the page is captured after it.
+        if (gBackground && (mode == "value" || mode == "text" || mode == "blockdlg"))  // a dialog activates its window: not in a background run
+            log << mode << ": NOT captured (its dialog takes the focus; run it in the foreground)\n";
         const std::string scaleName = app.dpi >= 180 ? "_200" : "";  // (dpi:192 before the spec: 200 %)
         const fs::path popout = out / ("classictrig_popout_" + mode + scaleName + light + ".png");
         if (mode == "search") {  // a search with results: "create" in the box
@@ -2276,7 +2281,7 @@ void classicTrigDatashot(const std::string& spec, const fs::path& dir) {
         } else if (mode == "add") {  // the add-action picker with the Blocks group first
             ctSelectTrigger(0);
             ctModalShot(CtShot::Picker, popout, [] { ctAddClick(1, RECT{scale(10), 0, scale(200), scale(30)}); });
-        } else if (mode == "value" || mode == "text") {  // a number (a Bring's count) or a text (Display text message): OK and Cancel
+        } else if ((mode == "value" || mode == "text") && !gBackground) {  // a number (a Bring's count) or a text (Display text message): OK and Cancel
             ctAddTrigger();
             if (mode == "value") ctAddEntry(0, 3);  // Bring: its count is the number
             else ctAddEntry(1, 9);                  // Display text message: its text
@@ -2295,7 +2300,7 @@ void classicTrigDatashot(const std::string& spec, const fs::path& dir) {
             }
             std::set<std::string> checked{"0", "1", "37"};
             ctModalShot(CtShot::Picker, popout, [&] { showListPickerMulti(L"Search values", items, checked, L"Set", POINT{scale(400), scale(200)}); });
-        } else if (mode == "blockdlg") {  // the block dialog for a new block (For each unit)
+        } else if (mode == "blockdlg" && !gBackground) {  // the block dialog for a new block (For each unit)
             ctSelectTrigger(0);
             ctModalShot(CtShot::Dialog, popout, [] { ctBatchClick(ClassicBatchKind::Unit, -1); });
         } else if (mode == "menu") {  // the right-click menu of the first trigger's row
@@ -2312,7 +2317,7 @@ void classicTrigDatashot(const std::string& spec, const fs::path& dir) {
             ctSetParam("n", 5);
             ctSetParam("unit", 230);  // men
             ctAddEntry(1, 9);  // Display text message
-            if (const int i = ctParamIndex("text"); i >= 0) ctSetText(i, "Hello from StarDraft 2");  // (the text's pop-out: OK in it)
+        if (const int i = ctParamIndex("text"); i >= 0) ctSetText(i, "Hello from StarDraft 2");  // (the text's pop-out: OK in it)
             ctAddEntry(1, 9);
             ctPick(gCt->typeBox, 44);  // Create unit
             ctSetParam("unit", 37);  // Zergling
