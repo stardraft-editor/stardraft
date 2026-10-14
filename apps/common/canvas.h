@@ -65,6 +65,8 @@ public:
     const uint32_t* pixels() const { return px_.data(); }
     // After a change of the pixels.
     void changed() { ++revision_; }
+    // Every pixel is opaque (alpha 255): a canvas may copy it without blending (and keep a scaled copy).
+    bool opaque = false;
     uint64_t revision() const { return revision_; }
     // (For canvases: their copy of the pixels and the revision it is of.)
     struct Native {
