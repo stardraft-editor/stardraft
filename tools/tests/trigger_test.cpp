@@ -415,7 +415,7 @@ int main(int argc, char** argv) {
         humans.lists[0] = {block("act.share", {"gold", "screenX"}), block("act.qgc.pause", {"getcurpl()"}),
                            block("act.qgc.rightclick", {"P1", "320", "320"}), block("act.qgc.train", {"P2", "Terran Marine"})};
         TriggerCall trains = make("act.if");
-        trains.lists[0] = {block("cond.trains", {"boss", "Terran Marine"})};
+        trains.lists[0] = {block("cond.trains", {"boss", "Terran Marine"}), block("cond.queueempty", {"boss"})};
         trains.lists[1] = {block("act.unitremove", {"boss"}), block("act.qgc.select", {"P1", "boss"})};
         TriggerCall setX = block("act.setvar", {"SetTo", "0", "gold"});
         TriggerCall dx = make("val.dirx");
@@ -835,6 +835,7 @@ int main(int argc, char** argv) {
     check(code.find("KillUnit($U(\"Zerg Zergling\"), P8);") != std::string::npos && code.find("RemoveUnit($U(\"Any unit\"), P7);") != std::string::npos &&
               code.find("SetDeathsX(P1, SetTo, 1, $U(\"Terran Marine\"), 0xFF00);") != std::string::npos && code.find("DeathsX(P1, AtLeast, 1, $U(\"Terran Marine\"), 0xFF00)") != std::string::npos,
           "kill and remove all, deaths by bits");
+    check(code.find(".check_buildq(") != std::string::npos && code.find(".are_buildq_empty()") != std::string::npos, "a build queue: a unit type in it, and empty");
     check(code.find("cu1.reset_buildq();") != std::string::npos && code.find("break;  // Leave the loop") != std::string::npos &&
               code.find("v_gold = sd_max(sqrt(v_gold), 10);") != std::string::npos && code.find("import .sdlib.f_sd_max;") != std::string::npos && TriggerSet::helperLibrary().find("function sd_max(a, b)") != std::string::npos,
           "a build queue cleared, leaving a loop, the larger of a square root and 10");
