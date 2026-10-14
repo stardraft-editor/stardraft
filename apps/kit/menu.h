@@ -41,6 +41,11 @@ struct MenuOptions {
     std::function<void(int dir)> sideways;
     // The first enabled item is highlighted when the menu opens (it was opened by the keys).
     bool byKeys = false;
+    // When the menus close without an outside click, the keys go back to the view they were opened from. That view
+    // must outlive the menus. false: the owner gives the keys back itself (in `closed`).
+    bool focusFrom = true;
+    // Alt with a letter while the menus have the keys. Returns true when it opened a menu of that name (the menu bar).
+    std::function<bool(int letter)> letter;
 };
 
 class Menu {
@@ -87,12 +92,15 @@ public:
 private:
     void layout(draw::Canvas& c);
     int nameAt(draw::Point pt) const;
+    bool openByLetter(int letter);
 
     std::vector<MenuGroup> menus_;
-    std::vector<draw::Rect> names_;    // where each name is, from the last paint
-    std::vector<MenuLayout> layouts_;  // each menu's size, from the last paint
+    std::vector<draw::Rect> names_;    // where each name is, from the last measure
+    std::vector<MenuLayout> layouts_;  // each menu's size, from the last measure
+    bool measured_ = false;            // names_ and layouts_ are up to date (see setMenus and paint)
+    float measuredScale_ = 0;          // the display scale they were measured at
     int open_ = -1, hot_ = -1, hover_ = -1;
-    bool justClosed_ = false;          // a click outside closed the menu: the click's own press does not open it again
+    int closedAt_ = -1;                // a click outside closed the menu at this name: its press does not open it again
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);  // what the menus' callbacks check before they touch us
 };
 

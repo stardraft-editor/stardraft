@@ -36,18 +36,21 @@ bool startsWith(const std::wstring& label, int k) { return !label.empty() && low
 
 class Panel;
 
-// The menus open from one menu: the root menu and the submenus, each in its own window. Owns its panels; they are
-// deleted by a timer after the chain closed, because a panel may be the one handling the event that closes it.
+// The menus open from one menu: the root menu and the submenus, each in its own window. Owns its panels. A panel that
+// closed is kept until a timer runs (a panel may be the one handling the event that closes it), and the closed chain is
+// deleted by a timer too.
 struct Chain {
-    Chain(draw::Host& h, Menu::Options o) : host(h), opts(std::move(o)) {}
+    Chain(draw::Host& h, Menu::Options o, draw::View* f) : host(h), opts(std::move(o)), from(f) {}
     ~Chain();
 
     draw::Host& host;
     Menu::Options opts;
+    draw::View* from;  // the view the menus were opened from (they get the keys back when they close)
     std::shared_ptr<bool> alive = std::make_shared<bool>(true);  // the timers and the host's callbacks check it
-    std::vector<std::unique_ptr<Panel>> owned;
+    std::vector<std::unique_ptr<Panel>> owned;      // the panels of the open menus
+    std::vector<std::unique_ptr<Panel>> graveyard;  // the panels that closed, deleted by a timer
     std::vector<Panel*> live;  // the open menus, the root first
-    int hoverTimer = 0;
+    int hoverTimer = 0, pruneTimer = 0;
     bool closed = false;
 
     void cancelHover() {
@@ -56,6 +59,8 @@ struct Chain {
     void scheduleHover(int level, int row);
     // Closes the menus from `level` down; the menu above them takes the focus.
     void closeFrom(size_t level);
+    // Moves the panels that are no longer open to the graveyard.
+    void prune();
     // Closes all the menus. `outside`: the host closed them (a click outside).
     void closeAll(bool outside);
 };
@@ -127,9 +132,29 @@ void Chain::closeFrom(size_t level) {
         live.pop_back();
     }
     cancelHover();
+    prune();
     if (live.empty()) return;
     live.back()->clearOpen();
     host.focus(*live.back());
+}
+
+void Chain::prune() {
+    for (size_t i = 0; i < owned.size();) {
+        Panel* p = owned[i].get();
+        if (std::find(live.begin(), live.end(), p) == live.end()) {
+            graveyard.push_back(std::move(owned[i]));
+            owned.erase(owned.begin() + std::ptrdiff_t(i));
+        } else {
+            ++i;
+        }
+    }
+    if (graveyard.empty() || pruneTimer) return;
+    std::weak_ptr<bool> w = alive;
+    pruneTimer = host.timer(0, [w, this] {
+        if (!w.lock()) return;
+        pruneTimer = 0;
+        graveyard.clear();  // the event that closed these panels has been handled
+    });
 }
 
 void Chain::closeAll(bool outside) {
@@ -142,6 +167,7 @@ void Chain::closeAll(bool outside) {
         host.forget(*live.back());
         live.pop_back();
     }
+    if (!outside && opts.focusFrom && from) host.focus(*from);
     if (opts.closed) {
         auto f = opts.closed;
         f(outside);
@@ -298,7 +324,11 @@ bool Panel::mouse(const MouseEvent& e) {
 }
 
 bool Panel::key(const KeyEvent& e) {
-    if (!e.down || (e.mods & (draw::kCtrl | draw::kAlt | draw::kSuper))) return false;
+    if (!e.down || (e.mods & (draw::kCtrl | draw::kSuper))) return false;
+    if (e.mods & draw::kAlt) {  // Alt and a letter: another menu of the owner (the menu bar)
+        const auto fn = chain_.opts.letter;
+        return fn && isLetter(int(e.key)) && fn(int(e.key));
+    }
     switch (e.key) {
     case Key::Down: step(1); return true;
     case Key::Up: step(-1); return true;
@@ -349,7 +379,7 @@ bool Menu::popup(View& from, Point at, const std::vector<MenuItem>& items, const
     draw::Host* host = from.host();
     if (!host) return false;
     close();
-    auto chain = std::make_unique<Chain>(*host, std::move(opts));
+    auto chain = std::make_unique<Chain>(*host, std::move(opts), &from);
     Chain* c = chain.release();
     g_current = c;
     auto root = std::make_unique<Panel>(*c, 0, items, layout);
@@ -383,8 +413,9 @@ void MenuBar::setMenus(std::vector<MenuGroup> groups) {
     menus_ = std::move(groups);
     names_.clear();
     layouts_.clear();
+    measured_ = false;
     open_ = hot_ = hover_ = -1;
-    justClosed_ = false;
+    closedAt_ = -1;
     invalidate();
 }
 
@@ -411,7 +442,9 @@ int MenuBar::nameAt(Point pt) const {
 void MenuBar::paint(Canvas& c) {
     const Theme& th = theme();
     c.fill({0, 0, width(), height()}, th.bg);
-    layout(c);
+    // The text is measured once (the menus are long: every label and shortcut), again only at another scale.
+    const float scale = host() ? host()->scale() : 1.0f;
+    if (!measured_ || scale != measuredScale_) layout(c), measured_ = true, measuredScale_ = scale;
     const Font of = c.setFont(c.font(draw::FontDesc{}));
     for (int i = 0; i < int(names_.size()); ++i) {
         const Rect r = names_[size_t(i)];
@@ -428,9 +461,9 @@ void MenuBar::openMenu(int i, bool byKeys) {
     if (i < 0 || i >= n) return;
     std::weak_ptr<bool> alive = alive_;
     Menu::Options o;
-    o.closed = [alive, this](bool outside) {
+    o.closed = [alive, this, i](bool outside) {
         if (!alive.lock()) return;
-        open_ = -1, justClosed_ = outside;
+        open_ = -1, closedAt_ = outside ? i : -1;
         invalidate();
         if (!outside) focus();  // the keys are the bar's again
     };
@@ -439,19 +472,30 @@ void MenuBar::openMenu(int i, bool byKeys) {
         const int count = int(menus_.size());
         openMenu((i + dir + count) % count, true);
     };
+    o.letter = [alive, this](int letter) { return alive.lock() && openByLetter(letter); };
+    o.focusFrom = false;  // the bar gives the keys back itself (in closed); the bar may be gone before the menus close
     const Point at{i < int(names_.size()) ? names_[size_t(i)].left : 0, height()};
     const MenuLayout layout = i < int(layouts_.size()) ? layouts_[size_t(i)] : Menu::measure(menus_[size_t(i)].items);
     o.byKeys = byKeys;
     if (!Menu::popup(*this, at, menus_[size_t(i)].items, layout, std::move(o))) return;
     open_ = hot_ = i;
-    justClosed_ = false;
+    closedAt_ = -1;
     invalidate();
+}
+
+bool MenuBar::openByLetter(int letter) {
+    for (int i = 0; i < int(menus_.size()); ++i)
+        if (startsWith(menus_[size_t(i)].label, letter)) {
+            openMenu(i, true);
+            return true;
+        }
+    return false;
 }
 
 bool MenuBar::mouse(const draw::MouseEvent& e) {
     switch (e.kind) {
     case MouseKind::Move:
-        justClosed_ = false;
+        closedAt_ = -1;
         if (const int i = nameAt(e.pt); i != hover_) hover_ = i, invalidate();
         return true;
     case MouseKind::Leave:
@@ -461,7 +505,9 @@ bool MenuBar::mouse(const draw::MouseEvent& e) {
         if (e.button != 0) return false;
         const int i = nameAt(e.pt);
         if (i < 0) return true;
-        if (justClosed_) return justClosed_ = false, true;  // the click that closed the menu does not open it again
+        const bool closedHere = i == closedAt_;  // the click that closed this menu does not open it again
+        closedAt_ = -1;
+        if (closedHere) return true;
         if (open_ == i) {
             Menu::close();
             return true;
@@ -478,12 +524,7 @@ bool MenuBar::mouse(const draw::MouseEvent& e) {
 bool MenuBar::key(const KeyEvent& e) {
     if (!e.down || menus_.empty()) return false;
     const int n = int(menus_.size());
-    if (e.mods & draw::kAlt) {  // Alt and a letter: the menu whose name starts with it
-        if (!isLetter(int(e.key))) return false;
-        for (int i = 0; i < n; ++i)
-            if (startsWith(menus_[size_t(i)].label, int(e.key))) return openMenu(i, true), true;
-        return false;
-    }
+    if (e.mods & draw::kAlt) return isLetter(int(e.key)) && openByLetter(int(e.key));  // the menu whose name starts with it
     if (e.mods & (draw::kCtrl | draw::kSuper)) return false;
     switch (e.key) {
     case Key::Right:
@@ -511,6 +552,7 @@ void MenuBar::focusChanged(bool has) {
 MenuBar::~MenuBar() {
     alive_.reset();  // the open menu's callbacks do nothing from now on
     if (open_ >= 0) Menu::close();
+    if (draw::Host* h = host()) h->forget(*this);  // the keys were the menus' while they were open: none is left here
 }
 
 }  // namespace stardraft::kit
