@@ -2,7 +2,8 @@
 
 // euddraft (github.com/armoha/euddraft): finding a copy, keeping a local one up to date, and running a
 // build. StarDraft keeps its own copies, one folder per version, under
-//   %LOCALAPPDATA%\StarDraft\euddraft\<version>\  (Windows; $XDG_DATA_HOME or ~/.local/share elsewhere)
+//   %LOCALAPPDATA%\StarDraft\euddraft\<version>\  (Windows; ~/Library/Application Support on macOS;
+//   $XDG_DATA_HOME or ~/.local/share on Linux)
 // A copy the user chose wins and is never replaced. Other copies on the machine (EUD Editor's, the
 // user's own) are listed but not built with: StarDraft keeps its own.
 

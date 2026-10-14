@@ -35,9 +35,17 @@ bool readText(const fs::path& file, std::string& out) {
     return true;
 }
 
+// epTrace writes Windows paths. As a path here: '\' is a separator on every system (on POSIX it is not one).
+fs::path windowsPath(std::string file) {
+#ifndef _WIN32
+    std::replace(file.begin(), file.end(), '\\', '/');
+#endif
+    return fs::path(file);
+}
+
 // The same file whatever the case or the separators (Windows paths).
 std::string fileKey(const std::string& file) {
-    std::string k = fs::path(file).lexically_normal().generic_string();
+    std::string k = windowsPath(file).lexically_normal().generic_string();
     std::transform(k.begin(), k.end(), k.begin(), [](unsigned char c) { return char(std::tolower(c)); });
     return k;
 }
@@ -47,9 +55,14 @@ std::string fileKey(const std::string& file) {
 bool sameFile(const fs::path& a, const fs::path& b) { return fileKey(a.string()) == fileKey(b.string()); }
 
 fs::path exe(const fs::path& euddraftExe) {
+#ifdef _WIN32
     std::error_code ec;
     const fs::path p = euddraftExe.parent_path() / "epTrace.exe";
     return fs::is_regular_file(p, ec) ? p : fs::path{};
+#else
+    (void)euddraftExe;
+    return {};  // epTrace.exe is a Windows program (it reads a running StarCraft.exe)
+#endif
 }
 
 Report parse(const std::string& prof, const std::string& epmap) {
@@ -97,7 +110,7 @@ Report parse(const std::string& prof, const std::string& epmap) {
         ++lineNo;
         if (samples <= 0) continue;
         Line out;
-        out.file = file, out.line = lineNo, out.samples = samples, out.code = code;
+        out.file = windowsPath(file), out.line = lineNo, out.samples = samples, out.code = code;
         out.code.erase(0, out.code.find_first_not_of(" \t"));
         if (auto it = functions.find({fileKey(file), lineNo}); it != functions.end()) out.function = it->second;
         r.total += samples;

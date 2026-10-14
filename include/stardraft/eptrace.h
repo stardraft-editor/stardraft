@@ -15,7 +15,7 @@
 namespace stardraft {
 namespace eptrace {
 
-// epTrace.exe beside euddraft.exe (empty if it is not there).
+// epTrace.exe beside euddraft.exe (empty if it is not there, and always empty off Windows).
 std::filesystem::path exe(const std::filesystem::path& euddraftExe);
 
 struct Line {
