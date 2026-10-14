@@ -17,7 +17,7 @@ void ChoiceBox::paint(draw::Canvas& c) {
     const Theme& th = theme();
     const int s = px(kBoxSize), top = (height() - s) / 2;
     const bool over = enabled_ && hot_;
-    drawMark(c, {0, top, s, top + s}, over, enabled_ && hasFocus());
+    drawMark(c, {0, top, s, top + s}, over, enabled_ && hasFocus() && !pointer_);
     const Color tc = !enabled_ ? th.faint : changed_ ? th.good : on_ || over ? th.text : th.dim;
     c.text({s + px(kGap), 0, width(), height()}, label_, tc, draw::kMiddle | draw::kEllipsis);
 }
@@ -36,7 +36,7 @@ bool ChoiceBox::mouse(const draw::MouseEvent& e) {
     case MouseKind::DoubleClick:
         if (e.button != 0) return false;
         if (!enabled_) return true;
-        down_ = true, hot_ = true;
+        down_ = true, hot_ = true, pointer_ = true;
         if (auto* h = host()) h->capture(*this, true);
         invalidate();
         return true;
@@ -54,8 +54,22 @@ bool ChoiceBox::mouse(const draw::MouseEvent& e) {
 
 bool ChoiceBox::key(const draw::KeyEvent& e) {
     if (!e.down || !enabled_ || e.key != draw::Key::Space) return false;
+    pointer_ = false;
     activate();
     return true;
+}
+
+// A focus from the keyboard shows the ring; one from a click does not (the router gives the focus before the click).
+void ChoiceBox::focusChanged(bool) {
+    pointer_ = false;
+    invalidate();
+}
+
+void ChoiceBox::captureLost() {
+    if (!down_) return;
+    down_ = false;
+    hot_ = false;
+    invalidate();
 }
 
 // --- CheckBox ----------------------------------------------------------------------------------------------------
@@ -87,6 +101,14 @@ RadioGroup::~RadioGroup() {
 RadioButton* RadioGroup::selected() const {
     for (RadioButton* b : buttons_)
         if (b->on()) return b;
+    return nullptr;
+}
+
+RadioButton* RadioGroup::tabStop() const {
+    const auto usable = [](const RadioButton* b) { return b->enabled() && b->shown(); };
+    if (RadioButton* s = selected(); s && usable(s)) return s;
+    for (RadioButton* b : buttons_)
+        if (usable(b)) return b;
     return nullptr;
 }
 
@@ -125,6 +147,11 @@ void RadioButton::activate() {
     if (group_->onChange) group_->onChange(*this);
 }
 
+bool RadioButton::focusable() const {
+    if (!ChoiceBox::focusable()) return false;
+    return !group_ || group_->tabStop() == this;
+}
+
 bool RadioButton::key(const draw::KeyEvent& e) {
     if (!e.down || !enabled() || !group_) return ChoiceBox::key(e);
     int step = 0;
@@ -138,9 +165,9 @@ bool RadioButton::key(const draw::KeyEvent& e) {
     const auto& bs = group_->buttons_;
     const auto me = std::find(bs.begin(), bs.end(), this);
     if (me == bs.end()) return true;
-    // The next enabled button that way; at the end of the group the key is used and nothing moves.
+    // The next enabled, shown button that way; at the end of the group the key is used and nothing moves.
     for (long i = me - bs.begin() + step; i >= 0 && i < long(bs.size()); i += step)
-        if (bs[size_t(i)]->enabled()) {
+        if (bs[size_t(i)]->enabled() && bs[size_t(i)]->shown()) {
             bs[size_t(i)]->focus();
             bs[size_t(i)]->activate();
             break;
