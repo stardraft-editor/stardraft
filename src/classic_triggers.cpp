@@ -402,6 +402,53 @@ bool ClassicTrigger::unwrapAction(int i) {
     return true;
 }
 
+std::vector<ClassicAction> ClassicTrigger::subtreeRows(int row) const {
+    std::vector<ClassicAction> out;
+    if (row < 0 || row >= actionCount()) return out;
+    for (int k = row; k < blockEnd(row); ++k) out.push_back(actions[size_t(k)]);
+    return out;
+}
+
+bool ClassicTrigger::pasteRows(const std::vector<ClassicAction>& rows, int at, int depth) {
+    const int n = actionCount();
+    if (rows.empty() || at < 0 || at > n || n + int(rows.size()) > kClassicActions) return false;
+    if (at < n && actions[size_t(at)].depth > depth) return false;  // that row would leave its block
+    // The blocks open before `at`, by depth: open[j] is the block at depth j.
+    std::vector<int> open;
+    for (int i = 0; i < at; ++i) {
+        const ClassicAction& a = actions[size_t(i)];
+        open.resize(std::min(open.size(), size_t(a.depth)));
+        if (a.type == kClassicBlockType) open.push_back(i);
+    }
+    if (depth < 0 || size_t(depth) > open.size()) return false;
+    const int r0 = rows[0].depth;  // the depth of the subtree's root in its list
+    std::vector<ClassicAction> add;
+    for (ClassicAction a : rows) {
+        a.depth = uint8_t(a.depth - r0 + depth);
+        for (int k = 0; k < kClassicVarFields; ++k) {
+            if (!a.var[size_t(k)]) continue;
+            const int target = a.var[size_t(k)] - 1;
+            if (target >= r0) {  // a block inside the rows: it moves with them
+                a.var[size_t(k)] = uint8_t(target - r0 + depth + 1);
+                continue;
+            }
+            // A block outside the rows: the deepest block above `at` that holds a variable of this kind.
+            uint8_t found = 0;
+            for (int j = depth - 1; j >= 0 && !found; --j) {
+                const ClassicAction& b = actions[size_t(open[size_t(j)])];
+                if (b.batch && classicVarAllowed(a, k, b.batch->kind)) found = uint8_t(j + 1);
+            }
+            a.var[size_t(k)] = found;
+        }
+        add.push_back(a);
+    }
+    std::vector<ClassicAction> left(actions.begin(), actions.begin() + n);
+    left.insert(left.begin() + at, add.begin(), add.end());
+    for (size_t i = 0; i < kClassicActions; ++i) actions[i] = i < left.size() ? left[i] : ClassicAction{};
+    pruneBlocks();
+    return true;
+}
+
 // Depths that the rows cannot have are fixed, and a variable that no enclosing block of its kind holds is removed.
 void ClassicTrigger::pruneBlocks() {
     std::vector<int> open;  // open[k]: the block row at depth k that holds the rows at depth k + 1

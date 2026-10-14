@@ -121,6 +121,13 @@ struct ClassicTrigger {
     bool outdentAction(int i);
     // Removes a block's row and keeps its children, one level out (the rows of the block stay in place).
     bool unwrapAction(int i);
+    // The rows from `row` to its end (a block with its children; one row for another row).
+    std::vector<ClassicAction> subtreeRows(int row) const;
+    // Inserts rows (a subtree, its first row at its own depth) before place `at`, at depth `depth`. A variable that holds
+    // a block inside the rows follows that block; one that holds a block outside them takes the deepest block above
+    // `at` of its kind, or none. False when the list would be full, `depth` is not inside the blocks above `at`, or the
+    // row at `at` is deeper than `depth` (it would leave its block).
+    bool pasteRows(const std::vector<ClassicAction>& rows, int at, int depth);
     // Fixes the depths and removes the variables that no enclosing block holds (after an edit).
     void pruneBlocks();
     bool runsFor(int group) const { return group >= 0 && group < kClassicGroups && players[size_t(group)]; }
