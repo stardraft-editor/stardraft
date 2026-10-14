@@ -191,12 +191,12 @@ Exploring how to enable the next evolution of StarCraft creations.
 
   StarDraft 2 reads only the game's own files. Mappers cannot use the files of a mod. Modders are not a group in
   README.md yet.
-- [ ] **R41 Combat simulator.** *Tag:* Capability.
-  Simulate a fight between units, with their counts and upgrades. See who wins, the hit points that are left, and how
-  long the fight takes.
+- [ ] **R41 Game simulation.** *Tag:* Capability.
+  Simulate the game in StarDraft 2, without StarCraft. Move units and tell them to stop or attack, and see who wins a
+  fight. See the resources, the supply and the unit counts change over time, with a log of each event and its time.
 
-  To balance custom units, mappers must play test fights in the game. It needs a simulation of the game itself, so
-  it waits for that.
+  To balance custom units and economies, mappers must play test games in StarCraft. It needs a simulation of the game
+  itself, so it waits for that.
 - [ ] **R45 Map publishing.** *Tag:* Capability.
   Upload a map to [scmscx.com](https://scmscx.com) from StarDraft 2.
 
