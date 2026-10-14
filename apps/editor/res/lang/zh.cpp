@@ -1860,6 +1860,7 @@ constexpr UiText kRows[] = {
     {L". At the next start, StarDraft 2 asks if you want to send the crash report.", L"\u3002\u4E0B\u6B21\u542F\u52A8\u65F6\uFF0CStarDraft 2 \u4F1A\u8BE2\u95EE\u60A8\u662F\u5426\u8981\u53D1\u9001\u5D29\u6E83\u62A5\u544A\u3002"},
     {L"&Pin to the top", L"\u7F6E\u9876(&P)"},
     {L"Un&pin", L"\u53D6\u6D88\u7F6E\u9876(&P)"},
+    {L"StarDraft 2 is powered by euddraft and eudplib", L"StarDraft 2 \u7531 euddraft \u548C eudplib \u9A71\u52A8"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

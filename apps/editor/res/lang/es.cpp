@@ -1861,6 +1861,7 @@ constexpr UiText kRows[] = {
     {L"The map has ", L"El mapa tiene "},
     {L"The minimap is hidden (View > Show minimap shows it again)", L"El minimapa est\u00E1 oculto (Ver > Mostrar minimapa lo muestra de nuevo)"},
     {L"The minimap shows", L"El minimapa se muestra"},
+    {L"StarDraft 2 is powered by euddraft and eudplib", L"StarDraft 2 funciona con euddraft y eudplib"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

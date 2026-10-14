@@ -1862,6 +1862,7 @@ constexpr UiText kRows[] = {
     {L". At the next start, StarDraft 2 asks if you want to send the crash report.", L". \u041F\u0440\u0438 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u043C \u0437\u0430\u043F\u0443\u0441\u043A\u0435 StarDraft 2 \u0441\u043F\u0440\u043E\u0441\u0438\u0442, \u0445\u043E\u0442\u0438\u0442\u0435 \u043B\u0438 \u0432\u044B \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C \u043E\u0442\u0447\u0451\u0442 \u043E \u0441\u0431\u043E\u0435."},
     {L"&Pin to the top", L"&\u0417\u0430\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u0432\u0432\u0435\u0440\u0445\u0443"},
     {L"Un&pin", L"\u041E\u0442&\u043A\u0440\u0435\u043F\u0438\u0442\u044C"},
+    {L"StarDraft 2 is powered by euddraft and eudplib", L"StarDraft 2 \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u043D\u0430 euddraft \u0438 eudplib"},
 };
 }  // namespace
 std::span<const UiText> langTableRu() { return kRows; }
