@@ -457,12 +457,14 @@ void drawComposition() {
     if (!app.imeInline || app.composition.empty() || !ime.WantVisible) return;
     const next::kit::Theme& t = next::kit::theme();
     ImDrawList* d = ImGui::GetForegroundDrawList();
-    const ImVec2 size = ImGui::CalcTextSize(app.composition.c_str());
-    const ImVec2 p = ime.InputPos;
+    const ImVec2 p = ime.InputPos;  // (the caret, less 1 px)
     const float h = ime.InputLineHeight > 0 ? ime.InputLineHeight : ImGui::GetFontSize();
-    d->AddRectFilled({p.x, p.y}, {p.x + size.x + 2, p.y + h}, t.ctl);
-    d->AddText({p.x + 1, p.y + (h - size.y) / 2}, t.text, app.composition.c_str());
-    d->AddLine({p.x + 1, p.y + h - 1}, {p.x + size.x + 1, p.y + h - 1}, t.accent, 2);
+    // The field's font at the field's size (here, outside the window, ImGui's current size is another).
+    ImFont* font = ImGui::GetFont();
+    const ImVec2 size = font->CalcTextSizeA(h, FLT_MAX, 0, app.composition.c_str());
+    d->AddRectFilled({p.x + 1, p.y}, {p.x + size.x + 2, p.y + h}, t.ctl);
+    d->AddText(font, h, {p.x + 1, p.y}, t.text, app.composition.c_str());
+    d->AddLine({p.x + 1, p.y + h}, {p.x + size.x + 1, p.y + h}, t.accent, 2);
 }
 
 // --- Drawing ------------------------------------------------------------------------------------------------------
