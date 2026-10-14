@@ -440,8 +440,8 @@ def confirm(version, sha, env):
     if latest != tag:
         problems.append(f"Latest is {latest}, not {tag}")
     zips = [a for a in rel["assets"] if a["name"] == f"StarDraft-{version}-win64.zip" and a["size"] > 0]
-    if not zips or len(rel["assets"]) != 1:
-        problems.append(f"the downloads are {[a['name'] for a in rel['assets']]}: only StarDraft-{version}-win64.zip")
+    if not zips:  # (other systems' downloads may be there too)
+        problems.append(f"the downloads are {[a['name'] for a in rel['assets']]}: no StarDraft-{version}-win64.zip")
     if "](images/" in rel["body"]:
         problems.append("the release text has picture paths that are not addresses")
     drafts = run(["gh", "release", "list", "--repo", REPO, "--limit", "50", "--json", "tagName,isDraft"], env=env, check=False)
