@@ -1676,7 +1676,7 @@ constexpr UiText kRows[] = {
     {L"StarDraft 2 aims to be its spiritual successor for StarCraft makers in 2026 and later.", L"StarDraft 2 \u65E8\u5728\u6210\u4E3A\u5B83\u7684\u7CBE\u795E\u7EED\u4F5C\uFF0C\u670D\u52A1 2026 \u5E74\u53CA\u4EE5\u540E\u7684 StarCraft \u5236\u4F5C\u8005\u3002"},
     {L"Mouse", L"\u9F20\u6807"},
     {L"The farther the mouse is from where you pressed, the faster the map moves toward it (default)", L"\u9F20\u6807\u79BB\u6309\u4E0B\u4F4D\u7F6E\u8D8A\u8FDC\uFF0C\u5730\u56FE\u5411\u5B83\u79FB\u52A8\u8D8A\u5FEB\uFF08\u9ED8\u8BA4\uFF09"},
-    {L"The map moves with the mouse, as with a right-drag", L"\u5730\u56FE\u968F\u9F20\u6807\u79FB\u52A8\uFF0C\u4E0E\u53F3\u952E\u62D6\u52A8\u76F8\u540C"},
+    {L"The map moves with the mouse", L"\u5730\u56FE\u968F\u9F20\u6807\u79FB\u52A8"},
     {L"Middle mouse click and hold", L"\u6309\u4F4F\u9F20\u6807\u4E2D\u952E"},
     {L"Drag map", L"\u62D6\u52A8\u5730\u56FE"},
     {L"Pan map", L"\u5E73\u79FB\u5730\u56FE"},
