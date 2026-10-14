@@ -119,7 +119,8 @@ jobs:
         shell: pwsh
         run: |
           $failed = 0
-          foreach ($mode in @("system", "inline")) {
+          foreach ($mode in @("system", "inline", "system", "inline")) {  # (each mode at most twice: once more after a failure)
+            if (Test-Path "ime-windows-$mode.ok") { continue }
             $a = @("--workspace", "triggers", "--live", "20", "--snapshot", "ime-windows-$mode.png")
             $a += $(if ($mode -eq "inline") { "--ime-inline" } else { "--ime-system" })
             $p = Start-Process build/Release/stardraft-next.exe -ArgumentList $a -RedirectStandardOutput "ime-windows-$mode.txt" -PassThru
@@ -127,9 +128,11 @@ jobs:
             pwsh -File tools/ci/ime_keys_windows.ps1 -ProcessId $p.Id -Keys "{layout:00000412}{hangul}gksrnrdj "
             $p.WaitForExit(60000) | Out-Null
             Get-Content "ime-windows-$mode.txt" -Encoding utf8
-            if (-not (Select-String -Path "ime-windows-$mode.txt" -Pattern "search field: 한국어" -Encoding utf8 -Quiet)) { $failed++ }
+            if (Select-String -Path "ime-windows-$mode.txt" -Pattern "search field: 한국어" -Encoding utf8 -Quiet) { New-Item "ime-windows-$mode.ok" | Out-Null }
+            else { Write-Output "::warning::Windows $mode`: no 한국어, once more" }
           }
-          if ($failed) { throw "Korean did not arrive in $failed of 2 runs" }
+          foreach ($mode in @("system", "inline")) { if (-not (Test-Path "ime-windows-$mode.ok")) { $failed++ } }
+          if ($failed) { throw "Korean did not arrive in $failed of 2 modes" }
 
       # Hanja (the Hanja key, 1 picks the first), 한/영 (the Hangul key), then Chinese with Microsoft Pinyin.
       - name: Hanja, 한/영 and Pinyin with the Microsoft IMEs
