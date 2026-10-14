@@ -165,17 +165,11 @@ void previewToggle(const std::string& name) {
 std::vector<std::string> importSounds(HWND owner) {
     std::vector<std::string> added;
     if (!app.ed) return added;
-    std::vector<wchar_t> buf(32768, 0);
-    OPENFILENAMEW ofn{sizeof ofn};
-    ofn.hwndOwner = owner, ofn.lpstrFilter = L"Sounds (WAV, OGG)\0*.wav;*.ogg\0", ofn.lpstrFile = buf.data(), ofn.nMaxFile = DWORD(buf.size());
-    ofn.Flags = OFN_FILEMUSTEXIST | OFN_ALLOWMULTISELECT | OFN_EXPLORER;
-    if (!GetOpenFileNameW(&ofn)) return added;
-    // One file: the full path. Several: the folder, then each name.
-    std::vector<fs::path> files;
-    const std::wstring first = buf.data();
-    const wchar_t* p = buf.data() + first.size() + 1;
-    if (!*p) files.push_back(first);
-    for (; *p; p += wcslen(p) + 1) files.push_back(fs::path(first) / p);
+    platform::FileDialog dlg;
+    dlg.owner = owner;
+    dlg.filters = {{"Sounds (WAV, OGG)", "*.wav;*.ogg"}};
+    const std::vector<fs::path> files = platform::openFilesDialog(dlg);
+    if (files.empty()) return added;
     std::vector<ArchiveFile> read;
     for (const auto& f : files) {
         std::ifstream in(f, std::ios::binary);

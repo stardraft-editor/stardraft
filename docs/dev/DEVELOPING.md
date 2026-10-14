@@ -79,6 +79,7 @@ Give each test a new, empty scratch folder.
 | `paint_stress` | | Terrain correction: no cliff-stack breaks. |
 | `terrain_check` | `terrain_check <install> <maps folder>...` | Without the GPU: the HD, HD2 and Carbot tiles of each tileset against the SD megatiles; each map's MTXM tiles resolve; each map sprite (THG2) has graphics and the frame and images the game starts it with. |
 | `commands_test` | `commands_test` | Without game data: the command table (shortcuts, run by id, enabled, checked, menus). |
+| `platform_test` | `platform_test <dir>` | Without game data or network: `apps/common`'s self-update parts (unpacking, replacing a program file) and the crash report's title. |
 | `settings_test` | `settings_test <dir>` | Without game data: the settings file (each kind of value written and read again). |
 | `render_smoke_test` | `render_smoke_test [out.png]` | Without game data: the renderer's device and pipelines (each shader in the GPU API's format), and rectangles, lines and text in an offscreen frame. GitHub runs it on Linux (Vulkan on lavapipe). |
 | `terrain_render_test` | `terrain_render_test <install> [<maps folder>...]` | The map view's renderer, offscreen: no tile grid when zoomed out (mipmaps), every megatile in the HD, HD2 and Carbot atlases, and each map in SD at 100% the same as `render_map`. |
@@ -180,7 +181,7 @@ this repository only, with **Issues: read and write** and **Contents: read**. CI
 repository's root (one line; not in git); without it, reports and feedback stay on disk and go when a build with a
 token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, at build time or when StarDraft runs. All three send their requests through `apps/editor/github.inc`, which calls `apps/common/http.h` (WinHTTP on Windows, curl elsewhere; `http_get <url>` tries one by hand); a feedback file stays when GitHub's reply cannot be read.
 
-- **Crash reports** (`apps/editor/crash.inc`): a crash writes `crash.dmp` and `report.txt` (version, commit, Windows,
+- **Crash reports** (`apps/editor/crash.inc`; the crash handler and the sending in `apps/common/crash_report.h`): a crash writes `crash.dmp` and `report.txt` (version, commit, Windows,
   video card, the exception, the stack, the last log lines) into `%LOCALAPPDATA%\StarDraft\crashes\<time>\` and
   sends the report at once, with no user action: an issue with the label `crash`, or a comment on the open issue for
   the same place. Reports that could not go are sent at the next start. `stardraft.exe --crash-test` crashes on
@@ -193,7 +194,7 @@ token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, 
   mouse by answering `WM_FEEDBACK_NAME`; else a tooltip's text, a control's text or the pane's name is used. Send
   makes an issue with the label `feedback` (no user name); feedback that could not go waits in
   `%LOCALAPPDATA%\StarDraft\feedback\`. The glyph and its color (`kFeedback`, yellow) are the same everywhere.
-- **Updates** (`apps/editor/update.inc`): Help > Check for updates compares the newest release's title ("... (build
+- **Updates** (`apps/editor/update.inc`; unpacking and replacing the program in `apps/common/update.h`): Help > Check for updates compares the newest release's title ("... (build
   <commit>)") with the build's commit, downloads the zip, puts its `stardraft.exe` in place of the running one (that
   one becomes `stardraft.exe.old`, deleted at the next start) and starts it. A release build also checks at start and
   says so in the status bar.

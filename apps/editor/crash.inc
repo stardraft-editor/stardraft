@@ -1,4 +1,5 @@
-// Crash reports (included into main.cpp near the top). When StarDraft crashes, it writes what it can into
+// Crash reports (included into main.cpp near the top; the system part and the sending are apps/common/crash_report.h).
+// When StarDraft crashes, it writes what it can into
 // %LOCALAPPDATA%\StarDraft\crashes\<time>\: a minidump (crash.dmp) and report.txt (the version and commit, Windows,
 // the video card, the exception and where it happened, the stack as module+offset, the workspace, the last log
 // lines). The report goes to GitHub at once, with no user action: the crashed program starts a copy of itself
@@ -46,108 +47,16 @@ std::string utf8(const std::wstring& w) {
     return s;
 }
 
-const char* exceptionName(DWORD code) {
-    switch (code) {
-    case EXCEPTION_ACCESS_VIOLATION: return "access violation";
-    case EXCEPTION_STACK_OVERFLOW: return "stack overflow";
-    case EXCEPTION_INT_DIVIDE_BY_ZERO: return "division by zero";
-    case EXCEPTION_ILLEGAL_INSTRUCTION: return "illegal instruction";
-    case EXCEPTION_ARRAY_BOUNDS_EXCEEDED: return "array bounds";
-    case EXCEPTION_IN_PAGE_ERROR: return "in-page error";
-    case 0xE06D7363: return "C++ exception";
-    case 0xE5D0000A: return "abort";
-    case 0xE5D0000B: return "C++ exception not caught (terminate)";
-    case 0xE5D0000C: return "pure virtual call";
-    case 0xE5D0000D: return "invalid parameter to the C library";
-    default: return "exception";
-    }
-}
-
-// "stardraft.exe+0x1A2B3C" for an address.
-std::string where(DWORD64 address) {
-    HMODULE m = nullptr;
-    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, reinterpret_cast<LPCWSTR>(address), &m) || !m) {
-        char b[32];
-        std::snprintf(b, sizeof b, "0x%llX", static_cast<unsigned long long>(address));
-        return b;
-    }
-    wchar_t name[MAX_PATH];
-    GetModuleFileNameW(m, name, MAX_PATH);
-    char b[64];
-    std::snprintf(b, sizeof b, "+0x%llX", static_cast<unsigned long long>(address - reinterpret_cast<DWORD64>(m)));
-    return utf8(fs::path(name).filename().wstring()) + b;
-}
-
-std::string windowsVersion() {
-    using RtlGetVersionFn = LONG(WINAPI*)(PRTL_OSVERSIONINFOW);
-    RTL_OSVERSIONINFOW v{sizeof v};
-    if (auto f = reinterpret_cast<RtlGetVersionFn>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "RtlGetVersion"))) f(&v);
-    return "Windows " + std::to_string(v.dwMajorVersion) + "." + std::to_string(v.dwMinorVersion) + "." + std::to_string(v.dwBuildNumber);
-}
+std::string windowsVersion() { return stardraft::platform::systemName(); }
 
 std::string gBuild;  // "built Oct 10 12:00" (from main.cpp)
 
-LONG WINAPI onCrash(EXCEPTION_POINTERS* ep) {
-    static LONG once = 0;
-    if (InterlockedExchange(&once, 1)) return EXCEPTION_EXECUTE_HANDLER;
-    SYSTEMTIME t;
-    GetLocalTime(&t);
-    char stamp[32];
-    std::snprintf(stamp, sizeof stamp, "%04d%02d%02d-%02d%02d%02d", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
-    std::error_code ec;
-    const fs::path dir = folder() / stamp;
-    fs::create_directories(dir, ec);
-    // The minidump: threads, stacks and the memory they point at.
-    HANDLE f = CreateFileW((dir / "crash.dmp").c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (f != INVALID_HANDLE_VALUE) {
-        MINIDUMP_EXCEPTION_INFORMATION mei{GetCurrentThreadId(), ep, FALSE};
-        MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), f, MINIDUMP_TYPE(MiniDumpWithIndirectlyReferencedMemory | MiniDumpWithThreadInfo), &mei,
-                          nullptr, nullptr);
-        CloseHandle(f);
-    }
-    // The report.
-    const DWORD code = ep->ExceptionRecord->ExceptionCode;
-    const DWORD64 at = reinterpret_cast<DWORD64>(ep->ExceptionRecord->ExceptionAddress);
-    std::string r;
-    char line[256];
-    r += "StarDraft " STARDRAFT_VERSION_NAME ", " + gBuild + ", commit " STARDRAFT_COMMIT "\n";
-    r += windowsVersion() + ", video card: " + utf8(gGpu) + "\n";
-    std::snprintf(line, sizeof line, "Exception 0x%08lX (%s) at %s", code, exceptionName(code), where(at).c_str());
-    r += line;
-    if (code == EXCEPTION_ACCESS_VIOLATION && ep->ExceptionRecord->NumberParameters >= 2) {
-        const ULONG_PTR kind = ep->ExceptionRecord->ExceptionInformation[0], addr = ep->ExceptionRecord->ExceptionInformation[1];
-        std::snprintf(line, sizeof line, ", %s 0x%llX", kind == 0 ? "reading" : kind == 1 ? "writing" : "running", static_cast<unsigned long long>(addr));
-        r += line;
-    }
-    r += "\n";
-    if (gWhere) r += "Workspace: " + utf8(gWhere()) + "\n";
-    // The stack: walked from the crash's own context.
-    r += "\nStack:\n";
-    CONTEXT ctx = *ep->ContextRecord;
-    STACKFRAME64 sf{};
-    sf.AddrPC.Offset = ctx.Rip, sf.AddrPC.Mode = AddrModeFlat;
-    sf.AddrFrame.Offset = ctx.Rbp, sf.AddrFrame.Mode = AddrModeFlat;
-    sf.AddrStack.Offset = ctx.Rsp, sf.AddrStack.Mode = AddrModeFlat;
-    HANDLE proc = GetCurrentProcess(), thread = GetCurrentThread();
-    SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS);
-    const bool syms = SymInitialize(proc, nullptr, TRUE);
-    for (int i = 0; i < 64; ++i) {
-        if (!StackWalk64(IMAGE_FILE_MACHINE_AMD64, proc, thread, &sf, &ctx, nullptr, SymFunctionTableAccess64, SymGetModuleBase64, nullptr) || !sf.AddrPC.Offset) break;
-        r += "  " + where(sf.AddrPC.Offset);
-        alignas(SYMBOL_INFO) char buf[sizeof(SYMBOL_INFO) + 256];
-        auto* s = reinterpret_cast<SYMBOL_INFO*>(buf);
-        s->SizeOfStruct = sizeof(SYMBOL_INFO), s->MaxNameLen = 255;
-        DWORD64 off = 0;
-        if (syms && SymFromAddr(proc, sf.AddrPC.Offset, &off, s)) r += std::string("  ") + s->Name;
-        r += "\n";
-    }
-    r += "\nLog (last lines):\n";
-    for (const auto& l : gLog) r += "  " + utf8(l) + "\n";
-    std::ofstream(dir / "report.txt", std::ios::binary) << r;
-    // A new process sends it (this one is not safe to use for much now). Test runs (gQuiet) keep it on disk only.
+// After the crash's report is written (apps/common/crash_win32.cpp): send it now (a new process sends it: this one is
+// not safe to use for much now), ask at the next start, or keep it. Test runs (gQuiet) keep it on disk only.
+void written(const fs::path& dir) {
     if (gQuiet) {
         std::ofstream(dir / "sent") << "a test run: not sent";
-        return EXCEPTION_EXECUTE_HANDLER;
+        return;
     }
     if (gCrashReports != 1) {  // Ask (the next start asks) or Do not send: the report stays on disk
         if (gCrashReports == 2) std::ofstream(dir / "sent") << "not sent: crash reports are off";
@@ -156,7 +65,7 @@ LONG WINAPI onCrash(EXCEPTION_POINTERS* ep) {
                      (gCrashReports == 2 ? L" (crash reports are off)." : L". At the next start, StarDraft 2 asks if you want to send the crash report."))
                         .c_str(),
                     L"StarDraft 2 stopped", MB_ICONERROR | MB_TOPMOST);
-        return EXCEPTION_EXECUTE_HANDLER;
+        return;
     }
     wchar_t self[MAX_PATH];
     GetModuleFileNameW(nullptr, self, MAX_PATH);
@@ -164,21 +73,24 @@ LONG WINAPI onCrash(EXCEPTION_POINTERS* ep) {
     STARTUPINFOW si{sizeof si};
     PROCESS_INFORMATION pi{};
     if (CreateProcessW(self, cmd.data(), nullptr, nullptr, FALSE, DETACHED_PROCESS, nullptr, nullptr, &si, &pi)) CloseHandle(pi.hThread), CloseHandle(pi.hProcess);
-    if (!gQuiet)
-        MessageBoxW(nullptr, L"StarDraft 2 stopped because of an error. StarDraft 2 sends a crash report to the developers so that they can repair the error.", L"StarDraft 2 stopped",
-                    MB_ICONERROR | MB_TOPMOST);
-    return EXCEPTION_EXECUTE_HANDLER;
+    MessageBoxW(nullptr, L"StarDraft 2 stopped because of an error. StarDraft 2 sends a crash report to the developers so that they can repair the error.", L"StarDraft 2 stopped",
+                MB_ICONERROR | MB_TOPMOST);
 }
 
-// Errors the C library and C++ report in their own ways: made into exceptions, so onCrash writes them down too.
-void raise(DWORD code) { RaiseException(code, EXCEPTION_NONCONTINUABLE, 0, nullptr); }
 void install() {
-    SetUnhandledExceptionFilter(onCrash);
-    std::set_terminate([] { raise(0xE5D0000B); });
-    _set_purecall_handler([] { raise(0xE5D0000C); });
-    _set_invalid_parameter_handler([](const wchar_t*, const wchar_t*, const wchar_t*, unsigned, uintptr_t) { raise(0xE5D0000D); });
-    signal(SIGABRT, [](int) { raise(0xE5D0000A); });
-    _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+    stardraft::platform::CrashHandler h;
+    h.folder = folder();
+    h.header = [] {
+        return "StarDraft " STARDRAFT_VERSION_NAME ", " + gBuild + ", commit " STARDRAFT_COMMIT "\n" + windowsVersion() + ", video card: " + utf8(gGpu) + "\n";
+    };
+    h.context = [] { return gWhere ? "Workspace: " + utf8(gWhere()) + "\n" : std::string(); };
+    h.log = [] {
+        std::string r;
+        for (const auto& l : gLog) r += "  " + utf8(l) + "\n";
+        return r;
+    };
+    h.written = written;
+    stardraft::platform::installCrashHandler(std::move(h));
 }
 
 // --- Sending --------------------------------------------------------------------------------------------------------
@@ -195,6 +107,7 @@ std::string token() {
     return t;
 }
 
+// A JSON string (feedback.inc uses it too).
 std::string json(const std::string& s) {
     std::string o = "\"";
     for (unsigned char ch : s) {
@@ -207,58 +120,9 @@ std::string json(const std::string& s) {
     }
     return o + "\"";
 }
-std::wstring urlEncode(const std::string& s) {
-    std::wstring o;
-    for (unsigned char ch : s) {
-        if (std::isalnum(ch) || ch == '-' || ch == '_' || ch == '.' || ch == '~') o += wchar_t(ch);
-        else {
-            wchar_t b[4];
-            std::swprintf(b, 4, L"%%%02X", ch);
-            o += b;
-        }
-    }
-    return o;
-}
 
-// The issue's title: the place it happened, so the same crash finds its issue again.
-std::string title(const std::string& report) {
-    const size_t a = report.find("Exception ");
-    std::string e = a == std::string::npos ? "a crash" : report.substr(a, report.find('\n', a) - a);
-    if (const size_t r = e.find(", reading"); r != std::string::npos) e.resize(r);  // the address it read differs each time
-    if (const size_t r = e.find(", writing"); r != std::string::npos) e.resize(r);
-    return "Crash: " + e;
-}
-
-// Sends one report to GitHub; true when it arrived. The folder is then marked "sent".
-bool send(const fs::path& dir) {
-    std::error_code ec;
-    if (token().empty() || fs::exists(dir / "sent", ec)) return false;
-    std::ifstream in(dir / "report.txt", std::ios::binary);
-    std::string report((std::istreambuf_iterator<char>(in)), {});
-    if (report.empty()) return false;
-    if (report.size() > 60000) report.resize(60000);
-    const std::string t = title(report), body = "```\n" + report + "```\n";
-    // The same crash: a comment on its open issue; a new one: a new issue.
-    // A search that was not read completely posts nothing: the report stays for the next start.
-    std::string found;
-    const HttpReply search = httpRequest(L"https://api.github.com/search/issues?q=" + urlEncode("repo:" + utf8(kRepo) + " is:issue is:open in:title \"" + t + "\""),
-                                         L"GET", L"application/vnd.github+json", token(), "", &found, nullptr, true);
-    if (!search.complete) return false;
-    const size_t num = found.find("\"number\":");
-    DWORD status = 0;
-    if (search.status == 200 && num != std::string::npos && found.find("\"total_count\":0") == std::string::npos) {
-        const std::string n = std::to_string(std::atoi(found.c_str() + num + 9));
-        status = httpRequest(L"https://api.github.com/repos/" + std::wstring(kRepo) + L"/issues/" + widen(n) + L"/comments", L"POST", L"application/vnd.github+json",
-                             token(), "{\"body\":" + json(body) + "}", nullptr, nullptr, true).status;
-    } else {
-        status = httpRequest(L"https://api.github.com/repos/" + std::wstring(kRepo) + L"/issues", L"POST", L"application/vnd.github+json", token(),
-                             "{\"title\":" + json(t) + ",\"body\":" + json(body) + ",\"labels\":[\"crash\"]}", nullptr, nullptr, true).status;
-    }
-    // 201: sent, even when the reply's body was cut off (it is not used; a retry would post the report again).
-    if (status != 201) return false;
-    std::ofstream(dir / "sent") << "sent";
-    return true;
-}
+// Sends one report to GitHub; true when it arrived (apps/common/crash_report.cpp).
+bool send(const fs::path& dir) { return stardraft::platform::sendCrashReport(dir, utf8(kRepo), token()); }
 
 // At start, on a thread: reports that did not go yet (no network then). Reports older than 30 days go away.
 void sendPending() {
@@ -274,13 +138,7 @@ void sendPending() {
 }
 
 // The reports on this computer that did not go and were not refused.
-std::vector<fs::path> unsentReports() {
-    std::vector<fs::path> out;
-    std::error_code ec;
-    for (const auto& e : fs::directory_iterator(folder(), ec))
-        if (fs::exists(e.path() / "report.txt", ec) && !fs::exists(e.path() / "sent", ec)) out.push_back(e.path());
-    return out;
-}
+std::vector<fs::path> unsentReports() { return stardraft::platform::unsentCrashReports(folder()); }
 
 // At start, with Options > Crash reports: Ask: the reports of the last crash: send them, always send, or not.
 void askToSend() {
@@ -297,7 +155,7 @@ void askToSend() {
             for (const auto& d : reports) send(d);
         }).detach();
     } else {
-        for (const auto& d : reports) std::ofstream(d / "sent") << "not sent: the user said no";
+        for (const auto& d : reports) stardraft::platform::markCrashReport(d, "not sent: the user said no");
     }
 }
 
