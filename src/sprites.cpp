@@ -1,6 +1,7 @@
 #include "stardraft/sprites.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <set>
@@ -203,6 +204,36 @@ void UnitSprites::applyEdits(const Bytes& sprites, const Bytes& images) {
     if (data_) loadScripts(*data_, images);  // each image's script, by its edited Iscript ID
 }
 
+void UnitSprites::applyUnitEdits(const Bytes& units, const Bytes& flingy) {
+    if (units.size() >= 228 + kUnits * 2) {
+        unitFlingy_.assign(units.begin(), units.begin() + kUnits);
+        for (size_t i = 0; i < kUnits; ++i) unitSubunit_[i] = readU16(units, 228 + 2 * i);
+    }
+    if (flingy.size() >= kFlingies * 2)
+        for (size_t i = 0; i < kFlingies; ++i) flingySprite_[i] = readU16(flingy, 2 * i);
+    sprites_.clear();  // the pictures of the unit types
+}
+
+std::vector<uint16_t> UnitSprites::changedUnitGraphics(const UnitSprites& game, const UnitSprites& edited) {
+    auto look = [](const UnitSprites& s, int image) {
+        const size_t i = size_t(image);
+        return std::array<int, 5>{image, s.scriptId(image), image >= 0 && i < s.imageTurns_.size() ? s.imageTurns_[i] : 0, s.drawFunction(image),
+                                  image >= 0 && i < s.imageRemap_.size() ? s.imageRemap_[i] : 0};
+    };
+    std::set<uint16_t> subunits;
+    for (const UnitSprites* s : {&game, &edited})
+        for (uint16_t u : s->unitSubunit_)
+            if (u != kNoUnit) subunits.insert(u);
+    std::vector<uint16_t> out;
+    for (uint16_t t = 0; t < kUnits; ++t) {
+        if (subunits.count(t)) continue;
+        if (look(game, game.imageFor(t)) != look(edited, edited.imageFor(t)) ||
+            look(game, game.subunitImage(t)) != look(edited, edited.subunitImage(t)))
+            out.push_back(t);
+    }
+    return out;
+}
+
 void UnitSprites::loadScripts(const GameData& data, const Bytes& images) {
     scripts_.assign(kImages, {});
     scriptHeader_.assign(kImages, 0);
@@ -400,6 +431,7 @@ UnitSprites::~UnitSprites() = default;
 
 bool UnitSprites::load(const GameData& data, std::string& error) {
     data_ = &data;
+    sprites_.clear();  // loaded again: the game's graphics, without edits
     Bytes units, flingy, sprites, images, tbl, tunit;
     if (!data.readFile("arr\\units.dat", units, error) || !data.readFile("arr\\flingy.dat", flingy, error) ||
         !data.readFile("arr\\sprites.dat", sprites, error) || !data.readFile("arr\\images.dat", images, error) ||

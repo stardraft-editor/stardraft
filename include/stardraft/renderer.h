@@ -108,6 +108,8 @@ public:
 
     // Data sources. The tileset is (re)loaded when the era or quality changes.
     void setSources(const GameData* data, UnitSprites* sprites, const Tileset* tileset, uint16_t era);
+    // The sprites' images changed (other draw functions or remappings): load each image again when it shows.
+    void reloadImages();
     void setPlayerColors(const uint32_t rgb[12]);  // each owner's team color, 0xRRGGBB (the map's player colors)
     // Upload the terrain (MTXM values); call again whenever it changes.
     void updateTerrain(const TerrainLayer& mtxm);

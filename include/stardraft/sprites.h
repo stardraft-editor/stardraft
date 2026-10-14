@@ -283,6 +283,13 @@ public:
     // the image of each sprite, and each image's Iscript ID, Gfx Turns, Draw Function and Remapping. The GRP and
     // overlay files stay the game's (StarCraft: Remastered does not take changes to them).
     void applyEdits(const Bytes& sprites, const Bytes& images);
+    // A project's edited units.dat and flingy.dat (whole files): each unit type's flingy and subunit, and each flingy's
+    // sprite. With applyEdits too, a unit type shows as a unit that the game makes after the map's edits run.
+    void applyUnitEdits(const Bytes& units, const Bytes& flingy);
+    // The unit types that look different in `edited` than in `game`: another image, or another Iscript ID, Gfx Turns,
+    // Draw Function or Remapping of the image, for the unit or its subunit. Subunits (turrets) are not in the list:
+    // the game makes them again with their base unit.
+    static std::vector<uint16_t> changedUnitGraphics(const UnitSprites& game, const UnitSprites& edited);
 private:
 
 

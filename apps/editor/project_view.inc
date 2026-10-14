@@ -548,6 +548,22 @@ void paintProjectPage(HWND hwnd) {
                L"More units and sprites off");
         option(L"Air units do not push apart", "noAirCollision", L"Air units can stay on top of each other (euddraft's noAirCollision)",
                L"Air units do not push apart", L"Air units push apart");
+        {  // New graphics for preplaced units (R8): the map's code makes them again at the start
+            const bool set = pr->remakeUnits();
+            ui::check(mem, {l.x0 + l.labelW, y, l.colRight, y + rowH}, L"New graphics for preplaced units", set,
+                      [set] {
+                          EudProject* p = activeProject();
+                          if (!p) return;
+                          p->setRemakeUnits(!set);
+                          projectSave(*p, set ? L"New graphics for preplaced units off" : L"New graphics for preplaced units on");
+                          projectFormRefresh();
+                      },
+                      L"The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, the map "
+                      L"removes each preplaced unit that the edits give other graphics, and makes it again on its place at the start. The map "
+                      L"view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground "
+                      L"that it cannot stand on) moves near its place, or the game does not make it again.");
+            y += rowH;
+        }
         {  // Debug build: the triggers check indexes in the game (T.5)
             const bool set = pr->debugBuild();
             ui::check(mem, {l.x0 + l.labelW, y, l.colRight, y + rowH}, L"Debug build", set,

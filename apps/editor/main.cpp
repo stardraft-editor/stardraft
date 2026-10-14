@@ -648,6 +648,8 @@ struct App {
 
 App app;
 
+int gUnitGraphics = 0;  // changes when syncMapUnitGraphics gives the map other unit graphics
+
 // The unit palette in the right side bar: units in sections (Terran Ground, Zerg Air, ...), as a list
 // or as a grid of command icons or unit sprites. Clicking one places it.
 struct UnitPalette {
@@ -670,6 +672,7 @@ struct UnitPalette {
     int scroll = 0, contentH = 0, hover = -1;
     std::map<std::tuple<int, int, int, bool>, Bitmap> bitmaps;  // (mode, value, owner, sprite)
     const void* bitmapsFor = nullptr;                      // editor the bitmaps were made with
+    int bitmapsGraphics = -1;                              // ... gUnitGraphics (the unit graphics of the project's edits, or not)
     int bitmapsEra = -1, bitmapsMode = -1;                 // ... tileset, and graphics mode (0 SD, 1 HD, 2 Carbot)
     std::vector<Sprite> hdIcons;                           // HD2 (or Carbot) command icons, for bitmapsMode
     std::map<int, Sprite> hdPictures;                      // HD2 unit pictures by unit * 16 + owner
@@ -1128,6 +1131,14 @@ void addImage(render::Scene& s, const render::SpriteDraw& d) {
     }
 }
 
+// New graphics for preplaced units (R8): while the option is on, the map shows the units with the edited graphics,
+// but a unit that the map's code does not make again (EudProject::remakeKeeps) keeps the game's graphics. Per unit
+// type, the game's image and subunit image; empty while the option is off (syncMapUnitGraphics).
+std::vector<int> gGameUnitImage, gGameSubunitImage;
+bool keepsGameGraphics(const Unit& u) { return u.type < gGameUnitImage.size() && EudProject::remakeKeeps(u); }
+int mapUnitImage(UnitSprites& sp, const Unit& u) { return keepsGameGraphics(u) ? gGameUnitImage[u.type] : sp.imageFor(u.type); }
+int mapSubunitImage(UnitSprites& sp, const Unit& u) { return keepsGameGraphics(u) ? gGameSubunitImage[u.type] : sp.subunitImage(u.type); }
+
 // --- Unit animation ----------------------------------------------------------------------------------
 
 // Each map unit plays its idle animation (iscript: Init, or Built for buildings, as a preplaced unit
@@ -1147,7 +1158,7 @@ UnitAnim& unitAnim(const Unit& u) {
     auto [it, fresh] = gAnims.try_emplace(uint64_t(u.serial) << 16 | u.type);
     if (fresh) {
         const bool building = u.type < app.ed->unitTypes().size() && app.ed->unitTypes()[u.type].is(UnitFlag::Building);
-        const int image = sp.imageFor(u.type), sub = sp.subunitImage(u.type);
+        const int image = mapUnitImage(sp, u), sub = mapSubunitImage(sp, u);
         it->second.main = ImageAnim(sp, image, u.serial, building && sp.animOffset(image, 16) ? 16 : 0);
         if (sub >= 0) it->second.sub = ImageAnim(sp, sub, u.serial + 1, 0);
     }
@@ -1177,7 +1188,7 @@ void addUnitSprites(render::Scene& s, const Unit& u, float dx, float dy, float a
     if (u.type >= ed.unitTypes().size()) return;
     const UnitType& t = ed.unitTypes()[u.type];
     render::SpriteDraw d;
-    d.image = sp.imageFor(u.type);
+    d.image = mapUnitImage(sp, u);
     d.frame = sp.defaultFrame(u.type, d.image, d.flip);
     UnitAnim* anim = animate && app.animate ? &unitAnim(u) : nullptr;
     if (anim && anim->main.running()) d.frame = sp.animatedFrame(u.type, d.image, anim->main.frame(), d.flip);
@@ -1187,7 +1198,7 @@ void addUnitSprites(render::Scene& s, const Unit& u, float dx, float dy, float a
     d.air = t.is(UnitFlag::Flyer) && !t.is(UnitFlag::Building);
     d.tintRed = red;
     addImage(s, d);
-    int sub = sp.subunitImage(u.type);
+    int sub = mapSubunitImage(sp, u);
     if (sub >= 0) {
         render::SpriteDraw st = d;
         st.image = sub;
@@ -1346,7 +1357,9 @@ Rect terrainSelectRect(float wx, float wy) {
     return Rect{x0 * 32, y0 * 32, (x1 + 1) * 32, (y1 + 1) * 32};
 }
 
+void syncMapUnitGraphics();
 render::Scene buildScene() {
+    syncMapUnitGraphics();  // before the animations: they hold the images of the unit types
     render::Scene s;
     ghostTiles.clear();
     if (gAnimsFor != app.ed.get()) gAnims.clear(), gAnimsFor = app.ed.get();
@@ -2891,6 +2904,57 @@ bool trigShowBuildError(const std::string& logLine);
 bool dataCommitEdit();
 void stringsCommitEdit();
 
+// New graphics for preplaced units (R8): generated/remake.eps, or none when the option is off. `notes` gets how many
+// units the code makes again, and how many stand where the game cannot put them.
+std::vector<uint16_t> remakeUnitTypes();
+bool writeRemakeCode(EudProject& pr, std::string& err, std::vector<std::wstring>& notes) {
+    std::vector<EudProject::RemakeType> list;
+    if (pr.remakeUnits() && app.ed) {
+        const auto& types = app.ed->unitTypes();
+        const auto& units = app.ed->units();
+        const auto nydus = types.findByName("Zerg Nydus Canal");
+        std::set<uint16_t> changed, hangars;
+        for (const Unit& u : units)
+            if (u.validProps & UnitProp::Hangar) hangars.insert(u.type);
+        for (uint16_t t : remakeUnitTypes())
+            if (t < types.size()) {
+                changed.insert(t);
+                const UnitType& ut = types[t];
+                list.push_back({t, ut.name, ut.is(UnitFlag::Building), ut.is(UnitFlag::ResourceContainer), ut.is(UnitFlag::Addon), nydus && *nydus == t,
+                                hangars.count(t) != 0, ut.is(UnitFlag::Cloakable)});
+            }
+        // The game puts a unit only where it fits: a ground unit on walkable ground (a building on buildable ground), and
+        // not on other ground units. Air units can be on top of each other.
+        PlacementContext ctx = app.ed->placementContext();
+        ctx.stacking = false;
+        int count = 0, kept = 0, blocked = 0;
+        for (size_t i = 0; i < units.size(); ++i) {
+            const Unit& u = units[i];
+            if (!changed.count(u.type)) continue;
+            if (EudProject::remakeKeeps(u)) {
+                ++kept;
+                continue;
+            }
+            ++count;
+            const UnitType& ut = types[u.type];
+            if (ut.is(UnitFlag::Flyer) && !ut.is(UnitFlag::Building)) continue;
+            const auto issues = checkPlacement(ctx, u, int(i));
+            blocked += std::any_of(issues.begin(), issues.end(), [](PlacementIssue p) { return p != PlacementIssue::NearResources; });
+        }
+        if (count)
+            notes.push_back(L"New graphics for preplaced units: " + std::to_wstring(count) + (count == 1 ? L" unit is" : L" units are") +
+                            L" made again at the start");
+        if (kept)
+            notes.push_back(std::to_wstring(kept) + (kept == 1 ? L" preplaced unit keeps" : L" preplaced units keep") +
+                            L" the old graphics: a new unit cannot be cloaked, burrowed, lifted, loaded, a hallucination, linked to an add-on or a "
+                            L"Nydus Canal, or have interceptors or scarabs.");
+        if (blocked)
+            notes.push_back(std::to_wstring(blocked) + (blocked == 1 ? L" of the units that are made again stands" : L" of the units that are made again stand") +
+                            L" where the game cannot put a unit. The game puts it near its place, or does not make it again.");
+    }
+    return pr.writeGeneratedScript("remake.eps", EudProject::remakeUnitsScript(list), err);
+}
+
 void compileProject() {
     mapPageFlush();  // a text being typed on a map page is in the build too
     stringsCommitEdit();  // and a text or value being typed in the Data workspace (not a number: no build, the status says why)
@@ -2932,6 +2996,13 @@ void compileProject() {
         themedMessageBox(app.main, widen(err).c_str(), L"Could not write the .dat edits", MB_ICONERROR);
         return;
     }
+    std::vector<std::wstring> remakeNotes;
+    if (!writeRemakeCode(*pr, err, remakeNotes)) {
+        logLine(widen(err), true);
+        app.message = L"Did not build the map: " + widen(err);
+        updateStatus();
+        return;
+    }
     if ((app.ed->modified() || app.ed->path() != pr->inputMap()) && !app.ed->save(pr->inputMap(), err)) {
         themedMessageBox(app.main, widen(err).c_str(), L"Could not save the project's map", MB_ICONERROR);
         return;
@@ -2941,6 +3012,7 @@ void compileProject() {
     if (gLog.wnd) InvalidateRect(gLog.wnd, nullptr, FALSE);
     showBuildLog(true);
     for (const std::string& m : datNotes) logLine(widen(m), true);
+    for (const std::wstring& m : remakeNotes) logLine(m);
     buildLogAppend(L"Compiling " + pr->file().wstring());
     gTrigBuildError.clear();
     gBuilding = true;
@@ -5652,7 +5724,7 @@ const UnitPalette::Bitmap* unitPaletteBitmap(int unit, Mode what, bool iconFrame
     Editor& ed = *app.ed;
     // Same art as the map view: SD, HD (HD2 resolution is plenty here) or the Carbot skin.
     const int mode = app.carbot ? 2 : app.quality == GraphicsQuality::SD ? 0 : 1;
-    if (gPal.bitmapsFor != &ed || gPal.bitmapsEra != ed.era() || gPal.bitmapsMode != mode) {
+    if (gPal.bitmapsFor != &ed || gPal.bitmapsEra != ed.era() || gPal.bitmapsMode != mode || gPal.bitmapsGraphics != gUnitGraphics) {
         for (auto& [k, b] : gPal.bitmaps)
             if (b.bmp) DeleteObject(b.bmp);
         gPal.bitmaps.clear();
@@ -5676,7 +5748,7 @@ const UnitPalette::Bitmap* unitPaletteBitmap(int unit, Mode what, bool iconFrame
                 }
         }
         gPal.hdTilesLoaded = false;
-        gPal.bitmapsFor = &ed, gPal.bitmapsEra = ed.era(), gPal.bitmapsMode = mode;
+        gPal.bitmapsFor = &ed, gPal.bitmapsEra = ed.era(), gPal.bitmapsMode = mode, gPal.bitmapsGraphics = gUnitGraphics;
     }
     const int kind = iconFrame ? 100 : int(what);
     const bool unitKind = what == Mode::Units && !iconFrame;
@@ -8564,6 +8636,76 @@ UnitSprites& dataSprites() {
         appliedAt = gData.edits;
     }
     return *own;
+}
+
+// New graphics for preplaced units (Project page, R8): the game makes the preplaced units before the .dat edits run,
+// so they keep the game's graphics. With the option on, Build adds code that makes them again, and the map shows them
+// with the edited graphics.
+// The project's units.dat, flingy.dat, sprites.dat and images.dat edits on `sp`.
+void applyProjectGraphics(UnitSprites& sp) {
+    dataLoadForProject();
+    const DatTable* units = datTable(datTabOf("units"));
+    const DatTable* flingy = datTable(datTabOf("flingy"));
+    const DatTable* sprites = datTable(datTabOf("sprites"));
+    const DatTable* images = datTable(datTabOf("images"));
+    if (sprites && images) sp.applyEdits(sprites->bytes(), images->bytes());
+    if (units && flingy) sp.applyUnitEdits(units->bytes(), flingy->bytes());
+}
+
+// The unit types that the project's edits give other graphics (none without a project).
+std::vector<uint16_t> remakeUnitTypes() {
+    static std::unique_ptr<UnitSprites> game, edited;
+    static std::vector<uint16_t> types;
+    static int at = -1;
+    static const EudProject* atProject = nullptr;
+    const EudProject* pr = activeProject();
+    if (!pr) return {};
+    dataLoadForProject();
+    if (at == gData.edits && atProject == pr && edited) return types;
+    std::string err;
+    if (!game) {
+        game = std::make_unique<UnitSprites>();
+        if (!game->load(app.data, err)) return game.reset(), std::vector<uint16_t>{};
+    }
+    edited = std::make_unique<UnitSprites>();
+    if (!edited->load(app.data, err)) return edited.reset(), std::vector<uint16_t>{};
+    applyProjectGraphics(*edited);
+    types = UnitSprites::changedUnitGraphics(*game, *edited);
+    at = gData.edits, atProject = pr;
+    return types;
+}
+
+// The map view's unit graphics: the edited ones while the option is on, else the game's.
+void syncMapUnitGraphics() {
+    static const Editor* edFor = nullptr;
+    static long long key = -1;
+    static std::set<const Editor*> edited;  // editors that show edited graphics (or did)
+    if (!app.ed) return;
+    const EudProject* pr = activeProject();
+    const bool on = pr && pr->remakeUnits();
+    if (on) dataLoadForProject();
+    const long long now = on ? (long long)(uintptr_t(pr) & 0xFFFFFF) << 32 | unsigned(gData.edits) : -2;
+    if (edFor == app.ed.get() && key == now) return;
+    edFor = app.ed.get(), key = now;
+    UnitSprites& sp = app.ed->unitSprites();
+    gGameUnitImage.clear(), gGameSubunitImage.clear();
+    if (on) {
+        static std::unique_ptr<UnitSprites> game;
+        std::string err;
+        if (!game && !(game = std::make_unique<UnitSprites>())->load(app.data, err)) game.reset();
+        for (uint16_t t = 0; game && t < app.ed->unitTypes().size(); ++t)
+            gGameUnitImage.push_back(game->imageFor(t)), gGameSubunitImage.push_back(game->subunitImage(t));
+        applyProjectGraphics(sp);
+        edited.insert(edFor);
+    } else if (edited.erase(edFor)) {
+        std::string err;
+        sp.load(app.data, err);
+    } else {
+        return;
+    }
+    gAnims.clear();  // the animations of the old images
+    app.renderer.reloadImages();  // their glows (draw function, remapping)
+    ++gUnitGraphics;  // the Units palette's pictures
 }
 
 struct {
@@ -25193,6 +25335,73 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 log << "status: " << narrow(app.message) << "\n";
                 log << "project: " << narrow(activeProject()->folder().wstring()) << "\n";
                 log << "built: " << (fs::exists(activeProject()->outputMap(), ec) ? narrow(activeProject()->outputMap().wstring()) : std::string("NO")) << "\n";
+                continue;
+            }
+            if (s == "remaketest:" || s == "remake:on" || s == "remake:off") {
+                // R8: remaketest: a project whose Terran Marine has the Terran Firebat's graphics (units.dat Graphics),
+                // with preplaced marines (one on top of another), and New graphics for preplaced units on; built.
+                // remake.txt: the changed unit types, the generated code, the build. remake:on|off: the option.
+                if (s != "remaketest:") {
+                    if (EudProject* pr = activeProject()) pr->setRemakeUnits(s == "remake:on");
+                    for (int i = 0; i < 5; ++i) pump();
+                    continue;
+                }
+                std::ofstream log(fs::path(datashots) / "remake.txt");
+                std::string err;
+                std::error_code ec;
+                fs::remove_all(fs::path(datashots) / "RemakeTest", ec);
+                newMap();
+                if (!createProject(fs::path(datashots), "RemakeTest", true, err)) {
+                    log << "project not made: " << err << "\n";
+                    continue;
+                }
+                const uint16_t marine = app.ed->unitTypes().findByName("Terran Marine").value_or(0);
+                const uint16_t firebat = app.ed->unitTypes().findByName("Terran Firebat").value_or(32);
+                app.ed->placeUnit(app.ed->unitTypes().findByName("Start Location").value_or(214), 0, 1024, 1024);  // the game needs one
+                for (int i = 0; i < 4; ++i) app.ed->placeUnit(marine, 0, 1984 + i * 32, 2048);
+                app.ed->placeUnit(marine, 0, 1984, 2048, false);  // on top of the first one: the game cannot put it there
+                app.ed->placeUnit(firebat, 0, 1984, 2112);
+                // The last marine is a hallucination: the code cannot make it again, so it keeps the Terran Marine's graphics.
+                for (int i = int(app.ed->units().size()) - 1; i >= 0; --i)
+                    if (app.ed->units()[size_t(i)].type == marine) {
+                        app.ed->updateUnits({i}, [](Unit& u) { u.validState |= UnitState::Hallucinated, u.state |= UnitState::Hallucinated; });
+                        break;
+                    }
+                app.ed->save(activeProject()->inputMap(), err);
+                setWorkspace(Workspace::Data);
+                for (int i = 0; i < 5; ++i) pump();
+                DatTable* units = datTable(datTabOf("units"));
+                const DatField* graphics = datFieldNamed("units", "Graphics");
+                if (units && graphics) units->set(*graphics, marine, uint32_t(datValue("units", "Graphics", firebat)));
+                dataSaved();
+                const auto types = remakeUnitTypes();
+                log << "changed unit types:";
+                for (uint16_t t : types) log << " " << t << " (" << app.ed->unitTypes()[t].name << ")";
+                log << "\n";
+                log << "marine changed, firebat not: " << (std::count(types.begin(), types.end(), marine) && !std::count(types.begin(), types.end(), firebat) ? "yes" : "NO")
+                    << "\n";
+                activeProject()->setRemakeUnits(true);
+                activeProject()->save(err);
+                setWorkspace(Workspace::Map);
+                command(ID_PROJ_COMPILE);
+                for (int i = 0; i < 6000 && gBuilding; ++i) pump(), Sleep(20);
+                log << "built: " << (fs::exists(activeProject()->outputMap(), ec) ? "yes" : "NO") << "\n";
+                const auto sections = activeProject()->sections();
+                int remakeAt = -1, triggersAt = -1;
+                for (size_t i = 0; i < sections.size(); ++i) {
+                    if (sections[i].name == "generated/remake.eps") remakeAt = int(i);
+                    if (sections[i].name == "generated/triggers.eps") triggersAt = int(i);
+                }
+                log << "remake.eps in the build: " << (remakeAt > 0 ? "yes" : "NO") << ", before the triggers: "
+                    << (triggersAt < 0 ? "no triggers" : remakeAt < triggersAt ? "yes" : "NO") << "\n";
+                log << "the log:\n";
+                if (gBuildLogText) {
+                    std::wstring text(size_t(GetWindowTextLengthW(gBuildLogText)) + 1, L'\0');
+                    text.resize(size_t(GetWindowTextW(gBuildLogText, text.data(), int(text.size()))));
+                    log << narrow(text) << "\n";
+                }
+                std::ifstream code(activeProject()->folder() / "generated" / "remake.eps");
+                log << "generated/remake.eps:\n" << code.rdbuf();
                 continue;
             }
             if (s == "drawtest:") {

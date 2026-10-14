@@ -509,6 +509,8 @@ void Renderer::setSources(const GameData* data, UnitSprites* sprites, const Tile
     r.data = data, r.unitSprites = sprites, r.tileset = tileset, r.era = era;
 }
 
+void Renderer::reloadImages() { impl_->freeImages(); }
+
 void Renderer::updateTerrain(const TerrainLayer& mtxm) {
     Impl& r = *impl_;
     r.mapW = mtxm.width, r.mapH = mtxm.height;

@@ -28,6 +28,8 @@
 
 namespace stardraft {
 
+struct Unit;
+
 class EudProject {
 public:
     struct Section {
@@ -94,6 +96,28 @@ public:
     // traceReport() when it closes (eptrace.h). Call save() to keep a change.
     bool traceBuild() const;
     void setTraceBuild(bool on);
+    // New graphics for preplaced units ("remake: 1" in [project]; not written to the .eds): the map's code removes each
+    // preplaced unit that the .dat edits give other graphics, and makes it again at the start, so that it shows them
+    // (remakeUnitsScript). Call save() to keep a change.
+    bool remakeUnits() const;
+    void setRemakeUnits(bool on);
+    // The code for that: each unit of `types` removed and made again on its place with the same owner, hit points,
+    // shields, energy, resources and invincibility. The units that a new unit cannot copy stay as they are: not
+    // finished, burrowed, loaded, hallucinations, lifted buildings, cloaked units, units with an add-on, an attached
+    // add-on, a linked Nydus Canal, and units with interceptors or scarabs. Empty for no types.
+    struct RemakeType {
+        uint16_t type = 0;
+        std::string name;
+        bool building = false;   // stays when it is lifted or has an add-on
+        bool resources = false;  // a mineral field or a geyser: its resources go to the new unit
+        bool addon = false;      // stays when it is attached
+        bool nydus = false;      // a Nydus Canal: stays when it has an exit
+        bool hangar = false;     // stays when it has interceptors or scarabs
+        bool cloakable = false;  // stays when it is cloaked
+    };
+    // Whether a preplaced unit stays (see above), by what the map's UNIT section says of it.
+    static bool remakeKeeps(const Unit& unit);
+    static std::string remakeUnitsScript(const std::vector<RemakeType>& types);
     std::filesystem::path traceMap() const { return std::filesystem::path(outputMap()) += ".epmap"; }
     std::filesystem::path traceReport() const { return traceMap() += ".prof"; }
     // A euddraft plugin with no settings or a few ([unlimiter], [noAirCollision], [bgmplayer], [dataDumper]): whether
