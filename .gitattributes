@@ -1,0 +1,2 @@
+# Shell scripts keep LF line ends on every checkout (bash in WSL and on the CI runners reads them).
+*.sh text eol=lf

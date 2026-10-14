@@ -5,7 +5,8 @@
 # Latest; its text is the "## <version>" section of docs/user/CHANGELOG.md (what is new), then the base changelog (its
 # last section, what StarDraft is) for new visitors. The symbols go to a draft release symbols-v<version>.
 # StarDraft's Check for updates reads "(build <commit>)" in the newest release's title. Each release keeps its own
-# download count. The tests need a StarCraft: Remastered install, so they are not run here.
+# download count. Most tests need a StarCraft: Remastered install, so they are not run here. The jobs linux and macos
+# build the library, the tools and the tests on those systems.
 name: Build
 
 on:
@@ -151,3 +152,72 @@ jobs:
             }
           }
           if ($failed) { throw "$failed Discord posts did not go: post again with Actions > Post screenshots to Discord" }
+
+  # The library, the tools and the tests on Linux and macOS (research/ports/PLAN.md, phase 1): built, and the tests
+  # that need no game data run. No program for these systems yet, so nothing is uploaded and no release waits for them.
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the build tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build clang
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            build-gcc/_deps
+            build-clang/_deps
+          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Build with GCC
+        run: |
+          cmake -S . -B build-gcc -G Ninja -DCMAKE_BUILD_TYPE=Release -DSTARDRAFT_RENDERER=OFF -DCMAKE_CXX_COMPILER=g++ -DCMAKE_C_COMPILER=gcc
+          cmake --build build-gcc --parallel
+
+      - name: Build with Clang
+        run: |
+          cmake -S . -B build-clang -G Ninja -DCMAKE_BUILD_TYPE=Release -DSTARDRAFT_RENDERER=OFF -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang
+          cmake --build build-clang --parallel
+
+      # The UI text rules and trigger_test's checks without the game (the block library, the checker, epScript).
+      - name: Run the tests that need no game data
+        run: |
+          python3 -I tools/ui_text_lint.py
+          build-gcc/trigger_test "$RUNNER_TEMP/trigger_test"
+
+  macos:
+    runs-on: macos-15  # arm64, Xcode's clang and libc++
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSTARDRAFT_RENDERER=OFF -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+          cmake --build build --parallel
+
+      - name: Run the tests that need no game data
+        run: build/trigger_test "$RUNNER_TEMP/trigger_test"
+
+  # The tests with the game's data, on a self-hosted runner in WSL Ubuntu on the owner's PC (labels self-hosted, linux,
+  # scdata; research/ports/PLAN.md 1.6). Off until the repository variable STARDRAFT_DATA_RUNNER is "on". The
+  # repository is public: this job never runs for pull requests or forks, only for pushes here and by hand.
+  # The install: $STARDRAFT_SC_INSTALL on the runner, else ~/scmirror (exact-case names, see linux_data_tests.sh).
+  linux-data:
+    if: vars.STARDRAFT_DATA_RUNNER == 'on' && github.event_name != 'pull_request' && github.repository == 'stardraft-editor/stardraft'
+    runs-on: [self-hosted, linux, scdata]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSTARDRAFT_RENDERER=OFF
+          cmake --build build --parallel
+
+      - name: Run the tests with game data
+        run: bash tools/ci/linux_data_tests.sh build "${STARDRAFT_SC_INSTALL:-$HOME/scmirror}" "$RUNNER_TEMP/data-tests"
