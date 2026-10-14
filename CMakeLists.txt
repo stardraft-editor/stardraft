@@ -196,7 +196,9 @@ if(STARDRAFT_RENDERER)
     FetchContent_Declare(SDL3
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
         GIT_TAG release-3.4.18
-        GIT_SHALLOW TRUE)
+        GIT_SHALLOW TRUE
+        PATCH_COMMAND ${CMAKE_COMMAND} -P ${CMAKE_SOURCE_DIR}/cmake/patch_sdl.cmake  # (macOS: Hanja; see the script)
+        UPDATE_DISCONNECTED TRUE)
     FetchContent_MakeAvailable(SDL3)
 
     # Shaders: SPIR-V and MSL are made once by tools/gen_shaders.py into shaders/gen/ (in git). On Windows the build
