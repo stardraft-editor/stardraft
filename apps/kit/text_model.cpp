@@ -35,30 +35,50 @@ CharClass classOf(wchar_t c) {
 std::wstring fromUtf8(std::string_view s) {
     std::wstring o;
     o.reserve(s.size());
-    for (size_t i = 0; i < s.size();) {
+    size_t i = 0;
+    while (i < s.size()) {
         const unsigned char c = (unsigned char)s[i];
-        uint32_t cp = 0;
-        size_t n = 0;
-        if (c < 0x80) cp = c, n = 1;
-        else if ((c & 0xE0) == 0xC0) cp = c & 0x1F, n = 2;
-        else if ((c & 0xF0) == 0xE0) cp = c & 0x0F, n = 3;
-        else if ((c & 0xF8) == 0xF0) cp = c & 0x07, n = 4;
-        else {
-            o += wchar_t(0xFFFD), ++i;
+        if (c < 0x80) {
+            o += wchar_t(c);
+            ++i;
             continue;
         }
-        if (i + n > s.size()) {  // cut off at the end
+        // A lead byte, then continuation bytes. The ranges reject overlong forms, surrogates and code points above
+        // U+10FFFF. A bad or missing byte ends the sequence (one U+FFFD for the bytes before it); the rest goes on.
+        size_t n = 0;
+        uint32_t cp = 0;
+        unsigned char lo = 0x80, hi = 0xBF;  // the range of the second byte
+        if (c >= 0xC2 && c <= 0xDF) n = 2, cp = c & 0x1F;
+        else if (c >= 0xE0 && c <= 0xEF) {
+            n = 3, cp = c & 0x0F;
+            if (c == 0xE0) lo = 0xA0;
+            else if (c == 0xED) hi = 0x9F;
+        } else if (c >= 0xF0 && c <= 0xF4) {
+            n = 4, cp = c & 0x07;
+            if (c == 0xF0) lo = 0x90;
+            else if (c == 0xF4) hi = 0x8F;
+        } else {
             o += wchar_t(0xFFFD);
-            break;
+            ++i;
+            continue;
         }
+        size_t k = 1;
         bool ok = true;
-        for (size_t k = 1; k < n && ok; ++k) {
+        for (; k < n; ++k) {
+            if (i + k >= s.size()) {
+                ok = false;
+                break;
+            }
             const unsigned char d = (unsigned char)s[i + k];
-            if ((d & 0xC0) != 0x80) ok = false;
-            else cp = (cp << 6) | (d & 0x3F);
+            if (d < (k == 1 ? lo : 0x80) || d > (k == 1 ? hi : 0xBF)) {
+                ok = false;
+                break;
+            }
+            cp = (cp << 6) | (d & 0x3F);
         }
         if (!ok) {
-            o += wchar_t(0xFFFD), ++i;
+            o += wchar_t(0xFFFD);
+            i += k;  // the valid part of the sequence; the byte that broke it is read again
             continue;
         }
         i += n;
@@ -131,14 +151,22 @@ std::wstring TextModel::sanitize(std::wstring_view s, size_t room) const {
 
 void TextModel::setCaret(size_t pos, bool extend) {
     groupBreak_ = true;
-    caret_ = std::min(pos, text_.size());
+    caret_ = boundary(pos);
     if (!extend) anchor_ = caret_;
 }
 
 void TextModel::setSelection(size_t anchor, size_t caret) {
     groupBreak_ = true;
-    anchor_ = std::min(anchor, text_.size());
-    caret_ = std::min(caret, text_.size());
+    anchor_ = boundary(anchor);
+    caret_ = boundary(caret);
+}
+
+// A position clamped to the text, moved from inside a surrogate pair to its start.
+size_t TextModel::boundary(size_t pos) const {
+    const size_t n = text_.size();
+    if (pos >= n) return n;
+    if (pos > 0 && isLowSurrogate(text_[pos]) && isHighSurrogate(text_[pos - 1])) return pos - 1;
+    return pos;
 }
 
 size_t TextModel::prevPos(size_t pos) const {
@@ -267,11 +295,13 @@ bool TextModel::redo() {
 
 // --- Words and lines ----------------------------------------------------------------------------------------------
 
+// A newline is a word of its own: each one is a step of its own.
 size_t TextModel::wordStartBefore(size_t pos) const {
     size_t i = std::min(pos, text_.size());
     while (i > 0 && classOf(text_[i - 1]) == kSpace) --i;
     if (i == 0) return 0;
     const CharClass cls = classOf(text_[i - 1]);
+    if (cls == kBreak) return i - 1;
     while (i > 0 && classOf(text_[i - 1]) == cls) --i;
     return i;
 }
@@ -279,7 +309,9 @@ size_t TextModel::wordStartBefore(size_t pos) const {
 size_t TextModel::wordEndAfter(size_t pos) const {
     const size_t n = text_.size();
     size_t i = std::min(pos, n);
-    if (i < n && classOf(text_[i]) != kSpace) {
+    if (i < n && classOf(text_[i]) == kBreak) {
+        ++i;
+    } else if (i < n && classOf(text_[i]) != kSpace) {
         const CharClass cls = classOf(text_[i]);
         while (i < n && classOf(text_[i]) == cls) ++i;
     }
@@ -296,8 +328,9 @@ void TextModel::wordAt(size_t pos, size_t& from, size_t& to) const {
     const size_t i = std::min(pos, n - 1);  // at the end: the character before
     const CharClass cls = classOf(text_[i]);
     from = i;
-    while (from > 0 && classOf(text_[from - 1]) == cls) --from;
     to = i + 1;
+    if (cls == kBreak) return;  // a newline alone
+    while (from > 0 && classOf(text_[from - 1]) == cls) --from;
     while (to < n && classOf(text_[to]) == cls) ++to;
 }
 

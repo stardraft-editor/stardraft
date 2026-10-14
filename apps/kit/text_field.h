@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "scroll_bar.h"
 #include "text_model.h"
 #include "theme.h"
 #include "view.h"
@@ -81,6 +82,7 @@ public:
     draw::Cursor cursor(draw::Point) override { return draw::Cursor::IBeam; }
     bool focusable() const override { return true; }
     void focusChanged(bool has) override;
+    void captureLost() override;
 
 private:
     struct Line {
@@ -112,6 +114,7 @@ private:
     size_t displayOf(size_t m) const;
     size_t modelOf(size_t d) const;
     size_t displayCaret() const;
+    size_t caretLine() const;  // the line the caret is on (see breakAt_)
     Attr attrAt(size_t d) const;
     const Span* spanAt(size_t m) const;
     std::vector<Run> runs(size_t from, size_t to) const;
@@ -129,16 +132,24 @@ private:
     void ensureCaretVisible();
     void clampScroll();
     void updateCaretRect();
-    void drawBar(draw::Canvas& c) const;
+    void syncBar();  // the scroll bar's place, range and position for the last layout
 
     void moveTo(size_t m, bool extend, bool keepGoal = false);
     void vertical(int dir, bool extend, int count);
-    size_t visualEdge(bool end) const;
+    // The model position of the start or end of the caret's visual line; wrapEnd: the end of a wrapped line.
+    size_t visualEdge(bool end, bool& wrapEnd) const;
+    // Runs an edit, then the after-action work, then onChange (last: the callback may destroy the field).
     template <class F>
     bool edit(F&& f) {
         const auto before = model_.revision();
         const bool r = f();
-        if (model_.revision() != before && onChange) onChange();
+        const bool changed = model_.revision() != before;
+        goalX_ = -1;
+        afterAction();
+        if (changed && onChange) {
+            const auto cb = onChange;  // a copy: it lives through the call even if the field is destroyed
+            cb();
+        }
         return r;
     }
     void copySelection();
@@ -152,6 +163,12 @@ private:
     TextModel model_;
     std::wstring placeholder_, comp_;
     size_t compCur_ = 0;  // the composition's caret, in units
+    // End on a wrapped line puts the caret after the line's last character. That position is also the next line's
+    // start, so the caret stays on the line it ended (this is the model position it applies to; ~0: none).
+    size_t breakAt_ = ~size_t(0);
+    bool focused_ = false;  // the field's own focus, as focusChanged reports it (the host can drop it while the router keeps it)
+    ScrollBar bar_;         // several lines taller than the field: the painted bar at the right edge
+    int barTotal_ = -1, barPage_ = -1;
     std::vector<Span> spans_;
     draw::FontDesc fontDesc_;
     bool wrap_ = true, changed_ = false;
