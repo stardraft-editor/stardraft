@@ -280,7 +280,9 @@ target_link_libraries(platform_test PRIVATE stardraft_platform)
 file(GLOB STARDRAFT_KIT_SOURCES CONFIGURE_DEPENDS apps/kit/*.cpp)
 add_library(stardraft_kit STATIC ${STARDRAFT_KIT_SOURCES})
 target_include_directories(stardraft_kit PUBLIC apps/common apps/kit)
-add_executable(kit_test tools/tests/kit_test.cpp)
+file(GLOB STARDRAFT_KIT_TESTS CONFIGURE_DEPENDS tools/tests/kit/*.cpp)
+add_executable(kit_test tools/tests/kit_test.cpp ${STARDRAFT_KIT_TESTS})
+target_include_directories(kit_test PRIVATE tools/tests)
 target_link_libraries(kit_test PRIVATE stardraft_kit)
 
 # --- stardraft-next: the new shell's spike (SDL3 + Dear ImGui; research/ports/PLAN.md, phase 4) ------------------
