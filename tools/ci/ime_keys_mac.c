@@ -81,7 +81,14 @@ int main(int argc, char** argv) {
             snprintf(token, sizeof token, "%.*s", (int)(end - c - 1), c + 1);
             c = end + 1;
             if (strncmp(token, "source:", 7) == 0) selectSource(token + 7);
-            else if (strcmp(token, "optreturn") == 0) post(kVK_Return, kCGEventFlagMaskAlternate), usleep(800000);
+            else if (strcmp(token, "optreturn") == 0) {  // (the Option key itself goes down too: input methods watch it)
+                CGEventRef optDown = CGEventCreateKeyboardEvent(NULL, kVK_Option, true), optUp = CGEventCreateKeyboardEvent(NULL, kVK_Option, false);
+                CGEventSetFlags(optDown, kCGEventFlagMaskAlternate), CGEventSetFlags(optUp, 0);
+                CGEventPost(kCGHIDEventTap, optDown), usleep(100000);
+                post(kVK_Return, kCGEventFlagMaskAlternate);
+                CGEventPost(kCGHIDEventTap, optUp), usleep(800000);
+                CFRelease(optDown), CFRelease(optUp);
+            }
             else if (strcmp(token, "return") == 0) post(kVK_Return, 0);
             else if (strcmp(token, "down") == 0) post(kVK_DownArrow, 0);
             else if (strcmp(token, "wait") == 0) usleep(500000);
