@@ -67,5 +67,22 @@ change("    DEBUG_IME(@\"attributedSubstringFromRange: (%d, %d)\", (int)aRange.l
     }
     return nil;")
 
+change("- (NSInteger)conversationIdentifier
+{"
+"// StarDraft: the whole text (the input method asks for it, as from a text view) and that it can be changed.
+- (NSAttributedString *)attributedString
+{
+    NSString *have = _markedText ? _markedText : _committedText;
+    return [[NSAttributedString alloc] initWithString:have ? have : @\"\"];
+}
+
+- (BOOL)isEditable
+{
+    return YES;
+}
+
+- (NSInteger)conversationIdentifier
+{")
+
 file(WRITE ${file} "${text}")
 message(STATUS "SDL: ${file} changed (the text for input methods)")
