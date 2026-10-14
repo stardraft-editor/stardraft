@@ -519,6 +519,7 @@ struct App {
     Mode mode = Mode::Units;
     std::vector<int> items;  // palette entries for the current mode; -1 = "(Select)"
     int palette = -1;        // selected palette entry value
+    int palette2 = -1;       // isometric terrain: the second terrain (Ctrl+click in the palette), painted with the right button
     int playerOwner = 0;
     float brushSize = 2;  // diamonds, whole numbers 1 to 32
     Brush::Shape brushShape = Brush::Diamond;
@@ -874,7 +875,7 @@ bool spriteIsOverlay(int i);
 void setMode(Mode m) {
     const bool changed = app.mode != m;
     if (changed) app.selDoodads.clear(), app.selSprites.clear(), app.pastingItems = false;
-    if (app.mode != m) app.palette = -1, gPal.chosen.clear();
+    if (app.mode != m) app.palette = -1, app.palette2 = -1, gPal.chosen.clear();
     // Density and symmetry are each mode's own.
     app.densityByMode[int(app.mode)] = app.sprayDensity;
     if (app.ed) app.symmetryByMode[int(app.mode)] = app.ed->mirrors();
@@ -6051,11 +6052,22 @@ void paintUnitPalette(HWND hwnd) {
         }
         const bool picked = units && e.value == app.palette;
         const bool chosen = units && std::find(gPal.chosen.begin(), gPal.chosen.end(), e.value) != gPal.chosen.end();
-        if (picked || chosen || int(i) == gPal.hover) {
+        const bool second = units && app.mode == Mode::Terrain && !app.terrainRect && e.value == app.palette2;  // the right button's
+        if (picked || chosen || second || int(i) == gPal.hover) {
             RECT f = r;
             InflateRect(&f, -1, -1);
             if (picked) ui::listRow(mem, f, true, false);
-            else fill(f, chosen ? kSel : kRowHot);
+            else fill(f, chosen || second ? kSel : kRowHot);
+            if (second) {  // a dashed accent frame, and "R" at its right end
+                HPEN pen = CreatePen(PS_DOT, 1, kAccent);
+                HGDIOBJ op = SelectObject(mem, pen), ob = SelectObject(mem, GetStockObject(NULL_BRUSH));
+                Rectangle(mem, f.left, f.top, f.right, f.bottom);
+                SelectObject(mem, op), SelectObject(mem, ob);
+                DeleteObject(pen);
+                RECT rt{f.right - scale(18), f.top, f.right - scale(4), f.bottom};
+                SetTextColor(mem, kAccent);
+                DrawTextW(mem, L"R", 1, &rt, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
+            }
         }
         RECT box = r;
         if (gPal.grid) InflateRect(&box, -scale(3), -scale(3));
@@ -6124,6 +6136,15 @@ void pickUnit(int v, bool add) {
     if (!app.ed || v < 0) return;
     if (app.mode == Mode::Terrain || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
         // Terrain: paint with it (leaving Select / copy); doodads and sprites: place it (Ctrl adds to a spray, #79).
+        if (add && app.mode == Mode::Terrain && !app.terrainRect) {  // the second terrain: the right button paints it
+            app.palette2 = app.palette2 == v ? -1 : v;
+            if (currentTool() == TSelect) app.toolByMode[int(Mode::Terrain)] = TBrush, fillToolCombo();
+            setMessage(app.palette2 > 0 ? L"Right button paints " + paletteItemName(v) + L"; left button paints " +
+                                              (app.palette > 0 ? paletteItemName(app.palette) : std::wstring(L"the terrain you click")) : L"Right button: no terrain");
+            app.dirty = true;
+            unitPaletteRepaint();
+            return;
+        }
         if (add && (app.mode == Mode::Doodads || app.mode == Mode::Sprites)) {
             auto it = std::find(gPal.chosen.begin(), gPal.chosen.end(), v);
             if (it != gPal.chosen.end()) gPal.chosen.erase(it);
@@ -6297,7 +6318,7 @@ LRESULT CALLBACK secondPaletteProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
         if (v >= 0) {
             setMode(m);
-            pickUnit(v, false);
+            pickUnit(v, (wp & MK_CONTROL) != 0);  // Ctrl: the second terrain (isometric), or one more doodad or sprite
         }
         return 0;
     }
@@ -17963,6 +17984,14 @@ void cancelStep() {
     app.dirty = true;
 }
 
+// Isometric terrain: the right button paints the second terrain (Ctrl+click in the palette) with the Brush, Spray, Fill
+// or Replace tool, as the left button paints the first. gRightStrokeSaved: the first terrain during such a stroke.
+int gRightStrokeSaved = -2;  // -2: no right-button stroke
+bool rightPaints() {
+    const int tool = currentTool();
+    return app.ed && app.mode == Mode::Terrain && !app.terrainRect && app.palette2 > 0 && (tool == TBrush || tool == TSpray || tool == TFill || tool == TReplace);
+}
+
 LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     static int panX = 0, panY = 0;
     static bool panByMiddle = false;  // the Pan drag is the middle button's (Options: Drag map)
@@ -17974,11 +18003,13 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     constexpr UINT_PTR kAutoPanTimer = 77;
     switch (msg) {
     case WM_LBUTTONDOWN:
+        if (gRightStrokeSaved != -2) return 0;  // a right-button stroke goes on
         SetFocus(hwnd);
         SetCapture(hwnd);
         mouseDown(GET_X_LPARAM(lp), GET_Y_LPARAM(lp), wp);
         return 0;
     case WM_LBUTTONUP:
+        if (gRightStrokeSaved != -2) return 0;
         ReleaseCapture();
         mouseUp(GET_X_LPARAM(lp), GET_Y_LPARAM(lp), wp);
         if (app.ed) {
@@ -18016,6 +18047,12 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_RBUTTONDOWN:  // the right button: a click opens the map's menu (WM_RBUTTONUP); only the middle button moves the camera
         SetFocus(hwnd);
+        if (app.drag == Drag::None && rightPaints()) {  // isometric terrain with a second terrain: the right button paints it
+            SetCapture(hwnd);
+            gRightStrokeSaved = app.palette, app.palette = app.palette2;
+            mouseDown(GET_X_LPARAM(lp), GET_Y_LPARAM(lp), wp & ~WPARAM(MK_CONTROL));
+            return 0;
+        }
         if (app.drag == Drag::None) gRightDown = true, SetCapture(hwnd);
         return 0;
     case WM_MBUTTONDOWN:  // the middle button scrolls the map: the farther the mouse from where it was pressed, the faster
@@ -18034,6 +18071,13 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SetCursor(LoadCursor(nullptr, IDC_SIZEALL));
         return 0;
     case WM_RBUTTONUP: {
+        if (gRightStrokeSaved != -2) {  // the end of a right-button stroke: the left button's terrain again
+            ReleaseCapture();
+            mouseUp(GET_X_LPARAM(lp), GET_Y_LPARAM(lp), wp);
+            app.palette = std::exchange(gRightStrokeSaved, -2);
+            app.dirty = true;
+            return 0;
+        }
         const bool wasDown = std::exchange(gRightDown, false);
         if (wasDown && GetCapture() == hwnd && app.drag != Drag::Pan && !(wp & MK_MBUTTON)) ReleaseCapture();  // (a held middle button keeps it)
         if (app.drag != Drag::None) return 0;  // during a drag (a middle-button pan too): nothing
@@ -26898,6 +26942,46 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 capture(fs::path(datashots) / "isomnull.png", app.main);
                 o << "can paint " << canPaint << ", tiles changed " << changed << ", tiles in the middle not null " << dirt << " "
                   << (changed > 0 && dirt > 0 ? "yes" : "NO") << "\n";
+                continue;
+            }
+            if (s == "isomtwo:") {  // isomtwo.txt, isomtwo.png: isometric terrain: click a terrain, Ctrl+click a second; left paints the first, right the second
+                std::ofstream o(fs::path(datashots) / "isomtwo.txt");
+                newMap(64, 64, 0, 1);
+                Editor& ed = *app.ed;
+                setWorkspace(Workspace::Map);
+                command(ID_MODE_TERRAIN);
+                app.terrainRect = false;
+                fillToolCombo();
+                centerOn(32 * 32, 32 * 32, 1);
+                for (int i = 0; i < 5; ++i) pump();
+                std::vector<int> picks;  // two terrains of the palette (not the map's dirt), clicked in the palette as a user does
+                for (size_t k = 0; k < gPal.entries.size() && picks.size() < 2; ++k) {
+                    const auto& en = gPal.entries[k];
+                    if (en.value <= 1) continue;
+                    if (gPal.scroll + scale(400) < en.rc.bottom) {  // scroll to it first
+                        gPal.scroll = std::max(0, int(en.rc.top) - scale(40));
+                        InvalidateRect(gPal.wnd, nullptr, FALSE), pump();
+                    }
+                    const int cx = (en.rc.left + en.rc.right) / 2, cy = (en.rc.top + en.rc.bottom) / 2 - gPal.scroll;
+                    const WPARAM keys = picks.empty() ? MK_LBUTTON : MK_LBUTTON | MK_CONTROL;
+                    SendMessageW(gPal.wnd, WM_LBUTTONDOWN, keys, MAKELPARAM(cx, cy));
+                    SendMessageW(gPal.wnd, WM_LBUTTONUP, keys & ~WPARAM(MK_LBUTTON), MAKELPARAM(cx, cy));
+                    picks.push_back(en.value);
+                }
+                o << "picked: first " << app.palette << ", second " << app.palette2 << " "
+                  << (picks.size() == 2 && app.palette == picks[0] && app.palette2 == picks[1] ? "yes" : "NO") << "\n";
+                int lx = 0, ly = 0, rx = 0, ry = 0;
+                toScreen(24 * 32, 32 * 32, lx, ly), toScreen(40 * 32, 32 * 32, rx, ry);
+                SendMessageW(app.view, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(lx, ly));
+                SendMessageW(app.view, WM_LBUTTONUP, 0, MAKELPARAM(lx, ly));
+                SendMessageW(app.view, WM_RBUTTONDOWN, MK_RBUTTON, MAKELPARAM(rx, ry));
+                SendMessageW(app.view, WM_RBUTTONUP, 0, MAKELPARAM(rx, ry));
+                const int left = ed.terrainAt(24 * 32, 32 * 32), right = ed.terrainAt(40 * 32, 32 * 32);
+                o << "the left button painted the first " << (picks.size() == 2 && left == picks[0] ? "yes" : "NO") << ", the right button the second "
+                  << (picks.size() == 2 && right == picks[1] ? "yes" : "NO") << ", the first is picked again after " << (picks.size() == 2 && app.palette == picks[0] ? "yes" : "NO")
+                  << " (" << left << ", " << right << ")\n";
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "isomtwo.png", app.main);
                 continue;
             }
             if (s == "scatter:") {  // scatter.txt: Rectangle Brush with two tiles selected: each tile of the brush is one of them (#120)
