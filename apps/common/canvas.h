@@ -6,7 +6,9 @@
 // Colors are 0x00BBGGRR (as the kit's color tokens); kNone: nothing is drawn.
 
 #include <cstdint>
+#include <memory>
 #include <string_view>
+#include <vector>
 
 namespace stardraft::draw {
 
@@ -46,13 +48,57 @@ struct Image {
     explicit operator bool() const { return handle != nullptr; }
 };
 
-// How text sits in its box. Text is always one line, and '&' is not special.
+// Pixels the program makes (the minimap, a palette's pictures): RGBA, premultiplied alpha, rows from the top. Each
+// canvas makes its own copy (a GDI bitmap, a texture) when it first draws it, and again after `changed()`.
+class Bitmap {
+public:
+    Bitmap() = default;
+    Bitmap(int w, int h) { resize(w, h); }
+    void resize(int w, int h) {
+        w_ = w, h_ = h;
+        px_.assign(size_t(w > 0 ? w : 0) * size_t(h > 0 ? h : 0), 0);
+        changed();
+    }
+    int width() const { return w_; }
+    int height() const { return h_; }
+    uint32_t* pixels() { return px_.data(); }  // 0xAABBGGRR (bytes R, G, B, A)
+    const uint32_t* pixels() const { return px_.data(); }
+    // After a change of the pixels.
+    void changed() { ++revision_; }
+    uint64_t revision() const { return revision_; }
+    // (For canvases: their copy of the pixels and the revision it is of.)
+    struct Native {
+        virtual ~Native() = default;
+        uint64_t revision = 0;
+    };
+    std::unique_ptr<Native> native;
+
+private:
+    int w_ = 0, h_ = 0;
+    std::vector<uint32_t> px_;
+    uint64_t revision_ = 1;
+};
+
+// How text sits in its box. '&' is not special.
 enum TextFlags : unsigned {
     kLeft = 0,
     kCenter = 1,
     kRight = 2,
-    kMiddle = 4,    // in the middle of the box from top to bottom (else at the top)
-    kEllipsis = 8,  // "..." at the end when it does not fit
+    kMiddle = 4,          // in the middle of the box from top to bottom (else at the top; one line only)
+    kEllipsis = 8,        // "..." at the end when it does not fit
+    kWrap = 16,           // lines broken between words to fit the width (else one line)
+    kPathEllipsis = 32,   // "..." in the middle of a file path when it does not fit
+    kBottom = 64,         // at the bottom of the box (one line only)
+};
+
+enum class LineStyle { Solid, Dash, Dot };
+
+// A font by what it is for; the canvas makes it and keeps it.
+enum class Face { Ui, Mono, Glyphs /*the icon glyph font (Segoe MDL2 Assets on Windows)*/ };
+struct FontDesc {
+    Face face = Face::Ui;
+    int px = 0;  // the height of the letters in pixels; 0: the UI's size
+    bool bold = false, italic = false, underline = false;
 };
 
 class Canvas {
@@ -67,16 +113,32 @@ public:
     virtual void smoothRoundOutline(Rect r, float radius, Color line, float width = 1.0f) = 0;
     // An ellipse in `r` (as a GDI Ellipse: `r` includes the outline).
     virtual void ellipse(Rect r, Color fill, Color line) = 0;
-    virtual void line(int x0, int y0, int x1, int y1, Color c, int width = 1) = 0;
+    // An ellipse's outline in `r`, `width` px wide.
+    virtual void ring(Rect r, Color line, int width = 1, LineStyle style = LineStyle::Solid) = 0;
+    // A rectangle's outline inside `r`.
+    virtual void frame(Rect r, Color line, int width = 1, LineStyle style = LineStyle::Solid) = 0;
+    virtual void line(int x0, int y0, int x1, int y1, Color c, int width = 1, LineStyle style = LineStyle::Solid) = 0;
     // Lines from point to point.
-    virtual void polyline(const Point* pts, int n, Color c, int width = 1) = 0;
+    virtual void polyline(const Point* pts, int n, Color c, int width = 1, LineStyle style = LineStyle::Solid) = 0;
+    // A filled polygon.
+    virtual void polygon(const Point* pts, int n, Color fill, Color line = kNone) = 0;
+
+    // Drawing only inside `r` (and inside the clip before it) until popClip().
+    virtual void pushClip(Rect r) = 0;
+    virtual void popClip() = 0;
 
     // Text in the current font.
     virtual void text(Rect r, std::wstring_view t, Color c, unsigned flags = kMiddle) = 0;
     virtual int measure(std::wstring_view t) = 0;
+    // The size of `t` drawn with `flags` in a box `width` wide (kWrap: its lines' height).
+    virtual Point measureBox(std::wstring_view t, int width, unsigned flags) = 0;
     virtual FontMetrics metrics() = 0;
     // Makes `f` the current font; returns the one before.
     virtual Font setFont(Font f) = 0;
+    virtual Font font(const FontDesc& d) = 0;
+
+    // Part `src` of `b` into `dst` (scaled; `smooth`: filtered, else nearest pixels), with `alpha` (255: as it is).
+    virtual void bitmap(Bitmap& b, Rect src, Rect dst, bool smooth = false, uint8_t alpha = 255) = 0;
 
     // A UI icon (apps/editor/res/ui_icons.h) in the middle of `r`, in color `c`, at the atlas size for `px` pixels.
     virtual void icon(Rect r, int icon, Color c, int px) = 0;
