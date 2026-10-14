@@ -46,7 +46,7 @@ public:
     ImguiCanvas(ImDrawList& list, SDL_GPUDevice* device);
 
     void fill(draw::Rect r, draw::Color c, uint8_t alpha = 255) override;
-    void roundBox(draw::Rect r, draw::Color fill, draw::Color line, int radius, int width = 1) override;
+    void roundBox(draw::Rect r, draw::Color fill, draw::Color line, float radius, int width = 1) override;
     void smoothRoundOutline(draw::Rect r, float radius, draw::Color line, float width = 1.0f) override;
     void ellipse(draw::Rect r, draw::Color fill, draw::Color line) override;
     void ring(draw::Rect r, draw::Color line, int width = 1, draw::LineStyle style = draw::LineStyle::Solid) override;

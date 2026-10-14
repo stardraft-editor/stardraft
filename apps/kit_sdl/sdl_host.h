@@ -28,6 +28,8 @@ public:
     SdlHost(const SdlHost&) = delete;
     SdlHost& operator=(const SdlHost&) = delete;
 
+    // The display scale of every window (the program's --scale); 0 takes the display's own scale again.
+    void setScale(float s);
     // Shows `root` in a window of its own (`w` x `h` pixels, titled `title`). False when SDL could not make it.
     bool show(draw::View& root, const std::wstring& title, int w, int h);
     // Handles events and paints the windows that changed, until every window is closed or quit() is called.
@@ -68,9 +70,14 @@ private:
     bool claim(Win& w);
     void ensureRenderer(SDL_GPUTextureFormat format);
     void resize(Win& w);
-    void retire(size_t index);
+    void applyScale(float s);
+    void sizeInPixels(SDL_Window* sdl, int w, int h);
+    void retire(SDL_WindowID id);  // (the window only; see closeTree)
+    void closeTree(SDL_WindowID id);  // the window, the windows opened from it, and so on: children first
+    void collectTree(SDL_WindowID id, std::vector<SDL_WindowID>& out) const;
+    bool inModal(SDL_WindowID id) const;  // the window is the modal dialog or opened from it
     void dismiss(SDL_WindowID id);
-    void dismissPopupsExcept(SDL_WindowID keep);
+    void dismissPopupsExcept(SDL_WindowID keep);  // (the clicked window's own chain of parents stays)
     void pump(bool block);
     bool anyDirty() const;
     void renderDirty();
@@ -83,7 +90,9 @@ private:
     bool rendererReady_ = false;
     bool quit_ = false;
     float scale_ = 1;
+    float scaleOverride_ = 0;  // setScale, or 0
     SDL_WindowID modal_ = 0;  // the dialog that takes all input (runModal), or 0
+    SDL_WindowID captureWin_ = 0;  // the window whose mouse is captured (SDL_CaptureMouse), or 0
     int timerSeq_ = 0;
     std::map<int, Timer> timers_;
     std::vector<std::unique_ptr<Win>> wins_;

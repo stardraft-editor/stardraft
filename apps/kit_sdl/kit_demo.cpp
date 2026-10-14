@@ -1,6 +1,6 @@
 // kit_demo: the control kit's widgets and the Canvas's drawing, in SDL windows (apps/kit_sdl). A window with the
 // Buttons, and a sheet of the canvas's features: text flags, wrapped text, fonts, clipped views, bitmaps, icons, lines
-// and shapes. Every kit widget that exists is shown here.
+// and shapes. Not shown yet: ListView, TreeView, ScrollView, Dialog, MessageBox and Form.
 //
 // usage: kit_demo [--snapshot <out.png>] [--size <w>x<h>] [--scale <s>]
 //
@@ -116,7 +116,7 @@ public:
         const int m = g.m, w = width();
         auto label = [&](int y, const wchar_t* text) { c.text(Rect(m, y, w - m, y + px(18)), text, th.dim, draw::kLeft | draw::kMiddle); };
         auto well = [&](Rect r) {  // a box to look at a text in
-            c.roundBox(r, th.ctl, th.border, px(kit::kRadius));
+            c.roundBox(r, th.ctl, th.border, float(px(kit::kRadius)));
         };
 
         // Text flags: each box shows one combination.
@@ -190,7 +190,7 @@ public:
         c.ring(Rect(m + px(350), ly, m + px(390), ly + px(40)), th.accent, 2);
         c.ring(Rect(m + px(400), ly, m + px(440), ly + px(40)), th.bad, 1, draw::LineStyle::Dash);
         c.ellipse(Rect(m + px(450), ly, m + px(490), ly + px(40)), th.sel, th.accent);
-        c.roundBox(Rect(m + px(500), ly, m + px(580), ly + px(40)), th.sel, th.accent, px(10), 2);
+        c.roundBox(Rect(m + px(500), ly, m + px(580), ly + px(40)), th.sel, th.accent, float(px(10)), 2);
         const draw::Point arrow[] = {{m + px(600), ly + px(20)}, {m + px(620), ly}, {m + px(620), ly + px(10)}, {m + px(650), ly + px(10)},
                                      {m + px(650), ly + px(30)}, {m + px(620), ly + px(30)}, {m + px(620), ly + px(40)}};
         c.polygon(arrow, 7, th.good, th.text);
@@ -253,13 +253,13 @@ int main(int argc, char** argv) {
 
     float scale = scaleArg > 0 ? scaleArg : SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
     if (scale <= 0) scale = 1;
-    kit::theme().dpi = int(96 * scale + 0.5f);
     // The fonts and icon atlases beside the program (the build copies them there), as stardraft-next's.
     const char* basePath = SDL_GetBasePath();
     const std::string base = basePath ? basePath : "";
     {
         // Order matters: the host (which makes the ImGui context the fonts go into) outlives the demo's views.
         kit_sdl::SdlHost host(device);
+        host.setScale(scaleArg);  // (0: the display's scale; the views lay out at it)
         std::printf("kit_demo: fonts %s, scale %.2f\n", kit_sdl::loadFonts(base + "fonts/").c_str(), double(scale));
         if (!kit_sdl::loadIconAtlases(device, base + "res/")) std::printf("kit_demo: no icon atlases in res/\n");
         Demo demo;

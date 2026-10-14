@@ -37,6 +37,7 @@ namespace {
 // The fonts made so far: a canvas font is a pointer into this list (a deque keeps the addresses).
 ImFont* gUi = nullptr;
 ImFont* gMono = nullptr;
+ImFont* gGlyphs = nullptr;  // the icon glyph face (Segoe MDL2 Assets on Windows); the UI face when there is none
 std::deque<FontEntry> gFonts;
 std::map<std::tuple<int, int, bool>, size_t> gFontIndex;
 
@@ -111,9 +112,10 @@ std::vector<std::string> wrapLines(const FontEntry& f, const std::string& text, 
             i = j;
         }
         std::string cur;
+        bool broke = false;  // a line ended in this paragraph: the spaces that follow it are dropped
         for (const std::string& u : units) {
-            if (u[0] == ' ') {  // a run of spaces: kept inside a line, not at its start
-                if (!cur.empty()) cur += u;
+            if (u[0] == ' ') {  // a run of spaces: kept inside a line and at the paragraph's start, as GDI keeps them
+                if (!cur.empty() || !broke) cur += u;
                 continue;
             }
             const std::string cand = cur + u;
@@ -121,12 +123,12 @@ std::vector<std::string> wrapLines(const FontEntry& f, const std::string& text, 
                 cur = cand;
                 continue;
             }
-            if (!cur.empty()) out.push_back(trimEnd(cur)), cur.clear();
+            if (!cur.empty()) out.push_back(trimEnd(cur)), cur.clear(), broke = true;
             // The unit alone is wider than the box: break it between characters.
             for (size_t i = 0; i < u.size();) {
                 const size_t j = utf8Next(u, i);
                 const std::string ch = u.substr(i, j - i);
-                if (!cur.empty() && !fits(cur + ch)) out.push_back(trimEnd(cur)), cur.clear();
+                if (!cur.empty() && !fits(cur + ch)) out.push_back(trimEnd(cur)), cur.clear(), broke = true;
                 cur += ch;
                 i = j;
             }
@@ -268,8 +270,8 @@ std::string firstFile(std::initializer_list<std::string> paths) {
 std::string fileName(const std::string& path) { return fs::path(reinterpret_cast<const char8_t*>(path.c_str())).filename().string(); }
 
 const FontEntry* fontEntry(const draw::FontDesc& d) {
-    const int face = d.face == draw::Face::Mono ? 1 : 0;
-    ImFont* base = face && gMono ? gMono : gUi;
+    const int face = d.face == draw::Face::Mono ? 1 : d.face == draw::Face::Glyphs ? 2 : 0;
+    ImFont* base = face == 1 && gMono ? gMono : face == 2 && gGlyphs ? gGlyphs : gUi;
     const int px = d.px > 0 ? d.px : kit::px(15);
     const auto key = std::make_tuple(face, px, d.underline);
     if (auto it = gFontIndex.find(key); it != gFontIndex.end()) return &gFonts[it->second];
@@ -348,6 +350,12 @@ std::string loadFonts(const std::string& fontDir) {
     gMono = mono.empty() ? nullptr : io.Fonts->AddFontFromFileTTF(mono.c_str(), size);
     if (gMono) loaded += "; code: " + fileName(mono);
     else gMono = gUi;
+    // The icon glyphs (the message box's info icon is U+E946 in Segoe MDL2 Assets): only their range is loaded.
+    static const ImWchar kGlyphRanges[] = {0xE000, 0xF8FF, 0};
+    const std::string glyphs = firstFile({"C:\\Windows\\Fonts\\segmdl2.ttf"});
+    gGlyphs = glyphs.empty() ? nullptr : io.Fonts->AddFontFromFileTTF(glyphs.c_str(), size, nullptr, kGlyphRanges);
+    if (gGlyphs) loaded += "; glyphs: " + fileName(glyphs);
+    else gGlyphs = gUi;
     return loaded;
 }
 
@@ -416,12 +424,12 @@ void ImguiCanvas::fill(Rect r, Color c, uint8_t alpha) {
     dl_->AddRectFilled(at(float(r.left), float(r.top)), at(float(r.right), float(r.bottom)), colorOf(c, alpha));
 }
 
-void ImguiCanvas::roundBox(Rect r, Color fill, Color line, int radius, int width) {
+void ImguiCanvas::roundBox(Rect r, Color fill, Color line, float radius, int width) {
     if (r.empty()) return;
-    if (fill != kNone) dl_->AddRectFilled(at(float(r.left), float(r.top)), at(float(r.right), float(r.bottom)), colorOf(fill), float(radius));
+    if (fill != kNone) dl_->AddRectFilled(at(float(r.left), float(r.top)), at(float(r.right), float(r.bottom)), colorOf(fill), radius);
     if (line != kNone) {
         const float h = float(std::max(1, width)) / 2;
-        dl_->AddRect(at(r.left + h, r.top + h), at(r.right - h, r.bottom - h), colorOf(line), float(radius), 0, float(std::max(1, width)));
+        dl_->AddRect(at(r.left + h, r.top + h), at(r.right - h, r.bottom - h), colorOf(line), radius, 0, float(std::max(1, width)));
     }
 }
 
@@ -574,6 +582,30 @@ Font ImguiCanvas::setFont(Font f) {
 
 Font ImguiCanvas::font(const FontDesc& d) { return Font{fontEntry(d)}; }
 
+// Copies new pixels into a texture of the same size. No wait: the GPU runs the copy after the frames already
+// submitted, and SDL keeps the transfer buffer until the copy is done.
+static void updateRgba(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, const uint8_t* rgba) {
+    const size_t bytes = size_t(w) * size_t(h) * 4;
+    SDL_GPUTransferBufferCreateInfo tb{};
+    tb.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+    tb.size = uint32_t(bytes);
+    SDL_GPUTransferBuffer* buf = SDL_CreateGPUTransferBuffer(device, &tb);
+    if (!buf) return;
+    void* p = SDL_MapGPUTransferBuffer(device, buf, false);
+    std::memcpy(p, rgba, bytes);
+    SDL_UnmapGPUTransferBuffer(device, buf);
+    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device);
+    SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
+    SDL_GPUTextureTransferInfo src{};
+    src.transfer_buffer = buf;
+    SDL_GPUTextureRegion dst{};
+    dst.texture = tex, dst.w = uint32_t(w), dst.h = uint32_t(h), dst.d = 1;
+    SDL_UploadToGPUTexture(copy, &src, &dst, false);
+    SDL_EndGPUCopyPass(copy);
+    SDL_SubmitGPUCommandBuffer(cmd);
+    SDL_ReleaseGPUTransferBuffer(device, buf);
+}
+
 void ImguiCanvas::bitmap(draw::Bitmap& b, Rect src, Rect dst, bool, uint8_t alpha) {
     if (!dev_ || b.width() <= 0 || b.height() <= 0 || dst.empty() || alpha == 0) return;
     auto* g = dynamic_cast<GpuBitmap*>(b.native.get());
@@ -583,12 +615,16 @@ void ImguiCanvas::bitmap(draw::Bitmap& b, Rect src, Rect dst, bool, uint8_t alph
         g = ng.get();
         b.native = std::move(ng);
     }
-    if (!g->tex || g->w != b.width() || g->h != b.height() || g->revision != b.revision()) {
+    if (!g->tex || g->w != b.width() || g->h != b.height()) {
         if (g->tex) SDL_ReleaseGPUTexture(dev_, g->tex);
         const std::vector<uint8_t> px = straightPixels(b);
         g->tex = uploadRgba(dev_, b.width(), b.height(), px.data());
         g->w = b.width(), g->h = b.height(), g->revision = b.revision();
         if (!g->tex) return;
+    } else if (g->revision != b.revision()) {
+        const std::vector<uint8_t> px = straightPixels(b);
+        updateRgba(dev_, g->tex, b.width(), b.height(), px.data());  // (same size: the texture is reused)
+        g->revision = b.revision();
     }
     // The part of the bitmap that is src (inside the bitmap).
     const float W = float(b.width()), H = float(b.height());
@@ -601,10 +637,11 @@ void ImguiCanvas::bitmap(draw::Bitmap& b, Rect src, Rect dst, bool, uint8_t alph
 
 void ImguiCanvas::icon(Rect r, int icon, Color c, int px) {
     if (c == kNone || icon < 0 || gAtlases.empty()) return;
-    // The atlas of the size nearest to px (the smallest that is not smaller, else the largest).
+    // The atlas of the size the Win32 editor draws at px (its uiIconSize): 32 from 32 px, 24 from 28, else 16.
+    const int want = px >= 32 ? 32 : px >= 28 ? 24 : 16;
     const Atlas* a = &gAtlases.back();
     for (const Atlas& cand : gAtlases)
-        if (cand.size >= px) {
+        if (cand.size == want) {
             a = &cand;
             break;
         }
