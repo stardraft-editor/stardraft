@@ -126,6 +126,9 @@ public:
     // Drawing only inside `r` (and inside the clip before it) until popClip().
     virtual void pushClip(Rect r) = 0;
     virtual void popClip() = 0;
+    // A child view: drawing clipped to `r`, and (0, 0) at r's top left corner, until popView().
+    virtual void pushView(Rect r) = 0;
+    virtual void popView() = 0;
 
     // Text in the current font.
     virtual void text(Rect r, std::wstring_view t, Color c, unsigned flags = kMiddle) = 0;

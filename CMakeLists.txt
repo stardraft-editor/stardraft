@@ -275,6 +275,14 @@ target_link_libraries(http_get PRIVATE stardraft_platform)
 add_executable(platform_test tools/tests/platform_test.cpp)
 target_link_libraries(platform_test PRIVATE stardraft_platform)
 
+# --- The control kit (apps/kit): the editor's widgets as views on a Canvas (apps/common/canvas.h, view.h), on every
+# system. Each widget is its own .cpp; kit_test drives them without a window.
+file(GLOB STARDRAFT_KIT_SOURCES CONFIGURE_DEPENDS apps/kit/*.cpp)
+add_library(stardraft_kit STATIC ${STARDRAFT_KIT_SOURCES})
+target_include_directories(stardraft_kit PUBLIC apps/common apps/kit)
+add_executable(kit_test tools/tests/kit_test.cpp)
+target_link_libraries(kit_test PRIVATE stardraft_kit)
+
 # --- stardraft-next: the new shell's spike (SDL3 + Dear ImGui; research/ports/PLAN.md, phase 4) ------------------
 # A program of its own beside the Win32 one, on every system. Off: no Dear ImGui is fetched.
 option(STARDRAFT_NEXT "Build stardraft-next (the new shell's spike)" ${STARDRAFT_RENDERER})
