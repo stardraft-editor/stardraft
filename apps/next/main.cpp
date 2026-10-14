@@ -4,8 +4,11 @@
 //
 // usage: stardraft-next [map] [--install <dir>] [--light]
 //        stardraft-next [map] --snapshot <out.png> [--size <w>x<h>] [--workspace map|triggers] [--type <text>] [--scale <s>]
-//                       [--ime-inline [--compose <text>]]
+//                       [--ime-inline [--compose <text>]] [--live <seconds>]
 //
+// --live: a real window that takes the focus and the system's keys for that many seconds (the search field has the
+// focus), printing each text and composition event, then the snapshot. For a machine of its own (CI types with the
+// system's input method into it): never on a computer that someone uses.
 // --ime-inline: the program draws the IME's text being composed at the caret (SDL_HINT_IME_IMPLEMENTED_UI), not the
 // system; --compose sends that text as the system's composition events would (a test of the drawing).
 // --snapshot draws a few frames without showing a window (no focus taken) and writes the last one; --type types the
@@ -519,6 +522,7 @@ int main(int argc, char** argv) {
     std::string workspace = "map";
     int snapW = 1280, snapH = 800;
     float scaleArg = 0;
+    double liveSeconds = 0;
     bool light = false;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
@@ -530,11 +534,13 @@ int main(int argc, char** argv) {
         else if (a == "--light") light = true;
         else if (a == "--ime-inline") app.imeInline = true;
         else if (a == "--compose") composeText = next();
+        else if (a == "--live") liveSeconds = std::atof(next().c_str());
         else if (a == "--scale") scaleArg = float(std::atof(next().c_str()));
         else if (a == "--size") std::sscanf(next().c_str(), "%dx%d", &snapW, &snapH);
         else mapArg = a;
     }
     const bool snapshotRun = !snapshot.empty();
+    const bool liveRun = snapshotRun && liveSeconds > 0, hiddenRun = snapshotRun && !liveRun;
     if (app.imeInline) SDL_SetHint(SDL_HINT_IME_IMPLEMENTED_UI, "composition");
     if (!SDL_Init(SDL_INIT_VIDEO)) return std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()), 1;
 
@@ -544,12 +550,12 @@ int main(int argc, char** argv) {
     app.device = app.renderer.device();
     app.scale = scaleArg > 0 ? scaleArg : snapshotRun ? 1.0f : SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
     if (app.scale <= 0) app.scale = 1;
-    const SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | (snapshotRun ? SDL_WINDOW_HIDDEN : 0);
+    const SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | (hiddenRun ? SDL_WINDOW_HIDDEN : 0);
     app.window = snapshotRun ? SDL_CreateWindow("StarDraft 2 (next)", snapW, snapH, flags)
                              : SDL_CreateWindow("StarDraft 2 (next)", int(1400 * app.scale), int(860 * app.scale), flags);
     if (!app.window) return std::fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError()), 1;
     SDL_GPUTextureFormat uiFormat = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-    if (!snapshotRun) {
+    if (!hiddenRun) {
         if (!SDL_ClaimWindowForGPUDevice(app.device, app.window)) return std::fprintf(stderr, "SDL_ClaimWindowForGPUDevice: %s\n", SDL_GetError()), 1;
         SDL_SetGPUSwapchainParameters(app.device, app.window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
         uiFormat = SDL_GetGPUSwapchainTextureFormat(app.device, app.window);
@@ -592,6 +598,8 @@ int main(int argc, char** argv) {
     app.renderer.setLoadBudget(snapshotRun ? 1e9 : 8);
     int frame = 0;
     bool typed = typeText.empty();
+    const Uint64 started = SDL_GetTicks();
+    if (liveRun) SDL_RaiseWindow(app.window);
     while (!app.quit) {
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
@@ -600,12 +608,14 @@ int main(int argc, char** argv) {
             if (e.type == SDL_EVENT_DROP_FILE && e.drop.data) openMap(utf8Path(e.drop.data));  // (also macOS's Finder opens)
             if (e.type == SDL_EVENT_TEXT_EDITING) app.composition = e.edit.text ? e.edit.text : "";
             if (e.type == SDL_EVENT_TEXT_INPUT) app.composition.clear();  // (committed)
+            if (liveRun && e.type == SDL_EVENT_TEXT_EDITING) std::printf("composing: \"%s\"\n", e.edit.text ? e.edit.text : ""), std::fflush(stdout);
+            if (liveRun && e.type == SDL_EVENT_TEXT_INPUT) std::printf("text: \"%s\"\n", e.text.text ? e.text.text : ""), std::fflush(stdout);
         }
         {
             std::lock_guard<std::mutex> lock(app.dialogMutex);
             if (app.chosenFile) openMap(*app.chosenFile), app.chosenFile.reset();
         }
-        if (!snapshotRun && (SDL_GetWindowFlags(app.window) & SDL_WINDOW_MINIMIZED)) {
+        if (!hiddenRun && (SDL_GetWindowFlags(app.window) & SDL_WINDOW_MINIMIZED)) {
             SDL_Delay(10);
             continue;
         }
@@ -613,11 +623,12 @@ int main(int argc, char** argv) {
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
         commandKeys();
-        frameUi(snapshotRun && frame == 1 && !typed);
+        frameUi((hiddenRun && frame == 1 && !typed) || (liveRun && frame == 1));
+        if (liveRun && frame == 2) std::printf("ready: the search field has the focus\n"), std::fflush(stdout);
         drawComposition();
         ImGui::Render();
         // --type: the text arrives as the system's text input (after the search field has the focus).
-        if (snapshotRun && frame == 2 && !typed) {
+        if (hiddenRun && frame == 2 && !typed) {
             SDL_Event t{};
             t.type = SDL_EVENT_TEXT_INPUT;
             t.text.windowID = SDL_GetWindowID(app.window);
@@ -633,19 +644,21 @@ int main(int argc, char** argv) {
                 SDL_PushEvent(&c);  // (SDL copies the text)
             }
         }
+        // (a live run's last frame goes into the snapshot instead of the window)
+        const bool lastLive = liveRun && frame >= 3 && double(SDL_GetTicks() - started) >= liveSeconds * 1000;
         SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(app.device);
         SDL_GPUTexture* target = snapTex;
-        if (!snapshotRun && !SDL_WaitAndAcquireGPUSwapchainTexture(cmd, app.window, &target, nullptr, nullptr)) target = nullptr;
+        if (!hiddenRun && !lastLive && !SDL_WaitAndAcquireGPUSwapchainTexture(cmd, app.window, &target, nullptr, nullptr)) target = nullptr;
         drawFrame(cmd, target);
         SDL_SubmitGPUCommandBuffer(cmd);
         ++frame;
-        if (snapshotRun && frame >= 6) {
+        if ((hiddenRun && frame >= 6) || lastLive) {
             SDL_WaitForGPUIdle(app.device);
             uint32_t w = 0, h = 0;
             SDL_GetWindowSizeInPixels(app.window, reinterpret_cast<int*>(&w), reinterpret_cast<int*>(&h));
             const bool ok = writeSnapshot(snapTex, uiFormat, w, h, snapshot);
             std::printf("%s %s\n", ok ? "wrote" : "could not write", snapshot.c_str());
-            if (!typeText.empty()) std::printf("search field: %s\n", app.search);
+            if (!typeText.empty() || liveRun) std::printf("search field: %s\n", app.search);
             if (!composeText.empty()) std::printf("composing: %s\n", app.composition.c_str());
             app.quit = true;
         }
@@ -656,7 +669,7 @@ int main(int argc, char** argv) {
     ImGui::DestroyContext();
     if (app.view) SDL_ReleaseGPUTexture(app.device, app.view);
     if (snapTex) SDL_ReleaseGPUTexture(app.device, snapTex);
-    if (!snapshotRun) SDL_ReleaseWindowFromGPUDevice(app.device, app.window);
+    if (!hiddenRun) SDL_ReleaseWindowFromGPUDevice(app.device, app.window);
     app.ed.reset();
     app.renderer.shutdown();
     SDL_DestroyWindow(app.window);
