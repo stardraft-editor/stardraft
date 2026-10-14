@@ -19205,129 +19205,141 @@ int topBarIconsWidth() {
     const int b = scale(32), gap = scale(2), group = scale(14);
     return scale(8) + int(std::size(kTopItems)) * (b + gap) + 4 * group;
 }
-void paintTopBar(HWND hwnd) {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-    HGDIOBJ ob = SelectObject(mem, back);
-    HBRUSH bg = CreateSolidBrush(kPanel);
-    FillRect(mem, &rc, bg);
-    DeleteObject(bg);
-    gTopBarSurface.begin(hwnd);
-    const int b = scale(32), gap = scale(2), group = scale(14);
-    int x = scale(8);
-    const int y = (int(rc.bottom) - b) / 2;
-    HMENU m = GetMenu(app.main);
-    for (size_t i = 0; i < std::size(kTopItems); ++i) {
-        if (i == 3 || i == 5 || i == 8 || i == 9) {  // groups: file | undo redo | clipboard | delete | search
-            const int lx = x + group / 2 - gap;
-            RECT sep{lx, y + scale(6), lx + 1, y + b - scale(6)};
-            HBRUSH sb = CreateSolidBrush(kBorder);
-            FillRect(mem, &sep, sb);
-            DeleteObject(sb);
-            x += group;
+// The top bar as a view (apps/common/view.h): its window is a view window (kViewClass) that shows gTopBarView. Its click
+// areas (the icons, Build, Debug, Report feedback) are gTopBarSurface's hits: the kit's controls put them in while the
+// view paints, and the view's mouse, cursor and tip read them.
+struct TopBarView final : stardraft::draw::View {
+    void paint(stardraft::draw::Canvas& c) override {
+        using stardraft::draw::Font;
+        using stardraft::draw::kMiddle;
+        const HWND hwnd = ui::Win32Host::windowOf(*this);
+        const int w = width(), h = height();
+        c.fill({0, 0, w, h}, kPanel);
+        gTopBarSurface.begin(hwnd);
+        const int b = scale(32), gap = scale(2), group = scale(14);
+        int x = scale(8);
+        const int y = (h - b) / 2;
+        HMENU m = GetMenu(app.main);
+        for (size_t i = 0; i < std::size(kTopItems); ++i) {
+            if (i == 3 || i == 5 || i == 8 || i == 9) {  // groups: file | undo redo | clipboard | delete | search
+                const int lx = x + group / 2 - gap;
+                c.fill({lx, y + scale(6), lx + 1, y + b - scale(6)}, kBorder);
+                x += group;
+            }
+            const TopItem& it = kTopItems[i];
+            const bool enabled = !m || !(GetMenuState(m, UINT(it.cmd), MF_BYCOMMAND) & (MF_GRAYED | MF_DISABLED));
+            const int cmd = it.cmd;
+            ui::iconButton(c, {x, y, x + b, y + b}, it.icon, [cmd] { command(cmd); }, it.tip, ui::Icon::Bare, false, enabled, ui::Tone::Normal);
+            x += b + gap;
         }
-        const TopItem& it = kTopItems[i];
-        const bool enabled = !m || !(GetMenuState(m, UINT(it.cmd), MF_BYCOMMAND) & (MF_GRAYED | MF_DISABLED));
-        const int cmd = it.cmd;
-        ui::iconButton(mem, {x, y, x + b, y + b}, it.icon, [cmd] { command(cmd); }, it.tip, ui::Icon::Bare, false, enabled, ui::Tone::Normal);
-        x += b + gap;
-    }
-    // The right end: Build (a project; its icon and name), then Report feedback in the corner.
-    {
-        int rx = int(rc.right) - scale(8);
-        // The icon and its label "Report feedback" (GitHub feedback #96).
-        HGDIOBJ ofb = SelectObject(mem, app.font);
-        const std::wstring fbText = L"Report feedback";
-        const int fbw = b + ui::textWidth(mem, fbText) + scale(12);
-        const RECT fb{rx - fbw, y, rx, y + b};
-        const bool fhot = ui::hot(fb);
-        if (fhot) ui::box(mem, fb, kCtlHot, CLR_NONE);
-        uiIcon(mem, {fb.left + scale(4), y, fb.left + scale(4) + b - scale(8), y + b}, UiIcon::Feedback, fhot ? kFeedback : kDim, scale(16));  // quiet; its color under the mouse
-        SetBkMode(mem, TRANSPARENT);
-        SetTextColor(mem, fhot ? kText : kDim);
-        RECT fbt{fb.left + b - scale(2), y, fb.right - scale(6), y + b};
-        DrawTextW(mem, fbText.c_str(), -1, &fbt, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-        SelectObject(mem, ofb);
-        gTopBarSurface.hits.push_back({fb, nullptr, [] { command(ID_HELP_FEEDBACK); }, L"Report feedback: what works, what does not, ideas", IDC_HAND, {}});
-        (void)rx;
-        if (activeProject()) {
-            const std::wstring text = gBuilding ? L"Building" : L"Build";
-            HGDIOBJ of2 = SelectObject(mem, app.font);
-            SIZE sz{};
-            GetTextExtentPoint32W(mem, text.c_str(), int(text.size()), &sz);
-            const int w = scale(16) + scale(8) + sz.cx + scale(24);
-            const RECT mr = modeBarRect();
-            // After the modes; where they are hidden (Data, Triggers, the pages), after the icons.
-            const bool modes = app.modeBtn[0] && IsWindowVisible(app.modeBtn[0]);
-            const int divX = (modes ? int(mr.right) : topBarIconsWidth()) + scale(10);
-            RECT div{divX, y + scale(6), divX + 1, y + b - scale(6)};  // the divider between the modes and Build
-            HBRUSH db = CreateSolidBrush(kBorder);
-            FillRect(mem, &div, db);
-            DeleteObject(db);
-            const int bx = divX + scale(10);
-            const RECT bb{bx, mr.top, bx + w, mr.bottom};
-            const bool bhot = !gBuilding && ui::hot(bb);
-            ui::buttonFace(mem, bb, L"", ui::Tone::Primary, gBuilding ? ui::State::Disabled : bhot ? ui::State::Hot : ui::State::Normal, app.font);
-            const COLORREF c = gBuilding ? kFaint : kAccent;
-            uiIcon(mem, {bb.left + scale(12), bb.top, bb.left + scale(12) + scale(16), bb.bottom}, UiIcon::Build, c, scale(16));
-            SetBkMode(mem, TRANSPARENT);
-            SetTextColor(mem, c);
-            RECT tr{bb.left + scale(12) + scale(16) + scale(8), bb.top, bb.right, bb.bottom};
-            DrawTextW(mem, text.c_str(), -1, &tr, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-            SelectObject(mem, of2);
-            gTopBarSurface.hits.push_back({bb, nullptr, gBuilding ? std::function<void()>() : [] { command(ID_PROJ_COMPILE); },
-                                           L"Build the project's map with euddraft (Ctrl+B)", gBuilding ? IDC_ARROW : IDC_HAND, {}});
-            {  // Debug mode, beside Build: the project's Debug build (index checks) and Trace build (epTrace) together
-                const EudProject* pr = activeProject();
-                const bool on = pr->debugBuild() || pr->traceBuild();
-                const int side = int(bb.bottom - bb.top);
-                const RECT dr{bb.right + scale(6), bb.top, bb.right + scale(6) + side, bb.bottom};
-                // A toggle button: on, selected (the accent fill and line); off, a plain button.
-                const bool dhot = ui::hot(dr);
-                ui::box(mem, dr, on ? kSel : dhot ? kCtlHot : kCtl, on ? kAccentLine : dhot ? kBorderHot : kBorder);
-                uiIcon(mem, dr, UiIcon::Debug, on ? kAccentBright : dhot ? kText : kDim, scale(16));
-                gTopBarSurface.hits.push_back({dr, nullptr,
-                               [hwnd] {
-                                   EudProject* p = activeProject();
-                                   if (!p) return;
-                                   const bool on = p->debugBuild() || p->traceBuild();  // now (the Project page can change it)
-                                   p->setDebugBuild(!on), p->setTraceBuild(!on);
-                                   projectSave(*p, on ? L"Debug mode off: Build does not add index checks or the trace for epTrace"
-                                                      : L"Debug mode on: Build adds index checks and the trace for epTrace");
-                                   projectFormRefresh();
-                                   InvalidateRect(hwnd, nullptr, FALSE);
-                               },
-                               on ? L"Debug mode is on: Build adds index checks and the trace for epTrace (turn it off for the map that you release)"
-                                  : L"Debug mode: Build adds index checks and the trace for epTrace (Project page > Build)",
-                               IDC_HAND, {}});
+        // The right end: Build (a project; its icon and name), then Report feedback in the corner.
+        {
+            const int rx = w - scale(8);
+            // The icon and its label "Report feedback" (GitHub feedback #96).
+            const Font ofb = c.setFont(ui::fontOf(app.font));
+            const std::wstring fbText = L"Report feedback";
+            const int fbw = b + c.measure(fbText) + scale(12);
+            const RECT fb{rx - fbw, y, rx, y + b};
+            const bool fhot = ui::hot(fb);
+            if (fhot) ui::box(c, fb, kCtlHot, CLR_NONE);
+            c.icon({fb.left + scale(4), y, fb.left + scale(4) + b - scale(8), y + b}, int(UiIcon::Feedback), fhot ? kFeedback : kDim, scale(16));  // quiet; its color under the mouse
+            c.text({fb.left + b - scale(2), y, fb.right - scale(6), y + b}, fbText, fhot ? kText : kDim, kMiddle);
+            c.setFont(ofb);
+            gTopBarSurface.hits.push_back({fb, nullptr, [] { command(ID_HELP_FEEDBACK); }, L"Report feedback: what works, what does not, ideas", IDC_HAND, {}});
+            if (activeProject()) {
+                const std::wstring text = gBuilding ? L"Building" : L"Build";
+                const Font of2 = c.setFont(ui::fontOf(app.font));
+                const int w2 = scale(16) + scale(8) + c.measure(text) + scale(24);
+                const RECT mr = modeBarRect();
+                // After the modes; where they are hidden (Data, Triggers, the pages), after the icons.
+                const bool modes = app.modeBtn[0] && IsWindowVisible(app.modeBtn[0]);
+                const int divX = (modes ? int(mr.right) : topBarIconsWidth()) + scale(10);
+                c.fill({divX, y + scale(6), divX + 1, y + b - scale(6)}, kBorder);  // the divider between the modes and Build
+                const int bx = divX + scale(10);
+                const RECT bb{bx, mr.top, bx + w2, mr.bottom};
+                const bool bhot = !gBuilding && ui::hot(bb);
+                ui::buttonFace(c, bb, L"", ui::Tone::Primary, gBuilding ? ui::State::Disabled : bhot ? ui::State::Hot : ui::State::Normal, app.font);
+                const COLORREF col = gBuilding ? kFaint : kAccent;
+                c.icon({bb.left + scale(12), bb.top, bb.left + scale(12) + scale(16), bb.bottom}, int(UiIcon::Build), col, scale(16));
+                c.text({bb.left + scale(12) + scale(16) + scale(8), bb.top, bb.right, bb.bottom}, text, col, kMiddle);
+                c.setFont(of2);
+                gTopBarSurface.hits.push_back({bb, nullptr, gBuilding ? std::function<void()>() : [] { command(ID_PROJ_COMPILE); },
+                                               L"Build the project's map with euddraft (Ctrl+B)", gBuilding ? IDC_ARROW : IDC_HAND, {}});
+                {  // Debug mode, beside Build: the project's Debug build (index checks) and Trace build (epTrace) together
+                    const EudProject* pr = activeProject();
+                    const bool on = pr->debugBuild() || pr->traceBuild();
+                    const int side = int(bb.bottom - bb.top);
+                    const RECT dr{bb.right + scale(6), bb.top, bb.right + scale(6) + side, bb.bottom};
+                    // A toggle button: on, selected (the accent fill and line); off, a plain button.
+                    const bool dhot = ui::hot(dr);
+                    ui::box(c, dr, on ? kSel : dhot ? kCtlHot : kCtl, on ? kAccentLine : dhot ? kBorderHot : kBorder);
+                    c.icon(dr, int(UiIcon::Debug), on ? kAccentBright : dhot ? kText : kDim, scale(16));
+                    gTopBarSurface.hits.push_back({dr, nullptr,
+                                   [hwnd] {
+                                       EudProject* p = activeProject();
+                                       if (!p) return;
+                                       const bool on = p->debugBuild() || p->traceBuild();  // now (the Project page can change it)
+                                       p->setDebugBuild(!on), p->setTraceBuild(!on);
+                                       projectSave(*p, on ? L"Debug mode off: Build does not add index checks or the trace for epTrace"
+                                                          : L"Debug mode on: Build adds index checks and the trace for epTrace");
+                                       projectFormRefresh();
+                                       InvalidateRect(hwnd, nullptr, FALSE);
+                                   },
+                                   on ? L"Debug mode is on: Build adds index checks and the trace for epTrace (turn it off for the map that you release)"
+                                      : L"Debug mode: Build adds index checks and the trace for epTrace (Project page > Build)",
+                                   IDC_HAND, {}});
+                }
             }
         }
+        gTopBarSurface.end(hwnd);
+        c.fill({0, h - 1, w, h}, kBorder);  // the line under the bar
     }
-    gTopBarSurface.end(hwnd);
-    RECT line{0, rc.bottom - 1, rc.right, rc.bottom};
-    HBRUSH lb = CreateSolidBrush(kBorder);
-    FillRect(mem, &line, lb);
-    DeleteObject(lb);
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, ob);
-    DeleteObject(back);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
-}
-LRESULT CALLBACK topBarProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    LRESULT r = 0;
-    if (gTopBarSurface.message(hwnd, msg, wp, lp, r)) return r;
-    switch (msg) {
-    case WM_PAINT: paintTopBar(hwnd); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_LBUTTONUP: SetFocus(app.view); return 0;
+    bool mouse(const stardraft::draw::MouseEvent& e) override {
+        using stardraft::draw::MouseKind;
+        const POINT pt{e.pt.x, e.pt.y};
+        switch (e.kind) {
+        case MouseKind::Move: {
+            RECT part{};
+            for (auto it = gTopBarSurface.hits.rbegin(); it != gTopBarSurface.hits.rend(); ++it)
+                if (PtInRect(&it->r, pt)) {
+                    part = it->r;
+                    break;
+                }
+            if (!EqualRect(&part, &gTopBarSurface.over)) gTopBarSurface.over = part, invalidate();
+            return true;
+        }
+        case MouseKind::Leave: gTopBarSurface.over = {}, invalidate(); return true;
+        case MouseKind::Down:
+        case MouseKind::DoubleClick:  // (a fast second click runs the part again, as it did before the view)
+            if (e.button != 0) return false;
+            focus();  // the bar has the focus while the part runs; the mouse up gives it to the viewport
+            if (const DataWidgetHit* h = gTopBarSurface.at(pt))
+                if (h->click) {
+                    auto click = h->click;  // the click may repaint, which clears the hits
+                    click();
+                }
+            return true;
+        case MouseKind::Up:
+            if (e.button != 0) return false;
+            SetFocus(app.view);
+            return true;
+        default: return false;
+        }
     }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
+    stardraft::draw::Cursor cursor(stardraft::draw::Point p) override {
+        const POINT pt{p.x, p.y};
+        for (auto it = gTopBarSurface.hits.rbegin(); it != gTopBarSurface.hits.rend(); ++it)
+            if (PtInRect(&it->r, pt)) return it->cursor.c;
+        return stardraft::draw::Cursor::Arrow;
+    }
+    std::wstring tip(stardraft::draw::Point p) override {  // Report feedback names the part under the mouse (its name, else its tip)
+        const POINT pt{p.x, p.y};
+        for (auto it = gTopBarSurface.hits.rbegin(); it != gTopBarSurface.hits.rend(); ++it)
+            if (PtInRect(&it->r, pt) && (!it->name.empty() || !it->tip.empty())) return !it->name.empty() ? it->name : it->tip;
+        return {};
+    }
+};
+TopBarView gTopBarView;
 
 void layout() {
     RECT rc;
@@ -20008,7 +20020,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                                      HMENU(IDC_STATUS), app.inst, nullptr);
         app.minimap = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, hwnd, nullptr, app.inst, &gMinimap);
         app.tabs = CreateWindowExW(0, L"StarDraftTabs", L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, hwnd, HMENU(IDC_TABS), app.inst, nullptr);
-        gTopBar = CreateWindowExW(0, L"StarDraftTopBar", L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0, 0, 1, 1, hwnd, nullptr, app.inst, nullptr);
+        gTopBar = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0, 0, 1, 1, hwnd, nullptr, app.inst, &gTopBarView);
         for (HWND& t : gPanelTabs) t = CreateWindowExW(0, L"StarDraftPanelTabs", L"", WS_CHILD, 0, 0, 1, 1, hwnd, nullptr, app.inst, nullptr);
         app.view = CreateWindowExW(0, L"StarDraftViewport", L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0, 0, 1, 1, hwnd,
                                    HMENU(IDC_VIEW), app.inst, nullptr);
@@ -23549,9 +23561,6 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     RegisterClassExW(&uc);
     uc.lpfnWndProc = toolStripProc;
     uc.lpszClassName = L"StarDraftToolStrip";
-    RegisterClassExW(&uc);
-    uc.lpfnWndProc = topBarProc;
-    uc.lpszClassName = L"StarDraftTopBar";
     RegisterClassExW(&uc);
     uc.lpfnWndProc = panelTabsProc;
     uc.lpszClassName = L"StarDraftPanelTabs";
