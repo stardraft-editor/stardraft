@@ -196,7 +196,7 @@ jobs:
           app=build/stardraft-next.app/Contents/MacOS/stardraft-next
           ko="{source:com.apple.inputmethod.Korean.2SetKorean}"
           # (Pinyin's input method is switched on for the first time in its warm-up run, not counted)
-          for run in "hanja|gks{optreturn}{return} {source:com.apple.keylayout.US}abc ${ko}rnr " "warmup|{source:com.apple.inputmethod.SCIM.ITABC}zhongwen " "pinyin|zhongwen "; do
+          for run in "hanja|gks{optreturn}{wait}{wait}1 {source:com.apple.keylayout.US}abc ${ko}rnr " "warmup|{source:com.apple.inputmethod.SCIM.ITABC}zhongwen " "pinyin|zhongwen "; do
             name=${run%%|*} keys=${run#*|}
             "$app" --workspace triggers --live 30 --snapshot ime-macos-$name.png > ime-macos-$name.txt 2>&1 &
             pid=$!
