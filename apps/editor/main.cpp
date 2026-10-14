@@ -10548,12 +10548,13 @@ int widgetTimeline(HDC dc, int image, int x, int y, int w) {
     canvas(dc, cr);
     const int x0 = cr.left + scale(10), x1 = cr.right - scale(10), by = cr.top + scale(22), bh = scale(22);
     auto X = [&](int t) { return x0 + int(int64_t(x1 - x0) * t / n); };
-    // A block for each frame shown, as long as it shows; its number when there is room.
+    // A block for each frame shown, as long as it shows; its number when there is room. The shades alternate from the
+    // first block on each paint (a static here swapped them on each repaint while playing: GitHub #131).
+    bool alt = false;
     for (int t = 0; t < n;) {
         int e = t;
         while (e < n && tl[size_t(e)].frame == tl[size_t(t)].frame) ++e;
         RECT r{X(t) + 1, by, X(e), by + bh};
-        static bool alt = false;
         alt = !alt;
         fillAlpha(dc, r, alt ? RGB(70, 100, 130) : RGB(55, 80, 105), 255);
         if (r.right - r.left > scale(18)) {
