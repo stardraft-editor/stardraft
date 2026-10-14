@@ -30,7 +30,8 @@ run briefing_test "$build/briefing_test" "$install"
 run isom_test "$build/isom_test" "$maps"
 run trigger_test "$build/trigger_test" "$(s trigger_test)" "$install" "$maps/BroodWar/(2)Binary Burghs.scx"
 run dat_test "$build/dat_test" "$install" "$maps/BroodWar/(2)Binary Burghs.scx" "$(s dat_test)"
-# The renderer (Vulkan; with SDL_VIDEODRIVER=offscreen no window is needed), when the build has it.
+# The renderer (Vulkan; with SDL_VIDEODRIVER=offscreen no window is needed), when the build has it. It needs a Vulkan
+# driver: on Ubuntu, the packages libvulkan1 and mesa-vulkan-drivers.
 if [[ -x "$build/terrain_render_test" ]]; then
     run terrain_render_test "$build/terrain_render_test" "$install" "$maps"
 fi
