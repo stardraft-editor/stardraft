@@ -61,23 +61,71 @@ void aboutPaint(HWND hwnd) {
     // The name: a tribute to StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.
     centered(L"Named after StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.", app.font, kDim, scale(22));
     centered(L"StarDraft 2 aims to be its spiritual successor for StarCraft makers in 2026 and later.", app.font, kDim, scale(22));
+
+    // The links: underlined when the mouse is on them. First the EUD tools, as two links in one line of text.
+    gAbout.links.clear();
+    {
+        const std::wstring line = tr(std::wstring(L"StarDraft 2 is powered by euddraft and eudplib"));
+        const std::wstring names[2] = {L"euddraft", L"eudplib"};
+        const wchar_t* urls[2] = {L"https://github.com/armoha/euddraft", L"https://github.com/armoha/eudplib"};
+        const size_t a = line.find(names[0]), b = line.find(names[1]);
+        if (a == std::wstring::npos || b == std::wstring::npos || b < a + names[0].size()) {
+            centered(line, app.font, kDim, scale(22));  // a translation without the names: the text only
+        } else {
+            struct Piece {
+                std::wstring text;
+                int link;  // -1: text
+            };
+            const Piece pieces[5] = {{line.substr(0, a), -1}, {names[0], 0}, {line.substr(a + names[0].size(), b - a - names[0].size()), -1},
+                                     {names[1], 1}, {line.substr(b + names[1].size()), -1}};
+            const size_t first = gAbout.links.size();
+            HGDIOBJ of = SelectObject(mem, app.font);
+            int total = 0;
+            SIZE sz{};
+            for (const Piece& p : pieces)
+                if (!p.text.empty()) GetTextExtentPoint32W(mem, p.text.c_str(), int(p.text.size()), &sz), total += sz.cx;
+            int x = (rc.right - total) / 2;
+            for (const Piece& p : pieces) {
+                if (p.text.empty()) continue;
+                const bool hot = p.link >= 0 && gAbout.hot == int(first) + p.link;
+                LOGFONTW lu = {};
+                GetObjectW(app.font, sizeof lu, &lu);
+                lu.lfUnderline = hot;
+                HFONT f = CreateFontIndirectW(&lu);
+                SelectObject(mem, f);
+                GetTextExtentPoint32W(mem, p.text.c_str(), int(p.text.size()), &sz);
+                RECT r{x, y, x + sz.cx, y + scale(22)};
+                SetTextColor(mem, p.link >= 0 ? kAccent : kDim);
+                DrawTextW(mem, p.text.c_str(), int(p.text.size()), &r, DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+                SelectObject(mem, app.font);
+                DeleteObject(f);
+                if (p.link >= 0) gAbout.links.push_back({r, urls[p.link]});
+                x += sz.cx;
+            }
+            SelectObject(mem, of);
+            y += scale(22);
+        }
+    }
     y += scale(14);
 
-    // The links: underlined when the mouse is on them.
-    gAbout.links = {{{}, L"https://github.com/" + std::wstring(crash::kRepo)}, {{}, kDiscordInvite}};
+    // Then the repository and the Discord server.
+    const size_t first = gAbout.links.size();
+    gAbout.links.push_back({{}, L"https://github.com/" + std::wstring(crash::kRepo)});
+    gAbout.links.push_back({{}, kDiscordInvite});
     const wchar_t* labels[2] = {L"GitHub: github.com/stardraft-editor/stardraft", L"Join the Discord server"};
-    for (size_t i = 0; i < gAbout.links.size(); ++i) {
+    for (size_t k = 0; k < 2; ++k) {
+        const size_t i = first + k;
         LOGFONTW lu = {};
         GetObjectW(app.font, sizeof lu, &lu);
         lu.lfUnderline = gAbout.hot == int(i);
         HFONT f = CreateFontIndirectW(&lu);
         HGDIOBJ of = SelectObject(mem, f);
         SIZE sz{};
-        GetTextExtentPoint32W(mem, labels[i], int(wcslen(labels[i])), &sz);
+        GetTextExtentPoint32W(mem, labels[k], int(wcslen(labels[k])), &sz);
         const RECT r{(rc.right - sz.cx) / 2, y, (rc.right + sz.cx) / 2, y + scale(24)};
         SetTextColor(mem, kAccent);
         RECT tr = r;
-        DrawTextW(mem, labels[i], -1, &tr, DT_CENTER | DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+        DrawTextW(mem, labels[k], -1, &tr, DT_CENTER | DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
         SelectObject(mem, of);
         DeleteObject(f);
         gAbout.links[i].rc = r;
@@ -157,7 +205,7 @@ void showAbout() {
     }
     // The same window as the other dialogs (a dialog frame; a tool window in test runs).
     const DWORD style = WS_CAPTION | WS_SYSMENU | WS_POPUP, ex = WS_EX_DLGMODALFRAME | (gBackground ? WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW : 0);
-    RECT r{0, 0, scale(600), scale(496)};  // (the lines about the name fit)
+    RECT r{0, 0, scale(600), scale(518)};  // (the lines about the name and the EUD tools fit)
     AdjustWindowRectExForDpi(&r, style, FALSE, ex, UINT(app.dpi));
     RECT mr;
     GetWindowRect(app.main, &mr);

@@ -1862,6 +1862,7 @@ constexpr UiText kRows[] = {
     {L"The map has ", L"\uB9F5\uC5D0 "},
     {L"The minimap is hidden (View > Show minimap shows it again)", L"\uBBF8\uB2C8\uB9F5\uC774 \uC228\uACA8\uC838 \uC788\uC2B5\uB2C8\uB2E4 (\uBCF4\uAE30 > \uBBF8\uB2C8\uB9F5 \uD45C\uC2DC\uB85C \uB2E4\uC2DC \uD45C\uC2DC\uD569\uB2C8\uB2E4)"},
     {L"The minimap shows", L"\uBBF8\uB2C8\uB9F5\uC774 \uD45C\uC2DC\uB429\uB2C8\uB2E4"},
+    {L"StarDraft 2 is powered by euddraft and eudplib", L"StarDraft 2\uB294 euddraft\uC640 eudplib\uB85C \uC791\uB3D9\uD569\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

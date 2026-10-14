@@ -1570,7 +1570,7 @@ render::Scene buildScene() {
             int tx, ty;
             ed.doodadOrigin(*d, int(wx), int(wy), tx, ty);
             Rect r{tx * 32, ty * 32, (tx + d->width) * 32, (ty + d->height) * 32};
-            bool ok = doodadFits(ed.chk(), *d, tx, ty, app.doodadCheck);
+            bool ok = doodadFits(ed.chk(), *d, tx, ty, app.doodadCheck) && !ed.doodadOverlaps(*d, tx, ty);  // as a click places
             // The doodad's own tiles where it would go (in the terrain pass), then the fit tint on top.
             std::vector<std::pair<int, uint16_t>> cells;
             for (int r0 = 0; r0 < d->height; ++r0) {
@@ -3338,7 +3338,35 @@ std::wstring playabilityText() {
     return text;
 }
 
-void openMap(const std::wstring& path);
+void openMap(const std::wstring& path, bool switchToOpen = true);
+
+// The same file or folder, compared as text (case, slashes, a relative path): no disk access, as a network share can
+// make it wait.
+bool samePath(const fs::path& a, const fs::path& b) {
+    auto key = [](const fs::path& p) {
+        std::error_code ec;
+        const fs::path full = fs::absolute(p, ec);
+        std::wstring s = (ec ? p : full).lexically_normal().make_preferred().wstring();
+        std::transform(s.begin(), s.end(), s.begin(), ::towlower);
+        while (!s.empty() && s.back() == L'\\') s.pop_back();
+        return s;
+    };
+    return !a.empty() && !b.empty() && key(a) == key(b);
+}
+
+// The tab that has this project (its folder) or this map by itself open, or -1.
+int findOpenProject(const fs::path& folder) {
+    for (int i = 0; i < int(gDocs.size()); ++i)
+        if (!gDocs[size_t(i)].page && gDocs[size_t(i)].project && samePath(gDocs[size_t(i)].project->folder(), folder)) return i;
+    return -1;
+}
+int findOpenMap(const fs::path& path) {
+    for (int i = 0; i < int(gDocs.size()); ++i) {
+        const Editor* ed = docEditor(i);
+        if (ed && !gDocs[size_t(i)].page && !gDocs[size_t(i)].project && samePath(ed->path(), path)) return i;
+    }
+    return -1;
+}
 
 void openProject(const fs::path& edsOrFolder) {
     auto pr = std::make_shared<EudProject>();
@@ -3347,8 +3375,14 @@ void openProject(const fs::path& edsOrFolder) {
         themedMessageBox(app.main, widen(err).c_str(), L"Could not open the project", MB_ICONERROR);
         return;
     }
+    if (const int open = findOpenProject(pr->folder()); open >= 0) {  // open already: go to its tab
+        activateDoc(open);
+        addRecent(gRecentProjects, pr->folder());
+        setMessage(L"The project " + widen(pr->name()) + L" is open already");
+        return;
+    }
     const size_t before = gDocs.size();
-    openMap(pr->inputMap().wstring());
+    openMap(pr->inputMap().wstring(), false);  // a tab of its own, also when the map is open by itself
     if (gDocs.size() < before || gActive < 0 || !app.ed || app.ed->path() != pr->inputMap()) return;  // the map did not open
     gDocs[size_t(gActive)].project = pr;
     updateTitle();
@@ -3414,7 +3448,13 @@ void addProjectScript() {
     triggersRefresh(rel.generic_string());
 }
 
-void openMap(const std::wstring& path) {
+void openMap(const std::wstring& path, bool switchToOpen) {
+    if (const int open = switchToOpen ? findOpenMap(path) : -1; open >= 0) {  // open already: go to its tab
+        activateDoc(open);
+        addRecent(gRecentMaps, path);
+        setMessage(fs::path(path).filename().wstring() + L" is open already");
+        return;
+    }
     auto ed = std::make_unique<Editor>(app.data);
     std::string err;
     SetCursor(LoadCursor(nullptr, IDC_WAIT));
@@ -6461,15 +6501,7 @@ std::vector<PaletteUnit> quickOpenItems() {
         std::transform(u.hay.begin(), u.hay.end(), u.hay.begin(), ::towlower);
         out.push_back(std::move(u));
     };
-    auto same = [](const fs::path& a, const fs::path& b) {  // as text: no disk access (a network share can make it wait)
-        auto key = [](const fs::path& p) {
-            std::wstring s = p.lexically_normal().make_preferred().wstring();
-            std::transform(s.begin(), s.end(), s.begin(), ::towlower);
-            while (!s.empty() && s.back() == L'\\') s.pop_back();
-            return s;
-        };
-        return !a.empty() && !b.empty() && key(a) == key(b);
-    };
+    const auto same = samePath;
     std::vector<fs::path> openProjects, openMaps;
     for (int i = 0; i < int(gDocs.size()); ++i) {
         const Editor* ed = docEditor(i);
@@ -20367,7 +20399,14 @@ void selfTestTwoModes(std::ofstream& log, const fs::path& dir, const fs::path& c
     const Workspace before = gWorkspace;
     const size_t tabsBefore = gDocs.size();
     std::error_code ec;
-    if (!classicMap.empty() && fs::exists(classicMap, ec)) openMap(classicMap.wstring());
+    if (!classicMap.empty() && fs::exists(classicMap, ec)) {
+        fs::path map = classicMap;
+        if (findOpenMap(map) >= 0) {  // open in a tab already (a second open goes to that tab): a copy opens in a new tab
+            map = dir / (L"two_modes" + classicMap.extension().wstring());
+            fs::copy_file(classicMap, map, fs::copy_options::overwrite_existing, ec);
+        }
+        openMap(map.wstring());
+    }
     const int mapTab = gActive;
     const bool opened = gDocs.size() == tabsBefore + 1 && mapTab != projTab && classicMode();
     log << "two modes: map opened next to the project " << (opened ? "yes" : "NO") << " (" << classicMap.filename().string() << ")\n";
@@ -23155,13 +23194,21 @@ int runSelfTest(const fs::path& dir) {
             }
             {
                 const size_t tabs = gDocs.size();
+                const int projectTab = gActive;
                 const fs::path eds = pr->file(), map = pr->inputMap();
-                openAny(map);  // already open as a project: a second tab for the same project
+                openAny(map);  // already open as a project: its tab, not a second one
                 const bool asProject = activeProject() && fs::equivalent(activeProject()->file(), eds, pec);
                 if (gDocs.size() > tabs) closeDoc(gActive);
                 openAny(eds);
                 const bool edsOpens = activeProject() && fs::equivalent(activeProject()->file(), eds, pec);
                 if (gDocs.size() > tabs) closeDoc(gActive);
+                std::wstring upper = eds.parent_path().wstring();  // the folder, in other case and slashes
+                std::transform(upper.begin(), upper.end(), upper.begin(), ::towupper);
+                std::replace(upper.begin(), upper.end(), L'\\', L'/');
+                openAny(fs::path(upper));
+                const bool noSecondTab = gDocs.size() == tabs && gActive == projectTab;
+                if (gDocs.size() > tabs) closeDoc(gActive);
+                log << "open: a project that is open already goes to its tab (no second tab) " << (noSecondTab ? "yes" : "NO") << "\n";
                 const bool recentProject = !gRecentProjects.empty() && fs::equivalent(gRecentProjects.front(), eds.parent_path(), pec);  // listed by folder
                 const bool mapNotListed = std::none_of(gRecentMaps.begin(), gRecentMaps.end(), [&](const std::wstring& m) {
                     std::error_code e2;
@@ -25905,7 +25952,35 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 showAbout();
                 for (int i = 0; i < 10; ++i) pump(), Sleep(20);
                 capture(fs::path(datashots) / "about.png", gAbout.wnd);
+                // The EUD tools' links: euddraft and eudplib, then the repository and Discord; the mouse underlines one.
+                std::ofstream o(fs::path(datashots) / "about.txt");
+                const bool four = gAbout.links.size() == 4 && gAbout.links[0].url == L"https://github.com/armoha/euddraft" &&
+                                  gAbout.links[1].url == L"https://github.com/armoha/eudplib";
+                o << "links: euddraft and eudplib first, 4 in all " << (four ? "yes" : "NO") << "\n";
+                if (four) {
+                    const RECT& r = gAbout.links[1].rc;
+                    SendMessageW(gAbout.wnd, WM_MOUSEMOVE, 0, MAKELPARAM((r.left + r.right) / 2, (r.top + r.bottom) / 2));
+                    o << "the mouse on eudplib makes it the hot link " << (gAbout.hot == 1 ? "yes" : "NO") << "\n";
+                    UpdateWindow(gAbout.wnd);  // (no pump: the real mouse is elsewhere, and its leave message clears it)
+                    capture(fs::path(datashots) / "about_hot.png", gAbout.wnd);
+                }
                 DestroyWindow(gAbout.wnd);
+                continue;
+            }
+            if (s == "openagain:") {  // openagain.txt: opening a map that is open already goes to its tab (no second tab)
+                std::ofstream o(fs::path(datashots) / "openagain.txt");
+                const fs::path map = fs::path(datashots) / "openagain.scx";
+                std::string err;
+                const bool saved = app.ed->save(map, err);
+                const int tab = gActive;
+                const size_t tabs = gDocs.size();
+                newMap();  // another tab in front
+                std::wstring other = map.wstring();
+                std::transform(other.begin(), other.end(), other.begin(), ::towupper);
+                std::replace(other.begin(), other.end(), L'\\', L'/');
+                openAny(fs::path(other));
+                o << "saved " << (saved ? "yes" : "NO") << ", the open map's tab again, no new tab " << (gActive == tab && gDocs.size() == tabs + 1 ? "yes" : "NO")
+                  << "\n";
                 continue;
             }
             if (s.rfind("player:", 0) == 0) {  // player:<1-12>: the placing player (the player list shows its color)
