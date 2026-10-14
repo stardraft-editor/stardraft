@@ -50,6 +50,7 @@ struct ClassicTrigDialog {
     std::set<int> marked;   // the triggers chosen with Ctrl or Shift click (the list's actions take them all); empty: the selected one
     int anchor = -1;        // the trigger a Shift click reaches from
     int hold = 0;           // > 0: the changes of a batch (a paste of several triggers) go into the map once, at the end
+    int entryLaid = -1;     // the entries' height the layout last took (a paint that changes it asks for a layout)
     std::vector<HWND> params;  // the labels and pickers of the selected entry (made again when it changes)
     std::vector<HWND> paramPickers;  // one per parameter of the type
     int editTop = 0, editLeft = 0, editRight = 0;
@@ -485,8 +486,8 @@ void ctBuildEditor() {
     SendMessageW(d.always, BM_SETCHECK, flags & 4 ? BST_CHECKED : BST_UNCHECKED, 0);
     // The pickers: two columns; a text takes the whole width under them.
     const ClassicDef* def = c ? classicConditionDef(type) : classicActionDef(type);
-    const int rowH = scale(ui::kFieldH), step = scale(ui::kFormRowH), labelW = scale(110), colW = (d.editRight - d.editLeft) / 2;
-    const int pickW = colW - labelW - scale(16);
+    const int rowH = scale(ui::kFieldH), step = scale(ui::kFormRowH), labelW = scale(110), colW = labelW + scale(260) + scale(24);
+    const int pickW = scale(260);  // a value's field: the kit's width, the same in both columns
     int col = 0, y = d.editTop;
     auto font = [](HWND h) { SendMessageW(h, WM_SETFONT, WPARAM(app.font), TRUE); };
     std::vector<int> order;  // the texts last
@@ -512,7 +513,7 @@ void ctBuildEditor() {
         // One control for each value kind: a button that shows the value. A list value (unit, player, location, ...)
         // opens the searchable list; a number and a text open a pop-out with OK and Cancel (ctValuePopout).
         {
-            const int w = text ? d.editRight - d.editLeft - labelW - scale(16) : pickW;
+            const int w = text ? std::min(d.editRight - d.editLeft - labelW - scale(16), scale(560)) : pickW;
             h = CreateWindowExW(0, WC_BUTTONW, ctEditorValueText(p, v, varDepth).c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_LEFT, x + labelW,
                                 y, w, rowH, d.wnd, HMENU(INT_PTR(kCtParam + i)), app.inst, nullptr);
             darkControl(h, L"DarkMode_Explorer");
@@ -1454,6 +1455,7 @@ void ctPaint(HWND hwnd, bool isList) {
     }
     int& height = isList ? d.listHeight : d.entryHeight;
     height = y + scroll;
+    if (!isList && height != d.entryLaid) d.entryLaid = height, PostMessageW(d.wnd, WM_SIZE, 0, 0);  // the editor follows the entries
     if (const int most = std::max(0, height - int(rc.bottom)); scroll > most)  // taller window: the bar hides, so no scroll is left
         (isList ? d.listScroll : d.entryScroll) = most, InvalidateRect(hwnd, nullptr, FALSE);
     SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS, 0, std::max(0, height - 1), UINT(rc.bottom), scroll};
@@ -1910,18 +1912,19 @@ void ctLayout(HWND hwnd) {
     place(d.deleteTrig, x0 + rightW - delW, y + scale(2), delW, rowH);
     place(d.turnOff, x0 + rightW - delW - gap - turnW, y + scale(2), turnW, rowH);
     y += scale(40);
-    // The players: one row of check boxes (players 1 to 8), then All players and the forces.
-    const int cw = rightW / 8;
-    for (int g = 0; g < 8; ++g) place(d.players[g], x0 + g * cw, y, cw - gap, rowH);
+    // The players: check boxes in columns of a fixed width, from the left; All players and Forces in the next row.
+    const int colW = scale(124);
+    for (int g = 0; g < 8; ++g) place(d.players[g], x0 + g * colW, y, colW - gap, rowH);
     y += step;
-    place(d.players[8], x0, y, cw * 2 - gap, rowH);
-    place(d.forces, x0 + cw * 2, y, scale(150), rowH);
+    place(d.players[8], x0, y, colW - gap, rowH);
+    place(d.forces, x0 + colW, y, scale(120), rowH);
     y += step + gap;
-    // The editor under the entries: its title row and three rows of values.
-    const int editorH = ctEditorHeight(step, gap), editorTop = H - pad - editorH;
-    const int entriesH = std::max(scale(120), editorTop - gap - y);
+    // The editor follows the entries: the entries take the height their rows need, up to the room left.
+    const int editorH = ctEditorHeight(step, gap);
+    const int room = H - pad - editorH - gap - y;
+    const int entriesH = std::clamp(d.entryHeight, scale(120), std::max(scale(120), room));
     place(d.entries, x0, y, rightW, entriesH);
-    const int ey = editorTop;
+    const int ey = y + entriesH + gap;
     place(d.editTitle, x0, ey, scale(360), scale(28));
     place(d.typeBox, x0 + scale(370), ey + scale(2), scale(200), scale(400));
     place(d.disabled, x0 + scale(580), ey + scale(2), scale(110), rowH);
