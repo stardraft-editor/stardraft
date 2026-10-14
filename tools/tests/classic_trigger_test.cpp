@@ -365,6 +365,46 @@ int main(int argc, char** argv) {
         check(plainOut.triggers.size() == 1 && plainOut.triggers[0] == one && ps.get(mark).empty(), "a trigger without a block is written as it is, and the marker string is blank");
         check(classicCollapseBatches(readClassicTriggers(saved), ps).triggers.size() == 2, "a map with blocks reads back without the marker string as the triggers they are");
 
+        // Copy and paste of a block with its children: the variables follow the block inside the copy, and a variable of
+        // a block that is not in the copy takes the deepest block of its kind where the copy lands (or none).
+        {
+            ClassicTrigger src = ClassicTrigger::make();
+            src.addAction(block(units, 0));                               // U (unit), depth 0
+            src.addAction(block({"player", ClassicBatchKind::Player, {0, 1}}, 1));  // P (player), in U
+            ClassicAction create = child(44, 2);                          // Create unit, in P
+            create.var[2] = 1, create.var[1] = 2;                         // unit of U, player of P
+            src.addAction(create);
+            src.addAction(child(9, 0));                                   // Display text, after U
+            check(src.subtreeRows(0).size() == 3 && src.subtreeRows(1).size() == 2 && src.subtreeRows(3).size() == 1,
+                  "a block's rows are its row and its children");
+            // Copy P (with Create): paste at the end, at depth 0. Its unit is U's, which the copy does not hold: none.
+            const std::vector<ClassicAction> pRows = src.subtreeRows(1);
+            ClassicTrigger dst = ClassicTrigger::make();
+            dst.addAction(child(9, 0));
+            check(dst.pasteRows(pRows, dst.actionCount(), 0) && dst.actionCount() == 3 && dst.actions[1].type == kClassicBlockType &&
+                      dst.actions[1].depth == 0 && dst.actions[2].depth == 1 && dst.actions[2].var[2] == 0 && dst.actions[2].var[1] == 1,
+                  "a copied block lands at the depth it is pasted at; its own variable follows it, a missing one is none");
+            // Paste into U (a block of units) at depth 1: the unit variable of Create binds to U, the player to the copy's P.
+            ClassicTrigger in = ClassicTrigger::make();
+            in.addAction(block(units, 0));
+            in.addAction(child(9, 1));
+            check(in.pasteRows(pRows, in.actionCount(), 1) && in.actionCount() == 4 && in.actions[2].depth == 1 && in.actions[3].depth == 2 &&
+                      in.actions[3].var[2] == 1 && in.actions[3].var[1] == 2,
+                  "pasted into a block, the unit variable binds to the block above and the player to the copied block");
+            ClassicTriggers pasted;
+            pasted.triggers = {in};
+            StringTable ps2;
+            Chk psaved;
+            writeClassicTriggers(psaved, classicExpandBatches(pasted, ps2));
+            const ClassicTriggers pback = classicCollapseBatches(readClassicTriggers(psaved), ps2);
+            check(pback.triggers.size() == 1 && pback.triggers[0] == in, "a pasted block reads back the same");
+            // Paste with too little room, or into a place that is not inside the blocks above: refused.
+            ClassicTrigger full = ClassicTrigger::make();
+            for (int i = 0; i < kClassicActions - 1; ++i) full.addAction(child(9, 0));
+            check(!full.pasteRows(pRows, 0, 0) && full.actionCount() == kClassicActions - 1 && !in.pasteRows(pRows, in.actionCount(), 3),
+                  "a paste that does not fit, or lands deeper than its blocks, is refused");
+        }
+
         // A block's text.
         ClassicNames names;
         names.unit = [](uint32_t v) { return v == 0 ? std::string("Terran Marine") : v == 1 ? std::string("Terran Firebat") : std::string("Zergling"); };

@@ -55,7 +55,7 @@ void mapPageChanged();
 struct ClassicTrigClip {
     int kind = -1;  // 0 condition, 1 action, 2 trigger
     ClassicCondition condition;
-    ClassicAction action;
+    std::vector<ClassicAction> rows;  // an action, or a block with its children (kind 1)
     ClassicTrigger trigger;
     std::vector<std::pair<std::string, std::string>> texts;  // per action: the text and the sound
 };
@@ -579,6 +579,18 @@ bool ctInsertAction(const ClassicAction& a, int at) {
     return true;
 }
 // A new condition (action) of this type at the end of its list.
+// Rows (an action, or a block with its children) before place `at` (the end when -1), at `depth`; the first one is
+// selected.
+bool ctInsertRows(const std::vector<ClassicAction>& rows, int at, int depth) {
+    ClassicTrigger* t = ctTrigger();
+    if (!t) return false;
+    const int place = at < 0 ? t->actionCount() : at;
+    if (!t->pasteRows(rows, place, depth)) return false;
+    gCt->collapsed.clear();
+    ctSelectEntry(1, place);
+    ctChanged();
+    return true;
+}
 // A new action goes into the selected block (as its last child) when a block is selected.
 bool ctAddEntry(int kind, uint8_t type) {
     if (!kind) return ctInsertCondition(makeClassicCondition(type), -1);
@@ -594,10 +606,10 @@ bool ctAddEntry(int kind, uint8_t type) {
 void ctDuplicateEntry(int kind, int i) {
     ClassicTrigger* t = ctTrigger();
     if (!t || i < 0 || i >= ctEntryCount(*t, kind)) return;
-    if (kind) {
-        const ClassicAction a = t->actions[size_t(i)];
-        gCt->ownStrings.erase(a.text);  // shared now
-        ctInsertAction(a, i + 1);
+    if (kind) {  // a block is copied with its children, after itself
+        std::vector<ClassicAction> rows = t->subtreeRows(i);
+        for (const ClassicAction& a : rows) gCt->ownStrings.erase(a.text);  // shared now
+        ctInsertRows(rows, t->blockEnd(i), t->actions[size_t(i)].depth);
     } else {
         ctInsertCondition(t->conditions[size_t(i)], i + 1);
     }
@@ -655,9 +667,13 @@ void ctCopy(bool trigger) {
     if (d.entry < 0 || d.entry >= ctEntryCount(*t, d.kind)) return;
     gCtClip = {};
     gCtClip.kind = d.kind;
-    if (d.kind) gCtClip.action = t->actions[size_t(d.entry)], gCtClip.texts.push_back(ctActionTexts(gCtClip.action));
-    else gCtClip.condition = t->conditions[size_t(d.entry)];
-    setMessage(d.kind ? L"Copied the action" : L"Copied the condition");
+    if (d.kind) {  // a block takes its children with it
+        gCtClip.rows = t->subtreeRows(d.entry);
+        for (const ClassicAction& a : gCtClip.rows) gCtClip.texts.push_back(ctActionTexts(a));
+    } else {
+        gCtClip.condition = t->conditions[size_t(d.entry)];
+    }
+    setMessage(!d.kind ? L"Copied the condition" : gCtClip.rows.size() > 1 ? L"Copied the block" : L"Copied the action");
 }
 void ctPaste() {
     ClassicTrigDialog& d = *gCt;
@@ -669,16 +685,19 @@ void ctPaste() {
     }
     const ClassicTrigger* t = ctTrigger();
     if (!t || gCtClip.kind < 0) return;
-    const int at = d.kind == gCtClip.kind && d.entry >= 0 ? d.entry + 1 : -1;
     bool ok;
     if (gCtClip.kind) {
-        ClassicAction a = gCtClip.action;
-        if (!gCtClip.texts.empty()) ctResolveTexts(a, gCtClip.texts[0]);
-        ok = ctInsertAction(a, at);
-    } else {
-        ok = ctInsertCondition(gCtClip.condition, at);
+        // After the selected action (after its block, at its depth); at the end of the trigger when none is selected.
+        int at = -1, depth = 0;
+        if (d.kind == 1 && d.entry >= 0 && d.entry < t->actionCount()) at = t->blockEnd(d.entry), depth = t->actions[size_t(d.entry)].depth;
+        std::vector<ClassicAction> rows = gCtClip.rows;
+        for (size_t i = 0; i < rows.size() && i < gCtClip.texts.size(); ++i) ctResolveTexts(rows[i], gCtClip.texts[i]);
+        ok = ctInsertRows(rows, at, depth);
+        return setMessage(!ok ? L"The list is full" : rows.size() > 1 ? L"Pasted the block" : L"Pasted the action");
     }
-    setMessage(!ok ? L"The list is full" : gCtClip.kind ? L"Pasted the action" : L"Pasted the condition");
+    const int at = d.kind == gCtClip.kind && d.entry >= 0 ? d.entry + 1 : -1;
+    ok = ctInsertCondition(gCtClip.condition, at);
+    setMessage(!ok ? L"The list is full" : L"Pasted the condition");
 }
 
 // --- The painted lists ---------------------------------------------------------------------------------------------
@@ -975,6 +994,16 @@ void ctKey(bool isList, WPARAM vk) {
     ClassicTrigDialog& d = *gCt;
     const bool ctrl = GetKeyState(VK_CONTROL) < 0;
     if (ctrl && vk == 'C') return ctCopy(isList);
+    if (ctrl && vk == 'X') {  // cut: copy, then delete (a block with its children)
+        if (isList) {
+            if (d.sel < 0) return;  // (no trigger selected: nothing to cut)
+            ctCopy(true);
+            return ctDeleteTrigger(d.sel);
+        }
+        if (d.entry < 0) return;
+        ctCopy(false);
+        return ctDeleteEntry(d.kind, d.entry);
+    }
     if (ctrl && vk == 'V') return ctPaste();
     if (isList) {
         const auto at = std::find(d.shown.begin(), d.shown.end(), d.sel);
@@ -1043,7 +1072,8 @@ LRESULT CALLBACK ctListProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
 // --- Batches (R23): the variable and its values, in a dialog with OK and Cancel ------------------------------------
 
-constexpr int kCtBatchName = 1001, kCtBatchKind = 1002, kCtBatchValues = 1003, kCtBatchRemove = 1004;
+constexpr int kCtBatchName = 1001, kCtBatchKind = 1002, kCtBatchValues = 1003, kCtBatchRemove = 1004, kCtBatchAddValue = 1005,
+              kCtBatchRemoveValue = 1006;
 
 struct CtBatchDialog {
     ClassicBatch* batch = nullptr;
@@ -1059,29 +1089,28 @@ const char* ctBatchKindLabel(ClassicBatchKind k) {
 }
 
 // The values a batch of this kind can have: the unit types of the game, the players and the map's locations.
+// The chosen values, in order (a row each); the buttons and OK follow the list.
 void ctBatchFillValues(HWND dlg, ClassicBatchKind kind, const std::vector<uint32_t>& chosen) {
     HWND list = GetDlgItem(dlg, kCtBatchValues);
     SendMessageW(list, LB_RESETCONTENT, 0, 0);
-    for (const auto& [value, label] : ctKindChoices(ctBatchKindOf(kind))) {
-        if (kind == ClassicBatchKind::Unit && value > 227) continue;  // (the groups of units are not one unit type)
+    for (uint32_t value : chosen) {
+        const std::wstring label = widen(classicValueText(classicBatchValueKind(kind), value, ctNames()));
         const int i = int(SendMessageW(list, LB_ADDSTRING, 0, LPARAM(label.c_str())));
         SendMessageW(list, LB_SETITEMDATA, WPARAM(i), LPARAM(value));
-        if (std::find(chosen.begin(), chosen.end(), value) != chosen.end()) SendMessageW(list, LB_SETSEL, TRUE, i);
     }
-    EnableWindow(GetDlgItem(dlg, IDOK), SendMessageW(list, LB_GETSELCOUNT, 0, 0) > 0);
+    EnableWindow(GetDlgItem(dlg, IDOK), !chosen.empty());
+    EnableWindow(GetDlgItem(dlg, kCtBatchRemoveValue), FALSE);
 }
 
-// The dialog's answer: the kind, the name and the chosen values. False when no value is chosen (OK does nothing then).
+// The dialog's answer: the kind, the name and the values, in the list's order. False when no value is chosen.
 bool ctBatchCollect(HWND dlg, CtBatchDialog& st) {
     HWND list = GetDlgItem(dlg, kCtBatchValues);
-    const int n = int(SendMessageW(list, LB_GETSELCOUNT, 0, 0));
+    const int n = int(SendMessageW(list, LB_GETCOUNT, 0, 0));
     if (n <= 0) return false;
-    std::vector<int> picked(static_cast<size_t>(n));
-    SendMessageW(list, LB_GETSELITEMS, WPARAM(n), LPARAM(picked.data()));
     HWND kindBox = GetDlgItem(dlg, kCtBatchKind);
     const ClassicBatchKind kind = ClassicBatchKind(SendMessageW(kindBox, CB_GETITEMDATA, WPARAM(SendMessageW(kindBox, CB_GETCURSEL, 0, 0)), 0));
     st.batch->values.clear();
-    for (int i : picked) st.batch->values.push_back(uint32_t(SendMessageW(list, LB_GETITEMDATA, WPARAM(i), 0)));
+    for (int i = 0; i < n; ++i) st.batch->values.push_back(uint32_t(SendMessageW(list, LB_GETITEMDATA, WPARAM(i), 0)));
     st.batch->kind = kind;
     st.batch->name = classicBatchName(narrow(windowText(GetDlgItem(dlg, kCtBatchName))), kind);
     return true;
@@ -1110,7 +1139,7 @@ INT_PTR CALLBACK ctBatchProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         ctBatchFillValues(dlg, st->batch->kind, st->batch->values);
         for (HWND c = GetWindow(dlg, GW_CHILD); c; c = GetWindow(c, GW_HWNDNEXT)) SendMessageW(c, WM_SETFONT, WPARAM(app.font), TRUE);
         for (int id : {kCtBatchName, kCtBatchKind, kCtBatchValues}) darkControl(GetDlgItem(dlg, id), id == kCtBatchValues ? L"DarkMode_Explorer" : L"DarkMode_CFD");
-        for (int id : {kCtBatchRemove, IDOK, IDCANCEL}) darkControl(GetDlgItem(dlg, id), L"DarkMode_Explorer");
+        for (int id : {kCtBatchRemove, kCtBatchAddValue, kCtBatchRemoveValue, IDOK, IDCANCEL}) darkControl(GetDlgItem(dlg, id), L"DarkMode_Explorer");
         BOOL dark = !gLightTheme;
         DwmSetWindowAttribute(dlg, 20, &dark, sizeof dark), titleColors(dlg);
         return TRUE;
@@ -1139,7 +1168,44 @@ INT_PTR CALLBACK ctBatchProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         return TRUE;
     }
     if (id == kCtBatchValues && code == LBN_SELCHANGE) {
-        EnableWindow(GetDlgItem(dlg, IDOK), SendMessageW(GetDlgItem(dlg, kCtBatchValues), LB_GETSELCOUNT, 0, 0) > 0);
+        EnableWindow(GetDlgItem(dlg, kCtBatchRemoveValue), SendMessageW(GetDlgItem(dlg, kCtBatchValues), LB_GETCURSEL, 0, 0) != LB_ERR);
+        return TRUE;
+    }
+    if (id == kCtBatchAddValue && code == BN_CLICKED) {
+        // The searchable list of the block's kind, without the values that are chosen already (one pick each time).
+        HWND list = GetDlgItem(dlg, kCtBatchValues);
+        const ClassicBatchKind kind = chosenKind;
+        std::vector<ListPickItem> items;
+        for (const auto& [value, label] : ctKindChoices(ctBatchKindOf(kind))) {
+            if (kind == ClassicBatchKind::Unit && value > 227) continue;  // (the groups of units are not one unit type)
+            bool chosen = false;
+            for (int i = 0; i < int(SendMessageW(list, LB_GETCOUNT, 0, 0)); ++i) chosen = chosen || uint32_t(SendMessageW(list, LB_GETITEMDATA, WPARAM(i), 0)) == value;
+            if (chosen) continue;
+            ListPickItem it;
+            it.label = label, it.value = std::to_string(value);
+            items.push_back(std::move(it));
+        }
+        RECT rc;
+        GetWindowRect(GetDlgItem(dlg, kCtBatchAddValue), &rc);
+        std::string picked;
+        if (!showListPicker(L"Add a value", items, "", POINT{rc.left, rc.bottom + scale(2)}, picked) || picked.empty()) return TRUE;
+        const uint32_t value = uint32_t(std::stoul(picked));
+        const int i = int(SendMessageW(list, LB_ADDSTRING, 0, LPARAM(widen(classicValueText(classicBatchValueKind(kind), value, ctNames())).c_str())));
+        SendMessageW(list, LB_SETITEMDATA, WPARAM(i), LPARAM(value));
+        SendMessageW(list, LB_SETCURSEL, WPARAM(i), 0);
+        EnableWindow(GetDlgItem(dlg, IDOK), TRUE);
+        EnableWindow(GetDlgItem(dlg, kCtBatchRemoveValue), TRUE);
+        return TRUE;
+    }
+    if (id == kCtBatchRemoveValue && code == BN_CLICKED) {  // the selected value goes; the others keep their order
+        HWND list = GetDlgItem(dlg, kCtBatchValues);
+        const int cur = int(SendMessageW(list, LB_GETCURSEL, 0, 0));
+        if (cur == LB_ERR) return TRUE;
+        SendMessageW(list, LB_DELETESTRING, WPARAM(cur), 0);
+        const int n = int(SendMessageW(list, LB_GETCOUNT, 0, 0));
+        if (n > 0) SendMessageW(list, LB_SETCURSEL, WPARAM(std::min(cur, n - 1)), 0);
+        EnableWindow(GetDlgItem(dlg, IDOK), n > 0);
+        EnableWindow(GetDlgItem(dlg, kCtBatchRemoveValue), n > 0);
         return TRUE;
     }
     if (id == IDOK) {
@@ -1166,7 +1232,7 @@ std::vector<WORD> ctBatchTemplate() {
     dword(WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME | DS_SETFONT | DS_CENTER);
     dword(0);
     t.push_back(9);  // items
-    t.push_back(0), t.push_back(0), t.push_back(240), t.push_back(170);
+    t.push_back(0), t.push_back(0), t.push_back(240), t.push_back(190);
     t.push_back(0), t.push_back(0);  // menu, class
     str(L"");                        // title (set later)
     t.push_back(9);
@@ -1185,11 +1251,12 @@ std::vector<WORD> ctBatchTemplate() {
     item(SS_LEFT, 8, 31, 84, 10, 0xFFFF, 0x0082, L"Kind");
     item(WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL, 96, 28, 136, 80, kCtBatchKind, 0x0085, L"");
     item(SS_LEFT, 8, 51, 84, 10, 0xFFFF, 0x0082, L"Values");
-    item(WS_BORDER | WS_TABSTOP | WS_VSCROLL | LBS_MULTIPLESEL | LBS_NOINTEGRALHEIGHT | LBS_HASSTRINGS | LBS_NOTIFY, 96, 48, 136, 96, kCtBatchValues,
-         0x0083, L"");
-    item(WS_TABSTOP | BS_PUSHBUTTON, 8, 152, 110, 14, kCtBatchRemove, 0x0080, L"");
-    item(WS_TABSTOP | BS_DEFPUSHBUTTON, 130, 152, 50, 14, IDOK, 0x0080, L"");
-    item(WS_TABSTOP | BS_PUSHBUTTON, 184, 152, 50, 14, IDCANCEL, 0x0080, L"");
+    item(WS_BORDER | WS_TABSTOP | WS_VSCROLL | LBS_NOINTEGRALHEIGHT | LBS_HASSTRINGS | LBS_NOTIFY, 96, 48, 136, 80, kCtBatchValues, 0x0083, L"");
+    item(WS_TABSTOP | BS_PUSHBUTTON, 96, 132, 66, 14, kCtBatchAddValue, 0x0080, L"Add a value\x2026");
+    item(WS_TABSTOP | BS_PUSHBUTTON, 166, 132, 68, 14, kCtBatchRemoveValue, 0x0080, L"Remove the value");
+    item(WS_TABSTOP | BS_PUSHBUTTON, 8, 172, 110, 14, kCtBatchRemove, 0x0080, L"");
+    item(WS_TABSTOP | BS_DEFPUSHBUTTON, 130, 172, 50, 14, IDOK, 0x0080, L"");
+    item(WS_TABSTOP | BS_PUSHBUTTON, 184, 172, 50, 14, IDCANCEL, 0x0080, L"");
     align();
     return t;
 }
