@@ -199,6 +199,7 @@ jobs:
           build-gcc/trigger_test "$RUNNER_TEMP/trigger_test"
           build-gcc/render_smoke_test "$RUNNER_TEMP/render_smoke.png"
           build-gcc/settings_test "$RUNNER_TEMP"
+          build-gcc/commands_test
 
   macos:
     runs-on: macos-15  # arm64, Xcode's clang and libc++
@@ -219,6 +220,7 @@ jobs:
         run: |
           build/trigger_test "$RUNNER_TEMP/trigger_test"
           build/settings_test "$RUNNER_TEMP"
+          build/commands_test
 
       # The renderer on Metal. GitHub's macOS machines may have no Metal device: a failure here does not stop the run.
       - name: Run the renderer on Metal
