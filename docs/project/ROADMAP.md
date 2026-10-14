@@ -17,26 +17,47 @@ Accelerated improvements, and the missing features based on early user feedback.
   Click a build error in the Log to open its trigger and block in the Triggers workspace.
 
   euddraft shows an error in the Log with a line of the triggers' code. Mappers must find the trigger by hand.
+
+  Status (2026-10-14): most of it exists. A failed build selects the block of the error (trigShowBuildError), and the
+  epTrace rows open their lines. Only a click on a Log line is missing.
 - [ ] **R39 Tiles in the map's graphics.** *Tag:* Terrain.
   The Tiles list shows each tile in the graphics of the map: HD, SD or Carbot.
 
   The Tiles list shows the tiles in SD, also when the map shows HD or Carbot. Mappers cannot find a tile by the look
   that the map shows.
+
+  Status (2026-10-14): the Tiles list draws each tile in SD (tilesPixels in tiles_view.inc). The HD and Carbot tiles
+  load already for the terrain palette (loadHdTiles); use them here.
 - [ ] **R8 Preplaced unit graphics.** *Tag:* EUD.
   Preplaced units show the graphics from the map's data edits.
 
   The game makes preplaced units before the map's data edits run. These units keep the game's graphics. Make them
   again at map start.
+
+  Status (2026-10-14): built, not pushed. The Project page option "New graphics for preplaced units" makes the units
+  again at map start and shows them with the new graphics on the map. Open questions:
+  - Check in the game that the units are made again with the new graphics, on their places, with their values.
+  - Units that a new unit cannot copy keep the old graphics: cloaked, burrowed, lifted, loaded, hallucinations, units
+    linked to an add-on or a Nydus Canal, and units with interceptors or scarabs. Is that acceptable?
 - [ ] **R2 Terrain rendering accuracy.** *Tag:* Terrain.
   All tilesets look the same in StarDraft 2 as in the game, in HD, SD and Carbot.
 
   Some terrain looks different in StarDraft 2 and in the game. Not all tilesets are compared in HD, SD and Carbot.
   Compare each tileset with the game, and fix what differs.
+
+  Status (2026-10-14): the automatic checks pass (terrain_check, terrain_render_test), but no check compares with the
+  game. Open questions:
+  - Water and lava do not move: the game animates them with palette cycling, and StarDraft 2 has none.
+  - In Carbot, Twilight shows a large magenta area where SD and HD2 show a black void.
+  - Ashworld has no seam test, and terrain_render_test uses 2 maps only.
 - [ ] **R50 More EUD trigger blocks.** *Tag:* EUD.
   Blocks for common mapping tasks: center the screen, queue buildings, play animations, place sprites, and sprite
   effects.
 
   Mappers must write epScript for these tasks, because no block does them yet.
+
+  Open question (2026-10-14): "center the screen" exists (act.centerview), and R53 Camera controls covers the camera.
+  Take it out of this item?
 
 ## Next
 
@@ -85,6 +106,20 @@ Make StarDraft 2 a more powerful creation suite.
   In Classic triggers, make many triggers from one pattern: one trigger for each player, location or unit type.
 
   Mappers make hundreds of triggers that differ in one value. They must make and change each trigger by hand.
+
+  Status (2026-10-14): built, not pushed. Batches are blocks of actions in a trigger ("For each unit in ..."), which
+  can nest; the Classic triggers page has a new layout (search, trigger header, Turn off for triggers, blocks in the
+  action list, pop-outs, right-click menus). Open questions:
+  - The text above says one trigger for each value. Change it to batch blocks (and the Korean text on the website)?
+  - Check in the game: a trigger with more than 64 actions becomes several triggers, linked by a switch. Does it work
+    for a trigger of several players?
+  - The rail button says "Triggers". Keep it, or another name?
+  - Ctrl+wheel zoom on the page, as in the Triggers workspace?
+  - Players as check boxes (now) or as chips?
+  - The value pop-out's button says "Set". Keep it, or use the action's name?
+  - Compare the sentences ("Set Switch 2", the quotes around locations) with the game's words.
+  - Help for the selected action, as the info pane of the Triggers workspace.
+  - Select several conditions and actions (now only triggers).
 - [ ] **R25 Campaign projects.** *Tag:* UMS.
   Keep all the maps of a campaign in one project, in their order.
 
