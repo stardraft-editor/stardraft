@@ -9,8 +9,8 @@
 // --live: a real window that takes the focus and the system's keys for that many seconds (the search field has the
 // focus), printing each text and composition event, then the snapshot. For a machine of its own (CI types with the
 // system's input method into it): never on a computer that someone uses.
-// The program draws the IME's text being composed at the caret (SDL_HINT_IME_IMPLEMENTED_UI): on macOS the system's
-// own drawing loses the first syllable (the IME workflow shows it). --ime-system: the system draws it. --compose
+// The program draws the IME's text being composed at the caret (SDL_HINT_IME_IMPLEMENTED_UI), so it looks the same
+// on every system (the IME workflow checks both ways). --ime-system: the system draws it. --compose
 // sends that text as the system's composition events would (a test of the drawing).
 // --snapshot draws a few frames without showing a window (no focus taken) and writes the last one; --type types the
 // text into the triggers' search field first (as text input events). With SDL_VIDEODRIVER=offscreen it needs no
