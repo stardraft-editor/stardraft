@@ -178,7 +178,7 @@ variable `STARDRAFT_SETTINGS` gives another file. File associations stay in the 
 All three use GitHub, with the token in the repository secret `STARDRAFT_ISSUES_TOKEN`: a fine-grained token for
 this repository only, with **Issues: read and write** and **Contents: read**. CI builds it into the program. A build made here reads the token from `.issues-token` in the
 repository's root (one line; not in git); without it, reports and feedback stay on disk and go when a build with a
-token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, at build time or when StarDraft runs. All three send their requests through `apps/editor/github.inc`; a feedback file stays when GitHub's reply cannot be read.
+token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, at build time or when StarDraft runs. All three send their requests through `apps/editor/github.inc`, which calls `apps/common/http.h` (WinHTTP on Windows, curl elsewhere; `http_get <url>` tries one by hand); a feedback file stays when GitHub's reply cannot be read.
 
 - **Crash reports** (`apps/editor/crash.inc`): a crash writes `crash.dmp` and `report.txt` (version, commit, Windows,
   video card, the exception, the stack, the last log lines) into `%LOCALAPPDATA%\StarDraft\crashes\<time>\` and

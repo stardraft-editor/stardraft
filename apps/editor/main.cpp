@@ -70,6 +70,7 @@ using std::min;
 #include "stardraft/wireframes.h"
 #include "stardraft/pathing.h"
 #include "stardraft/commands.h"
+#include "http.h"  // apps/common: HTTPS requests (github.inc)
 #include "stardraft/settings.h"
 #include "ui_text.h"  // the program's text in other languages: the macros for DrawTextW, MessageBoxW and the others
 
