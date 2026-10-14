@@ -1,6 +1,7 @@
 #include "stardraft/editor.h"
 
 #include <climits>
+#include <cstring>
 #include <tuple>
 #include "byteio.h"
 #include "file_write.h"

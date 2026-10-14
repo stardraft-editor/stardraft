@@ -3,8 +3,11 @@
 // project files (triggers.json, the Data workspace's strings, requirements and button sets).
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
 #include <charconv>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <initializer_list>
 #include <string>
 #include <utility>
@@ -147,8 +150,16 @@ struct JsonParser {
             size_t end = i;
             while (end < t.size() && (isdigit(static_cast<unsigned char>(t[end])) || t[end] == '-' || t[end] == '.' || t[end] == 'e' || t[end] == 'E' || t[end] == '+')) ++end;
             if (end == i) return ok = false, v;
-            const auto r = std::from_chars(t.data() + i, t.data() + end, v.n);
-            if (r.ec != std::errc() || r.ptr != t.data() + end) return ok = false, v;  // not a number, or too large
+            // strtod and not from_chars: Apple's libc++ has no from_chars for double before macOS 26. The library
+            // never calls setlocale, so the decimal point is '.'.
+            char buf[64];
+            if (end - i >= sizeof buf) return ok = false, v;
+            std::memcpy(buf, t.data() + i, end - i);
+            buf[end - i] = 0;
+            char* stop = nullptr;
+            errno = 0;
+            v.n = std::strtod(buf, &stop);
+            if (errno == ERANGE || stop != buf + (end - i)) return ok = false, v;  // not a number, or too large
             v.type = Json::Type::Number, i = end;
         }
         return v;

@@ -254,7 +254,7 @@ void UnitSprites::loadScripts(const GameData& data, const Bytes& images) {
     for (size_t img = 0; img < kImages; ++img) {
         imageScriptId_[img] = int(readU32(images, 9990 + img * 4));
         auto it = entries.find(uint16_t(imageScriptId_[img]));
-        if (it == entries.end() || it->second + 10 > d.size()) continue;
+        if (it == entries.end() || size_t(it->second) + 10 > d.size()) continue;
         scriptHeader_[img] = it->second;
     }
     auto spriteImage = [&](int sprite) { return sprite >= 0 && size_t(sprite) < spriteImage_.size() ? int(spriteImage_[size_t(sprite)]) : -1; };
@@ -761,7 +761,7 @@ bool SpriteSim::execute(int index) {
         const size_t a = at + 1;
         im->pc = a + len;
         if (isMain) executed_.push_back(at);
-        const int8_t sb = int8_t(d[a]), sc = len >= 3 ? int8_t(d[a + 2]) : 0;
+        const int8_t sb = int8_t(d[a]);
         switch (op) {
         case 0x00: im->base = u16(a); break;                                                  // playfram
         case 0x01: im->base = u16(a) + tileset_; break;                                       // playframtile

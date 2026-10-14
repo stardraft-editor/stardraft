@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
                 ed.endTerrainStroke();
                 // Corners of the wall terrain (or anything above it) now on the map vs. corners asked for.
                 const IsomTerrainTable* t = IsomTerrainTable::forEra(cs.era);
-                int got = 0, inAsked = 0;
+                int got = 0;
                 for (int y = 0; y <= 64; ++y)
                     for (int x = 0; x <= 33; ++x) {
                         uint16_t v = ed.terrainAt(x * 64, y * 32);
@@ -54,7 +54,6 @@ int main(int argc, char** argv) {
                         if (!((x + y) & 1)) continue;
                         (void)t;
                         got += wall;
-                        inAsked += wall && asked.count({x, y});
                     }
                 std::printf("%-18s size %.1f %-10s asked %3zu  got %3d  (%.1fx)  invalid %d\n", cs.name, size,
                             dir == 0 ? "horizontal" : dir == 1 ? "diagonal" : "vertical", asked.size(), got,

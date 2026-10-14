@@ -17,14 +17,6 @@ namespace {
 
 // euddraft's .eds syntax: "[section]" headers, "key : value" (or "key = value") lines; ':' '=' and '\'
 // inside a key are escaped with '\'.
-std::string escapeKey(const std::string& k) {
-    std::string out;
-    for (char c : k) {
-        if (c == ':' || c == '=' || c == '\\') out += '\\';
-        out += c;
-    }
-    return out;
-}
 
 // Splits "key : value" at the first unescaped ':' or '='; the key comes back unescaped.
 bool splitLine(const std::string& line, std::string& key, std::string& value) {

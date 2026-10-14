@@ -164,6 +164,9 @@ static int migrate(const GameData& data, const fs::path& map, const fs::path& di
     return failed;
 }
 
+// A UTF-8 command-line argument as a path (fs::u8path is deprecated in C++20).
+static fs::path utf8Path(const char* s) { return fs::path(reinterpret_cast<const char8_t*>(s)); }
+
 int main(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: classic_trigger_test <install> <maps folder>... [--survey]\n");
@@ -175,7 +178,7 @@ int main(int argc, char** argv) {
     const bool haveData = data.open(argv[1], err);
     if (argc >= 5 && std::string(argv[2]) == "--migrate") {
         if (!haveData) return std::printf("FAIL game data: %s\n", err.c_str()), 1;
-        const int f = migrate(data, fs::u8path(argv[3]), fs::u8path(argv[4]));
+        const int f = migrate(data, utf8Path(argv[3]), utf8Path(argv[4]));
         std::printf("%d failures\n", f);
         return f ? 1 : 0;
     }
@@ -190,7 +193,7 @@ int main(int argc, char** argv) {
             continue;
         }
         std::error_code ec;
-        for (auto it = fs::recursive_directory_iterator(fs::u8path(argv[i]), ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec)) {
+        for (auto it = fs::recursive_directory_iterator(utf8Path(argv[i]), ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec)) {
             std::string ext = it->path().extension().string();
             for (char& c : ext) c = char(std::tolower(static_cast<unsigned char>(c)));
             if (it->is_regular_file(ec) && (ext == ".scm" || ext == ".scx" || ext == ".chk")) files.push_back(it->path());
