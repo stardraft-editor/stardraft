@@ -8,6 +8,10 @@ How we use what users tell us, and what an agent may do with it without a person
   its threads. A triage step groups them into feedback items, ranked by the number of people.
 - **In the program.** "Report feedback on ..." makes a GitHub issue with the label `feedback`. Crashes make an issue
   with the label `crash` (see DEVELOPING.md, "Crash reports, feedback and updates").
+- **GitHub, in the #feedback forum too.** The maintainer's feedback run puts each new feedback issue (from the
+  program, or opened on GitHub by someone outside the team) into #feedback as a post by "StarDraft", so that triage
+  reads all feedback in one place. The post and the issue are one item: count them once. Spam and abuse (principle
+  11) are not posted; such an issue gets the label `discord-held`. A posted issue gets `on-discord`.
 
 The maintainer gets the latest feedback and acts on it by these principles (with a personal skill, not in this
 repository).
