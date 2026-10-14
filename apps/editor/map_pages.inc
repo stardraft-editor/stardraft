@@ -566,6 +566,11 @@ void mapPageScrollTo(int x, int y) {
     if (!gMp.view) return;
     RECT rc;
     GetClientRect(gMp.view, &rc);
+    // Classic triggers fill the view's width and height (its lists take the height that is left); smaller than a
+    // minimum, the view scrolls.
+    if (gMp.kind == kMpClassicTrig && gMp.content[0])
+        SetWindowPos(gMp.content[0], nullptr, 0, 0, std::max<int>(rc.right, scale(760)), std::max<int>(rc.bottom, scale(440)),
+                     SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
     const SIZE s = mapPageContentSize();
     gMp.scrollX = std::clamp(x, 0, std::max(0, int(s.cx) - int(rc.right)));
     gMp.scrollY = std::clamp(y, 0, std::max(0, int(s.cy) - int(rc.bottom)));
