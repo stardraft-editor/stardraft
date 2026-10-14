@@ -122,6 +122,8 @@ public:
     virtual Cursor cursor(Point) { return Cursor::Arrow; }
     // The tooltip at `pt` (empty: none).
     virtual std::wstring tip(Point) { return {}; }
+    // true: the host shows tip() as a tooltip while the mouse is over the view (the text is asked for where it is).
+    virtual bool hoverTip() const { return false; }
     // Whether Tab stops on it (and a click gives it the focus).
     virtual bool focusable() const { return false; }
     virtual void focusChanged(bool /*has*/) {}
