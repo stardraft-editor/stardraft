@@ -71,6 +71,12 @@ Make StarDraft 2 a more powerful creation suite.
   Select a player, and see the fog of war of that player at the start of the game.
 
   Mappers cannot see what each player sees at the start of the game.
+- [ ] **R53 Camera controls.** *Tag:* EUD.
+  Trigger blocks that move a player's camera: center the view on a location or a unit, follow a unit, pan, and shake
+  the screen.
+
+  Mappers must make camera effects by hand. The blocks use the game's Center View action: they move a location, then
+  center the view on it.
 - [ ] **R14 Exact timers.** *Tag:* EUD.
   "After N seconds" and "Every N seconds" blocks that stay exact over a long game.
 
