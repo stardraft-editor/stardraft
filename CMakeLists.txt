@@ -178,8 +178,9 @@ add_executable(pathing_test tools/tests/pathing_test.cpp)
 target_link_libraries(pathing_test PRIVATE stardraft)
 
 # --- GPU renderer (SDL3 GPU API) -------------------------------------------------------------
-# Off on other systems until the shaders are made for Vulkan and Metal (the library and its tests build without it).
-option(STARDRAFT_RENDERER "Build the GPU renderer (SDL3) and its tools" ${WIN32})
+# Direct3D 12 on Windows (Vulkan when asked: STARDRAFT_GPU_DRIVER=vulkan), Vulkan on Linux, Metal on macOS. Off: the
+# library and its tests build without SDL3.
+option(STARDRAFT_RENDERER "Build the GPU renderer (SDL3) and its tools" ON)
 if(STARDRAFT_RENDERER)
     set(SDL_SHARED OFF CACHE BOOL "" FORCE)
     set(SDL_STATIC ON CACHE BOOL "" FORCE)
@@ -190,41 +191,47 @@ if(STARDRAFT_RENDERER)
         GIT_SHALLOW TRUE)
     FetchContent_MakeAvailable(SDL3)
 
-    # HLSL -> DXIL with dxc from the Windows SDK, embedded as byte-array headers.
-    file(GLOB STARDRAFT_DXC_CANDIDATES "C:/Program Files (x86)/Windows Kits/10/bin/*/x64/dxc.exe")
-    list(SORT STARDRAFT_DXC_CANDIDATES COMPARE NATURAL ORDER DESCENDING)
-    find_program(STARDRAFT_DXC NAMES dxc HINTS ${STARDRAFT_DXC_CANDIDATES})
-    if(NOT STARDRAFT_DXC AND STARDRAFT_DXC_CANDIDATES)
-        list(GET STARDRAFT_DXC_CANDIDATES 0 STARDRAFT_DXC)
-    endif()
-    if(NOT STARDRAFT_DXC)
-        message(FATAL_ERROR "dxc (DirectX shader compiler) not found; install the Windows SDK")
-    endif()
-    set(STARDRAFT_SHADER_OUT ${CMAKE_BINARY_DIR}/generated/shaders)
+    # Shaders: SPIR-V and MSL are made once by tools/gen_shaders.py into shaders/gen/ (in git). On Windows the build
+    # also makes DXIL: HLSL -> DXIL with dxc from the Windows SDK, embedded as byte-array headers.
     set(STARDRAFT_SHADER_HEADERS)
-    foreach(name terrain sprite solid downsample)
-        foreach(stage vs ps)
-            if(stage STREQUAL "vs")
-                set(profile vs_6_0)
-                set(entry VSMain)
-            else()
-                set(profile ps_6_0)
-                set(entry PSMain)
-            endif()
-            set(out ${STARDRAFT_SHADER_OUT}/${name}_${stage}.h)
-            add_custom_command(
-                OUTPUT ${out}
-                COMMAND ${CMAKE_COMMAND} -E make_directory ${STARDRAFT_SHADER_OUT}
-                COMMAND ${STARDRAFT_DXC} -nologo -T ${profile} -E ${entry} -Vn g_${name}_${stage} -Fh ${out} ${CMAKE_SOURCE_DIR}/shaders/${name}.hlsl
-                DEPENDS ${CMAKE_SOURCE_DIR}/shaders/${name}.hlsl
-                COMMENT "dxc ${name}.hlsl (${stage})")
-            list(APPEND STARDRAFT_SHADER_HEADERS ${out})
+    if(WIN32)
+        file(GLOB STARDRAFT_DXC_CANDIDATES "C:/Program Files (x86)/Windows Kits/10/bin/*/x64/dxc.exe")
+        list(SORT STARDRAFT_DXC_CANDIDATES COMPARE NATURAL ORDER DESCENDING)
+        find_program(STARDRAFT_DXC NAMES dxc HINTS ${STARDRAFT_DXC_CANDIDATES})
+        if(NOT STARDRAFT_DXC AND STARDRAFT_DXC_CANDIDATES)
+            list(GET STARDRAFT_DXC_CANDIDATES 0 STARDRAFT_DXC)
+        endif()
+        if(NOT STARDRAFT_DXC)
+            message(FATAL_ERROR "dxc (DirectX shader compiler) not found; install the Windows SDK")
+        endif()
+        set(STARDRAFT_SHADER_OUT ${CMAKE_BINARY_DIR}/generated/shaders)
+        foreach(name terrain sprite solid downsample)
+            foreach(stage vs ps)
+                if(stage STREQUAL "vs")
+                    set(profile vs_6_0)
+                    set(entry VSMain)
+                else()
+                    set(profile ps_6_0)
+                    set(entry PSMain)
+                endif()
+                set(out ${STARDRAFT_SHADER_OUT}/${name}_${stage}.h)
+                add_custom_command(
+                    OUTPUT ${out}
+                    COMMAND ${CMAKE_COMMAND} -E make_directory ${STARDRAFT_SHADER_OUT}
+                    COMMAND ${STARDRAFT_DXC} -nologo -T ${profile} -E ${entry} -Vn g_${name}_${stage} -Fh ${out} ${CMAKE_SOURCE_DIR}/shaders/${name}.hlsl
+                    DEPENDS ${CMAKE_SOURCE_DIR}/shaders/${name}.hlsl
+                    COMMENT "dxc ${name}.hlsl (${stage})")
+                list(APPEND STARDRAFT_SHADER_HEADERS ${out})
+            endforeach()
         endforeach()
-    endforeach()
+    endif()
 
     add_library(stardraft_render src/render/renderer.cpp ${STARDRAFT_SHADER_HEADERS})
-    target_include_directories(stardraft_render PUBLIC include PRIVATE ${CMAKE_BINARY_DIR}/generated ${stb_SOURCE_DIR})
+    target_include_directories(stardraft_render PUBLIC include PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_SOURCE_DIR}/shaders ${stb_SOURCE_DIR})
     target_link_libraries(stardraft_render PUBLIC stardraft SDL3::SDL3-static)
+    if(WIN32)
+        target_compile_definitions(stardraft_render PRIVATE STARDRAFT_SHADERS_DXIL)
+    endif()
     if(MSVC)
         target_compile_options(stardraft_render PRIVATE /W4 /utf-8)
     endif()
@@ -237,6 +244,9 @@ if(STARDRAFT_RENDERER)
 
     add_executable(shadow_test tools/tests/shadow_test.cpp)
     target_link_libraries(shadow_test PRIVATE stardraft_render)
+
+    add_executable(render_smoke_test tools/tests/render_smoke_test.cpp)
+    target_link_libraries(render_smoke_test PRIVATE stardraft_render)
 endif()
 
 # --- Windows editor (native Win32 shell) ------------------------------------------------------

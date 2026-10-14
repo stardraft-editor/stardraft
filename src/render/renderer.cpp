@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <map>
 
@@ -17,6 +18,9 @@
 #define STB_EASY_FONT_IMPLEMENTATION
 #include <stb_easy_font.h>
 
+// The shaders in each format: DXIL (Direct3D 12, made by the build on Windows), SPIR-V (Vulkan) and MSL (Metal), the
+// last two from shaders/gen (tools/gen_shaders.py).
+#ifdef STARDRAFT_SHADERS_DXIL
 #include "shaders/downsample_ps.h"
 #include "shaders/downsample_vs.h"
 #include "shaders/solid_ps.h"
@@ -25,12 +29,40 @@
 #include "shaders/sprite_vs.h"
 #include "shaders/terrain_ps.h"
 #include "shaders/terrain_vs.h"
+#endif
+#include "gen/downsample_ps_msl.h"
+#include "gen/downsample_ps_spirv.h"
+#include "gen/downsample_vs_msl.h"
+#include "gen/downsample_vs_spirv.h"
+#include "gen/solid_ps_msl.h"
+#include "gen/solid_ps_spirv.h"
+#include "gen/solid_vs_msl.h"
+#include "gen/solid_vs_spirv.h"
+#include "gen/sprite_ps_msl.h"
+#include "gen/sprite_ps_spirv.h"
+#include "gen/sprite_vs_msl.h"
+#include "gen/sprite_vs_spirv.h"
+#include "gen/terrain_ps_msl.h"
+#include "gen/terrain_ps_spirv.h"
+#include "gen/terrain_vs_msl.h"
+#include "gen/terrain_vs_spirv.h"
 
 namespace stardraft::render {
 
 int textWidth(const std::string& text) { return stb_easy_font_width(const_cast<char*>(text.c_str())); }
 
 namespace {
+
+struct ShaderCode {
+    const unsigned char *dxil = nullptr, *spirv = nullptr, *msl = nullptr;
+    size_t dxilSize = 0, spirvSize = 0, mslSize = 0;
+};
+#ifdef STARDRAFT_SHADERS_DXIL
+#define STARDRAFT_DXIL(n) g_##n, g_##n##_spirv, g_##n##_msl, sizeof g_##n
+#else
+#define STARDRAFT_DXIL(n) nullptr, g_##n##_spirv, g_##n##_msl, 0
+#endif
+#define STARDRAFT_SHADER(n) ShaderCode{STARDRAFT_DXIL(n), g_##n##_spirv_size, g_##n##_msl_size}
 
 using Clock = std::chrono::steady_clock;
 double msSince(Clock::time_point t) { return std::chrono::duration<double, std::milli>(Clock::now() - t).count(); }
@@ -143,7 +175,10 @@ struct Renderer::Impl {
     std::string error;
 
     bool createDevice(std::string& err);
-    SDL_GPUShader* shader(const uint8_t* code, size_t size, SDL_GPUShaderStage stage, const char* entry, uint32_t samplers,
+    SDL_GPUShaderFormat shaderFormat = SDL_GPU_SHADERFORMAT_INVALID;  // the one the device takes
+    bool bcTextures = true;  // HD and HD2 art (BC1, BC3); without them all art is SD
+    GraphicsQuality artQuality() const { return bcTextures ? quality : GraphicsQuality::SD; }
+    SDL_GPUShader* shader(const ShaderCode& code, SDL_GPUShaderStage stage, const char* entry, uint32_t samplers,
                           uint32_t storageBuffers, uint32_t uniforms);
     bool createPipelines(std::string& err);
     SDL_GPUTexture* createTexture(SDL_GPUTextureFormat fmt, uint32_t w, uint32_t h, uint32_t levels, SDL_GPUTextureUsageFlags usage);
@@ -167,11 +202,37 @@ Renderer::Renderer() : impl_(std::make_unique<Impl>()) {}
 Renderer::~Renderer() { shutdown(); }
 
 bool Renderer::Impl::createDevice(std::string& err) {
-    device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_DXIL, false, nullptr);
+    // Windows: Direct3D 12, or Vulkan when STARDRAFT_GPU_DRIVER is "vulkan". Elsewhere SDL picks Metal or Vulkan.
+    SDL_PropertiesID props = SDL_CreateProperties();
+    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_DEBUGMODE_BOOLEAN, false);  // (its default is true)
+#ifdef STARDRAFT_SHADERS_DXIL
+    const char* asked = std::getenv("STARDRAFT_GPU_DRIVER");
+    const bool vulkan = asked && std::string(asked) == "vulkan";
+    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_DXIL_BOOLEAN, !vulkan);
+    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, vulkan);
+    if (vulkan) SDL_SetStringProperty(props, SDL_PROP_GPU_DEVICE_CREATE_NAME_STRING, "vulkan");
+#else
+    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, true);
+    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_MSL_BOOLEAN, true);
+    // The map view uses none of these: GPUs without them can run it too.
+    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_FEATURE_CLIP_DISTANCE_BOOLEAN, false);
+    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_FEATURE_DEPTH_CLAMPING_BOOLEAN, false);
+    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_FEATURE_INDIRECT_DRAW_FIRST_INSTANCE_BOOLEAN, false);
+    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_FEATURE_ANISOTROPY_BOOLEAN, false);
+    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_METAL_ALLOW_MACFAMILY1_BOOLEAN, true);  // (no sRGB targets)
+#endif
+    device = SDL_CreateGPUDeviceWithProperties(props);
+    SDL_DestroyProperties(props);
     if (!device) {
         err = std::string("SDL_CreateGPUDevice: ") + SDL_GetError();
         return false;
     }
+    const SDL_GPUShaderFormat formats = SDL_GetGPUShaderFormats(device);
+    shaderFormat = formats & SDL_GPU_SHADERFORMAT_DXIL    ? SDL_GPU_SHADERFORMAT_DXIL
+                   : formats & SDL_GPU_SHADERFORMAT_SPIRV ? SDL_GPU_SHADERFORMAT_SPIRV
+                                                          : SDL_GPU_SHADERFORMAT_MSL;
+    bcTextures = SDL_GPUTextureSupportsFormat(device, SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM, SDL_GPU_TEXTURETYPE_2D, SDL_GPU_TEXTUREUSAGE_SAMPLER) &&
+                 SDL_GPUTextureSupportsFormat(device, SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM, SDL_GPU_TEXTURETYPE_2D, SDL_GPU_TEXTUREUSAGE_SAMPLER);
     SDL_GPUSamplerCreateInfo s{};
     s.min_filter = s.mag_filter = SDL_GPU_FILTER_NEAREST;
     s.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
@@ -188,13 +249,15 @@ bool Renderer::Impl::createDevice(std::string& err) {
     return pointClamp && linearClamp && linearMip && blackTex;
 }
 
-SDL_GPUShader* Renderer::Impl::shader(const uint8_t* code, size_t size, SDL_GPUShaderStage stage, const char* entry,
-                                      uint32_t samplers, uint32_t storageBuffers, uint32_t uniforms) {
+SDL_GPUShader* Renderer::Impl::shader(const ShaderCode& code, SDL_GPUShaderStage stage, const char* entry, uint32_t samplers,
+                                      uint32_t storageBuffers, uint32_t uniforms) {
     SDL_GPUShaderCreateInfo si{};
-    si.code = code;
-    si.code_size = size;
-    si.entrypoint = entry;
-    si.format = SDL_GPU_SHADERFORMAT_DXIL;
+    if (shaderFormat == SDL_GPU_SHADERFORMAT_DXIL) si.code = code.dxil, si.code_size = code.dxilSize;
+    else if (shaderFormat == SDL_GPU_SHADERFORMAT_SPIRV) si.code = code.spirv, si.code_size = code.spirvSize;
+    else si.code = code.msl, si.code_size = code.mslSize;
+    if (!si.code) return nullptr;
+    si.entrypoint = entry;  // (the same name in each format)
+    si.format = shaderFormat;
     si.stage = stage;
     si.num_samplers = samplers;
     si.num_storage_buffers = storageBuffers;
@@ -203,12 +266,12 @@ SDL_GPUShader* Renderer::Impl::shader(const uint8_t* code, size_t size, SDL_GPUS
 }
 
 bool Renderer::Impl::createPipelines(std::string& err) {
-    SDL_GPUShader* tvs = shader(g_terrain_vs, sizeof g_terrain_vs, SDL_GPU_SHADERSTAGE_VERTEX, "VSMain", 0, 0, 0);
-    SDL_GPUShader* tps = shader(g_terrain_ps, sizeof g_terrain_ps, SDL_GPU_SHADERSTAGE_FRAGMENT, "PSMain", 2, 0, 1);
-    SDL_GPUShader* svs = shader(g_sprite_vs, sizeof g_sprite_vs, SDL_GPU_SHADERSTAGE_VERTEX, "VSMain", 0, 1, 1);
-    SDL_GPUShader* sps = shader(g_sprite_ps, sizeof g_sprite_ps, SDL_GPU_SHADERSTAGE_FRAGMENT, "PSMain", 2, 0, 0);
-    SDL_GPUShader* rvs = shader(g_solid_vs, sizeof g_solid_vs, SDL_GPU_SHADERSTAGE_VERTEX, "VSMain", 0, 1, 1);
-    SDL_GPUShader* rps = shader(g_solid_ps, sizeof g_solid_ps, SDL_GPU_SHADERSTAGE_FRAGMENT, "PSMain", 0, 0, 0);
+    SDL_GPUShader* tvs = shader(STARDRAFT_SHADER(terrain_vs), SDL_GPU_SHADERSTAGE_VERTEX, "VSMain", 0, 0, 0);
+    SDL_GPUShader* tps = shader(STARDRAFT_SHADER(terrain_ps), SDL_GPU_SHADERSTAGE_FRAGMENT, "PSMain", 2, 0, 1);
+    SDL_GPUShader* svs = shader(STARDRAFT_SHADER(sprite_vs), SDL_GPU_SHADERSTAGE_VERTEX, "VSMain", 0, 1, 1);
+    SDL_GPUShader* sps = shader(STARDRAFT_SHADER(sprite_ps), SDL_GPU_SHADERSTAGE_FRAGMENT, "PSMain", 2, 0, 0);
+    SDL_GPUShader* rvs = shader(STARDRAFT_SHADER(solid_vs), SDL_GPU_SHADERSTAGE_VERTEX, "VSMain", 0, 1, 1);
+    SDL_GPUShader* rps = shader(STARDRAFT_SHADER(solid_ps), SDL_GPU_SHADERSTAGE_FRAGMENT, "PSMain", 0, 0, 0);
     if (!tvs || !tps || !svs || !sps || !rvs || !rps) {
         err = std::string("shader creation failed: ") + SDL_GetError();
         return false;
@@ -264,8 +327,8 @@ bool Renderer::Impl::createPipelines(std::string& err) {
 
     for (auto* s : {tvs, tps, svs, sps, rvs, rps}) SDL_ReleaseGPUShader(device, s);
 
-    SDL_GPUShader* dvs = shader(g_downsample_vs, sizeof g_downsample_vs, SDL_GPU_SHADERSTAGE_VERTEX, "VSMain", 0, 0, 0);
-    SDL_GPUShader* dps = shader(g_downsample_ps, sizeof g_downsample_ps, SDL_GPU_SHADERSTAGE_FRAGMENT, "PSMain", 1, 0, 1);
+    SDL_GPUShader* dvs = shader(STARDRAFT_SHADER(downsample_vs), SDL_GPU_SHADERSTAGE_VERTEX, "VSMain", 0, 0, 0);
+    SDL_GPUShader* dps = shader(STARDRAFT_SHADER(downsample_ps), SDL_GPU_SHADERSTAGE_FRAGMENT, "PSMain", 1, 0, 1);
     SDL_GPUColorTargetDescription rgba{};
     rgba.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
     SDL_GPUGraphicsPipelineCreateInfo di{};
@@ -423,10 +486,10 @@ void Renderer::Impl::buildSdAtlas() {
 bool Renderer::Impl::buildHdAtlas() {
     if (hdAtlas) SDL_ReleaseGPUTexture(device, hdAtlas), hdAtlas = nullptr;
     if (hdDown) SDL_ReleaseGPUTexture(device, hdDown), hdDown = nullptr;
-    if (quality == GraphicsQuality::SD) return true;
+    if (artQuality() == GraphicsQuality::SD) return true;
     HdTiles tiles;
     std::string err;
-    if (!loadHdTiles(*data, era, quality, tiles, err, carbot)) {
+    if (!loadHdTiles(*data, era, artQuality(), tiles, err, carbot)) {
         error = err;
         return false;
     }
@@ -490,6 +553,8 @@ void Renderer::setQuality(GraphicsQuality q) {
     if (impl_->quality != q) impl_->quality = q, impl_->tilesetDirty = true;
 }
 GraphicsQuality Renderer::quality() const { return impl_->quality; }
+bool Renderer::hdArt() const { return impl_->bcTextures; }
+const char* Renderer::driver() const { return impl_->device ? SDL_GetGPUDeviceDriver(impl_->device) : ""; }
 
 void Renderer::setCarbot(bool carbot) {
     if (impl_->carbot != carbot) impl_->carbot = carbot, impl_->tilesetDirty = true;
@@ -576,7 +641,7 @@ void Renderer::Impl::loadImage(int id, ImageTex& t) {
     t.loaded = true;
     std::string err;
     AnimImage a;
-    if (quality != GraphicsQuality::SD && data && loadAnimImage(*data, id, quality, a, err, carbot)) {
+    if (artQuality() != GraphicsQuality::SD && data && loadAnimImage(*data, id, artQuality(), a, err, carbot)) {
         auto fmt = [](const DdsTexture& d) {
             return d.format == DdsTexture::BC1 ? SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM : SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM;
         };
