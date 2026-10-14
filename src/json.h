@@ -17,18 +17,18 @@ namespace stardraft {
 
 // --- A small JSON reader (objects, arrays, strings, numbers, booleans) -------------------------------------
 
+// An object's field. Not a std::pair: a pair of Json while Json is incomplete does not compile with every standard
+// library (Clang with libstdc++).
+struct JsonField;
+
 struct Json {
     enum class Type { Null, Bool, Number, String, Array, Object } type = Type::Null;
     bool b = false;
     double n = 0;
     std::string s;
     std::vector<Json> items;
-    std::vector<std::pair<std::string, Json>> fields;
-    const Json* get(const std::string& k) const {
-        for (const auto& [key, v] : fields)
-            if (key == k) return &v;
-        return nullptr;
-    }
+    std::vector<JsonField> fields;
+    const Json* get(const std::string& k) const;
     std::string str(const std::string& k, const std::string& def = {}) const {
         const Json* v = get(k);
         return v && v->type == Type::String ? v->s : def;
@@ -42,6 +42,17 @@ struct Json {
         return v && v->type == Type::Number ? int(v->n) : def;
     }
 };
+
+struct JsonField {
+    std::string first;
+    Json second;
+};
+
+inline const Json* Json::get(const std::string& k) const {
+    for (const auto& [key, v] : fields)
+        if (key == k) return &v;
+    return nullptr;
+}
 
 inline std::string quote(const std::string& s);
 inline std::string jsonText(const Json& j) {
