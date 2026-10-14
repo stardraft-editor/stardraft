@@ -105,6 +105,10 @@ public:
     // The Cartooned (Carbot) skin for HD and HD2 art (falls back to the normal art where missing).
     void setCarbot(bool carbot);
     GraphicsQuality quality() const;
+    // False when the GPU cannot sample HD and HD2 art (BC1 and BC3 textures): the art is then SD at every quality.
+    bool hdArt() const;
+    // The GPU API in use ("direct3d12", "vulkan", "metal"); "" before createDevice.
+    const char* driver() const;
 
     // Data sources. The tileset is (re)loaded when the era or quality changes.
     void setSources(const GameData* data, UnitSprites* sprites, const Tileset* tileset, uint16_t era);
