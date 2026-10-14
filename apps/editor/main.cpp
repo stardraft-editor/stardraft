@@ -33,6 +33,7 @@ using std::min;
 #include <SDL3/SDL_main.h>
 
 #include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <filesystem>

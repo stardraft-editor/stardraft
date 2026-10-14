@@ -62,6 +62,15 @@ int main(int argc, char** argv) {
         Settings s(file);
         check(!s.has("Language") && s.has("Layout/Volume"), "the removal is in the file");
     }
+    {  // two programs with the file: each change keeps what the other saved
+        Settings a(file), b(file);
+        a.set("Theme", int64_t(1));
+        b.set("Pins", std::string("3"));
+        a.set("Volume", int64_t(5));
+        b.remove("Nothing");
+        Settings c(file);
+        check(c.number("Theme") == 1 && c.text("Pins") == std::string("3") && c.number("Volume") == 5, "two programs' changes both stay");
+    }
     {
         std::ofstream(file, std::ios::binary) << "{ not json";
         Settings s(file);

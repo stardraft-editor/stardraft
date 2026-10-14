@@ -54,7 +54,8 @@ HttpReply httpRequest(const HttpRequest& request, std::string* text, const fs::p
     if (!request.body.empty()) headers += "Content-Type: application/json\n";
     const fs::path headerFile = tmp.path / "headers", bodyFile = tmp.path / "body", outFile = tmp.path / "out";
     if (!writeText(headerFile, headers) || (!request.body.empty() && !writeText(bodyFile, request.body))) return r;
-    std::vector<std::string> args = {"curl", "-sS", "--proto", "=https", "-X", request.method, "-H", "@" + headerFile.string(), "-o", outFile.string(),
+    std::vector<std::string> args = {"curl", "-sS", "--proto", "=https", "--connect-timeout", "30", "--max-time", "600",  // (no endless wait)
+                                     "-X", request.method, "-H", "@" + headerFile.string(), "-o", outFile.string(),
                                      "-w", "%{http_code}\n%{redirect_url}\n"};
     if (request.followRedirects) args.push_back("-L");
     if (!request.body.empty()) args.push_back("--data-binary"), args.push_back("@" + bodyFile.string());

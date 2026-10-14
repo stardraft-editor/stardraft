@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <fstream>
+#include <random>
 #include <sstream>
 #include <system_error>
 
@@ -12,12 +13,14 @@ namespace fs = std::filesystem;
 
 namespace stardraft {
 
-Settings::Settings(fs::path file) : file_(std::move(file)) {
+Settings::Settings(fs::path file) : file_(std::move(file)) { reload(); }
+
+void Settings::reload() {
     std::ifstream in(file_, std::ios::binary);
     if (!in) return;
     std::stringstream ss;
     ss << in.rdbuf();
-    fromText(ss.str(), values_);
+    fromText(ss.str(), values_);  // (a file that cannot be read changes nothing)
 }
 
 std::optional<int64_t> Settings::number(const std::string& name) const {
@@ -45,7 +48,9 @@ std::vector<std::string> Settings::names(const std::string& prefix) const {
     return out;
 }
 
+// A change reads the file again first: another StarDraft may have saved values since, and they stay.
 bool Settings::set(const std::string& name, Value value) {
+    reload();
     auto it = values_.find(name);
     if (it != values_.end() && it->second == value) return true;
     values_[name] = std::move(value);
@@ -53,6 +58,7 @@ bool Settings::set(const std::string& name, Value value) {
 }
 
 bool Settings::remove(const std::string& name) {
+    reload();
     if (!values_.erase(name)) return true;
     return save();
 }
@@ -62,8 +68,10 @@ bool Settings::save() {
     std::error_code ec;
     if (file_.has_parent_path()) fs::create_directories(file_.parent_path(), ec);
     // A new file beside it, then a rename: a crash or a full disk during the write leaves the old file.
+    // Its name is this process's own, so two programs that save at once do not write into one file.
+    static const std::string kPart = ".new" + std::to_string(std::random_device{}());
     fs::path part = file_;
-    part += ".new";
+    part += kPart;
     if (!writeFile(part, toText(values_), error_)) return false;
     fs::rename(part, file_, ec);
     if (ec) return error_ = "cannot replace " + file_.string() + " (" + ec.message() + ")", false;
