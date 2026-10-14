@@ -30,7 +30,7 @@ bool hotIn(HWND w, RECT r) {
 bool hot(RECT r) { return hotIn(hitsWnd(), r); }
 
 // A rounded box: `fill` (CLR_NONE: none) and a 1px `line` (CLR_NONE: none).
-void box(Paint p, RECT r, COLORREF fill, COLORREF line, int radius = kRadius) { p->roundBox(r, fill, line, scale(radius)); }
+void box(Paint p, RECT r, COLORREF fill, COLORREF line, int radius = kRadius) { p->roundBox(r, fill, line, float(scale(radius))); }
 
 int textWidth(Paint p, const std::wstring& t) { return p->measure(t); }
 
