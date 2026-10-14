@@ -230,6 +230,13 @@ jobs:
           build-gcc/stardraft-next --workspace triggers --ime-inline --type "한국어 입" --compose "력" --snapshot next-linux-ime.png | tee ime.txt
           grep -q "composing: 력" ime.txt
 
+      # The kit's tests again with AddressSanitizer and UndefinedBehaviorSanitizer: a widget that uses a view after it
+      # went away (a pop-up closed in its own callback, a removed child) fails here.
+      - name: Kit tests with sanitizers
+        run: |
+          g++ -std=c++20 -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer             -Iapps/common -Iapps/kit -Itools/tests apps/kit/*.cpp tools/tests/kit_test.cpp tools/tests/kit/*.cpp -o kit_test_asan
+          ./kit_test_asan
+
       # The control kit on SDL (apps/kit_sdl): its widgets and the Canvas's drawing in one picture.
       - name: Snapshot the kit demo
         env:
