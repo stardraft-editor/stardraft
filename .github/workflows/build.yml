@@ -160,8 +160,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # SDL's build dependencies (its docs/README-linux.md) and Mesa's Vulkan drivers (lavapipe: Vulkan on the CPU).
       - name: Install the build tools
-        run: sudo apt-get update && sudo apt-get install -y ninja-build clang
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build clang pkg-config mesa-vulkan-drivers libasound2-dev libpulse-dev \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
+            libxkbcommon-dev libwayland-dev libdecor-0-dev libdrm-dev libgbm-dev libegl1-mesa-dev libdbus-1-dev libudev-dev
+
+      # The SPIR-V and MSL shaders in shaders/gen/ are made from the shaders as they are now.
+      - name: Check the shaders for Vulkan and Metal
+        run: python3 -I tools/gen_shaders.py --check
 
       - uses: actions/cache@v4
         with:
@@ -172,19 +181,23 @@ jobs:
 
       - name: Build with GCC
         run: |
-          cmake -S . -B build-gcc -G Ninja -DCMAKE_BUILD_TYPE=Release -DSTARDRAFT_RENDERER=OFF -DCMAKE_CXX_COMPILER=g++ -DCMAKE_C_COMPILER=gcc
+          cmake -S . -B build-gcc -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++ -DCMAKE_C_COMPILER=gcc
           cmake --build build-gcc --parallel
 
       - name: Build with Clang
         run: |
-          cmake -S . -B build-clang -G Ninja -DCMAKE_BUILD_TYPE=Release -DSTARDRAFT_RENDERER=OFF -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang
+          cmake -S . -B build-clang -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang
           cmake --build build-clang --parallel
 
-      # The UI text rules and trigger_test's checks without the game (the block library, the checker, epScript).
+      # The UI text rules, trigger_test's checks without the game (the block library, the checker, epScript) and the
+      # renderer on Vulkan (lavapipe, no window).
       - name: Run the tests that need no game data
+        env:
+          SDL_VIDEODRIVER: offscreen
         run: |
           python3 -I tools/ui_text_lint.py
           build-gcc/trigger_test "$RUNNER_TEMP/trigger_test"
+          build-gcc/render_smoke_test "$RUNNER_TEMP/render_smoke.png"
 
   macos:
     runs-on: macos-15  # arm64, Xcode's clang and libc++
@@ -198,11 +211,16 @@ jobs:
 
       - name: Build
         run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSTARDRAFT_RENDERER=OFF -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
           cmake --build build --parallel
 
       - name: Run the tests that need no game data
         run: build/trigger_test "$RUNNER_TEMP/trigger_test"
+
+      # The renderer on Metal. GitHub's macOS machines may have no Metal device: a failure here does not stop the run.
+      - name: Run the renderer on Metal
+        continue-on-error: true
+        run: build/render_smoke_test "$RUNNER_TEMP/render_smoke.png"
 
   # The tests with the game's data, on a self-hosted runner in WSL Ubuntu on the owner's PC (labels self-hosted, linux,
   # scdata; research/ports/PLAN.md 1.6). Off until the repository variable STARDRAFT_DATA_RUNNER is "on". The
@@ -216,8 +234,10 @@ jobs:
 
       - name: Build
         run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSTARDRAFT_RENDERER=OFF
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSDL_UNIX_CONSOLE_BUILD=ON  # (no X11 or Wayland needed)
           cmake --build build --parallel
 
       - name: Run the tests with game data
+        env:
+          SDL_VIDEODRIVER: offscreen
         run: bash tools/ci/linux_data_tests.sh build "${STARDRAFT_SC_INSTALL:-$HOME/scmirror}" "$RUNNER_TEMP/data-tests"
