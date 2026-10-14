@@ -1668,6 +1668,22 @@ PlaceResult Editor::placeUnit(uint16_t type, uint8_t owner, int x, int y, bool c
     const UnitType& t = types_[type];
     uint16_t ux = uint16_t(std::clamp(x, 0, width_ * 32 - 1)), uy = uint16_t(std::clamp(y, 0, height_ * 32 - 1));
     snapToGrid(t, ux, uy);
+    // A Terran add-on near its building (same owner, no add-on yet) goes on it, linked to it (GitHub #129).
+    int parent = -1;
+    if (const int pt = addonParent(type); pt >= 0) {
+        int best = 96 * 96 + 1;  // within 3 tiles of the click
+        for (int i = 0; i < int(units_.size()); ++i) {
+            const Unit& b = units_[size_t(i)];
+            if (b.type != pt || b.owner != owner || (b.state & UnitState::InTransit)) continue;
+            const bool taken = std::any_of(units_.begin(), units_.end(), [&](const Unit& o) {
+                return o.relatedSerial == b.serial && (o.links & UnitLink::Addon) && addonParent(o.type) >= 0;
+            });
+            if (taken) continue;
+            const auto [sx, sy] = addonSpot(types_[pt], b, t);
+            const int d = (sx - x) * (sx - x) + (sy - y) * (sy - y);
+            if (d < best && sx >= 0 && sy >= 0 && sx < width_ * 32 && sy < height_ * 32) best = d, parent = i, ux = uint16_t(sx), uy = uint16_t(sy);
+        }
+    }
     r.unit = makeUnit(t, owner, ux, uy);
     r.unit.serial = nextFreeSerial(units_);
     if (!allowIllegalUnits_) r.issues = checkPlacement(placementContext(), r.unit);
@@ -1676,8 +1692,14 @@ PlaceResult Editor::placeUnit(uint16_t type, uint8_t owner, int x, int y, bool c
         auto p = findValidPosition(r.unit);
         if (!p) return r;  // nowhere valid nearby: refuse with the original issues
         r.unit.x = p->first, r.unit.y = p->second;
+        parent = -1;  // moved off the building's add-on spot: not linked
     }
     beginEdit();
+    if (parent >= 0) {  // both point at each other, as StarEdit writes them
+        Unit& b = units_[size_t(parent)];
+        r.unit.links |= UnitLink::Addon, r.unit.relatedSerial = b.serial;
+        b.links |= UnitLink::Addon, b.relatedSerial = r.unit.serial;
+    }
     units_.push_back(r.unit);
     r.index = int(units_.size()) - 1;
     r.placed = true;

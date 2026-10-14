@@ -749,6 +749,29 @@ int main(int argc, char** argv) {
           "marine dropped on the command center is moved out of it");
     int marineIndex = r.index;
 
+    // A Comsat Station dropped near a command center goes on its add-on spot, and both are linked (GitHub #129).
+    {
+        Editor ae(data);
+        std::string aerr;
+        if (ae.newMap(64, 64, 0, 1, aerr)) {  // badlands dirt: room to build
+            const uint16_t comsat = 107;
+            PlaceResult c = ae.placeUnit(cc, 0, 20 * 32, 20 * 32, false);
+            const auto [sx, sy] = addonSpot(types[cc], c.unit, types[comsat]);
+            CHECK(c.placed && sx > c.unit.x && std::abs(sy - c.unit.y) < 64, "add-on: the Comsat Station's spot is at the right of the command center");
+            PlaceResult other = ae.placeUnit(comsat, 1, sx, sy, false);  // another player's: not on this building
+            CHECK(other.placed && other.unit.relatedSerial == 0 && other.unit.links == 0, "add-on: not linked to another player's building");
+            ae.undo();
+            PlaceResult a = ae.placeUnit(comsat, 0, sx + 20, sy - 10, false);
+            const Unit& b = ae.units()[size_t(c.index)];
+            CHECK(a.placed && a.unit.x == sx && a.unit.y == sy, "add-on: snapped to its building's add-on spot");
+            CHECK(a.placed && (a.unit.links & UnitLink::Addon) && a.unit.relatedSerial == b.serial && (b.links & UnitLink::Addon) &&
+                      b.relatedSerial == a.unit.serial,
+                  "add-on: the add-on and its building are linked to each other");
+            PlaceResult second = ae.placeUnit(comsat, 0, sx, sy + 96, false);  // the building has its add-on
+            CHECK(!second.placed || second.unit.relatedSerial == 0, "add-on: a building takes one add-on");
+        } else CHECK(false, "add-on: a new map");
+    }
+
     // Selection.
     ed.select(marineIndex, false);
     CHECK(ed.selection().size() == 1 && ed.selection()[0] == marineIndex, "click select");

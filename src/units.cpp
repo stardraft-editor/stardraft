@@ -103,6 +103,8 @@ constexpr size_t kUnitsDatSize = 19876;
 constexpr size_t kAttackUnitOrder = 5436, kShieldEnable = 2472, kShieldAmount = 2700, kHitPoints = 3156, kElevation = 4068,
                  kSpecialFlags = 7032, kPlacementBox = 11284, kUnitSize = 12580, kGroupFlags = 16684,
                  kAvailability = 19420;
+// The add-on position (u16 x, u16 y) exists only for the buildings 106..201.
+constexpr size_t kAddonPosition = 12196, kFirstAddonEntry = 106, kAddonEntries = 96;
 
 bool iequals(std::string_view a, std::string_view b) {
     return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) {
@@ -165,8 +167,27 @@ bool UnitTypes::load(const GameData& data, std::string& error) {
         t.groupFlags = dat[kGroupFlags + i];
         t.availability = readU16(dat, kAvailability + 2 * i);
         t.attackUnitOrder = dat[kAttackUnitOrder + i];
+        if (i >= kFirstAddonEntry && i < kFirstAddonEntry + kAddonEntries) {
+            t.addonX = int16_t(readU16(dat, kAddonPosition + 4 * size_t(i - kFirstAddonEntry)));
+            t.addonY = int16_t(readU16(dat, kAddonPosition + 4 * size_t(i - kFirstAddonEntry) + 2));
+        }
     }
     return true;
+}
+
+int addonParent(uint16_t addon) {
+    switch (addon) {
+    case 107: case 108: return 106;  // Comsat Station, Nuclear Silo: Command Center
+    case 115: return 114;            // Control Tower: Starport
+    case 117: case 118: return 116;  // Covert Ops, Physics Lab: Science Facility
+    case 120: return 113;            // Machine Shop: Factory
+    default: return -1;
+    }
+}
+
+std::pair<int, int> addonSpot(const UnitType& buildingType, const Unit& building, const UnitType& addon) {
+    return {building.x - buildingType.placementWidth / 2 + addon.addonX + addon.placementWidth / 2,
+            building.y - buildingType.placementHeight / 2 + addon.addonY + addon.placementHeight / 2};
 }
 
 const std::string& UnitTypes::statText(uint32_t index) const {
