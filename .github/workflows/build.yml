@@ -277,6 +277,8 @@ jobs:
       - name: The renderer under Wine
         run: |
           export WINEDEBUG=-all
-          xvfb-run -a wine64 render_smoke_test.exe 2>&1 | tee wine-d3d12.txt || true
-          STARDRAFT_GPU_DRIVER=vulkan xvfb-run -a wine64 render_smoke_test.exe 2>&1 | tee wine-vulkan.txt || true
+          xvfb-run -a wineboot -i  # (the Wine prefix)
+          wine --version
+          xvfb-run -a wine render_smoke_test.exe 2>&1 | tee wine-d3d12.txt || true
+          STARDRAFT_GPU_DRIVER=vulkan xvfb-run -a wine render_smoke_test.exe 2>&1 | tee wine-vulkan.txt || true
           grep -q "0 failures" wine-vulkan.txt
