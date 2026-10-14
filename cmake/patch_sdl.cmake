@@ -50,7 +50,8 @@ change("    // We're likely sending the composed text, so we reset the IME statu
     if ([self hasMarkedText]) {
         [self unmarkText];
     }
-    _committedText = [aString isKindOfClass:[NSAttributedString class]] ? [aString string] : aString;
+    // (a copy: the input method changes its own string after the call)
+    _committedText = [([aString isKindOfClass:[NSAttributedString class]] ? [aString string] : aString) copy];
     _selectedRange = NSMakeRange([_committedText length], 0);")
 
 change("    if ([aString length] == 0) {
