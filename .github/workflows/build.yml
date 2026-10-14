@@ -89,6 +89,13 @@ jobs:
       - name: Build all targets
         run: cmake --build build --config Release --parallel
 
+      # For the Wine job: the renderer's test program, built for Windows.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wine-test-${{ github.sha }}
+          path: build/Release/render_smoke_test.exe
+          retention-days: 7
+
       - name: Make the release
         if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
@@ -248,3 +255,28 @@ jobs:
         env:
           SDL_VIDEODRIVER: offscreen
         run: bash tools/ci/linux_data_tests.sh build "${STARDRAFT_SC_INSTALL:-$HOME/scmirror}" "$RUNNER_TEMP/data-tests"
+
+  # The Windows build under Wine on Linux (research/ports/PLAN.md, phase 2): the renderer on Vulkan (Wine passes it to
+  # the system's Vulkan, here lavapipe) and on Direct3D 12 (Wine's vkd3d makes it Vulkan). Only reports: Wine is a
+  # stopgap for Linux users, not a release target.
+  wine:
+    needs: windows
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wine-test-${{ github.sha }}
+
+      - name: Install Wine and Mesa's Vulkan drivers
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y wine64 wine mesa-vulkan-drivers xvfb
+
+      - name: The renderer under Wine
+        run: |
+          export WINEDEBUG=-all
+          xvfb-run -a wine64 render_smoke_test.exe 2>&1 | tee wine-d3d12.txt || true
+          STARDRAFT_GPU_DRIVER=vulkan xvfb-run -a wine64 render_smoke_test.exe 2>&1 | tee wine-vulkan.txt || true
+          grep -q "0 failures" wine-vulkan.txt
