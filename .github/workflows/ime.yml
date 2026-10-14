@@ -1,0 +1,155 @@
+# Korean typed with each system's own input method (IME) into stardraft-next (research/ports/PLAN.md, phase 4: the
+# main risk of the new shell). On GitHub's machines only: each takes the focus and sends keys, as a person would.
+# The keys are the Korean 2-set layout's: "gksrnrdj" makes 한국어 (ㅎㅏㄴ ㄱㅜㄱ ㅇㅓ), the space commits.
+# Each job keeps what stardraft-next printed (every composition and text event) and its snapshot.
+name: IME
+
+on:
+  push:
+    branches: ['port/next']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the build tools, a virtual display and ibus with Hangul
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config mesa-vulkan-drivers libasound2-dev libpulse-dev \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
+            libxkbcommon-dev libwayland-dev libdecor-0-dev libdrm-dev libgbm-dev libegl1-mesa-dev libdbus-1-dev libudev-dev \
+            libibus-1.0-dev xvfb xdotool ibus ibus-hangul dbus-x11
+
+      - uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: ime-deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target stardraft_next --parallel
+
+      - name: Type Korean with ibus-hangul
+        run: |
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1400x900x24 &
+          sleep 2
+          eval "$(dbus-launch --sh-syntax)"
+          gsettings set org.freedesktop.ibus.engine.hangul initial-input-mode 'hangul' || true
+          ibus-daemon -drx
+          sleep 3
+          ibus engine hangul
+          ibus engine
+          export SDL_VIDEODRIVER=x11 SDL_IM_MODULE=ibus
+          for mode in system inline; do
+            flag=""; [ "$mode" = inline ] && flag="--ime-inline"
+            build/stardraft-next --workspace triggers $flag --live 20 --snapshot ime-linux-$mode.png > ime-linux-$mode.txt 2>&1 &
+            pid=$!
+            for i in $(seq 1 60); do grep -q "^ready" ime-linux-$mode.txt && break; sleep 0.5; done
+            ibus engine hangul
+            sleep 1
+            win=$(xdotool search --name "StarDraft 2" | head -1)
+            xdotool windowactivate --sync "$win" || true
+            for k in g k s r n r d j; do xdotool key --delay 120 $k; done
+            xdotool key --delay 200 space
+            wait $pid || true
+            cat ime-linux-$mode.txt
+          done
+          grep -q "search field: 한국어" ime-linux-system.txt
+          grep -q "search field: 한국어" ime-linux-inline.txt
+          grep -q '^composing: "하"' ime-linux-inline.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ime-linux-${{ github.sha }}
+          path: ime-linux-*
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: ime-deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Build
+        run: |
+          cmake -S . -B build -A x64
+          cmake --build build --config Release --target stardraft_next --parallel
+
+      - name: Add the Korean keyboard (Microsoft IME)
+        shell: pwsh
+        run: |
+          $l = Get-WinUserLanguageList
+          $l.Add("ko-KR")
+          Set-WinUserLanguageList $l -Force
+          Get-WinUserLanguageList | Format-List LanguageTag, InputMethodTips
+
+      - name: Type Korean with the Microsoft Korean IME
+        shell: pwsh
+        run: |
+          $failed = 0
+          foreach ($mode in @("system", "inline")) {
+            $a = @("--workspace", "triggers", "--live", "20", "--snapshot", "ime-windows-$mode.png")
+            if ($mode -eq "inline") { $a += "--ime-inline" }
+            $p = Start-Process build/Release/stardraft-next.exe -ArgumentList $a -RedirectStandardOutput "ime-windows-$mode.txt" -PassThru
+            for ($i = 0; $i -lt 60 -and -not (Select-String -Path "ime-windows-$mode.txt" -Pattern "^ready" -Quiet -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Milliseconds 500 }
+            pwsh -File tools/ci/ime_keys_windows.ps1 -Title "StarDraft 2 (next)" -Keys "gksrnrdj "
+            $p.WaitForExit(60000) | Out-Null
+            Get-Content "ime-windows-$mode.txt" -Encoding utf8
+            if (-not (Select-String -Path "ime-windows-$mode.txt" -Pattern "search field: 한국어" -Encoding utf8 -Quiet)) { $failed++ }
+          }
+          if ($failed) { throw "Korean did not arrive in $failed of 2 runs" }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ime-windows-${{ github.sha }}
+          path: ime-windows-*
+
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: ime-deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+          cmake --build build --target stardraft_next --parallel
+          clang tools/ci/ime_keys_mac.c -framework Carbon -framework ApplicationServices -o ime_keys_mac
+
+      - name: Type Korean with 2-Set Korean
+        run: |
+          app=build/stardraft-next.app/Contents/MacOS/stardraft-next
+          for mode in system inline; do
+            flag=""; [ "$mode" = inline ] && flag="--ime-inline"
+            "$app" --workspace triggers $flag --live 20 --snapshot ime-macos-$mode.png > ime-macos-$mode.txt 2>&1 &
+            pid=$!
+            for i in $(seq 1 60); do grep -q "^ready" ime-macos-$mode.txt && break; sleep 0.5; done
+            ./ime_keys_mac "gksrnrdj " || true
+            wait $pid || true
+            cat ime-macos-$mode.txt
+          done
+          grep -q "search field: 한국어" ime-macos-system.txt
+          grep -q "search field: 한국어" ime-macos-inline.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ime-macos-${{ github.sha }}
+          path: ime-macos-*
