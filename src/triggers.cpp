@@ -2107,6 +2107,18 @@ struct Gen {
         if (id == "act.objectives") return std::string(all ? "SetMissionObjectivesAll(" : "SetMissionObjectives(") + arg(c, *d, "text") + ");" + tag + "\n";
         if (id == "act.playsound") return std::string(all ? "PlayWAVAll(" : "PlayWAV(") + arg(c, *d, "sound") + ");" + tag + "\n";
         if (id == "act.centerview") return std::string(all ? "CenterViewAll(" : "CenterView(") + arg(c, *d, "where") + ");" + tag + "\n";
+        if (id == "act.camerafollow")  // the location to the unit, then the view to the location (CenterView knows the screen's size)
+            return unitRef(c, d->param("unit"), raw(c, *d, "unit")) + ".setloc(" + arg(c, *d, "where") + ");" + tag + "\n" +
+                   (all ? "CenterViewAll(" : "CenterView(") + arg(c, *d, "where") + ");\n";
+        if (id == "act.scrolllock") {  // the scroll speeds of this computer (each computer keeps its own copy)
+            helpers.insert("scroll");
+            const std::string m = raw(c, *d, "mode"), mode = m == "Disable" ? "0" : m == "Toggle" ? "2" : "1";
+            return all ? "sd_scrollLock(" + mode + ");" + tag + "\n" : "if (IsUserCP()) { sd_scrollLock(" + mode + "); }" + tag + "\n";
+        }
+        if (id == "act.gamespeed") {
+            helpers.insert("speed");
+            return "sd_gameSpeed(" + arg(c, *d, "pct") + ");" + tag + "\n";
+        }
         if (id == "act.ping") return std::string(all ? "MinimapPingAll(" : "MinimapPing(") + arg(c, *d, "where") + ");" + tag + "\n";
         // Buttons: a set's buttons are 20 bytes each (place, icon, when it shows, what it does, their values, the two
         // tooltips). The first change copies the set into the map (the game's own is not written), then writes there.
@@ -2789,6 +2801,26 @@ std::string TriggerSet::helperLibrary() {
                "}\n";
     out += "function sd_min(a, b) {\n    if (a < b) return a;\n    return b;\n}\n";
     out += "function sd_locAddr(loc) {  // a location's left, top, right, bottom\n    return 0x58DC60 + 20 * (loc - 1);\n}\n";
+    // Scroll lock (SC:R): the mouse and key scroll speeds, 7 levels of 7 bytes at 0x513B68 (the EUD Book, "Mouse and
+    // Keyboard Scroll Speed"); all 0: no scrolling. Saved before they are set to 0, put back after. Each computer has
+    // its own copy of these variables, as of the table.
+    out += "const sd_scrollSaved = EUDArray(13);\nvar sd_scrollLocked = 0;\n"
+           "function sd_scrollLock(mode) {  // 1 on, 0 off, 2 the other way\n"
+           "    if (mode == 2) mode = 1 - sd_scrollLocked;\n"
+           "    if (mode == 1 && sd_scrollLocked == 0) {\n"
+           "        for (var i = 0; i < 12; i++) {\n            sd_scrollSaved[i] = dwread(0x513B68 + 4 * i);\n            dwwrite(0x513B68 + 4 * i, 0);\n        }\n"
+           "        sd_scrollSaved[12] = bread(0x513B68 + 48);\n        bwrite(0x513B68 + 48, 0);\n        sd_scrollLocked = 1;\n"
+           "    } else if (mode == 0 && sd_scrollLocked == 1) {\n"
+           "        for (var i = 0; i < 12; i++) dwwrite(0x513B68 + 4 * i, sd_scrollSaved[i]);\n"
+           "        bwrite(0x513B68 + 48, sd_scrollSaved[12]);\n        sd_scrollLocked = 0;\n    }\n}\n";
+    // Game speed: the milliseconds of each of the 7 speeds (0x5124D8; Fastest 42), all scaled, so the lobby's speed
+    // still selects one of them. The game's values are saved at the first change.
+    out += "const sd_speedBase = EUDArray(7);\nvar sd_speedSaved = 0;\n"
+           "function sd_gameSpeed(pct) {  // 100: as the players selected; 200: two times as fast\n"
+           "    if (sd_speedSaved == 0) {\n        for (var i = 0; i < 7; i++) sd_speedBase[i] = dwread(0x5124D8 + 4 * i);\n        sd_speedSaved = 1;\n    }\n"
+           "    if (pct <= 0) pct = 100;\n"
+           "    for (var i = 0; i < 7; i++) {\n        var ms = sd_speedBase[i] * 100 / pct;\n        if (ms < 1) ms = 1;\n"
+           "        dwwrite(0x5124D8 + 4 * i, ms);\n    }\n}\n";
     return out;
 }
 
@@ -2999,7 +3031,9 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
             {"groups", "sd_groupAdd"},
             {"buttons", "sd_button sd_setButton"},
             {"min", "sd_min"},
-            {"loc", "sd_locAddr"}};
+            {"loc", "sd_locAddr"},
+            {"scroll", "sd_scrollLock"},
+            {"speed", "sd_gameSpeed"}};
         std::string imports;
         for (const auto& [key, list] : kNames)
             if (g.helpers.count(key)) {

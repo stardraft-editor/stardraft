@@ -416,7 +416,8 @@ int main(int argc, char** argv) {
                            block("act.qgc.rightclick", {"P1", "320", "320"}), block("act.qgc.train", {"P2", "Terran Marine"})};
         TriggerCall trains = make("act.if");
         trains.lists[0] = {block("cond.trains", {"boss", "Terran Marine"}), block("cond.queueempty", {"boss"})};
-        trains.lists[1] = {block("act.unitremove", {"boss"}), block("act.qgc.select", {"P1", "boss"})};
+        trains.lists[1] = {block("act.unitremove", {"boss"}), block("act.qgc.select", {"P1", "boss"}), block("act.camerafollow", {"boss", "1", "P2"}),
+                           block("act.gamespeed", {"200"})};
         TriggerCall setX = block("act.setvar", {"SetTo", "0", "gold"});
         TriggerCall dx = make("val.dirx");
         dx.args = {"64", "32"};
@@ -476,7 +477,7 @@ int main(int argc, char** argv) {
     *where.textValues(true) = {valueOf("val.heremousex", {}), valueOf("val.heremousey", {})};
     TriggerCall screen = block("act.showtext", {"Screen {#1} {#2}", "middle", "all"});
     *screen.textValues(true) = {valueOf("val.screenx", {}), valueOf("val.screeny", {})};
-    ifHere.lists[1] = {where, screen};
+    ifHere.lists[1] = {where, screen, block("act.scrolllock", {"Toggle", "all"})};
     hereLocal.lists[0] = {ifHere};
     eachP3.lists[0].push_back(hereLocal);
     more.actions.push_back(eachP3);
@@ -508,7 +509,8 @@ int main(int argc, char** argv) {
             TriggerCall l2 = make("act.local");
             TriggerCall inner = make("act.if");
             inner.lists[1] = {block("act.setresources", {}), block("act.wait", {}), block("act.displayat", {"ok", "1", "current"}), block("act.setvar", {}),
-                              block("act.setloc", {"1", "0", "0"}), block("act.centerview", {"1", "current"})};
+                              block("act.setloc", {"1", "0", "0"}), block("act.centerview", {"1", "current"}), block("act.scrolllock", {"Enable", "current"}),
+                              block("act.gamespeed", {"200"}), block("act.camerafollow", {"the unit", "1", "current"})};
             TriggerCall withRandom = block("act.setvar", {});
             withRandom.argBlocks.resize(withRandom.args.size());
             withRandom.argBlocks[size_t(TriggerDef::find("act.setvar")->param("value"))] = {block("val.random", {"1", "6"})};
@@ -522,9 +524,9 @@ int main(int argc, char** argv) {
             for (const auto& i : is) local += i.level == TriggerIssue::Level::Error && i.message.rfind("Run local block:", 0) == 0;
             int warned = 0;
             for (const auto& i : is) warned += i.level == TriggerIssue::Level::Warning && i.message.rfind("Run local block:", 0) == 0;
-            check(local == 4 && warned == 1,
-                  "Run local block: resources, Wait, a location and a random number are errors (" + std::to_string(local) + " of 4), a variable a warning (" +
-                      std::to_string(warned) + " of 1), text and the camera are safe");
+            check(local == 6 && warned == 1,
+                  "Run local block: resources, Wait, a location, the game speed, the camera on a unit and a random number are errors (" + std::to_string(local) +
+                      " of 6), a variable a warning (" + std::to_string(warned) + " of 1), text, the camera and scroll lock are safe");
         }
         {  // a text with values shows (and passes) as many values as it has {}
             const TriggerDef* pd = TriggerDef::find("act.print");
@@ -835,6 +837,10 @@ int main(int argc, char** argv) {
     check(code.find("KillUnit($U(\"Zerg Zergling\"), P8);") != std::string::npos && code.find("RemoveUnit($U(\"Any unit\"), P7);") != std::string::npos &&
               code.find("SetDeathsX(P1, SetTo, 1, $U(\"Terran Marine\"), 0xFF00);") != std::string::npos && code.find("DeathsX(P1, AtLeast, 1, $U(\"Terran Marine\"), 0xFF00)") != std::string::npos,
           "kill and remove all, deaths by bits");
+    check(code.find("sd_scrollLock(2);") != std::string::npos && code.find("import .sdlib.f_sd_scrollLock;") != std::string::npos &&
+              code.find("sd_gameSpeed(200);") != std::string::npos && code.find("import .sdlib.f_sd_gameSpeed;") != std::string::npos &&
+              code.find(".setloc(1);") != std::string::npos && TriggerSet::helperLibrary().find("function sd_scrollLock(mode)") != std::string::npos,
+          "scroll lock, the game speed and the camera on a unit");
     check(code.find(".check_buildq(") != std::string::npos && code.find(".are_buildq_empty()") != std::string::npos, "a build queue: a unit type in it, and empty");
     check(code.find("cu1.reset_buildq();") != std::string::npos && code.find("break;  // Leave the loop") != std::string::npos &&
               code.find("v_gold = sd_max(sqrt(v_gold), 10);") != std::string::npos && code.find("import .sdlib.f_sd_max;") != std::string::npos && TriggerSet::helperLibrary().find("function sd_max(a, b)") != std::string::npos,
