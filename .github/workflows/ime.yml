@@ -168,7 +168,7 @@ jobs:
 
       - name: Build
         run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DSTARDRAFT_SDL_DEBUG_IME=ON
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
           cmake --build build --target stardraft_next --parallel
           clang tools/ci/ime_keys_mac.c -framework Carbon -framework ApplicationServices -o ime_keys_mac
           clang -fobjc-arc tools/ci/ime_textview_mac.m -framework Cocoa -o ime_textview_mac
