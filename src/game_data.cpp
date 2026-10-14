@@ -2,15 +2,16 @@
 
 #include <CascLib.h>
 
+#include <type_traits>
+
 namespace stardraft {
 
 namespace {
 
+// CascLib takes TCHAR paths: the path's own character type (wchar_t on Windows with UNICODE, char elsewhere).
 std::basic_string<TCHAR> nativePath(const std::filesystem::path& p) {
-    if constexpr (sizeof(TCHAR) == sizeof(wchar_t))
-        return p.wstring();
-    else
-        return p.string();
+    static_assert(std::is_same_v<TCHAR, std::filesystem::path::value_type>, "build the library with UNICODE on Windows");
+    return p.native();
 }
 
 std::string cascError(const std::string& what) {

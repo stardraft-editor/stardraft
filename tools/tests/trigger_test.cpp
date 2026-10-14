@@ -78,9 +78,11 @@ int main(int argc, char** argv) {
     for (int a = 1; a < argc; ++a) updateLock |= std::string(argv[a]) == "--update-lock";
     if (updateLock) --argc;  // (it comes last)
 
-    // The schema lock: what files may contain is still understood.
-    {
-        const fs::path lock = fs::path(STARDRAFT_SOURCE_DIR) / "research" / "data" / "trigger_schema.lock.txt";
+    // The schema lock: what files may contain is still understood. The lock is kept locally (research/ is not in
+    // git), so a clone without it (CI) skips this check.
+    if (const fs::path lock = fs::path(STARDRAFT_SOURCE_DIR) / "research" / "data" / "trigger_schema.lock.txt"; !fs::exists(lock) && !updateLock) {
+        std::printf("      skipped: no schema lock (%s)\n", lock.generic_string().c_str());
+    } else {
         const std::set<std::string> now = schemaFacts();
         std::set<std::string> locked;
         {
@@ -1567,7 +1569,7 @@ H1: 00
                 // The parser on its own: a module compiled from a path relative to the .eds.
                 EudProject::ScriptError se;
                 check(pr.scriptError("[Error -2] Module \"hello_lib\" Line 7 : General syntax error\n[Error 8510] Module \"hello_lib\" Line 7 : Incomplete statement.\n"
-                                     "[epScript] Compiling \"..\\linked\\hello_lib.eps\"...\n",
+                                     "[epScript] Compiling \"" + (fs::path("..") / "linked" / "hello_lib.eps").make_preferred().string() + "\"...\n",
                                      se) &&
                           fs::equivalent(se.file, lib) && se.line == 7 && se.message == "Incomplete statement.",
                       "the module and line of a euddraft error give the file");
