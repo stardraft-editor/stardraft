@@ -1,6 +1,7 @@
 #include "stardraft/euddraft.h"
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdlib>
 #include <fstream>
 #include <regex>
@@ -12,8 +13,11 @@
 #endif
 #include <windows.h>
 #else
-#include <cstdio>
+#include <fcntl.h>
+#include <spawn.h>
 #include <sys/wait.h>
+#include <unistd.h>
+extern char** environ;
 #endif
 
 namespace fs = std::filesystem;
@@ -31,6 +35,26 @@ std::wstring widen(const std::string& s) {
     return w;
 }
 #endif
+
+// Splits output into lines as it comes: each full line goes to `onLine` (without its CR LF or LF).
+struct LineSplitter {
+    const std::function<void(const std::string&)>& onLine;
+    std::string pending;
+    void add(const char* data, size_t n) {
+        pending.append(data, n);
+        size_t start = 0;
+        for (size_t nl; (nl = pending.find('\n', start)) != std::string::npos; start = nl + 1) {
+            std::string line = pending.substr(start, nl - start);
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (onLine) onLine(line);
+        }
+        pending.erase(0, start);
+    }
+    void finish() {
+        if (!pending.empty() && onLine) onLine(pending);
+        pending.clear();
+    }
+};
 
 // Runs a program (no console window, no input), calling `onLine` for each line of its output
 // (stdout and stderr merged). Returns the exit code, or -1 if it could not start.
@@ -60,24 +84,11 @@ int runProcess(const std::vector<std::string>& args, const fs::path& workDir, co
         CloseHandle(readEnd);
         return -1;
     }
-    std::string pending;
+    LineSplitter lines{onLine};
     char buf[4096];
     DWORD got = 0;
-    auto flush = [&](bool all) {
-        size_t start = 0;
-        for (size_t nl; (nl = pending.find('\n', start)) != std::string::npos; start = nl + 1) {
-            std::string line = pending.substr(start, nl - start);
-            if (!line.empty() && line.back() == '\r') line.pop_back();
-            if (onLine) onLine(line);
-        }
-        pending.erase(0, start);
-        if (all && !pending.empty() && onLine) onLine(pending), pending.clear();
-    };
-    while (ReadFile(readEnd, buf, sizeof buf, &got, nullptr) && got) {
-        pending.append(buf, got);
-        flush(false);
-    }
-    flush(true);
+    while (ReadFile(readEnd, buf, sizeof buf, &got, nullptr) && got) lines.add(buf, got);
+    lines.finish();
     CloseHandle(readEnd);
     WaitForSingleObject(pi.hProcess, INFINITE);
     DWORD code = 0;
@@ -86,18 +97,43 @@ int runProcess(const std::vector<std::string>& args, const fs::path& workDir, co
     CloseHandle(pi.hThread);
     return int(code);
 #else
-    std::string cmd = workDir.empty() ? std::string() : "cd '" + workDir.string() + "' && ";
-    for (const auto& a : args) cmd += "'" + a + "' ";
-    cmd += "2>&1 </dev/null";
-    FILE* p = popen(cmd.c_str(), "r");
-    if (!p) return -1;
-    char line[4096];
-    while (fgets(line, sizeof line, p)) {
-        std::string s = line;
-        while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
-        if (onLine) onLine(s);
+    // posix_spawnp with the arguments as they are (no shell, so no quoting); the working folder is set in the child.
+    if (args.empty()) return -1;
+    int fds[2];
+    if (pipe(fds) != 0) return -1;
+    fcntl(fds[0], F_SETFD, FD_CLOEXEC);
+    posix_spawn_file_actions_t actions;
+    posix_spawn_file_actions_init(&actions);
+    posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0);
+    posix_spawn_file_actions_adddup2(&actions, fds[1], 1);
+    posix_spawn_file_actions_adddup2(&actions, fds[1], 2);
+    posix_spawn_file_actions_addclose(&actions, fds[1]);
+    if (!workDir.empty()) posix_spawn_file_actions_addchdir_np(&actions, workDir.c_str());
+    std::vector<char*> argv;
+    for (const auto& a : args) argv.push_back(const_cast<char*>(a.c_str()));
+    argv.push_back(nullptr);
+    pid_t pid = 0;
+    const int started = posix_spawnp(&pid, argv[0], &actions, nullptr, argv.data(), environ);
+    posix_spawn_file_actions_destroy(&actions);
+    close(fds[1]);
+    if (started != 0) {
+        close(fds[0]);
+        return -1;
     }
-    int status = pclose(p);
+    LineSplitter lines{onLine};
+    char buf[4096];
+    for (ssize_t got; (got = read(fds[0], buf, sizeof buf)) != 0;) {
+        if (got < 0) {
+            if (errno == EINTR) continue;
+            break;
+        }
+        lines.add(buf, size_t(got));
+    }
+    lines.finish();
+    close(fds[0]);
+    int status = 0;
+    while (waitpid(pid, &status, 0) < 0)
+        if (errno != EINTR) return -1;
     return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 #endif
 }
@@ -121,6 +157,9 @@ const char* platformTag() {
 fs::path localData() {
 #ifdef _WIN32
     if (const char* v = std::getenv("LOCALAPPDATA")) return v;
+    return fs::temp_directory_path();
+#elif defined(__APPLE__)
+    if (const char* h = std::getenv("HOME")) return fs::path(h) / "Library" / "Application Support";
     return fs::temp_directory_path();
 #else
     if (const char* v = std::getenv("XDG_DATA_HOME")) return v;
@@ -236,7 +275,12 @@ bool install(const Release& release, EuddraftInstall& out, std::string& error, c
         return false;
     }
     if (progress) progress("Unpacking into " + dir.string());
-    if (runProcess({"tar", "-xf", zip.string(), "-C", dir.string()}, {}, progress) != 0) {
+#if defined(_WIN32) || defined(__APPLE__)
+    const std::vector<std::string> unpack = {"tar", "-xf", zip.string(), "-C", dir.string()};  // bsdtar reads zip files
+#else
+    const std::vector<std::string> unpack = {"unzip", "-o", "-q", zip.string(), "-d", dir.string()};  // GNU tar does not
+#endif
+    if (runProcess(unpack, {}, progress) != 0) {
         error = "could not unpack " + zip.string();
         return false;
     }
@@ -254,6 +298,9 @@ bool install(const Release& release, EuddraftInstall& out, std::string& error, c
         error = "the download holds no " + std::string(exeName());
         return false;
     }
+#ifndef _WIN32
+    fs::permissions(exe, fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec, fs::perm_options::add, ec);
+#endif
     out = {exe, versionOf(exe), "stardraft"};
     if (out.version.empty()) out.version = release.version;
     return true;

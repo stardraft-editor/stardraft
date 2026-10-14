@@ -35,6 +35,21 @@ Start or the taskbar. It also makes project.stardraft files open with it:
 The window title shows when the build was made. The first build takes long: CMake fetches SDL3, StormLib, CascLib,
 stb and libvpx.
 
+### Linux and macOS
+
+The library, the tools and the tests also build on Linux (GCC or Clang) and macOS (Xcode's Clang); GitHub builds
+them on each push. The editor is Windows only, and the renderer is off by default there (`STARDRAFT_RENDERER`):
+
+    cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+    cmake --build build
+
+What does not work there:
+
+- euddraft has no Linux arm64 build, and its macOS build compiles `.eps` scripts only on an arm64 Mac. On Linux,
+  installing euddraft needs `unzip` and `curl`.
+- epTrace is a Windows program: `eptrace::exe()` is always empty on other systems.
+- CascLib needs the install's file names in their exact case on a case-sensitive file system (`Data/data`, ...).
+
 StarDraft needs StarCraft: Remastered (it reads the game's files from the install). It finds the usual install
 folder, or asks for it; Options > Program options > StarCraft folder changes it. EUD projects download euddraft on their first build.
 
