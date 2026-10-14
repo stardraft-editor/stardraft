@@ -261,67 +261,171 @@ std::string number(uint32_t v) { return std::to_string(v); }
 // --- ClassicTrigger ------------------------------------------------------------------------------------------
 
 namespace {
-// The slots of a batch follow their entries: `place` gives an entry's new place (-1: removed).
-template <class Place>
-void followSlots(ClassicTrigger& t, bool condition, Place place) {
-    if (!t.batch) return;
-    auto& s = t.batch->slots;
-    for (auto it = s.begin(); it != s.end();) {
-        if (it->condition != condition) {
-            ++it;
-            continue;
+bool sameBatch(const std::shared_ptr<const ClassicBatch>& a, const std::shared_ptr<const ClassicBatch>& b) {
+    if (!a || !b) return !a && !b;
+    return a == b || *a == *b;
+}
+}  // namespace
+
+bool operator==(const ClassicAction& a, const ClassicAction& b) {
+    return a.location == b.location && a.text == b.text && a.wav == b.wav && a.time == b.time && a.player == b.player &&
+           a.number == b.number && a.unit == b.unit && a.type == b.type && a.modifier == b.modifier && a.flags == b.flags &&
+           a.padding == b.padding && a.internal == b.internal && a.depth == b.depth && a.var == b.var && sameBatch(a.batch, b.batch);
+}
+
+ClassicField classicVarField(int k) {
+    switch (k) {
+    case 0: return F::Location;
+    case 1: return F::Player;
+    case 2: return F::Unit;
+    default: return F::Number;
+    }
+}
+
+bool classicVarAllowed(const ClassicAction& a, int k, ClassicBatchKind kind) {
+    if (k < 0 || k >= kClassicVarFields) return false;
+    const ClassicDef* d = classicActionDef(a.type);
+    if (!d) return false;
+    const ClassicField f = classicVarField(k);
+    const ClassicKind want = classicBatchValueKind(kind);
+    return std::any_of(d->params.begin(), d->params.end(), [&](const ClassicParam& p) { return p.field == f && p.kind == want; });
+}
+
+int ClassicTrigger::conditionCount() const { return listCount(conditions); }
+int ClassicTrigger::actionCount() const { return listCount(actions); }
+
+int ClassicTrigger::blockEnd(int row) const {
+    const int n = actionCount();
+    if (row < 0 || row >= n) return row;
+    int e = row + 1;
+    if (actions[size_t(row)].type != kClassicBlockType) return e;
+    const int d = actions[size_t(row)].depth;
+    while (e < n && actions[size_t(e)].depth > d) ++e;
+    return e;
+}
+
+bool ClassicTrigger::addCondition(const ClassicCondition& c, int at) { return listAdd(conditions, c, at); }
+
+bool ClassicTrigger::addAction(const ClassicAction& a, int at) {
+    if (!listAdd(actions, a, at)) return false;
+    pruneBlocks();
+    return true;
+}
+
+void ClassicTrigger::removeCondition(int i) { listRemove(conditions, i); }
+
+void ClassicTrigger::removeAction(int i) {
+    const int n = actionCount();
+    if (i < 0 || i >= n) return;
+    const int count = blockEnd(i) - i;  // a block takes its children with it
+    for (int k = 0; k < count; ++k) listRemove(actions, i);
+    pruneBlocks();
+}
+
+void ClassicTrigger::moveCondition(int from, int to) { listMove(conditions, from, to); }
+
+// Moves the row at `from` with its children to place `to` of the list without them (as moveCondition does).
+void ClassicTrigger::moveAction(int from, int to) {
+    const int n = actionCount();
+    if (from < 0 || from >= n) return;
+    const int e = blockEnd(from);
+    const int rest = n - (e - from);
+    if (to < 0 || to > rest) return;
+    std::vector<ClassicAction> part(actions.begin() + from, actions.begin() + e), left;
+    for (int i = 0; i < n; ++i)
+        if (i < from || i >= e) left.push_back(actions[size_t(i)]);
+    // A row that goes in front of a deeper row would take that row out of its block: the move is refused.
+    if (to < int(left.size()) && left[size_t(to)].depth > part[0].depth) return;
+    left.insert(left.begin() + to, part.begin(), part.end());
+    for (size_t i = 0; i < kClassicActions; ++i) actions[i] = i < left.size() ? left[i] : ClassicAction{};
+    pruneBlocks();
+}
+
+namespace {
+// Moves the rows [from, to) by `delta` levels. A variable that holds a block at depth `inside` or deeper (inside the
+// rows) follows that block; one that holds the block at depth `gone` is cleared.
+void shiftRows(ClassicTrigger& t, int from, int to, int delta, int inside, int gone) {
+    for (int k = from; k < to; ++k) {
+        ClassicAction& a = t.actions[size_t(k)];
+        a.depth = uint8_t(a.depth + delta);
+        for (uint8_t& v : a.var) {
+            if (!v) continue;
+            const int target = v - 1;
+            if (target == gone) v = 0;
+            else if (target >= inside) v = uint8_t(v + delta);
         }
-        const int n = place(int(it->index));
-        if (n < 0) it = s.erase(it);
-        else it->index = uint8_t(n), ++it;
     }
 }
 }  // namespace
 
-int ClassicTrigger::conditionCount() const { return listCount(conditions); }
-int ClassicTrigger::actionCount() const { return listCount(actions); }
-bool ClassicTrigger::addCondition(const ClassicCondition& c, int at) {
-    const int n = conditionCount(), pos = at < 0 || at > n ? n : at;
-    if (!listAdd(conditions, c, at)) return false;
-    followSlots(*this, true, [pos](int i) { return i >= pos ? i + 1 : i; });
-    return true;
-}
-bool ClassicTrigger::addAction(const ClassicAction& a, int at) {
-    const int n = actionCount(), pos = at < 0 || at > n ? n : at;
-    if (batch && n >= kClassicActions - 1) return false;  // the comment that names the batch takes the first place
-    if (!listAdd(actions, a, at)) return false;
-    followSlots(*this, false, [pos](int i) { return i >= pos ? i + 1 : i; });
-    return true;
-}
-void ClassicTrigger::removeCondition(int i) {
-    if (i < 0 || i >= conditionCount()) return;
-    listRemove(conditions, i);
-    followSlots(*this, true, [i](int k) { return k == i ? -1 : k > i ? k - 1 : k; });
-}
-void ClassicTrigger::removeAction(int i) {
-    if (i < 0 || i >= actionCount()) return;
-    listRemove(actions, i);
-    followSlots(*this, false, [i](int k) { return k == i ? -1 : k > i ? k - 1 : k; });
-}
-namespace {
-// The place of entry `i` after the entry at `from` moved to `to` (both places in the list).
-int movedPlace(int i, int from, int to) {
-    if (i == from) return to;
-    if (from < to) return i > from && i <= to ? i - 1 : i;
-    return i >= to && i < from ? i + 1 : i;
-}
-}  // namespace
-void ClassicTrigger::moveCondition(int from, int to) {
-    const int n = conditionCount();
-    if (from < 0 || from >= n || to < 0 || to >= n || from == to) return;
-    listMove(conditions, from, to);
-    followSlots(*this, true, [from, to](int i) { return movedPlace(i, from, to); });
-}
-void ClassicTrigger::moveAction(int from, int to) {
+// The row goes into the block that is before it (as its last child): the block must be the previous sibling, so
+// that the rows between them are its children. Its children go one level deeper with it.
+bool ClassicTrigger::indentAction(int i) {
     const int n = actionCount();
-    if (from < 0 || from >= n || to < 0 || to >= n || from == to) return;
-    listMove(actions, from, to);
-    followSlots(*this, false, [from, to](int i) { return movedPlace(i, from, to); });
+    if (i <= 0 || i >= n) return false;
+    const int d = actions[size_t(i)].depth;
+    int j = i - 1;
+    while (j >= 0 && actions[size_t(j)].depth > d) --j;
+    if (j < 0 || actions[size_t(j)].depth != d || actions[size_t(j)].type != kClassicBlockType) return false;
+    shiftRows(*this, i, blockEnd(i), 1, d, -1);
+    pruneBlocks();
+    return true;
+}
+
+// The row (with its children) goes after its block, one level out.
+bool ClassicTrigger::outdentAction(int i) {
+    const int n = actionCount();
+    if (i < 0 || i >= n || actions[size_t(i)].depth == 0) return false;
+    const int d = actions[size_t(i)].depth;
+    int p = i - 1;
+    while (p >= 0 && actions[size_t(p)].depth > d - 1) --p;
+    if (p < 0 || actions[size_t(p)].depth != d - 1 || actions[size_t(p)].type != kClassicBlockType) return false;
+    const int e = blockEnd(i), pe = blockEnd(p);  // pe: the block's end, with the row in the list
+    shiftRows(*this, i, e, -1, d, d - 1);
+    std::vector<ClassicAction> part(actions.begin() + i, actions.begin() + e);
+    std::vector<ClassicAction> left;
+    for (int k = 0; k < n; ++k)
+        if (k < i || k >= e) left.push_back(actions[size_t(k)]);
+    left.insert(left.begin() + (pe - (e - i)), part.begin(), part.end());
+    for (size_t k = 0; k < kClassicActions; ++k) actions[k] = k < left.size() ? left[k] : ClassicAction{};
+    pruneBlocks();
+    return true;
+}
+
+bool ClassicTrigger::unwrapAction(int i) {
+    const int n = actionCount();
+    if (i < 0 || i >= n || actions[size_t(i)].type != kClassicBlockType) return false;
+    const int e = blockEnd(i), d = actions[size_t(i)].depth;
+    shiftRows(*this, i + 1, e, -1, d + 1, d);
+    listRemove(actions, i);
+    pruneBlocks();
+    return true;
+}
+
+// Depths that the rows cannot have are fixed, and a variable that no enclosing block of its kind holds is removed.
+void ClassicTrigger::pruneBlocks() {
+    std::vector<int> open;  // open[k]: the block row at depth k that holds the rows at depth k + 1
+    const int n = actionCount();
+    for (int i = 0; i < n; ++i) {
+        ClassicAction& a = actions[size_t(i)];
+        const int d = std::min(int(a.depth), int(open.size()));
+        a.depth = uint8_t(d);
+        open.resize(size_t(d));
+        if (a.type == kClassicBlockType) {
+            if (!a.batch) a.batch = std::make_shared<ClassicBatch>();
+            open.push_back(i);
+            continue;
+        }
+        for (int k = 0; k < kClassicVarFields; ++k) {
+            if (!a.var[size_t(k)]) continue;
+            const int want = a.var[size_t(k)] - 1;
+            const bool ok = want < d && size_t(want) < open.size() && actions[size_t(open[size_t(want)])].batch &&
+                            classicVarAllowed(a, k, actions[size_t(open[size_t(want)])].batch->kind);
+            if (!ok) a.var[size_t(k)] = 0;
+            else if (classicVarField(k) == F::Unit) a.unit = 0;  // a variable's field holds no value (the file holds the placeholder)
+            else setClassicValue(a, classicVarField(k), 0);
+        }
+    }
 }
 
 ClassicTrigger ClassicTrigger::make() {
@@ -329,6 +433,7 @@ ClassicTrigger ClassicTrigger::make() {
     t.conditions[0] = makeClassicCondition(22);
     return t;
 }
+
 
 // --- TRIG ----------------------------------------------------------------------------------------------------
 
@@ -591,9 +696,12 @@ std::string classicValueText(ClassicKind kind, uint32_t v, const ClassicNames& n
 }
 
 namespace {
-template <class T>
-std::string sentence(const T& e, const ClassicDef* d, const ClassicNames& names, const char* what, const ClassicBatch* batch, int index) {
-    if (!d) return std::string(what) + " " + number(e.type) + " (the game does not have it; kept as it is)";
+// `scope[d]`: the block at depth d that the rows hold (a row's variable is the block at its depth).
+std::string sentence(const ClassicCondition* c, const ClassicAction* a, const ClassicDef* d, const ClassicNames& names,
+                     const std::vector<const ClassicBatch*>* scope) {
+    const char* what = c ? "Condition" : "Action";
+    const uint8_t type = c ? c->type : a->type;
+    if (!d) return std::string(what) + " " + number(type) + " (the game does not have it; kept as it is)";
     std::string out, s = d->sentence;
     for (size_t i = 0; i < s.size(); ++i) {
         if (s[i] != '{') {
@@ -602,11 +710,16 @@ std::string sentence(const T& e, const ClassicDef* d, const ClassicNames& names,
         }
         const size_t end = s.find('}', i);
         const std::string key = s.substr(i + 1, end - i - 1);
-        for (const ClassicParam& p : d->params)
-            if (key == p.name) {
-                const bool variable = batch && index >= 0 && classicBatchHasSlot(*batch, std::is_same_v<T, ClassicCondition>, index, p.field);
-                out += variable ? classicBatchVariableText(*batch) : classicValueText(p.kind, classicValue(e, p.field), names);
-            }
+        for (const ClassicParam& p : d->params) {
+            if (key != p.name) continue;
+            const uint32_t v = c ? classicValue(*c, p.field) : classicValue(*a, p.field);
+            int k = -1;
+            for (int q = 0; a && q < kClassicVarFields; ++q)
+                if (classicVarField(q) == p.field) k = q;
+            const bool bound = a && k >= 0 && a->var[size_t(k)] && scope && size_t(a->var[size_t(k)] - 1) < scope->size() &&
+                               (*scope)[size_t(a->var[size_t(k)] - 1)];
+            out += bound ? classicBatchVariableText(*(*scope)[size_t(a->var[size_t(k)] - 1)]) : classicValueText(p.kind, v, names);
+        }
         i = end;
     }
     // A sentence that starts with a value: a capital letter.
@@ -615,11 +728,11 @@ std::string sentence(const T& e, const ClassicDef* d, const ClassicNames& names,
 }
 }  // namespace
 
-std::string classicConditionText(const ClassicCondition& c, const ClassicNames& names, const ClassicBatch* batch, int index) {
-    return sentence(c, classicConditionDef(c.type), names, "Condition", batch, index);
+std::string classicConditionText(const ClassicCondition& c, const ClassicNames& names) {
+    return sentence(&c, nullptr, classicConditionDef(c.type), names, nullptr);
 }
-std::string classicActionText(const ClassicAction& a, const ClassicNames& names, const ClassicBatch* batch, int index) {
-    return sentence(a, classicActionDef(a.type), names, "Action", batch, index);
+std::string classicActionText(const ClassicAction& a, const ClassicNames& names, const std::vector<const ClassicBatch*>* scope) {
+    return sentence(nullptr, &a, classicActionDef(a.type), names, scope);
 }
 
 bool classicEud(const ClassicCondition& c) {
@@ -650,14 +763,37 @@ uint32_t classicStringId(StringTable& strings, const std::string& text) {
 
 // --- Batches (R23) -------------------------------------------------------------------------------------------------
 //
-// The comment that names a batch (the template's first action, a Comment):
-//   StarDraft batch of 3 triggers: name=unit; kind=unit; values=0 1 36; slots=a2.unit
-// The slots are 1-based places in the template's list, without the comment: c = condition, a = action.
+// A batch is a block in an action list: "For each <variable> in <values>", with child actions. Blocks nest. The working
+// copy keeps a block as one row (type kClassicBlockType, with its variable and values) followed by its children, each
+// one row deeper (ClassicAction::depth). A child's field of the variable's kind holds the variable (ClassicAction::var).
+//
+// The file (what the game and the other editors read) has, for each top-level block, a frame of Comment actions:
+//   B  begin: player = the template's slots (T), time = the expansion's slots (X), number = the header's bytes (L).
+//   D  data, one for each 14 bytes of the header: player, time, number, unit (the bytes in this order).
+//   template: the children in template form, each disabled (flag 2). A variable's field holds a placeholder: 0x80000000
+//      or 0x8000 (unit) plus the block's depth. A nested block's frame is in the template, without its expansion.
+//   expansion: X slots. The children once for each value, depth-first, with the values in their fields. Enabled.
+//   E  end.
+// Every marker is a Comment with the text of the shared string "Batch Trigger marker - do not remove" (the map's
+// string id, added only while a batch exists), flag 2 (disabled), and its numeric fields as above. The header holds
+// version, kind, name, the values (u32 each) and the places of the disabled children of this block.
+//
+// A trigger with more than 64 slots (markers, templates and expansions) is split into parts. Each later part has the
+// condition "Switch n is set" (the same players and flags) and starts with "Set switch n: Clear"; each part before the
+// last ends with "Set switch n: Set". The switch n is a switch that no trigger of the map uses. The game runs the
+// parts in order, and a later part waits for the one before it. The list shows one trigger.
+//
+// On a read, a group of triggers or a single trigger is taken as a working copy only when the working copy makes
+// exactly the same triggers again (the same bytes). Otherwise the triggers stay as they are.
 
 namespace {
-constexpr const char* kBatchPrefix = "StarDraft batch of ";
-constexpr uint8_t kCommentType = 47;
+constexpr uint32_t kMarkerMagic = 0x31424453;  // "SDB1" (location)
+constexpr uint8_t kMarkBegin = 'B', kMarkData = 'D', kMarkEnd = 'E';
+constexpr uint8_t kCommentType = 47, kSwitchSetType = 11, kSetSwitchType = 13;
+constexpr size_t kDataBytes = 14;
+constexpr const char* kMarkerText = "Batch Trigger marker - do not remove";
 constexpr size_t kBatchNameMax = 24;
+constexpr uint8_t kHeaderVersion = 1;
 
 const char* batchKindName(ClassicBatchKind k) {
     switch (k) {
@@ -666,122 +802,332 @@ const char* batchKindName(ClassicBatchKind k) {
     default: return "unit";
     }
 }
-const char* batchFieldName(ClassicField f) {
-    switch (f) {
-    case F::Player: return "player";
-    case F::Location: return "location";
-    case F::Number: return "number";  // a second player (Give units to player: to) or a second location (Move: dest)
-    default: return "unit";
-    }
-}
-ClassicField batchFieldOf(const std::string& s) {
-    return s == "player" ? F::Player : s == "location" ? F::Location : s == "number" ? F::Number : F::Unit;
-}
 
-std::vector<std::string> splitOn(const std::string& s, char sep) {
-    std::vector<std::string> out(1);
-    for (char c : s) {
-        if (c == sep) out.emplace_back();
-        else out.back() += c;
-    }
-    return out;
-}
 std::string trimmed(const std::string& s) {
     const size_t a = s.find_first_not_of(' '), b = s.find_last_not_of(' ');
     return a == std::string::npos ? std::string() : s.substr(a, b - a + 1);
 }
-// A decimal number of the whole text; false when it has no digits or other characters.
-bool parseNumber(const std::string& s, uint64_t& out) {
-    if (s.empty() || s.size() > 18) return false;
-    out = 0;
-    for (char c : s) {
-        if (c < '0' || c > '9') return false;
-        out = out * 10 + uint64_t(c - '0');
+
+// The placeholder of a variable in a template row, and what it stands for.
+uint32_t placeholder(int k, int depth) { return k == 2 ? (0x8000u | uint32_t(depth)) : (0x80000000u | uint32_t(depth)); }
+
+ClassicAction marker(uint8_t kind, uint32_t text) {
+    ClassicAction a;
+    a.type = kCommentType;
+    a.flags = 2;
+    a.location = kMarkerMagic;
+    a.modifier = kind;
+    a.text = text;
+    return a;
+}
+bool isMarker(const ClassicAction& a, uint32_t text, uint8_t kind) {
+    return a.type == kCommentType && a.location == kMarkerMagic && a.modifier == kind && a.text == text;
+}
+
+// The header: version, kind, name, the values (u32), the disabled children (their places, u8).
+Bytes encodeHeader(const ClassicBatch& b, const std::vector<uint8_t>& disabled) {
+    Bytes out;
+    out.push_back(kHeaderVersion);
+    out.push_back(uint8_t(b.kind));
+    out.push_back(uint8_t(b.name.size()));
+    out.insert(out.end(), b.name.begin(), b.name.end());
+    for (int i = 0; i < 4; ++i) out.push_back(uint8_t(uint32_t(b.values.size()) >> (8 * i)));
+    for (uint32_t v : b.values)
+        for (int i = 0; i < 4; ++i) out.push_back(uint8_t(v >> (8 * i)));
+    out.push_back(uint8_t(disabled.size()));
+    out.insert(out.end(), disabled.begin(), disabled.end());
+    return out;
+}
+
+struct Header {
+    ClassicBatch batch;
+    std::vector<uint8_t> disabled;
+};
+bool decodeHeader(const Bytes& b, Header& h) {
+    size_t p = 0;
+    auto byte = [&](uint8_t& v) {
+        if (p >= b.size()) return false;
+        v = b[p++];
+        return true;
+    };
+    uint8_t version = 0, kind = 0, len = 0;
+    if (!byte(version) || version != kHeaderVersion || !byte(kind) || kind > 2 || !byte(len) || p + len > b.size()) return false;
+    h.batch.kind = ClassicBatchKind(kind);
+    h.batch.name.assign(b.begin() + std::ptrdiff_t(p), b.begin() + std::ptrdiff_t(p + len));
+    p += len;
+    if (p + 4 > b.size()) return false;
+    uint32_t n = 0;
+    for (int i = 0; i < 4; ++i) n |= uint32_t(b[p++]) << (8 * i);
+    if (n > 255 || p + 4ull * n > b.size()) return false;
+    h.batch.values.clear();
+    for (uint32_t i = 0; i < n; ++i) {
+        uint32_t v = 0;
+        for (int k = 0; k < 4; ++k) v |= uint32_t(b[p++]) << (8 * k);
+        h.batch.values.push_back(v);
+    }
+    uint8_t dn = 0;
+    if (!byte(dn) || p + dn != b.size()) return false;
+    h.disabled.assign(b.begin() + std::ptrdiff_t(p), b.end());
+    return true;
+}
+
+enum class Mode { Top, Template, Expansion };
+using Scope = std::vector<std::pair<int, uint32_t>>;  // the bound variables: (depth, value)
+
+// The slots of a block's frame for the row at `i` (its children are i + 1 to `end`).
+void emitRange(const ClassicTrigger& t, int from, int to, Mode mode, Scope& scope, std::vector<ClassicAction>& out,
+               std::vector<uint8_t>* disabled, uint32_t text);
+
+void emitFrame(const ClassicTrigger& t, int i, int end, bool withExpansion, Scope& scope, std::vector<ClassicAction>& out, uint32_t text) {
+    const ClassicAction& blk = t.actions[size_t(i)];
+    std::vector<uint8_t> dis;
+    std::vector<ClassicAction> tpl, exp;
+    Scope none;
+    emitRange(t, i + 1, end, Mode::Template, none, tpl, &dis, text);
+    if (withExpansion) {
+        for (uint32_t v : blk.batch->values) {
+            scope.emplace_back(blk.depth, v);
+            emitRange(t, i + 1, end, Mode::Expansion, scope, exp, nullptr, text);
+            scope.pop_back();
+        }
+    }
+    const Bytes header = encodeHeader(*blk.batch, dis);
+    ClassicAction b = marker(kMarkBegin, text);
+    b.player = uint32_t(tpl.size()), b.time = uint32_t(exp.size()), b.number = uint32_t(header.size());
+    out.push_back(b);
+    for (size_t at = 0; at < header.size(); at += kDataBytes) {
+        uint8_t raw[kDataBytes] = {};
+        std::copy(header.begin() + std::ptrdiff_t(at), header.begin() + std::ptrdiff_t(std::min(header.size(), at + kDataBytes)), raw);
+        ClassicAction d = marker(kMarkData, text);
+        auto u32 = [&](size_t k) { return uint32_t(raw[k]) | uint32_t(raw[k + 1]) << 8 | uint32_t(raw[k + 2]) << 16 | uint32_t(raw[k + 3]) << 24; };
+        d.player = u32(0), d.time = u32(4), d.number = u32(8), d.unit = uint16_t(raw[12] | raw[13] << 8);
+        out.push_back(d);
+    }
+    out.insert(out.end(), tpl.begin(), tpl.end());
+    out.insert(out.end(), exp.begin(), exp.end());
+    out.push_back(marker(kMarkEnd, text));
+}
+
+void emitRange(const ClassicTrigger& t, int from, int to, Mode mode, Scope& scope, std::vector<ClassicAction>& out,
+               std::vector<uint8_t>* disabled, uint32_t text) {
+    int child = 0;
+    for (int i = from; i < to;) {
+        const ClassicAction& a = t.actions[size_t(i)];
+        const int e = t.blockEnd(i);
+        if (a.type == kClassicBlockType) {
+            if (mode == Mode::Top) emitFrame(t, i, e, true, scope, out, text);
+            else if (mode == Mode::Template) emitFrame(t, i, e, false, scope, out, text);
+            else {
+                for (uint32_t v : a.batch->values) {
+                    scope.emplace_back(a.depth, v);
+                    emitRange(t, i + 1, e, Mode::Expansion, scope, out, nullptr, text);
+                    scope.pop_back();
+                }
+            }
+        } else {
+            ClassicAction r = a;
+            r.depth = 0, r.var = {}, r.batch = nullptr;
+            for (int k = 0; k < kClassicVarFields; ++k) {
+                if (!a.var[size_t(k)]) continue;
+                const int depth = a.var[size_t(k)] - 1;
+                uint32_t value = placeholder(k, depth);
+                if (mode == Mode::Expansion)
+                    for (const auto& [d, v] : scope)
+                        if (d == depth) value = v;  // the innermost binding of the depth wins
+                const ClassicField f = classicVarField(k);
+                if (f == F::Unit) r.unit = uint16_t(value);
+                else setClassicValue(r, f, value);
+            }
+            if (mode == Mode::Template) {
+                if (a.flags & 2) {
+                    if (disabled) disabled->push_back(uint8_t(child));
+                }
+                r.flags = uint8_t(r.flags | 2);
+            }
+            out.push_back(r);
+        }
+        ++child;
+        i = e;
+    }
+}
+
+// The file's slots of the trigger's rows (the markers, the templates and the expansions).
+std::vector<ClassicAction> emitTrigger(const ClassicTrigger& t, uint32_t text) {
+    std::vector<ClassicAction> out;
+    Scope scope;
+    emitRange(t, 0, t.actionCount(), Mode::Top, scope, out, nullptr, text);
+    return out;
+}
+
+// Reads a frame or a plain row from the slots [p, end). Templates are read; expansions are skipped (the caller
+// compares the whole again, so a damaged expansion is found there).
+bool parseSeq(const std::vector<ClassicAction>& s, size_t& p, size_t end, int depth, uint32_t text, std::vector<ClassicAction>& rows, bool tpl) {
+    while (p < end) {
+        const ClassicAction& a = s[p];
+        if (isMarker(a, text, kMarkBegin)) {
+            const size_t T = a.player, X = a.time, L = a.number;
+            const size_t nd = (L + kDataBytes - 1) / kDataBytes;
+            if (p + 1 + nd > end) return false;
+            Bytes bytes;
+            for (size_t k = 0; k < nd; ++k) {
+                const ClassicAction& d = s[p + 1 + k];
+                if (!isMarker(d, text, kMarkData)) return false;
+                const uint32_t f[4] = {d.player, d.time, d.number, d.unit};
+                for (int q = 0; q < 14; ++q) bytes.push_back(uint8_t(f[q < 4 ? 0 : q < 8 ? 1 : q < 12 ? 2 : 3] >> (8 * (q % 4))));
+            }
+            if (L > bytes.size()) return false;
+            bytes.resize(L);
+            Header h;
+            if (!decodeHeader(bytes, h)) return false;
+            const size_t tplStart = p + 1 + nd, tplEnd = tplStart + T, expEnd = tplEnd + X;
+            if (expEnd >= end || !isMarker(s[expEnd], text, kMarkEnd)) return false;
+            ClassicAction blk;
+            blk.type = kClassicBlockType;
+            blk.depth = uint8_t(depth);
+            blk.batch = std::make_shared<ClassicBatch>(h.batch);
+            rows.push_back(blk);
+            std::vector<ClassicAction> kids;
+            size_t q = tplStart;
+            if (!parseSeq(s, q, tplEnd, depth + 1, text, kids, true) || q != tplEnd) return false;
+            int child = 0;
+            for (ClassicAction& k : kids) {
+                if (k.depth != depth + 1) continue;
+                if (k.type != kClassicBlockType) {
+                    const bool dis = std::find(h.disabled.begin(), h.disabled.end(), uint8_t(child)) != h.disabled.end();
+                    k.flags = uint8_t((k.flags & ~2u) | (dis ? 2u : 0u));
+                }
+                ++child;
+            }
+            rows.insert(rows.end(), kids.begin(), kids.end());
+            p = expEnd + 1;
+            continue;
+        }
+        if (a.type == kCommentType && a.location == kMarkerMagic && a.text == text) return false;  // a stray marker
+        ClassicAction r = a;
+        r.depth = uint8_t(depth);
+        r.var = {};
+        for (int k = 0; k < kClassicVarFields; ++k) {
+            const ClassicField f = classicVarField(k);
+            const uint32_t v = k == 2 ? a.unit : classicValue(a, f);
+            // Only a template row holds placeholders, and only for a block above the row. Any other value is a value.
+            const bool isPlaceholder = k == 2 ? (v & 0x8000u) != 0 : (v & 0x80000000u) != 0;
+            const uint32_t holds = k == 2 ? v & 0x7FFFu : v & 0x7FFFFFFFu;
+            if (!isPlaceholder || !tpl || int(holds) >= depth) continue;
+            r.var[size_t(k)] = uint8_t(holds + 1);
+            if (k == 2) r.unit = 0;
+            else setClassicValue(r, f, 0);
+        }
+        rows.push_back(r);
+        ++p;
     }
     return true;
 }
 
-std::string batchHeader(const ClassicBatch& b) {
-    std::string s = kBatchPrefix + std::to_string(b.values.size()) + (b.values.size() == 1 ? " trigger" : " triggers") + ": name=" + b.name +
-                    "; kind=" + batchKindName(b.kind) + "; values=";
-    for (size_t i = 0; i < b.values.size(); ++i) s += (i ? " " : "") + std::to_string(b.values[i]);
-    s += "; slots=";
-    for (size_t i = 0; i < b.slots.size(); ++i) {
-        const ClassicBatchSlot& x = b.slots[i];
-        s += (i ? " " : "") + std::string(x.condition ? "c" : "a") + std::to_string(x.index + 1) + "." + batchFieldName(x.field);
+// Splits a trigger's slots into the file's triggers. `n` is the switch that links the parts (used when the slots do not
+// fit in one trigger). False when they do not fit and there is no switch.
+bool expandTrigger(const ClassicTrigger& t, int n, uint32_t text, std::vector<ClassicTrigger>& out) {
+    const std::vector<ClassicAction> slots = emitTrigger(t, text);
+    bool preserves = false;  // an enabled "Preserve trigger" action (type 3)
+    for (const ClassicAction& s : slots) preserves = preserves || (s.type == 3 && !(s.flags & 2));
+    out.clear();
+    if (slots.size() <= size_t(kClassicActions)) {
+        ClassicTrigger one = t;
+        one.splitSwitch = -1;
+        for (size_t i = 0; i < kClassicActions; ++i) one.actions[i] = i < slots.size() ? slots[i] : ClassicAction{};
+        out.push_back(one);
+        return true;
     }
-    return s;
-}
-
-// The batch a comment names; false when the text is not one (or does not agree with its count).
-bool parseBatchHeader(const std::string& text, ClassicBatch& out) {
-    const size_t plen = std::strlen(kBatchPrefix);
-    if (text.compare(0, plen, kBatchPrefix) != 0) return false;
-    const size_t colon = text.find(": ", plen);
-    uint64_t count = 0;
-    if (colon == std::string::npos || !parseNumber(text.substr(plen, text.find(' ', plen) - plen), count)) return false;
-    ClassicBatch b;
-    b.values.clear();
-    bool haveName = false, haveKind = false;
-    for (const std::string& part : splitOn(text.substr(colon + 2), ';')) {
-        const std::string tok = trimmed(part);
-        const size_t eq = tok.find('=');
-        if (eq == std::string::npos) return false;
-        const std::string key = tok.substr(0, eq), val = tok.substr(eq + 1);
-        if (key == "name") {
-            b.name = val, haveName = true;
-        } else if (key == "kind") {
-            if (val == "unit") b.kind = ClassicBatchKind::Unit;
-            else if (val == "player") b.kind = ClassicBatchKind::Player;
-            else if (val == "location") b.kind = ClassicBatchKind::Location;
-            else return false;
-            haveKind = true;
-        } else if (key == "values") {
-            for (const std::string& v : splitOn(val, ' ')) {
-                uint64_t n = 0;
-                if (v.empty()) continue;
-                if (!parseNumber(v, n) || n > 0xFFFFFFFFull) return false;
-                b.values.push_back(uint32_t(n));
-            }
-        } else if (key == "slots") {
-            for (const std::string& v : splitOn(val, ' ')) {
-                if (v.empty()) continue;
-                const size_t dot = v.find('.');
-                uint64_t place = 0;
-                if (dot == std::string::npos || dot < 2 || (v[0] != 'c' && v[0] != 'a') || !parseNumber(v.substr(1, dot - 1), place) || place > 255) return false;
-                ClassicBatchSlot x;
-                x.condition = v[0] == 'c', x.index = uint8_t(place - 1), x.field = batchFieldOf(v.substr(dot + 1));
-                b.slots.push_back(x);
-            }
+    if (n < 0 || n > 255) return false;
+    size_t pos = 0;
+    bool first = true;
+    while (true) {
+        const size_t start = first ? 0 : 1;  // a later part starts with "Set switch n: Clear"
+        ClassicTrigger c;
+        // A later part keeps "preserve" (also when the preserve action is in the trigger: each part may be the one that
+        // runs it, and the game removes a trigger that is not preserved after it runs).
+        c.flags = first ? t.flags : (t.flags & (4u | 8u)) | (preserves ? 4u : 0u);
+        c.players = t.players;
+        if (first) {
+            c.conditions = t.conditions;
+            c.currentAction = t.currentAction;
+        } else {
+            c.conditions[0] = makeClassicCondition(kSwitchSetType);
+            c.conditions[0].resource = uint8_t(n);
+            c.conditions[0].comparison = 2;  // set
         }
+        std::vector<ClassicAction> part;
+        if (!first) {
+            ClassicAction clear = makeClassicAction(kSetSwitchType);
+            clear.modifier = 5, clear.number = uint32_t(n);  // Clear
+            part.push_back(clear);
+        }
+        const size_t rest = slots.size() - pos;
+        if (rest <= kClassicActions - start) {
+            part.insert(part.end(), slots.begin() + std::ptrdiff_t(pos), slots.end());
+            for (size_t i = 0; i < part.size(); ++i) c.actions[i] = part[i];
+            out.push_back(c);
+            break;
+        }
+        const size_t take = kClassicActions - start - 1;
+        part.insert(part.end(), slots.begin() + std::ptrdiff_t(pos), slots.begin() + std::ptrdiff_t(pos + take));
+        ClassicAction set = makeClassicAction(kSetSwitchType);
+        set.modifier = 4, set.number = uint32_t(n);  // Set
+        part.push_back(set);
+        for (size_t i = 0; i < part.size(); ++i) c.actions[i] = part[i];
+        out.push_back(c);
+        pos += take;
+        first = false;
     }
-    if (!haveName || !haveKind || b.values.empty() || b.values.size() != count) return false;
-    b.name = classicBatchName(b.name, b.kind);
-    out = std::move(b);
     return true;
 }
 
-// A batch's template without the entries after its last condition and action: a map from another editor can have
-// bytes there, which adding and removing the comment does not keep.
-void clearUnused(ClassicTrigger& t) {
-    for (size_t i = size_t(t.conditionCount()); i < t.conditions.size(); ++i) t.conditions[i] = {};
-    for (size_t i = size_t(t.actionCount()); i < t.actions.size(); ++i) t.actions[i] = {};
+// Is the trigger a part of a split that "Set switch n" links: its first action clears the switch and it needs it.
+bool isLaterPart(const ClassicTrigger& t, int n) {
+    return t.conditionCount() == 1 && t.conditions[0].type == kSwitchSetType && t.conditions[0].resource == n &&
+           t.conditions[0].comparison == 2 && t.actionCount() >= 1 && t.actions[0].type == kSetSwitchType &&
+           t.actions[0].modifier == 5 && t.actions[0].number == uint32_t(n);
+}
+bool endsWithSet(const ClassicTrigger& t, int n) {
+    const int c = t.actionCount();
+    return c >= 1 && t.actions[size_t(c - 1)].type == kSetSwitchType && t.actions[size_t(c - 1)].modifier == 4 &&
+           t.actions[size_t(c - 1)].number == uint32_t(n);
 }
 
-// The comment of a batch's template, one trigger for each value (the same order as the working copy's values).
-ClassicTrigger batchTrigger(const ClassicTrigger& body, const ClassicBatch& b, uint32_t value) {
-    ClassicTrigger g = body;
-    g.flags &= 4u | 8u;  // preserve trigger and disabled stay; the others are the game's
-    g.currentAction = 0;
-    for (const ClassicBatchSlot& x : b.slots) {
-        if (x.condition) {
-            if (x.index < g.conditionCount()) setClassicValue(g.conditions[x.index], x.field, value);
-        } else if (x.index < g.actionCount()) {
-            setClassicValue(g.actions[x.index], x.field, value);
-        }
-    }
-    return g;
+uint32_t markerText(const StringTable& strings) {
+    for (uint32_t id = 1; id <= strings.size(); ++id)
+        if (strings.get(id) == kMarkerText) return id;
+    return 0;
 }
+
+bool hasBlocks(const ClassicTrigger& t) {
+    for (int i = 0; i < t.actionCount(); ++i)
+        if (t.actions[size_t(i)].type == kClassicBlockType) return true;
+    return false;
+}
+
+// The working rows of a file's slots; false when the slots are not a batch.
+bool readRows(const std::vector<ClassicAction>& slots, uint32_t text, std::vector<ClassicAction>& rows) {
+    rows.clear();
+    size_t p = 0;
+    if (!parseSeq(slots, p, slots.size(), 0, text, rows, false) || p != slots.size() || rows.size() > size_t(kClassicActions)) return false;
+    return true;
+}
+
+// Sets the working copy's rows from `rows`.
+void setRows(ClassicTrigger& t, const std::vector<ClassicAction>& rows) {
+    for (size_t i = 0; i < kClassicActions; ++i) t.actions[i] = i < rows.size() ? rows[i] : ClassicAction{};
+    t.pruneBlocks();
+}
+
+Bytes encodeOne(const ClassicTrigger& t) {
+    Bytes b(kClassicTriggerSize, 0);
+    ClassicTriggers one;
+    one.triggers.push_back(t);
+    const Bytes all = encodeClassicTriggers(one);
+    b.assign(all.begin(), all.begin() + std::ptrdiff_t(kClassicTriggerSize));
+    return b;
+}
+
 }  // namespace
 
 ClassicKind classicBatchValueKind(ClassicBatchKind kind) {
@@ -798,105 +1144,136 @@ std::string classicBatchName(const std::string& name, ClassicBatchKind kind) {
     return out.empty() ? batchKindName(kind) : out;
 }
 
-bool classicBatchHasSlot(const ClassicBatch& b, bool condition, int index, ClassicField field) {
-    return std::any_of(b.slots.begin(), b.slots.end(), [&](const ClassicBatchSlot& x) {
-        return x.condition == condition && int(x.index) == index && x.field == field;
-    });
-}
-
-void classicBatchSetSlot(ClassicBatch& b, bool condition, int index, ClassicField field, bool on) {
-    auto same = [&](const ClassicBatchSlot& x) { return x.condition == condition && int(x.index) == index && x.field == field; };
-    if (!on) {
-        b.slots.erase(std::remove_if(b.slots.begin(), b.slots.end(), same), b.slots.end());
-        return;
-    }
-    if (index < 0 || index > 255 || std::any_of(b.slots.begin(), b.slots.end(), same)) return;
-    ClassicBatchSlot x;
-    x.condition = condition, x.index = uint8_t(index), x.field = field;
-    b.slots.push_back(x);
-}
-
-void classicBatchPrune(ClassicTrigger& t) {
-    if (!t.batch) return;
-    const ClassicKind want = classicBatchValueKind(t.batch->kind);
-    auto fits = [&](const ClassicBatchSlot& x) {
-        const ClassicDef* d = nullptr;
-        if (x.condition && x.index < t.conditionCount()) d = classicConditionDef(t.conditions[x.index].type);
-        else if (!x.condition && x.index < t.actionCount()) d = classicActionDef(t.actions[x.index].type);
-        if (!d) return false;
-        return std::any_of(d->params.begin(), d->params.end(), [&](const ClassicParam& p) { return p.field == x.field && p.kind == want; });
-    };
-    auto& s = t.batch->slots;
-    s.erase(std::remove_if(s.begin(), s.end(), [&](const ClassicBatchSlot& x) { return !fits(x); }), s.end());
-}
-
 std::string classicBatchVariableText(const ClassicBatch& b) { return "variable \"" + b.name + "\""; }
+
+std::string classicBatchText(const ClassicBatch& b, const ClassicNames& names) {
+    std::string values;
+    for (size_t i = 0; i < b.values.size(); ++i) values += (i ? ", " : "") + classicValueText(classicBatchValueKind(b.kind), b.values[i], names);
+    return "For each " + b.name + " in " + (values.empty() ? std::string("no values") : values);
+}
 
 ClassicTriggers classicCollapseBatches(const ClassicTriggers& in, const StringTable& strings) {
     ClassicTriggers out;
     out.tail = in.tail;
+    const uint32_t text = markerText(strings);
     const auto& v = in.triggers;
+    if (!text) {
+        out.triggers = v;  // no batch in the map: the triggers stay as they are
+        return out;
+    }
     for (size_t i = 0; i < v.size();) {
-        ClassicBatch b;
-        const bool named = v[i].actionCount() > 0 && v[i].actions[0].type == kCommentType && parseBatchHeader(strings.get(v[i].actions[0].text), b);
-        if (named && i + 1 + b.values.size() <= v.size()) {
-            const size_t generated = b.values.size();
-            ClassicTrigger t = v[i];
-            t.removeAction(0);  // the comment is not part of the template
-            // The template is always disabled; its copies say whether the batch is.
-            t.flags = (t.flags & ~8u) | (generated ? v[i + 1].flags & 8u : 0u);
-            t.batch = std::move(b);
-            classicBatchPrune(t);
-            // Only the triggers that the batch makes are taken: each one must be the copy the batch gives. Any other
-            // trigger after the template (or a copy that another editor changed) is kept as it is.
-            ClassicTrigger body = t;
-            body.batch.reset();
-            bool same = true;
-            for (size_t k = 0; k < generated && same; ++k) same = v[i + 1 + k] == batchTrigger(body, *t.batch, t.batch->values[k]);
-            if (same) {
-                out.triggers.push_back(std::move(t));
-                i += 1 + generated;  // the triggers that the batch made are not in the working copy
-                continue;
+        // A group: the trigger ends with "Set switch n: Set", the next ones are later parts of it.
+        const int n = v[i].actionCount() >= 1 ? int(v[i].actions[size_t(v[i].actionCount() - 1)].number) : -1;
+        if (n >= 0 && n <= 255 && endsWithSet(v[i], n)) {
+            size_t tails = 0;
+            while (i + 1 + tails < v.size() && isLaterPart(v[i + 1 + tails], n)) ++tails;
+            bool done = false;
+            for (size_t len = tails + 1; len >= 2 && !done; --len) {
+                std::vector<ClassicAction> slots;
+                for (size_t k = 0; k < len; ++k) {
+                    const ClassicTrigger& t = v[i + k];
+                    const int start = k ? 1 : 0, end = t.actionCount() - (k + 1 < len ? 1 : 0);
+                    for (int a = start; a < end; ++a) slots.push_back(t.actions[size_t(a)]);
+                }
+                std::vector<ClassicAction> rows;
+                if (!readRows(slots, text, rows)) continue;
+                ClassicTrigger w = v[i];
+                setRows(w, rows);
+                w.splitSwitch = n;
+                std::vector<ClassicTrigger> again;
+                if (!expandTrigger(w, n, text, again) || again.size() != len) continue;
+                bool same = true;
+                for (size_t k = 0; k < len && same; ++k) same = encodeOne(again[k]) == encodeOne(v[i + k]);
+                if (!same) continue;
+                out.triggers.push_back(w);
+                i += len;
+                done = true;
             }
+            if (done) continue;
         }
-        out.triggers.push_back(v[i]);
+        // A single trigger with blocks: its slots are its actions.
+        ClassicTrigger single = v[i];
+        std::vector<ClassicAction> rows;
+        std::vector<ClassicAction> slots(v[i].actions.begin(), v[i].actions.begin() + v[i].actionCount());
+        if (readRows(slots, text, rows) && std::any_of(rows.begin(), rows.end(), [](const ClassicAction& a) { return a.type == kClassicBlockType; })) {
+            ClassicTrigger w = v[i];
+            setRows(w, rows);
+            w.splitSwitch = -1;
+            std::vector<ClassicTrigger> again;
+            if (expandTrigger(w, -1, text, again) && again.size() == 1 && encodeOne(again[0]) == encodeOne(v[i])) single = w;
+        }
+        out.triggers.push_back(single);
         ++i;
     }
     return out;
 }
 
+namespace {
+// The switch that links the parts of each trigger that is split (-1: not split). A switch that the map's triggers use
+// is not taken; a split keeps the switch it had when it was read, when that is still free. Each split takes its own.
+std::vector<int> splitSwitches(const ClassicTriggers& in, uint32_t text) {
+    std::set<int> used;
+    for (const ClassicTrigger& t : in.triggers) {
+        for (int i = 0; i < t.conditionCount(); ++i)
+            if (t.conditions[size_t(i)].type == kSwitchSetType) used.insert(t.conditions[size_t(i)].resource);
+        for (int i = 0; i < t.actionCount(); ++i)
+            if (t.actions[size_t(i)].type == kSetSwitchType) used.insert(int(t.actions[size_t(i)].number & 0xFF));
+    }
+    std::vector<int> out(in.triggers.size(), -1);
+    for (size_t k = 0; k < in.triggers.size(); ++k) {
+        const ClassicTrigger& t = in.triggers[k];
+        if (!hasBlocks(t) || emitTrigger(t, text).size() <= size_t(kClassicActions)) continue;
+        int n = -1;
+        if (t.splitSwitch >= 0 && t.splitSwitch <= 255 && !used.count(t.splitSwitch)) n = t.splitSwitch;
+        else
+            for (int s = 0; s <= 255 && n < 0; ++s)
+                if (!used.count(s)) n = s;
+        if (n < 0) return out;  // no switch is free for this trigger (classicCanExpand)
+        used.insert(n);
+        out[k] = n;
+    }
+    return out;
+}
+}  // namespace
+
+bool classicCanExpand(const ClassicTriggers& in) {
+    const std::vector<int> link = splitSwitches(in, 0);
+    for (size_t k = 0; k < in.triggers.size(); ++k)
+        if (hasBlocks(in.triggers[k]) && emitTrigger(in.triggers[k], 0).size() > size_t(kClassicActions) && link[k] < 0) return false;
+    return true;
+}
+
 ClassicTriggers classicExpandBatches(const ClassicTriggers& in, StringTable& strings) {
     ClassicTriggers out;
     out.tail = in.tail;
-    for (const ClassicTrigger& t : in.triggers) {
-        if (!t.batch) {
+    bool any = false;
+    for (const ClassicTrigger& t : in.triggers)
+        if (hasBlocks(t)) any = true;
+    uint32_t text = 0;
+    if (any) text = classicStringId(strings, kMarkerText);
+    else if ((text = markerText(strings)) != 0) strings.set(text, "");  // no batch uses the marker's string any more
+    const std::vector<int> link = splitSwitches(in, text);
+    for (size_t k = 0; k < in.triggers.size(); ++k) {
+        const ClassicTrigger& t = in.triggers[k];
+        if (!hasBlocks(t)) {  // a trigger without blocks is written as it is (its bytes after the list too)
             out.triggers.push_back(t);
             continue;
         }
-        const ClassicBatch b = *t.batch;
-        ClassicTrigger body = t;
-        body.batch.reset();
-        clearUnused(body);
-        if (b.values.empty() || body.actionCount() >= kClassicActions) {  // nothing to make: the template as a trigger
-            out.triggers.push_back(body);
-            continue;
+        std::vector<ClassicTrigger> parts;
+        if (!expandTrigger(t, link[k], text, parts)) {
+            // No switch is free: classicCanExpand says so, and the editor does not write it. The first 64 slots are
+            // written here, so that the map stays valid.
+            ClassicTrigger cut = t;
+            const std::vector<ClassicAction> slots = emitTrigger(t, text);
+            for (size_t i = 0; i < kClassicActions; ++i) cut.actions[i] = slots[i];
+            cut.splitSwitch = -1;
+            parts.assign(1, cut);
         }
-        ClassicTrigger head = body;  // the template: off, its comment first
-        head.flags |= 8u;
-        head.currentAction = 0;
-        ClassicAction comment = makeClassicAction(kCommentType);
-        comment.text = classicStringId(strings, batchHeader(b));
-        head.addAction(comment, 0);
-        out.triggers.push_back(std::move(head));
-        for (uint32_t value : b.values) out.triggers.push_back(batchTrigger(body, b, value));
+        out.triggers.insert(out.triggers.end(), parts.begin(), parts.end());
     }
-    // The comments of batches that are gone (their values or variables changed) go blank.
-    std::set<uint32_t> used;
-    for (const ClassicTrigger& t : out.triggers)
-        for (int i = 0; i < t.actionCount(); ++i) used.insert(t.actions[size_t(i)].text);
-    for (uint32_t id = 1; id <= strings.size(); ++id)
-        if (!used.count(id) && strings.get(id).compare(0, std::strlen(kBatchPrefix), kBatchPrefix) == 0) strings.set(id, "");
+    for (ClassicTrigger& t : out.triggers) t.splitSwitch = -1;
     return out;
 }
+
 
 }  // namespace stardraft
