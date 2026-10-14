@@ -60,6 +60,7 @@ ListView::ListView() {
 }
 
 ListView::~ListView() {
+    // Cancels the timer while the list has a host; without one, the alive flag (released after this) stops it.
     if (typeTimerOn_)
         if (draw::Host* h = host()) h->cancelTimer(typeTimer_);
 }
@@ -123,7 +124,7 @@ void ListView::setCount(int n) {
     sel_.resize(size_t(count_), false);
     cursor_ = std::min(cursor_, count_ - 1);
     anchor_ = std::min(anchor_, count_ - 1);
-    hot_ = std::min(hot_, count_ - 1);
+    if (hot_ >= count_) hot_ = -1;  // the row under the mouse is gone; the next Move finds the new one
     layout();
 }
 
@@ -199,11 +200,15 @@ void ListView::selectSpan(int a, int b, bool keep) {
     for (int i = std::min(a, b); i <= std::max(a, b); ++i) sel_[size_t(i)] = true;
 }
 
+// The change is done (the rows scrolled to the cursor) before onSelect runs. onSelect may destroy the list, so it is
+// copied first and nothing of the list is touched after it.
 void ListView::apply(const std::function<void()>& change) {
     const auto before = sel_;
     change();
     invalidate();
-    if (sel_ != before && onSelect) onSelect();
+    if (sel_ == before) return;
+    const auto notify = onSelect;
+    if (notify) notify();
 }
 
 void ListView::click(int row, unsigned mods) {
@@ -219,8 +224,8 @@ void ListView::click(int row, unsigned mods) {
         } else {
             selectOnly(row);
         }
+        ensureVisible(row);
     });
-    ensureVisible(row);
 }
 
 int ListView::moveTarget(draw::Key k) const {
@@ -238,6 +243,7 @@ int ListView::moveTarget(draw::Key k) const {
 
 void ListView::navigate(int target, unsigned mods) {
     typed_.clear();
+    lastLetter_ = 0;
     apply([&] {
         const bool multi = mode_ == SelectMode::Multiple;
         if (multi && (mods & draw::kShift)) {
@@ -249,17 +255,20 @@ void ListView::navigate(int target, unsigned mods) {
         } else {
             selectOnly(target);
         }
+        ensureVisible(target);
     });
-    ensureVisible(target);
 }
 
 // --- Type-ahead ---------------------------------------------------------------------------------------------------------
 
+// The timer may outlive the list when it was taken out of its parent (no host then, so no cancel): the callback checks
+// the alive flag, which the list's destruction ends, before it touches the list.
 void ListView::armTypeTimer() {
     draw::Host* h = host();
     if (!h) return;
     if (typeTimerOn_) h->cancelTimer(typeTimer_);
-    typeTimer_ = h->timer(kTypeAheadMs, [this] {
+    typeTimer_ = h->timer(kTypeAheadMs, [this, alive = std::weak_ptr<bool>(alive_)] {
+        if (alive.expired()) return;
         typed_.clear();
         typeTimerOn_ = false;
     });
@@ -274,13 +283,22 @@ void ListView::typeAhead(wchar_t ch) {
     armTypeTimer();
     const bool repeated = typed_.size() > 1 && std::all_of(typed_.begin(), typed_.end(), [&](wchar_t c) { return c == typed_[0]; });
     const std::wstring want = lowerAscii(repeated ? typed_.substr(0, 1) : typed_);
-    const int start = repeated ? cursor_ + 1 : std::max(cursor_, 0);
+    // A repeated letter, or the same letter as the last one-letter search (pressed again after a pause), goes past the
+    // cursor's row. Other searches keep the cursor's row while it still matches, so "apple" typed from Apple stays on
+    // Apple (as Windows lists do).
+    const bool fresh = typed_.size() == 1;
+    const wchar_t lc = (ch >= L'A' && ch <= L'Z') ? wchar_t(ch + 32) : ch;
+    const bool past = repeated || (fresh && lc == lastLetter_);
+    if (fresh) lastLetter_ = lc;
+    const int start = past ? cursor_ + 1 : std::max(cursor_, 0);
     for (int k = 0; k < count_; ++k) {
         const int i = (start + k) % count_;
         const std::wstring s = lowerAscii(cellText(i, 0));
         if (s.size() >= want.size() && s.compare(0, want.size(), want) == 0) {
-            apply([&] { selectOnly(i); });
-            ensureVisible(i);
+            apply([&] {
+                selectOnly(i);
+                ensureVisible(i);
+            });
             return;
         }
     }
@@ -300,24 +318,30 @@ bool ListView::mouse(const draw::MouseEvent& e) {
         if (hot_ >= 0) hot_ = -1, invalidate();
         return true;
     case MouseKind::Down:
+        typed_.clear();  // a click ends a search: a Space after it toggles, it does not search
+        lastLetter_ = 0;
         if (e.button == 0) {
             click(rowAt(e.pt), e.mods);
             return true;
         }
         if (e.button == 1) {  // a right click: the row is selected unless it already is
             const int r = rowAt(e.pt);
+            // The callbacks are copied first: one of them may destroy the list (see apply).
+            const auto context = onContext;
             if (r >= 0 && !isSelected(r)) apply([&] { selectOnly(r); });
-            if (onContext) onContext(r, e.pt);
+            if (context) context(r, e.pt);
             return true;
         }
         return false;
     case MouseKind::DoubleClick: {
         if (e.button != 0) return false;
+        typed_.clear();
         const int r = rowAt(e.pt);
         if (r < 0) return true;
+        const auto activate = onActivate;  // copied first: the click's selection may destroy the list
         // The first click of the pair selected the row already; a Ctrl pair must not toggle it again.
         if (!(e.mods & draw::kCtrl)) click(r, e.mods);
-        if (onActivate) onActivate(r);
+        if (activate) activate(r);
         return true;
     }
     case MouseKind::Wheel: {

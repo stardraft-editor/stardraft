@@ -76,16 +76,19 @@ bool ScrollBar::mouse(const draw::MouseEvent& e) {
     case MouseKind::Down:
     case MouseKind::DoubleClick: {
         if (e.button != 0 || !scrollable()) return false;
+        // The thumb is hit along the bar's axis only: its inset from the bar's edges across it is no track.
         const draw::Rect t = thumb();
-        if (t.contains(e.pt)) {  // take the thumb: it follows the mouse from here
+        const int thumbStart = axis_ == Axis::Vertical ? t.top : t.left;
+        const int thumbEnd = axis_ == Axis::Vertical ? t.bottom : t.right;
+        const int at = along(e.pt);
+        if (at >= thumbStart && at < thumbEnd) {  // take the thumb: it follows the mouse from here
             dragging_ = true;
-            grab_ = along(e.pt) - (axis_ == Axis::Vertical ? t.top : t.left);
+            grab_ = at - thumbStart;
             if (auto* h = host()) h->capture(*this, true);
             invalidate();
         } else {  // the track: one page toward the click
-            const int thumbStart = axis_ == Axis::Vertical ? t.top : t.left;
             const int page = page_ > 0 ? page_ : 1;
-            moveTo(along(e.pt) < thumbStart ? pos_ - page : pos_ + page);
+            moveTo(at < thumbStart ? pos_ - page : pos_ + page);
         }
         return true;
     }

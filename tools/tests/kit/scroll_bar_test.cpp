@@ -167,3 +167,36 @@ KIT_TEST(scroll_bar_wheel_is_not_taken) {
     host.wheel(5, 5, -1);
     CHECK(bar.pos() == 0);
 }
+
+KIT_TEST(scroll_bar_click_beside_thumb_takes_thumb) {
+    draw::View root;
+    FakeHost host(root);
+    kit::ScrollBar bar;
+    root.add(bar, {0, 0, 12, 100});
+    bar.setRange(200, 100);  // the thumb is 50 px (0..50); the travel is 50 px; the maximum is 100
+    std::vector<int> moved;
+    bar.onScroll = [&](int p) { moved.push_back(p); };
+    host.down(1, 30);  // in the thumb's side gap (x 0..2) but level with it: the thumb, not a page
+    CHECK(moved.empty());
+    CHECK(bar.pos() == 0);
+    host.move(1, 40);  // grabbed 30 px in: the thumb's start moves to 10, which is position 20
+    CHECK(bar.pos() == 20);
+    CHECK(moved == std::vector<int>({20}));
+    host.up(1, 40);
+    host.click(1, 80);  // below the thumb (10..60): one page toward it
+    CHECK(bar.pos() == 100);
+}
+
+KIT_TEST(scroll_bar_horizontal_click_beside_thumb_takes_thumb) {
+    draw::View root;
+    FakeHost host(root);
+    kit::ScrollBar bar(kit::Axis::Horizontal);
+    root.add(bar, {0, 0, 100, 12});
+    bar.setRange(200, 100);  // the thumb 0..50 along x, inset 2 px from the top and bottom
+    host.down(30, 1);  // above the thumb's track (y 0..2): the thumb is taken on its axis
+    host.move(40, 1);
+    CHECK(bar.pos() == 20);
+    host.up(40, 1);
+    host.click(80, 1);  // right of the thumb (10..60): one page toward it
+    CHECK(bar.pos() == 100);
+}
