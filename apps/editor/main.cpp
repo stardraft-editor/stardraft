@@ -298,6 +298,7 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/palette_items.inc"  // the palette's items: units, terrains, doodads and sprites (paletteItems, paletteUnits)
 #include "core/data_list.inc"  // the Data workspace's list model: the shown entries, the filters, the pins, the tab switch (DataListHost)
 #include "core/views_data.inc"  // the Data workspace's tab strip layout (DataTabLayout, dataTabLayout)
+#include "core/views_data_form.inc"  // the Data form's field rows: where each part sits (DataFieldRow, dataFieldRow)
 #include "core/title.inc"  // the window's title and the rail's state (updateTitle)
 int selectPalette(int value);
 void pickUnit(int v, bool add);
@@ -5430,6 +5431,11 @@ bool fieldIsBool(const std::string& dat, const DatField& f) {
 
 // A number value's box: up and down arrows at its right, shown under the mouse.
 RECT numberArrows(RECT vb) { return {vb.right - scale(18), vb.top, vb.right, vb.bottom}; }
+// The Data form's metrics in pixels (core/views_data_form.inc), and a core box as a RECT for the kit.
+DataFormScale dataFormScale() {
+    return {scale(2), scale(8), scale(4), scale(7), scale(110), scale(320), scale(190), scale(22), scale(14)};
+}
+RECT winRect(draw::Rect r) { return {r.left, r.top, r.right, r.bottom}; }
 bool fieldIsNumber(const std::string& dat, const DatField& f) { return f.flags.empty() && !fieldIsDropdown(f) && !fieldIsBool(dat, f); }
 
 // units.dat Rank/Sublabel: the title under the unit's name in the status panel, from stat_txt.tbl ("None" for 0).
@@ -8682,6 +8688,7 @@ void paintDataForm(HWND hwnd) {
                 const uint32_t v = has ? t.value(f, u) : 0;
                 const std::wstring readOnlyWhy = has ? datFieldReadOnly(dat, f, u) : L"";
                 const bool ro = !readOnlyWhy.empty();
+                const DataFieldRow fr = dataFieldRow(x0, labelW, valW, y, rowH, colRight, dataFormScale());
                 if (ro) gWidgetHits.push_back({{x0, y, colRight, y + rowH}, nullptr, nullptr, readOnlyWhy, IDC_NO, {}});
                 if (gHotFields.count(f.name)) fill({x0 - scale(8), y, colRight, y + rowH}, kSel);
                 RECT lab{x0, y, x0 + labelW, y + rowH};
@@ -8690,11 +8697,9 @@ void paintDataForm(HWND hwnd) {
                 if (!ro) gData.hits.push_back({lab, f.index, -3});
                 // A yes/no value: a checkbox (click: 0 or 1).
                 if (has && fieldIsBool(dat, f)) {
-                    const int cb = scale(14);
-                    const RECT cell{x0 + labelW, y + scale(2), x0 + labelW + scale(110), y + rowH - scale(2)};
-                    RECT c{cell.left, y + (rowH - cb) / 2, cell.left + cb, y + (rowH - cb) / 2 + cb};
+                    const RECT cell = winRect(fr.boolCell), c = winRect(fr.boolCheck);
                     ui::checkMark(mem, c, v != 0, !ro && ui::hot(cell), !ro);
-                    RECT ft{c.right + scale(8), y, cell.right, y + rowH};
+                    RECT ft = winRect(fr.boolText);
                     SetTextColor(mem, ro ? kFaint : mod ? kGood : kText);
                     DrawTextW(mem, v == 0 ? L"No" : v == 1 ? L"Yes" : (L"Yes (" + std::to_wstring(v) + L")").c_str(), -1, &ft,
                               DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
@@ -8705,7 +8710,7 @@ void paintDataForm(HWND hwnd) {
                 // A reference or a choice: a dropdown (icon, name, number, â–¾). Anything else: a number to type.
                 if (has && fieldIsDropdown(f)) {
                     const std::string refDat = fieldRefDat(f);
-                    RECT vb{x0 + labelW, y + scale(2), x0 + labelW + scale(320), y + rowH - scale(2)};
+                    const RECT vb = winRect(fr.dropBox);
                     const std::wstring name = fieldNote(f, v);
                     ui::pickFace(mem, vb, name.empty() ? L"#" + std::to_wstring(v) : name, mod, !ro && ui::hot(vb),
                                  refDat.empty() ? nullptr : datRefIcon(refDat, v), int(v), !ro);
@@ -8720,13 +8725,12 @@ void paintDataForm(HWND hwnd) {
                     y += rowH;
                     continue;
                 }
-                RECT vb{x0 + labelW, y + scale(2), x0 + labelW + valW, y + rowH - scale(2)};
+                const RECT vb = winRect(fr.box);
                 ui::fieldBox(mem, vb, !has || ro ? ui::Field::ReadOnly : mod ? ui::Field::Changed : ui::hot(vb) ? ui::Field::Hot : ui::Field::Normal);
                 const bool number = has && !ro && fieldIsNumber(dat, f);
                 SelectObject(mem, monoFont());
                 SetTextColor(mem, !has || ro ? kFaint : mod ? kGood : kText);
-                RECT vt = vb;
-                InflateRect(&vt, -scale(7), 0);
+                RECT vt = winRect(dataValueText(fr.box, dataFormScale()));
                 if (number) vt.right = numberArrows(vb).left;
                 DrawTextW(mem, has ? fieldValueText(f, v).c_str() : L"\x2014", -1, &vt, DT_SINGLELINE | DT_VCENTER | DT_RIGHT);
                 SelectObject(mem, app.font);
@@ -8743,7 +8747,7 @@ void paintDataForm(HWND hwnd) {
                 if (has && !ro) gData.hits.push_back({vb, f.index, -1});
                 const std::wstring note = has ? fieldNote(f, v) : L"not used by this entry";
                 if (!note.empty()) {
-                    RECT nt{vb.right + scale(8), y, colRight, y + rowH};
+                    RECT nt = winRect(fr.note);
                     const DatSchema* target = f.ref.empty() ? nullptr : DatSchema::find(f.ref);
                     const bool link = has && target && v < uint32_t(target->entries);
                     SetTextColor(mem, link ? kAccent : mod ? kGood : kDim);
@@ -8757,19 +8761,19 @@ void paintDataForm(HWND hwnd) {
                 y += rowH;
                 // Flags: a grid of checkboxes under the value.
                 if (has && !f.flags.empty()) {
-                    const int flagW = scale(190), cols = std::max(1, (colW - labelW) / flagW), ch = scale(22), cb = scale(14);
+                    const DataFormScale fs = dataFormScale();
+                    const int cols = dataFlagCols(colW, labelW, fs);
                     for (size_t b = 0; b < f.flags.size(); ++b) {
-                        const int cx = x0 + labelW + int(b % size_t(cols)) * flagW, cy = y + int(b / size_t(cols)) * ch;
+                        const DataFlagCell fc = dataFlagCell(x0, labelW, y, cols, b, fs);
                         const bool set = (v >> b) & 1, bmod = ((t.stock(f, u) >> b) & 1) != set;
-                        RECT c{cx, cy + (ch - cb) / 2, cx + cb, cy + (ch - cb) / 2 + cb};
-                        const RECT cell{cx, cy, cx + flagW - scale(4), cy + ch};
+                        const RECT c = winRect(fc.check), cell = winRect(fc.cell);
                         ui::checkMark(mem, c, set, ui::hot(cell), true);
-                        RECT ft{c.right + scale(8), cy, cx + flagW - scale(4), cy + ch};
+                        RECT ft = winRect(fc.text);
                         SetTextColor(mem, bmod ? kGood : set || ui::hot(cell) ? kText : kDim);
                         DrawTextW(mem, widen(f.flags[b]).c_str(), -1, &ft, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-                        gData.hits.push_back({{cx, cy, cx + flagW - scale(4), cy + ch}, f.index, int(b)});
+                        gData.hits.push_back({cell, f.index, int(b)});
                     }
-                    y += int((f.flags.size() + size_t(cols) - 1) / size_t(cols)) * ch + scale(8);
+                    y += dataFlagGridHeight(f.flags.size(), cols, fs);
                 }
             }
             if (twoCol) y = std::max(y, widgetsBottom);
