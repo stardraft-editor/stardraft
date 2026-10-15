@@ -2,6 +2,68 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows (64-bit).
 
+## 0.5.0.8
+
+### New
+
+- Classic triggers: search the triggers, turn a trigger off, select several triggers with Ctrl or Shift+click, a
+  right-click menu, and drag triggers and actions to put them in order.
+- One editor for colored game text: the map's title and description, briefings, Data > Strings and classic trigger
+  texts, with color swatches, alignment for each line, and Preview or Raw.
+- New graphics for preplaced units (Project page > Build): preplaced units show your .dat edits in the game.
+- Data: rename a unit, weapon, upgrade, technology or order in the game, and open its string.
+- Data > Units: right-click > Paste everything copies a unit's values, display and button set onto another unit.
+
+![Classic triggers](images/0.5.0.8/classic-triggers.png)
+
+![Colored game text in a briefing](images/0.5.0.8/game-text.png)
+
+![Data: Rename and String](images/0.5.0.8/data-rename.png)
+
+### Map
+
+- Terrain: the brush is one field with its shape, width and height. A link keeps the height the same as the width.
+- Isometric terrain: Ctrl+click a second terrain in the list, then Shift+click or Shift+drag to paint it.
+- Rectangle terrain: the tile list shows the tiles in the map's art (HD or Carbot).
+- Terran add-ons placed near their building go on its add-on spot and are linked to it. They move with the building.
+- Doodads: pin doodads to the top of the list (right-click a doodad in a project).
+- Doodads overlap only where both have tiles, so ramp segments fit together.
+- The right mouse button no longer moves the map. Use the middle button.
+- Opening a map or project that is open already goes to its tab.
+
+![Terrain: the brush's shape, width and height](images/0.5.0.8/brush-field.png)
+
+![Isometric terrain: a second terrain on Shift](images/0.5.0.8/second-terrain.png)
+
+![A Terran add-on linked to its building](images/0.5.0.8/addon.png)
+
+![Doodads: pinned to the top](images/0.5.0.8/doodad-pins.png)
+
+### Triggers
+
+- Player arrays (before: "number per player") can hold unit types or locations, with a value for each player.
+- New actions: center the camera on a unit, scroll lock, and set the game speed.
+- New condition: a unit's build queue is empty.
+- A Text variable's default value has colors, Preview and Raw.
+
+![Triggers: a player array of unit types](images/0.5.0.8/player-array.png)
+
+### Data
+
+- Portraits switch fast.
+- The animation timeline no longer flashes while it plays.
+- The Changed filter is an icon.
+
+### Fixes
+
+- Feedback: Send shows its progress, then links to your GitHub issue.
+- About: links to euddraft and eudplib, which StarDraft 2 uses.
+- Korean, Spanish, Russian and Chinese for the texts that had no translation.
+
+### Known problems
+
+- Paste everything takes three undo steps and does not copy a unit's requirements.
+
 ## 0.5.0.7
 
 ### New
