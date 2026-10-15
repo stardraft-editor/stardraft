@@ -19883,6 +19883,22 @@ HMENU buildMenu() {
     return bar;
 }
 
+// The menu tree of a menu (datashot menutree:): one line per item, its depth, id, state flags, reason data and text.
+void dumpMenuTree(std::ostream& o, HMENU m, int depth) {
+    for (int i = 0; m && i < GetMenuItemCount(m); ++i) {
+        wchar_t text[512] = {};
+        GetMenuStringW(m, UINT(i), text, int(std::size(text)), MF_BYPOSITION);
+        MENUITEMINFOW mi{sizeof mi};
+        mi.fMask = MIIM_DATA;
+        GetMenuItemInfoW(m, UINT(i), TRUE, &mi);
+        const UINT state = GetMenuState(m, UINT(i), MF_BYPOSITION);
+        const int id = int(GetMenuItemID(m, UINT(i)));
+        o << std::string(size_t(depth) * 2, ' ') << "id " << id << " state 0x" << std::hex << state << std::dec << " data " << mi.dwItemData
+          << " text " << narrow(text) << "\n";
+        if (HMENU sub = GetSubMenu(m, UINT(i))) dumpMenuTree(o, sub, depth + 1);
+    }
+}
+
 // The Locations list with no rows (a search that agrees with no location): only None, dim, where the first row goes.
 // It is painted, not a row: a row could be selected and would move app.items' indexes.
 LRESULT CALLBACK emptyListProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
@@ -23859,6 +23875,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             if (s == "menutest:") {  // menutest.txt: the context menus driven with posted mouse and key messages
                 std::ofstream o(fs::path(datashots) / "menutest.txt");
                 for (const auto& line : menu_e2e::run(app.main)) o << line << "\n";
+                continue;
+            }
+            if (s == "menutree:") {  // menutree.txt: the main window's menu tree (texts, ids, states), to compare two builds
+                std::ofstream o(fs::path(datashots) / "menutree.txt", std::ios::binary);
+                dumpMenuTree(o, GetMenu(app.main), 0);
                 continue;
             }
             if (s.rfind("dpi:", 0) == 0) {  // dpi:<n>: as Windows tells a window that moved to a screen of that DPI (144: 150%)
