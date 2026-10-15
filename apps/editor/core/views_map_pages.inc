@@ -116,6 +116,7 @@ public:
             if (k != hot_) hot_ = k, invalidate();
             return false;
         }
+        if (e.kind == draw::MouseKind::Down && e.button == 0) focus();  // the press takes the keyboard focus off the page's edits (the old frame window took it)
         if (e.kind == draw::MouseKind::Down && e.button == 0 && k >= 0) {
             host_.showTab(k);
             return true;
