@@ -35,4 +35,5 @@
 #include "sound_lists.inc"
 #include "views_files.inc"
 #include "views_project.inc"
+#include "views_start.inc"
 #include "title.inc"
