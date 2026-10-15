@@ -419,6 +419,10 @@ int main(int argc, char** argv) {
                 for (const std::string& k : keyArgs) sdlPressKey(k);
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             }
+            // The map's sprites load over a few frames: frames until they are all there (as the Windows program paints
+            // while images are pending).
+            for (int k = 0; k < 100 && renderer.stats().imagesPending > 0; ++k)
+                host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             const bool ok = writeSnapshot(device, tex, width, height, snapshot);
             std::printf("%s %s\n", ok ? "wrote" : "could not write", snapshot.c_str());

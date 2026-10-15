@@ -67,6 +67,7 @@ void shellInvalidateTabs() {
 void shellInvalidateWorkspaceBar() {
     if (gWsBar) InvalidateRect(gWsBar, nullptr, FALSE);
 }
+void shellRendererReloadImages() { app.renderer.reloadImages(); }
 void shellRailUpdateNow() {
     if (gWsBar) RedrawWindow(gWsBar, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
 }

@@ -45,26 +45,6 @@ void runPosted() {
     for (auto& fn : todo) fn();
 }
 
-// The scene of the open map: the camera and the units (the Windows program's scene has more; see the shell's notes).
-render::Scene buildMapScene() {
-    render::Scene scene;
-    scene.camera = {gState.camX, gState.camY, gState.zoom};
-    Editor& ed = *gState.ed;
-    const UnitTypes& types = ed.unitTypes();
-    UnitSprites& sp = ed.unitSprites();
-    for (const Unit& u : ed.units()) {
-        if (u.type >= types.size()) continue;
-        render::SpriteDraw s;
-        s.image = sp.imageFor(u.type);
-        if (s.image < 0) continue;
-        s.frame = sp.defaultFrame(u.type, s.image, s.flip);
-        s.x = u.x, s.y = u.y, s.owner = u.owner;
-        s.air = types[u.type].is(UnitFlag::Flyer) && !types[u.type].is(UnitFlag::Building);
-        scene.sprites.push_back(s);
-    }
-    return scene;
-}
-
 // The map into its texture (w x h pixels), in the command buffer the host submits before the windows are painted.
 void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     if (!gRenderer || !gState.ed || !gState.ed->isOpen() || w <= 0 || h <= 0) return;
@@ -81,18 +61,24 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     }
     Editor& ed = *gState.ed;
     clampCamera();
-    if (gMapEd != &ed || gTerrainRev != ed.terrainRevision()) {
+    // The terrain when it changed, or a layer (View > Layers: no terrain, or no doodads' tiles) went on or off.
+    static MapLayers uploaded;
+    if (gMapEd != &ed || gTerrainRev != ed.terrainRevision() || uploaded.terrain != gLayers.terrain || uploaded.doodads != gLayers.doodads) {
         gRenderer->setSources(&gState.data, &ed.unitSprites(), &ed.tileset(), ed.era());
-        gRenderer->updateTerrain(ed.terrain());
-        gMapEd = &ed, gTerrainRev = ed.terrainRevision();
+        if (gLayers.terrain && gLayers.doodads) gRenderer->updateTerrain(ed.terrain());
+        else gRenderer->updateTerrain(terrainWithLayers(ed));  // (core/map_scene.inc)
+        gMapEd = &ed, gTerrainRev = ed.terrainRevision(), uploaded = gLayers;
     }
-    // The players' colors: the map's own for players 1 to 8, the fixed ones for the rest (as the Windows program).
-    static const uint32_t kOtherTeams[12] = {0xF40404, 0x0C48CC, 0x2CB494, 0x88409C, 0xF88C14, 0x703014,
-                                             0xCCE0D0, 0xFCFC38, 0x088008, 0xFCFC7C, 0xECC4B0, 0x4068D4};
+    // The players' colors: the map's own for players 1 to 8, the fixed ones for the rest (core/map_scene.inc: playerRgba).
     uint32_t team[12];
-    for (int i = 0; i < 12; ++i) team[i] = i < 8 ? ed.playerRgb(i) : kOtherTeams[i];
+    for (int i = 0; i < 12; ++i) team[i] = playerRgba(i, 0) >> 8;
     gRenderer->setPlayerColors(team);
-    gRenderer->drawTo(cmd, gMapTex, uint32_t(w), uint32_t(h), buildMapScene());
+    // The scene (core/map_scene.inc), with the units' idle animations at the game's speed (Options > Animate units).
+    if (gState.animate) advanceAnims();
+    const render::Scene scene = buildScene();
+    gRenderer->setTerrainPreview(gState.mouseIn ? ghostTiles : std::vector<std::pair<int, uint16_t>>{});
+    gRenderer->drawTo(cmd, gMapTex, uint32_t(w), uint32_t(h), scene);
+    mapFrameDone(gState);  // the title, the Locations list and the status bar (core/map_scene.inc)
 }
 
 // The start page and the Files page (sdl_start.inc, sdl_files.inc): defined after this file's root view is read.

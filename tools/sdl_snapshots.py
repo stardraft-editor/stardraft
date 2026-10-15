@@ -59,6 +59,9 @@ CASES += [
     # the rail's second item (Map data in a classic map, as on Windows).
     ("map-key-copy", ["--mode", "doodads", "--key", "Ctrl+A", "--key", "Ctrl+C"], "map"),
     ("map-key-rail", ["--key", "Ctrl+2"], "map"),
+    # The map's scene (core/map_scene.inc): the grid (G), and the selection circles of all units zoomed in (+).
+    ("map-scene-grid", ["--key", "G"], "map"),
+    ("map-scene-select", ["--mode", "units", "--key", "Ctrl+A", "--key", "+", "--key", "+", "--key", "+", "--key", "+"], "map"),
     # A project open.
     ("project-scriptpreview", ["--workspace", "project", "--scriptpreview"], "project"),
 ]

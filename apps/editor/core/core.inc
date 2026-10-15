@@ -48,6 +48,7 @@
 #include "data_model.inc"
 #include "data_nav.inc"  // the Data workspace's pins, back and forward, clipboard, menus and entry pictures
 #include "data_pictures.inc"  // the Data pictures' model: the game's images, the image player, the timeline, the portraits
+#include "map_scene.inc"  // the map's scene: the grid, the sprites, the units and their animations, the locations, the selection, the ghosts (buildScene)
 #include "views_data_pictures.inc"  // the Data pictures on the Canvas: the image player, the timeline, the portrait (the SDL form's)
 #include "views_data_diagrams.inc"  // the Data diagrams on the Canvas: footprint, ranges, damage, speed, sprite, sound player, script code
 #include "game_text_model.inc"
