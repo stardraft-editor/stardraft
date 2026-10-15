@@ -43,8 +43,6 @@ void setWorkspace(Workspace w) {
     shellMenusChanged();  // Edit's items follow the workspace (and with them Ctrl+C / X / V)
     shellRedrawTabs();
 }
-void pageSync() {}
-void openStartPage() {}
 
 // A tab with this project closed: the Data workspace drops what it holds of it (core/data_model.inc). (until it is in
 // the core) The Triggers workspace's part is not on this system yet.

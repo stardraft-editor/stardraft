@@ -353,11 +353,11 @@ bool shellEditValueBelow(stardraft::draw::View&, stardraft::draw::Rect, const st
     text = narrow(w);
     return true;
 }
-void shellLogError(const std::wstring& line) { shellLogLine(line); }
 std::wstring shellCodePageText(const std::string& bytes) { return widen(bytes); }  // (UTF-8)
 std::wstring shellInstallFolderText() {
     std::wstring saved;
     return prefs::text(L"StarCraftFolder", saved) ? saved : std::wstring();
+}
 
 // A pop-out: the host's modal window over the main window (a click outside does not close it yet: Esc and its own
 // buttons do).
