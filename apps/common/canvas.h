@@ -152,6 +152,9 @@ public:
     virtual void icon(Rect r, int icon, Color c, int px) = 0;
     // The program's icon resource `resourceId` at `px` pixels, its top left corner at r's (the GDI canvas only so far).
     virtual void resourceIcon(Rect r, int resourceId, int px) { (void)r, (void)resourceId, (void)px; }
+    // A texture the host's GPU device made (an SDL_GPUTexture with sampler usage, on the SDL canvas), drawn filling
+    // `dst`. The default draws nothing: the GDI canvas has no GPU textures.
+    virtual void externalImage(const void* gpuTexture, Rect dst) { (void)gpuTexture, (void)dst; }
     // `img` in the middle of `box`, made smaller to fit.
     virtual void fitted(const Image& img, Rect box) = 0;
 };
