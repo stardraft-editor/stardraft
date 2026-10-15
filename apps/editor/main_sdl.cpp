@@ -42,6 +42,7 @@
 #include "core/tr.h"
 #include "shell.h"
 #include "message_box.h"  // apps/kit: the save question (shellAskSaveChanges)
+#include "dialog.h"  // apps/kit: the map pages' pickers (sdl_map_pages.inc)
 #include "text_field.h"  // apps/kit: the search boxes (core/views_search.inc)
 #include "dropdown.h"  // apps/kit: the palette's dropdown (core/views_search.inc)
 #include "check_box.h"  // apps/kit: the players and forces page (core/views_players.inc)
@@ -80,6 +81,7 @@ namespace kit_sdl = stardraft::kit_sdl;
 #include "sdl_menus.inc"
 #include "sdl_files.inc"  // the Files workspace's page and its sounds (core/views_files.inc)
 #include "sdl_start.inc"  // the start page (core/views_start.inc)
+#include "sdl_map_pages.inc"  // the map pages: Properties, Players and forces, Data (core/views_map_pages.inc and its views)
 #include "shell_sdl.inc"
 
 namespace {
@@ -223,6 +225,7 @@ int main(int argc, char** argv) {
         }
         registerMapCommands();  // the Map workspace's command table (core/map_commands.inc): the menus and keys read it
         registerWorkspaceView(Workspace::Files, gFilesPage);  // the Assets / Files workspace (sdl_files.inc)
+        registerMapPages();  // the map pages' workspaces (sdl_map_pages.inc)
         initStartPage();  // the start page's callbacks (sdl_start.inc)
         MainView root;
         gRoot = &root;
@@ -237,7 +240,8 @@ int main(int argc, char** argv) {
             if (name == modeArg) setMode(Mode(m));
         }
         // A workspace by name (the order of the Workspace enum): its view shows, or "Not on this system yet" where none is.
-        static const char* const kWorkspaceNames[] = {"map", "data", "triggers", "assets", "project", "briefing", "files"};
+        static const char* const kWorkspaceNames[] = {"map",    "data",     "triggers",        "assets",  "project",
+                                                      "briefing", "files", "props", "players", "classictriggers", "classic"};
         for (int w = 0; !workspaceArg.empty() && w < int(sizeof kWorkspaceNames / sizeof kWorkspaceNames[0]); ++w)
             if (workspaceArg == kWorkspaceNames[w]) setWorkspace(Workspace(w));
         if (!gDataOk) setMessage(widen(gDataError));
