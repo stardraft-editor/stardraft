@@ -4,7 +4,8 @@
 usage: python3 -I tools/sdl_snapshots.py --exe <stardraft> --out <folder> [--install <folder>] [--map <map>]
                                           [--project <project>] [--only <name>,...] [--scale <s>] [--list]
 
-Each run is `<exe> [map] --snapshot <out>/<name>.png <args>` with SDL_VIDEODRIVER=offscreen (when it is not set).
+Each run is `<exe> [map] --snapshot <out>/<name>.png <args>`, with SDL_VIDEODRIVER=offscreen when it is not set
+(not on macOS: there the offscreen driver gives no GPU device).
 A run passes when it exits with 0 and writes a PNG that is not empty and not one flat color. The PNGs, each run's
 output (<name>.txt) and a summary (summary.txt) go into the --out folder. The script exits with 1 when a run fails.
 
@@ -158,7 +159,8 @@ def main():
         ap.error("--exe and --out are necessary")
     os.makedirs(a.out, exist_ok=True)
     env = dict(os.environ)
-    env.setdefault("SDL_VIDEODRIVER", "offscreen")
+    if sys.platform != "darwin":  # (on macOS the offscreen driver has no Metal device: SDL's own driver, no window)
+        env.setdefault("SDL_VIDEODRIVER", "offscreen")
     if a.install:
         env["STARDRAFT_INSTALL"] = a.install
 
