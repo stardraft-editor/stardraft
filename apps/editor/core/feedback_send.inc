@@ -8,6 +8,8 @@
 
 // (The repository, the token, jsonText and reportWorkspaceName are in releases.inc: the crash reports and the
 // update check use them too.)
+// Help > Report an issue: the repository's page for a new issue.
+std::wstring issueNewUrl() { return L"https://github.com/" + std::wstring(kIssueRepo) + L"/issues/new"; }
 
 // The first line of a text, without access keys and the end's punctuation, at most 48 characters (a title).
 std::wstring feedbackShort(std::wstring t) {

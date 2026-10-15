@@ -2,7 +2,7 @@
 // Dear ImGui through apps/kit_sdl). It compiles the same portable core as
 // the Windows program (core/core.inc, research/ports/MAC-BUILD-PLAN.md step 6), then the SDL shell: the host seam
 // (shell_sdl.inc), the root view (sdl_main_view.inc), the functions the core still needs from the Win32 program
-// (sdl_pending.inc, each marked until it is in the core) and the other workspaces' entry points (sdl_standins.inc).
+// (sdl_pending.inc, each marked until it is in the core) and the workspaces (sdl_*.inc).
 //
 // usage: stardraft_editor [map] [--install <folder>] [--size <w>x<h>] [--scale <s>]
 //        stardraft_editor [map] --snapshot <out.png> [--size <w>x<h>] [--scale <s>]
@@ -123,7 +123,6 @@ bool gNoBoxes = false;
 // The SDL shell: the root view and the map view, the functions the core needs, the other workspaces' stand-ins, and the
 // host seam (shell.h).
 #include "sdl_main_view.inc"
-#include "sdl_standins.inc"
 #include "sdl_pending.inc"
 #include "sdl_menus.inc"
 #include "sdl_popshot.inc"  // a value's pop-out in a snapshot (--trigpop, --classictrig with a value)
@@ -286,6 +285,7 @@ int main(int argc, char** argv) {
     bool rectArg = false, previewArg = false, logArg = false, buildArg = false, trigCodeArg = false;
     int trigPopArg = -1;  // --trigpop: the value whose pop-out shows (sdl_popshot.inc); -2: a text's words; -100 - n: the variable form's field n
     std::string textPopArg;  // --textpop: a game text pop-out in the snapshot (sdl_data.inc)
+    std::vector<std::string> keyArgs;  // --key: keys pressed before the snapshot (sdl_menus.inc: sdlPressKey)
     int width = 1600, height = 1000;
     bool sizeArg = false;
     float scaleArg = 0;
@@ -320,6 +320,7 @@ int main(int argc, char** argv) {
         else if (a == "--lang") langArg = next();  // en, ko, es, ru or zh: the language for this run (not saved), for a snapshot
         else if (a == "--drop") dropArg = next();  // a file dropped on the window (as from Finder on macOS), for a snapshot
         else if (a == "--silent") gSilent = true;
+        else if (a == "--key") keyArgs.push_back(next());  // a key (Ctrl+A, 5, Ctrl+2: Ctrl is Cmd on macOS) pressed in the window, for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
     if (!snapshot.empty()) gSilent = true, gNoBoxes = true;
@@ -362,6 +363,8 @@ int main(int argc, char** argv) {
             gStartView.dataError = widen(gDataError);  // the start page keeps the reason (the status bar's text goes)
         }
         loadDock();  // the dock layout in the settings (core/dock_prefs.inc), as the Windows program at its start
+        gSettingsOff = gSilent;  // (snapshots and tests: the defaults, and nothing saved)
+        if (loadSettingsTable()) shellRendererGraphics(gState.quality, gState.carbot);  // the menus' options (core/app_settings.inc)
         loadLanguageSdl(langArg);  // the language (sdl_options.inc): the canvas translates with it from the first frame
         loadThemeSdl(themeArg, accentArg);  // the theme and the accent in the settings
         if (previewArg) gDock.scriptPreview = true;
@@ -510,6 +513,14 @@ int main(int argc, char** argv) {
             if (trigPopArg != -1) sdlTrigPopShot(trigPopArg), host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             if (!ctArg.empty()) sdlClassicTrigPopShot(ctArg), host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             if (!textPopArg.empty()) sdlTextPopShot(textPopArg), host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+            if (!keyArgs.empty()) {  // the keys after the first frame (the rail's items are the first frame's), then a frame more
+                for (const std::string& k : keyArgs) sdlPressKey(k);
+                host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+            }
+            // The map's sprites load over a few frames: frames until they are all there (as the Windows program paints
+            // while images are pending).
+            for (int k = 0; k < 100 && renderer.stats().imagesPending > 0; ++k)
+                host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             const bool ok = writeSnapshot(device, tex, width, height, snapshot);
             std::printf("%s %s\n", ok ? "wrote" : "could not write", snapshot.c_str());

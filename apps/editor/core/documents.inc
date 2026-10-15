@@ -12,7 +12,7 @@ void updateTitle();
 void activateDoc(int i);
 void openMap(const std::wstring& path, bool switchToOpen = true);
 int findOpenProject(const std::filesystem::path& folder);
-bool classicCommandInProject(int id);  // classic_triggers.inc: the project's map has that classic data (L.4)
+bool classicCommandInProject(int id);  // core/map_edit_commands.inc: the project's map has that classic data (L.4)
 
 // Map: the map editor; Data: the project's .dat files; Triggers, Assets: to come; Project: the project.
 Workspace gWorkspace = Workspace::Map;

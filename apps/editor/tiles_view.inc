@@ -12,8 +12,8 @@
 // come from the tile rules: tileGroupTerrains), the doodads' tiles or the null tiles. Later ISOM brushes keep
 // the placed tiles unless they change the ISOM of their rects.
 // The panel is the core's (core/views_tiles.inc: gTilesPanel, gTilesGrid, the grid's model and paint); this file is the
-// Win32 program's part: the panel's windows in the palette's place (tilesSync), the preview on the map (tilesScene) and
-// the datashots. main.cpp has the hooks: the choice in the tool strip, tilesSync (layout, fillToolCombo), the map clicks,
+// Win32 program's part: the panel's windows in the palette's place (tilesSync), and the datashots (the preview on the map,
+// tilesScene, is core/map_scene.inc). main.cpp has the hooks: the choice in the tool strip, tilesSync (layout, fillToolCombo), the map clicks,
 // the preview in buildScene, copy and paste, and the datashot spec.
 
 // The panel's windows: a view window with gTilesPanel (the filter box and the search box), and in it a view window with
@@ -55,39 +55,6 @@ void tilesSync() {
 }
 
 // --- On the map ---
-
-// The preview: the picked tile in the brush's footprint at the mouse, with its outline; a paste: the copied tiles.
-void tilesScene(render::Scene& s, float wx, float wy) {
-    if (!app.ed || !app.ed->isOpen()) return;
-    tilesFresh();
-    Editor& ed = *app.ed;
-    int cx, cy;
-    tilesAt(wx, wy, cx, cy);
-    std::vector<std::pair<int, uint16_t>> cells;
-    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
-    auto add = [&](int x, int y, uint16_t v) {
-        if (x < 0 || y < 0 || x >= ed.width() || y >= ed.height()) return;
-        cells.push_back({y * ed.width() + x, v});
-        x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
-    };
-    const int tool = currentTool();
-    if (tool == TSelect) {
-        if (!app.terrainPasting || !ed.hasTileClipboard()) return;
-        const int cw = ed.tileClipboardWidth();
-        for (int y = 0; y < ed.tileClipboardHeight(); ++y)
-            for (int x = 0; x < cw; ++x) add(cx + x, cy + y, ed.tileClipboard()[size_t(y) * cw + x]);
-    } else if (tool == TBrush || tool == TSpray) {
-        if (gTiles.picked < 0 || !ed.tileset().groupFor(uint16_t(gTiles.picked))) return;
-        for (auto [x, y] : tilesFootprint(cx, cy))
-            if (tool == TBrush) add(x, y, uint16_t(gTiles.picked));
-            else x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);  // the spray: its area only
-    } else {
-        return;
-    }
-    ghostTiles = std::move(cells);
-    x0 = std::max(x0, 0), y0 = std::max(y0, 0), x1 = std::min(x1, ed.width() - 1), y1 = std::min(y1, ed.height() - 1);
-    if (x0 <= x1) outline(s, Rect{x0 * 32, y0 * 32, (x1 + 1) * 32, (y1 + 1) * 32}, 0x40FF40FFu, 1.5f);
-}
 
 // --- Datashots ---
 

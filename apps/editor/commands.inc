@@ -28,21 +28,26 @@ void updateCommandMarks(HMENU m) {
     }
 }
 
+// A key ("Ctrl+Shift+S", "V", "Ctrl+Tab") as the accelerator entry of the command `id`; false: no such key here.
+bool accelOfChord(const std::string& chord, int id, ACCEL& out) {
+    const auto k = stardraft::parseShortcut(chord);
+    if (!k) return false;
+    WORD vk = 0;
+    if (k->key.size() == 1 && (std::isalnum(static_cast<unsigned char>(k->key[0])))) vk = WORD(k->key[0]);
+    else if (k->key == ",") vk = VK_OEM_COMMA;
+    else if (k->key == "Del") vk = VK_DELETE;
+    else if (k->key == "Tab") vk = VK_TAB;
+    else if (k->key.size() > 1 && k->key[0] == 'F') vk = WORD(VK_F1 + std::stoi(k->key.substr(1)) - 1);
+    if (!vk) return false;  // (a key this shell gives in its own key handling)
+    out = {BYTE(FVIRTKEY | (k->ctrl ? FCONTROL : 0) | (k->shift ? FSHIFT : 0) | (k->alt ? FALT : 0)), vk, WORD(id)};
+    return true;
+}
+
 // The keys of the commands, as accelerator entries.
 std::vector<ACCEL> commandAccelerators() {
     std::vector<ACCEL> out;
-    for (const stardraft::Command& c : gCommands.all()) {
-        if (!c.accelerator) continue;
-        const auto k = stardraft::parseShortcut(c.shortcut);
-        if (!k) continue;
-        WORD vk = 0;
-        if (k->key.size() == 1 && (std::isalnum(static_cast<unsigned char>(k->key[0])))) vk = WORD(k->key[0]);
-        else if (k->key == ",") vk = VK_OEM_COMMA;
-        else if (k->key == "Del") vk = VK_DELETE;
-        else if (k->key.size() > 1 && k->key[0] == 'F') vk = WORD(VK_F1 + std::stoi(k->key.substr(1)) - 1);
-        if (!vk) continue;  // (a key this shell gives in its own key handling)
-        out.push_back({BYTE(FVIRTKEY | (k->ctrl ? FCONTROL : 0) | (k->shift ? FSHIFT : 0) | (k->alt ? FALT : 0)), vk, WORD(nativeCommandId(c.id))});
-    }
+    for (const stardraft::Command& c : gCommands.all())
+        if (ACCEL a; c.accelerator && accelOfChord(c.shortcut, nativeCommandId(c.id), a)) out.push_back(a);
     return out;
 }
 

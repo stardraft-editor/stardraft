@@ -499,39 +499,7 @@ LRESULT CALLBACK classicTrigProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
-// L.4: a project made from a classic map keeps its classic data in the map. Does the project's map have classic
-// triggers (any trigger in TRIG), or classic settings (a unit, upgrade or tech that does not use the game's values, or
-// players with their own values)? Read again only when the map changed.
-bool classicSettingsUsed(const Editor& ed) {
-    const SettingDefaults* def = ed.settingDefaults();
-    if (!def) return false;
-    auto own = [](const std::array<bool, kSettingPlayers>& usesDefault) {
-        return std::any_of(usesDefault.begin(), usesDefault.end(), [](bool b) { return !b; });
-    };
-    const UnitSettings u = ed.unitSettings();
-    for (int i = 0; i < kSettingUnits; ++i)
-        if (!u.units[size_t(i)].useDefault || !u.availability[size_t(i)].global || own(u.availability[size_t(i)].usesDefault)) return true;
-    const UpgradeSettings g = ed.upgradeSettings();
-    for (int i = 0; i < kSettingUpgrades; ++i)
-        if (!g.upgrades[size_t(i)].useDefault || own(g.levels[size_t(i)].usesDefault)) return true;
-    const TechSettings t = ed.techSettings();
-    for (int i = 0; i < kSettingTechs; ++i)
-        if (!t.techs[size_t(i)].useDefault || own(t.players[size_t(i)].usesDefault)) return true;
-    return false;
-}
-
-bool classicCommandInProject(int id) {
-    static const Editor* ed = nullptr;
-    static uint64_t revision = 0;
-    static bool triggers = false, settings = false;
-    if (!app.ed || !app.ed->isOpen()) return false;
-    if (ed != app.ed.get() || revision != app.ed->revision()) {
-        ed = app.ed.get(), revision = app.ed->revision();
-        triggers = !app.ed->classicTriggers().triggers.empty();
-        settings = classicSettingsUsed(*app.ed);
-    }
-    return id == ID_SCEN_CLASSICTRIG ? triggers : id == ID_SCEN_CLASSIC ? settings : false;
-}
+// (classicSettingsUsed and classicCommandInProject: core/map_edit_commands.inc)
 
 // The Classic triggers page's working copy from the map.
 void ctLoad(ClassicTrigDialog& d) {

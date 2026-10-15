@@ -124,7 +124,7 @@ void showOptionsSdl();
 // The Program options commands this system runs (the menus and the keys ask sdlRuns).
 bool sdlOptionsRuns(int id) {
     return id == ID_THEME_DARK || id == ID_THEME_LIGHT || (id >= ID_OPT_LANG && id < ID_OPT_LANG + kLanguageChoiceCount) || id == ID_OPT_RESTART ||
-           id == ID_OPT_ANIMATE || id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_LASTPROJECT;
+           id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_LASTPROJECT;
     // (Look for updates on start and Crash reports are the update check's and the crash reports' commands, with them.)
 }
 // Runs one of them (the same settings and messages as the Windows program's); false: not one of them.
@@ -138,10 +138,6 @@ bool sdlOptionsCommand(int id) {
         setMessage(std::wstring(gLightTheme ? L"Light" : L"Dark") + L" theme, accent color " + theme::kAccents[gAccentIndex].name);
         break;
     case ID_OPT_RESTART: restartProgramSdl(); break;
-    case ID_OPT_ANIMATE:
-        gState.animate = !gState.animate;
-        gState.dirty = true;
-        break;
     case ID_MIDDLE_MODE:
     case ID_MIDDLE_MODE + 1:
         prefs::setNumber(L"MiddleDrag", id == ID_MIDDLE_MODE + 1 ? 1 : 0);
@@ -275,17 +271,22 @@ void showAboutSdl() {
                       [] { gAboutOpen = false; });
 }
 
-// View > Control kit (core/views_kit_gallery.inc; one window). The page scrolls with the mouse wheel; no entry icons and
-// no multi-pick list here yet.
+// View > Control kit (core/views_kit_gallery.inc; one window). The page scrolls with the mouse wheel; the entries' icons
+// are the Data pictures (sdl_data.inc), and the first add row's multi-pick is the list picker (core/views_list_pick.inc).
+draw::Image sdlDataImage(DataPicture p);  // (sdl_data.inc)
 KitGalleryView gKitView;
 bool gKitOpen = false;
 void showKitGallerySdl() {
     if (!gRoot || gKitOpen) return;
     gKitOpen = true;
     gKitView.scroll = 0;
+    gKitView.refIcon = [](const char* dat, int id) { return sdlDataImage(dataRefPicture(dat, uint32_t(id))); };
     gKitView.pickValues = [] {
-        setMessage(L"This is not on this system yet");
-        return false;
+        ListPickView v(L"Search units", kitGalleryPickItems(), "");
+        v.setMulti(kitGalleryPicked(), L"Add");
+        if (!runListPick(v, {scale(40), scale(120)})) return false;
+        kitGalleryPicked() = v.checked();
+        return true;
     };
     const int h = std::min(scale(1000), std::max(scale(300), gRoot->height() - scale(80)));
     gHost->openWindow(*gRoot, gKitView, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect(0, 0, scale(1180), h), L"Control kit"}, [] { gKitOpen = false; });
