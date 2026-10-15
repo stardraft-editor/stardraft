@@ -11841,7 +11841,7 @@ struct StubView final : stardraft::draw::View {
         }
         // The title: the UI font at 3/2 of its height; the text: the UI font.
         const stardraft::draw::Font ui = c.font({Face::Ui, 0});
-        const stardraft::draw::Font old = c.setFont(c.font({Face::Ui, -titleHeight()}));
+        const stardraft::draw::Font old = c.setFont(c.font({Face::Ui, titleHeight()}));
         c.text({scale(40), scale(36), w - scale(40), scale(80)}, title, kText, stardraft::draw::kLeft);
         c.setFont(ui);
         c.text({scale(40), scale(84), w - scale(40), h}, text, kDim, stardraft::draw::kWrap | stardraft::draw::kLeft);
