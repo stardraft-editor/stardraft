@@ -135,6 +135,16 @@ bool shellViewShown() { return app.view != nullptr; }
 void shellToolsChanged() {
     if (app.tool) InvalidateRect(app.tool, nullptr, FALSE);
 }
+int paintedMenu(HMENU h, int x, int y, HWND owner);  // context_menu.inc
+int shellPopupPick(const std::vector<std::wstring>& items, int checked, int x, int y) {
+    HMENU m = CreatePopupMenu();
+    for (size_t k = 0; k < items.size(); ++k) AppendMenuW(m, MF_STRING | (checked == int(k) ? MF_CHECKED : 0), UINT_PTR(k + 1), items[k].c_str());
+    POINT p{x, y};
+    ClientToScreen(app.tool, &p);
+    const int pick = paintedMenu(m, p.x, p.y, app.tool);
+    DestroyMenu(m);
+    return pick >= 1 && pick <= int(items.size()) ? pick - 1 : -1;
+}
 void shellOwnerSelect(int i) { SendMessageW(app.owner, CB_SETCURSEL, i, 0); }
 void shellPaletteChanged() { unitPaletteRepaint(); }
 void shellPaletteRebuilt() { rebuildUnitPalette(); }
