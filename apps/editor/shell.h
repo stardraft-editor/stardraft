@@ -3,6 +3,7 @@
 // functions. The portable code calls these; each host implements them. The Windows host is shell_win32.inc (included
 // by main.cpp), where each one is the line it replaced.
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -22,6 +23,17 @@ bool shellLogOpen();
 int shellUiFontLfHeight();
 // The map view's client size, in device pixels.
 void shellViewSize(int& w, int& h);
+// The time the process was created, on the steady clock (the start-up marks count from it; the host's clock).
+std::chrono::steady_clock::time_point shellProcessStart();
+// The program's version name, as the title shows it ("0.5.0.6").
+std::wstring shellVersion();
+// When this .exe was built: "built Oct 9 23:48", to tell builds apart (empty when unknown).
+std::wstring shellBuildStamp();
+// The window's title text.
+void shellSetTitle(const std::wstring& title);
+// The workspace rail exists (it is made with the window), and its window is shown or hidden.
+bool shellHasRail();
+void shellShowRail(bool show);
 // The minimap's client size, in device pixels.
 void shellMinimapSize(int& w, int& h);
 // The host's renderer shows the active editor's sources (its quality, sprites and tileset).
