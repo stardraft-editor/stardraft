@@ -57,6 +57,7 @@
 #include "views_classic_value.inc"
 #include "views_triggers_tree.inc"
 #include "views_triggers_pane.inc"
+#include "views_triggers_pick.inc"
 #include "views_briefing.inc"
 #include "views_start.inc"
 #include "views_new_page.inc"

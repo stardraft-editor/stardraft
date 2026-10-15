@@ -9194,28 +9194,6 @@ TriggerMapInfo trigMapInfo() {
 
 void trigRecheck() { gTE.issues = gTE.set.check(trigMapInfo()); }
 
-// Undo: the trigger set after each saved change; `at` is the one shown.
-struct TrigHistory {
-    std::vector<std::pair<TriggerSet, std::vector<int>>> steps;
-    size_t at = 0;
-    std::string last;  // the set's text at `at`, to see whether a save changed anything
-};
-TrigHistory gTrigHist;
-
-void trigHistoryReset() {
-    gTrigHist.steps = {{gTE.set, gTE.sel}}, gTrigHist.at = 0, gTrigHist.last = gTE.set.text();
-}
-
-void trigHistoryRecord() {
-    if (gTrigHist.steps.empty()) return trigHistoryReset();
-    std::string now = gTE.set.text();
-    if (now == gTrigHist.last) return;
-    gTrigHist.steps.resize(gTrigHist.at + 1);
-    gTrigHist.steps.push_back({gTE.set, gTE.sel});
-    if (gTrigHist.steps.size() > 200) gTrigHist.steps.erase(gTrigHist.steps.begin());
-    gTrigHist.at = gTrigHist.steps.size() - 1, gTrigHist.last = std::move(now);
-}
-
 void trigSave() {
     trigRecheck();
     trigHistoryRecord();
@@ -9484,41 +9462,6 @@ void drawMatched(HDC dc, RECT r, const std::wstring& text, const std::vector<std
         GetTextExtentPoint32W(dc, shown.c_str() + i, int(j - i), &sz);
         x += sz.cx, i = j;
     }
-}
-// The same on a Canvas (the palette's list): each piece of the text is drawn at its place, the matched ones in the accent.
-void drawMatched(stardraft::draw::Canvas& c, stardraft::draw::Rect r, const std::wstring& text, const std::vector<std::wstring>& words, stardraft::draw::Color normal) {
-    std::wstring low = text;
-    std::transform(low.begin(), low.end(), low.begin(), ::towlower);
-    std::vector<uint8_t> hit(text.size(), 0);
-    for (const auto& w : words)
-        if (const size_t at = w.empty() ? std::wstring::npos : low.find(w); at != std::wstring::npos)
-            std::fill(hit.begin() + long(at), hit.begin() + long(at + w.size()), uint8_t(1));
-    const int y = (r.top + r.bottom - c.metrics().height) / 2;  // (the GDI version's rounding: a row partly above the top)
-    // Too wide: as much as fits, then an ellipsis (in the color of the last letter kept).
-    std::wstring shown = text;
-    if (c.measure(text) > r.width()) {
-        const int room = std::max(0, r.width() - c.measure(L"\x2026"));
-        size_t lo = 0, hi = text.size();  // the longest prefix that fits in `room` (widths grow with the prefix)
-        while (lo < hi) {
-            const size_t mid = (lo + hi + 1) / 2;
-            if (c.measure(std::wstring_view(text).substr(0, mid)) <= room) lo = mid;
-            else hi = mid - 1;
-        }
-        shown = text.substr(0, lo) + L"\x2026";
-        hit.resize(shown.size());
-        hit.back() = lo > 0 ? hit[lo - 1] : 0;
-    }
-    c.pushClip(r);
-    int x = r.left;
-    for (size_t i = 0; i < shown.size();) {
-        size_t j = i;
-        while (j < shown.size() && hit[j] == hit[i]) ++j;
-        const std::wstring piece = shown.substr(i, j - i);
-        c.text({x, y, r.right, y + c.metrics().height}, piece, hit[i] ? kAccent : normal, stardraft::draw::kLeft);
-        x += c.measure(piece);
-        i = j;
-    }
-    c.popClip();
 }
 int gTrigAdvance = 0;  // set by a popover closed with Tab (+1) or Shift+Tab (-1): open the next value's
 void (*gListPickHook)(HWND) = nullptr;  // self-test
@@ -9845,312 +9788,44 @@ bool showListPickerMulti(const std::wstring& prompt, std::vector<ListPickItem> i
 }
 
 // --- The block picker: categories on the left, blocks on the right, what one does below --------------------------
-
-std::vector<std::string> gRecentBlocks;  // the blocks added last, newest first (the picker's Recent)
-const char* const kRecentCategory = "\x01Recent";
-
-// The category each picker (actions, conditions) last showed, while StarDraft runs.
-std::string gLastBlockCategory[2];
-
-struct BlockPicker {
-    HWND wnd = nullptr, search = nullptr, cats = nullptr, blocks = nullptr, add = nullptr;
-    RECT searchRow{};  // the search row: its icon (painted), the text with no frame
-    bool condition = false, done = false, picked = false;
-    std::vector<std::string> categories;  // "" first: all
-    std::vector<const TriggerDef*> shown;
-    std::string result;
-    RECT infoRect{};
-};
-BlockPicker* gBlockPick = nullptr;
-void (*gBlockPickHook)(HWND) = nullptr;  // self-test
-
-std::wstring trigTypeNote(const TriggerParam& p) {
-    if (p.type.rfind("ValueOf:", 0) == 0) return L"a value of the property's type";
-    const TriggerType* t = triggerType(p.type);
-    return t ? widen(t->label) : L"? " + widen(p.type);
-}
-
-void blockPickFill() {
-    BlockPicker& bp = *gBlockPick;
-    const int cat = int(SendMessageW(bp.cats, LB_GETCURSEL, 0, 0));
-    const std::string category = cat > 0 && cat < int(bp.categories.size()) ? bp.categories[size_t(cat)] : "";
-    gLastBlockCategory[bp.condition] = category;  // opens there next time
-    const std::wstring filter = lowerText(bp.search);
-    std::vector<std::wstring> words;
-    {
-        std::wistringstream in(filter);
-        for (std::wstring w; in >> w;) words.push_back(w);
-    }
-    const std::string selId = [&] {
-        const int i = int(SendMessageW(bp.blocks, LB_GETCURSEL, 0, 0));
-        return i >= 0 && i < int(bp.shown.size()) ? bp.shown[size_t(i)]->id : std::string();
-    }();
-    bp.shown.clear();
-    for (const auto& d : TriggerDef::all()) {
-        if (d.value || d.condition != bp.condition || d.tier == "replaced" || d.tier == "hidden") continue;
-        const bool recent = category == kRecentCategory;
-        if (recent && words.empty() && std::find(gRecentBlocks.begin(), gRecentBlocks.end(), d.id) == gRecentBlocks.end()) continue;
-        if (!recent && !category.empty() && words.empty() && d.category != category) continue;
-        std::wstring hay = widen(d.title + " " + d.sentence + " " + d.category + " " + d.docs);
-        std::transform(hay.begin(), hay.end(), hay.begin(), ::towlower);
-        bool ok = true;
-        for (const auto& w : words) ok &= hay.find(w) != std::wstring::npos;
-        if (ok) bp.shown.push_back(&d);
-    }
-    if (!words.empty()) {  // best first: the title starts with what was typed, then contains it, then the rest
-        auto rank = [&](const TriggerDef* d) {
-            std::wstring title = widen(d->title);
-            std::transform(title.begin(), title.end(), title.begin(), ::towlower);
-            return title.rfind(words[0], 0) == 0 ? 0 : title.find(words[0]) != std::wstring::npos ? 1 : 2;
-        };
-        std::stable_sort(bp.shown.begin(), bp.shown.end(), [&](const TriggerDef* a, const TriggerDef* b) { return rank(a) < rank(b); });
-    }
-    if (category == kRecentCategory && words.empty())
-        std::stable_sort(bp.shown.begin(), bp.shown.end(), [](const TriggerDef* a, const TriggerDef* b) {
-            return std::find(gRecentBlocks.begin(), gRecentBlocks.end(), a->id) < std::find(gRecentBlocks.begin(), gRecentBlocks.end(), b->id);
-        });
-    SendMessageW(bp.blocks, WM_SETREDRAW, FALSE, 0);
-    SendMessageW(bp.blocks, LB_RESETCONTENT, 0, 0);
-    int sel = 0;
-    for (size_t i = 0; i < bp.shown.size(); ++i) {
-        SendMessageW(bp.blocks, LB_ADDSTRING, 0, LPARAM(L""));
-        if (bp.shown[i]->id == selId) sel = int(i);
-    }
-    SendMessageW(bp.blocks, LB_SETCURSEL, bp.shown.empty() ? -1 : sel, 0);
-    SendMessageW(bp.blocks, WM_SETREDRAW, TRUE, 0);
-    InvalidateRect(bp.blocks, nullptr, TRUE);
-    InvalidateRect(bp.wnd, &bp.infoRect, FALSE);
-}
-
-const TriggerDef* blockPickSelected() {
-    const int i = int(SendMessageW(gBlockPick->blocks, LB_GETCURSEL, 0, 0));
-    return i >= 0 && i < int(gBlockPick->shown.size()) ? gBlockPick->shown[size_t(i)] : nullptr;
-}
-
-void blockPickChoose() {
-    if (const TriggerDef* d = blockPickSelected()) gBlockPick->result = d->id, gBlockPick->picked = gBlockPick->done = true;
-}
-
-// A block's description: what it does, its values and their types (purple: unclear), its pitfalls.
-// The block docs on a DC (the block picker): the core's drawBlockDocs (core/views_triggers_pane.inc).
-void drawBlockDocs(HDC dc, const TriggerDef* d, RECT r) {
-    ui::Paint p(dc);
-    drawBlockDocs(*p, d, r);
-}
-
-LRESULT CALLBACK blockPickProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    BlockPicker* p = gBlockPick;
-    switch (msg) {
-    case WM_COMMAND:
-        if (!p) return 0;
-        if (HWND(lp) == p->search && HIWORD(wp) == EN_CHANGE) blockPickFill();
-        else if (HWND(lp) == p->cats && HIWORD(wp) == LBN_SELCHANGE) SetWindowTextW(p->search, L""), blockPickFill();
-        else if (HWND(lp) == p->blocks && HIWORD(wp) == LBN_SELCHANGE) InvalidateRect(hwnd, &p->infoRect, FALSE);
-        else if (HWND(lp) == p->blocks && HIWORD(wp) == LBN_DBLCLK) blockPickChoose();
-
-        else if (HWND(lp) == p->add) blockPickChoose();
-        else if (LOWORD(wp) == IDOK && HIWORD(wp) == BN_CLICKED) blockPickChoose();  // (the Add button, or Enter)
-        else if (LOWORD(wp) == IDCANCEL && HIWORD(wp) == BN_CLICKED) p->done = true;
-        return 0;
-    case WM_CLOSE:
-        if (p) p->done = true;
-        return 0;
-    case WM_MEASUREITEM: {
-        auto* m = reinterpret_cast<MEASUREITEMSTRUCT*>(lp);
-        m->itemHeight = UINT(m->CtlID == 102 ? scale(46) : scale(28));
-        return TRUE;
-    }
-    case WM_DRAWITEM: {
-        auto* d = reinterpret_cast<DRAWITEMSTRUCT*>(lp);
-        if (!p || d->itemID == UINT(-1)) return TRUE;
-        const bool sel = d->itemState & ODS_SELECTED;
-        // On the window's ground; the selected row a rounded pill (as the quick search and the lists).
-        FillRect(d->hDC, &d->rcItem, app.bgBrush);
-        if (sel)
-            ui::box(d->hDC, {d->rcItem.left + scale(2), d->rcItem.top + scale(1), d->rcItem.right - scale(2), d->rcItem.bottom - scale(1)}, kSel, kSel,
-                    scale(6));
-        SetBkMode(d->hDC, TRANSPARENT);
-        RECT r = d->rcItem;
-        r.left += scale(12), r.right -= scale(10);
-        if (d->CtlID == 101) {  // categories
-            if (d->itemID >= p->categories.size()) return TRUE;
-            int count = 0;  // what the list shows
-            for (const auto& def : TriggerDef::all())
-                count += !def.value && def.condition == p->condition && def.tier != "replaced" && def.tier != "hidden" &&
-                         (p->categories[d->itemID].empty() || def.category == p->categories[d->itemID]);
-            SetTextColor(d->hDC, sel ? kAccent : kText);
-            const std::string& cn = p->categories[d->itemID];
-            const std::wstring name = cn.empty() ? L"Everything" : cn == kRecentCategory ? L"Recent" : widen(cn);
-            DrawTextW(d->hDC, name.c_str(), -1, &r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-            if (cn != kRecentCategory) {  // how many blocks it has, small and dim at the right
-                HGDIOBJ of = SelectObject(d->hDC, ui::smallFont());
-                SetTextColor(d->hDC, kDim);
-                DrawTextW(d->hDC, std::to_wstring(count).c_str(), -1, &r, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
-                SelectObject(d->hDC, of);
-            }
-        } else {  // blocks: title, then the sentence with its values' types in place
-            if (d->itemID >= p->shown.size()) return TRUE;
-            const TriggerDef& def = *p->shown[d->itemID];
-            RECT t{r.left, r.top + scale(4), r.right, r.top + scale(24)};
-            std::vector<std::wstring> words;  // the typed words, in the accent in the title
-            {
-                std::wistringstream in(lowerText(p->search));
-                for (std::wstring w; in >> w;) words.push_back(w);
-            }
-            drawMatched(d->hDC, t, widen(def.title), words, kText);  // (on the pill too: else the typed words do not show)
-            std::wstring sentence;
-            for (size_t i = 0; i < def.sentence.size();) {
-                if (def.sentence[i] == '{') {
-                    const size_t end = def.sentence.find('}', i);
-                    const int pi = def.param(def.sentence.substr(i + 1, end - i - 1));
-                    sentence += L"(" + (pi >= 0 ? trigTypeNote(def.params[size_t(pi)]) : L"?") + L")";
-                    i = end + 1;
-                    continue;
-                }
-                sentence += wchar_t(static_cast<unsigned char>(def.sentence[i++]));
-            }
-            if (!sentence.empty() && sentence[0] != L'(') sentence[0] = wchar_t(towupper(sentence[0]));
-            RECT s{r.left, r.top + scale(23), r.right, r.bottom - scale(3)};
-            SetTextColor(d->hDC, kDim);
-            DrawTextW(d->hDC, sentence.c_str(), -1, &s, DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
-        }
-        return TRUE;
-    }
-    case WM_PAINT: {
-        PAINTSTRUCT ps;
-        HDC dc = BeginPaint(hwnd, &ps);
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-        FillRect(dc, &rc, app.bgBrush);
-        HGDIOBJ of = SelectObject(dc, app.font);
-        RECT info = p ? p->infoRect : RECT{};
-        HBRUSH line = CreateSolidBrush(kBorder);
-        RECT top{info.left, info.top - scale(8), info.right, info.top - scale(7)};
-        FillRect(dc, &top, line);
-        if (p) {  // the search row: its icon, and the line under it
-            const RECT& sr = p->searchRow;
-            const int is = scale(18);
-            uiIcon(dc, {sr.left, (sr.top + sr.bottom - is) / 2, sr.left + is, (sr.top + sr.bottom + is) / 2}, UiIcon::Search, kDim, is);
-            RECT under{0, sr.bottom + scale(6), rc.right, sr.bottom + scale(7)};
-            FillRect(dc, &under, line);
-        }
-        DeleteObject(line);
-        if (p) drawBlockDocs(dc, blockPickSelected(), info);
-        SelectObject(dc, of);
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORLISTBOX:
-    case WM_CTLCOLORSTATIC:
-    case WM_CTLCOLORBTN:
-        SetTextColor(HDC(wp), kText);
-        SetBkColor(HDC(wp), kBg);  // on the window's ground: no boxes, no frames
-        return LRESULT(app.bgBrush);
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
+// The picker is a core view (core/views_triggers_pick.inc: BlockPickView, runBlockPicker); this is its Windows host:
+// the window's size (most of the screen) and the help page (F1).
+#include "core/views_triggers_pick.inc"
 
 void showBlockHelp(const std::string& id, HWND beside);  // trigger_help.inc
 
-LRESULT CALLBACK blockPickKeys(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
-    if (msg == WM_KEYDOWN && gBlockPick) {
-        if (wp == VK_RETURN) return blockPickChoose(), 0;
-        if (wp == VK_ESCAPE) return gBlockPick->done = true, 0;
-        if (wp == VK_F1) {  // the selected block's help page, beside the picker
-            if (const TriggerDef* d = blockPickSelected()) showBlockHelp(d->id, gBlockPick->wnd);
-            return 0;
-        }
-        if (hwnd == gBlockPick->search && (wp == VK_DOWN || wp == VK_UP)) {
-            const int n = int(gBlockPick->shown.size()), cur = int(SendMessageW(gBlockPick->blocks, LB_GETCURSEL, 0, 0));
-            if (n) SendMessageW(gBlockPick->blocks, LB_SETCURSEL, std::clamp(cur + (wp == VK_DOWN ? 1 : -1), 0, n - 1), 0);
-            InvalidateRect(gBlockPick->wnd, &gBlockPick->infoRect, FALSE);
-            return 0;
-        }
-    }
-    if (msg == WM_CHAR && (wp == L'\r' || wp == 27)) return 0;
-    return DefSubclassProc(hwnd, msg, wp, lp);
-}
+BlockPickView* gBlockPick = nullptr;      // the picker while it is open
+void (*gBlockPickHook)(HWND) = nullptr;  // self-test: runs once the picker is open (its window)
+
+class BlockPickProgram final : public BlockPickHost {
+public:
+    void help(const std::string& id) override { showBlockHelp(id, gBlockPick ? ui::Win32Host::windowOf(*gBlockPick) : app.main); }
+};
+BlockPickProgram gBlockPickProgram;
+
+const TriggerDef* blockPickSelected() { return gBlockPick ? gBlockPick->selected() : nullptr; }
 
 // Picks a condition or an action; its id, or "" when canceled.
 std::string showBlockPicker(bool condition, const std::string& startCategory = {}, const std::wstring& search = {}) {
     if (gListWheel) return "";  // the mouse wheel does not open a pop-out
-    static bool registered = false;
-    if (!registered) {
-        WNDCLASSEXW wc{sizeof wc};
-        wc.lpfnWndProc = blockPickProc, wc.hInstance = app.inst, wc.hCursor = LoadCursor(nullptr, IDC_ARROW), wc.lpszClassName = L"StarDraftBlockPick";
-        RegisterClassExW(&wc);
-        registered = true;
-    }
-    BlockPicker bp;
-    bp.condition = condition;
-    bp.categories.push_back("");
-    const bool anyRecent = std::any_of(gRecentBlocks.begin(), gRecentBlocks.end(), [&](const std::string& id) {
-        const TriggerDef* d = TriggerDef::find(id);
-        return d && !d->value && d->condition == condition;
-    });
-    if (anyRecent) bp.categories.push_back(kRecentCategory);
-    for (const auto& c : TriggerDef::categories(condition)) bp.categories.push_back(c);
-    gBlockPick = &bp;
-    // Large: most of the screen (up to 1280 x 900), so long lists and the block's notes fit.
+    // Large: most of the screen (up to 1280 x 900 with its frame), so long lists and the block's notes fit.
     MONITORINFO mi{sizeof mi};
     GetMonitorInfoW(MonitorFromWindow(app.main, MONITOR_DEFAULTTONEAREST), &mi);
-    const int w = std::min(scale(1280), int(mi.rcWork.right - mi.rcWork.left) * 9 / 10),
-              h = std::min(scale(900), int(mi.rcWork.bottom - mi.rcWork.top) * 9 / 10), pad = scale(ui::kDialogPad), catW = scale(260), eh = scale(ui::kFieldH),
-              infoH = scale(190);
-    RECT mr = mi.rcWork;
-    bp.wnd = CreateWindowExW(WS_EX_DLGMODALFRAME | WS_EX_CONTROLPARENT | (gBackground ? WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW : 0), L"StarDraftBlockPick",
-                             condition ? L"Add a condition" : L"Add an action", WS_CAPTION | WS_SYSMENU, mr.left + (mr.right - mr.left - w) / 2,
-                             mr.top + (mr.bottom - mr.top - h) / 2, w, h, app.main, nullptr, app.inst, nullptr);
-    BOOL dark = !gLightTheme;
-    DwmSetWindowAttribute(bp.wnd, 20, &dark, sizeof dark), titleColors(bp.wnd);
-    RECT rc;
-    GetClientRect(bp.wnd, &rc);
-    bp.searchRow = {pad + scale(4), pad, rc.right - pad, pad + eh};
-    bp.search = CreateWindowExW(0, WC_EDITW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL, pad + scale(32), pad + (eh - scale(18)) / 2,
-                                rc.right - 2 * pad - scale(32), scale(18), bp.wnd, nullptr, app.inst, nullptr);
-    SendMessageW(bp.search, EM_SETCUEBANNER, TRUE, LPARAM(condition ? L"Search conditions" : L"Search actions")); addSearchClear(bp.search);  // an x clears it
-    const int listTop = pad * 2 + eh, listH = rc.bottom - listTop - infoH - pad * 3 - scale(32);
-    bp.cats = CreateWindowExW(0, WC_LISTBOXW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT | LBS_OWNERDRAWFIXED, pad,
-                              listTop, catW, listH, bp.wnd, HMENU(101), app.inst, nullptr);
-    cleanScroll(bp.cats);
-    bp.blocks = CreateWindowExW(0, WC_LISTBOXW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT | LBS_OWNERDRAWFIXED,
-                                pad * 2 + catW, listTop, rc.right - catW - pad * 3, listH, bp.wnd, HMENU(102), app.inst, nullptr);
-    cleanScroll(bp.blocks);
-    bp.infoRect = {pad, listTop + listH + pad * 2, rc.right - pad, listTop + listH + pad * 2 + infoH};
-    bp.add = CreateWindowExW(0, WC_BUTTONW, condition ? L"Add condition" : L"Add action", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON,
-                             rc.right - pad - scale(260), rc.bottom - pad - scale(30), scale(150), scale(30), bp.wnd, HMENU(IDOK), app.inst, nullptr);
-    HWND cancel = CreateWindowExW(0, WC_BUTTONW, L"Cancel", WS_CHILD | WS_VISIBLE | WS_TABSTOP, rc.right - pad - scale(100), rc.bottom - pad - scale(30), scale(100),
-                                  scale(30), bp.wnd, HMENU(IDCANCEL), app.inst, nullptr);
-    for (HWND c : {bp.search, bp.cats, bp.blocks, bp.add, cancel}) SendMessageW(c, WM_SETFONT, WPARAM(app.font), TRUE);
-    for (HWND c : {bp.add, cancel}) darkControl(c, L"DarkMode_Explorer");
-    for (HWND c : {bp.cats, bp.blocks}) SetWindowTheme(c, gLightTheme ? L"Explorer" : L"DarkMode_Explorer", nullptr);  // scroll bars; no frame
-    ui::nativeButtonsRight({bp.add, cancel}, rc.right - pad, rc.bottom - pad - scale(ui::kButtonH));
-    SetWindowSubclass(bp.search, blockPickKeys, 1, 0);
-    SetWindowSubclass(bp.blocks, blockPickKeys, 1, 0);
-    for (size_t i = 0; i < bp.categories.size(); ++i) SendMessageW(bp.cats, LB_ADDSTRING, 0, LPARAM(L""));
-    int start = 0;
-    const std::string& want = startCategory.empty() ? gLastBlockCategory[condition] : startCategory;  // else the last one used
-    for (size_t i = 0; i < bp.categories.size(); ++i)
-        if (!want.empty() && bp.categories[i] == want) start = int(i);
-    SendMessageW(bp.cats, LB_SETCURSEL, start, 0);
-    if (!search.empty()) {
-        SetWindowTextW(bp.search, search.c_str());
-        SendMessageW(bp.search, EM_SETSEL, search.size(), search.size());
-    }
-    blockPickFill();
-    ShowWindow(bp.wnd, gBackground ? SW_SHOWNOACTIVATE : SW_SHOW);
-    EnableWindow(app.main, FALSE);
-    if (!gBackground) SetFocus(bp.search);
-    if (gBlockPickHook) gBlockPickHook(bp.wnd);
-    MSG msg;
-    while (!bp.done && GetMessageW(&msg, nullptr, 0, 0))
-        if (!IsDialogMessageW(bp.wnd, &msg)) TranslateMessage(&msg), DispatchMessageW(&msg);
-    EnableWindow(app.main, TRUE);
-    DestroyWindow(bp.wnd);
+    const int w = std::min(scale(1280), int(mi.rcWork.right - mi.rcWork.left) * 9 / 10), h = std::min(scale(900), int(mi.rcWork.bottom - mi.rcWork.top) * 9 / 10);
+    // The client area of a window that size, with the frame the native picker had (a background run's was a tool window).
+    RECT fr{0, 0, 0, 0};
+    AdjustWindowRectEx(&fr, WS_CAPTION | WS_SYSMENU, FALSE, WS_EX_DLGMODALFRAME | (gBackground ? WS_EX_TOOLWINDOW : 0));
+    const stardraft::draw::Point client{w - (fr.right - fr.left), h - (fr.bottom - fr.top)};
+    std::function<void()> opened;
+    if (gBlockPickHook)
+        opened = [] {
+            if (gBlockPick && gBlockPickHook)
+                if (HWND pw = ui::Win32Host::windowOf(*gBlockPick)) gBlockPickHook(pw);
+        };
+    gMainAnchor.host.ownerWindow(app.main);
+    const std::string id = runBlockPicker(gMainAnchor.view, gBlockPickProgram, condition, startCategory, search, client, !gBackground, gBlockPick, std::move(opened));
     if (!gBackground) SetForegroundWindow(app.main);
-    gBlockPick = nullptr;
-    return bp.picked ? bp.result : std::string();
+    return id;
 }
 
 // The pane's model, its texts and its paint are in core/views_triggers_pane.inc.
@@ -10204,13 +9879,10 @@ bool trigRenameNode(std::vector<int> path, const std::string& name) {
 void trigCodeRefresh(bool force = false);
 
 // Undo and redo in the Triggers workspace: the set as it was, with what was selected when it changed.
+// The step itself is the core's (core/views_triggers_pane.inc, trigHistoryStep); the program saves the file and shows it.
 bool trigUndo(bool redo) {
-    if (!gTE.project || (redo ? gTrigHist.at + 1 >= gTrigHist.steps.size() : gTrigHist.at == 0)) return false;
-    std::vector<int> sel = gTrigHist.steps[gTrigHist.at].second;
-    gTrigHist.at = redo ? gTrigHist.at + 1 : gTrigHist.at - 1;
-    if (redo) sel = gTrigHist.steps[gTrigHist.at].second;
-    gTE.set = gTrigHist.steps[gTrigHist.at].first, gTrigHist.last = gTE.set.text();
-    gTP.sel = {}, gTP.focus = {}, gTP.focus.ref.index = -1;
+    std::vector<int> sel;
+    if (!trigHistoryStep(redo, sel)) return false;
     std::string err;
     if (!gTE.set.newerFormat() && !gTE.set.save(triggersFile(*gTE.project), err)) logLine(widen(err), true);
     trigRecheck();
@@ -10220,7 +9892,6 @@ bool trigUndo(bool redo) {
     setMessage(redo ? L"Redo" : L"Undo");
     return true;
 }
-bool trigCanUndo(bool redo) { return gTE.project && (redo ? gTrigHist.at + 1 < gTrigHist.steps.size() : gTrigHist.at > 0); }
 
 bool dataCanUndo(bool redo) { return !(redo ? gData.redo : gData.undo).empty(); }
 
@@ -12904,6 +12575,7 @@ public:
     }
     void drop() override { trigDrop(); }
     void help() override { trigPaneHelp(); }
+    void undo(bool redo) override { trigUndo(redo); }
 };
 TrigPaneProgram gTrigPaneProgram;
 TrigPaneView gTrigPane(gTrigPaneProgram);
@@ -17229,14 +16901,13 @@ int runSelfTest(const fs::path& dir) {
                 pickerShot = dir / "83_trigger_block_picker.png";
                 gBlockPickHook = [](HWND w) {
                     for (int i = 0; i < 5; ++i) pump();
-                    SendMessageW(gBlockPick->cats, LB_SETCURSEL, 1, 0);  // the first category
-                    SendMessageW(w, WM_COMMAND, MAKEWPARAM(101, LBN_SELCHANGE), LPARAM(gBlockPick->cats));
+                    gBlockPick->selectCategory(1);  // the first category
                     for (int i = 0; i < 5; ++i) pump();
                     capture(pickerShot, w);
-                    SetWindowTextW(gBlockPick->search, L"create unit");
+                    gBlockPick->setSearch(L"create unit");
                     // As a user does it: the pane repaints while the picker is open (that once lost the block), then Enter.
                     InvalidateRect(gTE.pane, nullptr, FALSE);
-                    PostMessageW(gBlockPick->search, WM_KEYDOWN, VK_RETURN, 0);
+                    PostMessageW(w, WM_KEYDOWN, VK_RETURN, 0);
                 };
                 gTP.sel = {};
                 UpdateWindow(gTE.pane);
@@ -17489,13 +17160,11 @@ int runSelfTest(const fs::path& dir) {
                 gameDataShot = dir / "88_trigger_picker_game_data.png";
                 gBlockPickHook = [](HWND w) {
                     for (int i = 0; i < 5; ++i) pump();
-                    for (size_t i = 0; i < gBlockPick->categories.size(); ++i)
-                        if (gBlockPick->categories[i] == "Game") SendMessageW(gBlockPick->cats, LB_SETCURSEL, i, 0);
-                    SendMessageW(w, WM_COMMAND, MAKEWPARAM(101, LBN_SELCHANGE), LPARAM(gBlockPick->cats));
+                    gBlockPick->selectCategoryNamed("Game");
                     for (int i = 0; i < 5; ++i) pump();
                     if (!gameDataShot.empty()) capture(gameDataShot, w), gameDataShot.clear();
-                    SetWindowTextW(gBlockPick->search, pickSearch.c_str());
-                    PostMessageW(w, WM_COMMAND, MAKEWPARAM(IDOK, BN_CLICKED), LPARAM(gBlockPick->add));  // the Add button
+                    gBlockPick->setSearch(pickSearch);
+                    gBlockPick->choose();  // the Add button
                 };
                 auto clickAdd = [](int list) {
                     UpdateWindow(gTE.pane);
@@ -17838,7 +17507,7 @@ int runSelfTest(const fs::path& dir) {
                     gBlockPickHook = [](HWND w) {
                         for (int i = 0; i < 5; ++i) pump();
                         capture(typeShot, w);
-                        PostMessageW(w, WM_COMMAND, MAKEWPARAM(IDOK, BN_CLICKED), LPARAM(gBlockPick->add));
+                        gBlockPick->choose();  // the Add button
                     };
                     const size_t beforeType = gTE.set.at(vp)->actions.size();
                     SendMessageW(gTE.pane, WM_CHAR, L'k', 0);
@@ -17865,7 +17534,7 @@ int runSelfTest(const fs::path& dir) {
                     gBlockPickHook = [](HWND w) {
                         for (int i = 0; i < 5; ++i) pump();
                         capture(recentShot, w);
-                        gBlockPick->done = true;
+                        gBlockPick->cancel();
                     };
                     showBlockPicker(false, kRecentCategory);
                     gBlockPickHook = nullptr;
@@ -17952,7 +17621,7 @@ int runSelfTest(const fs::path& dir) {
                 gBlockPickHook = [](HWND w) {
                     for (int i = 0; i < 5; ++i) pump();
                     capture(shot, w), ++shots;
-                    gBlockPick->done = true;
+                    gBlockPick->cancel();
                 };
                 // Menus (short lists) run their own loop: a timer captures the menu and closes it.
                 static int menuTries = 0;
@@ -18018,15 +17687,15 @@ int runSelfTest(const fs::path& dir) {
                     static bool openAfterClick = false;
                     gBlockPickHook = [](HWND) {
                         for (int i = 0; i < 3; ++i) pump();
-                        RECT ir{};
-                        SendMessageW(gBlockPick->blocks, LB_GETITEMRECT, 1, LPARAM(&ir));
-                        const LPARAM at = MAKELPARAM((ir.left + ir.right) / 2, (ir.top + ir.bottom) / 2);
-                        SendMessageW(gBlockPick->blocks, WM_LBUTTONDOWN, MK_LBUTTON, at);
-                        SendMessageW(gBlockPick->blocks, WM_LBUTTONUP, 0, at);
+                        const stardraft::draw::Point c = gBlockPick->blockRowCenter(1);
+                        const LPARAM at = MAKELPARAM(c.x, c.y);
+                        HWND pw = ui::Win32Host::windowOf(*gBlockPick);
+                        SendMessageW(pw, WM_LBUTTONDOWN, MK_LBUTTON, at);
+                        SendMessageW(pw, WM_LBUTTONUP, 0, at);
                         for (int i = 0; i < 3; ++i) pump();
-                        openAfterClick = !gBlockPick->done && SendMessageW(gBlockPick->blocks, LB_GETCURSEL, 0, 0) == 1;
-                        SendMessageW(gBlockPick->blocks, WM_LBUTTONDBLCLK, MK_LBUTTON, at);
-                        SendMessageW(gBlockPick->blocks, WM_LBUTTONUP, 0, at);
+                        openAfterClick = !gBlockPick->closed() && gBlockPick->selectedBlock() == 1;
+                        SendMessageW(pw, WM_LBUTTONDBLCLK, MK_LBUTTON, at);
+                        if (gBlockPick) SendMessageW(pw, WM_LBUTTONUP, 0, at);
                     };
                     const std::string added = showBlockPicker(true);
                     gBlockPickHook = nullptr;
@@ -18721,7 +18390,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     for (int i = 0; i < 8; ++i) pump();
                     RedrawWindow(w, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                     capture(bdir / (std::string("blockpick") + (gLightTheme ? "_light" : "") + ".png"), w);
-                    if (gBlockPick) gBlockPick->done = true;
+                    if (gBlockPick) gBlockPick->cancel();
                 };
                 showBlockPicker(false, {}, s.size() > 10 ? widen(s.substr(10)) : std::wstring());  // (blockpick: or blockpick:<text>)
                 gBlockPickHook = nullptr;
@@ -19108,7 +18777,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 const std::string before = trigBlock(*t, ref) ? trigBlock(*t, ref)->def : "";
                 gBlockPickHook = [](HWND) {
                     for (int i = 0; i < 3; ++i) pump();
-                    blockPickChoose();  // the block the picker shows first
+                    if (gBlockPick) gBlockPick->choose();  // the block the picker shows first
                 };
                 const POINT c{line->r.left + scale(40), line->r.top + scale(12)};  // on its title (not a value)
                 SendMessageW(gTE.pane, WM_LBUTTONDBLCLK, 0, MAKELPARAM(c.x, c.y));
