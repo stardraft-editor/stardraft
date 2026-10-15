@@ -3066,24 +3066,10 @@ void handle(HDC dc, int x, int y, COLORREF c) {
 }
 const double kPi = 3.14159265358979323846;
 
-// The game's distance (OpenBW xy_length): not a circle. With x the longer side and y the shorter,
-// x - x/16 + 3y/8 - x/64 + 3y/256 when y is over x/4, else x. So a range is a polygon.
-double gameLength(double dx, double dy) {
-    double x = std::abs(dx), y = std::abs(dy);
-    if (x < y) std::swap(x, y);
-    return x / 4 < y ? x - x / 16 + y * 3 / 8 - x / 64 + y * 3 / 256 : x;
-}
-// The points within `range` of a box (screen pixels; `range` already zoomed): ranges between units are measured
-// from box to box (OpenBW units_distance), so the box grows by the game's distance shape on every side.
+// The points within `range` of a box (screen pixels; `range` already zoomed; core/data_pictures.inc: rangeShapeAround).
 std::vector<POINT> rangeShape(RECT box, double range) {
     std::vector<POINT> pts;
-    const int steps = 256;
-    for (int k = 0; k <= steps; ++k) {
-        const double a = 2 * kPi * k / steps, dx = std::cos(a), dy = std::sin(a);
-        const double r = range / gameLength(dx, dy);
-        const double px = dx * r, py = dy * r;
-        pts.push_back({LONG(std::lround((px >= 0 ? box.right : box.left) + px)), LONG(std::lround((py >= 0 ? box.bottom : box.top) + py))});
-    }
+    for (const draw::Point& p : rangeShapeAround({box.left, box.top, box.right, box.bottom}, range)) pts.push_back({LONG(p.x), LONG(p.y)});
     return pts;
 }
 void rangeLine(HDC dc, RECT box, double range, COLORREF c, int width = 1, int style = PS_SOLID) {
@@ -4646,55 +4632,28 @@ void blitSprite(HDC dc, const Sprite& s, int cx, int cy, float zoom, BYTE alpha 
 // One frame of an image, its origin at (cx, cy), `zoom` screen pixels per game pixel.
 void drawGameImage(HDC dc, int image, int frame, bool flip, int owner, int cx, int cy, float zoom, BYTE alpha = 255) {
     if (!app.ed || image < 0) return;
-    if (widgetsHd()) {  // Remastered art (one frame: decoded once, drawn each time)
-        const HdFrame& f = hdFrame(image, frame);
-        if (f.ok) {
-            Sprite s;
-            s.width = f.boxW, s.height = f.boxH, s.originX = f.boxW / 2, s.originY = f.boxH / 2;
-            s.rgba.assign(size_t(s.width) * s.height * 4, 0);
-            const int df = dataSprites().drawFunction(image);
-            drawImageHd(s, image, frame, flip, owner, 0, 0, drawFunctionLooks(df) ? 0 : df);
-            if (drawFunctionLooks(df)) {
-                Sprite out = s;
-                std::fill(out.rgba.begin(), out.rgba.end(), uint8_t(0));
-                compositeLookHd(out, s, df, lookLevel(df), kHdScale, hdFrameRect(image, frame, flip, out, 0, 0));
-                s = std::move(out);
-            }
-            blitSprite(dc, s, cx, cy, zoom / kHdScale, alpha);
-            return;
-        }
+    if (widgetsHd()) {  // Remastered art (one frame: decoded once, drawn each time; core/data_pictures.inc)
+        Sprite s;
+        if (gameImageSprite(image, frame, flip, owner, s) == kHdScale) return blitSprite(dc, s, cx, cy, zoom / kHdScale, alpha);
     }
-    UnitSprites& sp = dataSprites();
-    const Grp* g = sp.grp(image);
-    if (!g || g->frames.empty() || !g->width || !g->height) return;
-    frame = std::clamp(frame, 0, int(g->frames.size()) - 1);
     static std::map<std::tuple<int, int, bool, int, int>, UnitPalette::Bitmap> cache;
     auto [it, fresh] = cache.try_emplace({image, frame, flip, owner, gData.edits});
     UnitPalette::Bitmap& b = it->second;
     if (fresh) {
         Sprite s;
-        s.width = g->width, s.height = g->height, s.originX = g->width / 2, s.originY = g->height / 2;
-        s.rgba.assign(size_t(s.width) * s.height * 4, 0);
-        const int df = sp.drawFunction(image);
-        sp.drawImage(s, image, frame, flip, uint8_t(std::clamp(owner, 0, 11)), app.ed->tileset(), 0, 0,
-                     drawFunctionLooks(df) ? UnitSprites::Blend::Index : UnitSprites::Blend::Normal);
-        if (drawFunctionLooks(df)) {
-            Sprite out = s;
-            std::fill(out.rgba.begin(), out.rgba.end(), uint8_t(0));
-            compositeLookSd(out, s, df, lookLevel(df), app.ed->tileset(), sp, sdFrameRect(sp, image, frame, flip, out, 0, 0));
-            s = std::move(out);
+        if (gameImageSprite(image, frame, flip, owner, s) == 1) {  // (the SD art: core/data_pictures.inc)
+            b.w = s.width, b.h = s.height;
+            BITMAPINFO bi{};
+            bi.bmiHeader = {sizeof(BITMAPINFOHEADER), b.w, -b.h, 1, 32, BI_RGB};
+            void* bits = nullptr;
+            b.bmp = CreateDIBSection(nullptr, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
+            if (b.bmp)
+                for (size_t i = 0; i < size_t(b.w) * b.h; ++i) {
+                    const uint8_t* p = &s.rgba[i * 4];
+                    uint8_t* o = static_cast<uint8_t*>(bits) + i * 4;
+                    o[0] = uint8_t(p[2] * p[3] / 255), o[1] = uint8_t(p[1] * p[3] / 255), o[2] = uint8_t(p[0] * p[3] / 255), o[3] = p[3];
+                }
         }
-        b.w = s.width, b.h = s.height;
-        BITMAPINFO bi{};
-        bi.bmiHeader = {sizeof(BITMAPINFOHEADER), b.w, -b.h, 1, 32, BI_RGB};
-        void* bits = nullptr;
-        b.bmp = CreateDIBSection(nullptr, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
-        if (b.bmp)
-            for (size_t i = 0; i < size_t(b.w) * b.h; ++i) {
-                const uint8_t* p = &s.rgba[i * 4];
-                uint8_t* o = static_cast<uint8_t*>(bits) + i * 4;
-                o[0] = uint8_t(p[2] * p[3] / 255), o[1] = uint8_t(p[1] * p[3] / 255), o[2] = uint8_t(p[0] * p[3] / 255), o[3] = p[3];
-            }
     }
     if (!b.bmp) return;
     HDC src = CreateCompatibleDC(dc);
@@ -4787,15 +4746,6 @@ int legend(HDC dc, int x, int y, int w, const std::vector<LegendChip>& chips) {
 
 // --- units: footprint (sprite, unit size, placement box, addon) and the direction dial ---
 
-int addonParent(int addon) {
-    switch (addon) {
-    case 107: case 108: return 106;  // Comsat Station, Nuclear Silo: Command Center
-    case 115: return 114;            // Control Tower: Starport
-    case 117: case 118: return 116;  // Covert Ops, Physics Lab: Science Facility
-    case 120: return 113;            // Machine Shop: Factory
-    default: return 106;
-    }
-}
 
 // A preview's grid: under the mouse, its cell is lit and says what one cell is ("1 tile: 32 x 32 px"), so the
 // picture has a scale. The form repaints when the mouse goes into another cell (gGridAreas).
@@ -5687,17 +5637,6 @@ int widgetSoundPlayer(HDC dc, int sfx, int x, int y, int w) {
 int gDamageArmor = 0;  // the target's armor in the damage table
 bool gCompactWidgets = false;  // drawing in a trigger's pop-out: nothing to click
 
-// One hit: amount + bonus x level, less armor (not for Ignore Armor), then the type's share for the size
-// (Explosive 50/75/100 %, Concussive 100/50/25 %); at least 0.5.
-double hitDamage(int weapon, int level, int size, int armor) {
-    const int type = datValue("weapons", "Weapon Type", weapon);
-    double d = datValue("weapons", "Damage Amount", weapon) + datValue("weapons", "Damage Bonus", weapon) * level;
-    if (type != 4) d = d > armor ? d - armor : 0;
-    if (type == 1) d *= size == 1 ? 0.5 : size == 2 ? 0.75 : 1.0;
-    if (type == 2) d *= size == 1 ? 1.0 : size == 2 ? 0.5 : 0.25;
-    if (type == 0) d = 0;
-    return std::max(d, 0.5);
-}
 
 int widgetDamage(HDC dc, int wpn, int x, int y, int w) {
     const int upgrade = datValue("weapons", "Damage Upgrade", wpn, 61);
@@ -5752,34 +5691,6 @@ int widgetDamage(HDC dc, int wpn, int x, int y, int w) {
 
 // --- units: the tiles a unit sees (OpenBW generate_sight_values, the base mask) ---
 
-// The sight mask for a range of 0..11 tiles: (3 + 2 r) tiles square, true where the unit sees.
-std::vector<bool> sightMask(int range, int& size) {
-    range = std::clamp(range, 0, 11);
-    const int maxW = 3 + range * 2, maxH = maxW;
-    size = maxW;
-    std::vector<bool> m(size_t(maxW) * maxH, false);
-    auto mask = [&](int index) {
-        if (index >= 0 && size_t(index) < m.size()) m[size_t(index)] = true;
-    };
-    const int offx = maxW / 2 - 1, offy = maxH / 2 - 1;
-    for (int y = 0; y < 3; ++y)
-        for (int x = 0; x < 3; ++x) mask((offy + y) * maxW + offx + x);
-    const int offset = maxH / 2 - maxW / 2, halfW = maxW / 2;
-    int maxX2 = halfW, maxX1 = halfW * 2, curX1 = 0, curX2 = halfW, i = 0, maxI = halfW;
-    int cursize1 = 0, cursize2 = halfW * halfW, minCursize2 = halfW * (halfW - 1), minCursize2Chg = halfW * 2;
-    while (true) {
-        if (curX1 <= maxX1)
-            for (int k = 0; k <= maxX1 - curX1; ++k) mask((offset + curX2) * maxW + curX1 + k), mask((offset + maxX2) * maxW + curX1 + k);
-        if (curX2 <= maxX2)
-            for (int k = 0; k <= maxX2 - curX2; ++k) mask((offset + curX1) * maxW + curX2 + k), mask((offset + maxX1) * maxW + curX2 + k);
-        cursize2 += 1 - cursize1 - 2;
-        cursize1 += 2;
-        --curX2, ++maxX2;
-        if (cursize2 <= minCursize2) --maxI, ++curX1, --maxX1, minCursize2 -= minCursize2Chg - 2, minCursize2Chg -= 2;
-        if (++i > maxI) break;
-    }
-    return m;
-}
 
 // --- units: the narrowest gap the unit passes (terrain stops its size box at walk-tile edges, 8 pixels apart) ---
 

@@ -7,9 +7,9 @@
 // requirements are sdl_data_extras.inc's. The pins, back and forward, the clipboard and the entry's and the field's
 // menus are the core's (core/data_nav.inc), the menus kit menus here; the entries' icons are the palette's pictures
 // (sdl_pictures.inc); the image player, its timeline and the portrait beside the fields are the core's
-// (core/views_data_pictures.inc); the Units display and the map's players are the core's paint (sdl_data_extras.inc).
-// Not on this system yet: the other pictures beside the fields (the diagrams, the script's uses and code, the sound
-// player) and Rename. Included by
+// (core/views_data_pictures.inc), and so are the diagrams, the script's uses and code and the sound player
+// (core/views_data_diagrams.inc); the Units display and the map's players are the core's paint (sdl_data_extras.inc).
+// Rename edits the name in the text prompt. Included by
 // main_sdl.cpp after sdl_briefing.inc; registerWorkspaceView(Workspace::Data, gSdlData) puts it in the window, and
 // --data <tab>:<entry> opens an entry for a snapshot.
 
@@ -20,7 +20,6 @@ DataExtrasModel gSdlDataExtras;
 DataModel& dataState() { return gSdlDataState; }
 DataExtrasModel& dataExtras() { return gSdlDataExtras; }
 
-void sdlDataNotHere(const wchar_t* what) { setMessage(std::wstring(what) + L": not on this system yet"); }
 
 // --- A view with a kit scroll bar at its right (the Windows window's own bar: the view's windowScrollBar and vscroll) ---
 
@@ -219,6 +218,100 @@ void sfxPlayOnce(int sfx) {
     }
 }
 
+// An SFX data entry's sound, as the Windows program's sfxLoad: its file under sound\ in the game's data, decoded.
+bool sdlSfxLoad(int sfx, SDL_AudioSpec& spec, std::vector<Uint8>& pcm) {
+    const std::wstring path = sfxPath(sfx);
+    Bytes wav;
+    std::string err;
+    if (path.empty() || !gState.data.readFile("sound\\" + narrow(path), wav, err)) return false;
+    Uint8* buf = nullptr;
+    Uint32 len = 0;
+    if (!SDL_LoadWAV_IO(SDL_IOFromConstMem(wav.data(), wav.size()), true, &spec, &buf, &len)) return false;
+    pcm.assign(buf, buf + len);
+    SDL_free(buf);
+    return true;
+}
+
+// The SFX data form's sound (the player and the play buttons; the Windows program's gSound): play, pause and go on;
+// another sound starts from its beginning.
+struct SdlSfxSound {
+    SDL_AudioStream* stream = nullptr;
+    int sfx = -1, total = 0;
+    bool paused = false;
+} gSdlSfx;
+void sdlSfxStop() {
+    if (gSdlSfx.stream) SDL_DestroyAudioStream(gSdlSfx.stream);
+    gSdlSfx = {};
+}
+void sdlSfxToggle(int sfx) {
+    if (gSdlSfx.sfx == sfx && gSdlSfx.stream) {
+        gSdlSfx.paused = !gSdlSfx.paused;
+        gSdlSfx.paused ? SDL_PauseAudioStreamDevice(gSdlSfx.stream) : SDL_ResumeAudioStreamDevice(gSdlSfx.stream);
+        return;
+    }
+    sdlSfxStop();
+    SDL_AudioSpec spec{};
+    std::vector<Uint8> pcm;
+    if (!sdlSfxLoad(sfx, spec, pcm)) return setMessage(L"Could not play the sound");
+    gSdlSfx.stream = openPlaybackSdl(&spec);  // (a test run plays nothing: sdl_files.inc)
+    if (!gSdlSfx.stream) {
+        if (!gSilent) setMessage(L"No sound device is available");
+        return;
+    }
+    SDL_PutAudioStreamData(gSdlSfx.stream, pcm.data(), int(pcm.size()));
+    SDL_FlushAudioStream(gSdlSfx.stream);
+    SDL_ResumeAudioStreamDevice(gSdlSfx.stream);
+    gSdlSfx.sfx = sfx, gSdlSfx.total = int(pcm.size());
+}
+// The part played (0..1) and whether it plays now; a sound at its end stops (its button shows play again).
+double sdlSfxPlayed(int sfx, bool& playing) {
+    playing = false;
+    if (gSdlSfx.sfx != sfx || !gSdlSfx.stream) return 0;
+    const int queued = SDL_GetAudioStreamQueued(gSdlSfx.stream);
+    if (!gSdlSfx.paused && queued <= 0) {
+        sdlSfxStop();
+        return 0;
+    }
+    playing = !gSdlSfx.paused;
+    return gSdlSfx.total ? 1.0 - double(queued) / gSdlSfx.total : 0.0;
+}
+// The sound's loudness in 240 columns and its length, read once for each file (the Windows widgetSoundPlayer's).
+bool sdlSfxWave(int sfx, std::vector<float>& peaks, double& seconds) {
+    struct Wave {
+        bool ok = false;
+        std::vector<float> peaks;
+        double seconds = 0;
+    };
+    static std::map<std::wstring, Wave> waves;
+    const std::wstring path = sfxPath(sfx);
+    if (path.empty()) return false;
+    auto [it, fresh] = waves.try_emplace(path);
+    Wave& w = it->second;
+    if (fresh) {
+        SDL_AudioSpec spec{};
+        std::vector<Uint8> pcm;
+        if (sdlSfxLoad(sfx, spec, pcm)) {
+            const int bytes = SDL_AUDIO_BYTESIZE(spec.format), frames = int(pcm.size()) / std::max(1, bytes * spec.channels);
+            w.seconds = frames / double(std::max(1, spec.freq));
+            const int columns = 240;
+            w.peaks.assign(columns, 0.0f);
+            for (int i = 0; i < frames; ++i) {
+                float v = 0;
+                for (int ch = 0; ch < spec.channels; ++ch) {
+                    const Uint8* q = pcm.data() + (size_t(i) * spec.channels + ch) * bytes;
+                    if (spec.format == SDL_AUDIO_S16LE) v = std::max(v, std::abs(int16_t(q[0] | q[1] << 8) / 32768.0f));
+                    else if (spec.format == SDL_AUDIO_U8) v = std::max(v, std::abs((q[0] - 128) / 128.0f));
+                }
+                float& peak = w.peaks[size_t(int64_t(i) * columns / std::max(1, frames))];
+                peak = std::max(peak, v);
+            }
+            w.ok = true;
+        }
+    }
+    peaks = w.peaks, seconds = w.seconds;
+    return w.ok;
+}
+
 // A menu of the core's items (core/data_nav.inc) at `at` of `from`, then "Report feedback on <on>..." as the Windows
 // menus end; a pick runs `pick` with the item's id.
 void sdlDataMenu(draw::View& from, draw::Point at, const MenuModel& items, std::function<void(int)> pick, const std::wstring& on) {
@@ -370,11 +463,13 @@ public:
         std::wstring tip;
         draw::Cursor cursor = draw::Cursor::Arrow;
         std::function<void(draw::Point)> drag;  // a picture's part: while the mouse is held (core/views_data_pictures.inc)
+        std::vector<std::string> fields;        // the fields a diagram's part shows (marked while the mouse is over it)
+        bool edit = false;                      // its drag changes the entry: saved (one undo step) when the mouse is let go
     };
     std::vector<Area> areas;
     std::function<void()> pressed;  // a link pressed: its click when the mouse goes up
     std::function<void(draw::Point)> dragging;  // a picture's part pressed: it follows the mouse until it goes up
-    bool dragMoved = false;
+    bool dragMoved = false, dragEdits = false;
 
     static std::string dat() { return curTable() ? curTable()->schema().name : std::string(); }
     // The topmost area under p (`clicks`: the topmost one with a click or a drag; a row's area without one does not hide
@@ -397,6 +492,17 @@ public:
         return p.x >= 0 && p.y >= 0 && p.x < gSdlDataForm.width() && p.y < gSdlDataForm.height();
     }
     void pictureRepaint() override { gSdlDataForm.invalidate(); }
+    // The diagrams' parts (core/views_data_diagrams.inc): the fields they show, the drags that change the entry, the sound.
+    void pictureEdit(draw::Rect r, std::function<void(draw::Point)> drag, std::function<void()> click, const std::wstring& tip, draw::Cursor cursor,
+                     std::vector<std::string> fields) override {
+        const bool edit = drag != nullptr;
+        areas.push_back({r, std::move(click), tip, cursor, std::move(drag), std::move(fields), edit});
+    }
+    bool fieldHot(const std::string& field) override { return hot_.count(field) != 0; }
+    bool pictureDragging() override { return dragging != nullptr; }
+    bool sfxWave(int sfx, std::vector<float>& peaks, double& seconds) override { return sdlSfxWave(sfx, peaks, seconds); }
+    double sfxPlayed(int sfx, bool& playing) override { return sdlSfxPlayed(sfx, playing); }
+    void sfxToggle(int sfx) override { sdlSfxToggle(sfx); }
 
     const DatTable* table() override { return curTable(); }
     DatTable* editTable() override { return curTable(); }
@@ -417,7 +523,15 @@ public:
         const int sid = entryNameString(dat(), gSdlDataState.entry);
         return sid > 0 && gSdlDataState.project && sid <= gSdlDataExtras.strings.count() ? sid : 0;
     }
-    void rename(int) override { sdlDataNotHere(L"Rename (the game text editor)"); }
+    void rename(int sid) override {  // the name in the text prompt, its color and control codes written as <n> (StatTxt::escape)
+        std::wstring text = widen(StatTxt::escape(gSdlDataExtras.strings.text(sid - 1)));
+        const std::wstring title = shellTr(L"Name in the game (stat_txt.tbl string ") + std::to_wstring(sid) + L")";
+        if (!prompt(title.c_str(), text)) return;
+        gSdlDataExtras.strings.set(sid - 1, StatTxt::unescape(narrow(text)));
+        sdlExtrasChanged();
+        sdlDataRebuildList();
+        setMessage(shellTr(L"Renamed: ") + statString(sid));
+    }
     void openString(int sid) override { sdlDataGoTo("strings", sid); }
     std::wstring fieldNote(const DatField& f, uint32_t v) override { return ::fieldNote(f, v); }
     std::wstring readOnlyWhy(const DatField& f) override { return datFieldReadOnly(dat(), f, gSdlDataState.entry); }
@@ -427,7 +541,12 @@ public:
         bool moving = false;
         return paintDataPictures(c, *this, dat(), section, gSdlDataState.entry, x, y, w, moving);
     }
-    void soundButton(draw::Canvas&, draw::Rect, int) override {}
+    void soundButton(draw::Canvas& c, draw::Rect r, int sfx) override {  // a play / pause button for a sound (main.cpp: soundButton)
+        bool playing = false;
+        sdlSfxPlayed(sfx, playing);
+        kitpaint::drawGlyph(c, r, kitpaint::Ico(playing ? UiIcon::Pause : UiIcon::Play), kAccent);
+        areas.push_back({r, [sfx] { sdlSfxToggle(sfx), gSdlDataForm.invalidate(); }, playing ? L"Pause" : L"Play", draw::Cursor::Hand});
+    }
     int unitDisplay(draw::Canvas& c, int y) override { return sdlPaintUnitDisplay(c, gSdlDataState.entry, y); }  // (sdl_data_extras.inc)
     int requirements(draw::Canvas& c, int, int y, int) override { return sdlPaintRequirements(c, dat(), gSdlDataState.entry, y); }
     int mapPlayers(draw::Canvas& c, int x0, int y, int colW, int labelW, int rowH) override {  // (core/views_data_players.inc)
@@ -440,7 +559,7 @@ public:
         const Area* a = areaAt(p, true);
         if (!a || (!a->click && !a->drag)) return false;
         sdlDataCommitEdit();
-        pressed = a->click, dragging = a->drag, dragMoved = false;
+        pressed = a->click, dragging = a->drag, dragMoved = false, dragEdits = a->edit;
         if (dragging && !pressed) dragMoved = true, dragging(p);  // a press sets the value too (as on Windows)
         return true;
     }
@@ -453,11 +572,16 @@ public:
     }
     void widgetRelease(bool lost) override {
         auto click = std::exchange(pressed, nullptr);
-        const bool moved = std::exchange(dragMoved, false);
+        const bool moved = std::exchange(dragMoved, false), edits = std::exchange(dragEdits, false);
         dragging = nullptr;
-        if (click && !lost && !moved) click();
+        if (moved && edits) sdlDataSaved(), gSdlDataForm.invalidate();  // a diagram's drag: the change is one undo step
+        else if (click && !lost && !moved) click();
     }
-    bool widgetHover(draw::Point, std::set<std::string>&) override { return true; }  // (the form repaints: the hot boxes follow the mouse)
+    bool widgetHover(draw::Point p, std::set<std::string>& fields) override {  // (the form repaints: the hot boxes follow the mouse)
+        for (auto it = areas.rbegin(); it != areas.rend() && fields.empty(); ++it)
+            if (it->r.contains(p)) fields.insert(it->fields.begin(), it->fields.end());
+        return true;
+    }
     bool widgetCursor(draw::Point p, draw::Cursor& c) override {
         const Area* a = areaAt(p, true);
         if (!a) a = areaAt(p);
@@ -480,19 +604,12 @@ public:
         gSdlDataEntry.focus();
         gSdlDataEntry.select();
     }
-    void dropdown(const DatField& f, draw::Rect) override {
+    void dropdown(const DatField& f, draw::Rect box) override {  // the list picker under the box, with the values' icons
         const DatTable* t = curTable();
         if (!t) return;
-        const std::vector<ListPickItem> items = dataDropdownItems(f);
-        const std::string cur = std::to_string(t->value(f, gSdlDataState.entry));
-        std::vector<std::wstring> rows;
-        int checked = -1;
-        for (size_t i = 0; i < items.size(); ++i) {
-            rows.push_back(items[i].label);
-            if (items[i].value == cur) checked = int(i);
-        }
-        const int picked = sdlPickFromList(rows, checked, datLabel(f.name));
-        if (picked >= 0) gSdlDataForm.setValue(f, uint32_t(std::stoul(items[size_t(picked)].value)));
+        std::string picked;
+        if (sdlChoose(datLabel(f.name), dataDropdownItems(f), std::to_string(t->value(f, gSdlDataState.entry)), picked, box))
+            gSdlDataForm.setValue(f, uint32_t(std::stoul(picked)));
     }
     std::vector<ListPickItem> dropdownItems(const DatField& f) override { return dataDropdownItems(f); }
     void valueSet() override { sdlDataSaved(); }
@@ -530,6 +647,7 @@ void sdlFormArea(draw::Rect r, std::function<void()> click, const std::wstring& 
     gSdlDataFormHost.area(r, std::move(click), tip, hand ? draw::Cursor::Hand : draw::Cursor::Arrow);
 }
 bool sdlFormHot(draw::Rect r) { return gSdlDataFormHost.hot(r); }
+void dataSetValue(const DatField& f, uint32_t v) { gSdlDataForm.setValue(f, v); }  // (the core's diagrams: core/views_data_diagrams.inc)
 void sdlFormAreaCursor(draw::Rect r, std::function<void()> click, const std::wstring& tip, draw::Cursor cursor) {
     gSdlDataFormHost.area(r, std::move(click), tip, cursor);
 }
@@ -622,6 +740,7 @@ void sdlDataSelect(const std::string& spec) {
     sdlDataGoTo(spec.substr(0, colon), std::atoi(spec.c_str() + colon + 1));
     if (const size_t more = spec.find(':', colon + 1); more != std::string::npos)  // tab:entry:scroll (px; a large one: the form's end)
         gSdlDataState.formScroll = std::max(0, std::atoi(spec.c_str() + more + 1));
+    if (spec.size() > 5 && spec.compare(spec.size() - 5, 5, ":code") == 0) gImagePlayer.showCode = true;  // (images:<n>:<scroll>:code: the script's code)
     if (spec.substr(0, colon) == "portdata") {  // a portrait: the picture shows it once its video is decoded (10 s at most)
         const auto clips = portraitClips(portraitPath(gSdlDataState.entry));
         for (int i = 0; i < 200 && !clips->ready.load(std::memory_order_acquire); ++i) std::this_thread::sleep_for(std::chrono::milliseconds(50));

@@ -22,17 +22,19 @@ void sdlExtrasChanged() {
     gSdlDataForm.invalidate();
 }
 
-// The list picker (sdlPickFromList, a modal kit dialog): true with the item's value in `out`.
-bool sdlChoose(const std::wstring& prompt, const std::vector<ListPickItem>& items, const std::string& current, std::string& out) {
-    std::vector<std::wstring> rows;
-    int checked = -1;
-    for (size_t i = 0; i < items.size(); ++i) {
-        rows.push_back(items[i].label);
-        if (items[i].value == current) checked = int(i);
-    }
-    const int i = sdlPickFromList(rows, checked, prompt);
-    if (i < 0 || i >= int(items.size())) return false;
-    out = items[size_t(i)].value;
+// The list picker (core/views_list_pick.inc, as the Windows program's showListPicker: the search, the sections and each
+// row's icon) under `box` of the form (empty: at the mouse): true with the item's value in `out`.
+bool sdlChoose(const std::wstring& prompt, const std::vector<ListPickItem>& items, const std::string& current, std::string& out, draw::Rect box = {}) {
+    if (items.empty()) return false;
+    ListPickView v(prompt, items, current);
+    v.iconOf = [](const ListPickItem& it) { return it.iconDat.empty() || it.icon < 0 ? draw::Image{} : sdlDataImage(dataRefPicture(it.iconDat, uint32_t(it.icon))); };
+    const draw::View& form = gSdlDataForm;
+    draw::Point at{box.left, box.bottom + scale(2)};
+    if (box.empty())
+        if (draw::Host* h = form.host()) at = h->mouse(form);
+    const draw::Point o = form.origin();
+    if (!runListPick(v, {o.x + at.x, o.y + at.y})) return false;
+    out = v.result();
     return true;
 }
 
@@ -113,8 +115,8 @@ struct SdlRequirements final : RequirementsPaintHost {
     void edited() override { sdlExtrasChanged(); }
     bool hot(draw::Rect r) override { return sdlFormHot(r); }
     void hit(draw::Rect r, std::function<void()> click, const std::wstring& tip, bool hand) override { sdlFormArea(r, std::move(click), tip, hand); }
-    bool choose(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, draw::Rect, std::string& out) override {
-        return sdlChoose(prompt, items, current, out);
+    bool choose(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, draw::Rect box, std::string& out) override {
+        return sdlChoose(prompt, items, current, out, box);
     }
     std::vector<ListPickItem> valueItems(const char* kind) override { return entryItems(kind ? kind : ""); }
     void pickBox(draw::Rect r, const std::wstring& text, bool changed, std::function<void(draw::Rect)> click) override {
@@ -561,8 +563,8 @@ struct SdlUnitDisplay final : UnitDisplayHost {
     ButtonSets& buttons() override { return dataExtras().buttons; }
     void edited() override { sdlExtrasChanged(); }
     void tip(draw::Rect r, const std::wstring& tip) override { sdlFormArea(r, nullptr, tip, false); }
-    bool choose(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, draw::Rect, std::string& out) override {
-        return sdlChoose(prompt, items, current, out);
+    bool choose(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, draw::Rect box, std::string& out) override {
+        return sdlChoose(prompt, items, current, out, box);
     }
     std::vector<ListPickItem> entryItems(const char* kind) override { return ::entryItems(kind); }
     std::wstring buttonSetName(int set) override { return ::buttonSetName(set); }

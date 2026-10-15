@@ -73,12 +73,7 @@ void NewPageView::pickBoxFace(draw::Canvas& c, draw::Rect r, const std::wstring&
 }
 
 void NewPageView::sliderFace(draw::Canvas& c, int x0, int x1, int cy, float frac, bool over, bool enabled) {
-    const draw::Rect track{x0, cy - scale(2), x1, cy + scale(2)};
-    c.roundBox(track, kCtl, kBorder, float(scale(2)));
-    const int kx = x0 + int(std::lround(std::clamp(frac, 0.0f, 1.0f) * float(x1 - x0)));
-    c.fill({x0, cy - scale(2), kx, cy + scale(2)}, enabled ? kAccent : kFaint);
-    c.smoothRoundOutline({kx - scale(7), cy - scale(7), kx + scale(7), cy + scale(7)}, float(scale(7)), !enabled ? kFaint : over ? kAccentBright : kAccent,
-                         2.0f);
+    kitpaint::drawSliderFace(c, x0, x1, cy, frac, over, enabled);
 }
 
 void NewPageView::radioMark(draw::Canvas& c, draw::Rect b, bool on, bool over) {
