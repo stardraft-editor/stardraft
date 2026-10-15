@@ -94,6 +94,10 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     gRenderer->drawTo(cmd, gMapTex, uint32_t(w), uint32_t(h), buildMapScene());
 }
 
+// The start page and the Files page (sdl_start.inc, sdl_files.inc): defined after this file's root view is read.
+extern StartView gStartView;
+extern FilesPage gFilesPage;  // (core/views_files.inc)
+
 // The panes that have no view on this system yet.
 struct NotHereView final : draw::View {
     void paint(draw::Canvas& c) override {
@@ -243,6 +247,7 @@ struct MainView final : draw::View {
         add(gLocList, draw::Rect(0, 0, 0, 0));
         add(gPal2List, draw::Rect(0, 0, 0, 0));
         add(notHere, draw::Rect(0, 0, 0, 0));
+        add(gStartView, draw::Rect(0, 0, 0, 0));  // the start page (sdl_start.inc): no map open
         for (auto& [w, v] : gWorkspaceViews) add(*v, draw::Rect(0, 0, 0, 0));
         relayout();
     }
@@ -257,7 +262,7 @@ struct MainView final : draw::View {
     bool key(const draw::KeyEvent& e) override {
         const int k = int(e.key);
         const bool typed = (k >= 'A' && k <= 'Z') || (k >= '0' && k <= '9');
-        const bool typing = gSearchSdl.field().hasFocus() || gFilterSdl.field().hasFocus();
+        const bool typing = gSearchSdl.field().hasFocus() || gFilterSdl.field().hasFocus() || gFilesPage.typing();
         if (typing && typed && !(e.mods & (draw::kCtrl | draw::kAlt))) return false;
         return shortcutRun(e);
     }
@@ -281,11 +286,14 @@ struct MainView final : draw::View {
         in.tabsH = tabStripHeight();     // the document tabs
         in.railW = shellHasRail() ? wsRailWidth() : 0;
         in.mode = gState.mode;
-        const bool mapWs = gWorkspace == Workspace::Map;  // the map's panes show in the Map workspace only
+        // The map's panes show in the Map workspace with a map open; with no map, the Map workspace shows the start page.
+        const bool mapOpen = gState.ed && gState.ed->isOpen();
+        const bool mapWs = gWorkspace == Workspace::Map && mapOpen;
+        const bool startShown = gWorkspace == Workspace::Map && !mapOpen;
         in.mapWs = mapWs;
         in.toolStrip = [](int width) { return toolStripHeight(width, false); };
         in.modeBarH = 0, in.modeBar = modeBarRect();  // (the modes are in the top bar)
-        in.mapOpen = gState.ed && gState.ed->isOpen();
+        in.mapOpen = mapOpen;
         if (in.mapOpen) in.mapW = gState.ed->width(), in.mapH = gState.ed->height();
         in.minimapHidden = gDock.minimapHidden;
         in.minimapRight = gDock.minimapRight;
@@ -334,7 +342,8 @@ struct MainView final : draw::View {
         const auto found = gWorkspaceViews.find(gWorkspace);
         draw::View* wsView = mapWs || found == gWorkspaceViews.end() ? nullptr : found->second;
         for (auto& [w, v] : gWorkspaceViews) apply(*v, L.view, v == wsView);
-        apply(notHere, L.view, !mapWs && !wsView);
+        apply(gStartView, L.view, startShown);
+        apply(notHere, L.view, !mapWs && !wsView && !startShown);
         // A hidden pane keeps no keyboard: when a switch hid the focused one (a search box, the palette's list), the
         // window's root takes the focus, so the keys reach the menus and shortcuts, not a box nobody sees.
         for (View* c : children())

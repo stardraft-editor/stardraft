@@ -6,6 +6,7 @@
 #include "strings.inc"
 #include "ids.inc"
 #include "prefs.inc"
+#include "install_search.inc"
 #include "recent.inc"
 #include "modes.inc"
 #include "colors.inc"

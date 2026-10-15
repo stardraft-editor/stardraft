@@ -37,8 +37,10 @@ std::wstring projectUnitName(int) { return L""; }
 // The workspaces (the core's setWorkspace; the Windows program's is in main.cpp, with its windows): Assets is Files, and
 // a workspace the tab's mode does not have falls back to Map with the same message as Windows. The workspace shows its
 // view (sdl_main_view.inc: the registered one, else "Not on this system yet"), and the map's panes show in Map only.
+void previewStopSdl();  // (sdl_files.inc: a sound that plays stops when the Files workspace is left)
 void setWorkspace(Workspace w) {
     if (w == Workspace::Assets) w = Workspace::Files;  // Assets is part of Files
+    if (w != Workspace::Files) previewStopSdl();
     if (!commandInMode(mapPageCommandOf(w))) {
         if (w == Workspace::ClassicTriggers || w == Workspace::ClassicSettings)
             setMessage(w == Workspace::ClassicTriggers ? L"This project's map has no classic triggers. Use the Triggers workspace."
