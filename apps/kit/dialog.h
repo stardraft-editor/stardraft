@@ -26,6 +26,14 @@ struct DialogButton {
     bool primary = false;    // Enter presses it; drawn as the main action
     bool cancel = false;     // Escape presses it
     bool left = false;       // at the left edge, in order (the rest stay at the right)
+    int width = 0;           // at 100 %: the button's width (0: its preferred width)
+};
+
+// The space around a dialog's content and buttons, at 100 %: the content sits `top`/`left`/`right` from the window's
+// edges and `gap` above the buttons; the buttons sit `bottom` from the bottom edge, `buttonGap` apart.
+struct DialogInsets {
+    int left = 16, top = 16, right = 16, bottom = 16;
+    int gap = 24, buttonGap = 8;
 };
 
 class Dialog : public draw::View {
@@ -36,6 +44,11 @@ public:
     void setContent(draw::View& c);
     // The buttons, from left to right; the last of the right ones is at the right edge.
     void setButtons(std::vector<DialogButton> bs);
+
+    // The space around the content and the buttons (the default: kDialogPad and kDialogGap).
+    void setInsets(const DialogInsets& in) { insets_ = in; }
+    // The window is centered on the work area of the screen (DS_CENTER), not on the window that opens it.
+    void setCenterOnWorkArea(bool on) { workArea_ = on; }
 
     // Shows the dialog in a window `size` big (x: width, y: height) that `from` opens, and returns when it closes:
     // the result of the button that closed it; a close without a button (the window's close box) gives the cancel
@@ -67,6 +80,8 @@ private:
     std::vector<DialogButton> specs_;
     std::vector<std::unique_ptr<Button>> buttons_;
     std::vector<int> widths_;
+    DialogInsets insets_;
+    bool workArea_ = false;
     std::function<bool(int)> allow_;
     draw::View* from_ = nullptr;  // the view that opened the window (its host closes it)
     bool done_ = false;
