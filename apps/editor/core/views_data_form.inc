@@ -59,3 +59,27 @@ DataFlagCell dataFlagCell(int x0, int labelW, int y, int cols, size_t b, const D
     f.text = {f.check.right + s.eight, cy, cx + s.flagW - s.four, cy + s.flagH};
     return f;
 }
+
+// A yes/no value on the Canvas: the check box on the value's cell and "Yes", "No" or "Yes (n)" beside it (faint when
+// read only, green when it differs from the game). `hot` tells whether the mouse is over a box of the form. The caller
+// records the cell as a click area.
+void paintDataBool(draw::Canvas& c, const DataFieldRow& fr, uint32_t v, bool ro, bool mod, const std::function<bool(draw::Rect)>& hot) {
+    kitpaint::drawCheckMark(c, fr.boolCheck, v != 0, !ro && hot(fr.boolCell), !ro);
+    const std::wstring label = v == 0 ? L"No" : v == 1 ? L"Yes" : L"Yes (" + std::to_wstring(v) + L")";
+    c.text(fr.boolText, label, ro ? kFaint : mod ? kGood : kText, draw::kMiddle);
+}
+
+// A flag field's grid under its value, on the Canvas: each flag's check box and name (green when it differs from the
+// game, lit when the mouse is over it). Each flag's click area goes to `hit(area, bit)`. Returns the grid's height.
+int paintDataFlags(draw::Canvas& c, const DatField& f, const DatTable& t, int u, uint32_t v, int x0, int labelW, int y, int colW,
+                   const DataFormScale& s, const std::function<bool(draw::Rect)>& hot, const std::function<void(draw::Rect, int)>& hit) {
+    const int cols = dataFlagCols(colW, labelW, s);
+    for (size_t b = 0; b < f.flags.size(); ++b) {
+        const DataFlagCell fc = dataFlagCell(x0, labelW, y, cols, b, s);
+        const bool set = (v >> b) & 1, bmod = ((t.stock(f, u) >> b) & 1) != set;
+        kitpaint::drawCheckMark(c, fc.check, set, hot(fc.cell), true);
+        c.text(fc.text, widen(f.flags[b]), bmod ? kGood : set || hot(fc.cell) ? kText : kDim, draw::kMiddle | draw::kEllipsis);
+        hit(fc.cell, int(b));
+    }
+    return dataFlagGridHeight(f.flags.size(), cols, s);
+}
