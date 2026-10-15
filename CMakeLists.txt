@@ -379,7 +379,12 @@ if(STARDRAFT_NEXT AND STARDRAFT_RENDERER)
     # --- The editor on macOS and Linux (SDL; research/ports/MAC-BUILD-PLAN.md step 6): the portable core (core/core.inc)
     # with the SDL shell (main_sdl.cpp). Windows keeps its own target below. Fonts and atlases as kit_demo's.
     if(NOT WIN32)
-        add_executable(stardraft_editor MACOSX_BUNDLE apps/editor/main_sdl.cpp)
+        add_executable(stardraft_editor MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
+                       apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp)
+        if(NOT STARDRAFT_VERSION_NAME)
+            set(STARDRAFT_VERSION_NAME "0.5 Alpha")
+        endif()
+        target_compile_definitions(stardraft_editor PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}")
         target_include_directories(stardraft_editor PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src)
         target_link_libraries(stardraft_editor PRIVATE stardraft_kit_sdl stardraft_render stardraft_platform stardraft_kit stardraft)
         set_target_properties(stardraft_editor PROPERTIES OUTPUT_NAME stardraft MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/editor/Info.plist.in)

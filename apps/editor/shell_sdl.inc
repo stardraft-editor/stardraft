@@ -94,3 +94,47 @@ void shellErrorBox(const std::wstring& text, const std::wstring& title) {
 void shellRecentMenu(bool, const std::vector<std::wstring>&, const std::wstring&) {}  // (the menus are not on this system yet)
 void shellShowQuickPicker(bool, bool) { setMessage(L"This is not on this system yet"); }
 void shellMapFileOpened(const std::filesystem::path&) {}  // (the file association is Windows only)
+
+// When the program started (its start-up marks count from here): main() takes it first.
+std::chrono::steady_clock::time_point shellProcessStart() {
+    static const auto t0 = std::chrono::steady_clock::now();
+    return t0;
+}
+std::wstring shellVersion() { return widen(STARDRAFT_VERSION_NAME); }
+std::wstring shellBuildStamp() { return widen(std::string("built ") + __DATE__ + " " + __TIME__); }
+void shellSetTitle(const std::wstring& title) {
+    int n = 0;
+    SDL_Window** wins = SDL_GetWindows(&n);
+    for (int i = 0; wins && i < n; ++i) SDL_SetWindowTitle(wins[i], narrow(title).c_str());
+    SDL_free(wins);
+}
+bool shellHasRail() { return false; }  // (the rail is not on this system yet)
+void shellShowRail(bool) {}
+void shellWaitCursor() {
+    static SDL_Cursor* wait = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
+    SDL_SetCursor(wait);
+}
+void shellMinimapSize(int& w, int& h) { w = h = 0; }  // (the minimap is not on this system yet)
+// The renderer takes the open map's sources again on the next frame (sdl_main_view.inc sets them when gMapEd changes).
+void shellRendererSources() {
+    if (gRenderer) gRenderer->setQuality(gState.quality);
+    gMapEd = nullptr;
+}
+void shellRedrawTabs() {
+    if (gRoot) gRoot->invalidate();
+}
+void shellInvalidateTabs() {
+    if (gRoot) gRoot->invalidate();
+}
+void shellInvalidateWorkspaceBar() {
+    if (gRoot) gRoot->invalidate();
+}
+void shellForgetAnims() {}  // (no unit animations are kept apart from the renderer's)
+// macOS's file system ignores case unless the user formatted it otherwise; Linux's does not.
+bool shellPathsFoldCase() {
+#ifdef __APPLE__
+    return true;
+#else
+    return false;
+#endif
+}
