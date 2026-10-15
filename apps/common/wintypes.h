@@ -21,6 +21,8 @@ using LONG = int32_t;  // (32 bits as on Windows; not the system's long)
 using BOOL = int;
 using COLORREF = DWORD;
 using UINT_PTR = uintptr_t;
+struct HWND__;  // (window handles: opaque here; the Windows build has them from <windows.h>)
+using HWND = HWND__*;
 
 #ifndef TRUE
 #define TRUE 1
