@@ -79,3 +79,73 @@ inline int runValueDialog(draw::View& from, const std::wstring& title, const std
     if (r == kValueOk) number = view.number();
     return r;
 }
+
+// The text pop-out as a kit dialog: the label and a text field of several lines, with Set and Cancel (the SDL program's;
+// the Windows program's is the game text editor with its colors, classic_triggers.inc). The sizes are the native
+// pop-out's template (330 x 176 dialog units), in pixels at 100 %.
+namespace textLayout {
+constexpr int kDialogW = 495, kDialogH = 352;
+constexpr int kLabelY = 8, kLabelH = 20, kFieldY = 32, kFieldH = 200, kContentW = 465;
+}  // namespace textLayout
+
+class CtTextView final : public draw::View {
+public:
+    CtTextView(const std::wstring& label, const std::wstring& text) {
+        label_.setText(label);
+        label_.setTone(stardraft::kit::LabelTone::Dim);
+        field_.setMultiline(true);
+        field_.setText(text);
+        add(label_, {0, 0, 0, 0});
+        add(field_, {0, 0, 0, 0});
+    }
+    void setDialog(stardraft::kit::Dialog* d) { dlg_ = d; }
+    std::wstring text() const { return field_.text(); }
+    void cancel() {
+        if (dlg_) dlg_->close(kValueCancel);
+    }
+    void paint(draw::Canvas& c) override {
+        if (!focused_ && host()) focused_ = true, field_.focus();  // the text has the keyboard when the dialog opens
+        c.fill({0, 0, width(), height()}, kBg);
+    }
+    void resized() override {
+        using namespace textLayout;
+        label_.setFrame({0, scale(kLabelY), scale(kContentW), scale(kLabelY + kLabelH)});
+        field_.setFrame({0, scale(kFieldY), scale(kContentW), scale(kFieldY + kFieldH)});
+    }
+
+private:
+    stardraft::kit::Dialog* dlg_ = nullptr;
+    stardraft::kit::Label label_;
+    stardraft::kit::TextField field_;
+    bool focused_ = false;
+};
+
+// Runs the text pop-out from `from`: kValueOk (`text` holds the new text, its lines ending with CR LF as the game's) or
+// kValueCancel.
+inline int runTextDialog(draw::View& from, const std::wstring& title, const std::wstring& label, std::string& text, CtTextView*& shown) {
+    std::wstring t;
+    for (wchar_t ch : widen(text))
+        if (ch != L'\r') t += ch;  // (the field's lines end with LF)
+    CtTextView view(label, t);
+    stardraft::kit::Dialog dlg;
+    dlg.setContent(view);
+    view.setDialog(&dlg);
+    std::vector<stardraft::kit::DialogButton> buttons;
+    buttons.push_back({tr(L"Set"), kValueOk, true, false, false, valueLayout::kButtonW});
+    buttons.push_back({tr(L"Cancel"), kValueCancel, false, true, false, valueLayout::kButtonW});
+    dlg.setButtons(std::move(buttons));
+    dlg.setInsets({12, 8, 15, 16, 0, 9});
+    dlg.setCenterOnWorkArea(true);
+    shown = &view;
+    const int r = dlg.run(from, title, draw::Point{scale(textLayout::kDialogW), scale(textLayout::kDialogH)});
+    shown = nullptr;
+    if (r == kValueOk) {
+        std::wstring crlf;
+        for (wchar_t ch : view.text()) {
+            if (ch == L'\n') crlf += L'\r';
+            crlf += ch;
+        }
+        text = narrow(crlf);
+    }
+    return r;
+}

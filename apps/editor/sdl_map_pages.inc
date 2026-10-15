@@ -42,11 +42,9 @@ struct SdlClassicCopy final : SdlCopy {
     bool applyToMap() override;
     void rebase() override;
 };
-// Classic triggers: the page's model (the core's CtModel, the page's collapsed rows) and its copy (the triggers as the page
-// edits them, against the map's as the page read them; the map takes them with one undo step, as classic_triggers.inc does).
-struct SdlClassicTrigModel : CtModel {
-    std::set<int> collapsed;  // the action rows of collapsed blocks (cleared when the trigger changes)
-};
+// Classic triggers: the page's model (the core's CtModel) and its copy (the triggers as the page edits them, against the
+// map's as the page read them; the map takes them with one undo step, as classic_triggers.inc does).
+struct SdlClassicTrigModel : CtModel {};
 struct SdlClassicTrigCopy final : SdlCopy {
     std::shared_ptr<SdlClassicTrigModel> d;
     bool has() const override { return d != nullptr; }
