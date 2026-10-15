@@ -110,6 +110,7 @@ struct NotHereView final : draw::View {
 // view with registerWorkspaceView (before or after the window exists; the window adds it then).
 std::map<Workspace, draw::View*> gWorkspaceViews;
 struct MainView;
+bool sdlMapPageTyping();  // a field of the open map page has the keyboard (sdl_map_pages.inc)
 void registerWorkspaceView(Workspace w, draw::View& v);
 
 #include "sdl_pictures.inc"  // the palette's pictures (the terrain, doodad, unit and sprite art from the game data)
@@ -262,7 +263,7 @@ struct MainView final : draw::View {
     bool key(const draw::KeyEvent& e) override {
         const int k = int(e.key);
         const bool typed = (k >= 'A' && k <= 'Z') || (k >= '0' && k <= '9');
-        const bool typing = gSearchSdl.field().hasFocus() || gFilterSdl.field().hasFocus() || gFilesPage.typing();
+        const bool typing = gSearchSdl.field().hasFocus() || gFilterSdl.field().hasFocus() || gFilesPage.typing() || sdlMapPageTyping();
         if (typing && typed && !(e.mods & (draw::kCtrl | draw::kAlt))) return false;
         return shortcutRun(e);
     }

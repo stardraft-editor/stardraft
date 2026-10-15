@@ -404,6 +404,8 @@ bool sdlPickColor(uint32_t& rgb) {
 // title and the description are plain text on this system (the game text editor is the Windows program's).
 class SdlPropsView final : public MapPropsView {
 public:
+    // The title or the description has the keyboard (the program's shortcuts wait for it).
+    bool typingField() const { return name_.hasFocus() || desc_.hasFocus(); }
     SdlPropsView(MapPropsHost& host, MapPropsValues& v) : MapPropsView(host, v), val_(v) {
         name_.setText(widen(v.nameText));
         name_.onChange = [this] { val_.nameText = narrow(name_.text()), sdlMapPageTyped(); };
@@ -485,6 +487,15 @@ void sdlPropsInvalidate() {
 }
 
 MapPageCopies* sdlOpenCopies() { return gSdlPage.ready ? sdlCopies(false) : nullptr; }
+// A text field of the open page has the keyboard: the title or description, a force name, a Map data search box or
+// number field. The program's one-letter shortcuts wait for it, as they wait for the other search boxes.
+bool sdlMapPageTyping() {
+    if (gSdlPage.props && gSdlPage.props->typingField()) return true;
+    if (gSdlPage.players && gSdlPage.players->typingName()) return true;
+    for (auto& v : gSdlPage.classic)
+        if (v && v->typingField()) return true;
+    return false;
+}
 SdlCopy* sdlOpenCopy() {
     MapPageCopies* c = sdlOpenCopies();
     return c && gSdlPage.kind >= 0 ? c->kinds[gSdlPage.kind].get() : nullptr;

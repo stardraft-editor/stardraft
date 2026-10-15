@@ -239,15 +239,7 @@ public:
             n.field.onFocusLost = [this] { fill(); };  // the value as kept (a number over its limit: the limit)
             add(n.field, {0, 0, 0, 0});
         }
-        if (tab_ == kClassicUnits) {
-            for (int k = 0; k < kCsWeaponRows; ++k)
-                for (int b = 0; b < 2; ++b) {
-                    ClassicNumber& n = b ? weaponBonus_[size_t(k)] : weaponDamage_[size_t(k)];
-                    setNumberLook(n);
-                    n.field.onChange = [this, k, b] { weaponEdited(k, b == 0); };
-                    n.field.onFocusLost = [this] { fill(); };
-                    add(n.field, {0, 0, 0, 0});
-                }
+        if (tab_ == kClassicUnits) {  // the name (the rename button) after the fields, as the old Name box
             rename_.setText(L"\x270E"), rename_.setTone(stardraft::kit::Tone::Normal);
             rename_.setTip(L"Rename the unit (empty: the game's name)");
             rename_.onClick = [this] { renameUnit(); };
@@ -256,6 +248,21 @@ public:
         // The players' defaults, and the players' values (numbers for upgrades, check boxes for units and techs).
         const std::wstring aLabel = tab_ == kClassicUnits ? L"Can build" : tab_ == kClassicUpgrades ? L"Max level" : L"Available";
         const std::wstring bLabel = tab_ == kClassicUpgrades ? L"Start level" : L"Researched";
+        // Tab goes in the Win32 page's order: the Default row (left to right in a row), players 1-8, then the weapons.
+        if (tab_ == kClassicUpgrades) {
+            setNumberLook(globalA_), setNumberLook(globalB_);
+            globalA_.field.onChange = [this] { upgradeLevelEdited(true, true, 0); };
+            globalB_.field.onChange = [this] { upgradeLevelEdited(true, false, 0); };
+            globalA_.field.onFocusLost = globalB_.field.onFocusLost = [this] { fill(); };
+            add(globalB_.field, {0, 0, 0, 0}), add(globalA_.field, {0, 0, 0, 0});  // the left column first (Start, then Max)
+        } else {
+            globalCheckA_.setLabel(aLabel), globalCheckA_.onChange = [this](bool on) { checkChanged(kCheckGlobalA, 0, on); };
+            add(globalCheckA_, {0, 0, 0, 0});
+            if (tab_ == kClassicTechs) {
+                globalCheckB_.setLabel(bLabel), globalCheckB_.onChange = [this](bool on) { checkChanged(kCheckGlobalB, 0, on); };
+                add(globalCheckB_, {0, 0, 0, 0});
+            }
+        }
         for (int p = 0; p < kClassicPlayers; ++p) {
             pDefault_[size_t(p)].setLabel(L"Default");
             pDefault_[size_t(p)].onChange = [this, p](bool on) { checkChanged(kCheckPlayerDefault, p, on); };
@@ -267,7 +274,7 @@ public:
                 a.field.onChange = [this, p] { upgradeLevelEdited(false, true, p); };
                 b.field.onChange = [this, p] { upgradeLevelEdited(false, false, p); };
                 a.field.onFocusLost = b.field.onFocusLost = [this] { fill(); };
-                add(a.field, {0, 0, 0, 0}), add(b.field, {0, 0, 0, 0});
+                add(b.field, {0, 0, 0, 0}), add(a.field, {0, 0, 0, 0});  // the left column first (Start, then Max)
             } else {
                 pCheckA_[size_t(p)].setLabel(aLabel), pCheckA_[size_t(p)].onChange = [this, p](bool on) { checkChanged(kCheckPlayerA, p, on); };
                 add(pCheckA_[size_t(p)], {0, 0, 0, 0});
@@ -277,19 +284,15 @@ public:
                 }
             }
         }
-        if (tab_ == kClassicUpgrades) {
-            setNumberLook(globalA_), setNumberLook(globalB_);
-            globalA_.field.onChange = [this] { upgradeLevelEdited(true, true, 0); };
-            globalB_.field.onChange = [this] { upgradeLevelEdited(true, false, 0); };
-            globalA_.field.onFocusLost = globalB_.field.onFocusLost = [this] { fill(); };
-            add(globalA_.field, {0, 0, 0, 0}), add(globalB_.field, {0, 0, 0, 0});
-        } else {
-            globalCheckA_.setLabel(aLabel), globalCheckA_.onChange = [this](bool on) { checkChanged(kCheckGlobalA, 0, on); };
-            add(globalCheckA_, {0, 0, 0, 0});
-            if (tab_ == kClassicTechs) {
-                globalCheckB_.setLabel(bLabel), globalCheckB_.onChange = [this](bool on) { checkChanged(kCheckGlobalB, 0, on); };
-                add(globalCheckB_, {0, 0, 0, 0});
-            }
+        if (tab_ == kClassicUnits) {  // the unit's weapons: the damage, then the bonus, of each weapon
+            for (int k = 0; k < kCsWeaponRows; ++k)
+                for (int b = 0; b < 2; ++b) {
+                    ClassicNumber& n = b ? weaponBonus_[size_t(k)] : weaponDamage_[size_t(k)];
+                    setNumberLook(n);
+                    n.field.onChange = [this, k, b] { weaponEdited(k, b == 0); };
+                    n.field.onFocusLost = [this] { fill(); };
+                    add(n.field, {0, 0, 0, 0});
+                }
         }
         fillList();
         fill();
@@ -361,12 +364,12 @@ public:
         return globalA_.field.hasFocus() || globalB_.field.hasFocus();
     }
 
-    // The list's place: inside its frame (the native list's frame is a 2 px ring with the rows inside it).
-    static draw::Rect listRect(int pad, int top, int w, int h) { return {pad + 2, top + 2, pad + w - 2, top + h - 2}; }
-    // The list's frame, over the list: the rounded 1 px line of the field box.
+    // The list's place: all of its frame's area (the rows start under the frame's outer 2 px, as the native list's did).
+    static draw::Rect listRect(int pad, int top, int w, int h) { return {pad, top, pad + w, top + h}; }
+    // The list's frame, over the list: the rounded 2 px ring (the native list's frame, which covered its outer 2 px).
     void paintOver(draw::Canvas& c) override {
         const Rows l = rows();
-        c.roundBox(listRect(l.pad, l.listTop, l.listW, l.listH), draw::kNone, kBorder, float(scale(stardraft::kit::kRadius)), 1);
+        c.roundBox(listRect(l.pad, l.listTop, l.listW, l.listH), draw::kNone, kBorder, float(scale(stardraft::kit::kRadius)), scale(1) + 1);
     }
 
     void paint(draw::Canvas& c) override {
@@ -626,25 +629,26 @@ private:
             if (q.empty() || n.find(q) != std::wstring::npos) shown_.push_back(e);
         }
         list_.setCount(int(shown_.size()));
-        selectRow();
+        selectRow(true);
         list_.invalidate();
     }
-    // The list's selection is the entry (when it is shown); the entry's row is in view.
-    void selectRow() {
+    // The list's selection is the entry (when it is shown). `inView`: its row is brought into view (the list's new
+    // rows, the page's first show); a value's change does not scroll the list (the old list kept its place).
+    void selectRow(bool inView) {
         const auto at = std::find(shown_.begin(), shown_.end(), d_.entry[tab_]);
         if (at == shown_.end()) {
             list_.clearSelection();
             return;
         }
         list_.selectOnly(int(at - shown_.begin()));
-        scrollToRow_ = int(at - shown_.begin());  // in view when the list has its size (the next paint)
+        if (inView) scrollToRow_ = int(at - shown_.begin());  // in view when the list has its size (the next paint)
     }
     // Shows the selected entry's values in the page's fields.
     void fill() {
         const int e = d_.entry[tab_];
         const size_t i = size_t(e);
         const bool def = classicUseDefault(tab_, e);
-        selectRow();
+        selectRow(false);
         for (int f = 0; f < classicFieldCount(tab_); ++f) {
             ClassicNumber& n = fields_[size_t(f)];
             n.field.setText(std::to_wstring(classicFieldValue(tab_, e, f, def)));
@@ -653,6 +657,7 @@ private:
         }
         if (tab_ == kClassicUnits) {
             fields_[1].field.setReadOnly(!host_.hasShields(e));  // shields count only for units that have them
+            fields_[1].field.setTabStop(host_.hasShields(e));    // (a unit without them: a disabled box, not a Tab stop)
             // The unit's weapons: its own, then its turret's (the rows that it does not use are not shown).
             const std::vector<int> ws = classicUnitWeapons(e);
             weapons_.assign(kCsWeaponRows, -1);

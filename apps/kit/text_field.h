@@ -56,6 +56,8 @@ public:
     bool readOnly() const { return model_.readOnly(); }
     // With nothing selected, Copy (and Ctrl+C) takes the whole text (a read-only code view, as the old edit box did).
     void setCopyWhole(bool on) { copyWhole_ = on; }
+    // Off: the field is not a Tab stop (a disabled edit box, as the Win32 page had for a unit without shields).
+    void setTabStop(bool on) { tabStop_ = on; }
     void setMaxLength(size_t n) { model_.setMaxLength(n); }
     void setFilter(std::function<bool(wchar_t)> f) { model_.setFilter(std::move(f)); }
     // The green Changed look (a value that differs from the saved one).
@@ -93,7 +95,7 @@ public:
     bool text(const draw::TextEvent& e) override;
     bool compose(const draw::CompositionEvent& e) override;
     draw::Cursor cursor(draw::Point pt) override { return inTrailing(pt) ? draw::Cursor::Arrow : draw::Cursor::IBeam; }
-    bool focusable() const override { return true; }
+    bool focusable() const override { return tabStop_; }
     void focusChanged(bool has) override;
     void captureLost() override;
 
@@ -194,7 +196,7 @@ private:
     int hbarTotal_ = -1, hbarPage_ = -1;
     std::vector<Span> spans_;
     draw::FontDesc fontDesc_;
-    bool wrap_ = true, changed_ = false, copyWhole_ = false;
+    bool wrap_ = true, changed_ = false, copyWhole_ = false, tabStop_ = true;
     bool plain_ = false, alignRight_ = false;
     int trailing_ = 0;
     unsigned style_ = 0;  // changes with what the layout depends on besides the text and the width
