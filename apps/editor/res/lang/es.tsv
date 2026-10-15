@@ -1861,3 +1861,141 @@ Player arrays	Matrices por jugador
 Select a player array	Seleccione una matriz por jugador
  is not a player array	 no es una matriz por jugador
 list (or player array)	lista (o matriz por jugador)
+New graphics for preplaced units: 	Gráficos nuevos para unidades colocadas: 
+ unit is	 unidad se
+ units are	 unidades se
+ made again at the start	 vuelven a crear al inicio
+ preplaced unit keeps	 unidad colocada mantiene
+ preplaced units keep	 unidades colocadas mantienen
+ the old graphics: a new unit cannot be cloaked, burrowed, lifted, loaded, a hallucination, linked to an add-on or a Nydus Canal, or have interceptors or scarabs.	 los gráficos antiguos: una unidad nueva no puede estar camuflada, enterrada, despegada, cargada, ser una alucinación, estar enlazada a un anexo o a un Canal Nydus, ni tener interceptores o escarabajos.
+ of the units that are made again stands	 de las unidades que se vuelven a crear está
+ of the units that are made again stand	 de las unidades que se vuelven a crear están
+ where the game cannot put a unit. The game puts it near its place, or does not make it again.	 donde el juego no puede poner una unidad. El juego la pone cerca de su lugar, o no la vuelve a crear.
+The project 	El proyecto 
+ is open already	 ya está abierto
+All location slots are in use	Todas las ranuras de ubicación están en uso
+Pinned	Fijados
+Right button paints 	El botón derecho pinta 
+; left button paints 	; el botón izquierdo pinta 
+the terrain you click	el terreno en que hace clic
+Right button: no terrain	Botón derecho: sin terreno
+Unpinned 	Desfijado: 
+Pinned to the top: 	Fijado arriba: 
+Pinned 	Fijado: 
+ to the top of the list	 (arriba de la lista)
+Pasted everything of 	Se pegó todo de 
+ values, the display and the button set	 valores, la visualización y el conjunto de botones
+ values that this unit does not have: not pasted)	 valores que esta unidad no tiene: no se pegaron)
+Paste &everything	Pegar &todo
+ (values, display, buttons)	 (valores, visualización, botones)
+Loading the portrait…	Cargando el retrato…
+Name in the game (stat_txt.tbl string 	Nombre en el juego (cadena de stat_txt.tbl 
+Renamed: 	Nombre cambiado: 
+Change the name that the game shows. Each entry that uses this string gets the new name.	Cambia el nombre que muestra el juego. Cada entrada que usa esta cadena recibe el nombre nuevo.
+Changed: show only the entries that you changed (click again to show all)	Cambiados: muestra solo las entradas que cambió (haga clic otra vez para mostrar todas)
+ (the current player's)	 (el del jugador actual)
+Unit types	Tipos de unidad
+Numbers	Números
+" has no clear type yet (	" aún no tiene un tipo claro (
+hidden text	texto oculto
+hidden text (14)	texto oculto (14)
+Code	Código
+Preview	Vista previa
+Align left	Alinear a la izquierda
+Center the line (code 13)	Centrar la línea (código 13)
+Align right (code 12)	Alinear a la derecha (código 12)
+: search unit types	: buscar tipos de unidad
+: search the map's locations	: buscar las ubicaciones del mapa
+: default value	: valor predeterminado
+Brush height: 1 to 32. Click to type a height (empty: the same as the size). The arrows and the mouse wheel change it.	Alto del pincel: de 1 a 32. Haga clic para escribir un alto (vacío: igual que el tamaño). Las flechas y la rueda del ratón lo cambian.
+Diamond	Rombo
+Square	Cuadrado
+Circle	Círculo
+Brush shape: diamond, square or circle. Click to select one; the mouse wheel changes it.	Forma del pincel: rombo, cuadrado o círculo. Haga clic para seleccionar una; la rueda del ratón la cambia.
+The height is the same as the size. Click to give the height a value of its own.	El alto es igual que el tamaño. Haga clic para dar al alto un valor propio.
+The height has a value of its own. Click to make it the same as the size.	El alto tiene un valor propio. Haga clic para que sea igual que el tamaño.
+Unit name   (empty: 	Nombre de unidad   (vacío: 
+Trigger 	Disparador 
+ in For each 	 en Para cada 
+Turned off the triggers	Se desactivaron los disparadores
+Turned off the trigger	Se desactivó el disparador
+Turned on the triggers	Se activaron los disparadores
+Turned on the trigger	Se activó el disparador
+Deleted the triggers	Se eliminaron los disparadores
+Deleted the trigger	Se eliminó el disparador
+Duplicated the triggers	Se duplicaron los disparadores
+Duplicated the trigger	Se duplicó el disparador
+Search forces	Buscar fuerzas
+Copied the triggers	Se copiaron los disparadores
+Copied the block	Se copió el bloque
+Pasted the triggers	Se pegaron los disparadores
+Pasted the block	Se pegó el bloque
+For each 	Para cada 
+Blocks	Bloques
+Duplicate\tCtrl+D	Duplicar\tCtrl+D
+Delete\tDel	Eliminar\tDel
+Copy\tCtrl+C	Copiar\tCtrl+C
+Paste\tCtrl+V	Pegar\tCtrl+V
+Edit the block…	Editar el bloque…
+Move out\tCtrl+Left	Sacar\tCtrl+Left
+Move in\tCtrl+Right	Meter\tCtrl+Right
+Becomes 	Se convierte en 
+ triggers in the map. 	 disparadores en el mapa. 
+Off	Desactivado
+Show the actions of the block	Mostrar las acciones del bloque
+Hide the actions of the block	Ocultar las acciones del bloque
+Edit the block	Editar el bloque
+Move out (Ctrl+Left)	Sacar (Ctrl+Left)
+Move in (Ctrl+Right)	Meter (Ctrl+Right)
+Add an action…	Añadir una acción…
+Add a condition…	Añadir una condición…
+A trigger has at most 64 actions	Un disparador tiene como máximo 64 acciones
+A trigger has at most 16 conditions	Un disparador tiene como máximo 16 condiciones
+Add an action to For each 	Añadir una acción a Para cada 
+Add an action inside the block (the end of its actions)	Añadir una acción dentro del bloque (al final de sus acciones)
+Add a block	Añadir un bloque
+Save	Guardar
+Add the block	Añadir el bloque
+Remove the block	Quitar el bloque
+Search values	Buscar valores
+A block repeats the actions in it for each value. The variable is the value of each copy.	Un bloque repite sus acciones para cada valor. La variable es el valor de cada copia.
+Variable name	Nombre de la variable
+Add values…	Añadir valores…
+Remove the value	Quitar el valor
+Removed the block	Se quitó el bloque
+Changed the block	Se cambió el bloque
+Added a block	Se añadió un bloque
+Delete the trigger	Eliminar el disparador
+Forces…	Fuerzas…
+Forces: the forces that run the trigger	Fuerzas: las fuerzas que ejecutan el disparador
+The condition or action does nothing in the game (Turn off)	La condición o acción no hace nada en el juego (Desactivar)
+The game's Always display flag for this action	La marca Mostrar siempre del juego para esta acción
+Could not set the classic triggers. A long trigger needs a switch that no trigger uses.	No se pudieron establecer los disparadores clásicos. Un disparador largo necesita un interruptor que ningún disparador use.
+Show &grid	Mostrar &cuadrícula
+Zoom &in	&Acercar
+Zoom &out	A&lejar
+&Actual size	Tamaño &real
+&Fit map	A&justar mapa
+ The total is more than the game has room for. Build stops.	 El total es mayor que el espacio que tiene el juego. La compilación se detiene.
+Feedback is anonymous, and we publish it on our Discord server for review. Do not include sensitive or private information. Ctrl+Enter sends it.	Los comentarios son anónimos y los publicamos en nuestro servidor de Discord para revisarlos. No incluya información sensible o privada. Ctrl+Enter los envía.
+Open the Discord server	Abrir el servidor de Discord
+Sending your feedback…	Enviando sus comentarios…
+Thank you for your feedback.	Gracias por sus comentarios.
+Open it on GitHub (#	Abrirlo en GitHub (#
+StarDraft 2 could not send it now. It sends it when StarDraft 2 starts the next time.	StarDraft 2 no pudo enviarlo ahora. Lo envía la próxima vez que StarDraft 2 se inicie.
+Bright yellow (Player 10)	Amarillo brillante (Jugador 10)
+Pink (Player 11)	Rosa (Jugador 11)
+Hidden (the game does not show this text)	Oculto (el juego no muestra este texto)
+. Puts its code in at the cursor.	. Pone su código en el cursor.
+. Colors the selected text, or the text you type next.	. Colorea el texto seleccionado o el que escriba a continuación.
+The text as the game shows it	El texto como lo muestra el juego
+The text with its codes as <XX> ("<<" is a "<")	El texto con sus códigos como <XX> ("<<" es un "<")
+ is not found	 no se encuentra
+New graphics for preplaced units	Gráficos nuevos para unidades colocadas
+New graphics for preplaced units off	Gráficos nuevos para unidades colocadas desactivados
+New graphics for preplaced units on	Gráficos nuevos para unidades colocadas activados
+The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, the map removes each preplaced unit that the edits give other graphics, and makes it again on its place at the start. The map view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground that it cannot stand on) moves near its place, or the game does not make it again.	El juego crea las unidades colocadas antes de las ediciones de .dat, así que mantienen los gráficos antiguos. Con esta opción, el mapa quita cada unidad colocada a la que las ediciones dan otros gráficos, y la vuelve a crear en su lugar al inicio. La vista del mapa muestra estas unidades con los gráficos nuevos. Una unidad donde el juego no puede poner una unidad (sobre otras unidades o en un terreno donde no puede estar) se mueve cerca de su lugar, o el juego no la vuelve a crear.
+StarDraft 2 map	Mapa de StarDraft 2
+. The old program is 	. El programa antiguo es 
+). Type it as a number	). Escríbalo como un número
+Triggers do not run each second, so they can miss Exactly. Use At least or At most	Los disparadores no se ejecutan cada segundo, así que pueden perder Exactly. Use At least o At most

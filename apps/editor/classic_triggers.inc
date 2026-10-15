@@ -231,7 +231,7 @@ void ctSelectEntry(int kind, int entry) {
 void ctUpdateHeader() {
     ClassicTrigDialog& d = *gCt;
     const ClassicTrigger* t = ctTrigger();
-    SetWindowTextW(d.headTitle, t ? (L"Trigger " + std::to_wstring(d.sel + 1)).c_str() : L"None");
+    SetWindowTextW(d.headTitle, t ? (tr(L"Trigger ") + std::to_wstring(d.sel + 1)).c_str() : L"None");
     SetWindowTextW(d.headCount, !t ? L"" : widen(std::string(t->disabled() ? "Turned off, " : "") + std::to_string(t->actionCount()) + (t->actionCount() == 1 ? " action" : " actions")).c_str());
     SetWindowTextW(d.turnOff, t && t->disabled() ? L"Turn on" : L"Turn off");
     for (HWND h : {d.turnOff, d.deleteTrig, d.forces}) EnableWindow(h, t != nullptr);
@@ -442,7 +442,7 @@ std::wstring ctEntryTitle(bool condition) {
     for (int i = from; i < to; ++i)
         if (t->actions[size_t(i)].depth == depth && ++siblings && i == entry) index = siblings;
     std::wstring s = L"Action " + std::to_wstring(index) + L" of " + std::to_wstring(siblings);
-    if (parent >= 0 && t->actions[size_t(parent)].batch) s += L" in For each " + widen(t->actions[size_t(parent)].batch->name);
+    if (parent >= 0 && t->actions[size_t(parent)].batch) s += tr(L" in For each ") + widen(t->actions[size_t(parent)].batch->name);
     return s;
 }
 
@@ -1094,7 +1094,7 @@ std::vector<ListPickItem> ctAddItems(int kind) {
     if (blocks)
         for (const ClassicBlockKind& k : classicBlockKinds()) {
             ListPickItem it;
-            it.label = L"For each " + widen(k.name), it.section = L"Blocks", it.value = "block:" + std::to_string(int(k.kind));
+            it.label = tr(L"For each ") + widen(k.name), it.section = L"Blocks", it.value = "block:" + std::to_string(int(k.kind));
             items.push_back(std::move(it));
         }
     for (const ClassicDef* def : kind ? classicActionDefs() : classicConditionDefs()) {
@@ -1339,7 +1339,7 @@ void ctPaint(HWND hwnd, bool isList) {
             const RECT top{textX, r.top, right, (r.top + r.bottom) / 2 + scale(1)}, bottom{textX, top.bottom - scale(2), right, r.bottom};
             // The first condition (Always when there is none), and the Off chip at the right of it.
             std::wstring first = t.conditionCount() ? widen(classicConditionText(t.conditions[0], n)) : L"Always";
-            if (parts > 1) first = L"Becomes " + std::to_wstring(parts) + L" triggers in the map. " + first;
+            if (parts > 1) first = tr(L"Becomes ") + std::to_wstring(parts) + tr(L" triggers in the map. ") + first;
             SetTextColor(mem, ui::rowText(lit));
             int textRight = right;
             if (t.disabled()) {
@@ -1451,7 +1451,7 @@ void ctPaint(HWND hwnd, bool isList) {
                 std::wstring text = kind ? L"Add an action\x2026" : L"Add a condition\x2026";
                 std::wstring tip = full ? (kind ? L"A trigger has at most 64 actions" : L"A trigger has at most 16 conditions") : L"";
                 if (kind && !full && d.kind == 1 && d.entry >= 0 && d.entry < count && t->actions[size_t(d.entry)].type == kClassicBlockType) {
-                    text = L"Add an action to For each " + widen(t->actions[size_t(d.entry)].batch->name) + L"\x2026";
+                    text = tr(L"Add an action to For each ") + widen(t->actions[size_t(d.entry)].batch->name) + L"\x2026";
                     tip = L"Add an action inside the block (the end of its actions)";
                 }
                 ui::addRow(mem, lr, text, [kind, lr] { ctAddClick(kind, lr); }, tip, !full);
