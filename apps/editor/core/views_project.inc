@@ -78,6 +78,7 @@ public:
         field_.setMultiline(true);
         field_.setWrap(false);
         field_.setReadOnly(true);
+        field_.setCopyWhole(true);
         field_.setFont({draw::Face::Mono, 0});
         add(field_, {0, 0, 0, 0});
     }
