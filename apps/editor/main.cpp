@@ -82,6 +82,7 @@ using std::min;
 #include "update.h"  // apps/common: the self-update's system part (update.inc)
 #include "stardraft/settings.h"
 #include "text_codec.h"  // apps/common: UTF-8 and wide strings (core/strings.inc)
+#include "core/tr.h"  // the translation's declaration (the core's use of tr; ui_text.h defines it)
 #include "ui_text.h"  // the program's text in other languages: the macros for DrawTextW, MessageBoxW and the others
 
 using namespace stardraft;
@@ -95,9 +96,10 @@ namespace {
 
 #include "core/strings.inc"  // widen, narrow
 
-#include "settings.inc"
+#include "core/prefs.inc"  // the settings file (prefs::): the portable part of the settings
 
 #include "core/ids.inc"  // the command ids, the modes, the dock layout
+#include "core/recent.inc"  // the recent maps and projects (saved in the settings; the File menu is the host's)
 
 void loadDock() {
     auto get = [](const wchar_t* name, bool& v) { prefs::flag(std::wstring(L"Layout/") + name, v); };
@@ -163,7 +165,6 @@ void saveDock() {
 
 // Recently opened maps and projects, and the folder projects usually go in (where the last one was made or
 // opened): HKCU\Software\StarDraft, RecentMaps / RecentProjects (lists) and ProjectsFolder.
-std::vector<std::wstring> gRecentMaps, gRecentProjects;
 bool gOpenLastProject = false;  // Options: open the last project on start (off unless chosen)
 bool gCheckUpdates = true;      // Options: look for a newer release on start (on unless turned off)
 // Options > Crash reports (GitHub feedback #45): 0 ask after a crash (the default), 1 send, 2 do not send. A crash always
@@ -178,7 +179,6 @@ void setCrashReports(int mode) {
 // is from where the button went down; the default), true drag the map (it follows the mouse).
 bool gMiddleDrag = false;
 std::wstring gLanguage = L"auto";  // Options > Language: auto, en, ko or es (a change applies at the next start)
-std::wstring gProjectsFolder;
 HMENU gRecentMapsMenu = nullptr, gRecentProjectsMenu = nullptr;
 extern int gUnitLimitClassic, gUnitLimitEud;  // (core/map_edit.inc)
 
@@ -199,52 +199,6 @@ void loadLanguage() {
     prefs::text(L"Language", gLanguage);
     gUiLang = uiLanguageChosen(gLanguage);
 }
-
-void saveRecent() {
-    if (gSelfTest) return;  // the self-test leaves the user's lists alone
-    prefs::setList(L"RecentMaps", gRecentMaps);
-    prefs::setList(L"RecentProjects", gRecentProjects);
-    prefs::setText(L"ProjectsFolder", gProjectsFolder);
-}
-
-// The File menu's two lists: "1  MyMap.scx    C:\Maps", newest first, and Clear.
-void refreshRecentMenus() {
-    auto fill = [](HMENU m, const std::vector<std::wstring>& list, int firstId, int clearId, const wchar_t* none) {
-        if (!m) return;
-        while (GetMenuItemCount(m) > 0) DeleteMenu(m, 0, MF_BYPOSITION);
-        for (size_t i = 0; i < list.size(); ++i) {
-            const fs::path p = list[i];
-            std::wstring label = (i < 9 ? L"&" + std::to_wstring(i + 1) : L"1&0") + L"  " + p.filename().wstring() + L"\t" +
-                                 fs::path(p.parent_path()).make_preferred().wstring();
-            for (size_t at = 0; (at = label.find(L'&', at + 2)) != std::wstring::npos;) label.insert(at, L"&");  // literal & in names
-            AppendMenuW(m, MF_STRING, UINT_PTR(firstId + int(i)), label.c_str());
-        }
-        if (list.empty()) AppendMenuW(m, MF_STRING | MF_GRAYED, 0, none);
-        AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-        AppendMenuW(m, MF_STRING | (list.empty() ? MF_GRAYED : 0), UINT_PTR(clearId), L"&Clear list");
-    };
-    fill(gRecentMapsMenu, gRecentMaps, ID_RECENT_MAP, ID_RECENT_CLEAR_MAPS, L"None");
-    fill(gRecentProjectsMenu, gRecentProjects, ID_RECENT_PROJECT, ID_RECENT_CLEAR_PROJECTS, L"None");
-}
-
-void removeRecent(std::vector<std::wstring>& list, const fs::path& p) {
-    std::error_code ec;
-    std::erase_if(list, [&](const std::wstring& item) { return !_wcsicmp(item.c_str(), p.wstring().c_str()) || fs::equivalent(item, p, ec); });
-}
-
-void addRecent(std::vector<std::wstring>& list, const fs::path& path) {
-    std::error_code ec;
-    const fs::path p = fs::absolute(path, ec).make_preferred();
-    removeRecent(list, p);
-    list.insert(list.begin(), p.wstring());
-    if (list.size() > size_t(kRecentMax)) list.resize(size_t(kRecentMax));
-    saveRecent();
-    refreshRecentMenus();
-}
-
-// A project was made or opened in <folder>/<name>/. The working folder is the one set in Program options (not the
-// last project's folder): it stays as the user set it.
-void rememberProjectsFolder(const fs::path&) {}
 
 void layout();
 
@@ -334,6 +288,7 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 
 #include "core/app_state.inc"
 #include "core/palette_tools.inc"  // the palette and tool state, the status texts and the messages (the state forms)
+#include "core/documents.inc"  // the workspaces, the tabs (Doc, gDocs), the modes, the command table's globals, openProject and openAny
 #include "core/layout.inc"  // the main window's panes: computeLayout (the placement is layout() below)
 #include "core/menu_model.inc"  // the menu bar as data (buildMenuModel, toHmenu)
 #include "core/commands_core.inc"  // commandPortable: the checks before commandBody's switch
@@ -449,7 +404,6 @@ void rebuildUnitPalette();
 void setWorkspace(Workspace w);
 bool briefCommand(int id);
 
-Workspace gWorkspace = Workspace::Map;
 HWND gWsBar = nullptr, gDataWnd = nullptr;
 void layoutUnitPalette();
 void showAbout();
@@ -1679,31 +1633,8 @@ void chooseInstallFolder() {
     logLine(L"StarCraft folder set to " + dir.wstring() + L" (from the next start)");
 }
 
-// --- Documents (tabs) ------------------------------------------------------------------------------
-// Each open map is a tab with its own editor (and so its own undo history), camera and selection. The
-// active one lives in app.ed; the others keep theirs here.
-
-struct MapPageCopies;  // map_pages.inc
-struct Doc {
-    std::unique_ptr<Editor> ed;  // empty while the document is active (it is in app.ed then)
-    float camX = 0, camY = 0, zoom = 1;
-    bool hasTerrainSel = false, pasting = false, terrainPasting = false;
-    Rect terrainSel{};
-    int untitled = 1;  // "Untitled N" until saved
-    std::shared_ptr<EudProject> project;  // set when the map was opened as (or made into) an EUD project
-    int page = 0;  // a page and not a document yet (new_page.inc): kPageNew, kPageStart; `ed` is a small blank map until then
-    std::shared_ptr<MapPageCopies> mapPages;  // the map pages' working copies (map_pages.inc)
-};
-std::vector<Doc> gDocs;
-int gUntitledCount = 0;
-int gActive = -1;
-constexpr int kPageNew = 1, kPageStart = 2;  // Doc::page
 int gNewDocPage = 0;        // the page of the tab addDocument opens next
 bool gReplacePage = false;  // addDocument puts the map in the active tab (the New page's Create)
-int activePage() { return gActive >= 0 && gActive < int(gDocs.size()) ? gDocs[size_t(gActive)].page : 0; }
-// A real document (a map or a project) is open in the active tab. A page tab (the start page, the New page) holds only
-// a small blank map: the commands that act on a map (mapCommand) are gray there and do nothing.
-bool docOpen() { return gActive >= 0 && gActive < int(gDocs.size()) && !activePage() && app.ed && app.ed->isOpen(); }
 void pageSync();
 void openNewPage(int kind);
 void openStartPage();
@@ -1733,47 +1664,9 @@ std::wstring docTitle(int i, bool withMode) {
     return (ed->modified() ? L"* " : L"") + name;
 }
 
-EudProject* activeProject() { return gActive >= 0 && gActive < int(gDocs.size()) ? gDocs[size_t(gActive)].project.get() : nullptr; }
 
-// --- The two modes (roadmap L.1) ---------------------------------------------------------------------------------
-// A map opened by itself (no project.stardraft or .eds) is in classic mode; a project is in project mode. Project
-// commands (Build, Data, the block triggers, project settings) are not there for a classic map, and classic commands
-// are there in a project only when its map has that classic data (L.4: a classic map made a project keeps it). The
-// menus, the shortcuts and the rail ask these functions. Classic tools add their commands to classicOnlyCommand.
-bool classicMode() { return gActive >= 0 && gActive < int(gDocs.size()) && !gDocs[size_t(gActive)].project; }
-bool projectMode() { return activeProject() != nullptr; }
 
-bool projectOnlyCommand(int id) {
-    switch (id) {
-    case ID_PROJ_COMPILE:
-    case ID_PROJ_FOLDER:
-    case ID_PROJ_ADDSCRIPT:
-    case ID_PROJ_SETTINGS:
-    case ID_WS_DATA:
-    case ID_WS_TRIGGERS:
-    case ID_WS_PROJECT:
-    case ID_VIEW_TRIGCODE: return true;
-    default: return false;
-    }
-}
-
-bool classicOnlyCommand(int id) { return id == ID_SCEN_CLASSIC || id == ID_SCEN_CLASSICTRIG; }
 bool classicCommandInProject(int id);  // classic_triggers.inc: the project's map has that classic data (L.4)
-
-// True when the command is there in the mode of the active tab.
-bool commandInMode(int id) {
-    if (projectOnlyCommand(id)) return projectMode();
-    // Map data (the unit, upgrade and tech settings) is for classic maps only; a project's map keeps those sections.
-    if (id == ID_SCEN_CLASSIC) return classicMode();
-    if (classicOnlyCommand(id)) return classicMode() || (projectMode() && classicCommandInProject(id));
-    return true;
-}
-
-// The menu commands that updateMenus enables or grays by mode. A classic-only command goes here too.
-constexpr int kModeCommands[] = {ID_PROJ_COMPILE, ID_PROJ_FOLDER, ID_PROJ_ADDSCRIPT, ID_PROJ_SETTINGS,
-                                 ID_WS_DATA,      ID_WS_TRIGGERS, ID_WS_PROJECT,     ID_VIEW_TRIGCODE, ID_SCEN_CLASSIC, ID_SCEN_CLASSICTRIG};
-// Is the command enabled in a tab of that mode (the self-test checks the menus with it)?
-bool commandForMode(int id, bool project) { return classicOnlyCommand(id) ? !project : !projectOnlyCommand(id) || project; }
 
 int tabStripHeight() { return scale(30); }
 
@@ -2709,7 +2602,7 @@ std::wstring playabilityText() {
     return text;
 }
 
-void openMap(const std::wstring& path, bool switchToOpen = true);
+void openMap(const std::wstring& path, bool switchToOpen);
 
 // The same file or folder, compared as text (case, slashes, a relative path): no disk access, as a network share can
 // make it wait.
@@ -2737,54 +2630,6 @@ int findOpenMap(const fs::path& path) {
         if (ed && !gDocs[size_t(i)].page && !gDocs[size_t(i)].project && samePath(ed->path(), path)) return i;
     }
     return -1;
-}
-
-void openProject(const fs::path& edsOrFolder) {
-    auto pr = std::make_shared<EudProject>();
-    std::string err;
-    if (!pr->open(edsOrFolder, err)) {
-        themedMessageBox(app.main, widen(err).c_str(), L"Could not open the project", MB_ICONERROR);
-        return;
-    }
-    if (const int open = findOpenProject(pr->folder()); open >= 0) {  // open already: go to its tab
-        activateDoc(open);
-        addRecent(gRecentProjects, pr->folder());
-        setMessage(tr(L"The project ") + widen(pr->name()) + tr(L" is open already"));
-        return;
-    }
-    const size_t before = gDocs.size();
-    openMap(pr->inputMap().wstring(), false);  // a tab of its own, also when the map is open by itself
-    if (gDocs.size() < before || gActive < 0 || !app.ed || app.ed->path() != pr->inputMap()) return;  // the map did not open
-    gDocs[size_t(gActive)].project = pr;
-    updateTitle();
-    removeRecent(gRecentMaps, pr->inputMap());  // listed as the project, not as a map
-    addRecent(gRecentProjects, pr->folder());
-    rememberProjectsFolder(pr->folder());
-    setMessage(L"Opened the project " + widen(pr->name()) + L" (" + std::to_wstring(pr->scripts().size()) + L" scripts; Build: Ctrl+B)");
-}
-
-// File > Open and the command line: a project (project.stardraft, a .eds, a folder), or a map. A project's map opens
-// as that project.
-void openAny(const fs::path& path) {
-    startMark("open: start");
-    std::error_code ec;
-    if (path.extension() == ".stardraft" || path.extension() == ".eds" || fs::is_directory(path, ec)) {
-        openProject(path);
-        return;
-    }
-    const fs::path folder = path.parent_path();
-    bool candidate = fs::exists(folder / EudProject::kFileName, ec);
-    for (const auto& e : fs::directory_iterator(folder, ec)) candidate |= e.path().extension() == ".eds";
-    if (candidate) {
-        EudProject pr;
-        std::string err;
-        if (pr.open(folder, err) && fs::equivalent(pr.inputMap(), path, ec)) {
-            openProject(folder);
-            return;
-        }
-    }
-    openMap(path.wstring());
-    if (app.ed && fs::equivalent(app.ed->path(), path, ec)) mapFileOpened(path);  // a map file by itself: ask once if maps open with StarDraft 2
 }
 
 void triggersRefresh(const std::string& select);
@@ -3024,7 +2869,6 @@ bool saveMap(bool as) {
     return true;
 }
 
-bool gSelfTest = false;  // declared earlier
 
 void enableDarkModeForApp();
 void darkControl(HWND w, const wchar_t* theme);
@@ -3107,8 +2951,6 @@ bool confirmDiscard() {
 // --- Commands --------------------------------------------------------------------------------------
 
 // The commands that are data (commands.inc): the Map workspace's. gCommandIds gives each one's Win32 id.
-stardraft::Commands gCommands;
-std::map<int, std::string> gCommandIds;
 void updateCommandMarks(HMENU m);
 
 HWND gTopBar = nullptr;  // the top tool bar (layout() places it)
