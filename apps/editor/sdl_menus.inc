@@ -2,8 +2,8 @@
 // model (buildMenuModel, core/menu_model.inc) shown as kit menus; a click or a key runs command(id), the core's command
 // path first. An item the SDL program cannot run yet is grayed, and its key does nothing. Ctrl in a shortcut is Cmd on
 // macOS. File > Open, Save and Save as use the system's file dialogs: they answer later, on another thread, so their
-// result comes back to the UI thread through shellPost. Quit asks about unsaved changes (kit messageBox). Included by
-// main_sdl.cpp after sdl_pending.inc, before shell_sdl.inc.
+// result comes back to the UI thread through shellPost. Quit asks about unsaved changes (the save question, shellAskSaveChanges: the core message box).
+// Included by main_sdl.cpp after sdl_pending.inc, before shell_sdl.inc.
 
 #include "menu.h"
 #include "message_box.h"
@@ -105,6 +105,10 @@ bool sdlRuns(int id) {
     case ID_HELP_FEEDBACK:
     case ID_EDIT_RENAME:  // the location's rename and the quick picker (sdl_map_dialogs.inc)
     case ID_QUICKPICK: return true;
+    case ID_HELP_ABOUT:  // (sdl_options.inc) and the links
+    case ID_VIEW_KIT:
+    case ID_HELP_DISCORD:
+    case ID_HELP_GITHUB: return true;
     default: break;
     }
     if (id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) return true;
@@ -259,7 +263,7 @@ void showFileDialog(bool save, std::function<void(const fs::path&)> done) {
 bool saveTo(const fs::path& path) {
     std::string err;
     if (saveMapFile(path, err)) return true;
-    kit::messageBox(*gRoot, shellTr(L"Could not save the map"), widen(err), {L"OK"}, kit::MessageIcon::Error);
+    shellErrorBox(widen(err), shellTr(L"Could not save the map"));  // (the core message box, as on Windows)
     return false;
 }
 
@@ -296,8 +300,7 @@ void requestQuit() {
     if (gQuitPrompt) return;
     if (!gRoot || !gState.ed || !gState.ed->isOpen() || !gState.ed->modified()) return quitNow();
     gQuitPrompt = true;
-    const int r = kit::messageBox(*gRoot, shellTr(L"Unsaved changes"), shellTr(L"Save changes to the map?"),
-                                  {shellTr(L"Save"), shellTr(L"Do not save"), shellTr(L"Cancel")}, kit::MessageIcon::Question);
+    const int r = shellAskSaveChanges(false);  // (the save question: shell_sdl.inc)
     if (r == 0) saveOpenMap(false, [](bool ok) {
         gQuitPrompt = false;
         if (ok) quitNow();
@@ -310,8 +313,7 @@ void requestQuit() {
 // after Do not save, or after a Save that saved.
 void confirmReplace(std::function<void()> then) {
     if (!gRoot || !gState.ed || !gState.ed->isOpen() || !gState.ed->modified()) return then();
-    const int r = kit::messageBox(*gRoot, shellTr(L"Unsaved changes"), shellTr(L"Save changes to the map?"),
-                                  {shellTr(L"Save"), shellTr(L"Do not save"), shellTr(L"Cancel")}, kit::MessageIcon::Question);
+    const int r = shellAskSaveChanges(false);  // (the save question: shell_sdl.inc)
     if (r == 0) saveOpenMap(false, [then](bool ok) {
         if (ok) then();
     });
@@ -366,6 +368,10 @@ void command(int id) {
         if (gState.ed && gState.ed->isOpen()) renameSelectedLocation();
         return;
     case ID_QUICKPICK: shellShowQuickPicker(false, false); return;
+    case ID_HELP_ABOUT: showAboutSdl(); return;
+    case ID_VIEW_KIT: showKitGallerySdl(); return;
+    case ID_HELP_DISCORD: shellOpenUrl(kDiscordInvite); return;
+    case ID_HELP_GITHUB: shellOpenUrl(L"https://github.com/" + std::wstring(kRepoName)); return;
     default:
         if (id >= ID_WS_MAP && id <= ID_WS_FILES) return setWorkspace(Workspace(id - ID_WS_MAP));  // the workspace order
         setMessage(L"This is not on this system yet");

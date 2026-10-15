@@ -166,16 +166,9 @@ void iconButton(Paint p, RECT r, Ico g, std::function<void()> click, const std::
 }
 
 // --- Rows -------------------------------------------------------------------------------------------------------
-// A list row's background: selected (fill and a bar on the left), under the mouse, or none.
-void listRow(Paint p, RECT r, bool selected, bool over) {
-    if (selected) {
-        p->fill(r, kSel);
-        p->fill({r.left, r.top, r.left + scale(2), r.bottom}, kAccent);
-    } else if (over) {
-        p->fill(r, kRowHot);
-    }
-}
-COLORREF rowText(bool selected) { return selected ? kAccent : kText; }
+// A list row's background: selected (fill and a bar on the left), under the mouse, or none (core/kit_paint.inc).
+void listRow(Paint p, RECT r, bool selected, bool over) { kitpaint::drawListRow(*p, r, selected, over); }
+COLORREF rowText(bool selected) { return kitpaint::rowText(selected); }
 // A row of an owner-drawn list box (pickers, the scripts list): the list's face, then the row.
 void ownerRow(Paint p, RECT r, bool selected, COLORREF face = kCtl) {
     p->fill(r, face);
@@ -217,23 +210,12 @@ int rowActions(Paint p, RECT row, const std::vector<RowAction>& actions, bool sh
 // A painted scroll bar (for lists that page by rows): the track, and the thumb, lighter under the mouse or while
 // it is dragged.
 // As Windows 11's: a thin line at rest, wider with its track under the mouse or while dragged.
-void scrollFace(Paint p, RECT track, RECT thumb, bool lit) {
-    if (lit) p->fill(track, kPanel);
-    else thumb.left = thumb.right - std::max(2, int(thumb.right - thumb.left) / 2);
-    box(*p, thumb, lit ? kThumbHot : kThumb, CLR_NONE, 3);
-}
+void scrollFace(Paint p, RECT track, RECT thumb, bool lit) { kitpaint::drawScrollFace(*p, track, thumb, lit); }
 
 // --- Sliders --------------------------------------------------------------------------------------------------------
 // A slider from x0 to x1 on the line cy: the track (kBorder line), the part up to the value in the accent, a round
 // thumb in the accent (lighter under the mouse). `frac`: the value, 0 to 1.
-void sliderFace(Paint p, int x0, int x1, int cy, float frac, bool over, bool enabled = true) {
-    const RECT track{x0, cy - scale(2), x1, cy + scale(2)};
-    box(*p, track, kCtl, kBorder, 2);
-    const int kx = x0 + int(std::lround(std::clamp(frac, 0.0f, 1.0f) * float(x1 - x0)));
-    p->fill({x0, cy - scale(2), kx, cy + scale(2)}, enabled ? kAccent : kFaint);
-    const RECT knob{kx - scale(7), cy - scale(7), kx + scale(7), cy + scale(7)};
-    p->smoothRoundOutline(knob, float(scale(7)), !enabled ? kFaint : over ? kAccentBright : kAccent, 2.0f);
-}
+void sliderFace(Paint p, int x0, int x1, int cy, float frac, bool over, bool enabled = true) { kitpaint::drawSliderFace(*p, x0, x1, cy, frac, over, enabled); }
 // A native trackbar (msctls_trackbar32) drawn as the kit's slider: the parent answers NM_CUSTOMDRAW with this.
 LRESULT trackbarCustomDraw(const NMCUSTOMDRAW* cd) {
     if (cd->dwDrawStage == CDDS_PREPAINT) return CDRF_NOTIFYITEMDRAW;
@@ -254,49 +236,17 @@ LRESULT trackbarCustomDraw(const NMCUSTOMDRAW* cd) {
 }
 
 // --- Tables ---------------------------------------------------------------------------------------------------------
-// Rows with columns: a header (names in the dim color), rows with hairlines between, a frame around all.
-struct Column {
-    std::wstring name;
-    int width = 0;  // 0: what the others leave
-    UINT align = DT_LEFT;
-};
+// Rows with columns: a header (names in the dim color), rows with pills (core/kit_paint.inc). A column's align is
+// DT_LEFT, DT_CENTER or DT_RIGHT (the same values as the Canvas's kLeft, kCenter and kRight).
+using Column = kitpaint::Column;
 // Where column `k` is in a row.
-RECT tableCell(RECT row, const std::vector<Column>& cols, size_t k) {
-    int fixed = 0, flexible = 0;
-    for (const auto& c : cols) c.width ? fixed += scale(c.width) : ++flexible;
-    const int rest = std::max(0, int(row.right - row.left) - scale(12) - fixed);
-    int x = row.left + scale(6);
-    for (size_t i = 0; i < cols.size(); ++i) {
-        const int w = cols[i].width ? scale(cols[i].width) : rest / std::max(1, flexible);
-        if (i == k) return {x, row.top, x + w, row.bottom};
-        x += w;
-    }
-    return {x, row.top, x, row.bottom};
-}
+RECT tableCell(RECT row, const std::vector<Column>& cols, size_t k) { return toRECT(kitpaint::tableCell(row, cols, k)); }
 HFONT smallFont();  // (below)
-// The header: the column names small and dim, one line under them (no band, no frame).
-unsigned alignFlags(UINT dt) { return (dt & DT_RIGHT ? kRight : dt & DT_CENTER ? kCenter : kLeft) | kMiddle; }
-void tableHeader(Paint p, RECT row, const std::vector<Column>& cols) {
-    const Font of = p->setFont(fontOf(smallFont()));
-    for (size_t k = 0; k < cols.size(); ++k) {
-        RECT c = tableCell(row, cols, k);
-        InflateRect(&c, -scale(4), 0);
-        p->text(c, cols[k].name, kDim, alignFlags(cols[k].align));
-    }
-    p->setFont(of);
-    p->fill({row.left, row.bottom - 1, row.right, row.bottom}, kBorder);
-}
-// A row: on the page's ground; selected or under the mouse a rounded pill (as the lists and pickers).
-void tableRow(Paint p, RECT row, bool selected, bool over) {
-    const RECT pill{row.left + scale(2), row.top + scale(1), row.right - scale(2), row.bottom - scale(1)};
-    if (selected) box(*p, pill, kSel, kSel, 6);
-    else if (over) box(*p, pill, kRowHot, kRowHot, 6);
-}
-// One cell's text.
+unsigned alignFlags(UINT dt) { return kitpaint::alignFlags(dt); }
+void tableHeader(Paint p, RECT row, const std::vector<Column>& cols) { kitpaint::drawTableHeader(*p, row, cols); }
+void tableRow(Paint p, RECT row, bool selected, bool over) { kitpaint::drawTableRow(*p, row, selected, over); }
 void tableText(Paint p, RECT row, const std::vector<Column>& cols, size_t k, const std::wstring& text, COLORREF color) {
-    RECT c = tableCell(row, cols, k);
-    InflateRect(&c, -scale(4), 0);
-    p->text(c, text, color, alignFlags(cols[k].align) | kEllipsis);
+    kitpaint::drawTableText(*p, row, cols, k, text, color);
 }
 void tableFrame(Paint, RECT) {}  // no frame: the header's line and the rows' pills are enough
 
@@ -354,22 +304,12 @@ void reorderDropLine(Paint p, const std::string& list) {
 // --- Check boxes --------------------------------------------------------------------------------------------------
 // The box (painted check boxes and the native ones alike).
 void checkMark(Paint p, RECT b, bool on, bool over, bool enabled) { kitpaint::drawCheckMark(*p, b, on, over, enabled); }
-void radioMark(Paint p, RECT b, bool on, bool over) {
-    p->ellipse(b, kCtl, on ? kAccent : over ? kBorderHot : kBorderStrong);
-    if (!on) return;
-    const int in = (b.right - b.left) * 3 / 10;
-    p->ellipse({b.left + in, b.top + in, b.right - in + 1, b.bottom - in + 1}, kAccent, kNone);
-}
+void radioMark(Paint p, RECT b, bool on, bool over) { kitpaint::drawRadioMark(*p, b, on, over); }
 // A check box with its label; the whole is the click area. Returns the right edge.
 int check(Paint p, RECT r, const std::wstring& label, bool on, std::function<void()> click, const std::wstring& tip = L"", bool changed = false, bool enabled = true) {
-    const int s = scale(14);
-    RECT b{r.left, (r.top + r.bottom - s) / 2, r.left + s, (r.top + r.bottom - s) / 2 + s};
-    const bool over = enabled && hot(r);
-    checkMark(*p, b, on, over, enabled);
-    RECT t{b.right + scale(8), r.top, r.right, r.bottom};
-    p->text(t, label, !enabled ? kFaint : changed ? kGood : on || over ? kText : kDim, kMiddle | kEllipsis);
+    const int right = kitpaint::drawCheck(*p, r, label, on, enabled && hot(r), changed, enabled);
     hitsOut().push_back({r, nullptr, enabled ? std::move(click) : nullptr, tip, enabled ? IDC_HAND : IDC_ARROW, {}});
-    return t.left + textWidth(*p, label);
+    return right;
 }
 
 // --- Fields -------------------------------------------------------------------------------------------------------
@@ -424,49 +364,15 @@ HFONT smallFont() {
 // --- The References side bar ----------------------------------------------------------------------------------------
 // What uses the selected thing, by group ("UNITS", "BRIEFINGS"), each a link to it. The callers keep their own
 // click areas: these paint and say where.
-void sidePanel(Paint p, RECT side) {
-    p->fill(side, kPanel);
-    p->fill({side.left, side.top, side.left + 1, side.bottom}, kBorder);
-}
-int sideHeader(Paint p, int x, int y, int w, const std::wstring& title, size_t count) {
-    const Rect h{x, y, x + w, y + scale(22)};
-    p->text(h, title, kText, kMiddle);
-    p->text(h, std::to_wstring(count), kDim, kMiddle | kRight);
-    y += scale(30);
-    if (!count) {
-        p->text({x, y, x + w, y + scale(20)}, L"No other data uses this entry", kDim, kMiddle | kEllipsis);
-        y += scale(22);
-    }
-    return y;
-}
-// `icon`: the group's icon before its name (-1: none).
+void sidePanel(Paint p, RECT side) { kitpaint::drawSidePanel(*p, side); }
+int sideHeader(Paint p, int x, int y, int w, const std::wstring& title, size_t count) { return kitpaint::drawSideHeader(*p, x, y, w, title, count); }
+// `icon`: the group's icon before its name (none: no icon).
 int sideGroup(Paint p, int x, int y, int w, const std::wstring& name, bool first, std::optional<UiIcon> icon = std::nullopt) {
-    if (!first) y += scale(8);
-    const std::wstring& up = name;  // sentence case, as every heading (PRINCIPLES.md, "Text")
-    const Font of = p->setFont(fontOf(smallFont()));
-    if (icon) {
-        p->icon({x, y - scale(1), x + scale(16), y + scale(16)}, int(*icon), kDim, scale(16));
-        x += scale(22), w -= scale(22);
-    }
-    p->text({x, y, x + w, y + scale(15)}, up, kDim, kMiddle | kEllipsis);
-    p->setFont(of);
-    return y + scale(18);
+    return kitpaint::drawSideGroup(*p, x, y, w, name, first, bool(icon), icon ? *icon : UiIcon{});
 }
 // One reference: its icon and name in the accent; returns its row (the caller's click area).
 RECT sideLink(Paint p, int x, int y, int w, const std::wstring& text, const UnitPalette::Bitmap* icon, bool over) {
-    const int h = scale(20);
-    int tx = x;
-    if (icon && icon->bmp) {
-        p->fitted(imageOf(icon), {x, y + scale(1), x + scale(18), y + h - scale(1)});
-        tx += scale(22);
-    }
-    const RECT nr{tx, y, x + w, y + h};
-    p->text(nr, text, over ? kAccentBright : kAccent, kMiddle | kEllipsis);
-    if (over) {
-        const int tw = std::min<int>(textWidth(*p, text), int(nr.right - nr.left));
-        p->line(tx, nr.bottom - scale(3), tx + tw, nr.bottom - scale(3), kAccentBright);
-    }
-    return {x, y, x + w, y + h};
+    return toRECT(kitpaint::drawSideLink(*p, x, y, w, text, icon && icon->bmp ? imageOf(icon) : stardraft::draw::Image{}, over));
 }
 
 // --- Pickers ------------------------------------------------------------------------------------------------------
@@ -502,14 +408,25 @@ POINT belowBox(RECT r) {
     return pt;
 }
 
+// The hover tooltips (tip_win32.inc): `w` shows the tip that `textAt` gives at a point of its client area. `key` names who
+// attached (detach with another key does nothing).
+void hoverTipsAttach(HWND w, std::function<std::wstring(POINT)> textAt, const void* key);
+void hoverTipsDetach(HWND w, const void* key);
+
+// The tip of the painted parts at `pt`: the first part with a tip that has the point (as a tooltip control finds its
+// tool), empty when none has.
+inline std::wstring hitTipAt(const std::vector<DataWidgetHit>& hits, POINT pt) {
+    for (const DataWidgetHit& h : hits)
+        if (!h.tip.empty() && PtInRect(&h.r, pt)) return h.tip;
+    return {};
+}
+
 // --- Painted surfaces ---------------------------------------------------------------------------------------------
-// A window painted with the kit: its click areas, the tooltips for them, the part under the mouse (a new part
-// repaints the window), the cursor. A page calls begin() and end() around its paint, and message() first in
-// its window procedure.
+// A window painted with the kit: its click areas, the tooltips for them (the kit's, tip_win32.inc), the part under the
+// mouse (a new part repaints the window), the cursor. A page calls begin() and end() around its paint, and message()
+// first in its window procedure.
 struct Surface {
     std::vector<DataWidgetHit> hits;
-    HWND tips = nullptr;
-    int tipCount = 0;
     RECT over{};
     struct {
         std::function<void(POINT)> drag;
@@ -519,33 +436,26 @@ struct Surface {
     std::vector<DataWidgetHit>* savedOut = nullptr;
     HWND savedWnd = nullptr;
 
-    HWND tipsFor = nullptr;  // the window the tooltips are for
-    // The tooltip window is owned by the top window (a child cannot own it), so it outlives the surface's window:
-    // it goes when the surface paints another window, and when the surface goes.
+    HWND tipsFor = nullptr;  // the window the tooltips are for (it asks this surface for the tip under the mouse)
     void releaseTips() {
-        if (tips && IsWindow(tips)) DestroyWindow(tips);
-        tips = nullptr, tipCount = 0, tipsFor = nullptr;
+        if (tipsFor) hoverTipsDetach(tipsFor, this);
+        tipsFor = nullptr;
     }
     Surface() = default;
     Surface(const Surface&) = delete;
     Surface& operator=(const Surface&) = delete;
-    Surface& operator=(Surface&& o) noexcept {  // (a page's host made again: the old tooltips go)
+    Surface& operator=(Surface&& o) noexcept {  // (a page's host made again: the tooltips ask the new one)
         if (this != &o) {
             releaseTips();
-            hits = std::move(o.hits), tips = std::exchange(o.tips, nullptr), tipCount = o.tipCount, over = o.over, tipsFor = o.tipsFor;
+            hits = std::move(o.hits), over = o.over, tipsFor = std::exchange(o.tipsFor, nullptr);
             grab = std::move(o.grab), savedOut = o.savedOut, savedWnd = o.savedWnd;
+            if (tipsFor) hoverTipsAttach(tipsFor, [this](POINT p) { return hitTipAt(hits, p); }, this);
         }
         return *this;
     }
     ~Surface() { releaseTips(); }
     void begin(HWND w) {
-        if (tips && tipsFor != w) releaseTips();
-        for (int i = 0; tips && i < tipCount; ++i) {
-            TOOLINFOW ti{sizeof ti};
-            ti.hwnd = w, ti.uId = UINT_PTR(i + 1);
-            SendMessageW(tips, TTM_DELTOOLW, 0, LPARAM(&ti));
-        }
-        tipCount = 0;
+        if (tipsFor && tipsFor != w) releaseTips();
         hits.clear();
         savedOut = gHitsOut, savedWnd = gHitsWnd;
         gHitsOut = &hits, gHitsWnd = w;
@@ -553,19 +463,9 @@ struct Surface {
     }
     void end(HWND w) {
         gHitsOut = savedOut, gHitsWnd = savedWnd;
-        if (!tips) {
-            tips = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, 0, 0, 0, 0, w, nullptr, app.inst, nullptr);
+        if (tipsFor != w) {
             tipsFor = w;
-            SendMessageW(tips, TTM_SETMAXTIPWIDTH, 0, scale(360));
-            styleTips(tips);
-        }
-        for (auto& h : hits) {
-            if (h.tip.empty()) continue;
-            TOOLINFOW ti{sizeof ti};
-            ti.uFlags = TTF_SUBCLASS;
-            ti.hwnd = w, ti.uId = UINT_PTR(++tipCount), ti.rect = h.r;
-            ti.lpszText = h.tip.data();
-            SendMessageW(tips, TTM_ADDTOOLW, 0, LPARAM(&ti));
+            hoverTipsAttach(w, [this](POINT p) { return hitTipAt(hits, p); }, this);
         }
     }
     const DataWidgetHit* at(POINT pt) const {
