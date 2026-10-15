@@ -230,7 +230,7 @@ void shellLegacyRemove(const std::wstring& sub, const std::wstring& value) { Reg
 void shellErrorBox(const std::wstring& text, const std::wstring& title) { themedMessageBox(app.main, text.c_str(), title.c_str(), MB_ICONERROR); }
 int shellAskUnapplied(const std::wstring& text, const std::wstring& title) {
     const int r = themedMessageBox(app.main, text.c_str(), title.c_str(), MB_YESNOCANCEL | MB_ICONQUESTION, {L"&Apply", L"Do &not apply", L"Cancel"});
-    return r == IDYES ? 0 : r == IDNO ? 1 : 2;
+    return r == IDYES ? 0 : r == IDCANCEL ? 2 : 1;  // (any other answer, a box that could not be made included: do not apply, as before)
 }
 void shellRecentMenu(bool projects, const std::vector<std::wstring>& labels, const std::wstring& none) {
     HMENU m = projects ? gRecentProjectsMenu : gRecentMapsMenu;

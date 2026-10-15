@@ -311,7 +311,7 @@ public:
             return true;
         }
         case WM_SETCURSOR: {
-            if (LOWORD(lp) != HTCLIENT) return false;
+            if (LOWORD(lp) != HTCLIENT || HWND(wp) != w) return false;  // (a child window's cursor is its own: an edit's I-beam)
             setCursor(router_.cursor(mouse(view_)));
             result = TRUE;
             return true;
