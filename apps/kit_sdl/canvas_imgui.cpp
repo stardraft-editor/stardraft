@@ -663,4 +663,10 @@ void ImguiCanvas::fitted(const draw::Image& img, Rect box) {
     dl_->AddImage(texRef(img.handle), at(x, y), at(x + w, y + h), ImVec2(0, 0), ImVec2(1, 1), colorOf(draw::rgb(255, 255, 255)));
 }
 
+void ImguiCanvas::externalImage(const void* gpuTexture, Rect dst) {
+    if (!gpuTexture || dst.empty()) return;
+    dl_->AddImage(texRef(gpuTexture), at(float(dst.left), float(dst.top)), at(float(dst.right), float(dst.bottom)), ImVec2(0, 0),
+                  ImVec2(1, 1), colorOf(draw::rgb(255, 255, 255)));
+}
+
 }  // namespace stardraft::kit_sdl

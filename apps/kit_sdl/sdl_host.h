@@ -38,6 +38,12 @@ public:
     // Paints `root` (laid out for w x h pixels) into `target`, a texture of `format` with color target usage. Its
     // own, without a window: for snapshots. Waits for the GPU to finish.
     void snapshot(draw::View& root, SDL_GPUTexture* target, int w, int h, SDL_GPUTextureFormat format);
+    // Called once per frame, before the windows are painted, with a command buffer the host submits after the call.
+    // The program draws its own GPU textures here (the views show them with draw::Canvas::externalImage). It runs on
+    // the frames that paint, and on every frame while setAnimating(true); snapshot() calls it too.
+    void setFrameHook(std::function<void(SDL_GPUCommandBuffer*)> hook) { frameHook_ = std::move(hook); }
+    // True: frames keep coming (no waiting for events), every window is painted each frame. For views that animate.
+    void setAnimating(bool on) { animating_ = on; }
 
     // draw::Host
     void invalidate(draw::View& v) override;
@@ -81,6 +87,7 @@ private:
     void pump(bool block);
     bool anyDirty() const;
     void renderDirty();
+    void runFrameHook();
     void destroyRetired();
     void dispatch(const SDL_Event& e);
     void fireTimer(int id);
@@ -91,6 +98,8 @@ private:
     bool quit_ = false;
     float scale_ = 1;
     float scaleOverride_ = 0;  // setScale, or 0
+    std::function<void(SDL_GPUCommandBuffer*)> frameHook_;
+    bool animating_ = false;
     SDL_WindowID modal_ = 0;  // the dialog that takes all input (runModal), or 0
     SDL_WindowID captureWin_ = 0;  // the window whose mouse is captured (SDL_CaptureMouse), or 0
     int timerSeq_ = 0;

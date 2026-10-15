@@ -71,6 +71,7 @@ public:
 
     void icon(draw::Rect r, int icon, draw::Color c, int px) override;
     void fitted(const draw::Image& img, draw::Rect box) override;
+    void externalImage(const void* gpuTexture, draw::Rect dst) override;
 
 private:
     struct Saved {
