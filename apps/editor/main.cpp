@@ -307,6 +307,8 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/views_data_display.inc"  // the Units form's Display section: its paint and clicks (paintUnitDisplay)
 #include "core/views_data_strings.inc"  // the Strings page's model: a string's text, its button prefix and the editor's text (stringLine, stringEditCommit)
 #include "core/views_data_buttons.inc"  // the Buttons tab's model: places, labels, costs, edits of a set (buttonRowTextFrom, buttonNew)
+#include "core/game_text_model.inc"  // the game's text: its colors and swatches, and drawGameText on the Canvas
+#include "core/views_data_button_pop.inc"  // the button pop-out (ButtonPopView; the host is data_extras.inc)
 #include "core/title.inc"  // the window's title and the rail's state (updateTitle)
 int selectPalette(int value);
 void pickUnit(int v, bool add);

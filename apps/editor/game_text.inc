@@ -9,72 +9,10 @@
 // colors) and the one of mission briefings and the scenario's title and description (pale blue, green, light green,
 // gray, white, red).
 
-enum class TextPalette { Game, Scenario };
+// (TextPalette, the game's colors and the swatches: core/game_text_model.inc.)
 
 extern COLORREF kRichDefault, kRichBack;
 std::wstring richText(HWND re);
-
-// The game's text colors (as StarCraft: Remastered draws them; codes 01 and 02: the text's own color, pale blue).
-COLORREF gameTextColor(unsigned char c, COLORREF normal) {
-    switch (c) {
-    case 1: return normal;                 // use default
-    case 2: return RGB(184, 184, 232);     // pale blue
-    case 3: return RGB(220, 220, 60);      // yellow
-    case 4: return RGB(255, 255, 255);     // white
-    case 5: return RGB(132, 116, 116);     // grey
-    case 6: return RGB(200, 24, 24);       // red
-    case 7: return RGB(16, 252, 24);       // green
-    case 8: return RGB(244, 4, 4);         // red (player 1)
-    case 0x0E: return RGB(12, 72, 204);    // blue (player 2)
-    case 0x0F: return RGB(44, 180, 148);   // teal (player 3)
-    case 0x10: return RGB(136, 64, 156);   // purple (player 4)
-    case 0x11: return RGB(248, 140, 20);   // orange (player 5)
-    case 0x15: return RGB(112, 48, 20);    // brown (player 6)
-    case 0x16: return RGB(204, 224, 208);  // white (player 7)
-    case 0x17: return RGB(252, 252, 56);   // yellow (player 8)
-    case 0x18: return RGB(8, 128, 8);      // green (player 9)
-    case 0x19: return RGB(252, 252, 124);  // brighter yellow (player 10)
-    case 0x1A: return RGB(0, 0, 24);       // "cyan" (the game draws it almost black)
-    case 0x1B: return RGB(236, 196, 176);  // pinkish (player 11)
-    case 0x1C: return RGB(64, 104, 212);   // dark cyan (player 12)
-    case 0x1D: return RGB(116, 164, 124);  // greygreen
-    case 0x1E: return RGB(144, 144, 184);  // bluegrey
-    case 0x1F: return RGB(0, 228, 252);    // turquoise
-    }
-    return 0xFFFFFFFF;
-}
-// Mission briefings color text in their own way (the same codes, other colors): 01 the text's own color, 00 02 1A
-// pale blue, 03 green, 04 light green, 05 gray, 06 white, 07 red; 0B and 14 make the text after them invisible.
-constexpr COLORREF kInvisibleText = 0xFFFFFFFE;
-COLORREF briefingTextColor(unsigned char c, COLORREF normal) {
-    switch (c) {
-    case 1: return normal;
-    case 0: case 2: case 0x1A: return RGB(184, 184, 232);  // pale blue
-    case 3: return RGB(16, 216, 24);                       // green
-    case 4: return RGB(160, 236, 160);                     // light green
-    case 5: return RGB(132, 132, 132);                     // gray
-    case 6: return RGB(255, 255, 255);                     // white
-    case 7: return RGB(220, 32, 32);                       // red
-    case 0x0B: case 0x14: return kInvisibleText;
-    }
-    return 0xFFFFFFFF;
-}
-
-// The palette's swatches, in their order (code 1: the normal color).
-struct TextSwatch {
-    unsigned char code;
-    const wchar_t* name;
-};
-const std::vector<TextSwatch>& textSwatches(TextPalette p) {
-    static const std::vector<TextSwatch> game = {
-        {1, L"Normal"}, {3, L"Yellow"}, {4, L"White"}, {5, L"Gray"}, {6, L"Red"}, {7, L"Green"}, {8, L"Red (Player 1)"}, {0x0E, L"Blue (Player 2)"},
-        {0x0F, L"Teal (Player 3)"}, {0x10, L"Purple (Player 4)"}, {0x11, L"Orange (Player 5)"}, {0x15, L"Brown (Player 6)"}, {0x16, L"White (Player 7)"},
-        {0x17, L"Yellow (Player 8)"}, {0x18, L"Green (Player 9)"}, {0x19, L"Bright yellow (Player 10)"}, {0x1B, L"Pink (Player 11)"},
-        {0x1C, L"Dark cyan (Player 12)"}, {0x1D, L"Gray-green"}, {0x1E, L"Blue-gray"}, {0x1F, L"Turquoise"}};
-    static const std::vector<TextSwatch> scenario = {{1, L"Normal"}, {2, L"Pale blue"}, {3, L"Green"}, {4, L"Light green"}, {5, L"Gray"},
-                                                     {6, L"White"}, {7, L"Red"}, {0x0B, L"Hidden (the game does not show this text)"}};
-    return p == TextPalette::Game ? game : scenario;
-}
 
 // How a code's text looks in the box: its color; hidden text crossed out; a code that is not a color of the palette
 // (kept as it is) underlined with dots.
