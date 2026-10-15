@@ -105,3 +105,47 @@ std::vector<CtSegment> ctSentenceParts(const E& e, int kind, const ClassicTrigge
     if (classicEud(e)) out.push_back({CtPart::Eud, L"  EUD", -1});
     return out;
 }
+
+// The right-click menus of the page (classic_triggers.inc builds them with the program's menu and runs the command of the
+// pick; the same commands as the rows' buttons and the keys). A text's tab is its shortcut. An item with id 0 is a separator.
+enum : int { kCtmToggle = 1, kCtmDuplicate, kCtmDelete, kCtmCopy, kCtmPaste, kCtmIn, kCtmOut, kCtmBlock };
+struct CtMenuItem {
+    int id = 0;
+    std::wstring text;
+    bool enabled = true;
+};
+// A trigger's menu: turn on (when it is off) or turn off, Duplicate, Delete, a separator, Copy, Paste (`canPaste`: the
+// clipboard holds triggers).
+inline std::vector<CtMenuItem> ctTriggerMenuItems(bool off, bool canPaste) {
+    return {{kCtmToggle, off ? L"Turn on" : L"Turn off"},
+            {kCtmDuplicate, L"Duplicate\tCtrl+D"},
+            {kCtmDelete, L"Delete\tDel"},
+            {0, L""},
+            {kCtmCopy, L"Copy\tCtrl+C"},
+            {kCtmPaste, L"Paste\tCtrl+V", canPaste}};
+}
+// What an entry's menu depends on: a condition or an action, a block (its edit replaces the turn off), the turn off state,
+// the moves (actions only), and whether the clipboard holds this kind of entry.
+struct CtEntryMenuState {
+    bool isAction = false;
+    bool block = false;
+    bool off = false;
+    bool canMoveOut = false;
+    bool canMoveIn = false;
+    bool canPaste = false;
+};
+inline std::vector<CtMenuItem> ctEntryMenuItems(const CtEntryMenuState& s) {
+    std::vector<CtMenuItem> items;
+    if (s.block) items.push_back({kCtmBlock, L"Edit the block\x2026"});
+    else items.push_back({kCtmToggle, s.off ? L"Turn on" : L"Turn off"});
+    if (s.isAction) {
+        items.push_back({kCtmOut, L"Move out\tCtrl+Left", s.canMoveOut});
+        items.push_back({kCtmIn, L"Move in\tCtrl+Right", s.canMoveIn});
+    }
+    items.push_back({kCtmDuplicate, L"Duplicate\tCtrl+D"});
+    items.push_back({kCtmDelete, L"Delete\tDel"});
+    items.push_back({0, L""});
+    items.push_back({kCtmCopy, L"Copy\tCtrl+C"});
+    items.push_back({kCtmPaste, L"Paste\tCtrl+V", s.canPaste});
+    return items;
+}

@@ -1140,20 +1140,23 @@ int ctPartsOf(const ClassicTrigger& t) {
 
 /// The right-click menus of the rows (the same commands as the rows' buttons and the keys). A right click on a row that
 // is not checked selects it first (and the checks go).
-enum : int { kCtmToggle = 1, kCtmDuplicate, kCtmDelete, kCtmCopy, kCtmPaste, kCtmIn, kCtmOut, kCtmBlock };
+// (the ids and the items: core/views_classic_triggers.inc)
 bool ctCanMove(int i, bool in);  // (below)
 void ctMoveRow(int i, bool in);
+// The program's menu of the items (a separator for id 0; a disabled item is grayed).
+HMENU ctMenu(const std::vector<CtMenuItem>& items) {
+    HMENU m = CreatePopupMenu();
+    for (const CtMenuItem& it : items) {
+        if (!it.id) AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+        else AppendMenuW(m, MF_STRING | (it.enabled ? 0 : MF_GRAYED), UINT_PTR(it.id), it.text.c_str());
+    }
+    return m;
+}
 void ctTriggerMenu(POINT screen, int i) {
     ClassicTrigDialog& d = *gCt;
     if (!d.marked.count(i)) d.marked.clear(), ctSelectTrigger(i);
     const ClassicTrigger* t = ctTrigger();
-    HMENU m = CreatePopupMenu();
-    AppendMenuW(m, MF_STRING, kCtmToggle, t && t->disabled() ? L"Turn on" : L"Turn off");
-    AppendMenuW(m, MF_STRING, kCtmDuplicate, L"Duplicate\tCtrl+D");
-    AppendMenuW(m, MF_STRING, kCtmDelete, L"Delete\tDel");
-    AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(m, MF_STRING, kCtmCopy, L"Copy\tCtrl+C");
-    AppendMenuW(m, MF_STRING | (gCtClip.kind == 2 ? 0 : MF_GRAYED), kCtmPaste, L"Paste\tCtrl+V");
+    HMENU m = ctMenu(ctTriggerMenuItems(t && t->disabled(), gCtClip.kind == 2));
     const int pick = popupMenu(m, TPM_LEFTALIGN, screen.x, screen.y, d.list);
     DestroyMenu(m);
     switch (pick) {
@@ -1172,18 +1175,11 @@ void ctEntryMenu(POINT screen, int kind, int i) {
     if (!t) return;
     const bool block = kind && t->actions[size_t(i)].type == kClassicBlockType;
     const bool off = kind ? (t->actions[size_t(i)].flags & 2) != 0 : (t->conditions[size_t(i)].flags & 2) != 0;
-    HMENU m = CreatePopupMenu();
-    if (block) AppendMenuW(m, MF_STRING, kCtmBlock, L"Edit the block\x2026");
-    else AppendMenuW(m, MF_STRING, kCtmToggle, off ? L"Turn on" : L"Turn off");
-    if (kind) {
-        AppendMenuW(m, MF_STRING | (ctCanMove(i, false) ? 0 : MF_GRAYED), kCtmOut, L"Move out\tCtrl+Left");
-        AppendMenuW(m, MF_STRING | (ctCanMove(i, true) ? 0 : MF_GRAYED), kCtmIn, L"Move in\tCtrl+Right");
-    }
-    AppendMenuW(m, MF_STRING, kCtmDuplicate, L"Duplicate\tCtrl+D");
-    AppendMenuW(m, MF_STRING, kCtmDelete, L"Delete\tDel");
-    AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(m, MF_STRING, kCtmCopy, L"Copy\tCtrl+C");
-    AppendMenuW(m, MF_STRING | (gCtClip.kind == (kind ? 1 : 0) ? 0 : MF_GRAYED), kCtmPaste, L"Paste\tCtrl+V");
+    CtEntryMenuState st;
+    st.isAction = kind != 0, st.block = block, st.off = off;
+    st.canMoveOut = kind && ctCanMove(i, false), st.canMoveIn = kind && ctCanMove(i, true);
+    st.canPaste = gCtClip.kind == (kind ? 1 : 0);
+    HMENU m = ctMenu(ctEntryMenuItems(st));
     const int pick = popupMenu(m, TPM_LEFTALIGN, screen.x, screen.y, d.entries);
     DestroyMenu(m);
     switch (pick) {
