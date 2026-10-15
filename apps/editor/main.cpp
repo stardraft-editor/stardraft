@@ -19120,10 +19120,8 @@ int gStripEditing = -1;
 std::wstring stripNumberText(int which) {
     wchar_t t[24];
     if (which == kNumSize) std::swprintf(t, 24, L"%g", app.brushSize);
-    else if (which == kNumHeight) {
-        if (app.brushHeight <= 0) return L"same";
-        std::swprintf(t, 24, L"%g", app.brushHeight);
-    } else std::swprintf(t, 24, L"%d", app.sprayDensity);
+    else if (which == kNumHeight) std::swprintf(t, 24, L"%g", app.brushHeight > 0 ? app.brushHeight : app.brushSize);  // linked: the size
+    else std::swprintf(t, 24, L"%d", app.sprayDensity);
     return t;
 }
 void stripNumberChanged() {
@@ -19149,9 +19147,8 @@ void stripNumberStep(int which, int dir) {
                 }
         }
         app.brushSize = next;
-    } else if (which == kNumHeight) {  // from "same": one step from the size; back to the size: "same" again
-        const float h = std::clamp((app.brushHeight > 0 ? app.brushHeight : app.brushSize) + float(dir), 1.0f, 32.0f);
-        app.brushHeight = h == app.brushSize ? 0 : h;
+    } else if (which == kNumHeight) {  // linked: one step from the size, and no longer linked
+        app.brushHeight = std::clamp(std::round(app.brushHeight > 0 ? app.brushHeight : app.brushSize) + float(dir), 1.0f, 32.0f);
     } else {
         app.sprayDensity = std::clamp(app.sprayDensity + dir, 1, kDensityMax);
         app.densityByMode[int(app.mode)] = app.sprayDensity;
@@ -19160,7 +19157,7 @@ void stripNumberStep(int which, int dir) {
 }
 // A typed number: into the range; Size to a whole number (StarCraft terrain has no half sizes).
 bool stripNumberSet(int which, const std::wstring& text) {
-    if (which == kNumHeight && (text.empty() || text == L"same")) {  // the same as the size
+    if (which == kNumHeight && text.empty()) {  // linked: the same as the size
         app.brushHeight = 0;
         stripNumberChanged();
         return true;
@@ -19175,8 +19172,7 @@ bool stripNumberSet(int which, const std::wstring& text) {
     if (which == kNumSize) {
         app.brushSize = float(std::clamp(std::round(v), 1.0, 32.0));
     } else if (which == kNumHeight) {
-        const float h = float(std::clamp(std::round(v), 1.0, 32.0));
-        app.brushHeight = h == app.brushSize ? 0 : h;
+        app.brushHeight = float(std::clamp(std::round(v), 1.0, 32.0));  // a value of its own (the link turns off)
     } else {
         app.sprayDensity = std::clamp(int(std::lround(std::clamp(v, -1000.0, 1000.0))), 1, kDensityMax);
         app.densityByMode[int(app.mode)] = app.sprayDensity;
@@ -19190,7 +19186,9 @@ void stripEditEnd(bool commit) {
     gStripEditing = -1;
     const std::wstring text = windowText(gStripEdit);
     ShowWindow(gStripEdit, SW_HIDE);
-    if (commit) stripNumberSet(which, text);
+    // A linked height left as it was (the size): still linked.
+    const bool unchanged = which == kNumHeight && app.brushHeight <= 0 && text == stripNumberText(kNumHeight);
+    if (commit && !unchanged) stripNumberSet(which, text);
     stripNumberChanged();
 }
 LRESULT CALLBACK stripEditProc(HWND w, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
@@ -19284,21 +19282,13 @@ int stripTextWidth(const wchar_t* text) {
     ReleaseDC(nullptr, dc);
     return int(sz.cx);
 }
-// Terrain: the brush's Size and Height on one row, when each box has room for its value ("same"). The width of each
-// box; 0: no room (a narrow strip), a row each.
-int brushRowBoxWidth(int stripWidth) {
-    const int bw = std::min((stripWidth - scale(64) - scale(14)) / 2, scale(92));
-    return bw - 2 * scale(18) >= stripTextWidth(tr(L"same")) + scale(8) ? bw : 0;
-}
 int toolStripHeight(int width, bool titled) {
     const int b = scale(30), gap = scale(4);
     const int perRow = std::max(1, (width + gap) / (b + gap));
     const int tools = int(stripTools(app.mode).size());
-    // Terrain: the tools, then the shapes on a row of their own; the others: the tools.
-    const int rows = (tools + perRow - 1) / perRow + (app.mode == Mode::Terrain ? (3 + perRow - 1) / perRow : 0);
+    const int rows = (tools + perRow - 1) / perRow;  // (Terrain: the brush's shape is in its size field)
     const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap : 0) + (stripHasDensity() ? scale(26) + gap : 0) +
-                      (app.mode == Mode::Terrain ? scale(26) + gap : 0) +  // Terrain: Isometric | Rectangle
-                      (app.mode == Mode::Terrain && stripHasSize() && !brushRowBoxWidth(width) ? scale(26) + gap : 0);  // a narrow strip: Height on a row of its own
+                      (app.mode == Mode::Terrain ? scale(26) + gap : 0);  // Terrain: Isometric | Rectangle
     return (titled ? scale(24) : 0) + rows * b + (rows - 1) * gap + extra;
 }
 void paintToolStrip(HWND hwnd) {
@@ -19355,20 +19345,6 @@ void paintToolStrip(HWND hwnd) {
                        key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAF"[key]) + L")" : std::wstring(it.tip), ui::Icon::Boxed, on);
         next();
     }
-    if (app.mode == Mode::Terrain) {
-        static const StripItem shapes[3] = {{UiIcon::ShapeDiamond, L"Brush shape: diamond"}, {UiIcon::ShapeSquare, L"Brush shape: square"},
-                                            {UiIcon::ShapeCircle, L"Brush shape: circle"}};
-        if (x > 0) x = 0, y += b + gap;  // the shapes: a row of their own
-        for (int k = 0; k < 3; ++k) {
-            ui::iconButton(mem, {x, y, x + b, y + b}, shapes[k].icon, [k] {
-                app.brushShape = Brush::Shape(k);
-                saveAppSettings();
-                InvalidateRect(app.tool, nullptr, FALSE);
-                SetFocus(app.view);
-            }, shapes[k].tip, ui::Icon::Boxed, int(app.brushShape) == k);
-            next();
-        }
-    }
     if (x > 0) x = 0, y += b + gap;
     // The brush size and the spray's density: number boxes (the name, the value, up and down arrows).
     // A stepper: - and + at the ends of the box, the value between them (a click there types one).
@@ -19408,32 +19384,86 @@ void paintToolStrip(HWND hwnd) {
     };
     static const wchar_t* const kSizeTip = L"Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).";
     static const wchar_t* const kHeightTip =
-        L"Brush height: 1 to 32, or the same as Size. Click to type a height (empty: the same as Size). - and + and the mouse wheel change it.";
-    const int rowBox = stripHasSize() && app.mode == Mode::Terrain ? brushRowBoxWidth(int(rc.right)) : 0;
-    if (rowBox) {
-        // Terrain: the width and the height on one row, "Size [3] x [same] diamonds" (GitHub #113).
-        const int h = scale(26), lw = scale(64), cross = scale(14);
-        SetTextColor(mem, kDim);
-        RECT lt{0, y, lw, y + h};
-        DrawTextW(mem, L"Size", -1, &lt, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-        const wchar_t* unit = app.terrainRect ? L"tiles" : L"diamonds";
-        const int unitW = stripTextWidth(tr(unit)) + scale(8), room = int(rc.right) - lw - cross;
-        const bool unitFits = room - unitW >= 2 * scale(76);  // a narrow strip: the boxes keep the room, no unit
-        const int bw = unitFits ? std::min(rowBox, (room - unitW) / 2) : rowBox, sw = scale(bw >= scale(76) ? 22 : 18);
-        const RECT wb{lw, y + scale(1), lw + bw, y + h - scale(1)}, hb{wb.right + cross, wb.top, wb.right + cross + bw, wb.bottom};
-        stepper(kNumSize, wb, kSizeTip, sw);
-        SetTextColor(mem, kDim);
-        RECT xt{wb.right, y, hb.left, y + h};
-        DrawTextW(mem, L"\u00D7", -1, &xt, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
-        stepper(kNumHeight, hb, kHeightTip, sw);
-        if (unitFits) {
-            RECT ut{hb.right + scale(6), y, rc.right, y + h};
-            DrawTextW(mem, unit, -1, &ut, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-        }
+        L"Brush height: 1 to 32. Click to type a height (empty: the same as the size). The arrows and the mouse wheel change it.";
+    if (stripHasSize() && app.mode == Mode::Terrain) {
+        // Terrain: the brush in one field the width of the strip (GitHub #113):
+        //   [ shape v | width ^v  x  height ^v | link ]
+        // The shape opens a list; each number has a spin at its right, takes the mouse wheel and a click types it. The
+        // link keeps the height the same as the width (the height then shows in the dim color).
+        const int h = scale(26), seg = scale(40), linkW = scale(34), spin = scale(14), cross = scale(16), pad = scale(4);
+        const bool linked = app.brushHeight <= 0;
+        const bool editing = gStripEditing == kNumSize || gStripEditing == kNumHeight;
+        const RECT box{0, y, int(rc.right), y + h};
+        ui::fieldBox(mem, box, editing ? ui::Field::Focus : ui::Field::Normal);
+        auto divider = [&](int x) { ui::box(mem, {x, box.top + scale(6), x + 1, box.bottom - scale(6)}, kBorder, CLR_NONE, 0); };
+        auto hotFill = [&](const RECT& r) {
+            if (ui::hot(r)) ui::box(mem, {r.left + scale(2), r.top + scale(2), r.right - scale(2), r.bottom - scale(2)}, kCtlHot, CLR_NONE, 3);
+        };
+        // The shape.
+        static const UiIcon shapeIcons[3] = {UiIcon::ShapeDiamond, UiIcon::ShapeSquare, UiIcon::ShapeCircle};
+        static const wchar_t* const shapeNames[3] = {L"Diamond", L"Square", L"Circle"};
+        const RECT sr{box.left, box.top, box.left + seg, box.bottom};
+        hotFill(sr);
+        uiIcon(mem, {sr.left + scale(4), sr.top, sr.left + scale(24), sr.bottom}, shapeIcons[int(app.brushShape) % 3], kText, scale(14));
+        ui::glyph(mem, {sr.left + scale(24), sr.top, sr.right - scale(4), sr.bottom}, L"\xE70D", kDim, 7);
+        gStrip.hits.push_back({sr, nullptr, [sr] {
+                                   HMENU m = CreatePopupMenu();
+                                   for (int k = 0; k < 3; ++k)
+                                       AppendMenuW(m, MF_STRING | (int(app.brushShape) == k ? MF_CHECKED : 0), UINT_PTR(k + 1), tr(shapeNames[k]));
+                                   POINT p{sr.left, sr.bottom + scale(2)};
+                                   ClientToScreen(app.tool, &p);
+                                   const int pick = paintedMenu(m, p.x, p.y, app.tool);
+                                   DestroyMenu(m);
+                                   if (pick >= 1 && pick <= 3) {
+                                       app.brushShape = Brush::Shape(pick - 1);
+                                       saveAppSettings();
+                                       InvalidateRect(app.tool, nullptr, FALSE);
+                                   }
+                                   SetFocus(app.view);
+                               },
+                               L"Brush shape: diamond, square or circle", IDC_HAND, {}});
+        divider(sr.right);
+        // The link.
+        const RECT lk{box.right - linkW, box.top, box.right, box.bottom};
+        hotFill(lk);
+        ui::glyph(mem, lk, L"\xE71B", linked ? kAccent : kFaint, 10);
+        gStrip.hits.push_back({lk, nullptr, [] {
+                                   app.brushHeight = app.brushHeight <= 0 ? app.brushSize : 0;  // as it is now (a typed height may just have been set)
+                                   stripNumberChanged();
+                                   SetFocus(app.view);
+                               },
+                               linked ? L"The height is the same as the size. Click to give the height a value of its own."
+                                      : L"The height has a value of its own. Click to make it the same as the size.",
+                               IDC_HAND, {}});
+        divider(lk.left);
+        // The width and the height, x between them.
+        const int mx = (sr.right + lk.left) / 2;
+        auto part = [&](int which, int left, int right, const wchar_t* tip) {
+            const int mid = (box.top + box.bottom) / 2;
+            const RECT value{left, box.top, right - spin, box.bottom}, up{right - spin, box.top + pad, right - scale(2), mid},
+                down{right - spin, mid, right - scale(2), box.bottom - pad};
+            if (gStripEditing != which) {
+                SetTextColor(mem, which == kNumHeight && linked ? kDim : kText);
+                RECT vt = value;
+                DrawTextW(mem, stripNumberText(which).c_str(), -1, &vt, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
+            }
+            for (const bool more : {true, false}) {
+                const RECT k = more ? up : down;
+                const bool over = ui::hot(k);
+                if (over) ui::box(mem, k, kCtlHot, CLR_NONE, 2);
+                ui::glyph(mem, k, more ? L"\xE70E" : L"\xE70D", over ? kText : kDim, 6);  // chevrons up and down
+            }
+            gStrip.hits.push_back({value, nullptr, [which, value] { stripEditBegin(which, value); }, tip, IDC_IBEAM, {}});
+            gStrip.hits.push_back({up, nullptr, [which] { stripNumberStep(which, 1); }, L"One step more", IDC_HAND, {}});
+            gStrip.hits.push_back({down, nullptr, [which] { stripNumberStep(which, -1); }, L"One step less", IDC_HAND, {}});
+            gStripNumbers.push_back({{left, box.top, right, box.bottom}, which});
+        };
+        part(kNumSize, sr.right + 1, mx - cross / 2, kSizeTip);
+        SetTextColor(mem, kFaint);
+        RECT xt{mx - cross / 2, box.top, mx + cross / 2, box.bottom};
+        DrawTextW(mem, L"×", -1, &xt, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
+        part(kNumHeight, mx + cross / 2, lk.left, kHeightTip);
         y += h + gap;
-    } else if (stripHasSize() && app.mode == Mode::Terrain) {  // a narrow strip: a row each
-        numberRow(kNumSize, L"Size", kSizeTip, app.terrainRect ? L"tiles" : L"diamonds");
-        numberRow(kNumHeight, L"Height", kHeightTip, app.brushHeight <= 0 ? nullptr : app.terrainRect ? L"tiles" : L"diamonds");
     } else if (stripHasSize())
         numberRow(kNumSize, L"Size", kSizeTip);
     if (stripHasDensity())
@@ -21654,7 +21684,7 @@ int runSelfTest(const fs::path& dir) {
         const float lowest = app.brushSize;
         setTool(Mode::Terrain, TSpray);
         app.sprayDensity = 2;
-        if (auto f = stripHit(L"One step more", 1)) f();  // the second box: Density
+        if (auto f = stripHit(L"One step more", 2)) f();  // the third: Density (after the size's width and height)
         const int dUp = app.sprayDensity;
         for (int i = 0; i < 60; ++i) stripNumberStep(kNumDensity, 1);
         const int dTop = app.sprayDensity;
@@ -27355,11 +27385,16 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 Editor& ed = *app.ed;
                 const size_t flat = ed.brushCorners(32 * 32, 32 * 32, currentBrush()).size(),
                              square = ed.brushCorners(32 * 32, 32 * 32, Brush{Brush::Square, 3}).size();
-                stripNumberSet(kNumHeight, L"3");  // the same as the size: "same" again
-                const bool same = app.brushHeight == 0 && stripNumberText(kNumHeight) == L"same";
+                stripNumberSet(kNumHeight, L"3");  // the same number as the size: still a value of its own
+                const bool own = app.brushHeight == 3;
+                stripNumberSet(kNumHeight, L"");  // empty: linked, the height shows the size
+                app.brushSize = 4;
+                const bool same = own && app.brushHeight == 0 && stripNumberText(kNumHeight) == L"4" && currentBrush().height() == 4;
                 o << "the Height box takes 1 " << (typed ? "yes" : "NO") << ", Rectangle: 3 x 1 tiles " << (tiles == 3 ? "yes" : "NO") << " (" << tiles
                   << "), isometric: fewer corners than 3 x 3 " << (flat < square && flat > 0 ? "yes" : "NO") << " (" << flat << " of " << square
-                  << "), the size's value is \"same\" " << (same ? "yes" : "NO") << "\n";
+                  << "), a typed 3 stays, empty links it to the size " << (same ? "yes" : "NO") << "\n";
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "brushheight.png", app.main);
                 continue;
             }
             if (s == "addon:") {  // addon.txt, addon.png: a Comsat Station on a command center: linked, drawn with its connector, moved with it, unlinked when deleted (#129)

@@ -639,7 +639,7 @@ void tilesAt(float wx, float wy, int& tx, int& ty) {
 // (an even size: the tile at the mouse is the one left of and above the middle).
 std::vector<std::pair<int, int>> tilesFootprint(int cx, int cy) {
     std::vector<std::pair<int, int>> out;
-    // Its width is the size, its height the Height (GitHub #113; "same": the size): circle and diamond stretch to it.
+    // Its width is the size, its height the Height (GitHub #113; linked: the size): circle and diamond stretch to it.
     const int n = std::max(1, int(std::lround(app.brushSize))), m = app.brushHeight > 0 ? std::max(1, int(std::lround(app.brushHeight))) : n;
     const int lo = -(n - 1) / 2, hi = n / 2, loY = -(m - 1) / 2, hiY = m / 2;
     const float mid = (lo + hi) / 2.0f, midY = (loY + hiY) / 2.0f, r = (n - 1) / 2.0f, rY = (m - 1) / 2.0f;
