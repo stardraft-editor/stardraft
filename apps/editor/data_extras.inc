@@ -146,18 +146,7 @@ int tabChangedCount(int tab) {
     return t ? t->changedCount() : 0;
 }
 
-// A string's text without its button prefix (a hotkey and a type byte) and with its control bytes left out: a line
-// for lists.
-bool buttonPrefix(const std::string& s) { return s.size() >= 2 && static_cast<unsigned char>(s[1]) <= 5 && static_cast<unsigned char>(s[0]) >= 0x20; }
-std::wstring stringLine(const std::string& raw) {
-    std::string o;
-    for (size_t i = buttonPrefix(raw) ? 2 : 0; i < raw.size(); ++i) {
-        const unsigned char c = static_cast<unsigned char>(raw[i]);
-        if (c == '\n' || c == '\r') o += ' ';
-        else if (c >= 0x20) o += char(c);
-    }
-    return widen(o);
-}
+// The string's text for a list, the button prefix and the control bytes left out (core views_data_strings.inc).
 std::wstring statString(int id) {  // stat_txt.tbl string `id` (1-based), as the project has it
     return id >= 1 && id <= gExtras.strings.count() ? stringLine(gExtras.strings.text(id - 1)) : L"";
 }
@@ -409,108 +398,47 @@ int capacityBar(HDC dc, const FormLayout& l, int y, size_t used, size_t room, co
 }
 
 // --- Requirements section (Units, Upgrades, Tech Data, Orders) ------------------------------------------------
+// The section's paint and clicks are core/views_data_requirements_paint.inc (paintRequirementList); this is the
+// Windows program's side of it: its kit faces, the list pickers and the click areas.
 
-// Picks a step: the opcodes, then "End of the level's list". `then` gets the new step.
-void pickRequirementOp(RECT box, uint16_t current, std::function<void(RequirementOp)> then) {
-    std::vector<ListPickItem> items;
-    for (const auto& d : Requirements::ops()) items.push_back({widen(d.name), L"", std::to_string(d.op)});
-    items.push_back({L"End of the level's list", L"", std::to_string(0xFFFF)});
-    std::string picked;
-    if (!showListPicker(L"Step", items, std::to_string(requirementPickerCurrent(current)), belowBox(box), picked)) return;
-    then({uint16_t(std::stoul(picked)), 0});
-}
+struct WinRequirements final : RequirementsPaintHost {
+    HDC dc = nullptr;
+    std::unique_ptr<ui::Paint> paint;  // the surface being painted (its canvas over dc)
+    draw::Canvas& canvas() override { return **paint; }
+    Requirements& reqs() override { return gExtras.reqs; }
+    void edited() override { extrasChanged(); }
+    bool hot(draw::Rect r) override { return ui::hot(RECT{r.left, r.top, r.right, r.bottom}); }
+    void hit(draw::Rect r, std::function<void()> click, const std::wstring& tip, bool hand) override {
+        hitsOut().push_back({RECT{r.left, r.top, r.right, r.bottom}, nullptr, std::move(click), tip, hand ? IDC_HAND : IDC_ARROW, {}});
+    }
+    bool choose(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, draw::Rect box, std::string& out) override {
+        return showListPicker(prompt, std::move(items), current, belowBox(RECT{box.left, box.top, box.right, box.bottom}), out);
+    }
+    std::vector<ListPickItem> valueItems(const char* kind) override { return entryItems(kind); }
+    void pickBox(draw::Rect r, const std::wstring& text, bool changed, std::function<void(draw::Rect)> click) override {
+        ui::pickBox(dc, RECT{r.left, r.top, r.right, r.bottom}, text, changed, [click](RECT b) { click(draw::Rect(b)); });
+    }
+    void valueBox(draw::Rect r, const char* kind, int v, std::function<void(draw::Rect)> click) override {
+        ui::pickBox(dc, RECT{r.left, r.top, r.right, r.bottom}, argName(kind, v), false, [click](RECT b) { click(draw::Rect(b)); }, L"",
+                    argIcon(kind, v), v, openEntry(kind, v));
+    }
+    void removeRow(draw::Rect row, draw::Rect at, std::function<void()> click, const std::wstring& tip) override {
+        ::removeCross(dc, RECT{row.left, row.top, row.right, row.bottom}, RECT{at.left, at.top, at.right, at.bottom}, std::move(click), tip);
+    }
+    int linkButton(int x, int y, int h, const std::wstring& text, std::function<void()> click) override {
+        return ::linkButton(dc, x, y, h, text, std::move(click));
+    }
+    void fillAlpha(draw::Rect r, draw::Color c, uint8_t alpha) override { ::fillAlpha(dc, RECT{r.left, r.top, r.right, r.bottom}, c, alpha); }
+};
+WinRequirements gRequirementsPaint;  // lives as long as the click areas it makes
 
+// One list of the open entry (the core's paint; the surface is dc).
 int paintRequirementList(HDC dc, const FormLayout& l, int k, int entry, int y) {
-    const RequirementList& list = gExtras.reqs.list(k, entry);
-    const bool changed = gExtras.reqs.changed(k, entry);
-    static const wchar_t* titles[] = {L"Requirements to make", L"Requirements to research", L"Requirements to research",
-                                      L"Requirements to use", L"Requirements"};
-    y = sectionHeader(dc, l, y, titles[k], changed);
-    auto setList = [k, entry](RequirementList n) {
-        gExtras.reqs.set(k, entry, std::move(n));
-        extrasChanged();
-    };
-    const int mode = requirementWay(changed, list);  // the four ways (core/views_data_requirements.inc)
-    {
-        fieldLabel(dc, l, y, L"Use", changed);
-        struct Way {
-            const wchar_t* name;
-            const wchar_t* tip;
-        };
-        static const Way ways[] = {
-            {L"Default", L"The game's list"},
-            {L"Always", L"Nothing is needed: an empty list"},
-            {L"Disabled", L"No list: the entry's offset is 0, as EUD Editor's \"Do not use\". Not checked in the game yet."},
-            {L"Custom", L"Your own steps. Change a step below, or click here to start from the game's list."},
-        };
-        int x = l.x0 + l.labelW;
-        for (int w = 0; w < 4; ++w) {
-            const int s = scale(14), tw = ui::textWidth(dc, ways[w].name);
-            const RECT r{x, y, x + s + scale(8) + tw + scale(4), y + l.rowH};
-            const RECT b{r.left, (r.top + r.bottom - s) / 2, r.left + s, (r.top + r.bottom - s) / 2 + s};
-            ui::radioMark(dc, b, mode == w, ui::hot(r));
-            RECT t{b.right + scale(8), r.top, r.right, r.bottom};
-            SetTextColor(dc, mode == w ? (w == kReqDefault ? kText : kGood) : ui::hot(r) ? kText : kDim);
-            DrawTextW(dc, ways[w].name, -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-            hitsOut().push_back({r, nullptr,
-                                 [k, entry, w, mode, setList] {
-                                     RequirementList n;
-                                     if (requirementListForWay(w, mode, gExtras.reqs.stock(k, entry), n)) setList(n);
-                                 },
-                                 ways[w].tip, IDC_HAND, {}});
-            x = r.right + scale(18);
-        }
-        y += l.rowH;
-    }
-    if (list.used) {  // the steps (Default and Always show them too: a change makes it Custom)
-        const std::vector<int> levels = requirementLevels(list.ops);
-        for (size_t i = 0; i < list.ops.size(); ++i) {
-            const RequirementOp& r = list.ops[i];
-            const int indent = scale(levels[i] ? 22 : 0);
-            const bool end = r.op == 0xFFFF;
-            RECT opBox{l.x0 + indent, y + scale(2), l.x0 + l.labelW - scale(12), y + l.rowH - scale(2)};
-            pickBox(dc, opBox, requirementOpName(r), false, [k, entry, i](RECT b) {
-                pickRequirementOp(b, gExtras.reqs.list(k, entry).ops[i].op, [k, entry, i](RequirementOp n) {
-                    gExtras.reqs.set(k, entry, requirementWithOp(gExtras.reqs.list(k, entry), i, n));
-                    extrasChanged();
-                });
-            });
-            if (end) {  // dimmed: it only closes a level's list
-                RECT e{opBox.left + scale(8), opBox.top, opBox.right - scale(22), opBox.bottom};
-                fillAlpha(dc, opBox, kBg, 120);
-                (void)e;
-            }
-            if (const char* ak = requirementOpArgKind(r)) {
-                const int v = requirementOpValue(r);
-                RECT argBox{l.x0 + l.labelW, y + scale(2), l.x0 + l.labelW + scale(320), y + l.rowH - scale(2)};
-                pickBox(dc, argBox, argName(ak, v), false,
-                        [k, entry, i, ak](RECT b) {
-                            std::string picked;
-                            const RequirementOp cur = gExtras.reqs.list(k, entry).ops[i];
-                            if (!showListPicker(L"Value", entryItems(ak), std::to_string(requirementOpValue(cur)), belowBox(b), picked)) return;
-                            gExtras.reqs.set(k, entry, requirementWithArg(gExtras.reqs.list(k, entry), i, uint16_t(std::stoul(picked))));
-                            extrasChanged();
-                        },
-                        L"", argIcon(ak, v), v, openEntry(ak, v));
-            }
-            removeCross(dc, {l.x0, y, l.colRight, y + l.rowH}, {l.colRight - scale(24), y, l.colRight, y + l.rowH}, [k, entry, i] {
-                gExtras.reqs.set(k, entry, requirementWithoutStep(gExtras.reqs.list(k, entry), i));
-                extrasChanged();
-            }, L"Remove the step");
-            y += l.rowH;
-        }
-        const int ay = y;
-        const int ax = linkButton(dc, l.x0, y, l.rowH, L"Add a step", [k, entry, ay] {
-            pickRequirementOp({scale(18), ay, scale(218), ay + scale(26)}, 0xFF03, [k, entry](RequirementOp n) {
-                gExtras.reqs.set(k, entry, requirementWithNewStep(gExtras.reqs.list(k, entry), n));
-                extrasChanged();
-            });
-        });
-        (void)ax;
-    }
-    y += l.rowH;
-    y = capacityBar(dc, l, y, gExtras.reqs.used(), Requirements::capacity(), L"Memory all requirement lists use together");
-    return y + scale(14);
+    gRequirementsPaint.dc = dc;
+    gRequirementsPaint.paint = std::make_unique<ui::Paint>(dc);
+    y = paintRequirementList(gRequirementsPaint, RequirementLayout{l.x0, l.labelW, l.rowH, l.colRight}, k, entry, y);
+    gRequirementsPaint.paint.reset();
+    return y;
 }
 
 int gWireframeTop = -1;  // where the last painted Display section's wireframe rows start (form content; the self-test)
@@ -677,38 +605,15 @@ int paintRequirements(HDC dc, const std::string& dat, int entry, int, int y, int
 
 // --- Buttons tab -----------------------------------------------------------------------------------------------
 
-// A button's label: its tooltip's first line (or what it does). With its icon, that is enough to know it.
-std::wstring buttonRowText(const Button& b) {
-    std::wstring text = b.enabledString ? statString(b.enabledString) : L"";
-    if (const size_t nl = text.find(L'\n'); nl != std::wstring::npos) text.resize(nl);
-    if (text.empty())
-        if (const ButtonFunctionDef* a = ButtonSets::action(b.action)) text = widen(a->name);
-    return text.empty() ? L"(no text)" : text;
-}
+// A button's label (core views_data_buttons.inc): its tooltip's first line, or what it does.
+std::wstring buttonRowText(const Button& b) { return buttonRowTextFrom(b, b.enabledString ? statString(b.enabledString) : L""); }
 
 // The game's text with its colors, in the rich text pop-out (main.cpp); false when it was not changed.
 bool editGameText(const std::wstring& title, std::string& text, POINT at);
 
-// What a button costs, as the tooltip of its type shows it ("Make a unit", "Upgrade", "Use a tech", "Research").
+// What a button costs (core views_data_buttons.inc: the cost line of its type's tooltip).
 std::wstring buttonCost(const Button& b, int type) {
-    auto join = [](std::initializer_list<std::pair<int, const wchar_t*>> parts) {
-        std::wstring o;
-        for (const auto& [n, what] : parts)
-            if (n > 0) o += (o.empty() ? L"" : L"    ") + std::to_wstring(n) + L" " + what;
-        return o;
-    };
-    const int v = b.actionArg;
-    switch (type) {
-    case 1:
-    case 5: {
-        const int supply = datValue("units", "Supply Required", v);
-        return join({{datValue("units", "Mineral Cost", v), L"minerals"}, {datValue("units", "Vespene Cost", v), L"gas"}, {(supply + 1) / 2, L"supply"}});
-    }
-    case 2: return join({{datValue("upgrades", "Mineral Cost Base", v), L"minerals"}, {datValue("upgrades", "Vespene Cost Base", v), L"gas"}});
-    case 3: return join({{datValue("techdata", "Energy Required", v), L"energy"}});
-    case 4: return join({{datValue("techdata", "Mineral Cost", v), L"minerals"}, {datValue("techdata", "Vespene Cost", v), L"gas"}});
-    }
-    return L"";
+    return buttonCostText(b, type, [](const std::string& dat, const std::string& name, int e) { return datValue(dat, name, e); });
 }
 
 // The tooltip as the game shows it: the text, and the cost line its type adds.
@@ -744,9 +649,7 @@ int paintCommandCard(HDC dc, int set, int x, int y, int cell) {
     for (int p = 1; p <= 9; ++p) {
         RECT c{x + gap + (p - 1) % 3 * (cell + gap), y + gap + (p - 1) / 3 * (cell + gap), 0, 0};
         c.right = c.left + cell, c.bottom = c.top + cell;
-        std::vector<int> here;
-        for (size_t i = 0; i < bs.size(); ++i)
-            if (bs[i].pos == p) here.push_back(int(i));
+        const std::vector<int> here = buttonsAtPlace(bs, p);
         const bool sel = std::find(here.begin(), here.end(), gExtras.button) != here.end();
         const bool hot = mouseIn(c);
         fillAlpha(dc, c, sel ? kSel : hot ? RGB(36, 39, 44) : RGB(26, 28, 32), 255);
@@ -777,29 +680,23 @@ int paintCommandCard(HDC dc, int set, int x, int y, int cell) {
         const int p0 = p;
         hitsOut().push_back({c,
                                [set, x, y, cell, gap](POINT pt) {  // drag: the selected button to the cell under the mouse
-                                   const int cx = (pt.x - x - gap) / (cell + gap), cy = (pt.y - y - gap) / (cell + gap);
-                                   if (cx < 0 || cy < 0 || cx > 2 || cy > 2) return;
+                                   const uint16_t np = buttonPlaceAt((pt.x - x - gap) / (cell + gap), (pt.y - y - gap) / (cell + gap));
+                                   if (!np) return;
                                    auto bs2 = gExtras.buttons.set(set);
-                                   if (gExtras.button < 0 || gExtras.button >= int(bs2.size())) return;
-                                   const uint16_t np = uint16_t(cy * 3 + cx + 1);
-                                   if (bs2[size_t(gExtras.button)].pos == np) return;
-                                   bs2[size_t(gExtras.button)].pos = np;
+                                   if (!buttonMoveTo(bs2, gExtras.button, np)) return;
                                    gExtras.buttons.set(set, bs2);
                                    InvalidateRect(gData.form, nullptr, FALSE);
                                },
                                [set, here, p0] {
                                    if (here.empty()) {  // a new button
                                        auto bs2 = gExtras.buttons.set(set);
-                                       Button nb;
-                                       nb.pos = uint16_t(p0), nb.icon = 0, nb.condition = 0x4282D0, nb.action = 0x4233F0;
-                                       bs2.push_back(nb);
+                                       bs2.push_back(buttonNew(uint16_t(p0)));
                                        gExtras.buttons.set(set, bs2);
                                        gExtras.button = int(bs2.size()) - 1;
                                        extrasChanged();
                                        return;
                                    }
-                                   auto it = std::find(here.begin(), here.end(), gExtras.button);
-                                   gExtras.button = it == here.end() || it + 1 == here.end() ? here[0] : *(it + 1);
+                                   gExtras.button = buttonNextInPlace(here, gExtras.button);
                                    InvalidateRect(gData.form, nullptr, FALSE);
                                },
                                tip, here.empty() ? IDC_HAND : IDC_SIZEALL, {}});
@@ -836,7 +733,7 @@ void paintButtonsForm(HDC dc, RECT rc, int& y) {
         if (const auto* ic = datRefIcon("icons", b.icon); ic && ic->bmp) drawFitted(dc, *ic, {gx + scale(28), y + scale(3), gx + scale(48), y + l.rowH - scale(3)});
         RECT pr{gx + scale(54), y, gx + scale(120), y + l.rowH};
         SetTextColor(dc, sharing > 1 ? kWarn : kDim);
-        DrawTextW(dc, (L"R" + std::to_wstring((b.pos - 1) / 3 + 1) + L" C" + std::to_wstring((b.pos - 1) % 3 + 1)).c_str(), -1, &pr, DT_SINGLELINE | DT_VCENTER);
+        DrawTextW(dc, buttonCardCell(b.pos).c_str(), -1, &pr, DT_SINGLELINE | DT_VCENTER);
         RECT tr{gx + scale(120), y, l.colRight - scale(80), y + l.rowH};
         SetTextColor(dc, on ? kAccent : kText);
         DrawTextW(dc, buttonRowText(b).c_str(), -1, &tr, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
@@ -849,20 +746,16 @@ void paintButtonsForm(HDC dc, RECT rc, int& y) {
                              IDC_HAND, {}});
         ui::reorderRow(dc, "buttons", r, bi, [set](int from, int to) {
             auto bs2 = gExtras.buttons.set(set);
-            const Button moved = bs2[size_t(from)];
-            bs2.erase(bs2.begin() + from);
-            bs2.insert(bs2.begin() + to, moved);
+            gExtras.button = buttonReorder(bs2, from, to);
             gExtras.buttons.set(set, bs2);
-            gExtras.button = to;
             extrasChanged();
         });
         // On the row: earlier, later, remove.
         auto move = [set, bi](int by) {
             return [set, bi, by] {
                 auto bs2 = gExtras.buttons.set(set);
-                std::swap(bs2[size_t(bi)], bs2[size_t(bi + by)]);
+                gExtras.button = buttonSwapWith(bs2, bi, by);
                 gExtras.buttons.set(set, bs2);
-                gExtras.button = bi + by;
                 extrasChanged();
             };
         };
@@ -872,9 +765,8 @@ void paintButtonsForm(HDC dc, RECT rc, int& y) {
                         {UiIcon::Close, L"Remove the button",
                          [set, bi] {
                              auto bs2 = gExtras.buttons.set(set);
-                             if (size_t(bi) < bs2.size()) bs2.erase(bs2.begin() + long(bi));
+                             gExtras.button = buttonRemoveAt(bs2, bi);
                              gExtras.buttons.set(set, bs2);
-                             gExtras.button = std::max(0, bi - 1);
                              extrasChanged();
                          },
                          ui::Tone::Danger}},
@@ -886,12 +778,7 @@ void paintButtonsForm(HDC dc, RECT rc, int& y) {
         const int ay = y;
         linkButton(dc, l.x0, y, l.rowH, L"Add a button", [set, ay] {
             auto bs2 = gExtras.buttons.set(set);
-            uint16_t p = 1;
-            for (; p <= 9; ++p)
-                if (std::none_of(bs2.begin(), bs2.end(), [p](const Button& x) { return x.pos == p; })) break;
-            Button nb;
-            nb.pos = std::min<uint16_t>(p, 9), nb.condition = 0x4282D0, nb.action = 0x4233F0;
-            bs2.push_back(nb);
+            bs2.push_back(buttonNew(buttonFreePlace(bs2)));
             gExtras.buttons.set(set, bs2);
             gExtras.button = int(bs2.size()) - 1;
             extrasChanged();
@@ -924,10 +811,10 @@ void paintButtonsForm(HDC dc, RECT rc, int& y) {
                     std::move(open));
             y += l.rowH;
         };
-        row(L"Position", sb && sb->pos != b.pos, L"Row " + std::to_wstring((b.pos - 1) / 3 + 1) + L", column " + std::to_wstring((b.pos - 1) % 3 + 1),
+        row(L"Position", sb && sb->pos != b.pos, buttonRowColumn(b.pos),
             [edit, b](RECT r) {
                 std::vector<ListPickItem> items;
-                for (int p = 1; p <= 9; ++p) items.push_back({L"Row " + std::to_wstring((p - 1) / 3 + 1) + L", column " + std::to_wstring((p - 1) % 3 + 1), L"", std::to_string(p)});
+                for (int p = 1; p <= 9; ++p) items.push_back({buttonRowColumn(p), L"", std::to_string(p)});
                 std::string picked;
                 if (showListPicker(L"Position", items, std::to_string(b.pos), belowBox(r), picked)) edit([&](Button& x) { x.pos = uint16_t(std::stoul(picked)); });
             },
@@ -1050,21 +937,6 @@ void paintButtonsForm(HDC dc, RECT rc, int& y) {
 
 // --- A whole button, in a pop-out (a trigger's Replace a button) ------------------------------------------------
 
-// "place,icon,condition,action,conditionValue,actionValue,tooltip,tooltipNotUsable", and back.
-bool buttonFromText(const std::string& v, Button& b) {
-    std::vector<uint32_t> f;
-    std::stringstream ss(v);
-    for (std::string x; std::getline(ss, x, ',');) f.push_back(uint32_t(std::strtoul(x.c_str(), nullptr, 0)));
-    if (f.size() != 8) return false;
-    b = {uint16_t(f[0]), uint16_t(f[1]), f[2], f[3], uint16_t(f[4]), uint16_t(f[5]), uint16_t(f[6]), uint16_t(f[7])};
-    return true;
-}
-std::string buttonToText(const Button& b) {
-    return std::to_string(b.pos) + "," + std::to_string(b.icon) + "," + std::to_string(b.condition) + "," + std::to_string(b.action) + "," +
-           std::to_string(b.conditionArg) + "," + std::to_string(b.actionArg) + "," + std::to_string(b.enabledString) + "," + std::to_string(b.disabledString);
-}
-
-
 struct ButtonPop {
     HWND wnd = nullptr;
     Button b;
@@ -1131,10 +1003,9 @@ void buttonPopPaint(HWND hwnd) {
         y += l.rowH;
     };
     Button& b = p.b;
-    static const wchar_t* const kPlaces[9] = {L"Top left", L"Top center", L"Top right", L"Left", L"Center", L"Right", L"Bottom left", L"Bottom center", L"Bottom right"};
-    row(L"Place", b.pos >= 1 && b.pos <= 9 ? kPlaces[b.pos - 1] : L"?", [](RECT r) {
+    row(L"Place", buttonPlaceName(b.pos), [](RECT r) {
         std::vector<ListPickItem> items;
-        for (int k = 1; k <= 9; ++k) items.push_back({kPlaces[k - 1], L"", std::to_string(k)});
+        for (int k = 1; k <= 9; ++k) items.push_back({buttonPlaceName(k), L"", std::to_string(k)});
         std::string picked;
         if (showListPicker(L"Place", items, std::to_string(gButtonPop->b.pos), belowBox(r), picked)) gButtonPop->b.pos = uint16_t(std::stoul(picked));
     });
@@ -1250,7 +1121,7 @@ bool showButtonPopup(std::string& text, POINT at) {
     }
     dataLoadForProject();  // the icons and strings come from the project
     ButtonPop p;
-    if (!buttonFromText(text, p.b)) p.b = Button{1, 0, 0x4282D0, 0x4233F0, 0, 0, 0, 0};
+    if (!buttonFromText(text, p.b)) p.b = Button{1, 0, kButtonNewCondition, kButtonNewAction, 0, 0, 0, 0};
     ButtonPop* outer = gButtonPop;
     gButtonPop = &p;
     const int w = scale(560), h = scale(470);
@@ -1271,20 +1142,14 @@ bool showButtonPopup(std::string& text, POINT at) {
 
 // --- Strings tab -----------------------------------------------------------------------------------------------
 
-// The editor (game_text.inc) holds the text without a button's hotkey and type characters (the fields show them).
-std::string stringEditBody(int id) {
-    const std::string& raw = gExtras.strings.text(id - 1);
-    return buttonPrefix(raw) ? raw.substr(2) : raw;
-}
-std::string stringEditPrefix(int id) {
-    const std::string& raw = gExtras.strings.text(id - 1);
-    return buttonPrefix(raw) ? raw.substr(0, 2) : "";
-}
+// The editor holds the text without a button's hotkey and type characters (core views_data_strings.inc).
+std::string stringEditBody(int id) { return stringEditBody(gExtras.strings.text(id - 1)); }
+std::string stringEditPrefix(int id) { return stringEditPrefix(gExtras.strings.text(id - 1)); }
 void stringsCommitEdit() {
     if (!gExtras.textEdit || gExtras.textFor < 1 || !gExtras.textDirty) return;
     gExtras.textDirty = false;
     const int id = gExtras.textFor;
-    const std::string text = stringEditPrefix(id) + gameTextGet(gExtras.textEdit);
+    const std::string text = stringEditCommit(gExtras.strings.text(id - 1), gameTextGet(gExtras.textEdit));
     if (text == gExtras.strings.text(id - 1)) return;
     gExtras.strings.set(id - 1, text);
     extrasChanged();
@@ -1319,7 +1184,7 @@ void paintStringsForm(HDC dc, RECT rc, int& y) {
     const int top = y;
     // The preview: a picture, in the right column (above the fields when narrow); its legend is the color codes.
     std::string previewRaw = raw;
-    if (gExtras.textDirty && gExtras.textEdit && gExtras.textFor == id) previewRaw = stringEditPrefix(id) + gameTextGet(gExtras.textEdit);
+    if (gExtras.textDirty && gExtras.textEdit && gExtras.textFor == id) previewRaw = stringEditCommit(raw, gameTextGet(gExtras.textEdit));
     int picBottom;
     {
         TEXTMETRICW tm;
@@ -1345,21 +1210,19 @@ void paintStringsForm(HDC dc, RECT rc, int& y) {
     for (int s = 0; s < ButtonSets::kSets && !enabledText; ++s)
         for (const Button& b : gExtras.buttons.set(s)) enabledText |= b.enabledString == id;
     if (enabledText) {
-        const bool has = buttonPrefix(raw);
-        const char hot = has ? raw[0] : 0;
-        const int type = has ? raw[1] : 0;
+        const StringButtonParts bp = stringButtonParts(raw);
+        const bool has = bp.has;
+        const char hot = bp.hot;
+        const int type = bp.type;
         const std::string& stockRaw = gExtras.strings.stock(id - 1);
         const bool hotChanged = buttonPrefix(stockRaw) != has || (has && stockRaw[0] != hot), typeChanged = buttonPrefix(stockRaw) != has || (has && stockRaw[1] != raw[1]);
-        static const wchar_t* types[] = {L"Command", L"Make a unit", L"Upgrade", L"Use a technology", L"Research a technology", L"Morph a unit"};
         auto setPrefix = [id](char h, int t) {
-            const std::string& r = gExtras.strings.text(id - 1);
-            std::string body = buttonPrefix(r) ? r.substr(2) : r;
-            gExtras.strings.set(id - 1, std::string(1, h) + char(t) + body);
+            gExtras.strings.set(id - 1, stringWithButtonPrefix(gExtras.strings.text(id - 1), h, t));
             gExtras.textFor = -1;
             extrasChanged();
         };
         fieldLabel(dc, l, y, L"Hotkey", hotChanged);
-        const std::wstring hotText = !has ? L"None" : hot == 27 ? L"Esc" : hot == ' ' ? L"Space" : std::wstring(1, wchar_t(std::toupper(static_cast<unsigned char>(hot))));
+        const std::wstring hotText = stringHotkeyText(bp);
         pickBox(dc, {l.x0 + l.labelW, y + scale(2), l.x0 + l.labelW + scale(320), y + l.rowH - scale(2)}, hotText, hotChanged, [setPrefix, type](RECT r) {
             std::vector<ListPickItem> items;
             for (char c = 'A'; c <= 'Z'; ++c) items.push_back({std::wstring(1, wchar_t(c)), L"", std::string(1, char(std::tolower(c)))});
@@ -1370,10 +1233,10 @@ void paintStringsForm(HDC dc, RECT rc, int& y) {
         }, L"The key that presses the button");
         y += l.rowH;
         fieldLabel(dc, l, y, L"Type", typeChanged);
-        pickBox(dc, {l.x0 + l.labelW, y + scale(2), l.x0 + l.labelW + scale(320), y + l.rowH - scale(2)}, has && type < 6 ? types[type] : L"None", typeChanged,
+        pickBox(dc, {l.x0 + l.labelW, y + scale(2), l.x0 + l.labelW + scale(320), y + l.rowH - scale(2)}, stringButtonTypeName(has ? type : -1), typeChanged,
                 [setPrefix, hot, has](RECT r) {
                     std::vector<ListPickItem> items;
-                    for (int t = 0; t < 6; ++t) items.push_back({types[t], L"", std::to_string(t)});
+                    for (int t = 0; t < 6; ++t) items.push_back({stringButtonTypeName(t), L"", std::to_string(t)});
                     std::string picked;
                     if (showListPicker(L"Type", items, "", belowBox(r), picked)) setPrefix(has ? hot : 'a', std::stoi(picked));
                 },
