@@ -108,24 +108,8 @@ namespace {
 
 #include "core/ids.inc"  // the command ids, the modes, the dock layout
 #include "core/recent.inc"  // the recent maps and projects (saved in the settings; the File menu is the host's)
+#include "core/dock_prefs.inc"  // the dock layout in the settings (loadDock, saveDock, trigZoomReset)
 
-void loadDock() {
-    auto get = [](const wchar_t* name, bool& v) { prefs::flag(std::wstring(L"Layout/") + name, v); };
-    get(L"MinimapRight", gDock.minimapRight);
-    get(L"MinimapHidden", gDock.minimapHidden);
-    for (int i = 0; i < kModeCount; ++i) get(kDockSideNames[i], gDock.toolsRight[i]);
-    auto number = [](const wchar_t* name, int& v, int lo, int hi) { prefs::number(std::wstring(L"Layout/") + name, v, lo, hi); };
-    number(L"LeftWidth", gDock.leftW, kMinSideW, kMaxSideW), number(L"RightWidth", gDock.rightW, kMinSideW, kMaxSideW);
-    number(L"DataListWidth", gDock.dataListW, kMinSideW, kMaxSideW);
-    get(L"TriggerCode", gDock.triggerCode);
-    number(L"UnitNames", gDock.unitNames, 0, 3);
-    number(L"Volume", gDock.volume, 0, 100);
-    get(L"ScriptPreview", gDock.scriptPreview);
-    number(L"LogHeight", gDock.logH, 80, 1200);
-    number(L"GridWidth", gDock.gridW, 1, 8192), number(L"GridHeight", gDock.gridH, 1, 8192);
-    number(L"GridX", gDock.gridX, 0, 8191), number(L"GridY", gDock.gridY, 0, 8191);
-    number(L"TriggerZoom", gDock.triggerZoom, 70, 200);
-}
 
 extern bool gSelfTest;
 // Test runs (--selftest, --datashots, --screenshot) play no sound: the user may be at the computer.
@@ -137,21 +121,6 @@ SDL_AudioStream* openPlayback(const SDL_AudioSpec* spec) {
     return s;
 }
 
-void saveDock() {
-    if (gSelfTest) return;  // the self-test moves panels without touching the user's layout
-    auto put = [](const wchar_t* name, int v) { prefs::setNumber(std::wstring(L"Layout/") + name, v); };
-    put(L"MinimapRight", gDock.minimapRight);
-    put(L"MinimapHidden", gDock.minimapHidden);
-    put(L"UnitNames", gDock.unitNames);
-    put(L"Volume", gDock.volume);
-    for (int i = 0; i < kModeCount; ++i) put(kDockSideNames[i], gDock.toolsRight[i]);
-    put(L"LeftWidth", gDock.leftW), put(L"RightWidth", gDock.rightW), put(L"DataListWidth", gDock.dataListW);
-    put(L"LogHeight", gDock.logH);
-    put(L"GridWidth", gDock.gridW), put(L"GridHeight", gDock.gridH), put(L"GridX", gDock.gridX), put(L"GridY", gDock.gridY);
-    put(L"TriggerCode", gDock.triggerCode);
-    put(L"ScriptPreview", gDock.scriptPreview);
-    put(L"TriggerZoom", gDock.triggerZoom);
-}
 
 // Recently opened maps and projects, and the folder projects usually go in (where the last one was made or
 // opened): HKCU\Software\StarDraft, RecentMaps / RecentProjects (lists) and ProjectsFolder.
@@ -341,7 +310,6 @@ struct App : AppState {
 };
 
 App app;
-AppState& appState() { return app; }
 
 int gUnitGraphics = 0;  // changes when syncMapUnitGraphics gives the map other unit graphics
 
@@ -447,6 +415,7 @@ void fillToolCombo() { fillToolCombo(app); }
 std::wstring itemLabel(int v) { return itemLabel(app, v); }
 
 #include "core/views_search.inc"  // the search boxes and the palette's dropdown (SearchBox, DropdownBox)
+#include "core/views_tiles.inc"  // the Rectangle mode's Tiles panel (TilesPanelView, TilesGridView; the windows are tiles_view.inc)
 #include "core/views_data_entry.inc"  // the Data form's number entry (DataNumberEntry, dataReadEntry); its instance is gDataEntry below
 DataNumberEntry gDataEntry;  // the number typed over a field's value (the form's child view window, gData.edit)
 #include "core/sound_lists.inc"  // the map's and the game's sound files by name (mapSounds, gameSounds, soundFileBytes)
@@ -469,6 +438,7 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_new_page_paint.inc"
 #include "core/views_options.inc"  // Program options' view (OptionsView; the host is options_window.inc)
 #include "core/views_feedback.inc"  // the feedback dialog's view (FeedbackView; the host is feedback.inc and feedback_window.inc)
+#include "core/views_new_project.inc"  // File > New EUD project (NewProjectView, runNewProjectDialog; the host is new_project_window.inc)
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
 
 void rebuildList() { rebuildList(app); }
@@ -1730,26 +1700,8 @@ void buildFinished(euddraft::BuildResult* r) {
     delete r;
 }
 
-// New project: name, folder, what to start from; the folder layout is spelled out before it is made.
-struct ProjectDialog {
-    HWND wnd = nullptr, name = nullptr, location = nullptr, output = nullptr, start = nullptr, info = nullptr;
-    bool accepted = false;
-    std::wstring nameText, locationText, outputText;  // outputText empty: <name>_EUD.scx in the project folder
-    bool fromOpenMap = true;
-};
-ProjectDialog* gProjDlg = nullptr;
-std::wstring pickOutputFile(HWND owner, const std::wstring& current);
-void (*gProjectHook)(HWND) = nullptr;  // self-test
-
-// The working folder: new projects go there (Program options > Working folder; Documents\StarDraft by default).
-fs::path defaultProjectsFolder() {
-    if (!gProjectsFolder.empty()) return gProjectsFolder;  // (made when the first project goes there)
-    wchar_t* docs = nullptr;
-    fs::path p;
-    if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Documents, 0, nullptr, &docs))) p = fs::path(docs) / "StarDraft";
-    CoTaskMemFree(docs);
-    return p;
-}
+// File > New EUD project: the dialog is a core view (core/views_new_project.inc; the host is new_project_window.inc).
+void showProjectDialog();
 
 std::wstring windowText(HWND w) {
     std::wstring t(size_t(GetWindowTextLengthW(w)) + 1, L'\0');
@@ -1758,204 +1710,8 @@ std::wstring windowText(HWND w) {
     return t;
 }
 
-void projectDialogInfo(ProjectDialog& d) {
-    const std::wstring name = windowText(d.name);
-    const std::wstring n = name.empty() ? L"<name>" : name;
-    // The folder sketch: names padded to one column, whatever the project is called.
-    const std::pair<std::wstring, std::wstring> rows[] = {
-        {L"project.stardraft", L"the project file"},
-        {n + L".scx", L"the map you edit here (Brood War format)"},
-        {n + L".eds", L"euddraft's build file: Build writes it"},
-        {n + L"_EUD.scx", d.output && GetWindowTextLengthW(d.output) ? L"the built map: Build (Ctrl+B) writes it to the Output file"
-                                                                     : L"the built map: Build (Ctrl+B) writes it"},
-        {L"scripts\\main.eps", L"your code (epScript). To add more, use File > Project > Add script."},
-    };
-    size_t col = 0;
-    for (const auto& r : rows) col = std::max(col, r.first.size());
-    std::wstring sketch;
-    for (const auto& r : rows) sketch += L"  " + r.first + std::wstring(col + 3 - r.first.size(), L' ') + r.second + L"\r\n";
-    const std::wstring text =
-        L"StarDraft 2 makes the folder " + n + L"\\ in the location above:\r\n\r\n" + sketch + L"\r\n"
-        L"On the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\n"
-        L"StarDraft 2 does not change other copies on this computer. A map that you open\r\n"
-        L"stays a regular map. Only a project can be built.";
-    SetWindowTextW(d.info, text.c_str());
-}
-
-std::wstring pickFolderTitled(const wchar_t* title);
-
-LRESULT CALLBACK projectDialogProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    ProjectDialog* d = gProjDlg;
-    switch (msg) {
-    case WM_CREATE: {
-        BOOL dark = !gLightTheme;
-        DwmSetWindowAttribute(hwnd, 20, &dark, sizeof dark), titleColors(hwnd);
-        d->wnd = hwnd;
-        const int pad = scale(ui::kDialogPad), rowH = scale(ui::kFieldH), labelW = scale(96), boxW = scale(560);
-        int y = pad;
-        auto label = [&](const wchar_t* t) {
-            HWND h = CreateWindowExW(0, WC_STATICW, t, WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, pad, y, labelW - scale(8), rowH, hwnd, nullptr, app.inst, nullptr);
-            SendMessageW(h, WM_SETFONT, WPARAM(app.font), TRUE);
-        };
-        auto edit = [&](int id, int x, int w, const std::wstring& text) {
-            HWND h = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, text.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL, x, y, w, rowH, hwnd,
-                                     HMENU(INT_PTR(id)), app.inst, nullptr);
-            SendMessageW(h, WM_SETFONT, WPARAM(app.font), TRUE);
-            darkControl(h, L"DarkMode_CFD");
-            return h;
-        };
-        label(L"Name");
-        std::wstring def = L"MyMap";
-        if (app.ed && !app.ed->path().empty()) def = app.ed->path().stem().wstring();
-        d->name = edit(1401, pad + labelW, boxW, def);
-        y += scale(ui::kFormRowH);
-        label(L"Location");
-        const int bw = scale(ui::kButtonMinW);
-        d->location = edit(1402, pad + labelW, boxW - bw - scale(8), defaultProjectsFolder().make_preferred().wstring());
-        HWND browse = CreateWindowExW(0, WC_BUTTONW, L"Browse\x2026", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, pad + labelW + boxW - bw, y, bw, rowH,
-                                      hwnd, HMENU(1403), app.inst, nullptr);
-        SendMessageW(browse, WM_SETFONT, WPARAM(app.font), TRUE);
-        darkControl(browse, L"DarkMode_Explorer");
-        y += scale(ui::kFormRowH);
-        label(L"Output file");
-        d->output = edit(1406, pad + labelW, boxW - bw - scale(8), L"");
-        SendMessageW(d->output, EM_SETCUEBANNER, TRUE, LPARAM(L"<name>_EUD.scx in the project folder"));
-        HWND browseOut = CreateWindowExW(0, WC_BUTTONW, L"Browse\x2026", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, pad + labelW + boxW - bw, y, bw,
-                                         rowH, hwnd, HMENU(1405), app.inst, nullptr);
-        SendMessageW(browseOut, WM_SETFONT, WPARAM(app.font), TRUE);
-        darkControl(browseOut, L"DarkMode_Explorer");
-        y += scale(ui::kFormRowH);
-        label(L"Start from");
-        d->start = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST, pad + labelW, y, boxW, scale(200), hwnd,
-                                   HMENU(1404), app.inst, nullptr);
-        SendMessageW(d->start, WM_SETFONT, WPARAM(app.font), TRUE);
-        darkControl(d->start, L"DarkMode_CFD");
-        const bool haveMap = app.ed && app.ed->isOpen();
-        if (haveMap) SendMessageW(d->start, CB_ADDSTRING, 0, LPARAM((L"The open map (" + docTitle(gActive, false) + L")").c_str()));
-        SendMessageW(d->start, CB_ADDSTRING, 0, LPARAM(L"A new blank map (128 x 128 Badlands)"));
-        SendMessageW(d->start, CB_SETCURSEL, 0, 0);
-        y += scale(ui::kFormRowH);
-        d->info = CreateWindowExW(0, WC_STATICW, L"", WS_CHILD | WS_VISIBLE, pad, y, labelW + boxW, scale(190), hwnd, nullptr, app.inst, nullptr);
-        SendMessageW(d->info, WM_SETFONT, WPARAM(monoFont()), TRUE);  // the folder sketch lines up
-        y += scale(190) + pad;
-        const int bh = scale(ui::kButtonH);
-        const wchar_t* names[2] = {L"Create", L"Cancel"};
-        const int ids[2] = {IDOK, IDCANCEL};
-        for (int i = 0; i < 2; ++i) {
-            HWND b = CreateWindowExW(0, WC_BUTTONW, names[i], WS_CHILD | WS_VISIBLE | WS_TABSTOP | (i == 0 ? BS_DEFPUSHBUTTON : BS_PUSHBUTTON),
-                                     pad + labelW + boxW - (2 - i) * bw - (1 - i) * scale(8), y, bw, bh, hwnd, HMENU(INT_PTR(ids[i])), app.inst, nullptr);
-            SendMessageW(b, WM_SETFONT, WPARAM(app.font), TRUE);
-            darkControl(b, L"DarkMode_Explorer");
-        }
-        ui::nativeButtonsRight({ui::dlgButton(hwnd, IDOK), ui::dlgButton(hwnd, IDCANCEL)}, pad + labelW + boxW, y);
-        projectDialogInfo(*d);
-        RECT r{0, 0, pad + labelW + boxW + pad, y + bh + pad};
-        AdjustWindowRectExForDpi(&r, WS_CAPTION | WS_SYSMENU, FALSE, WS_EX_DLGMODALFRAME, app.dpi);
-        SetWindowPos(hwnd, nullptr, 0, 0, r.right - r.left, r.bottom - r.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-        return 0;
-    }
-    case WM_COMMAND: {
-        const int id = LOWORD(wp), code = HIWORD(wp);
-        if ((id == 1401 || id == 1402 || id == 1406) && code == EN_CHANGE) projectDialogInfo(*d);
-        if (id == 1405) {
-            const std::wstring file = pickOutputFile(hwnd, windowText(d->name) + L"_EUD.scx");
-            if (!file.empty()) SetWindowTextW(d->output, file.c_str());
-        }
-        if (id == 1403) {
-            const std::wstring dir = pickFolderTitled(L"Select the folder for the project");
-            if (!dir.empty()) SetWindowTextW(d->location, dir.c_str());
-        }
-        if (id == IDOK || id == IDCANCEL) {
-            d->accepted = id == IDOK;
-            d->nameText = windowText(d->name), d->locationText = windowText(d->location), d->outputText = windowText(d->output);
-            const bool haveMap = SendMessageW(d->start, CB_GETCOUNT, 0, 0) > 1;
-            d->fromOpenMap = haveMap && SendMessageW(d->start, CB_GETCURSEL, 0, 0) == 0;
-            DestroyWindow(hwnd);
-        }
-        return 0;
-    }
-    case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORSTATIC:
-    case WM_CTLCOLORLISTBOX:
-    case WM_CTLCOLORBTN: {
-        HDC dc = HDC(wp);
-        const bool info = HWND(lp) == d->info;
-        SetTextColor(dc, info || msg == WM_CTLCOLORSTATIC ? kDim : kText);  // labels: ui::fieldLabel
-        SetBkColor(dc, msg == WM_CTLCOLORSTATIC ? kBg : kCtl);
-        return LRESULT(msg == WM_CTLCOLORSTATIC ? app.bgBrush : app.ctlBrush);
-    }
-    case WM_CLOSE:
-        d->accepted = false;
-        DestroyWindow(hwnd);
-        return 0;
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
-
-void newMap();
-
-// Makes the project folder and moves the map into it (the open map, or a new blank one); the tab
-// becomes the project's.
-bool createProject(const fs::path& parent, const std::string& name, bool fromOpenMap, std::string& err, const fs::path& outputFile = {}) {
-    if (fromOpenMap && (!app.ed || !app.ed->isOpen())) fromOpenMap = false;
-    if (fromOpenMap && !app.ed->chk().find("UNIx")) {
-        err = "The open map is in original StarCraft format; euddraft needs a Brood War map. Start from a new blank map instead.";
-        return false;
-    }
-    EudProject pr;
-    std::error_code ec;
-    fs::create_directories(parent, ec);
-    if (!EudProject::create(parent, name, {}, pr, err)) return false;
-    if (!outputFile.empty()) {
-        pr.setOutputMap(outputFile);
-        if (!pr.save(err)) return false;
-    }
-    if (!fromOpenMap) newMap();
-    if (!app.ed->save(pr.inputMap(), err)) return false;
-    gDocs[size_t(gActive)].project = std::make_shared<EudProject>(pr);
-    updateTitle();
-    addRecent(gRecentProjects, pr.folder());
-    rememberProjectsFolder(pr.folder());
-    // L.4: the map's classic triggers, settings and briefings stay in the project's map (the built map keeps them).
-    const bool classic = fromOpenMap && (!app.ed->classicTriggers().triggers.empty() || !app.ed->chk().effective("MBRF").empty());
-    setMessage(L"Created the project " + widen(name) + L" in " + pr.folder().wstring() + L" (Build: Ctrl+B)" +
-               (classic ? L". The project's map keeps its classic triggers, unit, upgrade and technology settings, and briefings. Scenario > Classic triggers shows the triggers." : L""));
-    return true;
-}
-
-void showProjectDialog() {
-    static bool registered = false;
-    if (!registered) {
-        WNDCLASSEXW wc{sizeof wc};
-        wc.lpfnWndProc = projectDialogProc;
-        wc.hInstance = app.inst;
-        wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-        wc.hbrBackground = app.bgBrush;
-        wc.lpszClassName = L"StarDraftNewProject";
-        RegisterClassExW(&wc);
-        registered = true;
-    }
-    ProjectDialog d;
-    gProjDlg = &d;
-    RECT mr;
-    GetWindowRect(app.main, &mr);
-    const int w = scale(700), h = scale(420);
-    HWND wnd = CreateWindowExW(WS_EX_DLGMODALFRAME | WS_EX_CONTROLPARENT | (gBackground ? WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW : 0), L"StarDraftNewProject", L"New EUD project",
-                               WS_CAPTION | WS_SYSMENU | (gBackground ? 0 : WS_VISIBLE), mr.left + (mr.right - mr.left - w) / 2,
-                               mr.top + (mr.bottom - mr.top - h) / 2, w, h, app.main, nullptr, app.inst, nullptr);
-    if (gBackground) ShowWindow(wnd, SW_SHOWNOACTIVATE);
-    EnableWindow(app.main, FALSE);
-    if (gProjectHook) gProjectHook(wnd);
-    MSG msg;
-    while (IsWindow(wnd) && GetMessageW(&msg, nullptr, 0, 0)) dialogMessage(msg, wnd);
-    EnableWindow(app.main, TRUE);
-    if (!gBackground) SetForegroundWindow(app.main);
-    gProjDlg = nullptr;
-    if (!d.accepted) return;
-    std::string err;
-    if (!createProject(fs::path(d.locationText), narrow(d.nameText), d.fromOpenMap, err, fs::path(d.outputText)))
-        themedMessageBox(app.main, widen(err).c_str(), L"Could not create the project", MB_ICONERROR);
-}
+// Makes the project folder and moves the map into it (core/project_page.inc).
+bool createProject(const fs::path& parent, const std::string& name, bool fromOpenMap, std::string& err, const fs::path& outputFile = {});
 
 #include "feedback.inc"
 #include "update.inc"
@@ -2074,55 +1830,9 @@ void openMap(const std::wstring& path, bool switchToOpen);
 
 
 void triggersRefresh(const std::string& select);
-
-void addProjectScript() {
-    EudProject* pr = activeProject();
-    if (!pr) return;
-    platform::FileDialog d;
-    d.owner = app.main;
-    d.filters = {{"epScript (*.eps)", "*.eps"}, {"eudplib Python (*.py)", "*.py"}};
-    d.fileName = L"new.eps";
-    d.initialDir = pr->folder() / "scripts";
-    d.title = narrow(L"Add a script: select one, or type the name of a new one");
-    d.defaultExtension = "eps";
-    d.pathMustExist = true;
-    const auto picked = platform::saveFileDialog(d);
-    if (!picked) return;
-    const fs::path file = *picked;
-    std::error_code ec;
-    if (!fs::exists(file, ec)) {
-        std::ofstream f(file, std::ios::binary);
-        f << "// " << file.filename().string() << "\n\nfunction onPluginStart() {\n}\n";
-        f.close();
-        if (!f) return void(themedMessageBox(app.main, (L"Could not write " + file.wstring()).c_str(), L"Add a script", MB_ICONERROR));
-    }
-    fs::path rel = fs::relative(file, pr->folder(), ec);
-    if (ec || rel.empty() || rel.native().rfind(L"..", 0) == 0) rel = file;  // outside the folder: keep the full path
-    pr->addScript(rel.generic_string());
-    std::string err;
-    if (!pr->save(err)) themedMessageBox(app.main, widen(err).c_str(), L"Could not save the project", MB_ICONERROR);
-    else setMessage(L"Added " + rel.wstring() + L" to the project");
-    triggersRefresh(rel.generic_string());
-}
-
-
-// New map of a tileset, filled with one terrain.
-void newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terrain) {
-    auto ed = std::make_unique<Editor>(app.data);
-    std::string err;
-    SetCursor(LoadCursor(nullptr, IDC_WAIT));
-    if (!ed->newMap(width, height, era, terrain, err)) {
-        themedMessageBox(app.main, widen(err).c_str(), L"Could not create the map", MB_ICONERROR);
-        return;
-    }
-    addDocument(std::move(ed));
-    const IsomTerrainTable* table = IsomTerrainTable::forEra(era);
-    setMessage(L"Created a new " + std::wstring(kTilesetNames[era & 7]) + L" map (" + std::to_wstring(width) + L"x" + std::to_wstring(height) + L", " +
-               widen(table ? table->terrainName(terrain) : "") + L")");
-}
-
-// The default new map: badlands dirt, 128x128 (startup, the + tab button).
-void newMap() { newMap(128, 128, 0, 1); }
+// File > Project > Add a script, and a new map of a tileset filled with one terrain (core/project_page.inc).
+void addProjectScript();
+void newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terrain);
 
 // --- The unsaved project ---------------------------------------------------------------------------------------
 // StarDraft starts with a project that is not saved yet: a 128 x 128 badlands map in a project folder under
@@ -3777,6 +3487,7 @@ HWND tabsWindow(stardraft::draw::View& v) { return ui::Win32Host::windowOf(v); }
 #include "about.inc"
 int volumeRow(HDC dc, int x, int y, int labelW, int right, std::vector<DataWidgetHit>& hits);
 #include "options_window.inc"
+#include "new_project_window.inc"  // File > New EUD project's Windows host (core/views_new_project.inc)
 #include "feedback_window.inc"
 #include "classic_settings.inc"
 
@@ -8591,6 +8302,7 @@ StubView gStubView;
 
 fs::path scriptPath(const EudProject& pr, const std::string& section) { return pr.scriptFile(section); }
 
+#include "core/project_page.inc"  // the Project page's program parts (ProjectProgram, gProj), createProject, newMap, addProjectScript
 #include "project_view.inc"
 #include "kit_gallery.inc"
 #include "new_page.inc"
@@ -10437,10 +10149,8 @@ void paintTrigPaneAt(HWND hwnd);
 
 #include "trigger_help.inc"
 
-void trigZoomReset() {
-    gDock.triggerZoom = 100, saveDock();
+void trigPaneRepaint() {  // (core/dock_prefs.inc: trigZoomReset)
     if (gTE.pane) InvalidateRect(gTE.pane, nullptr, FALSE);
-    setMessage(L"Zoom 100%");
 }
 
 // The pane at its zoom: sizes (scale) and the UI font grow or shrink while it paints. Its hit areas are recorded
@@ -14191,7 +13901,7 @@ void themeRefreshControls() {
         SetWindowTextW(gTE.code, L"");
         trigCodeRefresh(true);
     }
-    if (gProj.preview) projectPreviewRefresh(true);
+    if (gProjPreviewWnd) projectPreviewRefresh(true);
 }
 
 void setWorkspace(Workspace w) {
@@ -14225,7 +13935,7 @@ void setWorkspace(Workspace w) {
     createProjectPage();
     createTriggerEditor();
     const bool projectPage = w == Workspace::Project && activeProject();
-    ShowWindow(gProj.wnd, projectPage ? SW_SHOW : SW_HIDE);
+    ShowWindow(gProjWnd, projectPage ? SW_SHOW : SW_HIDE);
     if (projectPage) triggersRefresh();
     ShowWindow(gTE.wnd, w == Workspace::Triggers ? SW_SHOW : SW_HIDE);
     if (w == Workspace::Triggers) trigLoadForProject(), trigRefreshTree(gTE.sel.empty() ? std::vector<int>{1} : gTE.sel);
@@ -15501,7 +15211,7 @@ void layout() {
     placeWindow(gWsBar, L.wsRail.rc);
     placeWindow(gDataWnd, ws);
     if (gStubWnd) placeWindow(gStubWnd, ws);
-    if (gProj.wnd) placeWindow(gProj.wnd, ws);
+    if (gProjWnd) placeWindow(gProjWnd, ws);
     if (gTE.wnd) placeWindow(gTE.wnd, ws);
     if (gBrief.wnd) placeWindow(gBrief.wnd, ws);
     if (gFiles.wnd) placeWindow(gFiles.wnd, ws);
@@ -15776,7 +15486,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_ACTIVATEAPP:
         // Back from another program (perhaps an editor that changed a linked file): the Project page reads the files'
         // times again (R5). It does not build.
-        if (wp && gProj.wnd && IsWindowVisible(gProj.wnd)) InvalidateRect(gProj.wnd, nullptr, FALSE), projectPreviewRefresh(true);
+        if (wp && gProjWnd && IsWindowVisible(gProjWnd)) InvalidateRect(gProjWnd, nullptr, FALSE), projectPreviewRefresh(true);
         break;
     case WM_SETCURSOR:
         if (LOWORD(lp) == HTCLIENT && HWND(wp) == hwnd && gWorkspace == Workspace::Map) {
@@ -17285,10 +16995,10 @@ int runSelfTest(const fs::path& dir) {
                 capture(dir / (gLightTheme ? "rect_tiles_filter_light.png" : "rect_tiles_filter_dark.png"), gTiles.wnd);
                 applyTheme(!gLightTheme, gAccentIndex);
                 const uint16_t firstGroup = gTiles.values.empty() ? 0 : uint16_t(gTiles.values.front() >> 4);
-                SetWindowTextW(gTiles.search, (L"group " + std::to_wstring(firstGroup)).c_str());  // EN_CHANGE rebuilds
+                tilesSetSearch(L"group " + std::to_wstring(firstGroup));  // the change rebuilds
                 searched = gTiles.values.size();
                 for (uint16_t v : gTiles.values) onlyThat = onlyThat && tilesInFilter(v);
-                SetWindowTextW(gTiles.search, L"");
+                tilesSetSearch(L"");
             }
             size_t nullsShown = 0;
             bool allNull = nullFilter > 0;
@@ -17753,13 +17463,11 @@ int runSelfTest(const fs::path& dir) {
         dialogShot = dir / "60_new_project_dialog.png";
         std::error_code pec;
         fs::remove_all(projDir, pec);
-        gProjectHook = [](HWND w) {
-            SetWindowTextW(gProjDlg->name, L"SelfTest");
-            SetWindowTextW(gProjDlg->location, projDir.wstring().c_str());
-            SendMessageW(gProjDlg->start, CB_SETCURSEL, 1, 0);  // a new blank map
+        gProjectHook = [](NewProjectView& v, HWND w) {
+            v.fill(L"SelfTest", projDir.wstring(), 1);  // a new blank map
             for (int i = 0; i < 5; ++i) pump();
-            capture(dialogShot, w);
-            PostMessageW(w, WM_COMMAND, IDOK, 0);
+            if (w) capture(dialogShot, w);
+            v.create();
         };
         command(ID_PROJ_FROMMAP);
         gProjectHook = nullptr;
@@ -18021,15 +17729,15 @@ int runSelfTest(const fs::path& dir) {
                     command(ID_PROJ_SETTINGS);
                     gProj.selected = name;
                     for (int i = 0; i < 5; ++i) pump();
-                    RedrawWindow(gProj.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+                    RedrawWindow(gProjWnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
                     bool tipShown = false;  // the row's tooltip names the file as linked
                     for (const std::wstring& tip : gProjView.tips())
                         if (tip.find(L"A linked file") != std::wstring::npos && tip.find(L"hello.eps") != std::wstring::npos) tipShown = true;
                     const bool wasLight = gLightTheme;
-                    capture(dir / (wasLight ? "67b_project_linked_light.png" : "67b_project_linked_dark.png"), gProj.wnd);
+                    capture(dir / (wasLight ? "67b_project_linked_light.png" : "67b_project_linked_dark.png"), gProjWnd);
                     applyTheme(!wasLight, gAccentIndex);
-                    RedrawWindow(gProj.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
-                    capture(dir / (wasLight ? "67b_project_linked_dark.png" : "67b_project_linked_light.png"), gProj.wnd);
+                    RedrawWindow(gProjWnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+                    capture(dir / (wasLight ? "67b_project_linked_dark.png" : "67b_project_linked_light.png"), gProjWnd);
                     applyTheme(wasLight, gAccentIndex);
                     log << "project: linked file stored relative " << (relative ? "yes" : "NO") << " (" << name << "), opens again " << (kept ? "yes" : "NO")
                         << ", the page lists it as linked " << (tipShown ? "yes" : "NO") << ", file not changed "
@@ -20512,6 +20220,16 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 UpdateWindow(gBrief.wnd);
                 continue;
             }
+            if (s == "projectdlg:") {  // projectdlg_<dark|light>.png: File > New EUD project's window, then Cancel
+                const bool wasLight = gLightTheme;
+                for (int light = 0; light < 2; ++light) {
+                    applyTheme(light != 0, gAccentIndex);
+                    for (int i = 0; i < 5; ++i) pump();
+                    newProjectShot(fs::path(datashots) / (std::string("projectdlg_") + (light ? "light" : "dark") + ".png"));
+                }
+                applyTheme(wasLight, gAccentIndex);
+                continue;
+            }
             if (s == "msgbox:") {
                 // The message box: Yes/No/Cancel with each icon, dark and light (msgbox_<icon>_<theme>.png), and the
                 // keys that close it (msgbox.txt: Esc, Enter, the access keys, MB_DEFBUTTON2).
@@ -21665,7 +21383,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 for (int i = 0; i < 10; ++i) pump();
                 gDock.scriptPreview = true;  // not saved: a test run leaves the settings alone
                 if (!gProj.sections.empty()) gProj.selected = gProj.sections.back();
-                InvalidateRect(gProj.wnd, nullptr, FALSE);
+                InvalidateRect(gProjWnd, nullptr, FALSE);
                 projectPreviewRefresh(true);
                 for (int i = 0; i < 10; ++i) pump();
                 capture(fs::path(datashots) / "scriptpreview.png");
@@ -21777,7 +21495,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                         first("triggers: check", [&] { (void)gTE.set.check(trigMapInfo()); });
                         first("triggers: generate the code", [&] { (void)gTE.set.generate(trigMapInfo(), is); });
                     }
-                    if (shows("project workspace, first show", Workspace::Project, [] { return gProj.wnd; })) paint("project page", gProj.wnd);
+                    if (shows("project workspace, first show", Workspace::Project, [] { return gProjWnd; })) paint("project page", gProjWnd);
                 }
                 // The pages: the start page in a new tab (in this open run, not at launch), then its New card.
                 {

@@ -47,8 +47,10 @@
 #include "stardraft/dat_extras.h"
 #include "stardraft/editor.h"
 #include "stardraft/eud_project.h"
+#include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)
 #include "stardraft/game_data.h"
 #include "stardraft/pathing.h"
+#include "stardraft/previews.h"  // the tile pictures (core/views_tiles.inc)
 #include "stardraft/scene.h"
 #include "stardraft/settings.h"
 #include "stardraft/hd_assets.h"

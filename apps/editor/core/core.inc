@@ -8,6 +8,7 @@
 #include "prefs.inc"
 #include "install_search.inc"
 #include "recent.inc"
+#include "dock_prefs.inc"
 #include "modes.inc"
 #include "colors.inc"
 #include "app_state.inc"
@@ -43,6 +44,7 @@
 #include "views_data_buttons.inc"
 #include "data_model.inc"
 #include "views_search.inc"
+#include "views_tiles.inc"
 #include "views_data_entry.inc"
 #include "sound_lists.inc"
 #include "views_files.inc"
@@ -63,4 +65,7 @@
 #include "views_new_page_paint.inc"
 #include "views_options.inc"
 #include "views_feedback.inc"
+#include "views_new_project.inc"
 #include "title.inc"
+#include "views_prompt.inc"  // a line of text with OK and Cancel (PromptView, runPromptDialog; SDL's shellPromptText)
+#include "project_page.inc"  // the Project page's program parts, createProject, newMap, addProjectScript (the host shows the page)

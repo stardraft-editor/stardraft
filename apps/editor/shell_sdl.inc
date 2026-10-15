@@ -4,6 +4,9 @@
 
 // The app state the core reads (documents.inc declares it).
 AppState& shellState() { return gState; }
+void shellRendererGraphics(GraphicsQuality q, bool carbot) {
+    if (gRenderer) gRenderer->setQuality(q), gRenderer->setCarbot(carbot);
+}
 
 void shellRelayout() {
     if (gRoot) gRoot->relayout();
@@ -78,6 +81,9 @@ bool shellViewShown() { return gRoot != nullptr; }
 void shellToolsChanged() { gToolStripView.invalidate(); }
 int shellPopupPick(const std::vector<std::wstring>& items, int checked, int, int) {  // (a modal list: sdl_map_pages.inc)
     return sdlPickFromList(items, checked, shellTr(L"Choose"));
+}
+int shellContextMenu(const std::vector<std::wstring>& items) {  // (a modal list: sdl_map_pages.inc)
+    return sdlPickFromList(items, -1, shellTr(L"Choose")) + 1;
 }
 void shellOwnerSelect(int i) { gOwnerBox.setValue(i); }  // (the owner dropdown shows player i; no change is sent)
 void shellPaletteChanged() {
@@ -209,11 +215,30 @@ bool shellPathsFoldCase() {
     return false;
 #endif
 }
-// The Project page's files and programs (the Windows shell's open, the editor, Notepad, the folder and the elevation).
-void shellOpenFolder(const std::filesystem::path&) { setMessage(L"This is not on this system yet"); }
-void shellOpenInEditor(const std::filesystem::path&) { setMessage(L"This is not on this system yet"); }
-void shellOpenWithNotepad(const std::filesystem::path&) { setMessage(L"This is not on this system yet"); }
-void shellRevealFile(const std::filesystem::path&) { setMessage(L"This is not on this system yet"); }
+// The Project page's files and programs: a folder or a file opens in the program the system gives its kind (SDL_OpenURL
+// with a file: URL; the folder in the file manager, a script in the editor for its kind, a text in the text editor). A
+// file shown in its folder opens the folder. The elevation (epTrace) is Windows only.
+namespace {
+std::string fileUrl(const std::filesystem::path& p) {
+    std::error_code ec;
+    const std::string s = narrow(std::filesystem::absolute(p, ec).generic_wstring());
+    // file:///C:/... on Windows (a drive path gets the third slash; its colon stays), file:///home/... elsewhere.
+    std::string url = s.empty() || s[0] != '/' ? "file:///" : "file://";
+    static const char* const kHex = "0123456789ABCDEF";
+    for (const unsigned char ch : s) {
+        if (std::isalnum(ch) || ch == '/' || ch == '-' || ch == '_' || ch == '.' || ch == '~' || ch == ':') url += char(ch);
+        else url += '%', url += kHex[ch >> 4], url += kHex[ch & 15];
+    }
+    return url;
+}
+void openWithSystem(const std::filesystem::path& p) {
+    if (!SDL_OpenURL(fileUrl(p).c_str())) setMessage(L"Could not open " + p.wstring() + L": " + widen(SDL_GetError()));
+}
+}  // namespace
+void shellOpenFolder(const std::filesystem::path& folder) { openWithSystem(folder); }
+void shellOpenInEditor(const std::filesystem::path& file) { openWithSystem(file); }
+void shellOpenWithNotepad(const std::filesystem::path& file) { openWithSystem(file); }
+void shellRevealFile(const std::filesystem::path& file) { openWithSystem(file.parent_path()); }
 std::wstring shellFileTimeText(const std::filesystem::path& file) {
     std::error_code ec;
     const auto ft = std::filesystem::last_write_time(file, ec);
@@ -236,3 +261,98 @@ std::uintptr_t shellStartElevated(const std::filesystem::path&, const std::files
 bool shellProcessEnded(std::uintptr_t) { return true; }
 void shellProcessClose(std::uintptr_t) {}
 void shellChooseInstallFolder() { setMessage(L"This is not on this system yet"); }
+// The file and folder dialogs: SDL's (asynchronous); the call waits for the answer (the host handles events and paints
+// meanwhile). A dialog whose answer comes after the program quits keeps its small state (the callback may still come).
+namespace {
+struct SdlPickState {
+    std::atomic<bool> done{false};
+    std::string picked;  // UTF-8; empty: none was picked
+};
+void sdlPickAnswered(void* data, const char* const* list, int) {
+    auto* st = static_cast<SdlPickState*>(data);
+    st->picked = list && list[0] ? list[0] : "";
+    st->done = true;
+}
+// Waits for the dialog that `show` opens with the state; the picked path, or empty.
+std::filesystem::path sdlPickWait(const std::function<void(SdlPickState*)>& show) {
+    auto* st = new SdlPickState;
+    show(st);
+    if (!gHost || !gHost->waitUntil([st] { return st->done.load(); })) return {};  // (quit: the state stays for the late answer)
+    const std::filesystem::path p = st->picked.empty() ? std::filesystem::path() : std::filesystem::path(widen(st->picked));
+    delete st;
+    return p;
+}
+// The patterns as SDL's filters take them: "*.eps;*.py" is "eps;py", "*.*" is "*".
+std::string sdlPatterns(const std::wstring& patterns) {
+    std::string out, one;
+    auto flush = [&] {
+        if (one.rfind("*.", 0) == 0) one.erase(0, 2);
+        if (one.empty()) one = "*";
+        if (!out.empty()) out += ';';
+        out += one;
+        one.clear();
+    };
+    for (const char ch : narrow(patterns)) {
+        if (ch == ';') flush();
+        else if (ch != ' ') one += ch;
+    }
+    flush();
+    return out;
+}
+}  // namespace
+std::filesystem::path shellPickFile(const ShellFilePick& pick) {
+    std::vector<std::string> names, patterns;
+    for (const auto& [name, pat] : pick.filters) names.push_back(narrow(name)), patterns.push_back(sdlPatterns(pat));
+    std::vector<SDL_DialogFileFilter> filters;
+    for (size_t i = 0; i < names.size(); ++i) filters.push_back({names[i].c_str(), patterns[i].c_str()});
+    // The place to start: the folder, and for a save dialog the name in it.
+    std::string where;
+    if (!pick.initialDir.empty()) where = narrow(pick.initialDir.wstring());
+    if (pick.save && !pick.fileName.empty())
+        where = narrow((pick.initialDir.empty() ? std::filesystem::path(pick.fileName) : pick.initialDir / pick.fileName).wstring());
+    std::filesystem::path picked = sdlPickWait([&](SdlPickState* st) {
+        if (pick.save)
+            SDL_ShowSaveFileDialog(sdlPickAnswered, st, dialogWindow(), filters.data(), int(filters.size()), where.empty() ? nullptr : where.c_str());
+        else
+            SDL_ShowOpenFileDialog(sdlPickAnswered, st, dialogWindow(), filters.data(), int(filters.size()), where.empty() ? nullptr : where.c_str(), false);
+    });
+    if (pick.save && !picked.empty() && picked.extension().empty() && !pick.defaultExtension.empty()) picked += L"." + pick.defaultExtension;
+    return picked;
+}
+std::wstring shellPickFolder(const std::wstring&) {
+    const std::string where = narrow(defaultProjectsFolder().wstring());
+    return sdlPickWait([&](SdlPickState* st) {
+               SDL_ShowOpenFolderDialog(sdlPickAnswered, st, dialogWindow(), where.empty() ? nullptr : where.c_str(), false);
+           })
+        .wstring();
+}
+std::wstring shellPickOutputFile(const std::wstring& name) {
+    ShellFilePick d;
+    d.filters = {{L"StarCraft Brood War map (*.scx)", L"*.scx"}};
+    const std::filesystem::path current(name);
+    d.initialDir = current.parent_path(), d.fileName = current.filename().wstring();
+    d.title = L"Select the file for the built map";
+    d.defaultExtension = L"scx";
+    d.save = true;
+    return shellPickFile(d).wstring();
+}
+// The Documents folder: the system's (XDG's on Linux), else ~/Documents.
+std::filesystem::path shellDocumentsFolder() {
+    if (const char* d = SDL_GetUserFolder(SDL_FOLDER_DOCUMENTS); d && *d) return std::filesystem::path(widen(d));
+    const char* home = std::getenv("HOME");
+    return home && *home ? std::filesystem::path(home) / "Documents" : std::filesystem::path();
+}
+bool shellPromptText(const std::wstring& title, std::wstring& text) { return gRoot && runPromptDialog(*gRoot, title, text); }
+// (no pop-out under the field here: the prompt dialog, centered)
+bool shellEditValueBelow(stardraft::draw::View&, stardraft::draw::Rect, const std::wstring& title, std::string& text) {
+    std::wstring w = widen(text);
+    if (!shellPromptText(title, w)) return false;
+    text = narrow(w);
+    return true;
+}
+void shellLogError(const std::wstring& line) { shellLogLine(line); }
+std::wstring shellCodePageText(const std::string& bytes) { return widen(bytes); }  // (UTF-8)
+std::wstring shellInstallFolderText() {
+    std::wstring saved;
+    return prefs::text(L"StarCraftFolder", saved) ? saved : std::wstring();
+}

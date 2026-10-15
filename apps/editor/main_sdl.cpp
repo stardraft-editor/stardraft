@@ -15,6 +15,8 @@
 #include <SDL3/SDL_main.h>
 
 #include <algorithm>
+#include <atomic>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -57,6 +59,7 @@
 #include "stardraft/dat_extras.h"
 #include "stardraft/editor.h"
 #include "stardraft/eud_project.h"
+#include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)
 #include "stardraft/game_data.h"
 #include "stardraft/hd_assets.h"
 #include "stardraft/pathing.h"
@@ -90,6 +93,7 @@ bool gSilent = false;
 #include "sdl_start.inc"  // the start page (core/views_start.inc)
 #include "sdl_map_pages.inc"  // the map pages: Properties, Players and forces, Data (core/views_map_pages.inc and its views)
 #include "sdl_new_page.inc"  // the New page (core/views_new_page.inc)
+#include "sdl_project.inc"  // the Project workspace and the project commands (core/views_project.inc, core/project_page.inc)
 #include "sdl_options.inc"  // Program options and Report feedback (core/views_options.inc, core/views_feedback.inc)
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
 #include "sdl_data.inc"  // the Data workspace (the model is core/data_list.inc and core/views_data*.inc; the tables are the stock .dat files)
@@ -190,6 +194,7 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg;
+    bool rectArg = false, previewArg = false;
     int width = 1600, height = 1000;
     float scaleArg = 0;
     for (int i = 1; i < argc; ++i) {
@@ -203,7 +208,9 @@ int main(int argc, char** argv) {
         else if (a == "--workspace") workspaceArg = next();  // a workspace's name (map, data, triggers, project...), for a snapshot
         else if (a == "--data") dataArg = next();  // tab:entry (units:0, images:239, strings:5): the Data workspace opens it, for a snapshot
         else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
-        else if (a == "--dialog") dialogArg = next();  // options or feedback: that window's view is the snapshot (--size its size)
+        else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject or prompt: that window's view is the snapshot (--size its size)
+        else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
+        else if (a == "--scriptpreview") previewArg = true;  // the Project page's script preview on (not saved), for a snapshot
         else if (a == "--silent") gSilent = true;
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
@@ -239,11 +246,14 @@ int main(int argc, char** argv) {
             if (!dataErr.empty()) gDataError += ". Game data: " + dataErr;
             gStartView.dataError = widen(gDataError);  // the start page keeps the reason (the status bar's text goes)
         }
+        loadDock();  // the dock layout in the settings (core/dock_prefs.inc), as the Windows program at its start
+        if (previewArg) gDock.scriptPreview = true;
         registerMapCommands();  // the Map workspace's command table (core/map_commands.inc): the menus and keys read it
         registerWorkspaceView(Workspace::Files, gFilesPage);  // the Assets / Files workspace (sdl_files.inc)
         registerMapPages();  // the map pages' workspaces (sdl_map_pages.inc)
         registerWorkspaceView(Workspace::Briefing, gSdlBriefing);  // the Briefing workspace (sdl_briefing.inc)
         registerWorkspaceView(Workspace::Data, gSdlData);  // the Data workspace (sdl_data.inc)
+        registerWorkspaceView(Workspace::Project, gSdlProject);  // the Project workspace (sdl_project.inc)
         initStartPage();  // the start page's callbacks (sdl_start.inc)
         MainView root;
         gRoot = &root;
@@ -262,6 +272,8 @@ int main(int argc, char** argv) {
                                                       "briefing", "files", "props", "players", "classictriggers", "classic"};
         for (int w = 0; !workspaceArg.empty() && w < int(sizeof kWorkspaceNames / sizeof kWorkspaceNames[0]); ++w)
             if (workspaceArg == kWorkspaceNames[w]) setWorkspace(Workspace(w));
+        if (rectArg) setMode(Mode::Terrain), setTerrainRect(true);
+        if (previewArg && !gProj.sections.empty()) triggersRefresh(gProj.sections.back());  // the last script in the preview (as scriptpreview:)
         if (!dataArg.empty()) sdlDataSelect(dataArg);
         if (newPageArg == "classic" || newPageArg == "eud") openNewPageSdl(newPageArg == "eud" ? 1 : 0);
         if (!gDataOk) setMessage(widen(gDataError));
@@ -278,9 +290,17 @@ int main(int argc, char** argv) {
             if (!tex) return std::fprintf(stderr, "snapshot texture: %s\n", SDL_GetError()), 1;
             // The picture is the window's root, or the dialog's view (--dialog options|feedback) at the --size given.
             FeedbackView feedbackShot(gFeedbackProgram, L"StarDraft 2");
+            NewProjectStart projectStart;  // (newproject: File > Project > New EUD project's fields, as sdl_project.inc fills them)
+            projectStart.name = gState.ed && !gState.ed->path().empty() ? gState.ed->path().stem().wstring() : L"MyMap";
+            projectStart.location = defaultProjectsFolder().make_preferred().wstring();
+            if (docOpen()) projectStart.openMap = docTitle(gActive, false);
+            NewProjectView projectShot(projectStart);
+            PromptView promptShot(L"0x");
             draw::View* shown = &root;
             if (dialogArg == "options") shown = &gOptionsView;
             else if (dialogArg == "feedback") shown = &feedbackShot;
+            else if (dialogArg == "newproject") shown = &projectShot;
+            else if (dialogArg == "prompt") shown = &promptShot;
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             const bool ok = writeSnapshot(device, tex, width, height, snapshot);
