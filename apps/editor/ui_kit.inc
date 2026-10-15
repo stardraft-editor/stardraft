@@ -30,22 +30,9 @@ bool hotIn(HWND w, RECT r) {
 bool hot(RECT r) { return hotIn(hitsWnd(), r); }
 
 // A rounded box: `fill` (CLR_NONE: none) and a 1px `line` (CLR_NONE: none).
-void box(HDC dc, RECT r, COLORREF fill, COLORREF line, int radius = kRadius) {
-    HBRUSH b = fill == CLR_NONE ? nullptr : CreateSolidBrush(fill);
-    HPEN p = line == CLR_NONE ? nullptr : CreatePen(PS_SOLID, 1, line);
-    HGDIOBJ ob = SelectObject(dc, b ? HGDIOBJ(b) : GetStockObject(NULL_BRUSH)), op = SelectObject(dc, p ? HGDIOBJ(p) : GetStockObject(NULL_PEN));
-    const int d = 2 * scale(radius);
-    RoundRect(dc, r.left, r.top, r.right + (p ? 0 : 1), r.bottom + (p ? 0 : 1), d, d);
-    SelectObject(dc, ob), SelectObject(dc, op);
-    if (b) DeleteObject(b);
-    if (p) DeleteObject(p);
-}
+void box(Paint p, RECT r, COLORREF fill, COLORREF line, int radius = kRadius) { p->roundBox(r, fill, line, float(scale(radius))); }
 
-int textWidth(HDC dc, const std::wstring& t) {
-    SIZE sz{};
-    GetTextExtentPoint32W(dc, t.c_str(), int(t.size()), &sz);
-    return sz.cx;
-}
+int textWidth(Paint p, const std::wstring& t) { return p->measure(t); }
 
 // --- Buttons ----------------------------------------------------------------------------------------------------
 // Normal: a command. Primary: the one a form or dialog is for (OK, Create, Build). Danger: removes something.
@@ -55,25 +42,22 @@ enum class State { Normal, Hot, Down, Disabled };
 COLORREF toneText(Tone t) { return t == Tone::Primary ? kAccent : t == Tone::Danger ? kBad : t == Tone::Quiet ? kDim : kText; }
 
 // The face of a button (painted ones and the native push buttons alike).
-void buttonFace(HDC dc, RECT r, const std::wstring& text, Tone tone, State s, HFONT font = nullptr) {
+void buttonFace(Paint p, RECT r, const std::wstring& text, Tone tone, State s, HFONT font = nullptr) {
     COLORREF fill = kCtl, line = kBorder;
     if (tone == Tone::Primary) fill = kSel, line = kAccentLine;
     if (s == State::Hot) fill = tone == Tone::Primary ? kSelHot : kCtlHot, line = tone == Tone::Primary ? kAccent : kBorderHot;
     if (s == State::Down) fill = tone == Tone::Primary ? kSel : kCtlDown;
     if (s == State::Disabled) fill = kBg, line = kBorder;
-    box(dc, r, fill, line);
-    SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, s == State::Disabled ? kFaint : toneText(tone == Tone::Quiet ? Tone::Normal : tone));
-    HGDIOBJ of = font ? SelectObject(dc, font) : nullptr;
-    RECT t = r;
-    DrawTextW(dc, text.c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-    if (of) SelectObject(dc, of);
+    box(*p, r, fill, line);
+    const Font of = font ? p->setFont(fontOf(font)) : Font{};
+    p->text(r, text, s == State::Disabled ? kFaint : toneText(tone == Tone::Quiet ? Tone::Normal : tone), kMiddle | kCenter | kEllipsis);
+    if (of) p->setFont(of);
 }
 // A button's width for its text.
-int buttonWidth(HDC dc, const std::wstring& text) { return std::max(scale(kButtonMinW), textWidth(dc, text) + scale(28)); }
+int buttonWidth(Paint p, const std::wstring& text) { return std::max(scale(kButtonMinW), textWidth(*p, text) + scale(28)); }
 
-void button(HDC dc, RECT r, const std::wstring& text, Tone tone, std::function<void()> click, const std::wstring& tip = L"", bool enabled = true) {
-    buttonFace(dc, r, text, tone, !enabled ? State::Disabled : hot(r) ? State::Hot : State::Normal);
+void button(Paint p, RECT r, const std::wstring& text, Tone tone, std::function<void()> click, const std::wstring& tip = L"", bool enabled = true) {
+    buttonFace(*p, r, text, tone, !enabled ? State::Disabled : hot(r) ? State::Hot : State::Normal);
     hitsOut().push_back({r, nullptr, enabled ? std::move(click) : nullptr, tip, enabled ? IDC_HAND : IDC_ARROW, {}});
 }
 // A row of buttons from the right edge (OK, Cancel: the first is the rightmost but one, as Windows has them).
@@ -84,11 +68,11 @@ struct ButtonSpec {
     std::function<void()> click;
     std::wstring tip;
 };
-int buttonsRight(HDC dc, int right, int y, const std::vector<ButtonSpec>& bs) {
+int buttonsRight(Paint p, int right, int y, const std::vector<ButtonSpec>& bs) {
     int x = right;
     for (auto it = bs.rbegin(); it != bs.rend(); ++it) {
-        const int w = buttonWidth(dc, it->text);
-        button(dc, {x - w, y, x, y + scale(kButtonH)}, it->text, it->tone, it->click, it->tip);
+        const int w = buttonWidth(*p, it->text);
+        button(*p, {x - w, y, x, y + scale(kButtonH)}, it->text, it->tone, it->click, it->tip);
         x -= w + scale(kButtonGap);
     }
     return x + scale(kButtonGap);
@@ -129,49 +113,44 @@ int nativeButtonsLeft(const std::vector<HWND>& bs, int left, int y) {
 
 // A small button: an action in a row, under a list or inside text ("Add an action", "Reset"; PRINCIPLES.md, "Buttons
 // for actions, links for entities"). As wide as its text, in the middle of the row. Returns the right edge.
-int smallButton(HDC dc, int x, int y, int h, const std::wstring& text, std::function<void()> click, const std::wstring& tip = L"",
+int smallButton(Paint p, int x, int y, int h, const std::wstring& text, std::function<void()> click, const std::wstring& tip = L"",
                 Tone tone = Tone::Normal, bool enabled = true) {
-    const int bh = std::min(h, scale(24)), w = textWidth(dc, text) + scale(20);
+    const int bh = std::min(h, scale(24)), w = textWidth(*p, text) + scale(20);
     const RECT r{x, y + (h - bh) / 2, x + w, y + (h - bh) / 2 + bh};
     const Tone t = tone == Tone::Primary ? Tone::Normal : tone;  // a small button is never the main action
-    buttonFace(dc, r, text, t, !enabled ? State::Disabled : hot(r) ? State::Hot : State::Normal);
+    buttonFace(*p, r, text, t, !enabled ? State::Disabled : hot(r) ? State::Hot : State::Normal);
     hitsOut().push_back({r, nullptr, enabled ? std::move(click) : nullptr, tip, enabled ? IDC_HAND : IDC_ARROW, {}});
     return r.right;
 }
 
 // "Add ..." under a list (blocks, rows, triggers): a row as wide as the list, so it is clear where the new item
 // goes. A quiet outline, a + and the text in dim; under the mouse the row's ground and the accent.
-void addRowFace(HDC dc, RECT r, const std::wstring& text, bool over, bool enabled = true) {
-    box(dc, r, over && enabled ? kRowHot : CLR_NONE, over && enabled ? kBorderHot : kBorder, 6);
+void addRowFace(Paint p, RECT r, const std::wstring& text, bool over, bool enabled = true) {
+    box(*p, r, over && enabled ? kRowHot : CLR_NONE, over && enabled ? kBorderHot : kBorder, 6);
     const int is = scale(16);
     const COLORREF c = !enabled ? kFaint : over ? kAccent : kDim;
     const RECT ir{r.left + scale(10), (r.top + r.bottom - is) / 2, r.left + scale(10) + is, (r.top + r.bottom + is) / 2};
-    uiIcon(dc, ir, UiIcon::Add, c, is);
-    SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, c);
-    RECT t{ir.right + scale(8), r.top, r.right - scale(8), r.bottom};
-    DrawTextW(dc, text.c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
+    p->icon(ir, int(UiIcon::Add), c, is);
+    p->text({ir.right + scale(8), r.top, r.right - scale(8), r.bottom}, text, c, kMiddle | kEllipsis);
 }
 // The row, with its click. Returns the bottom. Not enabled (a limit is reached): gray, no click; the tooltip says why.
-int addRow(HDC dc, RECT r, const std::wstring& text, std::function<void()> click, const std::wstring& tip = L"", bool enabled = true) {
-    addRowFace(dc, r, text, enabled && hot(r), enabled);
+int addRow(Paint p, RECT r, const std::wstring& text, std::function<void()> click, const std::wstring& tip = L"", bool enabled = true) {
+    addRowFace(*p, r, text, enabled && hot(r), enabled);
     hitsOut().push_back({r, nullptr, enabled ? std::move(click) : nullptr, tip, enabled ? IDC_HAND : IDC_ARROW, {}});
     return r.bottom;
 }
 
 // A link: only to another entity (a unit, a string, a file, a web page); its text is the entity's name. Accent;
 // underlined under the mouse. Returns the right edge.
-int link(HDC dc, int x, int y, int h, const std::wstring& text, std::function<void()> click, const std::wstring& tip = L"", Tone tone = Tone::Primary) {
-    const int w = textWidth(dc, text);
+int link(Paint p, int x, int y, int h, const std::wstring& text, std::function<void()> click, const std::wstring& tip = L"", Tone tone = Tone::Primary) {
+    const int w = textWidth(*p, text);
     RECT r{x, y, x + w, y + h};
     const bool over = hot(r);
-    SetTextColor(dc, tone == Tone::Quiet ? (over ? kText : kDim) : toneText(tone));
-    DrawTextW(dc, text.c_str(), -1, &r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+    p->text(r, text, tone == Tone::Quiet ? (over ? kText : kDim) : toneText(tone), kMiddle);
     if (over && tone != Tone::Quiet) {
-        TEXTMETRICW tm{};
-        GetTextMetricsW(dc, &tm);
-        const int base = (r.top + r.bottom + tm.tmHeight) / 2 - tm.tmDescent + scale(1);
-        line(dc, r.left, base, r.right, base, toneText(tone));
+        const auto tm = p->metrics();
+        const int base = (r.top + r.bottom + tm.height) / 2 - tm.descent + scale(1);
+        p->line(r.left, base, r.right, base, toneText(tone));
     }
     hitsOut().push_back({r, nullptr, std::move(click), tip, IDC_HAND, {}});
     return r.right;
@@ -196,64 +175,59 @@ struct Ico {
     Ico(const wchar_t* g) : glyph(g) {}
     Ico(UiIcon i) : icon(int(i)) {}
 };
-void glyph(HDC dc, RECT r, Ico g, COLORREF c, int size = kGlyph) {
-    if (g.icon >= 0) return uiIcon(dc, r, UiIcon(g.icon), c, scale(16));
-    HGDIOBJ of = SelectObject(dc, glyphFont(size));
-    SetTextColor(dc, c);
-    DrawTextW(dc, g.glyph, 1, &r, DT_SINGLELINE | DT_CENTER | DT_VCENTER);
-    SelectObject(dc, of);
+void glyph(Paint p, RECT r, Ico g, COLORREF c, int size = kGlyph) {
+    if (g.icon >= 0) return p->icon(r, g.icon, c, scale(16));
+    const Font of = p->setFont(fontOf(glyphFont(size)));
+    p->text(r, std::wstring_view(g.glyph, 1), c, kMiddle | kCenter);
+    p->setFont(of);
 }
 
 // A bare icon button's face, for surfaces with their own click areas (the triggers pane). `on` with Tone::Quiet:
 // a toggle that is off (amber, as a block that is turned off).
-void iconFace(HDC dc, RECT r, Ico g, Tone tone, bool on, bool over, bool enabled = true) {
+void iconFace(Paint p, RECT r, Ico g, Tone tone, bool on, bool over, bool enabled = true) {
     r = square(r);
-    if (over && enabled) box(dc, r, kCtlHot, CLR_NONE);
+    if (over && enabled) box(*p, r, kCtlHot, CLR_NONE);
     const COLORREF rest = tone == Tone::Quiet && on ? kWarn : on || tone == Tone::Primary ? kAccent : kDim;
     const COLORREF lit = tone == Tone::Danger ? kBad : tone == Tone::Quiet && on ? kWarn : tone == Tone::Primary || on ? kAccentBright : kText;
-    glyph(dc, r, g, !enabled ? kFaint : over ? lit : rest);
+    glyph(*p, r, g, !enabled ? kFaint : over ? lit : rest);
 }
-void iconButton(HDC dc, RECT r, Ico g, std::function<void()> click, const std::wstring& tip, Icon style = Icon::Bare, bool on = false,
+void iconButton(Paint p, RECT r, Ico g, std::function<void()> click, const std::wstring& tip, Icon style = Icon::Bare, bool on = false,
                 bool enabled = true, Tone tone = Tone::Normal) {
     r = square(r);
     const bool over = enabled && hot(r);
     if (style == Icon::Boxed) {  // flat: a fill only when on (the accent) or under the mouse
-        if (on) box(dc, r, kSel, kAccentLine);
-        else if (over) box(dc, r, kCtlHot, CLR_NONE);
-        glyph(dc, r, g, !enabled ? kFaint : on ? kAccentBright : tone == Tone::Danger ? kBad : over ? kText : kDim, 14);
+        if (on) box(*p, r, kSel, kAccentLine);
+        else if (over) box(*p, r, kCtlHot, CLR_NONE);
+        glyph(*p, r, g, !enabled ? kFaint : on ? kAccentBright : tone == Tone::Danger ? kBad : over ? kText : kDim, 14);
     } else {
-        iconFace(dc, r, g, tone, on, over, enabled);
+        iconFace(*p, r, g, tone, on, over, enabled);
     }
     hitsOut().push_back({r, nullptr, enabled ? std::move(click) : nullptr, tip, enabled ? IDC_HAND : IDC_ARROW, {}});
 }
 
 // --- Rows -------------------------------------------------------------------------------------------------------
 // A list row's background: selected (fill and a bar on the left), under the mouse, or none.
-void listRow(HDC dc, RECT r, bool selected, bool over) {
+void listRow(Paint p, RECT r, bool selected, bool over) {
     if (selected) {
-        fillAlpha(dc, r, kSel, 255);
-        fillAlpha(dc, {r.left, r.top, r.left + scale(2), r.bottom}, kAccent, 255);
+        p->fill(r, kSel);
+        p->fill({r.left, r.top, r.left + scale(2), r.bottom}, kAccent);
     } else if (over) {
-        fillAlpha(dc, r, kRowHot, 255);
+        p->fill(r, kRowHot);
     }
 }
 COLORREF rowText(bool selected) { return selected ? kAccent : kText; }
 // A row of an owner-drawn list box (pickers, the scripts list): the list's face, then the row.
-void ownerRow(HDC dc, RECT r, bool selected, COLORREF face = kCtl) {
-    fillAlpha(dc, r, face, 255);
-    listRow(dc, r, selected, false);
+void ownerRow(Paint p, RECT r, bool selected, COLORREF face = kCtl) {
+    p->fill(r, face);
+    listRow(*p, r, selected, false);
     // The list's frame (paintDarkBorder) covers its outer 2 px: the accent bar goes just inside it.
     const int ring = scale(1) + 1;
-    if (selected) fillAlpha(dc, {r.left + ring, r.top, r.left + ring + scale(2), r.bottom}, kAccent, 255);
+    if (selected) p->fill({r.left + ring, r.top, r.left + ring + scale(2), r.bottom}, kAccent);
 }
 // The mark of a changed entry: a small green dot.
-void changedDot(HDC dc, int cx, int cy) {
-    HBRUSH b = CreateSolidBrush(kGood);
-    HGDIOBJ ob = SelectObject(dc, b), op = SelectObject(dc, GetStockObject(NULL_PEN));
+void changedDot(Paint p, int cx, int cy) {
     const int r = scale(3);
-    Ellipse(dc, cx - r, cy - r, cx + r + 1, cy + r + 1);
-    SelectObject(dc, ob), SelectObject(dc, op);
-    DeleteObject(b);
+    p->ellipse({cx - r, cy - r, cx + r + 1, cy + r + 1}, kGood, kNone);
 }
 
 // The actions a row has at its right edge (on/off, duplicate, remove, earlier/later): shown on the row under the
@@ -273,7 +247,7 @@ RECT rowActionRect(RECT row, int k, int n) {
     const int x = row.right - scale(4) - w * (n - k), y = (row.top + row.bottom - h) / 2;
     return {x, y, x + w, y + h};
 }
-int rowActions(HDC dc, RECT row, const std::vector<RowAction>& actions, bool show) {
+int rowActions(Paint p, RECT row, const std::vector<RowAction>& actions, bool show) {
     hitsOut().push_back({row, nullptr, nullptr, L"", IDC_ARROW, {}});  // the mouse entering the row repaints it
     const int w = scale(kIconBox), h = std::min<int>(row.bottom - row.top, scale(kIconBox));
     int x = row.right - scale(4) - w * int(actions.size());
@@ -281,7 +255,7 @@ int rowActions(HDC dc, RECT row, const std::vector<RowAction>& actions, bool sho
     if (!show && !hot(row)) return left;
     const int y = (row.top + row.bottom - h) / 2;
     for (const auto& a : actions) {
-        iconButton(dc, {x, y, x + w, y + h}, a.glyph, a.click, a.tip, Icon::Bare, a.on, a.enabled, a.tone);
+        iconButton(*p, {x, y, x + w, y + h}, a.glyph, a.click, a.tip, Icon::Bare, a.on, a.enabled, a.tone);
         x += w;
     }
     return left;
@@ -290,22 +264,22 @@ int rowActions(HDC dc, RECT row, const std::vector<RowAction>& actions, bool sho
 // A painted scroll bar (for lists that page by rows): the track, and the thumb, lighter under the mouse or while
 // it is dragged.
 // As Windows 11's: a thin line at rest, wider with its track under the mouse or while dragged.
-void scrollFace(HDC dc, RECT track, RECT thumb, bool lit) {
-    if (lit) fillAlpha(dc, track, kPanel, 255);
+void scrollFace(Paint p, RECT track, RECT thumb, bool lit) {
+    if (lit) p->fill(track, kPanel);
     else thumb.left = thumb.right - std::max(2, int(thumb.right - thumb.left) / 2);
-    box(dc, thumb, lit ? kThumbHot : kThumb, CLR_NONE, 3);
+    box(*p, thumb, lit ? kThumbHot : kThumb, CLR_NONE, 3);
 }
 
 // --- Sliders --------------------------------------------------------------------------------------------------------
 // A slider from x0 to x1 on the line cy: the track (kBorder line), the part up to the value in the accent, a round
 // thumb in the accent (lighter under the mouse). `frac`: the value, 0 to 1.
-void sliderFace(HDC dc, int x0, int x1, int cy, float frac, bool over, bool enabled = true) {
+void sliderFace(Paint p, int x0, int x1, int cy, float frac, bool over, bool enabled = true) {
     const RECT track{x0, cy - scale(2), x1, cy + scale(2)};
-    box(dc, track, kCtl, kBorder, 2);
+    box(*p, track, kCtl, kBorder, 2);
     const int kx = x0 + int(std::lround(std::clamp(frac, 0.0f, 1.0f) * float(x1 - x0)));
-    fillAlpha(dc, {x0, cy - scale(2), kx, cy + scale(2)}, enabled ? kAccent : kFaint, 255);
+    p->fill({x0, cy - scale(2), kx, cy + scale(2)}, enabled ? kAccent : kFaint);
     const RECT knob{kx - scale(7), cy - scale(7), kx + scale(7), cy + scale(7)};
-    smoothRoundBox(dc, knob, float(scale(7)), !enabled ? kFaint : over ? kAccentBright : kAccent, 2.0f);
+    p->smoothRoundOutline(knob, float(scale(7)), !enabled ? kFaint : over ? kAccentBright : kAccent, 2.0f);
 }
 // A native trackbar (msctls_trackbar32) drawn as the kit's slider: the parent answers NM_CUSTOMDRAW with this.
 LRESULT trackbarCustomDraw(const NMCUSTOMDRAW* cd) {
@@ -348,42 +322,41 @@ RECT tableCell(RECT row, const std::vector<Column>& cols, size_t k) {
 }
 HFONT smallFont();  // (below)
 // The header: the column names small and dim, one line under them (no band, no frame).
-void tableHeader(HDC dc, RECT row, const std::vector<Column>& cols) {
-    SetTextColor(dc, kDim);
-    HGDIOBJ of = SelectObject(dc, smallFont());
+unsigned alignFlags(UINT dt) { return (dt & DT_RIGHT ? kRight : dt & DT_CENTER ? kCenter : kLeft) | kMiddle; }
+void tableHeader(Paint p, RECT row, const std::vector<Column>& cols) {
+    const Font of = p->setFont(fontOf(smallFont()));
     for (size_t k = 0; k < cols.size(); ++k) {
         RECT c = tableCell(row, cols, k);
         InflateRect(&c, -scale(4), 0);
-        DrawTextW(dc, cols[k].name.c_str(), -1, &c, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | cols[k].align);
+        p->text(c, cols[k].name, kDim, alignFlags(cols[k].align));
     }
-    SelectObject(dc, of);
-    fillAlpha(dc, {row.left, row.bottom - 1, row.right, row.bottom}, kBorder, 255);
+    p->setFont(of);
+    p->fill({row.left, row.bottom - 1, row.right, row.bottom}, kBorder);
 }
 // A row: on the page's ground; selected or under the mouse a rounded pill (as the lists and pickers).
-void tableRow(HDC dc, RECT row, bool selected, bool over) {
-    const RECT p{row.left + scale(2), row.top + scale(1), row.right - scale(2), row.bottom - scale(1)};
-    if (selected) box(dc, p, kSel, kSel, 6);
-    else if (over) box(dc, p, kRowHot, kRowHot, 6);
+void tableRow(Paint p, RECT row, bool selected, bool over) {
+    const RECT pill{row.left + scale(2), row.top + scale(1), row.right - scale(2), row.bottom - scale(1)};
+    if (selected) box(*p, pill, kSel, kSel, 6);
+    else if (over) box(*p, pill, kRowHot, kRowHot, 6);
 }
 // One cell's text.
-void tableText(HDC dc, RECT row, const std::vector<Column>& cols, size_t k, const std::wstring& text, COLORREF color) {
+void tableText(Paint p, RECT row, const std::vector<Column>& cols, size_t k, const std::wstring& text, COLORREF color) {
     RECT c = tableCell(row, cols, k);
     InflateRect(&c, -scale(4), 0);
-    SetTextColor(dc, color);
-    DrawTextW(dc, text.c_str(), -1, &c, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS | cols[k].align);
+    p->text(c, text, color, alignFlags(cols[k].align) | kEllipsis);
 }
-void tableFrame(HDC, RECT) {}  // no frame: the header's line and the rows' pills are enough
+void tableFrame(Paint, RECT) {}  // no frame: the header's line and the rows' pills are enough
 
 // --- Lists that can be reordered ------------------------------------------------------------------------------------
 // The grip (six dots) on a row that can be dragged; the line where a dragged row goes.
-void grip(HDC dc, int x, int y, bool on) {
+void grip(Paint p, int x, int y, bool on) {
     for (int gx = 0; gx < 2; ++gx)
         for (int gy = 0; gy < 3; ++gy) {
             const int dx = x + gx * scale(5), dy = y + gy * scale(5);
-            fillAlpha(dc, {dx, dy, dx + scale(2), dy + scale(2)}, on ? kAccent : kGripDot, 255);
+            p->fill({dx, dy, dx + scale(2), dy + scale(2)}, on ? kAccent : kGripDot);
         }
 }
-void dropLine(HDC dc, int x0, int x1, int y) { fillAlpha(dc, {x0, y - scale(1), x1, y + scale(1)}, kAccent, 255); }
+void dropLine(Paint p, int x0, int x1, int y) { p->fill({x0, y - scale(1), x1, y + scale(1)}, kAccent); }
 
 // A list being reordered: which list, the row taken and where it goes now.
 struct Reorder {
@@ -395,14 +368,14 @@ inline std::map<std::string, std::vector<RECT>> gReorderRows;  // this paint's r
 // A row of a list that can be reordered (`index` from 0, in order): its grip at the left, shown on the row under
 // the mouse; dragging the grip moves the row, and `moved(from, to)` gets where it was and where it goes (an index
 // in the list without it). The caller paints the row first; the grip's drag is on top of the row's click.
-void reorderRow(HDC dc, const std::string& list, RECT row, int index, std::function<void(int from, int to)> moved, bool can = true) {
+void reorderRow(Paint p, const std::string& list, RECT row, int index, std::function<void(int from, int to)> moved, bool can = true) {
     auto& rows = gReorderRows[list];
     if (index == 0) rows.clear();
     rows.push_back(row);
     const bool dragging = gReorder.list == list && gReorder.from >= 0;
-    if (dragging && gReorder.from == index) fillAlpha(dc, row, kSel, 160);
+    if (dragging && gReorder.from == index) p->fill(row, kSel, 160);
     const RECT g{row.left, row.top, row.left + scale(18), row.bottom};
-    if (can && (hot(row) || (dragging && gReorder.from == index))) grip(dc, row.left + scale(5), (row.top + row.bottom) / 2 - scale(6), dragging && gReorder.from == index);
+    if (can && (hot(row) || (dragging && gReorder.from == index))) grip(*p, row.left + scale(5), (row.top + row.bottom) / 2 - scale(6), dragging && gReorder.from == index);
     if (!can) return;
     hitsOut().push_back({g,
                          [list, index](POINT pt) {
@@ -423,66 +396,51 @@ void reorderRow(HDC dc, const std::string& list, RECT row, int index, std::funct
                          }});
 }
 // After the list's rows: the line where the dragged row goes.
-void reorderDropLine(HDC dc, const std::string& list) {
+void reorderDropLine(Paint p, const std::string& list) {
     if (gReorder.list != list || gReorder.from < 0) return;
     const auto& rs = gReorderRows[list];
     if (rs.empty()) return;
     const int y = gReorder.to < int(rs.size()) ? rs[size_t(gReorder.to)].top : rs.back().bottom;
-    dropLine(dc, rs.front().left, rs.front().right, y);
+    dropLine(*p, rs.front().left, rs.front().right, y);
 }
 
 // --- Check boxes --------------------------------------------------------------------------------------------------
 // The box (painted check boxes and the native ones alike).
-void checkMark(HDC dc, RECT b, bool on, bool over, bool enabled) {
-    box(dc, b, on ? kAccentFill : kCtl, on ? kAccent : over ? kBorderHot : kBorderStrong, 3);
+void checkMark(Paint p, RECT b, bool on, bool over, bool enabled) {
+    box(*p, b, on ? kAccentFill : kCtl, on ? kAccent : over ? kBorderHot : kBorderStrong, 3);
     if (!on) return;
-    HPEN p = CreatePen(PS_SOLID, std::max(1, scale(2)), enabled ? kOnText : kDim);
-    HGDIOBJ op = SelectObject(dc, p);
     const int w = b.right - b.left, h = b.bottom - b.top;
-    MoveToEx(dc, b.left + w * 22 / 100, b.top + h * 52 / 100, nullptr);
-    LineTo(dc, b.left + w * 42 / 100, b.top + h * 72 / 100);
-    LineTo(dc, b.left + w * 78 / 100, b.top + h * 30 / 100);
-    SelectObject(dc, op);
-    DeleteObject(p);
+    const Point mark[] = {{b.left + w * 22 / 100, b.top + h * 52 / 100}, {b.left + w * 42 / 100, b.top + h * 72 / 100}, {b.left + w * 78 / 100, b.top + h * 30 / 100}};
+    p->polyline(mark, 3, enabled ? kOnText : kDim, std::max(1, scale(2)));
 }
-void radioMark(HDC dc, RECT b, bool on, bool over) {
-    HBRUSH br = CreateSolidBrush(kCtl);
-    HPEN p = CreatePen(PS_SOLID, 1, on ? kAccent : over ? kBorderHot : kBorderStrong);
-    HGDIOBJ ob = SelectObject(dc, br), op = SelectObject(dc, p);
-    Ellipse(dc, b.left, b.top, b.right, b.bottom);
-    SelectObject(dc, ob), SelectObject(dc, op);
-    DeleteObject(br), DeleteObject(p);
+void radioMark(Paint p, RECT b, bool on, bool over) {
+    p->ellipse(b, kCtl, on ? kAccent : over ? kBorderHot : kBorderStrong);
     if (!on) return;
     const int in = (b.right - b.left) * 3 / 10;
-    HBRUSH dot = CreateSolidBrush(kAccent);
-    ob = SelectObject(dc, dot), op = SelectObject(dc, GetStockObject(NULL_PEN));
-    Ellipse(dc, b.left + in, b.top + in, b.right - in + 1, b.bottom - in + 1);
-    SelectObject(dc, ob), SelectObject(dc, op);
-    DeleteObject(dot);
+    p->ellipse({b.left + in, b.top + in, b.right - in + 1, b.bottom - in + 1}, kAccent, kNone);
 }
 // A check box with its label; the whole is the click area. Returns the right edge.
-int check(HDC dc, RECT r, const std::wstring& label, bool on, std::function<void()> click, const std::wstring& tip = L"", bool changed = false, bool enabled = true) {
+int check(Paint p, RECT r, const std::wstring& label, bool on, std::function<void()> click, const std::wstring& tip = L"", bool changed = false, bool enabled = true) {
     const int s = scale(14);
     RECT b{r.left, (r.top + r.bottom - s) / 2, r.left + s, (r.top + r.bottom - s) / 2 + s};
     const bool over = enabled && hot(r);
-    checkMark(dc, b, on, over, enabled);
+    checkMark(*p, b, on, over, enabled);
     RECT t{b.right + scale(8), r.top, r.right, r.bottom};
-    SetTextColor(dc, !enabled ? kFaint : changed ? kGood : on || over ? kText : kDim);
-    DrawTextW(dc, label.c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
+    p->text(t, label, !enabled ? kFaint : changed ? kGood : on || over ? kText : kDim, kMiddle | kEllipsis);
     hitsOut().push_back({r, nullptr, enabled ? std::move(click) : nullptr, tip, enabled ? IDC_HAND : IDC_ARROW, {}});
-    return t.left + textWidth(dc, label);
+    return t.left + textWidth(*p, label);
 }
 
 // --- Fields -------------------------------------------------------------------------------------------------------
 enum class Field { Normal, Hot, Focus, Changed, ReadOnly };
 // A text field's box (painted fields, and the frame drawn around native edit boxes).
-void fieldBox(HDC dc, RECT r, Field f) {
+void fieldBox(Paint p, RECT r, Field f) {
     COLORREF fill = kCtl, line = kBorder;
     if (f == Field::Hot) line = kBorderHot;
     if (f == Field::Focus) line = kAccent;
     if (f == Field::Changed) fill = kGoodFill, line = kGoodLine;
     if (f == Field::ReadOnly) fill = kReadOnly, line = kReadOnlyLine;
-    box(dc, r, fill, line);
+    box(*p, r, fill, line);
 }
 
 // --- Form parts ---------------------------------------------------------------------------------------------------
@@ -516,42 +474,35 @@ HFONT titleFont() {
 }
 // A title: big text, and a line under it in the dim color ("stat_txt.tbl string 12  ·  changed  ·  Reset").
 // `kind`: the icon when there is no picture (the .dat of the entry).
-int title(HDC dc, int x, int y, int right, const UnitPalette::Bitmap* icon, const std::wstring& text, const std::wstring& sub, bool changed = false,
+int title(Paint p, int x, int y, int right, const UnitPalette::Bitmap* icon, const std::wstring& text, const std::wstring& sub, bool changed = false,
           std::function<void()> reset = nullptr, std::optional<UiIcon> kind = std::nullopt) {
     int tx = x;
     if (icon && icon->bmp) {
-        drawFitted(dc, *icon, {x, y, x + scale(40), y + scale(40)});
+        p->fitted(imageOf(icon), {x, y, x + scale(40), y + scale(40)});
         tx += scale(52);
     } else if (kind) {
-        uiIcon(dc, {x, y, x + scale(40), y + scale(40)}, *kind, kDim, scale(32));
+        p->icon({x, y, x + scale(40), y + scale(40)}, int(*kind), kDim, scale(32));
         tx += scale(52);
     }
-    HGDIOBJ of = SelectObject(dc, titleFont());
-    RECT tt{tx, y, right, y + scale(26)};
-    SetTextColor(dc, kText);
-    DrawTextW(dc, (text.empty() ? L"(empty)" : text).c_str(), -1, &tt, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-    SelectObject(dc, of);
+    const Font of = p->setFont(fontOf(titleFont()));
+    p->text({tx, y, right, y + scale(26)}, text.empty() ? L"(empty)" : text, kText, kMiddle | kEllipsis);
+    p->setFont(of);
     if (sub.empty() && !changed) return y + scale(40);
     RECT st{tx, y + scale(24), right, y + scale(42)};
     const std::wstring lineText = sub + (changed ? (sub.empty() ? L"changed  \x00B7  " : L"  \x00B7  changed  \x00B7  ") : L"");
-    SetTextColor(dc, kDim);
-    DrawTextW(dc, lineText.c_str(), -1, &st, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-    if (changed && reset) link(dc, st.left + textWidth(dc, lineText), st.top, st.bottom - st.top, L"Reset", std::move(reset), L"Put back the game's values");
+    p->text(st, lineText, kDim, kMiddle);
+    if (changed && reset) link(*p, st.left + textWidth(*p, lineText), st.top, st.bottom - st.top, L"Reset", std::move(reset), L"Put back the game's values");
     return y + scale(56);
 }
 // A section heading: its name and a line to the column's edge.
-int sectionHeader(HDC dc, const FormLayout& l, int y, const std::wstring& name, bool changed = false) {
-    SetTextColor(dc, changed ? kGood : kText);
-    RECT hr{l.x0, y, l.colRight, y + l.rowH};
-    DrawTextW(dc, name.c_str(), -1, &hr, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-    fillAlpha(dc, {l.x0, y + l.rowH - 1, l.colRight, y + l.rowH}, kBorder, 255);
+int sectionHeader(Paint p, const FormLayout& l, int y, const std::wstring& name, bool changed = false) {
+    p->text({l.x0, y, l.colRight, y + l.rowH}, name, changed ? kGood : kText, kMiddle);
+    p->fill({l.x0, y + l.rowH - 1, l.colRight, y + l.rowH}, kBorder);
     return y + l.rowH + scale(6);
 }
 // A field's label: dim; green when its value is changed; faint when it cannot be changed.
-void fieldLabel(HDC dc, const FormLayout& l, int y, const std::wstring& name, bool changed, bool enabled = true) {
-    RECT lab{l.x0, y, l.x0 + l.labelW, y + l.rowH};
-    SetTextColor(dc, !enabled ? kFaint : changed ? kGood : kDim);
-    DrawTextW(dc, name.c_str(), -1, &lab, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+void fieldLabel(Paint p, const FormLayout& l, int y, const std::wstring& name, bool changed, bool enabled = true) {
+    p->text({l.x0, y, l.x0 + l.labelW, y + l.rowH}, name, !enabled ? kFaint : changed ? kGood : kDim, kMiddle | kEllipsis);
 }
 HFONT smallFont() {
     static std::map<int, HFONT> fonts;  // by DPI
@@ -568,53 +519,47 @@ HFONT smallFont() {
 // --- The References side bar ----------------------------------------------------------------------------------------
 // What uses the selected thing, by group ("UNITS", "BRIEFINGS"), each a link to it. The callers keep their own
 // click areas: these paint and say where.
-void sidePanel(HDC dc, RECT side) {
-    fillAlpha(dc, side, kPanel, 255);
-    fillAlpha(dc, {side.left, side.top, side.left + 1, side.bottom}, kBorder, 255);
+void sidePanel(Paint p, RECT side) {
+    p->fill(side, kPanel);
+    p->fill({side.left, side.top, side.left + 1, side.bottom}, kBorder);
 }
-int sideHeader(HDC dc, int x, int y, int w, const std::wstring& title, size_t count) {
-    RECT h{x, y, x + w, y + scale(22)};
-    SetTextColor(dc, kText);
-    DrawTextW(dc, title.c_str(), -1, &h, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-    SetTextColor(dc, kDim);
-    DrawTextW(dc, std::to_wstring(count).c_str(), -1, &h, DT_SINGLELINE | DT_VCENTER | DT_RIGHT);
+int sideHeader(Paint p, int x, int y, int w, const std::wstring& title, size_t count) {
+    const Rect h{x, y, x + w, y + scale(22)};
+    p->text(h, title, kText, kMiddle);
+    p->text(h, std::to_wstring(count), kDim, kMiddle | kRight);
     y += scale(30);
     if (!count) {
-        RECT n{x, y, x + w, y + scale(20)};
-        DrawTextW(dc, L"No other data uses this entry", -1, &n, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+        p->text({x, y, x + w, y + scale(20)}, L"No other data uses this entry", kDim, kMiddle | kEllipsis);
         y += scale(22);
     }
     return y;
 }
 // `icon`: the group's icon before its name (-1: none).
-int sideGroup(HDC dc, int x, int y, int w, const std::wstring& name, bool first, std::optional<UiIcon> icon = std::nullopt) {
+int sideGroup(Paint p, int x, int y, int w, const std::wstring& name, bool first, std::optional<UiIcon> icon = std::nullopt) {
     if (!first) y += scale(8);
     const std::wstring& up = name;  // sentence case, as every heading (PRINCIPLES.md, "Text")
-    HGDIOBJ of = SelectObject(dc, smallFont());
-    SetTextColor(dc, kDim);
+    const Font of = p->setFont(fontOf(smallFont()));
     if (icon) {
-        uiIcon(dc, {x, y - scale(1), x + scale(16), y + scale(16)}, *icon, kDim, scale(16));
+        p->icon({x, y - scale(1), x + scale(16), y + scale(16)}, int(*icon), kDim, scale(16));
         x += scale(22), w -= scale(22);
     }
-    RECT r{x, y, x + w, y + scale(15)};
-    DrawTextW(dc, up.c_str(), -1, &r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-    SelectObject(dc, of);
+    p->text({x, y, x + w, y + scale(15)}, up, kDim, kMiddle | kEllipsis);
+    p->setFont(of);
     return y + scale(18);
 }
 // One reference: its icon and name in the accent; returns its row (the caller's click area).
-RECT sideLink(HDC dc, int x, int y, int w, const std::wstring& text, const UnitPalette::Bitmap* icon, bool over) {
+RECT sideLink(Paint p, int x, int y, int w, const std::wstring& text, const UnitPalette::Bitmap* icon, bool over) {
     const int h = scale(20);
     int tx = x;
     if (icon && icon->bmp) {
-        drawFitted(dc, *icon, {x, y + scale(1), x + scale(18), y + h - scale(1)});
+        p->fitted(imageOf(icon), {x, y + scale(1), x + scale(18), y + h - scale(1)});
         tx += scale(22);
     }
-    RECT nr{tx, y, x + w, y + h};
-    SetTextColor(dc, over ? kAccentBright : kAccent);
-    DrawTextW(dc, text.c_str(), -1, &nr, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
+    const RECT nr{tx, y, x + w, y + h};
+    p->text(nr, text, over ? kAccentBright : kAccent, kMiddle | kEllipsis);
     if (over) {
-        const int tw = std::min<int>(textWidth(dc, text), int(nr.right - nr.left));
-        line(dc, tx, nr.bottom - scale(3), tx + tw, nr.bottom - scale(3), kAccentBright);
+        const int tw = std::min<int>(textWidth(*p, text), int(nr.right - nr.left));
+        p->line(tx, nr.bottom - scale(3), tx + tw, nr.bottom - scale(3), kAccentBright);
     }
     return {x, y, x + w, y + h};
 }
@@ -622,45 +567,35 @@ RECT sideLink(HDC dc, int x, int y, int w, const std::wstring& text, const UnitP
 // --- Pickers ------------------------------------------------------------------------------------------------------
 // A value in a sentence (a trigger's block, a briefing action): a chip to click. Dim: the block is turned off;
 // bad: the value must be fixed; focused: Tab moved to it.
-void chipFace(HDC dc, RECT r, bool over, bool dim = false, bool bad = false, bool focused = false) {
+void chipFace(Paint p, RECT r, bool over, bool dim = false, bool bad = false, bool focused = false) {
     const COLORREF fill = dim ? kChipDim : bad ? (over ? kBadFillHot : kBadFill) : over ? kSelHot : kChip;
     const COLORREF line = focused ? kAccent : dim ? kReadOnlyLine : bad ? kBad : over ? kAccentLine : kChipLine;
     if (focused) {
-        box(dc, r, fill, CLR_NONE);
-        HPEN p = CreatePen(PS_SOLID, 2, line);
-        HGDIOBJ op = SelectObject(dc, p), ob = SelectObject(dc, GetStockObject(NULL_BRUSH));
-        RoundRect(dc, r.left + 1, r.top + 1, r.right, r.bottom, 2 * scale(kRadius), 2 * scale(kRadius));
-        SelectObject(dc, op), SelectObject(dc, ob);
-        DeleteObject(p);
+        box(*p, r, fill, CLR_NONE);
+        p->roundBox(r, kNone, line, float(scale(kRadius)), 2);
         return;
     }
-    box(dc, r, fill, line);
+    box(*p, r, fill, line);
 }
 
 // A dropdown: icon, name, the number on the right, the arrow; and the glyph that opens the entry when `open` is
 // set. Clicking the box calls `click` with it.
 // The dropdown's face, for surfaces with their own click areas (the Data form).
-void pickFace(HDC dc, RECT r, const std::wstring& text, bool changed, bool over, const UnitPalette::Bitmap* icon = nullptr, int number = -1, bool enabled = true) {
-    fieldBox(dc, r, !enabled ? Field::ReadOnly : changed ? Field::Changed : over ? Field::Hot : Field::Normal);
+void pickFace(Paint p, RECT r, const std::wstring& text, bool changed, bool over, const UnitPalette::Bitmap* icon = nullptr, int number = -1, bool enabled = true) {
+    fieldBox(*p, r, !enabled ? Field::ReadOnly : changed ? Field::Changed : over ? Field::Hot : Field::Normal);
     int tx = r.left + scale(8);
     if (icon && icon->bmp) {
-        drawFitted(dc, *icon, {tx - scale(2), r.top + scale(1), tx + scale(18), r.bottom - scale(1)});
+        p->fitted(imageOf(icon), {tx - scale(2), r.top + scale(1), tx + scale(18), r.bottom - scale(1)});
         tx += scale(24);
     }
-    RECT t{tx, r.top, r.right - (number >= 0 ? scale(56) : scale(22)), r.bottom};
-    SetTextColor(dc, !enabled ? kFaint : changed ? kGood : kText);
-    DrawTextW(dc, text.c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-    SetTextColor(dc, kDim);
-    if (number >= 0) {
-        RECT num{r.right - scale(64), r.top, r.right - scale(22), r.bottom};
-        DrawTextW(dc, std::to_wstring(number).c_str(), -1, &num, DT_SINGLELINE | DT_VCENTER | DT_RIGHT);
-    }
-    if (enabled) glyph(dc, {r.right - scale(20), r.top, r.right - scale(6), r.bottom}, UiIcon::Dropdown, over ? kText : kDim, 9);  // chevron down
+    p->text({tx, r.top, r.right - (number >= 0 ? scale(56) : scale(22)), r.bottom}, text, !enabled ? kFaint : changed ? kGood : kText, kMiddle | kEllipsis);
+    if (number >= 0) p->text({r.right - scale(64), r.top, r.right - scale(22), r.bottom}, std::to_wstring(number), kDim, kMiddle | kRight);
+    if (enabled) glyph(*p, {r.right - scale(20), r.top, r.right - scale(6), r.bottom}, UiIcon::Dropdown, over ? kText : kDim, 9);  // chevron down
 }
-void pickBox(HDC dc, RECT r, const std::wstring& text, bool changed, std::function<void(RECT)> click, const std::wstring& tip = L"",
+void pickBox(Paint p, RECT r, const std::wstring& text, bool changed, std::function<void(RECT)> click, const std::wstring& tip = L"",
              const UnitPalette::Bitmap* icon = nullptr, int number = -1, std::function<void()> open = nullptr, bool enabled = true) {
     const bool over = enabled && hot(r);
-    pickFace(dc, r, text, changed, over, icon, number, enabled);
+    pickFace(*p, r, text, changed, over, icon, number, enabled);
     if (enabled) {
         DataWidgetHit h{r, nullptr, [r, click] { click(r); }, tip, IDC_HAND, {}};
         h.wheel = [r, click](int dir) {  // the mouse wheel: the next or the previous choice, without the list
@@ -671,7 +606,7 @@ void pickBox(HDC dc, RECT r, const std::wstring& text, bool changed, std::functi
         hitsOut().push_back(std::move(h));
     }
     else hitsOut().push_back({r, nullptr, nullptr, tip, IDC_NO, {}});
-    if (open) iconButton(dc, {r.right + scale(4), r.top, r.right + scale(4 + kIconBox), r.bottom}, UiIcon::OpenExternal, std::move(open), L"Open it", Icon::Bare, false, true, Tone::Primary);
+    if (open) iconButton(*p, {r.right + scale(4), r.top, r.right + scale(4 + kIconBox), r.bottom}, UiIcon::OpenExternal, std::move(open), L"Open it", Icon::Bare, false, true, Tone::Primary);
 }
 POINT belowBox(RECT r) {
     POINT pt{r.left, r.bottom + scale(2)};
@@ -871,16 +806,16 @@ using ui::pickBox;
 using ui::belowBox;
 inline bool mouseIn(RECT r) { return ui::hot(r); }
 // A link in the accent color (or another tone); returns its right edge.
-int linkButton(HDC dc, int x, int y, int h, const std::wstring& text, std::function<void()> click, const std::wstring& tip = L"", ui::Tone tone = ui::Tone::Normal) {
-    return ui::smallButton(dc, x, y, h, text, std::move(click), tip, tone);  // an action: a small button
+int linkButton(ui::Paint p, int x, int y, int h, const std::wstring& text, std::function<void()> click, const std::wstring& tip = L"", ui::Tone tone = ui::Tone::Normal) {
+    return ui::smallButton(*p, x, y, h, text, std::move(click), tip, tone);  // an action: a small button
 }
 // A square button with an icon glyph.
-void glyphButton(HDC dc, RECT r, ui::Ico glyph, bool on, std::function<void()> click, std::wstring tip) {
-    ui::iconButton(dc, r, glyph, std::move(click), tip, ui::Icon::Boxed, on);
+void glyphButton(ui::Paint p, RECT r, ui::Ico glyph, bool on, std::function<void()> click, std::wstring tip) {
+    ui::iconButton(*p, r, glyph, std::move(click), tip, ui::Icon::Boxed, on);
 }
 // The remove action of a row, shown on the row under the mouse.
-void removeCross(HDC dc, RECT row, RECT at, std::function<void()> click, const std::wstring& tip) {
+void removeCross(ui::Paint p, RECT row, RECT at, std::function<void()> click, const std::wstring& tip) {
     hitsOut().push_back({row, nullptr, nullptr, L"", IDC_ARROW, {}});
     if (!ui::hot(row)) return;
-    ui::iconButton(dc, at, UiIcon::Close, std::move(click), tip, ui::Icon::Bare, false, true, ui::Tone::Danger);
+    ui::iconButton(*p, at, UiIcon::Close, std::move(click), tip, ui::Icon::Bare, false, true, ui::Tone::Danger);
 }
