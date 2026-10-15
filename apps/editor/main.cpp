@@ -137,7 +137,6 @@ std::wstring datLabel(const std::string& name, bool start = true) {
 
 enum : int {
     IDC_TABS = 100, IDC_OWNER, IDC_BRUSH, IDC_FILTER, IDC_LIST, IDC_STATUS, IDC_VIEW, IDC_TOOL, IDC_SHAPE, IDC_SYM, IDC_DENSITY, IDC_UNITSEARCH, IDC_PALVIEW, IDC_PALSECTION,
-    IDC_MODEBTN = 150,  // + mode index
     ID_EDIT_TERRAINUNITS = 350, ID_EDIT_TERRAINDOODADS, ID_OPT_LOCWRAP,
     ID_FILE_OPEN = 200, ID_FILE_NEW, ID_FILE_SAVE, ID_FILE_SAVEAS, ID_FILE_EXIT, ID_FILE_CLOSE, ID_FILE_CLOSEALL, ID_TAB_NEXT,
     ID_TAB_PREV,
@@ -471,7 +470,7 @@ struct App {
     HINSTANCE inst = nullptr;
     HWND main = nullptr, tabs = nullptr, owner = nullptr, brush = nullptr, filter = nullptr, list = nullptr;
     HWND tool = nullptr, shape = nullptr, sym = nullptr, density = nullptr;
-    HWND modeBtn[kModeCount] = {};
+    HWND modeBar = nullptr;  // the modes' segmented control (ModeBarView)
     HBRUSH bgBrush = nullptr, ctlBrush = nullptr;
     std::wstring statusText[6];
     HWND status = nullptr, view = nullptr, minimap = nullptr;
@@ -869,8 +868,7 @@ void setMode(Mode m) {
         ShowWindow(gPal.sectionBox, mapWs && (m == Mode::Units || m == Mode::Doodads || m == Mode::Sprites) ? SW_SHOW : SW_HIDE);
     for (HWND h : {gPal.search, gPal.viewBtn, gPal.wnd})
         if (h) ShowWindow(h, mapWs && !locs ? SW_SHOW : SW_HIDE);
-    for (int i = 0; i < kModeCount; ++i)
-        if (app.modeBtn[i]) InvalidateRect(app.modeBtn[i], nullptr, FALSE);
+    if (app.modeBar) InvalidateRect(app.modeBar, nullptr, FALSE);
     // Only the active mode's options show (layout places them).
     const bool spray = m != Mode::Locations && m != Mode::Sprites;
     ShowWindow(app.brush, SW_HIDE);  // the size and the mirrors are in the tool strip
@@ -17425,8 +17423,8 @@ void setWorkspace(Workspace w) {
     const bool map = w == Workspace::Map;
     for (HWND h : {app.minimap, app.tool, app.owner, app.view})
         if (h) ShowWindow(h, map ? SW_SHOW : SW_HIDE);
-    for (HWND h : app.modeBtn)  // the modes: a segmented control in the top tool bar (icons and names), in the Map workspace
-        if (h) ShowWindow(h, map ? SW_SHOW : SW_HIDE);
+    if (app.modeBar)  // the modes: a segmented control in the top tool bar (icons and names), in the Map workspace
+        ShowWindow(app.modeBar, map ? SW_SHOW : SW_HIDE);
     gWorkspace = w;
     setMode(app.mode);  // the panel's palette, or the locations list; hidden outside the map workspace
     ShowWindow(gDataWnd, w == Workspace::Data ? SW_SHOW : SW_HIDE);
@@ -18463,55 +18461,106 @@ RECT modeBarRect() {
     return {bx, by, bx + kModeCount * bw, by + bh};
 }
 
-void drawOwnerButton(const DRAWITEMSTRUCT* d) {
-    // A segmented choice: the active one as a selected (primary) button.
-    int i = int(d->CtlID) - IDC_MODEBTN;
-    bool active = i == int(app.mode);
-    HBRUSH barBg = CreateSolidBrush(kPanel);  // they sit on the top tool bar
-    FillRect(d->hDC, &d->rcItem, barBg);
-    DeleteObject(barBg);
-    // One segmented control: each segment is part of one box, rounded only at the two ends, with a line between
-    // segments; the chosen one is primary. (The box is drawn wider on the inner sides; the item's clip cuts it.)
-    const bool down = (d->itemState & ODS_SELECTED) != 0;
-    int k = 0;
-    while (k < kModeCount && int(kModeOrder[k]) != i) ++k;
-    const bool first = k == 0, last = k == kModeCount - 1;
-    const int over = scale(8);
-    RECT seg = d->rcItem;
-    if (!first) seg.left -= over;
-    if (!last) seg.right += over;
-    ui::box(d->hDC, seg, active ? kSel : down ? kCtlDown : kCtl, active ? kAccentLine : kBorder);
-    if (!last) {  // the line to the next segment
-        RECT line{d->rcItem.right - 1, d->rcItem.top + 1, d->rcItem.right, d->rcItem.bottom - 1};
-        HBRUSH lb = CreateSolidBrush(kBorder);
-        FillRect(d->hDC, &line, lb);
-        DeleteObject(lb);
+// The modes' segmented control: one view in the top tool bar, its segments side by side in the display order
+// (kModeOrder) with a line between them. Each segment is part of one box, rounded only at the two ends; the chosen
+// mode is primary. A click picks the segment's mode (on the release, while the mouse is still on it, as a button);
+// the tip is the mode's name. The icon alone when the names do not fit.
+ui::Surface gModeBarSurface;
+struct ModeBarView final : stardraft::draw::View {
+    using Canvas = stardraft::draw::Canvas;
+    using Point = stardraft::draw::Point;
+    using MouseEvent = stardraft::draw::MouseEvent;
+    using MouseKind = stardraft::draw::MouseKind;
+    int held = -1;        // the segment (its place in kModeOrder) the mouse is down on
+    bool inside = false;  // the mouse is still on that segment
+    // The segment under `p` (a place in kModeOrder), -1 outside the bar.
+    int segmentAt(Point p) const {
+        const int bw = width() / kModeCount;
+        if (bw <= 0 || p.x < 0 || p.y < 0 || p.x >= width() || p.y >= height()) return -1;
+        return std::min(p.x / bw, kModeCount - 1);
     }
-    // The mode's icon, then its name; the icon alone when the name does not fit.
-    static const UiIcon icons[kModeCount] = {UiIcon::Terrain, UiIcon::Units, UiIcon::Doodads, UiIcon::Locations, UiIcon::DatSprites};
-    const COLORREF c = active ? kAccent : kText;
-    HGDIOBJ of = SelectObject(d->hDC, app.font);
-    SIZE sz{};
-    GetTextExtentPoint32W(d->hDC, kModeNames[i], int(wcslen(kModeNames[i])), &sz);
-    const RECT& r = d->rcItem;
-    const int is = scale(16), gap = scale(5), w = r.right - r.left;
-    int widest = 0;  // all four with their names, or all four as icons only
-    for (const wchar_t* n : kModeNames) {
-        SIZE s2{};
-        GetTextExtentPoint32W(d->hDC, n, int(wcslen(n)), &s2);
-        widest = std::max<int>(widest, s2.cx);
+    RECT segmentRect(int k) const {
+        const int bw = width() / kModeCount;
+        return {k * bw, 0, k + 1 == kModeCount ? width() : (k + 1) * bw, height()};
     }
-    const bool label = is + gap + widest + scale(10) <= w;
-    const int x0 = label ? r.left + (w - (is + gap + sz.cx)) / 2 : r.left + (w - is) / 2;
-    uiIcon(d->hDC, {x0, r.top, x0 + is, r.bottom}, icons[i], c, is);
-    if (label) {
-        SetBkMode(d->hDC, TRANSPARENT);
-        SetTextColor(d->hDC, c);
-        RECT t{x0 + is + gap, r.top, r.right, r.bottom};
-        DrawTextW(d->hDC, kModeNames[i], -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+    void paint(Canvas& c) override {
+        const HWND hwnd = ui::Win32Host::windowOf(*this);
+        const int w = width(), h = height(), bw = width() / kModeCount;
+        static const UiIcon icons[kModeCount] = {UiIcon::Terrain, UiIcon::Units, UiIcon::Doodads, UiIcon::Locations, UiIcon::DatSprites};
+        c.fill({0, 0, w, h}, kPanel);  // they sit on the top tool bar
+        gModeBarSurface.begin(hwnd);
+        const stardraft::draw::Font prev = c.setFont(ui::fontOf(app.font));
+        const int is = scale(16), gap = scale(5), over = scale(8);
+        int widest = 0;  // all five with their names, or all five as icons only
+        for (const wchar_t* n : kModeNames) widest = std::max<int>(widest, c.measure(n));
+        for (int k = 0; k < kModeCount; ++k) {
+            const int i = int(kModeOrder[k]);
+            const bool active = i == int(app.mode);
+            const bool down = held == k && inside;
+            const RECT r = segmentRect(k);
+            c.pushClip(r);
+            c.fill(r, kPanel);
+            // (The box is drawn wider on the inner sides; the segment's clip cuts it.)
+            RECT seg = r;
+            if (k > 0) seg.left -= over;
+            if (k + 1 < kModeCount) seg.right += over;
+            ui::box(c, seg, active ? kSel : down ? kCtlDown : kCtl, active ? kAccentLine : kBorder);
+            if (k + 1 < kModeCount) c.fill({r.right - 1, r.top + 1, r.right, r.bottom - 1}, kBorder);  // the line to the next segment
+            // The mode's icon, then its name; the icon alone when the name does not fit.
+            const stardraft::draw::Color col = active ? kAccent : kText;
+            const int nameW = c.measure(kModeNames[i]);
+            const bool showName = is + gap + widest + scale(10) <= r.right - r.left;
+            const int x0 = showName ? r.left + (r.right - r.left - (is + gap + nameW)) / 2 : r.left + (r.right - r.left - is) / 2;
+            c.icon({x0, r.top, x0 + is, r.bottom}, int(icons[i]), col, is);
+            if (showName) c.text({x0 + is + gap, r.top, r.right, r.bottom}, kModeNames[i], col, stardraft::draw::kMiddle);
+            c.popClip();
+            gModeBarSurface.hits.push_back({r, nullptr, nullptr, kModeNames[i], IDC_ARROW, {}});
+        }
+        c.setFont(prev);
+        gModeBarSurface.end(hwnd);
     }
-    SelectObject(d->hDC, of);
-}
+    bool mouse(const MouseEvent& e) override {
+        switch (e.kind) {
+        case MouseKind::Down:
+        case MouseKind::DoubleClick:  // (a button takes a fast second press as a press)
+            if (e.button != 0) return false;
+            focus();  // as the old button: the press takes the focus (a tool-strip number box saves before the mode changes)
+            held = segmentAt(e.pt);
+            if (held < 0) return false;
+            inside = true;
+            if (stardraft::draw::Host* h = host()) h->capture(*this, true);
+            invalidate();
+            return true;
+        case MouseKind::Move:
+            if (held < 0) return false;
+            if ((segmentAt(e.pt) == held) != inside) inside = !inside, invalidate();
+            return true;
+        case MouseKind::Up: {
+            if (e.button != 0 || held < 0) return false;
+            const int k = held;
+            const bool pick = segmentAt(e.pt) == k;  // released off it: no click
+            held = -1, inside = false;
+            if (stardraft::draw::Host* h = host()) h->capture(*this, false);
+            invalidate();
+            if (pick) {
+                setMode(Mode(int(kModeOrder[k])));
+                SetFocus(app.view);
+            }
+            return true;
+        }
+        default: return false;
+        }
+    }
+    void captureLost() override {
+        held = -1, inside = false;
+        invalidate();
+    }
+    std::wstring tip(Point p) override {
+        const int k = segmentAt(p);
+        return k < 0 ? std::wstring() : std::wstring(kModeNames[int(kModeOrder[k])]);
+    }
+};
+ModeBarView gModeBarView;
 
 // The status bar as a view: a flat strip drawn in full, the panel color, a hairline on top and between the parts, no
 // bevels. The map's parts (mode and tool, the mouse's place, the zoom, the selection, frames) show in the Map workspace
@@ -19223,7 +19272,7 @@ struct TopBarView final : stardraft::draw::View {
                 const int w2 = scale(16) + scale(8) + c.measure(text) + scale(24);
                 const RECT mr = modeBarRect();
                 // After the modes; where they are hidden (Data, Triggers, the pages), after the icons.
-                const bool modes = app.modeBtn[0] && IsWindowVisible(app.modeBtn[0]);
+                const bool modes = app.modeBar && IsWindowVisible(app.modeBar);
                 const int divX = (modes ? int(mr.right) : topBarIconsWidth()) + scale(10);
                 c.fill({divX, y + scale(6), divX + 1, y + b - scale(6)}, kBorder);  // the divider between the modes and Build
                 const int bx = divX + scale(10);
@@ -19372,14 +19421,10 @@ void layout() {
     if (miniShown) MoveWindow(app.minimap, miniX + pad, mtop + pad, miniW, mini, TRUE);
     // The modes: one segmented control in the top tool bar, after the file and edit icons (the segments side by side,
     // with a line between them).
-    {
+    if (app.modeBar) {
         const RECT mr = modeBarRect();
-        const int bw = (mr.right - mr.left) / kModeCount;
-        for (int k = 0; k < kModeCount; ++k) {
-            const int i = int(kModeOrder[k]);
-            MoveWindow(app.modeBtn[i], mr.left + k * bw, mr.top, bw, mr.bottom - mr.top, TRUE);
-            SetWindowPos(app.modeBtn[i], HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);  // over the bar
-        }
+        MoveWindow(app.modeBar, mr.left, mr.top, mr.right - mr.left, mr.bottom - mr.top, TRUE);
+        SetWindowPos(app.modeBar, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);  // over the bar
     }
     const int belowMini = mtop + pad + mini + pad;
     const int tabsRowH = scale(30);
@@ -19461,8 +19506,7 @@ void createFont() {
     NONCLIENTMETRICSW ncm{sizeof ncm};
     SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0, app.dpi);
     app.font = CreateFontIndirectW(&ncm.lfMessageFont);
-    for (HWND w : {app.owner, app.brush, app.filter, app.list, gPal.search, gPal.viewBtn, gPal.sectionBox, app.status, app.sym, app.density, app.modeBtn[0],
-                   app.modeBtn[1], app.modeBtn[2], app.modeBtn[3], app.modeBtn[4]})
+    for (HWND w : {app.owner, app.brush, app.filter, app.list, gPal.search, gPal.viewBtn, gPal.sectionBox, app.status, app.sym, app.density})
         if (w) SendMessageW(w, WM_SETFONT, WPARAM(app.font), TRUE);
     // The player list draws its rows itself: its closed box as tall as the other lists at this font.
     if (app.owner && app.sym) SendMessageW(app.owner, CB_SETITEMHEIGHT, WPARAM(-1), SendMessageW(app.sym, CB_GETITEMHEIGHT, WPARAM(-1), 0));
@@ -19848,7 +19892,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         HWND src = HWND(wp);
         POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
         bool mini = src == app.minimap, tools = false;
-        for (HWND b : app.modeBtn) tools |= src == b;
+        tools |= src == app.modeBar;
         if (src == hwnd && gWorkspace == Workspace::Map) {
             POINT c = pt;
             ScreenToClient(hwnd, &c);
@@ -19917,7 +19961,6 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             SelectObject(dc, of);
             return TRUE;
         }
-        if (d->CtlID >= UINT(IDC_MODEBTN) && d->CtlID < UINT(IDC_MODEBTN + kModeCount)) drawOwnerButton(d);
         return TRUE;
     }
     case WM_CREATE: {
@@ -19929,9 +19972,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         setMenuIcons(GetMenu(hwnd));  // at this window's DPI
         BOOL dark = !gLightTheme;
         DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &dark, sizeof dark), titleColors(hwnd);
-        for (int i = 0; i < kModeCount; ++i)
-            app.modeBtn[i] = CreateWindowExW(0, WC_BUTTONW, kModeNames[i], WS_CHILD | BS_OWNERDRAW, 0, 0, 0, 0, hwnd,
-                                             HMENU(INT_PTR(IDC_MODEBTN + i)), app.inst, nullptr);
+        app.modeBar = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD, 0, 0, 1, 1, hwnd, nullptr, app.inst, &gModeBarView);
         auto combo = [&](int id) {
             HWND c = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL, 0, 0, 0, 0, hwnd,
                                      HMENU(INT_PTR(id)), app.inst, nullptr);
@@ -20054,9 +20095,6 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         } else if (id == IDC_SYM && code == CBN_SELCHANGE) {
             if (app.ed) app.ed->setSymmetry(Symmetry(SendMessageW(app.sym, CB_GETCURSEL, 0, 0)));
             app.dirty = true;
-            SetFocus(app.view);
-        } else if (id >= IDC_MODEBTN && id < IDC_MODEBTN + kModeCount) {
-            setMode(Mode(id - IDC_MODEBTN));
             SetFocus(app.view);
         } else if (id == IDC_FILTER && code == EN_CHANGE) {
             rebuildList();
@@ -26098,8 +26136,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 {
                     std::ofstream log(fs::path(datashots) / "datashots.txt", std::ios::app);
                     RECT r{};
-                    if (app.modeBtn[0]) GetWindowRect(app.modeBtn[0], &r);
-                    log << "ws:" << it->first << ": the mode buttons " << (app.modeBtn[0] && IsWindowVisible(app.modeBtn[0]) ? "shown" : "hidden") << " ("
+                    const RECT mr = modeBarRect();  // (one mode's segment: the bar's width over the modes)
+                    if (app.modeBar) r = {0, 0, (mr.right - mr.left) / kModeCount, mr.bottom - mr.top};
+                    log << "ws:" << it->first << ": the mode buttons " << (app.modeBar && IsWindowVisible(app.modeBar) ? "shown" : "hidden") << " ("
                         << (r.right - r.left) << " x " << (r.bottom - r.top) << ")" << std::endl;
                 }
                 continue;
