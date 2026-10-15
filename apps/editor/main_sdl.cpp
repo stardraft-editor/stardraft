@@ -305,7 +305,7 @@ int main(int argc, char** argv) {
             projectStart.location = defaultProjectsFolder().make_preferred().wstring();
             if (docOpen()) projectStart.openMap = docTitle(gActive, false);
             NewProjectView projectShot(projectStart);
-            PromptView promptShot(L"0x");
+            TextPromptView promptShot(L"0x", false);
             // listpick: the list picker as a multi-pick of unit types (classictrig:values on Windows; --size 378x494).
             std::vector<ListPickItem> pickItems;
             for (int u = 0; u <= 227; ++u) pickItems.push_back(ListPickItem{unitDisplayName(u), L"", std::to_string(u), "", -1});

@@ -81,5 +81,4 @@
 #include "views_feedback.inc"
 #include "views_new_project.inc"
 #include "title.inc"
-#include "views_prompt.inc"  // a line of text with OK and Cancel (PromptView, runPromptDialog; SDL's shellPromptText)
 #include "project_page.inc"  // the Project page's program parts, createProject, newMap, addProjectScript (the host shows the page)
