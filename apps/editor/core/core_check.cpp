@@ -28,6 +28,8 @@
 using namespace stardraft;
 namespace fs = std::filesystem;
 
-namespace {
+// (A named namespace: the core declares editor functions and globals that only main.cpp defines; this object is never
+// linked, and MSVC refuses undefined declarations with internal linkage.)
+namespace core_check {
 #include "core.inc"
-}  // namespace
+}  // namespace core_check
