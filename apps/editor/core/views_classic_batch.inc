@@ -39,6 +39,7 @@ public:
         intro_.setText(tr(L"A block repeats the actions in it for each value. The variable is the value of each copy."));
         name_.setText(widen(batch.name));
         kind_.setItems(kindItems());
+        kind_.enterOpens = false;  // Enter in the closed list is the dialog's default button
         kind_.setValue(kindIndex(batch.kind));
         kind_.onChange = [this](int i) { changeKind(i); };
         values_.setMode(stardraft::kit::SelectMode::Single);
@@ -179,9 +180,9 @@ inline int runBatchDialog(draw::View& from, BatchHost& host, ClassicBatch& batch
     dlg.setContent(view);
     view.setDialog(&dlg);
     std::vector<stardraft::kit::DialogButton> buttons;
-    if (editing) buttons.push_back({tr(L"Remove the block"), kBatchRemove, false, false});
-    buttons.push_back({tr(L"Cancel"), kBatchCancel, false, true});
+    if (editing) buttons.push_back({tr(L"Remove the block"), kBatchRemove, false, false, true});
     buttons.push_back({tr(editing ? L"Save" : L"Add the block"), kBatchOk, true, false});
+    buttons.push_back({tr(L"Cancel"), kBatchCancel, false, true});
     dlg.setButtons(std::move(buttons));
     dlg.setAllow([&view](int r) { return r != kBatchOk || view.canOk(); });
     dlg.setEnabledFor(kBatchOk, view.canOk());

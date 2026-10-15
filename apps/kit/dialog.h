@@ -25,6 +25,7 @@ struct DialogButton {
     int result = 0;          // what run() returns when this button closes the dialog
     bool primary = false;    // Enter presses it; drawn as the main action
     bool cancel = false;     // Escape presses it
+    bool left = false;       // at the left edge, in order (the rest stay at the right)
 };
 
 class Dialog : public draw::View {
@@ -33,7 +34,7 @@ public:
 
     // The content (not owned: it must outlive the dialog or be removed first).
     void setContent(draw::View& c);
-    // The buttons, from left to right; the last one is at the right edge.
+    // The buttons, from left to right; the last of the right ones is at the right edge.
     void setButtons(std::vector<DialogButton> bs);
 
     // Shows the dialog in a window `size` big (x: width, y: height) that `from` opens, and returns when it closes:

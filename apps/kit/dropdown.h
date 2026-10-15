@@ -30,6 +30,8 @@ public:
     std::function<void(int)> onChange;
     // The item that is already the value was picked again (the list closes, no change): a Custom color's picker opens.
     std::function<void(int)> onSame;
+    // Enter opens the list (the default). Off: a closed list passes Enter on, as a Windows combo box does in a dialog.
+    bool enterOpens = true;
 
     // Replaces the items (the list closes; the value stays if it is still an item).
     void setItems(std::vector<DropdownItem> items);

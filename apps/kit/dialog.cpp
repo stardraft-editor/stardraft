@@ -49,10 +49,16 @@ void Dialog::layout(Canvas& c) {
 void Dialog::placeAll() {
     const int W = width(), H = height(), pad = px(kDialogPad), bh = px(kButtonH), gap = px(kButtonGap), sep = px(kDialogGap);
     const int by = H - pad - bh;
-    int x = W - pad;
+    int x = W - pad, lx = pad;
     for (size_t k = buttons_.size(); k-- > 0;) {
+        if (specs_[k].left) continue;
         place(*buttons_[k], {x - widths_[k], by, x, by + bh});
         x -= widths_[k] + gap;
+    }
+    for (size_t k = 0; k < buttons_.size(); ++k) {
+        if (!specs_[k].left) continue;
+        place(*buttons_[k], {lx, by, lx + widths_[k], by + bh});
+        lx += widths_[k] + gap;
     }
     if (content_) {
         const int bottom = buttons_.empty() ? H - pad : by - sep;

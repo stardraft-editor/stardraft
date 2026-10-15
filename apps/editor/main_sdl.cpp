@@ -44,6 +44,7 @@
 #include "shell.h"
 #include "message_box.h"  // apps/kit: the save question (shellAskSaveChanges)
 #include "dialog.h"  // apps/kit: the map pages' pickers (sdl_map_pages.inc)
+#include "label.h"  // apps/kit: the block dialog's text (core/views_classic_batch.inc)
 #include "text_field.h"  // apps/kit: the search boxes (core/views_search.inc)
 #include "dropdown.h"  // apps/kit: the palette's dropdown (core/views_search.inc)
 #include "check_box.h"  // apps/kit: the players and forces page (core/views_players.inc)
