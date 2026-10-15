@@ -95,6 +95,9 @@ void shellToolsChanged();
 // A popup menu of `items` (the strip's brush shapes), with the entry `checked` marked; (x, y) is its place in the tool
 // strip's coordinates. Returns the picked entry's index, or -1 when none is picked.
 int shellPopupPick(const std::vector<std::wstring>& items, int checked, int x, int y);
+// A context menu of `items` at the mouse (a right click's; the Win32 menu ends with Report feedback). Returns the picked
+// entry's number from 1, or 0 when none is picked.
+int shellContextMenu(const std::vector<std::wstring>& items);
 // The owner (player) combo box shows player i.
 void shellOwnerSelect(int i);
 // The palette is drawn again (its selection or the player's colors changed).

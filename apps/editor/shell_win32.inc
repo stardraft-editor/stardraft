@@ -145,6 +145,16 @@ int shellPopupPick(const std::vector<std::wstring>& items, int checked, int x, i
     DestroyMenu(m);
     return pick >= 1 && pick <= int(items.size()) ? pick - 1 : -1;
 }
+int shellContextMenu(const std::vector<std::wstring>& items) {
+    POINT pt{};
+    GetCursorPos(&pt);
+    HMENU m = CreatePopupMenu();
+    for (size_t k = 0; k < items.size(); ++k) AppendMenuW(m, MF_STRING, UINT_PTR(k + 1), items[k].c_str());
+    HWND owner = WindowFromPoint(pt);
+    const int pick = popupMenu(m, TPM_RIGHTBUTTON, pt.x, pt.y, owner ? owner : app.main);
+    DestroyMenu(m);
+    return pick >= 1 && pick <= int(items.size()) ? pick : 0;
+}
 void shellOwnerSelect(int i) { SendMessageW(app.owner, CB_SETCURSEL, i, 0); }
 void shellPaletteChanged() { unitPaletteRepaint(); }
 void shellPaletteRebuilt() { rebuildUnitPalette(); }

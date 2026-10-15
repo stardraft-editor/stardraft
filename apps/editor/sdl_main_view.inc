@@ -18,6 +18,7 @@ std::string gDataError;      // why it is not (shown in the map view)
 unsigned gDpi = 96;          // the window's dpi (scale() gives device pixels for it)
 struct MainView;
 MainView* gRoot = nullptr;
+bool gTilesShown = false;  // the Tiles panel shows (Rectangle mode, in the Map workspace with a map: MainView::relayout)
 
 // The map's texture: the renderer draws the open map into it each frame, and the map view shows it.
 SDL_GPUTexture* gMapTex = nullptr;
@@ -247,6 +248,8 @@ struct MainView final : draw::View {
         add(gSectionDropSdl, draw::Rect(0, 0, 0, 0));
         add(gViewBtnSdl, draw::Rect(0, 0, 0, 0));
         add(gPalList, draw::Rect(0, 0, 0, 0));
+        gTilesPanel.holdGrid(gTilesGrid);  // the Tiles panel (core/views_tiles.inc): the grid is in the panel on this system
+        add(gTilesPanel, draw::Rect(0, 0, 0, 0));
         add(gLocList, draw::Rect(0, 0, 0, 0));
         add(gPal2List, draw::Rect(0, 0, 0, 0));
         add(notHere, draw::Rect(0, 0, 0, 0));
@@ -339,10 +342,17 @@ struct MainView final : draw::View {
         apply(gPanelTabsSdl[toolsRight ? 0 : 1], L.panelTabOther, L.panelTabOther.visible && mapWs);
         apply(gOwnerBox, oneRow(L.owner), owners && mapWs);       // (a closed owner list is one row high)
         apply(gSectionDropSdl, oneRow(L.sectionBox), sections && mapWs);
-        apply(gSearchSdl, L.search, !locs && mapWs);
-        apply(gViewBtnSdl, L.viewBtn, !locs && mapWs);
+        // Rectangle mode's Tiles panel takes the palette's place: from its search box down to its end (the Win32 tilesSync).
+        const bool tiles = mapWs && tilesOn();
+        gTilesShown = tiles;
+        PaneSlot tilesSlot = L.search;
+        tilesSlot.placed = L.search.placed && L.palette.placed;
+        tilesSlot.rc = RECT{L.search.rc.left, L.search.rc.top, L.palette.rc.right, L.palette.rc.bottom};
+        apply(gTilesPanel, tilesSlot, tiles);
+        apply(gSearchSdl, L.search, !locs && mapWs && !tiles);
+        apply(gViewBtnSdl, L.viewBtn, !locs && mapWs && !tiles);
         apply(gFilterSdl, L.filter, locs && mapWs);
-        apply(gPalList, L.palette, !locs && mapWs);
+        apply(gPalList, L.palette, !locs && mapWs && !tiles);
         apply(gLocList, L.list, locs && mapWs);
         apply(gPal2List, L.palette2, L.palette2.visible && mapWs);
         // The workspace area: the registered view of the workspace shown, else the "Not on this system yet" view.
@@ -386,6 +396,13 @@ struct MainView final : draw::View {
         v.setVisible(s.placed && shown);
     }
 };
+
+// The Tiles panel shows in the palette's place while Rectangle mode is on (the core calls this when the tool or the mode
+// changes): the panes are placed again when that changes.
+void tilesSync() {
+    if (gRoot && gTilesShown != (tilesOn() && !gNewOpen)) gRoot->relayout();
+    if (gTilesShown) tilesFresh(), gTilesGrid.invalidate();
+}
 
 void invalidateMapView() {
     if (gRoot) gRoot->map.invalidate();

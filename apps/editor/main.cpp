@@ -413,6 +413,7 @@ void fillToolCombo() { fillToolCombo(app); }
 std::wstring itemLabel(int v) { return itemLabel(app, v); }
 
 #include "core/views_search.inc"  // the search boxes and the palette's dropdown (SearchBox, DropdownBox)
+#include "core/views_tiles.inc"  // the Rectangle mode's Tiles panel (TilesPanelView, TilesGridView; the windows are tiles_view.inc)
 #include "core/views_data_entry.inc"  // the Data form's number entry (DataNumberEntry, dataReadEntry); its instance is gDataEntry below
 DataNumberEntry gDataEntry;  // the number typed over a field's value (the form's child view window, gData.edit)
 #include "core/sound_lists.inc"  // the map's and the game's sound files by name (mapSounds, gameSounds, soundFileBytes)
@@ -17638,10 +17639,10 @@ int runSelfTest(const fs::path& dir) {
                 capture(dir / (gLightTheme ? "rect_tiles_filter_light.png" : "rect_tiles_filter_dark.png"), gTiles.wnd);
                 applyTheme(!gLightTheme, gAccentIndex);
                 const uint16_t firstGroup = gTiles.values.empty() ? 0 : uint16_t(gTiles.values.front() >> 4);
-                SetWindowTextW(gTiles.search, (L"group " + std::to_wstring(firstGroup)).c_str());  // EN_CHANGE rebuilds
+                tilesSetSearch(L"group " + std::to_wstring(firstGroup));  // the change rebuilds
                 searched = gTiles.values.size();
                 for (uint16_t v : gTiles.values) onlyThat = onlyThat && tilesInFilter(v);
-                SetWindowTextW(gTiles.search, L"");
+                tilesSetSearch(L"");
             }
             size_t nullsShown = 0;
             bool allNull = nullFilter > 0;

@@ -81,6 +81,9 @@ void shellToolsChanged() { gToolStripView.invalidate(); }
 int shellPopupPick(const std::vector<std::wstring>& items, int checked, int, int) {  // (a modal list: sdl_map_pages.inc)
     return sdlPickFromList(items, checked, shellTr(L"Choose"));
 }
+int shellContextMenu(const std::vector<std::wstring>& items) {  // (a modal list: sdl_map_pages.inc)
+    return sdlPickFromList(items, -1, shellTr(L"Choose")) + 1;
+}
 void shellOwnerSelect(int i) { gOwnerBox.setValue(i); }  // (the owner dropdown shows player i; no change is sent)
 void shellPaletteChanged() {
     gPalList.invalidate();

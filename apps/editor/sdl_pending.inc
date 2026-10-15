@@ -1,16 +1,8 @@
-// The functions the core still needs that only the Win32 program defines (research/ports/MAC-BUILD-PLAN.md step 6).
-// Each one is a temporary SDL version until it is in the core (another lane moves them there); the core declares them.
+// The functions the core still needs whose surface is Win32-only (research/ports/MAC-BUILD-PLAN.md step 6): each one is
+// this system's version until its surface is in the core, and its comment names the surface. The core declares them.
 // Included by main_sdl.cpp after the core, next to sdl_main_view.inc.
 
-// (until it is in the core) The palette and the tile panel are not on this system yet: their names and rows are empty.
-void tilesRebuild() {}
-void tilesSync() {}
-int tilesViewH() { return 0; }
-void tilesScrollTo(int) {}
-RECT tilesCellRect(int) { return RECT{}; }
-void tilesPanelShowAllFilter() {}
-void tilesPanelRepaint() {}
-void tilesPanelClearSearch() {}
+// The Triggers workspace (main.cpp) is Win32-only: no trigger block waits for a unit picked on the map here.
 bool trigUnitPickClick(float, float) { return false; }
 
 // The Triggers workspace's pane is Win32-only (main.cpp): its zoom has nothing to draw again here (core/dock_prefs.inc).

@@ -42,6 +42,7 @@
 #include "views_data_strings.inc"
 #include "views_data_buttons.inc"
 #include "views_search.inc"
+#include "views_tiles.inc"
 #include "views_data_entry.inc"
 #include "sound_lists.inc"
 #include "views_files.inc"
