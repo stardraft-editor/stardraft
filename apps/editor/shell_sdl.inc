@@ -63,6 +63,7 @@ std::vector<int> shellListSelection() { return {}; }  // (the palette's list is 
 std::wstring shellFilterText() { return {}; }
 bool shellViewShown() { return gRoot != nullptr; }
 void shellToolsChanged() {}  // (the tool strip is not on this system yet)
+int shellPopupPick(const std::vector<std::wstring>&, int, int, int) { return -1; }  // (the SDL shell has no popup menus yet)
 void shellOwnerSelect(int) {}  // (the player combo box is not on this system yet)
 void shellPaletteChanged() {}
 void shellPaletteRebuilt() {}

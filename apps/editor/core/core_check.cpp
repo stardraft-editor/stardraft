@@ -24,6 +24,7 @@
 
 #include "tr.h"
 #include "text_codec.h"
+#include "text_field.h"  // the kit's text field (the tool strip's number edit); outside core.inc's namespace
 #include "view.h"
 #include "../shell.h"
 #include "wintypes.h"
