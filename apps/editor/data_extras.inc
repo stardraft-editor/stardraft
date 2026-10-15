@@ -457,140 +457,47 @@ Wireframes* wireframeSet(WireKind kind) {
     return s->count() ? s.get() : nullptr;
 }
 
-// The three wireframes a unit shows (`frames`: single, group, transport; -1 for none), as the status panel shows
-// them at full health. At (x, top), to the right of the rows top..bottom; under them (from `bottom`) when the form
-// is too narrow. Returns the bottom of what it drew, at least `bottom`.
-int paintWireframePreviews(HDC dc, const FormLayout& l, int u, const int (&frames)[3], int x, int top, int bottom) {
-    static const WireKind kinds[3] = {WireKind::Single, WireKind::Group, WireKind::Transport};
-    static const wchar_t* captions[3] = {L"Wireframe", L"Group", L"Transport"};
-    const int cap = scale(18), gap = scale(8);
-    const int pic = std::max(scale(64), bottom - top);
-    const bool under = x + 3 * pic + 2 * gap > l.colRight;
-    if (under) x = l.x0 + l.labelW, top = bottom + scale(4);
-    const bool shields = datValue("units", "Shield Enable", u) != 0;
-    HGDIOBJ of = SelectObject(dc, ui::smallFont());
-    for (int k = 0; k < 3; ++k) {
-        const RECT r{x + k * (pic + gap), top, x + k * (pic + gap) + pic, top + pic};
-        fillAlpha(dc, r, RGB(0, 0, 0), 255);  // the status panel's black, in both themes
-        outline(dc, r, kBorder);
-        Wireframes* set = frames[k] >= 0 ? wireframeSet(kinds[k]) : nullptr;
-        const Sprite* s = set ? set->picture(frames[k], shields) : nullptr;
-        if (s) {
-            // One scale for the three, so that a group picture is smaller than a single one, as in the game: a single
-            // wireframe's box (64 SD pixels, 128 HD2 pixels) fills the box. SD art in whole screen pixels a pixel.
-            const float fit = float(pic - scale(6)) / float(set->hd() ? 128 : 64);
-            const float zoom = std::min(set->hd() || fit < 1 ? fit : std::floor(fit), float(pic - scale(6)) / float(std::max(s->width, s->height)));
-            blitSprite(dc, *s, (r.left + r.right) / 2, (r.top + r.bottom) / 2, zoom);
-        } else {
-            SetTextColor(dc, kDim);
-            RECT t = r;
-            DrawTextW(dc, frames[k] < 0 ? L"\x2014" : L"Not found", -1, &t, DT_SINGLELINE | DT_VCENTER | DT_CENTER);
-        }
-        RECT c{r.left, r.bottom, r.right, r.bottom + cap};
-        SetTextColor(dc, kDim);
-        DrawTextW(dc, captions[k], -1, &c, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_END_ELLIPSIS);
-        std::wstring tip = k == 0 ? L"The wireframe" : k == 1 ? L"The group wireframe" : L"The transport wireframe";
-        tip += frames[k] < 0 ? L": the game has none for this unit" : L" at full health" + std::wstring(shields ? L" and full shields" : L"") +
-                                                                          L", as View shows the art. Frame " + std::to_wstring(frames[k]) + L" of " +
-                                                                          widen(Wireframes::fileName(kinds[k])) + (set && set->hd() ? L".dds.grp" : L".grp");
-        gWidgetHits.push_back({{r.left, r.top, r.right, c.bottom}, nullptr, nullptr, tip, IDC_ARROW, {}});
+// The Display section (core/views_data_display.inc: paintUnitDisplay): the Windows program's side of it, its kit
+// faces, the list pickers, the names, the wireframe sets and the sprite blit.
+struct WinUnitDisplay final : UnitDisplayHost {
+    HDC dc = nullptr;
+    std::unique_ptr<ui::Paint> paint;  // the surface being painted (its canvas over dc)
+    draw::Canvas& canvas() override { return **paint; }
+    UnitLooks& looks() override { return gExtras.looks; }
+    ButtonSets& buttons() override { return gExtras.buttons; }
+    void edited() override { extrasChanged(); }
+    void tip(draw::Rect r, const std::wstring& tip) override {
+        gWidgetHits.push_back({RECT{r.left, r.top, r.right, r.bottom}, nullptr, nullptr, tip, IDC_ARROW, {}});
     }
-    SelectObject(dc, of);
-    return std::max(bottom, top + pic + cap);
-}
+    bool choose(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, draw::Rect box, std::string& out) override {
+        return showListPicker(prompt, std::move(items), current, belowBox(RECT{box.left, box.top, box.right, box.bottom}), out);
+    }
+    std::vector<ListPickItem> entryItems(const char* kind) override { return ::entryItems(kind); }
+    std::wstring buttonSetName(int set) override { return ::buttonSetName(set); }
+    std::wstring unitName(int unit) override { return entryName("units", unit); }
+    bool hasShields(int unit) override { return datValue("units", "Shield Enable", unit) != 0; }
+    void pickBox(draw::Rect r, const std::wstring& text, bool changed, std::function<void(draw::Rect)> click, const std::wstring& tip,
+                 const char* iconDat, int iconEntry, int number, const char* open) override {
+        ui::pickBox(dc, RECT{r.left, r.top, r.right, r.bottom}, text, changed, [click](RECT b) { click(draw::Rect(b)); }, tip,
+                    iconDat ? datRefIcon(iconDat, uint32_t(iconEntry)) : nullptr, number, openEntry(open, number));
+    }
+    Wireframes* wireframes(WireKind kind) override { return wireframeSet(kind); }
+    void sprite(const Sprite& s, int cx, int cy, float zoom) override { blitSprite(dc, s, cx, cy, zoom); }
+};
+WinUnitDisplay gUnitDisplayPaint;  // lives as long as the click areas it makes
 
-// A unit's Display section: the button set it uses, its status panel, its wireframes (single, group, transport).
+// A unit's Display section (the core's paint; the surface is dc).
 int paintUnitDisplay(HDC dc, int u, int y) {
-    if (u < 0 || u >= UnitLooks::kUnits) return y;
     RECT rc;
     GetClientRect(gData.form, &rc);
     const FormLayout l = formLayout(rc);
-    const UnitLooks::Unit& v = gExtras.looks.unit(u);
-    const int set = gExtras.buttons.unitSet(u);
-    y = sectionHeader(dc, l, y, L"Display", gExtras.looks.changed(u) || set != u);
-    auto box = [&](int row) { return RECT{l.x0 + l.labelW, row + scale(2), l.x0 + l.labelW + scale(320), row + l.rowH - scale(2)}; };
-    auto changeLooks = [u](const std::function<void(UnitLooks::Unit&)>& f) {
-        UnitLooks::Unit n = gExtras.looks.unit(u);
-        f(n);
-        gExtras.looks.set(u, n);
-        extrasChanged();
-    };
-    // The button set (its own: the unit's number).
-    fieldLabel(dc, l, y, L"Button set", set != u);
-    pickBox(dc, box(y), buttonSetName(set), set != u,
-            [u, set](RECT b) {
-                std::string picked;
-                if (!showListPicker(L"Button set", entryItems("buttons"), std::to_string(set), belowBox(b), picked)) return;
-                gExtras.buttons.setUnitSet(u, std::stoi(picked));
-                extrasChanged();
-            },
-            L"The command card that the unit shows. The default value is the set with the unit's number.", argIcon("buttons", set), set, openEntry("buttons", set));
-    y += l.rowH;
-    // The status panel: one of the kinds (two functions of the game's code).
-    const uint32_t st = gExtras.looks.status(u), di = gExtras.looks.display(u);
-    const UnitPanelKind* kind = UnitLooks::kindOf(st, di);
-    wchar_t custom[64];
-    std::swprintf(custom, 64, L"Other (0x%06X, 0x%06X)", unsigned(st), unsigned(di));
-    const bool panelChanged = v.status || v.display;
-    fieldLabel(dc, l, y, L"Status panel", panelChanged);
-    pickBox(dc, box(y), kind ? widen(kind->name) : custom, panelChanged,
-            [u, changeLooks](RECT b) {
-                std::vector<ListPickItem> items;
-                const auto kinds = UnitLooks::kinds();
-                for (size_t k = 0; k < kinds.size(); ++k) items.push_back({widen(kinds[k].name), L"", std::to_string(k)});
-                std::string picked;
-                if (!showListPicker(L"Status panel", items, "", belowBox(b), picked)) return;
-                const UnitPanelKind& k = kinds[size_t(std::stoi(picked))];
-                changeLooks([&](UnitLooks::Unit& n) {  // the game's own pair: no change
-                    const bool own = k.status == gExtras.looks.stockStatus(u) && k.display == gExtras.looks.stockDisplay(u);
-                    n.status = own ? 0 : k.status, n.display = own ? 0 : k.display;
-                });
-            },
-            L"What the panel at the bottom shows when the unit is selected, for example a building's, a unit's or a transport's (its cargo)");
-    y += l.rowH;
-    // Wireframes: the unit whose picture shows (its own by default); group and transport have fewer.
-    struct Wire {
-        const wchar_t* name;
-        int UnitLooks::Unit::*field;
-        int count;
-        const wchar_t* tip;
-    };
-    static const Wire wires[] = {
-        {L"Wireframe", &UnitLooks::Unit::wireframe, UnitLooks::kWireframes, L"The picture in the selection panel when the unit is selected alone"},
-        {L"Group wireframe", &UnitLooks::Unit::groupWireframe, UnitLooks::kGroupWireframes, L"The small picture when units are selected together"},
-        {L"Transport wireframe", &UnitLooks::Unit::transportWireframe, UnitLooks::kTransportWireframes, L"The picture inside a transport"},
-    };
-    const int wireTop = y;
-    gWireframeTop = wireTop + gData.formScroll;
-    int shownFrame[3] = {-1, -1, -1};
-    for (const Wire& w : wires) {
-        const int now = v.*(w.field);
-        const bool changed = now >= 0;
-        fieldLabel(dc, l, y, w.name, changed);
-        if (u >= w.count) {  // the game has no such picture for this unit
-            RECT t = box(y);
-            t.left += scale(8);
-            SetTextColor(dc, kDim);
-            DrawTextW(dc, L"\x2014", -1, &t, DT_SINGLELINE | DT_VCENTER);
-            y += l.rowH;
-            continue;
-        }
-        const int shown = changed ? now : u;
-        shownFrame[&w - wires] = shown;
-        pickBox(dc, box(y), entryName("units", shown), changed,
-                [u, w, changeLooks](RECT b) {
-                    std::vector<ListPickItem> items = entryItems("units");
-                    items.resize(std::min(items.size(), size_t(w.count)));
-                    std::string picked;
-                    if (!showListPicker(w.name, items, "", belowBox(b), picked)) return;
-                    const int p = std::stoi(picked);
-                    changeLooks([&](UnitLooks::Unit& n) { n.*(w.field) = p == u ? -1 : p; });
-                },
-                w.tip, datRefIcon("units", uint32_t(shown)), shown);
-        y += l.rowH;
-    }
-    y = paintWireframePreviews(dc, l, u, shownFrame, box(wireTop).right + scale(16), wireTop, y);
-    return y + scale(14);
+    gUnitDisplayPaint.dc = dc;
+    gUnitDisplayPaint.paint = std::make_unique<ui::Paint>(dc);
+    int wireTop = -1;
+    y = paintUnitDisplay(gUnitDisplayPaint, RequirementLayout{l.x0, l.labelW, l.rowH, l.colRight}, u, y, &wireTop);
+    gUnitDisplayPaint.paint.reset();
+    if (wireTop >= 0) gWireframeTop = wireTop + gData.formScroll;
+    return y;
 }
 
 // The requirement lists of the open entry, for the .dat forms that have them.

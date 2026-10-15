@@ -304,6 +304,7 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/views_data_form.inc"  // the Data form's field rows: where each part sits (DataFieldRow, dataFieldRow)
 #include "core/views_data_requirements.inc"  // the Requirements section's model: step names, ways, levels, edits (requirement*)
 #include "core/views_data_requirements_paint.inc"  // the Requirements section's paint and clicks (paintRequirementList, ListPickItem)
+#include "core/views_data_display.inc"  // the Units form's Display section: its paint and clicks (paintUnitDisplay)
 #include "core/views_data_strings.inc"  // the Strings page's model: a string's text, its button prefix and the editor's text (stringLine, stringEditCommit)
 #include "core/views_data_buttons.inc"  // the Buttons tab's model: places, labels, costs, edits of a set (buttonRowTextFrom, buttonNew)
 #include "core/title.inc"  // the window's title and the rail's state (updateTitle)

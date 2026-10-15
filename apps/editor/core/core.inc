@@ -38,6 +38,7 @@
 #include "views_data_form.inc"
 #include "views_data_requirements.inc"
 #include "views_data_requirements_paint.inc"
+#include "views_data_display.inc"
 #include "views_data_strings.inc"
 #include "views_data_buttons.inc"
 #include "views_search.inc"
