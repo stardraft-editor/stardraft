@@ -13,6 +13,7 @@
 #include <dwmapi.h>
 #include <psapi.h>
 #include <iomanip>
+#include <functional>
 #include <future>
 #include <shlobj.h>
 #include <shellapi.h>
@@ -85,6 +86,8 @@ using namespace stardraft;
 namespace fs = std::filesystem;
 
 namespace {
+
+#include "shell.h"  // the host seam: what the editor's code asks of the window (shell_win32.inc, before mainProc)
 
 // --- Strings -------------------------------------------------------------------------------------
 
@@ -329,6 +332,7 @@ int themedMessageBox(HWND owner, const std::wstring& text, const std::wstring& c
 const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\StarCraft";
 
 #include "core/app_state.inc"
+#include "core/layout.inc"  // the main window's panes: computeLayout (the placement is layout() below)
 
 // The program: its state, and what Win32 and the renderer give it (windows, brushes, the font, the GPU).
 struct App : AppState {
@@ -441,11 +445,7 @@ void toWorld(int sx, int sy, float& wx, float& wy) {
     wy = app.camY + sy / app.zoom;
 }
 
-void viewSize(int& w, int& h) {
-    RECT r;
-    GetClientRect(app.view, &r);
-    w = r.right, h = r.bottom;
-}
+void viewSize(int& w, int& h) { shellViewSize(w, h); }
 
 void zoomAt(float factor, int sx, int sy) {
     float wx, wy;
@@ -509,7 +509,7 @@ void fillToolCombo() {
     // The strip's rows follow the tool (size and density for the sprays): its height, and what is under it.
     static int lastRows = -1;
     const int rows = int(app.mode) * 4 + app.toolByMode[int(app.mode)];
-    if (app.view && rows != lastRows) lastRows = rows, layout();
+    if (app.view && rows != lastRows) lastRows = rows, shellRelayout();
     tilesSync();
 }
 
@@ -651,7 +651,7 @@ void setMode(Mode m) {
     gLastOnSide[gDock.toolsRight[int(m)] ? 1 : 0] = m;
     const PaletteView& v = gViewByMode[int(m)];
     gPal.grid = v.grid, gPal.sprites = v.sprites, gPal.large = v.large;
-    if (app.view) layout();  // the toolbar's side, and what the other column shows
+    if (app.view) shellRelayout();  // the toolbar's side, and what the other column shows
     // Units, terrains and doodads are picked in the palette; in Locations the same place lists the locations.
     const bool locs = m == Mode::Locations, mapWs = gWorkspace == Workspace::Map;
     ShowWindow(app.filter, mapWs && locs ? SW_SHOW : SW_HIDE);
@@ -670,7 +670,7 @@ void setMode(Mode m) {
 
     // The player: for units and sprites (their owner and color). Doodads have no player (they are placed as player 1).
     ShowWindow(app.owner, mapWs && (m == Mode::Units || m == Mode::Sprites) ? SW_SHOW : SW_HIDE);
-    if (app.view) layout();
+    if (app.view) shellRelayout();
     fillToolCombo();
     app.terrainPasting = false;
     // A mode starts in selection: nothing picked, Terrain on Select. Picking a terrain, unit or doodad in the palette
@@ -683,12 +683,10 @@ void setMode(Mode m) {
 
 // --- Status ----------------------------------------------------------------------------------------
 
-void invalidateStatus();  // (the status bar's view, below)
-
 void setStatusPart(int i, const wchar_t* text) {
     if (app.statusText[i] == text) return;
     app.statusText[i] = text;
-    invalidateStatus();  // the bar is drawn in full (StatusView::paint)
+    shellStatusChanged();  // the bar is drawn in full (StatusView::paint)
 }
 
 void updateStatus() {
@@ -774,11 +772,11 @@ void updateTitle() {
         if (rail != railShown) {
             railShown = rail;
             ShowWindow(gWsBar, rail ? SW_SHOW : SW_HIDE);
-            layout();
+            shellRelayout();
         }
         InvalidateRect(gWsBar, nullptr, FALSE);
     }
-    updateMenus();  // the tab's mode (map or project) sets which commands are there
+    shellMenusChanged();  // the tab's mode (map or project) sets which commands are there
 }
 
 // --- Scene -----------------------------------------------------------------------------------------
@@ -2065,7 +2063,7 @@ void activateDoc(int i) {
     Doc& d = gDocs[size_t(i)];
     app.ed = std::move(d.ed);
     app.camX = d.camX, app.camY = d.camY, app.zoom = d.zoom;
-    layout();  // the minimap takes this map's shape
+    shellRelayout();  // the minimap takes this map's shape
     app.hasTerrainSel = d.hasTerrainSel, app.terrainSel = d.terrainSel;
     app.pasting = d.pasting, app.terrainPasting = d.terrainPasting;
     showActive();
@@ -2102,7 +2100,7 @@ void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank) {
     if (app.ed->path().empty() && (!reuse || page) && !gDocs[size_t(gActive)].page) gDocs[size_t(gActive)].untitled = ++gUntitledCount;
     app.hasTerrainSel = app.pasting = app.terrainPasting = false;
     startMark("open: add the tab");
-    layout();  // the minimap takes this map's shape
+    shellRelayout();  // the minimap takes this map's shape
     startMark("open: layout");
     showActive();
     startMark("open: show the map");
@@ -2316,7 +2314,7 @@ TabsView gTabs;
 // A project is a folder with project.stardraft: the map, the code (.eps), the data edits, the triggers. Build writes
 // euddraft's <name>.eds from it. Regular maps work as before; a map opened as a project can be built.
 
-constexpr UINT WM_BUILD_LINE = WM_APP + 20, WM_BUILD_DONE = WM_APP + 21;
+void buildFinished(euddraft::BuildResult* r);  // below: the build is done
 bool gBuilding = false;
 HWND gBuildLogText = nullptr;
 HFONT gMonoFont = nullptr;
@@ -2363,7 +2361,7 @@ void logSetExpanded(bool on) {
     if (gLog.expanded == on || !gLog.wnd) return;
     gLog.expanded = on;
     ShowWindow(gBuildLogText, on ? SW_SHOW : SW_HIDE);
-    layout();
+    shellRelayout();
     if (on) {  // the newest lines in view
         const int end = GetWindowTextLengthW(gBuildLogText);
         SendMessageW(gBuildLogText, EM_SETSEL, end, end);
@@ -2533,14 +2531,18 @@ void compileProject() {
     buildLogAppend(L"Compiling " + pr->file().wstring());
     gTrigBuildError.clear();
     gBuilding = true;
-    updateMenus();  // Build grays, and the top tool bar's Build says "Building"
+    shellMenusChanged();  // Build grays, and the top tool bar's Build says "Building"
     setMessage(L"Building the map\x2026");
     EudProject copy = *pr;
-    HWND main = app.main;
-    std::thread([copy, main] {
-        auto post = [main](const std::string& line) { PostMessageW(main, WM_BUILD_LINE, 0, LPARAM(new std::string(line))); };
+    std::thread([copy] {
+        auto post = [](const std::string& line) {
+            shellPost([line] {
+                buildLogAppend(widen(line));
+                if (gTrigBuildError.empty() && triggerErrorLine(line) > 0) gTrigBuildError = line;
+            });
+        };
         auto* r = new euddraft::BuildResult(copy.compile({}, post));
-        PostMessageW(main, WM_BUILD_DONE, 0, LPARAM(r));
+        shellPost([r] { buildFinished(r); });
     }).detach();
 }
 
@@ -2550,7 +2552,7 @@ void showKitGallery();
 
 void buildFinished(euddraft::BuildResult* r) {
     gBuilding = false;
-    updateMenus();
+    shellMenusChanged();
     projectFormRefresh();
     const EudProject* pr = activeProject();
     const std::wstring out = pr ? pr->outputMap().wstring() : L"";
@@ -3667,7 +3669,7 @@ void commandBody(int id) {
     }
     if (const auto it = gCommandIds.find(id); it != gCommandIds.end()) {  // a command of the table (commands.inc)
         gCommands.run(it->second);
-        updateMenus();
+        shellMenusChanged();
         app.dirty = true;
         return;
     }
@@ -3723,7 +3725,7 @@ void commandBody(int id) {
     case ID_DOCK_MINI_LEFT:
     case ID_DOCK_MINI_RIGHT:
         gDock.minimapRight = id == ID_DOCK_MINI_RIGHT, gDock.minimapHidden = false;
-        saveDock(), layout();
+        saveDock(), shellRelayout();
         return;
     case ID_RAIL_KEY: case ID_RAIL_KEY + 1: case ID_RAIL_KEY + 2: case ID_RAIL_KEY + 3: case ID_RAIL_KEY + 4:
     case ID_RAIL_KEY + 5: case ID_RAIL_KEY + 6: case ID_RAIL_KEY + 7: case ID_RAIL_KEY + 8: {
@@ -3736,7 +3738,7 @@ void commandBody(int id) {
     case ID_DOCK_TOOLS_LEFT:
     case ID_DOCK_TOOLS_RIGHT:
         gDock.toolsRight[int(app.mode)] = id == ID_DOCK_TOOLS_RIGHT;
-        saveDock(), layout();
+        saveDock(), shellRelayout();
         setMessage(std::wstring(kModeNames[int(app.mode)]) + L" toolbar on the " + (id == ID_DOCK_TOOLS_RIGHT ? L"right" : L"left"));
         return;
     case ID_WS_ASSETS: setWorkspace(Workspace::Files); return;  // Assets is part of Files
@@ -3774,7 +3776,7 @@ void commandBody(int id) {
         static const wchar_t* kinds[] = {L"Units", L"Sprites", L"Locations"};
         static const wchar_t* snaps[] = {L"do not snap", L"snap to tiles (32 px)", L"snap to half tiles (16 px)", L"snap to quarter tiles (8 px)"};
         setMessage(std::wstring(kinds[kind]) + L": " + snaps[choice]);
-        updateMenus();
+        shellMenusChanged();
         app.dirty = true;
         return;
     }
@@ -3785,7 +3787,7 @@ void commandBody(int id) {
         app.showGrid = true, app.dirty = true;
         saveDock();
         setMessage(L"Grid: " + std::wstring(g.name) + L", " + std::to_wstring(g.px) + L" pixels");
-        updateMenus();
+        shellMenusChanged();
         return;
     }
     switch (id) {
@@ -4056,7 +4058,7 @@ void commandBody(int id) {
     case ID_PATHSIZE_MEDIUM:
     case ID_PATHSIZE_LARGE: pathOverlaySize(id); break;
     }
-    updateMenus();
+    shellMenusChanged();
     app.dirty = true;
 }
 
@@ -4844,7 +4846,7 @@ void mouseUp(int sx, int sy, WPARAM keys) {
     }
     app.drag = Drag::None;
     app.dirty = true;
-    updateMenus();
+    shellMenusChanged();
 }
 
 // Escape or a right click (without dragging) backs out one step: paste mode, then the terrain
@@ -5715,7 +5717,7 @@ struct LogView final : stardraft::draw::View, ui::ChildColors {
                 ClientToScreen(hwnd, &p);
                 const int h = gLog.grabH - (p.y - gLog.grabY);
                 const int logH = std::clamp(MulDiv(h, 96, int(app.dpi)), 80, 1200);
-                if (logH != gDock.logH) gDock.logH = logH, layout();
+                if (logH != gDock.logH) gDock.logH = logH, shellRelayout();
             }
             return true;
         case MouseKind::Down:
@@ -17486,7 +17488,7 @@ void setWorkspace(Workspace w) {
         mapPageClose();
         if (mapPageKind(w) >= 0) w = Workspace::Map;
     }
-    invalidateStatus();  // the map's parts show in Map only
+    shellStatusChanged();  // the map's parts show in Map only
     if (w == Workspace::Data) dataLoadForProject(), dataRebuildList();
     else dataCommitEdit();
     gWorkspace = w;
@@ -17516,9 +17518,9 @@ void setWorkspace(Workspace w) {
     const bool stub = w == Workspace::Assets || (w == Workspace::Project && !projectPage);
     ShowWindow(gStubWnd, stub ? SW_SHOW : SW_HIDE);
     if (stub) InvalidateRect(gStubWnd, nullptr, FALSE);
-    layout();
+    shellRelayout();
     if (gMp.wnd) ShowWindow(gMp.wnd, SW_SHOW);  // after the layout: in its place at once
-    updateMenus();  // Edit's items follow the workspace (and with them Ctrl+C / X / V)
+    shellMenusChanged();  // Edit's items follow the workspace (and with them Ctrl+C / X / V)
     InvalidateRect(gWsBar, nullptr, FALSE);
     if (w == Workspace::Data && curTable()) dataShowTab(gData.datTab), SetFocus(gData.list);
     app.dirty = true;
@@ -18693,8 +18695,6 @@ struct StatusView final : stardraft::draw::View {
 };
 StatusView gStatus;
 
-void invalidateStatus() { gStatus.invalidate(); }
-
 // The status bar's height: the message font's line and a frame around it (what the bar had).
 int statusBarHeight() {
     HDC dc = GetDC(nullptr);
@@ -18812,7 +18812,7 @@ void setTerrainRect(bool rect) {
     if (app.terrainRect == rect) return;
     app.terrainRect = rect;
     app.terrainPasting = false;
-    if (app.view) layout();  // the strip's height (no mirrors in Rectangle)
+    if (app.view) shellRelayout();  // the strip's height (no mirrors in Rectangle)
     fillToolCombo();         // tilesSync: the Tiles grid or the terrain palette
     updateStatus();
     setMessage(rect ? L"Rectangle: the tools place tiles as they are. Select a tile in the Tiles list."
@@ -19325,7 +19325,7 @@ struct PanelTabsView final : stardraft::draw::View {
             if (pick == 1 || pick == 2) {
                 gDock.toolsRight[int(m)] = pick == 2;
                 gLastOnSide[pick == 2 ? 1 : 0] = m;
-                saveDock(), layout();
+                saveDock(), shellRelayout();
                 setMessage(std::wstring(kModeNames[int(m)]) + L" panel on the " + (pick == 2 ? L"right" : L"left"));
             }
             return true;
@@ -19512,140 +19512,104 @@ struct TopBarView final : stardraft::draw::View {
 };
 TopBarView gTopBarView;
 
+// The layout's input: the window's size, the dock state, and what the window system measures (core/layout.inc).
+LayoutInput layoutInput(const RECT& rc) {
+    LayoutInput in;
+    in.dpi = int(app.dpi);
+    in.clientW = rc.right, in.clientH = rc.bottom;
+    in.statusH = app.status ? statusBarHeight() : 0;
+    in.logH = logPanelHeight();
+    in.barH = topBarHeight(), in.tabsH = tabStripHeight(), in.railW = wsRailWidth();
+    in.modeBarH = modeBarHeight(), in.modeBar = modeBarRect();
+    in.toolStrip = [](int width) { return toolStripHeight(width, false); };
+    in.mode = app.mode, in.mapWs = gWorkspace == Workspace::Map;
+    for (int i = 0; i < kModeCount; ++i) in.toolsRight[i] = gDock.toolsRight[i];
+    in.minimapRight = gDock.minimapRight, in.minimapHidden = gDock.minimapHidden;
+    in.leftW = gDock.leftW, in.rightW = gDock.rightW;
+    in.lastOnSide[0] = gLastOnSide[0], in.lastOnSide[1] = gLastOnSide[1];
+    in.mapOpen = app.ed && app.ed->isOpen();
+    if (in.mapOpen) in.mapW = app.ed->width(), in.mapH = app.ed->height();
+    in.hasPanelTab[0] = gPanelTabs[0] != nullptr, in.hasPanelTab[1] = gPanelTabs[1] != nullptr;
+    in.hasSectionBox = gPal.sectionBox != nullptr;
+    in.hasPal2 = gPal2.wnd != nullptr;
+    in.pal2Shown = gPal2Shown, in.pal2Mode = gPal2Mode;
+    return in;
+}
+
+// Moves a window to a layout slot's place.
+void placeWindow(HWND w, const RECT& r) { MoveWindow(w, r.left, r.top, r.right - r.left, r.bottom - r.top, TRUE); }
+
+// The main window's panes: computed by computeLayout (core/layout.inc), placed here in the order the layout always
+// used.
 void layout() {
     RECT rc;
     GetClientRect(app.main, &rc);
-    const int statusH = app.status ? statusBarHeight() : 0;
-    if (app.status) MoveWindow(app.status, 0, int(rc.bottom) - statusH, int(rc.right), statusH, TRUE);  // along the bottom
-    int pad = scale(6), rowH = scale(24);
-    const int logH = logPanelHeight();
-    int h = rc.bottom - statusH - logH;
-    if (gLog.wnd) MoveWindow(gLog.wnd, 0, h, rc.right, logH, TRUE);
-    // Document tabs across the whole top (each a map or a project); the workspace rail down the left edge
-    // under them; the workspace fills the rest.
-    const int barH = topBarHeight(), tabsH = tabStripHeight(), top = barH + tabsH, left = wsRailWidth();
-    // The top tool bar: the icons, then the modes (in the Map workspace) on the same row.
-    if (gTopBar) MoveWindow(gTopBar, 0, 0, rc.right, barH, TRUE), InvalidateRect(gTopBar, nullptr, FALSE);
-    MoveWindow(app.tabs, 0, barH, rc.right, tabsH, TRUE);
-    MoveWindow(gWsBar, 0, top, left, std::max(1, h - top), TRUE);
-    MoveWindow(gDataWnd, left, top, std::max(1, int(rc.right) - left), std::max(1, h - top), TRUE);
-    if (gStubWnd) MoveWindow(gStubWnd, left, top, std::max(1, int(rc.right) - left), std::max(1, h - top), TRUE);
-    if (gProj.wnd) MoveWindow(gProj.wnd, left, top, std::max(1, int(rc.right) - left), std::max(1, h - top), TRUE);
-    if (gTE.wnd) MoveWindow(gTE.wnd, left, top, std::max(1, int(rc.right) - left), std::max(1, h - top), TRUE);
-    if (gBrief.wnd) MoveWindow(gBrief.wnd, left, top, std::max(1, int(rc.right) - left), std::max(1, h - top), TRUE);
-    if (gFiles.wnd) MoveWindow(gFiles.wnd, left, top, std::max(1, int(rc.right) - left), std::max(1, h - top), TRUE);
-    mapPageLayout(left, top, std::max(1, int(rc.right) - left), std::max(1, h - top));
-    // The map workspace: the map between two side columns. Each mode's panel (its list, and for the active mode its
-    // tools and options) is docked left or right and is always there; panels on the same side are tabs (gPanelTabs).
-    // The minimap tops its side. A side with nothing on it takes no room.
-    const int mtop = top + modeBarHeight();
-    const bool toolsRight = gDock.toolsRight[int(app.mode)], miniRight = gDock.minimapRight;
-    auto docked = [](int side) {
-        std::vector<Mode> v;
-        for (Mode m : kModeOrder)
-            if (gDock.toolsRight[int(m)] == (side == 1)) v.push_back(m);
-        return v;
-    };
-    // The other side's tab: the mode last used there, else its first.
+    const MainLayout L = computeLayout(layoutInput(rc));
+    const RECT& ws = L.workspace.rc;
+    const bool toolsRight = gDock.toolsRight[int(app.mode)];
     const int otherSide = toolsRight ? 0 : 1;
-    const std::vector<Mode> others = docked(otherSide);
-    Mode second = gLastOnSide[otherSide];
-    if (std::find(others.begin(), others.end(), second) == others.end()) second = others.empty() ? app.mode : others.front();
-    const bool secondShown = !others.empty();
-    gPanelTab[toolsRight ? 1 : 0] = app.mode, gPanelTab[otherSide] = second;
-    const bool miniShown = !gDock.minimapHidden;
-    const bool leftUsed = (miniShown && !miniRight) || !toolsRight || (secondShown && otherSide == 0),
-               rightUsed = (miniShown && miniRight) || toolsRight || (secondShown && otherSide == 1);
-    const int leftW = scale(gDock.leftW), rightW = scale(gDock.rightW);
-    const int lx = left, rx = int(rc.right) - rightW;
-    const int viewL = left + (leftUsed ? leftW : 0), viewR = int(rc.right) - (rightUsed ? rightW : 0);
-    gSplitters[0] = leftUsed ? RECT{viewL - pad, mtop, viewL, h} : RECT{};
-    gSplitters[1] = rightUsed ? RECT{viewR, mtop, viewR + pad, h} : RECT{};
-    // The minimap spans its column, as tall as the map's shape asks (at most half the column).
-    const int miniW = (miniRight ? rightW : leftW) - 2 * pad;
-    int mini = miniW;
-    if (app.ed && app.ed->isOpen() && app.ed->width()) mini = miniW * app.ed->height() / app.ed->width();
-    mini = std::clamp(mini, scale(40), std::max(scale(40), (h - mtop) / 2));
-    const int miniX = miniRight ? rx : lx;
-    if (!miniShown) mini = -pad;  // (no room for it: the panel starts at the top)
-    ShowWindow(app.minimap, miniShown && gWorkspace == Workspace::Map ? SW_SHOWNA : SW_HIDE);  // (other workspaces: never)
-    if (miniShown) MoveWindow(app.minimap, miniX + pad, mtop + pad, miniW, mini, TRUE);
-    // The modes: one segmented control in the top tool bar, after the file and edit icons (the segments side by side,
-    // with a line between them).
+
+    if (app.status) placeWindow(app.status, L.status.rc);  // along the bottom
+    if (gLog.wnd) placeWindow(gLog.wnd, L.log.rc);
+    if (gTopBar) placeWindow(gTopBar, L.topBar.rc), InvalidateRect(gTopBar, nullptr, FALSE);
+    placeWindow(app.tabs, L.tabs.rc);
+    placeWindow(gWsBar, L.wsRail.rc);
+    placeWindow(gDataWnd, ws);
+    if (gStubWnd) placeWindow(gStubWnd, ws);
+    if (gProj.wnd) placeWindow(gProj.wnd, ws);
+    if (gTE.wnd) placeWindow(gTE.wnd, ws);
+    if (gBrief.wnd) placeWindow(gBrief.wnd, ws);
+    if (gFiles.wnd) placeWindow(gFiles.wnd, ws);
+    mapPageLayout(ws.left, ws.top, ws.right - ws.left, ws.bottom - ws.top);
+    // The map workspace: the panels' sides, the splitters and the minimap (see computeLayout).
+    gPanelTab[0] = L.panelTab[0], gPanelTab[1] = L.panelTab[1];
+    gSplitters[0] = L.splitters[0], gSplitters[1] = L.splitters[1];
+    ShowWindow(app.minimap, L.minimap.visible ? SW_SHOWNA : SW_HIDE);  // (other workspaces: never)
+    if (L.minimap.placed) placeWindow(app.minimap, L.minimap.rc);
+    // The modes: one segmented control in the top tool bar, after the file and edit icons.
     if (app.modeBar) {
-        const RECT mr = modeBarRect();
-        MoveWindow(app.modeBar, mr.left, mr.top, mr.right - mr.left, mr.bottom - mr.top, TRUE);
+        placeWindow(app.modeBar, L.modeBar.rc);
         SetWindowPos(app.modeBar, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);  // over the bar
     }
-    const int belowMini = mtop + pad + mini + pad;
-    const int tabsRowH = scale(30);
     // The active mode's side: its tabs, then its tools (icons), its options, its list.
-    const int sideW = toolsRight ? rightW : leftW, inner = sideW - 2 * pad;
-    const int sx = toolsRight ? rx : lx;
-    int y = toolsRight == miniRight ? belowMini : mtop + pad;
-    const bool mapWs = gWorkspace == Workspace::Map;
     if (HWND t = gPanelTabs[toolsRight ? 1 : 0]) {
-        MoveWindow(t, sx + pad, y, inner, tabsRowH, TRUE), ShowWindow(t, mapWs ? SW_SHOW : SW_HIDE), InvalidateRect(t, nullptr, FALSE);
-        y += tabsRowH + pad;
+        placeWindow(t, L.panelTabActive.rc), ShowWindow(t, L.panelTabActive.visible ? SW_SHOW : SW_HIDE), InvalidateRect(t, nullptr, FALSE);
     }
-    const int stripH = toolStripHeight(inner, false);
-    MoveWindow(app.tool, sx + pad, y, inner, stripH, TRUE);
+    placeWindow(app.tool, L.tool.rc);
     InvalidateRect(app.tool, nullptr, FALSE);
-    y += stripH + pad;
-    const int half = (inner - pad) / 2;
-    auto row = [&](HWND a, HWND b) {
-        MoveWindow(a, sx + pad, y, b ? half : inner, scale(300), TRUE);
-        if (b) MoveWindow(b, sx + 2 * pad + half, y, half, scale(300), TRUE);
-        y += rowH + pad;
-    };
     // Each mode's own options.
-    switch (app.mode) {
-    case Mode::Terrain: break;
-    case Mode::Units: row(app.owner, nullptr); break;
-    case Mode::Doodads: break;
-    case Mode::Sprites: row(app.owner, nullptr); break;
-    case Mode::Locations: break;
-    }
-    if (gPal.sectionBox && (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites)) {
-        MoveWindow(gPal.sectionBox, sx + pad, y, inner, scale(400), TRUE);
-        y += rowH + pad;
-    }
-    const int btnW = scale(64);
-    MoveWindow(gPal.search, sx + pad, y, inner - pad - btnW, rowH, TRUE);
-    MoveWindow(gPal.viewBtn, sx + sideW - pad - btnW, y, btnW, rowH, TRUE);
-    MoveWindow(app.filter, sx + pad, y, inner, rowH, TRUE);
-    y += rowH + pad;
-    MoveWindow(gPal.wnd, sx + pad, y, inner, std::max(1, h - y - pad), TRUE);
-    MoveWindow(app.list, sx + pad, y, inner, std::max(1, h - y - pad), TRUE);
+    if (L.owner.placed) placeWindow(app.owner, L.owner.rc);
+    if (L.sectionBox.placed) placeWindow(gPal.sectionBox, L.sectionBox.rc);
+    placeWindow(gPal.search, L.search.rc);
+    placeWindow(gPal.viewBtn, L.viewBtn.rc);
+    placeWindow(app.filter, L.filter.rc);
+    placeWindow(gPal.wnd, L.palette.rc);
+    placeWindow(app.list, L.list.rc);
     // The other side: its tabs, and the list of its tab's mode (a click there goes to that mode and picks).
     if (gPal2.wnd) {
-        const int ox = otherSide ? rx : lx, ow = otherSide ? rightW : leftW;
-        int oy = miniRight == (otherSide == 1) ? belowMini : mtop + pad;
         HWND t = gPanelTabs[otherSide];
-        if (t) ShowWindow(t, mapWs && secondShown ? SW_SHOW : SW_HIDE);
-        if (t && secondShown) MoveWindow(t, ox + pad, oy, ow - 2 * pad, tabsRowH, TRUE), InvalidateRect(t, nullptr, FALSE), oy += tabsRowH + pad;
-        const bool show = secondShown && mapWs && second != Mode::Locations;
-        const bool changed = second != gPal2Mode || show != gPal2Shown;
+        if (t) ShowWindow(t, L.panelTabOther.visible ? SW_SHOW : SW_HIDE);
+        if (t && L.secondShown) placeWindow(t, L.panelTabOther.rc), InvalidateRect(t, nullptr, FALSE);
+        const bool show = L.palette2.visible, changed = L.palette2Changed;
         gPal2Shown = show;
         ShowWindow(gPal2Label, SW_HIDE);
         ShowWindow(gPal2.wnd, show ? SW_SHOW : SW_HIDE);
         if (show) {
-            gPal2Mode = second;
+            gPal2Mode = L.secondMode;
             if (changed) {
                 SecondPaletteScope scope;
                 const PaletteView& v = gViewByMode[int(app.mode)];
                 gPal.grid = v.grid, gPal.sprites = v.sprites, gPal.large = v.large;
             }
-            MoveWindow(gPal2.wnd, ox + pad, oy, ow - 2 * pad, std::max(1, h - oy - pad), TRUE);
+            placeWindow(gPal2.wnd, L.palette2.rc);
             if (changed) {
                 SecondPaletteScope scope;
                 rebuildUnitPalette();
             }
         }
     }
-    gDockRects[0] = {lx, mtop, lx + (leftUsed ? leftW : 0), h};
-    gDockRects[1] = {rx, mtop, rightUsed ? int(rc.right) : rx, h};
-    MoveWindow(app.view, viewL, mtop, std::max(1, viewR - viewL), std::max(1, h - mtop), TRUE);
+    gDockRects[0] = L.dockRects[0], gDockRects[1] = L.dockRects[1];
+    placeWindow(app.view, L.view.rc);
     tilesSync();  // the Tiles panel goes where the palette is
     InvalidateRect(app.main, nullptr, TRUE);
     app.dirty = true;
@@ -19904,10 +19868,12 @@ LRESULT CALLBACK emptyListProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_P
     return r;
 }
 
+#include "shell_win32.inc"  // the Windows host of shell.h
+
 LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_COMMAND && LOWORD(wp) >= ID_ACCENT && LOWORD(wp) < ID_ACCENT + theme::kAccentCount) {
         applyTheme(gLightTheme, LOWORD(wp) - ID_ACCENT);
-        updateMenus();
+        shellMenusChanged();
         return 0;
     }
     switch (msg) {
@@ -19930,28 +19896,11 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     }
-    case WM_ASK_MAPS: askMapsDefault(hwnd); return 0;
-    case WM_UPDATE_FOUND: {
-        std::unique_ptr<std::wstring> title(reinterpret_cast<std::wstring*>(lp));
-        setMessage(L"A newer release is available: " + *title + L". Use Help > Check for updates.");
+    case WM_SHELL_POST: {  // shellPost: a function from this thread or the UI's own
+        std::unique_ptr<std::function<void()>> fn(reinterpret_cast<std::function<void()>*>(lp));
+        (*fn)();
         return 0;
     }
-    case WM_FEEDBACK_SENT:
-        // A build made here has no token: it cannot send, so say that and where the feedback is.
-        if (wp) {  // its issue: the number in the status bar, the page in the log (Help > Report feedback > Your feedback lists them)
-            const auto sent = sentFeedback();
-            if (!sent.empty()) {
-                setMessage(L"Sent the feedback as #" + std::to_wstring(sent[0].number) + L". Thank you.");
-                logLine(L"Feedback #" + std::to_wstring(sent[0].number) + L": " + sent[0].page);
-            } else {
-                setMessage(L"Sent the feedback. Thank you.");
-            }
-        } else {
-            setMessage(crash::token().empty() ? L"This build cannot send feedback. The feedback is in " + feedbackFolder().wstring()
-                                              : L"StarDraft 2 cannot send the feedback now. It sends it at the next start.");
-        }
-        if (wp) sendPendingFeedback();  // GitHub can be reached now: feedback that waits goes too
-        return 0;
     case WM_UAHDRAWMENU:
         paintMenuBarBackground(hwnd, reinterpret_cast<UAHMENU*>(lp)->hdc);
         return 0;
@@ -19974,15 +19923,6 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SetBkColor(dc, kCtl);
         return LRESULT(app.ctlBrush);
     }
-    case WM_BUILD_LINE: {
-        std::unique_ptr<std::string> line(reinterpret_cast<std::string*>(lp));
-        buildLogAppend(widen(*line));
-        if (gTrigBuildError.empty() && triggerErrorLine(*line) > 0) gTrigBuildError = *line;
-        return 0;
-    }
-    case WM_BUILD_DONE:
-        buildFinished(reinterpret_cast<euddraft::BuildResult*>(lp));
-        return 0;
     case WM_ACTIVATEAPP:
         // Back from another program (perhaps an editor that changed a linked file): the Project page reads the files'
         // times again (R5). It does not build.
@@ -20022,7 +19962,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 GetClientRect(app.view, &v);
                 const float cx = app.camX + v.right / 2.0f / app.zoom, cy = app.camY + v.bottom / 2.0f / app.zoom;
                 w = nw;
-                layout();
+                shellRelayout();
                 GetClientRect(app.view, &v);
                 app.camX = cx - v.right / 2.0f / app.zoom, app.camY = cy - v.bottom / 2.0f / app.zoom;
                 UpdateWindow(hwnd);
@@ -20198,7 +20138,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_SIZE:
-        layout();
+        shellRelayout();
         return 0;
     case WM_DPICHANGED: {
         app.dpi = HIWORD(wp);
@@ -20206,7 +20146,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         setMenuIcons(GetMenu(hwnd));
         const RECT* r = reinterpret_cast<const RECT*>(lp);
         SetWindowPos(hwnd, nullptr, r->left, r->top, r->right - r->left, r->bottom - r->top, SWP_NOZORDER | SWP_NOACTIVATE);
-        layout();
+        shellRelayout();
         return 0;
     }
     case WM_NOTIFY: {
@@ -20266,7 +20206,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_INITMENUPOPUP:
-        updateMenus();
+        shellMenusChanged();
         return 0;
     case WM_NCLBUTTONDOWN:  // the menu bar: its menus are painted (context_menu.inc), as the context menus
         if (wp == HTMENU && GetMenu(hwnd)) {
@@ -23375,7 +23315,7 @@ int runSelfTest(const fs::path& dir) {
                 log << "resize: right column " << wBefore << " -> " << wAfter << " px (expect 100 wider), map center kept "
                     << (std::abs(c1 - c0) < 1 ? "yes" : "NO") << "\n";
                 gDock = saved;
-                layout();
+                shellRelayout();
             }
             activateDoc(projTab);
             // Themes (UI.5): every workspace and the control kit in the light theme with two accents, and in the dark
@@ -23768,7 +23708,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
 
     startMark("main window");
     createLogPanel();
-    layout();
+    shellRelayout();
     if (!openGameData()) return device.wait(), 0;
     startMark("game data");
 
@@ -26058,7 +25998,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             }
             if (s.rfind("sidew:", 0) == 0) {  // sidew:<px>: both side columns that wide (96 dpi px; not saved)
                 gDock.leftW = gDock.rightW = std::atoi(s.c_str() + 6);
-                layout();
+                shellRelayout();
                 for (int i = 0; i < 4; ++i) pump();
                 continue;
             }
@@ -26377,11 +26317,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 const bool right = s.find(":right") != std::string::npos;
                 const bool was = gDock.toolsRight[m];
                 gDock.toolsRight[m] = right;  // not saved: a test run leaves the settings alone
-                layout();
+                shellRelayout();
                 for (int i = 0; i < 6; ++i) pump();
                 capture(fs::path(datashots) / ("mode_" + std::to_string(m) + (right ? "_right" : "") + ".png"));
                 gDock.toolsRight[m] = was;
-                layout();
+                shellRelayout();
                 continue;
             }
             if (s.rfind("ws:", 0) == 0) {  // ws:map|data|triggers|assets|project|briefing|files: a workspace as it opens
@@ -26993,7 +26933,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 capture(fs::path(datashots) / "minimaphide.png", app.main);
                 command(ID_VIEW_MINIMAP);  // show again
                 command(ID_SCEN_PROPS);  // another workspace (a plain map has Map properties)
-                layout();
+                shellRelayout();
                 const bool notOnTriggers = gWorkspace != Workspace::Map && !IsWindowVisible(app.minimap);
                 setWorkspace(Workspace::Map);
                 o << "not over another workspace (Map properties) " << (notOnTriggers ? "yes" : "NO") << ", ";
@@ -27760,7 +27700,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 std::ofstream o(fs::path(datashots) / "pastekeys.txt");
                 Editor& ed = *app.ed;
                 auto pasteOn = [] {
-                    updateMenus();
+                    shellMenusChanged();
                     return !(GetMenuState(GetMenu(app.main), ID_EDIT_PASTE, MF_BYCOMMAND) & (MF_GRAYED | MF_DISABLED));
                 };
                 setWorkspace(Workspace::Map);
@@ -27904,7 +27844,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                 capture(fs::path(datashots) / "logsize.png");
                 o << "open Log: " << h0 << " px, after the drag " << h1 << " px (" << (h1 > h0 ? "taller" : "NOT TALLER") << ")\n";
-                gDock.logH = wasH, logSetExpanded(wasOpen), layout();
+                gDock.logH = wasH, logSetExpanded(wasOpen), shellRelayout();
                 gSelfTest = wasTest;
                 continue;
             }
@@ -28208,7 +28148,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
         SDL_Quit();
         return 0;
     }
-    updateMenus();
+    shellMenusChanged();
 
     MSG msg{};
     // A slow frame (more than 40 ms from one frame to the next while the map is drawn) goes into the log with where its
