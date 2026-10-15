@@ -2007,7 +2007,7 @@ constexpr UiText kRows[] = {
     {L"; drag paints ", L"; arrastrar pinta "},
     {L"Shift+drag: no terrain", L"May\u00FAs+arrastrar: sin terreno"},
     {L"StarDraft 2 is not associated with Blizzard Entertainment.", L"StarDraft 2 no est\u00E1 asociado con Blizzard Entertainment."},
-    {L"It needs an installation of StarCraft: Remastered to work.", L"Necesita una instalaci\u00F3n de StarCraft: Remastered para funcionar."},
+    {L"It needs an installation of StarCraft to work.", L"Necesita una instalaci\u00F3n de StarCraft para funcionar."},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

@@ -2007,7 +2007,7 @@ constexpr UiText kRows[] = {
     {L"; drag paints ", L"; \u043F\u0435\u0440\u0435\u0442\u0430\u0441\u043A\u0438\u0432\u0430\u043D\u0438\u0435 \u0440\u0438\u0441\u0443\u0435\u0442 "},
     {L"Shift+drag: no terrain", L"Shift+\u043F\u0435\u0440\u0435\u0442\u0430\u0441\u043A\u0438\u0432\u0430\u043D\u0438\u0435: \u043D\u0435\u0442 \u043C\u0435\u0441\u0442\u043D\u043E\u0441\u0442\u0438"},
     {L"StarDraft 2 is not associated with Blizzard Entertainment.", L"StarDraft 2 \u043D\u0435 \u0441\u0432\u044F\u0437\u0430\u043D \u0441 Blizzard Entertainment."},
-    {L"It needs an installation of StarCraft: Remastered to work.", L"\u0414\u043B\u044F \u0440\u0430\u0431\u043E\u0442\u044B \u043D\u0443\u0436\u043D\u0430 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043D\u0430\u044F StarCraft: Remastered."},
+    {L"It needs an installation of StarCraft to work.", L"\u0414\u043B\u044F \u0440\u0430\u0431\u043E\u0442\u044B \u043D\u0443\u0436\u043D\u0430 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043D\u0430\u044F StarCraft."},
 };
 }  // namespace
 std::span<const UiText> langTableRu() { return kRows; }
