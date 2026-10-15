@@ -53,6 +53,9 @@ void shellForgetAnims();
 void shellPostCommand(int id);
 // The map view takes the keyboard focus.
 void shellFocusView();
+// The panel tabs' right-click menu: a grayed title line, then Left and Right (the side is checked). Returns 1 (Left),
+// 2 (Right), or 0 when none is picked.
+int shellTabSideMenu(const std::wstring& title, int side);
 // Runs `fn` on the UI thread, later. Safe to call from any thread; `fn` runs once.
 void shellPost(std::function<void()> fn);
 // The map view's timer for a held spray (25 ms): on starts it, off stops it.
