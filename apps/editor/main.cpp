@@ -522,6 +522,7 @@ struct App {
     int palette2 = -1;       // isometric terrain: the second terrain (Ctrl+click in the palette), painted with the right button
     int playerOwner = 0;
     float brushSize = 2;  // diamonds, whole numbers 1 to 32
+    float brushHeight = 0;  // terrain: the brush's height, 1 to 32; 0: the same as its size (GitHub #113)
     Brush::Shape brushShape = Brush::Diamond;
     int toolByMode[kModeCount] = {};
     int sprayDensity = 10;  // the active mode's: how many things one spray puts down (kDensityMax at most)
@@ -711,7 +712,7 @@ constexpr int kDensityMax = 50;
 int sprayCount() { return std::clamp(app.sprayDensity, 1, kDensityMax); }
 int sprayDabs() { return std::clamp(app.sprayDensity, 1, kDensityMax); }
 int sprayRadius() { return int(app.brushSize * 64); }
-Brush currentBrush() { return Brush{app.brushShape, app.brushSize}; }
+Brush currentBrush() { return Brush{app.brushShape, app.brushSize, app.mode == Mode::Terrain ? app.brushHeight : 0.0f}; }
 // The terrain selection's shape: the brush shape (diamond, square, circle) while it is made with Select.
 Editor::SelectShape selectShape() {
     return app.brushShape == Brush::Diamond ? Editor::SelectShape::Diamond : app.brushShape == Brush::Circle ? Editor::SelectShape::Ellipse : Editor::SelectShape::Rect;
@@ -19102,7 +19103,7 @@ void setTerrainRect(bool rect) {
 // A number box: its name, then the value in a field with up and down arrows at its right. The arrows and the mouse
 // wheel step through the values (Size: 0.5, 1, 2, ... 16, then 18 to 32; Density: 1 to kDensityMax, in steps of 1). Click the value to type a
 // number: Enter or leaving the box sets it (in the range; Size to a whole number), Esc cancels, Up and Down step.
-enum StripNumber { kNumSize, kNumDensity };
+enum StripNumber { kNumSize, kNumDensity, kNumHeight };
 struct StripNumberBox {
     RECT r;
     int which;
@@ -19114,7 +19115,10 @@ int gStripEditing = -1;
 std::wstring stripNumberText(int which) {
     wchar_t t[24];
     if (which == kNumSize) std::swprintf(t, 24, L"%g", app.brushSize);
-    else std::swprintf(t, 24, L"%d", app.sprayDensity);
+    else if (which == kNumHeight) {
+        if (app.brushHeight <= 0) return L"same";
+        std::swprintf(t, 24, L"%g", app.brushHeight);
+    } else std::swprintf(t, 24, L"%d", app.sprayDensity);
     return t;
 }
 void stripNumberChanged() {
@@ -19140,6 +19144,9 @@ void stripNumberStep(int which, int dir) {
                 }
         }
         app.brushSize = next;
+    } else if (which == kNumHeight) {  // from "same": one step from the size; back to the size: "same" again
+        const float h = std::clamp((app.brushHeight > 0 ? app.brushHeight : app.brushSize) + float(dir), 1.0f, 32.0f);
+        app.brushHeight = h == app.brushSize ? 0 : h;
     } else {
         app.sprayDensity = std::clamp(app.sprayDensity + dir, 1, kDensityMax);
         app.densityByMode[int(app.mode)] = app.sprayDensity;
@@ -19148,6 +19155,11 @@ void stripNumberStep(int which, int dir) {
 }
 // A typed number: into the range; Size to a whole number (StarCraft terrain has no half sizes).
 bool stripNumberSet(int which, const std::wstring& text) {
+    if (which == kNumHeight && (text.empty() || text == L"same")) {  // the same as the size
+        app.brushHeight = 0;
+        stripNumberChanged();
+        return true;
+    }
     wchar_t* end = nullptr;
     const double v = std::wcstod(text.c_str(), &end);
     while (end && *end == L' ') ++end;
@@ -19157,6 +19169,9 @@ bool stripNumberSet(int which, const std::wstring& text) {
     }
     if (which == kNumSize) {
         app.brushSize = float(std::clamp(std::round(v), 1.0, 32.0));
+    } else if (which == kNumHeight) {
+        const float h = float(std::clamp(std::round(v), 1.0, 32.0));
+        app.brushHeight = h == app.brushSize ? 0 : h;
     } else {
         app.sprayDensity = std::clamp(int(std::lround(std::clamp(v, -1000.0, 1000.0))), 1, kDensityMax);
         app.densityByMode[int(app.mode)] = app.sprayDensity;
@@ -19370,6 +19385,10 @@ void paintToolStrip(HWND hwnd) {
     if (stripHasSize())
         numberRow(kNumSize, L"Size", L"Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).",
                   app.mode != Mode::Terrain ? nullptr : app.terrainRect ? L"tiles" : L"diamonds");
+    if (stripHasSize() && app.mode == Mode::Terrain)  // the terrain brush's height, when it differs from its size (GitHub #113)
+        numberRow(kNumHeight, L"Height",
+                  L"Brush height: 1 to 32, or the same as Size. Click to type a height (empty: the same as Size). - and + and the mouse wheel change it.",
+                  app.brushHeight <= 0 ? nullptr : app.terrainRect ? L"tiles" : L"diamonds");
     if (stripHasDensity())
         numberRow(kNumDensity, L"Density", app.mode == Mode::Terrain ? L"Density: the number of dabs (Rectangle: tiles) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it."
                                          : app.mode == Mode::Units ? L"Density: the number of units each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it."
@@ -27274,6 +27293,26 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 capture(fs::path(datashots) / "doodadpin.png", app.main);
                 doodadPinToggle(ids[4]), doodadPinToggle(ids[1]);
                 o << "unpinned: the list as before " << (gPal.pinned == 0 && activeProject()->doodadPins() == before ? "yes" : "NO") << "\n";
+                continue;
+            }
+            if (s == "brushheight:") {  // brushheight.txt: a terrain brush 3 wide and 1 high (GitHub #113): Rectangle tiles, isometric corners, the Height box
+                std::ofstream o(fs::path(datashots) / "brushheight.txt");
+                newMap(64, 64, 0, 1);
+                setWorkspace(Workspace::Map);
+                command(ID_MODE_TERRAIN);
+                app.brushShape = Brush::Square, app.brushSize = 3;
+                const bool typed = stripNumberSet(kNumHeight, L"1") && app.brushHeight == 1 && stripNumberText(kNumHeight) == L"1";
+                app.terrainRect = true;
+                const size_t tiles = tilesFootprint(32, 32).size();
+                app.terrainRect = false;
+                Editor& ed = *app.ed;
+                const size_t flat = ed.brushCorners(32 * 32, 32 * 32, currentBrush()).size(),
+                             square = ed.brushCorners(32 * 32, 32 * 32, Brush{Brush::Square, 3}).size();
+                stripNumberSet(kNumHeight, L"3");  // the same as the size: "same" again
+                const bool same = app.brushHeight == 0 && stripNumberText(kNumHeight) == L"same";
+                o << "the Height box takes 1 " << (typed ? "yes" : "NO") << ", Rectangle: 3 x 1 tiles " << (tiles == 3 ? "yes" : "NO") << " (" << tiles
+                  << "), isometric: fewer corners than 3 x 3 " << (flat < square && flat > 0 ? "yes" : "NO") << " (" << flat << " of " << square
+                  << "), the size's value is \"same\" " << (same ? "yes" : "NO") << "\n";
                 continue;
             }
             if (s == "addon:") {  // addon.txt, addon.png: a Comsat Station on a command center: linked, drawn with its connector, moved with it, unlinked when deleted (#129)

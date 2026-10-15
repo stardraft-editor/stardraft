@@ -639,13 +639,16 @@ void tilesAt(float wx, float wy, int& tx, int& ty) {
 // (an even size: the tile at the mouse is the one left of and above the middle).
 std::vector<std::pair<int, int>> tilesFootprint(int cx, int cy) {
     std::vector<std::pair<int, int>> out;
-    const int n = std::max(1, int(std::lround(app.brushSize)));
-    const int lo = -(n - 1) / 2, hi = n / 2;
-    const float mid = (lo + hi) / 2.0f, r = (n - 1) / 2.0f;
-    for (int dy = lo; dy <= hi; ++dy)
+    // Its width is the size, its height the Height (GitHub #113; "same": the size): circle and diamond stretch to it.
+    const int n = std::max(1, int(std::lround(app.brushSize))), m = app.brushHeight > 0 ? std::max(1, int(std::lround(app.brushHeight))) : n;
+    const int lo = -(n - 1) / 2, hi = n / 2, loY = -(m - 1) / 2, hiY = m / 2;
+    const float mid = (lo + hi) / 2.0f, midY = (loY + hiY) / 2.0f, r = (n - 1) / 2.0f, rY = (m - 1) / 2.0f;
+    for (int dy = loY; dy <= hiY; ++dy)
         for (int dx = lo; dx <= hi; ++dx) {
-            const float x = dx - mid, y = dy - mid;
+            // In the units of the width: y scaled by width / height, so a stretched shape keeps the size's rules.
+            const float x = dx - mid, y = (dy - midY) * (rY > 0 ? r / rY : 1.0f);
             const bool in = app.brushShape == Brush::Square ? true
+                          : n == 1 || m == 1                ? true  // one tile wide or high: the whole line
                           : app.brushShape == Brush::Circle ? x * x + y * y <= r * r + r + 0.25f
                                                             : std::abs(x) + std::abs(y) <= r + 0.5f;  // (even sizes: the tiles touch the middle)
             if (in) out.push_back({cx + dx, cy + dy});

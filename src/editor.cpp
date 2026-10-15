@@ -1126,7 +1126,7 @@ void Editor::sprayTerrain(int px, int py, uint16_t terrain, const Brush& brush, 
     bool own = !inStroke_;
     if (own) beginTerrainStroke();
     std::mt19937 rng(seed);
-    const double w = std::max(0.5, double(brush.size)) * 64, h = w / 2;
+    const double w = std::max(0.5, double(brush.size)) * 64, h = std::max(0.5, double(brush.height())) * 32;
     std::uniform_real_distribution<double> unit(-1, 1);
     std::vector<CornerValue> corners;
     for (int i = 0; i < dabs; ++i) {

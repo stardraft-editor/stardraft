@@ -68,6 +68,8 @@ struct CornerValue {
 struct Brush {
     enum Shape { Diamond, Square, Circle } shape = Diamond;
     float size = 1;
+    float sizeY = 0;  // its height, when it differs from its width (GitHub #113); 0: the same as size
+    float height() const { return sizeY > 0 ? sizeY : size; }
 };
 
 class IsomGrid {

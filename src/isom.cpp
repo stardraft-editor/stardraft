@@ -742,7 +742,7 @@ void IsomGrid::cornerAtPixel(int px, int py, int& x, int& y) const {
 
 std::vector<std::pair<int, int>> IsomGrid::brushCorners(int px, int py, const Brush& brush) const {
     std::vector<std::pair<int, int>> out;
-    const double w = std::max(0.5, double(brush.size)) * 64, h = w / 2;  // half extents in pixels
+    const double w = std::max(0.5, double(brush.size)) * 64, h = std::max(0.5, double(brush.height())) * 32;  // half extents in pixels
     int x0 = int(std::floor((px - w) / 64)) - 1, x1 = int(std::ceil((px + w) / 64)) + 1;
     int y0 = int(std::floor((py - h) / 32)) - 1, y1 = int(std::ceil((py + h) / 32)) + 1;
     for (int y = y0; y <= y1; ++y)
