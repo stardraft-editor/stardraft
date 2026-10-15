@@ -46,7 +46,7 @@ SDL_GPUTexture* uploadRgba(SDL_GPUDevice* device, int w, int h, const uint8_t* r
 // up to date now. The image is good while the bitmap is there and unchanged (the texture is the bitmap's own).
 draw::Image imageOfBitmap(SDL_GPUDevice* device, draw::Bitmap& b);
 
-// Text helpers: UTF-8 of a wide text, and the byte index after the code point at `i`.
+// Text helpers: UTF-8 of a wide text (without control codes other than tab and line ends: they are not drawn), and the byte index after the code point at `i`.
 std::string utf8Text(std::wstring_view w);
 size_t utf8Next(const std::string& s, size_t i);
 

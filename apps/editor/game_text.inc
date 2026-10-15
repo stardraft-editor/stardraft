@@ -601,12 +601,4 @@ bool gameTextIsRaw(HWND w) {
     GameTextBox* g = gameTextOf(w);
     return g && g->rawMode;
 }
-// A game text's bytes without its codes, its lines joined by a space (in the text's own encoding: a list's line).
-std::string gameTextStripped(const std::string& bytes) {
-    std::string t;
-    for (const char ch : bytes)
-        if (static_cast<unsigned char>(ch) >= 0x20 || ch == '\t') t += ch;
-        else if (ch == '\n') t += ' ';
-    return t;
-}
-// (gameTextPlain, a game text in one line without its codes, is in core/strings.inc.)
+// (gameTextPlain and gameTextStripped, a game text in one line without its codes, are in core/strings.inc.)

@@ -96,14 +96,6 @@ std::string sdlTextLineEnds(const std::string& s) {
     return out;
 }
 
-// A game text as plain text for a list: the color codes (bytes below a space) go.
-std::wstring sdlPlainGameText(const std::string& s) {
-    std::string out;
-    for (char ch : s)
-        if (static_cast<unsigned char>(ch) >= 0x20) out += ch;
-    return widen(out);
-}
-
 // What the size and tileset button will do, under the fields ("" when they are the map's).
 void sdlPropsInfo(MapPropsValues& d);
 void sdlPropsInvalidate();  // (the Map properties view is painted again: below, with the page's state)
@@ -297,7 +289,7 @@ std::wstring sdlClassicEntryName(int tab, int e) {
         const UnitType& t = gState.ed->unitTypes()[uint16_t(e)];
         const std::wstring game = widen(t.name) + (t.subtitle.empty() ? L"" : L" (" + widen(t.subtitle) + L")");
         const bool own = !gClassic->units.units[size_t(e)].useDefault;
-        return formatUnitName(game, own ? sdlPlainGameText(gClassic->names[size_t(e)]) : L"");
+        return formatUnitName(game, own ? gameTextPlain(gClassic->names[size_t(e)]) : L"");  // (its colors: in the name's editor)
     }
     std::wstring n = entryName(tab == kClassicUpgrades ? "upgrades" : "techdata", e);
     return n.empty() ? L"(" + std::to_wstring(e) + L")" : n;
