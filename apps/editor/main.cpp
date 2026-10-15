@@ -10507,7 +10507,7 @@ std::shared_ptr<PortraitClips> portraitClips(const std::string& path) {
         }
         entry->clips = std::move(clips);
         entry->ready.store(true, std::memory_order_release);
-        if (HWND form = gData.form) InvalidateRect(form, nullptr, FALSE);  // the form shows it (else "Loading" stays until a repaint)
+        shellPost([] { if (gData.form) InvalidateRect(gData.form, nullptr, FALSE); });  // the form shows it (else "Loading" stays until a repaint)
     }).detach();
     return entry;
 }

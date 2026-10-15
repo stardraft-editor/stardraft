@@ -47,7 +47,6 @@ struct AboutBox final : stardraft::draw::View {
         // The name: a tribute to StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.
         centered(L"Named after StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.", smallText, kDim, scale(22));
         centered(L"StarDraft 2 aims to be its spiritual successor for StarCraft makers in 2026 and later.", smallText, kDim, scale(22));
-        y += scale(14);
 
         // The links: underlined when the mouse is on them. First the EUD tools, as two links in one line of text.
         links.clear();
@@ -98,6 +97,7 @@ struct AboutBox final : stardraft::draw::View {
                 y += scale(22);
             }
         }
+        y += scale(14);
 
         // Then the repository and the Discord server.
         const size_t first = links.size();
