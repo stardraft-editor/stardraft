@@ -21,8 +21,6 @@ enum : int {
     kCtDim = 1,      // a dim label
     kCtHead = 3,     // a section heading (a line under it)
 };
-// A picker's value that is a block's variable: kCtVariable plus the block's depth (a field that holds it, not a value).
-constexpr uint32_t kCtVariable = 0xFFFF0000u;
 // The groups of the filter: players 1-8, all players, forces 1-4.
 constexpr int kCtGroups[] = {0, 1, 2, 3, 4, 5, 6, 7, 17, 18, 19, 20, 21};
 constexpr int kCtGroupCount = int(std::size(kCtGroups));
@@ -62,7 +60,7 @@ struct ClassicTrigDialog {
 };
 ClassicTrigDialog* gCt = nullptr;  // the working copy of the page that shows (map_pages.inc)
 HWND gCtValueDlg = nullptr;        // the value pop-out (ctValueProc) while it is open
-HWND gCtBatchDlg = nullptr;        // the block dialog (ctBatchProc) while it is open
+BatchView* gCtBatchView = nullptr;  // the block dialog (core/views_classic_batch.inc) while it is open
 void mapPageChanged();
 
 // Ctrl+C and Ctrl+V: a trigger, a condition or an action. The texts and sounds are kept as text, so a paste into
@@ -104,43 +102,11 @@ ClassicAction* ctAction() {
     return t && gCt->kind == 1 && gCt->entry >= 0 && gCt->entry < t->actionCount() ? &t->actions[size_t(gCt->entry)] : nullptr;
 }
 int ctEntryCount(const ClassicTrigger& t, int kind) { return kind ? t.actionCount() : t.conditionCount(); }
-// The variable slot k (classicVarField) of the action at `index` holds a variable: its block's depth plus 1, else 0.
-int ctVarOf(const ClassicTrigger& t, int index, int k) {
-    return index >= 0 && index < t.actionCount() ? t.actions[size_t(index)].var[size_t(k)] : 0;
-}
-// The blocks that hold the row at `row`, by depth (scope[d] is the block at depth d).
-std::vector<const ClassicBatch*> ctScopeOf(const ClassicTrigger& t, int row) {
-    std::vector<const ClassicBatch*> chain;
-    for (int i = 0; i < row && i < t.actionCount(); ++i) {
-        const ClassicAction& a = t.actions[size_t(i)];
-        chain.resize(std::min(chain.size(), size_t(a.depth)));
-        if (a.type == kClassicBlockType) chain.push_back(a.batch.get());
-    }
-    if (row >= 0 && row < t.actionCount()) chain.resize(std::min(chain.size(), size_t(t.actions[size_t(row)].depth)));
-    return chain;
-}
 // The most actions a trigger's rows have (each row is one action or a block with its children).
 int ctActionLimit(const ClassicTrigger&) { return kClassicActions; }
 
 // A trigger's line in the list: its conditions, then (dim) its actions.
-std::wstring ctTriggerLine(const ClassicTrigger& t, bool actions) {
-    const ClassicNames n = ctNames();
-    std::string s;
-    const int count = actions ? t.actionCount() : t.conditionCount();
-    for (int i = 0; i < count && s.size() < 300; ++i) {
-        if (actions) {
-            const ClassicAction& a = t.actions[size_t(i)];
-            const std::vector<const ClassicBatch*> scope = ctScopeOf(t, i);
-            s += (s.empty() ? "" : " ") + (a.type == kClassicBlockType ? classicBatchText(*a.batch, n) : classicActionText(a, n, &scope));
-        } else {
-            s += (s.empty() ? "" : " ") + classicConditionText(t.conditions[size_t(i)], n);
-        }
-    }
-    if (s.empty()) s = actions ? "No actions" : "No conditions";
-    for (char& c : s)
-        if (c == '\r' || c == '\n' || (static_cast<unsigned char>(c) < 32 && c != '\t')) c = ' ';
-    return widen(s);
-}
+std::wstring ctTriggerLine(const ClassicTrigger& t, bool actions) { return ctTriggerLineOf(t, actions, ctNames()); }  // (core)
 
 // After a change: the painted lists show it.
 void ctUpdateHeader();  // (below)
@@ -154,35 +120,11 @@ void ctChanged() {
 
 // The text a search matches: the trigger's sentences (its conditions and actions, names of units, locations and
 // switches) and the names of its players.
-std::wstring ctSearchText(const ClassicTrigger& t) {
-    const ClassicNames n = ctNames();
-    std::wstring s = ctTriggerLine(t, false) + L" " + ctTriggerLine(t, true);
-    for (int g = 0; g < kClassicGroups; ++g)
-        if (t.players[size_t(g)]) s += L" " + widen(classicPlayerName(uint32_t(g), n));
-    std::transform(s.begin(), s.end(), s.begin(), ::towlower);
-    return s;
-}
-// The list's rows: the triggers that run for the player shown and have every word of the search.
+// The list's rows: the triggers that run for the player shown and have every word of the search (core).
 void ctFillList() {
     ClassicTrigDialog& d = *gCt;
-    std::wstring q = d.query;
-    std::transform(q.begin(), q.end(), q.begin(), ::towlower);
-    std::vector<std::wstring> words;
-    {
-        std::wistringstream in(q);
-        for (std::wstring w; in >> w;) words.push_back(w);
-    }
-    d.shown.clear();
+    d.shown = ctShownTriggers(d.trig.triggers, d.filter, d.query, ctNames());
     d.marked.clear();  // (the rows changed: the checked ones are not known any more)
-    for (int i = 0; i < int(d.trig.triggers.size()); ++i) {
-        const ClassicTrigger& t = d.trig.triggers[size_t(i)];
-        if (d.filter >= 0 && !t.runsFor(d.filter)) continue;
-        if (!words.empty()) {
-            const std::wstring hay = ctSearchText(t);
-            if (!std::all_of(words.begin(), words.end(), [&](const std::wstring& w) { return hay.find(w) != std::wstring::npos; })) continue;
-        }
-        d.shown.push_back(i);
-    }
     // "3 of 87": the triggers shown of all the map's triggers.
     if (d.count) SetWindowTextW(d.count, (std::to_wstring(d.shown.size()) + L" of " + std::to_wstring(d.trig.triggers.size())).c_str());
     InvalidateRect(d.list, nullptr, FALSE);
@@ -301,18 +243,6 @@ std::vector<std::pair<uint32_t, std::wstring>> ctKindChoices(ClassicKind k) {
 }
 
 // The picker's choices, and the variables of the blocks that hold the selected action (a variable of this kind).
-// The variable slot (classicVarField) of a field, or -1.
-int ctVarSlotOfField(ClassicField f) {
-    for (int k = 0; k < kClassicVarFields; ++k)
-        if (classicVarField(k) == f) return k;
-    return -1;
-}
-// The depth of the block whose variable the field of the action at `index` holds, or -1 (a value).
-int ctVarDepthAt(const ClassicTrigger& t, int index, ClassicField f) {
-    const int slot = ctVarSlotOfField(f);
-    const int v = slot < 0 ? 0 : ctVarOf(t, index, slot);
-    return v ? v - 1 : -1;
-}
 // The same for the selected entry (a condition has none).
 int ctVarDepthOf(const ClassicCondition* c, ClassicField f) {
     const ClassicTrigger* t = ctTrigger();
@@ -1116,11 +1046,15 @@ void ctAddClick(int kind, RECT link) {
     ctAddEntry(kind, uint8_t(std::stoi(picked)));
 }
 
-// The sentence of a condition or action, its values as chips (each a click area).
+// The sentence of a condition or action, its values as chips (each a click area). The parts are the core's
+// (ctSentenceParts); this paints them with the GDI.
 template <class E>
 void ctSentence(HDC dc, const E& e, int kind, int index, RECT area, bool dim, bool selected) {
     const ClassicDef* def = kind ? classicActionDef(e.type) : classicConditionDef(e.type);
     const ClassicNames n = ctNames();
+    CtSentenceEnv env;
+    env.names = n;
+    env.chipText = [n](const ClassicParam& p, uint32_t v) { return ctChipText(p, v, n); };
     const COLORREF word = dim ? kFaint : ui::rowText(selected);
     int x = area.left;
     auto text = [&](const std::wstring& s, COLORREF col, bool chip) -> RECT {
@@ -1136,52 +1070,20 @@ void ctSentence(HDC dc, const E& e, int kind, int index, RECT area, bool dim, bo
         x += w;
         return r;
     };
-    if constexpr (std::is_same_v<E, ClassicAction>) {
-        if (e.type == kClassicBlockType) {  // a block: "For each unit in ..." (its chevron is painted by the list)
-            text(widen(classicBatchText(*e.batch, n)), word, false);
-            return;
-        }
-    }
-    std::vector<const ClassicBatch*> scope;
-    if constexpr (std::is_same_v<E, ClassicAction>)
-        if (kind == 1 && ctTrigger()) scope = ctScopeOf(*ctTrigger(), index);
-    if (!def) {
-        std::string s;
-        if constexpr (std::is_same_v<E, ClassicAction>) s = classicActionText(e, n, &scope);
-        else s = classicConditionText(e, n);
-        for (char& ch : s)
-            if (static_cast<unsigned char>(ch) < 32) ch = ' ';
-        text(widen(s), word, false);
-        return;
-    }
-    const std::string s = def->sentence;
-    std::wstring run;
-    for (size_t i = 0; i < s.size(); ++i) {
-        if (s[i] != '{') {
-            run += wchar_t(static_cast<unsigned char>(s[i]));
-            continue;
-        }
-        const size_t end = s.find('}', i);
-        if (end == std::string::npos) break;
-        const std::string key = s.substr(i + 1, end - i - 1);
-        i = end;
-        text(run, word, false);
-        run.clear();
-        for (int pi = 0; pi < int(def->params.size()); ++pi) {
-            const ClassicParam& p = def->params[size_t(pi)];
-            if (key != p.name) continue;
-            const int vd = kind == 1 && ctTrigger() ? ctVarDepthAt(*ctTrigger(), index, p.field) : -1;
-            std::wstring v = vd >= 0 && size_t(vd) < scope.size() && scope[size_t(vd)] ? widen(classicBatchVariableText(*scope[size_t(vd)]))
-                                                                                     : ctChipText(p, classicValue(e, p.field), n);
-            if (x == area.left && !v.empty()) v[0] = towupper(v[0]);  // a sentence that starts with a value
-            const RECT r = text(v, dim ? kFaint : kText, true);
-            if (r.right > r.left)
+    for (const CtSegment& s : ctSentenceParts(e, kind, kind == 1 ? ctTrigger() : nullptr, index, env)) {
+        if (s.part == CtPart::Eud) {
+            text(s.text, kDim, false);
+        } else if (s.part == CtPart::Word) {
+            text(s.text, word, false);
+        } else {
+            const RECT r = text(s.text, dim ? kFaint : kText, true);
+            if (r.right > r.left && def && s.param >= 0 && s.param < int(def->params.size())) {
+                const ClassicParam& p = def->params[size_t(s.param)];
+                const int pi = s.param;
                 hitsOut().push_back({r, nullptr, [kind, index, pi, r] { ctChipClick(kind, index, pi, r); }, ctKindLabel(p.kind, p.name), IDC_HAND, {}});
-            break;
+            }
         }
     }
-    text(run, word, false);
-    if (classicEud(e)) text(L"  EUD", kDim, false);
 }
 
 // How many triggers the map gets for this trigger: 1, or more when its blocks make more than 64 slots.
@@ -1197,20 +1099,23 @@ int ctPartsOf(const ClassicTrigger& t) {
 
 /// The right-click menus of the rows (the same commands as the rows' buttons and the keys). A right click on a row that
 // is not checked selects it first (and the checks go).
-enum : int { kCtmToggle = 1, kCtmDuplicate, kCtmDelete, kCtmCopy, kCtmPaste, kCtmIn, kCtmOut, kCtmBlock };
+// (the ids and the items: core/views_classic_triggers.inc)
 bool ctCanMove(int i, bool in);  // (below)
 void ctMoveRow(int i, bool in);
+// The program's menu of the items (a separator for id 0; a disabled item is grayed).
+HMENU ctMenu(const std::vector<CtMenuItem>& items) {
+    HMENU m = CreatePopupMenu();
+    for (const CtMenuItem& it : items) {
+        if (!it.id) AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+        else AppendMenuW(m, MF_STRING | (it.enabled ? 0 : MF_GRAYED), UINT_PTR(it.id), it.text.c_str());
+    }
+    return m;
+}
 void ctTriggerMenu(POINT screen, int i) {
     ClassicTrigDialog& d = *gCt;
     if (!d.marked.count(i)) d.marked.clear(), ctSelectTrigger(i);
     const ClassicTrigger* t = ctTrigger();
-    HMENU m = CreatePopupMenu();
-    AppendMenuW(m, MF_STRING, kCtmToggle, t && t->disabled() ? L"Turn on" : L"Turn off");
-    AppendMenuW(m, MF_STRING, kCtmDuplicate, L"Duplicate\tCtrl+D");
-    AppendMenuW(m, MF_STRING, kCtmDelete, L"Delete\tDel");
-    AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(m, MF_STRING, kCtmCopy, L"Copy\tCtrl+C");
-    AppendMenuW(m, MF_STRING | (gCtClip.kind == 2 ? 0 : MF_GRAYED), kCtmPaste, L"Paste\tCtrl+V");
+    HMENU m = ctMenu(ctTriggerMenuItems(t && t->disabled(), gCtClip.kind == 2));
     const int pick = popupMenu(m, TPM_LEFTALIGN, screen.x, screen.y, d.list);
     DestroyMenu(m);
     switch (pick) {
@@ -1229,18 +1134,11 @@ void ctEntryMenu(POINT screen, int kind, int i) {
     if (!t) return;
     const bool block = kind && t->actions[size_t(i)].type == kClassicBlockType;
     const bool off = kind ? (t->actions[size_t(i)].flags & 2) != 0 : (t->conditions[size_t(i)].flags & 2) != 0;
-    HMENU m = CreatePopupMenu();
-    if (block) AppendMenuW(m, MF_STRING, kCtmBlock, L"Edit the block\x2026");
-    else AppendMenuW(m, MF_STRING, kCtmToggle, off ? L"Turn on" : L"Turn off");
-    if (kind) {
-        AppendMenuW(m, MF_STRING | (ctCanMove(i, false) ? 0 : MF_GRAYED), kCtmOut, L"Move out\tCtrl+Left");
-        AppendMenuW(m, MF_STRING | (ctCanMove(i, true) ? 0 : MF_GRAYED), kCtmIn, L"Move in\tCtrl+Right");
-    }
-    AppendMenuW(m, MF_STRING, kCtmDuplicate, L"Duplicate\tCtrl+D");
-    AppendMenuW(m, MF_STRING, kCtmDelete, L"Delete\tDel");
-    AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(m, MF_STRING, kCtmCopy, L"Copy\tCtrl+C");
-    AppendMenuW(m, MF_STRING | (gCtClip.kind == (kind ? 1 : 0) ? 0 : MF_GRAYED), kCtmPaste, L"Paste\tCtrl+V");
+    CtEntryMenuState st;
+    st.isAction = kind != 0, st.block = block, st.off = off;
+    st.canMoveOut = kind && ctCanMove(i, false), st.canMoveIn = kind && ctCanMove(i, true);
+    st.canPaste = gCtClip.kind == (kind ? 1 : 0);
+    HMENU m = ctMenu(ctEntryMenuItems(st));
     const int pick = popupMenu(m, TPM_LEFTALIGN, screen.x, screen.y, d.entries);
     DestroyMenu(m);
     switch (pick) {
@@ -1550,214 +1448,32 @@ LRESULT CALLBACK ctListProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
 // --- Batches (R23): the variable and its values, in a dialog with OK and Cancel ------------------------------------
 
-constexpr int kCtBatchName = 1001, kCtBatchKind = 1002, kCtBatchValues = 1003, kCtBatchRemove = 1004, kCtBatchAddValue = 1005,
-              kCtBatchRemoveValue = 1006;
-
-struct CtBatchDialog {
-    ClassicBatch* batch = nullptr;
-    bool hadBatch = false;
-    ClassicBatchKind shown = ClassicBatchKind::Unit;  // the kind the list shows now (the default name follows it)
-};
-
+// The block dialog's program part (core/views_classic_batch.inc has the dialog): the values' names, the kind's values
+// for the multi-pick, and the picker, which opens under the Add values button.
 ClassicKind ctBatchKindOf(ClassicBatchKind k) { return classicBatchValueKind(k); }
-// The name a new batch's variable gets: the kind's name (classicBlockKinds).
-std::string batchDefaultName(ClassicBatchKind k) { return classicBlockKind(k).name; }
-const char* ctBatchKindLabel(ClassicBatchKind k) { return classicBlockKind(k).label; }
-
-// The values a batch of this kind can have: the unit types of the game, the players and the map's locations.
-// The chosen values, in order (a row each); the buttons and OK follow the list.
-void ctBatchFillValues(HWND dlg, ClassicBatchKind kind, const std::vector<uint32_t>& chosen) {
-    HWND list = GetDlgItem(dlg, kCtBatchValues);
-    SendMessageW(list, LB_RESETCONTENT, 0, 0);
-    for (uint32_t value : chosen) {
-        const std::wstring label = widen(classicValueText(classicBatchValueKind(kind), value, ctNames()));
-        const int i = int(SendMessageW(list, LB_ADDSTRING, 0, LPARAM(label.c_str())));
-        SendMessageW(list, LB_SETITEMDATA, WPARAM(i), LPARAM(value));
-    }
-    EnableWindow(GetDlgItem(dlg, IDOK), !chosen.empty());
-    EnableWindow(GetDlgItem(dlg, kCtBatchRemoveValue), FALSE);
-    EnableWindow(GetDlgItem(dlg, kCtBatchKind), chosen.empty());  // the kind is locked while the block has values
-}
-
-// The dialog's answer: the kind, the name and the values, in the list's order. False when no value is chosen.
-bool ctBatchCollect(HWND dlg, CtBatchDialog& st) {
-    HWND list = GetDlgItem(dlg, kCtBatchValues);
-    const int n = int(SendMessageW(list, LB_GETCOUNT, 0, 0));
-    if (n <= 0) return false;
-    HWND kindBox = GetDlgItem(dlg, kCtBatchKind);
-    const ClassicBatchKind kind = ClassicBatchKind(SendMessageW(kindBox, CB_GETITEMDATA, WPARAM(SendMessageW(kindBox, CB_GETCURSEL, 0, 0)), 0));
-    st.batch->values.clear();
-    for (int i = 0; i < n; ++i) st.batch->values.push_back(uint32_t(SendMessageW(list, LB_GETITEMDATA, WPARAM(i), 0)));
-    st.batch->kind = kind;
-    st.batch->name = classicBatchName(narrow(windowText(GetDlgItem(dlg, kCtBatchName))), kind);
-    return true;
-}
-
-INT_PTR CALLBACK ctBatchProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
-    auto state = [dlg] { return reinterpret_cast<CtBatchDialog*>(GetWindowLongPtrW(dlg, DWLP_USER)); };
-    if (msg == WM_INITDIALOG) {
-        SetWindowLongPtrW(dlg, DWLP_USER, lp);
-        gCtBatchDlg = dlg;
-        CtBatchDialog* st = state();
-        st->shown = st->batch->kind;
-        SetWindowTextW(dlg, st->hadBatch ? L"Edit the block" : L"Add a block");
-        SetDlgItemTextW(dlg, kCtBatchName, widen(st->batch->name).c_str());
-        SetDlgItemTextW(dlg, IDOK, st->hadBatch ? L"Save" : L"Add the block");
-        SetDlgItemTextW(dlg, IDCANCEL, L"Cancel");
-        SetDlgItemTextW(dlg, kCtBatchRemove, L"Remove the block");
-        ShowWindow(GetDlgItem(dlg, kCtBatchRemove), st->hadBatch ? SW_SHOW : SW_HIDE);
-        HWND kindBox = GetDlgItem(dlg, kCtBatchKind);
-        int cur = 0;
-        for (const ClassicBlockKind& k : classicBlockKinds()) {
-            const int i = int(SendMessageW(kindBox, CB_ADDSTRING, 0, LPARAM(widen(k.label).c_str())));
-            SendMessageW(kindBox, CB_SETITEMDATA, WPARAM(i), LPARAM(k.kind));
-            if (k.kind == st->batch->kind) cur = i;
-        }
-        SendMessageW(kindBox, CB_SETCURSEL, WPARAM(cur), 0);
-        ctBatchFillValues(dlg, st->batch->kind, st->batch->values);
-        for (HWND c = GetWindow(dlg, GW_CHILD); c; c = GetWindow(c, GW_HWNDNEXT)) SendMessageW(c, WM_SETFONT, WPARAM(app.font), TRUE);
-        for (int id : {kCtBatchName, kCtBatchKind, kCtBatchValues}) darkControl(GetDlgItem(dlg, id), id == kCtBatchValues ? L"DarkMode_Explorer" : L"DarkMode_CFD");
-        for (int id : {kCtBatchRemove, kCtBatchAddValue, kCtBatchRemoveValue, IDOK, IDCANCEL}) darkControl(GetDlgItem(dlg, id), L"DarkMode_Explorer");
-        BOOL dark = !gLightTheme;
-        DwmSetWindowAttribute(dlg, 20, &dark, sizeof dark), titleColors(dlg);
-        return TRUE;
-    }
-    if (msg == WM_CTLCOLORDLG) return INT_PTR(app.bgBrush);
-    if (msg == WM_CTLCOLOREDIT || msg == WM_CTLCOLORLISTBOX) {
-        SetTextColor(HDC(wp), kText), SetBkColor(HDC(wp), kCtl);
-        return INT_PTR(app.ctlBrush);
-    }
-    if (msg == WM_CTLCOLORSTATIC) {
-        SetTextColor(HDC(wp), kDim), SetBkColor(HDC(wp), kBg);
-        return INT_PTR(app.bgBrush);
-    }
-    if (msg != WM_COMMAND) return FALSE;
-    const int id = LOWORD(wp), code = HIWORD(wp);
-    CtBatchDialog* st = state();
-    HWND kindBox = GetDlgItem(dlg, kCtBatchKind);
-    const ClassicBatchKind chosenKind = ClassicBatchKind(SendMessageW(kindBox, CB_GETITEMDATA, WPARAM(SendMessageW(kindBox, CB_GETCURSEL, 0, 0)), 0));
-    if (id == kCtBatchKind && code == CBN_SELCHANGE) {
-        // The default name follows the kind (a name that is the old kind's default); the values start empty.
-        const ClassicBatchKind old = st->shown;
-        std::wstring name = windowText(GetDlgItem(dlg, kCtBatchName));
-        if (name == widen(batchDefaultName(old))) SetDlgItemTextW(dlg, kCtBatchName, widen(batchDefaultName(chosenKind)).c_str());
-        st->shown = chosenKind;
-        ctBatchFillValues(dlg, chosenKind, {});
-        return TRUE;
-    }
-    if (id == kCtBatchValues && code == LBN_SELCHANGE) {
-        EnableWindow(GetDlgItem(dlg, kCtBatchRemoveValue), SendMessageW(GetDlgItem(dlg, kCtBatchValues), LB_GETCURSEL, 0, 0) != LB_ERR);
-        return TRUE;
-    }
-    if (id == kCtBatchAddValue && code == BN_CLICKED) {
-        // The searchable list of the block's kind in multi-pick: the block's values are checked, the list stays open
-        // while values are checked, and OK makes the checked values the block's values (the values that stay keep
-        // their order; new ones go last).
-        HWND list = GetDlgItem(dlg, kCtBatchValues);
-        const ClassicBatchKind kind = chosenKind;
-        std::vector<uint32_t> old;
-        std::set<std::string> checked;
-        for (int i = 0; i < int(SendMessageW(list, LB_GETCOUNT, 0, 0)); ++i) {
-            const uint32_t v = uint32_t(SendMessageW(list, LB_GETITEMDATA, WPARAM(i), 0));
-            old.push_back(v), checked.insert(std::to_string(v));
-        }
+class BatchProgram final : public BatchHost {
+public:
+    std::wstring valueText(ClassicBatchKind kind, uint32_t v) override { return widen(classicValueText(classicBatchValueKind(kind), v, ctNames())); }
+    std::vector<std::pair<uint32_t, std::wstring>> offeredValues(ClassicBatchKind kind) override { return ctKindChoices(ctBatchKindOf(kind)); }
+    bool pickValues(const std::vector<std::pair<uint32_t, std::wstring>>& offered, std::set<uint32_t>& checked, draw::Point at) override {
         std::vector<ListPickItem> items;
-        for (const auto& [value, label] : ctKindChoices(ctBatchKindOf(kind))) {
-            if (kind == ClassicBatchKind::Unit && value > 227) continue;  // (the groups of units are not one unit type)
+        for (const auto& [value, label] : offered) {
             ListPickItem it;
             it.label = label, it.value = std::to_string(value);
             items.push_back(std::move(it));
         }
-        RECT rc;
-        GetWindowRect(GetDlgItem(dlg, kCtBatchAddValue), &rc);
-        if (!showListPickerMulti(L"Search values", items, checked, L"Set", POINT{rc.left, rc.bottom + scale(2)})) return TRUE;
-        std::vector<uint32_t> next;
-        for (uint32_t v : old)
-            if (checked.count(std::to_string(v))) next.push_back(v);
-        for (const ListPickItem& it : items) {
-            const uint32_t v = uint32_t(std::stoul(it.value));
-            if (checked.count(it.value) && std::find(old.begin(), old.end(), v) == old.end()) next.push_back(v);
-        }
-        ctBatchFillValues(dlg, kind, next);
-        return TRUE;
+        std::set<std::string> ch;
+        for (uint32_t v : checked) ch.insert(std::to_string(v));
+        POINT pt{at.x, at.y};
+        if (HWND w = gCtBatchView ? ui::Win32Host::windowOf(*gCtBatchView) : nullptr) ClientToScreen(w, &pt);
+        if (!showListPickerMulti(L"Search values", items, ch, L"Set", pt)) return false;
+        checked.clear();
+        for (const ListPickItem& it : items)
+            if (ch.count(it.value)) checked.insert(uint32_t(std::stoul(it.value)));
+        return true;
     }
-    if (id == kCtBatchRemoveValue && code == BN_CLICKED) {  // the selected value goes; the others keep their order
-        HWND list = GetDlgItem(dlg, kCtBatchValues);
-        const int cur = int(SendMessageW(list, LB_GETCURSEL, 0, 0));
-        if (cur == LB_ERR) return TRUE;
-        SendMessageW(list, LB_DELETESTRING, WPARAM(cur), 0);
-        const int n = int(SendMessageW(list, LB_GETCOUNT, 0, 0));
-        if (n > 0) SendMessageW(list, LB_SETCURSEL, WPARAM(std::min(cur, n - 1)), 0);
-        EnableWindow(GetDlgItem(dlg, IDOK), n > 0);
-        EnableWindow(GetDlgItem(dlg, kCtBatchRemoveValue), n > 0);
-        EnableWindow(GetDlgItem(dlg, kCtBatchKind), n == 0);  // the kind is locked while the block has values
-        return TRUE;
-    }
-    if (id == IDOK) {
-        if (ctBatchCollect(dlg, *st)) EndDialog(dlg, IDOK);
-        return TRUE;
-    }
-    if (id == kCtBatchRemove) {
-        EndDialog(dlg, kCtBatchRemove);
-        return TRUE;
-    }
-    if (id == IDCANCEL) {
-        EndDialog(dlg, IDCANCEL);
-        return TRUE;
-    }
-    return FALSE;
-}
-
-// The dialog's template: a label and a field or list in each row, and the buttons under them.
-std::vector<WORD> ctBatchTemplate() {
-    std::vector<WORD> t;
-    auto align = [&] { if (t.size() % 2) t.push_back(0); };
-    auto str = [&](const wchar_t* s) { for (; *s; ++s) t.push_back(*s); t.push_back(0); };
-    auto dword = [&](DWORD d) { t.push_back(LOWORD(d)); t.push_back(HIWORD(d)); };
-    dword(WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME | DS_SETFONT | DS_CENTER);
-    dword(0);
-    const size_t countAt = t.size();  // the number of items: set after they are all in (below)
-    t.push_back(0);
-    WORD items = 0;
-    t.push_back(0), t.push_back(0), t.push_back(240), t.push_back(206);
-    t.push_back(0), t.push_back(0);  // menu, class
-    str(L"");                        // title (set later)
-    t.push_back(9);
-    str(L"Segoe UI");
-    auto item = [&](DWORD style, short x, short y, short w, short h, WORD id, WORD cls, const wchar_t* text) {
-        ++items;
-        align();
-        dword(style | WS_CHILD | WS_VISIBLE);
-        dword(0);
-        t.push_back(x), t.push_back(y), t.push_back(w), t.push_back(h), t.push_back(id);
-        t.push_back(0xFFFF), t.push_back(cls);
-        str(text);
-        t.push_back(0);  // no creation data
-    };
-    // What a block is, in two sentences at the top (the dialog's text: PRINCIPLES, "Help in its place").
-    item(SS_LEFT, 8, 8, 224, 22, 0xFFFF, 0x0082, L"A block repeats the actions in it for each value. The variable is the value of each copy.");
-    item(SS_LEFT, 8, 37, 84, 10, 0xFFFF, 0x0082, L"Variable name");
-    item(WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL, 96, 34, 136, 14, kCtBatchName, 0x0081, L"");
-    item(SS_LEFT, 8, 57, 84, 10, 0xFFFF, 0x0082, L"Kind");
-    item(WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL, 96, 54, 136, 80, kCtBatchKind, 0x0085, L"");
-    item(SS_LEFT, 8, 77, 84, 10, 0xFFFF, 0x0082, L"Values");
-    item(WS_BORDER | WS_TABSTOP | WS_VSCROLL | LBS_NOINTEGRALHEIGHT | LBS_HASSTRINGS | LBS_NOTIFY, 96, 74, 136, 80, kCtBatchValues, 0x0083, L"");
-    item(WS_TABSTOP | BS_PUSHBUTTON, 96, 158, 66, 14, kCtBatchAddValue, 0x0080, L"Add values\x2026");
-    item(WS_TABSTOP | BS_PUSHBUTTON, 166, 158, 68, 14, kCtBatchRemoveValue, 0x0080, L"Remove the value");
-    item(WS_TABSTOP | BS_PUSHBUTTON, 8, 186, 110, 14, kCtBatchRemove, 0x0080, L"");
-    item(WS_TABSTOP | BS_DEFPUSHBUTTON, 130, 186, 50, 14, IDOK, 0x0080, L"");
-    item(WS_TABSTOP | BS_PUSHBUTTON, 184, 186, 50, 14, IDCANCEL, 0x0080, L"");
-    t[countAt] = items;
-    align();
-    return t;
-}
-
-INT_PTR ctBatchRun(CtBatchDialog& st) {
-    const std::vector<WORD> t = ctBatchTemplate();
-    const INT_PTR r = DialogBoxIndirectParamW(app.inst, reinterpret_cast<LPCDLGTEMPLATEW>(t.data()), app.main, ctBatchProc, LPARAM(&st));
-    gCtBatchDlg = nullptr;
-    return r;
-}
+};
+BatchProgram gBatchProgram;
 
 // Make a batch from the selected trigger, or change the batch (its variable, its values). The batch is written when
 // the window applies its changes.
@@ -1770,19 +1486,20 @@ void ctBatchClick(ClassicBatchKind kind, int editRow) {
     if (!editing && t->actionCount() >= kClassicActions) return setMessage(L"A trigger has at most 64 actions");
     ClassicBatch b = editing ? *t->actions[size_t(row)].batch : ClassicBatch{};
     if (!editing) b.kind = kind, b.name = batchDefaultName(kind);
-    CtBatchDialog st;
-    st.batch = &b, st.hadBatch = editing;
-    const INT_PTR r = ctBatchRun(st);
-    if (r == kCtBatchRemove && editing) {
+    // The dialog is over the page's window, and the page waits until it closes.
+    gMainAnchor.host.ownerWindow(gCt && gCt->wnd ? gCt->wnd : app.main);
+    const int r = runBatchDialog(gMainAnchor.view, gBatchProgram, b, editing, gCtBatchView);
+    gMainAnchor.host.ownerWindow(app.main);
+    if (r == kBatchRemove && editing) {
         t->unwrapAction(row);  // the block goes; its actions stay, one level out
         gCt->collapsed.clear();
         setMessage(L"Removed the block");
         ctSelectEntry(1, -1);
-    } else if (r == IDOK && editing) {
+    } else if (r == kBatchOk && editing) {
         t->actions[size_t(row)].batch = std::make_shared<ClassicBatch>(b);
         t->pruneBlocks();
         setMessage(L"Changed the block");
-    } else if (r == IDOK) {  // a new block goes into the selected block (as its last child), else at the end
+    } else if (r == kBatchOk) {  // a new block goes into the selected block (as its last child), else at the end
         ClassicAction blk;
         blk.type = kClassicBlockType;
         blk.batch = std::make_shared<ClassicBatch>(b);
@@ -2237,8 +1954,11 @@ VOID CALLBACK ctShotTimer(HWND, UINT, UINT_PTR id, DWORD) {
         if (const HWND pick = FindWindowW(L"StarDraftListPick", nullptr)) capture(gCtShotFile, pick), PostMessageW(pick, WM_CLOSE, 0, 0);
         break;
     case CtShot::Dialog: {
-        const HWND dlg = gCtValueDlg ? gCtValueDlg : gCtBatchDlg;
-        if (dlg) capture(gCtShotFile, dlg), PostMessageW(dlg, WM_COMMAND, IDCANCEL, 0);
+        if (gCtValueDlg) capture(gCtShotFile, gCtValueDlg), PostMessageW(gCtValueDlg, WM_COMMAND, IDCANCEL, 0);
+        else if (gCtBatchView) {
+            if (HWND w = ui::Win32Host::windowOf(*gCtBatchView)) capture(gCtShotFile, w);
+            gCtBatchView->cancel();
+        }
         break;
     }
     case CtShot::Menu:

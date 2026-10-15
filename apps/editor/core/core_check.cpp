@@ -37,6 +37,8 @@
 #include "check_box.h"
 #include "slider.h"
 #include "button.h"
+#include "dialog.h"
+#include "label.h"
 #include "icon_button.h"
 #include "../shell.h"
 #include "../res/ui_icons.h"
