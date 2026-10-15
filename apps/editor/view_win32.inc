@@ -73,6 +73,14 @@ inline LPCWSTR cursorId(Cursor c) {
     }
 }
 
+// A view whose window has child controls that take their colors from it (an edit's text and background): the
+// window's WM_CTLCOLOR* asks the view for the brush (it sets the text and background colors on the DC).
+class ChildColors {
+public:
+    virtual ~ChildColors() = default;
+    virtual HBRUSH childColors(HDC dc) = 0;
+};
+
 class Win32Host final : public Host {
 public:
     explicit Win32Host(View& v) : view_(v), router_(v) { v.attach(this); }
@@ -313,6 +321,13 @@ public:
             result = 0;
             return true;
         }
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORSTATIC:
+            if (auto* cc = dynamic_cast<ChildColors*>(&view_)) {
+                result = LRESULT(cc->childColors(HDC(wp)));
+                return true;
+            }
+            return false;
         case WM_GETDLGCODE: result = DLGC_WANTALLKEYS | DLGC_WANTCHARS; return true;
         case WM_ACTIVATE:  // a Popup or Menu closes when another window takes the focus
             if (isWindow && LOWORD(wp) == WA_INACTIVE && (kind == stardraft::draw::WindowKind::Popup || kind == stardraft::draw::WindowKind::Menu)) {

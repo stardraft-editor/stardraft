@@ -2589,6 +2589,8 @@ void logSetExpanded(bool on) {
     }
 }
 
+void logDimLater();  // (LogView: the latest line turns dim later)
+
 void logLine(const std::wstring& line, bool error) {
     if (!line.empty()) crash::remember(line);
     if (line.empty() || !gBuildLogText) return;
@@ -2609,7 +2611,7 @@ void logLine(const std::wstring& line, bool error) {
     wchar_t hm[8];
     std::swprintf(hm, 8, L"%02d:%02d", t.wHour, t.wMinute);
     gLog.latestTime = hm, gLog.latestAt = GetTickCount64();
-    if (gLog.wnd) SetTimer(gLog.wnd, 7, 10500, nullptr);  // then it turns dim
+    if (gLog.wnd) logDimLater();  // then it turns dim
     if (error) ++gLog.errors, logSetExpanded(true);
     if (gLog.wnd) InvalidateRect(gLog.wnd, nullptr, FALSE);
 }
@@ -2618,118 +2620,6 @@ void buildLogAppend(const std::wstring& line) {
     const bool error = line.find(L"[Error]") != std::wstring::npos || line.find(L"Traceback") != std::wstring::npos ||
                        line.find(L"Error:") != std::wstring::npos;
     logLine(line, error);
-}
-
-LRESULT CALLBACK logPanelProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_SIZE: {
-        const int bar = scale(24);
-        if (gBuildLogText) MoveWindow(gBuildLogText, 0, bar, LOWORD(lp), std::max(0, int(HIWORD(lp)) - bar), TRUE);
-        InvalidateRect(hwnd, nullptr, FALSE);
-        return 0;
-    }
-    case WM_PAINT: {
-        // The bar: a toggle arrow, "Log", the error count, the latest message.
-        PAINTSTRUCT ps;
-        HDC dc = BeginPaint(hwnd, &ps);
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-        RECT bar{0, 0, rc.right, scale(24)};
-        HBRUSH bg = CreateSolidBrush(kPanel);
-        FillRect(dc, &bar, bg);
-        DeleteObject(bg);
-        RECT line{0, 0, rc.right, 1};
-        HBRUSH lb = CreateSolidBrush(kBorder);
-        FillRect(dc, &line, lb);
-        DeleteObject(lb);
-        SetBkMode(dc, TRANSPARENT);
-        HGDIOBJ of = SelectObject(dc, app.font);
-        SetTextColor(dc, kDim);
-        // A chevron from the icon set: down closes the log, up opens it.
-        uiIcon(dc, {scale(8), 0, scale(24), bar.bottom}, gLog.expanded ? UiIcon::ChevronDown : UiIcon::ChevronUp, kDim, scale(16));
-        RECT t{scale(30), 0, scale(80), bar.bottom};
-        DrawTextW(dc, L"Log", -1, &t, DT_SINGLELINE | DT_VCENTER);
-        gLog.toggle = {0, 0, scale(80), bar.bottom};
-        int x = scale(80);
-        if (gLog.errors) {
-            SetTextColor(dc, kBad);
-            const std::wstring e = std::to_wstring(gLog.errors) + (gLog.errors == 1 ? L" error" : L" errors");
-            RECT er{x, 0, x + scale(90), bar.bottom};
-            DrawTextW(dc, e.c_str(), -1, &er, DT_SINGLELINE | DT_VCENTER);
-            x += scale(90);
-        }
-        if (!gLog.latestTime.empty()) {  // its time, small and dim: a log line (the status bar says what is now)
-            SetTextColor(dc, kFaint);
-            RECT tt{x, 0, x + scale(44), bar.bottom};
-            DrawTextW(dc, gLog.latestTime.c_str(), -1, &tt, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-            x += scale(44);
-        }
-        const bool fresh = GetTickCount64() - gLog.latestAt < 10000;  // older: dim (a message from before, another tab's)
-        SetTextColor(dc, gLog.latestError ? kBad : fresh ? kText : kDim);
-        RECT m{x, 0, rc.right - scale(10), bar.bottom};
-        DrawTextW(dc, gLog.latest.c_str(), -1, &m, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-        SelectObject(dc, of);
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    case WM_TIMER:
-        if (wp == 7) KillTimer(hwnd, 7), InvalidateRect(hwnd, nullptr, FALSE);  // the line turns dim
-        return 0;
-    case WM_LBUTTONDOWN:
-        if (gLog.expanded && GET_Y_LPARAM(lp) < scale(5)) {  // the top edge: drag to change the height
-            POINT p{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-            ClientToScreen(hwnd, &p);  // the panel moves as it grows: screen positions
-            gLog.sizing = true, gLog.grabY = p.y, gLog.grabH = logPanelHeight();
-            SetCapture(hwnd);
-        } else if (GET_Y_LPARAM(lp) < scale(24))
-            logSetExpanded(!gLog.expanded);
-        return 0;
-    case WM_MOUSEMOVE:
-        if (gLog.sizing) {
-            POINT p{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-            ClientToScreen(hwnd, &p);
-            const int h = gLog.grabH - (p.y - gLog.grabY);
-            const int logH = std::clamp(MulDiv(h, 96, int(app.dpi)), 80, 1200);
-            if (logH != gDock.logH) gDock.logH = logH, layout();
-        }
-        return 0;
-    case WM_LBUTTONUP:
-        if (gLog.sizing) ReleaseCapture();
-        return 0;
-    case WM_CAPTURECHANGED:
-        if (gLog.sizing) gLog.sizing = false, gDock.logH = MulDiv(logPanelHeight(), 96, int(app.dpi)), saveDock();
-        return 0;
-    case WM_SETCURSOR: {
-        POINT p;
-        GetCursorPos(&p);
-        ScreenToClient(hwnd, &p);
-        SetCursor(LoadCursor(nullptr, gLog.sizing || (gLog.expanded && p.y < scale(5)) ? IDC_SIZENS : IDC_HAND));
-        return TRUE;
-    }
-    case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORSTATIC:
-        SetTextColor(HDC(wp), kText);
-        SetBkColor(HDC(wp), kBg);
-        return LRESULT(app.bgBrush);
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
-
-void createLogPanel() {
-    if (gLog.wnd) return;
-    WNDCLASSEXW wc{sizeof wc};
-    wc.lpfnWndProc = logPanelProc;
-    wc.hInstance = app.inst;
-    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.lpszClassName = L"StarDraftLog";
-    RegisterClassExW(&wc);
-    gLog.wnd = CreateWindowExW(0, L"StarDraftLog", L"", WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN, 0, 0, 1, 1, app.main, nullptr, app.inst, nullptr);
-    gBuildLogText = CreateWindowExW(0, WC_EDITW, L"", WS_CHILD | WS_VSCROLL | WS_HSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL, 0, 0, 1, 1,
-                                    gLog.wnd, nullptr, app.inst, nullptr);
-    SendMessageW(gBuildLogText, WM_SETFONT, WPARAM(monoFont()), TRUE);
-    SendMessageW(gBuildLogText, EM_SETLIMITTEXT, 0, 0);
-    darkControl(gBuildLogText, L"DarkMode_Explorer");
-    SendMessageW(gBuildLogText, EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN, MAKELPARAM(scale(6), scale(4)));  // clear of the frame
 }
 
 // A build starts: a separator line; the log stays as it is (it opens by itself if the build fails).
@@ -5935,6 +5825,116 @@ void fadeIn(HWND w, int show) {
 #include "canvas_gdi.inc"
 #include "ui_kit.inc"
 #include "view_win32.inc"
+
+// --- The log's bar as a view (apps/common/view.h) ---------------------------------------------------------------
+// The log window is a view window (kViewClass) whose child is the native read-only edit with the full log. The view
+// paints the bar (the toggle, "Log", the error count, the time and the latest line) and takes the mouse on the bar and
+// on the top edge (the drag that changes the height). Its state is gLog's; the edit's colors come from the view.
+struct LogView final : stardraft::draw::View, ui::ChildColors {
+    int dimTimer = 0;  // the timer that turns the latest line dim (0: none)
+
+    // The edit fills what the bar leaves.
+    void placeText() {
+        if (gBuildLogText) MoveWindow(gBuildLogText, 0, scale(24), width(), std::max(0, height() - scale(24)), TRUE);
+    }
+    void resized() override { placeText(); }
+
+    HBRUSH childColors(HDC dc) override {  // the read-only edit: the log's text on the window's background
+        SetTextColor(dc, kText);
+        SetBkColor(dc, kBg);
+        return app.bgBrush;
+    }
+
+    void paint(stardraft::draw::Canvas& c) override {
+        const int w = width(), bar = scale(24);
+        c.fill({0, 0, w, bar}, kPanel);
+        c.fill({0, 0, w, 1}, kBorder);  // the line at the top
+        // A chevron from the icon set: down closes the log, up opens it.
+        c.icon({scale(8), 0, scale(24), bar}, int(gLog.expanded ? UiIcon::ChevronDown : UiIcon::ChevronUp), kDim, scale(16));
+        c.text({scale(30), 0, scale(80), bar}, L"Log", kDim, stardraft::draw::kMiddle);
+        gLog.toggle = {0, 0, scale(80), bar};
+        int x = scale(80);
+        if (gLog.errors) {
+            const std::wstring e = std::to_wstring(gLog.errors) + (gLog.errors == 1 ? L" error" : L" errors");
+            c.text({x, 0, x + scale(90), bar}, e, kBad, stardraft::draw::kMiddle);
+            x += scale(90);
+        }
+        if (!gLog.latestTime.empty()) {  // its time, small and dim: a log line (the status bar says what is now)
+            c.text({x, 0, x + scale(44), bar}, gLog.latestTime, kFaint, stardraft::draw::kMiddle);
+            x += scale(44);
+        }
+        const bool fresh = GetTickCount64() - gLog.latestAt < 10000;  // older: dim (a message from before, another tab's)
+        c.text({x, 0, w - scale(10), bar}, gLog.latest, gLog.latestError ? kBad : fresh ? kText : kDim,
+               stardraft::draw::kMiddle | stardraft::draw::kEllipsis);
+    }
+
+    bool mouse(const stardraft::draw::MouseEvent& e) override {
+        using stardraft::draw::MouseKind;
+        HWND hwnd = ui::Win32Host::windowOf(*this);
+        switch (e.kind) {
+        case MouseKind::Move:
+            if (gLog.sizing) {  // the panel moves as it grows: screen positions
+                POINT p{e.pt.x, e.pt.y};
+                ClientToScreen(hwnd, &p);
+                const int h = gLog.grabH - (p.y - gLog.grabY);
+                const int logH = std::clamp(MulDiv(h, 96, int(app.dpi)), 80, 1200);
+                if (logH != gDock.logH) gDock.logH = logH, layout();
+            }
+            return true;
+        case MouseKind::Down:
+        case MouseKind::DoubleClick:  // (a second press, as the window had them before it was a view)
+            if (e.button != 0) return false;
+            if (gLog.expanded && e.pt.y < scale(5)) {  // the top edge: drag to change the height
+                POINT p{e.pt.x, e.pt.y};
+                ClientToScreen(hwnd, &p);
+                gLog.sizing = true, gLog.grabY = p.y, gLog.grabH = logPanelHeight();
+                captureMouse(true);
+            } else if (e.pt.y < scale(24))
+                logSetExpanded(!gLog.expanded);
+            return true;
+        case MouseKind::Up:
+            if (e.button != 0) return false;
+            if (gLog.sizing) captureMouse(false);
+            return true;
+        default: return false;
+        }
+    }
+    stardraft::draw::Cursor cursor(stardraft::draw::Point p) override {
+        return gLog.sizing || (gLog.expanded && p.y < scale(5)) ? stardraft::draw::Cursor::SizeNS : stardraft::draw::Cursor::Hand;
+    }
+    void captureLost() override {  // the drag ends (the mouse went up, or the system took the mouse)
+        if (gLog.sizing) gLog.sizing = false, gDock.logH = MulDiv(logPanelHeight(), 96, int(app.dpi)), saveDock();
+    }
+
+    void captureMouse(bool on) {
+        if (stardraft::draw::Host* h = host()) h->capture(*this, on);
+    }
+    // The latest line turns dim 10.5 seconds after it came (a message from before is not "now").
+    void dimLater() {
+        stardraft::draw::Host* h = host();
+        if (!h) return;
+        if (dimTimer) h->cancelTimer(dimTimer);
+        dimTimer = h->timer(10500, [this] {
+            dimTimer = 0;
+            invalidate();
+        });
+    }
+};
+LogView gLogView;
+
+void logDimLater() { gLogView.dimLater(); }
+
+void createLogPanel() {
+    if (gLog.wnd) return;
+    gLog.wnd = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN, 0, 0, 1, 1, app.main, nullptr, app.inst, &gLogView);
+    gBuildLogText = CreateWindowExW(0, WC_EDITW, L"", WS_CHILD | WS_VSCROLL | WS_HSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL, 0, 0, 1, 1,
+                                    gLog.wnd, nullptr, app.inst, nullptr);
+    SendMessageW(gBuildLogText, WM_SETFONT, WPARAM(monoFont()), TRUE);
+    SendMessageW(gBuildLogText, EM_SETLIMITTEXT, 0, 0);
+    darkControl(gBuildLogText, L"DarkMode_Explorer");
+    SendMessageW(gBuildLogText, EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN, MAKELPARAM(scale(6), scale(4)));  // clear of the frame
+    gLogView.placeText();
+}
 HWND tabsWindow(stardraft::draw::View& v) { return ui::Win32Host::windowOf(v); }
 #include "game_text.inc"
 #include "context_menu.inc"
