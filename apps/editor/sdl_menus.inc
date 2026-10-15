@@ -95,7 +95,10 @@ bool sdlRuns(int id) {
     case ID_FILE_NEW:  // the New page (sdl_new_page.inc) and the program options / feedback (sdl_options.inc)
     case ID_PROJ_NEW:
     case ID_OPT_WINDOW:
-    case ID_HELP_FEEDBACK: return true;
+    case ID_HELP_FEEDBACK:
+    case ID_HELP_ABOUT:  // (sdl_options.inc) and the links
+    case ID_HELP_DISCORD:
+    case ID_HELP_GITHUB: return true;
     default: break;
     }
     if (id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) return true;
@@ -345,6 +348,9 @@ void command(int id) {
     case ID_PROJ_NEW: openNewPageSdl(1); return;   // the New page, an EUD project's choices
     case ID_OPT_WINDOW: showOptionsSdl(); return;
     case ID_HELP_FEEDBACK: showFeedbackSdl(L"StarDraft 2"); return;
+    case ID_HELP_ABOUT: showAboutSdl(); return;
+    case ID_HELP_DISCORD: shellOpenUrl(kDiscordInvite); return;
+    case ID_HELP_GITHUB: shellOpenUrl(L"https://github.com/" + std::wstring(kRepoName)); return;
     default:
         if (id >= ID_WS_MAP && id <= ID_WS_FILES) return setWorkspace(Workspace(id - ID_WS_MAP));  // the workspace order
         setMessage(L"This is not on this system yet");

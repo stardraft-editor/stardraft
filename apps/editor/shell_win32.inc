@@ -246,6 +246,7 @@ void shellRecentMenu(bool projects, const std::vector<std::wstring>& labels, con
 bool shellPathsFoldCase() { return true; }  // NTFS ignores case
 void shellShowQuickPicker(bool replace, bool open) { showQuickPicker(replace, open); }
 void shellMapFileOpened(const std::filesystem::path& file) { mapFileOpened(file); }
+void shellOpenUrl(const std::wstring& url) { ShellExecuteW(nullptr, L"open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL); }
 void shellOpenFolder(const std::filesystem::path& folder) { ShellExecuteW(app.main, L"open", folder.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL); }
 void shellOpenInEditor(const std::filesystem::path& file) {
     // The editor for .eps ("edit", else "open"); Notepad when nothing is registered for it.
