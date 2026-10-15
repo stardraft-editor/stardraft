@@ -59,6 +59,7 @@ using std::min;
 #include "../common/view.h"
 #include "text_field.h"  // the kit's text field (apps/kit): the search boxes (search_box.inc)
 #include "dropdown.h"     // the kit's dropdown: the palette's section box (search_box.inc)
+#include "button.h"       // the kit's push button: the Files page's Import and Rename (core/views_files.inc)
 #include "res/ui_icons.h"
 #include "stardraft/editor.h"
 #include "stardraft/hd_assets.h"
@@ -429,6 +430,8 @@ void fillToolCombo() { fillToolCombo(app); }
 std::wstring itemLabel(int v) { return itemLabel(app, v); }
 
 #include "core/views_search.inc"  // the search boxes and the palette's dropdown (SearchBox, DropdownBox)
+#include "core/sound_lists.inc"  // the map's and the game's sound files by name (mapSounds, gameSounds, soundFileBytes)
+#include "core/views_files.inc"  // the Files workspace's page (FilesPage; its instance is gFilesPage in files_view.inc)
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
 
 void rebuildList() { rebuildList(app); }
@@ -21556,8 +21559,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             if (s.rfind("files:", 0) == 0) {  // files:<search>[:<selected>]: the Files workspace
                 setWorkspace(Workspace::Files);
                 const size_t c = s.find(':', 6);
-                SetWindowTextW(gFiles.search, widen(s.substr(6, c == std::string::npos ? std::string::npos : c - 6)).c_str());
-                if (c != std::string::npos) gFiles.selected = s.substr(c + 1);
+                gFilesPage.setSearch(widen(s.substr(6, c == std::string::npos ? std::string::npos : c - 6)));
+                if (c != std::string::npos) gFilesPage.setSelected(s.substr(c + 1));
                 for (int i = 0; i < 10; ++i) pump();
                 UpdateWindow(gFiles.wnd);
                 capture(fs::path(datashots) / "files.png");

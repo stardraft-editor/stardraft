@@ -185,6 +185,14 @@ public:
     stardraft::draw::WindowKind kind = stardraft::draw::WindowKind::Dialog;
     bool isWindow = false;  // made by openWindow (else a pane's window that its owner made)
 
+    // The view's own vertical bar (WS_VSCROLL on its window), as the view has it now: the range, page and position.
+    void syncScroll(HWND w) {
+        int range = 0, page = 0, pos = 0;
+        if (!view_.scrollBar(range, page, pos)) return;
+        SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS, 0, range, UINT(std::max(0, page)), pos};
+        SetScrollInfo(w, SB_VERT, &si, TRUE);
+    }
+
     // hoverTip: the view's tip shows as a tooltip. One tool covers the view; the tooltip asks for its text (TTN_NEEDTEXT)
     // where the mouse is, so a tip that is empty there shows nothing.
     void hoverTipOn(HWND w) {
@@ -211,13 +219,15 @@ public:
             return e;
         };
         switch (msg) {
-        case WM_SIZE: view_.setFrame({0, 0, LOWORD(lp), HIWORD(lp)}); return false;
+        case WM_SIZE: view_.setFrame({0, 0, LOWORD(lp), HIWORD(lp)}), syncScroll(w); return false;
         case WM_ERASEBKGND: result = 1; return true;
         case WM_VSCROLL: {  // the window's own scroll bar (lParam 0; a child control's comes with its window)
             if (lp) return false;
             SCROLLINFO si{sizeof si, SIF_ALL};
             GetScrollInfo(w, SB_VERT, &si);
-            return view_.vscroll(LOWORD(wp), si.nPos, si.nTrackPos, int(si.nPage)) ? (result = 0, true) : false;
+            const bool done = view_.vscroll(LOWORD(wp), si.nPos, si.nTrackPos, int(si.nPage));
+            syncScroll(w);
+            return done ? (result = 0, true) : false;
         }
         case WM_PAINT: {
             PAINTSTRUCT ps;
@@ -232,6 +242,7 @@ public:
             Canvas& c = gdi;
             c.fill(rc, kBg);
             view_.paintAll(c);
+            syncScroll(w);
             BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
             SelectObject(mem, of), SelectObject(mem, ob);
             DeleteObject(bmp), DeleteDC(mem);
@@ -274,7 +285,9 @@ public:
             MouseEvent e;
             e.kind = MouseKind::Wheel, e.pt = {pt.x, pt.y}, e.mods = mouseMods(GET_KEYSTATE_WPARAM(wp));
             e.wheel = float(GET_WHEEL_DELTA_WPARAM(wp)) / WHEEL_DELTA, e.horizontal = msg == WM_MOUSEHWHEEL;
-            return router_.mouse(e) ? (result = 0, true) : false;
+            const bool used = router_.mouse(e);
+            syncScroll(w);
+            return used ? (result = 0, true) : false;
         }
         case WM_NOTIFY: {  // the hover tooltip asks for its text: the view's tip where the mouse is
             const auto* hdr = reinterpret_cast<const NMHDR*>(lp);

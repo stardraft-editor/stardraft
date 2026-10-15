@@ -32,4 +32,6 @@
 #include "names.inc"
 #include "palette_items.inc"
 #include "views_search.inc"
+#include "sound_lists.inc"
+#include "views_files.inc"
 #include "title.inc"
