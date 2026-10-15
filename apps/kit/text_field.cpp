@@ -27,6 +27,12 @@ TextField::TextField() : alive_(std::make_shared<bool>(true)) {
     };
     bar_.setVisible(false);
     add(bar_, {});
+    hbar_.onScroll = [this](int pos) {
+        scrollX_ = pos;
+        invalidate();
+    };
+    hbar_.setVisible(false);
+    add(hbar_, {});
 }
 
 TextField::~TextField() {
@@ -141,7 +147,8 @@ std::vector<TextField::Run> TextField::runs(size_t from, size_t to) const {
         const Attr a = attrAt(d);
         if (!out.empty()) {
             Attr& p = out.back().attr;
-            if (p.color == a.color && p.bold == a.bold && p.selected == a.selected && p.comp == a.comp) {
+            const bool tabs = shown_[d] == '\t' || shown_[d - 1] == '\t';  // a tab is a run of its own
+            if (!tabs && p.color == a.color && p.bold == a.bold && p.selected == a.selected && p.comp == a.comp) {
                 out.back().to = d + 1;
                 continue;
             }
@@ -167,6 +174,8 @@ void TextField::relayout(draw::Canvas& c) {
     px_.assign(n + 1, 0);
     int x = 0;
     bool bold = fontDesc_.bold;  // the font the canvas has now
+    const int tab = px(48);      // the tab stops: every half inch, as the rich edit's default ones
+    int lineX0 = 0;              // x of the current line's start (a line's tab stops start there)
     // A character's width is measured once per layout (per character and weight), not once per place in the text:
     // a long text is laid out again with each edit.
     std::unordered_map<uint64_t, int> widths;
@@ -180,7 +189,11 @@ void TextField::relayout(draw::Canvas& c) {
         }
         const size_t len = nextIndex(shown_, d, n) - d;
         int w = 0;
-        if (shown_[d] != '\n') {
+        if (shown_[d] == '\n') {
+            lineX0 = x;
+        } else if (shown_[d] == '\t') {
+            w = tab - (x - lineX0) % tab;  // to the next tab stop, counted from the line's start
+        } else {
             const uint64_t key = (uint64_t(shown_[d]) << 32) | (uint64_t(len == 2 ? shown_[d + 1] : 0) << 1) | (b ? 1u : 0u);
             const auto it = widths.find(key);
             if (it != widths.end()) {
@@ -199,11 +212,18 @@ void TextField::relayout(draw::Canvas& c) {
     c.setFont(prev);
 
     const int vw = std::max(1, width() - 2 * padX());
+    auto widest = [this] {
+        int w = 0;
+        for (const Line& L : lines_) w = std::max(w, px_[L.end] - px_[L.start]);
+        return w;
+    };
     buildLines(vw);
+    contentW_ = widest();
+    // Several lines that do not wrap and are wider than the field: the bar at the bottom (inner() leaves its place).
+    hbarShown_ = multiline() && !wrap_ && contentW_ + 2 > width() - trailing_ - 2 * padX();
     barShown_ = multiline() && int(lines_.size()) * lineH_ > inner().height();
     if (barShown_ && wrap_) buildLines(std::max(1, vw - px(8)));  // the scroll bar's place
-    contentW_ = 0;
-    for (const Line& L : lines_) contentW_ = std::max(contentW_, px_[L.end] - px_[L.start]);
+    contentW_ = widest();
     layoutKey_ = LayoutKey{model_.revision(), style_, width()};
     laidOut_ = true;
 }
@@ -293,7 +313,9 @@ size_t TextField::caretFromPoint(draw::Point pt) const {
     return modelOf(posAtX(li, pt.x - in.left + scrollX_ - alignOff()));
 }
 
-draw::Rect TextField::inner() const { return draw::Rect{padX(), padY(), width() - padX() - trailing_, height() - padY()}; }
+draw::Rect TextField::inner() const {
+    return draw::Rect{padX(), padY(), width() - padX() - trailing_, height() - padY() - (hbarShown_ ? px(10) : 0)};
+}
 
 int TextField::alignOff() const {
     if (!alignRight_ || multiline() || lines_.empty()) return 0;
@@ -368,7 +390,7 @@ std::vector<MenuItem> TextField::editMenu() {
             copySelection();
             edit([this] { return model_.deleteSelection(); });
         }),
-        item(L"Copy", L"Ctrl+C", sel, [this] { copySelection(); }),
+        item(L"Copy", L"Ctrl+C", sel || (copyWhole_ && !model_.text().empty()), [this] { copySelection(); }),
         item(L"Paste", L"Ctrl+V", !ro, [this] { paste(); }),
         item(L"Delete", L"Del", !ro && sel, [this] { edit([this] { return model_.deleteSelection(); }); }),
         sep,
@@ -430,8 +452,9 @@ void TextField::paint(draw::Canvas& c) {
                 d.bold = fontDesc_.bold || run.attr.bold;
                 d.underline = run.attr.comp;
                 c.setFont(c.font(d));
-                c.text(draw::Rect{x0, top, x0 + w + lineH_, top + lineH_}, std::wstring_view(shown_).substr(run.from, run.to - run.from),
-                       run.attr.color, draw::kLeft | draw::kMiddle);
+                if (shown_[run.from] != '\t')  // a tab is space only
+                    c.text(draw::Rect{x0, top, x0 + w + lineH_, top + lineH_}, std::wstring_view(shown_).substr(run.from, run.to - run.from),
+                           run.attr.color, draw::kLeft | draw::kMiddle);
             }
             c.setFont(c.font(fontDesc_));
         }
@@ -446,12 +469,28 @@ void TextField::paint(draw::Canvas& c) {
     c.popClip();
     updateCaretRect();
     syncBar();
+    syncHBar();
     c.setFont(prev);
     if (focused_) syncInput();
 }
 
 // The bar is a child view (it takes the mouse and draws itself after this paint); this keeps its range, its
 // position and its place with the text. Each set is made only when it changes: a change invalidates.
+void TextField::syncHBar() {
+    hbar_.setVisible(hbarShown_);
+    if (!hbarShown_) return;
+    const draw::Rect in = inner();
+    const draw::Rect place{in.left, in.bottom + px(2), in.right, in.bottom + px(8)};
+    const draw::Rect cur = hbar_.frame();
+    if (cur.left != place.left || cur.top != place.top || cur.right != place.right || cur.bottom != place.bottom) hbar_.setFrame(place);
+    const int total = contentW_ + 2, page = in.width();
+    if (total != hbarTotal_ || page != hbarPage_) {
+        hbarTotal_ = total, hbarPage_ = page;
+        hbar_.setRange(total, page);
+    }
+    hbar_.setPos(scrollX_);
+}
+
 void TextField::syncBar() {
     bar_.setVisible(barShown_);
     if (!barShown_) return;
@@ -533,8 +572,9 @@ size_t TextField::visualEdge(bool end, bool& wrapEnd) const {
 }
 
 void TextField::copySelection() {
-    if (!model_.hasSelection()) return;
-    if (draw::Host* h = host()) h->setClipboardText(toUtf8(model_.selectedText()));
+    const std::wstring s = model_.hasSelection() ? model_.selectedText() : copyWhole_ ? model_.text() : std::wstring();
+    if (s.empty()) return;
+    if (draw::Host* h = host()) h->setClipboardText(toUtf8(s));
 }
 
 void TextField::paste() {
@@ -559,7 +599,8 @@ bool TextField::mouse(const draw::MouseEvent& e) {
         if (multiline()) {
             if (e.pt.y < 0) scrollY_ -= lineH_;
             else if (e.pt.y > height()) scrollY_ += lineH_;
-        } else {
+        }
+        if (!(multiline() && wrap_)) {  // sideways: a line that does not wrap
             if (e.pt.x < 0) scrollX_ -= px(8);
             else if (e.pt.x > width()) scrollX_ += px(8);
         }
@@ -611,7 +652,16 @@ bool TextField::mouse(const draw::MouseEvent& e) {
         invalidate();
         return true;
     case MouseKind::Wheel: {
-        if (!multiline() || e.horizontal) return false;
+        if (e.horizontal) {  // sideways (positive is right): a line that does not wrap
+            if (!multiline() || wrap_) return false;
+            const int oldX = scrollX_;
+            scrollX_ += int(e.wheel * 3.0f * float(px(24)));
+            clampScroll();
+            if (scrollX_ == oldX) return false;
+            invalidate();
+            return true;
+        }
+        if (!multiline()) return false;
         const int old = scrollY_;
         scrollY_ -= int(e.wheel * 3.0f * float(lineH_));  // three lines a notch; positive is away from the user (up)
         clampScroll();
