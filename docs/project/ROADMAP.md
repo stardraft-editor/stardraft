@@ -153,6 +153,12 @@ Make StarDraft 2 a more powerful creation suite.
 
   Large maps have many triggers. Mappers cannot find the trigger that changes a value or uses a unit fast. Classic
   triggers can be searched by their text since 0.5.0.8, but not by comments, and the Triggers workspace has no search.
+- [ ] **R61 Quick add.** *Tag:* Capability.
+  Press Q in the Triggers workspace or on the Classic triggers page: a search box opens, and the block, condition or
+  action you select goes in after the selected one. On the map, Q opens the quick search already.
+
+  To add a block, mappers now go through the Add menu and its groups. Mappers who know the name of the block they need
+  want to type it and keep their hands on the keyboard.
 - [ ] **R25 Campaign projects.** *Tag:* UMS.
   Keep all the maps of a campaign in one project, in their order.
 
