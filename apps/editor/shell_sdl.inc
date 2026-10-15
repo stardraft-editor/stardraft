@@ -2,8 +2,6 @@
 // root view. The panes that are not on this system yet have no list, tool strip, palette or menu to change, so those
 // calls do nothing; the status bar, the map view and the settings are real.
 
-#include "message_box.h"  // apps/kit: the StarCraft folder's and the yes-or-no boxes (kit::messageBox)
-
 // The app state the core reads (documents.inc declares it).
 AppState& shellState() { return gState; }
 void shellRendererGraphics(GraphicsQuality q, bool carbot) {
@@ -129,9 +127,11 @@ int shellAskSaveChanges(bool project) {
     return r == 0 ? 0 : r == 1 ? 1 : 2;
 }
 // Save after the question: a map with a file is saved there (true when it was written); an untitled map asks for its
-// file and stays open until it is saved (false: close it again then). New projects are not on this system yet.
+// file and stays open until it is saved (false: close it again then). An unsaved project asks where it goes.
+bool sdlSaveUnsavedProject();
 bool shellSaveChanges(bool project) {
-    if (project || !gState.ed || !gState.ed->isOpen()) return false;
+    if (project) return sdlSaveUnsavedProject();
+    if (!gState.ed || !gState.ed->isOpen()) return false;
     if (!gState.ed->path().empty()) return saveTo(gState.ed->path());
     saveOpenMap(false);
     return false;
@@ -169,6 +169,11 @@ void shellErrorBox(const std::wstring& text, const std::wstring& title) {
     std::fprintf(stderr, "%s: %s\n", narrow(title).c_str(), narrow(text).c_str());
     if (gRoot && !gNoBoxes) msgbox::ask(*gRoot, title, text, {L"OK"}, msgbox::Icon::Error);  // (as the Windows program's MB_ICONERROR box)
     else setMessage(text);  // (a snapshot run, or before the window: the status bar)
+}
+void shellWarningBox(const std::wstring& text, const std::wstring& title) {
+    std::fprintf(stderr, "%s: %s\n", narrow(title).c_str(), narrow(text).c_str());
+    if (gRoot && !gNoBoxes) msgbox::ask(*gRoot, title, text, {L"OK"}, msgbox::Icon::Warning);  // (as the Windows program's MB_ICONWARNING box)
+    else setMessage(text);
 }
 stardraft::draw::Canvas* shellMeasureCanvas() { return &stardraft::kit_sdl::measuringCanvas(); }
 int shellAskUnapplied(const std::wstring& text, const std::wstring& title) {
@@ -350,17 +355,16 @@ void shellChooseInstallFolder() {
     GameData probe;
     std::string err;
     if (!probe.open(dir, err)) {
-        stardraft::kit::messageBox(*gRoot, shellTr(L"StarCraft folder"), shellTr(L"Could not read the game data in this folder:") + L"\r\n" + widen(err), {L"OK"},
-                                   stardraft::kit::MessageIcon::Warning);
+        msgbox::ask(*gRoot, shellTr(L"StarCraft folder"), shellTr(L"Could not read the game data in this folder:") + L"\r\n" + widen(err), {L"OK"},
+                    msgbox::Icon::Warning);
         return;
     }
     if (!gSilent) prefs::setText(L"StarCraftFolder", dir.wstring());  // (tests never change the user's settings)
     gInstallNext = dir;
     gOptionsView.invalidate();
-    stardraft::kit::messageBox(*gRoot, shellTr(L"StarCraft folder"),
-                               shellTr(L"StarDraft 2 uses this folder after the next start:") + L"\r\n" + dir.wstring() + L"\r\n" +
-                                   shellTr(L"To use it now, restart StarDraft 2."),
-                               {L"OK"}, stardraft::kit::MessageIcon::Info);
+    msgbox::ask(*gRoot, shellTr(L"StarCraft folder"),
+                shellTr(L"StarDraft 2 uses this folder after the next start:") + L"\r\n" + dir.wstring() + L"\r\n" + shellTr(L"To use it now, restart StarDraft 2."),
+                {L"OK"}, msgbox::Icon::Info);
     shellLogLine(L"StarCraft folder set to " + dir.wstring() + L" (from the next start)");
 }
 // The file and folder dialogs: SDL's (asynchronous); the call waits for the answer (the host handles events and paints
@@ -420,6 +424,19 @@ std::filesystem::path shellPickFile(const ShellFilePick& pick) {
     });
     if (pick.save && !picked.empty() && picked.extension().empty() && !pick.defaultExtension.empty()) picked += L"." + pick.defaultExtension;
     return picked;
+}
+// Save for an unsaved project (as the Windows program's saveUnsavedProject): where it goes (a folder of its name is
+// made there), then the core moves it there (core/project_page.inc: saveUnsavedProjectTo). True when it was saved.
+bool sdlSaveUnsavedProject() {
+    if (!gState.ed || !isUnsavedProject(activeProject())) return false;
+    ShellFilePick d;
+    d.title = shellTr(L"Save the project (StarDraft 2 makes a folder with its name here)");
+    d.filters = {{L"StarDraft 2 project (*.stardraft)", L"*.stardraft"}};
+    d.defaultExtension = L"stardraft", d.fileName = L"Untitled", d.initialDir = defaultProjectsFolder(), d.save = true;
+    std::error_code ec;
+    fs::create_directories(d.initialDir, ec);
+    const fs::path picked = shellPickFile(d);
+    return !picked.empty() && saveUnsavedProjectTo(picked);
 }
 std::wstring shellPickFolder(const std::wstring&) {
     const std::string where = narrow(defaultProjectsFolder().wstring());
@@ -490,14 +507,14 @@ void shellClosePopout(stardraft::draw::View& content) {
 }
 bool shellUiIconMask(int, int, std::vector<uint8_t>&) { return false; }  // (the SDL canvas draws icons from its own atlases)
 
-// Build and the Log (core/project_build.inc): the question in the kit's message box (Escape, or no window, is No).
+// Build and the Log (core/project_build.inc): the question in the core message box, as the Windows program's
+// MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2 (the warning icon; the second button has the focus; Escape, or no window, is No).
+msgbox::Box sdlYesNoBox(const std::wstring& text, const std::wstring& yes, const std::wstring& no) {
+    return msgbox::makeBox(text, {shellTr(yes.c_str()), shellTr(no.c_str())}, msgbox::Icon::Warning, 1);
+}
 bool shellAskYesNo(const std::wstring& text, const std::wstring& title, const std::wstring& yes, const std::wstring& no) {
     if (!gRoot) return false;
-    auto plain = [](std::wstring t) {  // (the kit's buttons have no access keys)
-        std::erase(t, L'&');
-        return shellTr(t.c_str());
-    };
-    return stardraft::kit::messageBox(*gRoot, shellTr(title.c_str()), text, {plain(yes), plain(no)}, stardraft::kit::MessageIcon::Warning) == 0;
+    return msgbox::runMessageBox(*gRoot, shellTr(title.c_str()), sdlYesNoBox(text, yes, no), nullptr) == 0;
 }
 void shellLogNewBuild() {
     LogState& s = logState();

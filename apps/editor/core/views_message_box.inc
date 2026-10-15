@@ -266,13 +266,18 @@ inline int runMessageBox(draw::View& from, const std::wstring& caption, Box box,
 
 // The box with the buttons `names` from left to right: the first has the focus (Enter), the last is the cancel one
 // (Escape, the close box). Returns the index of the button that closed it. (The SDL program's questions and errors.)
-inline int ask(draw::View& from, const std::wstring& caption, const std::wstring& text, const std::vector<std::wstring>& names, Icon icon,
-               draw::Canvas* measure = nullptr) {
+// makeBox: that box, with the focus on button `focus` (1: the second, as MB_DEFBUTTON2), for runMessageBox or a snapshot.
+inline Box makeBox(const std::wstring& text, const std::vector<std::wstring>& names, Icon icon, int focus = 0) {
     Box b;
     b.text = text, b.icon = icon;
     for (size_t k = 0; k < names.size(); ++k) b.buttons.push_back({names[k], int(k)});
-    b.cancel = int(names.size()) - 1;
-    return runMessageBox(from, caption, std::move(b), measure);
+    b.cancel = std::max(0, int(names.size()) - 1);
+    b.focus = std::clamp(focus, 0, b.cancel);
+    return b;
+}
+inline int ask(draw::View& from, const std::wstring& caption, const std::wstring& text, const std::vector<std::wstring>& names, Icon icon,
+               draw::Canvas* measure = nullptr) {
+    return runMessageBox(from, caption, makeBox(text, names, icon), measure);
 }
 
 }  // namespace msgbox

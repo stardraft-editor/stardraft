@@ -528,7 +528,7 @@ private:
         if (n)
             smallButton(c, ax + scale(8), y, scale(24), L"Delete",
                         [this] {
-                            if (!host_.confirm(L"Delete briefing", L"Delete the briefing for " + whoName(who) + L"?", L"Delete")) return;
+                            if (!host_.confirm(L"Delete briefing", L"Delete the briefing for " + whoName(who) + L"?", L"&Delete")) return;
                             const auto gone = who;
                             edit([&](std::vector<BriefingTrigger>& b) { std::erase_if(b, [&](const BriefingTrigger& tr) { return tr.players == gone; }); });
                             setWho(briefFirstWho());
