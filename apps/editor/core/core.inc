@@ -76,6 +76,7 @@
 #include "triggers_model.inc"  // the Triggers workspace's program parts (the set, the tree's commands, the menus' models)
 #include "views_triggers_help.inc"  // the block help page, the code pane, the build errors' line map
 #include "views_value_pop.inc"
+#include "triggers_values.inc"  // the Triggers pane's values: which pop-out each one opens, Tab, the value block's menu
 #include "views_unit_props.inc"
 #include "views_location_props.inc"
 #include "views_text_prompt.inc"

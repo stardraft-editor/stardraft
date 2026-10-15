@@ -11,6 +11,12 @@ void sdlMapPageChanged();  // (sdl_map_pages.inc: the page's change goes into th
 class SdlClassicTrigPage;
 SdlClassicTrigPage* gSdlTrigPage = nullptr;  // the page that shows (its model is the copy's)
 CtValueView* gSdlCtValueView = nullptr;      // the number pop-out while it is open
+
+// A snapshot's dialog (the number or text pop-out): in the middle of the window, as the dialog opens centered.
+void sdlCtShotDialog(std::unique_ptr<stardraft::kit::Dialog> dlg, std::unique_ptr<draw::View> content, const std::wstring& title, draw::Point size) {
+    const int rw = gRoot ? gRoot->width() : size.x, rh = gRoot ? gRoot->height() : size.y;
+    popShotTake(std::move(dlg), {(rw - size.x) / 2, (rh - size.y) / 2}, size, title, std::move(content));
+}
 CtTextView* gSdlCtTextView = nullptr;        // the text pop-out while it is open
 
 // The names the lists show and the search matches (the map's units, locations, switches and forces; the page's strings).
@@ -77,8 +83,14 @@ public:
     // The pickers open as the program's pop-out windows (core/views_list_pick.inc: runListPick), at the place in the window.
     bool pickOne(const std::wstring& title, std::vector<ListPickItem> items, const std::string& current, const draw::View& from, draw::Point at,
                  std::string& out) override {
-        ListPickView v(title, std::move(items), current);
         const draw::Point o = from.origin();
+        if (gPopShot.wanted) {  // (a snapshot: the picker shows in the picture, sdl_popshot.inc)
+            auto v = std::make_unique<ListPickView>(title, std::move(items), current);
+            const draw::Point size = v->outerSize();
+            popShotTake(std::move(v), {o.x + at.x, o.y + at.y}, size);
+            return false;
+        }
+        ListPickView v(title, std::move(items), current);
         if (!runListPick(v, {o.x + at.x, o.y + at.y})) return false;
         out = v.result();
         return true;
@@ -93,9 +105,28 @@ public:
         return true;
     }
     bool editNumber(const std::wstring& title, const std::wstring& label, const std::wstring& current, std::wstring& out) override {
+        if (gPopShot.wanted) {  // (a snapshot: the dialog shows in the picture, in the middle of the window)
+            auto view = std::make_unique<CtValueView>(label, current);
+            auto dlg = std::make_unique<stardraft::kit::Dialog>();
+            dlg->setContent(*view);
+            std::vector<stardraft::kit::DialogButton> buttons;
+            buttons.push_back({tr(L"Set"), kValueOk, true, false, false, valueLayout::kButtonW});
+            buttons.push_back({tr(L"Cancel"), kValueCancel, false, true, false, valueLayout::kButtonW});
+            dlg->setButtons(std::move(buttons));
+            dlg->setInsets({12, 8, 15, 16, 0, 9});
+            sdlCtShotDialog(std::move(dlg), std::move(view), title, {scale(valueLayout::kDialogW), scale(valueLayout::kDialogH)});
+            return false;
+        }
         return gRoot && runValueDialog(*gRoot, title, label, current, out, gSdlCtValueView) == kValueOk;
     }
     bool editText(const std::wstring& title, const std::wstring& label, std::string& text) override {
+        if (gPopShot.wanted) {
+            auto view = std::make_unique<CtTextView>(label, text);
+            auto dlg = std::make_unique<stardraft::kit::Dialog>();
+            ctTextDialogParts(*dlg, *view);
+            sdlCtShotDialog(std::move(dlg), std::move(view), title, {scale(textLayout::kDialogW), scale(textLayout::kDialogH)});
+            return false;
+        }
         return gRoot && runTextDialog(*gRoot, title, label, text, gSdlCtTextView) == kValueOk;
     }
     int editBlock(BatchHost& bh, ClassicBatch& b, bool editing) override { return gRoot ? runBatchDialog(*gRoot, bh, b, editing, gCtBatchView) : kBatchCancel; }
@@ -145,6 +176,7 @@ public:
     CtListView& triggers() { return triggers_; }
     CtListView& entries() { return entries_; }
     CtHeadView& head() { return head_; }
+    CtEditorView& editor() { return editor_; }
     CtEditorView& editorView() { return editor_; }
     int menuWidth() const { return menuW_; }
     int preferredWidth() const { return scale(960); }
@@ -319,6 +351,17 @@ void SdlCtPageHost::menu(const draw::View& from, draw::Point at, const std::vect
 
 // --classictrig trigger:kind:entry (the trigger's number in the map, from 1; kind 0 a condition, 1 an action; the entry
 // from 0): the open page selects it, for a snapshot.
+// --classictrig trigger:kind:entry:value (after a frame): value `value` of the entry is clicked in the editor, and its
+// pop-out (a list, the number or the text dialog) shows in the picture (sdl_popshot.inc).
+void sdlClassicTrigPopShot(const std::string& spec) {
+    int t = 0, kind = 0, entry = -1, param = -1;
+    if (!gSdlTrigPage || std::sscanf(spec.c_str(), "%d:%d:%d:%d", &t, &kind, &entry, &param) < 4 || param < 0) return;
+    const draw::View* field = gSdlTrigPage->editor().field(param);
+    popShotOpen([param, field] {
+        if (field) ctValueClick(gSdlTrigHost, param, *field, {0, 0, field->width(), field->height()});
+        else ctValuePopout(gSdlTrigHost, param);
+    });
+}
 void sdlClassicTrigSelect(const std::string& spec) {
     int t = 0, kind = 0, entry = -1;
     if (!gSdlTrigPage || std::sscanf(spec.c_str(), "%d:%d:%d", &t, &kind, &entry) < 1) return;
