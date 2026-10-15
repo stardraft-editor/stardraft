@@ -1,6 +1,6 @@
 // The start page on this system (core/views_start.inc: StartView). It shows in the Map workspace while no map is open. Its
-// recent lists are the core's (gRecentMaps, gRecentProjects, saved in the settings); a recent map opens as on the File
-// menu; the cards start the New page, which is not on this system yet. Included by main_sdl.cpp after sdl_menus.inc.
+// recent lists are the core's (gRecentMaps, gRecentProjects, saved in the settings); a recent map or project opens as on
+// the File menu; the cards start the New page (sdl_new_page.inc). Included by main_sdl.cpp after sdl_menus.inc.
 
 #include <ctime>
 #include <cwchar>
@@ -27,10 +27,7 @@ std::wstring startDateSdl(const fs::path& p) {
 // Makes the page's callbacks (the host's part of StartView). Called once, when the root view is made.
 void initStartPage() {
     gStartView.onCard = [](int kind) { openNewPageSdl(kind); };
-    gStartView.onOpenRecent = [](bool project, size_t i) {
-        if (project) setMessage(L"Projects are not on this system yet");
-        else command(ID_RECENT_MAP + int(i));
-    };
+    gStartView.onOpenRecent = [](bool project, size_t i) { command((project ? ID_RECENT_PROJECT : ID_RECENT_MAP) + int(i)); };
     gStartView.onRemoveRecent = [](bool project, size_t i) {
         auto& list = project ? gRecentProjects : gRecentMaps;
         if (i >= list.size()) return;

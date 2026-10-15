@@ -28,7 +28,7 @@ public:
         prefs::flag(L"CheckUpdates", flag), v.checkUpdates = flag;
         int crash = 0;
         prefs::number(L"CrashReports", crash, 0, 2), v.crashReports = crash;
-        v.projectsFolder = sdlProjectsFolder().make_preferred().wstring();
+        v.projectsFolder = defaultProjectsFolder().make_preferred().wstring();
     }
     void command(int id) override { ::command(id); }  // (the menu's command: the same path as the menu)
     void setAccent(int) override {}                    // (no accents on this system)
@@ -68,7 +68,7 @@ void OptionsProgramSdl::browseWorkingFolder() { setMessage(shellTr(L"Choosing a 
 void OptionsProgramSdl::useDefaultWorkingFolder() {
     gProjectsFolder.clear();
     saveRecent();
-    setMessage(shellTr(L"New projects go to ") + sdlProjectsFolder().make_preferred().wstring());
+    setMessage(shellTr(L"New projects go to ") + defaultProjectsFolder().make_preferred().wstring());
     gOptionsView.invalidate();
 }
 

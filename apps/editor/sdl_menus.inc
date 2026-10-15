@@ -94,11 +94,17 @@ bool sdlRuns(int id) {
     case ID_SCEN_CLASSICTRIG:
     case ID_FILE_NEW:  // the New page (sdl_new_page.inc) and the program options / feedback (sdl_options.inc)
     case ID_PROJ_NEW:
+    case ID_PROJ_OPEN:  // the project commands (sdl_project.inc)
+    case ID_PROJ_FROMMAP:
+    case ID_PROJ_ADDSCRIPT:
+    case ID_PROJ_FOLDER:
+    case ID_PROJ_SETTINGS:
     case ID_OPT_WINDOW:
     case ID_HELP_FEEDBACK: return true;
     default: break;
     }
     if (id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) return true;
+    if (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax) return true;
     return gCommandIds.count(id) != 0;  // the Map workspace's table (registerMapCommands)
 }
 
@@ -312,9 +318,12 @@ void confirmReplace(std::function<void()> then) {
 
 // Runs a command by its id: the core's command path first (the table, the recent lists, the checks of the tab's mode),
 // then the commands the core leaves to the shell.
+bool sdlProjectCommand(int id);  // (sdl_project.inc: Open project, New EUD project, Add a script, the folder, the settings)
 void command(int id) {
-    if (id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) return confirmReplace([id] { commandPortable(gState, id); });
+    if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax))
+        return confirmReplace([id] { commandPortable(gState, id); });
     if (commandPortable(gState, id)) return;
+    if (sdlProjectCommand(id)) return;
     switch (id) {
     case ID_FILE_OPEN: confirmReplace([] {
             showFileDialog(false, [](const fs::path& p) {

@@ -8,6 +8,11 @@ bool trigUnitPickClick(float, float) { return false; }
 // The Triggers workspace's pane is Win32-only (main.cpp): its zoom has nothing to draw again here (core/dock_prefs.inc).
 void trigPaneRepaint() {}
 
+// The Triggers workspace (main.cpp) is Win32-only: a line of the triggers' code names no trigger here, and no block shows
+// (epTrace's report on the Project page names the script's line and opens the script instead; core/project_page.inc).
+std::wstring trigCodeLineName(int) { return L""; }
+bool trigShowCodeLine(int) { return false; }
+
 // The Data workspace's Strings tab (data_extras.inc, gExtras) is Win32-only: no project string names a unit here.
 std::wstring projectUnitName(int) { return L""; }
 
@@ -20,6 +25,7 @@ void showFeedbackSdl(const std::wstring& on);  // (sdl_options.inc: Options > Re
 void previewStopSdl();  // (sdl_files.inc: a sound that plays stops when the Files workspace is left)
 void briefingStopSdl();  // (sdl_briefing.inc: the preview stops when the Briefing workspace is left)
 bool sdlWorkspacePage(Workspace w);  // (sdl_map_pages.inc: the page of a map page workspace opens; false: none does)
+void sdlProjectShown();  // (sdl_project.inc: the Project page reads the project's scripts again)
 void setWorkspace(Workspace w) {
     if (w == Workspace::Assets) w = Workspace::Files;  // Assets is part of Files
     if (w != Workspace::Files) previewStopSdl();
@@ -34,6 +40,7 @@ void setWorkspace(Workspace w) {
     // A map page: its view shows (made from the tab's working copy); another workspace: the page goes (the copy stays).
     if (!sdlWorkspacePage(w) && (w == Workspace::Properties || w == Workspace::Players || w == Workspace::ClassicSettings || w == Workspace::ClassicTriggers)) w = Workspace::Map;
     gWorkspace = w;
+    if (w == Workspace::Project) sdlProjectShown();
     shellStatusChanged();  // the map's parts show in Map only
     shellRelayout();
     shellMenusChanged();  // Edit's items follow the workspace (and with them Ctrl+C / X / V)
