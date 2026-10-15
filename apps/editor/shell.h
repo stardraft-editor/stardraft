@@ -51,6 +51,8 @@ void shellRendererSources();
 void shellRedrawTabs();
 void shellInvalidateTabs();
 void shellInvalidateWorkspaceBar();
+// The renderer loads the unit images again (the map's unit graphics changed: their glows and remapping).
+void shellRendererReloadImages();
 // The side bar's items are made now (Ctrl+1 to Ctrl+9 read them: railItemId).
 void shellRailUpdateNow();
 // The mouse over the map view, in its pixels; false when it is not over the map (Paste puts a location's copy in the

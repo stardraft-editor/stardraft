@@ -28,7 +28,7 @@ the value pop-outs of the Triggers workspace, the game text colors, the message 
 | `shellSaveChanges(true)` | False: Save in the save question of a new project stops the close, and the project is not saved. | `saveUnsavedProject` (asks where the project goes, then moves it there). Open. |
 | `shellModeWindows` | Nothing (the SDL layout shows the mode's panes itself). | Shows the filter, the list, the section box and the palette of the mode. No gap. |
 | `shellShowRail` | Nothing: the rail always shows. | Shows or hides the rail. Open (small). |
-| `shellForgetAnims` | Nothing: the SDL map has no unit animations. | Clears the animations. See "The map view". |
+| `shellForgetAnims` | Was nothing (the SDL map had no unit animations). | Clears the animations. Done: both clear the core's animations (`core/map_scene.inc`). |
 | `shellCodePageText` | UTF-8. | The system's ANSI code page (a map's legacy strings). Open: a Korean or European map's old text shows wrong. |
 | `shellRunPopout` | A click outside does not close the pop-out (Esc and its buttons do). | A click outside closes it. Open. |
 | `shellUiFontLfHeight`, `shellTrackMouseLeave`, `shellUiIconMask`, `shellLegacy*`, `shellMapFileOpened` | Fixed values or nothing. | Win32-only things (the LOGFONT height, the registry of old builds, the file association). No gap. |
@@ -48,25 +48,29 @@ list is gray.
 | File > Quick open | Done (the core ran it; the item was gray). |
 | Help > Report an issue on GitHub | Done (`issueNewUrl`, `core/feedback_send.inc`). |
 | The keys 1 to 0 (the player), V, B, A, F (the tools), Ctrl+1 to Ctrl+9 (the rail's items), Ctrl+Shift+Z | Done: `kProgramKeys` in `core/map_edit_commands.inc` is the key table of both programs (the Windows accelerators are made from it). Ctrl+2 is now the rail's second item on SDL too (Map data in a classic map), as on Windows. |
-| View > Show town areas (and the walk and path overlays) | Open: the command runs, but the SDL map does not draw the overlays (`addPathOverlays`). |
+| View > Show town areas (and the walk and path overlays) | Done: the core's scene draws them (see "The map view"). |
 | Help > Check for updates; Options > Look for updates, Crash reports | The Windows SDL work stream. |
 | Options > Maps (.scm and .scx open with StarDraft 2) | Windows only. |
 | Edit > Undo, Redo: gray when there is nothing to undo | Open (small): the Windows rule uses `dataCanUndo`, which is in main.cpp. |
 
 ## The map view
 
-`sdl_main_view.inc`'s `buildMapScene` draws the terrain and the units only. The Windows `buildScene` (main.cpp)
-also draws, in this order: the grid (View > Show grid, Grid size), the pathing overlays, the doodads' overlays and
-the sprites (View > Layers), the units with their overlays, shadows, add-on connectors, turrets and idle animations,
-a moved selection in red where it does not fit, the locations (View > Show locations; their names, inverted ones in
-red, the selected one's handles), the selection circles, the terrain selection, the ranges (View > Show ranges), the
-symmetry axes, the paste ghosts, the unit, sprite and doodad to place (with the doodad's tiles), the Rectangle mode's
-tiles, the brush and the spray area. The layers (View > Layers: no terrain, or no doodad tiles) also change the
-terrain that is sent to the renderer (`renderNow`).
+Before the sweep, `sdl_main_view.inc`'s `buildMapScene` drew the terrain and the units only. The Windows
+`buildScene` (main.cpp) also draws, in this order: the grid (View > Show grid, Grid size), the pathing overlays, the
+doodads' overlays and the sprites (View > Layers), the units with their overlays, shadows, add-on connectors, turrets
+and idle animations, a moved selection in red where it does not fit, the locations (View > Show locations; their
+names, inverted ones in red, the selected one's handles), the selection circles, the terrain selection, the ranges
+(View > Show ranges), the symmetry axes, the paste ghosts, the unit, sprite and doodad to place (with the doodad's
+tiles), the Rectangle mode's tiles, the brush and the spray area. The layers (View > Layers: no terrain, or no doodad
+tiles) also change the terrain that is sent to the renderer (`renderNow`).
 
-Open (large): move `buildScene` and its helpers (`addImage`, `addUnitSprites`, the animations, `rangesScene`,
-`tilesScene`, `diamondOutline`, `wrapLocationName`, `playerRgba`, the map's unit graphics) into the core, and let
-`drawMapFrame` use it.
+Done: `buildScene` and its helpers (`addImage`, `addUnitSprites`, the animations, `rangesScene`, `tilesScene`,
+`diamondOutline`, `wrapLocationName`, `playerRgba`, the map's unit graphics of a project, the layers' terrain, and the
+title and status bar after a frame: `mapFrameDone`) are in `core/map_scene.inc`; both programs draw it. The SDL
+program's snapshots wait until the map's sprites are loaded (`imagesPending`). Snapshots: map-scene-grid,
+map-scene-select.
+
+Open: the map view's cursor (the move and resize cursors: main.cpp `mapCursorAt`) is the arrow on SDL.
 
 ## Other surfaces
 
@@ -74,5 +78,5 @@ Open (large): move `buildScene` and its helpers (`addImage`, `addUnitSprites`, t
 |---|---|
 | The top tool bar (main.cpp `TopBarView`: New, Open, Save, Undo, Redo, Cut, Copy, Paste, Delete, Quick search, Build, Report feedback) | Open: the SDL top bar has the menus and the modes only. Build and Report feedback are in the menus. |
 | Map data (a classic map's Data page): the button after the entry's name | Shows a missing glyph (a box with a question mark) on Linux. Open. |
-| The snapshots (`main_sdl.cpp`) | `--key <key>` presses a key in the window after the first frame (new in the sweep; `tools/sdl_snapshots.py`: map-key-copy, map-key-rail). |
+| The snapshots (`main_sdl.cpp`) | `--key <key>` presses a key in the window after the first frame (new in the sweep; `tools/sdl_snapshots.py`: map-key-copy, map-key-rail, map-scene-grid, map-scene-select). |
 | The status bar, the Log, the tabs, the rail, the minimap, the palettes, the tool strip, the map pages, Data, Triggers, Briefing, Files, Project, the New page, the start page, Program options, About, the feedback dialog | On SDL. |

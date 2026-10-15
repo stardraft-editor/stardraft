@@ -240,7 +240,12 @@ void shellInvalidateTabs() {
 void shellInvalidateWorkspaceBar() {
     if (gRoot) gRoot->invalidate();
 }
-void shellForgetAnims() {}  // (no unit animations are kept apart from the renderer's)
+void shellForgetAnims() {  // (the units' idle animations: core/map_scene.inc)
+    gAnims.clear(), gAnimsFor = nullptr;
+}
+void shellRendererReloadImages() {
+    if (gRenderer) gRenderer->reloadImages();
+}
 void shellRailUpdateNow() {}  // (the rail's items are made each time it paints, and it paints each frame)
 bool shellViewMouse(int& x, int& y) {  // (the map view keeps the mouse in the state: sdl_main_view.inc)
     if (!gState.mouseIn) return false;
