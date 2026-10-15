@@ -54,7 +54,7 @@ void shellSprayTimer(bool on) {
     }
 }
 void shellTrackMouseLeave() {}  // (the host sends the leave of a view that the mouse leaves)
-bool shellCtrlOrShiftDown() { return (SDL_GetModState() & (SDL_KMOD_CTRL | SDL_KMOD_SHIFT)) != 0; }
+bool shellCtrlOrShiftDown() { return (SDL_GetModState() & (SDL_KMOD_CTRL | SDL_KMOD_SHIFT | SDL_KMOD_GUI)) != 0; }  // (Cmd: macOS's Ctrl)
 bool shellClearFilter() {  // the Locations filter is cleared (the Win32 filter's own rule: it is always there)
     gFilterSdl.setText(L"");
     return true;

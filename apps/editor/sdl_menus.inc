@@ -23,6 +23,15 @@ constexpr unsigned kShortcutCtrl = draw::kSuper;
 constexpr unsigned kShortcutCtrl = draw::kCtrl;
 #endif
 
+// A shortcut as the menus show it: on macOS Ctrl is Cmd and Alt is Option (Ctrl+Shift+S is Cmd+Shift+S there).
+std::wstring shortcutText(std::wstring s) {
+#ifdef __APPLE__
+    for (const auto& [from, to] : {std::pair<std::wstring, std::wstring>{L"Ctrl+", L"Cmd+"}, {L"Alt+", L"Option+"}})
+        for (size_t at = s.find(from); at != std::wstring::npos; at = s.find(from, at + to.size())) s.replace(at, from.size(), to);
+#endif
+    return s;
+}
+
 // The view system's key of a shortcut's key name ("S", "0", "+", "Del", "F2"); false when the name is no key.
 bool keyOfChord(const std::string& name, draw::Key& out) {
     if (name.size() == 1) {
@@ -55,13 +64,14 @@ bool keyOfChord(const std::string& name, draw::Key& out) {
     return true;
 }
 
-// On macOS the Ctrl key is no shortcut's key (a shortcut's Ctrl is Cmd there): Ctrl+T is not T.
-constexpr bool kCtrlIsShortcut = kShortcutCtrl == draw::kCtrl;
-
+// On macOS the Control key is no shortcut's key (a shortcut's Ctrl is Cmd there): Control+T is not T. (The host gives
+// Cmd as kSuper and also as kCtrl, so that the views' Ctrl keys are Cmd: the Control key itself is SDL's modifier state.)
 bool chordIs(const stardraft::KeyChord& c, const draw::KeyEvent& e) {
     draw::Key k{};
     if (!keyOfChord(c.key, k) || k != e.key) return false;
-    if (!kCtrlIsShortcut && (e.mods & draw::kCtrl)) return false;
+#ifdef __APPLE__
+    if (SDL_GetModState() & SDL_KMOD_CTRL) return false;
+#endif
     return c.ctrl == ((e.mods & kShortcutCtrl) != 0) && c.shift == ((e.mods & draw::kShift) != 0) && c.alt == ((e.mods & draw::kAlt) != 0);
 }
 
@@ -180,7 +190,7 @@ std::vector<kit::MenuItem> toKit(const MenuModel& items) {
             else k.sub = toKit(it.items);
             break;
         case MenuItem::Kind::Command: {
-            k.label = accessFree(it.label), k.shortcut = it.shortcut;
+            k.label = accessFree(it.label), k.shortcut = shortcutText(it.shortcut);
             const stardraft::Command* tc = tableCommand(it.id);
             k.checked = it.checked || (tc && tc->isChecked());
             k.enabled = !it.grayed && sdlEnabled(it.id);
