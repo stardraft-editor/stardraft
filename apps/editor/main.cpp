@@ -5395,40 +5395,7 @@ LRESULT CALLBACK dataListProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
-std::wstring fieldValueText(const DatField& f, uint32_t v) {
-    if (!f.flags.empty()) {
-        wchar_t b[16];
-        std::swprintf(b, 16, f.size == 4 ? L"0x%08X" : f.size == 2 ? L"0x%04X" : L"0x%02X", v);
-        return b;
-    }
-    return std::to_wstring(v);
-}
 
-// The .dat a field's value is an entry of ("icons" for command icons); "" when it is not a reference.
-std::string fieldRefDat(const DatField& f) {
-    if (!f.ref.empty()) return f.ref;
-    if (f.name == "Icon" || f.name == "Highlight") return "icons";
-    if (f.name == "Iscript ID") return "iscript";  // named (EUD Editor's list), not a .dat
-    if (f.name == "Rank/Sublabel") return "ranks";  // stat_txt.tbl's titles, not a .dat
-    return "";
-}
-bool fieldIsDropdown(const DatField& f) { return f.flags.empty() && (!fieldRefDat(f).empty() || !f.valueNames.empty()); }
-
-// A yes/no value: a checkbox. These are the bytes the game reads as bools (OpenBW data_types.h, and how
-// bwgame.h tests them); any value not 0 is yes. By .dat, the field indexes:
-//   units 6 has_shield, 57 is_broodwar; upgrades 11 is_broodwar; techdata 9 the Brood War flag (OpenBW reads it
-//   with the byte before it and does not use it; StarEdit reads it as yes/no); sprites 3 visible;
-//   images 1 has_directional_frames, 2 is_clickable, 3 has_iscript_animations, 4 always_visible;
-//   orders 1 targets_enemies, 4 valid_for_turret, 6 can_be_interrupted, 7 unk7 (an order in the queue waits),
-//   8 can_be_queued, 10 can_be_obstructed.
-bool fieldIsBool(const std::string& dat, const DatField& f) {
-    static const std::map<std::string, std::set<int>> kBools = {
-        {"units", {6, 57}},   {"upgrades", {11}},           {"techdata", {9}},
-        {"sprites", {3}},     {"images", {1, 2, 3, 4}},     {"orders", {1, 4, 6, 7, 8, 10}},
-    };
-    const auto it = kBools.find(dat);
-    return it != kBools.end() && f.flags.empty() && f.size == 1 && it->second.count(f.index);
-}
 
 // A number value's box: up and down arrows at its right, shown under the mouse.
 RECT numberArrows(RECT vb) { return {vb.right - scale(18), vb.top, vb.right, vb.bottom}; }
@@ -5437,7 +5404,6 @@ DataFormScale dataFormScale() {
     return {scale(2), scale(8), scale(4), scale(7), scale(110), scale(320), scale(190), scale(22), scale(14)};
 }
 RECT winRect(draw::Rect r) { return {r.left, r.top, r.right, r.bottom}; }
-bool fieldIsNumber(const std::string& dat, const DatField& f) { return f.flags.empty() && !fieldIsDropdown(f) && !fieldIsBool(dat, f); }
 
 // units.dat Rank/Sublabel: the title under the unit's name in the status panel, from stat_txt.tbl ("None" for 0).
 std::wstring rankName(uint32_t v) {
@@ -9241,14 +9207,6 @@ int gDataSplitGrab = -1;  // dragging the list's edge: where it was grabbed
 
 int dataTabsHeight() { return scale(34); }
 
-// A .dat's tab title: "units" -> "Units", "techdata" -> "Tech data", "sfxdata" -> "SFX data".
-std::wstring datTitle(const std::string& name) {
-    static const std::map<std::string, std::wstring> titles = {
-        {"units", L"Units"},     {"weapons", L"Weapons"},   {"flingy", L"Flingy"},     {"sprites", L"Sprites"},  {"images", L"Images"},
-        {"upgrades", L"Upgrades"}, {"techdata", L"Tech data"}, {"orders", L"Orders"}, {"sfxdata", L"SFX data"}, {"portdata", L"Port data"}};
-    auto it = titles.find(name);
-    return it != titles.end() ? it->second : widen(name);
-}
 
 void layoutData() {
     if (!gDataWnd) return;

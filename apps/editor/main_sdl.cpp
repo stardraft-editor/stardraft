@@ -91,6 +91,7 @@ bool gSilent = false;
 #include "sdl_new_page.inc"  // the New page (core/views_new_page.inc)
 #include "sdl_options.inc"  // Program options and Report feedback (core/views_options.inc, core/views_feedback.inc)
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
+#include "sdl_data.inc"  // the Data workspace (the model is core/data_list.inc and core/views_data*.inc; the tables are the stock .dat files)
 #include "shell_sdl.inc"
 
 namespace {
@@ -187,7 +188,7 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
-    std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg;
+    std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg;
     int width = 1600, height = 1000;
     float scaleArg = 0;
     for (int i = 1; i < argc; ++i) {
@@ -199,6 +200,7 @@ int main(int argc, char** argv) {
         else if (a == "--install") installArg = next();
         else if (a == "--mode") modeArg = next();  // a mode's name (units, terrain, doodads, sprites, locations), for a snapshot
         else if (a == "--workspace") workspaceArg = next();  // a workspace's name (map, data, triggers, project...), for a snapshot
+        else if (a == "--data") dataArg = next();  // tab:entry (units:0, images:239, strings:5): the Data workspace opens it, for a snapshot
         else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
         else if (a == "--dialog") dialogArg = next();  // options or feedback: that window's view is the snapshot (--size its size)
         else if (a == "--silent") gSilent = true;
@@ -240,6 +242,7 @@ int main(int argc, char** argv) {
         registerWorkspaceView(Workspace::Files, gFilesPage);  // the Assets / Files workspace (sdl_files.inc)
         registerMapPages();  // the map pages' workspaces (sdl_map_pages.inc)
         registerWorkspaceView(Workspace::Briefing, gSdlBriefing);  // the Briefing workspace (sdl_briefing.inc)
+        registerWorkspaceView(Workspace::Data, gSdlData);  // the Data workspace (sdl_data.inc)
         initStartPage();  // the start page's callbacks (sdl_start.inc)
         MainView root;
         gRoot = &root;
@@ -247,7 +250,7 @@ int main(int argc, char** argv) {
         host.setQuitRequest(requestQuit);  // the window's close and the system's quit ask about unsaved changes first
         host.setBeforePump(runPosted);  // the posted work runs outside the frame hook (a dialog it opens pumps frames)
         host.setFrameHook([](SDL_GPUCommandBuffer* cmd) { drawMapOfRoot(cmd); });
-        if (!mapArg.empty()) openMap(widen(mapArg), true);
+        if (!mapArg.empty()) openAny(widen(mapArg));  // a map, or a project (.eds, .stardraft, its folder): as File > Open does
         for (int m = 0; !modeArg.empty() && m < kModeCount; ++m) {
             std::string name = narrow(kModeNames[m]);
             std::transform(name.begin(), name.end(), name.begin(), [](unsigned char ch) { return char(std::tolower(ch)); });
@@ -258,6 +261,7 @@ int main(int argc, char** argv) {
                                                       "briefing", "files", "props", "players", "classictriggers", "classic"};
         for (int w = 0; !workspaceArg.empty() && w < int(sizeof kWorkspaceNames / sizeof kWorkspaceNames[0]); ++w)
             if (workspaceArg == kWorkspaceNames[w]) setWorkspace(Workspace(w));
+        if (!dataArg.empty()) sdlDataSelect(dataArg);
         if (newPageArg == "classic" || newPageArg == "eud") openNewPageSdl(newPageArg == "eud" ? 1 : 0);
         if (!gDataOk) setMessage(widen(gDataError));
         std::printf("stardraft_editor: GPU %s, %s\n", renderer.driver(), gDataOk ? "game data" : gDataError.c_str());
