@@ -149,8 +149,10 @@ bool sdlOptionsCommand(int id) {
         prefs::setText(L"Language", gLanguage);
         if (sdlLanguageChosen(gLanguage) == gUiLang) break;  // the language in use
         gOptionsView.invalidate();  // its Restart now button
-        if (gRoot && shellAskYesNo(shellTr(L"StarDraft 2 shows the new language after a restart. Restart now? Your open maps and projects open again."),
-                                   shellTr(L"Language"), shellTr(L"Yes"), shellTr(L"No")))
+        // (the core message box, as the Windows program's MB_YESNO | MB_ICONQUESTION: Yes has the focus)
+        if (gRoot && !gNoBoxes &&
+            msgbox::ask(*gRoot, shellTr(L"Language"), shellTr(L"StarDraft 2 shows the new language after a restart. Restart now? Your open maps and projects open again."),
+                        {shellTr(L"&Yes"), shellTr(L"&No")}, msgbox::Icon::Question) == 0)
             restartProgramSdl();
         else setMessage(L"The language changes when StarDraft 2 starts again");
         break;

@@ -11,8 +11,6 @@
 // sdl_data.inc (SdlBarFrame); registerWorkspaceView(Workspace::Triggers, gSdlTriggers) puts it in the window, and
 // --trig <root>:<index>[:<child>...] and --trigsel <action> select a node and a block for a snapshot.
 
-#include "message_box.h"  // apps/kit: the delete question (trigAskDelete); this file includes it, so it does not depend on main_sdl.cpp's list
-
 void sdlTrigNotHere(const wchar_t* what) { setMessage(std::wstring(what) + L": not on this system yet"); }
 
 // --- The block help page (core/views_triggers_help.inc: BlockHelpView) ----------------------------------------------
@@ -278,8 +276,13 @@ bool trigPaneFocused() { return gSdlTrigPane.hasFocus(); }
 bool trigTreeFocused() { return sdlTrigFocusIn(gTrigTree); }  // (the tree, or its rename field)
 void trigFocusTree() { gTrigTree.focus(); }
 void trigFocusPane() { gSdlTrigPane.focus(); }
+// The question before a node is deleted: the core message box, as the Windows program's MB_YESNO | MB_ICONQUESTION |
+// MB_DEFBUTTON2 with the names Delete and Cancel (Cancel has the focus).
+msgbox::Box sdlTrigDeleteBox(const std::wstring& question) {
+    return msgbox::makeBox(question, {shellTr(L"&Delete"), shellTr(L"Cancel")}, msgbox::Icon::Question, 1);
+}
 bool trigAskDelete(const std::wstring& question) {
-    return gRoot && kit::messageBox(*gRoot, shellTr(L"Delete"), question, {shellTr(L"Delete"), shellTr(L"Cancel")}, kit::MessageIcon::Question) == 0;
+    return gRoot && msgbox::runMessageBox(*gRoot, shellTr(L"Delete"), sdlTrigDeleteBox(question), nullptr) == 0;
 }
 bool trigPickFromPane(const std::wstring& title, std::vector<ListPickItem> items, draw::Point at, std::string& out) {
     ListPickView v(title, std::move(items), "");

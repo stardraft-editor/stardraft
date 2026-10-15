@@ -240,6 +240,7 @@ void shellLegacyNames(const std::wstring& sub, std::vector<std::wstring>& out) {
 }
 void shellLegacyRemove(const std::wstring& sub, const std::wstring& value) { RegDeleteKeyValueW(HKEY_CURRENT_USER, legacyKeyPath(sub).c_str(), value.c_str()); }
 void shellErrorBox(const std::wstring& text, const std::wstring& title) { themedMessageBox(app.main, text.c_str(), title.c_str(), MB_ICONERROR); }
+void shellWarningBox(const std::wstring& text, const std::wstring& title) { themedMessageBox(app.main, text.c_str(), title.c_str(), MB_ICONWARNING); }
 stardraft::draw::Canvas* shellMeasureCanvas() { return nullptr; }
 int shellAskUnapplied(const std::wstring& text, const std::wstring& title) {
     const int r = themedMessageBox(app.main, text.c_str(), title.c_str(), MB_YESNOCANCEL | MB_ICONQUESTION, {L"&Apply", L"Do &not apply", L"Cancel"});

@@ -6,7 +6,6 @@
 // Included by main_sdl.cpp after sdl_pending.inc, before shell_sdl.inc.
 
 #include "menu.h"
-#include "message_box.h"
 
 // The menus are made again on the UI thread when the state changed (shellMenusChanged) and no menu is open.
 bool gMenusDirty = true;
@@ -287,9 +286,15 @@ bool saveTo(const fs::path& path) {
 
 // File > Save (the map's own file, or a new one when it has none) and Save as (always asks). `done` gets whether the map
 // was saved; it runs later when a dialog answers.
+bool sdlSaveUnsavedProject();  // (shell_sdl.inc: Save for an unsaved project, as on Windows)
 void saveOpenMap(bool as, std::function<void(bool)> done = {}) {
     if (!gState.ed || !gState.ed->isOpen()) {
         if (done) done(false);
+        return;
+    }
+    if (isUnsavedProject(activeProject())) {
+        const bool ok = sdlSaveUnsavedProject();
+        if (done) done(ok);
         return;
     }
     if (!as && !gState.ed->path().empty()) {
@@ -343,7 +348,6 @@ void confirmReplace(std::function<void()> then) {
 // Runs a command by its id: the core's command path first (the table, the recent lists, the checks of the tab's mode),
 // then the commands the core leaves to the shell.
 bool sdlProjectCommand(int id);  // (sdl_project.inc: Open project, New EUD project, Add a script, the folder, the settings)
-#include "message_box.h"  // apps/kit: Scenario > Check's box (kit::messageBox)
 void command(int id) {
     if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax))
         return confirmReplace([id] { commandPortable(gState, id); });
@@ -403,8 +407,8 @@ void command(int id) {
         const std::wstring problems = playabilityText();
         if (problems.empty()) setMessage(L"StarCraft can start this map");
         else if (gRoot)
-            kit::messageBox(*gRoot, shellTr(L"Check that StarCraft can start the map"), shellTr(L"StarCraft will not start this map:") + L"\r\n\r\n" + problems,
-                            {L"OK"}, kit::MessageIcon::Warning);
+            msgbox::ask(*gRoot, shellTr(L"Check that StarCraft can start the map"), shellTr(L"StarCraft will not start this map:") + L"\r\n\r\n" + problems,
+                        {L"OK"}, msgbox::Icon::Warning);
         return;
     }
     case ID_RECENT_CLEAR_MAPS:
