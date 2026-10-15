@@ -46,6 +46,7 @@
 #include "data_model.inc"
 #include "data_nav.inc"  // the Data workspace's pins, back and forward, clipboard, menus and entry pictures
 #include "data_pictures.inc"  // the Data pictures' model: the game's images, the image player, the timeline, the portraits
+#include "views_data_pictures.inc"  // the Data pictures on the Canvas: the image player, the timeline, the portrait (the SDL form's)
 #include "game_text_model.inc"
 #include "views_data_button_pop.inc"
 #include "views_game_text.inc"
