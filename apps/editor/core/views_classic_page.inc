@@ -274,7 +274,7 @@ inline void ctSetType(CtPageHost& h, uint8_t type) {
     else if (ClassicAction* a = ctModelAction(m)) *a = retypeClassicAction(*a, type);
     if (ClassicTrigger* t = ctModelSelectedMut(m)) t->pruneBlocks();  // a variable whose field the new type does not hold goes
     h.changed();
-    h.buildEditor();
+    h.selectEntry(m.kind, m.entry);  // (the page lays out again: the editor's height follows the new type's values)
 }
 // The selected entry's flag (2: Turn off, 4: Always show) on or off.
 inline void ctSetFlag(CtPageHost& h, uint8_t bit, bool on) {

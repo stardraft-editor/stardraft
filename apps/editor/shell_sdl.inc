@@ -240,7 +240,11 @@ void shellChooseInstallFolder() { setMessage(L"This is not on this system yet");
 // buttons do).
 void shellRunPopout(stardraft::draw::View& content, int x, int y, int w, int h, stardraft::draw::View* focus, const std::function<void()>& opened) {
     if (!gHost || !gRoot) return;
-    gHost->timer(1, [focus, opened] {  // (once the window shows)
+    // The timer does nothing once the pop-out is gone (runModal can return before its loop runs, and the content and
+    // its focus are the caller's).
+    auto alive = std::make_shared<bool>(true);
+    gHost->timer(1, [focus, opened, weak = std::weak_ptr<bool>(alive)] {  // (once the window shows)
+        if (weak.expired()) return;
         if (focus) focus->focus();
         if (opened) opened();
     });
