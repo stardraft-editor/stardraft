@@ -120,24 +120,6 @@ void loadDock() {
 }
 
 extern bool gSelfTest;
-double gOpenMs = 0;  // how long opening the file given on the command line took (perf:)
-// Start-up steps and when each was done (ms since the process was created), for perf:.
-std::vector<std::pair<const char*, double>> gStartMarks;
-bool gStartUp = true;  // false after the start-up: later opens add no marks
-void startMark(const char* what) {
-    if (!gStartUp) return;
-    // t0: the process creation (its age from the precise system clock), so the time before wWinMain is in the marks.
-    static const auto t0 = [] {
-        const auto now = std::chrono::steady_clock::now();
-        FILETIME created{}, x1{}, x2{}, x3{}, nowFt{};
-        if (!GetProcessTimes(GetCurrentProcess(), &created, &x1, &x2, &x3)) return now;
-        GetSystemTimePreciseAsFileTime(&nowFt);
-        const auto ft = [](FILETIME f) { return (uint64_t(f.dwHighDateTime) << 32) | f.dwLowDateTime; };
-        if (ft(nowFt) <= ft(created)) return now;
-        return now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double, std::micro>(double(ft(nowFt) - ft(created)) / 10.0));
-    }();
-    gStartMarks.push_back({what, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count()});
-}
 // Test runs (--selftest, --datashots, --screenshot) play no sound: the user may be at the computer.
 bool gSilent = false;
 SDL_AudioStream* openPlayback(const SDL_AudioSpec* spec) {
@@ -301,6 +283,9 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/views_rail.inc"  // the side rail (RailView; the instance is gRail below)
 #include "core/views_minimap.inc"  // the minimap (MinimapView, the terrain and the camera; the instance is gMinimap below)
 #include "core/views_tabs.inc"  // the document tabs (TabsView, docTitle, activateDoc, closeDoc, moveDoc; the instance is gTabs below)
+#include "core/startup.inc"  // the start-up marks (startMark, gStartMarks, gOpenMs)
+#include "core/names.inc"  // the names of the palette's entries and of a .dat's entries (paletteItemName, entryName)
+#include "core/title.inc"  // the window's title and the rail's state (updateTitle)
 int selectPalette(int value);
 void pickUnit(int v, bool add);
 // The forms without app: the Win32 TU's own (the state forms are in core/palette_tools.inc).
@@ -547,48 +532,9 @@ EudProject* activeProject();
 bool classicMode();
 void updateMenus();
 
-// When this .exe was built (its file's time): "built Oct 9 23:48", to tell builds apart.
-const std::wstring& buildStamp() {
-    static const std::wstring stamp = [] {
-        wchar_t path[MAX_PATH];
-        GetModuleFileNameW(nullptr, path, MAX_PATH);
-        WIN32_FILE_ATTRIBUTE_DATA fa{};
-        FILETIME local;
-        SYSTEMTIME st;
-        if (!GetFileAttributesExW(path, GetFileExInfoStandard, &fa) || !FileTimeToLocalFileTime(&fa.ftLastWriteTime, &local) || !FileTimeToSystemTime(&local, &st))
-            return std::wstring();
-        static const wchar_t* months[] = {L"Jan", L"Feb", L"Mar", L"Apr", L"May", L"Jun", L"Jul", L"Aug", L"Sep", L"Oct", L"Nov", L"Dec"};
-        wchar_t b[48];
-        std::swprintf(b, 48, L"built %s %u %02u:%02u", months[(st.wMonth + 11) % 12], st.wDay, st.wHour, st.wMinute);
-        return std::wstring(b);
-    }();
-    return stamp;
-}
-
 #include "github.inc"
 #include "crash.inc"
 
-void updateTitle() {
-    const std::wstring app_ = L"StarDraft 2 - v" + widen(STARDRAFT_VERSION_NAME);  // the brand and the version: "StarDraft 2 - v0.5.0.6"
-    std::wstring t = app_;
-    if (app.ed && app.ed->isOpen())
-        t = (gActive >= 0 ? docTitle(gActive) : std::wstring(L"Untitled")) + L" - " + app_;
-    if (!buildStamp().empty()) t += L"  (" + buildStamp() + L")";
-    SetWindowTextW(app.main, t.c_str());
-    if (app.tabs) InvalidateRect(app.tabs, nullptr, FALSE);
-    if (gWsBar) {
-        // The rail follows the tab: shown for a project, gone for a map.
-        static int railShown = -1;
-        const int rail = 1;  // always: Map and Briefing are there for every map
-        if (rail != railShown) {
-            railShown = rail;
-            ShowWindow(gWsBar, rail ? SW_SHOW : SW_HIDE);
-            shellRelayout();
-        }
-        InvalidateRect(gWsBar, nullptr, FALSE);
-    }
-    shellMenusChanged();  // the tab's mode (map or project) sets which commands are there
-}
 
 // --- Scene -----------------------------------------------------------------------------------------
 
@@ -2268,33 +2214,6 @@ std::wstring playabilityText() {
 
 void openMap(const std::wstring& path, bool switchToOpen);
 
-// The same file or folder, compared as text (case, slashes, a relative path): no disk access, as a network share can
-// make it wait.
-bool samePath(const fs::path& a, const fs::path& b) {
-    auto key = [](const fs::path& p) {
-        std::error_code ec;
-        const fs::path full = fs::absolute(p, ec);
-        std::wstring s = (ec ? p : full).lexically_normal().make_preferred().wstring();
-        std::transform(s.begin(), s.end(), s.begin(), ::towlower);
-        while (!s.empty() && s.back() == L'\\') s.pop_back();
-        return s;
-    };
-    return !a.empty() && !b.empty() && key(a) == key(b);
-}
-
-// The tab that has this project (its folder) or this map by itself open, or -1.
-int findOpenProject(const fs::path& folder) {
-    for (int i = 0; i < int(gDocs.size()); ++i)
-        if (!gDocs[size_t(i)].page && gDocs[size_t(i)].project && samePath(gDocs[size_t(i)].project->folder(), folder)) return i;
-    return -1;
-}
-int findOpenMap(const fs::path& path) {
-    for (int i = 0; i < int(gDocs.size()); ++i) {
-        const Editor* ed = docEditor(i);
-        if (ed && !gDocs[size_t(i)].page && !gDocs[size_t(i)].project && samePath(ed->path(), path)) return i;
-    }
-    return -1;
-}
 
 void triggersRefresh(const std::string& select);
 
@@ -2780,16 +2699,6 @@ void trigDuplicate();
 
 void dataCopySelected();
 void dataPasteSelected();
-
-// The commands that act on a map: a page tab (the New page, the start page) has none. The graphics quality (View >
-// High definition ... Carbot) is a program setting, not one of them.
-bool mapCommand(int id) {
-    return id == ID_FILE_SAVE || id == ID_FILE_SAVEAS || (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) ||
-           (id >= ID_VIEW_LOCATIONS && id <= ID_PATHSIZE_LARGE) || (id >= ID_MODE_TERRAIN && id <= ID_MODE_SPRITES) ||
-           (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 10) || id == ID_QUICKPICK || (id >= ID_PROJ_COMPILE && id <= ID_PROJ_FROMMAP) ||
-           (id >= ID_WS_MAP && id <= ID_WS_FILES) || (id >= ID_DOCK_MINI_LEFT && id <= ID_DOCK_TOOLS_RIGHT) || id == ID_SCEN_PLAYERS ||
-           id == ID_SCEN_CHECK || id == ID_SCEN_PROPS || id == ID_SCEN_CLASSIC || id == ID_SCEN_CLASSICTRIG || id == ID_VIEW_TRIGCODE;
-}
 
 void mapPageShowPlayers();  // map_pages.inc: the Map properties page, scrolled to players and forces
 // The options of the menus (View, Options, Edit) and the palette's view: kept in HKCU\Software\StarDraft\Settings,
@@ -3568,20 +3477,6 @@ std::vector<PaletteUnit> paletteItems() {
     return app.mode == Mode::Units ? paletteUnits() : out;
 }
 
-std::wstring paletteItemName(int v) {
-    if (!app.ed || v < 0) return L"";
-    if (app.mode == Mode::Terrain) {
-        const IsomTerrainTable* t = IsomTerrainTable::forEra(app.ed->era());
-        return t ? widen(t->terrainName(uint16_t(v))) : L"";
-    }
-    if (app.mode == Mode::Doodads) {
-        const DoodadType* d = app.ed->doodadTypes().find(uint16_t(v));
-        return d ? widen(app.ed->unitTypes().statText(d->groupString - 1u)) + L"  #" + std::to_wstring(v) : L"";
-    }
-    if (app.mode == Mode::Sprites) return entryName("sprites", v) + L"  #" + std::to_wstring(v);
-    const UnitType& t = app.ed->unitTypes()[uint16_t(v)];
-    return widen(t.name) + (t.subtitle.empty() ? L"" : L" (" + widen(t.subtitle) + L")");
-}
 
 // The section box: "All units" (doodads, sprites), then the list's sections in their order. Filled again when the
 // sections change (another mode or tileset); a section that is gone goes back to all.
@@ -5351,14 +5246,6 @@ int entryNameString(const std::string& dat, int e) {
     return 0;
 }
 
-// The name of an entry: units from stat_txt.tbl, the rest from the generated lists ("" when unnamed).
-std::wstring buttonSetName(int s);
-std::wstring entryName(const std::string& dat, int v) {
-    if (dat == "units") return unitDisplayName(v);
-    if (dat == "buttons") return v >= 0 && v < ButtonSets::kSets ? buttonSetName(v) : L"";
-    const auto& names = DatSchema::entryNames(dat);
-    return v >= 0 && v < int(names.size()) ? widen(names[size_t(v)]) : L"";
-}
 
 // Name of entry `v` of the .dat a reference points into: "None" past the last entry.
 std::wstring refName(const std::string& dat, uint32_t v) {
@@ -21928,7 +21815,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
         LocalFree(av);
         if (a1 == L"--send-crash") return crash::send(a2) ? 0 : 1;  // started by a crash: send its report, then stop
         crash::install();
-        crash::gBuild = narrow(buildStamp());
+        crash::gBuild = narrow(shellBuildStamp());
         DISPLAY_DEVICEW dd{sizeof dd};
         for (DWORD i = 0; EnumDisplayDevicesW(nullptr, i, &dd, 0); ++i)
             if (dd.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE) crash::gGpu = dd.DeviceString;

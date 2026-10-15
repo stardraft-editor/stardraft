@@ -18,6 +18,36 @@ void shellViewSize(int& w, int& h) {
     GetClientRect(app.view, &r);
     w = r.right, h = r.bottom;
 }
+std::chrono::steady_clock::time_point shellProcessStart() {
+    const auto now = std::chrono::steady_clock::now();
+    FILETIME created{}, x1{}, x2{}, x3{}, nowFt{};
+    if (!GetProcessTimes(GetCurrentProcess(), &created, &x1, &x2, &x3)) return now;
+    GetSystemTimePreciseAsFileTime(&nowFt);
+    const auto ft = [](FILETIME f) { return (uint64_t(f.dwHighDateTime) << 32) | f.dwLowDateTime; };
+    if (ft(nowFt) <= ft(created)) return now;
+    return now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double, std::micro>(double(ft(nowFt) - ft(created)) / 10.0));
+}
+std::wstring shellVersion() { return widen(STARDRAFT_VERSION_NAME); }
+// When this .exe was built (its file's time): "built Oct 9 23:48", to tell builds apart; empty when unknown.
+std::wstring shellBuildStamp() {
+    static const std::wstring stamp = [] {
+        wchar_t path[MAX_PATH];
+        GetModuleFileNameW(nullptr, path, MAX_PATH);
+        WIN32_FILE_ATTRIBUTE_DATA fa{};
+        FILETIME local;
+        SYSTEMTIME st;
+        if (!GetFileAttributesExW(path, GetFileExInfoStandard, &fa) || !FileTimeToLocalFileTime(&fa.ftLastWriteTime, &local) || !FileTimeToSystemTime(&local, &st))
+            return std::wstring();
+        static const wchar_t* months[] = {L"Jan", L"Feb", L"Mar", L"Apr", L"May", L"Jun", L"Jul", L"Aug", L"Sep", L"Oct", L"Nov", L"Dec"};
+        wchar_t b[48];
+        std::swprintf(b, 48, L"built %s %u %02u:%02u", months[(st.wMonth + 11) % 12], st.wDay, st.wHour, st.wMinute);
+        return std::wstring(b);
+    }();
+    return stamp;
+}
+void shellSetTitle(const std::wstring& title) { SetWindowTextW(app.main, title.c_str()); }
+bool shellHasRail() { return gWsBar != nullptr; }
+void shellShowRail(bool show) { ShowWindow(gWsBar, show ? SW_SHOW : SW_HIDE); }
 void shellMinimapSize(int& w, int& h) {
     RECT r;
     GetClientRect(app.minimap, &r);

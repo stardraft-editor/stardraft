@@ -32,6 +32,8 @@
 #include "../shell.h"
 #include "../res/ui_icons.h"
 #include "stardraft/commands.h"
+#include "stardraft/dat_edit.h"
+#include "stardraft/dat_extras.h"
 #include "stardraft/editor.h"
 #include "stardraft/eud_project.h"
 #include "stardraft/game_data.h"

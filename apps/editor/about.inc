@@ -43,7 +43,7 @@ struct AboutBox final : stardraft::draw::View {
         title.px = -lf.lfHeight * 2, title.weight = FW_SEMIBOLD;
         centered(L"StarDraft 2", c.font(title), kText, scale(40));
         const Font smallText = ui::fontOf(app.font);
-        centered(L"v" + widen(STARDRAFT_VERSION_NAME) + (buildStamp().empty() ? L"" : L"  (" + buildStamp() + L")"), smallText, kDim, scale(22));
+        centered(L"v" + widen(STARDRAFT_VERSION_NAME) + (shellBuildStamp().empty() ? L"" : L"  (" + shellBuildStamp() + L")"), smallText, kDim, scale(22));
         centered(L"A map creation tool for EUD-powered maps for StarCraft: Remastered", smallText, kDim, scale(22));
         // The name: a tribute to StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.
         centered(L"Named after StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.", smallText, kDim, scale(22));

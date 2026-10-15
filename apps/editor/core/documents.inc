@@ -142,3 +142,33 @@ void openAny(const std::filesystem::path& path) {
     openMap(path.wstring(), true);
     if (app.ed && fs::equivalent(app.ed->path(), path, ec)) shellMapFileOpened(path);  // a map file by itself: ask once if maps open with StarDraft 2
 }
+
+// The editor function that finds an open document's editor (views_tabs.inc).
+const Editor* docEditor(int i);
+// The same file or folder, compared as text (case, slashes, a relative path): no disk access, as a network share can
+// make it wait.
+bool samePath(const fs::path& a, const fs::path& b) {
+    auto key = [](const fs::path& p) {
+        std::error_code ec;
+        const fs::path full = fs::absolute(p, ec);
+        std::wstring s = (ec ? p : full).lexically_normal().make_preferred().wstring();
+        std::transform(s.begin(), s.end(), s.begin(), ::towlower);
+        while (!s.empty() && s.back() == L'\\') s.pop_back();
+        return s;
+    };
+    return !a.empty() && !b.empty() && key(a) == key(b);
+}
+
+// The tab that has this project (its folder) or this map by itself open, or -1.
+int findOpenProject(const fs::path& folder) {
+    for (int i = 0; i < int(gDocs.size()); ++i)
+        if (!gDocs[size_t(i)].page && gDocs[size_t(i)].project && samePath(gDocs[size_t(i)].project->folder(), folder)) return i;
+    return -1;
+}
+int findOpenMap(const fs::path& path) {
+    for (int i = 0; i < int(gDocs.size()); ++i) {
+        const Editor* ed = docEditor(i);
+        if (ed && !gDocs[size_t(i)].page && !gDocs[size_t(i)].project && samePath(ed->path(), path)) return i;
+    }
+    return -1;
+}

@@ -1,8 +1,5 @@
 #pragma once
-// The translation of a text in the language in use. ui_text.h defines it (its tables include the Windows headers, so the
-// core only declares it). Included at the top level, before the core's namespace or main.cpp's anonymous namespace.
+// The translation of a text in the language in use (tr, the language): the portable part is ui_lang.h, which the core
+// includes here; ui_text.h adds the Windows part (the wrappers and the language from the system) to it.
 
-#include <string>
-
-const wchar_t* tr(const wchar_t* english);
-std::wstring tr(const std::wstring& english);
+#include "../ui_lang.h"
