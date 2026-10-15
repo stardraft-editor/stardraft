@@ -59,6 +59,7 @@ using std::min;
 #include "../common/view.h"
 #include "text_field.h"  // the kit's text field (apps/kit): the search boxes (search_box.inc)
 #include "button.h"
+#include "icon_button.h"
 #include "dropdown.h"     // the kit's dropdown: the palette's section box (search_box.inc)
 #include "res/ui_icons.h"
 #include "stardraft/editor.h"
