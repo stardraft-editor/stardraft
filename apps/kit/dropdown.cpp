@@ -27,6 +27,8 @@ namespace {
 constexpr int kVisibleRows = 12;  // the list shows this many rows, then it scrolls
 constexpr int kIconChevron = 82;  // UiIcon::Dropdown (apps/editor/res/ui_icons.h)
 
+int gOpenLists = 0;  // the dropdowns whose list is open (Dropdown::anyListOpen)
+
 }  // namespace
 
 // The list under the field: one row per item, the current value highlighted. Its callbacks pick a row or cancel.
@@ -174,19 +176,29 @@ Dropdown::Dropdown(std::vector<DropdownItem> items, int value) : items_(std::mov
 
 Dropdown::~Dropdown() {
     alive_.reset();  // the list's callbacks do nothing from now on
-    if (listOpen_ && listHost_) listHost_->closeWindow(*list_);
+    if (listOpen_ && listHost_) listHost_->closeWindow(*list_);  // (an open list has its host: see retireList)
+    setOpen(false);
     retireList();
+}
+
+bool Dropdown::anyListOpen() { return gOpenLists > 0; }
+
+void Dropdown::setOpen(bool on) {
+    if (on == listOpen_) return;
+    listOpen_ = on;
+    gOpenLists += on ? 1 : -1;
 }
 
 void Dropdown::retireList() {
     if (!list_) return;
-    if (!listHost_) {
+    if (listHost_) {
+        listHost_->forget(*list_);  // the host must not keep pointing at the list
+        auto dead = std::shared_ptr<List>(std::move(list_));
+        listHost_->timer(0, [dead] {});  // the list goes after the event that may be running in it
+    } else {
         list_.reset();
-        return;
     }
-    listHost_->forget(*list_);  // the host must not keep pointing at the list
-    auto dead = std::shared_ptr<List>(std::move(list_));
-    listHost_->timer(0, [dead] {});  // the list goes after the event that may be running in it
+    listHost_ = nullptr;  // a closed list keeps no host: the host may go before the dropdown does
 }
 
 void Dropdown::setItems(std::vector<DropdownItem> items) {
@@ -228,13 +240,13 @@ void Dropdown::openList() {
     const int rows = std::min(int(items_.size()), kVisibleRows);
     const int top = height() + px(2);
     const Rect at{0, top, width(), top + rows * px(kRowH) + 2 * px(2)};
-    listOpen_ = true;
+    setOpen(true);
     justClosed_ = false;
     h->openWindow(*this, *list_, WindowSpec{WindowKind::Popup, at, L""}, [alive, this] {
         if (!alive.lock()) return;
-        listOpen_ = false;  // closed by the host (a click outside): the click's press does not open it again
+        setOpen(false);  // closed by the host (a click outside, or its window going): the click's press does not open it again
         justClosed_ = true;
-        if (listHost_) listHost_->forget(*list_);
+        retireList();
         invalidate();
         if (enabled_) focus();  // the keys are the field's again
     });
@@ -244,18 +256,20 @@ void Dropdown::openList() {
 
 void Dropdown::closeList() {
     if (!listOpen_) return;
-    listOpen_ = false;
-    if (listHost_) {
-        listHost_->closeWindow(*list_);
-        listHost_->forget(*list_);
-    }
+    setOpen(false);
+    if (listHost_) listHost_->closeWindow(*list_);
+    retireList();
     invalidate();
     if (enabled_) focus();  // a disabled field cannot take the focus
 }
 
 void Dropdown::pick(int i) {
     closeList();
-    if (i < 0 || i >= int(items_.size()) || i == value_) return;
+    if (i < 0 || i >= int(items_.size())) return;
+    if (i == value_) {
+        if (onSame) onSame(i);
+        return;
+    }
     value_ = i;
     invalidate();
     if (onChange) onChange(i);
@@ -288,11 +302,15 @@ void Dropdown::paint(Canvas& c) {
             c.icon({tx, r.top + px(3), tx + px(18), r.bottom - px(3)}, it.icon, enabled_ ? th.text : th.faint, px(16));
             tx += px(24);
         }
-        if (it.swatch != draw::kNone) {  // the square at 10 px, the label after seven spaces' width (as the program's pickers had it)
+        // A list with squares (a color list): the square at 10 px where the item has one, and every label after seven
+        // spaces' width (as the program's pickers had it, Random and Player's choice too).
+        bool squares = false;
+        for (const DropdownItem& i : items_) squares = squares || i.swatch != draw::kNone;
+        if (it.swatch != draw::kNone) {
             const int s = px(12), sx = r.left + px(10), sy = (r.top + r.bottom - s) / 2;
             c.fill({sx, sy, sx + s, sy + s}, it.swatch);
-            tx = r.left + px(8) + c.measure(L"       ");
         }
+        if (squares) tx = r.left + px(8) + c.measure(L"       ");
         const bool hasNumber = it.number >= 0;
         c.text({tx, r.top, r.right - (hasNumber ? px(56) : px(22)), r.bottom}, it.label, !enabled_ ? th.faint : changed_ ? th.good : th.text,
                draw::kMiddle | draw::kEllipsis);

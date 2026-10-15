@@ -25066,12 +25066,16 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             if (!editFocus && _wcsicmp(cls, WC_COMBOBOXW) == 0 && SendMessageW(GetFocus(), CB_GETDROPPEDSTATE, 0, 0)) editFocus = true;
             if (!editFocus && _wcsicmp(cls, L"ComboLBox") == 0) editFocus = true;
             if (!editFocus && (searchBoxFocused() || dropdownListOpen())) editFocus = true;  // a search box, a kit list (search_box.inc)
+            if (!editFocus && mapPageTextFocus()) editFocus = true;  // a force name (a kit field on the page)
             // The trigger pane: a typed letter or number opens its block picker (the plain-key shortcuts wait).
             if (!editFocus && _wcsicmp(cls, L"StarDraftTrigPane") == 0 && msg.message == WM_KEYDOWN && !(GetKeyState(VK_CONTROL) & 0x8000) &&
                 !(GetKeyState(VK_MENU) & 0x8000) && ((msg.wParam >= 'A' && msg.wParam <= 'Z') || (msg.wParam >= '0' && msg.wParam <= '9')))
                 editFocus = true;
             // A map page's control: its keys (Tab between the fields, the lists' keys) before the shortcuts.
             const bool pageFocus = mapPageHasFocus();
+            if (pageFocus && msg.message == WM_KEYDOWN && msg.wParam == VK_TAB && !(GetKeyState(VK_CONTROL) & 0x8000) &&
+                mapPageTabNames(GetKeyState(VK_SHIFT) < 0))
+                continue;  // (between the force names)
             if (pageFocus && msg.message == WM_KEYDOWN && msg.wParam == VK_TAB && IsDialogMessageW(gMp.wnd, &msg)) continue;
             if (!editFocus && !(pageFocus && mapPageKeepsKey(msg)) && TranslateAcceleratorW(app.main, app.accel, &msg)) continue;
             if (msg.message == WM_MOUSEWHEEL && wheelOverDropdown(msg)) continue;  // a dropdown under the mouse: its next item
