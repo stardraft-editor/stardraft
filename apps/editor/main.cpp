@@ -13452,14 +13452,14 @@ std::wstring trigValueText(const std::string& type, const std::string& v) {
             if (app.ed && id < int(app.ed->unitTypes().size())) return widen(app.ed->unitTypes()[uint16_t(id)].name);
             return L"unit type #" + widen(v);
         }
-        return v.empty() ? L"(unit type)" : widen(v);
+        return v.empty() ? L"(unit type)" : widen(v) + L" (the current player's)";
     case TriggerPicker::Location:
         if (trigIsNumberText(v)) {
             const int n = std::atoi(v.c_str());
             if (app.ed && n >= 1 && n <= app.ed->locationCount()) return widen(app.ed->locationName(n - 1));
             return L"location " + widen(v);
         }
-        return v.empty() ? L"(location)" : widen(v);
+        return v.empty() ? L"(location)" : widen(v) + L" (the current player's)";
     case TriggerPicker::Property:
         if (const TriggerProperty* pr = triggerProperty(t->of, v)) return widen(pr->label);
         return v.empty() ? L"(a property)" : widen(v);
@@ -13942,6 +13942,17 @@ void trigDrawVariable(HDC mem, TriggerNode& v, int x0, int w, int& y) {
         row(L"Default value", v.variable.initial.empty() ? L"0" : widen(v.variable.initial), 2, true);
     if (v.variable.kind == TriggerVariable::Kind::Unit)
         row(L"Default value", v.variable.initial.empty() ? L"\x2014" : trigPickedUnitName(v.variable.initial), 2, true);
+    if (v.variable.kind == TriggerVariable::Kind::PerPlayer) {  // what it holds, then each player's default value (GH#108)
+        const std::string& holds = v.variable.holds;
+        row(L"Holds", holds == "UnitType" ? L"Unit types" : holds == "Location" ? L"Locations" : L"Numbers", 4, true);
+        for (int p = 0; p < 8; ++p) {
+            const std::string val = p < int(v.variable.playerValues.size()) ? v.variable.playerValues[size_t(p)] : "";
+            const std::wstring shown = holds.empty() ? (val.empty() ? L"0" : widen(val))
+                                       : val.empty() ? L"\x2014"
+                                                     : trigValueText(holds, val);
+            row((L"Player " + std::to_wstring(p + 1)).c_str(), shown, 10 + p, true);
+        }
+    }
     row(L"Description", v.comment.empty() ? L"\x2014" : widen(v.comment), 3, true);
     y += scale(8);
     for (const auto& i : gTE.issues)
@@ -14488,6 +14499,15 @@ void trigCancelUnitPick() {
 // --- Changing values ----------------------------------------------------------------------------------------------
 
 // The variables a value of this type can use, as list items.
+// The per-player variables that hold `holds` (unit types, locations): a block takes the current player's value (GH#108).
+std::vector<ListPickItem> trigPerPlayerItems(const std::string& holds) {
+    std::vector<ListPickItem> items;
+    for (const auto& [name, node] : gTE.set.variables())
+        if (node->variable.kind == TriggerVariable::Kind::PerPlayer && node->variable.holds == holds)
+            items.push_back({widen(name) + L" (the current player's)", L"Per player", name});
+    return items;
+}
+
 std::vector<ListPickItem> trigVariableItems(const std::string& type) {
     std::vector<ListPickItem> items;
     for (const auto& [name, node] : gTE.set.variables()) {
@@ -14751,6 +14771,7 @@ void trigEditParam(TrigParamHit h) {
         std::vector<ListPickItem> items;
         if (type->picker == TriggerPicker::UnitFilter)
             for (int g = 229; g <= 232; ++g) items.push_back({trigUnitGroupName(g), L"Groups", std::to_string(g)});
+        for (auto& it : trigPerPlayerItems("UnitType")) items.push_back(it);
         for (const auto& u : paletteUnits()) items.push_back({u.label, u.section, std::to_string(u.value), "units", u.value});
         got = showListPicker(L"Search unit types", items, value, pt, picked);
         break;
@@ -14760,6 +14781,7 @@ void trigEditParam(TrigParamHit h) {
         if (app.ed)
             for (int i = 0; i < app.ed->locationCount(); ++i)
                 if (app.ed->locationUsed(i) || i == kAnywhereLocation) items.push_back({widen(app.ed->locationName(i)), L"", std::to_string(i + 1)});
+        for (auto& it : trigPerPlayerItems("Location")) items.insert(items.begin(), it);
         got = showListPicker(L"Search the map's locations", items, value, pt, picked);
         break;
     }
@@ -16783,11 +16805,45 @@ void trigEditVariableField(TrigVarHit h) {
             if (v->variable.kind == TriggerVariable::Kind::Text && !wasText)  // a text: its default length, and no number as its text
                 v->variable.size = TriggerVariable::kTextRoom, v->variable.initial.clear();
             else if (wasText && v->variable.kind != TriggerVariable::Kind::Text) v->variable.size = 8, v->variable.initial = "0";
+            if (v->variable.kind != TriggerVariable::Kind::PerPlayer) v->variable.holds.clear(), v->variable.playerValues.clear();
             if (v->variable.kind == TriggerVariable::Kind::Unit) v->variable.initial.clear();
             else if (!v->variable.initial.empty() && v->variable.initial[0] == '@') v->variable.initial = "0";
             trigChanged();
             trigRefreshTree(gTE.sel);
         }
+        return;
+    }
+    if (v->variable.kind == TriggerVariable::Kind::PerPlayer && (h.field == 4 || (h.field >= 10 && h.field < 18))) {
+        pt.y += scale(4);
+        std::string pick;
+        if (h.field == 4) {  // what each player's value is
+            std::vector<ListPickItem> items = {{L"Numbers", L"", "Number"}, {L"Unit types", L"", "UnitType"}, {L"Locations", L"", "Location"}};
+            if (!showListPicker(L"Holds", items, v->variable.holds.empty() ? "Number" : v->variable.holds, pt, pick) || pick.empty()) return;
+            const std::string holds = pick == "Number" ? "" : pick;
+            if (holds != v->variable.holds) v->variable.holds = holds, v->variable.playerValues.assign(8, "");  // the old values are of another kind
+            trigChanged();
+            return;
+        }
+        const int p = h.field - 10;
+        v->variable.playerValues.resize(8);
+        std::string& val = v->variable.playerValues[size_t(p)];
+        std::vector<ListPickItem> items;
+        if (v->variable.holds == "UnitType") {
+            for (const auto& u : paletteUnits()) items.push_back({u.label, u.section, std::to_string(u.value), "units", u.value});
+            if (!showListPicker(L"Player " + std::to_wstring(p + 1) + L": search unit types", items, val, pt, pick) || pick.empty()) return;
+        } else if (v->variable.holds == "Location") {
+            if (app.ed)
+                for (int i = 0; i < app.ed->locationCount(); ++i)
+                    if (app.ed->locationUsed(i) || i == kAnywhereLocation) items.push_back({widen(app.ed->locationName(i)), L"", std::to_string(i + 1)});
+            if (!showListPicker(L"Player " + std::to_wstring(p + 1) + L": search the map's locations", items, val, pt, pick) || pick.empty()) return;
+        } else {
+            ValuePopSpec spec;
+            spec.title = L"Player " + std::to_wstring(p + 1) + L": default value";
+            spec.type = "Number", spec.constantOnly = true, spec.initial = val.empty() ? "0" : val;
+            if (!showValuePopup(spec, pt, pick)) return;
+        }
+        val = pick;
+        trigChanged();
         return;
     }
     if (h.field == 2 && v->variable.kind == TriggerVariable::Kind::Unit) {  // a unit picked on the map, or none
@@ -25785,6 +25841,36 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             }
             if (s == "classicproject:") {  // L.4: the classic map made a project (classic_triggers.inc)
                 classicProjectDatashot(datashots);
+                continue;
+            }
+            if (s == "perplayer:") {  // perplayer.txt, perplayer.png: a Per player variable that holds unit types, Player 2's set; a block's unit picker lists it (GH#108)
+                std::ofstream o(fs::path(datashots) / "perplayer.txt");
+                if (!activeProject()) {
+                    o << "open a project NO\n";
+                    continue;
+                }
+                command(ID_WS_TRIGGERS);
+                for (int i = 0; i < 5; ++i) pump();
+                trigAddVariable({0}, TriggerVariable::Kind::PerPlayer);  // made and selected
+                static std::string want;
+                gListPickHook = [](HWND) {  // the picker's item with the value `want`
+                    gListPick->result = want, gListPick->picked = true, gListPick->done = true;
+                };
+                TrigVarHit h;
+                want = "UnitType", h.field = 4;  // Holds: unit types
+                trigEditVariableField(h);
+                want = "37", h.field = 11;  // Player 2: Zerg Zergling
+                trigEditVariableField(h);
+                gListPickHook = nullptr;
+                const TriggerNode* v = trigSelectedNode();
+                const bool set = v && v->variable.holds == "UnitType" && v->variable.playerValues.size() == 8 && v->variable.playerValues[1] == "37";
+                o << "holds unit types, Player 2's value set " << (set ? "yes" : "NO") << "\n";
+                bool listed = false;
+                if (v)
+                    for (const auto& it : trigPerPlayerItems("UnitType")) listed |= it.value == v->name;
+                o << "a block's unit type picker lists it (the current player's) " << (listed ? "yes" : "NO") << "\n";
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "perplayer.png");
                 continue;
             }
             if (s == "textvar:") {  // textvar.txt: a Text variable's default value opens in the pop-out with colors, Preview and Raw (#19); needs a project

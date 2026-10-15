@@ -178,6 +178,11 @@ struct TriggerVariable {
     static constexpr int kTextRoom = 218, kTextRoomMax = 2000;  // a text's default and largest maximum length
     std::string sizeConstant;  // arrays: the constant giving the size ("" = size)
     std::string initial;       // numbers, flags, constants, arrays' items; units: "@<serial>" to start as a picked unit
+    // Per player (GH#108): what each player's value is ("": a number, "UnitType", "Location"), and the 8 default values
+    // (Player 1 first; a unit type's or a location's number, as the blocks keep them; empty: 0). A block that takes a
+    // unit type or a location takes such a variable too: the current player's value.
+    std::string holds;
+    std::vector<std::string> playerValues;
     static const char* kindLabel(Kind k);
 };
 
