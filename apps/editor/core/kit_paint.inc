@@ -199,6 +199,14 @@ inline TitleLayout drawTitle(draw::Canvas& c, int x, int y, int right, draw::Ima
     return t;
 }
 
+// --- Small text ---------------------------------------------------------------------------------------------------
+// The small font: the UI font at 5/6 of its height (captions, table headers, the side bar's groups).
+inline draw::FontDesc smallFontDesc() {
+    draw::FontDesc d;
+    d.px = -(shellUiFontLfHeight() * 5 / 6);
+    return d;
+}
+
 // --- Buttons, chips and rows (the trigger pane, the briefing; ui_kit.inc's faces call these) ----------------------
 // A rounded box with the kit's radius: `fill` (kNone: none) and a 1 px `line` (kNone: none).
 inline void drawBox(draw::Canvas& c, draw::Rect r, draw::Color fill, draw::Color line, int radius = stardraft::kit::kRadius) {
@@ -240,6 +248,18 @@ inline void drawChipFace(draw::Canvas& c, draw::Rect r, bool over, bool dim = fa
     drawBox(c, r, fill, line);
 }
 
+// --- Rows -------------------------------------------------------------------------------------------------------
+// A list row's background: selected (fill and a bar on the left), under the mouse, or none.
+inline void drawListRow(draw::Canvas& c, draw::Rect r, bool selected, bool over) {
+    if (selected) {
+        c.fill(r, kSel);
+        c.fill({r.left, r.top, r.left + scale(2), r.bottom}, kAccent);
+    } else if (over) {
+        c.fill(r, kRowHot);
+    }
+}
+inline draw::Color rowText(bool selected) { return selected ? kAccent : kText; }
+
 // Where row action `k` of `n` goes in a row (the bare icon buttons at a row's right edge).
 inline draw::Rect rowActionRect(draw::Rect row, int k, int n) {
     const int w = scale(stardraft::kit::kIconBox), h = std::min<int>(row.bottom - row.top, scale(stardraft::kit::kIconBox));
@@ -247,6 +267,72 @@ inline draw::Rect rowActionRect(draw::Rect row, int k, int n) {
     return {x, y, x + w, y + h};
 }
 
+// A painted scroll bar (for lists that page by rows), as Windows 11's: a thin line at rest, wider with its track under
+// the mouse or while dragged.
+inline void drawScrollFace(draw::Canvas& c, draw::Rect track, draw::Rect thumb, bool lit) {
+    if (lit) c.fill(track, kPanel);
+    else thumb.left = thumb.right - std::max(2, int(thumb.right - thumb.left) / 2);
+    c.roundBox(thumb, lit ? kThumbHot : kThumb, draw::kNone, float(scale(3)));
+}
+
+// --- Sliders --------------------------------------------------------------------------------------------------------
+// A slider from x0 to x1 on the line cy: the track (kBorder line), the part up to the value in the accent, a round
+// thumb in the accent (lighter under the mouse). `frac`: the value, 0 to 1.
+inline void drawSliderFace(draw::Canvas& c, int x0, int x1, int cy, float frac, bool over, bool enabled = true) {
+    const draw::Rect track{x0, cy - scale(2), x1, cy + scale(2)};
+    c.roundBox(track, kCtl, kBorder, float(scale(2)));
+    const int kx = x0 + int(std::lround(std::clamp(frac, 0.0f, 1.0f) * float(x1 - x0)));
+    c.fill({x0, cy - scale(2), kx, cy + scale(2)}, enabled ? kAccent : kFaint);
+    const draw::Rect knob{kx - scale(7), cy - scale(7), kx + scale(7), cy + scale(7)};
+    c.smoothRoundOutline(knob, float(scale(7)), !enabled ? kFaint : over ? kAccentBright : kAccent, 2.0f);
+}
+
+// --- Tables ---------------------------------------------------------------------------------------------------------
+// Rows with columns: a header (names in the dim color), rows with pills when selected or under the mouse.
+struct Column {
+    std::wstring name;
+    int width = 0;        // 0: what the others leave
+    unsigned align = 0;   // draw::kLeft, kCenter or kRight
+};
+// Where column `k` is in a row.
+inline draw::Rect tableCell(draw::Rect row, const std::vector<Column>& cols, size_t k) {
+    int fixed = 0, flexible = 0;
+    for (const auto& col : cols) col.width ? fixed += scale(col.width) : ++flexible;
+    const int rest = std::max(0, int(row.right - row.left) - scale(12) - fixed);
+    int x = row.left + scale(6);
+    for (size_t i = 0; i < cols.size(); ++i) {
+        const int w = cols[i].width ? scale(cols[i].width) : rest / std::max(1, flexible);
+        if (i == k) return {x, row.top, x + w, row.bottom};
+        x += w;
+    }
+    return {x, row.top, x, row.bottom};
+}
+inline unsigned alignFlags(unsigned a) { return (a & draw::kRight ? draw::kRight : a & draw::kCenter ? draw::kCenter : draw::kLeft) | draw::kMiddle; }
+// The header: the column names small and dim, one line under them (no band, no frame).
+inline void drawTableHeader(draw::Canvas& c, draw::Rect row, const std::vector<Column>& cols) {
+    const draw::Font of = c.setFont(c.font(smallFontDesc()));
+    for (size_t k = 0; k < cols.size(); ++k) {
+        draw::Rect cell = tableCell(row, cols, k);
+        cell.left += scale(4), cell.right -= scale(4);
+        c.text(cell, cols[k].name, kDim, alignFlags(cols[k].align));
+    }
+    c.setFont(of);
+    c.fill({row.left, row.bottom - 1, row.right, row.bottom}, kBorder);
+}
+// A row: on the page's ground; selected or under the mouse a rounded pill (as the lists and pickers).
+inline void drawTableRow(draw::Canvas& c, draw::Rect row, bool selected, bool over) {
+    const draw::Rect pill{row.left + scale(2), row.top + scale(1), row.right - scale(2), row.bottom - scale(1)};
+    if (selected) c.roundBox(pill, kSel, kSel, float(scale(6)));
+    else if (over) c.roundBox(pill, kRowHot, kRowHot, float(scale(6)));
+}
+// One cell's text.
+inline void drawTableText(draw::Canvas& c, draw::Rect row, const std::vector<Column>& cols, size_t k, const std::wstring& text, draw::Color color) {
+    draw::Rect cell = tableCell(row, cols, k);
+    cell.left += scale(4), cell.right -= scale(4);
+    c.text(cell, text, color, alignFlags(cols[k].align) | draw::kEllipsis);
+}
+
+// --- Lists that can be reordered ------------------------------------------------------------------------------------
 // The grip (six dots) on a row that can be dragged; the line where a dragged row goes.
 inline void drawGrip(draw::Canvas& c, int x, int y, bool on) {
     for (int gx = 0; gx < 2; ++gx)
@@ -257,14 +343,68 @@ inline void drawGrip(draw::Canvas& c, int x, int y, bool on) {
 }
 inline void drawDropLine(draw::Canvas& c, int x0, int x1, int y) { c.fill({x0, y - scale(1), x1, y + scale(1)}, kAccent); }
 
-// A slider: the track from x0 to x1 at cy, lit to `frac` (0..1), and its knob (ui_kit.inc's sliderFace).
-inline void drawSliderFace(draw::Canvas& c, int x0, int x1, int cy, float frac, bool over, bool enabled = true) {
-    const draw::Rect track{x0, cy - scale(2), x1, cy + scale(2)};
-    c.roundBox(track, kCtl, kBorder, float(scale(2)));
-    const int kx = x0 + int(std::lround(std::clamp(frac, 0.0f, 1.0f) * float(x1 - x0)));
-    c.fill({x0, cy - scale(2), kx, cy + scale(2)}, enabled ? kAccent : kFaint);
-    c.smoothRoundOutline({kx - scale(7), cy - scale(7), kx + scale(7), cy + scale(7)}, float(scale(7)), !enabled ? kFaint : over ? kAccentBright : kAccent,
-                         2.0f);
+// --- Radio buttons and check boxes ----------------------------------------------------------------------------------
+inline void drawRadioMark(draw::Canvas& c, draw::Rect b, bool on, bool over) {
+    c.ellipse(b, kCtl, on ? kAccent : over ? kBorderHot : kBorderStrong);
+    if (!on) return;
+    const int in = (b.right - b.left) * 3 / 10;
+    c.ellipse({b.left + in, b.top + in, b.right - in + 1, b.bottom - in + 1}, kAccent, draw::kNone);
+}
+// A check box with its label in `r` (the box in the middle of its height at the left). Returns the label's right edge.
+inline int drawCheck(draw::Canvas& c, draw::Rect r, const std::wstring& label, bool on, bool over, bool changed = false, bool enabled = true) {
+    const int s = scale(14);
+    const draw::Rect b{r.left, (r.top + r.bottom - s) / 2, r.left + s, (r.top + r.bottom - s) / 2 + s};
+    drawCheckMark(c, b, on, over, enabled);
+    const draw::Rect t{b.right + scale(8), r.top, r.right, r.bottom};
+    c.text(t, label, !enabled ? kFaint : changed ? kGood : on || over ? kText : kDim, draw::kMiddle | draw::kEllipsis);
+    return t.left + c.measure(label);
+}
+
+// --- The References side bar ----------------------------------------------------------------------------------------
+// What uses the selected thing, by group ("Units", "Briefings"), each a link to it. The callers keep their own click
+// areas: these paint and say where.
+inline void drawSidePanel(draw::Canvas& c, draw::Rect side) {
+    c.fill(side, kPanel);
+    c.fill({side.left, side.top, side.left + 1, side.bottom}, kBorder);
+}
+inline int drawSideHeader(draw::Canvas& c, int x, int y, int w, const std::wstring& title, size_t count) {
+    const draw::Rect h{x, y, x + w, y + scale(22)};
+    c.text(h, title, kText, draw::kMiddle);
+    c.text(h, std::to_wstring(count), kDim, draw::kMiddle | draw::kRight);
+    y += scale(30);
+    if (!count) {
+        c.text({x, y, x + w, y + scale(20)}, L"No other data uses this entry", kDim, draw::kMiddle | draw::kEllipsis);
+        y += scale(22);
+    }
+    return y;
+}
+// A group's name (small and dim), with its icon before it when `hasIcon`. Returns the y of its first link.
+inline int drawSideGroup(draw::Canvas& c, int x, int y, int w, const std::wstring& name, bool first, bool hasIcon = false, UiIcon icon = {}) {
+    if (!first) y += scale(8);
+    const draw::Font of = c.setFont(c.font(smallFontDesc()));
+    if (hasIcon) {
+        c.icon({x, y - scale(1), x + scale(16), y + scale(16)}, int(icon), kDim, scale(16));
+        x += scale(22), w -= scale(22);
+    }
+    c.text({x, y, x + w, y + scale(15)}, name, kDim, draw::kMiddle | draw::kEllipsis);
+    c.setFont(of);
+    return y + scale(18);
+}
+// One reference: its icon and name in the accent; returns its row (the caller's click area).
+inline draw::Rect drawSideLink(draw::Canvas& c, int x, int y, int w, const std::wstring& text, draw::Image icon, bool over) {
+    const int h = scale(20);
+    int tx = x;
+    if (icon) {
+        c.fitted(icon, {x, y + scale(1), x + scale(18), y + h - scale(1)});
+        tx += scale(22);
+    }
+    const draw::Rect nr{tx, y, x + w, y + h};
+    c.text(nr, text, over ? kAccentBright : kAccent, draw::kMiddle | draw::kEllipsis);
+    if (over) {
+        const int tw = std::min<int>(c.measure(text), int(nr.right - nr.left));
+        c.line(tx, nr.bottom - scale(3), tx + tw, nr.bottom - scale(3), kAccentBright);
+    }
+    return {x, y, x + w, y + h};
 }
 
 }  // namespace kitpaint

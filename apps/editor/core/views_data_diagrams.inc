@@ -27,7 +27,8 @@ inline void ringAt(draw::Canvas& c, int cx, int cy, int rx, int ry, draw::Color 
 }
 // A range around a box (the game's distance shape; core/data_pictures.inc: rangeShapeAround).
 inline void rangeLine(draw::Canvas& c, draw::Rect box, double range, draw::Color col, int width = 1, draw::LineStyle st = draw::LineStyle::Solid) {
-    const auto pts = rangeShapeAround(box, range);
+    auto pts = rangeShapeAround(box, range);
+    if (!pts.empty()) pts.push_back(pts.front());  // (closed: the last point is at the box's top, the first at its bottom)
     c.polyline(pts.data(), int(pts.size()), col, width, st);
 }
 // A polygon filled with a see-through color, row by row (even-odd), inside `clip`.

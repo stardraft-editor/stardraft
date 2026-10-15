@@ -701,7 +701,6 @@ std::vector<draw::Point> rangeShapeAround(draw::Rect box, double range) {
         const double px = dx * r, py = dy * r;
         pts.push_back({int(std::lround((px >= 0 ? box.right : box.left) + px)), int(std::lround((py >= 0 ? box.bottom : box.top) + py))});
     }
-    pts.push_back(pts.front());  // (closed: the last point is at the box's top, the first at its bottom)
     return pts;
 }
 

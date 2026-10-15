@@ -4632,7 +4632,7 @@ void blitSprite(HDC dc, const Sprite& s, int cx, int cy, float zoom, BYTE alpha 
 // One frame of an image, its origin at (cx, cy), `zoom` screen pixels per game pixel.
 void drawGameImage(HDC dc, int image, int frame, bool flip, int owner, int cx, int cy, float zoom, BYTE alpha = 255) {
     if (!app.ed || image < 0) return;
-    if (widgetsHd()) {  // Remastered art (one frame: decoded once, drawn each time; core/data_pictures.inc)
+    if (widgetsHd() && hdFrame(image, frame).ok) {  // Remastered art (one frame: decoded once, drawn each time; core/data_pictures.inc)
         Sprite s;
         if (gameImageSprite(image, frame, flip, owner, s) == kHdScale) return blitSprite(dc, s, cx, cy, zoom / kHdScale, alpha);
     }
