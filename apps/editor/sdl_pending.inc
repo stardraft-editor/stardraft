@@ -17,8 +17,6 @@ void tilesPanelRepaint() {}
 void tilesPanelClearSearch() {}
 bool trigUnitPickClick(float, float) { return false; }
 
-// (until it is in the core) The map pages are not on this system yet: no page has changes.
-bool mapPageChangesFor(int) { return false; }
 // (until it is in the core) The dock layout is kept in memory on this system for now (it is not saved yet).
 void saveDock() {}
 // (until it is in the core) The trigger pane is not on this system yet: its zoom is not there.
@@ -38,6 +36,7 @@ std::wstring projectUnitName(int) { return L""; }
 // a workspace the tab's mode does not have falls back to Map with the same message as Windows. The workspace shows its
 // view (sdl_main_view.inc: the registered one, else "Not on this system yet"), and the map's panes show in Map only.
 void previewStopSdl();  // (sdl_files.inc: a sound that plays stops when the Files workspace is left)
+bool sdlWorkspacePage(Workspace w);  // (sdl_map_pages.inc: the page of a map page workspace opens; false: none does)
 void setWorkspace(Workspace w) {
     if (w == Workspace::Assets) w = Workspace::Files;  // Assets is part of Files
     if (w != Workspace::Files) previewStopSdl();
@@ -48,6 +47,8 @@ void setWorkspace(Workspace w) {
         else setMessage(L"This tab is a classic map. Data, Triggers and Project need a project. File > Project > Make this map a project makes one.");
         w = Workspace::Map;
     }
+    // A map page: its view shows (made from the tab's working copy); another workspace: the page goes (the copy stays).
+    if (!sdlWorkspacePage(w) && (w == Workspace::Properties || w == Workspace::Players || w == Workspace::ClassicSettings)) w = Workspace::Map;
     gWorkspace = w;
     shellStatusChanged();  // the map's parts show in Map only
     shellRelayout();

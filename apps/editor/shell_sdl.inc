@@ -75,7 +75,9 @@ std::vector<int> shellListSelection() { return gLocList.selection(); }
 std::wstring shellFilterText() { return gFilterSdl.text(); }
 bool shellViewShown() { return gRoot != nullptr; }
 void shellToolsChanged() { gToolStripView.invalidate(); }
-int shellPopupPick(const std::vector<std::wstring>&, int, int, int) { return -1; }  // (the SDL shell has no popup menus yet)
+int shellPopupPick(const std::vector<std::wstring>& items, int checked, int, int) {  // (a modal list: sdl_map_pages.inc)
+    return sdlPickFromList(items, checked, shellTr(L"Choose"));
+}
 void shellOwnerSelect(int i) { gOwnerBox.setValue(i); }  // (the owner dropdown shows player i; no change is sent)
 void shellPaletteChanged() {
     gPalList.invalidate();
@@ -137,7 +139,12 @@ void shellErrorBox(const std::wstring& text, const std::wstring& title) {
     std::fprintf(stderr, "%s: %s\n", narrow(title).c_str(), narrow(text).c_str());
     setMessage(text);
 }
-int shellAskUnapplied(const std::wstring&, const std::wstring&) { return 2; }  // (no map page has changes that are not applied yet: stay)
+int shellAskUnapplied(const std::wstring& text, const std::wstring& title) {
+    if (!gRoot) return 2;
+    const int r = stardraft::kit::messageBox(*gRoot, title, text, {shellTr(L"Apply"), shellTr(L"Do not apply"), shellTr(L"Cancel")},
+                                             stardraft::kit::MessageIcon::Question);
+    return r == 0 ? 0 : r == 1 ? 1 : 2;
+}
 int shellTabSideMenu(const std::wstring&, int) { return 0; }  // (the side menu is not on this system yet)
 void shellRecentMenu(bool, const std::vector<std::wstring>&, const std::wstring&) { gMenusDirty = true; }  // (the lists are the menus' own: sdl_menus.inc)
 void shellShowQuickPicker(bool, bool) { setMessage(L"This is not on this system yet"); }
