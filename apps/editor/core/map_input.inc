@@ -59,6 +59,18 @@ void clampCamera() {
     clampAxis(app.camY, vh, mh);
 }
 
+// The whole map in the view: the zoom that fits it (at most 4 times), its middle in the view's middle.
+void fitMap() {
+    AppState& app = appState();
+    if (!app.ed || !app.ed->isOpen()) return;
+    int w, h;
+    viewSize(w, h);
+    app.zoom = std::clamp(std::min(w / (app.ed->width() * 32.0f), h / (app.ed->height() * 32.0f)), 1.0f / 16, 4.0f);
+    app.camX = (app.ed->width() * 32.0f - w / app.zoom) / 2;
+    app.camY = (app.ed->height() * 32.0f - h / app.zoom) / 2;
+    app.dirty = true;
+}
+
 // Isometric terrain: Shift with the left button paints the second terrain (Ctrl+click in the palette) with the Brush,
 // Spray, Fill or Replace tool, as the left button alone paints the first. The Win32 view keeps the first terrain
 // during such a stroke (gSecondStrokeSaved).

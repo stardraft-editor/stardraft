@@ -29,28 +29,5 @@ void setWorkspace(Workspace w) {
 void pageSync() {}
 void openStartPage() {}
 
-// (until it is in the core) Closing a map with changes: Save is not on this system yet, so it is not closed (nothing
-// is lost); the message says why.
-bool confirmDiscard() {
-    if (gState.ed && gState.ed->isOpen() && gState.ed->modified()) {
-        setMessage(L"The map has changes, and saving is not on this system yet: the map stays open");
-        return false;
-    }
-    return true;
-}
-
 // (until it is in the core) Projects are not on this system yet.
 void forgetProject(const EudProject*) {}
-void dropUnsavedProject(const std::shared_ptr<EudProject>&) {}
-
-// (until it is in the core) A map that opened: one tab on this system; the map fits the view on the next frame.
-void addDocument(std::unique_ptr<Editor> ed, bool) {
-    gState.ed = std::move(ed);
-    if (gDocs.empty()) gDocs.emplace_back();
-    gActive = 0;
-    gDocs[0].page = 0;
-    gMapFitPending = true;
-    shellRelayout();
-    gState.dirty = true;
-    updateTitle();
-}

@@ -20,7 +20,6 @@ SDL_GPUTexture* gMapTex = nullptr;
 int gMapW = 0, gMapH = 0;
 const Editor* gMapEd = nullptr;  // the editor the renderer's sources are set for
 uint64_t gTerrainRev = ~0ull;    // ... and the terrain revision they have
-bool gMapFitPending = false;     // a map was opened: the camera fits it on the next frame
 
 void releaseMapTexture() {
     if (gMapTex && gDevice) SDL_ReleaseGPUTexture(gDevice, gMapTex);
@@ -118,7 +117,7 @@ struct MapView final : draw::View {
     bool mouse(const draw::MouseEvent& e) override {
         switch (e.kind) {
         case draw::MouseKind::Down:
-        case draw::MouseKind::DoubleClick:
+        case draw::MouseKind::DoubleClick: {
             if (e.button == 2) {  // middle: pan
                 panning = true, last = e.pt;
                 if (draw::Host* h = host()) h->capture(*this, true);
@@ -139,6 +138,7 @@ struct MapView final : draw::View {
             mapMouseDown(gState, e.pt.x, e.pt.y, second ? (e.mods & ~draw::kShift) : e.mods);
             invalidate();
             return true;
+        }
         case draw::MouseKind::Move:
             gState.mouseX = e.pt.x, gState.mouseY = e.pt.y, gState.mouseIn = true;
             if (panning) {
@@ -263,20 +263,9 @@ struct MainView final : draw::View {
     }
 };
 
-// The camera fits the open map in the map view (the whole map, as far as the view allows; 1/16 to 4 times).
-void fitMapToView(float w, float h) {
-    const float mw = gState.ed->width() * 32.0f, mh = gState.ed->height() * 32.0f;
-    gState.zoom = std::clamp(std::min(w / mw, h / mh), 1.0f / 16, 4.0f);
-    gState.camX = (mw - w / gState.zoom) / 2, gState.camY = (mh - h / gState.zoom) / 2;
-}
-
 // The frame hook's map work (the window's map view size, in pixels).
 void drawMapOfRoot(SDL_GPUCommandBuffer* cmd) {
     if (!gRoot) return;
     const int w = gRoot->map.width(), h = gRoot->map.height();
-    if (gMapFitPending && gState.ed && gState.ed->isOpen() && w > 0 && h > 0) {
-        fitMapToView(float(w), float(h));
-        gMapFitPending = false;
-    }
     drawMapFrame(cmd, w, h);
 }

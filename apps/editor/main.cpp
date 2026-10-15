@@ -414,15 +414,6 @@ void zoomAt(float factor, int sx, int sy) {
     app.dirty = true;
 }
 
-void fitMap() {
-    if (!app.ed || !app.ed->isOpen()) return;
-    int w, h;
-    viewSize(w, h);
-    app.zoom = std::clamp(std::min(w / (app.ed->width() * 32.0f), h / (app.ed->height() * 32.0f)), 1.0f / 16, 4.0f);
-    app.camX = (app.ed->width() * 32.0f - w / app.zoom) / 2;
-    app.camY = (app.ed->height() * 32.0f - h / app.zoom) / 2;
-    app.dirty = true;
-}
 
 // --- Tools ------------------------------------------------------------------------------------------
 
@@ -1381,8 +1372,6 @@ void chooseInstallFolder() {
     logLine(L"StarCraft folder set to " + dir.wstring() + L" (from the next start)");
 }
 
-int gNewDocPage = 0;        // the page of the tab addDocument opens next
-bool gReplacePage = false;  // addDocument puts the map in the active tab (the New page's Create)
 void pageSync();
 void openNewPage(int kind);
 void openStartPage();
@@ -1401,40 +1390,6 @@ bool mapPagesConfirm();
 
 void forgetProject(const EudProject* pr);
 
-// Opens `ed` in a new tab. Opening a file (`replaceBlank`) instead takes the place of the active tab
-// when that is the untouched blank map the editor starts with.
-void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank) {
-    mapPageClose();  // a map page shows the new map's values only after it opens again
-    // The untouched start: a blank map, or the new project nobody worked in yet (its folder goes).
-    const EudProject* activePr = gActive >= 0 && gActive < int(gDocs.size()) ? gDocs[size_t(gActive)].project.get() : nullptr;
-    const bool freshProject = isUnsavedProject(activePr) && !unsavedProjectTouched(*activePr);
-    // A file opened from the start page takes its place; the New page stays unless its Create made the map.
-    const int page = activePage();
-    bool reuse = replaceBlank && gActive >= 0 && app.ed && page != kPageNew &&
-                 (page == kPageStart || freshProject || (!app.ed->modified() && app.ed->path().empty() && !app.ed->canUndo()));
-    if (std::exchange(gReplacePage, false) && page && app.ed) reuse = true;
-    if (reuse && freshProject) {
-        forgetProject(gDocs[size_t(gActive)].project.get());
-        dropUnsavedProject(gDocs[size_t(gActive)].project), gDocs[size_t(gActive)].project.reset();
-    }
-    if (!reuse) {
-        stashActive();
-        gDocs.emplace_back();
-        gActive = int(gDocs.size()) - 1;
-    }
-    app.ed = std::move(ed);
-    gDocs[size_t(gActive)].page = std::exchange(gNewDocPage, 0);
-    if (app.ed->path().empty() && (!reuse || page) && !gDocs[size_t(gActive)].page) gDocs[size_t(gActive)].untitled = ++gUntitledCount;
-    app.hasTerrainSel = app.pasting = app.terrainPasting = false;
-    startMark("open: add the tab");
-    shellRelayout();  // the minimap takes this map's shape
-    startMark("open: layout");
-    showActive();
-    startMark("open: show the map");
-    fitMap();
-    startMark("open: fit the map");
-    if (gWorkspace >= Workspace::Properties) setWorkspace(Workspace::Map);  // a new map opens on the map, not on a map page
-}
 
 bool confirmDiscard();
 void newMap();
@@ -2204,20 +2159,6 @@ fs::path unsavedRoot() {
     CoTaskMemFree(local);
     return p;
 }
-bool isUnsavedProject(const EudProject* pr) {
-    if (!pr) return false;
-    std::error_code ec;
-    const fs::path root = unsavedRoot();
-    return !root.empty() && fs::equivalent(pr->folder().parent_path().parent_path(), root, ec);
-}
-// Whether an unsaved project holds work: a changed map, triggers, data or scripts.
-bool unsavedProjectTouched(const EudProject& pr) {
-    if (app.ed && (app.ed->modified() || app.ed->canUndo())) return true;
-    std::error_code ec;
-    if (fs::exists(pr.folder() / "triggers.json", ec)) return true;
-    if (fs::exists(pr.folder() / "dat", ec) && !fs::is_empty(pr.folder() / "dat", ec)) return true;
-    return pr.scripts().size() > 1;
-}
 // The folders of unsaved projects whose StarDraft is no longer running (a crash, an older start).
 void cleanUnsavedProjects() {
     std::error_code ec;
@@ -2232,11 +2173,6 @@ void cleanUnsavedProjects() {
         }
         fs::remove_all(e.path(), ec);
     }
-}
-void dropUnsavedProject(const std::shared_ptr<EudProject>& pr) {
-    if (!isUnsavedProject(pr.get())) return;
-    std::error_code ec;
-    fs::remove_all(pr->folder().parent_path(), ec);
 }
 void newUntitledProject() {
     newMap();
@@ -2422,21 +2358,6 @@ void trigZoomReset();
 bool trigCanUndo(bool redo);
 bool dataUndo(bool redo);
 bool dataCanUndo(bool redo);
-bool confirmDiscard() {
-    if (gSelfTest || activePage()) return true;  // a page tab holds no work
-    if (!mapPagesConfirm()) return false;        // map pages with changes that are not applied: apply them, or not
-    if (const EudProject* pr = activeProject(); isUnsavedProject(pr)) {  // a new project: nothing to keep unless it holds work
-        if (!unsavedProjectTouched(*pr)) return true;
-        const int r = themedMessageBox(app.main, L"Save the new project?", L"Unsaved changes", MB_YESNOCANCEL | MB_ICONQUESTION,
-                                       {L"&Save", L"Do &not save", L"Cancel"});
-        if (r == IDCANCEL) return false;
-        return r == IDNO || saveUnsavedProject();
-    }
-    if (!app.ed || !app.ed->modified()) return true;
-    int r = themedMessageBox(app.main, L"Save changes to the map?", L"Unsaved changes", MB_YESNOCANCEL | MB_ICONQUESTION, {L"&Save", L"Do &not save", L"Cancel"});
-    if (r == IDCANCEL) return false;
-    return r == IDNO || saveMap(false);
-}
 
 // --- Commands --------------------------------------------------------------------------------------
 

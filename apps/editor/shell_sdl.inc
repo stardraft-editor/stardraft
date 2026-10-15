@@ -63,6 +63,19 @@ void shellToolsChanged() {}  // (the tool strip is not on this system yet)
 void shellOwnerSelect(int) {}  // (the player combo box is not on this system yet)
 void shellPaletteChanged() {}
 void shellPaletteRebuilt() {}
+std::filesystem::path shellUnsavedRoot() { return {}; }  // (new projects are not on this system yet)
+// The save question: Save, Do not save or Cancel, in the kit's message box (Escape, or no window, is Cancel).
+int shellAskSaveChanges(bool project) {
+    if (!gRoot) return 2;
+    const int r = stardraft::kit::messageBox(*gRoot, L"Unsaved changes", project ? L"Save the new project?" : L"Save changes to the map?",
+                                             {L"Save", L"Do not save", L"Cancel"}, stardraft::kit::MessageIcon::Question);
+    return r == 0 ? 0 : r == 1 ? 1 : 2;
+}
+// Saving is not on this system yet: the map (or project) stays open, so no work is lost; the message says why.
+bool shellSaveChanges(bool) {
+    setMessage(L"Saving is not on this system yet: the map stays open");
+    return false;
+}
 void shellModeSide(Mode) {}  // (the palettes are not docked on this system yet)
 void shellModeWindows(Mode) {}  // (the palette, list and player windows are not on this system yet)
 std::wstring shellTr(const wchar_t* english) { return tr(english); }
