@@ -3,7 +3,6 @@
 // in it takes the place of this program (the running .exe is renamed to stardraft.exe.old, deleted at the next
 // start) and StarDraft starts again. A release build also checks at start, quietly, and says so in the status bar.
 
-constexpr UINT WM_UPDATE_FOUND = WM_APP + 32;  // lp: std::wstring* (the release's title), deleted by the receiver
 
 bool closeAllDocs(std::vector<std::wstring>* reopen);
 
@@ -90,18 +89,18 @@ inline void makeMapsDefault(HWND owner) {
                      L"Default apps", MB_ICONINFORMATION);
     ShellExecuteW(nullptr, L"open", L"ms-settings:defaultapps", nullptr, nullptr, SW_SHOWNORMAL);
 }
-constexpr UINT WM_ASK_MAPS = WM_APP + 33;  // after a map file opened: ask once if maps open with StarDraft 2
 inline bool askedMapsDefault() {
     bool asked = false;
     prefs::flag(L"AskedMapsDefault", asked);
     return asked;
 }
+inline void askMapsDefault(HWND owner);
 // A .scm or .scx file opened (not a new map, not a project): the first time, the question follows (after the map shows).
 inline void mapFileOpened(const fs::path& file) {
     std::wstring ext = file.extension().wstring();
     std::transform(ext.begin(), ext.end(), ext.begin(), ::towlower);
     if (gBackground || gSelfTest || (ext != L".scm" && ext != L".scx") || askedMapsDefault() || mapsOpenWithStarDraft()) return;
-    PostMessageW(app.main, WM_ASK_MAPS, 0, 0);
+    shellPost([] { askMapsDefault(app.main); });
 }
 inline void askMapsDefault(HWND owner) {
     if (askedMapsDefault()) return;  // (two maps opened at once: one question)
@@ -173,9 +172,12 @@ void atStart() {
     std::error_code ec;
     fs::remove(stardraft::platform::oldProgramFile(self), ec);
     if (!releaseBuild() || !gCheckUpdates) return;  // File > Options > Look for updates on start (on by default)
-    std::thread([main = app.main] {
+    std::thread([] {
         Release r;
-        if (latest(r) && newer(r)) PostMessageW(main, WM_UPDATE_FOUND, 0, LPARAM(new std::wstring(widen(r.title))));
+        if (latest(r) && newer(r)) {
+            const std::wstring title = widen(r.title);
+            shellPost([title] { setMessage(L"A newer release is available: " + title + L". Use Help > Check for updates."); });
+        }
     }).detach();
 }
 
