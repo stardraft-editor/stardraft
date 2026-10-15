@@ -54,6 +54,8 @@ public:
     bool wrap() const { return wrap_; }
     void setReadOnly(bool on);
     bool readOnly() const { return model_.readOnly(); }
+    // With nothing selected, Copy (and Ctrl+C) takes the whole text (a read-only code view, as the old edit box did).
+    void setCopyWhole(bool on) { copyWhole_ = on; }
     void setMaxLength(size_t n) { model_.setMaxLength(n); }
     void setFilter(std::function<bool(wchar_t)> f) { model_.setFilter(std::move(f)); }
     // The green Changed look (a value that differs from the saved one).
@@ -150,7 +152,8 @@ private:
     void ensureCaretVisible();
     void clampScroll();
     void updateCaretRect();
-    void syncBar();  // the scroll bar's place, range and position for the last layout
+    void syncBar();   // the scroll bar's place, range and position for the last layout
+    void syncHBar();  // the same for the bar at the bottom
 
     void moveTo(size_t m, bool extend, bool keepGoal = false);
     void vertical(int dir, bool extend, int count);
@@ -187,9 +190,11 @@ private:
     bool focused_ = false;  // the field's own focus, as focusChanged reports it (the host can drop it while the router keeps it)
     ScrollBar bar_;         // several lines taller than the field: the painted bar at the right edge
     int barTotal_ = -1, barPage_ = -1;
+    ScrollBar hbar_{Axis::Horizontal};  // several lines that do not wrap and are wider than the field: the bar at the bottom
+    int hbarTotal_ = -1, hbarPage_ = -1;
     std::vector<Span> spans_;
     draw::FontDesc fontDesc_;
-    bool wrap_ = true, changed_ = false;
+    bool wrap_ = true, changed_ = false, copyWhole_ = false;
     bool plain_ = false, alignRight_ = false;
     int trailing_ = 0;
     unsigned style_ = 0;  // changes with what the layout depends on besides the text and the width
@@ -199,7 +204,7 @@ private:
     std::vector<int> px_;  // x of each index of the shown text (px_[n] is the end); a surrogate's second unit: as the first
     std::wstring shown_;
     int lineH_ = 16, contentW_ = 0;
-    bool laidOut_ = false, barShown_ = false;
+    bool laidOut_ = false, barShown_ = false, hbarShown_ = false;
     LayoutKey layoutKey_;
 
     int scrollX_ = 0, scrollY_ = 0;

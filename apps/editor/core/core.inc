@@ -34,4 +34,5 @@
 #include "views_search.inc"
 #include "sound_lists.inc"
 #include "views_files.inc"
+#include "views_project.inc"
 #include "title.inc"

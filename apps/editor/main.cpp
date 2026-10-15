@@ -432,6 +432,7 @@ std::wstring itemLabel(int v) { return itemLabel(app, v); }
 #include "core/views_search.inc"  // the search boxes and the palette's dropdown (SearchBox, DropdownBox)
 #include "core/sound_lists.inc"  // the map's and the game's sound files by name (mapSounds, gameSounds, soundFileBytes)
 #include "core/views_files.inc"  // the Files workspace's page (FilesPage; its instance is gFilesPage in files_view.inc)
+#include "core/views_project.inc"  // the Project page: the script preview (ProjectPreviewView, epScript colors as spans)
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
 
 void rebuildList() { rebuildList(app); }
@@ -15268,7 +15269,7 @@ void themeRefreshControls() {
         SetWindowTextW(gTE.code, L"");
         trigCodeRefresh(true);
     }
-    if (gProj.preview) SendMessageW(gProj.preview, EM_SETBKGNDCOLOR, 0, kPanel), projectPreviewRefresh(true);
+    if (gProj.preview) projectPreviewRefresh(true);
 }
 
 void setWorkspace(Workspace w) {
@@ -22111,6 +22112,26 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 log << "status: " << narrow(app.message) << "\n";
                 log << "project: " << narrow(activeProject()->folder().wstring()) << "\n";
                 log << "built: " << (fs::exists(activeProject()->outputMap(), ec) ? narrow(activeProject()->outputMap().wstring()) : std::string("NO")) << "\n";
+                continue;
+            }
+            if (s == "projectpage:") {  // a test project "ProjectPage" in the datashots folder (a build option on), the Project page shown
+                std::ofstream log(fs::path(datashots) / "projectpage.txt");
+                std::string err;
+                std::error_code ec;
+                fs::remove_all(fs::path(datashots) / "ProjectPage", ec);
+                newMap();
+                if (!createProject(fs::path(datashots), "ProjectPage", true, err)) {
+                    log << "project not made: " << err << "\n";
+                    continue;
+                }
+                activeProject()->setPlugin("eudTurbo", true);
+                activeProject()->save(err);
+                setWorkspace(Workspace::Project);
+                for (int i = 0; i < 10; ++i) pump();
+                log << "project: " << narrow(activeProject()->folder().wstring()) << "\n";
+                log << "scripts:";
+                for (const auto& sec : activeProject()->sections()) log << " " << sec.name;
+                log << "\n";
                 continue;
             }
             if (s == "remaketest:" || s == "remake:on" || s == "remake:off") {
