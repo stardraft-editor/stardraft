@@ -437,6 +437,8 @@ std::wstring itemLabel(int v) { return itemLabel(app, v); }
 #include "core/views_search.inc"  // the search boxes and the palette's dropdown (SearchBox, DropdownBox)
 #include "core/sound_lists.inc"  // the map's and the game's sound files by name (mapSounds, gameSounds, soundFileBytes)
 #include "core/views_files.inc"  // the Files workspace's page (FilesPage; its instance is gFilesPage in files_view.inc)
+#include "core/views_data_refs.inc"  // the Data workspace's References panel (DataRefsPage; its instance is gDataRefsPage below, in the Data code)
+extern DataRefsPage gDataRefsPage;
 #include "core/views_project.inc"  // the Project page: the script preview (ProjectPreviewView, epScript colors as spans)
 #include "core/views_map_pages.inc"  // the map pages' frame: the title, the tabs, the bar and the scroll view (MapPagesView, MapScrollView; map_pages.inc)
 #include "core/views_map_props.inc"  // Map properties' view: the fields, the dropdowns and the buttons (MapPropsView; map_properties.inc, map_pages.inc)
@@ -4659,8 +4661,7 @@ struct DataView {
     };
     std::vector<Hit> hits;
     std::vector<int> sectionTops;  // each section header's place in the form (content coordinates), by section
-    HWND refs = nullptr;           // References: the entries that point at this one (a pane on the right)
-    int refsScroll = 0, refsHeight = 0;
+    HWND refs = nullptr;           // References: the entries that point at this one (a pane on the right; core/views_data_refs.inc)
     int edits = 0;                 // goes up with each change (the references follow the values)
     int editing = -1;  // field whose value box holds the edit control
     // Undo: each saved change is a step, the table before and after it. `saved` is each table as last saved.
@@ -5101,7 +5102,7 @@ void dataSelect(int u) {
     dataRecordPlace(gData.datTab, u);
     stringsCommitEdit();
     gData.entry = std::clamp(u, tabFirstEntry(gData.datTab), std::max(tabFirstEntry(gData.datTab), tabEntries(gData.datTab) - 1));
-    gData.formScroll = 0, gData.refsScroll = 0;
+    gData.formScroll = 0, gDataRefsPage.resetScroll();
     InvalidateRect(gData.list, nullptr, FALSE);
     InvalidateRect(gData.form, nullptr, FALSE);
     if (gData.refs) InvalidateRect(gData.refs, nullptr, FALSE);
@@ -9224,106 +9225,35 @@ const std::vector<DataRef>& dataRefs(const std::string& dat, int e) {
     return refs;
 }
 
-std::vector<std::pair<RECT, std::pair<std::string, int>>> gRefHits;
-
-void paintDataRefs(HWND hwnd) {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-    HGDIOBJ ob = SelectObject(mem, back), of = SelectObject(mem, app.font);
-    ui::sidePanel(mem, rc);
-    SetBkMode(mem, TRANSPARENT);
-    gRefHits.clear();
-    const int x = scale(14), w = int(rc.right) - x - scale(10);
-    int y = scale(12) - gData.refsScroll;
-    const DatTable* t = curTable();
-    if (t || (extraTab(gData.datTab) && gData.project)) {
-        const auto& refs = dataRefs(t ? t->schema().name : gData.datTab == stringsTab() ? "strings" : "buttons", gData.entry);
-        y = ui::sideHeader(mem, x, y, w, L"References", refs.size());
-        std::string group;
-        POINT cur;
-        GetCursorPos(&cur);
-        ScreenToClient(hwnd, &cur);
-        for (const auto& r : refs) {
-            if (r.dat != group) y = ui::sideGroup(mem, x, y, w, tabTitle(datTabOf(r.dat)), group.empty(), tabIcon(datTabOf(r.dat))), group = r.dat;  // the .dat
-            std::wstring name = tabEntryName(datTabOf(r.dat), r.entry);
-            if (name.empty()) name = L"#" + std::to_wstring(r.entry);
-            const RECT row{x, y, x + w, y + scale(20)};
-            gRefHits.push_back({ui::sideLink(mem, x, y, w, name, tabEntryIcon(datTabOf(r.dat), r.entry), PtInRect(&row, cur) != 0), {r.dat, r.entry}});
-            y += scale(22);
+// The References panel (core/views_data_refs.inc): its program parts. The entries are dataRefs' (above); a link goes to the
+// entry in the Data workspace, and the mouse's back and forward buttons work over it as over the other panes.
+class DataRefsProgram final : public DataRefsHost {
+public:
+    std::vector<DataRefRow> refs(bool& shown) override {
+        const DatTable* t = curTable();
+        shown = t || (extraTab(gData.datTab) && gData.project);
+        std::vector<DataRefRow> out;
+        if (!shown) return out;
+        const auto& list = dataRefs(t ? t->schema().name : gData.datTab == stringsTab() ? "strings" : "buttons", gData.entry);
+        out.reserve(list.size());
+        for (const auto& r : list) {
+            DataRefRow row;
+            row.dat = r.dat, row.entry = r.entry;
+            row.group = tabTitle(datTabOf(r.dat)), row.groupIcon = tabIcon(datTabOf(r.dat));
+            row.name = tabEntryName(datTabOf(r.dat), r.entry);
+            row.feedback = entryName(r.dat, r.entry);
+            if (row.name.empty()) row.name = L"#" + std::to_wstring(r.entry);
+            row.icon = ui::imageOf(tabEntryIcon(datTabOf(r.dat), r.entry));
+            out.push_back(std::move(row));
         }
+        return out;
     }
-    gData.refsHeight = y + gData.refsScroll + scale(12);
-    SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS, 0, std::max(0, gData.refsHeight - 1), UINT(rc.bottom), gData.refsScroll};
-    SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, of), SelectObject(mem, ob);
-    DeleteObject(back);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
-}
+    void goTo(const std::string& dat, int entry) override { dataGoTo(dat, entry); }
+    bool travel(int button) override { return dataXButton(MAKEWPARAM(0, button)); }
+};
+DataRefsProgram gDataRefsProgram;
+DataRefsPage gDataRefsPage(gDataRefsProgram);
 
-void dataGoTo(const std::string& dat, int e);
-
-LRESULT CALLBACK dataRefsProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_FEEDBACK_NAME: {
-        auto& q = *reinterpret_cast<FeedbackQuery*>(lp);
-        for (const auto& [r, target] : gRefHits)
-            if (PtInRect(&r, q.pt)) q.name = entryName(target.first, target.second);
-        if (q.name.empty()) q.name = L"References";
-        return 0;
-    }
-    case WM_PAINT: paintDataRefs(hwnd); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_SIZE: InvalidateRect(hwnd, nullptr, FALSE); return 0;
-    case WM_MOUSEWHEEL:
-        dataScroll(hwnd, gData.refsScroll, gData.refsScroll - GET_WHEEL_DELTA_WPARAM(wp) * scale(20) * 3 / WHEEL_DELTA, gData.refsHeight);
-        return 0;
-    case WM_VSCROLL:
-        dataScroll(hwnd, gData.refsScroll, scrollFromMessage(hwnd, wp, gData.refsScroll, scale(20)), gData.refsHeight);
-        return 0;
-    case WM_MOUSEMOVE: {  // a link under the mouse lights up
-        static int over = -1;
-        const POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        int now = -1;
-        for (size_t i = 0; i < gRefHits.size(); ++i)
-            if (PtInRect(&gRefHits[i].first, pt)) now = int(i);
-        if (now != over) {
-            over = now, InvalidateRect(hwnd, nullptr, FALSE);
-            TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
-            TrackMouseEvent(&tme);
-        }
-        return 0;
-    }
-    case WM_MOUSELEAVE: InvalidateRect(hwnd, nullptr, FALSE); return 0;
-    case WM_LBUTTONDOWN: {
-        const POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        for (const auto& [r, target] : gRefHits)
-            if (PtInRect(&r, pt)) {
-                const auto go = target;
-                dataGoTo(go.first, go.second);
-                return 0;
-            }
-        return 0;
-    }
-    case WM_SETCURSOR: {
-        POINT pt;
-        GetCursorPos(&pt);
-        ScreenToClient(hwnd, &pt);
-        for (const auto& h : gRefHits)
-            if (PtInRect(&h.first, pt)) return SetCursor(LoadCursor(nullptr, IDC_HAND)), TRUE;
-        break;
-    }
-    case WM_XBUTTONUP:
-        if (dataXButton(wp)) return TRUE;
-        break;
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
 int gDataSplitGrab = -1;  // dragging the list's edge: where it was grabbed
 
 int dataTabsHeight() { return scale(34); }
@@ -9545,8 +9475,6 @@ void createWorkspaces(HWND parent) {
     RegisterClassExW(&wc);
     wc.lpfnWndProc = dataFormProc, wc.lpszClassName = L"StarDraftDataForm";
     RegisterClassExW(&wc);
-    wc.lpfnWndProc = dataRefsProc, wc.lpszClassName = L"StarDraftDataRefs";
-    RegisterClassExW(&wc);
     gWsBar = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, parent, nullptr, app.inst, &gRail);
     gDataWnd = CreateWindowExW(0, L"StarDraftData", L"", WS_CHILD | WS_CLIPCHILDREN, 0, 0, 1, 1, parent, nullptr, app.inst, nullptr);
     gData.search = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 0, 0, 1, 1, gDataWnd, nullptr, app.inst, nullptr);
@@ -9557,7 +9485,7 @@ void createWorkspaces(HWND parent) {
                                  app.inst, nullptr);
     SetTimer(gData.form, 7, 42, nullptr);  // widgets: animations, the end of a sound
     gHitsOf[gData.form] = &gWidgetHits;
-    gData.refs = CreateWindowExW(0, L"StarDraftDataRefs", L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL, 0, 0, 1, 1, gDataWnd, nullptr, app.inst, nullptr);
+    gData.refs = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL, 0, 0, 1, 1, gDataWnd, nullptr, app.inst, &gDataRefsPage);
     darkControl(gData.refs, L"DarkMode_Explorer");
     gData.edit = CreateWindowExW(0, WC_EDITW, L"", WS_CHILD | ES_RIGHT | ES_AUTOHSCROLL, 0, 0, 1, 1, gData.form, nullptr, app.inst, nullptr);
     SetWindowSubclass(gData.edit, dataEditProc, 1, 0);

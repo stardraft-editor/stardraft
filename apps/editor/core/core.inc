@@ -35,6 +35,7 @@
 #include "views_search.inc"
 #include "sound_lists.inc"
 #include "views_files.inc"
+#include "views_data_refs.inc"
 #include "views_project.inc"
 #include "views_map_pages.inc"
 #include "views_map_props.inc"
