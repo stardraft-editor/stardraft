@@ -341,8 +341,8 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 // The program: its state, and what Win32 and the renderer give it (windows, brushes, the font, the GPU).
 struct App : AppState {
     HINSTANCE inst = nullptr;
-    HWND main = nullptr, tabs = nullptr, owner = nullptr, brush = nullptr, filter = nullptr, list = nullptr;
-    HWND tool = nullptr, shape = nullptr, sym = nullptr, density = nullptr;
+    HWND main = nullptr, tabs = nullptr, owner = nullptr, filter = nullptr, list = nullptr;
+    HWND tool = nullptr, shape = nullptr;
     HWND modeBar = nullptr;  // the modes' segmented control (ModeBarView)
     HBRUSH bgBrush = nullptr, ctlBrush = nullptr;
     HWND status = nullptr, view = nullptr, minimap = nullptr;
@@ -666,9 +666,6 @@ void setMode(Mode m) {
     if (app.modeBar) InvalidateRect(app.modeBar, nullptr, FALSE);
     // Only the active mode's options show (layout places them).
     const bool spray = m != Mode::Locations && m != Mode::Sprites;
-    ShowWindow(app.brush, SW_HIDE);  // the size and the mirrors are in the tool strip
-    ShowWindow(app.sym, SW_HIDE);
-    ShowWindow(app.density, SW_HIDE);  // density: a number box in the tool strip
     (void)spray;
 
     // The player: for units and sprites (their owner and color). Doodads have no player (they are placed as player 1).
@@ -19645,10 +19642,16 @@ void createFont() {
     NONCLIENTMETRICSW ncm{sizeof ncm};
     SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0, app.dpi);
     app.font = CreateFontIndirectW(&ncm.lfMessageFont);
-    for (HWND w : {app.owner, app.brush, app.list, gPal.viewBtn, app.status, app.sym, app.density})
+    for (HWND w : {app.owner, app.list, gPal.viewBtn, app.status})
         if (w) SendMessageW(w, WM_SETFONT, WPARAM(app.font), TRUE);
-    // The player list draws its rows itself: its closed box as tall as the other lists at this font.
-    if (app.owner && app.sym) SendMessageW(app.owner, CB_SETITEMHEIGHT, WPARAM(-1), SendMessageW(app.sym, CB_GETITEMHEIGHT, WPARAM(-1), 0));
+    // The player list draws its rows itself: its closed box as tall as a standard box at this font (measured on a box
+    // that is destroyed at once; the owner box is still a native combo box).
+    if (app.owner) {
+        HWND m = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | CBS_DROPDOWNLIST, 0, 0, 0, 0, app.main, nullptr, app.inst, nullptr);
+        SendMessageW(m, WM_SETFONT, WPARAM(app.font), FALSE);
+        SendMessageW(app.owner, CB_SETITEMHEIGHT, WPARAM(-1), SendMessageW(m, CB_GETITEMHEIGHT, WPARAM(-1), 0));
+        DestroyWindow(m);
+    }
     if (app.list) SendMessageW(app.list, LB_SETITEMHEIGHT, 0, scale(30));  // the painted rows (as WM_MEASUREITEM), at this DPI
     // Every other control with the old font, or with none (made before the first font), gets the new one; a deleted
     // font or none draws as the bold System font.
@@ -20149,18 +20152,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         BOOL dark = !gLightTheme;
         DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &dark, sizeof dark), titleColors(hwnd);
         app.modeBar = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD, 0, 0, 1, 1, hwnd, nullptr, app.inst, &gModeBarView);
-        auto combo = [&](int id) {
-            HWND c = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL, 0, 0, 0, 0, hwnd,
-                                     HMENU(INT_PTR(id)), app.inst, nullptr);
-            return c;
-        };
         app.tool = CreateWindowExW(0, L"StarDraftToolStrip", L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, hwnd, HMENU(INT_PTR(IDC_TOOL)), app.inst, nullptr);
-        app.sym = combo(IDC_SYM);
-        for (int i = 0; i <= int(Symmetry::Rotate4); ++i) SendMessageW(app.sym, CB_ADDSTRING, 0, LPARAM(widen(std::string("Symmetry: ") + symmetryName(Symmetry(i))).c_str()));
-        SendMessageW(app.sym, CB_SETCURSEL, 0, 0);
-        app.density = combo(IDC_DENSITY);
-        for (const wchar_t* n : {L"Density: low", L"Density: medium", L"Density: high"}) SendMessageW(app.density, CB_ADDSTRING, 0, LPARAM(n));
-        SendMessageW(app.density, CB_SETCURSEL, 1, 0);
         // The player list draws each player's color before the name (WM_DRAWITEM: drawOwnerItem).
         app.owner = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | CBS_OWNERDRAWFIXED | CBS_HASSTRINGS | WS_VSCROLL,
                                     0, 0, 0, 0, hwnd, HMENU(IDC_OWNER), app.inst, nullptr);
@@ -20169,14 +20161,6 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             SendMessageW(app.owner, CB_ADDSTRING, 0, LPARAM(s.c_str()));
         }
         SendMessageW(app.owner, CB_SETCURSEL, 0, 0);
-        app.brush = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL, 0, 0, 0, 0, hwnd,
-                                    HMENU(IDC_BRUSH), app.inst, nullptr);
-        for (int i = 1; i <= 16; ++i) {
-            wchar_t b[32];
-            std::swprintf(b, 32, L"Size %d", i);
-            SendMessageW(app.brush, CB_ADDSTRING, 0, LPARAM(b));
-        }
-        SendMessageW(app.brush, CB_SETCURSEL, std::clamp(int(app.brushSize), 1, 16) - 1, 0);
         gFilterBox.setPlaceholder(L"Filter");
         gFilterBox.onChange = [] { rebuildList(); };
         app.filter = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd, HMENU(IDC_FILTER), app.inst, &gFilterBox);
@@ -20216,7 +20200,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                                    HMENU(IDC_VIEW), app.inst, nullptr);
         createFont();
         // Dark theme for the controls.
-        for (HWND c : {app.owner, app.brush, app.sym, app.density}) darkControl(c, L"DarkMode_CFD");
+        darkControl(app.owner, L"DarkMode_CFD");
         darkControl(gPal.viewBtn, L"DarkMode_Explorer");
         darkControl(gPal.wnd, L"DarkMode_Explorer");
         darkControl(gPal2.wnd, L"DarkMode_Explorer");
@@ -20267,13 +20251,6 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             SetFocus(app.view);
         } else if (id == IDC_OWNER && code == CBN_SELCHANGE) {
             setPlayer(int(SendMessageW(app.owner, CB_GETCURSEL, 0, 0)));
-            SetFocus(app.view);
-        } else if (id == IDC_BRUSH && code == CBN_SELCHANGE) {
-            app.brushSize = float(int(SendMessageW(app.brush, CB_GETCURSEL, 0, 0)) + 1);
-            SetFocus(app.view);
-        } else if (id == IDC_SYM && code == CBN_SELCHANGE) {
-            if (app.ed) app.ed->setSymmetry(Symmetry(SendMessageW(app.sym, CB_GETCURSEL, 0, 0)));
-            app.dirty = true;
             SetFocus(app.view);
         } else if (id == IDC_PALVIEW) {
             RECT r;
