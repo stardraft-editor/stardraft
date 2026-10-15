@@ -91,6 +91,8 @@ enum TextFlags : unsigned {
     kWrap = 16,           // lines broken between words to fit the width (else one line)
     kPathEllipsis = 32,   // "..." in the middle of a file path when it does not fit
     kBottom = 64,         // at the bottom of the box (one line only)
+    kPrefix = 128,        // "&" marks an access key: the letter after it is underlined, and the "&" is not drawn
+    kPrefixHidden = 256,  // the "&" is not drawn and no letter is underlined (else "&" is text)
 };
 
 enum class LineStyle { Solid, Dash, Dot };

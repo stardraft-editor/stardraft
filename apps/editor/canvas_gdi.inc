@@ -15,6 +15,7 @@ using stardraft::draw::Rect;
 using stardraft::draw::LineStyle;
 using stardraft::draw::kLeft, stardraft::draw::kCenter, stardraft::draw::kRight, stardraft::draw::kMiddle, stardraft::draw::kEllipsis;
 using stardraft::draw::kWrap, stardraft::draw::kPathEllipsis, stardraft::draw::kBottom;
+using stardraft::draw::kPrefix, stardraft::draw::kPrefixHidden;
 
 inline RECT toRECT(Rect r) { return {r.left, r.top, r.right, r.bottom}; }
 inline Font fontOf(HFONT f) { return Font{f}; }
@@ -98,7 +99,10 @@ public:
     }
 
     static UINT dtFlags(unsigned flags) {
-        UINT f = DT_NOPREFIX | (flags & kWrap ? DT_WORDBREAK : DT_SINGLELINE);
+        UINT f = flags & kWrap ? DT_WORDBREAK : DT_SINGLELINE;
+        if (flags & kPrefix) {}  // "&" underlines the next letter (DrawText's prefix processing)
+        else if (flags & kPrefixHidden) f |= DT_HIDEPREFIX;
+        else f |= DT_NOPREFIX;
         if (flags & kCenter) f |= DT_CENTER;
         if (flags & kRight) f |= DT_RIGHT;
         if (flags & kMiddle) f |= DT_VCENTER;
