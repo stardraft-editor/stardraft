@@ -972,6 +972,15 @@ bool Renderer::render(const Scene& scene) {
     return true;
 }
 
+SDL_GPUDevice* Renderer::device() const { return impl_->device; }
+SDL_GPUTextureFormat Renderer::colorFormat() const { return impl_->colorFormat; }
+
+bool Renderer::drawTo(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uint32_t width, uint32_t height, const Scene& scene) {
+    Impl& r = *impl_;
+    if (!r.device || !r.pipelinesReady || !cmd || !target) return false;
+    return r.draw(cmd, target, width, height, scene);
+}
+
 double Renderer::renderOffscreenAndWait(const Scene& scene) {
     Impl& r = *impl_;
     if (!r.device || !r.offscreen) return -1;
