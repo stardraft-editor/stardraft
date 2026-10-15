@@ -115,6 +115,14 @@ void shellListSelect(int i) {
     SendMessageW(app.list, LB_SETSEL, FALSE, -1);
     if (i >= 0) SendMessageW(app.list, LB_SETSEL, TRUE, i), SendMessageW(app.list, LB_SETCARETINDEX, i, FALSE);
 }
+std::vector<int> shellListSelection() {
+    std::vector<int> idx;
+    const int n = int(SendMessageW(app.list, LB_GETSELCOUNT, 0, 0));
+    if (n <= 0) return idx;
+    idx.assign(size_t(n), 0);
+    SendMessageW(app.list, LB_GETSELITEMS, n, LPARAM(idx.data()));
+    return idx;
+}
 void shellListFill(const std::vector<std::wstring>& rows) {
     SendMessageW(app.list, WM_SETREDRAW, FALSE, 0);
     SendMessageW(app.list, LB_RESETCONTENT, 0, 0);
@@ -130,6 +138,37 @@ void shellToolsChanged() {
 void shellOwnerSelect(int i) { SendMessageW(app.owner, CB_SETCURSEL, i, 0); }
 void shellPaletteChanged() { unitPaletteRepaint(); }
 void shellPaletteRebuilt() { rebuildUnitPalette(); }
+std::filesystem::path shellUnsavedRoot() { return unsavedRoot(); }
+// The save question (closing with work in it): Save, Do not save or Cancel, in the theme's message box.
+int shellAskSaveChanges(bool project) {
+    const int r = project ? themedMessageBox(app.main, L"Save the new project?", L"Unsaved changes", MB_YESNOCANCEL | MB_ICONQUESTION,
+                                             {L"&Save", L"Do &not save", L"Cancel"})
+                          : themedMessageBox(app.main, L"Save changes to the map?", L"Unsaved changes", MB_YESNOCANCEL | MB_ICONQUESTION,
+                                             {L"&Save", L"Do &not save", L"Cancel"});
+    return r == IDCANCEL ? 2 : r == IDNO ? 1 : 0;
+}
+bool shellSaveChanges(bool project) { return project ? saveUnsavedProject() : saveMap(false); }
+// setMode's windows: the side the mode's tools are docked on, with the palette's view of the mode.
+void shellModeSide(Mode m) {
+    gLastOnSide[gDock.toolsRight[int(m)] ? 1 : 0] = m;
+    const PaletteView& v = gViewByMode[int(m)];
+    gPal.grid = v.grid, gPal.sprites = v.sprites, gPal.large = v.large;
+}
+// The windows that the mode shows (the Map workspace only): the filter and list (Locations), the section box, the search
+// and view buttons and the palette (not Locations), and the player.
+void shellModeWindows(Mode m) {
+    // Units, terrains and doodads are picked in the palette; in Locations the same place lists the locations.
+    const bool locs = m == Mode::Locations, mapWs = gWorkspace == Workspace::Map;
+    ShowWindow(app.filter, mapWs && locs ? SW_SHOW : SW_HIDE);
+    ShowWindow(app.list, mapWs && locs ? SW_SHOW : SW_HIDE);
+    if (gPal.sectionBox)
+        ShowWindow(gPal.sectionBox, mapWs && (m == Mode::Units || m == Mode::Doodads || m == Mode::Sprites) ? SW_SHOW : SW_HIDE);
+    for (HWND h : {gPal.search, gPal.viewBtn, gPal.wnd})
+        if (h) ShowWindow(h, mapWs && !locs ? SW_SHOW : SW_HIDE);
+    if (app.modeBar) InvalidateRect(app.modeBar, nullptr, FALSE);
+    // The player: for units and sprites (their owner and color). Doodads have no player (they are placed as player 1).
+    ShowWindow(app.owner, mapWs && (m == Mode::Units || m == Mode::Sprites) ? SW_SHOW : SW_HIDE);
+}
 std::wstring shellTr(const wchar_t* english) { return tr(english); }
 std::vector<int>& shellPaletteChosen() { return gPal.chosen; }
 AppState& shellState() { return app; }

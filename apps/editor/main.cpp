@@ -429,22 +429,6 @@ int brushSizeIndex(float size) {  // the nearest size in the list
 void fillToolCombo() { fillToolCombo(app); }
 
 
-std::vector<int> selectedPalette() {
-    std::vector<int> out;
-    if (app.mode != Mode::Locations) {
-        for (int v : gPal.chosen)
-            if (v >= 0) out.push_back(v);
-        if (out.empty() && app.palette >= 0) out.push_back(app.palette);
-        return out;
-    }
-    int n = int(SendMessageW(app.list, LB_GETSELCOUNT, 0, 0));
-    if (n <= 0) return out;
-    std::vector<int> idx(size_t(n), 0);
-    SendMessageW(app.list, LB_GETSELITEMS, n, LPARAM(idx.data()));
-    for (int i : idx)
-        if (i >= 0 && i < int(app.items.size()) && app.items[i] >= 0) out.push_back(app.items[i]);
-    return out;
-}
 
 // --- Palette ---------------------------------------------------------------------------------------
 
@@ -459,45 +443,6 @@ void rebuildList() { rebuildList(app); }
 void enterSelection();
 bool inSelection();
 bool spriteIsOverlay(int i);
-void setMode(Mode m) {
-    const bool changed = app.mode != m;
-    if (changed) app.selDoodads.clear(), app.selSprites.clear(), app.pastingItems = false;
-    if (app.mode != m) app.palette = -1, app.palette2 = -1, gPal.chosen.clear();
-    // Density and symmetry are each mode's own.
-    app.densityByMode[int(app.mode)] = app.sprayDensity;
-    if (app.ed) app.symmetryByMode[int(app.mode)] = app.ed->mirrors();
-    app.sprayDensity = app.densityByMode[int(m)];
-    if (app.ed) app.ed->setMirrors(app.symmetryByMode[int(m)]);
-    app.mode = m;
-    gLastOnSide[gDock.toolsRight[int(m)] ? 1 : 0] = m;
-    const PaletteView& v = gViewByMode[int(m)];
-    gPal.grid = v.grid, gPal.sprites = v.sprites, gPal.large = v.large;
-    if (app.view) shellRelayout();  // the toolbar's side, and what the other column shows
-    // Units, terrains and doodads are picked in the palette; in Locations the same place lists the locations.
-    const bool locs = m == Mode::Locations, mapWs = gWorkspace == Workspace::Map;
-    ShowWindow(app.filter, mapWs && locs ? SW_SHOW : SW_HIDE);
-    ShowWindow(app.list, mapWs && locs ? SW_SHOW : SW_HIDE);
-    if (gPal.sectionBox)
-        ShowWindow(gPal.sectionBox, mapWs && (m == Mode::Units || m == Mode::Doodads || m == Mode::Sprites) ? SW_SHOW : SW_HIDE);
-    for (HWND h : {gPal.search, gPal.viewBtn, gPal.wnd})
-        if (h) ShowWindow(h, mapWs && !locs ? SW_SHOW : SW_HIDE);
-    if (app.modeBar) InvalidateRect(app.modeBar, nullptr, FALSE);
-    // Only the active mode's options show (layout places them).
-    const bool spray = m != Mode::Locations && m != Mode::Sprites;
-    (void)spray;
-
-    // The player: for units and sprites (their owner and color). Doodads have no player (they are placed as player 1).
-    ShowWindow(app.owner, mapWs && (m == Mode::Units || m == Mode::Sprites) ? SW_SHOW : SW_HIDE);
-    if (app.view) shellRelayout();
-    fillToolCombo();
-    app.terrainPasting = false;
-    // A mode starts in selection: nothing picked, Terrain on Select. Picking a terrain, unit or doodad in the palette
-    // starts placing it.
-    if (changed) enterSelection();
-    rebuildList();
-    app.drag = Drag::None;
-    app.dirty = true;
-}
 
 // --- Status ----------------------------------------------------------------------------------------
 
@@ -1048,24 +993,6 @@ render::Scene buildScene() {
 }
 MinimapView gMinimap;
 
-// The view stays near the map: at most half a view past each edge; a map smaller than the view keeps its middle in
-// the view's middle on that axis. Every way the camera moves (drag, wheel, minimap, keys) passes here each frame.
-void clampCamera() {
-    if (!app.ed || !app.ed->isOpen() || app.zoom <= 0) return;
-    RECT v;
-    GetClientRect(app.view, &v);
-    const float vw = v.right / app.zoom, vh = v.bottom / app.zoom, mw = app.ed->width() * 32.0f, mh = app.ed->height() * 32.0f;
-    auto clampAxis = [](float& cam, float view, float map) {
-        if (map < view) {  // all of the map fits: its middle stays inside the view
-            cam = std::clamp(cam, map / 2 - view, map / 2);
-            return;
-        }
-        cam = std::clamp(cam, -view / 2, map - view / 2);
-    };
-    clampAxis(app.camX, vw, mw);
-    clampAxis(app.camY, vh, mh);
-}
-
 void renderNow() {
     if (!app.rendererOk || !app.ed || !app.ed->isOpen()) return;
     Editor& ed = *app.ed;
@@ -1436,8 +1363,6 @@ void chooseInstallFolder() {
     logLine(L"StarCraft folder set to " + dir.wstring() + L" (from the next start)");
 }
 
-int gNewDocPage = 0;        // the page of the tab addDocument opens next
-bool gReplacePage = false;  // addDocument puts the map in the active tab (the New page's Create)
 void pageSync();
 void openNewPage(int kind);
 void openStartPage();
@@ -1456,40 +1381,6 @@ bool mapPagesConfirm();
 
 void forgetProject(const EudProject* pr);
 
-// Opens `ed` in a new tab. Opening a file (`replaceBlank`) instead takes the place of the active tab
-// when that is the untouched blank map the editor starts with.
-void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank) {
-    mapPageClose();  // a map page shows the new map's values only after it opens again
-    // The untouched start: a blank map, or the new project nobody worked in yet (its folder goes).
-    const EudProject* activePr = gActive >= 0 && gActive < int(gDocs.size()) ? gDocs[size_t(gActive)].project.get() : nullptr;
-    const bool freshProject = isUnsavedProject(activePr) && !unsavedProjectTouched(*activePr);
-    // A file opened from the start page takes its place; the New page stays unless its Create made the map.
-    const int page = activePage();
-    bool reuse = replaceBlank && gActive >= 0 && app.ed && page != kPageNew &&
-                 (page == kPageStart || freshProject || (!app.ed->modified() && app.ed->path().empty() && !app.ed->canUndo()));
-    if (std::exchange(gReplacePage, false) && page && app.ed) reuse = true;
-    if (reuse && freshProject) {
-        forgetProject(gDocs[size_t(gActive)].project.get());
-        dropUnsavedProject(gDocs[size_t(gActive)].project), gDocs[size_t(gActive)].project.reset();
-    }
-    if (!reuse) {
-        stashActive();
-        gDocs.emplace_back();
-        gActive = int(gDocs.size()) - 1;
-    }
-    app.ed = std::move(ed);
-    gDocs[size_t(gActive)].page = std::exchange(gNewDocPage, 0);
-    if (app.ed->path().empty() && (!reuse || page) && !gDocs[size_t(gActive)].page) gDocs[size_t(gActive)].untitled = ++gUntitledCount;
-    app.hasTerrainSel = app.pasting = app.terrainPasting = false;
-    startMark("open: add the tab");
-    shellRelayout();  // the minimap takes this map's shape
-    startMark("open: layout");
-    showActive();
-    startMark("open: show the map");
-    fitMap();
-    startMark("open: fit the map");
-    if (gWorkspace >= Workspace::Properties) setWorkspace(Workspace::Map);  // a new map opens on the map, not on a map page
-}
 
 bool confirmDiscard();
 void newMap();
@@ -2259,20 +2150,6 @@ fs::path unsavedRoot() {
     CoTaskMemFree(local);
     return p;
 }
-bool isUnsavedProject(const EudProject* pr) {
-    if (!pr) return false;
-    std::error_code ec;
-    const fs::path root = unsavedRoot();
-    return !root.empty() && fs::equivalent(pr->folder().parent_path().parent_path(), root, ec);
-}
-// Whether an unsaved project holds work: a changed map, triggers, data or scripts.
-bool unsavedProjectTouched(const EudProject& pr) {
-    if (app.ed && (app.ed->modified() || app.ed->canUndo())) return true;
-    std::error_code ec;
-    if (fs::exists(pr.folder() / "triggers.json", ec)) return true;
-    if (fs::exists(pr.folder() / "dat", ec) && !fs::is_empty(pr.folder() / "dat", ec)) return true;
-    return pr.scripts().size() > 1;
-}
 // The folders of unsaved projects whose StarDraft is no longer running (a crash, an older start).
 void cleanUnsavedProjects() {
     std::error_code ec;
@@ -2287,11 +2164,6 @@ void cleanUnsavedProjects() {
         }
         fs::remove_all(e.path(), ec);
     }
-}
-void dropUnsavedProject(const std::shared_ptr<EudProject>& pr) {
-    if (!isUnsavedProject(pr.get())) return;
-    std::error_code ec;
-    fs::remove_all(pr->folder().parent_path(), ec);
 }
 void newUntitledProject() {
     newMap();
@@ -2474,21 +2346,6 @@ void trigZoomReset();
 bool trigCanUndo(bool redo);
 bool dataUndo(bool redo);
 bool dataCanUndo(bool redo);
-bool confirmDiscard() {
-    if (gSelfTest || activePage()) return true;  // a page tab holds no work
-    if (!mapPagesConfirm()) return false;        // map pages with changes that are not applied: apply them, or not
-    if (const EudProject* pr = activeProject(); isUnsavedProject(pr)) {  // a new project: nothing to keep unless it holds work
-        if (!unsavedProjectTouched(*pr)) return true;
-        const int r = themedMessageBox(app.main, L"Save the new project?", L"Unsaved changes", MB_YESNOCANCEL | MB_ICONQUESTION,
-                                       {L"&Save", L"Do &not save", L"Cancel"});
-        if (r == IDCANCEL) return false;
-        return r == IDNO || saveUnsavedProject();
-    }
-    if (!app.ed || !app.ed->modified()) return true;
-    int r = themedMessageBox(app.main, L"Save changes to the map?", L"Unsaved changes", MB_YESNOCANCEL | MB_ICONQUESTION, {L"&Save", L"Do &not save", L"Cancel"});
-    if (r == IDCANCEL) return false;
-    return r == IDNO || saveMap(false);
-}
 
 // --- Commands --------------------------------------------------------------------------------------
 
@@ -3214,25 +3071,6 @@ std::wstring unitSection(const UnitType& t, int& race) {
 // Palette label: the short name and StarEdit's subtitle ("Siege Tank (Tank Mode)").
 // A unit's name with its custom name (the map's unit settings), as Program options > Unit names says (feedback #68).
 // The custom names are read once for each version of the map.
-// A unit's game name with its custom name `c`, in the format of Program options > Unit names.
-std::wstring formatUnitName(const std::wstring& game, const std::wstring& c) {
-    if (c.empty() || c == game || gDock.unitNames == 0) return game;
-    return gDock.unitNames == 1 ? game + L" (" + c + L")" : gDock.unitNames == 2 ? c + L" (" + game + L")" : c;
-}
-std::wstring withCustomName(const std::wstring& game, int u) {
-    if (!app.ed || u < 0 || u >= kSettingUnits || gDock.unitNames == 0) return game;
-    static const Editor* forEd = nullptr;
-    static uint64_t forRev = ~0ull;
-    static std::vector<std::wstring> custom;
-    if (forEd != app.ed.get() || forRev != app.ed->revision()) {
-        forEd = app.ed.get(), forRev = app.ed->revision();
-        custom.assign(kSettingUnits, L"");
-        const UnitSettings s = app.ed->unitSettings();
-        for (int i = 0; i < kSettingUnits; ++i)
-            if (!s.units[size_t(i)].useDefault && s.units[size_t(i)].nameString) custom[size_t(i)] = widen(app.ed->unitSettingName(i));
-    }
-    return formatUnitName(game, custom[size_t(u)]);
-}
 // Program options > Unit names: the list of the four ways (after ListPickItem; options_window.inc calls it).
 void pickUnitNames(RECT b);
 int languageChoice();                  // Program options > Language: the choice (kLanguageChoices)
@@ -5187,14 +5025,6 @@ const DatField* curField(int index) {
     return nullptr;
 }
 
-std::wstring projectUnitName(int u);  // data_extras.inc: the project's name of the unit when its string is changed, else ""
-std::wstring unitDisplayName(int u) {
-    if (!app.ed || u < 0 || u >= int(app.ed->unitTypes().size())) return L"";
-    const UnitType& t = app.ed->unitTypes()[uint16_t(u)];
-    // The project's name when its string is changed (Data > Strings, or Rename at the top of the unit's form).
-    const std::wstring own = projectUnitName(u);
-    return withCustomName((own.empty() ? widen(t.name) : own) + (t.subtitle.empty() ? L"" : L" (" + widen(t.subtitle) + L")"), u);
-}
 
 // The stat_txt.tbl string (1-based) that names an entry in the game: a unit's (its id + 1), or the Label of a weapon,
 // upgrade, technology or order; 0 for none (the other .dat files have no name in the game).
@@ -15982,14 +15812,8 @@ void cancelStep() {
     app.dirty = true;
 }
 
-// Isometric terrain: Shift with the left button paints the second terrain (Ctrl+click in the palette) with the Brush,
-// Spray, Fill or Replace tool, as the left button alone paints the first. gSecondStrokeSaved: the first terrain during
-// such a stroke.
+// The first terrain during a stroke with the second (secondPaints, core/map_input.inc).
 int gSecondStrokeSaved = -2;  // -2: no stroke with the second terrain
-bool secondPaints() {
-    const int tool = currentTool();
-    return app.ed && app.mode == Mode::Terrain && !app.terrainRect && app.palette2 > 0 && (tool == TBrush || tool == TSpray || tool == TFill || tool == TReplace);
-}
 
 // The modifier keys of a mouse message (draw::Mods): Shift and Ctrl as the message's keys say (a caller may take one
 // away, as the right button's stroke takes Ctrl), Alt as it is now.
@@ -16712,42 +16536,6 @@ int statusBarHeight() {
 // Right-click it to move it to the other side. When the tool bar is on the side without the mode buttons, a line with
 // the mode's name tops it.
 ui::Surface gStrip;
-struct StripItem {
-    UiIcon icon;
-    const wchar_t* tip;
-    int tool;     // the mode's tool it sets
-    bool select;  // the Select button: the tool with nothing picked
-};
-// Every mode's tools, Select first. Select is the mode's tool with nothing picked (Terrain has a Select tool of its
-// own); Place is the same tool with a pick from the list.
-std::vector<StripItem> stripTools(Mode m) {
-    switch (m) {
-    case Mode::Terrain:
-        if (app.terrainRect)  // Rectangle: the same tools on tiles as they are
-            return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.", TSelect, true},
-                    {UiIcon::Brush, L"Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, each tile of the brush gets one of the selected tiles at random.", TBrush, false},
-                    {UiIcon::Spray, L"Spray: place the tile at random spots in the brush (Density). Hold the button to spray more.", TSpray, false},
-                    {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, each filled tile gets one of them at random.", TFill, false}};
-        return {{UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.", TSelect, true},
-                {UiIcon::Brush, L"Brush: paint the terrain selected in the list", TBrush, false},
-                {UiIcon::Spray, L"Spray: random dabs of the terrain (Density). Hold the button to spray more.", TSpray, false},
-                {UiIcon::Fill, L"Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one).", TFill, false}};
-    case Mode::Units:
-        return {{UiIcon::Select, L"Select units: click or drag a box; drag them to move. Esc returns to the Select tool.", UPlace, true},
-                {UiIcon::Add, L"Place the unit selected in the list", UPlace, false},
-                {UiIcon::Spray, L"Spray: random units of the selected kinds (Density). Hold the button to spray more.", USpray, false}};
-    case Mode::Doodads:
-        return {{UiIcon::Select, L"Select a doodad: click it; drag it to move. Esc returns to the Select tool.", DPlace, true},
-                {UiIcon::Brush, L"Place the doodads selected in the list", DPlace, false},
-                {UiIcon::Spray, L"Spray: random doodads of the selected kinds (Density). Hold the button to spray more.", DSpray, false}};
-    case Mode::Sprites:
-        return {{UiIcon::Select, L"Select a sprite: click it; drag it to move. Esc goes to Select.", SPlace, true},
-                {UiIcon::Add, L"Place the sprites selected in the list (several: each one at random); drag to place more", SPlace, false},
-                {UiIcon::Spray, L"Spray: random sprites of the selected kinds (Density). Hold the button to spray more.", SSpray, false}};
-    case Mode::Locations: return {{UiIcon::Select, L"Select, move and resize locations; drag on empty ground to make one", 0, true}};
-    }
-    return {};
-}
 // A tool of the strip: as its button does.
 void pickStripTool(const StripItem& it) {
     if (it.select) enterSelection(), setMessage(std::wstring(kModeNames[int(app.mode)]) + L": select");
@@ -16762,14 +16550,6 @@ void pickStripTool(const StripItem& it) {
     tilesSync();
     SetFocus(app.view);
 }
-// The key of a strip tool (ID_TOOL_KEY + it): 0 V select, 1 B brush or place, 2 A spray, 3 F fill; -1 none.
-int stripToolKey(const StripItem& it) {
-    if (it.select) return 0;
-    if (it.icon == UiIcon::Spray) return 2;
-    if (it.icon == UiIcon::Fill) return 3;
-    if (it.icon == UiIcon::Brush || it.icon == UiIcon::Add) return 1;
-    return -1;
-}
 // The keys V, B, A, F: the active mode's tool of that key (the Map workspace only).
 void stripToolByKey(int key) {
     if (gWorkspace != Workspace::Map) return;
@@ -16777,25 +16557,6 @@ void stripToolByKey(int key) {
         if (stripToolKey(it) == key) return pickStripTool(it);
 }
 
-// Whether the active mode is in its selection: its Select tool with nothing picked.
-bool inSelection() {
-    for (const StripItem& it : stripTools(app.mode))
-        if (it.select)
-            return currentTool() == it.tool && (app.mode == Mode::Terrain || app.palette < 0) && !app.pasting && !app.terrainPasting && !app.pastingItems;
-    return true;
-}
-// To the active mode's selection: its Select tool, nothing picked, no paste following the mouse (Esc, the Select
-// button, entering a mode).
-void enterSelection() {
-    for (const StripItem& it : stripTools(app.mode))
-        if (it.select) app.toolByMode[int(app.mode)] = it.tool;
-    app.pasting = app.terrainPasting = app.pastingItems = false;
-    app.palette = -1;
-    if (app.mode != Mode::Locations) gPal.chosen.clear(), unitPaletteRepaint();
-    fillToolCombo();
-    updateStatus();
-    app.dirty = true;
-}
 bool objectSprayOn() {
     return (app.mode == Mode::Units && currentTool() == USpray) || (app.mode == Mode::Doodads && currentTool() == DSpray) ||
            (app.mode == Mode::Sprites && currentTool() == SSpray);

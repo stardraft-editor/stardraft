@@ -4,7 +4,11 @@
 // Moved from main.cpp: the Win32 TU keeps the forms without app (each calls the one here with its app).
 
 void tilesSync();  // (tiles_view.inc: the Win32 TU until it moves into the core)
-void setMode(Mode m);  // (main.cpp: the mode's own state and window; the Win32 TU until it moves)
+void setMode(Mode m);
+// setMode's host parts (shell_win32.inc; the SDL host has no docked palettes yet): the side the mode's tools are docked
+// on, with the palette's view of the mode, and the windows that the mode shows (the Map workspace's).
+void shellModeSide(Mode m);
+void shellModeWindows(Mode m);
 std::wstring paletteItemName(int v);  // (main.cpp: the palette entry's name; entryName is in the Win32 TU)
 
 // Device pixels for v at the window's dpi (the rounding of MulDiv(v, dpi, 96): halves away from zero).
@@ -289,4 +293,117 @@ void pickUnit(AppState& app, int v, bool add) {
                    L": click to place. Drag to place a row. Right-click to stop.");
     app.dirty = true;
     shellPaletteChanged();
+}
+
+// The tool strip's tools of a mode: its buttons, and the keys V, B, A, F (the Map workspace's strip is the host's).
+struct StripItem {
+    UiIcon icon;
+    const wchar_t* tip;
+    int tool;     // the mode's tool it sets
+    bool select;  // the Select button: the tool with nothing picked
+};
+// Every mode's tools, Select first. Select is the mode's tool with nothing picked (Terrain has a Select tool of its
+// own); Place is the same tool with a pick from the list.
+std::vector<StripItem> stripTools(Mode m) {
+    const AppState& app = appState();
+    switch (m) {
+    case Mode::Terrain:
+        if (app.terrainRect)  // Rectangle: the same tools on tiles as they are
+            return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.", TSelect, true},
+                    {UiIcon::Brush, L"Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, each tile of the brush gets one of the selected tiles at random.", TBrush, false},
+                    {UiIcon::Spray, L"Spray: place the tile at random spots in the brush (Density). Hold the button to spray more.", TSpray, false},
+                    {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, each filled tile gets one of them at random.", TFill, false}};
+        return {{UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.", TSelect, true},
+                {UiIcon::Brush, L"Brush: paint the terrain selected in the list", TBrush, false},
+                {UiIcon::Spray, L"Spray: random dabs of the terrain (Density). Hold the button to spray more.", TSpray, false},
+                {UiIcon::Fill, L"Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one).", TFill, false}};
+    case Mode::Units:
+        return {{UiIcon::Select, L"Select units: click or drag a box; drag them to move. Esc returns to the Select tool.", UPlace, true},
+                {UiIcon::Add, L"Place the unit selected in the list", UPlace, false},
+                {UiIcon::Spray, L"Spray: random units of the selected kinds (Density). Hold the button to spray more.", USpray, false}};
+    case Mode::Doodads:
+        return {{UiIcon::Select, L"Select a doodad: click it; drag it to move. Esc returns to the Select tool.", DPlace, true},
+                {UiIcon::Brush, L"Place the doodads selected in the list", DPlace, false},
+                {UiIcon::Spray, L"Spray: random doodads of the selected kinds (Density). Hold the button to spray more.", DSpray, false}};
+    case Mode::Sprites:
+        return {{UiIcon::Select, L"Select a sprite: click it; drag it to move. Esc goes to Select.", SPlace, true},
+                {UiIcon::Add, L"Place the sprites selected in the list (several: each one at random); drag to place more", SPlace, false},
+                {UiIcon::Spray, L"Spray: random sprites of the selected kinds (Density). Hold the button to spray more.", SSpray, false}};
+    case Mode::Locations: return {{UiIcon::Select, L"Select, move and resize locations; drag on empty ground to make one", 0, true}};
+    }
+    return {};
+}
+// The key of a strip tool (ID_TOOL_KEY + it): 0 V select, 1 B brush or place, 2 A spray, 3 F fill; -1 none.
+int stripToolKey(const StripItem& it) {
+    if (it.select) return 0;
+    if (it.icon == UiIcon::Spray) return 2;
+    if (it.icon == UiIcon::Fill) return 3;
+    if (it.icon == UiIcon::Brush || it.icon == UiIcon::Add) return 1;
+    return -1;
+}
+
+// Whether the active mode is in its selection: its Select tool with nothing picked.
+bool inSelection() {
+    AppState& app = appState();
+    for (const StripItem& it : stripTools(app.mode))
+        if (it.select)
+            return currentTool(app) == it.tool && (app.mode == Mode::Terrain || app.palette < 0) && !app.pasting && !app.terrainPasting && !app.pastingItems;
+    return true;
+}
+// To the active mode's selection: its Select tool, nothing picked, no paste following the mouse (Esc, the Select
+// button, entering a mode).
+void enterSelection() {
+    AppState& app = appState();
+    for (const StripItem& it : stripTools(app.mode))
+        if (it.select) app.toolByMode[int(app.mode)] = it.tool;
+    app.pasting = app.terrainPasting = app.pastingItems = false;
+    app.palette = -1;
+    if (app.mode != Mode::Locations) shellPaletteChosen().clear(), shellPaletteChanged();
+    fillToolCombo(app);
+    updateStatus(app);
+    app.dirty = true;
+}
+
+// Switches the mode: its own spray density and symmetry come with it, the palette shows its entries, and the mode's
+// selection is on (a new mode starts in it). The host shows the mode's side and windows (shellModeSide, shellModeWindows).
+void setMode(Mode m) {
+    AppState& app = appState();
+    const bool changed = app.mode != m;
+    if (changed) app.selDoodads.clear(), app.selSprites.clear(), app.pastingItems = false;
+    if (app.mode != m) app.palette = -1, app.palette2 = -1, shellPaletteChosen().clear();
+    // Density and symmetry are each mode's own.
+    app.densityByMode[int(app.mode)] = app.sprayDensity;
+    if (app.ed) app.symmetryByMode[int(app.mode)] = app.ed->mirrors();
+    app.sprayDensity = app.densityByMode[int(m)];
+    if (app.ed) app.ed->setMirrors(app.symmetryByMode[int(m)]);
+    app.mode = m;
+    shellModeSide(m);  // the side the mode's tools are docked on, and the palette's view of the mode
+    if (shellViewShown()) shellRelayout();  // the toolbar's side, and what the other column shows
+    // Units, terrains and doodads are picked in the palette; in Locations the same place lists the locations.
+    shellModeWindows(m);  // the filter, list, section, search and player windows show for the mode
+    if (shellViewShown()) shellRelayout();
+    fillToolCombo(app);
+    app.terrainPasting = false;
+    // A mode starts in selection: nothing picked, Terrain on Select. Picking a terrain, unit or doodad in the palette
+    // starts placing it.
+    if (changed) enterSelection();
+    rebuildList(app);
+    app.drag = Drag::None;
+    app.dirty = true;
+}
+
+// The palette's selection: the picked units or terrains (Ctrl+click), else the one picked; in Locations, the rows the
+// list has selected.
+std::vector<int> selectedPalette() {
+    AppState& app = appState();
+    std::vector<int> out;
+    if (app.mode != Mode::Locations) {
+        for (int v : shellPaletteChosen())
+            if (v >= 0) out.push_back(v);
+        if (out.empty() && app.palette >= 0) out.push_back(app.palette);
+        return out;
+    }
+    for (int i : shellListSelection())
+        if (i >= 0 && i < int(app.items.size()) && app.items[i] >= 0) out.push_back(app.items[i]);
+    return out;
 }

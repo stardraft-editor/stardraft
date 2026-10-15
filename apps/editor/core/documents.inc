@@ -198,3 +198,73 @@ void openMap(const std::wstring& path, bool switchToOpen) {
     if (app.ed->isomRebuilt())  // a map made by a tool that writes only the tiles (or protected)
         shellLogLine(L"The map had no isometric terrain data (ISOM). StarDraft 2 made it from the tiles, so the isometric tools work. Saving the map keeps it.");
 }
+
+// --- The unsaved project ---------------------------------------------------------------------------------------
+// StarDraft starts with a project that is not saved yet: a 128 x 128 badlands map in a project folder under the unsaved
+// root (the host's, shell.h), so every workspace works from the start. Save asks where the project goes; closing it
+// without saving deletes the folder.
+void mapPageClose();
+void stashActive();
+void showActive();
+void setWorkspace(Workspace w);
+void fitMap();
+void forgetProject(const EudProject* pr);
+bool isUnsavedProject(const EudProject* pr) {
+    if (!pr) return false;
+    std::error_code ec;
+    const fs::path root = shellUnsavedRoot();
+    return !root.empty() && fs::equivalent(pr->folder().parent_path().parent_path(), root, ec);
+}
+// Whether an unsaved project holds work: a changed map, triggers, data or scripts.
+bool unsavedProjectTouched(const EudProject& pr) {
+    AppState& app = appState();
+    if (app.ed && (app.ed->modified() || app.ed->canUndo())) return true;
+    std::error_code ec;
+    if (fs::exists(pr.folder() / "triggers.json", ec)) return true;
+    if (fs::exists(pr.folder() / "dat", ec) && !fs::is_empty(pr.folder() / "dat", ec)) return true;
+    return pr.scripts().size() > 1;
+}
+void dropUnsavedProject(const std::shared_ptr<EudProject>& pr) {
+    if (!isUnsavedProject(pr.get())) return;
+    std::error_code ec;
+    fs::remove_all(pr->folder().parent_path(), ec);
+}
+
+int gNewDocPage = 0;        // the page of the tab addDocument opens next
+bool gReplacePage = false;  // addDocument puts the map in the active tab (the New page's Create)
+
+// Opens `ed` in a new tab. Opening a file (`replaceBlank`) instead takes the place of the active tab
+// when that is the untouched blank map the editor starts with.
+void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank) {
+    AppState& app = appState();
+    mapPageClose();  // a map page shows the new map's values only after it opens again
+    // The untouched start: a blank map, or the new project nobody worked in yet (its folder goes).
+    const EudProject* activePr = gActive >= 0 && gActive < int(gDocs.size()) ? gDocs[size_t(gActive)].project.get() : nullptr;
+    const bool freshProject = isUnsavedProject(activePr) && !unsavedProjectTouched(*activePr);
+    // A file opened from the start page takes its place; the New page stays unless its Create made the map.
+    const int page = activePage();
+    bool reuse = replaceBlank && gActive >= 0 && app.ed && page != kPageNew &&
+                 (page == kPageStart || freshProject || (!app.ed->modified() && app.ed->path().empty() && !app.ed->canUndo()));
+    if (std::exchange(gReplacePage, false) && page && app.ed) reuse = true;
+    if (reuse && freshProject) {
+        forgetProject(gDocs[size_t(gActive)].project.get());
+        dropUnsavedProject(gDocs[size_t(gActive)].project), gDocs[size_t(gActive)].project.reset();
+    }
+    if (!reuse) {
+        stashActive();
+        gDocs.emplace_back();
+        gActive = int(gDocs.size()) - 1;
+    }
+    app.ed = std::move(ed);
+    gDocs[size_t(gActive)].page = std::exchange(gNewDocPage, 0);
+    if (app.ed->path().empty() && (!reuse || page) && !gDocs[size_t(gActive)].page) gDocs[size_t(gActive)].untitled = ++gUntitledCount;
+    app.hasTerrainSel = app.pasting = app.terrainPasting = false;
+    startMark("open: add the tab");
+    shellRelayout();  // the minimap takes this map's shape
+    startMark("open: layout");
+    showActive();
+    startMark("open: show the map");
+    fitMap();
+    startMark("open: fit the map");
+    if (gWorkspace >= Workspace::Properties) setWorkspace(Workspace::Map);  // a new map opens on the map, not on a map page
+}

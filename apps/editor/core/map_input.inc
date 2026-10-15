@@ -27,7 +27,6 @@ void showLocationEdit(int loc);
 bool inSelection();
 bool secondPaints();
 void cancelStep();
-void clampCamera();
 int sprayRadius();
 int brushSizeIndex(float size);
 const std::vector<float>& brushSizes();
@@ -41,6 +40,52 @@ bool strokePlace(float x, float y);
 std::wstring entryName(const std::string& dat, int v);
 std::wstring unitShortName(const UnitType& t);
 // The palette's picked values (Ctrl+click): a doodad or sprite drag places one of them at random (the palette's own list).
+
+// The view stays near the map: at most half a view past each edge; a map smaller than the view keeps its middle in
+// the view's middle on that axis. Every way the camera moves (drag, wheel, minimap, keys) passes here each frame.
+void clampCamera() {
+    AppState& app = appState();
+    if (!app.ed || !app.ed->isOpen() || app.zoom <= 0) return;
+    int viewW = 0, viewH = 0;
+    shellViewSize(viewW, viewH);
+    const float vw = viewW / app.zoom, vh = viewH / app.zoom, mw = app.ed->width() * 32.0f, mh = app.ed->height() * 32.0f;
+    auto clampAxis = [](float& cam, float view, float map) {
+        if (map < view) {  // all of the map fits: its middle stays inside the view
+            cam = std::clamp(cam, map / 2 - view, map / 2);
+            return;
+        }
+        cam = std::clamp(cam, -view / 2, map - view / 2);
+    };
+    clampAxis(app.camX, vw, mw);
+    clampAxis(app.camY, vh, mh);
+}
+
+// A fit asked for while the map view had no size yet (a map opened before the window exists): the host fits the map
+// when the view has its size.
+bool gFitPending = false;
+
+// The whole map in the view: the zoom that fits it (at most 4 times), its middle in the view's middle.
+void fitMap() {
+    AppState& app = appState();
+    if (!app.ed || !app.ed->isOpen()) return;
+    int w, h;
+    viewSize(w, h);
+    gFitPending = w <= 0 || h <= 0;
+    if (gFitPending) return;
+    app.zoom = std::clamp(std::min(w / (app.ed->width() * 32.0f), h / (app.ed->height() * 32.0f)), 1.0f / 16, 4.0f);
+    app.camX = (app.ed->width() * 32.0f - w / app.zoom) / 2;
+    app.camY = (app.ed->height() * 32.0f - h / app.zoom) / 2;
+    app.dirty = true;
+}
+
+// Isometric terrain: Shift with the left button paints the second terrain (Ctrl+click in the palette) with the Brush,
+// Spray, Fill or Replace tool, as the left button alone paints the first. The Win32 view keeps the first terrain
+// during such a stroke (gSecondStrokeSaved).
+bool secondPaints() {
+    AppState& app = appState();
+    const int tool = currentTool(app);
+    return app.ed && app.mode == Mode::Terrain && !app.terrainRect && app.palette2 > 0 && (tool == TBrush || tool == TSpray || tool == TFill || tool == TReplace);
+}
 
 void selectItemAt(AppState& app, std::vector<int>& sel, int hit, unsigned mods, Drag move) {
     const bool add = (mods & (draw::kCtrl | draw::kShift)) != 0;

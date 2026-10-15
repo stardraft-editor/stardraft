@@ -3,7 +3,39 @@
 // come from the Data workspace, which stays in main.cpp).
 
 AppState& shellState();
-std::wstring unitDisplayName(int u);  // main.cpp (the Data workspace's names: the project's own names too)
+std::wstring projectUnitName(int u);  // the Win32 TU (data_extras.inc): the project's name of the unit when its string is changed, else ""
+
+// A unit's game name with its custom name `c`, in the format of Program options > Unit names.
+std::wstring formatUnitName(const std::wstring& game, const std::wstring& c) {
+    if (c.empty() || c == game || gDock.unitNames == 0) return game;
+    return gDock.unitNames == 1 ? game + L" (" + c + L")" : gDock.unitNames == 2 ? c + L" (" + game + L")" : c;
+}
+// A unit's name with its custom name (the map's unit settings), as Program options > Unit names says (feedback #68).
+// The custom names are read once for each version of the map.
+std::wstring withCustomName(const std::wstring& game, int u) {
+    AppState& app = shellState();
+    if (!app.ed || u < 0 || u >= kSettingUnits || gDock.unitNames == 0) return game;
+    static const Editor* forEd = nullptr;
+    static uint64_t forRev = ~0ull;
+    static std::vector<std::wstring> custom;
+    if (forEd != app.ed.get() || forRev != app.ed->revision()) {
+        forEd = app.ed.get(), forRev = app.ed->revision();
+        custom.assign(kSettingUnits, L"");
+        const UnitSettings s = app.ed->unitSettings();
+        for (int i = 0; i < kSettingUnits; ++i)
+            if (!s.units[size_t(i)].useDefault && s.units[size_t(i)].nameString) custom[size_t(i)] = widen(app.ed->unitSettingName(i));
+    }
+    return formatUnitName(game, custom[size_t(u)]);
+}
+// A unit's name: the game's, or the project's own, with its subtitle and its custom name (the Data workspace's names too).
+std::wstring unitDisplayName(int u) {
+    AppState& app = shellState();
+    if (!app.ed || u < 0 || u >= int(app.ed->unitTypes().size())) return L"";
+    const UnitType& t = app.ed->unitTypes()[uint16_t(u)];
+    // The project's name when its string is changed (Data > Strings, or Rename at the top of the unit's form).
+    const std::wstring own = projectUnitName(u);
+    return withCustomName((own.empty() ? widen(t.name) : own) + (t.subtitle.empty() ? L"" : L" (" + widen(t.subtitle) + L")"), u);
+}
 
 std::wstring paletteItemName(int v) {
     AppState& app = shellState();

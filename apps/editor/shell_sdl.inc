@@ -14,9 +14,12 @@ void shellStatusChanged() {
 }
 bool shellLogOpen() { return false; }  // (the Log is not on this system yet)
 int shellUiFontLfHeight() { return -12; }  // (the Win32 UI font's height; the kit's views size their own text)
+// The map view's size: none until the root view is in a window (a map opened from the command line comes before the
+// window, and the layout's placeholder then is 1 x 1); fitMap waits for it (gFitPending).
 void shellViewSize(int& w, int& h) {
-    w = gRoot ? gRoot->map.width() : 0;
-    h = gRoot ? gRoot->map.height() : 0;
+    const bool shown = gRoot && gRoot->host();
+    w = shown ? gRoot->map.width() : 0;
+    h = shown ? gRoot->map.height() : 0;
 }
 
 // The posted work runs on the UI thread in the frame hook (sdl_main_view.inc: runPosted); the host paints each frame
@@ -56,12 +59,32 @@ bool shellHasStatusBar() { return true; }
 int shellSpriteCount() { return gRenderer ? gRenderer->stats().sprites : 0; }
 void shellListSelect(int) {}  // (the palette's list is not on this system yet)
 void shellListFill(const std::vector<std::wstring>&) {}
+std::vector<int> shellListSelection() { return {}; }  // (the palette's list is not on this system yet)
 std::wstring shellFilterText() { return {}; }
 bool shellViewShown() { return gRoot != nullptr; }
 void shellToolsChanged() {}  // (the tool strip is not on this system yet)
 void shellOwnerSelect(int) {}  // (the player combo box is not on this system yet)
 void shellPaletteChanged() {}
 void shellPaletteRebuilt() {}
+std::filesystem::path shellUnsavedRoot() { return {}; }  // (new projects are not on this system yet)
+// The save question: Save, Do not save or Cancel, in the kit's message box (Escape, or no window, is Cancel).
+int shellAskSaveChanges(bool project) {
+    if (!gRoot) return 2;
+    const int r = stardraft::kit::messageBox(*gRoot, shellTr(L"Unsaved changes"),
+                                             shellTr(project ? L"Save the new project?" : L"Save changes to the map?"),
+                                             {shellTr(L"Save"), shellTr(L"Do not save"), shellTr(L"Cancel")}, stardraft::kit::MessageIcon::Question);
+    return r == 0 ? 0 : r == 1 ? 1 : 2;
+}
+// Save after the question: a map with a file is saved there (true when it was written); an untitled map asks for its
+// file and stays open until it is saved (false: close it again then). New projects are not on this system yet.
+bool shellSaveChanges(bool project) {
+    if (project || !gState.ed || !gState.ed->isOpen()) return false;
+    if (!gState.ed->path().empty()) return saveTo(gState.ed->path());
+    saveOpenMap(false);
+    return false;
+}
+void shellModeSide(Mode) {}  // (the palettes are not docked on this system yet)
+void shellModeWindows(Mode) {}  // (the palette, list and player windows are not on this system yet)
 std::wstring shellTr(const wchar_t* english) { return tr(english); }
 std::vector<int>& shellPaletteChosen() {
     static std::vector<int> chosen;

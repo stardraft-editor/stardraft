@@ -76,6 +76,8 @@ bool shellHasStatusBar();
 int shellSpriteCount();
 // The palette list: only row i is selected (-1: none), and its caret is on it.
 void shellListSelect(int i);
+// The palette list's selected rows (Locations: several can be selected); empty when none is.
+std::vector<int> shellListSelection();
 // The palette list's rows are replaced by these, and the list is drawn again.
 void shellListFill(const std::vector<std::wstring>& rows);
 // The palette search box's text (the Locations filter and the palette search).
@@ -94,6 +96,8 @@ void shellPaletteRebuilt();
 std::wstring shellTr(const wchar_t* english);
 // The palette's picked values (Ctrl+click): the palette's own list, which the selection of several picks changes.
 std::vector<int>& shellPaletteChosen();
+// The folder of the unsaved projects (a new project nobody saved yet lives there); empty when the system has none.
+std::filesystem::path shellUnsavedRoot();
 // The settings file (%APPDATA%\StarDraft\settings.json; the environment variable STARDRAFT_SETTINGS gives another).
 std::filesystem::path shellSettingsFile();
 // The value kinds of the settings written by older builds (the registry: HKCU\Software\StarDraft).

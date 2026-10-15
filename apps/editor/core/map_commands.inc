@@ -37,17 +37,6 @@ void zoomAt(float factor, int sx, int sy) {
     app.dirty = true;
 }
 
-void fitMap() {
-    AppState& app = shellState();
-    if (!app.ed || !app.ed->isOpen()) return;
-    int w, h;
-    viewSize(w, h);
-    app.zoom = std::clamp(std::min(w / (app.ed->width() * 32.0f), h / (app.ed->height() * 32.0f)), 1.0f / 16, 4.0f);
-    app.camX = (app.ed->width() * 32.0f - w / app.zoom) / 2;
-    app.camY = (app.ed->height() * 32.0f - h / app.zoom) / 2;
-    app.dirty = true;
-}
-
 // The save of the open map (File > Save and Save as): the Editor writes the file, then the title, the recent list and
 // the message follow. False, with the error text in err, when the file could not be written.
 bool saveMapFile(const fs::path& path, std::string& err) {

@@ -282,19 +282,6 @@ void requestQuit() {
     else gQuitPrompt = false;
 }
 
-// Closing a tab (SDL has one tab per map): a map with changes is asked about. Save of a map with a file saves it, and the
-// tab closes; an untitled map asks for its file, and the tab stays open until it is saved (close it again then).
-bool confirmDiscard() {
-    if (!gRoot || !gState.ed || !gState.ed->isOpen() || !gState.ed->modified()) return true;
-    const int r = kit::messageBox(*gRoot, shellTr(L"Unsaved changes"), shellTr(L"Save changes to the map?"),
-                                  {shellTr(L"Save"), shellTr(L"Do not save"), shellTr(L"Cancel")}, kit::MessageIcon::Question);
-    if (r == 1) return true;
-    if (r != 0) return false;
-    if (!gState.ed->path().empty()) return saveTo(gState.ed->path());
-    saveOpenMap(false);
-    return false;
-}
-
 // Before a map replaces the open one (SDL has one tab): Save, Do not save or Cancel. `then` runs when the map may go on:
 // after Do not save, or after a Save that saved.
 void confirmReplace(std::function<void()> then) {
