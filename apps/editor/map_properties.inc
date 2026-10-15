@@ -1,34 +1,44 @@
-// The Properties page (included into main.cpp after the players page; map_pages.inc shows it in the main area): the
-// title and description the game shows in the lobby, the tileset, the size, where the map's content goes when the
-// size changes, the terrain of new ground. The title and description go into the map as they are typed (map_pages.inc);
-// the size and the tileset change only with their button, "Change the size and tileset".
+// The Properties page's program part (included into main.cpp after the game text editors; map_pages.inc shows the page in
+// the main area): the working copy, the title and description (game text editors, game_text.inc), and what the page's
+// view (core/views_map_props.inc) asks of the map. The title and description go into the map as they are typed
+// (map_pages.inc); the size and the tileset change only with their button, "Change the size and tileset".
 
-struct MapPropsDialog {
-    HWND wnd = nullptr, name = nullptr, desc = nullptr;  // the texts are game text editors (game_text.inc); the rest is painted (map_pages.inc)
-    std::string nameText, descText;                      // as bytes (the game's codes)
-    int era = 0, w = 0, h = 0, anchorIndex = 0;
-    uint16_t fillTerrain = 1;
-    std::wstring infoText;           // what "Change the size and tileset" will do ("": the size and tileset are the map's)
-    RECT changeRect{}, resetRect{};  // the two buttons (tests)
-    // What the fields showed when the page first showed the map's values: a change is a difference from these.
-    bool baseSet = false;
-    std::string nameBase, descBase;
-    int eraBase = 0, wBase = 0, hBase = 0;
+// The working copy: the page's values (core: MapPropsValues) and the windows of its game text editors.
+struct MapPropsDialog : MapPropsValues {
+    HWND wnd = nullptr, name = nullptr, desc = nullptr;  // the page's window (the view's); the texts are game text editors
 };
 MapPropsDialog* gMapProps = nullptr;  // the working copy of the page that shows (map_pages.inc)
 void mapPageChanged();                // map_pages.inc: the change goes into the map (the size and tileset: the rail's dot)
 void mapPageApplyTerrain();           // map_pages.inc: the size and tileset button
 void mapPageReload();
-LRESULT CALLBACK mapPropsProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);  // map_pages.inc (after the control kit)
+void mapPropsInfo(MapPropsDialog& d);  // below: what the size and tileset button will do
 
-const wchar_t* kAnchorNames[] = {L"Top left", L"Top", L"Top right", L"Left", L"Center", L"Right", L"Bottom left", L"Bottom", L"Bottom right"};
+// The title and the description: game text editors in the scenario's colors (the description: lines aligned too).
+GameTextSpec propsNameSpec() {
+    GameTextSpec s;
+    s.palette = TextPalette::Scenario, s.multiline = false, s.align = false, s.crlf = true;
+    return s;
+}
+GameTextSpec propsDescSpec() {
+    GameTextSpec s;
+    s.palette = TextPalette::Scenario, s.multiline = true, s.align = true, s.crlf = true;
+    return s;
+}
 
-// The first terrain of a tileset (the default terrain of new ground).
-uint16_t mapPropsFirstTerrain(int era) {
-    if (const IsomTerrainTable* t = IsomTerrainTable::forEra(uint16_t(era)))
-        for (uint16_t i = 1; i <= t->terrainCount(); ++i)
-            if (t->isTerrain(i)) return i;
-    return 1;
+// The page's view is made (its window `wnd`): its two game text editors go in the boxes the view gives them, with the
+// map's texts; the page's values are the map's as it shows them first ("no change" is these).
+void mapPropsCreated(MapPropsDialog& d, HWND wnd, stardraft::draw::Rect nameBox, stardraft::draw::Rect descBox) {
+    d.wnd = wnd;
+    const RECT n{nameBox.left, nameBox.top, nameBox.right, nameBox.bottom}, ds{descBox.left, descBox.top, descBox.right, descBox.bottom};
+    d.name = gameTextCreate(wnd, 1601, n, propsNameSpec());
+    d.desc = gameTextCreate(wnd, 1602, ds, propsDescSpec());
+    gameTextSet(d.name, d.nameText), gameTextSet(d.desc, d.descText);
+    mapPropsInfo(d);
+    if (!d.baseSet) {
+        d.baseSet = true;
+        d.nameBase = gameTextGet(d.name), d.descBase = gameTextGet(d.desc);
+        d.eraBase = d.era, d.wBase = d.w, d.hBase = d.h;
+    }
 }
 
 // What the size and tileset button will do, under the fields ("" when they are the map's).
