@@ -301,9 +301,9 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/palette_items.inc"  // the palette's items: units, terrains, doodads and sprites (paletteItems, paletteUnits)
 #include "core/data_list.inc"  // the Data workspace's list model: the shown entries, the filters, the pins, the tab switch (DataListHost)
 #include "core/views_data.inc"  // the Data workspace's tab strip layout (DataTabLayout, dataTabLayout)
-#include "core/views_data_form.inc"  // the Data form's field rows: where each part sits (DataFieldRow, dataFieldRow)
 #include "core/views_data_requirements.inc"  // the Requirements section's model: step names, ways, levels, edits (requirement*)
 #include "core/views_data_requirements_paint.inc"  // the Requirements section's paint and clicks (paintRequirementList, ListPickItem)
+#include "core/views_data_form.inc"  // the Data form: where each part of a row sits (dataFieldRow) and the form's view (DataFormView)
 #include "core/views_data_strings.inc"  // the Strings page's model: a string's text, its button prefix and the editor's text (stringLine, stringEditCommit)
 #include "core/views_data_buttons.inc"  // the Buttons tab's model: places, labels, costs, edits of a set (buttonRowTextFrom, buttonNew)
 #include "core/title.inc"  // the window's title and the rail's state (updateTitle)
@@ -4666,16 +4666,8 @@ struct DataView {
     const EudProject* project = nullptr;
     int entry = 0;
     std::vector<int> shown;  // entries in the list
-    int listScroll = 0, formScroll = 0, formHeight = 0;
+    int listScroll = 0, formScroll = 0;  // (the form's height, click areas and section places are its view's: gDataFormView)
     HWND list = nullptr, form = nullptr, edit = nullptr;
-    // Laid out by the last paint of the form:
-    struct Hit {
-        RECT r;
-        int field;
-        int bit;   // -1: the value box; >=0: a flag checkbox; -2: a reference link; -3: the label
-    };
-    std::vector<Hit> hits;
-    std::vector<int> sectionTops;  // each section header's place in the form (content coordinates), by section
     HWND refs = nullptr;           // References: the entries that point at this one (a pane on the right; core/views_data_refs.inc)
     int edits = 0;                 // goes up with each change (the references follow the values)
     int editing = -1;  // field whose value box holds the edit control
@@ -4689,6 +4681,7 @@ struct DataView {
     std::vector<Bytes> saved;
 };
 DataView gData;
+extern DataFormView gDataFormView;  // the form's view (core/views_data_form.inc; its window is dataFormProc's)
 void dataFormRepaint() {
     if (gData.form) InvalidateRect(gData.form, nullptr, FALSE);
 }
@@ -5329,10 +5322,7 @@ RECT numberArrows(RECT vb) {  // (core/kit_paint.inc: the arrows' box, the same 
     const draw::Rect a = kitpaint::numberArrowsRect(vb);
     return {a.left, a.top, a.right, a.bottom};
 }
-// The Data form's metrics in pixels (core/views_data_form.inc), and a core box as a RECT for the kit.
-DataFormScale dataFormScale() {
-    return {scale(2), scale(8), scale(4), scale(7), scale(110), scale(320), scale(190), scale(22), scale(14)};
-}
+// A core box as a RECT for the kit.
 RECT winRect(draw::Rect r) { return {r.left, r.top, r.right, r.bottom}; }
 
 // units.dat Rank/Sublabel: the title under the unit's name in the status panel, from stat_txt.tbl ("None" for 0).
@@ -8438,237 +8428,6 @@ int paintMapPlayers(HDC mem, const std::string& dat, int u, int x0, int y, int c
     return y + scale(8);
 }
 
-void paintDataForm(HWND hwnd) {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    static HBITMAP back = nullptr;  // the form's picture, kept between paints
-    static SIZE backSize{};
-    if (!back || backSize.cx != rc.right || backSize.cy != rc.bottom) {
-        if (back) DeleteObject(back);
-        back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-        backSize = {rc.right, rc.bottom}, gPlayerOnlyPaint = false;
-    }
-    // An image player's tick: only its parts again, into the kept picture (its click areas stay where they are).
-    RECT inPlayer{};
-    const bool playerOnly = std::exchange(gPlayerOnlyPaint, false) && gPlayerArea.valid && gPlayerArea.scroll == gData.formScroll &&
-                            IntersectRect(&inPlayer, &ps.rcPaint, &gPlayerArea.rect) && EqualRect(&inPlayer, &ps.rcPaint);
-    if (playerOnly) {
-        HDC mem = CreateCompatibleDC(dc);
-        HGDIOBJ ob = SelectObject(mem, back), of = SelectObject(mem, app.font);
-        SetBkMode(mem, TRANSPARENT);
-        const RECT& a = gPlayerArea.rect;
-        FillRect(mem, &a, app.bgBrush);
-        std::vector<DataWidgetHit> kept = std::move(gWidgetHits);
-        std::vector<GridArea> keptAreas = std::move(gGridAreas);
-        gWidgetHits.clear(), gGridAreas.clear(), gGridLabels.clear();
-        widgetImagePlayer(mem, gPlayerArea.image, gPlayerArea.x, gPlayerArea.y, gPlayerArea.w);
-        widgetTimeline(mem, gPlayerArea.image, gPlayerArea.x, gPlayerArea.y + gPlayerArea.playerH + scale(12), gPlayerArea.w);
-        widgetIscriptUses(mem, gPlayerArea.image, gPlayerArea.x, gPlayerArea.usesY, gPlayerArea.w);
-        if (gPlayerArea.listY >= 0) widgetIscriptListing(mem, gPlayerArea.image, gPlayerArea.x, gPlayerArea.listY, gPlayerArea.w);
-        gWidgetHits = std::move(kept);
-        gGridAreas = std::move(keptAreas);
-        gridLabelsDraw(mem);
-        BitBlt(dc, a.left, a.top, a.right - a.left, a.bottom - a.top, mem, a.left, a.top, SRCCOPY);
-        SelectObject(mem, of), SelectObject(mem, ob);
-        DeleteDC(mem);
-        EndPaint(hwnd, &ps);
-        return;
-    }
-    gPlayerArea.valid = false;  // set again if this paint has the player
-    // The tooltips point at the last paint's tips: take them away before those go.
-    for (int i = 0; gWidgetTips && i < gWidgetTipCount; ++i) {
-        TOOLINFOW ti{sizeof ti};
-        ti.hwnd = gData.form, ti.uId = UINT_PTR(i + 1);
-        SendMessageW(gWidgetTips, TTM_DELTOOLW, 0, LPARAM(&ti));
-    }
-    gWidgetTipCount = 0;
-    gWidgetHits.clear();
-    gGridAreas.clear(), gGridLabels.clear();
-    HDC mem = CreateCompatibleDC(dc);
-    HGDIOBJ ob = SelectObject(mem, back), of = SelectObject(mem, app.font);
-    FillRect(mem, &rc, app.bgBrush);
-    SetBkMode(mem, TRANSPARENT);
-    gData.hits.clear();
-    auto fill = [&](RECT r, COLORREF c) { fillAlpha(mem, r, c, 255); };
-    const std::function<bool(draw::Rect)> hotRect = [](draw::Rect r) { return ui::hot(winRect(r)); };  // the form's hover, for the canvas parts
-    int y = scale(12) - gData.formScroll;
-    const int x0 = scale(18), labelW = scale(230), valW = scale(110), rowH = scale(26);
-    // Wide: the fields in a column on the left and each section's pictures beside them; narrow: the pictures
-    // above the fields.
-    const int full = std::max(scale(300), int(rc.right) - 2 * x0);
-    const bool twoCol = full >= scale(1150);
-    const int colW = twoCol ? std::min(scale(650), full * 11 / 20) : full, colRight = x0 + colW;
-    if (gData.datTab != stringsTab()) stringsShowEdit(false);
-    if (extraTab(gData.datTab) && gData.project) {
-        if (gData.datTab == stringsTab()) paintStringsForm(mem, rc, y);
-        else paintButtonsForm(mem, rc, y);
-    } else if (!curTable()) {
-        RECT t{x0, scale(40), rc.right - x0, rc.bottom};
-        SetTextColor(mem, kDim);
-        DrawTextW(mem,
-                  activeProject() ? L"Could not read the .dat file of the game" :
-                                    L"To edit .dat files, use an EUD project.\r\n\r\nFile > Project > New project makes one from the open map. "
-                                    L"File > Project > Open project opens one.",
-                  -1, &t, DT_WORDBREAK);
-    } else {
-        const DatTable& t = *curTable();
-        const std::string& dat = t.schema().name;
-        const int u = gData.entry;
-        // Title: icon, name, id.
-        int changedHere = 0;
-        for (const auto& f : t.schema().fields) changedHere += f.covers(u) && t.changed(f, u);
-        const std::wstring name = entryName(dat, u);
-        y = ui::title(mem, x0, y, rc.right - x0, entryIcon(gData.datTab, u), name.empty() ? L"(unnamed)" : name,
-                      widen(dat) + L".dat entry " + std::to_wstring(u) + (changedHere ? L"  \x00B7  " + std::to_wstring(changedHere) + L" changed" : L""), false,
-                      nullptr, tabIcon(gData.datTab));
-        SelectObject(mem, app.font);
-        // The name in the game: Rename (its stat_txt.tbl string, with colors), and a link to that string in Strings.
-        if (const int sid = entryNameString(dat, u); sid > 0 && gData.project && sid <= gExtras.strings.count()) {
-            const int lx = x0 + scale(52), ly = y - scale(12);
-            const int right = ui::link(mem, lx, ly, scale(22), L"Rename", [sid] {
-                std::string text = gExtras.strings.text(sid - 1);
-                POINT pt;
-                GetCursorPos(&pt);
-                if (!editGameText(tr(L"Name in the game (stat_txt.tbl string ") + std::to_wstring(sid) + L")", text, pt)) return;
-                gExtras.strings.set(sid - 1, text);
-                extrasChanged();
-                dataRebuildList();
-                setMessage(tr(L"Renamed: ") + statString(sid));
-            }, L"Change the name that the game shows. Each entry that uses this string gets the new name.");
-            ui::link(mem, right + scale(16), ly, scale(22), L"String " + std::to_wstring(sid), [sid] { dataGoTo("strings", sid); },
-                     L"Open this string in the Strings tab");
-            y += scale(14);
-        }
-        int rightTop = y;  // where the right column is free
-        // Sections in the schema's order, fields in each section's order.
-        const auto& sch = t.schema();
-        const int sections = int(sch.sections.size()) + 1;
-        for (int si = 0; si < sections; ++si) {
-            std::vector<const DatField*> fields;
-            for (const auto& f : sch.fields)
-                if (f.section == si) fields.push_back(&f);
-            if (fields.empty()) continue;
-            std::sort(fields.begin(), fields.end(), [](const DatField* a, const DatField* b) { return a->order < b->order; });
-            // Section header.
-            const std::wstring title = si < int(sch.sections.size()) ? datLabel(sch.sections[size_t(si)]) : L"Other";
-            if (gData.sectionTops.size() <= size_t(si)) gData.sectionTops.resize(size_t(si) + 1, 0);
-            gData.sectionTops[size_t(si)] = y + gData.formScroll;
-            {
-                ui::FormLayout hl = ui::formLayout(rc);
-                hl.colRight = twoCol ? colRight : int(rc.right) - x0;
-                y = ui::sectionHeader(mem, hl, y, title);
-            }
-            int widgetsBottom = y;
-            if (twoCol) {  // the pictures, under what the right column already holds; none: the fields go on as they are
-                const int wy = std::max(y, rightTop), wb = dataWidgets(mem, dat, si, u, colRight + scale(28), wy, full - colW - scale(28));
-                if (wb > wy) widgetsBottom = wb, rightTop = wb + scale(14);
-            }
-            else y = dataWidgets(mem, dat, si, u, x0 + labelW, y, full - labelW), y += y > widgetsBottom ? scale(14) : 0;
-            SelectObject(mem, app.font);
-            for (const DatField* fp : fields) {
-                const DatField& f = *fp;
-                const bool has = f.covers(u), mod = has && t.changed(f, u);
-                const uint32_t v = has ? t.value(f, u) : 0;
-                const std::wstring readOnlyWhy = has ? datFieldReadOnly(dat, f, u) : L"";
-                const bool ro = !readOnlyWhy.empty();
-                const DataFieldRow fr = dataFieldRow(x0, labelW, valW, y, rowH, colRight, dataFormScale());
-                if (ro) gWidgetHits.push_back({{x0, y, colRight, y + rowH}, nullptr, nullptr, readOnlyWhy, IDC_NO, {}});
-                if (gHotFields.count(f.name)) fill({x0 - scale(8), y, colRight, y + rowH}, kSel);
-                RECT lab{x0, y, x0 + labelW, y + rowH};
-                SetTextColor(mem, !has || ro ? kFaint : mod ? kGood : kDim);
-                DrawTextW(mem, datLabel(f.name).c_str(), -1, &lab, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-                if (!ro) gData.hits.push_back({lab, f.index, -3});
-                // A yes/no value: a checkbox (click: 0 or 1).
-                if (has && fieldIsBool(dat, f)) {
-                    ui::GdiCanvas canvas(mem);
-                    paintDataBool(canvas, fr, v, ro, mod, hotRect);
-                    if (!ro) gData.hits.push_back({winRect(fr.boolCell), f.index, -5});
-                    y += rowH;
-                    continue;
-                }
-                // A reference or a choice: a dropdown (icon, name, number, â–¾). Anything else: a number to type.
-                if (has && fieldIsDropdown(f)) {
-                    const std::string refDat = fieldRefDat(f);
-                    const RECT vb = winRect(fr.dropBox);
-                    const std::wstring name = fieldNote(f, v);
-                    ui::pickFace(mem, vb, name.empty() ? L"#" + std::to_wstring(v) : name, mod, !ro && ui::hot(vb),
-                                 refDat.empty() ? nullptr : datRefIcon(refDat, v), int(v), !ro);
-                    if (!ro) gData.hits.push_back({vb, f.index, -4});
-                    const DatSchema* target = f.ref.empty() ? nullptr : DatSchema::find(f.ref);
-                    if (target && v < uint32_t(target->entries)) {  // follow it
-                        const RECT gt = ui::square({vb.right + scale(4), y + scale(2), vb.right + scale(4 + ui::kIconBox), y + rowH - scale(2)});
-                        ui::iconFace(mem, gt, UiIcon::OpenExternal, ui::Tone::Primary, false, ui::hot(gt));  // open: jump to the entry
-                        gData.hits.push_back({gt, f.index, -2});
-                        if (refDat == "sfxdata") soundButton(mem, {gt.right + scale(4), gt.top, gt.right + scale(30), gt.bottom}, int(v));
-                    }
-                    y += rowH;
-                    continue;
-                }
-                const RECT vb = winRect(fr.box);
-                ui::fieldBox(mem, vb, !has || ro ? ui::Field::ReadOnly : mod ? ui::Field::Changed : ui::hot(vb) ? ui::Field::Hot : ui::Field::Normal);
-                const bool number = has && !ro && fieldIsNumber(dat, f);
-                SelectObject(mem, monoFont());
-                SetTextColor(mem, !has || ro ? kFaint : mod ? kGood : kText);
-                RECT vt = winRect(dataValueText(fr.box, dataFormScale()));
-                if (number) vt.right = numberArrows(vb).left;
-                DrawTextW(mem, has ? fieldValueText(f, v).c_str() : L"\x2014", -1, &vt, DT_SINGLELINE | DT_VCENTER | DT_RIGHT);
-                SelectObject(mem, app.font);
-                if (number) {  // up and down (click, or the mouse wheel anywhere on the box)
-                    const RECT ar = numberArrows(vb);
-                    const RECT up{ar.left, ar.top, ar.right, (ar.top + ar.bottom) / 2}, down{ar.left, up.bottom, ar.right, ar.bottom};
-                    if (ui::hot(vb)) {
-                        ui::glyph(mem, up, L"\xE70E", ui::hot(up) ? kText : kDim, 7);    // chevron up
-                        ui::glyph(mem, down, L"\xE70D", ui::hot(down) ? kText : kDim, 7);  // chevron down
-                    }
-                    gData.hits.push_back({up, f.index, -6});
-                    gData.hits.push_back({down, f.index, -7});
-                }
-                if (has && !ro) gData.hits.push_back({vb, f.index, -1});
-                const std::wstring note = has ? fieldNote(f, v) : L"not used by this entry";
-                if (!note.empty()) {
-                    RECT nt = winRect(fr.note);
-                    const DatSchema* target = f.ref.empty() ? nullptr : DatSchema::find(f.ref);
-                    const bool link = has && target && v < uint32_t(target->entries);
-                    SetTextColor(mem, link ? kAccent : mod ? kGood : kDim);
-                    DrawTextW(mem, note.c_str(), -1, &nt, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-                    if (link) {
-                        SIZE sz{};
-                        GetTextExtentPoint32W(mem, note.c_str(), int(note.size()), &sz);
-                        gData.hits.push_back({{nt.left, nt.top, std::min<LONG>(nt.right, nt.left + sz.cx), nt.bottom}, f.index, -2});
-                    }
-                }
-                y += rowH;
-                // Flags: a grid of checkboxes under the value.
-                if (has && !f.flags.empty()) {
-                    ui::GdiCanvas canvas(mem);
-                    y += paintDataFlags(canvas, f, t, u, v, x0, labelW, y, colW, dataFormScale(), hotRect,
-                                        [&f](draw::Rect cell, int b) { gData.hits.push_back({winRect(cell), f.index, b}); });
-                }
-            }
-            if (twoCol) y = std::max(y, widgetsBottom);
-            y += scale(14);
-        }
-        if (dat == "units") y = paintUnitDisplay(mem, u, y);
-        y = paintRequirements(mem, dat, u, x0, y, colW);
-        y = paintMapPlayers(mem, dat, u, x0, y + scale(8), colW, labelW, rowH);  // the map's settings for each player
-        y += rowH;
-    }
-    gData.formHeight = y + gData.formScroll;
-    if (const int most = std::max(0, gData.formHeight - int(rc.bottom)); gData.formScroll > most)  // taller window: the bar hides, so no scroll is left
-        gData.formScroll = most, InvalidateRect(hwnd, nullptr, FALSE);
-    SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS, 0, std::max(0, gData.formHeight - 1), UINT(rc.bottom),
-                  gData.formScroll};
-    SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
-    gridLabelsDraw(mem);
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, of), SelectObject(mem, ob);
-    DeleteDC(mem);  // the picture stays (a player tick draws into it)
-    EndPaint(hwnd, &ps);
-    dataWidgetTips();
-}
-
 void dataSetValue(const DatField& f, uint32_t v) {
     DatTable* t = curTable();
     if (!t) return;
@@ -8755,7 +8514,7 @@ void dataBeginEdit(int field, const RECT& r) {
 // Tab / Shift+Tab: keep the value and type the next (previous) field's, scrolling it into view.
 void dataEditNeighbour(int delta) {
     std::vector<int> boxes;  // fields with a value box, in the order the form shows them
-    for (const auto& h : gData.hits)
+    for (const auto& h : gDataFormView.hits())
         if (h.bit == -1) boxes.push_back(h.field);
     const auto it = std::find(boxes.begin(), boxes.end(), gData.editing);
     dataCommitEdit();
@@ -8763,8 +8522,8 @@ void dataEditNeighbour(int delta) {
     const int next = boxes[size_t((int(it - boxes.begin()) + delta + int(boxes.size())) % int(boxes.size()))];
     auto boxOf = [&](RECT& r) {
         UpdateWindow(gData.form);  // the hits follow the last paint
-        for (const auto& h : gData.hits)
-            if (h.bit == -1 && h.field == next) return r = h.r, true;
+        for (const auto& h : gDataFormView.hits())
+            if (h.bit == -1 && h.field == next) return r = winRect(h.r), true;
         return false;
     };
     RECT r;
@@ -8772,28 +8531,234 @@ void dataEditNeighbour(int delta) {
     RECT rc;
     GetClientRect(gData.form, &rc);
     if (r.top < 0 || r.bottom > rc.bottom) {
-        dataScroll(gData.form, gData.formScroll, gData.formScroll + (r.top < 0 ? r.top - scale(40) : r.bottom - rc.bottom + scale(40)), gData.formHeight);
+        gDataFormView.scrollTo(gData.formScroll + (r.top < 0 ? r.top - scale(40) : r.bottom - rc.bottom + scale(40)));
         if (!boxOf(r)) return;
     }
     dataBeginEdit(next, r);
 }
 
-LRESULT CALLBACK dataFormProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_FEEDBACK_NAME: {  // a preview's part: the fields it shows, else its tip; a field: its name
-        auto& q = *reinterpret_cast<FeedbackQuery*>(lp);
+// --- The Data form's window ---------------------------------------------------------------------------------------
+// The form is a core view (core/views_data_form.inc: DataFormView). DataFormProgram is its program side: the tables and
+// names, the parts still drawn with the GDI on the form's canvas (the pictures, the Units display, the requirements,
+// the map's players, the Strings and Buttons tabs), their click areas and tooltips (gWidgetHits), and what the fields do.
+class DataFormProgram final : public DataFormViewHost {
+public:
+    static HDC dcOf(draw::Canvas& c) { return static_cast<ui::GdiCanvas&>(c).dc(); }  // (the form paints on a GdiCanvas)
+    static std::string dat() { return curTable() ? curTable()->schema().name : std::string(); }
+
+    const DatTable* table() override { return curTable(); }
+    int entry() override { return gData.entry; }
+    int& scroll() override { return gData.formScroll; }
+    std::set<std::string>& hotFields() override { return gHotFields; }
+    bool hot(draw::Rect r) override { return ui::hot(winRect(r)); }
+    bool projectOpen() override { return activeProject() != nullptr; }
+    void beforePaint() override {
+        gPlayerArea.valid = false;  // set again if this paint has the player
+        // The tooltips point at the last paint's tips: take them away before those go.
+        for (int i = 0; gWidgetTips && i < gWidgetTipCount; ++i) {
+            TOOLINFOW ti{sizeof ti};
+            ti.hwnd = gData.form, ti.uId = UINT_PTR(i + 1);
+            SendMessageW(gWidgetTips, TTM_DELTOOLW, 0, LPARAM(&ti));
+        }
+        gWidgetTipCount = 0;
+        gWidgetHits.clear();
+        gGridAreas.clear(), gGridLabels.clear();
+        if (gData.datTab != stringsTab()) stringsShowEdit(false);
+    }
+    bool paintExtraTab(draw::Canvas& c, int& y) override {
+        if (!extraTab(gData.datTab) || !gData.project) return false;
+        RECT rc;
+        GetClientRect(gData.form, &rc);
+        if (gData.datTab == stringsTab()) paintStringsForm(dcOf(c), rc, y);
+        else paintButtonsForm(dcOf(c), rc, y);
+        return true;
+    }
+    void afterPaint(draw::Canvas& c) override { gridLabelsDraw(dcOf(c)); }
+    draw::Image entryIcon() override { return ui::imageOf(::entryIcon(gData.datTab, gData.entry)); }
+    UiIcon tabIcon() override { return ::tabIcon(gData.datTab); }
+    int nameString() override {
+        const int sid = entryNameString(dat(), gData.entry);
+        return sid > 0 && gData.project && sid <= gExtras.strings.count() ? sid : 0;
+    }
+    void rename(int sid) override {
+        std::string text = gExtras.strings.text(sid - 1);
+        POINT pt;
+        GetCursorPos(&pt);
+        if (!editGameText(tr(L"Name in the game (stat_txt.tbl string ") + std::to_wstring(sid) + L")", text, pt)) return;
+        gExtras.strings.set(sid - 1, text);
+        extrasChanged();
+        dataRebuildList();
+        setMessage(tr(L"Renamed: ") + statString(sid));
+    }
+    void openString(int sid) override { dataGoTo("strings", sid); }
+    std::wstring fieldNote(const DatField& f, uint32_t v) override { return ::fieldNote(f, v); }
+    std::wstring readOnlyWhy(const DatField& f) override { return datFieldReadOnly(dat(), f, gData.entry); }
+    draw::Image refIcon(const std::string& d, uint32_t v) override { return ui::imageOf(datRefIcon(d, v)); }
+    int widgets(draw::Canvas& c, int section, int x, int y, int w) override { return dataWidgets(dcOf(c), dat(), section, gData.entry, x, y, w); }
+    void soundButton(draw::Canvas& c, draw::Rect r, int sfx) override { ::soundButton(dcOf(c), winRect(r), sfx); }
+    int unitDisplay(draw::Canvas& c, int y) override { return paintUnitDisplay(dcOf(c), gData.entry, y); }
+    int requirements(draw::Canvas& c, int x0, int y, int colW) override { return paintRequirements(dcOf(c), dat(), gData.entry, x0, y, colW); }
+    int mapPlayers(draw::Canvas& c, int x0, int y, int colW, int labelW, int rowH) override {
+        return paintMapPlayers(dcOf(c), dat(), gData.entry, x0, y, colW, labelW, rowH);
+    }
+    void area(draw::Rect r, std::function<void()> click, const std::wstring& tip, draw::Cursor cursor) override {
+        gWidgetHits.push_back({winRect(r), nullptr, std::move(click), tip, ui::HitCursor(cursor), {}});
+    }
+    bool widgetPress(draw::Point p) override {
+        const POINT pt{p.x, p.y};
+        for (auto it = gWidgetHits.rbegin(); it != gWidgetHits.rend(); ++it)
+            if (PtInRect(&it->r, pt) && (it->drag || it->click)) {
+                dataCommitEdit();
+                gWidgetDrag.drag = it->drag, gWidgetDrag.click = it->click, gWidgetDrag.release = it->release, gWidgetDrag.down = true, gWidgetDrag.moved = false,
+                gWidgetDrag.notEdit = it->notEdit;
+                if (gWidgetDrag.drag && !gWidgetDrag.click) gWidgetDrag.moved = true, gWidgetDrag.drag(pt);  // a press sets the value too
+                return true;
+            }
+        return false;
+    }
+    bool widgetDrag(draw::Point p) override {
+        if (!gWidgetDrag.down || !gWidgetDrag.drag) return false;
+        gWidgetDrag.moved = true;
+        gWidgetDrag.drag({p.x, p.y});
+        InvalidateRect(gData.form, nullptr, FALSE);
+        UpdateWindow(gData.form);
+        return true;
+    }
+    void widgetRelease() override {
+        if (!gWidgetDrag.down) return;
+        const bool moved = gWidgetDrag.moved;
+        auto click = gWidgetDrag.click, release = gWidgetDrag.release;
+        const bool edit = !gWidgetDrag.notEdit;
+        gWidgetDrag = {};
+        if (moved && release) release();
+        if (moved && edit) dataSaved(), InvalidateRect(gData.list, nullptr, FALSE);
+        else if (click) click();
+    }
+    bool widgetHover(draw::Point p, std::set<std::string>& fields) override {
+        const POINT pt{p.x, p.y};
+        bool repaint = false;
+        for (const auto& a : gGridAreas)
+            if (gridCellAt(a, pt) != a.lastCell) {
+                repaint = true;
+                break;
+            }
+        static RECT overPart{};
+        RECT part{};
+        for (auto it = gWidgetHits.rbegin(); it != gWidgetHits.rend(); ++it)
+            if (PtInRect(&it->r, pt)) {
+                part = it->r;
+                break;
+            }
+        if (!EqualRect(&part, &overPart)) overPart = part, repaint = true;
+        for (auto it = gWidgetHits.rbegin(); it != gWidgetHits.rend() && fields.empty(); ++it)
+            if (PtInRect(&it->r, pt)) fields.insert(it->fields.begin(), it->fields.end());
+        return repaint;
+    }
+    bool widgetCursor(draw::Point p, draw::Cursor& c) override {
+        const POINT pt{p.x, p.y};
+        for (auto it = gWidgetHits.rbegin(); it != gWidgetHits.rend(); ++it)
+            if (PtInRect(&it->r, pt)) return c = it->cursor.c, true;
+        return false;
+    }
+    std::wstring widgetName(draw::Point p) override {  // a preview's part: the fields it shows, else its tip
+        const POINT pt{p.x, p.y};
+        std::wstring name;
         for (const auto& h : gWidgetHits)
-            if (PtInRect(&h.r, q.pt)) {
+            if (PtInRect(&h.r, pt)) {
                 std::wstring n;
                 for (const auto& f : h.fields) n += (n.empty() ? L"" : L", ") + widen(f);
-                q.name = !n.empty() ? n + L" (preview)" : h.tip;
+                name = !n.empty() ? n + L" (preview)" : h.tip;
             }
-        if (q.name.empty())
-            for (const auto& h : gData.hits)
-                if (PtInRect(&h.r, q.pt))
-                    if (const DatField* f = curField(h.field)) q.name = datLabel(f->name);
-        return 0;
+        return name;
     }
+    bool widgetWheel(draw::Point p, float notches) override {  // the script listing scrolls under the mouse
+        const POINT pt{p.x, p.y};
+        if (!gImagePlayer.showCode || !PtInRect(&gListing.box, pt) || int(gListing.lines.size()) <= gListing.shown) return false;
+        listingScroll(-int(std::lround(notches * WHEEL_DELTA)) * 3 / WHEEL_DELTA);
+        return true;
+    }
+    void commitEdit() override { dataCommitEdit(); }
+    void beginEdit(int field, draw::Rect box) override { dataBeginEdit(field, winRect(box)); }
+    void dropdown(const DatField& f, draw::Rect box) override { dataDropdown(f, winRect(box)); }
+    std::vector<ListPickItem> dropdownItems(const DatField& f) override { return dataDropdownItems(f); }
+    void setValue(const DatField& f, uint32_t v) override { dataSetValue(f, v); }
+    void goTo(const std::string& d, int e) override { dataGoTo(d, e); }
+    void fieldMenu(const DatField& f, draw::Point p) override {
+        POINT sp{p.x, p.y};
+        ClientToScreen(gData.form, &sp);
+        dataFieldMenu(f, sp);
+    }
+    void status(const std::wstring& text) override { setMessage(text); }
+    bool travel(int button) override {
+        dataTravel(button == 1);  // back (X1), forward (X2)
+        return true;
+    }
+};
+DataFormProgram gDataFormProgram;
+DataFormView gDataFormView(gDataFormProgram);
+ui::Win32Host* gDataFormHost = nullptr;  // the form window's host (made with its first message)
+
+// The form's paint: the view on a GdiCanvas, into a picture that is kept between paints (an image player's tick draws
+// only its parts into it again).
+void paintDataForm(HWND hwnd) {
+    PAINTSTRUCT ps;
+    HDC dc = BeginPaint(hwnd, &ps);
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    static HBITMAP back = nullptr;  // the form's picture, kept between paints
+    static SIZE backSize{};
+    if (!back || backSize.cx != rc.right || backSize.cy != rc.bottom) {
+        if (back) DeleteObject(back);
+        back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
+        backSize = {rc.right, rc.bottom}, gPlayerOnlyPaint = false;
+    }
+    // An image player's tick: only its parts again, into the kept picture (its click areas stay where they are).
+    RECT inPlayer{};
+    const bool playerOnly = std::exchange(gPlayerOnlyPaint, false) && gPlayerArea.valid && gPlayerArea.scroll == gData.formScroll &&
+                            IntersectRect(&inPlayer, &ps.rcPaint, &gPlayerArea.rect) && EqualRect(&inPlayer, &ps.rcPaint);
+    if (playerOnly) {
+        HDC mem = CreateCompatibleDC(dc);
+        HGDIOBJ ob = SelectObject(mem, back), of = SelectObject(mem, app.font);
+        SetBkMode(mem, TRANSPARENT);
+        const RECT& a = gPlayerArea.rect;
+        FillRect(mem, &a, app.bgBrush);
+        std::vector<DataWidgetHit> kept = std::move(gWidgetHits);
+        std::vector<GridArea> keptAreas = std::move(gGridAreas);
+        gWidgetHits.clear(), gGridAreas.clear(), gGridLabels.clear();
+        widgetImagePlayer(mem, gPlayerArea.image, gPlayerArea.x, gPlayerArea.y, gPlayerArea.w);
+        widgetTimeline(mem, gPlayerArea.image, gPlayerArea.x, gPlayerArea.y + gPlayerArea.playerH + scale(12), gPlayerArea.w);
+        widgetIscriptUses(mem, gPlayerArea.image, gPlayerArea.x, gPlayerArea.usesY, gPlayerArea.w);
+        if (gPlayerArea.listY >= 0) widgetIscriptListing(mem, gPlayerArea.image, gPlayerArea.x, gPlayerArea.listY, gPlayerArea.w);
+        gWidgetHits = std::move(kept);
+        gGridAreas = std::move(keptAreas);
+        gridLabelsDraw(mem);
+        BitBlt(dc, a.left, a.top, a.right - a.left, a.bottom - a.top, mem, a.left, a.top, SRCCOPY);
+        SelectObject(mem, of), SelectObject(mem, ob);
+        DeleteDC(mem);
+        EndPaint(hwnd, &ps);
+        return;
+    }
+    HDC mem = CreateCompatibleDC(dc);
+    HGDIOBJ ob = SelectObject(mem, back), of = SelectObject(mem, app.font);
+    SetBkMode(mem, TRANSPARENT);
+    if (gDataFormView.width() != rc.right || gDataFormView.height() != rc.bottom) gDataFormView.setFrame({0, 0, int(rc.right), int(rc.bottom)});
+    {
+        ui::GdiCanvas canvas(mem);
+        gDataFormView.paintAll(canvas);
+    }
+    if (gDataFormHost) gDataFormHost->syncScroll(hwnd);
+    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
+    SelectObject(mem, of), SelectObject(mem, ob);
+    DeleteDC(mem);  // the picture stays (a player tick draws into it)
+    EndPaint(hwnd, &ps);
+    dataWidgetTips();
+}
+
+// The form window: its paint (above), the timer of its pictures and the Strings tab's edit box are the window's; the
+// mouse, the wheel, the scroll bar, the cursor and what feedback names go to the view through its host.
+LRESULT CALLBACK dataFormProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    if (!gDataFormHost) gDataFormHost = new ui::Win32Host(gDataFormView);  // (lives as long as the program)
+    switch (msg) {
     case WM_COMMAND:
         if (HWND(lp) == gExtras.textEdit && HIWORD(wp) == EN_CHANGE) {  // the preview as it is typed
             gExtras.textDirty = true;
@@ -8804,58 +8769,9 @@ LRESULT CALLBACK dataFormProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (HWND(lp) == gExtras.textEdit && HIWORD(wp) == EN_KILLFOCUS) stringsCommitEdit();
         return 0;
     case WM_PAINT: paintDataForm(hwnd); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_SIZE: InvalidateRect(hwnd, nullptr, FALSE); return 0;
-    case WM_MOUSEWHEEL: {
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        ScreenToClient(hwnd, &pt);
-        if (gImagePlayer.showCode && PtInRect(&gListing.box, pt) && int(gListing.lines.size()) > gListing.shown)
-            return listingScroll(-GET_WHEEL_DELTA_WPARAM(wp) * 3 / WHEEL_DELTA), 0;
-        dataCommitEdit();
-        // Over a dropdown: the wheel steps through its values (up: the one above in the list). Not while the
-        // form scrolls: a dropdown that comes under the mouse then does not change.
-        static ULONGLONG lastScroll = 0;
-        const ULONGLONG now = GetTickCount64();
-        if (now - lastScroll > 500)
-            for (const auto& h : gData.hits) {
-                if (h.bit == -1 && PtInRect(&h.r, pt)) {
-                    const DatField* f = curField(h.field);
-                    DatTable* t = curTable();
-                    if (!f || !t || !fieldIsNumber(t->schema().name, *f)) continue;
-                    const int64_t step = (GetKeyState(VK_SHIFT) < 0 ? 10 : 1) * (GET_WHEEL_DELTA_WPARAM(wp) > 0 ? 1 : -1);
-                    const int64_t v = std::clamp<int64_t>(int64_t(t->value(*f, gData.entry)) + step, 0, int64_t(f->maxValue()));
-                    dataSetValue(*f, uint32_t(v));
-                    return 0;
-                }
-                if (h.bit != -4 || !PtInRect(&h.r, pt)) continue;
-                const DatField* f = curField(h.field);
-                DatTable* t = curTable();
-                if (!f || !t) break;
-                const std::vector<ListPickItem> items = dataDropdownItems(*f);
-                const std::string cur = std::to_string(t->value(*f, gData.entry));
-                int i = -1;
-                for (size_t k = 0; k < items.size(); ++k)
-                    if (items[k].value == cur) i = int(k);
-                const int steps = GET_WHEEL_DELTA_WPARAM(wp) / WHEEL_DELTA, next = std::clamp(i < 0 ? 0 : i - (steps ? steps : GET_WHEEL_DELTA_WPARAM(wp) > 0 ? 1 : -1), 0, int(items.size()) - 1);
-                if (!items.empty() && next != i) {
-                    dataSetValue(*f, uint32_t(std::stoul(items[size_t(next)].value)));
-                    setMessage(datLabel(f->name) + L": " + items[size_t(next)].label);
-                }
-                return 0;
-            }
-        lastScroll = now;
-        dataScroll(hwnd, gData.formScroll, gData.formScroll - GET_WHEEL_DELTA_WPARAM(wp) * scale(26) * 3 / WHEEL_DELTA, gData.formHeight);
-        return 0;
-    }
-    case WM_VSCROLL:
-        dataCommitEdit();
-        dataScroll(hwnd, gData.formScroll, scrollFromMessage(hwnd, wp, gData.formScroll, scale(26)), gData.formHeight);
-        return 0;
-    case WM_XBUTTONUP:
-        if (dataXButton(wp)) return TRUE;
-        break;
     case WM_TIMER:
-        if (wp == 7 && IsWindowVisible(hwnd)) {
+        if (wp != 7) break;
+        if (IsWindowVisible(hwnd)) {
             if (soundFinished() | soundPlaying()) InvalidateRect(hwnd, nullptr, FALSE);
             if (gPortraitShown && gData.datTab == datTabOf("portdata") && int((GetTickCount64() / 100) % 100000) != gPortraitFrameShown % 100000)
                 InvalidateRect(hwnd, &gPortraitArea, FALSE);  // the portrait's next frame
@@ -8865,125 +8781,15 @@ LRESULT CALLBACK dataFormProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             }
         }
         return 0;
-    case WM_MOUSEMOVE: {
-        const POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        if (gWidgetDrag.down && gWidgetDrag.drag) {
-            gWidgetDrag.moved = true;
-            gWidgetDrag.drag(pt);
-            InvalidateRect(hwnd, nullptr, FALSE);
-            UpdateWindow(hwnd);
-            return 0;
-        }
-        for (const auto& a : gGridAreas)
-            if (gridCellAt(a, pt) != a.lastCell) {
-                InvalidateRect(hwnd, nullptr, FALSE);
-                TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
-                TrackMouseEvent(&tme);
-                break;
-            }
-        static RECT overPart{};
-        RECT part{};
-        for (auto it = gWidgetHits.rbegin(); it != gWidgetHits.rend(); ++it)
-            if (PtInRect(&it->r, pt)) {
-                part = it->r;
-                break;
-            }
-        if (!EqualRect(&part, &overPart)) {
-            overPart = part;
-            InvalidateRect(hwnd, nullptr, FALSE);
-            TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
-            TrackMouseEvent(&tme);
-        }
-        std::set<std::string> now;
-        for (auto it = gWidgetHits.rbegin(); it != gWidgetHits.rend() && now.empty(); ++it)
-            if (PtInRect(&it->r, pt)) now.insert(it->fields.begin(), it->fields.end());
-        if (now.empty())
-            for (const auto& h : gData.hits)
-                if (PtInRect(&h.r, pt) || (pt.y >= h.r.top && pt.y < h.r.bottom && h.bit == -3 && pt.x < h.r.right + scale(560))) {
-                    if (const DatField* f = curField(h.field)) now.insert(f->name);
-                    break;
-                }
-        if (now != gHotFields) {
-            gHotFields = std::move(now);
-            InvalidateRect(hwnd, nullptr, FALSE);
-            TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
-            TrackMouseEvent(&tme);
-        }
-        return 0;
-    }
-    case WM_MOUSELEAVE:
-        gHotFields.clear();
-        InvalidateRect(hwnd, nullptr, FALSE);  // what shows only under the mouse goes
-        return 0;
-    case WM_LBUTTONUP:
-        if (gWidgetDrag.down) {
-            ReleaseCapture();
-            const bool moved = gWidgetDrag.moved;
-            auto click = gWidgetDrag.click, release = gWidgetDrag.release;
-            const bool edit = !gWidgetDrag.notEdit;
-            gWidgetDrag = {};
-            if (moved && release) release();
-            if (moved && edit) dataSaved(), InvalidateRect(gData.list, nullptr, FALSE);
-            else if (click) click();
-        }
-        return 0;
-    case WM_LBUTTONDOWN:
-    case WM_RBUTTONUP: {
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        SetFocus(hwnd);
-        if (msg == WM_LBUTTONDOWN)
-            for (auto it = gWidgetHits.rbegin(); it != gWidgetHits.rend(); ++it)
-                if (PtInRect(&it->r, pt) && (it->drag || it->click)) {
-                    dataCommitEdit();
-                    gWidgetDrag.drag = it->drag, gWidgetDrag.click = it->click, gWidgetDrag.release = it->release, gWidgetDrag.down = true, gWidgetDrag.moved = false,
-                    gWidgetDrag.notEdit = it->notEdit;
-                    SetCapture(hwnd);
-                    if (gWidgetDrag.drag && !gWidgetDrag.click) gWidgetDrag.moved = true, gWidgetDrag.drag(pt);  // a press sets the value too
-                    return 0;
-                }
-        for (const auto& h : gData.hits) {
-            if (!PtInRect(&h.r, pt)) continue;
-            const DatField* f = curField(h.field);
-            DatTable* table = curTable();
-            if (!f || !table) break;
-            if (msg == WM_RBUTTONUP) {  // a field (its label or value): copy, paste, reset
-                POINT sp = pt;
-                ClientToScreen(hwnd, &sp);
-                dataFieldMenu(*f, sp);
-                break;
-            }
-            if (h.bit == -1) dataBeginEdit(h.field, h.r);
-            else if (h.bit == -4) dataDropdown(*f, h.r);
-            else if (h.bit == -5) dataSetValue(*f, table->value(*f, gData.entry) ? 0 : 1);
-            else if (h.bit == -6 || h.bit == -7) {  // a number's arrows: one up or down (Shift: 10)
-                dataCommitEdit();
-                const int64_t step = (GetKeyState(VK_SHIFT) < 0 ? 10 : 1) * (h.bit == -6 ? 1 : -1);
-                dataSetValue(*f, uint32_t(std::clamp<int64_t>(int64_t(table->value(*f, gData.entry)) + step, 0, int64_t(f->maxValue()))));
-            }
-            else if (h.bit >= 0) dataSetValue(*f, table->value(*f, gData.entry) ^ (1u << h.bit));
-            else if (h.bit == -2) dataGoTo(f->ref, int(table->value(*f, gData.entry)));
-            break;
-        }
-        return 0;
-    }
-    case WM_SETCURSOR: {
-        POINT pt;
-        GetCursorPos(&pt);
-        ScreenToClient(hwnd, &pt);
-        for (auto it = gWidgetHits.rbegin(); it != gWidgetHits.rend(); ++it)
-            if (PtInRect(&it->r, pt)) return SetCursor(LoadCursor(nullptr, it->cursor)), TRUE;
-        for (const auto& h : gData.hits)
-            if (PtInRect(&h.r, pt) && h.bit != -3) {
-                SetCursor(LoadCursor(nullptr, h.bit == -1 ? IDC_IBEAM : h.bit <= -6 ? IDC_ARROW : IDC_HAND));  // a dropdown (-4) is a hand too
-                return TRUE;
-            }
-        break;
-    }
     case WM_CTLCOLOREDIT:
         SetTextColor(HDC(wp), kText);
         SetBkColor(HDC(wp), kCtl);
         return LRESULT(app.ctlBrush);
+    case WM_GETDLGCODE: return DefWindowProcW(hwnd, msg, wp, lp);  // (as the form's window always answered)
     }
+    LRESULT r = 0;
+    if (gDataFormHost->message(hwnd, msg, wp, lp, r)) return r;
+    if (msg == WM_SIZE) InvalidateRect(hwnd, nullptr, FALSE);
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
@@ -18341,7 +18147,7 @@ int runSelfTest(const fs::path& dir) {
             dataSelect(0);
             for (int i = 0; i < 5; ++i) pump();
             auto clickHit = [](int field, int bit) {
-                for (const auto& h : gData.hits)
+                for (const auto& h : gDataFormView.hits())
                     if (h.field == field && h.bit == bit) {
                         SendMessageW(gData.form, WM_LBUTTONDOWN, 0, MAKELPARAM((h.r.left + h.r.right) / 2, (h.r.top + h.r.bottom) / 2));
                         pump();
@@ -18410,7 +18216,7 @@ int runSelfTest(const fs::path& dir) {
                     for (int i = 0; i < 3; ++i) pump();
                     RECT fr;
                     GetClientRect(gData.form, &fr);
-                    gData.formScroll = std::max(0, std::min(gWireframeTop - scale(160), gData.formHeight - int(fr.bottom)));
+                    gData.formScroll = std::max(0, std::min(gWireframeTop - scale(160), gDataFormView.contentHeight() - int(fr.bottom)));
                     InvalidateRect(gData.form, nullptr, FALSE);
                     for (int i = 0; i < 3; ++i) pump();
                     capture(dir / name, gData.form);
@@ -18517,7 +18323,7 @@ int runSelfTest(const fs::path& dir) {
             for (int tab = 0; tab < int(DatSchema::all().size()); ++tab) {
                 dataShowTab(tab);
                 for (int i = 0; i < 3; ++i) pump();
-                const bool ok = curTable() && !gData.shown.empty() && !gData.hits.empty();
+                const bool ok = curTable() && !gData.shown.empty() && !gDataFormView.hits().empty();
                 tabsOk += DatSchema::all()[size_t(tab)].name + (ok ? " ok " : " EMPTY ");
                 if (DatSchema::all()[size_t(tab)].name == "orders") capture(dir / "65b_data_orders_tab.png");
                 if (DatSchema::all()[size_t(tab)].name == "images") capture(dir / "65c_data_images_tab.png");
@@ -24508,9 +24314,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             dataGoTo(dat, e);
             for (int i = 0; i < 10; ++i) pump();
             UpdateWindow(gData.form);
-            if (section == 99) dataScroll(gData.form, gData.formScroll, gData.formHeight, gData.formHeight);  // the end of the form
-            else if (section >= 0 && size_t(section) < gData.sectionTops.size())
-                dataScroll(gData.form, gData.formScroll, gData.sectionTops[size_t(section)] - scale(8), gData.formHeight);
+            if (section == 99) gDataFormView.scrollTo(gDataFormView.contentHeight());  // the end of the form
+            else if (section >= 0 && size_t(section) < gDataFormView.sectionTops().size())
+                gDataFormView.scrollTo(gDataFormView.sectionTops()[size_t(section)] - scale(8));
             for (int i = 0; i < 10; ++i) pump();
             UpdateWindow(gData.form);
             capture(fs::path(datashots) / (dat + "_" + std::to_string(e) + (section >= 0 ? "_" + std::to_string(section) : "") + ".png"));
