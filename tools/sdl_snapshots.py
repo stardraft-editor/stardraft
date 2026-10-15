@@ -55,8 +55,18 @@ CASES += [
     ("map-dialog-prompt", ["--dialog", "prompt"], "map"),
     ("map-dialog-quick", ["--dialog", "quick", "--mode", "units"], "map"),
     ("map-newpage-classic", ["--newpage", "classic"], "map"),
+    # The classic page with the pop-out of the selected action's value (trigger:kind:entry:value): the first action of
+    # the first trigger, its value 3 (a map whose first trigger has an action, as Set deaths: the number pop-out).
+    ("map-classictrig-value", ["--workspace", "classictriggers", "--classictrig", "1:1:0:3"], "map"),
     # A project open.
     ("project-scriptpreview", ["--workspace", "project", "--scriptpreview"], "project"),
+    # The Triggers workspace with a value's pop-out open (--trigpop n: value n of the block --trigsel selects; text: its text's words). The
+    # trigger and block numbers are the first trigger of "On map start" (a text with values, the objectives' colors,
+    # Set resources) and the third one (Create a unit: the unit types with their icons).
+    ("project-trigpop-text", ["--workspace", "triggers", "--trig", "1:0", "--trigsel", "0", "--trigpop", "text"], "project"),
+    ("project-trigpop-colors", ["--workspace", "triggers", "--trig", "1:0", "--trigsel", "1", "--trigpop", "0"], "project"),
+    ("project-trigpop-number", ["--workspace", "triggers", "--trig", "1:0", "--trigsel", "2", "--trigpop", "1"], "project"),
+    ("project-trigpop-unit", ["--workspace", "triggers", "--trig", "1:2", "--trigsel", "0", "--trigpop", "0"], "project"),
 ]
 # Not in the program yet (add them to CASES when main_sdl.cpp reads them): --dialog about, message, tip, valuepop.
 

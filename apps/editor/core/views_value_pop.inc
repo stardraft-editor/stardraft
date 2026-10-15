@@ -6,7 +6,8 @@
 //
 // The model (the spec, the hint, the suggestions, the values to put in, a value's words) is the Windows pop-out's too
 // (main.cpp: showValuePopup, its RichEdit and list box); ValuePopView is the pop-out as core views, which the SDL
-// program opens through the seam (shellEditValue, shellEditValueBelow). The Windows program keeps its native one for now.
+// program opens through the seam (shellEditValue, shellEditValueBelow) and for the Triggers pane's values
+// (core/triggers_values.inc: trigPopValue). The Windows program keeps its native one for now.
 
 struct ValuePopSpec {
     std::wstring title, help;
@@ -687,9 +688,9 @@ private:
 
 // Runs the pop-out at `at` (a point on the screen; the SDL program: in its main window) until it is applied or closed.
 // True when applied (`out` holds the value). `shown` is the pop-out while it is open (the self-tests reach it there);
-// `gameTexts` gives "A text of the game..." its entries.
+// `gameTexts` gives "A text of the game..." its entries; `advance` gets Tab's +1 or Shift+Tab's -1 (0: OK or Enter).
 inline bool runValuePop(const ValuePopSpec& spec, draw::Point at, std::string& out, ValuePopView** shown = nullptr,
-                        std::function<std::vector<ListPickItem>()> gameTexts = {}) {
+                        std::function<std::vector<ListPickItem>()> gameTexts = {}, int* advance = nullptr) {
     ValuePopView v(spec);
     v.setPlace(at);
     v.gameTexts = std::move(gameTexts);
@@ -698,6 +699,7 @@ inline bool runValuePop(const ValuePopSpec& spec, draw::Point at, std::string& o
     const draw::Point size = v.outerSize();
     shellRunPopout(v, at.x, at.y, size.x, size.y, &v.focusView(), nullptr);
     if (shown) *shown = nullptr;
+    if (advance) *advance = v.accepted() ? v.advance() : 0;
     if (!v.accepted()) return false;
     out = v.result();
     return true;
