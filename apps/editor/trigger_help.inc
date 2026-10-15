@@ -198,17 +198,7 @@ void trigPaneHelp() {
 
 // (The fixes' Apply links, gTrigFixLinks, and their paint are in core/views_triggers_pane.inc.)
 
-void trigApplyCostFix(const TriggerCostFix& fix) {
-    TriggerNode* t = trigSelected();
-    if (!t) return;
-    const int before = TriggerSet::cost(*t);
-    if (!TriggerSet::applyCostFix(*t, fix)) return;
-    gTP.sel = {}, gTP.sel.index = -1;
-    trigChanged();
-    trigRefreshTree(gTE.sel);  // the tree's "heavy" mark
-    setMessage(L"The trigger costs about " + std::to_wstring(TriggerSet::cost(*trigSelected())) + L" actions each run (it was " + std::to_wstring(before) +
-               L"). Ctrl+Z undoes it.");
-}
+// (trigApplyCostFix is in core/triggers_model.inc.)
 
 // --- Build errors --------------------------------------------------------------------------------------------------
 

@@ -344,6 +344,10 @@ void command(int id) {
             sdlDataUndo(id == ID_EDIT_REDO);
             return;
         }
+        if (gWorkspace == Workspace::Triggers) {  // the Triggers workspace's own steps (core/triggers_model.inc)
+            trigUndo(id == ID_EDIT_REDO);
+            return;
+        }
         if (gState.ed && gState.ed->isOpen()) {
             if (id == ID_EDIT_REDO) gState.ed->redo();
             else gState.ed->undo();

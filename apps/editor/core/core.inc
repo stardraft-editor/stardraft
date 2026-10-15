@@ -68,6 +68,7 @@
 #include "views_triggers_tree.inc"
 #include "views_triggers_pane.inc"
 #include "views_triggers_pick.inc"
+#include "triggers_model.inc"  // the Triggers workspace's program parts (the set, the tree's commands, the menus' models)
 #include "views_unit_props.inc"
 #include "views_location_props.inc"
 #include "views_text_prompt.inc"
