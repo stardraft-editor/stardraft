@@ -482,3 +482,6 @@ void shellLogNewBuild() {
     s.errors = 0, s.latestError = false;
     gLogPane.invalidate();
 }
+// --- Program options and feedback ---
+// The feedback folder: next to the settings file (~/.config/StarDraft/feedback, ~/Library/Application Support/StarDraft/feedback).
+fs::path shellFeedbackFolder() { return shellSettingsFile().parent_path() / "feedback"; }

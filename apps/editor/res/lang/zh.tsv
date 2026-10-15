@@ -2002,3 +2002,4 @@ Triggers do not run each second, so they can miss Exactly. Use At least or At mo
 Shift+drag paints 	Shift+拖动绘制
 ; drag paints 	；拖动绘制
 Shift+drag: no terrain	Shift+拖动：无地形
+Automatic (the language of the system)	自动（系统语言）

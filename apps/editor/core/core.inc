@@ -79,6 +79,7 @@
 #include "views_new_page_paint.inc"
 #include "views_options.inc"
 #include "views_feedback.inc"
+#include "feedback_send.inc"  // the feedback's files and sending (both programs' Send)
 #include "views_new_project.inc"
 #include "title.inc"
 #include "project_page.inc"  // the Project page's program parts, createProject, newMap, addProjectScript (the host shows the page)

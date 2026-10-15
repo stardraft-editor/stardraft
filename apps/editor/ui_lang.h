@@ -7,6 +7,8 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 enum class UiLang { English, Korean, Spanish, Russian, Chinese };  // Chinese: simplified
 inline UiLang gUiLang = UiLang::English;  // the language in use (set at the start, see uiLanguageChosen)
@@ -41,4 +43,49 @@ inline const wchar_t* tr(const wchar_t* english) {
 
 inline std::wstring tr(const std::wstring& english) {
     return gUiLang == UiLang::English ? english : std::wstring(tr(english.c_str()));
+}
+
+// --- Program options > Language (both programs) ------------------------------------------------------------------
+
+inline std::wstring gLanguage = L"auto";  // the setting Language: auto, en, ko, es, ru or zh (a change applies at the next start)
+
+// The languages, each by its own name (Automatic: the language of the system).
+struct LanguageChoice {
+    const wchar_t* code;
+    const wchar_t* name;
+};
+inline constexpr LanguageChoice kLanguageChoices[] = {{L"auto", L"Automatic (the language of Windows)"}, {L"en", L"English"}, {L"ko", L"한국어"},
+                                                      {L"es", L"Español"}, {L"ru", L"Русский"},
+                                                      {L"zh", L"简体中文"}};
+inline constexpr int kLanguageChoiceCount = int(sizeof kLanguageChoices / sizeof kLanguageChoices[0]);
+
+// The language of a code (en, ko, es, ru or zh); "auto" and other codes give `system` (the language of the system).
+inline UiLang uiLanguageOfCode(const std::wstring& code, UiLang system) {
+    if (code == L"ko") return UiLang::Korean;
+    if (code == L"es") return UiLang::Spanish;
+    if (code == L"ru") return UiLang::Russian;
+    if (code == L"zh") return UiLang::Chinese;
+    if (code == L"en") return UiLang::English;
+    return system;
+}
+
+inline const wchar_t* languageChoiceName(int i) {
+    return kLanguageChoices[i < 0 ? 0 : i >= kLanguageChoiceCount ? kLanguageChoiceCount - 1 : i].name;
+}
+// The chosen language's index in kLanguageChoices (the setting gLanguage).
+inline int languageChoice() {
+    for (int i = 0; i < kLanguageChoiceCount; ++i)
+        if (gLanguage == kLanguageChoices[i].code) return i;
+    return 0;
+}
+// The languages Program options offers: a language with no translations yet is not offered (it would show English).
+// `automatic`: the first choice's name (null: kLanguageChoices' own, which names Windows).
+inline std::vector<std::pair<int, std::wstring>> languageChoicesOffered(const wchar_t* automatic = nullptr) {
+    std::vector<std::pair<int, std::wstring>> out;
+    for (int i = 0; i < kLanguageChoiceCount; ++i) {
+        const std::wstring code = kLanguageChoices[i].code;
+        if ((code == L"ru" && langTableRu().empty()) || (code == L"zh" && langTableZh().empty())) continue;
+        out.push_back({i, i == 0 && automatic ? std::wstring(automatic) : std::wstring(kLanguageChoices[i].name)});
+    }
+    return out;
 }

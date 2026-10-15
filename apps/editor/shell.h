@@ -203,3 +203,7 @@ bool shellUiIconMask(int size, int icon, std::vector<uint8_t>& out);
 bool shellAskYesNo(const std::wstring& text, const std::wstring& title, const std::wstring& yes, const std::wstring& no);
 // A build starts: the Log's error count goes to 0 (the lines stay).
 void shellLogNewBuild();
+
+// --- Program options and feedback (core/feedback_send.inc) ---
+// The folder where feedback waits to go and the list of the sent feedback is (Windows: %LOCALAPPDATA%\StarDraft\feedback).
+std::filesystem::path shellFeedbackFolder();

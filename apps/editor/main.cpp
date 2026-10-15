@@ -139,7 +139,6 @@ void setCrashReports(int mode) {
 // Options > Middle mouse click and hold: false pan the map (it moves toward the mouse, the faster the farther the mouse
 // is from where the button went down; the default), true drag the map (it follows the mouse).
 bool gMiddleDrag = false;
-std::wstring gLanguage = L"auto";  // Options > Language: auto, en, ko or es (a change applies at the next start)
 HMENU gRecentMapsMenu = nullptr, gRecentProjectsMenu = nullptr;
 extern int gUnitLimitClassic, gUnitLimitEud;  // (core/map_edit.inc)
 
@@ -452,6 +451,7 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_new_page_paint.inc"
 #include "core/views_options.inc"  // Program options' view (OptionsView; the host is options_window.inc)
 #include "core/views_feedback.inc"  // the feedback dialog's view (FeedbackView; the host is feedback.inc and feedback_window.inc)
+#include "core/feedback_send.inc"  // the feedback's files and sending (feedbackWriteFile, sendFeedbackFile, feedbackSend; crash.inc's token)
 #include "core/views_new_project.inc"  // File > New EUD project (NewProjectView, runNewProjectDialog; the host is new_project_window.inc)
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
 
@@ -2492,9 +2492,6 @@ void trigCancelUnitPick();
 // Palette label: the short name and StarEdit's subtitle ("Siege Tank (Tank Mode)").
 // A unit's name with its custom name (the map's unit settings), as Program options > Unit names says (feedback #68).
 // The custom names are read once for each version of the map.
-int languageChoice();                  // Program options > Language: the choice (kLanguageChoices)
-const wchar_t* languageChoiceName(int i);
-std::vector<std::pair<int, std::wstring>> languageChoicesOffered();  // the choices a dropdown offers: (choice, name)
 
 
 int unitPaletteFooter() { return gPal.grid ? scale(26) : 0; }
@@ -7623,30 +7620,7 @@ void listPickChoose() {
 }
 
 bool showListPicker(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, POINT at, std::string& out);
-// Program options > Language: the languages, each by its own name (Automatic: the language of Windows).
-struct LanguageChoice {
-    const wchar_t* code;
-    const wchar_t* name;
-};
-const LanguageChoice kLanguageChoices[] = {{L"auto", L"Automatic (the language of Windows)"}, {L"en", L"English"}, {L"ko", L"\uD55C\uAD6D\uC5B4"},
-                                           {L"es", L"Espa\u00F1ol"}, {L"ru", L"\u0420\u0443\u0441\u0441\u043A\u0438\u0439"},
-                                           {L"zh", L"\u7B80\u4F53\u4E2D\u6587"}};
-const wchar_t* languageChoiceName(int i) { return kLanguageChoices[std::clamp(i, 0, int(std::size(kLanguageChoices)) - 1)].name; }
-int languageChoice() {
-    for (int i = 0; i < int(std::size(kLanguageChoices)); ++i)
-        if (gLanguage == kLanguageChoices[i].code) return i;
-    return 0;
-}
-// The languages Program options offers: a language with no translations yet is not offered (it would show English).
-std::vector<std::pair<int, std::wstring>> languageChoicesOffered() {
-    std::vector<std::pair<int, std::wstring>> out;
-    for (int i = 0; i < int(std::size(kLanguageChoices)); ++i) {
-        const std::wstring code = kLanguageChoices[i].code;
-        if ((code == L"ru" && langTableRu().empty()) || (code == L"zh" && langTableZh().empty())) continue;
-        out.push_back({i, kLanguageChoices[i].name});
-    }
-    return out;
-}
+// (Program options > Language: the languages, languageChoice and languageChoicesOffered are in ui_lang.h.)
 
 // Shows the picker at a screen point; true and `out` when something was picked.
 // A pop-out's message loop: a mouse press outside the pop-out (and outside the pop-outs it opened) only closes it (the
@@ -15934,10 +15908,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
         DISPLAY_DEVICEW dd{sizeof dd};
         for (DWORD i = 0; EnumDisplayDevicesW(nullptr, i, &dd, 0); ++i)
             if (dd.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE) crash::gGpu = dd.DeviceString;
-        crash::gWhere = [] {
-            static const wchar_t* names[] = {L"Map", L"Data", L"Triggers", L"Assets", L"Project", L"Briefing", L"Assets", L"Properties", L"Players", L"Classic triggers", L"Map data"};
-            return names[int(gWorkspace)];
-        };
+        crash::gWhere = [] { return reportWorkspaceName(gWorkspace); };
         if (a1 == L"--crash-test") {  // a crash on purpose, to test the report (no message box)
             crash::gQuiet = true;
             *static_cast<volatile int*>(nullptr) = 1;
