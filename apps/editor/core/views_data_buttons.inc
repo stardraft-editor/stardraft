@@ -130,3 +130,73 @@ int buttonRemoveAt(std::vector<Button>& bs, int i) {
     if (size_t(i) < bs.size()) bs.erase(bs.begin() + long(i));
     return std::max(0, i - 1);
 }
+
+// --- The names of a set and of an entry, as the fields, the lists and the pickers show them ----------------------
+
+// Sets 0-227 are the units'. The others are named by the button that opens them ("Terran SCV: Build Structure").
+// `statString` gives stat_txt.tbl string `id` (1-based) for a list ("" when none).
+std::wstring buttonSetNameFrom(const ButtonSets& sets, int s, const std::function<std::wstring(int)>& statString) {
+    if (s < 228) {
+        const std::wstring n = entryName("units", s);
+        return n.empty() ? L"Unit " + std::to_wstring(s) : n;
+    }
+    for (int o = 0; o < 228; ++o)
+        for (const Button& b : sets.set(o))
+            if (b.actionArg == s && ButtonSets::action(b.action) && ButtonSets::action(b.action)->arg && std::string(ButtonSets::action(b.action)->arg) == "buttons") {
+                const std::wstring unit = entryName("units", o), text = statString(b.enabledString);
+                return (unit.empty() ? L"Unit " + std::to_wstring(o) : unit) + L": " + (text.empty() ? L"button set" : text);
+            }
+    return L"Button set " + std::to_wstring(s);
+}
+
+// String `id` (1-based) is a button's text (the one shown when it can be used): it has a button prefix, or a button
+// of a set shows it. The Strings tab then shows its hotkey and type as fields of their own.
+bool stringIsButtonText(const ButtonSets& sets, int id, const std::string& raw) {
+    if (buttonPrefix(raw)) return true;
+    for (int s = 0; s < ButtonSets::kSets; ++s)
+        for (const Button& b : sets.set(s))
+            if (b.enabledString == id) return true;
+    return false;
+}
+
+// The program's names for the pickers: a button set's name, a string's text for a list, how many strings there are,
+// and which .dat entries have icons.
+struct DataPickNames {
+    std::function<std::wstring(int)> buttonSet;
+    std::function<std::wstring(int)> string;
+    int strings = 0;
+    std::function<bool(const std::string&)> icons;
+};
+
+// The entries of a value kind ("units", "icons", "buttons", "strings", ...) for a list picker, each with its number;
+// `none`: "None" (0) first.
+std::vector<ListPickItem> dataEntryItems(const std::string& kind, bool none, const DataPickNames& n) {
+    std::vector<ListPickItem> items;
+    if (none) items.push_back({L"None", L"", "0"});
+    if (kind == "buttons") {
+        for (int s = 0; s < ButtonSets::kSets; ++s)
+            items.push_back({n.buttonSet(s) + L"   #" + std::to_wstring(s), L"", std::to_string(s), s < 228 ? "units" : "", s < 228 ? s : -1});
+    } else if (kind == "icons") {
+        static const std::string kIcons = "icons";
+        const auto& names = DatSchema::entryNames(kIcons);
+        for (size_t i = 0; i < names.size(); ++i) items.push_back({widen(names[i]) + L"   #" + std::to_wstring(i), L"", std::to_string(i), "icons", int(i)});
+    } else if (kind == "strings") {
+        for (int i = 1; i <= n.strings; ++i) items.push_back({n.string(i) + L"   #" + std::to_wstring(i), L"", std::to_string(i)});
+    } else if (const DatSchema* sc = DatSchema::find(kind)) {
+        const bool icons = n.icons && n.icons(kind);
+        for (int i = 0; i < sc->entries; ++i) {
+            const std::wstring e = entryName(kind, i);
+            items.push_back({(e.empty() ? L"(unnamed)" : e) + L"   #" + std::to_wstring(i), L"", std::to_string(i), icons ? kind : "", icons ? i : -1});
+        }
+    }
+    return items;
+}
+
+// A step's or a button's value as its field shows it: the entry's name, or "kind #n" when it has none.
+std::wstring dataArgName(const char* kind, int v, const std::function<std::wstring(int)>& buttonSet) {
+    if (!kind) return L"";
+    const std::string k = kind;
+    if (k == "buttons") return buttonSet(v);
+    const std::wstring n = entryName(k, v);
+    return n.empty() ? widen(k) + L" #" + std::to_wstring(v) : n;
+}
