@@ -60,8 +60,15 @@ bool shellClearFilter() {  // the Locations filter is cleared (the Win32 filter'
     return true;
 }
 unsigned shellDpi() { return gDpi; }
-void shellLogLine(const std::wstring& line) { std::fprintf(stderr, "%s\n", narrow(line).c_str()); }
-void shellLogError(const std::wstring& line) { std::fprintf(stderr, "%s\n", narrow(line).c_str()); }
+void sdlRememberLogLine(const std::wstring& line);  // (shell_sdl_win.inc: the crash report's last lines on Windows)
+void shellLogLine(const std::wstring& line) {
+    std::fprintf(stderr, "%s\n", narrow(line).c_str());
+    sdlRememberLogLine(line);
+}
+void shellLogError(const std::wstring& line) {
+    std::fprintf(stderr, "%s\n", narrow(line).c_str());
+    sdlRememberLogLine(line);
+}
 bool shellHasStatusBar() { return true; }
 int shellSpriteCount() { return gRenderer ? gRenderer->stats().sprites : 0; }
 // The Locations list (sdl_panels.inc): its rows are the rebuildList's, its selection is the core's picks.
@@ -173,7 +180,7 @@ int shellAskUnapplied(const std::wstring& text, const std::wstring& title) {
 int shellTabSideMenu(const std::wstring&, int) { return 0; }  // (the side menu is not on this system yet)
 void shellRecentMenu(bool, const std::vector<std::wstring>&, const std::wstring&) { gMenusDirty = true; }  // (the lists are the menus' own: sdl_menus.inc)
 void shellShowQuickPicker(bool replace, bool open) { showQuickPickerSdl(replace, open); }  // (sdl_map_dialogs.inc)
-void shellMapFileOpened(const std::filesystem::path&) {}  // (the file association is Windows only)
+// (shellMapFileOpened: shell_sdl_win.inc; the file association is Windows only)
 
 // When the program started (its start-up marks count from here): main() takes it first.
 std::chrono::steady_clock::time_point shellProcessStart() {
@@ -271,13 +278,7 @@ std::wstring shellFileTimeText(const std::filesystem::path& file) {
     std::snprintf(buf, sizeof buf, "%04d-%02d-%02d %02d:%02d", tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, tm->tm_hour, tm->tm_min);
     return widen(buf);
 }
-std::uintptr_t shellStartElevated(const std::filesystem::path&, const std::filesystem::path&, const std::wstring&, const std::wstring& what,
-                                  std::wstring& error) {
-    error = what + L" is not on this system yet";
-    return 0;
-}
-bool shellProcessEnded(std::uintptr_t) { return true; }
-void shellProcessClose(std::uintptr_t) {}
+// (shellStartElevated, shellProcessEnded and shellProcessClose: shell_sdl_win.inc)
 void shellChooseInstallFolder() { setMessage(L"This is not on this system yet"); }
 // The file and folder dialogs: SDL's (asynchronous); the call waits for the answer (the host handles events and paints
 // meanwhile). A dialog whose answer comes after the program quits keeps its small state (the callback may still come).

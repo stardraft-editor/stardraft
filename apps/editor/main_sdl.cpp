@@ -9,6 +9,8 @@
 //
 // --snapshot: draws one frame without a window (SDL_VIDEODRIVER=offscreen needs no display), writes it, exits.
 // --silent: a test run that drives the window plays no sound (a snapshot plays none either).
+// Windows: --send-crash <folder> sends a crash's report (the crashed program starts it); --crash-test crashes on purpose.
+// A map given while the program is open goes to the open program (not in a test run: a snapshot or --silent).
 // The StarCraft install: --install, then STARDRAFT_INSTALL, the folder chosen before, then the usual folders of each
 // system (core/install_search.inc; on Windows Blizzard's registry entries first); when none opens, the window asks for
 // the folder.
@@ -34,9 +36,11 @@
 #include <random>
 #include <set>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <utility>
 #include <vector>
+#include <cwctype>
 
 #include "canvas.h"
 #include "view.h"
@@ -47,6 +51,17 @@
 #include "core/tr.h"
 #include "shell.h"
 #include "install.h"  // apps/common: the registry's install folders (Windows)
+#include "http.h"  // apps/common: the GitHub requests (core/releases.inc)
+#include "update.h"  // apps/common: the self-update's file steps (core/releases.inc, sdl_updates.inc)
+#include "crash_report.h"  // apps/common: the crash handler and sending reports (core/releases.inc, shell_sdl_win.inc)
+#ifdef _WIN32
+#include "file_types.h"  // apps/common: the files that open with StarDraft 2 (shell_sdl_win.inc)
+#include <dwmapi.h>      // the dark title bar (shell_sdl_win.inc)
+#include <shellapi.h>    // the elevated start (shell_sdl_win.inc)
+#endif
+#if __has_include("build_info.h")
+#include "build_info.h"  // STARDRAFT_COMMIT (cmake/build_info.cmake): Check for updates compares it with the release's
+#endif
 #include "message_box.h"  // apps/kit: the save question (shellAskSaveChanges)
 #include "dialog.h"  // apps/kit: the map pages' pickers (sdl_map_pages.inc)
 #include "label.h"  // apps/kit: the block dialog's text (core/views_classic_batch.inc)
@@ -105,7 +120,9 @@ bool gSilent = false;
 #include "sdl_map_dialogs.inc"  // Unit and Location properties, the text prompt, the quick picker and the map's menu
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
 #include "sdl_data.inc"  // the Data workspace (the model is core/data_list.inc and core/views_data*.inc; the tables are the stock .dat files)
+#include "sdl_updates.inc"  // Help > Check for updates, the crash reports' choice (core/releases.inc)
 #include "shell_sdl.inc"
+#include "shell_sdl_win.inc"  // the Windows parts: the crash handler, the map files, one program for all maps
 
 namespace {
 
@@ -117,6 +134,13 @@ bool openInstall(const std::string& given, std::string& lastErr) {
     std::vector<fs::path> candidates;
     if (!given.empty()) candidates.push_back(given);
     if (fs::path e = envPath("STARDRAFT_INSTALL"); !e.empty()) candidates.push_back(e);
+    // (Windows: the Windows program's install.txt first, so both programs use one install)
+    if (const fs::path f = sdlWindowsInstallFile(); !f.empty())
+        if (std::ifstream in(f); in) {
+            std::string dir;
+            std::getline(in, dir);
+            if (!dir.empty()) candidates.push_back(fs::path(widen(dir)));
+        }
     std::wstring saved;
     if (prefs::text(L"StarCraftFolder", saved) && !saved.empty()) candidates.push_back(saved);
 #ifdef _WIN32
@@ -161,6 +185,11 @@ void useInstallFolder(const std::string& picked) {
     for (const fs::path& t : installTries(fs::path(widen(picked))))  // (UTF-8)
         if (fs::is_directory(t) && gState.data.open(t, err)) {
             prefs::setText(L"StarCraftFolder", t.wstring());
+            if (const fs::path f = sdlWindowsInstallFile(); !f.empty()) {  // (and the Windows program's file, on Windows)
+                std::error_code ec;
+                fs::create_directories(f.parent_path(), ec);
+                std::ofstream(f) << narrow(t.wstring());
+            }
             gDataOk = true, gDataError.clear();
             gStartView.dataError.clear();
             if (gRoot) gRoot->relayout(), gRoot->invalidate(), gRoot->map.invalidate();
@@ -230,6 +259,11 @@ int main(int argc, char** argv) {
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
     if (!snapshot.empty()) gSilent = true;
+    // A test run (a snapshot, --silent) asks nothing, sends nothing and leaves the user's file types.
+    const bool testRun = gSilent;
+    // Windows: a crash's sender ends here, the crash handler goes in, and a map for the open program goes to it.
+    if (const int sent = sdlWindowsFirst(argc, argv, testRun); sent >= 0) return sent;
+    if (sdlSendToOpenProgram(mapArg, testRun)) return 0;
     if (!SDL_Init(SDL_INIT_VIDEO)) return std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()), 1;
 
     // The device first (the renderer makes it with its shader formats), then the host on it.
@@ -337,6 +371,8 @@ int main(int argc, char** argv) {
         } else {
             if (!host.show(root, L"StarDraft", width, height)) return std::fprintf(stderr, "could not open a window\n"), 1;
             updateTitle();  // (the window exists now: its title is the open map's)
+            sdlWindowsShown(testRun);  // (Windows: the dark title bar, an earlier crash's report, the file types)
+            if (!testRun) sdlUpdatesAtStart();  // (a release build: a newer release says so in the status bar)
             if (!gDataOk) shellPost(askInstallFolder);  // no install was found: the window asks for its folder
             host.setAnimating(true);  // (the map and the posted work need frames; see shellPost)
             host.run();

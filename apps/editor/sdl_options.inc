@@ -2,7 +2,8 @@
 // core/views_feedback.inc); this file is their SDL host. Each opens as a dialog window over the root (the kit's windows, as
 // the Windows program's dialogs). The options keep their values in the settings file (prefs), the volume and the unit names
 // in the dock, the unit limits in the core. Not on this system yet: the themes and accents (dark only), the languages, the
-// StarCraft folder and the Maps' program, the folder pickers, and sending the feedback (the text stays in the dialog).
+// StarCraft folder, the folder pickers, and sending the feedback (the text stays in the dialog). The Maps' program is
+// Windows only (shell_sdl_win.inc); Check now and the crash reports' choice are sdl_updates.inc's.
 // Included by main_sdl.cpp after sdl_new_page.inc.
 
 // The Discord server's invitation (the Windows program's about.inc has the same link).
@@ -10,6 +11,8 @@ const wchar_t* const kSdlDiscordInvite = L"https://discord.gg/JBMCwSRJBm";
 
 bool gOptionsOpen = false;        // the options window is open (its closed callback clears it)
 FeedbackView* gFbView = nullptr;  // the feedback dialog while it is open
+
+bool sdlMapsOpenWithUs();  // (shell_sdl_win.inc)
 
 // The program's part of the options window: the values, the commands, the folder and the sliders' changes.
 class OptionsProgramSdl final : public OptionsHost {
@@ -28,6 +31,7 @@ public:
         prefs::flag(L"CheckUpdates", flag), v.checkUpdates = flag;
         int crash = 0;
         prefs::number(L"CrashReports", crash, 0, 2), v.crashReports = crash;
+        v.mapsWithSD2 = sdlMapsOpenWithUs();  // (Windows: .scm and .scx open with StarDraft 2; shell_sdl_win.inc)
         v.projectsFolder = defaultProjectsFolder().make_preferred().wstring();
     }
     void command(int id) override { ::command(id); }  // (the menu's command: the same path as the menu)
