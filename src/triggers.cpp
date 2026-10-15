@@ -945,6 +945,12 @@ void writeNode(std::ostringstream& o, const TriggerNode& n, const std::string& p
     if (n.kind == TriggerNode::Kind::Variable) {
         o << ", \"type\": \"" << varKindName(n.variable.kind) << "\", \"size\": " << n.variable.size;
         if (!n.variable.sizeConstant.empty()) o << ", \"sizeFrom\": " << quote(n.variable.sizeConstant);
+        if (!n.variable.holds.empty()) o << ", \"holds\": " << quote(n.variable.holds);
+        if (!n.variable.playerValues.empty()) {
+            o << ", \"values\": [";
+            for (size_t k = 0; k < n.variable.playerValues.size(); ++k) o << (k ? ", " : "") << quote(n.variable.playerValues[k]);
+            o << "]";
+        }
         o << ", \"initial\": " << quote(n.variable.initial) << n.extra
           << "}";
         return;
@@ -1136,12 +1142,15 @@ TriggerNode readNode(const Json& j) {
         n.variable.size = std::max(1, j.integer("size", 8));
         n.variable.initial = j.str("initial");
         n.variable.sizeConstant = j.str("sizeFrom");
+        n.variable.holds = j.str("holds");
+        if (const Json* pv = j.get("values"))
+            for (const Json& x : pv->items) n.variable.playerValues.push_back(x.type == Json::Type::String ? x.s : jsonText(x));
     }
     n.conditions = readCalls(j.get("conditions"));
     n.actions = readCalls(j.get("actions"));
     if (const Json* c = j.get("children"))
         for (const Json& child : c->items) n.children.push_back(readNode(child));
-    n.extra = extraFields(j, {"kind", "id", "name", "enabled", "comment", "type", "size", "sizeFrom", "initial", "conditions", "actions", "children"});
+    n.extra = extraFields(j, {"kind", "id", "name", "enabled", "comment", "type", "size", "sizeFrom", "initial", "holds", "values", "conditions", "actions", "children"});
     return n;
 }
 
@@ -1578,6 +1587,13 @@ struct Gen {
     // A unit type in the code: eudplib's name for it ($U("Zerg Zergling")), which reads better than the number and is
     // the same number in any expression. The number when eudplib has no name for it, or when the map gives the name to
     // another unit type (then the name could mean that one).
+    // A per-player variable that holds `holds` (unit types, locations): the current player's value, else "".
+    std::string perPlayerValue(const std::string& v, const char* holds) const {
+        const auto it = vars.find(v);
+        if (it == vars.end() || it->second->variable.kind != TriggerVariable::Kind::PerPlayer || it->second->variable.holds != holds) return "";
+        return triggerVariableCode(v) + "[getcurpl()]";
+    }
+
     std::string unitCode(int n) const {
         if (n < 0 || n >= int(std::size(kEudUnitNames)) || !kEudUnitNames[n]) return std::to_string(n);
         const std::string name = kEudUnitNames[n];
@@ -1694,6 +1710,7 @@ struct Gen {
         }
         case TriggerPicker::UnitType:
         case TriggerPicker::UnitFilter: {
+            if (const std::string pp = perPlayerValue(v, "UnitType"); !pp.empty()) return pp;  // a per-player unit type (GH#108)
             static const std::map<std::string, int> filters = {{"Any unit", 229}, {"Men", 230}, {"Buildings", 231}, {"Factories", 232}};
             int group = -1;
             if (auto f = filters.find(v); f != filters.end()) group = f->second;
@@ -1715,6 +1732,7 @@ struct Gen {
             return unitCode(id);
         }
         case TriggerPicker::Location: {
+            if (const std::string pp = perPlayerValue(v, "Location"); !pp.empty()) return pp;  // a per-player location (GH#108)
             if (isNumber(v)) {
                 const int n = std::atoi(v.c_str());
                 if (n < 1 || n > 255) issue(TriggerIssue::Level::Error, &c, i, "Use a location from 1 to 255");
@@ -2880,7 +2898,26 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
                 decls += "var " + code + " = " + (r.ok && r.constant ? r.code : "0") + ";  // " + n.name + "\n";
                 break;
             }
-            case TriggerVariable::Kind::PerPlayer: decls += "const " + code + " = PVariable();  // " + n.name + " (per player)\n"; break;
+            case TriggerVariable::Kind::PerPlayer: {  // with default values: one for each player (Player 1 first)
+                const auto& pv = n.variable.playerValues;
+                const bool any = std::any_of(pv.begin(), pv.end(), [&](const std::string& x) { return !x.empty() && (x != "0" || n.variable.holds == "UnitType"); });
+                if (!any) {
+                    decls += "const " + code + " = PVariable();  // " + n.name + " (per player)\n";
+                    break;
+                }
+                std::string items;
+                for (int p = 0; p < 8; ++p) {
+                    const std::string x = p < int(pv.size()) && !pv[size_t(p)].empty() ? pv[size_t(p)] : n.variable.holds == "UnitType" ? "228" : "0";  // (no unit type: None, 228)
+                    std::string item = "0";
+                    if (!g.isNumber(x)) issues.push_back({TriggerIssue::Level::Error, &n, nullptr, -1, "Player " + std::to_string(p + 1) + "'s default value must be a number"});
+                    else if (n.variable.holds == "UnitType") item = g.unitCode(std::atoi(x.c_str()));
+                    else item = x;
+                    items += (p ? ", " : "") + item;
+                }
+                decls += "const " + code + " = PVariable(list(" + items + "));  // " + n.name + " (per player" +
+                         (n.variable.holds == "UnitType" ? ": unit types" : n.variable.holds == "Location" ? ": locations" : "") + ")\n";
+                break;
+            }
             case TriggerVariable::Kind::Array: {
                 const int size = triggerListSize(n.variable, g.vars);
                 std::string sizeCode = std::to_string(size);

@@ -298,6 +298,13 @@ int main(int argc, char** argv) {
     TriggerNode greeting = TriggerSet::newVariable("greeting", TriggerVariable::Kind::Text);
     greeting.variable.initial = "Welcome, commander";
     set.roots[0].children.push_back(greeting);
+    // Per player (GH#108): a unit type and a location for each player; blocks take the current player's.
+    TriggerNode hero = TriggerSet::newVariable("heroType", TriggerVariable::Kind::PerPlayer);
+    hero.variable.holds = "UnitType", hero.variable.playerValues = {"0", "37", "65", "", "", "", "", ""};  // marine, zergling, zealot
+    set.roots[0].children.push_back(hero);
+    TriggerNode spawnVar = TriggerSet::newVariable("spawnAt", TriggerVariable::Kind::PerPlayer);
+    spawnVar.variable.holds = "Location", spawnVar.variable.playerValues = {"1", "1", "1", "1", "1", "1", "1", "1"};
+    set.roots[0].children.push_back(spawnVar);
     {  // A text variable changed while the game runs (a StringBuffer), then shown inside a Display text.
         TriggerNode texts = TriggerSet::newTrigger("Texts");
         TriggerCall setT = make("act.text.set"), addT = make("act.text.add"), clearT = make("act.text.clear"), show = make("act.showtext");
@@ -483,6 +490,7 @@ int main(int argc, char** argv) {
     more.actions.push_back(eachP3);
     more.actions.push_back(block("act.lb.goalcontrol", {"Marines", "0", "20"}));
     more.actions.push_back(block("act.lb.goalcontrolat", {"Hill", "229", "64", "10"}));
+    more.actions.push_back(block("act.createunit", {"1", "heroType", "spawnAt", "current"}));
     more.actions.push_back(block("act.lb.goalresources", {"Richest", "Ore", "5000"}));
     more.actions.push_back(block("act.nextscenario", {"Chapter 2"}));
     more.actions.push_back(block("act.wireframe", {"0", "37"}));
@@ -841,6 +849,21 @@ int main(int argc, char** argv) {
               code.find("sd_gameSpeed(200);") != std::string::npos && code.find("import .sdlib.f_sd_gameSpeed;") != std::string::npos &&
               code.find(".setloc(1);") != std::string::npos && TriggerSet::helperLibrary().find("function sd_scrollLock(mode)") != std::string::npos,
           "scroll lock, the game speed and the camera on a unit");
+    check(code.find("PVariable(list($U(\"Terran Marine\"), $U(\"Zerg Zergling\"), $U(\"Protoss Zealot\"), 228, 228, 228, 228, 228))") != std::string::npos &&
+              code.find("PVariable(list(1, 1, 1, 1, 1, 1, 1, 1))") != std::string::npos && code.find("[getcurpl()], ") != std::string::npos,
+          "per player: unit types and locations with a default value for each player; a block takes the current player's");
+    {  // and they come back from triggers.json
+        TriggerSet back;
+        std::string e2;
+        const fs::path f = dir / "perplayer.json";
+        set.save(f, e2);
+        const bool loaded = back.load(f, e2);
+        const auto vv = back.variables();
+        const auto it = vv.find("heroType");
+        check(loaded && it != vv.end() && it->second->variable.holds == "UnitType" && it->second->variable.playerValues.size() == 8 &&
+                  it->second->variable.playerValues[1] == "37",
+              "per player: what it holds and each player's value are saved and read again");
+    }
     check(code.find(".check_buildq(") != std::string::npos && code.find(".are_buildq_empty()") != std::string::npos, "a build queue: a unit type in it, and empty");
     check(code.find("cu1.reset_buildq();") != std::string::npos && code.find("break;  // Leave the loop") != std::string::npos &&
               code.find("v_gold = sd_max(sqrt(v_gold), 10);") != std::string::npos && code.find("import .sdlib.f_sd_max;") != std::string::npos && TriggerSet::helperLibrary().find("function sd_max(a, b)") != std::string::npos,
