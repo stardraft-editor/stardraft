@@ -154,20 +154,8 @@ std::wstring projectUnitName(int u) {  // a unit's name string (u + 1) when the 
     return u >= 0 && u < gExtras.strings.count() && gExtras.strings.changed(u) ? statString(u + 1) : L"";
 }
 
-// Sets 0-227 are the units'. The others are named by the button that opens them ("Terran SCV: Build Structure").
-std::wstring buttonSetName(int s) {
-    if (s < 228) {
-        const std::wstring n = entryName("units", s);
-        return n.empty() ? L"Unit " + std::to_wstring(s) : n;
-    }
-    for (int o = 0; o < 228; ++o)
-        for (const Button& b : gExtras.buttons.set(o))
-            if (b.actionArg == s && ButtonSets::action(b.action) && ButtonSets::action(b.action)->arg && std::string(ButtonSets::action(b.action)->arg) == "buttons") {
-                const std::wstring unit = entryName("units", o), text = statString(b.enabledString);
-                return (unit.empty() ? L"Unit " + std::to_wstring(o) : unit) + L": " + (text.empty() ? L"button set" : text);
-            }
-    return L"Button set " + std::to_wstring(s);
-}
+// A set's name (core views_data_buttons.inc: the units' sets, the others by the button that opens them).
+std::wstring buttonSetName(int s) { return buttonSetNameFrom(gExtras.buttons, s, statString); }
 
 bool tabEntryChanged(int tab, int e) {
     if (tab == stringsTab()) return e >= 1 && gExtras.strings.changed(e - 1);
@@ -273,32 +261,11 @@ int formTitle(HDC dc, const FormLayout& l, int y, const UnitPalette::Bitmap* ico
     return ui::title(dc, l.x0, y, l.colRight + l.picW, icon, title, sub, changed, std::move(reset), kind);
 }
 // The entries of a .dat (or "buttons", "icons", "strings") for a list picker.
+// (core views_data_buttons.inc: dataEntryItems, with this program's names)
 std::vector<ListPickItem> entryItems(const std::string& kind, bool none = false) {
-    std::vector<ListPickItem> items;
-    if (none) items.push_back({L"None", L"", "0"});
-    if (kind == "buttons") {
-        for (int s = 0; s < ButtonSets::kSets; ++s) items.push_back({buttonSetName(s) + L"   #" + std::to_wstring(s), L"", std::to_string(s), s < 228 ? "units" : "", s < 228 ? s : -1});
-    } else if (kind == "icons") {
-        const auto& names = DatSchema::entryNames("icons");
-        for (size_t i = 0; i < names.size(); ++i) items.push_back({widen(names[i]) + L"   #" + std::to_wstring(i), L"", std::to_string(i), "icons", int(i)});
-    } else if (kind == "strings") {
-        for (int i = 1; i <= gExtras.strings.count(); ++i) items.push_back({statString(i) + L"   #" + std::to_wstring(i), L"", std::to_string(i)});
-    } else if (const DatSchema* sc = DatSchema::find(kind)) {
-        const bool icons = datHasIcons(kind);
-        for (int i = 0; i < sc->entries; ++i) {
-            const std::wstring n = entryName(kind, i);
-            items.push_back({(n.empty() ? L"(unnamed)" : n) + L"   #" + std::to_wstring(i), L"", std::to_string(i), icons ? kind : "", icons ? i : -1});
-        }
-    }
-    return items;
+    return dataEntryItems(kind, none, DataPickNames{buttonSetName, statString, gExtras.strings.count(), [](const std::string& k) { return datHasIcons(k); }});
 }
-std::wstring argName(const char* kind, int v) {
-    if (!kind) return L"";
-    const std::string k = kind;
-    if (k == "buttons") return buttonSetName(v);
-    const std::wstring n = entryName(k, v);
-    return n.empty() ? widen(k) + L" #" + std::to_wstring(v) : n;
-}
+std::wstring argName(const char* kind, int v) { return dataArgName(kind, v, buttonSetName); }
 const UnitPalette::Bitmap* argIcon(const char* kind, int v) {
     if (!kind) return nullptr;
     const std::string k = kind;
@@ -901,10 +868,7 @@ void paintStringsForm(HDC dc, RECT rc, int& y) {
     }
     if (!l.twoCol) y = picBottom + scale(12);
     // A button's text (the one shown when it can be used): its hotkey and type as fields of their own.
-    bool enabledText = buttonPrefix(raw);
-    for (int s = 0; s < ButtonSets::kSets && !enabledText; ++s)
-        for (const Button& b : gExtras.buttons.set(s)) enabledText |= b.enabledString == id;
-    if (enabledText) {
+    if (stringIsButtonText(gExtras.buttons, id, raw)) {
         const StringButtonParts bp = stringButtonParts(raw);
         const bool has = bp.has;
         const char hot = bp.hot;
