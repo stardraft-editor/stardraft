@@ -166,7 +166,7 @@ fs::path homeFolder() {
 // The settings file: %APPDATA%\StarDraft on Windows (the Windows program's file), ~/Library/Application Support/StarDraft
 // on macOS, $XDG_CONFIG_HOME or ~/.config/StarDraft on Linux (the environment variable STARDRAFT_SETTINGS gives another
 // file, as on Windows).
-void shellSettingsChanged() {}  // (the SDL program keeps no options yet: the Windows program saves its options in the registry)
+void shellSettingsChanged() { saveSettingsTable(); }  // (the menus' options: core/app_settings.inc)
 std::filesystem::path shellSettingsFile() {
     if (fs::path file = envPath("STARDRAFT_SETTINGS"); !file.empty()) return file;
     fs::path dir;
@@ -266,7 +266,18 @@ void shellInvalidateTabs() {
 void shellInvalidateWorkspaceBar() {
     if (gRoot) gRoot->invalidate();
 }
-void shellForgetAnims() {}  // (no unit animations are kept apart from the renderer's)
+void shellForgetAnims() {  // (the units' idle animations: core/map_scene.inc)
+    gAnims.clear(), gAnimsFor = nullptr;
+}
+void shellRendererReloadImages() {
+    if (gRenderer) gRenderer->reloadImages();
+}
+void shellRailUpdateNow() {}  // (the rail's items are made each time it paints, and it paints each frame)
+bool shellViewMouse(int& x, int& y) {  // (the map view keeps the mouse in the state: sdl_main_view.inc)
+    if (!gState.mouseIn) return false;
+    x = gState.mouseX, y = gState.mouseY;
+    return true;
+}
 // The map view takes the keyboard focus (the host's focus; the map view is the root's child).
 void shellFocusView() {
     if (gRoot) gRoot->map.focus();

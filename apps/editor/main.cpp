@@ -174,8 +174,6 @@ bool tilesMouseDown(float wx, float wy, unsigned mods);
 void tilesMouseUp(float wx, float wy);
 void tilesMouseMove(float wx, float wy);
 void tilesSprayAt(float wx, float wy);
-void tilesScene(render::Scene& s, float wx, float wy);
-void rangesScene(render::Scene& s, float dx = 0, float dy = 0);
 bool tilesDatashot(const std::string& spec, const fs::path& dir);
 // A spray tool is on: Units, Doodads or Sprites (their radius, density and the circle on the map).
 bool objectSprayOn();
@@ -215,24 +213,6 @@ inline HWND dlgButton(HWND parent, int id) {
 }  // namespace ui
 void fillAlpha(HDC dc, RECT r, COLORREF c, BYTE alpha);
 void dataFormRepaint();  // (the Data workspace)
-// A location's name in lines that fit in w x h screen pixels (the map font, 1.5 px a unit, lines 12 units apart):
-// words go to the next line; a word too long is cut; lines that do not fit are left out.
-std::string wrapLocationName(const std::string& name, float w, float h) {
-    const float unit = 1.5f;
-    const int maxW = std::max(1, int(w / unit)), maxLines = std::max(1, int(h / (12 * unit)));
-    std::vector<std::string> lines(1);
-    std::istringstream in(name);
-    for (std::string word; in >> word;) {
-        while (render::textWidth(word) > maxW && word.size() > 1) word.pop_back();  // a word that does not fit: cut
-        const std::string tryLine = lines.back().empty() ? word : lines.back() + " " + word;
-        if (render::textWidth(tryLine) <= maxW || lines.back().empty()) lines.back() = tryLine;
-        else lines.push_back(word);
-    }
-    if (int(lines.size()) > maxLines) lines.resize(size_t(maxLines));
-    std::string out;
-    for (size_t k = 0; k < lines.size(); ++k) out += (k ? "\n" : "") + lines[k];
-    return out;
-}
 bool gRightDown = false;  // the right button is down on the map (a click opens the menu; only the middle button pans)
 void restyleTips();
 // A title bar in the window's colors: its ground, its text, a quiet border (Windows 11; older Windows keep theirs).
@@ -269,6 +249,8 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/views_modebar.inc"  // the modes' segmented control (ModeBarView; the instance is gModeBarView below)
 #include "core/views_toolstrip.inc"  // the tool strip (ToolStripView, the strip's rules; the instance is gToolStripView)
 #include "core/views_panel_tabs.inc"  // the side panels' tabs (PanelTabsView; the instances are gPanelTabsView below)
+#include "core/map_edit_commands.inc"  // the Map's Edit and Options commands, the player and tool keys, Close (commandMapEdit, kProgramKeys)
+#include "core/app_settings.inc"  // the menus' options in the settings file (appSettings, saveSettingsTable, loadSettingsTable)
 #include "core/startup.inc"  // the start-up marks (startMark, gStartMarks, gOpenMs)
 #include "core/names.inc"  // the names of the palette's entries and of a .dat's entries (paletteItemName, entryName)
 #include "core/palette_items.inc"  // the palette's items: units, terrains, doodads and sprites (paletteItems, paletteUnits)
@@ -289,6 +271,7 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/views_data_button_pop.inc"  // the button pop-out (ButtonPopView; the host is data_extras.inc)
 #include "core/views_game_text.inc"  // the game text editor as kit widgets (GameTextView; the Strings tab, data_extras.inc)
 #include "core/title.inc"  // the window's title and the rail's state (updateTitle)
+#include "core/map_scene.inc"  // the map's scene: the grid, the sprites, the units and their animations, the locations, the selection, the ghosts (buildScene)
 int selectPalette(int value);
 void pickUnit(int v, bool add);
 // The forms without app: the Win32 TU's own (the state forms are in core/palette_tools.inc).
@@ -322,7 +305,6 @@ struct App : AppState {
 
 App app;
 
-int gUnitGraphics = 0;  // changes when syncMapUnitGraphics gives the map other unit graphics
 
 // The unit palette in the right side bar: units in sections (Terran Ground, Zerg Air, ...), as a list
 // or as a grid of command icons or unit sprites. Clicking one places it.
@@ -493,186 +475,6 @@ void updateMenus();
 
 // --- Scene -----------------------------------------------------------------------------------------
 
-uint32_t playerRgba(int owner, uint8_t alpha) {
-    // Players 1-8 in the map's own colors (Map properties > Players and forces).
-    if (app.ed && app.ed->isOpen() && owner >= 0 && owner < 8) {
-        static const void* cachedFor = nullptr;
-        static uint64_t cachedRev = ~0ull;
-        static uint32_t cached[8] = {};
-        if (cachedFor != app.ed.get() || cachedRev != uint64_t(app.ed->revision())) {
-            for (int p = 0; p < 8; ++p) cached[p] = app.ed->playerRgb(p);
-            cachedFor = app.ed.get(), cachedRev = uint64_t(app.ed->revision());
-        }
-        return cached[owner] << 8 | alpha;
-    }
-    static const uint32_t rgb[12] = {0xF40404, 0x0C48CC, 0x2CB494, 0x88409C, 0xF88C14, 0x703014,
-                                     0xCCE0D0, 0xFCFC38, 0x088008, 0xFCFC7C, 0xECC4B0, 0x4068D4};
-    return (rgb[std::clamp(owner, 0, 11)] << 8) | alpha;
-}
-
-// One image plus the overlays its iscript puts underneath it (shadows).
-void addImage(render::Scene& s, const render::SpriteDraw& d) {
-    UnitSprites& sp = app.ed->unitSprites();
-    s.sprites.push_back(d);
-    // Overlays its script puts on top (glows, lights): their own resting frame, or the parent's facing.
-    for (const ImageScript::Overlay& o : sp.script(d.image).over) {
-        render::SpriteDraw ov = d;
-        ov.image = o.image;
-        // Overlays that turn face as the parent does; others show their own resting frame.
-        const bool turns = sp.turns(o.image);
-        ov.frame = turns ? sp.script(o.image).initFrame / 17 * 17 + d.frame % 17 : sp.script(o.image).initFrame;
-        ov.flip = turns && d.flip;
-        ov.x = d.x + (d.flip ? -o.x : o.x), ov.y = d.y + o.y;
-        ov.hasSortY = true, ov.sortY = d.hasSortY ? d.sortY : d.y;  // ordered with its sprite
-        ov.depthBias = d.depthBias + 0.0002f;
-        ov.shadow = false;
-        ov.glow = sp.drawFunction(o.image) == 9;
-        s.sprites.push_back(ov);
-    }
-    for (const ImageScript::Overlay& o : sp.script(d.image).under) {
-        render::SpriteDraw sh = d;
-        sh.image = o.image;
-        sh.x = d.x + (d.flip ? -o.x : o.x), sh.y = d.y + o.y;
-        sh.hasSortY = true, sh.sortY = d.hasSortY ? d.sortY : d.y;
-        sh.shadow = sp.isShadow(o.image);
-        sh.air = false;
-        sh.tintRed = false;
-        s.sprites.push_back(sh);
-    }
-}
-
-// New graphics for preplaced units (R8): while the option is on, the map shows the units with the edited graphics,
-// but a unit that the map's code does not make again (EudProject::remakeKeeps) keeps the game's graphics. Per unit
-// type, the game's image and subunit image; empty while the option is off (syncMapUnitGraphics).
-std::vector<int> gGameUnitImage, gGameSubunitImage;
-bool keepsGameGraphics(const Unit& u) { return u.type < gGameUnitImage.size() && EudProject::remakeKeeps(u); }
-int mapUnitImage(UnitSprites& sp, const Unit& u) { return keepsGameGraphics(u) ? gGameUnitImage[u.type] : sp.imageFor(u.type); }
-int mapSubunitImage(UnitSprites& sp, const Unit& u) { return keepsGameGraphics(u) ? gGameSubunitImage[u.type] : sp.subunitImage(u.type); }
-
-// --- Unit animation ----------------------------------------------------------------------------------
-
-// Each map unit plays its idle animation (iscript: Init, or Built for buildings, as a preplaced unit
-// does), at the game's speed: one tick per 42 ms.
-struct UnitAnim {
-    ImageAnim main, sub;
-    uint64_t seen = 0;  // scene that last drew it
-};
-std::unordered_map<uint64_t, UnitAnim> gAnims;  // by serial and type
-const Editor* gAnimsFor = nullptr;
-uint64_t gSceneNo = 0;
-ULONGLONG gAnimLast = 0;
-constexpr ULONGLONG kTickMs = 42;
-
-UnitAnim& unitAnim(const Unit& u) {
-    UnitSprites& sp = app.ed->unitSprites();
-    auto [it, fresh] = gAnims.try_emplace(uint64_t(u.serial) << 16 | u.type);
-    if (fresh) {
-        const bool building = u.type < app.ed->unitTypes().size() && app.ed->unitTypes()[u.type].is(UnitFlag::Building);
-        const int image = mapUnitImage(sp, u), sub = mapSubunitImage(sp, u);
-        it->second.main = ImageAnim(sp, image, u.serial, building && sp.animOffset(image, 16) ? 16 : 0);
-        if (sub >= 0) it->second.sub = ImageAnim(sp, sub, u.serial + 1, 0);
-    }
-    it->second.seen = gSceneNo;
-    return it->second;
-}
-
-// Runs the game ticks due since the last call; true if any frame changed.
-bool advanceAnims() {
-    // The animations hold the sprites of the editor they were made for: after another tab, a closed tab or a new map,
-    // that editor may be gone. Start again (buildScene makes them again for this editor).
-    if (gAnimsFor != app.ed.get()) {
-        gAnims.clear(), gAnimsFor = app.ed.get();
-        return false;
-    }
-    const ULONGLONG now = GetTickCount64();
-    if (now - gAnimLast > 500) gAnimLast = now - kTickMs;  // after a pause: no catching up
-    bool changed = false;
-    for (; now - gAnimLast >= kTickMs; gAnimLast += kTickMs)
-        for (auto& [k, a] : gAnims) changed |= a.main.tick() | a.sub.tick();
-    return changed;
-}
-
-void addUnitSprites(render::Scene& s, const Unit& u, float dx, float dy, float alpha, bool red = false, bool animate = false) {
-    Editor& ed = *app.ed;
-    UnitSprites& sp = ed.unitSprites();
-    if (u.type >= ed.unitTypes().size()) return;
-    const UnitType& t = ed.unitTypes()[u.type];
-    render::SpriteDraw d;
-    d.image = mapUnitImage(sp, u);
-    d.frame = sp.defaultFrame(u.type, d.image, d.flip);
-    UnitAnim* anim = animate && app.animate ? &unitAnim(u) : nullptr;
-    if (anim && anim->main.running()) d.frame = sp.animatedFrame(u.type, d.image, anim->main.frame(), d.flip);
-    d.x = u.x + dx, d.y = u.y + dy;
-    d.owner = uint8_t(std::min<int>(u.owner, 11));
-    d.alpha = alpha;
-    d.air = t.is(UnitFlag::Flyer) && !t.is(UnitFlag::Building);
-    d.tintRed = red;
-    addImage(s, d);
-    // A Terran add-on linked to its building: its connector (the image after the add-on's, as the game's data has
-    // them: Comsat Station 271, Comsat Station Connector 272), drawn with it (GitHub #129).
-    if ((u.links & UnitLink::Addon) && addonParent(u.type) >= 0 && d.image + 1 < sp.imageCount()) {
-        render::SpriteDraw c = d;
-        c.image = d.image + 1;
-        c.frame = sp.script(c.image).initFrame;
-        c.flip = false;
-        c.hasSortY = true, c.sortY = d.y;
-        c.depthBias = d.depthBias - 0.0001f;  // under the add-on
-        addImage(s, c);
-    }
-    int sub = mapSubunitImage(sp, u);
-    if (sub >= 0) {
-        render::SpriteDraw st = d;
-        st.image = sub;
-        st.frame = sp.defaultFrame(u.type, sub, st.flip);
-        if (anim && anim->sub.running()) st.frame = sp.animatedFrame(u.type, sub, anim->sub.frame(), st.flip);
-        st.depthBias = 0.0005f;
-        // The turret sits at the base's special-overlay offset for the base's current frame, and is ordered at the
-        // unit's place (as the game orders the turret's sprite), so it shows on top of its base.
-        auto [tx, ty] = sp.specialOffset(d.image, d.frame);
-        st.x = d.x + (d.flip ? -tx : tx), st.y = d.y + ty;
-        st.hasSortY = true, st.sortY = d.y;
-        addImage(s, st);
-    }
-}
-
-// Options menu: the snap choices (the same for units, sprites and locations) and the grid of each, in px.
-constexpr int kSnapGrids[] = {0, 32, 16, 8};
-int snapChoice(int grid) {
-    for (int i = 0; i < 4; ++i)
-        if (kSnapGrids[i] == grid) return i;
-    return 0;
-}
-
-// Outline of the diamonds whose four corners are all in `corners`; single corners as small diamonds.
-void diamondOutline(render::Scene& s, const std::set<std::pair<int, int>>& set, uint32_t rgba) {
-    auto line = [&](float x0, float y0, float x1, float y1) {
-        render::RectDraw r;
-        r.x0 = x0, r.y0 = y0, r.x1 = x1, r.y1 = y1, r.rgba = rgba, r.thickness = 2, r.line = true;
-        s.rects.push_back(r);
-    };
-    auto in = [&](int x, int y) { return set.count({x, y}) != 0; };
-    // Diamond centers have x + y even; corners L, T, R, B at (x-1,y), (x,y-1), (x+1,y), (x,y+1).
-    std::set<std::pair<int, int>> diamonds;
-    for (auto [cx, cy] : set)
-        for (auto [dx, dy] : {std::pair{1, 0}, std::pair{-1, 0}, std::pair{0, 1}, std::pair{0, -1}}) {
-            int x = cx + dx, y = cy + dy;
-            if (in(x - 1, y) && in(x, y - 1) && in(x + 1, y) && in(x, y + 1)) diamonds.insert({x, y});
-        }
-    for (auto [x, y] : diamonds) {
-        const float l = (x - 1) * 64.0f, r = (x + 1) * 64.0f, cxp = x * 64.0f, t = (y - 1) * 32.0f, bt = (y + 1) * 32.0f, cyp = y * 32.0f;
-        // Each edge only where the diamond across it is not part of the footprint.
-        if (!diamonds.count({x - 1, y - 1})) line(l, cyp, cxp, t);
-        if (!diamonds.count({x + 1, y - 1})) line(cxp, t, r, cyp);
-        if (!diamonds.count({x + 1, y + 1})) line(r, cyp, cxp, bt);
-        if (!diamonds.count({x - 1, y + 1})) line(cxp, bt, l, cyp);
-    }
-    if (diamonds.empty())
-        for (auto [cx, cy] : set) {
-            const float x = cx * 64.0f, y = cy * 32.0f;
-            line(x - 32, y, x, y - 16), line(x, y - 16, x + 32, y), line(x + 32, y, x, y + 16), line(x, y + 16, x - 32, y);
-        }
-}
-
 // The Options and View menus' checks of the pathing overlays (the Win32 menu; the overlays are in core/path_overlay.inc).
 void pathOverlayMenus(HMENU m) {
     CheckMenuItem(m, ID_VIEW_WALK, gPath.walk ? MF_CHECKED : MF_UNCHECKED);
@@ -683,342 +485,6 @@ void pathOverlayMenus(HMENU m) {
                        MF_BYCOMMAND);
 }
 
-std::vector<std::pair<int, uint16_t>> ghostTiles;  // doodad preview tiles, set by buildScene
-
-void syncMapUnitGraphics();
-render::Scene buildScene() {
-    syncMapUnitGraphics();  // before the animations: they hold the images of the unit types
-    render::Scene s;
-    ghostTiles.clear();
-    if (gAnimsFor != app.ed.get()) gAnims.clear(), gAnimsFor = app.ed.get();
-    ++gSceneNo;
-    s.camera = {app.camX, app.camY, app.zoom};
-    Editor& ed = *app.ed;
-    UnitSprites& sp = ed.unitSprites();
-    float wx, wy;
-    toWorld(app.mouseX, app.mouseY, wx, wy);
-    float moveDX = 0, moveDY = 0;
-    if (app.drag == Drag::MoveUnits && app.dragMoved) dragMoveDelta(wx, wy, moveDX, moveDY);
-
-    // The grid (View > Show grid; its size and offset: View > Grid size), only while its cells are at least 6 screen pixels.
-    if (app.showGrid && std::min(gDock.gridW, gDock.gridH) * app.zoom >= 6) {
-        int vw, vh;
-        viewSize(vw, vh);
-        const float x0 = std::max(0.0f, app.camX), y0 = std::max(0.0f, app.camY);
-        const float x1 = std::min(ed.width() * 32.0f, app.camX + vw / app.zoom), y1 = std::min(ed.height() * 32.0f, app.camY + vh / app.zoom);
-        const float t = 1 / app.zoom;  // one screen pixel
-        const uint32_t rgba = 0xFFFFFF30u;
-        const float gw = float(gDock.gridW), gh = float(gDock.gridH), ox = float(gDock.gridX % gDock.gridW), oy = float(gDock.gridY % gDock.gridH);
-        for (float x = std::ceil((x0 - ox) / gw) * gw + ox; x <= x1; x += gw) s.rects.push_back({x, y0, x + t, y1, rgba, true});
-        for (float y = std::ceil((y0 - oy) / gh) * gh + oy; y <= y1; y += gh) s.rects.push_back({x0, y, x1, y + t, rgba, true});
-    }
-    // View > Show town areas.
-    addPathOverlays(s);
-
-    // Doodad overlays and other map sprites (THG2). View > Layers: a doodad's overlay goes with the doodads, the rest with
-    // the sprites.
-    std::set<std::tuple<uint16_t, uint16_t, uint16_t>> overlays;  // (x, y, sprite) of the doodads' overlays
-    if (gLayers.doodads != gLayers.sprites)
-        for (const Doodad& dd : ed.doodads())
-            if (const DoodadType* t = ed.doodadTypes().find(dd.id); t && t->overlaySprite) overlays.insert({dd.x, dd.y, t->overlaySprite});
-    for (const MapSprite& m : ed.sprites()) {
-        if (!gLayers.doodads || !gLayers.sprites) {
-            const bool overlay = (m.flags & SpriteFlag::DrawAsSprite) && overlays.count({m.x, m.y, m.id});
-            if (overlay ? !gLayers.doodads : !gLayers.sprites) continue;
-        }
-        render::SpriteDraw d;
-        if (m.flags & SpriteFlag::DrawAsSprite) {
-            d.image = sp.imageForSprite(m.id);
-            d.frame = sp.script(d.image).startFrameOn(ed.era());  // as the game starts it (playframtile: per tileset)
-        } else {
-            d.image = sp.imageFor(m.id);
-            d.frame = sp.defaultFrame(m.id, d.image, d.flip);
-        }
-        d.x = m.x, d.y = m.y;
-        d.owner = uint8_t(std::min<int>(m.owner, 11));
-        addImage(s, d);
-    }
-    // Units (selected ones follow the cursor while being dragged).
-    const auto& units = ed.units();
-    std::vector<Unit> others;  // unselected units, to check dragged ones against
-    std::vector<bool> moving(units.size(), false);  // the selection and its buildings' add-ons
-    if (moveDX || moveDY) {
-        for (int i : ed.withLinkedAddons(ed.selection())) moving[size_t(i)] = true;
-        for (size_t i = 0; i < units.size(); ++i)
-            if (!moving[i]) others.push_back(units[i]);
-    }
-    for (size_t i = 0; i < units.size() && gLayers.units; ++i) {
-        bool sel = (moveDX || moveDY) && moving[i];
-        bool red = false;
-        if (sel) {
-            Unit moved = units[i];
-            moved.x = uint16_t(std::clamp(int(std::lround(moved.x + moveDX)), 0, ed.width() * 32 - 1));
-            moved.y = uint16_t(std::clamp(int(std::lround(moved.y + moveDY)), 0, ed.height() * 32 - 1));
-            if (moved.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[moved.type], moved.x, moved.y);
-            red = !app.allowIllegalUnits && !checkPlacement(ed.placementContext(&others), moved).empty();
-            addUnitSprites(s, moved, 0, 0, 1, red, true);
-            continue;
-        }
-        addUnitSprites(s, units[i], 0, 0, 1, false, true);
-    }
-    std::erase_if(gAnims, [](const auto& kv) { return kv.second.seen != gSceneNo; });
-
-    // Locations.
-    if (app.showLocations || app.mode == Mode::Locations) {
-        bool active = app.mode == Mode::Locations;
-        for (int i = 0; i < ed.locationCount(); ++i) {
-            if (!ed.locationUsed(i)) continue;
-            Rect r = ed.locationRect(i);
-            bool sel = active && ed.selectedLocation() == i;
-            if (sel && (app.drag == Drag::LocMove || app.drag == Drag::LocResize)) r = previewLocationRect(wx, wy);
-            const bool inv = ed.locationInverted(i);  // inverted (holds air units only): red, not blue
-            s.rects.push_back({float(r.left), float(r.top), float(r.right), float(r.bottom), inv ? (active ? 0xFF404030u : 0xFF404018u) : active ? 0x2060FF30u : 0x2060FF18u, true});
-            outline(s, r, sel ? 0xFFD040FFu : inv ? (active ? 0xFF5050E0u : 0xFF505080u) : (active ? 0x5080FFE0u : 0x5080FF80u), sel ? 2.0f : 1.0f);
-            std::string name = narrow(widen(ed.locationName(i)));
-            if (app.locationWrap) name = wrapLocationName(name, float(r.right - r.left) * app.zoom - 6, float(r.bottom - r.top) * app.zoom - 6);
-            s.texts.push_back({float(r.left) + 3 / app.zoom, float(r.top) + 3 / app.zoom, name, active ? 0xFFFFFFFFu : 0xFFFFFFA0u});
-            if (sel)
-                for (int c = 0; c < 4; ++c) {
-                    float hx = (c & 1) ? float(r.right) : float(r.left), hy = (c & 2) ? float(r.bottom) : float(r.top);
-                    float h = 4 / app.zoom;
-                    s.rects.push_back({hx - h, hy - h, hx + h, hy + h, 0xFFD040FFu, true});
-                }
-        }
-        if (app.drag == Drag::LocCreate)  // Ctrl or Shift: it is made inverted (red)
-            outline(s, previewLocationRect(wx, wy), GetKeyState(VK_CONTROL) < 0 || GetKeyState(VK_SHIFT) < 0 ? 0xFF5050FFu : 0xFFD040FFu, 2);
-    }
-
-    // Selection boxes.
-    // Selected units: the game's selection circle under the unit (the box where a unit has none).
-    for (int i : ed.selection()) {
-        int img, off;
-        if (sp.selectionCircle(units[i].type, img, off)) {
-            // Where the unit is drawn: while dragging, its moved position snapped like the unit itself
-            // (buildings to tile edges).
-            Unit at = units[i];
-            if (moveDX || moveDY) {
-                at.x = uint16_t(std::clamp(int(std::lround(at.x + moveDX)), 0, ed.width() * 32 - 1));
-                at.y = uint16_t(std::clamp(int(std::lround(at.y + moveDY)), 0, ed.height() * 32 - 1));
-                if (at.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[at.type], at.x, at.y);
-            }
-            render::SpriteDraw c;
-            c.image = img;
-            c.x = at.x, c.y = at.y + float(off);
-            c.ground = true;
-            s.sprites.push_back(c);
-        } else {
-            outline(s, ed.unitBox(units[i]), 0x40FF40FFu, 1.5f, moveDX, moveDY);
-        }
-    }
-
-    // Terrain selection (copy area).
-    const bool dragging = app.mode == Mode::Terrain && app.drag == Drag::TerrainSelect;
-    if (dragging || (app.mode == Mode::Terrain && app.hasTerrainSel)) {
-        const Rect r = dragging ? terrainSelectRect(wx, wy) : app.terrainSel;
-        if (selectShape() == Editor::SelectShape::Rect) outline(s, r, 0xFFD040FFu, 1.5f);
-        else {  // a diamond or an ellipse: dots along it (the box dim around it)
-            outline(s, r, 0xFFD04050u, 1.0f);
-            const float cx = (r.left + r.right) / 2.0f, cy = (r.top + r.bottom) / 2.0f, hw = (r.right - r.left) / 2.0f, hh = (r.bottom - r.top) / 2.0f;
-            const float d = std::max(1.5f, 2.0f / app.zoom);
-            for (int k = 0; k < 160; ++k) {
-                const float a = float(k) * 6.2831853f / 160.0f, c = std::cos(a), sn = std::sin(a);
-                float x = cx + hw * c, y = cy + hh * sn;
-                if (selectShape() == Editor::SelectShape::Diamond) {
-                    const float n = std::abs(c) + std::abs(sn);
-                    x = cx + hw * c / n, y = cy + hh * sn / n;
-                }
-                s.rects.push_back({x - d, y - d, x + d, y + d, 0xFFD040FFu, true});
-            }
-        }
-    }
-
-    if (gShowRanges && app.mode == Mode::Units) rangesScene(s, moveDX, moveDY);  // (they follow a unit being moved)
-
-    // Symmetry axes.
-    if (const int mm = ed.mirrors()) {
-        float W = ed.width() * 32.0f, H = ed.height() * 32.0f, t = 1.5f / app.zoom;
-        uint32_t c = 0x80C0FF70u;
-        auto vline = [&] { s.rects.push_back({W / 2 - t, 0, W / 2 + t, H, c, true}); };
-        auto hline = [&] { s.rects.push_back({0, H / 2 - t, W, H / 2 + t, c, true}); };
-        auto diag = [&](bool anti) {
-            for (int k = 0; k <= 200; ++k) {
-                float f = k / 200.0f, x = f * W, y = anti ? (1 - f) * H : f * H;
-                s.rects.push_back({x - t * 2, y - t * 2, x + t * 2, y + t * 2, c, true});
-            }
-        };
-        if (mm & Mirror::LeftRight) vline();
-        if (mm & Mirror::TopBottom) hline();
-        if (mm & Mirror::Diagonal) diag(false);
-        if (mm & Mirror::AntiDiagonal) diag(true);
-        if (mm & (Mirror::Rotate180 | Mirror::Rotate90)) {  // a turn: a mark at the middle
-            const float r = 10 / app.zoom;
-            s.rects.push_back({W / 2 - r, H / 2 - r, W / 2 + r, H / 2 + r, c, true});
-        }
-    }
-
-    if (!app.mouseIn) return s;
-    if (app.pasting && ed.canPaste()) {
-        // Ghost of the clipboard at the cursor; red where a unit could not be placed as is.
-        std::vector<Unit> placed = units;
-        float pwx = wx, pwy = wy;
-        snapUnitPoint(pwx, pwy);
-        for (Unit u : ed.clipboard()) {
-            u.x = uint16_t(std::clamp(int(pwx) + int16_t(u.x), 0, ed.width() * 32 - 1));
-            u.y = uint16_t(std::clamp(int(pwy) + int16_t(u.y), 0, ed.height() * 32 - 1));
-            if (u.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[u.type], u.x, u.y);
-            bool red = !app.allowIllegalUnits && !placementOk(ed.placementContext(&placed), u);
-            addUnitSprites(s, u, 0, 0, 0.7f, red);
-            outline(s, ed.unitBox(u), red ? 0xFF4040C0u : 0x40FF40C0u);
-            placed.push_back(u);
-        }
-        return s;
-    }
-    if (app.mode == Mode::Units) {
-        // With a unit picked, the unit under the mouse does not matter: a click places there (it does not select).
-        // (Not with Spray: it places random picks around the mouse, not this one in the middle; GitHub feedback #99.)
-        if (app.palette >= 0 && !objectSprayOn() && (app.drag == Drag::None || app.drag == Drag::PendingPlace || app.drag == Drag::PlaceStroke)) {
-            // Ghost of the unit to place, with where correction would put it.
-            const UnitType& t = ed.unitTypes()[uint16_t(app.palette)];
-            float gx = wx, gy = wy;
-            snapUnitPoint(gx, gy);
-            uint16_t ux = uint16_t(std::clamp(gx, 0.0f, ed.width() * 32.0f - 1)), uy = uint16_t(std::clamp(gy, 0.0f, ed.height() * 32.0f - 1));
-            snapToGrid(t, ux, uy);
-            uint8_t who = (t.availability & UnitAvail::NonNeutral) ? uint8_t(app.playerOwner) : uint8_t(11);
-            Unit u = makeUnit(t, who, ux, uy);
-            bool ok = app.allowIllegalUnits || checkPlacement(ed.placementContext(), u).empty();
-            if (!ok && app.correction)
-                if (auto p = ed.findValidPosition(u)) {
-                    Unit c = u;
-                    c.x = p->first, c.y = p->second;
-                    addUnitSprites(s, c, 0, 0, 0.55f);
-                    outline(s, ed.unitBox(c), 0x40FF40C0u);
-                    outline(s, ed.unitBox(u), 0xFF4040A0u);
-                    return s;
-                }
-            addUnitSprites(s, u, 0, 0, 0.55f);
-            outline(s, ed.unitBox(u), ok ? 0x40FF40C0u : 0xFF4040C0u);
-        }
-        if (app.drag == Drag::BoxSelect)
-            s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF40FFu, false, 1, true}),
-                s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF4020u, true, 1, true});
-    } else if (app.mode == Mode::Sprites) {
-        // The selected sprites (where a drag puts them); the copy being pasted; the box of a box selection.
-        // Options > Sprites snap: a click (or a paste) goes to the middle of a grid cell, a drag moves in whole cells.
-        const int ddx = app.drag == Drag::MoveSprite && app.dragMoved ? int(snapRound(wx - app.dragWX, app.spriteGrid)) : 0,
-                  ddy = app.drag == Drag::MoveSprite && app.dragMoved ? int(snapRound(wy - app.dragWY, app.spriteGrid)) : 0;
-        const float cx = snapToCell(wx, app.spriteGrid), cy = snapToCell(wy, app.spriteGrid);
-        for (int i : app.selSprites)
-            if (i >= 0 && i < int(ed.sprites().size())) {
-                const MapSprite& sp = ed.sprites()[size_t(i)];
-                Rect b = mapSpriteBox(ed, sp);  // the box of its picture
-                outline(s, {b.left + ddx, b.top + ddy, b.right + ddx, b.bottom + ddy}, 0x40FF40FFu, 2);
-            }
-        // A sprite's picture where it would go: the picked one at the mouse, the copy being pasted, a dragged selection.
-        auto ghost = [&](uint16_t id, float x, float y, uint8_t owner) {
-            render::SpriteDraw d;
-            d.image = ed.unitSprites().imageForSprite(id);
-            if (d.image < 0) return;
-            d.frame = ed.unitSprites().script(d.image).startFrameOn(ed.era());
-            d.x = x, d.y = y, d.owner = uint8_t(std::min<int>(owner, 11)), d.alpha = 0.6f, d.air = true;
-            addImage(s, d);
-        };
-        if (app.palette >= 0 && !app.pastingItems && !objectSprayOn()) ghost(uint16_t(app.palette), cx, cy, uint8_t(app.playerOwner));
-        if (app.drag == Drag::MoveSprite && app.dragMoved)
-            for (int i : app.selSprites)
-                if (i >= 0 && i < int(ed.sprites().size())) {
-                    const MapSprite& sp = ed.sprites()[size_t(i)];
-                    ghost(sp.id, float(sp.x + ddx), float(sp.y + ddy), sp.owner);
-                }
-        if (app.pastingItems)
-            for (const auto& it : app.spriteClip) {
-                ghost(it.id, cx + it.x, cy + it.y, it.owner);
-                outline(s, {int(cx) + it.x - 12, int(cy) + it.y - 12, int(cx) + it.x + 12, int(cy) + it.y + 12}, 0x40FF40C0u, 1);
-            }
-        if (app.drag == Drag::BoxSelect)
-            s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF40FFu, false, 1, true}),
-                s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF4020u, true, 1, true});
-        if (app.palette >= 0) {  // where a click puts the picked sprite
-            outline(s, {int(cx) - 12, int(cy) - 12, int(cx) + 12, int(cy) + 12}, 0x40FF40C0u, 1);
-        }
-    } else if (app.mode == Mode::Doodads && app.palette < 0) {
-        // The selected doodads, where a drag puts them (green fits, red does not); the copy being pasted; the box.
-        auto ghost = [&](uint16_t id, int x, int y, bool fitTint) {
-            if (const DoodadType* t = ed.doodadTypes().find(id)) {
-                int tx, ty;
-                ed.doodadOrigin(*t, x, y, tx, ty);
-                const bool ok = !fitTint || doodadFits(ed.chk(), *t, tx, ty, app.doodadCheck);
-                outline(s, {tx * 32, ty * 32, (tx + t->width) * 32, (ty + t->height) * 32}, ok ? 0x40FF40FFu : 0xFF4040FFu, 2);
-            }
-        };
-        for (int i : app.selDoodads)
-            if (i >= 0 && i < int(ed.doodads().size())) {
-                const Doodad& sd = ed.doodads()[size_t(i)];
-                if (const DoodadType* t = ed.doodadTypes().find(sd.id))
-                    outline(s, {sd.x - t->width * 16, sd.y - t->height * 16, sd.x + t->width * 16, sd.y + t->height * 16}, 0x40FF40FFu, 2);
-                if (app.drag == Drag::MoveDoodad && app.dragMoved) ghost(sd.id, int(sd.x) + int(wx - app.dragWX), int(sd.y) + int(wy - app.dragWY), true);
-            }
-        if (app.pastingItems)
-            for (const auto& it : app.doodadClip) ghost(it.id, int(wx) + it.x, int(wy) + it.y, true);
-        if (app.drag == Drag::BoxSelect)
-            s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF40FFu, false, 1, true}),
-                s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF4020u, true, 1, true});
-    } else if (app.mode == Mode::Doodads && app.palette >= 0 && !objectSprayOn()) {
-        if (const DoodadType* d = ed.doodadTypes().find(uint16_t(app.palette))) {
-            int tx, ty;
-            ed.doodadOrigin(*d, int(wx), int(wy), tx, ty);
-            Rect r{tx * 32, ty * 32, (tx + d->width) * 32, (ty + d->height) * 32};
-            bool ok = doodadFits(ed.chk(), *d, tx, ty, app.doodadCheck) && !ed.doodadOverlaps(*d, tx, ty);  // as a click places
-            // The doodad's own tiles where it would go (in the terrain pass), then the fit tint on top.
-            std::vector<std::pair<int, uint16_t>> cells;
-            for (int r0 = 0; r0 < d->height; ++r0) {
-                const size_t g = size_t(d->firstGroup) + r0;
-                if (g >= ed.tileset().groups.size()) break;
-                for (int c = 0; c < d->width; ++c)
-                    if (ed.tileset().groups[g].megatiles[size_t(c)] && tx + c >= 0 && ty + r0 >= 0 && tx + c < ed.width() && ty + r0 < ed.height())
-                        cells.push_back({(ty + r0) * ed.width() + tx + c, uint16_t(g << 4 | c)});
-            }
-            ghostTiles = std::move(cells);
-            s.rects.push_back({float(r.left), float(r.top), float(r.right), float(r.bottom), ok ? 0x40FF4018u : 0xFF404040u, true});
-            outline(s, r, ok ? 0x40FF40FFu : 0xFF4040FFu, 1.5f);
-            if (d->overlaySprite) {
-                render::SpriteDraw g;
-                g.image = sp.imageForSprite(d->overlaySprite);
-                g.x = r.left + d->width * 16.0f, g.y = r.top + d->height * 16.0f;
-                g.alpha = 0.6f;
-                s.sprites.push_back(g);
-            }
-        }
-    } else if (app.mode == Mode::Terrain && app.terrainRect) {
-        tilesScene(s, wx, wy);
-    } else if (app.mode == Mode::Terrain && currentTool() == TSelect) {
-        if (app.terrainPasting && ed.hasTerrainClipboard()) {
-            Rect b = ed.terrainClipboardBox();
-            const auto pts = ed.symmetricPoints(int(wx), int(wy));
-            const auto corners = ed.terrainPasteCorners(int(wx), int(wy));
-            diamondOutline(s, std::set<std::pair<int, int>>(corners.begin(), corners.end()), 0x40FF40FFu);
-            for (size_t k = 1; k < pts.size(); ++k) outline(s, {pts[k].first, pts[k].second, pts[k].first + b.right, pts[k].second + b.bottom}, 0x40FF40FFu, 2);
-        }
-    } else if (app.mode == Mode::Terrain && app.palette > 0) {
-        // Brush footprint as diamonds: the outline of the diamonds whose four corners the brush sets, at
-        // every symmetric position. A half-size brush sets a single corner; it shows a half diamond.
-        if (currentTool() == TBrush || currentTool() == TSpray) {
-            std::set<std::pair<int, int>> set;
-            for (auto [px, py] : ed.symmetricPoints(int(wx), int(wy)))
-                for (auto c : ed.brushCorners(px, py, currentBrush())) set.insert(c);
-            diamondOutline(s, set, currentTool() == TSpray ? 0xFFD040E0u : 0xFFFFFFF0u);
-        }
-    }
-    if (objectSprayOn()) {
-        // Spray area: a circle of small dots.
-        float r = float(sprayRadius()), d = std::max(1.5f, 2 / app.zoom);
-        for (auto [px, py] : ed.symmetricPoints(int(wx), int(wy)))
-            for (int k = 0; k < 48; ++k) {
-                float a = k * 6.2831853f / 48;
-                s.rects.push_back({px + r * std::cos(a) - d, py + r * std::sin(a) - d, px + r * std::cos(a) + d, py + r * std::sin(a) + d,
-                                   0xFFD040E0u, true});
-            }
-    }    return s;
-}
 MinimapView gMinimap;
 
 void renderNow() {
@@ -1029,11 +495,7 @@ void renderNow() {
     if (ed.terrainRevision() != app.terrainRev || uploaded.terrain != gLayers.terrain || uploaded.doodads != gLayers.doodads) {
         app.renderer.setSources(&app.data, &ed.unitSprites(), &ed.tileset(), ed.era());
         if (gLayers.terrain && gLayers.doodads) app.renderer.updateTerrain(ed.terrain());
-        else {  // View > Layers: no terrain (black), or the terrain without the doodads' tiles (StarEdit's copy, TILE)
-            TerrainLayer t = gLayers.terrain ? readTerrain(ed.chk(), ed.chk().has("TILE") ? "TILE" : "MTXM") : ed.terrain();
-            if (!gLayers.terrain) std::fill(t.tiles.begin(), t.tiles.end(), uint16_t(0));
-            app.renderer.updateTerrain(t);
-        }
+        else app.renderer.updateTerrain(terrainWithLayers(ed));  // View > Layers (core/map_scene.inc)
         app.terrainRev = ed.terrainRevision(), uploaded = gLayers;
     }
     auto t0 = std::chrono::steady_clock::now();
@@ -1061,12 +523,7 @@ void renderNow() {
             InvalidateRect(app.minimap, nullptr, FALSE);
         }
     }
-    if (ed.revision() != app.editorRev) {
-        app.editorRev = ed.revision();
-        updateTitle();
-        if (app.mode == Mode::Locations) rebuildList();
-    }
-    updateStatus();
+    mapFrameDone(app);  // the title, the Locations list and the status bar (core/map_scene.inc)
 }
 
 void darkControl(HWND w, const wchar_t* theme);
@@ -1267,7 +724,7 @@ void openPageTab(int page);
 
 
 
-bool classicCommandInProject(int id);  // classic_triggers.inc: the project's map has that classic data (L.4)
+bool classicCommandInProject(int id);  // core/map_edit_commands.inc: the project's map has that classic data (L.4)
 
 
 void mapPageClose();  // map_pages.inc: the open map page goes (its working copy stays with its tab)
@@ -1287,27 +744,7 @@ void dropUnsavedProject(const std::shared_ptr<EudProject>& pr);
 
 
 void restartProgram();
-// `reopen`: each closed tab's project folder or map file, as it is after its save question (an untitled map saved then
-// has its new name).
-bool closeAllDocs(std::vector<std::wstring>* reopen = nullptr) {
-    while (!gDocs.empty()) {
-        int i = gActive >= 0 ? gActive : 0;
-        activateDoc(i);
-        if (!confirmDiscard()) return false;
-        if (reopen && !gDocs[size_t(i)].page) {
-            if (const auto& pr = gDocs[size_t(i)].project) reopen->push_back(pr->folder().wstring());
-            else if (app.ed && !app.ed->path().empty()) reopen->push_back(app.ed->path().wstring());
-        }
-        mapPageClose();
-        app.ed.reset();
-        gAnims.clear(), gAnimsFor = nullptr;
-        forgetProject(gDocs[size_t(i)].project.get());
-        gDocs.erase(gDocs.begin() + i);
-        gActive = -1;
-        if (!gDocs.empty()) activateDoc(std::min(i, int(gDocs.size()) - 1));
-    }
-    return true;
-}
+// (closeAllDocs: core/map_edit_commands.inc)
 
 // Program options > Language: StarDraft 2 starts again, in the chosen language. The open maps and projects open again
 // (each modified one asks to be saved first, as on exit; Cancel stops the restart). The new program waits until this one
@@ -1739,23 +1176,19 @@ template <class F> void forEachMenuCommand(HMENU m, const F& f) {
 void updateMenus() {
     HMENU m = GetMenu(app.main);
     if (!m) return;
-    bool open = app.ed && app.ed->isOpen();
     // The commands that act on a map: enabled with a document, gray on a page tab (the start page, the New page).
     // The rules below may gray some of them again; the last step grays all of them again on a page tab.
     const bool doc = docOpen();
     forEachMenuCommand(m, [&](int id) {
         if (mapCommand(id)) EnableMenuItem(m, UINT(id), MF_BYCOMMAND | (doc ? MF_ENABLED : MF_GRAYED));
     });
-    const bool canUndo = gWorkspace == Workspace::Triggers ? trigCanUndo(false) : gWorkspace == Workspace::Data ? dataCanUndo(false) : open && app.ed->canUndo();
-    const bool canRedo = gWorkspace == Workspace::Triggers ? trigCanUndo(true) : gWorkspace == Workspace::Data ? dataCanUndo(true) : open && app.ed->canRedo();
-    EnableMenuItem(m, ID_EDIT_UNDO, canUndo ? MF_ENABLED : MF_GRAYED);
-    EnableMenuItem(m, ID_EDIT_REDO, canRedo ? MF_ENABLED : MF_GRAYED);
+    // Undo and Redo: a step to undo or redo in the workspace (core/map_edit_commands.inc: mapMenuGrayed).
+    EnableMenuItem(m, ID_EDIT_UNDO, mapMenuGrayed(ID_EDIT_UNDO) ? MF_GRAYED : MF_ENABLED);
+    EnableMenuItem(m, ID_EDIT_REDO, mapMenuGrayed(ID_EDIT_REDO) ? MF_GRAYED : MF_ENABLED);
     // In Triggers, Edit's copy / paste act on triggers and blocks (a grayed item would also swallow Ctrl+V).
     const bool triggers = gWorkspace == Workspace::Triggers || gWorkspace == Workspace::Briefing, data = gWorkspace == Workspace::Data;
-    // Every kind of copy (a gray item also stops Ctrl+V): units, terrain, tiles, locations, doodads, sprites (#83).
-    const bool anyCopy = open && (app.ed->canPaste() || app.ed->hasTerrainClipboard() || app.ed->hasTileClipboard() || app.hasLocationClip ||
-                                  !app.doodadClip.empty() || !app.spriteClip.empty());
-    EnableMenuItem(m, ID_EDIT_PASTE, triggers || data || anyCopy ? MF_ENABLED : MF_GRAYED);
+    // Paste: with a copy of any kind (core/map_edit_commands.inc: mapMenuGrayed).
+    EnableMenuItem(m, ID_EDIT_PASTE, mapMenuGrayed(ID_EDIT_PASTE) ? MF_GRAYED : MF_ENABLED);
     if (triggers)
         for (int id : {ID_EDIT_COPY, ID_EDIT_CUT, ID_EDIT_DUPLICATE}) EnableMenuItem(m, id, MF_ENABLED);
     if (data) EnableMenuItem(m, ID_EDIT_COPY, MF_ENABLED);
@@ -1777,107 +1210,26 @@ void updateMenus() {
         });
     if (gTopBar) InvalidateRect(gTopBar, nullptr, FALSE);  // its icons are enabled as the menu items are
     optionsRefresh();  // the program options (theme, start, ...) show in Options > Program options
-    // Options: each kind's snap and place rule.
+    // Options: each kind's snap and place rule (the checks: core/map_edit_commands.inc, mapMenuCheck).
     CheckMenuRadioItem(m, ID_SNAP_UNITS, ID_SNAP_UNITS + 3, ID_SNAP_UNITS + snapChoice(app.unitGrid), MF_BYCOMMAND);
     CheckMenuRadioItem(m, ID_SNAP_SPRITES, ID_SNAP_SPRITES + 3, ID_SNAP_SPRITES + snapChoice(app.spriteGrid), MF_BYCOMMAND);
     CheckMenuRadioItem(m, ID_SNAP_LOCATIONS, ID_SNAP_LOCATIONS + 3, ID_SNAP_LOCATIONS + snapChoice(app.locationGrid), MF_BYCOMMAND);
-    for (auto [item, on] : {std::pair{ID_OPT_STRICT, !app.allowIllegalUnits && !app.correction}, std::pair{ID_OPT_SNAPVALID, !app.allowIllegalUnits && app.correction},
-                            std::pair{ID_OPT_ILLEGAL, app.allowIllegalUnits}, std::pair{ID_DOODAD_FIT, app.doodadCheck && !app.doodadNearest},
-                            std::pair{ID_DOODAD_NEAREST, app.doodadCheck && app.doodadNearest}, std::pair{ID_DOODAD_ANYWHERE, !app.doodadCheck}}) {
+    for (int item : {ID_OPT_STRICT, ID_OPT_SNAPVALID, ID_OPT_ILLEGAL, ID_DOODAD_FIT, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE}) {
         MENUITEMINFOW mi{sizeof mi};  // a radio mark (one of three)
         mi.fMask = MIIM_FTYPE | MIIM_STATE;
-        mi.fType = MFT_STRING | MFT_RADIOCHECK, mi.fState = on ? MFS_CHECKED : MFS_UNCHECKED;
+        mi.fType = MFT_STRING | MFT_RADIOCHECK, mi.fState = mapMenuCheck(item) == 1 ? MFS_CHECKED : MFS_UNCHECKED;
         SetMenuItemInfoW(m, UINT(item), FALSE, &mi);
     }
-    CheckMenuItem(m, ID_OPT_STACK, app.allowStacking ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(m, ID_OPT_DRAGBACK, app.dragSnapBack && !app.allowIllegalUnits ? MF_CHECKED : MF_UNCHECKED);
-    EnableMenuItem(m, ID_OPT_DRAGBACK, app.allowIllegalUnits ? MF_GRAYED : MF_ENABLED);  // not used when units go anywhere
-    CheckMenuItem(m, ID_EDIT_TERRAINUNITS, app.copyUnitsWithTerrain ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(m, ID_OPT_LOCWRAP, app.locationWrap ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(m, ID_EDIT_TERRAINDOODADS, app.copyDoodadsWithTerrain ? MF_CHECKED : MF_UNCHECKED);
-    {
-        bool preset = false;
-        for (int k = 0; k < int(std::size(kGridPresets)); ++k) {
-            const bool on = gDock.gridW == kGridPresets[k].px && gDock.gridH == kGridPresets[k].px && !gDock.gridX && !gDock.gridY;
-            preset |= on;
-            CheckMenuItem(m, UINT(ID_GRID_SIZE + k), on ? MF_CHECKED : MF_UNCHECKED);
-        }
-        CheckMenuItem(m, ID_GRID_CUSTOM, preset ? MF_UNCHECKED : MF_CHECKED);
-    }
+    for (int item : {ID_OPT_STACK, ID_OPT_DRAGBACK, ID_EDIT_TERRAINUNITS, ID_OPT_LOCWRAP, ID_EDIT_TERRAINDOODADS, ID_GRID_CUSTOM})
+        CheckMenuItem(m, UINT(item), mapMenuCheck(item) == 1 ? MF_CHECKED : MF_UNCHECKED);
+    EnableMenuItem(m, ID_OPT_DRAGBACK, mapMenuGrayed(ID_OPT_DRAGBACK) ? MF_GRAYED : MF_ENABLED);  // not used when units go anywhere
+    for (int k = 0; k < int(std::size(kGridPresets)); ++k)
+        CheckMenuItem(m, UINT(ID_GRID_SIZE + k), mapMenuCheck(ID_GRID_SIZE + k) == 1 ? MF_CHECKED : MF_UNCHECKED);
     pathOverlayMenus(m);
     updateCommandMarks(m);  // the table's commands: grid, ranges, minimap, layers, locations, the graphics
 }
 
-void setTerrainRect(bool rect);
-void paste() {
-    if (app.ed && (app.mode == Mode::Doodads || app.mode == Mode::Sprites)) {  // the copy follows the mouse: click to place it
-        const bool dd = app.mode == Mode::Doodads;
-        if ((dd ? app.doodadClip : app.spriteClip).empty())
-            return setMessage(dd ? L"Nothing copied: select doodads and press Ctrl+C" : L"Nothing copied: select sprites and press Ctrl+C");
-        app.toolByMode[int(app.mode)] = 0;
-        app.palette = -1, gPal.chosen.clear();
-        app.pastingItems = true;
-        unitPaletteRepaint(), fillToolCombo();
-        app.dirty = true;
-        setMessage(L"Paste: click to place the copy, and again to place more. Right-click or Esc stops.");
-        return;
-    }
-    if (app.ed && app.mode == Mode::Locations) {  // a copy of the location, at the mouse
-        if (!app.hasLocationClip) return setMessage(L"Nothing copied: select a location and press Ctrl+C");
-        // At the mouse; the mouse not over the map (Ctrl+V after a click in the list): in the middle of the view.
-        POINT m;
-        GetCursorPos(&m);
-        ScreenToClient(app.view, &m);
-        RECT vr;
-        GetClientRect(app.view, &vr);
-        if (!PtInRect(&vr, m)) m = {vr.right / 2, vr.bottom / 2};
-        if (gSelfTest || gBackground) m = {app.mouseX, app.mouseY};  // test runs: the mouse that they posted
-        float wx, wy;
-        toWorld(m.x, m.y, wx, wy);
-        const int w = app.locationClip.right - app.locationClip.left, hgt = app.locationClip.bottom - app.locationClip.top;
-        const int left = int(snapRound(wx - w / 2.0f, app.locationGrid)), top = int(snapRound(wy - hgt / 2.0f, app.locationGrid));  // Options > Locations snap
-        Rect r{left, top, left + w, top + hgt};
-        // The whole location: its size, name, inversion and elevations, in one undo step.
-        const int i = app.ed->createLocation(r, app.locationClipInverted != 0, app.locationClipInverted, app.locationClipName + " copy",
-                                             app.locationClipElevation);
-        if (i < 0) return setMessage(L"All location slots are in use");
-        app.ed->selectLocation(i);
-        rebuildList();
-        app.dirty = true;
-        setMessage(L"Pasted " + widen(app.ed->locationName(i)));
-        return;
-    }
-    if (app.ed && app.mode == Mode::Terrain) {
-        // The copy of the other terrain mode (tiles copied in Rectangle, terrain in Isometric): to that mode, then paste
-        // it (GitHub feedback #83: Ctrl+V did nothing).
-        if (app.terrainRect ? !app.ed->hasTileClipboard() : !app.ed->hasTerrainClipboard()) {
-            if (!(app.terrainRect ? app.ed->hasTerrainClipboard() : app.ed->hasTileClipboard()))
-                return setMessage(L"Nothing copied: select terrain with the Select / copy tool and press Ctrl+C");
-            setTerrainRect(!app.terrainRect);
-        }
-        app.toolByMode[int(Mode::Terrain)] = TSelect;
-        fillToolCombo();
-        app.terrainPasting = true;
-        app.dirty = true;
-        setMessage(app.terrainRect ? L"Paste tiles: click to place them, and again to place more. Right-click or Esc stops."
-                                   : L"Paste terrain: click to place it, and again to place more. Press R to turn it. Right-click or Esc stops.");
-        return;
-    }
-    if (!app.ed || !app.ed->canPaste()) return;
-    float wx, wy;
-    toWorld(app.mouseX, app.mouseY, wx, wy);
-    if (!app.mouseIn) {
-        int w, h;
-        viewSize(w, h);
-        toWorld(w / 2, h / 2, wx, wy);
-    }
-    (void)wx, (void)wy;
-    if (app.mode != Mode::Units) return;  // the units' copy pastes in Units
-    app.pasting = true;
-    app.dirty = true;
-    setMessage(L"Paste " + std::to_wstring(app.ed->clipboard().size()) +
-               L" units: click to place them, and again to place more. Right-click or Esc stops.");
-}
+void paste() { pasteMapCopy(app); }  // (core/map_edit_commands.inc)
 
 void openAny(const fs::path& path);
 void openProject(const fs::path& edsOrFolder);
@@ -1893,79 +1245,23 @@ void dataCopySelected();
 void dataPasteSelected();
 
 void mapPageShowPlayers();  // map_pages.inc: the Map properties page, scrolled to players and forces
-// The options of the menus (View, Options, Edit) and the palette's view: kept in HKCU\Software\StarDraft\Settings,
-// so they stay after StarDraft starts again, also after an update (GitHub feedback #122). Saved after each command
-// (only what changed), read at the start; tests use the defaults and save nothing.
-struct AppSetting {
-    const wchar_t* name;
-    int (*get)();
-    void (*set)(int);
-};
-const std::vector<AppSetting>& appSettings() {
-#define SD_SETTING(key, expr, type) {L"" key, [] { return int(expr); }, [](int v) { expr = type(v); }}
-    static const std::vector<AppSetting> all = {
-        SD_SETTING("Quality", app.quality, GraphicsQuality),
-        SD_SETTING("Carbot", app.carbot, bool),
-        SD_SETTING("ShowLocations", app.showLocations, bool),
-        SD_SETTING("ShowGrid", app.showGrid, bool),
-        SD_SETTING("Correction", app.correction, bool),
-        SD_SETTING("AllowIllegalUnits", app.allowIllegalUnits, bool),
-        SD_SETTING("AllowStacking", app.allowStacking, bool),
-        SD_SETTING("DragSnapBack", app.dragSnapBack, bool),
-        SD_SETTING("Animate", app.animate, bool),
-        SD_SETTING("DoodadCheck", app.doodadCheck, bool),
-        SD_SETTING("DoodadNearest", app.doodadNearest, bool),
-        SD_SETTING("UnitGrid", app.unitGrid, int),
-        SD_SETTING("SpriteGrid", app.spriteGrid, int),
-        SD_SETTING("LocationGrid", app.locationGrid, int),
-        SD_SETTING("LocationWrap", app.locationWrap, bool),
-        SD_SETTING("CopyUnitsWithTerrain", app.copyUnitsWithTerrain, bool),
-        SD_SETTING("CopyDoodadsWithTerrain", app.copyDoodadsWithTerrain, bool),
-        SD_SETTING("BrushShape", app.brushShape, Brush::Shape),
-        SD_SETTING("ShowRanges", gShowRanges, bool),
-        SD_SETTING("LayerTerrain", gLayers.terrain, bool),
-        SD_SETTING("LayerDoodads", gLayers.doodads, bool),
-        SD_SETTING("LayerSprites", gLayers.sprites, bool),
-        SD_SETTING("LayerUnits", gLayers.units, bool),
-    };
-#undef SD_SETTING
-    return all;
-}
+// The options of the menus and the palette's view (the table and its file: core/app_settings.inc), with the palette's
+// views of each mode (PaletteViews).
 int paletteViewBits() {
     int bits = 0;
     for (int m = 0; m < kModeCount; ++m) bits |= (gViewByMode[m].grid | gViewByMode[m].sprites << 1 | gViewByMode[m].large << 2) << (m * 3);
     return bits;
 }
-std::map<std::wstring, int> gSavedSettings;  // what the registry has (written only when a value differs)
-bool gSettingsOff = false;                   // tests and screenshot runs: the defaults, and nothing saved
 void saveAppSettings() {
-    if (gSelfTest || gSettingsOff) return;
-    auto put = [&](const wchar_t* name, int v) {
-        auto it = gSavedSettings.find(name);
-        if (it != gSavedSettings.end() && it->second == v) return;
-        prefs::setNumber(std::wstring(L"Settings/") + name, v);
-        gSavedSettings[name] = v;
-    };
-    for (const AppSetting& a : appSettings()) put(a.name, a.get());
-    put(L"PaletteViews", paletteViewBits());
+    if (saveSettingsTable()) putAppSetting(L"PaletteViews", paletteViewBits());
 }
 void loadAppSettings() {
-    if (gSelfTest || gSettingsOff) return;
-    auto get = [](const wchar_t* name, int& v) {
-        int64_t n = 0;
-        if (!prefs::number(std::wstring(L"Settings/") + name, n)) return false;
-        v = int(uint32_t(n));  // (a registry DWORD as it was read before: an int)
-        return true;
-    };
-    for (const AppSetting& a : appSettings())
-        if (int v = 0; get(a.name, v)) a.set(v), gSavedSettings[a.name] = v;
-    if (int v = 0; get(L"PaletteViews", v)) {
+    if (!loadSettingsTable()) return;
+    if (int v = 0; getAppSetting(L"PaletteViews", v))
         for (int m = 0; m < kModeCount; ++m) {
             const int b = v >> (m * 3);
             gViewByMode[m] = {(b & 1) != 0, (b & 2) != 0, (b & 4) != 0};
         }
-        gSavedSettings[L"PaletteViews"] = v;
-    }
 }
 
 void commandBody(int id);
@@ -1980,6 +1276,7 @@ int railItemId(size_t n);  // the side bar's n-th item's command (0: none)
 void repaintSoundViews();  // files_view.inc
 void commandBody(int id) {
     if (commandPortable(app, id)) return;
+    if (commandMapEdit(app, id)) return;  // the Map's Edit and Options commands, the keys, Close (core/map_edit_commands.inc)
     switch (id) {
     case ID_PROJ_NEW: openNewPage(1); return;
     case ID_PROJ_FROMMAP: showProjectDialog(); return;
@@ -2012,9 +1309,6 @@ void commandBody(int id) {
     case ID_VIEW_LOG: logSetExpanded(!gLog.expanded); return;
     case ID_VIEW_KIT: showKitGallery(); return;
     case ID_HELP_FEEDBACK: showFeedbackDialog(L"StarDraft 2"); return;
-    case ID_HELP_ISSUE:
-        ShellExecuteW(nullptr, L"open", (L"https://github.com/" + std::wstring(kIssueRepo) + L"/issues/new").c_str(), nullptr, nullptr, SW_SHOWNORMAL);
-        return;
     case ID_HELP_UPDATES: update::check(); return;
     case ID_HELP_DISCORD: shellOpenUrl(kDiscordInvite); return;
     case ID_HELP_GITHUB: shellOpenUrl(L"https://github.com/" + std::wstring(kIssueRepo)); return;  // the source, releases and issues
@@ -2034,14 +1328,6 @@ void commandBody(int id) {
         gDock.minimapRight = id == ID_DOCK_MINI_RIGHT, gDock.minimapHidden = false;
         saveDock(), shellRelayout();
         return;
-    case ID_RAIL_KEY: case ID_RAIL_KEY + 1: case ID_RAIL_KEY + 2: case ID_RAIL_KEY + 3: case ID_RAIL_KEY + 4:
-    case ID_RAIL_KEY + 5: case ID_RAIL_KEY + 6: case ID_RAIL_KEY + 7: case ID_RAIL_KEY + 8: {
-        // The side bar's items as it shows them (a classic map: Map, Map data, Map triggers, ...; a project: Map, Data,
-        // Triggers, ...), so Ctrl+n goes to the n-th, in each mode.
-        if (gWsBar) RedrawWindow(gWsBar, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);  // (the items of this tab)
-        if (const int item = railItemId(size_t(id - ID_RAIL_KEY))) command(item);
-        return;
-    }
     case ID_DOCK_TOOLS_LEFT:
     case ID_DOCK_TOOLS_RIGHT:
         gDock.toolsRight[int(app.mode)] = id == ID_DOCK_TOOLS_RIGHT;
@@ -2060,43 +1346,7 @@ void commandBody(int id) {
         showQuickPicker();
         return;
     }
-    if (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 10) {
-        // While placing, the key picks the owner of what you are about to place. Otherwise, with units
-        // selected (Units mode), it gives them to that player and nothing else changes. With neither, it
-        // picks the player for the next placement.
-        const int player = id - ID_PLAYER_1;
-        const bool placing = app.palette >= 0;
-        if (app.ed && app.mode == Mode::Units && !placing && !app.ed->selection().empty()) {
-            const size_t selected = app.ed->selection().size();
-            const int n = app.ed->setSelectionOwner(uint8_t(player));
-            setMessage(L"Gave " + std::to_wstring(n) + L" of " + std::to_wstring(selected) + L" selected units to Player " +
-                       std::to_wstring(player + 1) + (n < int(selected) ? L" (resources and critters stay neutral)" : L""));
-            return;
-        }
-        setPlayer(player);
-        return;
-    }
-    // Options menu: the snap of units, sprites or locations (each a grid choice).
-    if (id >= ID_SNAP_UNITS && id < ID_SNAP_UNITS + 12) {
-        const int kind = (id - ID_SNAP_UNITS) / 4, choice = (id - ID_SNAP_UNITS) % 4;
-        (kind == 0 ? app.unitGrid : kind == 1 ? app.spriteGrid : app.locationGrid) = kSnapGrids[choice];
-        static const wchar_t* kinds[] = {L"Units", L"Sprites", L"Locations"};
-        static const wchar_t* snaps[] = {L"do not snap", L"snap to tiles (32 px)", L"snap to half tiles (16 px)", L"snap to quarter tiles (8 px)"};
-        setMessage(std::wstring(kinds[kind]) + L": " + snaps[choice]);
-        shellMenusChanged();
-        app.dirty = true;
-        return;
-    }
     bool open = app.ed && app.ed->isOpen();
-    if (id >= ID_GRID_SIZE && id < ID_GRID_SIZE + int(std::size(kGridPresets))) {  // View > Grid size: a preset
-        const GridPreset& g = kGridPresets[id - ID_GRID_SIZE];
-        gDock.gridW = gDock.gridH = g.px, gDock.gridX = gDock.gridY = 0;
-        app.showGrid = true, app.dirty = true;
-        saveDock();
-        setMessage(L"Grid: " + std::wstring(g.name) + L", " + std::to_wstring(g.px) + L" pixels");
-        shellMenusChanged();
-        return;
-    }
     switch (id) {
     case ID_FILE_OPEN: {
         std::wstring p = fileDialog(false);
@@ -2107,14 +1357,6 @@ void commandBody(int id) {
     case ID_FILE_SAVE: saveMap(false); break;
     case ID_FILE_SAVEAS: saveMap(true); break;
     case ID_FILE_EXIT: PostMessageW(app.main, WM_CLOSE, 0, 0); break;
-    case ID_FILE_CLOSE: closeDoc(gActive); break;
-    case ID_FILE_CLOSEALL:
-        if (closeAllDocs()) openStartPage();  // always keep one tab open: the start page
-        break;
-    case ID_TAB_NEXT:
-    case ID_TAB_PREV:
-        if (gDocs.size() > 1) activateDoc((gActive + (id == ID_TAB_NEXT ? 1 : int(gDocs.size()) - 1)) % int(gDocs.size()));
-        break;
     case ID_EDIT_UNDO:
     case ID_EDIT_REDO: {
         const bool redo = id == ID_EDIT_REDO;
@@ -2125,129 +1367,6 @@ void commandBody(int id) {
         else if (open) redo ? app.ed->redo() : app.ed->undo(), app.terrainRev = 0, rebuildList(), repaintSoundViews();
         break;
     }
-    case ID_EDIT_COPY:
-        if (!open) break;
-        if (app.mode == Mode::Terrain && app.terrainRect) {
-            const Rect& r = app.terrainSel;
-            if (app.hasTerrainSel && app.ed->copyTiles(r.left / 32, r.top / 32, (r.right - 1) / 32, (r.bottom - 1) / 32, selectShape()))
-                setMessage(L"Copied " + std::to_wstring(app.ed->tileClipboardWidth()) + L" x " + std::to_wstring(app.ed->tileClipboardHeight()) +
-                           L" tiles");
-            else
-                setMessage(L"First, select an area with the Select / copy tool");
-        } else if (app.mode == Mode::Terrain) {
-            if (app.hasTerrainSel && app.ed->copyTerrain(app.terrainSel, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, selectShape()))
-                setMessage(L"Copied the terrain selection");
-            else
-                setMessage(L"First, select an area with the Select / copy tool");
-        } else if (app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
-            const bool dd = app.mode == Mode::Doodads;
-            std::vector<Editor::ItemAt> items;
-            for (int i : dd ? app.selDoodads : app.selSprites) {
-                if (dd && i >= 0 && i < int(app.ed->doodads().size())) {
-                    const Doodad& d = app.ed->doodads()[size_t(i)];
-                    items.push_back({d.id, d.x, d.y, d.owner});
-                } else if (!dd && i >= 0 && i < int(app.ed->sprites().size())) {
-                    const MapSprite& sp = app.ed->sprites()[size_t(i)];
-                    items.push_back({sp.id, sp.x, sp.y, sp.owner});
-                }
-            }
-            if (items.empty()) {
-                setMessage(dd ? L"First, select doodads" : L"First, select sprites");
-                break;
-            }
-            // From the middle of the group: a paste puts the middle at the mouse.
-            int cx = 0, cy = 0;
-            for (const auto& it : items) cx += it.x, cy += it.y;
-            cx /= int(items.size()), cy /= int(items.size());
-            for (auto& it : items) it.x -= cx, it.y -= cy;
-            (dd ? app.doodadClip : app.spriteClip) = items;
-            setMessage(L"Copied " + std::to_wstring(items.size()) + (dd ? L" doodads" : L" sprites"));
-        } else if (app.mode == Mode::Locations) {
-            const int l = app.ed->selectedLocation();
-            if (l >= 0) app.locationClip = app.ed->locationRect(l), app.locationClipName = app.ed->locationName(l), app.hasLocationClip = true,
-                        app.locationClipInverted = app.ed->locationInvertedAxes(l), app.locationClipElevation = app.ed->locationElevation(l),
-                        setMessage(L"Copied the location");
-            else setMessage(L"First, select a location");
-        } else {
-            app.ed->copySelection(), setMessage(L"Copied " + std::to_wstring(app.ed->selection().size()) + L" units");
-        }
-        break;
-    case ID_EDIT_TERRAINUNITS: app.copyUnitsWithTerrain = !app.copyUnitsWithTerrain; break;
-    case ID_OPT_LOCWRAP: app.locationWrap = !app.locationWrap, app.dirty = true; break;
-    case ID_EDIT_TERRAINDOODADS: app.copyDoodadsWithTerrain = !app.copyDoodadsWithTerrain; break;
-    case ID_EDIT_CUT:  // the mode's copy, then its delete
-        if (!open) break;
-        if (app.mode == Mode::Units) app.ed->copySelection(), app.ed->deleteSelection();
-        else if (app.mode != Mode::Terrain) command(ID_EDIT_COPY), command(ID_EDIT_DELETE);
-        else if (app.hasTerrainSel) {  // terrain: copy it, then null tiles in its place (black; nothing can walk or build there)
-            const Rect& r = app.terrainSel;
-            const bool copied = app.terrainRect ? app.ed->copyTiles(r.left / 32, r.top / 32, (r.right - 1) / 32, (r.bottom - 1) / 32, selectShape())
-                                                : app.ed->copyTerrain(r, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, selectShape());
-            if (!copied) {  // nothing to copy there (a small diamond with no corner): nothing is cut
-                setMessage(L"Nothing to cut there: make the selection larger");
-                break;
-            }
-            app.ed->beginStroke();  // the units and the tiles: one undo step
-            if (app.copyUnitsWithTerrain && !app.terrainRect) {  // the copied units go too (air units: the null tiles would not remove them)
-                app.ed->clearSelection();
-                for (int i = 0; i < int(app.ed->units().size()); ++i)
-                    if (Editor::inSelectShape(r, selectShape(), app.ed->units()[size_t(i)].x, app.ed->units()[size_t(i)].y)) app.ed->select(i, true);
-                app.ed->deleteSelection();
-            }
-            std::vector<std::pair<int, int>> cells;  // the tiles whose middle is in the selection's shape
-            for (int ty = r.top / 32; ty <= (r.bottom - 1) / 32; ++ty)
-                for (int tx = r.left / 32; tx <= (r.right - 1) / 32; ++tx)
-                    if (Editor::inSelectShape(r, selectShape(), tx * 32 + 16, ty * 32 + 16)) cells.push_back({tx, ty});
-            const int n = app.ed->placeTileCells(cells, 0);  // tile 0: the null tile
-            app.ed->endStroke();
-            app.ed->takeUnitsRemovedByTerrain();  // (the next paint's message counts only what it removes)
-            setMessage(L"Cut the terrain: " + std::to_wstring(n) + L" null tiles in its place (one undo step)");
-            app.dirty = true;
-        } else {
-            setMessage(L"First, select an area with the Select tool");
-        }
-        break;
-    case ID_EDIT_PASTE: paste(); break;
-    case ID_EDIT_DUPLICATE:
-        // The active mode's copy, then its paste (the copy follows the mouse; locations: at the mouse).
-        if (open && app.mode != Mode::Units && app.mode != Mode::Terrain) {
-            command(ID_EDIT_COPY), paste();
-            break;
-        }
-        if (!open || app.ed->selection().empty()) {
-            setMessage(L"Select units to duplicate");
-            break;
-        }
-        setMode(Mode::Units);
-        app.ed->copySelection();
-        paste();
-        break;
-    case ID_EDIT_DELETE:
-        if (!open) break;
-        if (app.mode == Mode::Locations) app.ed->deleteLocation(app.ed->selectedLocation()), rebuildList();
-        else if (app.mode == Mode::Sprites) {
-            if (app.ed->deleteSprites(app.selSprites)) setMessage(L"Deleted " + std::to_wstring(app.selSprites.size()) + L" sprites");
-            app.selSprites.clear();
-        } else if (app.mode == Mode::Doodads) {
-            if (app.ed->deleteDoodads(app.selDoodads)) setMessage(L"Deleted " + std::to_wstring(app.selDoodads.size()) + L" doodads");
-            app.selDoodads.clear();
-        } else app.ed->deleteSelection();
-        break;
-    case ID_EDIT_SELECTALL:  // the active mode's things
-        if (!open) break;
-        if (app.mode == Mode::Doodads) {
-            app.selDoodads.clear();
-            for (int i = 0; i < int(app.ed->doodads().size()); ++i) app.selDoodads.push_back(i);
-            setMessage(L"Selected " + std::to_wstring(app.selDoodads.size()) + L" doodads");
-        } else if (app.mode == Mode::Sprites) {
-            app.selSprites.clear();
-            for (int i = 0; i < int(app.ed->sprites().size()); ++i)
-                if (!spriteIsOverlay(i)) app.selSprites.push_back(i);
-            setMessage(L"Selected " + std::to_wstring(app.selSprites.size()) + L" sprites");
-        } else if (app.mode == Mode::Units) app.ed->selectAll();
-        break;
-    case ID_EDIT_CORRECTION: app.correction = !app.correction; break;
-    case ID_OPT_DRAGBACK: app.dragSnapBack = !app.dragSnapBack; break;
     case ID_OPT_UPDATECHECK:
         gCheckUpdates = !gCheckUpdates;
         if (!gSelfTest) prefs::setNumber(L"CheckUpdates", gCheckUpdates ? 1 : 0);
@@ -2296,72 +1415,7 @@ void commandBody(int id) {
         if (!gSelfTest) prefs::setNumber(L"OpenLastProject", gOpenLastProject ? 1 : 0);
         setMessage(gOpenLastProject ? L"The last project opens when StarDraft 2 starts" : L"StarDraft 2 starts with no project open");
         break;
-    case ID_OPT_STACK:
-        app.allowStacking = !app.allowStacking;
-        for (auto& d : gDocs)
-            if (d.ed) d.ed->setAllowStacking(app.allowStacking);
-        if (app.ed) app.ed->setAllowStacking(app.allowStacking);
-        setMessage(app.allowStacking ? L"Units: can be on top of others" : L"Units: cannot be on top of others (air units also)");
-        break;
-    case ID_OPT_ANIMATE:
-        app.animate = !app.animate;
-        gAnims.clear();
-        app.dirty = true;
-        break;
-    case ID_OPT_SNAPVALID:
-    case ID_OPT_STRICT:
-    case ID_OPT_ILLEGAL:
-        app.correction = id == ID_OPT_SNAPVALID;
-        app.allowIllegalUnits = id == ID_OPT_ILLEGAL;
-        for (auto& d : gDocs)
-            if (d.ed) d.ed->setAllowIllegalUnits(app.allowIllegalUnits);
-        if (app.ed) app.ed->setAllowIllegalUnits(app.allowIllegalUnits);
-        setMessage(id == ID_OPT_ILLEGAL ? L"Units: place anywhere (terrain edits do not move them)"
-                   : id == ID_OPT_STRICT ? L"Units: place only where it fits"
-                                         : L"Units: move to the nearest place where it fits");
-        break;
-    case ID_EDIT_DOODADCHECK: app.doodadCheck = !app.doodadCheck, app.doodadNearest = false; break;
-    case ID_EDIT_SNAPLOC: command(ID_SNAP_LOCATIONS + (app.locationGrid ? 0 : 1)); return;  // on and off (a tile)
-    case ID_EDIT_SNAPUNITS: command(ID_SNAP_UNITS + (app.unitGrid ? 0 : 1)); return;
-    case ID_DOODAD_FIT:
-    case ID_DOODAD_NEAREST:
-    case ID_DOODAD_ANYWHERE:
-        app.doodadCheck = id != ID_DOODAD_ANYWHERE, app.doodadNearest = id == ID_DOODAD_NEAREST;
-        setMessage(id == ID_DOODAD_ANYWHERE ? L"Doodads: place anywhere on the map (StarDraft 2 does not check the terrain)"
-                   : id == ID_DOODAD_NEAREST ? L"Doodads: move to the nearest place where it fits"
-                                             : L"Doodads: place only where it fits");
-        break;
-    case ID_TOOL_KEY: case ID_TOOL_KEY + 1: case ID_TOOL_KEY + 2: case ID_TOOL_KEY + 3: stripToolByKey(id - ID_TOOL_KEY); break;
-    case ID_GRID_CUSTOM: {  // the grid's width, height and offset, in map pixels
-        std::wstring text = std::to_wstring(gDock.gridW) + L", " + std::to_wstring(gDock.gridH) + L", " + std::to_wstring(gDock.gridX) + L", " +
-                            std::to_wstring(gDock.gridY);
-        if (!prompt(L"Grid: width, height, x offset, y offset (map pixels)", text)) break;
-        int v[4] = {gDock.gridW, gDock.gridH, gDock.gridX, gDock.gridY}, n = 0;
-        for (const wchar_t* c = text.c_str(); *c && n < 4;) {
-            if (iswdigit(*c)) {
-                v[n++] = int(std::wcstol(c, nullptr, 10));
-                while (iswdigit(*c)) ++c;
-            } else ++c;
-        }
-        if (n < 2) {
-            setMessage(L"Type the width and the height (and the offsets), for example 48, 48, 16, 0");
-            break;
-        }
-        gDock.gridW = std::clamp(v[0], 1, 8192), gDock.gridH = std::clamp(v[1], 1, 8192);
-        gDock.gridX = n > 2 ? std::clamp(v[2], 0, 8191) : 0, gDock.gridY = n > 3 ? std::clamp(v[3], 0, 8191) : 0;
-        app.showGrid = true, app.dirty = true;
-        saveDock();
-        setMessage(L"Grid: " + std::to_wstring(gDock.gridW) + L" x " + std::to_wstring(gDock.gridH) + L" pixels, offset " + std::to_wstring(gDock.gridX) +
-                   L", " + std::to_wstring(gDock.gridY));
-        break;
-    }
     case ID_EDIT_RENAME: if (open) renameSelectedLocation(); break;
-    case ID_VIEW_WALK:
-    case ID_VIEW_PATHS:
-    case ID_VIEW_TOWNS: pathOverlayToggle(id); break;
-    case ID_PATHSIZE_SMALL:
-    case ID_PATHSIZE_MEDIUM:
-    case ID_PATHSIZE_LARGE: pathOverlaySize(id); break;
     }
     shellMenusChanged();
     app.dirty = true;
@@ -3766,122 +2820,11 @@ extern DataFormView gDataFormView;  // the form's view (core/views_data_form.inc
 void dataFormRepaint() {
     if (gData.form) InvalidateRect(gData.form, nullptr, FALSE);
 }
-
-// View > Show ranges of the selected units (GitHub feedback #109): around each selected unit (Units mode), its sight
-// (the tiles it sees, yellow), and its target acquisition (orange) and weapons' ranges: ground (red) and air (blue), its
-// turret's too. From units.dat and weapons.dat: the project's (with its edits) or the game's. A range counts from the
-// unit's size box, as the game's.
 void dataLoadForProject();
 void dataRebuildList();
 void dataShowTab(int tab);
 void dataSelect(int u);
 extern bool gDataTravelling;
-const DatTable* rangeTable(const std::string& name) {
-    if (activeProject()) dataLoadForProject();  // the project's tables with their saved edits (once; then at once)
-    if (gData.project && gData.project == activeProject())
-        for (const auto& t : gData.tables)
-            if (t && t->schema().name == name) return t.get();
-    static std::map<std::string, std::unique_ptr<DatTable>> stock;
-    auto& t = stock[name];
-    if (!t) {
-        const DatSchema* schema = DatSchema::find(name);
-        auto loaded = std::make_unique<DatTable>();
-        std::string err;
-        if (!schema || !loaded->load(app.data, *schema, err)) return nullptr;
-        t = std::move(loaded);
-    }
-    return t.get();
-}
-std::vector<bool> sightMask(int range, int& size);
-// The ranges as the Data workspace draws them (widgetUnitRanges): the tiles the unit sees (its sight mask, on the map's
-// tiles), and the target acquisition (orange), ground (red) and air (blue) ranges as the game measures them: from the
-// unit's size box, grown by the game's distance shape (rangeShape). While the units move, the ranges move with them
-// (dx, dy: the move so far).
-void rangesScene(render::Scene& s, float dx, float dy) {
-    if (!app.ed) return;
-    const DatTable* units = rangeTable("units");
-    const DatTable* weapons = rangeTable("weapons");
-    if (!units || !weapons) return;
-    const DatField *sight = units->field("Sight Range"), *acqF = units->field("Target Acquisition Range"), *ground = units->field("Ground Weapon"),
-                   *air = units->field("Air Weapon"), *sub = units->field("Subunit 1"), *range = weapons->field("Maximum Range"),
-                   *sl = units->field("Unit Size Left"), *su = units->field("Unit Size Up"), *sr = units->field("Unit Size Right"),
-                   *sd = units->field("Unit Size Down");
-    if (!sight || !acqF || !ground || !air || !sub || !range || !sl || !su || !sr || !sd) return;
-    auto shape = [&](RECT box, int r, uint32_t color, float width, bool dashed) {
-        if (r <= 0) return;
-        const auto pts = rangeShape(box, double(r));
-        for (size_t k = 1; k < pts.size(); ++k) {
-            if (dashed && (k / 4) % 2) continue;  // dashes of 4 segments
-            render::RectDraw l;
-            l.x0 = float(pts[k - 1].x), l.y0 = float(pts[k - 1].y), l.x1 = float(pts[k].x), l.y1 = float(pts[k].y);
-            l.rgba = color, l.thickness = width, l.line = true;
-            s.rects.push_back(l);
-        }
-    };
-    auto weaponRange = [&](int ut, const DatField& f) {
-        int w = int(units->value(f, ut));
-        const int turret = int(units->value(*sub, ut));
-        if (w >= 130 && turret < 228) w = int(units->value(f, turret));  // a turret's weapon
-        return w < 130 ? int(weapons->value(*range, w)) : 0;
-    };
-    Editor& ed = *app.ed;
-    const auto& list = ed.units();
-    const int mw = ed.width(), mh = ed.height();
-    std::vector<uint8_t> seen;  // the map's tiles that a selected unit sees (one area, so many units do not stack)
-    int shown = 0;
-    for (int i : ed.selection()) {
-        if (i < 0 || i >= int(list.size()) || ++shown > 64) continue;  // (a big selection: the first 64)
-        Unit u = list[size_t(i)];
-        const int ut = u.type;
-        if (ut < 0 || ut >= 228) continue;
-        if (dx || dy) {  // where the drag draws and drops it (buildScene, Editor::moveSelection)
-            u.x = uint16_t(std::clamp(int(std::lround(u.x + dx)), 0, mw * 32 - 1));
-            u.y = uint16_t(std::clamp(int(std::lround(u.y + dy)), 0, mh * 32 - 1));
-            if (u.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[u.type], u.x, u.y);
-        }
-        const int cx = u.x, cy = u.y;
-        // Sight: the tiles of the sight mask around the unit's tile.
-        if (const int tiles = int(units->value(*sight, ut)); tiles > 0) {
-            int n = 0;
-            const auto mask = sightMask(tiles, n);
-            const int tx0 = cx / 32 - n / 2, ty0 = cy / 32 - n / 2;
-            if (seen.empty()) seen.assign(size_t(mw) * size_t(mh), 0);
-            for (int y = 0; y < n; ++y)
-                for (int x = 0; x < n; ++x)
-                    if (mask[size_t(y * n + x)] && tx0 + x >= 0 && ty0 + y >= 0 && tx0 + x < mw && ty0 + y < mh)
-                        seen[size_t(ty0 + y) * size_t(mw) + size_t(tx0 + x)] = 1;
-        }
-        const RECT box{LONG(cx - int(units->value(*sl, ut))), LONG(cy - int(units->value(*su, ut))), LONG(cx + int(units->value(*sr, ut)) + 1),
-                       LONG(cy + int(units->value(*sd, ut)) + 1)};
-        const int acq = int(units->value(*acqF, ut)) * 32, g = weaponRange(ut, *ground), a = weaponRange(ut, *air);
-        shape(box, acq, 0xF0B446D0u, 1, false);
-        shape(box, g, 0xEB5A50F0u, 2, false);
-        shape(box, a, 0x5AAAF0F0u, 2, a == g);  // the same range as the ground weapon: blue dashes over the red line
-    }
-    // The sight area: its tiles faintly filled (rows of seen tiles as one rectangle each) and its outline.
-    if (seen.empty()) return;
-    auto at = [&](int x, int y) { return x >= 0 && y >= 0 && x < mw && y < mh && seen[size_t(y) * size_t(mw) + size_t(x)]; };
-    auto edge = [&](float x0, float y0, float x1, float y1) {
-        render::RectDraw l;
-        l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = 0xFFE040C0u, l.thickness = 1, l.line = true;
-        s.rects.push_back(l);
-    };
-    for (int y = 0; y < mh; ++y)
-        for (int x = 0; x < mw; ++x) {
-            if (!at(x, y)) continue;
-            int run = x;
-            while (at(run + 1, y)) ++run;
-            s.rects.push_back({float(x * 32), float(y * 32), float((run + 1) * 32), float(y * 32 + 32), 0xE0E0F014u, true});
-            for (int k = x; k <= run; ++k) {
-                const float X = float(k * 32), Y = float(y * 32);
-                if (!at(k, y - 1)) edge(X, Y, X + 32, Y);
-                if (!at(k, y + 1)) edge(X, Y + 32, X + 32, Y + 32);
-            }
-            edge(float(x * 32), float(y * 32), float(x * 32), float(y * 32 + 32));
-            edge(float((run + 1) * 32), float(y * 32), float((run + 1) * 32), float(y * 32 + 32));
-            x = run;
-        }
-}
 
 // The tabs after the .dat files: Strings and Buttons (data_extras.inc).
 int dataTabCount();
@@ -4258,44 +3201,6 @@ void dataSetValue(const DatField& f, uint32_t v);
 // their colors; the mouse over a chip, a part or a field shows the two together. Some parts can be dragged: a
 // drag changes the values live and is one undo step when the mouse is let go.
 
-
-// New graphics for preplaced units (Project page, R8): the game makes the preplaced units before the .dat edits run,
-// so they keep the game's graphics. With the option on, Build adds code that makes them again, and the map shows them
-// with the edited graphics.
-void applyProjectGraphics(UnitSprites& sp);  // the project's graphics edits on `sp` (core/project_build.inc)
-
-// The map view's unit graphics: the edited ones while the option is on, else the game's.
-void syncMapUnitGraphics() {
-    static const Editor* edFor = nullptr;
-    static long long key = -1;
-    static std::set<const Editor*> edited;  // editors that show edited graphics (or did)
-    if (!app.ed) return;
-    const EudProject* pr = activeProject();
-    const bool on = pr && pr->remakeUnits();
-    if (on) dataLoadForProject();
-    const long long now = on ? (long long)(uintptr_t(pr) & 0xFFFFFF) << 32 | unsigned(gData.edits) : -2;
-    if (edFor == app.ed.get() && key == now) return;
-    edFor = app.ed.get(), key = now;
-    UnitSprites& sp = app.ed->unitSprites();
-    gGameUnitImage.clear(), gGameSubunitImage.clear();
-    if (on) {
-        static std::unique_ptr<UnitSprites> game;
-        std::string err;
-        if (!game && !(game = std::make_unique<UnitSprites>())->load(app.data, err)) game.reset();
-        for (uint16_t t = 0; game && t < app.ed->unitTypes().size(); ++t)
-            gGameUnitImage.push_back(game->imageFor(t)), gGameSubunitImage.push_back(game->subunitImage(t));
-        applyProjectGraphics(sp);
-        edited.insert(edFor);
-    } else if (edited.erase(edFor)) {
-        std::string err;
-        sp.load(app.data, err);
-    } else {
-        return;
-    }
-    gAnims.clear();  // the animations of the old images
-    app.renderer.reloadImages();  // their glows (draw function, remapping)
-    ++gUnitGraphics;  // the Units palette's pictures
-}
 
 struct {
     std::function<void(POINT)> drag;
@@ -6551,7 +5456,7 @@ bool trigAskDelete(const std::wstring& question) {
 
 
 
-bool dataCanUndo(bool redo) { return gData.history.canUndo(redo); }
+// (dataCanUndo: core/data_model.inc)
 
 // Undo and redo in the Data workspace: the table as it was, at the entry that changed.
 bool dataUndo(bool redo) {
@@ -10185,27 +9090,9 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 HACCEL buildAccelerators() {
-    ACCEL a[] = {
-        {FCONTROL | FVIRTKEY, VK_OEM_COMMA, ID_OPT_WINDOW},  // File > Options
-        {FCONTROL | FVIRTKEY, 'W', ID_FILE_CLOSE},
-        {FCONTROL | FSHIFT | FVIRTKEY, 'W', ID_FILE_CLOSEALL},
-        {FCONTROL | FVIRTKEY, VK_TAB, ID_TAB_NEXT},     {FCONTROL | FSHIFT | FVIRTKEY, VK_TAB, ID_TAB_PREV},    {FCONTROL | FVIRTKEY, 'N', ID_FILE_NEW}, {FCONTROL | FSHIFT | FVIRTKEY, 'N', ID_PROJ_NEW}, {FCONTROL | FSHIFT | FVIRTKEY, 'O', ID_QUICKOPEN},         {FCONTROL | FVIRTKEY, 'O', ID_FILE_OPEN},        {FCONTROL | FVIRTKEY, 'S', ID_FILE_SAVE},
-        {FCONTROL | FSHIFT | FVIRTKEY, 'S', ID_FILE_SAVEAS}, {FCONTROL | FVIRTKEY, 'Z', ID_EDIT_UNDO},
-        {FCONTROL | FVIRTKEY, 'Y', ID_EDIT_REDO},        {FCONTROL | FSHIFT | FVIRTKEY, 'Z', ID_EDIT_REDO},
-        {FCONTROL | FVIRTKEY, 'X', ID_EDIT_CUT},         {FCONTROL | FVIRTKEY, 'C', ID_EDIT_COPY},
-        {FCONTROL | FVIRTKEY, 'D', ID_EDIT_DUPLICATE},
-        {FCONTROL | FVIRTKEY, 'V', ID_EDIT_PASTE},       {FCONTROL | FVIRTKEY, 'A', ID_EDIT_SELECTALL},
-        {FVIRTKEY, 'V', ID_TOOL_KEY},     {FVIRTKEY, 'B', ID_TOOL_KEY + 1},
-        {FVIRTKEY, 'A', ID_TOOL_KEY + 2},                {FVIRTKEY, 'F', ID_TOOL_KEY + 3},                   {FCONTROL | FVIRTKEY, '1', ID_RAIL_KEY},
-        {FCONTROL | FVIRTKEY, '2', ID_RAIL_KEY + 1}, {FCONTROL | FVIRTKEY, '3', ID_RAIL_KEY + 2}, {FCONTROL | FVIRTKEY, '4', ID_RAIL_KEY + 3},
-        {FCONTROL | FVIRTKEY, '5', ID_RAIL_KEY + 4}, {FCONTROL | FVIRTKEY, '6', ID_RAIL_KEY + 5}, {FCONTROL | FVIRTKEY, '7', ID_RAIL_KEY + 6},
-        {FCONTROL | FVIRTKEY, '8', ID_RAIL_KEY + 7}, {FCONTROL | FVIRTKEY, '9', ID_RAIL_KEY + 8},                   {FCONTROL | FVIRTKEY, 'B', ID_PROJ_COMPILE}, {FCONTROL | FVIRTKEY, 'P', ID_SCEN_PLAYERS}, {FCONTROL | FVIRTKEY, 'M', ID_SCEN_PROPS}, {FCONTROL | FVIRTKEY, 'L', ID_VIEW_LOG},                   {FVIRTKEY, 'Q', ID_QUICKPICK},
-        {FVIRTKEY, '1', ID_PLAYER_1},     {FVIRTKEY, '2', ID_PLAYER_1 + 1}, {FVIRTKEY, '3', ID_PLAYER_1 + 2},
-        {FVIRTKEY, '4', ID_PLAYER_1 + 3}, {FVIRTKEY, '5', ID_PLAYER_1 + 4}, {FVIRTKEY, '6', ID_PLAYER_1 + 5},
-        {FVIRTKEY, '7', ID_PLAYER_1 + 6}, {FVIRTKEY, '8', ID_PLAYER_1 + 7}, {FVIRTKEY, '9', ID_PLAYER_1 + 8},
-        {FVIRTKEY, '0', ID_PLAYER_1 + 9},
-    };
-    std::vector<ACCEL> all(std::begin(a), std::end(a));
+    std::vector<ACCEL> all;
+    for (const ProgramKey& k : kProgramKeys)  // the program's keys (core/map_edit_commands.inc), in their order
+        if (ACCEL a; accelOfChord(k.chord, k.id, a)) all.push_back(a);
     for (const ACCEL& c : commandAccelerators()) all.push_back(c);  // the table's (commands.inc): modes, grid, zoom
     return CreateAcceleratorTableW(all.data(), int(all.size()));
 }
@@ -11851,10 +10738,10 @@ int runSelfTest(const fs::path& dir) {
         const bool keep = app.animate;
         app.animate = true;
         buildScene();
-        gAnimLast = GetTickCount64() - 200;
+        gAnimLast = animNowMs() - 200;
         advanceAnims();
         command(ID_FILE_CLOSE);
-        gAnimLast = GetTickCount64() - 200;
+        gAnimLast = animNowMs() - 200;
         advanceAnims();  // a crash here is the defect
         app.animate = keep;
         log << "animations after a closed tab: no crash yes\n";
@@ -18362,7 +17249,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 logLine(line);
             }
         }
-        else if (animating) MsgWaitForMultipleObjects(0, nullptr, FALSE, DWORD(kTickMs - std::min(kTickMs, GetTickCount64() - gAnimLast)), QS_ALLINPUT);
+        else if (animating) MsgWaitForMultipleObjects(0, nullptr, FALSE, DWORD(kTickMs - std::min(kTickMs, animNowMs() - gAnimLast)), QS_ALLINPUT);
         else WaitMessage();
     }
     app.renderer.shutdown();
