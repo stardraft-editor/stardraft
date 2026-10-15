@@ -38,13 +38,13 @@ void updateStatus(AppState& app) {
     wchar_t buf[256];
     float wx, wy;
     toWorld(app, app.mouseX, app.mouseY, wx, wy);
-    std::swprintf(buf, 256, L"%s: %s", kModeNames[int(app.mode)],
+    std::swprintf(buf, 256, L"%ls: %ls", kModeNames[int(app.mode)],
                   app.mode == Mode::Terrain ? kTerrainTools[currentTool(app)] : app.mode == Mode::Units ? kUnitTools[currentTool(app)]
                   : app.mode == Mode::Doodads ? kDoodadTools[currentTool(app)] : app.mode == Mode::Sprites ? (app.palette >= 0 ? L"Place" : L"Select") : L"Edit");
     setStatusPart(app, 0, buf);
     std::swprintf(buf, 256, L"%d, %d  (tile %d, %d)", int(wx), int(wy), int(wx) / 32, int(wy) / 32);
     setStatusPart(app, 1, buf);
-    std::swprintf(buf, 256, L"%.0f%%  %s", app.zoom * 100, widen(qualityName(app.quality)).c_str());
+    std::swprintf(buf, 256, L"%.0f%%  %ls", app.zoom * 100, widen(qualityName(app.quality)).c_str());
     setStatusPart(app, 2, buf);
     size_t sel = app.ed ? app.ed->selection().size() : 0;
     std::swprintf(buf, 256, L"%zu selected", sel);
