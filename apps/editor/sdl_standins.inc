@@ -8,9 +8,6 @@ void notOnThisSystem() { setMessage(L"This is not on this system yet"); }
 
 void dataCopySelected() { notOnThisSystem(); }
 void dataPasteSelected() { notOnThisSystem(); }
-void trigCopy(bool) { notOnThisSystem(); }
-void trigPaste() { notOnThisSystem(); }
-void trigDuplicate() { notOnThisSystem(); }
 bool briefCommand(int) {
     notOnThisSystem();
     return false;

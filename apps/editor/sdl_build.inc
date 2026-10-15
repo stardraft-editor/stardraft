@@ -24,7 +24,6 @@ void buildDataReloaded(int tab, int entry) {
     sdlDataRepaint();
 }
 
-// The Triggers workspace's tree and blocks are the Windows program's (main.cpp): nothing shows the repaired triggers
-// here, and no block is selected for a euddraft error in the triggers' code (the Log has the line).
-void buildTriggersReloaded() {}
-bool trigShowBuildError(const std::string&) { return false; }
+// The repaired triggers.json loads now: the Triggers workspace's tree shows it (as the Windows program does). A euddraft
+// error in the triggers' code selects its block with the core's trigShowBuildError (core/views_triggers_help.inc).
+void buildTriggersReloaded() { trigRefreshTree({1}); }
