@@ -12299,7 +12299,7 @@ void drawMatched(stardraft::draw::Canvas& c, stardraft::draw::Rect r, const std:
     for (const auto& w : words)
         if (const size_t at = w.empty() ? std::wstring::npos : low.find(w); at != std::wstring::npos)
             std::fill(hit.begin() + long(at), hit.begin() + long(at + w.size()), uint8_t(1));
-    const int y = r.top + (r.height() - c.metrics().height) / 2;
+    const int y = (r.top + r.bottom - c.metrics().height) / 2;  // (the GDI version's rounding: a row partly above the top)
     // Too wide: as much as fits, then an ellipsis (in the color of the last letter kept).
     std::wstring shown = text;
     if (c.measure(text) > r.width()) {
