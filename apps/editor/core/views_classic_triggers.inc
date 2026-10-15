@@ -763,3 +763,39 @@ private:
     Drag drag_;
     int scroll_ = 0, height_ = 0, laid_ = -1;
 };
+
+// The page's head (classic_triggers.inc: the head's window is a view window with this view): the selected trigger's name
+// and its count, its Turn off and Delete buttons, its players (one check box per player, in the page's order) and Forces.
+// The kit widgets are the page's; the page places them (ctLayout) and the callbacks are its commands. The page's own
+// changes (setOn, setEnabled, the texts) do not call back; only a click does.
+class CtHeadView final : public draw::View {
+public:
+    struct Callbacks {
+        std::function<void(int box, bool on)> player;  // the box's index in the page's order
+        std::function<void()> turnOff, deleteTrig, forces;
+    };
+    CtHeadView(const std::vector<std::wstring>& playerLabels, Callbacks cb)
+        : turnOff(L"Turn off", stardraft::kit::Tone::Normal, std::move(cb.turnOff)),
+          deleteTrig(L"Delete the trigger", stardraft::kit::Tone::Normal, std::move(cb.deleteTrig)),
+          forces(L"Forces\x2026", stardraft::kit::Tone::Normal, std::move(cb.forces)) {
+        title.setFont({draw::Face::Ui, 0, true, false, false, 0});  // bold (the page's title font was 1.5 times the UI size)
+        title.setText(L"None");
+        forces.setTip(L"Forces: the forces that run the trigger");
+        for (size_t i = 0; i < playerLabels.size(); ++i)
+            players.push_back(std::make_unique<stardraft::kit::CheckBox>(playerLabels[i], false, [i, f = cb.player](bool on) {
+                if (f) f(int(i), on);
+            }));
+        add(title, {0, 0, 0, 0});
+        add(count, {0, 0, 0, 0});
+        add(turnOff, {0, 0, 0, 0});
+        add(deleteTrig, {0, 0, 0, 0});
+        add(forces, {0, 0, 0, 0});
+        for (auto& p : players) add(*p, {0, 0, 0, 0});
+    }
+
+    stardraft::kit::Label title, count;
+    stardraft::kit::Button turnOff, deleteTrig, forces;
+    std::vector<std::unique_ptr<stardraft::kit::CheckBox>> players;
+
+    void paint(draw::Canvas& c) override { c.fill({0, 0, width(), height()}, stardraft::kit::theme().bg); }
+};

@@ -42,6 +42,12 @@ public:
         invalidate();
     }
     int icon() const { return icon_; }
+    // The text's font (a title is bold): the UI's font when none is set.
+    void setFont(draw::FontDesc f) {
+        font_ = f;
+        hasFont_ = true;
+        invalidate();
+    }
 
     // The height the text needs in `width` px (at least the icon's height).
     int preferredHeight(draw::Canvas& c, int width) const;
@@ -57,6 +63,8 @@ private:
     LabelTone tone_ = LabelTone::Normal;
     bool wrap_ = false;
     int icon_ = -1;
+    draw::FontDesc font_;
+    bool hasFont_ = false;
 };
 
 }  // namespace stardraft::kit
