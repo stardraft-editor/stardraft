@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>stardraft</string>
+    <key>CFBundleIdentifier</key>
+    <string>io.github.stardraft-editor.stardraft</string>
+    <key>CFBundleName</key>
+    <string>StarDraft</string>
+    <key>CFBundleDisplayName</key>
+    <string>StarDraft 2</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>${MACOSX_BUNDLE_SHORT_VERSION_STRING}</string>
+    <key>CFBundleVersion</key>
+    <string>${MACOSX_BUNDLE_BUNDLE_VERSION}</string>
+    <key>CFBundleIconFile</key>
+    <string>stardraft</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.developer-tools</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSSupportsAutomaticGraphicsSwitching</key>
+    <true/>
+    <!-- StarCraft maps (.scm, .scx): Finder opens them with StarDraft (an SDL_EVENT_DROP_FILE for each file). -->
+    <key>UTImportedTypeDeclarations</key>
+    <array>
+        <dict>
+            <key>UTTypeIdentifier</key>
+            <string>io.github.stardraft-editor.map-scm</string>
+            <key>UTTypeDescription</key>
+            <string>StarCraft map</string>
+            <key>UTTypeConformsTo</key>
+            <array>
+                <string>public.data</string>
+            </array>
+            <key>UTTypeTagSpecification</key>
+            <dict>
+                <key>public.filename-extension</key>
+                <array>
+                    <string>scm</string>
+                </array>
+            </dict>
+        </dict>
+        <dict>
+            <key>UTTypeIdentifier</key>
+            <string>io.github.stardraft-editor.map-scx</string>
+            <key>UTTypeDescription</key>
+            <string>StarCraft map (Brood War)</string>
+            <key>UTTypeConformsTo</key>
+            <array>
+                <string>public.data</string>
+            </array>
+            <key>UTTypeTagSpecification</key>
+            <dict>
+                <key>public.filename-extension</key>
+                <array>
+                    <string>scx</string>
+                </array>
+            </dict>
+        </dict>
+    </array>
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>StarCraft map</string>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>LSHandlerRank</key>
+            <string>Default</string>
+            <key>CFBundleTypeIconFile</key>
+            <string>stardraft</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>io.github.stardraft-editor.map-scm</string>
+                <string>io.github.stardraft-editor.map-scx</string>
+            </array>
+            <key>CFBundleTypeExtensions</key>
+            <array>
+                <string>scm</string>
+                <string>scx</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

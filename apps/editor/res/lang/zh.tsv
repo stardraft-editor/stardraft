@@ -2002,5 +2002,6 @@ Triggers do not run each second, so they can miss Exactly. Use At least or At mo
 Shift+drag paints 	Shift+拖动绘制
 ; drag paints 	；拖动绘制
 Shift+drag: no terrain	Shift+拖动：无地形
+Automatic (the language of the system)	自动（系统语言）
 StarDraft 2 is not associated with Blizzard Entertainment.	StarDraft 2 与 Blizzard Entertainment 无关。
 It needs an installation of StarCraft to work.	需要安装《星际争霸》才能使用。
