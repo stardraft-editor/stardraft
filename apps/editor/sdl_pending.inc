@@ -35,6 +35,9 @@ std::wstring projectUnitName(int) { return L""; }
 // The workspaces (the core's setWorkspace; the Windows program's is in main.cpp, with its windows): Assets is Files, and
 // a workspace the tab's mode does not have falls back to Map with the same message as Windows. The workspace shows its
 // view (sdl_main_view.inc: the registered one, else "Not on this system yet"), and the map's panes show in Map only.
+void openNewPageSdl(int kind);  // (sdl_new_page.inc: -1 the start page, 0 a classic project, 1 an EUD project)
+void showOptionsSdl();  // (sdl_options.inc: Options > Program options, one window)
+void showFeedbackSdl(const std::wstring& on);  // (sdl_options.inc: Options > Report feedback, a modal dialog)
 void previewStopSdl();  // (sdl_files.inc: a sound that plays stops when the Files workspace is left)
 bool sdlWorkspacePage(Workspace w);  // (sdl_map_pages.inc: the page of a map page workspace opens; false: none does)
 void setWorkspace(Workspace w) {

@@ -91,7 +91,11 @@ bool sdlRuns(int id) {
     case ID_SCEN_PROPS:  // the map's pages: the rail and the menus open them as the workspaces do
     case ID_SCEN_PLAYERS:
     case ID_SCEN_CLASSIC:
-    case ID_SCEN_CLASSICTRIG: return true;
+    case ID_SCEN_CLASSICTRIG:
+    case ID_FILE_NEW:  // the New page (sdl_new_page.inc) and the program options / feedback (sdl_options.inc)
+    case ID_PROJ_NEW:
+    case ID_OPT_WINDOW:
+    case ID_HELP_FEEDBACK: return true;
     default: break;
     }
     if (id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) return true;
@@ -337,6 +341,10 @@ void command(int id) {
     case ID_SCEN_PLAYERS: setWorkspace(Workspace::Players); return;
     case ID_SCEN_CLASSIC: setWorkspace(Workspace::ClassicSettings); return;
     case ID_SCEN_CLASSICTRIG: setWorkspace(Workspace::ClassicTriggers); return;
+    case ID_FILE_NEW: openNewPageSdl(-1); return;  // the start page
+    case ID_PROJ_NEW: openNewPageSdl(1); return;   // the New page, an EUD project's choices
+    case ID_OPT_WINDOW: showOptionsSdl(); return;
+    case ID_HELP_FEEDBACK: showFeedbackSdl(L"StarDraft 2"); return;
     default:
         if (id >= ID_WS_MAP && id <= ID_WS_FILES) return setWorkspace(Workspace(id - ID_WS_MAP));  // the workspace order
         setMessage(L"This is not on this system yet");

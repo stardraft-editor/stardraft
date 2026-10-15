@@ -17,6 +17,5 @@ bool briefCommand(int) {
 }
 bool classicCommandInProject(int) { return false; }  // (a query: no project of this system holds classic data yet)
 
-// The button sets and the New page are not on this system yet (the map pages are: sdl_map_pages.inc).
+// The button sets are not on this system yet (the map pages are: sdl_map_pages.inc; the New page is sdl_new_page.inc).
 std::wstring buttonSetName(int s) { return L"Button set " + std::to_wstring(s); }
-const wchar_t* gNewTitle() { return L"New classic project"; }
