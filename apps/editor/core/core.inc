@@ -41,4 +41,6 @@
 #include "views_players.inc"
 #include "views_classic_settings.inc"
 #include "views_start.inc"
+#include "views_new_page.inc"
+#include "views_new_page_paint.inc"
 #include "title.inc"

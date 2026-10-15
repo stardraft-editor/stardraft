@@ -442,6 +442,8 @@ std::wstring itemLabel(int v) { return itemLabel(app, v); }
 #include "core/views_players.inc"  // Players and forces' view: the players, the forces and the problems (PlayersView; main.cpp, map_pages.inc)
 #include "core/views_classic_settings.inc"  // Map data's views: the tabs' lists and fields (ClassicPageView; classic_settings.inc, map_pages.inc)
 #include "core/views_start.inc"  // the start page (StartView: the cards, the recent list, Open; the instance is gStartView in new_page.inc)
+#include "core/views_new_page.inc"  // the New page (NewPageView: the settings, the generator, the preview; the host is new_page.inc)
+#include "core/views_new_page_paint.inc"
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
 
 void rebuildList() { rebuildList(app); }
@@ -18484,13 +18486,13 @@ int runSelfTest(const fs::path& dir) {
     // File > New: the start page in a tab of its own; a card opens the New page in that tab; Create makes the map there.
     auto paintPage = [] {
         for (int i = 0; i < 3; ++i) pump();
-        if (gNew.wnd) RedrawWindow(gNew.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+        if (gNewWnd) RedrawWindow(gNewWnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
     };
     {
         // An ice map, 96 x 192, blank. With Blank the generator's settings are hidden; with Generate they show.
         const size_t before = gDocs.size();
         command(ID_FILE_NEW);
-        const bool opened = gDocs.size() == before + 1 && activePage() == kPageStart && gNew.wnd && IsWindowVisible(gNew.wnd) && !IsWindowVisible(app.view);
+        const bool opened = gDocs.size() == before + 1 && activePage() == kPageStart && gNewWnd && IsWindowVisible(gNewWnd) && !IsWindowVisible(app.view);
         // First the start page's cards: Classic project and EUD project can be selected, the others cannot (and Create
         // does nothing).
         paintPage();
@@ -18498,17 +18500,17 @@ int runSelfTest(const fs::path& dir) {
         capture(dir / "36a_new_page_cards.png");
         const bool modOff = !newSetKind(2) && activePage() == kPageStart && !newCreate() && gDocs.size() == before + 1;
         // The keyboard: Right, then Enter opens the EUD project's settings in the same tab; Esc goes back to the start page.
-        SendMessageW(gNew.wnd, WM_KEYDOWN, VK_RIGHT, 0);
-        SendMessageW(gNew.wnd, WM_KEYDOWN, VK_RETURN, 0);
+        SendMessageW(gNewWnd, WM_KEYDOWN, VK_RIGHT, 0);
+        SendMessageW(gNewWnd, WM_KEYDOWN, VK_RETURN, 0);
         paintPage();
-        const bool projSettings = activePage() == kPageNew && gNew.project && gNew.projectShown && IsWindowVisible(gNew.name) &&
+        const bool projSettings = activePage() == kPageNew && gNew.project && gNew.projectShown && gNew.fieldShown("name") &&
                                   docTitle(gActive) == L"New EUD project" && gDocs.size() == before + 1;
-        SendMessageW(gNew.wnd, WM_KEYDOWN, VK_ESCAPE, 0);
+        SendMessageW(gNewWnd, WM_KEYDOWN, VK_ESCAPE, 0);
         paintPage();
-        const bool escBack = activePage() == kPageStart && gStartView.cardsShown() && !IsWindowVisible(gNew.name);
+        const bool escBack = activePage() == kPageStart && gStartView.cardsShown() && !gNew.fieldShown("name");
         newSetKind(0);
         paintPage();
-        const bool mapSettings = activePage() == kPageNew && !gNew.project && !gNew.projectShown && !IsWindowVisible(gNew.name) && !IsWindowVisible(gNew.location) &&
+        const bool mapSettings = activePage() == kPageNew && !gNew.project && !gNew.projectShown && !gNew.fieldShown("name") && !gNew.fieldShown("location") &&
                                  docTitle(gActive) == L"New classic project";
         newBack();
         paintPage();
@@ -18518,10 +18520,10 @@ int runSelfTest(const fs::path& dir) {
             << ", Classic map goes to settings without them " << (mapSettings ? "yes" : "NO") << ", Back returns to the start page " << (back ? "yes" : "NO") << "\n";
         newSetKind(0);
         gNew.era = 6, gNew.terrain = 0, gNew.w = 96, gNew.h = 192, gNew.generate = false;
-        newRegenerate();
+        gNew.regenerate();
         paintPage();
         paintPage();  // the preview's size follows the page's height (a second paint)
-        const bool hidden = !gNew.genShown && !IsWindowVisible(gNew.seed) && !IsWindowVisible(gNew.name);
+        const bool hidden = !gNew.genShown && !gNew.fieldShown("seed") && !gNew.fieldShown("name");
         shot("new_page_map");
         // Blank has a preview too, about twice the size it had (300 x 300 at 100%), made at that size.
         auto previewHash = [] {
@@ -18534,16 +18536,16 @@ int runSelfTest(const fs::path& dir) {
         const bool previewBig = pvSide >= scale(540);
         const uint64_t blankHash = previewHash();
         gNew.generate = true;
-        newRegenerate();
+        gNew.regenerate();
         paintPage();
         paintPage();
-        const bool shown = gNew.genShown && IsWindowVisible(gNew.seed);
+        const bool shown = gNew.genShown && gNew.fieldShown("seed");
         // Generate: the generator's settings are in a column to the right of the preview.
-        const RECT gpv = gNew.previewRect, gset = gNew.genRect;
+        const draw::Rect gpv = gNew.previewRect, gset = gNew.genRect;
         const bool settingsRight = gset.left >= gpv.right && gset.top < gpv.bottom && gset.bottom > gpv.top;
         // Create and Cancel stay in view.
         RECT pc;
-        GetClientRect(gNew.wnd, &pc);
+        GetClientRect(gNewWnd, &pc);
         const bool footerInView = gNew.footer.bottom <= pc.bottom && gNew.footer.top >= 0;
         log << "new page: Blank shows a preview " << (blankPreview ? "yes" : "NO") << ", the preview is about twice the old size " << (previewBig ? "yes" : "NO")
             << " (" << pvSide << " pixels, the old size " << scale(300) << "), with Generate the settings are to the right of the preview "
@@ -18557,15 +18559,15 @@ int runSelfTest(const fs::path& dir) {
         for (int i = 0; i < stops; ++i) {
             paintPage();
             const int sx = gNew.sizeX0 + (gNew.sizeX1 - gNew.sizeX0) * i / (stops - 1);
-            SendMessageW(gNew.wnd, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(sx, gNew.sizeY[0]));
-            SendMessageW(gNew.wnd, WM_LBUTTONUP, 0, MAKELPARAM(sx, gNew.sizeY[0]));
+            SendMessageW(gNewWnd, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(sx, gNew.sizeY[0]));
+            SendMessageW(gNewWnd, WM_LBUTTONUP, 0, MAKELPARAM(sx, gNew.sizeY[0]));
             if (gNew.w == kMapSizes[i]) ++sizes;
         }
         paintPage();
         const int step4 = (gNew.sizeX1 - gNew.sizeX0) / (stops - 1);
-        SendMessageW(gNew.wnd, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(gNew.sizeX0, gNew.sizeY[1]));
-        SendMessageW(gNew.wnd, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(gNew.sizeX0 + step4 * 2 + step4 * 2 / 5, gNew.sizeY[1]));
-        SendMessageW(gNew.wnd, WM_LBUTTONUP, 0, MAKELPARAM(gNew.sizeX0 + step4 * 2 + step4 * 2 / 5, gNew.sizeY[1]));
+        SendMessageW(gNewWnd, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(gNew.sizeX0, gNew.sizeY[1]));
+        SendMessageW(gNewWnd, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(gNew.sizeX0 + step4 * 2 + step4 * 2 / 5, gNew.sizeY[1]));
+        SendMessageW(gNewWnd, WM_LBUTTONUP, 0, MAKELPARAM(gNew.sizeX0 + step4 * 2 + step4 * 2 / 5, gNew.sizeY[1]));
         const bool snapped = gNew.h == 128;
         // The Blank row's terrain list opens right under its box (a click on the page, as the mouse does it), with
         // Generate selected: a terrain from it selects Blank and fills the map with that terrain.
@@ -18580,11 +18582,11 @@ int runSelfTest(const fs::path& dir) {
                 if (it.value != gListPick->current && pickedTerrain.empty()) pickedTerrain = it.value;
             gListPick->result = pickedTerrain, gListPick->picked = !pickedTerrain.empty(), gListPick->done = true;
         };
-        const RECT tb = gNew.terrainBox;
+        const draw::Rect tb = gNew.terrainBox;
         POINT expect{tb.left, tb.bottom + scale(2)};
-        ClientToScreen(gNew.wnd, &expect);
-        SendMessageW(gNew.wnd, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM((tb.left + tb.right) / 2, (tb.top + tb.bottom) / 2));
-        SendMessageW(gNew.wnd, WM_LBUTTONUP, 0, MAKELPARAM((tb.left + tb.right) / 2, (tb.top + tb.bottom) / 2));
+        ClientToScreen(gNewWnd, &expect);
+        SendMessageW(gNewWnd, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM((tb.left + tb.right) / 2, (tb.top + tb.bottom) / 2));
+        SendMessageW(gNewWnd, WM_LBUTTONUP, 0, MAKELPARAM((tb.left + tb.right) / 2, (tb.top + tb.bottom) / 2));
         gListPickHook = nullptr;
         const bool under = pickerOpened && gListPickAt.x == expect.x && gListPickAt.y == expect.y;
         const bool terrainSet = !pickedTerrain.empty() && gNew.terrain == uint16_t(std::atoi(pickedTerrain.c_str())) && !gNew.generate;
@@ -18593,7 +18595,7 @@ int runSelfTest(const fs::path& dir) {
             << (under ? "yes" : "NO") << " (" << gListPickAt.x << "," << gListPickAt.y << " expect " << expect.x << "," << expect.y << ")"
             << ", Create and Cancel in view with Generate " << (footerInView ? "yes" : "NO") << " and under the columns with Blank " << (footerUnder ? "yes" : "NO") << "\n";
         gNew.w = 96, gNew.h = 192;
-        newRegenerate();
+        gNew.regenerate();
         paintPage();
         const bool previewChanged = gNew.previewMade && previewHash() != blankHash;
         const std::vector<uint16_t> filledTiles = gNew.tiles;
@@ -18603,7 +18605,7 @@ int runSelfTest(const fs::path& dir) {
             << "), the Blank preview changes with the terrain " << (previewChanged ? "yes" : "NO") << ", Create makes a map filled with it " << (filled ? "yes" : "NO") << "\n";
         log << "new page: opens in a new tab " << (opened ? "yes" : "NO") << ", the generator's settings hide with Blank " << (hidden ? "yes" : "NO")
             << " and show with Generate " << (shown ? "yes" : "NO") << ", Create makes the map in the same tab "
-            << (created && gDocs.size() == before + 1 && !activePage() && !IsWindowVisible(gNew.wnd) && IsWindowVisible(app.view) ? "yes" : "NO") << "\n";
+            << (created && gDocs.size() == before + 1 && !activePage() && !IsWindowVisible(gNewWnd) && IsWindowVisible(app.view) ? "yes" : "NO") << "\n";
     }
     shot("new_map_ice");
     log << "new map: era " << app.ed->era() << " " << app.ed->width() << "x" << app.ed->height() << " (expect 6 96x192)\n";
@@ -18633,15 +18635,15 @@ int runSelfTest(const fs::path& dir) {
         const size_t before = gDocs.size();
         command(ID_PROJ_NEW);
         const bool direct = activePage() == kPageNew && gNew.project;  // Ctrl+Shift+N: the settings, not the start page
-        SetWindowTextW(gNew.location, where.wstring().c_str());
-        SetWindowTextW(gNew.name, L"Full");
+        gNew.setLocationText(where.wstring().c_str());
+        gNew.setNameText(L"Full");
         paintPage();
         const bool blocked = !gNew.createEnabled && !gNew.warning.empty() && !newCreate() && activePage() == kPageNew;
-        SetWindowTextW(gNew.name, L"NewPageTest");
+        gNew.setNameText(L"NewPageTest");
         gNew.era = 4, gNew.terrain = 0, gNew.generate = true, gNew.w = gNew.h = 128;
-        newRegenerate();
+        gNew.regenerate();
         paintPage();
-        const bool fields = gNew.projectShown && IsWindowVisible(gNew.name) && IsWindowVisible(gNew.location) && gNew.createEnabled;
+        const bool fields = gNew.projectShown && gNew.fieldShown("name") && gNew.fieldShown("location") && gNew.createEnabled;
         capture(dir / "36b_new_page_project.png");
         const bool created = newCreate();
         const EudProject* np = activeProject();
@@ -18653,16 +18655,16 @@ int runSelfTest(const fs::path& dir) {
         // From a map: a project whose map is a copy of a map file (Bottleneck: 128 x 128 space platform).
         const size_t before2 = gDocs.size();
         command(ID_PROJ_NEW);
-        SetWindowTextW(gNew.location, where.wstring().c_str());
-        SetWindowTextW(gNew.name, L"CopyTest");
+        gNew.setLocationText(where.wstring().c_str());
+        gNew.setNameText(L"CopyTest");
         gNew.copyMap = true, gNew.generate = false;
-        SetWindowTextW(gNew.fromMap, L"");
+        gNew.setFromMapText(L"");
         paintPage();
         const bool needsMap = !gNew.createEnabled;  // no map chosen: Create is off
         const fs::path source = fs::path(L"C:/Program Files (x86)/StarCraft/Maps/(2)Bottleneck.scm");
-        SetWindowTextW(gNew.fromMap, source.wstring().c_str());
+        gNew.setFromMapText(source.wstring().c_str());
         paintPage();
-        const bool shown = IsWindowVisible(gNew.fromMap) && gNew.createEnabled;
+        const bool shown = gNew.fieldShown("fromMap") && gNew.createEnabled;
         capture(dir / "36e_new_page_from_map.png");
         const bool copied = newCreate();
         const EudProject* cp = activeProject();
@@ -18726,7 +18728,7 @@ int runSelfTest(const fs::path& dir) {
         command(ID_FILE_NEW);
         newSetKind(0);
         gNew.generate = true, gNew.symmetry = 3;
-        newRegenerate();
+        gNew.regenerate();
         paintPage();
         char gname[64];
         std::snprintf(gname, sizeof gname, "%02d_new_page_generate_mirrored.png", step + 1);
@@ -18745,9 +18747,9 @@ int runSelfTest(const fs::path& dir) {
         newRandomize(true);
         paintPage();
         capture(dir / "37_new_page_randomize_all.png");
-        SetWindowTextW(gNew.seed, L"999");
+        gNew.setSeedText(L"999");
         gNew.w = 256, gNew.h = 128, gNew.era = 4, gNew.terrain = 0;
-        newRegenerate();
+        gNew.regenerate();
         paintPage();
         capture(dir / "37_new_page_jungle.png");
         newCreate();
@@ -20988,10 +20990,10 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             if (s == "feedbacknames:") {  // feedbacknames.txt: what feedback names at each named part of the page that shows (after new:)
                 std::ofstream o(fs::path(datashots) / "feedbacknames.txt");
                 int named = 0, right = 0;
-                for (const auto& h : gNew.surface.hits) {
+                for (const auto& h : gNew.hits) {
                     if (h.name.empty()) continue;
                     const POINT c{(h.r.left + h.r.right) / 2, (h.r.top + h.r.bottom) / 2};
-                    const std::wstring got = feedbackThingIn(gNew.wnd, c);  // (the page's own answer: in test runs the map view is over it)
+                    const std::wstring got = feedbackThingIn(gNewWnd, c);  // (the page's own answer: in test runs the map view is over it)
                     ++named, right += got == h.name;
                     o << narrow(h.name) << " -> " << narrow(got) << "\n";
                 }
@@ -22273,8 +22275,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     openNewPage(k);
                     if (k >= 0) newReset(k);
                     gNew.era = kind == "generate" ? 4 : 0, gNew.generate = kind == "generate";
-                    if (kind == "project") SetWindowTextW(gNew.location, L"C:\\Users\\Public\\Documents\\StarDraft");
-                    newRegenerate();
+                    if (kind == "project") gNew.setLocationText(L"C:\\Users\\Public\\Documents\\StarDraft");
+                    gNew.regenerate();
                     name = kind.empty() ? "new_cards" : "new_" + kind;
                 } else {
                     const bool empty = s == "start:empty";
@@ -22837,17 +22839,17 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     const auto t0 = std::chrono::steady_clock::now();
                     openStartPage(), pump();
                     const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-                    if (activePage() != kPageStart || !shown(gNew.wnd)) log << "start page, first show: NOT SHOWN (the page is " << activePage() << ")\n";
+                    if (activePage() != kPageStart || !shown(gNewWnd)) log << "start page, first show: NOT SHOWN (the page is " << activePage() << ")\n";
                     else {
                         log << "start page, first show (in the open run, not at launch) (ms): " << ms << "\n";
-                        paint("start page", gNew.wnd);
+                        paint("start page", gNewWnd);
                         const auto t1 = std::chrono::steady_clock::now();
                         openNewPage(0), pump();  // what the New card does
                         const double nms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t1).count();
-                        if (activePage() != kPageNew || !shown(gNew.wnd)) log << "new page, first show: NOT SHOWN (the page is " << activePage() << ")\n";
+                        if (activePage() != kPageNew || !shown(gNewWnd)) log << "new page, first show: NOT SHOWN (the page is " << activePage() << ")\n";
                         else {
                             log << "new page, first show (the preview is made later, on a timer) (ms): " << nms << "\n";
-                            paint("new page", gNew.wnd);
+                            paint("new page", gNewWnd);
                         }
                     }
                     if (gActive != doc && activePage()) closeDoc(gActive);  // the page tab goes
@@ -24466,16 +24468,16 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                     for (int i = 0; i < 6; ++i) pump(), Sleep(10);
                 };
-                gNew.generate = true, gNew.copyMap = gNew.terrainOnly = false, newChanged();
+                gNew.generate = true, gNew.copyMap = gNew.terrainOnly = false, gNew.changed();
                 paint();
                 const LONG genY = gNew.footer.top;
                 capture(fs::path(datashots) / "newpage_gen.png");
-                gNew.generate = false, gNew.copyMap = true, newChanged();
+                gNew.generate = false, gNew.copyMap = true, gNew.changed();
                 paint();
                 const LONG importY = gNew.footer.top;
                 capture(fs::path(datashots) / "newpage_import.png");
                 o << "Create at " << genY << " (Generate) and " << importY << " (Import): " << (genY == importY ? "the same" : "MOVED") << "\n";
-                gNew.copyMap = false, gNew.generate = true, newChanged();
+                gNew.copyMap = false, gNew.generate = true, gNew.changed();
                 paint();
                 gNew.project = false;  // a map in this tab (no project folder)
                 const bool made = newCreate();
