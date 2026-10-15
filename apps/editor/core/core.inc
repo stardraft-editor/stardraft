@@ -44,6 +44,8 @@
 #include "views_data_strings.inc"
 #include "views_data_buttons.inc"
 #include "data_model.inc"
+#include "data_nav.inc"  // the Data workspace's pins, back and forward, clipboard, menus and entry pictures
+#include "data_pictures.inc"  // the Data pictures' model: the game's images, the image player, the timeline, the portraits
 #include "game_text_model.inc"
 #include "views_data_button_pop.inc"
 #include "views_game_text.inc"

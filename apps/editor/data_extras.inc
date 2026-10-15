@@ -52,8 +52,7 @@ bool writeExtrasEdits(EudProject& pr, std::string& err) {
 
 const UnitPalette::Bitmap* tabEntryIcon(int tab, int e) {
     if (tab == stringsTab()) return nullptr;
-    if (tab == buttonsTab()) return e < 228 ? entryIcon(datTabOf("units"), e) : nullptr;
-    return entryIcon(tab, e);
+    return dataPictureBitmap(dataTabEntryPicture(tab, e));  // (core/data_nav.inc)
 }
 
 // --- Game text, drawn as the game colors it ------------------------------------------------------------------
@@ -74,35 +73,7 @@ void extrasChanged() {
     InvalidateRect(gData.list, nullptr, FALSE);
 }
 
-// Copy a unit's display (status panel, wireframes) and button set with its values (#11): Paste everything gives them
-// to another unit. Its own wireframes and the game's panel are copied as that unit's, so the other unit looks the same.
-struct UnitExtrasClip {
-    int from = -1;  // -1: nothing copied
-    UnitLooks::Unit looks;
-    int buttonSet = -1;
-} gUnitExtrasClip;
-void extrasCopyUnit(int u) {
-    if (u < 0 || u >= UnitLooks::kUnits) return void(gUnitExtrasClip.from = -1);
-    UnitLooks::Unit l = gExtras.looks.unit(u);
-    l.status = gExtras.looks.status(u), l.display = gExtras.looks.display(u);
-    if (l.wireframe < 0 && u < UnitLooks::kWireframes) l.wireframe = u;
-    if (l.groupWireframe < 0 && u < UnitLooks::kGroupWireframes) l.groupWireframe = u;
-    if (l.transportWireframe < 0 && u < UnitLooks::kTransportWireframes) l.transportWireframe = u;
-    gUnitExtrasClip = {u, l, gExtras.buttons.unitSet(u)};
-}
-bool extrasCanPasteUnit(int to) { return gUnitExtrasClip.from >= 0 && to >= 0 && to < UnitLooks::kUnits && to != gUnitExtrasClip.from; }
-// Into the project's copy only: the caller saves (dataSaved) and so makes the undo steps.
-void extrasPasteUnit(int to) {
-    if (!extrasCanPasteUnit(to)) return;
-    UnitLooks::Unit l = gUnitExtrasClip.looks;
-    if (l.status == gExtras.looks.stockStatus(to)) l.status = 0;  // the game's own for that unit: not a change
-    if (l.display == gExtras.looks.stockDisplay(to)) l.display = 0;
-    if (l.wireframe == to) l.wireframe = -1;
-    if (l.groupWireframe == to) l.groupWireframe = -1;
-    if (l.transportWireframe == to) l.transportWireframe = -1;
-    gExtras.looks.set(to, l);
-    if (gUnitExtrasClip.buttonSet >= 0) gExtras.buttons.setUnitSet(to, gUnitExtrasClip.buttonSet);
-}
+// (Copy a unit's display and button set with its values, extrasCopyUnit and extrasPasteUnit: core/data_nav.inc.)
 
 // The title block: icon, name, and a line under it ("stat_txt.tbl string 12  ·  changed  ·  Reset").
 int formTitle(HDC dc, const FormLayout& l, int y, const UnitPalette::Bitmap* icon, const std::wstring& title, const std::wstring& sub, bool changed,

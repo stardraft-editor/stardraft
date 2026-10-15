@@ -628,6 +628,15 @@ void SdlHost::dispatch(const SDL_Event& e) {
     case SDL_EVENT_MOUSE_BUTTON_UP: {
         if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN) dismissPopupsExcept(wid);  // a click outside a pop-out closes it
         Win* w = findWin(wid);
+        if (w && (e.button.button == SDL_BUTTON_X1 || e.button.button == SDL_BUTTON_X2)) {
+            // The mouse's back and forward buttons, let go: the view under the mouse (or a view it is in) takes them.
+            if (e.type != SDL_EVENT_MOUSE_BUTTON_UP) return;
+            Point local;
+            const Point at{toPixels(e.button.x, w->density), toPixels(e.button.y, w->density)};
+            for (draw::View* v = w->router->root().viewAt(at, local); v; v = v->parent())
+                if (v->extraButton(e.button.button == SDL_BUTTON_X1 ? 1 : 2)) break;
+            return;
+        }
         const int button = buttonOf(e.button.button);
         if (!w || button < 0) return;
         MouseEvent m;

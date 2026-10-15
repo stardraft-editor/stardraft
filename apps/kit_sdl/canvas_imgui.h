@@ -36,6 +36,10 @@ void unloadIconAtlases();
 // RGBA8 pixels (straight alpha, rows from the top) as a texture the GPU samples. Null on failure.
 SDL_GPUTexture* uploadRgba(SDL_GPUDevice* device, int w, int h, const uint8_t* rgba);
 
+// A bitmap as an image (draw::Image: for the views that take one, such as a list's icons): its texture, made or brought
+// up to date now. The image is good while the bitmap is there and unchanged (the texture is the bitmap's own).
+draw::Image imageOfBitmap(SDL_GPUDevice* device, draw::Bitmap& b);
+
 // Text helpers: UTF-8 of a wide text, and the byte index after the code point at `i`.
 std::string utf8Text(std::wstring_view w);
 size_t utf8Next(const std::string& s, size_t i);
