@@ -7,6 +7,7 @@
 //        stardraft_editor [map] --snapshot <out.png> [--size <w>x<h>] [--scale <s>]
 //
 // --snapshot: draws one frame without a window (SDL_VIDEODRIVER=offscreen needs no display), writes it, exits.
+// --silent: a test run that drives the window plays no sound (a snapshot plays none either).
 // The StarCraft install: --install, then STARDRAFT_INSTALL, the folder chosen before, then the usual folders of each
 // system (core/install_search.inc); when none opens, the window asks for the folder.
 
@@ -72,6 +73,9 @@ namespace fs = std::filesystem;
 namespace draw = stardraft::draw;
 namespace kit_sdl = stardraft::kit_sdl;
 
+// Test runs play no sound: the user may be at the computer (the Windows program's gSilent, main.cpp).
+bool gSilent = false;
+
 // The portable core (the same files the Windows program includes, in the same order, core_check.cpp).
 #include "core/core.inc"
 
@@ -86,6 +90,7 @@ namespace kit_sdl = stardraft::kit_sdl;
 #include "sdl_map_pages.inc"  // the map pages: Properties, Players and forces, Data (core/views_map_pages.inc and its views)
 #include "sdl_new_page.inc"  // the New page (core/views_new_page.inc)
 #include "sdl_options.inc"  // Program options and Report feedback (core/views_options.inc, core/views_feedback.inc)
+#include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
 #include "shell_sdl.inc"
 
 namespace {
@@ -196,8 +201,10 @@ int main(int argc, char** argv) {
         else if (a == "--workspace") workspaceArg = next();  // a workspace's name (map, data, triggers, project...), for a snapshot
         else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
         else if (a == "--dialog") dialogArg = next();  // options or feedback: that window's view is the snapshot (--size its size)
+        else if (a == "--silent") gSilent = true;
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
+    if (!snapshot.empty()) gSilent = true;
     if (!SDL_Init(SDL_INIT_VIDEO)) return std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()), 1;
 
     // The device first (the renderer makes it with its shader formats), then the host on it.
@@ -232,6 +239,7 @@ int main(int argc, char** argv) {
         registerMapCommands();  // the Map workspace's command table (core/map_commands.inc): the menus and keys read it
         registerWorkspaceView(Workspace::Files, gFilesPage);  // the Assets / Files workspace (sdl_files.inc)
         registerMapPages();  // the map pages' workspaces (sdl_map_pages.inc)
+        registerWorkspaceView(Workspace::Briefing, gSdlBriefing);  // the Briefing workspace (sdl_briefing.inc)
         initStartPage();  // the start page's callbacks (sdl_start.inc)
         MainView root;
         gRoot = &root;
