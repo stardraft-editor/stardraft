@@ -172,10 +172,8 @@ int main(int argc, char** argv) {
         gRoot = &root;
         rebuildMenus();
         host.setQuitRequest(requestQuit);  // the window's close and the system's quit ask about unsaved changes first
-        host.setFrameHook([](SDL_GPUCommandBuffer* cmd) {
-            runPosted();
-            drawMapOfRoot(cmd);
-        });
+        host.setBeforePump(runPosted);  // the posted work runs outside the frame hook (a dialog it opens pumps frames)
+        host.setFrameHook([](SDL_GPUCommandBuffer* cmd) { drawMapOfRoot(cmd); });
         if (!mapArg.empty()) openMap(widen(mapArg), true);
         if (!gDataOk) setMessage(widen(gDataError));
         std::printf("stardraft_editor: GPU %s, %s\n", renderer.driver(), gDataOk ? "game data" : gDataError.c_str());

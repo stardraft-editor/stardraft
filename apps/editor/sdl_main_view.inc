@@ -122,7 +122,7 @@ struct MapView final : draw::View {
     bool mouse(const draw::MouseEvent& e) override {
         switch (e.kind) {
         case draw::MouseKind::Down:
-        case draw::MouseKind::DoubleClick:
+        case draw::MouseKind::DoubleClick: {
             if (e.button == 2) {  // middle: pan
                 panning = true, last = e.pt;
                 if (draw::Host* h = host()) h->capture(*this, true);
@@ -140,6 +140,7 @@ struct MapView final : draw::View {
             mapMouseDown(gState, e.pt.x, e.pt.y, second ? (e.mods & ~draw::kShift) : e.mods);  // (the Windows program drops Shift here too)
             invalidate();
             return true;
+        }
         case draw::MouseKind::Move:
             gState.mouseX = e.pt.x, gState.mouseY = e.pt.y, gState.mouseIn = true;
             if (panning) {
