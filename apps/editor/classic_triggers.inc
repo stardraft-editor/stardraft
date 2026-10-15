@@ -64,6 +64,7 @@ struct ClassicTrigDialog {
 ClassicTrigDialog* gCt = nullptr;  // the working copy of the page that shows (map_pages.inc)
 HWND gCtValueDlg = nullptr;        // the value pop-out (ctValueProc) while it is open
 BatchView* gCtBatchView = nullptr;  // the block dialog (core/views_classic_batch.inc) while it is open
+CtValueView* gCtValueView = nullptr;  // the number pop-out (core/views_classic_value.inc) while it is open
 void mapPageChanged();
 
 // Ctrl+C and Ctrl+V: a trigger, a condition or an action. The texts and sounds are kept as text, so a paste into
@@ -503,15 +504,15 @@ uint32_t ctClampNumber(const ClassicParam& p, unsigned long long n) {
     return std::min<uint32_t>(v, kCtVariable - 1);
 }
 
-// The value pop-outs (PRINCIPLES: values are edited in a pop-out with OK and Cancel): a number, or a text in the game
-// text editor (its colors and align buttons). Cancel and a click outside leave the value as it was.
+// The text pop-out (PRINCIPLES: values are edited in a pop-out with OK and Cancel): a text in the game text editor (its
+// colors and align buttons). Cancel and a click outside leave the value as it was. The number pop-out is a kit dialog
+// (core/views_classic_value.inc, ctValuePopout).
 struct CtValueDialog {
-    std::wstring title, label, number;
-    bool text = false;
+    std::wstring title, label;
     std::string textValue;
     HWND textBox = nullptr;
 };
-constexpr int kCvEdit = 1101, kCvText = 1102, kCvLabel = 1103;
+constexpr int kCvText = 1102, kCvLabel = 1103;
 struct CtItem {
     DWORD style;
     short x, y, w, h;
@@ -555,7 +556,7 @@ INT_PTR CALLBACK ctValueProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         SetDlgItemTextW(dlg, IDOK, L"Set");
         SetDlgItemTextW(dlg, IDCANCEL, L"Cancel");
         SetDlgItemTextW(dlg, kCvLabel, st->label.c_str());
-        if (st->text) {  // the game text editor takes the place of the placeholder
+        {  // the game text editor takes the place of the placeholder
             HWND holder = GetDlgItem(dlg, kCvText);
             RECT r;
             GetWindowRect(holder, &r);
@@ -567,12 +568,7 @@ INT_PTR CALLBACK ctValueProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             st->textBox = gameTextCreate(dlg, kCvText, {r.left, r.top, r.right, r.top + th}, spec);
             gameTextSet(st->textBox, st->textValue);
             SetFocus(gameTextFocusBox(st->textBox));
-        } else {
-            SetDlgItemTextW(dlg, kCvEdit, st->number.c_str());
-            SendDlgItemMessageW(dlg, kCvEdit, EM_SETSEL, 0, -1);
-            SetFocus(GetDlgItem(dlg, kCvEdit));
         }
-        darkControl(GetDlgItem(dlg, kCvEdit), L"DarkMode_CFD");
         for (int id : {IDOK, IDCANCEL}) darkControl(GetDlgItem(dlg, id), L"DarkMode_Explorer");
         BOOL dark = !gLightTheme;
         DwmSetWindowAttribute(dlg, 20, &dark, sizeof dark), titleColors(dlg);
@@ -591,8 +587,7 @@ INT_PTR CALLBACK ctValueProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
     CtValueDialog* st = state();
     const int id = LOWORD(wp);
     if (id == IDOK) {
-        if (st->text) st->textValue = gameTextGet(st->textBox);
-        else st->number = windowText(GetDlgItem(dlg, kCvEdit));
+        st->textValue = gameTextGet(st->textBox);
         EndDialog(dlg, IDOK);
         return TRUE;
     }
@@ -606,15 +601,9 @@ INT_PTR CALLBACK ctValueProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
 // Runs a value pop-out: true when OK was clicked (st holds the value).
 bool ctValueRun(CtValueDialog& st) {
     std::vector<CtItem> items;
-    short w = 240, h = 92;
-    if (st.text) {
-        w = 330, h = 176;
-        items.push_back({SS_LEFT, 8, 8, 310, 10, kCvLabel, 0x0082, L""});
-        items.push_back({SS_LEFT, 8, 20, 310, 100, kCvText, 0x0082, L""});
-    } else {
-        items.push_back({SS_LEFT, 8, 10, 110, 10, kCvLabel, 0x0082, L""});
-        items.push_back({WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL | ES_NUMBER, 120, 8, 100, 14, kCvEdit, 0x0081, L""});
-    }
+    const short w = 330, h = 176;
+    items.push_back({SS_LEFT, 8, 8, 310, 10, kCvLabel, 0x0082, L""});
+    items.push_back({SS_LEFT, 8, 20, 310, 100, kCvText, 0x0082, L""});
     items.push_back({WS_TABSTOP | BS_DEFPUSHBUTTON, short(w - 116), short(h - 22), 50, 14, IDOK, 0x0080, L""});
     items.push_back({WS_TABSTOP | BS_PUSHBUTTON, short(w - 60), short(h - 22), 50, 14, IDCANCEL, 0x0080, L""});
     const std::vector<WORD> t = ctDialogTemplate(st.title, w, h, items);
@@ -623,7 +612,8 @@ bool ctValueRun(CtValueDialog& st) {
     return r == IDOK;
 }
 
-// The pop-out of a number or a text value of the selected entry (parameter i). OK sets the value.
+// The pop-out of a number or a text value of the selected entry (parameter i). OK sets the value. A number is a kit
+// dialog (core/views_classic_value.inc, runValueDialog: the page's window owns it); a text is the game text editor.
 void ctValuePopout(int i) {
     const ClassicCondition* c = ctCondition();
     const ClassicAction* a = ctAction();
@@ -631,15 +621,23 @@ void ctValuePopout(int i) {
     if (!def || i < 0 || i >= int(def->params.size())) return;
     const ClassicParam& p = def->params[size_t(i)];
     const uint32_t v = c ? classicValue(*c, p.field) : classicValue(*a, p.field);
+    if (p.kind != ClassicKind::Text) {
+        std::wstring number;
+        // The dialog is over the page's window, and the page waits until it closes.
+        gMainAnchor.host.ownerWindow(gCt && gCt->wnd ? gCt->wnd : app.main);
+        const int r = runValueDialog(gMainAnchor.view, ctKindLabel(p.kind, p.name), ctKindLabel(p.kind, p.name), std::to_wstring(v), number, gCtValueView);
+        gMainAnchor.host.ownerWindow(app.main);
+        if (r != kValueOk) return;
+        ctSetValue(i, ctClampNumber(p, wcstoull(number.c_str(), nullptr, 10)));
+        ctBuildEditor();
+        return;
+    }
     CtValueDialog st;
     st.title = ctKindLabel(p.kind, p.name);
     st.label = ctKindLabel(p.kind, p.name);
-    st.text = p.kind == ClassicKind::Text;
-    if (st.text) st.textValue = gCt->strings.get(v);
-    else st.number = std::to_wstring(v);
+    st.textValue = gCt->strings.get(v);
     if (!ctValueRun(st)) return;
-    if (st.text) ctSetText(i, st.textValue);
-    else ctSetValue(i, ctClampNumber(p, wcstoull(st.number.c_str(), nullptr, 10)));
+    ctSetText(i, st.textValue);
     ctBuildEditor();
 }
 
@@ -1742,7 +1740,10 @@ VOID CALLBACK ctShotTimer(HWND, UINT, UINT_PTR id, DWORD) {
         break;
     case CtShot::Dialog: {
         if (gCtValueDlg) capture(gCtShotFile, gCtValueDlg), PostMessageW(gCtValueDlg, WM_COMMAND, IDCANCEL, 0);
-        else if (gCtBatchView) {
+        else if (gCtValueView) {
+            if (HWND w = ui::Win32Host::windowOf(*gCtValueView)) capture(gCtShotFile, w);
+            gCtValueView->cancel();
+        } else if (gCtBatchView) {
             if (HWND w = ui::Win32Host::windowOf(*gCtBatchView)) capture(gCtShotFile, w);
             gCtBatchView->cancel();
         }
@@ -1789,7 +1790,7 @@ void classicTrigDatashot(const std::string& spec, const fs::path& dir) {
         const std::string light = gLightTheme ? "_light" : "";
         // The states of the page (classictrig:<state>): the page as the map has it, then the state. A pop-out is captured
         // by its own timer (classictrig_popout_<state>.png) and closed; the page is captured after it.
-        if (gBackground && (mode == "value" || mode == "text"))  // a native pop-out activates its window: not in a background run
+        if (gBackground && mode == "text")  // the native text pop-out activates its window: not in a background run
             log << mode << ": NOT captured (its dialog takes the focus; run it in the foreground)\n";
         const std::string scaleName = app.dpi >= 180 ? "_200" : "";  // (dpi:192 before the spec: 200 %)
         const fs::path popout = out / ("classictrig_popout_" + mode + scaleName + light + ".png");
@@ -1802,7 +1803,7 @@ void classicTrigDatashot(const std::string& spec, const fs::path& dir) {
         } else if (mode == "add") {  // the add-action picker with the Blocks group first
             ctSelectTrigger(0);
             ctModalShot(CtShot::Picker, popout, [] { ctAddClick(1, RECT{scale(10), 0, scale(200), scale(30)}); });
-        } else if ((mode == "value" || mode == "text") && !gBackground) {  // a number (a Bring's count) or a text (Display text message): OK and Cancel
+        } else if (mode == "value" || (mode == "text" && !gBackground)) {  // a number (a Bring's count; a kit dialog) or a text (Display text message): OK and Cancel
             ctAddTrigger();
             if (mode == "value") ctAddEntry(0, 3);  // Bring: its count is the number
             else ctAddEntry(1, 9);                  // Display text message: its text
