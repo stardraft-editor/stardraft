@@ -1201,11 +1201,12 @@ int snapChoice(int grid) {
 bool selectionFitsAt(float dx, float dy) {
     Editor& ed = *app.ed;
     const auto& units = ed.units();
+    const std::vector<int> moving = ed.withLinkedAddons(ed.selection());  // a building's add-on goes with it
     std::vector<Unit> others;
     for (size_t i = 0; i < units.size(); ++i)
-        if (!ed.isSelected(int(i))) others.push_back(units[i]);
+        if (std::find(moving.begin(), moving.end(), int(i)) == moving.end()) others.push_back(units[i]);
     const PlacementContext ctx = ed.placementContext(&others);
-    for (int i : ed.selection()) {
+    for (int i : moving) {
         Unit m = units[size_t(i)];
         m.x = uint16_t(std::clamp(int(std::lround(m.x + dx)), 0, ed.width() * 32 - 1));
         m.y = uint16_t(std::clamp(int(std::lround(m.y + dy)), 0, ed.height() * 32 - 1));
@@ -1360,11 +1361,14 @@ render::Scene buildScene() {
     // Units (selected ones follow the cursor while being dragged).
     const auto& units = ed.units();
     std::vector<Unit> others;  // unselected units, to check dragged ones against
-    if (moveDX || moveDY)
+    std::vector<bool> moving(units.size(), false);  // the selection and its buildings' add-ons
+    if (moveDX || moveDY) {
+        for (int i : ed.withLinkedAddons(ed.selection())) moving[size_t(i)] = true;
         for (size_t i = 0; i < units.size(); ++i)
-            if (!ed.isSelected(int(i))) others.push_back(units[i]);
+            if (!moving[i]) others.push_back(units[i]);
+    }
     for (size_t i = 0; i < units.size() && gLayers.units; ++i) {
-        bool sel = (moveDX || moveDY) && ed.isSelected(int(i));
+        bool sel = (moveDX || moveDY) && moving[i];
         bool red = false;
         if (sel) {
             Unit moved = units[i];
@@ -5073,14 +5077,15 @@ void mouseMove(int sx, int sy) {
     toWorld(sx, sy, wx, wy);
     if (app.drag == Drag::Paint && app.ed) {
         // Over the same terrain: new variants each half brush along the drag (not on every small move).
-        if (std::hypot(wx - gRerollX, wy - gRerollY) >= std::max(16.0f, app.brushSize * 32) &&
+        const float extent = std::min(app.brushSize, currentBrush().height());  // a flat brush: its smaller side
+        if (std::hypot(wx - gRerollX, wy - gRerollY) >= std::max(16.0f, extent * 32) &&
             app.ed->brushAllTerrain(int(wx), int(wy), currentBrush(), uint16_t(app.palette))) {
             app.ed->rerollTerrain(int(wx), int(wy), currentBrush(), app.spraySeed++);
             gRerollX = wx, gRerollY = wy;
         }
         // A fast move skips ground: paint the way from the last point too, at most half a brush apart, and at most 8
         // more steps a move (zoomed far out, one move crosses much of the map; the next moves paint the rest).
-        const float step = std::max(32.0f, app.brushSize * 32), dx = wx - gPaintX, dy = wy - gPaintY, len = std::hypot(dx, dy);
+        const float step = std::max(32.0f, extent * 32), dx = wx - gPaintX, dy = wy - gPaintY, len = std::hypot(dx, dy);
         const int n = std::clamp(int(len / step), 0, 8);
         for (int k = 1; k <= n; ++k)
             app.ed->paintBrush(int(gPaintX + dx * k / (n + 1)), int(gPaintY + dy * k / (n + 1)), uint16_t(app.palette), currentBrush());
@@ -19276,7 +19281,8 @@ int toolStripHeight(int width, bool titled) {
     // Terrain: the tools, then the shapes on a row of their own; the others: the tools.
     const int rows = (tools + perRow - 1) / perRow + (app.mode == Mode::Terrain ? (3 + perRow - 1) / perRow : 0);
     const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap : 0) + (stripHasDensity() ? scale(26) + gap : 0) +
-                      (app.mode == Mode::Terrain ? scale(26) + gap : 0);  // Terrain: Isometric | Rectangle
+                      (app.mode == Mode::Terrain ? scale(26) + gap : 0) +  // Terrain: Isometric | Rectangle
+                      (app.mode == Mode::Terrain && stripHasSize() ? scale(26) + gap : 0);  // Terrain: the brush's Height
     return (titled ? scale(24) : 0) + rows * b + (rows - 1) * gap + extra;
 }
 void paintToolStrip(HWND hwnd) {
@@ -27332,6 +27338,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                 capture(fs::path(datashots) / "addon.png", app.view);
                 ed.select(c.index, false);  // the command center only: its add-on moves with it
+                o << "a drag of the building 2 tiles right fits (its own add-on is not in the way) " << (selectionFitsAt(64, 0) ? "yes" : "NO") << "\n";
                 const int moved = ed.moveSelection(5 * 32, 0, false);
                 const Unit& b = ed.units()[size_t(c.index)];
                 const Unit& m = ed.units()[size_t(a.index)];

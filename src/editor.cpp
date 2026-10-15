@@ -517,6 +517,7 @@ void Editor::pruneUnits(const std::vector<int>& wasPlaceable) {
     if (gone.empty()) return;
     for (auto it = gone.rbegin(); it != gone.rend(); ++it) units_.erase(units_.begin() + *it);
     selection_.clear();
+    fixAddonLinks();  // an add-on whose building went (or the other way): no link
     writeUnits(chk_, units_);
     removedByTerrain_ += int(gone.size());
     commit(false);
@@ -1581,6 +1582,7 @@ int Editor::updateUnits(const std::vector<int>& indices, const std::function<voi
     if (changed.empty()) return 0;
     beginEdit();
     for (const auto& [i, u] : changed) units_[i] = u;
+    fixAddonLinks();  // a building moved or replaced by a type that takes no such add-on: no link
     writeUnits(chk_, units_);
     commit(false);
     return int(changed.size());
@@ -1611,6 +1613,7 @@ int Editor::replaceUnits(uint16_t from, uint16_t to, bool selectionOnly) {
         units_[i] = u;
         against.push_back(u);
     }
+    fixAddonLinks();  // a building moved or replaced by a type that takes no such add-on: no link
     writeUnits(chk_, units_);
     commit(false);
     return int(targets.size());
@@ -1842,6 +1845,17 @@ int Editor::moveSelection(int dx, int dy, bool correct) {
         u.y = uint16_t(std::clamp(int(u.y) + dy, 0, height_ * 32 - 1));
         if (u.type < types_.size()) snapToGrid(types_[u.type], u.x, u.y);
         moved.push_back(u);
+    }
+    // A linked add-on moving with its building: on the building's add-on spot (the building may have stopped at the map's
+    // edge, where the add-on alone would have gone on).
+    for (size_t k = 0; k < sel.size(); ++k) {
+        const Unit& a = units_[size_t(sel[k])];
+        if (!(a.links & UnitLink::Addon) || addonParent(a.type) < 0) continue;
+        for (size_t j = 0; j < sel.size(); ++j)
+            if (units_[size_t(sel[j])].serial == a.relatedSerial && moved[j].type < types_.size() && a.type < types_.size()) {
+                const auto [ax, ay] = addonSpot(types_[moved[j].type], moved[j], types_[a.type]);
+                moved[k].x = uint16_t(std::clamp(ax, 0, width_ * 32 - 1)), moved[k].y = uint16_t(std::clamp(ay, 0, height_ * 32 - 1));
+            }
     }
     // As a group: the units keep their places to each other (as they were, also when they overlap).
     bool fits = true;
