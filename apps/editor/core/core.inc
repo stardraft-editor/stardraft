@@ -63,4 +63,5 @@
 #include "views_feedback.inc"
 #include "views_message_box.inc"
 #include "views_about.inc"
+#include "views_tip.inc"
 #include "title.inc"

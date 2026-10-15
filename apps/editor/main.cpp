@@ -467,6 +467,7 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_feedback.inc"  // the feedback dialog's view (FeedbackView; the host is feedback.inc and feedback_window.inc)
 #include "core/views_message_box.inc"  // the message box (MessageView, runMessageBox; the host is message_box.inc)
 #include "core/views_about.inc"  // Help > About StarDraft (AboutView; the host is about.inc)
+#include "core/views_tip.inc"  // the hover tooltip (TipView; the Windows host is tip_win32.inc)
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
 
 void rebuildList() { rebuildList(app); }
@@ -3657,6 +3658,7 @@ void fadeIn(HWND w, int show) {
 #include "canvas_gdi.inc"
 #include "ui_kit.inc"
 #include "view_win32.inc"
+#include "tip_win32.inc"  // the hover tooltips: the core's TipView in a Tooltip window (view windows, ui::Surface, the Data form)
 
 // --- The log's bar as a view (apps/common/view.h) ---------------------------------------------------------------
 // The log window is a view window (kViewClass) whose child is the native read-only edit with the full log. The view
@@ -6013,8 +6015,6 @@ struct {
     std::function<void()> click, release;
     bool down = false, moved = false, notEdit = false;
 } gWidgetDrag;
-HWND gWidgetTips = nullptr;
-int gWidgetTipCount = 0;
 std::set<std::string> gHotFields;  // fields under the mouse: in the form or in a widget
 bool hot(const char* field) { return gHotFields.count(field) != 0; }
 bool hotAny(std::initializer_list<const char*> fields) {
@@ -8272,28 +8272,12 @@ int dataWidgets(HDC dc, const std::string& dat, int section, int e, int x, int y
     return bottom;
 }
 
-// The form's tooltips: one tool per widget area with a tip, set again after each paint.
+// The form's tooltips: the kit's (tip_win32.inc), with the tip of the widget area under the mouse.
 void dataWidgetTips() {
-    if (!gWidgetTips) {
-        gWidgetTips = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, 0, 0, 0, 0, gData.form, nullptr,
-                                      app.inst, nullptr);
-        SendMessageW(gWidgetTips, TTM_SETMAXTIPWIDTH, 0, scale(360));
-        styleTips(gWidgetTips);
-    }
-    for (int i = 0; i < gWidgetTipCount; ++i) {
-        TOOLINFOW ti{sizeof ti};
-        ti.hwnd = gData.form, ti.uId = UINT_PTR(i + 1);
-        SendMessageW(gWidgetTips, TTM_DELTOOLW, 0, LPARAM(&ti));
-    }
-    gWidgetTipCount = 0;
-    for (auto& h : gWidgetHits) {
-        if (h.tip.empty()) continue;
-        TOOLINFOW ti{sizeof ti};
-        ti.uFlags = TTF_SUBCLASS;
-        ti.hwnd = gData.form, ti.uId = UINT_PTR(++gWidgetTipCount), ti.rect = h.r;
-        ti.lpszText = h.tip.data();
-        SendMessageW(gWidgetTips, TTM_ADDTOOLW, 0, LPARAM(&ti));
-    }
+    static HWND attached = nullptr;
+    if (attached == gData.form) return;
+    attached = gData.form;
+    ui::hoverTipsAttach(gData.form, [](POINT p) { return ui::hitTipAt(gWidgetHits, p); }, &gWidgetHits);
 }
 
 #include "data_extras.inc"
@@ -8477,13 +8461,6 @@ void paintDataForm(HWND hwnd) {
         return;
     }
     gPlayerArea.valid = false;  // set again if this paint has the player
-    // The tooltips point at the last paint's tips: take them away before those go.
-    for (int i = 0; gWidgetTips && i < gWidgetTipCount; ++i) {
-        TOOLINFOW ti{sizeof ti};
-        ti.hwnd = gData.form, ti.uId = UINT_PTR(i + 1);
-        SendMessageW(gWidgetTips, TTM_DELTOOLW, 0, LPARAM(&ti));
-    }
-    gWidgetTipCount = 0;
     gWidgetHits.clear();
     gGridAreas.clear(), gGridLabels.clear();
     HDC mem = CreateCompatibleDC(dc);
@@ -20590,22 +20567,19 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 DestroyMenu(m);
                 continue;
             }
-            if (s == "tooltip:") {  // tooltip[_light].png: a tooltip shown off the screen (tracked), as the kit's tooltips look
-                HWND tips = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, 0, 0, 0, 0, app.main, nullptr,
-                                            app.inst, nullptr);
-                SendMessageW(tips, TTM_SETMAXTIPWIDTH, 0, scale(360));
-                styleTips(tips);
-                std::wstring text = L"Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).";
-                TOOLINFOW ti{sizeof ti};
-                ti.uFlags = TTF_TRACK | TTF_ABSOLUTE, ti.hwnd = app.main, ti.uId = 1, ti.lpszText = text.data();
-                SendMessageW(tips, TTM_ADDTOOLW, 0, LPARAM(&ti));
-                const int x = GetSystemMetrics(SM_XVIRTUALSCREEN) + GetSystemMetrics(SM_CXVIRTUALSCREEN) + 100;
-                SendMessageW(tips, TTM_TRACKPOSITION, 0, MAKELPARAM(x, 10));
-                SendMessageW(tips, TTM_TRACKACTIVATE, TRUE, LPARAM(&ti));
-                for (int i = 0; i < 5; ++i) pump();
-                RedrawWindow(tips, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
-                capture(fs::path(datashots) / (std::string("tooltip") + (gLightTheme ? "_light" : "") + ".png"), tips);
-                DestroyWindow(tips);
+            if (s == "tooltip:") {  // tooltip[_light].png: the kit's tooltip (tip_win32.inc), shown off the screen
+                const std::wstring text = L"Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).";
+                HWND tips = ui::gHoverTips.showAt(app.main, {GetSystemMetrics(SM_XVIRTUALSCREEN), 10}, text);  // (a background run: off the screen)
+                for (int i = 0; i < 10; ++i) pump(), Sleep(20);  // (the window's first frame is composed)
+                if (tips) {
+                    RedrawWindow(tips, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+                    // Twice: the first capture of a tooltip window is black (PrintWindow composes it then), the second is the window.
+                    const fs::path file = fs::path(datashots) / (std::string("tooltip") + (gLightTheme ? "_light" : "") + ".png");
+                    capture(file, tips);
+                    for (int i = 0; i < 3; ++i) pump(), Sleep(20);
+                    capture(file, tips);
+                }
+                ui::gHoverTips.hide();
                 continue;
             }
             if (s == "pickstyle:") {  // pickstyle[_light].png: a list picker with sections, the current value and typed text
