@@ -24,7 +24,6 @@ SDL_GPUTexture* gMapTex = nullptr;
 int gMapW = 0, gMapH = 0;
 const Editor* gMapEd = nullptr;  // the editor the renderer's sources are set for
 uint64_t gTerrainRev = ~0ull;    // ... and the terrain revision they have
-bool gMapFitPending = false;     // a map was opened: the camera fits it on the next frame
 
 void releaseMapTexture() {
     if (gMapTex && gDevice) SDL_ReleaseGPUTexture(gDevice, gMapTex);
@@ -105,7 +104,7 @@ struct NotHereView final : draw::View {
 // The map view: the texture of the map (drawn by the frame hook) and the core's map input.
 struct MapView final : draw::View {
     bool panning = false;  // the middle button (or a drag with it) pans
-    bool rightStroke = false;  // a Shift stroke paints with the second terrain; the palette is the first one again after it
+    bool rightStroke = false;  // a Shift+left stroke paints with the second terrain; the palette is the first one again after it
     int savedPalette = -1;
     draw::Point last;
     bool open() const { return gState.ed && gState.ed->isOpen(); }
@@ -128,11 +127,14 @@ struct MapView final : draw::View {
                 if (draw::Host* h = host()) h->capture(*this, true);
                 return true;
             }
-            const bool second = e.button == 1 && (e.mods & draw::kShift) && !(e.mods & (draw::kCtrl | draw::kAlt)) && open() && secondPaints();
-            if (second) {  // Shift + left: paints with the second terrain (isometric terrain, as the Windows program)
+            // Shift with the left button paints with the second terrain (isometric terrain, as the Windows program); the
+            // right button does nothing here (its map menu is not on this system yet).
+            const bool second = e.button == 0 && (e.mods & draw::kShift) && !(e.mods & (draw::kCtrl | draw::kAlt)) &&
+                                gState.drag == Drag::None && open() && secondPaints();
+            if (second) {
                 rightStroke = true, savedPalette = gState.palette;
                 gState.palette = gState.palette2;
-            } else if (!open()) {
+            } else if (e.button == 1 || !open()) {
                 return false;
             }
             if (draw::Host* h = host()) h->capture(*this, true);
@@ -160,7 +162,7 @@ struct MapView final : draw::View {
                 if (draw::Host* h = host()) h->capture(*this, false);
                 return true;
             }
-            if (rightStroke && e.button == 1) {  // the end of a right stroke: the left button's terrain again
+            if (rightStroke && e.button == 0) {  // the end of a second-terrain stroke: the first terrain again
                 rightStroke = false;
                 mapMouseUp(gState, e.pt.x, e.pt.y, e.mods);
                 gState.palette = savedPalette;
@@ -289,21 +291,11 @@ struct MainView final : draw::View {
     }
 };
 
-// The camera fits the open map in the map view (the whole map, as far as the view allows; 1/16 to 4 times).
-void fitMapToView(float w, float h) {
-    const float mw = gState.ed->width() * 32.0f, mh = gState.ed->height() * 32.0f;
-    gState.zoom = std::clamp(std::min(w / mw, h / mh), 1.0f / 16, 4.0f);
-    gState.camX = (mw - w / gState.zoom) / 2, gState.camY = (mh - h / gState.zoom) / 2;
-}
-
 // The frame hook's map work (the window's map view size, in pixels).
 void drawMapOfRoot(SDL_GPUCommandBuffer* cmd) {
     if (!gRoot) return;
     menusIfDirty();
     const int w = gRoot->map.width(), h = gRoot->map.height();
-    if (gMapFitPending && gState.ed && gState.ed->isOpen() && w > 0 && h > 0) {
-        fitMapToView(float(w), float(h));
-        gMapFitPending = false;
-    }
+    if (gFitPending && w > 0 && h > 0) fitMap();  // (the map opened before the view had its size)
     drawMapFrame(cmd, w, h);
 }

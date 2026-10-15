@@ -19,5 +19,6 @@ bool classicCommandInProject(int) { return false; }  // (a query: no project of 
 
 // The map pages, the button sets and the New page are not on this system yet.
 void mapPageClose() {}
+bool mapPagesConfirm() { return true; }  // (no map page has changes that are not applied)
 std::wstring buttonSetName(int s) { return L"Button set " + std::to_wstring(s); }
 const wchar_t* gNewTitle() { return L"New classic project"; }

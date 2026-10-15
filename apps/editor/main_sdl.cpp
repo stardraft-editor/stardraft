@@ -39,6 +39,7 @@
 #include "sdl_host.h"
 #include "core/tr.h"
 #include "shell.h"
+#include "message_box.h"  // apps/kit: the save question (shellAskSaveChanges)
 #include "res/ui_icons.h"
 #include "stardraft/commands.h"
 #include "stardraft/dat_edit.h"

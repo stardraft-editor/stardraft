@@ -9,7 +9,28 @@ std::wstring docTitle(int i, bool withMode = true);
 void mapPageClose();  // map_pages.inc: the open map page goes (its working copy stays with its tab)
 void pageSync();
 void openStartPage();
-bool confirmDiscard();
+bool mapPagesConfirm();  // map_pages.inc: the map pages with changes that are not applied: apply them, or not
+// The save question's host parts (shell.h): shellAskSaveChanges answers 0 Save, 1 Do not save or 2 Cancel; shellSaveChanges
+// saves the map (or the unsaved project, which asks where it goes) and says whether it was saved.
+int shellAskSaveChanges(bool project);
+bool shellSaveChanges(bool project);
+
+// Closing the tab (or the window) with work in it: the question, and what it does. False: the close is cancelled.
+bool confirmDiscard() {
+    AppState& app = appState();
+    if (gSelfTest || activePage()) return true;  // a page tab holds no work
+    if (!mapPagesConfirm()) return false;        // map pages with changes that are not applied: apply them, or not
+    if (const EudProject* pr = activeProject(); isUnsavedProject(pr)) {  // a new project: nothing to keep unless it holds work
+        if (!unsavedProjectTouched(*pr)) return true;
+        const int r = shellAskSaveChanges(true);
+        if (r == 2) return false;
+        return r == 1 || shellSaveChanges(true);
+    }
+    if (!app.ed || !app.ed->modified()) return true;
+    const int r = shellAskSaveChanges(false);
+    if (r == 2) return false;
+    return r == 1 || shellSaveChanges(false);
+}
 void dropUnsavedProject(const std::shared_ptr<EudProject>& pr);
 void forgetProject(const EudProject* pr);
 void setMode(Mode m);

@@ -31,56 +31,8 @@ void setGraphics(GraphicsQuality q, bool carbot) {
     gState.dirty = true;
 }
 
-// (until it is in the core) The camera stays near the map: at most half a view past each edge; a map smaller than the view
-// keeps its middle in the view's middle on that axis (the Windows program's clamp; the view's size comes from the shell).
-void clampCamera() {
-    if (!gState.ed || !gState.ed->isOpen() || gState.zoom <= 0) return;
-    int viewW = 0, viewH = 0;
-    shellViewSize(viewW, viewH);
-    const float vw = viewW / gState.zoom, vh = viewH / gState.zoom;
-    const float mw = gState.ed->width() * 32.0f, mh = gState.ed->height() * 32.0f;
-    auto clampAxis = [](float& cam, float view, float map) {
-        if (map < view) {
-            cam = std::clamp(cam, map / 2 - view, map / 2);
-            return;
-        }
-        cam = std::clamp(cam, -view / 2, map - view / 2);
-    };
-    clampAxis(gState.camX, vw, mw);
-    clampAxis(gState.camY, vh, mh);
-}
-
-// (until it is in the core) Shift with the left button paints with the second terrain (isometric terrain with a second
-// terrain, as the Windows program's secondPaints).
-bool secondPaints() {
-    const int tool = currentTool();
-    return gState.ed && gState.mode == Mode::Terrain && !gState.terrainRect && gState.palette2 > 0 &&
-           (tool == TBrush || tool == TSpray || tool == TFill || tool == TReplace);
-}
-
-// (until it is in the core) The mode's own spray density is kept per mode (setMode swaps it in); the tool strip and the
-// palette are not on this system yet.
-void setMode(Mode m) {
-    gState.densityByMode[int(gState.mode)] = gState.sprayDensity;
-    gState.mode = m;
-    gState.sprayDensity = gState.densityByMode[int(m)];
-    shellToolsChanged();
-    shellPaletteRebuilt();
-}
-
-// (until it is in the core) The palette's selection: the one entry that is picked.
-std::vector<int> selectedPalette() {
-    if (gState.palette >= 0) return {gState.palette};
-    return {};
-}
-
-// (until it is in the core) A unit's name: the game's, with its subtitle (the project's custom names are not on this
-// system yet).
-std::wstring unitDisplayName(int u) {
-    if (!gState.ed || u < 0 || u >= int(gState.ed->unitTypes().size())) return L"";
-    const UnitType& t = gState.ed->unitTypes()[uint16_t(u)];
-    return widen(t.name) + (t.subtitle.empty() ? L"" : L" (" + widen(t.subtitle) + L")");
-}
+// (until it is in the core) The project's custom unit names are not on this system yet (data_extras.inc is Win32 for now).
+std::wstring projectUnitName(int) { return L""; }
 
 // (until it is in the core) The workspaces: only the Map is on this system yet.
 void setWorkspace(Workspace w) {
@@ -93,16 +45,3 @@ void openStartPage() {}
 
 // (until it is in the core) Projects are not on this system yet.
 void forgetProject(const EudProject*) {}
-void dropUnsavedProject(const std::shared_ptr<EudProject>&) {}
-
-// (until it is in the core) A map that opened: one tab on this system; the map fits the view on the next frame.
-void addDocument(std::unique_ptr<Editor> ed, bool) {
-    gState.ed = std::move(ed);
-    if (gDocs.empty()) gDocs.emplace_back();
-    gActive = 0;
-    gDocs[0].page = 0;
-    gMapFitPending = true;
-    shellRelayout();
-    gState.dirty = true;
-    updateTitle();
-}
