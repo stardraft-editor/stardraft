@@ -83,5 +83,21 @@ private:
 SearchBox gFilterBox;     // the Locations filter
 SearchBox gPalSearchBox;  // the palette search (Units, Doodads, Sprites)
 
+// A kit dropdown in a view window: the palette's section box. The dropdown fills the window; its choice goes to onChange
+// (the mouse wheel over the closed box steps it too, as the combo box's wheel did).
+class DropdownBox final : public draw::View {
+public:
+    DropdownBox() { add(dropdown_, {0, 0, 0, 0}); }
+    stardraft::kit::Dropdown& dropdown() { return dropdown_; }
+    void resized() override { dropdown_.setFrame({0, 0, width(), height()}); }
+
+private:
+    stardraft::kit::Dropdown dropdown_;
+};
+
+DropdownBox gSectionBox;  // the palette's section box (Units, Doodads, Sprites)
+
 // Whether a search box's field has the keyboard (the message loop leaves its keys to it, as to an edit control).
 bool searchBoxFocused() { return gFilterBox.field().hasFocus() || gPalSearchBox.field().hasFocus(); }
+// A kit dropdown's list is open: it takes the typed letters, as an open combo box's list did.
+bool dropdownListOpen() { return gSectionBox.dropdown().listOpen(); }
