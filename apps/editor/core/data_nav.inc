@@ -297,6 +297,13 @@ DataPicture dataRefPicture(const std::string& dat, uint32_t v) {
     if (dat == "weapons" || dat == "upgrades" || dat == "techdata" || dat == "orders") return dataEntryPicture(datTabOf(dat), int(v));
     return {};
 }
+// A value's picture by its kind (a button's or a requirement's value: a .dat, "icons" or "buttons", a set: its unit's).
+DataPicture dataArgPicture(const char* kind, int v) {
+    if (!kind) return {};
+    const std::string k = kind;
+    if (k == "buttons") return v >= 0 && v < 228 ? DataPicture{DataPicture::Unit, v} : DataPicture{};
+    return datHasIcons(k) ? dataRefPicture(k, uint32_t(v)) : DataPicture{};
+}
 // A list row's picture: the Strings tab has none; a button set has its unit's.
 DataPicture dataTabEntryPicture(int tab, int e) {
     if (tab == stringsTab()) return {};
