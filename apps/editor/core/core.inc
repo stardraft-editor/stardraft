@@ -11,3 +11,5 @@
 #include "layout.inc"
 #include "menu_model.inc"
 #include "commands_core.inc"
+#include "views_status.inc"
+#include "views_stub.inc"

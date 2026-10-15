@@ -335,6 +335,8 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/layout.inc"  // the main window's panes: computeLayout (the placement is layout() below)
 #include "core/menu_model.inc"  // the menu bar as data (buildMenuModel, toHmenu)
 #include "core/commands_core.inc"  // commandPortable: the checks before commandBody's switch
+#include "core/views_status.inc"  // the status bar's view (StatusView; the instance is gStatus below)
+#include "core/views_stub.inc"  // the Triggers, Assets and Project stub's view (StubView; the instance is gStubView)
 
 // The program: its state, and what Win32 and the renderer give it (windows, brushes, the font, the GPU).
 struct App : AppState {
@@ -11758,43 +11760,7 @@ void createWorkspaces(HWND parent) {
 // project: its folder, map, output, and what the .eds builds.
 HWND gStubWnd = nullptr;
 
-// The stub as a view (apps/common/view.h): its window is a view window (kViewClass) that shows gStubView.
-struct StubView final : stardraft::draw::View {
-    void paint(stardraft::draw::Canvas& c) override {
-        using stardraft::draw::Face;
-        using stardraft::draw::FontDesc;
-        using stardraft::draw::Rect;
-        const int w = width(), h = height();
-        c.fill({0, 0, w, h}, kBg);
-        std::wstring title, text;
-        if (gWorkspace == Workspace::Triggers) {
-            title = L"Triggers";
-            text = L"Triggers are in the Triggers workspace of a project.";
-        } else if (gWorkspace == Workspace::Assets) {
-            title = L"Assets";
-            text = L"Not available yet: graphics, sounds, portraits and fonts that you import into the map.";
-        } else if (activeProject()) {
-            title = L"Project: " + widen(activeProject()->name());
-            text.clear();  // the settings are the form's rows
-        } else {
-            title = L"Project";
-            text = L"No project is open. File > Project > New project makes one from the open map. File > Project > Open project opens one.";
-        }
-        // The title: the UI font at 3/2 of its height; the text: the UI font.
-        const stardraft::draw::Font ui = c.font({Face::Ui, 0});
-        const stardraft::draw::Font old = c.setFont(c.font({Face::Ui, titleHeight()}));
-        c.text({scale(40), scale(36), w - scale(40), scale(80)}, title, kText, stardraft::draw::kLeft);
-        c.setFont(ui);
-        c.text({scale(40), scale(84), w - scale(40), h}, text, kDim, stardraft::draw::kWrap | stardraft::draw::kLeft);
-        c.setFont(old);
-    }
-    // The title's font height: the UI font's, at 3/2 (the old stub's big font).
-    static int titleHeight() {
-        LOGFONTW lf{};
-        GetObjectW(app.font, sizeof lf, &lf);
-        return -(lf.lfHeight * 3 / 2);
-    }
-};
+// The stub view (core/views_stub.inc) shows gStubView.
 StubView gStubView;
 
 fs::path scriptPath(const EudProject& pr, const std::string& section) { return pr.scriptFile(section); }
@@ -18632,45 +18598,8 @@ struct ModeBarView final : stardraft::draw::View {
 };
 ModeBarView gModeBarView;
 
-// The status bar as a view: a flat strip drawn in full, the panel color, a hairline on top and between the parts, no
-// bevels. The map's parts (mode and tool, the mouse's place, the zoom, the selection, frames) show in the Map workspace
-// only; the message shows only when there is no log line (which shows it already). The corner keeps room for the size
-// grip, which the bar does not draw: over it, the window resizes from the corner (sizeGrip).
-struct StatusView final : stardraft::draw::View {
-    void paint(stardraft::draw::Canvas& c) override {
-        using stardraft::draw::Rect;
-        using stardraft::draw::kEllipsis;
-        using stardraft::draw::kMiddle;
-        const int w = width(), h = height();
-        c.fill({0, 0, w, h}, kPanel);
-        c.fill({0, 0, w, 1}, kBorder);
-        const bool map = gWorkspace == Workspace::Map && !activePage();  // (a page: Start, the map pages: no map parts)
-        const int pad = scale(8);
-        auto part = [&](int l, int r, int i, COLORREF col) { c.text({l + pad, 1, r - pad, h}, app.statusText[i], col, kMiddle | kEllipsis); };
-        auto sep = [&](int x) { c.fill({x, scale(4), x + 1, h - scale(3)}, kBorder); };
-        int x = scale(4), right = w - scale(16);  // room for the size grip
-        if (map) {
-            const int mins[4] = {150, 200, 110, 100};
-            for (int i = 0; i < 4; ++i) {
-                const int pw = std::max(scale(mins[i]), c.measure(app.statusText[i]) + 2 * pad);
-                part(x, x + pw, i, i == 0 ? kText : kDim);
-                x += pw;
-                sep(x);
-            }
-#ifndef NDEBUG  // frames and sprites: for developers (debug builds), not in the release's status bar
-            const int fw = std::max(scale(130), c.measure(app.statusText[5]) + 2 * pad);
-            if (right - fw > x) {
-                part(right - fw, right, 5, kDim);
-                sep(right - fw);
-                right -= fw;
-            }
-#endif
-        }
-        if (!gLog.wnd && right > x) part(x, right, 4, kText);
-    }
-    bool sizeGrip(stardraft::draw::Point p) override { return p.x >= width() - scale(16) && p.y >= height() - scale(16); }
-};
-StatusView gStatus;
+// The status bar's view (core/views_status.inc) takes the app state's texts.
+StatusView gStatus{app};
 
 // The status bar's height: the message font's line and a frame around it (what the bar had).
 int statusBarHeight() {
