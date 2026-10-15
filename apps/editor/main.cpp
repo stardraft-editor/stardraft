@@ -19390,10 +19390,10 @@ void paintToolStrip(HWND hwnd) {
         L"Brush height: 1 to 32. Click to type a height (empty: the same as the size). The arrows and the mouse wheel change it.";
     if (stripHasSize() && app.mode == Mode::Terrain) {
         // Terrain: the brush in one field the width of the strip (GitHub #113):
-        //   [ shape v | width ^v  x  height ^v | link ]
+        //   [ shape v | width w ^v | height h ^v | link ]
         // The shape opens a list; each number has a spin at its right, takes the mouse wheel and a click types it. The
         // link keeps the height the same as the width (the height then shows in the dim color).
-        const int h = scale(26), seg = scale(40), linkW = scale(34), spin = scale(14), cross = scale(16), pad = scale(4);
+        const int h = scale(26), seg = scale(40), linkW = scale(34), spin = scale(14), pad = scale(4);
         const bool linked = app.brushHeight <= 0;
         const bool editing = gStripEditing == kNumSize || gStripEditing == kNumHeight;
         const RECT box{0, y, int(rc.right), y + h};
@@ -19440,16 +19440,29 @@ void paintToolStrip(HWND hwnd) {
                                       : L"The height has a value of its own. Click to make it the same as the size.",
                                IDC_HAND, {}});
         divider(lk.left);
-        // The width and the height, x between them.
+        // The width and the height, a divider between them.
         const int mx = (sr.right + lk.left) / 2;
-        auto part = [&](int which, int left, int right, const wchar_t* tip) {
+        auto part = [&](int which, int left, int right, const wchar_t* suffix, const wchar_t* tip) {
             const int mid = (box.top + box.bottom) / 2;
             const RECT value{left, box.top, right - spin, box.bottom}, up{right - spin, box.top + pad, right - scale(2), mid},
                 down{right - spin, mid, right - scale(2), box.bottom - pad};
             if (gStripEditing != which) {
+                // The number and a small suffix after it (w: width, h: height), centered together.
+                const std::wstring t = stripNumberText(which);
+                SIZE nsz{}, ssz{};
+                GetTextExtentPoint32W(mem, t.c_str(), int(t.size()), &nsz);
+                HGDIOBJ of = SelectObject(mem, ui::smallFont());
+                GetTextExtentPoint32W(mem, suffix, int(wcslen(suffix)), &ssz);
+                SelectObject(mem, of);
+                const int gx = (value.left + value.right - int(nsz.cx) - scale(2) - int(ssz.cx)) / 2;
                 SetTextColor(mem, which == kNumHeight && linked ? kDim : kText);
-                RECT vt = value;
-                DrawTextW(mem, stripNumberText(which).c_str(), -1, &vt, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
+                RECT vt{gx, value.top, gx + int(nsz.cx), value.bottom};
+                DrawTextW(mem, t.c_str(), -1, &vt, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_NOCLIP);
+                of = SelectObject(mem, ui::smallFont());
+                SetTextColor(mem, kFaint);
+                RECT st{vt.right + scale(2), value.top + scale(2), vt.right + scale(2) + int(ssz.cx), value.bottom};  // near the numbers' baseline
+                DrawTextW(mem, suffix, -1, &st, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_NOCLIP);
+                SelectObject(mem, of);
             }
             for (const bool more : {true, false}) {
                 const RECT k = more ? up : down;
@@ -19462,11 +19475,9 @@ void paintToolStrip(HWND hwnd) {
             gStrip.hits.push_back({down, nullptr, [which] { stripNumberStep(which, -1); }, L"One step less", IDC_HAND, {}});
             gStripNumbers.push_back({{left, box.top, right, box.bottom}, which});
         };
-        part(kNumSize, sr.right + 1, mx - cross / 2, kSizeTip);
-        SetTextColor(mem, kFaint);
-        RECT xt{mx - cross / 2, box.top, mx + cross / 2, box.bottom};
-        DrawTextW(mem, L"×", -1, &xt, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
-        part(kNumHeight, mx + cross / 2, lk.left, kHeightTip);
+        part(kNumSize, sr.right + 1, mx, L"w", kSizeTip);
+        divider(mx);
+        part(kNumHeight, mx + 1, lk.left, L"h", kHeightTip);
         y += h + gap;
     } else if (stripHasSize())
         numberRow(kNumSize, L"Size", kSizeTip);
