@@ -5,8 +5,11 @@
 #include <cctype>
 #include <cstring>
 #include <chrono>
+#include <charconv>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
+#include <cwctype>
 #include <deque>
 #include <filesystem>
 #include <functional>
@@ -16,8 +19,10 @@
 #include <random>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "tr.h"
 #include "text_codec.h"
 #include "view.h"
 #include "../shell.h"
@@ -32,6 +37,7 @@
 #include "stardraft/game_data.h"
 #include "stardraft/pathing.h"
 #include "stardraft/scene.h"
+#include "stardraft/settings.h"
 #include "stardraft/hd_assets.h"
 #include "stardraft/tileset.h"
 
