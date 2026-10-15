@@ -20,7 +20,7 @@
 
 namespace crash {
 
-constexpr const wchar_t* kRepo = L"stardraft-editor/stardraft";
+constexpr const wchar_t* kRepo = kRepoName;  // (core/views_about.inc)
 std::wstring gGpu;                        // the video card, found at start
 std::deque<std::wstring> gLog;            // the last log lines
 const wchar_t* (*gWhere)() = nullptr;     // what the user works in (the workspace), filled in by main.cpp
@@ -145,10 +145,8 @@ void askToSend() {
     if (gCrashReports != 0 || token().empty()) return;
     const auto reports = unsentReports();
     if (reports.empty()) return;
-    const std::wstring q = L"StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can "
-                           L"repair the error?\n\nThe report has the version, Windows, the video card, where it crashed and the last log lines. "
-                           L"It has no maps. It is in " + reports.front().parent_path().wstring() + L".";
-    const int r = themedMessageBox(app.main, q.c_str(), L"Crash report", MB_YESNOCANCEL | MB_ICONQUESTION, {L"&Send", L"&Always send", L"Do &not send"});
+    const std::wstring q = crashAskText(reports.front().parent_path().wstring());  // (core/prompts.inc)
+    const int r = themedMessageBox(app.main, q.c_str(), kCrashAskTitle, MB_YESNOCANCEL | MB_ICONQUESTION, crashAskButtons());
     if (r == IDNO) setCrashReports(1);  // Always send: from now on, without the question
     if (r == IDYES || r == IDNO) {
         std::thread([reports] {

@@ -32,6 +32,12 @@ std::string loadFonts(const std::string& fontDir);
 // False when none is found. unloadIconAtlases() before the device goes.
 bool loadIconAtlases(SDL_GPUDevice* device, const std::string& dir);
 void unloadIconAtlases();
+// The program's own picture `id` (Canvas::resourceIcon; 1: the app icon) from an .ico (its largest PNG image) or a PNG
+// file. False when it could not be read. unloadIconAtlases() releases its textures too.
+bool loadResourceIcon(int id, const std::string& file);
+// A canvas for measuring text outside a paint (a window's size for its text), in the fonts that loadFonts loaded. It
+// draws nothing.
+draw::Canvas& measuringCanvas();
 
 // RGBA8 pixels (straight alpha, rows from the top) as a texture the GPU samples. Null on failure.
 SDL_GPUTexture* uploadRgba(SDL_GPUDevice* device, int w, int h, const uint8_t* rgba);
@@ -75,6 +81,7 @@ public:
     void bitmap(draw::Bitmap& b, draw::Rect src, draw::Rect dst, bool smooth = false, uint8_t alpha = 255) override;
 
     void icon(draw::Rect r, int icon, draw::Color c, int px) override;
+    void resourceIcon(draw::Rect r, int resourceId, int px) override;
     void fitted(const draw::Image& img, draw::Rect box) override;
     void externalImage(const void* gpuTexture, draw::Rect dst) override;
 

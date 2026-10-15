@@ -80,5 +80,11 @@
 #include "views_options.inc"
 #include "views_feedback.inc"
 #include "views_new_project.inc"
+#include "views_message_box.inc"
+#include "views_about.inc"
+#include "views_tip.inc"
+#include "prompts.inc"
+#include "kit_surface.inc"
+#include "views_kit_gallery.inc"
 #include "title.inc"
 #include "project_page.inc"  // the Project page's program parts, createProject, newMap, addProjectScript (the host shows the page)
