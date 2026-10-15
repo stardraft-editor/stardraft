@@ -6,11 +6,8 @@ namespace {
 void notOnThisSystem() { setMessage(L"This is not on this system yet"); }
 }  // namespace
 
-void dataCopySelected() { notOnThisSystem(); }
-void dataPasteSelected() { notOnThisSystem(); }
 bool briefCommand(int) {
     notOnThisSystem();
     return false;
 }
-void dataGoTo(const std::string&, int) { notOnThisSystem(); }  // (the quick picker's Data jump: no projects here yet)
 bool classicCommandInProject(int) { return false; }  // (a query: no project of this system holds classic data yet)

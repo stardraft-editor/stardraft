@@ -52,8 +52,7 @@ bool writeExtrasEdits(EudProject& pr, std::string& err) {
 
 const UnitPalette::Bitmap* tabEntryIcon(int tab, int e) {
     if (tab == stringsTab()) return nullptr;
-    if (tab == buttonsTab()) return e < 228 ? entryIcon(datTabOf("units"), e) : nullptr;
-    return entryIcon(tab, e);
+    return dataPictureBitmap(dataTabEntryPicture(tab, e));  // (core/data_nav.inc)
 }
 
 // --- Game text, drawn as the game colors it ------------------------------------------------------------------
@@ -74,35 +73,7 @@ void extrasChanged() {
     InvalidateRect(gData.list, nullptr, FALSE);
 }
 
-// Copy a unit's display (status panel, wireframes) and button set with its values (#11): Paste everything gives them
-// to another unit. Its own wireframes and the game's panel are copied as that unit's, so the other unit looks the same.
-struct UnitExtrasClip {
-    int from = -1;  // -1: nothing copied
-    UnitLooks::Unit looks;
-    int buttonSet = -1;
-} gUnitExtrasClip;
-void extrasCopyUnit(int u) {
-    if (u < 0 || u >= UnitLooks::kUnits) return void(gUnitExtrasClip.from = -1);
-    UnitLooks::Unit l = gExtras.looks.unit(u);
-    l.status = gExtras.looks.status(u), l.display = gExtras.looks.display(u);
-    if (l.wireframe < 0 && u < UnitLooks::kWireframes) l.wireframe = u;
-    if (l.groupWireframe < 0 && u < UnitLooks::kGroupWireframes) l.groupWireframe = u;
-    if (l.transportWireframe < 0 && u < UnitLooks::kTransportWireframes) l.transportWireframe = u;
-    gUnitExtrasClip = {u, l, gExtras.buttons.unitSet(u)};
-}
-bool extrasCanPasteUnit(int to) { return gUnitExtrasClip.from >= 0 && to >= 0 && to < UnitLooks::kUnits && to != gUnitExtrasClip.from; }
-// Into the project's copy only: the caller saves (dataSaved) and so makes the undo steps.
-void extrasPasteUnit(int to) {
-    if (!extrasCanPasteUnit(to)) return;
-    UnitLooks::Unit l = gUnitExtrasClip.looks;
-    if (l.status == gExtras.looks.stockStatus(to)) l.status = 0;  // the game's own for that unit: not a change
-    if (l.display == gExtras.looks.stockDisplay(to)) l.display = 0;
-    if (l.wireframe == to) l.wireframe = -1;
-    if (l.groupWireframe == to) l.groupWireframe = -1;
-    if (l.transportWireframe == to) l.transportWireframe = -1;
-    gExtras.looks.set(to, l);
-    if (gUnitExtrasClip.buttonSet >= 0) gExtras.buttons.setUnitSet(to, gUnitExtrasClip.buttonSet);
-}
+// (Copy a unit's display and button set with its values, extrasCopyUnit and extrasPasteUnit: core/data_nav.inc.)
 
 // The title block: icon, name, and a line under it ("stat_txt.tbl string 12  ·  changed  ·  Reset").
 int formTitle(HDC dc, const FormLayout& l, int y, const UnitPalette::Bitmap* icon, const std::wstring& title, const std::wstring& sub, bool changed,
@@ -110,12 +81,7 @@ int formTitle(HDC dc, const FormLayout& l, int y, const UnitPalette::Bitmap* ico
     return ui::title(dc, l.x0, y, l.colRight + l.picW, icon, title, sub, changed, std::move(reset), kind);
 }
 // (The pickers' entries and a value's name, entryItems and argName: core/data_model.inc.)
-const UnitPalette::Bitmap* argIcon(const char* kind, int v) {
-    if (!kind) return nullptr;
-    const std::string k = kind;
-    if (k == "buttons") return v < 228 ? datRefIcon("units", uint32_t(v)) : nullptr;
-    return datHasIcons(k) ? datRefIcon(k, uint32_t(v)) : nullptr;
-}
+const UnitPalette::Bitmap* argIcon(const char* kind, int v) { return dataPictureBitmap(dataArgPicture(kind, v)); }  // (core/data_nav.inc)
 // Opens entry `v` of `kind` (a .dat, "buttons" or "strings").
 std::function<void()> openEntry(const char* kind, int v) {
     if (!kind) return nullptr;
@@ -186,20 +152,6 @@ int paintRequirementList(HDC dc, const FormLayout& l, int k, int entry, int y) {
 }
 
 int gWireframeTop = -1;  // where the last painted Display section's wireframe rows start (form content; the self-test)
-
-// The wireframes of the art View shows (SD, HD2 or the Carbot skin), loaded when first shown; nullptr when the
-// game's files do not have them.
-Wireframes* wireframeSet(WireKind kind) {
-    static std::map<std::pair<int, int>, std::unique_ptr<Wireframes>> sets;  // (kind, art)
-    const int art = app.carbot ? 2 : app.quality == GraphicsQuality::SD ? 0 : 1;
-    auto& s = sets[{int(kind), art}];
-    if (!s) {
-        s = std::make_unique<Wireframes>();
-        std::string err;
-        if (!s->load(app.data, kind, art != 0, art == 2, err)) *s = {};
-    }
-    return s->count() ? s.get() : nullptr;
-}
 
 // The Display section (core/views_data_display.inc: paintUnitDisplay): the Windows program's side of it, its kit
 // faces, the list pickers, the names, the wireframe sets and the sprite blit.

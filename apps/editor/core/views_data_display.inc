@@ -30,6 +30,21 @@ public:
     virtual void sprite(const Sprite& s, int cx, int cy, float zoom) = 0;
 };
 
+// The wireframes of the art View shows (SD, HD2 or the Carbot skin), loaded when first shown; nullptr when the
+// game's files do not have them.
+Wireframes* wireframeSet(WireKind kind) {
+    static std::map<std::pair<int, int>, std::unique_ptr<Wireframes>> sets;  // (kind, art)
+    const AppState& st = shellState();
+    const int art = st.carbot ? 2 : st.quality == GraphicsQuality::SD ? 0 : 1;
+    auto& s = sets[{int(kind), art}];
+    if (!s) {
+        s = std::make_unique<Wireframes>();
+        std::string err;
+        if (!s->load(st.data, kind, art != 0, art == 2, err)) *s = {};
+    }
+    return s->count() ? s.get() : nullptr;
+}
+
 // The three wireframes a unit shows (`frames`: single, group, transport; -1 for none), as the status panel shows
 // them at full health. At (x, top), to the right of the rows top..bottom; under them (from `bottom`) when the form
 // is too narrow. Returns the bottom of what it drew, at least `bottom`.
