@@ -331,6 +331,14 @@ void OptionsView::paint(draw::Canvas& c) {
         parts_[part] = r;
         return r.right;
     };
+    // A small button in a row (ui::smallButton): its text's width + 20, at most 24 high, in the row's middle.
+    auto smallAt = [&](stardraft::kit::Button& b, int x, int rowY, const std::string& part) {
+        const int bh = std::min(rowH, scale(24)), w = c.measure(b.text()) + scale(20), top = rowY + (rowH - bh) / 2;
+        const draw::Rect r{x, top, x + w, top + bh};
+        place(b, r, true);
+        parts_[part] = r;
+        return r.right;
+    };
     // A segmented choice: one button for each choice, the chosen one Primary, 4 px apart.
     auto segmented = [&](int rowY, stardraft::kit::Button* bs, int n, const std::string& part) {
         int x = fx;
@@ -343,7 +351,7 @@ void OptionsView::paint(draw::Canvas& c) {
         }
     };
     auto checkRow = [&](int rowY, stardraft::kit::CheckBox& cb, const std::string& part) {
-        const draw::Rect cr{x0, rowY, x0 + cb.preferredWidth(c), rowY + rowH};
+        const draw::Rect cr{x0, rowY, x0 + scale(24) + c.measure(cb.label()), rowY + rowH};  // as ui::check: the box and the label
         place(cb, cr, true);
         parts_[part] = cr;
     };
@@ -364,8 +372,7 @@ void OptionsView::paint(draw::Canvas& c) {
     }
     if (v.restartDue) {
         const int x = parts_["language"].right + scale(12);
-        place(restart_, {x, fieldTop(y), x + restart_.preferredWidth(c), fieldTop(y) + fieldH}, true);
-        parts_["restart"] = {x, fieldTop(y), x + restart_.preferredWidth(c), fieldTop(y) + fieldH};
+        smallAt(restart_, x, y, "restart");
     }
     y += rowH;
     note(fx, y - scale(4), v.restartDue ? L"The new language shows after a restart" : L"A new language shows after a restart");
@@ -395,6 +402,7 @@ void OptionsView::paint(draw::Canvas& c) {
     y += rowH;
     // The volume: its name and value, a slider.
     {
+        const int rowH = scale(stardraft::kit::kRowH);  // a dense row, as the Data form's volume row
         const int right = std::min<int>(colRight, fx + scale(260));
         c.text({x0, y, x0 + labelW - scale(48), y + rowH}, L"Volume", kDim, draw::kMiddle);
         c.text({x0 + labelW - scale(56), y, x0 + labelW - scale(4), y + rowH}, std::to_wstring(v.volume) + L"%", kText, draw::kMiddle | draw::kRight);
@@ -440,10 +448,10 @@ void OptionsView::paint(draw::Canvas& c) {
     checkRow(y, lastProject_, "lastproject");
     y += rowH;
     {
-        const draw::Rect cr{x0, y, x0 + updates_.preferredWidth(c), y + rowH};
+        const draw::Rect cr{x0, y, x0 + scale(24) + c.measure(updates_.label()), y + rowH};  // as ui::check
         place(updates_, cr, true);
         parts_["updatecheck"] = cr;
-        buttonAt(check_, cr.right + scale(16), buttonTop(y), btnH, "check");
+        smallAt(check_, cr.right + scale(16), y, "check");
     }
     y += rowH;
     // Crash reports (GitHub feedback #45): a crash always keeps its report on this computer; ask, send or not.
@@ -453,7 +461,7 @@ void OptionsView::paint(draw::Canvas& c) {
     // Maps (.scm, .scx): the program a double-click opens them with.
     label(L"Maps");
     if (v.mapsWithSD2) note(fx, y + (rowH - scale(20)) / 2, L"Maps (.scm, .scx) open with StarDraft 2");
-    else buttonAt(maps_, fx, fieldTop(y), fieldH, "maps");
+    else smallAt(maps_, fx, y, "maps");
     y += rowH + pad;
 
     // The working folder: where new projects go.
