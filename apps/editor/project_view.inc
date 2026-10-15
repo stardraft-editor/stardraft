@@ -528,6 +528,94 @@ public:
     void clearMusic() override {
         if (EudProject* p = activeProject()) p->setPlugin("bgmplayer", false), projectSave(*p, L"No background music");
     }
+    std::vector<MemoryFile> memoryFiles() override {
+        std::vector<MemoryFile> out;
+        EudProject* pr = activeProject();
+        if (!pr) return out;
+        for (const std::string& line : pr->sectionLines("dataDumper")) {
+            const size_t c = line.find(':');
+            const std::string file = c == std::string::npos ? line : line.substr(0, c), at = c == std::string::npos ? "" : line.substr(c + 1);
+            out.push_back({widen(file), widen(at)});
+        }
+        return out;
+    }
+    void removeMemoryFile(size_t i) override {
+        EudProject* p = activeProject();
+        if (!p) return;
+        auto ls = p->sectionLines("dataDumper");
+        if (i < ls.size()) ls.erase(ls.begin() + long(i));
+        p->setPlugin("dataDumper", !ls.empty(), ls);
+        projectSave(*p);
+    }
+    void addMemoryFile() override {
+        EudProject* p = activeProject();
+        if (!p) return;
+        platform::FileDialog d;
+        d.owner = app.main;
+        d.filters = {{"All files", "*.*"}};
+        d.title = narrow(L"A file to load into memory");
+        const auto picked = platform::openFileDialog(d);
+        if (!picked) return;
+        const std::wstring buf = picked->wstring();
+        std::wstring at = L"0x";
+        if (!prompt(L"Memory address (for example 0x58A364)", at) || at.size() < 3) return;
+        std::error_code ec;
+        fs::path rel = fs::relative(buf, p->folder(), ec);
+        const bool inside = !ec && !rel.empty() && rel.native().rfind(L"..", 0) != 0;
+        auto ls = p->sectionLines("dataDumper");
+        ls.push_back((inside ? rel.generic_string() : narrow(buf)) + " : " + narrow(at));
+        p->setPlugin("dataDumper", true, ls);
+        projectSave(*p, L"The file loads into memory when the map starts");
+    }
+    std::vector<ScriptRow> scripts() override {
+        std::vector<ScriptRow> out;
+        EudProject* pr = activeProject();
+        if (!pr) return out;
+        for (const std::string& name : gProj.sections) {
+            ScriptRow s;
+            s.name = name;
+            s.selected = name == gProj.selected;
+            const fs::path file = scriptPath(*pr, name);
+            const std::string ext = file.extension().string();
+            s.script = ext == ".eps" || ext == ".py", s.generated = EudProject::isGenerated(name);
+            s.linked = s.script && EudProject::isLinked(name);
+            if (s.script) s.file = fs::path(file).make_preferred().wstring();
+            if (s.script && !s.generated) {
+                std::error_code e2;
+                s.found = fs::is_regular_file(file, e2);
+                if (s.found) {
+                    s.changed = projectFileTime(file);
+                    std::error_code e3;
+                    const auto built = fs::last_write_time(pr->outputMap(), e3);
+                    s.afterBuild = !e3 && fs::last_write_time(file, e2) > built;
+                }
+            }
+            out.push_back(std::move(s));
+        }
+        return out;
+    }
+    void selectScript(const std::string& name) override {
+        gProj.selected = name;
+        InvalidateRect(gProj.wnd, nullptr, FALSE);
+        projectPreviewRefresh();
+    }
+    void openScript(const std::string& name) override {
+        if (EudProject* pr = activeProject()) triggersOpenFile(scriptPath(*pr, name));
+    }
+    void showScript(const std::string& name) override {
+        if (EudProject* pr = activeProject()) {
+            const fs::path file = scriptPath(*pr, name);
+            ShellExecuteW(app.main, L"open", L"explorer.exe", (L"/select,\"" + fs::path(file).make_preferred().wstring() + L"\"").c_str(), nullptr,
+                          SW_SHOWNORMAL);
+        }
+    }
+    void moveScript(const std::string& name, int by) override { projectMoveScript(name, by); }
+    void removeScript(const std::string& name) override { projectRemoveScript(name); }
+    void newScript() override {
+        addProjectScript();
+        projectFormRefresh();
+    }
+    void linkScript() override { projectAddExistingScript(); }
 };
 ProjectProgram gProjProgram;
 ProjectPageView gProjView(gProjProgram);
@@ -565,150 +653,6 @@ int shellPaintProjectRest(draw::Canvas& c, int y, int pageW, int pageH) {
     HWND savedWnd = gHitsWnd;
     gHitsOut = &gProj.surface.hits, gHitsWnd = gProj.wnd;
     gHitsOf[gProj.wnd] = &gProj.surface.hits;
-    if (kProjectMusicAndFiles) {
-        // Files in memory (euddraft's dataDumper): each file's bytes at an address, when the map starts.
-        FormLayout rl = l;
-        rl.rowH = rowH;
-        const auto lines = pr->sectionLines("dataDumper");
-        ui::fieldLabel(mem, rl, y, L"Files in memory", !lines.empty());
-        int ly = y;
-        for (size_t i = 0; i < lines.size(); ++i) {
-            const size_t c = lines[i].find(':');
-            const std::string file = c == std::string::npos ? lines[i] : lines[i].substr(0, c), at = c == std::string::npos ? "" : lines[i].substr(c + 1);
-            RECT r{l.x0 + l.labelW - scale(6), ly, l.colRight, ly + rowH};
-            ui::listRow(mem, r, false, ui::hot(r));
-            SetTextColor(mem, kText);
-            RECT t{r.left + scale(6), r.top, r.right - scale(200), r.bottom};
-            DrawTextW(mem, widen(file).c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_PATH_ELLIPSIS | DT_NOPREFIX);
-            SetTextColor(mem, kDim);
-            RECT a{r.right - scale(200), r.top, r.right - scale(40), r.bottom};
-            DrawTextW(mem, (L"at " + widen(at)).c_str(), -1, &a, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
-            ui::rowActions(mem, r, {{UiIcon::Close, L"Remove from the list", [i] {
-                                         EudProject* p = activeProject();
-                                         if (!p) return;
-                                         auto ls = p->sectionLines("dataDumper");
-                                         if (i < ls.size()) ls.erase(ls.begin() + long(i));
-                                         p->setPlugin("dataDumper", !ls.empty(), ls);
-                                         projectSave(*p);
-                                     },
-                                     ui::Tone::Danger}},
-                           false);
-            ly += rowH;
-        }
-        ui::smallButton(mem, l.x0 + l.labelW, ly, rowH, L"Add a file\x2026", [] {
-            EudProject* p = activeProject();
-            if (!p) return;
-            platform::FileDialog d;
-            d.owner = app.main;
-            d.filters = {{"All files", "*.*"}};
-            d.title = narrow(L"A file to load into memory");
-            const auto picked = platform::openFileDialog(d);
-            if (!picked) return;
-            const std::wstring buf = picked->wstring();
-            std::wstring at = L"0x";
-            if (!prompt(L"Memory address (for example 0x58A364)", at) || at.size() < 3) return;
-            std::error_code ec;
-            fs::path rel = fs::relative(buf, p->folder(), ec);
-            const bool inside = !ec && !rel.empty() && rel.native().rfind(L"..", 0) != 0;
-            auto ls = p->sectionLines("dataDumper");
-            ls.push_back((inside ? rel.generic_string() : narrow(buf)) + " : " + narrow(at));
-            p->setPlugin("dataDumper", true, ls);
-            projectSave(*p, L"The file loads into memory when the map starts");
-        }, L"Loads a file's bytes into the game's memory when the map starts (euddraft's dataDumper)");
-        y = ly + rowH + scale(12);
-    }
-
-    // The scripts Build runs, in order.
-    {
-        const int hy = y;
-        y = ui::sectionHeader(mem, l, y, L"Scripts");
-        hitsOut().push_back({{l.x0, hy, l.x0 + scale(120), hy + l.rowH}, nullptr, nullptr,
-                             L"Build runs these in order, from the top. onPluginStart runs once when the map starts; beforeTriggerExec and afterTriggerExec run each trigger cycle",
-                             IDC_ARROW, {}});
-    }
-    for (const auto& name : gProj.sections) {
-        const fs::path file = scriptPath(*pr, name);
-        std::error_code e2;
-        const std::string ext = file.extension().string();
-        const bool script = ext == ".eps" || ext == ".py", generated = EudProject::isGenerated(name);
-        // The note: where the code comes from; for a script file, whether it is found and its last change (R5: a
-        // change made in another editor after the last build shows in the accent color).
-        const bool linked = script && EudProject::isLinked(name);
-        std::wstring note, after;
-        bool warn = false;
-        if (generated) note = L"from the Data workspace";
-        else if (!script) note = L"euddraft plugin";
-        else if (!fs::is_regular_file(file, e2)) note = linked ? L"linked  \x00B7  not found: Build stops" : L"not found: Build stops", warn = true;
-        else {
-            note = (linked ? L"linked  \x00B7  changed " : L"changed ") + projectFileTime(file);
-            std::error_code e3;
-            const auto built = fs::last_write_time(pr->outputMap(), e3);
-            if (!e3 && fs::last_write_time(file, e2) > built) after = L"  after the last build";
-        }
-        RECT r{l.x0 - scale(6), y, l.colRight, y + rowH};
-        const bool on = name == gProj.selected;
-        ui::listRow(mem, r, on, ui::hot(r));
-        std::wstring tip;
-        if (script)
-            tip = (linked ? L"A linked file. StarDraft 2 does not copy or change it: " : L"") + fs::path(file).make_preferred().wstring();
-        hitsOut().push_back({r, nullptr, [name] {
-                                 gProj.selected = name;
-                                 InvalidateRect(gProj.wnd, nullptr, FALSE);
-                                 projectPreviewRefresh();
-                             },
-                             tip, IDC_HAND, {}});
-        const size_t at = size_t(&name - gProj.sections.data());
-        ui::reorderRow(mem, "scripts", r, int(at), [](int from, int to) {
-            if (from < 0 || size_t(from) >= gProj.sections.size()) return;
-            const std::string moved = gProj.sections[size_t(from)];
-            for (int k = from; k < to; ++k) projectMoveScript(moved, 1);
-            for (int k = from; k > to; --k) projectMoveScript(moved, -1);
-        }, !generated);
-        HGDIOBJ f2 = SelectObject(mem, monoFont());
-        SetTextColor(mem, ui::rowText(on));
-        RECT t{l.x0 + scale(16), r.top, r.right - scale(380), r.bottom};
-        DrawTextW(mem, widen(name).c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_PATH_ELLIPSIS | DT_NOPREFIX);
-        const int nameRight = t.left + std::min<int>(t.right - t.left, ui::textWidth(mem, widen(name)));
-        SelectObject(mem, f2);
-        SetTextColor(mem, warn ? kWarn : kDim);
-        RECT n{nameRight + scale(16), r.top, r.right - scale(140), r.bottom};
-        DrawTextW(mem, note.c_str(), -1, &n, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-        if (!after.empty()) {
-            SetTextColor(mem, kAccent);
-            RECT na = n;
-            na.left = std::min<int>(n.right, n.left + ui::textWidth(mem, note));
-            DrawTextW(mem, after.c_str(), -1, &na, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-        }
-        const size_t idx = size_t(&name - gProj.sections.data());
-        std::vector<ui::RowAction> acts;
-        if (script) {
-            acts.push_back({UiIcon::OpenExternal, L"Open in your editor", [file] { triggersOpenFile(file); }});
-            acts.push_back({UiIcon::Folder, L"Show in folder", [file] {
-                                ShellExecuteW(app.main, L"open", L"explorer.exe", (L"/select,\"" + fs::path(file).make_preferred().wstring() + L"\"").c_str(), nullptr,
-                                              SW_SHOWNORMAL);
-                            }});
-        }
-        const bool movable = !generated;
-        acts.push_back({UiIcon::MoveUp, L"Earlier", [name] { projectMoveScript(name, -1); }, ui::Tone::Normal, false,
-                        movable && idx > 0 && !EudProject::isGenerated(gProj.sections[idx - 1])});
-        acts.push_back({UiIcon::MoveDown, L"Later", [name] { projectMoveScript(name, 1); }, ui::Tone::Normal, false, movable && idx + 1 < gProj.sections.size()});
-        acts.push_back({UiIcon::Close,
-                        generated ? L"Comes from the Data workspace"
-                        : linked  ? L"Remove the link. StarDraft 2 does not delete the file."
-                                  : L"Remove from the build (the file stays in the project folder)",
-                        [name] { projectRemoveScript(name); }, ui::Tone::Danger, false, !generated});
-        ui::rowActions(mem, r, acts, on);
-        y += rowH;
-    }
-    ui::reorderDropLine(mem, "scripts");
-    y += scale(4);
-    const int ax = ui::smallButton(mem, l.x0, y, rowH, L"New script", [] {
-        addProjectScript();
-        projectFormRefresh();
-    });
-    ui::smallButton(mem, ax + scale(8), y, rowH, L"Link a file\x2026", [] { projectAddExistingScript(); },
-             L"Add an .eps or .py file from anywhere on disk to the build. StarDraft 2 does not copy or change it.");
-    y += rowH + scale(24);
     if (pr->traceBuild() || projectTraceReport(*pr)) y = paintEpTrace(mem, l, y, rowH, *pr, rel);
     gHitsOut = savedOut, gHitsWnd = savedWnd;
     return y;
