@@ -66,10 +66,7 @@ public:
         name_.setText(start.name);
         location_.setText(start.location);
         output_.setPlaceholder(tr(L"<name>_EUD.scx in the project folder"));
-        for (stardraft::kit::TextField* f : {&name_, &location_, &output_}) {
-            f->onChange = [this] { refreshSketch(); };
-            add(*f, {0, 0, 0, 0});
-        }
+        for (stardraft::kit::TextField* f : {&name_, &location_, &output_}) f->onChange = [this] { refreshSketch(); };
         browse_.setText(tr(L"Browse\x2026"));
         browse_.onClick = [this] {
             const std::wstring dir = shellPickFolder(tr(L"Select the folder for the project"));
@@ -80,7 +77,9 @@ public:
             const std::wstring file = shellPickOutputFile(name_.text() + L"_EUD.scx");
             if (!file.empty()) output_.setText(file), refreshSketch();
         };
-        add(browse_, {0, 0, 0, 0}), add(browseOut_, {0, 0, 0, 0});
+        // Tab goes through the views in the order they are added: the screen order (as the old window's).
+        add(name_, {0, 0, 0, 0}), add(location_, {0, 0, 0, 0}), add(browse_, {0, 0, 0, 0});
+        add(output_, {0, 0, 0, 0}), add(browseOut_, {0, 0, 0, 0});
         std::vector<stardraft::kit::DropdownItem> items;
         if (haveMap_) items.push_back({tr(L"The open map (") + start.openMap + L")"});
         items.push_back({tr(L"A new blank map (128 x 128 Badlands)")});
