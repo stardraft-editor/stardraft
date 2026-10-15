@@ -133,6 +133,8 @@ private:
     std::function<void()> cancel_;
 };
 
+Dropdown::Dropdown() = default;
+
 Dropdown::Dropdown(std::vector<DropdownItem> items, int value) : items_(std::move(items)), value_(value) {
     if (value_ >= int(items_.size())) value_ = -1;
 }
