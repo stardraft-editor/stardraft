@@ -1,0 +1,144 @@
+// The documents (portable core): the workspaces, the open maps and projects (the tabs), the two modes (classic and
+// project), the commands' table of the Map workspace, and the commands that open a document (openProject, openAny).
+// Included by core.inc after app_state.inc, and by main.cpp at the same place. The helpers below are defined in main.cpp
+// (the Win32 TU) until they move into the core themselves.
+
+extern bool gSelfTest;  // main.cpp
+// The editor's state (what the program holds apart from its windows): the host's (shell_win32.inc gives the app).
+AppState& shellState();
+void setMessage(const std::wstring& m);
+void startMark(const char* what);
+void updateTitle();
+void activateDoc(int i);
+void openMap(const std::wstring& path, bool switchToOpen = true);
+int findOpenProject(const std::filesystem::path& folder);
+bool classicCommandInProject(int id);  // classic_triggers.inc: the project's map has that classic data (L.4)
+
+// Map: the map editor; Data: the project's .dat files; Triggers, Assets: to come; Project: the project.
+Workspace gWorkspace = Workspace::Map;
+
+// --- Documents (tabs) ------------------------------------------------------------------------------
+// Each open map is a tab with its own editor (and so its own undo history), camera and selection. The
+// active one lives in the app state's ed; the others keep theirs here.
+
+struct MapPageCopies;  // map_pages.inc
+struct Doc {
+    std::unique_ptr<Editor> ed;  // empty while the document is active (it is in the app state then)
+    float camX = 0, camY = 0, zoom = 1;
+    bool hasTerrainSel = false, pasting = false, terrainPasting = false;
+    Rect terrainSel{};
+    int untitled = 1;  // "Untitled N" until saved
+    std::shared_ptr<EudProject> project;  // set when the map was opened as (or made into) an EUD project
+    int page = 0;  // a page and not a document yet (new_page.inc): kPageNew, kPageStart; `ed` is a small blank map until then
+    std::shared_ptr<MapPageCopies> mapPages;  // the map pages' working copies (map_pages.inc)
+};
+std::vector<Doc> gDocs;
+int gUntitledCount = 0;
+int gActive = -1;
+constexpr int kPageNew = 1, kPageStart = 2;  // Doc::page
+int activePage() { return gActive >= 0 && gActive < int(gDocs.size()) ? gDocs[size_t(gActive)].page : 0; }
+// A real document (a map or a project) is open in the active tab. A page tab (the start page, the New page) holds only
+// a small blank map: the commands that act on a map (mapCommand) are gray there and do nothing.
+bool docOpen() {
+    AppState& app = shellState();
+    return gActive >= 0 && gActive < int(gDocs.size()) && !activePage() && app.ed && app.ed->isOpen();
+}
+EudProject* activeProject() { return gActive >= 0 && gActive < int(gDocs.size()) ? gDocs[size_t(gActive)].project.get() : nullptr; }
+
+// --- The two modes (roadmap L.1) ---------------------------------------------------------------------------------
+// A map opened by itself (no project.stardraft or .eds) is in classic mode; a project is in project mode. Project
+// commands (Build, Data, the block triggers, project settings) are not there for a classic map, and classic commands
+// are there in a project only when its map has that classic data (L.4: a classic map made a project keeps it). The
+// menus, the shortcuts and the rail ask these functions. Classic tools add their commands to classicOnlyCommand.
+bool classicMode() { return gActive >= 0 && gActive < int(gDocs.size()) && !gDocs[size_t(gActive)].project; }
+bool projectMode() { return activeProject() != nullptr; }
+
+bool projectOnlyCommand(int id) {
+    switch (id) {
+    case ID_PROJ_COMPILE:
+    case ID_PROJ_FOLDER:
+    case ID_PROJ_ADDSCRIPT:
+    case ID_PROJ_SETTINGS:
+    case ID_WS_DATA:
+    case ID_WS_TRIGGERS:
+    case ID_WS_PROJECT:
+    case ID_VIEW_TRIGCODE: return true;
+    default: return false;
+    }
+}
+
+bool classicOnlyCommand(int id) { return id == ID_SCEN_CLASSIC || id == ID_SCEN_CLASSICTRIG; }
+
+// True when the command is there in the mode of the active tab.
+bool commandInMode(int id) {
+    if (projectOnlyCommand(id)) return projectMode();
+    // Map data (the unit, upgrade and tech settings) is for classic maps only; a project's map keeps those sections.
+    if (id == ID_SCEN_CLASSIC) return classicMode();
+    if (classicOnlyCommand(id)) return classicMode() || (projectMode() && classicCommandInProject(id));
+    return true;
+}
+
+// The menu commands that updateMenus enables or grays by mode. A classic-only command goes here too.
+constexpr int kModeCommands[] = {ID_PROJ_COMPILE, ID_PROJ_FOLDER, ID_PROJ_ADDSCRIPT, ID_PROJ_SETTINGS,
+                                 ID_WS_DATA,      ID_WS_TRIGGERS, ID_WS_PROJECT,     ID_VIEW_TRIGCODE, ID_SCEN_CLASSIC, ID_SCEN_CLASSICTRIG};
+// Is the command enabled in a tab of that mode (the self-test checks the menus with it)?
+bool commandForMode(int id, bool project) { return classicOnlyCommand(id) ? !project : !projectOnlyCommand(id) || project; }
+
+// --- Commands --------------------------------------------------------------------------------------
+
+// The commands that are data (commands.inc): the Map workspace's. gCommandIds gives each one's Win32 id.
+stardraft::Commands gCommands;
+std::map<int, std::string> gCommandIds;
+
+// --- Opening documents ----------------------------------------------------------------------------
+
+// A project in a folder or a .eds (open already: its tab).
+void openProject(const std::filesystem::path& edsOrFolder) {
+    AppState& app = shellState();
+    auto pr = std::make_shared<EudProject>();
+    std::string err;
+    if (!pr->open(edsOrFolder, err)) {
+        shellErrorBox(widen(err), L"Could not open the project");
+        return;
+    }
+    if (const int open = findOpenProject(pr->folder()); open >= 0) {  // open already: go to its tab
+        activateDoc(open);
+        addRecent(gRecentProjects, pr->folder());
+        setMessage(tr(L"The project ") + widen(pr->name()) + tr(L" is open already"));
+        return;
+    }
+    const size_t before = gDocs.size();
+    openMap(pr->inputMap().wstring(), false);  // a tab of its own, also when the map is open by itself
+    if (gDocs.size() < before || gActive < 0 || !app.ed || app.ed->path() != pr->inputMap()) return;  // the map did not open
+    gDocs[size_t(gActive)].project = pr;
+    updateTitle();
+    removeRecent(gRecentMaps, pr->inputMap());  // listed as the project, not as a map
+    addRecent(gRecentProjects, pr->folder());
+    rememberProjectsFolder(pr->folder());
+    setMessage(L"Opened the project " + widen(pr->name()) + L" (" + std::to_wstring(pr->scripts().size()) + L" scripts; Build: Ctrl+B)");
+}
+
+// File > Open and the command line: a project (project.stardraft, a .eds, a folder), or a map. A project's map opens
+// as that project.
+void openAny(const std::filesystem::path& path) {
+    AppState& app = shellState();
+    startMark("open: start");
+    std::error_code ec;
+    if (path.extension() == ".stardraft" || path.extension() == ".eds" || fs::is_directory(path, ec)) {
+        openProject(path);
+        return;
+    }
+    const fs::path folder = path.parent_path();
+    bool candidate = fs::exists(folder / EudProject::kFileName, ec);
+    for (const auto& e : fs::directory_iterator(folder, ec)) candidate |= e.path().extension() == ".eds";
+    if (candidate) {
+        EudProject pr;
+        std::string err;
+        if (pr.open(folder, err) && fs::equivalent(pr.inputMap(), path, ec)) {
+            openProject(folder);
+            return;
+        }
+    }
+    openMap(path.wstring(), true);
+    if (app.ed && fs::equivalent(app.ed->path(), path, ec)) shellMapFileOpened(path);  // a map file by itself: ask once if maps open with StarDraft 2
+}
