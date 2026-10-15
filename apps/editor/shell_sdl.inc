@@ -373,3 +373,4 @@ void shellRunPopout(stardraft::draw::View& content, int x, int y, int w, int h, 
 void shellClosePopout(stardraft::draw::View& content) {
     if (gHost) gHost->closeWindow(content);
 }
+bool shellUiIconMask(int, int, std::vector<uint8_t>&) { return false; }  // (the SDL canvas draws icons from its own atlases)

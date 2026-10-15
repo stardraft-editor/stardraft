@@ -30,3 +30,14 @@ std::wstring datLabel(const std::string& name, bool start = true) {
     flush();
     return widen(out);
 }
+
+// A game text in one line without its codes (a block's sentence, a list): the line ends as a mark.
+std::wstring gameTextPlain(const std::string& bytes) {
+    std::string t;
+    for (const char ch : bytes)
+        if (static_cast<unsigned char>(ch) >= 0x20 || ch == '\t') t += ch;
+        else if (ch == '\n') t += '\x01';
+    std::wstring w = widen(t), out;
+    for (const wchar_t c : w) out += c == 1 ? std::wstring(L"  \x21B5  ") : std::wstring(1, c);
+    return out;
+}

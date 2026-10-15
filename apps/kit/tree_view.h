@@ -33,6 +33,16 @@ public:
     TreeView();
     ~TreeView() override;
 
+    // The rows' sizes at 100 % (scaled with px()): a row's height, a level's indent, and where the arrow, the icon and
+    // the text start at level 0 (the text: when a shown node has an icon). focusFrame: a line around the view while it
+    // has the focus. The defaults are the kit's look.
+    struct Metrics {
+        int rowH = kRowH, level = 18, arrow = 4, icon = 22, text = 44;
+        bool focusFrame = true;
+    };
+    void setMetrics(const Metrics& m);
+    const Metrics& metrics() const { return metrics_; }
+
     // The root: its children are the top rows. Change the model through it, then call refresh().
     TreeNode& root() { return root_; }
     // Rebuilds the rows after the model changed. Expanded nodes and the selection stay when still shown. A node the
@@ -55,6 +65,9 @@ public:
     int rowOf(const TreeNode* n) const;
     int scrollY() const { return scrollY_; }
     int contentHeight() const;
+    // The node of the row at `pt` (not on the scroll bar), and where a shown node's label is (empty when hidden).
+    TreeNode* nodeAt(draw::Point pt) const;
+    draw::Rect labelRect(const TreeNode* n) const;
 
     // The user selected a node (click, arrow keys, Home, End, Page keys, type-ahead).
     std::function<void(TreeNode*)> onSelect;
@@ -78,6 +91,18 @@ public:
     void focusChanged(bool) override { invalidate(); }
     void resized() override;
 
+protected:
+    // A row as paint shows it: its box (the full row, left of the scroll bar), its level, its state, and where its
+    // arrow, icon and text start. A view with a look of its own paints the row itself.
+    struct RowLook {
+        const TreeNode& node;
+        draw::Rect box;
+        int depth;
+        bool selected, hot, dragged;
+        int arrowLeft, iconLeft, textLeft;
+    };
+    virtual void paintRow(draw::Canvas& c, const RowLook& row);
+
 private:
     struct Row {
         TreeNode* node;
@@ -97,6 +122,13 @@ private:
         int row = -1;      // the folder's row (box only)
     };
 
+    int rowH() const;
+    int levelW() const;
+    int arrowLeft(int depth) const;
+    int iconLeft(int depth) const;
+    int textLeft(int depth) const;
+    int levelAtX(int x) const;
+    void paintScrollBar(draw::Canvas& c);
     void collect(TreeNode& parent, int parentRow, int depth);
     void select(TreeNode* n);
     void goRow(int r);
@@ -118,6 +150,7 @@ private:
     bool pointerDown(const draw::MouseEvent& e);
     bool pointerMove(draw::Point pt);
 
+    Metrics metrics_;
     TreeNode root_;
     std::vector<Row> rows_;
     bool icons_ = false;  // a shown node has an icon: the labels leave room for it

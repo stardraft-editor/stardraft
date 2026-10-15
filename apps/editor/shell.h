@@ -194,3 +194,6 @@ std::wstring shellInstallFolderText();
 // the window shows.
 void shellRunPopout(stardraft::draw::View& content, int x, int y, int w, int h, stardraft::draw::View* focus, const std::function<void()>& opened);
 void shellClosePopout(stardraft::draw::View& content);
+// A UI icon's coverage (0..255, `size` x `size`, rows from the top) at the atlas size `size` (16, 24 or 32). False when
+// the program cannot read the atlas here (the caller then draws with Canvas::icon).
+bool shellUiIconMask(int size, int icon, std::vector<uint8_t>& out);
