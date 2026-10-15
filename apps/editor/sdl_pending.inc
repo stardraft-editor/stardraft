@@ -29,8 +29,6 @@ void setGraphics(GraphicsQuality q, bool carbot) {
     gState.dirty = true;
 }
 
-// (until it is in the core) The project's custom unit names are not on this system yet (data_extras.inc is Win32 for now).
-std::wstring projectUnitName(int) { return L""; }
 
 // The workspaces (the core's setWorkspace; the Windows program's is in main.cpp, with its windows): Assets is Files, and
 // a workspace the tab's mode does not have falls back to Map with the same message as Windows. The workspace shows its

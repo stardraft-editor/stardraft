@@ -41,6 +41,7 @@
 #include "views_data_form.inc"
 #include "views_data_strings.inc"
 #include "views_data_buttons.inc"
+#include "data_model.inc"
 #include "views_search.inc"
 #include "views_data_entry.inc"
 #include "sound_lists.inc"
