@@ -55,6 +55,10 @@ CASES += [
     ("map-dialog-prompt", ["--dialog", "prompt"], "map"),
     ("map-dialog-quick", ["--dialog", "quick", "--mode", "units"], "map"),
     ("map-newpage-classic", ["--newpage", "classic"], "map"),
+    # Keys pressed in the window (--key): Select all and Copy of the doodads (the status bar says how many); Ctrl+2,
+    # the rail's second item (Map data in a classic map, as on Windows).
+    ("map-key-copy", ["--mode", "doodads", "--key", "Ctrl+A", "--key", "Ctrl+C"], "map"),
+    ("map-key-rail", ["--key", "Ctrl+2"], "map"),
     # A project open.
     ("project-scriptpreview", ["--workspace", "project", "--scriptpreview"], "project"),
 ]

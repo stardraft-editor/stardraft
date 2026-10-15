@@ -21,6 +21,8 @@
 
 // The repository that gets the feedback and the crash reports.
 constexpr const wchar_t* kIssueRepo = L"stardraft-editor/stardraft";
+// Help > Report an issue: the repository's page for a new issue.
+std::wstring issueNewUrl() { return L"https://github.com/" + std::wstring(kIssueRepo) + L"/issues/new"; }
 
 // A token that may only open issues on the repository. A build made here has none; the environment variable
 // STARDRAFT_ISSUES_TOKEN gives one to test with.

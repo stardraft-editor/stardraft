@@ -241,6 +241,12 @@ void shellInvalidateWorkspaceBar() {
     if (gRoot) gRoot->invalidate();
 }
 void shellForgetAnims() {}  // (no unit animations are kept apart from the renderer's)
+void shellRailUpdateNow() {}  // (the rail's items are made each time it paints, and it paints each frame)
+bool shellViewMouse(int& x, int& y) {  // (the map view keeps the mouse in the state: sdl_main_view.inc)
+    if (!gState.mouseIn) return false;
+    x = gState.mouseX, y = gState.mouseY;
+    return true;
+}
 // The map view takes the keyboard focus (the host's focus; the map view is the root's child).
 void shellFocusView() {
     if (gRoot) gRoot->map.focus();

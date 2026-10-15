@@ -1,7 +1,7 @@
 // StarDraft's editor on macOS and Linux (SDL3, Dear ImGui through apps/kit_sdl). It compiles the same portable core as
 // the Windows program (core/core.inc, research/ports/MAC-BUILD-PLAN.md step 6), then the SDL shell: the host seam
 // (shell_sdl.inc), the root view (sdl_main_view.inc), the functions the core still needs from the Win32 program
-// (sdl_pending.inc, each marked until it is in the core) and the other workspaces' entry points (sdl_standins.inc).
+// (sdl_pending.inc, each marked until it is in the core) and the workspaces (sdl_*.inc).
 //
 // usage: stardraft_editor [map] [--install <folder>] [--size <w>x<h>] [--scale <s>]
 //        stardraft_editor [map] --snapshot <out.png> [--size <w>x<h>] [--scale <s>]
@@ -103,7 +103,6 @@ bool gNoBoxes = false;
 // The SDL shell: the root view and the map view, the functions the core needs, the other workspaces' stand-ins, and the
 // host seam (shell.h).
 #include "sdl_main_view.inc"
-#include "sdl_standins.inc"
 #include "sdl_pending.inc"
 #include "sdl_menus.inc"
 #include "sdl_files.inc"  // the Files workspace's page and its sounds (core/views_files.inc)
@@ -219,6 +218,7 @@ int main(int argc, char** argv) {
     int accentArg = -1;
     gSelfPath = argc > 0 ? argv[0] : "";  // (Restart now starts it again, sdl_options.inc)
     bool rectArg = false, previewArg = false, logArg = false, buildArg = false, trigCodeArg = false;
+    std::vector<std::string> keyArgs;  // --key: keys pressed before the snapshot (sdl_menus.inc: sdlPressKey)
     int width = 1600, height = 1000;
     float scaleArg = 0;
     for (int i = 1; i < argc; ++i) {
@@ -246,6 +246,7 @@ int main(int argc, char** argv) {
         else if (a == "--accent") accentArg = std::atoi(next().c_str());  // the accent's number (theme::kAccents), for a snapshot
         else if (a == "--lang") langArg = next();  // en, ko, es, ru or zh: the language for this run (not saved), for a snapshot
         else if (a == "--silent") gSilent = true;
+        else if (a == "--key") keyArgs.push_back(next());  // a key (Ctrl+A, 5, Ctrl+2: Ctrl is Cmd on macOS) pressed in the window, for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
     if (!snapshot.empty()) gSilent = true, gNoBoxes = true;
@@ -414,6 +415,10 @@ int main(int argc, char** argv) {
             if (!tex) return std::fprintf(stderr, "snapshot texture: %s\n", SDL_GetError()), 1;
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             if (!trigSelArg.empty()) sdlTrigFocusFirstValue();  // (the pane's hit areas are the first frame's)
+            if (!keyArgs.empty()) {  // the keys after the first frame (the rail's items are the first frame's), then a frame more
+                for (const std::string& k : keyArgs) sdlPressKey(k);
+                host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+            }
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             const bool ok = writeSnapshot(device, tex, width, height, snapshot);
             std::printf("%s %s\n", ok ? "wrote" : "could not write", snapshot.c_str());

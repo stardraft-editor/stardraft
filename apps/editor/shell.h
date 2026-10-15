@@ -51,6 +51,11 @@ void shellRendererSources();
 void shellRedrawTabs();
 void shellInvalidateTabs();
 void shellInvalidateWorkspaceBar();
+// The side bar's items are made now (Ctrl+1 to Ctrl+9 read them: railItemId).
+void shellRailUpdateNow();
+// The mouse over the map view, in its pixels; false when it is not over the map (Paste puts a location's copy in the
+// middle of the view then).
+bool shellViewMouse(int& x, int& y);
 // The tab strip's native window is updated now (a tab moved under the mouse), for the view `v` that is in it (the
 // including file has apps/common/view.h).
 void shellUpdateTabs(stardraft::draw::View& v);
