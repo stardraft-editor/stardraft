@@ -278,7 +278,9 @@ struct MainView final : draw::View {
         const bool typed = (k >= 'A' && k <= 'Z') || (k >= '0' && k <= '9');
         const bool typing = gSearchSdl.field().hasFocus() || gFilterSdl.field().hasFocus() || gFilesPage.typing() || sdlMapPageTyping() ||
                             typingFocusIn(*this);  // (a kit text field of a view: the New page, Program options)
-        if (typing && typed && !(e.mods & (draw::kCtrl | draw::kAlt))) return false;
+        // The focused Triggers pane types too: a letter or a digit opens its block picker (from the text event), so the
+        // map's keys (the player 1 to 0, the tools V B A F, Q) do not run (Windows: editFocus for the pane).
+        if ((typing || trigPaneFocused()) && typed && !(e.mods & (draw::kCtrl | draw::kAlt))) return false;
         // Enter on the map: the selected location's or unit's properties (the Windows map's key).
         if (e.down && !e.repeat && e.key == draw::Key::Enter && !e.mods && !typing && map.shown() && mapEnterSdl()) return true;
         // Esc while a trigger waits for a unit picked on the map: back to the triggers (the Windows cancelStep).
