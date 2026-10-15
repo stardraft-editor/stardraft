@@ -100,3 +100,40 @@ public:
 private:
     stardraft::kit::TextField field_;
 };
+
+// The project page's helpers that need no window (moved from project_view.inc).
+// Sections the page sets up elsewhere (Build options) or Build writes (keys and mouse, chat commands): not scripts.
+bool projectManagedSection(const std::string& name) {
+    for (const char* n : {"eudTurbo", "unlimiter", "noAirCollision", "bgmplayer", "dataDumper", "MSQC", "chatEvent"})
+        if (name == n) return true;
+    return false;
+}
+
+int projectPreviewWidth(int pageW) { return gDock.scriptPreview ? std::min(pageW / 2, std::max(scale(420), pageW * 2 / 5)) : 0; }
+
+std::string sectionValue(const EudProject& pr, const std::string& section, const std::string& key) {
+    for (const auto& l : pr.sectionLines(section)) {
+        const size_t c = l.find(':');
+        if (c == std::string::npos) continue;
+        std::string k = l.substr(0, c), v = l.substr(c + 1);
+        auto trim = [](std::string& s) {
+            s.erase(0, s.find_first_not_of(" \t"));
+            s.erase(s.find_last_not_of(" \t") + 1);
+        };
+        trim(k), trim(v);
+        if (k == key) return v;
+    }
+    return {};
+}
+
+// The lines of a project's generated/triggers.eps now, without their indent.
+std::vector<std::string> epTraceTriggerCode(const fs::path& folder) {
+    std::vector<std::string> out;
+    std::ifstream f(folder / "generated" / "triggers.eps");
+    for (std::string s; std::getline(f, s);) {
+        if (!s.empty() && s.back() == '\r') s.pop_back();
+        s.erase(0, s.find_first_not_of(" \t"));
+        out.push_back(s);
+    }
+    return out;
+}
