@@ -35,6 +35,7 @@
 #include "dropdown.h"
 #include "list_view.h"
 #include "check_box.h"
+#include "slider.h"
 #include "button.h"
 #include "icon_button.h"
 #include "../shell.h"

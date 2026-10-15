@@ -43,4 +43,6 @@
 #include "views_start.inc"
 #include "views_new_page.inc"
 #include "views_new_page_paint.inc"
+#include "views_options.inc"
+#include "views_feedback.inc"
 #include "title.inc"

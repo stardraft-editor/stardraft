@@ -183,6 +183,9 @@ public:
     void closeWindow(View& content) override;
     void runModal(View& from, View& content, const stardraft::draw::WindowSpec& spec) override;
 
+    // The window the windows this host opens are owned by, for a host that has no window of its own (the program's
+    // anchor: the main window, so Program options and the feedback open from it).
+    void ownerWindow(HWND w) { wnd_ = w; }
     // The window of a view shown by a Win32Host (nullptr: none).
     static HWND windowOf(const View& v) {
         auto* h = dynamic_cast<Win32Host*>(v.host());
@@ -498,6 +501,8 @@ inline HWND openViewWindow(HWND owner, View& content, const stardraft::draw::Win
     if (spec.kind == WindowKind::Dialog) {
         style = WS_POPUP | WS_CAPTION | WS_SYSMENU;
         ex = WS_EX_DLGMODALFRAME;
+        int range = 0, page = 0, pos = 0;
+        if (content.windowScrollBar(range, page, pos)) style |= WS_VSCROLL;  // the view's own bar (Program options)
         RECT o{};
         GetWindowRect(owner, &o);
         const int w = r.right - r.left, h = r.bottom - r.top;
@@ -518,8 +523,9 @@ inline HWND openViewWindow(HWND owner, View& content, const stardraft::draw::Win
     if (spec.kind == WindowKind::Dialog) {
         const BOOL dark = !gLightTheme;
         DwmSetWindowAttribute(w, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &dark, sizeof dark), titleColors(w);
+    } else {
+        popupFrame(w);  // (a dialog keeps the system's frame: the program's dialogs had it)
     }
-    popupFrame(w);
     ShowWindow(w, spec.kind == WindowKind::Tooltip || gBackground ? SW_SHOWNOACTIVATE : SW_SHOW);
     return w;
 }

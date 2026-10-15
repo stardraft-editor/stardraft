@@ -63,6 +63,7 @@ using std::min;
 #include "list_view.h"     // the kit's list (the Map data page, core/views_classic_settings.inc)
 #include "dropdown.h"     // the kit's dropdown: the palette's section box (search_box.inc)
 #include "check_box.h"  // the kit's check boxes: the players and forces page (core/views_players.inc)
+#include "slider.h"  // the kit's slider: the Program options' volume (core/views_options.inc)
 #include "button.h"       // the kit's push button: the Files page's Import and Rename (core/views_files.inc)
 #include "res/ui_icons.h"
 #include "stardraft/editor.h"
@@ -444,6 +445,8 @@ std::wstring itemLabel(int v) { return itemLabel(app, v); }
 #include "core/views_start.inc"  // the start page (StartView: the cards, the recent list, Open; the instance is gStartView in new_page.inc)
 #include "core/views_new_page.inc"  // the New page (NewPageView: the settings, the generator, the preview; the host is new_page.inc)
 #include "core/views_new_page_paint.inc"
+#include "core/views_options.inc"  // Program options' view (OptionsView; the host is options_window.inc)
+#include "core/views_feedback.inc"  // the feedback dialog's view (FeedbackView; the host is feedback.inc and feedback_window.inc)
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
 
 void rebuildList() { rebuildList(app); }
@@ -3023,11 +3026,9 @@ void trigCancelUnitPick();
 // Palette label: the short name and StarEdit's subtitle ("Siege Tank (Tank Mode)").
 // A unit's name with its custom name (the map's unit settings), as Program options > Unit names says (feedback #68).
 // The custom names are read once for each version of the map.
-// Program options > Unit names: the list of the four ways (after ListPickItem; options_window.inc calls it).
-void pickUnitNames(RECT b);
 int languageChoice();                  // Program options > Language: the choice (kLanguageChoices)
 const wchar_t* languageChoiceName(int i);
-void pickLanguage(RECT b);
+std::vector<std::pair<int, std::wstring>> languageChoicesOffered();  // the choices a dropdown offers: (choice, name)
 
 
 int unitPaletteFooter() { return gPal.grid ? scale(26) : 0; }
@@ -3753,8 +3754,8 @@ HWND tabsWindow(stardraft::draw::View& v) { return ui::Win32Host::windowOf(v); }
 #include "map_properties.inc"
 #include "about.inc"
 int volumeRow(HDC dc, int x, int y, int labelW, int right, std::vector<DataWidgetHit>& hits);
-void pickUnitLimit(int k, RECT b, HWND hwnd);  // Program options > Map unit limit: 0 standard maps, 1 EUD projects
 #include "options_window.inc"
+#include "feedback_window.inc"
 #include "classic_settings.inc"
 
 
@@ -10254,27 +10255,15 @@ int languageChoice() {
         if (gLanguage == kLanguageChoices[i].code) return i;
     return 0;
 }
-void pickLanguage(RECT b) {
-    std::vector<ListPickItem> items;
+// The languages Program options offers: a language with no translations yet is not offered (it would show English).
+std::vector<std::pair<int, std::wstring>> languageChoicesOffered() {
+    std::vector<std::pair<int, std::wstring>> out;
     for (int i = 0; i < int(std::size(kLanguageChoices)); ++i) {
-        // A language with no translations yet is not offered (it would show English).
         const std::wstring code = kLanguageChoices[i].code;
         if ((code == L"ru" && langTableRu().empty()) || (code == L"zh" && langTableZh().empty())) continue;
-        items.push_back({kLanguageChoices[i].name, L"", std::to_string(i)});
+        out.push_back({i, kLanguageChoices[i].name});
     }
-    std::string out;
-    if (showListPicker(L"Language", items, std::to_string(languageChoice()), belowBox(b), out)) command(ID_OPT_LANG + std::stoi(out));
-}
-
-void pickUnitNames(RECT b) {
-    static const wchar_t* const kNames[4] = {L"Terran Marine", L"Terran Marine (Custom Name)", L"Custom Name (Terran Marine)", L"Custom Name"};
-    std::vector<ListPickItem> items;
-    for (int i = 0; i < 4; ++i) items.push_back({kNames[i], L"", std::to_string(i)});
-    std::string out;
-    if (!showListPicker(L"Unit names", items, std::to_string(gDock.unitNames), belowBox(b), out)) return;
-    gDock.unitNames = std::stoi(out), saveDock();
-    rebuildUnitPalette();
-    RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN);
+    return out;
 }
 
 // Shows the picker at a screen point; true and `out` when something was picked.
@@ -13845,21 +13834,6 @@ LRESULT CALLBACK valuePopProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return LRESULT(app.bgBrush);
     }
     return DefWindowProcW(hwnd, msg, wp, lp);
-}
-
-// Program options > Map unit limit: the number in a value pop-out under its box `b` (in `hwnd`), kept in the registry.
-void pickUnitLimit(int k, RECT b, HWND hwnd) {
-    int& v = k == 0 ? gUnitLimitClassic : gUnitLimitEud;
-    ValuePopSpec spec;
-    spec.title = L"The most units in a map   1 to 65535";
-    spec.type = "Number", spec.min = 1, spec.max = 65535, spec.constantOnly = true, spec.initial = std::to_string(v);
-    POINT at{b.left, b.bottom + scale(4)};
-    ClientToScreen(hwnd, &at);
-    std::string out;
-    if (!showValuePopup(spec, at, out)) return;
-    v = std::clamp(std::atoi(out.c_str()), 1, 65535);
-    if (!gSelfTest) prefs::setNumber(k == 0 ? L"UnitLimitClassic" : L"UnitLimitEud", v);
-    InvalidateRect(hwnd, nullptr, FALSE);
 }
 
 // Shows the pop-out by a point on the screen; true and `out` when applied.
@@ -20208,33 +20182,30 @@ int runSelfTest(const fs::path& dir) {
                 showOptions();
                 for (int i = 0; i < 4; ++i) pump();
                 auto clickPart = [](const std::string& part) {
-                    if (!gOptions.wnd) return false;
+                    if (!optionsWindow()) return false;
                     for (int tries = 0; tries < 2; ++tries) {
-                        RedrawWindow(gOptions.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
-                        const auto it = gOptions.parts.find(part);
-                        if (it == gOptions.parts.end()) return false;
-                        const POINT c{(it->second.left + it->second.right) / 2, (it->second.top + it->second.bottom) / 2};
-                        if (const DataWidgetHit* h = gOptions.surface.at(c); h && h->click) {
-                            auto click = h->click;
-                            click();
+                        RedrawWindow(optionsWindow(), nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+                        draw::Rect r;
+                        if (!gOptionsView.part(part, r)) return false;
+                        if (gOptionsView.clickPart(part)) {
                             pump();
                             return true;
                         }
-                        optionsScrollTo(gOptions.wnd, gOptions.scroll + it->second.top - scale(ui::kDialogPad));  // under the footer: scroll to it
+                        gOptionsView.scrollTo(gOptionsView.scroll() + r.top - scale(ui::kDialogPad));  // under the footer: scroll to it
                     }
                     return false;
                 };
                 const bool was = app.animate;
                 const bool clicked = clickPart("animate");
                 const bool applied = app.animate != was;
-                const bool noPlacement = !gOptions.parts.count("snapunits") && !gOptions.parts.count("placement.0") && !gOptions.parts.count("stack");
-                const bool shownOn = gOptions.wnd && IsWindowVisible(gOptions.wnd);
+                const bool noPlacement = !gOptionsView.hasPart("snapunits") && !gOptionsView.hasPart("placement.0") && !gOptionsView.hasPart("stack");
+                const bool shownOn = optionsWindow() && IsWindowVisible(optionsWindow());
                 const bool back = clickPart("animate") && app.animate == was;
-                if (gOptions.wnd) optionsScrollTo(gOptions.wnd, 0), RedrawWindow(gOptions.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
-                if (gOptions.wnd) capture(dir / "91_options.png", gOptions.wnd);
+                if (optionsWindow()) gOptionsView.scrollTo(0), RedrawWindow(optionsWindow(), nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+                if (optionsWindow()) capture(dir / "91_options.png", optionsWindow());
                 const COLORREF darkBg = kBg;
                 const bool lightOn = clickPart("theme.1") && gLightTheme && kBg != darkBg;
-                if (gOptions.wnd) RedrawWindow(gOptions.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW), capture(dir / "91_options_light.png", gOptions.wnd);
+                if (optionsWindow()) RedrawWindow(optionsWindow(), nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW), capture(dir / "91_options_light.png", optionsWindow());
                 const bool darkAgain = clickPart("theme.0") && !gLightTheme && kBg == darkBg;
                 // The Options menu: in the menu bar, a submenu for each kind, Program options (Ctrl+,) last; no Options in File.
                 bool optionsMenu = false, programLast = false, kinds = false, notInFile = true;
@@ -20280,7 +20251,7 @@ int runSelfTest(const fs::path& dir) {
                     << (darkAgain ? "yes" : "NO") << ", an Options menu in the menu bar " << (optionsMenu ? "yes" : "NO")
                     << ", with Units, Doodads, Sprites, Locations " << (kinds ? "yes" : "NO") << ", and Program options last "
                     << (programLast ? "yes" : "NO") << ", not in File " << (notInFile ? "yes" : "NO") << "\n";
-                if (gOptions.wnd) DestroyWindow(gOptions.wnd);
+                if (optionsWindow()) gMainAnchor.host.closeWindow(gOptionsView);
             }
             // The Options menu's rules for each kind, through the menu commands: placing follows each one. Units: a half
             // tile snap moves in half tiles. Sprites: with Snap to tiles a click puts a sprite in the middle of the tile,
@@ -22557,25 +22528,22 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 setWorkspace(Workspace::Map);
                 static fs::path shot;
                 shot = fs::path(datashots) / "feedback.png";
-                gFeedbackHook = [](HWND w) {
-                    SetWindowTextW(gFbDlg->text, L"The marine icon is a bit blurry.\r\nSecond line.");
+                gFeedbackHook = [](FeedbackView& v) {
+                    HWND w = feedbackWindow();
+                    v.setTyped(L"The marine icon is a bit blurry.\r\nSecond line.");
                     for (int i = 0; i < 5; ++i) pump();
                     capture(shot, w);
                     // After Send (nothing is sent here): the spinner, then the thank-you with the issue's link.
-                    FeedbackDialog& d = *gFbDlg;
-                    d.stage = 1;
-                    ShowWindow(d.text, SW_HIDE), ShowWindow(d.status, SW_SHOW);
-                    SetWindowTextW(d.status, L"Sending your feedback\x2026");
-                    EnableWindow(GetDlgItem(w, IDOK), FALSE);
+                    v.sending(L"Sending your feedback\x2026");
                     for (int i = 0; i < 5; ++i) pump();
                     capture(shot.parent_path() / "feedback_sending.png", w);
-                    feedbackShowResult(d, true, 123);
+                    v.done(true, 123, L"https://github.com/" + std::wstring(crash::kRepo) + L"/issues/123");
                     for (int i = 0; i < 5; ++i) pump();
                     capture(shot.parent_path() / "feedback_sent.png", w);
                     std::ofstream(shot.parent_path() / "feedback_sent.txt")
-                        << "after Send: the issue's link " << (IsWindowVisible(d.issue) && d.page.find(L"/issues/123") != std::wstring::npos ? "yes" : "NO")
-                        << ", Send hidden " << (!IsWindowVisible(GetDlgItem(w, IDOK)) ? "yes" : "NO") << "\n";
-                    PostMessageW(w, WM_COMMAND, IDCANCEL, 0);
+                        << "after Send: the issue's link " << (v.issueShown() && v.page().find(L"/issues/123") != std::wstring::npos ? "yes" : "NO")
+                        << ", Send hidden " << (!v.sendShown() ? "yes" : "NO") << "\n";
+                    feedbackClose();
                 };
                 showFeedbackDialog(L"Marine");
                 gFeedbackHook = nullptr;
@@ -22876,11 +22844,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 for (int light = 0; light < 2; ++light) {
                     applyTheme(light != 0, wasAccent);
                     for (int i = 0; i < 6; ++i) pump(), Sleep(20);
-                    if (gOptions.wnd) RedrawWindow(gOptions.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
-                    capture(fs::path(datashots) / (light ? "options_light.png" : "options_dark.png"), gOptions.wnd);
+                    if (optionsWindow()) RedrawWindow(optionsWindow(), nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+                    capture(fs::path(datashots) / (light ? "options_light.png" : "options_dark.png"), optionsWindow());
                 }
                 applyTheme(wasLight, wasAccent);
-                if (gOptions.wnd) DestroyWindow(gOptions.wnd);
+                if (optionsWindow()) gMainAnchor.host.closeWindow(gOptionsView);
                 continue;
             }
             if (s == "about:") {  // about.png: Help > About StarDraft
