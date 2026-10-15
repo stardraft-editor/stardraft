@@ -78,8 +78,9 @@ bool sdlOptionsRuns(int id);     // (sdl_options.inc: the Program options comman
 bool sdlOptionsCommand(int id);
 
 // Whether the SDL program runs the command now. The others are grayed, and their keys do nothing.
+bool sdlUpdatesRuns(int id);  // (sdl_updates.inc: Look for updates on start, Crash reports, Maps)
 bool sdlRuns(int id) {
-    if (sdlOptionsRuns(id)) return true;
+    if (sdlOptionsRuns(id) || sdlUpdatesRuns(id)) return true;
     switch (id) {
     case ID_FILE_OPEN:
     case ID_FILE_SAVE:
@@ -107,6 +108,7 @@ bool sdlRuns(int id) {
     case ID_PROJ_SETTINGS:
     case ID_OPT_WINDOW:
     case ID_HELP_FEEDBACK:
+    case ID_HELP_UPDATES:  // Check for updates (sdl_updates.inc)
     case ID_EDIT_RENAME:  // the location's rename and the quick picker (sdl_map_dialogs.inc)
     case ID_QUICKPICK: return true;
     case ID_HELP_ABOUT:  // (sdl_options.inc) and the links
@@ -244,7 +246,7 @@ void dialogDone(void* data, const char* const* list, int) {
     std::unique_ptr<DialogCall> call(static_cast<DialogCall*>(data));
     const std::string picked = list && list[0] ? list[0] : std::string();
     const std::function<void(const fs::path&)> done = call->done;
-    shellPost([done, picked] { done(fs::path(picked)); });
+    shellPost([done, picked] { done(picked.empty() ? fs::path() : fs::path(widen(picked))); });  // (UTF-8)
 }
 
 // The window the dialogs belong to: the program's first window (nullptr when there is none).
@@ -344,12 +346,14 @@ void confirmReplace(std::function<void()> then) {
 // then the commands the core leaves to the shell.
 bool sdlProjectCommand(int id);  // (sdl_project.inc: Open project, New EUD project, Add a script, the folder, the settings)
 #include "message_box.h"  // apps/kit: Scenario > Check's box (kit::messageBox)
+bool sdlUpdatesCommand(int id);  // (sdl_updates.inc: Check for updates, Look for updates on start, Crash reports, Maps)
 void command(int id) {
     if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax))
         return confirmReplace([id] { commandPortable(gState, id); });
     if (commandPortable(gState, id)) return;
     if (sdlProjectCommand(id)) return;
     if (sdlOptionsCommand(id)) return;  // (sdl_options.inc: the theme, the language, the program's options)
+    if (sdlUpdatesCommand(id)) return;
     switch (id) {
     case ID_FILE_OPEN: confirmReplace([] {
             showFileDialog(false, [](const fs::path& p) {
@@ -395,7 +399,7 @@ void command(int id) {
     case ID_HELP_ABOUT: showAboutSdl(); return;
     case ID_VIEW_KIT: showKitGallerySdl(); return;
     case ID_HELP_DISCORD: shellOpenUrl(kDiscordInvite); return;
-    case ID_HELP_GITHUB: shellOpenUrl(L"https://github.com/" + std::wstring(kRepoName)); return;
+    case ID_HELP_GITHUB: shellOpenUrl(L"https://github.com/" + std::wstring(kIssueRepo)); return;
     case ID_PROJ_COMPILE: compileProject(); return;
     case ID_VIEW_LOG: gLogPane.setExpanded(!gLogPane.expanded()); return;
     case ID_OPT_INSTALL: shellChooseInstallFolder(); return;

@@ -18,7 +18,11 @@ std::wstring startDateSdl(const fs::path& p) {
     const auto offset = std::chrono::duration_cast<std::chrono::system_clock::duration>(ft - fs::file_time_type::clock::now());
     const std::time_t tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now() + offset);
     std::tm tm{};
+#ifdef _WIN32
+    if (localtime_s(&tm, &tt) != 0) return L"";
+#else
     if (!localtime_r(&tt, &tm)) return L"";
+#endif
     wchar_t buf[32];
     std::swprintf(buf, 32, L"%04d-%02d-%02d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
     return buf;
