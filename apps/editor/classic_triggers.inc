@@ -1246,7 +1246,9 @@ LRESULT CALLBACK classicTrigProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         d->wnd = hwnd;
         d->params.clear(), d->paramPickers.clear();  // made again (the page showed before): the old ones went with it
         d->query.clear(), d->filter = -1, d->marked.clear(), d->anchor = -1;  // the search and the filter start empty, as their boxes do
-        d->listPane = {}, d->entryPane = {};  // the lists' views and hosts of the page that went (new ones with the new windows)
+        // the lists' hosts go before their views (the host detaches from its view when it goes; a move assignment frees the view first)
+        d->listPane.host.reset(), d->listPane.view.reset();
+        d->entryPane.host.reset(), d->entryPane.view.reset();  // the lists' views and hosts of the page that went (new ones with the new windows)
         d->tips = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, 0, 0, 0, 0, hwnd, nullptr, app.inst, nullptr);
         styleTips(d->tips);
         auto font = [](HWND h, HFONT f = nullptr) { SendMessageW(h, WM_SETFONT, WPARAM(f ? f : app.font), TRUE); };

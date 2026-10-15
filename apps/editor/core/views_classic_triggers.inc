@@ -673,10 +673,11 @@ public:
                 if (e.pt.y < edge) scrollTo(scroll_ - scale(12));
                 else if (e.pt.y > height() - edge) scrollTo(scroll_ + scale(12));
             }
-            invalidate();  // (the row under the mouse paints its hover)
+            if (drag_.from >= 0) invalidate();  // (the drag moves the rows)
+            else if (const draw::Rect over = hoverRectAt(e.pt); !sameRect(over, hoverRect_)) hoverRect_ = over, invalidate();  // the hover moved to another part
             return true;
         case draw::MouseKind::Leave:
-            invalidate();
+            if (hoverRect_.right > hoverRect_.left || hoverRect_.bottom > hoverRect_.top) hoverRect_ = {}, invalidate();
             return true;
         case draw::MouseKind::Down: {
             if (e.button != 0) return false;
@@ -766,6 +767,14 @@ private:
         for (auto it = hits_.rbegin(); it != hits_.rend(); ++it)
             if (it->r.contains(pt) && (!pressable || it->click || it->drag)) return &*it;
         return nullptr;
+    }
+    // The rectangle of the part under the point (its hit), or an empty one: the hover paints only when this changes.
+    draw::Rect hoverRectAt(draw::Point pt) const {
+        const CtHit* h = hitAt(pt, false);
+        return h ? h->r : draw::Rect{};
+    }
+    static bool sameRect(const draw::Rect& a, const draw::Rect& b) {
+        return a.left == b.left && a.top == b.top && a.right == b.right && a.bottom == b.bottom;
     }
     const CtHit* contextAt(draw::Point pt) const {
         for (auto it = hits_.rbegin(); it != hits_.rend(); ++it)
@@ -1085,6 +1094,7 @@ private:
     std::vector<CtHit> hits_;
     std::vector<draw::Rect> rows_[3];  // the rows of each list as painted: the triggers, the conditions, the actions
     Drag drag_;
+    draw::Rect hoverRect_;  // the part the mouse is over (its hit's rectangle at the last move)
     int scroll_ = 0, height_ = 0, laid_ = -1;
 };
 
@@ -1104,6 +1114,7 @@ public:
           forces(L"Forces\x2026", stardraft::kit::Tone::Normal, std::move(cb.forces)) {
         title.setFont({draw::Face::Ui, 0, true, false, false, 0});  // bold (the page's title font was 1.5 times the UI size)
         title.setText(L"None");
+        count.setTone(stardraft::kit::LabelTone::Dim);  // the old count was the dim static (kCtDim)
         forces.setTip(L"Forces: the forces that run the trigger");
         for (size_t i = 0; i < playerLabels.size(); ++i)
             players.push_back(std::make_unique<stardraft::kit::CheckBox>(playerLabels[i], false, [i, f = cb.player](bool on) {
