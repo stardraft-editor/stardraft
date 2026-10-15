@@ -34,11 +34,23 @@ void setGraphics(GraphicsQuality q, bool carbot) {
 // (until it is in the core) The project's custom unit names are not on this system yet (data_extras.inc is Win32 for now).
 std::wstring projectUnitName(int) { return L""; }
 
-// (until it is in the core) The workspaces: only the Map is on this system yet.
+// The workspaces (the core's setWorkspace; the Windows program's is in main.cpp, with its windows): Assets is Files, and
+// a workspace the tab's mode does not have falls back to Map with the same message as Windows. The workspace shows its
+// view (sdl_main_view.inc: the registered one, else "Not on this system yet"), and the map's panes show in Map only.
 void setWorkspace(Workspace w) {
-    if (w != Workspace::Map) setMessage(L"This is not on this system yet");
-    gWorkspace = Workspace::Map;
+    if (w == Workspace::Assets) w = Workspace::Files;  // Assets is part of Files
+    if (!commandInMode(mapPageCommandOf(w))) {
+        if (w == Workspace::ClassicTriggers || w == Workspace::ClassicSettings)
+            setMessage(w == Workspace::ClassicTriggers ? L"This project's map has no classic triggers. Use the Triggers workspace."
+                                                       : L"The map's Data page is for classic maps. In a project, use the Data workspace.");
+        else setMessage(L"This tab is a classic map. Data, Triggers and Project need a project. File > Project > Make this map a project makes one.");
+        w = Workspace::Map;
+    }
+    gWorkspace = w;
+    shellStatusChanged();  // the map's parts show in Map only
     shellRelayout();
+    shellMenusChanged();  // Edit's items follow the workspace (and with them Ctrl+C / X / V)
+    shellRedrawTabs();
 }
 void pageSync() {}
 void openStartPage() {}
