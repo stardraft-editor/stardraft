@@ -4,8 +4,6 @@
 // pop-outs, the sound picker, the time's value pop-out, the question before Delete and the units' icons
 // (sdl_pictures.inc). Edit's commands (briefCommand) go to the page. Included by main_sdl.cpp after sdl_map_pages.inc.
 
-#include "message_box.h"  // apps/kit: the question before Delete (confirm)
-
 void importSoundsSdl();  // (below: Import sounds... of the sound picker; the dialog answers later)
 
 class SdlBriefingHost final : public BriefingPageHost {
@@ -77,7 +75,8 @@ public:
         return false;
     }
     bool confirm(const std::wstring& title, const std::wstring& text, const std::wstring& yes) override {
-        return gRoot && kit::messageBox(*gRoot, shellTr(title.c_str()), shellTr(text.c_str()), {yes, L"Cancel"}, kit::MessageIcon::Warning) == 0;
+        // (the core message box, as the Windows program's MB_OKCANCEL | MB_ICONWARNING with the names Delete and Cancel)
+        return gRoot && msgbox::ask(*gRoot, shellTr(title.c_str()), shellTr(text.c_str()), {shellTr(yes.c_str()), shellTr(L"Cancel")}, msgbox::Icon::Warning) == 0;
     }
     draw::Bitmap* unitIcon(int unit) override { return unit >= 0 && unit < 228 ? paletteBitmap(Mode::Units, unit, 0) : nullptr; }
 

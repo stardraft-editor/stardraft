@@ -639,3 +639,61 @@ bool createProject(const fs::path& parent, const std::string& name, bool fromOpe
                (classic ? L". The project's map keeps its classic triggers, unit, upgrade and technology settings, and briefings. Scenario > Classic triggers shows the triggers." : L""));
     return true;
 }
+
+// Save for an unsaved project (core/documents.inc), to `chosen` (<folder>/<name>.stardraft: the project goes to
+// <folder>/<name>/): everything in its folder moves there, and the tab goes on as that project. The host asks for
+// `chosen` (its save dialog). A problem shows in a message box (Save project); false then.
+bool saveUnsavedProjectTo(const fs::path& chosen) {
+    AppState& app = shellState();
+    EudProject* pr = activeProject();
+    if (!pr || !app.ed) return false;
+    std::error_code ec;
+    const std::string name = chosen.stem().string();
+    const fs::path dest = chosen.parent_path() / chosen.stem();
+    if (name.empty() || name.find_first_of("\\/:*?\"<>|") != std::string::npos) return shellWarningBox(L"The name cannot hold \\ / : * ? \" < > |", L"Save project"), false;
+    if (fs::exists(dest, ec) && !fs::is_empty(dest, ec)) {
+        shellWarningBox(dest.wstring() + L" is there already and is not empty.", L"Save project");
+        return false;
+    }
+    std::string err;
+    if (!app.ed->save(pr->inputMap(), err)) return shellErrorBox(widen(err), L"Could not save the map"), false;
+    // Everything in the folder, with the project's own files named after it.
+    const fs::path from = pr->folder();
+    fs::create_directories(dest, ec);
+    for (auto it = fs::recursive_directory_iterator(from, ec); it != fs::recursive_directory_iterator(); it.increment(ec)) {
+        const fs::path rel = fs::relative(it->path(), from, ec);
+        const std::string r = rel.generic_string();
+        if (r == "Untitled_EUD.scx" || r == "Untitled.eds") continue;  // Build makes them again
+        fs::path to = dest / rel;
+        if (r == "Untitled.scx") to = dest / (name + ".scx");
+        if (it->is_directory(ec)) {
+            fs::create_directories(to, ec);
+            continue;
+        }
+        if (r == EudProject::kFileName) {  // its name, map and output by the new name
+            std::ifstream in(it->path(), std::ios::binary);
+            std::string text((std::istreambuf_iterator<char>(in)), {});
+            for (const auto& [a, b] : {std::pair<std::string, std::string>{"Untitled_EUD.scx", name + "_EUD.scx"}, {"Untitled.scx", name + ".scx"},
+                                       {"name: Untitled", "name: " + name}, {"Untitled.eds", name + ".eds"}})
+                for (size_t p = text.find(a); p != std::string::npos; p = text.find(a, p + b.size())) text.replace(p, a.size(), b);
+            std::ofstream out(dest / EudProject::kFileName, std::ios::binary);
+            out << text;
+            out.close();
+            if (!out) return shellErrorBox(L"Could not write " + (dest / EudProject::kFileName).wstring(), L"Save project"), false;
+            continue;
+        }
+        fs::copy_file(it->path(), to, fs::copy_options::overwrite_existing, ec);
+        if (ec) return shellErrorBox(L"Could not copy " + it->path().wstring() + L": " + widen(ec.message()), L"Save project"), false;
+    }
+    // The tab goes on as the saved project (the same project object: the workspaces keep it).
+    const fs::path oldParent = from.parent_path();
+    if (!pr->open(dest / EudProject::kFileName, err) || !app.ed->save(pr->inputMap(), err)) return shellErrorBox(widen(err), L"Save project"), false;
+    fs::remove_all(oldParent, ec);
+    addRecent(gRecentProjects, pr->folder());
+    rememberProjectsFolder(pr->folder());
+    updateTitle();
+    setWorkspace(gWorkspace);  // the workspaces read the project from its new folder
+    shellInvalidateTabs();
+    setMessage(L"Saved the project to " + dest.wstring());
+    return true;
+}

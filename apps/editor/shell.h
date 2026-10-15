@@ -127,6 +127,8 @@ void shellLegacyNames(const std::wstring& sub, std::vector<std::wstring>& out);
 void shellLegacyRemove(const std::wstring& sub, const std::wstring& value);
 // An error message box (the theme's message box) with the title.
 void shellErrorBox(const std::wstring& text, const std::wstring& title);
+// The same with the warning icon (a problem the user can correct: Save project's name).
+void shellWarningBox(const std::wstring& text, const std::wstring& title);
 // A canvas that measures text in the UI fonts outside a paint (the message box's and the tooltip's sizes); nullptr
 // when the host has none (then they estimate from the font's letters). Windows: none (its boxes measure on a screen DC).
 stardraft::draw::Canvas* shellMeasureCanvas();

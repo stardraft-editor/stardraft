@@ -55,6 +55,8 @@ CASES += [
     ("map-dialog-prompt", ["--dialog", "prompt"], "map"),
     ("map-dialog-quick", ["--dialog", "quick", "--mode", "units"], "map"),
     ("map-newpage-classic", ["--newpage", "classic"], "map"),
+    ("map-dialog-message-build", ["--dialog", "message:build"], "map"),  # Build's question (shellAskYesNo)
+    ("map-dialog-message-delete", ["--dialog", "message:delete"], "map"),  # the Triggers' question before Delete
     # A project open.
     ("project-scriptpreview", ["--workspace", "project", "--scriptpreview"], "project"),
     # The game's text codes (colors) in a block's text: drawn without boxes (the first trigger of the second category).

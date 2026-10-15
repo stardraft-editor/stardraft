@@ -31,6 +31,11 @@ std::wstring playabilityText() {
     return text;
 }
 
+// The question before a build of a map that StarCraft will not start (`problems`: playabilityText()): Build or Do not build.
+std::wstring buildAnywayQuestion(const std::wstring& problems) {
+    return L"StarCraft will not start this map:\r\n\r\n" + problems + L"\r\nTo set the players, use Scenario > Players and forces. Build the map anyway?";
+}
+
 // Before a build: the triggers' code into generated/triggers.eps. False (with the problems in the log) when the
 // checker finds errors.
 bool writeTriggerCode(EudProject& pr, std::string& err) {
@@ -288,9 +293,7 @@ void compileProject() {
         return;
     }
     if (const std::wstring problems = playabilityText(); !problems.empty()) {
-        const std::wstring q = L"StarCraft will not start this map:\r\n\r\n" + problems +
-                               L"\r\nTo set the players, use Scenario > Players and forces. Build the map anyway?";
-        if (gSelfTest || !shellAskYesNo(q, L"Build", L"&Build", L"Do &not build")) {
+        if (gSelfTest || !shellAskYesNo(buildAnywayQuestion(problems), L"Build", L"&Build", L"Do &not build")) {
             setMessage(L"Did not build the map: " + problems.substr(2, problems.find(L"\r\n") - 2));
             return;
         }

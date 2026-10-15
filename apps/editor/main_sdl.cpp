@@ -52,7 +52,6 @@
 #include "sdl_host.h"
 #include "core/tr.h"
 #include "shell.h"
-#include "message_box.h"  // apps/kit: the save question (shellAskSaveChanges)
 #include "dialog.h"  // apps/kit: the map pages' pickers (sdl_map_pages.inc)
 #include "label.h"  // apps/kit: the block dialog's text (core/views_classic_batch.inc)
 #include "text_field.h"  // apps/kit: the search boxes (core/views_search.inc)
@@ -237,7 +236,7 @@ int main(int argc, char** argv) {
         else if (a == "--classictrig") ctArg = next();  // trigger:kind:entry (2:1:0): the Classic triggers page selects it, for a snapshot
         else if (a == "--briefing") briefArg = next();  // row[:ms]: the Briefing page selects that row of the first briefing, the preview at that time, for a snapshot
         else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
-        else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or blockpick, blockhelp:<block id>, unitprops, locprops, quick, valuepop[:number|:colors|:text], about, message, error or tip: that view is the snapshot
+        else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or blockpick, blockhelp:<block id>, unitprops, locprops, quick, valuepop[:number|:colors|:text], about, message, message:build, message:delete, error or tip: that view is the snapshot
         else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
         else if (a == "--scriptpreview") previewArg = true;  // the Project page's script preview on (not saved), for a snapshot
         else if (a == "--log") logArg = true;  // the Log open (View > Log), for a snapshot
@@ -389,6 +388,16 @@ int main(int argc, char** argv) {
                 messageShot.b.icon = msgbox::Icon::Question;
                 messageShot.b.buttons = {{L"&Save", 0}, {L"Do &not save", 1}, {L"Cancel", 2}};
                 messageShot.b.cancel = 2;
+                const draw::Point sz = messageShot.layout(kit_sdl::measuringCanvas());
+                width = sz.x, height = sz.y;
+            } else if (dialogArg == "message:build" || dialogArg == "message:delete") {
+                // Build's question for a map that StarCraft will not start (shellAskYesNo), or the Triggers' question
+                // before Delete (trigAskDelete): the boxes those calls show, with the second button's focus.
+                shown = &messageShot;
+                std::wstring problems = playabilityText();
+                if (problems.empty()) problems = L"\x2022 At least one player must be human\r\n";  // (a map that StarCraft starts: a sample problem)
+                messageShot.b = dialogArg == "message:build" ? sdlYesNoBox(buildAnywayQuestion(problems), L"&Build", L"Do &not build")
+                                                             : sdlTrigDeleteBox(L"Delete the trigger \"Spawn the waves\"?");
                 const draw::Point sz = messageShot.layout(kit_sdl::measuringCanvas());
                 width = sz.x, height = sz.y;
             } else if (dialogArg == "error") {  // an error box (shellErrorBox: the error icon and OK)

@@ -170,7 +170,7 @@ bool sdlPropsApplyAll(MapPropsValues& d) {
     ed.endStroke();
     if (!ok) {
         // The title and description of the same step stay set; the size and tileset do not.
-        shellErrorBox(L"The map keeps its size and tileset: " + widen(err), L"Map properties");
+        shellWarningBox(L"The map keeps its size and tileset: " + widen(err), L"Map properties");  // (the warning icon, as on Windows)
         return false;
     }
     if (text) d.nameBase = d.nameText, d.descBase = d.descText;
