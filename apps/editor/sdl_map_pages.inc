@@ -646,8 +646,8 @@ public:
     }
     void fitContent(int w, int h) override {  // (Classic triggers fill the view, and are as tall as they need)
         if (gSdlPage.kind != kSdlClassicTrig || !gSdlPage.classicTrig) return;
+        // (the scroll view places the parts after this: a relayout here would call this again, without end)
         gSdlPage.classicTrig->setSize(std::max(w, gSdlPage.classicTrig->preferredWidth()), std::max(h, gSdlPage.classicTrig->preferredHeight()));
-        sdlPageRelayoutParts();
     }
     void placeContent(int x, int y) override {
         const auto parts = sdlParts();

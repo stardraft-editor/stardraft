@@ -56,6 +56,7 @@
 #include "views_classic_batch.inc"
 #include "views_classic_value.inc"
 #include "views_list_pick.inc"
+#include "views_classic_page.inc"
 #include "views_briefing.inc"
 #include "views_start.inc"
 #include "views_new_page.inc"

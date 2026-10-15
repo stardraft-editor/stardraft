@@ -463,6 +463,7 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_classic_batch.inc"  // the block dialog (BatchView, runBatchDialog; the host is classic_triggers.inc)
 #include "core/views_classic_value.inc"  // the number pop-out (CtValueView, runValueDialog; the host is classic_triggers.inc)
 #include "core/views_list_pick.inc"  // the list picker (ListPickView, runListPick; showListPicker below runs it)
+#include "core/views_classic_page.inc"  // Classic triggers: the entries' commands, the pickers, the menus, the keys, the side and the editor (classic_triggers.inc)
 #include "core/views_start.inc"  // the start page (StartView: the cards, the recent list, Open; the instance is gStartView in new_page.inc)
 #include "core/views_new_page.inc"  // the New page (NewPageView: the settings, the generator, the preview; the host is new_page.inc)
 #include "core/views_new_page_paint.inc"
