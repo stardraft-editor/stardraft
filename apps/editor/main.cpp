@@ -5096,7 +5096,7 @@ LRESULT CALLBACK paletteSectionProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, U
 void rebuildUnitPalette() {
     gPal.entries.clear();
     gPal.hover = -1;
-    const std::wstring filter = lowerText(gPal.search);
+    const std::wstring filter = lowerText(gPalSearchBox.text());
     const PaletteUnit* prev = nullptr;
     const auto units = paletteItems();
     fillPaletteSections(units);
@@ -5803,7 +5803,7 @@ void paintUnitPalette(stardraft::draw::Canvas& c, int width, int height) {
             static int wordsPaint = -1;
             if (wordsPaint != gPalPaintCount) {
                 wordsPaint = gPalPaintCount, words.clear();
-                std::wistringstream in(lowerText(gPal.search));
+                std::wistringstream in(lowerText(gPalSearchBox.text()));
                 for (std::wstring w; in >> w;) words.push_back(w);
             }
             if (words.empty()) c.text(t, e.label, kText, kMiddle | kEllipsis);
@@ -19649,7 +19649,7 @@ void createFont() {
     NONCLIENTMETRICSW ncm{sizeof ncm};
     SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0, app.dpi);
     app.font = CreateFontIndirectW(&ncm.lfMessageFont);
-    for (HWND w : {app.owner, app.brush, app.list, gPal.search, gPal.viewBtn, gPal.sectionBox, app.status, app.sym, app.density})
+    for (HWND w : {app.owner, app.brush, app.list, gPal.viewBtn, gPal.sectionBox, app.status, app.sym, app.density})
         if (w) SendMessageW(w, WM_SETFONT, WPARAM(app.font), TRUE);
     // The player list draws its rows itself: its closed box as tall as the other lists at this font.
     if (app.owner && app.sym) SendMessageW(app.owner, CB_SETITEMHEIGHT, WPARAM(-1), SendMessageW(app.sym, CB_GETITEMHEIGHT, WPARAM(-1), 0));
@@ -20189,9 +20189,12 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                                                                LBS_OWNERDRAWFIXED | LBS_HASSTRINGS,
                                    0, 0, 0, 0, hwnd, HMENU(IDC_LIST), app.inst, nullptr);
         SetWindowSubclass(app.list, emptyListProc, 47, 0);
-        gPal.search = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 0, 0, 0, 0, hwnd,
-                                      HMENU(IDC_UNITSEARCH), app.inst, nullptr);
-        SendMessageW(gPal.search, EM_SETCUEBANNER, TRUE, LPARAM(L"Search")); addSearchClear(gPal.search);  // an x clears it
+        gPalSearchBox.setPlaceholder(L"Search");
+        gPalSearchBox.onChange = [] {
+            gPal.scroll = 0;
+            rebuildUnitPalette();
+        };
+        gPal.search = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd, HMENU(IDC_UNITSEARCH), app.inst, &gPalSearchBox);
         gPal.viewBtn = CreateWindowExW(0, WC_BUTTONW, L"View \x25BE", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd,
                                        HMENU(IDC_PALVIEW), app.inst, nullptr);
         gPal.sectionBox = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL, 0, 0, 0, 0, hwnd,
@@ -20216,7 +20219,6 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         createFont();
         // Dark theme for the controls.
         for (HWND c : {app.owner, app.brush, app.sym, app.density}) darkControl(c, L"DarkMode_CFD");
-        darkControl(gPal.search, L"DarkMode_CFD");
         darkControl(gPal.viewBtn, L"DarkMode_Explorer");
         darkControl(gPal.sectionBox, L"DarkMode_CFD");
         darkControl(gPal.wnd, L"DarkMode_Explorer");
@@ -20284,9 +20286,6 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             GetWindowRect(gPal.viewBtn, &r);
             unitPaletteMenu(r.left, r.bottom, -1);
             SetFocus(app.view);
-        } else if (id == IDC_UNITSEARCH && code == EN_CHANGE) {
-            gPal.scroll = 0;
-            rebuildUnitPalette();
         } else if (id >= ID_FILE_OPEN) {
             command(id);
         }
@@ -20814,22 +20813,23 @@ int runSelfTest(const fs::path& dir) {
                     pictured += b && b->bmp;
                     special += e.value == 214 || e.value == 36 || e.value == 204 || e.value == 205 || e.value == 4;
                 }
-            SetWindowTextW(gPal.search, L"start loc");
+            gPalSearchBox.setText(L"start loc");
             pump();
             const bool startFound = std::any_of(gPal.entries.begin(), gPal.entries.end(), [](const auto& e) { return e.value == 214; });
             capture(dir / "10b_palette_search_start_location.png");
-            SetWindowTextW(gPal.search, L"door");
+            gPalSearchBox.setText(L"door");
             pump();
             capture(dir / "10c_palette_search_door.png");
-            SetWindowTextW(gPal.search, L"");
+            gPalSearchBox.setText(L"");
             pump();
             log << "palette: all units " << pictured << " pictured (expect 228), start location/egg/floor hatch/door/turret listed " << special
                 << " (expect 5), search finds the start location " << (startFound ? "yes" : "NO") << "\n";
         }
         {
             // Ctrl+Backspace in the palette search: deletes the last word; Ctrl+Delete the next one.
-            SetWindowTextW(gPal.search, L"siege tank");
-            SendMessageW(gPal.search, EM_SETSEL, 10, 10);
+            gPalSearchBox.setText(L"siege tank");
+            gPalSearchBox.field().focus();
+            gPalSearchBox.field().model().setCaret(10);
             BYTE keys[256], ctrl[256];
             GetKeyboardState(keys);
             std::copy(std::begin(keys), std::end(keys), ctrl);
@@ -20837,13 +20837,13 @@ int runSelfTest(const fs::path& dir) {
             SetKeyboardState(ctrl);
             PostMessageW(gPal.search, WM_KEYDOWN, VK_BACK, 0);
             pump();
-            const std::wstring afterBack = windowText(gPal.search);
-            SendMessageW(gPal.search, EM_SETSEL, 0, 0);
+            const std::wstring afterBack = gPalSearchBox.text();
+            gPalSearchBox.field().model().setCaret(0);
             PostMessageW(gPal.search, WM_KEYDOWN, VK_DELETE, 0);
             pump();
-            const std::wstring afterDelete = windowText(gPal.search);
+            const std::wstring afterDelete = gPalSearchBox.text();
             SetKeyboardState(keys);
-            SetWindowTextW(gPal.search, L"");
+            gPalSearchBox.setText(L"");
             pump();
             log << "ctrl+backspace: \"siege tank\" -> \"" << narrow(afterBack) << "\" (expect \"siege \"), ctrl+delete at the start -> \""
                 << narrow(afterDelete) << "\" (expect \"\")\n";
@@ -24123,12 +24123,12 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     applyTheme(light != 0, gAccentIndex);
                     const std::string suffix = light ? "_light" : "";
                     setMode(Mode::Units);
-                    SetWindowTextW(gPal.search, L"zzqqxxnothing");
+                    gPalSearchBox.setText(L"zzqqxxnothing");
                     rebuildUnitPalette();
                     for (int i = 0; i < 8; ++i) pump();
                     capture(fs::path(datashots) / ("emptynone_palette" + suffix + ".png"));
                     o << "palette rows " << gPal.entries.size() << (gPal.entries.empty() ? "" : " WRONG");
-                    SetWindowTextW(gPal.search, L"");
+                    gPalSearchBox.setText(L"");
                     setMode(Mode::Locations);
                     gFilterBox.setText(L"zzqqxxnothing");
                     rebuildList();
@@ -27715,7 +27715,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 setMode(Mode::Units);
                 for (int i = 0; i < 5; ++i) pump();
                 const size_t all = gPal.entries.size();
-                SetWindowTextW(gPal.search, L"marine");
+                gPalSearchBox.setText(L"marine");
                 for (int i = 0; i < 5; ++i) pump();
                 const size_t found = gPal.entries.size();
                 RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
@@ -27724,7 +27724,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(gPal.search, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM((b.left + b.right) / 2, (b.top + b.bottom) / 2));
                 SendMessageW(gPal.search, WM_LBUTTONUP, 0, MAKELPARAM((b.left + b.right) / 2, (b.top + b.bottom) / 2));
                 for (int i = 0; i < 5; ++i) pump();
-                o << "search \"marine\": " << found << " of " << all << " shown; the x: the box " << (GetWindowTextLengthW(gPal.search) == 0 ? "empty" : "NOT EMPTY")
+                o << "search \"marine\": " << found << " of " << all << " shown; the x: the box " << (gPalSearchBox.text().empty() ? "empty" : "NOT EMPTY")
                   << ", " << gPal.entries.size() << " shown" << (gPal.entries.size() == all ? "" : " (NOT ALL)") << "\n";
                 continue;
             }
