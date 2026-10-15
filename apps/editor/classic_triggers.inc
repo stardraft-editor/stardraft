@@ -2002,7 +2002,7 @@ void classicTrigDatashot(const std::string& spec, const fs::path& dir) {
         const std::string light = gLightTheme ? "_light" : "";
         // The states of the page (classictrig:<state>): the page as the map has it, then the state. A pop-out is captured
         // by its own timer (classictrig_popout_<state>.png) and closed; the page is captured after it.
-        if (gBackground && (mode == "value" || mode == "text" || mode == "blockdlg"))  // a dialog activates its window: not in a background run
+        if (gBackground && (mode == "value" || mode == "text"))  // a native pop-out activates its window: not in a background run
             log << mode << ": NOT captured (its dialog takes the focus; run it in the foreground)\n";
         const std::string scaleName = app.dpi >= 180 ? "_200" : "";  // (dpi:192 before the spec: 200 %)
         const fs::path popout = out / ("classictrig_popout_" + mode + scaleName + light + ".png");
@@ -2034,7 +2034,7 @@ void classicTrigDatashot(const std::string& spec, const fs::path& dir) {
             }
             std::set<std::string> checked{"0", "1", "37"};
             ctModalShot(CtShot::Picker, popout, [&] { showListPickerMulti(L"Search values", items, checked, L"Set", POINT{scale(400), scale(200)}); });
-        } else if (mode == "blockdlg" && !gBackground) {  // the block dialog for a new block (For each unit)
+        } else if (mode == "blockdlg") {  // the block dialog for a new block (For each unit): a kit dialog, also in a background run
             ctSelectTrigger(0);
             ctModalShot(CtShot::Dialog, popout, [] { ctBatchClick(ClassicBatchKind::Unit, -1); });
         } else if (mode == "menu") {  // the right-click menu of the first trigger's row
