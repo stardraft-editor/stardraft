@@ -85,7 +85,12 @@ void showOptionsSdl() {
 // The feedback dialog's part of the program: sending is not on this system yet (the text stays in the dialog), the links.
 class FeedbackProgramSdl final : public FeedbackHost {
 public:
-    void send(FeedbackView& v, const std::wstring&) override { v.showStatus(shellTr(L"Sending feedback is not on this system yet")); }
+    // (As the Windows build without a token does: the dialog is done, and the status says why.)
+    void send(FeedbackView& v, const std::wstring&) override {
+        v.sending(L"");
+        v.done(false, 0, L"");
+        v.showStatus(shellTr(L"Sending feedback is not on this system yet"));
+    }
     void openDiscord() override { SDL_OpenURL(narrow(kSdlDiscordInvite).c_str()); }
     void openIssue(const std::wstring& page) override { SDL_OpenURL(narrow(page).c_str()); }
     void close() override {

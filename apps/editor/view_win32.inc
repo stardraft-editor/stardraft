@@ -118,6 +118,8 @@ public:
         invalidate(v);
     }
     bool hasFocus(const View& v) const override { return wnd_ && GetFocus() == wnd_ && router_.focused() == &v; }
+    // The focused view types letters (a text field): the main loop leaves the keys to it.
+    bool typingFocus() const { return wnd_ && GetFocus() == wnd_ && router_.focused() && router_.focused()->typesText(); }
     void capture(View& v, bool on) override {
         router_.setCapture(on ? &v : nullptr);
         if (on) SetCapture(wnd_);
@@ -478,6 +480,14 @@ private:
 
 // A window class whose windows show a View: CreateWindowExW(..., kViewClass, ..., lpParam = the View*).
 inline const wchar_t* kViewClass = L"StarDraftView";
+// The focused view of a view window takes the typed keys (a kit text field): true when such a field has the keyboard.
+inline bool viewTypingFocus(HWND f) {
+    wchar_t cls[32] = L"";
+    GetClassNameW(f, cls, 32);
+    if (_wcsicmp(cls, kViewClass) != 0) return false;
+    auto* host = reinterpret_cast<Win32Host*>(GetWindowLongPtrW(f, GWLP_USERDATA));
+    return host && host->typingFocus();
+}
 LRESULT CALLBACK viewWindowProc(HWND w, UINT msg, WPARAM wp, LPARAM lp) {
     auto* host = reinterpret_cast<Win32Host*>(GetWindowLongPtrW(w, GWLP_USERDATA));
     if (msg == WM_NCCREATE) {

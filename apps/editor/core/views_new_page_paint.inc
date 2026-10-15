@@ -189,6 +189,7 @@ void NewPageView::pickSymmetry(draw::Rect b) {
 }
 
 void NewPageView::paint(draw::Canvas& c) {
+    if (covered) return;  // (the start page's window is over this one)
     makeSwatches();
     newLoadTileset();
     hits.clear();

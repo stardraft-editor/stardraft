@@ -96,6 +96,7 @@ public:
     bool compose(const draw::CompositionEvent& e) override;
     draw::Cursor cursor(draw::Point pt) override { return inTrailing(pt) ? draw::Cursor::Arrow : draw::Cursor::IBeam; }
     bool focusable() const override { return tabStop_; }
+    bool typesText() const override { return true; }
     void focusChanged(bool has) override;
     void captureLost() override;
 

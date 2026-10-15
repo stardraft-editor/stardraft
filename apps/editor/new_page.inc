@@ -171,8 +171,8 @@ std::wstring startDate(const fs::path& p) {
     return buf;
 }
 
-// The start page is a view window (gStartWnd) that covers the page window while the start page shows; the keys and the
-// mouse that come to the page window (it has the focus, or a test sends them) go to it.
+// The start page is a view window (gStartWnd) that covers the page window while the start page shows; pageSync gives it
+// the keyboard then, so the keys and the mouse go to it.
 StartView gStartView;
 
 // Opens recent item `i` (as the File menu's lists do: a missing one leaves the list).
@@ -239,10 +239,12 @@ void pageSync() {
     }
     SetWindowPos(gNewWnd, HWND_TOP, 0, top, int(rc.right), std::max(1, bottom - top), SWP_SHOWWINDOW | SWP_NOACTIVATE);
     if (!was) gNew.resetScroll(), gStartView.resetScroll();
+    const bool start = p == kPageStart;  // the start page's view covers the page; its scroll bar is its own
+    gNew.covered = start;
+    if (!start) gStartView.resetCards();  // (the New page is shown: the start page's cards are not)
     if (p == kPageNew && !gNew.importing() && !gNew.previewMade) gNew.schedule(10);
     InvalidateRect(gNewWnd, nullptr, FALSE);
     if (GetFocus() == app.view || !GetFocus()) SetFocus(gNewWnd);
-    const bool start = p == kPageStart;  // the start page's view covers the page; its scroll bar is its own
     ShowScrollBar(gNewWnd, SB_VERT, !start);
     MoveWindow(gStartWnd, 0, 0, int(rc.right), std::max(1, bottom - top), TRUE);
     ShowWindow(gStartWnd, start ? SW_SHOW : SW_HIDE);

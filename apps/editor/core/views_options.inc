@@ -111,6 +111,8 @@ public:
             limit_[k].setMaxLength(5);
             limit_[k].onEnter = [this, k] { commitLimit(k); };
             limit_[k].onFocusLost = [this, k] { commitLimit(k); };
+            // Escape gives back the saved value (the window stays open): the typed number is not kept.
+            limit_[k].onEscape = [this, k] { limit_[k].setText(std::to_wstring(limitValue_[k])); };
             add(limit_[k], {0, 0, 0, 0}), limit_[k].setVisible(false);
         }
         folder_.setReadOnly(true), folder_.setTabStop(false);
