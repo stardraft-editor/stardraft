@@ -212,7 +212,6 @@ inline HWND dlgButton(HWND parent, int id) {
 }  // namespace ui
 void fillAlpha(HDC dc, RECT r, COLORREF c, BYTE alpha);
 void dataFormRepaint();  // (the Data workspace)
-int gDataMapEdits = 0;  // the Data workspace's Players edits since its last data edit: Ctrl+Z in Data undoes these first (the map's undo)
 // A location's name in lines that fit in w x h screen pixels (the map font, 1.5 px a unit, lines 12 units apart):
 // words go to the next line; a word too long is cut; lines that do not fit are left out.
 std::string wrapLocationName(const std::string& name, float w, float h) {
@@ -275,6 +274,7 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/views_data_requirements.inc"  // the Requirements section's model: step names, ways, levels, edits (requirement*)
 #include "core/views_data_requirements_paint.inc"  // the Requirements section's paint and clicks (paintRequirementList, ListPickItem)
 #include "core/views_data_display.inc"  // the Units form's Display section: its paint and clicks (paintUnitDisplay)
+#include "core/views_data_players.inc"  // the Data form's Players section: the map's settings and their changes (gDataMapEdits)
 #include "core/data_edits.inc"  // the Data workspace's value edits and their undo (DataEditHistory, dataApplyValue)
 #include "core/views_data_form.inc"  // the Data form: where each part of a row sits (dataFieldRow) and the form's view (DataFormView)
 #include "core/views_data_strings.inc"  // the Strings page's model: a string's text, its button prefix and the editor's text (stringLine, stringEditCommit)
@@ -6268,15 +6268,15 @@ void dataWidgetTips() {
 bool editTextValue(const std::wstring& title, std::string& text, POINT at);
 int paintMapPlayers(HDC mem, const std::string& dat, int u, int x0, int y, int colW, int labelW, int rowH) {
     if (!app.ed || !app.ed->isOpen()) return y;
-    const bool units = dat == "units" && u < kSettingUnits, upgrades = dat == "upgrades" && u < kSettingUpgrades,
-               techs = dat == "techdata" && u < kSettingTechs;
-    if (!units && !upgrades && !techs) return y;
+    const int which = mapPlayersKind(dat, u);  // (core/views_data_players.inc)
+    if (which < 0) return y;
+    const bool units = which == 0, upgrades = which == 1;
     {
         ui::FormLayout hl{};
         hl.x0 = x0, hl.colRight = x0 + colW, hl.colW = colW, hl.rowH = rowH;
-        y = ui::sectionHeader(mem, hl, y, L"Players (the map's settings)");
+        y = ui::sectionHeader(mem, hl, y, kMapPlayersTitle);
     }
-    const wchar_t* heads[2] = {units ? L"Can build" : upgrades ? L"Start level" : L"Available", upgrades ? L"Max level" : techs ? L"Researched" : nullptr};
+    const wchar_t* heads[2] = {mapPlayersHead(which, 0), mapPlayersHead(which, 1)};
     const int colA = x0 + labelW + scale(90), colB = colA + scale(130), cb = scale(14);
     SetTextColor(mem, kDim);
     for (int k = 0; k < 2; ++k)
@@ -6285,56 +6285,17 @@ int paintMapPlayers(HDC mem, const std::string& dat, int u, int x0, int y, int c
             DrawTextW(mem, heads[k], -1, &h, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
         }
     y += rowH;
-    // A change: the settings as they are, changed by `f`, into the map (one undo step), then the form again.
+    // A change into the map (one undo step; core/views_data_players.inc), then the form again.
     auto apply = [u](int which, int player, int value) {
-        Editor& ed = *app.ed;
-        if (which == 0) {  // units: 0 the default, else the player's (value -1: uses the default)
-            UnitSettings s = ed.unitSettings();
-            auto& a = s.availability[size_t(u)];
-            if (player < 0) a.global = value != 0;
-            else if (value < 0) a.usesDefault[size_t(player)] = !a.usesDefault[size_t(player)], a.player[size_t(player)] = a.global;
-            else a.player[size_t(player)] = value != 0;
-            ed.setUnitSettings(s, {});
-        } else if (which == 1) {  // upgrades: value = level; player -1 default; field 0 start, 1 max (in value >> 16)
-            UpgradeSettings s = ed.upgradeSettings();
-            auto& l = s.levels[size_t(u)];
-            const int field = value >> 16, v = value & 0xFFFF;
-            if (v == 0xFFFF) {
-                const size_t pp = size_t(player);
-                l.usesDefault[pp] = !l.usesDefault[pp], l.max[pp] = l.defaultMax, l.start[pp] = l.defaultStart;
-            } else if (player < 0) (field ? l.defaultMax : l.defaultStart) = uint8_t(std::min(v, 255));
-            else (field ? l.max[size_t(player)] : l.start[size_t(player)]) = uint8_t(std::min(v, 255));
-            ed.setUpgradeSettings(s);
-        } else {  // techs: field 0 available, 1 researched; value -1: the player's default toggles
-            TechSettings s = ed.techSettings();
-            auto& t = s.players[size_t(u)];
-            const int field = value >> 16, v = value & 0xFFFF;
-            if (v == 0xFFFF) {
-                const size_t pp = size_t(player);
-                t.usesDefault[pp] = !t.usesDefault[pp], t.available[pp] = t.defaultAvailable, t.researched[pp] = t.defaultResearched;
-            } else if (player < 0) (field ? t.defaultResearched : t.defaultAvailable) = v != 0;
-            else (field ? t.researched[size_t(player)] : t.available[size_t(player)]) = v != 0;
-            ed.setTechSettings(s);
-        }
-        ++gDataMapEdits;
+        applyMapPlayerSetting(u, which, player, value);
         updateTitle();
-        app.dirty = true;
         if (gData.form) InvalidateRect(gData.form, nullptr, FALSE);
     };
-    const int which = units ? 0 : upgrades ? 1 : 2;
-    // The map's settings, read once for each version of the map (reading them takes a few ms; a paint comes often).
-    static const Editor* forEd[3] = {};
-    static uint64_t forRev[3] = {~0ull, ~0ull, ~0ull};
-    static UnitSettings us;
-    static UpgradeSettings ups;
-    static TechSettings ts;
-    const int kind = units ? 0 : upgrades ? 1 : 2;  // only the kind this entry shows
-    if (forEd[kind] != app.ed.get() || forRev[kind] != app.ed->revision()) {
-        forEd[kind] = app.ed.get(), forRev[kind] = app.ed->revision();
-        if (units) us = app.ed->unitSettings();
-        else if (upgrades) ups = app.ed->upgradeSettings();
-        else ts = app.ed->techSettings();
-    }
+    // The map's settings, read once for each version of the map (core/views_data_players.inc).
+    const MapPlayerSettings& mps = mapPlayerSettings(which);
+    const UnitSettings& us = mps.units;
+    const UpgradeSettings& ups = mps.upgrades;
+    const TechSettings& ts = mps.techs;
     auto check = [&](int x, int rowY, bool on, bool enabled, std::function<void()> click, const std::wstring& tip) {
         const RECT cell{x, rowY, x + scale(110), rowY + rowH};
         RECT c{x, rowY + (rowH - cb) / 2, x + cb, rowY + (rowH - cb) / 2 + cb};

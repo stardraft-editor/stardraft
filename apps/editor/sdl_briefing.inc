@@ -325,3 +325,22 @@ SdlBriefingView gSdlBriefing;
 
 // The Briefing workspace is left: the preview stops (setWorkspace calls it).
 void briefingStopSdl() { gSdlBriefing.stop(); }
+
+// The Files page's References panel: the Briefing workspace, at the action that uses the sound (the Windows program's
+// FilesProgram::showUse, files_view.inc): its briefing is shown and the action is selected and in view.
+void briefingShowUseSdl(int trig, int act) {
+    setWorkspace(Workspace::Briefing);
+    SdlBriefingView& v = gSdlBriefing;
+    v.ensureWho();  // (the map is the one shown: the choice below stays)
+    const auto& b = briefings();
+    if (trig < 0 || size_t(trig) >= b.size()) return v.invalidate();
+    v.choose(b[size_t(trig)].players);
+    briefRows(v.who);
+    const int row = briefRowOf(trig, act);
+    if (row >= 0) {
+        v.sel = row, v.anchor = row, v.picked = {row};
+        const int shown = v.height() > v.headH() ? std::max(1, (v.height() - v.headH()) / v.rowH()) : 1;
+        if (row < v.listScroll || row >= v.listScroll + shown) v.listScroll = std::max(0, row - shown / 2);
+    }
+    v.invalidate();
+}

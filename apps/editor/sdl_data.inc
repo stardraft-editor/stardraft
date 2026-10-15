@@ -7,8 +7,9 @@
 // requirements are sdl_data_extras.inc's. The pins, back and forward, the clipboard and the entry's and the field's
 // menus are the core's (core/data_nav.inc), the menus kit menus here; the entries' icons are the palette's pictures
 // (sdl_pictures.inc); the image player, its timeline and the portrait beside the fields are the core's
-// (core/views_data_pictures.inc). Not on this system yet: the other pictures beside the fields (the diagrams, the
-// script's uses and code, the sound player), the Units display, the map's players and Rename. Included by
+// (core/views_data_pictures.inc); the Units display and the map's players are the core's paint (sdl_data_extras.inc).
+// Not on this system yet: the other pictures beside the fields (the diagrams, the script's uses and code, the sound
+// player) and Rename. Included by
 // main_sdl.cpp after sdl_briefing.inc; registerWorkspaceView(Workspace::Data, gSdlData) puts it in the window, and
 // --data <tab>:<entry> opens an entry for a snapshot.
 
@@ -167,6 +168,7 @@ void sdlDataTravel(bool back) {
 // A value's change: saved with its undo step (core/data_model.inc), and the list's changed dots follow. False when a save
 // failed (the status says why).
 bool dataSaved() {
+    gDataMapEdits = 0;  // a data edit: Ctrl+Z goes to the data's undo (core/views_data_players.inc)
     const bool ok = dataSaveChange();
     sdlDataRebuildList();
     return ok;
@@ -245,6 +247,12 @@ void sdlDataMenu(draw::View& from, draw::Point at, const MenuModel& items, std::
 // was, at the entry that changed.
 bool sdlDataUndo(bool redo) {
     sdlDataCommitEdit();
+    if (!redo && gDataMapEdits > 0 && gState.ed && gState.ed->isOpen()) {  // the Players section's edits: the map's undo
+        --gDataMapEdits, gState.ed->undo();
+        updateTitle();
+        gSdlDataForm.invalidate();
+        return true;
+    }
     DataEditStep s;
     std::string err;
     if (!dataApplyUndo(redo, s, err)) {
@@ -352,8 +360,8 @@ SdlDataRefsHost gSdlDataRefsHost;
 DataRefsPage gSdlDataRefs(gSdlDataRefsHost);
 
 // The form's program parts. The Strings and Buttons tabs' forms and the requirements are sdl_data_extras.inc's (their
-// click areas are this host's). The pictures, the Units display and the map's players are the Windows program's GDI
-// parts: here they take no room. A click runs when the mouse goes up over its area.
+// click areas are this host's), and so are the Units form's Display section and the map's Players section (the core's
+// paint: core/views_data_display.inc, core/views_data_players.inc). A click runs when the mouse goes up over its area.
 class SdlDataFormHost final : public DataFormViewHost, public DataPicturesHost {
 public:
     struct Area {
@@ -420,9 +428,11 @@ public:
         return paintDataPictures(c, *this, dat(), section, gSdlDataState.entry, x, y, w, moving);
     }
     void soundButton(draw::Canvas&, draw::Rect, int) override {}
-    int unitDisplay(draw::Canvas&, int y) override { return y; }
+    int unitDisplay(draw::Canvas& c, int y) override { return sdlPaintUnitDisplay(c, gSdlDataState.entry, y); }  // (sdl_data_extras.inc)
     int requirements(draw::Canvas& c, int, int y, int) override { return sdlPaintRequirements(c, dat(), gSdlDataState.entry, y); }
-    int mapPlayers(draw::Canvas&, int, int y, int, int, int) override { return y; }
+    int mapPlayers(draw::Canvas& c, int x0, int y, int colW, int labelW, int rowH) override {  // (core/views_data_players.inc)
+        return paintMapPlayers(c, gSdlMapPlayers, dat(), gSdlDataState.entry, x0, y, colW, labelW, rowH);
+    }
     void area(draw::Rect r, std::function<void()> click, const std::wstring& tip, draw::Cursor cursor) override {
         areas.push_back({r, std::move(click), tip, cursor});
     }
@@ -520,6 +530,9 @@ void sdlFormArea(draw::Rect r, std::function<void()> click, const std::wstring& 
     gSdlDataFormHost.area(r, std::move(click), tip, hand ? draw::Cursor::Hand : draw::Cursor::Arrow);
 }
 bool sdlFormHot(draw::Rect r) { return gSdlDataFormHost.hot(r); }
+void sdlFormAreaCursor(draw::Rect r, std::function<void()> click, const std::wstring& tip, draw::Cursor cursor) {
+    gSdlDataFormHost.area(r, std::move(click), tip, cursor);
+}
 
 // --- The workspace view: the container and the three panes, each with its bar --------------------------------------
 
@@ -599,7 +612,7 @@ void sdlDataForgetProject(const EudProject* pr) {
     sdlDataRepaint();
 }
 
-// --- The snapshot's entry: --data <tab>:<entry> (the Data workspace opens the entry as it is shown) -----------------------
+// --- The snapshot's entry: --data <tab>:<entry>[:<scroll>] (the Data workspace opens the entry as it is shown) -----------------------
 
 void sdlDataSelect(const std::string& spec) {
     const size_t colon = spec.find(':');
@@ -607,6 +620,8 @@ void sdlDataSelect(const std::string& spec) {
     sdlDataLoad();
     gSdlData.ready = true;
     sdlDataGoTo(spec.substr(0, colon), std::atoi(spec.c_str() + colon + 1));
+    if (const size_t more = spec.find(':', colon + 1); more != std::string::npos)  // tab:entry:scroll (px; a large one: the form's end)
+        gSdlDataState.formScroll = std::max(0, std::atoi(spec.c_str() + more + 1));
     if (spec.substr(0, colon) == "portdata") {  // a portrait: the picture shows it once its video is decoded (10 s at most)
         const auto clips = portraitClips(portraitPath(gSdlDataState.entry));
         for (int i = 0; i < 200 && !clips->ready.load(std::memory_order_acquire); ++i) std::this_thread::sleep_for(std::chrono::milliseconds(50));

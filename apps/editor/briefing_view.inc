@@ -624,12 +624,6 @@ std::vector<BriefWord> briefSentence(const BriefingAction& a) {
     return w;
 }
 
-int briefRowOf(int trig, int act) {
-    for (size_t i = 0; i < gBriefRows.size(); ++i)
-        if (gBriefRows[i].trig == trig && gBriefRows[i].act == act) return int(i);
-    return -1;
-}
-
 // The selected action's text (when it has one): a game text editor in the briefing's colors (game_text.inc). Its
 // other values are chips in its row.
 GameTextSpec briefTextSpec() {

@@ -39,6 +39,7 @@
 #include "views_data_requirements.inc"
 #include "views_data_requirements_paint.inc"
 #include "views_data_display.inc"
+#include "views_data_players.inc"  // the Data form's Players section (the map's settings for each player)
 #include "data_edits.inc"
 #include "views_data_form.inc"
 #include "views_data_strings.inc"

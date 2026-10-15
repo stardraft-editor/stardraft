@@ -546,3 +546,73 @@ bool sdlPaintExtraTab(draw::Canvas& c, int& y) {
     else if (dataState().datTab == buttonsTab()) sdlPaintButtonsForm(c, y);
     return true;
 }
+
+// --- The Units form's Display section and the Players section: the core's paint on the kit faces ----------------------
+
+// The program's side of paintUnitDisplay (core/views_data_display.inc), as data_extras.inc's WinUnitDisplay: the kit
+// faces, the list picker, the names and the wireframes' pictures (one bitmap for each of the three). It lives as long
+// as the click areas it makes.
+struct SdlUnitDisplay final : UnitDisplayHost {
+    draw::Canvas* c = nullptr;
+    draw::Bitmap wires[3];  // the pictures of this paint, in the order they come (a canvas keeps its copy: a texture)
+    int drawn = 0;
+    draw::Canvas& canvas() override { return *c; }
+    UnitLooks& looks() override { return dataExtras().looks; }
+    ButtonSets& buttons() override { return dataExtras().buttons; }
+    void edited() override { sdlExtrasChanged(); }
+    void tip(draw::Rect r, const std::wstring& tip) override { sdlFormArea(r, nullptr, tip, false); }
+    bool choose(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, draw::Rect, std::string& out) override {
+        return sdlChoose(prompt, items, current, out);
+    }
+    std::vector<ListPickItem> entryItems(const char* kind) override { return ::entryItems(kind); }
+    std::wstring buttonSetName(int set) override { return ::buttonSetName(set); }
+    std::wstring unitName(int unit) override { return entryName("units", unit); }
+    bool hasShields(int unit) override { return datValue("units", "Shield Enable", unit) != 0; }
+    void pickBox(draw::Rect r, const std::wstring& text, bool changed, std::function<void(draw::Rect)> click, const std::wstring& tip, const char* iconDat,
+                 int iconEntry, int number, const char*) override {  // (the open button is not on this system yet)
+        sdlx::pickBox(*c, r, text, changed, std::move(click), tip, number, iconDat ? sdlDataImage(dataRefPicture(iconDat, uint32_t(iconEntry))) : draw::Image{});
+    }
+    Wireframes* wireframes(WireKind kind) override { return wireframeSet(kind); }
+    void sprite(const Sprite& s, int cx, int cy, float zoom) override {
+        if (drawn >= 3 || s.width <= 0 || s.height <= 0) return;
+        draw::Bitmap& b = wires[drawn++];
+        datapics::spriteToBitmap(s, b);
+        const int left = cx - int(s.originX * zoom), top = cy - int(s.originY * zoom);
+        const bool whole = zoom == std::floor(zoom);
+        c->bitmap(b, {0, 0, s.width, s.height}, {left, top, left + std::max(1, int(s.width * zoom)), top + std::max(1, int(s.height * zoom))}, !whole);
+    }
+};
+SdlUnitDisplay gSdlUnitDisplay;
+
+// A unit's Display section (the core's paint), from y down; the y under it.
+int sdlPaintUnitDisplay(draw::Canvas& c, int u, int y) {
+    const kitpaint::FormLayout l = sdlFormLayout();
+    gSdlUnitDisplay.c = &c, gSdlUnitDisplay.drawn = 0;
+    return paintUnitDisplay(gSdlUnitDisplay, RequirementLayout{l.x0, l.labelW, l.rowH, l.colRight}, u, y);
+}
+
+// The pictures' copies go before the GPU device does (main_sdl.cpp, with releaseDataPictures).
+void sdlDataExtrasRelease() {
+    for (draw::Bitmap& b : gSdlUnitDisplay.wires) b = draw::Bitmap();
+}
+
+// The program's side of the Players section (core/views_data_players.inc): the form's click areas, the level typed in
+// the text prompt, and the change shown (the title, the form).
+void sdlFormAreaCursor(draw::Rect r, std::function<void()> click, const std::wstring& tip, draw::Cursor cursor);  // (sdl_data.inc)
+struct SdlMapPlayers final : MapPlayersHost {
+    bool hot(draw::Rect r) override { return sdlFormHot(r); }
+    void area(draw::Rect r, std::function<void()> click, const std::wstring& tip, bool text) override {
+        sdlFormAreaCursor(r, std::move(click), tip, text ? draw::Cursor::IBeam : draw::Cursor::Hand);
+    }
+    bool editNumber(const std::wstring& title, std::string& text, draw::Rect) override {
+        std::wstring w = widen(text);
+        if (!prompt(title.c_str(), w)) return false;
+        text = narrow(w);
+        return true;
+    }
+    void changed() override {
+        updateTitle();
+        gSdlDataForm.invalidate();
+    }
+};
+SdlMapPlayers gSdlMapPlayers;
