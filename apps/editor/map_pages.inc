@@ -13,383 +13,17 @@
 // The page: a header (the title; the Units, Upgrades and Tech tabs of Classic settings), a view that scrolls (the
 // content: the native controls of the old window, made children of the view), the Apply and Revert bar.
 
-// --- Players and forces (on the Map properties page): painted with the kit; the force names are edit boxes ---
+// --- Map properties' view: core/views_map_props.inc (the fields, the dropdowns, the buttons); the game text editors are the
+// program's windows in its boxes (MapPropsWinView, the window's child notifications).
 
-ui::Surface gPlayersSurface;  // the pickers' and check boxes' click areas
-
-// The page's columns and rows (the same at its making and at each paint).
-struct PlayersLayout {
-    int pad, rowH, pitch, c0, c1, c2, c3, c4, c5, flagX, right, tableTop, forcesTop, problemsTop, height;
-    int flagW[4];
+// The view in the page's window: the program's game text editors notify it (their changes go into the map).
+class MapPropsWinView final : public MapPropsView, public ui::ChildCommands {
+public:
+    using MapPropsView::MapPropsView;
+    void childCommand(int, int code) override {
+        if (code == EN_CHANGE) mapPageChanged();
+    }
 };
-PlayersLayout playersLayout(HDC dc) {
-    PlayersLayout l{};
-    l.pad = scale(ui::kDialogPad), l.rowH = scale(ui::kFieldH), l.pitch = l.rowH + scale(8);
-    l.c0 = l.pad, l.c1 = l.pad + scale(80), l.c2 = l.c1 + scale(150), l.c3 = l.c2 + scale(130), l.c4 = l.c3 + scale(170), l.c5 = l.c4 + scale(230);
-    l.flagX = l.c1 + scale(120);
-    int end = l.flagX;
-    for (int b = 0; b < 4; ++b) l.flagW[b] = ui::textWidth(dc, kForceFlagNames[b]) + scale(40), end += l.flagW[b];
-    l.right = std::max(l.c5, end);
-    l.tableTop = l.pad + l.pitch;                 // under the "Players" heading
-    l.forcesTop = l.tableTop + l.pitch * 9 + l.pad;  // the column names and 8 players
-    l.problemsTop = l.forcesTop + l.pitch + 4 * l.pitch + l.pad;
-    l.height = l.problemsTop + scale(70) + l.pad;
-    return l;
-}
-
-void playersPaint(HWND hwnd, PlayersDialog& d) {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-    HGDIOBJ ob = SelectObject(mem, back), of = SelectObject(mem, app.font);
-    FillRect(mem, &rc, app.bgBrush);
-    SetBkMode(mem, TRANSPARENT);
-    gPlayersSurface.begin(hwnd);
-    const PlayersLayout l = playersLayout(mem);
-    auto text = [&](const std::wstring& t, int x, int y, int w, COLORREF c) {
-        SetTextColor(mem, c);
-        RECT r{x, y, x + w, y + l.rowH};
-        DrawTextW(mem, t.c_str(), -1, &r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-    };
-    text(L"Players", l.c0, l.pad, l.right - l.c0, kText);  // a section heading, as the map's fields have
-    fillAlpha(mem, {l.c0, l.pad + l.rowH, l.right, l.pad + l.rowH + 1}, kBorder, 255);
-    int y = l.tableTop;
-    text(L"Player", l.c0, y, l.c1 - l.c0, kDim), text(L"Controller", l.c1, y, l.c2 - l.c1, kDim), text(L"Race", l.c2, y, l.c3 - l.c2, kDim);
-    text(L"Force", l.c3, y, l.c4 - l.c3, kDim), text(L"Color", l.c4, y, l.c5 - l.c4, kDim);
-    y += l.pitch;
-    const int gap = scale(8);
-    for (int p = 0; p < 8; ++p) {
-        Editor::Player& pl = d.players[size_t(p)];
-        text(L"Player " + std::to_wstring(p + 1), l.c0, y, l.c1 - l.c0, kText);
-        std::wstring ctrl, race;
-        for (const auto& [v, n] : kControllers)
-            if (v == pl.controller) ctrl = n;
-        for (const auto& [v, n] : kRaces)
-            if (v == pl.race) race = n;
-        ui::pickBox(mem, {l.c1, y, l.c2 - gap, y + l.rowH}, ctrl, false, [p](RECT b) {
-            PlayersDialog& dd = *gPlayersDlg;
-            std::vector<ListPickItem> items;
-            for (size_t i = 0; i < std::size(kControllers); ++i) items.push_back({kControllers[i].second, L"", std::to_string(i)});
-            std::string cur, out;
-            for (size_t i = 0; i < std::size(kControllers); ++i)
-                if (kControllers[i].first == dd.players[size_t(p)].controller) cur = std::to_string(i);
-            if (showListPicker(L"Controller", items, cur, belowBox(b), out)) dd.players[size_t(p)].controller = kControllers[std::stoi(out)].first, playersSet(dd);
-        });
-        ui::pickBox(mem, {l.c2, y, l.c3 - gap, y + l.rowH}, race, false, [p](RECT b) {
-            PlayersDialog& dd = *gPlayersDlg;
-            std::vector<ListPickItem> items;
-            for (size_t i = 0; i < std::size(kRaces); ++i) items.push_back({kRaces[i].second, L"", std::to_string(i)});
-            std::string cur, out;
-            for (size_t i = 0; i < std::size(kRaces); ++i)
-                if (kRaces[i].first == dd.players[size_t(p)].race) cur = std::to_string(i);
-            if (showListPicker(L"Race", items, cur, belowBox(b), out)) dd.players[size_t(p)].race = kRaces[std::stoi(out)].first, playersSet(dd);
-        });
-        auto forceName = [&d](int f) {
-            const std::string& n = d.forces[size_t(f)].name;
-            return n.empty() ? L"Force " + std::to_wstring(f + 1) : widen(n);
-        };
-        ui::pickBox(mem, {l.c3, y, l.c4 - gap, y + l.rowH}, forceName(std::clamp(int(pl.force), 0, 3)), false, [p, forceName](RECT b) {
-            PlayersDialog& dd = *gPlayersDlg;
-            std::vector<ListPickItem> items;
-            for (int f = 0; f < 4; ++f) items.push_back({forceName(f), L"", std::to_string(f)});
-            std::string out;
-            if (showListPicker(L"Force", items, std::to_string(dd.players[size_t(p)].force), belowBox(b), out))
-                dd.players[size_t(p)].force = uint8_t(std::stoi(out)), playersSet(dd);
-        });
-        // The color: a swatch in the box, then its name (Custom: the color picker; multiplayer only).
-        const RECT cb{l.c4, y, l.c5 - gap, y + l.rowH};
-        ui::pickBox(mem, cb, L"       " + playerColorName(pl.color), false, [p](RECT b) {
-            PlayersDialog& dd = *gPlayersDlg;
-            std::vector<ListPickItem> items;
-            for (int i = 0; i < Editor::kColorIds; ++i) items.push_back({widen(Editor::colorIdName(i)), L"", std::to_string(i)});
-            items.push_back({L"Random", L"", std::to_string(Editor::kColorIds)});
-            items.push_back({L"Player's choice", L"", std::to_string(Editor::kColorIds + 1)});
-            items.push_back({L"Custom color\x2026 (multiplayer only)", L"", std::to_string(Editor::kColorIds + 2)});
-            Editor::PlayerColor& c = dd.players[size_t(p)].color;
-            std::string out;
-            if (!showListPicker(L"Color", items, std::to_string(playerColorRow(c)), belowBox(b), out)) return;
-            const int row = std::stoi(out);
-            if (row < Editor::kColorIds) c.kind = Editor::PlayerColor::Id, c.id = uint8_t(row);
-            else if (row == Editor::kColorIds) c.kind = Editor::PlayerColor::Random;
-            else if (row == Editor::kColorIds + 1) c.kind = Editor::PlayerColor::Choice;
-            else {  // the color picker (a test run keeps the color it has)
-                static COLORREF custom[16] = {};
-                const uint32_t start = c.kind == Editor::PlayerColor::Custom ? c.rgb : app.ed->playerRgb(p);
-                CHOOSECOLORW cc{sizeof cc};
-                cc.hwndOwner = app.main, cc.lpCustColors = custom, cc.Flags = CC_FULLOPEN | CC_RGBINIT;
-                cc.rgbResult = RGB((start >> 16) & 255, (start >> 8) & 255, start & 255);
-                if (gSelfTest || gBackground || !ChooseColorW(&cc)) return;
-                c.kind = Editor::PlayerColor::Custom;
-                c.rgb = uint32_t(GetRValue(cc.rgbResult)) << 16 | uint32_t(GetGValue(cc.rgbResult)) << 8 | GetBValue(cc.rgbResult);
-            }
-            playersSet(dd);
-        });
-        if (const int64_t rgb = playerColorRgb(pl.color); rgb >= 0) {
-            const int s = scale(12), sx = cb.left + scale(10), sy = (cb.top + cb.bottom - s) / 2;
-            fillAlpha(mem, {sx, sy, sx + s, sy + s}, RGB((rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255), 255);
-        }
-        y += l.pitch;
-    }
-    // Forces: the name (an edit box, made with the page), then the four flags.
-    y = l.forcesTop;
-    text(L"Forces", l.c0, y, l.right - l.c0, kText);
-    fillAlpha(mem, {l.c0, y + l.rowH, l.right, y + l.rowH + 1}, kBorder, 255);
-    y += l.pitch;
-    for (int f = 0; f < 4; ++f) {
-        int fx = l.flagX;
-        for (int b = 0; b < 4; ++b) {
-            const bool on = (d.forces[size_t(f)].flags >> b) & 1;
-            ui::check(mem, {fx, y, fx + l.flagW[b] - gap, y + l.rowH}, kForceFlagNames[b], on, [f, b] {
-                PlayersDialog& dd = *gPlayersDlg;
-                dd.forces[size_t(f)].flags ^= uint8_t(1 << b);
-                playersSet(dd);
-            });
-            fx += l.flagW[b];
-        }
-        y += l.pitch;
-    }
-    // The problems, or that StarCraft can start the map: each line with its icon.
-    y = l.problemsTop;
-    for (size_t a = 0; a < d.problemsText.size();) {
-        size_t e = d.problemsText.find(L"\r\n", a);
-        if (e == std::wstring::npos) e = d.problemsText.size();
-        std::wstring line = d.problemsText.substr(a, e - a);
-        a = e + 2;
-        if (line.empty()) continue;
-        const bool good = line[0] == L'\x2713';
-        line = line.substr(std::min(line.size(), size_t(3)));
-        const COLORREF c = good ? kGood : kWarn;
-        uiIcon(mem, {l.c0, y, l.c0 + scale(16), y + scale(22)}, good ? UiIcon::Check : UiIcon::Warning, c, scale(16));
-        SetTextColor(mem, c);
-        RECT t{l.c0 + scale(24), y, l.right, y + scale(22)};
-        DrawTextW(mem, line.c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-        y += scale(22);
-    }
-    gPlayersSurface.end(hwnd);
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, of), SelectObject(mem, ob);
-    DeleteObject(back);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
-}
-
-LRESULT CALLBACK playersDialogProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    PlayersDialog* d = gPlayersDlg;
-    if (!d) return DefWindowProcW(hwnd, msg, wp, lp);
-    LRESULT res = 0;
-    if (msg != WM_PAINT && gPlayersSurface.message(hwnd, msg, wp, lp, res)) return res;
-    switch (msg) {
-    case WM_CREATE: {
-        d->wnd = hwnd;
-        HDC dc = GetDC(hwnd);
-        HGDIOBJ of = SelectObject(dc, app.font);
-        const PlayersLayout l = playersLayout(dc);
-        SelectObject(dc, of);
-        ReleaseDC(hwnd, dc);
-        int y = l.forcesTop + l.pitch;
-        d->filling = true;
-        for (int f = 0; f < 4; ++f) {  // the only native controls: the four names
-            d->forceName[f] = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, widen(d->forces[size_t(f)].name).c_str(),
-                                              WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL, l.c0, y, l.c1 + scale(110) - l.c0, l.rowH, hwnd,
-                                              HMENU(INT_PTR(1700 + f)), app.inst, nullptr);
-            SendMessageW(d->forceName[f], WM_SETFONT, WPARAM(app.font), TRUE);
-            darkControl(d->forceName[f], L"DarkMode_CFD");
-            y += l.pitch;
-        }
-        d->filling = false;
-        playersRefresh(*d);
-        SetWindowPos(hwnd, nullptr, 0, 0, l.right + l.pad, l.height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);  // as big as its content
-        if (!d->baseSet) d->baseSet = true, d->basePlayers = d->players, d->baseForces = d->forces;
-        return 0;
-    }
-    case WM_PAINT: playersPaint(hwnd, *d); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_COMMAND:
-        if (HIWORD(wp) == EN_CHANGE && LOWORD(wp) >= 1700 && LOWORD(wp) < 1704 && !d->filling) playersSet(*d);
-        return 0;
-    case WM_CTLCOLOREDIT:
-        SetTextColor(HDC(wp), kText);
-        SetBkColor(HDC(wp), kCtl);
-        return LRESULT(app.ctlBrush);
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
-
-
-// --- Game text in its colors (WYSIWYG): the title and description of the map -------------------------------------
-// --- Map properties' fields (on the Map properties page): painted with the kit; the title and description are rich boxes
-
-ui::Surface gPropsSurface;  // the dropdowns' and buttons' click areas
-
-// The page's rows (the same at its making and at each paint).
-struct PropsLayout {
-    int pad, rowH, pitch, labelW, boxW, x1, nameY, nameH, descY, descH, terrainY, tilesetY, sizeY, anchorY, fillY, infoY, infoH, buttonsY, height;
-};
-// The title and the description: game text editors in the scenario's colors (the description: lines aligned too).
-GameTextSpec propsNameSpec() {
-    GameTextSpec s;
-    s.palette = TextPalette::Scenario, s.multiline = false, s.align = false, s.crlf = true;
-    return s;
-}
-GameTextSpec propsDescSpec() {
-    GameTextSpec s;
-    s.palette = TextPalette::Scenario, s.multiline = true, s.align = true, s.crlf = true;
-    return s;
-}
-PropsLayout propsLayout() {
-    PropsLayout l{};
-    l.pad = scale(ui::kDialogPad), l.rowH = scale(ui::kFieldH), l.pitch = l.rowH + scale(8), l.labelW = scale(120), l.boxW = scale(440);
-    l.x1 = l.pad + l.labelW;
-    l.nameY = l.pad + l.pitch;  // under the "Map" heading (each editor: its box, then its colors under it)
-    l.nameH = gameTextHeight(propsNameSpec(), l.boxW, l.rowH);
-    l.descY = l.nameY + l.nameH + scale(10), l.descH = gameTextHeight(propsDescSpec(), l.boxW, scale(96));
-    l.terrainY = l.descY + l.descH + l.pad;
-    l.tilesetY = l.terrainY + l.pitch;
-    l.sizeY = l.tilesetY + l.pitch, l.anchorY = l.sizeY + l.pitch, l.fillY = l.anchorY + l.pitch;
-    // The buttons under the fields; what they do under them (the text shows when the size or the tileset differs).
-    l.buttonsY = l.fillY + l.pitch + scale(4);
-    l.infoY = l.buttonsY + scale(ui::kButtonH) + scale(8), l.infoH = scale(20);
-    if (gMapProps && !gMapProps->infoText.empty()) {  // as tall as the text
-        HDC dc = GetDC(nullptr);
-        HGDIOBJ of = SelectObject(dc, app.font);
-        RECT r{0, 0, l.boxW, 0};
-        DrawTextW(dc, gMapProps->infoText.c_str(), -1, &r, DT_WORDBREAK | DT_NOPREFIX | DT_CALCRECT);
-        SelectObject(dc, of);
-        ReleaseDC(nullptr, dc);
-        l.infoH = std::max<int>(l.infoH, r.bottom + scale(4));
-    }
-    l.height = l.infoY + l.infoH + l.pad;
-    return l;
-}
-
-void propsFitHeight(HWND hwnd);
-void propsPaint(HWND hwnd, MapPropsDialog& d) {
-    propsFitHeight(hwnd);
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-    HGDIOBJ ob = SelectObject(mem, back), of = SelectObject(mem, app.font);
-    FillRect(mem, &rc, app.bgBrush);
-    SetBkMode(mem, TRANSPARENT);
-    gPropsSurface.begin(hwnd);
-    const PropsLayout l = propsLayout();
-    const int right = l.x1 + l.boxW;
-    auto heading = [&](const wchar_t* t, int y) {
-        SetTextColor(mem, kText);
-        RECT r{l.pad, y, right, y + l.rowH};
-        DrawTextW(mem, t, -1, &r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-        fillAlpha(mem, {l.pad, y + l.rowH, right, y + l.rowH + 1}, kBorder, 255);
-    };
-    auto label = [&](const wchar_t* t, int y) {
-        SetTextColor(mem, kDim);
-        RECT r{l.pad, y, l.x1 - scale(8), y + l.rowH};
-        DrawTextW(mem, t, -1, &r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-    };
-    heading(L"Map", l.pad);
-    label(L"Title", l.nameY), label(L"Description", l.descY);  // (the editors paint themselves)
-    heading(L"Terrain", l.terrainY);
-    label(L"Tileset", l.tilesetY), label(L"Size (tiles)", l.sizeY), label(L"Map content at", l.anchorY), label(L"New ground", l.fillY);
-    auto pick = [](const wchar_t* prompt, std::vector<ListPickItem> items, const std::string& cur, RECT b, auto set) {
-        std::string out;
-        if (showListPicker(prompt, std::move(items), cur, belowBox(b), out)) set(out), mapPropsInfo(*gMapProps), mapPageChanged();
-    };
-    ui::pickBox(mem, {l.x1, l.tilesetY, right, l.tilesetY + l.rowH}, kTilesetNames[d.era & 7], d.era != d.eraBase, [pick](RECT b) {
-        std::vector<ListPickItem> items;
-        for (int e = 0; e < 8; ++e) items.push_back({kTilesetNames[e], L"", std::to_string(e)});
-        pick(L"Tileset", items, std::to_string(gMapProps->era), b, [](const std::string& v) {
-            gMapProps->era = std::stoi(v);
-            gMapProps->fillTerrain = mapPropsFirstTerrain(gMapProps->era);  // the new tileset's terrains
-        });
-    });
-    const int sw = scale(96);
-    auto sizeBox = [&](int x, int& value, bool changed) {
-        ui::pickBox(mem, {x, l.sizeY, x + sw, l.sizeY + l.rowH}, std::to_wstring(value), changed, [pick, &value](RECT b) {
-            std::vector<ListPickItem> items;
-            bool odd = true;
-            for (int s : kMapSizes) items.push_back({std::to_wstring(s), L"", std::to_string(s)}), odd &= s != value;
-            if (odd) items.push_back({std::to_wstring(value), L"", std::to_string(value)});  // an odd size: kept as a choice
-            pick(L"Size", items, std::to_string(value), b, [&value](const std::string& v) { value = std::stoi(v); });
-        });
-    };
-    sizeBox(l.x1, d.w, d.w != d.wBase);
-    SetTextColor(mem, kDim);
-    RECT xr{l.x1 + sw, l.sizeY, l.x1 + sw + scale(24), l.sizeY + l.rowH};
-    DrawTextW(mem, L"x", -1, &xr, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
-    sizeBox(l.x1 + sw + scale(24), d.h, d.h != d.hBase);
-    ui::pickBox(mem, {l.x1, l.anchorY, right, l.anchorY + l.rowH}, kAnchorNames[std::clamp(d.anchorIndex, 0, 8)], false, [pick](RECT b) {
-        std::vector<ListPickItem> items;
-        for (int k = 0; k < 9; ++k) items.push_back({kAnchorNames[k], L"", std::to_string(k)});
-        pick(L"Map content at", items, std::to_string(gMapProps->anchorIndex), b, [](const std::string& v) { gMapProps->anchorIndex = std::stoi(v); });
-    });
-    std::wstring fillName;
-    const IsomTerrainTable* table = IsomTerrainTable::forEra(uint16_t(d.era));
-    if (table && table->isTerrain(d.fillTerrain)) fillName = widen(table->terrainName(d.fillTerrain));
-    ui::pickBox(mem, {l.x1, l.fillY, right, l.fillY + l.rowH}, fillName, false, [pick](RECT b) {
-        std::vector<ListPickItem> items;
-        if (const IsomTerrainTable* t = IsomTerrainTable::forEra(uint16_t(gMapProps->era)))
-            for (uint16_t i = 1; i <= t->terrainCount(); ++i)
-                if (t->isTerrain(i)) items.push_back({widen(t->terrainName(i)), L"", std::to_string(i)});
-        pick(L"New ground", items, std::to_string(gMapProps->fillTerrain), b, [](const std::string& v) { gMapProps->fillTerrain = uint16_t(std::stoi(v)); });
-    });
-    // The buttons, then what they do (only the size and the tileset wait for them).
-    SetTextColor(mem, kDim);
-    RECT ir{l.x1, l.infoY, right, l.infoY + l.infoH};
-    DrawTextW(mem, d.infoText.c_str(), -1, &ir, DT_WORDBREAK | DT_NOPREFIX);
-    const bool differs = !d.infoText.empty();
-    const int bh = scale(ui::kButtonH), cw = ui::buttonWidth(mem, L"Change the size and tileset"), rw = ui::buttonWidth(mem, L"Reset");
-    d.changeRect = {l.x1, l.buttonsY, l.x1 + cw, l.buttonsY + bh};
-    d.resetRect = {d.changeRect.right + scale(ui::kButtonGap), l.buttonsY, d.changeRect.right + scale(ui::kButtonGap) + rw, l.buttonsY + bh};
-    ui::button(mem, d.changeRect, L"Change the size and tileset", ui::Tone::Primary, [] { mapPageApplyTerrain(); },
-               L"Set the new size and tileset in the map (one undo step)", differs);
-    ui::button(mem, d.resetRect, L"Reset", ui::Tone::Normal, [] { mapPageReload(); }, L"Discard the changes that are not applied and show the map's values", differs);
-    gPropsSurface.end(hwnd);
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, of), SelectObject(mem, ob);
-    DeleteObject(back);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
-}
-
-LRESULT CALLBACK mapPropsProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    MapPropsDialog* d = gMapProps;
-    if (!d) return DefWindowProcW(hwnd, msg, wp, lp);
-    LRESULT res = 0;
-    if (msg != WM_PAINT && gPropsSurface.message(hwnd, msg, wp, lp, res)) return res;
-    switch (msg) {
-    case WM_CREATE: {
-        d->wnd = hwnd;
-        const PropsLayout l = propsLayout();
-        // The only native controls: the texts (game text editors: the scenario's colors)
-        d->name = gameTextCreate(hwnd, 1601, {l.x1, l.nameY, l.x1 + l.boxW, l.nameY + l.nameH}, propsNameSpec());
-        d->desc = gameTextCreate(hwnd, 1602, {l.x1, l.descY, l.x1 + l.boxW, l.descY + l.descH}, propsDescSpec());
-        gameTextSet(d->name, d->nameText), gameTextSet(d->desc, d->descText);
-        mapPropsInfo(*d);
-        SetWindowPos(hwnd, nullptr, 0, 0, l.x1 + l.boxW + l.pad, l.height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);  // as big as its content
-        if (!d->baseSet) {  // the map's values as the page shows them: "no change" is these
-            d->baseSet = true;
-            d->nameBase = gameTextGet(d->name), d->descBase = gameTextGet(d->desc);
-            d->eraBase = d->era, d->wBase = d->w, d->hBase = d->h;
-        }
-        return 0;
-    }
-    case WM_PAINT: propsPaint(hwnd, *d); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_COMMAND:
-        if (HIWORD(wp) == EN_CHANGE) mapPageChanged();
-        return 0;
-    case WM_CTLCOLOREDIT:
-        SetTextColor(HDC(wp), kText);
-        SetBkColor(HDC(wp), kCtl);
-        return LRESULT(app.ctlBrush);
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
 
 enum MapPageKind { kMpProps, kMpPlayers, kMpClassicTrig, kMpClassicSettings, kMpCount };
 const wchar_t* const kMpTitles[kMpCount] = {L"Map properties", L"Players and forces", L"Classic triggers", L"Data"};
@@ -405,15 +39,35 @@ struct MapPageCopies {
     MapPageCopy kinds[kMpCount];
 };
 
+// The program's part of the page frame (core/views_map_pages.inc: MapPagesHost); its methods are below the page's code.
+class MapPagesProgram final : public MapPagesHost {
+public:
+    std::wstring title() override;
+    std::vector<Tab> tabs() override;
+    int tab() override;
+    void showTab(int k) override;
+    bool changed() override;
+    int footerH() override;
+    void apply() override;
+    void revert() override;
+    stardraft::draw::Point contentSize() override;
+    void fitContent(int w, int h) override;
+    void placeContent(int x, int y) override;
+};
+MapPagesProgram gMapPages;
+
 struct MapPageHost {
-    HWND wnd = nullptr, view = nullptr;
+    HWND wnd = nullptr, view = nullptr;  // wnd: the frame (MapPagesView); view: the scroll view's window (MapScrollView) in it
     HWND content[kClassicTabCount] = {};  // one; three for Classic settings (its tabs)
     int kind = -1;
     const Editor* ed = nullptr;
     bool ready = false;  // the content is made (until then, no reading back from its controls)
-    int scrollX = 0, scrollY = 0;
-    ui::Surface surface;  // the header's tabs, the bar's buttons
-    RECT applyRect{}, revertRect{};
+    std::unique_ptr<MapPagesView> frameView;
+    std::unique_ptr<MapScrollView> scrollView;
+    std::unique_ptr<MapPropsView> props;  // Map properties' view (content[0] of that page; made with its window, freed after it)
+    std::unique_ptr<PlayersView> players;  // Players and forces' view (content[0] of that page, content[1] of Map properties)
+    std::unique_ptr<ClassicPageView> classic[kClassicTabCount];  // Map data's views (content[k]: each tab's page)
+    int reloadTimer = 0, typingTimer = 0;  // the host's timers: the check that the map changed (300 ms); the typing's stop (500 ms)
     bool typing = false;  // Map properties: a text is being typed (it goes into the map when the typing stops)
 } gMp;
 
@@ -500,7 +154,6 @@ MapPageCopy* mapPageOpenCopy() {
 void mapPageReadBack() {
     if (!gMp.ready) return;
     if (gMp.kind == kMpProps && gMapProps && IsWindow(gMapProps->wnd)) mapPropsRead(*gMapProps);
-    if ((gMp.kind == kMpPlayers || gMp.kind == kMpProps) && gPlayersDlg && IsWindow(gPlayersDlg->wnd)) playersRead(*gPlayersDlg);
 }
 
 bool mapPageCopyChanged(int kind, const MapPageCopy& c) {
@@ -514,12 +167,15 @@ bool mapPageCopyChanged(int kind, const MapPageCopy& c) {
     return false;
 }
 
-int mapPageHeaderH() { return scale(56) + (gMp.kind == kMpClassicSettings ? scale(40) : 0); }
-int mapPageFooterH() { return 0; }  // no Apply bar: every change goes into the map at once (GitHub feedback #102)
+int mapPageHeaderH() { return gMp.frameView ? gMp.frameView->headerH() : 0; }
+int mapPageFooterH() { return gMp.frameView ? gMp.frameView->footerH() : 0; }  // no Apply bar: every change goes into the map at once (GitHub feedback #102)
 
 void mapPageAutoApply();
 void mapPageCommit();
 void mapPageFlush();
+void mapPageStartTyping();
+void mapPageStopTyping();
+void mapPageArmReload();
 // After an edit on the page: the change goes into the map at once, one undo step (a typed text a moment after the last
 // key). GitHub feedback #102: no Apply.
 void mapPageChanged() {
@@ -528,11 +184,18 @@ void mapPageChanged() {
     wchar_t cls[16] = L"";
     GetClassNameW(GetFocus(), cls, 16);
     if ((_wcsicmp(cls, WC_EDITW) == 0 || _wcsicmp(cls, MSFTEDIT_CLASS) == 0) && IsChild(gMp.wnd, GetFocus())) {  // typing: when it stops
-        gMp.typing = true, SetTimer(gMp.wnd, 2, 500, nullptr);
+        gMp.typing = true, mapPageStartTyping();
         return;
     }
     if (gMp.kind == kMpProps) mapPageAutoApply();
     else mapPageCommit();
+}
+
+// A text typed in a kit field of the page (a force name): it goes into the map when the typing stops, as the game text
+// editors' do (their window's focus is not seen here: the field is the view's).
+void mapPageTyped() {
+    if (!gMp.ready || !mapPageOpenCopy()) return;
+    gMp.typing = true, mapPageStartTyping();
 }
 
 // --- The view: the content, scrolled when the page is smaller than it -------------------------------------------
@@ -562,69 +225,65 @@ SIZE mapPageContentSize() {
     return s;
 }
 
+// The scroll position (the scroll view's); the content windows are placed where it says (MapPagesProgram::placeContent).
+int mapPageScrollX() { return gMp.scrollView ? gMp.scrollView->scrollX() : 0; }
+int mapPageScrollY() { return gMp.scrollView ? gMp.scrollView->scrollY() : 0; }
 void mapPageScrollTo(int x, int y) {
-    if (!gMp.view) return;
-    RECT rc;
-    GetClientRect(gMp.view, &rc);
-    // Classic triggers fill the view's width and height (its lists take the height that is left); smaller than a
-    // minimum, the view scrolls.
-    if (gMp.kind == kMpClassicTrig && gMp.content[0])
-        SetWindowPos(gMp.content[0], nullptr, 0, 0, std::max<int>(rc.right, scale(1200)), std::max<int>(rc.bottom, scale(440)),
-                     SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-    const SIZE s = mapPageContentSize();
-    gMp.scrollX = std::clamp(x, 0, std::max(0, int(s.cx) - int(rc.right)));
-    gMp.scrollY = std::clamp(y, 0, std::max(0, int(s.cy) - int(rc.bottom)));
-    for (int k = 0; k < kClassicTabCount; ++k)
-        if (HWND c = gMp.content[k]) SetWindowPos(c, nullptr, -gMp.scrollX, mapPagePartTop(k) - gMp.scrollY, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-    SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS};
-    si.nMin = 0, si.nMax = std::max(0, int(s.cy) - 1), si.nPage = UINT(rc.bottom), si.nPos = gMp.scrollY;
-    SetScrollInfo(gMp.view, SB_VERT, &si, TRUE);
-    si.nMax = std::max(0, int(s.cx) - 1), si.nPage = UINT(rc.right), si.nPos = gMp.scrollX;
-    SetScrollInfo(gMp.view, SB_HORZ, &si, TRUE);
+    if (gMp.scrollView) gMp.scrollView->scrollTo(x, y);
 }
 
-// The text under the size and tileset buttons got taller or shorter: the part's new height, the players under it.
-void propsFitHeight(HWND hwnd) {
-    const PropsLayout l = propsLayout();
-    RECT wr;
-    GetClientRect(hwnd, &wr);
-    if (wr.bottom == l.height) return;
-    SetWindowPos(hwnd, nullptr, 0, 0, wr.right, l.height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-    mapPageScrollTo(gMp.scrollX, gMp.scrollY);
-}
+// The program's part of Map properties' view (core/views_map_props.inc: MapPropsHost). The map changes go through the
+// page's code (above); the height is the window's, and the players under the page move with it.
+class MapPropsProgram final : public MapPropsHost {
+public:
+    void changed() override { mapPropsInfo(*gMapProps), mapPageChanged(); }
+    void applyTerrain() override { mapPageApplyTerrain(); }
+    void reset() override { mapPageReload(); }
+    int textHeight(bool description, int boxW, int boxH) override {
+        return gameTextHeight(description ? propsDescSpec() : propsNameSpec(), boxW, boxH);
+    }
+    void fitHeight(int w, int h) override {
+        if (!gMp.content[0]) return;
+        SetWindowPos(gMp.content[0], nullptr, 0, 0, w, h, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+        mapPageScrollTo(mapPageScrollX(), mapPageScrollY());
+    }
+};
+MapPropsProgram gMapPropsProgram;
 
-LRESULT CALLBACK mapPageViewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_SIZE: mapPageScrollTo(gMp.scrollX, gMp.scrollY); return 0;
-    case WM_ERASEBKGND: {
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-        FillRect(HDC(wp), &rc, app.bgBrush);
-        return 1;
+// The program's part of Players and forces' view (core/views_players.inc: PlayersHost). The changes go through the page's
+// code (main.cpp); the size is the window's, and the page under it moves with it.
+class PlayersProgram final : public PlayersHost {
+public:
+    void changed() override { playersSet(*gPlayersDlg); }
+    void typed() override { mapPageTyped(); }
+    bool pickCustomColor(int p, Editor::PlayerColor& c) override {
+        // The color picker (a test run keeps the color it has); the start is the custom color or the player's own.
+        static COLORREF custom[16] = {};
+        const uint32_t start = c.kind == Editor::PlayerColor::Custom ? c.rgb : app.ed->playerRgb(p);
+        CHOOSECOLORW cc{sizeof cc};
+        cc.hwndOwner = app.main, cc.lpCustColors = custom, cc.Flags = CC_FULLOPEN | CC_RGBINIT;
+        cc.rgbResult = RGB((start >> 16) & 255, (start >> 8) & 255, start & 255);
+        if (gSelfTest || gBackground || !ChooseColorW(&cc)) return false;
+        c.kind = Editor::PlayerColor::Custom;
+        c.rgb = uint32_t(GetRValue(cc.rgbResult)) << 16 | uint32_t(GetGValue(cc.rgbResult)) << 8 | GetBValue(cc.rgbResult);
+        return true;
     }
-    case WM_VSCROLL:
-    case WM_HSCROLL: {
-        const int bar = msg == WM_VSCROLL ? SB_VERT : SB_HORZ;
-        SCROLLINFO si{sizeof si, SIF_ALL};
-        GetScrollInfo(hwnd, bar, &si);
-        int pos = bar == SB_VERT ? gMp.scrollY : gMp.scrollX;
-        switch (LOWORD(wp)) {
-        case SB_LINEUP: pos -= scale(32); break;
-        case SB_LINEDOWN: pos += scale(32); break;
-        case SB_PAGEUP: pos -= int(si.nPage); break;
-        case SB_PAGEDOWN: pos += int(si.nPage); break;
-        case SB_THUMBTRACK:
-        case SB_THUMBPOSITION: pos = si.nTrackPos; break;
-        case SB_TOP: pos = 0; break;
-        case SB_BOTTOM: pos = 1 << 30; break;
-        }
-        bar == SB_VERT ? mapPageScrollTo(gMp.scrollX, pos) : mapPageScrollTo(pos, gMp.scrollY);
-        return 0;
+    int textWidth(const std::wstring& t) override {
+        HDC dc = GetDC(app.main);
+        HGDIOBJ of = SelectObject(dc, app.font);
+        SIZE sz{};
+        GetTextExtentPoint32W(dc, t.c_str(), int(t.size()), &sz);
+        SelectObject(dc, of);
+        ReleaseDC(app.main, dc);
+        return sz.cx;
     }
-    case WM_MOUSEWHEEL: mapPageScrollTo(gMp.scrollX, gMp.scrollY - GET_WHEEL_DELTA_WPARAM(wp) * scale(32) * 3 / WHEEL_DELTA); return 0;
+    void fitSize(int w, int h) override {
+        if (!gPlayersDlg || !gPlayersDlg->wnd) return;
+        SetWindowPos(gPlayersDlg->wnd, nullptr, 0, 0, w, h, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+        mapPageScrollTo(mapPageScrollX(), mapPageScrollY());  // the parts under it, and the scroll range
     }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
+};
+PlayersProgram gPlayersProgram;
 
 // --- The page ------------------------------------------------------------------------------------------------------
 
@@ -638,96 +297,7 @@ void mapPageShowTab(int tab) {
 void mapPageApply();
 void mapPageRevert();
 
-void mapPagePaint(HWND hwnd) {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-    HGDIOBJ ob = SelectObject(mem, back), of = SelectObject(mem, app.font);
-    FillRect(mem, &rc, app.bgBrush);
-    SetBkMode(mem, TRANSPARENT);
-    gMp.surface.begin(hwnd);
-    const int pad = scale(ui::kDialogPad), headH = mapPageHeaderH(), footH = mapPageFooterH();
-    // The header: the page's title; Classic settings' tabs under it.
-    if (gMp.kind >= 0) {
-        SelectObject(mem, ui::titleFont());
-        SetTextColor(mem, kText);
-        RECT t{pad, 0, rc.right - pad, scale(56)};
-        DrawTextW(mem, kMpTitles[gMp.kind], -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-        SelectObject(mem, app.font);
-    }
-    if (gMp.kind == kMpClassicSettings && gClassic) {
-        int x = pad - scale(12);
-        const int icon = scale(16), top = scale(56);
-        for (int k = 0; k < kClassicTabCount; ++k) {
-            const RECT t{x, top, x + scale(14) + icon + scale(8) + ui::textWidth(mem, kClassicTabNames[k]) + scale(14), headH};
-            const bool on = gClassic->tab == k, hot = ui::hot(t);
-            if (on || hot) fillAlpha(mem, t, on ? kSel : kRowHot, 255);
-            if (on) fillAlpha(mem, {t.left, t.bottom - scale(2), t.right, t.bottom}, kAccent, 255);
-            const COLORREF c = on ? kAccent : hot ? kText : kDim;
-            uiIcon(mem, {t.left + scale(14), t.top, t.left + scale(14) + icon, t.bottom}, kClassicTabIcons[k], c, icon);
-            SetTextColor(mem, c);
-            RECT tt{t.left + scale(14) + icon + scale(8), t.top, t.right, t.bottom};
-            DrawTextW(mem, kClassicTabNames[k], -1, &tt, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-            gMp.surface.hits.push_back({t, nullptr, [k] { mapPageShowTab(k); }, L"", IDC_HAND, {}});
-            x = t.right + scale(4);
-        }
-    }
-    fillAlpha(mem, {0, headH - 1, rc.right, headH}, kBorder, 255);
-    // The bar: a line over it; what the page has; Apply and Revert at the right (Map properties: none).
-    if (!footH) {
-        gMp.applyRect = gMp.revertRect = RECT{};
-        gMp.surface.end(hwnd);
-        BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-        SelectObject(mem, of), SelectObject(mem, ob);
-        DeleteObject(back);
-        DeleteDC(mem);
-        EndPaint(hwnd, &ps);
-        return;
-    }
-    const int barTop = rc.bottom - footH;
-    fillAlpha(mem, {0, barTop, rc.right, barTop + 1}, kBorder, 255);
-    const MapPageCopy* c = mapPageOpenCopy();
-    const bool changed = c && c->changed;
-    const int by = barTop + (footH - scale(ui::kButtonH)) / 2;
-    if (changed) {
-        ui::changedDot(mem, pad + scale(4), by + scale(ui::kButtonH) / 2);
-        SetTextColor(mem, kDim);
-        RECT t{pad + scale(16), by, rc.right / 2, by + scale(ui::kButtonH)};
-        DrawTextW(mem, L"Changes that are not applied", -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-    }
-    const std::wstring apply = L"Apply", revert = L"Revert";
-    const int rw = ui::buttonWidth(mem, revert), aw = ui::buttonWidth(mem, apply);
-    gMp.revertRect = {int(rc.right) - pad - rw, by, int(rc.right) - pad, by + scale(ui::kButtonH)};
-    gMp.applyRect = {gMp.revertRect.left - scale(ui::kButtonGap) - aw, by, gMp.revertRect.left - scale(ui::kButtonGap), by + scale(ui::kButtonH)};
-    ui::button(mem, gMp.applyRect, apply, ui::Tone::Primary, [] { mapPageApply(); }, L"Set these values in the map (one undo step)", changed);
-    ui::button(mem, gMp.revertRect, revert, ui::Tone::Normal, [] { mapPageRevert(); }, L"Discard the changes that are not applied", changed);
-    gMp.surface.end(hwnd);
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, of), SelectObject(mem, ob);
-    DeleteObject(back);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
-}
-
 void mapPageReloadIfStale();
-
-LRESULT CALLBACK mapPageProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    LRESULT res = 0;
-    if (msg != WM_PAINT && gMp.surface.message(hwnd, msg, wp, lp, res)) return res;
-    switch (msg) {
-    case WM_PAINT: mapPagePaint(hwnd); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_TIMER:
-        if (wp == 1) mapPageReloadIfStale();
-        if (wp == 2) KillTimer(hwnd, 2), gMp.typing = false, gMp.kind == kMpProps ? mapPageAutoApply() : mapPageCommit();  // the typing stopped
-        return 0;
-    case WM_COMMAND: return 0;  // Enter and Esc (the dialog keys): nothing; Apply is a click
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
 
 void mapPageRegister() {
     static bool registered = false;
@@ -736,12 +306,7 @@ void mapPageRegister() {
     WNDCLASSEXW wc{sizeof wc};
     wc.hInstance = app.inst;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    const std::pair<WNDPROC, const wchar_t*> classes[] = {{mapPageProc, L"StarDraftMapPage"},
-                                                          {mapPageViewProc, L"StarDraftMapPageView"},
-                                                          {mapPropsProc, L"StarDraftMapProps"},
-                                                          {playersDialogProc, L"StarDraftPlayers"},
-                                                          {classicPageProc, L"StarDraftClassicPage"},
-                                                          {classicTrigProc, L"StarDraftClassicTriggers"},
+    const std::pair<WNDPROC, const wchar_t*> classes[] = {{classicTrigProc, L"StarDraftClassicTriggers"},
                                                           {ctListProc, L"StarDraftClassicTrigList"}};  // the painted lists
     for (const auto& [proc, name] : classes) wc.lpfnWndProc = proc, wc.lpszClassName = name, RegisterClassExW(&wc);
 }
@@ -751,21 +316,40 @@ void mapPageMakeContent() {
     gMp.ready = false;
     for (HWND& c : gMp.content)
         if (c) DestroyWindow(c), c = nullptr;
-    if (gClassic && gClassic->readOnlyBrush) DeleteObject(gClassic->readOnlyBrush), gClassic->readOnlyBrush = nullptr;
-    gMp.scrollX = gMp.scrollY = 0;
+    gMp.props.reset();  // (its window is gone: the view goes too)
+    gMp.players.reset();
+    for (auto& v : gMp.classic) v.reset();
+    gClassicProgram.wnd[0] = gClassicProgram.wnd[1] = gClassicProgram.wnd[2] = nullptr;
     auto make = [](const wchar_t* cls, void* param) {
         return CreateWindowExW(WS_EX_CONTROLPARENT, cls, L"", WS_CHILD | WS_CLIPSIBLINGS, 0, 0, 10, 10, gMp.view, nullptr, app.inst, param);
     };
+    // Players and forces: its view in its window, as big as its content (the page moves it).
+    auto makePlayers = [] {
+        gMp.players = std::make_unique<PlayersView>(gPlayersProgram, *gPlayersDlg);
+        // (a Tab stop: the names are reached by Tab from the page's fields, as the old name EDITs were)
+        HWND w = CreateWindowExW(WS_EX_CONTROLPARENT, ui::kViewClass, L"", WS_CHILD | WS_CLIPSIBLINGS | WS_TABSTOP, 0, 0, gMp.players->preferredWidth(),
+                                 gMp.players->preferredHeight(), gMp.view, nullptr, app.inst, gMp.players.get());
+        playersCreated(*gPlayersDlg, w);
+        return w;
+    };
     switch (gMp.kind) {
-    case kMpProps:  // the map's fields, then players and forces
-        gMp.content[0] = make(L"StarDraftMapProps", nullptr);
-        if (gPlayersDlg) gMp.content[1] = make(L"StarDraftPlayers", nullptr);
+    case kMpProps:  // the map's fields (the view), then players and forces
+        gMp.props = std::make_unique<MapPropsWinView>(gMapPropsProgram, *gMapProps);
+        gMp.content[0] = CreateWindowExW(WS_EX_CONTROLPARENT, ui::kViewClass, L"", WS_CHILD | WS_CLIPSIBLINGS, 0, 0, gMp.props->preferredWidth(),
+                                         gMp.props->baseHeight(), gMp.view, nullptr, app.inst, gMp.props.get());
+        mapPropsCreated(*gMapProps, gMp.content[0], gMp.props->nameBox(), gMp.props->descBox());
+        SetWindowPos(gMp.content[0], nullptr, 0, 0, gMp.props->preferredWidth(), gMp.props->baseHeight(), SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+        if (gPlayersDlg) gMp.content[1] = makePlayers();
         break;
-    case kMpPlayers: gMp.content[0] = make(L"StarDraftPlayers", nullptr); break;
+    case kMpPlayers: gMp.content[0] = makePlayers(); break;
     case kMpClassicTrig: gMp.content[0] = make(L"StarDraftClassicTriggers", nullptr); break;
-    case kMpClassicSettings:
-        gClassic->readOnlyBrush = CreateSolidBrush(kReadOnly);
-        for (int k = 0; k < kClassicTabCount; ++k) gMp.content[k] = make(L"StarDraftClassicPage", reinterpret_cast<void*>(INT_PTR(k)));
+    case kMpClassicSettings:  // each tab: its view in its window (the page is as big as it, made before its first paint)
+        for (int k = 0; k < kClassicTabCount; ++k) {
+            gMp.classic[k] = std::make_unique<ClassicPageView>(gClassicProgram, *gClassic, k);
+            gMp.content[k] = CreateWindowExW(WS_EX_CONTROLPARENT, ui::kViewClass, L"", WS_CHILD | WS_CLIPSIBLINGS, 0, 0, gMp.classic[k]->preferredWidth(),
+                                             gMp.classic[k]->preferredHeight(), gMp.view, nullptr, app.inst, gMp.classic[k].get());
+            gClassicProgram.wnd[k] = gMp.content[k];
+        }
         break;
     }
     if (gMp.kind == kMpClassicSettings) mapPageShowTab(gClassic->tab);
@@ -781,13 +365,12 @@ void mapPageMakeContent() {
 // Closes the open page (its window goes; its copy stays with the tab).
 void mapPageClose() {
     if (!gMp.wnd) return;
-    KillTimer(gMp.wnd, 2), gMp.typing = false;  // a text being typed goes into the map
+    mapPageStopTyping(), gMp.typing = false;  // a text being typed goes into the map
     if (gMp.kind == kMpProps) mapPageAutoApply();
     else mapPageCommit();
     gMp.ready = false;
-    KillTimer(gMp.wnd, 1);
-    DestroyWindow(gMp.wnd);
-    if (gClassic && gClassic->readOnlyBrush) DeleteObject(gClassic->readOnlyBrush), gClassic->readOnlyBrush = nullptr;
+    DestroyWindow(gMp.wnd);  // (its timers go with it)
+    gClassicProgram.wnd[0] = gClassicProgram.wnd[1] = gClassicProgram.wnd[2] = nullptr;
     mapPageSetGlobals(-1, nullptr);
     gMp = MapPageHost{};
     if (gWsBar) InvalidateRect(gWsBar, nullptr, FALSE);
@@ -815,12 +398,14 @@ bool mapPageOpen(int kind) {
     mapPageRegister();
     mapPageSetGlobals(kind, c.data.get(), players);
     gMp.kind = kind, gMp.ed = app.ed.get();
-    gMp.wnd = CreateWindowExW(WS_EX_CONTROLPARENT, L"StarDraftMapPage", L"", WS_CHILD | WS_CLIPCHILDREN, 0, 0, 1, 1, app.main, nullptr, app.inst, nullptr);
-    gMp.view = CreateWindowExW(WS_EX_CONTROLPARENT, L"StarDraftMapPageView", L"", WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_VSCROLL | WS_HSCROLL, 0, 0, 1,
-                               1, gMp.wnd, nullptr, app.inst, nullptr);
+    gMp.frameView = std::make_unique<MapPagesView>(gMapPages);
+    gMp.scrollView = std::make_unique<MapScrollView>(gMapPages);
+    gMp.wnd = CreateWindowExW(WS_EX_CONTROLPARENT, ui::kViewClass, L"", WS_CHILD | WS_CLIPCHILDREN, 0, 0, 1, 1, app.main, nullptr, app.inst, gMp.frameView.get());
+    gMp.view = CreateWindowExW(WS_EX_CONTROLPARENT, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_VSCROLL | WS_HSCROLL, 0, 0, 1, 1,
+                               gMp.wnd, nullptr, app.inst, gMp.scrollView.get());
     darkControl(gMp.view, L"DarkMode_Explorer");  // the scroll bars in the theme
     mapPageMakeContent();
-    SetTimer(gMp.wnd, 1, 300, nullptr);  // the map changed from outside: a copy without changes reads it again
+    mapPageArmReload();  // the map changed from outside: a copy without changes reads it again
     return true;
 }
 
@@ -834,12 +419,15 @@ void mapPageReload() {
         auto* was = static_cast<ClassicDialog*>(c->data.get());
         auto* now = static_cast<ClassicDialog*>(fresh.data.get());
         now->tab = was->tab;
-        for (int k = 0; k < kClassicTabCount; ++k) now->pages[k].entry = was->pages[k].entry;
-        if (was->readOnlyBrush) DeleteObject(was->readOnlyBrush), was->readOnlyBrush = nullptr;
+        for (int k = 0; k < kClassicTabCount; ++k) now->entry[k] = was->entry[k];
     }
     gMp.ready = false;
     for (HWND& w : gMp.content)  // the old content goes before its copy does
         if (w) DestroyWindow(w), w = nullptr;
+    gMp.props.reset();
+    gMp.players.reset();
+    for (auto& v : gMp.classic) v.reset();
+    gClassicProgram.wnd[0] = gClassicProgram.wnd[1] = gClassicProgram.wnd[2] = nullptr;
     *c = fresh;
     void* players = nullptr;
     if (gMp.kind == kMpProps)
@@ -893,7 +481,7 @@ void mapPageShowPlayers() {
 // Map properties: the size and tileset (their button), as one undo step; then the page shows the map again.
 void mapPageApplyTerrain() {
     if (!gMp.ready || gMp.kind != kMpProps || !gMapProps) return;
-    KillTimer(gMp.wnd, 2), gMp.typing = false;
+    mapPageStopTyping(), gMp.typing = false;
     mapPageAutoApply();
     if (!mapPropsApplyTerrain(*gMapProps)) return;
     if (gMp.kind == kMpProps) mapPageReload();
@@ -951,7 +539,7 @@ void mapPageCommit() {
 // A text being typed goes into the map now (before a save, a build, or the map closes).
 void mapPageFlush() {
     if (!gMp.ready || gMp.ed != app.ed.get()) return;
-    KillTimer(gMp.wnd, 2), gMp.typing = false;
+    mapPageStopTyping(), gMp.typing = false;
     if (gMp.kind == kMpProps) mapPageAutoApply();
     else mapPageCommit();
 }
@@ -983,12 +571,12 @@ bool mapPagesConfirm() {
         if (c->kinds[k].data && c->kinds[k].changed) names += (names.empty() ? L"" : L", ") + std::wstring(kMpRailNames[k]);
     if (names.empty()) return true;
     const std::wstring q = L"These pages have changes that are not applied: " + names + L".\n\nApply them to the map?";
-    const int r = themedMessageBox(app.main, q.c_str(), L"Changes that are not applied", MB_YESNOCANCEL | MB_ICONQUESTION, {L"&Apply", L"Do &not apply", L"Cancel"});
-    if (r == IDCANCEL) return false;
+    const int r = shellAskUnapplied(q, L"Changes that are not applied");  // 0: Apply, 1: Do not apply, 2: Cancel
+    if (r == 2) return false;
     for (int k = 0; k < kMpCount; ++k) {
         MapPageCopy& one = c->kinds[k];
         if (!one.data || !one.changed) continue;
-        if (r == IDYES && !mapPageApplyCopy(k, one)) return false;  // the map did not take it: stay
+        if (r == 0 && !mapPageApplyCopy(k, one)) return false;  // the map did not take it: stay
         if (gMp.wnd && gMp.kind == k && gMp.ed == app.ed.get()) mapPageReload();  // the page shows the map's values
         else one = MapPageCopy{};
     }
@@ -1002,7 +590,7 @@ void mapPageLayout(int x, int y, int w, int h) {
     MoveWindow(gMp.wnd, x, y, w, h, TRUE);
     const int top = mapPageHeaderH(), bottom = std::max(top + 1, h - mapPageFooterH());
     MoveWindow(gMp.view, 0, top, w, bottom - top, TRUE);
-    mapPageScrollTo(gMp.scrollX, gMp.scrollY);
+    mapPageScrollTo(mapPageScrollX(), mapPageScrollY());
     InvalidateRect(gMp.wnd, nullptr, FALSE);
 }
 
@@ -1013,11 +601,63 @@ void mapPageThemeChanged() {
     mapPageMakeContent();
 }
 
+// The host's timers: the check that the map changed from outside (300 ms, again and again) and the typing's stop (500 ms
+// after the last key; each key starts it again).
+stardraft::draw::Host* mapPageHost() { return gMp.frameView ? gMp.frameView->host() : nullptr; }
+void mapPageArmReload() {
+    if (stardraft::draw::Host* h = mapPageHost()) gMp.reloadTimer = h->timer(300, [] { mapPageReloadIfStale(), mapPageArmReload(); });
+}
+void mapPageStartTyping() {
+    stardraft::draw::Host* h = mapPageHost();
+    if (!h) return;
+    if (gMp.typingTimer) h->cancelTimer(gMp.typingTimer);
+    gMp.typingTimer = h->timer(500, [] {
+        gMp.typingTimer = 0, gMp.typing = false;
+        gMp.kind == kMpProps ? mapPageAutoApply() : mapPageCommit();
+    });
+}
+void mapPageStopTyping() {
+    if (stardraft::draw::Host* h = mapPageHost(); h && gMp.typingTimer) h->cancelTimer(gMp.typingTimer);
+    gMp.typingTimer = 0;
+}
+
+// The program's part of the page frame (core/views_map_pages.inc).
+std::wstring MapPagesProgram::title() { return gMp.kind >= 0 ? kMpTitles[gMp.kind] : L""; }
+std::vector<MapPagesHost::Tab> MapPagesProgram::tabs() {
+    std::vector<Tab> out;
+    if (gMp.kind == kMpClassicSettings)
+        for (int k = 0; k < kClassicTabCount; ++k) out.push_back({kClassicTabNames[k], kClassicTabIcons[k]});
+    return out;
+}
+int MapPagesProgram::tab() { return gClassic ? gClassic->tab : 0; }
+void MapPagesProgram::showTab(int k) { mapPageShowTab(k); }
+bool MapPagesProgram::changed() {
+    const MapPageCopy* c = mapPageOpenCopy();
+    return c && c->changed;
+}
+int MapPagesProgram::footerH() { return 0; }  // (no bar: see mapPageFooterH)
+void MapPagesProgram::apply() { mapPageApply(); }
+void MapPagesProgram::revert() { mapPageRevert(); }
+stardraft::draw::Point MapPagesProgram::contentSize() {
+    const SIZE s = mapPageContentSize();
+    return {int(s.cx), int(s.cy)};
+}
+// Classic triggers fill the view's width and height (its lists take the height that is left); smaller than a minimum, the
+// view scrolls.
+void MapPagesProgram::fitContent(int w, int h) {
+    if (gMp.kind == kMpClassicTrig && gMp.content[0])
+        SetWindowPos(gMp.content[0], nullptr, 0, 0, std::max<int>(w, scale(1200)), std::max<int>(h, scale(440)), SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+void MapPagesProgram::placeContent(int x, int y) {
+    for (int k = 0; k < kClassicTabCount; ++k)
+        if (HWND c = gMp.content[k]) SetWindowPos(c, nullptr, -x, mapPagePartTop(k) - y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
 // Tests: the page that shows; Apply (or Revert) clicked through the click area the bar's paint made.
 HWND mapPageWindow() { return gMp.wnd; }
 bool mapPageClickButton(bool apply) {
     if (gMp.ready) {  // no bar: changes go in at once; "Revert" shows the map's values again
-        KillTimer(gMp.wnd, 2), gMp.typing = false;
+        mapPageStopTyping(), gMp.typing = false;
         if (gMp.kind == kMpProps && apply) mapPageAutoApply(), mapPageApplyTerrain();
         else if (apply) mapPageCommit();
         else mapPageReload();
@@ -1025,12 +665,7 @@ bool mapPageClickButton(bool apply) {
     }
     if (!gMp.wnd) return false;
     RedrawWindow(gMp.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
-    const RECT r = apply ? gMp.applyRect : gMp.revertRect;
-    const DataWidgetHit* h = gMp.surface.at({(r.left + r.right) / 2, (r.top + r.bottom) / 2});
-    if (!h || !h->click) return false;
-    const auto click = h->click;  // the click paints the page again (the hits change)
-    click();
-    return true;
+    return gMp.frameView && gMp.frameView->clickBar(apply);
 }
 
 // Datashot mappages: each map page of the tab's mode in the main area (mappage_<page>[_light].png), and through the
@@ -1096,7 +731,7 @@ void mapPagesDatashot(const fs::path& dir) {
             app.ed->undo();
             mapPageReloadIfStale();
             command(ID_SCEN_PLAYERS);
-            ctrlP = gMp.kind == kMpProps && gMp.scrollY > 0;
+            ctrlP = gMp.kind == kMpProps && mapPageScrollY() > 0;
         }
         log << "props: one page with players and forces " << yes(open) << " (opened in " << int(openMs) << " ms), the title goes into the map at once "
             << yes(title) << ", undo gives it back on the page " << yes(titleUndo) << ", a player's change at once " << yes(player)
@@ -1129,11 +764,10 @@ void mapPagesDatashot(const fs::path& dir) {
                 ctAddTrigger();
             } else {
                 mapPageShowTab(kClassicUnits);
-                classicSelect(kClassicUnits, 0);  // the marine
-                ClassicPage& pg = gClassic->pages[kClassicUnits];
-                target = !classicChecked(pg.useDefault);
-                SendMessageW(pg.useDefault, BM_SETCHECK, target ? BST_CHECKED : BST_UNCHECKED, 0);
-                SendMessageW(pg.wnd, WM_COMMAND, MAKEWPARAM(kCsUseDefault, BN_CLICKED), LPARAM(pg.useDefault));
+                ClassicPageView& pg = *gMp.classic[kClassicUnits];
+                pg.select(0);  // the marine
+                target = !classicUseDefault(kClassicUnits, pg.entry());
+                pg.setUseDefault(target);
             }
             mapPageChanged();
         };
@@ -1157,24 +791,19 @@ void mapPagesDatashot(const fs::path& dir) {
         const bool undone = !inMap() && !shows() && !mapPageHasChanges(k);
         log << names[k] << ": a change goes into the map at once (no Apply) " << yes(atOnce) << ", there again on the page " << yes(back)
             << ", one undo gives the map's value back and the page shows it " << yes(undone) << "\n";
-        if (k == kMpClassicSettings) {  // the unit's rename button: the name box in place of the title; Enter sets the name (#91)
+        if (k == kMpClassicSettings) {  // the unit's rename button (#91): the name is the game text pop-out's; the page shows it
             mapPageShowTab(kClassicUnits);
-            classicSelect(kClassicUnits, 3);  // the goliath
-            ClassicPage& pg = gClassic->pages[kClassicUnits];
-            const bool button = IsWindowVisible(pg.rename) != FALSE;
-            SendMessageW(pg.wnd, WM_COMMAND, MAKEWPARAM(kCsRename, BN_CLICKED), LPARAM(pg.rename));
-            const bool box = IsWindowVisible(pg.name) && !IsWindowVisible(pg.title);
-            SetWindowTextW(pg.name, L"Walker");
-            settle();
+            ClassicPageView& pg = *gMp.classic[kClassicUnits];
+            pg.select(3);  // the goliath
+            const bool button = pg.renameButton().visible();
             capture(dir / ("mappage_rename" + light + ".png"), app.main);
-            SendMessageW(pg.name, WM_KEYDOWN, VK_RETURN, 0);
+            pg.setName("Walker");  // what the pop-out sets (the title shows it)
             settle();
-            const bool set = app.ed->unitSettingName(3) == "Walker" && IsWindowVisible(pg.title) && windowText(pg.title).find(L"Walker") != std::wstring::npos;
+            const bool set = app.ed->unitSettingName(3) == "Walker" && pg.title().find(L"Walker") != std::wstring::npos;
             capture(dir / ("mappage_renamed" + light + ".png"), app.main);
             app.ed->undo();
             mapPageReloadIfStale();
-            log << names[k] << ": the rename button " << yes(button) << ", the name box in place of the title " << yes(box)
-                << ", Enter sets the name, the title shows it " << yes(set) << "\n";
+            log << names[k] << ": the rename button " << yes(button) << ", a name sets the map's name and the title shows it " << yes(set) << "\n";
         }
         command(ID_WS_MAP);
     }
@@ -1186,6 +815,13 @@ bool mapPageHasFocus() {
     const HWND f = GetFocus();
     return gMp.wnd && f && (f == gMp.wnd || IsChild(gMp.wnd, f));
 }
+// A force name (a kit field of the players view) has the keyboard: the typed keys and Ctrl+Z are the field's.
+bool mapPageTextFocus() {
+    if (gMp.kind == kMpClassicSettings && gClassic && gMp.classic[gClassic->tab]) return gMp.classic[gClassic->tab]->typingField();
+    return gMp.players && gMp.players->typingName();
+}
+// Tab from a force name: the next (back: the previous) name; false: the Tab goes on to the page's next control.
+bool mapPageTabNames(bool back) { return gMp.players && gMp.players->tabName(back); }
 bool mapPageKeepsKey(const MSG& m) {
     if (m.message != WM_KEYDOWN && m.message != WM_SYSKEYDOWN) return false;
     if (!(GetKeyState(VK_CONTROL) & 0x8000)) return m.message == WM_KEYDOWN && (m.wParam < VK_F1 || m.wParam > VK_F24);

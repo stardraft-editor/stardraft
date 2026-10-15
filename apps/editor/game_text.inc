@@ -9,72 +9,10 @@
 // colors) and the one of mission briefings and the scenario's title and description (pale blue, green, light green,
 // gray, white, red).
 
-enum class TextPalette { Game, Scenario };
+// (TextPalette, the game's colors and the swatches: core/game_text_model.inc.)
 
 extern COLORREF kRichDefault, kRichBack;
 std::wstring richText(HWND re);
-
-// The game's text colors (as StarCraft: Remastered draws them; codes 01 and 02: the text's own color, pale blue).
-COLORREF gameTextColor(unsigned char c, COLORREF normal) {
-    switch (c) {
-    case 1: return normal;                 // use default
-    case 2: return RGB(184, 184, 232);     // pale blue
-    case 3: return RGB(220, 220, 60);      // yellow
-    case 4: return RGB(255, 255, 255);     // white
-    case 5: return RGB(132, 116, 116);     // grey
-    case 6: return RGB(200, 24, 24);       // red
-    case 7: return RGB(16, 252, 24);       // green
-    case 8: return RGB(244, 4, 4);         // red (player 1)
-    case 0x0E: return RGB(12, 72, 204);    // blue (player 2)
-    case 0x0F: return RGB(44, 180, 148);   // teal (player 3)
-    case 0x10: return RGB(136, 64, 156);   // purple (player 4)
-    case 0x11: return RGB(248, 140, 20);   // orange (player 5)
-    case 0x15: return RGB(112, 48, 20);    // brown (player 6)
-    case 0x16: return RGB(204, 224, 208);  // white (player 7)
-    case 0x17: return RGB(252, 252, 56);   // yellow (player 8)
-    case 0x18: return RGB(8, 128, 8);      // green (player 9)
-    case 0x19: return RGB(252, 252, 124);  // brighter yellow (player 10)
-    case 0x1A: return RGB(0, 0, 24);       // "cyan" (the game draws it almost black)
-    case 0x1B: return RGB(236, 196, 176);  // pinkish (player 11)
-    case 0x1C: return RGB(64, 104, 212);   // dark cyan (player 12)
-    case 0x1D: return RGB(116, 164, 124);  // greygreen
-    case 0x1E: return RGB(144, 144, 184);  // bluegrey
-    case 0x1F: return RGB(0, 228, 252);    // turquoise
-    }
-    return 0xFFFFFFFF;
-}
-// Mission briefings color text in their own way (the same codes, other colors): 01 the text's own color, 00 02 1A
-// pale blue, 03 green, 04 light green, 05 gray, 06 white, 07 red; 0B and 14 make the text after them invisible.
-constexpr COLORREF kInvisibleText = 0xFFFFFFFE;
-COLORREF briefingTextColor(unsigned char c, COLORREF normal) {
-    switch (c) {
-    case 1: return normal;
-    case 0: case 2: case 0x1A: return RGB(184, 184, 232);  // pale blue
-    case 3: return RGB(16, 216, 24);                       // green
-    case 4: return RGB(160, 236, 160);                     // light green
-    case 5: return RGB(132, 132, 132);                     // gray
-    case 6: return RGB(255, 255, 255);                     // white
-    case 7: return RGB(220, 32, 32);                       // red
-    case 0x0B: case 0x14: return kInvisibleText;
-    }
-    return 0xFFFFFFFF;
-}
-
-// The palette's swatches, in their order (code 1: the normal color).
-struct TextSwatch {
-    unsigned char code;
-    const wchar_t* name;
-};
-const std::vector<TextSwatch>& textSwatches(TextPalette p) {
-    static const std::vector<TextSwatch> game = {
-        {1, L"Normal"}, {3, L"Yellow"}, {4, L"White"}, {5, L"Gray"}, {6, L"Red"}, {7, L"Green"}, {8, L"Red (Player 1)"}, {0x0E, L"Blue (Player 2)"},
-        {0x0F, L"Teal (Player 3)"}, {0x10, L"Purple (Player 4)"}, {0x11, L"Orange (Player 5)"}, {0x15, L"Brown (Player 6)"}, {0x16, L"White (Player 7)"},
-        {0x17, L"Yellow (Player 8)"}, {0x18, L"Green (Player 9)"}, {0x19, L"Bright yellow (Player 10)"}, {0x1B, L"Pink (Player 11)"},
-        {0x1C, L"Dark cyan (Player 12)"}, {0x1D, L"Gray-green"}, {0x1E, L"Blue-gray"}, {0x1F, L"Turquoise"}};
-    static const std::vector<TextSwatch> scenario = {{1, L"Normal"}, {2, L"Pale blue"}, {3, L"Green"}, {4, L"Light green"}, {5, L"Gray"},
-                                                     {6, L"White"}, {7, L"Red"}, {0x0B, L"Hidden (the game does not show this text)"}};
-    return p == TextPalette::Game ? game : scenario;
-}
 
 // How a code's text looks in the box: its color; hidden text crossed out; a code that is not a color of the palette
 // (kept as it is) underlined with dots.
@@ -123,97 +61,10 @@ unsigned char textRunCode(ITextFont* font, TextPalette p) {
     return 0;
 }
 
-// --- Raw: the bytes with each code as <XX> ------------------------------------------------------------------------
-
-// "<XX>" at v[i]: two hex digits for a code 01..1F.
-int gameTextTagAt(const std::wstring& v, size_t i) {
-    if (i + 3 >= v.size() || v[i] != L'<' || v[i + 3] != L'>' || !iswxdigit(v[i + 1]) || !iswxdigit(v[i + 2])) return -1;
-    const int c = int(std::wcstoul(v.substr(i + 1, 2).c_str(), nullptr, 16));
-    return c >= 1 && c < 0x20 ? c : -1;
-}
-// Bytes as text (UTF-8, else Windows-1252 for the whole text, as widen does).
-std::wstring gameTextDecode(const std::string& s, bool utf8) {
-    if (s.empty()) return {};
-    const UINT cp = utf8 ? CP_UTF8 : 1252;
-    const int n = MultiByteToWideChar(cp, 0, s.data(), int(s.size()), nullptr, 0);
-    std::wstring w(size_t(std::max(0, n)), L'\0');
-    if (n > 0) MultiByteToWideChar(cp, 0, s.data(), int(s.size()), w.data(), n);
-    return w;
-}
-bool gameTextIsUtf8(const std::string& s) { return s.empty() || MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s.data(), int(s.size()), nullptr, 0) > 0; }
-
-std::wstring gameTextToRaw(const std::string& bytes, bool multiline) {
-    const bool utf8 = gameTextIsUtf8(bytes);
-    // The text with each code as a place holder (a NUL, its code beside), then the tags; a "<" that could read as a
-    // tag, or that is followed by "<", is "<<".
-    std::wstring text;
-    std::map<size_t, unsigned char> codes;
-    std::string run;
-    auto flush = [&] { text += gameTextDecode(run, utf8), run.clear(); };
-    for (size_t i = 0; i < bytes.size(); ++i) {
-        const unsigned char c = static_cast<unsigned char>(bytes[i]);
-        if (c == '\r' && i + 1 < bytes.size() && bytes[i + 1] == '\n') continue;  // (the line end is the box's)
-        if (c == '\n' && multiline) {
-            flush(), text += L'\n';
-            continue;
-        }
-        if (c < 0x20) {
-            flush(), codes[text.size()] = c, text += L'\0';
-            continue;
-        }
-        run += char(c);
-    }
-    flush();
-    std::wstring out;
-    for (size_t i = 0; i < text.size(); ++i) {
-        const wchar_t ch = text[i];
-        if (const auto it = codes.find(i); it != codes.end()) {
-            wchar_t tag[8];
-            std::swprintf(tag, 8, L"<%02X>", unsigned(it->second));
-            out += tag;
-        } else if (ch == L'\n') {
-            out += L"\r\n";
-        } else if (ch == L'<' && ((i + 1 < text.size() && text[i + 1] == L'<') || codes.count(i + 1) || gameTextTagAt(text, i) > 0)) {
-            out += L"<<";
-        } else {
-            out += ch;
-        }
-    }
-    return out;
-}
-std::string gameTextFromRaw(const std::wstring& v, bool crlf) {
-    std::string out;
-    std::wstring run;
-    auto flush = [&] { out += narrow(run), run.clear(); };
-    for (size_t i = 0; i < v.size(); ++i) {
-        if (v[i] == L'\r') continue;
-        if (v[i] == L'\n') {
-            flush(), out += crlf ? "\r\n" : "\n";
-            continue;
-        }
-        if (v[i] == L'<' && i + 1 < v.size() && v[i + 1] == L'<') {  // "<<": a "<"
-            run += L'<', ++i;
-            continue;
-        }
-        if (const int c = gameTextTagAt(v, i); c > 0) {
-            flush(), out += char(c), i += 3;
-            continue;
-        }
-        run += v[i];
-    }
-    flush();
-    return out;
-}
+// (Raw, the bytes with each code as <XX>, and GameTextSpec: core/game_text_model.inc.)
 
 // --- The editor ---------------------------------------------------------------------------------------------------
 
-struct GameTextSpec {
-    TextPalette palette = TextPalette::Game;
-    bool multiline = true;
-    bool align = true;   // the align buttons (multi-line texts)
-    bool crlf = false;   // lines end in \r\n (map texts); else as the text had them (\n for a new text)
-    std::wstring cue;    // shown in an empty box
-};
 struct GameTextBox {
     HWND wnd = nullptr, rich = nullptr, raw = nullptr;
     int id = 0;
@@ -483,7 +334,7 @@ void gameTextAlign(GameTextBox& g, int align) {
 }
 
 // The tool row's height for a width (the swatches go on as many rows as they need).
-constexpr int kGameTextSwatch = 16, kGameTextGap = 4, kGameTextRowH = 24;
+// (kGameTextSwatch, kGameTextGap, kGameTextRowH: core/views_game_text.inc.)
 int gameTextToolsHeight(GameTextBox& g, int width, bool layoutOnly = true);
 struct GameTextTools {
     std::vector<std::pair<RECT, unsigned char>> swatches;
@@ -750,21 +601,4 @@ bool gameTextIsRaw(HWND w) {
     GameTextBox* g = gameTextOf(w);
     return g && g->rawMode;
 }
-// A game text's bytes without its codes, its lines joined by a space (in the text's own encoding: a list's line).
-std::string gameTextStripped(const std::string& bytes) {
-    std::string t;
-    for (const char ch : bytes)
-        if (static_cast<unsigned char>(ch) >= 0x20 || ch == '\t') t += ch;
-        else if (ch == '\n') t += ' ';
-    return t;
-}
-// A game text in one line without its codes (a block's sentence, a list): the line ends as a mark.
-std::wstring gameTextPlain(const std::string& bytes) {
-    std::string t;
-    for (const char ch : bytes)
-        if (static_cast<unsigned char>(ch) >= 0x20 || ch == '\t') t += ch;
-        else if (ch == '\n') t += '\x01';
-    std::wstring w = widen(t), out;
-    for (const wchar_t c : w) out += c == 1 ? std::wstring(L"  \x21B5  ") : std::wstring(1, c);
-    return out;
-}
+// (gameTextPlain and gameTextStripped, a game text in one line without its codes, are in core/strings.inc.)
