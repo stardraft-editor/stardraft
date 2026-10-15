@@ -147,6 +147,12 @@ Make StarDraft 2 a more powerful creation suite.
 
   A map can have hundreds of Classic triggers in one long list. Mappers cannot find a trigger fast, and they cannot
   put notes or headings between the triggers to show their structure.
+- [ ] **R60 Trigger search.** *Tag:* Capability.
+  A search box in the Triggers workspace and on the Classic triggers page. It shows only the triggers and blocks whose
+  text or comments contain the words.
+
+  Large maps have many triggers. Mappers cannot find the trigger that changes a value or uses a unit fast. Classic
+  triggers can be searched by their text since 0.5.0.8, but not by comments, and the Triggers workspace has no search.
 - [ ] **R25 Campaign projects.** *Tag:* UMS.
   Keep all the maps of a campaign in one project, in their order.
 
