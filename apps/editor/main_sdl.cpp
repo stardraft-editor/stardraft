@@ -7,6 +7,7 @@
 //        stardraft_editor [map] --snapshot <out.png> [--size <w>x<h>] [--scale <s>]
 //
 // --snapshot: draws one frame without a window (SDL_VIDEODRIVER=offscreen needs no display), writes it, exits.
+// --silent: a test run that drives the window plays no sound (a snapshot plays none either).
 // The StarCraft install: --install, then STARDRAFT_INSTALL, the folder chosen before, then the usual folders of each
 // system (core/install_search.inc); when none opens, the window asks for the folder.
 
@@ -69,6 +70,9 @@ using namespace stardraft;
 namespace fs = std::filesystem;
 namespace draw = stardraft::draw;
 namespace kit_sdl = stardraft::kit_sdl;
+
+// Test runs play no sound: the user may be at the computer (the Windows program's gSilent, main.cpp).
+bool gSilent = false;
 
 // The portable core (the same files the Windows program includes, in the same order, core_check.cpp).
 #include "core/core.inc"
@@ -191,8 +195,10 @@ int main(int argc, char** argv) {
         else if (a == "--install") installArg = next();
         else if (a == "--mode") modeArg = next();  // a mode's name (units, terrain, doodads, sprites, locations), for a snapshot
         else if (a == "--workspace") workspaceArg = next();  // a workspace's name (map, data, triggers, project...), for a snapshot
+        else if (a == "--silent") gSilent = true;
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
+    if (!snapshot.empty()) gSilent = true;
     if (!SDL_Init(SDL_INIT_VIDEO)) return std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()), 1;
 
     // The device first (the renderer makes it with its shader formats), then the host on it.
