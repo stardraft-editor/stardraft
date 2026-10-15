@@ -84,8 +84,9 @@ bool dataTravelTo(bool back, const std::function<void(int)>& showTab, const std:
     from.pop_back();
     to.push_back({d.datTab, d.entry});
     gDataTravelling = true;
-    d.tabEntry.resize(DatSchema::all().size(), 0);
-    if (p.tab != d.datTab) d.tabEntry[size_t(p.tab)] = p.entry;
+    // (Every tab's entry, the Strings and Buttons tabs' too: a place can be on them.)
+    d.tabEntry.resize(std::max(d.tabEntry.size(), size_t(dataTabCount())), 0);
+    if (p.tab != d.datTab && p.tab >= 0 && p.tab < int(d.tabEntry.size())) d.tabEntry[size_t(p.tab)] = p.entry;
     showTab(p.tab);
     select(p.entry);
     gDataTravelling = false;
