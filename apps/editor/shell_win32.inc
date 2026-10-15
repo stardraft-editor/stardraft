@@ -242,3 +242,46 @@ void shellRecentMenu(bool projects, const std::vector<std::wstring>& labels, con
 bool shellPathsFoldCase() { return true; }  // NTFS ignores case
 void shellShowQuickPicker(bool replace, bool open) { showQuickPicker(replace, open); }
 void shellMapFileOpened(const std::filesystem::path& file) { mapFileOpened(file); }
+void shellOpenFolder(const std::filesystem::path& folder) { ShellExecuteW(app.main, L"open", folder.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL); }
+void shellOpenInEditor(const std::filesystem::path& file) {
+    // The editor for .eps ("edit", else "open"); Notepad when nothing is registered for it.
+    if (INT_PTR(ShellExecuteW(app.main, L"edit", file.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL)) <= 32 &&
+        INT_PTR(ShellExecuteW(app.main, L"open", file.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL)) <= 32)
+        shellOpenWithNotepad(file);
+}
+void shellOpenWithNotepad(const std::filesystem::path& file) {
+    ShellExecuteW(app.main, L"open", L"notepad.exe", (L"\"" + file.wstring() + L"\"").c_str(), nullptr, SW_SHOWNORMAL);
+}
+void shellRevealFile(const std::filesystem::path& file) {
+    ShellExecuteW(app.main, L"open", L"explorer.exe", (L"/select,\"" + std::filesystem::path(file).make_preferred().wstring() + L"\"").c_str(), nullptr,
+                  SW_SHOWNORMAL);
+}
+std::wstring shellFileTimeText(const std::filesystem::path& file) {
+    WIN32_FILE_ATTRIBUTE_DATA a{};
+    if (!GetFileAttributesExW(file.wstring().c_str(), GetFileExInfoStandard, &a)) return {};
+    FILETIME local;
+    SYSTEMTIME st;
+    FileTimeToLocalFileTime(&a.ftLastWriteTime, &local);
+    FileTimeToSystemTime(&local, &st);
+    wchar_t t[32];
+    std::swprintf(t, 32, L"%04d-%02d-%02d %02d:%02d", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute);
+    return t;
+}
+std::uintptr_t shellStartElevated(const std::filesystem::path& exe, const std::filesystem::path& dir, const std::wstring& args,
+                                  const std::wstring& what, std::wstring& error) {
+    SHELLEXECUTEINFOW si{sizeof si};
+    si.fMask = SEE_MASK_NOCLOSEPROCESS;
+    si.hwnd = app.main;
+    si.lpVerb = L"runas";  // the program needs administrator rights (its manifest asks for them)
+    si.lpFile = exe.c_str();
+    si.lpParameters = args.c_str();
+    si.lpDirectory = dir.c_str();
+    si.nShow = SW_SHOWNORMAL;
+    if (ShellExecuteExW(&si) && si.hProcess) return std::uintptr_t(si.hProcess);
+    const DWORD e = GetLastError();
+    error = e == ERROR_CANCELLED ? what + L" did not start: it needs administrator rights" : L"Could not start " + what + L" (error " + std::to_wstring(e) + L")";
+    return 0;
+}
+bool shellProcessEnded(std::uintptr_t process) { return WaitForSingleObject(HANDLE(process), 0) == WAIT_OBJECT_0; }
+void shellProcessClose(std::uintptr_t process) { CloseHandle(HANDLE(process)); }
+void shellChooseInstallFolder() { chooseInstallFolder(); }

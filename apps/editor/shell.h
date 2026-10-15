@@ -5,6 +5,8 @@
 
 #include <chrono>
 #include <cstdint>
+#include <cstdio>
+#include <ctime>
 #include <filesystem>
 #include <functional>
 #include <string>
@@ -128,3 +130,23 @@ void shellShowQuickPicker(bool replace, bool open);
 bool shellPathsFoldCase();
 // A map file was opened by itself: asks once whether maps open with StarDraft 2 (Windows only).
 void shellMapFileOpened(const std::filesystem::path& file);
+// A folder is opened in the file manager.
+void shellOpenFolder(const std::filesystem::path& folder);
+// A script is opened in the user's editor for it ("edit", else "open"; Notepad when nothing is registered for it).
+void shellOpenInEditor(const std::filesystem::path& file);
+// A text file is opened in Notepad.
+void shellOpenWithNotepad(const std::filesystem::path& file);
+// A file is shown selected in its folder.
+void shellRevealFile(const std::filesystem::path& file);
+// A file's last change, in local time ("2026-10-11 14:02"); empty when it is not found.
+std::wstring shellFileTimeText(const std::filesystem::path& file);
+// A program is started with administrator rights in `dir` (Windows: the elevation prompt), and its process is waited for.
+// Returns the process's token, or 0 when it did not start: `error` then says why, naming `what` ("epTrace").
+std::uintptr_t shellStartElevated(const std::filesystem::path& exe, const std::filesystem::path& dir, const std::wstring& args,
+                                  const std::wstring& what, std::wstring& error);
+// Whether the process (its token from shellStartElevated) has ended.
+bool shellProcessEnded(std::uintptr_t process);
+// The process's token is let go (it is not used again).
+void shellProcessClose(std::uintptr_t process);
+// File > Options > StarCraft folder: another install is chosen (used from the next start).
+void shellChooseInstallFolder();
