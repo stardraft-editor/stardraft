@@ -2007,6 +2007,8 @@ constexpr UiText kRows[] = {
     {L"; drag paints ", L"\uFF1B\u62D6\u52A8\u7ED8\u5236"},
     {L"Shift+drag: no terrain", L"Shift+\u62D6\u52A8\uFF1A\u65E0\u5730\u5F62"},
     {L"Automatic (the language of the system)", L"\u81EA\u52A8\uFF08\u7CFB\u7EDF\u8BED\u8A00\uFF09"},
+    {L"StarDraft 2 is not associated with Blizzard Entertainment.", L"StarDraft 2 \u4E0E Blizzard Entertainment \u65E0\u5173\u3002"},
+    {L"It needs an installation of StarCraft to work.", L"\u9700\u8981\u5B89\u88C5\u300A\u661F\u9645\u4E89\u9738\u300B\u624D\u80FD\u4F7F\u7528\u3002"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

@@ -21,7 +21,7 @@ public:
     std::function<void()> closed;  // the view closed its window (Close, Esc, Enter)
 
     // The window's size at 100 % (the lines about the name and the EUD tools fit).
-    static draw::Point size() { return {scale(600), scale(518)}; }
+    static draw::Point size() { return {scale(600), scale(552)}; }  // (the lines about the name, the EUD tools and Blizzard fit)
 
     void paint(draw::Canvas& c) override {
         using draw::Color;
@@ -97,6 +97,10 @@ public:
                 y += scale(22);
             }
         }
+        // Not a Blizzard product, and it needs the game's files.
+        y += scale(10);
+        centered(L"StarDraft 2 is not associated with Blizzard Entertainment.", smallText, kDim, scale(22));
+        centered(L"It needs an installation of StarCraft to work.", smallText, kDim, scale(22));
         y += scale(14);
 
         // Then the repository and the Discord server.
