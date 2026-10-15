@@ -6,8 +6,4 @@ namespace {
 void notOnThisSystem() { setMessage(L"This is not on this system yet"); }
 }  // namespace
 
-bool briefCommand(int) {
-    notOnThisSystem();
-    return false;
-}
 bool classicCommandInProject(int) { return false; }  // (a query: no project of this system holds classic data yet)

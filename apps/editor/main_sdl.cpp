@@ -208,7 +208,7 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
-    std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, trigArg, trigSelArg;
+    std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, trigArg, trigSelArg, briefArg;
     bool rectArg = false, previewArg = false, trigCodeArg = false;
     int width = 1600, height = 1000;
     float scaleArg = 0;
@@ -226,6 +226,7 @@ int main(int argc, char** argv) {
         else if (a == "--trigsel") trigSelArg = next();  // an action of the selected trigger: it is selected, for a snapshot
         else if (a == "--trigcode") trigCodeArg = true;  // the Triggers workspace's code pane on (not saved), for a snapshot
         else if (a == "--classictrig") ctArg = next();  // trigger:kind:entry (2:1:0): the Classic triggers page selects it, for a snapshot
+        else if (a == "--briefing") briefArg = next();  // row[:ms]: the Briefing page selects that row of the first briefing, the preview at that time, for a snapshot
         else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
         else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or blockpick, blockhelp:<block id>, unitprops, locprops, quick, about, message, error or tip: that view is the snapshot
         else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
@@ -301,6 +302,7 @@ int main(int argc, char** argv) {
         if (!ctArg.empty()) sdlClassicTrigSelect(ctArg);
         if (!trigArg.empty() || !trigSelArg.empty()) sdlTrigSelect(trigArg, trigSelArg);
         if (trigCodeArg) trigCodeRefresh(true);
+        if (!briefArg.empty()) sdlBriefingSelect(briefArg);
         if (newPageArg == "classic" || newPageArg == "eud") openNewPageSdl(newPageArg == "eud" ? 1 : 0);
         if (!gDataOk) setMessage(widen(gDataError));
         std::printf("stardraft_editor: GPU %s, %s\n", renderer.driver(), gDataOk ? "game data" : gDataError.c_str());
@@ -393,6 +395,7 @@ int main(int argc, char** argv) {
     releasePaletteArt();  // its pictures' textures: before the device goes
     releaseDataPictures();  // the Data pictures' textures too (core/views_data_pictures.inc)
     sdlDataExtrasRelease();  // the Display section's wireframes (sdl_data_extras.inc)
+    gSdlBriefing.releasePictures();  // the briefing's portraits (sdl_briefing.inc): their textures before the device goes
     kit_sdl::unloadIconAtlases();
     gRenderer = nullptr;
     gDevice = nullptr;
