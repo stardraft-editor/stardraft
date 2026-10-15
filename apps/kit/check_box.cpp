@@ -18,7 +18,7 @@ void ChoiceBox::paint(draw::Canvas& c) {
     const int s = px(kBoxSize), top = (height() - s) / 2;
     const bool over = enabled_ && hot_;
     drawMark(c, {0, top, s, top + s}, over, enabled_ && hasFocus() && !pointer_);
-    const Color tc = !enabled_ ? th.faint : changed_ ? th.good : on_ || over ? th.text : th.dim;
+    const Color tc = !enabled_ ? th.faint : changed_ ? th.good : on_ || over || plain_ ? th.text : th.dim;
     c.text({s + px(kGap), 0, width(), height()}, label_, tc, draw::kMiddle | draw::kEllipsis);
 }
 
