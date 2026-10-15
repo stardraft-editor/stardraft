@@ -100,6 +100,8 @@ public:
     virtual void runModal(View& from, View& content, const WindowSpec& spec) = 0;
     // `v` (or a view under it) leaves the host's views: the focus, the capture and the hover forget it.
     virtual void forget(const View& v) = 0;
+    // The modifier keys down now (Mods).
+    virtual unsigned modifiers() const { return 0; }
 };
 
 class View {

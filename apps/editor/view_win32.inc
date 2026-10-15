@@ -104,6 +104,7 @@ public:
         return {m.x - o.x, m.y - o.y};
     }
     void forget(const View& v) override { router_.forget(v); }
+    unsigned modifiers() const override { return keyMods(); }
     void setCursor(Cursor c) override { SetCursor(LoadCursor(nullptr, cursorId(c))); }
     std::string clipboardText() override {
         std::string out;
@@ -233,8 +234,11 @@ public:
         case WM_SYSKEYDOWN:
         case WM_KEYUP:
         case WM_SYSKEYUP: {
+            if (wp == VK_MENU) invalidate(view_);  // the access keys show or go (a view paints them while Alt is down)
             KeyEvent e;
             e.key = keyFromVk(wp), e.down = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN, e.repeat = (lp & (1 << 30)) != 0, e.mods = keyMods();
+            // A system key's Alt is in its lParam too (a message posted without the Alt state still has it).
+            if ((msg == WM_SYSKEYDOWN || msg == WM_SYSKEYUP) && (lp & (LPARAM(1) << 29))) e.mods |= stardraft::draw::kAlt;
             if (e.key == Key::None) return false;
             return router_.key(e) ? (result = 0, true) : false;
         }
