@@ -60,6 +60,7 @@ using std::min;
 #include "text_field.h"  // the kit's text field (apps/kit): the search boxes (search_box.inc)
 #include "button.h"
 #include "icon_button.h"
+#include "list_view.h"     // the kit's list (the Map data page, core/views_classic_settings.inc)
 #include "dropdown.h"     // the kit's dropdown: the palette's section box (search_box.inc)
 #include "check_box.h"  // the kit's check boxes: the players and forces page (core/views_players.inc)
 #include "button.h"       // the kit's push button: the Files page's Import and Rename (core/views_files.inc)
@@ -439,6 +440,7 @@ std::wstring itemLabel(int v) { return itemLabel(app, v); }
 #include "core/views_map_pages.inc"  // the map pages' frame: the title, the tabs, the bar and the scroll view (MapPagesView, MapScrollView; map_pages.inc)
 #include "core/views_map_props.inc"  // Map properties' view: the fields, the dropdowns and the buttons (MapPropsView; map_properties.inc, map_pages.inc)
 #include "core/views_players.inc"  // Players and forces' view: the players, the forces and the problems (PlayersView; main.cpp, map_pages.inc)
+#include "core/views_classic_settings.inc"  // Map data's views: the tabs' lists and fields (ClassicPageView; classic_settings.inc, map_pages.inc)
 #include "core/views_start.inc"  // the start page (StartView: the cards, the recent list, Open; the instance is gStartView in new_page.inc)
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
 
@@ -17329,8 +17331,8 @@ void selfTestTwoModes(std::ofstream& log, const fs::path& dir, const fs::path& c
         const bool wasModified = app.ed->modified();
         command(ID_SCEN_CLASSIC);
         for (int i = 0; i < 10; ++i) pump(), Sleep(20);
-        const bool shown = gWorkspace == Workspace::ClassicSettings && gClassic && IsWindowVisible(mapPageWindow()) &&
-                           SendMessageW(gClassic->pages[kClassicUnits].list, LB_GETCOUNT, 0, 0) == kSettingUnits;
+        const bool shown = gWorkspace == Workspace::ClassicSettings && gClassic && IsWindowVisible(mapPageWindow()) && gMp.classic[kClassicUnits] &&
+                           gMp.classic[kClassicUnits]->shownCount() == kSettingUnits;
         capture(dir / "62d_classic_settings.png");
         command(ID_WS_MAP);
         log << "Map data (classic settings): the page opens on a map tab with every unit " << (shown ? "yes" : "NO") << ", leaving it changes nothing "
@@ -20965,18 +20967,19 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     o << "the Data page opened NO\n";
                     continue;
                 }
-                ClassicPage& pg = gClassic->pages[kClassicUnits];
-                const int e = pg.entry;
-                const std::wstring hp = windowText(pg.fields[0]), armor = windowText(pg.fields[2]);
+                ClassicPageView& pg = *gMp.classic[kClassicUnits];
+                const int e = pg.entry();
+                const std::wstring hp = pg.field(0).text(), armor = pg.field(2).text();
                 const bool startDefault = classicUseDefault(kClassicUnits, e);
-                SetWindowTextW(pg.fields[0], (std::to_wstring(_wtoi(hp.c_str()) + 5)).c_str());  // an edit (EN_CHANGE)
+                pg.field(0).setText((std::to_wstring(_wtoi(hp.c_str()) + 5)));  // an edit (its change)
+                pg.field(0).onChange();
                 const bool own = !classicUseDefault(kClassicUnits, e) && classicFieldChanged(kClassicUnits, e, 0);
-                SetWindowTextW(pg.fields[0], hp.c_str());  // the game's value again
+                pg.field(0).setText(hp), pg.field(0).onChange();  // the game's value again
                 const bool backDefault = classicUseDefault(kClassicUnits, e);
-                SetWindowTextW(pg.fields[2], L"99999");
-                SendMessageW(pg.wnd, WM_COMMAND, MAKEWPARAM(kCsField + 2, EN_KILLFOCUS), LPARAM(pg.fields[2]));
-                const std::wstring clamped = windowText(pg.fields[2]);
-                SetWindowTextW(pg.fields[2], armor.c_str());
+                pg.field(2).setText(L"99999"), pg.field(2).onChange();
+                pg.field(2).onFocusLost();  // (the field is left: the value as kept)
+                const std::wstring clamped = pg.field(2).text();
+                pg.field(2).setText(armor);
                 o << "starts on the game's values " << (startDefault ? "yes" : "NO") << ", an edit: its own values " << (own ? "yes" : "NO")
                   << ", the game's value again: the game's values " << (backDefault ? "yes" : "NO") << ", armor 99999 shows " << narrow(clamped)
                   << (clamped == L"255" ? "" : " WRONG") << "\n";
@@ -22381,28 +22384,26 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     const std::wstring light = gLightTheme ? L"_light" : L"";
                     const std::wstring shots[kClassicTabCount] = {L"classic_units" + light + L".png", L"classic_upgrades" + light + L".png",
                                                                   L"classic_tech" + light + L".png"};
-                    auto type = [](HWND e, const wchar_t* t) { SetWindowTextW(e, t); };  // EN_CHANGE goes to the page
-                    auto click = [](HWND b, bool on) {
-                        SendMessageW(b, BM_SETCHECK, on ? BST_CHECKED : BST_UNCHECKED, 0);
-                        SendMessageW(GetParent(b), WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(b), BN_CLICKED), LPARAM(b));
-                    };
+                    // A typed text (its change: EN_CHANGE in the page) and a click (the check box's change).
+                    auto type = [](stardraft::kit::TextField& f, const wchar_t* t) { f.setText(t), f.onChange(); };
+                    auto click = [](stardraft::kit::CheckBox& b, bool on) { b.setOn(on), b.onChange(on); };
                     for (int k = 0; k < kClassicTabCount; ++k) {
                         mapPageShowTab(k);
-                        ClassicPage& pg = gClassic->pages[k];
-                        classicSelect(k, 0);  // the marine, Terran Infantry Armor, Stim Packs
+                        ClassicPageView& pg = *gMp.classic[k];
+                        pg.select(0);  // the marine, Terran Infantry Armor, Stim Packs
                         if (set) {
-                            click(pg.useDefault, false);
-                            type(pg.fields[0], k == kClassicUnits ? L"77" : L"123");
+                            pg.setUseDefault(false);
+                            type(pg.field(0), k == kClassicUnits ? L"77" : L"123");
                             if (k == kClassicUnits) {
-                                type(pg.name, L"Test Marine");
-                                type(pg.weaponDamage[0], L"9");
-                                click(pg.playerDefault[1], false);
-                                click(pg.playerA[1], false);
+                                pg.setName("Test Marine");
+                                type(pg.weaponDamage(0), L"9");
+                                click(pg.playerDefault(1), false);
+                                click(pg.playerA(1), false);
                             } else if (k == kClassicUpgrades) {
-                                type(pg.globalA, L"2");
+                                type(pg.globalLevelA(), L"2");
                             } else {
-                                click(pg.playerDefault[2], false);
-                                click(pg.playerB[2], true);
+                                click(pg.playerDefault(2), false);
+                                click(pg.playerB(2), true);
                             }
                         }
                         mapPageChanged();
