@@ -298,6 +298,9 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/tiles_edit.inc"  // the Rectangle mode's tiles on the map: the press, the drag, the spray and the fill
 #include "core/path_overlay.inc"  // the pathing overlays (walk, paths, towns): their drawing and their hover text
 #include "core/map_input.inc"  // the map view's mouse input: mapMouseDown, mapMouseMove, mapMouseUp, the spray and the pipette
+#include "core/views_rail.inc"  // the side rail (RailView; the instance is gRail below)
+#include "core/views_minimap.inc"  // the minimap (MinimapView, the terrain and the camera; the instance is gMinimap below)
+#include "core/views_tabs.inc"  // the document tabs (TabsView, docTitle, activateDoc, closeDoc, moveDoc; the instance is gTabs below)
 int selectPalette(int value);
 void pickUnit(int v, bool add);
 // The forms without app: the Win32 TU's own (the state forms are in core/palette_tools.inc).
@@ -536,7 +539,7 @@ void setMode(Mode m) {
 void logLine(const std::wstring& line, bool error = false);
 
 
-std::wstring docTitle(int i, bool withMode = true);
+std::wstring docTitle(int i, bool withMode);  // (the default: core/views_tabs.inc)
 extern int gActive;
 
 void layout();
@@ -1115,134 +1118,6 @@ render::Scene buildScene() {
             }
     }    return s;
 }
-
-// --- Minimap ----------------------------------------------------------------------------------------
-
-// Where the map is drawn inside the minimap (fit, centered) and the map-pixel -> minimap scale.
-void minimapRect(RECT& r, float& scalePx) {
-    RECT c;
-    GetClientRect(app.minimap, &c);
-    Editor& ed = *app.ed;
-    float mw = ed.width() * 32.0f, mh = ed.height() * 32.0f;
-    scalePx = std::min(c.right / mw, c.bottom / mh);
-    int w = int(mw * scalePx), h = int(mh * scalePx);
-    r = {(c.right - w) / 2, (c.bottom - h) / 2, (c.right - w) / 2 + w, (c.bottom - h) / 2 + h};
-}
-
-void rebuildMinimapTerrain() {
-    Editor& ed = *app.ed;
-    const Tileset& ts = ed.tileset();
-    if (app.megatileColorsFor != &ts || app.megatileColorsEra != app.ed->era()) {
-        app.megatileColor.assign(ts.megatiles.size(), 0);
-        for (size_t m = 0; m < ts.megatiles.size(); ++m) {
-            uint32_t sum[3] = {0, 0, 0};
-            for (uint32_t ref : ts.megatiles[m]) {
-                size_t mini = ref >> 1;
-                if (mini >= ts.minitiles.size()) continue;
-                for (uint8_t idx : ts.minitiles[mini]) sum[0] += ts.palette[idx].r, sum[1] += ts.palette[idx].g, sum[2] += ts.palette[idx].b;
-            }
-            app.megatileColor[m] = (sum[0] / 1024) << 16 | (sum[1] / 1024) << 8 | (sum[2] / 1024);
-        }
-        app.megatileColorsFor = &ts, app.megatileColorsEra = app.ed->era();
-    }
-    const TerrainLayer& t = ed.terrain();
-    app.miniTerrain.resize(t.tiles.size());
-    for (size_t i = 0; i < t.tiles.size(); ++i) {
-        int m = ts.megatileFor(t.tiles[i]);
-        app.miniTerrain[i] = m >= 0 && size_t(m) < app.megatileColor.size() ? app.megatileColor[m] : 0;
-    }
-    app.miniTerrainRev = ed.terrainRevision();
-}
-
-// The current view in minimap pixels.
-RECT minimapView(const RECT& r, float sc) {
-    int vw, vh;
-    viewSize(vw, vh);
-    return {r.left + int(app.camX * sc), r.top + int(app.camY * sc), r.left + int((app.camX + vw / app.zoom) * sc),
-            r.top + int((app.camY + vh / app.zoom) * sc)};
-}
-
-void minimapJump(int mx, int my) {
-    if (!app.ed || !app.ed->isOpen()) return;
-    RECT r;
-    float sc;
-    minimapRect(r, sc);
-    if (sc <= 0) return;
-    float wx = (mx - r.left) / sc, wy = (my - r.top) / sc;
-    int vw, vh;
-    viewSize(vw, vh);
-    app.camX = wx - vw / 2.0f / app.zoom;
-    app.camY = wy - vh / 2.0f / app.zoom;
-    app.dirty = true;
-}
-
-// The minimap as a view: the terrain (one pixel per tile, scaled smooth), the units as player-colored dots, and the
-// current view as a tinted box. A click or a drag moves the view there.
-struct MinimapView final : stardraft::draw::View {
-    stardraft::draw::Bitmap terrain;  // the map's tiles, one pixel each
-    uint64_t terrainRev = 0;
-    bool dragging = false;
-
-    void paint(stardraft::draw::Canvas& c) override {
-        const stardraft::draw::Rect all{0, 0, width(), height()};
-        c.fill(all, RGB(0, 0, 0));
-        if (!app.ed || !app.ed->isOpen()) return;
-        Editor& ed = *app.ed;
-        if (app.miniTerrainRev != ed.terrainRevision() || app.megatileColorsFor != &ed.tileset() || app.megatileColorsEra != ed.era())
-            rebuildMinimapTerrain();
-        if (terrainRev != app.miniTerrainRev || terrain.width() != ed.width() || terrain.height() != ed.height()) {
-            terrain.resize(ed.width(), ed.height());
-            terrain.opaque = true;
-            uint32_t* px = terrain.pixels();
-            for (size_t i = 0; i < app.miniTerrain.size() && i < size_t(ed.width()) * ed.height(); ++i) {
-                const uint32_t v = app.miniTerrain[i];  // 0x00RRGGBB
-                px[i] = 0xFF000000u | (v & 0xFFu) << 16 | (v & 0xFF00u) | (v >> 16 & 0xFFu);
-            }
-            terrain.changed();
-            terrainRev = app.miniTerrainRev;
-        }
-        RECT r;
-        float sc;
-        minimapRect(r, sc);
-        c.bitmap(terrain, {0, 0, terrain.width(), terrain.height()}, r, true);
-        // Units as player-colored dots.
-        static const COLORREF colors[12] = {RGB(244, 4, 4),   RGB(12, 72, 204),   RGB(44, 180, 148), RGB(136, 64, 156),
-                                            RGB(248, 140, 20), RGB(112, 48, 20),  RGB(204, 224, 208), RGB(252, 252, 56),
-                                            RGB(8, 128, 8),   RGB(252, 252, 124), RGB(236, 196, 176), RGB(64, 104, 212)};
-        for (const Unit& u : ed.units()) {
-            const int x = r.left + int(u.x * sc), y = r.top + int(u.y * sc);
-            int d = std::max(2, int(ed.unitBox(u).right - ed.unitBox(u).left) * int(sc * 100) / 100);
-            d = std::clamp(d, 2, 6);
-            c.fill({x - d / 2, y - d / 2, x - d / 2 + d, y - d / 2 + d}, colors[std::min<int>(u.owner, 11)]);
-        }
-        // The current view: a light tint, the line in the accent.
-        const RECT v = minimapView(r, sc);
-        c.fill(v, kAccent, 36);
-        c.frame(v, kAccentBright);
-    }
-    bool mouse(const stardraft::draw::MouseEvent& e) override {
-        using stardraft::draw::MouseKind;
-        if (e.button != 0 && (e.kind == MouseKind::Down || e.kind == MouseKind::Up)) return false;  // (right click: the dock menu)
-        switch (e.kind) {
-        case MouseKind::Down:
-            dragging = true;
-            if (auto* h = host()) h->capture(*this, true);
-            minimapJump(e.pt.x, e.pt.y);
-            return true;
-        case MouseKind::Move:
-            if (dragging) minimapJump(e.pt.x, e.pt.y);
-            return true;
-        case MouseKind::Up:
-            if (dragging) {
-                dragging = false;
-                if (auto* h = host()) h->capture(*this, false);
-            }
-            return true;
-        default: return false;
-        }
-    }
-    stardraft::draw::Cursor cursor(stardraft::draw::Point) override { return stardraft::draw::Cursor::Hand; }
-};
 MinimapView gMinimap;
 
 // The view stays near the map: at most half a view past each edge; a map smaller than the view keeps its middle in
@@ -1639,81 +1514,17 @@ void pageSync();
 void openNewPage(int kind);
 void openStartPage();
 void openPageTab(int page);
-struct TabHit {
-    RECT tab, close;
-};
-std::vector<TabHit> gTabHits;  // laid out by the last paint
-RECT gNewTabHit{};
-int gTabHot = -1, gTabHotClose = -1;
-
-const Editor* docEditor(int i) { return i == gActive ? app.ed.get() : gDocs[size_t(i)].ed.get(); }
-
-// The tab strip and the title bar: "Name (project)" for a project, "Name (map)" for a classic map. withMode false
-// gives the name only.
-const wchar_t* gNewTitle();
-std::wstring docTitle(int i, bool withMode) {
-    const Editor* ed = docEditor(i);
-    if (!ed) return L"";
-    if (const int page = gDocs[size_t(i)].page) return page == kPageStart ? L"Start" : gNewTitle();
-    int n = gDocs[size_t(i)].untitled;
-    std::wstring name = !ed->path().empty() ? ed->path().filename().wstring() : n > 1 ? L"Untitled " + std::to_wstring(n) : L"Untitled";
-    // A project's map is shown by the project's name.
-    const auto& pr = gDocs[size_t(i)].project;
-    if (pr) name = widen(pr->name());
-    if (withMode) name += pr ? L" (project)" : L" (map)";
-    return (ed->modified() ? L"* " : L"") + name;
-}
 
 
 
 bool classicCommandInProject(int id);  // classic_triggers.inc: the project's map has that classic data (L.4)
 
-int tabStripHeight() { return scale(30); }
 
 void mapPageClose();  // map_pages.inc: the open map page goes (its working copy stays with its tab)
 bool mapPagesConfirm();
 
-void stashActive() {
-    if (gActive < 0 || gActive >= int(gDocs.size()) || !app.ed) return;
-    mapPageClose();
-    Doc& d = gDocs[size_t(gActive)];
-    d.camX = app.camX, d.camY = app.camY, d.zoom = app.zoom;
-    d.hasTerrainSel = app.hasTerrainSel, d.terrainSel = app.terrainSel;
-    d.pasting = app.pasting, d.terrainPasting = app.terrainPasting;
-    d.ed = std::move(app.ed);
-}
 
-// Shows the active editor: renderer sources, palette (the tileset may differ), title and tabs.
-void showActive() {
-    app.drag = Drag::None;
-    app.ed->setAllowIllegalUnits(app.allowIllegalUnits);
-    app.ed->setAllowStacking(app.allowStacking);
-    app.ed->setMirrors(app.symmetryByMode[int(app.mode)]);
-    app.terrainRev = 0;
-    app.renderer.setQuality(app.quality);
-    app.renderer.setSources(&app.data, &app.ed->unitSprites(), &app.ed->tileset(), app.ed->era());
-    setMode(app.mode);
-    updateTitle();
-    if (app.tabs) RedrawWindow(app.tabs, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
-    app.dirty = true;
-    pageSync();  // a page tab shows its page over the map
-}
 
-void activateDoc(int i) {
-    if (i < 0 || i >= int(gDocs.size()) || (i == gActive && app.ed)) return;
-    stashActive();
-    gActive = i;
-    Doc& d = gDocs[size_t(i)];
-    app.ed = std::move(d.ed);
-    app.camX = d.camX, app.camY = d.camY, app.zoom = d.zoom;
-    shellRelayout();  // the minimap takes this map's shape
-    app.hasTerrainSel = d.hasTerrainSel, app.terrainSel = d.terrainSel;
-    app.pasting = d.pasting, app.terrainPasting = d.terrainPasting;
-    showActive();
-    if (gWorkspace != Workspace::Map) setWorkspace(d.page ? Workspace::Map : gWorkspace);  // a map tab falls back to Map; a project reloads
-    if (gWsBar) InvalidateRect(gWsBar, nullptr, FALSE);
-    setMessage(L"Switched to " + docTitle(i));
-}
 
 void forgetProject(const EudProject* pr);
 
@@ -1758,23 +1569,6 @@ void newUntitledProject();
 void openStartPage();
 void dropUnsavedProject(const std::shared_ptr<EudProject>& pr);
 
-// Closes tab i (asking to save it if modified). Returns false if the user canceled.
-bool closeDoc(int i) {
-    if (i < 0 || i >= int(gDocs.size())) return true;
-    activateDoc(i);
-    if (!confirmDiscard()) return false;
-    mapPageClose();
-    app.ed.reset();
-    gAnims.clear(), gAnimsFor = nullptr;  // they held that editor's sprites (a new editor can get the same address)
-    const auto pr = gDocs[size_t(i)].project;
-    gDocs.erase(gDocs.begin() + i);
-    forgetProject(pr.get());
-    dropUnsavedProject(pr);  // an unsaved project's folder goes with its tab
-    gActive = -1;
-    if (gDocs.empty()) openStartPage();  // the last tab closed: the start page
-    else activateDoc(std::min(i, int(gDocs.size()) - 1));
-    return true;
-}
 
 void restartProgram();
 // `reopen`: each closed tab's project folder or map file, as it is after its save question (an untitled map saved then
@@ -1821,136 +1615,6 @@ void restartProgram() {
     PostMessageW(app.main, WM_CLOSE, 0, 0);
 }
 
-// Dragging a tab sideways moves it (GitHub feedback #82): the tab that is dragged, and where the press was.
-int gTabDrag = -1, gTabDragX = 0;
-bool gTabDragging = false;
-
-// Moves tab `from` to the place of tab `to` (the others move up or down one place); the active tab stays active.
-void moveDoc(int from, int to) {
-    if (from == to || from < 0 || to < 0 || from >= int(gDocs.size()) || to >= int(gDocs.size())) return;
-    const int active = gActive;
-    if (from < to) std::rotate(gDocs.begin() + from, gDocs.begin() + from + 1, gDocs.begin() + to + 1);
-    else std::rotate(gDocs.begin() + to, gDocs.begin() + from, gDocs.begin() + from + 1);
-    if (active == from) gActive = to;
-    else if (from < to && active > from && active <= to) gActive = active - 1;
-    else if (from > to && active >= to && active < from) gActive = active + 1;
-    if (app.tabs) InvalidateRect(app.tabs, nullptr, FALSE);
-}
-
-// --- The document tabs (a View) ---------------------------------------------------------------------------------
-// The strip above the workspace: a tab per open document (its title, an x, or a dot where it is unsaved), and the +
-// that posts New. A press on a tab activates it and starts a drag: a tab dragged sideways takes the places of the tabs
-// it passes (moveDoc). The middle button or the x closes a tab.
-HWND tabsWindow(stardraft::draw::View& v);
-struct TabsView final : stardraft::draw::View {
-    void paint(stardraft::draw::Canvas& c) override {
-        const unsigned center = stardraft::draw::kCenter | stardraft::draw::kMiddle;
-        const unsigned ellipsis = stardraft::draw::kMiddle | stardraft::draw::kEllipsis;
-        const int h = height();
-        c.fill({0, 0, width(), h}, kBg);
-        gTabHits.clear();
-        int x = 0, pad = scale(10), closeW = scale(16);
-        for (int i = 0; i < int(gDocs.size()); ++i) {
-            std::wstring t = docTitle(i);
-            const bool unsaved = t.rfind(L"* ", 0) == 0;  // unsaved: a dot where the close button is (the x under the mouse)
-            if (unsaved) t.erase(0, 2);
-            const int w = std::clamp(c.measure(t) + pad * 3 + closeW, scale(90), scale(260));
-            const RECT r{x, 0, x + w, h};
-            const bool active = i == gActive;
-            c.fill(r, active ? kCtl : (i == gTabHot ? kHot : kBg));
-            if (active) c.fill({r.left, 0, r.right, scale(2)}, kAccent);
-            c.text({r.left + pad, 0, r.right - pad - closeW, h}, t, active ? kText : kDim, ellipsis);
-            const RECT cr{r.right - pad / 2 - closeW, (h - closeW) / 2, r.right - pad / 2, (h + closeW) / 2};
-            if (i == gTabHotClose) c.fill(cr, kHot);
-            if (unsaved && i != gTabHot) {
-                const int d = scale(8), cx = (cr.left + cr.right) / 2, cy = (cr.top + cr.bottom) / 2;
-                c.ellipse({cx - d / 2, cy - d / 2, cx - d / 2 + d + 1, cy - d / 2 + d + 1}, active ? kText : kDim, stardraft::draw::kNone);
-            } else {
-                c.text(cr, L"\x00D7", i == gTabHotClose ? kText : kDim, center);
-            }
-            gTabHits.push_back({r, cr});
-            x += w + 1;
-        }
-        gNewTabHit = {x, 0, x + scale(30), h};
-        c.text(gNewTabHit, L"+", kDim, center);
-    }
-    bool mouse(const stardraft::draw::MouseEvent& e) override {
-        using stardraft::draw::MouseKind;
-        const POINT pt{e.pt.x, e.pt.y};
-        switch (e.kind) {
-        case MouseKind::Move: {
-            if (gTabDrag >= 0) {  // a tab is dragged: past the middle of another tab, it takes that place
-                if (!gTabDragging && std::abs(pt.x - gTabDragX) > scale(6)) gTabDragging = true;
-                if (gTabDragging)
-                    for (int i = 0; i < int(gTabHits.size()); ++i) {
-                        const RECT& r = gTabHits[size_t(i)].tab;
-                        const int mid = (r.left + r.right) / 2;
-                        if (i != gTabDrag && pt.x >= r.left && pt.x < r.right && (i < gTabDrag ? pt.x < mid : pt.x >= mid)) {
-                            moveDoc(gTabDrag, i);
-                            gTabDrag = i;
-                            if (HWND w = tabsWindow(*this)) UpdateWindow(w);  // the new places of the tabs for the next move
-                            break;
-                        }
-                    }
-                return true;
-            }
-            int h = -1, hc = -1;
-            for (int i = 0; i < int(gTabHits.size()); ++i) {
-                if (PtInRect(&gTabHits[size_t(i)].close, pt)) hc = i;
-                if (PtInRect(&gTabHits[size_t(i)].tab, pt)) h = i;
-            }
-            if (h != gTabHot || hc != gTabHotClose) gTabHot = h, gTabHotClose = hc, invalidate();
-            return true;
-        }
-        case MouseKind::Leave:
-            gTabHot = gTabHotClose = -1;
-            invalidate();
-            return true;
-        case MouseKind::Down:
-        case MouseKind::DoubleClick:  // (the old tab strip had no double clicks: a second press is a press)
-            if (e.button != 0) return false;
-            if (PtInRect(&gNewTabHit, pt)) {
-                PostMessageW(app.main, WM_COMMAND, ID_FILE_NEW, 0);  // the New page: a map or a project
-                return true;
-            }
-            pressAt(pt, false);
-            return true;
-        case MouseKind::Up:
-            if (e.button == 2) {  // the middle button closes the tab under the mouse
-                pressAt(pt, true);
-                return true;
-            }
-            if (e.button != 0) return false;
-            if (gTabDrag >= 0) {
-                if (gTabDragging) setMessage(L"Moved the tab \"" + docTitle(gTabDrag) + L"\"");
-                gTabDrag = -1, gTabDragging = false;
-                if (auto* h = host()) h->capture(*this, false);
-            }
-            return true;
-        default: return false;
-        }
-    }
-    void captureLost() override { gTabDrag = -1, gTabDragging = false; }
-    stardraft::draw::Cursor cursor(stardraft::draw::Point) override { return stardraft::draw::Cursor::Arrow; }
-
-private:
-    // A press on the strip (or a middle click): the tab's x or a middle click closes it; a press on the tab activates
-    // it and starts a drag.
-    void pressAt(POINT pt, bool middle) {
-        for (int i = 0; i < int(gTabHits.size()); ++i) {
-            if (!PtInRect(&gTabHits[size_t(i)].tab, pt)) continue;
-            if (middle || PtInRect(&gTabHits[size_t(i)].close, pt)) closeDoc(i);
-            else {
-                activateDoc(i);
-                gTabDrag = i, gTabDragX = pt.x, gTabDragging = false;  // a drag sideways moves the tab
-                if (auto* h = host()) h->capture(*this, true);
-            }
-            break;
-        }
-        invalidate();
-        SetFocus(app.view);
-    }
-};
 TabsView gTabs;
 
 // --- EUD projects ----------------------------------------------------------------------------------------
@@ -5469,126 +5133,6 @@ void showQuickPicker(bool replace, bool open) {
 // editor; Data edits the project's .dat files (units so far).
 
 
-EudProject* activeProject();
-// The rail is for projects (workspaces, Build); a tab that is just a map has none.
-int wsRailWidth() { return scale(64); }
-void setWorkspace(Workspace w);
-
-struct WsHit {
-    RECT r;
-    int id;
-    std::wstring name;  // for Report feedback
-};
-std::vector<WsHit> gWsHits;
-int railItemId(size_t n) { return n < gWsHits.size() ? gWsHits[n].id : 0; }
-int gWsHot = -1;
-
-// The rail: the active tab's workspaces as icon + label, top down; Build (a project) or Make project (a
-// map) at the bottom. A map tab shows only Map.
-
-bool mapPageChangesFor(int id);  // map_pages.inc: the page of rail item `id` has changes that are not applied
-int mapPageCommandOf(Workspace w) {
-    return w == Workspace::Properties ? ID_SCEN_PROPS : w == Workspace::Players ? ID_SCEN_PLAYERS : w == Workspace::ClassicTriggers ? ID_SCEN_CLASSICTRIG
-         : w == Workspace::ClassicSettings                                                     ? ID_SCEN_CLASSIC
-                                                                                                : ID_WS_MAP + int(w);  // ID_WS_* follow the Workspace order
-}
-
-// The rail as a view (apps/common/view.h): its window is a view window (kViewClass) that shows gRail.
-struct RailView final : stardraft::draw::View {
-    void paint(stardraft::draw::Canvas& c) override {
-        using stardraft::draw::Rect;
-        const Rect rc{0, 0, width(), height()};
-        const COLORREF acc = kAccent, accBg = kSel;
-        c.fill(rc, kPanel);
-        c.fill({rc.right - 1, 0, rc.right, rc.bottom}, kBorder);
-        gWsHits.clear();
-        // One item: icon over label.
-        const stardraft::draw::Font label = c.font({stardraft::draw::Face::Ui, -railLabelHeight()});
-        auto item = [&](RECT r, UiIcon icon, const wchar_t* name, COLORREF color, COLORREF labelColor) {
-            c.icon({r.left, r.top + scale(6), r.right, r.top + scale(30)}, int(icon), color, scale(16));
-            const stardraft::draw::Font of = c.setFont(label);
-            c.text({r.left, r.top + scale(30), r.right, r.bottom - scale(4)}, name, labelColor, stardraft::draw::kCenter | stardraft::draw::kMiddle);
-            c.setFont(of);
-        };
-        // One order for a classic map and an EUD project, so each item has the same place: Map, Data, Triggers (a classic
-        // map: the classic triggers), then in a project whose map has them the classic triggers, Briefing, Assets, Map
-        // properties, and last a project's Project. An item that the tab's mode does not have is left out. Assets is the
-        // Files workspace (Workspace::Files). The map pages (Properties, Players, Map data, classic triggers) are on while
-        // their page shows; a dot: the page has changes that are not applied.
-        const bool trigWs = commandInMode(ID_WS_TRIGGERS);
-        struct RailItem {
-            int id;
-            UiIcon icon;
-            const wchar_t* name;
-            std::wstring tip;
-            bool page;  // a map page (else a workspace)
-            Workspace ws = Workspace::Map;
-        };
-        const RailItem items[] = {
-            {ID_WS_MAP, UiIcon::Map, L"Map", L"the Map workspace", false, Workspace::Map},
-            {ID_SCEN_CLASSIC, UiIcon::Data, L"Data", L"Data: the map's units, upgrades and technologies", true},
-            {ID_WS_DATA, UiIcon::Data, L"Data", L"the Data workspace", false, Workspace::Data},
-            {trigWs ? 0 : ID_SCEN_CLASSICTRIG, UiIcon::Triggers, L"Triggers", L"Classic triggers", true},
-            {ID_WS_TRIGGERS, UiIcon::Triggers, L"Triggers", L"the Triggers workspace", false, Workspace::Triggers},
-            {trigWs ? ID_SCEN_CLASSICTRIG : 0, UiIcon::Log, L"Classic", L"Classic triggers (the map's own triggers)", true},
-            {ID_WS_BRIEFING, UiIcon::Briefing, L"Briefing", L"the Briefing workspace", false, Workspace::Briefing},
-            {ID_WS_FILES, UiIcon::Assets, L"Assets", L"the Assets workspace", false, Workspace::Files},
-            {ID_SCEN_PROPS, UiIcon::Tag, L"Properties", L"Map properties: the title, size and tileset, players and forces (Ctrl+M)", true},
-            {ID_WS_PROJECT, UiIcon::Project, L"Project", L"the Project page", false, Workspace::Project},  // after Properties: the classic map's order, then the project's own
-        };
-        const int m = scale(6), itemH = scale(54);
-        int y = scale(8);
-        for (const RailItem& it : items) {
-            if (!it.id || !commandInMode(it.id)) continue;  // only the items of the tab's mode
-            RECT r{m, y, rc.right - m - 1, y + itemH};
-            const bool on = it.page ? gWorkspace >= Workspace::Properties && mapPageCommandOf(gWorkspace) == it.id : gWorkspace == it.ws,
-                       hot = gWsHot == it.id;
-            if (on || hot) c.roundBox(r, on ? accBg : kHot, on ? accBg : kHot, scale(9) / 2.0f);
-            if (on) c.fill({0, r.top + scale(12), scale(3), r.bottom - scale(12)}, acc);
-            item(r, it.icon, it.name, on ? acc : kText, on ? acc : kDim);
-            if (it.page && mapPageChangesFor(it.id)) ui::changedDot(c, r.right - scale(10), r.top + scale(10));
-            gWsHits.push_back({r, it.id, it.tip});
-            y += itemH + scale(4);
-        }
-    }
-    bool mouse(const stardraft::draw::MouseEvent& e) override {
-        using stardraft::draw::MouseKind;
-        const POINT pt{e.pt.x, e.pt.y};
-        switch (e.kind) {
-        case MouseKind::Move: {
-            int hot = -1;
-            for (const auto& h : gWsHits)
-                if (PtInRect(&h.r, pt)) hot = h.id;
-            if (hot != gWsHot) {
-                gWsHot = hot, invalidate();
-                if (hot == ID_PROJ_COMPILE) setHint(L"Build the map of the project with euddraft (Ctrl+B)");
-            }
-            return true;
-        }
-        case MouseKind::Leave: gWsHot = -1, invalidate(); return true;
-        case MouseKind::Up:
-            if (e.button != 0) return false;
-            for (const auto& h : gWsHits)
-                if (PtInRect(&h.r, pt)) {
-                    command(h.id);
-                    break;
-                }
-            return true;
-        default: return false;
-        }
-    }
-    std::wstring tip(stardraft::draw::Point p) override {  // (Report feedback names the item under the mouse)
-        for (const auto& h : gWsHits)
-            if (PtInRect(&h.r, POINT{p.x, p.y})) return h.name;
-        return {};
-    }
-    // The rail's labels: the UI font at 5/6 of its height.
-    static int railLabelHeight() {
-        LOGFONTW lf{};
-        GetObjectW(app.font, sizeof lf, &lf);
-        return lf.lfHeight * 5 / 6;
-    }
-};
 RailView gRail;
 
 // --- Data workspace (the ten .dat files) -----------------------------------------------------------------

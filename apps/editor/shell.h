@@ -22,6 +22,23 @@ bool shellLogOpen();
 int shellUiFontLfHeight();
 // The map view's client size, in device pixels.
 void shellViewSize(int& w, int& h);
+// The minimap's client size, in device pixels.
+void shellMinimapSize(int& w, int& h);
+// The host's renderer shows the active editor's sources (its quality, sprites and tileset).
+void shellRendererSources();
+// The document tab strip and the workspace rail are drawn again (their states changed).
+void shellRedrawTabs();
+void shellInvalidateTabs();
+void shellInvalidateWorkspaceBar();
+// The tab strip's native window is updated now (a tab moved under the mouse), for the view `v` that is in it (the
+// including file has apps/common/view.h).
+void shellUpdateTabs(stardraft::draw::View& v);
+// The sprites that the units' animations hold for the editor are dropped (a closed editor's sprites).
+void shellForgetAnims();
+// Posts a WM_COMMAND with the command id to the main window (it runs after the current message).
+void shellPostCommand(int id);
+// The map view takes the keyboard focus.
+void shellFocusView();
 // Runs `fn` on the UI thread, later. Safe to call from any thread; `fn` runs once.
 void shellPost(std::function<void()> fn);
 // The map view's timer for a held spray (25 ms): on starts it, off stops it.

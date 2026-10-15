@@ -18,6 +18,32 @@ void shellViewSize(int& w, int& h) {
     GetClientRect(app.view, &r);
     w = r.right, h = r.bottom;
 }
+void shellMinimapSize(int& w, int& h) {
+    RECT r;
+    GetClientRect(app.minimap, &r);
+    w = r.right, h = r.bottom;
+}
+void shellRendererSources() {
+    app.renderer.setQuality(app.quality);
+    app.renderer.setSources(&app.data, &app.ed->unitSprites(), &app.ed->tileset(), app.ed->era());
+}
+void shellRedrawTabs() {
+    if (app.tabs) RedrawWindow(app.tabs, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+}
+void shellInvalidateTabs() {
+    if (app.tabs) InvalidateRect(app.tabs, nullptr, FALSE);
+}
+void shellInvalidateWorkspaceBar() {
+    if (gWsBar) InvalidateRect(gWsBar, nullptr, FALSE);
+}
+void shellUpdateTabs(stardraft::draw::View& v) {
+    if (HWND w = ui::Win32Host::windowOf(v)) UpdateWindow(w);
+}
+void shellForgetAnims() {
+    gAnims.clear(), gAnimsFor = nullptr;
+}
+void shellPostCommand(int id) { PostMessageW(app.main, WM_COMMAND, id, 0); }
+void shellFocusView() { SetFocus(app.view); }
 void shellPost(std::function<void()> fn) {
     auto* f = new std::function<void()>(std::move(fn));
     if (!PostMessageW(app.main, WM_SHELL_POST, 0, LPARAM(f))) delete f;
