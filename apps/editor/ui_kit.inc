@@ -37,20 +37,14 @@ int textWidth(Paint p, const std::wstring& t) { return p->measure(t); }
 // --- Buttons ----------------------------------------------------------------------------------------------------
 // Normal: a command. Primary: the one a form or dialog is for (OK, Create, Build). Danger: removes something.
 using kitpaint::Tone;  // (core/kit_paint.inc: the tones are the core's)
-enum class State { Normal, Hot, Down, Disabled };
+using kitpaint::State;  // (core/kit_paint.inc: Normal, Hot, Down, Disabled)
 
 using kitpaint::toneText;
 
-// The face of a button (painted ones and the native push buttons alike).
+// The face of a button (painted ones and the native push buttons alike): core/kit_paint.inc's, in `font` when given.
 void buttonFace(Paint p, RECT r, const std::wstring& text, Tone tone, State s, HFONT font = nullptr) {
-    COLORREF fill = kCtl, line = kBorder;
-    if (tone == Tone::Primary) fill = kSel, line = kAccentLine;
-    if (s == State::Hot) fill = tone == Tone::Primary ? kSelHot : kCtlHot, line = tone == Tone::Primary ? kAccent : kBorderHot;
-    if (s == State::Down) fill = tone == Tone::Primary ? kSel : kCtlDown;
-    if (s == State::Disabled) fill = kBg, line = kBorder;
-    box(*p, r, fill, line);
     const Font of = font ? p->setFont(fontOf(font)) : Font{};
-    p->text(r, text, s == State::Disabled ? kFaint : toneText(tone == Tone::Quiet ? Tone::Normal : tone), kMiddle | kCenter | kEllipsis);
+    kitpaint::drawButtonFace(*p, r, text, tone, s);
     if (of) p->setFont(of);
 }
 // A button's width for its text.

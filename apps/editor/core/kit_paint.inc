@@ -79,6 +79,21 @@ inline void drawPickFace(draw::Canvas& c, draw::Rect r, const std::wstring& text
     if (enabled) drawGlyph(c, {r.right - scale(20), r.top, r.right - scale(6), r.bottom}, UiIcon::Dropdown, over ? kText : kDim, 9);  // chevron down
 }
 
+// --- Buttons ----------------------------------------------------------------------------------------------------
+// A button's state: Hot under the mouse, Down while it is pressed, Disabled when it does nothing now.
+enum class State { Normal, Hot, Down, Disabled };
+
+// The face of a button (painted ones and the native push buttons alike): the box by tone and state, the text centered.
+inline void drawButtonFace(draw::Canvas& c, draw::Rect r, const std::wstring& text, Tone tone, State s) {
+    draw::Color fill = kCtl, line = kBorder;
+    if (tone == Tone::Primary) fill = kSel, line = kAccentLine;
+    if (s == State::Hot) fill = tone == Tone::Primary ? kSelHot : kCtlHot, line = tone == Tone::Primary ? kAccent : kBorderHot;
+    if (s == State::Down) fill = tone == Tone::Primary ? kSel : kCtlDown;
+    if (s == State::Disabled) fill = kBg, line = kBorder;
+    c.roundBox(r, fill, line, float(scale(stardraft::kit::kRadius)));
+    c.text(r, text, s == State::Disabled ? kFaint : toneText(tone == Tone::Quiet ? Tone::Normal : tone), draw::kMiddle | draw::kCenter | draw::kEllipsis);
+}
+
 // --- Check boxes -------------------------------------------------------------------------------------------------
 // The box of a check box (painted ones and the native ones alike): a mark when on.
 inline void drawCheckMark(draw::Canvas& c, draw::Rect b, bool on, bool over, bool enabled) {

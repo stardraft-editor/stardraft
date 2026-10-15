@@ -196,6 +196,7 @@ public:
     std::function<void()> onClosed;  // (a Popup or Menu that closes itself)
     stardraft::draw::WindowKind kind = stardraft::draw::WindowKind::Dialog;
     bool isWindow = false;  // made by openWindow (else a pane's window that its owner made)
+    HWND modalOwner = nullptr;  // runModal: the window it disabled, enabled again before this window goes (it gets the activation back)
 
     // The view's own vertical bar (WS_VSCROLL on its window), as the view has it now: the range, page and position.
     void syncScroll(HWND w) {
@@ -446,6 +447,7 @@ public:
         case WM_CLOSE:
             if (!isWindow) return false;
             if (auto c = std::move(onClosed)) c();
+            if (modalOwner) EnableWindow(modalOwner, TRUE);
             DestroyWindow(w);
             result = 0;
             return true;
@@ -520,15 +522,17 @@ inline HWND openViewWindow(HWND owner, View& content, const stardraft::draw::Win
         int range = 0, page = 0, pos = 0;
         if (content.windowScrollBar(range, page, pos)) style |= WS_VSCROLL;  // the view's own bar (Program options)
         RECT o{};
-        GetWindowRect(owner, &o);
-        if (spec.workArea) {  // DS_CENTER: the work area of the monitor the owner is on
+        // DS_CENTER: the work area of the monitor the owner is on; an owner that does not show (none yet, hidden or
+        // minimized: the crash question at start) gives the work area of the main monitor too.
+        const bool ownerShows = owner && IsWindowVisible(owner) && !IsIconic(owner) && GetWindowRect(owner, &o);
+        if (spec.workArea || !ownerShows) {
             MONITORINFO mi{sizeof mi};
-            if (GetMonitorInfoW(MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST), &mi)) o = mi.rcWork;
+            if (GetMonitorInfoW(MonitorFromWindow(owner, ownerShows ? MONITOR_DEFAULTTONEAREST : MONITOR_DEFAULTTOPRIMARY), &mi)) o = mi.rcWork;
         }
         const int w = r.right - r.left, h = r.bottom - r.top;
         r = {(o.left + o.right - w) / 2, (o.top + o.bottom - h) / 2, 0, 0};
         r.right = r.left + w, r.bottom = r.top + h;
-        AdjustWindowRectEx(&r, style, FALSE, ex);
+        AdjustWindowRectExForDpi(&r, style, FALSE, ex, UINT(app.dpi ? app.dpi : 96));  // (the frame at the program's DPI, as the content's size)
     } else {
         POINT a{r.left, r.top};
         ClientToScreen(owner, &a);
@@ -555,7 +559,10 @@ inline void Win32Host::openWindow(View&, View& content, const stardraft::draw::W
 }
 inline void Win32Host::closeWindow(View& content) {
     if (HWND w = windowOf(content)) {
-        if (auto* h = dynamic_cast<Win32Host*>(content.host())) h->onClosed = nullptr;
+        if (auto* h = dynamic_cast<Win32Host*>(content.host())) {
+            h->onClosed = nullptr;
+            if (h->modalOwner) EnableWindow(h->modalOwner, TRUE);
+        }
         DestroyWindow(w);
     }
 }
@@ -566,13 +573,22 @@ inline void Win32Host::runModal(View& from, View& content, const stardraft::draw
     HWND w = windowOf(content);
     if (!w) return;
     EnableWindow(root, FALSE);
+    if (auto* h = dynamic_cast<Win32Host*>(content.host())) h->modalOwner = wasEnabled ? root : nullptr;
     MSG m;
-    while (IsWindow(w) && GetMessageW(&m, nullptr, 0, 0) > 0) {
+    bool quit = false;
+    while (IsWindow(w)) {
+        const BOOL got = GetMessageW(&m, nullptr, 0, 0);
+        if (got <= 0) {
+            quit = got == 0;
+            break;
+        }
         TranslateMessage(&m);
         DispatchMessageW(&m);
     }
+    if (IsWindow(w)) DestroyWindow(w);  // (the program quits: the window goes before its content)
     if (wasEnabled) EnableWindow(root, TRUE);
-    if (!gBackground) SetActiveWindow(root);
+    if (quit) PostQuitMessage(int(m.wParam));  // the program closes: the main loop gets it
+    if (!gBackground && root) SetActiveWindow(root);
 }
 
 inline void registerViewClass(HINSTANCE inst) {

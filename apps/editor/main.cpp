@@ -467,6 +467,7 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_new_page_paint.inc"
 #include "core/views_options.inc"  // Program options' view (OptionsView; the host is options_window.inc)
 #include "core/views_feedback.inc"  // the feedback dialog's view (FeedbackView; the host is feedback.inc and feedback_window.inc)
+#include "core/views_message_box.inc"  // the message box (MessageView, runMessageBox; the host is message_box.inc)
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
 
 void rebuildList() { rebuildList(app); }
@@ -21118,6 +21119,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                                       {"Esc in OK/Cancel gives Cancel", MB_OKCANCEL, WM_KEYDOWN, VK_ESCAPE, IDCANCEL},
                                       {"Tab then Enter gives Cancel in Retry/Cancel", MB_RETRYCANCEL, WM_KEYDOWN, VK_TAB, IDCANCEL},
                                       {"The close box gives Cancel (No in Yes/No)", MB_YESNO, WM_CLOSE, 0, IDNO}};
+                const auto keyHook = gMsgBoxHook;  // (the Tab case has its own; the cases after it get this one back)
                 for (const Case& c : cases) {
                     keyMsg = c.msg, key = c.key;
                     if (c.key == VK_TAB)
@@ -21127,7 +21129,10 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                         };
                     const int r = themedMessageBox(app.main, L"Test", L"Message box test", c.flags);
                     log << c.name << ": " << (r == c.want ? "yes" : "NO") << "\n";
+                    gMsgBoxHook = keyHook;
                 }
+                keyMsg = WM_KEYDOWN, key = VK_ESCAPE;  // no owner (the crash question at start, before the main window)
+                log << "With no owner, Esc gives Cancel: " << (themedMessageBox(nullptr, L"Test", L"Message box test", MB_YESNOCANCEL) == IDCANCEL ? "yes" : "NO") << "\n";
                 log << "owner enabled after: " << (IsWindowEnabled(app.main) ? "yes" : "NO") << "\n";
                 gMsgBoxHook = nullptr;
                 continue;
