@@ -463,6 +463,8 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_classic_batch.inc"  // the block dialog (BatchView, runBatchDialog; the host is classic_triggers.inc)
 #include "core/views_classic_value.inc"  // the number pop-out (CtValueView, runValueDialog; the host is classic_triggers.inc)
 #include "core/views_unit_props.inc"  // Unit properties (UnitPropsView, runUnitPropsDialog; the host is showUnitProperties)
+#include "core/views_location_props.inc"  // Location properties (LocationPropsView, runLocationPropsDialog; the host is showLocationEdit)
+#include "core/views_text_prompt.inc"  // the text prompt (TextPromptView, runTextPrompt; the host is prompt)
 #include "core/views_start.inc"  // the start page (StartView: the cards, the recent list, Open; the instance is gStartView in new_page.inc)
 #include "core/views_new_page.inc"  // the New page (NewPageView: the settings, the generator, the preview; the host is new_page.inc)
 #include "core/views_new_page_paint.inc"
@@ -1085,95 +1087,9 @@ bool gBackground = false;  // self-test / screenshot run: never activate a windo
 
 // --- Dialogs ---------------------------------------------------------------------------------------
 
-// Minimal modal text prompt built from an in-memory dialog template.
-struct PromptState {
-    const wchar_t* title;
-    std::wstring* text;
-};
-
-void (*gPromptHook)(HWND) = nullptr;  // captures: runs with the prompt open
-
-INT_PTR CALLBACK promptProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
-    if (msg == WM_INITDIALOG) {
-        auto* st = reinterpret_cast<PromptState*>(lp);
-        SetWindowLongPtrW(dlg, DWLP_USER, lp);
-        SetWindowTextW(dlg, st->title);
-        SetDlgItemTextW(dlg, 1000, st->text->c_str());
-        SendDlgItemMessageW(dlg, 1000, EM_SETSEL, 0, -1);
-        SetDlgItemTextW(dlg, IDOK, L"OK");
-        SetDlgItemTextW(dlg, IDCANCEL, L"Cancel");
-        // Dark, as the other dialogs: the title bar, the edit box and the buttons through the kit.
-        BOOL dark = !gLightTheme;
-        DwmSetWindowAttribute(dlg, 20, &dark, sizeof dark), titleColors(dlg);
-        for (int id : {1000, IDOK, IDCANCEL}) {
-            HWND c = GetDlgItem(dlg, id);
-            SendMessageW(c, WM_SETFONT, WPARAM(app.font), TRUE);
-            darkControl(c, id == 1000 ? L"DarkMode_CFD" : L"DarkMode_Explorer");
-        }
-        return TRUE;
-    }
-    if (msg == WM_CTLCOLORDLG) return INT_PTR(app.bgBrush);
-    if (msg == WM_CTLCOLOREDIT) {
-        SetTextColor(HDC(wp), kText);
-        SetBkColor(HDC(wp), kCtl);
-        return INT_PTR(app.ctlBrush);
-    }
-    if (msg == WM_COMMAND && (LOWORD(wp) == IDOK || LOWORD(wp) == IDCANCEL)) {
-        if (LOWORD(wp) == IDOK) {
-            auto* st = reinterpret_cast<PromptState*>(GetWindowLongPtrW(dlg, DWLP_USER));
-            wchar_t buf[512];
-            GetDlgItemTextW(dlg, 1000, buf, 512);
-            *st->text = buf;
-        }
-        EndDialog(dlg, LOWORD(wp));
-        return TRUE;
-    }
-    return FALSE;
-}
-
-bool prompt(const wchar_t* title, std::wstring& text) {
-    // DLGTEMPLATE + 3 items (edit, OK, Cancel), each DWORD-aligned.
-    std::vector<WORD> t;
-    auto align = [&] { if (t.size() % 2) t.push_back(0); };
-    auto str = [&](const wchar_t* s) { for (; *s; ++s) t.push_back(*s); t.push_back(0); };
-    auto dword = [&](DWORD d) { t.push_back(LOWORD(d)); t.push_back(HIWORD(d)); };
-    dword(WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME | DS_SETFONT | DS_CENTER);
-    dword(0);
-    t.push_back(3);  // items
-    t.push_back(0), t.push_back(0), t.push_back(220), t.push_back(56);
-    t.push_back(0), t.push_back(0);  // menu, class
-    str(L"");                        // title (set later)
-    t.push_back(9);
-    str(L"Segoe UI");
-    auto item = [&](DWORD style, short x, short y, short w, short h, WORD id, WORD cls) {
-        align();
-        dword(style | WS_CHILD | WS_VISIBLE);
-        dword(0);
-        t.push_back(x), t.push_back(y), t.push_back(w), t.push_back(h), t.push_back(id);
-        t.push_back(0xFFFF), t.push_back(cls);
-        t.push_back(0);  // no text
-        t.push_back(0);  // no creation data
-    };
-    item(WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL, 8, 8, 204, 14, 1000, 0x0081);
-    item(WS_TABSTOP | BS_DEFPUSHBUTTON, 106, 32, 50, 16, IDOK, 0x0080);
-    item(WS_TABSTOP | BS_PUSHBUTTON, 162, 32, 50, 16, IDCANCEL, 0x0080);
-    align();
-    PromptState st{title, &text};
-    if (gBackground && gPromptHook) {  // (captures: the dialog off the screen, not activated, then closed)
-        HWND dlg = CreateDialogIndirectParamW(app.inst, reinterpret_cast<LPCDLGTEMPLATEW>(t.data()), app.main, promptProc, LPARAM(&st));
-        if (!dlg) return false;
-        SetWindowPos(dlg, nullptr, GetSystemMetrics(SM_XVIRTUALSCREEN) + GetSystemMetrics(SM_CXVIRTUALSCREEN) + 100, 0, 0, 0,
-                     SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-        ShowWindow(dlg, SW_SHOWNOACTIVATE);
-        gPromptHook(dlg);
-        DestroyWindow(dlg);
-        return false;
-    }
-    INT_PTR r =DialogBoxIndirectParamW(app.inst, reinterpret_cast<LPCDLGTEMPLATEW>(t.data()), app.main, promptProc, LPARAM(&st));
-    // Button captions: set after creation is simpler via template text, but default empty buttons are
-    // labeled in WM_INITDIALOG below if needed.
-    return r == IDOK;
-}
+// The text prompt (core/views_text_prompt.inc): OK puts the typed text into `text` and returns true. (Defined after the
+// program's anchor, with Location properties.)
+bool prompt(const wchar_t* title, std::wstring& text);
 
 void renameSelectedLocation() {
     Editor& ed = *app.ed;
@@ -1192,7 +1108,6 @@ void renameSelectedLocation() {
 void command(int id);
 enum { ID_LOCMENU_RENAME = 1, ID_LOCMENU_DELETE, ID_LOCMENU_ALL, ID_LOCMENU_PROPS, ID_LOCMENU_ELEV = 10 /* + the bit */ };
 void showLocationEdit(int loc);
-const wchar_t* const kElevationNames[6] = {L"Low ground", L"Medium ground", L"High ground", L"Low air", L"Medium air", L"High air"};
 
 HMENU locationMenu(int loc) {
     HMENU m = CreatePopupMenu();
@@ -5487,236 +5402,48 @@ void showUnitProperties(int index) {
 // The name, the edges in pixels (Left, Top, Right, Bottom; right more than left and bottom more than top, clamped to
 // the map) and the elevations in the location (MRGN flags). OK sets all of them as one undo step (Editor::editLocation).
 
-struct LocationEditDialog {
-    HWND wnd = nullptr, name = nullptr, edge[4] = {}, size = nullptr, error = nullptr, ok = nullptr, inverted = nullptr;
-    HWND elev[6] = {};
-    int loc = -1;
-    int headingY = 0;  // the elevations' heading (WM_PAINT)
-    bool accepted = false;
-};
-LocationEditDialog* gLocDlg = nullptr;
-void (*gLocEditHook)(HWND) = nullptr;  // self-test
-const wchar_t* const kEdgeNames[4] = {L"Left", L"Top", L"Right", L"Bottom"};
+// The dialog is a core view (core/views_location_props.inc: LocationPropsView, runLocationPropsDialog); this is its
+// Windows host.
+LocationPropsView* gLocPropsView = nullptr;            // the dialog's content while it is open
+void (*gLocEditHook)(LocationPropsView&) = nullptr;   // self-test: runs in the dialog once it shows
 
-// The edges in the fields, or false when a field is not a number.
-bool locEditEdges(const LocationEditDialog& d, Rect& r) {
-    int v[4];
-    for (int k = 0; k < 4; ++k) {
-        const std::wstring t = windowText(d.edge[k]);
-        if (t.empty() || t.size() > 9) return false;
-        v[k] = int(std::wcstol(t.c_str(), nullptr, 10));
-    }
-    r = {v[0], v[1], v[2], v[3]};
-    return true;
-}
-
-// The size and error lines from the fields; OK is off while the edges are wrong.
-void locEditCheck(LocationEditDialog& d) {
-    Rect r;
-    std::wstring err, size;
-    if (!locEditEdges(d, r)) err = L"Type a number in each edge";
-    else if (r.right <= r.left) err = L"Right must be more than left";
-    else if (r.bottom <= r.top) err = L"Bottom must be more than top";
-    else {
-        const int w = r.right - r.left, h = r.bottom - r.top;
-        auto tiles = [](int px) {
-            wchar_t b[32];
-            if (px % 32) std::swprintf(b, 32, L"%.1f", px / 32.0);
-            else std::swprintf(b, 32, L"%d", px / 32);
-            return std::wstring(b);
-        };
-        size = std::to_wstring(w) + L" x " + std::to_wstring(h) + L" pixels  \x00B7  " + tiles(w) + L" x " + tiles(h) + L" tiles";
-    }
-    SetWindowTextW(d.size, size.empty() ? L"\x2014" : size.c_str());
-    SetWindowTextW(d.error, err.c_str());
-    EnableWindow(d.ok, err.empty());
-}
-
-LRESULT CALLBACK locEditProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    LocationEditDialog* d = gLocDlg;
-    switch (msg) {
-    case WM_CREATE: {
-        BOOL dark = !gLightTheme;
-        DwmSetWindowAttribute(hwnd, 20, &dark, sizeof dark), titleColors(hwnd);
-        d->wnd = hwnd;
-        Editor& ed = *app.ed;
-        const Rect r = ed.locationRect(d->loc);
-        const uint16_t excluded = ed.locationElevation(d->loc);
-        const int pad = scale(ui::kDialogPad), rowH = scale(ui::kFieldH), pitch = scale(ui::kFormRowH), labelW = scale(64), boxW = scale(104),
-                  colW = labelW + boxW + scale(24);
-        const int right = pad + colW + labelW + boxW;
-        auto label = [&](const wchar_t* t, int x, int y, int w, int id = 1) {
-            HWND h = CreateWindowExW(0, WC_STATICW, t, WS_CHILD | WS_VISIBLE | SS_NOPREFIX | SS_CENTERIMAGE, x, y, w, rowH, hwnd, HMENU(INT_PTR(id)), app.inst, nullptr);
-            SendMessageW(h, WM_SETFONT, WPARAM(app.font), TRUE);
-            return h;
-        };
-        int y = pad;
-        label(L"Name", pad, y, labelW - scale(8));
-        d->name = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, widen(ed.locationName(d->loc)).c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL,
-                                  pad + labelW, y, right - pad - labelW, rowH, hwnd, nullptr, app.inst, nullptr);
-        SendMessageW(d->name, WM_SETFONT, WPARAM(app.font), TRUE);
-        SendMessageW(d->name, EM_SETLIMITTEXT, 200, 0);
-        darkControl(d->name, L"DarkMode_CFD");
-        y += pitch;
-        const int vals[4] = {r.left, r.top, r.right, r.bottom};
-        for (int k = 0; k < 4; ++k) {
-            const int x = pad + (k % 2) * colW, yy = y + (k / 2) * pitch;
-            label(kEdgeNames[k], x, yy, labelW - scale(8));
-            HWND h = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, std::to_wstring(vals[k]).c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_NUMBER | ES_RIGHT,
-                                     x + labelW, yy, boxW, rowH, hwnd, nullptr, app.inst, nullptr);
-            SendMessageW(h, WM_SETFONT, WPARAM(monoFont()), TRUE);
-            SendMessageW(h, EM_SETLIMITTEXT, 7, 0);
-            darkControl(h, L"DarkMode_CFD");
-            d->edge[k] = h;
-        }
-        y += 2 * pitch;
-        label(L"Size", pad, y, labelW - scale(8));
-        d->size = label(L"", pad + labelW, y, right - pad - labelW);
-        y += pitch;
-        // Inverted (it holds air units only): the axes on which the game reads the edges swapped. The edges above are
-        // always from the lower value to the higher.
-        label(L"Inverted", pad, y, labelW - scale(8));
-        d->inverted = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST, pad + labelW, y, right - pad - labelW,
-                                      scale(200), hwnd, nullptr, app.inst, nullptr);
-        SendMessageW(d->inverted, WM_SETFONT, WPARAM(app.font), TRUE);
-        darkControl(d->inverted, L"DarkMode_CFD");
-        for (const wchar_t* t : {L"No", L"Left and right", L"Top and bottom", L"Left and right, top and bottom"})
-            SendMessageW(d->inverted, CB_ADDSTRING, 0, LPARAM(t));
-        SendMessageW(d->inverted, CB_SETCURSEL, ed.locationInvertedAxes(d->loc), 0);
-        if (d->loc == kAnywhereLocation) EnableWindow(d->inverted, FALSE);
-        y += pitch + scale(8);
-        d->headingY = y;
-        y += scale(24) + scale(8);
-        const int cw = (right - pad) / 3;
-        for (int k = 0; k < 6; ++k) {
-            HWND cb = CreateWindowExW(0, WC_BUTTONW, kElevationNames[k], WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, pad + (k % 3) * cw,
-                                      y + (k / 3) * pitch, cw - scale(8), rowH, hwnd, nullptr, app.inst, nullptr);
-            SendMessageW(cb, WM_SETFONT, WPARAM(app.font), TRUE);
-            darkControl(cb, L"DarkMode_Explorer");
-            SendMessageW(cb, BM_SETCHECK, excluded & (1 << k) ? BST_UNCHECKED : BST_CHECKED, 0);
-            d->elev[k] = cb;
-        }
-        y += 2 * pitch + scale(16);
-        const wchar_t* names[2] = {L"OK", L"Cancel"};
-        const int ids[2] = {IDOK, IDCANCEL};
-        for (int i = 0; i < 2; ++i) {
-            HWND b = CreateWindowExW(0, WC_BUTTONW, names[i], WS_CHILD | WS_VISIBLE | WS_TABSTOP | (i == 0 ? BS_DEFPUSHBUTTON : BS_PUSHBUTTON), 0, y,
-                                     scale(ui::kButtonMinW), scale(ui::kButtonH), hwnd, HMENU(INT_PTR(ids[i])), app.inst, nullptr);
-            SendMessageW(b, WM_SETFONT, WPARAM(app.font), TRUE);
-            darkControl(b, L"DarkMode_Explorer");
-        }
-        d->ok = ui::dlgButton(hwnd, IDOK);
-        const int left = ui::nativeButtonsRight({d->ok, ui::dlgButton(hwnd, IDCANCEL)}, right, y);
-        d->error = label(L"", pad, y + (scale(ui::kButtonH) - rowH) / 2, left - pad - scale(8), 2);
-        locEditCheck(*d);
-        RECT wr{0, 0, right + pad, y + scale(ui::kButtonH) + pad};
-        AdjustWindowRectExForDpi(&wr, WS_CAPTION | WS_SYSMENU, FALSE, WS_EX_DLGMODALFRAME, app.dpi);
-        SetWindowPos(hwnd, nullptr, 0, 0, wr.right - wr.left, wr.bottom - wr.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-        return 0;
-    }
-    case WM_PAINT: {
-        // The elevations' heading: the text, and a hairline under it.
-        PAINTSTRUCT ps;
-        HDC dc = BeginPaint(hwnd, &ps);
-        RECT cr;
-        GetClientRect(hwnd, &cr);
-        const int pad = scale(ui::kDialogPad);
-        SetBkMode(dc, TRANSPARENT);
-        SetTextColor(dc, kText);
-        HGDIOBJ of = SelectObject(dc, app.font);
-        RECT t{pad, d->headingY, cr.right - pad, d->headingY + scale(24)};
-        DrawTextW(dc, L"Elevations in the location", -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-        SelectObject(dc, of);
-        RECT line{pad, d->headingY + scale(24), cr.right - pad, d->headingY + scale(24) + 1};
-        HBRUSH b = CreateSolidBrush(kBorder);
-        FillRect(dc, &line, b);
-        DeleteObject(b);
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    case WM_COMMAND: {
-        const int id = LOWORD(wp);
-        if (HIWORD(wp) == EN_CHANGE) {
-            for (HWND e : d->edge)
-                if (HWND(lp) == e) locEditCheck(*d);
-            return 0;
-        }
-        if (id == IDOK || id == IDCANCEL) {
-            Rect r;
-            if (id == IDOK && (!locEditEdges(*d, r) || r.right <= r.left || r.bottom <= r.top)) return 0;  // OK is off then
-            d->accepted = id == IDOK;
-            if (d->accepted) {
-                Editor::LocationEdit e;
-                e.name = narrow(windowText(d->name));
-                e.rect = r;
-                for (int k = 0; k < 6; ++k)
-                    if (SendMessageW(d->elev[k], BM_GETCHECK, 0, 0) != BST_CHECKED) e.excluded |= uint16_t(1 << k);
-                e.invertedAxes = int(SendMessageW(d->inverted, CB_GETCURSEL, 0, 0));
-                std::string err;
-                if (app.ed->editLocation(d->loc, e, &err)) setMessage(L"Changed the location \"" + widen(app.ed->locationName(d->loc)) + L"\"");
-                else if (!err.empty()) setMessage(L"Could not change the location: " + widen(err));
-            }
-            DestroyWindow(hwnd);
-        }
-        return 0;
-    }
-    case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORSTATIC:
-    case WM_CTLCOLORBTN: {
-        HDC dc = HDC(wp);
-        const HWND c = HWND(lp);
-        const int cid = GetDlgCtrlID(c);
-        SetTextColor(dc, !IsWindowEnabled(c) ? kFaint : cid == 1 ? kDim : cid == 2 ? kBad : kText);
-        SetBkColor(dc, msg == WM_CTLCOLOREDIT ? kCtl : kBg);
-        return LRESULT(msg == WM_CTLCOLOREDIT ? app.ctlBrush : app.bgBrush);
-    }
-    case WM_CLOSE:
-        d->accepted = false;
-        DestroyWindow(hwnd);
-        return 0;
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
+VOID CALLBACK locEditHookTimer(HWND, UINT, UINT_PTR id, DWORD) {
+    KillTimer(nullptr, id);
+    if (gLocPropsView && gLocEditHook) gLocEditHook(*gLocPropsView);
 }
 
 // Opens the properties of location `loc` (and selects it). Modal, as Unit properties.
 void showLocationEdit(int loc) {
-    if (!app.ed || !app.ed->locationUsed(loc) || gLocDlg) return;
+    if (!app.ed || !app.ed->locationUsed(loc) || gLocPropsView) return;
     app.ed->selectLocation(loc);
     setListSel(int(std::find(app.items.begin(), app.items.end(), loc) - app.items.begin()));
-    static bool registered = false;
-    if (!registered) {
-        WNDCLASSEXW wc{sizeof wc};
-        wc.lpfnWndProc = locEditProc;
-        wc.hInstance = app.inst;
-        wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-        wc.hbrBackground = app.bgBrush;
-        wc.lpszClassName = L"StarDraftLocationEdit";
-        RegisterClassExW(&wc);
-        registered = true;
-    }
-    LocationEditDialog d;
-    d.loc = loc;
-    gLocDlg = &d;
     app.drag = Drag::None;
     app.dirty = true;
-    RECT mr;
-    GetWindowRect(app.main, &mr);
-    const int w = scale(440), h = scale(360);
-    HWND wnd = CreateWindowExW(WS_EX_DLGMODALFRAME | WS_EX_CONTROLPARENT | (gBackground ? WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW : 0), L"StarDraftLocationEdit",
-                               L"Location properties", WS_CAPTION | WS_SYSMENU | (gBackground ? 0 : WS_VISIBLE), mr.left + (mr.right - mr.left - w) / 2,
-                               mr.top + (mr.bottom - mr.top - h) / 2, w, h, app.main, nullptr, app.inst, nullptr);
-    if (gBackground) ShowWindow(wnd, SW_SHOWNOACTIVATE);
-    else SetFocus(d.name), SendMessageW(d.name, EM_SETSEL, 0, -1);
-    EnableWindow(app.main, FALSE);
-    if (gLocEditHook) gLocEditHook(wnd);
-    MSG msg;
-    while (IsWindow(wnd) && GetMessageW(&msg, nullptr, 0, 0)) dialogMessage(msg, wnd);
-    EnableWindow(app.main, TRUE);
+    gMainAnchor.host.ownerWindow(app.main);  // the main window owns the dialog and waits until it closes
+    const UINT_PTR timer = gLocEditHook ? SetTimer(nullptr, 0, 100, locEditHookTimer) : 0;  // (a timer of the thread)
+    const int r = runLocationPropsDialog(gMainAnchor.view, *app.ed, loc, !gBackground, gLocPropsView);
+    if (timer) KillTimer(nullptr, timer);
     if (!gBackground) SetForegroundWindow(app.main);
-    gLocDlg = nullptr;
-    if (d.accepted) rebuildList(), setListSel(int(std::find(app.items.begin(), app.items.end(), loc) - app.items.begin()));
+    if (r == kLocPropsOk) rebuildList(), setListSel(int(std::find(app.items.begin(), app.items.end(), loc) - app.items.begin()));
     updateTitle();
     app.dirty = true;
+}
+
+// --- The text prompt (core/views_text_prompt.inc); this is its Windows host -----------------------------------------
+TextPromptView* gPromptView = nullptr;               // the prompt's content while it is open
+void (*gPromptHook)(TextPromptView&) = nullptr;      // captures: runs in the prompt once it shows
+
+VOID CALLBACK promptHookTimer(HWND, UINT, UINT_PTR id, DWORD) {
+    KillTimer(nullptr, id);
+    if (gPromptView && gPromptHook) gPromptHook(*gPromptView);
+}
+
+bool prompt(const wchar_t* title, std::wstring& text) {
+    gMainAnchor.host.ownerWindow(app.main);  // the main window owns the prompt and waits until it closes
+    const UINT_PTR timer = gPromptHook ? SetTimer(nullptr, 0, 100, promptHookTimer) : 0;
+    const bool ok = runTextPrompt(gMainAnchor.view, title, text, !gBackground, gPromptView);
+    if (timer) KillTimer(nullptr, timer);
+    return ok;
 }
 
 void dataSetValue(const DatField& f, uint32_t v);
@@ -17254,23 +16981,24 @@ int runSelfTest(const fs::path& dir) {
         shotDark = dir / "location_properties.png", shotLight = dir / "location_properties_light.png";
         hookRan = okOffWhenWrong = false;
         want = {r0.left + 32, r0.top + 32, r0.right + 64, r0.bottom + 96};
-        gLocEditHook = [](HWND w) {
+        gLocEditHook = [](LocationPropsView& v) {
             hookRan = true;
-            auto set = [](int k, int v) { SetWindowTextW(gLocDlg->edge[k], std::to_wstring(v).c_str()); };
-            set(2, 0);  // right not more than left: OK turns off
-            okOffWhenWrong = !IsWindowEnabled(gLocDlg->ok);
+            const HWND w = ui::Win32Host::windowOf(v);
+            v.setEdge(2, 0);  // right not more than left: OK turns off
+            okOffWhenWrong = !v.okOn();
             for (int i = 0; i < 4; ++i) pump();
-            capture(shotDark.parent_path() / "location_properties_wrong.png", w);
-            set(0, want.left), set(1, want.top), set(2, want.right), set(3, want.bottom);
-            SendMessageW(gLocDlg->elev[3], BM_SETCHECK, BST_UNCHECKED, 0);  // low air
+            if (w) capture(shotDark.parent_path() / "location_properties_wrong.png", w);
+            v.setEdge(0, want.left), v.setEdge(1, want.top), v.setEdge(2, want.right), v.setEdge(3, want.bottom);
+            v.elevationBox(3).setOn(false);  // low air
             for (int i = 0; i < 4; ++i) pump();
-            capture(shotDark, w);
+            if (w) capture(shotDark, w);
             const int accent = gAccentIndex;
             applyTheme(true, accent);
+            if (w) InvalidateRect(w, nullptr, FALSE);
             for (int i = 0; i < 4; ++i) pump();
-            capture(shotLight, w);
+            if (w) capture(shotLight, w);
             applyTheme(false, accent);
-            PostMessageW(w, WM_COMMAND, IDOK, 0);
+            v.press(kLocPropsOk);
         };
         setMode(Mode::Locations);
         SendMessageW(app.view, WM_LBUTTONDBLCLK, MK_LBUTTON, MAKELPARAM(sx, sy));
@@ -24091,36 +23819,33 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 gSelfTest = wasTest;
                 continue;
             }
-            if (s == "locprops:" || s == "locprops:any") {  // locprops.png, locprops_wrong.png: Location properties of a new location, then with
-                                                             // Right at 0 (the error line, OK off); locprops:any: the Anywhere location (locprops_any.png)
+            if (s == "locprops:") {  // locprops.png, locprops_wrong.png: Location properties of a new location, then with Right at 0
+                                     // (the error line, OK off); closed with Cancel, the new location undone
                 Editor& ed = *app.ed;
-                const bool any = s == "locprops:any";
-                const int loc = any ? kAnywhereLocation : ed.createLocation({512, 512, 704, 640}, true);
+                const int loc = ed.createLocation({512, 512, 704, 640}, true);
                 static fs::path shot;
-                shot = fs::path(datashots) / (any ? "locprops_any.png" : "locprops.png");
-                static bool wrong;
-                wrong = !any;
-                gLocEditHook = [](HWND w) {
+                shot = fs::path(datashots) / "locprops.png";
+                gLocEditHook = [](LocationPropsView& v) {
+                    const HWND w = ui::Win32Host::windowOf(v);
                     for (int i = 0; i < 4; ++i) pump();
-                    capture(shot, w);
-                    if (wrong) {
-                        SetWindowTextW(gLocDlg->edge[2], L"0");
-                        for (int i = 0; i < 4; ++i) pump();
-                        capture(shot.parent_path() / "locprops_wrong.png", w);
-                    }
-                    PostMessageW(w, WM_COMMAND, IDCANCEL, 0);
+                    if (w) capture(shot, w);
+                    v.setEdge(2, 0);
+                    for (int i = 0; i < 4; ++i) pump();
+                    if (w) capture(shot.parent_path() / "locprops_wrong.png", w);
+                    v.press(kLocPropsCancel);
                 };
                 showLocationEdit(loc);
                 gLocEditHook = nullptr;
-                if (!any) ed.undo();
+                if (loc >= 0) ed.undo();
                 continue;
             }
             if (s.rfind("prompt:", 0) == 0) {  // prompt.png: the text prompt (Rename location) with the text after "prompt:", closed with Cancel
                 static fs::path shot;
                 shot = fs::path(datashots) / "prompt.png";
-                gPromptHook = [](HWND w) {
+                gPromptHook = [](TextPromptView& v) {
                     for (int i = 0; i < 4; ++i) pump();
-                    capture(shot, w);
+                    if (const HWND w = ui::Win32Host::windowOf(v)) capture(shot, w);
+                    v.close(kPromptCancel);
                 };
                 std::wstring text = widen(s.substr(7));
                 prompt(L"Rename location", text);
@@ -24134,11 +23859,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 static int setTo = 1;
                 static fs::path shot;
                 shot = fs::path(datashots) / "locinv.png";
-                gLocEditHook = [](HWND w) {
+                gLocEditHook = [](LocationPropsView& v) {
                     for (int i = 0; i < 4; ++i) pump();
-                    capture(shot, w);
-                    SendMessageW(gLocDlg->inverted, CB_SETCURSEL, setTo, 0);
-                    PostMessageW(w, WM_COMMAND, IDOK, 0);
+                    if (const HWND w = ui::Win32Host::windowOf(v)) capture(shot, w);
+                    v.invertedList().setValue(setTo);
+                    v.press(kLocPropsOk);
                 };
                 const int before = ed.locationInvertedAxes(loc);
                 showLocationEdit(loc);
