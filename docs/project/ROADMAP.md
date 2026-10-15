@@ -142,6 +142,11 @@ Make StarDraft 2 a more powerful creation suite.
   - Compare the sentences ("Set Switch 2", the quotes around locations) with the game's words.
   - Help for the selected action, as the info pane of the Triggers workspace.
   - Select several conditions and actions (now only triggers).
+- [ ] **R59 Classic trigger organization.** *Tag:* UMS.
+  Tools that keep Classic triggers in order: quick find, search, and comments that put the triggers into groups.
+
+  A map can have hundreds of Classic triggers in one long list. Mappers cannot find a trigger fast, and they cannot
+  put notes or headings between the triggers to show their structure.
 - [ ] **R25 Campaign projects.** *Tag:* UMS.
   Keep all the maps of a campaign in one project, in their order.
 
