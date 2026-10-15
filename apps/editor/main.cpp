@@ -299,6 +299,7 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/data_list.inc"  // the Data workspace's list model: the shown entries, the filters, the pins, the tab switch (DataListHost)
 #include "core/views_data.inc"  // the Data workspace's tab strip layout (DataTabLayout, dataTabLayout)
 #include "core/views_data_form.inc"  // the Data form's field rows: where each part sits (DataFieldRow, dataFieldRow)
+#include "core/views_data_requirements.inc"  // the Requirements section's model: step names, ways, levels, edits (requirement*)
 #include "core/title.inc"  // the window's title and the rail's state (updateTitle)
 int selectPalette(int value);
 void pickUnit(int v, bool add);
@@ -9188,8 +9189,8 @@ const std::vector<DataRef>& dataRefs(const std::string& dat, int e) {
         for (int k = 0; k < Requirements::kKinds; ++k)
             for (int i = 0; i < Requirements::kind(k).entries; ++i)
                 for (const RequirementOp& r : gExtras.reqs.list(k, i).ops) {
-                    const char* kind = opArgKind(r);
-                    if (kind && kind == dat && (r.op < 0x100 ? r.op : r.arg) == e) {
+                    const char* kind = requirementOpArgKind(r);
+                    if (kind && kind == dat && requirementOpValue(r) == e) {
                         add(Requirements::kind(k).dat, i, "Requirements");
                         break;
                     }
