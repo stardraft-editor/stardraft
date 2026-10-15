@@ -46,11 +46,4 @@ std::vector<ACCEL> commandAccelerators() {
     return out;
 }
 
-void setGraphics(GraphicsQuality q, bool carbot) {
-    app.quality = q, app.carbot = carbot;
-    app.renderer.setQuality(q), app.renderer.setCarbot(carbot);
-    if (carbot) setMessage(L"Carbot (cartooned) graphics");
-    unitPaletteRepaint();
-    app.dirty = true;
-}
 

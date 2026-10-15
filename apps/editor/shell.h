@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 // The control kit's icon button: the start page's remove buttons (core/views_start.inc) need its declaration in every
@@ -97,6 +98,9 @@ void shellToolsChanged();
 // A popup menu of `items` (the strip's brush shapes), with the entry `checked` marked; (x, y) is its place in the tool
 // strip's coordinates. Returns the picked entry's index, or -1 when none is picked.
 int shellPopupPick(const std::vector<std::wstring>& items, int checked, int x, int y);
+// A context menu of `items` at the mouse (a right click's; the Win32 menu ends with Report feedback). Returns the picked
+// entry's number from 1, or 0 when none is picked.
+int shellContextMenu(const std::vector<std::wstring>& items);
 // The owner (player) combo box shows player i.
 void shellOwnerSelect(int i);
 // The palette is drawn again (its selection or the player's colors changed).
@@ -155,3 +159,32 @@ bool shellProcessEnded(std::uintptr_t process);
 void shellProcessClose(std::uintptr_t process);
 // File > Options > StarCraft folder: another install is chosen (used from the next start).
 void shellChooseInstallFolder();
+// A folder picker with the title (File > New EUD project's Browse): the folder, or empty when none is picked.
+std::wstring shellPickFolder(const std::wstring& title);
+// The file that Build writes (a .scx), `name` the file name to start with: the file, or empty when none is picked.
+std::wstring shellPickOutputFile(const std::wstring& name);
+// The user's Documents folder (new projects go into its StarDraft folder by default); empty when the system has none.
+std::filesystem::path shellDocumentsFolder();
+// A file from the system's open or save dialog (the Project page's Link a file, Add a script, the background music, a
+// file to load into memory): the file, or empty when none is picked. The call waits for the answer.
+struct ShellFilePick {
+    std::wstring title;
+    std::vector<std::pair<std::wstring, std::wstring>> filters;  // (name, patterns): {L"epScript (*.eps)", L"*.eps"}; the first is chosen
+    std::wstring fileName;             // the name in the name box at first (a save dialog)
+    std::filesystem::path initialDir;  // the system's choice when empty
+    std::wstring defaultExtension;     // added to a typed name without one ("eps")
+    bool save = false;                 // a save dialog: the name may be of a new file (its folder must be there)
+};
+std::filesystem::path shellPickFile(const ShellFilePick& pick);
+// A line of text typed in a small dialog with OK and Cancel (`text` holds what the field shows first). False: Cancel.
+bool shellPromptText(const std::wstring& title, std::wstring& text);
+// A value typed in the pop-out under `field` (a part of the view `v`, in its coordinates), as the Data form's values.
+// False: Cancel.
+bool shellEditValueBelow(stardraft::draw::View& v, stardraft::draw::Rect field, const std::wstring& title, std::string& text);
+// Writes an error line to the log (the Windows log shows it in the error color).
+void shellLogError(const std::wstring& line);
+// A file's bytes as text in the system's code page (Windows: the ANSI code page, as the RichEdit read a script; other
+// systems: UTF-8).
+std::wstring shellCodePageText(const std::string& bytes);
+// The StarCraft folder that StarDraft reads game data from, as saved; empty when it is found by itself.
+std::wstring shellInstallFolderText();
