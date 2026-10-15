@@ -75,7 +75,9 @@ struct SdlTrigPaneHost final : TrigPaneHost {
     void loadProjectData() override { dataLoadForProject(); }
     std::wstring gameString(int id) override { return statString(id); }
     const std::vector<Button>& buttonSet(int set) override { return dataExtras().buttons.set(set); }
-    draw::Image entryIcon(const std::string&, uint32_t) override { return {}; }  // (the entries' pictures: not on this system yet)
+    draw::Image entryIcon(const std::string& dat, uint32_t v) override {  // (the Data pictures: sdl_data.inc)
+        return datHasIcons(dat) ? sdlDataImage(dataRefPicture(dat, v)) : draw::Image{};
+    }
     void layoutCheck() override {  // (the pane asks as it paints: the strip is placed after the frame)
         if (gSdlTrigInfo.shown() != (trigInfoHeight() > 0)) shellPost(sdlTriggersPlace);
         shellPost(sdlTrigRevealNow);  // (trigRevealBlock: after this paint, the pane's lines are the new ones)

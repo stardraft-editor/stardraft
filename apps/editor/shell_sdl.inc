@@ -147,7 +147,7 @@ std::vector<int>& shellPaletteChosen() {
 
 // The settings file: ~/Library/Application Support/StarDraft on macOS, $XDG_CONFIG_HOME or ~/.config/StarDraft on Linux
 // (the environment variable STARDRAFT_SETTINGS gives another file, as on Windows).
-void shellSettingsChanged() {}  // (the SDL program keeps no options yet: the Windows program saves its options in the registry)
+void shellSettingsChanged() { saveSettingsTable(); }  // (the menus' options: core/app_settings.inc)
 std::filesystem::path shellSettingsFile() {
     if (const char* file = std::getenv("STARDRAFT_SETTINGS"); file && *file) return file;
     fs::path dir;

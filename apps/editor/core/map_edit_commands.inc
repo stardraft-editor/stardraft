@@ -438,10 +438,18 @@ int mapMenuCheck(int id) {
     }
 }
 
-// The items that the state grays now (their keys do nothing then): Paste with nothing copied (Triggers, Briefing and Data
-// paste their own copies), and the drag back of units when units go anywhere.
+// The items that the state grays now (their keys do nothing then): Undo and Redo with no step, Paste with nothing copied
+// (Triggers, Briefing and Data paste their own copies), and the drag back of units when units go anywhere.
+bool trigCanUndo(bool redo);  // core/views_triggers_pane.inc
+bool dataCanUndo(bool redo);  // core/data_model.inc
 bool mapMenuGrayed(int id) {
     const AppState& app = shellState();
+    if (id == ID_EDIT_UNDO || id == ID_EDIT_REDO) {  // a step to undo (or redo) in the workspace that shows
+        const bool redo = id == ID_EDIT_REDO;
+        if (gWorkspace == Workspace::Triggers) return !trigCanUndo(redo);
+        if (gWorkspace == Workspace::Data) return !dataCanUndo(redo);
+        return !(app.ed && app.ed->isOpen() && (redo ? app.ed->canRedo() : app.ed->canUndo()));
+    }
     if (id == ID_EDIT_PASTE) {
         if (gWorkspace == Workspace::Triggers || gWorkspace == Workspace::Briefing || gWorkspace == Workspace::Data) return false;
         const bool open = app.ed && app.ed->isOpen();

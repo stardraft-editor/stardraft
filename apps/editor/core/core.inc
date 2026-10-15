@@ -32,6 +32,7 @@
 #include "views_toolstrip.inc"
 #include "views_panel_tabs.inc"
 #include "map_edit_commands.inc"  // the Map's Edit and Options commands, the player and tool keys, Close (commandMapEdit, kProgramKeys)
+#include "app_settings.inc"  // the menus' options in the settings file (appSettings, saveSettingsTable, loadSettingsTable)
 #include "startup.inc"
 #include "names.inc"
 #include "palette_items.inc"
