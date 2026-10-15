@@ -61,5 +61,8 @@ void setWorkspace(Workspace w) {
 void pageSync() {}
 void openStartPage() {}
 
-// (until it is in the core) Projects are not on this system yet.
-void forgetProject(const EudProject*) {}
+// A tab with this project closed: the Data workspace drops what it holds of it (core/data_model.inc). (until it is in
+// the core) The Triggers workspace's part is not on this system yet.
+void dataForgetProject(const EudProject* pr);
+void sdlDataForgetProject(const EudProject* pr);  // (sdl_data.inc: also the number entry)
+void forgetProject(const EudProject* pr) { sdlDataForgetProject(pr); }

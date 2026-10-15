@@ -139,11 +139,12 @@ public:
     // A click area of the program's kind (a link, a read-only row): its click (may be null), tip and cursor.
     virtual void area(draw::Rect r, std::function<void()> click, const std::wstring& tip, draw::Cursor cursor) = 0;
     // The mouse on the program's parts (they come first): a press (true: taken; the view then captures the mouse), a
-    // move while pressed (true: taken), the release, the hover (true: the form repaints; `fields`: the fields the part
+    // move while pressed (true: taken), the release (lost: the mouse capture went before the button went up: a drag's
+    // value is saved, a click does not run), the hover (true: the form repaints; `fields`: the fields the part
     // under the mouse shows), the cursor, the name feedback gives, and the wheel (true: taken).
     virtual bool widgetPress(draw::Point pt) = 0;
     virtual bool widgetDrag(draw::Point pt) = 0;
-    virtual void widgetRelease() = 0;
+    virtual void widgetRelease(bool lost) = 0;
     virtual bool widgetHover(draw::Point pt, std::set<std::string>& fields) = 0;
     virtual bool widgetCursor(draw::Point pt, draw::Cursor& c) = 0;
     virtual std::wstring widgetName(draw::Point pt) = 0;
@@ -200,7 +201,9 @@ public:
         return true;
     }
     bool extraButton(int button) override { return (button == 1 || button == 2) && host_.travel(button); }
-    void captureLost() override { pressed_ = false; }
+    void captureLost() override {  // (Alt+Tab during a drag: the value as it is goes in, with its undo step)
+        if (std::exchange(pressed_, false)) host_.widgetRelease(true);
+    }
 
 private:
     void press(draw::Point pt, bool right);
@@ -396,7 +399,7 @@ inline bool DataFormView::mouse(const draw::MouseEvent& e) {
             if (pressed_) {
                 pressed_ = false;
                 if (draw::Host* h = host()) h->capture(*this, false);
-                host_.widgetRelease();
+                host_.widgetRelease(false);
             }
             return true;
         }
