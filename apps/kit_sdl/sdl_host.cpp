@@ -295,6 +295,11 @@ void SdlHost::snapshot(draw::View& root, SDL_GPUTexture* target, int w, int h, S
     ImGuiIO& io = ImGui::GetIO();
     io.DeltaTime = 1.0f / 60;
     io.DisplaySize = ImVec2(float(w), float(h));
+    if (frameHook_) {  // before the views are recorded, as in pump() (a texture the hook makes or resizes is in place for them)
+        SDL_GPUCommandBuffer* hookCmd = SDL_AcquireGPUCommandBuffer(device_);
+        frameHook_(hookCmd);
+        SDL_SubmitGPUCommandBuffer(hookCmd);
+    }
     ImGui_ImplSDLGPU3_NewFrame();
     ImGui::NewFrame();
     auto list = recordView(device_, root, w, h);
@@ -491,9 +496,12 @@ void SdlHost::runModal(draw::View& from, draw::View& content, const draw::Window
 
 void SdlHost::pump(bool block) {
     SDL_Event e;
-    if (block && !anyDirty() && SDL_WaitEventTimeout(&e, 100)) dispatch(e);
+    if (block && !animating_ && !anyDirty() && SDL_WaitEventTimeout(&e, 100)) dispatch(e);
     while (SDL_PollEvent(&e)) dispatch(e);
     destroyRetired();
+    if (animating_)
+        for (const auto& w : wins_) w->dirty = true;
+    runFrameHook();
     renderDirty();
 }
 
@@ -501,6 +509,13 @@ bool SdlHost::anyDirty() const {
     for (const auto& w : wins_)
         if (w->dirty) return true;
     return false;
+}
+
+void SdlHost::runFrameHook() {
+    if (!frameHook_ || !(animating_ || anyDirty())) return;
+    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device_);
+    frameHook_(cmd);
+    SDL_SubmitGPUCommandBuffer(cmd);
 }
 
 void SdlHost::destroyRetired() {

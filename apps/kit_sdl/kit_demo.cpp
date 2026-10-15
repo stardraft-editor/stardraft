@@ -2,14 +2,19 @@
 // Buttons, and a sheet of the canvas's features: text flags, wrapped text, fonts, clipped views, bitmaps, icons, lines
 // and shapes. Not shown yet: ListView, TreeView, ScrollView, Dialog, MessageBox and Form.
 //
+// The last section is a texture the program draws each frame: a moving color pattern, uploaded in the host's frame hook
+// (SdlHost::setFrameHook) and shown with Canvas::externalImage.
+//
 // usage: kit_demo [--snapshot <out.png>] [--size <w>x<h>] [--scale <s>]
 //
 // --snapshot: renders one frame without a window (SDL_VIDEODRIVER=offscreen needs no display), writes it, exits.
-// Without it: a window that stays open until it is closed.
+// Without it: a window that stays open until it is closed; it animates (SdlHost::setAnimating).
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <clocale>
 #include <cstdlib>
@@ -50,9 +55,75 @@ public:
     }
 };
 
+// A view that shows a texture the program draws itself, once per frame, in the host's frame hook.
+class Pattern final : public draw::View {
+public:
+    explicit Pattern(SDL_GPUDevice* device) : device_(device) {}
+    ~Pattern() override {
+        if (tex_) SDL_ReleaseGPUTexture(device_, tex_);
+        if (tb_) SDL_ReleaseGPUTransferBuffer(device_, tb_);
+    }
+    Pattern(const Pattern&) = delete;
+    Pattern& operator=(const Pattern&) = delete;
+
+    // The frame hook: the pattern of the next frame, copied into the texture with `cmd` (the view's own size).
+    void drawFrame(SDL_GPUCommandBuffer* cmd) {
+        const int w = std::max(1, width()), h = std::max(1, height());
+        if (!tex_ || w != w_ || h != h_) resize(w, h);
+        uint8_t* px = static_cast<uint8_t*>(SDL_MapGPUTransferBuffer(device_, tb_, true));
+        if (!px) return;
+        const float t = float(frame_++);
+        for (int y = 0; y < h; ++y)
+            for (int x = 0; x < w; ++x) {
+                uint8_t* p = px + (size_t(y) * size_t(w) + size_t(x)) * 4;
+                p[0] = uint8_t(x * 255 / w);  // red: across
+                p[1] = uint8_t(y * 255 / h);  // green: down
+                p[2] = uint8_t(128 + 127 * std::sin((float(x + y) + t * 4) * 0.05f));  // blue: a wave that moves
+                p[3] = 255;
+            }
+        SDL_UnmapGPUTransferBuffer(device_, tb_);
+        SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
+        SDL_GPUTextureTransferInfo src{};
+        src.transfer_buffer = tb_;
+        SDL_GPUTextureRegion dst{};
+        dst.texture = tex_, dst.w = uint32_t(w), dst.h = uint32_t(h), dst.d = 1;
+        SDL_UploadToGPUTexture(copy, &src, &dst, true);
+        SDL_EndGPUCopyPass(copy);
+    }
+
+    void paint(Canvas& c) override {
+        if (tex_) c.externalImage(tex_, Rect(0, 0, width(), height()));
+    }
+
+private:
+    void resize(int w, int h) {
+        SDL_WaitForGPUIdle(device_);  // (the old texture may still be in use)
+        if (tex_) SDL_ReleaseGPUTexture(device_, tex_);
+        if (tb_) SDL_ReleaseGPUTransferBuffer(device_, tb_);
+        SDL_GPUTextureCreateInfo ti{};
+        ti.type = SDL_GPU_TEXTURETYPE_2D;
+        ti.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+        ti.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+        ti.width = uint32_t(w), ti.height = uint32_t(h), ti.layer_count_or_depth = 1, ti.num_levels = 1;
+        tex_ = SDL_CreateGPUTexture(device_, &ti);
+        SDL_GPUTransferBufferCreateInfo bi{};
+        bi.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+        bi.size = uint32_t(w * h * 4);
+        tb_ = SDL_CreateGPUTransferBuffer(device_, &bi);
+        w_ = w, h_ = h;
+    }
+
+    SDL_GPUDevice* device_;
+    SDL_GPUTexture* tex_ = nullptr;
+    SDL_GPUTransferBuffer* tb_ = nullptr;
+    int w_ = 0, h_ = 0;
+    uint32_t frame_ = 0;
+};
+
 // Where the sections of the sheet are (pixels, from the top), so the layout and the paint agree.
 struct Geometry {
     int m, buttonsY, boxesLabelY, boxesY, boxesH, wrapLabelY, wrapY, wrapH, fontsLabelY, fontsY, rowLabelY, rowY, linesLabelY, linesY;
+    int gpuLabelY, gpuY;
 };
 
 Geometry geometry() {
@@ -72,16 +143,19 @@ Geometry geometry() {
     g.rowY = g.rowLabelY + px(22);
     g.linesLabelY = g.rowY + px(110) + px(20);
     g.linesY = g.linesLabelY + px(22);
+    g.gpuLabelY = g.linesY + px(60);
+    g.gpuY = g.gpuLabelY + px(22);
     return g;
 }
 
 class Demo final : public draw::View {
 public:
-    Demo()
+    explicit Demo(SDL_GPUDevice* device)
         : save(L"Save", kit::Tone::Primary, [] { std::printf("kit_demo: Save\n"); }),
           cancel(L"Cancel", kit::Tone::Normal, [] { std::printf("kit_demo: Cancel\n"); }),
           del(L"Delete", kit::Tone::Danger, [] { std::printf("kit_demo: Delete\n"); }),
-          quiet(L"More", kit::Tone::Quiet, [] { std::printf("kit_demo: More\n"); }) {
+          quiet(L"More", kit::Tone::Quiet, [] { std::printf("kit_demo: More\n"); }),
+          pattern(device) {
         // A checker with a gradient, premultiplied: the Bitmap's own pixels.
         for (int y = 0; y < 32; ++y)
             for (int x = 0; x < 32; ++x) {
@@ -93,7 +167,11 @@ public:
         bmp.changed();
         add(save, Rect(0, 0, 1, 1)), add(cancel, Rect(0, 0, 1, 1)), add(del, Rect(0, 0, 1, 1)), add(quiet, Rect(0, 0, 1, 1));
         add(clipped, Rect(0, 0, 1, 1));
+        add(pattern, Rect(0, 0, 1, 1));
     }
+
+    // The frame hook: the program's own texture for this frame.
+    void drawFrame(SDL_GPUCommandBuffer* cmd) { pattern.drawFrame(cmd); }
 
     void resized() override { layout(); }
 
@@ -107,6 +185,7 @@ public:
             x += bw + gap;
         }
         clipped.setFrame(Rect(g.m, g.rowY, g.m + px(200), g.rowY + px(56)));
+        pattern.setFrame(Rect(g.m, g.gpuY, g.m + px(320), g.gpuY + px(180)));
     }
 
     void paint(Canvas& c) override {
@@ -194,12 +273,16 @@ public:
         const draw::Point arrow[] = {{m + px(600), ly + px(20)}, {m + px(620), ly}, {m + px(620), ly + px(10)}, {m + px(650), ly + px(10)},
                                      {m + px(650), ly + px(30)}, {m + px(620), ly + px(30)}, {m + px(620), ly + px(40)}};
         c.polygon(arrow, 7, th.good, th.text);
+
+        // The program's texture (Pattern, a child view that paints it with externalImage).
+        label(g.gpuLabelY, L"A texture the program draws each frame (SdlHost::setFrameHook, Canvas::externalImage)");
     }
 
 private:
     kit::Button save, cancel, del, quiet;
     Clipped clipped;
     draw::Bitmap bmp{32, 32};
+    Pattern pattern;
 };
 
 // The snapshot's pixels, written as PNG.
@@ -262,7 +345,8 @@ int main(int argc, char** argv) {
         host.setScale(scaleArg);  // (0: the display's scale; the views lay out at it)
         std::printf("kit_demo: fonts %s, scale %.2f\n", kit_sdl::loadFonts(base + "fonts/").c_str(), double(scale));
         if (!kit_sdl::loadIconAtlases(device, base + "res/")) std::printf("kit_demo: no icon atlases in res/\n");
-        Demo demo;
+        Demo demo(device);
+        host.setFrameHook([&demo](SDL_GPUCommandBuffer* cmd) { demo.drawFrame(cmd); });
         if (!snapshot.empty()) {
             SDL_GPUTextureCreateInfo ti{};
             ti.type = SDL_GPU_TEXTURETYPE_2D;
@@ -280,6 +364,7 @@ int main(int argc, char** argv) {
             SDL_ReleaseGPUTexture(device, tex);
         } else {
             if (!host.show(demo, L"StarDraft kit demo", width, height)) return std::fprintf(stderr, "could not open a window\n"), 1;
+            host.setAnimating(true);  // the pattern moves: frames keep coming
             host.run();
         }
     }
