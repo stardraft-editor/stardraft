@@ -13,3 +13,4 @@
 #include "commands_core.inc"
 #include "views_status.inc"
 #include "views_stub.inc"
+#include "map_input.inc"
