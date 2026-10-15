@@ -29,4 +29,6 @@
 #include "views_panel_tabs.inc"
 #include "startup.inc"
 #include "names.inc"
+#include "palette_items.inc"
+#include "views_search.inc"
 #include "title.inc"

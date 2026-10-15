@@ -40,6 +40,10 @@
 #include "core/tr.h"
 #include "shell.h"
 #include "message_box.h"  // apps/kit: the save question (shellAskSaveChanges)
+#include "text_field.h"  // apps/kit: the search boxes (core/views_search.inc)
+#include "dropdown.h"  // apps/kit: the palette's dropdown (core/views_search.inc)
+#include "list_view.h"  // apps/kit: the palette and the Locations list (sdl_panels.inc)
+#include "button.h"  // apps/kit: the View button (sdl_panels.inc)
 #include "res/ui_icons.h"
 #include "stardraft/commands.h"
 #include "stardraft/dat_edit.h"
@@ -129,7 +133,7 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
-    std::string mapArg, snapshot, installArg;
+    std::string mapArg, snapshot, installArg, modeArg;
     int width = 1600, height = 1000;
     float scaleArg = 0;
     for (int i = 1; i < argc; ++i) {
@@ -139,6 +143,7 @@ int main(int argc, char** argv) {
         else if (a == "--size") std::sscanf(next().c_str(), "%dx%d", &width, &height);
         else if (a == "--scale") scaleArg = float(std::atof(next().c_str()));
         else if (a == "--install") installArg = next();
+        else if (a == "--mode") modeArg = next();  // a mode's name (units, terrain, doodads, sprites, locations), for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
     if (!SDL_Init(SDL_INIT_VIDEO)) return std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()), 1;
@@ -176,6 +181,11 @@ int main(int argc, char** argv) {
         host.setBeforePump(runPosted);  // the posted work runs outside the frame hook (a dialog it opens pumps frames)
         host.setFrameHook([](SDL_GPUCommandBuffer* cmd) { drawMapOfRoot(cmd); });
         if (!mapArg.empty()) openMap(widen(mapArg), true);
+        for (int m = 0; !modeArg.empty() && m < kModeCount; ++m) {
+            std::string name = narrow(kModeNames[m]);
+            std::transform(name.begin(), name.end(), name.begin(), [](unsigned char ch) { return char(std::tolower(ch)); });
+            if (name == modeArg) setMode(Mode(m));
+        }
         if (!gDataOk) setMessage(widen(gDataError));
         std::printf("stardraft_editor: GPU %s, %s\n", renderer.driver(), gDataOk ? "game data" : gDataError.c_str());
 

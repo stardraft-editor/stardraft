@@ -29,6 +29,8 @@
 #include "wintypes.h"
 #include "canvas.h"
 #include "view.h"
+#include "text_field.h"
+#include "dropdown.h"
 #include "../shell.h"
 #include "../res/ui_icons.h"
 #include "stardraft/commands.h"
