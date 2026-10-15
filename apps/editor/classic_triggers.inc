@@ -106,24 +106,7 @@ int ctEntryCount(const ClassicTrigger& t, int kind) { return kind ? t.actionCoun
 int ctActionLimit(const ClassicTrigger&) { return kClassicActions; }
 
 // A trigger's line in the list: its conditions, then (dim) its actions.
-std::wstring ctTriggerLine(const ClassicTrigger& t, bool actions) {
-    const ClassicNames n = ctNames();
-    std::string s;
-    const int count = actions ? t.actionCount() : t.conditionCount();
-    for (int i = 0; i < count && s.size() < 300; ++i) {
-        if (actions) {
-            const ClassicAction& a = t.actions[size_t(i)];
-            const std::vector<const ClassicBatch*> scope = ctScopeOf(t, i);
-            s += (s.empty() ? "" : " ") + (a.type == kClassicBlockType ? classicBatchText(*a.batch, n) : classicActionText(a, n, &scope));
-        } else {
-            s += (s.empty() ? "" : " ") + classicConditionText(t.conditions[size_t(i)], n);
-        }
-    }
-    if (s.empty()) s = actions ? "No actions" : "No conditions";
-    for (char& c : s)
-        if (c == '\r' || c == '\n' || (static_cast<unsigned char>(c) < 32 && c != '\t')) c = ' ';
-    return widen(s);
-}
+std::wstring ctTriggerLine(const ClassicTrigger& t, bool actions) { return ctTriggerLineOf(t, actions, ctNames()); }  // (core)
 
 // After a change: the painted lists show it.
 void ctUpdateHeader();  // (below)
@@ -137,35 +120,11 @@ void ctChanged() {
 
 // The text a search matches: the trigger's sentences (its conditions and actions, names of units, locations and
 // switches) and the names of its players.
-std::wstring ctSearchText(const ClassicTrigger& t) {
-    const ClassicNames n = ctNames();
-    std::wstring s = ctTriggerLine(t, false) + L" " + ctTriggerLine(t, true);
-    for (int g = 0; g < kClassicGroups; ++g)
-        if (t.players[size_t(g)]) s += L" " + widen(classicPlayerName(uint32_t(g), n));
-    std::transform(s.begin(), s.end(), s.begin(), ::towlower);
-    return s;
-}
-// The list's rows: the triggers that run for the player shown and have every word of the search.
+// The list's rows: the triggers that run for the player shown and have every word of the search (core).
 void ctFillList() {
     ClassicTrigDialog& d = *gCt;
-    std::wstring q = d.query;
-    std::transform(q.begin(), q.end(), q.begin(), ::towlower);
-    std::vector<std::wstring> words;
-    {
-        std::wistringstream in(q);
-        for (std::wstring w; in >> w;) words.push_back(w);
-    }
-    d.shown.clear();
+    d.shown = ctShownTriggers(d.trig.triggers, d.filter, d.query, ctNames());
     d.marked.clear();  // (the rows changed: the checked ones are not known any more)
-    for (int i = 0; i < int(d.trig.triggers.size()); ++i) {
-        const ClassicTrigger& t = d.trig.triggers[size_t(i)];
-        if (d.filter >= 0 && !t.runsFor(d.filter)) continue;
-        if (!words.empty()) {
-            const std::wstring hay = ctSearchText(t);
-            if (!std::all_of(words.begin(), words.end(), [&](const std::wstring& w) { return hay.find(w) != std::wstring::npos; })) continue;
-        }
-        d.shown.push_back(i);
-    }
     // "3 of 87": the triggers shown of all the map's triggers.
     if (d.count) SetWindowTextW(d.count, (std::to_wstring(d.shown.size()) + L" of " + std::to_wstring(d.trig.triggers.size())).c_str());
     InvalidateRect(d.list, nullptr, FALSE);
