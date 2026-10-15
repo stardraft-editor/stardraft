@@ -149,3 +149,70 @@ inline std::vector<CtMenuItem> ctEntryMenuItems(const CtEntryMenuState& s) {
     items.push_back({kCtmPaste, L"Paste\tCtrl+V", s.canPaste});
     return items;
 }
+
+// The list's model (the Triggers page on both systems): a trigger's line, its search text and the rows a search shows.
+// `n` gives the names of the map (the page passes its own; the same text on Windows and SDL).
+
+// A trigger's line in the list: its conditions, then (dim) its actions (`actions`: the actions' line).
+inline std::wstring ctTriggerLineOf(const ClassicTrigger& t, bool actions, const ClassicNames& n) {
+    std::string s;
+    const int count = actions ? t.actionCount() : t.conditionCount();
+    for (int i = 0; i < count && s.size() < 300; ++i) {
+        if (actions) {
+            const ClassicAction& a = t.actions[size_t(i)];
+            const std::vector<const ClassicBatch*> scope = ctScopeOf(t, i);
+            s += (s.empty() ? "" : " ") + (a.type == kClassicBlockType ? classicBatchText(*a.batch, n) : classicActionText(a, n, &scope));
+        } else {
+            s += (s.empty() ? "" : " ") + classicConditionText(t.conditions[size_t(i)], n);
+        }
+    }
+    if (s.empty()) s = actions ? "No actions" : "No conditions";
+    for (char& c : s)
+        if (c == '\r' || c == '\n' || (static_cast<unsigned char>(c) < 32 && c != '\t')) c = ' ';
+    return widen(s);
+}
+
+// The text a search matches, in lower case: the trigger's sentences (its conditions and actions, names of units,
+// locations and switches) and the names of its players.
+inline std::wstring ctSearchTextOf(const ClassicTrigger& t, const ClassicNames& n) {
+    std::wstring s = ctTriggerLineOf(t, false, n) + L" " + ctTriggerLineOf(t, true, n);
+    for (int g = 0; g < kClassicGroups; ++g)
+        if (t.players[size_t(g)]) s += L" " + widen(classicPlayerName(uint32_t(g), n));
+    std::transform(s.begin(), s.end(), s.begin(), ::towlower);
+    return s;
+}
+
+// The words of a search (lower case, split at spaces).
+inline std::vector<std::wstring> ctSearchWords(std::wstring q) {
+    std::transform(q.begin(), q.end(), q.begin(), ::towlower);
+    std::vector<std::wstring> words;
+    std::wstring w;
+    for (wchar_t c : q) {
+        if (c == L' ' || c == L'\t' || c == L'\n' || c == L'\r') {
+            if (!w.empty()) words.push_back(w);
+            w.clear();
+        } else {
+            w += c;
+        }
+    }
+    if (!w.empty()) words.push_back(w);
+    return words;
+}
+
+// The rows of the list: the indices of the triggers that run for `filter` (-1: every player) and have every word of
+// the query, in the map's order.
+inline std::vector<int> ctShownTriggers(const std::vector<ClassicTrigger>& triggers, int filter, const std::wstring& query,
+                                        const ClassicNames& n) {
+    const std::vector<std::wstring> words = ctSearchWords(query);
+    std::vector<int> shown;
+    for (int i = 0; i < int(triggers.size()); ++i) {
+        const ClassicTrigger& t = triggers[size_t(i)];
+        if (filter >= 0 && !t.runsFor(filter)) continue;
+        if (!words.empty()) {
+            const std::wstring hay = ctSearchTextOf(t, n);
+            if (!std::all_of(words.begin(), words.end(), [&](const std::wstring& w) { return hay.find(w) != std::wstring::npos; })) continue;
+        }
+        shown.push_back(i);
+    }
+    return shown;
+}
