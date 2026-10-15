@@ -350,6 +350,9 @@ std::string utf8Text(std::wstring_view w) {
             const uint32_t d = uint32_t(w[i + 1]);
             if (d >= 0xDC00 && d < 0xE000) c = 0x10000 + ((c - 0xD800) << 10) + (d - 0xDC00), ++i;
         }
+        // A control code (StarCraft's text colors, 01-1F, other than a tab or a line end) is not drawn and has no
+        // width, as GDI's DrawTextW does (the font has no glyph for it: a box).
+        if (c < 0x20 && c != L'\t' && c != L'\n' && c != L'\r') continue;
         if (c < 0x80) o += char(c);
         else if (c < 0x800) o += char(0xC0 | (c >> 6)), o += char(0x80 | (c & 63));
         else if (c < 0x10000) o += char(0xE0 | (c >> 12)), o += char(0x80 | ((c >> 6) & 63)), o += char(0x80 | (c & 63));
@@ -401,8 +404,17 @@ std::string loadFonts(const std::string& fontDir) {
     ImFontConfig cfg;
     if (!latin.empty() && (gUi = io.Fonts->AddFontFromFileTTF(latin.c_str(), size, &cfg))) loaded = fileName(latin);
     else gUi = io.Fonts->AddFontDefault(), loaded = "ImGui's own (no system font found)";
-    for (const std::string* f : {&korean, &chinese}) {
-        if (f->empty() || (f == &chinese && *f == korean)) continue;
+    // The symbols that the text fonts do not have (a game text's line end mark U+21B5, the pencil U+270E): the
+    // system's symbol font, as Windows's font linking gives them to GDI (else they show as boxes).
+#if defined(_WIN32)
+    std::string symbols = firstFile({"C:\\Windows\\Fonts\\seguisym.ttf"});
+#elif defined(__APPLE__)
+    std::string symbols = firstFile({"/System/Library/Fonts/Apple Symbols.ttf", "/System/Library/Fonts/Supplemental/Arial Unicode.ttf"});
+#else
+    std::string symbols = firstFile({"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/truetype/noto/NotoSansSymbols2-Regular.ttf"});
+#endif
+    for (const std::string* f : {&korean, &chinese, &symbols}) {
+        if (f->empty() || (f == &chinese && *f == korean) || (f == &symbols && *f == latin)) continue;
         ImFontConfig merge;
         merge.MergeMode = true;
         if (io.Fonts->AddFontFromFileTTF(f->c_str(), size, &merge)) loaded += " + " + fileName(*f);

@@ -21,7 +21,7 @@ ClassicNames sdlTrigNames(const SdlClassicTrigModel& m) {
         const int i = int(l) - 1;
         return i >= 0 && i < gState.ed->locationCount() ? gState.ed->locationName(i) : std::string();
     };
-    n.string = [&m](uint32_t id) { return narrow(sdlPlainGameText(m.strings.get(id))); };  // (without the codes)
+    n.string = [&m](uint32_t id) { return gameTextStripped(m.strings.get(id)); };  // (without the codes)
     n.switchName = [](uint32_t s) { return gState.ed->switchName(int(s)); };
     n.force = [](uint32_t f) { return gState.ed->force(int(f)).name; };
     n.ai = &m.ai;

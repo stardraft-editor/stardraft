@@ -31,6 +31,14 @@ std::wstring datLabel(const std::string& name, bool start = true) {
     return widen(out);
 }
 
+// A game text's bytes without its codes, its lines joined by a space (in the text's own encoding: a list's line).
+std::string gameTextStripped(const std::string& bytes) {
+    std::string t;
+    for (const char ch : bytes)
+        if (static_cast<unsigned char>(ch) >= 0x20 || ch == '\t') t += ch;
+        else if (ch == '\n') t += ' ';
+    return t;
+}
 // A game text in one line without its codes (a block's sentence, a list): the line ends as a mark.
 std::wstring gameTextPlain(const std::string& bytes) {
     std::string t;

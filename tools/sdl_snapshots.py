@@ -57,6 +57,9 @@ CASES += [
     ("map-newpage-classic", ["--newpage", "classic"], "map"),
     # A project open.
     ("project-scriptpreview", ["--workspace", "project", "--scriptpreview"], "project"),
+    # The game's text codes (colors) in a block's text: drawn without boxes (the first trigger of the second category).
+    ("project-trig-gametext", ["--workspace", "triggers", "--trig", "1:0"], "project"),
+    ("project-briefing", ["--workspace", "briefing", "--briefing", "0"], "project"),
 ]
 # Not in the program yet (add them to CASES when main_sdl.cpp reads them): --dialog about, message, tip, valuepop.
 
