@@ -259,38 +259,3 @@ inline void drawDropLine(draw::Canvas& c, int x0, int x1, int y) { c.fill({x0, y
 
 }  // namespace kitpaint
 
-// A row's text with the typed words in the accent, on a Canvas (the palette's list, the block picker): each piece of the text is drawn at its place, the matched ones in the accent.
-void drawMatched(stardraft::draw::Canvas& c, stardraft::draw::Rect r, const std::wstring& text, const std::vector<std::wstring>& words, stardraft::draw::Color normal) {
-    std::wstring low = text;
-    std::transform(low.begin(), low.end(), low.begin(), ::towlower);
-    std::vector<uint8_t> hit(text.size(), 0);
-    for (const auto& w : words)
-        if (const size_t at = w.empty() ? std::wstring::npos : low.find(w); at != std::wstring::npos)
-            std::fill(hit.begin() + long(at), hit.begin() + long(at + w.size()), uint8_t(1));
-    const int y = (r.top + r.bottom - c.metrics().height) / 2;  // (the GDI version's rounding: a row partly above the top)
-    // Too wide: as much as fits, then an ellipsis (in the color of the last letter kept).
-    std::wstring shown = text;
-    if (c.measure(text) > r.width()) {
-        const int room = std::max(0, r.width() - c.measure(L"\x2026"));
-        size_t lo = 0, hi = text.size();  // the longest prefix that fits in `room` (widths grow with the prefix)
-        while (lo < hi) {
-            const size_t mid = (lo + hi + 1) / 2;
-            if (c.measure(std::wstring_view(text).substr(0, mid)) <= room) lo = mid;
-            else hi = mid - 1;
-        }
-        shown = text.substr(0, lo) + L"\x2026";
-        hit.resize(shown.size());
-        hit.back() = lo > 0 ? hit[lo - 1] : 0;
-    }
-    c.pushClip(r);
-    int x = r.left;
-    for (size_t i = 0; i < shown.size();) {
-        size_t j = i;
-        while (j < shown.size() && hit[j] == hit[i]) ++j;
-        const std::wstring piece = shown.substr(i, j - i);
-        c.text({x, y, r.right, y + c.metrics().height}, piece, hit[i] ? kAccent : normal, stardraft::draw::kLeft);
-        x += c.measure(piece);
-        i = j;
-    }
-    c.popClip();
-}
