@@ -1,4 +1,5 @@
-// StarDraft's editor on macOS and Linux (SDL3, Dear ImGui through apps/kit_sdl). It compiles the same portable core as
+// StarDraft's editor on macOS and Linux, and stardraft-sdl.exe on Windows until it replaces the Win32 program (SDL3,
+// Dear ImGui through apps/kit_sdl). It compiles the same portable core as
 // the Windows program (core/core.inc, research/ports/MAC-BUILD-PLAN.md step 6), then the SDL shell: the host seam
 // (shell_sdl.inc), the root view (sdl_main_view.inc), the functions the core still needs from the Win32 program
 // (sdl_pending.inc, each marked until it is in the core) and the other workspaces' entry points (sdl_standins.inc).
@@ -9,7 +10,8 @@
 // --snapshot: draws one frame without a window (SDL_VIDEODRIVER=offscreen needs no display), writes it, exits.
 // --silent: a test run that drives the window plays no sound (a snapshot plays none either).
 // The StarCraft install: --install, then STARDRAFT_INSTALL, the folder chosen before, then the usual folders of each
-// system (core/install_search.inc); when none opens, the window asks for the folder.
+// system (core/install_search.inc; on Windows Blizzard's registry entries first); when none opens, the window asks for
+// the folder.
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -44,6 +46,7 @@
 #include "sdl_host.h"
 #include "core/tr.h"
 #include "shell.h"
+#include "install.h"  // apps/common: the registry's install folders (Windows)
 #include "message_box.h"  // apps/kit: the save question (shellAskSaveChanges)
 #include "dialog.h"  // apps/kit: the map pages' pickers (sdl_map_pages.inc)
 #include "label.h"  // apps/kit: the block dialog's text (core/views_classic_batch.inc)
@@ -113,18 +116,24 @@ namespace {
 bool openInstall(const std::string& given, std::string& lastErr) {
     std::vector<fs::path> candidates;
     if (!given.empty()) candidates.push_back(given);
-    if (const char* e = std::getenv("STARDRAFT_INSTALL"); e && *e) candidates.push_back(e);
+    if (fs::path e = envPath("STARDRAFT_INSTALL"); !e.empty()) candidates.push_back(e);
     std::wstring saved;
     if (prefs::text(L"StarCraftFolder", saved) && !saved.empty()) candidates.push_back(saved);
+#ifdef _WIN32
+    // Blizzard's registry entries, then the usual folders (as the Windows program searches).
+    for (const fs::path& p : stardraft::platform::registryInstallFolders()) candidates.push_back(p);
+    for (const fs::path& p : installCandidatesOf(InstallSystem::Windows, {})) candidates.push_back(p);
+#else
 #ifdef __APPLE__
     const InstallSystem system = InstallSystem::Mac;
 #else
     const InstallSystem system = InstallSystem::Linux;
 #endif
-    if (const char* h = std::getenv("HOME"); h && *h) {
-        candidates.push_back(fs::path(h) / "scmirror");  // the developer's mirror of the install
-        for (const fs::path& p : installCandidatesOf(system, fs::path(h))) candidates.push_back(p);
+    if (const fs::path h = homeFolder(); !h.empty()) {
+        candidates.push_back(h / "scmirror");  // the developer's mirror of the install
+        for (const fs::path& p : installCandidatesOf(system, h)) candidates.push_back(p);
     }
+#endif
     std::error_code ec;
     for (const fs::path& c : candidates)
         for (const fs::path& t : installTries(c)) {
@@ -149,7 +158,7 @@ void askInstallFolder() {
 void useInstallFolder(const std::string& picked) {
     if (picked.empty()) return;  // (cancelled: the program asks again on the next start)
     std::string err;
-    for (const fs::path& t : installTries(fs::path(picked)))
+    for (const fs::path& t : installTries(fs::path(widen(picked))))  // (UTF-8)
         if (fs::is_directory(t) && gState.data.open(t, err)) {
             prefs::setText(L"StarCraftFolder", t.wstring());
             gDataOk = true, gDataError.clear();

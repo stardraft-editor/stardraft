@@ -1,8 +1,8 @@
-// Where a StarCraft: Remastered install may be on macOS and Linux (portable, core.inc). The SDL program searches these
-// folders; the Windows program searches the registry and its own folders (main.cpp, installCandidates). A candidate is a
-// folder: the game data opens from it, or from a folder above it or below it that holds .build.info (installTries).
+// Where a StarCraft: Remastered install may be on each system (portable, core.inc). On Windows the registry's entries
+// come first (platform::registryInstallFolders, apps/common/install.h), then these folders. A candidate is a folder: the
+// game data opens from it, or from a folder above it or below it that holds .build.info (installTries).
 
-enum class InstallSystem { Mac, Linux };
+enum class InstallSystem { Windows, Mac, Linux };
 
 // The folders of the entries of `root` (a Wine drive's folders, Steam's prefixes): root/<entry>/rest, the entries sorted.
 void installFoldersIn(std::vector<fs::path>& out, const fs::path& root, const fs::path& rest) {
@@ -20,6 +20,12 @@ void installFoldersIn(std::vector<fs::path>& out, const fs::path& root, const fs
 // The install folders of a system, the first one first. `home` is the user's folder.
 std::vector<fs::path> installCandidatesOf(InstallSystem sys, const fs::path& home) {
     std::vector<fs::path> out;
+    if (sys == InstallSystem::Windows) {  // (the usual install folders; `home` is not used)
+        for (const wchar_t* p : {L"C:\\Program Files (x86)\\StarCraft", L"C:\\Program Files\\StarCraft", L"C:\\Program Files (x86)\\Starcraft Remastered\\StarCraft",
+                                 L"C:\\Program Files (x86)\\Starcraft Remastered", L"C:\\StarCraft", L"D:\\StarCraft", L"D:\\Program Files (x86)\\StarCraft"})
+            out.push_back(p);
+        return out;
+    }
     const fs::path names[] = {"StarCraft", "StarCraft Remastered"};
     if (sys == InstallSystem::Mac) {
         // Battle.net installs to /Applications/StarCraft/ (with .build.info in it).

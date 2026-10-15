@@ -262,8 +262,8 @@ endif()
 
 # --- What the shells ask of the system (apps/common): HTTPS, dialogs (Windows), crash reports, updates -------
 if(WIN32)
-    add_library(stardraft_platform STATIC apps/common/http_win32.cpp apps/common/dialogs_win32.cpp apps/common/crash_win32.cpp apps/common/crash_report.cpp apps/common/update_win32.cpp)
-    target_link_libraries(stardraft_platform PUBLIC stardraft winhttp comdlg32 ole32 dbghelp)
+    add_library(stardraft_platform STATIC apps/common/http_win32.cpp apps/common/dialogs_win32.cpp apps/common/crash_win32.cpp apps/common/crash_report.cpp apps/common/update_win32.cpp apps/common/install_win32.cpp)
+    target_link_libraries(stardraft_platform PUBLIC stardraft winhttp comdlg32 ole32 dbghelp advapi32)
 else()
     add_library(stardraft_platform STATIC apps/common/http_curl.cpp apps/common/crash_report.cpp apps/common/update_posix.cpp)
     target_link_libraries(stardraft_platform PUBLIC stardraft)
@@ -376,31 +376,40 @@ if(STARDRAFT_NEXT AND STARDRAFT_RENDERER)
         target_link_options(kit_demo PRIVATE /SUBSYSTEM:CONSOLE)
     endif()
 
-    # --- The editor on macOS and Linux (SDL; research/ports/MAC-BUILD-PLAN.md step 6): the portable core (core/core.inc)
-    # with the SDL shell (main_sdl.cpp). Windows keeps its own target below. Fonts and atlases as kit_demo's.
-    if(NOT WIN32)
-        add_executable(stardraft_editor MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
+    # --- The editor on SDL (research/ports/MAC-BUILD-PLAN.md step 6): the portable core (core/core.inc) with the SDL
+    # shell (main_sdl.cpp). On macOS and Linux it is the editor (stardraft_editor); on Windows it is stardraft_sdl
+    # (stardraft-sdl.exe) beside the Win32 editor below, until it replaces that one. Fonts and atlases as kit_demo's.
+    if(WIN32)
+        set(sdlEditor stardraft_sdl)
+        set(sdlEditorName stardraft-sdl)
+    else()
+        set(sdlEditor stardraft_editor)
+        set(sdlEditorName stardraft)
+    endif()
+    if(TRUE)
+        add_executable(${sdlEditor} WIN32 MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
                        apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp)
         if(NOT STARDRAFT_VERSION_NAME)
             set(STARDRAFT_VERSION_NAME "0.5 Alpha")
         endif()
-        target_compile_definitions(stardraft_editor PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}")
-        target_include_directories(stardraft_editor PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR})
-        target_link_libraries(stardraft_editor PRIVATE stardraft_kit_sdl stardraft_render stardraft_platform stardraft_kit stardraft)
-        set_target_properties(stardraft_editor PROPERTIES OUTPUT_NAME stardraft MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/editor/Info.plist.in)
+        target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}")
+        target_include_directories(${sdlEditor} PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR})
+        target_link_libraries(${sdlEditor} PRIVATE stardraft_kit_sdl stardraft_render stardraft_platform stardraft_kit stardraft)
+        set_target_properties(${sdlEditor} PROPERTIES OUTPUT_NAME ${sdlEditorName} MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/editor/Info.plist.in)
         if(APPLE)
-            set(editorDir $<TARGET_BUNDLE_CONTENT_DIR:stardraft_editor>/Resources)
+            set(editorDir $<TARGET_BUNDLE_CONTENT_DIR:${sdlEditor}>/Resources)
         else()
-            set(editorDir $<TARGET_FILE_DIR:stardraft_editor>)
+            set(editorDir $<TARGET_FILE_DIR:${sdlEditor}>)
         endif()
-        add_custom_command(TARGET stardraft_editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/res
+        add_custom_command(TARGET ${sdlEditor} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/res
                            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_ATLASES} ${editorDir}/res)
         if(STARDRAFT_FONT_FILES)
-            add_custom_command(TARGET stardraft_editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/fonts
+            add_custom_command(TARGET ${sdlEditor} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/fonts
                                COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_FONT_FILES} ${editorDir}/fonts)
         endif()
         if(MSVC)
-            target_compile_options(stardraft_editor PRIVATE /W4 /utf-8)
+            # (main_sdl.cpp holds the whole editor, as main.cpp does: more sections than the default allows)
+            target_compile_options(${sdlEditor} PRIVATE /W4 /utf-8 /bigobj)
         endif()
     endif()
 endif()

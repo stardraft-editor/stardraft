@@ -88,6 +88,7 @@ using std::min;
 #include "stardraft/commands.h"
 #include "http.h"  // apps/common: HTTPS requests (github.inc)
 #include "dialogs.h"  // apps/common: the file and folder dialogs
+#include "install.h"  // apps/common: the registry's install folders
 #include "crash_report.h"  // apps/common: the crash handler and sending reports (crash.inc)
 #include "update.h"  // apps/common: the self-update's system part (update.inc)
 #include "stardraft/settings.h"
@@ -107,6 +108,7 @@ namespace {
 #include "core/strings.inc"  // widen, narrow
 
 #include "core/prefs.inc"  // the settings file (prefs::): the portable part of the settings
+#include "core/install_search.inc"  // the usual install folders (installCandidatesOf)
 
 #include "core/ids.inc"  // the command ids, the modes, the dock layout
 #include "core/recent.inc"  // the recent maps and projects (saved in the settings; the File menu is the host's)
@@ -1119,23 +1121,12 @@ std::wstring pickFolderTitled(const wchar_t* title) {
 
 std::wstring pickFolder() { return pickFolderTitled(L"Select the StarCraft: Remastered folder. It contains .build.info."); }
 
-// Where StarCraft: Remastered might be: Blizzard's registry entries, then the usual install folders. The
-// folder that works is the one with .build.info (CASC opens it); a folder above or below it is tried too.
+// Where StarCraft: Remastered might be: Blizzard's registry entries (apps/common/install.h), then the usual install
+// folders (core/install_search.inc). The folder that works is the one with .build.info (CASC opens it); a folder above
+// or below it is tried too.
 std::vector<fs::path> installCandidates() {
-    std::vector<fs::path> out;
-    auto reg = [&](HKEY root, const wchar_t* key, const wchar_t* value) {
-        wchar_t buf[MAX_PATH] = L"";
-        DWORD size = sizeof buf;
-        if (RegGetValueW(root, key, value, RRF_RT_REG_SZ | RRF_SUBKEY_WOW6432KEY, nullptr, buf, &size) == ERROR_SUCCESS && *buf) out.push_back(buf);
-        size = sizeof buf;
-        if (RegGetValueW(root, key, value, RRF_RT_REG_SZ | RRF_SUBKEY_WOW6464KEY, nullptr, buf, &size) == ERROR_SUCCESS && *buf) out.push_back(buf);
-    };
-    reg(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Blizzard Entertainment\\Starcraft", L"InstallPath");
-    reg(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\StarCraft", L"InstallLocation");
-    reg(HKEY_CURRENT_USER, L"SOFTWARE\\Blizzard Entertainment\\Starcraft", L"InstallPath");
-    for (const wchar_t* p : {L"C:\\Program Files (x86)\\StarCraft", L"C:\\Program Files\\StarCraft", L"C:\\Program Files (x86)\\Starcraft Remastered\\StarCraft",
-                             L"C:\\Program Files (x86)\\Starcraft Remastered", L"C:\\StarCraft", L"D:\\StarCraft", L"D:\\Program Files (x86)\\StarCraft"})
-        out.push_back(p);
+    std::vector<fs::path> out = stardraft::platform::registryInstallFolders();
+    for (const fs::path& p : installCandidatesOf(InstallSystem::Windows, {})) out.push_back(p);
     return out;
 }
 
