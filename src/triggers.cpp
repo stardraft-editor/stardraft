@@ -1287,6 +1287,11 @@ bool variableValue(const std::string& type) {
 int TriggerSet::upgradeNames(const TriggerMapInfo& map) {
     if (!map.known) return 0;
     int n = 0;
+    const auto vars = variables();  // a per-player variable's name is not an old name of a unit type or a location (GH#108)
+    auto perPlayer = [&](const std::string& v) {
+        const auto it = vars.find(v);
+        return it != vars.end() && it->second->variable.kind == TriggerVariable::Kind::PerPlayer && !it->second->variable.holds.empty();
+    };
     static const std::map<std::string, std::string> groups = {{"Any unit", "229"}, {"Men", "230"}, {"Buildings", "231"}, {"Factories", "232"}};
     std::function<void(std::vector<TriggerCall>&)> calls = [&](std::vector<TriggerCall>& list) {
         for (auto& c : list) {
@@ -1294,7 +1299,7 @@ int TriggerSet::upgradeNames(const TriggerMapInfo& map) {
                 for (size_t i = 0; i < d->params.size() && i < c.args.size(); ++i) {
                     const TriggerType* t = triggerType(d->params[i].type);
                     std::string& v = c.args[i];
-                    if (!t || v.empty() || std::isdigit(static_cast<unsigned char>(v[0]))) continue;
+                    if (!t || v.empty() || std::isdigit(static_cast<unsigned char>(v[0])) || perPlayer(v)) continue;
                     if (t->picker == TriggerPicker::UnitType || t->picker == TriggerPicker::UnitFilter) {
                         if (auto g = groups.find(v); g != groups.end()) v = g->second, ++n;
                         else
@@ -1334,6 +1339,10 @@ int TriggerSet::renameVariable(const std::string& fromRef, const std::string& to
             if (const TriggerDef* d = TriggerDef::find(c.def))
                 for (size_t i = 0; i < d->params.size() && i < c.args.size(); ++i) {
                     if (variableValue(d->params[i].type)) n += replaceIdent(c.args[i], from, to);
+                    else if (const TriggerType* vt = triggerType(d->params[i].type);
+                             vt && (vt->picker == TriggerPicker::UnitType || vt->picker == TriggerPicker::UnitFilter || vt->picker == TriggerPicker::Location) &&
+                             c.args[i] == from)
+                        c.args[i] = to, ++n;  // a per-player variable as a unit type or a location (GH#108)
                     else if (const TriggerType* t = triggerType(d->params[i].type); t && t->picker == TriggerPicker::Code)
                         n += replaceIdent(c.args[i], fromCode, toCode) + replaceIdent(c.args[i], fromCode + "_gen", toCode + "_gen");
                 }
@@ -2901,7 +2910,7 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
             case TriggerVariable::Kind::PerPlayer: {  // with default values: one for each player (Player 1 first)
                 const auto& pv = n.variable.playerValues;
                 const bool any = std::any_of(pv.begin(), pv.end(), [&](const std::string& x) { return !x.empty() && (x != "0" || n.variable.holds == "UnitType"); });
-                if (!any) {
+                if (!any && n.variable.holds != "UnitType") {  // (unit types: 0 is Terran Marine, so the empty ones are None, 228)
                     decls += "const " + code + " = PVariable();  // " + n.name + " (per player)\n";
                     break;
                 }
@@ -2909,7 +2918,13 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
                 for (int p = 0; p < 8; ++p) {
                     const std::string x = p < int(pv.size()) && !pv[size_t(p)].empty() ? pv[size_t(p)] : n.variable.holds == "UnitType" ? "228" : "0";  // (no unit type: None, 228)
                     std::string item = "0";
-                    if (!g.isNumber(x)) issues.push_back({TriggerIssue::Level::Error, &n, nullptr, -1, "Player " + std::to_string(p + 1) + "'s default value must be a number"});
+                    if (n.variable.holds.empty()) {  // a number: a plain number or a constant expression
+                        const TriggerExprResult r = triggerExpression(x, {}, 0);
+                        if (!r.ok || !r.constant)
+                            issues.push_back({TriggerIssue::Level::Error, &n, nullptr, -1, "Player " + std::to_string(p + 1) + "'s default value must be a plain number"});
+                        else item = r.code;
+                    } else if (!g.isNumber(x))
+                        issues.push_back({TriggerIssue::Level::Error, &n, nullptr, -1, "Player " + std::to_string(p + 1) + "'s default value must be a number"});
                     else if (n.variable.holds == "UnitType") item = g.unitCode(std::atoi(x.c_str()));
                     else item = x;
                     items += (p ? ", " : "") + item;

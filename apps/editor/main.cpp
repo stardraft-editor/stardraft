@@ -6088,7 +6088,7 @@ void paintUnitPalette(HWND hwnd) {
             HGDIOBJ of = SelectObject(mem, glyphFont(11));
             SetTextColor(mem, kDim);
             RECT pr2{r.right - scale(22), r.top, r.right - scale(6), r.bottom};
-            DrawTextW(mem, L"ç18", 1, &pr2, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
+            DrawTextW(mem, L"\xE718", 1, &pr2, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
             SelectObject(mem, of);
         }
         RECT box = r;
@@ -10751,7 +10751,7 @@ std::string portraitPath(int e) {
 
 // The clips of a portrait (GitHub #132: switching was slow with Remastered portraits). The files are read here (the
 // game's storage is read on this thread only); their videos are decoded on a thread of their own, and `ready` says
-// when. The last 24 portraits stay, so going back to one is at once.
+// when. The last 8 portraits stay (decoded HD video is large), so going back to one is at once.
 struct PortraitClips {
     std::atomic<bool> ready{false};
     std::vector<PortraitVideo> clips;
@@ -10762,7 +10762,7 @@ std::shared_ptr<PortraitClips> portraitClips(const std::string& path) {
     static uint64_t uses = 0;
     const Key key{path, int(app.quality), app.carbot};
     if (auto it = cache.find(key); it != cache.end()) return it->second.first = ++uses, it->second.second;
-    if (cache.size() >= 24) {  // the one not used for the longest time goes
+    if (cache.size() >= 8) {  // the one not used for the longest time goes
         auto old = cache.begin();
         for (auto it = cache.begin(); it != cache.end(); ++it)
             if (it->second.first < old->second.first) old = it;
@@ -10787,6 +10787,7 @@ std::shared_ptr<PortraitClips> portraitClips(const std::string& path) {
         }
         entry->clips = std::move(clips);
         entry->ready.store(true, std::memory_order_release);
+        if (HWND form = gData.form) InvalidateRect(form, nullptr, FALSE);  // the form shows it (else "Loading" stays until a repaint)
     }).detach();
     return entry;
 }
@@ -10809,7 +10810,7 @@ int widgetPortrait(HDC dc, int e, int x, int y, int w) {
     if (!total) {
         SetTextColor(dc, kDim);
         RECT t = box;
-        DrawTextW(dc, path.empty() ? L"No portrait file" : !ready ? L"Loading the portrait 26" : L"The portrait's video cannot be read", -1, &t, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
+        DrawTextW(dc, path.empty() ? L"No portrait file" : !ready ? L"Loading the portrait\x2026" : L"The portrait's video cannot be read", -1, &t, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
         gPortraitShown = false;
         return h;
     }
@@ -13439,6 +13440,13 @@ std::wstring trigUnitGroupName(int id) {
     return id >= 229 && id <= 232 ? names[id - 229] : L"";
 }
 
+// A per-player variable of the open triggers that holds `holds` (unit types, locations).
+bool trigIsPerPlayer(const std::string& v, const char* holds) {
+    const auto vars = gTE.set.variables();
+    const auto it = vars.find(v);
+    return it != vars.end() && it->second->variable.kind == TriggerVariable::Kind::PerPlayer && it->second->variable.holds == holds;
+}
+
 // How a value reads in a sentence (type: the value's type, which may follow a property).
 std::wstring trigValueText(const std::string& type, const std::string& v) {
     const TriggerType* t = triggerType(type);
@@ -13452,14 +13460,14 @@ std::wstring trigValueText(const std::string& type, const std::string& v) {
             if (app.ed && id < int(app.ed->unitTypes().size())) return widen(app.ed->unitTypes()[uint16_t(id)].name);
             return L"unit type #" + widen(v);
         }
-        return v.empty() ? L"(unit type)" : widen(v) + L" (the current player's)";
+        return v.empty() ? L"(unit type)" : widen(v) + (trigIsPerPlayer(v, "UnitType") ? L" (the current player's)" : L"");
     case TriggerPicker::Location:
         if (trigIsNumberText(v)) {
             const int n = std::atoi(v.c_str());
             if (app.ed && n >= 1 && n <= app.ed->locationCount()) return widen(app.ed->locationName(n - 1));
             return L"location " + widen(v);
         }
-        return v.empty() ? L"(location)" : widen(v) + L" (the current player's)";
+        return v.empty() ? L"(location)" : widen(v) + (trigIsPerPlayer(v, "Location") ? L" (the current player's)" : L"");
     case TriggerPicker::Property:
         if (const TriggerProperty* pr = triggerProperty(t->of, v)) return widen(pr->label);
         return v.empty() ? L"(a property)" : widen(v);
@@ -18236,9 +18244,10 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_RBUTTONUP: {
         if (gRightStrokeSaved != -2) {  // the end of a right-button stroke: the left button's terrain again
+            const int first = std::exchange(gRightStrokeSaved, -2);  // (first: so the capture's end does not end it again)
             ReleaseCapture();
             mouseUp(GET_X_LPARAM(lp), GET_Y_LPARAM(lp), wp);
-            app.palette = std::exchange(gRightStrokeSaved, -2);
+            app.palette = first;
             app.dirty = true;
             return 0;
         }
@@ -18261,9 +18270,17 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         app.dirty = true;
         return 0;
     }
+    case WM_CAPTURECHANGED:
+        if (gRightStrokeSaved != -2 && HWND(lp) != hwnd) {  // the right-button stroke ends where the mouse was last
+            const int first = std::exchange(gRightStrokeSaved, -2);
+            mouseUp(app.mouseX, app.mouseY, 0);
+            app.palette = first;
+            app.dirty = true;
+        }
+        break;
     case WM_MBUTTONUP: {
         if (app.drag == Drag::AutoPan || (app.drag == Drag::Pan && panByMiddle)) app.drag = Drag::None, panByMiddle = false;
-        if (GetCapture() == hwnd && !(wp & MK_LBUTTON) && !((wp & MK_RBUTTON) && gRightDown)) ReleaseCapture();
+        if (GetCapture() == hwnd && !(wp & MK_LBUTTON) && !((wp & MK_RBUTTON) && (gRightDown || gRightStrokeSaved != -2))) ReleaseCapture();
         KillTimer(hwnd, kAutoPanTimer);
         app.dirty = true;
         return 0;

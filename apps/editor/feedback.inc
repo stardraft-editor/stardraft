@@ -443,9 +443,9 @@ void feedbackSend(FeedbackDialog& d) {
         SetWindowTextW(d.status, (L"This build cannot send feedback. StarDraft 2 keeps it in " + file.wstring() + L".").c_str());
         return;
     }
-    SetWindowTextW(d.status, L"Sending your feedback 26");
+    SetWindowTextW(d.status, L"Sending your feedback\x2026");
     SetTimer(d.wnd, kFeedbackSpin, 90, nullptr);
-    setMessage(L"Sending the feedback 26");
+    setMessage(L"Sending the feedback\x2026");
     std::thread([file, main = app.main, dlg = d.wnd] {
         const bool sent = sendFeedbackFile(file);
         long number = 0;
