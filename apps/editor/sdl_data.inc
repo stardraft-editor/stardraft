@@ -3,9 +3,10 @@
 // the entry's form; core/views_data_refs.inc: the References panel; core/views_data_entry.inc: the number entry) on the
 // core's model (core/data_model.inc: the open project's tables with its edits, the extras, the notes, the references, the
 // saves and the undo steps). The views are children of one view here (the Windows program puts each in a window of its
-// own), each with a kit scroll bar where the Windows window has its bar. Not on this system yet: the pictures beside the
-// fields, the Units display, the requirements, the map's players, the Strings and Buttons tabs' forms, the entries'
-// icons, the pins, back and forward, the entry's and the field's menus (copy, paste, reset) and Rename. Included by
+// own), each with a kit scroll bar where the Windows window has its bar. The Strings and Buttons tabs' forms and the
+// requirements are sdl_data_extras.inc's. Not on this system yet: the pictures beside the fields, the Units display,
+// the map's players, the entries' icons, the pins, back and forward, the entry's and the field's menus (copy, paste,
+// reset) and Rename. Included by
 // main_sdl.cpp after sdl_briefing.inc; registerWorkspaceView(Workspace::Data, gSdlData) puts it in the window, and
 // --data <tab>:<entry> opens an entry for a snapshot.
 
@@ -62,6 +63,7 @@ extern DataFormView gSdlDataForm;
 extern DataRefsPage gSdlDataRefs;
 extern DataNumberEntry gSdlDataEntry;
 void sdlDataRepaint();
+void sdlStringsCommit();
 bool gSdlDataRevealDue = false;  // the open entry's row is scrolled into the list's view at the next paint
 
 void sdlDataRebuildList() {
@@ -73,6 +75,7 @@ void sdlDataRebuildList() {
 
 // The number entry's value goes in. False when the box held text that is not a number (the status says so).
 bool sdlDataCommitEdit() {
+    sdlStringsCommit();  // (the Strings tab's editor: its text goes in too)
     DataModel& d = gSdlDataState;
     if (d.editing < 0) return true;
     const DatField* f = curField(d.editing);
@@ -165,6 +168,8 @@ void sdlDataLoad() {
     }
 }
 
+#include "sdl_data_extras.inc"  // the Strings and Buttons tabs and the requirements (sdlPaintExtraTab, sdlPaintRequirements)
+
 // --- The hosts of the core's views -----------------------------------------------------------------------------------
 
 class SdlDataWorkspaceHost final : public DataWorkspaceHost {
@@ -235,9 +240,9 @@ public:
 SdlDataRefsHost gSdlDataRefsHost;
 DataRefsPage gSdlDataRefs(gSdlDataRefsHost);
 
-// The form's program parts. The pictures, the Units display, the requirements, the map's players and the Strings and
-// Buttons tabs' forms are the Windows program's GDI parts: here they take no room (the Strings and Buttons tabs say they
-// are not on this system yet). A link's click runs when the mouse goes up over it.
+// The form's program parts. The Strings and Buttons tabs' forms and the requirements are sdl_data_extras.inc's (their
+// click areas are this host's). The pictures, the Units display and the map's players are the Windows program's GDI
+// parts: here they take no room. A click runs when the mouse goes up over its area.
 class SdlDataFormHost final : public DataFormViewHost {
 public:
     struct Area {
@@ -250,9 +255,11 @@ public:
     std::function<void()> pressed;  // a link pressed: its click when the mouse goes up
 
     static std::string dat() { return curTable() ? curTable()->schema().name : std::string(); }
-    const Area* areaAt(draw::Point p) const {
+    // The topmost area under p (`clicks`: the topmost one with a click; a row's area without one does not hide the
+    // boxes under it, as on Windows).
+    const Area* areaAt(draw::Point p, bool clicks = false) const {
         for (auto it = areas.rbegin(); it != areas.rend(); ++it)
-            if (it->r.contains(p)) return &*it;
+            if (it->r.contains(p) && (!clicks || it->click)) return &*it;
         return nullptr;
     }
 
@@ -267,12 +274,7 @@ public:
     }
     bool projectOpen() override { return activeProject() != nullptr; }
     void beforePaint() override { areas.clear(); }
-    bool paintExtraTab(draw::Canvas& c, int& y) override {
-        if (!extraTab(gSdlDataState.datTab) || !gSdlDataState.project) return false;
-        c.text({scale(18), y + scale(28), gSdlDataForm.width() - scale(18), y + scale(28) + scale(60)},
-               tabTitle(gSdlDataState.datTab) + L": " + shellTr(L"not on this system yet"), kDim, draw::kWrap);
-        return true;
-    }
+    bool paintExtraTab(draw::Canvas& c, int& y) override { return sdlPaintExtraTab(c, y); }
     void afterPaint(draw::Canvas&) override;
     draw::Image entryIcon() override { return {}; }  // (the entries' pictures: not on this system yet)
     UiIcon tabIcon() override { return ::tabIcon(gSdlDataState.datTab); }
@@ -288,13 +290,13 @@ public:
     int widgets(draw::Canvas&, int, int, int y, int) override { return y; }
     void soundButton(draw::Canvas&, draw::Rect, int) override {}
     int unitDisplay(draw::Canvas&, int y) override { return y; }
-    int requirements(draw::Canvas&, int, int y, int) override { return y; }
+    int requirements(draw::Canvas& c, int, int y, int) override { return sdlPaintRequirements(c, dat(), gSdlDataState.entry, y); }
     int mapPlayers(draw::Canvas&, int, int y, int, int, int) override { return y; }
     void area(draw::Rect r, std::function<void()> click, const std::wstring& tip, draw::Cursor cursor) override {
         areas.push_back({r, std::move(click), tip, cursor});
     }
     bool widgetPress(draw::Point p) override {
-        const Area* a = areaAt(p);
+        const Area* a = areaAt(p, true);
         if (!a || !a->click) return false;
         sdlDataCommitEdit();
         pressed = a->click;
@@ -307,7 +309,8 @@ public:
     }
     bool widgetHover(draw::Point, std::set<std::string>&) override { return true; }  // (the form repaints: the hot boxes follow the mouse)
     bool widgetCursor(draw::Point p, draw::Cursor& c) override {
-        const Area* a = areaAt(p);
+        const Area* a = areaAt(p, true);
+        if (!a) a = areaAt(p);
         return a ? (c = a->cursor, true) : false;
     }
     std::wstring widgetName(draw::Point p) override {
@@ -368,6 +371,10 @@ SdlDataFormHost gSdlDataFormHost;
 DataFormView gSdlDataForm(gSdlDataFormHost);
 DataNumberEntry gSdlDataEntry;
 void SdlDataFormHost::afterPaint(draw::Canvas&) { placeEntry(); }
+void sdlFormArea(draw::Rect r, std::function<void()> click, const std::wstring& tip, bool hand) {
+    gSdlDataFormHost.area(r, std::move(click), tip, hand ? draw::Cursor::Hand : draw::Cursor::Arrow);
+}
+bool sdlFormHot(draw::Rect r) { return gSdlDataFormHost.hot(r); }
 
 // --- The workspace view: the container and the three panes, each with its bar --------------------------------------
 
@@ -389,6 +396,13 @@ struct SdlDataView final : draw::View {
         };
         gSdlDataEntry.onFocusLost = [] { sdlDataCommitEdit(); };
         gSdlDataEntry.onTab = [](bool back) { gSdlDataForm.editNeighbour(gSdlDataState.editing, back ? -1 : 1); };
+        gSdlDataForm.add(gSdlStringsText, draw::Rect(0, 0, 0, 0));  // the Strings tab's editor (sdl_data_extras.inc)
+        gSdlStringsText.setVisible(false);
+        gSdlStringsText.onChange = [] {  // the preview follows; the text goes in when the editor loses the keyboard
+            gSdlDataExtras.textDirty = true;
+            gSdlDataForm.invalidate();
+        };
+        gSdlStringsText.onFocusLost = [] { sdlStringsCommit(); };
     }
 
     void resized() override { gSdlDataWorkspace.setFrame({0, 0, width(), height()}); }

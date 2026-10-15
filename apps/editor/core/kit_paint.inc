@@ -143,6 +143,24 @@ inline void drawChangedDot(draw::Canvas& c, int cx, int cy) {
 }
 
 // --- Form parts ---------------------------------------------------------------------------------------------------
+// The form's layout, as the Data forms have it, for a form `width` wide: the fields in a column on the left, the
+// pictures beside them when the form is wide (above them when narrow).
+struct FormLayout {
+    int x0, labelW, rowH, colW, colRight, picX, picW;
+    bool twoCol;
+};
+inline FormLayout formLayout(int width) {
+    FormLayout l{};
+    l.x0 = scale(18), l.labelW = scale(230), l.rowH = scale(stardraft::kit::kRowH);
+    const int full = std::max(scale(300), width - 2 * l.x0);
+    l.twoCol = full >= scale(1150);
+    l.colW = l.twoCol ? std::min(scale(650), full * 11 / 20) : full;
+    l.colRight = l.x0 + l.colW;
+    l.picX = l.twoCol ? l.colRight + scale(28) : l.x0;
+    l.picW = l.twoCol ? full - l.colW - scale(28) : full;
+    return l;
+}
+
 // A section heading: its name and a line under it to the column's right edge. Returns the y of the next row.
 inline int drawSectionHeader(draw::Canvas& c, int x0, int colRight, int y, int rowH, const std::wstring& name, bool changed = false) {
     c.text({x0, y, colRight, y + rowH}, name, changed ? kGood : kText, draw::kMiddle);
