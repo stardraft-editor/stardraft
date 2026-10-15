@@ -153,20 +153,6 @@ int paintRequirementList(HDC dc, const FormLayout& l, int k, int entry, int y) {
 
 int gWireframeTop = -1;  // where the last painted Display section's wireframe rows start (form content; the self-test)
 
-// The wireframes of the art View shows (SD, HD2 or the Carbot skin), loaded when first shown; nullptr when the
-// game's files do not have them.
-Wireframes* wireframeSet(WireKind kind) {
-    static std::map<std::pair<int, int>, std::unique_ptr<Wireframes>> sets;  // (kind, art)
-    const int art = app.carbot ? 2 : app.quality == GraphicsQuality::SD ? 0 : 1;
-    auto& s = sets[{int(kind), art}];
-    if (!s) {
-        s = std::make_unique<Wireframes>();
-        std::string err;
-        if (!s->load(app.data, kind, art != 0, art == 2, err)) *s = {};
-    }
-    return s->count() ? s.get() : nullptr;
-}
-
 // The Display section (core/views_data_display.inc: paintUnitDisplay): the Windows program's side of it, its kit
 // faces, the list pickers, the names, the wireframe sets and the sprite blit.
 struct WinUnitDisplay final : UnitDisplayHost {

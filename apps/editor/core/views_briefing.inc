@@ -108,3 +108,29 @@ int briefTagAt(const std::vector<FlatAction>& flat, int at) {
     if (!flat.empty()) return flat.back().trig;
     return -2;
 }
+
+// The row of a briefing's action in the rows of the briefing shown (briefRows); -1 when it is not there.
+int briefRowOf(int trig, int act) {
+    for (size_t i = 0; i < gBriefRows.size(); ++i)
+        if (gBriefRows[i].trig == trig && gBriefRows[i].act == act) return int(i);
+    return -1;
+}
+// The briefings that use a sound (the Files page's References panel): the first action of each briefing (by its
+// players) that plays it. The names compare without case, as the archive's names do.
+std::vector<FilesUse> soundUsesOf(const std::string& name) {
+    std::vector<FilesUse> out;
+    if (!shellState().ed || name.empty()) return out;
+    const auto same = [](const std::string& x, const std::string& y) {
+        return x.size() == y.size() && std::equal(x.begin(), x.end(), y.begin(), [](char p, char q) {
+                   return std::tolower(static_cast<unsigned char>(p)) == std::tolower(static_cast<unsigned char>(q));
+               });
+    };
+    const auto& b = briefings();
+    for (size_t t = 0; t < b.size(); ++t)
+        for (size_t a = 0; a < b[t].actions.size(); ++a) {
+            if (!same(b[t].actions[a].wav, name)) continue;
+            if (std::none_of(out.begin(), out.end(), [&](const FilesUse& u) { return b[size_t(u.trig)].players == b[t].players; }))
+                out.push_back({int(t), int(a), whoName(b[t].players)});
+        }
+    return out;
+}

@@ -344,6 +344,7 @@ int main(int argc, char** argv) {
     }
     releasePaletteArt();  // its pictures' textures: before the device goes
     releaseDataPictures();  // the Data pictures' textures too (core/views_data_pictures.inc)
+    sdlDataExtrasRelease();  // the Display section's wireframes (sdl_data_extras.inc)
     kit_sdl::unloadIconAtlases();
     gRenderer = nullptr;
     gDevice = nullptr;
