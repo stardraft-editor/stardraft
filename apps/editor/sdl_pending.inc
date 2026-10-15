@@ -23,6 +23,33 @@ void tilesPanelRepaint() {}
 void tilesPanelClearSearch() {}
 bool trigUnitPickClick(float, float) { return false; }
 
+// (until it is in the core) The camera stays near the map: at most half a view past each edge; a map smaller than the view
+// keeps its middle in the view's middle on that axis (the Windows program's clamp; the view's size comes from the shell).
+void clampCamera() {
+    if (!gState.ed || !gState.ed->isOpen() || gState.zoom <= 0) return;
+    int viewW = 0, viewH = 0;
+    shellViewSize(viewW, viewH);
+    const float vw = viewW / gState.zoom, vh = viewH / gState.zoom;
+    const float mw = gState.ed->width() * 32.0f, mh = gState.ed->height() * 32.0f;
+    auto clampAxis = [](float& cam, float view, float map) {
+        if (map < view) {
+            cam = std::clamp(cam, map / 2 - view, map / 2);
+            return;
+        }
+        cam = std::clamp(cam, -view / 2, map - view / 2);
+    };
+    clampAxis(gState.camX, vw, mw);
+    clampAxis(gState.camY, vh, mh);
+}
+
+// (until it is in the core) The right button paints with the second terrain (isometric terrain with a second terrain,
+// as the Windows program's rightPaints); the other right clicks do nothing here (its map menu is not on this system yet).
+bool rightPaints() {
+    const int tool = currentTool();
+    return gState.ed && gState.mode == Mode::Terrain && !gState.terrainRect && gState.palette2 > 0 &&
+           (tool == TBrush || tool == TSpray || tool == TFill || tool == TReplace);
+}
+
 // (until it is in the core) The startup timing marks are the Windows program's (its Log shows them).
 void startMark(const char*) {}
 
