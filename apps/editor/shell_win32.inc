@@ -289,3 +289,13 @@ std::uintptr_t shellStartElevated(const std::filesystem::path& exe, const std::f
 bool shellProcessEnded(std::uintptr_t process) { return WaitForSingleObject(HANDLE(process), 0) == WAIT_OBJECT_0; }
 void shellProcessClose(std::uintptr_t process) { CloseHandle(HANDLE(process)); }
 void shellChooseInstallFolder() { chooseInstallFolder(); }
+// (the active window owns the picker: the dialog that asks, else the main window)
+std::wstring shellPickFolder(const std::wstring& title) {
+    HWND owner = GetActiveWindow();
+    const auto picked = platform::pickFolderDialog(owner ? owner : app.main, narrow(title));
+    return picked ? picked->wstring() : std::wstring();
+}
+std::wstring shellPickOutputFile(const std::wstring& name) {
+    HWND owner = GetActiveWindow();
+    return pickOutputFile(owner ? owner : app.main, name);
+}

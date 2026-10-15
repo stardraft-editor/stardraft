@@ -467,6 +467,7 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_new_page_paint.inc"
 #include "core/views_options.inc"  // Program options' view (OptionsView; the host is options_window.inc)
 #include "core/views_feedback.inc"  // the feedback dialog's view (FeedbackView; the host is feedback.inc and feedback_window.inc)
+#include "core/views_new_project.inc"  // File > New EUD project (NewProjectView, runNewProjectDialog; the host is new_project_window.inc)
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
 
 void rebuildList() { rebuildList(app); }
@@ -1728,16 +1729,8 @@ void buildFinished(euddraft::BuildResult* r) {
     delete r;
 }
 
-// New project: name, folder, what to start from; the folder layout is spelled out before it is made.
-struct ProjectDialog {
-    HWND wnd = nullptr, name = nullptr, location = nullptr, output = nullptr, start = nullptr, info = nullptr;
-    bool accepted = false;
-    std::wstring nameText, locationText, outputText;  // outputText empty: <name>_EUD.scx in the project folder
-    bool fromOpenMap = true;
-};
-ProjectDialog* gProjDlg = nullptr;
-std::wstring pickOutputFile(HWND owner, const std::wstring& current);
-void (*gProjectHook)(HWND) = nullptr;  // self-test
+// File > New EUD project: the dialog is a core view (core/views_new_project.inc; the host is new_project_window.inc).
+void showProjectDialog();
 
 // The working folder: new projects go there (Program options > Working folder; Documents\StarDraft by default).
 fs::path defaultProjectsFolder() {
@@ -1754,140 +1747,6 @@ std::wstring windowText(HWND w) {
     GetWindowTextW(w, t.data(), int(t.size()));
     t.resize(wcslen(t.c_str()));
     return t;
-}
-
-void projectDialogInfo(ProjectDialog& d) {
-    const std::wstring name = windowText(d.name);
-    const std::wstring n = name.empty() ? L"<name>" : name;
-    // The folder sketch: names padded to one column, whatever the project is called.
-    const std::pair<std::wstring, std::wstring> rows[] = {
-        {L"project.stardraft", L"the project file"},
-        {n + L".scx", L"the map you edit here (Brood War format)"},
-        {n + L".eds", L"euddraft's build file: Build writes it"},
-        {n + L"_EUD.scx", d.output && GetWindowTextLengthW(d.output) ? L"the built map: Build (Ctrl+B) writes it to the Output file"
-                                                                     : L"the built map: Build (Ctrl+B) writes it"},
-        {L"scripts\\main.eps", L"your code (epScript). To add more, use File > Project > Add script."},
-    };
-    size_t col = 0;
-    for (const auto& r : rows) col = std::max(col, r.first.size());
-    std::wstring sketch;
-    for (const auto& r : rows) sketch += L"  " + r.first + std::wstring(col + 3 - r.first.size(), L' ') + r.second + L"\r\n";
-    const std::wstring text =
-        L"StarDraft 2 makes the folder " + n + L"\\ in the location above:\r\n\r\n" + sketch + L"\r\n"
-        L"On the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\n"
-        L"StarDraft 2 does not change other copies on this computer. A map that you open\r\n"
-        L"stays a regular map. Only a project can be built.";
-    SetWindowTextW(d.info, text.c_str());
-}
-
-std::wstring pickFolderTitled(const wchar_t* title);
-
-LRESULT CALLBACK projectDialogProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    ProjectDialog* d = gProjDlg;
-    switch (msg) {
-    case WM_CREATE: {
-        BOOL dark = !gLightTheme;
-        DwmSetWindowAttribute(hwnd, 20, &dark, sizeof dark), titleColors(hwnd);
-        d->wnd = hwnd;
-        const int pad = scale(ui::kDialogPad), rowH = scale(ui::kFieldH), labelW = scale(96), boxW = scale(560);
-        int y = pad;
-        auto label = [&](const wchar_t* t) {
-            HWND h = CreateWindowExW(0, WC_STATICW, t, WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, pad, y, labelW - scale(8), rowH, hwnd, nullptr, app.inst, nullptr);
-            SendMessageW(h, WM_SETFONT, WPARAM(app.font), TRUE);
-        };
-        auto edit = [&](int id, int x, int w, const std::wstring& text) {
-            HWND h = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, text.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL, x, y, w, rowH, hwnd,
-                                     HMENU(INT_PTR(id)), app.inst, nullptr);
-            SendMessageW(h, WM_SETFONT, WPARAM(app.font), TRUE);
-            darkControl(h, L"DarkMode_CFD");
-            return h;
-        };
-        label(L"Name");
-        std::wstring def = L"MyMap";
-        if (app.ed && !app.ed->path().empty()) def = app.ed->path().stem().wstring();
-        d->name = edit(1401, pad + labelW, boxW, def);
-        y += scale(ui::kFormRowH);
-        label(L"Location");
-        const int bw = scale(ui::kButtonMinW);
-        d->location = edit(1402, pad + labelW, boxW - bw - scale(8), defaultProjectsFolder().make_preferred().wstring());
-        HWND browse = CreateWindowExW(0, WC_BUTTONW, L"Browse\x2026", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, pad + labelW + boxW - bw, y, bw, rowH,
-                                      hwnd, HMENU(1403), app.inst, nullptr);
-        SendMessageW(browse, WM_SETFONT, WPARAM(app.font), TRUE);
-        darkControl(browse, L"DarkMode_Explorer");
-        y += scale(ui::kFormRowH);
-        label(L"Output file");
-        d->output = edit(1406, pad + labelW, boxW - bw - scale(8), L"");
-        SendMessageW(d->output, EM_SETCUEBANNER, TRUE, LPARAM(L"<name>_EUD.scx in the project folder"));
-        HWND browseOut = CreateWindowExW(0, WC_BUTTONW, L"Browse\x2026", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, pad + labelW + boxW - bw, y, bw,
-                                         rowH, hwnd, HMENU(1405), app.inst, nullptr);
-        SendMessageW(browseOut, WM_SETFONT, WPARAM(app.font), TRUE);
-        darkControl(browseOut, L"DarkMode_Explorer");
-        y += scale(ui::kFormRowH);
-        label(L"Start from");
-        d->start = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST, pad + labelW, y, boxW, scale(200), hwnd,
-                                   HMENU(1404), app.inst, nullptr);
-        SendMessageW(d->start, WM_SETFONT, WPARAM(app.font), TRUE);
-        darkControl(d->start, L"DarkMode_CFD");
-        const bool haveMap = app.ed && app.ed->isOpen();
-        if (haveMap) SendMessageW(d->start, CB_ADDSTRING, 0, LPARAM((L"The open map (" + docTitle(gActive, false) + L")").c_str()));
-        SendMessageW(d->start, CB_ADDSTRING, 0, LPARAM(L"A new blank map (128 x 128 Badlands)"));
-        SendMessageW(d->start, CB_SETCURSEL, 0, 0);
-        y += scale(ui::kFormRowH);
-        d->info = CreateWindowExW(0, WC_STATICW, L"", WS_CHILD | WS_VISIBLE, pad, y, labelW + boxW, scale(190), hwnd, nullptr, app.inst, nullptr);
-        SendMessageW(d->info, WM_SETFONT, WPARAM(monoFont()), TRUE);  // the folder sketch lines up
-        y += scale(190) + pad;
-        const int bh = scale(ui::kButtonH);
-        const wchar_t* names[2] = {L"Create", L"Cancel"};
-        const int ids[2] = {IDOK, IDCANCEL};
-        for (int i = 0; i < 2; ++i) {
-            HWND b = CreateWindowExW(0, WC_BUTTONW, names[i], WS_CHILD | WS_VISIBLE | WS_TABSTOP | (i == 0 ? BS_DEFPUSHBUTTON : BS_PUSHBUTTON),
-                                     pad + labelW + boxW - (2 - i) * bw - (1 - i) * scale(8), y, bw, bh, hwnd, HMENU(INT_PTR(ids[i])), app.inst, nullptr);
-            SendMessageW(b, WM_SETFONT, WPARAM(app.font), TRUE);
-            darkControl(b, L"DarkMode_Explorer");
-        }
-        ui::nativeButtonsRight({ui::dlgButton(hwnd, IDOK), ui::dlgButton(hwnd, IDCANCEL)}, pad + labelW + boxW, y);
-        projectDialogInfo(*d);
-        RECT r{0, 0, pad + labelW + boxW + pad, y + bh + pad};
-        AdjustWindowRectExForDpi(&r, WS_CAPTION | WS_SYSMENU, FALSE, WS_EX_DLGMODALFRAME, app.dpi);
-        SetWindowPos(hwnd, nullptr, 0, 0, r.right - r.left, r.bottom - r.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-        return 0;
-    }
-    case WM_COMMAND: {
-        const int id = LOWORD(wp), code = HIWORD(wp);
-        if ((id == 1401 || id == 1402 || id == 1406) && code == EN_CHANGE) projectDialogInfo(*d);
-        if (id == 1405) {
-            const std::wstring file = pickOutputFile(hwnd, windowText(d->name) + L"_EUD.scx");
-            if (!file.empty()) SetWindowTextW(d->output, file.c_str());
-        }
-        if (id == 1403) {
-            const std::wstring dir = pickFolderTitled(L"Select the folder for the project");
-            if (!dir.empty()) SetWindowTextW(d->location, dir.c_str());
-        }
-        if (id == IDOK || id == IDCANCEL) {
-            d->accepted = id == IDOK;
-            d->nameText = windowText(d->name), d->locationText = windowText(d->location), d->outputText = windowText(d->output);
-            const bool haveMap = SendMessageW(d->start, CB_GETCOUNT, 0, 0) > 1;
-            d->fromOpenMap = haveMap && SendMessageW(d->start, CB_GETCURSEL, 0, 0) == 0;
-            DestroyWindow(hwnd);
-        }
-        return 0;
-    }
-    case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORSTATIC:
-    case WM_CTLCOLORLISTBOX:
-    case WM_CTLCOLORBTN: {
-        HDC dc = HDC(wp);
-        const bool info = HWND(lp) == d->info;
-        SetTextColor(dc, info || msg == WM_CTLCOLORSTATIC ? kDim : kText);  // labels: ui::fieldLabel
-        SetBkColor(dc, msg == WM_CTLCOLORSTATIC ? kBg : kCtl);
-        return LRESULT(msg == WM_CTLCOLORSTATIC ? app.bgBrush : app.ctlBrush);
-    }
-    case WM_CLOSE:
-        d->accepted = false;
-        DestroyWindow(hwnd);
-        return 0;
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
 void newMap();
@@ -1919,40 +1778,6 @@ bool createProject(const fs::path& parent, const std::string& name, bool fromOpe
     setMessage(L"Created the project " + widen(name) + L" in " + pr.folder().wstring() + L" (Build: Ctrl+B)" +
                (classic ? L". The project's map keeps its classic triggers, unit, upgrade and technology settings, and briefings. Scenario > Classic triggers shows the triggers." : L""));
     return true;
-}
-
-void showProjectDialog() {
-    static bool registered = false;
-    if (!registered) {
-        WNDCLASSEXW wc{sizeof wc};
-        wc.lpfnWndProc = projectDialogProc;
-        wc.hInstance = app.inst;
-        wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-        wc.hbrBackground = app.bgBrush;
-        wc.lpszClassName = L"StarDraftNewProject";
-        RegisterClassExW(&wc);
-        registered = true;
-    }
-    ProjectDialog d;
-    gProjDlg = &d;
-    RECT mr;
-    GetWindowRect(app.main, &mr);
-    const int w = scale(700), h = scale(420);
-    HWND wnd = CreateWindowExW(WS_EX_DLGMODALFRAME | WS_EX_CONTROLPARENT | (gBackground ? WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW : 0), L"StarDraftNewProject", L"New EUD project",
-                               WS_CAPTION | WS_SYSMENU | (gBackground ? 0 : WS_VISIBLE), mr.left + (mr.right - mr.left - w) / 2,
-                               mr.top + (mr.bottom - mr.top - h) / 2, w, h, app.main, nullptr, app.inst, nullptr);
-    if (gBackground) ShowWindow(wnd, SW_SHOWNOACTIVATE);
-    EnableWindow(app.main, FALSE);
-    if (gProjectHook) gProjectHook(wnd);
-    MSG msg;
-    while (IsWindow(wnd) && GetMessageW(&msg, nullptr, 0, 0)) dialogMessage(msg, wnd);
-    EnableWindow(app.main, TRUE);
-    if (!gBackground) SetForegroundWindow(app.main);
-    gProjDlg = nullptr;
-    if (!d.accepted) return;
-    std::string err;
-    if (!createProject(fs::path(d.locationText), narrow(d.nameText), d.fromOpenMap, err, fs::path(d.outputText)))
-        themedMessageBox(app.main, widen(err).c_str(), L"Could not create the project", MB_ICONERROR);
 }
 
 #include "feedback.inc"
@@ -3775,6 +3600,7 @@ HWND tabsWindow(stardraft::draw::View& v) { return ui::Win32Host::windowOf(v); }
 #include "about.inc"
 int volumeRow(HDC dc, int x, int y, int labelW, int right, std::vector<DataWidgetHit>& hits);
 #include "options_window.inc"
+#include "new_project_window.inc"  // File > New EUD project's Windows host (core/views_new_project.inc)
 #include "feedback_window.inc"
 #include "classic_settings.inc"
 
@@ -18314,13 +18140,11 @@ int runSelfTest(const fs::path& dir) {
         dialogShot = dir / "60_new_project_dialog.png";
         std::error_code pec;
         fs::remove_all(projDir, pec);
-        gProjectHook = [](HWND w) {
-            SetWindowTextW(gProjDlg->name, L"SelfTest");
-            SetWindowTextW(gProjDlg->location, projDir.wstring().c_str());
-            SendMessageW(gProjDlg->start, CB_SETCURSEL, 1, 0);  // a new blank map
+        gProjectHook = [](NewProjectView& v, HWND w) {
+            v.fill(L"SelfTest", projDir.wstring(), 1);  // a new blank map
             for (int i = 0; i < 5; ++i) pump();
-            capture(dialogShot, w);
-            PostMessageW(w, WM_COMMAND, IDOK, 0);
+            if (w) capture(dialogShot, w);
+            v.create();
         };
         command(ID_PROJ_FROMMAP);
         gProjectHook = nullptr;
@@ -21074,21 +20898,13 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 continue;
             }
             if (s == "projectdlg:") {  // projectdlg_<dark|light>.png: File > New EUD project's window, then Cancel
-                static fs::path shot;
-                gProjectHook = [](HWND w) {
-                    for (int i = 0; i < 3; ++i) pump();
-                    capture(shot, w);
-                    PostMessageW(w, WM_CLOSE, 0, 0);
-                };
                 const bool wasLight = gLightTheme;
                 for (int light = 0; light < 2; ++light) {
                     applyTheme(light != 0, gAccentIndex);
                     for (int i = 0; i < 5; ++i) pump();
-                    shot = fs::path(datashots) / (std::string("projectdlg_") + (light ? "light" : "dark") + ".png");
-                    showProjectDialog();
+                    newProjectShot(fs::path(datashots) / (std::string("projectdlg_") + (light ? "light" : "dark") + ".png"));
                 }
                 applyTheme(wasLight, gAccentIndex);
-                gProjectHook = nullptr;
                 continue;
             }
             if (s == "msgbox:") {

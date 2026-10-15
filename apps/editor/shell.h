@@ -153,3 +153,7 @@ bool shellProcessEnded(std::uintptr_t process);
 void shellProcessClose(std::uintptr_t process);
 // File > Options > StarCraft folder: another install is chosen (used from the next start).
 void shellChooseInstallFolder();
+// A folder picker with the title (File > New EUD project's Browse): the folder, or empty when none is picked.
+std::wstring shellPickFolder(const std::wstring& title);
+// The file that Build writes (a .scx), `name` the file name to start with: the file, or empty when none is picked.
+std::wstring shellPickOutputFile(const std::wstring& name);
