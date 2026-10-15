@@ -341,7 +341,47 @@ void TextField::updateCaretRect() {
 
 // --- Painting -----------------------------------------------------------------------------------------------------
 
+std::vector<MenuItem> TextField::editMenu() {
+    const bool ro = model_.readOnly(), sel = model_.hasSelection();
+    std::weak_ptr<bool> alive = alive_;
+    auto item = [&](const wchar_t* label, const wchar_t* keys, bool on, std::function<void()> run) {
+        MenuItem m;
+        m.label = label;
+        m.shortcut = keys;
+        m.enabled = on;
+        m.run = [alive, run = std::move(run)] {
+            if (alive.lock()) run();
+        };
+        return m;
+    };
+    MenuItem sep;
+    sep.separator = true;
+    return {
+        item(L"Undo", L"Ctrl+Z", !ro && model_.canUndo(), [this] { edit([this] { return model_.undo(); }); }),
+        sep,
+        item(L"Cut", L"Ctrl+X", !ro && sel, [this] {
+            copySelection();
+            edit([this] { return model_.deleteSelection(); });
+        }),
+        item(L"Copy", L"Ctrl+C", sel, [this] { copySelection(); }),
+        item(L"Paste", L"Ctrl+V", !ro, [this] { paste(); }),
+        item(L"Delete", L"Del", !ro && sel, [this] { edit([this] { return model_.deleteSelection(); }); }),
+        sep,
+        item(L"Select All", L"Ctrl+A", !model_.text().empty(), [this] {
+            model_.selectAll();
+            goalX_ = -1;
+            afterAction();
+        }),
+    };
+}
+
+void TextField::openEditMenu(draw::Point at) {
+    const std::vector<MenuItem> items = editMenu();
+    Menu::popup(*this, at, items, menuLayout_.size.x ? menuLayout_ : Menu::measure(items));
+}
+
 void TextField::paint(draw::Canvas& c) {
+    menuLayout_ = Menu::measure(editMenu(), &c);  // the menu's size (the labels do not change)
     const Theme& th = theme();
     // The field box, as ui_kit.inc's fieldBox: Hot, ReadOnly, Changed, then Focus over them.
     draw::Color fill = th.ctl, line = th.border;
@@ -524,8 +564,13 @@ bool TextField::mouse(const draw::MouseEvent& e) {
         return true;
     case MouseKind::Leave:
         if (hot_) hot_ = false, invalidate();
+        if (onHoverEnd) onHoverEnd();
         return false;
     case MouseKind::Down: {
+        if (e.button == 1) {
+            openEditMenu(e.pt);
+            return true;
+        }
         if (e.button != 0) return false;
         const auto now = std::chrono::steady_clock::now();
         const bool triple = clicks_ == 2 && doublePt_.x == e.pt.x && doublePt_.y == e.pt.y &&

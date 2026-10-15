@@ -20180,7 +20180,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                                        HMENU(IDC_PALVIEW), app.inst, nullptr);
         gSectionBox.dropdown().onChange = [](int i) {
             setPaletteSection(i);
-            SetFocus(app.view);
+            if (!gWheelDispatch) SetFocus(app.view);  // the keys' choice goes back to the map; the wheel leaves the focus
         };
         gPal.sectionBox = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD, 0, 0, 0, 0, hwnd, HMENU(IDC_PALSECTION), app.inst, &gSectionBox);
         gPal.wnd = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, hwnd, nullptr,
@@ -28269,7 +28269,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             if (rightClick) gMenuShown = false;
             TranslateMessage(&msg);
             const auto d0 = std::chrono::steady_clock::now();
+            gWheelDispatch = msg.message == WM_MOUSEWHEEL;  // a wheel step on the section box keeps the focus
             DispatchMessageW(&msg);
+            gWheelDispatch = false;
             if (const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - d0).count(); ms > 0.5) {
                 wchar_t wc[48] = L"";
                 if (msg.hwnd) GetClassNameW(msg.hwnd, wc, 48);

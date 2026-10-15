@@ -1,8 +1,8 @@
 // --- Search boxes: kit text fields ------------------------------------------------------------------------------------
 // The Locations filter (app.filter) and the palette search are kit text fields (apps/kit/text_field.h) in view windows
-// (ui::kViewClass). The field fills the window; at its right an x clears it while there is text. The text's changes
-// call onChange (as EN_CHANGE did), and so does the x: a native clear sent no EN_CHANGE, so the list did not refresh
-// (a deliberate change). setText does not call onChange (as SetWindowText did not).
+// (ui::kViewClass). The field fills the window; at its right an x clears it while there is text. Every change of the
+// text calls onChange, as EN_CHANGE did: the typing, the paste, the x and setText (a native SetWindowText sent
+// EN_CHANGE too), so the list refreshes at once.
 // Included by main.cpp before rebuildList (after the tokens and the App).
 
 // The kit's widgets draw with the editor's tokens and the window's scale (apps/kit/theme.h); the editor calls this when
@@ -30,13 +30,20 @@ public:
             invalidate();
             if (onChange) onChange();
         };
+        field_.onHoverEnd = [this] {  // the mouse left the field (over the x too): the x is no longer hot
+            if (hot_) hot_ = false, invalidate();
+        };
         add(field_, {0, 0, 0, 0});
     }
-    std::function<void()> onChange;  // the user changed the text
+    std::function<void()> onChange;  // the text changed
 
     stardraft::kit::TextField& field() { return field_; }
     std::wstring text() const { return field_.text(); }
-    void setText(std::wstring t) { field_.setText(std::move(t)); }  // no onChange
+    void setText(std::wstring t) {  // onChange runs, as for an edit box's SetWindowText (EN_CHANGE)
+        field_.setText(std::move(t));
+        invalidate();
+        if (onChange) onChange();
+    }
     void setPlaceholder(std::wstring t) { field_.setPlaceholder(std::move(t)); }
 
     void resized() override {
@@ -57,10 +64,8 @@ public:
             return false;
         case draw::MouseKind::Down:
             if (on && e.button == 0) {
-                field_.setText(L"");
+                setText(L"");
                 field_.focus();
-                invalidate();
-                if (onChange) onChange();
                 return true;
             }
             return false;
@@ -77,7 +82,7 @@ private:
         return {width() - s, 0, width(), height()};
     }
 
-    stardraft::kit::TextField field_;
+    stardraft::kit::TextField field_;  // the field covers the box, so it gets the mouse events (the x's hover too)
     bool hot_ = false;  // the pointer is over the x
 };
 
@@ -97,6 +102,9 @@ private:
 };
 
 DropdownBox gSectionBox;  // the palette's section box (Units, Doodads, Sprites)
+
+// The message being dispatched is a mouse wheel one (set by the message loop around DispatchMessageW).
+bool gWheelDispatch = false;
 
 // Whether a search box's field has the keyboard (the message loop leaves its keys to it, as to an edit control).
 bool searchBoxFocused() { return gFilterBox.field().hasFocus() || gPalSearchBox.field().hasFocus(); }
