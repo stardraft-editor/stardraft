@@ -35,6 +35,11 @@ run dat_test "$build/dat_test" "$install" "$maps/BroodWar/(2)Binary Burghs.scx" 
 if [[ -x "$build/terrain_render_test" ]]; then
     run terrain_render_test "$build/terrain_render_test" "$install" "$maps"
 fi
+# The editor on SDL: each workspace and dialog, with the game data and a map open (tools/sdl_snapshots.py).
+if [[ -x "$build/stardraft" ]]; then
+    run sdl_snapshots python3 -I "$(dirname "$0")/../sdl_snapshots.py" --exe "$build/stardraft" --out "$(s sdl_snapshots)" \
+        --install "$install" --map "$maps/(2)Bottleneck.scm"
+fi
 
 if ((${#failed[@]})); then
     echo "failed: ${failed[*]}"

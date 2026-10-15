@@ -269,6 +269,21 @@ jobs:
           SDL_VIDEODRIVER: offscreen
         run: build-gcc/stardraft --workspace files --snapshot editor-linux-files.png
 
+      # Each workspace and dialog of the editor on SDL (tools/sdl_snapshots.py): a run exits with 0 and writes a PNG
+      # that is not one flat color. No game data and no map here: the cases that need them are skipped (the list is in
+      # summary.txt).
+      - name: Snapshot each workspace and dialog
+        env:
+          SDL_VIDEODRIVER: offscreen
+        run: python3 -I tools/sdl_snapshots.py --exe build-gcc/stardraft --out sdl-snapshots
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sdl-snapshots-linux-${{ github.sha }}
+          path: sdl-snapshots
+          if-no-files-found: warn
+
       - name: Pack the editor
         if: always()
         run: tar -C build-gcc -czf stardraft-linux.tar.gz stardraft res fonts
@@ -348,6 +363,18 @@ jobs:
         continue-on-error: true
         run: build/stardraft.app/Contents/MacOS/stardraft --workspace files --snapshot editor-macos-files.png
 
+      # Each workspace and dialog (tools/sdl_snapshots.py), as on Linux. Metal as above: a failure does not stop the run.
+      - name: Snapshot each workspace and dialog (Metal)
+        continue-on-error: true
+        run: python3 -I tools/sdl_snapshots.py --exe build/stardraft.app/Contents/MacOS/stardraft --out sdl-snapshots
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sdl-snapshots-macos-${{ github.sha }}
+          path: sdl-snapshots
+          if-no-files-found: warn
+
       - name: Pack the editor
         if: always()
         run: tar -C build -czf stardraft-macos.tar.gz stardraft.app
@@ -380,6 +407,14 @@ jobs:
         env:
           SDL_VIDEODRIVER: offscreen
         run: bash tools/ci/linux_data_tests.sh build "${STARDRAFT_SC_INSTALL:-$HOME/scmirror}" "$RUNNER_TEMP/data-tests"
+
+      # The editor's snapshots with the game data and a map open (tools/sdl_snapshots.py, from the step above).
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sdl-snapshots-linux-data-${{ github.sha }}
+          path: ${{ runner.temp }}/data-tests/sdl_snapshots
+          if-no-files-found: warn
 
   # The Windows build under Wine on Linux (research/ports/PLAN.md, phase 2): the renderer on Vulkan (Wine passes it to
   # the system's Vulkan, here lavapipe) and on Direct3D 12 (Wine's vkd3d makes it Vulkan). Only reports: Wine is a
