@@ -195,79 +195,12 @@ const UnitPalette::Bitmap* tabEntryIcon(int tab, int e) {
 
 // --- Game text, drawn as the game colors it ------------------------------------------------------------------
 
-// (The game's text colors, gameTextColor and briefingTextColor: game_text.inc.)
+// (The game's text colors and the Canvas paint, drawGameText: core/game_text_model.inc.)
 // Draws `raw` (UTF-8 with the game's control bytes) in `r`, line by line; returns the height used. `briefing`: the
 // colors of mission briefings.
 int drawGameText(HDC dc, RECT r, const std::string& raw, COLORREF normal, int lineHeight = 0, bool briefing = false) {
-    TEXTMETRICW tm;
-    GetTextMetricsW(dc, &tm);
-    const int lh = lineHeight ? lineHeight : tm.tmHeight + scale(2), width = r.right - r.left;
-    int y = r.top;
-    COLORREF color = normal;
-    // A line of colored pieces, wrapped at the box's width between words.
-    struct Piece {
-        std::wstring text;
-        COLORREF color;
-        int w;
-    };
-    auto drawLine = [&](const std::vector<Piece>& pieces, int align) {
-        int w = 0;
-        for (const auto& p : pieces) w += p.w;
-        int x = align == 1 ? r.right - w : align == 2 ? r.left + (width - w) / 2 : r.left;
-        for (const auto& p : pieces) {
-            if (p.color != kInvisibleText) SetTextColor(dc, p.color), TextOutW(dc, x, y, p.text.c_str(), int(p.text.size()));
-            x += p.w;
-        }
-        y += lh;
-    };
-    auto measure = [&](const std::wstring& t) {
-        SIZE sz{};
-        GetTextExtentPoint32W(dc, t.c_str(), int(t.size()), &sz);
-        return int(sz.cx);
-    };
-    size_t i = buttonPrefix(raw) ? 2 : 0;
-    while (i <= raw.size()) {
-        size_t end = raw.find('\n', i);
-        if (end == std::string::npos) end = raw.size();
-        // Words (a word keeps the spaces after it), each in its colors.
-        std::vector<std::vector<Piece>> words;
-        std::vector<Piece> word;
-        int align = 0;
-        std::string run;
-        bool space = false;
-        auto flushRun = [&] {
-            if (!run.empty()) word.push_back({widen(run), color, 0}), run.clear();
-        };
-        auto flushWord = [&] {
-            flushRun();
-            if (!word.empty()) words.push_back(std::move(word)), word.clear();
-        };
-        for (size_t k = i; k < end; ++k) {
-            const unsigned char c = static_cast<unsigned char>(raw[k]);
-            if (c == 0x12) align = 1;
-            else if (c == 0x13) align = 2;
-            else if (c < 0x20) {
-                if (const COLORREF nc = briefing ? briefingTextColor(c, normal) : gameTextColor(c, normal); nc != 0xFFFFFFFF) flushRun(), color = nc;
-            } else {
-                if (c != ' ' && space) flushWord(), space = false;
-                run += char(c);
-                if (c == ' ') space = true;
-            }
-        }
-        flushWord();
-        std::vector<Piece> lineNow;
-        int x = 0;
-        for (auto& wd : words) {
-            int ww = 0;
-            for (auto& p : wd) p.w = measure(p.text), ww += p.w;
-            if (x > 0 && x + ww > width) drawLine(lineNow, align), lineNow.clear(), x = 0;
-            for (auto& p : wd) lineNow.push_back(p);
-            x += ww;
-        }
-        drawLine(lineNow, align);
-        i = end + 1;
-    }
-    return y - r.top;
+    ui::Paint p(dc);
+    return drawGameText(*p, draw::Rect(r), raw, normal, lineHeight, briefing);
 }
 
 // --- Common parts ----------------------------------------------------------------------------------------------
@@ -523,26 +456,12 @@ std::wstring buttonCost(const Button& b, int type) {
     return buttonCostText(b, type, [](const std::string& dat, const std::string& name, int e) { return datValue(dat, name, e); });
 }
 
-// The tooltip as the game shows it: the text, and the cost line its type adds.
+// The tooltip as the game shows it: the text, and the cost line its type adds (core/views_data_button_pop.inc).
 int paintButtonTooltip(HDC dc, RECT box, const Button& b) {
     if (!b.enabledString) return 0;
     const std::string& raw = gExtras.strings.text(b.enabledString - 1);
-    const int type = buttonPrefix(raw) ? raw[1] : 0;
-    const std::wstring cost = buttonCost(b, type);
-    TEXTMETRICW tm;
-    GetTextMetricsW(dc, &tm);
-    const int lines = 1 + int(std::count(raw.begin(), raw.end(), '\n')) + (cost.empty() ? 0 : 1);
-    box.bottom = box.top + lines * (tm.tmHeight + scale(2)) + scale(16);
-    fillAlpha(dc, box, RGB(8, 8, 10), 255);
-    roundBox(dc, box, scale(4), RGB(60, 64, 70));
-    RECT tr{box.left + scale(10), box.top + scale(8), box.right - scale(10), box.bottom};
-    const int h = drawGameText(dc, tr, raw, RGB(208, 208, 208));
-    if (!cost.empty()) {
-        RECT cr{tr.left, tr.top + h, tr.right, tr.top + h + tm.tmHeight + scale(2)};
-        SetTextColor(dc, RGB(150, 190, 220));
-        DrawTextW(dc, cost.c_str(), -1, &cr, DT_SINGLELINE | DT_VCENTER);
-    }
-    return box.bottom - box.top;
+    ui::Paint p(dc);
+    return paintButtonTooltip(*p, draw::Rect(box), raw, buttonCost(b, buttonPrefix(raw) ? raw[1] : 0));
 }
 
 // The command card: 3 x 3 cells, each with its button's icon. Click selects (again: the next button in that
@@ -844,206 +763,68 @@ void paintButtonsForm(HDC dc, RECT rc, int& y) {
 
 // --- A whole button, in a pop-out (a trigger's Replace a button) ------------------------------------------------
 
-struct ButtonPop {
+// The pop-out's view is core/views_data_button_pop.inc (ButtonPopView); this is the Windows program's side of it: the
+// host (the icons, the names, the list pickers below the boxes) and the window with its own message loop.
+struct ButtonPop final : ButtonPopHost {
     HWND wnd = nullptr;
-    Button b;
     bool done = false, accepted = false, picking = false;
-    std::vector<DataWidgetHit> hits;
-    RECT ok{}, cancel{};
+    draw::Image icon(const char* dat, int entry) override { return ui::imageOf(datRefIcon(dat, uint32_t(entry))); }
+    draw::Image argIcon(const char* kind, int v) override { return ui::imageOf(::argIcon(kind, v)); }
+    std::wstring argName(const char* kind, int v) override { return ::argName(kind, v); }
+    std::wstring stringLine(int id) override { return statString(id); }
+    std::string stringBytes(int id) override { return id >= 1 && id <= gExtras.strings.count() ? gExtras.strings.text(id - 1) : std::string(); }
+    std::wstring cost(const Button& b, int type) override { return buttonCost(b, type); }
+    std::vector<ListPickItem> entryItems(const char* kind, bool none) override { return ::entryItems(kind, none); }
+    std::vector<Button> buttonSet(int set) override { return gExtras.buttons.set(set); }
+    std::wstring buttonLabel(const Button& b) override { return buttonRowText(b); }
+    bool choose(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, draw::Rect box, std::string& out) override {
+        POINT at{box.left, box.bottom + scale(2)};  // (the pickers open below the box, as belowBox has it)
+        ClientToScreen(wnd, &at);
+        picking = true;  // (the picker takes the focus: the pop-out stays)
+        const bool r = showListPicker(prompt, std::move(items), current, at, out);
+        picking = false;
+        return r;
+    }
 } * gButtonPop = nullptr;
 
-void buttonPopPaint(HWND hwnd) {
-    ButtonPop& p = *gButtonPop;
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP bmp = CreateCompatibleBitmap(dc, rc.right, rc.bottom);
-    HGDIOBJ ob = SelectObject(mem, bmp), of = SelectObject(mem, app.font);
-    FillRect(mem, &rc, app.bgBrush);
-    SetBkMode(mem, TRANSPARENT);
-    p.hits.clear();
-    std::vector<DataWidgetHit>* savedOut = gHitsOut;
-    HWND savedWnd = gHitsWnd;
-    gHitsOut = &p.hits, gHitsWnd = hwnd;
-    gHitsOf[hwnd] = &p.hits;
-    FormLayout l{};
-    l.x0 = scale(16), l.labelW = scale(150), l.rowH = scale(28), l.colRight = rc.right - scale(16), l.colW = l.colRight - l.x0;
-    int y = scale(12);
-    // The button as the card shows it, and its tooltip.
-    const int cell = scale(64);
-    RECT c{l.x0, y, l.x0 + cell, y + cell};
-    fillAlpha(mem, c, RGB(26, 28, 32), 255);
-    roundBox(mem, c, scale(4), kAccent, 2);
-    if (const auto* ic = datRefIcon("icons", p.b.icon); ic && ic->bmp) drawFitted(mem, *ic, {c.left + scale(5), c.top + scale(5), c.right - scale(5), c.bottom - scale(5)});
-    const int th = paintButtonTooltip(mem, {c.right + scale(12), y, l.colRight, 0}, p.b);
-    y += std::max(cell, th) + scale(10);
-    const int ly = y;
-    linkButton(mem, l.x0, y, l.rowH, L"Copy a button from a set\x2026", [ly] {
-        ButtonPop& q = *gButtonPop;
-        std::string set;
-        q.picking = true;
-        POINT at{scale(16), ly + scale(28)};
-        ClientToScreen(q.wnd, &at);
-        if (showListPicker(L"Button set", entryItems("buttons"), "", at, set)) {
-            const auto& bs = gExtras.buttons.set(std::stoi(set));
-            std::vector<ListPickItem> items;
-            for (size_t i = 0; i < bs.size(); ++i)
-                items.push_back({buttonRowText(bs[i]), L"", std::to_string(i), "icons", int(bs[i].icon)});
-            std::string pick;
-            if (!items.empty() && showListPicker(L"Button", items, "", at, pick)) q.b = bs[size_t(std::stoi(pick))];
-        }
-        q.picking = false;
-        InvalidateRect(q.wnd, nullptr, FALSE);
-    });
-    y += l.rowH + scale(6);
-    // Its fields, as the Buttons tab has them.
-    auto row = [&](const wchar_t* name, const std::wstring& text, std::function<void(RECT)> click, const UnitPalette::Bitmap* icon = nullptr, int number = -1) {
-        fieldLabel(mem, l, y, name, false);
-        pickBox(mem, {l.x0 + l.labelW, y + scale(2), l.colRight, y + l.rowH - scale(2)}, text, false, [click](RECT r) {
-            gButtonPop->picking = true;
-            click(r);
-            gButtonPop->picking = false;
-            InvalidateRect(gButtonPop->wnd, nullptr, FALSE);
-        }, L"", icon, number);
-        y += l.rowH;
-    };
-    Button& b = p.b;
-    row(L"Place", buttonPlaceName(b.pos), [](RECT r) {
-        std::vector<ListPickItem> items;
-        for (int k = 1; k <= 9; ++k) items.push_back({buttonPlaceName(k), L"", std::to_string(k)});
-        std::string picked;
-        if (showListPicker(L"Place", items, std::to_string(gButtonPop->b.pos), belowBox(r), picked)) gButtonPop->b.pos = uint16_t(std::stoul(picked));
-    });
-    const auto& iconNames = DatSchema::entryNames("icons");
-    row(L"Icon", b.icon < iconNames.size() ? widen(iconNames[b.icon]) : L"Icon", [](RECT r) {
-        std::string picked;
-        if (showListPicker(L"Icon", entryItems("icons"), std::to_string(gButtonPop->b.icon), belowBox(r), picked)) gButtonPop->b.icon = uint16_t(std::stoul(picked));
-    }, datRefIcon("icons", b.icon), b.icon);
-    for (int which = 0; which < 2; ++which) {
-        const bool cond = which == 0;
-        const uint32_t fn = cond ? b.condition : b.action;
-        const ButtonFunctionDef* d = cond ? ButtonSets::condition(fn) : ButtonSets::action(fn);
-        wchar_t hex[24];
-        std::swprintf(hex, 24, L"Function 0x%06X", unsigned(fn));
-        row(cond ? L"Shown when" : L"Action", d ? widen(d->name) : std::wstring(hex), [cond](RECT r) {
-            std::vector<ListPickItem> items;
-            for (const auto& f : cond ? ButtonSets::conditions() : ButtonSets::actions()) items.push_back({widen(f.name), L"", std::to_string(f.address)});
-            std::string picked;
-            Button& x = gButtonPop->b;
-            if (showListPicker(cond ? L"Shown when" : L"Action", items, std::to_string(cond ? x.condition : x.action), belowBox(r), picked))
-                (cond ? x.condition : x.action) = uint32_t(std::stoul(picked));
-        });
-        if (d && d->arg) {
-            const uint16_t v = cond ? b.conditionArg : b.actionArg;
-            const char* kind = d->arg;
-            row(cond ? L"Shown when: value" : L"Action: value", argName(kind, v), [cond, kind](RECT r) {
-                std::string picked;
-                Button& x = gButtonPop->b;
-                if (showListPicker(L"Value", entryItems(kind), std::to_string(cond ? x.conditionArg : x.actionArg), belowBox(r), picked))
-                    (cond ? x.conditionArg : x.actionArg) = uint16_t(std::stoul(picked));
-            }, argIcon(kind, v), v);
-        }
-    }
-    for (int which = 0; which < 2; ++which) {
-        const uint16_t s = which ? b.disabledString : b.enabledString;
-        row(which ? L"Tooltip when grayed" : L"Tooltip", s ? statString(s) : L"None", [which](RECT r) {
-            std::string picked;
-            Button& x = gButtonPop->b;
-            if (showListPicker(L"Tooltip", entryItems("strings", true), std::to_string(which ? x.disabledString : x.enabledString), belowBox(r), picked))
-                (which ? x.disabledString : x.enabledString) = uint16_t(std::stoul(picked));
-        }, nullptr, s ? s : -1);
-    }
-    // OK, Cancel.
-    y += scale(10);
-    const int bh = scale(ui::kButtonH);
-    ui::buttonsRight(mem, l.colRight, y, {{L"OK", ui::Tone::Primary, [] { gButtonPop->accepted = gButtonPop->done = true; }},
-                                          {L"Cancel", ui::Tone::Normal, [] { gButtonPop->done = true; }}});
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, of), SelectObject(mem, ob);
-    DeleteObject(bmp);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
-    gHitsOut = savedOut, gHitsWnd = savedWnd;
-    const int want = y + bh + scale(14);
-    if (want != rc.bottom) {  // fit the fields (they change with the functions' values)
-        RECT wr;
-        GetWindowRect(hwnd, &wr);
-        SetWindowPos(hwnd, nullptr, 0, 0, wr.right - wr.left, wr.bottom - wr.top - rc.bottom + want, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-    }
-}
-
-LRESULT CALLBACK buttonPopProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    ButtonPop* p = gButtonPop;
-    switch (msg) {
-    case WM_PAINT:
-        if (p) buttonPopPaint(hwnd);
-        return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_MOUSEMOVE: InvalidateRect(hwnd, nullptr, FALSE); return 0;
-    case WM_LBUTTONUP:
-        if (p) {
-            const POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-            for (auto it = p->hits.rbegin(); it != p->hits.rend(); ++it)
-                if (PtInRect(&it->r, pt) && it->click) {
-                    HWND saved = gHitsWnd;
-                    gHitsWnd = hwnd;  // the pickers open below this window's boxes
-                    auto click = it->click;
-                    click();
-                    gHitsWnd = saved;
-                    break;
-                }
-        }
-        return 0;
-    case WM_KEYDOWN:
-        if (p && wp == VK_ESCAPE) p->done = true;
-        if (p && wp == VK_RETURN) p->accepted = p->done = true;
-        return 0;
-    case WM_ACTIVATE:
-        if (LOWORD(wp) == WA_INACTIVE && p && !p->picking && !gBackground) p->accepted = p->done = true;  // clicking elsewhere keeps it
-        return 0;
-    case WM_SETCURSOR:
-        if (p && LOWORD(lp) == HTCLIENT) {
-            POINT pt;
-            GetCursorPos(&pt);
-            ScreenToClient(hwnd, &pt);
-            for (auto it = p->hits.rbegin(); it != p->hits.rend(); ++it)
-                if (PtInRect(&it->r, pt)) return SetCursor(LoadCursor(nullptr, it->cursor)), TRUE;
-        }
-        break;
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
+// Clicking elsewhere keeps the button (as OK); a picker that it opens does not.
+LRESULT CALLBACK buttonPopSubclass(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR ref) {
+    auto* p = reinterpret_cast<ButtonPop*>(ref);
+    if (msg == WM_ACTIVATE && LOWORD(wp) == WA_INACTIVE && !p->picking && !gBackground) p->accepted = p->done = true;
+    return DefSubclassProc(hwnd, msg, wp, lp);
 }
 
 // The button pop-out: `text` as buttonToText writes it; true when OK.
 bool showButtonPopup(std::string& text, POINT at) {
     if (gListWheel) return false;  // the mouse wheel does not open a pop-out
-    static bool registered = false;
-    if (!registered) {
-        WNDCLASSEXW wc{sizeof wc};
-        wc.lpfnWndProc = buttonPopProc, wc.hInstance = app.inst, wc.hCursor = LoadCursor(nullptr, IDC_ARROW), wc.lpszClassName = L"StarDraftButtonPop";
-        RegisterClassExW(&wc);
-        registered = true;
-    }
     dataLoadForProject();  // the icons and strings come from the project
     ButtonPop p;
-    if (!buttonFromText(text, p.b)) p.b = Button{1, 0, kButtonNewCondition, kButtonNewAction, 0, 0, 0, 0};
+    Button b;
+    if (!buttonFromText(text, b)) b = Button{1, 0, kButtonNewCondition, kButtonNewAction, 0, 0, 0, 0};
+    ButtonPopView view(p, b);
+    view.onDone = [&p](bool ok) { p.accepted = ok, p.done = true; };
+    view.onFit = [&p](int want) {  // the window's height for the client height the fields want
+        RECT wr, rc;
+        GetWindowRect(p.wnd, &wr);
+        GetClientRect(p.wnd, &rc);
+        SetWindowPos(p.wnd, nullptr, 0, 0, wr.right - wr.left, wr.bottom - wr.top - rc.bottom + want, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+    };
     ButtonPop* outer = gButtonPop;
     gButtonPop = &p;
     const int w = scale(560), h = scale(470);
-    p.wnd = CreateWindowExW(WS_EX_TOOLWINDOW | (gBackground ? WS_EX_NOACTIVATE : 0), L"StarDraftButtonPop", L"", WS_POPUP | WS_BORDER, at.x, at.y, w, h, app.main,
-                            nullptr, app.inst, nullptr);
+    p.wnd = CreateWindowExW(WS_EX_TOOLWINDOW | (gBackground ? WS_EX_NOACTIVATE : 0), ui::kViewClass, L"", WS_POPUP | WS_BORDER, at.x, at.y, w, h, app.main,
+                            nullptr, app.inst, &view);
+    SetWindowSubclass(p.wnd, buttonPopSubclass, 1, DWORD_PTR(&p));
     ui::popupFrame(p.wnd);
     ShowWindow(p.wnd, gBackground ? SW_SHOWNOACTIVATE : SW_SHOW);
     if (gButtonPopHook) gButtonPopHook(p.wnd);
     MSG msg;
     while (!p.done && GetMessageW(&msg, nullptr, 0, 0))
         if (!popoutEatsPress(msg, p.wnd)) TranslateMessage(&msg), DispatchMessageW(&msg);
-    gHitsOf.erase(p.wnd);  // its hits go with it
+    RemoveWindowSubclass(p.wnd, buttonPopSubclass, 1);
     DestroyWindow(p.wnd);
     gButtonPop = outer;
-    if (p.accepted) text = buttonToText(p.b);
+    if (p.accepted) text = buttonToText(view.button());
     return p.accepted;
 }
 

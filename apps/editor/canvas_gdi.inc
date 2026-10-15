@@ -158,6 +158,11 @@ public:
         if (flags & kPathEllipsis) f |= DT_PATH_ELLIPSIS;
         return f;
     }
+    void textAt(stardraft::draw::Point at, std::wstring_view t, Color c) override {
+        SetBkMode(dc_, TRANSPARENT);
+        SetTextColor(dc_, c);
+        TextOutW(dc_, at.x, at.y, t.data(), int(t.size()));
+    }
     void text(Rect r, std::wstring_view t, Color c, unsigned flags) override {
         SetBkMode(dc_, TRANSPARENT);
         SetTextColor(dc_, c);
