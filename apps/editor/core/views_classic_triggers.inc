@@ -182,13 +182,13 @@ inline std::wstring ctSearchTextOf(const ClassicTrigger& t, const ClassicNames& 
     return s;
 }
 
-// The words of a search (lower case, split at spaces).
+// The words of a search (lower case, split at every wide space, as the stream's >> did).
 inline std::vector<std::wstring> ctSearchWords(std::wstring q) {
     std::transform(q.begin(), q.end(), q.begin(), ::towlower);
     std::vector<std::wstring> words;
     std::wstring w;
     for (wchar_t c : q) {
-        if (c == L' ' || c == L'\t' || c == L'\n' || c == L'\r') {
+        if (iswspace(c)) {
             if (!w.empty()) words.push_back(w);
             w.clear();
         } else {
