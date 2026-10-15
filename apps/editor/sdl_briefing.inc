@@ -32,6 +32,7 @@ std::wstring sdlBriefPlain(const std::string& s) {
 struct SdlBriefingView final : draw::View {
     std::array<bool, 27> who{};          // the briefing shown: its player list
     bool chosen = false;                  // a briefing is chosen (else the first one is, when the view paints)
+    const Editor* shownFor = nullptr;     // the map the choice was made for (a map change starts over)
     int player = 0;                       // whose briefing the preview plays
     int sel = -1;                         // the focused action: index into the rows of the briefing shown
     std::set<int> picked;                 // the selected rows
@@ -98,10 +99,18 @@ struct SdlBriefingView final : draw::View {
             }
         timelineRev = ~0ull;
     }
+    // A map opened or switched since the last look: the playback stops, and the first briefing of that map is shown
+    // (the Win32 page's gBriefShownFor rule). Runs before every paint and click.
     void ensureWho() {
-        if (chosen) return;
+        const Editor* ed = shellState().ed.get();
+        if (chosen && ed == shownFor) return;
+        if (ed != shownFor) stop(), timeline.clear(), timelineRev = ~0ull, total = 0, t = 0;
+        shownFor = ed;
         const auto list = briefList();
-        if (!list.empty()) choose(list.front());
+        if (!list.empty()) return choose(list.front());
+        std::array<bool, 27> first{};
+        first[0] = true;
+        choose(first);
     }
     int rowCount() const { return int(gBriefRows.size()); }
     uint32_t startOf(int trig, int act) const {
@@ -133,10 +142,8 @@ struct SdlBriefingView final : draw::View {
             const SdlSound* d = sdlSound(e.a->wav);
             uint32_t len = d ? d->ms : e.length;
             if (!d || t >= e.at + len) continue;  // (a sound that is over, or not found, does not start)
-            if (!SDL_WasInit(SDL_INIT_AUDIO)) SDL_InitSubSystem(SDL_INIT_AUDIO);
-            SDL_AudioStream* s = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &d->spec, nullptr, nullptr);
+            SDL_AudioStream* s = openPlaybackSdl(&d->spec);
             if (!s) continue;
-            SDL_SetAudioStreamGain(s, float(gDock.volume) / 100.0f);
             SDL_PutAudioStreamData(s, d->pcm.data(), int(d->pcm.size()));
             SDL_FlushAudioStream(s);
             SDL_ResumeAudioStreamDevice(s);
