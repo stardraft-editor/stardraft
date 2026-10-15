@@ -303,6 +303,10 @@ public:
         case WM_RBUTTONUP: return router_.mouse(mouseEvent(MouseKind::Up, 1)) ? (result = 0, true) : false;
         case WM_MBUTTONUP: return router_.mouse(mouseEvent(MouseKind::Up, 2)) ? (result = 0, true) : false;
         case WM_LBUTTONDBLCLK: return router_.mouse(mouseEvent(MouseKind::DoubleClick, 0)) ? (result = 0, true) : false;
+        case WM_XBUTTONUP: {  // the extra buttons (back, forward) over the view
+            const bool done = view_.extraButton(GET_XBUTTON_WPARAM(wp));
+            return done ? (result = TRUE, true) : false;
+        }
         case WM_MOUSEWHEEL:
         case WM_MOUSEHWHEEL: {
             POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
