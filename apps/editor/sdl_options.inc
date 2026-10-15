@@ -117,8 +117,8 @@ void showOptionsSdl();
 // The Program options commands this system runs (the menus and the keys ask sdlRuns).
 bool sdlOptionsRuns(int id) {
     return id == ID_THEME_DARK || id == ID_THEME_LIGHT || (id >= ID_OPT_LANG && id < ID_OPT_LANG + kLanguageChoiceCount) || id == ID_OPT_RESTART ||
-           id == ID_OPT_ANIMATE || id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_LASTPROJECT || id == ID_OPT_UPDATECHECK ||
-           (id >= ID_CRASH_MODE && id < ID_CRASH_MODE + 3);
+           id == ID_OPT_ANIMATE || id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_LASTPROJECT;
+    // (Look for updates on start and Crash reports are the update check's and the crash reports' commands, with them.)
 }
 // Runs one of them (the same settings and messages as the Windows program's); false: not one of them.
 bool sdlOptionsCommand(int id) {
@@ -145,29 +145,15 @@ bool sdlOptionsCommand(int id) {
         prefs::setNumber(L"OpenLastProject", flag ? 0 : 1);
         setMessage(!flag ? L"The last project opens when StarDraft 2 starts" : L"StarDraft 2 starts with no project open");
         break;
-    case ID_OPT_UPDATECHECK:
-        flag = true;
-        prefs::flag(L"CheckUpdates", flag);
-        prefs::setNumber(L"CheckUpdates", flag ? 0 : 1);
-        setMessage(!flag ? L"StarDraft 2 looks for a newer release on start" : L"StarDraft 2 does not look for a newer release on start");
-        break;
-    default:
-        if (id >= ID_CRASH_MODE && id < ID_CRASH_MODE + 3) {
-            const int mode = id - ID_CRASH_MODE;
-            prefs::setNumber(L"CrashReports", mode);
-            setMessage(mode == 1 ? L"StarDraft 2 sends an anonymous report when it crashes"
-                       : mode == 2 ? L"StarDraft 2 does not send crash reports (a report stays on this computer)"
-                                   : L"After a crash, StarDraft 2 asks at the next start if it can send the report");
-        } else {  // Language: it applies at the next start (the texts are made then): restart now, or later
-            gLanguage = kLanguageChoices[id - ID_OPT_LANG].code;
-            prefs::setText(L"Language", gLanguage);
-            if (sdlLanguageChosen(gLanguage) == gUiLang) break;  // the language in use
-            gOptionsView.invalidate();  // its Restart now button
-            if (gRoot && shellAskYesNo(shellTr(L"StarDraft 2 shows the new language after a restart. Restart now? Your open maps and projects open again."),
-                                       shellTr(L"Language"), shellTr(L"Yes"), shellTr(L"No")))
-                restartProgramSdl();
-            else setMessage(L"The language changes when StarDraft 2 starts again");
-        }
+    default:  // Language: it applies at the next start (the texts are made then): restart now, or later
+        gLanguage = kLanguageChoices[id - ID_OPT_LANG].code;
+        prefs::setText(L"Language", gLanguage);
+        if (sdlLanguageChosen(gLanguage) == gUiLang) break;  // the language in use
+        gOptionsView.invalidate();  // its Restart now button
+        if (gRoot && shellAskYesNo(shellTr(L"StarDraft 2 shows the new language after a restart. Restart now? Your open maps and projects open again."),
+                                   shellTr(L"Language"), shellTr(L"Yes"), shellTr(L"No")))
+            restartProgramSdl();
+        else setMessage(L"The language changes when StarDraft 2 starts again");
         break;
     }
     gOptionsView.invalidate();

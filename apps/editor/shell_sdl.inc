@@ -2,6 +2,8 @@
 // root view. The panes that are not on this system yet have no list, tool strip, palette or menu to change, so those
 // calls do nothing; the status bar, the map view and the settings are real.
 
+#include "message_box.h"  // apps/kit: the StarCraft folder's and the yes-or-no boxes (kit::messageBox)
+
 // The app state the core reads (documents.inc declares it).
 AppState& shellState() { return gState; }
 void shellRendererGraphics(GraphicsQuality q, bool carbot) {
@@ -295,7 +297,8 @@ std::wstring shellFileTimeText(const std::filesystem::path& file) {
     std::snprintf(buf, sizeof buf, "%04d-%02d-%02d %02d:%02d", tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, tm->tm_hour, tm->tm_min);
     return widen(buf);
 }
-// A program the Project page starts (epTrace): SDL's process in `dir`. These systems ask for no administrator rights
+#ifndef _WIN32  // (on Windows the start asks for administrator rights, as the Windows program's: shell_sdl_win.inc's)
+// A program the Project page starts (epTrace): SDL's process in `dir`. macOS and Linux ask for no administrator rights
 // (the Windows program's elevation prompt). `args`: the words; a word in double quotes may have spaces.
 std::uintptr_t shellStartElevated(const std::filesystem::path& exe, const std::filesystem::path& dir, const std::wstring& args,
                                   const std::wstring& what, std::wstring& error) {
@@ -329,11 +332,17 @@ bool shellProcessEnded(std::uintptr_t process) {
 void shellProcessClose(std::uintptr_t process) {
     if (process) SDL_DestroyProcess(reinterpret_cast<SDL_Process*>(process));
 }
-// File > Options > StarCraft folder: another install is chosen; its game data must open. It is used from the next start
-// (the settings' StarCraftFolder), as on Windows.
+#endif
+namespace {
+void useInstallFolder(const std::string& picked);  // (main_sdl.cpp: the first start's question)
+}
+// File > Options > StarCraft folder (and the Project page's): another install is chosen; its game data must open. With no
+// game data open, the program opens it now (as the first start's question); else it is used from the next start (the
+// settings' StarCraftFolder), as on Windows.
 void shellChooseInstallFolder() {
     const std::wstring picked = shellPickFolder(shellTr(L"Select the StarCraft: Remastered folder. It contains .build.info."));
     if (picked.empty() || !gRoot) return;
+    if (!gDataOk) return useInstallFolder(narrow(picked));
     const fs::path dir = installFolderOf(fs::path(picked));
     GameData probe;
     std::string err;
@@ -342,7 +351,7 @@ void shellChooseInstallFolder() {
                                    stardraft::kit::MessageIcon::Warning);
         return;
     }
-    prefs::setText(L"StarCraftFolder", dir.wstring());
+    if (!gSilent) prefs::setText(L"StarCraftFolder", dir.wstring());  // (tests never change the user's settings)
     gInstallNext = dir;
     gOptionsView.invalidate();
     stardraft::kit::messageBox(*gRoot, shellTr(L"StarCraft folder"),
