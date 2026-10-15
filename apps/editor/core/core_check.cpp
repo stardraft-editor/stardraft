@@ -32,6 +32,7 @@
 #include "view.h"
 #include "text_field.h"
 #include "dropdown.h"
+#include "button.h"
 #include "../shell.h"
 #include "../res/ui_icons.h"
 #include "stardraft/commands.h"
