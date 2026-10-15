@@ -133,6 +133,8 @@ void shellShowQuickPicker(bool replace, bool open);
 bool shellPathsFoldCase();
 // A map file was opened by itself: asks once whether maps open with StarDraft 2 (Windows only).
 void shellMapFileOpened(const std::filesystem::path& file);
+// A web page is opened in the browser.
+void shellOpenUrl(const std::wstring& url);
 // A folder is opened in the file manager.
 void shellOpenFolder(const std::filesystem::path& folder);
 // A script is opened in the user's editor for it ("edit", else "open"; Notepad when nothing is registered for it).

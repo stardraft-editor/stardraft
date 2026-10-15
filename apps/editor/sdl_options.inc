@@ -6,7 +6,6 @@
 // Included by main_sdl.cpp after sdl_new_page.inc.
 
 // The Discord server's invitation (the Windows program's about.inc has the same link).
-const wchar_t* const kSdlDiscordInvite = L"https://discord.gg/JBMCwSRJBm";
 
 bool gOptionsOpen = false;        // the options window is open (its closed callback clears it)
 FeedbackView* gFbView = nullptr;  // the feedback dialog while it is open
@@ -82,6 +81,19 @@ void showOptionsSdl() {
                       [] { gOptionsOpen = false; });
 }
 
+// Help > About StarDraft (core/views_about.inc; one window: a second click does nothing while it is open).
+AboutView gAboutView;
+bool gAboutOpen = false;
+void showAboutSdl() {
+    if (!gRoot || gAboutOpen) return;
+    gAboutView.hot = -1;
+    gAboutOpen = true;
+    gAboutView.closed = [] { gAboutOpen = false; };
+    const draw::Point sz = AboutView::size();
+    gHost->openWindow(*gRoot, gAboutView, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect(0, 0, sz.x, sz.y), L"About StarDraft 2"},
+                      [] { gAboutOpen = false; });
+}
+
 // The feedback dialog's part of the program: sending is not on this system yet (the text stays in the dialog), the links.
 class FeedbackProgramSdl final : public FeedbackHost {
 public:
@@ -91,7 +103,7 @@ public:
         v.done(false, 0, L"");
         v.showStatus(shellTr(L"Sending feedback is not on this system yet"));
     }
-    void openDiscord() override { SDL_OpenURL(narrow(kSdlDiscordInvite).c_str()); }
+    void openDiscord() override { shellOpenUrl(kDiscordInvite); }
     void openIssue(const std::wstring& page) override { SDL_OpenURL(narrow(page).c_str()); }
     void close() override {
         if (gFbView && gHost) gHost->closeWindow(*gFbView);

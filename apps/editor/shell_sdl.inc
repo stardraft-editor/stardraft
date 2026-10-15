@@ -209,6 +209,7 @@ bool shellPathsFoldCase() {
 #endif
 }
 // The Project page's files and programs (the Windows shell's open, the editor, Notepad, the folder and the elevation).
+void shellOpenUrl(const std::wstring& url) { SDL_OpenURL(narrow(url).c_str()); }
 void shellOpenFolder(const std::filesystem::path&) { setMessage(L"This is not on this system yet"); }
 void shellOpenInEditor(const std::filesystem::path&) { setMessage(L"This is not on this system yet"); }
 void shellOpenWithNotepad(const std::filesystem::path&) { setMessage(L"This is not on this system yet"); }

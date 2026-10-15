@@ -20,7 +20,7 @@
 
 namespace crash {
 
-constexpr const wchar_t* kRepo = L"stardraft-editor/stardraft";
+constexpr const wchar_t* kRepo = kRepoName;  // (core/views_about.inc)
 std::wstring gGpu;                        // the video card, found at start
 std::deque<std::wstring> gLog;            // the last log lines
 const wchar_t* (*gWhere)() = nullptr;     // what the user works in (the workspace), filled in by main.cpp

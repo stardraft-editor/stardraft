@@ -418,8 +418,6 @@ void layoutUnitPalette();
 void showAbout();
 void showOptions();
 void optionsRefresh();  // the Options window shows the options' new values
-void aboutOpen(const std::wstring& url);
-extern const wchar_t* const kDiscordInvite;
 void setPlayer(int i);
 void showQuickPicker(bool replace = false, bool open = false);  // replace: Replace with... for the selection; open: Quick open
 void replaceSelectionWith(int v);
@@ -468,6 +466,7 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_options.inc"  // Program options' view (OptionsView; the host is options_window.inc)
 #include "core/views_feedback.inc"  // the feedback dialog's view (FeedbackView; the host is feedback.inc and feedback_window.inc)
 #include "core/views_message_box.inc"  // the message box (MessageView, runMessageBox; the host is message_box.inc)
+#include "core/views_about.inc"  // Help > About StarDraft (AboutView; the host is about.inc)
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
 
 void rebuildList() { rebuildList(app); }
@@ -2624,8 +2623,8 @@ void commandBody(int id) {
         ShellExecuteW(nullptr, L"open", (L"https://github.com/" + std::wstring(crash::kRepo) + L"/issues/new").c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         return;
     case ID_HELP_UPDATES: update::check(); return;
-    case ID_HELP_DISCORD: aboutOpen(kDiscordInvite); return;
-    case ID_HELP_GITHUB: aboutOpen((L"https://github.com/" + std::wstring(crash::kRepo)).c_str()); return;  // the source, releases and issues
+    case ID_HELP_DISCORD: shellOpenUrl(kDiscordInvite); return;
+    case ID_HELP_GITHUB: shellOpenUrl(L"https://github.com/" + std::wstring(kRepoName)); return;  // the source, releases and issues
     case ID_HELP_ABOUT: showAbout(); return;
     case ID_VIEW_TRIGCODE:
         if (activeProject()) setWorkspace(Workspace::Triggers), showTriggerCode();  // shows or hides the code pane
@@ -3773,9 +3772,9 @@ HWND tabsWindow(stardraft::draw::View& v) { return ui::Win32Host::windowOf(v); }
 #include "context_menu.inc"
 #include "message_box.inc"
 #include "map_properties.inc"
-#include "about.inc"
 int volumeRow(HDC dc, int x, int y, int labelW, int right, std::vector<DataWidgetHit>& hits);
 #include "options_window.inc"
+#include "about.inc"
 #include "feedback_window.inc"
 #include "classic_settings.inc"
 
@@ -22397,21 +22396,26 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             }
             if (s == "about:") {  // about.png: Help > About StarDraft
                 showAbout();
+                HWND aw = aboutWindow();
                 for (int i = 0; i < 10; ++i) pump(), Sleep(20);
-                capture(fs::path(datashots) / "about.png", gAbout.wnd);
+                capture(fs::path(datashots) / "about.png", aw);
                 // The EUD tools' links: euddraft and eudplib, then the repository and Discord; the mouse underlines one.
                 std::ofstream o(fs::path(datashots) / "about.txt");
-                const bool four = gAbout.view.links.size() == 4 && gAbout.view.links[0].url == L"https://github.com/armoha/euddraft" &&
-                                  gAbout.view.links[1].url == L"https://github.com/armoha/eudplib";
+                const auto& links = gAboutView.links;
+                const bool four = links.size() == 4 && links[0].url == L"https://github.com/armoha/euddraft" && links[1].url == L"https://github.com/armoha/eudplib";
                 o << "links: euddraft and eudplib first, 4 in all " << (four ? "yes" : "NO") << "\n";
                 if (four) {
-                    const RECT r = ui::toRECT(gAbout.view.links[1].rc);
-                    SendMessageW(gAbout.wnd, WM_MOUSEMOVE, 0, MAKELPARAM((r.left + r.right) / 2, (r.top + r.bottom) / 2));
-                    o << "the mouse on eudplib makes it the hot link " << (gAbout.view.hot == 1 ? "yes" : "NO") << "\n";
-                    UpdateWindow(gAbout.wnd);  // (no pump: the real mouse is elsewhere, and its leave message clears it)
-                    capture(fs::path(datashots) / "about_hot.png", gAbout.wnd);
+                    // Each link is where it is drawn: its middle hits it.
+                    bool placed = true;
+                    for (size_t i = 0; i < 4; ++i) placed = placed && gAboutView.hitAt({(links[i].rc.left + links[i].rc.right) / 2, (links[i].rc.top + links[i].rc.bottom) / 2}) == int(i);
+                    o << "each link is hit at its middle " << (placed ? "yes" : "NO") << "\n";
+                    const RECT r = ui::toRECT(links[1].rc);
+                    SendMessageW(aw, WM_MOUSEMOVE, 0, MAKELPARAM((r.left + r.right) / 2, (r.top + r.bottom) / 2));
+                    o << "the mouse on eudplib makes it the hot link " << (gAboutView.hot == 1 ? "yes" : "NO") << "\n";
+                    UpdateWindow(aw);  // (no pump: the real mouse is elsewhere, and its leave message clears it)
+                    capture(fs::path(datashots) / "about_hot.png", aw);
                 }
-                DestroyWindow(gAbout.wnd);
+                if (aboutWindow()) gMainAnchor.host.closeWindow(gAboutView);
                 continue;
             }
             if (s == "project:") {  // project.txt: a new project (a new map) in the datashot folder, for the specs after it that need one
