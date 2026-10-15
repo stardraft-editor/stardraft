@@ -218,7 +218,15 @@ public:
                 TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, w, 0};
                 tracking_ = TrackMouseEvent(&tme) != 0;
             }
-            if (view_.hoverTip()) hoverTipOn(w);
+            if (view_.hoverTip()) {
+                hoverTipOn(w);
+                // One tool covers the whole view, so the tooltip keeps the text of the spot it showed first.
+                // When the text under the mouse changes (another tab), hide it: it asks again when it shows.
+                if (tips_ && IsWindow(tips_)) {
+                    std::wstring now = router_.tip(mouse(view_));
+                    if (now != tipShown_) tipShown_ = std::move(now), SendMessageW(tips_, TTM_POP, 0, 0);
+                }
+            }
             return router_.mouse(mouseEvent(MouseKind::Move, 0)) ? (result = 0, true) : false;
         case WM_MOUSELEAVE: {
             tracking_ = false;
@@ -369,6 +377,7 @@ private:
     HWND wnd_ = nullptr;
     HWND tips_ = nullptr;  // hoverTip: the tooltip (see hoverTipOn)
     std::wstring tipText_;
+    std::wstring tipShown_;  // the tip text under the mouse at the last move (the tooltip follows it)
     bool tracking_ = false, imeOn_ = false;
     wchar_t high_ = 0;
     std::map<UINT_PTR, std::function<void()>> timers_;
