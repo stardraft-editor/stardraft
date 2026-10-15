@@ -18474,8 +18474,9 @@ int runSelfTest(const fs::path& dir) {
         capture(dir / "36a_new_page_cards.png");
         const bool modOff = !newSetKind(2) && activePage() == kPageStart && !newCreate() && gDocs.size() == before + 1;
         // The keyboard: Right, then Enter opens the EUD project's settings in the same tab; Esc goes back to the start page.
-        SendMessageW(gNewWnd, WM_KEYDOWN, VK_RIGHT, 0);
-        SendMessageW(gNewWnd, WM_KEYDOWN, VK_RETURN, 0);
+        HWND keyWnd = activePage() == kPageStart ? gStartWnd : gNewWnd;  // (the keyboard goes to the window that has it)
+        SendMessageW(keyWnd, WM_KEYDOWN, VK_RIGHT, 0);
+        SendMessageW(keyWnd, WM_KEYDOWN, VK_RETURN, 0);
         paintPage();
         const bool projSettings = activePage() == kPageNew && gNew.project && gNew.projectShown && gNew.fieldShown("name") &&
                                   docTitle(gActive) == L"New EUD project" && gDocs.size() == before + 1;
@@ -25044,6 +25045,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             if (!editFocus && _wcsicmp(cls, L"ComboLBox") == 0) editFocus = true;
             if (!editFocus && (searchBoxFocused() || dropdownListOpen())) editFocus = true;  // a search box, a kit list (search_box.inc)
             if (!editFocus && mapPageTextFocus()) editFocus = true;  // a force name (a kit field on the page)
+            if (!editFocus && ui::viewTypingFocus(GetFocus())) editFocus = true;  // a kit field in a view window (New page, Program options)
             // The trigger pane: a typed letter or number opens its block picker (the plain-key shortcuts wait).
             if (!editFocus && _wcsicmp(cls, L"StarDraftTrigPane") == 0 && msg.message == WM_KEYDOWN && !(GetKeyState(VK_CONTROL) & 0x8000) &&
                 !(GetKeyState(VK_MENU) & 0x8000) && ((msg.wParam >= 'A' && msg.wParam <= 'Z') || (msg.wParam >= '0' && msg.wParam <= '9')))

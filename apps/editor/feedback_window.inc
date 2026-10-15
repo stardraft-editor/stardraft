@@ -17,7 +17,9 @@ public:
         }
         v.sending(L"Sending your feedback\x2026");
         setMessage(L"Sending the feedback\x2026");
-        std::thread([file] {
+        const FeedbackView* sentFrom = &v;  // the dialog that sent it (and its open): the result goes only there
+        const unsigned serial = gFbSerial;
+        std::thread([file, sentFrom, serial] {
             const bool sent = sendFeedbackFile(file);
             long number = 0;
             std::wstring page;
@@ -26,8 +28,8 @@ public:
                     number = list[0].number;
                     page = L"https://github.com/" + std::wstring(crash::kRepo) + L"/issues/" + std::to_wstring(number);
                 }
-            shellPost([sent, number, page] {  // on the UI thread: the dialog (when it is still open), then the result
-                if (gFbView) gFbView->done(sent, number, page);
+            shellPost([sent, number, page, sentFrom, serial] {  // on the UI thread: the dialog (when it is still open), then the result
+                if (gFbView && gFbView == sentFrom && gFbSerial == serial) gFbView->done(sent, number, page);
                 feedbackSentResult(sent);
             });
         }).detach();
@@ -57,6 +59,7 @@ void feedbackClose() {
 void showFeedbackDialog(const std::wstring& on) {
     FeedbackView view(gFeedbackProgram, on);
     gFbView = &view;
+    ++gFbSerial;
     // From a window over the main window (Unit properties): that one waits too, and is active again after.
     const HWND from = GetActiveWindow();
     const HWND over = from && from != app.main && IsWindowEnabled(from) ? from : nullptr;

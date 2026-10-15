@@ -133,6 +133,9 @@ public:
     virtual bool hoverTip() const { return false; }
     // Whether Tab stops on it (and a click gives it the focus).
     virtual bool focusable() const { return false; }
+    // A view that takes the letters and digits it is given (a text field): while it has the focus, the window's
+    // one-letter shortcuts wait (the keys are its own).
+    virtual bool typesText() const { return false; }
     // The window of the view got the keyboard focus with no view of it focused (Tab came in from another control):
     // the view takes it on its first (back: its last) focusable part.
     virtual void focusEntered(bool /*back*/) {}

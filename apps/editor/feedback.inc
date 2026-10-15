@@ -21,6 +21,7 @@ int paintedMenu(HMENU h, int x, int y, HWND owner);  // context_menu.inc
 
 // The dialog (its view, the one open now; the tests see it through the hook) and its window (feedback_window.inc).
 FeedbackView* gFbView = nullptr;
+unsigned gFbSerial = 0;  // counts the dialog's opens: a send's result goes to the dialog that sent it, not to a later one
 void (*gFeedbackHook)(FeedbackView&) = nullptr;  // tests: sees the dialog, then closes it
 HWND feedbackWindow();                        // the dialog's window (nullptr: none)
 void feedbackClose();                         // closes the dialog

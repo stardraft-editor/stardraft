@@ -266,7 +266,8 @@ struct MainView final : draw::View {
     bool key(const draw::KeyEvent& e) override {
         const int k = int(e.key);
         const bool typed = (k >= 'A' && k <= 'Z') || (k >= '0' && k <= '9');
-        const bool typing = gSearchSdl.field().hasFocus() || gFilterSdl.field().hasFocus() || gFilesPage.typing() || sdlMapPageTyping();
+        const bool typing = gSearchSdl.field().hasFocus() || gFilterSdl.field().hasFocus() || gFilesPage.typing() || sdlMapPageTyping() ||
+                            typingFocusIn(*this);  // (a kit text field of a view: the New page, Program options)
         if (typing && typed && !(e.mods & (draw::kCtrl | draw::kAlt))) return false;
         return shortcutRun(e);
     }
@@ -359,6 +360,13 @@ struct MainView final : draw::View {
                 break;
             }
         invalidate();
+    }
+    // The focused view of the tree types letters (a text field).
+    static bool typingFocusIn(const View& v) {
+        if (v.hasFocus()) return v.typesText();
+        for (const View* c : v.children())
+            if (typingFocusIn(*c)) return true;
+        return false;
     }
     static bool hasFocusIn(const View& v) {
         if (v.hasFocus()) return true;

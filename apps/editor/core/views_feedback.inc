@@ -25,6 +25,7 @@ class FeedbackView final : public draw::View {
 public:
     FeedbackView(FeedbackHost& host, std::wstring on) : host_(host), on_(std::move(on)) {
         text_.setMultiline(true), text_.setWrap(true);
+        text_.setMaxLength(20000);  // (the most a feedback issue takes: a longer text would not be sent)
         text_.onChange = [this] {
             send_.setEnabled(!text_.text().empty());
             invalidate();
@@ -73,6 +74,7 @@ public:
         stage_ = 1;
         status_ = status;
         send_.setEnabled(false);
+        cancel_.focus();  // the text box goes hidden: the keys (Enter, Space) go to Close, as before
         startSpin();
         invalidate();
     }

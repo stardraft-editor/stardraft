@@ -153,6 +153,9 @@ int scaled(int v) { return scale(v); }
 // The New page's view: the choices, the tileset's generator, the preview, and the painting and the clicks of the page.
 class NewPageView final : public draw::View {
 public:
+    // The start page covers the page (its window is over this one): nothing is painted or loaded under it.
+    bool covered = false;
+
     explicit NewPageView(NewPageHost& host) : host_(host) {
         for (draw::View* f : {static_cast<draw::View*>(&name_), static_cast<draw::View*>(&location_), static_cast<draw::View*>(&output_),
                               static_cast<draw::View*>(&seed_), static_cast<draw::View*>(&fromMap_)})
