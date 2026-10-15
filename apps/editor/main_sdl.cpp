@@ -237,7 +237,7 @@ int main(int argc, char** argv) {
         else if (a == "--classictrig") ctArg = next();  // trigger:kind:entry (2:1:0): the Classic triggers page selects it, for a snapshot
         else if (a == "--briefing") briefArg = next();  // row[:ms]: the Briefing page selects that row of the first briefing, the preview at that time, for a snapshot
         else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
-        else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or blockpick, blockhelp:<block id>, unitprops, locprops, quick, about, message, error or tip: that view is the snapshot
+        else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or blockpick, blockhelp:<block id>, unitprops, locprops, quick, valuepop[:number|:colors|:text], about, message, error or tip: that view is the snapshot
         else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
         else if (a == "--scriptpreview") previewArg = true;  // the Project page's script preview on (not saved), for a snapshot
         else if (a == "--log") logArg = true;  // the Log open (View > Log), for a snapshot
@@ -329,6 +329,27 @@ int main(int argc, char** argv) {
             // A map's dialog (--dialog unitprops|locprops|prompt|quick, sdl_map_dialogs.inc) is the picture at its own size.
             MapDialogShot mapShot;
             if (mapDialogShot(dialogArg, mapShot)) width = mapShot.size.x, height = mapShot.size.y;
+            // valuepop: the value pop-out (core/views_value_pop.inc) at its own size: a text with values (valuepop), a
+            // number (valuepop:number), a text the game shows with its colors (valuepop:colors) or a plain text (valuepop:text).
+            std::unique_ptr<ValuePopView> valueShot;
+            if (dialogArg.rfind("valuepop", 0) == 0) {
+                ValuePopSpec spec;
+                const std::string kind = dialogArg.size() > 9 ? dialogArg.substr(9) : "";
+                if (kind == "number") {
+                    spec.type = "Number", spec.title = L"Amount   0\x2013" L"100", spec.min = 0, spec.max = 100, spec.initial = "25", spec.inRepeat = true;
+                } else if (kind == "colors") {
+                    spec.type = "Text", spec.colorsOnly = true, spec.title = L"Mission objectives";
+                    spec.initial = "\x13\x04" "Destroy\x01 the \x06" "enemy base\x01.\nKeep {your} hero alive.";
+                } else if (kind == "text") {
+                    spec.type = "Text", spec.title = L"Output file", spec.initial = "build/bneck.scx";
+                } else {
+                    spec.type = "Text", spec.insertValues = true, spec.title = L"Text";
+                    spec.initial = "\x03Welcome\x01, {name(current player):s}! You have {gold} minerals{{!}}\n\x13{P2:c}Blue team: {kills:x}";
+                }
+                valueShot = std::make_unique<ValuePopView>(spec);
+                const draw::Point sz = valueShot->outerSize();
+                width = sz.x, height = sz.y;
+            }
             // The picture is the window's root, or the dialog's view (--dialog options|feedback|listpick) at the --size given.
             // --dialog about, message and tip take their own sizes: About's, the message box's for the Windows
             // program's msgbox: text, and the tooltip's for its text.
@@ -355,6 +376,7 @@ int main(int argc, char** argv) {
             else if (dialogArg == "blockpick") shown = &blockShot;
             else if (dialogArg.rfind("blockhelp:", 0) == 0) shown = &gSdlBlockHelp, gSdlBlockHelp.setBlock(dialogArg.substr(10));  // a block's help page (--size 460x600)
             else if (mapShot.view) shown = mapShot.view;
+            else if (valueShot) shown = valueShot.get();
             msgbox::MessageView messageShot;
             TipView tipShot;
             if (dialogArg == "about") {

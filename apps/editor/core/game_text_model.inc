@@ -127,7 +127,7 @@ inline int drawGameText(draw::Canvas& c, draw::Rect r, const std::string& raw, d
         int x = 0;
         for (auto& wd : words) {
             int ww = 0;
-            for (auto& p : wd) p.w = c.measure(p.text), ww += p.w;
+            for (auto& p : wd) p.w = c.measureAt(p.text), ww += p.w;  // (the width as textAt draws it)
             if (x > 0 && x + ww > width) drawLine(lineNow, align), lineNow.clear(), x = 0;
             for (auto& p : wd) lineNow.push_back(p);
             x += ww;
@@ -231,4 +231,7 @@ struct GameTextSpec {
     bool align = true;   // the align buttons (multi-line texts)
     bool crlf = false;   // lines end in \r\n (map texts); else as the text had them (\n for a new text)
     std::wstring cue;    // shown in an empty box
+    // A text with values (the trigger text pop-out, core/views_value_pop.inc): a value ({gold}, {#1}) is a chip, braces in
+    // words are doubled ("{{"), a player's color ({P2:c}) colors what follows, and a swatch gives a player's color.
+    bool values = false;
 };

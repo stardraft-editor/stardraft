@@ -186,6 +186,10 @@ bool shellPromptText(const std::wstring& title, std::wstring& text);
 // A value typed in the pop-out under `field` (a part of the view `v`, in its coordinates), as the Data form's values.
 // False: Cancel.
 bool shellEditValueBelow(stardraft::draw::View& v, stardraft::draw::Rect field, const std::wstring& title, std::string& text);
+// The value pop-out of `spec` under `field` (a part of the view `v`, in its coordinates): a trigger value's number, text,
+// code or text with values (core/views_value_pop.inc). True and `out` when applied.
+struct ValuePopSpec;
+bool shellEditValue(stardraft::draw::View& v, stardraft::draw::Rect field, const ValuePopSpec& spec, std::string& out);
 // Writes an error line to the log (the Windows log shows it in the error color).
 void shellLogError(const std::wstring& line);
 // A file's bytes as text in the system's code page (Windows: the ANSI code page, as the RichEdit read a script; other
