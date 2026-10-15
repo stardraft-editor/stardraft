@@ -216,3 +216,550 @@ inline std::vector<int> ctShownTriggers(const std::vector<ClassicTrigger>& trigg
     }
     return shown;
 }
+
+// The number of parts a trigger makes in the map: 1, or more when its blocks make more than 64 slots.
+inline int ctPartsOf(const ClassicTrigger& t) {
+    bool blocks = false;
+    for (int i = 0; i < t.actionCount() && !blocks; ++i) blocks = t.actions[size_t(i)].type == kClassicBlockType;
+    if (!blocks) return 1;
+    ClassicTriggers one;
+    one.triggers.push_back(t);
+    StringTable scratch;
+    return int(classicExpandBatches(one, scratch).triggers.size());
+}
+
+// Whether the action at `i` can move into the block before it (`in`) or out of its block: a trial on a copy.
+inline bool ctCanMoveRow(const ClassicTrigger& t, int i, bool in) {
+    if (i < 0 || i >= t.actionCount()) return false;
+    ClassicTrigger trial = t;
+    return in ? trial.indentAction(i) : trial.outdentAction(i);
+}
+
+// --- The painted lists -------------------------------------------------------------------------------------------------
+// The two lists of the page: the triggers (the list) and the conditions and actions (the entries). The page's state and
+// its commands are the host's (classic_triggers.inc); the paint, the click areas, a row dragged by its grip, the wheel and
+// the scroll bar are here, on the Canvas. A list's window is a Win32Host (or any host) of its view.
+
+// The program's part of the lists.
+class CtListHost {
+public:
+    virtual ~CtListHost() = default;
+    virtual const std::vector<ClassicTrigger>& triggers() const = 0;
+    virtual const std::vector<int>& shown() const = 0;  // the triggers in the list, in order
+    virtual const ClassicTrigger* selectedTrigger() const = 0;
+    virtual int selectedIndex() const = 0;
+    virtual bool marked(int i) const = 0;  // checked with Ctrl or Shift click
+    virtual int entryKind() const = 0;     // the selected entry: 0 condition, 1 action
+    virtual int entryIndex() const = 0;    // (-1: none)
+    virtual bool collapsed(int i) const = 0;
+    virtual ClassicNames names() const = 0;
+    virtual std::wstring chipText(const ClassicParam& p, uint32_t v) = 0;
+    virtual std::wstring chipTip(const ClassicParam& p) = 0;
+    // Commands (the same as the rows' buttons, the keys and the menus).
+    virtual void clickTrigger(int i) = 0;
+    virtual void toggleTrigger(int i) = 0;
+    virtual void duplicateTrigger(int i) = 0;
+    virtual void deleteTrigger(int i) = 0;
+    virtual void moveShown(int from, int to) = 0;
+    virtual void addTrigger() = 0;
+    virtual void triggerMenu(int i, draw::Point at) = 0;  // `at`: in the list's coordinates
+    virtual void selectEntry(int kind, int i) = 0;
+    virtual void toggleEntry(int kind, int i) = 0;
+    virtual void duplicateEntry(int kind, int i) = 0;
+    virtual void deleteEntry(int kind, int i) = 0;
+    virtual void moveEntry(int kind, int from, int to) = 0;
+    virtual void moveRow(int i, bool in) = 0;
+    virtual void editBlock(int i) = 0;  // selects the block's action, then edits its block
+    virtual void entryMenu(int kind, int i, draw::Point at) = 0;
+    virtual void addClick(int kind, draw::Rect link) = 0;  // "Add a condition/action": `link` in the list's coordinates
+    virtual void chipClick(int kind, int i, int pi, draw::Rect chip) = 0;
+    virtual void toggleCollapsed(int i) = 0;
+    virtual void entriesLaid(int height) = 0;  // the entries' height changed: the editor follows
+};
+
+// A click area of a painted list: the mouse on it runs `click`; a `drag` (a grip) starts a drag; the right button runs
+// `context` (a menu, in the list's coordinates); `tip` is the tooltip.
+struct CtHit {
+    draw::Rect r;
+    std::function<void()> click;
+    std::function<void(draw::Point)> drag;
+    std::function<void(draw::Point)> context;
+    std::wstring tip;
+    draw::Cursor cursor = draw::Cursor::Arrow;
+};
+
+// One of a row's actions at its right edge: a bare icon, its tip, what it does, its tone and state.
+struct CtAction {
+    UiIcon icon = UiIcon::Power;
+    std::wstring tip;
+    std::function<void()> click;
+    stardraft::kit::Tone tone = stardraft::kit::Tone::Normal;
+    bool on = false;
+    bool enabled = true;
+};
+
+class CtListView final : public draw::View {
+public:
+    // `triggers`: the list of triggers (else the entries: the conditions and the actions).
+    CtListView(CtListHost& host, bool triggers) : host_(host), triggers_(triggers) {}
+
+    // The scroll goes back to the top (a trigger was selected).
+    void resetScroll() { scroll_ = 0; }
+    int scrollPos() const { return scroll_; }
+    // The content's height as the last paint made it (the editor's layout takes it for the entries).
+    int contentHeight() const { return height_; }
+    // The trigger at `k` in the list (its place among the shown triggers) is in view: the list scrolls to it when it is not.
+    void revealShown(int k) {
+        if (height() <= 0) return;
+        const int top = scale(38) + k * scale(46), h = scale(46);  // (the add row is above the rows)
+        if (top < scroll_) scroll_ = top;
+        else if (top + h > scroll_ + height()) scroll_ = top + h - height();
+        invalidate();
+    }
+    // Drags row `from` of a list (0 the triggers, 1 the conditions, 2 the actions) to place `to` (in the list without it),
+    // through the click areas the last paint made, as the mouse does. `atPlace` runs while the row is at the place.
+    bool dragRow(int list, int from, int to, const std::function<void()>& atPlace) {
+        const auto& rows = rows_[list];
+        const int n = int(rows.size());
+        if (from < 0 || from >= n || to < 0 || to >= n) return false;
+        const draw::Point grip{rows[size_t(from)].left + scale(8), (rows[size_t(from)].top + rows[size_t(from)].bottom) / 2};
+        const CtHit* h = hitAt(grip, true);
+        if (!h || !h->drag) return false;
+        const int slot = to > from ? to + 1 : to;  // the row the dragged one goes before
+        const draw::Point at{grip.x, slot < n ? rows[size_t(slot)].top + 1 : rows.back().bottom - 1};
+        mouse({draw::MouseKind::Down, grip, 0, 0, false, 0});
+        mouse({draw::MouseKind::Move, at, 0, 0, false, 0});
+        if (atPlace) atPlace();
+        mouse({draw::MouseKind::Up, at, 0, 0, false, 0});
+        return true;
+    }
+
+    void paint(draw::Canvas& c) override {
+        hits_.clear();
+        if (triggers_) paintTriggers(c);
+        else paintEntries(c);
+    }
+
+    bool mouse(const draw::MouseEvent& e) override {
+        switch (e.kind) {
+        case draw::MouseKind::Move:
+            if (drag_.from >= 0) {  // a row dragged: its place follows, and the list scrolls at its edges
+                drag_.to = toIndex(drag_.list, e.pt.y);
+                const int edge = scale(20);
+                if (e.pt.y < edge) scrollTo(scroll_ - scale(12));
+                else if (e.pt.y > height() - edge) scrollTo(scroll_ + scale(12));
+            }
+            invalidate();  // (the row under the mouse paints its hover)
+            return true;
+        case draw::MouseKind::Leave:
+            invalidate();
+            return true;
+        case draw::MouseKind::Down: {
+            if (e.button != 0) return false;
+            if (draw::Host* h = host()) h->focus(*this);
+            const CtHit* hit = hitAt(e.pt, true);
+            if (!hit) return true;
+            if (hit->drag) {
+                hit->drag(e.pt);
+                if (draw::Host* h = host()) h->capture(*this, true);
+            } else if (hit->click) {
+                auto click = hit->click;  // (the click may repaint, which clears the hits)
+                click();
+            }
+            return true;
+        }
+        case draw::MouseKind::Up: {
+            if (e.button == 1) {  // the right button: the menu of the row
+                const CtHit* hit = contextAt(e.pt);
+                if (!hit) return false;
+                auto context = hit->context;
+                context(e.pt);
+                return true;
+            }
+            if (e.button != 0 || drag_.from < 0) return true;
+            const Drag d = std::exchange(drag_, Drag{});
+            if (draw::Host* h = host()) h->capture(*this, false);
+            if (d.to != d.from && d.to != d.from + 1 && d.moved) d.moved(d.from, d.to > d.from ? d.to - 1 : d.to);
+            invalidate();
+            return true;
+        }
+        case draw::MouseKind::Wheel:
+            scrollTo(scroll_ - int(std::lround(e.wheel * float(scale(26)) * 3.0f)));
+            return true;
+        default: return false;
+        }
+    }
+    draw::Cursor cursor(draw::Point pt) override {
+        const CtHit* hit = hitAt(pt, true);
+        return hit ? hit->cursor : draw::Cursor::Arrow;
+    }
+    std::wstring tip(draw::Point pt) override {
+        for (auto it = hits_.rbegin(); it != hits_.rend(); ++it)
+            if (it->r.contains(pt) && !it->tip.empty()) return it->tip;
+        return {};
+    }
+    bool hoverTip() const override { return true; }
+
+    // The bar: the list's height, its page (the visible height) and its position.
+    bool windowScrollBar(int& range, int& page, int& pos) override {
+        range = std::max(0, height_ - 1), page = height(), pos = scroll_;
+        return true;
+    }
+    bool vscroll(int code, int /*pos*/, int track, int page) override {
+        int s = scroll_;
+        switch (code) {  // the SB_* requests
+        case 0: s -= scale(26); break;  // SB_LINEUP: a row
+        case 1: s += scale(26); break;  // SB_LINEDOWN
+        case 2: s -= page; break;       // SB_PAGEUP
+        case 3: s += page; break;       // SB_PAGEDOWN
+        case 4:                         // SB_THUMBPOSITION
+        case 5: s = track; break;       // SB_THUMBTRACK
+        case 6: s = 0; break;           // SB_TOP
+        case 7: s = 1 << 30; break;     // SB_BOTTOM
+        default: return true;
+        }
+        scrollTo(s);
+        return true;
+    }
+
+private:
+    // The row being dragged (`from`, `to` in its list) and what it does when it is dropped.
+    struct Drag {
+        int list = 0, from = -1, to = -1;
+        std::function<void(int, int)> moved;
+    };
+
+    bool visible(const draw::Rect& r) const { return r.bottom > 0 && r.top < height(); }
+    bool hot(const draw::Rect& r) const {
+        const draw::Host* h = host();
+        return h && r.contains(h->mouse(*this));
+    }
+    CtHit& hit(draw::Rect r, std::function<void()> click, std::wstring tip = {}, draw::Cursor cur = draw::Cursor::Arrow) {
+        hits_.push_back({r, std::move(click), nullptr, nullptr, std::move(tip), cur});
+        return hits_.back();
+    }
+    const CtHit* hitAt(draw::Point pt, bool pressable) const {
+        for (auto it = hits_.rbegin(); it != hits_.rend(); ++it)
+            if (it->r.contains(pt) && (!pressable || it->click || it->drag)) return &*it;
+        return nullptr;
+    }
+    const CtHit* contextAt(draw::Point pt) const {
+        for (auto it = hits_.rbegin(); it != hits_.rend(); ++it)
+            if (it->r.contains(pt) && it->context) return &*it;
+        return nullptr;
+    }
+    void scrollTo(int s) {
+        s = std::clamp(s, 0, std::max(0, height_ - height()));
+        if (s != scroll_) scroll_ = s, invalidate();
+    }
+    // The place a dragged row goes to: the first row whose middle is below the point (else the end).
+    int toIndex(int list, int y) const {
+        const auto& rs = rows_[list];
+        for (size_t i = 0; i < rs.size(); ++i)
+            if (y < (rs[i].top + rs[i].bottom) / 2) return int(i);
+        return int(rs.size());
+    }
+
+    // A row that can be reordered: its grip (on the row under the mouse, or while it is dragged) and the drag by the grip.
+    void reorderRow(draw::Canvas& c, int list, draw::Rect row, int index, std::function<void(int, int)> moved) {
+        rows_[list].push_back(row);
+        const bool dragging = drag_.from >= 0 && drag_.list == list;
+        const bool me = dragging && drag_.from == index;
+        if (me) c.fill(row, kSel, 160);
+        if (hot(row) || me) grip(c, row.left + scale(5), (row.top + row.bottom) / 2 - scale(6), me);
+        const draw::Rect g{row.left, row.top, row.left + scale(18), row.bottom};
+        CtHit& h = hit(g, nullptr, L"Drag to move", draw::Cursor::SizeAll);
+        h.drag = [this, list, index, moved](draw::Point pt) {
+            drag_.list = list, drag_.from = index, drag_.moved = moved;
+            drag_.to = toIndex(list, pt.y);
+        };
+    }
+    static void grip(draw::Canvas& c, int x, int y, bool on) {
+        for (int gx = 0; gx < 2; ++gx)
+            for (int gy = 0; gy < 3; ++gy) {
+                const int dx = x + gx * scale(5), dy = y + gy * scale(5);
+                c.fill({dx, dy, dx + scale(2), dy + scale(2)}, on ? kAccent : kGripDot);
+            }
+    }
+    // After a list's rows: the line where the dragged row goes.
+    void dropLine(draw::Canvas& c, int list) {
+        if (drag_.from < 0 || drag_.list != list) return;
+        const auto& rs = rows_[list];
+        if (rs.empty()) return;
+        const int y = drag_.to < int(rs.size()) ? rs[size_t(drag_.to)].top : rs.back().bottom;
+        c.fill({rs.front().left, y - scale(1), rs.front().right, y + scale(1)}, kAccent);
+    }
+
+    // The kit's shapes (ui_kit.inc's): a row's ground, a chip, an add row, the row's icon buttons.
+    static void listRow(draw::Canvas& c, draw::Rect r, bool selected, bool over) {
+        if (selected) {
+            c.fill(r, kSel);
+            c.fill({r.left, r.top, r.left + scale(2), r.bottom}, kAccent);
+        } else if (over) {
+            c.fill(r, kRowHot);
+        }
+    }
+    static draw::Color textOfRow(bool selected) { return selected ? kAccent : kText; }
+    static void chipFace(draw::Canvas& c, draw::Rect r, bool over, bool dim) {
+        const draw::Color fill = dim ? kChipDim : over ? kSelHot : kChip;
+        const draw::Color line = dim ? kReadOnlyLine : over ? kAccentLine : kChipLine;
+        c.roundBox(r, fill, line, float(scale(stardraft::kit::kRadius)));
+    }
+    void addRow(draw::Canvas& c, draw::Rect r, const std::wstring& text, std::function<void()> click, const std::wstring& tip, bool enabled) {
+        const bool over = enabled && hot(r);
+        c.roundBox(r, over ? kRowHot : draw::kNone, over ? kBorderHot : kBorder, float(scale(6)));
+        const int is = scale(16);
+        const draw::Color col = !enabled ? kFaint : over ? kAccent : kDim;
+        const draw::Rect ir{r.left + scale(10), (r.top + r.bottom - is) / 2, r.left + scale(10) + is, (r.top + r.bottom + is) / 2};
+        c.icon(ir, int(UiIcon::Add), col, is);
+        c.text({ir.right + scale(8), r.top, r.right - scale(8), r.bottom}, text, col, draw::kMiddle | draw::kEllipsis);
+        hit(r, enabled ? std::move(click) : nullptr, tip, enabled ? draw::Cursor::Hand : draw::Cursor::Arrow);
+    }
+    static draw::Rect squareOf(draw::Rect r) {
+        const int w = r.width(), h = r.height(), s = std::min(w, h);
+        const int x = r.left + (w - s) / 2, y = r.top + (h - s) / 2;
+        return {x, y, x + s, y + s};
+    }
+    // A row's actions at its right edge (each a square of kIconBox): shown on the row under the mouse, or when `show`.
+    void rowActions(draw::Canvas& c, draw::Rect row, const std::vector<CtAction>& acts, bool show) {
+        const int w = scale(stardraft::kit::kIconBox), h = std::min(row.height(), scale(stardraft::kit::kIconBox));
+        int x = row.right - scale(4) - w * int(acts.size());
+        if (!show && !hot(row)) return;
+        const int y = (row.top + row.bottom - h) / 2;
+        for (const CtAction& a : acts) {
+            const draw::Rect r = squareOf({x, y, x + w, y + h});
+            const bool over = a.enabled && hot(r);
+            if (over) c.roundBox(r, kCtlHot, draw::kNone, float(scale(stardraft::kit::kRadius)));
+            const bool quiet = a.tone == stardraft::kit::Tone::Quiet;
+            const draw::Color rest = quiet && a.on ? kWarn : a.on || a.tone == stardraft::kit::Tone::Primary ? kAccent : kDim;
+            draw::Color lit = kText;
+            if (a.tone == stardraft::kit::Tone::Danger) lit = kBad;
+            else if (quiet && a.on) lit = kWarn;
+            else if (a.tone == stardraft::kit::Tone::Primary || a.on) lit = kAccentBright;
+            c.icon(r, int(a.icon), !a.enabled ? kFaint : over ? lit : rest, scale(16));
+            hit(r, a.enabled ? a.click : nullptr, a.tip, a.enabled ? draw::Cursor::Hand : draw::Cursor::Arrow);
+            x += w;
+        }
+    }
+    // "None" in an empty list, at x; returns the y under it.
+    int noneRow(draw::Canvas& c, int x, int y, int w) {
+        c.text({x, y, w, y + scale(stardraft::kit::kRowH)}, L"None", kDim, draw::kMiddle);
+        return y + scale(stardraft::kit::kRowH);
+    }
+    // A section heading (its name and a line to the right edge); returns the y under it.
+    static int sectionHeader(draw::Canvas& c, int y, int w, const wchar_t* name) {
+        const int rowH = scale(stardraft::kit::kRowH);
+        c.text({0, y, w, y + rowH}, name, kText, draw::kMiddle);
+        c.fill({0, y + rowH - 1, w, y + rowH}, kBorder);
+        return y + rowH + scale(6);
+    }
+    // A glyph of the Segoe MDL2 glyph font, centered in its box.
+    static void glyphText(draw::Canvas& c, draw::Rect r, const wchar_t* g, draw::Color col, int px) {
+        const draw::Font of = c.setFont(c.font({draw::Face::Glyphs, px}));
+        c.text(r, std::wstring_view(g, 1), col, draw::kMiddle | draw::kCenter);
+        c.setFont(of);
+    }
+
+    // A sentence's words and value chips (ctSentenceParts): each chip is a click area (its value's picker).
+    template <class E>
+    void sentence(draw::Canvas& c, const E& e, int kind, int index, draw::Rect area, bool dim, bool selected) {
+        const ClassicDef* def = kind ? classicActionDef(e.type) : classicConditionDef(e.type);
+        CtSentenceEnv env;
+        env.names = host_.names();
+        env.chipText = [this](const ClassicParam& p, uint32_t v) { return host_.chipText(p, v); };
+        const draw::Color word = dim ? kFaint : selected ? kAccent : kText;
+        int x = area.left;
+        auto text = [&](const std::wstring& s, draw::Color col, bool chip) -> draw::Rect {
+            if (x >= area.right || s.empty()) return {};
+            const int pad = chip ? scale(5) : 0;
+            int w = c.measure(s) + 2 * pad;
+            if (x + w > area.right) w = area.right - x;
+            const draw::Rect r{x, area.top, x + w, area.bottom};
+            if (chip) chipFace(c, {r.left, r.top + scale(4), r.right, r.bottom - scale(4)}, hot(r), dim);
+            c.text({r.left + pad, r.top, r.right - pad, r.bottom}, s, col, draw::kMiddle | draw::kEllipsis);
+            x += w;
+            return r;
+        };
+        const ClassicTrigger* t = kind == 1 ? host_.selectedTrigger() : nullptr;
+        for (const CtSegment& s : ctSentenceParts(e, kind, t, index, env)) {
+            if (s.part == CtPart::Eud) {
+                text(s.text, kDim, false);
+            } else if (s.part == CtPart::Word) {
+                text(s.text, word, false);
+            } else {
+                const draw::Rect r = text(s.text, dim ? kFaint : kText, true);
+                if (r.right > r.left && def && s.param >= 0 && s.param < int(def->params.size())) {
+                    const ClassicParam& p = def->params[size_t(s.param)];
+                    const int pi = s.param;
+                    hit(r, [this, kind, index, pi, r] { host_.chipClick(kind, index, pi, r); }, host_.chipTip(p), draw::Cursor::Hand);
+                }
+            }
+        }
+    }
+
+    // After a paint: the content's height (the entries' height goes to the host, which the editor follows), and the scroll
+    // is kept inside it.
+    void settle(int y) {
+        height_ = y + scroll_;
+        if (!triggers_ && height_ != laid_) laid_ = height_, host_.entriesLaid(height_);
+        if (const int most = std::max(0, height_ - height()); scroll_ > most) scroll_ = most, invalidate();
+    }
+
+    // The trigger list: "Add a trigger" first, then each trigger in two lines (its first condition; its players and action
+    // count), an "Off" chip on a turned-off trigger, and the row's actions on the row under the mouse (or the selected one).
+    void paintTriggers(draw::Canvas& c) {
+        const int w = width(), rowH = scale(46), textX = scale(22);
+        rows_[0].clear();
+        int y = -scroll_;
+        const ClassicNames n = host_.names();
+        addRow(c, {scale(10), y + scale(2), w - scale(10), y + scale(32)}, L"Add a trigger", [this] { host_.addTrigger(); }, L"Add a trigger after the selected one", true);
+        y += scale(38);
+        if (host_.shown().empty()) y = noneRow(c, scale(10), y, w);
+        const std::vector<int> shown = host_.shown();
+        for (int k = 0; k < int(shown.size()); ++k) {
+            const int i = shown[size_t(k)];
+            const draw::Rect r{0, y, w, y + rowH};
+            y += rowH;
+            const bool sel = i == host_.selectedIndex(), checked = host_.marked(i);
+            const ClassicTrigger& t = host_.triggers()[size_t(i)];
+            if (visible(r)) {
+                listRow(c, r, sel || checked, hot(r));
+                const std::wstring cond = ctTriggerLineOf(t, false, n), acts = ctTriggerLineOf(t, true, n);  // (for the rows shown only)
+                CtHit& h = hit(r, [this, i] { host_.clickTrigger(i); }, (cond.empty() ? L"" : cond + L". ") + acts);
+                h.context = [this, i](draw::Point p) { host_.triggerMenu(i, p); };
+            }
+            reorderRow(c, 0, r, k, [this](int from, int to) { host_.moveShown(from, to); });
+            if (!visible(r)) continue;
+            const bool lit = sel || checked;
+            const int parts = ctPartsOf(t);  // a trigger too long for 64 slots is several triggers in the map
+            const int actionCount = t.actionCount();
+            const int right = r.right - scale(8) - scale(stardraft::kit::kIconBox) * 3;
+            const draw::Rect top{textX, r.top, right, (r.top + r.bottom) / 2 + scale(1)}, bottom{textX, top.bottom - scale(2), right, r.bottom};
+            // The first condition (Always when there is none), and the Off chip at the right of it.
+            std::wstring first = t.conditionCount() ? widen(classicConditionText(t.conditions[0], n)) : L"Always";
+            if (parts > 1) first = tr(L"Becomes ") + std::to_wstring(parts) + tr(L" triggers in the map. ") + first;
+            int textRight = right;
+            if (t.disabled()) {
+                const int cw = c.measure(L"Off") + scale(14);
+                const draw::Rect chip{right - cw, top.top + scale(5), right, top.bottom - scale(5)};
+                chipFace(c, chip, false, true);
+                c.text(chip, L"Off", kWarn, draw::kMiddle | draw::kCenter);
+                textRight = chip.left - scale(8);
+            }
+            const draw::Rect head{textX, top.top, textRight, top.bottom};
+            // (a turned-off trigger's line is in the warning color, as the native paint left it after the Off chip)
+            c.text(head, std::to_wstring(i + 1) + L". " + first, t.disabled() ? kWarn : textOfRow(lit), draw::kBottom | draw::kEllipsis);
+            // The players and the number of actions: "Player 1, Player 2 | 2 actions".
+            std::wstring who;
+            for (int g = 0; g < kClassicGroups; ++g)
+                if (t.players[size_t(g)]) who += (who.empty() ? L"" : L", ") + widen(classicPlayerName(uint32_t(g), n));
+            const std::wstring tail = (who.empty() ? L"No players" : who) + L" | " + std::to_wstring(actionCount) + (actionCount == 1 ? L" action" : L" actions");
+            c.text(bottom, tail, kDim, draw::kEllipsis);
+            rowActions(c, r,
+                       {{UiIcon::Power, t.disabled() ? L"Turn on" : L"Turn off", [this, i] { host_.toggleTrigger(i); }, stardraft::kit::Tone::Quiet, t.disabled()},
+                        {UiIcon::Duplicate, L"Duplicate", [this, i] { host_.duplicateTrigger(i); }},
+                        {UiIcon::Delete, L"Delete", [this, i] { host_.deleteTrigger(i); }, stardraft::kit::Tone::Danger}},
+                       lit);
+        }
+        dropLine(c, 0);
+        settle(y);
+    }
+
+    // The entries: the conditions, then the actions. A block row has its chevron, its children below it with a rule at each
+    // depth, and its child count ("2 actions", or "3 actions hidden" when collapsed).
+    void paintEntries(draw::Canvas& c) {
+        const int w = width(), rowH = scale(stardraft::kit::kRowH);
+        int y = -scroll_;
+        const ClassicTrigger* t = host_.selectedTrigger();
+        for (int kind = 0; kind < 2; ++kind) {
+            const int list = kind + 1;
+            rows_[list].clear();
+            y = sectionHeader(c, y, w, kind ? L"Actions" : L"Conditions");
+            const int count = t ? (kind ? t->actionCount() : t->conditionCount()) : 0;
+            if (!count && !t) y = noneRow(c, scale(10), y, w);  // (a trigger: its add row says it)
+            int hiddenEnd = -1;  // the children of a collapsed block are not shown: up to this row
+            for (int i = 0; i < count; ++i) {
+                if (kind && i < hiddenEnd) continue;
+                hiddenEnd = -1;
+                const bool isBlock = kind && t->actions[size_t(i)].type == kClassicBlockType;
+                if (isBlock && host_.collapsed(i)) hiddenEnd = t->blockEnd(i);
+                const int depth = kind ? t->actions[size_t(i)].depth : 0;
+                const int indent = depth * scale(18) + scale(6);  // the chevron's cell; the sentence starts after it
+                const draw::Rect r{0, y, w, y + rowH};
+                y += rowH;
+                const bool sel = host_.entryKind() == kind && host_.entryIndex() == i;
+                if (visible(r)) {
+                    listRow(c, r, sel, hot(r));
+                    CtHit& h = hit(r, [this, kind, i] { host_.selectEntry(kind, i); });
+                    h.context = [this, kind, i](draw::Point p) { host_.entryMenu(kind, i, p); };
+                }
+                reorderRow(c, list, r, i, [this, kind](int from, int to) { host_.moveEntry(kind, from, to); });
+                if (!visible(r)) continue;
+                // A rule at each depth the row is inside: the children of a block read as inside it.
+                for (int lv = 0; lv < depth; ++lv) {
+                    const int x = lv * scale(18) + scale(13);
+                    c.fill({x, r.top, x + scale(1), r.bottom}, kBorder);
+                }
+                const uint8_t flags = kind ? t->actions[size_t(i)].flags : t->conditions[size_t(i)].flags;
+                const bool off = (flags & 2) != 0;
+                if (isBlock) {  // the chevron: expanded (down) or collapsed (right); the whole indent column shows and takes a click
+                    const bool shut = host_.collapsed(i);
+                    const draw::Rect column{0, r.top, indent + scale(14), r.bottom};
+                    const draw::Rect glyphBox{indent, r.top, indent + scale(14), r.bottom};
+                    glyphText(c, glyphBox, shut ? L"\xE76C" : L"\xE70D", textOfRow(sel), scale(12));
+                    hit(column, [this, i] { host_.toggleCollapsed(i); }, shut ? L"Show the actions of the block" : L"Hide the actions of the block",
+                        draw::Cursor::Hand);
+                }
+                // The row's actions: a block (edit, turn on or off, duplicate, delete); an action (turn on or off, move out,
+                // move in, duplicate, delete); a condition (turn on or off, duplicate, delete).
+                std::vector<CtAction> acts;
+                if (isBlock) acts.push_back({UiIcon::Edit, L"Edit the block", [this, i] { host_.editBlock(i); }});
+                acts.push_back({UiIcon::Power, off ? L"Turn on" : L"Turn off", [this, kind, i] { host_.toggleEntry(kind, i); }, stardraft::kit::Tone::Quiet, off, !isBlock});
+                if (kind) {
+                    const bool canOut = ctCanMoveRow(*t, i, false), canIn = ctCanMoveRow(*t, i, true);
+                    acts.push_back({UiIcon::Back, L"Move out (Ctrl+Left)", [this, i] { host_.moveRow(i, false); }, stardraft::kit::Tone::Normal, false, canOut});
+                    acts.push_back({UiIcon::Forward, L"Move in (Ctrl+Right)", [this, i] { host_.moveRow(i, true); }, stardraft::kit::Tone::Normal, false, canIn});
+                }
+                acts.push_back({UiIcon::Duplicate, L"Duplicate", [this, kind, i] { host_.duplicateEntry(kind, i); }});
+                acts.push_back({UiIcon::Delete, L"Delete", [this, kind, i] { host_.deleteEntry(kind, i); }, stardraft::kit::Tone::Danger});
+                const int actsW = scale(stardraft::kit::kIconBox) * int(acts.size());
+                const int textLeft = indent + scale(18);
+                const int areaRight = r.right - scale(8) - actsW - (isBlock ? scale(96) : 0);
+                const draw::Rect area{textLeft, r.top, areaRight, r.bottom};
+                if (kind) sentence(c, t->actions[size_t(i)], 1, i, area, off, sel);
+                else sentence(c, t->conditions[size_t(i)], 0, i, area, off, sel);
+                if (isBlock) {  // the child count: "2 actions", or "3 actions hidden" when collapsed
+                    const int children = t->blockEnd(i) - i - 1;
+                    const std::wstring childText = std::to_wstring(children) + (children == 1 ? L" action" : L" actions") + (hiddenEnd >= 0 ? L" hidden" : L"");
+                    c.text({areaRight + scale(4), r.top, areaRight + scale(96), r.bottom}, childText, kDim, draw::kMiddle | draw::kRight);
+                }
+                rowActions(c, r, acts, sel);
+            }
+            dropLine(c, list);
+            y += scale(4);
+            if (t) {  // the add row: an action inside the selected block says which block
+                const int limit = kind ? kClassicActions : kClassicConditions;
+                const bool full = count >= limit;
+                const draw::Rect lr{scale(10), y, w - scale(10), y + scale(30)};
+                std::wstring text = kind ? L"Add an action\x2026" : L"Add a condition\x2026";
+                std::wstring tip = full ? (kind ? L"A trigger has at most 64 actions" : L"A trigger has at most 16 conditions") : L"";
+                if (kind && !full && host_.entryKind() == 1 && host_.entryIndex() >= 0 && host_.entryIndex() < count &&
+                    t->actions[size_t(host_.entryIndex())].type == kClassicBlockType) {
+                    text = tr(L"Add an action to For each ") + widen(t->actions[size_t(host_.entryIndex())].batch->name) + L"\x2026";
+                    tip = L"Add an action inside the block (the end of its actions)";
+                }
+                addRow(c, lr, text, [this, kind, lr] { host_.addClick(kind, lr); }, tip, !full);
+                y += scale(30);
+            }
+            y += scale(16);
+        }
+        settle(y);
+    }
+
+    CtListHost& host_;
+    bool triggers_ = true;
+    std::vector<CtHit> hits_;
+    std::vector<draw::Rect> rows_[3];  // the rows of each list as painted: the triggers, the conditions, the actions
+    Drag drag_;
+    int scroll_ = 0, height_ = 0, laid_ = -1;
+};
