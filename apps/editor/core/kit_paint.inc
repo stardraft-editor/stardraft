@@ -257,5 +257,15 @@ inline void drawGrip(draw::Canvas& c, int x, int y, bool on) {
 }
 inline void drawDropLine(draw::Canvas& c, int x0, int x1, int y) { c.fill({x0, y - scale(1), x1, y + scale(1)}, kAccent); }
 
+// A slider: the track from x0 to x1 at cy, lit to `frac` (0..1), and its knob (ui_kit.inc's sliderFace).
+inline void drawSliderFace(draw::Canvas& c, int x0, int x1, int cy, float frac, bool over, bool enabled = true) {
+    const draw::Rect track{x0, cy - scale(2), x1, cy + scale(2)};
+    c.roundBox(track, kCtl, kBorder, float(scale(2)));
+    const int kx = x0 + int(std::lround(std::clamp(frac, 0.0f, 1.0f) * float(x1 - x0)));
+    c.fill({x0, cy - scale(2), kx, cy + scale(2)}, enabled ? kAccent : kFaint);
+    c.smoothRoundOutline({kx - scale(7), cy - scale(7), kx + scale(7), cy + scale(7)}, float(scale(7)), !enabled ? kFaint : over ? kAccentBright : kAccent,
+                         2.0f);
+}
+
 }  // namespace kitpaint
 

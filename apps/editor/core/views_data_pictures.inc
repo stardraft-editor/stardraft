@@ -17,6 +17,23 @@ public:
     virtual bool pictureMouse(draw::Point& p) = 0;
     // The form paints again (a value of a picture changed).
     virtual void pictureRepaint() = 0;
+    // A part that changes the entry's fields (core/views_data_diagrams.inc): `drag` sets them while the mouse is held
+    // (the change is saved, one undo step, when it is let go), `click` (may be null) when it is clicked; `fields`: the
+    // fields it shows, marked in the form while the mouse is over it. The default is a plain area.
+    virtual void pictureEdit(draw::Rect r, std::function<void(draw::Point)> drag, std::function<void()> click, const std::wstring& tip, draw::Cursor cursor,
+                             std::vector<std::string> fields) {
+        (void)fields;
+        pictureArea(r, std::move(click), std::move(drag), tip, cursor);
+    }
+    // The field is under the mouse (in the form, or a picture's part that shows it).
+    virtual bool fieldHot(const std::string& field) { return (void)field, false; }
+    // A part is being dragged (the mouse is held on it).
+    virtual bool pictureDragging() { return false; }
+    // An SFX data entry's sound (the program's audio): its loudness in columns and its length; false when it cannot be
+    // read. The part of it played (0..1) and whether it plays now; play or pause.
+    virtual bool sfxWave(int sfx, std::vector<float>& peaks, double& seconds) { return (void)sfx, (void)peaks, (void)seconds, false; }
+    virtual double sfxPlayed(int sfx, bool& playing) { return (void)sfx, playing = false, 0.0; }
+    virtual void sfxToggle(int sfx) { (void)sfx; }
 };
 
 namespace datapics {
@@ -106,7 +123,8 @@ inline draw::Bitmap gStage, gPortraitFrame;
 }  // namespace datapics
 
 // The bitmaps' copies go (before the program's GPU device does: a later release would use a freed device).
-void releaseDataPictures() { datapics::gStage = draw::Bitmap(), datapics::gPortraitFrame = draw::Bitmap(); }
+void releaseDataDiagrams();  // (views_data_diagrams.inc)
+void releaseDataPictures() { datapics::gStage = draw::Bitmap(), datapics::gPortraitFrame = draw::Bitmap(), releaseDataDiagrams(); }
 
 const std::wstring kDataTileCell = L"1 tile: 32 x 32 px";
 
@@ -342,6 +360,9 @@ int paintPortrait(draw::Canvas& c, int e, int x, int y, int w, draw::Rect* shown
 // The pictures of a section of the form that the SDL program has (images.dat section 1: the player and the timeline;
 // portdata.dat section 0: the portrait). Returns the bottom (y when the section has none here). `moving`: the
 // pictures move (the image plays, a portrait shows): the program's timer paints them again.
+int paintDataDiagrams(draw::Canvas& c, DataPicturesHost& host, const std::string& dat, int section, int e, int x, int y, int w, bool& moving);  // (views_data_diagrams.inc)
+int paintIscriptUses(draw::Canvas& c, DataPicturesHost& host, int image, int x, int y, int w);
+int paintIscriptListing(draw::Canvas& c, DataPicturesHost& host, int image, int x, int y, int w);
 int paintDataPictures(draw::Canvas& c, DataPicturesHost& host, const std::string& dat, int section, int e, int x, int y, int w, bool& moving) {
     if (dat == "portdata" && section == 0) {
         draw::Rect shown;
@@ -352,7 +373,11 @@ int paintDataPictures(draw::Canvas& c, DataPicturesHost& host, const std::string
     if (dat == "images" && section == 1) {  // beside the script's fields (Iscript ID): the script played
         const int pw = std::min(w, scale(680)), ph = paintImagePlayer(c, host, e, x, y, pw);
         moving |= gImagePlayer.playing;
-        return y + ph + scale(12) + paintTimeline(c, host, e, x, y + ph + scale(12), pw);
+        int bottom = y + ph + scale(12) + paintTimeline(c, host, e, x, y + ph + scale(12), pw);
+        const int usesY = bottom + scale(8);  // what the script uses; its code when the player's code button is on
+        if (const int uh = paintIscriptUses(c, host, e, x, usesY, pw)) bottom = usesY + uh;
+        if (gImagePlayer.showCode) bottom += scale(12) + paintIscriptListing(c, host, e, x, bottom + scale(12), pw);
+        return bottom;
     }
-    return y;
+    return paintDataDiagrams(c, host, dat, section, e, x, y, w, moving);
 }
