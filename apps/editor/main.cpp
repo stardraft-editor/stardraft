@@ -325,6 +325,7 @@ void titleColors(HWND w) {
     DwmSetWindowAttribute(w, 34 /* DWMWA_BORDER_COLOR */, &line, sizeof line);
 }
 void drawMatched(HDC dc, RECT r, const std::wstring& text, const std::vector<std::wstring>& words, COLORREF normal);
+void drawMatched(stardraft::draw::Canvas& c, stardraft::draw::Rect r, const std::wstring& text, const std::vector<std::wstring>& words, stardraft::draw::Color normal);
 // The message box in the theme (message_box.inc): a drop-in for MessageBoxW; `names` renames the buttons (left to right).
 int themedMessageBox(HWND owner, const std::wstring& text, const std::wstring& caption, UINT flags, const std::vector<std::wstring>& names = {});
 
@@ -5736,41 +5737,28 @@ void pickUnitLimit(int k, RECT b, HWND hwnd);  // Program options > Map unit lim
 
 
 int gPalPaintCount = 0;  // counts the palette's paints (what a paint reads once)
-void paintUnitPalette(HWND hwnd) {
+// The list on `c` (its view's paint: the host has filled the background with kBg, as the window did).
+void paintUnitPalette(stardraft::draw::Canvas& c, int width, int height) {
+    using stardraft::draw::FontDesc;
+    using stardraft::draw::Rect;
+    using stardraft::draw::kEllipsis;
+    using stardraft::draw::kMiddle;
+    using stardraft::draw::kRight;
     ++gPalPaintCount;
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-    HGDIOBJ oldBmp = SelectObject(mem, back);
-    FillRect(mem, &rc, app.bgBrush);
-    HGDIOBJ oldFont = SelectObject(mem, app.font);
-    SetBkMode(mem, TRANSPARENT);
-    const int viewH = rc.bottom - unitPaletteFooter();
-    HRGN clip = CreateRectRgn(0, 0, rc.right, viewH);
-    SelectClipRgn(mem, clip);
+    const int viewH = height - unitPaletteFooter();
+    c.pushClip({0, 0, width, viewH});
     const bool units = app.ed && app.mode != Mode::Locations;  // the picked item shows
-    auto fill = [&](RECT r, COLORREF c) {
-        HBRUSH br = CreateSolidBrush(c);
-        FillRect(mem, &r, br);
-        DeleteObject(br);
-    };
     for (size_t i = 0; app.ed && i < gPal.entries.size(); ++i) {
         const auto& e = gPal.entries[i];
         RECT r = e.rc;
         OffsetRect(&r, 0, -gPal.scroll);
         if (r.bottom < 0 || r.top > viewH) continue;
         if (e.value < 0) {  // a group heading: the section heading's text color, its line after the name
-            SetTextColor(mem, kText);
             RECT t = r;
             t.left += scale(6);
-            DrawTextW(mem, e.label.c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-            SIZE sz{};
-            GetTextExtentPoint32W(mem, e.label.c_str(), int(e.label.size()), &sz);
-            int mid = (r.top + r.bottom) / 2;
-            fill({t.left + sz.cx + scale(8), mid, r.right - scale(6), mid + 1}, kBorder);
+            c.text(t, e.label, kText, kMiddle);
+            const int mid = (r.top + r.bottom) / 2;
+            c.fill({t.left + c.measure(e.label) + scale(8), mid, r.right - scale(6), mid + 1}, kBorder);
             continue;
         }
         const bool picked = units && e.value == app.palette;
@@ -5779,25 +5767,19 @@ void paintUnitPalette(HWND hwnd) {
         if (picked || chosen || second || int(i) == gPal.hover) {
             RECT f = r;
             InflateRect(&f, -1, -1);
-            if (picked) ui::listRow(mem, f, true, false);
-            else fill(f, chosen || second ? kSel : kRowHot);
+            if (picked) ui::listRow(c, f, true, false);
+            else c.fill(f, chosen || second ? kSel : kRowHot);
             if (second) {  // a dashed accent frame, and "R" at its right end
-                HPEN pen = CreatePen(PS_DOT, 1, kAccent);
-                HGDIOBJ op = SelectObject(mem, pen), ob = SelectObject(mem, GetStockObject(NULL_BRUSH));
-                Rectangle(mem, f.left, f.top, f.right, f.bottom);
-                SelectObject(mem, op), SelectObject(mem, ob);
-                DeleteObject(pen);
-                RECT rt{f.right - scale(18), f.top, f.right - scale(4), f.bottom};
-                SetTextColor(mem, kAccent);
-                DrawTextW(mem, L"R", 1, &rt, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
+                c.frame(f, kAccent, 1, stardraft::draw::LineStyle::Dot);
+                c.text({f.right - scale(18), f.top, f.right - scale(4), f.bottom}, L"R", kAccent, kRight | kMiddle);
             }
         }
         if (gPal.pinned && i >= 1 && i <= size_t(gPal.pinned)) {  // a pinned doodad's copy at the top: the pin at its right
-            HGDIOBJ of = SelectObject(mem, glyphFont(11));
-            SetTextColor(mem, kDim);
-            RECT pr2{r.right - scale(22), r.top, r.right - scale(6), r.bottom};
-            DrawTextW(mem, L"\xE718", 1, &pr2, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
-            SelectObject(mem, of);
+            FontDesc glyphs;
+            glyphs.face = stardraft::draw::Face::Glyphs, glyphs.px = scale(11);
+            const stardraft::draw::Font of = c.setFont(c.font(glyphs));
+            c.text({r.right - scale(22), r.top, r.right - scale(6), r.bottom}, L"\xE718", kDim, kRight | kMiddle);
+            c.setFont(of);
         }
         RECT box = r;
         if (gPal.grid) InflateRect(&box, -scale(3), -scale(3));
@@ -5805,10 +5787,9 @@ void paintUnitPalette(HWND hwnd) {
             const int bw = (r.bottom - r.top) * (app.mode == Mode::Terrain ? 2 : 1);
             box = {r.left + scale(4), r.top + scale(2), r.left + scale(4) + bw, r.bottom - scale(2)};
         }
-        if (const auto* b = unitPaletteBitmap(e.value, app.mode); b && b->bmp) drawFitted(mem, *b, box);
-        else if (app.mode == Mode::Terrain) ui::box(mem, box, RGB(6, 6, 10), kBorder, 3);  // nothing to show (Space): an empty swatch
+        if (const auto* b = unitPaletteBitmap(e.value, app.mode); b && b->bmp) c.fitted(ui::imageOf(b), box);
+        else if (app.mode == Mode::Terrain) ui::box(c, box, RGB(6, 6, 10), kBorder, 3);  // nothing to show (Space): an empty swatch
         if (!gPal.grid) {
-            SetTextColor(mem, kText);
             RECT t = r;
             t.left = box.right + scale(8);
             t.right -= scale(4);
@@ -5819,34 +5800,24 @@ void paintUnitPalette(HWND hwnd) {
                 std::wistringstream in(lowerText(gPal.search));
                 for (std::wstring w; in >> w;) words.push_back(w);
             }
-            if (words.empty()) DrawTextW(mem, e.label.c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-            else drawMatched(mem, t, e.label, words, kText);
+            if (words.empty()) c.text(t, e.label, kText, kMiddle | kEllipsis);
+            else drawMatched(c, t, e.label, words, kText);
         }
     }
     if (app.ed && gPal.entries.empty()) {  // nothing agrees with the search: only None, dim, where the first row goes
-        SetTextColor(mem, kDim);
-        RECT t{scale(6), 0, rc.right - scale(6), scale(30)};
-        DrawTextW(mem, tr(L"None"), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+        c.text({scale(6), 0, width - scale(6), scale(30)}, tr(L"None"), kDim, kMiddle);
     }
-    SelectClipRgn(mem, nullptr);
-    DeleteObject(clip);
+    c.popClip();
     if (unitPaletteFooter()) {
         // Grid: the hovered (or picked) unit's name.
-        RECT f = {0, viewH, rc.right, rc.bottom};
-        FillRect(mem, &f, app.ctlBrush);
+        Rect f{0, viewH, width, height};
+        c.fill(f, kCtl);
         int show = gPal.hover >= 0 ? gPal.entries[size_t(gPal.hover)].value : units ? app.palette : -1;
         std::wstring name;
         if (app.ed && show >= 0) name = paletteItemName(show);
-        SetTextColor(mem, show >= 0 ? kText : kDim);
         f.left += scale(6);
-        DrawTextW(mem, name.c_str(), -1, &f, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
+        c.text(f, name, show >= 0 ? kText : kDim, kMiddle | kEllipsis);
     }
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, oldFont);
-    SelectObject(mem, oldBmp);
-    DeleteObject(back);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
 }
 
 int unitPaletteHit(int x, int y) {
@@ -6061,100 +6032,122 @@ void setPlayer(int i) {
     unitPaletteRepaint();  // sprites wear the player's color
 }
 
-LRESULT CALLBACK unitPaletteProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
+// The unit palette as a view (apps/common/view.h): its window is a view window (kViewClass) with the native vertical
+// scroll bar (WS_VSCROLL, which the host passes on as vscroll). The second palette (split view) is the same view with
+// the second palette's state while it works (SecondPaletteScope); a click there picks the unit in its mode.
+struct UnitPaletteView final : stardraft::draw::View {
+    explicit UnitPaletteView(bool second) : second_(second) {}
+    void paint(stardraft::draw::Canvas& c) override {
+        std::optional<SecondPaletteScope> scope;
+        if (second_) scope.emplace();
+        paintUnitPalette(c, width(), height());
+    }
+    bool mouse(const stardraft::draw::MouseEvent& in) override {
+        using stardraft::draw::MouseKind;
+        stardraft::draw::MouseEvent e = in;
+        if (e.kind == MouseKind::DoubleClick) e.kind = MouseKind::Down;  // (no double-click class style: each click is a down)
+        if (second_ && e.kind == MouseKind::Down && e.button == 0) return secondPick(e);
+        std::optional<SecondPaletteScope> scope;
+        if (second_) scope.emplace();
+        switch (e.kind) {
+        case MouseKind::Move: {
+            const int h = unitPaletteHit(e.pt.x, e.pt.y);
+            if (h != gPal.hover) gPal.hover = h, unitPaletteRepaint();
+            return true;
+        }
+        case MouseKind::Leave:
+            if (gPal.hover >= 0) gPal.hover = -1, unitPaletteRepaint();
+            return true;
+        case MouseKind::Wheel: {
+            if (e.horizontal) return false;
+            const int delta = int(std::lround(e.wheel * WHEEL_DELTA));  // (the wheel's own units, as the window had them)
+            scrollUnitPalette(gPal.scroll - delta * scale(90) / WHEEL_DELTA);
+            return true;
+        }
+        case MouseKind::Down: {
+            if (e.button != 0) return false;
+            const int h = unitPaletteHit(e.pt.x, e.pt.y);
+            if (h >= 0 && (e.mods & stardraft::draw::kShift) && (app.mode == Mode::Doodads || app.mode == Mode::Sprites || app.mode == Mode::Units) && app.palette >= 0) {
+                // Shift: every item from the last pick to this one, in the palette's order (for a spray, #79).
+                int from = -1;
+                for (size_t k = 0; k < gPal.entries.size(); ++k)
+                    if (gPal.entries[k].value == app.palette) from = int(k);
+                if (from >= 0) {
+                    const int a = std::min(from, h), b = std::max(from, h);
+                    if (!(e.mods & stardraft::draw::kCtrl)) gPal.chosen.clear();
+                    for (int k = a; k <= b; ++k)
+                        if (const int v = gPal.entries[size_t(k)].value; v >= 0 && std::find(gPal.chosen.begin(), gPal.chosen.end(), v) == gPal.chosen.end())
+                            gPal.chosen.push_back(v);
+                    const wchar_t* what = app.mode == Mode::Units ? L" units" : app.mode == Mode::Sprites ? L" sprites" : L" doodads";
+                    setMessage(L"Selected " + std::to_wstring(gPal.chosen.size()) + what + L": each click or spray places one of them, at random");
+                    app.dirty = true;
+                    unitPaletteRepaint();
+                    return true;
+                }
+            }
+            if (h >= 0) pickUnit(gPal.entries[size_t(h)].value, (e.mods & stardraft::draw::kCtrl) != 0);
+            SetFocus(app.view);
+            return true;
+        }
+        case MouseKind::Up: {
+            if (e.button != 1) return false;
+            POINT pt{e.pt.x, e.pt.y};
+            ClientToScreen(ui::Win32Host::windowOf(*this), &pt);
+            const int h = unitPaletteHit(e.pt.x, e.pt.y);
+            unitPaletteMenu(pt.x, pt.y, h >= 0 ? gPal.entries[size_t(h)].value : -1);  // on a doodad of a project: Pin to the top
+            return true;
+        }
+        default: return false;
+        }
+    }
+    std::wstring tip(stardraft::draw::Point p) override {  // (Report feedback names the entry under the mouse)
+        std::optional<SecondPaletteScope> scope;
+        if (second_) scope.emplace();
+        const int h = unitPaletteHit(p.x, p.y);
+        return h >= 0 ? gPal.entries[size_t(h)].label : std::wstring();
+    }
+    bool vscroll(int code, int pos, int track, int page) override {  // the window's scroll bar
+        std::optional<SecondPaletteScope> scope;
+        if (second_) scope.emplace();
+        switch (code) {
+        case SB_LINEUP: pos -= scale(30); break;
+        case SB_LINEDOWN: pos += scale(30); break;
+        case SB_PAGEUP: pos -= page; break;
+        case SB_PAGEDOWN: pos += page; break;
+        case SB_THUMBTRACK:
+        case SB_THUMBPOSITION: pos = track; break;
+        case SB_TOP: pos = 0; break;
+        case SB_BOTTOM: pos = gPal.contentH; break;
+        }
+        scrollUnitPalette(pos);
+        return true;
+    }
+    void resized() override {
+        std::optional<SecondPaletteScope> scope;
+        if (second_) scope.emplace();
+        layoutUnitPalette();
+    }
 
-LRESULT CALLBACK secondPaletteProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    if (msg == WM_LBUTTONDOWN) {
+private:
+    // The second palette's click: the unit under the mouse becomes its mode's pick (Ctrl: the second terrain, or one more).
+    bool secondPick(const stardraft::draw::MouseEvent& e) {
         int v = -1;
         Mode m;
         {
             SecondPaletteScope scope;
-            const int h = unitPaletteHit(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
+            const int h = unitPaletteHit(e.pt.x, e.pt.y);
             if (h >= 0) v = gPal.entries[size_t(h)].value;
             m = app.mode;
         }
         if (v >= 0) {
             setMode(m);
-            pickUnit(v, (wp & MK_CONTROL) != 0);  // Ctrl: the second terrain (isometric), or one more doodad or sprite
+            pickUnit(v, (e.mods & stardraft::draw::kCtrl) != 0);  // Ctrl: the second terrain (isometric), or one more doodad or sprite
         }
-        return 0;
+        return true;
     }
-    SecondPaletteScope scope;
-    return unitPaletteProc(hwnd, msg, wp, lp);
-}
-
-LRESULT CALLBACK unitPaletteProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_FEEDBACK_NAME: {
-        auto& q = *reinterpret_cast<FeedbackQuery*>(lp);
-        if (const int h = unitPaletteHit(q.pt.x, q.pt.y); h >= 0) q.name = gPal.entries[size_t(h)].label;
-        return 0;
-    }
-    case WM_PAINT: paintUnitPalette(hwnd); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_SIZE: layoutUnitPalette(); return 0;
-    case WM_MOUSEWHEEL: scrollUnitPalette(gPal.scroll - GET_WHEEL_DELTA_WPARAM(wp) * scale(90) / WHEEL_DELTA); return 0;
-    case WM_VSCROLL: {
-        SCROLLINFO si{sizeof si, SIF_ALL};
-        GetScrollInfo(hwnd, SB_VERT, &si);
-        int pos = si.nPos;
-        switch (LOWORD(wp)) {
-        case SB_LINEUP: pos -= scale(30); break;
-        case SB_LINEDOWN: pos += scale(30); break;
-        case SB_PAGEUP: pos -= int(si.nPage); break;
-        case SB_PAGEDOWN: pos += int(si.nPage); break;
-        case SB_THUMBTRACK:
-        case SB_THUMBPOSITION: pos = si.nTrackPos; break;
-        case SB_TOP: pos = 0; break;
-        case SB_BOTTOM: pos = gPal.contentH; break;
-        }
-        scrollUnitPalette(pos);
-        return 0;
-    }
-    case WM_MOUSEMOVE: {
-        int h = unitPaletteHit(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
-        if (h != gPal.hover) gPal.hover = h, unitPaletteRepaint();
-        TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
-        TrackMouseEvent(&tme);
-        return 0;
-    }
-    case WM_MOUSELEAVE:
-        if (gPal.hover >= 0) gPal.hover = -1, unitPaletteRepaint();
-        return 0;
-    case WM_LBUTTONDOWN: {
-        int h = unitPaletteHit(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
-        if (h >= 0 && (wp & MK_SHIFT) && (app.mode == Mode::Doodads || app.mode == Mode::Sprites || app.mode == Mode::Units) && app.palette >= 0) {
-            // Shift: every item from the last pick to this one, in the palette's order (for a spray, #79).
-            int from = -1;
-            for (size_t k = 0; k < gPal.entries.size(); ++k)
-                if (gPal.entries[k].value == app.palette) from = int(k);
-            if (from >= 0) {
-                const int a = std::min(from, h), b = std::max(from, h);
-                if (!(wp & MK_CONTROL)) gPal.chosen.clear();
-                for (int k = a; k <= b; ++k)
-                    if (const int v = gPal.entries[size_t(k)].value; v >= 0 && std::find(gPal.chosen.begin(), gPal.chosen.end(), v) == gPal.chosen.end())
-                        gPal.chosen.push_back(v);
-                const wchar_t* what = app.mode == Mode::Units ? L" units" : app.mode == Mode::Sprites ? L" sprites" : L" doodads";
-                setMessage(L"Selected " + std::to_wstring(gPal.chosen.size()) + what + L": each click or spray places one of them, at random");
-                app.dirty = true;
-                unitPaletteRepaint();
-                return 0;
-            }
-        }
-        if (h >= 0) pickUnit(gPal.entries[size_t(h)].value, (wp & MK_CONTROL) != 0);
-        SetFocus(app.view);
-        return 0;
-    }
-    case WM_RBUTTONUP: {
-        const int h = unitPaletteHit(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        ClientToScreen(hwnd, &pt);
-        unitPaletteMenu(pt.x, pt.y, h >= 0 ? gPal.entries[size_t(h)].value : -1);  // on a doodad of a project: Pin to the top
-        return 0;
-    }
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
+    bool second_;
+};
+UnitPaletteView gPalView{false}, gPal2View{true};
 
 // --- Quick picker (Q) --------------------------------------------------------------------------------
 
@@ -12248,6 +12241,41 @@ void drawMatched(HDC dc, RECT r, const std::wstring& text, const std::vector<std
         GetTextExtentPoint32W(dc, shown.c_str() + i, int(j - i), &sz);
         x += sz.cx, i = j;
     }
+}
+// The same on a Canvas (the palette's list): each piece of the text is drawn at its place, the matched ones in the accent.
+void drawMatched(stardraft::draw::Canvas& c, stardraft::draw::Rect r, const std::wstring& text, const std::vector<std::wstring>& words, stardraft::draw::Color normal) {
+    std::wstring low = text;
+    std::transform(low.begin(), low.end(), low.begin(), ::towlower);
+    std::vector<uint8_t> hit(text.size(), 0);
+    for (const auto& w : words)
+        if (const size_t at = w.empty() ? std::wstring::npos : low.find(w); at != std::wstring::npos)
+            std::fill(hit.begin() + long(at), hit.begin() + long(at + w.size()), uint8_t(1));
+    const int y = (r.top + r.bottom - c.metrics().height) / 2;  // (the GDI version's rounding: a row partly above the top)
+    // Too wide: as much as fits, then an ellipsis (in the color of the last letter kept).
+    std::wstring shown = text;
+    if (c.measure(text) > r.width()) {
+        const int room = std::max(0, r.width() - c.measure(L"\x2026"));
+        size_t lo = 0, hi = text.size();  // the longest prefix that fits in `room` (widths grow with the prefix)
+        while (lo < hi) {
+            const size_t mid = (lo + hi + 1) / 2;
+            if (c.measure(std::wstring_view(text).substr(0, mid)) <= room) lo = mid;
+            else hi = mid - 1;
+        }
+        shown = text.substr(0, lo) + L"\x2026";
+        hit.resize(shown.size());
+        hit.back() = lo > 0 ? hit[lo - 1] : 0;
+    }
+    c.pushClip(r);
+    int x = r.left;
+    for (size_t i = 0; i < shown.size();) {
+        size_t j = i;
+        while (j < shown.size() && hit[j] == hit[i]) ++j;
+        const std::wstring piece = shown.substr(i, j - i);
+        c.text({x, y, r.right, y + c.metrics().height}, piece, hit[i] ? kAccent : normal, stardraft::draw::kLeft);
+        x += c.measure(piece);
+        i = j;
+    }
+    c.popClip();
 }
 int gTrigAdvance = 0;  // set by a popover closed with Tab (+1) or Shift+Tab (-1): open the next value's
 void (*gListPickHook)(HWND) = nullptr;  // self-test
@@ -20147,9 +20175,9 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         gPal.sectionBox = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL, 0, 0, 0, 0, hwnd,
                                           HMENU(IDC_PALSECTION), app.inst, nullptr);
         SetWindowSubclass(gPal.sectionBox, paletteSectionProc, 1, 0);
-        gPal.wnd = CreateWindowExW(0, L"StarDraftUnitPalette", L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL, 0, 0, 1, 1, hwnd, nullptr,
-                                   app.inst, nullptr);
-        gPal2.wnd = CreateWindowExW(0, L"StarDraftSecondPalette", L"", WS_CHILD | WS_VSCROLL, 0, 0, 1, 1, hwnd, nullptr, app.inst, nullptr);
+        gPal.wnd = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, hwnd, nullptr,
+                                   app.inst, &gPalView);
+        gPal2.wnd = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, hwnd, nullptr, app.inst, &gPal2View);
         gPal2Label = CreateWindowExW(0, WC_STATICW, L"", WS_CHILD | SS_NOPREFIX | SS_CENTERIMAGE, 0, 0, 1, 1, hwnd, nullptr, app.inst, nullptr);
         SendMessageW(gPal2Label, WM_SETFONT, WPARAM(app.font), TRUE);
         createWorkspaces(hwnd);
@@ -23693,14 +23721,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     vc.lpszClassName = L"StarDraftViewport";
     RegisterClassExW(&vc);
     WNDCLASSEXW uc{sizeof uc};
-    uc.lpfnWndProc = unitPaletteProc;
     uc.hInstance = inst;
     uc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    uc.lpszClassName = L"StarDraftUnitPalette";
-    RegisterClassExW(&uc);
-    uc.lpfnWndProc = secondPaletteProc;
-    uc.lpszClassName = L"StarDraftSecondPalette";
-    RegisterClassExW(&uc);
     uc.lpfnWndProc = toolStripProc;
     uc.lpszClassName = L"StarDraftToolStrip";
     RegisterClassExW(&uc);
