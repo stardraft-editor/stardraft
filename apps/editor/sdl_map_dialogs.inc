@@ -118,6 +118,7 @@ std::vector<kit::MenuItem> mapMenuKit(const MenuModel& items) {
 // mode's selection); else the map's menu opens at the mouse for what is under it.
 void mapRightClickSdl(draw::View& map, draw::Point at) {
     if (!gState.ed || !gState.ed->isOpen() || gState.drag != Drag::None) return;
+    if (trigUnitPickActive()) return trigCancelUnitPick();  // (cancelStep: a unit pick for a trigger stops first)
     if (!inSelection()) {  // (the Windows program's cancelStep: no stroke is going on here)
         enterSelection();
         setMessage(std::wstring(kModeNames[int(gState.mode)]) + L": select");

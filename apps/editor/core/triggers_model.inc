@@ -661,3 +661,80 @@ void TrigTreeProgram::treeMove(const std::vector<int>& from, const std::vector<i
     if (!moved.empty()) trigSave(), trigRefreshTree(moved);
 }
 void TrigTreeProgram::treeMenu(const std::vector<int>& path) { trigTreeMenuAt(path); }
+
+// --- The values' blocks ---------------------------------------------------------------------------------------
+
+// The block (or value block) whose value a hit is: from `top`, down through value `param` and the path but its last.
+TriggerCall* trigValueOwner(TriggerCall* c, int param, const std::vector<int>& inner) {
+    if (!c || inner.empty()) return c;
+    std::vector<int> steps = {param};
+    steps.insert(steps.end(), inner.begin(), inner.end() - 1);
+    for (int st : steps) {
+        if (st < 0 || st >= int(c->argBlocks.size()) || c->argBlocks[size_t(st)].empty()) return nullptr;
+        c = &c->argBlocks[size_t(st)][0];
+    }
+    return c;
+}
+TriggerCall* gTrigEditOverride = nullptr;  // set: the pickers edit this value block (a chip's in the text pop-out)
+TriggerCall* trigHitCall(const TrigParamHit& h) {
+    if (gTrigEditOverride) return trigValueOwner(gTrigEditOverride, h.param, h.inner);
+    TriggerNode* t = trigSelected();
+    return trigValueOwner(t ? trigBlock(*t, h.ref) : nullptr, h.param, h.inner);
+}
+int trigHitParam(const TrigParamHit& h) { return h.inner.empty() ? h.param : h.inner.back(); }
+
+// --- Picking a unit on the map ----------------------------------------------------------------------------------
+// A value of type "one unit" (or a unit variable's starting unit) can be picked by clicking the unit on the map.
+
+struct TrigUnitPick {
+    bool active = false;
+    std::vector<int> node;  // the trigger or variable
+    TrigBlockRef ref;
+    int param = -1;  // -1: the variable's starting unit
+    std::vector<int> inner;  // inside value blocks (see TrigParamHit)
+};
+TrigUnitPick gUnitPick;
+
+void trigStartUnitPick(TrigBlockRef ref, int param, std::vector<int> inner = {}) {
+    const std::vector<int> node = gTE.sel;
+    setWorkspace(Workspace::Map);
+    setMode(Mode::Units);  // (cancels steps in progress, so the pick starts after it)
+    appState().palette = -1;
+    gUnitPick = {true, node, ref, param, inner};
+    setMessage(L"Click the unit to use. Esc goes back to the triggers.");
+}
+
+// True while a trigger action waits for a click on a unit in the map view.
+bool trigUnitPickActive() { return gUnitPick.active; }
+// The map view's click while picking: true when it was taken.
+bool trigUnitPickClick(float wx, float wy) {
+    AppState& app = appState();
+    if (!gUnitPick.active || !app.ed) return false;
+    const int hit = app.ed->unitAt(int(wx), int(wy));
+    if (hit < 0) {
+        setMessage(L"There is no unit there. Click a unit, or press Esc to go back.");
+        return true;
+    }
+    const std::string v = "@" + std::to_string(app.ed->units()[size_t(hit)].serial);
+    gUnitPick.active = false;
+    setWorkspace(Workspace::Triggers);
+    trigRefreshTree(gUnitPick.node);
+    if (TriggerNode* n = gTE.set.at(gUnitPick.node)) {
+        if (gUnitPick.param < 0 && n->kind == TriggerNode::Kind::Variable) n->variable.initial = v;
+        else if (TriggerCall* c = trigValueOwner(trigBlock(*n, gUnitPick.ref), gUnitPick.param, gUnitPick.inner)) {
+            const int at = gUnitPick.inner.empty() ? gUnitPick.param : gUnitPick.inner.back();
+            if (at >= 0 && at < int(c->args.size())) c->args[size_t(at)] = v;
+        }
+        trigChanged();
+        trigRefreshTree(gUnitPick.node);
+    }
+    setMessage(L"Selected " + trigPickedUnitName(v));
+    return true;
+}
+
+void trigCancelUnitPick() {
+    if (!gUnitPick.active) return;
+    gUnitPick.active = false;
+    setWorkspace(Workspace::Triggers);
+    trigRefreshTree(gUnitPick.node);
+}
