@@ -101,6 +101,8 @@ struct NotHereView final : draw::View {
 // The map view: the texture of the map (drawn by the frame hook) and the core's map input.
 struct MapView final : draw::View {
     bool panning = false;  // the middle button (or a drag with it) pans
+    bool rightStroke = false;  // a right-button stroke paints with the second terrain; the palette is the first one again after it
+    int savedPalette = -1;
     draw::Point last;
     bool open() const { return gState.ed && gState.ed->isOpen(); }
     void paint(draw::Canvas& c) override {
@@ -122,7 +124,13 @@ struct MapView final : draw::View {
                 if (draw::Host* h = host()) h->capture(*this, true);
                 return true;
             }
-            if (!open()) return false;
+            if (e.button == 1) {  // right: paints with the second terrain (isometric terrain, as the Windows program); else nothing
+                if (!open() || !rightPaints()) return false;
+                rightStroke = true, savedPalette = gState.palette;
+                gState.palette = gState.palette2;
+            } else if (!open()) {
+                return false;
+            }
             if (draw::Host* h = host()) h->capture(*this, true);
             gState.mouseX = e.pt.x, gState.mouseY = e.pt.y, gState.mouseIn = true;
             mapMouseDown(gState, e.pt.x, e.pt.y, e.mods);
@@ -147,13 +155,22 @@ struct MapView final : draw::View {
                 if (draw::Host* h = host()) h->capture(*this, false);
                 return true;
             }
-            if (!open()) return false;
+            if (rightStroke && e.button == 1) {  // the end of a right stroke: the left button's terrain again
+                rightStroke = false;
+                mapMouseUp(gState, e.pt.x, e.pt.y, e.mods);
+                gState.palette = savedPalette;
+                gState.dirty = true;
+                if (draw::Host* h = host()) h->capture(*this, false);
+                invalidate();
+                return true;
+            }
+            if (e.button == 1 || !open()) return false;
             mapMouseUp(gState, e.pt.x, e.pt.y, e.mods);
             if (draw::Host* h = host()) h->capture(*this, false);
             invalidate();
             return true;
-        case draw::MouseKind::Wheel: {  // zoom at the mouse: the point under it stays under it
-            if (!open() || e.wheel == 0) return false;
+        case draw::MouseKind::Wheel: {  // zoom at the mouse: the point under it stays under it (a sideways swipe does nothing)
+            if (!open() || e.wheel == 0 || e.horizontal) return false;
             const float wx = gState.camX + e.pt.x / gState.zoom, wy = gState.camY + e.pt.y / gState.zoom;
             gState.zoom = std::clamp(gState.zoom * std::pow(1.2f, e.wheel), 1.0f / 16, 4.0f);
             gState.camX = wx - e.pt.x / gState.zoom, gState.camY = wy - e.pt.y / gState.zoom;
@@ -208,16 +225,38 @@ struct MainView final : draw::View {
         if (in.mapOpen) in.mapW = gState.ed->width(), in.mapH = gState.ed->height();
         in.minimapHidden = true;
         const MainLayout L = computeLayout(in);
-        apply(status, L.status);
-        apply(map, L.view);
-        const PaneSlot slots[kNotHere] = {L.tool,         L.owner,     L.sectionBox,   L.search,     L.viewBtn,  L.filter,
-                                          L.palette,      L.list,      L.panelTabActive, L.panelTabOther, L.palette2, L.minimap};
-        for (int i = 0; i < kNotHere; ++i) apply(*notHere[size_t(i)], slots[i]);
+        // Which panes show in the mode, as the Windows program shows them (main.cpp's SetMode): the list and the filter
+        // in Locations; the palette and the search in the other modes; the owner in Units and Sprites; the section box
+        // in Units, Doodads and Sprites. The layout places the rows that share a place, so only these are shown.
+        const Mode m = gState.mode;
+        const bool locs = m == Mode::Locations;
+        const bool owners = m == Mode::Units || m == Mode::Sprites;
+        const bool sections = m == Mode::Units || m == Mode::Doodads || m == Mode::Sprites;
+        apply(status, L.status, true);
+        apply(map, L.view, true);
+        apply(*notHere[0], L.tool, true);
+        apply(*notHere[1], oneRow(L.owner), owners);       // (a closed owner list is one row high)
+        apply(*notHere[2], oneRow(L.sectionBox), sections);
+        apply(*notHere[3], L.search, !locs);
+        apply(*notHere[4], L.viewBtn, !locs);
+        apply(*notHere[5], L.filter, locs);
+        apply(*notHere[6], L.palette, !locs);
+        apply(*notHere[7], L.list, locs);
+        apply(*notHere[8], L.panelTabActive, true);
+        apply(*notHere[9], L.panelTabOther, true);
+        apply(*notHere[10], L.palette2, true);
+        apply(*notHere[11], L.minimap, true);
         invalidate();
     }
-    static void apply(draw::View& v, const PaneSlot& s) {
+    // A pane whose drop-down is tall in the layout (the owner, the section box) is one row high when closed.
+    PaneSlot oneRow(PaneSlot s) const {
+        s.rc.bottom = s.rc.top + scale(24);
+        return s;
+    }
+    // Shown only when the pane is placed (the layout placed it) and the mode wants it.
+    static void apply(draw::View& v, const PaneSlot& s, bool shown) {
         if (s.placed) v.setFrame(draw::Rect(s.rc));
-        v.setVisible(s.visible);
+        v.setVisible(s.placed && shown);
     }
 };
 

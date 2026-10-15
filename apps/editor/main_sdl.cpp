@@ -110,6 +110,10 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
     Image img;
     img.width = w, img.height = h;
     const uint8_t* p = static_cast<const uint8_t*>(SDL_MapGPUTransferBuffer(device, tb, false));
+    if (!p) {  // (the download did not map: no picture)
+        SDL_ReleaseGPUTransferBuffer(device, tb);
+        return false;
+    }
     img.rgba.assign(p, p + size_t(w) * size_t(h) * 4);
     SDL_UnmapGPUTransferBuffer(device, tb);
     SDL_ReleaseGPUTransferBuffer(device, tb);
@@ -147,6 +151,7 @@ int main(int argc, char** argv) {
     if (scale <= 0) scale = 1;
     const char* basePath = SDL_GetBasePath();
     const std::string base = basePath ? basePath : "";
+    int status = 0;
     {
         // Order matters: the host (which makes the ImGui context the fonts go into) outlives the root view.
         kit_sdl::SdlHost host(device);
@@ -182,10 +187,12 @@ int main(int argc, char** argv) {
             host.snapshot(root, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             const bool ok = writeSnapshot(device, tex, width, height, snapshot);
             std::printf("%s %s\n", ok ? "wrote" : "could not write", snapshot.c_str());
+            if (!ok) status = 1;
             SDL_WaitForGPUIdle(device);
             SDL_ReleaseGPUTexture(device, tex);
         } else {
             if (!host.show(root, L"StarDraft", width, height)) return std::fprintf(stderr, "could not open a window\n"), 1;
+            updateTitle();  // (the window exists now: its title is the open map's)
             host.setAnimating(true);  // (the map and the posted work need frames; see shellPost)
             host.run();
         }
@@ -199,5 +206,5 @@ int main(int argc, char** argv) {
     gDevice = nullptr;
     renderer.shutdown();
     SDL_Quit();
-    return 0;
+    return status;
 }
