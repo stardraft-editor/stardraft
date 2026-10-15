@@ -226,20 +226,15 @@ std::wstring projectUnitName(int u) {  // a unit's name string (u + 1) when the 
     return u >= 0 && u < dataExtras().strings.count() && dataExtras().strings.changed(u) ? statString(u + 1) : L"";
 }
 
-// Sets 0-227 are the units'. The others are named by the button that opens them ("Terran SCV: Build Structure").
-std::wstring buttonSetName(int s) {
-    if (s < 228) {
-        const std::wstring n = entryName("units", s);
-        return n.empty() ? L"Unit " + std::to_wstring(s) : n;
-    }
-    for (int o = 0; o < 228; ++o)
-        for (const Button& b : dataExtras().buttons.set(o))
-            if (b.actionArg == s && ButtonSets::action(b.action) && ButtonSets::action(b.action)->arg && std::string(ButtonSets::action(b.action)->arg) == "buttons") {
-                const std::wstring unit = entryName("units", o), text = statString(b.enabledString);
-                return (unit.empty() ? L"Unit " + std::to_wstring(o) : unit) + L": " + (text.empty() ? L"button set" : text);
-            }
-    return L"Button set " + std::to_wstring(s);
+// A set's name (views_data_buttons.inc: the units' sets, the others by the button that opens them).
+std::wstring buttonSetName(int s) { return buttonSetNameFrom(dataExtras().buttons, s, statString); }
+
+// The entries of a .dat (or "buttons", "icons", "strings") for a list picker (views_data_buttons.inc: dataEntryItems).
+std::vector<ListPickItem> entryItems(const std::string& kind, bool none = false) {
+    return dataEntryItems(kind, none, DataPickNames{buttonSetName, statString, dataExtras().strings.count(), datHasIcons});
 }
+// A step's or a button's value as its field shows it.
+std::wstring argName(const char* kind, int v) { return dataArgName(kind, v, buttonSetName); }
 
 bool tabEntryChanged(int tab, int e) {
     if (tab == stringsTab()) return e >= 1 && dataExtras().strings.changed(e - 1);

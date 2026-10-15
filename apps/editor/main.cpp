@@ -58,6 +58,7 @@ using std::min;
 #include "../common/canvas.h"
 #include "../common/view.h"
 #include "text_field.h"  // the kit's text field (apps/kit): the search boxes (search_box.inc)
+#include "rich_field.h"  // the kit's rich text field (apps/kit): the game text editor (core/views_game_text.inc)
 #include "button.h"
 #include "icon_button.h"
 #include "list_view.h"     // the kit's list (the Map data page, core/views_classic_settings.inc)
@@ -272,11 +273,15 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/views_data.inc"  // the Data workspace's tab strip layout (DataTabLayout, dataTabLayout)
 #include "core/views_data_requirements.inc"  // the Requirements section's model: step names, ways, levels, edits (requirement*)
 #include "core/views_data_requirements_paint.inc"  // the Requirements section's paint and clicks (paintRequirementList, ListPickItem)
+#include "core/views_data_display.inc"  // the Units form's Display section: its paint and clicks (paintUnitDisplay)
 #include "core/data_edits.inc"  // the Data workspace's value edits and their undo (DataEditHistory, dataApplyValue)
 #include "core/views_data_form.inc"  // the Data form: where each part of a row sits (dataFieldRow) and the form's view (DataFormView)
 #include "core/views_data_strings.inc"  // the Strings page's model: a string's text, its button prefix and the editor's text (stringLine, stringEditCommit)
 #include "core/views_data_buttons.inc"  // the Buttons tab's model: places, labels, costs, edits of a set (buttonRowTextFrom, buttonNew)
 #include "core/data_model.inc"  // the Data workspace's model: the tables, the extras, the tabs' lists, the notes, the references (gData, gExtras)
+#include "core/game_text_model.inc"  // the game's text: its colors and swatches, and drawGameText on the Canvas
+#include "core/views_data_button_pop.inc"  // the button pop-out (ButtonPopView; the host is data_extras.inc)
+#include "core/views_game_text.inc"  // the game text editor as kit widgets (GameTextView; the Strings tab, data_extras.inc)
 #include "core/title.inc"  // the window's title and the rail's state (updateTitle)
 int selectPalette(int value);
 void pickUnit(int v, bool add);
@@ -21997,14 +22002,19 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     for (int i = 0; i < 5; ++i) pump();
                     RedrawWindow(gData.form, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                     o << "strings: entry " << id << " shows " << (gExtras.textEdit && IsWindowVisible(gExtras.textEdit) ? "yes" : "NO") << "\n";
-                    o << "strings: it reads back the same " << (id && gameTextGet(gExtras.textEdit) == gExtras.strings.text(id - 1) ? "yes" : "NO") << " ("
+                    o << "strings: it reads back the same " << (id && gStringsText->bytes() == gExtras.strings.text(id - 1) ? "yes" : "NO") << " ("
                       << shown(id ? gExtras.strings.text(id - 1) : "") << ")\n";
                     capture(fs::path(datashots) / "gametext_strings.png", app.main);
-                    gameTextShowRaw(gExtras.textEdit, true);
+                    gStringsText->setRaw(true);
                     RedrawWindow(gData.form, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                     capture(fs::path(datashots) / "gametext_strings_raw.png", app.main);
-                    o << "strings: Raw reads back the same " << (id && gameTextGet(gExtras.textEdit) == gExtras.strings.text(id - 1) ? "yes" : "NO") << "\n";
-                    gameTextShowRaw(gExtras.textEdit, false);
+                    o << "strings: Raw reads back the same " << (id && gStringsText->bytes() == gExtras.strings.text(id - 1) ? "yes" : "NO") << "\n";
+                    gStringsText->setRaw(false);
+                    // Codes that are not colors of the game's palette: a dotted line under their text.
+                    gStringsText->setBytes("Plain, \x0B" "code 0B\x01 and \x14" "code 14\x01 text");
+                    RedrawWindow(gData.form, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                    capture(fs::path(datashots) / "gametext_strings_codes.png", app.main);
+                    if (id) gStringsText->setBytes(gExtras.strings.text(id - 1));
                     // Every game string: into the editor and back, byte for byte (unchanged), and as read after an edit
                     // that changes nothing (the codes as the editor writes them must mean the same: checked by the
                     // runs of each color).
@@ -22013,15 +22023,32 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                         const std::string& t = gExtras.strings.text(k - 1);
                         if (buttonPrefix(t)) continue;
                         ++all;
-                        gameTextSet(gExtras.textEdit, t);
-                        same += gameTextGet(gExtras.textEdit) == t;
-                        if (const std::string w = gameTextRead(*gameTextOf(gExtras.textEdit)); w != t) {
+                        gStringsText->setBytes(t);
+                        same += gStringsText->bytes() == t;
+                        if (const std::string w = gStringsText->readNow(); w != t) {
                             ++rewrites;
                             o << "  after an edit, " << k << ": " << shown(t) << "  ->  " << shown(w) << "\n";
                         }
                     }
                     o << "strings: every game string reads back the same " << (same == all ? "yes" : "NO") << " (" << same << " of " << all << "; "
                       << rewrites << " are written another way after an edit)\n";
+                    // The kit editor's codes as the text changes: typed text takes the code before it; a swatch colors the
+                    // selection; an align button aligns the caret's line.
+                    {
+                        GameTextView& g = *gStringsText;
+                        g.setBytes("one \x03two\n\x13three");
+                        o << "strings: a color and a centered line read back the same " << (g.readNow() == "one \x03two\n\x13three" ? "yes" : "NO: " + shown(g.readNow())) << "\n";
+                        g.preview().focus();
+                        g.preview().text({"X"});  // at the end (the caret's place after a set)
+                        o << "strings: typed text takes the code before it " << (g.readNow() == "one \x03two\n\x13threeX" ? "yes" : "NO: " + shown(g.readNow())) << "\n";
+                        g.preview().selectAll();
+                        g.applyCode(1);
+                        o << "strings: Normal on all the text takes the codes away " << (g.readNow() == "one two\n\x13threeX" ? "yes" : "NO: " + shown(g.readNow())) << "\n";
+                        g.align(2);
+                        o << "strings: Align right on all the lines " << (g.readNow() == "\x12one two\n\x12threeX" ? "yes" : "NO: " + shown(g.readNow())) << "\n";
+                        g.preview().text({"\n"});  // the selection typed over: a new line, aligned as the line it was in
+                        o << "strings: typing over the selection " << (g.readNow() == "\n" ? "yes" : "NO: " + shown(g.readNow())) << "\n";
+                    }
                     gExtras.textFor = -1;
                 }
                 continue;

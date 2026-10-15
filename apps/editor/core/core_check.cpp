@@ -33,6 +33,7 @@
 #include "canvas.h"
 #include "view.h"
 #include "text_field.h"
+#include "rich_field.h"
 #include "dropdown.h"
 #include "list_view.h"
 #include "check_box.h"
@@ -56,6 +57,7 @@
 #include "stardraft/settings.h"
 #include "stardraft/hd_assets.h"
 #include "stardraft/tileset.h"
+#include "stardraft/wireframes.h"
 #include "stardraft/terrain_gen.h"
 
 using namespace stardraft;

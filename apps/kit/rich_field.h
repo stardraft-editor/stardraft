@@ -86,6 +86,14 @@ public:
     void setSpans(std::vector<Span> spans);
     // The font: Face::Ui by default, px 0 is the UI's size.
     void setFont(draw::FontDesc f);
+    // Several lines that wrap: each paragraph's alignment (the text between two line ends), in order: 0 left, 1 center,
+    // 2 right. A paragraph past the list's end is left. (The game's text codes 13 and 12; the owner keeps them as the
+    // text changes.)
+    void setLineAligns(std::vector<uint8_t> aligns);
+    // Plain: the field draws no box of its own (the owner draws the box around it); the text keeps its padding.
+    void setPlain(bool on);
+    // The paragraph the caret is in (0 is the first).
+    size_t caretParagraph() const;
 
     // The caret and the selection, as positions of the text (a chip is one position).
     size_t caret() const { return model_.caret(); }
@@ -118,6 +126,7 @@ public:
     bool compose(const draw::CompositionEvent& e) override;
     draw::Cursor cursor(draw::Point pt) override { return chipAt(pt) != kNone ? draw::Cursor::Hand : draw::Cursor::IBeam; }
     bool focusable() const override { return true; }
+    bool typesText() const override { return true; }
     void focusChanged(bool has) override;
     void captureLost() override;
 
@@ -139,10 +148,11 @@ private:
         bool hard = false;           // it ends with a newline
         int x0 = 0;                  // x of its first unit
         int width = 0;               // the width of its units (without a newline)
+        int off = 0;                 // its paragraph's alignment: how far right of the left edge the line starts
     };
     struct Attr {
         draw::Color color = draw::kNone;
-        bool bold = false, selected = false, comp = false;
+        bool bold = false, selected = false, comp = false, strike = false, dotted = false;
     };
     struct LayoutKey {
         unsigned long long rev = 0;
@@ -211,6 +221,8 @@ private:
     std::vector<Span> spans_;
     draw::FontDesc fontDesc_;
     bool wrap_ = true;
+    bool plain_ = false;
+    std::vector<uint8_t> aligns_;  // each paragraph's alignment (setLineAligns)
     bool focused_ = false, dragging_ = false, hot_ = false;
     bool atBreak_ = false;  // the caret is at the end of a wrapped line (shown on that line)
     size_t hotChip_ = kNone;

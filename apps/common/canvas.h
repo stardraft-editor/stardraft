@@ -163,6 +163,12 @@ public:
 
     // Text in the current font.
     virtual void text(Rect r, std::wstring_view t, Color c, unsigned flags = kMiddle) = 0;
+    // One run of text from `at` (its top left corner), each character at its own advance (no pairs moved closer, as
+    // text() may move them): text that is measured piece by piece with measure() and drawn the same way (the game's text).
+    virtual void textAt(Point at, std::wstring_view t, Color c) {
+        const int w = measure(t), h = metrics().height;
+        text({at.x, at.y, at.x + w + h, at.y + h + h}, t, c, kLeft);
+    }
     virtual int measure(std::wstring_view t) = 0;
     // The size of `t` drawn with `flags` in a box `width` wide (kWrap: its lines' height).
     virtual Point measureBox(std::wstring_view t, int width, unsigned flags) = 0;
