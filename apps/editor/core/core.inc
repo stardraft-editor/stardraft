@@ -32,4 +32,5 @@
 #include "names.inc"
 #include "palette_items.inc"
 #include "views_search.inc"
+#include "views_project.inc"
 #include "title.inc"

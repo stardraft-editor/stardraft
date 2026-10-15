@@ -52,6 +52,18 @@ void projectListScripts() {
 
 int projectPreviewWidth(int pageW) { return gDock.scriptPreview ? std::min(pageW / 2, std::max(scale(420), pageW * 2 / 5)) : 0; }
 
+// The preview's view (core/views_project.inc): a kit text field with epScript's colors, in the preview's window.
+ProjectPreviewView gProjPreview;
+
+// The script's bytes as the system's code page reads them (the RichEdit did so; the file may be in Korean or another).
+std::wstring ansiToWide(const std::string& s) {
+    if (s.empty()) return {};
+    const int n = MultiByteToWideChar(CP_ACP, 0, s.data(), int(s.size()), nullptr, 0);
+    std::wstring w(size_t(std::max(0, n)), L'\0');
+    if (n > 0) MultiByteToWideChar(CP_ACP, 0, s.data(), int(s.size()), w.data(), n);
+    return w;
+}
+
 // The preview: the selected script's file (colored as epScript), a plugin's lines, or why there is nothing.
 void projectPreviewRefresh(bool force = false) {
     if (!gProj.preview) return;
@@ -82,9 +94,7 @@ void projectPreviewRefresh(bool force = false) {
             for (const auto& l : pr->sectionLines(gProj.selected)) text += l + "\n";
         }
     }
-    const std::string rtf = trigCodeRtf(text);
-    SETTEXTEX st{ST_DEFAULT, CP_ACP};
-    SendMessageW(gProj.preview, EM_SETTEXTEX, WPARAM(&st), LPARAM(rtf.c_str()));
+    gProjPreview.setCode(ansiToWide(text), gLightTheme);  // the file's bytes are in the system's code page
 }
 
 void projectFormRefresh() {
@@ -815,14 +825,5 @@ void createProjectPage() {
     gProj.wnd = CreateWindowExW(0, L"StarDraftProjectPage", L"", WS_CHILD | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, app.main, nullptr, app.inst, nullptr);
     cleanScroll(gProj.wnd);
     darkControl(gProj.wnd, L"DarkMode_Explorer");  // the scroll bar in the theme
-    LoadLibraryW(L"Msftedit.dll");
-    gProj.preview = CreateWindowExW(0, MSFTEDIT_CLASS, L"", WS_CHILD | WS_VSCROLL | WS_HSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | ES_AUTOHSCROLL, 0, 0, 1,
-                                    1, gProj.wnd, nullptr, app.inst, nullptr);
-    SendMessageW(gProj.preview, WM_SETFONT, WPARAM(monoFont()), TRUE);
-    SendMessageW(gProj.preview, EM_EXLIMITTEXT, 0, 0x7FFFFFFF);
-    SendMessageW(gProj.preview, EM_SETBKGNDCOLOR, 0, kPanel);
-    SendMessageW(gProj.preview, EM_SETTARGETDEVICE, 0, 1);  // no wrapping
-    SendMessageW(gProj.preview, EM_SETMARGINS, EC_LEFTMARGIN, MAKELPARAM(scale(10), 0));
-    SetWindowSubclass(gProj.preview, trigCodeKeys, 2, 0);  // copy, select all
-    darkControl(gProj.preview, L"DarkMode_Explorer");
+    gProj.preview = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD, 0, 0, 1, 1, gProj.wnd, nullptr, app.inst, &gProjPreview);
 }
