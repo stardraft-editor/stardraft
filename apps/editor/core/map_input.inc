@@ -538,7 +538,7 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
         Rect r = previewLocationRect(wx, wy);
         if (r.right - r.left >= 8 && r.bottom - r.top >= 8) {
             // Ctrl or Shift while it is made: an inverted location (holds air units only; drawn red).
-            const bool inverted = (mods & (draw::kCtrl | draw::kShift)) != 0;
+            const bool inverted = shellCtrlOrShiftDown();
             int i = ed.createLocation(r, inverted);
             if (i >= 0) rebuildList(), setMessage(L"Created " + widen(ed.locationName(i)) + (inverted ? L" (inverted: it holds air units only)" : L""));
             else setMessage(L"Could not create the location: all location slots are in use");
