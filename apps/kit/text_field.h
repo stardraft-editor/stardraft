@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "menu.h"
 #include "scroll_bar.h"
 #include "text_model.h"
 #include "theme.h"
@@ -77,6 +78,8 @@ public:
     std::function<void()> onEscape;
     // The focus goes elsewhere.
     std::function<void()> onFocusLost;
+    // The mouse left the field (the field gets that event itself; a parent that draws over the field needs it too).
+    std::function<void()> onHoverEnd;
 
     void paint(draw::Canvas& c) override;
     bool mouse(const draw::MouseEvent& e) override;
@@ -89,6 +92,11 @@ public:
     void captureLost() override;
 
 private:
+    // A right click opens the edit commands (Undo, Cut, Copy, Paste, Delete, Select All), as the native edit box did.
+    std::vector<MenuItem> editMenu();
+    void openEditMenu(draw::Point at);
+    MenuLayout menuLayout_;  // measured while painting (the menu's size)
+
     struct Line {
         size_t start = 0, end = 0;  // in the shown text; the newline (if any) is not in the line
         bool last = true;           // the last line of its paragraph
