@@ -2003,6 +2003,9 @@ constexpr UiText kRows[] = {
     {L". The old program is ", L"\u3002\u65E7\u7A0B\u5E8F\u662F"},
     {L"). Type it as a number", L"\uFF09\u3002\u8BF7\u4EE5\u6570\u5B57\u8F93\u5165"},
     {L"Triggers do not run each second, so they can miss Exactly. Use At least or At most", L"\u89E6\u53D1\u5668\u5E76\u975E\u6BCF\u79D2\u8FD0\u884C\uFF0C\u56E0\u6B64\u53EF\u80FD\u9519\u8FC7 Exactly\u3002\u8BF7\u4F7F\u7528 At least \u6216 At most"},
+    {L"Shift+drag paints ", L"Shift+\u62D6\u52A8\u7ED8\u5236"},
+    {L"; drag paints ", L"\uFF1B\u62D6\u52A8\u7ED8\u5236"},
+    {L"Shift+drag: no terrain", L"Shift+\u62D6\u52A8\uFF1A\u65E0\u5730\u5F62"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

@@ -2003,6 +2003,9 @@ constexpr UiText kRows[] = {
     {L". The old program is ", L". El programa antiguo es "},
     {L"). Type it as a number", L"). Escr\u00EDbalo como un n\u00FAmero"},
     {L"Triggers do not run each second, so they can miss Exactly. Use At least or At most", L"Los disparadores no se ejecutan cada segundo, as\u00ED que pueden perder Exactly. Use At least o At most"},
+    {L"Shift+drag paints ", L"May\u00FAs+arrastrar pinta "},
+    {L"; drag paints ", L"; arrastrar pinta "},
+    {L"Shift+drag: no terrain", L"May\u00FAs+arrastrar: sin terreno"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

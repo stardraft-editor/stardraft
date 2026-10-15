@@ -190,8 +190,8 @@ The `new:` (the cards), `new:map`, `new:project`, `new:generate`, `start:` and `
 
 Only the middle button moves the map: it scrolls it (the farther the mouse from where you pressed, the faster) or, with
 Program options > Mouse > Middle mouse click and hold > Drag map, moves it with the mouse. The left and the right button
-never move the map (2026-10-15: the right button is for clicks and, in isometric terrain, for painting the second
-terrain). While you place, paste or paint, a right click stops it and
+never move the map (2026-10-15: the right button is for clicks; in isometric terrain, Shift+click or Shift+drag paints
+the second terrain). While you place, paste or paint, a right click stops it and
 goes back to Select. In Select, a right click opens the map's menu through `popupMenu()` (`mapMenu`, `mapMenuPick`);
 the thing under the mouse is selected first when it is not selected.
 
