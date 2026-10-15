@@ -53,6 +53,7 @@
 #include "stardraft/settings.h"
 #include "stardraft/hd_assets.h"
 #include "stardraft/tileset.h"
+#include "stardraft/wireframes.h"
 #include "stardraft/terrain_gen.h"
 
 using namespace stardraft;

@@ -68,6 +68,7 @@
 #include "stardraft/terrain_gen.h"  // the generator's settings (core/views_new_page.inc, sdl_new_page.inc)
 #include "stardraft/tileset.h"
 #include "stardraft/units.h"
+#include "stardraft/wireframes.h"  // the Display section's wireframes (core/views_data_display.inc)
 
 using namespace stardraft;
 namespace fs = std::filesystem;
