@@ -70,6 +70,7 @@ public:
     // Each character at its own measured advance (measure() rounds each piece up: a run drawn whole would be narrower
     // than the rich field's units, and a gap would open after it).
     void textAt(draw::Point at, std::wstring_view t, draw::Color c) override;
+    int measureAt(std::wstring_view t) override;  // (the sum of the characters' rounded advances, as textAt draws them)
     draw::Point measureBox(std::wstring_view t, int width, unsigned flags) override;
     draw::FontMetrics metrics() override;
     draw::Font setFont(draw::Font f) override;
