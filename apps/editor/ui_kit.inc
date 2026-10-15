@@ -36,10 +36,10 @@ int textWidth(Paint p, const std::wstring& t) { return p->measure(t); }
 
 // --- Buttons ----------------------------------------------------------------------------------------------------
 // Normal: a command. Primary: the one a form or dialog is for (OK, Create, Build). Danger: removes something.
-enum class Tone { Normal, Primary, Danger, Quiet };
+using kitpaint::Tone;  // (core/kit_paint.inc: the tones are the core's)
 enum class State { Normal, Hot, Down, Disabled };
 
-COLORREF toneText(Tone t) { return t == Tone::Primary ? kAccent : t == Tone::Danger ? kBad : t == Tone::Quiet ? kDim : kText; }
+using kitpaint::toneText;
 
 // The face of a button (painted ones and the native push buttons alike).
 void buttonFace(Paint p, RECT r, const std::wstring& text, Tone tone, State s, HFONT font = nullptr) {
@@ -146,12 +146,7 @@ int link(Paint p, int x, int y, int h, const std::wstring& text, std::function<v
     const int w = textWidth(*p, text);
     RECT r{x, y, x + w, y + h};
     const bool over = hot(r);
-    p->text(r, text, tone == Tone::Quiet ? (over ? kText : kDim) : toneText(tone), kMiddle);
-    if (over && tone != Tone::Quiet) {
-        const auto tm = p->metrics();
-        const int base = (r.top + r.bottom + tm.height) / 2 - tm.descent + scale(1);
-        p->line(r.left, base, r.right, base, toneText(tone));
-    }
+    kitpaint::drawLinkFace(*p, r, text, tone, over);
     hitsOut().push_back({r, nullptr, std::move(click), tip, IDC_HAND, {}});
     return r.right;
 }
@@ -162,35 +157,15 @@ int link(Paint p, int x, int y, int h, const std::wstring& text, std::function<v
 enum class Icon { Bare, Boxed };
 
 // The largest square that fits in `r`, centered: every icon button is square, whatever place it gets.
-RECT square(RECT r) {
-    const int w = r.right - r.left, h = r.bottom - r.top, s = std::min(w, h);
-    const int x = r.left + (w - s) / 2, y = r.top + (h - s) / 2;
-    return {x, y, x + s, y + s};
-}
+RECT square(RECT r) { return toRECT(kitpaint::square(r)); }
 
-// An icon: one of the UI icons (tools/icongen), or a Segoe MDL2 glyph where the icon set has none yet.
-struct Ico {
-    const wchar_t* glyph = nullptr;
-    int icon = -1;
-    Ico(const wchar_t* g) : glyph(g) {}
-    Ico(UiIcon i) : icon(int(i)) {}
-};
-void glyph(Paint p, RECT r, Ico g, COLORREF c, int size = kGlyph) {
-    if (g.icon >= 0) return p->icon(r, g.icon, c, scale(16));
-    const Font of = p->setFont(fontOf(glyphFont(size)));
-    p->text(r, std::wstring_view(g.glyph, 1), c, kMiddle | kCenter);
-    p->setFont(of);
-}
+// An icon: one of the UI icons (tools/icongen), or a Segoe MDL2 glyph where the icon set has none yet (core/kit_paint.inc).
+using kitpaint::Ico;
+void glyph(Paint p, RECT r, Ico g, COLORREF c, int size = kGlyph) { kitpaint::drawGlyph(*p, r, g, c, size); }
 
 // A bare icon button's face, for surfaces with their own click areas (the triggers pane). `on` with Tone::Quiet:
 // a toggle that is off (amber, as a block that is turned off).
-void iconFace(Paint p, RECT r, Ico g, Tone tone, bool on, bool over, bool enabled = true) {
-    r = square(r);
-    if (over && enabled) box(*p, r, kCtlHot, CLR_NONE);
-    const COLORREF rest = tone == Tone::Quiet && on ? kWarn : on || tone == Tone::Primary ? kAccent : kDim;
-    const COLORREF lit = tone == Tone::Danger ? kBad : tone == Tone::Quiet && on ? kWarn : tone == Tone::Primary || on ? kAccentBright : kText;
-    glyph(*p, r, g, !enabled ? kFaint : over ? lit : rest);
-}
+void iconFace(Paint p, RECT r, Ico g, Tone tone, bool on, bool over, bool enabled = true) { kitpaint::drawIconFace(*p, r, g, tone, on, over, enabled); }
 void iconButton(Paint p, RECT r, Ico g, std::function<void()> click, const std::wstring& tip, Icon style = Icon::Bare, bool on = false,
                 bool enabled = true, Tone tone = Tone::Normal) {
     r = square(r);
@@ -225,10 +200,7 @@ void ownerRow(Paint p, RECT r, bool selected, COLORREF face = kCtl) {
     if (selected) p->fill({r.left + ring, r.top, r.left + ring + scale(2), r.bottom}, kAccent);
 }
 // The mark of a changed entry: a small green dot.
-void changedDot(Paint p, int cx, int cy) {
-    const int r = scale(3);
-    p->ellipse({cx - r, cy - r, cx + r + 1, cy + r + 1}, kGood, kNone);
-}
+void changedDot(Paint p, int cx, int cy) { kitpaint::drawChangedDot(*p, cx, cy); }
 
 // The actions a row has at its right edge (on/off, duplicate, remove, earlier/later): shown on the row under the
 // mouse (or the selected one), each a bare icon button.
@@ -406,13 +378,7 @@ void reorderDropLine(Paint p, const std::string& list) {
 
 // --- Check boxes --------------------------------------------------------------------------------------------------
 // The box (painted check boxes and the native ones alike).
-void checkMark(Paint p, RECT b, bool on, bool over, bool enabled) {
-    box(*p, b, on ? kAccentFill : kCtl, on ? kAccent : over ? kBorderHot : kBorderStrong, 3);
-    if (!on) return;
-    const int w = b.right - b.left, h = b.bottom - b.top;
-    const Point mark[] = {{b.left + w * 22 / 100, b.top + h * 52 / 100}, {b.left + w * 42 / 100, b.top + h * 72 / 100}, {b.left + w * 78 / 100, b.top + h * 30 / 100}};
-    p->polyline(mark, 3, enabled ? kOnText : kDim, std::max(1, scale(2)));
-}
+void checkMark(Paint p, RECT b, bool on, bool over, bool enabled) { kitpaint::drawCheckMark(*p, b, on, over, enabled); }
 void radioMark(Paint p, RECT b, bool on, bool over) {
     p->ellipse(b, kCtl, on ? kAccent : over ? kBorderHot : kBorderStrong);
     if (!on) return;
@@ -432,16 +398,9 @@ int check(Paint p, RECT r, const std::wstring& label, bool on, std::function<voi
 }
 
 // --- Fields -------------------------------------------------------------------------------------------------------
-enum class Field { Normal, Hot, Focus, Changed, ReadOnly };
+using kitpaint::Field;
 // A text field's box (painted fields, and the frame drawn around native edit boxes).
-void fieldBox(Paint p, RECT r, Field f) {
-    COLORREF fill = kCtl, line = kBorder;
-    if (f == Field::Hot) line = kBorderHot;
-    if (f == Field::Focus) line = kAccent;
-    if (f == Field::Changed) fill = kGoodFill, line = kGoodLine;
-    if (f == Field::ReadOnly) fill = kReadOnly, line = kReadOnlyLine;
-    box(*p, r, fill, line);
-}
+void fieldBox(Paint p, RECT r, Field f) { kitpaint::drawFieldBox(*p, r, f); }
 
 // --- Form parts ---------------------------------------------------------------------------------------------------
 // The form's layout, as the Data forms have it: the fields in a column on the left, the pictures beside them when
@@ -476,33 +435,18 @@ HFONT titleFont() {
 // `kind`: the icon when there is no picture (the .dat of the entry).
 int title(Paint p, int x, int y, int right, const UnitPalette::Bitmap* icon, const std::wstring& text, const std::wstring& sub, bool changed = false,
           std::function<void()> reset = nullptr, std::optional<UiIcon> kind = std::nullopt) {
-    int tx = x;
-    if (icon && icon->bmp) {
-        p->fitted(imageOf(icon), {x, y, x + scale(40), y + scale(40)});
-        tx += scale(52);
-    } else if (kind) {
-        p->icon({x, y, x + scale(40), y + scale(40)}, int(*kind), kDim, scale(32));
-        tx += scale(52);
-    }
-    const Font of = p->setFont(fontOf(titleFont()));
-    p->text({tx, y, right, y + scale(26)}, text.empty() ? L"(empty)" : text, kText, kMiddle | kEllipsis);
-    p->setFont(of);
-    if (sub.empty() && !changed) return y + scale(40);
-    RECT st{tx, y + scale(24), right, y + scale(42)};
-    const std::wstring lineText = sub + (changed ? (sub.empty() ? L"changed  \x00B7  " : L"  \x00B7  changed  \x00B7  ") : L"");
-    p->text(st, lineText, kDim, kMiddle);
-    if (changed && reset) link(*p, st.left + textWidth(*p, lineText), st.top, st.bottom - st.top, L"Reset", std::move(reset), L"Put back the game's values");
-    return y + scale(56);
+    const kitpaint::TitleLayout t = kitpaint::drawTitle(*p, x, y, right, imageOf(icon), bool(kind), kind ? *kind : UiIcon{}, text, sub, changed);
+    if (t.hasLine && changed && reset)
+        link(*p, t.line.left + textWidth(*p, t.lineText), t.line.top, t.line.bottom - t.line.top, L"Reset", std::move(reset), L"Put back the game's values");
+    return t.next;
 }
 // A section heading: its name and a line to the column's edge.
 int sectionHeader(Paint p, const FormLayout& l, int y, const std::wstring& name, bool changed = false) {
-    p->text({l.x0, y, l.colRight, y + l.rowH}, name, changed ? kGood : kText, kMiddle);
-    p->fill({l.x0, y + l.rowH - 1, l.colRight, y + l.rowH}, kBorder);
-    return y + l.rowH + scale(6);
+    return kitpaint::drawSectionHeader(*p, l.x0, l.colRight, y, l.rowH, name, changed);
 }
 // A field's label: dim; green when its value is changed; faint when it cannot be changed.
 void fieldLabel(Paint p, const FormLayout& l, int y, const std::wstring& name, bool changed, bool enabled = true) {
-    p->text({l.x0, y, l.x0 + l.labelW, y + l.rowH}, name, !enabled ? kFaint : changed ? kGood : kDim, kMiddle | kEllipsis);
+    kitpaint::drawFieldLabel(*p, {l.x0, y, l.x0 + l.labelW, y + l.rowH}, name, changed, enabled);
 }
 HFONT smallFont() {
     static std::map<int, HFONT> fonts;  // by DPI
@@ -582,15 +526,7 @@ void chipFace(Paint p, RECT r, bool over, bool dim = false, bool bad = false, bo
 // set. Clicking the box calls `click` with it.
 // The dropdown's face, for surfaces with their own click areas (the Data form).
 void pickFace(Paint p, RECT r, const std::wstring& text, bool changed, bool over, const UnitPalette::Bitmap* icon = nullptr, int number = -1, bool enabled = true) {
-    fieldBox(*p, r, !enabled ? Field::ReadOnly : changed ? Field::Changed : over ? Field::Hot : Field::Normal);
-    int tx = r.left + scale(8);
-    if (icon && icon->bmp) {
-        p->fitted(imageOf(icon), {tx - scale(2), r.top + scale(1), tx + scale(18), r.bottom - scale(1)});
-        tx += scale(24);
-    }
-    p->text({tx, r.top, r.right - (number >= 0 ? scale(56) : scale(22)), r.bottom}, text, !enabled ? kFaint : changed ? kGood : kText, kMiddle | kEllipsis);
-    if (number >= 0) p->text({r.right - scale(64), r.top, r.right - scale(22), r.bottom}, std::to_wstring(number), kDim, kMiddle | kRight);
-    if (enabled) glyph(*p, {r.right - scale(20), r.top, r.right - scale(6), r.bottom}, UiIcon::Dropdown, over ? kText : kDim, 9);  // chevron down
+    kitpaint::drawPickFace(*p, r, text, changed, over, imageOf(icon), number, enabled);
 }
 void pickBox(Paint p, RECT r, const std::wstring& text, bool changed, std::function<void(RECT)> click, const std::wstring& tip = L"",
              const UnitPalette::Bitmap* icon = nullptr, int number = -1, std::function<void()> open = nullptr, bool enabled = true) {

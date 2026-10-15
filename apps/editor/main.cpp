@@ -278,6 +278,7 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 
 #include "core/app_state.inc"
 #include "core/palette_tools.inc"  // the palette and tool state, the status texts and the messages (the state forms)
+#include "core/kit_paint.inc"  // the kit's painted parts on the Canvas (the ui:: helpers below call them)
 #include "core/documents.inc"  // the workspaces, the tabs (Doc, gDocs), the modes, the command table's globals, openProject and openAny
 #include "core/layout.inc"  // the main window's panes: computeLayout (the placement is layout() below)
 #include "core/menu_model.inc"  // the menu bar as data (buildMenuModel, toHmenu)
@@ -5326,7 +5327,10 @@ void dataFieldMenu(const DatField& f, POINT screen) {
 
 
 // A number value's box: up and down arrows at its right, shown under the mouse.
-RECT numberArrows(RECT vb) { return {vb.right - scale(18), vb.top, vb.right, vb.bottom}; }
+RECT numberArrows(RECT vb) {  // (core/kit_paint.inc: the arrows' box, the same for the canvas)
+    const draw::Rect a = kitpaint::numberArrowsRect(vb);
+    return {a.left, a.top, a.right, a.bottom};
+}
 // The Data form's metrics in pixels (core/views_data_form.inc), and a core box as a RECT for the kit.
 DataFormScale dataFormScale() {
     return {scale(2), scale(8), scale(4), scale(7), scale(110), scale(320), scale(190), scale(22), scale(14)};

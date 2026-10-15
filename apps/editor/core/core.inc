@@ -12,6 +12,7 @@
 #include "colors.inc"
 #include "app_state.inc"
 #include "palette_tools.inc"
+#include "kit_paint.inc"
 #include "documents.inc"
 #include "layout.inc"
 #include "menu_model.inc"
