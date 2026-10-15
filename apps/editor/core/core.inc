@@ -47,6 +47,7 @@
 #include "views_classic_settings.inc"
 #include "views_classic_triggers.inc"
 #include "views_classic_batch.inc"
+#include "views_classic_value.inc"
 #include "views_briefing.inc"
 #include "views_start.inc"
 #include "views_new_page.inc"
