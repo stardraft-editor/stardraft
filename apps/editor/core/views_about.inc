@@ -7,7 +7,6 @@
 
 // The program's Discord server and GitHub repository (crash.inc's kRepo is the same repository).
 inline const wchar_t* const kDiscordInvite = L"https://discord.gg/JBMCwSRJBm";
-inline const wchar_t* const kRepoName = L"stardraft-editor/stardraft";
 
 class AboutView final : public draw::View {
 public:
@@ -105,7 +104,7 @@ public:
 
         // Then the repository and the Discord server.
         const size_t first = links.size();
-        links.push_back({{}, L"https://github.com/" + std::wstring(kRepoName)});
+        links.push_back({{}, L"https://github.com/" + std::wstring(kIssueRepo)});
         links.push_back({{}, kDiscordInvite});
         const wchar_t* labels[2] = {L"GitHub: github.com/stardraft-editor/stardraft", L"Join the Discord server"};
         for (size_t k = 0; k < 2; ++k) {

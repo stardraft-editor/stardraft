@@ -35,15 +35,54 @@ Start or the taskbar. It also makes project.stardraft files open with it:
 The window title shows when the build was made. The first build takes long: CMake fetches SDL3, StormLib, CascLib,
 stb and libvpx.
 
+### The SDL program on Windows (stardraft-sdl.exe)
+
+StarDraft is moving to one program for Windows, macOS and Linux: the SDL program (`apps/editor/main_sdl.cpp` and its
+`sdl_*.inc` files, which draw the portable views in `apps/editor/core`). On Windows it is `stardraft-sdl.exe` (CMake
+target `stardraft_sdl`), built with MSVC beside `stardraft.exe` until it replaces that one. It uses the same settings
+file and StarCraft folder as `stardraft.exe`.
+
+    cmake -S . -B build
+    cmake --build build --config Release --target stardraft_sdl
+    build\Release\stardraft-sdl.exe [map]
+
+The `res` and `fonts` folders next to the program must stay with it. A snapshot draws one frame without a window
+and writes it as a PNG; a snapshot run asks nothing, sends nothing and changes no settings:
+
+    set SDL_VIDEODRIVER=offscreen
+    build\Release\stardraft-sdl.exe [map] --snapshot out.png
+    build\Release\stardraft-sdl.exe [map] --workspace triggers --snapshot out.png
+    build\Release\stardraft-sdl.exe [map] --dialog options --size 720x820 --snapshot out.png
+
+The comments on the options in `main()` of `main_sdl.cpp` (`--workspace`, `--dialog`, `--data`, ...) say what a
+snapshot can show. `tools/sdl_snapshots.py` takes one snapshot of each workspace and dialog and checks each one
+(`--help` tells how; `--install`, `--map` and `--project` add the cases that need them):
+
+    python -I tools/sdl_snapshots.py --exe build\Release\stardraft-sdl.exe --out snapshots
+
+GitHub builds `stardraft-sdl.exe` on each push (the job windows-sdl), runs `sdl_snapshots.py` on it and keeps the
+snapshots (with no game data: no map) and the program in a zip with the run. GitHub's Windows machines have no
+GPU: there Direct3D 12 draws on the CPU (WARP), and a failed snapshot does not stop the run.
+
 ### Linux and macOS
 
 The library, the tools and the tests also build on Linux (GCC or Clang) and macOS (Xcode's Clang); GitHub builds
-them on each push. The editor is Windows only; the renderer and its tests use Vulkan on Linux and Metal on macOS.
+them on each push. The SDL program builds there as `stardraft` (target `stardraft_editor`); `stardraft.exe` (the
+Win32 program) is Windows only. The renderer and its tests use Vulkan on Linux and Metal on macOS.
 On Linux, SDL needs the X11 or Wayland headers (SDL's `docs/README-linux.md`), or `-DSDL_UNIX_CONSOLE_BUILD=ON`
 for the tools only; `-DSTARDRAFT_RENDERER=OFF` builds without SDL.
 
     cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
     cmake --build build
+
+To run the SDL program and take its snapshots (the same options as on Windows):
+
+    build/stardraft [map]                                        # Linux
+    open build/stardraft.app --args [map]                        # macOS
+    python3 -I tools/sdl_snapshots.py --exe build/stardraft --out snapshots
+    python3 -I tools/sdl_snapshots.py --exe build/stardraft.app/Contents/MacOS/stardraft --out snapshots   # macOS
+
+The `res` and `fonts` folders next to `stardraft` (on macOS, in the app) must stay with it.
 
 The renderer's tools render offscreen; with no display, set `SDL_VIDEODRIVER=offscreen`. On Windows,
 `STARDRAFT_GPU_DRIVER=vulkan` (an environment variable) makes the renderer, the editor's map view included, use
