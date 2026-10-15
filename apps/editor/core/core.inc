@@ -103,4 +103,5 @@
 #include "title.inc"
 #include "project_page.inc"  // the Project page's program parts, createProject, newMap, addProjectScript (the host shows the page)
 #include "project_build.inc"  // Build: the files it writes, euddraft on a thread, the log of the build
+#include "views_topbar.inc"  // the top tool bar: the icons, Build, Debug mode, Report feedback (TopBarView)
 #include "views_log.inc"  // the Log at the bottom of the window: its lines, its bar and its height (the SDL program's; Windows keeps its own panel)
