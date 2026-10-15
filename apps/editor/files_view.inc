@@ -32,7 +32,7 @@ public:
     void showUse(const FilesUse& use) override {  // the Briefing workspace, at the action that uses the sound
         setWorkspace(Workspace::Briefing);
         briefSetWho(briefings()[size_t(use.trig)].players);
-        briefRows();
+        briefRows(gBrief.who);
         const int row = briefRowOf(use.trig, use.act);
         if (row >= 0) briefSelectRange(row, 1);
         InvalidateRect(gBrief.wnd, nullptr, FALSE);

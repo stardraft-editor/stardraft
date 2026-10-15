@@ -47,6 +47,16 @@ const SdlSound* sdlSound(const std::string& name) {
     return it->second.get();
 }
 
+// The SDL side's playback (the Windows program's openPlayback, main.cpp): a test run (gSilent) plays nothing, and the
+// volume is the one of every sound StarDraft plays. Null: no sound plays (a test run, or no device).
+SDL_AudioStream* openPlaybackSdl(const SDL_AudioSpec* spec) {
+    if (gSilent) return nullptr;
+    if (!SDL_WasInit(SDL_INIT_AUDIO)) SDL_InitSubSystem(SDL_INIT_AUDIO);
+    SDL_AudioStream* s = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, spec, nullptr, nullptr);
+    if (s) SDL_SetAudioStreamGain(s, float(gDock.volume) / 100.0f);
+    return s;
+}
+
 // One sound to listen to: play, and play again to stop.
 struct SdlPreview {
     std::string name;
@@ -68,10 +78,11 @@ void previewToggleSdl(const std::string& name) {
     if (same) return;
     const SdlSound* d = sdlSound(name);
     if (!d) return setMessage(L"Could not read the sound");
-    if (!SDL_WasInit(SDL_INIT_AUDIO)) SDL_InitSubSystem(SDL_INIT_AUDIO);
-    SDL_AudioStream* s = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &d->spec, nullptr, nullptr);
-    if (!s) return setMessage(L"No sound device is available");
-    SDL_SetAudioStreamGain(s, float(gDock.volume) / 100.0f);  // the volume of every sound StarDraft plays
+    SDL_AudioStream* s = openPlaybackSdl(&d->spec);
+    if (!s) {
+        if (!gSilent) setMessage(L"No sound device is available");
+        return;
+    }
     SDL_PutAudioStreamData(s, d->pcm.data(), int(d->pcm.size()));
     SDL_FlushAudioStream(s);
     SDL_ResumeAudioStreamDevice(s);

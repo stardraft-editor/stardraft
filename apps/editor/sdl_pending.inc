@@ -39,10 +39,12 @@ void openNewPageSdl(int kind);  // (sdl_new_page.inc: -1 the start page, 0 a cla
 void showOptionsSdl();  // (sdl_options.inc: Options > Program options, one window)
 void showFeedbackSdl(const std::wstring& on);  // (sdl_options.inc: Options > Report feedback, a modal dialog)
 void previewStopSdl();  // (sdl_files.inc: a sound that plays stops when the Files workspace is left)
+void briefingStopSdl();  // (sdl_briefing.inc: the preview stops when the Briefing workspace is left)
 bool sdlWorkspacePage(Workspace w);  // (sdl_map_pages.inc: the page of a map page workspace opens; false: none does)
 void setWorkspace(Workspace w) {
     if (w == Workspace::Assets) w = Workspace::Files;  // Assets is part of Files
     if (w != Workspace::Files) previewStopSdl();
+    if (w != Workspace::Briefing) briefingStopSdl();
     if (!commandInMode(mapPageCommandOf(w))) {
         if (w == Workspace::ClassicTriggers || w == Workspace::ClassicSettings)
             setMessage(w == Workspace::ClassicTriggers ? L"This project's map has no classic triggers. Use the Triggers workspace."
