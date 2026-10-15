@@ -1699,8 +1699,6 @@ constexpr UiText kRows[] = {
     {L"Select a text variable", L"Seleccione una variable de texto"},
     {L" is not a text variable", L" no es una variable de texto"},
     {L"Select a text of the game", L"Seleccione un texto del juego"},
-    {L"Select a number per player", L"Seleccione un n\u00FAmero por jugador"},
-    {L" is not a number per player", L" no es un n\u00FAmero por jugador"},
     {L"The text has more than two {}. Use at most two: one for each value", L"El texto tiene m\u00E1s de dos {}. Use como m\u00E1ximo dos: uno para cada valor"},
     {L"For each player accepts all players, Player 1 to Player 8, or a force", L"Para cada jugador acepta todos los jugadores, del Jugador 1 al Jugador 8, o una fuerza"},
     {L"For each unit accepts one unit type or Any unit", L"Para cada unidad acepta un tipo de unidad o Cualquier unidad"},
@@ -1862,6 +1860,11 @@ constexpr UiText kRows[] = {
     {L"The minimap is hidden (View > Show minimap shows it again)", L"El minimapa est\u00E1 oculto (Ver > Mostrar minimapa lo muestra de nuevo)"},
     {L"The minimap shows", L"El minimapa se muestra"},
     {L"StarDraft 2 is powered by euddraft and eudplib", L"StarDraft 2 funciona con euddraft y eudplib"},
+    {L"player array", L"matriz por jugador"},
+    {L"Player arrays", L"Matrices por jugador"},
+    {L"Select a player array", L"Seleccione una matriz por jugador"},
+    {L" is not a player array", L" no es una matriz por jugador"},
+    {L"list (or player array)", L"lista (o matriz por jugador)"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

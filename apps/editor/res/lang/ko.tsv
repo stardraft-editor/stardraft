@@ -1696,8 +1696,6 @@ A value in the text is missing. Insert it again.	텍스트에 있는 값이 누�
 Select a text variable	텍스트 변수를 선택하십시오
  is not a text variable	 은(는) 텍스트 변수가 아닙니다
 Select a text of the game	게임의 텍스트를 선택하십시오
-Select a number per player	플레이어별 숫자를 선택하십시오
- is not a number per player	 은(는) 플레이어별 숫자가 아닙니다
 The text has more than two {}. Use at most two: one for each value	텍스트에 {}가 두 개를 넘습니다. 값마다 하나씩, 최대 두 개를 사용하십시오
 For each player accepts all players, Player 1 to Player 8, or a force	각 플레이어는 모든 플레이어, 플레이어 1에서 플레이어 8, 또는 포스를 받습니다
 For each unit accepts one unit type or Any unit	각 유닛은 유닛 종류 하나 또는 모든 유닛을 받습니다
@@ -1859,3 +1857,8 @@ The map has 	맵에
 The minimap is hidden (View > Show minimap shows it again)	미니맵이 숨겨져 있습니다 (보기 > 미니맵 표시로 다시 표시합니다)
 The minimap shows	미니맵이 표시됩니다
 StarDraft 2 is powered by euddraft and eudplib	StarDraft 2는 euddraft와 eudplib로 작동합니다
+player array	플레이어 배열
+Player arrays	플레이어 배열
+Select a player array	플레이어 배열을 선택하십시오
+ is not a player array	 은(는) 플레이어 배열이 아닙니다
+list (or player array)	목록 (또는 플레이어 배열)
