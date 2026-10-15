@@ -279,7 +279,7 @@ std::wstring shellFileTimeText(const std::filesystem::path& file) {
     return widen(buf);
 }
 // (shellStartElevated, shellProcessEnded and shellProcessClose: shell_sdl_win.inc)
-void shellChooseInstallFolder() { setMessage(L"This is not on this system yet"); }
+// (shellChooseInstallFolder: main_sdl.cpp, beside the first start's folder question)
 // The file and folder dialogs: SDL's (asynchronous); the call waits for the answer (the host handles events and paints
 // meanwhile). A dialog whose answer comes after the program quits keeps its small state (the callback may still come).
 namespace {

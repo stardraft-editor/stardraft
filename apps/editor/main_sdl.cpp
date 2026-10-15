@@ -200,6 +200,35 @@ void useInstallFolder(const std::string& picked) {
     askInstallFolder();  // asks again: the folder above the install is a common pick
 }
 
+// Options > Program options > StarCraft folder (and the Project page's): select another install. With no game data open,
+// the program opens it now (as the first start's question); else it is used from the next start, as on Windows.
+void sdlChooseInstallFolder() {
+    const std::wstring picked = shellPickFolder(L"Select the StarCraft: Remastered folder");
+    if (picked.empty()) return;
+    if (!gDataOk) return useInstallFolder(narrow(picked));
+    std::string err;
+    for (const fs::path& t : installTries(fs::path(picked))) {
+        GameData probe;
+        if (!fs::is_directory(t) || !probe.open(t, err)) continue;
+        if (!gSilent) {  // (tests never change the user's settings)
+            prefs::setText(L"StarCraftFolder", t.wstring());
+            if (const fs::path f = sdlWindowsInstallFile(); !f.empty()) {
+                std::error_code ec;
+                fs::create_directories(f.parent_path(), ec);
+                std::ofstream(f) << narrow(t.wstring());
+            }
+        }
+        if (gRoot)
+            kit::messageBox(*gRoot, shellTr(L"StarCraft folder"),
+                            L"StarDraft 2 uses this folder after the next start:\n" + t.wstring() + L"\nTo use it now, restart StarDraft 2.",
+                            {L"OK"}, kit::MessageIcon::Info);
+        return;
+    }
+    if (gRoot)
+        kit::messageBox(*gRoot, shellTr(L"StarCraft folder"), L"Could not read the game data in this folder:\n" + widen(err.empty() ? narrow(picked) : err),
+                        {L"OK"}, kit::MessageIcon::Warning);
+}
+
 // The PNG of the window's pixels, from the snapshot's texture (RGBA8, as the snapshot makes it).
 bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, const std::string& out) {
     SDL_GPUTransferBufferCreateInfo ti{};
@@ -233,6 +262,7 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 }
 
 }  // namespace
+void shellChooseInstallFolder() { sdlChooseInstallFolder(); }  // (shell.h)
 
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
