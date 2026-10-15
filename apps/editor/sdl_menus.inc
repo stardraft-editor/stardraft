@@ -181,6 +181,9 @@ bool sdlEnabled(int id) {
     return commandForMode(id, projectMode());
 }
 
+// The top tool bar's icons are enabled as the menu items are (core/views_topbar.inc).
+bool commandEnabled(int id) { return sdlEnabled(id); }
+
 // The menu item's text in the program's language (the tables have it with its access keys, as the Windows menus add
 // it), without the access keys ('&').
 std::wstring accessFree(std::wstring s) {
