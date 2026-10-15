@@ -27,8 +27,9 @@ public:
         routerFor(root);
     }
     ~ScriptedHost() override {
-        for (size_t i = 0; i < routers_.size(); ++i)
-            if (!closed_[i]) routers_[i]->root().attach(nullptr);  // (a closed window's views may be gone already)
+        // Only the root given to the constructor outlives the host in a test; a window's views (closed or not) may be
+        // gone already.
+        if (!routers_.empty()) routers_[0]->root().attach(nullptr);
     }
 
     // The router of the window (or the root) that `v` is in: the events of a window go through it.
