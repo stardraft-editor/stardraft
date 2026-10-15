@@ -288,6 +288,11 @@ void Dropdown::paint(Canvas& c) {
             c.icon({tx, r.top + px(3), tx + px(18), r.bottom - px(3)}, it.icon, enabled_ ? th.text : th.faint, px(16));
             tx += px(24);
         }
+        if (it.swatch != draw::kNone) {  // the square at 10 px, the label after seven spaces' width (as the program's pickers had it)
+            const int s = px(12), sx = r.left + px(10), sy = (r.top + r.bottom - s) / 2;
+            c.fill({sx, sy, sx + s, sy + s}, it.swatch);
+            tx = r.left + px(8) + c.measure(L"       ");
+        }
         const bool hasNumber = it.number >= 0;
         c.text({tx, r.top, r.right - (hasNumber ? px(56) : px(22)), r.bottom}, it.label, !enabled_ ? th.faint : changed_ ? th.good : th.text,
                draw::kMiddle | draw::kEllipsis);

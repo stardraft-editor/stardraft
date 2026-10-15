@@ -16,6 +16,8 @@ struct DropdownItem {
     std::wstring label;
     int icon = -1;    // a UI icon (apps/editor/res/ui_icons.h); -1: none
     int number = -1;  // shown at the right in dim; -1: none
+    // A color square before the label, on the closed field (a player's color); kNone: none.
+    draw::Color swatch = draw::kNone;
 };
 
 class Dropdown : public draw::View {

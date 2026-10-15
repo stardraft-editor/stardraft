@@ -61,6 +61,7 @@ using std::min;
 #include "button.h"
 #include "icon_button.h"
 #include "dropdown.h"     // the kit's dropdown: the palette's section box (search_box.inc)
+#include "check_box.h"  // the kit's check boxes: the players and forces page (core/views_players.inc)
 #include "button.h"       // the kit's push button: the Files page's Import and Rename (core/views_files.inc)
 #include "res/ui_icons.h"
 #include "stardraft/editor.h"
@@ -437,6 +438,7 @@ std::wstring itemLabel(int v) { return itemLabel(app, v); }
 #include "core/views_project.inc"  // the Project page: the script preview (ProjectPreviewView, epScript colors as spans)
 #include "core/views_map_pages.inc"  // the map pages' frame: the title, the tabs, the bar and the scroll view (MapPagesView, MapScrollView; map_pages.inc)
 #include "core/views_map_props.inc"  // Map properties' view: the fields, the dropdowns and the buttons (MapPropsView; map_properties.inc, map_pages.inc)
+#include "core/views_players.inc"  // Players and forces' view: the players, the forces and the problems (PlayersView; main.cpp, map_pages.inc)
 #include "core/views_start.inc"  // the start page (StartView: the cards, the recent list, Open; the instance is gStartView in new_page.inc)
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
 
@@ -1957,36 +1959,12 @@ void showProjectSettings() {
 // Players 1-8: controller, race, force, and what they own (units, start location). Forces 1-4: name and
 // properties. Below, what would stop StarCraft from starting the map, updated as you change things.
 
-const std::pair<Editor::Controller, const wchar_t*> kControllers[] = {
-    {Editor::Controller::Human, L"Human"},       {Editor::Controller::Computer, L"Computer"}, {Editor::Controller::Rescue, L"Rescuable"},
-    {Editor::Controller::Neutral, L"Neutral"},   {Editor::Controller::Closed, L"Closed"},     {Editor::Controller::Inactive, L"Unused"}};
-const std::pair<Editor::Race, const wchar_t*> kRaces[] = {{Editor::Race::Zerg, L"Zerg"},
-                                                         {Editor::Race::Terran, L"Terran"},
-                                                         {Editor::Race::Protoss, L"Protoss"},
-                                                         {Editor::Race::UserSelect, L"User select"},
-                                                         {Editor::Race::Random, L"Random"}};
-const wchar_t* kForceFlagNames[4] = {L"Random starts", L"Allies", L"Allied victory", L"Shared vision"};
-
-struct PlayersDialog {
-    HWND wnd = nullptr;
-    HWND forceName[4] = {};  // the force names: native edit boxes (the rest is painted: ui::pickBox, ui::check)
-    std::vector<Editor::Player> players;
-    std::vector<Editor::Force> forces;
-    bool filling = false;
-    std::wstring problemsText;  // the problems (or that StarCraft can start the map), one per line
-    // The values as the page first showed the map's (a change is a difference from these).
-    bool baseSet = false;
-    std::vector<Editor::Player> basePlayers;
-    std::vector<Editor::Force> baseForces;
+// The tables and the page's view are in the core (core/views_players.inc); the copy is a PlayersDialog.
+struct PlayersDialog : PlayersValues {
+    HWND wnd = nullptr;  // the page's window (its view)
 };
 PlayersDialog* gPlayersDlg = nullptr;  // the working copy of the players and forces while they show (map_pages.inc)
 void mapPageChanged();                 // map_pages.inc: the change goes into the map
-
-// The force names typed in their boxes, into the copy (the other values are set by their pickers).
-void playersRead(PlayersDialog& d) {
-    for (int f = 0; f < 4; ++f)
-        if (d.forceName[f]) d.forces[size_t(f)].name = narrow(windowText(d.forceName[f]));
-}
 
 // The same rules as Editor::playabilityProblems, on the values in the dialog.
 std::vector<std::wstring> playersProblems(const PlayersDialog& d) {
@@ -2006,34 +1984,8 @@ std::vector<std::wstring> playersProblems(const PlayersDialog& d) {
     return out;
 }
 
-// The rows of a player's color list: the game's 22 colors, then Random, Player's choice and Custom (an RGB of your choice).
-int playerColorRow(const Editor::PlayerColor& c) {
-    switch (c.kind) {
-    case Editor::PlayerColor::Random: return Editor::kColorIds;
-    case Editor::PlayerColor::Choice: return Editor::kColorIds + 1;
-    case Editor::PlayerColor::Custom: return Editor::kColorIds + 2;
-    default: return std::min<int>(c.id, Editor::kColorIds - 1);
-    }
-}
-std::wstring playerColorName(const Editor::PlayerColor& c) {
-    const int row = playerColorRow(c);
-    if (row < Editor::kColorIds) return widen(Editor::colorIdName(row));
-    if (row == Editor::kColorIds) return L"Random";
-    if (row == Editor::kColorIds + 1) return L"Player's choice";
-    wchar_t hex[16];
-    std::swprintf(hex, 16, L"#%06X", unsigned(c.rgb));
-    return L"Custom " + std::wstring(hex) + L" (multiplayer only)";
-}
-int64_t playerColorRgb(const Editor::PlayerColor& c) {
-    const int row = playerColorRow(c);
-    if (row < Editor::kColorIds) return Editor::colorIdRgb(row);
-    return c.kind == Editor::PlayerColor::Custom ? int64_t(c.rgb) : -1;
-}
-
 // After a change: the problems again, the page painted again, and the change into the map.
 void playersRefresh(PlayersDialog& d) {
-    if (d.filling) return;
-    playersRead(d);
     const auto problems = playersProblems(d);
     d.problemsText.clear();
     if (problems.empty()) d.problemsText = L"\x2713  StarCraft can start this map";
@@ -2046,13 +1998,17 @@ void playersSet(PlayersDialog& d) {
     mapPageChanged();
 }
 
-LRESULT CALLBACK playersDialogProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);  // map_pages.inc (after the control kit)
-
-// The Players page's working copy from the map.
+// The Players page's working copy from the map (its problems too).
 void playersLoad(PlayersDialog& d) {
     d = PlayersDialog{};
     for (int p = 0; p < 8; ++p) d.players.push_back(app.ed->player(p));
     for (int f = 0; f < 4; ++f) d.forces.push_back(app.ed->force(f));
+    playersRefresh(d);
+}
+// The page's view is made (its window): the values it first shows are the map's, so a change is a difference from them.
+void playersCreated(PlayersDialog& d, HWND wnd) {
+    d.wnd = wnd;
+    if (!d.baseSet) d.baseSet = true, d.basePlayers = d.players, d.baseForces = d.forces;
 }
 bool playersSame(const std::vector<Editor::Player>& a, const std::vector<Editor::Force>& af, const std::vector<Editor::Player>& b,
                  const std::vector<Editor::Force>& bf) {
@@ -20003,7 +19959,7 @@ int runSelfTest(const fs::path& dir) {
                     pd.players[1].force = 1;
                     pd.players[1].color.kind = Editor::PlayerColor::Id, pd.players[1].color.id = 14;  // Cyan (Remastered's CRGB)
                     pd.forces[0].flags |= 2;
-                    SetWindowTextW(pd.forceName[1], L"Enemies");
+                    pd.forces[1].name = "Enemies";  // (as the page's name box types it)
                     playersSet(pd);
                     dialogProblems = pd.problemsText;
                     RedrawWindow(mapPageWindow(), nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
