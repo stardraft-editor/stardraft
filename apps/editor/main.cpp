@@ -440,6 +440,7 @@ std::wstring itemLabel(int v) { return itemLabel(app, v); }
 #include "core/views_map_pages.inc"  // the map pages' frame: the title, the tabs, the bar and the scroll view (MapPagesView, MapScrollView; map_pages.inc)
 #include "core/views_map_props.inc"  // Map properties' view: the fields, the dropdowns and the buttons (MapPropsView; map_properties.inc, map_pages.inc)
 #include "core/views_players.inc"  // Players and forces' view: the players, the forces and the problems (PlayersView; main.cpp, map_pages.inc)
+#include "core/views_briefing.inc"  // the Briefing workspace's edit model (the actions, the regrouping; briefing_view.inc)
 #include "core/views_classic_settings.inc"  // Map data's views: the tabs' lists and fields (ClassicPageView; classic_settings.inc, map_pages.inc)
 #include "core/views_start.inc"  // the start page (StartView: the cards, the recent list, Open; the instance is gStartView in new_page.inc)
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
