@@ -80,10 +80,10 @@ std::wstring shellFilterText() { return gFilterSdl.text(); }
 bool shellViewShown() { return gRoot != nullptr; }
 void shellToolsChanged() { gToolStripView.invalidate(); }
 int shellPopupPick(const std::vector<std::wstring>& items, int checked, int, int) {  // (a modal list: sdl_map_pages.inc)
-    return sdlPickFromList(items, checked, shellTr(L"Choose"));
+    return sdlPickFromList(items, checked, shellTr(L"Select"));
 }
 int shellContextMenu(const std::vector<std::wstring>& items) {  // (a modal list: sdl_map_pages.inc)
-    return sdlPickFromList(items, -1, shellTr(L"Choose")) + 1;
+    return sdlPickFromList(items, -1, shellTr(L"Select")) + 1;
 }
 void shellOwnerSelect(int i) { gOwnerBox.setValue(i); }  // (the owner dropdown shows player i; no change is sent)
 void shellPaletteChanged() {

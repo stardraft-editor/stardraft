@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstring>
 #include <deque>
+#include <set>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
@@ -49,14 +50,31 @@ std::vector<Atlas> gAtlases;
 SDL_GPUDevice* gAtlasDevice = nullptr;
 
 // A bitmap's texture: its copy of the pixels, and the revision it is of.
+// Every live one is in liveBitmaps(), so their textures can go before the device does (a view that lives until the program
+// ends, such as the New page, keeps its bitmaps after the device: releaseBitmapTextures, from unloadIconAtlases).
+struct GpuBitmap;
+// (never destroyed: a global view in another file may free its bitmaps after this file's globals are gone)
+std::set<GpuBitmap*>& liveBitmaps() {
+    static auto* s = new std::set<GpuBitmap*>;
+    return *s;
+}
 struct GpuBitmap final : draw::Bitmap::Native {
     SDL_GPUDevice* device = nullptr;
     SDL_GPUTexture* tex = nullptr;
     int w = 0, h = 0;
+    GpuBitmap() { liveBitmaps().insert(this); }
     ~GpuBitmap() override {
+        liveBitmaps().erase(this);
         if (tex && device) SDL_ReleaseGPUTexture(device, tex);
     }
 };
+// The textures of all bitmaps go (each bitmap uploads its pixels again if it is drawn later).
+void releaseBitmapTextures() {
+    for (GpuBitmap* g : liveBitmaps()) {
+        if (g->tex && g->device) SDL_ReleaseGPUTexture(g->device, g->tex);
+        g->tex = nullptr, g->device = nullptr, g->w = 0, g->h = 0;
+    }
+}
 
 ImU32 colorOf(Color c, unsigned alpha = 255) { return IM_COL32(int(c & 255), int((c >> 8) & 255), int((c >> 16) & 255), int(alpha)); }
 
@@ -412,6 +430,7 @@ bool loadIconAtlases(SDL_GPUDevice* device, const std::string& dir) {
 }
 
 void unloadIconAtlases() {
+    releaseBitmapTextures();  // (the bitmaps' textures too: the device goes next)
     for (const Atlas& a : gAtlases)
         if (gAtlasDevice && a.tex) SDL_ReleaseGPUTexture(gAtlasDevice, a.tex);
     gAtlases.clear();
@@ -656,6 +675,7 @@ void ImguiCanvas::bitmap(draw::Bitmap& b, Rect src, Rect dst, bool, uint8_t alph
     if (!g->tex || g->w != b.width() || g->h != b.height()) {
         if (g->tex) SDL_ReleaseGPUTexture(dev_, g->tex);
         const std::vector<uint8_t> px = straightPixels(b);
+        g->device = dev_;  // (again after releaseBitmapTextures)
         g->tex = uploadRgba(dev_, b.width(), b.height(), px.data());
         g->w = b.width(), g->h = b.height(), g->revision = b.revision();
         if (!g->tex) return;
