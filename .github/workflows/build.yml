@@ -6,7 +6,7 @@
 # last section, what StarDraft is) for new visitors. The symbols go to a draft release symbols-v<version>.
 # StarDraft's Check for updates reads "(build <commit>)" in the newest release's title. Each release keeps its own
 # download count. Most tests need a StarCraft: Remastered install, so they are not run here. The jobs linux and macos
-# build the library, the tools and the tests on those systems.
+# build the library, the tools and the tests on those systems; the job windows-sdl builds stardraft-sdl.exe.
 name: Build
 
 on:
@@ -167,6 +167,57 @@ jobs:
             }
           }
           if ($failed) { throw "$failed Discord posts did not go: post again with Actions > Post screenshots to Discord" }
+
+  # The editor on SDL for Windows (stardraft-sdl.exe, CMake target stardraft_sdl): the same main_sdl.cpp as on Linux and
+  # macOS, built with MSVC beside stardraft.exe, until it replaces that one. Its snapshots draw without a window
+  # (SDL_VIDEODRIVER=offscreen) on Direct3D 12; GitHub's Windows machines have no GPU, so Direct3D 12 uses WARP (the
+  # CPU). There is no game data here: the snapshots show the shell with no map. Not in a release yet.
+  windows-sdl:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: deps-sdl-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Configure
+        run: cmake -S . -B build -A x64
+
+      - name: Build
+        run: cmake --build build --config Release --target stardraft_sdl --parallel
+
+      # A test run (a snapshot) asks nothing, sends nothing and changes no settings or file types. APPDATA and
+      # LOCALAPPDATA point to the run's own folder too. The snapshots are not yet tried on GitHub's machines (WARP):
+      # as on macOS, a failure here does not stop the run.
+      - name: Snapshot the editor
+        continue-on-error: true
+        shell: bash
+        env:
+          SDL_VIDEODRIVER: offscreen
+        run: |
+          export APPDATA="$RUNNER_TEMP\\appdata" LOCALAPPDATA="$RUNNER_TEMP\\localappdata"
+          mkdir -p "$RUNNER_TEMP/appdata" "$RUNNER_TEMP/localappdata"
+          exe=build/Release/stardraft-sdl.exe
+          "$exe" --snapshot editor-windows.png | tee snap.txt
+          grep -q "^wrote " snap.txt
+          "$exe" --workspace files --snapshot editor-windows-files.png | tee snap.txt
+          grep -q "^wrote " snap.txt
+          "$exe" --dialog options --size 720x820 --snapshot editor-windows-options.png | tee snap.txt
+          grep -q "^wrote " snap.txt
+
+      - name: Pack the editor
+        if: always()
+        run: Compress-Archive -Force -Path build/Release/stardraft-sdl.exe, build/Release/res, build/Release/fonts -DestinationPath stardraft-sdl-windows.zip
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stardraft-editor-windows-sdl-${{ github.sha }}
+          path: |
+            editor-windows*.png
+            stardraft-sdl-windows.zip
 
   # The library, the tools and the tests on Linux and macOS (research/ports/PLAN.md, phase 1): built, and the tests
   # that need no game data run. No program for these systems yet, so nothing is uploaded and no release waits for them.

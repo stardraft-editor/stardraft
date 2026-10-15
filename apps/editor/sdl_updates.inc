@@ -113,6 +113,7 @@ bool sdlUpdatesCommand(int id) {
         gOptionsView.invalidate();
         return true;
     case ID_OPT_MAPSDEFAULT: return sdlMakeMapsDefault();
+    case ID_OPT_INSTALL: shellChooseInstallFolder(); return true;  // (main_sdl.cpp)
     default: return false;
     }
 }

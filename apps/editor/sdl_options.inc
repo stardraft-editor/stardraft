@@ -2,7 +2,7 @@
 // core/views_feedback.inc); this file is their SDL host. Each opens as a dialog window over the root (the kit's windows, as
 // the Windows program's dialogs). The options keep their values in the settings file (prefs), the volume and the unit names
 // in the dock, the unit limits in the core. Not on this system yet: the themes and accents (dark only), the languages, the
-// StarCraft folder, the folder pickers, and sending the feedback (the text stays in the dialog). The Maps' program is
+// working folder's picker, and sending the feedback (the text stays in the dialog). The Maps' program is
 // Windows only (shell_sdl_win.inc); Check now and the crash reports' choice are sdl_updates.inc's.
 // Included by main_sdl.cpp after sdl_new_page.inc.
 
