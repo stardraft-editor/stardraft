@@ -127,15 +127,7 @@ inline int drawGameText(draw::Canvas& c, draw::Rect r, const std::string& raw, d
         int x = 0;
         for (auto& wd : words) {
             int ww = 0;
-            for (auto& p : wd) {  // (each character's advance, as textAt draws them: the SDL canvas rounds each one up)
-                p.w = 0;
-                for (size_t k = 0; k < p.text.size();) {
-                    const size_t n = (p.text[k] >= 0xD800 && p.text[k] < 0xDC00 && k + 1 < p.text.size()) ? 2 : 1;
-                    p.w += c.measure(std::wstring_view(p.text).substr(k, n));
-                    k += n;
-                }
-                ww += p.w;
-            }
+            for (auto& p : wd) p.w = c.measureAt(p.text), ww += p.w;  // (the width as textAt draws it)
             if (x > 0 && x + ww > width) drawLine(lineNow, align), lineNow.clear(), x = 0;
             for (auto& p : wd) lineNow.push_back(p);
             x += ww;
