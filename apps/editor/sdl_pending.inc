@@ -53,7 +53,7 @@ void setWorkspace(Workspace w) {
         w = Workspace::Map;
     }
     // A map page: its view shows (made from the tab's working copy); another workspace: the page goes (the copy stays).
-    if (!sdlWorkspacePage(w) && (w == Workspace::Properties || w == Workspace::Players || w == Workspace::ClassicSettings)) w = Workspace::Map;
+    if (!sdlWorkspacePage(w) && (w == Workspace::Properties || w == Workspace::Players || w == Workspace::ClassicSettings || w == Workspace::ClassicTriggers)) w = Workspace::Map;
     gWorkspace = w;
     shellStatusChanged();  // the map's parts show in Map only
     shellRelayout();

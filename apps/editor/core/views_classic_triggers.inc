@@ -235,6 +235,330 @@ inline bool ctCanMoveRow(const ClassicTrigger& t, int i, bool in) {
     return in ? trial.indentAction(i) : trial.outdentAction(i);
 }
 
+// --- The page's model (both programs): the triggers as the page edits them, the list, and the trigger-level commands ---
+// The groups of the filter: players 1-8, all players, forces 1-4.
+constexpr int kCtGroups[] = {0, 1, 2, 3, 4, 5, 6, 7, 17, 18, 19, 20, 21};
+constexpr int kCtGroupCount = int(std::size(kCtGroups));
+// The players with a check box in the row (players 1-8, all players); the forces are in a multi-pick list (Forces).
+constexpr int kCtBoxGroups[] = {0, 1, 2, 3, 4, 5, 6, 7, 17};
+constexpr int kCtBoxCount = int(std::size(kCtBoxGroups));
+constexpr int kCtForceGroups[] = {18, 19, 20, 21};
+
+// The page's working copy of the map's triggers, the selection and the list. The Windows page and the SDL page each hold
+// one; the commands below change it, and the host says what the program shows (the list, the header, the map).
+struct CtModel {
+    ClassicTriggers trig;
+    StringTable strings;
+    std::set<uint32_t> ownStrings;          // strings this page made (a text typed again changes them in place)
+    std::vector<ClassicAiScript> ai;
+    std::vector<ClassicTrigger> before;     // the map's triggers when the page read them (a change is a difference from these)
+    std::vector<int> shown;                 // the triggers in the list
+    std::wstring query;                     // the search box's words: a trigger shows when its text has them all
+    int filter = -1;                        // the group whose triggers show (-1: all)
+    int sel = -1;                           // the selected trigger
+    int kind = 0, entry = -1;               // the selected condition (kind 0) or action (1)
+    int anchor = -1;                        // the trigger a Shift click reaches from
+    std::set<int> marked;                   // the triggers chosen with Ctrl or Shift click (the list's actions take them all)
+};
+// What the model's commands ask of the program: the names, the list's repaint, the selection (its entries and head follow),
+// the header, the change into the map, the messages, and the keys.
+class CtModelHost {
+public:
+    virtual ~CtModelHost() = default;
+    virtual ClassicNames names() = 0;
+    virtual void filled() = 0;               // the shown triggers changed: the count and the list's repaint
+    virtual void selectTrigger(int i) = 0;   // the trigger i is selected (-1: none): the entries, the players and the header follow
+    virtual void updateHeader() = 0;
+    virtual void changed() = 0;              // a change: it goes into the map
+    virtual void invalidate() = 0;           // the lists are painted again
+    virtual void message(const std::wstring& text) = 0;
+    virtual bool ctrl() = 0;
+    virtual bool shift() = 0;
+};
+
+inline const ClassicTrigger* ctModelSelected(const CtModel& m) {
+    return m.sel >= 0 && m.sel < int(m.trig.triggers.size()) ? &m.trig.triggers[size_t(m.sel)] : nullptr;
+}
+inline ClassicTrigger* ctModelSelectedMut(CtModel& m) {
+    return m.sel >= 0 && m.sel < int(m.trig.triggers.size()) ? &m.trig.triggers[size_t(m.sel)] : nullptr;
+}
+
+// The map's triggers as the page reads them (a batch is its template in the list).
+inline void ctModelLoad(CtModel& m, Editor& ed) {
+    m.strings = ed.strings();
+    m.trig = classicCollapseBatches(ed.classicTriggers(), m.strings);
+    m.before = m.trig.triggers;
+}
+
+// The list's rows: the triggers that run for the player shown and have every word of the query, in the map's order.
+inline void ctModelFill(CtModel& m, CtModelHost& h) {
+    m.shown = ctShownTriggers(m.trig.triggers, m.filter, m.query, h.names());
+    m.marked.clear();  // (the rows changed: the checked ones are not known any more)
+    h.filled();
+}
+
+// A trigger goes in at the place after the selected one (or at the end), and is selected.
+inline void ctModelInsertTrigger(CtModel& m, CtModelHost& h, ClassicTrigger n) {
+    const int at = ctModelSelected(m) ? m.sel + 1 : int(m.trig.triggers.size());
+    m.trig.triggers.insert(m.trig.triggers.begin() + at, std::move(n));
+    m.sel = at;
+    ctModelFill(m, h);
+    h.selectTrigger(at);
+}
+// A new trigger (Always, no actions) after the selected one, for the player shown.
+inline void ctModelAddTrigger(CtModel& m, CtModelHost& h) {
+    ClassicTrigger n = ClassicTrigger::make();
+    if (m.filter >= 0) n.players[size_t(m.filter)] = 1;
+    ctModelInsertTrigger(m, h, n);
+}
+// A copy of a trigger after it. A copy has not run: the flags that the game sets while it runs are cleared (the
+// copy keeps "preserve trigger" and "disabled").
+inline ClassicTrigger ctModelFreshCopy(CtModel& m, ClassicTrigger t) {
+    t.flags &= 4u | 8u, t.currentAction = 0;
+    for (const ClassicAction& a : t.actions) m.ownStrings.erase(a.text);  // its texts are shared now
+    return t;
+}
+inline void ctModelDuplicateTrigger(CtModel& m, CtModelHost& h, int i) {
+    if (i < 0 || i >= int(m.trig.triggers.size())) return;
+    m.sel = i;
+    ctModelInsertTrigger(m, h, ctModelFreshCopy(m, m.trig.triggers[size_t(i)]));
+}
+inline void ctModelDeleteTrigger(CtModel& m, CtModelHost& h, int i) {
+    if (i < 0 || i >= int(m.trig.triggers.size())) return;
+    m.trig.triggers.erase(m.trig.triggers.begin() + i);
+    m.sel = -1;
+    ctModelFill(m, h);
+    int next = -1;  // the trigger that was after it in the list, else the one before
+    for (int k : m.shown)
+        if (next < 0 || k < i) next = k;
+    for (int k : m.shown)
+        if (k >= i) {
+            next = k;
+            break;
+        }
+    h.selectTrigger(next);
+}
+// Moves the trigger at place `from` of the list to place `to` of the list without it. With a player's triggers
+// shown, it goes just before (after) the trigger it now has after (before) it in the list; the triggers that do not
+// show keep their places.
+inline void ctModelMoveShown(CtModel& m, CtModelHost& h, int from, int to) {
+    if (from < 0 || from >= int(m.shown.size())) return;
+    const int src = m.shown[size_t(from)];
+    std::vector<int> rest = m.shown;
+    rest.erase(rest.begin() + from);
+    if (rest.empty() || to < 0) return;
+    to = std::min(to, int(rest.size()));
+    const int dest = to < int(rest.size()) ? rest[size_t(to)] - (rest[size_t(to)] > src) : rest.back() - (rest.back() > src) + 1;
+    auto& v = m.trig.triggers;
+    ClassicTrigger t = v[size_t(src)];
+    v.erase(v.begin() + src);
+    v.insert(v.begin() + dest, std::move(t));
+    m.sel = dest;
+    ctModelFill(m, h);
+    h.selectTrigger(dest);
+}
+
+// The triggers an action takes: the checked ones (Ctrl or Shift click), else the selected one. In the map's order.
+inline std::vector<int> ctModelTargets(const CtModel& m) {
+    std::vector<int> out(m.marked.begin(), m.marked.end());
+    if (out.empty() && m.sel >= 0) out.push_back(m.sel);
+    return out;
+}
+// A click on a trigger's row: a plain click selects it; Ctrl checks or unchecks it; Shift checks the rows of the list
+// from the anchor to it.
+inline void ctModelClickTrigger(CtModel& m, CtModelHost& h, int i) {
+    const bool ctrl = h.ctrl(), shift = h.shift();
+    const auto at = std::find(m.shown.begin(), m.shown.end(), i);
+    if (shift && m.anchor >= 0 && at != m.shown.end()) {
+        const auto from = std::find(m.shown.begin(), m.shown.end(), m.anchor);
+        if (from != m.shown.end()) {
+            m.marked.clear();
+            for (auto k = std::min(from, at); k <= std::max(from, at); ++k) m.marked.insert(*k);
+        }
+        h.selectTrigger(i);
+    } else if (ctrl) {
+        if (!m.marked.erase(i)) m.marked.insert(i);
+        m.anchor = i;
+        h.selectTrigger(i);
+    } else {
+        m.marked.clear(), m.anchor = i;
+        if (i != m.sel) h.selectTrigger(i);
+    }
+    h.invalidate();
+}
+// Turn off (or on) the triggers that ctModelTargets gives: all off when the first one is on, else all on.
+inline void ctModelToggleTriggers(CtModel& m, CtModelHost& h) {
+    const std::vector<int> targets = ctModelTargets(m);
+    if (targets.empty()) return;
+    // The button shows the selected trigger's state: that decides, when it is one of the targets.
+    const int shown = std::find(targets.begin(), targets.end(), m.sel) != targets.end() ? m.sel : targets[0];
+    const bool off = !m.trig.triggers[size_t(shown)].disabled();
+    for (int i : targets) m.trig.triggers[size_t(i)].setDisabled(off);
+    h.updateHeader();
+    h.changed();
+    h.message(off ? (targets.size() > 1 ? L"Turned off the triggers" : L"Turned off the trigger") : (targets.size() > 1 ? L"Turned on the triggers" : L"Turned on the trigger"));  // (after the change: its own message)
+}
+// Turn off (or on) one trigger.
+inline void ctModelToggleOne(CtModel& m, CtModelHost& h, int i) {
+    if (i < 0 || i >= int(m.trig.triggers.size())) return;
+    ClassicTrigger& t = m.trig.triggers[size_t(i)];
+    t.setDisabled(!t.disabled());
+    h.updateHeader();
+    h.changed();
+}
+// Delete the triggers that ctModelTargets gives; the trigger after the first one deleted is selected.
+inline void ctModelDeleteTriggers(CtModel& m, CtModelHost& h) {
+    std::vector<int> targets = ctModelTargets(m);
+    if (targets.empty()) return;
+    const int first = *std::min_element(targets.begin(), targets.end());
+    std::sort(targets.begin(), targets.end(), std::greater<int>());
+    for (int i : targets) m.trig.triggers.erase(m.trig.triggers.begin() + i);
+    m.marked.clear(), m.sel = -1;
+    ctModelFill(m, h);
+    int next = -1;  // the first trigger shown from the deleted place on, else the last one shown
+    for (int k : m.shown) {
+        next = k;
+        if (k >= first) break;
+    }
+    h.selectTrigger(next);
+    h.message(targets.size() > 1 ? L"Deleted the triggers" : L"Deleted the trigger");
+}
+// Duplicate the triggers that ctModelTargets gives: each copy goes after the last one (in the list's order).
+inline void ctModelDuplicateTriggers(CtModel& m, CtModelHost& h) {
+    const std::vector<int> targets = ctModelTargets(m);
+    if (targets.empty()) return;
+    const int after = *std::max_element(targets.begin(), targets.end());
+    int at = after + 1;
+    for (int i : targets) {
+        const ClassicTrigger copy = ctModelFreshCopy(m, m.trig.triggers[size_t(i)]);
+        m.trig.triggers.insert(m.trig.triggers.begin() + at++, copy);
+    }
+    m.marked.clear();
+    m.sel = at - 1;
+    ctModelFill(m, h);
+    h.selectTrigger(at - 1);
+    h.message(targets.size() > 1 ? L"Duplicated the triggers" : L"Duplicated the trigger");
+}
+// A player's check box of the head: the selected trigger runs (or not) for that player; the list follows.
+inline void ctModelPlayerBox(CtModel& m, CtModelHost& h, int groupIndex, bool on) {
+    ClassicTrigger* t = ctModelSelectedMut(m);
+    if (!t) return;
+    t->players[size_t(kCtBoxGroups[groupIndex])] = on;
+    ctModelFill(m, h);  // it can leave (or join) the list of the player shown
+}
+// Forces: the forces the selected trigger runs for are the checked ones (the groups as their numbers).
+inline void ctModelSetForces(CtModel& m, CtModelHost& h, const std::set<std::string>& checked) {
+    ClassicTrigger* t = ctModelSelectedMut(m);
+    if (!t) return;
+    for (int g : kCtForceGroups) t->players[size_t(g)] = checked.count(std::to_string(g)) ? 1 : 0;
+    ctModelFill(m, h);
+    h.changed();
+}
+// The change's check: a trigger differs from the map's when the page read them.
+inline bool ctModelChanged(const CtModel& m) { return m.trig.triggers != m.before; }
+
+// Apply: TRIG (and the new strings) as one undo step (Editor::setClassicTriggers). The values the page does not know
+// (EUD values, the bytes after the last trigger, the flags) stay as they are. The result: kCtApplyRefused (the map is not
+// changed), kCtApplyUnchanged (the map has these triggers already) or kCtApplySet; `message` says what happened.
+constexpr int kCtApplyRefused = 0, kCtApplyUnchanged = 1, kCtApplySet = 2;
+inline int ctModelApply(CtModel& m, Editor& ed, std::wstring& message) {
+    if (!classicCanExpand(m.trig)) {  // a long trigger needs a switch that no trigger uses
+        message = L"Could not set the classic triggers. A long trigger needs a switch that no trigger uses.";
+        return kCtApplyRefused;
+    }
+    // The strings this page made that no action uses now go again.
+    for (uint32_t id : m.ownStrings) {
+        bool used = false;
+        for (const ClassicTrigger& t : m.trig.triggers)
+            for (int i = 0; i < t.actionCount() && !used; ++i) used = t.actions[size_t(i)].text == id;
+        if (!used) m.strings.set(id, "");
+    }
+    const ClassicTriggers expanded = classicExpandBatches(m.trig, m.strings);  // the batches' triggers, as the game reads them
+    if (!ed.setClassicTriggers(expanded, &m.strings)) {
+        message = L"Classic triggers: no change";
+        return kCtApplyUnchanged;
+    }
+    message = L"Set the classic triggers";
+    return kCtApplySet;
+}
+
+// The page's pure helpers (both programs): which parameters have a list, whether a value is one of the choices, the
+// names of the kinds and the text of a chip.
+inline bool ctPickerIsList(ClassicKind k) {
+    switch (k) {
+    case ClassicKind::Number:
+    case ClassicKind::Milliseconds:
+    case ClassicKind::Seconds:
+    case ClassicKind::Count:
+    case ClassicKind::Percent:
+    case ClassicKind::UnitProperties:
+    case ClassicKind::Text: return false;
+    default: return true;
+    }
+}
+
+inline bool ctIsChoiceOf(Editor& ed, const std::vector<ClassicAiScript>& ai, ClassicKind k, uint32_t v) {
+    switch (k) {
+    case ClassicKind::Unit: return v <= 232;
+    case ClassicKind::Location: {
+        const int i = int(v) - 1;
+        return v >= 1 && i < ed.locationCount() && (ed.locationUsed(i) || i == kAnywhereLocation);
+    }
+    case ClassicKind::Switch: return v < 256;
+    case ClassicKind::Sound: {
+        if (v == 0) return true;
+        const auto s = ed.soundStrings();
+        return std::find(s.begin(), s.end(), v) != s.end();
+    }
+    case ClassicKind::AiScript: return std::any_of(ai.begin(), ai.end(), [&](const ClassicAiScript& s) { return s.id == v; });
+    default: {
+        const auto& cs = classicChoices(k);
+        return std::any_of(cs.begin(), cs.end(), [&](const ClassicChoice& c) { return c.value == v; });
+    }
+    }
+}
+
+inline const wchar_t* ctKindLabel(ClassicKind k, const char* name) {
+    const std::string n = name;
+    if (n == "to") return L"To player";
+    if (n == "dest") return L"Destination";
+    if (n == "duration") return L"Duration (ms)";
+    switch (k) {
+    case ClassicKind::Player: return L"Player";
+    case ClassicKind::Comparison: return L"Comparison";
+    case ClassicKind::Number: return L"Number";
+    case ClassicKind::Unit: return L"Unit";
+    case ClassicKind::Location: return L"Location";
+    case ClassicKind::Resource: return L"Resource";
+    case ClassicKind::Score: return L"Score";
+    case ClassicKind::Switch: return L"Switch";
+    case ClassicKind::SwitchState: return L"State";
+    case ClassicKind::SwitchAction: return L"Action";
+    case ClassicKind::Modifier: return L"Modifier";
+    case ClassicKind::Text: return L"Text";
+    case ClassicKind::Sound: return L"Sound";
+    case ClassicKind::Milliseconds: return L"Time (ms)";
+    case ClassicKind::Seconds: return L"Seconds";
+    case ClassicKind::Count: return L"Count (0: all)";
+    case ClassicKind::AiScript: return L"AI script";
+    case ClassicKind::Order: return L"Order";
+    case ClassicKind::Alliance: return L"Status";
+    case ClassicKind::State: return L"State";
+    case ClassicKind::UnitProperties: return L"Properties";
+    case ClassicKind::Percent: return L"Percent";
+    }
+    return L"";
+}
+
+inline std::wstring ctChipTextOf(const ClassicParam& p, uint32_t v, const ClassicNames& n, bool choice) {
+    std::wstring s = widen(classicValueText(p.kind, v, n));
+    for (wchar_t& ch : s)
+        if (ch < 32) ch = L' ';
+    if (s.size() > 48) s = s.substr(0, 47) + L"\x2026";
+    if (ctPickerIsList(p.kind) && !choice) s += L" (EUD value)";
+    return s;
+}
+
 // --- The painted lists -------------------------------------------------------------------------------------------------
 // The two lists of the page: the triggers (the list) and the conditions and actions (the entries). The page's state and
 // its commands are the host's (classic_triggers.inc); the paint, the click areas, a row dragged by its grip, the wheel and
