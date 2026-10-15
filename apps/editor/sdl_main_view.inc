@@ -119,8 +119,14 @@ void registerWorkspaceView(Workspace w, draw::View& v);
 #include "sdl_pictures.inc"  // the palette's pictures (the terrain, doodad, unit and sprite art from the game data)
 #include "sdl_panels.inc"  // the side panels: the palette, the owner, the filter, the search, the section box, the second palette
 
+// The map's dialogs and its menu (sdl_map_dialogs.inc): a double click, Enter and the right button.
+bool mapDoubleClickSdl(int x, int y);
+bool mapEnterSdl();
+void mapRightClickSdl(draw::View& map, draw::Point at);
+
 // The map view: the texture of the map (drawn by the frame hook) and the core's map input.
 struct MapView final : draw::View {
+    bool rightDown = false;  // the right button went down on the map: its release opens the map's menu
     bool panning = false;  // the middle button (or a drag with it) pans
     bool rightStroke = false;  // a Shift+left stroke paints with the second terrain; the palette is the first one again after it
     int savedPalette = -1;
@@ -146,8 +152,14 @@ struct MapView final : draw::View {
                 if (draw::Host* h = host()) h->capture(*this, true);
                 return true;
             }
-            // Shift with the left button paints with the second terrain (isometric terrain, as the Windows program); the
-            // right button does nothing here (its map menu is not on this system yet).
+            // A double click: a location's or a unit's properties (as the Windows map's).
+            if (e.kind == draw::MouseKind::DoubleClick && e.button == 0 && mapDoubleClickSdl(e.pt.x, e.pt.y)) return true;
+            // The right button: its release opens the map's menu (or stops placing), as on Windows.
+            if (e.button == 1 && open()) {
+                rightDown = gState.drag == Drag::None;
+                return true;
+            }
+            // Shift with the left button paints with the second terrain (isometric terrain, as the Windows program).
             const bool second = e.button == 0 && (e.mods & draw::kShift) && !(e.mods & (draw::kCtrl | draw::kAlt)) &&
                                 gState.drag == Drag::None && open() && secondPaints();
             if (second) {
@@ -187,6 +199,11 @@ struct MapView final : draw::View {
                 gState.palette = savedPalette;
                 gState.dirty = true;
                 if (draw::Host* h = host()) h->capture(*this, false);
+                invalidate();
+                return true;
+            }
+            if (e.button == 1 && std::exchange(rightDown, false) && open()) {
+                mapRightClickSdl(*this, e.pt);
                 invalidate();
                 return true;
             }
@@ -272,6 +289,8 @@ struct MainView final : draw::View {
         const bool typing = gSearchSdl.field().hasFocus() || gFilterSdl.field().hasFocus() || gFilesPage.typing() || sdlMapPageTyping() ||
                             typingFocusIn(*this);  // (a kit text field of a view: the New page, Program options)
         if (typing && typed && !(e.mods & (draw::kCtrl | draw::kAlt))) return false;
+        // Enter on the map: the selected location's or unit's properties (the Windows map's key).
+        if (e.down && !e.repeat && e.key == draw::Key::Enter && !e.mods && !typing && map.shown() && mapEnterSdl()) return true;
         return shortcutRun(e);
     }
 

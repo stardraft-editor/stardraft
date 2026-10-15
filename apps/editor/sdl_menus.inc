@@ -102,7 +102,9 @@ bool sdlRuns(int id) {
     case ID_PROJ_FOLDER:
     case ID_PROJ_SETTINGS:
     case ID_OPT_WINDOW:
-    case ID_HELP_FEEDBACK: return true;
+    case ID_HELP_FEEDBACK:
+    case ID_EDIT_RENAME:  // the location's rename and the quick picker (sdl_map_dialogs.inc)
+    case ID_QUICKPICK: return true;
     default: break;
     }
     if (id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) return true;
@@ -360,6 +362,10 @@ void command(int id) {
     case ID_PROJ_NEW: openNewPageSdl(1); return;   // the New page, an EUD project's choices
     case ID_OPT_WINDOW: showOptionsSdl(); return;
     case ID_HELP_FEEDBACK: showFeedbackSdl(L"StarDraft 2"); return;
+    case ID_EDIT_RENAME:
+        if (gState.ed && gState.ed->isOpen()) renameSelectedLocation();
+        return;
+    case ID_QUICKPICK: shellShowQuickPicker(false, false); return;
     default:
         if (id >= ID_WS_MAP && id <= ID_WS_FILES) return setWorkspace(Workspace(id - ID_WS_MAP));  // the workspace order
         setMessage(L"This is not on this system yet");

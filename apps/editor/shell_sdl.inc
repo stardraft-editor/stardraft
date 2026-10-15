@@ -154,7 +154,7 @@ int shellAskUnapplied(const std::wstring& text, const std::wstring& title) {
 }
 int shellTabSideMenu(const std::wstring&, int) { return 0; }  // (the side menu is not on this system yet)
 void shellRecentMenu(bool, const std::vector<std::wstring>&, const std::wstring&) { gMenusDirty = true; }  // (the lists are the menus' own: sdl_menus.inc)
-void shellShowQuickPicker(bool, bool) { setMessage(L"This is not on this system yet"); }
+void shellShowQuickPicker(bool replace, bool open) { showQuickPickerSdl(replace, open); }  // (sdl_map_dialogs.inc)
 void shellMapFileOpened(const std::filesystem::path&) {}  // (the file association is Windows only)
 
 // When the program started (its start-up marks count from here): main() takes it first.
