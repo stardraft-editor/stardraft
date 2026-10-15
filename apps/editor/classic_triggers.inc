@@ -40,9 +40,9 @@ struct ClassicTrigDialog {
     int kind = 0, entry = -1;  // the selected condition (kind 0) or action (1)
     std::set<int> collapsed;   // the action rows of collapsed blocks (by row; cleared when the trigger changes)
     HWND wnd = nullptr, filterBox = nullptr, list = nullptr, note = nullptr, entries = nullptr;
-    HWND search = nullptr, count = nullptr, filterLabel = nullptr, headTitle = nullptr, headCount = nullptr, turnOff = nullptr, deleteTrig = nullptr,
-         forces = nullptr, tips = nullptr;
-    HWND players[kCtBoxCount]{};
+    HWND search = nullptr, count = nullptr, filterLabel = nullptr, tips = nullptr;
+    HWND head = nullptr;                   // the head's window: a view window of headView (the trigger, its buttons, the players, Forces)
+    std::unique_ptr<CtHeadView> headView;  // (core/views_classic_triggers.inc; made with the page's window)
     HWND editTitle = nullptr, typeBox = nullptr, disabled = nullptr, always = nullptr, batch = nullptr;
     std::wstring query;     // the search box's words: a trigger shows when its text has them all
     std::set<int> marked;   // the triggers chosen with Ctrl or Shift click (the list's actions take them all); empty: the selected one
@@ -165,11 +165,11 @@ void ctSelectEntry(int kind, int entry) {
 void ctUpdateHeader() {
     ClassicTrigDialog& d = *gCt;
     const ClassicTrigger* t = ctTrigger();
-    SetWindowTextW(d.headTitle, t ? (tr(L"Trigger ") + std::to_wstring(d.sel + 1)).c_str() : L"None");
-    SetWindowTextW(d.headCount, !t ? L"" : widen(std::string(t->disabled() ? "Turned off, " : "") + std::to_string(t->actionCount()) + (t->actionCount() == 1 ? " action" : " actions")).c_str());
-    SetWindowTextW(d.turnOff, t && t->disabled() ? L"Turn on" : L"Turn off");
-    for (HWND h : {d.turnOff, d.deleteTrig, d.forces}) EnableWindow(h, t != nullptr);
-    InvalidateRect(d.headTitle, nullptr, TRUE);
+    CtHeadView& h = *d.headView;
+    h.title.setText(t ? tr(L"Trigger ") + std::to_wstring(d.sel + 1) : std::wstring(L"None"));
+    h.count.setText(!t ? std::wstring() : widen(std::string(t->disabled() ? "Turned off, " : "") + std::to_string(t->actionCount()) + (t->actionCount() == 1 ? " action" : " actions")));
+    h.turnOff.setText(t && t->disabled() ? L"Turn on" : L"Turn off");
+    for (stardraft::kit::Button* b : {&h.turnOff, &h.deleteTrig, &h.forces}) b->setEnabled(t != nullptr);
 }
 
 // Shows the selected trigger: its players and lists (the first condition selected).
@@ -180,8 +180,8 @@ void ctSelectTrigger(int index) {
     const ClassicTrigger* t = ctTrigger();
     d.filling = true;
     for (int g = 0; g < kCtBoxCount; ++g) {
-        SendMessageW(d.players[g], BM_SETCHECK, t && t->runsFor(kCtBoxGroups[g]) ? BST_CHECKED : BST_UNCHECKED, 0);
-        EnableWindow(d.players[g], t != nullptr);
+        d.headView->players[size_t(g)]->setOn(t && t->runsFor(kCtBoxGroups[g]));
+        d.headView->players[size_t(g)]->setEnabled(t != nullptr);
     }
     ctUpdateHeader();
     d.filling = false;
@@ -797,9 +797,10 @@ void ctForcesClick() {
         items.push_back(std::move(it));
         if (t->runsFor(g)) checked.insert(std::to_string(g));
     }
-    RECT rc;
-    GetWindowRect(gCt->forces, &rc);
-    if (!showListPickerMulti(L"Search forces", items, checked, L"Set", POINT{rc.left, rc.bottom + scale(2)})) return;
+    RECT rc;  // (the Forces button's place: the head's window, and the button in it)
+    GetWindowRect(gCt->head, &rc);
+    const draw::Rect f = gCt->headView->forces.frame();
+    if (!showListPickerMulti(L"Search forces", items, checked, L"Set", POINT{rc.left + f.left, rc.top + f.bottom + scale(2)})) return;
     for (int g : kCtForceGroups) t->players[size_t(g)] = checked.count(std::to_string(g)) ? 1 : 0;
     ctFillList();
     ctChanged();
@@ -1310,6 +1311,14 @@ void ctBatchClick(ClassicBatchKind kind, int editRow) {
     ctChanged();
 }
 
+// The head's player box (the box's index in the page's order) of the selected trigger: it runs for that player or not.
+void ctPlayerBox(int box, bool on) {
+    ClassicTrigger* t = ctTrigger();
+    if (!t) return;
+    t->players[size_t(kCtBoxGroups[box])] = on;
+    ctFillList();  // it can leave (or join) the list of the player shown
+}
+
 void ctCommand(int id, int code) {
     ClassicTrigDialog& d = *gCt;
     ClassicTrigger* t = ctTrigger();
@@ -1354,16 +1363,6 @@ void ctCommand(int id, int code) {
         return;
     }
     if (code != BN_CLICKED) return;
-    if (id >= kCtPlayer && id < kCtPlayer + kCtBoxCount) {
-        if (!t) return;
-        const bool on = SendMessageW(GetDlgItem(d.wnd, id), BM_GETCHECK, 0, 0) == BST_CHECKED;
-        t->players[size_t(kCtBoxGroups[id - kCtPlayer])] = on;
-        ctFillList();  // it can leave (or join) the list of the player shown
-        return;
-    }
-    if (id == kCtForces) return ctForcesClick();
-    if (id == kCtTurnOff) return ctToggleTriggers();
-    if (id == kCtDeleteTrig) return ctDeleteTriggers();
     if (id == kCtDisabled || id == kCtAlways) {
         const uint8_t bit = id == kCtDisabled ? 2 : 4;
         const bool on = SendMessageW(GetDlgItem(d.wnd, id), BM_GETCHECK, 0, 0) == BST_CHECKED;
@@ -1418,22 +1417,23 @@ void ctLayout(HWND hwnd) {
     const int listBottom = H - pad - (noteShown ? noteH + gap : 0);
     place(d.list, pad, y, leftW, listBottom - y);
     place(d.note, pad, listBottom + gap, leftW, noteH);
-    // Right: the header.
-    y = pad;
+    // Right: the head (the header, the players and Forces: its window's place; its parts are in its coordinates, from 0).
     const int delW = scale(150), turnW = scale(96);
     const int headW = rightW - delW - turnW - 3 * gap;
-    place(d.headTitle, x0, y, std::min(headW, scale(150)), scale(28));
-    place(d.headCount, x0 + scale(160), y + scale(6), std::max(0, headW - scale(160)), rowH);
-    place(d.deleteTrig, x0 + rightW - delW, y + scale(2), delW, rowH);
-    place(d.turnOff, x0 + rightW - delW - gap - turnW, y + scale(2), turnW, rowH);
-    y += scale(40);
+    const int headH = scale(40) + 2 * step;
+    place(d.head, x0, pad, rightW, headH);
+    auto put = [](draw::View& v, int px_, int py, int w, int hh) { v.setFrame({px_, py, px_ + std::max(0, w), py + std::max(0, hh)}); };
+    CtHeadView& hv = *d.headView;
+    put(hv.title, 0, 0, std::min(headW, scale(150)), scale(28));
+    put(hv.count, scale(160), scale(6), std::max(0, headW - scale(160)), rowH);
+    put(hv.deleteTrig, rightW - delW, scale(2), delW, rowH);
+    put(hv.turnOff, rightW - delW - gap - turnW, scale(2), turnW, rowH);
     // The players: check boxes in columns of a fixed width, from the left; All players and Forces in the next row.
     const int colW = scale(124);
-    for (int g = 0; g < 8; ++g) place(d.players[g], x0 + g * colW, y, colW - gap, rowH);
-    y += step;
-    place(d.players[8], x0, y, colW - gap, rowH);
-    place(d.forces, x0 + colW, y, scale(120), rowH);
-    y += step + gap;
+    for (int g = 0; g < 8; ++g) put(*hv.players[size_t(g)], g * colW, scale(40), colW - gap, rowH);
+    put(*hv.players[8], 0, scale(40) + step, colW - gap, rowH);
+    put(hv.forces, colW, scale(40) + step, scale(120), rowH);
+    y = pad + headH + gap;
     // The editor follows the entries: the entries take the height their rows need, up to the room left.
     const int editorH = ctEditorHeight(step, gap);
     const int room = H - pad - editorH - gap - y;
@@ -1478,13 +1478,6 @@ LRESULT CALLBACK classicTrigProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             darkControl(h, L"DarkMode_Explorer");
             return h;
         };
-        auto button = [&](int id, const std::wstring& s) {
-            HWND h = CreateWindowExW(0, WC_BUTTONW, s.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd, HMENU(INT_PTR(id)),
-                                     app.inst, nullptr);
-            font(h);
-            darkControl(h, L"DarkMode_Explorer");
-            return h;
-        };
         auto painted = [&](int x, int y, int w, int h) {
             HWND l = CreateWindowExW(0, L"StarDraftClassicTrigList", L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL, x, y, w, h, hwnd, nullptr, app.inst, nullptr);
             darkControl(l, L"DarkMode_Explorer");  // the scroll bar in the theme
@@ -1517,16 +1510,31 @@ LRESULT CALLBACK classicTrigProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         d->list = painted(0, 0, 0, 0);
         d->entries = painted(0, 0, 0, 0);
         // Right: the selected trigger (its name, its count, its buttons), its players, the entry's editor.
-        d->headTitle = label(L"None", 0);
-        font(d->headTitle, ui::titleFont());
-        d->headCount = label(L"");
-        d->turnOff = button(kCtTurnOff, L"Turn off");
-        d->deleteTrig = button(kCtDeleteTrig, L"Delete the trigger");
-        d->forces = button(kCtForces, L"Forces\x2026");
-        ctTip(d->forces, L"Forces: the forces that run the trigger");
+        // The head: the kit's widgets in a view window (the trigger, its buttons, its players and Forces).
         {
             const ClassicNames n = ctNames();
-            for (int g = 0; g < kCtBoxCount; ++g) d->players[g] = check(kCtPlayer + g, widen(classicPlayerName(uint32_t(kCtBoxGroups[g]), n)));
+            std::vector<std::wstring> labels;
+            for (int g = 0; g < kCtBoxCount; ++g) labels.push_back(widen(classicPlayerName(uint32_t(kCtBoxGroups[g]), n)));
+            CtHeadView::Callbacks cb;
+            cb.player = [](int box, bool on) {
+                ctPlayerBox(box, on);
+                mapPageChanged();
+            };
+            cb.turnOff = [] {
+                ctToggleTriggers();
+                mapPageChanged();
+            };
+            cb.deleteTrig = [] {
+                ctDeleteTriggers();
+                mapPageChanged();
+            };
+            cb.forces = [] {
+                ctForcesClick();
+                mapPageChanged();
+            };
+            d->headView = std::make_unique<CtHeadView>(labels, std::move(cb));
+            d->head = CreateWindowExW(WS_EX_CONTROLPARENT, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_TABSTOP, 0, 0, 0, 0, hwnd,
+                                      nullptr, app.inst, d->headView.get());
         }
         d->editTitle = label(L"", 0);
         font(d->editTitle, ui::titleFont());
