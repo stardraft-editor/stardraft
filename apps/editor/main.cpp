@@ -8725,11 +8725,9 @@ bool valuePopCheck() {
     const std::string text = narrow(windowText(vp.edit));
     vp.hintBad = false;
     if (vp.spec.type == "DecimalSeconds") {  // seconds, with decimals (kept as milliseconds)
-        char* end = nullptr;
-        const double v = std::strtod(text.c_str(), &end);
-        if (text.empty() || end == text.c_str() || *end || v < 0 || v > 2000000)
-            return vp.hint = L"Type a number of seconds, for example 2.5", vp.hintBad = true, false;
-        vp.hint = std::to_wstring(std::lround(v * 1000)) + L" milliseconds";
+        uint32_t ms = 0;  // (core/views_briefing.inc: briefMsOfSeconds)
+        if (!briefMsOfSeconds(text, ms)) return vp.hint = briefSecondsHint, vp.hintBad = true, false;
+        vp.hint = std::to_wstring(ms) + L" milliseconds";
         return true;
     }
     if (!vp.number) {

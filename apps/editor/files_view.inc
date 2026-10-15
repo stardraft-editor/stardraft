@@ -3,8 +3,6 @@
 // audio (sound_files.inc), the file dialog, the briefings, and the window that shows the page (a view window with the
 // native vertical bar, which the window's host keeps in step with the page's scroll).
 
-// The briefings that use a sound are the core's (core/views_briefing.inc: soundUsesOf).
-
 // The Files page's program parts (core/views_files.inc: FilesHost).
 class FilesProgram final : public FilesHost {
 public:

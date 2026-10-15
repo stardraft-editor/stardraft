@@ -109,6 +109,32 @@ int briefTagAt(const std::vector<FlatAction>& flat, int at) {
     return -2;
 }
 
+// The row of a briefing's action in the rows of the briefing shown (briefRows); -1 when it is not there.
+int briefRowOf(int trig, int act) {
+    for (size_t i = 0; i < gBriefRows.size(); ++i)
+        if (gBriefRows[i].trig == trig && gBriefRows[i].act == act) return int(i);
+    return -1;
+}
+// The briefings that use a sound (the Files page's References panel): the first action of each briefing (by its
+// players) that plays it. The names compare without case, as the archive's names do.
+std::vector<FilesUse> soundUsesOf(const std::string& name) {
+    std::vector<FilesUse> out;
+    if (!shellState().ed || name.empty()) return out;
+    const auto same = [](const std::string& x, const std::string& y) {
+        return x.size() == y.size() && std::equal(x.begin(), x.end(), y.begin(), [](char p, char q) {
+                   return std::tolower(static_cast<unsigned char>(p)) == std::tolower(static_cast<unsigned char>(q));
+               });
+    };
+    const auto& b = briefings();
+    for (size_t t = 0; t < b.size(); ++t)
+        for (size_t a = 0; a < b[t].actions.size(); ++a) {
+            if (!same(b[t].actions[a].wav, name)) continue;
+            if (std::none_of(out.begin(), out.end(), [&](const FilesUse& u) { return b[size_t(u.trig)].players == b[t].players; }))
+                out.push_back({int(t), int(a), whoName(b[t].players)});
+        }
+    return out;
+}
+
 // --- The page's model, for both programs (briefing_view.inc on Windows, views_briefing_page.inc on the SDL program) ---
 
 // A time on the page: "0:05.0".
@@ -316,28 +342,17 @@ std::vector<ListPickItem> briefTypeItems() {
     for (uint8_t t = 1; t <= 9; ++t) items.push_back({briefTypeName(t), L"", std::to_string(t)});
     return items;
 }
-// A time typed in seconds (decimals allowed), in milliseconds.
-inline uint32_t briefMsOfSeconds(const std::string& typed) { return uint32_t(std::lround(std::strtod(typed.c_str(), nullptr) * 1000)); }
-
-// The briefings that play a sound (the Files page's uses): one entry per briefing (the triggers with that player list),
-// at its first use. Names compare without case, as the game's files do.
-std::vector<FilesUse> soundUsesOf(const std::string& name) {
-    std::vector<FilesUse> out;
-    if (!shellState().ed || name.empty()) return out;
-    auto lower = [](std::string s) {
-        std::transform(s.begin(), s.end(), s.begin(), [](unsigned char ch) { return char(std::tolower(ch)); });
-        return s;
-    };
-    const std::string want = lower(name);
-    const auto& b = briefings();
-    for (size_t t = 0; t < b.size(); ++t)
-        for (size_t a = 0; a < b[t].actions.size(); ++a) {
-            if (lower(b[t].actions[a].wav) != want) continue;
-            if (std::none_of(out.begin(), out.end(), [&](const FilesUse& u) { return b[size_t(u.trig)].players == b[t].players; }))
-                out.push_back({int(t), int(a), whoName(b[t].players)});
-        }
-    return out;
+// A time typed in seconds (decimals allowed), in milliseconds; false when it is not a number from 0 to 2000000 (the
+// Windows pop-out's DecimalSeconds check). briefSecondsHint is the text that says so.
+inline const wchar_t* briefSecondsHint = L"Type a number of seconds, for example 2.5";
+inline bool briefMsOfSeconds(const std::string& typed, uint32_t& ms) {
+    char* end = nullptr;
+    const double v = std::strtod(typed.c_str(), &end);
+    if (typed.empty() || end == typed.c_str() || *end || !(v >= 0) || v > 2000000) return false;
+    ms = uint32_t(std::lround(v * 1000));
+    return true;
 }
+
 
 // --- Portraits: a unit's portrait videos (units.dat Portrait, then portdata.dat and portdata.tbl) ------------------
 

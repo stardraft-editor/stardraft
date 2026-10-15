@@ -4,6 +4,8 @@
 // pop-outs, the sound picker, the time's value pop-out, the question before Delete and the units' icons
 // (sdl_pictures.inc). Edit's commands (briefCommand) go to the page. Included by main_sdl.cpp after sdl_map_pages.inc.
 
+#include "message_box.h"  // apps/kit: the question before Delete (confirm)
+
 void importSoundsSdl();  // (below: Import sounds... of the sound picker; the dialog answers later)
 
 class SdlBriefingHost final : public BriefingPageHost {
@@ -70,8 +72,9 @@ public:
         std::swprintf(b, 32, L"%g", current / 1000.0);
         std::string text = narrow(b);
         if (!shellEditValueBelow(from, field, title, text)) return false;
-        out = briefMsOfSeconds(text);
-        return true;
+        if (briefMsOfSeconds(text, out)) return true;
+        setMessage(briefSecondsHint);  // (not a number of seconds: the time stays as it was)
+        return false;
     }
     bool confirm(const std::wstring& title, const std::wstring& text, const std::wstring& yes) override {
         return gRoot && kit::messageBox(*gRoot, shellTr(title.c_str()), shellTr(text.c_str()), {yes, L"Cancel"}, kit::MessageIcon::Warning) == 0;
@@ -92,10 +95,10 @@ void importSoundsSdl() { gFilesHost.importSounds(); }
 // The Briefing workspace is left: the preview stops (setWorkspace calls it).
 void briefingStopSdl() { gSdlBriefing.stop(); }
 
-// The Files page's use of a sound: the Briefing workspace, at the action that plays it.
-void SdlFilesHost::showUse(const FilesUse& use) {
+// The Files page's References panel (sdl_files.inc): the Briefing workspace, at the action that plays the sound.
+void briefingShowUseSdl(int trig, int act) {
     setWorkspace(Workspace::Briefing);
-    gSdlBriefing.showAction(use.trig, use.act);
+    gSdlBriefing.showAction(trig, act);
 }
 
 // Edit's commands in the Briefing workspace (core/commands_core.inc).
