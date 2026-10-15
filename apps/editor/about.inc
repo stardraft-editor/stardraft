@@ -20,6 +20,7 @@ struct AboutBox final : stardraft::draw::View {
         using stardraft::draw::FontDesc;
         using stardraft::draw::Rect;
         using stardraft::draw::kCenter;
+        using stardraft::draw::kLeft;
         using stardraft::draw::kMiddle;
         const int w = width(), h = height();
         c.fill({0, 0, w, h}, kPanel);
@@ -47,14 +48,13 @@ struct AboutBox final : stardraft::draw::View {
         // The name: a tribute to StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.
         centered(L"Named after StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.", smallText, kDim, scale(22));
         centered(L"StarDraft 2 aims to be its spiritual successor for StarCraft makers in 2026 and later.", smallText, kDim, scale(22));
-        y += scale(14);
 
         // The links: underlined when the mouse is on them. First the EUD tools, as two links in one line of text.
         links.clear();
         {
             const std::wstring line = tr(std::wstring(L"StarDraft 2 is powered by euddraft and eudplib"));
             const std::wstring names[2] = {L"euddraft", L"eudplib"};
-            const wchar_t* urls[2] = {L"https://github.com/armoha/euddraft", L"https://github.com/armoha/eudplib"};
+            const std::wstring urls[2] = {L"https://github.com/armoha/euddraft", L"https://github.com/armoha/eudplib"};
             const size_t a = line.find(names[0]), b = line.find(names[1]);
             if (a == std::wstring::npos || b == std::wstring::npos || b < a + names[0].size()) {
                 centered(line, smallText, kDim, scale(22));  // a translation without the names: the text only
@@ -70,40 +70,40 @@ struct AboutBox final : stardraft::draw::View {
                 int total = 0;
                 for (const Piece& p : pieces)
                     if (!p.text.empty()) total += c.measure(p.text);
-                c.setFont(of);
                 int x = (w - total) / 2;
                 for (const Piece& p : pieces) {
                     if (p.text.empty()) continue;
-                    FontDesc ud;
-                    ud.underline = p.link >= 0 && hot == int(first) + p.link;
-                    const Font pf = c.setFont(c.font(ud));
                     const int tw = c.measure(p.text);
+                    const bool isHot = p.link >= 0 && hot == int(first) + p.link;
+                    FontDesc ud;
+                    ud.underline = isHot;
+                    c.setFont(c.font(ud));
                     const Rect r{x, y, x + tw, y + scale(22)};
-                    c.text(r, p.text, p.link >= 0 ? kAccent : kDim, kCenter | kMiddle);
-                    c.setFont(pf);
+                    c.text(r, p.text, p.link >= 0 ? kAccent : kDim, kLeft | kMiddle);
+                    c.setFont(smallText);
                     if (p.link >= 0) links.push_back({r, urls[p.link]});
                     x += tw;
                 }
+                c.setFont(of);
                 y += scale(22);
             }
         }
         y += scale(14);
 
         // Then the repository and the Discord server.
-        const size_t first = links.size();
         links.push_back({{}, L"https://github.com/" + std::wstring(crash::kRepo)});
         links.push_back({{}, kDiscordInvite});
         const wchar_t* labels[2] = {L"GitHub: github.com/stardraft-editor/stardraft", L"Join the Discord server"};
-        for (size_t k = 0; k < 2; ++k) {
-            const size_t i = first + k;
+        for (size_t i = 0; i < 2; ++i) {
+            const size_t k = links.size() - 2 + i;
             FontDesc ud;
-            ud.underline = hot == int(i);
+            ud.underline = hot == int(k);
             const Font of = c.setFont(c.font(ud));
-            const int tw = c.measure(labels[k]);
+            const int tw = c.measure(labels[i]);
             const Rect r{(w - tw) / 2, y, (w + tw) / 2, y + scale(24)};
-            c.text(r, labels[k], kAccent, kCenter | kMiddle);
+            c.text(r, labels[i], kAccent, kCenter | kMiddle);
             c.setFont(of);
-            links[i].rc = r;
+            links[k].rc = r;
             y += scale(26);
         }
 

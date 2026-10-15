@@ -202,6 +202,12 @@ public:
         switch (msg) {
         case WM_SIZE: view_.setFrame({0, 0, LOWORD(lp), HIWORD(lp)}); return false;
         case WM_ERASEBKGND: result = 1; return true;
+        case WM_VSCROLL: {  // the window's own scroll bar (lParam 0; a child control's comes with its window)
+            if (lp) return false;
+            SCROLLINFO si{sizeof si, SIF_ALL};
+            GetScrollInfo(w, SB_VERT, &si);
+            return view_.vscroll(LOWORD(wp), si.nPos, si.nTrackPos, int(si.nPage)) ? (result = 0, true) : false;
+        }
         case WM_PAINT: {
             PAINTSTRUCT ps;
             HDC dc = BeginPaint(w, &ps);
