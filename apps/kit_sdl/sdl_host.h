@@ -62,6 +62,9 @@ public:
     // left the window, the window lost the focus or closed.
     using HoverHook = std::function<void(draw::View& root, draw::Point pt, const std::wstring& tip, bool reset)>;
     void setHoverHook(HoverHook fn) { hover_ = std::move(fn); }
+    // A file dropped on a window, or (macOS) a file that Finder opens with the program, also at its start: `fn` gets its
+    // path (UTF-8). Not while a modal dialog is open (runModal): the drop then does nothing.
+    void setDropHook(std::function<void(const std::string& path)> fn) { drop_ = std::move(fn); }
 
     // draw::Host
     void invalidate(draw::View& v) override;
@@ -123,6 +126,7 @@ private:
     SDL_WindowID mainId_ = 0;  // the window show() made first (the program's main window), or 0
     std::function<void()> quitRequest_;  // setQuitRequest
     HoverHook hover_;                    // setHoverHook
+    std::function<void(const std::string&)> drop_;  // setDropHook
     SDL_WindowID captureWin_ = 0;  // the window whose mouse is captured (SDL_CaptureMouse), or 0
     int timerSeq_ = 0;
     std::map<int, Timer> timers_;

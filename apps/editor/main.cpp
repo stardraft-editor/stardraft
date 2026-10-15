@@ -10511,13 +10511,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             files.emplace_back(f);
         }
         DragFinish(drop);
-        for (const fs::path& f : files) {
-            std::wstring ext = f.extension().wstring();
-            std::transform(ext.begin(), ext.end(), ext.begin(), ::towlower);
-            std::error_code ec;
-            if (ext == L".scm" || ext == L".scx" || ext == L".chk" || ext == L".stardraft" || ext == L".eds" || fs::is_directory(f, ec)) openAny(f);
-            else setMessage(L"Did not open " + f.filename().wstring() + L": StarDraft 2 opens maps (.scm, .scx, .chk) and projects");
-        }
+        openDropped(files, [](const fs::path& f) { openAny(f); });  // (core/documents.inc)
         return 0;
     }
     case WM_SHELL_POST: {  // shellPost: a function from this thread or the UI's own
