@@ -40,6 +40,53 @@ public:
         if (p) DeleteObject(p);
     }
     void smoothRoundOutline(Rect r, float radius, Color line, float width) override { smoothRoundBox(dc_, toRECT(r), radius, line, width); }
+    // GDI+ with antialiasing and half-pixel offsets (as the strip's mirror icons were drawn before the Canvas).
+    static Gdiplus::Color gdipColor(Color c, uint8_t alpha = 255) { return Gdiplus::Color(alpha, GetRValue(c), GetGValue(c), GetBValue(c)); }
+    void withGraphics(const std::function<void(Gdiplus::Graphics&)>& draw) {
+        static ULONG_PTR token = [] {
+            ULONG_PTR t = 0;
+            Gdiplus::GdiplusStartupInput in;
+            Gdiplus::GdiplusStartup(&t, &in, nullptr);
+            return t;
+        }();
+        (void)token;
+        Gdiplus::Graphics g(dc_);
+        g.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+        g.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+        draw(g);
+    }
+    void smoothLine(PointF a, PointF b, Color c, float width, uint8_t alpha) override {
+        withGraphics([&](Gdiplus::Graphics& g) {
+            Gdiplus::Pen pen(gdipColor(c, alpha), width);
+            g.DrawLine(&pen, a.x, a.y, b.x, b.y);
+        });
+    }
+    void smoothFrame(PointF p, float w, float h, Color c, float width, uint8_t alpha) override {
+        withGraphics([&](Gdiplus::Graphics& g) {
+            Gdiplus::Pen pen(gdipColor(c, alpha), width);
+            g.DrawRectangle(&pen, p.x, p.y, w, h);
+        });
+    }
+    void smoothArc(PointF p, float w, float h, float startDeg, float sweepDeg, Color c, float width) override {
+        withGraphics([&](Gdiplus::Graphics& g) {
+            Gdiplus::Pen pen(gdipColor(c), width);
+            g.DrawArc(&pen, p.x, p.y, w, h, startDeg, sweepDeg);
+        });
+    }
+    void smoothPolygon(const PointF* pts, int n, Color fill) override {
+        std::vector<Gdiplus::PointF> ps;
+        for (int i = 0; i < n; ++i) ps.push_back({pts[i].x, pts[i].y});
+        withGraphics([&](Gdiplus::Graphics& g) {
+            Gdiplus::SolidBrush brush(gdipColor(fill));
+            g.FillPolygon(&brush, ps.data(), n);
+        });
+    }
+    void smoothEllipse(PointF p, float w, float h, Color fill) override {
+        withGraphics([&](Gdiplus::Graphics& g) {
+            Gdiplus::SolidBrush brush(gdipColor(fill));
+            g.FillEllipse(&brush, p.x, p.y, w, h);
+        });
+    }
     void ellipse(Rect r, Color fill, Color line) override {
         HBRUSH b = fill == kNone ? nullptr : CreateSolidBrush(fill);
         HPEN p = line == kNone ? nullptr : CreatePen(PS_SOLID, 1, line);

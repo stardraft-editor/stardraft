@@ -64,6 +64,10 @@ public:
     // The font: Face::Ui by default, px 0 is the UI's size.
     void setFont(draw::FontDesc f);
     const draw::FontDesc& fontDesc() const { return fontDesc_; }
+    // Plain: the field draws no box of its own (the host draws the box around it, as the tool strip's number boxes do),
+    // and the text takes the whole frame's height. Align right: a one-line text shorter than the field sits at its right.
+    void setPlain(bool on) { plain_ = on; }
+    void setAlignRight(bool on) { alignRight_ = on; }
 
     // As last painted: the caret's rectangle and the scroll offsets, in the view's coordinates.
     draw::Rect caretRect() const { return caretRect_; }
@@ -137,8 +141,9 @@ private:
     size_t lineOf(size_t d) const;
     size_t posAtX(size_t line, int x) const;  // x: from the line's start
     size_t caretFromPoint(draw::Point pt) const;
-    int padX() const { return px(6); }
-    int padY() const { return px(3); }
+    int padX() const { return px(plain_ ? 2 : 6); }
+    int padY() const { return plain_ ? 0 : px(3); }
+    int alignOff() const;  // the text's shift to the right (align right), in px
     draw::Rect inner() const;
     bool inTrailing(draw::Point pt) const { return trailing_ > 0 && pt.x >= width() - trailing_; }
     int lineTop(size_t line) const;
@@ -185,6 +190,7 @@ private:
     std::vector<Span> spans_;
     draw::FontDesc fontDesc_;
     bool wrap_ = true, changed_ = false;
+    bool plain_ = false, alignRight_ = false;
     int trailing_ = 0;
     unsigned style_ = 0;  // changes with what the layout depends on besides the text and the width
 

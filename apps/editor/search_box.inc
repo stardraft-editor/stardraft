@@ -22,6 +22,7 @@ DropdownBox gSectionBox;  // the palette's section box (Units, Doodads, Sprites)
 bool gWheelDispatch = false;
 
 // Whether a search box's field has the keyboard (the message loop leaves its keys to it, as to an edit control).
-bool searchBoxFocused() { return gFilterBox.field().hasFocus() || gPalSearchBox.field().hasFocus(); }
+// (The tool strip's number field counts too: a typed digit goes to it, not to the Player shortcuts or Ctrl+Z.)
+bool searchBoxFocused() { return gFilterBox.field().hasFocus() || gPalSearchBox.field().hasFocus() || gToolStripView.typing(); }
 // A kit dropdown's list is open: it takes the typed letters, as an open combo box's list did.
 bool dropdownListOpen() { return gSectionBox.dropdown().listOpen(); }

@@ -116,6 +116,32 @@ public:
     virtual void roundBox(Rect r, Color fill, Color line, float radius, int width = 1) = 0;
     // The same outline, smoothed (antialiased).
     virtual void smoothRoundOutline(Rect r, float radius, Color line, float width = 1.0f) = 0;
+    // Smooth (antialiased) shapes at pixel positions that need not be whole (a pixel's middle is at +0.5); `alpha` 255:
+    // opaque. The default draws them unsmoothed (a canvas that can smooth overrides them).
+    struct PointF {
+        float x = 0, y = 0;
+    };
+    virtual void smoothLine(PointF a, PointF b, Color c, float width = 1.0f, uint8_t alpha = 255) {
+        line(int(a.x), int(a.y), int(b.x), int(b.y), c, int(width + 0.5f));
+        (void)alpha;
+    }
+    virtual void smoothFrame(PointF topLeft, float w, float h, Color c, float width = 1.0f, uint8_t alpha = 255) {
+        frame({int(topLeft.x), int(topLeft.y), int(topLeft.x + w) + 1, int(topLeft.y + h) + 1}, c, int(width + 0.5f));
+        (void)alpha;
+    }
+    // An arc of the ellipse in the box (x, y, w, h), from `startDeg` (0: right, 90: down) for `sweepDeg` degrees.
+    virtual void smoothArc(PointF topLeft, float w, float h, float startDeg, float sweepDeg, Color c, float width = 1.0f) {
+        (void)startDeg, (void)sweepDeg;
+        ring({int(topLeft.x), int(topLeft.y), int(topLeft.x + w) + 1, int(topLeft.y + h) + 1}, c, int(width + 0.5f));
+    }
+    virtual void smoothPolygon(const PointF* pts, int n, Color fill) {
+        std::vector<Point> ps;
+        for (int i = 0; i < n; ++i) ps.push_back({int(pts[i].x), int(pts[i].y)});
+        polygon(ps.data(), n, fill);
+    }
+    virtual void smoothEllipse(PointF topLeft, float w, float h, Color fill) {
+        ellipse({int(topLeft.x), int(topLeft.y), int(topLeft.x + w) + 1, int(topLeft.y + h) + 1}, fill, kNone);
+    }
     // An ellipse in `r` (as a GDI Ellipse: `r` includes the outline).
     virtual void ellipse(Rect r, Color fill, Color line) = 0;
     // An ellipse's outline in `r`, `width` px wide.

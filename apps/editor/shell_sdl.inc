@@ -74,7 +74,7 @@ std::vector<int> shellListSelection() { return gLocList.selection(); }
 // The Locations filter's text (the palette's own search is not the list's filter).
 std::wstring shellFilterText() { return gFilterSdl.text(); }
 bool shellViewShown() { return gRoot != nullptr; }
-void shellToolsChanged() {}  // (the tool strip is not on this system yet)
+void shellToolsChanged() { gToolStripView.invalidate(); }
 int shellPopupPick(const std::vector<std::wstring>&, int, int, int) { return -1; }  // (the SDL shell has no popup menus yet)
 void shellOwnerSelect(int i) { gOwnerBox.setValue(i); }  // (the owner dropdown shows player i; no change is sent)
 void shellPaletteChanged() {
@@ -115,6 +115,7 @@ std::vector<int>& shellPaletteChosen() {
 
 // The settings file: ~/Library/Application Support/StarDraft on macOS, $XDG_CONFIG_HOME or ~/.config/StarDraft on Linux
 // (the environment variable STARDRAFT_SETTINGS gives another file, as on Windows).
+void shellSettingsChanged() {}  // (the SDL program keeps no options yet: the Windows program saves its options in the registry)
 std::filesystem::path shellSettingsFile() {
     if (const char* file = std::getenv("STARDRAFT_SETTINGS"); file && *file) return file;
     fs::path dir;

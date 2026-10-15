@@ -182,6 +182,7 @@ void shellModeWindows(Mode m) {
 std::wstring shellTr(const wchar_t* english) { return tr(english); }
 std::vector<int>& shellPaletteChosen() { return gPal.chosen; }
 AppState& shellState() { return app; }
+void shellSettingsChanged() { saveAppSettings(); }
 std::filesystem::path shellSettingsFile() {
     if (const wchar_t* file = _wgetenv(L"STARDRAFT_SETTINGS"); file && *file) return file;  // (tests)
     std::filesystem::path dir;

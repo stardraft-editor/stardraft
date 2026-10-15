@@ -410,16 +410,6 @@ void replaceSelectionWith(int v);
 
 // --- Tools ------------------------------------------------------------------------------------------
 
-// The brush sizes (diamonds; the sprays' radius too): 0.5, every whole size to 16, then every other to 32.
-const std::vector<float>& brushSizes() {
-    static const std::vector<float> v = [] {
-        std::vector<float> o;
-        for (int i = 1; i <= 16; ++i) o.push_back(float(i));
-        for (int i = 18; i <= 32; i += 2) o.push_back(float(i));
-        return o;
-    }();
-    return v;
-}
 int brushSizeIndex(float size) {  // the nearest size in the list
     const auto& v = brushSizes();
     int best = 0;
@@ -16917,7 +16907,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         HWND src = HWND(wp);
         POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
         bool mini = src == app.minimap, tools = false;
-        tools |= src == app.modeBar;
+        tools |= src == app.modeBar || src == app.tool;  // (the tool strip's window: its own right-click, not passed on)
         if (src == hwnd && gWorkspace == Workspace::Map) {
             POINT c = pt;
             ScreenToClient(hwnd, &c);

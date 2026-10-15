@@ -103,6 +103,8 @@ std::vector<int>& shellPaletteChosen();
 std::filesystem::path shellUnsavedRoot();
 // The settings file (%APPDATA%\StarDraft\settings.json; the environment variable STARDRAFT_SETTINGS gives another).
 std::filesystem::path shellSettingsFile();
+// A setting the core changed is saved now (the Windows host saves its options as they change, only what differs).
+void shellSettingsChanged();
 // The value kinds of the settings written by older builds (the registry: HKCU\Software\StarDraft).
 enum class LegacyKind { Dword, Text, Texts, Bytes };
 // The value `value` under the key `sub` ("" is the key itself; "Key/Sub" a subkey, with '/'): its bytes, when there is one.

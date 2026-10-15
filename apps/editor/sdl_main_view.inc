@@ -205,7 +205,7 @@ void menusIfDirty();
 // The main window: the menu bar, the document tabs, the workspace rail, the status bar, the map view with its minimap and
 // the panes that are not on this system yet, placed by computeLayout.
 struct MainView final : draw::View {
-    static constexpr int kNotHere = 1;  // the panes of the map workspace that have no view yet: the tool strip (see relayout)
+    static constexpr int kNotHere = 0;  // the panes of the map workspace that have no view yet (see relayout): none now
     kit::MenuBar menus;
     TabsView tabs;
     RailView rail;
@@ -223,6 +223,7 @@ struct MainView final : draw::View {
         add(status, draw::Rect(0, 0, 0, 0));
         add(map, draw::Rect(0, 0, 0, 0));
         add(minimap, draw::Rect(0, 0, 0, 0));
+        add(gToolStripView, draw::Rect(0, 0, 0, 0));  // the tool strip (core/views_toolstrip.inc)
         add(modes, draw::Rect(0, 0, 0, 0));
         add(gPanelTabsSdl[0], draw::Rect(0, 0, 0, 0));
         add(gPanelTabsSdl[1], draw::Rect(0, 0, 0, 0));
@@ -276,7 +277,7 @@ struct MainView final : draw::View {
         in.railW = shellHasRail() ? wsRailWidth() : 0;
         in.mode = gState.mode;
         in.mapWs = true;
-        in.toolStrip = [](int) { return 0; };  // (the tool strip is not on this system yet)
+        in.toolStrip = [](int width) { return toolStripHeight(width, false); };
         in.modeBarH = 0, in.modeBar = modeBarRect();  // (the modes are in the top bar)
         in.mapOpen = gState.ed && gState.ed->isOpen();
         if (in.mapOpen) in.mapW = gState.ed->width(), in.mapH = gState.ed->height();
@@ -312,7 +313,7 @@ struct MainView final : draw::View {
         apply(map, L.view, true);
         apply(minimap, L.minimap, L.minimap.visible);
         apply(modes, L.modeBar, true);
-        apply(*notHere[0], L.tool, true);
+        apply(gToolStripView, L.tool, true);
         apply(gPanelTabsSdl[toolsRight ? 1 : 0], L.panelTabActive, L.panelTabActive.visible);
         apply(gPanelTabsSdl[toolsRight ? 0 : 1], L.panelTabOther, L.panelTabOther.visible);
         apply(gOwnerBox, oneRow(L.owner), owners);       // (a closed owner list is one row high)
