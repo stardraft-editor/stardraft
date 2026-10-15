@@ -2,13 +2,12 @@
 // other tables' edits, the code for new graphics of preplaced units), the map saved into the project, then euddraft on
 // a thread; its output streams into the Log. Moved from main.cpp (portable; the Windows program and the SDL program run
 // the same code). What a host keeps: the text being typed that goes in first (mapPageFlush, stringsCommitEdit,
-// dataCommitEdit), the Triggers workspace's block of a euddraft error (trigShowBuildError), and the workspaces that show
-// repaired files again (buildDataReloaded, buildTriggersReloaded).
+// dataCommitEdit) and the workspaces that show repaired files again (buildDataReloaded, buildTriggersReloaded).
 
 void mapPageFlush();       // a text being typed on a map page goes into the map now
 void stringsCommitEdit();  // the Strings tab's text being typed goes into the strings
 bool dataCommitEdit();     // the Data form's value being typed goes in (false: it is not a number; the status says why)
-bool trigShowBuildError(const std::string& logLine);  // a euddraft error in a line of the triggers' code selects its block
+bool trigShowBuildError(const std::string& logLine);  // a euddraft error in a line of the triggers' code selects its block (core/views_triggers_help.inc)
 void buildDataReloaded(int tab, int entry);  // the repaired .dat files load now: the Data workspace shows them
 void buildTriggersReloaded();                // the repaired triggers.json loads now: the Triggers workspace shows it
 bool projectShowScriptError(const std::string& log);  // core/project_page.inc
@@ -18,7 +17,10 @@ bool gBuilding = false;  // a build runs (Build grays, and the top bar's Build s
 // The first line of the build's output that names a line of the triggers' code (it selects the block when the build fails).
 std::string gTrigBuildError;
 
-fs::path triggersFile(const EudProject& pr) { return pr.folder() / "triggers.json"; }
+// (triggersFile and trigMapInfo are core/triggers_model.inc's; the line map, trigKeepCodeMap, is core/views_triggers_help.inc's.)
+std::filesystem::path triggersFile(const EudProject& pr);
+TriggerMapInfo trigMapInfo();
+void trigKeepCodeMap(const EudProject& pr, const TriggerSet& set, const std::vector<TriggerCodeLine>& lines);
 
 // The map's playability as one message ("" when StarCraft can start it).
 std::wstring playabilityText() {
@@ -27,80 +29,6 @@ std::wstring playabilityText() {
     std::wstring text;
     for (const auto& p : app.ed->playabilityProblems()) text += L"\x2022 " + widen(p) + L"\r\n";
     return text;
-}
-
-// What the checker and the code need from the map: its locations, sounds, units and players.
-TriggerMapInfo trigMapInfo() {
-    AppState& app = appState();
-    TriggerMapInfo m;
-    if (!app.ed || !app.ed->isOpen()) return m;
-    Editor& ed = *app.ed;
-    m.known = true;
-    m.locations.resize(size_t(ed.locationCount()));
-    for (int i = 0; i < ed.locationCount(); ++i)
-        if (ed.locationUsed(i) || i == kAnywhereLocation) m.locations[size_t(i)] = ed.locationName(i);
-    for (const auto& f : ed.archiveFiles()) {
-        std::string lower = f.name;
-        std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-        if (lower.size() > 4 && (lower.ends_with(".wav") || lower.ends_with(".ogg"))) m.sounds.push_back(f.name);
-    }
-    for (uint16_t i = 0; i < ed.unitTypes().size(); ++i) m.unitNames.push_back(ed.unitTypes()[i].name);
-    for (const auto& u : ed.units()) m.units.push_back({u.serial, u.type, u.owner, u.x, u.y});
-    for (int p = 0; p < 8; ++p) {
-        const auto pl = ed.player(p);
-        m.playerForce[p] = pl.force;
-        m.playerActive[p] = pl.controller == Editor::Controller::Human || pl.controller == Editor::Controller::Computer;
-    }
-    return m;
-}
-
-// --- The triggers' code ----------------------------------------------------------------------------------------------
-
-// The block of each line of the last generated/triggers.eps: the node's path and the block (index -1: the trigger).
-struct TrigCodeMap {
-    fs::path project;
-    std::vector<std::pair<std::vector<int>, TrigBlockRef>> lines;
-};
-TrigCodeMap gTrigCodeMap;
-
-bool trigFindCall(const std::vector<TriggerCall>& list, const TrigListRef& ref, const TriggerCall* target, TrigBlockRef& out) {
-    for (size_t i = 0; i < list.size(); ++i) {
-        if (&list[i] == target) return out = {ref, int(i)}, true;
-        for (size_t n = 0; n < list[i].lists.size(); ++n) {
-            TrigListRef inner = ref;
-            inner.via.push_back({ref.list, int(i)});
-            inner.list = 2 + int(n);
-            if (trigFindCall(list[i].lists[n], inner, target, out)) return true;
-        }
-    }
-    return false;
-}
-
-// Keeps the line map of code made from `set` (Build calls it with the code it writes).
-void trigKeepCodeMap(const EudProject& pr, const TriggerSet& set, const std::vector<TriggerCodeLine>& lines) {
-    std::map<const TriggerNode*, std::vector<int>> paths;
-    std::function<void(const TriggerNode&, std::vector<int>)> walk = [&](const TriggerNode& n, std::vector<int> path) {
-        paths[&n] = path;
-        for (size_t i = 0; i < n.children.size(); ++i) {
-            auto p = path;
-            p.push_back(int(i));
-            walk(n.children[i], p);
-        }
-    };
-    for (size_t i = 0; i < set.roots.size(); ++i) walk(set.roots[i], {int(i)});
-    gTrigCodeMap = {pr.folder(), {}};
-    for (const auto& l : lines) {
-        std::pair<std::vector<int>, TrigBlockRef> m;
-        if (auto it = paths.find(l.node); it != paths.end()) m.first = it->second;
-        if (l.node && l.call) {
-            TrigListRef conds;
-            conds.list = 0;
-            TrigListRef acts;
-            acts.list = 1;
-            if (!trigFindCall(l.node->conditions, conds, l.call, m.second)) trigFindCall(l.node->actions, acts, l.call, m.second);
-        }
-        gTrigCodeMap.lines.push_back(std::move(m));
-    }
 }
 
 // Before a build: the triggers' code into generated/triggers.eps. False (with the problems in the log) when the

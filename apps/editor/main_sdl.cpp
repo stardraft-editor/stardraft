@@ -31,6 +31,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <random>
 #include <set>
 #include <string>
@@ -108,6 +109,7 @@ bool gSilent = false;
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
 #include "sdl_data.inc"  // the Data workspace (the model is core/data_list.inc and core/views_data*.inc; the tables are the stock .dat files)
 #include "sdl_build.inc"  // Build's parts of this system (core/project_build.inc)
+#include "sdl_triggers.inc"  // the Triggers workspace (the tree, the pane and the block picker are core/views_triggers_*.inc; the model core/triggers_model.inc)
 #include "shell_sdl.inc"
 
 namespace {
@@ -205,10 +207,10 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
-    std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, themeArg, langArg;
+    std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, themeArg, langArg, trigArg, trigSelArg;
     int accentArg = -1;
     gSelfPath = argc > 0 ? argv[0] : "";  // (Restart now starts it again, sdl_options.inc)
-    bool rectArg = false, previewArg = false, logArg = false, buildArg = false;
+    bool rectArg = false, previewArg = false, logArg = false, buildArg = false, trigCodeArg = false;
     int width = 1600, height = 1000;
     float scaleArg = 0;
     for (int i = 1; i < argc; ++i) {
@@ -221,9 +223,12 @@ int main(int argc, char** argv) {
         else if (a == "--mode") modeArg = next();  // a mode's name (units, terrain, doodads, sprites, locations), for a snapshot
         else if (a == "--workspace") workspaceArg = next();  // a workspace's name (map, data, triggers, project...), for a snapshot
         else if (a == "--data") dataArg = next();  // tab:entry (units:0, images:239, strings:5): the Data workspace opens it, for a snapshot
+        else if (a == "--trig") trigArg = next();  // root:index[:child...]: the Triggers workspace selects that node, for a snapshot
+        else if (a == "--trigsel") trigSelArg = next();  // an action of the selected trigger: it is selected, for a snapshot
+        else if (a == "--trigcode") trigCodeArg = true;  // the Triggers workspace's code pane on (not saved), for a snapshot
         else if (a == "--classictrig") ctArg = next();  // trigger:kind:entry (2:1:0): the Classic triggers page selects it, for a snapshot
         else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
-        else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or unitprops, locprops or quick: that view is the snapshot
+        else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt, listpick, blockpick or blockhelp:<block id> (--size its size), or unitprops, locprops or quick: that view is the snapshot
         else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
         else if (a == "--scriptpreview") previewArg = true;  // the Project page's script preview on (not saved), for a snapshot
         else if (a == "--log") logArg = true;  // the Log open (View > Log), for a snapshot
@@ -270,12 +275,14 @@ int main(int argc, char** argv) {
         loadLanguageSdl(langArg);  // the language (sdl_options.inc): the canvas translates with it from the first frame
         loadThemeSdl(themeArg, accentArg);  // the theme and the accent in the settings
         if (previewArg) gDock.scriptPreview = true;
+        if (trigCodeArg) gDock.triggerCode = true;
         registerMapCommands();  // the Map workspace's command table (core/map_commands.inc): the menus and keys read it
         registerWorkspaceView(Workspace::Files, gFilesPage);  // the Assets / Files workspace (sdl_files.inc)
         registerMapPages();  // the map pages' workspaces (sdl_map_pages.inc)
         registerWorkspaceView(Workspace::Briefing, gSdlBriefing);  // the Briefing workspace (sdl_briefing.inc)
         registerWorkspaceView(Workspace::Data, gSdlData);  // the Data workspace (sdl_data.inc)
         registerWorkspaceView(Workspace::Project, gSdlProject);  // the Project workspace (sdl_project.inc)
+        registerWorkspaceView(Workspace::Triggers, gSdlTriggers);  // the Triggers workspace (sdl_triggers.inc)
         initStartPage();  // the start page's callbacks (sdl_start.inc)
         MainView root;
         gRoot = &root;
@@ -298,6 +305,8 @@ int main(int argc, char** argv) {
         if (previewArg && !gProj.sections.empty()) triggersRefresh(gProj.sections.back());  // the last script in the preview (as scriptpreview:)
         if (!dataArg.empty()) sdlDataSelect(dataArg);
         if (!ctArg.empty()) sdlClassicTrigSelect(ctArg);
+        if (!trigArg.empty() || !trigSelArg.empty()) sdlTrigSelect(trigArg, trigSelArg);
+        if (trigCodeArg) trigCodeRefresh(true);
         if (newPageArg == "classic" || newPageArg == "eud") openNewPageSdl(newPageArg == "eud" ? 1 : 0);
         if (buildArg) command(ID_PROJ_COMPILE);
         if (logArg) gLogPane.setExpanded(true);
@@ -328,6 +337,8 @@ int main(int argc, char** argv) {
             std::vector<ListPickItem> pickItems;
             for (int u = 0; u <= 227; ++u) pickItems.push_back(ListPickItem{unitDisplayName(u), L"", std::to_string(u), "", -1});
             ListPickView pickShot(L"Search values", pickItems, "");
+            // blockpick: Add an action's block picker (as the Windows picker's window; --size 1266x861 its client area at 100 %).
+            BlockPickView blockShot(gSdlBlockPickHost, false, {}, {});
             pickShot.setMulti({"0", "1", "37"}, L"Set");
             draw::View* shown = &root;
             if (dialogArg == "options") shown = &gOptionsView;
@@ -335,8 +346,11 @@ int main(int argc, char** argv) {
             else if (dialogArg == "newproject") shown = &projectShot;
             else if (dialogArg == "prompt") shown = &promptShot;
             else if (dialogArg == "listpick") shown = &pickShot;
+            else if (dialogArg == "blockpick") shown = &blockShot;
+            else if (dialogArg.rfind("blockhelp:", 0) == 0) shown = &gSdlBlockHelp, gSdlBlockHelp.setBlock(dialogArg.substr(10));  // a block's help page (--size 460x600)
             else if (mapShot.view) shown = mapShot.view;
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+            if (!trigSelArg.empty()) sdlTrigFocusFirstValue();  // (the pane's hit areas are the first frame's)
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             const bool ok = writeSnapshot(device, tex, width, height, snapshot);
             std::printf("%s %s\n", ok ? "wrote" : "could not write", snapshot.c_str());

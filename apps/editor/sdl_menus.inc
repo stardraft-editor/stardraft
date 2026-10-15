@@ -119,6 +119,7 @@ bool sdlRuns(int id) {
     case ID_DOCK_MINI_RIGHT:
     case ID_DOCK_TOOLS_LEFT:
     case ID_DOCK_TOOLS_RIGHT: return true;
+    case ID_VIEW_TRIGCODE: return true;  // the Triggers workspace's code pane (sdl_triggers.inc)
     default: break;
     }
     if (id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) return true;
@@ -362,6 +363,10 @@ void command(int id) {
             sdlDataUndo(id == ID_EDIT_REDO);
             return;
         }
+        if (gWorkspace == Workspace::Triggers) {  // the Triggers workspace's own steps (core/triggers_model.inc)
+            trigUndo(id == ID_EDIT_REDO);
+            return;
+        }
         if (gState.ed && gState.ed->isOpen()) {
             if (id == ID_EDIT_REDO) gState.ed->redo();
             else gState.ed->undo();
@@ -411,6 +416,9 @@ void command(int id) {
         gDock.toolsRight[int(gState.mode)] = id == ID_DOCK_TOOLS_RIGHT;
         saveDock(), shellRelayout();
         setMessage(std::wstring(kModeNames[int(gState.mode)]) + L" toolbar on the " + (id == ID_DOCK_TOOLS_RIGHT ? L"right" : L"left"));
+        return;
+    case ID_VIEW_TRIGCODE:  // shows or hides the code pane
+        if (activeProject()) setWorkspace(Workspace::Triggers), showTriggerCode();
         return;
     default:
         // (the workspaces in their order; a command this system does not run is gray in the menus, and its key does nothing)

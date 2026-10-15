@@ -2,17 +2,6 @@
 // this system's version until its surface is in the core, and its comment names the surface. The core declares them.
 // Included by main_sdl.cpp after the core, next to sdl_main_view.inc.
 
-// The Triggers workspace (main.cpp) is Win32-only: no trigger block waits for a unit picked on the map here.
-bool trigUnitPickClick(float, float) { return false; }
-
-// The Triggers workspace's pane is Win32-only (main.cpp): its zoom has nothing to draw again here (core/dock_prefs.inc).
-void trigPaneRepaint() {}
-
-// The Triggers workspace (main.cpp) is Win32-only: a line of the triggers' code names no trigger here, and no block shows
-// (epTrace's report on the Project page names the script's line and opens the script instead; core/project_page.inc).
-std::wstring trigCodeLineName(int) { return L""; }
-bool trigShowCodeLine(int) { return false; }
-
 // The workspaces (the core's setWorkspace; the Windows program's is in main.cpp, with its windows): Assets is Files, and
 // a workspace the tab's mode does not have falls back to Map with the same message as Windows. The workspace shows its
 // view (sdl_main_view.inc: the registered one, else "Not on this system yet"), and the map's panes show in Map only.
@@ -23,6 +12,7 @@ void previewStopSdl();  // (sdl_files.inc: a sound that plays stops when the Fil
 void briefingStopSdl();  // (sdl_briefing.inc: the preview stops when the Briefing workspace is left)
 bool sdlWorkspacePage(Workspace w);  // (sdl_map_pages.inc: the page of a map page workspace opens; false: none does)
 void sdlProjectShown();  // (sdl_project.inc: the Project page reads the project's scripts again)
+void sdlTriggersShown();  // (sdl_triggers.inc: the project's triggers, and the tree made again)
 void setWorkspace(Workspace w) {
     if (w == Workspace::Assets) w = Workspace::Files;  // Assets is part of Files
     if (w != Workspace::Files) previewStopSdl();
@@ -38,14 +28,18 @@ void setWorkspace(Workspace w) {
     if (!sdlWorkspacePage(w) && (w == Workspace::Properties || w == Workspace::Players || w == Workspace::ClassicSettings || w == Workspace::ClassicTriggers)) w = Workspace::Map;
     gWorkspace = w;
     if (w == Workspace::Project) sdlProjectShown();
+    if (w == Workspace::Triggers) sdlTriggersShown();
     shellStatusChanged();  // the map's parts show in Map only
     shellRelayout();
     shellMenusChanged();  // Edit's items follow the workspace (and with them Ctrl+C / X / V)
     shellRedrawTabs();
 }
 
-// A tab with this project closed: the Data workspace drops what it holds of it (core/data_model.inc). (until it is in
-// the core) The Triggers workspace's part is not on this system yet.
+// A tab with this project closed: the Data and Triggers workspaces drop what they hold of it (core/data_model.inc,
+// core/triggers_model.inc).
 void dataForgetProject(const EudProject* pr);
 void sdlDataForgetProject(const EudProject* pr);  // (sdl_data.inc: also the number entry)
-void forgetProject(const EudProject* pr) { sdlDataForgetProject(pr); }
+void forgetProject(const EudProject* pr) {
+    trigForgetProject(pr);
+    sdlDataForgetProject(pr);
+}
