@@ -11792,15 +11792,14 @@ void createWorkspaces(HWND parent) {
 // project: its folder, map, output, and what the .eds builds.
 HWND gStubWnd = nullptr;
 
-LRESULT CALLBACK stubWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    if (msg == WM_PAINT) {
-        PAINTSTRUCT ps;
-        HDC dc = BeginPaint(hwnd, &ps);
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-        FillRect(dc, &rc, app.bgBrush);
-        SetBkMode(dc, TRANSPARENT);
-        HGDIOBJ of = SelectObject(dc, app.font);
+// The stub as a view (apps/common/view.h): its window is a view window (kViewClass) that shows gStubView.
+struct StubView final : stardraft::draw::View {
+    void paint(stardraft::draw::Canvas& c) override {
+        using stardraft::draw::Face;
+        using stardraft::draw::FontDesc;
+        using stardraft::draw::Rect;
+        const int w = width(), h = height();
+        c.fill({0, 0, w, h}, kBg);
         std::wstring title, text;
         if (gWorkspace == Workspace::Triggers) {
             title = L"Triggers";
@@ -11808,44 +11807,29 @@ LRESULT CALLBACK stubWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         } else if (gWorkspace == Workspace::Assets) {
             title = L"Assets";
             text = L"Not available yet: graphics, sounds, portraits and fonts that you import into the map.";
-        } else if (const EudProject* pr = activeProject()) {
-            title = L"Project: " + widen(pr->name());
-            std::error_code ec;
-            const bool built = fs::exists(pr->outputMap(), ec);
-            auto rel = [&](const fs::path& p2) {
-                std::error_code e2;
-                const fs::path r = fs::relative(p2, pr->folder(), e2);
-                return (e2 || r.empty() ? p2 : r).wstring();
-            };
-            (void)built, (void)rel;
+        } else if (activeProject()) {
+            title = L"Project: " + widen(activeProject()->name());
             text.clear();  // the settings are the form's rows
         } else {
             title = L"Project";
             text = L"No project is open. File > Project > New project makes one from the open map. File > Project > Open project opens one.";
         }
-        HFONT big = nullptr;
-        {
-            LOGFONTW lf{};
-            GetObjectW(app.font, sizeof lf, &lf);
-            lf.lfHeight = lf.lfHeight * 3 / 2;
-            big = CreateFontIndirectW(&lf);
-        }
-        SelectObject(dc, big);
-        SetTextColor(dc, kText);
-        RECT t{scale(40), scale(36), rc.right - scale(40), scale(80)};
-        DrawTextW(dc, title.c_str(), -1, &t, DT_SINGLELINE | DT_NOPREFIX);
-        SelectObject(dc, gWorkspace == Workspace::Project && activeProject() ? monoFont() : app.font);
-        DeleteObject(big);
-        SetTextColor(dc, kDim);
-        RECT b{scale(40), scale(84), rc.right - scale(40), rc.bottom};
-        DrawTextW(dc, text.c_str(), -1, &b, DT_WORDBREAK | DT_NOPREFIX);
-        SelectObject(dc, of);
-        EndPaint(hwnd, &ps);
-        return 0;
+        // The title: the UI font at 3/2 of its height; the text: the UI font.
+        const stardraft::draw::Font ui = c.font({Face::Ui, 0});
+        const stardraft::draw::Font old = c.setFont(c.font({Face::Ui, titleHeight()}));
+        c.text({scale(40), scale(36), w - scale(40), scale(80)}, title, kText, stardraft::draw::kLeft);
+        c.setFont(ui);
+        c.text({scale(40), scale(84), w - scale(40), h}, text, kDim, stardraft::draw::kWrap | stardraft::draw::kLeft);
+        c.setFont(old);
     }
-    if (msg == WM_ERASEBKGND) return 1;
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
+    // The title's font height: the UI font's, at 3/2 (the old stub's big font).
+    static int titleHeight() {
+        LOGFONTW lf{};
+        GetObjectW(app.font, sizeof lf, &lf);
+        return -(lf.lfHeight * 3 / 2);
+    }
+};
+StubView gStubView;
 
 fs::path scriptPath(const EudProject& pr, const std::string& section) { return pr.scriptFile(section); }
 
@@ -17428,12 +17412,7 @@ void setWorkspace(Workspace w) {
     gWorkspace = w;
     setMode(app.mode);  // the panel's palette, or the locations list; hidden outside the map workspace
     ShowWindow(gDataWnd, w == Workspace::Data ? SW_SHOW : SW_HIDE);
-    if (!gStubWnd) {
-        WNDCLASSEXW wc{sizeof wc};
-        wc.hInstance = app.inst, wc.hCursor = LoadCursor(nullptr, IDC_ARROW), wc.lpfnWndProc = stubWndProc, wc.lpszClassName = L"StarDraftStub";
-        RegisterClassExW(&wc);
-        gStubWnd = CreateWindowExW(0, L"StarDraftStub", L"", WS_CHILD, 0, 0, 1, 1, app.main, nullptr, app.inst, nullptr);
-    }
+    if (!gStubWnd) gStubWnd = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD, 0, 0, 1, 1, app.main, nullptr, app.inst, &gStubView);
     createProjectPage();
     createTriggerEditor();
     const bool projectPage = w == Workspace::Project && activeProject();
