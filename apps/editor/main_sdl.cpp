@@ -223,6 +223,7 @@ int main(int argc, char** argv) {
         gRoot = nullptr;
         gHost = nullptr;
     }
+    releasePaletteArt();  // its pictures' textures: before the device goes
     kit_sdl::unloadIconAtlases();
     gRenderer = nullptr;
     gDevice = nullptr;

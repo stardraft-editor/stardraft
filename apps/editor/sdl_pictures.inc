@@ -14,6 +14,8 @@ struct PaletteArt {
     std::map<std::tuple<int, int, int>, std::unique_ptr<draw::Bitmap>> bitmaps;  // (mode of the row, value, owner)
 };
 PaletteArt gPaletteArt;
+// The pictures' textures go before the GPU device does (main_sdl.cpp's shutdown); a later release would use a freed device.
+void releasePaletteArt() { gPaletteArt = PaletteArt{}; }
 
 // The picture of one item (value) of a palette mode, or nullptr when it has none (the Win32 palette's blank case: the
 // game's "BLANK" icon). Terrains and doodads: their tiles; units: the command icon (HD in the HD modes); sprites: their
@@ -90,14 +92,15 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner) {
         return x1 - x0 >= 3 && y1 - y0 >= 3;
     };
     if (unitKind && !visible(s)) s = ed.unitSprites().blankIcon();
-    if (!s) return nullptr;
+    // Nothing to draw: that is cached too (an empty entry), so the row does not build the picture again on every paint.
+    if (!s) return gPaletteArt.bitmaps.emplace(key, nullptr), nullptr;
 
     // The opaque part, premultiplied: 0xAABBGGRR per pixel, rows from the top (draw::Bitmap's).
     int x0 = s->width, y0 = s->height, x1 = -1, y1 = -1;
     for (int y = 0; y < s->height; ++y)
         for (int x = 0; x < s->width; ++x)
             if (s->rgba[(size_t(y) * s->width + x) * 4 + 3]) x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
-    if (x1 < 0) return nullptr;
+    if (x1 < 0) return gPaletteArt.bitmaps.emplace(key, nullptr), nullptr;
     auto b = std::make_unique<draw::Bitmap>(x1 - x0 + 1, y1 - y0 + 1);
     uint32_t* px = b->pixels();
     for (int y = 0; y < b->height(); ++y)

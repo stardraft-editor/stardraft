@@ -161,6 +161,7 @@ void paintPanelRow(draw::Canvas& c, const std::vector<PanelRow>& rows, const std
     const int bw = (r.bottom - r.top) * (what == Mode::Terrain ? 2 : 1);
     const draw::Rect box{r.left + scale(4), r.top + scale(2), r.left + scale(4) + bw, r.bottom - scale(2)};
     if (draw::Bitmap* b = paletteBitmap(what, row.value, gState.playerOwner)) drawPaletteArt(c, *b, box);
+    else if (what == Mode::Terrain) c.roundBox(box, draw::rgb(6, 6, 10), kBorder, float(scale(3)));  // nothing to show (Space): an empty swatch, as Win32
     c.text({box.right + scale(8), r.top, r.right - pad, r.bottom}, row.label, picked ? kAccent : kText, draw::kMiddle);
 }
 

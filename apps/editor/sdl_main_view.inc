@@ -335,7 +335,20 @@ struct MainView final : draw::View {
         draw::View* wsView = mapWs || found == gWorkspaceViews.end() ? nullptr : found->second;
         for (auto& [w, v] : gWorkspaceViews) apply(*v, L.view, v == wsView);
         apply(notHere, L.view, !mapWs && !wsView);
+        // A hidden pane keeps no keyboard: when a switch hid the focused one (a search box, the palette's list), the
+        // window's root takes the focus, so the keys reach the menus and shortcuts, not a box nobody sees.
+        for (View* c : children())
+            if (!c->shown() && hasFocusIn(*c)) {
+                focus();
+                break;
+            }
         invalidate();
+    }
+    static bool hasFocusIn(const View& v) {
+        if (v.hasFocus()) return true;
+        for (const View* c : v.children())
+            if (hasFocusIn(*c)) return true;
+        return false;
     }
 
     // A pane whose drop-down is tall in the layout (the owner, the section box) is one row high when closed.

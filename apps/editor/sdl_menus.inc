@@ -81,7 +81,17 @@ bool sdlRuns(int id) {
     case ID_FILE_EXIT:
     case ID_EDIT_UNDO:
     case ID_EDIT_REDO:
-    case ID_WS_MAP: return true;
+    case ID_WS_MAP:
+    case ID_WS_DATA:
+    case ID_WS_TRIGGERS:
+    case ID_WS_ASSETS:
+    case ID_WS_PROJECT:
+    case ID_WS_BRIEFING:
+    case ID_WS_FILES:
+    case ID_SCEN_PROPS:  // the map's pages: the rail and the menus open them as the workspaces do
+    case ID_SCEN_PLAYERS:
+    case ID_SCEN_CLASSIC:
+    case ID_SCEN_CLASSICTRIG: return true;
     default: break;
     }
     if (id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) return true;
@@ -323,6 +333,10 @@ void command(int id) {
         }
         return;
     case ID_WS_ASSETS: setWorkspace(Workspace::Files); return;  // Assets is part of Files
+    case ID_SCEN_PROPS: setWorkspace(Workspace::Properties); return;
+    case ID_SCEN_PLAYERS: setWorkspace(Workspace::Players); return;
+    case ID_SCEN_CLASSIC: setWorkspace(Workspace::ClassicSettings); return;
+    case ID_SCEN_CLASSICTRIG: setWorkspace(Workspace::ClassicTriggers); return;
     default:
         if (id >= ID_WS_MAP && id <= ID_WS_FILES) return setWorkspace(Workspace(id - ID_WS_MAP));  // the workspace order
         setMessage(L"This is not on this system yet");
