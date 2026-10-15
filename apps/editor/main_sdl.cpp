@@ -48,7 +48,6 @@
 #include "sdl_host.h"
 #include "core/tr.h"
 #include "shell.h"
-#include "message_box.h"  // apps/kit: the save question (shellAskSaveChanges)
 #include "dialog.h"  // apps/kit: the map pages' pickers (sdl_map_pages.inc)
 #include "label.h"  // apps/kit: the block dialog's text (core/views_classic_batch.inc)
 #include "text_field.h"  // apps/kit: the search boxes (core/views_search.inc)
@@ -221,7 +220,7 @@ int main(int argc, char** argv) {
         else if (a == "--data") dataArg = next();  // tab:entry (units:0, images:239, strings:5): the Data workspace opens it, for a snapshot
         else if (a == "--classictrig") ctArg = next();  // trigger:kind:entry (2:1:0): the Classic triggers page selects it, for a snapshot
         else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
-        else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or unitprops, locprops, quick, about, message or tip: that view is the snapshot
+        else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or unitprops, locprops, quick, about, message, error or tip: that view is the snapshot
         else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
         else if (a == "--scriptpreview") previewArg = true;  // the Project page's script preview on (not saved), for a snapshot
         else if (a == "--silent") gSilent = true;
@@ -333,6 +332,13 @@ int main(int argc, char** argv) {
                 messageShot.b.icon = msgbox::Icon::Question;
                 messageShot.b.buttons = {{L"&Save", 0}, {L"Do &not save", 1}, {L"Cancel", 2}};
                 messageShot.b.cancel = 2;
+                const draw::Point sz = messageShot.layout(kit_sdl::measuringCanvas());
+                width = sz.x, height = sz.y;
+            } else if (dialogArg == "error") {  // an error box (shellErrorBox: the error icon and OK)
+                shown = &messageShot;
+                messageShot.b.text = L"Could not write /home/user/maps/(4)Bottleneck.scx: the folder is read-only.";
+                messageShot.b.icon = msgbox::Icon::Error;
+                messageShot.b.buttons = {{L"OK", 0}};
                 const draw::Point sz = messageShot.layout(kit_sdl::measuringCanvas());
                 width = sz.x, height = sz.y;
             } else if (dialogArg == "tip") {
