@@ -16,3 +16,17 @@ void shellPost(std::function<void()> fn) {
     auto* f = new std::function<void()>(std::move(fn));
     if (!PostMessageW(app.main, WM_SHELL_POST, 0, LPARAM(f))) delete f;
 }
+void shellSprayTimer(bool on) {
+    if (!app.view) return;
+    if (on) SetTimer(app.view, kSprayTimer, 25, nullptr);
+    else KillTimer(app.view, kSprayTimer);
+}
+void shellTrackMouseLeave() {
+    TRACKMOUSEEVENT t{sizeof t, TME_LEAVE, app.view, 0};
+    TrackMouseEvent(&t);
+}
+bool shellClearFilter() {
+    if (!app.filter) return false;
+    SetWindowTextW(app.filter, L"");
+    return true;
+}

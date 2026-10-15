@@ -11,3 +11,4 @@
 #include "layout.inc"
 #include "menu_model.inc"
 #include "commands_core.inc"
+#include "map_input.inc"
