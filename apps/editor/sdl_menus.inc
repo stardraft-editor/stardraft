@@ -103,6 +103,7 @@ bool sdlRuns(int id) {
     case ID_PROJ_SETTINGS:
     case ID_OPT_WINDOW:
     case ID_HELP_FEEDBACK:
+    case ID_HELP_UPDATES:  // Check for updates (sdl_updates.inc)
     case ID_EDIT_RENAME:  // the location's rename and the quick picker (sdl_map_dialogs.inc)
     case ID_QUICKPICK: return true;
     default: break;
