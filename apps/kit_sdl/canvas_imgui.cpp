@@ -737,6 +737,31 @@ int ImguiCanvas::measure(std::wstring_view t) {
     return int(std::ceil(textWidth(*cur_, utf8Text(uiText(t, tb)))));
 }
 
+void ImguiCanvas::textAt(Point at, std::wstring_view t, Color c) {
+    if (t.empty() || c == kNone) return;
+    const FontEntry& f = *cur_;
+    const ImU32 col = colorOf(c);
+    float x = origin_.x + float(at.x);
+    const float y = origin_.y + float(at.y);
+    for (size_t i = 0; i < t.size();) {
+        const size_t n = (t[i] >= 0xD800 && t[i] < 0xDC00 && i + 1 < t.size()) ? 2 : 1;  // (a surrogate pair is one character)
+        const std::string ch = utf8Text(t.substr(i, n));
+        drawString(dl_, f, x, y, col, ch);
+        x += std::ceil(textWidth(f, ch));
+        i += n;
+    }
+}
+
+int ImguiCanvas::measureAt(std::wstring_view t) {
+    float w = 0;
+    for (size_t i = 0; i < t.size();) {
+        const size_t n = (t[i] >= 0xD800 && t[i] < 0xDC00 && i + 1 < t.size()) ? 2 : 1;
+        w += std::ceil(textWidth(*cur_, utf8Text(t.substr(i, n))));
+        i += n;
+    }
+    return int(w);
+}
+
 Point ImguiCanvas::measureBox(std::wstring_view t, int width, unsigned flags) {
     if (flags & (draw::kPrefix | draw::kPrefixHidden)) return measureBox(withoutPrefix(t, nullptr), width, flags & ~(draw::kPrefix | draw::kPrefixHidden));
     std::wstring tb;

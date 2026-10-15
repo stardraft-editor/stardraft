@@ -448,11 +448,21 @@ bool shellPromptText(const std::wstring& title, std::wstring& text) {
     TextPromptView* shown = nullptr;
     return gRoot && runTextPrompt(*gRoot, title, text, true, shown);
 }
-// (no pop-out under the field here: the prompt dialog, centered)
-bool shellEditValueBelow(stardraft::draw::View&, stardraft::draw::Rect, const std::wstring& title, std::string& text) {
-    std::wstring w = widen(text);
-    if (!shellPromptText(title, w)) return false;
-    text = narrow(w);
+// The value pop-out (core/views_value_pop.inc) 2 px under the field, in the main window; "A text of the game..." lists
+// the Strings tab's entries. A text that is not changed is no change (as the Windows editTextValue).
+bool shellEditValue(stardraft::draw::View& v, stardraft::draw::Rect field, const ValuePopSpec& spec, std::string& out) {
+    const draw::Point o = v.origin();
+    return runValuePop(spec, {o.x + field.left, o.y + field.bottom + scale(2)}, out, nullptr, [] {
+        dataLoadForProject();
+        return entryItems("strings", true);
+    });
+}
+bool shellEditValueBelow(stardraft::draw::View& v, stardraft::draw::Rect field, const std::wstring& title, std::string& text) {
+    ValuePopSpec spec;
+    spec.type = "Text", spec.title = title, spec.initial = text;
+    std::string out;
+    if (!shellEditValue(v, field, spec, out) || out == text) return false;
+    text = out;
     return true;
 }
 std::wstring shellCodePageText(const std::string& bytes) { return widen(bytes); }  // (UTF-8)

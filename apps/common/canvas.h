@@ -170,6 +170,8 @@ public:
         text({at.x, at.y, at.x + w + h, at.y + h + h}, t, c, kLeft);
     }
     virtual int measure(std::wstring_view t) = 0;
+    // The width of `t` as textAt() draws it (a canvas that puts each character at a rounded advance gives their sum).
+    virtual int measureAt(std::wstring_view t) { return measure(t); }
     // The size of `t` drawn with `flags` in a box `width` wide (kWrap: its lines' height).
     virtual Point measureBox(std::wstring_view t, int width, unsigned flags) = 0;
     virtual FontMetrics metrics() = 0;
