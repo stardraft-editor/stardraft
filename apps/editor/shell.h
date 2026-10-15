@@ -128,10 +128,3 @@ void shellShowQuickPicker(bool replace, bool open);
 bool shellPathsFoldCase();
 // A map file was opened by itself: asks once whether maps open with StarDraft 2 (Windows only).
 void shellMapFileOpened(const std::filesystem::path& file);
-// The Project page's sections after its Files section: the program's own code draws them (Windows: GDI, on the canvas's
-// DC, project_view.inc) until they move into the core. `y` is where they start (the page's coordinates, scrolled); the
-// result is where they end. Their clicks, tips and cursors go through the next three.
-int shellPaintProjectRest(stardraft::draw::Canvas& c, int y, int pageW, int pageH);
-bool shellProjectRestMouse(const stardraft::draw::MouseEvent& e);
-std::wstring shellProjectRestTip(stardraft::draw::Point pt);
-stardraft::draw::Cursor shellProjectRestCursor(stardraft::draw::Point pt);

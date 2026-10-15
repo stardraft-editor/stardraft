@@ -141,12 +141,6 @@ int shellTabSideMenu(const std::wstring&, int) { return 0; }  // (the side menu 
 void shellRecentMenu(bool, const std::vector<std::wstring>&, const std::wstring&) { gMenusDirty = true; }  // (the lists are the menus' own: sdl_menus.inc)
 void shellShowQuickPicker(bool, bool) { setMessage(L"This is not on this system yet"); }
 void shellMapFileOpened(const std::filesystem::path&) {}  // (the file association is Windows only)
-// The Project page's sections after Files: the Windows program's old code (project_view.inc) draws them; the SDL program
-// has no Project page yet.
-int shellPaintProjectRest(stardraft::draw::Canvas&, int y, int, int) { return y; }
-bool shellProjectRestMouse(const stardraft::draw::MouseEvent&) { return false; }
-std::wstring shellProjectRestTip(stardraft::draw::Point) { return {}; }
-stardraft::draw::Cursor shellProjectRestCursor(stardraft::draw::Point) { return stardraft::draw::Cursor::Arrow; }
 
 // When the program started (its start-up marks count from here): main() takes it first.
 std::chrono::steady_clock::time_point shellProcessStart() {
