@@ -483,7 +483,7 @@ void feedbackShowResult(FeedbackDialog& d, bool sent, long number) {
         SetWindowTextW(d.status, L"Thank you for your feedback.");
         if (number > 0) {
             d.page = L"https://github.com/" + std::wstring(crash::kRepo) + L"/issues/" + std::to_wstring(number);
-            SetWindowTextW(d.issue, (L"Open it on GitHub (#" + std::to_wstring(number) + L")").c_str());
+            SetWindowTextW(d.issue, (tr(L"Open it on GitHub (#") + std::to_wstring(number) + L")").c_str());
             ShowWindow(d.issue, SW_SHOW);
         }
     } else SetWindowTextW(d.status, L"StarDraft 2 could not send it now. It sends it when StarDraft 2 starts the next time.");

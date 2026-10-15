@@ -1862,3 +1862,140 @@ Player arrays	Массивы игроков
 Select a player array	Выберите массив игроков
  is not a player array	 не является массивом игроков
 list (or player array)	список (или массив игроков)
+New graphics for preplaced units: 	Новая графика для расставленных юнитов: 
+ unit is	 юнит
+ units are	 юнитов
+ made again at the start	 создаются заново в начале
+ preplaced unit keeps	 расставленный юнит сохраняет
+ preplaced units keep	 расставленных юнитов сохраняют
+ the old graphics: a new unit cannot be cloaked, burrowed, lifted, loaded, a hallucination, linked to an add-on or a Nydus Canal, or have interceptors or scarabs.	 старую графику: новый юнит не может быть невидимым, закопанным, поднятым, загруженным, галлюцинацией, связанным с пристройкой или Нидус-каналом, или иметь перехватчики или скарабеев.
+ of the units that are made again stands	 из создаваемых заново юнитов стоит
+ of the units that are made again stand	 из создаваемых заново юнитов стоят
+ where the game cannot put a unit. The game puts it near its place, or does not make it again.	 там, где игра не может поставить юнит. Игра ставит его рядом или не создаёт заново.
+The project 	Проект 
+ is open already	 уже открыт
+All location slots are in use	Все слоты локаций заняты
+Pinned	Закреплённые
+Right button paints 	Правая кнопка рисует 
+; left button paints 	; левая кнопка рисует 
+the terrain you click	местность, на которую вы нажимаете
+Right button: no terrain	Правая кнопка: нет местности
+Unpinned 	Откреплено: 
+Pinned to the top: 	Закреплено вверху: 
+Pinned 	Закреплено: 
+ to the top of the list	 (вверху списка)
+Pasted everything of 	Вставлено всё из 
+ values, the display and the button set	 значений, отображение и набор кнопок
+ values that this unit does not have: not pasted)	 значений, которых нет у этого юнита: не вставлены)
+Paste &everything	Вставить &всё
+ (values, display, buttons)	 (значения, отображение, кнопки)
+Loading the portrait…	Загрузка портрета…
+Name in the game (stat_txt.tbl string 	Имя в игре (строка stat_txt.tbl 
+Renamed: 	Переименовано: 
+Change the name that the game shows. Each entry that uses this string gets the new name.	Изменить имя, которое показывает игра. Каждая запись, которая использует эту строку, получает новое имя.
+Changed: show only the entries that you changed (click again to show all)	Изменённые: показать только изменённые записи (нажмите ещё раз, чтобы показать все)
+ (the current player's)	 (текущего игрока)
+Unit types	Типы юнитов
+Numbers	Числа
+" has no clear type yet (	" пока не имеет ясного типа (
+hidden text	скрытый текст
+hidden text (14)	скрытый текст (14)
+Code	Код
+Preview	Предпросмотр
+Align left	По левому краю
+Center the line (code 13)	Строка по центру (код 13)
+Align right (code 12)	По правому краю (код 12)
+: search unit types	: поиск типов юнитов
+: search the map's locations	: поиск локаций карты
+: default value	: значение по умолчанию
+Brush height: 1 to 32. Click to type a height (empty: the same as the size). The arrows and the mouse wheel change it.	Высота кисти: от 1 до 32. Нажмите, чтобы ввести высоту (пусто: как размер). Стрелки и колесо мыши меняют её.
+Diamond	Ромб
+Square	Квадрат
+Circle	Круг
+Brush shape: diamond, square or circle. Click to select one; the mouse wheel changes it.	Форма кисти: ромб, квадрат или круг. Нажмите, чтобы выбрать; колесо мыши меняет её.
+The height is the same as the size. Click to give the height a value of its own.	Высота равна размеру. Нажмите, чтобы задать высоте своё значение.
+The height has a value of its own. Click to make it the same as the size.	У высоты своё значение. Нажмите, чтобы сделать её равной размеру.
+Unit name   (empty: 	Имя юнита   (пусто: 
+Trigger 	Триггер 
+ in For each 	 в «Для каждого» 
+Turned off the triggers	Триггеры выключены
+Turned off the trigger	Триггер выключен
+Turned on the triggers	Триггеры включены
+Turned on the trigger	Триггер включён
+Deleted the triggers	Триггеры удалены
+Deleted the trigger	Триггер удалён
+Duplicated the triggers	Триггеры продублированы
+Duplicated the trigger	Триггер продублирован
+Search forces	Поиск команд
+Copied the triggers	Триггеры скопированы
+Copied the block	Блок скопирован
+Pasted the triggers	Триггеры вставлены
+Pasted the block	Блок вставлен
+For each 	Для каждого: 
+Blocks	Блоки
+Duplicate\tCtrl+D	Дублировать\tCtrl+D
+Delete\tDel	Удалить\tDel
+Copy\tCtrl+C	Копировать\tCtrl+C
+Paste\tCtrl+V	Вставить\tCtrl+V
+Edit the block…	Изменить блок…
+Move out\tCtrl+Left	Вынести\tCtrl+Left
+Move in\tCtrl+Right	Внести\tCtrl+Right
+Becomes 	Становится 
+ triggers in the map. 	 триггерами на карте. 
+Off	Выкл.
+Show the actions of the block	Показать действия блока
+Hide the actions of the block	Скрыть действия блока
+Edit the block	Изменить блок
+Move out (Ctrl+Left)	Вынести (Ctrl+Left)
+Move in (Ctrl+Right)	Внести (Ctrl+Right)
+Add an action…	Добавить действие…
+Add a condition…	Добавить условие…
+A trigger has at most 64 actions	В триггере не больше 64 действий
+A trigger has at most 16 conditions	В триггере не больше 16 условий
+Add an action to For each 	Добавить действие в «Для каждого» 
+Add an action inside the block (the end of its actions)	Добавить действие в блок (в конец его действий)
+Add a block	Добавить блок
+Save	Сохранить
+Add the block	Добавить блок
+Remove the block	Удалить блок
+Search values	Поиск значений
+A block repeats the actions in it for each value. The variable is the value of each copy.	Блок повторяет свои действия для каждого значения. Переменная — значение каждой копии.
+Variable name	Имя переменной
+Add values…	Добавить значения…
+Remove the value	Удалить значение
+Removed the block	Блок удалён
+Changed the block	Блок изменён
+Added a block	Блок добавлен
+Delete the trigger	Удалить триггер
+Forces…	Команды…
+Forces: the forces that run the trigger	Команды: команды, которые выполняют триггер
+The condition or action does nothing in the game (Turn off)	Условие или действие ничего не делает в игре (Выключить)
+The game's Always display flag for this action	Флаг игры «Всегда показывать» для этого действия
+Could not set the classic triggers. A long trigger needs a switch that no trigger uses.	Не удалось задать классические триггеры. Длинному триггеру нужен переключатель, который не использует ни один триггер.
+Show &grid	Показать с&етку
+Zoom &in	&Увеличить
+Zoom &out	У&меньшить
+&Actual size	&Реальный размер
+&Fit map	&Вписать карту
+ The total is more than the game has room for. Build stops.	 Сумма больше, чем есть места в игре. Сборка останавливается.
+Feedback is anonymous, and we publish it on our Discord server for review. Do not include sensitive or private information. Ctrl+Enter sends it.	Отзывы анонимны, мы публикуем их на нашем сервере Discord для рассмотрения. Не добавляйте личную или конфиденциальную информацию. Ctrl+Enter отправляет отзыв.
+Open the Discord server	Открыть сервер Discord
+Sending your feedback…	Отправка отзыва…
+Thank you for your feedback.	Спасибо за отзыв.
+Open it on GitHub (#	Открыть на GitHub (#
+StarDraft 2 could not send it now. It sends it when StarDraft 2 starts the next time.	StarDraft 2 не смог отправить отзыв сейчас. Он отправит его при следующем запуске StarDraft 2.
+Bright yellow (Player 10)	Ярко-жёлтый (Игрок 10)
+Pink (Player 11)	Розовый (Игрок 11)
+Hidden (the game does not show this text)	Скрыто (игра не показывает этот текст)
+. Puts its code in at the cursor.	. Вставляет код в позицию курсора.
+. Colors the selected text, or the text you type next.	. Окрашивает выделенный текст или текст, который вы введёте дальше.
+The text as the game shows it	Текст так, как его показывает игра
+The text with its codes as <XX> ("<<" is a "<")	Текст с кодами в виде <XX> ("<<" — это "<")
+New graphics for preplaced units	Новая графика для расставленных юнитов
+New graphics for preplaced units off	Новая графика для расставленных юнитов выключена
+New graphics for preplaced units on	Новая графика для расставленных юнитов включена
+The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, the map removes each preplaced unit that the edits give other graphics, and makes it again on its place at the start. The map view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground that it cannot stand on) moves near its place, or the game does not make it again.	Игра создаёт расставленные юниты до правок .dat, поэтому у них остаётся старая графика. С этим параметром карта удаляет каждый расставленный юнит, которому правки дают другую графику, и создаёт его заново на том же месте в начале. Вид карты показывает эти юниты с новой графикой. Юнит в месте, куда игра не может поставить юнит (на других юнитах или на земле, где он не может стоять), перемещается рядом, или игра не создаёт его заново.
+StarDraft 2 map	Карта StarDraft 2
+. The old program is 	. Старая программа: 
+). Type it as a number	). Введите его как число
+Triggers do not run each second, so they can miss Exactly. Use At least or At most	Триггеры выполняются не каждую секунду, поэтому могут пропустить Exactly. Используйте At least или At most

@@ -1862,3 +1862,140 @@ Player arrays	플레이어 배열
 Select a player array	플레이어 배열을 선택하십시오
  is not a player array	 은(는) 플레이어 배열이 아닙니다
 list (or player array)	목록 (또는 플레이어 배열)
+New graphics for preplaced units: 	새 그래픽(배치된 유닛): 
+ unit is	개 유닛이
+ units are	개 유닛이
+ made again at the start	 시작할 때 다시 만들어집니다
+ preplaced unit keeps	개 배치된 유닛이
+ preplaced units keep	개 배치된 유닛이
+ the old graphics: a new unit cannot be cloaked, burrowed, lifted, loaded, a hallucination, linked to an add-on or a Nydus Canal, or have interceptors or scarabs.	 이전 그래픽을 유지합니다: 새 유닛은 은폐, 잠복, 이륙, 탑승 상태이거나 환영이거나, 애드온 또는 땅굴 망과 연결되거나, 요격기나 스캐럽을 가질 수 없습니다.
+ of the units that are made again stands	개의 다시 만들어지는 유닛이
+ of the units that are made again stand	개의 다시 만들어지는 유닛이
+ where the game cannot put a unit. The game puts it near its place, or does not make it again.	 게임이 유닛을 놓을 수 없는 곳에 있습니다. 게임은 유닛을 그 근처에 놓거나, 다시 만들지 않습니다.
+The project 	프로젝트 
+ is open already	이(가) 이미 열려 있습니다
+All location slots are in use	모든 위치 슬롯을 사용 중입니다
+Pinned	고정됨
+Right button paints 	오른쪽 버튼: 
+; left button paints 	; 왼쪽 버튼: 
+the terrain you click	클릭한 지형
+Right button: no terrain	오른쪽 버튼: 지형 없음
+Unpinned 	고정 해제: 
+Pinned to the top: 	맨 위에 고정: 
+Pinned 	고정: 
+ to the top of the list	 (목록 맨 위)
+Pasted everything of 	모두 붙여넣음: 
+ values, the display and the button set	개 값, 표시와 버튼 세트
+ values that this unit does not have: not pasted)	개 값은 이 유닛에 없어 붙여넣지 않음)
+Paste &everything	모두 붙여넣기(&E)
+ (values, display, buttons)	 (값, 표시, 버튼)
+Loading the portrait…	초상화를 불러오는 중…
+Name in the game (stat_txt.tbl string 	게임 안의 이름 (stat_txt.tbl 문자열 
+Renamed: 	이름 바꿈: 
+Change the name that the game shows. Each entry that uses this string gets the new name.	게임이 표시하는 이름을 바꿉니다. 이 문자열을 사용하는 모든 항목이 새 이름을 받습니다.
+Changed: show only the entries that you changed (click again to show all)	변경됨: 변경한 항목만 표시합니다 (다시 클릭하면 모두 표시)
+ (the current player's)	 (현재 플레이어의 값)
+Unit types	유닛 종류
+Numbers	숫자
+" has no clear type yet (	"의 형식이 아직 명확하지 않습니다 (
+hidden text	숨겨진 텍스트
+hidden text (14)	숨겨진 텍스트 (14)
+Code	코드
+Preview	미리 보기
+Align left	왼쪽 맞춤
+Center the line (code 13)	줄 가운데 맞춤 (코드 13)
+Align right (code 12)	오른쪽 맞춤 (코드 12)
+: search unit types	: 유닛 종류 검색
+: search the map's locations	: 맵의 위치 검색
+: default value	: 기본값
+Brush height: 1 to 32. Click to type a height (empty: the same as the size). The arrows and the mouse wheel change it.	브러시 높이: 1~32. 클릭하여 높이를 입력합니다 (비우면 크기와 같음). 화살표와 마우스 휠로 바꿉니다.
+Diamond	마름모
+Square	정사각형
+Circle	원
+Brush shape: diamond, square or circle. Click to select one; the mouse wheel changes it.	브러시 모양: 마름모, 정사각형 또는 원. 클릭하여 선택합니다. 마우스 휠로 바꿉니다.
+The height is the same as the size. Click to give the height a value of its own.	높이가 크기와 같습니다. 클릭하면 높이에 따로 값을 줍니다.
+The height has a value of its own. Click to make it the same as the size.	높이에 따로 값이 있습니다. 클릭하면 크기와 같게 합니다.
+Unit name   (empty: 	유닛 이름   (비우면: 
+Trigger 	트리거 
+ in For each 	 (각 항목마다: 
+Turned off the triggers	트리거를 껐습니다
+Turned off the trigger	트리거를 껐습니다
+Turned on the triggers	트리거를 켰습니다
+Turned on the trigger	트리거를 켰습니다
+Deleted the triggers	트리거를 삭제했습니다
+Deleted the trigger	트리거를 삭제했습니다
+Duplicated the triggers	트리거를 복제했습니다
+Duplicated the trigger	트리거를 복제했습니다
+Search forces	포스 검색
+Copied the triggers	트리거를 복사했습니다
+Copied the block	블록을 복사했습니다
+Pasted the triggers	트리거를 붙여넣었습니다
+Pasted the block	블록을 붙여넣었습니다
+For each 	각 항목마다: 
+Blocks	블록
+Duplicate\tCtrl+D	복제\tCtrl+D
+Delete\tDel	삭제\tDel
+Copy\tCtrl+C	복사\tCtrl+C
+Paste\tCtrl+V	붙여넣기\tCtrl+V
+Edit the block…	블록 편집…
+Move out\tCtrl+Left	밖으로 이동\tCtrl+Left
+Move in\tCtrl+Right	안으로 이동\tCtrl+Right
+Becomes 	맵에서 
+ triggers in the map. 	개의 트리거가 됩니다. 
+Off	끔
+Show the actions of the block	블록의 동작 표시
+Hide the actions of the block	블록의 동작 숨기기
+Edit the block	블록 편집
+Move out (Ctrl+Left)	밖으로 이동 (Ctrl+Left)
+Move in (Ctrl+Right)	안으로 이동 (Ctrl+Right)
+Add an action…	동작 추가…
+Add a condition…	조건 추가…
+A trigger has at most 64 actions	트리거의 동작은 최대 64개입니다
+A trigger has at most 16 conditions	트리거의 조건은 최대 16개입니다
+Add an action to For each 	동작 추가 - 각 항목마다: 
+Add an action inside the block (the end of its actions)	블록 안에 동작 추가 (동작의 끝)
+Add a block	블록 추가
+Save	저장
+Add the block	블록 추가
+Remove the block	블록 제거
+Search values	값 검색
+A block repeats the actions in it for each value. The variable is the value of each copy.	블록은 각 값마다 안의 동작을 반복합니다. 변수는 각 복사본의 값입니다.
+Variable name	변수 이름
+Add values…	값 추가…
+Remove the value	값 제거
+Removed the block	블록을 제거했습니다
+Changed the block	블록을 변경했습니다
+Added a block	블록을 추가했습니다
+Delete the trigger	트리거 삭제
+Forces…	포스…
+Forces: the forces that run the trigger	포스: 트리거를 실행하는 포스
+The condition or action does nothing in the game (Turn off)	이 조건 또는 동작은 게임에서 아무것도 하지 않습니다 (끄기)
+The game's Always display flag for this action	이 동작에 대한 게임의 항상 표시 플래그
+Could not set the classic triggers. A long trigger needs a switch that no trigger uses.	클래식 트리거를 설정할 수 없습니다. 긴 트리거에는 어떤 트리거도 사용하지 않는 스위치가 필요합니다.
+Show &grid	격자 표시(&G)
+Zoom &in	확대(&I)
+Zoom &out	축소(&O)
+&Actual size	실제 크기(&A)
+&Fit map	맵 맞춤(&F)
+ The total is more than the game has room for. Build stops.	 합계가 게임의 공간보다 큽니다. 빌드가 멈춥니다.
+Feedback is anonymous, and we publish it on our Discord server for review. Do not include sensitive or private information. Ctrl+Enter sends it.	피드백은 익명이며, 검토를 위해 Discord 서버에 게시됩니다. 민감한 정보나 개인 정보를 넣지 마십시오. Ctrl+Enter로 보냅니다.
+Open the Discord server	Discord 서버 열기
+Sending your feedback…	피드백을 보내는 중…
+Thank you for your feedback.	피드백을 보내 주셔서 감사합니다.
+Open it on GitHub (#	GitHub에서 열기 (#
+StarDraft 2 could not send it now. It sends it when StarDraft 2 starts the next time.	StarDraft 2가 지금 보낼 수 없습니다. StarDraft 2가 다음에 시작할 때 보냅니다.
+Bright yellow (Player 10)	밝은 노랑 (플레이어 10)
+Pink (Player 11)	분홍 (플레이어 11)
+Hidden (the game does not show this text)	숨김 (게임이 이 텍스트를 표시하지 않음)
+. Puts its code in at the cursor.	. 커서 위치에 코드를 넣습니다.
+. Colors the selected text, or the text you type next.	. 선택한 텍스트나 다음에 입력할 텍스트에 색을 입힙니다.
+The text as the game shows it	게임이 표시하는 텍스트
+The text with its codes as <XX> ("<<" is a "<")	코드를 <XX>로 표시한 텍스트 ("<<"는 "<")
+New graphics for preplaced units	배치된 유닛의 새 그래픽
+New graphics for preplaced units off	배치된 유닛의 새 그래픽 끔
+New graphics for preplaced units on	배치된 유닛의 새 그래픽 켬
+The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, the map removes each preplaced unit that the edits give other graphics, and makes it again on its place at the start. The map view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground that it cannot stand on) moves near its place, or the game does not make it again.	게임은 .dat 편집보다 먼저 배치된 유닛을 만들므로, 그 유닛은 이전 그래픽을 유지합니다. 이 옵션을 켜면 맵은 편집으로 그래픽이 바뀐 배치된 유닛을 제거하고, 시작할 때 같은 자리에 다시 만듭니다. 맵 보기는 이 유닛을 새 그래픽으로 표시합니다. 게임이 유닛을 놓을 수 없는 곳(다른 유닛 위나 설 수 없는 땅)에 있는 유닛은 근처로 옮겨지거나, 게임이 다시 만들지 않습니다.
+StarDraft 2 map	StarDraft 2 맵
+. The old program is 	. 이전 프로그램: 
+). Type it as a number	). 숫자로 입력하십시오
+Triggers do not run each second, so they can miss Exactly. Use At least or At most	트리거는 매초 실행되지 않으므로 Exactly를 놓칠 수 있습니다. At least 또는 At most를 사용하십시오

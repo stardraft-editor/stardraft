@@ -275,7 +275,7 @@ std::wstring newProblem() {
         std::error_code ec;
         const std::wstring map = newText(gNew.fromMap);
         if (gNew.terrainOnly && map.empty()) return L"Select the map whose terrain to use";
-        if (gNew.terrainOnly && !fs::is_regular_file(fs::path(map), ec)) return L"The map " + map + L" is not found";
+        if (gNew.terrainOnly && !fs::is_regular_file(fs::path(map), ec)) return tr(L"The map ") + map + tr(L" is not found");
         return L"";
     }
     const std::wstring name = newText(gNew.name);
@@ -861,7 +861,7 @@ void startRemove(bool project, size_t i) {
     const std::wstring name = fs::path(list[i]).filename().wstring();
     list.erase(list.begin() + long(i));
     saveRecent(), refreshRecentMenus();
-    setMessage(L"Removed " + name + L" from the list");
+    setMessage(tr(L"Removed ") + name + tr(L" from the list"));
     if (gNew.wnd) InvalidateRect(gNew.wnd, nullptr, FALSE);
 }
 

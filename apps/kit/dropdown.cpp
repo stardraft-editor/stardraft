@@ -1,8 +1,11 @@
 #include "dropdown.h"
 
 #include <algorithm>
+#include <chrono>
+#include <cwctype>
 #include <memory>
 
+#include "text_model.h"
 #include "theme.h"
 
 namespace stardraft::kit {
@@ -84,6 +87,34 @@ public:
         }
     }
 
+    // Typed letters jump to the next item whose label starts with them, as a combo box's list does. The letters
+    // count on for a second after the last one; one letter typed again (or the same one over and over) moves on to
+    // the next item that starts with it.
+    bool text(const draw::TextEvent& e) override {
+        const int n = int(items_.size());
+        const std::wstring typed = fromUtf8(e.utf8);
+        if (!n || typed.empty() || typed.find_first_of(L" \t\r\n") != std::wstring::npos) return false;
+        const auto now = std::chrono::steady_clock::now();
+        if (now - typedAt_ > std::chrono::seconds(1)) typed_.clear();
+        typedAt_ = now;
+        typed_ += typed;
+        const bool again = std::all_of(typed_.begin(), typed_.end(), [&](wchar_t c) { return c == typed_[0]; });
+        const std::wstring prefix = again ? std::wstring(1, typed_[0]) : typed_;
+        const int from = again ? hot_ + 1 : std::max(hot_, 0);
+        for (int k = 0; k < n; ++k) {
+            const int i = (from + k) % n;
+            const std::wstring& label = items_[size_t(i)].label;
+            if (label.size() >= prefix.size() &&
+                std::equal(prefix.begin(), prefix.end(), label.begin(), [](wchar_t a, wchar_t b) {
+                    return std::towlower(a) == std::towlower(b);
+                })) {
+                if (i != hot_) setHot(i);
+                break;
+            }
+        }
+        return true;
+    }
+
     bool key(const KeyEvent& e) override {
         if (!e.down) return false;
         const int n = int(items_.size());
@@ -129,9 +160,13 @@ private:
     std::vector<DropdownItem> items_;
     int current_ = -1, hot_ = -1, top_ = 0;
     float wheelAcc_ = 0;  // the wheel's notches that are not a whole one yet
+    std::wstring typed_;  // the letters typed in the last second
+    std::chrono::steady_clock::time_point typedAt_;
     std::function<void(int)> pick_;
     std::function<void()> cancel_;
 };
+
+Dropdown::Dropdown() = default;
 
 Dropdown::Dropdown(std::vector<DropdownItem> items, int value) : items_(std::move(items)), value_(value) {
     if (value_ >= int(items_.size())) value_ = -1;
