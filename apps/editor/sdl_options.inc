@@ -94,6 +94,22 @@ void showAboutSdl() {
                       [] { gAboutOpen = false; });
 }
 
+// View > Control kit (core/views_kit_gallery.inc; one window). The page scrolls with the mouse wheel; no entry icons and
+// no multi-pick list here yet.
+KitGalleryView gKitView;
+bool gKitOpen = false;
+void showKitGallerySdl() {
+    if (!gRoot || gKitOpen) return;
+    gKitOpen = true;
+    gKitView.scroll = 0;
+    gKitView.pickValues = [] {
+        setMessage(L"This is not on this system yet");
+        return false;
+    };
+    const int h = std::min(scale(1000), std::max(scale(300), gRoot->height() - scale(80)));
+    gHost->openWindow(*gRoot, gKitView, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect(0, 0, scale(1180), h), L"Control kit"}, [] { gKitOpen = false; });
+}
+
 // The feedback dialog's part of the program: sending is not on this system yet (the text stays in the dialog), the links.
 class FeedbackProgramSdl final : public FeedbackHost {
 public:
