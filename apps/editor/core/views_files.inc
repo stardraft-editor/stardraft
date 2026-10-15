@@ -52,6 +52,8 @@ public:
 
     // The program sets the search text and the selection (the self-tests' "files:" steps).
     void setSearch(std::wstring t) { search_.setText(std::move(t)); }
+    // The search box has the keyboard: the message loop leaves the typed keys to it (as to an edit control).
+    bool typing() { return search_.field().hasFocus(); }
     void setSelected(std::string name) {
         selected_ = std::move(name);
         invalidate();
@@ -220,9 +222,12 @@ private:
         invalidate();
     }
     // The Play button's state follows the sound: the page asks every 200 ms while one plays, then it shows Play again.
+    // One timer at a time: a new one cancels the old one, so a burst of Play clicks or key repeats starts one chain.
     void armPreviewTimer() {
         if (!host()) return;
-        host()->timer(200, [this] {
+        if (previewTimer_) host()->cancelTimer(previewTimer_);
+        previewTimer_ = host()->timer(200, [this] {
+            previewTimer_ = 0;
             if (svc().previewPlaying(svc().previewedName())) armPreviewTimer();
             invalidate();
         });
@@ -266,7 +271,10 @@ private:
     bool hasPointer_ = false;
     std::vector<Row> rows_;   // the rows of the last paint
     std::vector<Side> side_;  // the briefing links of the last paint
+    int previewTimer_ = 0;    // the Play button's timer (armPreviewTimer)
 };
+
+extern FilesPage gFilesPage;  // the Files workspace's instance (files_view.inc)
 
 void FilesPage::paint(draw::Canvas& c) {
     const int w = width(), h = height();
@@ -479,6 +487,7 @@ bool FilesPage::mouse(const draw::MouseEvent& e) {
 
 bool FilesPage::key(const draw::KeyEvent& e) {
     if (!e.down || e.key != draw::Key::Space || selected_.empty()) return false;
+    if (typing() || importBtn_.hasFocus() || renameBtn_.hasFocus()) return false;  // the field takes the space; a button its own press
     togglePlay(selected_);  // Space: the selected sound plays, or stops
     return true;
 }
