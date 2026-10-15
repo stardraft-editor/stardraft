@@ -35,6 +35,7 @@
 #include "data_list.inc"
 #include "views_data.inc"
 #include "views_data_form.inc"
+#include "views_data_requirements.inc"
 #include "views_search.inc"
 #include "sound_lists.inc"
 #include "views_files.inc"

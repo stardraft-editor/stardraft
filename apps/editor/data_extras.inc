@@ -410,25 +410,13 @@ int capacityBar(HDC dc, const FormLayout& l, int y, size_t used, size_t room, co
 
 // --- Requirements section (Units, Upgrades, Tech Data, Orders) ------------------------------------------------
 
-std::wstring opName(const RequirementOp& r) {
-    if (r.op < 0x100) return L"Must have";
-    if (r.op == 0xFFFF) return L"End of the level's list";
-    const RequirementOpDef* d = Requirements::op(r.op);
-    return d ? widen(d->name) : L"Step 0x" + std::to_wstring(r.op);
-}
-const char* opArgKind(const RequirementOp& r) {
-    if (r.op < 0x100) return "units";
-    const RequirementOpDef* d = Requirements::op(r.op);
-    return d ? d->arg : nullptr;
-}
-
 // Picks a step: the opcodes, then "End of the level's list". `then` gets the new step.
 void pickRequirementOp(RECT box, uint16_t current, std::function<void(RequirementOp)> then) {
     std::vector<ListPickItem> items;
     for (const auto& d : Requirements::ops()) items.push_back({widen(d.name), L"", std::to_string(d.op)});
     items.push_back({L"End of the level's list", L"", std::to_string(0xFFFF)});
     std::string picked;
-    if (!showListPicker(L"Step", items, std::to_string(current < 0x100 ? 0xFF03 : current), belowBox(box), picked)) return;
+    if (!showListPicker(L"Step", items, std::to_string(requirementPickerCurrent(current)), belowBox(box), picked)) return;
     then({uint16_t(std::stoul(picked)), 0});
 }
 
@@ -442,11 +430,7 @@ int paintRequirementList(HDC dc, const FormLayout& l, int k, int entry, int y) {
         gExtras.reqs.set(k, entry, std::move(n));
         extrasChanged();
     };
-    // The four ways, as EUD Editor has them (ReqModule: default, not used, always allow, custom):
-    //   Default: the game's list. Always: an empty list (nothing is needed). Disabled: no list (the offset is 0).
-    //   Custom: the steps below.
-    enum { kDefault, kAlways, kDisabled, kCustom };
-    const int mode = !changed ? kDefault : !list.used ? kDisabled : list.ops.empty() ? kAlways : kCustom;
+    const int mode = requirementWay(changed, list);  // the four ways (core/views_data_requirements.inc)
     {
         fieldLabel(dc, l, y, L"Use", changed);
         struct Way {
@@ -466,20 +450,12 @@ int paintRequirementList(HDC dc, const FormLayout& l, int k, int entry, int y) {
             const RECT b{r.left, (r.top + r.bottom - s) / 2, r.left + s, (r.top + r.bottom - s) / 2 + s};
             ui::radioMark(dc, b, mode == w, ui::hot(r));
             RECT t{b.right + scale(8), r.top, r.right, r.bottom};
-            SetTextColor(dc, mode == w ? (w == kDefault ? kText : kGood) : ui::hot(r) ? kText : kDim);
+            SetTextColor(dc, mode == w ? (w == kReqDefault ? kText : kGood) : ui::hot(r) ? kText : kDim);
             DrawTextW(dc, ways[w].name, -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
             hitsOut().push_back({r, nullptr,
                                  [k, entry, w, mode, setList] {
-                                     const RequirementList& st = gExtras.reqs.stock(k, entry);
                                      RequirementList n;
-                                     if (w == kDefault) n = st;
-                                     else if (w == kAlways) n.used = true;
-                                     else if (w == kDisabled) n.used = false;
-                                     else {  // Custom: from the game's list (an empty one when it has none)
-                                         if (mode == kCustom) return;
-                                         n = st.used && !st.ops.empty() ? st : RequirementList{true, {}};
-                                     }
-                                     setList(n);
+                                     if (requirementListForWay(w, mode, gExtras.reqs.stock(k, entry), n)) setList(n);
                                  },
                                  ways[w].tip, IDC_HAND, {}});
             x = r.right + scale(18);
@@ -487,20 +463,15 @@ int paintRequirementList(HDC dc, const FormLayout& l, int k, int entry, int y) {
         y += l.rowH;
     }
     if (list.used) {  // the steps (Default and Always show them too: a change makes it Custom)
-        int level = 0;
+        const std::vector<int> levels = requirementLevels(list.ops);
         for (size_t i = 0; i < list.ops.size(); ++i) {
             const RequirementOp& r = list.ops[i];
-            if (r.op == 0xFFFF) level = 0;
-            const int indent = scale(level ? 22 : 0);
+            const int indent = scale(levels[i] ? 22 : 0);
             const bool end = r.op == 0xFFFF;
             RECT opBox{l.x0 + indent, y + scale(2), l.x0 + l.labelW - scale(12), y + l.rowH - scale(2)};
-            pickBox(dc, opBox, opName(r), false, [k, entry, i](RECT b) {
+            pickBox(dc, opBox, requirementOpName(r), false, [k, entry, i](RECT b) {
                 pickRequirementOp(b, gExtras.reqs.list(k, entry).ops[i].op, [k, entry, i](RequirementOp n) {
-                    RequirementList l2 = gExtras.reqs.list(k, entry);
-                    const RequirementOp old = l2.ops[i];
-                    if (opArgKind(n) && opArgKind(old) && std::string(opArgKind(n)) == opArgKind(old)) n.arg = old.op < 0x100 ? old.op : old.arg;
-                    l2.ops[i] = n;
-                    gExtras.reqs.set(k, entry, l2);
+                    gExtras.reqs.set(k, entry, requirementWithOp(gExtras.reqs.list(k, entry), i, n));
                     extrasChanged();
                 });
             });
@@ -509,38 +480,29 @@ int paintRequirementList(HDC dc, const FormLayout& l, int k, int entry, int y) {
                 fillAlpha(dc, opBox, kBg, 120);
                 (void)e;
             }
-            if (const char* ak = opArgKind(r)) {
-                const int v = r.op < 0x100 ? r.op : r.arg;
+            if (const char* ak = requirementOpArgKind(r)) {
+                const int v = requirementOpValue(r);
                 RECT argBox{l.x0 + l.labelW, y + scale(2), l.x0 + l.labelW + scale(320), y + l.rowH - scale(2)};
                 pickBox(dc, argBox, argName(ak, v), false,
                         [k, entry, i, ak](RECT b) {
                             std::string picked;
                             const RequirementOp cur = gExtras.reqs.list(k, entry).ops[i];
-                            if (!showListPicker(L"Value", entryItems(ak), std::to_string(cur.op < 0x100 ? cur.op : cur.arg), belowBox(b), picked)) return;
-                            RequirementList l2 = gExtras.reqs.list(k, entry);
-                            RequirementOp& n = l2.ops[i];
-                            if (n.op < 0x100) n.op = 0xFF03;  // "must have" with its value
-                            n.arg = uint16_t(std::stoul(picked));
-                            gExtras.reqs.set(k, entry, l2);
+                            if (!showListPicker(L"Value", entryItems(ak), std::to_string(requirementOpValue(cur)), belowBox(b), picked)) return;
+                            gExtras.reqs.set(k, entry, requirementWithArg(gExtras.reqs.list(k, entry), i, uint16_t(std::stoul(picked))));
                             extrasChanged();
                         },
                         L"", argIcon(ak, v), v, openEntry(ak, v));
             }
             removeCross(dc, {l.x0, y, l.colRight, y + l.rowH}, {l.colRight - scale(24), y, l.colRight, y + l.rowH}, [k, entry, i] {
-                RequirementList l2 = gExtras.reqs.list(k, entry);
-                l2.ops.erase(l2.ops.begin() + long(i));
-                gExtras.reqs.set(k, entry, l2);
+                gExtras.reqs.set(k, entry, requirementWithoutStep(gExtras.reqs.list(k, entry), i));
                 extrasChanged();
             }, L"Remove the step");
-            if (r.op == 0xFF1F || r.op == 0xFF20 || r.op == 0xFF21) level = 1;  // a level's list follows (level 3 and more: to the end)
             y += l.rowH;
         }
         const int ay = y;
         const int ax = linkButton(dc, l.x0, y, l.rowH, L"Add a step", [k, entry, ay] {
             pickRequirementOp({scale(18), ay, scale(218), ay + scale(26)}, 0xFF03, [k, entry](RequirementOp n) {
-                RequirementList l2 = gExtras.reqs.list(k, entry);
-                l2.ops.push_back(n);
-                gExtras.reqs.set(k, entry, l2);
+                gExtras.reqs.set(k, entry, requirementWithNewStep(gExtras.reqs.list(k, entry), n));
                 extrasChanged();
             });
         });
