@@ -221,10 +221,11 @@ namespace {
 std::string fileUrl(const std::filesystem::path& p) {
     std::error_code ec;
     const std::string s = narrow(std::filesystem::absolute(p, ec).generic_wstring());
-    std::string url = "file://";
+    // file:///C:/... on Windows (a drive path gets the third slash; its colon stays), file:///home/... elsewhere.
+    std::string url = s.empty() || s[0] != '/' ? "file:///" : "file://";
     static const char* const kHex = "0123456789ABCDEF";
     for (const unsigned char ch : s) {
-        if (std::isalnum(ch) || ch == '/' || ch == '-' || ch == '_' || ch == '.' || ch == '~') url += char(ch);
+        if (std::isalnum(ch) || ch == '/' || ch == '-' || ch == '_' || ch == '.' || ch == '~' || ch == ':') url += char(ch);
         else url += '%', url += kHex[ch >> 4], url += kHex[ch & 15];
     }
     return url;

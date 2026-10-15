@@ -14,8 +14,12 @@ struct SdlProjectWorkspace final : draw::View {
     }
     void resized() override {
         gProjView.setFrame({0, 0, width(), height()});
-        projectPreviewRefresh(true);  // (placed, and its text read: the first size comes after the workspace showed)
+        // The page's pageResized places the preview (and reads the text only when the selection changed). The first
+        // size comes after the workspace showed, so that one reads the text again.
+        if (!sized_) sized_ = true, projectPreviewRefresh(true);
+        else projectPreviewRefresh();
     }
+    bool sized_ = false;
     void paint(draw::Canvas& c) override { c.fill({0, 0, width(), height()}, kBg); }
 };
 SdlProjectWorkspace gSdlProject;
