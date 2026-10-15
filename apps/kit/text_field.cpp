@@ -293,7 +293,7 @@ size_t TextField::caretFromPoint(draw::Point pt) const {
     return modelOf(posAtX(li, pt.x - in.left + scrollX_));
 }
 
-draw::Rect TextField::inner() const { return draw::Rect{padX(), padY(), width() - padX(), height() - padY()}; }
+draw::Rect TextField::inner() const { return draw::Rect{padX(), padY(), width() - padX() - trailing_, height() - padY()}; }
 
 int TextField::lineTop(size_t li) const {
     const draw::Rect in = inner();
@@ -504,6 +504,7 @@ void TextField::paste() {
 
 bool TextField::mouse(const draw::MouseEvent& e) {
     using draw::MouseKind;
+    if (inTrailing(e.pt) && !dragging_) return false;  // the room at the right edge belongs to the parent (see setTrailing)
     const bool inside = draw::Rect{0, 0, width(), height()}.contains(e.pt);
     switch (e.kind) {
     case MouseKind::Move:
