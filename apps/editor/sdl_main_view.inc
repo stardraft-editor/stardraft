@@ -124,6 +124,7 @@ struct MapView final : draw::View {
         switch (e.kind) {
         case draw::MouseKind::Down:
         case draw::MouseKind::DoubleClick: {
+            focus();  // the map takes the keyboard back from a text field or a list (the map is not focusable itself)
             if (e.button == 2) {  // middle: pan
                 panning = true, last = e.pt;
                 if (draw::Host* h = host()) h->capture(*this, true);
@@ -245,8 +246,15 @@ struct MainView final : draw::View {
     }
 
     void resized() override { relayout(); }
-    // The menus' keys run when no view takes the key (the focused view first, then up to here).
-    bool key(const draw::KeyEvent& e) override { return shortcutRun(e); }
+    // The menus' keys run when no view takes the key (the focused view first, then up to here). A search box takes the
+    // letters and digits it types: the map's one-letter shortcuts (T, U, G, Q...) wait while it has the keyboard.
+    bool key(const draw::KeyEvent& e) override {
+        const int k = int(e.key);
+        const bool typed = (k >= 'A' && k <= 'Z') || (k >= '0' && k <= '9');
+        const bool typing = gSearchSdl.field().hasFocus() || gFilterSdl.field().hasFocus();
+        if (typing && typed && !(e.mods & (draw::kCtrl | draw::kAlt))) return false;
+        return shortcutRun(e);
+    }
 
     // The modes' bar: at the top bar's right, after the menus (the menus take the left).
     RECT modeBarRect() const {

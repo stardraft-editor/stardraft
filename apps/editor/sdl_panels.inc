@@ -9,6 +9,23 @@ Mode gPanelTab[2] = {Mode::Terrain, Mode::Units};    // the tab each side shows
 Mode gLastOnSide[2] = {Mode::Terrain, Mode::Units};  // the mode last used on each side (left, right)
 bool gPal2Shown = false;                             // the second palette (the other side) was shown
 Mode gPal2Mode = Mode::Units;                        // ... and the mode it showed
+std::vector<int> gPal2Chosen;                        // the second palette's picks (its own list, as the Win32 program's)
+
+// The second palette's pick runs in its mode with its own picks, and the left palette's mode and pick stay (the Win32
+// program's SecondPaletteScope): the mode and the picks are swapped for the call.
+struct SecondPaletteScope {
+    int savedPalette;
+    SecondPaletteScope() : savedPalette(gState.palette) {
+        std::swap(gState.mode, gPal2Mode);
+        std::swap(shellPaletteChosen(), gPal2Chosen);
+        gState.palette = -1;
+    }
+    ~SecondPaletteScope() {
+        std::swap(gState.mode, gPal2Mode);
+        std::swap(shellPaletteChosen(), gPal2Chosen);
+        gState.palette = savedPalette;
+    }
+};
 
 // A row of a palette: an item (value), or a section's name (value -1: a header that picks nothing).
 struct PanelRow {
@@ -25,7 +42,8 @@ std::wstring gPalSection;                 // the section the palette shows ("" i
 void invalidateMapView();  // (sdl_main_view.inc: the map view is drawn again)
 
 // The palette's list: a click picks the item under it (Ctrl adds to the pick, as Win32), a header row picks nothing.
-// The second palette's click goes to its mode first and picks there.
+// The second palette's click picks in its own mode (SecondPaletteScope). A pick gives the keyboard to the map (as Win32's
+// SetFocus on the view), so the map's keys and undo run after it.
 struct PalettePanel final : kit::ListView {
     bool second = false;
     bool mouse(const draw::MouseEvent& e) override {
@@ -36,11 +54,27 @@ struct PalettePanel final : kit::ListView {
         if (row >= 0 && row < int(rows.size()) && rows[size_t(row)].value >= 0) {
             const int v = rows[size_t(row)].value;
             const bool add = (e.mods & draw::kCtrl) != 0;
-            if (second && gState.mode != gPal2Mode) ::setMode(gPal2Mode);
-            pickUnit(gState, v, add);
+            if (second) {
+                SecondPaletteScope scope;
+                pickUnit(gState, v, add);
+            } else {
+                pickUnit(gState, v, add);
+            }
             invalidate();
             invalidateMapView();
+            shellFocusView();
         }
+        return handled;
+    }
+};
+
+// The Locations list: a click on a row picks it and gives the keyboard to the map (the keys' own list moves keep it).
+struct LocationListPanel final : kit::ListView {
+    bool mouse(const draw::MouseEvent& e) override {
+        const bool down = e.kind == draw::MouseKind::Down && e.button == 0;
+        const int row = down ? rowAt(e.pt) : -1;
+        const bool handled = kit::ListView::mouse(e);
+        if (row >= 0) shellFocusView();
         return handled;
     }
 };
@@ -49,7 +83,7 @@ struct PalettePanel final : kit::ListView {
 // The palette's list and the second palette, the Locations list, the owner, the filter, the search and the section box,
 // and the View button. The views are the MainView's children (sdl_main_view.inc places them).
 PalettePanel gPalList, gPal2List;
-kit::ListView gLocList;
+LocationListPanel gLocList;
 kit::Dropdown gOwnerBox;
 SearchBox gFilterSdl;   // the Locations filter
 SearchBox gSearchSdl;   // the palette's search
@@ -108,7 +142,9 @@ void fillSectionBox(const std::vector<std::wstring>& names) {
 }
 
 // The row's look: a pick (the palette's choice) is the selection color; a header is dim.
-void paintPanelRow(draw::Canvas& c, const std::vector<PanelRow>& rows, int i, draw::Rect r, kit::RowState s) {
+// `chosen` and `palette` are the palette's own picks (the second palette's are its own, not the active mode's).
+void paintPanelRow(draw::Canvas& c, const std::vector<PanelRow>& rows, const std::vector<int>& chosen, int palette, int i,
+                   draw::Rect r, kit::RowState s) {
     if (i < 0 || i >= int(rows.size())) return;
     const PanelRow& row = rows[size_t(i)];
     const int pad = scale(8);
@@ -117,8 +153,7 @@ void paintPanelRow(draw::Canvas& c, const std::vector<PanelRow>& rows, int i, dr
         c.text(text, row.label, kDim, draw::kMiddle);
         return;
     }
-    const std::vector<int>& chosen = shellPaletteChosen();
-    const bool picked = gState.palette == row.value || std::find(chosen.begin(), chosen.end(), row.value) != chosen.end();
+    const bool picked = palette == row.value || std::find(chosen.begin(), chosen.end(), row.value) != chosen.end();
     if (picked) c.fill(r, kSel);
     else if (s.hot) c.fill(r, kRowHot);
     c.text(text, row.label, picked ? kAccent : kText, draw::kMiddle);
@@ -176,8 +211,12 @@ void initPanels() {
     gPal2List.second = true;
     gPalList.setEmptyHint(shellTr(L"Nothing to list"));
     gPal2List.setEmptyHint(shellTr(L"Nothing to list"));
-    gPalList.paintRow = [](draw::Canvas& c, int i, draw::Rect r, kit::RowState s) { paintPanelRow(c, gPalRows, i, r, s); };
-    gPal2List.paintRow = [](draw::Canvas& c, int i, draw::Rect r, kit::RowState s) { paintPanelRow(c, gPal2Rows, i, r, s); };
+    gPalList.paintRow = [](draw::Canvas& c, int i, draw::Rect r, kit::RowState s) {
+        paintPanelRow(c, gPalRows, shellPaletteChosen(), gState.palette, i, r, s);
+    };
+    gPal2List.paintRow = [](draw::Canvas& c, int i, draw::Rect r, kit::RowState s) {
+        paintPanelRow(c, gPal2Rows, gPal2Chosen, -1, i, r, s);
+    };
     gLocList.label = [](int i) { return i >= 0 && i < int(gListRows.size()) ? gListRows[size_t(i)] : std::wstring(); };
     gLocList.setMode(kit::SelectMode::Multiple);
     gLocList.onSelect = [] { locationListPicked(); };
@@ -186,7 +225,10 @@ void initPanels() {
     for (int i = 0; i < 12; ++i) owners.push_back({L"Player " + std::to_wstring(i + 1) + (i == 11 ? L" (neutral)" : L"")});
     gOwnerBox.setItems(std::move(owners));
     gOwnerBox.setValue(0);
-    gOwnerBox.onChange = [](int i) { setPlayer(gState, i); };
+    gOwnerBox.onChange = [](int i) {
+        setPlayer(gState, i);
+        shellFocusView();  // (the keyboard goes to the map after a pick, as Win32's SetFocus on the view)
+    };
 
     gFilterSdl.setPlaceholder(L"Filter");
     gFilterSdl.onChange = [] { rebuildList(gState); };
