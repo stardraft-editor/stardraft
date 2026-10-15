@@ -355,4 +355,21 @@ std::wstring shellCodePageText(const std::string& bytes) { return widen(bytes); 
 std::wstring shellInstallFolderText() {
     std::wstring saved;
     return prefs::text(L"StarCraftFolder", saved) ? saved : std::wstring();
+
+// A pop-out: the host's modal window over the main window (a click outside does not close it yet: Esc and its own
+// buttons do).
+void shellRunPopout(stardraft::draw::View& content, int x, int y, int w, int h, stardraft::draw::View* focus, const std::function<void()>& opened) {
+    if (!gHost || !gRoot) return;
+    // The timer does nothing once the pop-out is gone (runModal can return before its loop runs, and the content and
+    // its focus are the caller's).
+    auto alive = std::make_shared<bool>(true);
+    gHost->timer(1, [focus, opened, weak = std::weak_ptr<bool>(alive)] {  // (once the window shows)
+        if (weak.expired()) return;
+        if (focus) focus->focus();
+        if (opened) opened();
+    });
+    gHost->runModal(*gRoot, content, stardraft::draw::WindowSpec{stardraft::draw::WindowKind::Popup, stardraft::draw::Rect{x, y, x + w, y + h}, L""});
+}
+void shellClosePopout(stardraft::draw::View& content) {
+    if (gHost) gHost->closeWindow(content);
 }

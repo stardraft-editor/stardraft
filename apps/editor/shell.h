@@ -188,3 +188,9 @@ void shellLogError(const std::wstring& line);
 std::wstring shellCodePageText(const std::string& bytes);
 // The StarCraft folder that StarDraft reads game data from, as saved; empty when it is found by itself.
 std::wstring shellInstallFolderText();
+// A pop-out (the list picker, core/views_list_pick.inc): `content` in a window w x h (with its frame) at (x, y) on the
+// screen (the SDL program: in its main window), kept on the work area, until shellClosePopout(content), a click outside
+// it or another program's window closes it. `focus` gets the keyboard (not in a background run); `opened` runs once
+// the window shows.
+void shellRunPopout(stardraft::draw::View& content, int x, int y, int w, int h, stardraft::draw::View* focus, const std::function<void()>& opened);
+void shellClosePopout(stardraft::draw::View& content);

@@ -42,11 +42,9 @@ struct SdlClassicCopy final : SdlCopy {
     bool applyToMap() override;
     void rebase() override;
 };
-// Classic triggers: the page's model (the core's CtModel, the page's collapsed rows) and its copy (the triggers as the page
-// edits them, against the map's as the page read them; the map takes them with one undo step, as classic_triggers.inc does).
-struct SdlClassicTrigModel : CtModel {
-    std::set<int> collapsed;  // the action rows of collapsed blocks (cleared when the trigger changes)
-};
+// Classic triggers: the page's model (the core's CtModel) and its copy (the triggers as the page edits them, against the
+// map's as the page read them; the map takes them with one undo step, as classic_triggers.inc does).
+struct SdlClassicTrigModel : CtModel {};
 struct SdlClassicTrigCopy final : SdlCopy {
     std::shared_ptr<SdlClassicTrigModel> d;
     bool has() const override { return d != nullptr; }
@@ -646,8 +644,8 @@ public:
     }
     void fitContent(int w, int h) override {  // (Classic triggers fill the view, and are as tall as they need)
         if (gSdlPage.kind != kSdlClassicTrig || !gSdlPage.classicTrig) return;
+        // (the scroll view places the parts after this: a relayout here would call this again, without end)
         gSdlPage.classicTrig->setSize(std::max(w, gSdlPage.classicTrig->preferredWidth()), std::max(h, gSdlPage.classicTrig->preferredHeight()));
-        sdlPageRelayoutParts();
     }
     void placeContent(int x, int y) override {
         const auto parts = sdlParts();

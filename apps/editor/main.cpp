@@ -433,6 +433,8 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_classic_triggers.inc"  // Classic triggers' model: the sentences as parts, the variables of the blocks (classic_triggers.inc)
 #include "core/views_classic_batch.inc"  // the block dialog (BatchView, runBatchDialog; the host is classic_triggers.inc)
 #include "core/views_classic_value.inc"  // the number pop-out (CtValueView, runValueDialog; the host is classic_triggers.inc)
+#include "core/views_list_pick.inc"  // the list picker (ListPickView, runListPick; showListPicker below runs it)
+#include "core/views_classic_page.inc"  // Classic triggers: the entries' commands, the pickers, the menus, the keys, the side and the editor (classic_triggers.inc)
 #include "core/views_start.inc"  // the start page (StartView: the cards, the recent list, Open; the instance is gStartView in new_page.inc)
 #include "core/views_new_page.inc"  // the New page (NewPageView: the settings, the generator, the preview; the host is new_page.inc)
 #include "core/views_new_page_paint.inc"
@@ -8692,24 +8694,9 @@ void trigTreeMenu(const std::vector<int>& path, POINT screen) {
 
 // --- A searchable list picker (units, locations, switches, variables, long lists) ------------------------------
 
-struct ListPicker {
-    HWND wnd = nullptr, edit = nullptr, list = nullptr;
-    std::vector<ListPickItem> items;
-    std::vector<int> shown;  // indices into items; -1 - n: a section heading n
-    std::vector<std::wstring> headings;
-    std::string current, result;
-    bool done = false, picked = false;
-    std::vector<std::wstring> words;  // what is typed, word by word (shown in the accent in each row)
-    RECT searchRow{};
-    // Multi-pick (showListPickerMulti): a click or Enter checks a row, the list stays open; OK keeps the checks, Cancel
-    // or a click outside keeps the old ones.
-    bool multi = false;
-    std::set<std::string> checked;
-    std::wstring okText;
-};
-ListPicker* gListPick = nullptr;
-constexpr int kListPickOk = 7001, kListPickCancel = 7002;  // multi-pick: the footer's buttons
-constexpr int kListPickFooter = 44;                          // its height (scaled)
+// The picker is a core view (core/views_list_pick.inc: ListPickView, runListPick) in a pop-out window
+// (shellRunPopout); showListPicker and showListPickerMulti below run it from a point on the screen.
+ListPickView* gListPick = nullptr;  // the picker while it is open (the self-tests type into it and pick)
 
 // A row's text with the typed words in the accent (as the quick search shows them). Draws in `r`, vertically centered.
 void drawMatched(HDC dc, RECT r, const std::wstring& text, const std::vector<std::wstring>& words, COLORREF normal) {
@@ -8746,215 +8733,13 @@ void drawMatched(HDC dc, RECT r, const std::wstring& text, const std::vector<std
         x += sz.cx, i = j;
     }
 }
-// The same on a Canvas (the palette's list): each piece of the text is drawn at its place, the matched ones in the accent.
-void drawMatched(stardraft::draw::Canvas& c, stardraft::draw::Rect r, const std::wstring& text, const std::vector<std::wstring>& words, stardraft::draw::Color normal) {
-    std::wstring low = text;
-    std::transform(low.begin(), low.end(), low.begin(), ::towlower);
-    std::vector<uint8_t> hit(text.size(), 0);
-    for (const auto& w : words)
-        if (const size_t at = w.empty() ? std::wstring::npos : low.find(w); at != std::wstring::npos)
-            std::fill(hit.begin() + long(at), hit.begin() + long(at + w.size()), uint8_t(1));
-    const int y = (r.top + r.bottom - c.metrics().height) / 2;  // (the GDI version's rounding: a row partly above the top)
-    // Too wide: as much as fits, then an ellipsis (in the color of the last letter kept).
-    std::wstring shown = text;
-    if (c.measure(text) > r.width()) {
-        const int room = std::max(0, r.width() - c.measure(L"\x2026"));
-        size_t lo = 0, hi = text.size();  // the longest prefix that fits in `room` (widths grow with the prefix)
-        while (lo < hi) {
-            const size_t mid = (lo + hi + 1) / 2;
-            if (c.measure(std::wstring_view(text).substr(0, mid)) <= room) lo = mid;
-            else hi = mid - 1;
-        }
-        shown = text.substr(0, lo) + L"\x2026";
-        hit.resize(shown.size());
-        hit.back() = lo > 0 ? hit[lo - 1] : 0;
-    }
-    c.pushClip(r);
-    int x = r.left;
-    for (size_t i = 0; i < shown.size();) {
-        size_t j = i;
-        while (j < shown.size() && hit[j] == hit[i]) ++j;
-        const std::wstring piece = shown.substr(i, j - i);
-        c.text({x, y, r.right, y + c.metrics().height}, piece, hit[i] ? kAccent : normal, stardraft::draw::kLeft);
-        x += c.measure(piece);
-        i = j;
-    }
-    c.popClip();
-}
 int gTrigAdvance = 0;  // set by a popover closed with Tab (+1) or Shift+Tab (-1): open the next value's
 void (*gListPickHook)(HWND) = nullptr;  // self-test
 POINT gListPickAt{};                     // self-test: where the last list picker was asked to open (before it is kept on the screen)
 
-void listPickFill() {
-    ListPicker& lp = *gListPick;
-    const std::wstring filter = lowerText(lp.edit);
-    std::vector<std::wstring> words;
-    {
-        std::wistringstream in(filter);
-        for (std::wstring w; in >> w;) words.push_back(w);
-    }
-    lp.words = words;
-    lp.shown.clear(), lp.headings.clear();
-    std::wstring section = L"\x1";
-    int sel = -1;
-    for (size_t i = 0; i < lp.items.size(); ++i) {
-        std::wstring hay = lp.items[i].label + L" " + lp.items[i].section;
-        std::transform(hay.begin(), hay.end(), hay.begin(), ::towlower);
-        bool ok = true;
-        for (const auto& w : words) ok &= hay.find(w) != std::wstring::npos;
-        if (!ok) continue;
-        if (lp.items[i].section != section) {
-            section = lp.items[i].section;
-            if (!section.empty()) lp.headings.push_back(section), lp.shown.push_back(-int(lp.headings.size()));
-        }
-        if (lp.items[i].value == lp.current || (sel < 0 && !words.empty())) sel = int(lp.shown.size());
-        lp.shown.push_back(int(i));
-    }
-    SendMessageW(lp.list, WM_SETREDRAW, FALSE, 0);
-    SendMessageW(lp.list, LB_RESETCONTENT, 0, 0);
-    for (size_t i = 0; i < lp.shown.size(); ++i) SendMessageW(lp.list, LB_ADDSTRING, 0, LPARAM(L""));
-    if (sel < 0)
-        for (size_t i = 0; i < lp.shown.size(); ++i)
-            if (lp.shown[i] >= 0) {
-                sel = int(i);
-                break;
-            }
-    SendMessageW(lp.list, LB_SETCURSEL, sel, 0);
-    SendMessageW(lp.list, WM_SETREDRAW, TRUE, 0);
-    InvalidateRect(lp.list, nullptr, TRUE);
-}
-
+// Picks the selected row (multi: checks it), as a click or Enter does (the self-tests).
 void listPickChoose() {
-    ListPicker& lp = *gListPick;
-    const int i = int(SendMessageW(lp.list, LB_GETCURSEL, 0, 0));
-    if (i < 0 || i >= int(lp.shown.size()) || lp.shown[size_t(i)] < 0) return;
-    const std::string& value = lp.items[size_t(lp.shown[size_t(i)])].value;
-    if (lp.multi) {  // checks the row; the list stays open
-        if (!lp.checked.erase(value)) lp.checked.insert(value);
-        InvalidateRect(lp.list, nullptr, FALSE);
-        return;
-    }
-    lp.result = value;
-    lp.picked = lp.done = true;
-}
-
-LRESULT CALLBACK listPickEditProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
-    if (msg == WM_KEYDOWN && gListPick) {
-        const int n = int(gListPick->shown.size());
-        int cur = int(SendMessageW(gListPick->list, LB_GETCURSEL, 0, 0));
-        switch (wp) {
-        case VK_DOWN:
-        case VK_UP:
-        case VK_NEXT:
-        case VK_PRIOR: {
-            const int step = wp == VK_DOWN ? 1 : wp == VK_UP ? -1 : wp == VK_NEXT ? 10 : -10;
-            int next = std::clamp(cur + step, 0, std::max(0, n - 1));
-            while (next >= 0 && next < n && gListPick->shown[size_t(next)] < 0) next += step > 0 ? 1 : -1;  // skip headings
-            if (next >= 0 && next < n) SendMessageW(gListPick->list, LB_SETCURSEL, next, 0);
-            return 0;
-        }
-        case VK_RETURN:  // a multi-pick: Enter is OK (the checks are kept)
-            if (gListPick->multi) gListPick->picked = gListPick->done = true;
-            else listPickChoose();
-            return 0;
-        case VK_ESCAPE: gListPick->done = true; return 0;
-        case VK_SPACE:  // a multi-pick: Space checks the row (in a single pick, Space is a space of the search)
-            if (!gListPick->multi) break;
-            listPickChoose();
-            return 0;
-        case VK_TAB:
-            if (gListPick->multi) return 0;  // a multi-pick: Tab does nothing (Enter confirms, Esc cancels)
-            listPickChoose();
-            gListPick->done = true;
-            gTrigAdvance = GetKeyState(VK_SHIFT) < 0 ? -1 : 1;
-            return 0;
-        }
-    }
-    if (msg == WM_GETDLGCODE) return DLGC_WANTALLKEYS;
-    if (msg == WM_CHAR && (wp == L'\r' || wp == 27 || wp == L'\t')) return 0;
-    if (msg == WM_CHAR && wp == L' ' && gListPick && gListPick->multi) return 0;  // (Space checks a row; no space in the search)
-    return DefSubclassProc(hwnd, msg, wp, lp);
-}
-
-LRESULT CALLBACK listPickProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    ListPicker* p = gListPick;
-    switch (msg) {
-    case WM_COMMAND:
-        if (p && HWND(lp) == p->edit && HIWORD(wp) == EN_CHANGE) listPickFill();
-        if (p && LOWORD(wp) == kListPickOk) p->picked = p->done = true;
-        if (p && LOWORD(wp) == kListPickCancel) p->done = true;
-        return 0;
-    case WM_ACTIVATE:
-        if (LOWORD(wp) == WA_INACTIVE && p && !gBackground) p->done = true;
-        return 0;
-    case WM_CLOSE:
-        if (p) p->done = true;
-        return 0;
-    case WM_MEASUREITEM: {
-        const bool icons = p && std::any_of(p->items.begin(), p->items.end(), [](const ListPickItem& i) { return i.icon >= 0; });
-        reinterpret_cast<MEASUREITEMSTRUCT*>(lp)->itemHeight = UINT(scale(icons ? 34 : 28));
-        return TRUE;
-    }
-    case WM_DRAWITEM: {
-        // A row: on the window's ground; the row under the keys or the mouse a rounded pill; the current value with a
-        // check mark at the right; the typed words in the accent. A section heading: small and dim.
-        auto* d = reinterpret_cast<DRAWITEMSTRUCT*>(lp);
-        if (!p || d->itemID == UINT(-1) || d->itemID >= p->shown.size()) return TRUE;
-        const int idx = p->shown[d->itemID];
-        const bool sel = (d->itemState & ODS_SELECTED) && idx >= 0;
-        HDC dc = d->hDC;
-        RECT r = d->rcItem;
-        FillRect(dc, &r, app.bgBrush);
-        if (sel) ui::box(dc, {r.left + scale(2), r.top + scale(1), r.right - scale(2), r.bottom - scale(1)}, kSel, kSel, scale(6));
-        SetBkMode(dc, TRANSPARENT);
-        if (idx < 0) {
-            HGDIOBJ of = SelectObject(dc, ui::smallFont());
-            SetTextColor(dc, kDim);
-            RECT h{r.left + scale(10), r.top + scale(6), r.right - scale(10), r.bottom};
-            DrawTextW(dc, p->headings[size_t(-idx - 1)].c_str(), -1, &h, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-            SelectObject(dc, of);
-            return TRUE;
-        }
-        const ListPickItem& it = p->items[size_t(idx)];
-        int x = r.left + scale(10);
-        if (it.icon >= 0) {
-            const UnitPalette::Bitmap* pic = datRefIcon(it.iconDat, uint32_t(it.icon));
-            RECT box{x, r.top + scale(3), x + scale(26), r.bottom - scale(3)};
-            if (pic && pic->bmp) drawFitted(dc, *pic, box);
-            x += scale(34);
-        }
-        const bool current = p->multi ? p->checked.count(it.value) != 0 : it.value == p->current;  // (multi: the checked rows)
-        const int checkW = scale(22);
-        if (current) {
-            const int cs = scale(16), cx = r.right - scale(8) - cs;
-            uiIcon(dc, {cx, (r.top + r.bottom - cs) / 2, cx + cs, (r.top + r.bottom + cs) / 2}, UiIcon::Check, kAccent, cs);
-        }
-        drawMatched(dc, {x, r.top, r.right - scale(10) - checkW, r.bottom}, it.label, p->words, kText);
-        return TRUE;
-    }
-    case WM_PAINT: {  // the search row: the icon, the line under it
-        PAINTSTRUCT ps;
-        HDC dc = BeginPaint(hwnd, &ps);
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-        FillRect(dc, &rc, app.bgBrush);
-        if (p) {
-            const RECT& sr = p->searchRow;
-            const int is = scale(16);
-            uiIcon(dc, {sr.left, (sr.top + sr.bottom - is) / 2, sr.left + is, (sr.top + sr.bottom + is) / 2}, UiIcon::Search, kDim, is);
-            fillAlpha(dc, {0, sr.bottom + scale(4), rc.right, sr.bottom + scale(5)}, kBorder, 255);
-        }
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORLISTBOX:
-        SetTextColor(HDC(wp), kText);
-        SetBkColor(HDC(wp), kBg);  // on the window's ground: no box, no frame
-        return LRESULT(app.bgBrush);
-    case WM_ERASEBKGND: return 1;
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
+    if (gListPick) gListPick->choose();
 }
 
 bool showListPicker(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, POINT at, std::string& out);
@@ -9000,97 +8785,25 @@ bool popoutEatsPress(const MSG& m, HWND pop) {
     return true;
 }
 
-// Runs the picker (lp: its items and state) until it is picked or closed. True when picked.
-bool runListPicker(const std::wstring& prompt, ListPicker& lp, POINT at) {
-    static bool registered = false;
-    if (!registered) {
-        WNDCLASSEXW wc{sizeof wc};
-        wc.lpfnWndProc = listPickProc, wc.hInstance = app.inst, wc.hCursor = LoadCursor(nullptr, IDC_ARROW), wc.lpszClassName = L"StarDraftListPick";
-        RegisterClassExW(&wc);
-        registered = true;
-    }
-    gListPick = &lp;
+// Runs the picker (the view: its items and state) at a point on the screen until it is picked or closed. True when
+// picked. Tab and Shift+Tab ask for the next value (gTrigAdvance).
+bool runListPicker(ListPickView& v, POINT at) {
+    gListPick = &v;
     gListPickAt = at;
-    const bool icons = std::any_of(lp.items.begin(), lp.items.end(), [](const ListPickItem& i) { return i.icon >= 0; });
-    std::set<std::wstring> sections;
-    for (const auto& it : lp.items)
-        if (!it.section.empty()) sections.insert(it.section);
-    const int rows = std::min<int>(14, int(lp.items.size() + sections.size()));
-    const int footer = lp.multi ? scale(kListPickFooter) : 0;  // multi-pick: OK and Cancel under the list
-    const int w = scale(380), pad = scale(8), eh = scale(30), h = 3 * pad + eh + std::max(2, rows) * scale(icons ? 34 : 28) + scale(6) + footer;
-    HMONITOR mon = MonitorFromPoint(at, MONITOR_DEFAULTTONEAREST);
-    MONITORINFO mi{sizeof mi};
-    GetMonitorInfoW(mon, &mi);
-    at.x = std::clamp<LONG>(at.x, mi.rcWork.left, mi.rcWork.right - w);
-    at.y = std::clamp<LONG>(at.y, mi.rcWork.top, mi.rcWork.bottom - h);
-    lp.wnd = CreateWindowExW(WS_EX_TOOLWINDOW | (gBackground ? WS_EX_NOACTIVATE : 0), L"StarDraftListPick", L"", WS_POPUP | WS_BORDER | WS_CLIPCHILDREN, at.x, at.y, w, h, app.main,
-                             nullptr, app.inst, nullptr);
-    ui::popupFrame(lp.wnd);
-    {
-        const int round = 2;  // DWMWCP_ROUND, as the quick search
-        DwmSetWindowAttribute(lp.wnd, 33, &round, sizeof round);
-    }
-    // The search row (as the quick search): the icon at the left (painted), the text with no frame, a line under it.
-    lp.searchRow = {pad + scale(6), pad, w - pad, pad + eh};
-    TEXTMETRICW tm{};
-    {
-        HDC dc = GetDC(lp.wnd);
-        HGDIOBJ of = SelectObject(dc, app.font);
-        GetTextMetricsW(dc, &tm);
-        SelectObject(dc, of);
-        ReleaseDC(lp.wnd, dc);
-    }
-    const int editH = tm.tmHeight + scale(4), editX = lp.searchRow.left + scale(26);
-    lp.edit = CreateWindowExW(0, WC_EDITW, L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, editX, pad + (eh - editH) / 2, w - pad - editX, editH, lp.wnd,
-                              nullptr, app.inst, nullptr);
-    SendMessageW(lp.edit, WM_SETFONT, WPARAM(app.font), TRUE);
-    SendMessageW(lp.edit, EM_SETCUEBANNER, TRUE, LPARAM(prompt.c_str()));
-    const int listTop = lp.searchRow.bottom + scale(9);
-    lp.list = CreateWindowExW(0, WC_LISTBOXW, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT | LBS_OWNERDRAWFIXED,
-                              scale(4), listTop, w - scale(8), h - listTop - scale(4) - footer, lp.wnd, nullptr, app.inst, nullptr);
-    cleanScroll(lp.list);
-    SendMessageW(lp.list, WM_SETFONT, WPARAM(app.font), TRUE);
-    SetWindowTheme(lp.list, gLightTheme ? L"Explorer" : L"DarkMode_Explorer", nullptr);  // the scroll bar in the theme (no frame)
-    if (lp.multi) {  // OK (keeps the checks) and Cancel, as a pop-out has them
-        const int bw = scale(96), bh = scale(26), by = h - footer + (footer - bh) / 2 - scale(4);
-        HWND cancel = CreateWindowExW(0, WC_BUTTONW, L"Cancel", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, w - pad - 2 * bw - scale(8), by, bw, bh,
-                                      lp.wnd, HMENU(INT_PTR(kListPickCancel)), app.inst, nullptr);
-        HWND ok = CreateWindowExW(0, WC_BUTTONW, lp.okText.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, w - pad - bw, by, bw, bh, lp.wnd,
-                                  HMENU(INT_PTR(kListPickOk)), app.inst, nullptr);
-        for (HWND b : {cancel, ok}) {
-            SendMessageW(b, WM_SETFONT, WPARAM(app.font), TRUE);
-            darkControl(b, L"DarkMode_Explorer");
-        }
-    }
-    SetWindowSubclass(lp.edit, listPickEditProc, 1, 0);
-    SetWindowSubclass(lp.list, clickPickList, 2, DWORD_PTR(&listPickChoose));
-    listPickFill();
-    fadeIn(lp.wnd, gBackground ? SW_SHOWNOACTIVATE : SW_SHOW);
-    if (!gBackground) SetFocus(lp.edit);
-    if (gListPickHook) gListPickHook(lp.wnd);
-    MSG msg;
-    while (!lp.done && GetMessageW(&msg, nullptr, 0, 0))
-        if (!popoutEatsPress(msg, lp.wnd)) TranslateMessage(&msg), DispatchMessageW(&msg);
-    DestroyWindow(lp.wnd);
+    v.iconOf = [](const ListPickItem& it) { return ui::imageOf(datRefIcon(it.iconDat, uint32_t(it.icon))); };
+    const bool picked = runListPick(v, {at.x, at.y}, [&v] {
+        if (gListPickHook) gListPickHook(ui::Win32Host::windowOf(v));
+    });
+    if (v.advance()) gTrigAdvance = v.advance();
     gListPick = nullptr;
-    return lp.picked;
+    return picked;
 }
 
 bool showListPicker(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, POINT at, std::string& out) {
-    if (gListWheel) {  // the mouse wheel over the dropdown: the next or the previous item, no list
-        if (items.empty()) return false;
-        int k = -1;
-        for (int i = 0; i < int(items.size()); ++i)
-            if (items[size_t(i)].value == current) k = i;
-        const int next = k < 0 ? 0 : std::clamp(k + gListWheel, 0, int(items.size()) - 1);
-        if (next == k) return false;
-        out = items[size_t(next)].value;
-        return true;
-    }
-    ListPicker lp;
-    lp.items = std::move(items), lp.current = current;
-    if (!runListPicker(prompt, lp, at)) return false;
-    out = lp.result;
+    if (gListWheel) return listPickWheelStep(items, current, gListWheel, out);  // the mouse wheel over the dropdown: the next or the previous item, no list
+    ListPickView v(prompt, std::move(items), current);
+    if (!runListPicker(v, at)) return false;
+    out = v.result();
     return true;
 }
 
@@ -9098,10 +8811,10 @@ bool showListPicker(const std::wstring& prompt, std::vector<ListPickItem> items,
 // holds the values checked at the start and gets the checked values when OK is clicked; Cancel, Esc and a click
 // outside leave it as it was. `okText`: the OK button ("Add").
 bool showListPickerMulti(const std::wstring& prompt, std::vector<ListPickItem> items, std::set<std::string>& checked, const std::wstring& okText, POINT at) {
-    ListPicker lp;
-    lp.items = std::move(items), lp.multi = true, lp.checked = checked, lp.okText = okText;
-    if (!runListPicker(prompt, lp, at)) return false;
-    checked = lp.checked;
+    ListPickView v(prompt, std::move(items), "");
+    v.setMulti(checked, okText);
+    if (!runListPicker(v, at)) return false;
+    checked = v.checked();
     return true;
 }
 
@@ -17247,9 +16960,10 @@ int runSelfTest(const fs::path& dir) {
         pickerOpened = false, pickedTerrain.clear();
         gListPickHook = [](HWND) {
             pickerOpened = true;
-            for (const ListPickItem& it : gListPick->items)
-                if (it.value != gListPick->current && pickedTerrain.empty()) pickedTerrain = it.value;
-            gListPick->result = pickedTerrain, gListPick->picked = !pickedTerrain.empty(), gListPick->done = true;
+            for (const ListPickItem& it : gListPick->items())
+                if (it.value != gListPick->current() && pickedTerrain.empty()) pickedTerrain = it.value;
+            if (pickedTerrain.empty()) gListPick->finish(false);
+            else gListPick->pickValue(pickedTerrain);
         };
         const draw::Rect tb = gNew.terrainBox;
         POINT expect{tb.left, tb.bottom + scale(2)};
@@ -17526,7 +17240,7 @@ int runSelfTest(const fs::path& dir) {
                 gListPickHook = [](HWND w) {
                     for (int i = 0; i < 3; ++i) pump();
                     capture(ddShot, w);
-                    SetWindowTextW(gListPick->edit, L"flame thrower");
+                    gListPick->setSearch(L"flame thrower");
                     for (int i = 0; i < 3; ++i) pump();
                     listPickChoose();
                 };
@@ -17845,7 +17559,7 @@ int runSelfTest(const fs::path& dir) {
                 static fs::path listShot;
                 listShot = dir / "84_trigger_unit_picker.png";
                 gListPickHook = [](HWND w) {
-                    SetWindowTextW(gListPick->edit, L"zerg zergling");
+                    gListPick->setSearch(L"zerg zergling");
                     for (int i = 0; i < 5; ++i) pump();
                     capture(listShot, w);
                     listPickChoose();
@@ -17981,7 +17695,7 @@ int runSelfTest(const fs::path& dir) {
                         trigChanged();
                         UpdateWindow(gTE.pane);
                         gListPickHook = [](HWND) {
-                            SetWindowTextW(gListPick->edit, L"select on the map");
+                            gListPick->setSearch(L"select on the map");
                             for (int i = 0; i < 2; ++i) pump();
                             listPickChoose();
                         };
@@ -18092,7 +17806,7 @@ int runSelfTest(const fs::path& dir) {
                 gListPickHook = [](HWND w) {
                     for (int i = 0; i < 3; ++i) pump();
                     if (!propShot.empty()) capture(propShot, w), propShot.clear();
-                    SetWindowTextW(gListPick->edit, listSearch.c_str());
+                    gListPick->setSearch(listSearch.c_str());
                     for (int i = 0; i < 3; ++i) pump();
                     listPickChoose();
                 };
@@ -18101,7 +17815,7 @@ int runSelfTest(const fs::path& dir) {
                 static fs::path iconShot;
                 iconShot = dir / "92_trigger_weapon_list_icons.png";
                 gListPickHook = [](HWND w) {
-                    SetWindowTextW(gListPick->edit, L"gauss rifle");
+                    gListPick->setSearch(L"gauss rifle");
                     for (int i = 0; i < 3; ++i) pump();
                     if (!iconShot.empty()) capture(iconShot, w), iconShot.clear();
                     listPickChoose();
@@ -18114,7 +17828,7 @@ int runSelfTest(const fs::path& dir) {
                 gValuePopHook = nullptr;
                 gListPickHook = [](HWND w) {
                     for (int i = 0; i < 3; ++i) pump();
-                    SetWindowTextW(gListPick->edit, listSearch.c_str());
+                    gListPick->setSearch(listSearch.c_str());
                     for (int i = 0; i < 3; ++i) pump();
                     listPickChoose();
                 };
@@ -18214,7 +17928,7 @@ int runSelfTest(const fs::path& dir) {
                 gListPickHook = [](HWND w) {
                     for (int i = 0; i < 3; ++i) pump();
                     capture(menuShot, w);
-                    gListPick->done = true;
+                    gListPick->finish(false);
                 };
                 SetTimer(nullptr, 0, 60, [](HWND, UINT, UINT_PTR id, DWORD) {
                     HWND m = openMenuWindow();
@@ -18277,7 +17991,7 @@ int runSelfTest(const fs::path& dir) {
                 gListPickHook = [](HWND w) {
                     for (int i = 0; i < 3; ++i) pump();
                     capture(pickShot, w);
-                    SetWindowTextW(gListPick->edit, L"random");
+                    gListPick->setSearch(L"random");
                     for (int i = 0; i < 3; ++i) pump();
                     listPickChoose();
                 };
@@ -18306,7 +18020,7 @@ int runSelfTest(const fs::path& dir) {
                     PostMessageW(w, WM_COMMAND, MAKEWPARAM(1001, BN_CLICKED), LPARAM(gValuePop->game));
                 };
                 gListPickHook = [](HWND) {
-                    SetWindowTextW(gListPick->edit, pickWhat.c_str());
+                    gListPick->setSearch(pickWhat.c_str());
                     for (int i = 0; i < 2; ++i) pump();
                     listPickChoose();
                 };
@@ -18331,7 +18045,7 @@ int runSelfTest(const fs::path& dir) {
                 gListPickHook = [](HWND w) {
                     for (int i = 0; i < 3; ++i) pump();
                     capture(bracketShot, w);
-                    gListPick->done = true;
+                    gListPick->finish(false);
                 };
                 SetTimer(nullptr, 0, 60, [](HWND, UINT, UINT_PTR id, DWORD) {
                     HWND m = openMenuWindow();
@@ -18373,7 +18087,7 @@ int runSelfTest(const fs::path& dir) {
                     UpdateWindow(gTE.pane);
                     static int opened = 0;
                     opened = 0;
-                    gListPickHook = [](HWND) { ++opened, PostMessageW(gListPick->edit, WM_KEYDOWN, VK_TAB, 0); };
+                    gListPickHook = [](HWND) { ++opened, gListPick->tab(false); };
                     gValuePopHook = [](HWND w) {
                         ++opened;
                         SetWindowTextW(gValuePop->edit, L"7");
@@ -18510,7 +18224,7 @@ int runSelfTest(const fs::path& dir) {
                 gListPickHook = [](HWND w) {
                     for (int i = 0; i < 3; ++i) pump();
                     capture(shot, w), ++shots;
-                    gListPick->done = true;
+                    gListPick->finish(false);
                 };
                 gBlockPickHook = [](HWND w) {
                     for (int i = 0; i < 5; ++i) pump();
@@ -19768,11 +19482,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     RedrawWindow(w, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                     capture(dir / (std::string("pickstyle") + (gLightTheme ? "_light" : "") + ".png"), w);
                     if (gListPick) {
-                        SetWindowTextW(gListPick->edit, L"pla");
+                        gListPick->setSearch(L"pla");
                         for (int i = 0; i < 5; ++i) pump();
                         RedrawWindow(w, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                         capture(dir / (std::string("pickstyle_typed") + (gLightTheme ? "_light" : "") + ".png"), w);
-                        gListPick->done = true;
+                        gListPick->finish(false);
                     }
                 };
                 std::string out;
@@ -20401,7 +20115,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     gListPickHook = [](HWND lw) {
                         for (int i = 0; i < 3; ++i) pump();
                         capture(shotDir / "chipsettings.png", lw);
-                        SetWindowTextW(gListPick->edit, L"terran marine");
+                        gListPick->setSearch(L"terran marine");
                         for (int i = 0; i < 3; ++i) pump();
                         listPickChoose();
                     };
@@ -20418,7 +20132,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     pick = 0;
                     gListPickHook = [](HWND) {
                         for (int i = 0; i < 3; ++i) pump();
-                        SetWindowTextW(gListPick->edit, pick++ == 0 ? L"kills of" : L"kills");
+                        gListPick->setSearch(pick++ == 0 ? L"kills of" : L"kills");
                         for (int i = 0; i < 3; ++i) pump();
                         listPickChoose();
                     };
@@ -20493,7 +20207,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                             CHARRANGE sel3{LONG(all4.find(L"gold")) - kRichLead, LONG(e4 + 3)};  // from the gold chip to the end
                             SendMessageW(gValuePop->edit, EM_EXSETSEL, 0, LPARAM(&sel3));
                             gListPickHook = [](HWND) {
-                                SetWindowTextW(gListPick->edit, L"player 2");
+                                gListPick->setSearch(L"player 2");
                                 for (int i = 0; i < 3; ++i) pump();
                                 listPickChoose();
                             };
@@ -21135,7 +20849,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 trigAddVariable({0}, TriggerVariable::Kind::PerPlayer);  // made and selected
                 static std::string want;
                 gListPickHook = [](HWND) {  // the picker's item with the value `want`
-                    gListPick->result = want, gListPick->picked = true, gListPick->done = true;
+                    gListPick->pickValue(want);
                 };
                 TrigVarHit h;
                 want = "UnitType", h.field = 4;  // Holds: unit types
