@@ -10,11 +10,15 @@
 // --silent: a test run that drives the window plays no sound (a snapshot plays none either).
 // --log: the Log is open; --build: Build runs first (a snapshot then shows its lines in the Log).
 // --theme light|dark, --accent <n>, --lang <code>: the theme, the accent and the language for this run (not saved).
+// --drop <file>: the file is dropped on the window first (as a drop, or a map that Finder opens on macOS).
 // The StarCraft install: --install, then STARDRAFT_INSTALL, the folder chosen before, then the usual folders of each
 // system (core/install_search.inc); when none opens, the window asks for the folder.
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#ifdef __APPLE__
+#include "mac_app_menu.h"  // the application menu's About and Program options (mac_app_menu.mm)
+#endif
 
 #include <algorithm>
 #include <atomic>
@@ -161,6 +165,25 @@ void installFolderPicked(void*, const char* const* list, int) {
 void askInstallFolder() {
     SDL_ShowOpenFolderDialog(installFolderPicked, nullptr, dialogWindow(), nullptr, false);
 }
+// A file dropped on the window, or (macOS) opened from Finder: the Windows program's drop (core/documents.inc), after the
+// save question for the open map (SDL has one tab).
+void dropFile(const std::string& utf8) {
+    openDropped({fs::path(widen(utf8))}, [](const fs::path& f) { confirmReplace([f] { openAny(f); }); });
+}
+
+// The main window without --size: w x h in the system's points (on a Retina display of macOS 2 pixels each, as the
+// Windows program's 1600 x 1000 at 100 %), at most 90 % of the display's free area, in its middle.
+void fitMainWindow(int w, int h) {
+    int count = 0;
+    SDL_Window** wins = SDL_GetWindows(&count);
+    SDL_Window* win = wins && count > 0 ? wins[0] : nullptr;
+    SDL_free(wins);
+    SDL_Rect area{};
+    if (!win || !SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(win), &area) || area.w <= 0 || area.h <= 0) return;
+    SDL_SetWindowSize(win, std::min(w, area.w * 9 / 10), std::min(h, area.h * 9 / 10));
+    SDL_SetWindowPosition(win, SDL_WINDOWPOS_CENTERED_DISPLAY(SDL_GetDisplayForWindow(win)), SDL_WINDOWPOS_CENTERED_DISPLAY(SDL_GetDisplayForWindow(win)));
+}
+
 void useInstallFolder(const std::string& picked) {
     if (picked.empty()) return;  // (cancelled: the program asks again on the next start)
     std::string err;
@@ -214,17 +237,18 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
-    std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, themeArg, langArg, trigArg, trigSelArg, briefArg;
+    std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, themeArg, langArg, trigArg, trigSelArg, briefArg, dropArg;
     int accentArg = -1;
     gSelfPath = argc > 0 ? argv[0] : "";  // (Restart now starts it again, sdl_options.inc)
     bool rectArg = false, previewArg = false, logArg = false, buildArg = false, trigCodeArg = false;
     int width = 1600, height = 1000;
+    bool sizeArg = false;
     float scaleArg = 0;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         auto next = [&] { return i + 1 < argc ? std::string(argv[++i]) : std::string(); };
         if (a == "--snapshot") snapshot = next();
-        else if (a == "--size") std::sscanf(next().c_str(), "%dx%d", &width, &height);
+        else if (a == "--size") std::sscanf(next().c_str(), "%dx%d", &width, &height), sizeArg = true;
         else if (a == "--scale") scaleArg = float(std::atof(next().c_str()));
         else if (a == "--install") installArg = next();
         else if (a == "--mode") modeArg = next();  // a mode's name (units, terrain, doodads, sprites, locations), for a snapshot
@@ -244,6 +268,7 @@ int main(int argc, char** argv) {
         else if (a == "--theme") themeArg = next();  // light or dark: the theme for this run (not saved), for a snapshot
         else if (a == "--accent") accentArg = std::atoi(next().c_str());  // the accent's number (theme::kAccents), for a snapshot
         else if (a == "--lang") langArg = next();  // en, ko, es, ru or zh: the language for this run (not saved), for a snapshot
+        else if (a == "--drop") dropArg = next();  // a file dropped on the window (as from Finder on macOS), for a snapshot
         else if (a == "--silent") gSilent = true;
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
@@ -298,9 +323,13 @@ int main(int argc, char** argv) {
         gRoot = &root;
         rebuildMenus();
         host.setQuitRequest(requestQuit);  // the window's close and the system's quit ask about unsaved changes first
+        // Files dropped on the window, and on macOS the maps that Finder opens with StarDraft: as the Windows program's
+        // drop (core/documents.inc), after the save question for the open map (SDL has one tab).
+        host.setDropHook([](const std::string& path) { shellPost([path] { dropFile(path); }); });
         host.setBeforePump(runPosted);  // the posted work runs outside the frame hook (a dialog it opens pumps frames)
         host.setFrameHook([](SDL_GPUCommandBuffer* cmd) { drawMapOfRoot(cmd); });
         if (!mapArg.empty()) openAny(widen(mapArg));  // a map, or a project (.eds, .stardraft, its folder): as File > Open does
+        if (!dropArg.empty()) dropFile(dropArg);
         for (int m = 0; !modeArg.empty() && m < kModeCount; ++m) {
             std::string name = narrow(kModeNames[m]);
             std::transform(name.begin(), name.end(), name.begin(), [](unsigned char ch) { return char(std::tolower(ch)); });
@@ -432,6 +461,11 @@ int main(int argc, char** argv) {
         } else {
             if (!host.show(root, L"StarDraft", width, height)) return std::fprintf(stderr, "could not open a window\n"), 1;
             updateTitle();  // (the window exists now: its title is the open map's)
+            if (!sizeArg) fitMainWindow(width, height);
+#ifdef __APPLE__
+            macSetupAppMenu(narrow(accessFree(shellTr(L"&About StarDraft 2"))), narrow(accessFree(shellTr(L"&Program options\x2026"))),
+                            [] { shellPostCommand(ID_HELP_ABOUT); }, [] { shellPostCommand(ID_OPT_WINDOW); });
+#endif
             if (!gDataOk) shellPost(askInstallFolder);  // no install was found: the window asks for its folder
             sendPendingFeedback();  // feedback that could not go before (core/feedback_send.inc)
             host.setAnimating(true);  // (the map and the posted work need frames; see shellPost)

@@ -143,6 +143,19 @@ void openAny(const std::filesystem::path& path) {
     if (app.ed && fs::equivalent(app.ed->path(), path, ec)) shellMapFileOpened(path);  // a map file by itself: ask once if maps open with StarDraft 2
 }
 
+// Files dropped on the window (and, on macOS, the files that Finder opens with StarDraft): maps (.scm, .scx, .chk),
+// project files (.stardraft, .eds) and project folders go to `open` (openAny, or the host's step before it); the status
+// bar names each other file.
+void openDropped(const std::vector<std::filesystem::path>& files, const std::function<void(const std::filesystem::path&)>& open) {
+    for (const fs::path& f : files) {
+        std::wstring ext = f.extension().wstring();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::towlower);
+        std::error_code ec;
+        if (ext == L".scm" || ext == L".scx" || ext == L".chk" || ext == L".stardraft" || ext == L".eds" || fs::is_directory(f, ec)) open(f);
+        else setMessage(L"Did not open " + f.filename().wstring() + L": StarDraft 2 opens maps (.scm, .scx, .chk) and projects");
+    }
+}
+
 // The editor function that finds an open document's editor (views_tabs.inc).
 const Editor* docEditor(int i);
 // The same file or folder, compared as text (case where the host's file system ignores it, slashes, a relative path, a

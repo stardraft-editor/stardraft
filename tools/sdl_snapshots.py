@@ -23,6 +23,8 @@ import subprocess
 import sys
 import zlib
 
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 # (name, arguments, needs): needs is "" (nothing), "data" (--install), "map" (--map and --install) or "project".
 # Dialog sizes are those of the dialogs on Windows at scale 1 (a map's dialog sets its own size).
 WORKSPACES = ["map", "data", "triggers", "assets", "project", "briefing", "files", "props", "players",
@@ -62,6 +64,12 @@ CASES += [
     # The game's text codes (colors) in a block's text: drawn without boxes (the first trigger of the second category).
     ("project-trig-gametext", ["--workspace", "triggers", "--trig", "1:0"], "project"),
     ("project-briefing", ["--workspace", "briefing", "--briefing", "0"], "project"),
+    # A file dropped on the window (on macOS also a file that Finder opens): a file that is no map says so in the status
+    # bar; a map and a project open. {map}, {project} and {root} (the repository) are the paths; the case's map or
+    # project is then not also given before the options.
+    ("drop-other", ["--drop", "{root}/README.md"], ""),
+    ("drop-map", ["--drop", "{map}"], "map"),
+    ("drop-project", ["--drop", "{project}"], "project"),
 ]
 # Not in the program yet (add them to CASES when main_sdl.cpp reads them): --dialog about, message, tip, valuepop.
 
@@ -181,9 +189,11 @@ def main():
         if os.path.exists(png):
             os.replace(png, png + ".old")  # (a PNG from an earlier run does not count; never deleted)
         cmd = [a.exe]
-        if needs == "map":
+        given = any("{map}" in x or "{project}" in x for x in args)  # (the path is in the options)
+        args = [x.format(map=a.map or "", project=a.project or "", root=ROOT) for x in args]
+        if needs == "map" and not given:
             cmd.append(a.map)
-        elif needs == "project":
+        elif needs == "project" and not given:
             cmd.append(a.project)
         cmd += ["--snapshot", png, "--scale", a.scale]
         if a.install:

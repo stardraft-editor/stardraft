@@ -312,6 +312,15 @@ jobs:
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
           cmake --build build --parallel
 
+      # The editor's app: its Info.plist is good (document types .scm and .scx, the version), and its icon is the one
+      # that tools/make_icns.py makes from the Windows icon.
+      - name: Check the editor's app bundle
+        run: |
+          python3 -I tools/make_icns.py --check
+          plutil -lint build/stardraft.app/Contents/Info.plist
+          plutil -p build/stardraft.app/Contents/Info.plist | grep -E "CFBundleShortVersionString|CFBundleIconFile|scx"
+          test -f build/stardraft.app/Contents/Resources/stardraft.icns
+
       - name: Run the tests that need no game data
         run: |
           build/trigger_test "$RUNNER_TEMP/trigger_test"
