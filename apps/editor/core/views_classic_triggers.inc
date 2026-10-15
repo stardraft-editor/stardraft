@@ -454,6 +454,18 @@ inline void ctModelSetForces(CtModel& m, CtModelHost& h, const std::set<std::str
     ctModelFill(m, h);
     h.changed();
 }
+// Forces' multi-pick: the forces by their names (the values are the groups' numbers), and in `checked` the ones the
+// trigger runs for.
+inline std::vector<ListPickItem> ctForceItems(const ClassicTrigger& t, const ClassicNames& n, std::set<std::string>& checked) {
+    std::vector<ListPickItem> items;
+    for (int g : kCtForceGroups) {
+        ListPickItem it;
+        it.label = widen(classicPlayerName(uint32_t(g), n)), it.value = std::to_string(g);
+        items.push_back(std::move(it));
+        if (t.runsFor(g)) checked.insert(std::to_string(g));
+    }
+    return items;
+}
 // The change's check: a trigger differs from the map's when the page read them.
 inline bool ctModelChanged(const CtModel& m) { return m.trig.triggers != m.before; }
 

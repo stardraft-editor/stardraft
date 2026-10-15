@@ -153,3 +153,9 @@ bool shellProcessEnded(std::uintptr_t process);
 void shellProcessClose(std::uintptr_t process);
 // File > Options > StarCraft folder: another install is chosen (used from the next start).
 void shellChooseInstallFolder();
+// A pop-out (the list picker, core/views_list_pick.inc): `content` in a window w x h (with its frame) at (x, y) on the
+// screen (the SDL program: in its main window), kept on the work area, until shellClosePopout(content), a click outside
+// it or another program's window closes it. `focus` gets the keyboard (not in a background run); `opened` runs once
+// the window shows.
+void shellRunPopout(stardraft::draw::View& content, int x, int y, int w, int h, stardraft::draw::View* focus, const std::function<void()>& opened);
+void shellClosePopout(stardraft::draw::View& content);

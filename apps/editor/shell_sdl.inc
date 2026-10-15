@@ -235,3 +235,17 @@ std::uintptr_t shellStartElevated(const std::filesystem::path&, const std::files
 bool shellProcessEnded(std::uintptr_t) { return true; }
 void shellProcessClose(std::uintptr_t) {}
 void shellChooseInstallFolder() { setMessage(L"This is not on this system yet"); }
+
+// A pop-out: the host's modal window over the main window (a click outside does not close it yet: Esc and its own
+// buttons do).
+void shellRunPopout(stardraft::draw::View& content, int x, int y, int w, int h, stardraft::draw::View* focus, const std::function<void()>& opened) {
+    if (!gHost || !gRoot) return;
+    gHost->timer(1, [focus, opened] {  // (once the window shows)
+        if (focus) focus->focus();
+        if (opened) opened();
+    });
+    gHost->runModal(*gRoot, content, stardraft::draw::WindowSpec{stardraft::draw::WindowKind::Popup, stardraft::draw::Rect{x, y, x + w, y + h}, L""});
+}
+void shellClosePopout(stardraft::draw::View& content) {
+    if (gHost) gHost->closeWindow(content);
+}

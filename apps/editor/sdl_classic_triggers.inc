@@ -3,8 +3,8 @@
 // CtModel and the ctModel* functions, which the Windows page uses too); the two lists and the head are the core's views,
 // with kit widgets. This file is the SDL program's part, as classic_triggers.inc is the Windows program's.
 // Not on this system yet (the seam calls are the stubs here, and each one says so): the search box, the filter, the entries'
-// editor (the type, the values and their pop-outs), the list pickers (the Forces multi-pick too), the block dialog, the
-// right-click menus and the keys of the lists.
+// editor (the type, the values and their pop-outs), the list pickers (but Forces: its multi-pick is the core's list picker,
+// core/views_list_pick.inc), the block dialog, the right-click menus and the keys of the lists.
 
 void sdlMapPageChanged();  // (sdl_map_pages.inc: the page's change goes into the map)
 
@@ -99,6 +99,7 @@ SdlClassicTrigListHost gSdlTrigListHost;
 // The head's player boxes and its Turn off and Delete buttons (the model's commands, then the map).
 void sdlTrigPlayerBox(int box, bool on);
 void sdlTrigTurnOff();
+void sdlTrigForces();
 void sdlTrigDelete();
 
 // The page: the trigger list at the left (and its note under it), the selected trigger's head, its conditions and actions at
@@ -124,6 +125,7 @@ public:
     }
 
     SdlClassicTrigModel& model() { return m_; }
+    const draw::View& forcesButton() const { return head_.forces; }
     int preferredWidth() const { return scale(960); }
     int preferredHeight() const {
         const int pad = scale(stardraft::kit::kDialogPad), step = scale(stardraft::kit::kFormRowH), gap = scale(8);
@@ -218,7 +220,7 @@ private:
         cb.player = [](int box, bool on) { sdlTrigPlayerBox(box, on); };
         cb.turnOff = [] { sdlTrigTurnOff(); };
         cb.deleteTrig = [] { sdlTrigDelete(); };
-        cb.forces = [] { sdlTrigNotHere(L"Choosing the forces from a list"); };  // (the Windows page's list picker)
+        cb.forces = [] { sdlTrigForces(); };  // (the core's list picker, as the Windows page)
         return cb;
     }
 
@@ -283,4 +285,20 @@ void SdlClassicTrigListHost::toggleCollapsed(int i) {
 }
 void SdlClassicTrigListHost::entriesLaid(int) {
     if (gSdlTrigPage) gSdlTrigPage->place();  // the entries' height changed: the page places them again
+}
+
+// Forces: the multi-pick of the forces under the head's Forces button (core/views_list_pick.inc); Set gives the checked
+// ones to the selected trigger.
+void sdlTrigForces() {
+    if (!gSdlTrigPage) return;
+    SdlClassicTrigModel& m = gSdlTrigPage->model();
+    const ClassicTrigger* t = ctModelSelected(m);
+    if (!t) return;
+    std::set<std::string> checked;
+    ListPickView v(L"Search forces", ctForceItems(*t, sdlTrigNames(m), checked), "");
+    v.setMulti(checked, L"Set");
+    const draw::View& f = gSdlTrigPage->forcesButton();
+    const draw::Point o = f.origin();
+    if (!runListPick(v, {o.x, o.y + f.height() + scale(2)})) return;
+    ctModelSetForces(m, gSdlTrigModelHost, v.checked());
 }
