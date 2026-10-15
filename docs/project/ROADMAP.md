@@ -160,6 +160,15 @@ Make StarDraft 2 a more powerful creation suite.
 
   To add a block, mappers now go through the Add menu and its groups. Mappers who know the name of the block they need
   want to type it and keep their hands on the keyboard.
+- [ ] **R62 Trigger comments.** *Tag:* Capability.
+  Comments are fast to write in the Triggers workspace and on the Classic triggers page. Each trigger has a comment in
+  its header: click it and type. A comment can also go between any conditions or actions, as a row of its own.
+  Search (R60) finds the comments.
+
+  Comments tell other map makers, and the author months later, what a trigger does. The Triggers workspace has a
+  Comment action, but it is one more block to find in the Add menu, and it cannot go among the conditions.
+  Open question: Classic triggers keep a trigger's comment in the game's Comment action; where do comments between
+  conditions go (the project, or the map)?
 - [ ] **R25 Campaign projects.** *Tag:* UMS.
   Keep all the maps of a campaign in one project, in their order.
 
