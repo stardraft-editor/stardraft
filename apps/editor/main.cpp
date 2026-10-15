@@ -436,6 +436,7 @@ std::wstring itemLabel(int v) { return itemLabel(app, v); }
 #include "core/views_files.inc"  // the Files workspace's page (FilesPage; its instance is gFilesPage in files_view.inc)
 #include "core/views_project.inc"  // the Project page: the script preview (ProjectPreviewView, epScript colors as spans)
 #include "core/views_map_pages.inc"  // the map pages' frame: the title, the tabs, the bar and the scroll view (MapPagesView, MapScrollView; map_pages.inc)
+#include "core/views_map_props.inc"  // Map properties' view: the fields, the dropdowns and the buttons (MapPropsView; map_properties.inc, map_pages.inc)
 #include "core/views_start.inc"  // the start page (StartView: the cards, the recent list, Open; the instance is gStartView in new_page.inc)
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
 
@@ -2074,7 +2075,6 @@ bool playersApply(PlayersDialog& d) {
 }
 
 // The Properties page: map_properties.inc (after the control kit).
-const uint16_t kMapSizes[] = {64, 96, 128, 192, 256};  // the sizes StarEdit offers (also New map)
 
 // The map's playability as one message ("" when StarCraft can start it).
 

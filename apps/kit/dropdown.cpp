@@ -203,6 +203,12 @@ void Dropdown::setValue(int i) {
     invalidate();
 }
 
+void Dropdown::setChanged(bool on) {
+    if (on == changed_) return;
+    changed_ = on;
+    invalidate();
+}
+
 void Dropdown::setEnabled(bool e) {
     if (e == enabled_) return;
     enabled_ = e;
@@ -271,8 +277,9 @@ void Dropdown::paint(Canvas& c) {
     const Rect r{0, 0, width(), height()};
     Color fill = th.ctl, line = th.border;
     if (!enabled_) fill = th.readOnly, line = th.readOnlyLine;
-    else if (hasFocus() || listOpen_) line = th.accent;
-    else if (hover_) line = th.borderHot;
+    else if (changed_) fill = th.goodFill, line = th.goodLine;
+    if (enabled_ && (hasFocus() || listOpen_)) line = th.accent;
+    else if (enabled_ && !changed_ && hover_) line = th.borderHot;
     c.roundBox(r, fill, line, px(kRadius));
     if (value_ >= 0 && value_ < int(items_.size())) {
         const DropdownItem& it = items_[size_t(value_)];
@@ -282,7 +289,8 @@ void Dropdown::paint(Canvas& c) {
             tx += px(24);
         }
         const bool hasNumber = it.number >= 0;
-        c.text({tx, r.top, r.right - (hasNumber ? px(56) : px(22)), r.bottom}, it.label, enabled_ ? th.text : th.faint, draw::kMiddle | draw::kEllipsis);
+        c.text({tx, r.top, r.right - (hasNumber ? px(56) : px(22)), r.bottom}, it.label, !enabled_ ? th.faint : changed_ ? th.good : th.text,
+               draw::kMiddle | draw::kEllipsis);
         if (hasNumber) c.text({r.right - px(64), r.top, r.right - px(22), r.bottom}, std::to_wstring(it.number), th.dim, draw::kMiddle | draw::kRight);
     }
     if (enabled_) c.icon({r.right - px(20), r.top, r.right - px(6), r.bottom}, kIconChevron, hover_ || listOpen_ ? th.text : th.dim, px(16));

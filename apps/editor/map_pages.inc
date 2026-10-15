@@ -219,177 +219,17 @@ LRESULT CALLBACK playersDialogProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 
-// --- Game text in its colors (WYSIWYG): the title and description of the map -------------------------------------
-// --- Map properties' fields (on the Map properties page): painted with the kit; the title and description are rich boxes
+// --- Map properties' view: core/views_map_props.inc (the fields, the dropdowns, the buttons); the game text editors are the
+// program's windows in its boxes (MapPropsWinView, the window's child notifications).
 
-ui::Surface gPropsSurface;  // the dropdowns' and buttons' click areas
-
-// The page's rows (the same at its making and at each paint).
-struct PropsLayout {
-    int pad, rowH, pitch, labelW, boxW, x1, nameY, nameH, descY, descH, terrainY, tilesetY, sizeY, anchorY, fillY, infoY, infoH, buttonsY, height;
+// The view in the page's window: the program's game text editors notify it (their changes go into the map).
+class MapPropsWinView final : public MapPropsView, public ui::ChildCommands {
+public:
+    using MapPropsView::MapPropsView;
+    void childCommand(int, int code) override {
+        if (code == EN_CHANGE) mapPageChanged();
+    }
 };
-// The title and the description: game text editors in the scenario's colors (the description: lines aligned too).
-GameTextSpec propsNameSpec() {
-    GameTextSpec s;
-    s.palette = TextPalette::Scenario, s.multiline = false, s.align = false, s.crlf = true;
-    return s;
-}
-GameTextSpec propsDescSpec() {
-    GameTextSpec s;
-    s.palette = TextPalette::Scenario, s.multiline = true, s.align = true, s.crlf = true;
-    return s;
-}
-PropsLayout propsLayout() {
-    PropsLayout l{};
-    l.pad = scale(ui::kDialogPad), l.rowH = scale(ui::kFieldH), l.pitch = l.rowH + scale(8), l.labelW = scale(120), l.boxW = scale(440);
-    l.x1 = l.pad + l.labelW;
-    l.nameY = l.pad + l.pitch;  // under the "Map" heading (each editor: its box, then its colors under it)
-    l.nameH = gameTextHeight(propsNameSpec(), l.boxW, l.rowH);
-    l.descY = l.nameY + l.nameH + scale(10), l.descH = gameTextHeight(propsDescSpec(), l.boxW, scale(96));
-    l.terrainY = l.descY + l.descH + l.pad;
-    l.tilesetY = l.terrainY + l.pitch;
-    l.sizeY = l.tilesetY + l.pitch, l.anchorY = l.sizeY + l.pitch, l.fillY = l.anchorY + l.pitch;
-    // The buttons under the fields; what they do under them (the text shows when the size or the tileset differs).
-    l.buttonsY = l.fillY + l.pitch + scale(4);
-    l.infoY = l.buttonsY + scale(ui::kButtonH) + scale(8), l.infoH = scale(20);
-    if (gMapProps && !gMapProps->infoText.empty()) {  // as tall as the text
-        HDC dc = GetDC(nullptr);
-        HGDIOBJ of = SelectObject(dc, app.font);
-        RECT r{0, 0, l.boxW, 0};
-        DrawTextW(dc, gMapProps->infoText.c_str(), -1, &r, DT_WORDBREAK | DT_NOPREFIX | DT_CALCRECT);
-        SelectObject(dc, of);
-        ReleaseDC(nullptr, dc);
-        l.infoH = std::max<int>(l.infoH, r.bottom + scale(4));
-    }
-    l.height = l.infoY + l.infoH + l.pad;
-    return l;
-}
-
-void propsFitHeight(HWND hwnd);
-void propsPaint(HWND hwnd, MapPropsDialog& d) {
-    propsFitHeight(hwnd);
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-    HGDIOBJ ob = SelectObject(mem, back), of = SelectObject(mem, app.font);
-    FillRect(mem, &rc, app.bgBrush);
-    SetBkMode(mem, TRANSPARENT);
-    gPropsSurface.begin(hwnd);
-    const PropsLayout l = propsLayout();
-    const int right = l.x1 + l.boxW;
-    auto heading = [&](const wchar_t* t, int y) {
-        SetTextColor(mem, kText);
-        RECT r{l.pad, y, right, y + l.rowH};
-        DrawTextW(mem, t, -1, &r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-        fillAlpha(mem, {l.pad, y + l.rowH, right, y + l.rowH + 1}, kBorder, 255);
-    };
-    auto label = [&](const wchar_t* t, int y) {
-        SetTextColor(mem, kDim);
-        RECT r{l.pad, y, l.x1 - scale(8), y + l.rowH};
-        DrawTextW(mem, t, -1, &r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-    };
-    heading(L"Map", l.pad);
-    label(L"Title", l.nameY), label(L"Description", l.descY);  // (the editors paint themselves)
-    heading(L"Terrain", l.terrainY);
-    label(L"Tileset", l.tilesetY), label(L"Size (tiles)", l.sizeY), label(L"Map content at", l.anchorY), label(L"New ground", l.fillY);
-    auto pick = [](const wchar_t* prompt, std::vector<ListPickItem> items, const std::string& cur, RECT b, auto set) {
-        std::string out;
-        if (showListPicker(prompt, std::move(items), cur, belowBox(b), out)) set(out), mapPropsInfo(*gMapProps), mapPageChanged();
-    };
-    ui::pickBox(mem, {l.x1, l.tilesetY, right, l.tilesetY + l.rowH}, kTilesetNames[d.era & 7], d.era != d.eraBase, [pick](RECT b) {
-        std::vector<ListPickItem> items;
-        for (int e = 0; e < 8; ++e) items.push_back({kTilesetNames[e], L"", std::to_string(e)});
-        pick(L"Tileset", items, std::to_string(gMapProps->era), b, [](const std::string& v) {
-            gMapProps->era = std::stoi(v);
-            gMapProps->fillTerrain = mapPropsFirstTerrain(gMapProps->era);  // the new tileset's terrains
-        });
-    });
-    const int sw = scale(96);
-    auto sizeBox = [&](int x, int& value, bool changed) {
-        ui::pickBox(mem, {x, l.sizeY, x + sw, l.sizeY + l.rowH}, std::to_wstring(value), changed, [pick, &value](RECT b) {
-            std::vector<ListPickItem> items;
-            bool odd = true;
-            for (int s : kMapSizes) items.push_back({std::to_wstring(s), L"", std::to_string(s)}), odd &= s != value;
-            if (odd) items.push_back({std::to_wstring(value), L"", std::to_string(value)});  // an odd size: kept as a choice
-            pick(L"Size", items, std::to_string(value), b, [&value](const std::string& v) { value = std::stoi(v); });
-        });
-    };
-    sizeBox(l.x1, d.w, d.w != d.wBase);
-    SetTextColor(mem, kDim);
-    RECT xr{l.x1 + sw, l.sizeY, l.x1 + sw + scale(24), l.sizeY + l.rowH};
-    DrawTextW(mem, L"x", -1, &xr, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
-    sizeBox(l.x1 + sw + scale(24), d.h, d.h != d.hBase);
-    ui::pickBox(mem, {l.x1, l.anchorY, right, l.anchorY + l.rowH}, kAnchorNames[std::clamp(d.anchorIndex, 0, 8)], false, [pick](RECT b) {
-        std::vector<ListPickItem> items;
-        for (int k = 0; k < 9; ++k) items.push_back({kAnchorNames[k], L"", std::to_string(k)});
-        pick(L"Map content at", items, std::to_string(gMapProps->anchorIndex), b, [](const std::string& v) { gMapProps->anchorIndex = std::stoi(v); });
-    });
-    std::wstring fillName;
-    const IsomTerrainTable* table = IsomTerrainTable::forEra(uint16_t(d.era));
-    if (table && table->isTerrain(d.fillTerrain)) fillName = widen(table->terrainName(d.fillTerrain));
-    ui::pickBox(mem, {l.x1, l.fillY, right, l.fillY + l.rowH}, fillName, false, [pick](RECT b) {
-        std::vector<ListPickItem> items;
-        if (const IsomTerrainTable* t = IsomTerrainTable::forEra(uint16_t(gMapProps->era)))
-            for (uint16_t i = 1; i <= t->terrainCount(); ++i)
-                if (t->isTerrain(i)) items.push_back({widen(t->terrainName(i)), L"", std::to_string(i)});
-        pick(L"New ground", items, std::to_string(gMapProps->fillTerrain), b, [](const std::string& v) { gMapProps->fillTerrain = uint16_t(std::stoi(v)); });
-    });
-    // The buttons, then what they do (only the size and the tileset wait for them).
-    SetTextColor(mem, kDim);
-    RECT ir{l.x1, l.infoY, right, l.infoY + l.infoH};
-    DrawTextW(mem, d.infoText.c_str(), -1, &ir, DT_WORDBREAK | DT_NOPREFIX);
-    const bool differs = !d.infoText.empty();
-    const int bh = scale(ui::kButtonH), cw = ui::buttonWidth(mem, L"Change the size and tileset"), rw = ui::buttonWidth(mem, L"Reset");
-    d.changeRect = {l.x1, l.buttonsY, l.x1 + cw, l.buttonsY + bh};
-    d.resetRect = {d.changeRect.right + scale(ui::kButtonGap), l.buttonsY, d.changeRect.right + scale(ui::kButtonGap) + rw, l.buttonsY + bh};
-    ui::button(mem, d.changeRect, L"Change the size and tileset", ui::Tone::Primary, [] { mapPageApplyTerrain(); },
-               L"Set the new size and tileset in the map (one undo step)", differs);
-    ui::button(mem, d.resetRect, L"Reset", ui::Tone::Normal, [] { mapPageReload(); }, L"Discard the changes that are not applied and show the map's values", differs);
-    gPropsSurface.end(hwnd);
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, of), SelectObject(mem, ob);
-    DeleteObject(back);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
-}
-
-LRESULT CALLBACK mapPropsProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    MapPropsDialog* d = gMapProps;
-    if (!d) return DefWindowProcW(hwnd, msg, wp, lp);
-    LRESULT res = 0;
-    if (msg != WM_PAINT && gPropsSurface.message(hwnd, msg, wp, lp, res)) return res;
-    switch (msg) {
-    case WM_CREATE: {
-        d->wnd = hwnd;
-        const PropsLayout l = propsLayout();
-        // The only native controls: the texts (game text editors: the scenario's colors)
-        d->name = gameTextCreate(hwnd, 1601, {l.x1, l.nameY, l.x1 + l.boxW, l.nameY + l.nameH}, propsNameSpec());
-        d->desc = gameTextCreate(hwnd, 1602, {l.x1, l.descY, l.x1 + l.boxW, l.descY + l.descH}, propsDescSpec());
-        gameTextSet(d->name, d->nameText), gameTextSet(d->desc, d->descText);
-        mapPropsInfo(*d);
-        SetWindowPos(hwnd, nullptr, 0, 0, l.x1 + l.boxW + l.pad, l.height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);  // as big as its content
-        if (!d->baseSet) {  // the map's values as the page shows them: "no change" is these
-            d->baseSet = true;
-            d->nameBase = gameTextGet(d->name), d->descBase = gameTextGet(d->desc);
-            d->eraBase = d->era, d->wBase = d->w, d->hBase = d->h;
-        }
-        return 0;
-    }
-    case WM_PAINT: propsPaint(hwnd, *d); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_COMMAND:
-        if (HIWORD(wp) == EN_CHANGE) mapPageChanged();
-        return 0;
-    case WM_CTLCOLOREDIT:
-        SetTextColor(HDC(wp), kText);
-        SetBkColor(HDC(wp), kCtl);
-        return LRESULT(app.ctlBrush);
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
 
 enum MapPageKind { kMpProps, kMpPlayers, kMpClassicTrig, kMpClassicSettings, kMpCount };
 const wchar_t* const kMpTitles[kMpCount] = {L"Map properties", L"Players and forces", L"Classic triggers", L"Data"};
@@ -430,6 +270,7 @@ struct MapPageHost {
     bool ready = false;  // the content is made (until then, no reading back from its controls)
     std::unique_ptr<MapPagesView> frameView;
     std::unique_ptr<MapScrollView> scrollView;
+    std::unique_ptr<MapPropsView> props;  // Map properties' view (content[0] of that page; made with its window, freed after it)
     int reloadTimer = 0, typingTimer = 0;  // the host's timers: the check that the map changed (300 ms); the typing's stop (500 ms)
     bool typing = false;  // Map properties: a text is being typed (it goes into the map when the typing stops)
 } gMp;
@@ -589,15 +430,23 @@ void mapPageScrollTo(int x, int y) {
     if (gMp.scrollView) gMp.scrollView->scrollTo(x, y);
 }
 
-// The text under the size and tileset buttons got taller or shorter: the part's new height, the players under it.
-void propsFitHeight(HWND hwnd) {
-    const PropsLayout l = propsLayout();
-    RECT wr;
-    GetClientRect(hwnd, &wr);
-    if (wr.bottom == l.height) return;
-    SetWindowPos(hwnd, nullptr, 0, 0, wr.right, l.height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-    mapPageScrollTo(mapPageScrollX(), mapPageScrollY());
-}
+// The program's part of Map properties' view (core/views_map_props.inc: MapPropsHost). The map changes go through the
+// page's code (above); the height is the window's, and the players under the page move with it.
+class MapPropsProgram final : public MapPropsHost {
+public:
+    void changed() override { mapPropsInfo(*gMapProps), mapPageChanged(); }
+    void applyTerrain() override { mapPageApplyTerrain(); }
+    void reset() override { mapPageReload(); }
+    int textHeight(bool description, int boxW, int boxH) override {
+        return gameTextHeight(description ? propsDescSpec() : propsNameSpec(), boxW, boxH);
+    }
+    void fitHeight(int w, int h) override {
+        if (!gMp.content[0]) return;
+        SetWindowPos(gMp.content[0], nullptr, 0, 0, w, h, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+        mapPageScrollTo(mapPageScrollX(), mapPageScrollY());
+    }
+};
+MapPropsProgram gMapPropsProgram;
 
 // --- The page ------------------------------------------------------------------------------------------------------
 
@@ -620,8 +469,7 @@ void mapPageRegister() {
     WNDCLASSEXW wc{sizeof wc};
     wc.hInstance = app.inst;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    const std::pair<WNDPROC, const wchar_t*> classes[] = {{mapPropsProc, L"StarDraftMapProps"},
-                                                          {playersDialogProc, L"StarDraftPlayers"},
+    const std::pair<WNDPROC, const wchar_t*> classes[] = {{playersDialogProc, L"StarDraftPlayers"},
                                                           {classicPageProc, L"StarDraftClassicPage"},
                                                           {classicTrigProc, L"StarDraftClassicTriggers"},
                                                           {ctListProc, L"StarDraftClassicTrigList"}};  // the painted lists
@@ -633,13 +481,18 @@ void mapPageMakeContent() {
     gMp.ready = false;
     for (HWND& c : gMp.content)
         if (c) DestroyWindow(c), c = nullptr;
+    gMp.props.reset();  // (its window is gone: the view goes too)
     if (gClassic && gClassic->readOnlyBrush) DeleteObject(gClassic->readOnlyBrush), gClassic->readOnlyBrush = nullptr;
     auto make = [](const wchar_t* cls, void* param) {
         return CreateWindowExW(WS_EX_CONTROLPARENT, cls, L"", WS_CHILD | WS_CLIPSIBLINGS, 0, 0, 10, 10, gMp.view, nullptr, app.inst, param);
     };
     switch (gMp.kind) {
-    case kMpProps:  // the map's fields, then players and forces
-        gMp.content[0] = make(L"StarDraftMapProps", nullptr);
+    case kMpProps:  // the map's fields (the view), then players and forces
+        gMp.props = std::make_unique<MapPropsWinView>(gMapPropsProgram, *gMapProps);
+        gMp.content[0] = CreateWindowExW(WS_EX_CONTROLPARENT, ui::kViewClass, L"", WS_CHILD | WS_CLIPSIBLINGS, 0, 0, gMp.props->preferredWidth(),
+                                         gMp.props->baseHeight(), gMp.view, nullptr, app.inst, gMp.props.get());
+        mapPropsCreated(*gMapProps, gMp.content[0], gMp.props->nameBox(), gMp.props->descBox());
+        SetWindowPos(gMp.content[0], nullptr, 0, 0, gMp.props->preferredWidth(), gMp.props->baseHeight(), SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
         if (gPlayersDlg) gMp.content[1] = make(L"StarDraftPlayers", nullptr);
         break;
     case kMpPlayers: gMp.content[0] = make(L"StarDraftPlayers", nullptr); break;
@@ -722,6 +575,7 @@ void mapPageReload() {
     gMp.ready = false;
     for (HWND& w : gMp.content)  // the old content goes before its copy does
         if (w) DestroyWindow(w), w = nullptr;
+    gMp.props.reset();
     *c = fresh;
     void* players = nullptr;
     if (gMp.kind == kMpProps)

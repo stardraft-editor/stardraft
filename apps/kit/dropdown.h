@@ -36,6 +36,9 @@ public:
     void setEnabled(bool e);
     bool enabled() const { return enabled_; }
     void setTip(std::wstring t) { tip_ = std::move(t); }
+    // The green Changed look (a value that differs from the saved one, as the program's pickers show it).
+    void setChanged(bool on);
+    bool changed() const { return changed_; }
     bool listOpen() const { return listOpen_; }
     // Opens the list under the field (nothing when it is disabled or has no items).
     void openList();
@@ -58,7 +61,7 @@ private:
     std::vector<DropdownItem> items_;
     std::wstring tip_;
     int value_ = -1;
-    bool enabled_ = true, listOpen_ = false, hover_ = false, justClosed_ = false;
+    bool enabled_ = true, listOpen_ = false, hover_ = false, justClosed_ = false, changed_ = false;
     float wheelAcc_ = 0;
     // Lets go of the list (the host forgets it). It is deleted by a timer: its own event may be the one running.
     void retireList();

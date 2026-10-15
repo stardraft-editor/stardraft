@@ -92,6 +92,13 @@ public:
     virtual HBRUSH childColors(HDC dc) = 0;
 };
 
+// A view whose child windows notify it (WM_COMMAND: the game text editors' changes): the notification's id and code.
+class ChildCommands {
+public:
+    virtual ~ChildCommands() = default;
+    virtual void childCommand(int id, int code) = 0;
+};
+
 class Win32Host final : public Host {
 public:
     explicit Win32Host(View& v) : view_(v), router_(v) { v.attach(this); }
@@ -407,6 +414,13 @@ public:
         case WM_CTLCOLORSTATIC:
             if (auto* cc = dynamic_cast<ChildColors*>(&view_)) {
                 result = LRESULT(cc->childColors(HDC(wp)));
+                return true;
+            }
+            return false;
+        case WM_COMMAND:  // a child window's notification (the view that asks for them)
+            if (auto* cc = dynamic_cast<ChildCommands*>(&view_)) {
+                cc->childCommand(LOWORD(wp), HIWORD(wp));
+                result = 0;
                 return true;
             }
             return false;
