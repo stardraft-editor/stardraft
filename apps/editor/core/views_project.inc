@@ -136,6 +136,28 @@ public:
     virtual Music music() = 0;
     virtual void chooseMusic() = 0;
     virtual void clearMusic() = 0;
+    // The files in memory (euddraft's dataDumper): each file's name and its address, as the page shows them.
+    struct MemoryFile {
+        std::wstring file, at;
+    };
+    virtual std::vector<MemoryFile> memoryFiles() = 0;
+    virtual void removeMemoryFile(size_t i) = 0;
+    virtual void addMemoryFile() = 0;
+    // The scripts Build runs, in order: each one's name and facts (the page makes its note and its buttons from them).
+    // file: a script's path; changed: a found script's last change; afterBuild: changed after the last build.
+    struct ScriptRow {
+        std::string name;
+        std::wstring file, changed;
+        bool selected = false, script = false, generated = false, linked = false, found = false, afterBuild = false;
+    };
+    virtual std::vector<ScriptRow> scripts() = 0;
+    virtual void selectScript(const std::string& name) = 0;
+    virtual void openScript(const std::string& name) = 0;  // in the user's editor
+    virtual void showScript(const std::string& name) = 0;  // in its folder
+    virtual void moveScript(const std::string& name, int by) = 0;
+    virtual void removeScript(const std::string& name) = 0;
+    virtual void newScript() = 0;
+    virtual void linkScript() = 0;
 };
 
 // The background music (bgmplayer) and files in memory (dataDumper) are off for now: not shown. A project that has them
@@ -163,6 +185,10 @@ public:
         return true;
     }
     void resized() override { host_.pageResized(); }
+    // The mouse capture went: a drag ends where it is (its row stays).
+    void captureLost() override {
+        if (drag_.active) drag_ = {}, invalidate();
+    }
     bool hoverTip() const override { return true; }
     draw::Cursor cursor(draw::Point pt) override;
     std::wstring tip(draw::Point pt) override;
@@ -180,6 +206,14 @@ private:
         std::function<void()> click;
         std::wstring tip;
         draw::Cursor cursor = draw::Cursor::Arrow;
+        int grip = -1;  // a row's grip: the row's index (a press starts the drag that moves the row)
+    };
+    // A row's icon button at its right edge.
+    struct RowAct {
+        UiIcon icon;
+        std::wstring tip;
+        std::function<void()> click;
+        bool danger = false, enabled = true;
     };
     struct Button {
         std::wstring text, tip;
@@ -216,11 +250,33 @@ private:
     int paintMusic(draw::Canvas& c, int y, int x0, int labelW, int rowH, int colRight);
     // A check box with its label: the whole row is its click area.
     void paintCheck(draw::Canvas& c, draw::Rect r, const std::wstring& label, bool on, const std::wstring& tip, std::function<void()> click);
+    // The files in memory from y (kProjectMusicAndFiles); returns the y after them.
+    int paintMemory(draw::Canvas& c, int y, int x0, int labelW, int rowH, int colRight);
+    // The scripts Build runs, from y (a row moves by its grip); returns the y after them.
+    int paintScripts(draw::Canvas& c, int y, int x0, int rowH, int colRight);
+    // A row's icon buttons at its right edge: shown under the mouse, or always when `show`.
+    void paintRowActions(draw::Canvas& c, draw::Rect row, const std::vector<RowAct>& acts, bool show);
+    // A list row's ground (selected: the accent bar; under the mouse: the row's ground) and a grip's dots.
+    static void listRowFace(draw::Canvas& c, draw::Rect r, bool selected, bool over);
+    static void paintGrip(draw::Canvas& c, int x, int y, bool on);
+    // A small button in a row (as wide as its text): returns its right edge.
+    int smallButton(draw::Canvas& c, int x, int y, int h, const std::wstring& text, std::function<void()> click, const std::wstring& tip = L"");
+    // Dragging a script row: from the grip's press, the row goes where the mouse is (the drop line), and on the release it moves.
+    void startDrag(int from, draw::Point pt);
+    void dragTo(draw::Point pt);
+    void endDrag();
 
+    struct Drag {
+        bool active = false;
+        int from = -1, to = -1;  // the row taken, and where it goes now (an index in the list with the row)
+    };
     ProjectHost& host_;
     std::vector<Hit> hits_;  // what the last paint put under the mouse
     int hover_ = -1;         // the hit under the mouse at the last move
     int scroll_ = 0, contentH_ = 0;
+    Drag drag_;
+    std::vector<draw::Rect> scriptRows_;     // this paint's script rows (where a drag goes)
+    std::vector<std::string> scriptNames_;   // this paint's scripts, in build order
 };
 
 void ProjectPageView::paint(draw::Canvas& c) {
@@ -284,6 +340,8 @@ void ProjectPageView::paint(draw::Canvas& c) {
         row(L"euddraft", f.euddraft, false, {}, L"", nullptr);
         y += scale(12);
         y = paintBuild(c, y, x0, labelW, rowH, colRight);
+        if (kProjectMusicAndFiles) y = paintMemory(c, y, x0, labelW, rowH, colRight);
+        y = paintScripts(c, y, x0, rowH, colRight);
         y = shellPaintProjectRest(c, y, pageW, h);
     }
     contentH_ = y + scroll_;
@@ -355,6 +413,180 @@ int ProjectPageView::paintMusic(draw::Canvas& c, int y, int x0, int labelW, int 
     return y + rowH + scale(4);
 }
 
+int ProjectPageView::paintMemory(draw::Canvas& c, int y, int x0, int labelW, int rowH, int colRight) {
+    const std::vector<ProjectHost::MemoryFile> files = host_.memoryFiles();
+    c.text({x0, y, x0 + labelW, y + rowH}, L"Files in memory", files.empty() ? kDim : kGood, draw::kMiddle | draw::kEllipsis);
+    int ly = y;
+    for (size_t i = 0; i < files.size(); ++i) {
+        const draw::Rect r{x0 + labelW - scale(6), ly, colRight, ly + rowH};
+        listRowFace(c, r, false, hot(r));
+        c.text({r.left + scale(6), r.top, r.right - scale(200), r.bottom}, files[i].file, kText, draw::kPathEllipsis | draw::kMiddle);
+        c.text({r.right - scale(200), r.top, r.right - scale(40), r.bottom}, L"at " + files[i].at, kDim, draw::kRight | draw::kMiddle);
+        paintRowActions(c, r, {{UiIcon::Close, L"Remove from the list", [this, i] { host_.removeMemoryFile(i); }, true}}, false);
+        ly += rowH;
+    }
+    smallButton(c, x0 + labelW, ly, rowH, L"Add a file\x2026", [this] { host_.addMemoryFile(); },
+                L"Loads a file's bytes into the game's memory when the map starts (euddraft's dataDumper)");
+    return ly + rowH + scale(12);
+}
+
+int ProjectPageView::paintScripts(draw::Canvas& c, int y, int x0, int rowH, int colRight) {
+    const int headH = scale(stardraft::kit::kRowH);
+    // The heading: its name and a line to the column's edge, with the tip that says what Build does with the list.
+    const int hy = y;
+    c.text({x0, y, colRight, y + headH}, L"Scripts", kText, draw::kMiddle);
+    c.fill({x0, y + headH - 1, colRight, y + headH}, kBorder);
+    y += headH + scale(6);
+    hits_.push_back({{x0, hy, x0 + scale(120), hy + headH}, nullptr,
+                     L"Build runs these in order, from the top. onPluginStart runs once when the map starts; beforeTriggerExec and afterTriggerExec run each trigger cycle",
+                     draw::Cursor::Arrow});
+    const std::vector<ProjectHost::ScriptRow> list = host_.scripts();
+    scriptRows_.clear(), scriptNames_.clear();
+    for (size_t i = 0; i < list.size(); ++i) {
+        const ProjectHost::ScriptRow& s = list[i];
+        const std::string name = s.name;
+        scriptNames_.push_back(name);
+        const bool script = s.script, generated = s.generated, linked = s.linked;
+        // The note: where the code comes from; for a script file, whether it is found and its last change (R5: a change
+        // made in another editor after the last build shows in the accent color).
+        std::wstring note, after;
+        bool warn = false;
+        if (generated) note = L"from the Data workspace";
+        else if (!script) note = L"euddraft plugin";
+        else if (!s.found) note = linked ? L"linked  \x00B7  not found: Build stops" : L"not found: Build stops", warn = true;
+        else {
+            note = (linked ? L"linked  \x00B7  changed " : L"changed ") + s.changed;
+            if (s.afterBuild) after = L"  after the last build";
+        }
+        const draw::Rect r{x0 - scale(6), y, colRight, y + rowH};
+        scriptRows_.push_back(r);
+        const bool on = s.selected;
+        listRowFace(c, r, on, hot(r));
+        // The name is the row's click (selects the script); a script's tip gives its file.
+        const std::wstring tip = script ? (linked ? std::wstring(L"A linked file. StarDraft 2 does not copy or change it: ") : std::wstring()) + s.file
+                                        : std::wstring();
+        hits_.push_back({r, [this, name] { host_.selectScript(name); }, tip, draw::Cursor::Hand});
+        // The grip (six dots, shown under the mouse) moves the row by a drag; a generated row does not move.
+        const bool dragged = drag_.active && drag_.from == int(i);
+        if (dragged) c.fill(r, kSel, 160);
+        const bool can = !generated;
+        if (can && (hot(r) || dragged)) paintGrip(c, r.left + scale(5), (r.top + r.bottom) / 2 - scale(6), dragged);
+        if (can) {
+            hits_.push_back({{r.left, r.top, r.left + scale(18), r.bottom}, nullptr, L"Drag to move", draw::Cursor::SizeAll, int(i)});
+        }
+        // The name in the mono font, the note after it in the UI font.
+        const draw::Font ui = c.setFont(c.font({draw::Face::Mono, 0}));
+        const draw::Rect t{x0 + scale(16), r.top, r.right - scale(380), r.bottom};
+        c.text(t, widen(name), on ? kAccent : kText, draw::kPathEllipsis | draw::kMiddle);
+        const int nameRight = t.left + std::min<int>(t.width(), c.measure(widen(name)));
+        c.setFont(ui);
+        const draw::Rect n{nameRight + scale(16), r.top, r.right - scale(140), r.bottom};
+        c.text(n, note, warn ? kWarn : kDim, draw::kEllipsis | draw::kMiddle);
+        if (!after.empty()) {
+            draw::Rect na = n;
+            na.left = std::min<int>(n.right, n.left + c.measure(note));
+            c.text(na, after, kAccent, draw::kEllipsis | draw::kMiddle);
+        }
+        // The row's buttons: a script opens (in the user's editor, in its folder); each row moves and leaves the build.
+        std::vector<RowAct> acts;
+        if (script) {
+            acts.push_back({UiIcon::OpenExternal, L"Open in your editor", [this, name] { host_.openScript(name); }});
+            acts.push_back({UiIcon::Folder, L"Show in folder", [this, name] { host_.showScript(name); }});
+        }
+        const bool movable = !generated;
+        acts.push_back({UiIcon::MoveUp, L"Earlier", [this, name] { host_.moveScript(name, -1); }, false, movable && i > 0 && !list[i - 1].generated});
+        acts.push_back({UiIcon::MoveDown, L"Later", [this, name] { host_.moveScript(name, 1); }, false, movable && i + 1 < list.size()});
+        acts.push_back({UiIcon::Close,
+                        generated ? L"Comes from the Data workspace"
+                        : linked  ? L"Remove the link. StarDraft 2 does not delete the file."
+                                  : L"Remove from the build (the file stays in the project folder)",
+                        [this, name] { host_.removeScript(name); }, true, !generated});
+        paintRowActions(c, r, acts, on);
+        y += rowH;
+    }
+    // The drop line: where the dragged row goes.
+    if (drag_.active && !scriptRows_.empty()) {
+        const int ly = drag_.to < int(scriptRows_.size()) ? scriptRows_[size_t(drag_.to)].top : scriptRows_.back().bottom;
+        c.fill({scriptRows_.front().left, ly - scale(1), scriptRows_.front().right, ly + scale(1)}, kAccent);
+    }
+    y += scale(4);
+    const int ax = smallButton(c, x0, y, rowH, L"New script", [this] { host_.newScript(); });
+    smallButton(c, ax + scale(8), y, rowH, L"Link a file\x2026", [this] { host_.linkScript(); },
+                L"Add an .eps or .py file from anywhere on disk to the build. StarDraft 2 does not copy or change it.");
+    return y + rowH + scale(24);
+}
+
+void ProjectPageView::listRowFace(draw::Canvas& c, draw::Rect r, bool selected, bool over) {
+    if (selected) {
+        c.fill(r, kSel);
+        c.fill({r.left, r.top, r.left + scale(2), r.bottom}, kAccent);
+    } else if (over) {
+        c.fill(r, kRowHot);
+    }
+}
+
+void ProjectPageView::paintGrip(draw::Canvas& c, int x, int y, bool on) {
+    for (int gx = 0; gx < 2; ++gx)
+        for (int gy = 0; gy < 3; ++gy) {
+            const int dx = x + gx * scale(5), dy = y + gy * scale(5);
+            c.fill({dx, dy, dx + scale(2), dy + scale(2)}, on ? kAccent : kGripDot);
+        }
+}
+
+void ProjectPageView::paintRowActions(draw::Canvas& c, draw::Rect row, const std::vector<RowAct>& acts, bool show) {
+    if (!show && !hot(row)) return;
+    const int w = scale(stardraft::kit::kIconBox), h = std::min(row.height(), scale(stardraft::kit::kIconBox));
+    int x = row.right - scale(4) - w * int(acts.size());
+    const int y = (row.top + row.bottom - h) / 2;
+    for (const RowAct& a : acts) {
+        const draw::Rect r = squareOf({x, y, x + w, y + h});
+        const bool over = a.enabled && hot(r);
+        if (over) c.roundBox(r, kCtlHot, draw::kNone, float(scale(stardraft::kit::kRadius)));
+        c.icon(r, int(a.icon), !a.enabled ? kFaint : over ? (a.danger ? kBad : kText) : kDim, scale(16));
+        hits_.push_back({r, a.enabled ? a.click : nullptr, a.tip, a.enabled ? draw::Cursor::Hand : draw::Cursor::Arrow});
+        x += w;
+    }
+}
+
+int ProjectPageView::smallButton(draw::Canvas& c, int x, int y, int h, const std::wstring& text, std::function<void()> click,
+                                 const std::wstring& tip) {
+    const int bh = std::min(h, scale(24)), w = c.measure(text) + scale(20);
+    const draw::Rect r{x, y + (h - bh) / 2, x + w, y + (h - bh) / 2 + bh};
+    drawButton(c, r, text, hot(r));
+    hits_.push_back({r, std::move(click), tip, draw::Cursor::Hand});
+    return r.right;
+}
+
+void ProjectPageView::startDrag(int from, draw::Point pt) {
+    drag_ = {true, from, from};
+    if (host()) host()->capture(*this, true);
+    dragTo(pt);
+    invalidate();
+}
+
+void ProjectPageView::dragTo(draw::Point pt) {
+    int to = int(scriptRows_.size());
+    for (size_t i = 0; i < scriptRows_.size(); ++i)
+        if (pt.y < (scriptRows_[i].top + scriptRows_[i].bottom) / 2) {
+            to = int(i);
+            break;
+        }
+    if (to != drag_.to) drag_.to = to, invalidate();
+}
+
+void ProjectPageView::endDrag() {
+    const Drag d = drag_;
+    drag_ = {};
+    if (host()) host()->capture(*this, false);
+    invalidate();
+    if (d.from < 0 || d.to == d.from || d.to == d.from + 1) return;
+    if (size_t(d.from) >= scriptNames_.size()) return;
+    const int to = d.to > d.from ? d.to - 1 : d.to;
+    const std::string moved = scriptNames_[size_t(d.from)];  // the same script for each step
+    for (int k = d.from; k < to; ++k) host_.moveScript(moved, 1);
+    for (int k = d.from; k > to; --k) host_.moveScript(moved, -1);
+}
+
 void ProjectPageView::paintCheck(draw::Canvas& c, draw::Rect r, const std::wstring& label, bool on, const std::wstring& tip,
                                  std::function<void()> click) {
     const int s = scale(14);
@@ -377,12 +609,20 @@ bool ProjectPageView::mouse(const draw::MouseEvent& e) {
     switch (e.kind) {
     case draw::MouseKind::Move:
     case draw::MouseKind::Leave: {  // a part under the mouse is painted again
+        if (drag_.active) {  // a drag: the row goes where the mouse is
+            if (e.kind == draw::MouseKind::Move) dragTo(e.pt);
+            return true;
+        }
         const int hv = e.kind == draw::MouseKind::Leave ? -1 : hitAt(e.pt);
         if (hv != hover_) hover_ = hv, invalidate();
         return shellProjectRestMouse(e);
     }
     case draw::MouseKind::Down:
         if (e.button != 0) return false;
+        if (const int hi = hitAt(e.pt); hi >= 0 && hits_[size_t(hi)].grip >= 0) {
+            startDrag(hits_[size_t(hi)].grip, e.pt);
+            return true;
+        }
         if (const int hi = hitAt(e.pt); hi >= 0 && hits_[size_t(hi)].click) {
             const std::function<void()> run = hits_[size_t(hi)].click;  // a copy: the click may repaint and clear hits_
             run();
@@ -390,6 +630,11 @@ bool ProjectPageView::mouse(const draw::MouseEvent& e) {
         }
         return shellProjectRestMouse(e);
     case draw::MouseKind::Up:
+        if (drag_.active && e.button == 0) {
+            endDrag();
+            return true;
+        }
+        return shellProjectRestMouse(e);
     case draw::MouseKind::DoubleClick: return shellProjectRestMouse(e);
     case draw::MouseKind::Wheel:
         scrollTo(scroll_ - int(e.wheel * float(scale(32) * 3)));
