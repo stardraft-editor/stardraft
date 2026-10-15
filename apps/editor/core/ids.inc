@@ -83,3 +83,5 @@ int gSplitDrag = -1, gSplitGrab = 0;  // which strip is being dragged (0 left, 1
 // the end (that crashed saveDock when Sprites came).
 constexpr const wchar_t* kDockSideNames[] = {L"TerrainRight", L"UnitsRight", L"DoodadsRight", L"LocationsRight", L"SpritesRight"};
 static_assert(std::size(kDockSideNames) == kModeCount, "a dock side name for each mode");
+enum class Workspace { Map, Data, Triggers, Assets, Project, Briefing, Files, Properties, Players, ClassicTriggers, ClassicSettings };
+constexpr int kRecentMax = 10;

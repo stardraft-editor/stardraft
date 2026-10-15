@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <functional>
 #include <iterator>
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -18,6 +19,7 @@
 #include "text_codec.h"
 #include "wintypes.h"
 #include "../res/ui_icons.h"
+#include "stardraft/commands.h"
 #include "stardraft/editor.h"
 #include "stardraft/game_data.h"
 #include "stardraft/hd_assets.h"
