@@ -2003,6 +2003,9 @@ constexpr UiText kRows[] = {
     {L". The old program is ", L". \uC774\uC804 \uD504\uB85C\uADF8\uB7A8: "},
     {L"). Type it as a number", L"). \uC22B\uC790\uB85C \uC785\uB825\uD558\uC2ED\uC2DC\uC624"},
     {L"Triggers do not run each second, so they can miss Exactly. Use At least or At most", L"\uD2B8\uB9AC\uAC70\uB294 \uB9E4\uCD08 \uC2E4\uD589\uB418\uC9C0 \uC54A\uC73C\uBBC0\uB85C Exactly\uB97C \uB193\uCE60 \uC218 \uC788\uC2B5\uB2C8\uB2E4. At least \uB610\uB294 At most\uB97C \uC0AC\uC6A9\uD558\uC2ED\uC2DC\uC624"},
+    {L"Shift+drag paints ", L"Shift+\uB4DC\uB798\uADF8: "},
+    {L"; drag paints ", L"; \uB4DC\uB798\uADF8: "},
+    {L"Shift+drag: no terrain", L"Shift+\uB4DC\uB798\uADF8: \uC9C0\uD615 \uC5C6\uC74C"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

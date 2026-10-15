@@ -1999,3 +1999,6 @@ StarDraft 2 map	StarDraft 2 맵
 . The old program is 	. 이전 프로그램: 
 ). Type it as a number	). 숫자로 입력하십시오
 Triggers do not run each second, so they can miss Exactly. Use At least or At most	트리거는 매초 실행되지 않으므로 Exactly를 놓칠 수 있습니다. At least 또는 At most를 사용하십시오
+Shift+drag paints 	Shift+드래그: 
+; drag paints 	; 드래그: 
+Shift+drag: no terrain	Shift+드래그: 지형 없음

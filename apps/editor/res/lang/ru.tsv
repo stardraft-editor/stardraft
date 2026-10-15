@@ -1999,3 +1999,6 @@ StarDraft 2 map	Карта StarDraft 2
 . The old program is 	. Старая программа: 
 ). Type it as a number	). Введите его как число
 Triggers do not run each second, so they can miss Exactly. Use At least or At most	Триггеры выполняются не каждую секунду, поэтому могут пропустить Exactly. Используйте At least или At most
+Shift+drag paints 	Shift+перетаскивание рисует 
+; drag paints 	; перетаскивание рисует 
+Shift+drag: no terrain	Shift+перетаскивание: нет местности

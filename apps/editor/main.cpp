@@ -519,7 +519,7 @@ struct App {
     Mode mode = Mode::Units;
     std::vector<int> items;  // palette entries for the current mode; -1 = "(Select)"
     int palette = -1;        // selected palette entry value
-    int palette2 = -1;       // isometric terrain: the second terrain (Ctrl+click in the palette), painted with the right button
+    int palette2 = -1;       // isometric terrain: the second terrain (Ctrl+click in the palette), painted with Shift+click or Shift+drag
     int playerOwner = 0;
     float brushSize = 2;  // diamonds, whole numbers 1 to 32
     float brushHeight = 0;  // terrain: the brush's height, 1 to 32; 0: the same as its size (GitHub #113)
@@ -6084,7 +6084,7 @@ void paintUnitPalette(HWND hwnd) {
         }
         const bool picked = units && e.value == app.palette;
         const bool chosen = units && std::find(gPal.chosen.begin(), gPal.chosen.end(), e.value) != gPal.chosen.end();
-        const bool second = units && app.mode == Mode::Terrain && !app.terrainRect && e.value == app.palette2;  // the right button's
+        const bool second = units && app.mode == Mode::Terrain && !app.terrainRect && e.value == app.palette2;  // Shift's
         if (picked || chosen || second || int(i) == gPal.hover) {
             RECT f = r;
             InflateRect(&f, -1, -1);
@@ -6175,11 +6175,11 @@ void pickUnit(int v, bool add) {
     if (!app.ed || v < 0) return;
     if (app.mode == Mode::Terrain || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
         // Terrain: paint with it (leaving Select / copy); doodads and sprites: place it (Ctrl adds to a spray, #79).
-        if (add && app.mode == Mode::Terrain && !app.terrainRect) {  // the second terrain: the right button paints it
+        if (add && app.mode == Mode::Terrain && !app.terrainRect) {  // the second terrain: Shift+click or Shift+drag paints it
             app.palette2 = app.palette2 == v ? -1 : v;
             if (currentTool() == TSelect) app.toolByMode[int(Mode::Terrain)] = TBrush, fillToolCombo();
-            setMessage(app.palette2 > 0 ? tr(L"Right button paints ") + paletteItemName(v) + tr(L"; left button paints ") +
-                                              (app.palette > 0 ? paletteItemName(app.palette) : std::wstring(tr(L"the terrain you click"))) : L"Right button: no terrain");
+            setMessage(app.palette2 > 0 ? tr(L"Shift+drag paints ") + paletteItemName(v) + tr(L"; drag paints ") +
+                                              (app.palette > 0 ? paletteItemName(app.palette) : std::wstring(tr(L"the terrain you click"))) : tr(L"Shift+drag: no terrain"));
             app.dirty = true;
             unitPaletteRepaint();
             return;
@@ -18174,10 +18174,11 @@ void cancelStep() {
     app.dirty = true;
 }
 
-// Isometric terrain: the right button paints the second terrain (Ctrl+click in the palette) with the Brush, Spray, Fill
-// or Replace tool, as the left button paints the first. gRightStrokeSaved: the first terrain during such a stroke.
-int gRightStrokeSaved = -2;  // -2: no right-button stroke
-bool rightPaints() {
+// Isometric terrain: Shift with the left button paints the second terrain (Ctrl+click in the palette) with the Brush,
+// Spray, Fill or Replace tool, as the left button alone paints the first. gSecondStrokeSaved: the first terrain during
+// such a stroke.
+int gSecondStrokeSaved = -2;  // -2: no stroke with the second terrain
+bool secondPaints() {
     const int tool = currentTool();
     return app.ed && app.mode == Mode::Terrain && !app.terrainRect && app.palette2 > 0 && (tool == TBrush || tool == TSpray || tool == TFill || tool == TReplace);
 }
@@ -18193,15 +18194,21 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     constexpr UINT_PTR kAutoPanTimer = 77;
     switch (msg) {
     case WM_LBUTTONDOWN:
-        if (gRightStrokeSaved != -2) return 0;  // a right-button stroke goes on
         SetFocus(hwnd);
         SetCapture(hwnd);
+        // Shift: the second terrain (not Fill's "every place"); with Ctrl (pick) or Alt (pipette) a click does as before
+        if (app.drag == Drag::None && (wp & MK_SHIFT) && !(wp & MK_CONTROL) && GetKeyState(VK_MENU) >= 0 && secondPaints()) {
+            gSecondStrokeSaved = app.palette, app.palette = app.palette2;
+            mouseDown(GET_X_LPARAM(lp), GET_Y_LPARAM(lp), wp & ~WPARAM(MK_SHIFT));
+            return 0;
+        }
         mouseDown(GET_X_LPARAM(lp), GET_Y_LPARAM(lp), wp);
         return 0;
-    case WM_LBUTTONUP:
-        if (gRightStrokeSaved != -2) return 0;
+    case WM_LBUTTONUP: {
+        const int first = std::exchange(gSecondStrokeSaved, -2);  // (first: so the capture's end does not end the stroke again)
         ReleaseCapture();
         mouseUp(GET_X_LPARAM(lp), GET_Y_LPARAM(lp), wp);
+        if (first != -2) app.palette = first, app.dirty = true;  // the first terrain again
         if (app.ed) {
             const int n = app.ed->takeUnitsRemovedByTerrain(), dd = app.ed->takeDoodadsRemovedByTerrain();
             if (dd) app.selDoodads.clear();
@@ -18210,6 +18217,7 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                            (n ? std::to_wstring(n) + (n == 1 ? L" unit" : L" units") : L"") + L" that cannot stay on it");
         }
         return 0;
+    }
     case WM_LBUTTONDBLCLK:
         if (app.mode == Mode::Locations && app.ed) {
             // A location: its properties (the selected one when it is under the mouse, else the smallest there).
@@ -18237,12 +18245,6 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_RBUTTONDOWN:  // the right button: a click opens the map's menu (WM_RBUTTONUP); only the middle button moves the camera
         SetFocus(hwnd);
-        if (app.drag == Drag::None && rightPaints()) {  // isometric terrain with a second terrain: the right button paints it
-            SetCapture(hwnd);
-            gRightStrokeSaved = app.palette, app.palette = app.palette2;
-            mouseDown(GET_X_LPARAM(lp), GET_Y_LPARAM(lp), wp & ~WPARAM(MK_CONTROL));
-            return 0;
-        }
         if (app.drag == Drag::None) gRightDown = true, SetCapture(hwnd);
         return 0;
     case WM_MBUTTONDOWN:  // the middle button scrolls the map: the farther the mouse from where it was pressed, the faster
@@ -18261,14 +18263,6 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SetCursor(LoadCursor(nullptr, IDC_SIZEALL));
         return 0;
     case WM_RBUTTONUP: {
-        if (gRightStrokeSaved != -2) {  // the end of a right-button stroke: the left button's terrain again
-            const int first = std::exchange(gRightStrokeSaved, -2);  // (first: so the capture's end does not end it again)
-            ReleaseCapture();
-            mouseUp(GET_X_LPARAM(lp), GET_Y_LPARAM(lp), wp);
-            app.palette = first;
-            app.dirty = true;
-            return 0;
-        }
         const bool wasDown = std::exchange(gRightDown, false);
         if (wasDown && GetCapture() == hwnd && app.drag != Drag::Pan && !(wp & MK_MBUTTON)) ReleaseCapture();  // (a held middle button keeps it)
         if (app.drag != Drag::None) return 0;  // during a drag (a middle-button pan too): nothing
@@ -18289,8 +18283,8 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_CAPTURECHANGED:
-        if (gRightStrokeSaved != -2 && HWND(lp) != hwnd) {  // the right-button stroke ends where the mouse was last
-            const int first = std::exchange(gRightStrokeSaved, -2);
+        if (gSecondStrokeSaved != -2 && HWND(lp) != hwnd) {  // the stroke with the second terrain ends where the mouse was last
+            const int first = std::exchange(gSecondStrokeSaved, -2);
             mouseUp(app.mouseX, app.mouseY, 0);
             app.palette = first;
             app.dirty = true;
@@ -18298,7 +18292,7 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         break;
     case WM_MBUTTONUP: {
         if (app.drag == Drag::AutoPan || (app.drag == Drag::Pan && panByMiddle)) app.drag = Drag::None, panByMiddle = false;
-        if (GetCapture() == hwnd && !(wp & MK_LBUTTON) && !((wp & MK_RBUTTON) && (gRightDown || gRightStrokeSaved != -2))) ReleaseCapture();
+        if (GetCapture() == hwnd && !(wp & MK_LBUTTON) && !((wp & MK_RBUTTON) && gRightDown)) ReleaseCapture();
         KillTimer(hwnd, kAutoPanTimer);
         app.dirty = true;
         return 0;
@@ -27450,7 +27444,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 o << "deleting the building unlinks the add-on " << (left.type == comsat && !(left.links & UnitLink::Addon) && left.relatedSerial == 0 ? "yes" : "NO") << "\n";
                 continue;
             }
-            if (s == "isomtwo:") {  // isomtwo.txt, isomtwo.png: isometric terrain: click a terrain, Ctrl+click a second; left paints the first, right the second
+            if (s == "isomtwo:") {  // isomtwo.txt, isomtwo.png: isometric terrain: click a terrain, Ctrl+click a second; a click paints the first, Shift+click the second
                 std::ofstream o(fs::path(datashots) / "isomtwo.txt");
                 newMap(64, 64, 0, 1);
                 Editor& ed = *app.ed;
@@ -27480,10 +27474,10 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 toScreen(24 * 32, 32 * 32, lx, ly), toScreen(40 * 32, 32 * 32, rx, ry);
                 SendMessageW(app.view, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(lx, ly));
                 SendMessageW(app.view, WM_LBUTTONUP, 0, MAKELPARAM(lx, ly));
-                SendMessageW(app.view, WM_RBUTTONDOWN, MK_RBUTTON, MAKELPARAM(rx, ry));
-                SendMessageW(app.view, WM_RBUTTONUP, 0, MAKELPARAM(rx, ry));
+                SendMessageW(app.view, WM_LBUTTONDOWN, MK_LBUTTON | MK_SHIFT, MAKELPARAM(rx, ry));
+                SendMessageW(app.view, WM_LBUTTONUP, MK_SHIFT, MAKELPARAM(rx, ry));
                 const int left = ed.terrainAt(24 * 32, 32 * 32), right = ed.terrainAt(40 * 32, 32 * 32);
-                o << "the left button painted the first " << (picks.size() == 2 && left == picks[0] ? "yes" : "NO") << ", the right button the second "
+                o << "the left button painted the first " << (picks.size() == 2 && left == picks[0] ? "yes" : "NO") << ", Shift the second "
                   << (picks.size() == 2 && right == picks[1] ? "yes" : "NO") << ", the first is picked again after " << (picks.size() == 2 && app.palette == picks[0] ? "yes" : "NO")
                   << " (" << left << ", " << right << ")\n";
                 RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);

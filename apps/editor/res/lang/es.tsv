@@ -1999,3 +1999,6 @@ StarDraft 2 map	Mapa de StarDraft 2
 . The old program is 	. El programa antiguo es 
 ). Type it as a number	). Escríbalo como un número
 Triggers do not run each second, so they can miss Exactly. Use At least or At most	Los disparadores no se ejecutan cada segundo, así que pueden perder Exactly. Use At least o At most
+Shift+drag paints 	Mayús+arrastrar pinta 
+; drag paints 	; arrastrar pinta 
+Shift+drag: no terrain	Mayús+arrastrar: sin terreno

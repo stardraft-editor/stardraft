@@ -1999,3 +1999,6 @@ StarDraft 2 map	StarDraft 2 地图
 . The old program is 	。旧程序是
 ). Type it as a number	）。请以数字输入
 Triggers do not run each second, so they can miss Exactly. Use At least or At most	触发器并非每秒运行，因此可能错过 Exactly。请使用 At least 或 At most
+Shift+drag paints 	Shift+拖动绘制
+; drag paints 	；拖动绘制
+Shift+drag: no terrain	Shift+拖动：无地形
