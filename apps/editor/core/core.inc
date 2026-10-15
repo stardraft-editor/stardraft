@@ -21,3 +21,6 @@
 #include "tiles_edit.inc"
 #include "path_overlay.inc"
 #include "map_input.inc"
+#include "views_rail.inc"
+#include "views_minimap.inc"
+#include "views_tabs.inc"
