@@ -4,3 +4,29 @@
 std::wstring widen(const std::string& s) { return stardraft::text::widen(s); }
 
 std::string narrow(const std::wstring& w) { return stardraft::text::narrow(w); }
+
+// A .dat field or section name as the UI shows it, in sentence case: "Target Acquisition Range" -> "Target acquisition
+// range", "Cost & availability" -> "Cost and availability". The schema names stay as they are (code and tests use
+// them). Abbreviations (AI, GRP, ID), names with capitals inside (StarEdit) and game names keep their capitals.
+std::wstring datLabel(const std::string& name, bool start = true) {
+    static const std::set<std::string> keep = {"Brood", "War", "Broodwar", "Staredit", "Iscript", "Terran", "Zerg", "Protoss"};
+    std::string out, word;
+    bool first = start;
+    auto flush = [&] {
+        if (word.empty()) return;
+        bool plain = std::isupper(static_cast<unsigned char>(word[0])) != 0 && word.size() > 1;  // "Range", "Lift-Off"
+        for (size_t i = 1; i < word.size() && plain; ++i)
+            plain = std::islower(static_cast<unsigned char>(word[i])) || word[i] == '-' || word[i - 1] == '-';
+        if (!first && plain && !keep.count(word))
+            for (char& c : word) c = char(std::tolower(static_cast<unsigned char>(c)));
+        if (word == "&") word = "and";
+        if (word == "Resarch") word = first ? "Research" : "research";
+        out += word, word.clear(), first = false;
+    };
+    for (char c : name) {
+        if (c == ' ') flush(), out += ' ';
+        else word += c;
+    }
+    flush();
+    return widen(out);
+}

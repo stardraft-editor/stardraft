@@ -92,114 +92,7 @@ namespace {
 
 #include "settings.inc"
 
-// A .dat field or section name as the UI shows it, in sentence case: "Target Acquisition Range" -> "Target acquisition
-// range", "Cost & availability" -> "Cost and availability". The schema names stay as they are (code and tests use
-// them). Abbreviations (AI, GRP, ID), names with capitals inside (StarEdit) and game names keep their capitals.
-std::wstring datLabel(const std::string& name, bool start = true) {
-    static const std::set<std::string> keep = {"Brood", "War", "Broodwar", "Staredit", "Iscript", "Terran", "Zerg", "Protoss"};
-    std::string out, word;
-    bool first = start;
-    auto flush = [&] {
-        if (word.empty()) return;
-        bool plain = std::isupper(static_cast<unsigned char>(word[0])) != 0 && word.size() > 1;  // "Range", "Lift-Off"
-        for (size_t i = 1; i < word.size() && plain; ++i)
-            plain = std::islower(static_cast<unsigned char>(word[i])) || word[i] == '-' || word[i - 1] == '-';
-        if (!first && plain && !keep.count(word))
-            for (char& c : word) c = char(std::tolower(static_cast<unsigned char>(c)));
-        if (word == "&") word = "and";
-        if (word == "Resarch") word = first ? "Research" : "research";
-        out += word, word.clear(), first = false;
-    };
-    for (char c : name) {
-        if (c == ' ') flush(), out += ' ';
-        else word += c;
-    }
-    flush();
-    return widen(out);
-}
-
-// --- Ids -----------------------------------------------------------------------------------------
-
-enum : int {
-    IDC_TABS = 100, IDC_OWNER, IDC_BRUSH, IDC_FILTER, IDC_LIST, IDC_STATUS, IDC_VIEW, IDC_TOOL, IDC_SHAPE, IDC_SYM, IDC_DENSITY, IDC_UNITSEARCH, IDC_PALVIEW, IDC_PALSECTION,
-    ID_EDIT_TERRAINUNITS = 350, ID_EDIT_TERRAINDOODADS, ID_OPT_LOCWRAP,
-    ID_FILE_OPEN = 200, ID_FILE_NEW, ID_FILE_SAVE, ID_FILE_SAVEAS, ID_FILE_EXIT, ID_FILE_CLOSE, ID_FILE_CLOSEALL, ID_TAB_NEXT,
-    ID_TAB_PREV,
-    ID_EDIT_UNDO = 300, ID_EDIT_REDO, ID_EDIT_CUT, ID_EDIT_COPY, ID_EDIT_PASTE, ID_EDIT_DELETE, ID_EDIT_SELECTALL,
-    ID_EDIT_CORRECTION, ID_EDIT_DOODADCHECK, ID_EDIT_SNAPLOC, ID_EDIT_RENAME, ID_EDIT_SNAPUNITS, ID_EDIT_DUPLICATE,
-    ID_VIEW_HD = 400, ID_VIEW_HD2, ID_VIEW_SD, ID_VIEW_CARBOT, ID_VIEW_LOCATIONS, ID_VIEW_ZOOMIN, ID_VIEW_ZOOMOUT, ID_VIEW_ZOOM100, ID_VIEW_FIT, ID_VIEW_GRID,
-    ID_VIEW_WALK, ID_VIEW_PATHS, ID_VIEW_TOWNS, ID_PATHSIZE_SMALL, ID_PATHSIZE_MEDIUM, ID_PATHSIZE_LARGE,  // the R24 overlays (path_overlay.inc)
-    ID_MODE_TERRAIN = 500, ID_MODE_UNITS, ID_MODE_DOODADS, ID_MODE_LOCATIONS, ID_MODE_SPRITES,
-    ID_PLAYER_1 = 600,  // + player index, keys 1-9
-    ID_QUICKPICK = 660,
-    ID_QUICKOPEN = 661,  // File > Quick open (Ctrl+Shift+O): an open tab, a recent project or map
-    ID_PROJ_NEW = 700, ID_PROJ_OPEN, ID_PROJ_COMPILE, ID_PROJ_FOLDER, ID_PROJ_ADDSCRIPT, ID_PROJ_SETTINGS, ID_PROJ_FROMMAP,
-    ID_WS_MAP = 720, ID_WS_DATA, ID_WS_TRIGGERS, ID_WS_ASSETS, ID_WS_PROJECT, ID_WS_BRIEFING, ID_WS_FILES,
-    ID_DOCK_MINI_LEFT = 740, ID_DOCK_MINI_RIGHT, ID_DOCK_TOOLS_LEFT, ID_DOCK_TOOLS_RIGHT,
-    ID_SCEN_PLAYERS = 760, ID_SCEN_CHECK, ID_OPT_INSTALL, ID_VIEW_LOG, ID_VIEW_TRIGCODE, ID_VIEW_KIT, ID_SCEN_REPLAY,
-    ID_RECENT_MAP = 800,       // + index, up to kRecentMax
-    ID_RECENT_PROJECT = 820,   // + index
-    ID_RECENT_CLEAR_MAPS = 840, ID_RECENT_CLEAR_PROJECTS,
-    ID_HELP_FEEDBACK = 860, ID_HELP_ISSUE, ID_HELP_UPDATES, ID_OPT_UPDATECHECK, ID_HELP_DISCORD, ID_HELP_ABOUT, ID_OPT_CRASHREPORTS, ID_HELP_GITHUB,
-    ID_THEME_DARK = 880, ID_THEME_LIGHT, ID_SCEN_PROPS, ID_SCEN_CLASSIC, ID_SCEN_CLASSICTRIG, ID_ACCENT = 890,  // + accent index (theme::kAccents)
-    ID_OPT_SNAPVALID = 640, ID_OPT_STRICT, ID_OPT_ILLEGAL, ID_OPT_DRAGBACK, ID_OPT_ANIMATE, ID_OPT_STACK, ID_OPT_LASTPROJECT,
-    ID_OPT_WINDOW,  // Options > Program options (the window with the program options)
-    // The Options menu: the snap of units, sprites and locations (+ the choice in kSnapGrids), the place rule of doodads,
-    // and the items that show a rule that does not change (always grayed).
-    ID_SNAP_UNITS = 910, ID_SNAP_SPRITES = 914, ID_SNAP_LOCATIONS = 918, ID_DOODAD_FIT = 922, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE,
-    ID_FIXED_DOODAD_SNAP, ID_FIXED_DOODAD_STACK, ID_FIXED_SPRITE_PLACE, ID_FIXED_SPRITE_STACK, ID_FIXED_LOC_PLACE, ID_FIXED_LOC_STACK,
-    ID_PAL_LIST = 620, ID_PAL_ICONS, ID_PAL_SPRITES, ID_PAL_NORMAL, ID_PAL_LARGE,
-    ID_GRID_SIZE = 950,  // + the preset (kGridPresets); View > Grid size
-    ID_GRID_CUSTOM = 958,
-    ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese
-    ID_TOOL_KEY = 970,  // + the tool of the keys V, B, A, F: select, brush or place, spray, fill (GitHub feedback #98)
-    ID_VIEW_RANGES = 975,  // View > Show ranges of the selected units (GitHub feedback #109)
-    ID_VIEW_MINIMAP = 976,  // View > Show minimap (GitHub feedback #127)
-    ID_LAYER = 990,         // + View > Layers: 0 terrain, 1 doodads, 2 sprites, 3 units
-    ID_RAIL_KEY = 1000,     // + n: Ctrl+1 to Ctrl+9, the n-th item of the side bar (the tab's mode: a classic map or a project)
-    ID_CRASH_MODE = 980,   // + Options > Crash reports: 0 ask, 1 send, 2 do not send
-    ID_MIDDLE_MODE = 984,  // + Options > Middle mouse click and hold: 0 pan the map (the default), 1 drag the map
-    ID_OPT_MAPSDEFAULT = 986,  // Options > Maps: .scm and .scx open with StarDraft 2
-    ID_OPT_RESTART = 987,      // Options > Language > Restart now: StarDraft 2 starts again in the chosen language
-};
-// View > Grid size: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
-struct GridPreset {
-    const wchar_t* name;
-    int px;
-};
-constexpr GridPreset kGridPresets[] = {{L"Fine", 8}, {L"Small", 16}, {L"Normal", 32}, {L"Large", 64}, {L"Huge", 128}};
-
-enum class Mode { Terrain, Units, Doodads, Locations, Sprites };
-constexpr int kModeCount = 5;
-// The modes in the order the mode bar shows them.
-constexpr Mode kModeOrder[kModeCount] = {Mode::Terrain, Mode::Units, Mode::Doodads, Mode::Sprites, Mode::Locations};
-
-// Where the map workspace's panels sit. The minimap is always at the top of its side; each layer's toolbar
-// (Terrain / Units / Doodads / Locations: the layer buttons, its options, its palette) docks left or right
-// on its own. Right-click the minimap or a toolbar to move it. Kept in HKCU\Software\StarDraft\Layout.
-struct Dock {
-    bool minimapRight = false;
-    bool minimapHidden = false;  // View > Show minimap off: its side has the panel only (GitHub feedback #127)
-    bool toolsRight[kModeCount] = {false, true, false, false, false};  // units on the right, the rest on the left
-    int leftW = 280, rightW = 280, dataListW = 300;    // column widths, 96-dpi pixels; drag their edges
-    bool triggerCode = false;                          // the Triggers workspace's code pane is shown
-    bool scriptPreview = false;                        // the Project page's preview of the selected script is shown
-    int triggerZoom = 100;                             // the trigger pane's size, percent (Ctrl+mouse wheel)
-    int volume = 100;                                  // every sound StarDraft plays, percent (Program options, an SFX entry)
-    int unitNames = 2;  // how lists name a unit with a custom name: 0 game, 1 game (custom), 2 custom (game), 3 custom
-    int logH = 220;     // the open Log's height, 96-dpi pixels; drag its top edge
-    int gridW = 32, gridH = 32, gridX = 0, gridY = 0;  // the map grid: cell size and offset, map pixels (View > Grid size)
-};
-constexpr int kMinSideW = 200, kMaxSideW = 640;
-Dock gDock;
-RECT gDockRects[2] = {};  // the left and right columns, for right-clicks on their empty space
-RECT gSplitters[2] = {};  // the strips between the columns and the map: drag to resize
-int gSplitDrag = -1, gSplitGrab = 0;  // which strip is being dragged (0 left, 1 right), and where it was grabbed
-
-// The registry name of each mode's tool bar side (Mode order). One entry per mode: a mode without one would read past
-// the end (that crashed saveDock when Sprites came).
-constexpr const wchar_t* kDockSideNames[] = {L"TerrainRight", L"UnitsRight", L"DoodadsRight", L"LocationsRight", L"SpritesRight"};
-static_assert(std::size(kDockSideNames) == kModeCount, "a dock side name for each mode");
+#include "core/ids.inc"  // the command ids, the modes, the dock layout
 
 void loadDock() {
     auto get = [](const wchar_t* name, bool& v) { prefs::flag(std::wstring(L"Layout/") + name, v); };
@@ -351,16 +244,9 @@ void addRecent(std::vector<std::wstring>& list, const fs::path& path) {
 void rememberProjectsFolder(const fs::path&) {}
 
 void layout();
-const wchar_t* kModeNames[] = {L"Terrain", L"Units", L"Doodads", L"Locations", L"Sprites"};
 
-enum class Drag { None, Pan, AutoPan, PlaceStroke, MoveUnits, BoxSelect, PendingPlace, Paint, Spray, TerrainSelect, LocCreate, LocMove, LocResize,
-                  MoveDoodad, MoveSprite, Tiles, PasteStroke };
 
-// Tools per mode (index into these lists).
-const wchar_t* kTerrainTools[] = {L"Brush", L"Spray", L"Fill", L"Replace (click terrain)", L"Select / copy"};
-const wchar_t* kUnitTools[] = {L"Place / select", L"Spray", L"Replace (click unit)"};
-const wchar_t* kDoodadTools[] = {L"Place", L"Spray"};
-enum TerrainTool { TBrush, TSpray, TFill, TReplace, TSelect };
+#include "core/modes.inc"  // the drags, the tools of each mode, the layers
 // Rectangle mode (tiles_view.inc): its panel in the place of the palette, its clicks on the map, its preview.
 void tilesSync();
 bool tilesMouseDown(float wx, float wy, WPARAM keys);
@@ -368,16 +254,8 @@ void tilesMouseUp(float wx, float wy);
 void tilesMouseMove(float wx, float wy);
 void tilesSprayAt(float wx, float wy);
 void tilesScene(render::Scene& s, float wx, float wy);
-bool gShowRanges = false;  // View > Show ranges of the selected units
-// View > Layers (GitHub feedback #117): the map's layers that show. Locations: app.showLocations.
-struct MapLayers {
-    bool terrain = true, doodads = true, sprites = true, units = true;
-} gLayers;
 void rangesScene(render::Scene& s, float dx = 0, float dy = 0);
 bool tilesDatashot(const std::string& spec, const fs::path& dir);
-enum UnitTool { UPlace, USpray, UReplace };
-enum DoodadTool { DPlace, DSpray };
-enum SpriteTool { SPlace, SSpray };
 // A spray tool is on: Units, Doodads or Sprites (their radius, density and the circle on the map).
 bool objectSprayOn();
 void dialogMessage(MSG& msg, HWND dlg);  // feedback.inc
@@ -451,92 +329,21 @@ int themedMessageBox(HWND owner, const std::wstring& text, const std::wstring& c
 
 const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\StarCraft";
 
-struct App {
+#include "core/app_state.inc"
+
+// The program: its state, and what Win32 and the renderer give it (windows, brushes, the font, the GPU).
+struct App : AppState {
     HINSTANCE inst = nullptr;
     HWND main = nullptr, tabs = nullptr, owner = nullptr, brush = nullptr, filter = nullptr, list = nullptr;
     HWND tool = nullptr, shape = nullptr, sym = nullptr, density = nullptr;
     HWND modeBar = nullptr;  // the modes' segmented control (ModeBarView)
     HBRUSH bgBrush = nullptr, ctlBrush = nullptr;
-    std::wstring statusText[6];
     HWND status = nullptr, view = nullptr, minimap = nullptr;
-    std::vector<uint32_t> megatileColor;  // average color per megatile (0x00RRGGBB)
-    const Tileset* megatileColorsFor = nullptr;
-    int megatileColorsEra = -1;  // the tileset object is loaded again in place when the map's tileset changes
-    std::vector<uint32_t> miniTerrain;    // one pixel per map tile
-    uint64_t miniTerrainRev = 0;
-    RECT miniInvalidView{};  // what renderNow last invalidated the minimap for
-    uint64_t miniInvalidRev = 0, miniInvalidTerrainRev = 0;
     HFONT font = nullptr;
     HACCEL accel = nullptr;
-    UINT dpi = 96;
-
-    GameData data;
-    std::unique_ptr<Editor> ed;
     render::Renderer renderer;
     SDL_Window* sdlView = nullptr;
     bool rendererOk = false;
-
-    Mode mode = Mode::Units;
-    std::vector<int> items;  // palette entries for the current mode; -1 = "(Select)"
-    int palette = -1;        // selected palette entry value
-    int playerOwner = 0;
-    float brushSize = 2;  // diamonds, whole numbers 1 to 32
-    Brush::Shape brushShape = Brush::Diamond;
-    int toolByMode[kModeCount] = {};
-    int sprayDensity = 10;  // the active mode's: how many things one spray puts down (kDensityMax at most)
-    int densityByMode[kModeCount] = {5, 10, 10, 10, 10};  // each mode keeps its own density and symmetry (setMode swaps them in)
-    int symmetryByMode[kModeCount] = {};
-    uint32_t spraySeed = 1;
-    int lastSprayX = -100000, lastSprayY = -100000;
-    double sprayHeld = 0, sprayCredit = 0;  // a held spray: the seconds it is held, and the sprays due
-    int sprayPlaced = 0;                    // the units or doodads that the press and hold placed
-    bool terrainRect = false;  // the Terrain tool strip's Rectangle: the tools work on tiles as they are (tiles_view.inc)
-    bool hasTerrainSel = false;
-    Rect terrainSel;
-    bool terrainPasting = false;
-    bool copyUnitsWithTerrain = true, copyDoodadsWithTerrain = true;
-    bool locationWrap = false;  // a location's name in lines that fit in it (Options > Locations)
-    bool allowIllegalUnits = false;  // Options: units anywhere; terrain edits keep them
-    std::vector<int> selDoodads, selSprites;  // the selected doodads and sprites (indexes into the Editor's lists)
-    // Each mode's own copy buffer (units and terrain are the Editor's): Ctrl+C, Ctrl+X and Ctrl+V act on the active mode's.
-    // Doodads and sprites: the copied ones, each from the middle of the group; a paste follows the mouse.
-    std::vector<Editor::ItemAt> doodadClip, spriteClip;
-    bool pastingItems = false;                 // Doodads or Sprites: the copy follows the mouse; a click places it
-    Rect locationClip{};                       // a location's size and name
-    int locationClipInverted = 0;              // ... and its inverted axes (1 left/right, 2 top/bottom)
-    std::string locationClipName;
-    uint16_t locationClipElevation = 0;        // ... and the elevations it leaves out (MRGN flags)
-    bool hasLocationClip = false;
-    bool allowStacking = false;     // Options: units may overlap
-    bool animate = true;             // Options: units play their idle animations
-    bool dragSnapBack = true;        // Options: dragged units go back to the last position where they fit
-    float lastValidDX = 0, lastValidDY = 0;  // offset of that spot from where the drag started
-    bool correction = false, doodadCheck = true, showLocations = true;  // units: Place only where it fits (the default)
-    bool doodadNearest = false;  // Options > Doodads > Move to the nearest place where it fits (with doodadCheck)
-    bool showGrid = false;
-    // Options > Units, Sprites, Locations: the snap grid in px (0: no snap; 32 a tile, 16 a half tile, 8 a quarter tile).
-    int unitGrid = 0, spriteGrid = 0, locationGrid = 32;
-    bool carbot = false;  // Cartooned (Carbot) graphics
-    float lastPlaceX = 0, lastPlaceY = 0;  // where the last unit of a placing drag went (cursor)
-    int placedInStroke = 0;
-    RECT lastPlacedBox{};  // doodads and sprites in a drag: the box of the last one placed (the next goes beside it)  // 32x32 tile grid; units on tile centers, moved in whole tiles
-    GraphicsQuality quality = GraphicsQuality::HD2;
-
-    float camX = 0, camY = 0, zoom = 1;
-    int mouseX = 0, mouseY = 0;  // viewport pixels
-    bool mouseIn = false;
-    Drag drag = Drag::None;
-    float dragWX = 0, dragWY = 0;  // world point where the drag started
-    int dragSX = 0, dragSY = 0;    // screen point where the drag started
-    bool dragMoved = false;
-    int locEdges = 0;  // 1 left, 2 top, 4 right, 8 bottom
-    bool pasting = false;  // paste mode: the clipboard follows the cursor until a click places it
-    Rect locStart;
-    bool dirty = true;
-    uint64_t terrainRev = 0, editorRev = 0;
-    std::wstring message;
-    double frameMs = 0;
-    std::deque<std::chrono::steady_clock::time_point> frameTimes;  // the frames of the last second (for fps)
 };
 
 App app;
