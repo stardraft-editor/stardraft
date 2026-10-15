@@ -1,320 +1,100 @@
-// Options > Program options (Ctrl+,): the options of the program in one window, painted with the kit (the snap and
-// placement options are in the Options menu). A change applies at once, through the same command as the menu
-// (command(ID_OPT_...), so the shortcuts and the tests that call the commands get the same result). Close closes the
-// window. Included by main.cpp after about.inc.
+// Options > Program options (Ctrl+,): the options of the program in one window, a view (core/views_options.inc: the rows
+// are kit widgets). This file is its Windows host (included by main.cpp after about.inc): the values the view shows, the
+// commands it runs, the folders and the sliders' and fields' changes, and the window itself, opened through the
+// anchor's Host::openWindow (the Dialog frame of the program's other windows). A second Ctrl+, brings it to the front.
 
-int scrollFromMessage(HWND hwnd, WPARAM wp, int current, int line);
-void cleanScroll(HWND list);
+// The program's anchor for the windows its views open (the main window owns them; see Win32Host::ownerWindow).
+struct MainAnchor {
+    stardraft::draw::View view;
+    ui::Win32Host host{view};
+};
+MainAnchor gMainAnchor;
 
-struct OptionsWindow {
-    HWND wnd = nullptr;
-    ui::Surface surface;
-    int scroll = 0, height = 0;  // the content's scroll position and full height (px)
-    int shownLight = -1;          // the theme the title bar has (it follows a theme change)
-    std::map<std::string, RECT> parts;  // where each option is (client px), for the tests
-} gOptions;
+extern OptionsView gOptionsView;  // (defined below the program)
 
-void optionsRefresh() {
-    if (gOptions.wnd) InvalidateRect(gOptions.wnd, nullptr, FALSE);
-}
-
-void optionsPaint(HWND hwnd) {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    if (gOptions.shownLight != int(gLightTheme)) {  // a theme change: the title bar and scroll bar too
-        gOptions.shownLight = int(gLightTheme);
-        BOOL dark = !gLightTheme;
-        DwmSetWindowAttribute(hwnd, 20, &dark, sizeof dark), titleColors(hwnd);
+// The program's part of the window: the values, the commands, the pickers' work.
+class OptionsProgram final : public OptionsHost {
+public:
+    void values(OptionsValues& v) override {
+        v.light = gLightTheme, v.accent = gAccentIndex;
+        for (int i = 0; i < theme::kAccentCount; ++i) v.accents.push_back({theme::kAccents[i].name, theme::swatch(i)});
+        v.animate = app.animate, v.middleDrag = gMiddleDrag, v.volume = gDock.volume;
+        v.languages = languageChoicesOffered(), v.language = languageChoice();
+        v.restartDue = uiLanguageChosen(gLanguage) != gUiLang;  // another language than the one in use
+        v.unitNames = gDock.unitNames;
+        v.unitLimit[0] = gUnitLimitClassic, v.unitLimit[1] = gUnitLimitEud;
+        v.openLast = gOpenLastProject, v.checkUpdates = gCheckUpdates, v.crashReports = gCrashReports;
+        v.mapsWithSD2 = mapsOpenWithStarDraft();
+        v.projectsFolder = defaultProjectsFolder().make_preferred().wstring();
+        v.installInUse = gInstallInUse.empty() ? std::wstring() : gInstallInUse.wstring();
+        v.installNext = !gInstallNext.empty() && gInstallNext != gInstallInUse ? gInstallNext.wstring() : std::wstring();
     }
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP back = CreateCompatibleBitmap(dc, std::max<LONG>(1, rc.right), std::max<LONG>(1, rc.bottom));
-    HGDIOBJ ob = SelectObject(mem, back), of = SelectObject(mem, app.font);
-    fillAlpha(mem, rc, kBg, 255);
-    SetBkMode(mem, TRANSPARENT);
-    gOptions.surface.begin(hwnd);
-    gOptions.parts.clear();
-
-    const int pad = scale(ui::kDialogPad), rowH = scale(ui::kFormRowH), fieldH = scale(ui::kFieldH);
-    const int footerH = pad + scale(ui::kButtonH) + pad, contentBottom = std::max<int>(0, rc.bottom - footerH);
-    FormLayout l{};
-    l.x0 = pad, l.labelW = scale(210), l.rowH = rowH, l.colRight = rc.right - pad, l.colW = l.colRight - l.x0;
-    const int fx = l.x0 + l.labelW;  // the field column
-    int y = pad - gOptions.scroll;
-    IntersectClipRect(mem, 0, 0, rc.right, contentBottom);
-
-    auto fieldTop = [&](int rowY) { return rowY + (rowH - fieldH) / 2; };
-    auto note = [&](int x, int noteY, const std::wstring& text) {
-        HGDIOBJ o = SelectObject(mem, ui::smallFont());
-        SetTextColor(mem, kDim);
-        RECT r{x, noteY, l.colRight, noteY + scale(20)};
-        DrawTextW(mem, text.c_str(), -1, &r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-        SelectObject(mem, o);
-    };
-    // A segmented choice: one button for each choice, the chosen one Primary, 4 px apart.
-    auto segmented = [&](int rowY, const std::vector<std::pair<std::wstring, std::wstring>>& choices, int chosen, std::function<void(int)> pick,
-                         const std::string& part) {
-        int x = fx;
-        for (size_t i = 0; i < choices.size(); ++i) {
-            const int w = ui::buttonWidth(mem, choices[i].first);
-            const RECT r{x, fieldTop(rowY), x + w, fieldTop(rowY) + fieldH};
-            ui::button(mem, r, choices[i].first, int(i) == chosen ? ui::Tone::Primary : ui::Tone::Normal, [pick, i] { pick(int(i)); }, choices[i].second);
-            gOptions.parts[part + "." + std::to_string(i)] = r;
-            x += w + scale(4);
-        }
-    };
-    auto checkRow = [&](int rowY, const std::wstring& label, bool on, int id, const std::string& part, const std::wstring& tip = L"", bool enabled = true) {
-        const RECT r{l.x0, rowY, l.x0 + scale(24) + ui::textWidth(mem, label), rowY + rowH};
-        ui::check(mem, r, label, on, [id] { command(id); }, tip, false, enabled);
-        gOptions.parts[part] = r;
-    };
-
-    // Appearance.
-    y = ui::sectionHeader(mem, l, y, L"Appearance");
-    ui::fieldLabel(mem, l, y, L"Theme", false);
-    segmented(y, {{L"Dark", L"Dark theme (default)"}, {L"Light", L"Light theme"}}, gLightTheme ? 1 : 0,
-              [](int i) { command(i ? ID_THEME_LIGHT : ID_THEME_DARK); }, "theme");
-    y += rowH;
-    // The language: a choice that applies at the next start (the names of the languages are in their own language).
-    ui::fieldLabel(mem, l, y, L"Language", false);
-    {
-        const RECT box{fx, fieldTop(y), std::min<int>(l.colRight, fx + scale(260)), fieldTop(y) + fieldH};
-        ui::pickBox(mem, box, languageChoiceName(languageChoice()), false, [](RECT b) { pickLanguage(b); }, L"The language of the program's texts");
-        gOptions.parts["language"] = box;
+    void command(int id) override { ::command(id); }
+    void setAccent(int i) override { applyTheme(gLightTheme, i), shellMenusChanged(); }
+    void setUnitNames(int i) override {
+        gDock.unitNames = i, saveDock();
+        rebuildUnitPalette();
+        RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN);
     }
-    const bool restartDue = uiLanguageChosen(gLanguage) != gUiLang;  // another language than the one in use
-    if (restartDue) {
-        const int x = gOptions.parts["language"].right + scale(12);
-        ui::smallButton(mem, x, y, rowH, L"Restart now", [] { command(ID_OPT_RESTART); },
-                        L"Start StarDraft 2 again in the new language. Your open maps and projects open again.");
-    }
-    y += rowH;
-    note(fx, y - scale(4), restartDue ? L"The new language shows after a restart" : L"A new language shows after a restart");
-    y += scale(20);
-    ui::fieldLabel(mem, l, y, L"Accent color", false);
-    {
-        const int s = scale(20), top = y + (rowH - s) / 2;
-        for (int i = 0; i < theme::kAccentCount; ++i) {
-            const int x = fx + i * (s + scale(8));
-            const RECT sw{x, top, x + s, top + s};
-            const bool chosen = i == gAccentIndex, over = ui::hot(sw);
-            if (chosen || over) {  // a ring around the chosen one (and the one under the mouse)
-                RECT ring = sw;
-                InflateRect(&ring, scale(3), scale(3));
-                ui::box(mem, ring, CLR_NONE, chosen ? kText : kBorderHot);
-            }
-            ui::box(mem, sw, theme::swatch(i), CLR_NONE);
-            hitsOut().push_back({sw, nullptr, [i] { applyTheme(gLightTheme, i), shellMenusChanged(); },
-                                 std::wstring(theme::kAccents[i].name) + (i == 0 ? L" (default)" : L""), IDC_HAND, {}});
-            gOptions.parts["accent." + std::to_string(i)] = sw;
-        }
-        note(fx + theme::kAccentCount * (s + scale(8)) + scale(4), y + (rowH - scale(20)) / 2, theme::kAccents[gAccentIndex].name);
-    }
-    y += rowH;
-    checkRow(y, L"Animate units", app.animate, ID_OPT_ANIMATE, "animate", L"Units on the map play their animations");
-    y += rowH;
-    y += volumeRow(mem, l.x0, y, l.labelW, std::min<int>(l.colRight, fx + scale(260)), hitsOut()) + pad;  // (an SFX entry has it too)
-
-    // Mouse: what holding the middle button does on the map (the middle button is the only one that moves it).
-    y = ui::sectionHeader(mem, l, y, L"Mouse");
-    ui::fieldLabel(mem, l, y, L"Middle mouse click and hold", false);
-    segmented(y,
-              {{L"Drag map", L"The map moves with the mouse"},
-               {L"Pan map", L"The farther the mouse is from where you pressed, the faster the map moves toward it (default)"}},
-              gMiddleDrag ? 0 : 1, [](int i) { command(ID_MIDDLE_MODE + (i == 0 ? 1 : 0)); }, "middle");
-    y += rowH + pad;
-
-    // Unit names: a unit with a custom name (the map's unit settings), in every list that names it.
-    y = ui::sectionHeader(mem, l, y, L"Unit names");
-    {
-        static const wchar_t* const kNames[4] = {L"Terran Marine", L"Terran Marine (Custom Name)", L"Custom Name (Terran Marine)", L"Custom Name"};
-        ui::fieldLabel(mem, l, y, L"Custom names", false);
-        ui::pickBox(mem, {fx, fieldTop(y), std::min<int>(l.colRight, fx + scale(300)), fieldTop(y) + fieldH}, kNames[gDock.unitNames], false,
-                    [](RECT b) { pickUnitNames(b); }, L"How lists name a unit that has a custom name in the map");
-        gOptions.parts["unitnames"] = {fx, fieldTop(y), fx + scale(300), fieldTop(y) + fieldH};
-        y += rowH + pad;
-    }
-
-    // Map unit limit: placing, spraying and pasting units stop there (GitHub feedback #103). pickUnitLimit: main.cpp.
-    y = ui::sectionHeader(mem, l, y, L"Map unit limit");
-    for (int k = 0; k < 2; ++k) {
+    void setUnitLimit(int k, int v) override {
         int& limit = k == 0 ? gUnitLimitClassic : gUnitLimitEud;
-        ui::fieldLabel(mem, l, y, k == 0 ? L"Standard maps" : L"EUD projects", false);
-        const RECT box{fx, fieldTop(y), std::min<int>(l.colRight, fx + scale(120)), fieldTop(y) + fieldH};
-        ui::pickBox(mem, box, std::to_wstring(limit) + L" units", false,
-                    [hwnd, k](RECT b) { pickUnitLimit(k, b, hwnd); },
-                    k == 0 ? L"Default value: 3400" : L"Default value: 1700");
-        gOptions.parts[k == 0 ? "unitlimit.classic" : "unitlimit.eud"] = box;
-        y += rowH;
+        limit = std::clamp(v, 1, 65535);
+        if (!gSelfTest) prefs::setNumber(k == 0 ? L"UnitLimitClassic" : L"UnitLimitEud", limit);
+        optionsRefresh();
     }
-    note(l.x0, y - scale(4), L"StarCraft without mods takes at most 3400 units in a map.");
-    y += scale(20) + pad;
-
-    // Start.
-    y = ui::sectionHeader(mem, l, y, L"Start");
-    checkRow(y, L"Open the last project on start", gOpenLastProject, ID_OPT_LASTPROJECT, "lastproject");
-    y += rowH;
-    checkRow(y, L"Look for updates on start", gCheckUpdates, ID_OPT_UPDATECHECK, "updatecheck", L"Release builds only");
-    {
-        const int x = gOptions.parts["updatecheck"].right + scale(16);
-        ui::smallButton(mem, x, y, rowH, L"Check now", [] { command(ID_HELP_UPDATES); }, L"Look for a newer release now");
+    void setVolume(int v) override {
+        if (v == gDock.volume) return;
+        gDock.volume = std::clamp(v, 0, 100), saveDock();
     }
-    y += rowH;
-    // Crash reports (GitHub feedback #45): a crash always keeps its report on this computer; ask, send or not.
-    ui::fieldLabel(mem, l, y, L"Crash reports", false);
-    segmented(y,
-              {{L"Ask", L"After a crash, StarDraft 2 asks at the next start if it can send the report (default)"},
-               {L"Send", L"Send an anonymous report after a crash: the version, Windows, the video card, where it crashed and the last log lines; no maps"},
-               {L"Do not send", L"The reports stay on this computer"}},
-              gCrashReports, [](int i) { command(ID_CRASH_MODE + i); }, "crashreports");
-    y += rowH;
-    // Maps (.scm, .scx): the program a double-click opens them with.
-    ui::fieldLabel(mem, l, y, L"Maps", false);
-    if (mapsOpenWithStarDraft()) note(fx, y + (rowH - scale(20)) / 2, L"Maps (.scm, .scx) open with StarDraft 2");
-    else ui::smallButton(mem, fx, y, rowH, L"Open maps with StarDraft 2", [] { command(ID_OPT_MAPSDEFAULT); },
-                         L"Make StarDraft 2 the program that opens .scm and .scx maps");
-    y += rowH + pad;
-
-    // The working folder: where new projects go.
-    y = ui::sectionHeader(mem, l, y, L"Working folder");
-    {
-        const std::wstring browse = L"Browse\x2026", def = L"Default";
-        const int bw = ui::buttonWidth(mem, browse), dw = ui::buttonWidth(mem, def), gap = scale(ui::kButtonGap);
-        const RECT field{l.x0, fieldTop(y), l.colRight - bw - dw - 2 * gap, fieldTop(y) + fieldH};
-        ui::fieldBox(mem, field, ui::Field::ReadOnly);
-        RECT t = field;
-        InflateRect(&t, -scale(8), 0);
-        SetTextColor(mem, kText);
-        DrawTextW(mem, defaultProjectsFolder().make_preferred().wstring().c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_PATH_ELLIPSIS);
-        const int by = y + (rowH - scale(ui::kButtonH)) / 2;
-        ui::buttonsRight(mem, l.colRight, by,
-                         {{browse, ui::Tone::Normal,
-                           [hwnd] {
-                               const std::wstring f = pickFolderTitled(L"Working folder");
-                               if (f.empty()) return;
-                               gProjectsFolder = fs::path(f).make_preferred().wstring();
-                               saveRecent();
-                               setMessage(L"New projects go to " + gProjectsFolder);
-                               InvalidateRect(hwnd, nullptr, FALSE);
-                           },
-                           L"Select the folder where StarDraft 2 makes new projects"},
-                          {def, ui::Tone::Normal,
-                           [hwnd] {
-                               gProjectsFolder.clear();
-                               saveRecent();
-                               setMessage(L"New projects go to " + defaultProjectsFolder().make_preferred().wstring());
-                               InvalidateRect(hwnd, nullptr, FALSE);
-                           },
-                           L"Documents\\StarDraft"}});
-        gOptions.parts["workfolder"] = field;
-        y += rowH;
-        note(l.x0, y - scale(4), L"StarDraft 2 makes new projects in this folder. It does not move a project that you open from another folder.");
-        y += scale(20) + pad;
+    void browseWorkingFolder() override {
+        const std::wstring f = pickFolderTitled(L"Working folder");
+        if (f.empty()) return;
+        gProjectsFolder = fs::path(f).make_preferred().wstring();
+        saveRecent();
+        setMessage(L"New projects go to " + gProjectsFolder);
+        optionsRefresh();
     }
-
-    // StarCraft folder.
-    y = ui::sectionHeader(mem, l, y, L"StarCraft folder");
-    {
-        const std::wstring browse = L"Browse\x2026";
-        const int bw = ui::buttonWidth(mem, browse);
-        const RECT field{l.x0, fieldTop(y), l.colRight - bw - scale(ui::kButtonGap), fieldTop(y) + fieldH};
-        ui::fieldBox(mem, field, ui::Field::ReadOnly);
-        RECT t = field;
-        InflateRect(&t, -scale(8), 0);
-        SetTextColor(mem, kText);
-        DrawTextW(mem, (gInstallInUse.empty() ? std::wstring(L"\x2014") : gInstallInUse.wstring()).c_str(), -1, &t,
-                  DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_PATH_ELLIPSIS);
-        const int by = y + (rowH - scale(ui::kButtonH)) / 2;
-        const RECT b{l.colRight - bw, by, l.colRight, by + scale(ui::kButtonH)};
-        ui::button(mem, b, browse, ui::Tone::Normal, [] { command(ID_OPT_INSTALL); }, L"Select the StarCraft: Remastered folder");
-        gOptions.parts["install"] = b;
-        y += rowH;
-        note(l.x0, y - scale(4),
-             !gInstallNext.empty() && gInstallNext != gInstallInUse ? L"From the next start: " + gInstallNext.wstring()
-                                                                    : std::wstring(L"A new folder is used from the next start"));
-        y += scale(20) + pad;
+    void useDefaultWorkingFolder() override {
+        gProjectsFolder.clear();
+        saveRecent();
+        setMessage(L"New projects go to " + defaultProjectsFolder().make_preferred().wstring());
+        optionsRefresh();
     }
-
-    gOptions.height = y + gOptions.scroll;
-    // The parts under the footer cannot be clicked.
-    std::erase_if(gOptions.surface.hits, [&](const DataWidgetHit& h) { return h.r.top >= contentBottom; });
-    for (auto& h : gOptions.surface.hits) h.r.bottom = std::min<LONG>(h.r.bottom, contentBottom);
-
-    // The footer: Close.
-    SelectClipRgn(mem, nullptr);
-    if (gOptions.height > contentBottom) fillAlpha(mem, {0, contentBottom, rc.right, contentBottom + 1}, kBorder, 255);  // the content scrolls under it
-    ui::buttonsRight(mem, rc.right - pad, rc.bottom - pad - scale(ui::kButtonH), {{L"Close", ui::Tone::Primary, [hwnd] { DestroyWindow(hwnd); }}});
-    if (!gOptions.surface.hits.empty()) gOptions.parts["close"] = gOptions.surface.hits.back().r;
-
-    SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS, 0, std::max(0, gOptions.height - 1), UINT(std::max(0, contentBottom)),
-                  gOptions.scroll};
-    SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, of), SelectObject(mem, ob);
-    DeleteObject(back);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
-    gOptions.surface.end(hwnd);
-}
-
-void optionsScrollTo(HWND hwnd, int s) {
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    const int view = int(rc.bottom) - scale(2 * ui::kDialogPad + ui::kButtonH);
-    s = std::clamp(s, 0, std::max(0, gOptions.height - view));
-    if (s != gOptions.scroll) gOptions.scroll = s, InvalidateRect(hwnd, nullptr, FALSE);
-}
-
-LRESULT CALLBACK optionsProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    if (LRESULT r; gOptions.surface.message(hwnd, msg, wp, lp, r)) return r;
-    switch (msg) {
-    case WM_PAINT: optionsPaint(hwnd); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_SIZE: InvalidateRect(hwnd, nullptr, FALSE); return 0;
-    case WM_MOUSEWHEEL: optionsScrollTo(hwnd, gOptions.scroll - GET_WHEEL_DELTA_WPARAM(wp) * scale(40) * 3 / WHEEL_DELTA); return 0;
-    case WM_VSCROLL: optionsScrollTo(hwnd, scrollFromMessage(hwnd, wp, gOptions.scroll, scale(40))); return 0;
-    case WM_KEYDOWN:
-        if (wp == VK_ESCAPE || wp == VK_RETURN) DestroyWindow(hwnd);
-        return 0;
-    case WM_DESTROY:
-        gOptions.wnd = nullptr, gOptions.scroll = 0, gOptions.shownLight = -1;
-        return 0;
+    void themeShown(bool light) override {
+        if (HWND w = ui::Win32Host::windowOf(gOptionsView)) {
+            BOOL dark = !light;
+            DwmSetWindowAttribute(w, 20, &dark, sizeof dark), titleColors(w);
+        }
     }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
+    void close() override {
+        if (ui::Win32Host::windowOf(gOptionsView)) gMainAnchor.host.closeWindow(gOptionsView);
+    }
+};
+
+OptionsProgram gOptionsProgram;
+OptionsView gOptionsView(gOptionsProgram);
+
+// The options window's HWND (nullptr: it is not open).
+HWND optionsWindow() { return ui::Win32Host::windowOf(gOptionsView); }
+
+void optionsRefresh() { gOptionsView.invalidate(); }
 
 // Options > Program options (one window; a second Ctrl+, brings it to the front).
 void showOptions() {
-    if (gOptions.wnd) {
-        if (!gSelfTest && !gBackground) SetForegroundWindow(gOptions.wnd);
+    if (HWND w = optionsWindow()) {
+        if (!gSelfTest && !gBackground) SetForegroundWindow(w);
         return;
     }
-    static bool registered = false;
-    if (!registered) {
-        WNDCLASSEXW wc{sizeof wc};
-        wc.lpfnWndProc = optionsProc, wc.hInstance = app.inst, wc.lpszClassName = L"StarDraftOptions";
-        wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-        wc.hIcon = LoadIcon(app.inst, MAKEINTRESOURCEW(1));
-        RegisterClassExW(&wc);
-        registered = true;
-    }
     // A dialog frame (a tool window in test runs); as high as the options need, or as the screen has room for.
-    const DWORD style = WS_CAPTION | WS_SYSMENU | WS_POPUP | WS_VSCROLL, ex = WS_EX_DLGMODALFRAME | (gBackground ? WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW : 0);
     RECT mr{0, 0, 1280, 900};
     if (app.main) GetWindowRect(app.main, &mr);
     MONITORINFO mi{sizeof mi};
     GetMonitorInfoW(MonitorFromRect(&mr, MONITOR_DEFAULTTONEAREST), &mi);
     const int workH = mi.rcWork.bottom - mi.rcWork.top;
-    RECT r{0, 0, scale(720), std::min(scale(820), workH - scale(80))};
-    AdjustWindowRectExForDpi(&r, style, FALSE, ex, UINT(app.dpi));
-    const int w = r.right - r.left, h = r.bottom - r.top;
-    int x = (mr.left + mr.right - w) / 2, y = std::max<int>(mi.rcWork.top, (mr.top + mr.bottom - h) / 2);
-    if (gBackground) x = GetSystemMetrics(SM_XVIRTUALSCREEN) + GetSystemMetrics(SM_CXVIRTUALSCREEN) + 100, y = 0;
-    gOptions.wnd = CreateWindowExW(ex, L"StarDraftOptions", L"Program options", style, x, y, w, h, app.main, nullptr, app.inst, nullptr);
-    if (!gOptions.wnd) return;
-    cleanScroll(gOptions.wnd);
-    darkControl(gOptions.wnd, L"DarkMode_Explorer");  // the scroll bar in the theme
-    ShowWindow(gOptions.wnd, gSelfTest || gBackground ? SW_SHOWNOACTIVATE : SW_SHOW);
-    UpdateWindow(gOptions.wnd);
+    const stardraft::draw::WindowSpec spec{stardraft::draw::WindowKind::Dialog,
+                                           stardraft::draw::Rect{0, 0, scale(720), std::min(scale(820), workH - scale(80))}, L"Program options"};
+    gOptionsView.resetScroll();
+    gMainAnchor.host.ownerWindow(app.main);
+    gMainAnchor.host.openWindow(gMainAnchor.view, gOptionsView, spec, [] { gOptionsView.resetScroll(); });
+    if (HWND w = optionsWindow()) darkControl(w, L"DarkMode_Explorer");  // the scroll bar in the theme
 }

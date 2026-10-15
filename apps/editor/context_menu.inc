@@ -623,7 +623,7 @@ std::vector<std::string> run(HWND owner) {
         {"a close message during the menu closes it and comes after", {[] { PostMessageW(sinkRef, WM_CLOSE, 0, 0); }}, 0},
         {"mouse: a right-click on an item opens feedback on it",
          {[] {
-              gFeedbackHook = [](HWND w) { gNote += gFbDlg && gFbDlg->on == L"the menu item Copy" ? "" : " (feedback not on Copy)", PostMessageW(w, WM_COMMAND, IDCANCEL, 0); };
+              gFeedbackHook = [](FeedbackView& v) { gNote += v.on() == L"the menu item Copy" ? "" : " (feedback not on Copy)", feedbackClose(); };
               const POINT p = itemCenter(0, 1);
               mouse(WM_RBUTTONDOWN, p), mouse(WM_RBUTTONUP, p);
           }},
