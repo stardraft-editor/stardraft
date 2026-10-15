@@ -58,6 +58,7 @@ bool shellClearFilter() {  // the Locations filter is cleared (the Win32 filter'
 }
 unsigned shellDpi() { return gDpi; }
 void shellLogLine(const std::wstring& line) { std::fprintf(stderr, "%s\n", narrow(line).c_str()); }
+void shellLogError(const std::wstring& line) { std::fprintf(stderr, "%s\n", narrow(line).c_str()); }
 bool shellHasStatusBar() { return true; }
 int shellSpriteCount() { return gRenderer ? gRenderer->stats().sprites : 0; }
 // The Locations list (sdl_panels.inc): its rows are the rebuildList's, its selection is the core's picks.

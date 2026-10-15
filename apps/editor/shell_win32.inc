@@ -109,6 +109,7 @@ bool shellClearFilter() {
 
 unsigned shellDpi() { return app.dpi; }
 void shellLogLine(const std::wstring& line) { logLine(line); }
+void shellLogError(const std::wstring& line) { logLine(line, true); }
 bool shellHasStatusBar() { return app.status != nullptr; }
 int shellSpriteCount() { return app.renderer.stats().sprites; }
 void shellListSelect(int i) {

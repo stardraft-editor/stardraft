@@ -12,75 +12,12 @@ bool showListPicker(const std::wstring& prompt, std::vector<ListPickItem> items,
 HWND hitsWnd() { return gHitsWnd ? gHitsWnd : gData.form; }
 
 void (*gButtonPopHook)(HWND) = nullptr;  // self-test
-struct DataExtras {
-    StatTxt strings;
-    bool stringsLoaded = false;
-    Requirements reqs;
-    ButtonSets buttons;
-    UnitLooks looks;
-    std::string saved[4];   // the edits text as last saved: strings, buttons, requirements, unit display
-    bool loadFailed[4] = {};  // the project's file did not load: it is not saved over or removed
-    int button = 0;         // the selected button of the open set
-    HWND textEdit = nullptr;  // the editor's view window (gStringsText), a child of the form
-    int textFor = -1;       // the string the edit box shows
-    bool textDirty = false;
-    bool rawText = false;   // the edit box shows the whole string: a button's hotkey and type characters too
+struct DataExtras : DataExtrasModel {
+    HWND textEdit = nullptr;
 } gExtras;
-enum { kExtraStrings, kExtraButtons, kExtraReqs, kExtraLooks, kExtraKinds };
+DataExtrasModel& dataExtras() { return gExtras; }
 
-int datTabCount() { return int(DatSchema::all().size()); }
-int stringsTab() { return datTabCount(); }
-int buttonsTab() { return datTabCount() + 1; }
-int dataTabCount() { return datTabCount() + 2; }
-bool extraTab(int tab) { return tab >= datTabCount(); }
 
-fs::path extrasFile(const EudProject& pr, int k) {
-    static const char* names[] = {"strings.json", "buttons.json", "requirements.json", "unit_display.json"};
-    return pr.folder() / "dat" / names[k];
-}
-std::string extrasText(int k) {
-    return k == kExtraStrings ? gExtras.strings.editsText()
-           : k == kExtraButtons ? gExtras.buttons.editsText()
-           : k == kExtraLooks   ? gExtras.looks.editsText()
-                                : gExtras.reqs.editsText();
-}
-bool setExtrasText(int k, const std::string& text, std::string& err) {
-    return k == kExtraStrings ? gExtras.strings.setEditsText(text, err)
-           : k == kExtraButtons ? gExtras.buttons.setEditsText(text, err)
-           : k == kExtraLooks   ? gExtras.looks.setEditsText(text, err)
-                                : gExtras.reqs.setEditsText(text, err);
-}
-bool extrasSaveFile(int k, const fs::path& f, std::string& err) {
-    if (gExtras.loadFailed[k]) return err = f.string() + " did not load: not saved, so nothing in it is lost", false;
-    return k == kExtraStrings ? gExtras.strings.saveEdits(f, err)
-           : k == kExtraButtons ? gExtras.buttons.saveEdits(f, err)
-           : k == kExtraLooks   ? gExtras.looks.saveEdits(f, err)
-                                : gExtras.reqs.saveEdits(f, err);
-}
-
-// The project's strings, button sets and requirements: the game's, plus the project's edits.
-void extrasLoad(const EudProject* pr) {
-    std::string err;
-    if (!gExtras.stringsLoaded) gExtras.stringsLoaded = gExtras.strings.load(app.data, err);
-    gExtras.strings.setEdits({});
-    gExtras.reqs = Requirements();
-    gExtras.buttons = ButtonSets();
-    gExtras.looks = UnitLooks();
-    gExtras.button = 0, gExtras.textFor = -1;
-    for (int k = 0; k < kExtraKinds; ++k) {
-        gExtras.saved[k].clear();
-        gExtras.loadFailed[k] = false;
-        if (!pr) continue;
-        const fs::path f = extrasFile(*pr, k);
-        const bool ok = k == kExtraStrings ? gExtras.strings.loadEdits(f, err)
-                        : k == kExtraButtons ? gExtras.buttons.loadEdits(f, err)
-                        : k == kExtraLooks   ? gExtras.looks.loadEdits(f, err)
-                                             : gExtras.reqs.loadEdits(f, err);
-        gExtras.loadFailed[k] = !ok;
-        if (!ok) themedMessageBox(app.main, widen(err).c_str(), (L"Could not read " + f.filename().wstring()).c_str(), MB_ICONERROR), err.clear();
-        gExtras.saved[k] = extrasText(k);
-    }
-}
 
 // Before a build: the edits saved, and their code written (or taken out when there are none).
 bool writeExtrasEdits(EudProject& pr, std::string& err) {
@@ -113,68 +50,6 @@ bool writeExtrasEdits(EudProject& pr, std::string& err) {
 
 // --- What the tabs list ----------------------------------------------------------------------------------------
 
-std::wstring tabTitle(int tab) {
-    if (tab == stringsTab()) return L"Strings";
-    if (tab == buttonsTab()) return L"Buttons";
-    return tab >= 0 && tab < datTabCount() ? datTitle(DatSchema::all()[size_t(tab)].name) : L"";
-}
-// A tab's icon (the Data group of the UI icons).
-UiIcon datIcon(const std::string& dat) {
-    static const std::map<std::string, UiIcon> icons = {
-        {"units", UiIcon::DatUnits},     {"weapons", UiIcon::DatWeapons}, {"flingy", UiIcon::DatFlingy},   {"sprites", UiIcon::DatSprites},
-        {"images", UiIcon::DatImages},   {"upgrades", UiIcon::DatUpgrades}, {"techdata", UiIcon::DatTech}, {"orders", UiIcon::DatOrders},
-        {"sfxdata", UiIcon::DatSfx},     {"portdata", UiIcon::DatPortraits}, {"strings", UiIcon::DatStrings}, {"buttons", UiIcon::DatButtons}};
-    const auto it = icons.find(dat);
-    return it != icons.end() ? it->second : UiIcon::Data;
-}
-UiIcon tabIcon(int tab) {
-    if (tab == stringsTab()) return UiIcon::DatStrings;
-    if (tab == buttonsTab()) return UiIcon::DatButtons;
-    return tab >= 0 && tab < datTabCount() ? datIcon(DatSchema::all()[size_t(tab)].name) : UiIcon::Data;
-}
-// Entries of a tab. Strings count from 1, as the game's references to them do (0 is none).
-int tabEntries(int tab) {
-    if (tab == stringsTab()) return gExtras.strings.count() + 1;
-    if (tab == buttonsTab()) return ButtonSets::kSets;
-    return tab >= 0 && tab < datTabCount() ? DatSchema::all()[size_t(tab)].entries : 0;
-}
-int tabFirstEntry(int tab) { return tab == stringsTab() ? 1 : 0; }
-int tabChangedCount(int tab) {
-    if (tab == stringsTab()) return gExtras.strings.changedCount();
-    if (tab == buttonsTab()) return gExtras.buttons.changedCount();
-    const DatTable* t = datTable(tab);
-    return t ? t->changedCount() : 0;
-}
-
-// The string's text for a list, the button prefix and the control bytes left out (core views_data_strings.inc).
-std::wstring statString(int id) {  // stat_txt.tbl string `id` (1-based), as the project has it
-    return id >= 1 && id <= gExtras.strings.count() ? stringLine(gExtras.strings.text(id - 1)) : L"";
-}
-std::wstring projectUnitName(int u) {  // a unit's name string (u + 1) when the project changed it, else ""
-    return u >= 0 && u < gExtras.strings.count() && gExtras.strings.changed(u) ? statString(u + 1) : L"";
-}
-
-// A set's name (core views_data_buttons.inc: the units' sets, the others by the button that opens them).
-std::wstring buttonSetName(int s) { return buttonSetNameFrom(gExtras.buttons, s, statString); }
-
-bool tabEntryChanged(int tab, int e) {
-    if (tab == stringsTab()) return e >= 1 && gExtras.strings.changed(e - 1);
-    if (tab == buttonsTab()) return e >= 0 && e < ButtonSets::kSets && gExtras.buttons.changed(e);
-    const DatTable* t = datTable(tab);
-    bool req = false;
-    if (t) {
-        const std::string& dat = t->schema().name;
-        for (int k = 0; k < Requirements::kKinds; ++k)
-            if (Requirements::kind(k).dat == dat && e < Requirements::kind(k).entries) req |= gExtras.reqs.changed(k, e);
-    }
-    return (t && t->entryChanged(e)) || req;
-}
-std::wstring tabEntryName(int tab, int e) {
-    if (tab == stringsTab()) return statString(e);
-    if (tab == buttonsTab()) return buttonSetName(e);
-    const DatTable* t = datTable(tab);
-    return t ? entryName(t->schema().name, e) : L"";
-}
 const UnitPalette::Bitmap* tabEntryIcon(int tab, int e) {
     if (tab == stringsTab()) return nullptr;
     if (tab == buttonsTab()) return e < 228 ? entryIcon(datTabOf("units"), e) : nullptr;
@@ -193,32 +68,6 @@ int drawGameText(HDC dc, RECT r, const std::string& raw, COLORREF normal, int li
 
 // --- Common parts ----------------------------------------------------------------------------------------------
 
-bool extrasLoadFailed() {
-    for (int k = 0; k < kExtraKinds; ++k)
-        if (gExtras.loadFailed[k]) return true;
-    return false;
-}
-
-// Saves and records an undo step for whatever changed (the .dat tables do theirs in dataSaved). False when a save
-// failed (its error is the status message).
-bool extrasSaved() {
-    bool ok = true;
-    std::string err;
-    for (int k = 0; k < kExtraKinds; ++k) {
-        const std::string now = extrasText(k);
-        if (now == gExtras.saved[k]) continue;
-        const int tab = k == kExtraStrings ? stringsTab() : k == kExtraButtons ? buttonsTab() : gData.datTab;
-        gData.undo.push_back({tab, gData.entry, Bytes(gExtras.saved[k].begin(), gExtras.saved[k].end()), Bytes(now.begin(), now.end()), k + 1});
-        if (gData.undo.size() > 200) gData.undo.erase(gData.undo.begin());
-        gData.redo.clear();
-        gExtras.saved[k] = now;
-        if (gData.project) {
-            const fs::path f = extrasFile(*gData.project, k);
-            if (!extrasSaveFile(k, f, err)) setMessage(widen(err)), ok = false;
-        }
-    }
-    return ok;
-}
 void extrasChanged() {
     dataSaved();
     InvalidateRect(gData.form, nullptr, FALSE);
@@ -260,12 +109,7 @@ int formTitle(HDC dc, const FormLayout& l, int y, const UnitPalette::Bitmap* ico
               std::function<void()> reset, std::optional<UiIcon> kind = std::nullopt) {
     return ui::title(dc, l.x0, y, l.colRight + l.picW, icon, title, sub, changed, std::move(reset), kind);
 }
-// The entries of a .dat (or "buttons", "icons", "strings") for a list picker.
-// (core views_data_buttons.inc: dataEntryItems, with this program's names)
-std::vector<ListPickItem> entryItems(const std::string& kind, bool none = false) {
-    return dataEntryItems(kind, none, DataPickNames{buttonSetName, statString, gExtras.strings.count(), [](const std::string& k) { return datHasIcons(k); }});
-}
-std::wstring argName(const char* kind, int v) { return dataArgName(kind, v, buttonSetName); }
+// (The pickers' entries and a value's name, entryItems and argName: core/data_model.inc.)
 const UnitPalette::Bitmap* argIcon(const char* kind, int v) {
     if (!kind) return nullptr;
     const std::string k = kind;

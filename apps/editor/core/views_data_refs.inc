@@ -1,7 +1,8 @@
 // The Data workspace's References panel (portable, core.inc): the entries of any .dat whose fields point at the open
 // entry, grouped by their .dat, each a link to it. The panel is a view in a view window (apps/common/view.h); its window's
 // vertical bar takes the scroll. The program's parts (the .dat tables, the entries' names and icons, the go-to) come in
-// through DataRefsHost: the Win32 program's implementation is in main.cpp (dataRefs and DataRefsProgram).
+// through DataRefsHost (main.cpp: DataRefsProgram; sdl_data.inc: SdlDataRefsHost); the rows are dataRefRows' (below,
+// from dataRefs in core/data_model.inc).
 
 // One reference: the entry that points at the open one, with what the panel shows for it.
 struct DataRefRow {
@@ -191,4 +192,28 @@ bool DataRefsPage::vscroll(int code, int pos, int track, int page) {
     }
     setScroll(s);
     return true;
+}
+
+// The panel's rows for the open entry of the Data workspace (dataRefs, core/data_model.inc). `shown`: false when no
+// entry is open (no table, and not the Strings or Buttons tab of a project). `icon` gives an entry's picture (the
+// program's: tab, entry).
+std::vector<DataRefRow> dataRefRows(bool& shown, const std::function<draw::Image(int, int)>& icon) {
+    const DataModel& d = dataState();
+    const DatTable* t = curTable();
+    shown = t || (extraTab(d.datTab) && d.project);
+    std::vector<DataRefRow> out;
+    if (!shown) return out;
+    const auto& list = dataRefs(t ? t->schema().name : d.datTab == stringsTab() ? "strings" : "buttons", d.entry);
+    out.reserve(list.size());
+    for (const auto& r : list) {
+        DataRefRow row;
+        row.dat = r.dat, row.entry = r.entry;
+        row.group = tabTitle(datTabOf(r.dat)), row.groupIcon = tabIcon(datTabOf(r.dat));
+        row.name = tabEntryName(datTabOf(r.dat), r.entry);
+        row.feedback = entryName(r.dat, r.entry);
+        if (row.name.empty()) row.name = L"#" + std::to_wstring(r.entry);
+        row.icon = icon(datTabOf(r.dat), r.entry);
+        out.push_back(std::move(row));
+    }
+    return out;
 }
