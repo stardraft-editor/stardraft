@@ -275,18 +275,6 @@ inline void drawScrollFace(draw::Canvas& c, draw::Rect track, draw::Rect thumb, 
     c.roundBox(thumb, lit ? kThumbHot : kThumb, draw::kNone, float(scale(3)));
 }
 
-// --- Sliders --------------------------------------------------------------------------------------------------------
-// A slider from x0 to x1 on the line cy: the track (kBorder line), the part up to the value in the accent, a round
-// thumb in the accent (lighter under the mouse). `frac`: the value, 0 to 1.
-inline void drawSliderFace(draw::Canvas& c, int x0, int x1, int cy, float frac, bool over, bool enabled = true) {
-    const draw::Rect track{x0, cy - scale(2), x1, cy + scale(2)};
-    c.roundBox(track, kCtl, kBorder, float(scale(2)));
-    const int kx = x0 + int(std::lround(std::clamp(frac, 0.0f, 1.0f) * float(x1 - x0)));
-    c.fill({x0, cy - scale(2), kx, cy + scale(2)}, enabled ? kAccent : kFaint);
-    const draw::Rect knob{kx - scale(7), cy - scale(7), kx + scale(7), cy + scale(7)};
-    c.smoothRoundOutline(knob, float(scale(7)), !enabled ? kFaint : over ? kAccentBright : kAccent, 2.0f);
-}
-
 // --- Tables ---------------------------------------------------------------------------------------------------------
 // Rows with columns: a header (names in the dim color), rows with pills when selected or under the mouse.
 struct Column {
@@ -331,17 +319,6 @@ inline void drawTableText(draw::Canvas& c, draw::Rect row, const std::vector<Col
     cell.left += scale(4), cell.right -= scale(4);
     c.text(cell, text, color, alignFlags(cols[k].align) | draw::kEllipsis);
 }
-
-// --- Lists that can be reordered ------------------------------------------------------------------------------------
-// The grip (six dots) on a row that can be dragged; the line where a dragged row goes.
-inline void drawGrip(draw::Canvas& c, int x, int y, bool on) {
-    for (int gx = 0; gx < 2; ++gx)
-        for (int gy = 0; gy < 3; ++gy) {
-            const int dx = x + gx * scale(5), dy = y + gy * scale(5);
-            c.fill({dx, dy, dx + scale(2), dy + scale(2)}, on ? kAccent : kGripDot);
-        }
-}
-inline void drawDropLine(draw::Canvas& c, int x0, int x1, int y) { c.fill({x0, y - scale(1), x1, y + scale(1)}, kAccent); }
 
 // --- Radio buttons and check boxes ----------------------------------------------------------------------------------
 inline void drawRadioMark(draw::Canvas& c, draw::Rect b, bool on, bool over) {
@@ -405,6 +382,27 @@ inline draw::Rect drawSideLink(draw::Canvas& c, int x, int y, int w, const std::
         c.line(tx, nr.bottom - scale(3), tx + tw, nr.bottom - scale(3), kAccentBright);
     }
     return {x, y, x + w, y + h};
+}
+
+// --- Lists that can be reordered ------------------------------------------------------------------------------------
+// The grip (six dots) on a row that can be dragged; the line where a dragged row goes.
+inline void drawGrip(draw::Canvas& c, int x, int y, bool on) {
+    for (int gx = 0; gx < 2; ++gx)
+        for (int gy = 0; gy < 3; ++gy) {
+            const int dx = x + gx * scale(5), dy = y + gy * scale(5);
+            c.fill({dx, dy, dx + scale(2), dy + scale(2)}, on ? kAccent : kGripDot);
+        }
+}
+inline void drawDropLine(draw::Canvas& c, int x0, int x1, int y) { c.fill({x0, y - scale(1), x1, y + scale(1)}, kAccent); }
+
+// A slider: the track from x0 to x1 at cy, lit to `frac` (0..1), and its knob (ui_kit.inc's sliderFace).
+inline void drawSliderFace(draw::Canvas& c, int x0, int x1, int cy, float frac, bool over, bool enabled = true) {
+    const draw::Rect track{x0, cy - scale(2), x1, cy + scale(2)};
+    c.roundBox(track, kCtl, kBorder, float(scale(2)));
+    const int kx = x0 + int(std::lround(std::clamp(frac, 0.0f, 1.0f) * float(x1 - x0)));
+    c.fill({x0, cy - scale(2), kx, cy + scale(2)}, enabled ? kAccent : kFaint);
+    c.smoothRoundOutline({kx - scale(7), cy - scale(7), kx + scale(7), cy + scale(7)}, float(scale(7)), !enabled ? kFaint : over ? kAccentBright : kAccent,
+                         2.0f);
 }
 
 }  // namespace kitpaint

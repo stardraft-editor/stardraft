@@ -454,7 +454,6 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_message_box.inc"  // the message box (MessageView, runMessageBox; the host is message_box.inc)
 #include "core/views_about.inc"  // Help > About StarDraft (AboutView; the host is about.inc)
 #include "core/views_tip.inc"  // the hover tooltip (TipView; the Windows host is tip_win32.inc)
-#include "core/prompts.inc"  // the crash question's and Check for updates' texts and release reading (crash.inc, update.inc)
 #include "core/kit_surface.inc"  // a painted surface in a view: the kit's controls with their click areas (kitui::Surface)
 #include "core/views_kit_gallery.inc"  // View > Control kit (KitGalleryView; the host is kit_gallery.inc)
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
