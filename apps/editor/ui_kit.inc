@@ -37,24 +37,16 @@ int textWidth(Paint p, const std::wstring& t) { return p->measure(t); }
 // --- Buttons ----------------------------------------------------------------------------------------------------
 // Normal: a command. Primary: the one a form or dialog is for (OK, Create, Build). Danger: removes something.
 using kitpaint::Tone;  // (core/kit_paint.inc: the tones are the core's)
-enum class State { Normal, Hot, Down, Disabled };
+using State = kitpaint::ButtonState;  // (core/kit_paint.inc)
 
 using kitpaint::toneText;
 
 // The face of a button (painted ones and the native push buttons alike).
 void buttonFace(Paint p, RECT r, const std::wstring& text, Tone tone, State s, HFONT font = nullptr) {
-    COLORREF fill = kCtl, line = kBorder;
-    if (tone == Tone::Primary) fill = kSel, line = kAccentLine;
-    if (s == State::Hot) fill = tone == Tone::Primary ? kSelHot : kCtlHot, line = tone == Tone::Primary ? kAccent : kBorderHot;
-    if (s == State::Down) fill = tone == Tone::Primary ? kSel : kCtlDown;
-    if (s == State::Disabled) fill = kBg, line = kBorder;
-    box(*p, r, fill, line);
-    const Font of = font ? p->setFont(fontOf(font)) : Font{};
-    p->text(r, text, s == State::Disabled ? kFaint : toneText(tone == Tone::Quiet ? Tone::Normal : tone), kMiddle | kCenter | kEllipsis);
-    if (of) p->setFont(of);
+    kitpaint::drawButtonFace(*p, r, text, tone, s, font ? fontOf(font) : Font{});
 }
 // A button's width for its text.
-int buttonWidth(Paint p, const std::wstring& text) { return std::max(scale(kButtonMinW), textWidth(*p, text) + scale(28)); }
+int buttonWidth(Paint p, const std::wstring& text) { return kitpaint::buttonWidth(*p, text); }
 
 void button(Paint p, RECT r, const std::wstring& text, Tone tone, std::function<void()> click, const std::wstring& tip = L"", bool enabled = true) {
     buttonFace(*p, r, text, tone, !enabled ? State::Disabled : hot(r) ? State::Hot : State::Normal);
@@ -125,14 +117,7 @@ int smallButton(Paint p, int x, int y, int h, const std::wstring& text, std::fun
 
 // "Add ..." under a list (blocks, rows, triggers): a row as wide as the list, so it is clear where the new item
 // goes. A quiet outline, a + and the text in dim; under the mouse the row's ground and the accent.
-void addRowFace(Paint p, RECT r, const std::wstring& text, bool over, bool enabled = true) {
-    box(*p, r, over && enabled ? kRowHot : CLR_NONE, over && enabled ? kBorderHot : kBorder, 6);
-    const int is = scale(16);
-    const COLORREF c = !enabled ? kFaint : over ? kAccent : kDim;
-    const RECT ir{r.left + scale(10), (r.top + r.bottom - is) / 2, r.left + scale(10) + is, (r.top + r.bottom + is) / 2};
-    p->icon(ir, int(UiIcon::Add), c, is);
-    p->text({ir.right + scale(8), r.top, r.right - scale(8), r.bottom}, text, c, kMiddle | kEllipsis);
-}
+void addRowFace(Paint p, RECT r, const std::wstring& text, bool over, bool enabled = true) { kitpaint::drawAddRowFace(*p, r, text, over, enabled); }
 // The row, with its click. Returns the bottom. Not enabled (a limit is reached): gray, no click; the tooltip says why.
 int addRow(Paint p, RECT r, const std::wstring& text, std::function<void()> click, const std::wstring& tip = L"", bool enabled = true) {
     addRowFace(*p, r, text, enabled && hot(r), enabled);
@@ -214,11 +199,7 @@ struct RowAction {
 };
 // Returns the left edge of the actions (the row's text should end there).
 // Where row action `k` of `n` goes in a row (for surfaces with their own click areas).
-RECT rowActionRect(RECT row, int k, int n) {
-    const int w = scale(kIconBox), h = std::min<int>(row.bottom - row.top, scale(kIconBox));
-    const int x = row.right - scale(4) - w * (n - k), y = (row.top + row.bottom - h) / 2;
-    return {x, y, x + w, y + h};
-}
+RECT rowActionRect(RECT row, int k, int n) { return toRECT(kitpaint::rowActionRect(row, k, n)); }
 int rowActions(Paint p, RECT row, const std::vector<RowAction>& actions, bool show) {
     hitsOut().push_back({row, nullptr, nullptr, L"", IDC_ARROW, {}});  // the mouse entering the row repaints it
     const int w = scale(kIconBox), h = std::min<int>(row.bottom - row.top, scale(kIconBox));
@@ -321,14 +302,8 @@ void tableFrame(Paint, RECT) {}  // no frame: the header's line and the rows' pi
 
 // --- Lists that can be reordered ------------------------------------------------------------------------------------
 // The grip (six dots) on a row that can be dragged; the line where a dragged row goes.
-void grip(Paint p, int x, int y, bool on) {
-    for (int gx = 0; gx < 2; ++gx)
-        for (int gy = 0; gy < 3; ++gy) {
-            const int dx = x + gx * scale(5), dy = y + gy * scale(5);
-            p->fill({dx, dy, dx + scale(2), dy + scale(2)}, on ? kAccent : kGripDot);
-        }
-}
-void dropLine(Paint p, int x0, int x1, int y) { p->fill({x0, y - scale(1), x1, y + scale(1)}, kAccent); }
+void grip(Paint p, int x, int y, bool on) { kitpaint::drawGrip(*p, x, y, on); }
+void dropLine(Paint p, int x0, int x1, int y) { kitpaint::drawDropLine(*p, x0, x1, y); }
 
 // A list being reordered: which list, the row taken and where it goes now.
 struct Reorder {
@@ -511,16 +486,7 @@ RECT sideLink(Paint p, int x, int y, int w, const std::wstring& text, const Unit
 // --- Pickers ------------------------------------------------------------------------------------------------------
 // A value in a sentence (a trigger's block, a briefing action): a chip to click. Dim: the block is turned off;
 // bad: the value must be fixed; focused: Tab moved to it.
-void chipFace(Paint p, RECT r, bool over, bool dim = false, bool bad = false, bool focused = false) {
-    const COLORREF fill = dim ? kChipDim : bad ? (over ? kBadFillHot : kBadFill) : over ? kSelHot : kChip;
-    const COLORREF line = focused ? kAccent : dim ? kReadOnlyLine : bad ? kBad : over ? kAccentLine : kChipLine;
-    if (focused) {
-        box(*p, r, fill, CLR_NONE);
-        p->roundBox(r, kNone, line, float(scale(kRadius)), 2);
-        return;
-    }
-    box(*p, r, fill, line);
-}
+void chipFace(Paint p, RECT r, bool over, bool dim = false, bool bad = false, bool focused = false) { kitpaint::drawChipFace(*p, r, over, dim, bad, focused); }
 
 // A dropdown: icon, name, the number on the right, the arrow; and the glyph that opens the entry when `open` is
 // set. Clicking the box calls `click` with it.

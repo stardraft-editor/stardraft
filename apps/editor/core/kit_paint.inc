@@ -90,13 +90,15 @@ inline void drawCheckMark(draw::Canvas& c, draw::Rect b, bool on, bool over, boo
 }
 
 // --- Icon buttons -----------------------------------------------------------------------------------------------
-// A bare icon button's face (in rows, beside fields): `on` with Tone::Quiet is a toggle that is off (amber).
-inline void drawIconFace(draw::Canvas& c, draw::Rect r, Ico g, Tone tone, bool on, bool over, bool enabled = true) {
+// A bare icon button's face (in rows, beside fields): `on` with Tone::Quiet is a toggle that is off (amber). Returns the glyph's color.
+inline draw::Color drawIconFace(draw::Canvas& c, draw::Rect r, Ico g, Tone tone, bool on, bool over, bool enabled = true) {
     r = square(r);
     if (over && enabled) c.roundBox(r, kCtlHot, draw::kNone, float(scale(stardraft::kit::kRadius)));
     const draw::Color rest = tone == Tone::Quiet && on ? kWarn : on || tone == Tone::Primary ? kAccent : kDim;
     const draw::Color lit = tone == Tone::Danger ? kBad : tone == Tone::Quiet && on ? kWarn : tone == Tone::Primary || on ? kAccentBright : kText;
-    drawGlyph(c, r, g, !enabled ? kFaint : over ? lit : rest);
+    const draw::Color col = !enabled ? kFaint : over ? lit : rest;
+    drawGlyph(c, r, g, col);
+    return col;
 }
 
 // --- Links and marks ----------------------------------------------------------------------------------------------
@@ -161,5 +163,67 @@ inline TitleLayout drawTitle(draw::Canvas& c, int x, int y, int right, draw::Ima
     t.next = y + scale(56);
     return t;
 }
+
+// --- Buttons, chips and rows (the trigger pane, the briefing; ui_kit.inc's faces call these) ----------------------
+// A button's state.
+enum class ButtonState { Normal, Hot, Down, Disabled };
+// A rounded box with the kit's radius: `fill` (kNone: none) and a 1 px `line` (kNone: none).
+inline void drawBox(draw::Canvas& c, draw::Rect r, draw::Color fill, draw::Color line, int radius = stardraft::kit::kRadius) {
+    c.roundBox(r, fill, line, float(scale(radius)));
+}
+// The face of a button: its box by tone and state, and the text (in `font` when it is set).
+inline void drawButtonFace(draw::Canvas& c, draw::Rect r, const std::wstring& text, Tone tone, ButtonState s, draw::Font font = {}) {
+    draw::Color fill = kCtl, line = kBorder;
+    if (tone == Tone::Primary) fill = kSel, line = kAccentLine;
+    if (s == ButtonState::Hot) fill = tone == Tone::Primary ? kSelHot : kCtlHot, line = tone == Tone::Primary ? kAccent : kBorderHot;
+    if (s == ButtonState::Down) fill = tone == Tone::Primary ? kSel : kCtlDown;
+    if (s == ButtonState::Disabled) fill = kBg, line = kBorder;
+    drawBox(c, r, fill, line);
+    const draw::Font of = font ? c.setFont(font) : draw::Font{};
+    c.text(r, text, s == ButtonState::Disabled ? kFaint : toneText(tone == Tone::Quiet ? Tone::Normal : tone), draw::kMiddle | draw::kCenter | draw::kEllipsis);
+    if (of) c.setFont(of);
+}
+// A button's width for its text.
+inline int buttonWidth(draw::Canvas& c, const std::wstring& text) { return std::max(scale(stardraft::kit::kButtonMinW), c.measure(text) + scale(28)); }
+
+// "Add ..." under a list: a quiet outline, a + and the text in dim; under the mouse the row's ground and the accent.
+inline void drawAddRowFace(draw::Canvas& c, draw::Rect r, const std::wstring& text, bool over, bool enabled = true) {
+    drawBox(c, r, over && enabled ? kRowHot : draw::kNone, over && enabled ? kBorderHot : kBorder, 6);
+    const int is = scale(16);
+    const draw::Color col = !enabled ? kFaint : over ? kAccent : kDim;
+    const draw::Rect ir{r.left + scale(10), (r.top + r.bottom - is) / 2, r.left + scale(10) + is, (r.top + r.bottom + is) / 2};
+    c.icon(ir, int(UiIcon::Add), col, is);
+    c.text({ir.right + scale(8), r.top, r.right - scale(8), r.bottom}, text, col, draw::kMiddle | draw::kEllipsis);
+}
+
+// A value in a sentence (a trigger's block, a briefing action): a chip. Dim: the block is turned off; bad: the value
+// must be fixed; focused: Tab moved to it.
+inline void drawChipFace(draw::Canvas& c, draw::Rect r, bool over, bool dim = false, bool bad = false, bool focused = false) {
+    const draw::Color fill = dim ? kChipDim : bad ? (over ? kBadFillHot : kBadFill) : over ? kSelHot : kChip;
+    const draw::Color line = focused ? kAccent : dim ? kReadOnlyLine : bad ? kBad : over ? kAccentLine : kChipLine;
+    if (focused) {
+        drawBox(c, r, fill, draw::kNone);
+        c.roundBox(r, draw::kNone, line, float(scale(stardraft::kit::kRadius)), 2);
+        return;
+    }
+    drawBox(c, r, fill, line);
+}
+
+// Where row action `k` of `n` goes in a row (the bare icon buttons at a row's right edge).
+inline draw::Rect rowActionRect(draw::Rect row, int k, int n) {
+    const int w = scale(stardraft::kit::kIconBox), h = std::min<int>(row.bottom - row.top, scale(stardraft::kit::kIconBox));
+    const int x = row.right - scale(4) - w * (n - k), y = (row.top + row.bottom - h) / 2;
+    return {x, y, x + w, y + h};
+}
+
+// The grip (six dots) on a row that can be dragged; the line where a dragged row goes.
+inline void drawGrip(draw::Canvas& c, int x, int y, bool on) {
+    for (int gx = 0; gx < 2; ++gx)
+        for (int gy = 0; gy < 3; ++gy) {
+            const int dx = x + gx * scale(5), dy = y + gy * scale(5);
+            c.fill({dx, dy, dx + scale(2), dy + scale(2)}, on ? kAccent : kGripDot);
+        }
+}
+inline void drawDropLine(draw::Canvas& c, int x0, int x1, int y) { c.fill({x0, y - scale(1), x1, y + scale(1)}, kAccent); }
 
 }  // namespace kitpaint

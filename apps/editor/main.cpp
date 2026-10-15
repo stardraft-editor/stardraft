@@ -9143,24 +9143,7 @@ fs::path scriptPath(const EudProject& pr, const std::string& section) { return p
 void layout();
 
 // --- Triggers workspace ------------------------------------------------------------------------------------
-// Left: the project's triggers as a tree: three categories (Definitions, On map start, On every trigger cycle)
-// with folders, triggers and (in Definitions) variables. Right-click to add (also from templates), F2 to rename,
-// Delete, drag to move, copy and paste. Middle: the selected trigger's conditions and actions as blocks with
-// their values in color (blue: click to change; purple: no clear type yet). Below: what the selected block
-// does, its pitfalls, and what the checker found. Saved to triggers.json in the project folder on every
-// change; Build turns it into generated/triggers.eps.
-
-struct TriggerEditor {
-    HWND wnd = nullptr, tree = nullptr, pane = nullptr, info = nullptr, code = nullptr;  // tree: the tree's view window (gTrigTree)
-    TriggerSet set;
-    const EudProject* project = nullptr;
-    const std::vector<TriggerCall>* textValuesFor = nullptr;  // the text pop-out's block's values from the game (its chips' names)
-    std::vector<TriggerCall> textValuesOut;                   // ... and as the pop-out left them (OK)
-    std::vector<int> sel;                 // selected node
-    int scroll = 0, contentH = 0;
-    std::vector<TriggerIssue> issues;  // from the last check
-};
-TriggerEditor gTE;
+#include "core/views_triggers_pane.inc"  // the workspace's state (gTE), the pane's model and hit areas, its views (TrigPaneView, TrigInfoView; the host is TrigPaneProgram below)
 
 // The tree's program parts (core/views_triggers_tree.inc): the model's nodes and the commands (defined below).
 class TrigTreeProgram final : public TrigTreeHost {
@@ -9242,11 +9225,6 @@ void trigSave() {
     if (!gTE.set.save(triggersFile(*gTE.project), err)) logLine(widen(err), true);
 }
 
-TriggerNode* trigSelectedNode() { return gTE.set.at(gTE.sel); }
-TriggerNode* trigSelected() {
-    TriggerNode* n = trigSelectedNode();
-    return n && n->kind == TriggerNode::Kind::Trigger ? n : nullptr;
-}
 
 // Issues of a node (its own and its blocks').
 int trigIssueCount(const TriggerNode& n, TriggerIssue::Level level) { return trigIssueCount(n, level, gTE.issues); }
@@ -9954,33 +9932,10 @@ void blockPickChoose() {
 }
 
 // A block's description: what it does, its values and their types (purple: unclear), its pitfalls.
+// The block docs on a DC (the block picker): the core's drawBlockDocs (core/views_triggers_pane.inc).
 void drawBlockDocs(HDC dc, const TriggerDef* d, RECT r) {
-    SetBkMode(dc, TRANSPARENT);
-    if (!d) return;
-    LOGFONTW lf{};
-    GetObjectW(app.font, sizeof lf, &lf);
-    lf.lfWeight = FW_BOLD;
-    HFONT bold = CreateFontIndirectW(&lf);
-    HGDIOBJ of = SelectObject(dc, bold);
-    SetTextColor(dc, kText);
-    RECT t = r;
-    DrawTextW(dc, widen(d->title).c_str(), -1, &t, DT_SINGLELINE | DT_NOPREFIX);
-    SelectObject(dc, app.font);
-    DeleteObject(bold);
-    r.top += scale(22);
-    SetTextColor(dc, kText);
-    RECT body = r;
-    std::wstring text = widen(d->docs);
-    DrawTextW(dc, text.c_str(), -1, &body, DT_WORDBREAK | DT_NOPREFIX | DT_CALCRECT);
-    DrawTextW(dc, text.c_str(), -1, &body, DT_WORDBREAK | DT_NOPREFIX);
-    r.top = body.bottom + scale(6);
-    if (!d->pitfalls.empty()) {
-        SetTextColor(dc, kWarn);
-        RECT pr = r;
-        const std::wstring pit = L"\x26A0 " + widen(d->pitfalls);
-        DrawTextW(dc, pit.c_str(), -1, &pr, DT_WORDBREAK | DT_NOPREFIX);
-    }
-    SelectObject(dc, of);
+    ui::Paint p(dc);
+    drawBlockDocs(*p, d, r);
 }
 
 LRESULT CALLBACK blockPickProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
@@ -10198,715 +10153,14 @@ std::string showBlockPicker(bool condition, const std::string& startCategory = {
     return bp.picked ? bp.result : std::string();
 }
 
-// --- The pane: one trigger -----------------------------------------------------------------------------------
-// Conditions and Actions, each collapsible. Every block has a grip; drag it to reorder or into or out of a block
-// that holds blocks (If, loops, After a delay, Any of). A list is addressed by its path: the trigger's
-// conditions (0) or actions (1), or through (list, index) steps to a container, that container's list n (2 + n).
+// The pane's model, its texts and its paint are in core/views_triggers_pane.inc.
 
-struct TrigListRef {
-    std::vector<std::pair<int, int>> via;
-    int list = 1;
-    bool operator==(const TrigListRef& o) const { return via == o.via && list == o.list; }
-};
-struct TrigBlockRef {
-    TrigListRef list;
-    int index = -1;
-};
-
-std::vector<TriggerCall>* trigNodeList(TriggerNode& t, int list) { return list == 0 ? &t.conditions : list == 1 ? &t.actions : nullptr; }
-constexpr int kTextValuesList = 1000;  // a TrigListRef's list: Show text's values from the game
-std::vector<TriggerCall>* trigCallList(TriggerCall& c, int list) {
-    if (list == kTextValuesList) return c.textValues();
-    const int n = list - 2;
-    return n >= 0 && n < int(c.lists.size()) ? &c.lists[size_t(n)] : nullptr;
-}
-TriggerCall* trigContainer(TriggerNode& t, const TrigListRef& r) {
-    TriggerCall* call = nullptr;
-    for (const auto& [l, i] : r.via) {
-        std::vector<TriggerCall>* v = call ? trigCallList(*call, l) : trigNodeList(t, l);
-        if (!v || i < 0 || i >= int(v->size())) return nullptr;
-        call = &(*v)[size_t(i)];
-    }
-    return call;
-}
-std::vector<TriggerCall>* trigResolve(TriggerNode& t, const TrigListRef& r) {
-    if (r.via.empty()) return trigNodeList(t, r.list);
-    TriggerCall* c = trigContainer(t, r);
-    return c ? trigCallList(*c, r.list) : nullptr;
-}
-bool trigListIsCondition(TriggerNode& t, const TrigListRef& r) {
-    if (r.via.empty()) return r.list == 0;
-    const TriggerCall* c = trigContainer(t, r);
-    const TriggerDef* d = c ? TriggerDef::find(c->def) : nullptr;
-    const int n = r.list - 2;
-    return d && n >= 0 && n < int(d->lists.size()) && d->lists[size_t(n)].condition;
-}
-TriggerCall* trigBlock(TriggerNode& t, const TrigBlockRef& b) {
-    std::vector<TriggerCall>* v = trigResolve(t, b.list);
-    return v && b.index >= 0 && b.index < int(v->size()) ? &(*v)[size_t(b.index)] : nullptr;
-}
-TrigListRef trigInside(const TrigBlockRef& b, int n) {
-    TrigListRef r = b.list;
-    r.via.push_back({b.list.list, b.index});
-    r.list = 2 + n;
-    return r;
-}
-bool trigSameBlock(const TrigBlockRef& a, const TrigBlockRef& b) { return a.index >= 0 && a.index == b.index && a.list == b.list; }
-// Is a list inside a block with an effect (from the block library: theunit, counter, curplayer)?
-bool trigInsideEffect(TriggerNode& t, const TrigListRef& r, const char* effect) {
-    TrigListRef walk;
-    walk.list = r.via.empty() ? r.list : r.via[0].first;
-    for (size_t i = 0; i < r.via.size(); ++i) {
-        TrigBlockRef b{walk, r.via[i].second};
-        if (const TriggerCall* c = trigBlock(t, b))
-            if (const TriggerDef* d = TriggerDef::find(c->def); d && d->has(effect)) return true;
-        walk.via.push_back(r.via[i]);
-        walk.list = i + 1 < r.via.size() ? r.via[i + 1].first : r.list;
-    }
-    return false;
-}
-bool trigInUnitLoop(TriggerNode& t, const TrigListRef& r) { return trigInsideEffect(t, r, "theunit"); }
-
-struct TrigLine {
-    TrigBlockRef ref;  // index -1: an empty list's placeholder (a drop target)
-    RECT r{}, grip{};  // the block (a container: its header row), its grip
-    RECT whole{};      // a container: everything it holds
-    bool container = false;
-};
-struct TrigParamHit {
-    TrigBlockRef ref;
-    int param = 0;
-    RECT r{};
-    // Inside value blocks: `param` is the block's value holding them; `inner` the values below it, down to this one
-    // (empty: the block's own value). `bracket`: the value block filling that value itself.
-    std::vector<int> inner;
-    bool bracket = false;
-    int token = -1;  // Show text's text: -2 the words (the text pop-out), 0.. a value in it (that part)
-};
-struct TrigFoldHit {
-    TrigBlockRef ref;
-    RECT r{};
-};
-struct TrigAddHit {  // "+ Add" under a list
-    TrigListRef list;
-    RECT r{};
-};
-struct TrigVarHit {  // a field of the variable form
-    int field = 0;   // 0 kind, 1 size, 2 starting value, 3 description
-    RECT r{};
-};
-
-bool trigSameHit(const TrigParamHit& a, const TrigParamHit& b) {
-    return trigSameBlock(a.ref, b.ref) && a.param == b.param && a.inner == b.inner && a.bracket == b.bracket && a.token == b.token;
-}
-
-struct TrigRowButton {  // on the right of a row: 0 on/off, 1 duplicate, 2 delete
-    TrigBlockRef ref;
-    int action = 0;
-    RECT r{};
-};
-
-// A category's color, for the stripe on a block's left edge.
-COLORREF trigCategoryColor(const TriggerDef* d) {
-    const COLORREF palette[] = {kAccent, kGood, RGB(220, 184, 104), RGB(214, 140, 200),
-                                       RGB(96, 200, 210),  RGB(232, 140, 110), RGB(170, 150, 240), RGB(200, 200, 120)};
-    if (!d) return RGB(90, 90, 96);
-    size_t h = 0;
-    for (char ch : d->category) h = h * 31 + static_cast<unsigned char>(ch);
-    return palette[(h + (d->condition ? 3 : 0)) % 8];
-}
-
-struct TrigPaneState {
-    std::vector<TrigLine> lines;
-    std::vector<TrigParamHit> params;
-    std::vector<TrigFoldHit> folds;
-    std::vector<TrigAddHit> adds;
-    std::vector<TrigVarHit> varHits;
-    RECT heading[2]{};
-    RECT title{};  // the trigger's or variable's name at the top (click to rename)
-    std::vector<std::pair<RECT, int>> addButtons;  // a category or folder: New trigger (0), template (1), folder (2), variable (3)
-    RECT codeToggle{};  // </>: the code pane
-    bool collapsed[2] = {};
-    TrigBlockRef sel;
-    TrigParamHit focus, hover;  // the value Tab is on, the one under the mouse (ref.index -1: none)
-    TrigBlockRef hoverRow;      // the block under the mouse
-    std::vector<TrigRowButton> rowButtons;
-    // Problems, shown when the mouse is on a block's mark or on a red value: where, what, and how bad.
-    struct Tip {
-        RECT r;
-        std::wstring text;
-        COLORREF color;
-    };
-    std::vector<Tip> tips;
-    TrigBlockRef drag;
-    bool dragging = false;
-    int dragFromY = 0;
-    TrigListRef dropList;
-    int dropIdx = -1;
-};
-TrigPaneState gTP;
-
-// A unit picked on the map, named for people: "Terran Command Center #12 (Player 1)" (#: its id on the map).
-std::wstring trigPickedUnitName(const std::string& v) {
-    const uint32_t serial = uint32_t(std::strtoul(v.c_str() + 1, nullptr, 10));
-    if (app.ed)
-        for (const auto& u : app.ed->units())
-            if (u.serial == serial && u.type < app.ed->unitTypes().size())  // "Terran Civilian #12 (Player 1)": #: its id on the map
-                return widen(app.ed->unitTypes()[u.type].name) + L" #" + std::to_wstring(serial) + L" (Player " + std::to_wstring(u.owner + 1) + L")";
-    return L"unit #" + std::to_wstring(serial) + L" (gone from the map)";
-}
-
-bool trigIsNumberText(const std::string& v) {
-    return !v.empty() && std::all_of(v.begin(), v.end(), [](char ch) { return std::isdigit(static_cast<unsigned char>(ch)); });
-}
-
-// A .dat entry by number: "Gauss Rifle (Normal)", or the number when it has no name.
-std::wstring trigDatEntryText(const std::string& dat, const std::string& v) {
-    if (!trigIsNumberText(v)) return widen(v);  // an expression
-    const std::wstring name = entryName(dat, std::atoi(v.c_str()));
-    return name.empty() ? L"#" + widen(v) : name;
-}
-
-std::wstring trigUnitGroupName(int id) {
-    static const wchar_t* names[] = {L"Any unit", L"Men", L"Buildings", L"Factories"};
-    return id >= 229 && id <= 232 ? names[id - 229] : L"";
-}
-
-// A per-player variable of the open triggers that holds `holds` (unit types, locations).
-bool trigIsPerPlayer(const std::string& v, const char* holds) {
-    const auto vars = gTE.set.variables();
-    const auto it = vars.find(v);
-    return it != vars.end() && it->second->variable.kind == TriggerVariable::Kind::PerPlayer && it->second->variable.holds == holds;
-}
-
-// How a value reads in a sentence (type: the value's type, which may follow a property).
-std::wstring trigValueText(const std::string& type, const std::string& v) {
-    const TriggerType* t = triggerType(type);
-    if (!t) return v.empty() ? L"(" + widen(type) + L")" : widen(v);
-    switch (t->picker) {
-    case TriggerPicker::UnitType:
-    case TriggerPicker::UnitFilter:
-        if (trigIsNumberText(v)) {
-            const int id = std::atoi(v.c_str());
-            if (!trigUnitGroupName(id).empty()) return trigUnitGroupName(id);
-            if (app.ed && id < int(app.ed->unitTypes().size())) return widen(app.ed->unitTypes()[uint16_t(id)].name);
-            return L"unit type #" + widen(v);
-        }
-        return v.empty() ? L"(unit type)" : widen(v) + (trigIsPerPlayer(v, "UnitType") ? tr(L" (the current player's)") : L"");
-    case TriggerPicker::Location:
-        if (trigIsNumberText(v)) {
-            const int n = std::atoi(v.c_str());
-            if (app.ed && n >= 1 && n <= app.ed->locationCount()) return widen(app.ed->locationName(n - 1));
-            return L"location " + widen(v);
-        }
-        return v.empty() ? L"(location)" : widen(v) + (trigIsPerPlayer(v, "Location") ? tr(L" (the current player's)") : L"");
-    case TriggerPicker::Property:
-        if (const TriggerProperty* pr = triggerProperty(t->of, v)) return widen(pr->label);
-        return v.empty() ? L"(a property)" : widen(v);
-    case TriggerPicker::DatEntry: return v.empty() ? L"(" + widen(t->label) + L")" : trigDatEntryText(t->of, v);
-    case TriggerPicker::Choice:
-        for (const auto& c : t->choices)
-            if (c.code == v) return widen(c.label);
-        return widen(v);
-    case TriggerPicker::Switch: return L"Switch " + widen(v);
-    case TriggerPicker::Text: return v.empty() ? L"(text)" : L"\"" + gameTextPlain(v) + L"\"";
-    case TriggerPicker::Number: return type == "Count" && v == "0" ? L"all" : v.empty() ? L"0" : widen(v);
-    case TriggerPicker::UnitRef: return v.empty() ? L"(a unit)" : !v.empty() && v[0] == '@' ? trigPickedUnitName(v) : widen(v);
-    case TriggerPicker::Variable: return v.empty() ? L"(a variable)" : widen(v);
-    case TriggerPicker::Sound: return v.empty() ? L"(a sound)" : widen(fs::path(v).filename().string());
-    case TriggerPicker::Trigger: return v.empty() ? L"(a trigger)" : widen(v);
-    case TriggerPicker::Code: {  // several lines: on one row, with a mark between them
-        if (v.empty()) return L"(code)";
-        std::wstring out;
-        for (wchar_t ch : widen(v)) out += ch == L'\n' ? std::wstring(L"  \x21B5  ") : ch == L'\r' ? std::wstring() : std::wstring(1, ch);
-        return out;
-    }
-    case TriggerPicker::Button: {
-        Button b;
-        return buttonFromText(v, b) ? buttonRowText(b) : L"(a button)";
-    }
-    case TriggerPicker::Unclear: return v.empty() ? L"(" + widen(t->label) + L")" : widen(v);
-    default: return v.empty() ? L"(" + widen(t->label) + L")" : widen(v);
-    }
-}
-
-const COLORREF &kTrigBlue = kAccent, &kTrigRed = kBad, &kTrigAmber = kWarn;
-// The trigger editor's own colors, for each theme: purple (events), a sentence's words, If / While blocks (a warm
-// ground and line), the "condition" and "Else" labels inside them.
-COLORREF trigPurple() { return gLightTheme ? RGB(128, 56, 200) : RGB(190, 120, 255); }
-COLORREF trigWords() { return gLightTheme ? kText : RGB(176, 206, 236); }
-COLORREF trigContainerFill() { return gLightTheme ? RGB(250, 245, 232) : RGB(46, 42, 32); }
-COLORREF trigContainerLine() { return gLightTheme ? RGB(200, 170, 110) : RGB(120, 100, 60); }
-COLORREF trigConditionLabel() { return gLightTheme ? RGB(140, 98, 0) : RGB(220, 184, 104); }
-COLORREF trigElseLabel() { return gLightTheme ? RGB(178, 64, 44) : RGB(224, 140, 120); }
-
-// The issues of one block (and of one of its values).
-std::vector<const TriggerIssue*> trigIssuesOf(const TriggerCall* c, int param = -2) {
-    std::vector<const TriggerIssue*> out;
-    std::function<bool(const TriggerCall&, const TriggerCall*)> inside = [&](const TriggerCall& b, const TriggerCall* x) {
-        for (const auto& slot : b.argBlocks)
-            if (!slot.empty() && (&slot[0] == x || inside(slot[0], x))) return true;
-        return false;
-    };
-    for (const auto& i : gTE.issues) {
-        // A value's own problems, and (for the value's red brackets and the block's notes) those inside value blocks.
-        const bool inSlot = param >= 0 && param < int(c->argBlocks.size()) && !c->argBlocks[size_t(param)].empty() &&
-                            (i.call == &c->argBlocks[size_t(param)][0] || inside(c->argBlocks[size_t(param)][0], i.call));
-        if ((i.call == c && (param == -2 || i.param == param)) || (param == -2 && inside(*c, i.call)) || inSlot) out.push_back(&i);
-    }
-    return out;
-}
-
-// Lays out (and draws) a block's sentence from x0 within width; values are links. Returns the height used.
-std::wstring trigIndexText(const TriggerDef& d, const TriggerCall& c, const std::string& v);
-// A game text by its words (the first line, short), or the expression.
-std::wstring trigGameStringText(const std::string& v) {
-    if (!trigIsNumberText(v)) return v.empty() ? L"(game text)" : widen(v);
-    dataLoadForProject();
-    std::wstring t = statString(std::atoi(v.c_str()));
-    if (const size_t nl = t.find(L'\n'); nl != std::wstring::npos) t.resize(nl);
-    if (t.size() > 32) t = t.substr(0, 31) + L"\x2026";
-    return t.empty() ? L"text " + widen(v) : L"\x201C" + t + L"\x201D";
-}
-
-// A button of the block's set, as the Buttons tab lists it (its icon in the chip); past the last one, a new one.
-std::wstring trigButtonIndexText(const TriggerDef& d, const TriggerCall& c, const std::string& v, const UnitPalette::Bitmap** icon) {
-    const int sp = d.param("set");
-    const std::string set = sp >= 0 && sp < int(c.args.size()) ? c.args[size_t(sp)] : "";
-    if (!trigIsNumberText(v) || !trigIsNumberText(set) || std::atoi(set.c_str()) >= ButtonSets::kSets) return v.empty() ? L"(button)" : L"button " + widen(v);
-    dataLoadForProject();
-    const auto& bs = gExtras.buttons.set(std::atoi(set.c_str()));
-    const size_t i = size_t(std::atoi(v.c_str()));
-    if (i >= bs.size()) return L"a new button";
-    if (icon) *icon = datRefIcon("icons", bs[i].icon);
-    std::wstring t = bs[i].enabledString ? statString(bs[i].enabledString) : L"";
-    if (const size_t nl = t.find(L'\n'); nl != std::wstring::npos) t.resize(nl);
-    return t.empty() ? L"button " + widen(v) : t;
-}
-std::wstring trigIssueText(const std::vector<const TriggerIssue*>& issues, COLORREF& color);
-std::wstring textFormatSuffix(const std::string& f);
-std::wstring textChipLabel(const std::string& text, const std::string& format);
-
-const COLORREF& kTrigValue = kGood;  // a value from the game, in a sentence
-// Values inside values: each depth its own color, so where one ends is clear.
-COLORREF trigValueColor(int depth) {
-    const COLORREF colors[] = {kGood, RGB(96, 200, 210), RGB(220, 184, 104), RGB(214, 140, 200)};
-    return colors[size_t(std::max(0, depth - 1)) % 4];
-}
-
-int trigSentence(HDC dc, const TriggerDef& d, const TriggerCall& c, int x0, int y0, int width, const TrigBlockRef& ref, bool dim, bool record) {
-    const int lineH = scale(22);
-    int x = x0, y = y0;
-    // A word; a link records a hit (param, sub) and is colored by its value's type and problems.
-    // A word. A value is a chip (a rounded field, lighter under the mouse, outlined when Tab is on it); a value
-    // block's brackets are links without a chip.
-    const UnitPalette::Bitmap* chipIcon = nullptr;  // set for the next chip: drawn before its text
-    std::vector<const TriggerIssue*> chipIssues;    // set for the next chip (or value block): its problems
-    TrigBlockRef curRef = ref;                      // the block the next hits belong to (a value in a text: that value)
-    int putToken = -1;                              // the next hit's part of a text with values
-    int topDepth = 0;                               // the depth whose values are the block's own (a value in a text: 1)
-    auto put = [&](const std::wstring& word, COLORREF col, bool link, int param, const std::vector<int>& inner, bool bracket) {
-        SIZE sz{};
-        GetTextExtentPoint32W(dc, word.c_str(), int(word.size()), &sz);
-        const bool chip = link && !bracket;
-        const UnitPalette::Bitmap* icon = chip ? chipIcon : nullptr;
-        chipIcon = nullptr;
-        const std::vector<const TriggerIssue*> issues = link ? std::exchange(chipIssues, {}) : std::vector<const TriggerIssue*>{};
-        const int iconW = icon ? scale(20) : 0;
-        const bool glyph = bracket && (word == L"\x27E8" || word == L"\x27E9");  // a value block's bracket: room to click it
-        const int padX = chip ? scale(5) : glyph ? scale(4) : 0, w = sz.cx + 2 * padX + iconW;
-        if (x > x0 && x + w > x0 + width) x = x0, y += lineH;
-        RECT r{x, y, x + w, y + lineH};
-        if (dim) col = kFaint;
-        if (chip) {
-            const TrigParamHit me{curRef, param, r, inner, bracket, putToken};
-            const bool hot = trigSameHit(gTP.hover, me), focused = trigSameHit(gTP.focus, me);
-            RECT cr{r.left, r.top + scale(2), r.right, r.bottom - scale(2)};
-            const bool bad = !dim && col == kTrigRed;  // a value to fix: a red field
-            ui::chipFace(dc, cr, hot, dim, bad, focused);
-        }
-        if (icon && icon->bmp) drawFitted(dc, *icon, {r.left + padX - scale(1), r.top + scale(3), r.left + padX + scale(17), r.bottom - scale(3)});
-        SetTextColor(dc, col);
-        RECT tr{r.left + padX + iconW, r.top, r.right - padX, r.bottom};
-        DrawTextW(dc, word.c_str(), -1, &tr, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-        if (link && bracket && trigSameHit(gTP.hover, TrigParamHit{curRef, param, r, inner, bracket, putToken})) {  // a value block under the mouse: underlined
-            HPEN pen = CreatePen(PS_SOLID, 1, col);
-            HGDIOBJ op = SelectObject(dc, pen);
-            MoveToEx(dc, tr.left, r.bottom - scale(4), nullptr), LineTo(dc, tr.left + sz.cx, r.bottom - scale(4));
-            SelectObject(dc, op), DeleteObject(pen);
-        }
-        if (link && record) gTP.params.push_back({curRef, param, r, inner, bracket, putToken});
-        if (record && !issues.empty() && !dim) {
-            COLORREF tc;
-            const std::wstring tt = trigIssueText(issues, tc);
-            gTP.tips.push_back({r, tt, tc});
-        }
-        x += w + (chip ? scale(2) : 0);
-    };
-    auto linkColor = [&](const TriggerDef& dd, const TriggerCall& cc, int p) {
-        bool error = false;
-        const bool unclear = !triggerTypeClear(triggerParamType(dd, cc.args, p));
-        for (const TriggerIssue* i : trigIssuesOf(&cc, p)) error |= i->level == TriggerIssue::Level::Error;
-        return unclear ? trigPurple() : error ? kTrigRed : kTrigBlue;
-    };
-    // Writes a block's sentence. A value block (depth > 0) fills value `top` of the block, below it `path`.
-    const std::vector<int> none;
-    std::function<void(const TriggerDef&, const TriggerCall&, int, const std::vector<int>&, int)> sentence =
-        [&](const TriggerDef& dd, const TriggerCall& cc, int top, const std::vector<int>& path, int depth) {
-        // A condition or action reads as a sentence: its first letter capitalized (values inside it stay as they are).
-        std::string s = dd.shownSentence(cc.args);
-        if (depth == 0 && !s.empty() && s[0] != '{') s[0] = char(std::toupper(static_cast<unsigned char>(s[0])));
-        const COLORREF plain = depth > 0 ? trigValueColor(depth) : kText;
-        std::wstring word;
-        // A value block's own words open its menu (another value, or a number or variable instead), like its brackets.
-        auto flush = [&] {
-            if (word.empty()) return;
-            if (depth > topDepth) put(word, plain, true, top, path, true);
-            else put(word, plain, false, -1, none, false);
-            word.clear();
-        };
-        for (size_t i = 0; i < s.size();) {
-            if (s[i] == '{') {
-                const size_t end = s.find('}', i);
-                const int p = end == std::string::npos ? -1 : dd.param(s.substr(i + 1, end - i - 1));
-                if (p >= 0) {
-                    flush();
-                    // This value's place: the block's own (top = p), or one level below the value block's.
-                    const int hitTop = depth == topDepth ? p : top;
-                    std::vector<int> hitPath = path;
-                    if (depth > topDepth) hitPath.push_back(p);
-                    if (p < int(cc.argBlocks.size()) && !cc.argBlocks[size_t(p)].empty()) {
-                        const TriggerCall& vc = cc.argBlocks[size_t(p)][0];
-                        bool error = false;
-                        for (const auto* is : trigIssuesOf(&cc, p)) error |= is->level == TriggerIssue::Level::Error;
-                        const COLORREF bracket = error ? kTrigRed : trigValueColor(depth + 1);
-                        if (error) chipIssues = trigIssuesOf(&cc, p);
-                        put(L"\x27E8", bracket, true, hitTop, hitPath, true);
-                        if (const TriggerDef* vd = TriggerDef::find(vc.def)) sentence(*vd, vc, hitTop, hitPath, depth + 1);
-                        else put(L"unknown value " + widen(vc.def), kTrigRed, false, -1, none, false);
-                        put(L"\x27E9", bracket, true, hitTop, hitPath, true);
-                    } else if (depth == 0 && dd.params[size_t(p)].type == "TextValues") {
-                        // A text with values: its words (click: the text pop-out), each value a chip, each value from
-                        // the game in brackets with its own values as chips.
-                        const std::string v = p < int(cc.args.size()) ? cc.args[size_t(p)] : "";
-                        const auto parts = triggerTextParts(v);
-                        const auto* gameValues = cc.textValues();
-                        const COLORREF words = trigWords();
-                        bool textError = false;
-                        for (const auto* is : trigIssuesOf(&cc, p)) textError |= is->level == TriggerIssue::Level::Error;
-                        if (parts.empty()) putToken = -2, put(L"(text)", textError ? kTrigRed : kTrigBlue, true, hitTop, hitPath, true);
-                        for (size_t k = 0; k <= parts.size(); ++k) {
-                            if (k == parts.size()) {  // the end: a pencil (the text pop-out), even when it is only values
-                                if (!parts.empty()) putToken = -2, put(L"\x270E ", textError ? kTrigRed : kTrigBlue, true, hitTop, hitPath, true);
-                                break;
-                            }
-                            const TriggerTextPart& part = parts[k];
-                            if (part.kind == TriggerTextPart::Kind::Words) {
-                                std::wstring w;
-                                for (wchar_t ch : widen(part.text)) {
-                                    w += ch;
-                                    if (ch == L' ') putToken = -2, put(w, textError ? kTrigRed : words, true, hitTop, hitPath, true), w.clear();
-                                }
-                                if (!w.empty()) putToken = -2, put(w, textError ? kTrigRed : words, true, hitTop, hitPath, true);
-                                continue;
-                            }
-                            if (part.kind == TriggerTextPart::Kind::Expression) {
-                                putToken = int(k);
-                                chipIssues = trigIssuesOf(&cc, p);
-                                put(textChipLabel(part.text, part.format), textError ? kTrigRed : kTrigBlue, true, hitTop, hitPath, false);
-                                continue;
-                            }
-                            const TriggerCall* vc = gameValues && part.value >= 0 && part.value < int(gameValues->size()) ? &(*gameValues)[size_t(part.value)] : nullptr;
-                            const TriggerDef* vd = vc ? TriggerDef::find(vc->def) : nullptr;
-                            putToken = int(k);
-                            put(L"\x27E8", trigValueColor(1), true, hitTop, hitPath, true);
-                            if (vd) {
-                                TrigListRef lr = ref.list;
-                                lr.via.push_back({ref.list.list, ref.index});
-                                lr.list = kTextValuesList;
-                                const TrigBlockRef saved = curRef;
-                                curRef = {lr, part.value}, topDepth = 1, putToken = -1;
-                                sentence(*vd, *vc, -1, none, 1);
-                                curRef = saved, topDepth = 0;
-                            } else {
-                                putToken = -1;
-                                put(L"missing value", kTrigRed, false, -1, none, false);
-                            }
-                            if (!part.format.empty()) putToken = -1, put(textFormatSuffix(part.format).substr(1), trigValueColor(1), false, -1, none, false);
-                            putToken = int(k);
-                            put(L"\x27E9", trigValueColor(1), true, hitTop, hitPath, true);
-                        }
-                        putToken = -1;
-                    } else {
-                        const std::string v = p < int(cc.args.size()) ? cc.args[size_t(p)] : "";
-                        const std::string vtype = triggerParamType(dd, cc.args, p);
-                        const std::wstring text = dd.params[size_t(p)].type == "Index"         ? trigIndexText(dd, cc, v)
-                                                  : dd.params[size_t(p)].type == "ButtonIndex" ? trigButtonIndexText(dd, cc, v, &chipIcon)
-                                                  : dd.params[size_t(p)].type == "GameString"  ? trigGameStringText(v)
-                                                                                               : trigValueText(vtype, v);
-                        if (const TriggerType* tt = triggerType(vtype); tt && trigIsNumberText(v) && v.size() <= 9) {  // the entry's icon in the chip (a longer number is no entry: no icon)
-                            if (tt->picker == TriggerPicker::UnitType || tt->picker == TriggerPicker::UnitFilter) chipIcon = datRefIcon("units", uint32_t(std::atoi(v.c_str())));
-                            else if (tt->picker == TriggerPicker::DatEntry && datHasIcons(tt->of)) chipIcon = datRefIcon(tt->of, uint32_t(std::atoi(v.c_str())));
-                        }
-                        if (const TriggerType* tt = triggerType(vtype); tt && tt->picker == TriggerPicker::Button) {  // a button: its icon
-                            Button bb;
-                            if (buttonFromText(v, bb)) chipIcon = datRefIcon("icons", bb.icon);
-                        }
-                        chipIssues = trigIssuesOf(&cc, p);
-                        put(text, linkColor(dd, cc, p), true, hitTop, hitPath, false);
-                    }
-                    i = end + 1;
-                    continue;
-                }
-            }
-            word += wchar_t(static_cast<unsigned char>(s[i]));
-            if (s[i] == ' ') flush();
-            ++i;
-        }
-        flush();
-    };
-    sentence(d, c, -1, none, 0);
-    return y + lineH - y0;
-}
-
-void trigRoundRect(HDC dc, RECT r, COLORREF fill, COLORREF line) {
-    HBRUSH b = CreateSolidBrush(fill);
-    HPEN p = CreatePen(PS_SOLID, 1, line);
-    HGDIOBJ ob = SelectObject(dc, b), op = SelectObject(dc, p);
-    RoundRect(dc, r.left, r.top, r.right, r.bottom, scale(8), scale(8));
-    SelectObject(dc, ob), SelectObject(dc, op);
-    DeleteObject(b), DeleteObject(p);
-}
+// A filled rectangle on a DC (the workspace's splitter).
 void trigFill(HDC dc, RECT r, COLORREF c) {
     HBRUSH b = CreateSolidBrush(c);
     FillRect(dc, &r, b);
     DeleteObject(b);
 }
-// Centered on the first line of the sentence (9 px of room above it, lines 22 px high; the grip is 12 px high).
-void trigGrip(HDC dc, RECT block, bool on) { ui::grip(dc, block.left + scale(7), block.top + scale(9 + 11 - 6), on); }
-void trigInsertMark(HDC dc, int x, int w, int y) { ui::dropLine(dc, x, x + w, y - scale(2)); }
-
-// The checker's messages for a block (or one of its values), one a line; the color of the worst.
-std::wstring trigIssueText(const std::vector<const TriggerIssue*>& issues, COLORREF& color) {
-    std::wstring t;
-    int worst = 3;
-    for (const TriggerIssue* i : issues) {
-        const int rank = i->level == TriggerIssue::Level::Error ? 0 : i->level == TriggerIssue::Level::Warning ? 1 : 2;
-        worst = std::min(worst, rank);
-        t += (t.empty() ? L"" : L"\n") + widen(i->message);
-    }
-    color = worst == 0 ? kTrigRed : worst == 1 ? kTrigAmber : trigPurple();
-    return t;
-}
-
-void trigDrawList(HDC mem, TriggerNode& t, const TrigListRef& ref, int x, int w, int& y, bool dimAll);
-
-// "Add a condition" / "Add an action" under a list: a row as wide as the blocks (the kit's add row).
-void trigDrawAdd(HDC mem, const TrigListRef& ref, bool condition, int x, int w, int& y) {
-    const wchar_t* label = condition ? L"Add a condition" : L"Add an action";
-    RECT r{x, y, x + w, y + scale(30)};
-    ui::addRowFace(mem, r, label, ui::hotIn(gTE.pane, r));
-    gTP.adds.push_back({ref, r});
-    y += scale(36);
-}
-
-void trigDrawList(HDC mem, TriggerNode& t, const TrigListRef& ref, int x, int w, int& y, bool dimAll) {
-    std::vector<TriggerCall>* calls = trigResolve(t, ref);
-    if (!calls) return;
-    const bool cond = trigListIsCondition(t, ref);
-    for (size_t i = 0; i < calls->size(); ++i) {
-        TriggerCall& c = (*calls)[i];
-        const TrigBlockRef me{ref, int(i)};
-        const bool on = trigSameBlock(gTP.sel, me);
-        const bool moving = gTP.dragging && trigSameBlock(gTP.drag, me);
-        const bool dim = dimAll || !c.enabled || moving;
-        if (gTP.dragging && gTP.dropList == ref && gTP.dropIdx == int(i)) trigInsertMark(mem, x, w, y);
-        const TriggerDef* d = TriggerDef::find(c.def);
-        bool hasError = false;
-        for (const TriggerIssue* is : trigIssuesOf(&c)) hasError |= is->level == TriggerIssue::Level::Error;
-        const COLORREF border = on ? kTrigBlue : hasError ? kTrigRed : kBorder;
-        const int textX = x + scale(26);
-        // Measure the sentence (off-screen), then draw the block and the text.
-        int hgt = scale(22);
-        if (d) {
-            HDC m2 = CreateCompatibleDC(mem);
-            HGDIOBJ f2 = SelectObject(m2, app.font);
-            hgt = trigSentence(m2, *d, c, textX + (d->lists.empty() ? 0 : scale(18)), 0, w - scale(130) - (d->lists.empty() ? 0 : scale(18)), me, true, false);
-            SelectObject(m2, f2);
-            DeleteDC(m2);
-        }
-        const int padY = scale(9);  // room above and below the sentence
-        RECT head{x, y, x + w, y + hgt + 2 * padY};
-        const bool container = d && !d->lists.empty();
-        trigRoundRect(mem, head, moving ? kCtlDown : on ? kSel : container ? trigContainerFill() : kCtl,
-                      container && !on && !hasError ? trigContainerLine() : border);
-        if (on || trigSameBlock(gTP.hoverRow, me) || moving) trigGrip(mem, head, on);  // the drag handle: on the row under the mouse
-        if (!dim) trigFill(mem, {head.left + scale(2), head.top + scale(5), head.left + scale(4), head.bottom - scale(5)}, trigCategoryColor(d));
-        // On the row under the mouse, or selected: on/off, duplicate, delete.
-        if ((on || trigSameBlock(gTP.hoverRow, me)) && !gTP.dragging) {
-            const ui::Ico glyphs[3] = {L"\xE7E8", UiIcon::Duplicate, UiIcon::Delete};
-            const wchar_t* tips[3] = {c.enabled ? L"Turn off" : L"Turn on", L"Duplicate", L"Delete"};
-            const ui::Tone tones[3] = {ui::Tone::Quiet, ui::Tone::Normal, ui::Tone::Danger};
-            const RECT line{head.left, head.top + padY - scale(2), head.right - scale(4), head.top + padY + scale(24)};
-            for (int k = 0; k < 3; ++k) {
-                const RECT br = ui::rowActionRect(line, k, 3);
-                ui::iconFace(mem, br, glyphs[k], tones[k], k == 0 && !c.enabled, ui::hotIn(gTE.pane, br));
-                gTP.rowButtons.push_back({me, k, br});
-                gTP.tips.push_back({br, tips[k], kBorderHot});
-            }
-        }
-
-        int sx = textX;
-        if (container) {
-            RECT arrow{textX, y + padY, textX + scale(16), y + padY + scale(22)};
-            ui::glyph(mem, arrow, c.folded ? L"\xE76C" : L"\xE70D", GetTextColor(mem), 9);  // chevron right / down, as the trees
-            gTP.folds.push_back({me, arrow});
-            sx += scale(18);
-        }
-        if (d) trigSentence(mem, *d, c, sx, y + padY, w - (sx - x) - scale(100), me, dim, true);
-        else {
-            SetTextColor(mem, kTrigRed);
-            RECT r{textX, y + padY, x + w, y + padY + scale(22)};
-            DrawTextW(mem, (L"Unknown block: " + widen(c.def)).c_str(), -1, &r, DT_SINGLELINE | DT_VCENTER);
-        }
-        const size_t lineAt = gTP.lines.size();
-        gTP.lines.push_back({me, head, {x, y, x + scale(20), head.bottom}, head, container});
-        if (const auto issues = trigIssuesOf(&c); !issues.empty() && !dim) {
-            COLORREF tc;
-            const std::wstring tt = trigIssueText(issues, tc);
-            const int bx = head.right - scale(28) * 3 - scale(34);
-            RECT badge{bx, head.top + padY - scale(1), bx + scale(24), head.top + padY + scale(23)};
-            ui::glyph(mem, badge, tc == kTrigRed ? UiIcon::Error : UiIcon::Warning, tc);
-            gTP.tips.push_back({badge, tt, tc});
-        }
-        y = head.bottom + scale(5);
-        if (container && !c.folded) {
-            const int ix = x + scale(28), iw = w - scale(28);
-            for (size_t l = 0; l < d->lists.size(); ++l) {
-                const TriggerListDef& ld = d->lists[l];
-                // Labels say which list is which; an If's own conditions and a single "Do" need none.
-                const bool label = !((d->id == "act.if" || d->id == "act.ifthen") && l == 0) && d->lists.size() > 1;
-                if (label) {
-                    SetTextColor(mem, ld.condition ? trigConditionLabel() : ld.title == "Else" ? trigElseLabel() : kGood);
-                    RECT pl{ix, y, ix + iw, y + scale(24)};
-                    DrawTextW(mem, widen(ld.title).c_str(), -1, &pl, DT_SINGLELINE | DT_VCENTER);
-                    y += scale(26);
-                }
-                trigDrawList(mem, t, trigInside(me, int(l)), ix, iw, y, dim);
-            }
-            trigFill(mem, {x + scale(10), head.bottom, x + scale(12), y - scale(4)}, on ? kTrigBlue : trigContainerLine());
-        } else if (container) {
-            size_t n = 0;
-            for (const auto& l : c.lists) n += l.size();
-            SetTextColor(mem, kDim);
-            RECT fr{x + scale(26), y, x + w, y + scale(18)};
-            DrawTextW(mem, (L"\x22EF " + std::to_wstring(n)).c_str(), -1, &fr, DT_SINGLELINE | DT_VCENTER);
-            y += scale(20);
-        }
-        gTP.lines[lineAt].whole = {x, head.top, x + w, y};
-        y += scale(4);
-    }
-    if (calls->empty()) {
-        // An empty list: no box of its own. The Add row below it is where a dragged block drops (the same place).
-        RECT empty{x, y, x + w, y + scale(30)};
-        gTP.lines.push_back({{ref, -1}, empty, {}, empty, false});
-        if (gTP.dragging && gTP.dropList == ref) trigInsertMark(mem, x, w, y);
-    } else if (gTP.dragging && gTP.dropList == ref && gTP.dropIdx == int(calls->size())) {
-        trigInsertMark(mem, x, w, y);
-    }
-    trigDrawAdd(mem, ref, cond, x, w, y);
-}
-
-// The name at the top of the pane: large; a click renames it.
-void trigDrawTitle(HDC mem, const std::wstring& name, int x0, int w, int& y, bool editable = true) {
-    LOGFONTW lf{};
-    GetObjectW(app.font, sizeof lf, &lf);
-    lf.lfHeight = lf.lfHeight * 3 / 2;
-    HFONT big = CreateFontIndirectW(&lf);
-    HGDIOBJ of = SelectObject(mem, big);
-    SIZE sz{};
-    GetTextExtentPoint32W(mem, name.c_str(), int(name.size()), &sz);
-    RECT t{x0, y, std::min<LONG>(x0 + w, x0 + sz.cx), y + scale(34)};
-    POINT cur;
-    GetCursorPos(&cur);
-    ScreenToClient(gTE.pane, &cur);
-    const bool hot = editable && PtInRect(&t, cur);
-    SetTextColor(mem, hot ? kTrigBlue : kText);
-    DrawTextW(mem, name.c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-    SelectObject(mem, of);
-    DeleteObject(big);
-    if (!editable) {
-        y += scale(44);
-        return;
-    }
-    RECT pen{t.right + scale(8), y, t.right + scale(26), y + scale(34)};
-    ui::glyph(mem, pen, UiIcon::Edit, hot ? kTrigBlue : kFaint);
-    gTP.title = {t.left, t.top, pen.right, t.bottom};
-    y += scale(44);
-}
-
-// The variable form: kind, size, starting value, description.
-void trigDrawVariable(HDC mem, TriggerNode& v, int x0, int w, int& y) {
-    auto row = [&](const wchar_t* label, const std::wstring& value, int field, bool link) {
-        SetTextColor(mem, kDim);
-        RECT l{x0, y, x0 + scale(150), y + scale(26)};
-        DrawTextW(mem, label, -1, &l, DT_SINGLELINE | DT_VCENTER);
-        SIZE sz{};
-        GetTextExtentPoint32W(mem, value.c_str(), int(value.size()), &sz);
-        RECT r{x0 + scale(150), y, x0 + scale(150) + sz.cx, y + scale(26)};
-        SetTextColor(mem, link ? kTrigBlue : kText);
-        DrawTextW(mem, value.c_str(), -1, &r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-        if (link) {
-            trigFill(mem, {r.left, r.bottom - scale(5), r.right, r.bottom - scale(4)}, kTrigBlue);
-            gTP.varHits.push_back({field, r});
-        }
-        y += scale(30);
-    };
-    trigDrawTitle(mem, widen(v.name), x0, w, y);
-    SelectObject(mem, app.font);
-    row(L"Kind", widen(TriggerVariable::kindLabel(v.variable.kind)), 0, true);
-    if (v.variable.kind == TriggerVariable::Kind::Array) {
-        const int size = triggerListSize(v.variable, gTE.set.variables());
-        row(L"Size", (v.variable.sizeConstant.empty() ? L"" : widen(v.variable.sizeConstant) + L" = ") + std::to_wstring(size) + L" items (0 to " +
-                         std::to_wstring(size - 1) + L")",
-            1, true);
-        row(L"Default value", v.variable.initial.empty() ? L"0" : widen(v.variable.initial), 2, true);
-    }
-    if (v.variable.kind == TriggerVariable::Kind::UnitGroup) row(L"Room for", std::to_wstring(std::clamp(v.variable.size, 1, 1700)) + L" units", 1, true);
-    if (v.variable.kind == TriggerVariable::Kind::Constant) row(L"Value", v.variable.initial.empty() ? L"0" : widen(v.variable.initial), 2, true);
-    if (v.variable.kind == TriggerVariable::Kind::Text) {
-        row(L"Maximum length", std::to_wstring(std::clamp(v.variable.size, 1, TriggerVariable::kTextRoomMax)) + L" letters", 1, true);
-        row(L"Text", v.variable.initial.empty() ? L"\x2014" : widen(v.variable.initial), 2, true);
-    }
-    if (v.variable.kind == TriggerVariable::Kind::Number || v.variable.kind == TriggerVariable::Kind::Flag)
-        row(L"Default value", v.variable.initial.empty() ? L"0" : widen(v.variable.initial), 2, true);
-    if (v.variable.kind == TriggerVariable::Kind::Unit)
-        row(L"Default value", v.variable.initial.empty() ? L"\x2014" : trigPickedUnitName(v.variable.initial), 2, true);
-    if (v.variable.kind == TriggerVariable::Kind::PerPlayer) {  // what it holds, then each player's default value (GH#108)
-        const std::string& holds = v.variable.holds;
-        row(L"Holds", holds == "UnitType" ? L"Unit types" : holds == "Location" ? L"Locations" : L"Numbers", 4, true);
-        for (int p = 0; p < 8; ++p) {
-            const std::string val = p < int(v.variable.playerValues.size()) ? v.variable.playerValues[size_t(p)] : "";
-            const std::wstring shown = holds.empty() ? (val.empty() ? L"0" : widen(val))
-                                       : val.empty() ? L"\x2014"
-                                                     : trigValueText(holds, val);
-            row((L"Player " + std::to_wstring(p + 1)).c_str(), shown, 10 + p, true);
-        }
-    }
-    row(L"Description", v.comment.empty() ? L"\x2014" : widen(v.comment), 3, true);
-    y += scale(8);
-    for (const auto& i : gTE.issues)
-        if (i.node == &v) {
-            SetTextColor(mem, i.level == TriggerIssue::Level::Error ? kTrigRed : kTrigAmber);
-            RECT r{x0, y, x0 + w, y + scale(20)};
-            DrawTextW(mem, widen(i.message).c_str(), -1, &r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-            y += scale(22);
-        }
-}
-
-int trigInfoHeight();
-
-void paintTrigPaneAt(HWND hwnd);
 
 #include "trigger_help.inc"
 
@@ -10914,188 +10168,6 @@ void trigZoomReset() {
     gDock.triggerZoom = 100, saveDock();
     if (gTE.pane) InvalidateRect(gTE.pane, nullptr, FALSE);
     setMessage(L"Zoom 100%");
-}
-
-// The pane at its zoom: sizes (scale) and the UI font grow or shrink while it paints. Its hit areas are recorded
-// as it paints, so clicks follow.
-void paintTrigPane(HWND hwnd) {
-    if (gDock.triggerZoom == 100) return paintTrigPaneAt(hwnd);
-    static HFONT zoomed = nullptr;
-    static int zoomedAt = 0;
-    if (zoomedAt != gDock.triggerZoom) {
-        if (zoomed) DeleteObject(zoomed);
-        LOGFONTW lf{};
-        GetObjectW(app.font, sizeof lf, &lf);
-        lf.lfHeight = MulDiv(lf.lfHeight, gDock.triggerZoom, 100);
-        zoomed = CreateFontIndirectW(&lf), zoomedAt = gDock.triggerZoom;
-    }
-    const UINT dpi = app.dpi;
-    HFONT font = app.font;
-    app.dpi = UINT(MulDiv(int(dpi), gDock.triggerZoom, 100)), app.font = zoomed;
-    paintTrigPaneAt(hwnd);
-    app.dpi = dpi, app.font = font;
-}
-
-void paintTrigPaneAt(HWND hwnd) {
-    if (RECT ir; gTE.info && GetClientRect(gTE.info, &ir) && (ir.bottom > 0) != (trigInfoHeight() > 0)) PostMessageW(gTE.wnd, WM_SIZE, 0, 0);
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-    HGDIOBJ ob = SelectObject(mem, back), of = SelectObject(mem, app.font);
-    FillRect(mem, &rc, app.bgBrush);
-    SetBkMode(mem, TRANSPARENT);
-    gTP.lines.clear(), gTP.params.clear(), gTP.folds.clear(), gTP.adds.clear(), gTP.varHits.clear(), gTP.rowButtons.clear(), gTP.tips.clear();
-    gTP.title = {}, gTP.addButtons.clear();
-    gTrigFixLinks.clear();
-    if (gTE.project) {  // </> at the top right: the code pane
-        gTP.codeToggle = {rc.right - scale(44), scale(10), rc.right - scale(14), scale(40)};
-        ui::glyph(mem, gTP.codeToggle, UiIcon::Code, gDock.triggerCode ? kTrigBlue : kDim);
-    }
-    const int x0 = scale(20), w = std::max(scale(100), int(rc.right) - 2 * x0);
-    int y = scale(14) - gTE.scroll;
-    TriggerNode* node = trigSelectedNode();
-    TriggerNode* t = trigSelected();
-    if (node && node->kind == TriggerNode::Kind::Variable) {
-        trigDrawVariable(mem, *node, x0, w, y);
-    } else if (node && gTE.project && (node->kind == TriggerNode::Kind::Category || node->kind == TriggerNode::Kind::Folder)) {
-        // A category or folder: what runs there, and buttons to add to it.
-        const bool category = node->kind == TriggerNode::Kind::Category;
-        const int titleY = y;
-        trigDrawTitle(mem, widen(node->name), x0, w, y, !category);
-        SelectObject(mem, app.font);
-        // What runs there: a tooltip on the title.
-        static const wchar_t* about[] = {L"Variables, and triggers that a Run a trigger block runs", L"These triggers run once, when the map starts",
-                                         L"These triggers run each trigger cycle while the game runs"};
-        const int cat = gTE.sel.empty() ? 0 : std::clamp(gTE.sel[0], 0, 2);
-        gTP.tips.push_back({{x0, titleY, x0 + w / 2, titleY + scale(34)}, category ? about[cat] : L"A folder in " + widen(gTE.set.roots[size_t(cat)].name), kBorderHot});
-        bool templates = false;
-        for (const auto& tp : trigTemplates()) templates |= tp.category == cat;
-        std::vector<std::pair<const wchar_t*, int>> buttons = {{L"New trigger", 0}};
-        if (templates) buttons.push_back({L"From a template\x2026", 1});
-        buttons.push_back({L"New folder", 2});
-        if (cat == 0) buttons.push_back({L"New variable", 3});
-        int x = x0;
-        for (const auto& [label, action] : buttons) {
-            RECT br{x, y, x + ui::buttonWidth(mem, label), y + scale(ui::kButtonH)};
-            ui::buttonFace(mem, br, label, action == 0 ? ui::Tone::Primary : ui::Tone::Normal, ui::hotIn(gTE.pane, br) ? ui::State::Hot : ui::State::Normal);
-            gTP.addButtons.push_back({br, action});
-            x = br.right + scale(8);
-        }
-    } else if (!t) {
-        SetTextColor(mem, kDim);
-        RECT r{x0, scale(40), rc.right - x0, rc.bottom};
-        DrawTextW(mem,
-                  gTE.project ? L"" : L"Triggers belong to an EUD project",
-                  -1, &r, DT_WORDBREAK | DT_NOPREFIX);
-    } else {
-        trigDrawTitle(mem, widen(t->name), x0, w, y);
-        SelectObject(mem, app.font);
-        // A heavy trigger says so; so do problems with the trigger as a whole.
-        if (const int cost = TriggerSet::cost(*t); cost > TriggerSet::kHeavy) {
-            RECT cr{x0, y, x0 + w, y + scale(20)};
-            SetTextColor(mem, kTrigAmber);
-            DrawTextW(mem, (L"\x23F1 about " + std::to_wstring(cost) + L" actions each run").c_str(), -1, &cr, DT_SINGLELINE | DT_VCENTER);
-            y += scale(22);
-            y = trigDrawCostFixes(mem, *t, x0, w, y);  // what makes it cheaper, with Apply
-        }
-        for (const auto& i : gTE.issues)
-            if (i.node == t && !i.call) {
-                SetTextColor(mem, i.level == TriggerIssue::Level::Error ? kTrigRed : kTrigAmber);
-                RECT r{x0, y, x0 + w, y + scale(20)};
-                DrawTextW(mem, widen(i.message).c_str(), -1, &r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-                y += scale(22);
-            }
-        y += scale(6);
-        static const wchar_t* titles[2] = {L"Conditions", L"Actions"};
-        for (int sec = 0; sec < 2; ++sec) {
-            std::vector<TriggerCall>& calls = sec == 0 ? t->conditions : t->actions;
-            RECT hr{x0, y, x0 + w, y + scale(28)};
-            gTP.heading[sec] = hr;
-            // A section heading (ui::sectionHeader's text and line) with its fold chevron.
-            RECT ar{hr.left, hr.top, hr.left + scale(16), hr.bottom};
-            ui::glyph(mem, ar, gTP.collapsed[sec] ? L"\xE76C" : L"\xE70D", kDim, 9);
-            SetTextColor(mem, kText);
-            RECT tr{hr.left + scale(20), hr.top, hr.right, hr.bottom};
-            DrawTextW(mem, titles[sec], -1, &tr, DT_SINGLELINE | DT_VCENTER);
-            (void)calls;
-            trigFill(mem, {x0, hr.bottom, x0 + w, hr.bottom + 1}, kBorder);
-            y += scale(36);
-            if (!gTP.collapsed[sec]) trigDrawList(mem, *t, {{}, sec}, x0, w, y, false);
-            y += scale(14);
-        }
-    }
-    gTE.contentH = y + gTE.scroll;
-    // The problem under the mouse, at once (no tooltip delay): a box under the mark or value.
-    {
-        POINT cur;
-        GetCursorPos(&cur);
-        ScreenToClient(hwnd, &cur);
-        for (auto it = gTP.tips.rbegin(); it != gTP.tips.rend(); ++it) {
-            if (!PtInRect(&it->r, cur)) continue;
-            const int pad = scale(8), maxW = scale(420);
-            RECT tr{0, 0, maxW, 0};
-            DrawTextW(mem, it->text.c_str(), -1, &tr, DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX);
-            const int bw = tr.right + 2 * pad, bh = tr.bottom + 2 * pad;
-            int bx = std::clamp(int(it->r.left), scale(4), std::max(scale(4), int(rc.right) - bw - scale(4)));
-            int by = it->r.bottom + scale(4);
-            if (by + bh > rc.bottom) by = it->r.top - bh - scale(4);
-            RECT box{bx, by, bx + bw, by + bh};
-            trigRoundRect(mem, box, kCtl, it->color);
-            SetTextColor(mem, kText);
-            RECT txt{box.left + pad, box.top + pad, box.right - pad, box.bottom - pad};
-            DrawTextW(mem, it->text.c_str(), -1, &txt, DT_WORDBREAK | DT_NOPREFIX);
-            break;
-        }
-    }
-    if (const int most = std::max(0, gTE.contentH - int(rc.bottom)); gTE.scroll > most)  // taller window: the bar hides, so no scroll is left
-        gTE.scroll = most, InvalidateRect(hwnd, nullptr, FALSE);
-    SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS, 0, std::max(0, gTE.contentH - 1), UINT(rc.bottom), gTE.scroll};
-    SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, of), SelectObject(mem, ob);
-    DeleteObject(back);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
-}
-
-// The strip under the pane: what the selected block does (or how the pane works).
-void paintTrigInfo(HWND hwnd) {
-    PAINTSTRUCT ps;
-    HDC screen = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC dc = CreateCompatibleDC(screen);
-    HBITMAP back = CreateCompatibleBitmap(screen, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-    HGDIOBJ oldBmp = SelectObject(dc, back);
-    FillRect(dc, &rc, app.bgBrush);
-    trigFill(dc, {0, 0, rc.right, 1}, kBorder);
-    HGDIOBJ of = SelectObject(dc, app.font);
-    SetBkMode(dc, TRANSPARENT);
-    RECT r{scale(20), scale(10), rc.right - scale(20), rc.bottom - scale(6)};
-    TriggerNode* t = trigSelected();
-    const TriggerCall* c = t ? trigBlock(*t, gTP.sel) : nullptr;
-    if (c) {
-        const TriggerDef* d = TriggerDef::find(c->def);
-        drawBlockDocs(dc, d, r);
-        blockHelpFollow(c->def);  // the help page, when open, shows the selected block
-        if (const TriggerProperty* pr = d ? triggerCallProperty(*d, c->args) : nullptr) {
-            const TriggerType* vt = triggerType(pr->type);
-            std::wstring line = widen(pr->label) + L" \x2192 " + (vt ? widen(vt->label) : widen(pr->type)) +
-                                (pr->notes.empty() ? L"" : L"  \x00B7  " + widen(pr->notes));
-            SetTextColor(dc, triggerTypeClear(pr->type) ? kDim : trigPurple());
-            RECT pr2{r.left, r.bottom - scale(22), r.right, r.bottom};
-            DrawTextW(dc, line.c_str(), -1, &pr2, DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
-        }
-    }
-    SelectObject(dc, of);
-    BitBlt(screen, 0, 0, rc.right, rc.bottom, dc, 0, 0, SRCCOPY);
-    SelectObject(dc, oldBmp);
-    DeleteObject(back);
-    DeleteDC(dc);
-    EndPaint(hwnd, &ps);
 }
 
 // Renames a trigger, folder or variable (a variable's uses follow). False, with a message, when the name cannot be.
@@ -11531,12 +10603,6 @@ void trigValueBlockMenu(TrigParamHit h) {
 }
 
 // The values of a block in reading order (brackets left out): what Tab goes through.
-std::vector<TrigParamHit> trigTabOrder(const TrigBlockRef& block) {
-    std::vector<TrigParamHit> out;
-    for (const auto& h : gTP.params)
-        if (trigSameBlock(h.ref, block) && !h.bracket) out.push_back(h);
-    return out;
-}
 
 void trigEditParam(TrigParamHit h);
 
@@ -12163,28 +11229,7 @@ unsigned char richColorCode(COLORREF c) {
     return 0;
 }
 
-std::wstring textFormatSuffix(const std::string& f);
-// How a value in a text reads: "current player's name" for name(...):s, a text by its name, the others with their format.
-std::wstring textChipLabel(const std::string& text, const std::string& format) {
-    if (format == "s" && text.rfind("name(", 0) == 0 && text.back() == ')') return widen(text.substr(5, text.size() - 6)) + L"'s name";
-    if (format == "s" && text.rfind("tbl(", 0) == 0 && text.back() == ')') {  // a game text: its words (the number when it is a value)
-        const std::string n = text.substr(4, text.size() - 5);
-        if (trigIsNumberText(n)) {
-            dataLoadForProject();
-            const std::wstring words = entryName("strings", std::atoi(n.c_str()));
-            if (!words.empty()) return L"\x201C" + (words.size() > 32 ? words.substr(0, 31) + L"\x2026" : words) + L"\x201D";
-        }
-        return L"game text " + widen(n);
-    }
-    if (format == "s") return widen(text);
-    return widen(text) + textFormatSuffix(format);
-}
-// A value's format after its words ("" for a number): " Â· name", " Â· color", ...
-std::wstring textFormatSuffix(const std::string& f) {
-    static const std::map<std::string, std::wstring> names = {{"n", L"name"}, {"c", L"color"}, {"x", L"hex"}, {"X", L"HEX"}, {"s", L"text"}, {"t", L"text (EPD)"}};
-    const auto it = names.find(f);
-    return it == names.end() ? L"" : L" \x00B7 " + it->second;
-}
+// (textChipLabel and textFormatSuffix: core/views_triggers_pane.inc.)
 
 // A part of a value from the game in its words: where it is, and which of the value's values it is.
 struct RichSeg {
@@ -13438,24 +12483,6 @@ bool showValuePopup(const ValuePopSpec& spec, POINT at, std::string& out) {
     return vp.accepted;
 }
 
-// The list a block's index is into (nullptr: none picked).
-const TriggerNode* trigIndexList(const TriggerDef& d, const TriggerCall& c) {
-    const int li = d.param("list");
-    if (li < 0 || li >= int(c.args.size())) return nullptr;
-    const auto vars = gTE.set.variables();
-    const auto it = vars.find(c.args[size_t(li)]);
-    return it != vars.end() ? it->second : nullptr;
-}
-
-// How an index reads: for a player array, the player ("Player 3", not 2).
-std::wstring trigIndexText(const TriggerDef& d, const TriggerCall& c, const std::string& v) {
-    const TriggerNode* list = trigIndexList(d, c);
-    if (list && list->variable.kind == TriggerVariable::Kind::PerPlayer) {
-        if (trigIsNumberText(v) && std::atoi(v.c_str()) < 8) return L"Player " + std::to_wstring(std::atoi(v.c_str()) + 1);
-        if (v == "current player") return L"the current player";
-    }
-    return v.empty() ? L"0" : widen(v);
-}
 
 // The .dat field of a property that a widget can show ("" when none).
 std::pair<std::string, std::string> trigPropertyDatField(const TriggerProperty& p) {
@@ -13821,39 +12848,6 @@ void trigEditVariableField(TrigVarHit h) {
     trigChanged();
 }
 
-// The innermost block under the point (a container's own header counts as it).
-const TrigLine* trigLineAt(POINT pt) {
-    for (auto it = gTP.lines.rbegin(); it != gTP.lines.rend(); ++it)
-        if (it->ref.index >= 0 && PtInRect(&it->r, pt)) return &*it;
-    for (auto it = gTP.lines.rbegin(); it != gTP.lines.rend(); ++it)
-        if (it->ref.index >= 0 && it->container && PtInRect(&it->whole, pt)) return &*it;
-    return nullptr;
-}
-
-// Does `inner` lie inside the block `outer`?
-bool trigWithin(const TrigListRef& inner, const TrigBlockRef& outer) {
-    std::vector<std::pair<int, int>> path = outer.list.via;
-    path.push_back({outer.list.list, outer.index});
-    return inner.via.size() >= path.size() && std::equal(path.begin(), path.end(), inner.via.begin());
-}
-
-// Where a dragged block would land: before the block under the mouse (its upper half) or after it, in a list of
-// the same kind (conditions in condition lists, actions in action lists), never inside itself.
-void trigDropTarget(int y) {
-    TriggerNode* t = trigSelected();
-    if (!t) return;
-    const bool cond = trigListIsCondition(*t, gTP.drag.list);
-    TrigListRef list;
-    int idx = -1;
-    for (const auto& l : gTP.lines) {
-        if (trigListIsCondition(*t, l.ref.list) != cond || trigWithin(l.ref.list, gTP.drag)) continue;
-        if (y < l.r.top - scale(4) || y > l.r.bottom + scale(4)) continue;
-        list = l.ref.list;
-        idx = l.ref.index < 0 ? 0 : y < (l.r.top + l.r.bottom) / 2 ? l.ref.index : l.ref.index + 1;
-    }
-    if (!(list == gTP.dropList) || idx != gTP.dropIdx) gTP.dropList = list, gTP.dropIdx = idx, InvalidateRect(gTE.pane, nullptr, FALSE);
-}
-
 void trigDrop() {
     TriggerNode* t = trigSelected();
     TriggerCall* src = t && gTP.dropIdx >= 0 ? trigBlock(*t, gTP.drag) : nullptr;
@@ -13873,291 +12867,47 @@ void trigDrop() {
     trigChanged();
 }
 
-LRESULT CALLBACK trigPaneProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_PAINT: paintTrigPane(hwnd); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_SIZE: InvalidateRect(hwnd, nullptr, FALSE); return 0;
-    case WM_MOUSEWHEEL:
-        if (GET_KEYSTATE_WPARAM(wp) & MK_CONTROL) {  // Ctrl+wheel: bigger or smaller
-            const int z = std::clamp(gDock.triggerZoom + (GET_WHEEL_DELTA_WPARAM(wp) > 0 ? 10 : -10), 70, 200);
-            if (z != gDock.triggerZoom) gDock.triggerZoom = z, saveDock(), InvalidateRect(hwnd, nullptr, FALSE);
-            setMessage(L"Zoom " + std::to_wstring(z) + L"% (Ctrl+0 resets it)");
-            return 0;
-        }
-        dataScroll(hwnd, gTE.scroll, gTE.scroll - GET_WHEEL_DELTA_WPARAM(wp) * scale(60) / WHEEL_DELTA, gTE.contentH);
-        return 0;
-    case WM_VSCROLL:
-        dataScroll(hwnd, gTE.scroll, scrollFromMessage(hwnd, wp, gTE.scroll, scale(30)), gTE.contentH);
-        return 0;
-    case WM_LBUTTONDOWN: {
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        SetFocus(hwnd);  // Ctrl+C / X / V act on blocks while the pane has focus
-        // A click: the value chip shown as focused is no longer (a click on a value focuses that one; GitHub feedback #119).
-        if (gTP.focus.ref.index >= 0) gTP.focus = {}, gTP.focus.ref.index = -1, InvalidateRect(hwnd, nullptr, FALSE);
-        if (PtInRect(&gTP.codeToggle, pt)) return showTriggerCode(), 0;
-        for (const auto& [ar, fix] : gTrigFixLinks)
-            if (PtInRect(&ar, pt)) {
-                const TriggerCostFix f = fix;  // (applying repaints, which clears the links)
-                return trigApplyCostFix(f), 0;
-            }
-        for (const auto& [br, action] : gTP.addButtons)
-            if (PtInRect(&br, pt)) return trigAddFromPane(action, br), 0;
-        if (PtInRect(&gTP.title, pt)) return trigEditTitle(), 0;
-        for (const auto& h : gTP.varHits)
-            if (PtInRect(&h.r, pt)) return trigEditVariableField(h), 0;
-        TriggerNode* t = trigSelected();
-        if (!t) return 0;
-        for (const auto& p : gTP.params)
-            if (PtInRect(&p.r, pt)) {
-                const TrigParamHit hit = p;
-                gTP.sel = hit.ref;
-                InvalidateRect(hwnd, nullptr, FALSE);
-                InvalidateRect(gTE.info, nullptr, FALSE);
-                UpdateWindow(hwnd);
-                for (const auto& q : gTP.params)  // the hit again: the repaint laid the block out anew
-                    if (trigSameHit(q, hit)) return trigEditFlow(q), 0;
-                return 0;
-            }
-        for (const auto& b : gTP.rowButtons)
-            if (PtInRect(&b.r, pt)) {
-                const TrigRowButton btn = b;
-                gTP.sel = btn.ref;
-                if (btn.action == 0) {
-                    if (TriggerCall* c = trigBlock(*t, btn.ref)) c->enabled = !c->enabled, trigChanged();
-                } else if (btn.action == 1) {
-                    trigDuplicate();
-                } else {
-                    trigDeleteLine();
-                }
-                return 0;
-            }
-        for (const auto& f : gTP.folds)
-            if (PtInRect(&f.r, pt)) {
-                if (TriggerCall* c = trigBlock(*t, f.ref)) c->folded = !c->folded, trigChanged();
-                return 0;
-            }
-        for (const auto& a : gTP.adds)
-            if (PtInRect(&a.r, pt)) return trigAddWithPicker(a.list, -1), 0;
-        for (int sec = 0; sec < 2; ++sec)
-            if (PtInRect(&gTP.heading[sec], pt)) {
-                gTP.collapsed[sec] = !gTP.collapsed[sec];
-                InvalidateRect(hwnd, nullptr, FALSE);
-                return 0;
-            }
-        const TrigLine* l = trigLineAt(pt);
-        gTP.sel = l ? l->ref : TrigBlockRef{};
-        if (l) gTP.drag = l->ref, gTP.dragFromY = pt.y, SetCapture(hwnd);
-        InvalidateRect(hwnd, nullptr, FALSE);
-        InvalidateRect(gTE.info, nullptr, FALSE);
-        return 0;
+// The pane's program parts (TrigPaneHost, core/views_triggers_pane.inc): the data, the windows and the commands.
+class TrigPaneProgram final : public TrigPaneHost {
+public:
+    void loadProjectData() override { dataLoadForProject(); }
+    std::wstring gameString(int id) override { return statString(id); }
+    const std::vector<Button>& buttonSet(int set) override { return gExtras.buttons.set(set); }
+    draw::Image entryIcon(const std::string& dat, uint32_t v) override { return datHasIcons(dat) ? ui::imageOf(datRefIcon(dat, v)) : draw::Image{}; }
+    void layoutCheck() override {
+        if (RECT ir; gTE.info && GetClientRect(gTE.info, &ir) && (ir.bottom > 0) != (trigInfoHeight() > 0)) PostMessageW(gTE.wnd, WM_SIZE, 0, 0);
     }
-    case WM_LBUTTONDBLCLK: {
-        // Double-click empty space: add an action. On a condition or an action: replace it with one picked (one undo step).
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        TriggerNode* t = trigSelected();
-        if (!t) return 0;
-        const TrigLine* l = trigLineAt(pt);
-        if (!l) {
-            trigAddWithPicker({{}, 1}, -1);
-            return 0;
-        }
-        if (l->ref.index < 0 || !PtInRect(&l->r, pt)) return 0;  // on the block's row only (a container: its header, not its body)
-        auto on = [&](const auto& hits) { return std::any_of(hits.begin(), hits.end(), [&](const auto& h) { return PtInRect(&h.r, pt); }); };
-        if (on(gTP.rowButtons) || on(gTP.folds) || on(gTP.params)) return 0;  // its buttons, fold, values: their own clicks
-        if (l->container) return 0;  // an If or a loop: its blocks would go (replace the blocks in it instead)
-        const TrigBlockRef ref = l->ref;
-        const std::string id = showBlockPicker(trigListIsCondition(*t, ref.list));
-        TriggerNode* now = trigSelected();  // (the picker ran a message loop)
-        const TriggerDef* def = id.empty() ? nullptr : TriggerDef::find(id);
-        if (!now || !def) return 0;
-        if (TriggerCall* c = trigBlock(*now, ref)) {
-            *c = TriggerCall::make(*def);
-            gTP.sel = ref;
-            trigChanged();
-        }
-        return 0;
+    void infoChanged() override { InvalidateRect(gTE.info, nullptr, FALSE); }
+    void paintNow() override { UpdateWindow(gTE.pane); }
+    void blockShown(const std::string& def) override { blockHelpFollow(def); }
+    void toggleCode() override { showTriggerCode(); }
+    void applyFix(TriggerCostFix fix) override { trigApplyCostFix(fix); }
+    void addFromPage(int action, RECT button) override { trigAddFromPane(action, button); }
+    void editTitle() override { trigEditTitle(); }
+    void editVariable(TrigVarHit h) override { trigEditVariableField(h); }
+    void editValue(TrigParamHit h) override { trigEditFlow(h); }
+    void changed() override { trigChanged(); }
+    void duplicate() override { trigDuplicate(); }
+    void deleteBlock() override { trigDeleteLine(); }
+    void moveBlock(int delta) override { trigMoveLine(delta); }
+    void addWithPicker(TrigListRef list, int at) override { trigAddWithPicker(list, at); }
+    std::string pickBlock(bool condition, const std::wstring& search) override { return showBlockPicker(condition, {}, search); }
+    void addPicked(bool condition, const std::string& id) override {
+        const auto [ref, at] = trigAddTarget(condition);
+        trigAddTo(ref, at, *TriggerDef::find(id));
     }
-    case WM_MOUSELEAVE:
-        gTP.hover = {}, gTP.hover.ref.index = -1, gTP.hoverRow = {};
-        InvalidateRect(hwnd, nullptr, FALSE);
-        return 0;
-    case WM_MOUSEMOVE:
-        if (!(wp & MK_LBUTTON)) {
-            POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-            static bool overTitle = false;
-            if ((PtInRect(&gTP.title, pt) != 0) != overTitle) {
-                overTitle = !overTitle;
-                InvalidateRect(hwnd, &gTP.title, FALSE);
-                TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
-                TrackMouseEvent(&tme);
-            }
-            static int overAdd = -1;  // the category page's button under the mouse
-            int nowAdd = -1;
-            for (size_t i = 0; i < gTP.addButtons.size(); ++i)
-                if (PtInRect(&gTP.addButtons[i].first, pt)) nowAdd = int(i);
-            if (nowAdd != overAdd) {
-                overAdd = nowAdd;
-                InvalidateRect(hwnd, nullptr, FALSE);
-                TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
-                TrackMouseEvent(&tme);
-            }
-            static int overTip = -1;
-            int nowTip = -1;
-            for (size_t i = 0; i < gTP.tips.size(); ++i)
-                if (PtInRect(&gTP.tips[i].r, pt)) nowTip = int(i);
-            if (nowTip != overTip) {
-                overTip = nowTip;
-                InvalidateRect(hwnd, nullptr, FALSE);
-                TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
-                TrackMouseEvent(&tme);
-            }
-            TrigParamHit over{};
-            over.ref.index = -1;
-            for (const auto& h : gTP.params)
-                if (PtInRect(&h.r, pt)) over = h;
-            const TrigLine* row = trigLineAt(pt);
-            const TrigBlockRef overRow = row ? row->ref : TrigBlockRef{};
-            if (!trigSameBlock(overRow, gTP.hoverRow) && !(overRow.index < 0 && gTP.hoverRow.index < 0)) {
-                gTP.hoverRow = overRow;
-                InvalidateRect(hwnd, nullptr, FALSE);
-                TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
-                TrackMouseEvent(&tme);
-            }
-            if (!trigSameHit(over, gTP.hover)) {
-                gTP.hover = over;
-                InvalidateRect(hwnd, nullptr, FALSE);
-                TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
-                TrackMouseEvent(&tme);
-            }
-        }
-        if (gTP.drag.index >= 0 && (wp & MK_LBUTTON)) {
-            const int y = GET_Y_LPARAM(lp);
-            if (!gTP.dragging && std::abs(y - gTP.dragFromY) > scale(5)) gTP.dragging = true;
-            if (gTP.dragging) trigDropTarget(y), SetCursor(LoadCursor(nullptr, IDC_SIZEALL));
-        }
-        return 0;
-    case WM_LBUTTONUP:
-        ReleaseCapture();
-        if (gTP.dragging) trigDrop();
-        gTP.dragging = false, gTP.drag = {}, gTP.dropIdx = -1;
-        InvalidateRect(hwnd, nullptr, FALSE);
-        return 0;
-    case WM_RBUTTONUP: {
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        for (const auto& h : gTP.params)
-            if (PtInRect(&h.r, pt)) {
-                // A value block itself, or a value inside one: the menu of the innermost value block around it.
-                TrigParamHit vb = h;
-                if (!h.bracket) {
-                    if (h.inner.empty()) break;
-                    vb.inner.pop_back(), vb.bracket = true;
-                }
-                trigValueBlockMenu(vb);
-                return 0;
-            }
-        if (const TrigLine* l = trigLineAt(pt)) gTP.sel = l->ref;
-        InvalidateRect(hwnd, nullptr, FALSE);
-        ClientToScreen(hwnd, &pt);
-        trigPaneMenu(pt);
-        return 0;
+    void valueBlockMenu(TrigParamHit h) override { trigValueBlockMenu(h); }
+    void menu(draw::Point pt) override {
+        POINT p{pt.x, pt.y};
+        ClientToScreen(gTE.pane, &p);
+        trigPaneMenu(p);
     }
-    case WM_KEYDOWN:
-        if (wp == VK_TAB || wp == VK_RETURN) {
-            TriggerNode* t = trigSelected();
-            if (!t || !trigBlock(*t, gTP.sel)) return 0;
-            UpdateWindow(hwnd);
-            const auto order = trigTabOrder(gTP.sel);
-            if (order.empty()) return 0;
-            int at = -1;
-            for (size_t i = 0; i < order.size(); ++i)
-                if (trigSameHit(order[i], gTP.focus)) at = int(i);
-            const bool back = wp == VK_TAB && GetKeyState(VK_SHIFT) < 0;
-            const int next = wp == VK_RETURN ? std::max(0, at) : at < 0 ? (back ? int(order.size()) - 1 : 0) : at + (back ? -1 : 1);
-            if (next >= 0 && next < int(order.size())) trigEditFlow(order[size_t(next)]);
-            return 0;
-        }
-        if ((wp == VK_UP || wp == VK_DOWN) && GetKeyState(VK_MENU) >= 0) {
-            std::vector<TrigBlockRef> blocks;
-            for (const auto& l : gTP.lines)
-                if (l.ref.index >= 0) blocks.push_back(l.ref);
-            std::stable_sort(blocks.begin(), blocks.end(), [](const TrigBlockRef& a, const TrigBlockRef& b) {
-                RECT ra{}, rb{};
-                for (const auto& l : gTP.lines) {
-                    if (trigSameBlock(l.ref, a)) ra = l.r;
-                    if (trigSameBlock(l.ref, b)) rb = l.r;
-                }
-                return ra.top < rb.top;
-            });
-            int at = -1;
-            for (size_t i = 0; i < blocks.size(); ++i)
-                if (trigSameBlock(blocks[i], gTP.sel)) at = int(i);
-            const int next = std::clamp(at < 0 ? 0 : at + (wp == VK_DOWN ? 1 : -1), 0, std::max(0, int(blocks.size()) - 1));
-            if (!blocks.empty()) gTP.sel = blocks[size_t(next)], gTP.focus = {}, gTP.focus.ref.index = -1;
-            InvalidateRect(hwnd, nullptr, FALSE);
-            InvalidateRect(gTE.info, nullptr, FALSE);
-            return 0;
-        }
-        if (wp == VK_ESCAPE) {
-            gTP.focus = {}, gTP.focus.ref.index = -1;
-            InvalidateRect(hwnd, nullptr, FALSE);
-            return 0;
-        }
-        if (wp == VK_DELETE) trigDeleteLine();
-        if (wp == VK_F1) trigPaneHelp();
-        return 0;
-    case WM_SYSKEYDOWN:
-        if (wp == VK_UP || wp == VK_DOWN) return trigMoveLine(wp == VK_UP ? -1 : 1), 0;
-        break;
-    case WM_CHAR:  // typing adds a block: the picker opens searching for what was typed
-        if (iswalnum(wchar_t(wp)) && GetKeyState(VK_CONTROL) >= 0) {
-            TriggerNode* t = trigSelected();
-            if (!t) return 0;
-            const bool cond = trigBlock(*t, gTP.sel) && trigListIsCondition(*t, gTP.sel.list);
-            const std::string id = showBlockPicker(cond, {}, std::wstring(1, wchar_t(wp)));
-            if (id.empty()) return 0;
-            const auto [ref, at] = trigAddTarget(cond);
-            trigAddTo(ref, at, *TriggerDef::find(id));
-        }
-        return 0;
-    case WM_GETDLGCODE: return DLGC_WANTARROWS | DLGC_WANTTAB | DLGC_WANTCHARS;
-    case WM_SETCURSOR: {
-        POINT pt;
-        GetCursorPos(&pt);
-        ScreenToClient(hwnd, &pt);
-        for (const auto& p : gTP.params)
-            if (PtInRect(&p.r, pt)) return SetCursor(LoadCursor(nullptr, IDC_HAND)), TRUE;
-        for (const auto& f : gTP.folds)
-            if (PtInRect(&f.r, pt)) return SetCursor(LoadCursor(nullptr, IDC_HAND)), TRUE;
-        for (const auto& a : gTP.adds)
-            if (PtInRect(&a.r, pt)) return SetCursor(LoadCursor(nullptr, IDC_HAND)), TRUE;
-        for (const auto& v : gTP.varHits)
-            if (PtInRect(&v.r, pt)) return SetCursor(LoadCursor(nullptr, IDC_HAND)), TRUE;
-        for (const auto& b : gTP.rowButtons)
-            if (PtInRect(&b.r, pt)) return SetCursor(LoadCursor(nullptr, IDC_HAND)), TRUE;
-        if (PtInRect(&gTP.title, pt) || PtInRect(&gTP.codeToggle, pt)) return SetCursor(LoadCursor(nullptr, IDC_HAND)), TRUE;
-        for (const auto& b : gTP.addButtons)
-            if (PtInRect(&b.first, pt)) return SetCursor(LoadCursor(nullptr, IDC_HAND)), TRUE;
-        for (const auto& l : gTP.lines)
-            if (l.ref.index >= 0 && PtInRect(&l.grip, pt)) return SetCursor(LoadCursor(nullptr, IDC_SIZEALL)), TRUE;
-        for (const auto& h : gTP.heading)
-            if (PtInRect(&h, pt)) return SetCursor(LoadCursor(nullptr, IDC_HAND)), TRUE;
-        break;
-    }
-    case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORLISTBOX:
-        SetTextColor(HDC(wp), kText);
-        SetBkColor(HDC(wp), kCtl);
-        return LRESULT(app.ctlBrush);
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
-
-LRESULT CALLBACK trigInfoProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    if (msg == WM_PAINT) return paintTrigInfo(hwnd), 0;
-    if (msg == WM_ERASEBKGND) return 1;
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
+    void drop() override { trigDrop(); }
+    void help() override { trigPaneHelp(); }
+};
+TrigPaneProgram gTrigPaneProgram;
+TrigPaneView gTrigPane(gTrigPaneProgram);
+TrigInfoView gTrigInfo(gTrigPaneProgram);
 
 // --- Show code -----------------------------------------------------------------------------------------------------
 
@@ -14451,11 +13201,6 @@ void trigPaste() {
 }
 
 int trigTreeWidth() { return scale(gDock.dataListW); }
-// The docs strip shows only with a block selected.
-int trigInfoHeight() {
-    TriggerNode* t = trigSelected();
-    return t && trigBlock(*t, gTP.sel) ? scale(110) : 0;
-}
 
 void layoutTriggerEditor() {
     if (!gTE.wnd) return;
@@ -14564,15 +13309,11 @@ void createTriggerEditor() {
     WNDCLASSEXW wc{sizeof wc};
     wc.hInstance = app.inst, wc.hCursor = LoadCursor(nullptr, IDC_ARROW), wc.lpfnWndProc = trigEditorProc, wc.lpszClassName = L"StarDraftTrigEditor";
     RegisterClassExW(&wc);
-    wc.lpfnWndProc = trigPaneProc, wc.lpszClassName = L"StarDraftTrigPane", wc.style = CS_DBLCLKS;
-    RegisterClassExW(&wc);
-    wc.lpfnWndProc = trigInfoProc, wc.lpszClassName = L"StarDraftTrigInfo", wc.style = 0;
-    RegisterClassExW(&wc);
     gTE.wnd = CreateWindowExW(0, L"StarDraftTrigEditor", L"", WS_CHILD | WS_CLIPCHILDREN, 0, 0, 1, 1, app.main, nullptr, app.inst, nullptr);
     gTE.tree = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, 0, 1, 1, gTE.wnd, nullptr, app.inst, &gTrigTree);  // the tree (core/views_triggers_tree.inc)
-    gTE.pane = CreateWindowExW(0, L"StarDraftTrigPane", L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, gTE.wnd, nullptr, app.inst, nullptr);
+    gTE.pane = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, gTE.wnd, nullptr, app.inst, &gTrigPane);  // the pane (core/views_triggers_pane.inc)
     darkControl(gTE.pane, L"DarkMode_Explorer");
-    gTE.info = CreateWindowExW(0, L"StarDraftTrigInfo", L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, gTE.wnd, nullptr, app.inst, nullptr);
+    gTE.info = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, gTE.wnd, nullptr, app.inst, &gTrigInfo);  // the info strip
     LoadLibraryW(L"Msftedit.dll");  // rich text: the code is colored
     gTE.code = CreateWindowExW(0, MSFTEDIT_CLASS, L"", WS_CHILD | WS_VSCROLL | WS_HSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | ES_AUTOHSCROLL, 0, 0, 1, 1,
                                gTE.wnd, nullptr, app.inst, nullptr);
@@ -21262,6 +20003,21 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 gTE.set = before;
                 trigSave();
                 trigRefreshTree({1});
+                continue;
+            }
+            if (s.rfind("trigsel:", 0) == 0) {  // trigsel:<action>: after trig:, that action selected with its first value focused and the mouse on its row (trigsel_<action>.png: the row's buttons and the info strip)
+                const int a = std::atoi(s.c_str() + 8);
+                gTP.sel = {{{}, 1}, a};
+                gTP.hoverRow = gTP.sel;
+                gTP.focus = {}, gTP.focus.ref.index = -1;
+                layoutTriggerEditor();
+                UpdateWindow(gTE.pane);
+                if (const auto order = trigTabOrder(gTP.sel); !order.empty()) gTP.focus = order[0];
+                InvalidateRect(gTE.pane, nullptr, FALSE), InvalidateRect(gTE.info, nullptr, FALSE);
+                for (int i = 0; i < 10; ++i) pump();
+                UpdateWindow(gTE.pane), UpdateWindow(gTE.info);
+                capture(fs::path(datashots) / ("trigsel_" + std::to_string(a) + ".png"));
+                gTP.sel = {}, gTP.hoverRow = {}, gTP.focus = {}, gTP.focus.ref.index = -1;
                 continue;
             }
             if (s.rfind("trig:", 0) == 0) {  // trig:<root>:<index>[:<child>...]: the Triggers workspace with that node selected
