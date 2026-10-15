@@ -69,7 +69,6 @@
 #if __has_include("build_info.h")
 #include "build_info.h"  // STARDRAFT_COMMIT (cmake/build_info.cmake): Check for updates compares it with the release's
 #endif
-#include "message_box.h"  // apps/kit: the save question (shellAskSaveChanges)
 #include "dialog.h"  // apps/kit: the map pages' pickers (sdl_map_pages.inc)
 #include "label.h"  // apps/kit: the block dialog's text (core/views_classic_batch.inc)
 #include "text_field.h"  // apps/kit: the search boxes (core/views_search.inc)
