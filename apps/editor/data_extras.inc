@@ -287,9 +287,7 @@ bool extrasSaved() {
         const std::string now = extrasText(k);
         if (now == gExtras.saved[k]) continue;
         const int tab = k == kExtraStrings ? stringsTab() : k == kExtraButtons ? buttonsTab() : gData.datTab;
-        gData.undo.push_back({tab, gData.entry, Bytes(gExtras.saved[k].begin(), gExtras.saved[k].end()), Bytes(now.begin(), now.end()), k + 1});
-        if (gData.undo.size() > 200) gData.undo.erase(gData.undo.begin());
-        gData.redo.clear();
+        gData.history.recordExtra(tab, gData.entry, k + 1, Bytes(gExtras.saved[k].begin(), gExtras.saved[k].end()), Bytes(now.begin(), now.end()));
         gExtras.saved[k] = now;
         if (gData.project) {
             const fs::path f = extrasFile(*gData.project, k);

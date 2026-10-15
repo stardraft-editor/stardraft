@@ -108,6 +108,7 @@ class DataFormViewHost {
 public:
     virtual ~DataFormViewHost() = default;
     virtual const DatTable* table() = 0;             // the open .dat (null: it did not load, or there is no project)
+    virtual DatTable* editTable() = 0;               // the same table, to change its values
     virtual int entry() = 0;                         // the open entry
     virtual int& scroll() = 0;                       // the form's scroll in pixels (kept by the program: a tab switch resets it)
     virtual std::set<std::string>& hotFields() = 0;  // the fields under the mouse (the form's and the pictures')
@@ -152,7 +153,8 @@ public:
     virtual void beginEdit(int field, draw::Rect box) = 0;          // the number entry on a value box
     virtual void dropdown(const DatField& f, draw::Rect box) = 0;   // a dropdown's list, under its box
     virtual std::vector<ListPickItem> dropdownItems(const DatField& f) = 0;
-    virtual void setValue(const DatField& f, uint32_t v) = 0;
+    virtual void valueSet() = 0;                                    // after a value's change: the program saves it (an undo step) and repaints
+    virtual void paintNow() = 0;                                    // the form's paint now (its click areas follow the last paint)
     virtual void goTo(const std::string& dat, int entry) = 0;       // a reference: open that entry
     virtual void fieldMenu(const DatField& f, draw::Point pt) = 0;  // the right button on a field (pt: the view's)
     virtual void status(const std::wstring& text) = 0;
@@ -171,6 +173,15 @@ public:
         host_.scroll() = std::clamp(pos, 0, std::max(0, height_ - height()));
         invalidate();
     }
+    // A field's value on the open entry (kept inside what the field can hold), saved with its undo step.
+    void setValue(const DatField& f, uint32_t v) {
+        if (DatTable* t = host_.editTable()) dataApplyValue(*t, f, host_.entry(), v);
+        else return;
+        host_.valueSet();
+    }
+    // Tab (delta 1) and Shift+Tab (-1) in the number entry on `field`'s value box: its value goes in, and the entry goes
+    // to the next (previous) value box in the form's order, scrolled into view.
+    void editNeighbour(int field, int delta);
     const DatField* field(int index) const {
         const DatTable* t = host_.table();
         if (!t) return nullptr;
@@ -420,15 +431,38 @@ inline void DataFormView::press(draw::Point pt, bool right) {
         const uint32_t v = table->value(*f, host_.entry());
         if (h.bit == -1) host_.beginEdit(h.field, h.r);
         else if (h.bit == -4) host_.dropdown(*f, h.r);
-        else if (h.bit == -5) host_.setValue(*f, v ? 0 : 1);
+        else if (h.bit == -5) setValue(*f, v ? 0 : 1);
         else if (h.bit == -6 || h.bit == -7) {  // a number's arrows: one up or down (Shift: 10)
             host_.commitEdit();
             const int64_t step = (host() && (host()->modifiers() & draw::kShift) ? 10 : 1) * (h.bit == -6 ? 1 : -1);
-            host_.setValue(*f, uint32_t(std::clamp<int64_t>(int64_t(table->value(*f, host_.entry())) + step, 0, int64_t(f->maxValue()))));
-        } else if (h.bit >= 0) host_.setValue(*f, v ^ (1u << h.bit));
+            setValue(*f, uint32_t(std::clamp<int64_t>(int64_t(table->value(*f, host_.entry())) + step, 0, int64_t(f->maxValue()))));
+        } else if (h.bit >= 0) setValue(*f, v ^ (1u << h.bit));
         else if (h.bit == -2) host_.goTo(f->ref, int(v));
         break;
     }
+}
+
+inline void DataFormView::editNeighbour(int editing, int delta) {
+    std::vector<int> boxes;  // fields with a value box, in the order the form shows them
+    for (const auto& h : hits_)
+        if (h.bit == -1) boxes.push_back(h.field);
+    const auto it = std::find(boxes.begin(), boxes.end(), editing);
+    host_.commitEdit();
+    if (it == boxes.end() || boxes.empty()) return;
+    const int next = boxes[size_t((int(it - boxes.begin()) + delta + int(boxes.size())) % int(boxes.size()))];
+    auto boxOf = [&](draw::Rect& r) {
+        host_.paintNow();  // the hits follow the last paint
+        for (const auto& h : hits_)
+            if (h.bit == -1 && h.field == next) return r = h.r, true;
+        return false;
+    };
+    draw::Rect r;
+    if (!boxOf(r)) return;
+    if (r.top < 0 || r.bottom > height()) {
+        scrollTo(host_.scroll() + (r.top < 0 ? r.top - scale(40) : r.bottom - height() + scale(40)));
+        if (!boxOf(r)) return;
+    }
+    host_.beginEdit(next, r);
 }
 
 inline void DataFormView::hover(draw::Point pt) {
@@ -461,7 +495,7 @@ inline void DataFormView::wheel(const draw::MouseEvent& e) {
                 const DatTable* t = host_.table();
                 if (!f || !t || !fieldIsNumber(t->schema().name, *f)) continue;
                 const int64_t step = ((e.mods & draw::kShift) ? 10 : 1) * (delta > 0 ? 1 : -1);
-                host_.setValue(*f, uint32_t(std::clamp<int64_t>(int64_t(t->value(*f, host_.entry())) + step, 0, int64_t(f->maxValue()))));
+                setValue(*f, uint32_t(std::clamp<int64_t>(int64_t(t->value(*f, host_.entry())) + step, 0, int64_t(f->maxValue()))));
                 return;
             }
             if (h.bit != -4 || !h.r.contains(e.pt)) continue;
@@ -475,7 +509,7 @@ inline void DataFormView::wheel(const draw::MouseEvent& e) {
                 if (items[k].value == cur) i = int(k);
             const int steps = delta / 120, next = std::clamp(i < 0 ? 0 : i - (steps ? steps : delta > 0 ? 1 : -1), 0, int(items.size()) - 1);
             if (!items.empty() && next != i) {
-                host_.setValue(*f, uint32_t(std::stoul(items[size_t(next)].value)));
+                setValue(*f, uint32_t(std::stoul(items[size_t(next)].value)));
                 host_.status(datLabel(f->name) + L": " + items[size_t(next)].label);
             }
             return;
