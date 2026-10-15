@@ -12,6 +12,8 @@ build downloads the libraries (CMakeLists.txt, FetchContent), and the documents 
 | SDL3 | The window and the GPU renderer | zlib | https://github.com/libsdl-org/SDL |
 | stb (stb_image, stb_vorbis) | Images and OGG Vorbis sounds | MIT or public domain | https://github.com/nothings/stb |
 | libvpx | Decodes the game's WebM portraits | BSD-3-Clause | https://github.com/webmproject/libvpx |
+| Dear ImGui | stardraft-next's UI (the new shell's spike) | MIT | https://github.com/ocornut/imgui |
+| Noto Sans, Noto Sans KR, Noto Sans SC | stardraft-next's fonts (Latin, Korean, Chinese) | SIL Open Font License 1.1 | https://github.com/notofonts |
 
 `third_party/libvpx/` holds only the build configuration that `tools/gen_libvpx.py` makes for libvpx (no libvpx code).
 

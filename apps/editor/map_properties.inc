@@ -119,7 +119,7 @@ bool mapPropsApply(MapPropsDialog& d) {
         return false;
     }
     if (resize) {
-        layout();  // the minimap takes the new shape
+        shellRelayout();  // the minimap takes the new shape
         app.renderer.setSources(&app.data, &app.ed->unitSprites(), &app.ed->tileset(), app.ed->era());
         showActive();
         fitMap();
