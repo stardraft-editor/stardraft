@@ -150,6 +150,8 @@ public:
     // The horizontal counterpart (WS_HSCROLL on the window): the same, for the bar at the bottom.
     virtual bool hscroll(int /*code*/, int /*pos*/, int /*track*/, int /*page*/) { return false; }
     virtual bool windowHScrollBar(int& /*range*/, int& /*page*/, int& /*pos*/) { return false; }
+    // The mouse's extra buttons (1 or 2: back, forward) released over the view; true: handled.
+    virtual bool extraButton(int /*button*/) { return false; }
 
     // The host that shows the view (the root's), and the view's place.
     Host* host() const { return parent_ ? parent_->host() : host_; }
