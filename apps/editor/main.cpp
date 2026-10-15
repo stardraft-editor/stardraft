@@ -23758,6 +23758,27 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 tilesSetFilter(0);
                 continue;
             }
+            if (s.rfind("unitprops:", 0) == 0) {  // unitprops_<n>.png: Unit properties of unit n (unitprops: unit 0), closed with Cancel;
+                                                  // unitprops:u<type> (unitprops_u<type>.png) places a unit of that type for player 1 first
+                const bool place = s.size() > 10 && s[10] == 'u';
+                int n = s.size() > 10 ? std::atoi(s.c_str() + 10 + (place ? 1 : 0)) : 0;
+                static fs::path shot;
+                shot = fs::path(datashots) / ("unitprops_" + s.substr(10).append(s.size() > 10 ? "" : "0") + ".png");
+                setWorkspace(Workspace::Map);
+                command(ID_MODE_UNITS);
+                if (app.ed && place) app.ed->placeUnit(uint16_t(n), 0, (8 + n % 64) * 64 + 16, 20 * 32 + 16, false), n = int(app.ed->units().size()) - 1;
+                if (app.ed && n >= 0 && n < int(app.ed->units().size())) {
+                    app.ed->clearSelection();
+                    gUnitPropsHook = [](HWND w) {
+                        for (int i = 0; i < 5; ++i) pump();
+                        capture(shot, w);
+                        PostMessageW(w, WM_COMMAND, IDCANCEL, 0);
+                    };
+                    showUnitProperties(n);
+                    gUnitPropsHook = nullptr;
+                }
+                continue;
+            }
             if (s == "enterunit:") {  // enterunit.txt: Enter on a selected unit opens Unit properties (GitHub feedback #115)
                 std::ofstream o(fs::path(datashots) / "enterunit.txt");
                 static bool opened;
