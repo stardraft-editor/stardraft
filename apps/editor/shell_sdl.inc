@@ -342,7 +342,10 @@ std::filesystem::path shellDocumentsFolder() {
     const char* home = std::getenv("HOME");
     return home && *home ? std::filesystem::path(home) / "Documents" : std::filesystem::path();
 }
-bool shellPromptText(const std::wstring& title, std::wstring& text) { return gRoot && runPromptDialog(*gRoot, title, text); }
+bool shellPromptText(const std::wstring& title, std::wstring& text) {
+    TextPromptView* shown = nullptr;
+    return gRoot && runTextPrompt(*gRoot, title, text, true, shown);
+}
 // (no pop-out under the field here: the prompt dialog, centered)
 bool shellEditValueBelow(stardraft::draw::View&, stardraft::draw::Rect, const std::wstring& title, std::string& text) {
     std::wstring w = widen(text);
