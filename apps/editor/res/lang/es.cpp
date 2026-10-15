@@ -1981,7 +1981,7 @@ constexpr UiText kRows[] = {
     {L"&Actual size", L"Tama\u00F1o &real"},
     {L"&Fit map", L"A&justar mapa"},
     {L" The total is more than the game has room for. Build stops.", L" El total es mayor que el espacio que tiene el juego. La compilaci\u00F3n se detiene."},
-    {L"Feedback is anonymous, and we publish it on our Discord server for review. Do not include sensitive or private information. Ctrl+Enter sends it.", L"Los comentarios son an\u00F3nimos y los publicamos en nuestro servidor de Discord para revisarlos. No incluya informaci\u00F3n sensible o privada. Ctrl+Enter los env\u00EDa."},
+    {L"Feedback is anonymous. It goes on the StarDraft Discord server for review. Do not include sensitive or private information. Ctrl+Enter sends it.", L"Los comentarios son an\u00F3nimos. Se publican en el servidor de Discord de StarDraft para revisarlos. No incluya informaci\u00F3n sensible o privada. Ctrl+Enter los env\u00EDa."},
     {L"Open the Discord server", L"Abrir el servidor de Discord"},
     {L"Sending your feedback\u2026", L"Enviando sus comentarios\u2026"},
     {L"Thank you for your feedback.", L"Gracias por sus comentarios."},

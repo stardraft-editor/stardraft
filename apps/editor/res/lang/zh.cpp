@@ -1980,7 +1980,7 @@ constexpr UiText kRows[] = {
     {L"&Actual size", L"\u5B9E\u9645\u5927\u5C0F(&A)"},
     {L"&Fit map", L"\u9002\u5E94\u5730\u56FE(&F)"},
     {L" The total is more than the game has room for. Build stops.", L" \u603B\u6570\u8D85\u8FC7\u6E38\u620F\u7684\u5BB9\u91CF\u3002\u6784\u5EFA\u4F1A\u505C\u6B62\u3002"},
-    {L"Feedback is anonymous, and we publish it on our Discord server for review. Do not include sensitive or private information. Ctrl+Enter sends it.", L"\u53CD\u9988\u662F\u533F\u540D\u7684\uFF0C\u6211\u4EEC\u4F1A\u5C06\u5176\u53D1\u5E03\u5230 Discord \u670D\u52A1\u5668\u4E0A\u4EE5\u4F9B\u5BA1\u9605\u3002\u8BF7\u52FF\u5305\u542B\u654F\u611F\u6216\u79C1\u4EBA\u4FE1\u606F\u3002\u6309 Ctrl+Enter \u53D1\u9001\u3002"},
+    {L"Feedback is anonymous. It goes on the StarDraft Discord server for review. Do not include sensitive or private information. Ctrl+Enter sends it.", L"\u53CD\u9988\u662F\u533F\u540D\u7684\uFF0C\u4F1A\u53D1\u5E03\u5230 StarDraft \u7684 Discord \u670D\u52A1\u5668\u4E0A\u4EE5\u4F9B\u5BA1\u9605\u3002\u8BF7\u52FF\u5305\u542B\u654F\u611F\u6216\u79C1\u4EBA\u4FE1\u606F\u3002\u6309 Ctrl+Enter \u53D1\u9001\u3002"},
     {L"Open the Discord server", L"\u6253\u5F00 Discord \u670D\u52A1\u5668"},
     {L"Sending your feedback\u2026", L"\u6B63\u5728\u53D1\u9001\u53CD\u9988\u2026"},
     {L"Thank you for your feedback.", L"\u611F\u8C22\u60A8\u7684\u53CD\u9988\u3002"},
