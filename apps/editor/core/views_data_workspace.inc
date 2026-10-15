@@ -103,6 +103,7 @@ bool DataTabsView::mouse(const draw::MouseEvent& e) {
         if (hot_ != -1) hot_ = -1, invalidate();
         return true;
     case MouseKind::Down:
+    case MouseKind::DoubleClick:  // (the class has CS_DBLCLKS: a quick second press is a double click, and it is a press too)
         if (e.button != 0) return false;
         for (int k = 0; k < 2; ++k)
             if (nav_[k].contains(e.pt)) {
@@ -182,6 +183,7 @@ public:
         const int top = DataTabsView::stripH(), lw = host_.listWidth(), gap = scale(5);
         switch (e.kind) {
         case MouseKind::Down:  // the edge (between the list and the form): drag it
+        case MouseKind::DoubleClick:  // (a quick second press on the edge starts the drag too)
             if (e.button != 0 || e.pt.y <= top || e.pt.x < lw || e.pt.x >= lw + gap) return false;
             grab_ = e.pt.x;
             if (auto* h = host()) h->capture(*this, true);

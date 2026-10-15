@@ -42,10 +42,10 @@ void IconButton::paint(draw::Canvas& c) {
         Color fill = th.ctl, line = th.border;
         if (on_) fill = th.sel, line = th.accentLine;
         if (enabled_ && hot_) fill = on_ ? th.selHot : th.ctlHot, line = on_ ? th.accent : th.borderHot;
-        if (enabled_ && hot_ && down_) fill = on_ ? th.sel : th.ctlDown;
+        if (enabled_ && hot_ && down_) fill = on_ ? th.sel : th.ctlDown, line = on_ ? th.accentLine : th.border;  // the pressed face keeps the resting outline
         if (!enabled_) fill = th.bg, line = th.border;
         c.roundBox(r, fill, line, rad);
-        drawGlyph(c, r, !enabled_ ? th.faint : on_ ? th.onText : th.text, kBoxedGlyph);
+        drawGlyph(c, r, !enabled_ ? th.faint : on_ ? draw::rgb(255, 255, 255) : th.text, kBoxedGlyph);  // the on face's icon is pure white (as the old Primary button)
         return;
     }
     if (style_ == IconStyle::Boxed) {  // flat: a fill only when on (the accent) or under the mouse
