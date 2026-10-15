@@ -5,8 +5,8 @@
 // kit faces of core/kit_paint.inc). The model is the core's (core/data_model.inc: dataExtras(); views_data_strings.inc,
 // views_data_buttons.inc, views_data_requirements.inc); a change is saved with its undo step as on Windows
 // (sdlDataSaved). The sizes are the Windows form's (kitpaint::formLayout); the icons are the palette's pictures
-// (sdlDataImage, sdl_data.inc). Not on this system yet: dragging a button to another place or row, the tooltip's own editor (a click opens the
-// string in the Strings tab) and the value boxes' open buttons. Included by sdl_data.inc before the form's host, which
+// (sdlDataImage, sdl_data.inc); a button drags to another place on the card or row in the list. Not on this system
+// yet: the tooltip's own editor (a click opens the string in the Strings tab) and the value boxes' open buttons. Included by sdl_data.inc before the form's host, which
 // calls sdlPaintExtraTab and sdlPaintRequirements and gives the click areas (sdlFormArea, sdlFormHot).
 
 void sdlFormArea(draw::Rect r, std::function<void()> click, const std::wstring& tip, bool hand);
@@ -268,8 +268,60 @@ void sdlSetButtons(int set, std::vector<Button> bs, int sel) {
     sdlExtrasChanged();
 }
 
+// A part of the form that the mouse drags (sdl_data.inc): `drag` while the mouse is held, `click` when it was not
+// dragged; `release` (null: the drag changed the entry, which is saved) when the mouse is let go after a drag.
+void sdlFormDrag(draw::Rect r, std::function<void(draw::Point)> drag, std::function<void()> click, const std::wstring& tip, draw::Cursor cursor,
+                 std::function<void()> release = nullptr);
+
+// A row that the mouse drags to another place in its list (the Windows kit's ui::reorderRow): the grip at its left
+// on the row under the mouse; while it is dragged, the line where it goes (sdlReorderDropLine). `moved(from, to)`
+// when it is let go in another place.
+struct SdlReorder {
+    std::string list;
+    int from = -1, to = -1;
+    std::map<std::string, std::vector<draw::Rect>> rows;
+} gSdlReorder;
+void sdlReorderRow(draw::Canvas& c, const std::string& list, draw::Rect row, int index, std::function<void(int, int)> moved) {
+    auto& rows = gSdlReorder.rows[list];
+    if (index == 0) rows.clear();
+    rows.push_back(row);
+    const bool dragging = gSdlReorder.list == list && gSdlReorder.from >= 0;
+    if (dragging && gSdlReorder.from == index) c.fill(row, kSel, 160);
+    if (sdlFormHot(row) || (dragging && gSdlReorder.from == index))
+        kitpaint::drawGrip(c, row.left + scale(5), (row.top + row.bottom) / 2 - scale(6), dragging && gSdlReorder.from == index);
+    sdlFormDrag({row.left, row.top, row.left + scale(18), row.bottom},
+                [list, index](draw::Point pt) {
+                    const auto& rs = gSdlReorder.rows[list];
+                    int to = int(rs.size());
+                    for (size_t i = 0; i < rs.size(); ++i)
+                        if (pt.y < (rs[i].top + rs[i].bottom) / 2) {
+                            to = int(i);
+                            break;
+                        }
+                    gSdlReorder.list = list, gSdlReorder.from = index, gSdlReorder.to = to;
+                    gSdlDataForm.invalidate();
+                },
+                nullptr, L"Drag to move", draw::Cursor::SizeAll,
+                [moved] {
+                    const int from = std::exchange(gSdlReorder.from, -1), to = gSdlReorder.to;
+                    gSdlReorder.list.clear();
+                    if (from < 0 || to == from || to == from + 1) return;
+                    moved(from, to > from ? to - 1 : to);
+                });
+}
+// After the list's rows: the line where the dragged row goes.
+void sdlReorderDropLine(draw::Canvas& c, const std::string& list) {
+    if (gSdlReorder.list != list || gSdlReorder.from < 0) return;
+    const auto& rs = gSdlReorder.rows[list];
+    if (rs.empty()) return;
+    const int to = std::clamp(gSdlReorder.to, 0, int(rs.size()));
+    const int y = to < int(rs.size()) ? rs[size_t(to)].top : rs.back().bottom;
+    kitpaint::drawDropLine(c, rs.front().left, rs.front().right, y);
+}
+
 // The command card: 3 x 3 cells, each with its button's icon (its number when it has none). Click selects
-// (again: the next button in that place); an empty cell adds a button there. Returns its height.
+// (again: the next button in that place); drag to another cell moves the selected button; an empty cell adds a button
+// there. Returns its height.
 int sdlPaintCommandCard(draw::Canvas& c, int set, int x, int y, int cell) {
     DataExtrasModel& xs = dataExtras();
     const auto& bs = xs.buttons.set(set);
@@ -307,7 +359,15 @@ int sdlPaintCommandCard(draw::Canvas& c, int set, int x, int y, int cell) {
         } else {
             tip = L"Add a button here";
         }
-        sdlFormArea(cr,
+        sdlFormDrag(cr,
+                    [set, x, y, cell, gap](draw::Point pt) {  // drag: the selected button to the cell under the mouse
+                        const uint16_t np = buttonPlaceAt((pt.x - x - gap) / (cell + gap), (pt.y - y - gap) / (cell + gap));
+                        if (!np) return;
+                        auto bs2 = dataExtras().buttons.set(set);
+                        if (!buttonMoveTo(bs2, dataExtras().button, np)) return;
+                        dataExtras().buttons.set(set, bs2);
+                        gSdlDataForm.invalidate();
+                    },
                     [set, here, p] {
                         if (here.empty()) {  // a new button
                             auto bs2 = dataExtras().buttons.set(set);
@@ -318,7 +378,7 @@ int sdlPaintCommandCard(draw::Canvas& c, int set, int x, int y, int cell) {
                         dataExtras().button = buttonNextInPlace(here, dataExtras().button);
                         gSdlDataForm.invalidate();
                     },
-                    tip, true);
+                    tip, here.empty() ? draw::Cursor::Hand : draw::Cursor::SizeAll);
     }
     return card.bottom - y;
 }
@@ -365,6 +425,11 @@ void sdlPaintButtonsForm(draw::Canvas& c, int& y) {
                     },
                     sharing > 1 ? L"Shares its place with another button: the game shows the first whose condition holds (the higher one in this list)" : L"",
                     true);
+        sdlReorderRow(c, "buttons", r, bi, [set](int from, int to) {
+            auto bs2 = dataExtras().buttons.set(set);
+            const int sel = buttonReorder(bs2, from, to);
+            sdlSetButtons(set, std::move(bs2), sel);
+        });
         // On the row under the mouse: earlier, later, remove (ui::rowActions).
         if (hot) {
             auto move = [set, bi](int by) {
@@ -391,6 +456,7 @@ void sdlPaintButtonsForm(draw::Canvas& c, int& y) {
         }
         y += l.rowH;
     }
+    sdlReorderDropLine(c, "buttons");
     sdlx::smallButton(c, l.x0, y, l.rowH, L"Add a button", [set] {
         auto bs2 = dataExtras().buttons.set(set);
         bs2.push_back(buttonNew(buttonFreePlace(bs2)));

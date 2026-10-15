@@ -465,11 +465,13 @@ public:
         std::function<void(draw::Point)> drag;  // a picture's part: while the mouse is held (core/views_data_pictures.inc)
         std::vector<std::string> fields;        // the fields a diagram's part shows (marked while the mouse is over it)
         bool edit = false;                      // its drag changes the entry: saved (one undo step) when the mouse is let go
+        std::function<void()> release;          // after a drag: when the mouse is let go (a row dropped in its place)
     };
     std::vector<Area> areas;
     std::function<void()> pressed;  // a link pressed: its click when the mouse goes up
     std::function<void(draw::Point)> dragging;  // a picture's part pressed: it follows the mouse until it goes up
     bool dragMoved = false, dragEdits = false;
+    std::function<void()> released;  // the pressed part's release (after a drag)
 
     static std::string dat() { return curTable() ? curTable()->schema().name : std::string(); }
     // The topmost area under p (`clicks`: the topmost one with a click or a drag; a row's area without one does not hide
@@ -559,7 +561,7 @@ public:
         const Area* a = areaAt(p, true);
         if (!a || (!a->click && !a->drag)) return false;
         sdlDataCommitEdit();
-        pressed = a->click, dragging = a->drag, dragMoved = false, dragEdits = a->edit;
+        pressed = a->click, dragging = a->drag, dragMoved = false, dragEdits = a->edit, released = a->release;
         if (dragging && !pressed) dragMoved = true, dragging(p);  // a press sets the value too (as on Windows)
         return true;
     }
@@ -573,8 +575,10 @@ public:
     void widgetRelease(bool lost) override {
         auto click = std::exchange(pressed, nullptr);
         const bool moved = std::exchange(dragMoved, false), edits = std::exchange(dragEdits, false);
+        auto release = std::exchange(released, nullptr);
         dragging = nullptr;
-        if (moved && edits) sdlDataSaved(), gSdlDataForm.invalidate();  // a diagram's drag: the change is one undo step
+        if (moved && release) release(), gSdlDataForm.invalidate();
+        else if (moved && edits) sdlDataSaved(), gSdlDataForm.invalidate();  // a diagram's drag: the change is one undo step
         else if (click && !lost && !moved) click();
     }
     bool widgetHover(draw::Point p, std::set<std::string>& fields) override {  // (the form repaints: the hot boxes follow the mouse)
@@ -648,6 +652,11 @@ void sdlFormArea(draw::Rect r, std::function<void()> click, const std::wstring& 
 }
 bool sdlFormHot(draw::Rect r) { return gSdlDataFormHost.hot(r); }
 void dataSetValue(const DatField& f, uint32_t v) { gSdlDataForm.setValue(f, v); }  // (the core's diagrams: core/views_data_diagrams.inc)
+void sdlFormDrag(draw::Rect r, std::function<void(draw::Point)> drag, std::function<void()> click, const std::wstring& tip, draw::Cursor cursor,
+                 std::function<void()> release) {
+    const bool edit = release == nullptr;  // (no release: the drag changes the entry, saved when the mouse is let go)
+    gSdlDataFormHost.areas.push_back({r, std::move(click), tip, cursor, std::move(drag), {}, edit, std::move(release)});
+}
 void sdlFormAreaCursor(draw::Rect r, std::function<void()> click, const std::wstring& tip, draw::Cursor cursor) {
     gSdlDataFormHost.area(r, std::move(click), tip, cursor);
 }
