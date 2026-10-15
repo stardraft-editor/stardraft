@@ -329,6 +329,7 @@ int themedMessageBox(HWND owner, const std::wstring& text, const std::wstring& c
 const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\StarCraft";
 
 #include "core/app_state.inc"
+#include "core/menu_model.inc"  // the menu bar as data (buildMenuModel, toHmenu)
 
 // The program: its state, and what Win32 and the renderer give it (windows, brushes, the font, the GPU).
 struct App : AppState {
@@ -19754,163 +19755,223 @@ void setMenuIcons(HMENU bar) {
 
 #include "commands.inc"
 
-HMENU buildMenu() {
-    HMENU bar = CreateMenu();
-    HMENU file = CreatePopupMenu(), edit = CreatePopupMenu(), view = CreatePopupMenu(), mode = CreatePopupMenu();
-    HMENU project = CreatePopupMenu();
-    AppendMenuW(project, MF_STRING, ID_PROJ_NEW, L"&New EUD project\tCtrl+Shift+N");
-    AppendMenuW(project, MF_STRING, ID_PROJ_OPEN, L"&Open project\x2026");
-    AppendMenuW(project, MF_STRING, ID_PROJ_FROMMAP, L"&Make this map a project\x2026");
-    AppendMenuW(project, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(project, MF_STRING, ID_PROJ_COMPILE, L"&Build\tCtrl+B");
-    AppendMenuW(project, MF_STRING, ID_PROJ_ADDSCRIPT, L"&Add script\x2026");
-    AppendMenuW(project, MF_STRING, ID_PROJ_FOLDER, L"Open project &folder");
-    AppendMenuW(project, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(project, MF_STRING, ID_PROJ_SETTINGS, L"Project &settings");
-    AppendMenuW(file, MF_STRING, ID_FILE_NEW, L"&New project	Ctrl+N");
-    AppendMenuW(file, MF_STRING, ID_FILE_OPEN, L"&Open\x2026	Ctrl+O");
-    AppendMenuW(file, MF_STRING, ID_QUICKOPEN, L"&Quick open\x2026\tCtrl+Shift+O");
-    gRecentMapsMenu = CreatePopupMenu(), gRecentProjectsMenu = CreatePopupMenu();
-    AppendMenuW(file, MF_POPUP, UINT_PTR(gRecentMapsMenu), L"Recent &maps");
-    AppendMenuW(file, MF_POPUP, UINT_PTR(gRecentProjectsMenu), L"Recent pro&jects");
-    refreshRecentMenus();
-    AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(file, MF_POPUP, UINT_PTR(project), L"&Project");  // EUD projects: new, open, build, settings
-    AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(file, MF_STRING, ID_FILE_SAVE, L"&Save	Ctrl+S");
-    AppendMenuW(file, MF_STRING, ID_FILE_SAVEAS, L"Save &as\x2026	Ctrl+Shift+S");
-    AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(file, MF_STRING, ID_FILE_CLOSE, L"&Close	Ctrl+W");
-    AppendMenuW(file, MF_STRING, ID_FILE_CLOSEALL, L"Close a&ll	Ctrl+Shift+W");
-    AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(file, MF_STRING, ID_FILE_EXIT, L"E&xit");
-    AppendMenuW(edit, MF_STRING, ID_EDIT_UNDO, L"&Undo\tCtrl+Z");
-    AppendMenuW(edit, MF_STRING, ID_EDIT_REDO, L"&Redo\tCtrl+Y");
-    AppendMenuW(edit, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(edit, MF_STRING, ID_EDIT_CUT, L"Cu&t\tCtrl+X");
-    AppendMenuW(edit, MF_STRING, ID_EDIT_COPY, L"&Copy\tCtrl+C");
-    AppendMenuW(edit, MF_STRING, ID_EDIT_PASTE, L"&Paste\tCtrl+V");
-    AppendMenuW(edit, MF_STRING, ID_EDIT_DUPLICATE, L"&Duplicate\tCtrl+D");
-    AppendMenuW(edit, MF_STRING, ID_QUICKPICK, L"&Quick picker (the mode's units, terrains, doodads, sprites or locations; in Data, any entry)\x2026\tQ");
-    AppendMenuW(edit, MF_STRING, ID_EDIT_DELETE, L"&Delete\tDel");
-    AppendMenuW(edit, MF_STRING, ID_EDIT_SELECTALL, L"Select &all\tCtrl+A");
-    AppendMenuW(edit, MF_STRING, ID_EDIT_RENAME, L"Re&name location\tF2");
-    for (const char* id : {"view.hd2", "view.hd", "view.sd", "view.carbot"}) appendCommand(view, id);
-    AppendMenuW(view, MF_SEPARATOR, 0, nullptr);
-    appendCommand(view, "view.locations");
-    appendCommand(view, "view.grid");
+// The menu bar as data: each menu's items in order (core/menu_model.inc). The Mode menu and the View items come from the
+// command table (commands.inc); the recent lists, the feedback glyph and the icons are the Win32 menu's own (buildMenu).
+void menuCommand(MenuModel& m, const char* id) {
+    if (const stardraft::Command* c = gCommands.find(id)) {
+        MenuItem it;
+        it.id = nativeCommandId(id), it.label = widen(c->label), it.shortcut = widen(c->shortcut);
+        m.push_back(std::move(it));
+    }
+}
+void menuCommands(MenuModel& m, const char* menu) {
+    for (const stardraft::Command* c : gCommands.inMenu(menu)) {
+        MenuItem it;
+        it.id = nativeCommandId(c->id), it.label = widen(c->label), it.shortcut = widen(c->shortcut);
+        m.push_back(std::move(it));
+    }
+}
+MenuItem menuItem(int id, std::wstring label, std::wstring shortcut = {}, bool grayed = false, bool checked = false, bool reason = false) {
+    MenuItem it;
+    it.id = id, it.label = std::move(label), it.shortcut = std::move(shortcut);
+    it.grayed = grayed, it.checked = checked, it.reason = reason;
+    return it;
+}
+MenuItem menuSeparator() {
+    MenuItem it;
+    it.kind = MenuItem::Kind::Separator;
+    return it;
+}
+MenuItem menuPopup(std::wstring label, MenuModel items, std::string recent = {}) {
+    MenuItem it;
+    it.kind = MenuItem::Kind::Popup;
+    it.label = std::move(label), it.items = std::move(items), it.recent = std::move(recent);
+    return it;
+}
+
+MenuModel buildMenuModel() {
+    MenuModel project{menuItem(ID_PROJ_NEW, L"&New EUD project", L"Ctrl+Shift+N"),
+                      menuItem(ID_PROJ_OPEN, L"&Open project\x2026"),
+                      menuItem(ID_PROJ_FROMMAP, L"&Make this map a project\x2026"),
+                      menuSeparator(),
+                      menuItem(ID_PROJ_COMPILE, L"&Build", L"Ctrl+B"),
+                      menuItem(ID_PROJ_ADDSCRIPT, L"&Add script\x2026"),
+                      menuItem(ID_PROJ_FOLDER, L"Open project &folder"),
+                      menuSeparator(),
+                      menuItem(ID_PROJ_SETTINGS, L"Project &settings")};
+    MenuModel file{menuItem(ID_FILE_NEW, L"&New project", L"Ctrl+N"),
+                   menuItem(ID_FILE_OPEN, L"&Open\x2026", L"Ctrl+O"),
+                   menuItem(ID_QUICKOPEN, L"&Quick open\x2026", L"Ctrl+Shift+O"),
+                   menuPopup(L"Recent &maps", {}, "maps"),  // (the lists are filled by refreshRecentMenus)
+                   menuPopup(L"Recent pro&jects", {}, "projects"),
+                   menuSeparator(),
+                   menuPopup(L"&Project", project),  // EUD projects: new, open, build, settings
+                   menuSeparator(),
+                   menuItem(ID_FILE_SAVE, L"&Save", L"Ctrl+S"),
+                   menuItem(ID_FILE_SAVEAS, L"Save &as\x2026", L"Ctrl+Shift+S"),
+                   menuSeparator(),
+                   menuItem(ID_FILE_CLOSE, L"&Close", L"Ctrl+W"),
+                   menuItem(ID_FILE_CLOSEALL, L"Close a&ll", L"Ctrl+Shift+W"),
+                   menuSeparator(),
+                   menuItem(ID_FILE_EXIT, L"E&xit")};
+    MenuModel edit{menuItem(ID_EDIT_UNDO, L"&Undo", L"Ctrl+Z"),
+                   menuItem(ID_EDIT_REDO, L"&Redo", L"Ctrl+Y"),
+                   menuSeparator(),
+                   menuItem(ID_EDIT_CUT, L"Cu&t", L"Ctrl+X"),
+                   menuItem(ID_EDIT_COPY, L"&Copy", L"Ctrl+C"),
+                   menuItem(ID_EDIT_PASTE, L"&Paste", L"Ctrl+V"),
+                   menuItem(ID_EDIT_DUPLICATE, L"&Duplicate", L"Ctrl+D"),
+                   menuItem(ID_QUICKPICK, L"&Quick picker (the mode's units, terrains, doodads, sprites or locations; in Data, any entry)\x2026", L"Q"),
+                   menuItem(ID_EDIT_DELETE, L"&Delete", L"Del"),
+                   menuItem(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A"),
+                   menuItem(ID_EDIT_RENAME, L"Re&name location", L"F2")};
+    MenuModel view;
+    for (const char* id : {"view.hd2", "view.hd", "view.sd", "view.carbot"}) menuCommand(view, id);
+    view.push_back(menuSeparator());
+    menuCommand(view, "view.locations");
+    menuCommand(view, "view.grid");
     {  // the grid's size (GitHub feedback #87)
-        HMENU sizes = CreatePopupMenu();
+        MenuModel sizes;
         for (int k = 0; k < int(std::size(kGridPresets)); ++k)
-            AppendMenuW(sizes, MF_STRING, UINT_PTR(ID_GRID_SIZE + k),
-                        (std::wstring(kGridPresets[k].name) + L" (" + std::to_wstring(kGridPresets[k].px) + L" pixels)").c_str());
-        AppendMenuW(sizes, MF_SEPARATOR, 0, nullptr);
-        AppendMenuW(sizes, MF_STRING, ID_GRID_CUSTOM, L"&Custom\x2026");
-        AppendMenuW(view, MF_POPUP, UINT_PTR(sizes), L"Grid si&ze");
+            sizes.push_back(menuItem(ID_GRID_SIZE + k, std::wstring(kGridPresets[k].name) + L" (" + std::to_wstring(kGridPresets[k].px) + L" pixels)"));
+        sizes.push_back(menuSeparator());
+        sizes.push_back(menuItem(ID_GRID_CUSTOM, L"&Custom\x2026"));
+        view.push_back(menuPopup(L"Grid si&ze", sizes));
     }
-    AppendMenuW(view, MF_STRING, ID_VIEW_TOWNS, L"Show town a&reas");
-    appendCommand(view, "view.ranges");
-    appendCommand(view, "view.minimap");
+    view.push_back(menuItem(ID_VIEW_TOWNS, L"Show town a&reas"));
+    menuCommand(view, "view.ranges");
+    menuCommand(view, "view.minimap");
     {  // the map's layers that show (GitHub feedback #117)
-        HMENU layers = CreatePopupMenu();
-        appendCommands(layers, "View/Layers");
-        AppendMenuW(layers, MF_STRING, ID_VIEW_LOCATIONS, L"&Locations");
-        AppendMenuW(view, MF_POPUP, UINT_PTR(layers), L"La&yers");
+        MenuModel layers;
+        menuCommands(layers, "View/Layers");
+        layers.push_back(menuItem(ID_VIEW_LOCATIONS, L"&Locations"));
+        view.push_back(menuPopup(L"La&yers", layers));
     }
-    AppendMenuW(view, MF_SEPARATOR, 0, nullptr);
-    for (const char* id : {"view.zoomIn", "view.zoomOut", "view.actualSize", "view.fit"}) appendCommand(view, id);
-    AppendMenuW(view, MF_STRING, ID_VIEW_LOG, L"&Log\tCtrl+L");
-    AppendMenuW(view, MF_STRING, ID_VIEW_TRIGCODE, L"Trigger &code pane");
+    view.push_back(menuSeparator());
+    for (const char* id : {"view.zoomIn", "view.zoomOut", "view.actualSize", "view.fit"}) menuCommand(view, id);
+    view.push_back(menuItem(ID_VIEW_LOG, L"&Log", L"Ctrl+L"));
+    view.push_back(menuItem(ID_VIEW_TRIGCODE, L"Trigger &code pane"));
 #ifndef NDEBUG  // the control kit is for developers: only in debug builds (the kit: datashot opens it in any build)
-    AppendMenuW(view, MF_STRING, ID_VIEW_KIT, L"Control &kit");
+    view.push_back(menuItem(ID_VIEW_KIT, L"Control &kit"));
 #endif
-    AppendMenuW(view, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(view, MF_STRING, ID_WS_MAP, L"&Map workspace\tCtrl+1");
-    AppendMenuW(view, MF_STRING, ID_WS_DATA, L"&Data workspace\tCtrl+2");
-    AppendMenuW(view, MF_STRING, ID_WS_TRIGGERS, L"&Triggers workspace\tCtrl+3");
-    AppendMenuW(view, MF_STRING, ID_WS_BRIEFING, L"&Briefing workspace");  // (Ctrl+n: the side bar's n-th item)
-    AppendMenuW(view, MF_STRING, ID_WS_FILES, L"&Assets workspace");
-    AppendMenuW(view, MF_STRING, ID_WS_PROJECT, L"&Project page");
-    appendCommands(mode, "Mode");
-    AppendMenuW(bar, MF_POPUP, UINT_PTR(file), L"&File");
-    AppendMenuW(bar, MF_POPUP, UINT_PTR(edit), L"&Edit");
-    AppendMenuW(bar, MF_POPUP, UINT_PTR(view), L"&View");
-    AppendMenuW(bar, MF_POPUP, UINT_PTR(mode), L"&Mode");
-    HMENU scenario = CreatePopupMenu();
-    AppendMenuW(scenario, MF_STRING, ID_SCEN_PROPS, L"&Map properties (title, size, tileset)\tCtrl+M");
-    AppendMenuW(scenario, MF_STRING, ID_SCEN_PLAYERS, L"&Players and forces\tCtrl+P");
-    AppendMenuW(scenario, MF_STRING, ID_SCEN_CLASSIC, L"Map &data (units, upgrades, technologies)");
-    AppendMenuW(scenario, MF_STRING, ID_SCEN_CLASSICTRIG, L"Classic &triggers");
-    AppendMenuW(scenario, MF_STRING, ID_SCEN_CHECK, L"&Check that StarCraft can start the map");
-    AppendMenuW(bar, MF_POPUP, UINT_PTR(scenario), L"&Scenario");
+    view.push_back(menuSeparator());
+    view.push_back(menuItem(ID_WS_MAP, L"&Map workspace", L"Ctrl+1"));
+    view.push_back(menuItem(ID_WS_DATA, L"&Data workspace", L"Ctrl+2"));
+    view.push_back(menuItem(ID_WS_TRIGGERS, L"&Triggers workspace", L"Ctrl+3"));
+    view.push_back(menuItem(ID_WS_BRIEFING, L"&Briefing workspace"));  // (Ctrl+n: the side bar's n-th item)
+    view.push_back(menuItem(ID_WS_FILES, L"&Assets workspace"));
+    view.push_back(menuItem(ID_WS_PROJECT, L"&Project page"));
+    MenuModel mode;
+    menuCommands(mode, "Mode");
+    MenuModel scenario{menuItem(ID_SCEN_PROPS, L"&Map properties (title, size, tileset)", L"Ctrl+M"),
+                       menuItem(ID_SCEN_PLAYERS, L"&Players and forces", L"Ctrl+P"),
+                       menuItem(ID_SCEN_CLASSIC, L"Map &data (units, upgrades, technologies)"),
+                       menuItem(ID_SCEN_CLASSICTRIG, L"Classic &triggers"),
+                       menuItem(ID_SCEN_CHECK, L"&Check that StarCraft can start the map")};
     // Options: the snap and placement rules of each kind (the same items for each; a rule that does not change is
     // grayed), the terrain copy, then the program options (the window).
-    HMENU options = CreatePopupMenu();
-    auto snapItems = [](HMENU m, int first) {
-        AppendMenuW(m, MF_STRING, UINT_PTR(first), L"&Do not snap");
-        AppendMenuW(m, MF_STRING, UINT_PTR(first + 1), L"Snap to &tiles (32 px)");
-        AppendMenuW(m, MF_STRING, UINT_PTR(first + 2), L"Snap to &half tiles (16 px)");
-        AppendMenuW(m, MF_STRING, UINT_PTR(first + 3), L"Snap to &quarter tiles (8 px)");
-        AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+    auto snapItems = [](int first) {
+        return MenuModel{menuItem(first, L"&Do not snap"), menuItem(first + 1, L"Snap to &tiles (32 px)"),
+                         menuItem(first + 2, L"Snap to &half tiles (16 px)"), menuItem(first + 3, L"Snap to &quarter tiles (8 px)"), menuSeparator()};
     };
-    auto placeItems = [](HMENU m, int fit, int nearest, int anywhere) {
-        AppendMenuW(m, MF_STRING, UINT_PTR(fit), L"Place &only where it fits");
-        AppendMenuW(m, MF_STRING, UINT_PTR(nearest), L"&Move to the nearest place where it fits");
-        AppendMenuW(m, MF_STRING, UINT_PTR(anywhere), L"Place &anywhere");
-        AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+    auto placeItems = [](int fit, int nearest, int anywhere) {
+        return MenuModel{menuItem(fit, L"Place &only where it fits"), menuItem(nearest, L"&Move to the nearest place where it fits"),
+                         menuItem(anywhere, L"Place &anywhere"), menuSeparator()};
     };
-    HMENU units = CreatePopupMenu(), doodads = CreatePopupMenu(), sprites = CreatePopupMenu(), locations = CreatePopupMenu();
-    snapItems(units, ID_SNAP_UNITS);
-    placeItems(units, ID_OPT_STRICT, ID_OPT_SNAPVALID, ID_OPT_ILLEGAL);
-    AppendMenuW(units, MF_STRING, ID_OPT_STACK, L"&Can be on top of others");
-    AppendMenuW(units, MF_STRING, ID_OPT_DRAGBACK, L"Dragged units go &back to the last place where they fit");
-    AppendMenuW(doodads, MF_STRING | MF_GRAYED | MF_CHECKED, ID_FIXED_DOODAD_SNAP, L"Snap to tiles (32 px): always, a doodad is made of tiles");
-    markMenuReason(doodads, ID_FIXED_DOODAD_SNAP);
-    AppendMenuW(doodads, MF_SEPARATOR, 0, nullptr);
-    placeItems(doodads, ID_DOODAD_FIT, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE);
-    AppendMenuW(doodads, MF_STRING | MF_GRAYED, ID_FIXED_DOODAD_STACK, L"Can be on top of others: no, a doodad replaces the tiles under it");
-    markMenuReason(doodads, ID_FIXED_DOODAD_STACK);
-    snapItems(sprites, ID_SNAP_SPRITES);
-    AppendMenuW(sprites, MF_STRING | MF_GRAYED | MF_CHECKED, ID_FIXED_SPRITE_PLACE, L"Place anywhere: always");
-    markMenuReason(sprites, ID_FIXED_SPRITE_PLACE);
-    AppendMenuW(sprites, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(sprites, MF_STRING | MF_GRAYED | MF_CHECKED, ID_FIXED_SPRITE_STACK, L"Can be on top of others: always");
-    markMenuReason(sprites, ID_FIXED_SPRITE_STACK);
-    snapItems(locations, ID_SNAP_LOCATIONS);
-    AppendMenuW(locations, MF_STRING | MF_GRAYED | MF_CHECKED, ID_FIXED_LOC_PLACE, L"Place anywhere: always");
-    markMenuReason(locations, ID_FIXED_LOC_PLACE);
-    AppendMenuW(locations, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(locations, MF_STRING | MF_GRAYED | MF_CHECKED, ID_FIXED_LOC_STACK, L"Can be on top of others: always");
-    markMenuReason(locations, ID_FIXED_LOC_STACK);
-    AppendMenuW(locations, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(locations, MF_STRING, ID_OPT_LOCWRAP, L"&Names in lines that fit in the location");
-    AppendMenuW(options, MF_POPUP, UINT_PTR(units), L"&Units");
-    AppendMenuW(options, MF_POPUP, UINT_PTR(doodads), L"&Doodads");
-    AppendMenuW(options, MF_POPUP, UINT_PTR(sprites), L"&Sprites");
-    AppendMenuW(options, MF_POPUP, UINT_PTR(locations), L"&Locations");
-    AppendMenuW(options, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(options, MF_STRING, ID_EDIT_TERRAINUNITS, L"Terrain copy includes u&nits");
-    AppendMenuW(options, MF_STRING, ID_EDIT_TERRAINDOODADS, L"Terrain copy includes d&oodads");
-    AppendMenuW(options, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(options, MF_STRING, ID_OPT_WINDOW, L"&Program options\x2026\tCtrl+,");
-    AppendMenuW(bar, MF_POPUP, UINT_PTR(options), L"&Options");
-    HMENU help = CreatePopupMenu();
-    AppendMenuW(help, MF_STRING, ID_HELP_FEEDBACK, L"Report &feedback\x2026");
-    AppendMenuW(help, MF_STRING, ID_HELP_ISSUE, L"Report an &issue on GitHub");
-    AppendMenuW(help, MF_STRING, ID_HELP_DISCORD, L"Join &Discord");
-    AppendMenuW(help, MF_STRING, ID_HELP_GITHUB, L"StarDraft 2 on &GitHub");
-    AppendMenuW(help, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(help, MF_STRING, ID_HELP_UPDATES, L"Check for &updates");
-    AppendMenuW(help, MF_STRING, ID_HELP_ABOUT, L"&About StarDraft 2");
+    auto append = [](MenuModel& to, MenuModel&& from) {
+        for (MenuItem& it : from) to.push_back(std::move(it));
+    };
+    MenuModel units, doodads, sprites, locations;
+    append(units, snapItems(ID_SNAP_UNITS));
+    append(units, placeItems(ID_OPT_STRICT, ID_OPT_SNAPVALID, ID_OPT_ILLEGAL));
+    units.push_back(menuItem(ID_OPT_STACK, L"&Can be on top of others"));
+    units.push_back(menuItem(ID_OPT_DRAGBACK, L"Dragged units go &back to the last place where they fit"));
+    doodads.push_back(menuItem(ID_FIXED_DOODAD_SNAP, L"Snap to tiles (32 px): always, a doodad is made of tiles", {}, true, true, true));
+    doodads.push_back(menuSeparator());
+    append(doodads, placeItems(ID_DOODAD_FIT, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE));
+    doodads.push_back(menuItem(ID_FIXED_DOODAD_STACK, L"Can be on top of others: no, a doodad replaces the tiles under it", {}, true, false, true));
+    append(sprites, snapItems(ID_SNAP_SPRITES));
+    sprites.push_back(menuItem(ID_FIXED_SPRITE_PLACE, L"Place anywhere: always", {}, true, true, true));
+    sprites.push_back(menuSeparator());
+    sprites.push_back(menuItem(ID_FIXED_SPRITE_STACK, L"Can be on top of others: always", {}, true, true, true));
+    append(locations, snapItems(ID_SNAP_LOCATIONS));
+    locations.push_back(menuItem(ID_FIXED_LOC_PLACE, L"Place anywhere: always", {}, true, true, true));
+    locations.push_back(menuSeparator());
+    locations.push_back(menuItem(ID_FIXED_LOC_STACK, L"Can be on top of others: always", {}, true, true, true));
+    locations.push_back(menuSeparator());
+    locations.push_back(menuItem(ID_OPT_LOCWRAP, L"&Names in lines that fit in the location"));
+    MenuModel options{menuPopup(L"&Units", units),
+                      menuPopup(L"&Doodads", doodads),
+                      menuPopup(L"&Sprites", sprites),
+                      menuPopup(L"&Locations", locations),
+                      menuSeparator(),
+                      menuItem(ID_EDIT_TERRAINUNITS, L"Terrain copy includes u&nits"),
+                      menuItem(ID_EDIT_TERRAINDOODADS, L"Terrain copy includes d&oodads"),
+                      menuSeparator(),
+                      menuItem(ID_OPT_WINDOW, L"&Program options\x2026", L"Ctrl+,")};
+    MenuModel help{menuItem(ID_HELP_FEEDBACK, L"Report &feedback\x2026"),
+                   menuItem(ID_HELP_ISSUE, L"Report an &issue on GitHub"),
+                   menuItem(ID_HELP_DISCORD, L"Join &Discord"),
+                   menuItem(ID_HELP_GITHUB, L"StarDraft 2 on &GitHub"),
+                   menuSeparator(),
+                   menuItem(ID_HELP_UPDATES, L"Check for &updates"),
+                   menuItem(ID_HELP_ABOUT, L"&About StarDraft 2")};
+    return MenuModel{menuPopup(L"&File", file), menuPopup(L"&Edit", edit), menuPopup(L"&View", view), menuPopup(L"&Mode", mode),
+                     menuPopup(L"&Scenario", scenario), menuPopup(L"&Options", options), menuPopup(L"&Help", help)};
+}
+
+// The Win32 menu of the model: the bar (its popups) or a popup's items. The recent lists are filled after this
+// (refreshRecentMenus); a grayed item with a reason is marked with its reason (markMenuReason).
+HMENU toHmenu(const MenuModel& items, bool bar) {
+    HMENU m = bar ? CreateMenu() : CreatePopupMenu();
+    for (const MenuItem& it : items) {
+        switch (it.kind) {
+        case MenuItem::Kind::Separator: AppendMenuW(m, MF_SEPARATOR, 0, nullptr); break;
+        case MenuItem::Kind::Popup: {
+            HMENU sub = toHmenu(it.items, false);
+            if (it.recent == "maps") gRecentMapsMenu = sub;
+            else if (it.recent == "projects") gRecentProjectsMenu = sub;
+            AppendMenuW(m, MF_POPUP, UINT_PTR(sub), it.label.c_str());
+            break;
+        }
+        case MenuItem::Kind::Command: {
+            const std::wstring text = it.label + (it.shortcut.empty() ? L"" : L"\t" + it.shortcut);
+            AppendMenuW(m, MF_STRING | (it.grayed ? MF_GRAYED : 0) | (it.checked ? MF_CHECKED : 0), UINT_PTR(it.id), text.c_str());
+            if (it.reason) markMenuReason(m, UINT(it.id));
+            break;
+        }
+        }
+    }
+    return m;
+}
+
+HMENU buildMenu() {
+    HMENU bar = toHmenu(buildMenuModel(), true);
+    refreshRecentMenus();
     {
         static HBITMAP glyph = feedbackBitmap(GetSystemMetricsForDpi(SM_CYMENUCHECK, UINT(app.dpi)));
         MENUITEMINFOW mi{sizeof mi};
         mi.fMask = MIIM_BITMAP, mi.hbmpItem = glyph;
-        SetMenuItemInfoW(help, ID_HELP_FEEDBACK, FALSE, &mi);
+        SetMenuItemInfoW(bar, ID_HELP_FEEDBACK, FALSE, &mi);  // by command: found in any submenu
     }
-    AppendMenuW(bar, MF_POPUP, UINT_PTR(help), L"&Help");
     setMenuIcons(bar);
     return bar;
+}
+
+// The menu tree of a menu (datashot menutree:): one line per item, its depth, id, state flags, reason data and text.
+void dumpMenuTree(std::ostream& o, HMENU m, int depth) {
+    for (int i = 0; m && i < GetMenuItemCount(m); ++i) {
+        wchar_t text[512] = {};
+        GetMenuStringW(m, UINT(i), text, int(std::size(text)), MF_BYPOSITION);
+        MENUITEMINFOW mi{sizeof mi};
+        mi.fMask = MIIM_DATA;
+        GetMenuItemInfoW(m, UINT(i), TRUE, &mi);
+        const UINT state = GetMenuState(m, UINT(i), MF_BYPOSITION);
+        const int id = int(GetMenuItemID(m, UINT(i)));
+        o << std::string(size_t(depth) * 2, ' ') << "id " << id << " state 0x" << std::hex << state << std::dec << " data " << mi.dwItemData
+          << " text " << narrow(text) << "\n";
+        if (HMENU sub = GetSubMenu(m, UINT(i))) dumpMenuTree(o, sub, depth + 1);
+    }
 }
 
 // The Locations list with no rows (a search that agrees with no location): only None, dim, where the first row goes.
@@ -23891,6 +23952,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 for (const auto& line : menu_e2e::run(app.main)) o << line << "\n";
                 continue;
             }
+            if (s == "menutree:") {  // menutree.txt: the main window's menu tree (texts, ids, states), to compare two builds
+                std::ofstream o(fs::path(datashots) / "menutree.txt", std::ios::binary);
+                dumpMenuTree(o, GetMenu(app.main), 0);
+                continue;
+            }
             if (s.rfind("dpi:", 0) == 0) {  // dpi:<n>: as Windows tells a window that moved to a screen of that DPI (144: 150%)
                 const int d = std::clamp(std::atoi(s.c_str() + 4), 96, 288);
                 RECT wr;
@@ -26112,13 +26178,13 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 capture(fs::path(datashots) / "about.png", gAbout.wnd);
                 // The EUD tools' links: euddraft and eudplib, then the repository and Discord; the mouse underlines one.
                 std::ofstream o(fs::path(datashots) / "about.txt");
-                const bool four = gAbout.links.size() == 4 && gAbout.links[0].url == L"https://github.com/armoha/euddraft" &&
-                                  gAbout.links[1].url == L"https://github.com/armoha/eudplib";
+                const bool four = gAbout.view.links.size() == 4 && gAbout.view.links[0].url == L"https://github.com/armoha/euddraft" &&
+                                  gAbout.view.links[1].url == L"https://github.com/armoha/eudplib";
                 o << "links: euddraft and eudplib first, 4 in all " << (four ? "yes" : "NO") << "\n";
                 if (four) {
-                    const RECT& r = gAbout.links[1].rc;
+                    const auto& r = gAbout.view.links[1].rc;
                     SendMessageW(gAbout.wnd, WM_MOUSEMOVE, 0, MAKELPARAM((r.left + r.right) / 2, (r.top + r.bottom) / 2));
-                    o << "the mouse on eudplib makes it the hot link " << (gAbout.hot == 1 ? "yes" : "NO") << "\n";
+                    o << "the mouse on eudplib makes it the hot link " << (gAbout.view.hot == 1 ? "yes" : "NO") << "\n";
                     UpdateWindow(gAbout.wnd);  // (no pump: the real mouse is elsewhere, and its leave message clears it)
                     capture(fs::path(datashots) / "about_hot.png", gAbout.wnd);
                 }
