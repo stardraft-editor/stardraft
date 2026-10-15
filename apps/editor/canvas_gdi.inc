@@ -203,6 +203,12 @@ public:
     Font setFont(Font f) override { return Font{SelectObject(dc_, HGDIOBJ(const_cast<void*>(f.handle)))}; }
 
     void icon(Rect r, int icon, Color c, int px) override { uiIcon(dc_, toRECT(r), UiIcon(icon), c, px); }
+    void resourceIcon(Rect r, int resourceId, int px) override {
+        static std::map<std::pair<int, int>, HICON> icons;  // loaded once per size and kept (the program's icon)
+        HICON& ic = icons[{resourceId, px}];
+        if (!ic) ic = HICON(LoadImageW(app.inst, MAKEINTRESOURCEW(resourceId), IMAGE_ICON, px, px, LR_DEFAULTCOLOR));
+        if (ic) DrawIconEx(dc_, r.left, r.top, ic, px, px, 0, nullptr, DI_NORMAL);
+    }
     void fitted(const Image& img, Rect box) override {
         UnitPalette::Bitmap b;
         b.bmp = HBITMAP(const_cast<void*>(img.handle)), b.w = img.w, b.h = img.h;
@@ -218,8 +224,8 @@ private:
         return ExtCreatePen(PS_GEOMETRIC | penStyle(style) | PS_ENDCAP_FLAT, DWORD(width), &lb, 0, nullptr);
     }
     static HFONT gdiFont(const stardraft::draw::FontDesc& d) {
-        static std::map<std::tuple<int, int, int, bool, bool, bool>, HFONT> fonts;
-        HFONT& f = fonts[{int(d.face), d.px, scale(100), d.bold, d.italic, d.underline}];
+        static std::map<std::tuple<int, int, int, bool, bool, bool, int>, HFONT> fonts;
+        HFONT& f = fonts[{int(d.face), d.px, scale(100), d.bold, d.italic, d.underline, d.weight}];
         if (!f) {
             LOGFONTW lf{};
             if (d.face == stardraft::draw::Face::Glyphs) {
@@ -230,6 +236,7 @@ private:
                 if (d.px) lf.lfHeight = -d.px;
             }
             if (d.bold) lf.lfWeight = FW_BOLD;
+            if (d.weight) lf.lfWeight = LONG(d.weight);
             lf.lfItalic = d.italic, lf.lfUnderline = d.underline;
             f = CreateFontIndirectW(&lf);
         }
