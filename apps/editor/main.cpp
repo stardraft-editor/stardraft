@@ -21073,6 +21073,24 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 UpdateWindow(gBrief.wnd);
                 continue;
             }
+            if (s == "projectdlg:") {  // projectdlg_<dark|light>.png: File > New EUD project's window, then Cancel
+                static fs::path shot;
+                gProjectHook = [](HWND w) {
+                    for (int i = 0; i < 3; ++i) pump();
+                    capture(shot, w);
+                    PostMessageW(w, WM_CLOSE, 0, 0);
+                };
+                const bool wasLight = gLightTheme;
+                for (int light = 0; light < 2; ++light) {
+                    applyTheme(light != 0, gAccentIndex);
+                    for (int i = 0; i < 5; ++i) pump();
+                    shot = fs::path(datashots) / (std::string("projectdlg_") + (light ? "light" : "dark") + ".png");
+                    showProjectDialog();
+                }
+                applyTheme(wasLight, gAccentIndex);
+                gProjectHook = nullptr;
+                continue;
+            }
             if (s == "msgbox:") {
                 // The message box: Yes/No/Cancel with each icon, dark and light (msgbox_<icon>_<theme>.png), and the
                 // keys that close it (msgbox.txt: Esc, Enter, the access keys, MB_DEFBUTTON2).
