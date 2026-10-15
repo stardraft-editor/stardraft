@@ -20,6 +20,7 @@ struct AboutBox final : stardraft::draw::View {
         using stardraft::draw::FontDesc;
         using stardraft::draw::Rect;
         using stardraft::draw::kCenter;
+        using stardraft::draw::kLeft;
         using stardraft::draw::kMiddle;
         const int w = width(), h = height();
         c.fill({0, 0, w, h}, kPanel);
@@ -107,13 +108,13 @@ struct AboutBox final : stardraft::draw::View {
         for (size_t k = 0; k < 2; ++k) {
             const size_t i = first + k;
             FontDesc ud;
-            ud.underline = hot == int(i);
+            ud.underline = hot == int(k);
             const Font of = c.setFont(c.font(ud));
             const int tw = c.measure(labels[k]);
             const Rect r{(w - tw) / 2, y, (w + tw) / 2, y + scale(24)};
             c.text(r, labels[k], kAccent, kCenter | kMiddle);
             c.setFont(of);
-            links[i].rc = r;
+            links[k].rc = r;
             y += scale(26);
         }
 

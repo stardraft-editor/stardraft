@@ -136,6 +136,9 @@ public:
     // ends what the capture was for.
     virtual void captureLost() {}
     virtual void resized() {}
+    // The window's own vertical scroll bar was used (a view window with WS_VSCROLL): `code` is the SB_* request, `pos` the
+    // bar's place, `track` where a dragged thumb is, `page` its page size. true: the view handled it.
+    virtual bool vscroll(int /*code*/, int /*pos*/, int /*track*/, int /*page*/) { return false; }
 
     // The host that shows the view (the root's), and the view's place.
     Host* host() const { return parent_ ? parent_->host() : host_; }
