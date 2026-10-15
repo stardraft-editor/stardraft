@@ -917,11 +917,12 @@ void setMode(Mode m) {
 
 // --- Status ----------------------------------------------------------------------------------------
 
+void invalidateStatus();  // (the status bar's view, below)
+
 void setStatusPart(int i, const wchar_t* text) {
     if (app.statusText[i] == text) return;
     app.statusText[i] = text;
-    SendMessageW(app.status, SB_SETTEXTW, WPARAM(i | SBT_OWNERDRAW), LPARAM(i));
-    InvalidateRect(app.status, nullptr, FALSE);  // the bar is drawn in full (paintStatusBar)
+    invalidateStatus();  // the bar is drawn in full (StatusView::paint)
 }
 
 void updateStatus() {
@@ -17441,7 +17442,7 @@ void setWorkspace(Workspace w) {
         mapPageClose();
         if (mapPageKind(w) >= 0) w = Workspace::Map;
     }
-    if (app.status) InvalidateRect(app.status, nullptr, FALSE);  // the map's parts show in Map only
+    invalidateStatus();  // the map's parts show in Map only
     if (w == Workspace::Data) dataLoadForProject(), dataRebuildList();
     else dataCommitEdit();
     gWorkspace = w;
@@ -18536,69 +18537,57 @@ void drawOwnerButton(const DRAWITEMSTRUCT* d) {
     SelectObject(d->hDC, of);
 }
 
-void drawStatusPart(const DRAWITEMSTRUCT* d) {
-    FillRect(d->hDC, &d->rcItem, app.bgBrush);
-    SetBkMode(d->hDC, TRANSPARENT);
-    SetTextColor(d->hDC, kText);
-    HGDIOBJ of = SelectObject(d->hDC, app.font);
-    RECT r = d->rcItem;
-    r.left += 4;
-    int i = int(d->itemData);
-    if (i >= 0 && i < 6) DrawTextW(d->hDC, app.statusText[i].c_str(), -1, &r, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    SelectObject(d->hDC, of);
-}
-
-// The status bar drawn in full, flat: the panel color, a hairline on top and between the parts, no bevels. The map's
-// parts (mode and tool, the mouse's place, the zoom, the selection, frames) show in the Map workspace only; the
-// message shows only when there is no log line (which shows it already).
-void paintStatusBar(HWND w) {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(w, &ps);
-    RECT rc;
-    GetClientRect(w, &rc);
-    HBRUSH bg = CreateSolidBrush(kPanel);
-    FillRect(dc, &rc, bg);
-    DeleteObject(bg);
-    fillAlpha(dc, {rc.left, rc.top, rc.right, rc.top + 1}, kBorder, 255);
-    SetBkMode(dc, TRANSPARENT);
-    HGDIOBJ of = SelectObject(dc, app.font);
-    const bool map = gWorkspace == Workspace::Map && !activePage();  // (a page: Start, the map pages: no map parts)
-    const int pad = scale(8);
-    auto part = [&](RECT r, int i, COLORREF c) {
-        RECT t{r.left + pad, r.top + 1, r.right - pad, r.bottom};
-        SetTextColor(dc, c);
-        DrawTextW(dc, app.statusText[i].c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-    };
-    auto sep = [&](int x) { fillAlpha(dc, {x, rc.top + scale(4), x + 1, rc.bottom - scale(3)}, kBorder, 255); };
-    int x = rc.left + scale(4), right = rc.right - scale(16);  // room for the size grip
-    if (map) {
-        const int mins[4] = {150, 200, 110, 100};
-        for (int i = 0; i < 4; ++i) {
-            const int pw = std::max(scale(mins[i]), ui::textWidth(dc, app.statusText[i]) + 2 * pad);
-            part({x, rc.top, x + pw, rc.bottom}, i, i == 0 ? kText : kDim);
-            x += pw;
-            sep(x);
-        }
+// The status bar as a view: a flat strip drawn in full, the panel color, a hairline on top and between the parts, no
+// bevels. The map's parts (mode and tool, the mouse's place, the zoom, the selection, frames) show in the Map workspace
+// only; the message shows only when there is no log line (which shows it already). The corner keeps room for the size
+// grip, which the bar does not draw: over it, the window resizes from the corner (sizeGrip).
+struct StatusView final : stardraft::draw::View {
+    void paint(stardraft::draw::Canvas& c) override {
+        using stardraft::draw::Rect;
+        using stardraft::draw::kEllipsis;
+        using stardraft::draw::kMiddle;
+        const int w = width(), h = height();
+        c.fill({0, 0, w, h}, kPanel);
+        c.fill({0, 0, w, 1}, kBorder);
+        const bool map = gWorkspace == Workspace::Map && !activePage();  // (a page: Start, the map pages: no map parts)
+        const int pad = scale(8);
+        auto part = [&](int l, int r, int i, COLORREF col) { c.text({l + pad, 1, r - pad, h}, app.statusText[i], col, kMiddle | kEllipsis); };
+        auto sep = [&](int x) { c.fill({x, scale(4), x + 1, h - scale(3)}, kBorder); };
+        int x = scale(4), right = w - scale(16);  // room for the size grip
+        if (map) {
+            const int mins[4] = {150, 200, 110, 100};
+            for (int i = 0; i < 4; ++i) {
+                const int pw = std::max(scale(mins[i]), c.measure(app.statusText[i]) + 2 * pad);
+                part(x, x + pw, i, i == 0 ? kText : kDim);
+                x += pw;
+                sep(x);
+            }
 #ifndef NDEBUG  // frames and sprites: for developers (debug builds), not in the release's status bar
-        const int fw = std::max(scale(130), ui::textWidth(dc, app.statusText[5]) + 2 * pad);
-        if (right - fw > x) {
-            part({right - fw, rc.top, right, rc.bottom}, 5, kDim);
-            sep(right - fw);
-            right -= fw;
-        }
+            const int fw = std::max(scale(130), c.measure(app.statusText[5]) + 2 * pad);
+            if (right - fw > x) {
+                part(right - fw, right, 5, kDim);
+                sep(right - fw);
+                right -= fw;
+            }
 #endif
+        }
+        if (!gLog.wnd && right > x) part(x, right, 4, kText);
     }
-    if (!gLog.wnd && right > x) part({x, rc.top, right, rc.bottom}, 4, kText);
+    bool sizeGrip(stardraft::draw::Point p) override { return p.x >= width() - scale(16) && p.y >= height() - scale(16); }
+};
+StatusView gStatus;
+
+void invalidateStatus() { gStatus.invalidate(); }
+
+// The status bar's height: the message font's line and a frame around it (what the bar had).
+int statusBarHeight() {
+    HDC dc = GetDC(nullptr);
+    HGDIOBJ of = SelectObject(dc, app.font);
+    TEXTMETRICW tm{};
+    GetTextMetricsW(dc, &tm);
     SelectObject(dc, of);
-    EndPaint(w, &ps);
-}
-LRESULT CALLBACK statusBarProc(HWND w, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
-    switch (msg) {
-    case WM_PAINT: paintStatusBar(w); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_NCDESTROY: RemoveWindowSubclass(w, statusBarProc, 1); break;
-    }
-    return DefSubclassProc(w, msg, wp, lp);
+    ReleaseDC(nullptr, dc);
+    return tm.tmHeight + scale(8);
 }
 
 // --- The tool strip ----------------------------------------------------------------------------------------------
@@ -19333,10 +19322,8 @@ TopBarView gTopBarView;
 void layout() {
     RECT rc;
     GetClientRect(app.main, &rc);
-    SendMessageW(app.status, WM_SIZE, 0, 0);
-    RECT sr;
-    GetWindowRect(app.status, &sr);
-    int statusH = sr.bottom - sr.top;
+    const int statusH = app.status ? statusBarHeight() : 0;
+    if (app.status) MoveWindow(app.status, 0, int(rc.bottom) - statusH, int(rc.right), statusH, TRUE);  // along the bottom
     int pad = scale(6), rowH = scale(24);
     const int logH = logPanelHeight();
     int h = rc.bottom - statusH - logH;
@@ -19472,8 +19459,6 @@ void layout() {
     MoveWindow(app.view, viewL, mtop, std::max(1, viewR - viewL), std::max(1, h - mtop), TRUE);
     tilesSync();  // the Tiles panel goes where the palette is
     InvalidateRect(app.main, nullptr, TRUE);
-    int parts[6] = {scale(90), scale(260), scale(360), scale(460), std::max(scale(470), int(rc.right) - scale(170)), -1};
-    SendMessageW(app.status, SB_SETPARTS, 6, LPARAM(parts));
     app.dirty = true;
     if (activePage()) pageSync();  // the page over the area again
 }
@@ -19939,8 +19924,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             SelectObject(dc, of);
             return TRUE;
         }
-        if (d->hwndItem == app.status) drawStatusPart(d);
-        else if (d->CtlID >= UINT(IDC_MODEBTN) && d->CtlID < UINT(IDC_MODEBTN + kModeCount)) drawOwnerButton(d);
+        if (d->CtlID >= UINT(IDC_MODEBTN) && d->CtlID < UINT(IDC_MODEBTN + kModeCount)) drawOwnerButton(d);
         return TRUE;
     }
     case WM_CREATE: {
@@ -20005,8 +19989,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         gPal2Label = CreateWindowExW(0, WC_STATICW, L"", WS_CHILD | SS_NOPREFIX | SS_CENTERIMAGE, 0, 0, 1, 1, hwnd, nullptr, app.inst, nullptr);
         SendMessageW(gPal2Label, WM_SETFONT, WPARAM(app.font), TRUE);
         createWorkspaces(hwnd);
-        app.status = CreateWindowExW(0, STATUSCLASSNAMEW, L"", WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP, 0, 0, 0, 0, hwnd,
-                                     HMENU(IDC_STATUS), app.inst, nullptr);
+        app.status = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd, HMENU(IDC_STATUS), app.inst, &gStatus);
         app.minimap = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, hwnd, nullptr, app.inst, &gMinimap);
         app.tabs = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, hwnd, HMENU(IDC_TABS), app.inst, &gTabs);
         gTopBar = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0, 0, 1, 1, hwnd, nullptr, app.inst, &gTopBarView);
@@ -20024,9 +20007,6 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         darkControl(gPal2.wnd, L"DarkMode_Explorer");
         SetPropW(app.list, L"sdNoFrame", HANDLE(1));
         darkControl(app.list, L"DarkMode_Explorer");
-        SetWindowTheme(app.status, L"", L"");
-        SendMessageW(app.status, SB_SETBKCOLOR, 0, LPARAM(kPanel));
-        SetWindowSubclass(app.status, statusBarProc, 1, 0);  // flat, drawn in full
         return 0;
     }
     case WM_SIZE:

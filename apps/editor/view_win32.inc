@@ -329,9 +329,21 @@ public:
         case WM_MOUSEACTIVATE:
             if (kind == stardraft::draw::WindowKind::Tooltip) return result = MA_NOACTIVATE, true;
             return false;
-        case WM_NCHITTEST:
+        case WM_NCHITTEST: {
             if (kind == stardraft::draw::WindowKind::Tooltip) return result = HTTRANSPARENT, true;
+            POINT p{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            ScreenToClient(w, &p);
+            // The grip resizes the top window (not this child): the click is taken in WM_NCLBUTTONDOWN below. A maximized
+            // window has no grip (as the system status bar had none).
+            if (view_.sizeGrip({p.x, p.y}) && !IsZoomed(GetAncestor(w, GA_ROOT))) return result = HTBOTTOMRIGHT, true;
             return false;
+        }
+        case WM_NCLBUTTONDOWN:
+            if (wp != HTBOTTOMRIGHT) return false;
+            // What the default procedure does for a window's own corner: the top window's size loop, from its corner.
+            SendMessageW(GetAncestor(w, GA_ROOT), WM_SYSCOMMAND, SC_SIZE + WMSZ_BOTTOMRIGHT, lp);
+            result = 0;
+            return true;
         }
         return false;
     }
