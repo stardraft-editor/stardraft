@@ -246,6 +246,7 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/views_toolstrip.inc"  // the tool strip (ToolStripView, the strip's rules; the instance is gToolStripView)
 #include "core/views_panel_tabs.inc"  // the side panels' tabs (PanelTabsView; the instances are gPanelTabsView below)
 #include "core/map_edit_commands.inc"  // the Map's Edit and Options commands, the player and tool keys, Close (commandMapEdit, kProgramKeys)
+#include "core/app_settings.inc"  // the menus' options in the settings file (appSettings, saveSettingsTable, loadSettingsTable)
 #include "core/startup.inc"  // the start-up marks (startMark, gStartMarks, gOpenMs)
 #include "core/names.inc"  // the names of the palette's entries and of a .dat's entries (paletteItemName, entryName)
 #include "core/palette_items.inc"  // the palette's items: units, terrains, doodads and sprites (paletteItems, paletteUnits)
@@ -1233,17 +1234,15 @@ template <class F> void forEachMenuCommand(HMENU m, const F& f) {
 void updateMenus() {
     HMENU m = GetMenu(app.main);
     if (!m) return;
-    bool open = app.ed && app.ed->isOpen();
     // The commands that act on a map: enabled with a document, gray on a page tab (the start page, the New page).
     // The rules below may gray some of them again; the last step grays all of them again on a page tab.
     const bool doc = docOpen();
     forEachMenuCommand(m, [&](int id) {
         if (mapCommand(id)) EnableMenuItem(m, UINT(id), MF_BYCOMMAND | (doc ? MF_ENABLED : MF_GRAYED));
     });
-    const bool canUndo = gWorkspace == Workspace::Triggers ? trigCanUndo(false) : gWorkspace == Workspace::Data ? dataCanUndo(false) : open && app.ed->canUndo();
-    const bool canRedo = gWorkspace == Workspace::Triggers ? trigCanUndo(true) : gWorkspace == Workspace::Data ? dataCanUndo(true) : open && app.ed->canRedo();
-    EnableMenuItem(m, ID_EDIT_UNDO, canUndo ? MF_ENABLED : MF_GRAYED);
-    EnableMenuItem(m, ID_EDIT_REDO, canRedo ? MF_ENABLED : MF_GRAYED);
+    // Undo and Redo: a step to undo or redo in the workspace (core/map_edit_commands.inc: mapMenuGrayed).
+    EnableMenuItem(m, ID_EDIT_UNDO, mapMenuGrayed(ID_EDIT_UNDO) ? MF_GRAYED : MF_ENABLED);
+    EnableMenuItem(m, ID_EDIT_REDO, mapMenuGrayed(ID_EDIT_REDO) ? MF_GRAYED : MF_ENABLED);
     // In Triggers, Edit's copy / paste act on triggers and blocks (a grayed item would also swallow Ctrl+V).
     const bool triggers = gWorkspace == Workspace::Triggers || gWorkspace == Workspace::Briefing, data = gWorkspace == Workspace::Data;
     // Paste: with a copy of any kind (core/map_edit_commands.inc: mapMenuGrayed).
@@ -1304,79 +1303,23 @@ void dataCopySelected();
 void dataPasteSelected();
 
 void mapPageShowPlayers();  // map_pages.inc: the Map properties page, scrolled to players and forces
-// The options of the menus (View, Options, Edit) and the palette's view: kept in HKCU\Software\StarDraft\Settings,
-// so they stay after StarDraft starts again, also after an update (GitHub feedback #122). Saved after each command
-// (only what changed), read at the start; tests use the defaults and save nothing.
-struct AppSetting {
-    const wchar_t* name;
-    int (*get)();
-    void (*set)(int);
-};
-const std::vector<AppSetting>& appSettings() {
-#define SD_SETTING(key, expr, type) {L"" key, [] { return int(expr); }, [](int v) { expr = type(v); }}
-    static const std::vector<AppSetting> all = {
-        SD_SETTING("Quality", app.quality, GraphicsQuality),
-        SD_SETTING("Carbot", app.carbot, bool),
-        SD_SETTING("ShowLocations", app.showLocations, bool),
-        SD_SETTING("ShowGrid", app.showGrid, bool),
-        SD_SETTING("Correction", app.correction, bool),
-        SD_SETTING("AllowIllegalUnits", app.allowIllegalUnits, bool),
-        SD_SETTING("AllowStacking", app.allowStacking, bool),
-        SD_SETTING("DragSnapBack", app.dragSnapBack, bool),
-        SD_SETTING("Animate", app.animate, bool),
-        SD_SETTING("DoodadCheck", app.doodadCheck, bool),
-        SD_SETTING("DoodadNearest", app.doodadNearest, bool),
-        SD_SETTING("UnitGrid", app.unitGrid, int),
-        SD_SETTING("SpriteGrid", app.spriteGrid, int),
-        SD_SETTING("LocationGrid", app.locationGrid, int),
-        SD_SETTING("LocationWrap", app.locationWrap, bool),
-        SD_SETTING("CopyUnitsWithTerrain", app.copyUnitsWithTerrain, bool),
-        SD_SETTING("CopyDoodadsWithTerrain", app.copyDoodadsWithTerrain, bool),
-        SD_SETTING("BrushShape", app.brushShape, Brush::Shape),
-        SD_SETTING("ShowRanges", gShowRanges, bool),
-        SD_SETTING("LayerTerrain", gLayers.terrain, bool),
-        SD_SETTING("LayerDoodads", gLayers.doodads, bool),
-        SD_SETTING("LayerSprites", gLayers.sprites, bool),
-        SD_SETTING("LayerUnits", gLayers.units, bool),
-    };
-#undef SD_SETTING
-    return all;
-}
+// The options of the menus and the palette's view (the table and its file: core/app_settings.inc), with the palette's
+// views of each mode (PaletteViews).
 int paletteViewBits() {
     int bits = 0;
     for (int m = 0; m < kModeCount; ++m) bits |= (gViewByMode[m].grid | gViewByMode[m].sprites << 1 | gViewByMode[m].large << 2) << (m * 3);
     return bits;
 }
-std::map<std::wstring, int> gSavedSettings;  // what the registry has (written only when a value differs)
-bool gSettingsOff = false;                   // tests and screenshot runs: the defaults, and nothing saved
 void saveAppSettings() {
-    if (gSelfTest || gSettingsOff) return;
-    auto put = [&](const wchar_t* name, int v) {
-        auto it = gSavedSettings.find(name);
-        if (it != gSavedSettings.end() && it->second == v) return;
-        prefs::setNumber(std::wstring(L"Settings/") + name, v);
-        gSavedSettings[name] = v;
-    };
-    for (const AppSetting& a : appSettings()) put(a.name, a.get());
-    put(L"PaletteViews", paletteViewBits());
+    if (saveSettingsTable()) putAppSetting(L"PaletteViews", paletteViewBits());
 }
 void loadAppSettings() {
-    if (gSelfTest || gSettingsOff) return;
-    auto get = [](const wchar_t* name, int& v) {
-        int64_t n = 0;
-        if (!prefs::number(std::wstring(L"Settings/") + name, n)) return false;
-        v = int(uint32_t(n));  // (a registry DWORD as it was read before: an int)
-        return true;
-    };
-    for (const AppSetting& a : appSettings())
-        if (int v = 0; get(a.name, v)) a.set(v), gSavedSettings[a.name] = v;
-    if (int v = 0; get(L"PaletteViews", v)) {
+    if (!loadSettingsTable()) return;
+    if (int v = 0; getAppSetting(L"PaletteViews", v))
         for (int m = 0; m < kModeCount; ++m) {
             const int b = v >> (m * 3);
             gViewByMode[m] = {(b & 1) != 0, (b & 2) != 0, (b & 4) != 0};
         }
-        gSavedSettings[L"PaletteViews"] = v;
-    }
 }
 
 void commandBody(int id);
@@ -5573,7 +5516,7 @@ bool trigAskDelete(const std::wstring& question) {
 
 
 
-bool dataCanUndo(bool redo) { return gData.history.canUndo(redo); }
+// (dataCanUndo: core/data_model.inc)
 
 // Undo and redo in the Data workspace: the table as it was, at the entry that changed.
 bool dataUndo(bool redo) {

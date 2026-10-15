@@ -64,6 +64,8 @@ CASES += [
     ("map-scene-select", ["--mode", "units", "--key", "Ctrl+A", "--key", "+", "--key", "+", "--key", "+", "--key", "+"], "map"),
     # A project open.
     ("project-scriptpreview", ["--workspace", "project", "--scriptpreview"], "project"),
+    # A trigger whose blocks name units: the units' pictures in the values (the second trigger of the second group).
+    ("project-trig-icons", ["--workspace", "triggers", "--trig", "1:1"], "project"),
 ]
 # Not in the program yet (add them to CASES when main_sdl.cpp reads them): --dialog about, message, tip, valuepop.
 

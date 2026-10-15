@@ -249,6 +249,11 @@ void rebuildMenus() {
 
 // The frame hook's part: the menus are made again when they changed and none is open (an open menu keeps its items).
 void menusIfDirty() {
+    // Undo, Redo and Paste follow the edits (an edit does not say that the menus changed): the menus are made again
+    // when one of them goes gray or comes back.
+    static int grayed = -1;
+    const int now = int(mapMenuGrayed(ID_EDIT_UNDO)) | int(mapMenuGrayed(ID_EDIT_REDO)) << 1 | int(mapMenuGrayed(ID_EDIT_PASTE)) << 2;
+    if (now != grayed) grayed = now, gMenusDirty = true;
     if (gMenusDirty && gRoot && gRoot->menus.openIndex() < 0) rebuildMenus();
 }
 
@@ -391,7 +396,12 @@ void confirmReplace(std::function<void()> then) {
 // then the commands the core leaves to the shell.
 bool sdlProjectCommand(int id);  // (sdl_project.inc: Open project, New EUD project, Add a script, the folder, the settings)
 #include "message_box.h"  // apps/kit: Scenario > Check's box (kit::messageBox)
+void commandSdl(int id);
 void command(int id) {
+    commandSdl(id);
+    saveSettingsTable();  // an option the command changed stays for the next start (core/app_settings.inc)
+}
+void commandSdl(int id) {
     if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax))
         return confirmReplace([id] { commandPortable(gState, id); });
     if (commandPortable(gState, id)) return;

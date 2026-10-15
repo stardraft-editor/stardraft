@@ -284,6 +284,8 @@ int main(int argc, char** argv) {
             gStartView.dataError = widen(gDataError);  // the start page keeps the reason (the status bar's text goes)
         }
         loadDock();  // the dock layout in the settings (core/dock_prefs.inc), as the Windows program at its start
+        gSettingsOff = gSilent;  // (snapshots and tests: the defaults, and nothing saved)
+        if (loadSettingsTable()) shellRendererGraphics(gState.quality, gState.carbot);  // the menus' options (core/app_settings.inc)
         loadLanguageSdl(langArg);  // the language (sdl_options.inc): the canvas translates with it from the first frame
         loadThemeSdl(themeArg, accentArg);  // the theme and the accent in the settings
         if (previewArg) gDock.scriptPreview = true;
