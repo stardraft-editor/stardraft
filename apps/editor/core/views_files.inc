@@ -69,7 +69,7 @@ public:
     bool focusable() const override { return true; }
     bool vscroll(int code, int pos, int track, int page) override;
     // The window's vertical bar: the content's last line, the page's height and the position.
-    bool scrollBar(int& range, int& page, int& pos) override {
+    bool windowScrollBar(int& range, int& page, int& pos) override {
         range = std::max(0, contentH_ - 1), page = height(), pos = scroll_;
         return true;
     }

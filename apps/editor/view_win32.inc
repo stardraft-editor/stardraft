@@ -188,7 +188,7 @@ public:
     // The view's own vertical bar (WS_VSCROLL on its window), as the view has it now: the range, page and position.
     void syncScroll(HWND w) {
         int range = 0, page = 0, pos = 0;
-        if (!view_.scrollBar(range, page, pos)) return;
+        if (!view_.windowScrollBar(range, page, pos)) return;
         SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS, 0, range, UINT(std::max(0, page)), pos};
         SetScrollInfo(w, SB_VERT, &si, TRUE);
     }
