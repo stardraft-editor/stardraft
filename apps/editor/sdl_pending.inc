@@ -6,13 +6,7 @@
 // core/map_edit.inc): the SDL program's state is gState (sdl_main_view.inc).
 AppState& appState() { return gState; }
 
-// (until it is in the core) The translations: ui_text.h is Windows-only for now, so the English text is used.
-const wchar_t* tr(const wchar_t* english) { return english; }
-std::wstring tr(const std::wstring& english) { return english; }
-
 // (until it is in the core) The palette and the tile panel are not on this system yet: their names and rows are empty.
-std::wstring paletteItemName(int) { return {}; }
-std::wstring entryName(const std::string&, int v) { return std::to_wstring(v); }
 void tilesRebuild() {}
 void tilesSync() {}
 int tilesViewH() { return 0; }
@@ -50,19 +44,6 @@ bool rightPaints() {
            (tool == TBrush || tool == TSpray || tool == TFill || tool == TReplace);
 }
 
-// (until it is in the core) The startup timing marks are the Windows program's (its Log shows them).
-void startMark(const char*) {}
-
-// (until it is in the core) The window's title: the open map's file name (the window is the only one).
-void updateTitle() {
-    std::wstring title = L"StarDraft";
-    if (gState.ed && gState.ed->isOpen()) title = fs::path(gState.ed->path()).filename().wstring() + L" - StarDraft";
-    int n = 0;
-    SDL_Window** wins = SDL_GetWindows(&n);
-    for (int i = 0; wins && i < n; ++i) SDL_SetWindowTitle(wins[i], narrow(title).c_str());
-    SDL_free(wins);
-}
-
 // (until it is in the core) The mode's own spray density is kept per mode (setMode swaps it in); the tool strip and the
 // palette are not on this system yet.
 void setMode(Mode m) {
@@ -79,29 +60,45 @@ std::vector<int> selectedPalette() {
     return {};
 }
 
-// (until it is in the core) The map commands (File, Edit, View, ...) are the Windows program's for now: none is run here.
-bool mapCommand(int) { return false; }
-
-// (until it is in the core) The documents: one map is open at a time on this system, in the first tab.
-void activateDoc(int i) {
-    if (i >= 0 && i < int(gDocs.size())) gActive = i;
+// (until it is in the core) A unit's name: the game's, with its subtitle (the project's custom names are not on this
+// system yet).
+std::wstring unitDisplayName(int u) {
+    if (!gState.ed || u < 0 || u >= int(gState.ed->unitTypes().size())) return L"";
+    const UnitType& t = gState.ed->unitTypes()[uint16_t(u)];
+    return widen(t.name) + (t.subtitle.empty() ? L"" : L" (" + widen(t.subtitle) + L")");
 }
-int findOpenProject(const std::filesystem::path&) { return -1; }
 
-// (until it is in the core) Opens a map file: the game data must be open first. Its camera fits the map in the view.
-void openMap(const std::wstring& path, bool) {
-    if (!gDataOk) return setMessage(widen(gDataError));
-    auto ed = std::make_unique<Editor>(gState.data);
-    std::string err;
-    if (!ed->open(fs::path(path), err)) return setMessage(widen(err));
+// (until it is in the core) The workspaces: only the Map is on this system yet.
+void setWorkspace(Workspace w) {
+    if (w != Workspace::Map) setMessage(L"This is not on this system yet");
+    gWorkspace = Workspace::Map;
+    shellRelayout();
+}
+void pageSync() {}
+void openStartPage() {}
+
+// (until it is in the core) Closing a map with changes: Save is not on this system yet, so it is not closed (nothing
+// is lost); the message says why.
+bool confirmDiscard() {
+    if (gState.ed && gState.ed->isOpen() && gState.ed->modified()) {
+        setMessage(L"The map has changes, and saving is not on this system yet: the map stays open");
+        return false;
+    }
+    return true;
+}
+
+// (until it is in the core) Projects are not on this system yet.
+void forgetProject(const EudProject*) {}
+void dropUnsavedProject(const std::shared_ptr<EudProject>&) {}
+
+// (until it is in the core) A map that opened: one tab on this system; the map fits the view on the next frame.
+void addDocument(std::unique_ptr<Editor> ed, bool) {
     gState.ed = std::move(ed);
     if (gDocs.empty()) gDocs.emplace_back();
     gActive = 0;
     gDocs[0].page = 0;
-    gDocs[0].project.reset();
-    gMapFitPending = true;  // the map fits the view on the next frame (the view's size is known then)
-    if (gRoot) gRoot->relayout();
+    gMapFitPending = true;
+    shellRelayout();
     gState.dirty = true;
-    setMessage(L"Opened " + fs::path(path).filename().wstring());
     updateTitle();
 }
