@@ -153,6 +153,8 @@ public:
     // The horizontal counterpart (WS_HSCROLL on the window): the same, for the bar at the bottom.
     virtual bool hscroll(int /*code*/, int /*pos*/, int /*track*/, int /*page*/) { return false; }
     virtual bool windowHScrollBar(int& /*range*/, int& /*page*/, int& /*pos*/) { return false; }
+    // true: the window's vertical bar is disabled (not hidden) when its content fits (the Data list's bar).
+    virtual bool windowScrollBarDisables() const { return false; }
     // The mouse's extra buttons (1 or 2: back, forward) released over the view; true: handled.
     virtual bool extraButton(int /*button*/) { return false; }
 
