@@ -41,6 +41,7 @@
 #include "views_files.inc"
 #include "views_data_refs.inc"
 #include "views_data_list.inc"
+#include "views_data_workspace.inc"
 #include "views_project.inc"
 #include "views_map_pages.inc"
 #include "views_map_props.inc"

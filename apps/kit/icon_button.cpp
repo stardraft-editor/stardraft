@@ -38,6 +38,16 @@ void IconButton::paint(draw::Canvas& c) {
     const bool over = enabled_ && hot_;
     const bool focused = enabled_ && hasFocus();
     const int rad = px(kRadius);
+    if (style_ == IconStyle::Face) {  // a button's box (Button's colors and states); the icon in its text color
+        Color fill = th.ctl, line = th.border;
+        if (on_) fill = th.sel, line = th.accentLine;
+        if (enabled_ && hot_) fill = on_ ? th.selHot : th.ctlHot, line = on_ ? th.accent : th.borderHot;
+        if (enabled_ && hot_ && down_) fill = on_ ? th.sel : th.ctlDown;
+        if (!enabled_) fill = th.bg, line = th.border;
+        c.roundBox(r, fill, line, rad);
+        drawGlyph(c, r, !enabled_ ? th.faint : on_ ? th.onText : th.text, kBoxedGlyph);
+        return;
+    }
     if (style_ == IconStyle::Boxed) {  // flat: a fill only when on (the accent) or under the mouse
         if (on_) c.roundBox(r, th.sel, th.accentLine, rad);
         else if (over) c.roundBox(r, th.ctlHot, draw::kNone, rad);

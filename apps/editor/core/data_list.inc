@@ -66,6 +66,19 @@ void dataListClampScroll(int& scroll, size_t count, int rowH, int height) {
     scroll = std::clamp(scroll, 0, most);
 }
 
+// The list's filters: the search box's text (as typed; the rows compare it in lower case) and the Changed toggle (only
+// the changed entries). The Data workspace's search box and button set them (core/views_data_workspace.inc).
+struct DataListFilter {
+    std::wstring search;
+    bool changedOnly = false;
+};
+
+// The status line when the Changed toggle changes: "Showing changed units only", or "Showing all units".
+std::wstring dataChangedMessage(const std::wstring& tabTitle, bool on) {
+    const std::wstring what = dataLower(tabTitle);
+    return on ? L"Showing changed " + what + L" only" : L"Showing all " + what;
+}
+
 // The settings' DataPins/<table> text: the entries, comma-separated (in the order they were pinned).
 std::vector<int> dataPinsParse(const std::wstring& text) {
     std::vector<int> v;

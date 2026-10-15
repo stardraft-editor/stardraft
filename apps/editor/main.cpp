@@ -445,6 +445,7 @@ std::wstring itemLabel(int v) { return itemLabel(app, v); }
 #include "core/views_files.inc"  // the Files workspace's page (FilesPage; its instance is gFilesPage in files_view.inc)
 #include "core/views_data_refs.inc"  // the Data workspace's References panel (DataRefsPage; its instance is gDataRefsPage below, in the Data code)
 #include "core/views_data_list.inc"  // the Data workspace's entry list (DataListView; its instance is gDataListView, below the list's model host)
+#include "core/views_data_workspace.inc"  // the Data workspace's container and tab strip (DataWorkspaceView; its instance is gDataWorkspace, below the list)
 extern DataRefsPage gDataRefsPage;
 #include "core/views_project.inc"  // the Project page: the script preview (ProjectPreviewView, epScript colors as spans)
 #include "core/views_map_pages.inc"  // the map pages' frame: the title, the tabs, the bar and the scroll view (MapPagesView, MapScrollView; map_pages.inc)
@@ -4653,16 +4654,13 @@ RailView gRail;
 
 struct DataView {
     int datTab = 0;  // index into DatSchema::all(); units is 0
-    std::vector<RECT> tabRects;
-    int hotTab = -1;
     std::vector<std::unique_ptr<DatTable>> tables;  // one per DatSchema::all(), in that order
     std::vector<int> tabEntry;                      // the entry each tab last had open
     const EudProject* project = nullptr;
     int entry = 0;
-    bool changedOnly = false;
     std::vector<int> shown;  // entries in the list
     int listScroll = 0, formScroll = 0, formHeight = 0;
-    HWND list = nullptr, form = nullptr, search = nullptr, edit = nullptr, changedBtn = nullptr;
+    HWND list = nullptr, form = nullptr, edit = nullptr;
     // Laid out by the last paint of the form:
     struct Hit {
         RECT r;
@@ -5068,6 +5066,70 @@ public:
 };
 DataListViewProgram gDataListViewProgram;
 DataListView gDataListView(gDataListViewProgram);
+int dataListWidth();
+int dataRefsWidth();
+void dataRebuildList();
+void dataShowTab(int tab);
+void layoutData();
+void dataTravel(bool back);
+// Back and forward through the entries looked at (the arrows, the mouse's side buttons): see dataRecordPlace.
+struct DataPlace {
+    int tab = 0, entry = 0;
+};
+std::vector<DataPlace> gDataBack, gDataForward;
+UiIcon tabIcon(int tab);  // data_extras.inc
+// The Data workspace's container and tab strip (core/views_data_workspace.inc): the program's side (the tabs, the lists'
+// places, the edge's drag, the filter's rows).
+class DataWorkspaceProgram final : public DataWorkspaceHost {
+public:
+    int tabCount() override { return dataTabCount(); }
+    std::wstring tabTitle(int tab) override { return ::tabTitle(tab); }
+    int tabEntryCount(int tab) override { return tabEntries(tab) - tabFirstEntry(tab); }
+    int tabChangedCount(int tab) override { return ::tabChangedCount(tab); }
+    int tabIcon(int tab) override { return int(::tabIcon(tab)); }
+    draw::FontDesc countFont() override {  // the counts: four fifths of the UI font's height (as the strip had it)
+        LOGFONTW lf{};
+        GetObjectW(app.font, sizeof lf, &lf);
+        draw::FontDesc d;
+        d.px = -(lf.lfHeight * 4 / 5);
+        return d;
+    }
+    int currentTab() override { return gData.datTab; }
+    bool canBack() override { return !gDataBack.empty(); }
+    bool canForward() override { return !gDataForward.empty(); }
+    void tabClicked(int tab) override {
+        dataShowTab(tab);
+        const int n = tabChangedCount(tab);
+        setMessage((extraTab(tab) ? tabTitle(tab) : widen(DatSchema::all()[size_t(tab)].name) + L".dat") + (n ? L": " + std::to_wstring(n) + L" changed" : L""));
+    }
+    void travel(bool back) override { dataTravel(back); }
+    int listWidth() override { return dataListWidth(); }
+    int dragList(int dx) override {  // the edge: the list's width (the dock's, clamped); returns the px it moved
+        const int dpi = int(app.dpi);
+        const int nw = std::clamp(gDock.dataListW + MulDiv(dx, 96, dpi), kMinSideW, kMaxSideW);
+        if (nw == gDock.dataListW) return 0;
+        const int moved = MulDiv(nw - gDock.dataListW, dpi, 96);
+        gDock.dataListW = nw;
+        layoutData();
+        return moved;
+    }
+    void splitDone() override { saveDock(); }
+    int refsWidth() override { return gData.refs ? dataRefsWidth() : 0; }
+    void placeLists(draw::Rect list, draw::Rect form, draw::Rect refs) override {
+        auto place = [](HWND w, draw::Rect r) {
+            ShowWindow(w, SW_SHOW);
+            MoveWindow(w, r.left, r.top, r.width(), r.height(), TRUE);
+        };
+        place(gData.list, list);
+        place(gData.form, form);
+        if (gData.refs) place(gData.refs, refs);
+    }
+    void filterChanged() override { dataRebuildList(); }
+    void status(const std::wstring& text) override { setMessage(text); }
+};
+DataWorkspaceProgram gDataWorkspaceProgram;
+DataWorkspaceView gDataWorkspace(gDataWorkspaceProgram);
+bool dataSearchFocused() { return gDataWorkspace.searchFocused(); }
 void dataTogglePin(int e) {
     const int tab = gData.datTab;
     const bool pin = dataPinToggle(dataPins(tab), e);
@@ -5080,7 +5142,7 @@ void dataTogglePin(int e) {
 }
 
 void dataRebuildList() {
-    const DataListRows rows = dataListRows(gDataListProgram, gData.datTab, lowerText(gData.search), gData.changedOnly, dataPins(gData.datTab));
+    const DataListRows rows = dataListRows(gDataListProgram, gData.datTab, gDataWorkspace.filter().search, gDataWorkspace.filter().changedOnly, dataPins(gData.datTab));
     gData.shown = rows.shown;
     gDataPinnedShown = rows.pinnedShown;
     gDataListView.clampScroll();  // a shorter list: the scroll goes back inside it
@@ -5090,12 +5152,7 @@ void dataRebuildList() {
 bool dataCommitEdit();
 
 // Back and forward through the entries looked at (arrows top right, the mouse's side buttons).
-struct DataPlace {
-    int tab = 0, entry = 0;
-};
-std::vector<DataPlace> gDataBack, gDataForward;
 bool gDataTravelling = false;  // going back or forward: not a new place
-RECT gDataNavRects[2]{};
 void dataRecordPlace(int tab, int entry) {
     if (gDataTravelling || (tab == gData.datTab && entry == gData.entry)) return;
     gDataBack.push_back({gData.datTab, gData.entry});
@@ -5329,21 +5386,11 @@ void dataShowTab(int tab) {
     if (tab != gData.datTab) {
         dataRecordPlace(tab, gData.tabEntry[size_t(tab)]);
         dataSwitchTab(gData.datTab, gData.entry, gData.tabEntry, gData.listScroll, gData.formScroll, tab);
-        if (gData.search) {
-            SetWindowTextW(gData.search, L"");
-            const std::wstring cue = dataSearchCue(tabTitle(tab));
-            SendMessageW(gData.search, EM_SETCUEBANNER, TRUE, LPARAM(cue.c_str()));
-        }
+        gDataWorkspace.resetSearch(dataSearchCue(tabTitle(tab)));
     }
     dataRebuildList();
     layoutData();
     dataSelect(gData.entry);
-}
-// The Changed button is a toggle: on (the accent look) while the list shows only changed entries.
-void dataChangedToggleShow() {
-    if (gData.changedOnly) SetPropW(gData.changedBtn, L"sdOn", HANDLE(1));
-    else RemovePropW(gData.changedBtn, L"sdOn");
-    InvalidateRect(gData.changedBtn, nullptr, FALSE);
 }
 
 
@@ -5354,10 +5401,7 @@ bool dataXButton(WPARAM wp);
 void dataGoTo(const std::string& dat, int e) {
     const int tab = datTabOf(dat);
     if (tab < 0) return;
-    if (gData.changedOnly && !tabEntryChanged(tab, e)) {
-        gData.changedOnly = false;
-        dataChangedToggleShow();
-    }
+    if (gDataWorkspace.filter().changedOnly && !tabEntryChanged(tab, e)) gDataWorkspace.setChangedOn(false);
     gData.tabEntry.resize(size_t(dataTabCount()), 0);
     if (tab != gData.datTab) gData.tabEntry[size_t(tab)] = e;
     dataShowTab(tab);
@@ -9074,218 +9118,19 @@ public:
 DataRefsProgram gDataRefsProgram;
 DataRefsPage gDataRefsPage(gDataRefsProgram);
 
-int gDataSplitGrab = -1;  // dragging the list's edge: where it was grabbed
-
-int dataTabsHeight() { return scale(34); }
-
-
+// The container's layout and its windows (the list, the form, the References panel) are the view's (core/views_data_workspace.inc).
 void layoutData() {
-    if (!gDataWnd) return;
-    RECT rc;
-    GetClientRect(gDataWnd, &rc);
-    const int pad = scale(8), rowH = scale(26), lw = dataListWidth(), top = dataTabsHeight();
-    const int bw = rowH;  // the Changed toggle: an icon (GitHub #130), its name in the tooltip
-    for (HWND h : {gData.search, gData.changedBtn, gData.list, gData.form}) ShowWindow(h, SW_SHOW);
-    MoveWindow(gData.search, pad, top + pad, lw - 2 * pad - bw - scale(6), scale(ui::kFieldH), TRUE);  // one height for every search box
-    MoveWindow(gData.changedBtn, lw - pad - bw, top + pad, bw, rowH, TRUE);
-    MoveWindow(gData.list, 0, top + rowH + 2 * pad, lw, std::max(1, int(rc.bottom) - top - rowH - 2 * pad), TRUE);
-    const int gap = scale(5);  // the list's edge: drag it
-    const int rw = gData.refs ? dataRefsWidth() : 0;
-    MoveWindow(gData.form, lw + gap, top, std::max(1, int(rc.right) - lw - gap - rw), std::max(1, int(rc.bottom) - top), TRUE);
-    if (gData.refs) ShowWindow(gData.refs, SW_SHOW), MoveWindow(gData.refs, int(rc.right) - rw, top, rw, std::max(1, int(rc.bottom) - top), TRUE);
-    InvalidateRect(gDataWnd, nullptr, FALSE);
-}
-
-LRESULT CALLBACK dataWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_SIZE: layoutData(); return 0;
-    case WM_PAINT: {
-        PAINTSTRUCT ps;
-        HDC dc = BeginPaint(hwnd, &ps);
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-        FillRect(dc, &rc, app.bgBrush);
-        HBRUSH line = CreateSolidBrush(kBorder);
-        const int top = dataTabsHeight();
-        // The .dat tabs: name and entry count; the open one underlined in the accent color.
-        HGDIOBJ of = SelectObject(dc, app.font);
-        SetBkMode(dc, TRANSPARENT);
-        gData.tabRects.clear();
-        // The layout (core/views_data.inc): what fits before the back and forward arrows; the program measures the text.
-        std::vector<DataTabText> texts;
-        for (int i = 0; i < dataTabCount(); ++i) {
-            const std::wstring name = tabTitle(i), count = std::to_wstring(tabEntries(i) - tabFirstEntry(i));
-            SIZE a{}, b{};
-            GetTextExtentPoint32W(dc, name.c_str(), int(name.size()), &a);
-            GetTextExtentPoint32W(dc, count.c_str(), int(count.size()), &b);
-            texts.push_back({a.cx, b.cx});
-        }
-        const DataTabMetrics metrics{scale(8), scale(84), scale(22), scale(16) + scale(6), scale(26), scale(2)};
-        const DataTabLayout tabLayout = dataTabLayout(texts, int(rc.right), metrics);
-        const bool showCounts = tabLayout.showCounts, showIcons = tabLayout.showIcons;
-        for (size_t i = 0; i < size_t(dataTabCount()); ++i) {
-            const std::wstring name = tabTitle(int(i)), count = showCounts ? std::to_wstring(tabEntries(int(i)) - tabFirstEntry(int(i))) : L"";
-            SIZE a{}, b{};
-            GetTextExtentPoint32W(dc, name.c_str(), int(name.size()), &a);
-            GetTextExtentPoint32W(dc, count.c_str(), int(count.size()), &b);
-            const int iw = showIcons ? scale(16) + scale(6) : 0;  // the tab's icon and the gap after it
-            const auto [boxL, boxR] = tabLayout.boxes[i];
-            RECT r{boxL, 0, boxR, top};
-            const bool on = int(i) == gData.datTab, hot = int(i) == gData.hotTab;
-            if (on || hot) {
-                HBRUSH bg = CreateSolidBrush(on ? kBg : kCtl);
-                FillRect(dc, &r, bg);
-                DeleteObject(bg);
-            }
-            if (on) {
-                RECT u{r.left, r.bottom - scale(2), r.right, r.bottom};
-                HBRUSH ac = CreateSolidBrush(kAccent);
-                FillRect(dc, &u, ac);
-                DeleteObject(ac);
-            }
-            SetTextColor(dc, on ? kAccent : kText);
-            if (tabChangedCount(int(i))) {  // edited: a green dot
-                HBRUSH g = CreateSolidBrush(kGood);
-                const int rr = scale(3), cx = r.right - scale(6), cy = r.top + scale(9);
-                HGDIOBJ obr = SelectObject(dc, g), op = SelectObject(dc, GetStockObject(NULL_PEN));
-                Ellipse(dc, cx - rr, cy - rr, cx + rr, cy + rr);
-                SelectObject(dc, obr), SelectObject(dc, op);
-                DeleteObject(g);
-            }
-            if (showIcons) uiIcon(dc, {r.left + scale(10), r.top, r.left + scale(10) + scale(16), r.bottom}, tabIcon(int(i)), on ? kAccent : kDim, scale(16));
-            RECT t{r.left + scale(10) + iw, r.top, r.right, r.bottom};
-            DrawTextW(dc, name.c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER);
-            SetTextColor(dc, kDim);
-            RECT c{r.left + scale(14) + iw + a.cx, r.top + scale(1), r.right, r.bottom};
-            HFONT smallFont = nullptr;
-            {
-                LOGFONTW lf{};
-                GetObjectW(app.font, sizeof lf, &lf);
-                lf.lfHeight = lf.lfHeight * 4 / 5;
-                smallFont = CreateFontIndirectW(&lf);
-            }
-            SelectObject(dc, smallFont);
-            DrawTextW(dc, count.c_str(), -1, &c, DT_SINGLELINE | DT_VCENTER);
-            SelectObject(dc, app.font);
-            DeleteObject(smallFont);
-            gData.tabRects.push_back(r);
-        }
-        {
-            const UiIcon arrows[2] = {UiIcon::Back, UiIcon::Forward};
-            for (int k = 0; k < 2; ++k) {
-                gDataNavRects[k] = {rc.right - scale(68) + k * scale(32), scale(3), rc.right - scale(40) + k * scale(32), top - scale(3)};
-                const bool can = !(k == 0 ? gDataBack : gDataForward).empty();
-                ui::glyph(dc, gDataNavRects[k], arrows[k], can ? kText : kFaint);
-            }
-        }
-        RECT under{0, top - 1, rc.right, top};
-        FillRect(dc, &under, line);
-        RECT gapR{dataListWidth(), top, dataListWidth() + scale(5), rc.bottom};
-        FillRect(dc, &gapR, app.bgBrush);
-        RECT sep{dataListWidth() + scale(2), top, dataListWidth() + scale(3), rc.bottom};
-        FillRect(dc, &sep, line);
-        DeleteObject(line);
-        SelectObject(dc, of);
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    case WM_SETCURSOR:
-        if (LOWORD(lp) == HTCLIENT && HWND(wp) == hwnd) {
-            POINT pt;
-            GetCursorPos(&pt);
-            ScreenToClient(hwnd, &pt);
-            if (pt.y > dataTabsHeight() && pt.x >= dataListWidth() && pt.x < dataListWidth() + scale(5)) {
-                SetCursor(LoadCursor(nullptr, IDC_SIZEWE));
-                return TRUE;
-            }
-        }
-        break;
-    case WM_LBUTTONUP:
-        if (gDataSplitGrab >= 0) gDataSplitGrab = -1, ReleaseCapture(), saveDock();
-        return 0;
-    case WM_XBUTTONUP:
-        if (dataXButton(wp)) return TRUE;
-        break;
-    case WM_LBUTTONDOWN: {
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        if (pt.y > dataTabsHeight() && pt.x >= dataListWidth() && pt.x < dataListWidth() + scale(5)) {
-            gDataSplitGrab = pt.x;
-            SetCapture(hwnd);
-            return 0;
-        }
-        for (int k = 0; k < 2; ++k)
-            if (PtInRect(&gDataNavRects[k], pt)) return dataTravel(k == 0), 0;
-        for (size_t i = 0; i < gData.tabRects.size(); ++i)
-            if (PtInRect(&gData.tabRects[i], pt)) {
-                dataShowTab(int(i));
-                const int n = tabChangedCount(int(i));
-                setMessage((extraTab(int(i)) ? tabTitle(int(i)) : widen(DatSchema::all()[i].name) + L".dat") + (n ? L": " + std::to_wstring(n) + L" changed" : L""));
-            }
-        return 0;
-    }
-    case WM_MOUSEMOVE: {
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        if (gDataSplitGrab >= 0) {
-            const int dx = MulDiv(pt.x - gDataSplitGrab, 96, int(app.dpi));
-            const int nw = std::clamp(gDock.dataListW + dx, kMinSideW, kMaxSideW);
-            if (nw != gDock.dataListW) {
-                gDataSplitGrab += MulDiv(nw - gDock.dataListW, int(app.dpi), 96);
-                gDock.dataListW = nw;
-                layoutData();
-                UpdateWindow(hwnd);
-            }
-            return 0;
-        }
-        int hot = -1;
-        for (size_t i = 0; i < gData.tabRects.size(); ++i)
-            if (PtInRect(&gData.tabRects[i], pt)) hot = int(i);
-        if (hot != gData.hotTab) {
-            gData.hotTab = hot;
-            RECT tabs{0, 0, 1 << 15, dataTabsHeight()};
-            InvalidateRect(hwnd, &tabs, FALSE);
-        }
-        TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
-        TrackMouseEvent(&tme);
-        return 0;
-    }
-    case WM_MOUSELEAVE: {
-        gData.hotTab = -1;
-        RECT tabs{0, 0, 1 << 15, dataTabsHeight()};
-        InvalidateRect(hwnd, &tabs, FALSE);
-        return 0;
-    }
-    case WM_COMMAND:
-        if (HWND(lp) == gData.search && HIWORD(wp) == EN_CHANGE) dataRebuildList();
-        if (HWND(lp) == gData.changedBtn) {
-            gData.changedOnly = !gData.changedOnly;
-            dataChangedToggleShow();
-            dataRebuildList();
-            std::wstring what = tabTitle(gData.datTab);
-            std::transform(what.begin(), what.end(), what.begin(), ::towlower);
-            setMessage(gData.changedOnly ? L"Showing changed " + what + L" only" : L"Showing all " + what);
-        }
-        return 0;
-    case WM_CTLCOLOREDIT:
-        SetTextColor(HDC(wp), kText);
-        SetBkColor(HDC(wp), kCtl);
-        return LRESULT(app.ctlBrush);
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
+    if (gDataWnd) gDataWorkspace.relayout();
 }
 
 void createWorkspaces(HWND parent) {
     WNDCLASSEXW wc{sizeof wc};
     wc.hInstance = app.inst;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.lpfnWndProc = dataWndProc, wc.lpszClassName = L"StarDraftData";
-    RegisterClassExW(&wc);
     wc.lpfnWndProc = dataFormProc, wc.lpszClassName = L"StarDraftDataForm";
     RegisterClassExW(&wc);
     gWsBar = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, parent, nullptr, app.inst, &gRail);
-    gDataWnd = CreateWindowExW(0, L"StarDraftData", L"", WS_CHILD | WS_CLIPCHILDREN, 0, 0, 1, 1, parent, nullptr, app.inst, nullptr);
-    gData.search = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 0, 0, 1, 1, gDataWnd, nullptr, app.inst, nullptr);
-    SendMessageW(gData.search, EM_SETCUEBANNER, TRUE, LPARAM(L"Search units")); addSearchClear(gData.search);  // an x clears it
-    gData.changedBtn = CreateWindowExW(0, WC_BUTTONW, L"Changed", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 1, 1, gDataWnd, nullptr, app.inst, nullptr);
+    gDataWnd = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_CLIPCHILDREN, 0, 0, 1, 1, parent, nullptr, app.inst, &gDataWorkspace);
     gData.list = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL, 0, 0, 1, 1, gDataWnd, nullptr, app.inst, &gDataListView);
     gData.form = CreateWindowExW(0, L"StarDraftDataForm", L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, gDataWnd, nullptr,
                                  app.inst, nullptr);
@@ -9295,18 +9140,7 @@ void createWorkspaces(HWND parent) {
     darkControl(gData.refs, L"DarkMode_Explorer");
     gData.edit = CreateWindowExW(0, WC_EDITW, L"", WS_CHILD | ES_RIGHT | ES_AUTOHSCROLL, 0, 0, 1, 1, gData.form, nullptr, app.inst, nullptr);
     SetWindowSubclass(gData.edit, dataEditProc, 1, 0);
-    for (HWND w : {gData.search, gData.changedBtn}) SendMessageW(w, WM_SETFONT, WPARAM(app.font), TRUE);
     SendMessageW(gData.edit, WM_SETFONT, WPARAM(monoFont()), TRUE);
-    darkControl(gData.search, L"DarkMode_CFD");
-    darkControl(gData.changedBtn, L"DarkMode_Explorer");
-    SetPropW(gData.changedBtn, L"sdIcon", HANDLE(INT_PTR(int(UiIcon::Filter) + 1)));  // painted as this icon (paintDarkButton)
-    {
-        HWND tips = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX, 0, 0, 0, 0, gDataWnd, nullptr, app.inst, nullptr);
-        TOOLINFOW ti{sizeof ti};
-        ti.uFlags = TTF_IDISHWND | TTF_SUBCLASS, ti.hwnd = gDataWnd, ti.uId = UINT_PTR(gData.changedBtn);
-        ti.lpszText = const_cast<wchar_t*>(L"Changed: show only the entries that you changed (click again to show all)");
-        SendMessageW(tips, TTM_ADDTOOLW, 0, LPARAM(&ti));
-    }
     darkControl(gData.list, L"DarkMode_Explorer");
     darkControl(gData.form, L"DarkMode_Explorer");
 }
@@ -18744,10 +18578,10 @@ int runSelfTest(const fs::path& dir) {
             log << "data: weapons.dat saved and generated/weapons.eps built " << (weaponsGen ? "yes" : "NO") << "\n";
             log << "data: built " << (fs::exists(pr->outputMap(), pec) ? "yes" : "NO") << ", generated code writes the marine's hit points "
                 << (hasHp ? "yes" : "NO") << ", dat/units.dat saved " << (fs::exists(pr->datFile("units"), pec) ? "yes" : "NO") << "\n";
-            gData.changedOnly = true;
+            gDataWorkspace.setChangedOn(true);
             dataRebuildList();
             capture(dir / "64_data_changed_only.png");
-            gData.changedOnly = false;
+            gDataWorkspace.setChangedOn(false);
             dataRebuildList();
 
             command(ID_WS_PROJECT);
