@@ -67,7 +67,17 @@ CASES += [
     ("project-trigpop-colors", ["--workspace", "triggers", "--trig", "1:0", "--trigsel", "1", "--trigpop", "0"], "project"),
     ("project-trigpop-number", ["--workspace", "triggers", "--trig", "1:0", "--trigsel", "2", "--trigpop", "1"], "project"),
     ("project-trigpop-unit", ["--workspace", "triggers", "--trig", "1:2", "--trigsel", "0", "--trigpop", "0"], "project"),
+    # The variable form's pop-outs (--trigpop var:<field>: 0 kind, 4 holds, 10 player 1's default value) of the first
+    # variables of Definitions (a unit, then a value for each player).
+    ("project-varpop-kind", ["--workspace", "triggers", "--trig", "0:0", "--trigpop", "var:0"], "project"),
+    ("project-varpop-holds", ["--workspace", "triggers", "--trig", "0:1", "--trigpop", "var:4"], "project"),
+    ("project-varpop-player", ["--workspace", "triggers", "--trig", "0:1", "--trigpop", "var:10"], "project"),
+    # The game text pop-out (its colors, Preview and Raw) of the Data form's Rename and of a button's tooltip.
+    ("project-textpop-rename", ["--workspace", "data", "--data", "units:0", "--textpop", "rename"], "project"),
+    ("project-textpop-tooltip", ["--workspace", "data", "--data", "buttons:0", "--textpop", "tooltip"], "project"),
 ]
+# The Map data page's unit Rename: the game text pop-out.
+CASES += [("map-textpop-unitname", ["--workspace", "classic", "--textpop", "unitname"], "map")]
 # Not in the program yet (add them to CASES when main_sdl.cpp reads them): --dialog about, message, tip, valuepop.
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"

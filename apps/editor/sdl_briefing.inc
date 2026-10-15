@@ -70,8 +70,10 @@ public:
     bool editSeconds(draw::View& from, draw::Rect field, const std::wstring& title, uint32_t current, uint32_t& out) override {
         wchar_t b[32];
         std::swprintf(b, 32, L"%g", current / 1000.0);
-        std::string text = narrow(b);
-        if (!shellEditValueBelow(from, field, title, text)) return false;
+        ValuePopSpec spec;  // (seconds with decimals: the pop-out says the milliseconds, as the Windows briefAskMs)
+        spec.type = "DecimalSeconds", spec.title = title, spec.initial = narrow(b);
+        std::string text;
+        if (!shellEditValue(from, field, spec, text)) return false;
         if (briefMsOfSeconds(text, out)) return true;
         setMessage(briefSecondsHint);  // (not a number of seconds: the time stays as it was)
         return false;

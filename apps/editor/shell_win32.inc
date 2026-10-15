@@ -353,6 +353,12 @@ bool shellEditValue(stardraft::draw::View& v, stardraft::draw::Rect field, const
     ClientToScreen(ui::Win32Host::windowOf(v), &at);
     return showValuePopup(spec, at, out);
 }
+// (main.cpp: editGameText, under the field)
+bool shellEditGameText(stardraft::draw::View& v, stardraft::draw::Rect field, const std::wstring& title, std::string& text) {
+    POINT at{field.left, field.bottom + scale(2)};
+    ClientToScreen(ui::Win32Host::windowOf(v), &at);
+    return editGameText(title, text, at);
+}
 // (the RichEdit read a script's bytes in the system's code page: the file may be in Korean or another)
 std::wstring shellCodePageText(const std::string& s) {
     if (s.empty()) return {};

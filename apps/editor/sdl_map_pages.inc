@@ -477,14 +477,9 @@ public:
     std::wstring unitGameName(int u) override { return widen(gState.ed->unitTypes()[uint16_t(u)].name); }
     bool hasShields(int u) override { return gState.ed->unitTypes()[uint16_t(u)].hasShields; }
     void drawIcon(draw::Canvas& c, int tab, int e, draw::Rect box) override;
-    // The unit's name in the text prompt, with the game's name it has when the field is empty (the Windows program's
-    // game text pop-out has the colors too). False: Cancel, or the same name.
-    bool editUnitName(int u, std::string& text, draw::Point) override {
-        std::wstring name = widen(text);
-        if (!shellPromptText(::tr(L"Unit name   (empty: ") + unitGameName(u) + L")", name) || narrow(name) == text) return false;
-        text = narrow(name);
-        return true;
-    }
+    // The unit's name in the game text pop-out (its colors, Preview and Raw) under the Units page's title, with the
+    // game's name it has when the text is empty. False: Cancel, or the same name.
+    bool editUnitName(int u, std::string& text, draw::Point at) override;
     int textWidth(const std::wstring& t) override { return sdlTextWidth(t); }
     void fitSize(int tab, int w, int h) override;
 };
@@ -509,6 +504,13 @@ struct SdlPageState {
     std::unique_ptr<SdlClassicTrigPage> classicTrig;
 };
 SdlPageState gSdlPage;
+
+bool SdlClassicHost::editUnitName(int u, std::string& text, draw::Point at) {
+    draw::View* page = gSdlPage.classic[kClassicUnits].get();
+    if (!page) return false;
+    const int y = at.y - scale(2);  // (the pop-out's top at `at`, as on Windows)
+    return shellEditGameText(*page, {at.x, y, at.x, y},::tr(L"Unit name   (empty: ") + unitGameName(u) + L")", text);
+}
 
 void sdlPropsInvalidate() {
     if (gSdlPage.props) gSdlPage.props->invalidate();

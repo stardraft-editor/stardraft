@@ -447,20 +447,11 @@ void paintButtonsForm(HDC dc, RECT rc, int& y) {
             hitsOut().push_back({box, nullptr, [edit, which, s, box] {
                                      if (!s) return;
                                      const std::string raw = gExtras.strings.text(s - 1);
-                                     const size_t lead = buttonPrefix(raw) ? 2 : 0;  // the hotkey and the button type stay
-                                     std::string body = raw.substr(lead);
-                                     const bool crlf = body.find("\r\n") != std::string::npos;
-                                     for (size_t at; (at = body.find("\r\n")) != std::string::npos;) body.erase(at, 1);
                                      POINT pt{box.left, box.bottom + scale(4)};
                                      ClientToScreen(gData.form, &pt);
-                                     std::string out = body;
+                                     std::string out = tooltipEditText(raw);  // (the hotkey, the button type and the line ends stay: core)
                                      if (!editGameText(which ? L"Tooltip when grayed" : L"Tooltip", out, pt)) return;
-                                     if (crlf) {  // the string's own line ends
-                                         std::string o;
-                                         for (char ch : out) ch == '\n' ? o += "\r\n" : o += ch;
-                                         out = o;
-                                     }
-                                     gExtras.strings.set(s - 1, raw.substr(0, lead) + out);
+                                     gExtras.strings.set(s - 1, tooltipEditCommit(raw, out));
                                      extrasChanged();
                                  },
                                  s ? L"Edit the text (string " + std::to_wstring(s) + L"; every button that uses it changes)" : L"", IDC_HAND, {}});

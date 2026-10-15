@@ -571,7 +571,17 @@ void sdlPaintButtonsForm(draw::Canvas& c, int& y) {
                              draw::rgb(184, 184, 232));
                 c.popClip();
                 const int sid = s;
-                sdlFormArea(box, [sid] { sdlDataGoTo("strings", sid); }, L"Open the text in the Strings tab (string " + std::to_wstring(s) + L")", true);
+                const wchar_t* title = which ? L"Tooltip when grayed" : L"Tooltip";
+                sdlFormArea(box,
+                            [sid, box, title] {  // the text in the game text pop-out under the box (its colors, Preview and Raw)
+                                const std::string raw = gSdlDataExtras.strings.text(sid - 1);
+                                std::string out = tooltipEditText(raw);
+                                const draw::Rect under{box.left, box.top, box.right, box.bottom + scale(2)};
+                                if (!shellEditGameText(gSdlDataForm, under, title, out)) return;
+                                gSdlDataExtras.strings.set(sid - 1, tooltipEditCommit(raw, out));
+                                sdlExtrasChanged();
+                            },
+                            L"Edit the text (string " + std::to_wstring(s) + L"; every button that uses it changes)", true);
             } else {
                 c.text(tb, L"None", kDim, draw::kMiddle);
             }

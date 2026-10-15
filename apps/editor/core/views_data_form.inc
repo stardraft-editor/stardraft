@@ -124,7 +124,7 @@ public:
     virtual UiIcon tabIcon() = 0;
     // The stat_txt.tbl string that names the entry in the game (0: none, or no strings to change); Rename and the link.
     virtual int nameString() = 0;
-    virtual void rename(int sid) = 0;
+    virtual void rename(int sid, draw::Rect link) = 0;  // (`link`: Rename, in the form's coordinates; the pop-out goes under it)
     virtual void openString(int sid) = 0;
     // A field's note (the name of its value) and why it cannot be changed (empty: it can).
     virtual std::wstring fieldNote(const DatField& f, uint32_t v) = 0;
@@ -267,7 +267,8 @@ inline void DataFormView::paint(draw::Canvas& c) {
         // The name in the game: Rename (its stat_txt.tbl string, with colors), and a link to that string in Strings.
         if (const int sid = host_.nameString(); sid > 0) {
             const int lx = x0 + scale(52), ly = y - scale(12);
-            const int right = link(lx, ly, scale(22), L"Rename", [this, sid] { host_.rename(sid); },
+            const draw::Rect renameLink{lx, ly, lx + c.measure(L"Rename"), ly + scale(22)};
+            const int right = link(lx, ly, scale(22), L"Rename", [this, sid, renameLink] { host_.rename(sid, renameLink); },
                                    L"Change the name that the game shows. Each entry that uses this string gets the new name.");
             link(right + scale(16), ly, scale(22), L"String " + std::to_wstring(sid), [this, sid] { host_.openString(sid); },
                  L"Open this string in the Strings tab");
