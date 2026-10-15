@@ -371,7 +371,7 @@ public:
         }
         case WM_FEEDBACK_NAME: {  // Report feedback: what is under the mouse (the view's tip)
             auto& q = *reinterpret_cast<FeedbackQuery*>(lp);
-            std::wstring t = router_.tip({q.pt.x, q.pt.y});
+            std::wstring t = router_.feedbackName({q.pt.x, q.pt.y});
             if (t.empty()) return false;
             q.name = std::move(t);
             result = 0;
