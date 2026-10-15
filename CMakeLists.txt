@@ -394,7 +394,7 @@ if(STARDRAFT_NEXT AND STARDRAFT_RENDERER)
             set(editorDir $<TARGET_FILE_DIR:stardraft_editor>)
         endif()
         add_custom_command(TARGET stardraft_editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/res
-                           COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_ATLASES} ${editorDir}/res)
+                           COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_ATLASES} ${CMAKE_SOURCE_DIR}/apps/editor/res/stardraft.ico ${editorDir}/res)
         if(STARDRAFT_FONT_FILES)
             add_custom_command(TARGET stardraft_editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/fonts
                                COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_FONT_FILES} ${editorDir}/fonts)

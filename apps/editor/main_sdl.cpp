@@ -83,6 +83,8 @@ namespace kit_sdl = stardraft::kit_sdl;
 
 // Test runs play no sound: the user may be at the computer (the Windows program's gSilent, main.cpp).
 bool gSilent = false;
+// A snapshot run: no message box waits for the user (errors go to the status bar and the log).
+bool gNoBoxes = false;
 
 // The portable core (the same files the Windows program includes, in the same order, core_check.cpp).
 #include "core/core.inc"
@@ -102,6 +104,7 @@ bool gSilent = false;
 #include "sdl_map_dialogs.inc"  // Unit and Location properties, the text prompt, the quick picker and the map's menu
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
 #include "sdl_data.inc"  // the Data workspace (the model is core/data_list.inc and core/views_data*.inc; the tables are the stock .dat files)
+#include "sdl_tips.inc"  // the hover tooltips (core/views_tip.inc)
 #include "shell_sdl.inc"
 
 namespace {
@@ -158,7 +161,7 @@ void useInstallFolder(const std::string& picked) {
             setMessage(L"The StarCraft folder is set");
             return;
         }
-    kit::messageBox(*gRoot, shellTr(L"Not a StarCraft: Remastered folder"), widen(err.empty() ? picked : err), {L"OK"}, kit::MessageIcon::Warning);
+    msgbox::ask(*gRoot, shellTr(L"Not a StarCraft: Remastered folder"), widen(err.empty() ? picked : err), {L"OK"}, msgbox::Icon::Warning);
     askInstallFolder();  // asks again: the folder above the install is a common pick
 }
 
@@ -214,13 +217,13 @@ int main(int argc, char** argv) {
         else if (a == "--data") dataArg = next();  // tab:entry (units:0, images:239, strings:5): the Data workspace opens it, for a snapshot
         else if (a == "--classictrig") ctArg = next();  // trigger:kind:entry (2:1:0): the Classic triggers page selects it, for a snapshot
         else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
-        else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or unitprops, locprops or quick: that view is the snapshot
+        else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or unitprops, locprops, quick, about, message, error or tip: that view is the snapshot
         else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
         else if (a == "--scriptpreview") previewArg = true;  // the Project page's script preview on (not saved), for a snapshot
         else if (a == "--silent") gSilent = true;
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
-    if (!snapshot.empty()) gSilent = true;
+    if (!snapshot.empty()) gSilent = true, gNoBoxes = true;
     if (!SDL_Init(SDL_INIT_VIDEO)) return std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()), 1;
 
     // The device first (the renderer makes it with its shader formats), then the host on it.
@@ -243,6 +246,8 @@ int main(int argc, char** argv) {
         host.setScale(scaleArg);  // (0: the display's scale; the views lay out at it)
         std::printf("stardraft_editor: fonts %s, scale %.2f\n", kit_sdl::loadFonts(base + "fonts/").c_str(), double(scale));
         if (!kit_sdl::loadIconAtlases(device, base + "res/")) std::printf("stardraft_editor: no icon atlases in res/\n");
+        if (!kit_sdl::loadResourceIcon(1, base + "res/stardraft.ico")) std::printf("stardraft_editor: no app icon in res/\n");  // (About's)
+        host.setHoverHook(sdlHover);  // the views' tooltips (sdl_tips.inc)
 
         // The game data (the map needs it), then the map from the command line.
         std::string dataErr;
@@ -290,15 +295,9 @@ int main(int argc, char** argv) {
             // A map's dialog (--dialog unitprops|locprops|prompt|quick, sdl_map_dialogs.inc) is the picture at its own size.
             MapDialogShot mapShot;
             if (mapDialogShot(dialogArg, mapShot)) width = mapShot.size.x, height = mapShot.size.y;
-            // A few frames: the first fills the font atlas with the glyphs the text needs; the last is the picture.
-            SDL_GPUTextureCreateInfo ti{};
-            ti.type = SDL_GPU_TEXTURETYPE_2D;
-            ti.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-            ti.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-            ti.width = uint32_t(width), ti.height = uint32_t(height), ti.layer_count_or_depth = 1, ti.num_levels = 1;
-            SDL_GPUTexture* tex = SDL_CreateGPUTexture(device, &ti);
-            if (!tex) return std::fprintf(stderr, "snapshot texture: %s\n", SDL_GetError()), 1;
             // The picture is the window's root, or the dialog's view (--dialog options|feedback|listpick) at the --size given.
+            // --dialog about, message and tip take their own sizes: About's, the message box's for the Windows
+            // program's msgbox: text, and the tooltip's for its text.
             FeedbackView feedbackShot(gFeedbackProgram, L"StarDraft 2");
             NewProjectStart projectStart;  // (newproject: File > Project > New EUD project's fields, as sdl_project.inc fills them)
             projectStart.name = gState.ed && !gState.ed->path().empty() ? gState.ed->path().stem().wstring() : L"MyMap";
@@ -318,6 +317,41 @@ int main(int argc, char** argv) {
             else if (dialogArg == "prompt") shown = &promptShot;
             else if (dialogArg == "listpick") shown = &pickShot;
             else if (mapShot.view) shown = mapShot.view;
+            msgbox::MessageView messageShot;
+            TipView tipShot;
+            if (dialogArg == "about") {
+                shown = &gAboutView;
+                const draw::Point sz = AboutView::size();
+                width = sz.x, height = sz.y;
+            } else if (dialogArg == "message") {
+                shown = &messageShot;
+                messageShot.b.text = L"Save changes to the map? This text is long, so that it wraps to a second line in the box.";
+                messageShot.b.icon = msgbox::Icon::Question;
+                messageShot.b.buttons = {{L"&Save", 0}, {L"Do &not save", 1}, {L"Cancel", 2}};
+                messageShot.b.cancel = 2;
+                const draw::Point sz = messageShot.layout(kit_sdl::measuringCanvas());
+                width = sz.x, height = sz.y;
+            } else if (dialogArg == "error") {  // an error box (shellErrorBox: the error icon and OK)
+                shown = &messageShot;
+                messageShot.b.text = L"Could not write /home/user/maps/(4)Bottleneck.scx: the folder is read-only.";
+                messageShot.b.icon = msgbox::Icon::Error;
+                messageShot.b.buttons = {{L"OK", 0}};
+                const draw::Point sz = messageShot.layout(kit_sdl::measuringCanvas());
+                width = sz.x, height = sz.y;
+            } else if (dialogArg == "tip") {
+                shown = &tipShot;
+                tipShot.text = L"Zoom in (Ctrl+Plus): the map shows larger; the tooltip wraps a text this long at 360 px";
+                const draw::Point sz = tipShot.measure(kit_sdl::measuringCanvas());
+                width = sz.x, height = sz.y;
+            }
+            // A few frames: the first fills the font atlas with the glyphs the text needs; the last is the picture.
+            SDL_GPUTextureCreateInfo ti{};
+            ti.type = SDL_GPU_TEXTURETYPE_2D;
+            ti.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+            ti.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
+            ti.width = uint32_t(width), ti.height = uint32_t(height), ti.layer_count_or_depth = 1, ti.num_levels = 1;
+            SDL_GPUTexture* tex = SDL_CreateGPUTexture(device, &ti);
+            if (!tex) return std::fprintf(stderr, "snapshot texture: %s\n", SDL_GetError()), 1;
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             const bool ok = writeSnapshot(device, tex, width, height, snapshot);

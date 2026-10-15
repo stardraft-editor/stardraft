@@ -394,8 +394,6 @@ void layoutUnitPalette();
 void showAbout();
 void showOptions();
 void optionsRefresh();  // the Options window shows the options' new values
-void aboutOpen(const std::wstring& url);
-extern const wchar_t* const kDiscordInvite;
 void setPlayer(int i);
 void showQuickPicker(bool replace = false, bool open = false);  // replace: Replace with... for the selection; open: Quick open
 void replaceSelectionWith(int v);
@@ -453,6 +451,11 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_options.inc"  // Program options' view (OptionsView; the host is options_window.inc)
 #include "core/views_feedback.inc"  // the feedback dialog's view (FeedbackView; the host is feedback.inc and feedback_window.inc)
 #include "core/views_new_project.inc"  // File > New EUD project (NewProjectView, runNewProjectDialog; the host is new_project_window.inc)
+#include "core/views_message_box.inc"  // the message box (MessageView, runMessageBox; the host is message_box.inc)
+#include "core/views_about.inc"  // Help > About StarDraft (AboutView; the host is about.inc)
+#include "core/views_tip.inc"  // the hover tooltip (TipView; the Windows host is tip_win32.inc)
+#include "core/kit_surface.inc"  // a painted surface in a view: the kit's controls with their click areas (kitui::Surface)
+#include "core/views_kit_gallery.inc"  // View > Control kit (KitGalleryView; the host is kit_gallery.inc)
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
 
 void rebuildList() { rebuildList(app); }
@@ -2230,8 +2233,8 @@ void commandBody(int id) {
         ShellExecuteW(nullptr, L"open", (L"https://github.com/" + std::wstring(crash::kRepo) + L"/issues/new").c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         return;
     case ID_HELP_UPDATES: update::check(); return;
-    case ID_HELP_DISCORD: aboutOpen(kDiscordInvite); return;
-    case ID_HELP_GITHUB: aboutOpen((L"https://github.com/" + std::wstring(crash::kRepo)).c_str()); return;  // the source, releases and issues
+    case ID_HELP_DISCORD: shellOpenUrl(kDiscordInvite); return;
+    case ID_HELP_GITHUB: shellOpenUrl(L"https://github.com/" + std::wstring(kRepoName)); return;  // the source, releases and issues
     case ID_HELP_ABOUT: showAbout(); return;
     case ID_VIEW_TRIGCODE:
         if (activeProject()) setWorkspace(Workspace::Triggers), showTriggerCode();  // shows or hides the code pane
@@ -3264,6 +3267,7 @@ void fadeIn(HWND w, int show) {
 #include "canvas_gdi.inc"
 #include "ui_kit.inc"
 #include "view_win32.inc"
+#include "tip_win32.inc"  // the hover tooltips: the core's TipView in a Tooltip window (view windows, ui::Surface, the Data form)
 
 // --- The log's bar as a view (apps/common/view.h) ---------------------------------------------------------------
 // The log window is a view window (kViewClass) whose child is the native read-only edit with the full log. The view
@@ -3379,10 +3383,10 @@ HWND tabsWindow(stardraft::draw::View& v) { return ui::Win32Host::windowOf(v); }
 #include "context_menu.inc"
 #include "message_box.inc"
 #include "map_properties.inc"
-#include "about.inc"
 int volumeRow(HDC dc, int x, int y, int labelW, int right, std::vector<DataWidgetHit>& hits);
 #include "options_window.inc"
 #include "new_project_window.inc"  // File > New EUD project's Windows host (core/views_new_project.inc)
+#include "about.inc"
 #include "feedback_window.inc"
 #include "classic_settings.inc"
 
@@ -4763,8 +4767,6 @@ struct {
     std::function<void()> click, release;
     bool down = false, moved = false, notEdit = false;
 } gWidgetDrag;
-HWND gWidgetTips = nullptr;
-int gWidgetTipCount = 0;
 std::set<std::string> gHotFields;  // fields under the mouse: in the form or in a widget
 bool hot(const char* field) { return gHotFields.count(field) != 0; }
 bool hotAny(std::initializer_list<const char*> fields) {
@@ -7001,28 +7003,12 @@ int dataWidgets(HDC dc, const std::string& dat, int section, int e, int x, int y
     return bottom;
 }
 
-// The form's tooltips: one tool per widget area with a tip, set again after each paint.
+// The form's tooltips: the kit's (tip_win32.inc), with the tip of the widget area under the mouse.
 void dataWidgetTips() {
-    if (!gWidgetTips) {
-        gWidgetTips = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, 0, 0, 0, 0, gData.form, nullptr,
-                                      app.inst, nullptr);
-        SendMessageW(gWidgetTips, TTM_SETMAXTIPWIDTH, 0, scale(360));
-        styleTips(gWidgetTips);
-    }
-    for (int i = 0; i < gWidgetTipCount; ++i) {
-        TOOLINFOW ti{sizeof ti};
-        ti.hwnd = gData.form, ti.uId = UINT_PTR(i + 1);
-        SendMessageW(gWidgetTips, TTM_DELTOOLW, 0, LPARAM(&ti));
-    }
-    gWidgetTipCount = 0;
-    for (auto& h : gWidgetHits) {
-        if (h.tip.empty()) continue;
-        TOOLINFOW ti{sizeof ti};
-        ti.uFlags = TTF_SUBCLASS;
-        ti.hwnd = gData.form, ti.uId = UINT_PTR(++gWidgetTipCount), ti.rect = h.r;
-        ti.lpszText = h.tip.data();
-        SendMessageW(gWidgetTips, TTM_ADDTOOLW, 0, LPARAM(&ti));
-    }
+    static HWND attached = nullptr;
+    if (attached == gData.form) return;
+    attached = gData.form;
+    ui::hoverTipsAttach(gData.form, [](POINT p) { return ui::hitTipAt(gWidgetHits, p); }, &gWidgetHits);
 }
 
 #include "data_extras.inc"
@@ -7236,13 +7222,6 @@ public:
     bool projectOpen() override { return activeProject() != nullptr; }
     void beforePaint() override {
         gPlayerArea.valid = false;  // set again if this paint has the player
-        // The tooltips point at the last paint's tips: take them away before those go.
-        for (int i = 0; gWidgetTips && i < gWidgetTipCount; ++i) {
-            TOOLINFOW ti{sizeof ti};
-            ti.hwnd = gData.form, ti.uId = UINT_PTR(i + 1);
-            SendMessageW(gWidgetTips, TTM_DELTOOLW, 0, LPARAM(&ti));
-        }
-        gWidgetTipCount = 0;
         gWidgetHits.clear();
         gGridAreas.clear(), gGridLabels.clear();
         if (gData.datTab != stringsTab()) stringsShowEdit(false);
@@ -15968,7 +15947,7 @@ int runSelfTest(const fs::path& dir) {
                     }
                     showKitGallery();
                     for (int i = 0; i < 4; ++i) pump();
-                    if (gKit.wnd) capture(dir / ("90_theme_" + tag + "_kit.png"), gKit.wnd), DestroyWindow(gKit.wnd);
+                    if (HWND kw = kitGalleryWindow()) capture(dir / ("90_theme_" + tag + "_kit.png"), kw), DestroyWindow(kw);
                 }
                 applyTheme(false, 0);
                 setWorkspace(Workspace::Map);
@@ -16871,22 +16850,19 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 DestroyMenu(m);
                 continue;
             }
-            if (s == "tooltip:") {  // tooltip[_light].png: a tooltip shown off the screen (tracked), as the kit's tooltips look
-                HWND tips = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, 0, 0, 0, 0, app.main, nullptr,
-                                            app.inst, nullptr);
-                SendMessageW(tips, TTM_SETMAXTIPWIDTH, 0, scale(360));
-                styleTips(tips);
-                std::wstring text = L"Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).";
-                TOOLINFOW ti{sizeof ti};
-                ti.uFlags = TTF_TRACK | TTF_ABSOLUTE, ti.hwnd = app.main, ti.uId = 1, ti.lpszText = text.data();
-                SendMessageW(tips, TTM_ADDTOOLW, 0, LPARAM(&ti));
-                const int x = GetSystemMetrics(SM_XVIRTUALSCREEN) + GetSystemMetrics(SM_CXVIRTUALSCREEN) + 100;
-                SendMessageW(tips, TTM_TRACKPOSITION, 0, MAKELPARAM(x, 10));
-                SendMessageW(tips, TTM_TRACKACTIVATE, TRUE, LPARAM(&ti));
-                for (int i = 0; i < 5; ++i) pump();
-                RedrawWindow(tips, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
-                capture(fs::path(datashots) / (std::string("tooltip") + (gLightTheme ? "_light" : "") + ".png"), tips);
-                DestroyWindow(tips);
+            if (s == "tooltip:") {  // tooltip[_light].png: the kit's tooltip (tip_win32.inc), shown off the screen
+                const std::wstring text = L"Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).";
+                HWND tips = ui::gHoverTips.showAt(app.main, {GetSystemMetrics(SM_XVIRTUALSCREEN), 10}, text);  // (a background run: off the screen)
+                for (int i = 0; i < 10; ++i) pump(), Sleep(20);  // (the window's first frame is composed)
+                if (tips) {
+                    RedrawWindow(tips, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+                    // Twice: the first capture of a tooltip window is black (PrintWindow composes it then), the second is the window.
+                    const fs::path file = fs::path(datashots) / (std::string("tooltip") + (gLightTheme ? "_light" : "") + ".png");
+                    capture(file, tips);
+                    for (int i = 0; i < 3; ++i) pump(), Sleep(20);
+                    capture(file, tips);
+                }
+                ui::gHoverTips.hide();
                 continue;
             }
             if (s == "pickstyle:") {  // pickstyle[_light].png: a list picker with sections, the current value and typed text
@@ -17409,6 +17385,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                                       {"Esc in OK/Cancel gives Cancel", MB_OKCANCEL, WM_KEYDOWN, VK_ESCAPE, IDCANCEL},
                                       {"Tab then Enter gives Cancel in Retry/Cancel", MB_RETRYCANCEL, WM_KEYDOWN, VK_TAB, IDCANCEL},
                                       {"The close box gives Cancel (No in Yes/No)", MB_YESNO, WM_CLOSE, 0, IDNO}};
+                const auto keyHook = gMsgBoxHook;  // (the Tab case has its own; the cases after it get this one back)
                 for (const Case& c : cases) {
                     keyMsg = c.msg, key = c.key;
                     if (c.key == VK_TAB)
@@ -17418,7 +17395,10 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                         };
                     const int r = themedMessageBox(app.main, L"Test", L"Message box test", c.flags);
                     log << c.name << ": " << (r == c.want ? "yes" : "NO") << "\n";
+                    gMsgBoxHook = keyHook;
                 }
+                keyMsg = WM_KEYDOWN, key = VK_ESCAPE;  // no owner (the crash question at start, before the main window)
+                log << "With no owner, Esc gives Cancel: " << (themedMessageBox(nullptr, L"Test", L"Message box test", MB_YESNOCANCEL) == IDCANCEL ? "yes" : "NO") << "\n";
                 log << "owner enabled after: " << (IsWindowEnabled(app.main) ? "yes" : "NO") << "\n";
                 gMsgBoxHook = nullptr;
                 continue;
@@ -18584,15 +18564,16 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 showKitGallery();
                 for (int i = 0; i < 10; ++i) pump();
                 // Page by page: kit_1.png, kit_2.png, ...
+                HWND kw = kitGalleryWindow();
                 RECT cr;
-                GetClientRect(gKit.wnd, &cr);
+                GetClientRect(kw, &cr);
                 for (int page = 1; page < 10; ++page) {
-                    RedrawWindow(gKit.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
-                    capture(fs::path(datashots) / ("kit_" + std::to_string(page) + ".png"), gKit.wnd);
-                    if (gKit.scroll + cr.bottom >= gKit.height) break;
-                    gKit.scroll = std::min(gKit.scroll + int(cr.bottom) - scale(60), gKit.height - int(cr.bottom));
+                    RedrawWindow(kw, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+                    capture(fs::path(datashots) / ("kit_" + std::to_string(page) + ".png"), kw);
+                    if (gKitView.scroll + cr.bottom >= gKitView.pageH) break;
+                    gKitView.scroll = std::min(gKitView.scroll + int(cr.bottom) - scale(60), gKitView.pageH - int(cr.bottom));
                 }
-                DestroyWindow(gKit.wnd);
+                DestroyWindow(kw);
                 continue;
             }
             if (s == "perf:") {  // perf: how long things take (start-up, opening, a paint of each workspace), to perf.txt
@@ -18738,21 +18719,26 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             }
             if (s == "about:") {  // about.png: Help > About StarDraft
                 showAbout();
+                HWND aw = aboutWindow();
                 for (int i = 0; i < 10; ++i) pump(), Sleep(20);
-                capture(fs::path(datashots) / "about.png", gAbout.wnd);
+                capture(fs::path(datashots) / "about.png", aw);
                 // The EUD tools' links: euddraft and eudplib, then the repository and Discord; the mouse underlines one.
                 std::ofstream o(fs::path(datashots) / "about.txt");
-                const bool four = gAbout.view.links.size() == 4 && gAbout.view.links[0].url == L"https://github.com/armoha/euddraft" &&
-                                  gAbout.view.links[1].url == L"https://github.com/armoha/eudplib";
+                const auto& links = gAboutView.links;
+                const bool four = links.size() == 4 && links[0].url == L"https://github.com/armoha/euddraft" && links[1].url == L"https://github.com/armoha/eudplib";
                 o << "links: euddraft and eudplib first, 4 in all " << (four ? "yes" : "NO") << "\n";
                 if (four) {
-                    const RECT r = ui::toRECT(gAbout.view.links[1].rc);
-                    SendMessageW(gAbout.wnd, WM_MOUSEMOVE, 0, MAKELPARAM((r.left + r.right) / 2, (r.top + r.bottom) / 2));
-                    o << "the mouse on eudplib makes it the hot link " << (gAbout.view.hot == 1 ? "yes" : "NO") << "\n";
-                    UpdateWindow(gAbout.wnd);  // (no pump: the real mouse is elsewhere, and its leave message clears it)
-                    capture(fs::path(datashots) / "about_hot.png", gAbout.wnd);
+                    // Each link is where it is drawn: its middle hits it.
+                    bool placed = true;
+                    for (size_t i = 0; i < 4; ++i) placed = placed && gAboutView.hitAt({(links[i].rc.left + links[i].rc.right) / 2, (links[i].rc.top + links[i].rc.bottom) / 2}) == int(i);
+                    o << "each link is hit at its middle " << (placed ? "yes" : "NO") << "\n";
+                    const RECT r = ui::toRECT(links[1].rc);
+                    SendMessageW(aw, WM_MOUSEMOVE, 0, MAKELPARAM((r.left + r.right) / 2, (r.top + r.bottom) / 2));
+                    o << "the mouse on eudplib makes it the hot link " << (gAboutView.hot == 1 ? "yes" : "NO") << "\n";
+                    UpdateWindow(aw);  // (no pump: the real mouse is elsewhere, and its leave message clears it)
+                    capture(fs::path(datashots) / "about_hot.png", aw);
                 }
-                DestroyWindow(gAbout.wnd);
+                if (aboutWindow()) gMainAnchor.host.closeWindow(gAboutView);
                 continue;
             }
             if (s == "project:") {  // project.txt: a new project (a new map) in the datashot folder, for the specs after it that need one

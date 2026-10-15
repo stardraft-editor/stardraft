@@ -104,7 +104,7 @@ public:
     explicit Win32Host(View& v) : view_(v), router_(v) { v.attach(this); }
     ~Win32Host() override {
         for (auto& [id, t] : timers_) KillTimer(wnd_, id);
-        if (tips_ && IsWindow(tips_)) DestroyWindow(tips_);
+        if (tipsOn_) hoverTipsDetach(tipsOn_, this);
         view_.attach(nullptr);
     }
     HWND window() const { return wnd_; }
@@ -196,6 +196,7 @@ public:
     std::function<void()> onClosed;  // (a Popup or Menu that closes itself)
     stardraft::draw::WindowKind kind = stardraft::draw::WindowKind::Dialog;
     bool isWindow = false;  // made by openWindow (else a pane's window that its owner made)
+    HWND modalOwner = nullptr;  // runModal: the window it disabled, enabled again before this window goes (it gets the activation back)
 
     // The view's own vertical bar (WS_VSCROLL on its window), as the view has it now: the range, page and position.
     void syncScroll(HWND w) {
@@ -212,21 +213,12 @@ public:
         }
     }
 
-    // hoverTip: the view's tip shows as a tooltip. One tool covers the view; the tooltip asks for its text (TTN_NEEDTEXT)
-    // where the mouse is, so a tip that is empty there shows nothing.
+    // hoverTip: the view's tip shows as the kit's tooltip (tip_win32.inc), asked for where the mouse is, so a tip that is
+    // empty there shows nothing, and a tip that changes under the mouse (another tab) goes.
     void hoverTipOn(HWND w) {
-        if (tips_ && IsWindow(tips_)) return;
-        tips_ = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, 0, 0, 0, 0, w, nullptr, app.inst, nullptr);
-        if (!tips_) return;
-        SendMessageW(tips_, TTM_SETMAXTIPWIDTH, 0, ::scale(360));
-        styleTips(tips_);
-        TOOLINFOW ti{sizeof ti};
-        ti.uFlags = TTF_SUBCLASS;
-        ti.hwnd = w;
-        ti.uId = 1;
-        ti.rect = {0, 0, 32767, 32767};
-        ti.lpszText = LPSTR_TEXTCALLBACKW;
-        SendMessageW(tips_, TTM_ADDTOOLW, 0, LPARAM(&ti));
+        if (tipsOn_ == w) return;
+        tipsOn_ = w;
+        hoverTipsAttach(w, [this](POINT p) { return router_.tip({p.x, p.y}); }, this);
     }
 
     // The window's procedure calls this first; true: handled (`result` is the answer).
@@ -282,15 +274,7 @@ public:
                 TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, w, 0};
                 tracking_ = TrackMouseEvent(&tme) != 0;
             }
-            if (view_.hoverTip()) {
-                hoverTipOn(w);
-                // One tool covers the whole view, so the tooltip keeps the text of the spot it showed first.
-                // When the text under the mouse changes (another tab), hide it: it asks again when it shows.
-                if (tips_ && IsWindow(tips_)) {
-                    std::wstring now = router_.tip(mouse(view_));
-                    if (now != tipShown_) tipShown_ = std::move(now), SendMessageW(tips_, TTM_POP, 0, 0);
-                }
-            }
+            if (view_.hoverTip()) hoverTipOn(w);
             return router_.mouse(mouseEvent(MouseKind::Move, 0)) ? (result = 0, true) : false;
         case WM_MOUSELEAVE: {
             tracking_ = false;
@@ -319,14 +303,6 @@ public:
             const bool used = router_.mouse(e);
             syncScroll(w);
             return used ? (result = 0, true) : false;
-        }
-        case WM_NOTIFY: {  // the hover tooltip asks for its text: the view's tip where the mouse is
-            const auto* hdr = reinterpret_cast<const NMHDR*>(lp);
-            if (!tips_ || hdr->hwndFrom != tips_ || hdr->code != UINT(TTN_NEEDTEXTW)) return false;
-            tipText_ = router_.tip(mouse(view_));
-            reinterpret_cast<NMTTDISPINFOW*>(lp)->lpszText = tipText_.data();
-            result = 0;
-            return true;
         }
         case WM_SETCURSOR: {
             if (LOWORD(lp) != HTCLIENT || HWND(wp) != w) return false;  // (a child window's cursor is its own: an edit's I-beam)
@@ -446,6 +422,7 @@ public:
         case WM_CLOSE:
             if (!isWindow) return false;
             if (auto c = std::move(onClosed)) c();
+            if (modalOwner) EnableWindow(modalOwner, TRUE);
             DestroyWindow(w);
             result = 0;
             return true;
@@ -475,9 +452,7 @@ private:
     View& view_;
     stardraft::draw::Router router_;
     HWND wnd_ = nullptr;
-    HWND tips_ = nullptr;  // hoverTip: the tooltip (see hoverTipOn)
-    std::wstring tipText_;
-    std::wstring tipShown_;  // the tip text under the mouse at the last move (the tooltip follows it)
+    HWND tipsOn_ = nullptr;  // hoverTip: the window that shows the view's tips (see hoverTipOn)
     bool tracking_ = false, imeOn_ = false;
     wchar_t high_ = 0;
     std::map<UINT_PTR, std::function<void()>> timers_;
@@ -520,15 +495,17 @@ inline HWND openViewWindow(HWND owner, View& content, const stardraft::draw::Win
         int range = 0, page = 0, pos = 0;
         if (content.windowScrollBar(range, page, pos)) style |= WS_VSCROLL;  // the view's own bar (Program options)
         RECT o{};
-        GetWindowRect(owner, &o);
-        if (spec.workArea) {  // DS_CENTER: the work area of the monitor the owner is on
+        // DS_CENTER: the work area of the monitor the owner is on; an owner that does not show (none yet, hidden or
+        // minimized: the crash question at start) gives the work area of the main monitor too.
+        const bool ownerShows = owner && IsWindowVisible(owner) && !IsIconic(owner) && GetWindowRect(owner, &o);
+        if (spec.workArea || !ownerShows) {
             MONITORINFO mi{sizeof mi};
-            if (GetMonitorInfoW(MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST), &mi)) o = mi.rcWork;
+            if (GetMonitorInfoW(MonitorFromWindow(owner, ownerShows ? MONITOR_DEFAULTTONEAREST : MONITOR_DEFAULTTOPRIMARY), &mi)) o = mi.rcWork;
         }
         const int w = r.right - r.left, h = r.bottom - r.top;
         r = {(o.left + o.right - w) / 2, (o.top + o.bottom - h) / 2, 0, 0};
         r.right = r.left + w, r.bottom = r.top + h;
-        AdjustWindowRectEx(&r, style, FALSE, ex);
+        AdjustWindowRectExForDpi(&r, style, FALSE, ex, UINT(app.dpi ? app.dpi : 96));  // (the frame at the program's DPI, as the content's size)
     } else {
         POINT a{r.left, r.top};
         ClientToScreen(owner, &a);
@@ -555,7 +532,10 @@ inline void Win32Host::openWindow(View&, View& content, const stardraft::draw::W
 }
 inline void Win32Host::closeWindow(View& content) {
     if (HWND w = windowOf(content)) {
-        if (auto* h = dynamic_cast<Win32Host*>(content.host())) h->onClosed = nullptr;
+        if (auto* h = dynamic_cast<Win32Host*>(content.host())) {
+            h->onClosed = nullptr;
+            if (h->modalOwner) EnableWindow(h->modalOwner, TRUE);
+        }
         DestroyWindow(w);
     }
 }
@@ -566,13 +546,22 @@ inline void Win32Host::runModal(View& from, View& content, const stardraft::draw
     HWND w = windowOf(content);
     if (!w) return;
     EnableWindow(root, FALSE);
+    if (auto* h = dynamic_cast<Win32Host*>(content.host())) h->modalOwner = wasEnabled ? root : nullptr;
     MSG m;
-    while (IsWindow(w) && GetMessageW(&m, nullptr, 0, 0) > 0) {
+    bool quit = false;
+    while (IsWindow(w)) {
+        const BOOL got = GetMessageW(&m, nullptr, 0, 0);
+        if (got <= 0) {
+            quit = got == 0;
+            break;
+        }
         TranslateMessage(&m);
         DispatchMessageW(&m);
     }
+    if (IsWindow(w)) DestroyWindow(w);  // (the program quits: the window goes before its content)
     if (wasEnabled) EnableWindow(root, TRUE);
-    if (!gBackground) SetActiveWindow(root);
+    if (quit) PostQuitMessage(int(m.wParam));  // the program closes: the main loop gets it
+    if (!gBackground && root) SetActiveWindow(root);
 }
 
 inline void registerViewClass(HINSTANCE inst) {
