@@ -4,4 +4,7 @@
 // has no Win32 call left; it never moves back.
 
 #include "strings.inc"
+#include "ids.inc"
+#include "modes.inc"
 #include "colors.inc"
+#include "app_state.inc"
