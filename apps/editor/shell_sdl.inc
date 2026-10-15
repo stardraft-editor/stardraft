@@ -91,6 +91,7 @@ void shellErrorBox(const std::wstring& text, const std::wstring& title) {
     std::fprintf(stderr, "%s: %s\n", narrow(title).c_str(), narrow(text).c_str());
     setMessage(text);
 }
+int shellTabSideMenu(const std::wstring&, int) { return 0; }  // (the side menu is not on this system yet)
 void shellRecentMenu(bool, const std::vector<std::wstring>&, const std::wstring&) { gMenusDirty = true; }  // (the lists are the menus' own: sdl_menus.inc)
 void shellShowQuickPicker(bool, bool) { setMessage(L"This is not on this system yet"); }
 void shellMapFileOpened(const std::filesystem::path&) {}  // (the file association is Windows only)
