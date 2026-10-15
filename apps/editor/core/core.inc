@@ -13,4 +13,7 @@
 #include "commands_core.inc"
 #include "views_status.inc"
 #include "views_stub.inc"
+#include "map_edit.inc"
+#include "tiles_edit.inc"
+#include "path_overlay.inc"
 #include "map_input.inc"

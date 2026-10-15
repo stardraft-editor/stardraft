@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -29,6 +30,8 @@
 #include "stardraft/editor.h"
 #include "stardraft/eud_project.h"
 #include "stardraft/game_data.h"
+#include "stardraft/pathing.h"
+#include "stardraft/scene.h"
 #include "stardraft/hd_assets.h"
 #include "stardraft/tileset.h"
 

@@ -177,11 +177,10 @@ void setCrashReports(int mode) {
 // Options > Middle mouse click and hold: false pan the map (it moves toward the mouse, the faster the farther the mouse
 // is from where the button went down; the default), true drag the map (it follows the mouse).
 bool gMiddleDrag = false;
-// Options: the most units a map may have (GitHub feedback #103): standard maps, and maps of EUD projects.
-int gUnitLimitClassic = 3400, gUnitLimitEud = 1700;
 std::wstring gLanguage = L"auto";  // Options > Language: auto, en, ko or es (a change applies at the next start)
 std::wstring gProjectsFolder;
 HMENU gRecentMapsMenu = nullptr, gRecentProjectsMenu = nullptr;
+extern int gUnitLimitClassic, gUnitLimitEud;  // (core/map_edit.inc)
 
 void loadRecent() {
     prefs::list(L"RecentMaps", gRecentMaps), prefs::list(L"RecentProjects", gRecentProjects);
@@ -339,6 +338,9 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/commands_core.inc"  // commandPortable: the checks before commandBody's switch
 #include "core/views_status.inc"  // the status bar's view (StatusView; the instance is gStatus below)
 #include "core/views_stub.inc"  // the Triggers, Assets and Project stub's view (StubView; the instance is gStubView)
+#include "core/map_edit.inc"  // the map editing helpers: toWorld, the spray, the stroke, the snap, the unit limit
+#include "core/tiles_edit.inc"  // the Rectangle mode's tiles on the map: the press, the drag, the spray and the fill
+#include "core/path_overlay.inc"  // the pathing overlays (walk, paths, towns): their drawing and their hover text
 #include "core/map_input.inc"  // the map view's mouse input: mapMouseDown, mapMouseMove, mapMouseUp, the spray and the pipette
 
 // The program: its state, and what Win32 and the renderer give it (windows, brushes, the font, the GPU).
@@ -357,6 +359,7 @@ struct App : AppState {
 };
 
 App app;
+AppState& appState() { return app; }
 
 int gUnitGraphics = 0;  // changes when syncMapUnitGraphics gives the map other unit graphics
 
@@ -443,16 +446,7 @@ void setPlayer(int i);
 void showQuickPicker(bool replace = false, bool open = false);  // replace: Replace with... for the selection; open: Quick open
 void replaceSelectionWith(int v);
 
-int scale(int v) { return MulDiv(v, int(app.dpi), 96); }
-
 // --- Camera helpers ------------------------------------------------------------------------------
-
-void toWorld(int sx, int sy, float& wx, float& wy) {
-    wx = app.camX + sx / app.zoom;
-    wy = app.camY + sy / app.zoom;
-}
-
-void viewSize(int& w, int& h) { shellViewSize(w, h); }
 
 void zoomAt(float factor, int sx, int sy) {
     float wx, wy;
@@ -475,19 +469,6 @@ void fitMap() {
 
 // --- Tools ------------------------------------------------------------------------------------------
 
-int currentTool() { return app.toolByMode[int(app.mode)]; }
-// The spray's density: the number of things one spray puts down in the brush (each tick of a held spray too), 1 to
-// kDensityMax. Units or doodads (sprayCount; only where they fit, so fewer can land) and terrain dabs or tiles
-// (sprayDabs). The defaults: 5 dabs for terrain, 10 units or doodads (about the earlier "medium").
-constexpr int kDensityMax = 50;
-int sprayCount() { return std::clamp(app.sprayDensity, 1, kDensityMax); }
-int sprayDabs() { return std::clamp(app.sprayDensity, 1, kDensityMax); }
-int sprayRadius() { return int(app.brushSize * 64); }
-Brush currentBrush() { return Brush{app.brushShape, app.brushSize, app.mode == Mode::Terrain ? app.brushHeight : 0.0f}; }
-// The terrain selection's shape: the brush shape (diamond, square, circle) while it is made with Select.
-Editor::SelectShape selectShape() {
-    return app.brushShape == Brush::Diamond ? Editor::SelectShape::Diamond : app.brushShape == Brush::Circle ? Editor::SelectShape::Ellipse : Editor::SelectShape::Rect;
-}
 // The brush sizes (diamonds; the sprays' radius too): 0.5, every whole size to 16, then every other to 32.
 const std::vector<float>& brushSizes() {
     static const std::vector<float> v = [] {
@@ -552,13 +533,6 @@ std::wstring unitTag(const UnitType& t) {
                  : (t.groupFlags & UnitGroup::Protoss) ? L'P' : (t.groupFlags & UnitGroup::Independent) ? L'I' : L'N';
     wchar_t kind = t.is(UnitFlag::Hero) ? L'H' : t.is(UnitFlag::Building) ? L'B' : (t.groupFlags & UnitGroup::Men) ? L'U' : L'O';
     return std::wstring{race, L' ', kind};
-}
-
-std::wstring unitShortName(const UnitType& t) {
-    std::wstring n = widen(t.name);
-    for (const wchar_t* prefix : {L"Terran ", L"Zerg ", L"Protoss "})
-        if (n.rfind(prefix, 0) == 0) return n.substr(wcslen(prefix));
-    return n;
 }
 
 std::wstring itemLabel(int v) {
@@ -724,12 +698,6 @@ void setMessage(const std::wstring& m) {
     app.message = m;
     updateStatus();
     logLine(m);
-}
-
-// A status-bar hint (what is under the mouse): not worth a log line.
-void setHint(const std::wstring& m) {
-    app.message = m;
-    updateStatus();
 }
 
 std::wstring docTitle(int i, bool withMode = true);
@@ -927,34 +895,6 @@ void addUnitSprites(render::Scene& s, const Unit& u, float dx, float dy, float a
     }
 }
 
-void outline(render::Scene& s, const Rect& r, uint32_t rgba, float thickness = 1, float dx = 0, float dy = 0) {
-    s.rects.push_back({r.left + dx, r.top + dy, r.right + dx, r.bottom + dy, rgba, false, thickness, true});
-}
-
-Rect previewLocationRect(float wx, float wy) {
-    Rect r = app.locStart;
-    float dx = wx - app.dragWX, dy = wy - app.dragWY;
-    auto sn = [](float v) { return int(snapRound(v, app.locationGrid)); };
-    if (app.drag == Drag::LocCreate) {
-        r = Rect{sn(app.dragWX), sn(app.dragWY), sn(wx), sn(wy)}.normalized();
-    } else if (app.drag == Drag::LocMove) {
-        int mx = sn(r.left + dx) - r.left, my = sn(r.top + dy) - r.top;
-        r = {r.left + mx, r.top + my, r.right + mx, r.bottom + my};
-    } else if (app.drag == Drag::LocResize) {
-        if (app.locEdges & 1) r.left = sn(r.left + dx);
-        if (app.locEdges & 2) r.top = sn(r.top + dy);
-        if (app.locEdges & 4) r.right = sn(r.right + dx);
-        if (app.locEdges & 8) r.bottom = sn(r.bottom + dy);
-        r = r.normalized();
-    }
-    return r;
-}
-
-// Unit snap (Options > Units): placement in the middle of a grid cell, moves in whole cells.
-// Buildings always snap to tile edges (snapToGrid), as in StarEdit.
-void snapUnitPoint(float& x, float& y) { x = snapToCell(x, app.unitGrid), y = snapToCell(y, app.unitGrid); }
-float snapUnitDelta(float d) { return snapRound(d, app.unitGrid); }
-
 // Options menu: the snap choices (the same for units, sprites and locations) and the grid of each, in px.
 constexpr int kSnapGrids[] = {0, 32, 16, 8};
 int snapChoice(int grid) {
@@ -963,70 +903,7 @@ int snapChoice(int grid) {
     return 0;
 }
 
-// Would the selected units all be placeable moved by (dx, dy)?
-bool selectionFitsAt(float dx, float dy) {
-    Editor& ed = *app.ed;
-    const auto& units = ed.units();
-    const std::vector<int> moving = ed.withLinkedAddons(ed.selection());  // a building's add-on goes with it
-    std::vector<Unit> others;
-    for (size_t i = 0; i < units.size(); ++i)
-        if (std::find(moving.begin(), moving.end(), int(i)) == moving.end()) others.push_back(units[i]);
-    const PlacementContext ctx = ed.placementContext(&others);
-    for (int i : moving) {
-        Unit m = units[size_t(i)];
-        m.x = uint16_t(std::clamp(int(std::lround(m.x + dx)), 0, ed.width() * 32 - 1));
-        m.y = uint16_t(std::clamp(int(std::lround(m.y + dy)), 0, ed.height() * 32 - 1));
-        if (m.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[m.type], m.x, m.y);
-        if (!placementOk(ctx, m)) return false;
-    }
-    return true;
-}
-
-// Offset of a unit drag with the cursor at (wx, wy). With "snap back" on, a spot where the units do
-// not fit holds them at the last spot along the drag where they did.
-void dragMoveDelta(float wx, float wy, float& dx, float& dy) {
-    dx = snapUnitDelta(wx - app.dragWX), dy = snapUnitDelta(wy - app.dragWY);
-    if (!app.dragSnapBack || app.allowIllegalUnits) return;
-    if (selectionFitsAt(dx, dy)) app.lastValidDX = dx, app.lastValidDY = dy;
-    else dx = app.lastValidDX, dy = app.lastValidDY;
-}
-
 // Outline of the diamonds whose four corners are all in `corners`; single corners as small diamonds.
-// A map sprite's box: where its picture is (its first frame; SD graphics), so a click on what shows selects it
-// and the selection's box holds it (GitHub feedback #60). Nothing to measure: 32 x 32 around its point.
-Rect mapSpriteBox(Editor& ed, const MapSprite& m) {
-    UnitSprites& us = ed.unitSprites();
-    if (m.flags & SpriteFlag::DrawAsSprite) {
-        if (const Grp* g = us.grp(us.imageForSprite(m.id)); g && !g->frames.empty() && g->frames[0].width) {
-            const Grp::Frame& f = g->frames[0];
-            const int x0 = int(m.x) - g->width / 2 + f.x, y0 = int(m.y) - g->height / 2 + f.y;
-            return {x0, y0, x0 + f.width, y0 + f.height};
-        }
-    } else if (const Sprite* sp = us.unitSprite(m.id, m.owner, ed.tileset()); sp && sp->width) {
-        const int x0 = int(m.x) - sp->originX, y0 = int(m.y) - sp->originY;
-        return {x0, y0, x0 + sp->width, y0 + sp->height};
-    }
-    return {int(m.x) - 16, int(m.y) - 16, int(m.x) + 16, int(m.y) + 16};
-}
-// The sprite under a map point: the smallest box that holds it (a doodad's overlay goes with its doodad), else the
-// nearest within 24 pixels (as before).
-int mapSpriteAt(Editor& ed, int x, int y) {
-    int best = -1;
-    long long bestArea = 1LL << 62;
-    for (size_t i = 0; i < ed.sprites().size(); ++i) {
-        const MapSprite& m = ed.sprites()[i];
-        const Rect r = mapSpriteBox(ed, m);
-        if (!r.contains(x, y)) continue;  // (first: the overlay test below goes through every doodad)
-        bool overlay = false;
-        for (const Doodad& d : ed.doodads())
-            if (const DoodadType* t = ed.doodadTypes().find(d.id); t && t->overlaySprite == m.id && d.x == m.x && d.y == m.y) overlay = true;
-        if (overlay) continue;
-        const long long area = 1LL * (r.right - r.left) * (r.bottom - r.top);
-        if (area < bestArea) best = int(i), bestArea = area;
-    }
-    return best >= 0 ? best : ed.spriteAt(x, y);
-}
-
 void diamondOutline(render::Scene& s, const std::set<std::pair<int, int>>& set, uint32_t rgba) {
     auto line = [&](float x0, float y0, float x1, float y1) {
         render::RectDraw r;
@@ -1056,20 +933,17 @@ void diamondOutline(render::Scene& s, const std::set<std::pair<int, int>>& set, 
         }
 }
 
-#include "path_overlay.inc"
+// The Options and View menus' checks of the pathing overlays (the Win32 menu; the overlays are in core/path_overlay.inc).
+void pathOverlayMenus(HMENU m) {
+    CheckMenuItem(m, ID_VIEW_WALK, gPath.walk ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(m, ID_VIEW_PATHS, gPath.paths ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(m, ID_VIEW_TOWNS, gPath.towns ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuRadioItem(m, ID_PATHSIZE_SMALL, ID_PATHSIZE_LARGE,
+                       gPath.size == PathUnitSize::Small ? ID_PATHSIZE_SMALL : gPath.size == PathUnitSize::Large ? ID_PATHSIZE_LARGE : ID_PATHSIZE_MEDIUM,
+                       MF_BYCOMMAND);
+}
 
 std::vector<std::pair<int, uint16_t>> ghostTiles;  // doodad preview tiles, set by buildScene
-
-// The terrain selection being dragged from the press to (wx, wy). Rectangle: whole tiles, the tile of the press and the
-// tile under the mouse both in it (GitHub feedback #112); Isometric: as dragged.
-Rect terrainSelectRect(float wx, float wy) {
-    Rect r = Rect{int(app.dragWX), int(app.dragWY), int(wx), int(wy)}.normalized();
-    if (!app.terrainRect || !app.ed) return r;
-    const int w = app.ed->width(), h = app.ed->height();
-    const int x0 = std::clamp(r.left / 32, 0, w - 1), y0 = std::clamp(r.top / 32, 0, h - 1);
-    const int x1 = std::clamp((r.right - 1) / 32, x0, w - 1), y1 = std::clamp((r.bottom - 1) / 32, y0, h - 1);
-    return Rect{x0 * 32, y0 * 32, (x1 + 1) * 32, (y1 + 1) * 32};
-}
 
 void syncMapUnitGraphics();
 render::Scene buildScene() {
@@ -1985,16 +1859,6 @@ EudProject* activeProject() { return gActive >= 0 && gActive < int(gDocs.size())
 // are there in a project only when its map has that classic data (L.4: a classic map made a project keeps it). The
 // menus, the shortcuts and the rail ask these functions. Classic tools add their commands to classicOnlyCommand.
 bool classicMode() { return gActive >= 0 && gActive < int(gDocs.size()) && !gDocs[size_t(gActive)].project; }
-// Program options > Map unit limit, into the editor before units go into the map (standard maps; EUD projects).
-int applyUnitLimit(Editor& ed) {
-    const int n = classicMode() ? gUnitLimitClassic : gUnitLimitEud;
-    ed.setUnitLimit(n);
-    return n;
-}
-bool atUnitLimit(const Editor& ed) { return ed.unitLimit() > 0 && int(ed.units().size()) >= ed.unitLimit(); }
-std::wstring unitLimitText(const Editor& ed) {
-    return L"The map has " + std::to_wstring(ed.unitLimit()) + L" units: the limit (Program options > Map unit limit)";
-}
 bool projectMode() { return activeProject() != nullptr; }
 
 bool projectOnlyCommand(int id) {
@@ -4018,21 +3882,6 @@ void commandBody(int id) {
 
 // --- Viewport input --------------------------------------------------------------------------------
 
-int locationEdgesAt(float wx, float wy) {
-    Editor& ed = *app.ed;
-    int i = ed.selectedLocation();
-    if (!ed.locationUsed(i)) return 0;
-    Rect r = ed.locationRect(i);
-    float tol = 6 / app.zoom;
-    if (wx < r.left - tol || wx > r.right + tol || wy < r.top - tol || wy > r.bottom + tol) return 0;
-    int e = 0;
-    if (std::abs(wx - r.left) <= tol) e |= 1;
-    if (std::abs(wy - r.top) <= tol) e |= 2;
-    if (std::abs(wx - r.right) <= tol) e |= 4;
-    if (std::abs(wy - r.bottom) <= tol) e |= 8;
-    return e;
-}
-
 // The map view's cursor at a point of the view: the resize cursors on the selected location's edges and corners
 // (GitHub feedback #76), the move cursor while the camera moves, else the arrow.
 bool trigUnitPickActive();
@@ -4085,38 +3934,6 @@ bool spriteIsOverlay(int i) {
 
 int selectPalette(int value);
 
-// Places the palette unit at a map point (grid-snapped if on, corrected if on) and reports it.
-bool placePaletteUnit(float wx, float wy, bool correct) {
-    Editor& ed = *app.ed;
-    uint16_t type = uint16_t(app.palette);
-    const UnitType& t = ed.unitTypes()[type];
-    uint8_t who = (t.availability & UnitAvail::NonNeutral) ? uint8_t(app.playerOwner) : uint8_t(11);
-    snapUnitPoint(wx, wy);
-    applyUnitLimit(ed);
-    PlaceResult r = ed.placeUnit(type, who, int(wx), int(wy), correct);
-    ed.clearSelection();  // placed units are not selected (placing is not selecting)
-    if (r.placed) {
-        uint16_t ux = uint16_t(std::clamp(int(wx), 0, ed.width() * 32 - 1)), uy = uint16_t(std::clamp(int(wy), 0, ed.height() * 32 - 1));
-        snapToGrid(t, ux, uy);
-        bool moved = r.unit.x != ux || r.unit.y != uy;
-        setMessage(L"Placed " + widen(t.name) + (moved ? L" (moved to the nearest valid spot)" : L""));
-    } else {
-        std::wstring why;
-        for (auto is : r.issues) why += L" " + widen(placementIssueName(is));
-        setMessage(atUnitLimit(ed) ? unitLimitText(ed) : L"Cannot place here:" + why + (correct ? L" (no valid spot nearby)" : L""));
-    }
-    return r.placed;
-}
-
-// Distance between units placed while dragging: the unit's footprint; with a snap, a tile (32 px snap) or the footprint
-// in whole grid cells.
-float placeSpacing() {
-    if (app.unitGrid == 32) return 32;
-    const UnitType& t = app.ed->unitTypes()[uint16_t(app.palette)];
-    const int foot = std::max({int(t.placementWidth), int(t.placementHeight), 16});
-    return app.unitGrid > 0 ? float((foot + app.unitGrid - 1) / app.unitGrid * app.unitGrid) : float(foot);
-}
-
 // Places the palette doodad at a map point by the Options > Doodads rule: only where it fits, at the nearest place where
 // it fits, or anywhere on the map (the terrain is not checked). True when it was placed.
 bool placePaletteDoodad(float wx, float wy, std::string& why) {
@@ -4128,161 +3945,9 @@ bool placePaletteDoodad(float wx, float wy, std::string& why) {
     return at && ed.placeDoodad(id, at->first, at->second, app.doodadCheck, &why);
 }
 
-// Moves the selected doodads by (dx, dy) by the same rule: with Move to the nearest place where it fits, a move that does
-// not fit goes to the nearest offset (in whole tiles) where all of them fit.
-bool moveSelectedDoodads(int dx, int dy, std::string& why) {
-    Editor& ed = *app.ed;
-    if (ed.moveDoodads(app.selDoodads, dx, dy, app.doodadCheck, &why)) return true;
-    if (!app.doodadNearest) return false;
-    std::vector<std::pair<int, int>> offsets;  // nearest first
-    for (int oy = -4; oy <= 4; ++oy)
-        for (int ox = -4; ox <= 4; ++ox)
-            if ((ox || oy) && ox * ox + oy * oy <= 16) offsets.push_back({ox, oy});
-    std::stable_sort(offsets.begin(), offsets.end(),
-                     [](const auto& a, const auto& b) { return a.first * a.first + a.second * a.second < b.first * b.first + b.second * b.second; });
-    std::string ignored;
-    for (auto [ox, oy] : offsets)
-        if (ed.moveDoodads(app.selDoodads, dx + ox * 32, dy + oy * 32, app.doodadCheck, &ignored)) return true;
-    return false;
-}
-
-// The box a doodad or sprite of the palette takes at (x, y): the next one in a drag goes where it does not touch it.
-RECT strokeBox(float x, float y) {
-    int w = 32, h = 32;
-    if (app.mode == Mode::Doodads) {
-        if (const DoodadType* d = app.ed->doodadTypes().find(uint16_t(app.palette))) w = std::max(1, int(d->width)) * 32, h = std::max(1, int(d->height)) * 32;
-    } else if (app.mode == Mode::Sprites) {
-        const int image = app.ed->unitSprites().imageForSprite(uint16_t(app.palette));
-        if (const Grp* g = image >= 0 ? app.ed->unitSprites().grp(image) : nullptr; g && g->width) w = std::max(16, int(g->width) / 2), h = std::max(16, int(g->height) / 2);
-    }
-    return {LONG(x) - w / 2, LONG(y) - h / 2, LONG(x) + (w + 1) / 2, LONG(y) + (h + 1) / 2};
-}
-
-// One place in a drag (units, doodads, sprites): true when something went down there.
-bool strokePlace(float x, float y) {
-    Editor& ed = *app.ed;
-    if (app.mode == Mode::Units) return placePaletteUnit(x, y, false);  // in a drag: only where it fits, under the mouse
-    const RECT box = strokeBox(x, y);
-    RECT overlap;
-    if (app.mode == Mode::Sprites) {  // sprites: one at each new place of the mouse (feedback #54, #78), with no gaps
-        const int px = int(snapToCell(x, app.spriteGrid)), py = int(snapToCell(y, app.spriteGrid));
-        if (app.placedInStroke && px == app.lastPlacedBox.left && py == app.lastPlacedBox.top) return false;  // the same place again
-        const bool placed = ed.placeSprite(uint16_t(app.palette), px, py, uint8_t(app.playerOwner));
-        if (placed) {
-            app.lastPlacedBox = {px, py, px, py};
-            if (gPal.chosen.size() > 1) {  // several picked: the next one is one of them, at random
-                static std::mt19937 rng{std::random_device{}()};
-                app.palette = gPal.chosen[std::uniform_int_distribution<size_t>(0, gPal.chosen.size() - 1)(rng)];
-            }
-        }
-        return placed;
-    }
-    if (app.placedInStroke && IntersectRect(&overlap, &box, &app.lastPlacedBox)) return false;  // still on the last one
-    bool placed = false;
-    if (app.mode == Mode::Doodads) {
-        placed = ed.placeDoodad(uint16_t(app.palette), int(x), int(y), app.doodadCheck);
-        if (placed && gPal.chosen.size() > 1) {  // several picked: each one placed is one of them, at random
-            static std::mt19937 rng{std::random_device{}()};
-            app.palette = gPal.chosen[std::uniform_int_distribution<size_t>(0, gPal.chosen.size() - 1)(rng)];
-        }
-    } else if (app.mode == Mode::Sprites) {
-        placed = ed.placeSprite(uint16_t(app.palette), int(snapToCell(x, app.spriteGrid)), int(snapToCell(y, app.spriteGrid)), uint8_t(app.playerOwner));
-    }
-    if (placed) app.lastPlacedBox = box;
-    return placed;
-}
-
-// While the mouse is down with something picked: along the path from the last one placed, place the next one as soon
-// as there is room for it (units: their placement size apart, and only where they fit; doodads and sprites: where
-// they do not touch the last one). A place that does not fit now is tried again as the mouse moves on.
-void strokeMove(float wx, float wy) {
-    if (app.mode == Mode::Sprites) {  // sprites: one at each place on the path, one pixel (or one snap cell) apart (#78)
-        const float step = float(std::max(1, app.spriteGrid));
-        const float dx = wx - app.lastPlaceX, dy = wy - app.lastPlaceY, len = std::hypot(dx, dy);
-        if (!app.placedInStroke || len < step) {
-            if (strokePlace(wx, wy)) ++app.placedInStroke;
-            if (len >= step || !app.placedInStroke) app.lastPlaceX = wx, app.lastPlaceY = wy;
-            return;
-        }
-        const int n = int(std::ceil(len / step));  // (each step at most one pixel or one cell)
-        for (int k = 1; k <= n; ++k)  // the places between the last mouse position and this one (a fast drag skips none)
-            if (strokePlace(app.lastPlaceX + dx * k / n, app.lastPlaceY + dy * k / n)) ++app.placedInStroke;
-        app.lastPlaceX = wx, app.lastPlaceY = wy;
-        return;
-    }
-    const float step = app.mode == Mode::Units && (app.allowStacking || app.allowIllegalUnits) ? placeSpacing() : 8.0f;
-    float dx = wx - app.lastPlaceX, dy = wy - app.lastPlaceY, len = std::hypot(dx, dy);
-    if (len < step) return;
-    const float ux = dx / len, uy = dy / len;
-    for (float d = step; d <= len + 0.01f; d += step) {
-        const float x = app.lastPlaceX + ux * d, y = app.lastPlaceY + uy * d;
-        if (strokePlace(x, y)) {
-            ++app.placedInStroke;
-            app.lastPlaceX = x, app.lastPlaceY = y, len = std::hypot(wx - x, wy - y), d = 0;
-            if (len < step) break;
-            dx = wx - x, dy = wy - y;
-            const float l = std::hypot(dx, dy);
-            if (l <= 0) break;
-            // (the direction stays: the rest of the path from here)
-        }
-    }
-    if (app.mode != Mode::Units) app.lastPlaceX = wx, app.lastPlaceY = wy;  // boxes decide the room: follow the mouse
-}
-
 bool trigUnitPickClick(float wx, float wy);
 void trigCancelUnitPick();
 
-// One spray at a map point with the active mode's Spray: terrain (ISOM; in Rectangle mode, tiles), units or doodads.
-// Returns the units or doodads it placed.
-int sprayAt(float wx, float wy) {
-    if (!app.ed) return 0;
-    Editor& ed = *app.ed;
-    if (app.mode == Mode::Terrain) {
-        if (app.terrainRect) tilesSprayAt(wx, wy);
-        else if (app.palette > 0) ed.sprayTerrain(int(wx), int(wy), uint16_t(app.palette), currentBrush(), sprayDabs(), app.spraySeed++);
-        return 0;
-    }
-    std::vector<uint16_t> picks;
-    for (int v : selectedPalette()) picks.push_back(uint16_t(v));
-    if (app.mode == Mode::Units) {
-        applyUnitLimit(ed);
-        const int n = ed.sprayUnits(picks, uint8_t(app.playerOwner), int(wx), int(wy), sprayRadius(), sprayCount(), app.spraySeed++);
-        ed.clearSelection();  // placed units are not selected (placing is not selecting)
-        if (atUnitLimit(ed)) setMessage(unitLimitText(ed));
-        return n;
-    }
-    if (app.mode == Mode::Doodads) return ed.sprayDoodads(picks, int(wx), int(wy), sprayRadius(), sprayCount(), app.spraySeed++, app.doodadCheck);
-    if (app.mode == Mode::Sprites && !picks.empty()) {  // random sprites of the selected kinds in the circle
-        std::mt19937 rng(app.spraySeed++);
-        std::uniform_real_distribution<float> unit(0.0f, 1.0f);
-        const float r = float(sprayRadius());
-        int n = 0;
-        for (int k = 0; k < sprayCount(); ++k) {
-            const float a = unit(rng) * 6.2831853f, d = r * std::sqrt(unit(rng));
-            const uint16_t id = picks[size_t(rng() % picks.size())];
-            n += ed.placeSprite(id, int(snapToCell(wx + d * std::cos(a), app.spriteGrid)), int(snapToCell(wy + d * std::sin(a), app.spriteGrid)),
-                                uint8_t(app.playerOwner));
-        }
-        return n;
-    }
-    return 0;
-}
-
-
-// View > Layers: the active mode's layer is hidden. Its map edits are refused (nothing changes that does not show).
-bool modeLayerHidden() {
-    switch (app.mode) {
-    case Mode::Terrain: return !gLayers.terrain;
-    case Mode::Units: return !gLayers.units;
-    case Mode::Doodads: return !gLayers.doodads;
-    case Mode::Sprites: return !gLayers.sprites;
-    case Mode::Locations: return !app.showLocations;
-    }
-    return false;
-}
-void modeLayerHiddenMessage() {
-    setMessage(std::wstring(kModeNames[int(app.mode)]) + L": this layer is hidden. View > Layers shows it again (then you can edit it).");
-}
 
 
 // Escape or a right click (without dragging) backs out one step: paste mode, then the terrain
