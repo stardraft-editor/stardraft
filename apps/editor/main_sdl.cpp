@@ -149,7 +149,7 @@ void useInstallFolder(const std::string& picked) {
             setMessage(L"The StarCraft folder is set");
             return;
         }
-    kit::messageBox(*gRoot, shellTr(L"Not a StarCraft: Remastered folder"), widen(err.empty() ? picked : err), {L"OK"}, kit::MessageIcon::Warning);
+    msgbox::ask(*gRoot, shellTr(L"Not a StarCraft: Remastered folder"), widen(err.empty() ? picked : err), {L"OK"}, msgbox::Icon::Warning);
     askInstallFolder();  // asks again: the folder above the install is a common pick
 }
 
