@@ -190,6 +190,7 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg;
+    bool rectArg = false;
     int width = 1600, height = 1000;
     float scaleArg = 0;
     for (int i = 1; i < argc; ++i) {
@@ -204,6 +205,7 @@ int main(int argc, char** argv) {
         else if (a == "--data") dataArg = next();  // tab:entry (units:0, images:239, strings:5): the Data workspace opens it, for a snapshot
         else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
         else if (a == "--dialog") dialogArg = next();  // options or feedback: that window's view is the snapshot (--size its size)
+        else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
         else if (a == "--silent") gSilent = true;
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
@@ -263,6 +265,7 @@ int main(int argc, char** argv) {
                                                       "briefing", "files", "props", "players", "classictriggers", "classic"};
         for (int w = 0; !workspaceArg.empty() && w < int(sizeof kWorkspaceNames / sizeof kWorkspaceNames[0]); ++w)
             if (workspaceArg == kWorkspaceNames[w]) setWorkspace(Workspace(w));
+        if (rectArg) setMode(Mode::Terrain), setTerrainRect(true);
         if (!dataArg.empty()) sdlDataSelect(dataArg);
         if (newPageArg == "classic" || newPageArg == "eud") openNewPageSdl(newPageArg == "eud" ? 1 : 0);
         if (!gDataOk) setMessage(widen(gDataError));

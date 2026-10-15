@@ -1,20 +1,18 @@
 // The Rectangle mode's tiles on the map (the editor's portable core): the tile picked, the brush's footprint, the spray,
-// the fill and the stroke of a press, a drag and a release. The Windows tiles panel (the grid, the search and the filter
-// boxes) stays in tiles_view.inc; this file calls it through the functions declared here.
+// the fill and the stroke of a press, a drag and a release. The Tiles panel (the grid, the search and the filter boxes)
+// is core/views_tiles.inc; this file calls it through the functions declared here.
 
-void tilesRebuild();                // the panel's grid is made again for the map (tiles_view.inc)
-int tilesViewH();                   // the grid's visible height in device pixels (tiles_view.inc)
-void tilesScrollTo(int pos);        // the grid scrolls to a position (tiles_view.inc)
-RECT tilesCellRect(int k);          // the k-th tile's cell in the grid's content (tiles_view.inc)
-void tilesPanelRepaint();           // the panel's list is painted again (tiles_view.inc)
-void tilesPanelClearSearch();       // the search box is emptied (its change rebuilds the grid) (tiles_view.inc)
-void tilesPanelShowAllFilter();     // the filter box shows its first entry, All tiles (tiles_view.inc)
+void tilesRebuild();                // the panel's grid is made again for the map
+int tilesViewH();                   // the grid's visible height in device pixels
+void tilesScrollTo(int pos);        // the grid scrolls to a position
+RECT tilesCellRect(int k);          // the k-th tile's cell in the grid's content
+void tilesPanelRepaint();           // the panel's grid is painted again
+void tilesPanelClearSearch();       // the search box is emptied (its change rebuilds the grid)
+void tilesPanelShowAllFilter();     // the filter box shows its first entry, All tiles
 
 struct TilesView {
-    HWND wnd = nullptr;     // the panel: the search box, the list
-    HWND search = nullptr;
-    HWND filterBox = nullptr;  // "All tiles", the terrain types, "Doodad tiles", "Null tiles"
-    HWND list = nullptr;    // the tiles, scrolled
+    HWND wnd = nullptr;     // the Win32 program's windows (tiles_view.inc): the panel's (gTilesPanel), the grid's (gTilesGrid)
+    HWND list = nullptr;
     std::vector<uint16_t> values;  // the tile values shown (group << 4 | index), in the tileset's order
     int perRow = 1;
     int scroll = 0, contentH = 0, layoutW = -1;
@@ -28,11 +26,7 @@ struct TilesView {
     std::vector<uint16_t> boxBase;
     const Editor* builtFor = nullptr;
     int builtEra = -1;
-    struct Pixels {
-        int size = 32;  // 32 (SD) or 64 (HD2, Carbot)
-        std::vector<uint8_t> bgra;
-    };
-    std::map<uint16_t, Pixels> pixels;  // per tile value, for builtFor's tileset, in pixelsMode's art
+    std::map<uint16_t, draw::Bitmap> pixels;  // per tile value (32 x 32 SD, 64 x 64 HD2 and Carbot), for builtFor's tileset, in pixelsMode's art
     int pixelsMode = -1;                // the map's art: 0 SD, 1 HD, 2 Carbot
     HdTiles hd;                         // HD2 or Carbot megatiles (pixelsMode 1, 2) of hdEra
     int hdEra = -1, hdMode = -1;
@@ -102,7 +96,7 @@ void tilesPick(int value, bool fromMap) {
 
 // Scrolls the grid so the tile shows (clears the search and the filter if they hide it).
 void tilesReveal(int value) {
-    if (!gTiles.list || value < 0) return;
+    if (value < 0) return;
     auto find = [&] { return int(std::find(gTiles.values.begin(), gTiles.values.end(), uint16_t(value)) - gTiles.values.begin()); };
     int k = find();
     if (k >= int(gTiles.values.size())) {
