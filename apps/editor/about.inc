@@ -106,6 +106,10 @@ void aboutPaint(HWND hwnd) {
             y += scale(22);
         }
     }
+    // Not a Blizzard product, and it needs the game's files.
+    y += scale(10);
+    centered(tr(L"StarDraft 2 is not associated with Blizzard Entertainment."), app.font, kDim, scale(22));
+    centered(tr(L"It needs an installation of StarCraft: Remastered to work."), app.font, kDim, scale(22));
     y += scale(14);
 
     // Then the repository and the Discord server.
@@ -205,7 +209,7 @@ void showAbout() {
     }
     // The same window as the other dialogs (a dialog frame; a tool window in test runs).
     const DWORD style = WS_CAPTION | WS_SYSMENU | WS_POPUP, ex = WS_EX_DLGMODALFRAME | (gBackground ? WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW : 0);
-    RECT r{0, 0, scale(600), scale(518)};  // (the lines about the name and the EUD tools fit)
+    RECT r{0, 0, scale(600), scale(552)};  // (the lines about the name, the EUD tools and Blizzard fit)
     AdjustWindowRectExForDpi(&r, style, FALSE, ex, UINT(app.dpi));
     RECT mr;
     GetWindowRect(app.main, &mr);

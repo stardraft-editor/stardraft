@@ -2006,6 +2006,8 @@ constexpr UiText kRows[] = {
     {L"Shift+drag paints ", L"Shift+\uB4DC\uB798\uADF8: "},
     {L"; drag paints ", L"; \uB4DC\uB798\uADF8: "},
     {L"Shift+drag: no terrain", L"Shift+\uB4DC\uB798\uADF8: \uC9C0\uD615 \uC5C6\uC74C"},
+    {L"StarDraft 2 is not associated with Blizzard Entertainment.", L"StarDraft 2\uB294 Blizzard Entertainment\uC640 \uAD00\uB828\uC774 \uC5C6\uC2B5\uB2C8\uB2E4."},
+    {L"It needs an installation of StarCraft: Remastered to work.", L"\uC0AC\uC6A9\uD558\uB824\uBA74 \uC2A4\uD0C0\uD06C\uB798\uD504\uD2B8: \uB9AC\uB9C8\uC2A4\uD130\uAC00 \uC124\uCE58\uB418\uC5B4 \uC788\uC5B4\uC57C \uD569\uB2C8\uB2E4."},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
