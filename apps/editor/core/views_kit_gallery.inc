@@ -423,3 +423,19 @@ public:
 private:
     kitui::Surface s_;
 };
+
+// The first add row's multi-pick: its units, and the ones checked in it (both programs' hosts open it with these).
+std::vector<ListPickItem> kitGalleryPickItems() {
+    std::vector<ListPickItem> items;
+    for (int u = 0; u < 4; ++u) {
+        ListPickItem it;
+        it.label = u == 0 ? L"Terran Marine" : u == 1 ? L"Terran Ghost" : u == 2 ? L"Terran Vulture" : L"Terran Goliath";
+        it.value = std::to_string(u);
+        items.push_back(it);
+    }
+    return items;
+}
+std::set<std::string>& kitGalleryPicked() {
+    static std::set<std::string> checked;
+    return checked;
+}

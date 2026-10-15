@@ -12,17 +12,9 @@ void showKitGallery() {
     if (HWND w = kitGalleryWindow()) return void(SetForegroundWindow(w));
     gKitView.refIcon = [](const char* dat, int id) { return ui::imageOf(datRefIcon(dat, id)); };
     gKitView.pickValues = [] {
-        static std::set<std::string> checked;
-        std::vector<ListPickItem> items;
-        for (int u = 0; u < 4; ++u) {
-            ListPickItem it;
-            it.label = u == 0 ? L"Terran Marine" : u == 1 ? L"Terran Ghost" : u == 2 ? L"Terran Vulture" : L"Terran Goliath";
-            it.value = std::to_string(u);
-            items.push_back(it);
-        }
         RECT rc{};
         GetWindowRect(kitGalleryWindow(), &rc);
-        return showListPickerMulti(L"Search units", items, checked, L"Add", POINT{rc.left + 40, rc.top + 120});
+        return showListPickerMulti(L"Search units", kitGalleryPickItems(), kitGalleryPicked(), L"Add", POINT{rc.left + 40, rc.top + 120});
     };
     gKitView.scroll = 0;
     int x = CW_USEDEFAULT, yy = CW_USEDEFAULT;

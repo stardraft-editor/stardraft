@@ -67,6 +67,23 @@ void shellInvalidateTabs() {
 void shellInvalidateWorkspaceBar() {
     if (gWsBar) InvalidateRect(gWsBar, nullptr, FALSE);
 }
+void shellRailUpdateNow() {
+    if (gWsBar) RedrawWindow(gWsBar, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+}
+bool shellViewMouse(int& x, int& y) {
+    if (gSelfTest || gBackground) {  // test runs: the mouse that they posted
+        x = app.mouseX, y = app.mouseY;
+        return true;
+    }
+    POINT m;
+    GetCursorPos(&m);
+    ScreenToClient(app.view, &m);
+    RECT vr;
+    GetClientRect(app.view, &vr);
+    if (!PtInRect(&vr, m)) return false;
+    x = m.x, y = m.y;
+    return true;
+}
 void shellUpdateTabs(stardraft::draw::View& v) {
     if (HWND w = ui::Win32Host::windowOf(v)) UpdateWindow(w);
 }

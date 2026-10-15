@@ -124,8 +124,38 @@ bool sdlRuns(int id) {
     case ID_DOCK_TOOLS_LEFT:
     case ID_DOCK_TOOLS_RIGHT: return true;
     case ID_VIEW_TRIGCODE: return true;  // the Triggers workspace's code pane (sdl_triggers.inc)
+    case ID_QUICKOPEN:  // the core's commands (core/commands_core.inc, core/map_edit_commands.inc)
+    case ID_FILE_CLOSE:
+    case ID_FILE_CLOSEALL:
+    case ID_TAB_NEXT:
+    case ID_TAB_PREV:
+    case ID_HELP_ISSUE:
+    case ID_EDIT_CUT:
+    case ID_EDIT_COPY:
+    case ID_EDIT_PASTE:
+    case ID_EDIT_DUPLICATE:
+    case ID_EDIT_DELETE:
+    case ID_EDIT_SELECTALL:
+    case ID_EDIT_TERRAINUNITS:
+    case ID_EDIT_TERRAINDOODADS:
+    case ID_OPT_LOCWRAP:
+    case ID_OPT_STRICT:
+    case ID_OPT_SNAPVALID:
+    case ID_OPT_ILLEGAL:
+    case ID_OPT_STACK:
+    case ID_OPT_DRAGBACK:
+    case ID_OPT_ANIMATE:
+    case ID_DOODAD_FIT:
+    case ID_DOODAD_NEAREST:
+    case ID_DOODAD_ANYWHERE:
+    case ID_GRID_CUSTOM: return true;
     default: break;
     }
+    if (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 10) return true;  // the keys 1 to 0
+    if (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) return true;   // V, B, A, F
+    if (id >= ID_RAIL_KEY && id < ID_RAIL_KEY + 9) return true;   // Ctrl+1 to Ctrl+9
+    if (id >= ID_SNAP_UNITS && id < ID_SNAP_UNITS + 12) return true;
+    if (id >= ID_GRID_SIZE && id < ID_GRID_SIZE + int(std::size(kGridPresets))) return true;
     if (id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) return true;
     if (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax) return true;
     return gCommandIds.count(id) != 0;  // the Map workspace's table (registerMapCommands)
@@ -136,6 +166,7 @@ bool sdlEnabled(int id) {
     if (!sdlRuns(id)) return false;
     if (mapCommand(id) && !docOpen()) return false;
     if (id == ID_PROJ_COMPILE && gBuilding) return false;  // (a build runs)
+    if (mapMenuGrayed(id)) return false;                    // (Paste with no copy: core/map_edit_commands.inc)
     return commandForMode(id, projectMode());
 }
 
@@ -183,7 +214,7 @@ std::vector<kit::MenuItem> toKit(const MenuModel& items) {
         case MenuItem::Kind::Command: {
             k.label = accessFree(it.label), k.shortcut = it.shortcut;
             const stardraft::Command* tc = tableCommand(it.id);
-            k.checked = it.checked || (tc && tc->isChecked());
+            k.checked = it.checked || (tc && tc->isChecked()) || mapMenuCheck(it.id) == 1;
             k.enabled = !it.grayed && sdlEnabled(it.id);
             const int id = it.id;
             k.run = [id] { command(id); };
@@ -224,12 +255,28 @@ void menusIfDirty() {
 // A key that a shortcut runs (the window's keys, after the views that take them). True when one ran.
 bool shortcutRun(const draw::KeyEvent& e) {
     if (!e.down || e.repeat) return false;
+    // The program's keys first (core/map_edit_commands.inc: Ctrl+2 is the side bar's second item, as on Windows), then
+    // the menus' other keys.
+    for (const ProgramKey& k : kProgramKeys)
+        if (const auto c = stardraft::parseShortcut(k.chord); c && chordIs(*c, e) && sdlEnabled(k.id)) {
+            command(k.id);
+            return true;
+        }
     for (const Shortcut& s : gShortcuts)
         if (chordIs(s.chord, e) && sdlEnabled(s.id)) {
             command(s.id);
             return true;
         }
     return false;
+}
+
+// A key pressed in the window (main_sdl.cpp's --key, for a snapshot): "Ctrl+A", "5", "Ctrl+Shift+Z" (Ctrl is Cmd on macOS).
+void sdlPressKey(const std::string& chord) {
+    const auto c = stardraft::parseShortcut(chord);
+    draw::KeyEvent e;
+    if (!gRoot || !c || !keyOfChord(c->key, e.key)) return void(std::fprintf(stderr, "--key %s: no such key\n", chord.c_str()));
+    e.mods = (c->ctrl ? kShortcutCtrl : 0) | (c->shift ? draw::kShift : 0) | (c->alt ? draw::kAlt : 0);
+    gRoot->key(e);
 }
 
 // --- File dialogs -----------------------------------------------------------------------------------------------------
@@ -348,6 +395,7 @@ void command(int id) {
     if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax))
         return confirmReplace([id] { commandPortable(gState, id); });
     if (commandPortable(gState, id)) return;
+    if (commandMapEdit(gState, id)) return;  // the Map's Edit and Options commands, the keys, Close (core/map_edit_commands.inc)
     if (sdlProjectCommand(id)) return;
     if (sdlOptionsCommand(id)) return;  // (sdl_options.inc: the theme, the language, the program's options)
     switch (id) {
