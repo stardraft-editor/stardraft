@@ -276,6 +276,7 @@ bool SdlHost::show(draw::View& root, const std::wstring& title, int w, int h) {
     }
     SDL_StartTextInput(sdl);
     SDL_ShowWindow(sdl);
+    if (!mainId_) mainId_ = win->id;
     wins_.push_back(std::move(win));
     return true;
 }
@@ -573,11 +574,13 @@ void SdlHost::dispatch(const SDL_Event& e) {
     if (!inModal(wid) && isInput(e)) return;  // only the dialog that runModal shows, and what it opened, takes input
     switch (e.type) {
     case SDL_EVENT_QUIT:
+        if (quitRequest_) return quitRequest_();
         quit_ = true;
         return;
     case SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
         Win* w = findWin(wid);
         if (!w) return;
+        if (wid == mainId_ && quitRequest_) return quitRequest_();
         if (w->transient()) dismiss(wid);
         else closeWindow(*w->root);
         return;

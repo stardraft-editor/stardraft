@@ -17,6 +17,20 @@ void tilesPanelRepaint() {}
 void tilesPanelClearSearch() {}
 bool trigUnitPickClick(float, float) { return false; }
 
+// (until it is in the core) The map pages are not on this system yet: no page has changes.
+bool mapPageChangesFor(int) { return false; }
+// (until it is in the core) The dock layout is kept in memory on this system for now (it is not saved yet).
+void saveDock() {}
+// (until it is in the core) The trigger pane is not on this system yet: its zoom is not there.
+void trigZoomReset() {}
+// (until it is in the core) The graphics quality: the renderer's own (the Win32 program also repaints its palette here).
+void setGraphics(GraphicsQuality q, bool carbot) {
+    gState.quality = q, gState.carbot = carbot;
+    if (gRenderer) gRenderer->setQuality(q), gRenderer->setCarbot(carbot);
+    if (carbot) setMessage(L"Carbot (cartooned) graphics");
+    gState.dirty = true;
+}
+
 // (until it is in the core) The camera stays near the map: at most half a view past each edge; a map smaller than the view
 // keeps its middle in the view's middle on that axis (the Windows program's clamp; the view's size comes from the shell).
 void clampCamera() {

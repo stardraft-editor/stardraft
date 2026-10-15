@@ -8,7 +8,7 @@ AppState& shellState() { return gState; }
 void shellRelayout() {
     if (gRoot) gRoot->relayout();
 }
-void shellMenusChanged() {}  // (the menus are not on this system yet)
+void shellMenusChanged() { gMenusDirty = true; }  // (the menu bar is made again on the next frame: sdl_menus.inc)
 void shellStatusChanged() {
     if (gRoot) gRoot->invalidate();
 }
@@ -91,7 +91,7 @@ void shellErrorBox(const std::wstring& text, const std::wstring& title) {
     std::fprintf(stderr, "%s: %s\n", narrow(title).c_str(), narrow(text).c_str());
     setMessage(text);
 }
-void shellRecentMenu(bool, const std::vector<std::wstring>&, const std::wstring&) {}  // (the menus are not on this system yet)
+void shellRecentMenu(bool, const std::vector<std::wstring>&, const std::wstring&) { gMenusDirty = true; }  // (the lists are the menus' own: sdl_menus.inc)
 void shellShowQuickPicker(bool, bool) { setMessage(L"This is not on this system yet"); }
 void shellMapFileOpened(const std::filesystem::path&) {}  // (the file association is Windows only)
 
@@ -108,13 +108,16 @@ void shellSetTitle(const std::wstring& title) {
     for (int i = 0; wins && i < n; ++i) SDL_SetWindowTitle(wins[i], narrow(title).c_str());
     SDL_free(wins);
 }
-bool shellHasRail() { return false; }  // (the rail is not on this system yet)
+bool shellHasRail() { return true; }  // (the workspace rail: the Map workspace's items, as the core lists them)
 void shellShowRail(bool) {}
 void shellWaitCursor() {
     static SDL_Cursor* wait = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
     SDL_SetCursor(wait);
 }
-void shellMinimapSize(int& w, int& h) { w = h = 0; }  // (the minimap is not on this system yet)
+void shellMinimapSize(int& w, int& h) {
+    w = gRoot ? gRoot->minimap.width() : 0;
+    h = gRoot ? gRoot->minimap.height() : 0;
+}
 // The renderer takes the open map's sources again on the next frame (sdl_main_view.inc sets them when gMapEd changes).
 void shellRendererSources() {
     if (gRenderer) gRenderer->setQuality(gState.quality);
@@ -130,6 +133,18 @@ void shellInvalidateWorkspaceBar() {
     if (gRoot) gRoot->invalidate();
 }
 void shellForgetAnims() {}  // (no unit animations are kept apart from the renderer's)
+// The map view takes the keyboard focus (the host's focus; the map view is the root's child).
+void shellFocusView() {
+    if (gRoot) gRoot->map.focus();
+}
+// A command runs after the current message (its menu or tab click ends first): posted to the UI thread.
+void shellPostCommand(int id) {
+    shellPost([id] { command(id); });
+}
+// The tab strip is drawn again for a tab that moved (the frame hook repaints the windows while the program runs).
+void shellUpdateTabs(stardraft::draw::View&) {
+    if (gRoot) gRoot->invalidate();
+}
 // macOS's file system ignores case unless the user formatted it otherwise; Linux's does not.
 bool shellPathsFoldCase() {
 #ifdef __APPLE__
