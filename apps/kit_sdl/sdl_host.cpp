@@ -295,15 +295,15 @@ void SdlHost::snapshot(draw::View& root, SDL_GPUTexture* target, int w, int h, S
     ImGuiIO& io = ImGui::GetIO();
     io.DeltaTime = 1.0f / 60;
     io.DisplaySize = ImVec2(float(w), float(h));
-    ImGui_ImplSDLGPU3_NewFrame();
-    ImGui::NewFrame();
-    auto list = recordView(device_, root, w, h);
-    ImGui::Render();
-    if (frameHook_) {
+    if (frameHook_) {  // before the views are recorded, as in pump() (a texture the hook makes or resizes is in place for them)
         SDL_GPUCommandBuffer* hookCmd = SDL_AcquireGPUCommandBuffer(device_);
         frameHook_(hookCmd);
         SDL_SubmitGPUCommandBuffer(hookCmd);
     }
+    ImGui_ImplSDLGPU3_NewFrame();
+    ImGui::NewFrame();
+    auto list = recordView(device_, root, w, h);
+    ImGui::Render();
     SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device_);
     submit(device_, *list, w, h, cmd, target);
     SDL_WaitForGPUIdle(device_);
