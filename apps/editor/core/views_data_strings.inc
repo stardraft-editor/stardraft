@@ -24,6 +24,20 @@ std::string stringEditPrefix(const std::string& raw) { return buttonPrefix(raw) 
 // What a commit writes back: the prefix the string had, then the editor's text.
 std::string stringEditCommit(const std::string& raw, const std::string& editorText) { return stringEditPrefix(raw) + editorText; }
 
+// A button's tooltip in the game text pop-out (the Buttons tab): the text without the hotkey and type, with "\r\n" as
+// "\n"; and what the pop-out's text writes back (the prefix, and the string's own line ends).
+std::string tooltipEditText(const std::string& raw) {
+    std::string body = stringEditBody(raw);
+    for (size_t at; (at = body.find("\r\n")) != std::string::npos;) body.erase(at, 1);
+    return body;
+}
+std::string tooltipEditCommit(const std::string& raw, const std::string& edited) {
+    if (stringEditBody(raw).find("\r\n") == std::string::npos) return stringEditPrefix(raw) + edited;
+    std::string o;
+    for (char ch : edited) ch == '\n' ? o += "\r\n" : o += ch;
+    return stringEditPrefix(raw) + o;
+}
+
 // A button's hotkey and type as the page's fields show them. `has`: the string starts with a button prefix.
 struct StringButtonParts {
     bool has = false;

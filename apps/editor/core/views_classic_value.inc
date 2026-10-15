@@ -1,6 +1,7 @@
 // Classic triggers' number pop-out (the value of a parameter, as a number, with OK and Cancel; portable, core.inc): a
 // label and a number field in a kit Dialog. OK gives the typed digits; Cancel and the window's close box leave the
-// value as it was. The text pop-out (the game text editor) is still the native one (classic_triggers.inc). The dialog
+// value as it was. The text pop-out (runTextDialog, the game text editor) is the SDL program's; the Windows one is still
+// native, with the same editor (classic_triggers.inc). The dialog
 // is a kit Dialog (Host::runModal); the host (classic_triggers.inc on Windows) sets the owner and applies the value.
 
 // The dialog's results (what its buttons return).
@@ -80,54 +81,60 @@ inline int runValueDialog(draw::View& from, const std::wstring& title, const std
     return r;
 }
 
-// The text pop-out as a kit dialog: the label and a text field of several lines, with Set and Cancel (the SDL program's;
-// the Windows program's is the game text editor with its colors, classic_triggers.inc). The sizes are the native
-// pop-out's template (330 x 176 dialog units), in pixels at 100 %.
+// The text pop-out as a kit dialog: the label and the game text editor (core/views_game_text.inc: the game's colors and
+// the align buttons, Preview and Raw), with Set and Cancel, as the Windows pop-out (classic_triggers.inc, its native
+// dialog with the same editor). The sizes are the native pop-out's template (330 x 176 dialog units), in pixels at
+// 100 %; the editor is as tall as its text box of 96 px and its tool row need.
 namespace textLayout {
 constexpr int kDialogW = 495, kDialogH = 352;
-constexpr int kLabelY = 8, kLabelH = 20, kFieldY = 32, kFieldH = 200, kContentW = 465;
+constexpr int kLabelY = 8, kLabelH = 20, kFieldY = 32, kFieldH = 200, kContentW = 465, kBoxH = 96;
 }  // namespace textLayout
+
+inline GameTextSpec ctTextSpec() {
+    GameTextSpec spec;
+    spec.palette = TextPalette::Game, spec.multiline = true, spec.align = true, spec.crlf = true;  // (the map's lines end with CR LF)
+    return spec;
+}
 
 class CtTextView final : public draw::View {
 public:
-    CtTextView(const std::wstring& label, const std::wstring& text) {
+    CtTextView(const std::wstring& label, const std::string& bytes) : text_(ctTextSpec()) {
         label_.setText(label);
         label_.setTone(stardraft::kit::LabelTone::Dim);
-        field_.setMultiline(true);
-        field_.setText(text);
+        text_.setBytes(bytes);
         add(label_, {0, 0, 0, 0});
-        add(field_, {0, 0, 0, 0});
+        add(text_, {0, 0, 0, 0});
     }
     void setDialog(stardraft::kit::Dialog* d) { dlg_ = d; }
-    std::wstring text() const { return field_.text(); }
+    // The text as the game's bytes (a call after Set).
+    std::string bytes() const { return text_.bytes(); }
+    GameTextView& textView() { return text_; }
     void cancel() {
         if (dlg_) dlg_->close(kValueCancel);
     }
     void paint(draw::Canvas& c) override {
-        if (!focused_ && host()) focused_ = true, field_.focus();  // the text has the keyboard when the dialog opens
+        using namespace textLayout;
+        if (!focused_ && host()) focused_ = true, text_.preview().focus();  // the text has the keyboard when the dialog opens
+        const int h = std::min(gameTextHeight(c, ctTextSpec(), scale(kContentW), scale(kBoxH)), std::max(scale(kBoxH), height() - scale(kFieldY)));
+        if (h != fieldH_) fieldH_ = h, resized();
         c.fill({0, 0, width(), height()}, kBg);
     }
     void resized() override {
         using namespace textLayout;
         label_.setFrame({0, scale(kLabelY), scale(kContentW), scale(kLabelY + kLabelH)});
-        field_.setFrame({0, scale(kFieldY), scale(kContentW), scale(kFieldY + kFieldH)});
+        text_.setFrame({0, scale(kFieldY), scale(kContentW), scale(kFieldY) + (fieldH_ ? fieldH_ : scale(kFieldH))});
     }
 
 private:
     stardraft::kit::Dialog* dlg_ = nullptr;
     stardraft::kit::Label label_;
-    stardraft::kit::TextField field_;
+    GameTextView text_;
+    int fieldH_ = 0;
     bool focused_ = false;
 };
 
-// Runs the text pop-out from `from`: kValueOk (`text` holds the new text, its lines ending with CR LF as the game's) or
-// kValueCancel.
-inline int runTextDialog(draw::View& from, const std::wstring& title, const std::wstring& label, std::string& text, CtTextView*& shown) {
-    std::wstring t;
-    for (wchar_t ch : widen(text))
-        if (ch != L'\r') t += ch;  // (the field's lines end with LF)
-    CtTextView view(label, t);
-    stardraft::kit::Dialog dlg;
+// The text pop-out's dialog around `view` (Set and Cancel, the native template's margins).
+inline void ctTextDialogParts(stardraft::kit::Dialog& dlg, CtTextView& view) {
     dlg.setContent(view);
     view.setDialog(&dlg);
     std::vector<stardraft::kit::DialogButton> buttons;
@@ -136,16 +143,17 @@ inline int runTextDialog(draw::View& from, const std::wstring& title, const std:
     dlg.setButtons(std::move(buttons));
     dlg.setInsets({12, 8, 15, 16, 0, 9});
     dlg.setCenterOnWorkArea(true);
+}
+
+// Runs the text pop-out from `from`: kValueOk (`text` holds the new text as the game's bytes, its lines ending with
+// CR LF) or kValueCancel.
+inline int runTextDialog(draw::View& from, const std::wstring& title, const std::wstring& label, std::string& text, CtTextView*& shown) {
+    CtTextView view(label, text);
+    stardraft::kit::Dialog dlg;
+    ctTextDialogParts(dlg, view);
     shown = &view;
     const int r = dlg.run(from, title, draw::Point{scale(textLayout::kDialogW), scale(textLayout::kDialogH)});
     shown = nullptr;
-    if (r == kValueOk) {
-        std::wstring crlf;
-        for (wchar_t ch : view.text()) {
-            if (ch == L'\n') crlf += L'\r';
-            crlf += ch;
-        }
-        text = narrow(crlf);
-    }
+    if (r == kValueOk) text = view.bytes();
     return r;
 }
