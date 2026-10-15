@@ -143,7 +143,7 @@ public:
     virtual bool vscroll(int /*code*/, int /*pos*/, int /*track*/, int /*page*/) { return false; }
     // The same bar's state, for the host to show: its range (the last position), its page size and its position. The host
     // asks after each paint and each scroll. false: the view has no such bar.
-    virtual bool scrollBar(int& /*range*/, int& /*page*/, int& /*pos*/) { return false; }
+    virtual bool windowScrollBar(int& /*range*/, int& /*page*/, int& /*pos*/) { return false; }
 
     // The host that shows the view (the root's), and the view's place.
     Host* host() const { return parent_ ? parent_->host() : host_; }
