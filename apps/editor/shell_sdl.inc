@@ -137,6 +137,7 @@ void shellErrorBox(const std::wstring& text, const std::wstring& title) {
     std::fprintf(stderr, "%s: %s\n", narrow(title).c_str(), narrow(text).c_str());
     setMessage(text);
 }
+int shellAskUnapplied(const std::wstring&, const std::wstring&) { return 2; }  // (no map page has changes that are not applied yet: stay)
 int shellTabSideMenu(const std::wstring&, int) { return 0; }  // (the side menu is not on this system yet)
 void shellRecentMenu(bool, const std::vector<std::wstring>&, const std::wstring&) { gMenusDirty = true; }  // (the lists are the menus' own: sdl_menus.inc)
 void shellShowQuickPicker(bool, bool) { setMessage(L"This is not on this system yet"); }

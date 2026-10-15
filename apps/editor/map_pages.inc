@@ -405,15 +405,32 @@ struct MapPageCopies {
     MapPageCopy kinds[kMpCount];
 };
 
+// The program's part of the page frame (core/views_map_pages.inc: MapPagesHost); its methods are below the page's code.
+class MapPagesProgram final : public MapPagesHost {
+public:
+    std::wstring title() override;
+    std::vector<Tab> tabs() override;
+    int tab() override;
+    void showTab(int k) override;
+    bool changed() override;
+    int footerH() override;
+    void apply() override;
+    void revert() override;
+    stardraft::draw::Point contentSize() override;
+    void fitContent(int w, int h) override;
+    void placeContent(int x, int y) override;
+};
+MapPagesProgram gMapPages;
+
 struct MapPageHost {
-    HWND wnd = nullptr, view = nullptr;
+    HWND wnd = nullptr, view = nullptr;  // wnd: the frame (MapPagesView); view: the scroll view's window (MapScrollView) in it
     HWND content[kClassicTabCount] = {};  // one; three for Classic settings (its tabs)
     int kind = -1;
     const Editor* ed = nullptr;
     bool ready = false;  // the content is made (until then, no reading back from its controls)
-    int scrollX = 0, scrollY = 0;
-    ui::Surface surface;  // the header's tabs, the bar's buttons
-    RECT applyRect{}, revertRect{};
+    std::unique_ptr<MapPagesView> frameView;
+    std::unique_ptr<MapScrollView> scrollView;
+    int reloadTimer = 0, typingTimer = 0;  // the host's timers: the check that the map changed (300 ms); the typing's stop (500 ms)
     bool typing = false;  // Map properties: a text is being typed (it goes into the map when the typing stops)
 } gMp;
 
@@ -514,12 +531,15 @@ bool mapPageCopyChanged(int kind, const MapPageCopy& c) {
     return false;
 }
 
-int mapPageHeaderH() { return scale(56) + (gMp.kind == kMpClassicSettings ? scale(40) : 0); }
-int mapPageFooterH() { return 0; }  // no Apply bar: every change goes into the map at once (GitHub feedback #102)
+int mapPageHeaderH() { return gMp.frameView ? gMp.frameView->headerH() : 0; }
+int mapPageFooterH() { return gMp.frameView ? gMp.frameView->footerH() : 0; }  // no Apply bar: every change goes into the map at once (GitHub feedback #102)
 
 void mapPageAutoApply();
 void mapPageCommit();
 void mapPageFlush();
+void mapPageStartTyping();
+void mapPageStopTyping();
+void mapPageArmReload();
 // After an edit on the page: the change goes into the map at once, one undo step (a typed text a moment after the last
 // key). GitHub feedback #102: no Apply.
 void mapPageChanged() {
@@ -528,7 +548,7 @@ void mapPageChanged() {
     wchar_t cls[16] = L"";
     GetClassNameW(GetFocus(), cls, 16);
     if ((_wcsicmp(cls, WC_EDITW) == 0 || _wcsicmp(cls, MSFTEDIT_CLASS) == 0) && IsChild(gMp.wnd, GetFocus())) {  // typing: when it stops
-        gMp.typing = true, SetTimer(gMp.wnd, 2, 500, nullptr);
+        gMp.typing = true, mapPageStartTyping();
         return;
     }
     if (gMp.kind == kMpProps) mapPageAutoApply();
@@ -562,25 +582,11 @@ SIZE mapPageContentSize() {
     return s;
 }
 
+// The scroll position (the scroll view's); the content windows are placed where it says (MapPagesProgram::placeContent).
+int mapPageScrollX() { return gMp.scrollView ? gMp.scrollView->scrollX() : 0; }
+int mapPageScrollY() { return gMp.scrollView ? gMp.scrollView->scrollY() : 0; }
 void mapPageScrollTo(int x, int y) {
-    if (!gMp.view) return;
-    RECT rc;
-    GetClientRect(gMp.view, &rc);
-    // Classic triggers fill the view's width and height (its lists take the height that is left); smaller than a
-    // minimum, the view scrolls.
-    if (gMp.kind == kMpClassicTrig && gMp.content[0])
-        SetWindowPos(gMp.content[0], nullptr, 0, 0, std::max<int>(rc.right, scale(1200)), std::max<int>(rc.bottom, scale(440)),
-                     SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-    const SIZE s = mapPageContentSize();
-    gMp.scrollX = std::clamp(x, 0, std::max(0, int(s.cx) - int(rc.right)));
-    gMp.scrollY = std::clamp(y, 0, std::max(0, int(s.cy) - int(rc.bottom)));
-    for (int k = 0; k < kClassicTabCount; ++k)
-        if (HWND c = gMp.content[k]) SetWindowPos(c, nullptr, -gMp.scrollX, mapPagePartTop(k) - gMp.scrollY, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-    SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS};
-    si.nMin = 0, si.nMax = std::max(0, int(s.cy) - 1), si.nPage = UINT(rc.bottom), si.nPos = gMp.scrollY;
-    SetScrollInfo(gMp.view, SB_VERT, &si, TRUE);
-    si.nMax = std::max(0, int(s.cx) - 1), si.nPage = UINT(rc.right), si.nPos = gMp.scrollX;
-    SetScrollInfo(gMp.view, SB_HORZ, &si, TRUE);
+    if (gMp.scrollView) gMp.scrollView->scrollTo(x, y);
 }
 
 // The text under the size and tileset buttons got taller or shorter: the part's new height, the players under it.
@@ -590,40 +596,7 @@ void propsFitHeight(HWND hwnd) {
     GetClientRect(hwnd, &wr);
     if (wr.bottom == l.height) return;
     SetWindowPos(hwnd, nullptr, 0, 0, wr.right, l.height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-    mapPageScrollTo(gMp.scrollX, gMp.scrollY);
-}
-
-LRESULT CALLBACK mapPageViewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_SIZE: mapPageScrollTo(gMp.scrollX, gMp.scrollY); return 0;
-    case WM_ERASEBKGND: {
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-        FillRect(HDC(wp), &rc, app.bgBrush);
-        return 1;
-    }
-    case WM_VSCROLL:
-    case WM_HSCROLL: {
-        const int bar = msg == WM_VSCROLL ? SB_VERT : SB_HORZ;
-        SCROLLINFO si{sizeof si, SIF_ALL};
-        GetScrollInfo(hwnd, bar, &si);
-        int pos = bar == SB_VERT ? gMp.scrollY : gMp.scrollX;
-        switch (LOWORD(wp)) {
-        case SB_LINEUP: pos -= scale(32); break;
-        case SB_LINEDOWN: pos += scale(32); break;
-        case SB_PAGEUP: pos -= int(si.nPage); break;
-        case SB_PAGEDOWN: pos += int(si.nPage); break;
-        case SB_THUMBTRACK:
-        case SB_THUMBPOSITION: pos = si.nTrackPos; break;
-        case SB_TOP: pos = 0; break;
-        case SB_BOTTOM: pos = 1 << 30; break;
-        }
-        bar == SB_VERT ? mapPageScrollTo(gMp.scrollX, pos) : mapPageScrollTo(pos, gMp.scrollY);
-        return 0;
-    }
-    case WM_MOUSEWHEEL: mapPageScrollTo(gMp.scrollX, gMp.scrollY - GET_WHEEL_DELTA_WPARAM(wp) * scale(32) * 3 / WHEEL_DELTA); return 0;
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
+    mapPageScrollTo(mapPageScrollX(), mapPageScrollY());
 }
 
 // --- The page ------------------------------------------------------------------------------------------------------
@@ -638,96 +611,7 @@ void mapPageShowTab(int tab) {
 void mapPageApply();
 void mapPageRevert();
 
-void mapPagePaint(HWND hwnd) {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-    HGDIOBJ ob = SelectObject(mem, back), of = SelectObject(mem, app.font);
-    FillRect(mem, &rc, app.bgBrush);
-    SetBkMode(mem, TRANSPARENT);
-    gMp.surface.begin(hwnd);
-    const int pad = scale(ui::kDialogPad), headH = mapPageHeaderH(), footH = mapPageFooterH();
-    // The header: the page's title; Classic settings' tabs under it.
-    if (gMp.kind >= 0) {
-        SelectObject(mem, ui::titleFont());
-        SetTextColor(mem, kText);
-        RECT t{pad, 0, rc.right - pad, scale(56)};
-        DrawTextW(mem, kMpTitles[gMp.kind], -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-        SelectObject(mem, app.font);
-    }
-    if (gMp.kind == kMpClassicSettings && gClassic) {
-        int x = pad - scale(12);
-        const int icon = scale(16), top = scale(56);
-        for (int k = 0; k < kClassicTabCount; ++k) {
-            const RECT t{x, top, x + scale(14) + icon + scale(8) + ui::textWidth(mem, kClassicTabNames[k]) + scale(14), headH};
-            const bool on = gClassic->tab == k, hot = ui::hot(t);
-            if (on || hot) fillAlpha(mem, t, on ? kSel : kRowHot, 255);
-            if (on) fillAlpha(mem, {t.left, t.bottom - scale(2), t.right, t.bottom}, kAccent, 255);
-            const COLORREF c = on ? kAccent : hot ? kText : kDim;
-            uiIcon(mem, {t.left + scale(14), t.top, t.left + scale(14) + icon, t.bottom}, kClassicTabIcons[k], c, icon);
-            SetTextColor(mem, c);
-            RECT tt{t.left + scale(14) + icon + scale(8), t.top, t.right, t.bottom};
-            DrawTextW(mem, kClassicTabNames[k], -1, &tt, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-            gMp.surface.hits.push_back({t, nullptr, [k] { mapPageShowTab(k); }, L"", IDC_HAND, {}});
-            x = t.right + scale(4);
-        }
-    }
-    fillAlpha(mem, {0, headH - 1, rc.right, headH}, kBorder, 255);
-    // The bar: a line over it; what the page has; Apply and Revert at the right (Map properties: none).
-    if (!footH) {
-        gMp.applyRect = gMp.revertRect = RECT{};
-        gMp.surface.end(hwnd);
-        BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-        SelectObject(mem, of), SelectObject(mem, ob);
-        DeleteObject(back);
-        DeleteDC(mem);
-        EndPaint(hwnd, &ps);
-        return;
-    }
-    const int barTop = rc.bottom - footH;
-    fillAlpha(mem, {0, barTop, rc.right, barTop + 1}, kBorder, 255);
-    const MapPageCopy* c = mapPageOpenCopy();
-    const bool changed = c && c->changed;
-    const int by = barTop + (footH - scale(ui::kButtonH)) / 2;
-    if (changed) {
-        ui::changedDot(mem, pad + scale(4), by + scale(ui::kButtonH) / 2);
-        SetTextColor(mem, kDim);
-        RECT t{pad + scale(16), by, rc.right / 2, by + scale(ui::kButtonH)};
-        DrawTextW(mem, L"Changes that are not applied", -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-    }
-    const std::wstring apply = L"Apply", revert = L"Revert";
-    const int rw = ui::buttonWidth(mem, revert), aw = ui::buttonWidth(mem, apply);
-    gMp.revertRect = {int(rc.right) - pad - rw, by, int(rc.right) - pad, by + scale(ui::kButtonH)};
-    gMp.applyRect = {gMp.revertRect.left - scale(ui::kButtonGap) - aw, by, gMp.revertRect.left - scale(ui::kButtonGap), by + scale(ui::kButtonH)};
-    ui::button(mem, gMp.applyRect, apply, ui::Tone::Primary, [] { mapPageApply(); }, L"Set these values in the map (one undo step)", changed);
-    ui::button(mem, gMp.revertRect, revert, ui::Tone::Normal, [] { mapPageRevert(); }, L"Discard the changes that are not applied", changed);
-    gMp.surface.end(hwnd);
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, of), SelectObject(mem, ob);
-    DeleteObject(back);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
-}
-
 void mapPageReloadIfStale();
-
-LRESULT CALLBACK mapPageProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    LRESULT res = 0;
-    if (msg != WM_PAINT && gMp.surface.message(hwnd, msg, wp, lp, res)) return res;
-    switch (msg) {
-    case WM_PAINT: mapPagePaint(hwnd); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_TIMER:
-        if (wp == 1) mapPageReloadIfStale();
-        if (wp == 2) KillTimer(hwnd, 2), gMp.typing = false, gMp.kind == kMpProps ? mapPageAutoApply() : mapPageCommit();  // the typing stopped
-        return 0;
-    case WM_COMMAND: return 0;  // Enter and Esc (the dialog keys): nothing; Apply is a click
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
 
 void mapPageRegister() {
     static bool registered = false;
@@ -736,9 +620,7 @@ void mapPageRegister() {
     WNDCLASSEXW wc{sizeof wc};
     wc.hInstance = app.inst;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    const std::pair<WNDPROC, const wchar_t*> classes[] = {{mapPageProc, L"StarDraftMapPage"},
-                                                          {mapPageViewProc, L"StarDraftMapPageView"},
-                                                          {mapPropsProc, L"StarDraftMapProps"},
+    const std::pair<WNDPROC, const wchar_t*> classes[] = {{mapPropsProc, L"StarDraftMapProps"},
                                                           {playersDialogProc, L"StarDraftPlayers"},
                                                           {classicPageProc, L"StarDraftClassicPage"},
                                                           {classicTrigProc, L"StarDraftClassicTriggers"},
@@ -752,7 +634,6 @@ void mapPageMakeContent() {
     for (HWND& c : gMp.content)
         if (c) DestroyWindow(c), c = nullptr;
     if (gClassic && gClassic->readOnlyBrush) DeleteObject(gClassic->readOnlyBrush), gClassic->readOnlyBrush = nullptr;
-    gMp.scrollX = gMp.scrollY = 0;
     auto make = [](const wchar_t* cls, void* param) {
         return CreateWindowExW(WS_EX_CONTROLPARENT, cls, L"", WS_CHILD | WS_CLIPSIBLINGS, 0, 0, 10, 10, gMp.view, nullptr, app.inst, param);
     };
@@ -781,12 +662,11 @@ void mapPageMakeContent() {
 // Closes the open page (its window goes; its copy stays with the tab).
 void mapPageClose() {
     if (!gMp.wnd) return;
-    KillTimer(gMp.wnd, 2), gMp.typing = false;  // a text being typed goes into the map
+    mapPageStopTyping(), gMp.typing = false;  // a text being typed goes into the map
     if (gMp.kind == kMpProps) mapPageAutoApply();
     else mapPageCommit();
     gMp.ready = false;
-    KillTimer(gMp.wnd, 1);
-    DestroyWindow(gMp.wnd);
+    DestroyWindow(gMp.wnd);  // (its timers go with it)
     if (gClassic && gClassic->readOnlyBrush) DeleteObject(gClassic->readOnlyBrush), gClassic->readOnlyBrush = nullptr;
     mapPageSetGlobals(-1, nullptr);
     gMp = MapPageHost{};
@@ -815,12 +695,14 @@ bool mapPageOpen(int kind) {
     mapPageRegister();
     mapPageSetGlobals(kind, c.data.get(), players);
     gMp.kind = kind, gMp.ed = app.ed.get();
-    gMp.wnd = CreateWindowExW(WS_EX_CONTROLPARENT, L"StarDraftMapPage", L"", WS_CHILD | WS_CLIPCHILDREN, 0, 0, 1, 1, app.main, nullptr, app.inst, nullptr);
-    gMp.view = CreateWindowExW(WS_EX_CONTROLPARENT, L"StarDraftMapPageView", L"", WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_VSCROLL | WS_HSCROLL, 0, 0, 1,
-                               1, gMp.wnd, nullptr, app.inst, nullptr);
+    gMp.frameView = std::make_unique<MapPagesView>(gMapPages);
+    gMp.scrollView = std::make_unique<MapScrollView>(gMapPages);
+    gMp.wnd = CreateWindowExW(WS_EX_CONTROLPARENT, ui::kViewClass, L"", WS_CHILD | WS_CLIPCHILDREN, 0, 0, 1, 1, app.main, nullptr, app.inst, gMp.frameView.get());
+    gMp.view = CreateWindowExW(WS_EX_CONTROLPARENT, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_VSCROLL | WS_HSCROLL, 0, 0, 1, 1,
+                               gMp.wnd, nullptr, app.inst, gMp.scrollView.get());
     darkControl(gMp.view, L"DarkMode_Explorer");  // the scroll bars in the theme
     mapPageMakeContent();
-    SetTimer(gMp.wnd, 1, 300, nullptr);  // the map changed from outside: a copy without changes reads it again
+    mapPageArmReload();  // the map changed from outside: a copy without changes reads it again
     return true;
 }
 
@@ -893,7 +775,7 @@ void mapPageShowPlayers() {
 // Map properties: the size and tileset (their button), as one undo step; then the page shows the map again.
 void mapPageApplyTerrain() {
     if (!gMp.ready || gMp.kind != kMpProps || !gMapProps) return;
-    KillTimer(gMp.wnd, 2), gMp.typing = false;
+    mapPageStopTyping(), gMp.typing = false;
     mapPageAutoApply();
     if (!mapPropsApplyTerrain(*gMapProps)) return;
     if (gMp.kind == kMpProps) mapPageReload();
@@ -951,7 +833,7 @@ void mapPageCommit() {
 // A text being typed goes into the map now (before a save, a build, or the map closes).
 void mapPageFlush() {
     if (!gMp.ready || gMp.ed != app.ed.get()) return;
-    KillTimer(gMp.wnd, 2), gMp.typing = false;
+    mapPageStopTyping(), gMp.typing = false;
     if (gMp.kind == kMpProps) mapPageAutoApply();
     else mapPageCommit();
 }
@@ -983,12 +865,12 @@ bool mapPagesConfirm() {
         if (c->kinds[k].data && c->kinds[k].changed) names += (names.empty() ? L"" : L", ") + std::wstring(kMpRailNames[k]);
     if (names.empty()) return true;
     const std::wstring q = L"These pages have changes that are not applied: " + names + L".\n\nApply them to the map?";
-    const int r = themedMessageBox(app.main, q.c_str(), L"Changes that are not applied", MB_YESNOCANCEL | MB_ICONQUESTION, {L"&Apply", L"Do &not apply", L"Cancel"});
-    if (r == IDCANCEL) return false;
+    const int r = shellAskUnapplied(q, L"Changes that are not applied");  // 0: Apply, 1: Do not apply, 2: Cancel
+    if (r == 2) return false;
     for (int k = 0; k < kMpCount; ++k) {
         MapPageCopy& one = c->kinds[k];
         if (!one.data || !one.changed) continue;
-        if (r == IDYES && !mapPageApplyCopy(k, one)) return false;  // the map did not take it: stay
+        if (r == 0 && !mapPageApplyCopy(k, one)) return false;  // the map did not take it: stay
         if (gMp.wnd && gMp.kind == k && gMp.ed == app.ed.get()) mapPageReload();  // the page shows the map's values
         else one = MapPageCopy{};
     }
@@ -1002,7 +884,7 @@ void mapPageLayout(int x, int y, int w, int h) {
     MoveWindow(gMp.wnd, x, y, w, h, TRUE);
     const int top = mapPageHeaderH(), bottom = std::max(top + 1, h - mapPageFooterH());
     MoveWindow(gMp.view, 0, top, w, bottom - top, TRUE);
-    mapPageScrollTo(gMp.scrollX, gMp.scrollY);
+    mapPageScrollTo(mapPageScrollX(), mapPageScrollY());
     InvalidateRect(gMp.wnd, nullptr, FALSE);
 }
 
@@ -1013,11 +895,63 @@ void mapPageThemeChanged() {
     mapPageMakeContent();
 }
 
+// The host's timers: the check that the map changed from outside (300 ms, again and again) and the typing's stop (500 ms
+// after the last key; each key starts it again).
+stardraft::draw::Host* mapPageHost() { return gMp.frameView ? gMp.frameView->host() : nullptr; }
+void mapPageArmReload() {
+    if (stardraft::draw::Host* h = mapPageHost()) gMp.reloadTimer = h->timer(300, [] { mapPageReloadIfStale(), mapPageArmReload(); });
+}
+void mapPageStartTyping() {
+    stardraft::draw::Host* h = mapPageHost();
+    if (!h) return;
+    if (gMp.typingTimer) h->cancelTimer(gMp.typingTimer);
+    gMp.typingTimer = h->timer(500, [] {
+        gMp.typingTimer = 0, gMp.typing = false;
+        gMp.kind == kMpProps ? mapPageAutoApply() : mapPageCommit();
+    });
+}
+void mapPageStopTyping() {
+    if (stardraft::draw::Host* h = mapPageHost(); h && gMp.typingTimer) h->cancelTimer(gMp.typingTimer);
+    gMp.typingTimer = 0;
+}
+
+// The program's part of the page frame (core/views_map_pages.inc).
+std::wstring MapPagesProgram::title() { return gMp.kind >= 0 ? kMpTitles[gMp.kind] : L""; }
+std::vector<MapPagesHost::Tab> MapPagesProgram::tabs() {
+    std::vector<Tab> out;
+    if (gMp.kind == kMpClassicSettings)
+        for (int k = 0; k < kClassicTabCount; ++k) out.push_back({kClassicTabNames[k], kClassicTabIcons[k]});
+    return out;
+}
+int MapPagesProgram::tab() { return gClassic ? gClassic->tab : 0; }
+void MapPagesProgram::showTab(int k) { mapPageShowTab(k); }
+bool MapPagesProgram::changed() {
+    const MapPageCopy* c = mapPageOpenCopy();
+    return c && c->changed;
+}
+int MapPagesProgram::footerH() { return 0; }  // (no bar: see mapPageFooterH)
+void MapPagesProgram::apply() { mapPageApply(); }
+void MapPagesProgram::revert() { mapPageRevert(); }
+stardraft::draw::Point MapPagesProgram::contentSize() {
+    const SIZE s = mapPageContentSize();
+    return {int(s.cx), int(s.cy)};
+}
+// Classic triggers fill the view's width and height (its lists take the height that is left); smaller than a minimum, the
+// view scrolls.
+void MapPagesProgram::fitContent(int w, int h) {
+    if (gMp.kind == kMpClassicTrig && gMp.content[0])
+        SetWindowPos(gMp.content[0], nullptr, 0, 0, std::max<int>(w, scale(1200)), std::max<int>(h, scale(440)), SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+void MapPagesProgram::placeContent(int x, int y) {
+    for (int k = 0; k < kClassicTabCount; ++k)
+        if (HWND c = gMp.content[k]) SetWindowPos(c, nullptr, -x, mapPagePartTop(k) - y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
 // Tests: the page that shows; Apply (or Revert) clicked through the click area the bar's paint made.
 HWND mapPageWindow() { return gMp.wnd; }
 bool mapPageClickButton(bool apply) {
     if (gMp.ready) {  // no bar: changes go in at once; "Revert" shows the map's values again
-        KillTimer(gMp.wnd, 2), gMp.typing = false;
+        mapPageStopTyping(), gMp.typing = false;
         if (gMp.kind == kMpProps && apply) mapPageAutoApply(), mapPageApplyTerrain();
         else if (apply) mapPageCommit();
         else mapPageReload();
@@ -1025,12 +959,7 @@ bool mapPageClickButton(bool apply) {
     }
     if (!gMp.wnd) return false;
     RedrawWindow(gMp.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
-    const RECT r = apply ? gMp.applyRect : gMp.revertRect;
-    const DataWidgetHit* h = gMp.surface.at({(r.left + r.right) / 2, (r.top + r.bottom) / 2});
-    if (!h || !h->click) return false;
-    const auto click = h->click;  // the click paints the page again (the hits change)
-    click();
-    return true;
+    return gMp.frameView && gMp.frameView->clickBar(apply);
 }
 
 // Datashot mappages: each map page of the tab's mode in the main area (mappage_<page>[_light].png), and through the
@@ -1096,7 +1025,7 @@ void mapPagesDatashot(const fs::path& dir) {
             app.ed->undo();
             mapPageReloadIfStale();
             command(ID_SCEN_PLAYERS);
-            ctrlP = gMp.kind == kMpProps && gMp.scrollY > 0;
+            ctrlP = gMp.kind == kMpProps && mapPageScrollY() > 0;
         }
         log << "props: one page with players and forces " << yes(open) << " (opened in " << int(openMs) << " ms), the title goes into the map at once "
             << yes(title) << ", undo gives it back on the page " << yes(titleUndo) << ", a player's change at once " << yes(player)

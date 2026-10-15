@@ -144,6 +144,9 @@ public:
     // The same bar's state, for the host to show: its range (the last position), its page size and its position. The host
     // asks after each paint and each scroll. false: the view has no such bar.
     virtual bool windowScrollBar(int& /*range*/, int& /*page*/, int& /*pos*/) { return false; }
+    // The horizontal counterpart (WS_HSCROLL on the window): the same, for the bar at the bottom.
+    virtual bool hscroll(int /*code*/, int /*pos*/, int /*track*/, int /*page*/) { return false; }
+    virtual bool windowHScrollBar(int& /*range*/, int& /*page*/, int& /*pos*/) { return false; }
 
     // The host that shows the view (the root's), and the view's place.
     Host* host() const { return parent_ ? parent_->host() : host_; }

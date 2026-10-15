@@ -121,6 +121,9 @@ void shellLegacyNames(const std::wstring& sub, std::vector<std::wstring>& out);
 void shellLegacyRemove(const std::wstring& sub, const std::wstring& value);
 // An error message box (the theme's message box) with the title.
 void shellErrorBox(const std::wstring& text, const std::wstring& title);
+// The question about changes that are not applied (text, title): Apply them, Do not apply them, or Cancel (stay). Returns 0
+// (Apply), 1 (Do not apply) or 2 (Cancel).
+int shellAskUnapplied(const std::wstring& text, const std::wstring& title);
 // The File menu's recent list: its items are the labels (the first one is the newest), or `none` when there are none.
 // projects: the Recent projects menu, else the Recent maps menu.
 void shellRecentMenu(bool projects, const std::vector<std::wstring>& labels, const std::wstring& none);
