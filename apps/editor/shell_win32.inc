@@ -25,6 +25,7 @@ void shellTrackMouseLeave() {
     TRACKMOUSEEVENT t{sizeof t, TME_LEAVE, app.view, 0};
     TrackMouseEvent(&t);
 }
+bool shellCtrlOrShiftDown() { return GetKeyState(VK_CONTROL) < 0 || GetKeyState(VK_SHIFT) < 0; }
 bool shellClearFilter() {
     if (!app.filter) return false;
     SetWindowTextW(app.filter, L"");

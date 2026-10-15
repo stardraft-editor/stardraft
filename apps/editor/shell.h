@@ -19,5 +19,7 @@ void shellPost(std::function<void()> fn);
 void shellSprayTimer(bool on);
 // The map view asks for WM_MOUSELEAVE when the mouse enters it (the next move sets it up).
 void shellTrackMouseLeave();
+// Ctrl or Shift is down now (the keys as they are, not the message's): a location made by a release is inverted by it.
+bool shellCtrlOrShiftDown();
 // The palette's filter text is cleared (the palette shows all its entries). False when there is no filter field.
 bool shellClearFilter();

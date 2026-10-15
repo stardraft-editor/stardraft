@@ -17322,11 +17322,12 @@ bool rightPaints() {
     return app.ed && app.mode == Mode::Terrain && !app.terrainRect && app.palette2 > 0 && (tool == TBrush || tool == TSpray || tool == TFill || tool == TReplace);
 }
 
-// The modifier keys of a mouse message (draw::Mods): the message's own state and the keys as they are now.
+// The modifier keys of a mouse message (draw::Mods): Shift and Ctrl as the message's keys say (a caller may take one
+// away, as the right button's stroke takes Ctrl), Alt as it is now.
 unsigned winMods(WPARAM keys) {
     unsigned m = 0;
-    if (keys & MK_SHIFT || GetKeyState(VK_SHIFT) < 0) m |= draw::kShift;
-    if (keys & MK_CONTROL || GetKeyState(VK_CONTROL) < 0) m |= draw::kCtrl;
+    if (keys & MK_SHIFT) m |= draw::kShift;
+    if (keys & MK_CONTROL) m |= draw::kCtrl;
     if (GetKeyState(VK_MENU) < 0) m |= draw::kAlt;
     return m;
 }
