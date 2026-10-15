@@ -765,7 +765,7 @@ int tilesBrushAt(int tx, int ty) {
 // A click on the map in Rectangle mode. Select: a rectangle of tiles, or a paste of the copied tiles. Ctrl: pick the
 // tile under the cursor. Brush: the picked tile in the brush's footprint, and on along the drag (one undo step for the
 // stroke). Spray: random tiles of the footprint, again while the button is held. Fill: the connected tiles.
-bool tilesMouseDown(float wx, float wy, WPARAM keys) {
+bool tilesMouseDown(float wx, float wy, unsigned mods) {
     if (!app.ed || !app.ed->isOpen()) return false;
     tilesFresh();
     Editor& ed = *app.ed;
@@ -783,7 +783,7 @@ bool tilesMouseDown(float wx, float wy, WPARAM keys) {
         }
         return true;
     }
-    if (keys & MK_CONTROL) {
+    if (mods & draw::kCtrl) {
         const uint16_t v = ed.terrain().tiles[size_t(ty) * ed.width() + tx];
         tilesPick(v, true);
         tilesReveal(v);
@@ -795,14 +795,14 @@ bool tilesMouseDown(float wx, float wy, WPARAM keys) {
         app.drag = Drag::None;
         return true;
     }
-    if (tool == TFill && !(keys & MK_SHIFT) && app.hasTerrainSel &&
+    if (tool == TFill && !(mods & draw::kShift) && app.hasTerrainSel &&
         Editor::inSelectShape(app.terrainSel, selectShape(), int(wx), int(wy))) {  // in the selection: all of it
         tilesFillSelection();
         app.drag = Drag::None;
         return true;
     }
     if (tool == TFill || tool == TReplace) {
-        tilesFill(tx, ty, tool == TReplace || (keys & MK_SHIFT));
+        tilesFill(tx, ty, tool == TReplace || (mods & draw::kShift));
         app.drag = Drag::None;
         return true;
     }
