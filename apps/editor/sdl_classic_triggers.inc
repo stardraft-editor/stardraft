@@ -115,6 +115,7 @@ public:
         add(entries_, {0, 0, 0, 0});
         add(head_, {0, 0, 0, 0});
         add(note_, {0, 0, 0, 0});
+        ctModelFill(m, gSdlTrigModelHost);  // the rows of the list (the Windows page fills it in WM_CREATE too)
         sdlTrigInvalidate();
         selectTrigger(m.shown.empty() ? -1 : m.shown[0]);
     }

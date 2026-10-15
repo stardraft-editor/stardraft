@@ -40,7 +40,7 @@ namespace batchLayout {
 constexpr int kLabelX = 0, kLabelW = 126;     // "Variable name", "Kind", "Values": the label column
 constexpr int kFieldX = 132, kFieldW = 204;   // the fields and the list start 132 px in (abs 144)
 constexpr int kIntroY = 8, kIntroH = 44;      // the text at the top (two lines)
-constexpr int kNameLabelY = 66, kNameY = 58;  // label text top; the name field's top (24 px, centered on the native box)
+constexpr int kNameLabelY = 66, kNameY = 62;  // label text top; the name field's top (24 px, centered on the native box at 60..88)
 constexpr int kKindLabelY = 106, kKindY = 99;
 constexpr int kValuesLabelY = 146, kValuesY = 140, kValuesH = 160;
 constexpr int kButtonsY = 308, kButtonH = 28;  // Add values and Remove the value: 99 px and 102 px wide
@@ -52,7 +52,7 @@ constexpr int kContentW = 339;                 // 360 - 12 - 9
 class BatchView final : public draw::View {
 public:
     BatchView(BatchHost& host, const ClassicBatch& batch, bool editing) : host_(host), editing_(editing), shown_(batch.kind) {
-        intro_.setWrap(true), intro_.setTone(stardraft::kit::LabelTone::Normal);  // (the native text was the window's text color)
+        intro_.setWrap(true), intro_.setTone(stardraft::kit::LabelTone::Dim);  // (the native statics were dim: CTLCOLORSTATIC)
         intro_.setText(tr(L"A block repeats the actions in it for each value. The variable is the value of each copy."));
         name_.setText(widen(batch.name));
         kind_.setItems(kindItems());
@@ -95,7 +95,7 @@ public:
         if (!focused_ && host()) focused_ = true, name_.focus();  // the name has the keyboard when the dialog opens
         c.fill({0, 0, width(), height()}, kBg);
         // The labels' text sits at the top of their boxes, as the native static text did.
-        const draw::Color text = stardraft::kit::labelColor(stardraft::kit::LabelTone::Normal);
+        const draw::Color text = stardraft::kit::labelColor(stardraft::kit::LabelTone::Dim);
         c.text({scale(kLabelX), scale(kNameLabelY), scale(kLabelX + kLabelW), scale(kNameLabelY + 20)}, tr(L"Variable name"), text, draw::kLeft);
         c.text({scale(kLabelX), scale(kKindLabelY), scale(kLabelX + kLabelW), scale(kKindLabelY + 20)}, tr(L"Kind"), text, draw::kLeft);
         c.text({scale(kLabelX), scale(kValuesLabelY), scale(kLabelX + kLabelW), scale(kValuesLabelY + 20)}, tr(L"Values"), text, draw::kLeft);
