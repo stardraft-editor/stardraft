@@ -19110,8 +19110,8 @@ int runSelfTest(const fs::path& dir) {
                     for (int i = 0; i < 5; ++i) pump();
                     RedrawWindow(gProj.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
                     bool tipShown = false;  // the row's tooltip names the file as linked
-                    for (const auto& h : gProj.surface.hits)
-                        if (h.tip.find(L"A linked file") != std::wstring::npos && h.tip.find(L"hello.eps") != std::wstring::npos) tipShown = true;
+                    for (const std::wstring& tip : gProjView.tips())
+                        if (tip.find(L"A linked file") != std::wstring::npos && tip.find(L"hello.eps") != std::wstring::npos) tipShown = true;
                     const bool wasLight = gLightTheme;
                     capture(dir / (wasLight ? "67b_project_linked_light.png" : "67b_project_linked_dark.png"), gProj.wnd);
                     applyTheme(!wasLight, gAccentIndex);

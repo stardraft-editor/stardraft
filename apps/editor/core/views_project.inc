@@ -158,15 +158,34 @@ public:
     virtual void removeScript(const std::string& name) = 0;
     virtual void newScript() = 0;
     virtual void linkScript() = 0;
+    virtual void openSelectedScript() = 0;  // the selected script, double-clicked: in the editor (.eps, .py)
+    // epTrace (the trace build's report): the section's facts as the page shows them.
+    struct TraceLine {
+        int64_t samples = 0;
+        std::wstring where, code, tip;  // where the line is, its code, and its tip (samples and place)
+    };
+    struct Trace {
+        bool shown = false, open = false;        // shown: a trace build, or a report; open: epTrace's window is open
+        bool traceBuild = false, built = false;  // Build writes the trace file; the trace file is there
+        std::wstring traceFile;                  // built: the file's name as the page shows it, and its time
+        bool hasReport = false;
+        int64_t total = 0;                       // the report's samples
+        size_t lineCount = 0;                    // the report's lines
+        std::wstring reportTime;                 // the report's time
+        std::vector<TraceLine> lines;            // the lines with the most samples (at most 15), the most first
+    };
+    virtual Trace trace() = 0;
+    virtual void startEpTrace() = 0;
+    virtual void openReport() = 0;
+    virtual void openTraceLine(size_t i) = 0;  // the line in the Triggers workspace (a trigger's code) or in its script
 };
 
 // The background music (bgmplayer) and files in memory (dataDumper) are off for now: not shown. A project that has them
 // keeps its sections, and Build uses them.
 constexpr bool kProjectMusicAndFiles = false;
 
-// The Project page: the project's files, its build options and its scripts. A view in a view window: it scrolls, and it
-// takes the clicks of its own parts. The sections after Files are the program's code for now (shellPaintProjectRest,
-// shell.h), which draws and clicks them on the same canvas.
+// The Project page: the project's files, its build options, its scripts and epTrace's report. A view in a view window: it
+// scrolls, and it takes the clicks of its own parts; the program does what they ask (ProjectHost).
 class ProjectPageView final : public draw::View {
 public:
     explicit ProjectPageView(ProjectHost& host) : host_(host) {}
@@ -175,6 +194,14 @@ public:
     void scrollTo(int s) {
         const int s2 = std::clamp(s, 0, std::max(0, contentH_ - height()));
         if (s2 != scroll_) scroll_ = s2, invalidate();
+    }
+
+    // The tips of what the last paint put on the page (the self-tests read them).
+    std::vector<std::wstring> tips() const {
+        std::vector<std::wstring> out;
+        for (const Hit& h : hits_)
+            if (!h.tip.empty()) out.push_back(h.tip);
+        return out;
     }
 
     void paint(draw::Canvas& c) override;
@@ -196,8 +223,7 @@ public:
     std::wstring feedbackName(draw::Point pt) override {
         const int hi = hitAt(pt);
         if (hi >= 0 && !hits_[size_t(hi)].tip.empty()) return hits_[size_t(hi)].tip;
-        const std::wstring t = shellProjectRestTip(pt);
-        return t.empty() ? std::wstring(L"the Project page") : t;
+        return L"the Project page";
     }
 
 private:
@@ -254,13 +280,16 @@ private:
     int paintMemory(draw::Canvas& c, int y, int x0, int labelW, int rowH, int colRight);
     // The scripts Build runs, from y (a row moves by its grip); returns the y after them.
     int paintScripts(draw::Canvas& c, int y, int x0, int rowH, int colRight);
+    // The epTrace section from y (shown only with a trace build or a report); returns the y after it.
+    int paintTrace(draw::Canvas& c, int y, int x0, int labelW, int rowH, int colRight);
     // A row's icon buttons at its right edge: shown under the mouse, or always when `show`.
     void paintRowActions(draw::Canvas& c, draw::Rect row, const std::vector<RowAct>& acts, bool show);
     // A list row's ground (selected: the accent bar; under the mouse: the row's ground) and a grip's dots.
     static void listRowFace(draw::Canvas& c, draw::Rect r, bool selected, bool over);
     static void paintGrip(draw::Canvas& c, int x, int y, bool on);
-    // A small button in a row (as wide as its text): returns its right edge.
-    int smallButton(draw::Canvas& c, int x, int y, int h, const std::wstring& text, std::function<void()> click, const std::wstring& tip = L"");
+    // A small button in a row (as wide as its text; not enabled: faint, no click): returns its right edge.
+    int smallButton(draw::Canvas& c, int x, int y, int h, const std::wstring& text, std::function<void()> click, const std::wstring& tip = L"",
+                    bool enabled = true);
     // Dragging a script row: from the grip's press, the row goes where the mouse is (the drop line), and on the release it moves.
     void startDrag(int from, draw::Point pt);
     void dragTo(draw::Point pt);
@@ -342,7 +371,7 @@ void ProjectPageView::paint(draw::Canvas& c) {
         y = paintBuild(c, y, x0, labelW, rowH, colRight);
         if (kProjectMusicAndFiles) y = paintMemory(c, y, x0, labelW, rowH, colRight);
         y = paintScripts(c, y, x0, rowH, colRight);
-        y = shellPaintProjectRest(c, y, pageW, h);
+        y = paintTrace(c, y, x0, labelW, rowH, colRight);
     }
     contentH_ = y + scroll_;
     if (const int most = std::max(0, contentH_ - h); scroll_ > most) scroll_ = most, invalidate();  // a taller window: no scroll is left
@@ -516,6 +545,72 @@ int ProjectPageView::paintScripts(draw::Canvas& c, int y, int x0, int rowH, int 
     return y + rowH + scale(24);
 }
 
+int ProjectPageView::paintTrace(draw::Canvas& c, int y, int x0, int labelW, int rowH, int colRight) {
+    const ProjectHost::Trace t = host_.trace();
+    if (!t.shown) return y;
+    const int headH = scale(stardraft::kit::kRowH);
+    // A section heading: its name and a line to the column's edge.
+    c.text({x0, y, colRight, y + headH}, L"epTrace", kText, draw::kMiddle);
+    c.fill({x0, y + headH - 1, colRight, y + headH}, kBorder);
+    y += headH + scale(6);
+    auto label = [&](const wchar_t* text) { c.text({x0, y, x0 + labelW, y + rowH}, text, kDim, draw::kMiddle | draw::kEllipsis); };
+    label(L"Trace file");
+    {
+        const draw::Rect r{x0 + labelW, y, colRight - scale(170), y + rowH};
+        if (t.built) c.text(r, t.traceFile, kDim, draw::kMiddle | draw::kEllipsis);
+        else c.text(r, t.traceBuild ? L"None yet: Build writes it" : L"None: Trace build is off", kDim, draw::kMiddle | draw::kEllipsis);
+        const int bx = colRight - c.measure(L"Start epTrace") - scale(20);
+        if (t.open)
+            c.text({bx, y, colRight, y + rowH}, L"epTrace is open", kAccent, draw::kMiddle | draw::kEllipsis | draw::kRight);
+        else
+            smallButton(c, bx, y, rowH, L"Start epTrace", [this] { host_.startEpTrace(); },
+                        L"Start the map in StarCraft first. epTrace asks for administrator rights, shows the lines that run, and writes its "
+                        L"report when you close its window",
+                        t.built);
+    }
+    y += rowH + scale(4);
+    label(L"Report");
+    {
+        const draw::Rect r{x0 + labelW, y, colRight - scale(170), y + rowH};
+        if (!t.hasReport)
+            c.text(r, L"None yet: close epTrace's window to write it", kDim, draw::kMiddle | draw::kEllipsis);
+        else if (t.total == 0)
+            c.text(r, L"No samples: no script line ran each trigger cycle while epTrace looked", kDim, draw::kMiddle | draw::kEllipsis);
+        else
+            c.text(r, std::to_wstring(t.total) + L" samples on " + std::to_wstring(t.lineCount) + L" lines  \x00B7  " + t.reportTime, kDim,
+                   draw::kMiddle | draw::kEllipsis);
+        if (t.hasReport)
+            smallButton(c, colRight - c.measure(L"Open the report") - scale(20), y, rowH, L"Open the report", [this] { host_.openReport(); },
+                        L"Open the report in Notepad, which shows how often epTrace found each script line running");
+    }
+    y += rowH + scale(4);
+    if (!t.hasReport || t.lineCount == 0) return y + scale(20);
+    // The lines with the most samples: the samples (and a bar), where the line is, and its code.
+    const auto& lines = t.lines;
+    const int64_t most = lines.front().samples;
+    const int countW = scale(70), barW = scale(60), whereW = std::min(scale(380), (colRight - x0) / 2);
+    for (size_t i = 0; i < lines.size(); ++i) {
+        const ProjectHost::TraceLine& ln = lines[i];
+        const draw::Rect r{x0 - scale(6), y, colRight, y + rowH};
+        listRowFace(c, r, false, hot(r));
+        int x = r.left + scale(6);
+        c.text({x, r.top, x + countW, r.bottom}, std::to_wstring(ln.samples), kText, draw::kMiddle | draw::kEllipsis | draw::kRight);
+        x += countW + scale(10);
+        const draw::Rect bar{x, r.top + rowH / 2 - scale(3), x + std::max<int>(scale(2), int(barW * ln.samples / std::max<int64_t>(1, most))),
+                             r.top + rowH / 2 + scale(3)};
+        c.roundBox(bar, kAccent, draw::kNone, float(scale(3)));
+        x += barW + scale(12);
+        c.text({x, r.top, x + whereW, r.bottom}, ln.where, kText, draw::kMiddle | draw::kEllipsis);
+        x += whereW + scale(12);
+        const draw::Font ui = c.setFont(c.font({draw::Face::Mono, 0}));
+        c.text({x, r.top, r.right - scale(8), r.bottom}, ln.code, kDim, draw::kMiddle | draw::kEllipsis);
+        c.setFont(ui);
+        hits_.push_back({r, [this, i] { host_.openTraceLine(i); }, ln.tip, draw::Cursor::Hand});
+        y += rowH;
+    }
+    return y + scale(24);
+}
+
 void ProjectPageView::listRowFace(draw::Canvas& c, draw::Rect r, bool selected, bool over) {
     if (selected) {
         c.fill(r, kSel);
@@ -549,11 +644,16 @@ void ProjectPageView::paintRowActions(draw::Canvas& c, draw::Rect row, const std
 }
 
 int ProjectPageView::smallButton(draw::Canvas& c, int x, int y, int h, const std::wstring& text, std::function<void()> click,
-                                 const std::wstring& tip) {
+                                 const std::wstring& tip, bool enabled) {
     const int bh = std::min(h, scale(24)), w = c.measure(text) + scale(20);
     const draw::Rect r{x, y + (h - bh) / 2, x + w, y + (h - bh) / 2 + bh};
-    drawButton(c, r, text, hot(r));
-    hits_.push_back({r, std::move(click), tip, draw::Cursor::Hand});
+    if (enabled) {
+        drawButton(c, r, text, hot(r));
+    } else {  // a button that cannot be pressed now: its ground and its text are faint
+        c.roundBox(r, kBg, kBorder, float(scale(stardraft::kit::kRadius)));
+        c.text(r, text, kFaint, draw::kMiddle | draw::kCenter | draw::kEllipsis);
+    }
+    hits_.push_back({r, enabled ? std::move(click) : nullptr, tip, enabled ? draw::Cursor::Hand : draw::Cursor::Arrow});
     return r.right;
 }
 
@@ -615,7 +715,7 @@ bool ProjectPageView::mouse(const draw::MouseEvent& e) {
         }
         const int hv = e.kind == draw::MouseKind::Leave ? -1 : hitAt(e.pt);
         if (hv != hover_) hover_ = hv, invalidate();
-        return shellProjectRestMouse(e);
+        return false;
     }
     case draw::MouseKind::Down:
         if (e.button != 0) return false;
@@ -628,14 +728,16 @@ bool ProjectPageView::mouse(const draw::MouseEvent& e) {
             run();
             return true;
         }
-        return shellProjectRestMouse(e);
+        return false;
     case draw::MouseKind::Up:
         if (drag_.active && e.button == 0) {
             endDrag();
             return true;
         }
-        return shellProjectRestMouse(e);
-    case draw::MouseKind::DoubleClick: return shellProjectRestMouse(e);
+        return false;
+    case draw::MouseKind::DoubleClick:
+        host_.openSelectedScript();
+        return true;
     case draw::MouseKind::Wheel:
         scrollTo(scroll_ - int(e.wheel * float(scale(32) * 3)));
         return true;
@@ -661,12 +763,12 @@ bool ProjectPageView::vscroll(int code, int pos, int track, int) {
 
 draw::Cursor ProjectPageView::cursor(draw::Point pt) {
     const int hi = hitAt(pt);
-    return hi >= 0 ? hits_[size_t(hi)].cursor : shellProjectRestCursor(pt);
+    return hi >= 0 ? hits_[size_t(hi)].cursor : draw::Cursor::Arrow;
 }
 
 std::wstring ProjectPageView::tip(draw::Point pt) {
     const int hi = hitAt(pt);
-    return hi >= 0 ? hits_[size_t(hi)].tip : shellProjectRestTip(pt);
+    return hi >= 0 ? hits_[size_t(hi)].tip : std::wstring();
 }
 
 // The project page's helpers that need no window (moved from project_view.inc).

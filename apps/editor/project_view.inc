@@ -9,7 +9,6 @@ LRESULT CALLBACK trigCodeKeys(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PT
 struct ProjectPage {
     HWND wnd = nullptr, preview = nullptr;  // preview: the selected script's code, on the right (View: the </> button)
     std::string previewOf;                  // what the preview shows
-    ui::Surface surface;
     std::string selected;               // a script (its .eds section name)
     std::vector<std::string> sections;  // the scripts, in build order
     HANDLE epTrace = nullptr;           // epTrace while it is open
@@ -322,90 +321,6 @@ void projectStartEpTrace() {
     InvalidateRect(gProj.wnd, nullptr, FALSE);
 }
 
-// The epTrace section: the trace file, epTrace, and the lines of the last report with the most samples.
-template <class Rel>
-int paintEpTrace(HDC mem, const FormLayout& l, int y, int rowH, const EudProject& pr, const Rel& rel) {
-    y = ui::sectionHeader(mem, l, y, L"epTrace");
-    std::error_code ec;
-    const bool built = fs::exists(pr.traceMap(), ec);
-    auto label = [&](const wchar_t* text) {
-        FormLayout rl = l;
-        rl.rowH = rowH;
-        ui::fieldLabel(mem, rl, y, text, false);
-    };
-    auto dimText = [&](RECT t, const std::wstring& text, COLORREF c = kDim, UINT f = DT_LEFT) {
-        SetTextColor(mem, c);
-        DrawTextW(mem, text.c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX | f);
-    };
-    label(L"Trace file");
-    {
-        RECT t{l.x0 + l.labelW, y, l.colRight - scale(170), y + rowH};
-        dimText(t, built ? rel(pr.traceMap()) + L"  \x00B7  " + projectFileTime(pr.traceMap())
-                         : pr.traceBuild() ? L"None yet: Build writes it" : L"None: Trace build is off");
-        const int bx = l.colRight - ui::textWidth(mem, L"Start epTrace") - scale(20);
-        if (gProj.epTrace)
-            dimText({bx, y, l.colRight, y + rowH}, L"epTrace is open", kAccent, DT_RIGHT);
-        else
-            ui::smallButton(mem, bx, y, rowH, L"Start epTrace", [] { projectStartEpTrace(); },
-                            L"Start the map in StarCraft first. epTrace asks for administrator rights, shows the lines that run, and writes its "
-                            L"report when you close its window",
-                            ui::Tone::Normal, built);
-    }
-    y += rowH + scale(4);
-    label(L"Report");
-    const bool has = projectTraceReport(pr);
-    {
-        const auto& r = gProj.report;
-        RECT t{l.x0 + l.labelW, y, l.colRight - scale(170), y + rowH};
-        if (!has) dimText(t, L"None yet: close epTrace's window to write it");
-        else if (r.total == 0) dimText(t, L"No samples: no script line ran each trigger cycle while epTrace looked");
-        else
-            dimText(t, std::to_wstring(r.total) + L" samples on " + std::to_wstring(r.lines.size()) + L" lines  \x00B7  " + projectFileTime(pr.traceReport()));
-        if (has)
-            ui::smallButton(mem, l.colRight - ui::textWidth(mem, L"Open the report") - scale(20), y, rowH, L"Open the report", [f = pr.traceReport()] {
-                ShellExecuteW(app.main, L"open", L"notepad.exe", (L"\"" + f.wstring() + L"\"").c_str(), nullptr, SW_SHOWNORMAL);
-            }, L"Open the report in Notepad, which shows how often epTrace found each script line running");
-    }
-    y += rowH + scale(4);
-    if (!has || gProj.report.lines.empty()) return y + scale(20);
-    // The lines with the most samples: the samples (and a bar), where the line is, and its code.
-    const auto& lines = gProj.report.lines;
-    const int64_t most = lines.front().samples;
-    const auto triggerCode = epTraceTriggerCode(pr.folder());  // the triggers' code now: a line of an older build names no trigger
-    const int countW = scale(70), barW = scale(60), whereW = std::min(scale(380), (l.colRight - l.x0) / 2);
-    for (size_t i = 0; i < lines.size() && i < 15; ++i) {
-        const auto& ln = lines[i];
-        bool trig = false;
-        const std::wstring where = epTraceWhere(ln, pr.folder(), triggerCode, &trig);
-        RECT r{l.x0 - scale(6), y, l.colRight, y + rowH};
-        const bool over = ui::hot(r);
-        ui::listRow(mem, r, false, over);
-        int x = r.left + scale(6);
-        dimText({x, r.top, x + countW, r.bottom}, std::to_wstring(ln.samples), kText, DT_RIGHT);
-        x += countW + scale(10);
-        RECT bar{x, r.top + rowH / 2 - scale(3), x + std::max<int>(scale(2), int(barW * ln.samples / std::max<int64_t>(1, most))), r.top + rowH / 2 + scale(3)};
-        ui::box(mem, bar, kAccent, CLR_NONE, 3);
-        x += barW + scale(12);
-        dimText({x, r.top, x + whereW, r.bottom}, where, kText);
-        x += whereW + scale(12);
-        HGDIOBJ was = SelectObject(mem, monoFont());
-        dimText({x, r.top, r.right - scale(8), r.bottom}, widen(ln.code), kDim);
-        SelectObject(mem, was);
-        const std::wstring tip = std::to_wstring(ln.samples) + L" of " + std::to_wstring(gProj.report.total) + L" samples: " +
-                                 fs::path(ln.file).make_preferred().wstring() + L", line " + std::to_wstring(ln.line) +
-                                 (trig ? L" (click: the block in the Triggers workspace)" : L" (click: open the script)");
-        const fs::path file = ln.file;
-        const int line = ln.line;
-        hitsOut().push_back({r, nullptr, [file, line, trig] {
-                                 if (trig && trigShowCodeLine(line)) return;
-                                 triggersOpenFile(file);
-                             },
-                             tip, IDC_HAND, {}});
-        y += rowH;
-    }
-    return y + scale(24);
-}
-
 // The path as the Project page shows it: relative to the project's folder, else as it is.
 std::wstring projectRel(EudProject& pr, const fs::path& p2) {
     std::error_code e2;
@@ -616,6 +531,59 @@ public:
         projectFormRefresh();
     }
     void linkScript() override { projectAddExistingScript(); }
+    void openSelectedScript() override {
+        EudProject* pr = activeProject();
+        if (!pr || gProj.selected.empty()) return;
+        const fs::path file = scriptPath(*pr, gProj.selected);
+        const std::string ext = file.extension().string();
+        if (ext == ".eps" || ext == ".py") triggersOpenFile(file);
+    }
+    // epTrace's section: the trace file, the report and its lines with the most samples (the page draws them).
+    Trace trace() override {
+        Trace t;
+        EudProject* pr = activeProject();
+        if (!pr) return t;
+        t.open = gProj.epTrace != nullptr;
+        t.traceBuild = pr->traceBuild();
+        t.hasReport = projectTraceReport(*pr);
+        t.shown = t.traceBuild || t.hasReport;
+        if (!t.shown) return t;
+        std::error_code ec;
+        t.built = fs::exists(pr->traceMap(), ec);
+        if (t.built) t.traceFile = projectRel(*pr, pr->traceMap()) + L"  \x00B7  " + projectFileTime(pr->traceMap());
+        if (!t.hasReport) return t;
+        const auto& r = gProj.report;
+        t.total = r.total, t.lineCount = r.lines.size();
+        t.reportTime = projectFileTime(pr->traceReport());
+        const auto triggerCode = epTraceTriggerCode(pr->folder());  // the triggers' code now: a line of an older build names no trigger
+        for (size_t i = 0; i < r.lines.size() && i < 15; ++i) {
+            const auto& ln = r.lines[i];
+            bool trig = false;
+            TraceLine tl;
+            tl.samples = ln.samples;
+            tl.where = epTraceWhere(ln, pr->folder(), triggerCode, &trig);
+            tl.code = widen(ln.code);
+            tl.tip = std::to_wstring(ln.samples) + L" of " + std::to_wstring(r.total) + L" samples: " +
+                     fs::path(ln.file).make_preferred().wstring() + L", line " + std::to_wstring(ln.line) +
+                     (trig ? L" (click: the block in the Triggers workspace)" : L" (click: open the script)");
+            t.lines.push_back(std::move(tl));
+        }
+        return t;
+    }
+    void startEpTrace() override { projectStartEpTrace(); }
+    void openReport() override {
+        if (EudProject* pr = activeProject())
+            ShellExecuteW(app.main, L"open", L"notepad.exe", (L"\"" + pr->traceReport().wstring() + L"\"").c_str(), nullptr, SW_SHOWNORMAL);
+    }
+    void openTraceLine(size_t i) override {
+        EudProject* pr = activeProject();
+        if (!pr || i >= gProj.report.lines.size()) return;
+        const auto& ln = gProj.report.lines[i];
+        bool trig = false;
+        epTraceWhere(ln, pr->folder(), epTraceTriggerCode(pr->folder()), &trig);
+        if (trig && trigShowCodeLine(ln.line)) return;
+        triggersOpenFile(ln.file);
+    }
 };
 ProjectProgram gProjProgram;
 ProjectPageView gProjView(gProjProgram);
@@ -633,64 +601,6 @@ void projectEpTraceTick() {
 }
 void projectEpTraceArm() {
     if (auto* h = gProjView.host()) h->timer(500, projectEpTraceTick);
-}
-
-// The Project page's sections after Files (shell.h's seam): the old GDI code, on the canvas's DC, until they move into the
-// core. Their clicks, tips and cursors are the page's surface (gProj.surface); the view's own parts come first.
-int shellPaintProjectRest(draw::Canvas& c, int y, int pageW, int pageH) {
-    auto* gc = dynamic_cast<ui::GdiCanvas*>(&c);
-    EudProject* pr = activeProject();
-    if (!gc || !pr) return y;
-    HDC mem = gc->dc();
-    SetBkMode(mem, TRANSPARENT);
-    SelectObject(mem, app.font);
-    FormLayout l = formLayout({0, 0, pageW, pageH});
-    l.labelW = scale(170), l.colRight = std::min<int>(pageW - l.x0, l.x0 + scale(1000)), l.colW = l.colRight - l.x0;
-    const int rowH = scale(32);
-    auto rel = [&](const fs::path& p2) { return projectRel(*pr, p2); };
-    gProj.surface.hits.clear();
-    std::vector<DataWidgetHit>* savedOut = gHitsOut;
-    HWND savedWnd = gHitsWnd;
-    gHitsOut = &gProj.surface.hits, gHitsWnd = gProj.wnd;
-    gHitsOf[gProj.wnd] = &gProj.surface.hits;
-    if (pr->traceBuild() || projectTraceReport(*pr)) y = paintEpTrace(mem, l, y, rowH, *pr, rel);
-    gHitsOut = savedOut, gHitsWnd = savedWnd;
-    return y;
-}
-
-std::wstring shellProjectRestTip(draw::Point pt) {
-    const POINT p{pt.x, pt.y};
-    for (auto it = gProj.surface.hits.rbegin(); it != gProj.surface.hits.rend(); ++it)
-        if (PtInRect(&it->r, p) && !it->tip.empty()) return it->tip;
-    return {};
-}
-
-draw::Cursor shellProjectRestCursor(draw::Point pt) {
-    const POINT p{pt.x, pt.y};
-    for (auto it = gProj.surface.hits.rbegin(); it != gProj.surface.hits.rend(); ++it)
-        if (PtInRect(&it->r, p) && (it->click || it->drag)) return it->cursor.c;
-    return draw::Cursor::Arrow;
-}
-
-bool shellProjectRestMouse(const draw::MouseEvent& e) {
-    if (e.button != 0 && e.kind != draw::MouseKind::Move && e.kind != draw::MouseKind::Leave) return false;
-    UINT msg = 0;
-    switch (e.kind) {
-    case draw::MouseKind::Move: msg = WM_MOUSEMOVE; break;
-    case draw::MouseKind::Leave: msg = WM_MOUSELEAVE; break;
-    case draw::MouseKind::Down: msg = WM_LBUTTONDOWN; break;
-    case draw::MouseKind::Up: msg = WM_LBUTTONUP; break;
-    case draw::MouseKind::DoubleClick:  // a script: open it
-        if (EudProject* pr = activeProject(); pr && !gProj.selected.empty()) {
-            const fs::path file = scriptPath(*pr, gProj.selected);
-            const std::string ext = file.extension().string();
-            if (ext == ".eps" || ext == ".py") triggersOpenFile(file);
-        }
-        return true;
-    default: return false;
-    }
-    LRESULT r = 0;
-    return gProj.surface.message(gProj.wnd, msg, 0, MAKELPARAM(e.pt.x, e.pt.y), r);
 }
 
 void createProjectPage() {
