@@ -7,7 +7,8 @@
 //        stardraft_editor [map] --snapshot <out.png> [--size <w>x<h>] [--scale <s>]
 //
 // --snapshot: draws one frame without a window (SDL_VIDEODRIVER=offscreen needs no display), writes it, exits.
-// The StarCraft install: --install, then STARDRAFT_INSTALL, then the usual folders of each system.
+// The StarCraft install: --install, then STARDRAFT_INSTALL, the folder chosen before, then the usual folders of each
+// system (core/install_search.inc); when none opens, the window asks for the folder.
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -76,27 +77,60 @@ namespace kit_sdl = stardraft::kit_sdl;
 #include "sdl_standins.inc"
 #include "sdl_pending.inc"
 #include "sdl_menus.inc"
+#include "sdl_files.inc"  // the Files workspace's page and its sounds (core/views_files.inc)
+#include "sdl_start.inc"  // the start page (core/views_start.inc)
 #include "shell_sdl.inc"
 
 namespace {
 
-// The start: the install (the search order is in findInstall), the map from the command line, then the loop.
-fs::path findInstall(const std::string& given) {
+// The StarCraft install: --install, STARDRAFT_INSTALL, the folder the user chose before (the setting StarCraftFolder),
+// then the usual folders of this system (core/install_search.inc). The first folder whose game data opens is the install.
+// Returns false when none opens; the window then asks for the folder (askInstallFolder).
+bool openInstall(const std::string& given) {
     std::vector<fs::path> candidates;
     if (!given.empty()) candidates.push_back(given);
     if (const char* e = std::getenv("STARDRAFT_INSTALL"); e && *e) candidates.push_back(e);
-    if (const char* h = std::getenv("HOME")) {
-        candidates.push_back(fs::path(h) / "scmirror");
-        candidates.push_back(fs::path(h) / ".wine/drive_c/Program Files (x86)/StarCraft");
-        candidates.push_back(fs::path(h) / "Games/battlenet/drive_c/Program Files (x86)/StarCraft");
-    }
+    std::wstring saved;
+    if (prefs::text(L"StarCraftFolder", saved) && !saved.empty()) candidates.push_back(saved);
 #ifdef __APPLE__
-    candidates.push_back("/Applications/StarCraft");
+    const InstallSystem system = InstallSystem::Mac;
+#else
+    const InstallSystem system = InstallSystem::Linux;
 #endif
+    if (const char* h = std::getenv("HOME"); h && *h) {
+        candidates.push_back(fs::path(h) / "scmirror");  // the developer's mirror of the install
+        for (const fs::path& p : installCandidatesOf(system, fs::path(h))) candidates.push_back(p);
+    }
     std::error_code ec;
-    for (const fs::path& p : candidates)
-        if (!p.empty() && fs::is_directory(p, ec)) return p;
-    return {};
+    std::string err;
+    for (const fs::path& c : candidates)
+        for (const fs::path& t : installTries(c))
+            if (fs::is_directory(t, ec) && gState.data.open(t, err)) return true;
+    return false;
+}
+
+// The folder dialog's answer (SDL's thread): the UI thread tries the folder, saves it and opens the game data from it.
+void useInstallFolder(const std::string& picked);
+void installFolderPicked(void*, const char* const* list, int) {
+    const std::string picked = list && list[0] ? list[0] : std::string();
+    shellPost([picked] { useInstallFolder(picked); });
+}
+// Asks for the StarCraft folder (the window is up; the game data is not open yet).
+void askInstallFolder() {
+    SDL_ShowOpenFolderDialog(installFolderPicked, nullptr, dialogWindow(), nullptr, false);
+}
+void useInstallFolder(const std::string& picked) {
+    if (picked.empty()) return;  // (cancelled: the program asks again on the next start)
+    std::string err;
+    for (const fs::path& t : installTries(fs::path(picked)))
+        if (fs::is_directory(t) && gState.data.open(t, err)) {
+            prefs::setText(L"StarCraftFolder", t.wstring());
+            gDataOk = true, gDataError.clear();
+            if (gRoot) gRoot->relayout(), gRoot->invalidate(), gRoot->map.invalidate();
+            setMessage(L"The StarCraft folder is set");
+            return;
+        }
+    kit::messageBox(*gRoot, shellTr(L"Not a StarCraft: Remastered folder"), widen(err.empty() ? picked : err), {L"OK"}, kit::MessageIcon::Warning);
 }
 
 // The PNG of the window's pixels, from the snapshot's texture (RGBA8, as the snapshot makes it).
@@ -173,10 +207,11 @@ int main(int argc, char** argv) {
         if (!kit_sdl::loadIconAtlases(device, base + "res/")) std::printf("stardraft_editor: no icon atlases in res/\n");
 
         // The game data (the map needs it), then the map from the command line.
-        const fs::path install = findInstall(installArg);
-        if (!install.empty() && gState.data.open(install, err)) gDataOk = true;
-        else gDataError = install.empty() ? "No StarCraft install found: start with --install <folder>, or STARDRAFT_INSTALL" : "Game data: " + err;
+        if (openInstall(installArg)) gDataOk = true;
+        else gDataError = "No StarCraft install found: choose the StarCraft folder, or start with --install <folder>, or STARDRAFT_INSTALL";
         registerMapCommands();  // the Map workspace's command table (core/map_commands.inc): the menus and keys read it
+        registerWorkspaceView(Workspace::Files, gFilesPage);  // the Assets / Files workspace (sdl_files.inc)
+        initStartPage();  // the start page's callbacks (sdl_start.inc)
         MainView root;
         gRoot = &root;
         rebuildMenus();
@@ -215,6 +250,7 @@ int main(int argc, char** argv) {
         } else {
             if (!host.show(root, L"StarDraft", width, height)) return std::fprintf(stderr, "could not open a window\n"), 1;
             updateTitle();  // (the window exists now: its title is the open map's)
+            if (!gDataOk) shellPost(askInstallFolder);  // no install was found: the window asks for its folder
             host.setAnimating(true);  // (the map and the posted work need frames; see shellPost)
             host.run();
         }

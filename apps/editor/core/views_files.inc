@@ -233,6 +233,7 @@ private:
         });
     }
     void renameSound(const std::string& from) {
+        if (!mapEditor()) return;  // (no map is open: the sounds are the game's)
         std::wstring name = widen(from);
         if (!svc().askName(L"Rename the sound", name) || name.empty()) return;
         const std::string to = narrow(name);
@@ -245,6 +246,7 @@ private:
         invalidate();
     }
     void removeRow(const Row& rw) {
+        if (!mapEditor()) return;  // (no map is open)
         svc().previewStop();
         if (rw.kind == 0) mapEditor()->removeArchiveFile(rw.name);
         else mapEditor()->removeSoundReference(rw.name);
@@ -255,6 +257,7 @@ private:
         invalidate();
     }
     void addReference(const std::string& name) {
+        if (!mapEditor()) return;  // (no map is open)
         mapEditor()->addSoundReference(name);
         selected_ = name;
         updateTitle();
