@@ -158,7 +158,6 @@ void saveDock() {
 
 // Recently opened maps and projects, and the folder projects usually go in (where the last one was made or
 // opened): HKCU\Software\StarDraft, RecentMaps / RecentProjects (lists) and ProjectsFolder.
-constexpr int kRecentMax = 10;
 std::vector<std::wstring> gRecentMaps, gRecentProjects;
 bool gOpenLastProject = false;  // Options: open the last project on start (off unless chosen)
 bool gCheckUpdates = true;      // Options: look for a newer release on start (on unless turned off)
@@ -417,7 +416,6 @@ void unitPaletteRepaint() {
 void rebuildUnitPalette();
 // Map: the map editor; Data: the project's .dat files; Triggers, Assets: to come; Project: the project.
 // After Files: the map's pages (map_pages.inc), opened from the rail's items under the workspaces.
-enum class Workspace { Map, Data, Triggers, Assets, Project, Briefing, Files, Properties, Players, ClassicTriggers, ClassicSettings };
 void setWorkspace(Workspace w);
 bool briefCommand(int id);
 
@@ -3620,58 +3618,7 @@ void modeLayerHiddenMessage();
 int railItemId(size_t n);  // the side bar's n-th item's command (0: none)
 void repaintSoundViews();  // files_view.inc
 void commandBody(int id) {
-    // The active mode's layer is hidden (View > Layers): the edits of the map are refused.
-    if (gWorkspace == Workspace::Map && modeLayerHidden() &&
-        (id == ID_EDIT_SELECTALL || id == ID_EDIT_DELETE || id == ID_EDIT_CUT || id == ID_EDIT_COPY || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE))
-        return modeLayerHiddenMessage();
-    // No map (a page tab): its commands do nothing, also from a shortcut or the top bar (their menu items are gray).
-    if (!docOpen() && mapCommand(id)) return;
-    // A map page shows: the Edit commands are not for the map that does not show (undo and redo are).
-    if (gWorkspace >= Workspace::Properties && (id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE ||
-                                                id == ID_EDIT_DELETE || id == ID_EDIT_SELECTALL))
-        return;
-    if (gWorkspace == Workspace::Data && (id == ID_EDIT_COPY || id == ID_EDIT_PASTE)) {  // the selected entry's values
-        if (id == ID_EDIT_COPY) dataCopySelected();
-        else dataPasteSelected();
-        return;
-    }
-    if (gWorkspace == Workspace::Briefing && (id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE || id == ID_EDIT_DELETE ||
-                                              id == ID_EDIT_SELECTALL) && briefCommand(id))
-        return;
-    if (gWorkspace == Workspace::Triggers && (id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE)) {
-        if (id == ID_EDIT_PASTE) trigPaste();
-        else if (id == ID_EDIT_DUPLICATE) trigDuplicate();
-        else trigCopy(id == ID_EDIT_CUT);
-        return;
-    }
-    if (id == ID_QUICKOPEN) return showQuickPicker(false, true);
-    if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax)) {
-        const bool project = id >= ID_RECENT_PROJECT;
-        auto& list = project ? gRecentProjects : gRecentMaps;
-        const size_t i = size_t(id - (project ? ID_RECENT_PROJECT : ID_RECENT_MAP));
-        if (i >= list.size()) return;
-        const fs::path p = list[i];
-        std::error_code ec;
-        if (!fs::exists(p, ec)) {
-            setMessage(p.wstring() + L" is gone; removed from the list");
-            removeRecent(list, p), saveRecent(), refreshRecentMenus();
-            return;
-        }
-        if (project) openProject(p);
-        else openAny(p);
-        return;
-    }
-    if (!commandInMode(id)) {  // a shortcut or a command of the other mode
-        setMessage(classicMode() ? L"This tab is a classic map. This command needs a project. File > Project > Make this map a project makes one."
-                                 : L"This command is for classic maps only");
-        return;
-    }
-    if (const auto it = gCommandIds.find(id); it != gCommandIds.end()) {  // a command of the table (commands.inc)
-        gCommands.run(it->second);
-        updateMenus();
-        app.dirty = true;
-        return;
-    }
+    if (commandPortable(app, id)) return;
     switch (id) {
     case ID_PROJ_NEW: openNewPage(1); return;
     case ID_PROJ_FROMMAP: showProjectDialog(); return;
