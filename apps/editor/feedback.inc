@@ -231,7 +231,7 @@ LRESULT CALLBACK feedbackDialogProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SendMessageW(d->issue, WM_SETFONT, WPARAM(app.font), TRUE);
         y += editH + scale(8);
         d->note = CreateWindowExW(0, WC_STATICW,
-                                  L"Feedback is anonymous, and we publish it on our Discord server for review. Do not include sensitive or private "
+                                  L"Feedback is anonymous. It goes on the StarDraft Discord server for review. Do not include sensitive or private "
                                   L"information. Ctrl+Enter sends it.",
                                   WS_CHILD | WS_VISIBLE, pad, y, w, scale(36), hwnd, nullptr, app.inst, nullptr);
         SendMessageW(d->note, WM_SETFONT, WPARAM(app.font), TRUE);

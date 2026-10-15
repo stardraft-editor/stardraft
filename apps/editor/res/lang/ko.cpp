@@ -1982,7 +1982,7 @@ constexpr UiText kRows[] = {
     {L"&Actual size", L"\uC2E4\uC81C \uD06C\uAE30(&A)"},
     {L"&Fit map", L"\uB9F5 \uB9DE\uCDA4(&F)"},
     {L" The total is more than the game has room for. Build stops.", L" \uD569\uACC4\uAC00 \uAC8C\uC784\uC758 \uACF5\uAC04\uBCF4\uB2E4 \uD07D\uB2C8\uB2E4. \uBE4C\uB4DC\uAC00 \uBA48\uCDA5\uB2C8\uB2E4."},
-    {L"Feedback is anonymous, and we publish it on our Discord server for review. Do not include sensitive or private information. Ctrl+Enter sends it.", L"\uD53C\uB4DC\uBC31\uC740 \uC775\uBA85\uC774\uBA70, \uAC80\uD1A0\uB97C \uC704\uD574 Discord \uC11C\uBC84\uC5D0 \uAC8C\uC2DC\uB429\uB2C8\uB2E4. \uBBFC\uAC10\uD55C \uC815\uBCF4\uB098 \uAC1C\uC778 \uC815\uBCF4\uB97C \uB123\uC9C0 \uB9C8\uC2ED\uC2DC\uC624. Ctrl+Enter\uB85C \uBCF4\uB0C5\uB2C8\uB2E4."},
+    {L"Feedback is anonymous. It goes on the StarDraft Discord server for review. Do not include sensitive or private information. Ctrl+Enter sends it.", L"\uD53C\uB4DC\uBC31\uC740 \uC775\uBA85\uC785\uB2C8\uB2E4. \uAC80\uD1A0\uB97C \uC704\uD574 StarDraft Discord \uC11C\uBC84\uC5D0 \uAC8C\uC2DC\uB429\uB2C8\uB2E4. \uBBFC\uAC10\uD55C \uC815\uBCF4\uB098 \uAC1C\uC778 \uC815\uBCF4\uB97C \uB123\uC9C0 \uB9C8\uC2ED\uC2DC\uC624. Ctrl+Enter\uB85C \uBCF4\uB0C5\uB2C8\uB2E4."},
     {L"Open the Discord server", L"Discord \uC11C\uBC84 \uC5F4\uAE30"},
     {L"Sending your feedback\u2026", L"\uD53C\uB4DC\uBC31\uC744 \uBCF4\uB0B4\uB294 \uC911\u2026"},
     {L"Thank you for your feedback.", L"\uD53C\uB4DC\uBC31\uC744 \uBCF4\uB0B4 \uC8FC\uC154\uC11C \uAC10\uC0AC\uD569\uB2C8\uB2E4."},
