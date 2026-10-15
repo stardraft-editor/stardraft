@@ -122,7 +122,25 @@ public:
     virtual void defaultOutput() = 0;
     virtual void changeInstall() = 0;
     virtual void pageResized() = 0;
+    // The Build section: euddraft's options and debug builds (on now), and the click that turns one over (set: its state
+    // when the page was painted).
+    enum class BuildOption { EudTurbo, MoreUnits, NoAirCollision, RemakeUnits, DebugBuild, TraceBuild };
+    virtual bool buildOption(BuildOption o) = 0;
+    virtual void toggleBuildOption(BuildOption o, bool set) = 0;
+    // The background music: its plugin on, and the file's name and length in seconds (hasFile: a file is chosen).
+    struct Music {
+        bool on = false, hasFile = false;
+        std::wstring name;
+        double secs = 0;
+    };
+    virtual Music music() = 0;
+    virtual void chooseMusic() = 0;
+    virtual void clearMusic() = 0;
 };
+
+// The background music (bgmplayer) and files in memory (dataDumper) are off for now: not shown. A project that has them
+// keeps its sections, and Build uses them.
+constexpr bool kProjectMusicAndFiles = false;
 
 // The Project page: the project's files, its build options and its scripts. A view in a view window: it scrolls, and it
 // takes the clicks of its own parts. The sections after Files are the program's code for now (shellPaintProjectRest,
@@ -192,6 +210,12 @@ private:
         if (over) c.roundBox(r, kCtlHot, draw::kNone, float(scale(stardraft::kit::kRadius)));
         c.icon(r, int(UiIcon::Code), over ? (on ? kAccentBright : kText) : (on ? kAccent : kDim), scale(16));
     }
+    // The Build section (its heading, the options, the background music) from y; returns the y after it.
+    int paintBuild(draw::Canvas& c, int y, int x0, int labelW, int rowH, int colRight);
+    // The background music's row from y (kProjectMusicAndFiles); returns the y after it.
+    int paintMusic(draw::Canvas& c, int y, int x0, int labelW, int rowH, int colRight);
+    // A check box with its label: the whole row is its click area.
+    void paintCheck(draw::Canvas& c, draw::Rect r, const std::wstring& label, bool on, const std::wstring& tip, std::function<void()> click);
 
     ProjectHost& host_;
     std::vector<Hit> hits_;  // what the last paint put under the mouse
@@ -259,10 +283,94 @@ void ProjectPageView::paint(draw::Canvas& c) {
             L"The folder that StarDraft 2 reads game data from", nullptr);
         row(L"euddraft", f.euddraft, false, {}, L"", nullptr);
         y += scale(12);
+        y = paintBuild(c, y, x0, labelW, rowH, colRight);
         y = shellPaintProjectRest(c, y, pageW, h);
     }
     contentH_ = y + scroll_;
     if (const int most = std::max(0, contentH_ - h); scroll_ > most) scroll_ = most, invalidate();  // a taller window: no scroll is left
+}
+
+int ProjectPageView::paintBuild(draw::Canvas& c, int y, int x0, int labelW, int rowH, int colRight) {
+    using BO = ProjectHost::BuildOption;
+    const int headH = scale(stardraft::kit::kRowH);
+    // A section heading: its name and a line to the column's edge.
+    c.text({x0, y, colRight, y + headH}, L"Build", kText, draw::kMiddle);
+    c.fill({x0, y + headH - 1, colRight, y + headH}, kBorder);
+    y += headH + scale(6);
+    // The label column names the options (not an empty column).
+    c.text({x0, y, x0 + labelW, y + rowH}, L"Options", kDim, draw::kMiddle | draw::kEllipsis);
+    struct Option {
+        BO o;
+        std::wstring label, tip;
+    };
+    const std::vector<Option> options = {
+        {BO::EudTurbo, L"EUD Turbo", L"A shorter trigger cycle: the triggers run more often (euddraft's eudTurbo)"},
+        {BO::MoreUnits, L"More units and sprites", L"Room for more sprites, images, bullets and orders (euddraft's unlimiter)"},
+        {BO::NoAirCollision, L"Air units do not push apart", L"Air units can stay on top of each other (euddraft's noAirCollision)"},
+        {BO::RemakeUnits, L"New graphics for preplaced units",
+         L"The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, the map "
+         L"removes each preplaced unit that the edits give other graphics, and makes it again on its place at the start. The map "
+         L"view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground "
+         L"that it cannot stand on) moves near its place, or the game does not make it again."},
+        {BO::DebugBuild, L"Debug build",
+         L"The triggers check each list index that the game calculates. An index out of range shows a message on the screen, and the "
+         L"triggers use the first item. Turn it off for the map that you release."},
+        {BO::TraceBuild, L"Trace build (epTrace)",
+         L"The scripts record each line that they run, and Build writes a trace file beside the map. epTrace reads it while the map "
+         L"plays in StarCraft and shows which lines use the most time. The map runs more slowly: turn it off for the map that you release."},
+    };
+    for (const Option& op : options) {
+        const bool set = host_.buildOption(op.o);
+        const BO o = op.o;
+        paintCheck(c, {x0 + labelW, y, colRight, y + rowH}, op.label, set, op.tip, [this, o, set] { host_.toggleBuildOption(o, set); });
+        y += rowH;
+    }
+    y += scale(6);
+    if (kProjectMusicAndFiles) y = paintMusic(c, y, x0, labelW, rowH, colRight);
+    return y;
+}
+
+int ProjectPageView::paintMusic(draw::Canvas& c, int y, int x0, int labelW, int rowH, int colRight) {
+    const ProjectHost::Music m = host_.music();
+    // The label is green while the plugin is on (a changed setting).
+    c.text({x0, y, x0 + labelW, y + rowH}, L"Background music", m.on ? kGood : kDim, draw::kMiddle | draw::kEllipsis);
+    std::wstring text = L"None";
+    if (m.hasFile) {
+        const int s = int(m.secs);
+        text = m.name + L"   " + std::to_wstring(s / 60) + L":" + (s % 60 < 10 ? L"0" : L"") + std::to_wstring(s % 60);
+    }
+    // The dropdown (a box to click, the name and the arrow), as the Data forms' pick boxes have it.
+    const draw::Rect box{x0 + labelW, y + scale(2), colRight - scale(stardraft::kit::kIconBox + 8), y + rowH - scale(2)};
+    const bool over = hot(box);
+    c.roundBox(box, kCtl, over ? kBorderHot : kBorder, float(scale(stardraft::kit::kRadius)));
+    c.text({box.left + scale(8), box.top, box.right - scale(22), box.bottom}, text, kText, draw::kMiddle | draw::kEllipsis);
+    c.icon({box.right - scale(20), box.top, box.right - scale(6), box.bottom}, int(UiIcon::Dropdown), over ? kText : kDim, scale(9));
+    hits_.push_back({box, [this] { host_.chooseMusic(); }, L"Plays again and again for every player (euddraft's bgmplayer)", draw::Cursor::Hand});
+    if (m.hasFile) {  // the close button: no background music
+        const draw::Rect x = squareOf({box.right + scale(4), box.top, box.right + scale(4 + stardraft::kit::kIconBox), box.bottom});
+        const bool overX = hot(x);
+        c.icon(x, int(UiIcon::Close), overX ? kBad : kDim, scale(14));
+        hits_.push_back({x, [this] { host_.clearMusic(); }, L"No background music", draw::Cursor::Hand});
+    }
+    return y + rowH + scale(4);
+}
+
+void ProjectPageView::paintCheck(draw::Canvas& c, draw::Rect r, const std::wstring& label, bool on, const std::wstring& tip,
+                                 std::function<void()> click) {
+    const int s = scale(14);
+    const int top = (r.top + r.bottom - s) / 2;
+    const draw::Rect b{r.left, top, r.left + s, top + s};
+    const bool over = hot(r);
+    // The box: accent when on, its border lit under the mouse.
+    c.roundBox(b, on ? kAccentFill : kCtl, on ? kAccent : over ? kBorderHot : kBorderStrong, float(scale(3)));
+    if (on) {
+        const int w = b.width(), h = b.height();
+        const draw::Point mark[3] = {
+            {b.left + w * 22 / 100, b.top + h * 52 / 100}, {b.left + w * 42 / 100, b.top + h * 72 / 100}, {b.left + w * 78 / 100, b.top + h * 30 / 100}};
+        c.polyline(mark, 3, kOnText, std::max(1, scale(2)));
+    }
+    c.text({b.right + scale(8), r.top, r.right, r.bottom}, label, on || over ? kText : kDim, draw::kMiddle | draw::kEllipsis);
+    hits_.push_back({r, std::move(click), tip, draw::Cursor::Hand});
 }
 
 bool ProjectPageView::mouse(const draw::MouseEvent& e) {
