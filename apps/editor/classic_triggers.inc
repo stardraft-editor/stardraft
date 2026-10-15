@@ -2432,7 +2432,7 @@ void classicTrigDatashot(const std::string& spec, const fs::path& dir) {
     if (!app.ed) return;
     if (!set && !move && !batch) {  // a state of the page changed the map (a trigger made, turned off): undo it back
         int steps = 0;
-        while (steps < 8 && app.ed->chk().effective("TRIG") != before) app.ed->undo(), ++steps;
+        while (steps < 30 && app.ed->chk().effective("TRIG") != before) app.ed->undo(), ++steps;
         log << "the state's changes are undone " << (app.ed->chk().effective("TRIG") == before ? "yes" : "NO") << " (" << steps << " undo steps)\n";
     }
     const size_t count = ctTriggerCount(app.ed->chk().effective("TRIG")), had = ctTriggerCount(before);
@@ -2489,8 +2489,11 @@ void classicTrigDatashot(const std::string& spec, const fs::path& dir) {
     Editor back(app.data);
     if (app.ed->save(file, err) && back.open(file, err)) check(back, "saved and opened again");
     else log << "save: NO (" << err << ")\n";
-    app.ed->undo();
-    log << "one undo step gives back the map's TRIG " << (app.ed->chk().effective("TRIG") == before ? "yes" : "NO") << "\n";
+    // The page makes an undo step for each change (the trigger, its player, each entry): undo back to the start.
+    int steps = 0;
+    while (steps < 30 && app.ed->chk().effective("TRIG") != before) app.ed->undo(), ++steps;
+    log << "undo steps back to the map's TRIG byte for byte: " << steps << (app.ed->chk().effective("TRIG") == before ? " (back at the start)" : " (NOT back at the start)")
+        << "\n";
 }
 
 // Datashot classicproject: (L.4) the open classic map made a project as File > Project > Make this map a project

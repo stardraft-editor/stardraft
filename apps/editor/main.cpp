@@ -6090,15 +6090,15 @@ void paintUnitPalette(HWND hwnd) {
             InflateRect(&f, -1, -1);
             if (picked) ui::listRow(mem, f, true, false);
             else fill(f, chosen || second ? kSel : kRowHot);
-            if (second) {  // a dashed accent frame, and "R" at its right end
+            if (second) {  // a dashed accent frame, and "Shift" at its right end
                 HPEN pen = CreatePen(PS_DOT, 1, kAccent);
                 HGDIOBJ op = SelectObject(mem, pen), ob = SelectObject(mem, GetStockObject(NULL_BRUSH));
                 Rectangle(mem, f.left, f.top, f.right, f.bottom);
                 SelectObject(mem, op), SelectObject(mem, ob);
                 DeleteObject(pen);
-                RECT rt{f.right - scale(18), f.top, f.right - scale(4), f.bottom};
+                RECT rt{f.right - scale(60), f.top, f.right - scale(4), f.bottom};
                 SetTextColor(mem, kAccent);
-                DrawTextW(mem, L"R", 1, &rt, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
+                DrawTextW(mem, L"Shift", -1, &rt, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
             }
         }
         if (gPal.pinned && i >= 1 && i <= size_t(gPal.pinned)) {  // a pinned doodad's copy at the top: the pin at its right
@@ -26420,6 +26420,17 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     capture(fs::path(datashots) / "about_hot.png", gAbout.wnd);
                 }
                 DestroyWindow(gAbout.wnd);
+                continue;
+            }
+            if (s == "project:") {  // project.txt: a new project (a new map) in the datashot folder, for the specs after it that need one
+                std::ofstream o(fs::path(datashots) / "project.txt");
+                std::string err;
+                const bool was = std::exchange(gSelfTest, true);  // (the user's recent lists stay as they are)
+                const bool made = createProject(fs::path(datashots) / "project", "Sample", false, err);
+                gSelfTest = was;
+                setMessage(L"");  // (the message has the folder)
+                for (int i = 0; i < 5; ++i) pump();
+                o << "a project is open " << (made && activeProject() ? "yes" : "NO") << " " << err << "\n";
                 continue;
             }
             if (s == "openagain:") {  // openagain.txt: opening a map that is open already goes to its tab (no second tab)

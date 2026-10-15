@@ -1,0 +1,19 @@
+{
+  "runs": [
+    {"map": "Maps/(2)Bottleneck.scm", "specs": ["project:", "perplayer:", "dataname:", "doodadpin:", "gametext:"]},
+    {"map": "Maps/(2)Bottleneck.scm", "specs": ["brushheight:"]},
+    {"map": "Maps/(2)Bottleneck.scm", "specs": ["isomtwo:"]},
+    {"map": "Maps/(2)Bottleneck.scm", "specs": ["addon:"]},
+    {"map": "Maps/(2)Bottleneck.scm", "specs": ["classictrig:set"]}
+  ],
+  "shots": [
+    {"run": 4, "from": "classic_triggers_set.png", "to": "classic-triggers.png", "crop": [75, 130, 1925, 560], "alt": "Classic triggers"},
+    {"run": 0, "from": "gametext_briefing.png", "to": "game-text.png", "crop": [295, 125, 1690, 895], "alt": "Colored game text in a briefing"},
+    {"run": 1, "from": "brushheight.png", "to": "brush-field.png", "crop": [78, 565, 400, 125], "scale": 2, "alt": "Terrain: the brush's shape, width and height"},
+    {"run": 2, "from": "isomtwo.png", "to": "second-terrain.png", "crop": [78, 480, 1500, 560], "alt": "Isometric terrain: a second terrain on Shift"},
+    {"run": 3, "from": "addon.png", "to": "addon.png", "crop": [330, 280, 520, 300], "alt": "A Terran add-on linked to its building"},
+    {"run": 0, "from": "doodadpin.png", "to": "doodad-pins.png", "crop": [78, 530, 400, 480], "alt": "Doodads: pinned to the top"},
+    {"run": 0, "from": "perplayer.png", "to": "player-array.png", "crop": [75, 120, 1150, 360], "alt": "Triggers: a player array of unit types"},
+    {"run": 0, "from": "dataname.png", "to": "data-rename.png", "crop": [75, 160, 880, 140], "alt": "Data: Rename and String"}
+  ]
+}
