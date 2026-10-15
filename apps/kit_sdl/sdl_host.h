@@ -42,6 +42,9 @@ public:
     // The program draws its own GPU textures here (the views show them with draw::Canvas::externalImage). It runs on
     // the frames that paint, and on every frame while setAnimating(true); snapshot() calls it too.
     void setFrameHook(std::function<void(SDL_GPUCommandBuffer*)> hook) { frameHook_ = std::move(hook); }
+    // Called once per pump, before the frame hook: work that may open a modal (its nested loop pumps frames) runs here,
+    // not in the frame hook, which holds a command buffer.
+    void setBeforePump(std::function<void()> fn) { beforePump_ = std::move(fn); }
     // True: frames keep coming (no waiting for events), every window is painted each frame. For views that animate.
     void setAnimating(bool on) { animating_ = on; }
     // The program's quit: the close button of the window that show() made, and the system's quit request, call `fn`
@@ -102,6 +105,7 @@ private:
     float scale_ = 1;
     float scaleOverride_ = 0;  // setScale, or 0
     std::function<void(SDL_GPUCommandBuffer*)> frameHook_;
+    std::function<void()> beforePump_;  // setBeforePump
     bool animating_ = false;
     SDL_WindowID modal_ = 0;  // the dialog that takes all input (runModal), or 0
     SDL_WindowID mainId_ = 0;  // the window show() made first (the program's main window), or 0

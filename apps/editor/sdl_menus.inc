@@ -56,9 +56,13 @@ bool keyOfChord(const std::string& name, draw::Key& out) {
     return true;
 }
 
+// On macOS the Ctrl key is no shortcut's key (a shortcut's Ctrl is Cmd there): Ctrl+T is not T.
+constexpr bool kCtrlIsShortcut = kShortcutCtrl == draw::kCtrl;
+
 bool chordIs(const stardraft::KeyChord& c, const draw::KeyEvent& e) {
     draw::Key k{};
     if (!keyOfChord(c.key, k) || k != e.key) return false;
+    if (!kCtrlIsShortcut && (e.mods & draw::kCtrl)) return false;
     return c.ctrl == ((e.mods & kShortcutCtrl) != 0) && c.shift == ((e.mods & draw::kShift) != 0) && c.alt == ((e.mods & draw::kAlt) != 0);
 }
 
@@ -218,7 +222,7 @@ void showFileDialog(bool save, std::function<void(const fs::path&)> done) {
     SDL_Window* win = dialogWindow();
     if (save) {
         static std::string where;  // (SDL reads the location while the dialog is open: it lives on)
-        where = gState.ed && !gState.ed->path().empty() ? narrow(gState.ed->path().wstring()) : std::string();
+        where = gState.ed && !gState.ed->path().empty() ? narrow(gState.ed->path().wstring()) : std::string("Untitled.scx");
         SDL_ShowSaveFileDialog(dialogDone, call, win, kSave, 3, where.empty() ? nullptr : where.c_str());
     } else {
         SDL_ShowOpenFileDialog(dialogDone, call, win, kOpen, 5, nullptr, false);
@@ -247,7 +251,9 @@ void saveOpenMap(bool as, std::function<void(bool)> done = {}) {
         if (done) done(ok);
         return;
     }
-    showFileDialog(true, [done](const fs::path& p) {
+    showFileDialog(true, [done](const fs::path& picked) {
+        fs::path p = picked;
+        if (!p.empty() && !p.has_extension()) p += ".scx";  // a name without an extension is a StarCraft map
         const bool ok = !p.empty() && saveTo(p);
         if (done) done(ok);
     });
@@ -259,14 +265,46 @@ void quitNow() {
 
 // Quit (File > Exit, the window's close, the system's quit): a map with changes is asked about first: Save (it quits once
 // saved), Do not save, or Cancel.
+// True while the quit prompt is open: its box, or the Save it started (a dialog). A quit request then waits for it.
+bool gQuitPrompt = false;
+
 void requestQuit() {
+    if (gQuitPrompt) return;
     if (!gRoot || !gState.ed || !gState.ed->isOpen() || !gState.ed->modified()) return quitNow();
+    gQuitPrompt = true;
     const int r = kit::messageBox(*gRoot, shellTr(L"Unsaved changes"), shellTr(L"Save changes to the map?"),
                                   {shellTr(L"Save"), shellTr(L"Do not save"), shellTr(L"Cancel")}, kit::MessageIcon::Question);
     if (r == 0) saveOpenMap(false, [](bool ok) {
+        gQuitPrompt = false;
         if (ok) quitNow();
     });
     else if (r == 1) quitNow();
+    else gQuitPrompt = false;
+}
+
+// Closing a tab (SDL has one tab per map): a map with changes is asked about. Save of a map with a file saves it, and the
+// tab closes; an untitled map asks for its file, and the tab stays open until it is saved (close it again then).
+bool confirmDiscard() {
+    if (!gRoot || !gState.ed || !gState.ed->isOpen() || !gState.ed->modified()) return true;
+    const int r = kit::messageBox(*gRoot, shellTr(L"Unsaved changes"), shellTr(L"Save changes to the map?"),
+                                  {shellTr(L"Save"), shellTr(L"Do not save"), shellTr(L"Cancel")}, kit::MessageIcon::Question);
+    if (r == 1) return true;
+    if (r != 0) return false;
+    if (!gState.ed->path().empty()) return saveTo(gState.ed->path());
+    saveOpenMap(false);
+    return false;
+}
+
+// Before a map replaces the open one (SDL has one tab): Save, Do not save or Cancel. `then` runs when the map may go on:
+// after Do not save, or after a Save that saved.
+void confirmReplace(std::function<void()> then) {
+    if (!gRoot || !gState.ed || !gState.ed->isOpen() || !gState.ed->modified()) return then();
+    const int r = kit::messageBox(*gRoot, shellTr(L"Unsaved changes"), shellTr(L"Save changes to the map?"),
+                                  {shellTr(L"Save"), shellTr(L"Do not save"), shellTr(L"Cancel")}, kit::MessageIcon::Question);
+    if (r == 0) saveOpenMap(false, [then](bool ok) {
+        if (ok) then();
+    });
+    else if (r == 1) then();
 }
 
 // --- Commands ---------------------------------------------------------------------------------------------------------
@@ -274,10 +312,13 @@ void requestQuit() {
 // Runs a command by its id: the core's command path first (the table, the recent lists, the checks of the tab's mode),
 // then the commands the core leaves to the shell.
 void command(int id) {
+    if (id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) return confirmReplace([id] { commandPortable(gState, id); });
     if (commandPortable(gState, id)) return;
     switch (id) {
-    case ID_FILE_OPEN: showFileDialog(false, [](const fs::path& p) {
-            if (!p.empty()) openAny(p);
+    case ID_FILE_OPEN: confirmReplace([] {
+            showFileDialog(false, [](const fs::path& p) {
+                if (!p.empty()) openAny(p);
+            });
         });
         return;
     case ID_FILE_SAVE: saveOpenMap(false); return;

@@ -500,6 +500,7 @@ void SdlHost::pump(bool block) {
     if (block && !animating_ && !anyDirty() && SDL_WaitEventTimeout(&e, 100)) dispatch(e);
     while (SDL_PollEvent(&e)) dispatch(e);
     destroyRetired();
+    if (beforePump_) beforePump_();
     if (animating_)
         for (const auto& w : wins_) w->dirty = true;
     runFrameHook();
