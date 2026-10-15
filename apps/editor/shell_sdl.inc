@@ -102,7 +102,7 @@ int shellAskSaveChanges(bool project) {
     if (!gRoot) return 2;
     const int r = msgbox::ask(*gRoot, shellTr(L"Unsaved changes"),
                               shellTr(project ? L"Save the new project?" : L"Save changes to the map?"),
-                              {shellTr(L"Save"), shellTr(L"Do not save"), shellTr(L"Cancel")}, msgbox::Icon::Question);
+                              {shellTr(L"&Save"), shellTr(L"Do &not save"), shellTr(L"Cancel")}, msgbox::Icon::Question);
     return r == 0 ? 0 : r == 1 ? 1 : 2;
 }
 // Save after the question: a map with a file is saved there (true when it was written); an untitled map asks for its
@@ -150,7 +150,7 @@ void shellErrorBox(const std::wstring& text, const std::wstring& title) {
 stardraft::draw::Canvas* shellMeasureCanvas() { return &stardraft::kit_sdl::measuringCanvas(); }
 int shellAskUnapplied(const std::wstring& text, const std::wstring& title) {
     if (!gRoot) return 2;
-    const int r = msgbox::ask(*gRoot, title, text, {shellTr(L"Apply"), shellTr(L"Do not apply"), shellTr(L"Cancel")},
+    const int r = msgbox::ask(*gRoot, title, text, {shellTr(L"&Apply"), shellTr(L"Do &not apply"), shellTr(L"Cancel")},
                               msgbox::Icon::Question);
     return r == 0 ? 0 : r == 1 ? 1 : 2;
 }
