@@ -44,6 +44,9 @@ public:
     void setFrameHook(std::function<void(SDL_GPUCommandBuffer*)> hook) { frameHook_ = std::move(hook); }
     // True: frames keep coming (no waiting for events), every window is painted each frame. For views that animate.
     void setAnimating(bool on) { animating_ = on; }
+    // The program's quit: the close button of the window that show() made, and the system's quit request, call `fn`
+    // instead of closing (the program asks about unsaved changes, then calls quit()). Unset: they close.
+    void setQuitRequest(std::function<void()> fn) { quitRequest_ = std::move(fn); }
 
     // draw::Host
     void invalidate(draw::View& v) override;
@@ -101,6 +104,8 @@ private:
     std::function<void(SDL_GPUCommandBuffer*)> frameHook_;
     bool animating_ = false;
     SDL_WindowID modal_ = 0;  // the dialog that takes all input (runModal), or 0
+    SDL_WindowID mainId_ = 0;  // the window show() made first (the program's main window), or 0
+    std::function<void()> quitRequest_;  // setQuitRequest
     SDL_WindowID captureWin_ = 0;  // the window whose mouse is captured (SDL_CaptureMouse), or 0
     int timerSeq_ = 0;
     std::map<int, Timer> timers_;
