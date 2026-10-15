@@ -36,6 +36,9 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+#include <climits>
+#include <thread>
+#include <unordered_map>
 
 #include "canvas.h"
 #include "view.h"
@@ -66,7 +69,9 @@
 #include "stardraft/game_data.h"
 #include "stardraft/hd_assets.h"
 #include "stardraft/pathing.h"
+#include "stardraft/portraits.h"  // the portraits' clips (core/data_pictures.inc)
 #include "stardraft/previews.h"  // the terrain and doodad pictures (sdl_pictures.inc)
+#include "stardraft/sprites.h"  // the image player (core/data_pictures.inc)
 #include "stardraft/renderer.h"
 #include "stardraft/scene.h"
 #include "stardraft/settings.h"
@@ -386,6 +391,8 @@ int main(int argc, char** argv) {
         gHost = nullptr;
     }
     releasePaletteArt();  // its pictures' textures: before the device goes
+    releaseDataPictures();  // the Data pictures' textures too (core/views_data_pictures.inc)
+    sdlDataExtrasRelease();  // the Display section's wireframes (sdl_data_extras.inc)
     kit_sdl::unloadIconAtlases();
     gRenderer = nullptr;
     gDevice = nullptr;

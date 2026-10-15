@@ -772,27 +772,40 @@ static void updateRgba(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h,
     SDL_ReleaseGPUTransferBuffer(device, buf);
 }
 
-void ImguiCanvas::bitmap(draw::Bitmap& b, Rect src, Rect dst, bool, uint8_t alpha) {
-    if (!dev_ || b.width() <= 0 || b.height() <= 0 || dst.empty() || alpha == 0) return;
+// The bitmap's texture, made or brought up to date (null when it cannot be made).
+static GpuBitmap* gpuBitmapOf(SDL_GPUDevice* dev, draw::Bitmap& b) {
     auto* g = dynamic_cast<GpuBitmap*>(b.native.get());
     if (!g) {
         auto ng = std::make_unique<GpuBitmap>();
-        ng->device = dev_;
+        ng->device = dev;
         g = ng.get();
         b.native = std::move(ng);
     }
     if (!g->tex || g->w != b.width() || g->h != b.height()) {
-        if (g->tex) SDL_ReleaseGPUTexture(dev_, g->tex);
+        if (g->tex) SDL_ReleaseGPUTexture(dev, g->tex);
         const std::vector<uint8_t> px = straightPixels(b);
-        g->device = dev_;  // (again after releaseBitmapTextures)
-        g->tex = uploadRgba(dev_, b.width(), b.height(), px.data());
+        g->device = dev;  // (again after releaseBitmapTextures)
+        g->tex = uploadRgba(dev, b.width(), b.height(), px.data());
         g->w = b.width(), g->h = b.height(), g->revision = b.revision();
-        if (!g->tex) return;
+        if (!g->tex) return nullptr;
     } else if (g->revision != b.revision()) {
         const std::vector<uint8_t> px = straightPixels(b);
-        updateRgba(dev_, g->tex, b.width(), b.height(), px.data());  // (same size: the texture is reused)
+        updateRgba(dev, g->tex, b.width(), b.height(), px.data());  // (same size: the texture is reused)
         g->revision = b.revision();
     }
+    return g;
+}
+
+draw::Image imageOfBitmap(SDL_GPUDevice* device, draw::Bitmap& b) {
+    if (!device || b.width() <= 0 || b.height() <= 0) return {};
+    GpuBitmap* g = gpuBitmapOf(device, b);
+    return g ? draw::Image{g->tex, b.width(), b.height()} : draw::Image{};
+}
+
+void ImguiCanvas::bitmap(draw::Bitmap& b, Rect src, Rect dst, bool, uint8_t alpha) {
+    if (!dev_ || b.width() <= 0 || b.height() <= 0 || dst.empty() || alpha == 0) return;
+    GpuBitmap* g = gpuBitmapOf(dev_, b);
+    if (!g) return;
     // The part of the bitmap that is src (inside the bitmap).
     const float W = float(b.width()), H = float(b.height());
     const float sl = float(std::clamp(src.left, 0, b.width())), sr = float(std::clamp(src.right, 0, b.width()));

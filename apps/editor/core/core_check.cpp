@@ -24,6 +24,10 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <atomic>
+#include <climits>
+#include <thread>
+#include <unordered_map>
 
 #include "tr.h"
 #include "text_codec.h"
@@ -55,6 +59,8 @@
 #include "stardraft/game_data.h"
 #include "stardraft/pathing.h"
 #include "stardraft/previews.h"  // the tile pictures (core/views_tiles.inc)
+#include "stardraft/portraits.h"  // the portraits' clips (core/data_pictures.inc)
+#include "stardraft/sprites.h"  // the image player (core/data_pictures.inc)
 #include "stardraft/scene.h"
 #include "stardraft/settings.h"
 #include "stardraft/hd_assets.h"
