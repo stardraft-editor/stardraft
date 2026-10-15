@@ -280,6 +280,10 @@ target_link_libraries(platform_test PRIVATE stardraft_platform)
 file(GLOB STARDRAFT_KIT_SOURCES CONFIGURE_DEPENDS apps/kit/*.cpp)
 add_library(stardraft_kit STATIC ${STARDRAFT_KIT_SOURCES})
 target_include_directories(stardraft_kit PUBLIC apps/common apps/kit)
+# The editor's portable core (apps/editor/core/core.inc) compiled with no Win32 headers: the ratchet that keeps it
+# portable (research/ports/MAC-BUILD-PLAN.md). Nothing to run; building it is the check.
+add_library(editor_core_check OBJECT apps/editor/core/core_check.cpp)
+target_include_directories(editor_core_check PRIVATE apps/common apps/kit include src)
 file(GLOB STARDRAFT_KIT_TESTS CONFIGURE_DEPENDS tools/tests/kit/*.cpp)
 add_executable(kit_test tools/tests/kit_test.cpp ${STARDRAFT_KIT_TESTS})
 target_include_directories(kit_test PRIVATE tools/tests)
