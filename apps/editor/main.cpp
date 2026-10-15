@@ -462,6 +462,7 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_classic_triggers.inc"  // Classic triggers' model: the sentences as parts, the variables of the blocks (classic_triggers.inc)
 #include "core/views_classic_batch.inc"  // the block dialog (BatchView, runBatchDialog; the host is classic_triggers.inc)
 #include "core/views_classic_value.inc"  // the number pop-out (CtValueView, runValueDialog; the host is classic_triggers.inc)
+#include "core/views_unit_props.inc"  // Unit properties (UnitPropsView, runUnitPropsDialog; the host is showUnitProperties)
 #include "core/views_start.inc"  // the start page (StartView: the cards, the recent list, Open; the instance is gStartView in new_page.inc)
 #include "core/views_new_page.inc"  // the New page (NewPageView: the settings, the generator, the preview; the host is new_page.inc)
 #include "core/views_new_page_paint.inc"
@@ -5440,220 +5441,33 @@ bool dataXButton(WPARAM wp) {
 // the state flags, each enabled only where the unit's type allows it. With several units selected the
 // fields you change apply to all of them. "Edit unit type" opens the type in the Data workspace (a project).
 
-struct UnitPropsDialog {
-    HWND wnd = nullptr, owner = nullptr, hp = nullptr, shields = nullptr, energy = nullptr, resources = nullptr, hangar = nullptr, x = nullptr,
-         y = nullptr, typeBtn = nullptr;
-    HWND state[5] = {};
-    std::vector<int> units;  // what the edit applies to
-    Unit first;              // the double-clicked unit: the values shown
-    bool accepted = false, editType = false;
-};
-UnitPropsDialog* gUnitDlg = nullptr;
-void (*gUnitPropsHook)(HWND) = nullptr;  // self-test
-const wchar_t* kUnitStateNames[5] = {L"Cloaked", L"Burrowed", L"In transit", L"Hallucinated", L"Invincible"};
+// The dialog is a core view (core/views_unit_props.inc: UnitPropsView, runUnitPropsDialog); this is its Windows host.
+UnitPropsView* gUnitPropsView = nullptr;               // the dialog's content while it is open
+void (*gUnitPropsHook)(UnitPropsView&) = nullptr;     // self-test: runs in the dialog once it shows
 
-LRESULT CALLBACK unitPropsProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    UnitPropsDialog* d = gUnitDlg;
-    switch (msg) {
-    case WM_CREATE: {
-        BOOL dark = !gLightTheme;
-        DwmSetWindowAttribute(hwnd, 20, &dark, sizeof dark), titleColors(hwnd);
-        d->wnd = hwnd;
-        const Unit& u = d->first;
-        const int pad = scale(ui::kDialogPad), rowH = scale(ui::kFieldH), gap = scale(8), labelW = scale(110), boxW = scale(110), colW = labelW + boxW + scale(24);
-        const int top = pad + scale(52);  // under the icon and name
-        auto label = [&](const wchar_t* t, int x, int y) {
-            HWND h = CreateWindowExW(0, WC_STATICW, t, WS_CHILD | WS_VISIBLE | SS_NOPREFIX | SS_CENTERIMAGE, x, y, labelW - scale(8), rowH, hwnd, HMENU(1), app.inst, nullptr);
-            SendMessageW(h, WM_SETFONT, WPARAM(app.font), TRUE);
-        };
-        auto edit = [&](int x, int y, uint32_t v, bool on) {
-            HWND h = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, std::to_wstring(v).c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_NUMBER | ES_RIGHT,
-                                     x + labelW, y, boxW, rowH, hwnd, nullptr, app.inst, nullptr);
-            SendMessageW(h, WM_SETFONT, WPARAM(monoFont()), TRUE);
-            darkControl(h, L"DarkMode_CFD");
-            EnableWindow(h, on);
-            return h;
-        };
-        int y = top;
-        const int x0 = pad, x1 = pad + colW;
-        label(L"Owner", x0, y);
-        d->owner = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL, x0 + labelW, y,
-                                   colW + labelW + boxW - labelW, scale(300), hwnd, nullptr, app.inst, nullptr);
-        SendMessageW(d->owner, WM_SETFONT, WPARAM(app.font), TRUE);
-        darkControl(d->owner, L"DarkMode_CFD");
-        for (int i = 0; i < 12; ++i)
-            SendMessageW(d->owner, CB_ADDSTRING, 0, LPARAM((L"Player " + std::to_wstring(i + 1) + (i == 11 ? L" (neutral)" : L"")).c_str()));
-        SendMessageW(d->owner, CB_SETCURSEL, std::min<int>(u.owner, 11), 0);
-        EnableWindow(d->owner, (u.validProps & UnitProp::Owner) != 0);
-        y += rowH + gap;
-        label(L"Hit points %", x0, y), d->hp = edit(x0, y, u.hitPoints, u.validProps & UnitProp::HitPoints);
-        label(L"Resources", x1, y), d->resources = edit(x1, y, u.resources, u.validProps & UnitProp::Resources);
-        y += rowH + gap;
-        label(L"Shields %", x0, y), d->shields = edit(x0, y, u.shields, u.validProps & UnitProp::Shields);
-        label(L"Hangar", x1, y), d->hangar = edit(x1, y, u.hangar, u.validProps & UnitProp::Hangar);
-        y += rowH + gap;
-        label(L"Energy %", x0, y), d->energy = edit(x0, y, u.energy, u.validProps & UnitProp::Energy);
-        y += rowH + gap;
-        const bool single = d->units.size() == 1;
-        label(L"X (pixels)", x0, y), d->x = edit(x0, y, u.x, single);
-        label(L"Y (pixels)", x1, y), d->y = edit(x1, y, u.y, single);
-        y += rowH + gap + scale(6);
-        int shown = 0;  // only the states this unit can have
-        for (int b = 0; b < 5; ++b) {
-            if (!((u.validState >> b) & 1)) continue;
-            HWND cb = CreateWindowExW(0, WC_BUTTONW, kUnitStateNames[b], WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, x0 + (shown % 3) * scale(150),
-                                      y + (shown / 3) * (rowH + scale(2)), scale(145), rowH, hwnd, nullptr, app.inst, nullptr);
-            ++shown;
-            SendMessageW(cb, WM_SETFONT, WPARAM(app.font), TRUE);
-            darkControl(cb, L"DarkMode_Explorer");
-            SendMessageW(cb, BM_SETCHECK, (u.state >> b) & 1 ? BST_CHECKED : BST_UNCHECKED, 0);
-            d->state[b] = cb;
-        }
-        y += ((shown + 2) / 3) * (rowH + scale(2)) + gap;
-        const int right = x1 + labelW + boxW;
-        // The unit's type: in a project, open it in the Data workspace.
-        const bool project = activeProject() != nullptr;
-        const std::wstring typeText = project ? L"Edit unit type in Data (" + unitDisplayName(u.type) + L")"
-                                              : L"To edit unit types, use an EUD project (File > Project)";
-        d->typeBtn = CreateWindowExW(0, WC_BUTTONW, typeText.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, x0, y, right - x0, scale(ui::kButtonH), hwnd,
-                                     HMENU(1801), app.inst, nullptr);
-        SendMessageW(d->typeBtn, WM_SETFONT, WPARAM(app.font), TRUE);
-        darkControl(d->typeBtn, L"DarkMode_Explorer");
-        EnableWindow(d->typeBtn, project);
-        y += scale(ui::kButtonH) + scale(24);
-        const int bw = scale(90);
-        const wchar_t* names[2] = {L"OK", L"Cancel"};
-        const int ids[2] = {IDOK, IDCANCEL};
-        for (int i = 0; i < 2; ++i) {
-            HWND b = CreateWindowExW(0, WC_BUTTONW, names[i], WS_CHILD | WS_VISIBLE | WS_TABSTOP | (i == 0 ? BS_DEFPUSHBUTTON : BS_PUSHBUTTON),
-                                     right - (2 - i) * bw - (1 - i) * scale(8), y, bw, scale(28), hwnd, HMENU(INT_PTR(ids[i])), app.inst, nullptr);
-            SendMessageW(b, WM_SETFONT, WPARAM(app.font), TRUE);
-            darkControl(b, L"DarkMode_Explorer");
-        }
-        ui::nativeButtonsRight({ui::dlgButton(hwnd, IDOK), ui::dlgButton(hwnd, IDCANCEL)}, right, y);
-        RECT r{0, 0, right + pad, y + scale(28) + pad};
-        AdjustWindowRectExForDpi(&r, WS_CAPTION | WS_SYSMENU, FALSE, WS_EX_DLGMODALFRAME, app.dpi);
-        SetWindowPos(hwnd, nullptr, 0, 0, r.right - r.left, r.bottom - r.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-        return 0;
-    }
-    case WM_PAINT: {
-        // The unit's picture and name over the fields.
-        PAINTSTRUCT ps;
-        HDC dc = BeginPaint(hwnd, &ps);
-        const int pad = scale(ui::kDialogPad);
-        RECT ib{pad, pad, pad + scale(40), pad + scale(40)};
-        if (const auto* b = unitPaletteBitmap(d->first.type, Mode::Units); b && b->bmp) drawFitted(dc, *b, ib);
-        SetBkMode(dc, TRANSPARENT);
-        LOGFONTW lf{};
-        GetObjectW(app.font, sizeof lf, &lf);
-        lf.lfHeight = lf.lfHeight * 3 / 2;
-        HFONT big = CreateFontIndirectW(&lf);
-        HGDIOBJ of = SelectObject(dc, big);
-        SetTextColor(dc, kText);
-        RECT t{ib.right + scale(12), pad - scale(2), scale(2000), pad + scale(24)};
-        DrawTextW(dc, unitDisplayName(d->first.type).c_str(), -1, &t, DT_SINGLELINE | DT_NOPREFIX);
-        SelectObject(dc, app.font);
-        DeleteObject(big);
-        SetTextColor(dc, kDim);
-        const std::wstring sub = d->units.size() > 1 ? std::to_wstring(d->units.size()) + L" units selected. Changes apply to all of them."
-                                                     : L"Unit " + std::to_wstring(d->first.type) + L"  \x00B7  serial " + std::to_wstring(d->first.serial);
-        RECT st{ib.right + scale(12), pad + scale(22), scale(2000), pad + scale(42)};
-        DrawTextW(dc, sub.c_str(), -1, &st, DT_SINGLELINE | DT_NOPREFIX);
-        SelectObject(dc, of);
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    case WM_COMMAND: {
-        const int id = LOWORD(wp);
-        if (id == IDOK || id == IDCANCEL || id == 1801) {
-            d->accepted = id != IDCANCEL;
-            d->editType = id == 1801;
-            if (d->accepted) {
-                // Only what changed from the shown values goes to the units.
-                const Unit was = d->first;
-                auto num = [](HWND h) { return uint32_t(std::wcstoul(windowText(h).c_str(), nullptr, 10)); };
-                const uint32_t owner = uint32_t(SendMessageW(d->owner, CB_GETCURSEL, 0, 0)), hp = std::min(num(d->hp), 100u),
-                               sh = std::min(num(d->shields), 100u), en = std::min(num(d->energy), 100u), res = num(d->resources),
-                               hang = std::min(num(d->hangar), 65535u), x = num(d->x), y = num(d->y);
-                uint16_t setBits = 0, clearBits = 0;
-                for (int b = 0; b < 5; ++b) {
-                    if (!d->state[b]) continue;
-                    const bool on = SendMessageW(d->state[b], BM_GETCHECK, 0, 0) == BST_CHECKED, wasOn = (was.state >> b) & 1;
-                    if (on && !wasOn) setBits |= uint16_t(1 << b);
-                    if (!on && wasOn) clearBits |= uint16_t(1 << b);
-                }
-                const bool single = d->units.size() == 1;
-                app.ed->updateUnits(d->units, [&](Unit& u) {
-                    if (owner != was.owner && (u.validProps & UnitProp::Owner)) u.owner = uint8_t(owner);
-                    if (hp != was.hitPoints && (u.validProps & UnitProp::HitPoints)) u.hitPoints = uint8_t(hp);
-                    if (sh != was.shields && (u.validProps & UnitProp::Shields)) u.shields = uint8_t(sh);
-                    if (en != was.energy && (u.validProps & UnitProp::Energy)) u.energy = uint8_t(en);
-                    if (res != was.resources && (u.validProps & UnitProp::Resources)) u.resources = res;
-                    if (hang != was.hangar && (u.validProps & UnitProp::Hangar)) u.hangar = uint16_t(hang);
-                    u.state = uint16_t((u.state | (setBits & u.validState)) & ~clearBits);
-                    if (single) u.x = uint16_t(std::min(x, 65535u)), u.y = uint16_t(std::min(y, 65535u));
-                });
-            }
-            DestroyWindow(hwnd);
-        }
-        return 0;
-    }
-    case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORSTATIC:
-    case WM_CTLCOLORBTN: {
-        HDC dc = HDC(wp);
-        const HWND c = HWND(lp);
-        SetTextColor(dc, !IsWindowEnabled(c) ? kFaint : GetDlgCtrlID(c) == 1 ? kDim : kText);
-        SetBkColor(dc, msg == WM_CTLCOLOREDIT ? kCtl : kBg);
-        return LRESULT(msg == WM_CTLCOLOREDIT ? app.ctlBrush : app.bgBrush);
-    }
-    case WM_CLOSE:
-        d->accepted = false;
-        DestroyWindow(hwnd);
-        return 0;
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
+VOID CALLBACK unitPropsHookTimer(HWND, UINT, UINT_PTR id, DWORD) {
+    KillTimer(nullptr, id);
+    if (gUnitPropsView && gUnitPropsHook) gUnitPropsHook(*gUnitPropsView);
 }
 
 // Opens the properties of unit `index` (and the rest of the selection, when it is part of it).
 void showUnitProperties(int index) {
     if (!app.ed || index < 0 || index >= int(app.ed->units().size())) return;
     if (!app.ed->isSelected(index)) app.ed->clearSelection(), app.ed->select(index, false);
-    static bool registered = false;
-    if (!registered) {
-        WNDCLASSEXW wc{sizeof wc};
-        wc.lpfnWndProc = unitPropsProc;
-        wc.hInstance = app.inst;
-        wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-        wc.hbrBackground = app.bgBrush;
-        wc.lpszClassName = L"StarDraftUnitProps";
-        RegisterClassExW(&wc);
-        registered = true;
-    }
-    UnitPropsDialog d;
-    d.units = app.ed->selection();
-    d.first = app.ed->units()[size_t(index)];
-    gUnitDlg = &d;
+    const std::vector<int> units = app.ed->selection();
+    const Unit first = app.ed->units()[size_t(index)];
     app.dirty = true;
-    RECT mr;
-    GetWindowRect(app.main, &mr);
-    const int w = scale(560), h = scale(420);
-    HWND wnd = CreateWindowExW(WS_EX_DLGMODALFRAME | WS_EX_CONTROLPARENT | (gBackground ? WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW : 0), L"StarDraftUnitProps", L"Unit properties",
-                               WS_CAPTION | WS_SYSMENU | (gBackground ? 0 : WS_VISIBLE), mr.left + (mr.right - mr.left - w) / 2,
-                               mr.top + (mr.bottom - mr.top - h) / 2, w, h, app.main, nullptr, app.inst, nullptr);
-    if (gBackground) ShowWindow(wnd, SW_SHOWNOACTIVATE);
-    EnableWindow(app.main, FALSE);
-    if (gUnitPropsHook) gUnitPropsHook(wnd);
-    MSG msg;
-    while (IsWindow(wnd) && GetMessageW(&msg, nullptr, 0, 0)) dialogMessage(msg, wnd);
-    EnableWindow(app.main, TRUE);
+    gMainAnchor.host.ownerWindow(app.main);  // the main window owns the dialog and waits until it closes
+    const UINT_PTR timer = gUnitPropsHook ? SetTimer(nullptr, 0, 100, unitPropsHookTimer) : 0;  // (a timer of the thread)
+    const int r = runUnitPropsDialog(gMainAnchor.view, *app.ed, units, first, ui::imageOf(unitPaletteBitmap(first.type, Mode::Units)),
+                                     activeProject() != nullptr, gUnitPropsView);
+    if (timer) KillTimer(nullptr, timer);
     if (!gBackground) SetForegroundWindow(app.main);
-    gUnitDlg = nullptr;
     updateTitle();
     app.dirty = true;
-    if (d.editType && activeProject()) {
+    if (r == kUnitPropsEditType && activeProject()) {
         setWorkspace(Workspace::Data);
-        dataGoTo("units", d.first.type);
+        dataGoTo("units", first.type);
     }
 }
 
@@ -19529,13 +19343,13 @@ int runSelfTest(const fs::path& dir) {
                     unitShot = dir / "76_unit_properties.png";
                     static bool hookRan;
                     hookRan = false;
-                    gUnitPropsHook = [](HWND w) {
+                    gUnitPropsHook = [](UnitPropsView& v) {
                         hookRan = true;
-                        SetWindowTextW(gUnitDlg->hp, L"50");
-                        SendMessageW(gUnitDlg->state[4], BM_SETCHECK, BST_CHECKED, 0);
+                        v.hitPointsField().setText(L"50");
+                        if (auto* cb = v.stateBox(4)) cb->setOn(true);
                         for (int i = 0; i < 15; ++i) pump(), Sleep(30);
-                        capture(unitShot, w);
-                        PostMessageW(w, WM_COMMAND, 1801, 0);  // Edit unit type in Data (applies the edits too)
+                        if (HWND w = ui::Win32Host::windowOf(v)) capture(unitShot, w);
+                        v.close(kUnitPropsEditType);  // Edit unit type in Data (applies the edits too)
                     };
                     SendMessageW(app.view, WM_LBUTTONDBLCLK, MK_LBUTTON, MAKELPARAM(sx, sy));
                     gUnitPropsHook = nullptr;
@@ -23769,10 +23583,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 if (app.ed && place) app.ed->placeUnit(uint16_t(n), 0, (8 + n % 64) * 64 + 16, 20 * 32 + 16, false), n = int(app.ed->units().size()) - 1;
                 if (app.ed && n >= 0 && n < int(app.ed->units().size())) {
                     app.ed->clearSelection();
-                    gUnitPropsHook = [](HWND w) {
-                        for (int i = 0; i < 5; ++i) pump();
-                        capture(shot, w);
-                        PostMessageW(w, WM_COMMAND, IDCANCEL, 0);
+                    gUnitPropsHook = [](UnitPropsView& v) {
+                        if (HWND w = ui::Win32Host::windowOf(v)) capture(shot, w);
+                        v.close(kUnitPropsCancel);
                     };
                     showUnitProperties(n);
                     gUnitPropsHook = nullptr;
@@ -23788,7 +23601,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 if (app.ed && !app.ed->units().empty()) {
                     app.ed->clearSelection();
                     app.ed->select(0, false);
-                    gUnitPropsHook = [](HWND w) { opened = true, PostMessageW(w, WM_CLOSE, 0, 0); };
+                    gUnitPropsHook = [](UnitPropsView& v) { opened = true, v.close(kUnitPropsCancel); };
                     SendMessageW(app.view, WM_KEYDOWN, VK_RETURN, 0);
                     gUnitPropsHook = nullptr;
                 }
@@ -23804,13 +23617,13 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     o << "no units\n";
                     continue;
                 }
-                gUnitPropsHook = [](HWND w) {
-                    const HWND child = GetWindow(w, GW_CHILD);
-                    fromIt = child && feedbackRoot(child) == w;
-                    RECT r;
-                    GetWindowRect(child, &r);
-                    on = feedbackThing(POINT{(r.left + r.right) / 2, (r.top + r.bottom) / 2});
-                    PostMessageW(w, WM_CLOSE, 0, 0);
+                gUnitPropsHook = [](UnitPropsView& v) {  // (the owner's label: the window's first part, as the native static was)
+                    const HWND w = ui::Win32Host::windowOf(v);
+                    fromIt = w && feedbackRoot(w) == w;
+                    const draw::Point o = batchOriginOf(v);
+                    const draw::Rect f = v.ownerList().frame();
+                    if (w) on = feedbackThingIn(w, POINT{o.x + scale(8), o.y + (f.top + f.bottom) / 2});
+                    v.close(kUnitPropsCancel);
                 };
                 showUnitProperties(0);
                 gUnitPropsHook = nullptr;
