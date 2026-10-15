@@ -156,7 +156,9 @@ public:
         using namespace unitPropsLayout;
         c.fill({0, 0, width(), height()}, kBg);
         // The unit's picture and name over the fields.
-        if (icon_) c.fitted(icon_, {0, scale(kPad), scale(kIcon), scale(kPad + kIcon)});
+        const draw::Rect pic{0, scale(kPad), scale(kIcon), scale(kPad + kIcon)};
+        if (icon_) c.fitted(icon_, pic);
+        else if (paintIcon) paintIcon(c, pic);  // (a host whose pictures are its own pixels: the SDL program)
         const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}));
         c.text({scale(kTextX), scale(kNameY), scale(2000), scale(kNameB)}, unitDisplayName(first_.type), kText, draw::kLeft);
         c.setFont(of);
@@ -195,6 +197,12 @@ private:
     Unit first_;
     size_t count_ = 1;
     draw::Image icon_;
+
+public:
+    // The picture's paint when the host has no Image for it (it draws its own pixels into the box).
+    std::function<void(draw::Canvas&, draw::Rect)> paintIcon;
+
+private:
     stardraft::kit::Dialog* dlg_ = nullptr;
     stardraft::kit::Label labels_[8];
     stardraft::kit::Dropdown owner_;
@@ -208,11 +216,9 @@ private:
 // with its picture `icon`. OK and Edit unit type put the changed values into the units (one undo step); Cancel and the
 // window's close box change nothing. Returns the button that closed it. `shown` is the content while the dialog is
 // open, so the host can find its window.
-inline int runUnitPropsDialog(draw::View& from, Editor& ed, const std::vector<int>& units, const Unit& first, draw::Image icon, bool project,
-                              UnitPropsView*& shown) {
+// The dialog around `view`: its buttons and insets. Returns the window's size (the snapshots show it without a window).
+inline draw::Point unitPropsDialogSetup(stardraft::kit::Dialog& dlg, UnitPropsView& view) {
     using namespace unitPropsLayout;
-    UnitPropsView view(first, units, icon, project);
-    stardraft::kit::Dialog dlg;
     dlg.setContent(view);
     view.setDialog(&dlg);
     std::vector<stardraft::kit::DialogButton> buttons;
@@ -221,8 +227,17 @@ inline int runUnitPropsDialog(draw::View& from, Editor& ed, const std::vector<in
     dlg.setButtons(std::move(buttons));
     dlg.setInsets({kPad, 0, kPad, kPad, kButtonsGap, 8});  // the content from the top edge (it places the picture at kPad)
     const int h = view.contentHeight() + kButtonsGap + kButtonH + kPad;
+    return draw::Point{scale(kContentW + 2 * kPad), scale(h)};
+}
+
+inline int runUnitPropsDialog(draw::View& from, Editor& ed, const std::vector<int>& units, const Unit& first, draw::Image icon, bool project,
+                              UnitPropsView*& shown, std::function<void(draw::Canvas&, draw::Rect)> paintIcon = {}) {
+    UnitPropsView view(first, units, icon, project);
+    view.paintIcon = std::move(paintIcon);
+    stardraft::kit::Dialog dlg;
+    const draw::Point size = unitPropsDialogSetup(dlg, view);
     shown = &view;
-    const int r = dlg.run(from, tr(L"Unit properties"), draw::Point{scale(kContentW + 2 * kPad), scale(h)});
+    const int r = dlg.run(from, tr(L"Unit properties"), size);
     shown = nullptr;
     if (r == kUnitPropsOk || r == kUnitPropsEditType) unitPropsApply(ed, units, first, view.values());
     return r;

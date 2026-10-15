@@ -58,6 +58,8 @@
 #include "views_unit_props.inc"
 #include "views_location_props.inc"
 #include "views_text_prompt.inc"
+#include "views_map_menu.inc"
+#include "views_quick_pick.inc"
 #include "views_briefing.inc"
 #include "views_start.inc"
 #include "views_new_page.inc"

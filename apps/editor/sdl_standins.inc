@@ -15,6 +15,7 @@ bool briefCommand(int) {
     notOnThisSystem();
     return false;
 }
+void dataGoTo(const std::string&, int) { notOnThisSystem(); }  // (the quick picker's Data jump: no projects here yet)
 bool classicCommandInProject(int) { return false; }  // (a query: no project of this system holds classic data yet)
 
 // The button sets are not on this system yet (the map pages are: sdl_map_pages.inc; the New page is sdl_new_page.inc).

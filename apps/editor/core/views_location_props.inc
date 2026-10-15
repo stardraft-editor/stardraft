@@ -227,11 +227,10 @@ private:
 // location (one undo step; it is off while the edges are wrong); Cancel and the window's close box change nothing.
 // `focusName`: the name has the keyboard, selected (not in a background run). Returns the button that closed it.
 // `shown` is the content while the dialog is open, so the host can find its window.
-inline int runLocationPropsDialog(draw::View& from, Editor& ed, int loc, bool focusName, LocationPropsView*& shown) {
+// The dialog around `view`: its buttons, the OK rule and the insets. Returns the window's size (the snapshots show it
+// without a window).
+inline draw::Point locPropsDialogSetup(stardraft::kit::Dialog& dlg, LocationPropsView& view) {
     using namespace locPropsLayout;
-    LocationPropsView view(widen(ed.locationName(loc)), ed.locationRect(loc), ed.locationElevation(loc), ed.locationInvertedAxes(loc), loc == kAnywhereLocation,
-                           focusName);
-    stardraft::kit::Dialog dlg;
     dlg.setContent(view);
     std::vector<stardraft::kit::DialogButton> buttons;
     buttons.push_back({tr(L"OK"), kLocPropsOk, true, false, false, 0});
@@ -242,8 +241,17 @@ inline int runLocationPropsDialog(draw::View& from, Editor& ed, int loc, bool fo
     // The content from the top edge to the bottom edge (the error line is beside the buttons); the buttons kPad from the
     // right and bottom edges, 8 px apart.
     dlg.setInsets({kPad, 0, kPad, kPad, -(kButtonH + kPad), 8});
+    return draw::Point{scale(kContentW + 2 * kPad), scale(kWindowH)};
+}
+
+inline int runLocationPropsDialog(draw::View& from, Editor& ed, int loc, bool focusName, LocationPropsView*& shown) {
+    using namespace locPropsLayout;
+    LocationPropsView view(widen(ed.locationName(loc)), ed.locationRect(loc), ed.locationElevation(loc), ed.locationInvertedAxes(loc), loc == kAnywhereLocation,
+                           focusName);
+    stardraft::kit::Dialog dlg;
+    const draw::Point size = locPropsDialogSetup(dlg, view);
     shown = &view;
-    const int r = dlg.run(from, tr(L"Location properties"), draw::Point{scale(kContentW + 2 * kPad), scale(kWindowH)});
+    const int r = dlg.run(from, tr(L"Location properties"), size);
     shown = nullptr;
     if (r == kLocPropsOk && view.valid()) locPropsApply(ed, loc, view.values());
     return r;
