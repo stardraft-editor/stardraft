@@ -78,6 +78,7 @@ using std::min;
 #include "crash_report.h"  // apps/common: the crash handler and sending reports (crash.inc)
 #include "update.h"  // apps/common: the self-update's system part (update.inc)
 #include "stardraft/settings.h"
+#include "text_codec.h"  // apps/common: UTF-8 and wide strings (core/strings.inc)
 #include "ui_text.h"  // the program's text in other languages: the macros for DrawTextW, MessageBoxW and the others
 
 using namespace stardraft;
@@ -87,23 +88,7 @@ namespace {
 
 // --- Strings -------------------------------------------------------------------------------------
 
-std::wstring widen(const std::string& s) {
-    if (s.empty()) return {};
-    int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s.data(), int(s.size()), nullptr, 0);
-    UINT cp = n > 0 ? CP_UTF8 : 1252;  // map strings are often CP-1252
-    n = MultiByteToWideChar(cp, 0, s.data(), int(s.size()), nullptr, 0);
-    std::wstring w(size_t(n), L'\0');
-    MultiByteToWideChar(cp, 0, s.data(), int(s.size()), w.data(), n);
-    return w;
-}
-
-std::string narrow(const std::wstring& w) {
-    if (w.empty()) return {};
-    int n = WideCharToMultiByte(CP_UTF8, 0, w.data(), int(w.size()), nullptr, 0, nullptr, nullptr);
-    std::string s(size_t(n), '\0');
-    WideCharToMultiByte(CP_UTF8, 0, w.data(), int(w.size()), s.data(), n, nullptr, nullptr);
-    return s;
-}
+#include "core/strings.inc"  // widen, narrow
 
 #include "settings.inc"
 

@@ -7,6 +7,7 @@
 #include <iterator>
 #include <string>
 
+#include "text_codec.h"
 #include "wintypes.h"
 #include "../res/ui_icons.h"
 
