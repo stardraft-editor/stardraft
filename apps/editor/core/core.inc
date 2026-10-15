@@ -61,4 +61,5 @@
 #include "views_new_page_paint.inc"
 #include "views_options.inc"
 #include "views_feedback.inc"
+#include "views_new_project.inc"
 #include "title.inc"

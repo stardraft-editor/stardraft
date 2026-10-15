@@ -235,3 +235,11 @@ std::uintptr_t shellStartElevated(const std::filesystem::path&, const std::files
 bool shellProcessEnded(std::uintptr_t) { return true; }
 void shellProcessClose(std::uintptr_t) {}
 void shellChooseInstallFolder() { setMessage(L"This is not on this system yet"); }
+std::wstring shellPickFolder(const std::wstring&) {
+    setMessage(shellTr(L"Choosing a folder is not on this system yet"));
+    return {};
+}
+std::wstring shellPickOutputFile(const std::wstring&) {
+    setMessage(shellTr(L"Choosing a file is not on this system yet"));
+    return {};
+}
