@@ -24,6 +24,7 @@
 #include "views_rail.inc"
 #include "views_minimap.inc"
 #include "views_tabs.inc"
+#include "views_modebar.inc"
 #include "startup.inc"
 #include "names.inc"
 #include "title.inc"
