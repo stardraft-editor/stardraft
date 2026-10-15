@@ -228,6 +228,7 @@ void shellLegacyNames(const std::wstring& sub, std::vector<std::wstring>& out) {
 }
 void shellLegacyRemove(const std::wstring& sub, const std::wstring& value) { RegDeleteKeyValueW(HKEY_CURRENT_USER, legacyKeyPath(sub).c_str(), value.c_str()); }
 void shellErrorBox(const std::wstring& text, const std::wstring& title) { themedMessageBox(app.main, text.c_str(), title.c_str(), MB_ICONERROR); }
+stardraft::draw::Canvas* shellMeasureCanvas() { return nullptr; }
 int shellAskUnapplied(const std::wstring& text, const std::wstring& title) {
     const int r = themedMessageBox(app.main, text.c_str(), title.c_str(), MB_YESNOCANCEL | MB_ICONQUESTION, {L"&Apply", L"Do &not apply", L"Cancel"});
     return r == IDYES ? 0 : r == IDCANCEL ? 2 : 1;  // (any other answer, a box that could not be made included: do not apply, as before)

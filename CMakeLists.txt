@@ -387,6 +387,13 @@ if(STARDRAFT_NEXT AND STARDRAFT_RENDERER)
         target_compile_definitions(stardraft_editor PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}")
         target_include_directories(stardraft_editor PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR})
         target_link_libraries(stardraft_editor PRIVATE stardraft_kit_sdl stardraft_render stardraft_platform stardraft_kit stardraft)
+        # The commit (Check for updates compares it with the release's), as the Windows editor's below.
+        set(STARDRAFT_BUILD_INFO ${CMAKE_BINARY_DIR}/generated/build_info.h)
+        add_custom_target(stardraft_build_info COMMAND ${CMAKE_COMMAND} -DSTARDRAFT_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+                          -DSTARDRAFT_BUILD_INFO=${STARDRAFT_BUILD_INFO} -P ${CMAKE_SOURCE_DIR}/cmake/build_info.cmake
+                          BYPRODUCTS ${STARDRAFT_BUILD_INFO} VERBATIM)
+        add_dependencies(stardraft_editor stardraft_build_info)
+        target_include_directories(stardraft_editor PRIVATE ${CMAKE_BINARY_DIR}/generated)
         set_target_properties(stardraft_editor PROPERTIES OUTPUT_NAME stardraft MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/editor/Info.plist.in)
         if(APPLE)
             set(editorDir $<TARGET_BUNDLE_CONTENT_DIR:stardraft_editor>/Resources)
@@ -394,7 +401,7 @@ if(STARDRAFT_NEXT AND STARDRAFT_RENDERER)
             set(editorDir $<TARGET_FILE_DIR:stardraft_editor>)
         endif()
         add_custom_command(TARGET stardraft_editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/res
-                           COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_ATLASES} ${editorDir}/res)
+                           COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_ATLASES} ${CMAKE_SOURCE_DIR}/apps/editor/res/stardraft.ico ${editorDir}/res)
         if(STARDRAFT_FONT_FILES)
             add_custom_command(TARGET stardraft_editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/fonts
                                COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_FONT_FILES} ${editorDir}/fonts)

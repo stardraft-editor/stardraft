@@ -223,7 +223,8 @@ private:
 
 // Shows the box from `from` (a view in the window that owns it) and returns when it closes: the id of the button that
 // closed it (the window's close box: the cancel button's). `measure` sizes the window for the text and the buttons
-// (nullptr: an estimate from the UI font's letters; the view places its parts on its first paint then). `shown` runs
+// (nullptr: the host's shellMeasureCanvas, else an estimate from the UI font's letters; the view places its parts on
+// its first paint then). `shown` runs
 // once, soon after the box shows, with the box's view (datashots and self-tests find its window with it).
 inline int runMessageBox(draw::View& from, const std::wstring& caption, Box box, draw::Canvas* measure,
                          std::function<void(MessageView&)> shown = {}) {
@@ -238,6 +239,7 @@ inline int runMessageBox(draw::View& from, const std::wstring& caption, Box box,
     view.setDialog(&dlg);
     if (shown) view.shown = [&view, shown] { shown(view); };
     draw::Point size{};
+    if (!measure) measure = shellMeasureCanvas();  // (the host's, when it has one)
     if (measure) size = view.layout(*measure);
     else {  // the estimate (the UI font's letters 7 px wide, its lines 16 px high, at 100 %)
         const int pad = scale(stardraft::kit::kDialogPad), wrap = scale(420), iconW = view.b.icon == Icon::None ? 0 : scale(32);

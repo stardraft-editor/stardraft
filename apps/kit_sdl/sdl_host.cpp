@@ -402,12 +402,16 @@ void SdlHost::closeTree(SDL_WindowID id) {
     std::vector<SDL_WindowID> ids;
     collectTree(id, ids);
     std::vector<std::function<void()>> closed;
+    std::vector<draw::View*> gone;  // (the hover hook forgets them)
     for (SDL_WindowID x : ids) {
         Win* w = findWin(x);
         if (!w) continue;
         if (w->closed) closed.push_back(std::move(w->closed));
+        if (w->kind != WindowKind::Tooltip && w->root) gone.push_back(w->root);
         retire(x);
     }
+    if (hover_)
+        for (draw::View* v : gone) hover_(*v, {}, {}, true);
     for (auto& f : closed) f();  // (after the windows are gone: a callback may open others)
 }
 
@@ -598,6 +602,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
         for (const auto& w : wins_) w->dirty = true;
         return;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
+        if (Win* w = findWin(wid); w && hover_ && w->kind != WindowKind::Tooltip) hover_(*w->root, {}, {}, true);
         // Popups close when the program loses the keyboard focus (another program took it).
         if (!SDL_GetKeyboardFocus()) dismissPopupsExcept(0);
         return;
@@ -607,6 +612,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
     case SDL_EVENT_WINDOW_MOUSE_LEAVE: {
         Win* w = findWin(wid);
         if (!w) return;
+        if (hover_) hover_(*w->root, {}, {}, true);
         MouseEvent m;
         m.kind = MouseKind::Leave;
         w->router->mouse(m);
@@ -621,7 +627,10 @@ void SdlHost::dispatch(const SDL_Event& e) {
         m.pt = w->mouse;
         m.mods = modsOf(SDL_GetModState());
         w->router->mouse(m);
-        if (Win* now = findWin(wid)) setCursor(now->router->cursor(now->mouse));  // (the view may have closed the window)
+        if (Win* now = findWin(wid)) {  // (the view may have closed the window)
+            setCursor(now->router->cursor(now->mouse));
+            if (hover_ && now->kind != WindowKind::Tooltip) hover_(*now->root, now->mouse, now->router->tip(now->mouse), false);
+        }
         return;
     }
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -630,6 +639,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
         Win* w = findWin(wid);
         const int button = buttonOf(e.button.button);
         if (!w || button < 0) return;
+        if (hover_ && e.type == SDL_EVENT_MOUSE_BUTTON_DOWN) hover_(*w->root, {}, {}, true);
         MouseEvent m;
         m.pt = {toPixels(e.button.x, w->density), toPixels(e.button.y, w->density)};
         w->mouse = m.pt;
@@ -643,6 +653,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
     case SDL_EVENT_MOUSE_WHEEL: {
         Win* w = findWin(wid);
         if (!w) return;
+        if (hover_) hover_(*w->root, {}, {}, true);
         MouseEvent m;
         m.kind = MouseKind::Wheel;
         m.pt = {toPixels(e.wheel.mouse_x, w->density), toPixels(e.wheel.mouse_y, w->density)};
@@ -658,6 +669,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
     case SDL_EVENT_KEY_UP: {
         Win* w = findWin(wid);
         if (!w) return;
+        if (hover_ && e.type == SDL_EVENT_KEY_DOWN) hover_(*w->root, {}, {}, true);
         if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE && w->popup()) return dismiss(wid);
         KeyEvent k;
         k.key = keyOf(e.key.key);

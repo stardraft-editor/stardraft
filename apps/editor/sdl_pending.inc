@@ -38,6 +38,7 @@ std::wstring projectUnitName(int) { return L""; }
 void openNewPageSdl(int kind);  // (sdl_new_page.inc: -1 the start page, 0 a classic project, 1 an EUD project)
 void showOptionsSdl();  // (sdl_options.inc: Options > Program options, one window)
 void showAboutSdl();    // (sdl_options.inc: Help > About StarDraft)
+void sdlCheckUpdates();  // (sdl_prompts.inc: Help > Check for updates)
 void showKitGallerySdl();  // (sdl_options.inc: View > Control kit)
 void showFeedbackSdl(const std::wstring& on);  // (sdl_options.inc: Options > Report feedback, a modal dialog)
 void previewStopSdl();  // (sdl_files.inc: a sound that plays stops when the Files workspace is left)

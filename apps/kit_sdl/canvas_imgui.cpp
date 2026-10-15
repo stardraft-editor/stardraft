@@ -48,6 +48,39 @@ struct Atlas {
 std::vector<Atlas> gAtlases;
 SDL_GPUDevice* gAtlasDevice = nullptr;
 
+// The program's own pictures (loadResourceIcon): {id, 0} keeps the source pixels; {id, px} a texture made at px.
+struct ResourceIcon {
+    int w = 0, h = 0;
+    std::vector<unsigned char> rgba;  // (the source only)
+    SDL_GPUTexture* tex = nullptr;    // (the sized ones only)
+};
+std::map<std::pair<int, int>, ResourceIcon> gResourceIcons;
+
+// The source made smaller (or larger) to px x px: each pixel the average of the source pixels under it, weighted by
+// their alpha (premultiplied), so the edges keep their color.
+std::vector<unsigned char> resampled(const ResourceIcon& src, int px) {
+    std::vector<unsigned char> out(size_t(px) * size_t(px) * 4);
+    const double sx = double(src.w) / px, sy = double(src.h) / px;
+    for (int y = 0; y < px; ++y)
+        for (int x = 0; x < px; ++x) {
+            const double x0 = x * sx, x1 = (x + 1) * sx, y0 = y * sy, y1 = (y + 1) * sy;
+            double acc[4] = {0, 0, 0, 0}, area = 0;
+            for (int v = int(y0); v < int(std::ceil(y1)) && v < src.h; ++v)
+                for (int u = int(x0); u < int(std::ceil(x1)) && u < src.w; ++u) {
+                    const double wgt = (std::min(x1, u + 1.0) - std::max(x0, double(u))) * (std::min(y1, v + 1.0) - std::max(y0, double(v)));
+                    if (wgt <= 0) continue;
+                    const unsigned char* p = src.rgba.data() + (size_t(v) * size_t(src.w) + size_t(u)) * 4;
+                    const double a = p[3] / 255.0;
+                    acc[0] += p[0] * a * wgt, acc[1] += p[1] * a * wgt, acc[2] += p[2] * a * wgt, acc[3] += a * wgt;
+                    area += wgt;
+                }
+            unsigned char* o = out.data() + (size_t(y) * size_t(px) + size_t(x)) * 4;
+            for (int k = 0; k < 3; ++k) o[k] = acc[3] > 0 ? (unsigned char)std::lround(std::clamp(acc[k] / acc[3], 0.0, 255.0)) : 0;
+            o[3] = (unsigned char)std::lround((area > 0 ? acc[3] / area : 0) * 255);
+        }
+    return out;
+}
+
 // A bitmap's texture: its copy of the pixels, and the revision it is of.
 struct GpuBitmap final : draw::Bitmap::Native {
     SDL_GPUDevice* device = nullptr;
@@ -415,6 +448,44 @@ void unloadIconAtlases() {
     for (const Atlas& a : gAtlases)
         if (gAtlasDevice && a.tex) SDL_ReleaseGPUTexture(gAtlasDevice, a.tex);
     gAtlases.clear();
+    for (auto& [key, r] : gResourceIcons)
+        if (gAtlasDevice && r.tex) SDL_ReleaseGPUTexture(gAtlasDevice, r.tex);
+    gResourceIcons.clear();
+}
+
+bool loadResourceIcon(int id, const std::string& file) {
+    const std::vector<unsigned char> f = readFile(file);
+    // An .ico: its largest image that is a PNG (a 0 in the size byte is 256); else the file is a PNG.
+    const unsigned char* png = f.data();
+    size_t pngSize = f.size();
+    if (f.size() >= 6 && f[0] == 0 && f[1] == 0 && f[2] == 1 && f[3] == 0) {
+        const size_t n = size_t(f[4] | (f[5] << 8));
+        int best = 0;
+        pngSize = 0;
+        for (size_t k = 0; k < n && 6 + 16 * (k + 1) <= f.size(); ++k) {
+            const unsigned char* e = f.data() + 6 + 16 * k;
+            const int size = e[0] ? e[0] : 256;
+            const size_t len = size_t(e[8]) | size_t(e[9]) << 8 | size_t(e[10]) << 16 | size_t(e[11]) << 24;
+            const size_t off = size_t(e[12]) | size_t(e[13]) << 8 | size_t(e[14]) << 16 | size_t(e[15]) << 24;
+            if (off + len > f.size() || len < 8 || f[off] != 0x89 || f[off + 1] != 'P') continue;
+            if (size > best) best = size, png = f.data() + off, pngSize = len;
+        }
+    }
+    if (!pngSize) return false;
+    int w = 0, h = 0, n = 0;
+    unsigned char* px = stbi_load_from_memory(png, int(pngSize), &w, &h, &n, 4);
+    if (!px) return false;
+    ResourceIcon& r = gResourceIcons[{id, 0}];
+    r.w = w, r.h = h;
+    r.rgba.assign(px, px + size_t(w) * size_t(h) * 4);
+    stbi_image_free(px);
+    return true;
+}
+
+draw::Canvas& measuringCanvas() {
+    static ImDrawList list(ImGui::GetDrawListSharedData());
+    static ImguiCanvas canvas(list, nullptr);
+    return canvas;
 }
 
 ImguiCanvas::ImguiCanvas(ImDrawList& list, SDL_GPUDevice* device) : dl_(&list), dev_(device), cur_(fontEntry(FontDesc{})) {}
@@ -560,7 +631,44 @@ void ImguiCanvas::pushView(Rect r) {
 
 void ImguiCanvas::popView() { popClip(); }
 
+// kPrefix, kPrefixHidden: the text without its "&" marks ("&&" is one "&"), and the index of the access key in it (the
+// letter after a single "&"; npos: none).
+std::wstring withoutPrefix(std::wstring_view t, size_t* key) {
+    std::wstring o;
+    if (key) *key = std::wstring::npos;
+    for (size_t i = 0; i < t.size(); ++i) {
+        if (t[i] == L'&' && i + 1 < t.size()) {
+            ++i;
+            if (t[i] != L'&' && key && *key == std::wstring::npos) *key = o.size();
+        }
+        o += t[i];
+    }
+    return o;
+}
+
 void ImguiCanvas::text(Rect r, std::wstring_view t, Color c, unsigned flags) {
+    if (flags & (draw::kPrefix | draw::kPrefixHidden)) {
+        size_t key = std::wstring::npos;
+        const std::wstring plain = withoutPrefix(t, &key);
+        text(r, plain, c, flags & ~(draw::kPrefix | draw::kPrefixHidden));
+        // kPrefix: the access key underlined (one line of text only), on the baseline as GDI draws it.
+        if ((flags & draw::kPrefix) && key != std::wstring::npos && !(flags & (draw::kWrap | draw::kEllipsis | draw::kPathEllipsis))) {
+            const FontEntry& f = *cur_;
+            const float lh = lineHeight(f), w = textWidth(f, utf8Text(plain));
+            float x = float(r.left);
+            if (flags & draw::kCenter) x += (float(r.width()) - w) / 2;
+            else if (flags & draw::kRight) x += float(r.width()) - w;
+            float y = float(r.top);
+            if (flags & draw::kMiddle) y += (float(r.height()) - lh) / 2;
+            else if (flags & draw::kBottom) y += float(r.height()) - lh;
+            const float x0 = x + textWidth(f, utf8Text(std::wstring_view(plain).substr(0, key)));
+            const float x1 = x + textWidth(f, utf8Text(std::wstring_view(plain).substr(0, key + 1)));
+            const ImFontBaked* baked = f.face->GetFontBaked(float(f.px));
+            const float base = std::floor(y + (baked ? baked->Ascent : float(f.px)) + 1);  // (one pixel under the baseline)
+            dl_->AddRectFilled(at(std::floor(x0), base), at(std::ceil(x1), base + 1), colorOf(c));
+        }
+        return;
+    }
     const std::string s = utf8Text(t);
     if (s.empty() || c == kNone || r.empty()) return;
     const FontEntry& f = *cur_;
@@ -598,6 +706,7 @@ void ImguiCanvas::text(Rect r, std::wstring_view t, Color c, unsigned flags) {
 int ImguiCanvas::measure(std::wstring_view t) { return int(std::ceil(textWidth(*cur_, utf8Text(t)))); }
 
 Point ImguiCanvas::measureBox(std::wstring_view t, int width, unsigned flags) {
+    if (flags & (draw::kPrefix | draw::kPrefixHidden)) return measureBox(withoutPrefix(t, nullptr), width, flags & ~(draw::kPrefix | draw::kPrefixHidden));
     const std::string s = utf8Text(t);
     const float lh = lineHeight(*cur_);
     if (!(flags & draw::kWrap)) return {int(std::ceil(textWidth(*cur_, s))), int(std::ceil(lh))};
@@ -690,6 +799,23 @@ void ImguiCanvas::icon(Rect r, int icon, Color c, int px) {
     const ImVec2 p1(p0.x + float(cell), p0.y + float(cell));
     const float u0 = float(icon * cell) / float(a->w), u1 = float((icon + 1) * cell) / float(a->w);
     dl_->AddImage(texRef(a->tex), p0, p1, ImVec2(u0, 0), ImVec2(u1, 1), colorOf(c));
+}
+
+void ImguiCanvas::resourceIcon(Rect r, int resourceId, int px) {
+    if (!dev_ || px <= 0) return;
+    const auto src = gResourceIcons.find({resourceId, 0});
+    if (src == gResourceIcons.end()) return;
+    ResourceIcon& sized = gResourceIcons[{resourceId, px}];  // (a map: the source's reference stays good)
+    if (!sized.tex) {
+        if (!gAtlasDevice) gAtlasDevice = dev_;
+        const std::vector<unsigned char> pixels = resampled(src->second, px);
+        sized.w = sized.h = px;
+        sized.tex = uploadRgba(dev_, px, px, pixels.data());
+        if (!sized.tex) return;
+    }
+    // Centered in r at its own size, as DrawIconEx draws the icon of that size.
+    const float x = std::floor(float(r.left) + float(r.width() - px) / 2), y = std::floor(float(r.top) + float(r.height() - px) / 2);
+    dl_->AddImage(texRef(sized.tex), at(x, y), at(x + float(px), y + float(px)), ImVec2(0, 0), ImVec2(1, 1), colorOf(draw::rgb(255, 255, 255)));
 }
 
 void ImguiCanvas::fitted(const draw::Image& img, Rect box) {
