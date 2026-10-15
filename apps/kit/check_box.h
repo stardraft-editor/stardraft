@@ -33,6 +33,8 @@ public:
         invalidate();
     }
     bool changed() const { return changed_; }
+    // The label in the text color when off too (a native check box's look), not dim.
+    void setPlainLabel(bool p) { plain_ = p; }
     void setEnabled(bool e) {
         enabled_ = e;
         invalidate();
@@ -62,7 +64,7 @@ protected:
 
 private:
     std::wstring label_, tip_;
-    bool changed_ = false, enabled_ = true, hot_ = false, down_ = false;
+    bool changed_ = false, enabled_ = true, hot_ = false, down_ = false, plain_ = false;
     // The last focus came from the mouse (a click): the box shows no focus ring, only the keyboard's focus does.
     bool pointer_ = false;
 };

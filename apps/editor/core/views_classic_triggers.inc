@@ -1112,7 +1112,7 @@ public:
         : turnOff(L"Turn off", stardraft::kit::Tone::Normal, std::move(cb.turnOff)),
           deleteTrig(L"Delete the trigger", stardraft::kit::Tone::Normal, std::move(cb.deleteTrig)),
           forces(L"Forces\x2026", stardraft::kit::Tone::Normal, std::move(cb.forces)) {
-        title.setFont({draw::Face::Ui, 0, true, false, false, 0});  // bold (the page's title font was 1.5 times the UI size)
+        title.setFont({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)});  // the page's title font (ui::titleFont: 1.5 times the UI size)
         title.setText(L"None");
         count.setTone(stardraft::kit::LabelTone::Dim);  // the old count was the dim static (kCtDim)
         forces.setTip(L"Forces: the forces that run the trigger");
@@ -1120,6 +1120,7 @@ public:
             players.push_back(std::make_unique<stardraft::kit::CheckBox>(playerLabels[i], false, [i, f = cb.player](bool on) {
                 if (f) f(int(i), on);
             }));
+        for (auto& p : players) p->setPlainLabel(true);  // the native check boxes' labels were in the text color
         add(title, {0, 0, 0, 0});
         add(count, {0, 0, 0, 0});
         add(turnOff, {0, 0, 0, 0});
