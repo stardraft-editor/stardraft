@@ -1,7 +1,8 @@
 #pragma once
 // An icon button (docs/dev/CONTROLS.md, "Icon buttons"): a square icon. Bare: it lights up under the mouse (beside a
 // field, in a row). Boxed: in a button's box, flat until it is on or under the mouse (a tool bar, a player). `on`
-// marks a toggle that is on; the owner sets it. The icon is a UI icon (an id of apps/editor/res/ui_icons.h) or a
+// marks a toggle that is on; the owner sets it. Face: a button's own box (as Button's: the Primary look when on), the icon
+// in the middle. The icon is a UI icon (an id of apps/editor/res/ui_icons.h) or a
 // character of the Glyphs face (a Segoe MDL2 Assets code point). Click, Space or Enter runs `onClick`.
 
 #include <functional>
@@ -13,7 +14,7 @@
 
 namespace stardraft::kit {
 
-enum class IconStyle { Bare, Boxed };
+enum class IconStyle { Bare, Boxed, Face };
 
 // What the button shows: a UI icon, or a glyph (when icon is -1).
 struct IconGlyph {
