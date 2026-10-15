@@ -1,0 +1,79 @@
+// The editor's state (what struct App held apart from its windows): portable (core.inc).
+struct AppState {
+    std::wstring statusText[6];
+    std::vector<uint32_t> megatileColor;  // average color per megatile (0x00RRGGBB)
+    const Tileset* megatileColorsFor = nullptr;
+    int megatileColorsEra = -1;  // the tileset object is loaded again in place when the map's tileset changes
+    std::vector<uint32_t> miniTerrain;    // one pixel per map tile
+    uint64_t miniTerrainRev = 0;
+    RECT miniInvalidView{};  // what renderNow last invalidated the minimap for
+    uint64_t miniInvalidRev = 0, miniInvalidTerrainRev = 0;
+    UINT dpi = 96;
+
+    GameData data;
+    std::unique_ptr<Editor> ed;
+
+    Mode mode = Mode::Units;
+    std::vector<int> items;  // palette entries for the current mode; -1 = "(Select)"
+    int palette = -1;        // selected palette entry value
+    int palette2 = -1;       // isometric terrain: the second terrain (Ctrl+click in the palette), painted with Shift+click or Shift+drag
+    int playerOwner = 0;
+    float brushSize = 2;  // diamonds, whole numbers 1 to 32
+    float brushHeight = 0;  // terrain: the brush's height, 1 to 32; 0: the same as its size (GitHub #113)
+    Brush::Shape brushShape = Brush::Diamond;
+    int toolByMode[kModeCount] = {};
+    int sprayDensity = 10;  // the active mode's: how many things one spray puts down (kDensityMax at most)
+    int densityByMode[kModeCount] = {5, 10, 10, 10, 10};  // each mode keeps its own density and symmetry (setMode swaps them in)
+    int symmetryByMode[kModeCount] = {};
+    uint32_t spraySeed = 1;
+    int lastSprayX = -100000, lastSprayY = -100000;
+    double sprayHeld = 0, sprayCredit = 0;  // a held spray: the seconds it is held, and the sprays due
+    int sprayPlaced = 0;                    // the units or doodads that the press and hold placed
+    bool terrainRect = false;  // the Terrain tool strip's Rectangle: the tools work on tiles as they are (tiles_view.inc)
+    bool hasTerrainSel = false;
+    Rect terrainSel;
+    bool terrainPasting = false;
+    bool copyUnitsWithTerrain = true, copyDoodadsWithTerrain = true;
+    bool locationWrap = false;  // a location's name in lines that fit in it (Options > Locations)
+    bool allowIllegalUnits = false;  // Options: units anywhere; terrain edits keep them
+    std::vector<int> selDoodads, selSprites;  // the selected doodads and sprites (indexes into the Editor's lists)
+    // Each mode's own copy buffer (units and terrain are the Editor's): Ctrl+C, Ctrl+X and Ctrl+V act on the active mode's.
+    // Doodads and sprites: the copied ones, each from the middle of the group; a paste follows the mouse.
+    std::vector<Editor::ItemAt> doodadClip, spriteClip;
+    bool pastingItems = false;                 // Doodads or Sprites: the copy follows the mouse; a click places it
+    Rect locationClip{};                       // a location's size and name
+    int locationClipInverted = 0;              // ... and its inverted axes (1 left/right, 2 top/bottom)
+    std::string locationClipName;
+    uint16_t locationClipElevation = 0;        // ... and the elevations it leaves out (MRGN flags)
+    bool hasLocationClip = false;
+    bool allowStacking = false;     // Options: units may overlap
+    bool animate = true;             // Options: units play their idle animations
+    bool dragSnapBack = true;        // Options: dragged units go back to the last position where they fit
+    float lastValidDX = 0, lastValidDY = 0;  // offset of that spot from where the drag started
+    bool correction = false, doodadCheck = true, showLocations = true;  // units: Place only where it fits (the default)
+    bool doodadNearest = false;  // Options > Doodads > Move to the nearest place where it fits (with doodadCheck)
+    bool showGrid = false;
+    // Options > Units, Sprites, Locations: the snap grid in px (0: no snap; 32 a tile, 16 a half tile, 8 a quarter tile).
+    int unitGrid = 0, spriteGrid = 0, locationGrid = 32;
+    bool carbot = false;  // Cartooned (Carbot) graphics
+    float lastPlaceX = 0, lastPlaceY = 0;  // where the last unit of a placing drag went (cursor)
+    int placedInStroke = 0;
+    RECT lastPlacedBox{};  // doodads and sprites in a drag: the box of the last one placed (the next goes beside it)  // 32x32 tile grid; units on tile centers, moved in whole tiles
+    GraphicsQuality quality = GraphicsQuality::HD2;
+
+    float camX = 0, camY = 0, zoom = 1;
+    int mouseX = 0, mouseY = 0;  // viewport pixels
+    bool mouseIn = false;
+    Drag drag = Drag::None;
+    float dragWX = 0, dragWY = 0;  // world point where the drag started
+    int dragSX = 0, dragSY = 0;    // screen point where the drag started
+    bool dragMoved = false;
+    int locEdges = 0;  // 1 left, 2 top, 4 right, 8 bottom
+    bool pasting = false;  // paste mode: the clipboard follows the cursor until a click places it
+    Rect locStart;
+    bool dirty = true;
+    uint64_t terrainRev = 0, editorRev = 0;
+    std::wstring message;
+    double frameMs = 0;
+    std::deque<std::chrono::steady_clock::time_point> frameTimes;  // the frames of the last second (for fps)
+};

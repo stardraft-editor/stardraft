@@ -20,7 +20,7 @@
 
 namespace crash {
 
-constexpr const wchar_t* kRepo = L"stardraft-editor/stardraft";
+constexpr const wchar_t* kRepo = kIssueRepo;  // (core/feedback_send.inc)
 std::wstring gGpu;                        // the video card, found at start
 std::deque<std::wstring> gLog;            // the last log lines
 const wchar_t* (*gWhere)() = nullptr;     // what the user works in (the workspace), filled in by main.cpp
@@ -95,31 +95,9 @@ void install() {
 
 // --- Sending --------------------------------------------------------------------------------------------------------
 
-// A token that may only open issues on the repository.
-// A build made here has none; the environment variable STARDRAFT_ISSUES_TOKEN gives one to test with.
-std::string token() {
-    static const std::string t = [] {
-        std::string v = STARDRAFT_ISSUES_TOKEN;
-        if (v.empty())
-            if (const char* e = std::getenv("STARDRAFT_ISSUES_TOKEN")) v = e;
-        return v;
-    }();
-    return t;
-}
-
-// A JSON string (feedback.inc uses it too).
-std::string json(const std::string& s) {
-    std::string o = "\"";
-    for (unsigned char ch : s) {
-        if (ch == '"' || ch == '\\') o += '\\', o += char(ch);
-        else if (ch == '\n') o += "\\n";
-        else if (ch == '\r') continue;
-        else if (ch == '\t') o += "\\t";
-        else if (ch < 0x20) continue;
-        else o += char(ch);
-    }
-    return o + "\"";
-}
+// A token that may only open issues on the repository, and a JSON string (core/feedback_send.inc has both).
+std::string token() { return issueToken(); }
+std::string json(const std::string& s) { return jsonText(s); }
 
 // Sends one report to GitHub; true when it arrived (apps/common/crash_report.cpp).
 bool send(const fs::path& dir) { return stardraft::platform::sendCrashReport(dir, utf8(kRepo), token()); }

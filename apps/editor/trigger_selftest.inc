@@ -48,11 +48,11 @@ void selfTestTriggerHelp(std::ofstream& log, const fs::path& dir, EudProject* pr
         pickerHelp.clear();
         gBlockPickHook = [](HWND) {
             for (int i = 0; i < 5; ++i) pump();
-            SendMessageW(gBlockPick->search, WM_KEYDOWN, VK_F1, 0);
+            gBlockPick->key(stardraft::draw::KeyEvent{stardraft::draw::Key::F1});
             for (int i = 0; i < 5; ++i) pump();
             const TriggerDef* d = blockPickSelected();
             if (gBlockHelp.wnd && d && gBlockHelp.id == d->id) pickerHelp = d->id;
-            gBlockPick->done = true;
+            gBlockPick->cancel();
         };
         showBlockPicker(false, {}, L"kill");
         gBlockPickHook = nullptr;
