@@ -101,7 +101,7 @@ struct NotHereView final : draw::View {
 // The map view: the texture of the map (drawn by the frame hook) and the core's map input.
 struct MapView final : draw::View {
     bool panning = false;  // the middle button (or a drag with it) pans
-    bool rightStroke = false;  // a right-button stroke paints with the second terrain; the palette is the first one again after it
+    bool rightStroke = false;  // a Shift+left stroke paints with the second terrain; the palette is the first one again after it
     int savedPalette = -1;
     draw::Point last;
     bool open() const { return gState.ed && gState.ed->isOpen(); }
@@ -124,16 +124,19 @@ struct MapView final : draw::View {
                 if (draw::Host* h = host()) h->capture(*this, true);
                 return true;
             }
-            if (e.button == 1) {  // right: paints with the second terrain (isometric terrain, as the Windows program); else nothing
-                if (!open() || !rightPaints()) return false;
+            // Shift with the left button paints with the second terrain (isometric terrain, as the Windows program); the
+            // right button does nothing here (its map menu is not on this system yet).
+            const bool second = e.button == 0 && (e.mods & draw::kShift) && !(e.mods & (draw::kCtrl | draw::kAlt)) &&
+                                gState.drag == Drag::None && open() && secondPaints();
+            if (second) {
                 rightStroke = true, savedPalette = gState.palette;
                 gState.palette = gState.palette2;
-            } else if (!open()) {
+            } else if (e.button == 1 || !open()) {
                 return false;
             }
             if (draw::Host* h = host()) h->capture(*this, true);
             gState.mouseX = e.pt.x, gState.mouseY = e.pt.y, gState.mouseIn = true;
-            mapMouseDown(gState, e.pt.x, e.pt.y, e.mods);
+            mapMouseDown(gState, e.pt.x, e.pt.y, second ? (e.mods & ~draw::kShift) : e.mods);
             invalidate();
             return true;
         case draw::MouseKind::Move:
@@ -155,7 +158,7 @@ struct MapView final : draw::View {
                 if (draw::Host* h = host()) h->capture(*this, false);
                 return true;
             }
-            if (rightStroke && e.button == 1) {  // the end of a right stroke: the left button's terrain again
+            if (rightStroke && e.button == 0) {  // the end of a second-terrain stroke: the first terrain again
                 rightStroke = false;
                 mapMouseUp(gState, e.pt.x, e.pt.y, e.mods);
                 gState.palette = savedPalette;
