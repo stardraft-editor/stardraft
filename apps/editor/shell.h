@@ -34,6 +34,8 @@ void shellSetTitle(const std::wstring& title);
 // The workspace rail exists (it is made with the window), and its window is shown or hidden.
 bool shellHasRail();
 void shellShowRail(bool show);
+// The wait cursor (the hourglass) is shown until the next message that sets the cursor.
+void shellWaitCursor();
 // The minimap's client size, in device pixels.
 void shellMinimapSize(int& w, int& h);
 // The host's renderer shows the active editor's sources (its quality, sprites and tileset).

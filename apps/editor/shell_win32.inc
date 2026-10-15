@@ -48,6 +48,7 @@ std::wstring shellBuildStamp() {
 void shellSetTitle(const std::wstring& title) { SetWindowTextW(app.main, title.c_str()); }
 bool shellHasRail() { return gWsBar != nullptr; }
 void shellShowRail(bool show) { ShowWindow(gWsBar, show ? SW_SHOW : SW_HIDE); }
+void shellWaitCursor() { SetCursor(LoadCursor(nullptr, IDC_WAIT)); }
 void shellMinimapSize(int& w, int& h) {
     RECT r;
     GetClientRect(app.minimap, &r);
