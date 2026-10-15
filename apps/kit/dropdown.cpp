@@ -358,6 +358,9 @@ bool Dropdown::key(const KeyEvent& e) {
         else step(1);
         return true;
     case Key::Enter:
+        if (!enterOpens) return false;
+        openList();
+        return true;
     case Key::Space: openList(); return true;
     default: return false;
     }

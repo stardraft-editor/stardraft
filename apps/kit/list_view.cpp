@@ -369,8 +369,8 @@ bool ListView::key(const draw::KeyEvent& e) {
         navigate(moveTarget(e.key), m);
         return true;
     case Key::Enter:
-        if (cursor_ < 0) return false;
-        if (onActivate) onActivate(cursor_);
+        if (cursor_ < 0 || !onActivate) return false;
+        onActivate(cursor_);
         return true;
     case Key::Space:
         if (!typed_.empty()) {  // a space in a search ("apple pie")
