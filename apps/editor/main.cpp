@@ -334,12 +334,28 @@ int themedMessageBox(HWND owner, const std::wstring& text, const std::wstring& c
 const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\StarCraft";
 
 #include "core/app_state.inc"
+#include "core/palette_tools.inc"  // the palette and tool state, the status texts and the messages (the state forms)
 #include "core/layout.inc"  // the main window's panes: computeLayout (the placement is layout() below)
 #include "core/menu_model.inc"  // the menu bar as data (buildMenuModel, toHmenu)
 #include "core/commands_core.inc"  // commandPortable: the checks before commandBody's switch
 #include "core/views_status.inc"  // the status bar's view (StatusView; the instance is gStatus below)
 #include "core/views_stub.inc"  // the Triggers, Assets and Project stub's view (StubView; the instance is gStubView)
 #include "core/map_input.inc"  // the map view's mouse input: mapMouseDown, mapMouseMove, mapMouseUp, the spray and the pipette
+int selectPalette(int value);
+void pickUnit(int v, bool add);
+// The forms without app: the Win32 TU's own (the state forms are in core/palette_tools.inc).
+void toWorld(int sx, int sy, float& wx, float& wy);
+int currentTool();
+Brush currentBrush();
+Editor::SelectShape selectShape();
+std::wstring itemLabel(int v);
+void updateStatus();
+void setMessage(const std::wstring& m);
+void setPlayer(int i);
+void fillToolCombo();
+void rebuildList();
+bool spriteIsOverlay(int i);
+bool placePaletteDoodad(float wx, float wy, std::string& why);
 
 // The program: its state, and what Win32 and the renderer give it (windows, brushes, the font, the GPU).
 struct App : AppState {
@@ -391,7 +407,6 @@ struct UnitPalette {
     bool hdTilesLoaded = false;
 };
 UnitPalette gPal;
-const std::vector<int>& paletteChosen() { return gPal.chosen; }
 // The other column's palette: the layer last used on that side (terrain on the left and units on the
 // right by default), so both stay in view. Its code is the main palette's, run with this one swapped in.
 UnitPalette gPal2;
@@ -443,14 +458,10 @@ void setPlayer(int i);
 void showQuickPicker(bool replace = false, bool open = false);  // replace: Replace with... for the selection; open: Quick open
 void replaceSelectionWith(int v);
 
-int scale(int v) { return MulDiv(v, int(app.dpi), 96); }
 
 // --- Camera helpers ------------------------------------------------------------------------------
 
-void toWorld(int sx, int sy, float& wx, float& wy) {
-    wx = app.camX + sx / app.zoom;
-    wy = app.camY + sy / app.zoom;
-}
+void toWorld(int sx, int sy, float& wx, float& wy) { toWorld(app, sx, sy, wx, wy); }
 
 void viewSize(int& w, int& h) { shellViewSize(w, h); }
 
@@ -475,7 +486,7 @@ void fitMap() {
 
 // --- Tools ------------------------------------------------------------------------------------------
 
-int currentTool() { return app.toolByMode[int(app.mode)]; }
+int currentTool() { return currentTool(app); }
 // The spray's density: the number of things one spray puts down in the brush (each tick of a held spray too), 1 to
 // kDensityMax. Units or doodads (sprayCount; only where they fit, so fewer can land) and terrain dabs or tiles
 // (sprayDabs). The defaults: 5 dabs for terrain, 10 units or doodads (about the earlier "medium").
@@ -483,11 +494,8 @@ constexpr int kDensityMax = 50;
 int sprayCount() { return std::clamp(app.sprayDensity, 1, kDensityMax); }
 int sprayDabs() { return std::clamp(app.sprayDensity, 1, kDensityMax); }
 int sprayRadius() { return int(app.brushSize * 64); }
-Brush currentBrush() { return Brush{app.brushShape, app.brushSize, app.mode == Mode::Terrain ? app.brushHeight : 0.0f}; }
-// The terrain selection's shape: the brush shape (diamond, square, circle) while it is made with Select.
-Editor::SelectShape selectShape() {
-    return app.brushShape == Brush::Diamond ? Editor::SelectShape::Diamond : app.brushShape == Brush::Circle ? Editor::SelectShape::Ellipse : Editor::SelectShape::Rect;
-}
+Brush currentBrush() { return currentBrush(app); }
+Editor::SelectShape selectShape() { return selectShape(app); }
 // The brush sizes (diamonds; the sprays' radius too): 0.5, every whole size to 16, then every other to 32.
 const std::vector<float>& brushSizes() {
     static const std::vector<float> v = [] {
@@ -506,25 +514,8 @@ int brushSizeIndex(float size) {  // the nearest size in the list
     return best;
 }
 
-// The tool strip (app.tool) shows the active mode's tools as icons: repaint it after the tool changes.
-void layout();
-void fillToolCombo() {
-    if (app.tool) InvalidateRect(app.tool, nullptr, FALSE);
-    // The terrain selection goes with a tool that does not use it (Brush, Spray); Fill and Replace work in it.
-    if (const int t = app.toolByMode[int(Mode::Terrain)]; app.mode == Mode::Terrain && (t == TBrush || t == TSpray) && app.hasTerrainSel)
-        app.hasTerrainSel = false, app.dirty = true;
-    // The strip's rows follow the tool (size and density for the sprays): its height, and what is under it.
-    static int lastRows = -1;
-    const int rows = int(app.mode) * 4 + app.toolByMode[int(app.mode)];
-    if (app.view && rows != lastRows) lastRows = rows, shellRelayout();
-    tilesSync();
-}
+void fillToolCombo() { fillToolCombo(app); }
 
-// The palette list allows multi-select (for sprays); the "current" entry is the caret.
-void setListSel(int i) {
-    SendMessageW(app.list, LB_SETSEL, FALSE, -1);
-    if (i >= 0) SendMessageW(app.list, LB_SETSEL, TRUE, i), SendMessageW(app.list, LB_SETCARETINDEX, i, FALSE);
-}
 
 std::vector<int> selectedPalette() {
     std::vector<int> out;
@@ -545,102 +536,13 @@ std::vector<int> selectedPalette() {
 
 // --- Palette ---------------------------------------------------------------------------------------
 
-// Compact tag from units.dat's StarEdit group flags: race (T/Z/P, N neutral, I independent) and
-// kind (U unit, B building, H hero, O other), e.g. "T U" for Terran units.
-std::wstring unitTag(const UnitType& t) {
-    wchar_t race = (t.groupFlags & UnitGroup::Terran) ? L'T' : (t.groupFlags & UnitGroup::Zerg) ? L'Z'
-                 : (t.groupFlags & UnitGroup::Protoss) ? L'P' : (t.groupFlags & UnitGroup::Independent) ? L'I' : L'N';
-    wchar_t kind = t.is(UnitFlag::Hero) ? L'H' : t.is(UnitFlag::Building) ? L'B' : (t.groupFlags & UnitGroup::Men) ? L'U' : L'O';
-    return std::wstring{race, L' ', kind};
-}
 
-std::wstring unitShortName(const UnitType& t) {
-    std::wstring n = widen(t.name);
-    for (const wchar_t* prefix : {L"Terran ", L"Zerg ", L"Protoss "})
-        if (n.rfind(prefix, 0) == 0) return n.substr(wcslen(prefix));
-    return n;
-}
 
-std::wstring itemLabel(int v) {
-    Editor& ed = *app.ed;
-    switch (app.mode) {
-    case Mode::Terrain: {
-        const IsomTerrainTable* t = IsomTerrainTable::forEra(ed.era());
-        return t ? widen(t->terrainName(uint16_t(v))) : L"";
-    }
-    case Mode::Units:
-        return v < 0 ? L"(Select / move)" : unitTag(ed.unitTypes()[uint16_t(v)]) + L"   " + unitShortName(ed.unitTypes()[uint16_t(v)]);
-    case Mode::Doodads: {
-        const DoodadType* d = ed.doodadTypes().find(uint16_t(v));
-        if (!d) return L"";
-        return widen(ed.unitTypes().statText(d->groupString - 1u)) + L"  #" + std::to_wstring(d->id) + L"  (" +
-               std::to_wstring(d->width) + L"x" + std::to_wstring(d->height) + L")";
-    }
-    case Mode::Locations:
-        return widen(ed.locationName(v));
-    }
-    return L"";
-}
+std::wstring itemLabel(int v) { return itemLabel(app, v); }
 
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
 
-void rebuildList() {
-    SendMessageW(app.list, WM_SETREDRAW, FALSE, 0);
-    SendMessageW(app.list, LB_RESETCONTENT, 0, 0);
-    app.items.clear();
-    if (app.ed && app.ed->isOpen()) {
-        Editor& ed = *app.ed;
-        std::wstring filter = gFilterBox.text();
-        std::transform(filter.begin(), filter.end(), filter.begin(), ::towlower);
-        std::vector<int> all;
-        switch (app.mode) {
-        case Mode::Terrain:
-            if (const IsomTerrainTable* t = IsomTerrainTable::forEra(ed.era()); t && ed.canPaintTerrain())
-                for (uint16_t i = 1; i <= t->terrainCount(); ++i)
-                    if (t->isTerrain(i)) all.push_back(i);
-            break;
-        case Mode::Units: break;  // in the unit palette (side bar)
-        case Mode::Doodads: {
-            std::vector<const DoodadType*> ds;
-            for (const auto& d : ed.doodadTypes().all()) ds.push_back(&d);
-            std::stable_sort(ds.begin(), ds.end(), [](auto* a, auto* b) { return a->groupString < b->groupString; });
-            for (auto* d : ds) all.push_back(d->id);
-            break;
-        }
-        case Mode::Locations:
-            for (int i = 0; i < ed.locationCount(); ++i)
-                if (ed.locationUsed(i)) all.push_back(i);
-            break;
-        }
-        auto squash = [](std::wstring t) {
-            t.erase(std::remove(t.begin(), t.end(), L' '), t.end());
-            return t;
-        };
-        for (int v : all) {
-            std::wstring label = itemLabel(v);
-            std::wstring low = label;
-            std::transform(low.begin(), low.end(), low.begin(), ::towlower);
-            bool match = low.find(filter) != std::wstring::npos || squash(low).find(squash(filter)) != std::wstring::npos;
-            if (!filter.empty() && v >= 0 && !match) continue;
-            app.items.push_back(v);
-            SendMessageW(app.list, LB_ADDSTRING, 0, LPARAM(label.c_str()));
-        }
-        if (app.mode == Mode::Terrain && app.items.empty())
-            SendMessageW(app.list, LB_ADDSTRING, 0, LPARAM(tr(L"(Terrain editing needs ISOM data. Only Badlands has it now.)")));
-        // Keep the previous choice if still listed.
-        if (app.mode != Mode::Units) {
-            auto it = std::find(app.items.begin(), app.items.end(), app.palette);
-            int sel = it != app.items.end() ? int(it - app.items.begin()) : -1;  // no pick until one is clicked: the mode selects
-            if (app.mode == Mode::Locations) sel = -1;
-            setListSel(sel);
-            app.palette = sel >= 0 ? app.items[sel] : -1;
-            if (app.mode == Mode::Locations) app.palette = -1;
-        }
-    }
-    SendMessageW(app.list, WM_SETREDRAW, TRUE, 0);
-    InvalidateRect(app.list, nullptr, TRUE);
-    rebuildUnitPalette();
-}
+void rebuildList() { rebuildList(app); }
 
 void enterSelection();
 bool inSelection();
@@ -687,44 +589,12 @@ void setMode(Mode m) {
 
 // --- Status ----------------------------------------------------------------------------------------
 
-void setStatusPart(int i, const wchar_t* text) {
-    if (app.statusText[i] == text) return;
-    app.statusText[i] = text;
-    shellStatusChanged();  // the bar is drawn in full (StatusView::paint)
-}
 
-void updateStatus() {
-    if (!app.status) return;
-    wchar_t buf[256];
-    float wx, wy;
-    toWorld(app.mouseX, app.mouseY, wx, wy);
-    std::swprintf(buf, 256, L"%s: %s", kModeNames[int(app.mode)],
-                  app.mode == Mode::Terrain ? kTerrainTools[currentTool()] : app.mode == Mode::Units ? kUnitTools[currentTool()]
-                  : app.mode == Mode::Doodads ? kDoodadTools[currentTool()] : app.mode == Mode::Sprites ? (app.palette >= 0 ? L"Place" : L"Select") : L"Edit");
-    setStatusPart(0, buf);
-    std::swprintf(buf, 256, L"%d, %d  (tile %d, %d)", int(wx), int(wy), int(wx) / 32, int(wy) / 32);
-    setStatusPart(1, buf);
-    std::swprintf(buf, 256, L"%.0f%%  %s", app.zoom * 100, widen(qualityName(app.quality)).c_str());
-    setStatusPart(2, buf);
-    size_t sel = app.ed ? app.ed->selection().size() : 0;
-    std::swprintf(buf, 256, L"%zu selected", sel);
-    setStatusPart(3, buf);
-    setStatusPart(4, app.message.c_str());
-    render::Stats st = app.renderer.stats();
-    // Frames drawn in the last second (the map draws when something changes, so this is low when nothing moves).
-    const auto now = std::chrono::steady_clock::now();
-    while (!app.frameTimes.empty() && now - app.frameTimes.front() > std::chrono::seconds(1)) app.frameTimes.pop_front();
-    std::swprintf(buf, 256, L"%zu fps  %d sprites", app.frameTimes.size(), st.sprites);
-    setStatusPart(5, buf);
-}
+void updateStatus() { updateStatus(app); }
 
 void logLine(const std::wstring& line, bool error = false);
 
-void setMessage(const std::wstring& m) {
-    app.message = m;
-    updateStatus();
-    logLine(m);
-}
+void setMessage(const std::wstring& m) { setMessage(app, m); }
 
 // A status-bar hint (what is under the mouse): not worth a log line.
 void setHint(const std::wstring& m) {
@@ -4071,15 +3941,7 @@ LPCWSTR mapCursorAt(int x, int y) {
     return h ? IDC_SIZEWE : v ? IDC_SIZENS : IDC_ARROW;
 }
 
-// A sprite that is a doodad's own overlay goes with its doodad: not selectable in Sprites mode.
-bool spriteIsOverlay(int i) {
-    const Editor& ed = *app.ed;
-    if (i < 0 || i >= int(ed.sprites().size())) return false;
-    const MapSprite& s = ed.sprites()[size_t(i)];
-    for (const Doodad& d : ed.doodads())
-        if (const DoodadType* t = ed.doodadTypes().find(d.id); t && t->overlaySprite == s.id && d.x == s.x && d.y == s.y) return true;
-    return false;
-}
+bool spriteIsOverlay(int i) { return spriteIsOverlay(app, i); }
 // A click in Doodads or Sprites selection: on a thing, select it (Ctrl or Shift: add it, or take it out) and start a
 // drag of the selection; on empty ground, a box selection.
 
@@ -4117,16 +3979,7 @@ float placeSpacing() {
     return app.unitGrid > 0 ? float((foot + app.unitGrid - 1) / app.unitGrid * app.unitGrid) : float(foot);
 }
 
-// Places the palette doodad at a map point by the Options > Doodads rule: only where it fits, at the nearest place where
-// it fits, or anywhere on the map (the terrain is not checked). True when it was placed.
-bool placePaletteDoodad(float wx, float wy, std::string& why) {
-    Editor& ed = *app.ed;
-    const uint16_t id = uint16_t(app.palette);
-    if (ed.placeDoodad(id, int(wx), int(wy), app.doodadCheck, &why)) return true;
-    if (!app.doodadNearest) return false;
-    const auto at = ed.nearestDoodadFit(id, int(wx), int(wy), app.doodadCheck);
-    return at && ed.placeDoodad(id, at->first, at->second, app.doodadCheck, &why);
-}
+bool placePaletteDoodad(float wx, float wy, std::string& why) { return placePaletteDoodad(app, wx, wy, why); }
 
 // Moves the selected doodads by (dx, dy) by the same rule: with Move to the nearest place where it fits, a move that does
 // not fit goes to the nearest offset (in whole tiles) where all of them fit.
@@ -5311,66 +5164,7 @@ int unitPaletteHit(int x, int y) {
     return -1;
 }
 
-// Picking a unit means placing it: Units mode, out of paste mode, nothing selected, so the next click
-// on the map places one (Spray and Replace keep their tool: they use the pick too). Ctrl adds units to
-// the pick (or removes them) for sprays.
-void pickUnit(int v, bool add) {
-    if (!app.ed || v < 0) return;
-    if (app.mode == Mode::Terrain || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
-        // Terrain: paint with it (leaving Select / copy); doodads and sprites: place it (Ctrl adds to a spray, #79).
-        if (add && app.mode == Mode::Terrain && !app.terrainRect) {  // the second terrain: the right button paints it
-            app.palette2 = app.palette2 == v ? -1 : v;
-            if (currentTool() == TSelect) app.toolByMode[int(Mode::Terrain)] = TBrush, fillToolCombo();
-            setMessage(app.palette2 > 0 ? tr(L"Right button paints ") + paletteItemName(v) + tr(L"; left button paints ") +
-                                              (app.palette > 0 ? paletteItemName(app.palette) : std::wstring(tr(L"the terrain you click"))) : L"Right button: no terrain");
-            app.dirty = true;
-            unitPaletteRepaint();
-            return;
-        }
-        if (add && (app.mode == Mode::Doodads || app.mode == Mode::Sprites)) {
-            auto it = std::find(gPal.chosen.begin(), gPal.chosen.end(), v);
-            if (it != gPal.chosen.end()) gPal.chosen.erase(it);
-            else gPal.chosen.push_back(v);
-            app.palette = gPal.chosen.empty() ? -1 : gPal.chosen.back();
-        } else {
-            gPal.chosen = {v};
-            app.palette = v;
-        }
-        app.terrainPasting = false;
-        if (app.mode == Mode::Terrain && currentTool() == TSelect) {
-            app.toolByMode[int(Mode::Terrain)] = TBrush;
-            fillToolCombo();
-        }
-        if (app.palette >= 0)
-            setMessage((app.mode == Mode::Terrain ? L"Painting " : app.mode == Mode::Sprites ? L"Placing sprite " : L"Placing doodad ") + paletteItemName(app.palette) +
-                       (app.mode == Mode::Doodads ? L": click to place it (green if it fits, red if it does not)" : L""));
-        app.dirty = true;
-        unitPaletteRepaint();
-        return;
-    }
-    if (app.mode != Mode::Units) setMode(Mode::Units);
-    if (add) {
-        auto it = std::find(gPal.chosen.begin(), gPal.chosen.end(), v);
-        if (it != gPal.chosen.end()) gPal.chosen.erase(it);
-        else gPal.chosen.push_back(v);
-        app.palette = gPal.chosen.empty() ? -1 : gPal.chosen.back();
-    } else {
-        gPal.chosen = {v};
-        app.palette = v;
-    }
-    app.pasting = false;
-    app.ed->clearSelection();
-    if (currentTool() != USpray && currentTool() != UReplace) {
-        app.toolByMode[int(Mode::Units)] = UPlace;
-        fillToolCombo();
-    }
-    if (app.palette >= 0)
-        setMessage(L"Placing " + widen(app.ed->unitTypes()[uint16_t(app.palette)].name) +
-                   (gPal.chosen.size() > 1 ? L" and " + std::to_wstring(gPal.chosen.size() - 1) + L" more" : L"") +
-                   L": click to place. Drag to place a row. Right-click to stop.");
-    app.dirty = true;
-    unitPaletteRepaint();
-}
+void pickUnit(int v, bool add) { pickUnit(app, v, add); }
 
 void setUnitPaletteView(int id) {
     if (id == ID_PAL_LIST) gPal.grid = gPal.sprites = false;
@@ -5505,13 +5299,7 @@ void drawOwnerItem(const DRAWITEMSTRUCT* d) {
     if ((d->itemState & ODS_FOCUS) && !edit) DrawFocusRect(dc, &r);
 }
 
-void setPlayer(int i) {
-    app.playerOwner = i;
-    SendMessageW(app.owner, CB_SETCURSEL, i, 0);
-    setMessage(L"Player " + std::to_wstring(i + 1));
-    app.dirty = true;
-    unitPaletteRepaint();  // sprites wear the player's color
-}
+void setPlayer(int i) { setPlayer(app, i); }
 
 // The unit palette as a view (apps/common/view.h): its window is a view window (kViewClass) with the native vertical
 // scroll bar (WS_VSCROLL, which the host passes on as vscroll). The second palette (split view) is the same view with
@@ -19880,21 +19668,7 @@ void centerOn(float wx, float wy, float zoom) {
     app.dirty = true;
 }
 
-int selectPalette(int value) {
-    if (app.mode != Mode::Locations) {
-        gPal.chosen.clear();
-        if (value >= 0) gPal.chosen.push_back(value);
-        app.palette = value;
-        unitPaletteRepaint();
-        return value;
-    }
-    auto it = std::find(app.items.begin(), app.items.end(), value);
-    if (it == app.items.end()) return -1;
-    int i = int(it - app.items.begin());
-    setListSel(i);
-    app.palette = value;
-    return i;
-}
+int selectPalette(int value) { return selectPalette(app, value); }
 
 // The two modes (L.1): the map opened by itself next to the project tab. Each tab has only its own workspaces on the
 // rail and its own commands in the menus and shortcuts, and its tab and title say "(map)" or "(project)".

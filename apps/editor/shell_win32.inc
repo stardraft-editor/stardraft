@@ -37,3 +37,29 @@ bool shellClearFilter() {
     gFilterBox.setText(L"");  // (the kit search box: its change runs, and the list is made again)
     return true;
 }
+
+unsigned shellDpi() { return app.dpi; }
+void shellLogLine(const std::wstring& line) { logLine(line); }
+bool shellHasStatusBar() { return app.status != nullptr; }
+int shellSpriteCount() { return app.renderer.stats().sprites; }
+void shellListSelect(int i) {
+    SendMessageW(app.list, LB_SETSEL, FALSE, -1);
+    if (i >= 0) SendMessageW(app.list, LB_SETSEL, TRUE, i), SendMessageW(app.list, LB_SETCARETINDEX, i, FALSE);
+}
+void shellListFill(const std::vector<std::wstring>& rows) {
+    SendMessageW(app.list, WM_SETREDRAW, FALSE, 0);
+    SendMessageW(app.list, LB_RESETCONTENT, 0, 0);
+    for (const auto& r : rows) SendMessageW(app.list, LB_ADDSTRING, 0, LPARAM(r.c_str()));
+    SendMessageW(app.list, WM_SETREDRAW, TRUE, 0);
+    InvalidateRect(app.list, nullptr, TRUE);
+}
+std::wstring shellFilterText() { return gFilterBox.text(); }
+bool shellViewShown() { return app.view != nullptr; }
+void shellToolsChanged() {
+    if (app.tool) InvalidateRect(app.tool, nullptr, FALSE);
+}
+void shellOwnerSelect(int i) { SendMessageW(app.owner, CB_SETCURSEL, i, 0); }
+void shellPaletteChanged() { unitPaletteRepaint(); }
+void shellPaletteRebuilt() { rebuildUnitPalette(); }
+std::wstring shellTr(const wchar_t* english) { return tr(english); }
+std::vector<int>& shellPaletteChosen() { return gPal.chosen; }
