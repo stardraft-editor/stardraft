@@ -280,7 +280,16 @@ const FontEntry* fontEntry(const draw::FontDesc& d) {
     return &gFonts.back();
 }
 
+TextTranslator gTranslator = nullptr;  // setTextTranslator
+
 }  // namespace
+
+void setTextTranslator(TextTranslator translator) { gTranslator = translator; }
+
+std::wstring_view uiText(std::wstring_view t, std::wstring& buf) {
+    if (!gTranslator || t.empty() || !gTranslator(t, buf)) return t;
+    return buf;
+}
 
 std::string utf8Text(std::wstring_view w) {
     std::string o;
@@ -561,7 +570,8 @@ void ImguiCanvas::pushView(Rect r) {
 void ImguiCanvas::popView() { popClip(); }
 
 void ImguiCanvas::text(Rect r, std::wstring_view t, Color c, unsigned flags) {
-    const std::string s = utf8Text(t);
+    std::wstring tb;  // (the translation, uiText)
+    const std::string s = utf8Text(uiText(t, tb));
     if (s.empty() || c == kNone || r.empty()) return;
     const FontEntry& f = *cur_;
     const float lh = lineHeight(f);
@@ -595,10 +605,14 @@ void ImguiCanvas::text(Rect r, std::wstring_view t, Color c, unsigned flags) {
     dl_->PopClipRect();
 }
 
-int ImguiCanvas::measure(std::wstring_view t) { return int(std::ceil(textWidth(*cur_, utf8Text(t)))); }
+int ImguiCanvas::measure(std::wstring_view t) {
+    std::wstring tb;
+    return int(std::ceil(textWidth(*cur_, utf8Text(uiText(t, tb)))));
+}
 
 Point ImguiCanvas::measureBox(std::wstring_view t, int width, unsigned flags) {
-    const std::string s = utf8Text(t);
+    std::wstring tb;
+    const std::string s = utf8Text(uiText(t, tb));
     const float lh = lineHeight(*cur_);
     if (!(flags & draw::kWrap)) return {int(std::ceil(textWidth(*cur_, s))), int(std::ceil(lh))};
     const std::vector<std::string> lines = wrapLines(*cur_, s, float(width));

@@ -74,8 +74,12 @@ const stardraft::Command* tableCommand(int id) {
 
 bool sdlDataUndo(bool redo);  // (sdl_data.inc: undo and redo in the Data workspace)
 
+bool sdlOptionsRuns(int id);     // (sdl_options.inc: the Program options commands)
+bool sdlOptionsCommand(int id);
+
 // Whether the SDL program runs the command now. The others are grayed, and their keys do nothing.
 bool sdlRuns(int id) {
+    if (sdlOptionsRuns(id)) return true;
     switch (id) {
     case ID_FILE_OPEN:
     case ID_FILE_SAVE:
@@ -130,8 +134,10 @@ bool sdlEnabled(int id) {
     return commandForMode(id, projectMode());
 }
 
-// The menu item's text without the access keys ('&').
+// The menu item's text in the program's language (the tables have it with its access keys, as the Windows menus add
+// it), without the access keys ('&').
 std::wstring accessFree(std::wstring s) {
+    s = tr(s);
     std::erase(s, L'&');
     return s;
 }
@@ -339,6 +345,7 @@ void command(int id) {
         return confirmReplace([id] { commandPortable(gState, id); });
     if (commandPortable(gState, id)) return;
     if (sdlProjectCommand(id)) return;
+    if (sdlOptionsCommand(id)) return;  // (sdl_options.inc: the theme, the language, the program's options)
     switch (id) {
     case ID_FILE_OPEN: confirmReplace([] {
             showFileDialog(false, [](const fs::path& p) {

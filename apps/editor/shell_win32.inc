@@ -401,3 +401,5 @@ void shellLogNewBuild() {
     gLog.errors = 0, gLog.latestError = false;
     if (gLog.wnd) InvalidateRect(gLog.wnd, nullptr, FALSE);
 }
+// --- Program options and feedback ---
+fs::path shellFeedbackFolder() { return crash::folder().parent_path() / "feedback"; }

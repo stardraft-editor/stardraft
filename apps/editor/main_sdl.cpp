@@ -9,6 +9,7 @@
 // --snapshot: draws one frame without a window (SDL_VIDEODRIVER=offscreen needs no display), writes it, exits.
 // --silent: a test run that drives the window plays no sound (a snapshot plays none either).
 // --log: the Log is open; --build: Build runs first (a snapshot then shows its lines in the Log).
+// --theme light|dark, --accent <n>, --lang <code>: the theme, the accent and the language for this run (not saved).
 // The StarCraft install: --install, then STARDRAFT_INSTALL, the folder chosen before, then the usual folders of each
 // system (core/install_search.inc); when none opens, the window asks for the folder.
 
@@ -42,6 +43,7 @@
 #include "view.h"
 #include "wintypes.h"
 #include "text_codec.h"
+#include "http.h"  // apps/common: one HTTPS request (core/feedback_send.inc: Send in Report feedback)
 #include "canvas_imgui.h"
 #include "sdl_host.h"
 #include "core/tr.h"
@@ -203,7 +205,9 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
-    std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg;
+    std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, themeArg, langArg;
+    int accentArg = -1;
+    gSelfPath = argc > 0 ? argv[0] : "";  // (Restart now starts it again, sdl_options.inc)
     bool rectArg = false, previewArg = false, logArg = false, buildArg = false;
     int width = 1600, height = 1000;
     float scaleArg = 0;
@@ -224,6 +228,9 @@ int main(int argc, char** argv) {
         else if (a == "--scriptpreview") previewArg = true;  // the Project page's script preview on (not saved), for a snapshot
         else if (a == "--log") logArg = true;  // the Log open (View > Log), for a snapshot
         else if (a == "--build") buildArg = true;  // Build (Ctrl+B) runs first: its lines go to the Log, for a snapshot
+        else if (a == "--theme") themeArg = next();  // light or dark: the theme for this run (not saved), for a snapshot
+        else if (a == "--accent") accentArg = std::atoi(next().c_str());  // the accent's number (theme::kAccents), for a snapshot
+        else if (a == "--lang") langArg = next();  // en, ko, es, ru or zh: the language for this run (not saved), for a snapshot
         else if (a == "--silent") gSilent = true;
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
@@ -260,6 +267,8 @@ int main(int argc, char** argv) {
             gStartView.dataError = widen(gDataError);  // the start page keeps the reason (the status bar's text goes)
         }
         loadDock();  // the dock layout in the settings (core/dock_prefs.inc), as the Windows program at its start
+        loadLanguageSdl(langArg);  // the language (sdl_options.inc): the canvas translates with it from the first frame
+        loadThemeSdl(themeArg, accentArg);  // the theme and the accent in the settings
         if (previewArg) gDock.scriptPreview = true;
         registerMapCommands();  // the Map workspace's command table (core/map_commands.inc): the menus and keys read it
         registerWorkspaceView(Workspace::Files, gFilesPage);  // the Assets / Files workspace (sdl_files.inc)
@@ -338,6 +347,7 @@ int main(int argc, char** argv) {
             if (!host.show(root, L"StarDraft", width, height)) return std::fprintf(stderr, "could not open a window\n"), 1;
             updateTitle();  // (the window exists now: its title is the open map's)
             if (!gDataOk) shellPost(askInstallFolder);  // no install was found: the window asks for its folder
+            sendPendingFeedback();  // feedback that could not go before (core/feedback_send.inc)
             host.setAnimating(true);  // (the map and the posted work need frames; see shellPost)
             host.run();
         }

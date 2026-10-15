@@ -40,6 +40,14 @@ SDL_GPUTexture* uploadRgba(SDL_GPUDevice* device, int w, int h, const uint8_t* r
 std::string utf8Text(std::wstring_view w);
 size_t utf8Next(const std::string& s, size_t i);
 
+// The program's language: the canvas's text, its measures and the windows' titles go through the translator first, as
+// the Windows program's DrawTextW, GetTextExtentPoint32W and SetWindowTextW wrappers do (apps/editor/ui_text.h). It
+// returns false when the text has no translation (the text is drawn as it is). Null (the default): no translation.
+using TextTranslator = bool (*)(std::wstring_view text, std::wstring& translated);
+void setTextTranslator(TextTranslator translator);
+// The text as the screen shows it: `t`, or its translation (kept in `buf`).
+std::wstring_view uiText(std::wstring_view t, std::wstring& buf);
+
 class ImguiCanvas final : public draw::Canvas {
 public:
     // Draws into `list` (made with ImGui::GetDrawListSharedData(), reset for the frame). `device` makes the textures.

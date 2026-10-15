@@ -2002,3 +2002,4 @@ Triggers do not run each second, so they can miss Exactly. Use At least or At mo
 Shift+drag paints 	Shift+드래그: 
 ; drag paints 	; 드래그: 
 Shift+drag: no terrain	Shift+드래그: 지형 없음
+Automatic (the language of the system)	자동(시스템 언어)

@@ -26,8 +26,11 @@
 #include <utility>
 #include <vector>
 
+#include <mutex>
+
 #include "tr.h"
 #include "text_codec.h"
+#include "http.h"  // apps/common: one HTTPS request (core/feedback_send.inc)
 #include "text_field.h"  // the kit's text field (the tool strip's number edit); outside core.inc's namespace
 #include "view.h"
 #include "../shell.h"
