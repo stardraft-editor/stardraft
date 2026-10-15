@@ -9,7 +9,7 @@ texts follow.
 |---|---|
 | `include/stardraft/`, `src/` | The library, without a window or a GPU: map files (`chk`, `map_file`: scenario.chk and the .scm/.scx archive), game data from the install (`game_data`: CASC), tilesets and ISOM terrain, units, sprites and iscript (`sprites`), doodads, locations, strings, the editor document with undo (`editor`), a classic map's unit, upgrade and tech settings (`classic_settings`) and triggers (`classic_triggers`), .dat editing (`dat_edit`, `dat_extras`), EUD projects and euddraft (`eud_project`, `euddraft`), triggers and their epScript (`triggers`), keys and mouse (`msqc`), briefings, portraits. |
 | `src/render/`, `shaders/` | The map view's renderer: SDL3 GPU (Direct3D 12 on Windows, Vulkan on Linux, Metal on macOS). HLSL, compiled to DXIL by `dxc` at build time; the SPIR-V and MSL in `shaders/gen/` are generated (see below). |
-| `apps/editor/` | The Windows program. `main.cpp` is the shell and most workspaces; the `.inc` files are parts of it: `ui_kit.inc` (the control kit), `data_extras.inc` (Strings, Buttons, requirements, unit display), `briefing_view.inc`, `files_view.inc`, `sound_files.inc`, `project_view.inc`, `kit_gallery.inc` (View > Control kit), `tiles_view.inc` (Terrain mode's Rectangle: the tools on tiles as they are, and the grid of every tile), `classic_settings.inc` (Scenario > Classic settings: a classic map's unit, upgrade and tech settings), `classic_triggers.inc` (Scenario > Classic triggers: a classic map's TRIG), `trigger_help.inc` (the block help page on F1, the fixes for heavy triggers, a euddraft error that selects its block), `trigger_selftest.inc` (the self-test's checks of those). |
+| `apps/editor/` | The Windows program. `main.cpp` is the shell and most workspaces; the `.inc` files are parts of it: `ui_kit.inc` (the control kit), `data_extras.inc` (Strings, Buttons, requirements, unit display), `briefing_view.inc`, `files_view.inc`, `sound_files.inc`, `project_view.inc`, `kit_gallery.inc` (View > Control kit), `tiles_view.inc` (Terrain mode's Rectangle: the Tiles panel's windows, the preview on the map and the datashots; the panel itself is `core/views_tiles.inc`), `classic_settings.inc` (Scenario > Classic settings: a classic map's unit, upgrade and tech settings), `classic_triggers.inc` (Scenario > Classic triggers: a classic map's TRIG), `trigger_help.inc` (the block help page on F1, the fixes for heavy triggers, a euddraft error that selects its block), `trigger_selftest.inc` (the self-test's checks of those). |
 | `src/data/` | Generated tables (see below). Do not edit them by hand. |
 | `tools/` | Tools (each a CMake target) and the UI text lint. `tools/tests/`: the test programs; `tools/probes/`: one-off programs from finding out how the game works. |
 | `docs/` | `dev/`: this guide, the principles, the control kit. `project/`: the roadmap, how feedback is used. `user/`: the changelog. |
@@ -35,15 +35,54 @@ Start or the taskbar. It also makes project.stardraft files open with it:
 The window title shows when the build was made. The first build takes long: CMake fetches SDL3, StormLib, CascLib,
 stb and libvpx.
 
+### The SDL program on Windows (stardraft-sdl.exe)
+
+StarDraft is moving to one program for Windows, macOS and Linux: the SDL program (`apps/editor/main_sdl.cpp` and its
+`sdl_*.inc` files, which draw the portable views in `apps/editor/core`). On Windows it is `stardraft-sdl.exe` (CMake
+target `stardraft_sdl`), built with MSVC beside `stardraft.exe` until it replaces that one. It uses the same settings
+file and StarCraft folder as `stardraft.exe`.
+
+    cmake -S . -B build
+    cmake --build build --config Release --target stardraft_sdl
+    build\Release\stardraft-sdl.exe [map]
+
+The `res` and `fonts` folders next to the program must stay with it. A snapshot draws one frame without a window
+and writes it as a PNG; a snapshot run asks nothing, sends nothing and changes no settings:
+
+    set SDL_VIDEODRIVER=offscreen
+    build\Release\stardraft-sdl.exe [map] --snapshot out.png
+    build\Release\stardraft-sdl.exe [map] --workspace triggers --snapshot out.png
+    build\Release\stardraft-sdl.exe [map] --dialog options --size 720x820 --snapshot out.png
+
+The comments on the options in `main()` of `main_sdl.cpp` (`--workspace`, `--dialog`, `--data`, ...) say what a
+snapshot can show. `tools/sdl_snapshots.py` takes one snapshot of each workspace and dialog and checks each one
+(`--help` tells how; `--install`, `--map` and `--project` add the cases that need them):
+
+    python -I tools/sdl_snapshots.py --exe build\Release\stardraft-sdl.exe --out snapshots
+
+GitHub builds `stardraft-sdl.exe` on each push (the job windows-sdl), runs `sdl_snapshots.py` on it and keeps the
+snapshots (with no game data: no map) and the program in a zip with the run. GitHub's Windows machines have no
+GPU: there Direct3D 12 draws on the CPU (WARP), and a failed snapshot does not stop the run.
+
 ### Linux and macOS
 
 The library, the tools and the tests also build on Linux (GCC or Clang) and macOS (Xcode's Clang); GitHub builds
-them on each push. The editor is Windows only; the renderer and its tests use Vulkan on Linux and Metal on macOS.
+them on each push. The SDL program builds there as `stardraft` (target `stardraft_editor`); `stardraft.exe` (the
+Win32 program) is Windows only. The renderer and its tests use Vulkan on Linux and Metal on macOS.
 On Linux, SDL needs the X11 or Wayland headers (SDL's `docs/README-linux.md`), or `-DSDL_UNIX_CONSOLE_BUILD=ON`
 for the tools only; `-DSTARDRAFT_RENDERER=OFF` builds without SDL.
 
     cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
     cmake --build build
+
+To run the SDL program and take its snapshots (the same options as on Windows):
+
+    build/stardraft [map]                                        # Linux
+    open build/stardraft.app --args [map]                        # macOS
+    python3 -I tools/sdl_snapshots.py --exe build/stardraft --out snapshots
+    python3 -I tools/sdl_snapshots.py --exe build/stardraft.app/Contents/MacOS/stardraft --out snapshots   # macOS
+
+The `res` and `fonts` folders next to `stardraft` (on macOS, in the app) must stay with it.
 
 The renderer's tools render offscreen; with no display, set `SDL_VIDEODRIVER=offscreen`. On Windows,
 `STARDRAFT_GPU_DRIVER=vulkan` (an environment variable) makes the renderer, the editor's map view included, use
@@ -114,6 +153,8 @@ The tool does not see the self-test, the kit gallery, log lines and the theme co
 | `mouse:<x>:<y>` | The next captures show the data form as if the mouse were at that place of it (hover states: number arrows, grid labels). The real mouse does not move. |
 | `ws:map`, `ws:data`, `ws:triggers`, `ws:briefing`, `ws:files`, `ws:project` | A workspace as it opens. |
 | `trig:<root>:<index>...` | The Triggers workspace with that node selected. |
+| `trigsel:<action>` | After `trig:` (a trigger): that action selected, its first value focused and the mouse on its row: the row's buttons and the info strip (`trigsel_<action>.png`). |
+| `trigtree:` | The Triggers tree by its keys and mouse: F2 and a typed name rename a trigger, a drag moves it into On every trigger cycle (`trigtree.png`), Delete deletes it; `trigtree.txt` says what holds. Put `project:` before it. |
 | `kit:` | The control kit's gallery, page by page. |
 | `perf:` | `perf.txt`: start-up steps, opening the file, each workspace's first show and paint, the map frame, memory. |
 | `view:sd`, `view:hd2`, `view:hd`, `view:carbot`, `cam:<x>:<y>:<zoom>` | The next captures use those graphics, and the map view centered on map pixel (x, y) at that zoom (1 = 100%). |
@@ -122,11 +163,15 @@ The tool does not see the self-test, the kit gallery, log lines and the theme co
 | `btnpop:`, `scriptpreview:`, `trigtext:...` | Pop-outs and panes. |
 | `blockhelp:<block id>` | The help page of a trigger block (F1), as `blockhelp_<id>.png`. Put `theme:light:0` before it for the light theme. |
 | `drawtest:` | D.2: a project `DrawFunctionTest` with one unit type for each draw function (created by a trigger at the start, in a 4 x 4 grid), built; `drawtest_reference.png` is StarDraft's picture of the same, `drawtest.txt` the grid. Play the map and compare. |
+| `projectpage:` | A test project `ProjectPage` in the datashots folder (its build option EUD Turbo on), with the Project workspace shown. Use with `ws:project` and `scriptpreview:` (the script preview). `projectpage.txt` says where it is and its scripts. |
 | `remaketest:`, `remake:on`, `remake:off` | R8: a project `RemakeTest` whose Terran Marine has the Terran Firebat's graphics, with preplaced marines and New graphics for preplaced units on, built. `remake.txt`: the changed unit types, the build and `generated/remake.eps`. `remake:on|off` sets the option for the next captures (`viewshot:`). |
 | `classiccorpus:<folder>` | L.1 on a map corpus: opens each .scm, .scx and .chk under the folder by itself (classic mode), checks the rail, the grayed project commands, Build and Data refused, "(map)" in the title, Briefing and Assets, then saves it unchanged and compares each CHK section. `classiccorpus.txt`: a line per map and the totals. Protected maps do not open. |
 | `classic:`, `classic:set` | L.3: the Classic settings window, each tab (`classic_units.png`, `classic_upgrades.png`, `classic_tech.png`). With `set`: the marine, Terran Infantry Armor and Stim Packs set through the fields, OK, saved and opened again, then undone; `classic.txt` says what holds. Open a classic map (not a project). |
 | `classictrig:`, `classictrig:set`, `classicproject:` | L.2: the Classic triggers window (`classic_triggers.png`, `_light` in the light theme). With `set`: a trigger made through the window (player 1, Bring, Create unit, a text), OK, saved and opened again, undone. `classicproject:` (L.4): the map made a project, its sections compared, Classic triggers opened in the project. `classictrig.txt`, `classicproject.txt` say what holds. Open a classic map. |
 | `classictrig:<state>`, the states: `search` (a search with results), `off` (a turned-off trigger), `add` (the add-action picker, `classictrig_popout_add.png`; the Blocks group only when `kClassicBatchesOffered` is on), `value` and `text` (a number and a text pop-out, OK and Cancel), `forces` and `values` (the multi-pick lists), `blockdlg` (the block dialog), `menu` (the right-click menu). Each pop-out is captured by its own timer in its modal loop (`classictrig_popout_<state>.png`) and closed without a change; the page is `classic_triggers_<state>.png`. Put `theme:light:0` before a spec for the light theme and `dpi:192` for 200 %: the names get `_light` and `_200`. Each state undoes what it changed. `classictrig.txt` says what holds. Open a classic map (use a copy with a simple name, e.g. `fortress.scm`, the install path with parentheses fails silently). |
+| `unitprops:<n>`, `unitprops:u<type>` | The Unit properties dialog of unit n (`unitprops:` is unit 0), captured in a background run and closed with Cancel: `unitprops_<n>.png`. With `u<type>` a unit of that type is placed for Player 1 first (`unitprops_u<type>.png`; `u1`, the Terran Ghost, has three state boxes, `u72`, the Protoss Carrier, a hangar). Put `project:` first for the enabled Edit unit type button. |
+| `locprops:` | The Location properties dialog of a new location (512, 512 to 704, 640), captured in a background run: `locprops.png`, then with Right at 0 (the error line, OK off): `locprops_wrong.png`. Closed with Cancel; the new location is undone. |
+| `prompt:<text>` | The text prompt (Rename location) with `<text>` in its field, captured in a background run and closed with Cancel: `prompt.png`. In a background run the field does not take the keyboard, so the text is not selected. |
 | `classictrig:batch` | R23: a trigger for Player 1 with a block "For each unit" (Terran Marine, Terran Ghost, Zerg Zergling) that holds a block "For each player" (Player 1, Player 2), and Create unit in the inner block: its unit is the outer variable, its player the inner one; the inner block is selected. `classic_triggers_batch.png` (`_light` in the light theme); `classictrig.txt` says that the action picker offers new blocks only when they are on, that the blocks read back the same after Apply and after a save and reopen, and how many undo steps take the page's changes back. Open a classic map. |
 | `tiles:[<search>]` | N.7: Terrain mode in Rectangle, the Tiles grid's search set, the first tile with a picture picked: `tiles.png` and `tiles_panel.png`; `datashots.txt` counts the tiles shown and the null tiles. |
 | `tilesplace:[<tile value>]` | After `tiles:`: places the picked tile on one tile and as a 6 x 4 rectangle in the middle of the map (`tiles_placed.png`), then paints a brush beside them (`tiles_brushed.png`); `datashots.txt` says how many placed tiles stay. |
