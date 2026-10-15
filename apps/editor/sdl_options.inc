@@ -64,7 +64,7 @@ void OptionsProgramSdl::setVolume(int value) {
     saveDock();
     gOptionsView.invalidate();
 }
-void OptionsProgramSdl::browseWorkingFolder() { setMessage(shellTr(L"Choosing a folder is not on this system yet")); }
+void OptionsProgramSdl::browseWorkingFolder() { setMessage(shellTr(L"Selecting a folder is not on this system yet")); }
 void OptionsProgramSdl::useDefaultWorkingFolder() {
     gProjectsFolder.clear();
     saveRecent();

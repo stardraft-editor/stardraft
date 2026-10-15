@@ -94,7 +94,7 @@ void previewToggleSdl(const std::string& name) {
 // The map the dialog was opened for (target): when another map is open now, nothing is imported into it.
 void importSoundFilesSdl(const std::vector<fs::path>& files, const Editor* target) {
     if (!gState.ed || !gState.ed->isOpen()) return setMessage(L"Open a map first: the sounds go into the map");
-    if (gState.ed.get() != target) return setMessage(L"The map changed while you chose the sounds: nothing was imported");
+    if (gState.ed.get() != target) return setMessage(L"The map changed while you selected the sounds: nothing was imported");
     std::vector<ArchiveFile> read;
     std::vector<std::string> added;
     for (const fs::path& f : files) {
