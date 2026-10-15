@@ -20,40 +20,7 @@
 #include <string_view>
 #include <unordered_map>
 
-enum class UiLang { English, Korean, Spanish, Russian, Chinese };  // Chinese: simplified
-inline UiLang gUiLang = UiLang::English;  // the language in use (set at the start, see uiLanguageChosen)
-
-struct UiText {
-    const wchar_t* en;
-    const wchar_t* text;
-};
-#include <span>
-std::span<const UiText> langTableKo();  // res/lang/ko.cpp: the Korean translations (generated)
-std::span<const UiText> langTableEs();  // res/lang/es.cpp: the Spanish translations (generated)
-std::span<const UiText> langTableRu();  // res/lang/ru.cpp: the Russian translations (generated)
-std::span<const UiText> langTableZh();  // res/lang/zh.cpp: the Chinese (simplified) translations (generated)
-
-inline const std::unordered_map<std::wstring_view, const wchar_t*>& uiTable(UiLang lang) {
-    auto make = [](std::span<const UiText> rows) {
-        std::unordered_map<std::wstring_view, const wchar_t*> m;
-        for (const UiText& e : rows) m.emplace(e.en, e.text);
-        return m;
-    };
-    static const auto ko = make(langTableKo()), es = make(langTableEs()), ru = make(langTableRu()), zh = make(langTableZh());
-    return lang == UiLang::Korean ? ko : lang == UiLang::Spanish ? es : lang == UiLang::Russian ? ru : zh;
-}
-
-// The translation of an English text (a pointer into the tables, or the text itself: it stays valid as long as it was).
-inline const wchar_t* tr(const wchar_t* english) {
-    if (!english || gUiLang == UiLang::English) return english;
-    const auto& m = uiTable(gUiLang);
-    const auto it = m.find(std::wstring_view(english));
-    return it == m.end() ? english : it->second;
-}
-
-inline std::wstring tr(const std::wstring& english) {
-    return gUiLang == UiLang::English ? english : std::wstring(tr(english.c_str()));
-}
+#include "ui_lang.h"  // the portable part: the languages and tr (no Win32)
 
 // The language to use: STARDRAFT_LANG (en, ko or es, for test runs) wins, then the setting (auto, en, ko or es),
 // and automatic is the language of Windows' user interface.
