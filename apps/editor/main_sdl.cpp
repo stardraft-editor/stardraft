@@ -85,8 +85,9 @@ namespace {
 
 // The StarCraft install: --install, STARDRAFT_INSTALL, the folder the user chose before (the setting StarCraftFolder),
 // then the usual folders of this system (core/install_search.inc). The first folder whose game data opens is the install.
-// Returns false when none opens; the window then asks for the folder (askInstallFolder).
-bool openInstall(const std::string& given) {
+// Returns false when none opens; the window then asks for the folder (askInstallFolder). lastErr is the first error the
+// game data gave for a folder that exists (CASC's text), so a damaged install says why.
+bool openInstall(const std::string& given, std::string& lastErr) {
     std::vector<fs::path> candidates;
     if (!given.empty()) candidates.push_back(given);
     if (const char* e = std::getenv("STARDRAFT_INSTALL"); e && *e) candidates.push_back(e);
@@ -102,10 +103,13 @@ bool openInstall(const std::string& given) {
         for (const fs::path& p : installCandidatesOf(system, fs::path(h))) candidates.push_back(p);
     }
     std::error_code ec;
-    std::string err;
     for (const fs::path& c : candidates)
-        for (const fs::path& t : installTries(c))
-            if (fs::is_directory(t, ec) && gState.data.open(t, err)) return true;
+        for (const fs::path& t : installTries(c)) {
+            if (!fs::is_directory(t, ec)) continue;
+            std::string err;
+            if (gState.data.open(t, err)) return true;
+            if (lastErr.empty()) lastErr = err;
+        }
     return false;
 }
 
@@ -126,11 +130,13 @@ void useInstallFolder(const std::string& picked) {
         if (fs::is_directory(t) && gState.data.open(t, err)) {
             prefs::setText(L"StarCraftFolder", t.wstring());
             gDataOk = true, gDataError.clear();
+            gStartView.dataError.clear();
             if (gRoot) gRoot->relayout(), gRoot->invalidate(), gRoot->map.invalidate();
             setMessage(L"The StarCraft folder is set");
             return;
         }
     kit::messageBox(*gRoot, shellTr(L"Not a StarCraft: Remastered folder"), widen(err.empty() ? picked : err), {L"OK"}, kit::MessageIcon::Warning);
+    askInstallFolder();  // asks again: the folder above the install is a common pick
 }
 
 // The PNG of the window's pixels, from the snapshot's texture (RGBA8, as the snapshot makes it).
@@ -207,8 +213,13 @@ int main(int argc, char** argv) {
         if (!kit_sdl::loadIconAtlases(device, base + "res/")) std::printf("stardraft_editor: no icon atlases in res/\n");
 
         // The game data (the map needs it), then the map from the command line.
-        if (openInstall(installArg)) gDataOk = true;
-        else gDataError = "No StarCraft install found: choose the StarCraft folder, or start with --install <folder>, or STARDRAFT_INSTALL";
+        std::string dataErr;
+        if (openInstall(installArg, dataErr)) gDataOk = true;
+        else {
+            gDataError = "No StarCraft install found: choose the StarCraft folder, or start with --install <folder>, or STARDRAFT_INSTALL";
+            if (!dataErr.empty()) gDataError += ". Game data: " + dataErr;
+            gStartView.dataError = widen(gDataError);  // the start page keeps the reason (the status bar's text goes)
+        }
         registerMapCommands();  // the Map workspace's command table (core/map_commands.inc): the menus and keys read it
         registerWorkspaceView(Workspace::Files, gFilesPage);  // the Assets / Files workspace (sdl_files.inc)
         initStartPage();  // the start page's callbacks (sdl_start.inc)

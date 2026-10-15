@@ -80,8 +80,10 @@ void previewToggleSdl(const std::string& name) {
 
 // Imports the sound files of the dialog into the map (staredit\wav\<file name>), as one undo step; a file that does not
 // decode is named in the status bar. The first one that came in is selected.
-void importSoundFilesSdl(const std::vector<fs::path>& files) {
+// The map the dialog was opened for (target): when another map is open now, nothing is imported into it.
+void importSoundFilesSdl(const std::vector<fs::path>& files, const Editor* target) {
     if (!gState.ed || !gState.ed->isOpen()) return setMessage(L"Open a map first: the sounds go into the map");
+    if (gState.ed.get() != target) return setMessage(L"The map changed while you chose the sounds: nothing was imported");
     std::vector<ArchiveFile> read;
     std::vector<std::string> added;
     for (const fs::path& f : files) {
@@ -104,11 +106,12 @@ void importSoundFilesSdl(const std::vector<fs::path>& files) {
 }
 
 // The open dialog's answer (SDL's thread): the UI thread imports the files.
-void soundFilesPicked(void*, const char* const* list, int) {
+void soundFilesPicked(void* userdata, const char* const* list, int) {
     std::vector<fs::path> files;
     for (int i = 0; list && list[i]; ++i) files.push_back(fs::path(list[i]));
     if (files.empty()) return;
-    shellPost([files] { importSoundFilesSdl(files); });
+    const Editor* target = static_cast<const Editor*>(userdata);
+    shellPost([files, target] { importSoundFilesSdl(files, target); });
 }
 
 // The Files page's program parts (core/views_files.inc: FilesHost).
@@ -124,7 +127,7 @@ public:
     void previewStop() override { previewStopSdl(); }
     std::vector<std::string> importSounds() override {  // (the dialog answers later: no name is added now)
         static const SDL_DialogFileFilter kSounds[] = {{"Sounds (WAV, OGG)", "wav;ogg"}};
-        SDL_ShowOpenFileDialog(soundFilesPicked, nullptr, dialogWindow(), kSounds, 1, nullptr, true);
+        SDL_ShowOpenFileDialog(soundFilesPicked, gState.ed.get(), dialogWindow(), kSounds, 1, nullptr, true);  // (the map it opens for)
         return {};
     }
     bool askName(const std::wstring&, std::wstring&) override {  // (the rename box is not on this system yet)

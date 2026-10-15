@@ -50,6 +50,8 @@ public:
     std::function<std::wstring(const fs::path&)> dateOf;
     // The host's scroll bar for the page after a paint that changed it: the largest position, the page size, the position.
     std::function<void(int, int, int)> scrollInfo;
+    // Why the game data is not open (the host sets it; empty when it is open): the page says so under the notice.
+    std::wstring dataError;
 
     // The card the keyboard is on (0 or 1); Left, Right and Tab move it, Enter and Space open it.
     void setCard(int k) {
@@ -202,6 +204,11 @@ public:
         const Rect nr{x1 + scale(22), ny, x1 + cw, ny + scale(200)};
         c.text(nr, kStartNotice, kDim, kWrap | kLeft);
         y = nr.top + c.measureBox(kStartNotice, nr.width(), kWrap).y;
+        if (!dataError.empty()) {  // no game data: why the maps cannot open, under the notice
+            const Rect er{x1, y + scale(16), x1 + cw, y + scale(16) + scale(400)};
+            c.text(er, dataError, kWarn, kWrap | kLeft);
+            y = er.top + c.measureBox(dataError, er.width(), kWrap).y;
+        }
 
         const int bh2 = y - startY;
         if (bh2 != blockH_) {  // the height changed (a row came or went): paint again, in the middle
