@@ -3,4 +3,5 @@
 // headers, so a Win32 call that comes into the core breaks the build at once (the ratchet). A file moves in here when it
 // has no Win32 call left; it never moves back.
 
+#include "strings.inc"
 #include "colors.inc"
