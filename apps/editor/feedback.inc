@@ -107,7 +107,7 @@ std::wstring feedbackThingIn(HWND w, POINT pt) {
     // The pane, by its window class (the painted panes).
     static const std::pair<const wchar_t*, const wchar_t*> panes[] = {
         {L"StarDraftViewport", L"the map"},        {L"StarDraftMinimap", L"the minimap"},       {L"StarDraftDataList", L"the data list"},
-        {L"StarDraftDataForm", L"the data form"},  {L"StarDraftTrigPane", L"the trigger"},       {L"StarDraftQuickPick", L"the quick picker"},
+        {L"StarDraftDataForm", L"the data form"},  {L"StarDraftTrigPane", L"the trigger"},
         {L"StarDraftTrigEditor", L"the triggers"},
     };
     if (_wcsicmp(cls, MSFTEDIT_CLASS) == 0) return L"the code";

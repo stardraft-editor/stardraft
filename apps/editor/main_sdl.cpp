@@ -91,6 +91,7 @@ bool gSilent = false;
 #include "sdl_map_pages.inc"  // the map pages: Properties, Players and forces, Data (core/views_map_pages.inc and its views)
 #include "sdl_new_page.inc"  // the New page (core/views_new_page.inc)
 #include "sdl_options.inc"  // Program options and Report feedback (core/views_options.inc, core/views_feedback.inc)
+#include "sdl_map_dialogs.inc"  // Unit and Location properties, the text prompt, the quick picker and the map's menu
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
 #include "sdl_data.inc"  // the Data workspace (the model is core/data_list.inc and core/views_data*.inc; the tables are the stock .dat files)
 #include "shell_sdl.inc"
@@ -203,7 +204,7 @@ int main(int argc, char** argv) {
         else if (a == "--workspace") workspaceArg = next();  // a workspace's name (map, data, triggers, project...), for a snapshot
         else if (a == "--data") dataArg = next();  // tab:entry (units:0, images:239, strings:5): the Data workspace opens it, for a snapshot
         else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
-        else if (a == "--dialog") dialogArg = next();  // options or feedback: that window's view is the snapshot (--size its size)
+        else if (a == "--dialog") dialogArg = next();  // options or feedback (--size its size), or unitprops, locprops, prompt or quick: that view is the snapshot
         else if (a == "--silent") gSilent = true;
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
@@ -268,6 +269,9 @@ int main(int argc, char** argv) {
         std::printf("stardraft_editor: GPU %s, %s\n", renderer.driver(), gDataOk ? "game data" : gDataError.c_str());
 
         if (!snapshot.empty()) {
+            // A map's dialog (--dialog unitprops|locprops|prompt|quick, sdl_map_dialogs.inc) is the picture at its own size.
+            MapDialogShot mapShot;
+            if (mapDialogShot(dialogArg, mapShot)) width = mapShot.size.x, height = mapShot.size.y;
             // A few frames: the first fills the font atlas with the glyphs the text needs; the last is the picture.
             SDL_GPUTextureCreateInfo ti{};
             ti.type = SDL_GPU_TEXTURETYPE_2D;
@@ -281,6 +285,7 @@ int main(int argc, char** argv) {
             draw::View* shown = &root;
             if (dialogArg == "options") shown = &gOptionsView;
             else if (dialogArg == "feedback") shown = &feedbackShot;
+            else if (mapShot.view) shown = mapShot.view;
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             const bool ok = writeSnapshot(device, tex, width, height, snapshot);

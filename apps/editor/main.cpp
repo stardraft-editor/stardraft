@@ -465,6 +465,8 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_unit_props.inc"  // Unit properties (UnitPropsView, runUnitPropsDialog; the host is showUnitProperties)
 #include "core/views_location_props.inc"  // Location properties (LocationPropsView, runLocationPropsDialog; the host is showLocationEdit)
 #include "core/views_text_prompt.inc"  // the text prompt (TextPromptView, runTextPrompt; the host is prompt)
+#include "core/views_map_menu.inc"  // the map's right-click menu and a location's menu (mapMenuModel, mapMenuPick, locationMenuModel)
+#include "core/views_quick_pick.inc"  // the quick picker (QuickPickView, the rows, the filter, quickPickRun; the host is showQuickPicker)
 #include "core/views_start.inc"  // the start page (StartView: the cards, the recent list, Open; the instance is gStartView in new_page.inc)
 #include "core/views_new_page.inc"  // the New page (NewPageView: the settings, the generator, the preview; the host is new_page.inc)
 #include "core/views_new_page_paint.inc"
@@ -1091,53 +1093,9 @@ bool gBackground = false;  // self-test / screenshot run: never activate a windo
 // program's anchor, with Location properties.)
 bool prompt(const wchar_t* title, std::wstring& text);
 
-void renameSelectedLocation() {
-    Editor& ed = *app.ed;
-    int i = ed.selectedLocation();
-    if (!ed.locationUsed(i)) return;
-    std::wstring name = widen(ed.locationName(i));
-    if (prompt(L"Rename location", name) && !name.empty()) {
-        ed.renameLocation(i, narrow(name));
-        rebuildList();
-        app.dirty = true;
-    }
-}
-
-// A location's right-click menu (Locations tool): rename, delete, and the elevations that are in the location
-// (MRGN elevation flags; triggers see units only at the elevations that are checked).
-void command(int id);
-enum { ID_LOCMENU_RENAME = 1, ID_LOCMENU_DELETE, ID_LOCMENU_ALL, ID_LOCMENU_PROPS, ID_LOCMENU_ELEV = 10 /* + the bit */ };
-void showLocationEdit(int loc);
-
-HMENU locationMenu(int loc) {
-    HMENU m = CreatePopupMenu();
-    AppendMenuW(m, MF_STRING, ID_LOCMENU_PROPS, L"P&roperties\x2026\tEnter");
-    AppendMenuW(m, MF_STRING, ID_LOCMENU_RENAME, L"Re&name\tF2");
-    AppendMenuW(m, MF_STRING, ID_LOCMENU_DELETE, L"&Delete\tDel");
-    AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(m, MF_STRING | MF_GRAYED, 0, L"Elevations in the location");
-    const uint16_t excluded = app.ed->locationElevation(loc);
-    for (int k = 0; k < 6; ++k) AppendMenuW(m, MF_STRING | (excluded & (1 << k) ? 0 : MF_CHECKED), UINT_PTR(ID_LOCMENU_ELEV + k), kElevationNames[k]);
-    AppendMenuW(m, MF_STRING | (excluded ? 0 : MF_GRAYED), ID_LOCMENU_ALL, L"&All elevations");
-    return m;
-}
-
-void locationMenuPick(int loc, int pick) {
-    Editor& ed = *app.ed;
-    if (!ed.locationUsed(loc)) return;
-    ed.selectLocation(loc);
-    if (pick == ID_LOCMENU_PROPS) showLocationEdit(loc);
-    else if (pick == ID_LOCMENU_RENAME) renameSelectedLocation();
-    else if (pick == ID_LOCMENU_DELETE) command(ID_EDIT_DELETE);
-    else if (pick == ID_LOCMENU_ALL && ed.setLocationElevation(loc, 0)) setMessage(widen(ed.locationName(loc)) + L": all elevations are in the location");
-    else if (pick >= ID_LOCMENU_ELEV && pick < ID_LOCMENU_ELEV + 6) {
-        const uint16_t bit = uint16_t(1 << (pick - ID_LOCMENU_ELEV));
-        ed.setLocationElevation(loc, ed.locationElevation(loc) ^ bit);
-        const bool in = !(ed.locationElevation(loc) & bit);
-        setMessage(widen(ed.locationName(loc)) + L": " + kElevationNames[pick - ID_LOCMENU_ELEV] + (in ? L" is in the location" : L" is not in the location"));
-    }
-    app.dirty = true;
-}
+// The location's rename and its menu are in the core (core/views_map_menu.inc); its Win32 menu (the self-test reads it):
+HMENU toHmenu(const MenuModel& items, bool bar);
+HMENU locationMenu(int loc) { return toHmenu(locationMenuModel(loc), false); }
 
 void openAny(const fs::path& path);
 
@@ -4057,232 +4015,98 @@ UnitPaletteView gPalView{false}, gPal2View{true};
 
 // --- Quick picker (Q) --------------------------------------------------------------------------------
 
-// A box in the middle of the map: type to filter the active mode's things (the palette's fuzzy search, best match
-// first), Up/Down to choose, Enter to place it (a unit, terrain, doodad or sprite), or in Locations to select the
-// location and show it; Esc or clicking elsewhere closes it.
-// In the Data workspace the same box jumps to any entry of any .dat: type a name (and, if you like, the
-// .dat's name: "weapon gauss"), each result shows its .dat; Enter opens it.
-struct QuickPicker {
-    HWND wnd = nullptr, edit = nullptr, list = nullptr;
-    HFONT font = nullptr;  // the UI font, a quarter larger
-    std::vector<PaletteUnit> shown;
-    bool data = false;  // Data workspace: value = tab * 10000 + entry, section = the .dat's title
-    Mode mode = Mode::Units;  // the map mode it picks for
-    bool replace = false;     // Replace with...: the pick replaces the selected units, doodads or sprites
-    bool open = false;        // Quick open: value = an open tab, kRecentProjectRow + recent project, kRecentMapRow + recent map
-    std::vector<std::wstring> words;  // what is typed, word by word (the rows show where each word is in the name)
-    RECT searchRow{};                 // the search row: the icon, the box, the count
-    HWND focus = nullptr;             // the window that had the focus before (it gets it back)
-    std::vector<PaletteUnit> openRows;  // Quick open's rows, made once when it opens
-};
+// The picker is a core view (core/views_quick_pick.inc: QuickPickView, the rows, the filter and what a pick does); this is
+// its Windows host: its window over the map (the Data workspace, or the main window for Quick open), the rows' pictures
+// (the palette's bitmaps) and the focus that goes back after it.
 std::wstring entryName(const std::string& dat, int v);
 const UnitPalette::Bitmap* entryIcon(int tab, int e);
 void dataGoTo(const std::string& dat, int e);
 std::wstring datTitle(const std::string& name);
-QuickPicker gQuick;
-// Quick open's rows (value): an open tab is its index; then these plus the index in the recent list; the last row browses.
-constexpr int kRecentProjectRow = 1000, kRecentMapRow = 2000, kBrowseProjectRow = 3000;
+void quickPickClose();
+QuickPickView gQuickView;
+struct QuickPickWin32 final : QuickPickHost {
+    bool open = false;
+    HWND focus = nullptr;  // the window that had the focus before (it gets it back)
+    bool drawPicture(draw::Canvas& c, QuickPickKind kind, Mode mode, const PaletteUnit& u, draw::Rect box) override {
+        const UnitPalette::Bitmap* bmp = kind == QuickPickKind::Data ? entryIcon(u.value / 10000, u.value % 10000) : unitPaletteBitmap(u.value, mode);
+        // A unit with nothing to show (the palette shows the game's "BLANK" placeholder): the view's dim icon in its place.
+        const bool blank = kind != QuickPickKind::Data && mode == Mode::Units && gBlankUnits.count(u.value);
+        if (!bmp || !bmp->bmp || blank) return false;
+        c.fitted(ui::imageOf(bmp), box);
+        return true;
+    }
+    // After the event that picked (the window goes after it): close, then the pick.
+    void closed(int v) override {
+        const QuickPickKind kind = gQuickView.kind();
+        const bool replace = gQuickView.replacing();
+        shellPost([kind, replace, v] {
+            quickPickClose();
+            quickPickRun(kind, replace, v);
+        });
+    }
+};
+QuickPickWin32 gQuickHost;
 
-void quickPickClose() {
-    if (!gQuick.wnd) return;
-    HWND w = gQuick.wnd, back = gQuick.focus;
-    HFONT f = gQuick.font;
-    gQuick = {};
-    DestroyWindow(w);
-    if (f) DeleteObject(f);
-    // The focus goes back where it was (a hidden view, as the map is in the other workspaces, would take the keys).
+// The picker's window while it is open (the captures), else nullptr.
+HWND quickPickWnd() { return gQuickHost.open ? ui::Win32Host::windowOf(gQuickView) : nullptr; }
+
+// The focus goes back where it was (a hidden view, as the map is in the other workspaces, would take the keys).
+void quickPickFocusBack() {
+    const HWND back = std::exchange(gQuickHost.focus, nullptr);
     if (!gBackground) SetFocus(back && IsWindow(back) && IsWindowVisible(back) ? back : IsWindowVisible(app.view) ? app.view : app.main);
 }
-
-void quickPickChoose() {
-    int i = int(SendMessageW(gQuick.list, LB_GETCURSEL, 0, 0));
-    int v = i >= 0 && i < int(gQuick.shown.size()) ? gQuick.shown[size_t(i)].value : -1;
-    const bool data = gQuick.data, replace = gQuick.replace, open = gQuick.open;
-    quickPickClose();
-    if (open) {
-        if (v >= 0 && v < int(gDocs.size())) activateDoc(v);
-        else if (v >= kRecentProjectRow && v < kRecentProjectRow + kRecentMax) command(ID_RECENT_PROJECT + (v - kRecentProjectRow));
-        else if (v >= kRecentMapRow && v < kRecentMapRow + kRecentMax) command(ID_RECENT_MAP + (v - kRecentMapRow));
-        else if (v == kBrowseProjectRow) command(ID_PROJ_OPEN);
-        return;
-    }
-    if (data) {
-        if (v >= 0) {
-            dataGoTo(DatSchema::all()[size_t(v / 10000)].name, v % 10000);
-        }
-        return;
-    }
-    if (v < 0 || !app.ed) return;
-    if (replace) return replaceSelectionWith(v);
-    if (app.mode == Mode::Locations) {  // select it, and show it in the middle of the view
-        app.ed->selectLocation(v);
-        setListSel(int(std::find(app.items.begin(), app.items.end(), v) - app.items.begin()));
-        const Rect r = app.ed->locationRect(v);
-        RECT vr;
-        GetClientRect(app.view, &vr);
-        app.camX = (r.left + r.right) / 2.0f - vr.right / 2.0f / app.zoom, app.camY = (r.top + r.bottom) / 2.0f - vr.bottom / 2.0f / app.zoom;
-        setMessage(L"Location " + widen(app.ed->locationName(v)));
-        app.dirty = true;
-        return;
-    }
-    pickUnit(v, false);  // a unit, terrain, doodad or sprite of the active mode: place (paint) it
+void quickPickClose() {
+    if (!gQuickHost.open) return;
+    gQuickHost.open = false;
+    gMainAnchor.host.closeWindow(gQuickView);
+    quickPickFocusBack();
 }
 
-// Replace with...: the selected units (each type of them), doodads or sprites become `v`, as one undo step.
-void replaceSelectionWith(int v) {
-    Editor& ed = *app.ed;
-    int n = 0;
-    if (app.mode == Mode::Units) {
-        std::set<uint16_t> types;
-        for (int i : ed.selection())
-            if (i >= 0 && i < int(ed.units().size())) types.insert(ed.units()[size_t(i)].type);
-        ed.beginStroke();
-        for (uint16_t t : types) n += ed.replaceUnits(t, uint16_t(v), true);
-        ed.endStroke();
-        setMessage(L"Replaced " + std::to_wstring(n) + L" units with " + paletteItemName(v));
-    } else if (app.mode == Mode::Doodads) {
-        const int asked = int(app.selDoodads.size());
-        n = ed.replaceDoodads(app.selDoodads, uint16_t(v), app.doodadCheck);
-        app.selDoodads.clear();
-        setMessage(L"Replaced " + std::to_wstring(n) + L" of " + std::to_wstring(asked) + L" doodads (the others: the new one does not fit there)");
-    } else if (app.mode == Mode::Sprites) {
-        n = ed.replaceSprites(app.selSprites, uint16_t(v));
-        setMessage(L"Replaced " + std::to_wstring(n) + L" sprites with " + paletteItemName(v));
+// The self-tests and the captures: the text typed, a key pressed (what the key does runs before this returns).
+void pump();
+void quickPickType(const std::wstring& text) {
+    if (gQuickHost.open) gQuickView.setTyped(text);
+}
+// A capture of the picker's window. Its window is a new top window (off the screen in a background run): the system's
+// compositor shows its paints some frames later (a capture at once can be all black), so the capture waits until the
+// window's pixels are there (at most two seconds).
+bool capture(const fs::path& file, HWND wnd);
+bool windowPixelsShown(HWND w) {
+    RECT r;
+    GetWindowRect(w, &r);
+    const int cw = r.right - r.left, ch = r.bottom - r.top;
+    if (cw <= 0 || ch <= 0) return false;
+    BITMAPINFO bi{};
+    bi.bmiHeader = {sizeof(BITMAPINFOHEADER), cw, -ch, 1, 32, BI_RGB};
+    void* bits = nullptr;
+    HDC screen = GetDC(nullptr), mem = CreateCompatibleDC(screen);
+    HBITMAP bmp = CreateDIBSection(screen, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
+    bool any = false;
+    if (bmp) {
+        HGDIOBJ old = SelectObject(mem, bmp);
+        PrintWindow(w, mem, 2 /* PW_RENDERFULLCONTENT */);
+        GdiFlush();
+        const uint32_t* px = static_cast<const uint32_t*>(bits);
+        for (int i = 0; i < cw * ch && !any; i += 7) any = (px[i] & 0xFFFFFF) != 0;
+        SelectObject(mem, old);
+        DeleteObject(bmp);
     }
-    app.dirty = true;
+    DeleteDC(mem), ReleaseDC(nullptr, screen);
+    return any;
+}
+bool quickPickCapture(const fs::path& file) {
+    const HWND w = quickPickWnd();
+    if (!w) return false;
+    RedrawWindow(w, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+    for (int i = 0; i < 80 && !windowPixelsShown(w); ++i) DwmFlush(), Sleep(25), pump();
+    return capture(file, w);
+}
+void quickPickKey(draw::Key k) {
+    if (!gQuickHost.open) return;
+    gQuickView.press(k);
+    for (int i = 0; i < 3; ++i) pump();
 }
 
-// The active mode's things for the quick picker: the palette's, or the locations.
-std::vector<PaletteUnit> quickPickItems() {
-    if (app.mode == Mode::Units) return paletteUnits();
-    if (app.mode != Mode::Locations) return paletteItems();
-    std::vector<PaletteUnit> out;
-    for (int i = 0; app.ed && i < app.ed->locationCount(); ++i) {
-        if (!app.ed->locationUsed(i)) continue;
-        PaletteUnit u;
-        u.value = i, u.label = widen(app.ed->locationName(i)), u.section = L"Location " + std::to_wstring(i + 1);
-        u.hay = u.label;
-        std::transform(u.hay.begin(), u.hay.end(), u.hay.begin(), ::towlower);
-        out.push_back(std::move(u));
-    }
-    return out;
-}
-
-// Quick open's rows: the open tabs (not the start and New pages), then the recent projects and maps that no tab has.
-// A row is found by its name only (the project's or the map file's), not by its folder, which shows under it.
-std::vector<PaletteUnit> quickOpenItems() {
-    std::vector<PaletteUnit> out;
-    auto add = [&](int value, const std::wstring& label, const std::wstring& section) {
-        PaletteUnit u;
-        u.value = value, u.label = label, u.section = section, u.hay = label;
-        std::transform(u.hay.begin(), u.hay.end(), u.hay.begin(), ::towlower);
-        out.push_back(std::move(u));
-    };
-    const auto same = samePath;
-    std::vector<fs::path> openProjects, openMaps;
-    for (int i = 0; i < int(gDocs.size()); ++i) {
-        const Editor* ed = docEditor(i);
-        if (!ed || gDocs[size_t(i)].page) continue;
-        const auto& pr = gDocs[size_t(i)].project;
-        if (pr) openProjects.push_back(pr->folder());
-        else openMaps.push_back(ed->path());
-        add(i, docTitle(i, false), std::wstring(tr(pr ? L"Open tab: project" : L"Open tab: map")) +
-                                       (pr ? L"  \x00B7  " + pr->folder().wstring() : ed->path().empty() ? L"" : L"  \x00B7  " + ed->path().parent_path().wstring()));
-    }
-    for (size_t k = 0; k < gRecentProjects.size() && k < size_t(kRecentMax); ++k) {
-        const fs::path f = gRecentProjects[k];
-        if (std::any_of(openProjects.begin(), openProjects.end(), [&](const fs::path& o) { return same(o, f); })) continue;
-        add(kRecentProjectRow + int(k), f.filename().wstring(), std::wstring(tr(L"Recent project")) + L"  \x00B7  " + f.parent_path().wstring());
-    }
-    for (size_t k = 0; k < gRecentMaps.size() && k < size_t(kRecentMax); ++k) {
-        const fs::path f = gRecentMaps[k];
-        if (std::any_of(openMaps.begin(), openMaps.end(), [&](const fs::path& o) { return same(o, f); })) continue;
-        add(kRecentMapRow + int(k), f.filename().wstring(), std::wstring(tr(L"Recent map")) + L"  \x00B7  " + f.parent_path().wstring());
-    }
-    return out;
-}
-
-// Every entry of every .dat, for the Data workspace's jump box.
-std::vector<PaletteUnit> dataJumpItems() {
-    std::vector<PaletteUnit> out;
-    const auto& all = DatSchema::all();
-    for (size_t tab = 0; tab < all.size(); ++tab) {
-        const std::wstring title = datTitle(all[tab].name);
-        for (int e = 0; e < all[tab].entries; ++e) {
-            PaletteUnit u;
-            u.value = int(tab) * 10000 + e;
-            u.label = entryName(all[tab].name, e);
-            if (u.label.empty()) u.label = L"(unnamed)";
-            u.label += L"  #" + std::to_wstring(e);
-            u.section = title;
-            u.hay = u.label + L" " + title;
-            std::transform(u.hay.begin(), u.hay.end(), u.hay.begin(), ::towlower);
-            out.push_back(std::move(u));
-        }
-    }
-    return out;
-}
-
-void quickPickFill() {
-    const std::wstring filter = lowerText(gQuick.edit);
-    std::vector<std::pair<int, PaletteUnit>> scored;
-    // Each word matches on its own, in any order ("weap gauss" and "gauss weap" both find the Gauss Rifle).
-    std::vector<std::wstring> words;
-    {
-        std::wistringstream in(filter);
-        for (std::wstring w; in >> w;) words.push_back(w);
-    }
-    for (auto& u : gQuick.data ? dataJumpItems() : gQuick.open ? gQuick.openRows : quickPickItems()) {
-        int sc = 0;
-        for (const auto& w : words) {
-            const int ws = fuzzyScore(u.hay, w);
-            if (ws < 0) {
-                sc = -1;
-                break;
-            }
-            sc += ws;
-        }
-        if (sc >= 0) scored.push_back({sc, std::move(u)});
-    }
-    std::stable_sort(scored.begin(), scored.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
-    if (scored.size() > 400) scored.erase(scored.begin() + 400, scored.end());  // enough to scroll; keeps the list quick
-    if (gQuick.open) {  // last, whatever is typed: the Open project window
-        PaletteUnit u;
-        u.value = kBrowseProjectRow, u.label = tr(L"Browse for a project\x2026"), u.section = tr(L"File > Project > Open project");
-        scored.push_back({0, std::move(u)});
-    }
-    gQuick.shown.clear();
-    gQuick.words = words;
-    if (gQuick.wnd) InvalidateRect(gQuick.wnd, &gQuick.searchRow, FALSE);  // the count
-    SendMessageW(gQuick.list, WM_SETREDRAW, FALSE, 0);
-    SendMessageW(gQuick.list, LB_RESETCONTENT, 0, 0);
-    for (auto& [sc, u] : scored) {
-        SendMessageW(gQuick.list, LB_ADDSTRING, 0, LPARAM(u.label.c_str()));
-        gQuick.shown.push_back(std::move(u));
-    }
-    SendMessageW(gQuick.list, LB_SETCURSEL, gQuick.shown.empty() ? -1 : 0, 0);
-    SendMessageW(gQuick.list, WM_SETREDRAW, TRUE, 0);
-    InvalidateRect(gQuick.list, nullptr, TRUE);
-}
-
-LRESULT CALLBACK quickEditProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
-    if (msg == WM_KEYDOWN) {
-        int n = int(gQuick.shown.size()), cur = int(SendMessageW(gQuick.list, LB_GETCURSEL, 0, 0));
-        int page = 8;
-        switch (wp) {
-        case VK_DOWN: case VK_UP: case VK_NEXT: case VK_PRIOR:
-            if (n) {
-                int step = wp == VK_DOWN ? 1 : wp == VK_UP ? -1 : wp == VK_NEXT ? page : -page;
-                SendMessageW(gQuick.list, LB_SETCURSEL, std::clamp(cur + step, 0, n - 1), 0);
-            }
-            return 0;
-        case VK_RETURN: quickPickChoose(); return 0;
-        case VK_ESCAPE: quickPickClose(); return 0;
-        }
-    }
-    if (msg == WM_CHAR && (wp == L'\r' || wp == 27)) return 0;  // no beep
-    return DefSubclassProc(hwnd, msg, wp, lp);
-}
 
 // A popover's list: the item under the mouse is highlighted, and one click picks it (refdata: the pick function).
 // Lists repaint fully after they scroll: a list box scrolls by copying its pixels and redraws only the strip
@@ -4396,182 +4220,36 @@ LRESULT CALLBACK clickPickList(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_P
     return DefSubclassProc(hwnd, msg, wp, lp);
 }
 
-LRESULT CALLBACK quickPickProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_COMMAND:
-        if (HWND(lp) == gQuick.edit && HIWORD(wp) == EN_CHANGE) quickPickFill();
-
-        return 0;
-    case WM_ACTIVATE:
-        if (LOWORD(wp) == WA_INACTIVE && !gBackground) PostMessageW(hwnd, WM_CLOSE, 0, 0);
-        return 0;
-    case WM_CLOSE:
-        if (gQuick.wnd == hwnd) quickPickClose();
-        return 0;
-    case WM_MEASUREITEM: reinterpret_cast<MEASUREITEMSTRUCT*>(lp)->itemHeight = UINT(scale(48)); return TRUE;
-    case WM_DRAWITEM: {
-        // A row: the picture, the name (the typed words in the accent) and under it its group, small and dim; the
-        // row under the keys or the mouse is a rounded pill in the selection color.
-        auto* d = reinterpret_cast<DRAWITEMSTRUCT*>(lp);
-        if (d->itemID == UINT(-1) || d->itemID >= gQuick.shown.size()) return TRUE;
-        const PaletteUnit& u = gQuick.shown[d->itemID];
-        const bool sel = d->itemState & ODS_SELECTED;
-        HDC dc = d->hDC;
-        RECT r = d->rcItem;
-        FillRect(dc, &r, app.bgBrush);
-        if (sel) ui::box(dc, {r.left + scale(2), r.top + scale(2), r.right - scale(2), r.bottom - scale(2)}, kSel, kSel, scale(8));
-        const int pic = scale(36);
-        RECT box{r.left + scale(10), (r.top + r.bottom - pic) / 2, r.left + scale(10) + pic, (r.top + r.bottom - pic) / 2 + pic};
-        const auto* bmp = gQuick.open ? nullptr
-                          : gQuick.data ? entryIcon(u.value / 10000, u.value % 10000)
-                          : gQuick.mode == Mode::Locations ? nullptr : unitPaletteBitmap(u.value, gQuick.mode);
-        // A unit with nothing to show (the palette shows the game's "BLANK" placeholder): a dim unit icon in its place.
-        const bool blank = !gQuick.data && gQuick.mode == Mode::Units && gBlankUnits.count(u.value);
-        if (gQuick.open) {  // a tab, a recent project or map, or Browse
-            const bool project = u.value < kRecentProjectRow ? u.value < int(gDocs.size()) && gDocs[size_t(u.value)].project != nullptr
-                                                             : u.value < kRecentMapRow;
-            uiIcon(dc, box, u.value == kBrowseProjectRow ? UiIcon::Open : project ? UiIcon::Project : UiIcon::Map,
-                   u.value < kRecentProjectRow ? kText : kFaint, scale(20));
-        } else if (bmp && bmp->bmp && !blank) drawFitted(dc, *bmp, box);
-        else uiIcon(dc, box, gQuick.mode == Mode::Locations && !gQuick.data ? UiIcon::Locations : UiIcon::Units, kFaint, scale(20));
-        SetBkMode(dc, TRANSPARENT);
-        const int x = box.right + scale(12), right = r.right - scale(12), mid = (r.top + r.bottom) / 2;
-        // The name: the parts that the typed words found in the accent color.
-        HGDIOBJ of = SelectObject(dc, gQuick.font ? gQuick.font : app.font);
-        std::wstring low = u.label;
-        std::transform(low.begin(), low.end(), low.begin(), ::towlower);
-        std::vector<uint8_t> hit(u.label.size(), 0);
-        for (const auto& w : gQuick.words)
-            if (const size_t at = w.empty() ? std::wstring::npos : low.find(w); at != std::wstring::npos)
-                std::fill(hit.begin() + long(at), hit.begin() + long(at + w.size()), uint8_t(1));
-        TEXTMETRICW tm{};
-        GetTextMetricsW(dc, &tm);
-        const int nameTop = mid - tm.tmHeight + scale(2);
-        RECT clip{x, r.top, right, r.bottom};
-        int cx = x;
-        for (size_t i = 0; i < u.label.size();) {
-            size_t j = i;
-            while (j < u.label.size() && hit[j] == hit[i]) ++j;
-            SetTextColor(dc, hit[i] ? kAccent : kText);
-            ExtTextOutW(dc, cx, nameTop, ETO_CLIPPED, &clip, u.label.c_str() + i, UINT(j - i), nullptr);
-            SIZE sz{};
-            GetTextExtentPoint32W(dc, u.label.c_str() + i, int(j - i), &sz);
-            cx += sz.cx, i = j;
-        }
-        // The group, under the name (the typed words found in it in the accent too: "zerg spec").
-        SelectObject(dc, ui::smallFont());
-        std::wstring glow = u.section;
-        std::transform(glow.begin(), glow.end(), glow.begin(), ::towlower);
-        std::vector<uint8_t> ghit(u.section.size(), 0);
-        for (const auto& w : gQuick.words)
-            if (const size_t at = w.empty() ? std::wstring::npos : glow.find(w); at != std::wstring::npos)
-                std::fill(ghit.begin() + long(at), ghit.begin() + long(at + w.size()), uint8_t(1));
-        int gx = x;
-        const int gy = mid + scale(2);
-        for (size_t i = 0; i < u.section.size();) {
-            size_t j = i;
-            while (j < u.section.size() && ghit[j] == ghit[i]) ++j;
-            SetTextColor(dc, ghit[i] ? kAccent : kDim);
-            ExtTextOutW(dc, gx, gy, ETO_CLIPPED, &clip, u.section.c_str() + i, UINT(j - i), nullptr);
-            SIZE sz{};
-            GetTextExtentPoint32W(dc, u.section.c_str() + i, int(j - i), &sz);
-            gx += sz.cx, i = j;
-        }
-        SelectObject(dc, of);
-        return TRUE;
-    }
-    case WM_PAINT: {  // the search row: the icon, the count of results at the right, the line under it
-        PAINTSTRUCT ps;
-        HDC dc = BeginPaint(hwnd, &ps);
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-        FillRect(dc, &rc, app.bgBrush);
-        const RECT& sr = gQuick.searchRow;
-        const int is = scale(20);
-        uiIcon(dc, {sr.left, (sr.top + sr.bottom - is) / 2, sr.left + is, (sr.top + sr.bottom + is) / 2}, UiIcon::Search, kDim, is);
-        SetBkMode(dc, TRANSPARENT);
-        HGDIOBJ of = SelectObject(dc, ui::smallFont());
-        SetTextColor(dc, kDim);
-        RECT cr{sr.right - scale(80), sr.top, sr.right, sr.bottom};
-        const std::wstring count = std::to_wstring(gQuick.shown.size()) + (gQuick.shown.size() >= 400 ? L"+" : L"");
-        DrawTextW(dc, count.c_str(), -1, &cr, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
-        SelectObject(dc, of);
-        fillAlpha(dc, {0, sr.bottom + scale(8), rc.right, sr.bottom + scale(9)}, kBorder, 255);
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORLISTBOX:
-        SetTextColor(HDC(wp), kText);
-        SetBkColor(HDC(wp), kBg);  // on the window's ground: no box around the search, no frame around the list
-        return LRESULT(app.bgBrush);
-    case WM_ERASEBKGND: return 1;
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
-
 void showQuickPicker(bool replace, bool open) {
     if (!open && (!app.ed || !app.ed->isOpen())) return;
-    if (gQuick.wnd) return quickPickClose();
+    if (gQuickHost.open) return quickPickClose();
     const bool data = !open && gWorkspace == Workspace::Data && activeProject();
     RECT v;
     GetWindowRect(open ? app.main : data ? gDataWnd : app.view, &v);
-    const int w = scale(620), h = scale(600), pad = scale(14), rowH = scale(32);
-    const int x = (v.left + v.right - w) / 2, y = v.top + std::max(0, int(v.bottom - v.top - h) / 3);
-    gQuick.wnd = CreateWindowExW(WS_EX_TOOLWINDOW | (gBackground ? WS_EX_NOACTIVATE : 0), L"StarDraftQuickPick", L"", WS_POPUP | WS_BORDER | WS_CLIPCHILDREN,
-                                 x, y, w, h, app.main, nullptr, app.inst, nullptr);
-    ui::popupFrame(gQuick.wnd);
-    {
-        const int round = 2;  // DWMWCP_ROUND: the larger corners of a command window
-        DwmSetWindowAttribute(gQuick.wnd, 33, &round, sizeof round);
-    }
-    {
-        LOGFONTW lf{};
-        GetObjectW(app.font, sizeof lf, &lf);
-        lf.lfHeight = lf.lfHeight * 5 / 4;
-        gQuick.font = CreateFontIndirectW(&lf);
-    }
-    // The search row: the icon at the left (painted), the text in a box with no frame, the count at the right.
-    gQuick.searchRow = {pad + scale(4), pad, w - pad - scale(4), pad + rowH};
-    TEXTMETRICW tm{};
-    {
-        HDC dc = GetDC(gQuick.wnd);
-        HGDIOBJ of = SelectObject(dc, gQuick.font);
-        GetTextMetricsW(dc, &tm);
-        SelectObject(dc, of);
-        ReleaseDC(gQuick.wnd, dc);
-    }
-    const int editH = tm.tmHeight + scale(4), editX = gQuick.searchRow.left + scale(32);
-    gQuick.edit = CreateWindowExW(0, WC_EDITW, L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, editX, pad + (rowH - editH) / 2,
-                                  gQuick.searchRow.right - scale(84) - editX, editH, gQuick.wnd, nullptr, app.inst, nullptr);
-    const int listTop = gQuick.searchRow.bottom + scale(9) + scale(6);
-    gQuick.list = CreateWindowExW(0, WC_LISTBOXW, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT |
-                                  LBS_OWNERDRAWFIXED | LBS_HASSTRINGS, scale(6), listTop, w - scale(12), h - listTop - scale(6),
-                                  gQuick.wnd, nullptr, app.inst, nullptr);
-    cleanScroll(gQuick.list);
-    SetWindowSubclass(gQuick.list, clickPickList, 2, DWORD_PTR(&quickPickChoose));
-    SendMessageW(gQuick.edit, WM_SETFONT, WPARAM(gQuick.font), TRUE);
-    gQuick.data = data;
-    gQuick.open = open;
-    gQuick.focus = GetFocus();
-    if (open) gQuick.openRows = quickOpenItems();
-    gQuick.mode = app.mode;
-    gQuick.replace = replace && !data && !open;
-    static const wchar_t* cues[kModeCount] = {L"Paint a terrain", L"Place a unit", L"Place a doodad", L"Go to a location", L"Place a sprite"};
-    static const wchar_t* replaceCues[kModeCount] = {L"", L"Replace with a unit", L"Replace with a doodad", L"", L"Replace with a sprite"};
-    SendMessageW(gQuick.edit, EM_SETCUEBANNER, TRUE,
-                 LPARAM(open ? tr(L"Go to an open tab, or open a recent project or map") : data ? L"Go to a .dat entry"
-                        : gQuick.replace ? replaceCues[int(app.mode)] : cues[int(app.mode)]));
-    SetWindowTheme(gQuick.list, gLightTheme ? L"Explorer" : L"DarkMode_Explorer", nullptr);  // the scroll bar in the theme (no frame)
-    SetWindowSubclass(gQuick.edit, quickEditProc, 1, 0);
-    quickPickFill();
-    if (gBackground) {
-        ShowWindow(gQuick.wnd, SW_SHOWNOACTIVATE);
+    const draw::Point size = QuickPickView::windowSize();
+    const int w = size.x, h = size.y;
+    POINT at{(v.left + v.right - w) / 2, v.top + std::max(0, int(v.bottom - v.top - h) / 3)};
+    ScreenToClient(app.main, &at);  // (the anchor's windows are placed in the main window's coordinates)
+    gQuickHost.focus = GetFocus();
+    gQuickView.start(gQuickHost, open ? QuickPickKind::Open : data ? QuickPickKind::Data : QuickPickKind::Map, app.mode, replace, true, !gBackground);
+    gQuickHost.open = true;
+    gMainAnchor.host.ownerWindow(app.main);
+    gMainAnchor.host.openWindow(gMainAnchor.view, gQuickView, draw::WindowSpec{draw::WindowKind::Popup, draw::Rect(at.x, at.y, at.x + w, at.y + h), L""}, [] {
+        gQuickHost.open = false;  // a click outside closed it
+        quickPickFocusBack();
+    });
+    if (HWND wnd = ui::Win32Host::windowOf(gQuickView)) {
+        // The old window's frame: a 1 px border inside its size and the larger corners of a command window (DWMWCP_ROUND).
+        SetWindowLongPtrW(wnd, GWL_STYLE, GetWindowLongPtrW(wnd, GWL_STYLE) | WS_BORDER | WS_CLIPCHILDREN);
+        SetWindowPos(wnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        const int round = 2;
+        DwmSetWindowAttribute(wnd, 33, &round, sizeof round);
+        if (!gBackground) gQuickView.field().focus();  // (at once: the keys typed before its first paint are its own)
     } else {
-        ShowWindow(gQuick.wnd, SW_SHOW);  // at once (no fade): it is for speed
-        SetFocus(gQuick.edit);
+        gQuickHost.open = false;
     }
 }
+
 
 // --- Workspaces --------------------------------------------------------------------------------------------
 // The bar across the top: Map and Data in the middle, the project and Build at the right. Map is the map
@@ -14538,129 +14216,12 @@ void pieRelease() {
     if (h >= 0 && h < int(gPie.items.size())) pickUnit(gPie.items[size_t(h)], false);
 }
 
-// The map's right-click menu, for the active mode: what is under the mouse is selected first (when it is not
-// already), then Cut, Copy, Paste, Duplicate, Delete and Select all act on the mode's selection and its own copy
-// buffer. Units add Properties; a location adds its own menu (rename, elevations).
-enum { ID_MAPMENU_PROPS = 9001, ID_MAPMENU_SELECT, ID_MAPMENU_REPLACE, ID_MAPMENU_SAMETYPE, ID_MAPMENU_SAMETYPE_PLAYER, ID_MAPMENU_TOTERRAIN,
-       ID_MAPMENU_FILLSEL };
-int gMapMenuUnit = -1, gMapMenuLocation = -1, gMapMenuDoodad = -1, gMapMenuSprite = -1;
-
-// "Select all of this type": every unit (of `forPlayer`: only the same player's), doodad or sprite on the map of the
-// same type as the one the menu was opened on, in place of the mode's selection. Returns how many are selected.
-int selectSameType(bool forPlayer) {
-    if (!app.ed) return 0;
-    Editor& ed = *app.ed;
-    int n = 0;
-    std::wstring what;
-    if (gMapMenuUnit >= 0 && gMapMenuUnit < int(ed.units().size())) {
-        const Unit u = ed.units()[size_t(gMapMenuUnit)];
-        n = ed.selectUnitsOfType(u.type, forPlayer ? int(u.owner) : -1);
-        what = (n == 1 ? L" unit (" : L" units (") + unitDisplayName(u.type) + (forPlayer ? L", Player " + std::to_wstring(u.owner + 1) : L"") + L")";
-    } else if (gMapMenuDoodad >= 0 && gMapMenuDoodad < int(ed.doodads().size())) {
-        const uint16_t id = ed.doodads()[size_t(gMapMenuDoodad)].id;
-        app.selDoodads = ed.doodadsOfType(id);
-        n = int(app.selDoodads.size());
-        what = (n == 1 ? L" doodad (" : L" doodads (") + paletteItemName(id) + L")";
-    } else if (gMapMenuSprite >= 0 && gMapMenuSprite < int(ed.sprites().size())) {
-        const MapSprite s = ed.sprites()[size_t(gMapMenuSprite)];
-        app.selSprites = ed.spritesOfType(gMapMenuSprite);
-        n = int(app.selSprites.size());
-        what = (n == 1 ? L" sprite (" : L" sprites (") + ((s.flags & SpriteFlag::DrawAsSprite) ? entryName("sprites", s.id) : unitDisplayName(s.id)) + L")";
-    } else return 0;
-    setMessage(L"Selected " + std::to_wstring(n) + what);
-    app.dirty = true;
-    return n;
-}
-
+// The map's right-click menu (core/views_map_menu.inc: mapMenuModel, mapMenuPick) as the program's painted Win32 menu.
+void setMenuIcons(HMENU bar);
 HMENU mapMenu(float wx, float wy) {
-    HMENU m = CreatePopupMenu();
-    gMapMenuUnit = gMapMenuLocation = gMapMenuDoodad = gMapMenuSprite = -1;
-    if (!app.ed || !app.ed->isOpen()) return m;
-    Editor& ed = *app.ed;
-    bool has = false, canPaste = false;
-    switch (app.mode) {
-    case Mode::Units: {
-        const int u = ed.unitAt(int(wx), int(wy));
-        if (u >= 0 && !ed.isSelected(u)) ed.select(u, false);
-        gMapMenuUnit = u;
-        has = !ed.selection().empty(), canPaste = ed.canPaste();
-        break;
-    }
-    case Mode::Doodads:
-    case Mode::Sprites: {
-        const bool dd = app.mode == Mode::Doodads;
-        auto& sel = dd ? app.selDoodads : app.selSprites;
-        const int hit = dd ? ed.doodadAt(int(wx), int(wy)) : mapSpriteAt(*app.ed, int(wx), int(wy));
-        if (hit >= 0 && std::find(sel.begin(), sel.end(), hit) == sel.end()) sel = {hit};
-        (dd ? gMapMenuDoodad : gMapMenuSprite) = hit;
-        has = !sel.empty(), canPaste = !(dd ? app.doodadClip : app.spriteClip).empty();
-        break;
-    }
-    case Mode::Locations: {
-        const int loc = ed.locationAt(int(wx), int(wy));
-        if (loc >= 0) {
-            ed.selectLocation(loc);
-            setListSel(int(std::find(app.items.begin(), app.items.end(), loc) - app.items.begin()));
-        }
-        gMapMenuLocation = loc;
-        has = ed.selectedLocation() >= 0, canPaste = app.hasLocationClip;
-        break;
-    }
-    case Mode::Terrain: has = app.hasTerrainSel, canPaste = ed.hasTileClipboard() || ed.hasTerrainClipboard(); break;  // either copy (#83)
-    }
-    auto item = [&](int id, const wchar_t* text, bool on) { AppendMenuW(m, MF_STRING | (on ? 0 : MF_GRAYED), UINT_PTR(id), text); };
-    const bool terrain = app.mode == Mode::Terrain;
-    item(ID_EDIT_CUT, L"Cu&t\tCtrl+X", has);  // terrain: null tiles in its place
-    (void)terrain;
-    item(ID_EDIT_COPY, L"&Copy\tCtrl+C", has);
-    item(ID_EDIT_PASTE, L"&Paste\tCtrl+V", canPaste);
-    item(ID_EDIT_DUPLICATE, L"D&uplicate\tCtrl+D", has && !terrain);
-    item(ID_EDIT_DELETE, L"&Delete\tDel", has && !terrain);
-    item(ID_MAPMENU_REPLACE, L"&Replace with\x2026", has && (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites));
-    if (app.mode == Mode::Doodads) item(ID_MAPMENU_TOTERRAIN, L"Convert to t&errain", has);
-    if (terrain && app.terrainRect) item(ID_MAPMENU_FILLSEL, L"&Fill selection with the selected tiles", has && gTiles.picked >= 0);  // (#114)
-    AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-    item(ID_EDIT_SELECTALL, L"Select &all\tCtrl+A", !terrain && app.mode != Mode::Locations);
-    // On a unit, doodad or sprite: all of its type on the map (units: also only its player's).
-    if (gMapMenuUnit >= 0 || gMapMenuDoodad >= 0 || gMapMenuSprite >= 0) item(ID_MAPMENU_SAMETYPE, L"Select all of this t&ype", true);
-    if (gMapMenuUnit >= 0)
-        item(ID_MAPMENU_SAMETYPE_PLAYER, (L"Select all of this type for Player " + std::to_wstring(ed.units()[size_t(gMapMenuUnit)].owner + 1)).c_str(), true);
-    item(ID_MAPMENU_SELECT, L"&Select (no placing)\tEsc", !inSelection());
-    if (gMapMenuUnit >= 0) {
-        AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-        item(ID_MAPMENU_PROPS, L"P&roperties\x2026", true);
-    }
-    if (gMapMenuLocation >= 0) {  // the location's own menu after these
-        AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-        HMENU lm = locationMenu(gMapMenuLocation);
-        for (int k = 0, n = GetMenuItemCount(lm); k < n; ++k) {
-            wchar_t text[128] = L"";
-            MENUITEMINFOW mi{sizeof mi};
-            mi.fMask = MIIM_ID | MIIM_STRING | MIIM_STATE | MIIM_FTYPE, mi.dwTypeData = text, mi.cch = 127;
-            GetMenuItemInfoW(lm, UINT(k), TRUE, &mi);
-            if (mi.wID == ID_LOCMENU_DELETE) continue;  // Delete is above
-            InsertMenuItemW(m, UINT(GetMenuItemCount(m)), TRUE, &mi);
-        }
-        DestroyMenu(lm);
-    }
+    HMENU m = toHmenu(mapMenuModel(wx, wy), false);
     setMenuIcons(m);
     return m;
-}
-void mapMenuPick(int pick) {
-    if (pick == ID_MAPMENU_PROPS && gMapMenuUnit >= 0) showUnitProperties(gMapMenuUnit);
-    else if (pick == ID_MAPMENU_SELECT) enterSelection(), setMessage(std::wstring(kModeNames[int(app.mode)]) + L": select");
-    else if (pick == ID_MAPMENU_REPLACE) showQuickPicker(true);
-    else if (pick == ID_MAPMENU_FILLSEL) tilesFillSelection();
-    else if (pick == ID_MAPMENU_SAMETYPE || pick == ID_MAPMENU_SAMETYPE_PLAYER) selectSameType(pick == ID_MAPMENU_SAMETYPE_PLAYER);
-    else if (pick == ID_MAPMENU_TOTERRAIN && app.ed) {
-        // The selected doodads (the one under the mouse is selected by the menu): their tiles stay as plain terrain.
-        const int n = app.ed->convertDoodadsToTerrain(app.selDoodads);
-        app.selDoodads.clear();
-        if (n) setMessage(L"Converted " + std::to_wstring(n) + (n == 1 ? L" doodad" : L" doodads") + L" to terrain");
-        app.dirty = true;
-    }
-    else if (pick < 100 && gMapMenuLocation >= 0) locationMenuPick(gMapMenuLocation, pick);
-    else command(pick);
 }
 
 void cancelStep() {
@@ -14999,14 +14560,7 @@ void paintDarkBorder(HWND w) {
         inner = {wi.rcClient.left - wi.rcWindow.left, wi.rcClient.top - wi.rcWindow.top, wi.rcClient.right - wi.rcWindow.left,
                  wi.rcClient.bottom - wi.rcWindow.top};
     ExcludeClipRect(dc, inner.left, inner.top, inner.right, inner.bottom);
-    HWND parent = GetParent(w);
-    COLORREF outside = kBg;
-    if (parent) {
-        wchar_t cls[32] = L"";
-        GetClassNameW(parent, cls, 32);
-        if (!wcscmp(cls, L"StarDraftQuickPick")) outside = kBg;
-    }
-    HBRUSH bg = CreateSolidBrush(outside);
+    HBRUSH bg = CreateSolidBrush(kBg);
     FillRect(dc, &r, bg);
     DeleteObject(bg);
     // The kit's field box (read-only edits as read-only fields).
@@ -16799,8 +16353,8 @@ int runSelfTest(const fs::path& dir) {
         uint16_t terr = 1;
         while (tt && !tt->isTerrain(terr)) ++terr;
         command(ID_QUICKPICK);
-        SetWindowTextW(gQuick.edit, tt ? widen(tt->terrainName(terr)).c_str() : L"");
-        SendMessageW(gQuick.edit, WM_KEYDOWN, VK_RETURN, 0);
+        quickPickType(tt ? widen(tt->terrainName(terr)) : L"");
+        quickPickKey(draw::Key::Enter);
         log << "quick picker in Terrain: paints " << (app.mode == Mode::Terrain && app.palette == terr && currentTool() == TBrush ? "yes" : "NO") << std::endl;
         cancelStep();
     }
@@ -16808,18 +16362,18 @@ int runSelfTest(const fs::path& dir) {
     {
         setMode(Mode::Units);
         command(ID_QUICKPICK);
-        SetWindowTextW(gQuick.edit, L"zealt");
-        capture(dir / "quick_picker.png", gQuick.wnd);
+        quickPickType(L"zealt");
+        quickPickCapture(dir / "quick_picker.png");
         const uint16_t zealot = *ed.unitTypes().findByName("Protoss Zealot");
-        const int first = gQuick.shown.empty() ? -1 : gQuick.shown[0].value;
-        SendMessageW(gQuick.edit, WM_KEYDOWN, VK_RETURN, 0);
+        const int first = gQuickView.shown().empty() ? -1 : gQuickView.shown()[0].value;
+        quickPickKey(draw::Key::Enter);
         log << "quick picker: first match " << (first == zealot ? "Zealot" : "WRONG") << ", placing "
-            << (app.mode == Mode::Units && app.palette == zealot ? "Zealot" : "WRONG") << ", closed " << (gQuick.wnd ? "NO" : "yes") << "\n";
+            << (app.mode == Mode::Units && app.palette == zealot ? "Zealot" : "WRONG") << ", closed " << (quickPickWnd() ? "NO" : "yes") << "\n";
         command(ID_QUICKPICK);
-        SetWindowTextW(gQuick.edit, L"siege");
-        SendMessageW(gQuick.edit, WM_KEYDOWN, VK_DOWN, 0);
-        const int second = gQuick.shown.size() > 1 ? gQuick.shown[1].value : -1;
-        SendMessageW(gQuick.edit, WM_KEYDOWN, VK_RETURN, 0);
+        quickPickType(L"siege");
+        quickPickKey(draw::Key::Down);
+        const int second = gQuickView.shown().size() > 1 ? gQuickView.shown()[1].value : -1;
+        quickPickKey(draw::Key::Enter);
         log << "quick picker: Down then Enter picks the second match " << (app.palette == second && second >= 0 ? "yes" : "NO") << "\n";
         cancelStep();
     }
@@ -18081,12 +17635,12 @@ int runSelfTest(const fs::path& dir) {
             dataShowTab(0);
             {
                 command(ID_QUICKPICK);
-                SetWindowTextW(gQuick.edit, L"weap gauss");
+                quickPickType(L"weap gauss");
                 pump();
-                const bool firstIsGauss = !gQuick.shown.empty() && gQuick.shown[0].section == L"Weapons" && gQuick.shown[0].value % 10000 <= 1;
+                const bool firstIsGauss = !gQuickView.shown().empty() && gQuickView.shown()[0].section == L"Weapons" && gQuickView.shown()[0].value % 10000 <= 1;
                 for (int i = 0; i < 10; ++i) pump(), Sleep(20);
-                capture(dir / "65e_data_quick_jump.png", gQuick.wnd);
-                SendMessageW(gQuick.edit, WM_KEYDOWN, VK_RETURN, 0);
+                quickPickCapture(dir / "65e_data_quick_jump.png");
+                quickPickKey(draw::Key::Enter);
                 const bool jumped = curTable() && curTable()->schema().name == "weapons" && gData.entry <= 1;
                 log << "data quick jump: \"weap gauss\" finds the Gauss Rifle in Weapons " << (firstIsGauss ? "yes" : "NO") << ", Enter opens it "
                     << (jumped ? "yes" : "NO") << "\n";
@@ -19566,12 +19120,6 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     vc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     vc.lpszClassName = L"StarDraftViewport";
     RegisterClassExW(&vc);
-    WNDCLASSEXW qc{sizeof qc};
-    qc.lpfnWndProc = quickPickProc;
-    qc.hInstance = inst;
-    qc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    qc.lpszClassName = L"StarDraftQuickPick";
-    RegisterClassExW(&qc);
     ui::registerViewClass(inst);
 
     // Self-test and screenshot runs work in the background: the window sits beyond the right edge of
@@ -19705,6 +19253,31 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             if (s == "menutree:") {  // menutree.txt: the main window's menu tree (texts, ids, states), to compare two builds
                 std::ofstream o(fs::path(datashots) / "menutree.txt", std::ios::binary);
                 dumpMenuTree(o, GetMenu(app.main), 0);
+                continue;
+            }
+            if (s == "mapmenu:") {  // mapmenu.txt: the map's right-click menu on the first unit (Units) and the first location (Locations)
+                std::ofstream o(fs::path(datashots) / "mapmenu.txt", std::ios::binary);
+                if (app.ed && app.ed->isOpen()) {
+                    Editor& ed = *app.ed;
+                    if (!ed.units().empty()) {
+                        command(ID_MODE_UNITS);
+                        const Unit u = ed.units()[0];
+                        o << "units, at the first unit:\n";
+                        HMENU m = mapMenu(float(u.x), float(u.y));
+                        dumpMenuTree(o, m, 1);
+                        DestroyMenu(m);
+                    }
+                    for (int i = 0; i < ed.locationCount(); ++i)
+                        if (i != kAnywhereLocation && ed.locationUsed(i)) {
+                            command(ID_MODE_LOCATIONS);
+                            const Rect r = ed.locationRect(i);
+                            o << "locations, at the first location:\n";
+                            HMENU m = mapMenu((r.left + r.right) / 2.0f, (r.top + r.bottom) / 2.0f);
+                            dumpMenuTree(o, m, 1);
+                            DestroyMenu(m);
+                            break;
+                        }
+                }
                 continue;
             }
             if (s.rfind("dpi:", 0) == 0) {  // dpi:<n>: as Windows tells a window that moved to a screen of that DPI (144: 150%)
@@ -20195,11 +19768,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 command(mode == "terrain" ? ID_MODE_TERRAIN : mode == "doodads" ? ID_MODE_DOODADS : mode == "locations" ? ID_MODE_LOCATIONS : ID_MODE_UNITS);
                 for (int i = 0; i < 3; ++i) pump();
                 showQuickPicker();
-                if (gQuick.edit) SetWindowTextW(gQuick.edit, widen(text).c_str());
+                quickPickType(widen(text));
                 for (int i = 0; i < 6; ++i) pump(), Sleep(20);
-                if (gQuick.wnd) {
-                    RedrawWindow(gQuick.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
-                    capture(fs::path(datashots) / ("quick_" + mode + (gLightTheme ? "_light" : "") + ".png"), gQuick.wnd);
+                if (quickPickWnd()) {
+                    RedrawWindow(quickPickWnd(), nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                    quickPickCapture(fs::path(datashots) / ("quick_" + mode + (gLightTheme ? "_light" : "") + ".png"));
                 }
                 quickPickClose();
                 continue;
@@ -22718,18 +22291,18 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 }
                 command(ID_QUICKOPEN);
                 for (int i = 0; i < 3; ++i) pump();
-                o << "it opens " << (gQuick.wnd && gQuick.open ? "yes" : "NO") << ", rows " << gQuick.shown.size() << "\n";
-                for (const auto& u : gQuick.shown) o << "  " << narrow(u.label) << " | " << narrow(u.section) << "\n";
-                if (gQuick.wnd) {
-                    RedrawWindow(gQuick.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
-                    capture(fs::path(datashots) / "quickopen.png", gQuick.wnd);
+                o << "it opens " << (quickPickWnd() && gQuickView.kind() == QuickPickKind::Open ? "yes" : "NO") << ", rows " << gQuickView.shown().size() << "\n";
+                for (const auto& u : gQuickView.shown()) o << "  " << narrow(u.label) << " | " << narrow(u.section) << "\n";
+                if (quickPickWnd()) {
+                    RedrawWindow(quickPickWnd(), nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                    quickPickCapture(fs::path(datashots) / "quickopen.png");
                     // Typing a part of the open map's name: the open tab first; a folder's name finds nothing.
-                    SetWindowTextW(gQuick.edit, L"bottle");
+                    quickPickType(L"bottle");
                     for (int i = 0; i < 3; ++i) pump();
-                    o << "\"bottle\" finds the open tab first " << (!gQuick.shown.empty() && gQuick.shown[0].value == gActive ? "yes" : "NO") << "\n";
-                    SetWindowTextW(gQuick.edit, L"starcraft remastered");
+                    o << "\"bottle\" finds the open tab first " << (!gQuickView.shown().empty() && gQuickView.shown()[0].value == gActive ? "yes" : "NO") << "\n";
+                    quickPickType(L"starcraft remastered");
                     for (int i = 0; i < 3; ++i) pump();
-                    o << "a folder's name finds only the browse row " << (gQuick.shown.size() == 1 && gQuick.shown[0].value == kBrowseProjectRow ? "yes" : "NO") << "\n";
+                    o << "a folder's name finds only the browse row " << (gQuickView.shown().size() == 1 && gQuickView.shown()[0].value == kBrowseProjectRow ? "yes" : "NO") << "\n";
                     quickPickClose();
                 }
                 continue;
