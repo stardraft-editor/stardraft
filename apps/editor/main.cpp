@@ -18547,6 +18547,7 @@ struct ModeBarView final : stardraft::draw::View {
         case MouseKind::Down:
         case MouseKind::DoubleClick:  // (a button takes a fast second press as a press)
             if (e.button != 0) return false;
+            focus();  // as the old button: the press takes the focus (a tool-strip number box saves before the mode changes)
             held = segmentAt(e.pt);
             if (held < 0) return false;
             inside = true;
