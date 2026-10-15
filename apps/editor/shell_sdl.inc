@@ -75,6 +75,7 @@ std::vector<int> shellListSelection() { return gLocList.selection(); }
 std::wstring shellFilterText() { return gFilterSdl.text(); }
 bool shellViewShown() { return gRoot != nullptr; }
 void shellToolsChanged() {}  // (the tool strip is not on this system yet)
+int shellPopupPick(const std::vector<std::wstring>&, int, int, int) { return -1; }  // (the SDL shell has no popup menus yet)
 void shellOwnerSelect(int i) { gOwnerBox.setValue(i); }  // (the owner dropdown shows player i; no change is sent)
 void shellPaletteChanged() {
     gPalList.invalidate();
