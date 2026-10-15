@@ -11,19 +11,24 @@
 
 constexpr int kGameTextSwatch = 16, kGameTextGap = 4, kGameTextRowH = 24;
 
-// How a code's text looks in the box: its color (`normal` for the text's own); hidden text and a code that is not a
-// color of the palette (kept as it is) are marked in the Windows box (crossed out, a dotted line), not here.
-inline draw::Color gameTextLookColor(TextPalette p, unsigned char code, draw::Color normal) {
-    if (code <= 2) return normal;  // (none, 01 normal, 02 pale blue: the box's normal color)
+// How a code's text looks in the box: its color (`normal` for the text's own); hidden text crossed out; a code that is
+// not a color of the palette (kept as it is) with a dotted line under it.
+struct GameTextLook {
+    draw::Color color;
+    bool hidden = false, unknown = false;
+};
+inline GameTextLook gameTextLook(TextPalette p, unsigned char code, draw::Color normal) {
+    if (code <= 2) return {normal};  // (none, 01 normal, 02 pale blue: the box's normal color)
     if (p == TextPalette::Game) {
-        if (code == 0x1A) return draw::rgb(64, 64, 110);  // almost black in the game: dark, but readable here
+        if (code == 0x1A) return {draw::rgb(64, 64, 110)};  // almost black in the game: dark, but readable here
         const draw::Color c = gameTextColor(code, normal);
-        return c != 0xFFFFFFFF ? c : normal;
+        return c != 0xFFFFFFFF ? GameTextLook{c} : GameTextLook{normal, false, true};
     }
     const draw::Color c = briefingTextColor(code, normal);
-    if (c == kInvisibleText) return draw::rgb(112, 112, 122);
-    return c != 0xFFFFFFFF ? c : normal;
+    if (c == kInvisibleText) return {draw::rgb(112, 112, 122), true};
+    return c != 0xFFFFFFFF ? GameTextLook{c} : GameTextLook{normal, false, true};
 }
+inline draw::Color gameTextLookColor(TextPalette p, unsigned char code, draw::Color normal) { return gameTextLook(p, code, normal).color; }
 
 // The tool row: the swatches from the left (as many rows as they need), the align buttons and Preview | Raw at the
 // right of the first row. `top`: the row's top; the boxes are in the editor's coordinates.
@@ -422,7 +427,8 @@ private:
         for (size_t i = 0; i < codes_.size();) {
             size_t j = i + 1;
             while (j < codes_.size() && codes_[j] == codes_[i]) ++j;
-            spans.push_back({i, j - i, gameTextLookColor(spec_.palette, codes_[i], normal_), false});
+            const GameTextLook look = gameTextLook(spec_.palette, codes_[i], normal_);
+            spans.push_back({i, j - i, look.color, false, look.hidden, look.unknown});
             i = j;
         }
         rich_.setSpans(std::move(spans));

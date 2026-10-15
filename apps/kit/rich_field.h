@@ -152,7 +152,7 @@ private:
     };
     struct Attr {
         draw::Color color = draw::kNone;
-        bool bold = false, selected = false, comp = false;
+        bool bold = false, selected = false, comp = false, strike = false, dotted = false;
     };
     struct LayoutKey {
         unsigned long long rev = 0;

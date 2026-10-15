@@ -231,8 +231,10 @@ RichField::Attr RichField::attrOf(const Unit& u) const {
     const size_t lo = model_.selectionStart(), hi = model_.selectionEnd();
     if (!composing() && lo < hi && u.from >= lo && u.from < hi) a.selected = true;
     if (u.kind == kChar) {
-        if (const Span* s = spanAt(u.from))
+        if (const Span* s = spanAt(u.from)) {
             if (s->color != draw::kNone) a.color = s->color;
+            a.strike = s->strike, a.dotted = s->dotted;
+        }
     }
     if (a.selected) a.color = theme().onText;
     return a;
@@ -578,7 +580,8 @@ void RichField::paintLine(draw::Canvas& c, size_t L, const draw::Rect& in) {
         // A run of characters with one look (and, in a composition, the composition's own run).
         const Attr a = attrOf(u);
         auto sameLook = [](const Attr& p, const Attr& q) {
-            return p.color == q.color && p.bold == q.bold && p.selected == q.selected && p.comp == q.comp;
+            return p.color == q.color && p.bold == q.bold && p.selected == q.selected && p.comp == q.comp && p.strike == q.strike &&
+                   p.dotted == q.dotted;
         };
         size_t j = i + 1;
         while (j < ln.last) {
@@ -597,7 +600,13 @@ void RichField::paintLine(draw::Canvas& c, size_t L, const draw::Rect& in) {
         const std::wstring_view s = u.kind == kComp ? std::wstring_view(comp_).substr(u.aux, j - i)
                                                     : std::wstring_view(model_.text()).substr(u.from, units_[j - 1].to - u.from);
         // Each character at its measured advance (the caret and the mouse use those widths): textAt moves no pairs.
-        c.textAt({x0, top + (lineH_ - c.metrics().height) / 2}, s, a.color);
+        const draw::FontMetrics m = c.metrics();
+        const int ty = top + (lineH_ - m.height) / 2;
+        c.textAt({x0, ty}, s, a.color);
+        const int base = ty + m.height - m.descent;  // the baseline
+        if (a.strike) c.fill(draw::Rect{x0, base - (m.height - m.descent) * 3 / 10 - 1, x1, base - (m.height - m.descent) * 3 / 10}, a.color);
+        if (a.dotted)
+            for (int x = x0; x < x1; x += 2) c.fill(draw::Rect{x, base + 1, x + 1, base + 2}, a.color);
         c.setFont(c.font(fontDesc_));
         i = j;
     }

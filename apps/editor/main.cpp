@@ -22578,6 +22578,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     capture(fs::path(datashots) / "gametext_strings_raw.png", app.main);
                     o << "strings: Raw reads back the same " << (id && gStringsText->bytes() == gExtras.strings.text(id - 1) ? "yes" : "NO") << "\n";
                     gStringsText->setRaw(false);
+                    // Codes that are not colors of the game's palette: a dotted line under their text.
+                    gStringsText->setBytes("Plain, \x0B" "code 0B\x01 and \x14" "code 14\x01 text");
+                    RedrawWindow(gData.form, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                    capture(fs::path(datashots) / "gametext_strings_codes.png", app.main);
+                    if (id) gStringsText->setBytes(gExtras.strings.text(id - 1));
                     // Every game string: into the editor and back, byte for byte (unchanged), and as read after an edit
                     // that changes nothing (the codes as the editor writes them must mean the same: checked by the
                     // runs of each color).

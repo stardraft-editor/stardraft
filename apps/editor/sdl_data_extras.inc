@@ -532,7 +532,7 @@ bool sdlPaintExtraTab(draw::Canvas& c, int& y) {
     const bool strings = dataState().datTab == stringsTab() && dataState().project && dataExtras().strings.count() > 0;
     if (!strings) {
         sdlStringsCommit();
-        gSdlStringsText.setVisible(false);
+        sdlDataHide(gSdlStringsText);
     }
     if (!extraTab(dataState().datTab) || !dataState().project) return false;
     if (strings) sdlPaintStringsForm(c, y);

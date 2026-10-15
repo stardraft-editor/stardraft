@@ -28,6 +28,7 @@ struct Span {
     size_t start = 0, length = 0;
     draw::Color color = draw::kNone;  // kNone: the text color
     bool bold = false;
+    bool strike = false, dotted = false;  // (RichField) crossed out; a dotted line under it
 };
 
 class TextField : public draw::View {

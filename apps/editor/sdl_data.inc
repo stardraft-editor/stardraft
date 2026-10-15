@@ -73,6 +73,20 @@ void sdlDataRebuildList() {
     sdlDataRepaint();
 }
 
+// A view that hides gives the keyboard back to the form (else the keys go to a box nobody sees: Ctrl+Z undoes its
+// hidden text, typed text changes a string of another tab). The Windows program does this when it hides a window.
+static bool sdlDataFocusIn(const draw::View& v) {
+    if (v.hasFocus()) return true;
+    for (const draw::View* c : v.children())
+        if (sdlDataFocusIn(*c)) return true;
+    return false;
+}
+void sdlDataHide(draw::View& v) {
+    const bool focused = sdlDataFocusIn(v);
+    v.setVisible(false);
+    if (focused) gSdlDataForm.focus();
+}
+
 // The number entry's value goes in. False when the box held text that is not a number (the status says so).
 bool sdlDataCommitEdit() {
     sdlStringsCommit();  // (the Strings tab's editor: its text goes in too)
@@ -81,7 +95,7 @@ bool sdlDataCommitEdit() {
     const DatField* f = curField(d.editing);
     d.editing = -1;
     const std::wstring text = gSdlDataEntry.text();
-    gSdlDataEntry.setVisible(false);
+    sdlDataHide(gSdlDataEntry);
     if (!f) return true;
     uint32_t v = 0;
     const DataEntryRead r = dataReadEntry(text, f->maxValue(), v);
@@ -392,7 +406,7 @@ struct SdlDataView final : draw::View {
         gSdlDataEntry.onCommit = [] { sdlDataCommitEdit(); };  // Enter: the value goes in
         gSdlDataEntry.onCancel = [] {                          // Escape: the value stays as it was
             gSdlDataState.editing = -1;
-            gSdlDataEntry.setVisible(false);
+            sdlDataHide(gSdlDataEntry);
         };
         gSdlDataEntry.onFocusLost = [] { sdlDataCommitEdit(); };
         gSdlDataEntry.onTab = [](bool back) { gSdlDataForm.editNeighbour(gSdlDataState.editing, back ? -1 : 1); };
