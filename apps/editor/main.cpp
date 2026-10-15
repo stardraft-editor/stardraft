@@ -24624,7 +24624,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 gMsgBoxHook = [](HWND w) {
                     for (int i = 0; i < 3; ++i) pump();
                     if (!shot.empty()) capture(shot, w);
-                    PostMessageW(w, keyMsg, key, 0);
+                    PostMessageW(w, keyMsg, key, keyMsg == WM_SYSKEYDOWN ? LPARAM(1) << 29 : 0);  // (a system key: Alt is down)
                 };
                 std::ofstream log(fs::path(datashots) / "msgbox.txt");
                 const bool wasLight = gLightTheme;
@@ -24654,11 +24654,12 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 const Case cases[] = {{"Enter gives the default (Yes)", MB_YESNOCANCEL, WM_KEYDOWN, VK_RETURN, IDYES},
                                       {"Enter with MB_DEFBUTTON2 gives No", MB_YESNOCANCEL | MB_DEFBUTTON2, WM_KEYDOWN, VK_RETURN, IDNO},
                                       {"N gives No", MB_YESNOCANCEL, WM_CHAR, L'n', IDNO},
-                                      {"Alt+Y gives Yes", MB_YESNO, WM_SYSCHAR, L'y', IDYES},
+                                      {"Alt+Y gives Yes", MB_YESNO, WM_SYSKEYDOWN, L'Y', IDYES},
                                       {"Esc in Yes/No gives No", MB_YESNO, WM_KEYDOWN, VK_ESCAPE, IDNO},
                                       {"Esc in OK gives OK", MB_OK, WM_KEYDOWN, VK_ESCAPE, IDOK},
                                       {"Esc in OK/Cancel gives Cancel", MB_OKCANCEL, WM_KEYDOWN, VK_ESCAPE, IDCANCEL},
-                                      {"Tab then Enter gives Cancel in Retry/Cancel", MB_RETRYCANCEL, WM_KEYDOWN, VK_TAB, IDCANCEL}};
+                                      {"Tab then Enter gives Cancel in Retry/Cancel", MB_RETRYCANCEL, WM_KEYDOWN, VK_TAB, IDCANCEL},
+                                      {"The close box gives Cancel (No in Yes/No)", MB_YESNO, WM_CLOSE, 0, IDNO}};
                 for (const Case& c : cases) {
                     keyMsg = c.msg, key = c.key;
                     if (c.key == VK_TAB)
