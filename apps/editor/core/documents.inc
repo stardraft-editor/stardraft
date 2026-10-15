@@ -172,3 +172,29 @@ int findOpenMap(const fs::path& path) {
     }
     return -1;
 }
+
+// Opens a map file in a tab (or the tab that has it open). Defined here so the open is the core's; the native parts are the host's.
+void activateDoc(int i);
+void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank);
+void setMessage(const std::wstring& m);
+void openMap(const std::wstring& path, bool switchToOpen) {
+    AppState& app = shellState();
+    if (const int open = switchToOpen ? findOpenMap(path) : -1; open >= 0) {  // open already: go to its tab
+        activateDoc(open);
+        addRecent(gRecentMaps, path);
+        setMessage(fs::path(path).filename().wstring() + L" is open already");
+        return;
+    }
+    auto ed = std::make_unique<Editor>(app.data);
+    std::string err;
+    shellWaitCursor();
+    if (!ed->open(fs::path(path), err)) {
+        shellErrorBox(widen(err), L"Could not open the map");
+        return;
+    }
+    addDocument(std::move(ed), true);  // replaces the untouched startup map
+    addRecent(gRecentMaps, path);
+    setMessage(L"Opened " + fs::path(path).filename().wstring() + L" (" + widen(tilesetName(app.ed->era())) + L")");
+    if (app.ed->isomRebuilt())  // a map made by a tool that writes only the tiles (or protected)
+        shellLogLine(L"The map had no isometric terrain data (ISOM). StarDraft 2 made it from the tiles, so the isometric tools work. Saving the map keeps it.");
+}

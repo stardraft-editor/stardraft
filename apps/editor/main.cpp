@@ -2247,26 +2247,6 @@ void addProjectScript() {
     triggersRefresh(rel.generic_string());
 }
 
-void openMap(const std::wstring& path, bool switchToOpen) {
-    if (const int open = switchToOpen ? findOpenMap(path) : -1; open >= 0) {  // open already: go to its tab
-        activateDoc(open);
-        addRecent(gRecentMaps, path);
-        setMessage(fs::path(path).filename().wstring() + L" is open already");
-        return;
-    }
-    auto ed = std::make_unique<Editor>(app.data);
-    std::string err;
-    SetCursor(LoadCursor(nullptr, IDC_WAIT));
-    if (!ed->open(fs::path(path), err)) {
-        themedMessageBox(app.main, widen(err).c_str(), L"Could not open the map", MB_ICONERROR);
-        return;
-    }
-    addDocument(std::move(ed), true);  // replaces the untouched startup map
-    addRecent(gRecentMaps, path);
-    setMessage(L"Opened " + fs::path(path).filename().wstring() + L" (" + widen(tilesetName(app.ed->era())) + L")");
-    if (app.ed->isomRebuilt())  // a map made by a tool that writes only the tiles (or protected)
-        logLine(L"The map had no isometric terrain data (ISOM). StarDraft 2 made it from the tiles, so the isometric tools work. Saving the map keeps it.");
-}
 
 // New map of a tileset, filled with one terrain.
 void newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terrain) {
