@@ -2414,133 +2414,121 @@ void moveDoc(int from, int to) {
     if (app.tabs) InvalidateRect(app.tabs, nullptr, FALSE);
 }
 
-LRESULT CALLBACK tabsProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_PAINT: {
-        PAINTSTRUCT ps;
-        HDC dc = BeginPaint(hwnd, &ps);
-        RECT c;
-        GetClientRect(hwnd, &c);
-        HDC mem = CreateCompatibleDC(dc);
-        HBITMAP bmp = CreateCompatibleBitmap(dc, c.right, c.bottom);
-        HGDIOBJ oldBmp = SelectObject(mem, bmp);
-        HBRUSH bg = CreateSolidBrush(kBg), act = CreateSolidBrush(kCtl), hot = CreateSolidBrush(kHot), accent = CreateSolidBrush(kAccent);
-        FillRect(mem, &c, bg);
-        HGDIOBJ oldFont = SelectObject(mem, app.font);
-        SetBkMode(mem, TRANSPARENT);
+// --- The document tabs (a View) ---------------------------------------------------------------------------------
+// The strip above the workspace: a tab per open document (its title, an x, or a dot where it is unsaved), and the +
+// that posts New. A press on a tab activates it and starts a drag: a tab dragged sideways takes the places of the tabs
+// it passes (moveDoc). The middle button or the x closes a tab.
+HWND tabsWindow(stardraft::draw::View& v);
+struct TabsView final : stardraft::draw::View {
+    void paint(stardraft::draw::Canvas& c) override {
+        const unsigned center = stardraft::draw::kCenter | stardraft::draw::kMiddle;
+        const unsigned ellipsis = stardraft::draw::kMiddle | stardraft::draw::kEllipsis;
+        const int h = height();
+        c.fill({0, 0, width(), h}, kBg);
         gTabHits.clear();
         int x = 0, pad = scale(10), closeW = scale(16);
         for (int i = 0; i < int(gDocs.size()); ++i) {
             std::wstring t = docTitle(i);
             const bool unsaved = t.rfind(L"* ", 0) == 0;  // unsaved: a dot where the close button is (the x under the mouse)
             if (unsaved) t.erase(0, 2);
-            SIZE sz{};
-            GetTextExtentPoint32W(mem, t.c_str(), int(t.size()), &sz);
-            int w = std::clamp(int(sz.cx) + pad * 3 + closeW, scale(90), scale(260));
-            RECT r{x, 0, x + w, c.bottom};
-            bool active = i == gActive;
-            FillRect(mem, &r, active ? act : (i == gTabHot ? hot : bg));
-            if (active) {
-                RECT bar{r.left, 0, r.right, scale(2)};
-                FillRect(mem, &bar, accent);
-            }
-            RECT tr{r.left + pad, 0, r.right - pad - closeW, c.bottom};
-            SetTextColor(mem, active ? kText : kDim);
-            DrawTextW(mem, t.c_str(), int(t.size()), &tr, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-            RECT cr{r.right - pad / 2 - closeW, (c.bottom - closeW) / 2, r.right - pad / 2, (c.bottom + closeW) / 2};
-            if (i == gTabHotClose) FillRect(mem, &cr, hot);
+            const int w = std::clamp(c.measure(t) + pad * 3 + closeW, scale(90), scale(260));
+            const RECT r{x, 0, x + w, h};
+            const bool active = i == gActive;
+            c.fill(r, active ? kCtl : (i == gTabHot ? kHot : kBg));
+            if (active) c.fill({r.left, 0, r.right, scale(2)}, kAccent);
+            c.text({r.left + pad, 0, r.right - pad - closeW, h}, t, active ? kText : kDim, ellipsis);
+            const RECT cr{r.right - pad / 2 - closeW, (h - closeW) / 2, r.right - pad / 2, (h + closeW) / 2};
+            if (i == gTabHotClose) c.fill(cr, kHot);
             if (unsaved && i != gTabHot) {
                 const int d = scale(8), cx = (cr.left + cr.right) / 2, cy = (cr.top + cr.bottom) / 2;
-                HBRUSH db = CreateSolidBrush(active ? kText : kDim);
-                HGDIOBJ obr = SelectObject(mem, db), op = SelectObject(mem, GetStockObject(NULL_PEN));
-                Ellipse(mem, cx - d / 2, cy - d / 2, cx - d / 2 + d + 1, cy - d / 2 + d + 1);
-                SelectObject(mem, obr), SelectObject(mem, op);
-                DeleteObject(db);
+                c.ellipse({cx - d / 2, cy - d / 2, cx - d / 2 + d + 1, cy - d / 2 + d + 1}, active ? kText : kDim, stardraft::draw::kNone);
             } else {
-                SetTextColor(mem, i == gTabHotClose ? kText : kDim);
-                DrawTextW(mem, L"\x00D7", 1, &cr, DT_SINGLELINE | DT_VCENTER | DT_CENTER);
+                c.text(cr, L"\x00D7", i == gTabHotClose ? kText : kDim, center);
             }
             gTabHits.push_back({r, cr});
             x += w + 1;
         }
-        gNewTabHit = {x, 0, x + scale(30), c.bottom};
-        SetTextColor(mem, kDim);
-        DrawTextW(mem, L"+", 1, &gNewTabHit, DT_SINGLELINE | DT_VCENTER | DT_CENTER);
-        BitBlt(dc, 0, 0, c.right, c.bottom, mem, 0, 0, SRCCOPY);
-        SelectObject(mem, oldFont);
-        SelectObject(mem, oldBmp);
-        for (HBRUSH b : {bg, act, hot, accent}) DeleteObject(b);
-        DeleteObject(bmp);
-        DeleteDC(mem);
-        EndPaint(hwnd, &ps);
-        return 0;
+        gNewTabHit = {x, 0, x + scale(30), h};
+        c.text(gNewTabHit, L"+", kDim, center);
     }
-    case WM_ERASEBKGND: return 1;
-    case WM_MOUSEMOVE: {
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        if (gTabDrag >= 0 && (wp & MK_LBUTTON)) {  // a tab is dragged: past the middle of another tab, it takes that place
-            if (!gTabDragging && std::abs(pt.x - gTabDragX) > scale(6)) gTabDragging = true;
-            if (gTabDragging)
-                for (int i = 0; i < int(gTabHits.size()); ++i) {
-                    const RECT& r = gTabHits[size_t(i)].tab;
-                    const int mid = (r.left + r.right) / 2;
-                    if (i != gTabDrag && pt.x >= r.left && pt.x < r.right && (i < gTabDrag ? pt.x < mid : pt.x >= mid)) {
-                        moveDoc(gTabDrag, i);
-                        gTabDrag = i;
-                        UpdateWindow(hwnd);  // the new places of the tabs for the next move
-                        break;
+    bool mouse(const stardraft::draw::MouseEvent& e) override {
+        using stardraft::draw::MouseKind;
+        const POINT pt{e.pt.x, e.pt.y};
+        switch (e.kind) {
+        case MouseKind::Move: {
+            if (gTabDrag >= 0) {  // a tab is dragged: past the middle of another tab, it takes that place
+                if (!gTabDragging && std::abs(pt.x - gTabDragX) > scale(6)) gTabDragging = true;
+                if (gTabDragging)
+                    for (int i = 0; i < int(gTabHits.size()); ++i) {
+                        const RECT& r = gTabHits[size_t(i)].tab;
+                        const int mid = (r.left + r.right) / 2;
+                        if (i != gTabDrag && pt.x >= r.left && pt.x < r.right && (i < gTabDrag ? pt.x < mid : pt.x >= mid)) {
+                            moveDoc(gTabDrag, i);
+                            gTabDrag = i;
+                            if (HWND w = tabsWindow(*this)) UpdateWindow(w);  // the new places of the tabs for the next move
+                            break;
+                        }
                     }
-                }
-            return 0;
+                return true;
+            }
+            int h = -1, hc = -1;
+            for (int i = 0; i < int(gTabHits.size()); ++i) {
+                if (PtInRect(&gTabHits[size_t(i)].close, pt)) hc = i;
+                if (PtInRect(&gTabHits[size_t(i)].tab, pt)) h = i;
+            }
+            if (h != gTabHot || hc != gTabHotClose) gTabHot = h, gTabHotClose = hc, invalidate();
+            return true;
         }
-        int h = -1, hc = -1;
-        for (int i = 0; i < int(gTabHits.size()); ++i) {
-            if (PtInRect(&gTabHits[size_t(i)].close, pt)) hc = i;
-            if (PtInRect(&gTabHits[size_t(i)].tab, pt)) h = i;
+        case MouseKind::Leave:
+            gTabHot = gTabHotClose = -1;
+            invalidate();
+            return true;
+        case MouseKind::Down:
+        case MouseKind::DoubleClick:  // (the old tab strip had no double clicks: a second press is a press)
+            if (e.button != 0) return false;
+            if (PtInRect(&gNewTabHit, pt)) {
+                PostMessageW(app.main, WM_COMMAND, ID_FILE_NEW, 0);  // the New page: a map or a project
+                return true;
+            }
+            pressAt(pt, false);
+            return true;
+        case MouseKind::Up:
+            if (e.button == 2) {  // the middle button closes the tab under the mouse
+                pressAt(pt, true);
+                return true;
+            }
+            if (e.button != 0) return false;
+            if (gTabDrag >= 0) {
+                if (gTabDragging) setMessage(L"Moved the tab \"" + docTitle(gTabDrag) + L"\"");
+                gTabDrag = -1, gTabDragging = false;
+                if (auto* h = host()) h->capture(*this, false);
+            }
+            return true;
+        default: return false;
         }
-        if (h != gTabHot || hc != gTabHotClose) gTabHot = h, gTabHotClose = hc, InvalidateRect(hwnd, nullptr, FALSE);
-        TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
-        TrackMouseEvent(&tme);
-        return 0;
     }
-    case WM_MOUSELEAVE:
-        gTabHot = gTabHotClose = -1;
-        InvalidateRect(hwnd, nullptr, FALSE);
-        return 0;
-    case WM_LBUTTONDOWN:
-    case WM_MBUTTONUP: {
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        if (msg == WM_LBUTTONDOWN && PtInRect(&gNewTabHit, pt)) {
-            PostMessageW(app.main, WM_COMMAND, ID_FILE_NEW, 0);  // the New page: a map or a project
-            return 0;
-        }
+    void captureLost() override { gTabDrag = -1, gTabDragging = false; }
+    stardraft::draw::Cursor cursor(stardraft::draw::Point) override { return stardraft::draw::Cursor::Arrow; }
+
+private:
+    // A press on the strip (or a middle click): the tab's x or a middle click closes it; a press on the tab activates
+    // it and starts a drag.
+    void pressAt(POINT pt, bool middle) {
         for (int i = 0; i < int(gTabHits.size()); ++i) {
             if (!PtInRect(&gTabHits[size_t(i)].tab, pt)) continue;
-            if (msg == WM_MBUTTONUP || PtInRect(&gTabHits[size_t(i)].close, pt)) closeDoc(i);
+            if (middle || PtInRect(&gTabHits[size_t(i)].close, pt)) closeDoc(i);
             else {
                 activateDoc(i);
                 gTabDrag = i, gTabDragX = pt.x, gTabDragging = false;  // a drag sideways moves the tab
-                SetCapture(hwnd);
+                if (auto* h = host()) h->capture(*this, true);
             }
             break;
         }
-        InvalidateRect(hwnd, nullptr, FALSE);
+        invalidate();
         SetFocus(app.view);
-        return 0;
     }
-    case WM_LBUTTONUP:
-        if (gTabDrag >= 0) {
-            if (gTabDragging) setMessage(L"Moved the tab \"" + docTitle(gTabDrag) + L"\"");
-            gTabDrag = -1, gTabDragging = false;
-            ReleaseCapture();
-        }
-        return 0;
-    case WM_CAPTURECHANGED:
-        gTabDrag = -1, gTabDragging = false;
-        return 0;
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
+};
+TabsView gTabs;
 
 // --- EUD projects ----------------------------------------------------------------------------------------
 // A project is a folder with project.stardraft: the map, the code (.eps), the data edits, the triggers. Build writes
@@ -5947,6 +5935,7 @@ void fadeIn(HWND w, int show) {
 #include "canvas_gdi.inc"
 #include "ui_kit.inc"
 #include "view_win32.inc"
+HWND tabsWindow(stardraft::draw::View& v) { return ui::Win32Host::windowOf(v); }
 #include "game_text.inc"
 #include "context_menu.inc"
 #include "message_box.inc"
@@ -20007,7 +19996,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         app.status = CreateWindowExW(0, STATUSCLASSNAMEW, L"", WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP, 0, 0, 0, 0, hwnd,
                                      HMENU(IDC_STATUS), app.inst, nullptr);
         app.minimap = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, hwnd, nullptr, app.inst, &gMinimap);
-        app.tabs = CreateWindowExW(0, L"StarDraftTabs", L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, hwnd, HMENU(IDC_TABS), app.inst, nullptr);
+        app.tabs = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, hwnd, HMENU(IDC_TABS), app.inst, &gTabs);
         gTopBar = CreateWindowExW(0, L"StarDraftTopBar", L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0, 0, 1, 1, hwnd, nullptr, app.inst, nullptr);
         for (HWND& t : gPanelTabs) t = CreateWindowExW(0, L"StarDraftPanelTabs", L"", WS_CHILD, 0, 0, 1, 1, hwnd, nullptr, app.inst, nullptr);
         app.view = CreateWindowExW(0, L"StarDraftViewport", L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0, 0, 1, 1, hwnd,
@@ -23532,12 +23521,6 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     vc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     vc.lpszClassName = L"StarDraftViewport";
     RegisterClassExW(&vc);
-    WNDCLASSEXW tc{sizeof tc};
-    tc.lpfnWndProc = tabsProc;
-    tc.hInstance = inst;
-    tc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    tc.lpszClassName = L"StarDraftTabs";
-    RegisterClassExW(&tc);
     WNDCLASSEXW uc{sizeof uc};
     uc.lpfnWndProc = unitPaletteProc;
     uc.hInstance = inst;
