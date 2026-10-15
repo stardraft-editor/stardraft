@@ -259,6 +259,8 @@ struct CtModel {
     int kind = 0, entry = -1;               // the selected condition (kind 0) or action (1)
     int anchor = -1;                        // the trigger a Shift click reaches from
     std::set<int> marked;                   // the triggers chosen with Ctrl or Shift click (the list's actions take them all)
+    std::set<int> collapsed;                // the action rows of collapsed blocks (by row; cleared when the trigger changes)
+    int hold = 0;                           // > 0: the changes of a batch (a paste of several triggers) go into the map once, at the end
 };
 // What the model's commands ask of the program: the names, the list's repaint, the selection (its entries and head follow),
 // the header, the change into the map, the messages, and the keys.
@@ -454,6 +456,18 @@ inline void ctModelSetForces(CtModel& m, CtModelHost& h, const std::set<std::str
     ctModelFill(m, h);
     h.changed();
 }
+// Forces' multi-pick: the forces by their names (the values are the groups' numbers), and in `checked` the ones the
+// trigger runs for.
+inline std::vector<ListPickItem> ctForceItems(const ClassicTrigger& t, const ClassicNames& n, std::set<std::string>& checked) {
+    std::vector<ListPickItem> items;
+    for (int g : kCtForceGroups) {
+        ListPickItem it;
+        it.label = widen(classicPlayerName(uint32_t(g), n)), it.value = std::to_string(g);
+        items.push_back(std::move(it));
+        if (t.runsFor(g)) checked.insert(std::to_string(g));
+    }
+    return items;
+}
 // The change's check: a trigger differs from the map's when the page read them.
 inline bool ctModelChanged(const CtModel& m) { return m.trig.triggers != m.before; }
 
@@ -599,6 +613,8 @@ public:
     virtual void chipClick(int kind, int i, int pi, draw::Rect chip) = 0;
     virtual void toggleCollapsed(int i) = 0;
     virtual void entriesLaid(int height) = 0;  // the entries' height changed: the editor follows
+    // A key on a list (`isList`: the trigger list, else the entries): true when it is one of the list's keys.
+    virtual bool listKey(bool /*isList*/, const draw::KeyEvent& /*e*/) { return false; }
 };
 
 // A click area of a painted list: the mouse on it runs `click`; a `drag` (a grip) starts a drag; the right button runs
@@ -663,6 +679,7 @@ public:
         if (triggers_) paintTriggers(c);
         else paintEntries(c);
     }
+    bool key(const draw::KeyEvent& e) override { return host_.listKey(triggers_, e); }
 
     bool mouse(const draw::MouseEvent& e) override {
         switch (e.kind) {

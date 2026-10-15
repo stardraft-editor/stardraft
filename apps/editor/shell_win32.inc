@@ -352,4 +352,35 @@ std::wstring shellInstallFolderText() {
     std::string line;
     std::getline(in, line);
     return widen(line);
+
+// The pop-outs that asked to close (shellClosePopout); the loop of each one ends when it sees its own.
+std::set<const stardraft::draw::View*> gPopoutsClosing;
+void shellClosePopout(stardraft::draw::View& content) { gPopoutsClosing.insert(&content); }
+// The pop-out's window: a view window with a thin border and round corners, faded in, owned by the main window. Its loop:
+// a press outside the pop-out only closes it (popoutEatsPress); the window closes when it loses activation (the view
+// window's Popup kind).
+void shellRunPopout(stardraft::draw::View& content, int x, int y, int w, int h, stardraft::draw::View* focus, const std::function<void()>& opened) {
+    POINT at{x, y};
+    MONITORINFO mi{sizeof mi};
+    GetMonitorInfoW(MonitorFromPoint(at, MONITOR_DEFAULTTONEAREST), &mi);
+    at.x = std::clamp<LONG>(at.x, mi.rcWork.left, mi.rcWork.right - w);
+    at.y = std::clamp<LONG>(at.y, mi.rcWork.top, mi.rcWork.bottom - h);
+    gPopoutsClosing.erase(&content);
+    HWND wnd = CreateWindowExW(WS_EX_TOOLWINDOW | (gBackground ? WS_EX_NOACTIVATE : 0), ui::kViewClass, L"", WS_POPUP | WS_BORDER | WS_CLIPCHILDREN, at.x, at.y,
+                               w, h, app.main, nullptr, app.inst, &content);
+    if (!wnd) return;
+    if (auto* host = dynamic_cast<ui::Win32Host*>(content.host())) host->kind = stardraft::draw::WindowKind::Popup, host->isWindow = true;
+    ui::popupFrame(wnd);
+    {
+        const int round = 2;  // DWMWCP_ROUND, as the quick search
+        DwmSetWindowAttribute(wnd, 33, &round, sizeof round);
+    }
+    fadeIn(wnd, gBackground ? SW_SHOWNOACTIVATE : SW_SHOW);
+    if (!gBackground && focus) focus->focus();
+    if (opened) opened();
+    MSG msg;
+    while (IsWindow(wnd) && !gPopoutsClosing.count(&content) && GetMessageW(&msg, nullptr, 0, 0))
+        if (!popoutEatsPress(msg, wnd)) TranslateMessage(&msg), DispatchMessageW(&msg);
+    gPopoutsClosing.erase(&content);
+    if (IsWindow(wnd)) DestroyWindow(wnd);
 }
