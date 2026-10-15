@@ -16764,7 +16764,8 @@ void trigEditVariableField(TrigVarHit h) {
         if (flag) spec.title += L"   1 on, 0 off";
         spec.type = "Number", spec.constantOnly = true, spec.initial = v->variable.initial.empty() ? "0" : v->variable.initial;
         if (flag) spec.min = 0, spec.max = 1;
-        if (kind == TriggerVariable::Kind::Text) spec.title = L"Text", spec.type = "Text", spec.constantOnly = false, spec.initial = v->variable.initial;
+        if (kind == TriggerVariable::Kind::Text)  // a text the game can show: its colors, Preview and Raw (#19)
+            spec.title = L"Text", spec.type = "Text", spec.constantOnly = false, spec.colorsOnly = true, spec.initial = v->variable.initial;
     } else {
         spec.title = L"Description";
         spec.type = "Text", spec.initial = v->comment;
@@ -25727,6 +25728,28 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             }
             if (s == "classicproject:") {  // L.4: the classic map made a project (classic_triggers.inc)
                 classicProjectDatashot(datashots);
+                continue;
+            }
+            if (s == "textvar:") {  // textvar.txt: a Text variable's default value opens in the pop-out with colors, Preview and Raw (#19); needs a project
+                std::ofstream o(fs::path(datashots) / "textvar.txt");
+                if (!activeProject()) {
+                    o << "open a project NO\n";
+                    continue;
+                }
+                command(ID_WS_TRIGGERS);
+                for (int i = 0; i < 5; ++i) pump();
+                trigAddVariable({0}, TriggerVariable::Kind::Text);  // made and selected
+                static bool rich = false, seen = false;
+                rich = seen = false;
+                gValuePopHook = [](HWND w) {
+                    seen = true, rich = gValuePop && gValuePop->rich && gValuePop->spec.colorsOnly;
+                    PostMessageW(w, WM_COMMAND, IDCANCEL, 0);
+                };
+                TrigVarHit h;
+                h.field = 2;  // the default value
+                trigEditVariableField(h);
+                gValuePopHook = nullptr;
+                o << "a Text variable's default value: colors, Preview and Raw " << (seen && rich ? "yes" : "NO") << "\n";
                 continue;
             }
             if (s == "mappages:") {  // the map pages: each captured; Apply, Revert, leaving with changes (map_pages.inc)
