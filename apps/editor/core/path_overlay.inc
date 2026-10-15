@@ -51,15 +51,15 @@ uint32_t regionTint(int r) {
 
 // Is the result for the map that shows (and for the unit size set)?
 const PathingAnalysis* pathResult() {
-    if (!app.ed || gPath.resultFor != app.ed.get() || !gPath.result) return nullptr;
-    if (gPath.result->grid.width != app.ed->width() * 4 || gPath.result->grid.height != app.ed->height() * 4) return nullptr;
+    if (!appState().ed || gPath.resultFor != appState().ed.get() || !gPath.result) return nullptr;
+    if (gPath.result->grid.width != appState().ed->width() * 4 || gPath.result->grid.height != appState().ed->height() * 4) return nullptr;
     return gPath.result.get();
 }
 
 // Start the analysis when the map changed, and take a finished one. `wait`: until the result is current (tests).
 void pathOverlayPoll(bool wait = false) {
-    if (!pathOverlayOn() || !app.ed || !app.ed->isOpen()) return;
-    Editor& ed = *app.ed;
+    if (!pathOverlayOn() || !appState().ed || !appState().ed->isOpen()) return;
+    Editor& ed = *appState().ed;
     for (;;) {
         if (gPath.job.valid()) {
             if (!wait && gPath.job.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
@@ -67,7 +67,7 @@ void pathOverlayPoll(bool wait = false) {
             gPath.resultFor = gPath.jobFor, gPath.resultRev = gPath.jobRev, gPath.resultSize = gPath.jobSize;
             gPath.lastMs = gPath.result->totalMs;
             gPath.hoverPath = gPath.hoverBase = -1;
-            app.dirty = true;
+            appState().dirty = true;
         }
         if (gPath.result && gPath.resultFor == &ed && gPath.resultRev == ed.revision() && gPath.resultSize == gPath.size) return;
         const Tileset& ts = ed.tileset();
@@ -167,7 +167,7 @@ void makePathShapes(const PathingAnalysis& a) {
         std::swap(open, next);
     }
     // Town tiles: runs of tiles on each row.
-    const int mw = app.ed ? app.ed->width() : w / 4;
+    const int mw = appState().ed ? appState().ed->width() : w / 4;
     for (const Base& b : a.bases) {
         const uint32_t fill = rgbaOf(kGood, b.start ? 0x50 : 0x30);
         for (size_t k = 0; k < b.buildable.size();) {
@@ -188,7 +188,7 @@ void addPathOverlays(render::Scene& s) {
     const PathingAnalysis* a = pathOverlayOn() ? pathResult() : nullptr;
     if (!a) return;
     makePathShapes(*a);
-    Editor& ed = *app.ed;
+    Editor& ed = *appState().ed;
     const size_t firstText = s.texts.size();
     if (gPath.walk) s.rects.insert(s.rects.end(), gPath.walkRects.begin(), gPath.walkRects.end());
     auto line = [&](float x0, float y0, float x1, float y1, uint32_t rgba, float thickness) {
@@ -196,7 +196,7 @@ void addPathOverlays(render::Scene& s) {
         r.x0 = x0, r.y0 = y0, r.x1 = x1, r.y1 = y1, r.rgba = rgba, r.thickness = thickness, r.line = true;
         s.rects.push_back(r);
     };
-    const float px = 1 / app.zoom;  // one screen pixel in map pixels
+    const float px = 1 / appState().zoom;  // one screen pixel in map pixels
     // The labels, placed after the shapes by priority (0 first): a label that would cover one placed before it does
     // not show (the status bar tells it under the mouse).
     struct Label {
@@ -277,7 +277,7 @@ void addPathOverlays(render::Scene& s) {
     for (int i : order) {
         render::TextDraw& t = labels[size_t(i)].t;
         if (labels[size_t(i)].needs >= 0 && !shown[size_t(labels[size_t(i)].needs)]) continue;
-        const float x0 = (t.x - app.camX) * app.zoom, y0 = (t.y - app.camY) * app.zoom;
+        const float x0 = (t.x - appState().camX) * appState().zoom, y0 = (t.y - appState().camY) * appState().zoom;
         const std::array<float, 4> box{x0 - 2, y0 - 2, x0 + float(t.text.size()) * 6 * t.scale + 2, y0 + 10 * t.scale + 2};
         bool free = true;
         for (const auto& o : taken) free &= box[0] >= o[2] || o[0] >= box[2] || box[1] >= o[3] || o[1] >= box[3];
@@ -310,7 +310,7 @@ void addPathOverlays(render::Scene& s) {
     }
     int vw, vh;
     viewSize(vw, vh);
-    const float sc = float(app.dpi) / 96, rowH = 18 * sc, pad = 8 * sc;
+    const float sc = float(appState().dpi) / 96, rowH = 18 * sc, pad = 8 * sc;
     float maxW = 0;
     for (const Entry& e : entries) maxW = std::max(maxW, float(std::strlen(e.text)) * 6.0f * 1.5f * sc);
     const float boxW = pad * 3 + 14 * sc + maxW, boxH = pad * 2 + rowH * float(entries.size());
@@ -318,7 +318,7 @@ void addPathOverlays(render::Scene& s) {
     // The map's labels do not show through the legend.
     s.texts.erase(std::remove_if(s.texts.begin() + std::ptrdiff_t(firstText), s.texts.end(),
                                  [&](const render::TextDraw& t) {
-                                     const float tx = (t.x - app.camX) * app.zoom, ty = (t.y - app.camY) * app.zoom;
+                                     const float tx = (t.x - appState().camX) * appState().zoom, ty = (t.y - appState().camY) * appState().zoom;
                                      const float tw = float(t.text.size()) * 6 * t.scale, th = 10 * t.scale;
                                      return tx < x0 + boxW && tx + tw > x0 && ty < y0 + boxH && ty + th > y0;
                                  }),
@@ -348,7 +348,7 @@ std::wstring pathOverlayHover(float wx, float wy) {
     gPath.hoverPath = gPath.hoverBase = -1;
     std::wstring text;
     if (a && gPath.paths) {
-        const float reach = 6 / app.zoom;  // 6 screen pixels
+        const float reach = 6 / appState().zoom;  // 6 screen pixels
         float best = reach;
         auto segDist = [](float px, float py, float ax, float ay, float bx, float by) {
             const float dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
@@ -378,7 +378,7 @@ std::wstring pathOverlayHover(float wx, float wy) {
                 break;
             }
         }
-    if (gPath.hoverPath != oldPath || gPath.hoverBase != oldBase) app.dirty = true;
+    if (gPath.hoverPath != oldPath || gPath.hoverBase != oldBase) appState().dirty = true;
     return text;
 }
 
@@ -395,7 +395,7 @@ void pathOverlayToggle(int id) {
     bool& flag = id == ID_VIEW_WALK ? gPath.walk : id == ID_VIEW_PATHS ? gPath.paths : gPath.towns;
     flag = !flag;
     pathOverlayPoll();
-    app.dirty = true;
+    appState().dirty = true;
     if (flag) setMessage(pathLegendText());
     else setMessage(id == ID_VIEW_WALK ? L"The walkable ground does not show" : id == ID_VIEW_PATHS ? L"The paths between bases do not show"
                                                                                                    : L"The town areas do not show");
@@ -404,15 +404,6 @@ void pathOverlayToggle(int id) {
 void pathOverlaySize(int id) {
     gPath.size = id == ID_PATHSIZE_SMALL ? PathUnitSize::Small : id == ID_PATHSIZE_LARGE ? PathUnitSize::Large : PathUnitSize::Medium;
     pathOverlayPoll();
-    app.dirty = true;
+    appState().dirty = true;
     setMessage(std::wstring(L"Paths are for a ") + widen(pathUnitSizeName(gPath.size)));
-}
-
-void pathOverlayMenus(HMENU m) {
-    CheckMenuItem(m, ID_VIEW_WALK, gPath.walk ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(m, ID_VIEW_PATHS, gPath.paths ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(m, ID_VIEW_TOWNS, gPath.towns ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuRadioItem(m, ID_PATHSIZE_SMALL, ID_PATHSIZE_LARGE,
-                       gPath.size == PathUnitSize::Small ? ID_PATHSIZE_SMALL : gPath.size == PathUnitSize::Large ? ID_PATHSIZE_LARGE : ID_PATHSIZE_MEDIUM,
-                       MF_BYCOMMAND);
 }

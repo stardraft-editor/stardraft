@@ -1,0 +1,227 @@
+#!/usr/bin/env python3
+"""Snapshots of the SDL program (apps/editor/main_sdl.cpp): one run for each workspace and dialog, with no window.
+
+usage: python3 -I tools/sdl_snapshots.py --exe <stardraft> --out <folder> [--install <folder>] [--map <map>]
+                                          [--project <project>] [--only <name>,...] [--scale <s>] [--list]
+
+Each run is `<exe> [map] --snapshot <out>/<name>.png <args>`, with SDL_VIDEODRIVER=offscreen when it is not set
+(not on macOS: there the offscreen driver gives no GPU device).
+A run passes when it exits with 0 and writes a PNG that is not empty and not one flat color. The PNGs, each run's
+output (<name>.txt) and a summary (summary.txt) go into the --out folder. The script exits with 1 when a run fails.
+
+A case that needs the game data runs only with --install; one that needs a map, only with --map (and --install);
+one that needs a project, only with --project. The others run everywhere (CI has no game data).
+
+To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (its argument loop in main()).
+"""
+
+import argparse
+import hashlib
+import os
+import struct
+import subprocess
+import sys
+import zlib
+
+# (name, arguments, needs): needs is "" (nothing), "data" (--install), "map" (--map and --install) or "project".
+# Dialog sizes are those of the dialogs on Windows at scale 1 (a map's dialog sets its own size).
+WORKSPACES = ["map", "data", "triggers", "assets", "project", "briefing", "files", "props", "players",
+              "classictriggers", "classic"]  # main_sdl.cpp, kWorkspaceNames
+MODES = ["units", "terrain", "doodads", "sprites", "locations"]  # main_sdl.cpp, --mode
+
+CASES = [("start", [], "")]
+CASES += [("ws-" + w, ["--workspace", w], "") for w in WORKSPACES]
+CASES += [
+    ("newpage-classic", ["--newpage", "classic"], ""),
+    ("newpage-eud", ["--newpage", "eud"], ""),
+    ("dialog-options", ["--dialog", "options", "--size", "720x820"], ""),
+    ("dialog-feedback", ["--dialog", "feedback", "--size", "592x370"], ""),
+    ("dialog-newproject", ["--dialog", "newproject", "--size", "688x394"], ""),
+    ("dialog-prompt", ["--dialog", "prompt", "--size", "385x105"], ""),
+    ("dialog-listpick", ["--dialog", "listpick", "--size", "378x494"], ""),
+    # The game data, no map.
+    ("data-units", ["--workspace", "data", "--data", "units:0"], "data"),
+    ("data-images", ["--workspace", "data", "--data", "images:239"], "data"),
+    ("data-strings", ["--workspace", "data", "--data", "strings:5"], "data"),
+]
+# A map open.
+CASES += [("map-ws-" + w, ["--workspace", w], "map") for w in WORKSPACES]
+CASES += [("map-mode-" + m, ["--mode", m], "map") for m in MODES]
+CASES += [
+    ("map-terrain-rect", ["--rect"], "map"),
+    ("map-classictrig", ["--workspace", "classictriggers", "--classictrig", "1:1:0"], "map"),
+    ("map-dialog-unitprops", ["--dialog", "unitprops"], "map"),
+    ("map-dialog-locprops", ["--dialog", "locprops"], "map"),
+    ("map-dialog-prompt", ["--dialog", "prompt"], "map"),
+    ("map-dialog-quick", ["--dialog", "quick", "--mode", "units"], "map"),
+    ("map-newpage-classic", ["--newpage", "classic"], "map"),
+    # A project open.
+    ("project-scriptpreview", ["--workspace", "project", "--scriptpreview"], "project"),
+    # The game's text codes (colors) in a block's text: drawn without boxes (the first trigger of the second category).
+    ("project-trig-gametext", ["--workspace", "triggers", "--trig", "1:0"], "project"),
+    ("project-briefing", ["--workspace", "briefing", "--briefing", "0"], "project"),
+]
+# Not in the program yet (add them to CASES when main_sdl.cpp reads them): --dialog about, message, tip, valuepop.
+
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+def png_check(path):
+    """None when the PNG is good; else the reason. Good: it decodes and its pixels are not all one color."""
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError as e:
+        return f"no PNG ({e.strerror})"
+    if not data:
+        return "the PNG is empty"
+    if not data.startswith(PNG_SIGNATURE):
+        return "not a PNG"
+    pos, ihdr, idat = 8, None, []
+    while pos + 8 <= len(data):
+        length, kind = struct.unpack(">I4s", data[pos:pos + 8])
+        body = data[pos + 8:pos + 8 + length]
+        if kind == b"IHDR":
+            ihdr = struct.unpack(">IIBBBBB", body)
+        elif kind == b"IDAT":
+            idat.append(body)
+        elif kind == b"IEND":
+            break
+        pos += 12 + length
+    if not ihdr or not idat:
+        return "the PNG has no IHDR or no IDAT"
+    width, height, depth, color, _, _, interlace = ihdr
+    if width == 0 or height == 0:
+        return "the PNG has no pixels"
+    channels = {0: 1, 2: 3, 4: 2, 6: 4}.get(color)
+    if depth != 8 or channels is None or interlace:
+        return None  # (only 8-bit, not interlaced, no palette is read; the program writes RGBA 8-bit)
+    try:
+        raw = zlib.decompress(b"".join(idat))
+    except zlib.error as e:
+        return f"the PNG does not decode ({e})"
+    bpp, stride = channels, width * channels
+    if len(raw) < height * (stride + 1):
+        return "the PNG's data is short"
+    prev = bytearray(stride)
+    first = None
+    for y in range(height):
+        start = y * (stride + 1)
+        ftype, line = raw[start], bytearray(raw[start + 1:start + 1 + stride])
+        if ftype == 1:
+            for i in range(bpp, stride):
+                line[i] = (line[i] + line[i - bpp]) & 0xFF
+        elif ftype == 2:
+            line = bytearray((a + b) & 0xFF for a, b in zip(line, prev))
+        elif ftype == 3:
+            for i in range(stride):
+                left = line[i - bpp] if i >= bpp else 0
+                line[i] = (line[i] + ((left + prev[i]) >> 1)) & 0xFF
+        elif ftype == 4:
+            for i in range(stride):
+                a = line[i - bpp] if i >= bpp else 0
+                b, c = prev[i], prev[i - bpp] if i >= bpp else 0
+                p = a + b - c
+                pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+                pred = a if pa <= pb and pa <= pc else (b if pb <= pc else c)
+                line[i] = (line[i] + pred) & 0xFF
+        elif ftype != 0:
+            return f"the PNG has a bad filter ({ftype})"
+        if first is None:
+            first = bytes(line[:bpp])
+        if bytes(line) != first * width:
+            return None  # two colors: good
+        prev = line
+    return f"the picture is one flat color ({first.hex()})"
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--exe", help="the SDL program (on macOS: stardraft.app/Contents/MacOS/stardraft)")
+    ap.add_argument("--out", help="the folder for the PNGs, the output of each run and summary.txt")
+    ap.add_argument("--install", help="a StarCraft: Remastered install (the cases that need game data)")
+    ap.add_argument("--map", help="a map to open (the cases that need a map; needs --install)")
+    ap.add_argument("--project", help="a project to open (the cases that need a project)")
+    ap.add_argument("--only", help="only these cases (names, comma-separated)")
+    ap.add_argument("--scale", default="1", help="the UI scale (default 1, so that the sizes are the same everywhere)")
+    ap.add_argument("--timeout", type=int, default=120, help="seconds for each run (default 120)")
+    ap.add_argument("--list", action="store_true", help="show the cases and exit")
+    a = ap.parse_args()
+
+    have = {"": True, "data": bool(a.install), "map": bool(a.map and a.install), "project": bool(a.project)}
+    only = set(a.only.split(",")) if a.only else None
+    if only:
+        unknown = only - {name for name, _, _ in CASES}
+        if unknown:
+            ap.error("no such case: " + ", ".join(sorted(unknown)))
+    if a.list:
+        for name, args, needs in CASES:
+            print(f"{name:24} {' '.join(args):50} {needs or '-'}")
+        return 0
+    if not a.exe or not a.out:
+        ap.error("--exe and --out are necessary")
+    os.makedirs(a.out, exist_ok=True)
+    env = dict(os.environ)
+    if sys.platform != "darwin":  # (on macOS the offscreen driver has no Metal device: SDL's own driver, no window)
+        env.setdefault("SDL_VIDEODRIVER", "offscreen")
+    if a.install:
+        env["STARDRAFT_INSTALL"] = a.install
+
+    results, failed, skipped, hashes = [], [], [], {}
+    for name, args, needs in CASES:
+        if only and name not in only:
+            continue
+        if not have[needs]:
+            skipped.append(name)
+            results.append(f"{name}: skipped (needs {needs})")
+            continue
+        png = os.path.join(a.out, name + ".png")
+        if os.path.exists(png):
+            os.replace(png, png + ".old")  # (a PNG from an earlier run does not count; never deleted)
+        cmd = [a.exe]
+        if needs == "map":
+            cmd.append(a.map)
+        elif needs == "project":
+            cmd.append(a.project)
+        cmd += ["--snapshot", png, "--scale", a.scale]
+        if a.install:
+            cmd += ["--install", a.install]
+        cmd += args
+        print(f"::group::{name}: {' '.join(cmd)}", flush=True)
+        try:
+            run = subprocess.run(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=a.timeout)
+            output, code = run.stdout.decode("utf-8", "replace"), run.returncode
+        except subprocess.TimeoutExpired as e:
+            output, code = (e.stdout or b"").decode("utf-8", "replace") + f"\n(timed out after {a.timeout} s)", None
+        except OSError as e:
+            output, code = f"could not start: {e}", None
+        with open(os.path.join(a.out, name + ".txt"), "w", encoding="utf-8") as f:
+            f.write(" ".join(cmd) + "\n\n" + output)
+        print(output, end="" if output.endswith("\n") else "\n")
+        problem = f"exit code {code}" if code != 0 else png_check(png)
+        print("::endgroup::", flush=True)
+        if problem:
+            failed.append(name)
+            results.append(f"{name}: FAILED ({problem})")
+            print(f"{name}: FAILED ({problem})", flush=True)
+            continue
+        with open(png, "rb") as f:
+            digest = hashlib.sha256(f.read()).hexdigest()
+        same = hashes.setdefault(digest, name)
+        note = f" (the same picture as {same})" if same != name else ""
+        results.append(f"{name}: passed{note}")
+        print(f"{name}: passed{note}", flush=True)
+
+    summary = "\n".join(results) + f"\n\n{len(results) - len(failed) - len(skipped)} passed, {len(failed)} failed, " \
+                                    f"{len(skipped)} skipped\n"
+    with open(os.path.join(a.out, "summary.txt"), "w", encoding="utf-8") as f:
+        f.write(summary)
+    print(summary, end="")
+    if failed:
+        print("failed: " + ", ".join(failed))
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

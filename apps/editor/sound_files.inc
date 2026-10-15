@@ -1,57 +1,9 @@
-// Sounds for the map (included into main.cpp before briefing_view.inc): the map's own sound files (WAV, OGG) and
-// the game's (a map can name a game sound by its path, "sound\misc\buzz.wav", without holding it).
+// Sounds for the map (included into main.cpp before briefing_view.inc): decoding and playing a sound (the audio is SDL's),
+// the import from disk, and the sound pickers. The names of the map's and the game's sounds, and the bytes by name, are in
+// core/sound_lists.inc; the Files page is core/views_files.inc, with the program's side in files_view.inc.
 
 extern "C" int stb_vorbis_decode_memory(const unsigned char* mem, int len, int* channels, int* sample_rate, short** output);
 
-bool isSoundName(const std::string& n);
-
-// A sound the game keeps in another folder: campaign maps name theirs as "staredit\wav\name.wav", which the game
-// has under campaign\...\staredit\wav (Remastered: often as .ogg). The same name ending, without the extension:
-// the game's own folders first, then English, HD before SD.
-std::string gameSoundElsewhere(const std::string& name) {
-    static std::map<std::string, std::pair<int, std::string>> index;  // lower-case "dir\stem" -> (rank, path)
-    auto key = [](std::string n) {
-        std::transform(n.begin(), n.end(), n.begin(), ::tolower);
-        const size_t dot = n.rfind('.');
-        if (dot != std::string::npos && n.find('\\', dot) == std::string::npos) n.resize(dot);
-        const size_t s1 = n.rfind('\\');
-        const size_t s2 = s1 == std::string::npos || s1 == 0 ? std::string::npos : n.rfind('\\', s1 - 1);
-        return s2 == std::string::npos ? n : n.substr(s2 + 1);  // the folder and the name
-    };
-    static bool built = false;
-    if (!built) {
-        built = true;
-        for (const auto& f : app.data.listFiles()) {
-            if (!isSoundName(f)) continue;
-            std::string lower = f;
-            std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-            const bool locale = lower.rfind("locales\\", 0) == 0, english = lower.find("enus") != std::string::npos, sd = lower.find("\\sd\\") != std::string::npos || lower.rfind("sd\\", 0) == 0;
-            const int rank = (locale ? (english ? 2 : 4) : 0) + (sd ? 1 : 0);
-            auto [it, fresh] = index.try_emplace(key(f), rank, f);
-            if (!fresh && rank < it->second.first) it->second = {rank, f};
-        }
-    }
-    const auto it = index.find(key(name));
-    return it == index.end() ? std::string() : it->second.second;
-}
-
-// A sound's bytes by its path: the map's archive first, then the game's files.
-const Bytes* soundFileBytes(const std::string& name) {
-    if (name.empty()) return nullptr;
-    if (app.ed)
-        if (const ArchiveFile* f = app.ed->archiveFile(name)) return &f->data;
-    static std::map<std::string, Bytes> game;
-    auto [it, fresh] = game.try_emplace(name);
-    if (fresh) {
-        std::string err;
-        if (!app.data.readFile(name, it->second, err)) {
-            it->second.clear();
-            const std::string other = gameSoundElsewhere(name);
-            if (!other.empty() && !app.data.readFile(other, it->second, err)) it->second.clear();
-        }
-    }
-    return it->second.empty() ? nullptr : &it->second;
-}
 bool isOgg(const Bytes& b) { return b.size() >= 4 && std::memcmp(b.data(), "OggS", 4) == 0; }
 
 // A sound as samples the audio device takes.
@@ -98,37 +50,6 @@ const DecodedSound* decodedSound(const std::string& name) {
 uint32_t soundLength(const std::string& name) {
     const DecodedSound* d = decodedSound(name);
     return d ? d->ms : 0;
-}
-bool isSoundName(const std::string& n) {
-    if (n.size() < 4) return false;
-    std::string e = n.substr(n.size() - 4);
-    std::transform(e.begin(), e.end(), e.begin(), ::tolower);
-    return e == ".wav" || e == ".ogg";
-}
-// The map's sounds: its sound files, then the game sounds it names by reference.
-std::vector<std::string> mapSounds() {
-    std::vector<std::string> out;
-    if (!app.ed) return out;
-    for (const ArchiveFile& f : app.ed->archiveFiles())
-        if (isSoundName(f.name)) out.push_back(f.name);
-    for (const auto& r : app.ed->soundReferences()) out.push_back(r);
-    return out;
-}
-// The game's sounds: every file under sound\ (their paths, as a map names them).
-const std::vector<std::string>& gameSounds() {
-    static std::vector<std::string> out;
-    static bool listed = false;
-    if (!listed) {
-        listed = true;
-        for (const auto& n : app.data.listFiles()) {
-            if (n.size() < 7 || !isSoundName(n)) continue;
-            std::string lower = n.substr(0, 6);
-            std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-            if (lower == "sound\\") out.push_back(n);
-        }
-        std::sort(out.begin(), out.end(), [](const std::string& a, const std::string& b) { return _stricmp(a.c_str(), b.c_str()) < 0; });
-    }
-    return out;
 }
 
 // One sound to listen to (the Files pane, the sound pickers): play, and play again to stop.
