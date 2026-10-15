@@ -4,8 +4,8 @@
 // Requirements section of the Units, Upgrades, Tech Data and Orders forms (the core's paint, paintRequirementList, on the
 // kit faces of core/kit_paint.inc). The model is the core's (core/data_model.inc: dataExtras(); views_data_strings.inc,
 // views_data_buttons.inc, views_data_requirements.inc); a change is saved with its undo step as on Windows
-// (sdlDataSaved). The sizes are the Windows form's (kitpaint::formLayout). Not on this system yet: the icons (the card
-// shows each button's number), dragging a button to another place or row, the tooltip's own editor (a click opens the
+// (sdlDataSaved). The sizes are the Windows form's (kitpaint::formLayout); the icons are the palette's pictures
+// (sdlDataImage, sdl_data.inc). Not on this system yet: dragging a button to another place or row, the tooltip's own editor (a click opens the
 // string in the Strings tab) and the value boxes' open buttons. Included by sdl_data.inc before the form's host, which
 // calls sdlPaintExtraTab and sdlPaintRequirements and gives the click areas (sdlFormArea, sdlFormHot).
 
@@ -13,6 +13,7 @@ void sdlFormArea(draw::Rect r, std::function<void()> click, const std::wstring& 
 bool sdlFormHot(draw::Rect r);
 void sdlDataSaved();
 void sdlDataGoTo(const std::string& dat, int e);
+draw::Image sdlDataImage(DataPicture p);
 extern DataFormView gSdlDataForm;
 
 // A change to the strings, the button sets or the requirements: saved with its undo step, and the form repaints.
@@ -39,10 +40,10 @@ bool sdlChoose(const std::wstring& prompt, const std::vector<ListPickItem>& item
 
 namespace sdlx {
 
-// A dropdown's face; a click gets its box (ui::pickBox).
+// A dropdown's face (with the value's icon); a click gets its box (ui::pickBox).
 void pickBox(draw::Canvas& c, draw::Rect r, const std::wstring& text, bool changed, std::function<void(draw::Rect)> click, const std::wstring& tip = L"",
-             int number = -1) {
-    kitpaint::drawPickFace(c, r, text, changed, sdlFormHot(r), {}, number);
+             int number = -1, draw::Image icon = {}) {
+    kitpaint::drawPickFace(c, r, text, changed, sdlFormHot(r), icon, number);
     sdlFormArea(r, [r, click] { click(r); }, tip, true);
 }
 // A small button: text width + 20, at most 24 high, in the middle of the row (ui::smallButton). Its right edge.
@@ -78,8 +79,8 @@ void check(draw::Canvas& c, draw::Rect r, const std::wstring& label, bool on, st
 }
 // The entry's title, with the Reset link after its line when it is changed (ui::title).
 int title(draw::Canvas& c, const kitpaint::FormLayout& l, int y, const std::wstring& text, const std::wstring& sub, bool changed, std::function<void()> reset,
-          UiIcon kind) {
-    const kitpaint::TitleLayout t = kitpaint::drawTitle(c, l.x0, y, l.colRight + l.picW, {}, true, kind, text, sub, changed);
+          UiIcon kind, draw::Image icon = {}) {
+    const kitpaint::TitleLayout t = kitpaint::drawTitle(c, l.x0, y, l.colRight + l.picW, icon, true, kind, text, sub, changed);
     if (t.hasLine && changed && reset)
         link(c, t.line.left + c.measure(t.lineText), t.line.top, t.line.bottom - t.line.top, L"Reset", std::move(reset), L"Put back the game's values");
     return t.next;
@@ -120,7 +121,7 @@ struct SdlRequirements final : RequirementsPaintHost {
         sdlx::pickBox(*c, r, text, changed, std::move(click));
     }
     void valueBox(draw::Rect r, const char* kind, int v, std::function<void(draw::Rect)> click) override {
-        sdlx::pickBox(*c, r, argName(kind, v), false, std::move(click), L"", v);
+        sdlx::pickBox(*c, r, argName(kind, v), false, std::move(click), L"", v, sdlDataImage(dataArgPicture(kind, v)));
     }
     // The remove cross: on the row under the mouse (the row is a click area without a click, as on Windows).
     void removeRow(draw::Rect row, draw::Rect at, std::function<void()> click, const std::wstring& tip) override {
@@ -265,7 +266,7 @@ void sdlSetButtons(int set, std::vector<Button> bs, int sel) {
     sdlExtrasChanged();
 }
 
-// The command card: 3 x 3 cells, each with its button (its number: the icons are not on this system yet). Click selects
+// The command card: 3 x 3 cells, each with its button's icon (its number when it has none). Click selects
 // (again: the next button in that place); an empty cell adds a button there. Returns its height.
 int sdlPaintCommandCard(draw::Canvas& c, int set, int x, int y, int cell) {
     DataExtrasModel& xs = dataExtras();
@@ -284,7 +285,9 @@ int sdlPaintCommandCard(draw::Canvas& c, int set, int x, int y, int cell) {
         c.roundBox(cr, draw::kNone, sel ? kAccent : draw::rgb(48, 52, 58), float(scale(4)), sel ? 2 : 1);
         if (!here.empty()) {
             const int shown = sel ? xs.button : here[0];
-            c.text(cr, std::to_wstring(shown), sel ? kAccent : kText, draw::kMiddle | draw::kCenter);
+            if (const draw::Image icon = sdlDataImage(dataRefPicture("icons", bs[size_t(shown)].icon)))
+                c.fitted(icon, {cr.left + scale(5), cr.top + scale(5), cr.right - scale(5), cr.bottom - scale(5)});
+            else c.text(cr, std::to_wstring(shown), sel ? kAccent : kText, draw::kMiddle | draw::kCenter);
             if (here.size() > 1) {  // more than one button here: the game shows the first whose condition holds; a dot each, in order
                 const int d = scale(5), dg = scale(3), w = int(here.size()) * (d + dg) - dg;
                 for (size_t j = 0; j < here.size(); ++j) {
@@ -330,7 +333,7 @@ void sdlPaintButtonsForm(draw::Canvas& c, int& y) {
                         dataExtras().buttons.reset(set);
                         sdlExtrasChanged();
                     },
-                    UiIcon::DatButtons);
+                    UiIcon::DatButtons, sdlDataImage(dataTabEntryPicture(buttonsTab(), set)));
     // The card and the tooltip: pictures, in the right column (above the fields when the form is narrow).
     const int cell = scale(64), cardTop = y;
     int picBottom = y + sdlPaintCommandCard(c, set, l.picX, y, cell);
@@ -347,6 +350,8 @@ void sdlPaintButtonsForm(draw::Canvas& c, int& y) {
         for (const Button& o : bs) sharing += o.pos == b.pos;
         const int gx = l.x0 + scale(14);  // after the grip
         c.text({gx, y, gx + scale(26), y + l.rowH}, std::to_wstring(i), kDim, draw::kMiddle);
+        if (const draw::Image icon = sdlDataImage(dataRefPicture("icons", b.icon)))
+            c.fitted(icon, {gx + scale(28), y + scale(3), gx + scale(48), y + l.rowH - scale(3)});
         c.text({gx + scale(54), y, gx + scale(120), y + l.rowH}, buttonCardCell(b.pos), sharing > 1 ? kWarn : kDim, draw::kMiddle);
         c.text({gx + scale(120), y, l.colRight - scale(80), y + l.rowH}, buttonRowTextFrom(b, b.enabledString ? statString(b.enabledString) : L""),
                on ? kAccent : kText, draw::kMiddle | draw::kEllipsis);
@@ -419,9 +424,11 @@ void sdlPaintButtonsForm(draw::Canvas& c, int& y) {
             f(bs2[size_t(bi)]);
             sdlSetButtons(set, std::move(bs2), bi);
         };
-        auto row = [&](const wchar_t* name, bool changed, const std::wstring& text, std::function<void(draw::Rect)> click, int number, const std::wstring& tip = L"") {
+        auto row = [&](const wchar_t* name, bool changed, const std::wstring& text, std::function<void(draw::Rect)> click, int number, const std::wstring& tip = L"",
+                       draw::Image icon = {}) {
             sdlx::fieldLabel(c, l, y, name, changed);
-            sdlx::pickBox(c, {l.x0 + l.labelW, y + scale(2), l.x0 + l.labelW + scale(320), y + l.rowH - scale(2)}, text, changed, std::move(click), tip, number);
+            sdlx::pickBox(c, {l.x0 + l.labelW, y + scale(2), l.x0 + l.labelW + scale(320), y + l.rowH - scale(2)}, text, changed, std::move(click), tip, number,
+                          icon);
             y += l.rowH;
         };
         row(L"Position", sb && sb->pos != b.pos, buttonRowColumn(b.pos),
@@ -439,7 +446,7 @@ void sdlPaintButtonsForm(draw::Canvas& c, int& y) {
                 std::string picked;
                 if (sdlChoose(L"Icon", entryItems("icons"), std::to_string(b.icon), picked)) edit([&](Button& o) { o.icon = uint16_t(std::stoul(picked)); });
             },
-            b.icon);
+            b.icon, L"", sdlDataImage(dataRefPicture("icons", b.icon)));
         // Condition and action: their functions, and a value when the function takes one.
         for (int which = 0; which < 2; ++which) {
             const bool cond = which == 0;
@@ -465,7 +472,7 @@ void sdlPaintButtonsForm(draw::Canvas& c, int& y) {
                         if (sdlChoose(L"Value", entryItems(kind), std::to_string(v), picked))
                             edit([&](Button& o) { (cond ? o.conditionArg : o.actionArg) = uint16_t(std::stoul(picked)); });
                     },
-                    v);
+                    v, L"", sdlDataImage(dataArgPicture(kind, v)));
             }
         }
         // Texts: the tooltip's first line in the game's colors (a click opens the string in the Strings tab; the arrow

@@ -81,12 +81,7 @@ int formTitle(HDC dc, const FormLayout& l, int y, const UnitPalette::Bitmap* ico
     return ui::title(dc, l.x0, y, l.colRight + l.picW, icon, title, sub, changed, std::move(reset), kind);
 }
 // (The pickers' entries and a value's name, entryItems and argName: core/data_model.inc.)
-const UnitPalette::Bitmap* argIcon(const char* kind, int v) {
-    if (!kind) return nullptr;
-    const std::string k = kind;
-    if (k == "buttons") return v < 228 ? datRefIcon("units", uint32_t(v)) : nullptr;
-    return datHasIcons(k) ? datRefIcon(k, uint32_t(v)) : nullptr;
-}
+const UnitPalette::Bitmap* argIcon(const char* kind, int v) { return dataPictureBitmap(dataArgPicture(kind, v)); }  // (core/data_nav.inc)
 // Opens entry `v` of `kind` (a .dat, "buttons" or "strings").
 std::function<void()> openEntry(const char* kind, int v) {
     if (!kind) return nullptr;
