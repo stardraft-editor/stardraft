@@ -10,6 +10,10 @@
 #include <string>
 #include <vector>
 
+// The control kit's icon button: the start page's remove buttons (core/views_start.inc) need its declaration in every
+// editor program, and this header is the one all three include before core.inc (the SDL program has no other use of it).
+#include "icon_button.h"
+
 
 // The panes are placed again for the window's size and the dock (computeLayout, core/layout.inc).
 void shellRelayout();

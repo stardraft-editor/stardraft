@@ -19,18 +19,6 @@ const wchar_t* kMapTypeText = L"Make standard StarCraft maps.";
 const wchar_t* kProjectTypeText = L"Make maps with your own units, weapons and game rules. Change the game's data, and make new triggers with "
                                   L"blocks or with your own code.";
 const wchar_t* kModTypeText = L"Custom MPQs and data files, for 1.16.1 and Remastered.";
-const wchar_t* kKindNames[] = {L"Classic project", L"EUD project", L"Campaign project", L"Mod project"};
-
-// The New page's cards: two sentences on what each kind lets you make.
-const wchar_t* const kKindCards[] = {
-    L"Make standard StarCraft maps.",
-    L"Make maps with your own units, weapons and game rules. Change the game's data, and make new triggers with blocks "
-    L"or with your own code.",
-    L"A project with all the maps of your campaign. Go from one map to the next, and copy data and terrain between "
-    L"the maps.",
-    L"Make mods with your own graphics and game files. Use your own MPQs and data files, for StarCraft 1.16.1 and "
-    L"Remastered.",
-};
 
 struct NewSlider {
     std::wstring label;
@@ -69,9 +57,7 @@ struct NewPage {
     int swatchSide = 0;
     bool swatchesMade = false;
     // What the last paint showed (the self-test reads these).
-    bool genShown = false, projectShown = false, createEnabled = true, cardsShown = false;
-    int cardsEnabled = 0;  // the cards that can be selected
-    int startProjects = 0, startMaps = 0;
+    bool genShown = false, projectShown = false, createEnabled = true;
     RECT terrainBox{}, footer{};  // the Blank row's terrain box; the Create and Cancel row (in the page's client area)
     RECT previewRect{}, genRect{};  // the preview; the generator's settings (empty when they do not show)
     int sizeX0 = 0, sizeX1 = 0, sizeY[2] = {0, 0};  // the Width and Height sliders: the track's ends and the middle of each
@@ -565,7 +551,6 @@ void newDrawPreview(HDC mem, RECT pv) {
 }
 
 void paintNewPage(HDC mem, RECT rc) {
-    gNew.cardsShown = false;
     newMakeSwatches();
     newLoadTileset();
     const int pad = scale(ui::kDialogPad), gap = scale(32), rowH = scale(ui::kRowH), fieldH = scale(ui::kFieldH);
@@ -853,6 +838,11 @@ std::wstring startDate(const fs::path& p) {
     return buf;
 }
 
+// The start page is a view window (gStartWnd) that covers the page window while the start page shows; the keys and the
+// mouse that come to the page window (it has the focus, or a test sends them) go to it.
+StartView gStartView;
+HWND gStartWnd = nullptr;
+
 // Opens recent item `i` (as the File menu's lists do: a missing one leaves the list).
 void startOpen(bool project, size_t i) { command(int(i) + (project ? ID_RECENT_PROJECT : ID_RECENT_MAP)); }
 void startRemove(bool project, size_t i) {
@@ -862,144 +852,13 @@ void startRemove(bool project, size_t i) {
     list.erase(list.begin() + long(i));
     saveRecent(), refreshRecentMenus();
     setMessage(tr(L"Removed ") + name + tr(L" from the list"));
-    if (gNew.wnd) InvalidateRect(gNew.wnd, nullptr, FALSE);
+    gStartView.invalidate();
 }
 
-// The start page: in the middle of the page, the project kinds as cards (a card opens its settings), one list of the
-// recent projects and maps (the newest first) and Open; the alpha notice at the bottom of the page.
-void paintStartPage(HDC mem, RECT rc) {
-    static int blockH = 0;  // the height of the block at the last paint (to put it in the middle)
-    const int pad = scale(ui::kDialogPad), rowH = scale(ui::kRowH), bh = scale(ui::kButtonH), gap = scale(16);
-    const int avail = int(rc.right) - 2 * pad;
-    const int cardW = std::clamp((avail - 3 * gap) / 4, scale(180), scale(320));
-    const int w = 4 * cardW + 3 * gap;
-    const int x1 = std::max(pad, (int(rc.right) - w) / 2);
-    // The alpha notice (information, not a warning): until 1.0, errors can occur; backup copies keep the work safe.
-    const wchar_t* notice = L"StarDraft 2 is alpha software. Errors can occur. Make backup copies of your projects and maps before you edit them. "
-                             L"Your feedback makes StarDraft 2 better: right-click anything and select \"Report feedback on \x2026\".";  // (#94)
-    RECT nc{0, 0, w - scale(22), 0};
-    DrawTextW(mem, notice, -1, &nc, DT_WORDBREAK | DT_NOPREFIX | DT_CALCRECT);
-    const int noticeH = int(nc.bottom - nc.top);
-    (void)noticeH;
-    const int startY = std::max(pad, (int(rc.bottom) - blockH) / 2) - gNew.scroll;  // (the block has the notice under the list)
-    int y = startY;
-
-    // The cards: the kinds side by side. Click a card (or Enter on it) to go to its settings.
-    const int inPad = scale(16), iconS = scale(32);
-    int textH = 0;  // all cards have the height of the longest text
-    for (const wchar_t* text : kKindCards) {
-        RECT calc{0, 0, cardW - 2 * inPad, 0};
-        DrawTextW(mem, text, -1, &calc, DT_WORDBREAK | DT_NOPREFIX | DT_CALCRECT);
-        textH = std::max(textH, int(calc.bottom - calc.top));
-    }
-    const int cardH = inPad + iconS + scale(12) + scale(26) + scale(6) + textH + inPad;
-    const UiIcon icons[] = {UiIcon::Map, UiIcon::Project, UiIcon::Folder, UiIcon::Assets};
-    gNew.cardsEnabled = 0;
-    for (int k = 0; k < 4; ++k) {
-        const bool enabled = k < 2;  // Campaign project and Mod project: later
-        const RECT card{x1 + k * (cardW + gap), y, x1 + k * (cardW + gap) + cardW, y + cardH};
-        const bool over = enabled && ui::hot(card), focused = enabled && gNew.card == k && GetFocus() == gNew.wnd;
-        if (!enabled) ui::box(mem, card, kReadOnly, kReadOnlyLine);
-        else ui::box(mem, card, over ? kCtlHot : kCtl, focused ? kAccent : over ? kBorderHot : kBorder);
-        uiIcon(mem, {card.left + inPad, card.top + inPad, card.left + inPad + iconS, card.top + inPad + iconS}, icons[k], enabled ? kAccent : kFaint, iconS);
-        int ty = card.top + inPad + iconS + scale(12);
-        {
-            HGDIOBJ of = SelectObject(mem, ui::titleFont());
-            RECT tt{card.left + inPad, ty, card.right - inPad, ty + scale(26)};
-            SetTextColor(mem, enabled ? kText : kFaint);
-            DrawTextW(mem, kKindNames[k], -1, &tt, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-            SelectObject(mem, of);
-        }
-        if (!enabled) {  // the "Coming later" mark, at the top right
-            HGDIOBJ of = SelectObject(mem, ui::smallFont());
-            const int lw = ui::textWidth(mem, L"Coming later") + scale(16), lh = scale(20);
-            const RECT mark{card.right - inPad - lw, card.top + inPad, card.right - inPad, card.top + inPad + lh};
-            ui::box(mem, mark, kChipDim, kReadOnlyLine);
-            RECT mt = mark;
-            SetTextColor(mem, kDim);
-            DrawTextW(mem, L"Coming later", -1, &mt, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
-            SelectObject(mem, of);
-        }
-        ty += scale(26) + scale(6);
-        newParagraph(mem, {card.left + inPad, ty, card.right - inPad, card.bottom - inPad}, kKindCards[k], enabled ? kDim : kFaint);
-        if (enabled) {
-            ++gNew.cardsEnabled;
-            hitsOut().push_back({card, nullptr, [k] { openNewPage(k); }, L"", IDC_HAND, {}});
-            hitsOut().back().name = std::wstring(L"the ") + kKindNames[k] + L" card";
-        } else {
-            hitsOut().push_back({card, nullptr, nullptr, k == 2 ? L"Campaign projects come in a later version" : L"Mod projects come in a later version", IDC_NO, {}});
-        }
-    }
-    gNew.cardsShown = true;
-    y += cardH + scale(32);
-
-    // The recent projects and maps.
-    FormLayout l{};
-    l.x0 = x1, l.labelW = w, l.rowH = rowH, l.colW = w, l.colRight = x1 + w;
-    y = ui::sectionHeader(mem, l, y, L"Recent");
-    // Projects and maps in one list, the newest first (a file that is not there goes last).
-    struct Recent {
-        bool project;
-        size_t index;
-        fs::path path;
-        std::wstring date;
-    };
-    std::vector<Recent> items;
-    for (size_t i = 0; i < gRecentProjects.size(); ++i) items.push_back({true, i, fs::path(gRecentProjects[i]), startDate(gRecentProjects[i])});
-    for (size_t i = 0; i < gRecentMaps.size(); ++i) items.push_back({false, i, fs::path(gRecentMaps[i]), startDate(gRecentMaps[i])});
-    std::stable_sort(items.begin(), items.end(), [](const Recent& a, const Recent& b) { return a.date > b.date; });
-    gNew.startProjects = int(gRecentProjects.size()), gNew.startMaps = int(gRecentMaps.size());
-    if (items.empty()) {
-        RECT n{x1 + scale(8), y, x1 + w, y + rowH};
-        SetTextColor(mem, kDim);
-        DrawTextW(mem, L"None", -1, &n, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-        y += rowH;
-    }
-    for (const Recent& it : items) {
-        const bool project = it.project;
-        const size_t i = it.index;
-        const RECT r{x1, y, x1 + w, y + rowH};
-        ui::listRow(mem, r, false, ui::hot(r));
-        hitsOut().push_back({r, nullptr, [project, i] { startOpen(project, i); }, fs::path(it.path).make_preferred().wstring(), IDC_HAND, {}});
-        uiIcon(mem, {x1 + scale(8), r.top + (rowH - scale(16)) / 2, x1 + scale(24), r.top + (rowH - scale(16)) / 2 + scale(16)},
-               project ? UiIcon::Project : UiIcon::Map, kDim, scale(16));
-        // Remove: under the mouse; always where the file is not found (the one thing to do with it).
-        const int actionsLeft = ui::rowActions(mem, r, {{UiIcon::Close, L"Remove from the list", [project, i] { startRemove(project, i); }, ui::Tone::Danger}},
-                                               it.date.empty());
-        const int dateW = scale(96);
-        RECT dt{actionsLeft - dateW - scale(8), r.top, actionsLeft - scale(8), r.bottom};
-        SetTextColor(mem, it.date.empty() ? kWarn : kDim);
-        DrawTextW(mem, it.date.empty() ? L"Not found" : it.date.c_str(), -1, &dt, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
-        const std::wstring name = it.path.filename().wstring();
-        RECT nt{x1 + scale(32), r.top, std::min<int>(x1 + scale(32) + w * 2 / 5, dt.left - scale(16)), r.bottom};
-        SetTextColor(mem, kText);
-        DrawTextW(mem, name.c_str(), -1, &nt, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-        const int nameRight = nt.left + std::min<int>(nt.right - nt.left, ui::textWidth(mem, name));
-        std::wstring folder = fs::path(it.path.parent_path()).make_preferred().wstring();
-        RECT pt{nameRight + scale(16), r.top, dt.left - scale(16), r.bottom};
-        SetTextColor(mem, kDim);
-        DrawTextW(mem, folder.data(), -1, &pt, DT_SINGLELINE | DT_VCENTER | DT_PATH_ELLIPSIS | DT_NOPREFIX);
-        y += rowH;
-    }
-    // Open: a project or a map that is not in the list.
-    y += scale(12);
-    const int ow = std::max(scale(ui::kButtonMinW), ui::buttonWidth(mem, L"Open\x2026"));
-    ui::button(mem, {x1, y, x1 + ow, y + bh}, L"Open\x2026", ui::Tone::Normal, [] { command(ID_FILE_OPEN); }, L"A project or a map (Ctrl+O)");
-    y += bh;
-    // The alpha notice: under the recent list and Open.
-    const int ny = y + scale(24);
-    ui::glyph(mem, {x1, ny + scale(2), x1 + scale(16), ny + scale(18)}, L"\xE946", kAccent, scale(14));
-    y = newParagraph(mem, {x1 + scale(22), ny, x1 + w, ny + scale(200)}, notice, kDim);
-    const int h = y - startY;
-    if (h != blockH) {  // the height changed (a row came or went): paint again, in the middle
-        blockH = h;
-        if (gNew.wnd) InvalidateRect(gNew.wnd, nullptr, FALSE);
-    }
-    gNew.height = y + gNew.scroll + pad;
-    for (HWND e : {gNew.name, gNew.location, gNew.output, gNew.seed, gNew.fromMap}) newPlaceEdit(e, {}, false, 0, 0);
-}
 
 void paintPage(HWND hwnd) {
+    if (activePage() == kPageStart) return (void)ValidateRect(hwnd, nullptr);  // the start page is its own window (gStartWnd)
+    gStartView.resetCards();
     gNew.surface.begin(hwnd);
     PAINTSTRUCT ps;
     HDC dc = BeginPaint(hwnd, &ps);
@@ -1011,8 +870,7 @@ void paintPage(HWND hwnd) {
     FillRect(mem, &rc, app.bgBrush);
     SetBkMode(mem, TRANSPARENT);
     gNew.wheels.clear();
-    if (activePage() == kPageStart) paintStartPage(mem, rc);
-    else paintNewPage(mem, rc);
+    paintNewPage(mem, rc);
     SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS, 0, std::max(0, gNew.height - 1), UINT(rc.bottom), gNew.scroll};
     SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
     BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
@@ -1024,11 +882,19 @@ void paintPage(HWND hwnd) {
 }
 
 LRESULT CALLBACK pageWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    if (activePage() == kPageStart && gStartWnd) {
+        const bool mouseKey = msg == WM_LBUTTONDOWN || msg == WM_LBUTTONUP || msg == WM_LBUTTONDBLCLK || msg == WM_MOUSEMOVE || msg == WM_RBUTTONDOWN ||
+                              msg == WM_RBUTTONUP || msg == WM_KEYDOWN || msg == WM_MOUSEWHEEL;
+        if (mouseKey) return SendMessageW(gStartWnd, msg, wp, lp);
+    }
     if (LRESULT r; gNew.surface.message(hwnd, msg, wp, lp, r)) return r;
     switch (msg) {
     case WM_PAINT: paintPage(hwnd); return 0;
     case WM_ERASEBKGND: return 1;
-    case WM_SIZE: InvalidateRect(hwnd, nullptr, FALSE); return 0;
+    case WM_SIZE:
+        if (gStartWnd) MoveWindow(gStartWnd, 0, 0, LOWORD(lp), HIWORD(lp), TRUE);
+        InvalidateRect(hwnd, nullptr, FALSE);
+        return 0;
     case WM_TIMER:
         KillTimer(hwnd, 1);
         newRegenerate();
@@ -1040,13 +906,6 @@ LRESULT CALLBACK pageWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_KILLFOCUS: InvalidateRect(hwnd, nullptr, FALSE); break;  // the keyboard's card
     case WM_GETDLGCODE: return DLGC_WANTARROWS | DLGC_WANTCHARS;
     case WM_KEYDOWN:
-        if (activePage() == kPageStart) {  // the cards: Left and Right move, Enter or Space opens the settings
-            if (wp == VK_LEFT || wp == VK_RIGHT || wp == VK_TAB) gNew.card = wp == VK_LEFT ? 0 : wp == VK_RIGHT ? 1 : 1 - gNew.card;
-            else if (wp == VK_RETURN || wp == VK_SPACE) openNewPage(gNew.card);
-            else break;
-            InvalidateRect(hwnd, nullptr, FALSE);
-            return 0;
-        }
         if (activePage() != kPageNew) break;
         if (wp == VK_ESCAPE) return newBack(), 0;
         break;
@@ -1088,6 +947,18 @@ void createPageWindow() {
     gNew.wnd = CreateWindowExW(WS_EX_CONTROLPARENT, L"StarDraftNewPage", L"", WS_CHILD | WS_VSCROLL | WS_CLIPCHILDREN | WS_CLIPSIBLINGS, 0, 0, 1, 1, app.main, nullptr,
                                app.inst, nullptr);
     darkControl(gNew.wnd, L"DarkMode_Explorer");  // the scroll bar in the theme
+    // The start page: its own view window, with its own scroll bar (the page's is hidden while it shows).
+    gStartWnd = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, gNew.wnd, nullptr, app.inst, &gStartView);
+    darkControl(gStartWnd, L"DarkMode_Explorer");
+    gStartView.onCard = [](int kind) { openNewPage(kind); };
+    gStartView.onOpenRecent = [](bool project, size_t i) { startOpen(project, i); };
+    gStartView.onRemoveRecent = [](bool project, size_t i) { startRemove(project, i); };
+    gStartView.onOpen = [] { command(ID_FILE_OPEN); };
+    gStartView.dateOf = [](const fs::path& p) { return startDate(p); };
+    gStartView.scrollInfo = [](int max, int page, int pos) {
+        SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS, 0, max, UINT(page), pos};
+        SetScrollInfo(gStartWnd, SB_VERT, &si, TRUE);
+    };
     auto edit = [](const wchar_t* text, DWORD style) {
         HWND h = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, text, WS_CHILD | WS_TABSTOP | ES_AUTOHSCROLL | style, 0, 0, 1, 1, gNew.wnd, nullptr, app.inst, nullptr);
         SendMessageW(h, WM_SETFONT, WPARAM(app.font), TRUE);
@@ -1132,10 +1003,21 @@ void pageSync() {
         gPageHidden.push_back(w);
     }
     SetWindowPos(gNew.wnd, HWND_TOP, 0, top, int(rc.right), std::max(1, bottom - top), SWP_SHOWWINDOW | SWP_NOACTIVATE);
-    if (!was) gNew.scroll = 0;
+    if (!was) gNew.scroll = 0, gStartView.resetScroll();
     if (p == kPageNew && !newImporting() && !gNew.previewMade) SetTimer(gNew.wnd, 1, 10, nullptr);
     InvalidateRect(gNew.wnd, nullptr, FALSE);
     if (GetFocus() == app.view || !GetFocus()) SetFocus(gNew.wnd);
+    const bool start = p == kPageStart;  // the start page's view covers the page; its scroll bar is its own
+    ShowScrollBar(gNew.wnd, SB_VERT, !start);
+    MoveWindow(gStartWnd, 0, 0, int(rc.right), std::max(1, bottom - top), TRUE);
+    ShowWindow(gStartWnd, start ? SW_SHOW : SW_HIDE);
+    if (start) {
+        gStartView.setCard(gNew.card);
+        // The start page takes the focus only from the page window (the map view or nothing had it before); the log keeps it.
+        if (GetFocus() == gNew.wnd || GetFocus() == gStartWnd) gStartView.focus();
+        // Its edit boxes are hidden here (the New page shows them when it paints).
+        for (HWND e : {gNew.name, gNew.location, gNew.output, gNew.seed, gNew.fromMap}) newPlaceEdit(e, {}, false, 0, 0);
+    }
 }
 
 // The New page with the settings of a kind (0 a classic project, 1 an EUD project): an open one, the start page in the

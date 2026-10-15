@@ -124,6 +124,8 @@ public:
     virtual Cursor cursor(Point) { return Cursor::Arrow; }
     // The tooltip at `pt` (empty: none).
     virtual std::wstring tip(Point) { return {}; }
+    // What Report feedback names at a point (a view can name a part that has no tooltip); by default its tip.
+    virtual std::wstring feedbackName(Point pt) { return tip(pt); }
     // Whether the point is over the window's size grip (the bottom right corner of a window that resizes from it): a
     // Win32 host then answers the hit test with the sizing corner, so the window's edge is dragged from there.
     virtual bool sizeGrip(Point) { return false; }
@@ -330,6 +332,16 @@ public:
         for (View* v = root_.viewAt(pt, local); v; v = v->parent()) {
             const Point o = v->origin();
             std::wstring t = v->tip({pt.x - o.x, pt.y - o.y});
+            if (!t.empty()) return t;
+        }
+        return {};
+    }
+    // The name Report feedback gives the point: each view's feedbackName, the top one first.
+    std::wstring feedbackName(Point pt) {
+        Point local;
+        for (View* v = root_.viewAt(pt, local); v; v = v->parent()) {
+            const Point o = v->origin();
+            std::wstring t = v->feedbackName({pt.x - o.x, pt.y - o.y});
             if (!t.empty()) return t;
         }
         return {};

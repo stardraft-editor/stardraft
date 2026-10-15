@@ -58,6 +58,8 @@ using std::min;
 #include "../common/canvas.h"
 #include "../common/view.h"
 #include "text_field.h"  // the kit's text field (apps/kit): the search boxes (search_box.inc)
+#include "button.h"
+#include "icon_button.h"
 #include "dropdown.h"     // the kit's dropdown: the palette's section box (search_box.inc)
 #include "button.h"       // the kit's push button: the Files page's Import and Rename (core/views_files.inc)
 #include "res/ui_icons.h"
@@ -433,6 +435,7 @@ std::wstring itemLabel(int v) { return itemLabel(app, v); }
 #include "core/sound_lists.inc"  // the map's and the game's sound files by name (mapSounds, gameSounds, soundFileBytes)
 #include "core/views_files.inc"  // the Files workspace's page (FilesPage; its instance is gFilesPage in files_view.inc)
 #include "core/views_project.inc"  // the Project page: the script preview (ProjectPreviewView, epScript colors as spans)
+#include "core/views_start.inc"  // the start page (StartView: the cards, the recent list, Open; the instance is gStartView in new_page.inc)
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
 
 void rebuildList() { rebuildList(app); }
@@ -18532,7 +18535,7 @@ int runSelfTest(const fs::path& dir) {
         // First the start page's cards: Classic project and EUD project can be selected, the others cannot (and Create
         // does nothing).
         paintPage();
-        const bool cards = activePage() == kPageStart && gNew.cardsShown && gNew.cardsEnabled == 2 && docTitle(gActive) == L"Start";
+        const bool cards = activePage() == kPageStart && gStartView.cardsShown() && gStartView.cardsEnabled() == 2 && docTitle(gActive) == L"Start";
         capture(dir / "36a_new_page_cards.png");
         const bool modOff = !newSetKind(2) && activePage() == kPageStart && !newCreate() && gDocs.size() == before + 1;
         // The keyboard: Right, then Enter opens the EUD project's settings in the same tab; Esc goes back to the start page.
@@ -18543,14 +18546,14 @@ int runSelfTest(const fs::path& dir) {
                                   docTitle(gActive) == L"New EUD project" && gDocs.size() == before + 1;
         SendMessageW(gNew.wnd, WM_KEYDOWN, VK_ESCAPE, 0);
         paintPage();
-        const bool escBack = activePage() == kPageStart && gNew.cardsShown && !IsWindowVisible(gNew.name);
+        const bool escBack = activePage() == kPageStart && gStartView.cardsShown() && !IsWindowVisible(gNew.name);
         newSetKind(0);
         paintPage();
         const bool mapSettings = activePage() == kPageNew && !gNew.project && !gNew.projectShown && !IsWindowVisible(gNew.name) && !IsWindowVisible(gNew.location) &&
                                  docTitle(gActive) == L"New classic project";
         newBack();
         paintPage();
-        const bool back = activePage() == kPageStart && gNew.cardsShown && docTitle(gActive) == L"Start" && gDocs.size() == before + 1;
+        const bool back = activePage() == kPageStart && gStartView.cardsShown() && docTitle(gActive) == L"Start" && gDocs.size() == before + 1;
         log << "new page: the start page's cards show " << (cards ? "yes" : "NO") << ", the later cards cannot be selected " << (modOff ? "yes" : "NO")
             << ", EUD project goes to settings with the project fields " << (projSettings ? "yes" : "NO") << ", Esc goes back " << (escBack ? "yes" : "NO")
             << ", Classic map goes to settings without them " << (mapSettings ? "yes" : "NO") << ", Back returns to the start page " << (back ? "yes" : "NO") << "\n";
@@ -18721,15 +18724,15 @@ int runSelfTest(const fs::path& dir) {
         const size_t before = gDocs.size();
         openStartPage();
         paintPage();
-        const bool listed = activePage() == kPageStart && gNew.startProjects == 2 && gNew.startMaps == 1 && docTitle(gActive) == L"Start";
+        const bool listed = activePage() == kPageStart && gStartView.startProjects() == 2 && gStartView.startMaps() == 1 && docTitle(gActive) == L"Start";
         capture(dir / "36c_start_page.png");
         startRemove(true, 1);
         paintPage();
-        const bool removed = gRecentProjects.size() == 1 && gNew.startProjects == 1;
+        const bool removed = gRecentProjects.size() == 1 && gStartView.startProjects() == 1;
         gRecentMaps.clear();
         paintPage();
         capture(dir / "36d_start_page_no_maps.png");
-        const bool none = gNew.startMaps == 0;
+        const bool none = gStartView.startMaps() == 0;
         // A card on the start page: the start tab becomes the New page; Back makes it the start page again; Cancel
         // closes it.
         openNewPage(0);
@@ -18748,7 +18751,7 @@ int runSelfTest(const fs::path& dir) {
         const size_t beforeEmpty = gDocs.size();
         openStartPage();
         paintPage();
-        const bool emptyStart = activePage() == kPageStart && gNew.startProjects == 0 && gNew.startMaps == 0 && gNew.cardsShown;
+        const bool emptyStart = activePage() == kPageStart && gStartView.startProjects() == 0 && gStartView.startMaps() == 0 && gStartView.cardsShown();
         if (gDocs.size() > beforeEmpty) closeDoc(gActive);
         log << "start page: lists 2 projects and 1 map " << (listed ? "yes" : "NO") << ", a row action removes one " << (removed ? "yes" : "NO")
             << ", an empty list shows None " << (none ? "yes" : "NO") << ", a card makes it the New page " << (becameNew ? "yes" : "NO")
