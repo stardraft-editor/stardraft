@@ -122,6 +122,9 @@ public:
     virtual Cursor cursor(Point) { return Cursor::Arrow; }
     // The tooltip at `pt` (empty: none).
     virtual std::wstring tip(Point) { return {}; }
+    // Whether the point is over the window's size grip (the bottom right corner of a window that resizes from it): a
+    // Win32 host then answers the hit test with the sizing corner, so the window's edge is dragged from there.
+    virtual bool sizeGrip(Point) { return false; }
     // Whether Tab stops on it (and a click gives it the focus).
     virtual bool focusable() const { return false; }
     virtual void focusChanged(bool /*has*/) {}
