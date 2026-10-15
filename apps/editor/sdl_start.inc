@@ -26,7 +26,7 @@ std::wstring startDateSdl(const fs::path& p) {
 
 // Makes the page's callbacks (the host's part of StartView). Called once, when the root view is made.
 void initStartPage() {
-    gStartView.onCard = [](int) { setMessage(L"The New page is not on this system yet"); };
+    gStartView.onCard = [](int kind) { openNewPageSdl(kind); };
     gStartView.onOpenRecent = [](bool project, size_t i) {
         if (project) setMessage(L"Projects are not on this system yet");
         else command(ID_RECENT_MAP + int(i));

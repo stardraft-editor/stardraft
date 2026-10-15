@@ -97,6 +97,8 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
 // The start page and the Files page (sdl_start.inc, sdl_files.inc): defined after this file's root view is read.
 extern StartView gStartView;
 extern FilesPage gFilesPage;  // (core/views_files.inc)
+extern NewPageView gNewView;  // the New page (sdl_new_page.inc)
+extern bool gNewOpen;         // the New page is open in the Map workspace (it shows in place of the start page)
 
 // The panes that have no view on this system yet.
 struct NotHereView final : draw::View {
@@ -249,6 +251,7 @@ struct MainView final : draw::View {
         add(gPal2List, draw::Rect(0, 0, 0, 0));
         add(notHere, draw::Rect(0, 0, 0, 0));
         add(gStartView, draw::Rect(0, 0, 0, 0));  // the start page (sdl_start.inc): no map open
+        add(gNewView, draw::Rect(0, 0, 0, 0));    // the New page (sdl_new_page.inc): File > New project, a card
         for (auto& [w, v] : gWorkspaceViews) add(*v, draw::Rect(0, 0, 0, 0));
         relayout();
     }
@@ -289,8 +292,10 @@ struct MainView final : draw::View {
         in.mode = gState.mode;
         // The map's panes show in the Map workspace with a map open; with no map, the Map workspace shows the start page.
         const bool mapOpen = gState.ed && gState.ed->isOpen();
-        const bool mapWs = gWorkspace == Workspace::Map && mapOpen;
-        const bool startShown = gWorkspace == Workspace::Map && !mapOpen;
+        // The New page is open in the Map workspace: it shows in place of the start page or the map (as a tab does).
+        const bool newShown = gNewOpen && gWorkspace == Workspace::Map;
+        const bool mapWs = gWorkspace == Workspace::Map && mapOpen && !newShown;
+        const bool startShown = gWorkspace == Workspace::Map && !mapOpen && !newShown;
         in.mapWs = mapWs;
         in.toolStrip = [](int width) { return toolStripHeight(width, false); };
         in.modeBarH = 0, in.modeBar = modeBarRect();  // (the modes are in the top bar)
@@ -344,7 +349,8 @@ struct MainView final : draw::View {
         draw::View* wsView = mapWs || found == gWorkspaceViews.end() ? nullptr : found->second;
         for (auto& [w, v] : gWorkspaceViews) apply(*v, L.view, v == wsView);
         apply(gStartView, L.view, startShown);
-        apply(notHere, L.view, !mapWs && !wsView && !startShown);
+        apply(gNewView, L.view, newShown);
+        apply(notHere, L.view, !mapWs && !wsView && !startShown && !newShown);
         // A hidden pane keeps no keyboard: when a switch hid the focused one (a search box, the palette's list), the
         // window's root takes the focus, so the keys reach the menus and shortcuts, not a box nobody sees.
         for (View* c : children())

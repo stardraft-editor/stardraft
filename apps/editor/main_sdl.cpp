@@ -46,6 +46,7 @@
 #include "text_field.h"  // apps/kit: the search boxes (core/views_search.inc)
 #include "dropdown.h"  // apps/kit: the palette's dropdown (core/views_search.inc)
 #include "check_box.h"  // apps/kit: the players and forces page (core/views_players.inc)
+#include "slider.h"  // apps/kit: the volume and the generator's sliders (core/views_options.inc, core/views_new_page.inc)
 #include "list_view.h"  // apps/kit: the palette and the Locations list (sdl_panels.inc)
 #include "button.h"  // apps/kit: the View button (sdl_panels.inc)
 #include "res/ui_icons.h"
@@ -62,6 +63,7 @@
 #include "stardraft/scene.h"
 #include "stardraft/settings.h"
 #include "stardraft/terrain.h"
+#include "stardraft/terrain_gen.h"  // the generator's settings (core/views_new_page.inc, sdl_new_page.inc)
 #include "stardraft/tileset.h"
 #include "stardraft/units.h"
 
@@ -82,6 +84,8 @@ namespace kit_sdl = stardraft::kit_sdl;
 #include "sdl_files.inc"  // the Files workspace's page and its sounds (core/views_files.inc)
 #include "sdl_start.inc"  // the start page (core/views_start.inc)
 #include "sdl_map_pages.inc"  // the map pages: Properties, Players and forces, Data (core/views_map_pages.inc and its views)
+#include "sdl_new_page.inc"  // the New page (core/views_new_page.inc)
+#include "sdl_options.inc"  // Program options and Report feedback (core/views_options.inc, core/views_feedback.inc)
 #include "shell_sdl.inc"
 
 namespace {
@@ -178,7 +182,7 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
-    std::string mapArg, snapshot, installArg, modeArg, workspaceArg;
+    std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg;
     int width = 1600, height = 1000;
     float scaleArg = 0;
     for (int i = 1; i < argc; ++i) {
@@ -190,6 +194,8 @@ int main(int argc, char** argv) {
         else if (a == "--install") installArg = next();
         else if (a == "--mode") modeArg = next();  // a mode's name (units, terrain, doodads, sprites, locations), for a snapshot
         else if (a == "--workspace") workspaceArg = next();  // a workspace's name (map, data, triggers, project...), for a snapshot
+        else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
+        else if (a == "--dialog") dialogArg = next();  // options or feedback: that window's view is the snapshot (--size its size)
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
     if (!SDL_Init(SDL_INIT_VIDEO)) return std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()), 1;
@@ -244,6 +250,7 @@ int main(int argc, char** argv) {
                                                       "briefing", "files", "props", "players", "classictriggers", "classic"};
         for (int w = 0; !workspaceArg.empty() && w < int(sizeof kWorkspaceNames / sizeof kWorkspaceNames[0]); ++w)
             if (workspaceArg == kWorkspaceNames[w]) setWorkspace(Workspace(w));
+        if (newPageArg == "classic" || newPageArg == "eud") openNewPageSdl(newPageArg == "eud" ? 1 : 0);
         if (!gDataOk) setMessage(widen(gDataError));
         std::printf("stardraft_editor: GPU %s, %s\n", renderer.driver(), gDataOk ? "game data" : gDataError.c_str());
 
@@ -256,8 +263,13 @@ int main(int argc, char** argv) {
             ti.width = uint32_t(width), ti.height = uint32_t(height), ti.layer_count_or_depth = 1, ti.num_levels = 1;
             SDL_GPUTexture* tex = SDL_CreateGPUTexture(device, &ti);
             if (!tex) return std::fprintf(stderr, "snapshot texture: %s\n", SDL_GetError()), 1;
-            host.snapshot(root, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
-            host.snapshot(root, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+            // The picture is the window's root, or the dialog's view (--dialog options|feedback) at the --size given.
+            FeedbackView feedbackShot(gFeedbackProgram, L"StarDraft 2");
+            draw::View* shown = &root;
+            if (dialogArg == "options") shown = &gOptionsView;
+            else if (dialogArg == "feedback") shown = &feedbackShot;
+            host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+            host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             const bool ok = writeSnapshot(device, tex, width, height, snapshot);
             std::printf("%s %s\n", ok ? "wrote" : "could not write", snapshot.c_str());
             if (!ok) status = 1;
