@@ -345,6 +345,12 @@ bool shellEditValueBelow(stardraft::draw::View& v, stardraft::draw::Rect field, 
     ClientToScreen(ui::Win32Host::windowOf(v), &at);
     return editTextValue(title, text, at);
 }
+// (the native value pop-out, main.cpp: showValuePopup, under the field)
+bool shellEditValue(stardraft::draw::View& v, stardraft::draw::Rect field, const ValuePopSpec& spec, std::string& out) {
+    POINT at{field.left, field.bottom + scale(2)};
+    ClientToScreen(ui::Win32Host::windowOf(v), &at);
+    return showValuePopup(spec, at, out);
+}
 // (the RichEdit read a script's bytes in the system's code page: the file may be in Korean or another)
 std::wstring shellCodePageText(const std::string& s) {
     if (s.empty()) return {};

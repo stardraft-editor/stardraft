@@ -214,7 +214,7 @@ int main(int argc, char** argv) {
         else if (a == "--data") dataArg = next();  // tab:entry (units:0, images:239, strings:5): the Data workspace opens it, for a snapshot
         else if (a == "--classictrig") ctArg = next();  // trigger:kind:entry (2:1:0): the Classic triggers page selects it, for a snapshot
         else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
-        else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or unitprops, locprops or quick: that view is the snapshot
+        else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or unitprops, locprops, quick or valuepop[:number|:colors|:text]: that view is the snapshot
         else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
         else if (a == "--scriptpreview") previewArg = true;  // the Project page's script preview on (not saved), for a snapshot
         else if (a == "--silent") gSilent = true;
@@ -290,6 +290,27 @@ int main(int argc, char** argv) {
             // A map's dialog (--dialog unitprops|locprops|prompt|quick, sdl_map_dialogs.inc) is the picture at its own size.
             MapDialogShot mapShot;
             if (mapDialogShot(dialogArg, mapShot)) width = mapShot.size.x, height = mapShot.size.y;
+            // valuepop: the value pop-out (core/views_value_pop.inc) at its own size: a text with values (valuepop), a
+            // number (valuepop:number), a text the game shows with its colors (valuepop:colors) or a plain text (valuepop:text).
+            std::unique_ptr<ValuePopView> valueShot;
+            if (dialogArg.rfind("valuepop", 0) == 0) {
+                ValuePopSpec spec;
+                const std::string kind = dialogArg.size() > 9 ? dialogArg.substr(9) : "";
+                if (kind == "number") {
+                    spec.type = "Number", spec.title = L"Amount   0\x2013" L"100", spec.min = 0, spec.max = 100, spec.initial = "25", spec.inRepeat = true;
+                } else if (kind == "colors") {
+                    spec.type = "Text", spec.colorsOnly = true, spec.title = L"Mission objectives";
+                    spec.initial = "\x13\x04" "Destroy\x01 the \x06" "enemy base\x01.\nKeep {your} hero alive.";
+                } else if (kind == "text") {
+                    spec.type = "Text", spec.title = L"Output file", spec.initial = "build/bneck.scx";
+                } else {
+                    spec.type = "Text", spec.insertValues = true, spec.title = L"Text";
+                    spec.initial = "\x03Welcome\x01, {name(current player):s}! You have {gold} minerals{{!}}\n\x13{P2:c}Blue team: {kills:x}";
+                }
+                valueShot = std::make_unique<ValuePopView>(spec);
+                const draw::Point sz = valueShot->outerSize();
+                width = sz.x, height = sz.y;
+            }
             // A few frames: the first fills the font atlas with the glyphs the text needs; the last is the picture.
             SDL_GPUTextureCreateInfo ti{};
             ti.type = SDL_GPU_TEXTURETYPE_2D;
@@ -318,6 +339,7 @@ int main(int argc, char** argv) {
             else if (dialogArg == "prompt") shown = &promptShot;
             else if (dialogArg == "listpick") shown = &pickShot;
             else if (mapShot.view) shown = mapShot.view;
+            else if (valueShot) shown = valueShot.get();
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             const bool ok = writeSnapshot(device, tex, width, height, snapshot);
