@@ -345,7 +345,6 @@ bool shellEditValueBelow(stardraft::draw::View& v, stardraft::draw::Rect field, 
     ClientToScreen(ui::Win32Host::windowOf(v), &at);
     return editTextValue(title, text, at);
 }
-void shellLogError(const std::wstring& line) { logLine(line, true); }
 // (the RichEdit read a script's bytes in the system's code page: the file may be in Korean or another)
 std::wstring shellCodePageText(const std::string& s) {
     if (s.empty()) return {};
@@ -360,6 +359,7 @@ std::wstring shellInstallFolderText() {
     std::string line;
     std::getline(in, line);
     return widen(line);
+}
 
 // The pop-outs that asked to close (shellClosePopout); the loop of each one ends when it sees its own.
 std::set<const stardraft::draw::View*> gPopoutsClosing;
