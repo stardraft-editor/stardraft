@@ -8,10 +8,19 @@
 constexpr int kStripRadius = 4;         // every box (the kit's kRadius)
 constexpr double kStripPi = 3.14159265358979323846;
 
-void saveAppSettings();
-void fillToolCombo();
 void setTerrainRect(bool rect);
 bool objectSprayOn();
+
+// The brush sizes (diamonds; the sprays' radius too): 1 to 16, then every other to 32.
+const std::vector<float>& brushSizes() {
+    static const std::vector<float> v = [] {
+        std::vector<float> o;
+        for (int i = 1; i <= 16; ++i) o.push_back(float(i));
+        for (int i = 18; i <= 32; i += 2) o.push_back(float(i));
+        return o;
+    }();
+    return v;
+}
 
 // The tool strip's number boxes (Size, Density, the Terrain height and the brush shape, for the wheel).
 enum StripNumber { kNumSize, kNumDensity, kNumHeight, kNumShape };
@@ -64,7 +73,7 @@ void setTerrainRect(bool rect) {
     app.terrainRect = rect;
     app.terrainPasting = false;
     if (shellViewShown()) shellRelayout();  // the strip's height (no mirrors in Rectangle)
-    fillToolCombo();  // tilesSync: the Tiles grid or the terrain palette
+    fillToolCombo(app);  // tilesSync: the Tiles grid or the terrain palette
     updateStatus();
     setMessage(rect ? L"Rectangle: the tools place tiles as they are. Select a tile in the Tiles list."
                     : L"Isometric: the tools paint terrains and correct the edges between them");
@@ -89,7 +98,7 @@ void stripNumberStep(int which, int dir) {
     AppState& app = appState();
     if (which == kNumShape) {  // diamond, square, circle, round and round
         app.brushShape = Brush::Shape((int(app.brushShape) + (dir > 0 ? 1 : 2)) % 3);
-        saveAppSettings();
+        shellSettingsChanged();
     } else if (which == kNumSize) {
         const auto& v = brushSizes();
         float next = app.brushSize;
@@ -149,7 +158,7 @@ void pickStripTool(const StripItem& it) {
     else {
         app.toolByMode[int(app.mode)] = it.tool;
         app.terrainPasting = false;
-        fillToolCombo();  // the strip's rows (size, density) follow the tool
+        fillToolCombo(app);  // the strip's rows (size, density) follow the tool
         if (app.palette < 0 && app.mode != Mode::Terrain) setMessage(L"Select what to place in the list");
         updateStatus();
     }
@@ -213,41 +222,30 @@ void iconButtonFace(Canvas& c, Rect r, UiIcon g, bool on, bool over) {
     else if (over) box(c, r, kCtlHot, kNoLine);
     icon(c, r, g, on ? kAccentBright : over ? kText : kDim, 16);  // (a UI icon is always at 16, as the Win32 glyph was)
 }
-// A mirror's picture: a square and its axis; the turns an arc with an arrow head (the strip's own picture, in the
-// button's color; the lines are not smoothed on the canvas).
-void mirrorIcon(Canvas& c, Rect r, int kind, Color col, Color ground) {
-    const float s = float(scale(14));
-    const int x0 = int((r.left + r.right - s) / 2.0f), y0 = int((r.top + r.bottom - s) / 2.0f), S = int(s);
-    const int is = std::max(1, int(std::lround(scale(2) * 0.75)));  // the axis's width
-    // The square: a line 110 of 255 mixed into the ground.
-    const auto mix = [](Color a, Color b, int alpha) {
-        auto ch = [&](int sh) { return int(((a >> sh) & 255) * alpha + ((b >> sh) & 255) * (255 - alpha)) / 255; };
-        return draw::rgb(ch(0), ch(8), ch(16));
-    };
-    if (kind != Mirror::Rotate180 && kind != Mirror::Rotate90) c.frame({x0, y0, x0 + S + 1, y0 + S + 1}, mix(col, ground, 110));
+// A mirror's picture: a square and its axis; the turns an arc with an arrow head. Smooth, in the button's color (the
+// square's line at 110 of 255).
+void mirrorIcon(Canvas& c, Rect r, int kind, Color col, Color /*ground*/) {
+    using P = Canvas::PointF;
+    const float s = float(scale(14)), x0 = (r.left + r.right - s) / 2.0f, y0 = (r.top + r.bottom - s) / 2.0f;
+    const float aw = float(std::max(1, scale(2))) * 0.75f;  // the axis's width
+    if (kind != Mirror::Rotate180 && kind != Mirror::Rotate90) c.smoothFrame(P{x0, y0}, s, s, col, 1.0f, 110);
     switch (kind) {
-    case 0: break;
-    case Mirror::LeftRight: c.line(x0 + S / 2, y0 - 1, x0 + S / 2, y0 + S + 1, col, is); break;
-    case Mirror::TopBottom: c.line(x0 - 1, y0 + S / 2, x0 + S + 1, y0 + S / 2, col, is); break;
-    case Mirror::Diagonal: c.line(x0, y0, x0 + S, y0 + S, col, is); break;
-    case Mirror::AntiDiagonal: c.line(x0 + S, y0, x0, y0 + S, col, is); break;
-    default: {  // a turn: 180 or 90 degrees of an arc from the top, with a head at its end
-        const double sweep = kind == Mirror::Rotate180 ? 180.0 : 270.0;
-        const double cx = x0 + S / 2.0, cy = y0 + S / 2.0, rr = (S - 2) / 2.0;
-        draw::Point pts[32];
-        for (int i = 0; i < 32; ++i) {
-            const double a = (-90.0 + sweep * i / 31.0) * kStripPi / 180.0;
-            pts[i] = {int(std::lround(cx + rr * std::cos(a))), int(std::lround(cy + rr * std::sin(a)))};
-        }
-        c.polyline(pts, 32, col, is);
-        const double a = (-90.0 + sweep) * kStripPi / 180.0, h = s * 0.28;
-        const double ex = cx + rr * std::cos(a), ey = cy + rr * std::sin(a);
-        const double dx = -std::sin(a), dy = std::cos(a);  // the way the arc goes at its end (clockwise)
-        const draw::Point head[3] = {{int(std::lround(ex + dx * h * 0.7)), int(std::lround(ey + dy * h * 0.7))},
-                                     {int(std::lround(ex - dx * h * 0.3 - dy * h * 0.6)), int(std::lround(ey - dy * h * 0.3 + dx * h * 0.6))},
-                                     {int(std::lround(ex - dx * h * 0.3 + dy * h * 0.6)), int(std::lround(ey - dy * h * 0.3 - dx * h * 0.6))}};
-        c.polygon(head, 3, col);
-        c.fill({int(cx) - 1, int(cy) - 1, int(cx) + 2, int(cy) + 2}, col);
+    case 0: break;  // none: the square only
+    case Mirror::LeftRight: c.smoothLine(P{x0 + s / 2, y0 - 1}, P{x0 + s / 2, y0 + s + 1}, col, aw); break;
+    case Mirror::TopBottom: c.smoothLine(P{x0 - 1, y0 + s / 2}, P{x0 + s + 1, y0 + s / 2}, col, aw); break;
+    case Mirror::Diagonal: c.smoothLine(P{x0, y0}, P{x0 + s, y0 + s}, col, aw); break;
+    case Mirror::AntiDiagonal: c.smoothLine(P{x0 + s, y0}, P{x0, y0 + s}, col, aw); break;
+    default: {  // a turn: 180 or 90 degrees of an arc, with a head at its end
+        const float sweep = kind == Mirror::Rotate180 ? 180.0f : 270.0f;
+        c.smoothArc(P{x0 + 1, y0 + 1}, s - 2, s - 2, -90.0f, sweep, col, aw);
+        const float a = float((-90.0 + sweep) * kStripPi / 180.0), cx = x0 + s / 2, cy = y0 + s / 2, rr = (s - 2) / 2;
+        const float ex = cx + rr * std::cos(a), ey = cy + rr * std::sin(a), h = s * 0.28f;
+        const float dx = -std::sin(a), dy = std::cos(a);  // the way the arc goes at its end (clockwise)
+        const P head[3] = {{ex + dx * h * 0.7f, ey + dy * h * 0.7f},
+                           {ex - dx * h * 0.3f - dy * h * 0.6f, ey - dy * h * 0.3f + dx * h * 0.6f},
+                           {ex - dx * h * 0.3f + dy * h * 0.6f, ey - dy * h * 0.3f - dx * h * 0.6f}};
+        c.smoothPolygon(head, 3, col);
+        c.smoothEllipse(P{cx - 1.5f, cy - 1.5f}, 3.0f, 3.0f, col);
     }
     }
 }
@@ -274,6 +272,8 @@ public:
             shellFocusView();
         };
         field_.onFocusLost = [this] { endEdit(true); };
+        field_.setPlain(true);      // the strip's box is the field's box (as the old native edit: no border)
+        field_.setAlignRight(true);  // the number sits at the right, as it did (ES_RIGHT)
         add(field_, {0, 0, 0, 0});
         field_.setVisible(false);
     }
@@ -282,6 +282,8 @@ public:
     const std::vector<StripHit>& hits() const { return hits_; }
     // The number box `which` is being typed into (its edit field is shown).
     bool editing(int which) const { return editing_ == which && field_.visible(); }
+    // A number is being typed: the field has the keyboard (the message loop leaves its keys to it).
+    bool typing() const { return editing_ >= 0; }
     // Tests: the typed text, then Enter.
     void typeForTest(const std::wstring& t) {
         field_.setText(t);
@@ -401,7 +403,7 @@ public:
                 const int pick = shellPopupPick(names, int(appState().brushShape), sr.left, sr.bottom + scale(2));
                 if (pick >= 0) {
                     appState().brushShape = Brush::Shape(pick);
-                    saveAppSettings();
+                    shellSettingsChanged();
                     shellToolsChanged();
                 }
                 shellFocusView();
@@ -485,7 +487,7 @@ public:
                 const bool over = hot(square(br));
                 if (on) box(c, square(br), kSel, kAccentLine);
                 else if (over) box(c, square(br), kCtlHot, kNoLine);
-                mirrorIcon(c, square(br), flag, on ? kAccentBright : over ? kText : kDim, kPanel);
+                mirrorIcon(c, square(br), flag, on ? kAccentBright : over ? kText : kDim, on ? kSel : over ? kCtlHot : kBg);
                 addHit(square(br), [flag] {
                     AppState& a = appState();
                     if (!a.ed) return;

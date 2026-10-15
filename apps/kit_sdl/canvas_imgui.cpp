@@ -439,6 +439,44 @@ void ImguiCanvas::smoothRoundOutline(Rect r, float radius, Color line, float wid
     dl_->AddRect(at(r.left + h, r.top + h), at(r.right - h, r.bottom - h), colorOf(line), radius, 0, std::max(1.0f, width));
 }
 
+void ImguiCanvas::smoothLine(PointF a, PointF b, Color c, float width, uint8_t alpha) {
+    if (c == kNone) return;
+    dl_->AddLine(at(a.x, a.y), at(b.x, b.y), colorOf(c, alpha), width);
+}
+
+void ImguiCanvas::smoothFrame(PointF p, float w, float h, Color c, float width, uint8_t alpha) {
+    if (c == kNone) return;
+    dl_->AddRect(at(p.x, p.y), at(p.x + w, p.y + h), colorOf(c, alpha), 0, 0, width);
+}
+
+void ImguiCanvas::smoothArc(PointF p, float w, float h, float startDeg, float sweepDeg, Color c, float width) {
+    if (c == kNone || w <= 0 || h <= 0) return;
+    const float k = 3.14159265f / 180.0f;
+    const ImVec2 mid = at(p.x + w / 2, p.y + h / 2);
+    if (w == h) {
+        dl_->PathArcTo(mid, w / 2, startDeg * k, (startDeg + sweepDeg) * k, 0);
+    } else {
+        const int n = std::max(8, int(std::fabs(sweepDeg) / 6));
+        for (int i = 0; i <= n; ++i) {
+            const float a = (startDeg + sweepDeg * float(i) / float(n)) * k;
+            dl_->PathLineTo(ImVec2(mid.x + w / 2 * std::cos(a), mid.y + h / 2 * std::sin(a)));
+        }
+    }
+    dl_->PathStroke(colorOf(c), 0, width);
+}
+
+void ImguiCanvas::smoothPolygon(const PointF* pts, int n, Color fill) {
+    if (fill == kNone || n < 3) return;
+    std::vector<ImVec2> ps;
+    for (int i = 0; i < n; ++i) ps.push_back(at(pts[i].x, pts[i].y));
+    dl_->AddConvexPolyFilled(ps.data(), n, colorOf(fill));
+}
+
+void ImguiCanvas::smoothEllipse(PointF p, float w, float h, Color fill) {
+    if (fill == kNone) return;
+    dl_->AddEllipseFilled(at(p.x + w / 2, p.y + h / 2), ImVec2(w / 2, h / 2), colorOf(fill), 0, 0);
+}
+
 void ImguiCanvas::ellipse(Rect r, Color fill, Color line) {
     if (r.empty()) return;
     // As GDI's Ellipse: `r` includes the outline, which is 1 px wide inside it.

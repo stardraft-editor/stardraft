@@ -290,10 +290,15 @@ size_t TextField::caretFromPoint(draw::Point pt) const {
         const int y = pt.y - in.top + scrollY_;
         li = y < 0 ? 0 : std::min(lines_.size() - 1, size_t(y / lineH_));
     }
-    return modelOf(posAtX(li, pt.x - in.left + scrollX_));
+    return modelOf(posAtX(li, pt.x - in.left + scrollX_ - alignOff()));
 }
 
 draw::Rect TextField::inner() const { return draw::Rect{padX(), padY(), width() - padX() - trailing_, height() - padY()}; }
+
+int TextField::alignOff() const {
+    if (!alignRight_ || multiline() || lines_.empty()) return 0;
+    return std::max(0, inner().width() - contentW_);
+}
 
 int TextField::lineTop(size_t li) const {
     const draw::Rect in = inner();
@@ -334,7 +339,7 @@ void TextField::updateCaretRect() {
     if (!fresh()) return;
     const size_t dc = displayCaret();
     const size_t li = caretLine();
-    const int x = inner().left - scrollX_ + (px_[dc] - px_[lines_[li].start]);
+    const int x = inner().left - scrollX_ + alignOff() + (px_[dc] - px_[lines_[li].start]);
     const int top = lineTop(li);
     caretRect_ = draw::Rect{x, top, x + 1, top + lineH_};
 }
@@ -389,7 +394,7 @@ void TextField::paint(draw::Canvas& c) {
     if (model_.readOnly()) fill = th.readOnly, line = th.readOnlyLine;
     if (changed_) fill = th.goodFill, line = th.goodLine;
     if (focused_ && !model_.readOnly()) line = th.accent;  // a read-only field never shows the focus line
-    c.roundBox(draw::Rect{0, 0, width(), height()}, fill, line, px(kRadius));
+    if (!plain_) c.roundBox(draw::Rect{0, 0, width(), height()}, fill, line, px(kRadius));
 
     const draw::Font prev = c.setFont(c.font(fontDesc_));
     if (!fresh()) relayout(c);
@@ -406,7 +411,7 @@ void TextField::paint(draw::Canvas& c) {
             c.text(in, placeholder_, th.faint, flags);
         }
     } else {
-        const int baseX = in.left - scrollX_;
+        const int baseX = in.left - scrollX_ + alignOff();
         const int spaceW = c.measure(L" ");
         size_t first = 0, last = lines_.size();
         if (multiline()) {
@@ -430,13 +435,13 @@ void TextField::paint(draw::Canvas& c) {
             }
             c.setFont(c.font(fontDesc_));
         }
-        if (focused_ && caretOn_) {
-            const size_t dc = displayCaret();
-            const size_t li = caretLine();
-            const int x = baseX + (px_[dc] - px_[lines_[li].start]);
-            const int top = lineTop(li);
-            c.fill(draw::Rect{x, top, x + std::max(1, px(1)), top + lineH_}, th.text);
-        }
+    }
+    if (focused_ && caretOn_ && !lines_.empty()) {  // (an empty field has its caret too)
+        const size_t dc = displayCaret();
+        const size_t li = caretLine();
+        const int x = in.left - scrollX_ + alignOff() + (px_[dc] - px_[lines_[li].start]);
+        const int top = lineTop(li);
+        c.fill(draw::Rect{x, top, x + std::max(1, px(1)), top + lineH_}, th.text);
     }
     c.popClip();
     updateCaretRect();

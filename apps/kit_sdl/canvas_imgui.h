@@ -48,6 +48,11 @@ public:
     void fill(draw::Rect r, draw::Color c, uint8_t alpha = 255) override;
     void roundBox(draw::Rect r, draw::Color fill, draw::Color line, float radius, int width = 1) override;
     void smoothRoundOutline(draw::Rect r, float radius, draw::Color line, float width = 1.0f) override;
+    void smoothLine(PointF a, PointF b, draw::Color c, float width = 1.0f, uint8_t alpha = 255) override;
+    void smoothFrame(PointF topLeft, float w, float h, draw::Color c, float width = 1.0f, uint8_t alpha = 255) override;
+    void smoothArc(PointF topLeft, float w, float h, float startDeg, float sweepDeg, draw::Color c, float width = 1.0f) override;
+    void smoothPolygon(const PointF* pts, int n, draw::Color fill) override;
+    void smoothEllipse(PointF topLeft, float w, float h, draw::Color fill) override;
     void ellipse(draw::Rect r, draw::Color fill, draw::Color line) override;
     void ring(draw::Rect r, draw::Color line, int width = 1, draw::LineStyle style = draw::LineStyle::Solid) override;
     void frame(draw::Rect r, draw::Color line, int width = 1, draw::LineStyle style = draw::LineStyle::Solid) override;
