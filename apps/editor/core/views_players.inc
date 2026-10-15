@@ -73,6 +73,10 @@ public:
             race_[p].onChange = [this, p](int i) { v_.players[size_t(p)].race = kRaces[i].first, edited(); };
             force_[p].onChange = [this, p](int i) { v_.players[size_t(p)].force = i, edited(); };
             color_[p].onChange = [this, p](int row) { colorPicked(p, row); };
+            // Custom again (it is the color already): its picker opens again, as the old list's Custom row did.
+            color_[p].onSame = [this, p](int row) {
+                if (row == Editor::kColorIds + 2) colorPicked(p, row);
+            };
             for (stardraft::kit::Dropdown* d : {&controller_[p], &race_[p], &force_[p], &color_[p]}) add(*d, {0, 0, 0, 0});
         }
         for (int f = 0; f < 4; ++f) {
@@ -94,6 +98,25 @@ public:
         }
         syncControls();
     }
+
+    // The Tab order of the force names (the page's Tab goes from the description to Force 1's name, as the old EDITs did).
+    // The names are the page's Tab stops: true when the Tab moved to another name (false: it leaves the view).
+    bool tabName(bool back) {
+        int cur = -1;
+        for (int f = 0; f < 4; ++f)
+            if (name_[f].hasFocus()) cur = f;
+        const int next = cur + (back ? -1 : 1);
+        if (cur < 0 || next < 0 || next > 3) return false;
+        name_[next].focus();
+        return true;
+    }
+    // A force name has the keyboard (its typing, as the program's own typing when the text goes into the map).
+    bool typingName() const {
+        for (const auto& n : name_)
+            if (n.hasFocus()) return true;
+        return false;
+    }
+    void focusEntered(bool back) override { name_[back ? 3 : 0].focus(); }
 
     // The size of the page (its content: the window is as big as it, made before its first paint).
     int preferredWidth() { return rows().width; }

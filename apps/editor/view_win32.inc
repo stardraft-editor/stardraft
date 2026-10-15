@@ -385,6 +385,7 @@ public:
             return true;  // (the result string came with WM_IME_COMPOSITION)
         case WM_SETFOCUS:
             if (View* f = router_.focused()) f->focusChanged(true), invalidate(*f);
+            else if (GetKeyState(VK_TAB) < 0) view_.focusEntered(GetKeyState(VK_SHIFT) < 0);  // (a Tab, not a click)
             return false;
         case WM_KILLFOCUS:
             if (View* f = router_.focused()) f->focusChanged(false), invalidate(*f);
@@ -485,6 +486,7 @@ LRESULT CALLBACK viewWindowProc(HWND w, UINT msg, WPARAM wp, LPARAM lp) {
     if (host && host->message(w, msg, wp, lp, r)) return r;
     if (msg == WM_NCDESTROY && host) {
         SetWindowLongPtrW(w, GWLP_USERDATA, 0);
+        if (auto c = std::move(host->onClosed)) c();  // a popup that goes with its owner (not by a click): it is closed
         delete host;
     }
     return DefWindowProcW(w, msg, wp, lp);

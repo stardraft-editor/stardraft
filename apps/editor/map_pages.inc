@@ -325,7 +325,8 @@ void mapPageMakeContent() {
     // Players and forces: its view in its window, as big as its content (the page moves it).
     auto makePlayers = [] {
         gMp.players = std::make_unique<PlayersView>(gPlayersProgram, *gPlayersDlg);
-        HWND w = CreateWindowExW(WS_EX_CONTROLPARENT, ui::kViewClass, L"", WS_CHILD | WS_CLIPSIBLINGS, 0, 0, gMp.players->preferredWidth(),
+        // (a Tab stop: the names are reached by Tab from the page's fields, as the old name EDITs were)
+        HWND w = CreateWindowExW(WS_EX_CONTROLPARENT, ui::kViewClass, L"", WS_CHILD | WS_CLIPSIBLINGS | WS_TABSTOP, 0, 0, gMp.players->preferredWidth(),
                                  gMp.players->preferredHeight(), gMp.view, nullptr, app.inst, gMp.players.get());
         playersCreated(*gPlayersDlg, w);
         return w;
@@ -814,6 +815,10 @@ bool mapPageHasFocus() {
     const HWND f = GetFocus();
     return gMp.wnd && f && (f == gMp.wnd || IsChild(gMp.wnd, f));
 }
+// A force name (a kit field of the players view) has the keyboard: the typed keys and Ctrl+Z are the field's.
+bool mapPageTextFocus() { return gMp.players && gMp.players->typingName(); }
+// Tab from a force name: the next (back: the previous) name; false: the Tab goes on to the page's next control.
+bool mapPageTabNames(bool back) { return gMp.players && gMp.players->tabName(back); }
 bool mapPageKeepsKey(const MSG& m) {
     if (m.message != WM_KEYDOWN && m.message != WM_SYSKEYDOWN) return false;
     if (!(GetKeyState(VK_CONTROL) & 0x8000)) return m.message == WM_KEYDOWN && (m.wParam < VK_F1 || m.wParam > VK_F24);

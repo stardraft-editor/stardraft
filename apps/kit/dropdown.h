@@ -28,6 +28,8 @@ public:
 
     // The value changed to index (by the list, the wheel or the keys). Not for setValue.
     std::function<void(int)> onChange;
+    // The item that is already the value was picked again (the list closes, no change): a Custom color's picker opens.
+    std::function<void(int)> onSame;
 
     // Replaces the items (the list closes; the value stays if it is still an item).
     void setItems(std::vector<DropdownItem> items);
@@ -42,6 +44,8 @@ public:
     void setChanged(bool on);
     bool changed() const { return changed_; }
     bool listOpen() const { return listOpen_; }
+    // Whether any dropdown's list is open (the page's keys go to its type-to-jump, as to a combo box's list).
+    static bool anyListOpen();
     // Opens the list under the field (nothing when it is disabled or has no items).
     void openList();
     // Closes the list without a change.
@@ -59,18 +63,20 @@ private:
     class List;
     void pick(int i);
     void step(int dir);
+    void setOpen(bool on);
 
     std::vector<DropdownItem> items_;
     std::wstring tip_;
     int value_ = -1;
     bool enabled_ = true, listOpen_ = false, hover_ = false, justClosed_ = false, changed_ = false;
     float wheelAcc_ = 0;
-    // Lets go of the list (the host forgets it). It is deleted by a timer: its own event may be the one running.
+    // Lets go of the list (the host forgets it) and drops the host: a closed list keeps no host, so nothing touches a
+    // host that is gone (a page's window goes before its views). The list is deleted by a timer on the host: its own
+    // event may be the one running.
     void retireList();
 
-    std::unique_ptr<List> list_;  // the last list made; it stays after it closed, until the next one opens
-    // The host that shows the list. Kept because the dropdown may have left the tree while the list is open. The host
-    // outlives the dropdown (as it does for every view in its tree).
+    std::unique_ptr<List> list_;  // the list made for the open list (retired when it closes)
+    // The host that shows the list while it is open. A host goes when its window goes; a closed list does not use it.
     draw::Host* listHost_ = nullptr;
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);  // what the list's callbacks check
 };

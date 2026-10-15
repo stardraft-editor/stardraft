@@ -133,6 +133,9 @@ public:
     virtual bool hoverTip() const { return false; }
     // Whether Tab stops on it (and a click gives it the focus).
     virtual bool focusable() const { return false; }
+    // The window of the view got the keyboard focus with no view of it focused (Tab came in from another control):
+    // the view takes it on its first (back: its last) focusable part.
+    virtual void focusEntered(bool /*back*/) {}
     virtual void focusChanged(bool /*has*/) {}
     // The mouse capture left the view (it went to another view, the system took it, or the view let it go): the view
     // ends what the capture was for.
