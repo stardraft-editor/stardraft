@@ -1700,8 +1700,6 @@ constexpr UiText kRows[] = {
     {L"Select a text variable", L"\uD14D\uC2A4\uD2B8 \uBCC0\uC218\uB97C \uC120\uD0DD\uD558\uC2ED\uC2DC\uC624"},
     {L" is not a text variable", L" \uC740(\uB294) \uD14D\uC2A4\uD2B8 \uBCC0\uC218\uAC00 \uC544\uB2D9\uB2C8\uB2E4"},
     {L"Select a text of the game", L"\uAC8C\uC784\uC758 \uD14D\uC2A4\uD2B8\uB97C \uC120\uD0DD\uD558\uC2ED\uC2DC\uC624"},
-    {L"Select a number per player", L"\uD50C\uB808\uC774\uC5B4\uBCC4 \uC22B\uC790\uB97C \uC120\uD0DD\uD558\uC2ED\uC2DC\uC624"},
-    {L" is not a number per player", L" \uC740(\uB294) \uD50C\uB808\uC774\uC5B4\uBCC4 \uC22B\uC790\uAC00 \uC544\uB2D9\uB2C8\uB2E4"},
     {L"The text has more than two {}. Use at most two: one for each value", L"\uD14D\uC2A4\uD2B8\uC5D0 {}\uAC00 \uB450 \uAC1C\uB97C \uB118\uC2B5\uB2C8\uB2E4. \uAC12\uB9C8\uB2E4 \uD558\uB098\uC529, \uCD5C\uB300 \uB450 \uAC1C\uB97C \uC0AC\uC6A9\uD558\uC2ED\uC2DC\uC624"},
     {L"For each player accepts all players, Player 1 to Player 8, or a force", L"\uAC01 \uD50C\uB808\uC774\uC5B4\uB294 \uBAA8\uB4E0 \uD50C\uB808\uC774\uC5B4, \uD50C\uB808\uC774\uC5B4 1\uC5D0\uC11C \uD50C\uB808\uC774\uC5B4 8, \uB610\uB294 \uD3EC\uC2A4\uB97C \uBC1B\uC2B5\uB2C8\uB2E4"},
     {L"For each unit accepts one unit type or Any unit", L"\uAC01 \uC720\uB2DB\uC740 \uC720\uB2DB \uC885\uB958 \uD558\uB098 \uB610\uB294 \uBAA8\uB4E0 \uC720\uB2DB\uC744 \uBC1B\uC2B5\uB2C8\uB2E4"},
@@ -1863,6 +1861,11 @@ constexpr UiText kRows[] = {
     {L"The minimap is hidden (View > Show minimap shows it again)", L"\uBBF8\uB2C8\uB9F5\uC774 \uC228\uACA8\uC838 \uC788\uC2B5\uB2C8\uB2E4 (\uBCF4\uAE30 > \uBBF8\uB2C8\uB9F5 \uD45C\uC2DC\uB85C \uB2E4\uC2DC \uD45C\uC2DC\uD569\uB2C8\uB2E4)"},
     {L"The minimap shows", L"\uBBF8\uB2C8\uB9F5\uC774 \uD45C\uC2DC\uB429\uB2C8\uB2E4"},
     {L"StarDraft 2 is powered by euddraft and eudplib", L"StarDraft 2\uB294 euddraft\uC640 eudplib\uB85C \uC791\uB3D9\uD569\uB2C8\uB2E4"},
+    {L"player array", L"\uD50C\uB808\uC774\uC5B4 \uBC30\uC5F4"},
+    {L"Player arrays", L"\uD50C\uB808\uC774\uC5B4 \uBC30\uC5F4"},
+    {L"Select a player array", L"\uD50C\uB808\uC774\uC5B4 \uBC30\uC5F4\uC744 \uC120\uD0DD\uD558\uC2ED\uC2DC\uC624"},
+    {L" is not a player array", L" \uC740(\uB294) \uD50C\uB808\uC774\uC5B4 \uBC30\uC5F4\uC774 \uC544\uB2D9\uB2C8\uB2E4"},
+    {L"list (or player array)", L"\uBAA9\uB85D (\uB610\uB294 \uD50C\uB808\uC774\uC5B4 \uBC30\uC5F4)"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

@@ -137,7 +137,7 @@ std::map<std::string, TriggerType> makeTypes() {
     add("UnitTarget", "unit variable", TriggerPicker::Variable, {}, "A unit variable to remember a unit in.");
     add("TextTarget", "text variable", TriggerPicker::Variable, {}, "A text variable to change.");
     add("TriggerRef", "trigger", TriggerPicker::Trigger, {}, "A trigger in Definitions.");
-    add("ListTarget", "list (or number per player)", TriggerPicker::Variable, {}, "A list of numbers, or a number per player (a list of 8, one per player).");
+    add("ListTarget", "list (or player array)", TriggerPicker::Variable, {}, "A list of numbers, or a player array (a list of 8, one per player).");
     add("Index", "which item", TriggerPicker::Number, {},
         "Which item: counted from 0. A number, a variable or constant, the loop's counter, or the current player (Player 1 is 0).");
     add("UnitProperties", "unit properties", TriggerPicker::Unclear, {}, "Hit points, shields, energy and states of created units: no picker yet.");
@@ -569,7 +569,7 @@ const char* TriggerVariable::kindLabel(Kind k) {
     switch (k) {
     case Kind::Number: return "number";
     case Kind::Flag: return "flag";
-    case Kind::PerPlayer: return "number per player";
+    case Kind::PerPlayer: return "player array";
     case Kind::Array: return "list of numbers";
     case Kind::Unit: return "unit variable";
     case Kind::Constant: return "constant number";
@@ -1852,7 +1852,7 @@ struct Gen {
             return code;
         }
         if (type == "ListTarget")
-            return var.kind == TriggerVariable::Kind::Array || var.kind == TriggerVariable::Kind::PerPlayer ? code : wrong("list or number per player");
+            return var.kind == TriggerVariable::Kind::Array || var.kind == TriggerVariable::Kind::PerPlayer ? code : wrong("list or player array");
         if (var.kind == TriggerVariable::Kind::Number) return index.empty() ? code : wrong("number (without [ ])");
         if (var.kind == TriggerVariable::Kind::PerPlayer || var.kind == TriggerVariable::Kind::Array) {
             if (index.empty() && var.kind == TriggerVariable::Kind::Array) return wrong("value: name[index]");
@@ -2000,7 +2000,7 @@ struct Gen {
         return fill(c, *d, d->code);
     }
 
-    // An item of a list (or one player's value of a number per player): "v_list[index]", the index checked.
+    // An item of a list (or one player's value of a player array): "v_list[index]", the index checked.
     std::string listItem(const TriggerCall& c, const TriggerDef& d) {
         const std::string list = arg(c, d, "list");
         const std::string name = raw(c, d, "list"), index = raw(c, d, "index");
@@ -2279,7 +2279,7 @@ struct Gen {
             const std::string s = "msqc_share" + std::to_string(k), into = raw(c, *d, "into");
             auto it = vars.find(into);
             if (it == vars.end() || it->second->variable.kind != TriggerVariable::Kind::PerPlayer) {
-                issue(TriggerIssue::Level::Error, &c, d->param("into"), into.empty() ? "Select a number per player" : into + " is not a number per player");
+                issue(TriggerIssue::Level::Error, &c, d->param("into"), into.empty() ? "Select a player array" : into + " is not a player array");
                 return "";
             }
             globals += "var " + s + "_local = 0;\nvar " + s + "_send = 0;\nconst " + s + "_recv = PVariable();\n";
@@ -2911,7 +2911,7 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
                 const auto& pv = n.variable.playerValues;
                 const bool any = std::any_of(pv.begin(), pv.end(), [&](const std::string& x) { return !x.empty() && (x != "0" || n.variable.holds == "UnitType"); });
                 if (!any && n.variable.holds != "UnitType") {  // (unit types: 0 is Terran Marine, so the empty ones are None, 228)
-                    decls += "const " + code + " = PVariable();  // " + n.name + " (per player)\n";
+                    decls += "const " + code + " = PVariable();  // " + n.name + " (player array)\n";
                     break;
                 }
                 std::string items;
@@ -2929,7 +2929,7 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
                     else item = x;
                     items += (p ? ", " : "") + item;
                 }
-                decls += "const " + code + " = PVariable(list(" + items + "));  // " + n.name + " (per player" +
+                decls += "const " + code + " = PVariable(list(" + items + "));  // " + n.name + " (player array" +
                          (n.variable.holds == "UnitType" ? ": unit types" : n.variable.holds == "Location" ? ": locations" : "") + ")\n";
                 break;
             }

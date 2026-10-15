@@ -1587,8 +1587,6 @@ Unknown action 	Неизвестное действие
 Select a text variable	Выберите текстовую переменную
  is not a text variable	 не является текстовой переменной
 Select a text of the game	Выберите игровой текст
-Select a number per player	Выберите число для каждого игрока
- is not a number per player	 не является числом для каждого игрока
 The text has more than two {}. Use at most two: one for each value	В тексте больше двух {}. Используйте не более двух: по одному для каждого значения
 For each player accepts all players, Player 1 to Player 8, or a force	«Для каждого игрока» принимает всех игроков, игроков с 1 по 8 или команду
 For each unit accepts one unit type or Any unit	«Для каждого юнита» принимает один тип юнита или «Любой юнит»
@@ -1859,3 +1857,8 @@ Brush: place the tile selected in the Tiles list, with the brush's size and shap
 &Pin to the top	&Закрепить вверху
 Un&pin	От&крепить
 StarDraft 2 is powered by euddraft and eudplib	StarDraft 2 работает на euddraft и eudplib
+player array	массив игроков
+Player arrays	Массивы игроков
+Select a player array	Выберите массив игроков
+ is not a player array	 не является массивом игроков
+list (or player array)	список (или массив игроков)

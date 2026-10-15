@@ -14529,7 +14529,7 @@ std::vector<ListPickItem> trigPerPlayerItems(const std::string& holds) {
     std::vector<ListPickItem> items;
     for (const auto& [name, node] : gTE.set.variables())
         if (node->variable.kind == TriggerVariable::Kind::PerPlayer && node->variable.holds == holds)
-            items.push_back({widen(name) + L" (the current player's)", L"Per player", name});
+            items.push_back({widen(name) + L" (the current player's)", L"Player arrays", name});
     return items;
 }
 
@@ -15039,7 +15039,7 @@ void valuePopRefresh() {
             break;
         case TriggerVariable::Kind::Flag: s.tag = L"flag"; break;
         case TriggerVariable::Kind::PerPlayer:
-            s.tag = L"per player";
+            s.tag = L"player array";
             break;
         case TriggerVariable::Kind::Array:
             s.tag = L"list of " + std::to_wstring(v.size);
@@ -16555,7 +16555,7 @@ const TriggerNode* trigIndexList(const TriggerDef& d, const TriggerCall& c) {
     return it != vars.end() ? it->second : nullptr;
 }
 
-// How an index reads: for a number per player, the player ("Player 3", not 2).
+// How an index reads: for a player array, the player ("Player 3", not 2).
 std::wstring trigIndexText(const TriggerDef& d, const TriggerCall& c, const std::string& v) {
     const TriggerNode* list = trigIndexList(d, c);
     if (list && list->variable.kind == TriggerVariable::Kind::PerPlayer) {
@@ -19274,6 +19274,22 @@ void drawMirrorIcon(HDC dc, RECT r, int kind, COLORREF c) {
     }
 }
 
+// How wide a text is in the UI font.
+int stripTextWidth(const wchar_t* text) {
+    HDC dc = GetDC(nullptr);
+    HGDIOBJ of = SelectObject(dc, app.font);
+    SIZE sz{};
+    GetTextExtentPoint32W(dc, text, int(wcslen(text)), &sz);
+    SelectObject(dc, of);
+    ReleaseDC(nullptr, dc);
+    return int(sz.cx);
+}
+// Terrain: the brush's Size and Height on one row, when each box has room for its value ("same"). The width of each
+// box; 0: no room (a narrow strip), a row each.
+int brushRowBoxWidth(int stripWidth) {
+    const int bw = std::min((stripWidth - scale(64) - scale(14)) / 2, scale(92));
+    return bw - 2 * scale(18) >= stripTextWidth(tr(L"same")) + scale(8) ? bw : 0;
+}
 int toolStripHeight(int width, bool titled) {
     const int b = scale(30), gap = scale(4);
     const int perRow = std::max(1, (width + gap) / (b + gap));
@@ -19282,7 +19298,7 @@ int toolStripHeight(int width, bool titled) {
     const int rows = (tools + perRow - 1) / perRow + (app.mode == Mode::Terrain ? (3 + perRow - 1) / perRow : 0);
     const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap : 0) + (stripHasDensity() ? scale(26) + gap : 0) +
                       (app.mode == Mode::Terrain ? scale(26) + gap : 0) +  // Terrain: Isometric | Rectangle
-                      (app.mode == Mode::Terrain && stripHasSize() ? scale(26) + gap : 0);  // Terrain: the brush's Height
+                      (app.mode == Mode::Terrain && stripHasSize() && !brushRowBoxWidth(width) ? scale(26) + gap : 0);  // a narrow strip: Height on a row of its own
     return (titled ? scale(24) : 0) + rows * b + (rows - 1) * gap + extra;
 }
 void paintToolStrip(HWND hwnd) {
@@ -19355,16 +19371,10 @@ void paintToolStrip(HWND hwnd) {
     }
     if (x > 0) x = 0, y += b + gap;
     // The brush size and the spray's density: number boxes (the name, the value, up and down arrows).
-    auto numberRow = [&](int which, const wchar_t* name, const wchar_t* tip, const wchar_t* unit = nullptr) {
-        const int h = scale(26), lw = scale(64);
-        SetTextColor(mem, kDim);
-        RECT lt{0, y, lw, y + h};
-        DrawTextW(mem, name, -1, &lt, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-        // A stepper: - and + at the ends of the box, the value between them (a click there types one).
-        const RECT vb{lw, y + scale(1), std::min<int>(int(rc.right), lw + scale(120)), y + h - scale(1)};
+    // A stepper: - and + at the ends of the box, the value between them (a click there types one).
+    auto stepper = [&](int which, const RECT& vb, const wchar_t* tip, int sw) {
         const bool editing = gStripEditing == which;
         ui::fieldBox(mem, vb, editing ? ui::Field::Focus : ui::Field::Normal);
-        const int sw = scale(26);
         const RECT down{vb.left, vb.top, vb.left + sw, vb.bottom}, up{vb.right - sw, vb.top, vb.right, vb.bottom}, value{down.right, vb.top, up.left, vb.bottom};
         if (!editing) {
             SetTextColor(mem, kText);
@@ -19381,6 +19391,14 @@ void paintToolStrip(HWND hwnd) {
         gStrip.hits.push_back({up, nullptr, [which] { stripNumberStep(which, 1); }, L"One step more", IDC_HAND, {}});
         gStrip.hits.push_back({down, nullptr, [which] { stripNumberStep(which, -1); }, L"One step less", IDC_HAND, {}});
         gStripNumbers.push_back({vb, which});
+    };
+    auto numberRow = [&](int which, const wchar_t* name, const wchar_t* tip, const wchar_t* unit = nullptr) {
+        const int h = scale(26), lw = scale(64);
+        SetTextColor(mem, kDim);
+        RECT lt{0, y, lw, y + h};
+        DrawTextW(mem, name, -1, &lt, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+        const RECT vb{lw, y + scale(1), std::min<int>(int(rc.right), lw + scale(120)), y + h - scale(1)};
+        stepper(which, vb, tip, scale(26));
         if (unit && vb.right + scale(6) < rc.right) {  // what the number counts (GitHub feedback #121)
             SetTextColor(mem, kDim);
             RECT ut{vb.right + scale(6), y, rc.right, y + h};
@@ -19388,13 +19406,36 @@ void paintToolStrip(HWND hwnd) {
         }
         y += h + gap;
     };
-    if (stripHasSize())
-        numberRow(kNumSize, L"Size", L"Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).",
-                  app.mode != Mode::Terrain ? nullptr : app.terrainRect ? L"tiles" : L"diamonds");
-    if (stripHasSize() && app.mode == Mode::Terrain)  // the terrain brush's height, when it differs from its size (GitHub #113)
-        numberRow(kNumHeight, L"Height",
-                  L"Brush height: 1 to 32, or the same as Size. Click to type a height (empty: the same as Size). - and + and the mouse wheel change it.",
-                  app.brushHeight <= 0 ? nullptr : app.terrainRect ? L"tiles" : L"diamonds");
+    static const wchar_t* const kSizeTip = L"Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).";
+    static const wchar_t* const kHeightTip =
+        L"Brush height: 1 to 32, or the same as Size. Click to type a height (empty: the same as Size). - and + and the mouse wheel change it.";
+    const int rowBox = stripHasSize() && app.mode == Mode::Terrain ? brushRowBoxWidth(int(rc.right)) : 0;
+    if (rowBox) {
+        // Terrain: the width and the height on one row, "Size [3] x [same] diamonds" (GitHub #113).
+        const int h = scale(26), lw = scale(64), cross = scale(14);
+        SetTextColor(mem, kDim);
+        RECT lt{0, y, lw, y + h};
+        DrawTextW(mem, L"Size", -1, &lt, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+        const wchar_t* unit = app.terrainRect ? L"tiles" : L"diamonds";
+        const int unitW = stripTextWidth(tr(unit)) + scale(8), room = int(rc.right) - lw - cross;
+        const bool unitFits = room - unitW >= 2 * scale(76);  // a narrow strip: the boxes keep the room, no unit
+        const int bw = unitFits ? std::min(rowBox, (room - unitW) / 2) : rowBox, sw = scale(bw >= scale(76) ? 22 : 18);
+        const RECT wb{lw, y + scale(1), lw + bw, y + h - scale(1)}, hb{wb.right + cross, wb.top, wb.right + cross + bw, wb.bottom};
+        stepper(kNumSize, wb, kSizeTip, sw);
+        SetTextColor(mem, kDim);
+        RECT xt{wb.right, y, hb.left, y + h};
+        DrawTextW(mem, L"\u00D7", -1, &xt, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
+        stepper(kNumHeight, hb, kHeightTip, sw);
+        if (unitFits) {
+            RECT ut{hb.right + scale(6), y, rc.right, y + h};
+            DrawTextW(mem, unit, -1, &ut, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
+        }
+        y += h + gap;
+    } else if (stripHasSize() && app.mode == Mode::Terrain) {  // a narrow strip: a row each
+        numberRow(kNumSize, L"Size", kSizeTip, app.terrainRect ? L"tiles" : L"diamonds");
+        numberRow(kNumHeight, L"Height", kHeightTip, app.brushHeight <= 0 ? nullptr : app.terrainRect ? L"tiles" : L"diamonds");
+    } else if (stripHasSize())
+        numberRow(kNumSize, L"Size", kSizeTip);
     if (stripHasDensity())
         numberRow(kNumDensity, L"Density", app.mode == Mode::Terrain ? L"Density: the number of dabs (Rectangle: tiles) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it."
                                          : app.mode == Mode::Units ? L"Density: the number of units each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it."
@@ -22988,7 +23029,7 @@ int runSelfTest(const fs::path& dir) {
                 // A list's index: the pop-out knows its range (0 to 9) and offers counter (inside For each item).
                 gPopType = L"counter", gPopShot = dir / "116_index_of_list.png";
                 clickIndex("waves");
-                // A number per player's index: a player menu (captured, then closed: nothing changes).
+                // A player array's index: a player menu (captured, then closed: nothing changes).
                 static fs::path menuShot;
                 static int menuTries = 0;
                 menuShot = dir / "117_index_per_player_menu.png";

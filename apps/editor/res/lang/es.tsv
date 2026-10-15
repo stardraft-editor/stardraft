@@ -1695,8 +1695,6 @@ A value in the text is missing. Insert it again.	Falta un valor del texto. Insé
 Select a text variable	Seleccione una variable de texto
  is not a text variable	 no es una variable de texto
 Select a text of the game	Seleccione un texto del juego
-Select a number per player	Seleccione un número por jugador
- is not a number per player	 no es un número por jugador
 The text has more than two {}. Use at most two: one for each value	El texto tiene más de dos {}. Use como máximo dos: uno para cada valor
 For each player accepts all players, Player 1 to Player 8, or a force	Para cada jugador acepta todos los jugadores, del Jugador 1 al Jugador 8, o una fuerza
 For each unit accepts one unit type or Any unit	Para cada unidad acepta un tipo de unidad o Cualquier unidad
@@ -1858,3 +1856,8 @@ The map has 	El mapa tiene
 The minimap is hidden (View > Show minimap shows it again)	El minimapa está oculto (Ver > Mostrar minimapa lo muestra de nuevo)
 The minimap shows	El minimapa se muestra
 StarDraft 2 is powered by euddraft and eudplib	StarDraft 2 funciona con euddraft y eudplib
+player array	matriz por jugador
+Player arrays	Matrices por jugador
+Select a player array	Seleccione una matriz por jugador
+ is not a player array	 no es una matriz por jugador
+list (or player array)	lista (o matriz por jugador)

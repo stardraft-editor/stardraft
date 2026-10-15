@@ -1587,8 +1587,6 @@ Unknown action 	未知动作
 Select a text variable	请选择文本变量
  is not a text variable	 不是文本变量
 Select a text of the game	请选择游戏中的文本
-Select a number per player	请选择每个玩家的数字
- is not a number per player	 不是每个玩家的数字
 The text has more than two {}. Use at most two: one for each value	文本中的 {} 超过两个。最多使用两个：每个值一个
 For each player accepts all players, Player 1 to Player 8, or a force	“对每个玩家”接受所有玩家、玩家 1 到玩家 8，或一个势力
 For each unit accepts one unit type or Any unit	“对每个单位”接受一种单位类型或“任意单位”
@@ -1857,3 +1855,8 @@ Brush: place the tile selected in the Tiles list, with the brush's size and shap
 &Pin to the top	置顶(&P)
 Un&pin	取消置顶(&P)
 StarDraft 2 is powered by euddraft and eudplib	StarDraft 2 由 euddraft 和 eudplib 驱动
+player array	玩家数组
+Player arrays	玩家数组
+Select a player array	请选择玩家数组
+ is not a player array	 不是玩家数组
+list (or player array)	列表（或玩家数组）

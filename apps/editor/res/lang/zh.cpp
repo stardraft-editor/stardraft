@@ -1591,8 +1591,6 @@ constexpr UiText kRows[] = {
     {L"Select a text variable", L"\u8BF7\u9009\u62E9\u6587\u672C\u53D8\u91CF"},
     {L" is not a text variable", L" \u4E0D\u662F\u6587\u672C\u53D8\u91CF"},
     {L"Select a text of the game", L"\u8BF7\u9009\u62E9\u6E38\u620F\u4E2D\u7684\u6587\u672C"},
-    {L"Select a number per player", L"\u8BF7\u9009\u62E9\u6BCF\u4E2A\u73A9\u5BB6\u7684\u6570\u5B57"},
-    {L" is not a number per player", L" \u4E0D\u662F\u6BCF\u4E2A\u73A9\u5BB6\u7684\u6570\u5B57"},
     {L"The text has more than two {}. Use at most two: one for each value", L"\u6587\u672C\u4E2D\u7684 {} \u8D85\u8FC7\u4E24\u4E2A\u3002\u6700\u591A\u4F7F\u7528\u4E24\u4E2A\uFF1A\u6BCF\u4E2A\u503C\u4E00\u4E2A"},
     {L"For each player accepts all players, Player 1 to Player 8, or a force", L"\u201C\u5BF9\u6BCF\u4E2A\u73A9\u5BB6\u201D\u63A5\u53D7\u6240\u6709\u73A9\u5BB6\u3001\u73A9\u5BB6 1 \u5230\u73A9\u5BB6 8\uFF0C\u6216\u4E00\u4E2A\u52BF\u529B"},
     {L"For each unit accepts one unit type or Any unit", L"\u201C\u5BF9\u6BCF\u4E2A\u5355\u4F4D\u201D\u63A5\u53D7\u4E00\u79CD\u5355\u4F4D\u7C7B\u578B\u6216\u201C\u4EFB\u610F\u5355\u4F4D\u201D"},
@@ -1861,6 +1859,11 @@ constexpr UiText kRows[] = {
     {L"&Pin to the top", L"\u7F6E\u9876(&P)"},
     {L"Un&pin", L"\u53D6\u6D88\u7F6E\u9876(&P)"},
     {L"StarDraft 2 is powered by euddraft and eudplib", L"StarDraft 2 \u7531 euddraft \u548C eudplib \u9A71\u52A8"},
+    {L"player array", L"\u73A9\u5BB6\u6570\u7EC4"},
+    {L"Player arrays", L"\u73A9\u5BB6\u6570\u7EC4"},
+    {L"Select a player array", L"\u8BF7\u9009\u62E9\u73A9\u5BB6\u6570\u7EC4"},
+    {L" is not a player array", L" \u4E0D\u662F\u73A9\u5BB6\u6570\u7EC4"},
+    {L"list (or player array)", L"\u5217\u8868\uFF08\u6216\u73A9\u5BB6\u6570\u7EC4\uFF09"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }
