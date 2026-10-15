@@ -8,6 +8,7 @@
 //
 // --snapshot: draws one frame without a window (SDL_VIDEODRIVER=offscreen needs no display), writes it, exits.
 // --silent: a test run that drives the window plays no sound (a snapshot plays none either).
+// --log: the Log is open; --build: Build runs first (a snapshot then shows its lines in the Log).
 // The StarCraft install: --install, then STARDRAFT_INSTALL, the folder chosen before, then the usual folders of each
 // system (core/install_search.inc); when none opens, the window asks for the folder.
 
@@ -32,6 +33,7 @@
 #include <random>
 #include <set>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -64,6 +66,7 @@
 #include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)
 #include "stardraft/game_data.h"
 #include "stardraft/hd_assets.h"
+#include "stardraft/msqc.h"  // the triggers' keys and buttons (core/project_build.inc)
 #include "stardraft/pathing.h"
 #include "stardraft/previews.h"  // the terrain and doodad pictures (sdl_pictures.inc)
 #include "stardraft/renderer.h"
@@ -102,6 +105,7 @@ bool gSilent = false;
 #include "sdl_map_dialogs.inc"  // Unit and Location properties, the text prompt, the quick picker and the map's menu
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
 #include "sdl_data.inc"  // the Data workspace (the model is core/data_list.inc and core/views_data*.inc; the tables are the stock .dat files)
+#include "sdl_build.inc"  // Build's parts of this system (core/project_build.inc)
 #include "shell_sdl.inc"
 
 namespace {
@@ -130,7 +134,7 @@ bool openInstall(const std::string& given, std::string& lastErr) {
         for (const fs::path& t : installTries(c)) {
             if (!fs::is_directory(t, ec)) continue;
             std::string err;
-            if (gState.data.open(t, err)) return true;
+            if (gState.data.open(t, err)) return gInstallInUse = t, true;
             if (lastErr.empty()) lastErr = err;
         }
     return false;
@@ -151,6 +155,7 @@ void useInstallFolder(const std::string& picked) {
     std::string err;
     for (const fs::path& t : installTries(fs::path(picked)))
         if (fs::is_directory(t) && gState.data.open(t, err)) {
+            gInstallInUse = t;
             prefs::setText(L"StarCraftFolder", t.wstring());
             gDataOk = true, gDataError.clear();
             gStartView.dataError.clear();
@@ -199,7 +204,7 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg;
-    bool rectArg = false, previewArg = false;
+    bool rectArg = false, previewArg = false, logArg = false, buildArg = false;
     int width = 1600, height = 1000;
     float scaleArg = 0;
     for (int i = 1; i < argc; ++i) {
@@ -217,6 +222,8 @@ int main(int argc, char** argv) {
         else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or unitprops, locprops or quick: that view is the snapshot
         else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
         else if (a == "--scriptpreview") previewArg = true;  // the Project page's script preview on (not saved), for a snapshot
+        else if (a == "--log") logArg = true;  // the Log open (View > Log), for a snapshot
+        else if (a == "--build") buildArg = true;  // Build (Ctrl+B) runs first: its lines go to the Log, for a snapshot
         else if (a == "--silent") gSilent = true;
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
@@ -283,6 +290,8 @@ int main(int argc, char** argv) {
         if (!dataArg.empty()) sdlDataSelect(dataArg);
         if (!ctArg.empty()) sdlClassicTrigSelect(ctArg);
         if (newPageArg == "classic" || newPageArg == "eud") openNewPageSdl(newPageArg == "eud" ? 1 : 0);
+        if (buildArg) command(ID_PROJ_COMPILE);
+        if (logArg) gLogPane.setExpanded(true);
         if (!gDataOk) setMessage(widen(gDataError));
         std::printf("stardraft_editor: GPU %s, %s\n", renderer.driver(), gDataOk ? "game data" : gDataError.c_str());
 

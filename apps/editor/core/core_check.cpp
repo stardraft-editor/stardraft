@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <ctime>
 #include <chrono>
 #include <charconv>
 #include <cmath>
@@ -21,6 +22,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -57,6 +59,7 @@
 #include "stardraft/scene.h"
 #include "stardraft/settings.h"
 #include "stardraft/hd_assets.h"
+#include "stardraft/msqc.h"
 #include "stardraft/tileset.h"
 #include "stardraft/wireframes.h"
 #include "stardraft/terrain_gen.h"

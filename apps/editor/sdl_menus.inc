@@ -104,7 +104,17 @@ bool sdlRuns(int id) {
     case ID_OPT_WINDOW:
     case ID_HELP_FEEDBACK:
     case ID_EDIT_RENAME:  // the location's rename and the quick picker (sdl_map_dialogs.inc)
-    case ID_QUICKPICK: return true;
+    case ID_QUICKPICK:
+    case ID_PROJ_COMPILE:  // Build (core/project_build.inc), the Log, the StarCraft folder and the shell's own commands below
+    case ID_VIEW_LOG:
+    case ID_OPT_INSTALL:
+    case ID_SCEN_CHECK:
+    case ID_RECENT_CLEAR_MAPS:
+    case ID_RECENT_CLEAR_PROJECTS:
+    case ID_DOCK_MINI_LEFT:
+    case ID_DOCK_MINI_RIGHT:
+    case ID_DOCK_TOOLS_LEFT:
+    case ID_DOCK_TOOLS_RIGHT: return true;
     default: break;
     }
     if (id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) return true;
@@ -116,6 +126,7 @@ bool sdlRuns(int id) {
 bool sdlEnabled(int id) {
     if (!sdlRuns(id)) return false;
     if (mapCommand(id) && !docOpen()) return false;
+    if (id == ID_PROJ_COMPILE && gBuilding) return false;  // (a build runs)
     return commandForMode(id, projectMode());
 }
 
@@ -366,9 +377,37 @@ void command(int id) {
         if (gState.ed && gState.ed->isOpen()) renameSelectedLocation();
         return;
     case ID_QUICKPICK: shellShowQuickPicker(false, false); return;
+    case ID_PROJ_COMPILE: compileProject(); return;
+    case ID_VIEW_LOG: gLogPane.setExpanded(!gLogPane.expanded()); return;
+    case ID_OPT_INSTALL: shellChooseInstallFolder(); return;
+    case ID_SCEN_CHECK: {
+        const std::wstring problems = playabilityText();
+        if (problems.empty()) setMessage(L"StarCraft can start this map");
+        else if (gRoot)
+            kit::messageBox(*gRoot, shellTr(L"Check that StarCraft can start the map"), shellTr(L"StarCraft will not start this map:") + L"\r\n\r\n" + problems,
+                            {L"OK"}, kit::MessageIcon::Warning);
+        return;
+    }
+    case ID_RECENT_CLEAR_MAPS:
+    case ID_RECENT_CLEAR_PROJECTS:
+        (id == ID_RECENT_CLEAR_MAPS ? gRecentMaps : gRecentProjects).clear();
+        saveRecent();
+        gMenusDirty = true;
+        return;
+    case ID_DOCK_MINI_LEFT:
+    case ID_DOCK_MINI_RIGHT:
+        gDock.minimapRight = id == ID_DOCK_MINI_RIGHT, gDock.minimapHidden = false;
+        saveDock(), shellRelayout();
+        return;
+    case ID_DOCK_TOOLS_LEFT:
+    case ID_DOCK_TOOLS_RIGHT:
+        gDock.toolsRight[int(gState.mode)] = id == ID_DOCK_TOOLS_RIGHT;
+        saveDock(), shellRelayout();
+        setMessage(std::wstring(kModeNames[int(gState.mode)]) + L" toolbar on the " + (id == ID_DOCK_TOOLS_RIGHT ? L"right" : L"left"));
+        return;
     default:
-        if (id >= ID_WS_MAP && id <= ID_WS_FILES) return setWorkspace(Workspace(id - ID_WS_MAP));  // the workspace order
-        setMessage(L"This is not on this system yet");
+        // (the workspaces in their order; a command this system does not run is gray in the menus, and its key does nothing)
+        if (id >= ID_WS_MAP && id <= ID_WS_FILES) return setWorkspace(Workspace(id - ID_WS_MAP));
         return;
     }
 }
