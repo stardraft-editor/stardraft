@@ -397,23 +397,9 @@ using kitpaint::Field;
 void fieldBox(Paint p, RECT r, Field f) { kitpaint::drawFieldBox(*p, r, f); }
 
 // --- Form parts ---------------------------------------------------------------------------------------------------
-// The form's layout, as the Data forms have it: the fields in a column on the left, the pictures beside them when
-// the form is wide (above them when narrow).
-struct FormLayout {
-    int x0, labelW, rowH, colW, colRight, picX, picW;
-    bool twoCol;
-};
-FormLayout formLayout(RECT rc) {
-    FormLayout l{};
-    l.x0 = scale(18), l.labelW = scale(230), l.rowH = scale(kRowH);
-    const int full = std::max(scale(300), int(rc.right) - 2 * l.x0);
-    l.twoCol = full >= scale(1150);
-    l.colW = l.twoCol ? std::min(scale(650), full * 11 / 20) : full;
-    l.colRight = l.x0 + l.colW;
-    l.picX = l.twoCol ? l.colRight + scale(28) : l.x0;
-    l.picW = l.twoCol ? full - l.colW - scale(28) : full;
-    return l;
-}
+// The form's layout, as the Data forms have it (core/kit_paint.inc: FormLayout), for the form's client rectangle.
+using kitpaint::FormLayout;
+FormLayout formLayout(RECT rc) { return kitpaint::formLayout(int(rc.right)); }
 HFONT titleFont() {
     static std::map<int, HFONT> fonts;  // by DPI
     HFONT& f = fonts[scale(100)];
