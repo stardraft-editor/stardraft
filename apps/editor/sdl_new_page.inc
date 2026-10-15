@@ -120,5 +120,11 @@ void openNewPageSdl(int kind) {
     shellRelayout(), shellMenusChanged();
 }
 
+// The document tabs' page (core/views_tabs.inc: activateDoc). This system has no page tabs: the start page and the New
+// page show in the Map workspace in place of the map (sdl_main_view.inc), so another tab only lays the panes out again.
+void pageSync() { shellRelayout(); }
+// The last tab closed (core/views_tabs.inc): the start page, as File > New (no map is open, so it shows).
+void openStartPage() { openNewPageSdl(-1); }
+
 // The tab's name: the kind (the document tabs name a page with it).
 const wchar_t* gNewTitle() { return gNewView.project ? L"New EUD project" : L"New classic project"; }

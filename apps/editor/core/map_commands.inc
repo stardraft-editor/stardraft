@@ -1,11 +1,19 @@
 // The Map workspace's command table and its camera and save (portable, core.inc): addCommand, zoomAt and fitMap, the
 // table's commands (registerMapCommands, the Mode menu and the View items' keys) and saveMapFile (File > Save). Each shell
-// calls registerMapCommands once at its start. The helpers below are the shell's (commands.inc on Windows,
-// sdl_pending.inc on SDL): the graphics and layer commands, the dock layout's save, the trigger pane's zoom.
+// calls registerMapCommands once at its start. The graphics quality (setGraphics) is here; the dock layout's save
+// and the trigger pane's zoom are core/dock_prefs.inc.
 
-void setGraphics(GraphicsQuality q, bool carbot);
-void saveDock();
-void trigZoomReset();
+// The renderer draws in this quality and art (the shell's: shell_win32.inc, shell_sdl.inc; it needs no other editor type).
+void shellRendererGraphics(GraphicsQuality q, bool carbot);
+// The graphics quality and Carbot: the state, the renderer's (shellRendererGraphics), the palette's pictures.
+void setGraphics(GraphicsQuality q, bool carbot) {
+    AppState& app = shellState();
+    app.quality = q, app.carbot = carbot;
+    shellRendererGraphics(q, carbot);
+    if (carbot) setMessage(L"Carbot (cartooned) graphics");
+    shellPaletteChanged();
+    app.dirty = true;
+}
 
 // A command with its Win32 id. Labels and shortcuts are the menu's English texts (translated where the menu is made).
 void addCommand(int nativeId, const char* id, const wchar_t* label, const char* menu, const wchar_t* shortcut, std::function<void()> run,

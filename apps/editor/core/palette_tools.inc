@@ -68,8 +68,9 @@ void setMessage(AppState& app, const std::wstring& m) {
     shellLogLine(m);
 }
 
-// (the program's one state: main.cpp has it as app)
-AppState& appState();
+// The program's one state: the shell's (shell_win32.inc: main.cpp's App, whose AppState part it is; shell_sdl.inc: gState).
+AppState& shellState();
+AppState& appState() { return shellState(); }
 void setMessage(const std::wstring& m) { setMessage(appState(), m); }
 void updateStatus() { updateStatus(appState()); }
 
