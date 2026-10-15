@@ -36,10 +36,12 @@ std::wstring projectUnitName(int) { return L""; }
 // a workspace the tab's mode does not have falls back to Map with the same message as Windows. The workspace shows its
 // view (sdl_main_view.inc: the registered one, else "Not on this system yet"), and the map's panes show in Map only.
 void previewStopSdl();  // (sdl_files.inc: a sound that plays stops when the Files workspace is left)
+void briefingStopSdl();  // (sdl_briefing.inc: the preview stops when the Briefing workspace is left)
 bool sdlWorkspacePage(Workspace w);  // (sdl_map_pages.inc: the page of a map page workspace opens; false: none does)
 void setWorkspace(Workspace w) {
     if (w == Workspace::Assets) w = Workspace::Files;  // Assets is part of Files
     if (w != Workspace::Files) previewStopSdl();
+    if (w != Workspace::Briefing) briefingStopSdl();
     if (!commandInMode(mapPageCommandOf(w))) {
         if (w == Workspace::ClassicTriggers || w == Workspace::ClassicSettings)
             setMessage(w == Workspace::ClassicTriggers ? L"This project's map has no classic triggers. Use the Triggers workspace."

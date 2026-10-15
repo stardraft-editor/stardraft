@@ -82,6 +82,7 @@ namespace kit_sdl = stardraft::kit_sdl;
 #include "sdl_files.inc"  // the Files workspace's page and its sounds (core/views_files.inc)
 #include "sdl_start.inc"  // the start page (core/views_start.inc)
 #include "sdl_map_pages.inc"  // the map pages: Properties, Players and forces, Data (core/views_map_pages.inc and its views)
+#include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
 #include "shell_sdl.inc"
 
 namespace {
@@ -226,6 +227,7 @@ int main(int argc, char** argv) {
         registerMapCommands();  // the Map workspace's command table (core/map_commands.inc): the menus and keys read it
         registerWorkspaceView(Workspace::Files, gFilesPage);  // the Assets / Files workspace (sdl_files.inc)
         registerMapPages();  // the map pages' workspaces (sdl_map_pages.inc)
+        registerWorkspaceView(Workspace::Briefing, gSdlBriefing);  // the Briefing workspace (sdl_briefing.inc)
         initStartPage();  // the start page's callbacks (sdl_start.inc)
         MainView root;
         gRoot = &root;
