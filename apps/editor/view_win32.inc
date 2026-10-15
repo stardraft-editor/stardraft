@@ -188,9 +188,14 @@ public:
     // The view's own vertical bar (WS_VSCROLL on its window), as the view has it now: the range, page and position.
     void syncScroll(HWND w) {
         int range = 0, page = 0, pos = 0;
-        if (!view_.windowScrollBar(range, page, pos)) return;
-        SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS, 0, range, UINT(std::max(0, page)), pos};
-        SetScrollInfo(w, SB_VERT, &si, TRUE);
+        if (view_.windowScrollBar(range, page, pos)) {
+            SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS, 0, range, UINT(std::max(0, page)), pos};
+            SetScrollInfo(w, SB_VERT, &si, TRUE);
+        }
+        if (view_.windowHScrollBar(range, page, pos)) {
+            SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS, 0, range, UINT(std::max(0, page)), pos};
+            SetScrollInfo(w, SB_HORZ, &si, TRUE);
+        }
     }
 
     // hoverTip: the view's tip shows as a tooltip. One tool covers the view; the tooltip asks for its text (TTN_NEEDTEXT)
@@ -226,6 +231,14 @@ public:
             SCROLLINFO si{sizeof si, SIF_ALL};
             GetScrollInfo(w, SB_VERT, &si);
             const bool done = view_.vscroll(LOWORD(wp), si.nPos, si.nTrackPos, int(si.nPage));
+            syncScroll(w);
+            return done ? (result = 0, true) : false;
+        }
+        case WM_HSCROLL: {  // the window's own horizontal scroll bar (as WM_VSCROLL)
+            if (lp) return false;
+            SCROLLINFO si{sizeof si, SIF_ALL};
+            GetScrollInfo(w, SB_HORZ, &si);
+            const bool done = view_.hscroll(LOWORD(wp), si.nPos, si.nTrackPos, int(si.nPage));
             syncScroll(w);
             return done ? (result = 0, true) : false;
         }

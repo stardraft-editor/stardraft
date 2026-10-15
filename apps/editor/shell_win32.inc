@@ -228,6 +228,10 @@ void shellLegacyNames(const std::wstring& sub, std::vector<std::wstring>& out) {
 }
 void shellLegacyRemove(const std::wstring& sub, const std::wstring& value) { RegDeleteKeyValueW(HKEY_CURRENT_USER, legacyKeyPath(sub).c_str(), value.c_str()); }
 void shellErrorBox(const std::wstring& text, const std::wstring& title) { themedMessageBox(app.main, text.c_str(), title.c_str(), MB_ICONERROR); }
+int shellAskUnapplied(const std::wstring& text, const std::wstring& title) {
+    const int r = themedMessageBox(app.main, text.c_str(), title.c_str(), MB_YESNOCANCEL | MB_ICONQUESTION, {L"&Apply", L"Do &not apply", L"Cancel"});
+    return r == IDYES ? 0 : r == IDNO ? 1 : 2;
+}
 void shellRecentMenu(bool projects, const std::vector<std::wstring>& labels, const std::wstring& none) {
     HMENU m = projects ? gRecentProjectsMenu : gRecentMapsMenu;
     const int firstId = projects ? ID_RECENT_PROJECT : ID_RECENT_MAP;
