@@ -1,6 +1,6 @@
 #pragma once
-// For the tests of windows (Dialog, messageBox): a host whose runModal plays the user, so that a blocking call such as
-// messageBox() returns with the button the script clicked; and events sent to a window's own views (the window has
+// For the tests of windows (Dialog): a host whose runModal plays the user, so that a blocking call such as
+// Dialog::run() returns with the button the script clicked; and events sent to a window's own views (the window has
 // its own Router, as the host gives each window one).
 
 #include <functional>
