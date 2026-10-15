@@ -422,6 +422,15 @@ void TextField::paint(draw::Canvas& c) {
     if (!fresh()) relayout(c);
     clampScroll();
     ensureCaretVisible();
+    if (scrollToLine_ != ~size_t(0)) {  // scrollToLine: the visual line where that paragraph starts, at the top
+        if (multiline()) {
+            size_t para = 0, li = 0;
+            while (li < lines_.size() && para < scrollToLine_) para += lines_[li++].last ? 1 : 0;
+            scrollY_ = int(li) * lineH_;
+            clampScroll();
+        }
+        scrollToLine_ = ~size_t(0);
+    }
 
     const draw::Rect in = inner();
     c.pushClip(in);

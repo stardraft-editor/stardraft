@@ -109,6 +109,7 @@ bool sdlRuns(int id) {
     case ID_VIEW_KIT:
     case ID_HELP_DISCORD:
     case ID_HELP_GITHUB: return true;
+    case ID_VIEW_TRIGCODE: return true;  // the Triggers workspace's code pane (sdl_triggers.inc)
     default: break;
     }
     if (id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) return true;
@@ -346,6 +347,10 @@ void command(int id) {
             sdlDataUndo(id == ID_EDIT_REDO);
             return;
         }
+        if (gWorkspace == Workspace::Triggers) {  // the Triggers workspace's own steps (core/triggers_model.inc)
+            trigUndo(id == ID_EDIT_REDO);
+            return;
+        }
         if (gState.ed && gState.ed->isOpen()) {
             if (id == ID_EDIT_REDO) gState.ed->redo();
             else gState.ed->undo();
@@ -372,6 +377,9 @@ void command(int id) {
     case ID_VIEW_KIT: showKitGallerySdl(); return;
     case ID_HELP_DISCORD: shellOpenUrl(kDiscordInvite); return;
     case ID_HELP_GITHUB: shellOpenUrl(L"https://github.com/" + std::wstring(kRepoName)); return;
+    case ID_VIEW_TRIGCODE:  // shows or hides the code pane
+        if (activeProject()) setWorkspace(Workspace::Triggers), showTriggerCode();
+        return;
     default:
         if (id >= ID_WS_MAP && id <= ID_WS_FILES) return setWorkspace(Workspace(id - ID_WS_MAP));  // the workspace order
         setMessage(L"This is not on this system yet");

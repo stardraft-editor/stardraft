@@ -291,6 +291,8 @@ struct MainView final : draw::View {
         if (typing && typed && !(e.mods & (draw::kCtrl | draw::kAlt))) return false;
         // Enter on the map: the selected location's or unit's properties (the Windows map's key).
         if (e.down && !e.repeat && e.key == draw::Key::Enter && !e.mods && !typing && map.shown() && mapEnterSdl()) return true;
+        // Esc while a trigger waits for a unit picked on the map: back to the triggers (the Windows cancelStep).
+        if (e.down && e.key == draw::Key::Escape && trigUnitPickActive()) return trigCancelUnitPick(), true;
         return shortcutRun(e);
     }
 
