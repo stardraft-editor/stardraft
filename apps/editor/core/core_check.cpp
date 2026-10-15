@@ -12,11 +12,14 @@
 #include <iterator>
 #include <map>
 #include <memory>
+#include <random>
 #include <set>
 #include <string>
 #include <vector>
 
 #include "text_codec.h"
+#include "view.h"
+#include "../shell.h"
 #include "wintypes.h"
 #include "canvas.h"
 #include "view.h"
