@@ -28,6 +28,7 @@
 #include <random>
 #include <set>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -53,6 +54,7 @@
 #include "stardraft/game_data.h"
 #include "stardraft/hd_assets.h"
 #include "stardraft/pathing.h"
+#include "stardraft/previews.h"  // the terrain and doodad pictures (sdl_pictures.inc)
 #include "stardraft/renderer.h"
 #include "stardraft/scene.h"
 #include "stardraft/settings.h"
@@ -133,7 +135,7 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
-    std::string mapArg, snapshot, installArg, modeArg;
+    std::string mapArg, snapshot, installArg, modeArg, workspaceArg;
     int width = 1600, height = 1000;
     float scaleArg = 0;
     for (int i = 1; i < argc; ++i) {
@@ -144,6 +146,7 @@ int main(int argc, char** argv) {
         else if (a == "--scale") scaleArg = float(std::atof(next().c_str()));
         else if (a == "--install") installArg = next();
         else if (a == "--mode") modeArg = next();  // a mode's name (units, terrain, doodads, sprites, locations), for a snapshot
+        else if (a == "--workspace") workspaceArg = next();  // a workspace's name (map, data, triggers, project...), for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
     if (!SDL_Init(SDL_INIT_VIDEO)) return std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()), 1;
@@ -186,6 +189,10 @@ int main(int argc, char** argv) {
             std::transform(name.begin(), name.end(), name.begin(), [](unsigned char ch) { return char(std::tolower(ch)); });
             if (name == modeArg) setMode(Mode(m));
         }
+        // A workspace by name (the order of the Workspace enum): its view shows, or "Not on this system yet" where none is.
+        static const char* const kWorkspaceNames[] = {"map", "data", "triggers", "assets", "project", "briefing", "files"};
+        for (int w = 0; !workspaceArg.empty() && w < int(sizeof kWorkspaceNames / sizeof kWorkspaceNames[0]); ++w)
+            if (workspaceArg == kWorkspaceNames[w]) setWorkspace(Workspace(w));
         if (!gDataOk) setMessage(widen(gDataError));
         std::printf("stardraft_editor: GPU %s, %s\n", renderer.driver(), gDataOk ? "game data" : gDataError.c_str());
 

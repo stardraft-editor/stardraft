@@ -101,6 +101,14 @@ struct NotHereView final : draw::View {
     }
 };
 
+// The workspaces' views on this system (the workspace area, the map's place, shows the one of the workspace that is shown).
+// Map has the map's panes; a workspace with no view here shows the "Not on this system yet" view. Another lane adds its
+// view with registerWorkspaceView (before or after the window exists; the window adds it then).
+std::map<Workspace, draw::View*> gWorkspaceViews;
+struct MainView;
+void registerWorkspaceView(Workspace w, draw::View& v);
+
+#include "sdl_pictures.inc"  // the palette's pictures (the terrain, doodad, unit and sprite art from the game data)
 #include "sdl_panels.inc"  // the side panels: the palette, the owner, the filter, the search, the section box, the second palette
 
 // The map view: the texture of the map (drawn by the frame hook) and the core's map input.
@@ -205,7 +213,6 @@ void menusIfDirty();
 // The main window: the menu bar, the document tabs, the workspace rail, the status bar, the map view with its minimap and
 // the panes that are not on this system yet, placed by computeLayout.
 struct MainView final : draw::View {
-    static constexpr int kNotHere = 0;  // the panes of the map workspace that have no view yet (see relayout): none now
     kit::MenuBar menus;
     TabsView tabs;
     RailView rail;
@@ -213,7 +220,7 @@ struct MainView final : draw::View {
     MapView map;
     MinimapView minimap;
     ModeBarView modes;  // the modes' segmented control, at the top bar's right
-    std::vector<std::unique_ptr<NotHereView>> notHere;
+    NotHereView notHere;  // the workspace area of a workspace with no view on this system
 
     MainView() {
         initPanels();
@@ -235,10 +242,8 @@ struct MainView final : draw::View {
         add(gPalList, draw::Rect(0, 0, 0, 0));
         add(gLocList, draw::Rect(0, 0, 0, 0));
         add(gPal2List, draw::Rect(0, 0, 0, 0));
-        for (int i = 0; i < kNotHere; ++i) {
-            notHere.push_back(std::make_unique<NotHereView>());
-            add(*notHere.back(), draw::Rect(0, 0, 0, 0));
-        }
+        add(notHere, draw::Rect(0, 0, 0, 0));
+        for (auto& [w, v] : gWorkspaceViews) add(*v, draw::Rect(0, 0, 0, 0));
         relayout();
     }
     ~MainView() override {  // (the children go before the members do: their views unlink here)
@@ -276,7 +281,8 @@ struct MainView final : draw::View {
         in.tabsH = tabStripHeight();     // the document tabs
         in.railW = shellHasRail() ? wsRailWidth() : 0;
         in.mode = gState.mode;
-        in.mapWs = true;
+        const bool mapWs = gWorkspace == Workspace::Map;  // the map's panes show in the Map workspace only
+        in.mapWs = mapWs;
         in.toolStrip = [](int width) { return toolStripHeight(width, false); };
         in.modeBarH = 0, in.modeBar = modeBarRect();  // (the modes are in the top bar)
         in.mapOpen = gState.ed && gState.ed->isOpen();
@@ -310,20 +316,25 @@ struct MainView final : draw::View {
         apply(tabs, L.tabs, true);
         apply(rail, L.wsRail, shellHasRail());
         apply(status, L.status, true);
-        apply(map, L.view, true);
-        apply(minimap, L.minimap, L.minimap.visible);
-        apply(modes, L.modeBar, true);
-        apply(gToolStripView, L.tool, true);
-        apply(gPanelTabsSdl[toolsRight ? 1 : 0], L.panelTabActive, L.panelTabActive.visible);
-        apply(gPanelTabsSdl[toolsRight ? 0 : 1], L.panelTabOther, L.panelTabOther.visible);
-        apply(gOwnerBox, oneRow(L.owner), owners);       // (a closed owner list is one row high)
-        apply(gSectionDropSdl, oneRow(L.sectionBox), sections);
-        apply(gSearchSdl, L.search, !locs);
-        apply(gViewBtnSdl, L.viewBtn, !locs);
-        apply(gFilterSdl, L.filter, locs);
-        apply(gPalList, L.palette, !locs);
-        apply(gLocList, L.list, locs);
-        apply(gPal2List, L.palette2, L.palette2.visible);
+        apply(map, L.view, mapWs);
+        apply(minimap, L.minimap, L.minimap.visible && mapWs);
+        apply(modes, L.modeBar, mapWs);
+        apply(gToolStripView, L.tool, mapWs);
+        apply(gPanelTabsSdl[toolsRight ? 1 : 0], L.panelTabActive, L.panelTabActive.visible && mapWs);
+        apply(gPanelTabsSdl[toolsRight ? 0 : 1], L.panelTabOther, L.panelTabOther.visible && mapWs);
+        apply(gOwnerBox, oneRow(L.owner), owners && mapWs);       // (a closed owner list is one row high)
+        apply(gSectionDropSdl, oneRow(L.sectionBox), sections && mapWs);
+        apply(gSearchSdl, L.search, !locs && mapWs);
+        apply(gViewBtnSdl, L.viewBtn, !locs && mapWs);
+        apply(gFilterSdl, L.filter, locs && mapWs);
+        apply(gPalList, L.palette, !locs && mapWs);
+        apply(gLocList, L.list, locs && mapWs);
+        apply(gPal2List, L.palette2, L.palette2.visible && mapWs);
+        // The workspace area: the registered view of the workspace shown, else the "Not on this system yet" view.
+        const auto found = gWorkspaceViews.find(gWorkspace);
+        draw::View* wsView = mapWs || found == gWorkspaceViews.end() ? nullptr : found->second;
+        for (auto& [w, v] : gWorkspaceViews) apply(*v, L.view, v == wsView);
+        apply(notHere, L.view, !mapWs && !wsView);
         invalidate();
     }
 
@@ -343,11 +354,20 @@ void invalidateMapView() {
     if (gRoot) gRoot->map.invalidate();
 }
 
+// A workspace's view is added to the window (now when the window exists, else when it is made).
+void registerWorkspaceView(Workspace w, draw::View& v) {
+    gWorkspaceViews[w] = &v;
+    if (gRoot) {
+        gRoot->add(v, draw::Rect(0, 0, 0, 0));
+        gRoot->relayout();
+    }
+}
+
 // The frame hook's map work (the window's map view size, in pixels).
 void drawMapOfRoot(SDL_GPUCommandBuffer* cmd) {
     if (!gRoot) return;
     menusIfDirty();
     const int w = gRoot->map.width(), h = gRoot->map.height();
     if (gFitPending && w > 0 && h > 0) fitMap(), updateStatus();  // (the map opened before the view had its size: the zoom it fit)
-    drawMapFrame(cmd, w, h);
+    if (gWorkspace == Workspace::Map) drawMapFrame(cmd, w, h);  // (the other workspaces hide the map: no frame)
 }

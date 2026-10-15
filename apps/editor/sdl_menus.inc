@@ -322,7 +322,10 @@ void command(int id) {
             updateTitle();
         }
         return;
-    case ID_WS_MAP: setWorkspace(Workspace::Map); return;
-    default: setMessage(L"This is not on this system yet"); return;
+    case ID_WS_ASSETS: setWorkspace(Workspace::Files); return;  // Assets is part of Files
+    default:
+        if (id >= ID_WS_MAP && id <= ID_WS_FILES) return setWorkspace(Workspace(id - ID_WS_MAP));  // the workspace order
+        setMessage(L"This is not on this system yet");
+        return;
     }
 }

@@ -34,6 +34,8 @@ struct PanelRow {
 };
 std::vector<PanelRow> gPalRows;   // the palette's rows (the mode's items, filtered and sectioned)
 std::vector<PanelRow> gPal2Rows;  // the second palette's rows (its mode's items, unfiltered)
+Mode gPalRowsMode = Mode::Units;   // the mode the rows were made for (their pictures are of it)
+Mode gPal2RowsMode = Mode::Units;
 std::vector<std::wstring> gListRows;  // the Locations list's rows (rebuildList fills them)
 std::vector<std::wstring> gSectionNames;  // the section box's sections, after its "All ..." entry
 Mode gSectionMode = Mode::Units;          // the mode the section box was filled for
@@ -141,22 +143,25 @@ void fillSectionBox(const std::vector<std::wstring>& names) {
     gSectionDropSdl.dropdown().setValue(it == names.end() ? 0 : int(1 + (it - names.begin())));
 }
 
-// The row's look: a pick (the palette's choice) is the selection color; a header is dim.
+// The row's look: a pick (the palette's choice) is the selection color; a header is dim. An item has its picture at the
+// left (the Win32 palette's: a square, a terrain swatch twice as wide) and its name after it.
 // `chosen` and `palette` are the palette's own picks (the second palette's are its own, not the active mode's).
 void paintPanelRow(draw::Canvas& c, const std::vector<PanelRow>& rows, const std::vector<int>& chosen, int palette, int i,
-                   draw::Rect r, kit::RowState s) {
+                   draw::Rect r, kit::RowState s, Mode what) {
     if (i < 0 || i >= int(rows.size())) return;
     const PanelRow& row = rows[size_t(i)];
     const int pad = scale(8);
-    const draw::Rect text{r.left + pad, r.top, r.right - pad, r.bottom};
     if (row.value < 0) {
-        c.text(text, row.label, kDim, draw::kMiddle);
+        c.text({r.left + pad, r.top, r.right - pad, r.bottom}, row.label, kDim, draw::kMiddle);
         return;
     }
     const bool picked = palette == row.value || std::find(chosen.begin(), chosen.end(), row.value) != chosen.end();
     if (picked) c.fill(r, kSel);
     else if (s.hot) c.fill(r, kRowHot);
-    c.text(text, row.label, picked ? kAccent : kText, draw::kMiddle);
+    const int bw = (r.bottom - r.top) * (what == Mode::Terrain ? 2 : 1);
+    const draw::Rect box{r.left + scale(4), r.top + scale(2), r.left + scale(4) + bw, r.bottom - scale(2)};
+    if (draw::Bitmap* b = paletteBitmap(what, row.value, gState.playerOwner)) drawPaletteArt(c, *b, box);
+    c.text({box.right + scale(8), r.top, r.right - pad, r.bottom}, row.label, picked ? kAccent : kText, draw::kMiddle);
 }
 
 
@@ -189,6 +194,7 @@ void rebuildPaletteRows() {
     const std::vector<PaletteUnit> units = paletteUnitsOf(gState.mode);
     fillSectionBox(paletteSectionNames(units));
     gPalRows = panelRows(units, gSearchSdl.text(), gPalSection);
+    gPalRowsMode = gState.mode;
     gPalList.setCount(int(gPalRows.size()));
     gPalList.invalidate();
 }
@@ -196,6 +202,7 @@ void rebuildPaletteRows() {
 // The second palette's rows: its mode's items, unfiltered (it has no search box).
 void rebuildSecondRows() {
     gPal2Rows = panelRows(paletteUnitsOf(gPal2Mode), std::wstring(), std::wstring());
+    gPal2RowsMode = gPal2Mode;
     gPal2List.setCount(int(gPal2Rows.size()));
     gPal2List.invalidate();
 }
@@ -212,10 +219,10 @@ void initPanels() {
     gPalList.setEmptyHint(shellTr(L"Nothing to list"));
     gPal2List.setEmptyHint(shellTr(L"Nothing to list"));
     gPalList.paintRow = [](draw::Canvas& c, int i, draw::Rect r, kit::RowState s) {
-        paintPanelRow(c, gPalRows, shellPaletteChosen(), gState.palette, i, r, s);
+        paintPanelRow(c, gPalRows, shellPaletteChosen(), gState.palette, i, r, s, gPalRowsMode);
     };
     gPal2List.paintRow = [](draw::Canvas& c, int i, draw::Rect r, kit::RowState s) {
-        paintPanelRow(c, gPal2Rows, gPal2Chosen, -1, i, r, s);
+        paintPanelRow(c, gPal2Rows, gPal2Chosen, -1, i, r, s, gPal2RowsMode);
     };
     gLocList.label = [](int i) { return i >= 0 && i < int(gListRows.size()) ? gListRows[size_t(i)] : std::wstring(); };
     gLocList.setMode(kit::SelectMode::Multiple);

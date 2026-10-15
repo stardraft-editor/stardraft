@@ -263,6 +263,12 @@ jobs:
           SDL_VIDEODRIVER: offscreen
         run: build-gcc/stardraft --snapshot editor-linux.png
 
+      # A workspace with no view on this system yet: the "Not on this system yet" view in its place.
+      - name: Snapshot the editor (Project workspace)
+        env:
+          SDL_VIDEODRIVER: offscreen
+        run: build-gcc/stardraft --workspace project --snapshot editor-linux-project.png
+
       - name: Pack the editor
         if: always()
         run: tar -C build-gcc -czf stardraft-linux.tar.gz stardraft res fonts
@@ -273,6 +279,7 @@ jobs:
           name: stardraft-editor-linux-${{ github.sha }}
           path: |
             editor-linux.png
+            editor-linux-project.png
             stardraft-linux.tar.gz
 
   macos:
@@ -337,6 +344,10 @@ jobs:
         continue-on-error: true
         run: build/stardraft.app/Contents/MacOS/stardraft --snapshot editor-macos.png
 
+      - name: Snapshot the editor (Project workspace, Metal)
+        continue-on-error: true
+        run: build/stardraft.app/Contents/MacOS/stardraft --workspace project --snapshot editor-macos-project.png
+
       - name: Pack the editor
         if: always()
         run: tar -C build -czf stardraft-macos.tar.gz stardraft.app
@@ -347,6 +358,7 @@ jobs:
           name: stardraft-editor-macos-${{ github.sha }}
           path: |
             editor-macos.png
+            editor-macos-project.png
             stardraft-macos.tar.gz
 
   # The tests with the game's data, on a self-hosted runner in WSL Ubuntu on the owner's PC (labels self-hosted, linux,
