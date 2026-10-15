@@ -444,6 +444,7 @@ std::wstring itemLabel(int v) { return itemLabel(app, v); }
 #include "core/sound_lists.inc"  // the map's and the game's sound files by name (mapSounds, gameSounds, soundFileBytes)
 #include "core/views_files.inc"  // the Files workspace's page (FilesPage; its instance is gFilesPage in files_view.inc)
 #include "core/views_data_refs.inc"  // the Data workspace's References panel (DataRefsPage; its instance is gDataRefsPage below, in the Data code)
+#include "core/views_data_list.inc"  // the Data workspace's entry list (DataListView; its instance is gDataListView, below the list's model host)
 extern DataRefsPage gDataRefsPage;
 #include "core/views_project.inc"  // the Project page: the script preview (ProjectPreviewView, epScript colors as spans)
 #include "core/views_map_pages.inc"  // the map pages' frame: the title, the tabs, the bar and the scroll view (MapPagesView, MapScrollView; map_pages.inc)
@@ -4660,7 +4661,7 @@ struct DataView {
     int entry = 0;
     bool changedOnly = false;
     std::vector<int> shown;  // entries in the list
-    int listScroll = 0, formScroll = 0, formHeight = 0, hoverEntry = -1;
+    int listScroll = 0, formScroll = 0, formHeight = 0;
     HWND list = nullptr, form = nullptr, search = nullptr, edit = nullptr, changedBtn = nullptr;
     // Laid out by the last paint of the form:
     struct Hit {
@@ -5006,7 +5007,6 @@ bool dataSaved() {
     return ok;
 }
 
-int dataRowH();
 // Data > right-click an entry > Pin to the top: pinned entries come first in their table's list, in the order they were
 // pinned, for this user (the settings' DataPins/<table>: its entries comma-separated).
 std::map<std::string, std::vector<int>> gDataPins;
@@ -5044,6 +5044,30 @@ public:
     std::wstring name(int tab, int e) override { return tabEntryName(tab, e); }
 };
 DataListProgram gDataListProgram;
+void dataEntryMenu(int u, POINT screen);
+bool dataXButton(WPARAM wp);
+// The Data list view's program parts (core/views_data_list.inc): the open tab's rows and names, a click's selection, and the
+// right button's menu (the entry's menu, at the screen point).
+class DataListViewProgram final : public DataListViewHost {
+public:
+    int tab() override { return gData.datTab; }
+    const std::vector<int>& rows() override { return gData.shown; }
+    int pinnedShown() override { return gDataPinnedShown; }
+    int entry() override { return gData.entry; }
+    int& scroll() override { return gData.listScroll; }
+    bool changed(int e) override { return tabEntryChanged(gData.datTab, e); }
+    std::wstring name(int e) override { return tabEntryName(gData.datTab, e); }
+    draw::Image icon(int e) override { return ui::imageOf(tabEntryIcon(gData.datTab, e)); }
+    void select(int e) override { dataSelect(e); }
+    void menu(int e, draw::Point pt) override {
+        POINT p{pt.x, pt.y};
+        ClientToScreen(gData.list, &p);
+        dataEntryMenu(e, p);
+    }
+    bool travel(int button) override { return dataXButton(MAKEWPARAM(0, button)); }
+};
+DataListViewProgram gDataListViewProgram;
+DataListView gDataListView(gDataListViewProgram);
 void dataTogglePin(int e) {
     const int tab = gData.datTab;
     const bool pin = dataPinToggle(dataPins(tab), e);
@@ -5059,14 +5083,9 @@ void dataRebuildList() {
     const DataListRows rows = dataListRows(gDataListProgram, gData.datTab, lowerText(gData.search), gData.changedOnly, dataPins(gData.datTab));
     gData.shown = rows.shown;
     gDataPinnedShown = rows.pinnedShown;
-    // A shorter list: the scroll goes back inside it (else the list shows empty rows below its end).
-    RECT rc{};
-    if (gData.list) GetClientRect(gData.list, &rc);
-    dataListClampScroll(gData.listScroll, gData.shown.size(), dataRowH(), int(rc.bottom));
+    gDataListView.clampScroll();  // a shorter list: the scroll goes back inside it
     InvalidateRect(gData.list, nullptr, FALSE);
 }
-
-int dataRowH() { return scale(26); }
 
 bool dataCommitEdit();
 
@@ -5094,95 +5113,7 @@ void dataSelect(int u) {
     InvalidateRect(gData.list, nullptr, FALSE);
     InvalidateRect(gData.form, nullptr, FALSE);
     if (gData.refs) InvalidateRect(gData.refs, nullptr, FALSE);
-    // Keep it in view in the list.
-    auto it = std::find(gData.shown.begin(), gData.shown.end(), gData.entry);
-    if (it != gData.shown.end() && gData.list) {
-        RECT rc;
-        GetClientRect(gData.list, &rc);
-        const int y = int(it - gData.shown.begin()) * dataRowH();
-        if (y < gData.listScroll) gData.listScroll = y;
-        if (y + dataRowH() > gData.listScroll + rc.bottom) gData.listScroll = y + dataRowH() - rc.bottom;
-        SetScrollPos(gData.list, SB_VERT, gData.listScroll, TRUE);
-    }
-}
-
-HWND gDataListTips = nullptr;  // the data list's tooltips: the full names that the rows cut
-bool gDataListHoverPaint = false;  // the next paint is for the mouse (the row under it) only
-int gDataListTipCount = 0;
-void paintDataList(HWND hwnd) {
-    // (the tooltip window is made when the mouse first comes over the list: making it costs ms that the first show
-    // should not pay)
-    // The tools again only when the rows changed (a hover repaint keeps them: the tip that shows stays).
-    static std::tuple<int, int, size_t, int, int> tipsKey;
-    RECT kr;
-    GetClientRect(hwnd, &kr);
-    const auto key = std::make_tuple(int(gData.datTab), gData.listScroll, gData.shown.size(), int(kr.right), gData.shown.empty() ? -1 : gData.shown.front());
-    const bool newTips = key != tipsKey || !gDataListHoverPaint;  // (a repaint for the mouse alone keeps them)
-    gDataListHoverPaint = false;
-    tipsKey = key;
-    for (; newTips && gDataListTipCount > 0; --gDataListTipCount) {  // the last rows' tools
-        TOOLINFOW ti{sizeof ti};
-        ti.hwnd = hwnd, ti.uId = UINT_PTR(gDataListTipCount);
-        SendMessageW(gDataListTips, TTM_DELTOOLW, 0, LPARAM(&ti));
-    }
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-    HGDIOBJ ob = SelectObject(mem, back), of = SelectObject(mem, app.font);
-    FillRect(mem, &rc, app.bgBrush);
-    SetBkMode(mem, TRANSPARENT);
-    const int rh = dataRowH();
-    SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS | SIF_DISABLENOSCROLL, 0, std::max(0, int(gData.shown.size()) * rh - 1), UINT(rc.bottom),
-                  gData.listScroll};
-    SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
-    const int first = gData.listScroll / rh;
-    for (int i = first; i < int(gData.shown.size()) && (i * rh - gData.listScroll) < rc.bottom; ++i) {
-        const int u = gData.shown[size_t(i)];
-        RECT r{0, i * rh - gData.listScroll, rc.right, (i + 1) * rh - gData.listScroll};
-        const bool on = u == gData.entry, hot = u == gData.hoverEntry;
-        ui::listRow(mem, r, on, hot);
-        RECT id{scale(6), r.top, scale(36), r.bottom};
-        SetTextColor(mem, kDim);
-        const std::wstring idText = std::to_wstring(u);
-        DrawTextW(mem, idText.c_str(), -1, &id, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
-        RECT box{scale(42), r.top + scale(2), scale(42) + rh - scale(4), r.bottom - scale(2)};
-        if (const auto* b = tabEntryIcon(gData.datTab, u); b && b->bmp) drawFitted(mem, *b, box);
-        const bool pinned = i < gDataPinnedShown;
-        RECT t{box.right + scale(8), r.top, rc.right - scale(pinned ? 34 : 16), r.bottom};
-        if (pinned) {  // a pin at the right; a line under the last pinned row
-            HGDIOBJ og = SelectObject(mem, glyphFont(11));
-            SetTextColor(mem, kDim);
-            RECT pr{rc.right - scale(33), r.top, rc.right - scale(18), r.bottom};
-            DrawTextW(mem, L"\xE718", 1, &pr, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
-            SelectObject(mem, og);
-            if (i == gDataPinnedShown - 1 && i + 1 < int(gData.shown.size())) fillAlpha(mem, {scale(6), r.bottom - 1, rc.right - scale(6), r.bottom}, kBorder, 255);
-        }
-        std::wstring name = tabEntryName(gData.datTab, u);
-        SetTextColor(mem, on ? kAccent : name.empty() ? kDim : kText);
-        if (name.empty()) name = L"(unnamed)";
-        DrawTextW(mem, name.c_str(), -1, &t, DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
-        if (newTips && gDataListTips && ui::textWidth(mem, name) > t.right - t.left) {  // cut: the full name in a tooltip
-            TOOLINFOW ti{sizeof ti};
-            ti.uFlags = TTF_SUBCLASS, ti.hwnd = hwnd, ti.uId = UINT_PTR(++gDataListTipCount), ti.rect = r, ti.lpszText = name.data();
-            SendMessageW(gDataListTips, TTM_ADDTOOLW, 0, LPARAM(&ti));
-        }
-        if (tabEntryChanged(gData.datTab, u)) {  // changed: a green dot
-            HBRUSH g = CreateSolidBrush(kGood);
-            const int cy = (r.top + r.bottom) / 2, rr = scale(3);
-            HGDIOBJ obr = SelectObject(mem, g), op = SelectObject(mem, GetStockObject(NULL_PEN));
-            Ellipse(mem, rc.right - scale(12) - rr, cy - rr, rc.right - scale(12) + rr, cy + rr);
-            SelectObject(mem, obr), SelectObject(mem, op);
-            DeleteObject(g);
-        }
-    }
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, of), SelectObject(mem, ob);
-    DeleteObject(back);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
+    gDataListView.reveal(gData.entry);  // keep it in view in the list
 }
 
 void dataScroll(HWND hwnd, int& scroll, int pos, int contentH) {
@@ -5335,70 +5266,6 @@ void dataFieldMenu(const DatField& f, POINT screen) {
     }
     InvalidateRect(gData.form, nullptr, FALSE), InvalidateRect(gData.list, nullptr, FALSE);
 }
-
-LRESULT CALLBACK dataListProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_PAINT: paintDataList(hwnd); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_SIZE: InvalidateRect(hwnd, nullptr, FALSE); return 0;
-    case WM_MOUSEWHEEL:
-        dataScroll(hwnd, gData.listScroll, gData.listScroll - GET_WHEEL_DELTA_WPARAM(wp) * dataRowH() * 3 / WHEEL_DELTA,
-                   int(gData.shown.size()) * dataRowH());
-        return 0;
-    case WM_VSCROLL:
-        dataScroll(hwnd, gData.listScroll, scrollFromMessage(hwnd, wp, gData.listScroll, dataRowH()), int(gData.shown.size()) * dataRowH());
-        return 0;
-    case WM_MOUSEMOVE: {
-        if (!gDataListTips) {  // the first time the mouse is over the list: its tooltips (the full names that rows cut)
-            gDataListTips = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, 0, 0, 0, 0, hwnd, nullptr,
-                                            app.inst, nullptr);
-            SendMessageW(gDataListTips, TTM_SETMAXTIPWIDTH, 0, scale(360));
-            styleTips(gDataListTips);
-            gDataListHoverPaint = false, InvalidateRect(hwnd, nullptr, FALSE);  // the next paint adds the tools
-        }
-        const int i = (GET_Y_LPARAM(lp) + gData.listScroll) / dataRowH();
-        const int u = i >= 0 && i < int(gData.shown.size()) ? gData.shown[size_t(i)] : -1;
-        if (u != gData.hoverEntry) gData.hoverEntry = u, gDataListHoverPaint = true, InvalidateRect(hwnd, nullptr, FALSE);
-        TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
-        TrackMouseEvent(&tme);
-        return 0;
-    }
-    case WM_MOUSELEAVE: gData.hoverEntry = -1, InvalidateRect(hwnd, nullptr, FALSE); return 0;
-    case WM_LBUTTONDOWN: {
-        const int i = (GET_Y_LPARAM(lp) + gData.listScroll) / dataRowH();
-        if (i >= 0 && i < int(gData.shown.size())) dataSelect(gData.shown[size_t(i)]);
-        SetFocus(hwnd);
-        return 0;
-    }
-    case WM_XBUTTONUP:
-        if (dataXButton(wp)) return TRUE;
-        break;
-    case WM_RBUTTONUP: {  // an entry: copy, paste or reset its values
-        const int i = (GET_Y_LPARAM(lp) + gData.listScroll) / dataRowH();
-        if (i < 0 || i >= int(gData.shown.size())) return 0;
-        dataSelect(gData.shown[size_t(i)]);
-        SetFocus(hwnd);
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        ClientToScreen(hwnd, &pt);
-        dataEntryMenu(gData.shown[size_t(i)], pt);
-        return 0;
-    }
-    case WM_KEYDOWN: {
-        auto it = std::find(gData.shown.begin(), gData.shown.end(), gData.entry);
-        int i = it == gData.shown.end() ? 0 : int(it - gData.shown.begin());
-        if (wp == VK_DOWN) ++i;
-        else if (wp == VK_UP) --i;
-        else if (wp == VK_NEXT) i += 15;
-        else if (wp == VK_PRIOR) i -= 15;
-        else break;
-        if (!gData.shown.empty()) dataSelect(gData.shown[size_t(std::clamp(i, 0, int(gData.shown.size()) - 1))]);
-        return 0;
-    }
-    case WM_GETDLGCODE: return DLGC_WANTARROWS;
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
-
 
 
 // A number value's box: up and down arrows at its right, shown under the mouse.
@@ -9412,8 +9279,6 @@ void createWorkspaces(HWND parent) {
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.lpfnWndProc = dataWndProc, wc.lpszClassName = L"StarDraftData";
     RegisterClassExW(&wc);
-    wc.lpfnWndProc = dataListProc, wc.lpszClassName = L"StarDraftDataList";
-    RegisterClassExW(&wc);
     wc.lpfnWndProc = dataFormProc, wc.lpszClassName = L"StarDraftDataForm";
     RegisterClassExW(&wc);
     gWsBar = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, parent, nullptr, app.inst, &gRail);
@@ -9421,7 +9286,7 @@ void createWorkspaces(HWND parent) {
     gData.search = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 0, 0, 1, 1, gDataWnd, nullptr, app.inst, nullptr);
     SendMessageW(gData.search, EM_SETCUEBANNER, TRUE, LPARAM(L"Search units")); addSearchClear(gData.search);  // an x clears it
     gData.changedBtn = CreateWindowExW(0, WC_BUTTONW, L"Changed", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 1, 1, gDataWnd, nullptr, app.inst, nullptr);
-    gData.list = CreateWindowExW(0, L"StarDraftDataList", L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL, 0, 0, 1, 1, gDataWnd, nullptr, app.inst, nullptr);
+    gData.list = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL, 0, 0, 1, 1, gDataWnd, nullptr, app.inst, &gDataListView);
     gData.form = CreateWindowExW(0, L"StarDraftDataForm", L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, gDataWnd, nullptr,
                                  app.inst, nullptr);
     SetTimer(gData.form, 7, 42, nullptr);  // widgets: animations, the end of a sound

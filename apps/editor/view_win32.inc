@@ -201,7 +201,9 @@ public:
     void syncScroll(HWND w) {
         int range = 0, page = 0, pos = 0;
         if (view_.windowScrollBar(range, page, pos)) {
-            SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS, 0, range, UINT(std::max(0, page)), pos};
+            UINT mask = SIF_RANGE | SIF_PAGE | SIF_POS;
+            if (view_.windowScrollBarDisables()) mask |= SIF_DISABLENOSCROLL;
+            SCROLLINFO si{sizeof si, mask, 0, range, UINT(std::max(0, page)), pos};
             SetScrollInfo(w, SB_VERT, &si, TRUE);
         }
         if (view_.windowHScrollBar(range, page, pos)) {
