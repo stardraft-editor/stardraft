@@ -329,6 +329,7 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 
 #include "core/app_state.inc"
 #include "core/menu_model.inc"  // the menu bar as data (buildMenuModel, toHmenu)
+#include "core/commands_core.inc"  // commandPortable: the checks before commandBody's switch
 
 // The program: its state, and what Win32 and the renderer give it (windows, brushes, the font, the GPU).
 struct App : AppState {

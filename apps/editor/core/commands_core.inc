@@ -2,8 +2,6 @@
 // (commands.inc's table and the recent lists). Returns true when the command is handled. Included by core.inc.
 // The helpers below are defined in main.cpp (the Win32 TU) until they move into the core themselves.
 
-enum class Workspace { Map, Data, Triggers, Assets, Project, Briefing, Files, Properties, Players, ClassicTriggers, ClassicSettings };
-constexpr int kRecentMax = 10;
 extern Workspace gWorkspace;
 extern std::vector<std::wstring> gRecentMaps, gRecentProjects;
 extern stardraft::Commands gCommands;
