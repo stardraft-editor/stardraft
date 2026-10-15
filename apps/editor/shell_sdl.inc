@@ -56,12 +56,15 @@ bool shellHasStatusBar() { return true; }
 int shellSpriteCount() { return gRenderer ? gRenderer->stats().sprites : 0; }
 void shellListSelect(int) {}  // (the palette's list is not on this system yet)
 void shellListFill(const std::vector<std::wstring>&) {}
+std::vector<int> shellListSelection() { return {}; }  // (the palette's list is not on this system yet)
 std::wstring shellFilterText() { return {}; }
 bool shellViewShown() { return gRoot != nullptr; }
 void shellToolsChanged() {}  // (the tool strip is not on this system yet)
 void shellOwnerSelect(int) {}  // (the player combo box is not on this system yet)
 void shellPaletteChanged() {}
 void shellPaletteRebuilt() {}
+void shellModeSide(Mode) {}  // (the palettes are not docked on this system yet)
+void shellModeWindows(Mode) {}  // (the palette, list and player windows are not on this system yet)
 std::wstring shellTr(const wchar_t* english) { return tr(english); }
 std::vector<int>& shellPaletteChosen() {
     static std::vector<int> chosen;

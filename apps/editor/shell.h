@@ -73,6 +73,8 @@ bool shellHasStatusBar();
 int shellSpriteCount();
 // The palette list: only row i is selected (-1: none), and its caret is on it.
 void shellListSelect(int i);
+// The palette list's selected rows (Locations: several can be selected); empty when none is.
+std::vector<int> shellListSelection();
 // The palette list's rows are replaced by these, and the list is drawn again.
 void shellListFill(const std::vector<std::wstring>& rows);
 // The palette search box's text (the Locations filter and the palette search).
