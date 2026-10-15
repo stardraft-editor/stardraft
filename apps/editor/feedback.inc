@@ -6,7 +6,6 @@
 
 HFONT glyphFont(int px);
 void uiIcon(HDC dc, RECT r, UiIcon icon, COLORREF c, int px);
-constexpr UINT WM_FEEDBACK_SENT = WM_APP + 30;  // wp: 1 sent, 0 kept to send later
 constexpr UINT kFeedbackItem = 0xFEED;
 bool gMenuShown = false;      // a menu opened while a right click was handled
 std::wstring gFeedbackOn;     // what the menu is about, when the window that opens it knows better (else found)
@@ -419,6 +418,24 @@ void showFeedbackDialog(const std::wstring& on) {
 
 // Send: the feedback is written to a file first (it waits there if it cannot go now), then goes on a thread; the
 // dialog shows a spinner until the thread tells it the issue.
+// After a feedback send from the UI's queue (the thread's result): sent, or kept for the next start.
+void feedbackSentResult(bool sent) {
+    // A build made here has no token: it cannot send, so say that and where the feedback is.
+    if (sent) {  // its issue: the number in the status bar, the page in the log (Help > Report feedback > Your feedback lists them)
+        const auto list = sentFeedback();
+        if (!list.empty()) {
+            setMessage(L"Sent the feedback as #" + std::to_wstring(list[0].number) + L". Thank you.");
+            logLine(L"Feedback #" + std::to_wstring(list[0].number) + L": " + list[0].page);
+        } else {
+            setMessage(L"Sent the feedback. Thank you.");
+        }
+    } else {
+        setMessage(crash::token().empty() ? L"This build cannot send feedback. The feedback is in " + feedbackFolder().wstring()
+                                          : L"StarDraft 2 cannot send the feedback now. It sends it at the next start.");
+    }
+    if (sent) sendPendingFeedback();  // GitHub can be reached now: feedback that waits goes too
+}
+
 void feedbackSend(FeedbackDialog& d) {
     const std::wstring& on = d.on;
     SYSTEMTIME t;
@@ -446,12 +463,12 @@ void feedbackSend(FeedbackDialog& d) {
     SetWindowTextW(d.status, L"Sending your feedback\x2026");
     SetTimer(d.wnd, kFeedbackSpin, 90, nullptr);
     setMessage(L"Sending the feedback\x2026");
-    std::thread([file, main = app.main, dlg = d.wnd] {
+    std::thread([file, dlg = d.wnd] {
         const bool sent = sendFeedbackFile(file);
         long number = 0;
         if (sent)
             if (const auto list = sentFeedback(); !list.empty()) number = list[0].number;
-        PostMessageW(main, WM_FEEDBACK_SENT, sent ? 1 : 0, 0);
+        shellPost([sent] { feedbackSentResult(sent); });
         PostMessageW(dlg, WM_FEEDBACK_DONE, sent ? 1 : 0, LPARAM(number));  // (gone when the dialog was closed)
     }).detach();
 }

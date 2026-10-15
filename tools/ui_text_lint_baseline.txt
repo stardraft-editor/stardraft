@@ -1,7 +1,7 @@
 # Accepted exceptions for tools/ui_text_lint.py, one per line: check | file | 'text' | reason.
 # The text is the first 120 characters of the string, as the tool prints it (Python repr). Line numbers are not part
 # of an entry, so an entry stays valid when the code moves.
-word:may | apps/editor/main.cpp | 'May' | the month name in a file date, not the word "may"
+word:may | apps/editor/shell_win32.inc | 'May' | the month name in a file date, not the word "may"
 word:enable | apps/editor/main.cpp | 'Enable' | an iscript animation name from the game data (Enable, Disable)
 word:enabled | apps/editor/briefing_view.inc | 'Skip tutorial enabled' | the briefing action name as StarEdit and the game show it
 word:enable | apps/editor/briefing_view.inc | 'Enable Skip Tutorial button.' | the classic StarEdit text of the briefing action
