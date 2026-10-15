@@ -1,288 +1,439 @@
-// The Data workspace on this system (the model is core/data_list.inc, core/views_data.inc, core/views_data_form.inc and
-// core/views_data_refs.inc; the .dat tables are the stock files of the game, read once when their tab is first shown).
-// Here: the tab strip, the entry list, the entry's fields (the game's values; the editing, the choices' and the flags'
-// clicks, the undo and the project's edits are not on this system yet), the References panel (empty for now: its
-// entries come from the Strings and Buttons tabs' data, which is data_extras.inc's and not on this system yet), and the
-// Strings and Buttons tabs, which show "Not on this system yet". Included by main_sdl.cpp after sdl_briefing.inc;
-// registerWorkspaceView(Workspace::Data, gSdlData) puts it in the window, and --data <tab>:<entry> opens an entry for a
-// snapshot.
+// The Data workspace on this system: the core's views, as the Windows program has them (core/views_data_workspace.inc:
+// the tab strip, the search box and the Changed toggle; core/views_data_list.inc: the entry list; core/views_data_form.inc:
+// the entry's form; core/views_data_refs.inc: the References panel; core/views_data_entry.inc: the number entry) on the
+// core's model (core/data_model.inc: the open project's tables with its edits, the extras, the notes, the references, the
+// saves and the undo steps). The views are children of one view here (the Windows program puts each in a window of its
+// own), each with a kit scroll bar where the Windows window has its bar. Not on this system yet: the pictures beside the
+// fields, the Units display, the requirements, the map's players, the Strings and Buttons tabs' forms, the entries'
+// icons, the pins, back and forward, the entry's and the field's menus (copy, paste, reset) and Rename. Included by
+// main_sdl.cpp after sdl_briefing.inc; registerWorkspaceView(Workspace::Data, gSdlData) puts it in the window, and
+// --data <tab>:<entry> opens an entry for a snapshot.
 
-// --- The .dat tables -------------------------------------------------------------------------------------------------
+// --- The model's state (core/data_model.inc) -------------------------------------------------------------------------
 
-int sdlDatCount() { return int(DatSchema::all().size()); }
-int sdlStringsTab() { return sdlDatCount(); }
-int sdlButtonsTab() { return sdlDatCount() + 1; }
-int sdlDataTabCount() { return sdlDatCount() + 2; }
-bool sdlExtraTab(int tab) { return tab >= sdlDatCount(); }
+DataModel gSdlDataState;
+DataExtrasModel gSdlDataExtras;
+DataModel& dataState() { return gSdlDataState; }
+DataExtrasModel& dataExtras() { return gSdlDataExtras; }
 
-// A .dat's stock table, read on first use (nullptr: the game data is not open, or the .dat does not read).
-DatTable* sdlDatTable(int tab) {
-    static std::vector<std::unique_ptr<DatTable>> tables;
-    static std::vector<bool> tried;
-    if (tab < 0 || tab >= sdlDatCount() || !gDataOk) return nullptr;
-    if (tables.size() != size_t(sdlDatCount())) tables.resize(size_t(sdlDatCount())), tried.assign(size_t(sdlDatCount()), false);
-    const size_t i = size_t(tab);
-    if (!tried[i]) {
-        tried[i] = true;
-        auto t = std::make_unique<DatTable>();
-        std::string err;
-        if (t->load(gState.data, DatSchema::all()[i], err)) tables[i] = std::move(t);
-    }
-    return tables[i].get();
-}
+void sdlDataNotHere(const wchar_t* what) { setMessage(std::wstring(what) + L": not on this system yet"); }
 
-// A tab's title: the .dat's (core/views_data.inc), or Strings and Buttons.
-std::wstring sdlTabTitle(int tab) {
-    if (tab == sdlStringsTab()) return L"Strings";
-    if (tab == sdlButtonsTab()) return L"Buttons";
-    return tab >= 0 && tab < sdlDatCount() ? datTitle(DatSchema::all()[size_t(tab)].name) : L"";
-}
+// --- A view with a kit scroll bar at its right (the Windows window's own bar: the view's windowScrollBar and vscroll) ---
 
-// The list's model host (core/data_list.inc): the stock tables, the names and the changed flags.
-class SdlDataListHost final : public DataListHost {
+class SdlBarFrame final : public draw::View {
 public:
-    bool hasTable(int tab) override { return sdlDatTable(tab) != nullptr; }
-    int entries(int tab) override { return sdlDatTable(tab) ? DatSchema::all()[size_t(tab)].entries : 0; }
-    int firstEntry(int) override { return 0; }
-    bool changed(int tab, int e) override {
-        const DatTable* t = sdlDatTable(tab);
-        return t && t->entryChanged(e);
+    explicit SdlBarFrame(draw::View& content) : content_(content) {
+        bar_.onScroll = [this](int pos) {
+            int range = 0, page = 0, now = 0;
+            content_.windowScrollBar(range, page, now);
+            content_.vscroll(5, pos, pos, page);  // (SB_THUMBTRACK: the position)
+            content_.invalidate();
+        };
+        add(content_, {0, 0, 0, 0});
+        add(bar_, {0, 0, 0, 0});
     }
-    std::wstring name(int tab, int e) override { return sdlDatTable(tab) ? entryName(DatSchema::all()[size_t(tab)].name, e) : L""; }
+    static int barW() { return scale(stardraft::kit::kScrollBarW); }
+    void resized() override {
+        content_.setFrame({0, 0, std::max(0, width() - barW()), height()});
+        bar_.setFrame({width() - barW(), 0, width(), height()});
+    }
+    void paint(draw::Canvas& c) override {
+        c.fill({0, 0, width(), height()}, kBg);
+        int range = 0, page = 0, pos = 0;  // the bar follows the view (its height is from the view's last paint)
+        if (content_.windowScrollBar(range, page, pos)) {
+            bar_.setRange(range + 1, page);
+            bar_.setPos(pos);
+        }
+    }
+    bool mouse(const draw::MouseEvent& e) override {  // the wheel over the bar scrolls the view
+        return e.kind == draw::MouseKind::Wheel && content_.mouse(e);
+    }
+
+private:
+    draw::View& content_;
+    stardraft::kit::ScrollBar bar_;
+};
+
+// --- The workspace's actions (the Windows program's dataShowTab, dataSelect, dataGoTo, dataRebuildList) ---------------
+
+extern DataWorkspaceView gSdlDataWorkspace;
+extern DataListView gSdlDataList;
+extern DataFormView gSdlDataForm;
+extern DataRefsPage gSdlDataRefs;
+extern DataNumberEntry gSdlDataEntry;
+void sdlDataRepaint();
+bool gSdlDataRevealDue = false;  // the open entry's row is scrolled into the list's view at the next paint
+
+void sdlDataRebuildList() {
+    DataModel& d = gSdlDataState;
+    d.shown = dataListRows(gDataListProgram, d.datTab, gSdlDataWorkspace.filter().search, gSdlDataWorkspace.filter().changedOnly, {}).shown;
+    gSdlDataList.clampScroll();  // a shorter list: the scroll goes back inside it
+    sdlDataRepaint();
+}
+
+// The number entry's value goes in. False when the box held text that is not a number (the status says so).
+bool sdlDataCommitEdit() {
+    DataModel& d = gSdlDataState;
+    if (d.editing < 0) return true;
+    const DatField* f = curField(d.editing);
+    d.editing = -1;
+    const std::wstring text = gSdlDataEntry.text();
+    gSdlDataEntry.setVisible(false);
+    if (!f) return true;
+    uint32_t v = 0;
+    const DataEntryRead r = dataReadEntry(text, f->maxValue(), v);
+    if (r == DataEntryRead::Empty) return true;
+    if (r == DataEntryRead::NotNumber) {
+        setMessage(L"Not a number: " + text);
+        return false;
+    }
+    gSdlDataForm.setValue(*f, v);
+    return true;
+}
+
+void sdlDataSelect(int u) {
+    sdlDataCommitEdit();
+    DataModel& d = gSdlDataState;
+    d.entry = std::clamp(u, tabFirstEntry(d.datTab), std::max(tabFirstEntry(d.datTab), tabEntries(d.datTab) - 1));
+    d.formScroll = 0, gSdlDataRefs.resetScroll();
+    gSdlDataRevealDue = true;  // keep it in view in the list (at the next paint: the list has its size then)
+    sdlDataRepaint();
+}
+
+void sdlDataShowTab(int tab) {
+    sdlDataCommitEdit();
+    DataModel& d = gSdlDataState;
+    if (tab < 0 || tab >= dataTabCount()) return;
+    if (d.tabEntry.size() < size_t(dataTabCount())) d.tabEntry.resize(size_t(dataTabCount()), 0);
+    if (tab != d.datTab) {
+        dataSwitchTab(d.datTab, d.entry, d.tabEntry, d.listScroll, d.formScroll, tab);
+        gSdlDataWorkspace.resetSearch(dataSearchCue(tabTitle(tab)));
+    }
+    sdlDataRebuildList();
+    gSdlDataWorkspace.relayout();
+    sdlDataSelect(d.entry);
+}
+
+void sdlDataGoTo(const std::string& dat, int e) {
+    const int tab = datTabOf(dat);
+    if (tab < 0) return;
+    DataModel& d = gSdlDataState;
+    if (gSdlDataWorkspace.filter().changedOnly && !tabEntryChanged(tab, e)) gSdlDataWorkspace.setChangedOn(false);
+    d.tabEntry.resize(size_t(dataTabCount()), 0);
+    if (tab != d.datTab) d.tabEntry[size_t(tab)] = e;
+    sdlDataShowTab(tab);
+    sdlDataSelect(e);
+    setMessage(tabTitle(tab) + L" " + std::to_wstring(e) + L": " + tabEntryName(tab, e));
+}
+
+// A value's change: saved with its undo step (core/data_model.inc), and the list's changed dots follow.
+void sdlDataSaved() {
+    dataSaveChange();
+    sdlDataRebuildList();
+}
+
+// Undo and redo in the Data workspace (Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z while it shows): the step's table or text as it
+// was, at the entry that changed.
+bool sdlDataUndo(bool redo) {
+    sdlDataCommitEdit();
+    DataEditStep s;
+    std::string err;
+    if (!dataApplyUndo(redo, s, err)) {
+        setMessage(redo ? L"Nothing to redo" : L"Nothing to undo");
+        return false;
+    }
+    if (s.tab >= 0 && s.tab < dataTabCount()) {
+        gSdlDataState.tabEntry.resize(size_t(dataTabCount()), 0);
+        if (!s.extra) gSdlDataState.tabEntry[size_t(s.tab)] = s.entry;
+        sdlDataShowTab(s.tab);
+        sdlDataSelect(s.entry);
+    }
+    sdlDataRebuildList();
+    setMessage(!err.empty() ? widen(err) : redo ? L"Redo" : L"Undo");
+    return true;
+}
+
+// The project of the active tab: its tables and extras (once for each project; core/data_model.inc).
+void sdlDataLoad() {
+    const DataModel& d = gSdlDataState;
+    const EudProject* before = d.project;
+    const bool hadTables = !d.tables.empty();
+    dataLoadForProject();
+    if (d.project != before || d.tables.empty() != !hadTables) {
+        gSdlDataWorkspace.resetSearch(dataSearchCue(tabTitle(d.datTab)));
+        sdlDataRebuildList();
+    }
+}
+
+// --- The hosts of the core's views -----------------------------------------------------------------------------------
+
+class SdlDataWorkspaceHost final : public DataWorkspaceHost {
+public:
+    int tabCount() override { return dataTabCount(); }
+    std::wstring tabTitle(int tab) override { return ::tabTitle(tab); }
+    int tabEntryCount(int tab) override { return tabEntries(tab) - tabFirstEntry(tab); }
+    int tabChangedCount(int tab) override { return ::tabChangedCount(tab); }
+    int tabIcon(int tab) override { return int(::tabIcon(tab)); }
+    draw::FontDesc countFont() override {  // the counts: four fifths of the UI font's height (as the Windows strip has it)
+        draw::FontDesc d;
+        d.px = -(shellUiFontLfHeight() * 4 / 5);
+        return d;
+    }
+    int currentTab() override { return gSdlDataState.datTab; }
+    bool canBack() override { return false; }  // (back and forward: not on this system yet)
+    bool canForward() override { return false; }
+    void tabClicked(int tab) override {
+        sdlDataShowTab(tab);
+        const int n = ::tabChangedCount(tab);
+        setMessage((extraTab(tab) ? ::tabTitle(tab) : widen(DatSchema::all()[size_t(tab)].name) + L".dat") + (n ? L": " + std::to_wstring(n) + L" changed" : L""));
+    }
+    void travel(bool) override { sdlDataNotHere(L"Back and forward"); }
+    int listWidth() override { return scale(gDock.dataListW); }
+    int dragList(int dx) override {  // the edge: the list's width (the dock's, clamped); returns the px it moved
+        const int dpi = int(shellDpi());
+        const int nw = std::clamp(gDock.dataListW + dx * 96 / dpi, kMinSideW, kMaxSideW);
+        if (nw == gDock.dataListW) return 0;
+        const int moved = (nw - gDock.dataListW) * dpi / 96;
+        gDock.dataListW = nw;
+        gSdlDataWorkspace.relayout();
+        return moved;
+    }
+    void splitDone() override { saveDock(); }
+    int refsWidth() override { return scale(260); }
+    void placeLists(draw::Rect list, draw::Rect form, draw::Rect refs) override;
+    void filterChanged() override { sdlDataRebuildList(); }
+    void status(const std::wstring& text) override { setMessage(text); }
+};
+SdlDataWorkspaceHost gSdlDataWorkspaceHost;
+DataWorkspaceView gSdlDataWorkspace(gSdlDataWorkspaceHost);
+
+class SdlDataListHost final : public DataListViewHost {
+public:
+    int tab() override { return gSdlDataState.datTab; }
+    const std::vector<int>& rows() override { return gSdlDataState.shown; }
+    int pinnedShown() override { return 0; }  // (pins: not on this system yet)
+    int entry() override { return gSdlDataState.entry; }
+    int& scroll() override { return gSdlDataState.listScroll; }
+    bool changed(int e) override { return tabEntryChanged(gSdlDataState.datTab, e); }
+    std::wstring name(int e) override { return tabEntryName(gSdlDataState.datTab, e); }
+    draw::Image icon(int) override { return {}; }  // (the entries' icons: not on this system yet)
+    void select(int e) override { sdlDataSelect(e); }
+    void menu(int, draw::Point) override { sdlDataNotHere(L"The entry's menu (copy, paste, reset, pin)"); }
+    bool travel(int) override { return false; }
 };
 SdlDataListHost gSdlDataListHost;
+DataListView gSdlDataList(gSdlDataListHost);
 
-// The References panel's program parts: on this system the references are not computed yet (shown: false, so the panel
-// has nothing to list).
 class SdlDataRefsHost final : public DataRefsHost {
 public:
     std::vector<DataRefRow> refs(bool& shown) override {
-        shown = false;
-        return {};
+        return dataRefRows(shown, [](int, int) { return draw::Image{}; });  // (the entries' icons: not on this system yet)
     }
-    void goTo(const std::string&, int) override {}
+    void goTo(const std::string& dat, int entry) override { sdlDataGoTo(dat, entry); }
     bool travel(int) override { return false; }
 };
 SdlDataRefsHost gSdlDataRefsHost;
 DataRefsPage gSdlDataRefs(gSdlDataRefsHost);
 
-// --- The workspace view ----------------------------------------------------------------------------------------------
+// The form's program parts. The pictures, the Units display, the requirements, the map's players and the Strings and
+// Buttons tabs' forms are the Windows program's GDI parts: here they take no room (the Strings and Buttons tabs say they
+// are not on this system yet). A link's click runs when the mouse goes up over it.
+class SdlDataFormHost final : public DataFormViewHost {
+public:
+    struct Area {
+        draw::Rect r;
+        std::function<void()> click;
+        std::wstring tip;
+        draw::Cursor cursor = draw::Cursor::Arrow;
+    };
+    std::vector<Area> areas;
+    std::function<void()> pressed;  // a link pressed: its click when the mouse goes up
 
-// The Data workspace's place: which tab and entry show, and each tab's own entry and the scrolls.
-struct SdlDataState {
-    int tab = 0, entry = 0;
-    std::vector<int> tabEntry;  // the entry each tab last had open
-    int listScroll = 0, formScroll = 0;
-};
-
-struct SdlDataView final : draw::View {
-    SdlDataState st;
-    std::vector<draw::Rect> tabBoxes;  // each tab's box, from the last paint (a click finds its tab here)
-    int formHeight = 0;                // the form's content height, from the last paint
-
-    SdlDataView() { add(gSdlDataRefs, draw::Rect(0, 0, 0, 0)); }
-
-    int tabsH() const { return scale(34); }
-    int listW() const { return scale(240); }
-    int refsW() const { return scale(260); }
-    int rowH() const { return scale(26); }
-    int formLeft() const { return listW(); }
-    int formRight() const { return std::max(formLeft(), width() - refsW()); }
-    draw::Rect refsRect() const { return {width() - refsW(), 0, width(), height()}; }
-
-    // The tab, by name: "units", "images", "strings" or "buttons", and the entry (the snapshot's --data).
-    void select(const std::string& tabName, int entry) {
-        int tab = -1;
-        if (tabName == "strings") tab = sdlStringsTab();
-        else if (tabName == "buttons") tab = sdlButtonsTab();
-        else
-            for (int i = 0; i < sdlDatCount(); ++i)
-                if (DatSchema::all()[size_t(i)].name == tabName) tab = i;
-        if (tab < 0) return;
-        if (st.tabEntry.size() < size_t(sdlDataTabCount())) st.tabEntry.resize(size_t(sdlDataTabCount()), 0);
-        st.tab = tab, st.entry = entry, st.listScroll = st.formScroll = 0;
-        st.tabEntry[size_t(tab)] = entry;
-        scrollToEntry();
+    static std::string dat() { return curTable() ? curTable()->schema().name : std::string(); }
+    const Area* areaAt(draw::Point p) const {
+        for (auto it = areas.rbegin(); it != areas.rend(); ++it)
+            if (it->r.contains(p)) return &*it;
+        return nullptr;
     }
 
-    // The list scrolls to the entry it shows (the middle of the list, or its top when the view has no height yet).
-    void scrollToEntry() {
-        const DataListRows r = rows();
-        for (size_t i = 0; i < r.shown.size(); ++i)
-            if (r.shown[i] == st.entry) {
-                st.listScroll = std::max(0, int(i) * rowH() - std::max(0, (height() - tabsH()) / 2));
+    const DatTable* table() override { return curTable(); }
+    DatTable* editTable() override { return curTable(); }
+    int entry() override { return gSdlDataState.entry; }
+    int& scroll() override { return gSdlDataState.formScroll; }
+    std::set<std::string>& hotFields() override { return hot_; }
+    bool hot(draw::Rect r) override {
+        draw::Host* h = gSdlDataForm.host();
+        return h && r.contains(h->mouse(gSdlDataForm));
+    }
+    bool projectOpen() override { return activeProject() != nullptr; }
+    void beforePaint() override { areas.clear(); }
+    bool paintExtraTab(draw::Canvas& c, int& y) override {
+        if (!extraTab(gSdlDataState.datTab) || !gSdlDataState.project) return false;
+        c.text({scale(18), y + scale(28), gSdlDataForm.width() - scale(18), y + scale(28) + scale(60)},
+               tabTitle(gSdlDataState.datTab) + L": " + shellTr(L"not on this system yet"), kDim, draw::kWrap);
+        return true;
+    }
+    void afterPaint(draw::Canvas&) override;
+    draw::Image entryIcon() override { return {}; }  // (the entries' pictures: not on this system yet)
+    UiIcon tabIcon() override { return ::tabIcon(gSdlDataState.datTab); }
+    int nameString() override {
+        const int sid = entryNameString(dat(), gSdlDataState.entry);
+        return sid > 0 && gSdlDataState.project && sid <= gSdlDataExtras.strings.count() ? sid : 0;
+    }
+    void rename(int) override { sdlDataNotHere(L"Rename (the game text editor)"); }
+    void openString(int sid) override { sdlDataGoTo("strings", sid); }
+    std::wstring fieldNote(const DatField& f, uint32_t v) override { return ::fieldNote(f, v); }
+    std::wstring readOnlyWhy(const DatField& f) override { return datFieldReadOnly(dat(), f, gSdlDataState.entry); }
+    draw::Image refIcon(const std::string&, uint32_t) override { return {}; }
+    int widgets(draw::Canvas&, int, int, int y, int) override { return y; }
+    void soundButton(draw::Canvas&, draw::Rect, int) override {}
+    int unitDisplay(draw::Canvas&, int y) override { return y; }
+    int requirements(draw::Canvas&, int, int y, int) override { return y; }
+    int mapPlayers(draw::Canvas&, int, int y, int, int, int) override { return y; }
+    void area(draw::Rect r, std::function<void()> click, const std::wstring& tip, draw::Cursor cursor) override {
+        areas.push_back({r, std::move(click), tip, cursor});
+    }
+    bool widgetPress(draw::Point p) override {
+        const Area* a = areaAt(p);
+        if (!a || !a->click) return false;
+        sdlDataCommitEdit();
+        pressed = a->click;
+        return true;
+    }
+    bool widgetDrag(draw::Point) override { return false; }
+    void widgetRelease() override {
+        auto click = std::exchange(pressed, nullptr);
+        if (click) click();
+    }
+    bool widgetHover(draw::Point, std::set<std::string>&) override { return true; }  // (the form repaints: the hot boxes follow the mouse)
+    bool widgetCursor(draw::Point p, draw::Cursor& c) override {
+        const Area* a = areaAt(p);
+        return a ? (c = a->cursor, true) : false;
+    }
+    std::wstring widgetName(draw::Point p) override {
+        const Area* a = areaAt(p);
+        return a ? a->tip : L"";
+    }
+    bool widgetWheel(draw::Point, float) override { return false; }
+    void commitEdit() override { sdlDataCommitEdit(); }
+    void beginEdit(int field, draw::Rect) override {
+        sdlDataCommitEdit();
+        const DatField* f = curField(field);
+        if (!f || !curTable()) return;
+        gSdlDataState.editing = field;
+        gSdlDataEntry.setText(fieldValueText(*f, curTable()->value(*f, gSdlDataState.entry)));
+        gSdlDataEntry.setVisible(true);
+        placeEntry();
+        gSdlDataEntry.focus();
+        gSdlDataEntry.select();
+    }
+    void dropdown(const DatField& f, draw::Rect) override {
+        const DatTable* t = curTable();
+        if (!t) return;
+        const std::vector<ListPickItem> items = dataDropdownItems(f);
+        const std::string cur = std::to_string(t->value(f, gSdlDataState.entry));
+        std::vector<std::wstring> rows;
+        int checked = -1;
+        for (size_t i = 0; i < items.size(); ++i) {
+            rows.push_back(items[i].label);
+            if (items[i].value == cur) checked = int(i);
+        }
+        const int picked = sdlPickFromList(rows, checked, datLabel(f.name));
+        if (picked >= 0) gSdlDataForm.setValue(f, uint32_t(std::stoul(items[size_t(picked)].value)));
+    }
+    std::vector<ListPickItem> dropdownItems(const DatField& f) override { return dataDropdownItems(f); }
+    void valueSet() override { sdlDataSaved(); }
+    void paintNow() override {}  // (the entry follows its box at each paint: placeEntry)
+    void goTo(const std::string& d, int e) override { sdlDataGoTo(d, e); }
+    void fieldMenu(const DatField&, draw::Point) override { sdlDataNotHere(L"The field's menu (copy, paste, reset)"); }
+    void status(const std::wstring& text) override { setMessage(text); }
+    bool travel(int) override { return false; }
+
+    // The number entry sits on its field's value box, as the last paint placed it (also after a scroll).
+    void placeEntry() {
+        if (gSdlDataState.editing < 0) return;
+        for (const DataFormHit& h : gSdlDataForm.hits())
+            if (h.bit == -1 && h.field == gSdlDataState.editing) {
+                const draw::Rect r{h.r.left + scale(2), h.r.top + scale(3), h.r.right - scale(2), h.r.bottom - scale(3)};
+                const draw::Rect cur = gSdlDataEntry.frame();
+                if (cur.left != r.left || cur.top != r.top || cur.right != r.right || cur.bottom != r.bottom) gSdlDataEntry.setFrame(r);
                 return;
             }
     }
 
-    // Another tab: the one it leaves keeps its entry, the one it goes to comes back on the entry it last showed (core).
-    void switchTab(int next) {
-        if (next == st.tab || next < 0 || next >= sdlDataTabCount()) return;
-        if (st.tabEntry.size() < size_t(sdlDataTabCount())) st.tabEntry.resize(size_t(sdlDataTabCount()), 0);
-        dataSwitchTab(st.tab, st.entry, st.tabEntry, st.listScroll, st.formScroll, next);
-        invalidate();
+private:
+    std::set<std::string> hot_;
+};
+SdlDataFormHost gSdlDataFormHost;
+DataFormView gSdlDataForm(gSdlDataFormHost);
+DataNumberEntry gSdlDataEntry;
+void SdlDataFormHost::afterPaint(draw::Canvas&) { placeEntry(); }
+
+// --- The workspace view: the container and the three panes, each with its bar --------------------------------------
+
+struct SdlDataView final : draw::View {
+    SdlBarFrame listFrame{gSdlDataList}, formFrame{gSdlDataForm}, refsFrame{gSdlDataRefs};
+    bool ready = false;
+
+    SdlDataView() {
+        add(gSdlDataWorkspace, draw::Rect(0, 0, 0, 0));
+        add(listFrame, draw::Rect(0, 0, 0, 0));
+        add(formFrame, draw::Rect(0, 0, 0, 0));
+        add(refsFrame, draw::Rect(0, 0, 0, 0));
+        gSdlDataForm.add(gSdlDataEntry, draw::Rect(0, 0, 0, 0));
+        gSdlDataEntry.setVisible(false);
+        gSdlDataEntry.onCommit = [] { sdlDataCommitEdit(); };  // Enter: the value goes in
+        gSdlDataEntry.onCancel = [] {                          // Escape: the value stays as it was
+            gSdlDataState.editing = -1;
+            gSdlDataEntry.setVisible(false);
+        };
+        gSdlDataEntry.onFocusLost = [] { sdlDataCommitEdit(); };
+        gSdlDataEntry.onTab = [](bool back) { gSdlDataForm.editNeighbour(gSdlDataState.editing, back ? -1 : 1); };
     }
 
-    void ensureTabs() {
-        if (st.tabEntry.size() < size_t(sdlDataTabCount())) st.tabEntry.resize(size_t(sdlDataTabCount()), 0);
-    }
-
-    DataListRows rows() {
-        if (sdlExtraTab(st.tab)) return {};
-        return dataListRows(gSdlDataListHost, st.tab, L"", false, {});
-    }
-
+    void resized() override { gSdlDataWorkspace.setFrame({0, 0, width(), height()}); }
     void paint(draw::Canvas& c) override {
-        ensureTabs();
-        if (refsRect().left != gSdlDataRefs.frame().left || refsRect().width() != gSdlDataRefs.width() || height() != gSdlDataRefs.height())
-            gSdlDataRefs.setFrame(refsRect());
+        sdlDataLoad();  // (the active tab's project: its tables, once)
+        if (!ready) ready = true, gSdlDataWorkspace.resetSearch(dataSearchCue(tabTitle(gSdlDataState.datTab))), sdlDataRebuildList();
         c.fill({0, 0, width(), height()}, kBg);
-        paintTabs(c);
-        paintList(c);
-        paintForm(c);
+        if (gSdlDataRevealDue && gSdlDataList.height() > 0) gSdlDataRevealDue = false, gSdlDataList.reveal(gSdlDataState.entry);
     }
-
-    void paintTabs(draw::Canvas& c) {
-        c.fill({0, 0, width(), tabsH()}, kPanel);
-        c.line(0, tabsH() - 1, width(), tabsH() - 1, kBorder);
-        const int n = sdlDataTabCount();
-        std::vector<DataTabText> texts;
-        std::vector<std::wstring> counts;
-        for (int i = 0; i < n; ++i) {
-            const std::wstring count = sdlExtraTab(i) ? L"" : std::to_wstring(DatSchema::all()[size_t(i)].entries);
-            counts.push_back(count);
-            texts.push_back({c.measure(sdlTabTitle(i)), count.empty() ? 0 : c.measure(count)});
-        }
-        const DataTabMetrics m{scale(8), scale(64), 0, 0, scale(8), scale(2)};
-        const DataTabLayout lay = dataTabLayout(texts, width(), m);
-        tabBoxes.clear();
-        for (int i = 0; i < n; ++i) {
-            const draw::Rect box{lay.boxes[size_t(i)].first, 0, lay.boxes[size_t(i)].second, tabsH()};
-            tabBoxes.push_back(box);
-            const bool on = i == st.tab;
-            if (on) c.fill(box, kSel);
-            std::wstring label = sdlTabTitle(i);
-            if (lay.showCounts && !counts[size_t(i)].empty()) label += L"  " + counts[size_t(i)];
-            c.text(box, label, on ? kText : kDim, draw::kCenter | draw::kMiddle | draw::kEllipsis);
-        }
+    bool key(const draw::KeyEvent& e) override {
+        if (!e.down || !(e.mods & draw::kCtrl) || (e.mods & draw::kAlt)) return false;
+        if (gSdlDataWorkspace.searchFocused()) return false;  // (the search box's own undo)
+        if (int(e.key) == 'Z') return sdlDataUndo((e.mods & draw::kShift) != 0), true;
+        if (int(e.key) == 'Y') return sdlDataUndo(true), true;
+        return false;
     }
-
-    void paintList(draw::Canvas& c) {
-        const draw::Rect area{0, tabsH(), listW(), height()};
-        c.fill(area, kPanel);
-        c.fill({listW() - 1, tabsH(), listW(), height()}, kBorder);
-        if (sdlExtraTab(st.tab)) return;
-        const DataListRows r = rows();
-        dataListClampScroll(st.listScroll, r.shown.size(), rowH(), height() - tabsH());
-        for (size_t i = 0; i < r.shown.size(); ++i) {
-            const int e = r.shown[i];
-            const int top = tabsH() + int(i) * rowH() - st.listScroll;
-            if (top >= height()) break;
-            if (top + rowH() <= tabsH()) continue;
-            const draw::Rect row{0, top, listW() - 1, top + rowH()};
-            const bool on = e == st.entry;
-            if (on) c.fill(row, kSel);
-            c.text({scale(8), top, scale(52), top + rowH()}, std::to_wstring(e), kDim, draw::kMiddle | draw::kRight);
-            const bool changed = gSdlDataListHost.changed(st.tab, e);
-            c.text({scale(62), top, listW() - scale(22), top + rowH()}, entryName(DatSchema::all()[size_t(st.tab)].name, e),
-                   on ? kText : kDim, draw::kMiddle | draw::kEllipsis);
-            if (changed) c.fill({listW() - scale(14), top + rowH() / 2 - scale(3), listW() - scale(8), top + rowH() / 2 + scale(3)}, kGood);
-        }
-    }
-
-    void paintForm(draw::Canvas& c) {
-        const int l = formLeft(), r = formRight();
-        c.fill({l, tabsH(), r, height()}, kBg);
-        const draw::Rect all{l, tabsH(), r, height()};
-        if (sdlExtraTab(st.tab)) return c.text(all, tr(L"Not on this system yet"), kDim, draw::kCenter | draw::kMiddle | draw::kWrap);
-        const DatTable* t = sdlDatTable(st.tab);
-        if (!t || st.entry < 0 || st.entry >= DatSchema::all()[size_t(st.tab)].entries)
-            return c.text(all, tr(L"Pick an entry in the list"), kDim, draw::kCenter | draw::kMiddle | draw::kWrap);
-        const DatSchema& sc = t->schema();
-        const int pad = scale(12), labelW = scale(190), valW = scale(110), colRight = r - pad;
-        const DataFormScale fs{scale(2), scale(8), scale(4), scale(7), scale(110), scale(320), scale(190), scale(22), scale(14)};
-        int y = tabsH() + scale(10) - st.formScroll;
-        const std::wstring title = entryName(sc.name, st.entry);
-        c.text({l + pad, y, r - pad, y + scale(26)}, sdlTabTitle(st.tab) + L"  #" + std::to_wstring(st.entry) + (title.empty() ? L"" : L"  " + title), kText,
-               draw::kMiddle | draw::kEllipsis);
-        y += scale(32);
-        c.text({l + pad, y, r - pad, y + scale(20)}, tr(L"The game's values. Editing is not on this system yet."), kDim, draw::kMiddle | draw::kEllipsis);
-        y += scale(28);
-        for (size_t s = 0; s < sc.sections.size(); ++s) {
-            c.text({l + pad, y, r - pad, y + scale(22)}, widen(sc.sections[s]), kDim, draw::kMiddle | draw::kEllipsis);
-            y += scale(24);
-            std::vector<const DatField*> fields;
-            for (const DatField& f : sc.fields)
-                if (f.section == int(s) && f.covers(st.entry)) fields.push_back(&f);
-            std::stable_sort(fields.begin(), fields.end(), [](const DatField* a, const DatField* b) { return a->order < b->order; });
-            for (const DatField* f : fields) {
-                const DataFieldRow row = dataFieldRow(l + pad, labelW, valW, y, rowH(), colRight, fs);
-                const uint32_t v = t->value(*f, st.entry);
-                c.text(row.label, widen(f->name), kDim, draw::kMiddle | draw::kEllipsis);
-                if (fieldIsBool(sc.name, *f)) {
-                    c.frame(row.boolCheck, kBorder);
-                    if (v) c.fill({row.boolCheck.left + 3, row.boolCheck.top + 3, row.boolCheck.right - 3, row.boolCheck.bottom - 3}, kAccent);
-                    c.text(row.boolText, v ? tr(L"Yes") : tr(L"No"), kText, draw::kMiddle);
-                } else {
-                    c.fill(row.box, kCtl);
-                    c.text(dataValueText(row.box, fs), fieldValueText(*f, v), kText, draw::kMiddle | draw::kEllipsis);
-                    std::wstring note;
-                    if (!f->valueNames.empty()) note = v < f->valueNames.size() ? widen(f->valueNames[v]) : L"";
-                    else if (!fieldRefDat(*f).empty()) note = entryName(fieldRefDat(*f), int(v));
-                    if (!note.empty()) c.text(row.note, note, kDim, draw::kMiddle | draw::kEllipsis);
-                }
-                y += rowH();
-            }
-            y += scale(8);
-        }
-        formHeight = y + st.formScroll - tabsH() - scale(10);  // the content's height (the wheel stops at its end)
-    }
-
-    bool mouse(const draw::MouseEvent& e) override {
-        using draw::MouseKind;
-        if (e.kind == MouseKind::Wheel) {
-            if (e.horizontal) return false;
-            if (e.pt.x < listW()) {
-                st.listScroll = std::max(0, st.listScroll - int(std::lround(e.wheel * rowH() * 3)));
-                invalidate();
-                return true;
-            }
-            const int most = std::max(0, formHeight - (height() - tabsH()));
-            st.formScroll = std::clamp(st.formScroll - int(std::lround(e.wheel * rowH() * 3)), 0, most);
-            invalidate();
-            return true;
-        }
-        if (e.kind != MouseKind::Down || e.button != 0) return false;
-        const draw::Point p = e.pt;
-        ensureTabs();
-        if (p.y < tabsH()) {
-            for (size_t i = 0; i < tabBoxes.size(); ++i)
-                if (tabBoxes[i].contains(p)) switchTab(int(i));
-            return true;
-        }
-        if (p.x < listW()) {
-            const DataListRows r = rows();
-            const int i = (p.y - tabsH() + st.listScroll) / rowH();
-            if (i >= 0 && i < int(r.shown.size())) {
-                st.entry = r.shown[size_t(i)];
-                st.tabEntry[size_t(st.tab)] = st.entry;
-                st.formScroll = 0;
-                invalidate();
-            }
-            return true;
-        }
-        return true;
-    }
-
     bool focusable() const override { return false; }
 };
 
 SdlDataView gSdlData;
+
+void SdlDataWorkspaceHost::placeLists(draw::Rect list, draw::Rect form, draw::Rect refs) {
+    auto place = [](draw::View& v, draw::Rect r) {
+        const draw::Rect cur = v.frame();
+        if (cur.left != r.left || cur.top != r.top || cur.right != r.right || cur.bottom != r.bottom) v.setFrame(r);
+    };
+    place(gSdlData.listFrame, list);
+    place(gSdlData.formFrame, form);
+    place(gSdlData.refsFrame, refs);
+}
+
+void sdlDataRepaint() {
+    gSdlData.invalidate();
+    gSdlDataList.invalidate();
+    gSdlDataForm.invalidate();
+    gSdlDataRefs.invalidate();
+    gSdlDataWorkspace.invalidate();
+}
 
 // --- The snapshot's entry: --data <tab>:<entry> (the Data workspace opens the entry as it is shown) -----------------------
 
 void sdlDataSelect(const std::string& spec) {
     const size_t colon = spec.find(':');
     if (colon == std::string::npos) return;
-    gSdlData.select(spec.substr(0, colon), std::atoi(spec.c_str() + colon + 1));
+    sdlDataLoad();
+    gSdlData.ready = true;
+    sdlDataGoTo(spec.substr(0, colon), std::atoi(spec.c_str() + colon + 1));
 }
