@@ -115,6 +115,11 @@ Make StarDraft 2 a more powerful creation suite.
 
   Mappers must make camera effects by hand. The blocks use the game's Center View action: they move a location, then
   center the view on it.
+- [ ] **R58 EUD terrain info.** *Tag:* EUD.
+  Trigger blocks that read the terrain tile at a location or at a point.
+
+  No trigger reads the terrain. Mappers must find the tile in the game's memory by hand, for example to make units
+  that act on the terrain under them.
 - [ ] **R14 Exact timers.** *Tag:* EUD.
   "After N seconds" and "Every N seconds" blocks that stay exact over a long game.
 
