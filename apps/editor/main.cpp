@@ -303,6 +303,7 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/views_data.inc"  // the Data workspace's tab strip layout (DataTabLayout, dataTabLayout)
 #include "core/views_data_requirements.inc"  // the Requirements section's model: step names, ways, levels, edits (requirement*)
 #include "core/views_data_requirements_paint.inc"  // the Requirements section's paint and clicks (paintRequirementList, ListPickItem)
+#include "core/data_edits.inc"  // the Data workspace's value edits and their undo (DataEditHistory, dataApplyValue)
 #include "core/views_data_form.inc"  // the Data form: where each part of a row sits (dataFieldRow) and the form's view (DataFormView)
 #include "core/views_data_strings.inc"  // the Strings page's model: a string's text, its button prefix and the editor's text (stringLine, stringEditCommit)
 #include "core/views_data_buttons.inc"  // the Buttons tab's model: places, labels, costs, edits of a set (buttonRowTextFrom, buttonNew)
@@ -4671,14 +4672,7 @@ struct DataView {
     HWND refs = nullptr;           // References: the entries that point at this one (a pane on the right; core/views_data_refs.inc)
     int edits = 0;                 // goes up with each change (the references follow the values)
     int editing = -1;  // field whose value box holds the edit control
-    // Undo: each saved change is a step, the table before and after it. `saved` is each table as last saved.
-    struct Step {
-        int tab = 0, entry = 0;
-        Bytes before, after;
-        int extra = 0;  // 0: a .dat table's bytes; 1 strings, 2 buttons, 3 requirements: their edits text
-    };
-    std::vector<Step> undo, redo;
-    std::vector<Bytes> saved;
+    DataEditHistory history;  // undo: each saved change is a step (core/data_edits.inc)
 };
 DataView gData;
 extern DataFormView gDataFormView;  // the form's view (core/views_data_form.inc; its window is dataFormProc's)
@@ -4926,8 +4920,7 @@ void dataLoadForProject() {
     if (!pr) return;
     std::string err;
     gData.tables = loadDatTables(*pr, err);
-    gData.undo.clear(), gData.redo.clear(), gData.saved.clear();
-    for (const auto& t : gData.tables) gData.saved.push_back(t ? t->bytes() : Bytes{});
+    gData.history.reset(gData.tables);
     ++gData.edits;  // other tables: the caches keyed on the edit count (sprites, pictures, references) read them again
 }
 
@@ -4983,12 +4976,7 @@ bool dataSaved() {
     if (gData.refs) InvalidateRect(gData.refs, nullptr, FALSE);
     std::string err;
     if (const DatTable* t = curTable(); t && gData.project && !t->saveEdits(gData.project->datFile(t->schema().name), err)) setMessage(widen(err)), ok = false;
-    if (const DatTable* t = curTable(); t && size_t(gData.datTab) < gData.saved.size() && gData.saved[size_t(gData.datTab)] != t->bytes()) {
-        gData.undo.push_back({gData.datTab, gData.entry, gData.saved[size_t(gData.datTab)], t->bytes()});
-        if (gData.undo.size() > 200) gData.undo.erase(gData.undo.begin());
-        gData.saved[size_t(gData.datTab)] = t->bytes();
-        gData.redo.clear();
-    }
+    if (const DatTable* t = curTable()) gData.history.recordTable(gData.datTab, gData.entry, t->bytes());
     if (gWsBar) InvalidateRect(gWsBar, nullptr, FALSE);
     if (gDataWnd) {
         RECT tabs{0, 0, 1 << 15, scale(34)};
@@ -8428,14 +8416,7 @@ int paintMapPlayers(HDC mem, const std::string& dat, int u, int x0, int y, int c
     return y + scale(8);
 }
 
-void dataSetValue(const DatField& f, uint32_t v) {
-    DatTable* t = curTable();
-    if (!t) return;
-    t->set(f, gData.entry, std::min(v, f.maxValue()));
-    dataSaved();
-    InvalidateRect(gData.form, nullptr, FALSE);
-    InvalidateRect(gData.list, nullptr, FALSE);
-}
+void dataSetValue(const DatField& f, uint32_t v) { gDataFormView.setValue(f, v); }  // (the view's: core/views_data_form.inc)
 
 bool showListPicker(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, POINT at, std::string& out);
 bool showListPickerMulti(const std::wstring& prompt, std::vector<ListPickItem> items, std::set<std::string>& checked, const std::wstring& okText, POINT at);
@@ -8511,31 +8492,8 @@ void dataBeginEdit(int field, const RECT& r) {
     gDataEntry.select();
 }
 
-// Tab / Shift+Tab: keep the value and type the next (previous) field's, scrolling it into view.
-void dataEditNeighbour(int delta) {
-    std::vector<int> boxes;  // fields with a value box, in the order the form shows them
-    for (const auto& h : gDataFormView.hits())
-        if (h.bit == -1) boxes.push_back(h.field);
-    const auto it = std::find(boxes.begin(), boxes.end(), gData.editing);
-    dataCommitEdit();
-    if (it == boxes.end() || boxes.empty()) return;
-    const int next = boxes[size_t((int(it - boxes.begin()) + delta + int(boxes.size())) % int(boxes.size()))];
-    auto boxOf = [&](RECT& r) {
-        UpdateWindow(gData.form);  // the hits follow the last paint
-        for (const auto& h : gDataFormView.hits())
-            if (h.bit == -1 && h.field == next) return r = winRect(h.r), true;
-        return false;
-    };
-    RECT r;
-    if (!boxOf(r)) return;
-    RECT rc;
-    GetClientRect(gData.form, &rc);
-    if (r.top < 0 || r.bottom > rc.bottom) {
-        gDataFormView.scrollTo(gData.formScroll + (r.top < 0 ? r.top - scale(40) : r.bottom - rc.bottom + scale(40)));
-        if (!boxOf(r)) return;
-    }
-    dataBeginEdit(next, r);
-}
+// Tab / Shift+Tab: keep the value and type the next (previous) field's, scrolling it into view (the view's).
+void dataEditNeighbour(int delta) { gDataFormView.editNeighbour(gData.editing, delta); }
 
 // --- The Data form's window ---------------------------------------------------------------------------------------
 // The form is a core view (core/views_data_form.inc: DataFormView). DataFormProgram is its program side: the tables and
@@ -8547,6 +8505,7 @@ public:
     static std::string dat() { return curTable() ? curTable()->schema().name : std::string(); }
 
     const DatTable* table() override { return curTable(); }
+    DatTable* editTable() override { return curTable(); }
     int entry() override { return gData.entry; }
     int& scroll() override { return gData.formScroll; }
     std::set<std::string>& hotFields() override { return gHotFields; }
@@ -8681,7 +8640,12 @@ public:
     void beginEdit(int field, draw::Rect box) override { dataBeginEdit(field, winRect(box)); }
     void dropdown(const DatField& f, draw::Rect box) override { dataDropdown(f, winRect(box)); }
     std::vector<ListPickItem> dropdownItems(const DatField& f) override { return dataDropdownItems(f); }
-    void setValue(const DatField& f, uint32_t v) override { dataSetValue(f, v); }
+    void valueSet() override {
+        dataSaved();
+        InvalidateRect(gData.form, nullptr, FALSE);
+        InvalidateRect(gData.list, nullptr, FALSE);
+    }
+    void paintNow() override { UpdateWindow(gData.form); }
     void goTo(const std::string& d, int e) override { dataGoTo(d, e); }
     void fieldMenu(const DatField& f, draw::Point p) override {
         POINT sp{p.x, p.y};
@@ -9143,7 +9107,7 @@ std::vector<int> trigPathOf(HTREEITEM item) {
 void forgetProject(const EudProject* pr) {
     if (!pr) return;
     if (gTE.project == pr) gTE.project = nullptr, gTE.set = TriggerSet(), gTE.sel.clear(), trigHistoryReset();
-    if (gData.project == pr) gData.project = nullptr, gData.tables.clear(), gData.undo.clear(), gData.redo.clear(), gData.saved.clear();
+    if (gData.project == pr) gData.project = nullptr, gData.tables.clear(), gData.history.clear();
 }
 
 void trigLoadForProject() {
@@ -11023,15 +10987,13 @@ bool trigUndo(bool redo) {
 }
 bool trigCanUndo(bool redo) { return gTE.project && (redo ? gTrigHist.at + 1 < gTrigHist.steps.size() : gTrigHist.at > 0); }
 
-bool dataCanUndo(bool redo) { return !(redo ? gData.redo : gData.undo).empty(); }
+bool dataCanUndo(bool redo) { return gData.history.canUndo(redo); }
 
 // Undo and redo in the Data workspace: the table as it was, at the entry that changed.
 bool dataUndo(bool redo) {
     dataCommitEdit();
-    auto& from = redo ? gData.redo : gData.undo;
-    if (from.empty()) return false;
-    const DataView::Step s = from.back();
-    from.pop_back();
+    DataEditStep s;
+    if (!gData.history.take(redo, s)) return false;
     if (s.extra) {
         const int k = s.extra - 1;
         const Bytes& b = redo ? s.after : s.before;
@@ -11044,7 +11006,7 @@ bool dataUndo(bool redo) {
             const fs::path f = extrasFile(*gData.project, k);
             extrasSaveFile(k, f, saveErr);
         }
-        (redo ? gData.undo : gData.redo).push_back(s);
+        gData.history.done(redo, s);
         ++gData.edits;
         if (s.tab >= 0 && s.tab < dataTabCount()) {
             gData.tabEntry.resize(size_t(dataTabCount()), 0);
@@ -11061,8 +11023,8 @@ bool dataUndo(bool redo) {
     if (!t) return false;
     t->setBytes(redo ? s.after : s.before);
     ++gData.edits;
-    if (size_t(s.tab) < gData.saved.size()) gData.saved[size_t(s.tab)] = t->bytes();
-    (redo ? gData.undo : gData.redo).push_back(s);
+    gData.history.tableSaved(s.tab, t->bytes());
+    gData.history.done(redo, s);
     std::string err;
     const bool saved = !gData.project || t->saveEdits(gData.project->datFile(t->schema().name), err);
     dataGoTo(DatSchema::all()[size_t(s.tab)].name, s.entry);
@@ -24159,6 +24121,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 dataGoTo(v[0], std::atoi(v[1].c_str()));
                 for (int i = 0; i < 5; ++i) pump();
                 if (const DatField* f = datFieldNamed(v[0], v[2])) dataSetValue(*f, uint32_t(std::atoi(v[3].c_str())));
+                continue;
+            }
+            if (s == "undo:" || s == "redo:") {  // the Data workspace's last edit undone (redo: done again), as Ctrl+Z and Ctrl+Y
+                std::ofstream(fs::path(datashots) / "datashots.txt", std::ios::app) << s << (dataUndo(s == "redo:") ? " done\n" : " nothing to do\n");
+                for (int i = 0; i < 5; ++i) pump();
                 continue;
             }
             if (s.rfind("irec:", 0) == 0) {  // irec:<image>:<anim>:<ticks>: the player tick by tick, a capture each, for a video
