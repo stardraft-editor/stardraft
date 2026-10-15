@@ -222,7 +222,7 @@ void dialogDone(void* data, const char* const* list, int) {
     std::unique_ptr<DialogCall> call(static_cast<DialogCall*>(data));
     const std::string picked = list && list[0] ? list[0] : std::string();
     const std::function<void(const fs::path&)> done = call->done;
-    shellPost([done, picked] { done(fs::path(picked)); });
+    shellPost([done, picked] { done(picked.empty() ? fs::path() : fs::path(widen(picked))); });  // (UTF-8)
 }
 
 // The window the dialogs belong to: the program's first window (nullptr when there is none).

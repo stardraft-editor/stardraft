@@ -122,17 +122,35 @@ std::vector<int>& shellPaletteChosen() {
     return chosen;
 }
 
-// The settings file: ~/Library/Application Support/StarDraft on macOS, $XDG_CONFIG_HOME or ~/.config/StarDraft on Linux
-// (the environment variable STARDRAFT_SETTINGS gives another file, as on Windows).
+// An environment variable as a path ("" when it is not set). SDL gives it as UTF-8 on each system (on Windows a path in
+// the system's code page would lose the letters outside it).
+fs::path envPath(const char* name) {
+    const char* v = SDL_getenv(name);
+    return v && *v ? fs::path(widen(v)) : fs::path();
+}
+// The user's folder: HOME, or USERPROFILE on Windows.
+fs::path homeFolder() {
+    fs::path h = envPath("HOME");
+#ifdef _WIN32
+    if (h.empty()) h = envPath("USERPROFILE");
+#endif
+    return h;
+}
+
+// The settings file: %APPDATA%\StarDraft on Windows (the Windows program's file), ~/Library/Application Support/StarDraft
+// on macOS, $XDG_CONFIG_HOME or ~/.config/StarDraft on Linux (the environment variable STARDRAFT_SETTINGS gives another
+// file, as on Windows).
 void shellSettingsChanged() {}  // (the SDL program keeps no options yet: the Windows program saves its options in the registry)
 std::filesystem::path shellSettingsFile() {
-    if (const char* file = std::getenv("STARDRAFT_SETTINGS"); file && *file) return file;
+    if (fs::path file = envPath("STARDRAFT_SETTINGS"); !file.empty()) return file;
     fs::path dir;
-#ifdef __APPLE__
-    if (const char* h = std::getenv("HOME")) dir = fs::path(h) / "Library" / "Application Support" / "StarDraft";
+#if defined(_WIN32)
+    if (const fs::path a = envPath("APPDATA"); !a.empty()) dir = a / "StarDraft";
+#elif defined(__APPLE__)
+    if (const fs::path h = homeFolder(); !h.empty()) dir = h / "Library" / "Application Support" / "StarDraft";
 #else
-    if (const char* x = std::getenv("XDG_CONFIG_HOME"); x && *x) dir = fs::path(x) / "StarDraft";
-    else if (const char* h = std::getenv("HOME")) dir = fs::path(h) / ".config" / "StarDraft";
+    if (const fs::path x = envPath("XDG_CONFIG_HOME"); !x.empty()) dir = x / "StarDraft";
+    else if (const fs::path h = homeFolder(); !h.empty()) dir = h / ".config" / "StarDraft";
 #endif
     if (dir.empty()) dir = fs::temp_directory_path() / "StarDraft";
     return dir / "settings.json";
@@ -339,8 +357,8 @@ std::wstring shellPickOutputFile(const std::wstring& name) {
 // The Documents folder: the system's (XDG's on Linux), else ~/Documents.
 std::filesystem::path shellDocumentsFolder() {
     if (const char* d = SDL_GetUserFolder(SDL_FOLDER_DOCUMENTS); d && *d) return std::filesystem::path(widen(d));
-    const char* home = std::getenv("HOME");
-    return home && *home ? std::filesystem::path(home) / "Documents" : std::filesystem::path();
+    const fs::path home = homeFolder();
+    return !home.empty() ? home / "Documents" : std::filesystem::path();
 }
 bool shellPromptText(const std::wstring& title, std::wstring& text) {
     TextPromptView* shown = nullptr;
