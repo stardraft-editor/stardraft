@@ -145,15 +145,15 @@ void openAny(const std::filesystem::path& path) {
 
 // The editor function that finds an open document's editor (views_tabs.inc).
 const Editor* docEditor(int i);
-// The same file or folder, compared as text (case, slashes, a relative path): no disk access, as a network share can
-// make it wait.
+// The same file or folder, compared as text (case where the host's file system ignores it, slashes, a relative path, a
+// trailing separator): no disk access, as a network share can make it wait.
 bool samePath(const fs::path& a, const fs::path& b) {
     auto key = [](const fs::path& p) {
         std::error_code ec;
         const fs::path full = fs::absolute(p, ec);
         std::wstring s = (ec ? p : full).lexically_normal().make_preferred().wstring();
-        std::transform(s.begin(), s.end(), s.begin(), ::towlower);
-        while (!s.empty() && s.back() == L'\\') s.pop_back();
+        while (s.size() > 1 && s.back() == fs::path::preferred_separator) s.pop_back();
+        if (shellPathsFoldCase()) std::transform(s.begin(), s.end(), s.begin(), ::towlower);
         return s;
     };
     return !a.empty() && !b.empty() && key(a) == key(b);

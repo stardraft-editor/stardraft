@@ -108,5 +108,7 @@ void shellErrorBox(const std::wstring& text, const std::wstring& title);
 void shellRecentMenu(bool projects, const std::vector<std::wstring>& labels, const std::wstring& none);
 // The quick picker (Quick open, or Replace with... for the selection).
 void shellShowQuickPicker(bool replace, bool open);
+// Whether the file system ignores case (Windows: a/B.scx and a/b.scx are one file), for comparing paths.
+bool shellPathsFoldCase();
 // A map file was opened by itself: asks once whether maps open with StarDraft 2 (Windows only).
 void shellMapFileOpened(const std::filesystem::path& file);
