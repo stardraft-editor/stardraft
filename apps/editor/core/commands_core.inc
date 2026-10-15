@@ -1,17 +1,10 @@
 // The portable part of commandBody (main.cpp): the checks before its switch, the commands that need no Win32 call
-// (commands.inc's table and the recent lists). Returns true when the command is handled. Included by core.inc.
-// The helpers below are defined in main.cpp (the Win32 TU) until they move into the core themselves.
-
-extern Workspace gWorkspace;
-extern std::vector<std::wstring> gRecentMaps, gRecentProjects;
-extern stardraft::Commands gCommands;
-extern std::map<int, std::string> gCommandIds;
+// (commands.inc's table and the recent lists). Returns true when the command is handled. Included by core.inc, after
+// documents.inc (the workspaces, the tabs and the recent lists). The helpers below are defined in main.cpp (the Win32
+// TU) until they move into the core themselves.
 
 bool modeLayerHidden();
 void modeLayerHiddenMessage();
-bool docOpen();
-bool classicMode();
-bool commandInMode(int id);
 bool mapCommand(int id);
 bool briefCommand(int id);
 void trigCopy(bool cut);
@@ -19,14 +12,8 @@ void trigPaste();
 void trigDuplicate();
 void dataCopySelected();
 void dataPasteSelected();
-void showQuickPicker(bool replace, bool open);
 void setMessage(const std::wstring& m);
 void shellMenusChanged();
-void openAny(const std::filesystem::path& path);
-void openProject(const std::filesystem::path& edsOrFolder);
-void removeRecent(std::vector<std::wstring>& list, const std::filesystem::path& p);
-void saveRecent();
-void refreshRecentMenus();
 
 bool commandPortable(AppState& app, int id) {
     // The active mode's layer is hidden (View > Layers): the edits of the map are refused.
@@ -53,7 +40,7 @@ bool commandPortable(AppState& app, int id) {
         else trigCopy(id == ID_EDIT_CUT);
         return true;
     }
-    if (id == ID_QUICKOPEN) return showQuickPicker(false, true), true;
+    if (id == ID_QUICKOPEN) return shellShowQuickPicker(false, true), true;
     if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax)) {
         const bool project = id >= ID_RECENT_PROJECT;
         auto& list = project ? gRecentProjects : gRecentMaps;

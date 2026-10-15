@@ -4,8 +4,11 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <charconv>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
+#include <cwctype>
 #include <deque>
 #include <filesystem>
 #include <functional>
@@ -15,8 +18,10 @@
 #include <random>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "tr.h"
 #include "text_codec.h"
 #include "view.h"
 #include "../shell.h"
@@ -29,6 +34,7 @@
 #include "stardraft/editor.h"
 #include "stardraft/eud_project.h"
 #include "stardraft/game_data.h"
+#include "stardraft/settings.h"
 #include "stardraft/hd_assets.h"
 #include "stardraft/tileset.h"
 
