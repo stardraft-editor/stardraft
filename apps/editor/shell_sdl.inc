@@ -137,8 +137,10 @@ void shellLegacyRemove(const std::wstring&, const std::wstring&) {}
 
 void shellErrorBox(const std::wstring& text, const std::wstring& title) {
     std::fprintf(stderr, "%s: %s\n", narrow(title).c_str(), narrow(text).c_str());
-    setMessage(text);
+    if (gRoot && !gNoBoxes) msgbox::ask(*gRoot, title, text, {L"OK"}, msgbox::Icon::Error);  // (as the Windows program's MB_ICONERROR box)
+    else setMessage(text);  // (a snapshot run, or before the window: the status bar)
 }
+stardraft::draw::Canvas* shellMeasureCanvas() { return &stardraft::kit_sdl::measuringCanvas(); }
 int shellAskUnapplied(const std::wstring& text, const std::wstring& title) {
     if (!gRoot) return 2;
     const int r = msgbox::ask(*gRoot, title, text, {shellTr(L"Apply"), shellTr(L"Do not apply"), shellTr(L"Cancel")},

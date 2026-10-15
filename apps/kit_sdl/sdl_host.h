@@ -50,6 +50,12 @@ public:
     // The program's quit: the close button of the window that show() made, and the system's quit request, call `fn`
     // instead of closing (the program asks about unsaved changes, then calls quit()). Unset: they close.
     void setQuitRequest(std::function<void()> fn) { quitRequest_ = std::move(fn); }
+    // The hover tooltips (the program shows them): after each mouse move over a window (not a tooltip), `fn` gets the
+    // window's root view, the mouse in its pixels and the tip there (the views' tip(); empty: none), with reset false.
+    // With reset true (and no point or text), the tip of that window must go: a press, a wheel turn, a key, the mouse
+    // left the window, the window lost the focus or closed.
+    using HoverHook = std::function<void(draw::View& root, draw::Point pt, const std::wstring& tip, bool reset)>;
+    void setHoverHook(HoverHook fn) { hover_ = std::move(fn); }
 
     // draw::Host
     void invalidate(draw::View& v) override;
@@ -110,6 +116,7 @@ private:
     SDL_WindowID modal_ = 0;  // the dialog that takes all input (runModal), or 0
     SDL_WindowID mainId_ = 0;  // the window show() made first (the program's main window), or 0
     std::function<void()> quitRequest_;  // setQuitRequest
+    HoverHook hover_;                    // setHoverHook
     SDL_WindowID captureWin_ = 0;  // the window whose mouse is captured (SDL_CaptureMouse), or 0
     int timerSeq_ = 0;
     std::map<int, Timer> timers_;

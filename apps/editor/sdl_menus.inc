@@ -97,6 +97,7 @@ bool sdlRuns(int id) {
     case ID_OPT_WINDOW:
     case ID_HELP_FEEDBACK:
     case ID_HELP_ABOUT:  // (sdl_options.inc) and the links
+    case ID_HELP_UPDATES:  // (sdl_prompts.inc)
     case ID_VIEW_KIT:
     case ID_HELP_DISCORD:
     case ID_HELP_GITHUB: return true;
@@ -350,6 +351,7 @@ void command(int id) {
     case ID_OPT_WINDOW: showOptionsSdl(); return;
     case ID_HELP_FEEDBACK: showFeedbackSdl(L"StarDraft 2"); return;
     case ID_HELP_ABOUT: showAboutSdl(); return;
+    case ID_HELP_UPDATES: sdlCheckUpdates(); return;
     case ID_VIEW_KIT: showKitGallerySdl(); return;
     case ID_HELP_DISCORD: shellOpenUrl(kDiscordInvite); return;
     case ID_HELP_GITHUB: shellOpenUrl(L"https://github.com/" + std::wstring(kRepoName)); return;

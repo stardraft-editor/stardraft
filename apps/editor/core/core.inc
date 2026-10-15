@@ -64,6 +64,7 @@
 #include "views_message_box.inc"
 #include "views_about.inc"
 #include "views_tip.inc"
+#include "prompts.inc"
 #include "kit_surface.inc"
 #include "views_kit_gallery.inc"
 #include "title.inc"
