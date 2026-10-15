@@ -21,7 +21,7 @@ struct DataExtras {
     std::string saved[4];   // the edits text as last saved: strings, buttons, requirements, unit display
     bool loadFailed[4] = {};  // the project's file did not load: it is not saved over or removed
     int button = 0;         // the selected button of the open set
-    HWND textEdit = nullptr;
+    HWND textEdit = nullptr;  // the editor's view window (gStringsText), a child of the form
     int textFor = -1;       // the string the edit box shows
     bool textDirty = false;
     bool rawText = false;   // the edit box shows the whole string: a button's hotkey and type characters too
@@ -833,11 +833,14 @@ bool showButtonPopup(std::string& text, POINT at) {
 // The editor holds the text without a button's hotkey and type characters (core views_data_strings.inc).
 std::string stringEditBody(int id) { return stringEditBody(gExtras.strings.text(id - 1)); }
 std::string stringEditPrefix(int id) { return stringEditPrefix(gExtras.strings.text(id - 1)); }
+// The editor: the core's game text view (core/views_game_text.inc) in a view window of the form; it tells the form as
+// the native editor did (WM_COMMAND, id 1801: EN_CHANGE, EN_KILLFOCUS).
+std::unique_ptr<GameTextView> gStringsText;
 void stringsCommitEdit() {
     if (!gExtras.textEdit || gExtras.textFor < 1 || !gExtras.textDirty) return;
     gExtras.textDirty = false;
     const int id = gExtras.textFor;
-    const std::string text = stringEditCommit(gExtras.strings.text(id - 1), gameTextGet(gExtras.textEdit));
+    const std::string text = stringEditCommit(gExtras.strings.text(id - 1), gStringsText->bytes());
     if (text == gExtras.strings.text(id - 1)) return;
     gExtras.strings.set(id - 1, text);
     extrasChanged();
@@ -854,8 +857,12 @@ void stringsShowEdit(bool show) {
         return;
     }
     if (!gExtras.textEdit) {
-        gExtras.textEdit = gameTextCreate(gData.form, 1801, {0, 0, scale(400), scale(160)}, stringsTextSpec());
-        ShowWindow(gExtras.textEdit, SW_HIDE);
+        gStringsText = std::make_unique<GameTextView>(stringsTextSpec());
+        auto notify = [](WORD code) { SendMessageW(gData.form, WM_COMMAND, MAKEWPARAM(1801, code), LPARAM(gExtras.textEdit)); };
+        gStringsText->onChange = [notify] { notify(EN_CHANGE); };
+        gStringsText->onFocusLost = [notify] { notify(EN_KILLFOCUS); };
+        gExtras.textEdit = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_CLIPSIBLINGS, 0, 0, scale(400), scale(160), gData.form, HMENU(INT_PTR(1801)),
+                                           app.inst, gStringsText.get());
     }
 }
 
@@ -872,7 +879,7 @@ void paintStringsForm(HDC dc, RECT rc, int& y) {
     const int top = y;
     // The preview: a picture, in the right column (above the fields when narrow); its legend is the color codes.
     std::string previewRaw = raw;
-    if (gExtras.textDirty && gExtras.textEdit && gExtras.textFor == id) previewRaw = stringEditCommit(raw, gameTextGet(gExtras.textEdit));
+    if (gExtras.textDirty && gExtras.textEdit && gExtras.textFor == id) previewRaw = stringEditCommit(raw, gStringsText->bytes());
     int picBottom;
     {
         TEXTMETRICW tm;
@@ -936,14 +943,15 @@ void paintStringsForm(HDC dc, RECT rc, int& y) {
     const RECT er{l.x0, y, l.colRight, y + gameTextHeight(stringsTextSpec(), l.colRight - l.x0, scale(120))};
     if (gExtras.textFor != id) {
         gExtras.textFor = id;
-        gameTextSet(gExtras.textEdit, stringEditBody(id));
+        gStringsText->setBytes(stringEditBody(id));
         gExtras.textDirty = false;
     }
     RECT now;
     GetWindowRect(gExtras.textEdit, &now);
     MapWindowPoints(nullptr, gData.form, reinterpret_cast<POINT*>(&now), 2);
     if (!EqualRect(&now, &er)) SetWindowPos(gExtras.textEdit, nullptr, er.left, er.top, er.right - er.left, er.bottom - er.top, SWP_NOZORDER | SWP_NOACTIVATE);
-    gameTextSetChanged(gExtras.textEdit, gExtras.strings.changed(id - 1));
+    gStringsText->setColors(kRichDefault, kRichBack);
+    gStringsText->setChanged(gExtras.strings.changed(id - 1));
     ShowWindow(gExtras.textEdit, SW_SHOWNA);
     y = er.bottom + scale(10);
     // Room: the game copies the strings over its own.

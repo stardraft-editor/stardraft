@@ -32,6 +32,7 @@
 #include "canvas.h"
 #include "view.h"
 #include "text_field.h"
+#include "rich_field.h"
 #include "dropdown.h"
 #include "list_view.h"
 #include "check_box.h"
