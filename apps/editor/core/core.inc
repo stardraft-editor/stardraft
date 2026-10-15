@@ -56,6 +56,8 @@
 #include "views_classic_batch.inc"
 #include "views_classic_value.inc"
 #include "views_unit_props.inc"
+#include "views_location_props.inc"
+#include "views_text_prompt.inc"
 #include "views_briefing.inc"
 #include "views_start.inc"
 #include "views_new_page.inc"
