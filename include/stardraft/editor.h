@@ -257,6 +257,10 @@ public:
     // Else, with `correct`, each unit goes to the nearest spot where it fits (a unit with no spot stays); without
     // it, the move is refused and no unit moves. Returns how many units moved (0: refused, no undo step).
     int moveSelection(int dx, int dy, bool correct = true);
+    // Terran add-ons: the selected buildings' linked add-ons (they move with them), and the links that are no longer
+    // true (a partner deleted, or an add-on off its building's add-on spot) cleared on both sides.
+    std::vector<int> withLinkedAddons(std::vector<int> sel) const;
+    void fixAddonLinks();
     // Copy/paste of units; paste centers the copied group on (x, y) and selects the pasted units. Each unit obeys
     // the placement options as placing does: it goes as it is if it fits (or with "units anywhere"), else to the
     // nearest spot where it fits (`correct`), else it is not pasted. Returns how many units were pasted.

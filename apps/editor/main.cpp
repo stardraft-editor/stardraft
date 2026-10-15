@@ -1133,6 +1133,17 @@ void addUnitSprites(render::Scene& s, const Unit& u, float dx, float dy, float a
     d.air = t.is(UnitFlag::Flyer) && !t.is(UnitFlag::Building);
     d.tintRed = red;
     addImage(s, d);
+    // A Terran add-on linked to its building: its connector (the image after the add-on's, as the game's data has
+    // them: Comsat Station 271, Comsat Station Connector 272), drawn with it (GitHub #129).
+    if ((u.links & UnitLink::Addon) && addonParent(u.type) >= 0 && d.image + 1 < sp.imageCount()) {
+        render::SpriteDraw c = d;
+        c.image = d.image + 1;
+        c.frame = sp.script(c.image).initFrame;
+        c.flip = false;
+        c.hasSortY = true, c.sortY = d.y;
+        c.depthBias = d.depthBias - 0.0001f;  // under the add-on
+        addImage(s, c);
+    }
     int sub = mapSubunitImage(sp, u);
     if (sub >= 0) {
         render::SpriteDraw st = d;
@@ -27263,6 +27274,35 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 capture(fs::path(datashots) / "doodadpin.png", app.main);
                 doodadPinToggle(ids[4]), doodadPinToggle(ids[1]);
                 o << "unpinned: the list as before " << (gPal.pinned == 0 && activeProject()->doodadPins() == before ? "yes" : "NO") << "\n";
+                continue;
+            }
+            if (s == "addon:") {  // addon.txt, addon.png: a Comsat Station on a command center: linked, drawn with its connector, moved with it, unlinked when deleted (#129)
+                std::ofstream o(fs::path(datashots) / "addon.txt");
+                newMap(64, 64, 0, 1);
+                Editor& ed = *app.ed;
+                const uint16_t cc = 106, comsat = 107;
+                PlaceResult c = ed.placeUnit(cc, 0, 20 * 32, 20 * 32, false);
+                const auto [sx, sy] = addonSpot(ed.unitTypes()[cc], c.unit, ed.unitTypes()[comsat]);
+                PlaceResult a = ed.placeUnit(comsat, 0, sx, sy, false);
+                o << "linked " << (a.placed && (a.unit.links & UnitLink::Addon) ? "yes" : "NO") << "\n";
+                setWorkspace(Workspace::Map);
+                setMode(Mode::Units);
+                centerOn(sx - 32, sy, 2);
+                for (int i = 0; i < 3; ++i) pump();
+                settle();
+                RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "addon.png", app.view);
+                ed.select(c.index, false);  // the command center only: its add-on moves with it
+                const int moved = ed.moveSelection(5 * 32, 0, false);
+                const Unit& b = ed.units()[size_t(c.index)];
+                const Unit& m = ed.units()[size_t(a.index)];
+                const auto spot = addonSpot(ed.unitTypes()[cc], b, ed.unitTypes()[comsat]);
+                o << "the add-on moves with its building and stays linked " << (moved == 2 && spot == std::pair<int, int>{m.x, m.y} && (m.links & UnitLink::Addon) ? "yes" : "NO")
+                  << "\n";
+                ed.select(c.index, false);
+                ed.deleteSelection();
+                const Unit& left = ed.units().back();
+                o << "deleting the building unlinks the add-on " << (left.type == comsat && !(left.links & UnitLink::Addon) && left.relatedSerial == 0 ? "yes" : "NO") << "\n";
                 continue;
             }
             if (s == "isomtwo:") {  // isomtwo.txt, isomtwo.png: isometric terrain: click a terrain, Ctrl+click a second; left paints the first, right the second

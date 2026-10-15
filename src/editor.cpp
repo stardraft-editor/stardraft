@@ -1784,13 +1784,51 @@ void Editor::deleteSelection() {
     std::sort(idx.rbegin(), idx.rend());
     for (int i : idx) units_.erase(units_.begin() + i);
     selection_.clear();
+    fixAddonLinks();  // a deleted building's add-on (or a deleted add-on's building) is not linked any more
     writeUnits(chk_, units_);
     commit(false);
 }
 
+std::vector<int> Editor::withLinkedAddons(std::vector<int> sel) const {
+    const size_t n = sel.size();
+    for (size_t k = 0; k < n; ++k) {
+        const Unit& b = units_[size_t(sel[k])];
+        if (!(b.links & UnitLink::Addon) || addonParent(b.type) >= 0) continue;  // a building with an add-on
+        for (int i = 0; i < int(units_.size()); ++i) {
+            const Unit& a = units_[size_t(i)];
+            if (a.serial == b.relatedSerial && (a.links & UnitLink::Addon) && addonParent(a.type) >= 0 &&
+                std::find(sel.begin(), sel.end(), i) == sel.end())
+                sel.push_back(i);
+        }
+    }
+    return sel;
+}
+
+void Editor::fixAddonLinks() {
+    auto find = [&](uint32_t serial) -> Unit* {
+        for (Unit& u : units_)
+            if (u.serial == serial) return &u;
+        return nullptr;
+    };
+    for (Unit& a : units_) {
+        if (!(a.links & UnitLink::Addon) || addonParent(a.type) < 0) continue;  // the add-ons
+        Unit* b = find(a.relatedSerial);
+        const bool ok = b && b->type == addonParent(a.type) && b->type < types_.size() && a.type < types_.size() &&
+                        addonSpot(types_[b->type], *b, types_[a.type]) == std::pair<int, int>{a.x, a.y};
+        if (ok) continue;
+        a.links &= uint16_t(~UnitLink::Addon), a.relatedSerial = 0;
+        if (b && b->relatedSerial == a.serial) b->links &= uint16_t(~UnitLink::Addon), b->relatedSerial = 0;
+    }
+    for (Unit& b : units_) {  // a building whose add-on is gone
+        if (!(b.links & UnitLink::Addon) || addonParent(b.type) >= 0) continue;
+        const Unit* a = find(b.relatedSerial);
+        if (!a || !(a->links & UnitLink::Addon) || a->relatedSerial != b.serial) b.links &= uint16_t(~UnitLink::Addon), b.relatedSerial = 0;
+    }
+}
+
 int Editor::moveSelection(int dx, int dy, bool correct) {
     if (selection_.empty() || (!dx && !dy)) return 0;
-    std::vector<int> sel = selection_;
+    std::vector<int> sel = withLinkedAddons(selection_);  // a building's add-on goes with it
     std::sort(sel.begin(), sel.end());
     std::vector<bool> selected(units_.size(), false);
     for (int i : sel) selected[i] = true;
@@ -1826,6 +1864,7 @@ int Editor::moveSelection(int dx, int dy, bool correct) {
     if (!count) return 0;
     beginEdit();
     for (size_t k = 0; k < sel.size(); ++k) units_[sel[k]] = moved[k];
+    fixAddonLinks();  // an add-on that did not keep its place on its building is not linked any more
     writeUnits(chk_, units_);
     commit(false);
     return count;
