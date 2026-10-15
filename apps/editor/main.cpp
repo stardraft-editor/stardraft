@@ -21265,7 +21265,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 }
                 command(ID_WS_PROJECT);
                 for (int i = 0; i < 5; ++i) pump();
-                gProj.scroll = 100000;
+                gProjView.scrollTo(100000);
                 RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                 for (int i = 0; i < 10; ++i) pump(), Sleep(20);
                 o << "report on the page: " << (gProj.hasReport ? "yes" : "no") << ", " << gProj.report.lines.size() << " lines, " << gProj.report.total << " samples\n";

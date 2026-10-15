@@ -101,6 +101,221 @@ private:
     stardraft::kit::TextField field_;
 };
 
+int projectPreviewWidth(int pageW);  // (the helpers below)
+
+// The Project page's host: the program's part (project_view.inc has the Windows one). The page asks it for the active
+// project's facts and asks it to act; the page itself draws the Files section and takes its clicks.
+class ProjectHost {
+public:
+    virtual ~ProjectHost() = default;
+    // The Files section's texts, as the page shows them (hasProject false: no project, and the page is empty).
+    struct Files {
+        bool hasProject = false, built = false;
+        std::wstring name, folder, source, output, install, euddraft;
+    };
+    virtual Files files() = 0;
+    virtual bool previewOn() = 0;                   // the script preview is shown (the </> button is on)
+    virtual void togglePreview() = 0;
+    virtual void openFolder() = 0;
+    virtual void editOutput(draw::Rect field) = 0;  // the output file's name, typed in a box under the field
+    virtual void browseOutput() = 0;
+    virtual void defaultOutput() = 0;
+    virtual void changeInstall() = 0;
+    virtual void pageResized() = 0;
+};
+
+// The Project page: the project's files, its build options and its scripts. A view in a view window: it scrolls, and it
+// takes the clicks of its own parts. The sections after Files are the program's code for now (shellPaintProjectRest,
+// shell.h), which draws and clicks them on the same canvas.
+class ProjectPageView final : public draw::View {
+public:
+    explicit ProjectPageView(ProjectHost& host) : host_(host) {}
+
+    // The scroll position (the page's height is the one the last paint found).
+    void scrollTo(int s) {
+        const int s2 = std::clamp(s, 0, std::max(0, contentH_ - height()));
+        if (s2 != scroll_) scroll_ = s2, invalidate();
+    }
+
+    void paint(draw::Canvas& c) override;
+    bool mouse(const draw::MouseEvent& e) override;
+    bool vscroll(int code, int pos, int track, int) override;
+    bool windowScrollBar(int& range, int& page, int& pos) override {
+        range = std::max(0, contentH_ - 1), page = height(), pos = scroll_;
+        return true;
+    }
+    void resized() override { host_.pageResized(); }
+    bool hoverTip() const override { return true; }
+    draw::Cursor cursor(draw::Point pt) override;
+    std::wstring tip(draw::Point pt) override;
+    // Report feedback names the part under the mouse by its tip; elsewhere on the page, the page.
+    std::wstring feedbackName(draw::Point pt) override {
+        const int hi = hitAt(pt);
+        if (hi >= 0 && !hits_[size_t(hi)].tip.empty()) return hits_[size_t(hi)].tip;
+        const std::wstring t = shellProjectRestTip(pt);
+        return t.empty() ? std::wstring(L"the Project page") : t;
+    }
+
+private:
+    struct Hit {
+        draw::Rect r;
+        std::function<void()> click;
+        std::wstring tip;
+        draw::Cursor cursor = draw::Cursor::Arrow;
+    };
+    struct Button {
+        std::wstring text, tip;
+        std::function<void()> click;
+    };
+    int hitAt(draw::Point pt) const {
+        for (size_t i = hits_.size(); i-- > 0;)
+            if (hits_[i].r.contains(pt)) return int(i);
+        return -1;
+    }
+    // Whether the mouse is in `r` (the host's pointer, in this view's coordinates).
+    bool hot(draw::Rect r) const { return host() && r.contains(host()->mouse(*this)); }
+    static draw::Rect squareOf(draw::Rect r) {
+        const int w = r.width(), h = r.height(), s = std::min(w, h);
+        const int x = r.left + (w - s) / 2, y = r.top + (h - s) / 2;
+        return {x, y, x + s, y + s};
+    }
+    static int buttonWidth(draw::Canvas& c, const std::wstring& text) {
+        return std::max(scale(stardraft::kit::kButtonMinW), c.measure(text) + scale(28));
+    }
+    // A button's face (the kit's look: a tone Normal button, lit under the mouse).
+    static void drawButton(draw::Canvas& c, draw::Rect r, const std::wstring& text, bool over) {
+        c.roundBox(r, over ? kCtlHot : kCtl, over ? kBorderHot : kBorder, float(scale(stardraft::kit::kRadius)));
+        c.text(r, text, kText, draw::kMiddle | draw::kCenter | draw::kEllipsis);
+    }
+    // The preview's toggle: a bare icon, accent while the preview is on.
+    static void drawToggle(draw::Canvas& c, draw::Rect r, bool on, bool over) {
+        if (over) c.roundBox(r, kCtlHot, draw::kNone, float(scale(stardraft::kit::kRadius)));
+        c.icon(r, int(UiIcon::Code), over ? (on ? kAccentBright : kText) : (on ? kAccent : kDim), scale(16));
+    }
+
+    ProjectHost& host_;
+    std::vector<Hit> hits_;  // what the last paint put under the mouse
+    int hover_ = -1;         // the hit under the mouse at the last move
+    int scroll_ = 0, contentH_ = 0;
+};
+
+void ProjectPageView::paint(draw::Canvas& c) {
+    hits_.clear();
+    const int w = width(), h = height();
+    c.fill({0, 0, w, h}, kBg);
+    const int pageW = w - projectPreviewWidth(w);
+    const int x0 = scale(18), labelW = scale(170), rowH = scale(32), headH = scale(stardraft::kit::kRowH);
+    const int colRight = std::min(pageW - x0, x0 + scale(1000));
+    // The preview's toggle: </> at the top right of the page, as the Triggers workspace has it.
+    const draw::Rect tog = squareOf({pageW - scale(48), scale(10), pageW - scale(16), scale(42)});
+    const bool on = host_.previewOn();
+    drawToggle(c, tog, on, hot(tog));
+    hits_.push_back({tog, [this] { host_.togglePreview(); }, on ? L"Hide the script's code" : L"Show the selected script's code", draw::Cursor::Hand});
+
+    int y = scale(16) - scroll_;
+    const ProjectHost::Files f = host_.files();
+    if (f.hasProject) {
+        // The title: the project's name, and whether it is built.
+        const draw::Font old = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}));
+        c.text({x0, y, colRight, y + scale(26)}, f.name.empty() ? std::wstring(L"(empty)") : f.name, kText, draw::kMiddle | draw::kEllipsis);
+        c.setFont(old);
+        c.text({x0, y + scale(24), colRight, y + scale(42)}, f.built ? L"EUD project  \x00B7  built" : L"EUD project  \x00B7  not built yet", kDim, draw::kMiddle);
+        y += scale(56);
+
+        c.text({x0, y, colRight, y + headH}, L"Files", kText, draw::kMiddle);
+        c.fill({x0, y + headH - 1, colRight, y + headH}, kBorder);
+        y += headH + scale(6);
+        // A row: its label, a field (read only, or one to click), and buttons on the right.
+        auto row = [&](const wchar_t* label, const std::wstring& text, bool edit, const std::vector<Button>& buttons, const std::wstring& tip,
+                       const std::function<void(draw::Rect)>& editAct) {
+            c.text({x0, y, x0 + labelW, y + rowH}, label, kDim, draw::kMiddle | draw::kEllipsis);
+            int bx = colRight;
+            for (auto it = buttons.rbegin(); it != buttons.rend(); ++it) bx -= buttonWidth(c, it->text) + scale(8);
+            const draw::Rect field{x0 + labelW, y + scale(2), bx, y + rowH - scale(2)};
+            if (edit) {
+                c.roundBox(field, kCtl, hot(field) ? kBorderHot : kBorder, float(scale(stardraft::kit::kRadius)));
+                hits_.push_back({field, [editAct, field] { editAct(field); }, tip, draw::Cursor::IBeam});
+            } else if (!tip.empty())
+                hits_.push_back({field, nullptr, tip, draw::Cursor::Arrow});
+            const draw::Rect shown{field.left + (edit ? scale(8) : 0), field.top, field.right - scale(8), field.bottom};
+            c.text(shown, text, edit ? kText : kDim, draw::kPathEllipsis | draw::kMiddle);
+            const int by = y + (rowH - scale(stardraft::kit::kButtonH)) / 2;
+            int rx = colRight;
+            for (auto it = buttons.rbegin(); it != buttons.rend(); ++it) {
+                const int bw = buttonWidth(c, it->text);
+                const draw::Rect br{rx - bw, by, rx, by + scale(stardraft::kit::kButtonH)};
+                drawButton(c, br, it->text, hot(br));
+                hits_.push_back({br, it->click, it->tip, draw::Cursor::Hand});
+                rx -= bw + scale(stardraft::kit::kButtonGap);
+            }
+            y += rowH + scale(4);
+        };
+        row(L"Folder", f.folder, false, {{L"Open folder", L"", [this] { host_.openFolder(); }}}, L"", nullptr);
+        row(L"Source map", f.source, false, {}, L"", nullptr);
+        row(L"Output file", f.output, true,
+            {{L"Browse\x2026", L"", [this] { host_.browseOutput(); }}, {L"Default", L"In the project folder", [this] { host_.defaultOutput(); }}},
+            L"Where Build writes the map", [this](draw::Rect field) { host_.editOutput(field); });
+        row(L"StarCraft folder", f.install, false, {{L"Change\x2026", L"", [this] { host_.changeInstall(); }}},
+            L"The folder that StarDraft 2 reads game data from", nullptr);
+        row(L"euddraft", f.euddraft, false, {}, L"", nullptr);
+        y += scale(12);
+        y = shellPaintProjectRest(c, y, pageW, h);
+    }
+    contentH_ = y + scroll_;
+    if (const int most = std::max(0, contentH_ - h); scroll_ > most) scroll_ = most, invalidate();  // a taller window: no scroll is left
+}
+
+bool ProjectPageView::mouse(const draw::MouseEvent& e) {
+    switch (e.kind) {
+    case draw::MouseKind::Move:
+    case draw::MouseKind::Leave: {  // a part under the mouse is painted again
+        const int hv = e.kind == draw::MouseKind::Leave ? -1 : hitAt(e.pt);
+        if (hv != hover_) hover_ = hv, invalidate();
+        return shellProjectRestMouse(e);
+    }
+    case draw::MouseKind::Down:
+        if (e.button != 0) return false;
+        if (const int hi = hitAt(e.pt); hi >= 0 && hits_[size_t(hi)].click) {
+            const std::function<void()> run = hits_[size_t(hi)].click;  // a copy: the click may repaint and clear hits_
+            run();
+            return true;
+        }
+        return shellProjectRestMouse(e);
+    case draw::MouseKind::Up:
+    case draw::MouseKind::DoubleClick: return shellProjectRestMouse(e);
+    case draw::MouseKind::Wheel:
+        scrollTo(scroll_ - int(e.wheel * float(scale(32) * 3)));
+        return true;
+    default: return false;
+    }
+}
+
+bool ProjectPageView::vscroll(int code, int pos, int track, int) {
+    const int page = height();
+    switch (code) {
+    case 0: scrollTo(scroll_ - scale(32)); break;  // SB_LINEUP
+    case 1: scrollTo(scroll_ + scale(32)); break;  // SB_LINEDOWN
+    case 2: scrollTo(scroll_ - page); break;       // SB_PAGEUP
+    case 3: scrollTo(scroll_ + page); break;       // SB_PAGEDOWN
+    case 4: scrollTo(pos); break;                  // SB_THUMBPOSITION
+    case 5: scrollTo(track); break;                // SB_THUMBTRACK
+    case 6: scrollTo(0); break;                    // SB_TOP
+    case 7: scrollTo(contentH_); break;            // SB_BOTTOM
+    default: return false;
+    }
+    return true;
+}
+
+draw::Cursor ProjectPageView::cursor(draw::Point pt) {
+    const int hi = hitAt(pt);
+    return hi >= 0 ? hits_[size_t(hi)].cursor : shellProjectRestCursor(pt);
+}
+
+std::wstring ProjectPageView::tip(draw::Point pt) {
+    const int hi = hitAt(pt);
+    return hi >= 0 ? hits_[size_t(hi)].tip : shellProjectRestTip(pt);
+}
+
 // The project page's helpers that need no window (moved from project_view.inc).
 // Sections the page sets up elsewhere (Build options) or Build writes (keys and mouse, chat commands): not scripts.
 bool projectManagedSection(const std::string& name) {

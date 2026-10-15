@@ -10,7 +10,6 @@ struct ProjectPage {
     HWND wnd = nullptr, preview = nullptr;  // preview: the selected script's code, on the right (View: the </> button)
     std::string previewOf;                  // what the preview shows
     ui::Surface surface;
-    int scroll = 0, height = 0;
     std::string selected;               // a script (its .eds section name)
     std::vector<std::string> sections;  // the scripts, in build order
     HANDLE epTrace = nullptr;           // epTrace while it is open
@@ -23,7 +22,7 @@ struct ProjectPage {
     bool hasReport = false;
     eptrace::Report report;
 } gProj;
-constexpr UINT_PTR kEpTraceTimer = 41;
+void projectEpTraceArm();
 
 std::wstring trigCodeLineName(int line);
 bool trigShowCodeLine(int line);
@@ -318,7 +317,7 @@ void projectStartEpTrace() {
     gProj.epTraceFolder = pr->folder();
     logLine(L"epTrace started with " + pr->traceMap().make_preferred().wstring() + L". Its window shows the samples and the lines that run; close it to "
             L"write the report.");
-    SetTimer(gProj.wnd, kEpTraceTimer, 500, nullptr);
+    projectEpTraceArm();
     setMessage(L"epTrace is open: play the map, then close epTrace's window (it writes the report then)");
     InvalidateRect(gProj.wnd, nullptr, FALSE);
 }
@@ -407,386 +406,391 @@ int paintEpTrace(HDC mem, const FormLayout& l, int y, int rowH, const EudProject
     return y + scale(24);
 }
 
-void paintProjectPage(HWND hwnd) {
-    gProj.surface.begin(hwnd);
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-    HGDIOBJ ob = SelectObject(mem, back), of = SelectObject(mem, app.font);
-    FillRect(mem, &rc, app.bgBrush);
-    SetBkMode(mem, TRANSPARENT);
-    const int pageW = int(rc.right) - projectPreviewWidth(rc.right);
-    FormLayout l = formLayout({0, 0, pageW, rc.bottom});
-    l.labelW = scale(170), l.colRight = std::min<int>(pageW - l.x0, l.x0 + scale(1000)), l.colW = l.colRight - l.x0;
-    // The preview's toggle: </> at the top right of the page, as the Triggers workspace has it.
-    ui::iconButton(mem, {pageW - scale(48), scale(10), pageW - scale(16), scale(42)}, UiIcon::Code,
-                   [] {
-                       gDock.scriptPreview = !gDock.scriptPreview, saveDock();
-                       InvalidateRect(gProj.wnd, nullptr, FALSE);
-                       projectPreviewRefresh(true);
-                   },
-                   gDock.scriptPreview ? L"Hide the script's code" : L"Show the selected script's code", ui::Icon::Bare, gDock.scriptPreview);
-    const int rowH = scale(32);
-    int y = scale(16) - gProj.scroll;
-    EudProject* pr = activeProject();
-    if (pr) {
-        std::error_code ec;
-        y = ui::title(mem, l.x0, y, l.colRight, nullptr, widen(pr->name()), fs::exists(pr->outputMap(), ec) ? L"EUD project  \x00B7  built" : L"EUD project  \x00B7  not built yet");
-        auto rel = [&](const fs::path& p2) {
-            std::error_code e2;
-            fs::path r = fs::relative(p2, pr->folder(), e2);
-            if (e2 || r.empty() || r.native().rfind(L"..", 0) == 0) r = p2;
-            return r.make_preferred().wstring();
-        };
-        // A row: its label, a field (read only, or one to click), and buttons on the right.
-        auto row = [&](const wchar_t* label, const std::wstring& text, std::function<void(RECT)> edit, std::vector<ui::ButtonSpec> buttons, const std::wstring& tip = L"") {
-            FormLayout rl = l;
-            rl.rowH = rowH;
-            ui::fieldLabel(mem, rl, y, label, false);
-            int bx = l.colRight;
-            for (auto it = buttons.rbegin(); it != buttons.rend(); ++it) bx -= ui::buttonWidth(mem, it->text) + scale(8);
-            RECT f{l.x0 + l.labelW, y + scale(2), bx, y + rowH - scale(2)};
-            const bool over = edit && ui::hot(f);
-            if (edit) ui::fieldBox(mem, f, over ? ui::Field::Hot : ui::Field::Normal);  // read only: the text alone (no box that looks like a field)
-            RECT t{f.left + (edit ? scale(8) : 0), f.top, f.right - scale(8), f.bottom};
-            SetTextColor(mem, edit ? kText : kDim);
-            DrawTextW(mem, text.c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_PATH_ELLIPSIS | DT_NOPREFIX);
-            if (edit) hitsOut().push_back({f, nullptr, [f, edit] { edit(f); }, tip, IDC_IBEAM, {}});
-            else if (!tip.empty()) hitsOut().push_back({f, nullptr, nullptr, tip, IDC_ARROW, {}});
-            if (!buttons.empty()) ui::buttonsRight(mem, l.colRight, y + (rowH - scale(ui::kButtonH)) / 2, buttons);
-            y += rowH + scale(4);
-        };
-        y = ui::sectionHeader(mem, l, y, L"Files");
-        row(L"Folder", fs::path(pr->folder()).make_preferred().wstring(), nullptr,
-            {{L"Open folder", ui::Tone::Normal, [pr] { ShellExecuteW(app.main, L"open", pr->folder().wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL); }}});
-        row(L"Source map", rel(pr->inputMap()), nullptr, {});
-        row(L"Output file", rel(pr->outputMap()),
-            [](RECT f) {
-                EudProject* p = activeProject();
-                if (!p) return;
-                POINT at{f.left, f.bottom + scale(2)};
-                ClientToScreen(gProj.wnd, &at);
-                std::string text = narrow(fs::path(p->outputMap()).make_preferred().wstring());
-                if (editTextValue(L"Output file", text, at)) projectSetOutput(widen(text));
-            },
-            {{L"Browse\x2026", ui::Tone::Normal,
-              [pr] {
-                  const std::wstring file = pickOutputFile(app.main, fs::path(pr->outputMap()).make_preferred().wstring());
-                  if (!file.empty()) projectSetOutput(file);
-              }},
-             {L"Default", ui::Tone::Normal, [pr] { projectSetOutput(fs::path(pr->defaultOutputMap()).wstring()); }, L"In the project folder"}},
-            L"Where Build writes the map");
-        const std::wstring inst = currentInstallFolder();
-        row(L"StarCraft folder", inst.empty() ? L"Found by StarDraft 2" : inst, nullptr, {{L"Change\x2026", ui::Tone::Normal, [] {
-                                                                                             chooseInstallFolder();
-                                                                                             projectFormRefresh();
-                                                                                         }}},
-            L"The folder that StarDraft 2 reads game data from");
-        const auto use = euddraft::find({});
-        row(L"euddraft", use ? widen(use->version) + L"   " + fs::path(use->exe).parent_path().make_preferred().wstring() : L"Downloaded on the first build", nullptr, {});
-        y += scale(12);
-
-        // Build options: euddraft's plugins.
-        y = ui::sectionHeader(mem, l, y, L"Build");
-        {  // the label column names the options (not an empty column)
-            FormLayout rl = l;
-            rl.rowH = rowH;
-            ui::fieldLabel(mem, rl, y, L"Options", false);
-        }
-        auto option = [&](const wchar_t* label, const char* plugin, const std::wstring& tip, const std::wstring& on, const std::wstring& off) {
-            const bool set = pr->plugin(plugin);
-            const std::string name = plugin;
-            ui::check(mem, {l.x0 + l.labelW, y, l.colRight, y + rowH}, label, set,
-                      [name, set, on, off] {
-                          EudProject* p = activeProject();
-                          if (!p) return;
-                          p->setPlugin(name, !set);
-                          projectSave(*p, set ? off : on);
-                          projectFormRefresh();
-                      },
-                      tip);
-            y += rowH;
-        };
-        option(L"EUD Turbo", "eudTurbo", L"A shorter trigger cycle: the triggers run more often (euddraft's eudTurbo)", L"EUD Turbo on", L"EUD Turbo off");
-        option(L"More units and sprites", "unlimiter", L"Room for more sprites, images, bullets and orders (euddraft's unlimiter)", L"More units and sprites on",
-               L"More units and sprites off");
-        option(L"Air units do not push apart", "noAirCollision", L"Air units can stay on top of each other (euddraft's noAirCollision)",
-               L"Air units do not push apart", L"Air units push apart");
-        {  // New graphics for preplaced units (R8): the map's code makes them again at the start
-            const bool set = pr->remakeUnits();
-            ui::check(mem, {l.x0 + l.labelW, y, l.colRight, y + rowH}, L"New graphics for preplaced units", set,
-                      [set] {
-                          EudProject* p = activeProject();
-                          if (!p) return;
-                          p->setRemakeUnits(!set);
-                          projectSave(*p, set ? L"New graphics for preplaced units off" : L"New graphics for preplaced units on");
-                          projectFormRefresh();
-                      },
-                      L"The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, the map "
-                      L"removes each preplaced unit that the edits give other graphics, and makes it again on its place at the start. The map "
-                      L"view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground "
-                      L"that it cannot stand on) moves near its place, or the game does not make it again.");
-            y += rowH;
-        }
-        {  // Debug build: the triggers check indexes in the game (T.5)
-            const bool set = pr->debugBuild();
-            ui::check(mem, {l.x0 + l.labelW, y, l.colRight, y + rowH}, L"Debug build", set,
-                      [set] {
-                          EudProject* p = activeProject();
-                          if (!p) return;
-                          p->setDebugBuild(!set);
-                          projectSave(*p, set ? L"Debug build off" : L"Debug build on");
-                          projectFormRefresh();
-                          InvalidateRect(gTopBar, nullptr, FALSE);  // the bug button beside Build
-                      },
-                      L"The triggers check each list index that the game calculates. An index out of range shows a message on the screen, and the "
-                      L"triggers use the first item. Turn it off for the map that you release.");
-            y += rowH;
-        }
-        {  // Trace build: euddraft's debug mode, for epTrace
-            const bool set = pr->traceBuild();
-            ui::check(mem, {l.x0 + l.labelW, y, l.colRight, y + rowH}, L"Trace build (epTrace)", set,
-                      [set] {
-                          EudProject* p = activeProject();
-                          if (!p) return;
-                          p->setTraceBuild(!set);
-                          projectSave(*p, set ? L"Trace build off" : L"Trace build on: build the map again to use epTrace");
-                          projectFormRefresh();
-                          InvalidateRect(gTopBar, nullptr, FALSE);
-                      },
-                      L"The scripts record each line that they run, and Build writes a trace file beside the map. epTrace reads it while the map "
-                      L"plays in StarCraft and shows which lines use the most time. The map runs more slowly: turn it off for the map that you release.");
-            y += rowH;
-        }
-        y += scale(6);
-        // Background music (bgmplayer) and files in memory (dataDumper) are off for now: not shown. A project that has
-        // them keeps its sections, and Build uses them.
-        constexpr bool kMusicAndFiles = false;
-        if (kMusicAndFiles) {
-            FormLayout rl = l;
-            rl.rowH = rowH;
-            ui::fieldLabel(mem, rl, y, L"Background music", pr->plugin("bgmplayer"));
-            const std::string path = sectionValue(*pr, "bgmplayer", "path"), len = sectionValue(*pr, "bgmplayer", "length");
-            std::wstring text = L"None";
-            if (!path.empty()) {
-                const double secs = std::atof(len.c_str());
-                wchar_t t[32];
-                std::swprintf(t, 32, L"   %d:%02d", int(secs) / 60, int(secs) % 60);
-                text = fs::path(path).filename().wstring() + t;
-            }
-            const RECT box{l.x0 + l.labelW, y + scale(2), l.colRight - scale(ui::kIconBox + 8), y + rowH - scale(2)};
-            ui::pickBox(mem, box, text, false, [](RECT) { projectChooseMusic(); }, L"Plays again and again for every player (euddraft's bgmplayer)");
-            if (!path.empty())
-                ui::iconButton(mem, {box.right + scale(4), box.top, box.right + scale(4 + ui::kIconBox), box.bottom}, UiIcon::Close,
-                               [] {
-                                   if (EudProject* p = activeProject()) p->setPlugin("bgmplayer", false), projectSave(*p, L"No background music");
-                               },
-                               L"No background music", ui::Icon::Bare, false, true, ui::Tone::Danger);
-            y += rowH + scale(4);
-        }
-        if (kMusicAndFiles) {
-            // Files in memory (euddraft's dataDumper): each file's bytes at an address, when the map starts.
-            FormLayout rl = l;
-            rl.rowH = rowH;
-            const auto lines = pr->sectionLines("dataDumper");
-            ui::fieldLabel(mem, rl, y, L"Files in memory", !lines.empty());
-            int ly = y;
-            for (size_t i = 0; i < lines.size(); ++i) {
-                const size_t c = lines[i].find(':');
-                const std::string file = c == std::string::npos ? lines[i] : lines[i].substr(0, c), at = c == std::string::npos ? "" : lines[i].substr(c + 1);
-                RECT r{l.x0 + l.labelW - scale(6), ly, l.colRight, ly + rowH};
-                ui::listRow(mem, r, false, ui::hot(r));
-                SetTextColor(mem, kText);
-                RECT t{r.left + scale(6), r.top, r.right - scale(200), r.bottom};
-                DrawTextW(mem, widen(file).c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_PATH_ELLIPSIS | DT_NOPREFIX);
-                SetTextColor(mem, kDim);
-                RECT a{r.right - scale(200), r.top, r.right - scale(40), r.bottom};
-                DrawTextW(mem, (L"at " + widen(at)).c_str(), -1, &a, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
-                ui::rowActions(mem, r, {{UiIcon::Close, L"Remove from the list", [i] {
-                                             EudProject* p = activeProject();
-                                             if (!p) return;
-                                             auto ls = p->sectionLines("dataDumper");
-                                             if (i < ls.size()) ls.erase(ls.begin() + long(i));
-                                             p->setPlugin("dataDumper", !ls.empty(), ls);
-                                             projectSave(*p);
-                                         },
-                                         ui::Tone::Danger}},
-                               false);
-                ly += rowH;
-            }
-            ui::smallButton(mem, l.x0 + l.labelW, ly, rowH, L"Add a file\x2026", [] {
-                EudProject* p = activeProject();
-                if (!p) return;
-                platform::FileDialog d;
-                d.owner = app.main;
-                d.filters = {{"All files", "*.*"}};
-                d.title = narrow(L"A file to load into memory");
-                const auto picked = platform::openFileDialog(d);
-                if (!picked) return;
-                const std::wstring buf = picked->wstring();
-                std::wstring at = L"0x";
-                if (!prompt(L"Memory address (for example 0x58A364)", at) || at.size() < 3) return;
-                std::error_code ec;
-                fs::path rel = fs::relative(buf, p->folder(), ec);
-                const bool inside = !ec && !rel.empty() && rel.native().rfind(L"..", 0) != 0;
-                auto ls = p->sectionLines("dataDumper");
-                ls.push_back((inside ? rel.generic_string() : narrow(buf)) + " : " + narrow(at));
-                p->setPlugin("dataDumper", true, ls);
-                projectSave(*p, L"The file loads into memory when the map starts");
-            }, L"Loads a file's bytes into the game's memory when the map starts (euddraft's dataDumper)");
-            y = ly + rowH + scale(12);
-        }
-
-        // The scripts Build runs, in order.
-        {
-            const int hy = y;
-            y = ui::sectionHeader(mem, l, y, L"Scripts");
-            hitsOut().push_back({{l.x0, hy, l.x0 + scale(120), hy + l.rowH}, nullptr, nullptr,
-                                 L"Build runs these in order, from the top. onPluginStart runs once when the map starts; beforeTriggerExec and afterTriggerExec run each trigger cycle",
-                                 IDC_ARROW, {}});
-        }
-        for (const auto& name : gProj.sections) {
-            const fs::path file = scriptPath(*pr, name);
-            std::error_code e2;
-            const std::string ext = file.extension().string();
-            const bool script = ext == ".eps" || ext == ".py", generated = EudProject::isGenerated(name);
-            // The note: where the code comes from; for a script file, whether it is found and its last change (R5: a
-            // change made in another editor after the last build shows in the accent color).
-            const bool linked = script && EudProject::isLinked(name);
-            std::wstring note, after;
-            bool warn = false;
-            if (generated) note = L"from the Data workspace";
-            else if (!script) note = L"euddraft plugin";
-            else if (!fs::is_regular_file(file, e2)) note = linked ? L"linked  \x00B7  not found: Build stops" : L"not found: Build stops", warn = true;
-            else {
-                note = (linked ? L"linked  \x00B7  changed " : L"changed ") + projectFileTime(file);
-                std::error_code e3;
-                const auto built = fs::last_write_time(pr->outputMap(), e3);
-                if (!e3 && fs::last_write_time(file, e2) > built) after = L"  after the last build";
-            }
-            RECT r{l.x0 - scale(6), y, l.colRight, y + rowH};
-            const bool on = name == gProj.selected;
-            ui::listRow(mem, r, on, ui::hot(r));
-            std::wstring tip;
-            if (script)
-                tip = (linked ? L"A linked file. StarDraft 2 does not copy or change it: " : L"") + fs::path(file).make_preferred().wstring();
-            hitsOut().push_back({r, nullptr, [name] {
-                                     gProj.selected = name;
-                                     InvalidateRect(gProj.wnd, nullptr, FALSE);
-                                     projectPreviewRefresh();
-                                 },
-                                 tip, IDC_HAND, {}});
-            const size_t at = size_t(&name - gProj.sections.data());
-            ui::reorderRow(mem, "scripts", r, int(at), [](int from, int to) {
-                if (from < 0 || size_t(from) >= gProj.sections.size()) return;
-                const std::string moved = gProj.sections[size_t(from)];
-                for (int k = from; k < to; ++k) projectMoveScript(moved, 1);
-                for (int k = from; k > to; --k) projectMoveScript(moved, -1);
-            }, !generated);
-            HGDIOBJ f2 = SelectObject(mem, monoFont());
-            SetTextColor(mem, ui::rowText(on));
-            RECT t{l.x0 + scale(16), r.top, r.right - scale(380), r.bottom};
-            DrawTextW(mem, widen(name).c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_PATH_ELLIPSIS | DT_NOPREFIX);
-            const int nameRight = t.left + std::min<int>(t.right - t.left, ui::textWidth(mem, widen(name)));
-            SelectObject(mem, f2);
-            SetTextColor(mem, warn ? kWarn : kDim);
-            RECT n{nameRight + scale(16), r.top, r.right - scale(140), r.bottom};
-            DrawTextW(mem, note.c_str(), -1, &n, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-            if (!after.empty()) {
-                SetTextColor(mem, kAccent);
-                RECT na = n;
-                na.left = std::min<int>(n.right, n.left + ui::textWidth(mem, note));
-                DrawTextW(mem, after.c_str(), -1, &na, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-            }
-            const size_t idx = size_t(&name - gProj.sections.data());
-            std::vector<ui::RowAction> acts;
-            if (script) {
-                acts.push_back({UiIcon::OpenExternal, L"Open in your editor", [file] { triggersOpenFile(file); }});
-                acts.push_back({UiIcon::Folder, L"Show in folder", [file] {
-                                    ShellExecuteW(app.main, L"open", L"explorer.exe", (L"/select,\"" + fs::path(file).make_preferred().wstring() + L"\"").c_str(), nullptr,
-                                                  SW_SHOWNORMAL);
-                                }});
-            }
-            const bool movable = !generated;
-            acts.push_back({UiIcon::MoveUp, L"Earlier", [name] { projectMoveScript(name, -1); }, ui::Tone::Normal, false,
-                            movable && idx > 0 && !EudProject::isGenerated(gProj.sections[idx - 1])});
-            acts.push_back({UiIcon::MoveDown, L"Later", [name] { projectMoveScript(name, 1); }, ui::Tone::Normal, false, movable && idx + 1 < gProj.sections.size()});
-            acts.push_back({UiIcon::Close,
-                            generated ? L"Comes from the Data workspace"
-                            : linked  ? L"Remove the link. StarDraft 2 does not delete the file."
-                                      : L"Remove from the build (the file stays in the project folder)",
-                            [name] { projectRemoveScript(name); }, ui::Tone::Danger, false, !generated});
-            ui::rowActions(mem, r, acts, on);
-            y += rowH;
-        }
-        ui::reorderDropLine(mem, "scripts");
-        y += scale(4);
-        const int ax = ui::smallButton(mem, l.x0, y, rowH, L"New script", [] {
-            addProjectScript();
-            projectFormRefresh();
-        });
-        ui::smallButton(mem, ax + scale(8), y, rowH, L"Link a file\x2026", [] { projectAddExistingScript(); },
-                 L"Add an .eps or .py file from anywhere on disk to the build. StarDraft 2 does not copy or change it.");
-        y += rowH + scale(24);
-        if (pr->traceBuild() || projectTraceReport(*pr)) y = paintEpTrace(mem, l, y, rowH, *pr, rel);
-    }
-    gProj.height = y + gProj.scroll;
-    if (const int most = std::max(0, gProj.height - int(rc.bottom)); gProj.scroll > most)  // taller window: the bar hides, so no scroll is left
-        gProj.scroll = most, InvalidateRect(hwnd, nullptr, FALSE);
-    SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS, 0, std::max(0, gProj.height - 1), UINT(rc.bottom), gProj.scroll};
-    SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, of), SelectObject(mem, ob);
-    DeleteObject(back);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
-    gProj.surface.end(hwnd);
+// The path as the Project page shows it: relative to the project's folder, else as it is.
+std::wstring projectRel(EudProject& pr, const fs::path& p2) {
+    std::error_code e2;
+    fs::path r = fs::relative(p2, pr.folder(), e2);
+    if (e2 || r.empty() || r.native().rfind(L"..", 0) == 0) r = p2;
+    return r.make_preferred().wstring();
 }
 
-LRESULT CALLBACK projectWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    if (LRESULT r; gProj.surface.message(hwnd, msg, wp, lp, r)) return r;
-    switch (msg) {
-    case WM_TIMER:
-        if (wp == kEpTraceTimer && (!gProj.epTrace || WaitForSingleObject(gProj.epTrace, 0) == WAIT_OBJECT_0)) {  // epTrace closed
-            if (gProj.epTrace) CloseHandle(gProj.epTrace), gProj.epTrace = nullptr;
-            KillTimer(hwnd, kEpTraceTimer);
-            epTraceLogReport();
-            InvalidateRect(hwnd, nullptr, FALSE);
+// The Project page's program parts (core/views_project.inc: ProjectHost): the active project's facts for the Files
+// section, and what its buttons and the preview toggle do.
+class ProjectProgram final : public ProjectHost {
+public:
+    Files files() override {
+        Files f;
+        EudProject* pr = activeProject();
+        if (!pr) return f;
+        std::error_code ec;
+        f.hasProject = true;
+        f.built = fs::exists(pr->outputMap(), ec);
+        f.name = widen(pr->name());
+        f.folder = fs::path(pr->folder()).make_preferred().wstring();
+        f.source = projectRel(*pr, pr->inputMap());
+        f.output = projectRel(*pr, pr->outputMap());
+        const std::wstring inst = currentInstallFolder();
+        f.install = inst.empty() ? L"Found by StarDraft 2" : inst;
+        const auto use = euddraft::find({});
+        f.euddraft = use ? widen(use->version) + L"   " + fs::path(use->exe).parent_path().make_preferred().wstring() : L"Downloaded on the first build";
+        return f;
+    }
+    bool previewOn() override { return gDock.scriptPreview; }
+    void togglePreview() override {
+        gDock.scriptPreview = !gDock.scriptPreview, saveDock();
+        InvalidateRect(gProj.wnd, nullptr, FALSE);
+        projectPreviewRefresh(true);
+    }
+    void openFolder() override {
+        if (EudProject* pr = activeProject()) ShellExecuteW(app.main, L"open", pr->folder().wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+    }
+    void editOutput(draw::Rect f) override {
+        EudProject* p = activeProject();
+        if (!p) return;
+        POINT at{f.left, f.bottom + scale(2)};
+        ClientToScreen(gProj.wnd, &at);
+        std::string text = narrow(fs::path(p->outputMap()).make_preferred().wstring());
+        if (editTextValue(L"Output file", text, at)) projectSetOutput(widen(text));
+    }
+    void browseOutput() override {
+        if (EudProject* pr = activeProject()) {
+            const std::wstring file = pickOutputFile(app.main, fs::path(pr->outputMap()).make_preferred().wstring());
+            if (!file.empty()) projectSetOutput(file);
         }
-        return 0;
-    case WM_PAINT: paintProjectPage(hwnd); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_SIZE: InvalidateRect(hwnd, nullptr, FALSE), projectPreviewRefresh(); return 0;
-    case WM_LBUTTONDBLCLK:  // a script: open it
+    }
+    void defaultOutput() override {
+        if (EudProject* pr = activeProject()) projectSetOutput(fs::path(pr->defaultOutputMap()).wstring());
+    }
+    void changeInstall() override {
+        chooseInstallFolder();
+        projectFormRefresh();
+    }
+    void pageResized() override {
+        InvalidateRect(gProj.wnd, nullptr, FALSE);
+        projectPreviewRefresh();
+    }
+};
+ProjectProgram gProjProgram;
+ProjectPageView gProjView(gProjProgram);
+
+// epTrace's timer: a tick every 500 ms while it is open (the page's own timer, through its view's host), and the report
+// when it closes.
+void projectEpTraceTick() {
+    if (!gProj.epTrace || WaitForSingleObject(gProj.epTrace, 0) == WAIT_OBJECT_0) {  // epTrace closed
+        if (gProj.epTrace) CloseHandle(gProj.epTrace), gProj.epTrace = nullptr;
+        epTraceLogReport();
+        InvalidateRect(gProj.wnd, nullptr, FALSE);
+        return;
+    }
+    projectEpTraceArm();
+}
+void projectEpTraceArm() {
+    if (auto* h = gProjView.host()) h->timer(500, projectEpTraceTick);
+}
+
+// The Project page's sections after Files (shell.h's seam): the old GDI code, on the canvas's DC, until they move into the
+// core. Their clicks, tips and cursors are the page's surface (gProj.surface); the view's own parts come first.
+int shellPaintProjectRest(draw::Canvas& c, int y, int pageW, int pageH) {
+    auto* gc = dynamic_cast<ui::GdiCanvas*>(&c);
+    EudProject* pr = activeProject();
+    if (!gc || !pr) return y;
+    HDC mem = gc->dc();
+    SetBkMode(mem, TRANSPARENT);
+    SelectObject(mem, app.font);
+    FormLayout l = formLayout({0, 0, pageW, pageH});
+    l.labelW = scale(170), l.colRight = std::min<int>(pageW - l.x0, l.x0 + scale(1000)), l.colW = l.colRight - l.x0;
+    const int rowH = scale(32);
+    auto rel = [&](const fs::path& p2) { return projectRel(*pr, p2); };
+    gProj.surface.hits.clear();
+    std::vector<DataWidgetHit>* savedOut = gHitsOut;
+    HWND savedWnd = gHitsWnd;
+    gHitsOut = &gProj.surface.hits, gHitsWnd = gProj.wnd;
+    gHitsOf[gProj.wnd] = &gProj.surface.hits;
+    // Build options: euddraft's plugins.
+    y = ui::sectionHeader(mem, l, y, L"Build");
+    {  // the label column names the options (not an empty column)
+        FormLayout rl = l;
+        rl.rowH = rowH;
+        ui::fieldLabel(mem, rl, y, L"Options", false);
+    }
+    auto option = [&](const wchar_t* label, const char* plugin, const std::wstring& tip, const std::wstring& on, const std::wstring& off) {
+        const bool set = pr->plugin(plugin);
+        const std::string name = plugin;
+        ui::check(mem, {l.x0 + l.labelW, y, l.colRight, y + rowH}, label, set,
+                  [name, set, on, off] {
+                      EudProject* p = activeProject();
+                      if (!p) return;
+                      p->setPlugin(name, !set);
+                      projectSave(*p, set ? off : on);
+                      projectFormRefresh();
+                  },
+                  tip);
+        y += rowH;
+    };
+    option(L"EUD Turbo", "eudTurbo", L"A shorter trigger cycle: the triggers run more often (euddraft's eudTurbo)", L"EUD Turbo on", L"EUD Turbo off");
+    option(L"More units and sprites", "unlimiter", L"Room for more sprites, images, bullets and orders (euddraft's unlimiter)", L"More units and sprites on",
+           L"More units and sprites off");
+    option(L"Air units do not push apart", "noAirCollision", L"Air units can stay on top of each other (euddraft's noAirCollision)",
+           L"Air units do not push apart", L"Air units push apart");
+    {  // New graphics for preplaced units (R8): the map's code makes them again at the start
+        const bool set = pr->remakeUnits();
+        ui::check(mem, {l.x0 + l.labelW, y, l.colRight, y + rowH}, L"New graphics for preplaced units", set,
+                  [set] {
+                      EudProject* p = activeProject();
+                      if (!p) return;
+                      p->setRemakeUnits(!set);
+                      projectSave(*p, set ? L"New graphics for preplaced units off" : L"New graphics for preplaced units on");
+                      projectFormRefresh();
+                  },
+                  L"The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, the map "
+                  L"removes each preplaced unit that the edits give other graphics, and makes it again on its place at the start. The map "
+                  L"view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground "
+                  L"that it cannot stand on) moves near its place, or the game does not make it again.");
+        y += rowH;
+    }
+    {  // Debug build: the triggers check indexes in the game (T.5)
+        const bool set = pr->debugBuild();
+        ui::check(mem, {l.x0 + l.labelW, y, l.colRight, y + rowH}, L"Debug build", set,
+                  [set] {
+                      EudProject* p = activeProject();
+                      if (!p) return;
+                      p->setDebugBuild(!set);
+                      projectSave(*p, set ? L"Debug build off" : L"Debug build on");
+                      projectFormRefresh();
+                      InvalidateRect(gTopBar, nullptr, FALSE);  // the bug button beside Build
+                  },
+                  L"The triggers check each list index that the game calculates. An index out of range shows a message on the screen, and the "
+                  L"triggers use the first item. Turn it off for the map that you release.");
+        y += rowH;
+    }
+    {  // Trace build: euddraft's debug mode, for epTrace
+        const bool set = pr->traceBuild();
+        ui::check(mem, {l.x0 + l.labelW, y, l.colRight, y + rowH}, L"Trace build (epTrace)", set,
+                  [set] {
+                      EudProject* p = activeProject();
+                      if (!p) return;
+                      p->setTraceBuild(!set);
+                      projectSave(*p, set ? L"Trace build off" : L"Trace build on: build the map again to use epTrace");
+                      projectFormRefresh();
+                      InvalidateRect(gTopBar, nullptr, FALSE);
+                  },
+                  L"The scripts record each line that they run, and Build writes a trace file beside the map. epTrace reads it while the map "
+                  L"plays in StarCraft and shows which lines use the most time. The map runs more slowly: turn it off for the map that you release.");
+        y += rowH;
+    }
+    y += scale(6);
+    // Background music (bgmplayer) and files in memory (dataDumper) are off for now: not shown. A project that has
+    // them keeps its sections, and Build uses them.
+    constexpr bool kMusicAndFiles = false;
+    if (kMusicAndFiles) {
+        FormLayout rl = l;
+        rl.rowH = rowH;
+        ui::fieldLabel(mem, rl, y, L"Background music", pr->plugin("bgmplayer"));
+        const std::string path = sectionValue(*pr, "bgmplayer", "path"), len = sectionValue(*pr, "bgmplayer", "length");
+        std::wstring text = L"None";
+        if (!path.empty()) {
+            const double secs = std::atof(len.c_str());
+            wchar_t t[32];
+            std::swprintf(t, 32, L"   %d:%02d", int(secs) / 60, int(secs) % 60);
+            text = fs::path(path).filename().wstring() + t;
+        }
+        const RECT box{l.x0 + l.labelW, y + scale(2), l.colRight - scale(ui::kIconBox + 8), y + rowH - scale(2)};
+        ui::pickBox(mem, box, text, false, [](RECT) { projectChooseMusic(); }, L"Plays again and again for every player (euddraft's bgmplayer)");
+        if (!path.empty())
+            ui::iconButton(mem, {box.right + scale(4), box.top, box.right + scale(4 + ui::kIconBox), box.bottom}, UiIcon::Close,
+                           [] {
+                               if (EudProject* p = activeProject()) p->setPlugin("bgmplayer", false), projectSave(*p, L"No background music");
+                           },
+                           L"No background music", ui::Icon::Bare, false, true, ui::Tone::Danger);
+        y += rowH + scale(4);
+    }
+    if (kMusicAndFiles) {
+        // Files in memory (euddraft's dataDumper): each file's bytes at an address, when the map starts.
+        FormLayout rl = l;
+        rl.rowH = rowH;
+        const auto lines = pr->sectionLines("dataDumper");
+        ui::fieldLabel(mem, rl, y, L"Files in memory", !lines.empty());
+        int ly = y;
+        for (size_t i = 0; i < lines.size(); ++i) {
+            const size_t c = lines[i].find(':');
+            const std::string file = c == std::string::npos ? lines[i] : lines[i].substr(0, c), at = c == std::string::npos ? "" : lines[i].substr(c + 1);
+            RECT r{l.x0 + l.labelW - scale(6), ly, l.colRight, ly + rowH};
+            ui::listRow(mem, r, false, ui::hot(r));
+            SetTextColor(mem, kText);
+            RECT t{r.left + scale(6), r.top, r.right - scale(200), r.bottom};
+            DrawTextW(mem, widen(file).c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_PATH_ELLIPSIS | DT_NOPREFIX);
+            SetTextColor(mem, kDim);
+            RECT a{r.right - scale(200), r.top, r.right - scale(40), r.bottom};
+            DrawTextW(mem, (L"at " + widen(at)).c_str(), -1, &a, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
+            ui::rowActions(mem, r, {{UiIcon::Close, L"Remove from the list", [i] {
+                                         EudProject* p = activeProject();
+                                         if (!p) return;
+                                         auto ls = p->sectionLines("dataDumper");
+                                         if (i < ls.size()) ls.erase(ls.begin() + long(i));
+                                         p->setPlugin("dataDumper", !ls.empty(), ls);
+                                         projectSave(*p);
+                                     },
+                                     ui::Tone::Danger}},
+                           false);
+            ly += rowH;
+        }
+        ui::smallButton(mem, l.x0 + l.labelW, ly, rowH, L"Add a file\x2026", [] {
+            EudProject* p = activeProject();
+            if (!p) return;
+            platform::FileDialog d;
+            d.owner = app.main;
+            d.filters = {{"All files", "*.*"}};
+            d.title = narrow(L"A file to load into memory");
+            const auto picked = platform::openFileDialog(d);
+            if (!picked) return;
+            const std::wstring buf = picked->wstring();
+            std::wstring at = L"0x";
+            if (!prompt(L"Memory address (for example 0x58A364)", at) || at.size() < 3) return;
+            std::error_code ec;
+            fs::path rel = fs::relative(buf, p->folder(), ec);
+            const bool inside = !ec && !rel.empty() && rel.native().rfind(L"..", 0) != 0;
+            auto ls = p->sectionLines("dataDumper");
+            ls.push_back((inside ? rel.generic_string() : narrow(buf)) + " : " + narrow(at));
+            p->setPlugin("dataDumper", true, ls);
+            projectSave(*p, L"The file loads into memory when the map starts");
+        }, L"Loads a file's bytes into the game's memory when the map starts (euddraft's dataDumper)");
+        y = ly + rowH + scale(12);
+    }
+
+    // The scripts Build runs, in order.
+    {
+        const int hy = y;
+        y = ui::sectionHeader(mem, l, y, L"Scripts");
+        hitsOut().push_back({{l.x0, hy, l.x0 + scale(120), hy + l.rowH}, nullptr, nullptr,
+                             L"Build runs these in order, from the top. onPluginStart runs once when the map starts; beforeTriggerExec and afterTriggerExec run each trigger cycle",
+                             IDC_ARROW, {}});
+    }
+    for (const auto& name : gProj.sections) {
+        const fs::path file = scriptPath(*pr, name);
+        std::error_code e2;
+        const std::string ext = file.extension().string();
+        const bool script = ext == ".eps" || ext == ".py", generated = EudProject::isGenerated(name);
+        // The note: where the code comes from; for a script file, whether it is found and its last change (R5: a
+        // change made in another editor after the last build shows in the accent color).
+        const bool linked = script && EudProject::isLinked(name);
+        std::wstring note, after;
+        bool warn = false;
+        if (generated) note = L"from the Data workspace";
+        else if (!script) note = L"euddraft plugin";
+        else if (!fs::is_regular_file(file, e2)) note = linked ? L"linked  \x00B7  not found: Build stops" : L"not found: Build stops", warn = true;
+        else {
+            note = (linked ? L"linked  \x00B7  changed " : L"changed ") + projectFileTime(file);
+            std::error_code e3;
+            const auto built = fs::last_write_time(pr->outputMap(), e3);
+            if (!e3 && fs::last_write_time(file, e2) > built) after = L"  after the last build";
+        }
+        RECT r{l.x0 - scale(6), y, l.colRight, y + rowH};
+        const bool on = name == gProj.selected;
+        ui::listRow(mem, r, on, ui::hot(r));
+        std::wstring tip;
+        if (script)
+            tip = (linked ? L"A linked file. StarDraft 2 does not copy or change it: " : L"") + fs::path(file).make_preferred().wstring();
+        hitsOut().push_back({r, nullptr, [name] {
+                                 gProj.selected = name;
+                                 InvalidateRect(gProj.wnd, nullptr, FALSE);
+                                 projectPreviewRefresh();
+                             },
+                             tip, IDC_HAND, {}});
+        const size_t at = size_t(&name - gProj.sections.data());
+        ui::reorderRow(mem, "scripts", r, int(at), [](int from, int to) {
+            if (from < 0 || size_t(from) >= gProj.sections.size()) return;
+            const std::string moved = gProj.sections[size_t(from)];
+            for (int k = from; k < to; ++k) projectMoveScript(moved, 1);
+            for (int k = from; k > to; --k) projectMoveScript(moved, -1);
+        }, !generated);
+        HGDIOBJ f2 = SelectObject(mem, monoFont());
+        SetTextColor(mem, ui::rowText(on));
+        RECT t{l.x0 + scale(16), r.top, r.right - scale(380), r.bottom};
+        DrawTextW(mem, widen(name).c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_PATH_ELLIPSIS | DT_NOPREFIX);
+        const int nameRight = t.left + std::min<int>(t.right - t.left, ui::textWidth(mem, widen(name)));
+        SelectObject(mem, f2);
+        SetTextColor(mem, warn ? kWarn : kDim);
+        RECT n{nameRight + scale(16), r.top, r.right - scale(140), r.bottom};
+        DrawTextW(mem, note.c_str(), -1, &n, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+        if (!after.empty()) {
+            SetTextColor(mem, kAccent);
+            RECT na = n;
+            na.left = std::min<int>(n.right, n.left + ui::textWidth(mem, note));
+            DrawTextW(mem, after.c_str(), -1, &na, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+        }
+        const size_t idx = size_t(&name - gProj.sections.data());
+        std::vector<ui::RowAction> acts;
+        if (script) {
+            acts.push_back({UiIcon::OpenExternal, L"Open in your editor", [file] { triggersOpenFile(file); }});
+            acts.push_back({UiIcon::Folder, L"Show in folder", [file] {
+                                ShellExecuteW(app.main, L"open", L"explorer.exe", (L"/select,\"" + fs::path(file).make_preferred().wstring() + L"\"").c_str(), nullptr,
+                                              SW_SHOWNORMAL);
+                            }});
+        }
+        const bool movable = !generated;
+        acts.push_back({UiIcon::MoveUp, L"Earlier", [name] { projectMoveScript(name, -1); }, ui::Tone::Normal, false,
+                        movable && idx > 0 && !EudProject::isGenerated(gProj.sections[idx - 1])});
+        acts.push_back({UiIcon::MoveDown, L"Later", [name] { projectMoveScript(name, 1); }, ui::Tone::Normal, false, movable && idx + 1 < gProj.sections.size()});
+        acts.push_back({UiIcon::Close,
+                        generated ? L"Comes from the Data workspace"
+                        : linked  ? L"Remove the link. StarDraft 2 does not delete the file."
+                                  : L"Remove from the build (the file stays in the project folder)",
+                        [name] { projectRemoveScript(name); }, ui::Tone::Danger, false, !generated});
+        ui::rowActions(mem, r, acts, on);
+        y += rowH;
+    }
+    ui::reorderDropLine(mem, "scripts");
+    y += scale(4);
+    const int ax = ui::smallButton(mem, l.x0, y, rowH, L"New script", [] {
+        addProjectScript();
+        projectFormRefresh();
+    });
+    ui::smallButton(mem, ax + scale(8), y, rowH, L"Link a file\x2026", [] { projectAddExistingScript(); },
+             L"Add an .eps or .py file from anywhere on disk to the build. StarDraft 2 does not copy or change it.");
+    y += rowH + scale(24);
+    if (pr->traceBuild() || projectTraceReport(*pr)) y = paintEpTrace(mem, l, y, rowH, *pr, rel);
+    gHitsOut = savedOut, gHitsWnd = savedWnd;
+    return y;
+}
+
+std::wstring shellProjectRestTip(draw::Point pt) {
+    const POINT p{pt.x, pt.y};
+    for (auto it = gProj.surface.hits.rbegin(); it != gProj.surface.hits.rend(); ++it)
+        if (PtInRect(&it->r, p) && !it->tip.empty()) return it->tip;
+    return {};
+}
+
+draw::Cursor shellProjectRestCursor(draw::Point pt) {
+    const POINT p{pt.x, pt.y};
+    for (auto it = gProj.surface.hits.rbegin(); it != gProj.surface.hits.rend(); ++it)
+        if (PtInRect(&it->r, p) && (it->click || it->drag)) return it->cursor.c;
+    return draw::Cursor::Arrow;
+}
+
+bool shellProjectRestMouse(const draw::MouseEvent& e) {
+    if (e.button != 0 && e.kind != draw::MouseKind::Move && e.kind != draw::MouseKind::Leave) return false;
+    UINT msg = 0;
+    switch (e.kind) {
+    case draw::MouseKind::Move: msg = WM_MOUSEMOVE; break;
+    case draw::MouseKind::Leave: msg = WM_MOUSELEAVE; break;
+    case draw::MouseKind::Down: msg = WM_LBUTTONDOWN; break;
+    case draw::MouseKind::Up: msg = WM_LBUTTONUP; break;
+    case draw::MouseKind::DoubleClick:  // a script: open it
         if (EudProject* pr = activeProject(); pr && !gProj.selected.empty()) {
             const fs::path file = scriptPath(*pr, gProj.selected);
             const std::string ext = file.extension().string();
             if (ext == ".eps" || ext == ".py") triggersOpenFile(file);
         }
-        return 0;
-    case WM_MOUSEWHEEL:
-    case WM_VSCROLL: {
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-        const int s = msg == WM_MOUSEWHEEL ? gProj.scroll - GET_WHEEL_DELTA_WPARAM(wp) * scale(32) * 3 / WHEEL_DELTA : scrollFromMessage(hwnd, wp, gProj.scroll, scale(32));
-        gProj.scroll = std::clamp(s, 0, std::max(0, gProj.height - int(rc.bottom)));
-        InvalidateRect(hwnd, nullptr, FALSE);
-        return 0;
+        return true;
+    default: return false;
     }
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
+    LRESULT r = 0;
+    return gProj.surface.message(gProj.wnd, msg, 0, MAKELPARAM(e.pt.x, e.pt.y), r);
 }
 
 void createProjectPage() {
     if (gProj.wnd) return;
-    WNDCLASSEXW wc{sizeof wc};
-    wc.hInstance = app.inst, wc.hCursor = LoadCursor(nullptr, IDC_ARROW), wc.lpfnWndProc = projectWndProc, wc.lpszClassName = L"StarDraftProjectPage";
-    wc.style = CS_DBLCLKS;
-    RegisterClassExW(&wc);
-    gProj.wnd = CreateWindowExW(0, L"StarDraftProjectPage", L"", WS_CHILD | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, app.main, nullptr, app.inst, nullptr);
+    gProj.wnd = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, app.main, nullptr, app.inst, &gProjView);
     cleanScroll(gProj.wnd);
     darkControl(gProj.wnd, L"DarkMode_Explorer");  // the scroll bar in the theme
     gProj.preview = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD, 0, 0, 1, 1, gProj.wnd, nullptr, app.inst, &gProjPreview);
