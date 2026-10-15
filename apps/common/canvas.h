@@ -101,6 +101,7 @@ struct FontDesc {
     Face face = Face::Ui;
     int px = 0;  // the height of the letters in pixels; 0: the UI's size
     bool bold = false, italic = false, underline = false;
+    int weight = 0;  // 0: bold (700) or the UI font's own weight; else this one (the About box's title: 600)
 };
 
 class Canvas {
@@ -147,6 +148,8 @@ public:
 
     // A UI icon (apps/editor/res/ui_icons.h) in the middle of `r`, in color `c`, at the atlas size for `px` pixels.
     virtual void icon(Rect r, int icon, Color c, int px) = 0;
+    // The program's icon resource `resourceId` at `px` pixels, its top left corner at r's (the GDI canvas only so far).
+    virtual void resourceIcon(Rect r, int resourceId, int px) { (void)r, (void)resourceId, (void)px; }
     // `img` in the middle of `box`, made smaller to fit.
     virtual void fitted(const Image& img, Rect box) = 0;
 };
