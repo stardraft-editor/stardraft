@@ -38,5 +38,6 @@
 #include "views_project.inc"
 #include "views_map_pages.inc"
 #include "views_map_props.inc"
+#include "views_players.inc"
 #include "views_start.inc"
 #include "title.inc"

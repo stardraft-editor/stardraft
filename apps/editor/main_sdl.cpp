@@ -44,6 +44,7 @@
 #include "message_box.h"  // apps/kit: the save question (shellAskSaveChanges)
 #include "text_field.h"  // apps/kit: the search boxes (core/views_search.inc)
 #include "dropdown.h"  // apps/kit: the palette's dropdown (core/views_search.inc)
+#include "check_box.h"  // apps/kit: the players and forces page (core/views_players.inc)
 #include "list_view.h"  // apps/kit: the palette and the Locations list (sdl_panels.inc)
 #include "button.h"  // apps/kit: the View button (sdl_panels.inc)
 #include "res/ui_icons.h"
