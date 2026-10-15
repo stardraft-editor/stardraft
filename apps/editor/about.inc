@@ -109,7 +109,7 @@ void aboutPaint(HWND hwnd) {
     // Not a Blizzard product, and it needs the game's files.
     y += scale(10);
     centered(tr(L"StarDraft 2 is not associated with Blizzard Entertainment."), app.font, kDim, scale(22));
-    centered(tr(L"It needs an installation of StarCraft: Remastered to work."), app.font, kDim, scale(22));
+    centered(tr(L"It needs an installation of StarCraft to work."), app.font, kDim, scale(22));
     y += scale(14);
 
     // Then the repository and the Discord server.
