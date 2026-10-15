@@ -6,9 +6,9 @@
 // own), each with a kit scroll bar where the Windows window has its bar. The Strings and Buttons tabs' forms and the
 // requirements are sdl_data_extras.inc's. The pins, back and forward, the clipboard and the entry's and the field's
 // menus are the core's (core/data_nav.inc), the menus kit menus here; the entries' icons are the palette's pictures
-// (sdl_pictures.inc), and the pictures beside the fields are the core's (core/views_data_pictures.inc). Not on this
-// system yet: the other pictures beside the fields (the diagrams, the sound player), the Units display, the map's
-// players and Rename. Included by
+// (sdl_pictures.inc); the image player, its timeline and the portrait beside the fields are the core's
+// (core/views_data_pictures.inc). Not on this system yet: the other pictures beside the fields (the diagrams, the
+// script's uses and code, the sound player), the Units display, the map's players and Rename. Included by
 // main_sdl.cpp after sdl_briefing.inc; registerWorkspaceView(Workspace::Data, gSdlData) puts it in the window, and
 // --data <tab>:<entry> opens an entry for a snapshot.
 
@@ -354,25 +354,41 @@ DataRefsPage gSdlDataRefs(gSdlDataRefsHost);
 // The form's program parts. The Strings and Buttons tabs' forms and the requirements are sdl_data_extras.inc's (their
 // click areas are this host's). The pictures, the Units display and the map's players are the Windows program's GDI
 // parts: here they take no room. A click runs when the mouse goes up over its area.
-class SdlDataFormHost final : public DataFormViewHost {
+class SdlDataFormHost final : public DataFormViewHost, public DataPicturesHost {
 public:
     struct Area {
         draw::Rect r;
         std::function<void()> click;
         std::wstring tip;
         draw::Cursor cursor = draw::Cursor::Arrow;
+        std::function<void(draw::Point)> drag;  // a picture's part: while the mouse is held (core/views_data_pictures.inc)
     };
     std::vector<Area> areas;
     std::function<void()> pressed;  // a link pressed: its click when the mouse goes up
+    std::function<void(draw::Point)> dragging;  // a picture's part pressed: it follows the mouse until it goes up
+    bool dragMoved = false;
 
     static std::string dat() { return curTable() ? curTable()->schema().name : std::string(); }
-    // The topmost area under p (`clicks`: the topmost one with a click; a row's area without one does not hide the
-    // boxes under it, as on Windows).
+    // The topmost area under p (`clicks`: the topmost one with a click or a drag; a row's area without one does not hide
+    // the boxes under it, as on Windows).
     const Area* areaAt(draw::Point p, bool clicks = false) const {
         for (auto it = areas.rbegin(); it != areas.rend(); ++it)
-            if (it->r.contains(p) && (!clicks || it->click)) return &*it;
+            if (it->r.contains(p) && (!clicks || it->click || it->drag)) return &*it;
         return nullptr;
     }
+
+    // The pictures beside the fields (core/views_data_pictures.inc): their areas, the mouse, the repaint.
+    void pictureArea(draw::Rect r, std::function<void()> click, std::function<void(draw::Point)> drag, const std::wstring& tip,
+                     draw::Cursor cursor) override {
+        areas.push_back({r, std::move(click), tip, cursor, std::move(drag)});
+    }
+    bool pictureMouse(draw::Point& p) override {
+        draw::Host* h = gSdlDataForm.host();
+        if (!h) return false;
+        p = h->mouse(gSdlDataForm);
+        return p.x >= 0 && p.y >= 0 && p.x < gSdlDataForm.width() && p.y < gSdlDataForm.height();
+    }
+    void pictureRepaint() override { gSdlDataForm.invalidate(); }
 
     const DatTable* table() override { return curTable(); }
     DatTable* editTable() override { return curTable(); }
@@ -398,7 +414,11 @@ public:
     std::wstring fieldNote(const DatField& f, uint32_t v) override { return ::fieldNote(f, v); }
     std::wstring readOnlyWhy(const DatField& f) override { return datFieldReadOnly(dat(), f, gSdlDataState.entry); }
     draw::Image refIcon(const std::string& d, uint32_t v) override { return sdlDataImage(dataRefPicture(d, v)); }
-    int widgets(draw::Canvas&, int, int, int y, int) override { return y; }
+    int widgets(draw::Canvas& c, int section, int x, int y, int w) override {  // (the window paints each frame: the image plays on)
+        if (dat() == "images") imagePlayerTick();
+        bool moving = false;
+        return paintDataPictures(c, *this, dat(), section, gSdlDataState.entry, x, y, w, moving);
+    }
     void soundButton(draw::Canvas&, draw::Rect, int) override {}
     int unitDisplay(draw::Canvas&, int y) override { return y; }
     int requirements(draw::Canvas& c, int, int y, int) override { return sdlPaintRequirements(c, dat(), gSdlDataState.entry, y); }
@@ -408,15 +428,24 @@ public:
     }
     bool widgetPress(draw::Point p) override {
         const Area* a = areaAt(p, true);
-        if (!a || !a->click) return false;
+        if (!a || (!a->click && !a->drag)) return false;
         sdlDataCommitEdit();
-        pressed = a->click;
+        pressed = a->click, dragging = a->drag, dragMoved = false;
+        if (dragging && !pressed) dragMoved = true, dragging(p);  // a press sets the value too (as on Windows)
         return true;
     }
-    bool widgetDrag(draw::Point) override { return false; }
+    bool widgetDrag(draw::Point p) override {
+        if (!dragging) return false;
+        dragMoved = true;
+        dragging(p);
+        gSdlDataForm.invalidate();
+        return true;
+    }
     void widgetRelease(bool lost) override {
         auto click = std::exchange(pressed, nullptr);
-        if (click && !lost) click();
+        const bool moved = std::exchange(dragMoved, false);
+        dragging = nullptr;
+        if (click && !lost && !moved) click();
     }
     bool widgetHover(draw::Point, std::set<std::string>&) override { return true; }  // (the form repaints: the hot boxes follow the mouse)
     bool widgetCursor(draw::Point p, draw::Cursor& c) override {
@@ -578,4 +607,8 @@ void sdlDataSelect(const std::string& spec) {
     sdlDataLoad();
     gSdlData.ready = true;
     sdlDataGoTo(spec.substr(0, colon), std::atoi(spec.c_str() + colon + 1));
+    if (spec.substr(0, colon) == "portdata") {  // a portrait: the picture shows it once its video is decoded (10 s at most)
+        const auto clips = portraitClips(portraitPath(gSdlDataState.entry));
+        for (int i = 0; i < 200 && !clips->ready.load(std::memory_order_acquire); ++i) std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
 }

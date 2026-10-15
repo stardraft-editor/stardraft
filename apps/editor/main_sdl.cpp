@@ -343,6 +343,7 @@ int main(int argc, char** argv) {
         gHost = nullptr;
     }
     releasePaletteArt();  // its pictures' textures: before the device goes
+    releaseDataPictures();  // the Data pictures' textures too (core/views_data_pictures.inc)
     kit_sdl::unloadIconAtlases();
     gRenderer = nullptr;
     gDevice = nullptr;
