@@ -1701,16 +1701,6 @@ void buildFinished(euddraft::BuildResult* r) {
 // File > New EUD project: the dialog is a core view (core/views_new_project.inc; the host is new_project_window.inc).
 void showProjectDialog();
 
-// The working folder: new projects go there (Program options > Working folder; Documents\StarDraft by default).
-fs::path defaultProjectsFolder() {
-    if (!gProjectsFolder.empty()) return gProjectsFolder;  // (made when the first project goes there)
-    wchar_t* docs = nullptr;
-    fs::path p;
-    if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Documents, 0, nullptr, &docs))) p = fs::path(docs) / "StarDraft";
-    CoTaskMemFree(docs);
-    return p;
-}
-
 std::wstring windowText(HWND w) {
     std::wstring t(size_t(GetWindowTextLengthW(w)) + 1, L'\0');
     GetWindowTextW(w, t.data(), int(t.size()));
@@ -1718,36 +1708,8 @@ std::wstring windowText(HWND w) {
     return t;
 }
 
-void newMap();
-
-// Makes the project folder and moves the map into it (the open map, or a new blank one); the tab
-// becomes the project's.
-bool createProject(const fs::path& parent, const std::string& name, bool fromOpenMap, std::string& err, const fs::path& outputFile = {}) {
-    if (fromOpenMap && (!app.ed || !app.ed->isOpen())) fromOpenMap = false;
-    if (fromOpenMap && !app.ed->chk().find("UNIx")) {
-        err = "The open map is in original StarCraft format; euddraft needs a Brood War map. Start from a new blank map instead.";
-        return false;
-    }
-    EudProject pr;
-    std::error_code ec;
-    fs::create_directories(parent, ec);
-    if (!EudProject::create(parent, name, {}, pr, err)) return false;
-    if (!outputFile.empty()) {
-        pr.setOutputMap(outputFile);
-        if (!pr.save(err)) return false;
-    }
-    if (!fromOpenMap) newMap();
-    if (!app.ed->save(pr.inputMap(), err)) return false;
-    gDocs[size_t(gActive)].project = std::make_shared<EudProject>(pr);
-    updateTitle();
-    addRecent(gRecentProjects, pr.folder());
-    rememberProjectsFolder(pr.folder());
-    // L.4: the map's classic triggers, settings and briefings stay in the project's map (the built map keeps them).
-    const bool classic = fromOpenMap && (!app.ed->classicTriggers().triggers.empty() || !app.ed->chk().effective("MBRF").empty());
-    setMessage(L"Created the project " + widen(name) + L" in " + pr.folder().wstring() + L" (Build: Ctrl+B)" +
-               (classic ? L". The project's map keeps its classic triggers, unit, upgrade and technology settings, and briefings. Scenario > Classic triggers shows the triggers." : L""));
-    return true;
-}
+// Makes the project folder and moves the map into it (core/project_page.inc).
+bool createProject(const fs::path& parent, const std::string& name, bool fromOpenMap, std::string& err, const fs::path& outputFile = {});
 
 #include "feedback.inc"
 #include "update.inc"
@@ -1866,55 +1828,9 @@ void openMap(const std::wstring& path, bool switchToOpen);
 
 
 void triggersRefresh(const std::string& select);
-
-void addProjectScript() {
-    EudProject* pr = activeProject();
-    if (!pr) return;
-    platform::FileDialog d;
-    d.owner = app.main;
-    d.filters = {{"epScript (*.eps)", "*.eps"}, {"eudplib Python (*.py)", "*.py"}};
-    d.fileName = L"new.eps";
-    d.initialDir = pr->folder() / "scripts";
-    d.title = narrow(L"Add a script: select one, or type the name of a new one");
-    d.defaultExtension = "eps";
-    d.pathMustExist = true;
-    const auto picked = platform::saveFileDialog(d);
-    if (!picked) return;
-    const fs::path file = *picked;
-    std::error_code ec;
-    if (!fs::exists(file, ec)) {
-        std::ofstream f(file, std::ios::binary);
-        f << "// " << file.filename().string() << "\n\nfunction onPluginStart() {\n}\n";
-        f.close();
-        if (!f) return void(themedMessageBox(app.main, (L"Could not write " + file.wstring()).c_str(), L"Add a script", MB_ICONERROR));
-    }
-    fs::path rel = fs::relative(file, pr->folder(), ec);
-    if (ec || rel.empty() || rel.native().rfind(L"..", 0) == 0) rel = file;  // outside the folder: keep the full path
-    pr->addScript(rel.generic_string());
-    std::string err;
-    if (!pr->save(err)) themedMessageBox(app.main, widen(err).c_str(), L"Could not save the project", MB_ICONERROR);
-    else setMessage(L"Added " + rel.wstring() + L" to the project");
-    triggersRefresh(rel.generic_string());
-}
-
-
-// New map of a tileset, filled with one terrain.
-void newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terrain) {
-    auto ed = std::make_unique<Editor>(app.data);
-    std::string err;
-    SetCursor(LoadCursor(nullptr, IDC_WAIT));
-    if (!ed->newMap(width, height, era, terrain, err)) {
-        themedMessageBox(app.main, widen(err).c_str(), L"Could not create the map", MB_ICONERROR);
-        return;
-    }
-    addDocument(std::move(ed));
-    const IsomTerrainTable* table = IsomTerrainTable::forEra(era);
-    setMessage(L"Created a new " + std::wstring(kTilesetNames[era & 7]) + L" map (" + std::to_wstring(width) + L"x" + std::to_wstring(height) + L", " +
-               widen(table ? table->terrainName(terrain) : "") + L")");
-}
-
-// The default new map: badlands dirt, 128x128 (startup, the + tab button).
-void newMap() { newMap(128, 128, 0, 1); }
+// File > Project > Add a script, and a new map of a tileset filled with one terrain (core/project_page.inc).
+void addProjectScript();
+void newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terrain);
 
 // --- The unsaved project ---------------------------------------------------------------------------------------
 // StarDraft starts with a project that is not saved yet: a 128 x 128 badlands map in a project folder under
@@ -8926,6 +8842,7 @@ StubView gStubView;
 
 fs::path scriptPath(const EudProject& pr, const std::string& section) { return pr.scriptFile(section); }
 
+#include "core/project_page.inc"  // the Project page's program parts (ProjectProgram, gProj), createProject, newMap, addProjectScript
 #include "project_view.inc"
 #include "kit_gallery.inc"
 #include "new_page.inc"
@@ -14545,7 +14462,7 @@ void themeRefreshControls() {
         SetWindowTextW(gTE.code, L"");
         trigCodeRefresh(true);
     }
-    if (gProj.preview) projectPreviewRefresh(true);
+    if (gProjPreviewWnd) projectPreviewRefresh(true);
 }
 
 void setWorkspace(Workspace w) {
@@ -14579,7 +14496,7 @@ void setWorkspace(Workspace w) {
     createProjectPage();
     createTriggerEditor();
     const bool projectPage = w == Workspace::Project && activeProject();
-    ShowWindow(gProj.wnd, projectPage ? SW_SHOW : SW_HIDE);
+    ShowWindow(gProjWnd, projectPage ? SW_SHOW : SW_HIDE);
     if (projectPage) triggersRefresh();
     ShowWindow(gTE.wnd, w == Workspace::Triggers ? SW_SHOW : SW_HIDE);
     if (w == Workspace::Triggers) trigLoadForProject(), trigRefreshTree(gTE.sel.empty() ? std::vector<int>{1} : gTE.sel);
@@ -15855,7 +15772,7 @@ void layout() {
     placeWindow(gWsBar, L.wsRail.rc);
     placeWindow(gDataWnd, ws);
     if (gStubWnd) placeWindow(gStubWnd, ws);
-    if (gProj.wnd) placeWindow(gProj.wnd, ws);
+    if (gProjWnd) placeWindow(gProjWnd, ws);
     if (gTE.wnd) placeWindow(gTE.wnd, ws);
     if (gBrief.wnd) placeWindow(gBrief.wnd, ws);
     if (gFiles.wnd) placeWindow(gFiles.wnd, ws);
@@ -16130,7 +16047,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_ACTIVATEAPP:
         // Back from another program (perhaps an editor that changed a linked file): the Project page reads the files'
         // times again (R5). It does not build.
-        if (wp && gProj.wnd && IsWindowVisible(gProj.wnd)) InvalidateRect(gProj.wnd, nullptr, FALSE), projectPreviewRefresh(true);
+        if (wp && gProjWnd && IsWindowVisible(gProjWnd)) InvalidateRect(gProjWnd, nullptr, FALSE), projectPreviewRefresh(true);
         break;
     case WM_SETCURSOR:
         if (LOWORD(lp) == HTCLIENT && HWND(wp) == hwnd && gWorkspace == Workspace::Map) {
@@ -18373,15 +18290,15 @@ int runSelfTest(const fs::path& dir) {
                     command(ID_PROJ_SETTINGS);
                     gProj.selected = name;
                     for (int i = 0; i < 5; ++i) pump();
-                    RedrawWindow(gProj.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+                    RedrawWindow(gProjWnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
                     bool tipShown = false;  // the row's tooltip names the file as linked
                     for (const std::wstring& tip : gProjView.tips())
                         if (tip.find(L"A linked file") != std::wstring::npos && tip.find(L"hello.eps") != std::wstring::npos) tipShown = true;
                     const bool wasLight = gLightTheme;
-                    capture(dir / (wasLight ? "67b_project_linked_light.png" : "67b_project_linked_dark.png"), gProj.wnd);
+                    capture(dir / (wasLight ? "67b_project_linked_light.png" : "67b_project_linked_dark.png"), gProjWnd);
                     applyTheme(!wasLight, gAccentIndex);
-                    RedrawWindow(gProj.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
-                    capture(dir / (wasLight ? "67b_project_linked_dark.png" : "67b_project_linked_light.png"), gProj.wnd);
+                    RedrawWindow(gProjWnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+                    capture(dir / (wasLight ? "67b_project_linked_dark.png" : "67b_project_linked_light.png"), gProjWnd);
                     applyTheme(wasLight, gAccentIndex);
                     log << "project: linked file stored relative " << (relative ? "yes" : "NO") << " (" << name << "), opens again " << (kept ? "yes" : "NO")
                         << ", the page lists it as linked " << (tipShown ? "yes" : "NO") << ", file not changed "
@@ -22027,7 +21944,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 for (int i = 0; i < 10; ++i) pump();
                 gDock.scriptPreview = true;  // not saved: a test run leaves the settings alone
                 if (!gProj.sections.empty()) gProj.selected = gProj.sections.back();
-                InvalidateRect(gProj.wnd, nullptr, FALSE);
+                InvalidateRect(gProjWnd, nullptr, FALSE);
                 projectPreviewRefresh(true);
                 for (int i = 0; i < 10; ++i) pump();
                 capture(fs::path(datashots) / "scriptpreview.png");
@@ -22139,7 +22056,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                         first("triggers: check", [&] { (void)gTE.set.check(trigMapInfo()); });
                         first("triggers: generate the code", [&] { (void)gTE.set.generate(trigMapInfo(), is); });
                     }
-                    if (shows("project workspace, first show", Workspace::Project, [] { return gProj.wnd; })) paint("project page", gProj.wnd);
+                    if (shows("project workspace, first show", Workspace::Project, [] { return gProjWnd; })) paint("project page", gProjWnd);
                 }
                 // The pages: the start page in a new tab (in this open run, not at launch), then its New card.
                 {

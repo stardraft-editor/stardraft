@@ -88,10 +88,7 @@ bool NewHostProgram::make() {
         setMessage(gNew.generate ? L"Generated a map: " + what + L" (seed " + std::to_wstring(p.seed) + L")" : L"Created a map: " + what);
         return true;
     }
-    fs::path out = output;
-    if (!out.empty() && out.is_relative()) out = fs::path(location) / name / out;
-    if (!out.empty() && out.extension().empty()) out += ".scx";
-    if (!createProject(fs::path(location), narrow(name), true, err, out)) {
+    if (!createProject(fs::path(location), narrow(name), true, err, projectOutputFile(location, name, output))) {
         themedMessageBox(app.main, widen(err).c_str(), L"Could not create the project", MB_ICONERROR);
         return false;
     }

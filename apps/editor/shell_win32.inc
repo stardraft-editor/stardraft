@@ -310,3 +310,45 @@ std::wstring shellPickOutputFile(const std::wstring& name) {
     HWND owner = GetActiveWindow();
     return pickOutputFile(owner ? owner : app.main, name);
 }
+std::filesystem::path shellDocumentsFolder() {
+    wchar_t* docs = nullptr;
+    std::filesystem::path p;
+    if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Documents, 0, nullptr, &docs))) p = docs;
+    CoTaskMemFree(docs);
+    return p;
+}
+std::filesystem::path shellPickFile(const ShellFilePick& pick) {
+    platform::FileDialog d;
+    d.owner = app.main;
+    for (const auto& [name, patterns] : pick.filters) d.filters.push_back({narrow(name), narrow(patterns)});
+    d.fileName = pick.fileName;
+    d.initialDir = pick.initialDir;
+    if (!pick.title.empty()) d.title = narrow(pick.title);
+    d.defaultExtension = narrow(pick.defaultExtension);
+    d.pathMustExist = pick.save;
+    const auto picked = pick.save ? platform::saveFileDialog(d) : platform::openFileDialog(d);
+    return picked ? *picked : std::filesystem::path();
+}
+bool shellPromptText(const std::wstring& title, std::wstring& text) { return prompt(title.c_str(), text); }
+// (the value pop-out under the field, in screen coordinates: 2 px below it)
+bool shellEditValueBelow(stardraft::draw::View& v, stardraft::draw::Rect field, const std::wstring& title, std::string& text) {
+    POINT at{field.left, field.bottom + scale(2)};
+    ClientToScreen(ui::Win32Host::windowOf(v), &at);
+    return editTextValue(title, text, at);
+}
+void shellLogError(const std::wstring& line) { logLine(line, true); }
+// (the RichEdit read a script's bytes in the system's code page: the file may be in Korean or another)
+std::wstring shellCodePageText(const std::string& s) {
+    if (s.empty()) return {};
+    const int n = MultiByteToWideChar(CP_ACP, 0, s.data(), int(s.size()), nullptr, 0);
+    std::wstring w(size_t(std::max(0, n)), L'\0');
+    if (n > 0) MultiByteToWideChar(CP_ACP, 0, s.data(), int(s.size()), w.data(), n);
+    return w;
+}
+// (the first line of install.txt in the settings folder)
+std::wstring shellInstallFolderText() {
+    std::ifstream in(settingsPath());
+    std::string line;
+    std::getline(in, line);
+    return widen(line);
+}

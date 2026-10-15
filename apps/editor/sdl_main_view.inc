@@ -358,7 +358,7 @@ struct MainView final : draw::View {
         // The workspace area: the registered view of the workspace shown, else the "Not on this system yet" view.
         const auto found = gWorkspaceViews.find(gWorkspace);
         draw::View* wsView = mapWs || found == gWorkspaceViews.end() ? nullptr : found->second;
-        for (auto& [w, v] : gWorkspaceViews) apply(*v, L.view, v == wsView);
+        for (auto& [w, v] : gWorkspaceViews) apply(*v, L.workspace, v == wsView);  // (the whole area right of the rail, as the Windows program's workspace windows)
         apply(gStartView, L.view, startShown);
         apply(gNewView, L.view, newShown);
         apply(notHere, L.view, !mapWs && !wsView && !startShown && !newShown);

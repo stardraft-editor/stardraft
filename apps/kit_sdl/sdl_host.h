@@ -35,6 +35,12 @@ public:
     // Handles events and paints the windows that changed, until every window is closed or quit() is called.
     void run();
     void quit() { quit_ = true; }
+    // Handles events and paints, as run() does, until `done` is true or the program quits: a call that waits for a
+    // system dialog that answers later (the file and folder dialogs) returns with the answer. False when it quit first.
+    bool waitUntil(const std::function<bool()>& done) {
+        while (!quit_ && !done()) pump(true);
+        return !quit_;
+    }
     // Paints `root` (laid out for w x h pixels) into `target`, a texture of `format` with color target usage. Its
     // own, without a window: for snapshots. Waits for the GPU to finish.
     void snapshot(draw::View& root, SDL_GPUTexture* target, int w, int h, SDL_GPUTextureFormat format);

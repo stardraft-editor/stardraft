@@ -5,6 +5,13 @@
 bool gSelfTest = false;             // the self-test runs (its settings are not the user's)
 std::wstring gProjectsFolder;         // Program options > Projects folder
 
+// The working folder: new projects go there (Program options > Working folder; Documents/StarDraft by default).
+fs::path defaultProjectsFolder() {
+    if (!gProjectsFolder.empty()) return gProjectsFolder;  // (made when the first project goes there)
+    const fs::path docs = shellDocumentsFolder();
+    return docs.empty() ? fs::path() : docs / "StarDraft";
+}
+
 std::vector<std::wstring> gRecentMaps, gRecentProjects;
 
 void saveRecent() {
