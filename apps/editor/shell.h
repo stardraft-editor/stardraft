@@ -93,6 +93,8 @@ void shellPaletteRebuilt();
 std::wstring shellTr(const wchar_t* english);
 // The palette's picked values (Ctrl+click): the palette's own list, which the selection of several picks changes.
 std::vector<int>& shellPaletteChosen();
+// The folder of the unsaved projects (a new project nobody saved yet lives there); empty when the system has none.
+std::filesystem::path shellUnsavedRoot();
 // The settings file (%APPDATA%\StarDraft\settings.json; the environment variable STARDRAFT_SETTINGS gives another).
 std::filesystem::path shellSettingsFile();
 // The value kinds of the settings written by older builds (the registry: HKCU\Software\StarDraft).

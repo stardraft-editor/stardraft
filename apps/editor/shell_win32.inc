@@ -126,6 +126,16 @@ void shellToolsChanged() {
 void shellOwnerSelect(int i) { SendMessageW(app.owner, CB_SETCURSEL, i, 0); }
 void shellPaletteChanged() { unitPaletteRepaint(); }
 void shellPaletteRebuilt() { rebuildUnitPalette(); }
+std::filesystem::path shellUnsavedRoot() { return unsavedRoot(); }
+// The save question (closing with work in it): Save, Do not save or Cancel, in the theme's message box.
+int shellAskSaveChanges(bool project) {
+    const int r = project ? themedMessageBox(app.main, L"Save the new project?", L"Unsaved changes", MB_YESNOCANCEL | MB_ICONQUESTION,
+                                             {L"&Save", L"Do &not save", L"Cancel"})
+                          : themedMessageBox(app.main, L"Save changes to the map?", L"Unsaved changes", MB_YESNOCANCEL | MB_ICONQUESTION,
+                                             {L"&Save", L"Do &not save", L"Cancel"});
+    return r == IDCANCEL ? 2 : r == IDNO ? 1 : 0;
+}
+bool shellSaveChanges(bool project) { return project ? saveUnsavedProject() : saveMap(false); }
 // setMode's windows: the side the mode's tools are docked on, with the palette's view of the mode.
 void shellModeSide(Mode m) {
     gLastOnSide[gDock.toolsRight[int(m)] ? 1 : 0] = m;
