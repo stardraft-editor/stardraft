@@ -177,5 +177,6 @@ void shellRecentMenu(bool projects, const std::vector<std::wstring>& labels, con
     AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(m, MF_STRING | (labels.empty() ? MF_GRAYED : 0), UINT_PTR(clearId), L"&Clear list");
 }
+bool shellPathsFoldCase() { return true; }  // NTFS ignores case
 void shellShowQuickPicker(bool replace, bool open) { showQuickPicker(replace, open); }
 void shellMapFileOpened(const std::filesystem::path& file) { mapFileOpened(file); }
