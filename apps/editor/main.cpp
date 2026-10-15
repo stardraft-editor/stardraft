@@ -13,6 +13,7 @@
 #include <dwmapi.h>
 #include <psapi.h>
 #include <iomanip>
+#include <functional>
 #include <future>
 #include <shlobj.h>
 #include <shellapi.h>
@@ -54,6 +55,10 @@ using std::min;
 #include <vector>
 
 #include <stb_image.h>
+#include "../common/canvas.h"
+#include "../common/view.h"
+#include "text_field.h"  // the kit's text field (apps/kit): the search boxes (search_box.inc)
+#include "dropdown.h"     // the kit's dropdown: the palette's section box (search_box.inc)
 #include "res/ui_icons.h"
 #include "stardraft/editor.h"
 #include "stardraft/hd_assets.h"
@@ -76,6 +81,8 @@ using std::min;
 #include "crash_report.h"  // apps/common: the crash handler and sending reports (crash.inc)
 #include "update.h"  // apps/common: the self-update's system part (update.inc)
 #include "stardraft/settings.h"
+#include "text_codec.h"  // apps/common: UTF-8 and wide strings (core/strings.inc)
+#include "core/tr.h"  // the translation's declaration (the core's use of tr; ui_text.h defines it)
 #include "ui_text.h"  // the program's text in other languages: the macros for DrawTextW, MessageBoxW and the others
 
 using namespace stardraft;
@@ -83,137 +90,16 @@ namespace fs = std::filesystem;
 
 namespace {
 
+#include "shell.h"  // the host seam: what the editor's code asks of the window (shell_win32.inc, before mainProc)
+
 // --- Strings -------------------------------------------------------------------------------------
 
-std::wstring widen(const std::string& s) {
-    if (s.empty()) return {};
-    int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s.data(), int(s.size()), nullptr, 0);
-    UINT cp = n > 0 ? CP_UTF8 : 1252;  // map strings are often CP-1252
-    n = MultiByteToWideChar(cp, 0, s.data(), int(s.size()), nullptr, 0);
-    std::wstring w(size_t(n), L'\0');
-    MultiByteToWideChar(cp, 0, s.data(), int(s.size()), w.data(), n);
-    return w;
-}
+#include "core/strings.inc"  // widen, narrow
 
-std::string narrow(const std::wstring& w) {
-    if (w.empty()) return {};
-    int n = WideCharToMultiByte(CP_UTF8, 0, w.data(), int(w.size()), nullptr, 0, nullptr, nullptr);
-    std::string s(size_t(n), '\0');
-    WideCharToMultiByte(CP_UTF8, 0, w.data(), int(w.size()), s.data(), n, nullptr, nullptr);
-    return s;
-}
+#include "core/prefs.inc"  // the settings file (prefs::): the portable part of the settings
 
-#include "settings.inc"
-
-// A .dat field or section name as the UI shows it, in sentence case: "Target Acquisition Range" -> "Target acquisition
-// range", "Cost & availability" -> "Cost and availability". The schema names stay as they are (code and tests use
-// them). Abbreviations (AI, GRP, ID), names with capitals inside (StarEdit) and game names keep their capitals.
-std::wstring datLabel(const std::string& name, bool start = true) {
-    static const std::set<std::string> keep = {"Brood", "War", "Broodwar", "Staredit", "Iscript", "Terran", "Zerg", "Protoss"};
-    std::string out, word;
-    bool first = start;
-    auto flush = [&] {
-        if (word.empty()) return;
-        bool plain = std::isupper(static_cast<unsigned char>(word[0])) != 0 && word.size() > 1;  // "Range", "Lift-Off"
-        for (size_t i = 1; i < word.size() && plain; ++i)
-            plain = std::islower(static_cast<unsigned char>(word[i])) || word[i] == '-' || word[i - 1] == '-';
-        if (!first && plain && !keep.count(word))
-            for (char& c : word) c = char(std::tolower(static_cast<unsigned char>(c)));
-        if (word == "&") word = "and";
-        if (word == "Resarch") word = first ? "Research" : "research";
-        out += word, word.clear(), first = false;
-    };
-    for (char c : name) {
-        if (c == ' ') flush(), out += ' ';
-        else word += c;
-    }
-    flush();
-    return widen(out);
-}
-
-// --- Ids -----------------------------------------------------------------------------------------
-
-enum : int {
-    IDC_TABS = 100, IDC_OWNER, IDC_BRUSH, IDC_FILTER, IDC_LIST, IDC_STATUS, IDC_VIEW, IDC_TOOL, IDC_SHAPE, IDC_SYM, IDC_DENSITY, IDC_UNITSEARCH, IDC_PALVIEW, IDC_PALSECTION,
-    IDC_MODEBTN = 150,  // + mode index
-    ID_EDIT_TERRAINUNITS = 350, ID_EDIT_TERRAINDOODADS, ID_OPT_LOCWRAP,
-    ID_FILE_OPEN = 200, ID_FILE_NEW, ID_FILE_SAVE, ID_FILE_SAVEAS, ID_FILE_EXIT, ID_FILE_CLOSE, ID_FILE_CLOSEALL, ID_TAB_NEXT,
-    ID_TAB_PREV,
-    ID_EDIT_UNDO = 300, ID_EDIT_REDO, ID_EDIT_CUT, ID_EDIT_COPY, ID_EDIT_PASTE, ID_EDIT_DELETE, ID_EDIT_SELECTALL,
-    ID_EDIT_CORRECTION, ID_EDIT_DOODADCHECK, ID_EDIT_SNAPLOC, ID_EDIT_RENAME, ID_EDIT_SNAPUNITS, ID_EDIT_DUPLICATE,
-    ID_VIEW_HD = 400, ID_VIEW_HD2, ID_VIEW_SD, ID_VIEW_CARBOT, ID_VIEW_LOCATIONS, ID_VIEW_ZOOMIN, ID_VIEW_ZOOMOUT, ID_VIEW_ZOOM100, ID_VIEW_FIT, ID_VIEW_GRID,
-    ID_VIEW_WALK, ID_VIEW_PATHS, ID_VIEW_TOWNS, ID_PATHSIZE_SMALL, ID_PATHSIZE_MEDIUM, ID_PATHSIZE_LARGE,  // the R24 overlays (path_overlay.inc)
-    ID_MODE_TERRAIN = 500, ID_MODE_UNITS, ID_MODE_DOODADS, ID_MODE_LOCATIONS, ID_MODE_SPRITES,
-    ID_PLAYER_1 = 600,  // + player index, keys 1-9
-    ID_QUICKPICK = 660,
-    ID_QUICKOPEN = 661,  // File > Quick open (Ctrl+Shift+O): an open tab, a recent project or map
-    ID_PROJ_NEW = 700, ID_PROJ_OPEN, ID_PROJ_COMPILE, ID_PROJ_FOLDER, ID_PROJ_ADDSCRIPT, ID_PROJ_SETTINGS, ID_PROJ_FROMMAP,
-    ID_WS_MAP = 720, ID_WS_DATA, ID_WS_TRIGGERS, ID_WS_ASSETS, ID_WS_PROJECT, ID_WS_BRIEFING, ID_WS_FILES,
-    ID_DOCK_MINI_LEFT = 740, ID_DOCK_MINI_RIGHT, ID_DOCK_TOOLS_LEFT, ID_DOCK_TOOLS_RIGHT,
-    ID_SCEN_PLAYERS = 760, ID_SCEN_CHECK, ID_OPT_INSTALL, ID_VIEW_LOG, ID_VIEW_TRIGCODE, ID_VIEW_KIT, ID_SCEN_REPLAY,
-    ID_RECENT_MAP = 800,       // + index, up to kRecentMax
-    ID_RECENT_PROJECT = 820,   // + index
-    ID_RECENT_CLEAR_MAPS = 840, ID_RECENT_CLEAR_PROJECTS,
-    ID_HELP_FEEDBACK = 860, ID_HELP_ISSUE, ID_HELP_UPDATES, ID_OPT_UPDATECHECK, ID_HELP_DISCORD, ID_HELP_ABOUT, ID_OPT_CRASHREPORTS, ID_HELP_GITHUB,
-    ID_THEME_DARK = 880, ID_THEME_LIGHT, ID_SCEN_PROPS, ID_SCEN_CLASSIC, ID_SCEN_CLASSICTRIG, ID_ACCENT = 890,  // + accent index (theme::kAccents)
-    ID_OPT_SNAPVALID = 640, ID_OPT_STRICT, ID_OPT_ILLEGAL, ID_OPT_DRAGBACK, ID_OPT_ANIMATE, ID_OPT_STACK, ID_OPT_LASTPROJECT,
-    ID_OPT_WINDOW,  // Options > Program options (the window with the program options)
-    // The Options menu: the snap of units, sprites and locations (+ the choice in kSnapGrids), the place rule of doodads,
-    // and the items that show a rule that does not change (always grayed).
-    ID_SNAP_UNITS = 910, ID_SNAP_SPRITES = 914, ID_SNAP_LOCATIONS = 918, ID_DOODAD_FIT = 922, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE,
-    ID_FIXED_DOODAD_SNAP, ID_FIXED_DOODAD_STACK, ID_FIXED_SPRITE_PLACE, ID_FIXED_SPRITE_STACK, ID_FIXED_LOC_PLACE, ID_FIXED_LOC_STACK,
-    ID_PAL_LIST = 620, ID_PAL_ICONS, ID_PAL_SPRITES, ID_PAL_NORMAL, ID_PAL_LARGE,
-    ID_GRID_SIZE = 950,  // + the preset (kGridPresets); View > Grid size
-    ID_GRID_CUSTOM = 958,
-    ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese
-    ID_TOOL_KEY = 970,  // + the tool of the keys V, B, A, F: select, brush or place, spray, fill (GitHub feedback #98)
-    ID_VIEW_RANGES = 975,  // View > Show ranges of the selected units (GitHub feedback #109)
-    ID_VIEW_MINIMAP = 976,  // View > Show minimap (GitHub feedback #127)
-    ID_LAYER = 990,         // + View > Layers: 0 terrain, 1 doodads, 2 sprites, 3 units
-    ID_RAIL_KEY = 1000,     // + n: Ctrl+1 to Ctrl+9, the n-th item of the side bar (the tab's mode: a classic map or a project)
-    ID_CRASH_MODE = 980,   // + Options > Crash reports: 0 ask, 1 send, 2 do not send
-    ID_MIDDLE_MODE = 984,  // + Options > Middle mouse click and hold: 0 pan the map (the default), 1 drag the map
-    ID_OPT_MAPSDEFAULT = 986,  // Options > Maps: .scm and .scx open with StarDraft 2
-    ID_OPT_RESTART = 987,      // Options > Language > Restart now: StarDraft 2 starts again in the chosen language
-};
-// View > Grid size: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
-struct GridPreset {
-    const wchar_t* name;
-    int px;
-};
-constexpr GridPreset kGridPresets[] = {{L"Fine", 8}, {L"Small", 16}, {L"Normal", 32}, {L"Large", 64}, {L"Huge", 128}};
-
-enum class Mode { Terrain, Units, Doodads, Locations, Sprites };
-constexpr int kModeCount = 5;
-// The modes in the order the mode bar shows them.
-constexpr Mode kModeOrder[kModeCount] = {Mode::Terrain, Mode::Units, Mode::Doodads, Mode::Sprites, Mode::Locations};
-
-// Where the map workspace's panels sit. The minimap is always at the top of its side; each layer's toolbar
-// (Terrain / Units / Doodads / Locations: the layer buttons, its options, its palette) docks left or right
-// on its own. Right-click the minimap or a toolbar to move it. Kept in HKCU\Software\StarDraft\Layout.
-struct Dock {
-    bool minimapRight = false;
-    bool minimapHidden = false;  // View > Show minimap off: its side has the panel only (GitHub feedback #127)
-    bool toolsRight[kModeCount] = {false, true, false, false, false};  // units on the right, the rest on the left
-    int leftW = 280, rightW = 280, dataListW = 300;    // column widths, 96-dpi pixels; drag their edges
-    bool triggerCode = false;                          // the Triggers workspace's code pane is shown
-    bool scriptPreview = false;                        // the Project page's preview of the selected script is shown
-    int triggerZoom = 100;                             // the trigger pane's size, percent (Ctrl+mouse wheel)
-    int volume = 100;                                  // every sound StarDraft plays, percent (Program options, an SFX entry)
-    int unitNames = 2;  // how lists name a unit with a custom name: 0 game, 1 game (custom), 2 custom (game), 3 custom
-    int logH = 220;     // the open Log's height, 96-dpi pixels; drag its top edge
-    int gridW = 32, gridH = 32, gridX = 0, gridY = 0;  // the map grid: cell size and offset, map pixels (View > Grid size)
-};
-constexpr int kMinSideW = 200, kMaxSideW = 640;
-Dock gDock;
-RECT gDockRects[2] = {};  // the left and right columns, for right-clicks on their empty space
-RECT gSplitters[2] = {};  // the strips between the columns and the map: drag to resize
-int gSplitDrag = -1, gSplitGrab = 0;  // which strip is being dragged (0 left, 1 right), and where it was grabbed
-
-// The registry name of each mode's tool bar side (Mode order). One entry per mode: a mode without one would read past
-// the end (that crashed saveDock when Sprites came).
-constexpr const wchar_t* kDockSideNames[] = {L"TerrainRight", L"UnitsRight", L"DoodadsRight", L"LocationsRight", L"SpritesRight"};
-static_assert(std::size(kDockSideNames) == kModeCount, "a dock side name for each mode");
+#include "core/ids.inc"  // the command ids, the modes, the dock layout
+#include "core/recent.inc"  // the recent maps and projects (saved in the settings; the File menu is the host's)
 
 void loadDock() {
     auto get = [](const wchar_t* name, bool& v) { prefs::flag(std::wstring(L"Layout/") + name, v); };
@@ -234,24 +120,6 @@ void loadDock() {
 }
 
 extern bool gSelfTest;
-double gOpenMs = 0;  // how long opening the file given on the command line took (perf:)
-// Start-up steps and when each was done (ms since the process was created), for perf:.
-std::vector<std::pair<const char*, double>> gStartMarks;
-bool gStartUp = true;  // false after the start-up: later opens add no marks
-void startMark(const char* what) {
-    if (!gStartUp) return;
-    // t0: the process creation (its age from the precise system clock), so the time before wWinMain is in the marks.
-    static const auto t0 = [] {
-        const auto now = std::chrono::steady_clock::now();
-        FILETIME created{}, x1{}, x2{}, x3{}, nowFt{};
-        if (!GetProcessTimes(GetCurrentProcess(), &created, &x1, &x2, &x3)) return now;
-        GetSystemTimePreciseAsFileTime(&nowFt);
-        const auto ft = [](FILETIME f) { return (uint64_t(f.dwHighDateTime) << 32) | f.dwLowDateTime; };
-        if (ft(nowFt) <= ft(created)) return now;
-        return now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double, std::micro>(double(ft(nowFt) - ft(created)) / 10.0));
-    }();
-    gStartMarks.push_back({what, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count()});
-}
 // Test runs (--selftest, --datashots, --screenshot) play no sound: the user may be at the computer.
 bool gSilent = false;
 SDL_AudioStream* openPlayback(const SDL_AudioSpec* spec) {
@@ -279,8 +147,6 @@ void saveDock() {
 
 // Recently opened maps and projects, and the folder projects usually go in (where the last one was made or
 // opened): HKCU\Software\StarDraft, RecentMaps / RecentProjects (lists) and ProjectsFolder.
-constexpr int kRecentMax = 10;
-std::vector<std::wstring> gRecentMaps, gRecentProjects;
 bool gOpenLastProject = false;  // Options: open the last project on start (off unless chosen)
 bool gCheckUpdates = true;      // Options: look for a newer release on start (on unless turned off)
 // Options > Crash reports (GitHub feedback #45): 0 ask after a crash (the default), 1 send, 2 do not send. A crash always
@@ -294,11 +160,9 @@ void setCrashReports(int mode) {
 // Options > Middle mouse click and hold: false pan the map (it moves toward the mouse, the faster the farther the mouse
 // is from where the button went down; the default), true drag the map (it follows the mouse).
 bool gMiddleDrag = false;
-// Options: the most units a map may have (GitHub feedback #103): standard maps, and maps of EUD projects.
-int gUnitLimitClassic = 3400, gUnitLimitEud = 1700;
 std::wstring gLanguage = L"auto";  // Options > Language: auto, en, ko or es (a change applies at the next start)
-std::wstring gProjectsFolder;
 HMENU gRecentMapsMenu = nullptr, gRecentProjectsMenu = nullptr;
+extern int gUnitLimitClassic, gUnitLimitEud;  // (core/map_edit.inc)
 
 void loadRecent() {
     prefs::list(L"RecentMaps", gRecentMaps), prefs::list(L"RecentProjects", gRecentProjects);
@@ -318,80 +182,19 @@ void loadLanguage() {
     gUiLang = uiLanguageChosen(gLanguage);
 }
 
-void saveRecent() {
-    if (gSelfTest) return;  // the self-test leaves the user's lists alone
-    prefs::setList(L"RecentMaps", gRecentMaps);
-    prefs::setList(L"RecentProjects", gRecentProjects);
-    prefs::setText(L"ProjectsFolder", gProjectsFolder);
-}
-
-// The File menu's two lists: "1  MyMap.scx    C:\Maps", newest first, and Clear.
-void refreshRecentMenus() {
-    auto fill = [](HMENU m, const std::vector<std::wstring>& list, int firstId, int clearId, const wchar_t* none) {
-        if (!m) return;
-        while (GetMenuItemCount(m) > 0) DeleteMenu(m, 0, MF_BYPOSITION);
-        for (size_t i = 0; i < list.size(); ++i) {
-            const fs::path p = list[i];
-            std::wstring label = (i < 9 ? L"&" + std::to_wstring(i + 1) : L"1&0") + L"  " + p.filename().wstring() + L"\t" +
-                                 fs::path(p.parent_path()).make_preferred().wstring();
-            for (size_t at = 0; (at = label.find(L'&', at + 2)) != std::wstring::npos;) label.insert(at, L"&");  // literal & in names
-            AppendMenuW(m, MF_STRING, UINT_PTR(firstId + int(i)), label.c_str());
-        }
-        if (list.empty()) AppendMenuW(m, MF_STRING | MF_GRAYED, 0, none);
-        AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-        AppendMenuW(m, MF_STRING | (list.empty() ? MF_GRAYED : 0), UINT_PTR(clearId), L"&Clear list");
-    };
-    fill(gRecentMapsMenu, gRecentMaps, ID_RECENT_MAP, ID_RECENT_CLEAR_MAPS, L"None");
-    fill(gRecentProjectsMenu, gRecentProjects, ID_RECENT_PROJECT, ID_RECENT_CLEAR_PROJECTS, L"None");
-}
-
-void removeRecent(std::vector<std::wstring>& list, const fs::path& p) {
-    std::error_code ec;
-    std::erase_if(list, [&](const std::wstring& item) { return !_wcsicmp(item.c_str(), p.wstring().c_str()) || fs::equivalent(item, p, ec); });
-}
-
-void addRecent(std::vector<std::wstring>& list, const fs::path& path) {
-    std::error_code ec;
-    const fs::path p = fs::absolute(path, ec).make_preferred();
-    removeRecent(list, p);
-    list.insert(list.begin(), p.wstring());
-    if (list.size() > size_t(kRecentMax)) list.resize(size_t(kRecentMax));
-    saveRecent();
-    refreshRecentMenus();
-}
-
-// A project was made or opened in <folder>/<name>/. The working folder is the one set in Program options (not the
-// last project's folder): it stays as the user set it.
-void rememberProjectsFolder(const fs::path&) {}
-
 void layout();
-const wchar_t* kModeNames[] = {L"Terrain", L"Units", L"Doodads", L"Locations", L"Sprites"};
 
-enum class Drag { None, Pan, AutoPan, PlaceStroke, MoveUnits, BoxSelect, PendingPlace, Paint, Spray, TerrainSelect, LocCreate, LocMove, LocResize,
-                  MoveDoodad, MoveSprite, Tiles, PasteStroke };
 
-// Tools per mode (index into these lists).
-const wchar_t* kTerrainTools[] = {L"Brush", L"Spray", L"Fill", L"Replace (click terrain)", L"Select / copy"};
-const wchar_t* kUnitTools[] = {L"Place / select", L"Spray", L"Replace (click unit)"};
-const wchar_t* kDoodadTools[] = {L"Place", L"Spray"};
-enum TerrainTool { TBrush, TSpray, TFill, TReplace, TSelect };
+#include "core/modes.inc"  // the drags, the tools of each mode, the layers
 // Rectangle mode (tiles_view.inc): its panel in the place of the palette, its clicks on the map, its preview.
 void tilesSync();
-bool tilesMouseDown(float wx, float wy, WPARAM keys);
+bool tilesMouseDown(float wx, float wy, unsigned mods);
 void tilesMouseUp(float wx, float wy);
 void tilesMouseMove(float wx, float wy);
 void tilesSprayAt(float wx, float wy);
 void tilesScene(render::Scene& s, float wx, float wy);
-bool gShowRanges = false;  // View > Show ranges of the selected units
-// View > Layers (GitHub feedback #117): the map's layers that show. Locations: app.showLocations.
-struct MapLayers {
-    bool terrain = true, doodads = true, sprites = true, units = true;
-} gLayers;
 void rangesScene(render::Scene& s, float dx = 0, float dy = 0);
 bool tilesDatashot(const std::string& spec, const fs::path& dir);
-enum UnitTool { UPlace, USpray, UReplace };
-enum DoodadTool { DPlace, DSpray };
-enum SpriteTool { SPlace, SSpray };
 // A spray tool is on: Units, Doodads or Sprites (their radius, density and the circle on the map).
 bool objectSprayOn();
 void dialogMessage(MSG& msg, HWND dlg);  // feedback.inc
@@ -400,31 +203,7 @@ void mapPageFlush();  // map_pages.inc: a text being typed on a map page goes in
 void stripToolByKey(int key);  // the keys V, B, A, F (the strip's tools)
 std::wstring entryName(const std::string& dat, int v);
 
-// The colors (docs/dev/CONTROLS.md). Every control takes its colors from these. The values here are the dark theme's;
-// setThemeColors (theme.inc) sets them for the theme and the accent the user picked.
-// Surfaces: the window, side panels, a control's face (and under the mouse, pressed), a read-only field.
-COLORREF kBg = RGB(32, 32, 32), kPanel = RGB(28, 28, 30), kCtl = RGB(43, 43, 43), kCtlHot = RGB(52, 52, 56), kCtlDown = RGB(36, 36, 38),
-         kReadOnly = RGB(30, 30, 32), kReadOnlyLine = RGB(48, 48, 52);
-// Text: normal, dim (labels, notes), faint (what cannot be used now).
-COLORREF kText = RGB(224, 224, 224), kDim = RGB(148, 148, 148), kFaint = RGB(90, 90, 96);
-// Lines: a quiet 1px border a few shades above the field, brighter under the mouse; the box of a check box.
-COLORREF kBorder = RGB(60, 60, 64), kBorderHot = RGB(88, 88, 94), kBorderStrong = RGB(110, 110, 118);
-// The accent: links, the selected item's text, focus. Selected rows and primary buttons: kSel with kAccentLine.
-COLORREF kAccent = RGB(98, 176, 240), kAccentBright = RGB(130, 200, 255), kAccentLine = RGB(47, 109, 153), kAccentFill = RGB(47, 109, 153),
-         kSel = RGB(23, 48, 63), kSelHot = RGB(30, 62, 82), kOnText = RGB(230, 240, 250);
-// A value chip (trigger sentences): its ground and line (a quiet tint of the accent), and a chip with an error.
-// Scroll bar thumbs, a table's row line, a grip's dots.
-COLORREF kChip = RGB(34, 42, 52), kChipLine = RGB(52, 66, 80), kBadFill = RGB(64, 32, 32), kBadFillHot = RGB(84, 40, 38), kChipDim = RGB(38, 38, 41);
-COLORREF kThumb = RGB(84, 84, 90), kThumbHot = RGB(120, 120, 128), kRowLine = RGB(44, 46, 52), kGripDot = RGB(110, 110, 116);
-// A list row under the mouse; kHot is the same (menus, tabs).
-COLORREF kRowHot = RGB(46, 46, 50), kHot = RGB(62, 62, 66);
-// Status: changed or right (green), a warning (amber), an error or a removal (red).
-COLORREF kGood = RGB(127, 201, 138), kGoodFill = RGB(28, 49, 34), kGoodLine = RGB(61, 107, 71), kWarn = RGB(224, 164, 88), kBad = RGB(232, 104, 96);
-// Report feedback: the same glyph and color wherever it is (the menu item, the dialog).
-COLORREF kFeedback = RGB(242, 204, 84);
-constexpr UiIcon kFeedbackIcon = UiIcon::Feedback;
-
-#include "theme.inc"
+#include "core/colors.inc"  // the color tokens and the themes
 
 // The control kit's sizes (the kit is ui_kit.inc; docs/dev/CONTROLS.md has the scale): spacing 4 / 8 / 12 / 16 / 24 / 32.
 namespace ui {
@@ -483,105 +262,63 @@ void titleColors(HWND w) {
     DwmSetWindowAttribute(w, 34 /* DWMWA_BORDER_COLOR */, &line, sizeof line);
 }
 void drawMatched(HDC dc, RECT r, const std::wstring& text, const std::vector<std::wstring>& words, COLORREF normal);
+void drawMatched(stardraft::draw::Canvas& c, stardraft::draw::Rect r, const std::wstring& text, const std::vector<std::wstring>& words, stardraft::draw::Color normal);
 // The message box in the theme (message_box.inc): a drop-in for MessageBoxW; `names` renames the buttons (left to right).
 int themedMessageBox(HWND owner, const std::wstring& text, const std::wstring& caption, UINT flags, const std::vector<std::wstring>& names = {});
 
 const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\StarCraft";
 
-struct App {
+#include "core/app_state.inc"
+#include "core/palette_tools.inc"  // the palette and tool state, the status texts and the messages (the state forms)
+#include "core/documents.inc"  // the workspaces, the tabs (Doc, gDocs), the modes, the command table's globals, openProject and openAny
+#include "core/layout.inc"  // the main window's panes: computeLayout (the placement is layout() below)
+#include "core/menu_model.inc"  // the menu bar as data (buildMenuModel, toHmenu)
+#include "core/commands_core.inc"  // commandPortable: the checks before commandBody's switch
+#include "core/views_status.inc"  // the status bar's view (StatusView; the instance is gStatus below)
+#include "core/views_stub.inc"  // the Triggers, Assets and Project stub's view (StubView; the instance is gStubView)
+#include "core/map_edit.inc"  // the map editing helpers: toWorld, the spray, the stroke, the snap, the unit limit
+#include "core/tiles_edit.inc"  // the Rectangle mode's tiles on the map: the press, the drag, the spray and the fill
+#include "core/path_overlay.inc"  // the pathing overlays (walk, paths, towns): their drawing and their hover text
+#include "core/map_input.inc"  // the map view's mouse input: mapMouseDown, mapMouseMove, mapMouseUp, the spray and the pipette
+#include "core/views_rail.inc"  // the side rail (RailView; the instance is gRail below)
+#include "core/views_minimap.inc"  // the minimap (MinimapView, the terrain and the camera; the instance is gMinimap below)
+#include "core/views_tabs.inc"  // the document tabs (TabsView, docTitle, activateDoc, closeDoc, moveDoc; the instance is gTabs below)
+#include "core/startup.inc"  // the start-up marks (startMark, gStartMarks, gOpenMs)
+#include "core/names.inc"  // the names of the palette's entries and of a .dat's entries (paletteItemName, entryName)
+#include "core/title.inc"  // the window's title and the rail's state (updateTitle)
+int selectPalette(int value);
+void pickUnit(int v, bool add);
+// The forms without app: the Win32 TU's own (the state forms are in core/palette_tools.inc).
+void toWorld(int sx, int sy, float& wx, float& wy);
+int currentTool();
+Brush currentBrush();
+Editor::SelectShape selectShape();
+std::wstring itemLabel(int v);
+void updateStatus();
+void setMessage(const std::wstring& m);
+void setPlayer(int i);
+void fillToolCombo();
+void rebuildList();
+bool spriteIsOverlay(int i);
+bool placePaletteDoodad(float wx, float wy, std::string& why);
+
+// The program: its state, and what Win32 and the renderer give it (windows, brushes, the font, the GPU).
+struct App : AppState {
     HINSTANCE inst = nullptr;
-    HWND main = nullptr, tabs = nullptr, owner = nullptr, brush = nullptr, filter = nullptr, list = nullptr;
-    HWND tool = nullptr, shape = nullptr, sym = nullptr, density = nullptr;
-    HWND modeBtn[kModeCount] = {};
+    HWND main = nullptr, tabs = nullptr, owner = nullptr, filter = nullptr, list = nullptr;
+    HWND tool = nullptr, shape = nullptr;
+    HWND modeBar = nullptr;  // the modes' segmented control (ModeBarView)
     HBRUSH bgBrush = nullptr, ctlBrush = nullptr;
-    std::wstring statusText[6];
     HWND status = nullptr, view = nullptr, minimap = nullptr;
-    std::vector<uint32_t> megatileColor;  // average color per megatile (0x00RRGGBB)
-    const Tileset* megatileColorsFor = nullptr;
-    int megatileColorsEra = -1;  // the tileset object is loaded again in place when the map's tileset changes
-    std::vector<uint32_t> miniTerrain;    // one pixel per map tile
-    uint64_t miniTerrainRev = 0;
-    HBITMAP miniCache = nullptr;  // the terrain and the unit dots, without the view
-    uint64_t miniCacheRev = 0, miniCacheTerrainRev = 0;  // the cache key; the revisions start above 0
-    int miniCacheW = 0, miniCacheH = 0;
-    RECT miniInvalidView{};  // what renderNow last invalidated the minimap for
-    uint64_t miniInvalidRev = 0, miniInvalidTerrainRev = 0;
     HFONT font = nullptr;
     HACCEL accel = nullptr;
-    UINT dpi = 96;
-
-    GameData data;
-    std::unique_ptr<Editor> ed;
     render::Renderer renderer;
     SDL_Window* sdlView = nullptr;
     bool rendererOk = false;
-
-    Mode mode = Mode::Units;
-    std::vector<int> items;  // palette entries for the current mode; -1 = "(Select)"
-    int palette = -1;        // selected palette entry value
-    int palette2 = -1;       // isometric terrain: the second terrain (Ctrl+click in the palette), painted with Shift+click or Shift+drag
-    int playerOwner = 0;
-    float brushSize = 2;  // diamonds, whole numbers 1 to 32
-    float brushHeight = 0;  // terrain: the brush's height, 1 to 32; 0: the same as its size (GitHub #113)
-    Brush::Shape brushShape = Brush::Diamond;
-    int toolByMode[kModeCount] = {};
-    int sprayDensity = 10;  // the active mode's: how many things one spray puts down (kDensityMax at most)
-    int densityByMode[kModeCount] = {5, 10, 10, 10, 10};  // each mode keeps its own density and symmetry (setMode swaps them in)
-    int symmetryByMode[kModeCount] = {};
-    uint32_t spraySeed = 1;
-    int lastSprayX = -100000, lastSprayY = -100000;
-    double sprayHeld = 0, sprayCredit = 0;  // a held spray: the seconds it is held, and the sprays due
-    int sprayPlaced = 0;                    // the units or doodads that the press and hold placed
-    bool terrainRect = false;  // the Terrain tool strip's Rectangle: the tools work on tiles as they are (tiles_view.inc)
-    bool hasTerrainSel = false;
-    Rect terrainSel;
-    bool terrainPasting = false;
-    bool copyUnitsWithTerrain = true, copyDoodadsWithTerrain = true;
-    bool locationWrap = false;  // a location's name in lines that fit in it (Options > Locations)
-    bool allowIllegalUnits = false;  // Options: units anywhere; terrain edits keep them
-    std::vector<int> selDoodads, selSprites;  // the selected doodads and sprites (indexes into the Editor's lists)
-    // Each mode's own copy buffer (units and terrain are the Editor's): Ctrl+C, Ctrl+X and Ctrl+V act on the active mode's.
-    // Doodads and sprites: the copied ones, each from the middle of the group; a paste follows the mouse.
-    std::vector<Editor::ItemAt> doodadClip, spriteClip;
-    bool pastingItems = false;                 // Doodads or Sprites: the copy follows the mouse; a click places it
-    Rect locationClip{};                       // a location's size and name
-    int locationClipInverted = 0;              // ... and its inverted axes (1 left/right, 2 top/bottom)
-    std::string locationClipName;
-    uint16_t locationClipElevation = 0;        // ... and the elevations it leaves out (MRGN flags)
-    bool hasLocationClip = false;
-    bool allowStacking = false;     // Options: units may overlap
-    bool animate = true;             // Options: units play their idle animations
-    bool dragSnapBack = true;        // Options: dragged units go back to the last position where they fit
-    float lastValidDX = 0, lastValidDY = 0;  // offset of that spot from where the drag started
-    bool correction = false, doodadCheck = true, showLocations = true;  // units: Place only where it fits (the default)
-    bool doodadNearest = false;  // Options > Doodads > Move to the nearest place where it fits (with doodadCheck)
-    bool showGrid = false;
-    // Options > Units, Sprites, Locations: the snap grid in px (0: no snap; 32 a tile, 16 a half tile, 8 a quarter tile).
-    int unitGrid = 0, spriteGrid = 0, locationGrid = 32;
-    bool carbot = false;  // Cartooned (Carbot) graphics
-    float lastPlaceX = 0, lastPlaceY = 0;  // where the last unit of a placing drag went (cursor)
-    int placedInStroke = 0;
-    RECT lastPlacedBox{};  // doodads and sprites in a drag: the box of the last one placed (the next goes beside it)  // 32x32 tile grid; units on tile centers, moved in whole tiles
-    GraphicsQuality quality = GraphicsQuality::HD2;
-
-    float camX = 0, camY = 0, zoom = 1;
-    int mouseX = 0, mouseY = 0;  // viewport pixels
-    bool mouseIn = false;
-    Drag drag = Drag::None;
-    float dragWX = 0, dragWY = 0;  // world point where the drag started
-    int dragSX = 0, dragSY = 0;    // screen point where the drag started
-    bool dragMoved = false;
-    int locEdges = 0;  // 1 left, 2 top, 4 right, 8 bottom
-    bool pasting = false;  // paste mode: the clipboard follows the cursor until a click places it
-    Rect locStart;
-    bool dirty = true;
-    uint64_t terrainRev = 0, editorRev = 0;
-    std::wstring message;
-    double frameMs = 0;
-    std::deque<std::chrono::steady_clock::time_point> frameTimes;  // the frames of the last second (for fps)
 };
 
 App app;
+AppState& appState() { return app; }
 
 int gUnitGraphics = 0;  // changes when syncMapUnitGraphics gives the map other unit graphics
 
@@ -652,11 +389,9 @@ void unitPaletteRepaint() {
 void rebuildUnitPalette();
 // Map: the map editor; Data: the project's .dat files; Triggers, Assets: to come; Project: the project.
 // After Files: the map's pages (map_pages.inc), opened from the rail's items under the workspaces.
-enum class Workspace { Map, Data, Triggers, Assets, Project, Briefing, Files, Properties, Players, ClassicTriggers, ClassicSettings };
 void setWorkspace(Workspace w);
 bool briefCommand(int id);
 
-Workspace gWorkspace = Workspace::Map;
 HWND gWsBar = nullptr, gDataWnd = nullptr;
 void layoutUnitPalette();
 void showAbout();
@@ -668,20 +403,7 @@ void setPlayer(int i);
 void showQuickPicker(bool replace = false, bool open = false);  // replace: Replace with... for the selection; open: Quick open
 void replaceSelectionWith(int v);
 
-int scale(int v) { return MulDiv(v, int(app.dpi), 96); }
-
 // --- Camera helpers ------------------------------------------------------------------------------
-
-void toWorld(int sx, int sy, float& wx, float& wy) {
-    wx = app.camX + sx / app.zoom;
-    wy = app.camY + sy / app.zoom;
-}
-
-void viewSize(int& w, int& h) {
-    RECT r;
-    GetClientRect(app.view, &r);
-    w = r.right, h = r.bottom;
-}
 
 void zoomAt(float factor, int sx, int sy) {
     float wx, wy;
@@ -704,19 +426,6 @@ void fitMap() {
 
 // --- Tools ------------------------------------------------------------------------------------------
 
-int currentTool() { return app.toolByMode[int(app.mode)]; }
-// The spray's density: the number of things one spray puts down in the brush (each tick of a held spray too), 1 to
-// kDensityMax. Units or doodads (sprayCount; only where they fit, so fewer can land) and terrain dabs or tiles
-// (sprayDabs). The defaults: 5 dabs for terrain, 10 units or doodads (about the earlier "medium").
-constexpr int kDensityMax = 50;
-int sprayCount() { return std::clamp(app.sprayDensity, 1, kDensityMax); }
-int sprayDabs() { return std::clamp(app.sprayDensity, 1, kDensityMax); }
-int sprayRadius() { return int(app.brushSize * 64); }
-Brush currentBrush() { return Brush{app.brushShape, app.brushSize, app.mode == Mode::Terrain ? app.brushHeight : 0.0f}; }
-// The terrain selection's shape: the brush shape (diamond, square, circle) while it is made with Select.
-Editor::SelectShape selectShape() {
-    return app.brushShape == Brush::Diamond ? Editor::SelectShape::Diamond : app.brushShape == Brush::Circle ? Editor::SelectShape::Ellipse : Editor::SelectShape::Rect;
-}
 // The brush sizes (diamonds; the sprays' radius too): 0.5, every whole size to 16, then every other to 32.
 const std::vector<float>& brushSizes() {
     static const std::vector<float> v = [] {
@@ -735,25 +444,8 @@ int brushSizeIndex(float size) {  // the nearest size in the list
     return best;
 }
 
-// The tool strip (app.tool) shows the active mode's tools as icons: repaint it after the tool changes.
-void layout();
-void fillToolCombo() {
-    if (app.tool) InvalidateRect(app.tool, nullptr, FALSE);
-    // The terrain selection goes with a tool that does not use it (Brush, Spray); Fill and Replace work in it.
-    if (const int t = app.toolByMode[int(Mode::Terrain)]; app.mode == Mode::Terrain && (t == TBrush || t == TSpray) && app.hasTerrainSel)
-        app.hasTerrainSel = false, app.dirty = true;
-    // The strip's rows follow the tool (size and density for the sprays): its height, and what is under it.
-    static int lastRows = -1;
-    const int rows = int(app.mode) * 4 + app.toolByMode[int(app.mode)];
-    if (app.view && rows != lastRows) lastRows = rows, layout();
-    tilesSync();
-}
+void fillToolCombo() { fillToolCombo(app); }
 
-// The palette list allows multi-select (for sprays); the "current" entry is the caret.
-void setListSel(int i) {
-    SendMessageW(app.list, LB_SETSEL, FALSE, -1);
-    if (i >= 0) SendMessageW(app.list, LB_SETSEL, TRUE, i), SendMessageW(app.list, LB_SETCARETINDEX, i, FALSE);
-}
 
 std::vector<int> selectedPalette() {
     std::vector<int> out;
@@ -774,102 +466,13 @@ std::vector<int> selectedPalette() {
 
 // --- Palette ---------------------------------------------------------------------------------------
 
-// Compact tag from units.dat's StarEdit group flags: race (T/Z/P, N neutral, I independent) and
-// kind (U unit, B building, H hero, O other), e.g. "T U" for Terran units.
-std::wstring unitTag(const UnitType& t) {
-    wchar_t race = (t.groupFlags & UnitGroup::Terran) ? L'T' : (t.groupFlags & UnitGroup::Zerg) ? L'Z'
-                 : (t.groupFlags & UnitGroup::Protoss) ? L'P' : (t.groupFlags & UnitGroup::Independent) ? L'I' : L'N';
-    wchar_t kind = t.is(UnitFlag::Hero) ? L'H' : t.is(UnitFlag::Building) ? L'B' : (t.groupFlags & UnitGroup::Men) ? L'U' : L'O';
-    return std::wstring{race, L' ', kind};
-}
 
-std::wstring unitShortName(const UnitType& t) {
-    std::wstring n = widen(t.name);
-    for (const wchar_t* prefix : {L"Terran ", L"Zerg ", L"Protoss "})
-        if (n.rfind(prefix, 0) == 0) return n.substr(wcslen(prefix));
-    return n;
-}
 
-std::wstring itemLabel(int v) {
-    Editor& ed = *app.ed;
-    switch (app.mode) {
-    case Mode::Terrain: {
-        const IsomTerrainTable* t = IsomTerrainTable::forEra(ed.era());
-        return t ? widen(t->terrainName(uint16_t(v))) : L"";
-    }
-    case Mode::Units:
-        return v < 0 ? L"(Select / move)" : unitTag(ed.unitTypes()[uint16_t(v)]) + L"   " + unitShortName(ed.unitTypes()[uint16_t(v)]);
-    case Mode::Doodads: {
-        const DoodadType* d = ed.doodadTypes().find(uint16_t(v));
-        if (!d) return L"";
-        return widen(ed.unitTypes().statText(d->groupString - 1u)) + L"  #" + std::to_wstring(d->id) + L"  (" +
-               std::to_wstring(d->width) + L"x" + std::to_wstring(d->height) + L")";
-    }
-    case Mode::Locations:
-        return widen(ed.locationName(v));
-    }
-    return L"";
-}
+std::wstring itemLabel(int v) { return itemLabel(app, v); }
 
-void rebuildList() {
-    SendMessageW(app.list, WM_SETREDRAW, FALSE, 0);
-    SendMessageW(app.list, LB_RESETCONTENT, 0, 0);
-    app.items.clear();
-    if (app.ed && app.ed->isOpen()) {
-        Editor& ed = *app.ed;
-        wchar_t buf[256];
-        GetWindowTextW(app.filter, buf, 256);
-        std::wstring filter = buf;
-        std::transform(filter.begin(), filter.end(), filter.begin(), ::towlower);
-        std::vector<int> all;
-        switch (app.mode) {
-        case Mode::Terrain:
-            if (const IsomTerrainTable* t = IsomTerrainTable::forEra(ed.era()); t && ed.canPaintTerrain())
-                for (uint16_t i = 1; i <= t->terrainCount(); ++i)
-                    if (t->isTerrain(i)) all.push_back(i);
-            break;
-        case Mode::Units: break;  // in the unit palette (side bar)
-        case Mode::Doodads: {
-            std::vector<const DoodadType*> ds;
-            for (const auto& d : ed.doodadTypes().all()) ds.push_back(&d);
-            std::stable_sort(ds.begin(), ds.end(), [](auto* a, auto* b) { return a->groupString < b->groupString; });
-            for (auto* d : ds) all.push_back(d->id);
-            break;
-        }
-        case Mode::Locations:
-            for (int i = 0; i < ed.locationCount(); ++i)
-                if (ed.locationUsed(i)) all.push_back(i);
-            break;
-        }
-        auto squash = [](std::wstring t) {
-            t.erase(std::remove(t.begin(), t.end(), L' '), t.end());
-            return t;
-        };
-        for (int v : all) {
-            std::wstring label = itemLabel(v);
-            std::wstring low = label;
-            std::transform(low.begin(), low.end(), low.begin(), ::towlower);
-            bool match = low.find(filter) != std::wstring::npos || squash(low).find(squash(filter)) != std::wstring::npos;
-            if (!filter.empty() && v >= 0 && !match) continue;
-            app.items.push_back(v);
-            SendMessageW(app.list, LB_ADDSTRING, 0, LPARAM(label.c_str()));
-        }
-        if (app.mode == Mode::Terrain && app.items.empty())
-            SendMessageW(app.list, LB_ADDSTRING, 0, LPARAM(tr(L"(Terrain editing needs ISOM data. Only Badlands has it now.)")));
-        // Keep the previous choice if still listed.
-        if (app.mode != Mode::Units) {
-            auto it = std::find(app.items.begin(), app.items.end(), app.palette);
-            int sel = it != app.items.end() ? int(it - app.items.begin()) : -1;  // no pick until one is clicked: the mode selects
-            if (app.mode == Mode::Locations) sel = -1;
-            setListSel(sel);
-            app.palette = sel >= 0 ? app.items[sel] : -1;
-            if (app.mode == Mode::Locations) app.palette = -1;
-        }
-    }
-    SendMessageW(app.list, WM_SETREDRAW, TRUE, 0);
-    InvalidateRect(app.list, nullptr, TRUE);
-    rebuildUnitPalette();
-}
+#include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
+
+void rebuildList() { rebuildList(app); }
 
 void enterSelection();
 bool inSelection();
@@ -887,7 +490,7 @@ void setMode(Mode m) {
     gLastOnSide[gDock.toolsRight[int(m)] ? 1 : 0] = m;
     const PaletteView& v = gViewByMode[int(m)];
     gPal.grid = v.grid, gPal.sprites = v.sprites, gPal.large = v.large;
-    if (app.view) layout();  // the toolbar's side, and what the other column shows
+    if (app.view) shellRelayout();  // the toolbar's side, and what the other column shows
     // Units, terrains and doodads are picked in the palette; in Locations the same place lists the locations.
     const bool locs = m == Mode::Locations, mapWs = gWorkspace == Workspace::Map;
     ShowWindow(app.filter, mapWs && locs ? SW_SHOW : SW_HIDE);
@@ -896,18 +499,14 @@ void setMode(Mode m) {
         ShowWindow(gPal.sectionBox, mapWs && (m == Mode::Units || m == Mode::Doodads || m == Mode::Sprites) ? SW_SHOW : SW_HIDE);
     for (HWND h : {gPal.search, gPal.viewBtn, gPal.wnd})
         if (h) ShowWindow(h, mapWs && !locs ? SW_SHOW : SW_HIDE);
-    for (int i = 0; i < kModeCount; ++i)
-        if (app.modeBtn[i]) InvalidateRect(app.modeBtn[i], nullptr, FALSE);
+    if (app.modeBar) InvalidateRect(app.modeBar, nullptr, FALSE);
     // Only the active mode's options show (layout places them).
     const bool spray = m != Mode::Locations && m != Mode::Sprites;
-    ShowWindow(app.brush, SW_HIDE);  // the size and the mirrors are in the tool strip
-    ShowWindow(app.sym, SW_HIDE);
-    ShowWindow(app.density, SW_HIDE);  // density: a number box in the tool strip
     (void)spray;
 
     // The player: for units and sprites (their owner and color). Doodads have no player (they are placed as player 1).
     ShowWindow(app.owner, mapWs && (m == Mode::Units || m == Mode::Sprites) ? SW_SHOW : SW_HIDE);
-    if (app.view) layout();
+    if (app.view) shellRelayout();
     fillToolCombo();
     app.terrainPasting = false;
     // A mode starts in selection: nothing picked, Terrain on Select. Picking a terrain, unit or doodad in the palette
@@ -920,53 +519,12 @@ void setMode(Mode m) {
 
 // --- Status ----------------------------------------------------------------------------------------
 
-void setStatusPart(int i, const wchar_t* text) {
-    if (app.statusText[i] == text) return;
-    app.statusText[i] = text;
-    SendMessageW(app.status, SB_SETTEXTW, WPARAM(i | SBT_OWNERDRAW), LPARAM(i));
-    InvalidateRect(app.status, nullptr, FALSE);  // the bar is drawn in full (paintStatusBar)
-}
 
-void updateStatus() {
-    if (!app.status) return;
-    wchar_t buf[256];
-    float wx, wy;
-    toWorld(app.mouseX, app.mouseY, wx, wy);
-    std::swprintf(buf, 256, L"%s: %s", kModeNames[int(app.mode)],
-                  app.mode == Mode::Terrain ? kTerrainTools[currentTool()] : app.mode == Mode::Units ? kUnitTools[currentTool()]
-                  : app.mode == Mode::Doodads ? kDoodadTools[currentTool()] : app.mode == Mode::Sprites ? (app.palette >= 0 ? L"Place" : L"Select") : L"Edit");
-    setStatusPart(0, buf);
-    std::swprintf(buf, 256, L"%d, %d  (tile %d, %d)", int(wx), int(wy), int(wx) / 32, int(wy) / 32);
-    setStatusPart(1, buf);
-    std::swprintf(buf, 256, L"%.0f%%  %s", app.zoom * 100, widen(qualityName(app.quality)).c_str());
-    setStatusPart(2, buf);
-    size_t sel = app.ed ? app.ed->selection().size() : 0;
-    std::swprintf(buf, 256, L"%zu selected", sel);
-    setStatusPart(3, buf);
-    setStatusPart(4, app.message.c_str());
-    render::Stats st = app.renderer.stats();
-    // Frames drawn in the last second (the map draws when something changes, so this is low when nothing moves).
-    const auto now = std::chrono::steady_clock::now();
-    while (!app.frameTimes.empty() && now - app.frameTimes.front() > std::chrono::seconds(1)) app.frameTimes.pop_front();
-    std::swprintf(buf, 256, L"%zu fps  %d sprites", app.frameTimes.size(), st.sprites);
-    setStatusPart(5, buf);
-}
 
 void logLine(const std::wstring& line, bool error = false);
 
-void setMessage(const std::wstring& m) {
-    app.message = m;
-    updateStatus();
-    logLine(m);
-}
 
-// A status-bar hint (what is under the mouse): not worth a log line.
-void setHint(const std::wstring& m) {
-    app.message = m;
-    updateStatus();
-}
-
-std::wstring docTitle(int i, bool withMode = true);
+std::wstring docTitle(int i, bool withMode);  // (the default: core/views_tabs.inc)
 extern int gActive;
 
 void layout();
@@ -974,48 +532,9 @@ EudProject* activeProject();
 bool classicMode();
 void updateMenus();
 
-// When this .exe was built (its file's time): "built Oct 9 23:48", to tell builds apart.
-const std::wstring& buildStamp() {
-    static const std::wstring stamp = [] {
-        wchar_t path[MAX_PATH];
-        GetModuleFileNameW(nullptr, path, MAX_PATH);
-        WIN32_FILE_ATTRIBUTE_DATA fa{};
-        FILETIME local;
-        SYSTEMTIME st;
-        if (!GetFileAttributesExW(path, GetFileExInfoStandard, &fa) || !FileTimeToLocalFileTime(&fa.ftLastWriteTime, &local) || !FileTimeToSystemTime(&local, &st))
-            return std::wstring();
-        static const wchar_t* months[] = {L"Jan", L"Feb", L"Mar", L"Apr", L"May", L"Jun", L"Jul", L"Aug", L"Sep", L"Oct", L"Nov", L"Dec"};
-        wchar_t b[48];
-        std::swprintf(b, 48, L"built %s %u %02u:%02u", months[(st.wMonth + 11) % 12], st.wDay, st.wHour, st.wMinute);
-        return std::wstring(b);
-    }();
-    return stamp;
-}
-
 #include "github.inc"
 #include "crash.inc"
 
-void updateTitle() {
-    const std::wstring app_ = L"StarDraft 2 - v" + widen(STARDRAFT_VERSION_NAME);  // the brand and the version: "StarDraft 2 - v0.5.0.6"
-    std::wstring t = app_;
-    if (app.ed && app.ed->isOpen())
-        t = (gActive >= 0 ? docTitle(gActive) : std::wstring(L"Untitled")) + L" - " + app_;
-    if (!buildStamp().empty()) t += L"  (" + buildStamp() + L")";
-    SetWindowTextW(app.main, t.c_str());
-    if (app.tabs) InvalidateRect(app.tabs, nullptr, FALSE);
-    if (gWsBar) {
-        // The rail follows the tab: shown for a project, gone for a map.
-        static int railShown = -1;
-        const int rail = 1;  // always: Map and Briefing are there for every map
-        if (rail != railShown) {
-            railShown = rail;
-            ShowWindow(gWsBar, rail ? SW_SHOW : SW_HIDE);
-            layout();
-        }
-        InvalidateRect(gWsBar, nullptr, FALSE);
-    }
-    updateMenus();  // the tab's mode (map or project) sets which commands are there
-}
 
 // --- Scene -----------------------------------------------------------------------------------------
 
@@ -1161,34 +680,6 @@ void addUnitSprites(render::Scene& s, const Unit& u, float dx, float dy, float a
     }
 }
 
-void outline(render::Scene& s, const Rect& r, uint32_t rgba, float thickness = 1, float dx = 0, float dy = 0) {
-    s.rects.push_back({r.left + dx, r.top + dy, r.right + dx, r.bottom + dy, rgba, false, thickness, true});
-}
-
-Rect previewLocationRect(float wx, float wy) {
-    Rect r = app.locStart;
-    float dx = wx - app.dragWX, dy = wy - app.dragWY;
-    auto sn = [](float v) { return int(snapRound(v, app.locationGrid)); };
-    if (app.drag == Drag::LocCreate) {
-        r = Rect{sn(app.dragWX), sn(app.dragWY), sn(wx), sn(wy)}.normalized();
-    } else if (app.drag == Drag::LocMove) {
-        int mx = sn(r.left + dx) - r.left, my = sn(r.top + dy) - r.top;
-        r = {r.left + mx, r.top + my, r.right + mx, r.bottom + my};
-    } else if (app.drag == Drag::LocResize) {
-        if (app.locEdges & 1) r.left = sn(r.left + dx);
-        if (app.locEdges & 2) r.top = sn(r.top + dy);
-        if (app.locEdges & 4) r.right = sn(r.right + dx);
-        if (app.locEdges & 8) r.bottom = sn(r.bottom + dy);
-        r = r.normalized();
-    }
-    return r;
-}
-
-// Unit snap (Options > Units): placement in the middle of a grid cell, moves in whole cells.
-// Buildings always snap to tile edges (snapToGrid), as in StarEdit.
-void snapUnitPoint(float& x, float& y) { x = snapToCell(x, app.unitGrid), y = snapToCell(y, app.unitGrid); }
-float snapUnitDelta(float d) { return snapRound(d, app.unitGrid); }
-
 // Options menu: the snap choices (the same for units, sprites and locations) and the grid of each, in px.
 constexpr int kSnapGrids[] = {0, 32, 16, 8};
 int snapChoice(int grid) {
@@ -1197,70 +688,7 @@ int snapChoice(int grid) {
     return 0;
 }
 
-// Would the selected units all be placeable moved by (dx, dy)?
-bool selectionFitsAt(float dx, float dy) {
-    Editor& ed = *app.ed;
-    const auto& units = ed.units();
-    const std::vector<int> moving = ed.withLinkedAddons(ed.selection());  // a building's add-on goes with it
-    std::vector<Unit> others;
-    for (size_t i = 0; i < units.size(); ++i)
-        if (std::find(moving.begin(), moving.end(), int(i)) == moving.end()) others.push_back(units[i]);
-    const PlacementContext ctx = ed.placementContext(&others);
-    for (int i : moving) {
-        Unit m = units[size_t(i)];
-        m.x = uint16_t(std::clamp(int(std::lround(m.x + dx)), 0, ed.width() * 32 - 1));
-        m.y = uint16_t(std::clamp(int(std::lround(m.y + dy)), 0, ed.height() * 32 - 1));
-        if (m.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[m.type], m.x, m.y);
-        if (!placementOk(ctx, m)) return false;
-    }
-    return true;
-}
-
-// Offset of a unit drag with the cursor at (wx, wy). With "snap back" on, a spot where the units do
-// not fit holds them at the last spot along the drag where they did.
-void dragMoveDelta(float wx, float wy, float& dx, float& dy) {
-    dx = snapUnitDelta(wx - app.dragWX), dy = snapUnitDelta(wy - app.dragWY);
-    if (!app.dragSnapBack || app.allowIllegalUnits) return;
-    if (selectionFitsAt(dx, dy)) app.lastValidDX = dx, app.lastValidDY = dy;
-    else dx = app.lastValidDX, dy = app.lastValidDY;
-}
-
 // Outline of the diamonds whose four corners are all in `corners`; single corners as small diamonds.
-// A map sprite's box: where its picture is (its first frame; SD graphics), so a click on what shows selects it
-// and the selection's box holds it (GitHub feedback #60). Nothing to measure: 32 x 32 around its point.
-Rect mapSpriteBox(Editor& ed, const MapSprite& m) {
-    UnitSprites& us = ed.unitSprites();
-    if (m.flags & SpriteFlag::DrawAsSprite) {
-        if (const Grp* g = us.grp(us.imageForSprite(m.id)); g && !g->frames.empty() && g->frames[0].width) {
-            const Grp::Frame& f = g->frames[0];
-            const int x0 = int(m.x) - g->width / 2 + f.x, y0 = int(m.y) - g->height / 2 + f.y;
-            return {x0, y0, x0 + f.width, y0 + f.height};
-        }
-    } else if (const Sprite* sp = us.unitSprite(m.id, m.owner, ed.tileset()); sp && sp->width) {
-        const int x0 = int(m.x) - sp->originX, y0 = int(m.y) - sp->originY;
-        return {x0, y0, x0 + sp->width, y0 + sp->height};
-    }
-    return {int(m.x) - 16, int(m.y) - 16, int(m.x) + 16, int(m.y) + 16};
-}
-// The sprite under a map point: the smallest box that holds it (a doodad's overlay goes with its doodad), else the
-// nearest within 24 pixels (as before).
-int mapSpriteAt(Editor& ed, int x, int y) {
-    int best = -1;
-    long long bestArea = 1LL << 62;
-    for (size_t i = 0; i < ed.sprites().size(); ++i) {
-        const MapSprite& m = ed.sprites()[i];
-        const Rect r = mapSpriteBox(ed, m);
-        if (!r.contains(x, y)) continue;  // (first: the overlay test below goes through every doodad)
-        bool overlay = false;
-        for (const Doodad& d : ed.doodads())
-            if (const DoodadType* t = ed.doodadTypes().find(d.id); t && t->overlaySprite == m.id && d.x == m.x && d.y == m.y) overlay = true;
-        if (overlay) continue;
-        const long long area = 1LL * (r.right - r.left) * (r.bottom - r.top);
-        if (area < bestArea) best = int(i), bestArea = area;
-    }
-    return best >= 0 ? best : ed.spriteAt(x, y);
-}
-
 void diamondOutline(render::Scene& s, const std::set<std::pair<int, int>>& set, uint32_t rgba) {
     auto line = [&](float x0, float y0, float x1, float y1) {
         render::RectDraw r;
@@ -1290,20 +718,17 @@ void diamondOutline(render::Scene& s, const std::set<std::pair<int, int>>& set, 
         }
 }
 
-#include "path_overlay.inc"
+// The Options and View menus' checks of the pathing overlays (the Win32 menu; the overlays are in core/path_overlay.inc).
+void pathOverlayMenus(HMENU m) {
+    CheckMenuItem(m, ID_VIEW_WALK, gPath.walk ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(m, ID_VIEW_PATHS, gPath.paths ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(m, ID_VIEW_TOWNS, gPath.towns ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuRadioItem(m, ID_PATHSIZE_SMALL, ID_PATHSIZE_LARGE,
+                       gPath.size == PathUnitSize::Small ? ID_PATHSIZE_SMALL : gPath.size == PathUnitSize::Large ? ID_PATHSIZE_LARGE : ID_PATHSIZE_MEDIUM,
+                       MF_BYCOMMAND);
+}
 
 std::vector<std::pair<int, uint16_t>> ghostTiles;  // doodad preview tiles, set by buildScene
-
-// The terrain selection being dragged from the press to (wx, wy). Rectangle: whole tiles, the tile of the press and the
-// tile under the mouse both in it (GitHub feedback #112); Isometric: as dragged.
-Rect terrainSelectRect(float wx, float wy) {
-    Rect r = Rect{int(app.dragWX), int(app.dragWY), int(wx), int(wy)}.normalized();
-    if (!app.terrainRect || !app.ed) return r;
-    const int w = app.ed->width(), h = app.ed->height();
-    const int x0 = std::clamp(r.left / 32, 0, w - 1), y0 = std::clamp(r.top / 32, 0, h - 1);
-    const int x1 = std::clamp((r.right - 1) / 32, x0, w - 1), y1 = std::clamp((r.bottom - 1) / 32, y0, h - 1);
-    return Rect{x0 * 32, y0 * 32, (x1 + 1) * 32, (y1 + 1) * 32};
-}
 
 void syncMapUnitGraphics();
 render::Scene buildScene() {
@@ -1639,175 +1064,7 @@ render::Scene buildScene() {
             }
     }    return s;
 }
-
-// --- Minimap ----------------------------------------------------------------------------------------
-
-// Where the map is drawn inside the minimap (fit, centered) and the map-pixel -> minimap scale.
-void minimapRect(RECT& r, float& scalePx) {
-    RECT c;
-    GetClientRect(app.minimap, &c);
-    Editor& ed = *app.ed;
-    float mw = ed.width() * 32.0f, mh = ed.height() * 32.0f;
-    scalePx = std::min(c.right / mw, c.bottom / mh);
-    int w = int(mw * scalePx), h = int(mh * scalePx);
-    r = {(c.right - w) / 2, (c.bottom - h) / 2, (c.right - w) / 2 + w, (c.bottom - h) / 2 + h};
-}
-
-void rebuildMinimapTerrain() {
-    Editor& ed = *app.ed;
-    const Tileset& ts = ed.tileset();
-    if (app.megatileColorsFor != &ts || app.megatileColorsEra != app.ed->era()) {
-        app.megatileColor.assign(ts.megatiles.size(), 0);
-        for (size_t m = 0; m < ts.megatiles.size(); ++m) {
-            uint32_t sum[3] = {0, 0, 0};
-            for (uint32_t ref : ts.megatiles[m]) {
-                size_t mini = ref >> 1;
-                if (mini >= ts.minitiles.size()) continue;
-                for (uint8_t idx : ts.minitiles[mini]) sum[0] += ts.palette[idx].r, sum[1] += ts.palette[idx].g, sum[2] += ts.palette[idx].b;
-            }
-            app.megatileColor[m] = (sum[0] / 1024) << 16 | (sum[1] / 1024) << 8 | (sum[2] / 1024);
-        }
-        app.megatileColorsFor = &ts, app.megatileColorsEra = app.ed->era();
-    }
-    const TerrainLayer& t = ed.terrain();
-    app.miniTerrain.resize(t.tiles.size());
-    for (size_t i = 0; i < t.tiles.size(); ++i) {
-        int m = ts.megatileFor(t.tiles[i]);
-        app.miniTerrain[i] = m >= 0 && size_t(m) < app.megatileColor.size() ? app.megatileColor[m] : 0;
-    }
-    app.miniTerrainRev = ed.terrainRevision();
-}
-
-// The current view in minimap pixels.
-RECT minimapView(const RECT& r, float sc) {
-    int vw, vh;
-    viewSize(vw, vh);
-    return {r.left + int(app.camX * sc), r.top + int(app.camY * sc), r.left + int((app.camX + vw / app.zoom) * sc),
-            r.top + int((app.camY + vh / app.zoom) * sc)};
-}
-
-// The terrain and the unit dots (no view) on a black background.
-void drawMinimapMap(HDC mem, const RECT& c, const RECT& r, float sc) {
-    Editor& ed = *app.ed;
-    FillRect(mem, &c, HBRUSH(GetStockObject(BLACK_BRUSH)));
-    // Terrain, one texel per tile, stretched with smoothing.
-    BITMAPINFO bi{};
-    bi.bmiHeader = {sizeof(BITMAPINFOHEADER), ed.width(), -int(ed.height()), 1, 32, BI_RGB};
-    SetStretchBltMode(mem, HALFTONE);
-    StretchDIBits(mem, r.left, r.top, r.right - r.left, r.bottom - r.top, 0, 0, ed.width(), ed.height(), app.miniTerrain.data(),
-                  &bi, DIB_RGB_COLORS, SRCCOPY);
-    // Units as player-colored dots.
-    static const COLORREF colors[12] = {RGB(244, 4, 4),   RGB(12, 72, 204),   RGB(44, 180, 148), RGB(136, 64, 156),
-                                        RGB(248, 140, 20), RGB(112, 48, 20),  RGB(204, 224, 208), RGB(252, 252, 56),
-                                        RGB(8, 128, 8),   RGB(252, 252, 124), RGB(236, 196, 176), RGB(64, 104, 212)};
-    static HBRUSH brushes[12] = {};  // made once, kept for the life of the program
-    for (const Unit& u : ed.units()) {
-        int x = r.left + int(u.x * sc), y = r.top + int(u.y * sc);
-        int d = std::max(2, int(ed.unitBox(u).right - ed.unitBox(u).left) * int(sc * 100) / 100);
-        d = std::clamp(d, 2, 6);
-        RECT dot{x - d / 2, y - d / 2, x - d / 2 + d, y - d / 2 + d};
-        const int o = std::min<int>(u.owner, 11);
-        if (!brushes[o]) brushes[o] = CreateSolidBrush(colors[o]);
-        FillRect(mem, &dot, brushes[o]);
-    }
-}
-
-void paintMinimap(HDC dc) {
-    RECT c;
-    GetClientRect(app.minimap, &c);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP bmp = CreateCompatibleBitmap(dc, c.right, c.bottom);
-    HGDIOBJ old = SelectObject(mem, bmp);
-    if (app.ed && app.ed->isOpen()) {
-        Editor& ed = *app.ed;
-        if (app.miniTerrainRev != ed.terrainRevision() || app.megatileColorsFor != &ed.tileset() || app.megatileColorsEra != ed.era())
-            rebuildMinimapTerrain();
-        RECT r;
-        float sc;
-        minimapRect(r, sc);
-        // The map picture comes from the cache; it is drawn again only when the map or the minimap size changes.
-        if (!app.miniCache || app.miniCacheRev != ed.revision() || app.miniCacheTerrainRev != ed.terrainRevision() ||
-            app.miniCacheW != c.right || app.miniCacheH != c.bottom) {
-            if (app.miniCache) DeleteObject(app.miniCache);
-            app.miniCache = CreateCompatibleBitmap(dc, c.right, c.bottom);
-            app.miniCacheRev = app.miniCacheTerrainRev = 0;
-            if (app.miniCache) {
-                HDC cdc = CreateCompatibleDC(dc);
-                HGDIOBJ cold = SelectObject(cdc, app.miniCache);
-                drawMinimapMap(cdc, c, r, sc);
-                SelectObject(cdc, cold);
-                DeleteDC(cdc);
-                app.miniCacheRev = ed.revision(), app.miniCacheTerrainRev = ed.terrainRevision();
-                app.miniCacheW = c.right, app.miniCacheH = c.bottom;
-            }
-        }
-        if (app.miniCache) {
-            HDC cdc = CreateCompatibleDC(dc);
-            HGDIOBJ cold = SelectObject(cdc, app.miniCache);
-            BitBlt(mem, 0, 0, c.right, c.bottom, cdc, 0, 0, SRCCOPY);
-            SelectObject(cdc, cold);
-            DeleteDC(cdc);
-        } else
-            drawMinimapMap(mem, c, r, sc);
-        // Current view: drawn on each paint, never on the cache (fillAlpha blends onto its target).
-        RECT v = minimapView(r, sc);
-        fillAlpha(mem, v, kAccent, 36);  // the view: a light tint, the line in the accent
-        HPEN pen = CreatePen(PS_SOLID, 1, kAccentBright);
-        HGDIOBJ op = SelectObject(mem, pen);
-        HGDIOBJ ob = SelectObject(mem, GetStockObject(NULL_BRUSH));
-        Rectangle(mem, v.left, v.top, v.right, v.bottom);
-        SelectObject(mem, op);
-        SelectObject(mem, ob);
-        DeleteObject(pen);
-    } else
-        FillRect(mem, &c, HBRUSH(GetStockObject(BLACK_BRUSH)));
-    BitBlt(dc, 0, 0, c.right, c.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, old);
-    DeleteObject(bmp);
-    DeleteDC(mem);
-}
-
-void minimapJump(int mx, int my) {
-    if (!app.ed || !app.ed->isOpen()) return;
-    RECT r;
-    float sc;
-    minimapRect(r, sc);
-    if (sc <= 0) return;
-    float wx = (mx - r.left) / sc, wy = (my - r.top) / sc;
-    int vw, vh;
-    viewSize(vw, vh);
-    app.camX = wx - vw / 2.0f / app.zoom;
-    app.camY = wy - vh / 2.0f / app.zoom;
-    app.dirty = true;
-}
-
-LRESULT CALLBACK minimapProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_PAINT: {
-        PAINTSTRUCT ps;
-        HDC dc = BeginPaint(hwnd, &ps);
-        paintMinimap(dc);
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    case WM_ERASEBKGND:
-        return 1;
-    case WM_SIZE:  // the picture is fitted to the size; MoveWindow repaints only the new part
-        InvalidateRect(hwnd, nullptr, FALSE);
-        break;
-    case WM_LBUTTONDOWN:
-        SetCapture(hwnd);
-        minimapJump(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
-        return 0;
-    case WM_MOUSEMOVE:
-        if (wp & MK_LBUTTON) minimapJump(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
-        return 0;
-    case WM_LBUTTONUP:
-        ReleaseCapture();
-        return 0;
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
+MinimapView gMinimap;
 
 // The view stays near the map: at most half a view past each edge; a map smaller than the view keeps its middle in
 // the view's middle on that axis. Every way the camera moves (drag, wheel, minimap, keys) passes here each frame.
@@ -2197,158 +1454,23 @@ void chooseInstallFolder() {
     logLine(L"StarCraft folder set to " + dir.wstring() + L" (from the next start)");
 }
 
-// --- Documents (tabs) ------------------------------------------------------------------------------
-// Each open map is a tab with its own editor (and so its own undo history), camera and selection. The
-// active one lives in app.ed; the others keep theirs here.
-
-struct MapPageCopies;  // map_pages.inc
-struct Doc {
-    std::unique_ptr<Editor> ed;  // empty while the document is active (it is in app.ed then)
-    float camX = 0, camY = 0, zoom = 1;
-    bool hasTerrainSel = false, pasting = false, terrainPasting = false;
-    Rect terrainSel{};
-    int untitled = 1;  // "Untitled N" until saved
-    std::shared_ptr<EudProject> project;  // set when the map was opened as (or made into) an EUD project
-    int page = 0;  // a page and not a document yet (new_page.inc): kPageNew, kPageStart; `ed` is a small blank map until then
-    std::shared_ptr<MapPageCopies> mapPages;  // the map pages' working copies (map_pages.inc)
-};
-std::vector<Doc> gDocs;
-int gUntitledCount = 0;
-int gActive = -1;
-constexpr int kPageNew = 1, kPageStart = 2;  // Doc::page
 int gNewDocPage = 0;        // the page of the tab addDocument opens next
 bool gReplacePage = false;  // addDocument puts the map in the active tab (the New page's Create)
-int activePage() { return gActive >= 0 && gActive < int(gDocs.size()) ? gDocs[size_t(gActive)].page : 0; }
-// A real document (a map or a project) is open in the active tab. A page tab (the start page, the New page) holds only
-// a small blank map: the commands that act on a map (mapCommand) are gray there and do nothing.
-bool docOpen() { return gActive >= 0 && gActive < int(gDocs.size()) && !activePage() && app.ed && app.ed->isOpen(); }
 void pageSync();
 void openNewPage(int kind);
 void openStartPage();
 void openPageTab(int page);
-struct TabHit {
-    RECT tab, close;
-};
-std::vector<TabHit> gTabHits;  // laid out by the last paint
-RECT gNewTabHit{};
-int gTabHot = -1, gTabHotClose = -1;
 
-const Editor* docEditor(int i) { return i == gActive ? app.ed.get() : gDocs[size_t(i)].ed.get(); }
 
-// The tab strip and the title bar: "Name (project)" for a project, "Name (map)" for a classic map. withMode false
-// gives the name only.
-const wchar_t* gNewTitle();
-std::wstring docTitle(int i, bool withMode) {
-    const Editor* ed = docEditor(i);
-    if (!ed) return L"";
-    if (const int page = gDocs[size_t(i)].page) return page == kPageStart ? L"Start" : gNewTitle();
-    int n = gDocs[size_t(i)].untitled;
-    std::wstring name = !ed->path().empty() ? ed->path().filename().wstring() : n > 1 ? L"Untitled " + std::to_wstring(n) : L"Untitled";
-    // A project's map is shown by the project's name.
-    const auto& pr = gDocs[size_t(i)].project;
-    if (pr) name = widen(pr->name());
-    if (withMode) name += pr ? L" (project)" : L" (map)";
-    return (ed->modified() ? L"* " : L"") + name;
-}
 
-EudProject* activeProject() { return gActive >= 0 && gActive < int(gDocs.size()) ? gDocs[size_t(gActive)].project.get() : nullptr; }
-
-// --- The two modes (roadmap L.1) ---------------------------------------------------------------------------------
-// A map opened by itself (no project.stardraft or .eds) is in classic mode; a project is in project mode. Project
-// commands (Build, Data, the block triggers, project settings) are not there for a classic map, and classic commands
-// are there in a project only when its map has that classic data (L.4: a classic map made a project keeps it). The
-// menus, the shortcuts and the rail ask these functions. Classic tools add their commands to classicOnlyCommand.
-bool classicMode() { return gActive >= 0 && gActive < int(gDocs.size()) && !gDocs[size_t(gActive)].project; }
-// Program options > Map unit limit, into the editor before units go into the map (standard maps; EUD projects).
-int applyUnitLimit(Editor& ed) {
-    const int n = classicMode() ? gUnitLimitClassic : gUnitLimitEud;
-    ed.setUnitLimit(n);
-    return n;
-}
-bool atUnitLimit(const Editor& ed) { return ed.unitLimit() > 0 && int(ed.units().size()) >= ed.unitLimit(); }
-std::wstring unitLimitText(const Editor& ed) {
-    return L"The map has " + std::to_wstring(ed.unitLimit()) + L" units: the limit (Program options > Map unit limit)";
-}
-bool projectMode() { return activeProject() != nullptr; }
-
-bool projectOnlyCommand(int id) {
-    switch (id) {
-    case ID_PROJ_COMPILE:
-    case ID_PROJ_FOLDER:
-    case ID_PROJ_ADDSCRIPT:
-    case ID_PROJ_SETTINGS:
-    case ID_WS_DATA:
-    case ID_WS_TRIGGERS:
-    case ID_WS_PROJECT:
-    case ID_VIEW_TRIGCODE: return true;
-    default: return false;
-    }
-}
-
-bool classicOnlyCommand(int id) { return id == ID_SCEN_CLASSIC || id == ID_SCEN_CLASSICTRIG; }
 bool classicCommandInProject(int id);  // classic_triggers.inc: the project's map has that classic data (L.4)
 
-// True when the command is there in the mode of the active tab.
-bool commandInMode(int id) {
-    if (projectOnlyCommand(id)) return projectMode();
-    // Map data (the unit, upgrade and tech settings) is for classic maps only; a project's map keeps those sections.
-    if (id == ID_SCEN_CLASSIC) return classicMode();
-    if (classicOnlyCommand(id)) return classicMode() || (projectMode() && classicCommandInProject(id));
-    return true;
-}
-
-// The menu commands that updateMenus enables or grays by mode. A classic-only command goes here too.
-constexpr int kModeCommands[] = {ID_PROJ_COMPILE, ID_PROJ_FOLDER, ID_PROJ_ADDSCRIPT, ID_PROJ_SETTINGS,
-                                 ID_WS_DATA,      ID_WS_TRIGGERS, ID_WS_PROJECT,     ID_VIEW_TRIGCODE, ID_SCEN_CLASSIC, ID_SCEN_CLASSICTRIG};
-// Is the command enabled in a tab of that mode (the self-test checks the menus with it)?
-bool commandForMode(int id, bool project) { return classicOnlyCommand(id) ? !project : !projectOnlyCommand(id) || project; }
-
-int tabStripHeight() { return scale(30); }
 
 void mapPageClose();  // map_pages.inc: the open map page goes (its working copy stays with its tab)
 bool mapPagesConfirm();
 
-void stashActive() {
-    if (gActive < 0 || gActive >= int(gDocs.size()) || !app.ed) return;
-    mapPageClose();
-    Doc& d = gDocs[size_t(gActive)];
-    d.camX = app.camX, d.camY = app.camY, d.zoom = app.zoom;
-    d.hasTerrainSel = app.hasTerrainSel, d.terrainSel = app.terrainSel;
-    d.pasting = app.pasting, d.terrainPasting = app.terrainPasting;
-    d.ed = std::move(app.ed);
-}
 
-// Shows the active editor: renderer sources, palette (the tileset may differ), title and tabs.
-void showActive() {
-    app.drag = Drag::None;
-    app.ed->setAllowIllegalUnits(app.allowIllegalUnits);
-    app.ed->setAllowStacking(app.allowStacking);
-    app.ed->setMirrors(app.symmetryByMode[int(app.mode)]);
-    app.terrainRev = 0;
-    app.renderer.setQuality(app.quality);
-    app.renderer.setSources(&app.data, &app.ed->unitSprites(), &app.ed->tileset(), app.ed->era());
-    setMode(app.mode);
-    updateTitle();
-    if (app.tabs) RedrawWindow(app.tabs, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
-    app.dirty = true;
-    pageSync();  // a page tab shows its page over the map
-}
 
-void activateDoc(int i) {
-    if (i < 0 || i >= int(gDocs.size()) || (i == gActive && app.ed)) return;
-    stashActive();
-    gActive = i;
-    Doc& d = gDocs[size_t(i)];
-    app.ed = std::move(d.ed);
-    app.camX = d.camX, app.camY = d.camY, app.zoom = d.zoom;
-    layout();  // the minimap takes this map's shape
-    app.hasTerrainSel = d.hasTerrainSel, app.terrainSel = d.terrainSel;
-    app.pasting = d.pasting, app.terrainPasting = d.terrainPasting;
-    showActive();
-    if (gWorkspace != Workspace::Map) setWorkspace(d.page ? Workspace::Map : gWorkspace);  // a map tab falls back to Map; a project reloads
-    if (gWsBar) InvalidateRect(gWsBar, nullptr, FALSE);
-    setMessage(L"Switched to " + docTitle(i));
-}
 
 void forgetProject(const EudProject* pr);
 
@@ -2378,7 +1500,7 @@ void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank) {
     if (app.ed->path().empty() && (!reuse || page) && !gDocs[size_t(gActive)].page) gDocs[size_t(gActive)].untitled = ++gUntitledCount;
     app.hasTerrainSel = app.pasting = app.terrainPasting = false;
     startMark("open: add the tab");
-    layout();  // the minimap takes this map's shape
+    shellRelayout();  // the minimap takes this map's shape
     startMark("open: layout");
     showActive();
     startMark("open: show the map");
@@ -2393,23 +1515,6 @@ void newUntitledProject();
 void openStartPage();
 void dropUnsavedProject(const std::shared_ptr<EudProject>& pr);
 
-// Closes tab i (asking to save it if modified). Returns false if the user canceled.
-bool closeDoc(int i) {
-    if (i < 0 || i >= int(gDocs.size())) return true;
-    activateDoc(i);
-    if (!confirmDiscard()) return false;
-    mapPageClose();
-    app.ed.reset();
-    gAnims.clear(), gAnimsFor = nullptr;  // they held that editor's sprites (a new editor can get the same address)
-    const auto pr = gDocs[size_t(i)].project;
-    gDocs.erase(gDocs.begin() + i);
-    forgetProject(pr.get());
-    dropUnsavedProject(pr);  // an unsaved project's folder goes with its tab
-    gActive = -1;
-    if (gDocs.empty()) openStartPage();  // the last tab closed: the start page
-    else activateDoc(std::min(i, int(gDocs.size()) - 1));
-    return true;
-}
 
 void restartProgram();
 // `reopen`: each closed tab's project folder or map file, as it is after its save question (an untitled map saved then
@@ -2456,155 +1561,13 @@ void restartProgram() {
     PostMessageW(app.main, WM_CLOSE, 0, 0);
 }
 
-// Dragging a tab sideways moves it (GitHub feedback #82): the tab that is dragged, and where the press was.
-int gTabDrag = -1, gTabDragX = 0;
-bool gTabDragging = false;
-
-// Moves tab `from` to the place of tab `to` (the others move up or down one place); the active tab stays active.
-void moveDoc(int from, int to) {
-    if (from == to || from < 0 || to < 0 || from >= int(gDocs.size()) || to >= int(gDocs.size())) return;
-    const int active = gActive;
-    if (from < to) std::rotate(gDocs.begin() + from, gDocs.begin() + from + 1, gDocs.begin() + to + 1);
-    else std::rotate(gDocs.begin() + to, gDocs.begin() + from, gDocs.begin() + from + 1);
-    if (active == from) gActive = to;
-    else if (from < to && active > from && active <= to) gActive = active - 1;
-    else if (from > to && active >= to && active < from) gActive = active + 1;
-    if (app.tabs) InvalidateRect(app.tabs, nullptr, FALSE);
-}
-
-LRESULT CALLBACK tabsProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_PAINT: {
-        PAINTSTRUCT ps;
-        HDC dc = BeginPaint(hwnd, &ps);
-        RECT c;
-        GetClientRect(hwnd, &c);
-        HDC mem = CreateCompatibleDC(dc);
-        HBITMAP bmp = CreateCompatibleBitmap(dc, c.right, c.bottom);
-        HGDIOBJ oldBmp = SelectObject(mem, bmp);
-        HBRUSH bg = CreateSolidBrush(kBg), act = CreateSolidBrush(kCtl), hot = CreateSolidBrush(kHot), accent = CreateSolidBrush(kAccent);
-        FillRect(mem, &c, bg);
-        HGDIOBJ oldFont = SelectObject(mem, app.font);
-        SetBkMode(mem, TRANSPARENT);
-        gTabHits.clear();
-        int x = 0, pad = scale(10), closeW = scale(16);
-        for (int i = 0; i < int(gDocs.size()); ++i) {
-            std::wstring t = docTitle(i);
-            const bool unsaved = t.rfind(L"* ", 0) == 0;  // unsaved: a dot where the close button is (the x under the mouse)
-            if (unsaved) t.erase(0, 2);
-            SIZE sz{};
-            GetTextExtentPoint32W(mem, t.c_str(), int(t.size()), &sz);
-            int w = std::clamp(int(sz.cx) + pad * 3 + closeW, scale(90), scale(260));
-            RECT r{x, 0, x + w, c.bottom};
-            bool active = i == gActive;
-            FillRect(mem, &r, active ? act : (i == gTabHot ? hot : bg));
-            if (active) {
-                RECT bar{r.left, 0, r.right, scale(2)};
-                FillRect(mem, &bar, accent);
-            }
-            RECT tr{r.left + pad, 0, r.right - pad - closeW, c.bottom};
-            SetTextColor(mem, active ? kText : kDim);
-            DrawTextW(mem, t.c_str(), int(t.size()), &tr, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-            RECT cr{r.right - pad / 2 - closeW, (c.bottom - closeW) / 2, r.right - pad / 2, (c.bottom + closeW) / 2};
-            if (i == gTabHotClose) FillRect(mem, &cr, hot);
-            if (unsaved && i != gTabHot) {
-                const int d = scale(8), cx = (cr.left + cr.right) / 2, cy = (cr.top + cr.bottom) / 2;
-                HBRUSH db = CreateSolidBrush(active ? kText : kDim);
-                HGDIOBJ obr = SelectObject(mem, db), op = SelectObject(mem, GetStockObject(NULL_PEN));
-                Ellipse(mem, cx - d / 2, cy - d / 2, cx - d / 2 + d + 1, cy - d / 2 + d + 1);
-                SelectObject(mem, obr), SelectObject(mem, op);
-                DeleteObject(db);
-            } else {
-                SetTextColor(mem, i == gTabHotClose ? kText : kDim);
-                DrawTextW(mem, L"\x00D7", 1, &cr, DT_SINGLELINE | DT_VCENTER | DT_CENTER);
-            }
-            gTabHits.push_back({r, cr});
-            x += w + 1;
-        }
-        gNewTabHit = {x, 0, x + scale(30), c.bottom};
-        SetTextColor(mem, kDim);
-        DrawTextW(mem, L"+", 1, &gNewTabHit, DT_SINGLELINE | DT_VCENTER | DT_CENTER);
-        BitBlt(dc, 0, 0, c.right, c.bottom, mem, 0, 0, SRCCOPY);
-        SelectObject(mem, oldFont);
-        SelectObject(mem, oldBmp);
-        for (HBRUSH b : {bg, act, hot, accent}) DeleteObject(b);
-        DeleteObject(bmp);
-        DeleteDC(mem);
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    case WM_ERASEBKGND: return 1;
-    case WM_MOUSEMOVE: {
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        if (gTabDrag >= 0 && (wp & MK_LBUTTON)) {  // a tab is dragged: past the middle of another tab, it takes that place
-            if (!gTabDragging && std::abs(pt.x - gTabDragX) > scale(6)) gTabDragging = true;
-            if (gTabDragging)
-                for (int i = 0; i < int(gTabHits.size()); ++i) {
-                    const RECT& r = gTabHits[size_t(i)].tab;
-                    const int mid = (r.left + r.right) / 2;
-                    if (i != gTabDrag && pt.x >= r.left && pt.x < r.right && (i < gTabDrag ? pt.x < mid : pt.x >= mid)) {
-                        moveDoc(gTabDrag, i);
-                        gTabDrag = i;
-                        UpdateWindow(hwnd);  // the new places of the tabs for the next move
-                        break;
-                    }
-                }
-            return 0;
-        }
-        int h = -1, hc = -1;
-        for (int i = 0; i < int(gTabHits.size()); ++i) {
-            if (PtInRect(&gTabHits[size_t(i)].close, pt)) hc = i;
-            if (PtInRect(&gTabHits[size_t(i)].tab, pt)) h = i;
-        }
-        if (h != gTabHot || hc != gTabHotClose) gTabHot = h, gTabHotClose = hc, InvalidateRect(hwnd, nullptr, FALSE);
-        TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
-        TrackMouseEvent(&tme);
-        return 0;
-    }
-    case WM_MOUSELEAVE:
-        gTabHot = gTabHotClose = -1;
-        InvalidateRect(hwnd, nullptr, FALSE);
-        return 0;
-    case WM_LBUTTONDOWN:
-    case WM_MBUTTONUP: {
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        if (msg == WM_LBUTTONDOWN && PtInRect(&gNewTabHit, pt)) {
-            PostMessageW(app.main, WM_COMMAND, ID_FILE_NEW, 0);  // the New page: a map or a project
-            return 0;
-        }
-        for (int i = 0; i < int(gTabHits.size()); ++i) {
-            if (!PtInRect(&gTabHits[size_t(i)].tab, pt)) continue;
-            if (msg == WM_MBUTTONUP || PtInRect(&gTabHits[size_t(i)].close, pt)) closeDoc(i);
-            else {
-                activateDoc(i);
-                gTabDrag = i, gTabDragX = pt.x, gTabDragging = false;  // a drag sideways moves the tab
-                SetCapture(hwnd);
-            }
-            break;
-        }
-        InvalidateRect(hwnd, nullptr, FALSE);
-        SetFocus(app.view);
-        return 0;
-    }
-    case WM_LBUTTONUP:
-        if (gTabDrag >= 0) {
-            if (gTabDragging) setMessage(L"Moved the tab \"" + docTitle(gTabDrag) + L"\"");
-            gTabDrag = -1, gTabDragging = false;
-            ReleaseCapture();
-        }
-        return 0;
-    case WM_CAPTURECHANGED:
-        gTabDrag = -1, gTabDragging = false;
-        return 0;
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
+TabsView gTabs;
 
 // --- EUD projects ----------------------------------------------------------------------------------------
 // A project is a folder with project.stardraft: the map, the code (.eps), the data edits, the triggers. Build writes
 // euddraft's <name>.eds from it. Regular maps work as before; a map opened as a project can be built.
 
-constexpr UINT WM_BUILD_LINE = WM_APP + 20, WM_BUILD_DONE = WM_APP + 21;
+void buildFinished(euddraft::BuildResult* r);  // below: the build is done
 bool gBuilding = false;
 HWND gBuildLogText = nullptr;
 HFONT gMonoFont = nullptr;
@@ -2651,13 +1614,15 @@ void logSetExpanded(bool on) {
     if (gLog.expanded == on || !gLog.wnd) return;
     gLog.expanded = on;
     ShowWindow(gBuildLogText, on ? SW_SHOW : SW_HIDE);
-    layout();
+    shellRelayout();
     if (on) {  // the newest lines in view
         const int end = GetWindowTextLengthW(gBuildLogText);
         SendMessageW(gBuildLogText, EM_SETSEL, end, end);
         SendMessageW(gBuildLogText, EM_SCROLLCARET, 0, 0);
     }
 }
+
+void logDimLater();  // (LogView: the latest line turns dim later)
 
 void logLine(const std::wstring& line, bool error) {
     if (!line.empty()) crash::remember(line);
@@ -2679,7 +1644,7 @@ void logLine(const std::wstring& line, bool error) {
     wchar_t hm[8];
     std::swprintf(hm, 8, L"%02d:%02d", t.wHour, t.wMinute);
     gLog.latestTime = hm, gLog.latestAt = GetTickCount64();
-    if (gLog.wnd) SetTimer(gLog.wnd, 7, 10500, nullptr);  // then it turns dim
+    if (gLog.wnd) logDimLater();  // then it turns dim
     if (error) ++gLog.errors, logSetExpanded(true);
     if (gLog.wnd) InvalidateRect(gLog.wnd, nullptr, FALSE);
 }
@@ -2688,118 +1653,6 @@ void buildLogAppend(const std::wstring& line) {
     const bool error = line.find(L"[Error]") != std::wstring::npos || line.find(L"Traceback") != std::wstring::npos ||
                        line.find(L"Error:") != std::wstring::npos;
     logLine(line, error);
-}
-
-LRESULT CALLBACK logPanelProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_SIZE: {
-        const int bar = scale(24);
-        if (gBuildLogText) MoveWindow(gBuildLogText, 0, bar, LOWORD(lp), std::max(0, int(HIWORD(lp)) - bar), TRUE);
-        InvalidateRect(hwnd, nullptr, FALSE);
-        return 0;
-    }
-    case WM_PAINT: {
-        // The bar: a toggle arrow, "Log", the error count, the latest message.
-        PAINTSTRUCT ps;
-        HDC dc = BeginPaint(hwnd, &ps);
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-        RECT bar{0, 0, rc.right, scale(24)};
-        HBRUSH bg = CreateSolidBrush(kPanel);
-        FillRect(dc, &bar, bg);
-        DeleteObject(bg);
-        RECT line{0, 0, rc.right, 1};
-        HBRUSH lb = CreateSolidBrush(kBorder);
-        FillRect(dc, &line, lb);
-        DeleteObject(lb);
-        SetBkMode(dc, TRANSPARENT);
-        HGDIOBJ of = SelectObject(dc, app.font);
-        SetTextColor(dc, kDim);
-        // A chevron from the icon set: down closes the log, up opens it.
-        uiIcon(dc, {scale(8), 0, scale(24), bar.bottom}, gLog.expanded ? UiIcon::ChevronDown : UiIcon::ChevronUp, kDim, scale(16));
-        RECT t{scale(30), 0, scale(80), bar.bottom};
-        DrawTextW(dc, L"Log", -1, &t, DT_SINGLELINE | DT_VCENTER);
-        gLog.toggle = {0, 0, scale(80), bar.bottom};
-        int x = scale(80);
-        if (gLog.errors) {
-            SetTextColor(dc, kBad);
-            const std::wstring e = std::to_wstring(gLog.errors) + (gLog.errors == 1 ? L" error" : L" errors");
-            RECT er{x, 0, x + scale(90), bar.bottom};
-            DrawTextW(dc, e.c_str(), -1, &er, DT_SINGLELINE | DT_VCENTER);
-            x += scale(90);
-        }
-        if (!gLog.latestTime.empty()) {  // its time, small and dim: a log line (the status bar says what is now)
-            SetTextColor(dc, kFaint);
-            RECT tt{x, 0, x + scale(44), bar.bottom};
-            DrawTextW(dc, gLog.latestTime.c_str(), -1, &tt, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-            x += scale(44);
-        }
-        const bool fresh = GetTickCount64() - gLog.latestAt < 10000;  // older: dim (a message from before, another tab's)
-        SetTextColor(dc, gLog.latestError ? kBad : fresh ? kText : kDim);
-        RECT m{x, 0, rc.right - scale(10), bar.bottom};
-        DrawTextW(dc, gLog.latest.c_str(), -1, &m, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-        SelectObject(dc, of);
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    case WM_TIMER:
-        if (wp == 7) KillTimer(hwnd, 7), InvalidateRect(hwnd, nullptr, FALSE);  // the line turns dim
-        return 0;
-    case WM_LBUTTONDOWN:
-        if (gLog.expanded && GET_Y_LPARAM(lp) < scale(5)) {  // the top edge: drag to change the height
-            POINT p{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-            ClientToScreen(hwnd, &p);  // the panel moves as it grows: screen positions
-            gLog.sizing = true, gLog.grabY = p.y, gLog.grabH = logPanelHeight();
-            SetCapture(hwnd);
-        } else if (GET_Y_LPARAM(lp) < scale(24))
-            logSetExpanded(!gLog.expanded);
-        return 0;
-    case WM_MOUSEMOVE:
-        if (gLog.sizing) {
-            POINT p{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-            ClientToScreen(hwnd, &p);
-            const int h = gLog.grabH - (p.y - gLog.grabY);
-            const int logH = std::clamp(MulDiv(h, 96, int(app.dpi)), 80, 1200);
-            if (logH != gDock.logH) gDock.logH = logH, layout();
-        }
-        return 0;
-    case WM_LBUTTONUP:
-        if (gLog.sizing) ReleaseCapture();
-        return 0;
-    case WM_CAPTURECHANGED:
-        if (gLog.sizing) gLog.sizing = false, gDock.logH = MulDiv(logPanelHeight(), 96, int(app.dpi)), saveDock();
-        return 0;
-    case WM_SETCURSOR: {
-        POINT p;
-        GetCursorPos(&p);
-        ScreenToClient(hwnd, &p);
-        SetCursor(LoadCursor(nullptr, gLog.sizing || (gLog.expanded && p.y < scale(5)) ? IDC_SIZENS : IDC_HAND));
-        return TRUE;
-    }
-    case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORSTATIC:
-        SetTextColor(HDC(wp), kText);
-        SetBkColor(HDC(wp), kBg);
-        return LRESULT(app.bgBrush);
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
-
-void createLogPanel() {
-    if (gLog.wnd) return;
-    WNDCLASSEXW wc{sizeof wc};
-    wc.lpfnWndProc = logPanelProc;
-    wc.hInstance = app.inst;
-    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.lpszClassName = L"StarDraftLog";
-    RegisterClassExW(&wc);
-    gLog.wnd = CreateWindowExW(0, L"StarDraftLog", L"", WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN, 0, 0, 1, 1, app.main, nullptr, app.inst, nullptr);
-    gBuildLogText = CreateWindowExW(0, WC_EDITW, L"", WS_CHILD | WS_VSCROLL | WS_HSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL, 0, 0, 1, 1,
-                                    gLog.wnd, nullptr, app.inst, nullptr);
-    SendMessageW(gBuildLogText, WM_SETFONT, WPARAM(monoFont()), TRUE);
-    SendMessageW(gBuildLogText, EM_SETLIMITTEXT, 0, 0);
-    darkControl(gBuildLogText, L"DarkMode_Explorer");
-    SendMessageW(gBuildLogText, EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN, MAKELPARAM(scale(6), scale(4)));  // clear of the frame
 }
 
 // A build starts: a separator line; the log stays as it is (it opens by itself if the build fails).
@@ -2931,14 +1784,18 @@ void compileProject() {
     buildLogAppend(L"Compiling " + pr->file().wstring());
     gTrigBuildError.clear();
     gBuilding = true;
-    updateMenus();  // Build grays, and the top tool bar's Build says "Building"
+    shellMenusChanged();  // Build grays, and the top tool bar's Build says "Building"
     setMessage(L"Building the map\x2026");
     EudProject copy = *pr;
-    HWND main = app.main;
-    std::thread([copy, main] {
-        auto post = [main](const std::string& line) { PostMessageW(main, WM_BUILD_LINE, 0, LPARAM(new std::string(line))); };
+    std::thread([copy] {
+        auto post = [](const std::string& line) {
+            shellPost([line] {
+                buildLogAppend(widen(line));
+                if (gTrigBuildError.empty() && triggerErrorLine(line) > 0) gTrigBuildError = line;
+            });
+        };
         auto* r = new euddraft::BuildResult(copy.compile({}, post));
-        PostMessageW(main, WM_BUILD_DONE, 0, LPARAM(r));
+        shellPost([r] { buildFinished(r); });
     }).detach();
 }
 
@@ -2948,7 +1805,7 @@ void showKitGallery();
 
 void buildFinished(euddraft::BuildResult* r) {
     gBuilding = false;
-    updateMenus();
+    shellMenusChanged();
     projectFormRefresh();
     const EudProject* pr = activeProject();
     const std::wstring out = pr ? pr->outputMap().wstring() : L"";
@@ -3355,83 +2212,8 @@ std::wstring playabilityText() {
     return text;
 }
 
-void openMap(const std::wstring& path, bool switchToOpen = true);
+void openMap(const std::wstring& path, bool switchToOpen);
 
-// The same file or folder, compared as text (case, slashes, a relative path): no disk access, as a network share can
-// make it wait.
-bool samePath(const fs::path& a, const fs::path& b) {
-    auto key = [](const fs::path& p) {
-        std::error_code ec;
-        const fs::path full = fs::absolute(p, ec);
-        std::wstring s = (ec ? p : full).lexically_normal().make_preferred().wstring();
-        std::transform(s.begin(), s.end(), s.begin(), ::towlower);
-        while (!s.empty() && s.back() == L'\\') s.pop_back();
-        return s;
-    };
-    return !a.empty() && !b.empty() && key(a) == key(b);
-}
-
-// The tab that has this project (its folder) or this map by itself open, or -1.
-int findOpenProject(const fs::path& folder) {
-    for (int i = 0; i < int(gDocs.size()); ++i)
-        if (!gDocs[size_t(i)].page && gDocs[size_t(i)].project && samePath(gDocs[size_t(i)].project->folder(), folder)) return i;
-    return -1;
-}
-int findOpenMap(const fs::path& path) {
-    for (int i = 0; i < int(gDocs.size()); ++i) {
-        const Editor* ed = docEditor(i);
-        if (ed && !gDocs[size_t(i)].page && !gDocs[size_t(i)].project && samePath(ed->path(), path)) return i;
-    }
-    return -1;
-}
-
-void openProject(const fs::path& edsOrFolder) {
-    auto pr = std::make_shared<EudProject>();
-    std::string err;
-    if (!pr->open(edsOrFolder, err)) {
-        themedMessageBox(app.main, widen(err).c_str(), L"Could not open the project", MB_ICONERROR);
-        return;
-    }
-    if (const int open = findOpenProject(pr->folder()); open >= 0) {  // open already: go to its tab
-        activateDoc(open);
-        addRecent(gRecentProjects, pr->folder());
-        setMessage(tr(L"The project ") + widen(pr->name()) + tr(L" is open already"));
-        return;
-    }
-    const size_t before = gDocs.size();
-    openMap(pr->inputMap().wstring(), false);  // a tab of its own, also when the map is open by itself
-    if (gDocs.size() < before || gActive < 0 || !app.ed || app.ed->path() != pr->inputMap()) return;  // the map did not open
-    gDocs[size_t(gActive)].project = pr;
-    updateTitle();
-    removeRecent(gRecentMaps, pr->inputMap());  // listed as the project, not as a map
-    addRecent(gRecentProjects, pr->folder());
-    rememberProjectsFolder(pr->folder());
-    setMessage(L"Opened the project " + widen(pr->name()) + L" (" + std::to_wstring(pr->scripts().size()) + L" scripts; Build: Ctrl+B)");
-}
-
-// File > Open and the command line: a project (project.stardraft, a .eds, a folder), or a map. A project's map opens
-// as that project.
-void openAny(const fs::path& path) {
-    startMark("open: start");
-    std::error_code ec;
-    if (path.extension() == ".stardraft" || path.extension() == ".eds" || fs::is_directory(path, ec)) {
-        openProject(path);
-        return;
-    }
-    const fs::path folder = path.parent_path();
-    bool candidate = fs::exists(folder / EudProject::kFileName, ec);
-    for (const auto& e : fs::directory_iterator(folder, ec)) candidate |= e.path().extension() == ".eds";
-    if (candidate) {
-        EudProject pr;
-        std::string err;
-        if (pr.open(folder, err) && fs::equivalent(pr.inputMap(), path, ec)) {
-            openProject(folder);
-            return;
-        }
-    }
-    openMap(path.wstring());
-    if (app.ed && fs::equivalent(app.ed->path(), path, ec)) mapFileOpened(path);  // a map file by itself: ask once if maps open with StarDraft 2
-}
 
 void triggersRefresh(const std::string& select);
 
@@ -3465,26 +2247,6 @@ void addProjectScript() {
     triggersRefresh(rel.generic_string());
 }
 
-void openMap(const std::wstring& path, bool switchToOpen) {
-    if (const int open = switchToOpen ? findOpenMap(path) : -1; open >= 0) {  // open already: go to its tab
-        activateDoc(open);
-        addRecent(gRecentMaps, path);
-        setMessage(fs::path(path).filename().wstring() + L" is open already");
-        return;
-    }
-    auto ed = std::make_unique<Editor>(app.data);
-    std::string err;
-    SetCursor(LoadCursor(nullptr, IDC_WAIT));
-    if (!ed->open(fs::path(path), err)) {
-        themedMessageBox(app.main, widen(err).c_str(), L"Could not open the map", MB_ICONERROR);
-        return;
-    }
-    addDocument(std::move(ed), true);  // replaces the untouched startup map
-    addRecent(gRecentMaps, path);
-    setMessage(L"Opened " + fs::path(path).filename().wstring() + L" (" + widen(tilesetName(app.ed->era())) + L")");
-    if (app.ed->isomRebuilt())  // a map made by a tool that writes only the tiles (or protected)
-        logLine(L"The map had no isometric terrain data (ISOM). StarDraft 2 made it from the tiles, so the isometric tools work. Saving the map keeps it.");
-}
 
 // New map of a tileset, filled with one terrain.
 void newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terrain) {
@@ -3670,7 +2432,6 @@ bool saveMap(bool as) {
     return true;
 }
 
-bool gSelfTest = false;  // declared earlier
 
 void enableDarkModeForApp();
 void darkControl(HWND w, const wchar_t* theme);
@@ -3682,6 +2443,7 @@ void themeRefreshControls();  // the controls that keep colors of their own (def
 void setMenuIcons(HMENU bar);
 void applyTheme(bool light, int accent) {
     setThemeColors(light, accent);
+    syncKitTheme();
     const HBRUSH oldBg = app.bgBrush, oldCtl = app.ctlBrush;
     app.bgBrush = CreateSolidBrush(kBg), app.ctlBrush = CreateSolidBrush(kCtl);
     enableDarkModeForApp();
@@ -3752,8 +2514,6 @@ bool confirmDiscard() {
 // --- Commands --------------------------------------------------------------------------------------
 
 // The commands that are data (commands.inc): the Map workspace's. gCommandIds gives each one's Win32 id.
-stardraft::Commands gCommands;
-std::map<int, std::string> gCommandIds;
 void updateCommandMarks(HMENU m);
 
 HWND gTopBar = nullptr;  // the top tool bar (layout() places it)
@@ -3920,16 +2680,6 @@ void trigDuplicate();
 void dataCopySelected();
 void dataPasteSelected();
 
-// The commands that act on a map: a page tab (the New page, the start page) has none. The graphics quality (View >
-// High definition ... Carbot) is a program setting, not one of them.
-bool mapCommand(int id) {
-    return id == ID_FILE_SAVE || id == ID_FILE_SAVEAS || (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) ||
-           (id >= ID_VIEW_LOCATIONS && id <= ID_PATHSIZE_LARGE) || (id >= ID_MODE_TERRAIN && id <= ID_MODE_SPRITES) ||
-           (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 10) || id == ID_QUICKPICK || (id >= ID_PROJ_COMPILE && id <= ID_PROJ_FROMMAP) ||
-           (id >= ID_WS_MAP && id <= ID_WS_FILES) || (id >= ID_DOCK_MINI_LEFT && id <= ID_DOCK_TOOLS_RIGHT) || id == ID_SCEN_PLAYERS ||
-           id == ID_SCEN_CHECK || id == ID_SCEN_PROPS || id == ID_SCEN_CLASSIC || id == ID_SCEN_CLASSICTRIG || id == ID_VIEW_TRIGCODE;
-}
-
 void mapPageShowPlayers();  // map_pages.inc: the Map properties page, scrolled to players and forces
 // The options of the menus (View, Options, Edit) and the palette's view: kept in HKCU\Software\StarDraft\Settings,
 // so they stay after StarDraft starts again, also after an update (GitHub feedback #122). Saved after each command
@@ -4017,58 +2767,7 @@ void modeLayerHiddenMessage();
 int railItemId(size_t n);  // the side bar's n-th item's command (0: none)
 void repaintSoundViews();  // files_view.inc
 void commandBody(int id) {
-    // The active mode's layer is hidden (View > Layers): the edits of the map are refused.
-    if (gWorkspace == Workspace::Map && modeLayerHidden() &&
-        (id == ID_EDIT_SELECTALL || id == ID_EDIT_DELETE || id == ID_EDIT_CUT || id == ID_EDIT_COPY || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE))
-        return modeLayerHiddenMessage();
-    // No map (a page tab): its commands do nothing, also from a shortcut or the top bar (their menu items are gray).
-    if (!docOpen() && mapCommand(id)) return;
-    // A map page shows: the Edit commands are not for the map that does not show (undo and redo are).
-    if (gWorkspace >= Workspace::Properties && (id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE ||
-                                                id == ID_EDIT_DELETE || id == ID_EDIT_SELECTALL))
-        return;
-    if (gWorkspace == Workspace::Data && (id == ID_EDIT_COPY || id == ID_EDIT_PASTE)) {  // the selected entry's values
-        if (id == ID_EDIT_COPY) dataCopySelected();
-        else dataPasteSelected();
-        return;
-    }
-    if (gWorkspace == Workspace::Briefing && (id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE || id == ID_EDIT_DELETE ||
-                                              id == ID_EDIT_SELECTALL) && briefCommand(id))
-        return;
-    if (gWorkspace == Workspace::Triggers && (id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE)) {
-        if (id == ID_EDIT_PASTE) trigPaste();
-        else if (id == ID_EDIT_DUPLICATE) trigDuplicate();
-        else trigCopy(id == ID_EDIT_CUT);
-        return;
-    }
-    if (id == ID_QUICKOPEN) return showQuickPicker(false, true);
-    if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax)) {
-        const bool project = id >= ID_RECENT_PROJECT;
-        auto& list = project ? gRecentProjects : gRecentMaps;
-        const size_t i = size_t(id - (project ? ID_RECENT_PROJECT : ID_RECENT_MAP));
-        if (i >= list.size()) return;
-        const fs::path p = list[i];
-        std::error_code ec;
-        if (!fs::exists(p, ec)) {
-            setMessage(p.wstring() + L" is gone; removed from the list");
-            removeRecent(list, p), saveRecent(), refreshRecentMenus();
-            return;
-        }
-        if (project) openProject(p);
-        else openAny(p);
-        return;
-    }
-    if (!commandInMode(id)) {  // a shortcut or a command of the other mode
-        setMessage(classicMode() ? L"This tab is a classic map. This command needs a project. File > Project > Make this map a project makes one."
-                                 : L"This command is for classic maps only");
-        return;
-    }
-    if (const auto it = gCommandIds.find(id); it != gCommandIds.end()) {  // a command of the table (commands.inc)
-        gCommands.run(it->second);
-        updateMenus();
-        app.dirty = true;
-        return;
-    }
+    if (commandPortable(app, id)) return;
     switch (id) {
     case ID_PROJ_NEW: openNewPage(1); return;
     case ID_PROJ_FROMMAP: showProjectDialog(); return;
@@ -4121,7 +2820,7 @@ void commandBody(int id) {
     case ID_DOCK_MINI_LEFT:
     case ID_DOCK_MINI_RIGHT:
         gDock.minimapRight = id == ID_DOCK_MINI_RIGHT, gDock.minimapHidden = false;
-        saveDock(), layout();
+        saveDock(), shellRelayout();
         return;
     case ID_RAIL_KEY: case ID_RAIL_KEY + 1: case ID_RAIL_KEY + 2: case ID_RAIL_KEY + 3: case ID_RAIL_KEY + 4:
     case ID_RAIL_KEY + 5: case ID_RAIL_KEY + 6: case ID_RAIL_KEY + 7: case ID_RAIL_KEY + 8: {
@@ -4134,7 +2833,7 @@ void commandBody(int id) {
     case ID_DOCK_TOOLS_LEFT:
     case ID_DOCK_TOOLS_RIGHT:
         gDock.toolsRight[int(app.mode)] = id == ID_DOCK_TOOLS_RIGHT;
-        saveDock(), layout();
+        saveDock(), shellRelayout();
         setMessage(std::wstring(kModeNames[int(app.mode)]) + L" toolbar on the " + (id == ID_DOCK_TOOLS_RIGHT ? L"right" : L"left"));
         return;
     case ID_WS_ASSETS: setWorkspace(Workspace::Files); return;  // Assets is part of Files
@@ -4172,7 +2871,7 @@ void commandBody(int id) {
         static const wchar_t* kinds[] = {L"Units", L"Sprites", L"Locations"};
         static const wchar_t* snaps[] = {L"do not snap", L"snap to tiles (32 px)", L"snap to half tiles (16 px)", L"snap to quarter tiles (8 px)"};
         setMessage(std::wstring(kinds[kind]) + L": " + snaps[choice]);
-        updateMenus();
+        shellMenusChanged();
         app.dirty = true;
         return;
     }
@@ -4183,7 +2882,7 @@ void commandBody(int id) {
         app.showGrid = true, app.dirty = true;
         saveDock();
         setMessage(L"Grid: " + std::wstring(g.name) + L", " + std::to_wstring(g.px) + L" pixels");
-        updateMenus();
+        shellMenusChanged();
         return;
     }
     switch (id) {
@@ -4454,26 +3153,11 @@ void commandBody(int id) {
     case ID_PATHSIZE_MEDIUM:
     case ID_PATHSIZE_LARGE: pathOverlaySize(id); break;
     }
-    updateMenus();
+    shellMenusChanged();
     app.dirty = true;
 }
 
 // --- Viewport input --------------------------------------------------------------------------------
-
-int locationEdgesAt(float wx, float wy) {
-    Editor& ed = *app.ed;
-    int i = ed.selectedLocation();
-    if (!ed.locationUsed(i)) return 0;
-    Rect r = ed.locationRect(i);
-    float tol = 6 / app.zoom;
-    if (wx < r.left - tol || wx > r.right + tol || wy < r.top - tol || wy > r.bottom + tol) return 0;
-    int e = 0;
-    if (std::abs(wx - r.left) <= tol) e |= 1;
-    if (std::abs(wy - r.top) <= tol) e |= 2;
-    if (std::abs(wx - r.right) <= tol) e |= 4;
-    if (std::abs(wy - r.bottom) <= tol) e |= 8;
-    return e;
-}
 
 // The map view's cursor at a point of the view: the resize cursors on the selected location's edges and corners
 // (GitHub feedback #76), the move cursor while the camera moves, else the arrow.
@@ -4513,71 +3197,11 @@ LPCWSTR mapCursorAt(int x, int y) {
     return h ? IDC_SIZEWE : v ? IDC_SIZENS : IDC_ARROW;
 }
 
-// A sprite that is a doodad's own overlay goes with its doodad: not selectable in Sprites mode.
-bool spriteIsOverlay(int i) {
-    const Editor& ed = *app.ed;
-    if (i < 0 || i >= int(ed.sprites().size())) return false;
-    const MapSprite& s = ed.sprites()[size_t(i)];
-    for (const Doodad& d : ed.doodads())
-        if (const DoodadType* t = ed.doodadTypes().find(d.id); t && t->overlaySprite == s.id && d.x == s.x && d.y == s.y) return true;
-    return false;
-}
+bool spriteIsOverlay(int i) { return spriteIsOverlay(app, i); }
 // A click in Doodads or Sprites selection: on a thing, select it (Ctrl or Shift: add it, or take it out) and start a
 // drag of the selection; on empty ground, a box selection.
-void selectItemAt(std::vector<int>& sel, int hit, WPARAM keys, Drag move) {
-    const bool add = (keys & (MK_CONTROL | MK_SHIFT)) != 0;
-    if (hit < 0) {
-        if (!add) sel.clear();
-        app.drag = Drag::BoxSelect;
-        return;
-    }
-    const auto it = std::find(sel.begin(), sel.end(), hit);
-    if (add) {
-        if (it != sel.end()) {
-            sel.erase(it);
-            return;
-        }
-        sel.push_back(hit);
-    } else if (it == sel.end()) {
-        sel = {hit};
-    }
-    app.drag = move;
-    setMessage(std::to_wstring(sel.size()) + L" selected: drag to move, Delete removes, Ctrl+C copies");
-}
 
 int selectPalette(int value);
-
-// Places the palette unit at a map point (grid-snapped if on, corrected if on) and reports it.
-bool placePaletteUnit(float wx, float wy, bool correct) {
-    Editor& ed = *app.ed;
-    uint16_t type = uint16_t(app.palette);
-    const UnitType& t = ed.unitTypes()[type];
-    uint8_t who = (t.availability & UnitAvail::NonNeutral) ? uint8_t(app.playerOwner) : uint8_t(11);
-    snapUnitPoint(wx, wy);
-    applyUnitLimit(ed);
-    PlaceResult r = ed.placeUnit(type, who, int(wx), int(wy), correct);
-    ed.clearSelection();  // placed units are not selected (placing is not selecting)
-    if (r.placed) {
-        uint16_t ux = uint16_t(std::clamp(int(wx), 0, ed.width() * 32 - 1)), uy = uint16_t(std::clamp(int(wy), 0, ed.height() * 32 - 1));
-        snapToGrid(t, ux, uy);
-        bool moved = r.unit.x != ux || r.unit.y != uy;
-        setMessage(L"Placed " + widen(t.name) + (moved ? L" (moved to the nearest valid spot)" : L""));
-    } else {
-        std::wstring why;
-        for (auto is : r.issues) why += L" " + widen(placementIssueName(is));
-        setMessage(atUnitLimit(ed) ? unitLimitText(ed) : L"Cannot place here:" + why + (correct ? L" (no valid spot nearby)" : L""));
-    }
-    return r.placed;
-}
-
-// Distance between units placed while dragging: the unit's footprint; with a snap, a tile (32 px snap) or the footprint
-// in whole grid cells.
-float placeSpacing() {
-    if (app.unitGrid == 32) return 32;
-    const UnitType& t = app.ed->unitTypes()[uint16_t(app.palette)];
-    const int foot = std::max({int(t.placementWidth), int(t.placementHeight), 16});
-    return app.unitGrid > 0 ? float((foot + app.unitGrid - 1) / app.unitGrid * app.unitGrid) : float(foot);
-}
 
 // Places the palette doodad at a map point by the Options > Doodads rule: only where it fits, at the nearest place where
 // it fits, or anywhere on the map (the terrain is not checked). True when it was placed.
@@ -4590,660 +3214,10 @@ bool placePaletteDoodad(float wx, float wy, std::string& why) {
     return at && ed.placeDoodad(id, at->first, at->second, app.doodadCheck, &why);
 }
 
-// Moves the selected doodads by (dx, dy) by the same rule: with Move to the nearest place where it fits, a move that does
-// not fit goes to the nearest offset (in whole tiles) where all of them fit.
-bool moveSelectedDoodads(int dx, int dy, std::string& why) {
-    Editor& ed = *app.ed;
-    if (ed.moveDoodads(app.selDoodads, dx, dy, app.doodadCheck, &why)) return true;
-    if (!app.doodadNearest) return false;
-    std::vector<std::pair<int, int>> offsets;  // nearest first
-    for (int oy = -4; oy <= 4; ++oy)
-        for (int ox = -4; ox <= 4; ++ox)
-            if ((ox || oy) && ox * ox + oy * oy <= 16) offsets.push_back({ox, oy});
-    std::stable_sort(offsets.begin(), offsets.end(),
-                     [](const auto& a, const auto& b) { return a.first * a.first + a.second * a.second < b.first * b.first + b.second * b.second; });
-    std::string ignored;
-    for (auto [ox, oy] : offsets)
-        if (ed.moveDoodads(app.selDoodads, dx + ox * 32, dy + oy * 32, app.doodadCheck, &ignored)) return true;
-    return false;
-}
-
-// The box a doodad or sprite of the palette takes at (x, y): the next one in a drag goes where it does not touch it.
-RECT strokeBox(float x, float y) {
-    int w = 32, h = 32;
-    if (app.mode == Mode::Doodads) {
-        if (const DoodadType* d = app.ed->doodadTypes().find(uint16_t(app.palette))) w = std::max(1, int(d->width)) * 32, h = std::max(1, int(d->height)) * 32;
-    } else if (app.mode == Mode::Sprites) {
-        const int image = app.ed->unitSprites().imageForSprite(uint16_t(app.palette));
-        if (const Grp* g = image >= 0 ? app.ed->unitSprites().grp(image) : nullptr; g && g->width) w = std::max(16, int(g->width) / 2), h = std::max(16, int(g->height) / 2);
-    }
-    return {LONG(x) - w / 2, LONG(y) - h / 2, LONG(x) + (w + 1) / 2, LONG(y) + (h + 1) / 2};
-}
-
-// One place in a drag (units, doodads, sprites): true when something went down there.
-bool strokePlace(float x, float y) {
-    Editor& ed = *app.ed;
-    if (app.mode == Mode::Units) return placePaletteUnit(x, y, false);  // in a drag: only where it fits, under the mouse
-    const RECT box = strokeBox(x, y);
-    RECT overlap;
-    if (app.mode == Mode::Sprites) {  // sprites: one at each new place of the mouse (feedback #54, #78), with no gaps
-        const int px = int(snapToCell(x, app.spriteGrid)), py = int(snapToCell(y, app.spriteGrid));
-        if (app.placedInStroke && px == app.lastPlacedBox.left && py == app.lastPlacedBox.top) return false;  // the same place again
-        const bool placed = ed.placeSprite(uint16_t(app.palette), px, py, uint8_t(app.playerOwner));
-        if (placed) {
-            app.lastPlacedBox = {px, py, px, py};
-            if (gPal.chosen.size() > 1) {  // several picked: the next one is one of them, at random
-                static std::mt19937 rng{std::random_device{}()};
-                app.palette = gPal.chosen[std::uniform_int_distribution<size_t>(0, gPal.chosen.size() - 1)(rng)];
-            }
-        }
-        return placed;
-    }
-    if (app.placedInStroke && IntersectRect(&overlap, &box, &app.lastPlacedBox)) return false;  // still on the last one
-    bool placed = false;
-    if (app.mode == Mode::Doodads) {
-        placed = ed.placeDoodad(uint16_t(app.palette), int(x), int(y), app.doodadCheck);
-        if (placed && gPal.chosen.size() > 1) {  // several picked: each one placed is one of them, at random
-            static std::mt19937 rng{std::random_device{}()};
-            app.palette = gPal.chosen[std::uniform_int_distribution<size_t>(0, gPal.chosen.size() - 1)(rng)];
-        }
-    } else if (app.mode == Mode::Sprites) {
-        placed = ed.placeSprite(uint16_t(app.palette), int(snapToCell(x, app.spriteGrid)), int(snapToCell(y, app.spriteGrid)), uint8_t(app.playerOwner));
-    }
-    if (placed) app.lastPlacedBox = box;
-    return placed;
-}
-
-// While the mouse is down with something picked: along the path from the last one placed, place the next one as soon
-// as there is room for it (units: their placement size apart, and only where they fit; doodads and sprites: where
-// they do not touch the last one). A place that does not fit now is tried again as the mouse moves on.
-void strokeMove(float wx, float wy) {
-    if (app.mode == Mode::Sprites) {  // sprites: one at each place on the path, one pixel (or one snap cell) apart (#78)
-        const float step = float(std::max(1, app.spriteGrid));
-        const float dx = wx - app.lastPlaceX, dy = wy - app.lastPlaceY, len = std::hypot(dx, dy);
-        if (!app.placedInStroke || len < step) {
-            if (strokePlace(wx, wy)) ++app.placedInStroke;
-            if (len >= step || !app.placedInStroke) app.lastPlaceX = wx, app.lastPlaceY = wy;
-            return;
-        }
-        const int n = int(std::ceil(len / step));  // (each step at most one pixel or one cell)
-        for (int k = 1; k <= n; ++k)  // the places between the last mouse position and this one (a fast drag skips none)
-            if (strokePlace(app.lastPlaceX + dx * k / n, app.lastPlaceY + dy * k / n)) ++app.placedInStroke;
-        app.lastPlaceX = wx, app.lastPlaceY = wy;
-        return;
-    }
-    const float step = app.mode == Mode::Units && (app.allowStacking || app.allowIllegalUnits) ? placeSpacing() : 8.0f;
-    float dx = wx - app.lastPlaceX, dy = wy - app.lastPlaceY, len = std::hypot(dx, dy);
-    if (len < step) return;
-    const float ux = dx / len, uy = dy / len;
-    for (float d = step; d <= len + 0.01f; d += step) {
-        const float x = app.lastPlaceX + ux * d, y = app.lastPlaceY + uy * d;
-        if (strokePlace(x, y)) {
-            ++app.placedInStroke;
-            app.lastPlaceX = x, app.lastPlaceY = y, len = std::hypot(wx - x, wy - y), d = 0;
-            if (len < step) break;
-            dx = wx - x, dy = wy - y;
-            const float l = std::hypot(dx, dy);
-            if (l <= 0) break;
-            // (the direction stays: the rest of the path from here)
-        }
-    }
-    if (app.mode != Mode::Units) app.lastPlaceX = wx, app.lastPlaceY = wy;  // boxes decide the room: follow the mouse
-}
-
 bool trigUnitPickClick(float wx, float wy);
 void trigCancelUnitPick();
 
-// One spray at a map point with the active mode's Spray: terrain (ISOM; in Rectangle mode, tiles), units or doodads.
-// Returns the units or doodads it placed.
-int sprayAt(float wx, float wy) {
-    if (!app.ed) return 0;
-    Editor& ed = *app.ed;
-    if (app.mode == Mode::Terrain) {
-        if (app.terrainRect) tilesSprayAt(wx, wy);
-        else if (app.palette > 0) ed.sprayTerrain(int(wx), int(wy), uint16_t(app.palette), currentBrush(), sprayDabs(), app.spraySeed++);
-        return 0;
-    }
-    std::vector<uint16_t> picks;
-    for (int v : selectedPalette()) picks.push_back(uint16_t(v));
-    if (app.mode == Mode::Units) {
-        applyUnitLimit(ed);
-        const int n = ed.sprayUnits(picks, uint8_t(app.playerOwner), int(wx), int(wy), sprayRadius(), sprayCount(), app.spraySeed++);
-        ed.clearSelection();  // placed units are not selected (placing is not selecting)
-        if (atUnitLimit(ed)) setMessage(unitLimitText(ed));
-        return n;
-    }
-    if (app.mode == Mode::Doodads) return ed.sprayDoodads(picks, int(wx), int(wy), sprayRadius(), sprayCount(), app.spraySeed++, app.doodadCheck);
-    if (app.mode == Mode::Sprites && !picks.empty()) {  // random sprites of the selected kinds in the circle
-        std::mt19937 rng(app.spraySeed++);
-        std::uniform_real_distribution<float> unit(0.0f, 1.0f);
-        const float r = float(sprayRadius());
-        int n = 0;
-        for (int k = 0; k < sprayCount(); ++k) {
-            const float a = unit(rng) * 6.2831853f, d = r * std::sqrt(unit(rng));
-            const uint16_t id = picks[size_t(rng() % picks.size())];
-            n += ed.placeSprite(id, int(snapToCell(wx + d * std::cos(a), app.spriteGrid)), int(snapToCell(wy + d * std::sin(a), app.spriteGrid)),
-                                uint8_t(app.playerOwner));
-        }
-        return n;
-    }
-    return 0;
-}
 
-// A held spray, as MS Paint's spray can: a click sprays once; while the button stays down it sprays again and again,
-// slowly at first (4 sprays a second), then faster, up to 20 a second after 1.5 seconds. The view's timer calls
-// sprayHoldTick with the time since the last call; the self-test calls it with its own times. The press and hold
-// is one undo step (the stroke that mouseDown starts and mouseUp ends).
-constexpr UINT_PTR kSprayTimer = 78;
-float gRerollX = -1e9f, gRerollY = -1e9f;  // where the brush last redrew its own terrain (new variants) in this stroke
-float gPaintX = 0, gPaintY = 0;             // where the brush last painted in this stroke (a fast move paints the way between)
-std::chrono::steady_clock::time_point gSprayTick;
-void sprayHoldStart(int sx, int sy) {
-    app.sprayHeld = 0, app.sprayCredit = 0;
-    app.mouseX = sx, app.mouseY = sy;
-    gSprayTick = std::chrono::steady_clock::now();
-    if (app.view) SetTimer(app.view, kSprayTimer, 25, nullptr);
-}
-void sprayHoldStop() {
-    if (app.view) KillTimer(app.view, kSprayTimer);
-}
-void sprayHoldTick(double dt) {
-    if (app.drag != Drag::Spray || !app.ed) return;
-    app.sprayHeld += dt;
-    app.sprayCredit += (4.0 + 16.0 * std::min(1.0, app.sprayHeld / 1.5)) * dt;
-    float wx, wy;
-    toWorld(app.mouseX, app.mouseY, wx, wy);
-    for (int k = 0; app.sprayCredit >= 1 && k < 8; ++k) {  // a slow frame does not spray a burst
-        app.sprayCredit -= 1;
-        app.sprayPlaced += sprayAt(wx, wy);
-    }
-    app.sprayCredit = std::min(app.sprayCredit, 1.0);
-    app.dirty = true;
-}
-void sprayHoldTimer() {
-    const auto now = std::chrono::steady_clock::now();
-    const double dt = std::min(0.1, std::chrono::duration<double>(now - gSprayTick).count());
-    gSprayTick = now;
-    if (app.drag != Drag::Spray) return sprayHoldStop();
-    sprayHoldTick(dt);
-}
-
-void pickUnit(int v, bool add);
-void setPlayer(int i);
-void tilesPick(int value, bool fromMap);
-void tilesReveal(int value);
-// The pipette (Alt+click on the map, feedback #59): what is under the mouse becomes the pick. Terrain: its terrain
-// (Rectangle: its tile); units and sprites: the kind and the player; doodads: the doodad; locations: a copy to paste
-// (Ctrl+V). Returns true when it took something.
-bool pipette(float wx, float wy) {
-    Editor& ed = *app.ed;
-    switch (app.mode) {
-    case Mode::Terrain:
-        if (app.terrainRect) {
-            const int tx = int(wx) / 32, ty = int(wy) / 32;
-            if (tx < 0 || ty < 0 || tx >= ed.width() || ty >= ed.height()) return false;
-            const int v = ed.terrain().tiles[size_t(ty) * ed.width() + tx];
-            tilesReveal(v), tilesPick(v, true);
-            return true;
-        }
-        if (const uint16_t t = ed.terrainAt(int(wx), int(wy))) return pickUnit(t, false), true;
-        return false;
-    case Mode::Units:
-        if (const int u = ed.unitAt(int(wx), int(wy)); u >= 0) {
-            const Unit& un = ed.units()[size_t(u)];
-            if (un.owner < 12) setPlayer(un.owner);
-            pickUnit(un.type, false);
-            return true;
-        }
-        return false;
-    case Mode::Doodads:
-        if (const int d = ed.doodadAt(int(wx), int(wy)); d >= 0) return pickUnit(ed.doodads()[size_t(d)].id, false), true;
-        return false;
-    case Mode::Sprites:
-        if (const int i = mapSpriteAt(ed, int(wx), int(wy)); i >= 0 && (ed.sprites()[size_t(i)].flags & SpriteFlag::DrawAsSprite)) {
-            const MapSprite& m = ed.sprites()[size_t(i)];
-            if (m.owner < 12) setPlayer(m.owner);
-            pickUnit(m.id, false);
-            return true;
-        }
-        return false;
-    case Mode::Locations:
-        if (const int l = ed.locationAt(int(wx), int(wy)); l >= 0) {
-            app.locationClip = ed.locationRect(l), app.locationClipName = ed.locationName(l), app.locationClipInverted = ed.locationInvertedAxes(l),
-            app.locationClipElevation = ed.locationElevation(l);
-            app.hasLocationClip = true;
-            setMessage(L"Copied " + widen(ed.locationName(l)) + L": Ctrl+V pastes a copy where the mouse is");
-            return true;
-        }
-        return false;
-    }
-    return false;
-}
-
-// View > Layers: the active mode's layer is hidden. Its map edits are refused (nothing changes that does not show).
-bool modeLayerHidden() {
-    switch (app.mode) {
-    case Mode::Terrain: return !gLayers.terrain;
-    case Mode::Units: return !gLayers.units;
-    case Mode::Doodads: return !gLayers.doodads;
-    case Mode::Sprites: return !gLayers.sprites;
-    case Mode::Locations: return !app.showLocations;
-    }
-    return false;
-}
-void modeLayerHiddenMessage() {
-    setMessage(std::wstring(kModeNames[int(app.mode)]) + L": this layer is hidden. View > Layers shows it again (then you can edit it).");
-}
-
-void mouseDown(int sx, int sy, WPARAM keys) {
-    if (!app.ed || !app.ed->isOpen()) return;
-    Editor& ed = *app.ed;
-    float wx, wy;
-    toWorld(sx, sy, wx, wy);
-    if (GetKeyState(VK_MENU) < 0 && pipette(wx, wy)) {  // Alt+click: the pipette
-        app.dirty = true;
-        return;
-    }
-    if (modeLayerHidden()) return modeLayerHiddenMessage();
-    if (trigUnitPickClick(wx, wy)) return;
-    if (app.pasting) {
-        // Paste mode stays on (another click pastes again) until a right click or Escape; the pasted
-        // units are not selected, so the next paste does not move them.
-        float pwx = wx, pwy = wy;
-        snapUnitPoint(pwx, pwy);  // Options > Units snap: the middle of the copy in the middle of a grid cell
-        applyUnitLimit(ed);
-        const int pasted = ed.paste(int(pwx), int(pwy), app.correction), copied = int(ed.clipboard().size());
-        setMessage(pasted < copied && atUnitLimit(ed) ? unitLimitText(ed)
-                   : (pasted < copied ? L"Pasted " + std::to_wstring(pasted) + L" of " + std::to_wstring(copied) + L" units (the other units do not fit here)"
-                                      : L"Pasted " + std::to_wstring(pasted) + L" units") + L". To stop, right-click or press Esc.");
-        ed.clearSelection();
-        app.drag = Drag::None;
-        app.dirty = true;
-        return;
-    }
-    app.dragWX = wx, app.dragWY = wy, app.dragSX = sx, app.dragSY = sy, app.dragMoved = false;
-    bool shift = keys & MK_SHIFT, ctrl = keys & MK_CONTROL;
-    switch (app.mode) {
-    case Mode::Units: {
-        int hit = ed.unitAt(int(wx), int(wy));
-        if (currentTool() == USpray) {
-            ed.beginStroke();  // the press and hold: one undo step
-            app.sprayPlaced = sprayAt(wx, wy);
-            setMessage(L"Sprayed " + std::to_wstring(app.sprayPlaced) + L" units");
-            app.lastSprayX = sx, app.lastSprayY = sy;
-            app.drag = Drag::Spray;
-            sprayHoldStart(sx, sy);
-            break;
-        }
-        if (currentTool() == UReplace) {
-            if (hit >= 0 && app.palette >= 0) {
-                uint16_t from = ed.units()[hit].type;
-                bool inSel = ed.isSelected(hit) && ed.selection().size() > 1;
-                int n = ed.replaceUnits(from, uint16_t(app.palette), inSel);
-                setMessage(L"Replaced " + std::to_wstring(n) + L" " + unitShortName(ed.unitTypes()[from]) + L" with " +
-                           unitShortName(ed.unitTypes()[uint16_t(app.palette)]) + (inSel ? L" (selection)" : L""));
-            } else {
-                setMessage(L"Replace: select the new type in the list. Then click a unit. All units of the clicked unit's type change to the new type. If the clicked unit is one of several selected units, only the selected units of that type change.");
-            }
-            break;
-        }
-        if (app.palette >= 0) {
-            // A unit is picked: a click always places (also on a unit: an air unit goes over a ground unit), or the
-            // status bar tells why it cannot; dragging keeps placing along the way (one undo step). To select
-            // again: Esc or the Select tool.
-            ed.beginStroke();
-            app.placedInStroke = placePaletteUnit(wx, wy, app.correction) ? 1 : 0;
-            app.lastPlaceX = wx, app.lastPlaceY = wy;
-            app.drag = Drag::PlaceStroke;
-        } else if (hit >= 0) {
-            if (ctrl) ed.toggleSelected(hit);
-            else if (!ed.isSelected(hit)) ed.select(hit, shift);
-            app.drag = ed.isSelected(hit) ? Drag::MoveUnits : Drag::None;
-            app.lastValidDX = app.lastValidDY = 0;
-        } else {
-            app.drag = Drag::BoxSelect;
-        }
-        break;
-    }
-    case Mode::Terrain: {
-        if (app.terrainRect) {  // Rectangle: tiles as they are, no ISOM needed
-            tilesMouseDown(wx, wy, keys);
-            if (app.drag == Drag::Spray) app.lastSprayX = sx, app.lastSprayY = sy;
-            if (app.drag == Drag::Spray) sprayHoldStart(sx, sy);
-            break;
-        }
-        const bool shiftDown = (keys & MK_SHIFT) != 0;
-        if (!ed.canPaintTerrain()) break;
-        if (ctrl) {
-            // Eyedropper: pick the terrain under the cursor as the brush terrain.
-            uint16_t t = ed.terrainAt(int(wx), int(wy));
-            if (selectPalette(t) < 0 && app.filter) {  // hidden by the filter: clear it and look again
-                SetWindowTextW(app.filter, L"");
-                rebuildList();
-                selectPalette(t);
-            }
-            const IsomTerrainTable* table = IsomTerrainTable::forEra(ed.era());
-            // Placement: from Select (or a paste), the Brush paints with it; Spray, Fill and Replace keep their tool.
-            if (currentTool() == TSelect) app.toolByMode[int(Mode::Terrain)] = TBrush, app.terrainPasting = false;
-            app.palette = t;
-            fillToolCombo(), updateStatus();
-            setMessage(L"Painting " + widen(table ? table->terrainName(t) : "") + L" (selected with Ctrl+click)");
-            app.drag = Drag::None;
-            break;
-        }
-        int tool = currentTool();
-        if (tool == TSelect) {
-            if (app.terrainPasting) {  // a brush of the copy: a click pastes it, a drag pastes it along the way (one undo step)
-                ed.beginStroke();
-                applyUnitLimit(ed);
-                if (ed.pasteTerrain(int(wx), int(wy), app.correction)) setMessage(L"Pasted terrain");
-                app.lastPlaceX = wx, app.lastPlaceY = wy;
-                app.drag = Drag::PasteStroke;
-            } else {
-                app.drag = Drag::TerrainSelect;
-            }
-            break;
-        }
-        if (app.palette <= 0) break;
-        uint16_t t = uint16_t(app.palette);
-        if (tool == TBrush) {
-            // Painting a terrain onto itself redraws its tiles with new variants (a click, and on along the drag); the
-            // stroke is one undo step.
-            ed.beginTerrainStroke();
-            if (ed.brushAllTerrain(int(wx), int(wy), currentBrush(), t)) {
-                int n = ed.rerollTerrain(int(wx), int(wy), currentBrush(), app.spraySeed++);
-                setMessage(L"New variants for " + std::to_wstring(n) + L" tiles");
-            }
-            gRerollX = wx, gRerollY = wy;
-            ed.paintBrush(int(wx), int(wy), t, currentBrush());
-            gPaintX = wx, gPaintY = wy;
-            app.drag = Drag::Paint;
-        } else if (tool == TSpray) {
-            ed.beginTerrainStroke();
-            ed.sprayTerrain(int(wx), int(wy), t, currentBrush(), sprayDabs(), app.spraySeed++);
-            app.lastSprayX = sx, app.lastSprayY = sy;
-            app.drag = Drag::Spray;
-            sprayHoldStart(sx, sy);
-        } else if (tool == TFill && !shiftDown) {
-            if (ed.fillTerrain(int(wx), int(wy), t)) setMessage(L"Filled with " + itemLabel(app.palette));
-        } else if (tool == TReplace || tool == TFill) {  // Fill with Shift: every place of that terrain
-            uint16_t from = ed.terrainAt(int(wx), int(wy));
-            const Rect* area = app.hasTerrainSel ? &app.terrainSel : nullptr;
-            int n = ed.replaceTerrain(from, t, area, int(selectShape()));  // (in the selection's shape)
-            const IsomTerrainTable* tt = IsomTerrainTable::forEra(ed.era());
-            setMessage(L"Replaced " + widen(tt ? tt->terrainName(from) : "") + L" with " + itemLabel(app.palette) + L" (" +
-                       std::to_wstring(n) + L" corners" + (area ? L", in selection)" : L")"));
-        }
-        break;
-    }
-    case Mode::Sprites:
-        if (currentTool() == SSpray && app.palette >= 0) {
-            ed.beginStroke();  // the press and hold: one undo step
-            app.sprayPlaced = sprayAt(wx, wy);
-            setMessage(L"Sprayed " + std::to_wstring(app.sprayPlaced) + L" sprites");
-            app.lastSprayX = sx, app.lastSprayY = sy;
-            app.drag = Drag::Spray;
-            sprayHoldStart(sx, sy);
-            break;
-        }
-        if (app.palette >= 0) {
-            // Click places one; dragging places one at each new place of the mouse (one undo step).
-            ed.beginStroke();
-            app.placedInStroke = 0;
-            if (strokePlace(wx, wy)) {
-                app.placedInStroke = 1;
-                setMessage(L"Placed sprite " + entryName("sprites", app.palette));
-            } else setMessage(L"Did not place the sprite: it is outside the map");
-            app.lastPlaceX = wx, app.lastPlaceY = wy;
-            app.drag = Drag::PlaceStroke;
-        } else if (app.pastingItems) {
-            std::vector<Editor::ItemAt> items = app.spriteClip;
-            for (auto& it : items) it.x += int(snapToCell(wx, app.spriteGrid)), it.y += int(snapToCell(wy, app.spriteGrid));
-            const int n = ed.placeSprites(items);
-            setMessage(L"Pasted " + std::to_wstring(n) + L" sprites");
-            // (the copy stays on the mouse: click again to paste again; right-click or Esc stops; GitHub feedback #123)
-        } else {
-            selectItemAt(app.selSprites, mapSpriteAt(ed, int(wx), int(wy)), keys, Drag::MoveSprite);
-        }
-        break;
-    case Mode::Doodads:
-        if (currentTool() == DSpray) {
-            ed.beginStroke();  // the press and hold: one undo step
-            app.sprayPlaced = sprayAt(wx, wy);
-            setMessage(L"Sprayed " + std::to_wstring(app.sprayPlaced) + L" doodads");
-            app.lastSprayX = sx, app.lastSprayY = sy;
-            app.drag = Drag::Spray;
-            sprayHoldStart(sx, sy);
-            break;
-        }
-        if (app.palette >= 0) {
-            // Click places one; dragging keeps placing along the way (one undo step). Several picked (Ctrl or
-            // Shift in the palette): each one placed is one of them, at random.
-            std::string why;
-            ed.beginStroke();
-            app.placedInStroke = 0;
-            const RECT box = strokeBox(wx, wy);
-            if (placePaletteDoodad(wx, wy, why)) {
-                app.placedInStroke = 1, app.lastPlacedBox = box;
-                setMessage(L"Placed doodad");
-                if (gPal.chosen.size() > 1) {
-                    static std::mt19937 rng{std::random_device{}()};
-                    app.palette = gPal.chosen[std::uniform_int_distribution<size_t>(0, gPal.chosen.size() - 1)(rng)];
-                }
-            } else setMessage(L"Did not place the doodad: " + widen(why));
-            app.lastPlaceX = wx, app.lastPlaceY = wy;
-            app.drag = Drag::PlaceStroke;
-        } else if (app.pastingItems) {
-            std::vector<Editor::ItemAt> items = app.doodadClip;
-            for (auto& it : items) it.x += int(wx), it.y += int(wy);
-            const int n = ed.placeDoodads(items, app.doodadCheck, app.doodadNearest);
-            setMessage(L"Pasted " + std::to_wstring(n) + L" of " + std::to_wstring(items.size()) + L" doodads (the others do not fit there)");
-            // (the copy stays on the mouse: click again to paste again; right-click or Esc stops; GitHub feedback #123)
-        } else {
-            // Nothing picked: select (Ctrl or Shift adds), drag to move, a drag on empty ground selects with a box.
-            selectItemAt(app.selDoodads, ed.doodadAt(int(wx), int(wy)), keys, Drag::MoveDoodad);
-        }
-        break;
-    case Mode::Locations: {
-        int edges = locationEdgesAt(wx, wy);
-        int inside = ed.locationAt(int(wx), int(wy));
-        if (edges) {
-            app.drag = Drag::LocResize;
-            app.locEdges = edges;
-            app.locStart = ed.locationRect(ed.selectedLocation());
-        } else if (inside >= 0 && !shift) {
-            ed.selectLocation(inside);
-            app.locStart = ed.locationRect(inside);
-            app.drag = Drag::LocMove;
-            setListSel(int(std::find(app.items.begin(), app.items.end(), inside) - app.items.begin()));
-        } else {
-            app.drag = Drag::LocCreate;
-        }
-        break;
-    }
-    }
-    app.dirty = true;
-}
-
-void mouseMove(int sx, int sy) {
-    app.mouseX = sx, app.mouseY = sy;
-    if (!app.mouseIn) {
-        app.mouseIn = true;
-        TRACKMOUSEEVENT t{sizeof t, TME_LEAVE, app.view, 0};
-        TrackMouseEvent(&t);
-    }
-    if (std::abs(sx - app.dragSX) + std::abs(sy - app.dragSY) > 4) app.dragMoved = true;
-    float wx, wy;
-    toWorld(sx, sy, wx, wy);
-    if (app.drag == Drag::Paint && app.ed) {
-        // Over the same terrain: new variants each half brush along the drag (not on every small move).
-        const float extent = std::min(app.brushSize, currentBrush().height());  // a flat brush: its smaller side
-        if (std::hypot(wx - gRerollX, wy - gRerollY) >= std::max(16.0f, extent * 32) &&
-            app.ed->brushAllTerrain(int(wx), int(wy), currentBrush(), uint16_t(app.palette))) {
-            app.ed->rerollTerrain(int(wx), int(wy), currentBrush(), app.spraySeed++);
-            gRerollX = wx, gRerollY = wy;
-        }
-        // A fast move skips ground: paint the way from the last point too, at most half a brush apart, and at most 8
-        // more steps a move (zoomed far out, one move crosses much of the map; the next moves paint the rest).
-        const float step = std::max(32.0f, extent * 32), dx = wx - gPaintX, dy = wy - gPaintY, len = std::hypot(dx, dy);
-        const int n = std::clamp(int(len / step), 0, 8);
-        for (int k = 1; k <= n; ++k)
-            app.ed->paintBrush(int(gPaintX + dx * k / (n + 1)), int(gPaintY + dy * k / (n + 1)), uint16_t(app.palette), currentBrush());
-        app.ed->paintBrush(int(wx), int(wy), uint16_t(app.palette), currentBrush());
-        gPaintX = wx, gPaintY = wy;
-    }
-    if (app.drag == Drag::Tiles) tilesMouseMove(wx, wy);
-    if (app.drag == Drag::Spray && app.ed && std::hypot(sx - app.lastSprayX, sy - app.lastSprayY) > std::max(12.0, sprayRadius() * app.zoom * 0.5)) {
-        app.lastSprayX = sx, app.lastSprayY = sy;
-        app.sprayPlaced += sprayAt(wx, wy);  // along the path
-    }
-    if (app.drag == Drag::PendingPlace && app.dragMoved) app.drag = Drag::BoxSelect;
-    if (app.drag == Drag::PlaceStroke && app.ed && app.palette >= 0) strokeMove(wx, wy);
-    if (app.drag == Drag::PasteStroke && app.ed) {  // the copy again where the mouse is a whole copy away from the last one
-        const Rect box = app.ed->terrainClipboardBox();
-        if (std::abs(wx - app.lastPlaceX) >= float(std::max(32, box.right)) || std::abs(wy - app.lastPlaceY) >= float(std::max(32, box.bottom))) {
-            applyUnitLimit(*app.ed);
-            app.ed->pasteTerrain(int(wx), int(wy), app.correction);
-            app.lastPlaceX = wx, app.lastPlaceY = wy;
-        }
-    }
-    app.dirty = true;
-    updateStatus();
-    if (app.ed && app.drag == Drag::None) pathOverlayMouseMove(wx, wy);
-}
-
-void mouseUp(int sx, int sy, WPARAM keys) {
-    if (!app.ed || !app.ed->isOpen()) {
-        app.drag = Drag::None;
-        return;
-    }
-    Editor& ed = *app.ed;
-    float wx, wy;
-    toWorld(sx, sy, wx, wy);
-    bool shift = keys & MK_SHIFT;
-    switch (app.drag) {
-    case Drag::MoveUnits:
-        if (app.dragMoved) {
-            float dx, dy;
-            dragMoveDelta(wx, wy, dx, dy);
-            const bool held = app.dragSnapBack && !app.allowIllegalUnits;  // the offset fits already
-            if (dx || dy) {
-                const int moved = ed.moveSelection(int(std::lround(dx)), int(std::lround(dy)), held ? false : app.correction);
-                setMessage(moved ? L"Moved " + std::to_wstring(moved) + L" units" : L"The units do not fit there. They stay where they were.");
-            } else if (held) {
-                setMessage(L"The units do not fit along the drag. They stay where they were.");
-            }
-        }
-        break;
-    case Drag::BoxSelect:
-        if (app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
-            const Rect r = Rect{int(app.dragWX), int(app.dragWY), int(wx), int(wy)}.normalized();
-            auto& sel = app.mode == Mode::Doodads ? app.selDoodads : app.selSprites;
-            if (!shift && !(keys & MK_CONTROL)) sel.clear();
-            const int n = app.mode == Mode::Doodads ? int(ed.doodads().size()) : int(ed.sprites().size());
-            for (int i = 0; i < n; ++i) {
-                int x, y;
-                if (app.mode == Mode::Doodads) x = ed.doodads()[size_t(i)].x, y = ed.doodads()[size_t(i)].y;
-                else if (spriteIsOverlay(i)) continue;
-                else x = ed.sprites()[size_t(i)].x, y = ed.sprites()[size_t(i)].y;
-                if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom && std::find(sel.begin(), sel.end(), i) == sel.end()) sel.push_back(i);
-            }
-            setMessage(L"Selected " + std::to_wstring(sel.size()) + (app.mode == Mode::Doodads ? L" doodads" : L" sprites"));
-        } else {
-            ed.selectRect({int(app.dragWX), int(app.dragWY), int(wx), int(wy)}, shift || (keys & MK_CONTROL));
-        }
-        break;
-    case Drag::PasteStroke:
-        ed.endStroke();
-        setMessage(L"Pasted terrain. To stop pasting, right-click or press Esc.");
-        break;
-    case Drag::PlaceStroke:
-        ed.endStroke();
-        if (app.placedInStroke > 1)
-            setMessage(L"Placed " + std::to_wstring(app.placedInStroke) +
-                       (app.mode == Mode::Doodads ? L" doodads" : app.mode == Mode::Sprites ? L" sprites" : L" units"));
-        break;
-    case Drag::PendingPlace: {
-        uint16_t type = uint16_t(app.palette);
-        const UnitType& t = ed.unitTypes()[type];
-        uint8_t who = (t.availability & UnitAvail::NonNeutral) ? uint8_t(app.playerOwner) : uint8_t(11);
-        snapUnitPoint(wx, wy);
-        applyUnitLimit(ed);
-        PlaceResult r = ed.placeUnit(type, who, int(wx), int(wy), app.correction);
-        ed.clearSelection();  // placed units are not selected (placing is not selecting)
-        if (r.placed) {
-            uint16_t ux = uint16_t(std::clamp(int(wx), 0, ed.width() * 32 - 1)), uy = uint16_t(std::clamp(int(wy), 0, ed.height() * 32 - 1));
-            snapToGrid(t, ux, uy);
-            bool moved = r.unit.x != ux || r.unit.y != uy;
-            setMessage(L"Placed " + widen(t.name) + (moved ? L" (moved to the nearest valid spot)" : L""));
-        } else {
-            std::wstring why;
-            for (auto is : r.issues) why += L" " + widen(placementIssueName(is));
-            setMessage(atUnitLimit(ed) ? unitLimitText(ed) : L"Cannot place here:" + why + (app.correction ? L" (no valid spot nearby)" : L""));
-        }
-        break;
-    }
-    case Drag::Paint: ed.endTerrainStroke(); break;
-    case Drag::Spray:
-        sprayHoldStop();
-        if (app.mode == Mode::Terrain && app.terrainRect) tilesMouseUp(wx, wy);
-        else ed.endStroke();  // the terrain's stroke, or the units' and doodads' (the press and hold: one undo step)
-        if (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites)
-            setMessage(L"Sprayed " + std::to_wstring(app.sprayPlaced) + (app.mode == Mode::Units ? L" units" : app.mode == Mode::Doodads ? L" doodads" : L" sprites"));
-        break;
-    case Drag::Tiles: tilesMouseUp(wx, wy); break;
-    case Drag::TerrainSelect: {
-        const Rect r = app.terrainRect && !app.dragMoved ? Rect{} : terrainSelectRect(wx, wy);  // Rectangle: a click clears it
-        app.hasTerrainSel = r.right - r.left >= 32 && r.bottom - r.top >= 32;
-        app.terrainSel = r;
-        if (app.terrainRect && app.hasTerrainSel)
-            setMessage(L"Selected " + std::to_wstring((r.right - r.left) / 32) + L" x " + std::to_wstring((r.bottom - r.top) / 32) +
-                       L" tiles. Press Ctrl+C to copy them.");
-        else
-            setMessage(app.hasTerrainSel ? L"Selected the terrain. Press Ctrl+C to copy it. Replace changes only the selected area." : L"Cleared the terrain selection");
-        break;
-    }
-    case Drag::LocCreate: {
-        Rect r = previewLocationRect(wx, wy);
-        if (r.right - r.left >= 8 && r.bottom - r.top >= 8) {
-            // Ctrl or Shift while it is made: an inverted location (holds air units only; drawn red).
-            const bool inverted = GetKeyState(VK_CONTROL) < 0 || GetKeyState(VK_SHIFT) < 0;
-            int i = ed.createLocation(r, inverted);
-            if (i >= 0) rebuildList(), setMessage(L"Created " + widen(ed.locationName(i)) + (inverted ? L" (inverted: it holds air units only)" : L""));
-            else setMessage(L"Could not create the location: all location slots are in use");
-        } else {
-            ed.selectLocation(-1);
-        }
-        break;
-    }
-    case Drag::LocMove:
-    case Drag::LocResize:
-        if (app.dragMoved) ed.setLocationRect(ed.selectedLocation(), previewLocationRect(wx, wy));
-        break;
-    case Drag::MoveDoodad:
-        if (app.dragMoved && !app.selDoodads.empty()) {
-            std::string why;
-            const int n = int(app.selDoodads.size());
-            if (moveSelectedDoodads(int(wx - app.dragWX), int(wy - app.dragWY), why)) {
-                app.selDoodads.clear();  // the moved ones are the last ones now
-                for (int i = int(ed.doodads().size()) - n; i < int(ed.doodads().size()); ++i) app.selDoodads.push_back(i);
-                setMessage(L"Moved " + std::to_wstring(n) + L" doodads");
-            } else setMessage(L"The doodads stay: " + widen(why));
-        }
-        break;
-    case Drag::MoveSprite:
-        if (app.dragMoved && !app.selSprites.empty()) {
-            if (ed.moveSprites(app.selSprites, int(snapRound(wx - app.dragWX, app.spriteGrid)), int(snapRound(wy - app.dragWY, app.spriteGrid))))
-                setMessage(L"Moved " + std::to_wstring(app.selSprites.size()) + L" sprites");
-            else setMessage(L"Could not move the sprites: the new place is outside the map");
-        }
-        break;
-    default: break;
-    }
-    app.drag = Drag::None;
-    app.dirty = true;
-    updateMenus();
-}
 
 // Escape or a right click (without dragging) backs out one step: paste mode, then the terrain
 // selection, then placement (the palette entry: unit, doodad or terrain brush), then the selection.
@@ -5389,6 +3363,10 @@ std::wstring lowerText(HWND edit) {
     std::transform(t.begin(), t.end(), t.begin(), ::towlower);
     return t;
 }
+std::wstring lowerText(std::wstring t) {
+    std::transform(t.begin(), t.end(), t.begin(), ::towlower);
+    return t;
+}
 
 // The side bar's items for the current mode: units, the tileset's terrains, or its doodads (by their
 // editor group, as StarEdit lists them).
@@ -5479,20 +3457,6 @@ std::vector<PaletteUnit> paletteItems() {
     return app.mode == Mode::Units ? paletteUnits() : out;
 }
 
-std::wstring paletteItemName(int v) {
-    if (!app.ed || v < 0) return L"";
-    if (app.mode == Mode::Terrain) {
-        const IsomTerrainTable* t = IsomTerrainTable::forEra(app.ed->era());
-        return t ? widen(t->terrainName(uint16_t(v))) : L"";
-    }
-    if (app.mode == Mode::Doodads) {
-        const DoodadType* d = app.ed->doodadTypes().find(uint16_t(v));
-        return d ? widen(app.ed->unitTypes().statText(d->groupString - 1u)) + L"  #" + std::to_wstring(v) : L"";
-    }
-    if (app.mode == Mode::Sprites) return entryName("sprites", v) + L"  #" + std::to_wstring(v);
-    const UnitType& t = app.ed->unitTypes()[uint16_t(v)];
-    return widen(t.name) + (t.subtitle.empty() ? L"" : L" (" + widen(t.subtitle) + L")");
-}
 
 // The section box: "All units" (doodads, sprites), then the list's sections in their order. Filled again when the
 // sections change (another mode or tileset); a section that is gone goes back to all.
@@ -5504,39 +3468,30 @@ void fillPaletteSections(const std::vector<PaletteUnit>& units) {
             if (std::find(names.begin(), names.end(), u.section) == names.end()) names.push_back(u.section);
     if (names == gPal.sectionNames) return;
     gPal.sectionNames = names;
-    SendMessageW(gPal.sectionBox, CB_RESETCONTENT, 0, 0);
-    SendMessageW(gPal.sectionBox, CB_ADDSTRING, 0,
-                 LPARAM(app.mode == Mode::Doodads ? L"All doodads" : app.mode == Mode::Sprites ? L"All sprites" : L"All units"));
-    for (const auto& n : names) SendMessageW(gPal.sectionBox, CB_ADDSTRING, 0, LPARAM(n.c_str()));
+    std::vector<stardraft::kit::DropdownItem> items;
+    items.push_back({app.mode == Mode::Doodads ? L"All doodads" : app.mode == Mode::Sprites ? L"All sprites" : L"All units"});
+    for (const auto& n : names) items.push_back({n});
+    gSectionBox.dropdown().setItems(std::move(items));
     const auto it = std::find(names.begin(), names.end(), gPal.section);
     if (it == names.end()) gPal.section.clear();
-    SendMessageW(gPal.sectionBox, CB_SETCURSEL, it == names.end() ? 0 : WPARAM(1 + (it - names.begin())), 0);
+    gSectionBox.dropdown().setValue(it == names.end() ? 0 : int(1 + (it - names.begin())));
 }
 
-// The section box's choice: the list shows that section (0: all of them).
+// The section box's choice: the list shows that section (0: all of them). The mouse wheel over the closed box steps
+// it too (the kit dropdown's wheel calls onChange).
 void setPaletteSection(int index) {
     if (!gPal.sectionBox) return;
     index = std::clamp(index, 0, int(gPal.sectionNames.size()));
-    SendMessageW(gPal.sectionBox, CB_SETCURSEL, WPARAM(index), 0);
+    gSectionBox.dropdown().setValue(index);
     gPal.section = index == 0 ? std::wstring() : gPal.sectionNames[size_t(index - 1)];
     gPal.scroll = 0;
     rebuildUnitPalette();
 }
 
-// The mouse wheel over the closed box goes to the next or the previous section.
-LRESULT CALLBACK paletteSectionProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
-    if (msg == WM_MOUSEWHEEL && !SendMessageW(hwnd, CB_GETDROPPEDSTATE, 0, 0)) {
-        const int now = int(SendMessageW(hwnd, CB_GETCURSEL, 0, 0));
-        setPaletteSection(now + (GET_WHEEL_DELTA_WPARAM(wp) < 0 ? 1 : -1));
-        return 0;
-    }
-    return DefSubclassProc(hwnd, msg, wp, lp);
-}
-
 void rebuildUnitPalette() {
     gPal.entries.clear();
     gPal.hover = -1;
-    const std::wstring filter = lowerText(gPal.search);
+    const std::wstring filter = lowerText(gPalSearchBox.text());
     const PaletteUnit* prev = nullptr;
     const auto units = paletteItems();
     fillPaletteSections(units);
@@ -5720,12 +3675,37 @@ void drawFitted(HDC dc, const UnitPalette::Bitmap& b, RECT box) {
     DeleteDC(src);
 }
 
+namespace ui {
+// A click area's cursor: the portable one (stardraft::draw::Cursor), made also from the Win32 cursor ids the panes use.
+struct HitCursor {
+    stardraft::draw::Cursor c = stardraft::draw::Cursor::Arrow;
+    HitCursor(stardraft::draw::Cursor k = stardraft::draw::Cursor::Arrow) : c(k) {}
+    HitCursor(LPCWSTR id) {
+        using stardraft::draw::Cursor;
+        c = id == IDC_HAND ? Cursor::Hand : id == IDC_IBEAM ? Cursor::IBeam : id == IDC_SIZEALL ? Cursor::SizeAll : id == IDC_SIZEWE ? Cursor::SizeWE
+          : id == IDC_SIZENS ? Cursor::SizeNS : id == IDC_NO ? Cursor::No : id == IDC_WAIT ? Cursor::Wait : Cursor::Arrow;
+    }
+    operator LPCWSTR() const {
+        using stardraft::draw::Cursor;
+        switch (c) {
+        case Cursor::Hand: return IDC_HAND;
+        case Cursor::IBeam: return IDC_IBEAM;
+        case Cursor::SizeAll: return IDC_SIZEALL;
+        case Cursor::SizeWE: return IDC_SIZEWE;
+        case Cursor::SizeNS: return IDC_SIZENS;
+        case Cursor::No: return IDC_NO;
+        case Cursor::Wait: return IDC_WAIT;
+        default: return IDC_ARROW;
+        }
+    }
+};
+}  // namespace ui
 struct DataWidgetHit {
     RECT r{};
     std::function<void(POINT)> drag;  // while the mouse is down and moves: the values from the mouse position
     std::function<void()> click;      // a click without a drag
     std::wstring tip;
-    LPCWSTR cursor = IDC_HAND;
+    ui::HitCursor cursor = IDC_HAND;
     std::vector<std::string> fields;  // the fields this part shows (the mouse over it marks them)
     std::function<void()> release;    // after a drag, when the mouse goes up
     std::function<void(int)> wheel;   // the mouse wheel over it: one step (1 the next, -1 the one before); a dropdown
@@ -6032,7 +4012,120 @@ void fadeIn(HWND w, int show) {
     });
 }
 
+#include "canvas_gdi.inc"
 #include "ui_kit.inc"
+#include "view_win32.inc"
+
+// --- The log's bar as a view (apps/common/view.h) ---------------------------------------------------------------
+// The log window is a view window (kViewClass) whose child is the native read-only edit with the full log. The view
+// paints the bar (the toggle, "Log", the error count, the time and the latest line) and takes the mouse on the bar and
+// on the top edge (the drag that changes the height). Its state is gLog's; the edit's colors come from the view.
+struct LogView final : stardraft::draw::View, ui::ChildColors {
+    int dimTimer = 0;  // the timer that turns the latest line dim (0: none)
+
+    // The edit fills what the bar leaves.
+    void placeText() {
+        if (gBuildLogText) MoveWindow(gBuildLogText, 0, scale(24), width(), std::max(0, height() - scale(24)), TRUE);
+    }
+    void resized() override { placeText(); }
+
+    HBRUSH childColors(HDC dc) override {  // the read-only edit: the log's text on the window's background
+        SetTextColor(dc, kText);
+        SetBkColor(dc, kBg);
+        return app.bgBrush;
+    }
+
+    void paint(stardraft::draw::Canvas& c) override {
+        const int w = width(), bar = scale(24);
+        c.fill({0, 0, w, bar}, kPanel);
+        c.fill({0, 0, w, 1}, kBorder);  // the line at the top
+        // A chevron from the icon set: down closes the log, up opens it.
+        c.icon({scale(8), 0, scale(24), bar}, int(gLog.expanded ? UiIcon::ChevronDown : UiIcon::ChevronUp), kDim, scale(16));
+        c.text({scale(30), 0, scale(80), bar}, L"Log", kDim, stardraft::draw::kMiddle);
+        gLog.toggle = {0, 0, scale(80), bar};
+        int x = scale(80);
+        if (gLog.errors) {
+            const std::wstring e = std::to_wstring(gLog.errors) + (gLog.errors == 1 ? L" error" : L" errors");
+            c.text({x, 0, x + scale(90), bar}, e, kBad, stardraft::draw::kMiddle);
+            x += scale(90);
+        }
+        if (!gLog.latestTime.empty()) {  // its time, small and dim: a log line (the status bar says what is now)
+            c.text({x, 0, x + scale(44), bar}, gLog.latestTime, kFaint, stardraft::draw::kMiddle);
+            x += scale(44);
+        }
+        const bool fresh = GetTickCount64() - gLog.latestAt < 10000;  // older: dim (a message from before, another tab's)
+        c.text({x, 0, w - scale(10), bar}, gLog.latest, gLog.latestError ? kBad : fresh ? kText : kDim,
+               stardraft::draw::kMiddle | stardraft::draw::kEllipsis);
+    }
+
+    bool mouse(const stardraft::draw::MouseEvent& e) override {
+        using stardraft::draw::MouseKind;
+        HWND hwnd = ui::Win32Host::windowOf(*this);
+        switch (e.kind) {
+        case MouseKind::Move:
+            if (gLog.sizing) {  // the panel moves as it grows: screen positions
+                POINT p{e.pt.x, e.pt.y};
+                ClientToScreen(hwnd, &p);
+                const int h = gLog.grabH - (p.y - gLog.grabY);
+                const int logH = std::clamp(MulDiv(h, 96, int(app.dpi)), 80, 1200);
+                if (logH != gDock.logH) gDock.logH = logH, shellRelayout();
+            }
+            return true;
+        case MouseKind::Down:
+        case MouseKind::DoubleClick:  // (a second press, as the window had them before it was a view)
+            if (e.button != 0) return false;
+            if (gLog.expanded && e.pt.y < scale(5)) {  // the top edge: drag to change the height
+                POINT p{e.pt.x, e.pt.y};
+                ClientToScreen(hwnd, &p);
+                gLog.sizing = true, gLog.grabY = p.y, gLog.grabH = logPanelHeight();
+                captureMouse(true);
+            } else if (e.pt.y < scale(24))
+                logSetExpanded(!gLog.expanded);
+            return true;
+        case MouseKind::Up:
+            if (e.button != 0) return false;
+            if (gLog.sizing) captureMouse(false);
+            return true;
+        default: return false;
+        }
+    }
+    stardraft::draw::Cursor cursor(stardraft::draw::Point p) override {
+        return gLog.sizing || (gLog.expanded && p.y < scale(5)) ? stardraft::draw::Cursor::SizeNS : stardraft::draw::Cursor::Hand;
+    }
+    void captureLost() override {  // the drag ends (the mouse went up, or the system took the mouse)
+        if (gLog.sizing) gLog.sizing = false, gDock.logH = MulDiv(logPanelHeight(), 96, int(app.dpi)), saveDock();
+    }
+
+    void captureMouse(bool on) {
+        if (stardraft::draw::Host* h = host()) h->capture(*this, on);
+    }
+    // The latest line turns dim 10.5 seconds after it came (a message from before is not "now").
+    void dimLater() {
+        stardraft::draw::Host* h = host();
+        if (!h) return;
+        if (dimTimer) h->cancelTimer(dimTimer);
+        dimTimer = h->timer(10500, [this] {
+            dimTimer = 0;
+            invalidate();
+        });
+    }
+};
+LogView gLogView;
+
+void logDimLater() { gLogView.dimLater(); }
+
+void createLogPanel() {
+    if (gLog.wnd) return;
+    gLog.wnd = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN, 0, 0, 1, 1, app.main, nullptr, app.inst, &gLogView);
+    gBuildLogText = CreateWindowExW(0, WC_EDITW, L"", WS_CHILD | WS_VSCROLL | WS_HSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL, 0, 0, 1, 1,
+                                    gLog.wnd, nullptr, app.inst, nullptr);
+    SendMessageW(gBuildLogText, WM_SETFONT, WPARAM(monoFont()), TRUE);
+    SendMessageW(gBuildLogText, EM_SETLIMITTEXT, 0, 0);
+    darkControl(gBuildLogText, L"DarkMode_Explorer");
+    SendMessageW(gBuildLogText, EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN, MAKELPARAM(scale(6), scale(4)));  // clear of the frame
+    gLogView.placeText();
+}
+HWND tabsWindow(stardraft::draw::View& v) { return ui::Win32Host::windowOf(v); }
 #include "game_text.inc"
 #include "context_menu.inc"
 #include "message_box.inc"
@@ -6045,41 +4138,28 @@ void pickUnitLimit(int k, RECT b, HWND hwnd);  // Program options > Map unit lim
 
 
 int gPalPaintCount = 0;  // counts the palette's paints (what a paint reads once)
-void paintUnitPalette(HWND hwnd) {
+// The list on `c` (its view's paint: the host has filled the background with kBg, as the window did).
+void paintUnitPalette(stardraft::draw::Canvas& c, int width, int height) {
+    using stardraft::draw::FontDesc;
+    using stardraft::draw::Rect;
+    using stardraft::draw::kEllipsis;
+    using stardraft::draw::kMiddle;
+    using stardraft::draw::kRight;
     ++gPalPaintCount;
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-    HGDIOBJ oldBmp = SelectObject(mem, back);
-    FillRect(mem, &rc, app.bgBrush);
-    HGDIOBJ oldFont = SelectObject(mem, app.font);
-    SetBkMode(mem, TRANSPARENT);
-    const int viewH = rc.bottom - unitPaletteFooter();
-    HRGN clip = CreateRectRgn(0, 0, rc.right, viewH);
-    SelectClipRgn(mem, clip);
+    const int viewH = height - unitPaletteFooter();
+    c.pushClip({0, 0, width, viewH});
     const bool units = app.ed && app.mode != Mode::Locations;  // the picked item shows
-    auto fill = [&](RECT r, COLORREF c) {
-        HBRUSH br = CreateSolidBrush(c);
-        FillRect(mem, &r, br);
-        DeleteObject(br);
-    };
     for (size_t i = 0; app.ed && i < gPal.entries.size(); ++i) {
         const auto& e = gPal.entries[i];
         RECT r = e.rc;
         OffsetRect(&r, 0, -gPal.scroll);
         if (r.bottom < 0 || r.top > viewH) continue;
         if (e.value < 0) {  // a group heading: the section heading's text color, its line after the name
-            SetTextColor(mem, kText);
             RECT t = r;
             t.left += scale(6);
-            DrawTextW(mem, e.label.c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-            SIZE sz{};
-            GetTextExtentPoint32W(mem, e.label.c_str(), int(e.label.size()), &sz);
-            int mid = (r.top + r.bottom) / 2;
-            fill({t.left + sz.cx + scale(8), mid, r.right - scale(6), mid + 1}, kBorder);
+            c.text(t, e.label, kText, kMiddle);
+            const int mid = (r.top + r.bottom) / 2;
+            c.fill({t.left + c.measure(e.label) + scale(8), mid, r.right - scale(6), mid + 1}, kBorder);
             continue;
         }
         const bool picked = units && e.value == app.palette;
@@ -6088,25 +4168,19 @@ void paintUnitPalette(HWND hwnd) {
         if (picked || chosen || second || int(i) == gPal.hover) {
             RECT f = r;
             InflateRect(&f, -1, -1);
-            if (picked) ui::listRow(mem, f, true, false);
-            else fill(f, chosen || second ? kSel : kRowHot);
+            if (picked) ui::listRow(c, f, true, false);
+            else c.fill(f, chosen || second ? kSel : kRowHot);
             if (second) {  // a dashed accent frame, and "Shift" at its right end
-                HPEN pen = CreatePen(PS_DOT, 1, kAccent);
-                HGDIOBJ op = SelectObject(mem, pen), ob = SelectObject(mem, GetStockObject(NULL_BRUSH));
-                Rectangle(mem, f.left, f.top, f.right, f.bottom);
-                SelectObject(mem, op), SelectObject(mem, ob);
-                DeleteObject(pen);
-                RECT rt{f.right - scale(60), f.top, f.right - scale(4), f.bottom};
-                SetTextColor(mem, kAccent);
-                DrawTextW(mem, L"Shift", -1, &rt, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
+                c.frame(f, kAccent, 1, stardraft::draw::LineStyle::Dot);
+                c.text({f.right - scale(60), f.top, f.right - scale(4), f.bottom}, L"Shift", kAccent, kRight | kMiddle);
             }
         }
         if (gPal.pinned && i >= 1 && i <= size_t(gPal.pinned)) {  // a pinned doodad's copy at the top: the pin at its right
-            HGDIOBJ of = SelectObject(mem, glyphFont(11));
-            SetTextColor(mem, kDim);
-            RECT pr2{r.right - scale(22), r.top, r.right - scale(6), r.bottom};
-            DrawTextW(mem, L"\xE718", 1, &pr2, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
-            SelectObject(mem, of);
+            FontDesc glyphs;
+            glyphs.face = stardraft::draw::Face::Glyphs, glyphs.px = scale(11);
+            const stardraft::draw::Font of = c.setFont(c.font(glyphs));
+            c.text({r.right - scale(22), r.top, r.right - scale(6), r.bottom}, L"\xE718", kDim, kRight | kMiddle);
+            c.setFont(of);
         }
         RECT box = r;
         if (gPal.grid) InflateRect(&box, -scale(3), -scale(3));
@@ -6114,10 +4188,9 @@ void paintUnitPalette(HWND hwnd) {
             const int bw = (r.bottom - r.top) * (app.mode == Mode::Terrain ? 2 : 1);
             box = {r.left + scale(4), r.top + scale(2), r.left + scale(4) + bw, r.bottom - scale(2)};
         }
-        if (const auto* b = unitPaletteBitmap(e.value, app.mode); b && b->bmp) drawFitted(mem, *b, box);
-        else if (app.mode == Mode::Terrain) ui::box(mem, box, RGB(6, 6, 10), kBorder, 3);  // nothing to show (Space): an empty swatch
+        if (const auto* b = unitPaletteBitmap(e.value, app.mode); b && b->bmp) c.fitted(ui::imageOf(b), box);
+        else if (app.mode == Mode::Terrain) ui::box(c, box, RGB(6, 6, 10), kBorder, 3);  // nothing to show (Space): an empty swatch
         if (!gPal.grid) {
-            SetTextColor(mem, kText);
             RECT t = r;
             t.left = box.right + scale(8);
             t.right -= scale(4);
@@ -6125,37 +4198,27 @@ void paintUnitPalette(HWND hwnd) {
             static int wordsPaint = -1;
             if (wordsPaint != gPalPaintCount) {
                 wordsPaint = gPalPaintCount, words.clear();
-                std::wistringstream in(lowerText(gPal.search));
+                std::wistringstream in(lowerText(gPalSearchBox.text()));
                 for (std::wstring w; in >> w;) words.push_back(w);
             }
-            if (words.empty()) DrawTextW(mem, e.label.c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-            else drawMatched(mem, t, e.label, words, kText);
+            if (words.empty()) c.text(t, e.label, kText, kMiddle | kEllipsis);
+            else drawMatched(c, t, e.label, words, kText);
         }
     }
     if (app.ed && gPal.entries.empty()) {  // nothing agrees with the search: only None, dim, where the first row goes
-        SetTextColor(mem, kDim);
-        RECT t{scale(6), 0, rc.right - scale(6), scale(30)};
-        DrawTextW(mem, tr(L"None"), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+        c.text({scale(6), 0, width - scale(6), scale(30)}, tr(L"None"), kDim, kMiddle);
     }
-    SelectClipRgn(mem, nullptr);
-    DeleteObject(clip);
+    c.popClip();
     if (unitPaletteFooter()) {
         // Grid: the hovered (or picked) unit's name.
-        RECT f = {0, viewH, rc.right, rc.bottom};
-        FillRect(mem, &f, app.ctlBrush);
+        Rect f{0, viewH, width, height};
+        c.fill(f, kCtl);
         int show = gPal.hover >= 0 ? gPal.entries[size_t(gPal.hover)].value : units ? app.palette : -1;
         std::wstring name;
         if (app.ed && show >= 0) name = paletteItemName(show);
-        SetTextColor(mem, show >= 0 ? kText : kDim);
         f.left += scale(6);
-        DrawTextW(mem, name.c_str(), -1, &f, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
+        c.text(f, name, show >= 0 ? kText : kDim, kMiddle | kEllipsis);
     }
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, oldFont);
-    SelectObject(mem, oldBmp);
-    DeleteObject(back);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
 }
 
 int unitPaletteHit(int x, int y) {
@@ -6168,66 +4231,7 @@ int unitPaletteHit(int x, int y) {
     return -1;
 }
 
-// Picking a unit means placing it: Units mode, out of paste mode, nothing selected, so the next click
-// on the map places one (Spray and Replace keep their tool: they use the pick too). Ctrl adds units to
-// the pick (or removes them) for sprays.
-void pickUnit(int v, bool add) {
-    if (!app.ed || v < 0) return;
-    if (app.mode == Mode::Terrain || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
-        // Terrain: paint with it (leaving Select / copy); doodads and sprites: place it (Ctrl adds to a spray, #79).
-        if (add && app.mode == Mode::Terrain && !app.terrainRect) {  // the second terrain: Shift+click or Shift+drag paints it
-            app.palette2 = app.palette2 == v ? -1 : v;
-            if (currentTool() == TSelect) app.toolByMode[int(Mode::Terrain)] = TBrush, fillToolCombo();
-            setMessage(app.palette2 > 0 ? tr(L"Shift+drag paints ") + paletteItemName(v) + tr(L"; drag paints ") +
-                                              (app.palette > 0 ? paletteItemName(app.palette) : std::wstring(tr(L"the terrain you click"))) : tr(L"Shift+drag: no terrain"));
-            app.dirty = true;
-            unitPaletteRepaint();
-            return;
-        }
-        if (add && (app.mode == Mode::Doodads || app.mode == Mode::Sprites)) {
-            auto it = std::find(gPal.chosen.begin(), gPal.chosen.end(), v);
-            if (it != gPal.chosen.end()) gPal.chosen.erase(it);
-            else gPal.chosen.push_back(v);
-            app.palette = gPal.chosen.empty() ? -1 : gPal.chosen.back();
-        } else {
-            gPal.chosen = {v};
-            app.palette = v;
-        }
-        app.terrainPasting = false;
-        if (app.mode == Mode::Terrain && currentTool() == TSelect) {
-            app.toolByMode[int(Mode::Terrain)] = TBrush;
-            fillToolCombo();
-        }
-        if (app.palette >= 0)
-            setMessage((app.mode == Mode::Terrain ? L"Painting " : app.mode == Mode::Sprites ? L"Placing sprite " : L"Placing doodad ") + paletteItemName(app.palette) +
-                       (app.mode == Mode::Doodads ? L": click to place it (green if it fits, red if it does not)" : L""));
-        app.dirty = true;
-        unitPaletteRepaint();
-        return;
-    }
-    if (app.mode != Mode::Units) setMode(Mode::Units);
-    if (add) {
-        auto it = std::find(gPal.chosen.begin(), gPal.chosen.end(), v);
-        if (it != gPal.chosen.end()) gPal.chosen.erase(it);
-        else gPal.chosen.push_back(v);
-        app.palette = gPal.chosen.empty() ? -1 : gPal.chosen.back();
-    } else {
-        gPal.chosen = {v};
-        app.palette = v;
-    }
-    app.pasting = false;
-    app.ed->clearSelection();
-    if (currentTool() != USpray && currentTool() != UReplace) {
-        app.toolByMode[int(Mode::Units)] = UPlace;
-        fillToolCombo();
-    }
-    if (app.palette >= 0)
-        setMessage(L"Placing " + widen(app.ed->unitTypes()[uint16_t(app.palette)].name) +
-                   (gPal.chosen.size() > 1 ? L" and " + std::to_wstring(gPal.chosen.size() - 1) + L" more" : L"") +
-                   L": click to place. Drag to place a row. Right-click to stop.");
-    app.dirty = true;
-    unitPaletteRepaint();
-}
+void pickUnit(int v, bool add) { pickUnit(app, v, add); }
 
 void setUnitPaletteView(int id) {
     if (id == ID_PAL_LIST) gPal.grid = gPal.sprites = false;
@@ -6362,108 +4366,124 @@ void drawOwnerItem(const DRAWITEMSTRUCT* d) {
     if ((d->itemState & ODS_FOCUS) && !edit) DrawFocusRect(dc, &r);
 }
 
-void setPlayer(int i) {
-    app.playerOwner = i;
-    SendMessageW(app.owner, CB_SETCURSEL, i, 0);
-    setMessage(L"Player " + std::to_wstring(i + 1));
-    app.dirty = true;
-    unitPaletteRepaint();  // sprites wear the player's color
-}
+void setPlayer(int i) { setPlayer(app, i); }
 
-LRESULT CALLBACK unitPaletteProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
+// The unit palette as a view (apps/common/view.h): its window is a view window (kViewClass) with the native vertical
+// scroll bar (WS_VSCROLL, which the host passes on as vscroll). The second palette (split view) is the same view with
+// the second palette's state while it works (SecondPaletteScope); a click there picks the unit in its mode.
+struct UnitPaletteView final : stardraft::draw::View {
+    explicit UnitPaletteView(bool second) : second_(second) {}
+    void paint(stardraft::draw::Canvas& c) override {
+        std::optional<SecondPaletteScope> scope;
+        if (second_) scope.emplace();
+        paintUnitPalette(c, width(), height());
+    }
+    bool mouse(const stardraft::draw::MouseEvent& in) override {
+        using stardraft::draw::MouseKind;
+        stardraft::draw::MouseEvent e = in;
+        if (e.kind == MouseKind::DoubleClick) e.kind = MouseKind::Down;  // (no double-click class style: each click is a down)
+        if (second_ && e.kind == MouseKind::Down && e.button == 0) return secondPick(e);
+        std::optional<SecondPaletteScope> scope;
+        if (second_) scope.emplace();
+        switch (e.kind) {
+        case MouseKind::Move: {
+            const int h = unitPaletteHit(e.pt.x, e.pt.y);
+            if (h != gPal.hover) gPal.hover = h, unitPaletteRepaint();
+            return true;
+        }
+        case MouseKind::Leave:
+            if (gPal.hover >= 0) gPal.hover = -1, unitPaletteRepaint();
+            return true;
+        case MouseKind::Wheel: {
+            if (e.horizontal) return false;
+            const int delta = int(std::lround(e.wheel * WHEEL_DELTA));  // (the wheel's own units, as the window had them)
+            scrollUnitPalette(gPal.scroll - delta * scale(90) / WHEEL_DELTA);
+            return true;
+        }
+        case MouseKind::Down: {
+            if (e.button != 0) return false;
+            const int h = unitPaletteHit(e.pt.x, e.pt.y);
+            if (h >= 0 && (e.mods & stardraft::draw::kShift) && (app.mode == Mode::Doodads || app.mode == Mode::Sprites || app.mode == Mode::Units) && app.palette >= 0) {
+                // Shift: every item from the last pick to this one, in the palette's order (for a spray, #79).
+                int from = -1;
+                for (size_t k = 0; k < gPal.entries.size(); ++k)
+                    if (gPal.entries[k].value == app.palette) from = int(k);
+                if (from >= 0) {
+                    const int a = std::min(from, h), b = std::max(from, h);
+                    if (!(e.mods & stardraft::draw::kCtrl)) gPal.chosen.clear();
+                    for (int k = a; k <= b; ++k)
+                        if (const int v = gPal.entries[size_t(k)].value; v >= 0 && std::find(gPal.chosen.begin(), gPal.chosen.end(), v) == gPal.chosen.end())
+                            gPal.chosen.push_back(v);
+                    const wchar_t* what = app.mode == Mode::Units ? L" units" : app.mode == Mode::Sprites ? L" sprites" : L" doodads";
+                    setMessage(L"Selected " + std::to_wstring(gPal.chosen.size()) + what + L": each click or spray places one of them, at random");
+                    app.dirty = true;
+                    unitPaletteRepaint();
+                    return true;
+                }
+            }
+            if (h >= 0) pickUnit(gPal.entries[size_t(h)].value, (e.mods & stardraft::draw::kCtrl) != 0);
+            SetFocus(app.view);
+            return true;
+        }
+        case MouseKind::Up: {
+            if (e.button != 1) return false;
+            POINT pt{e.pt.x, e.pt.y};
+            ClientToScreen(ui::Win32Host::windowOf(*this), &pt);
+            const int h = unitPaletteHit(e.pt.x, e.pt.y);
+            unitPaletteMenu(pt.x, pt.y, h >= 0 ? gPal.entries[size_t(h)].value : -1);  // on a doodad of a project: Pin to the top
+            return true;
+        }
+        default: return false;
+        }
+    }
+    std::wstring tip(stardraft::draw::Point p) override {  // (Report feedback names the entry under the mouse)
+        std::optional<SecondPaletteScope> scope;
+        if (second_) scope.emplace();
+        const int h = unitPaletteHit(p.x, p.y);
+        return h >= 0 ? gPal.entries[size_t(h)].label : std::wstring();
+    }
+    bool vscroll(int code, int pos, int track, int page) override {  // the window's scroll bar
+        std::optional<SecondPaletteScope> scope;
+        if (second_) scope.emplace();
+        switch (code) {
+        case SB_LINEUP: pos -= scale(30); break;
+        case SB_LINEDOWN: pos += scale(30); break;
+        case SB_PAGEUP: pos -= page; break;
+        case SB_PAGEDOWN: pos += page; break;
+        case SB_THUMBTRACK:
+        case SB_THUMBPOSITION: pos = track; break;
+        case SB_TOP: pos = 0; break;
+        case SB_BOTTOM: pos = gPal.contentH; break;
+        }
+        scrollUnitPalette(pos);
+        return true;
+    }
+    void resized() override {
+        std::optional<SecondPaletteScope> scope;
+        if (second_) scope.emplace();
+        layoutUnitPalette();
+    }
 
-LRESULT CALLBACK secondPaletteProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    if (msg == WM_LBUTTONDOWN) {
+private:
+    // The second palette's click: the unit under the mouse becomes its mode's pick (Ctrl: the second terrain, or one more).
+    bool secondPick(const stardraft::draw::MouseEvent& e) {
         int v = -1;
         Mode m;
         {
             SecondPaletteScope scope;
-            const int h = unitPaletteHit(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
+            const int h = unitPaletteHit(e.pt.x, e.pt.y);
             if (h >= 0) v = gPal.entries[size_t(h)].value;
             m = app.mode;
         }
         if (v >= 0) {
             setMode(m);
-            pickUnit(v, (wp & MK_CONTROL) != 0);  // Ctrl: the second terrain (isometric), or one more doodad or sprite
+            pickUnit(v, (e.mods & stardraft::draw::kCtrl) != 0);  // Ctrl: the second terrain (isometric), or one more doodad or sprite
         }
-        return 0;
+        return true;
     }
-    SecondPaletteScope scope;
-    return unitPaletteProc(hwnd, msg, wp, lp);
-}
-
-LRESULT CALLBACK unitPaletteProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_FEEDBACK_NAME: {
-        auto& q = *reinterpret_cast<FeedbackQuery*>(lp);
-        if (const int h = unitPaletteHit(q.pt.x, q.pt.y); h >= 0) q.name = gPal.entries[size_t(h)].label;
-        return 0;
-    }
-    case WM_PAINT: paintUnitPalette(hwnd); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_SIZE: layoutUnitPalette(); return 0;
-    case WM_MOUSEWHEEL: scrollUnitPalette(gPal.scroll - GET_WHEEL_DELTA_WPARAM(wp) * scale(90) / WHEEL_DELTA); return 0;
-    case WM_VSCROLL: {
-        SCROLLINFO si{sizeof si, SIF_ALL};
-        GetScrollInfo(hwnd, SB_VERT, &si);
-        int pos = si.nPos;
-        switch (LOWORD(wp)) {
-        case SB_LINEUP: pos -= scale(30); break;
-        case SB_LINEDOWN: pos += scale(30); break;
-        case SB_PAGEUP: pos -= int(si.nPage); break;
-        case SB_PAGEDOWN: pos += int(si.nPage); break;
-        case SB_THUMBTRACK:
-        case SB_THUMBPOSITION: pos = si.nTrackPos; break;
-        case SB_TOP: pos = 0; break;
-        case SB_BOTTOM: pos = gPal.contentH; break;
-        }
-        scrollUnitPalette(pos);
-        return 0;
-    }
-    case WM_MOUSEMOVE: {
-        int h = unitPaletteHit(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
-        if (h != gPal.hover) gPal.hover = h, unitPaletteRepaint();
-        TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
-        TrackMouseEvent(&tme);
-        return 0;
-    }
-    case WM_MOUSELEAVE:
-        if (gPal.hover >= 0) gPal.hover = -1, unitPaletteRepaint();
-        return 0;
-    case WM_LBUTTONDOWN: {
-        int h = unitPaletteHit(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
-        if (h >= 0 && (wp & MK_SHIFT) && (app.mode == Mode::Doodads || app.mode == Mode::Sprites || app.mode == Mode::Units) && app.palette >= 0) {
-            // Shift: every item from the last pick to this one, in the palette's order (for a spray, #79).
-            int from = -1;
-            for (size_t k = 0; k < gPal.entries.size(); ++k)
-                if (gPal.entries[k].value == app.palette) from = int(k);
-            if (from >= 0) {
-                const int a = std::min(from, h), b = std::max(from, h);
-                if (!(wp & MK_CONTROL)) gPal.chosen.clear();
-                for (int k = a; k <= b; ++k)
-                    if (const int v = gPal.entries[size_t(k)].value; v >= 0 && std::find(gPal.chosen.begin(), gPal.chosen.end(), v) == gPal.chosen.end())
-                        gPal.chosen.push_back(v);
-                const wchar_t* what = app.mode == Mode::Units ? L" units" : app.mode == Mode::Sprites ? L" sprites" : L" doodads";
-                setMessage(L"Selected " + std::to_wstring(gPal.chosen.size()) + what + L": each click or spray places one of them, at random");
-                app.dirty = true;
-                unitPaletteRepaint();
-                return 0;
-            }
-        }
-        if (h >= 0) pickUnit(gPal.entries[size_t(h)].value, (wp & MK_CONTROL) != 0);
-        SetFocus(app.view);
-        return 0;
-    }
-    case WM_RBUTTONUP: {
-        const int h = unitPaletteHit(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        ClientToScreen(hwnd, &pt);
-        unitPaletteMenu(pt.x, pt.y, h >= 0 ? gPal.entries[size_t(h)].value : -1);  // on a doodad of a project: Pin to the top
-        return 0;
-    }
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
+    bool second_;
+};
+UnitPaletteView gPalView{false}, gPal2View{true};
 
 // --- Quick picker (Q) --------------------------------------------------------------------------------
 
@@ -6988,166 +5008,7 @@ void showQuickPicker(bool replace, bool open) {
 // editor; Data edits the project's .dat files (units so far).
 
 
-EudProject* activeProject();
-// The rail is for projects (workspaces, Build); a tab that is just a map has none.
-int wsRailWidth() { return scale(64); }
-void setWorkspace(Workspace w);
-
-struct WsHit {
-    RECT r;
-    int id;
-    std::wstring name;  // for Report feedback
-};
-std::vector<WsHit> gWsHits;
-int railItemId(size_t n) { return n < gWsHits.size() ? gWsHits[n].id : 0; }
-int gWsHot = -1;
-
-// The rail: the active tab's workspaces as icon + label, top down; Build (a project) or Make project (a
-// map) at the bottom. A map tab shows only Map.
-HFONT railLabelFont() {
-    static HFONT f = nullptr;
-    static UINT forDpi = 0;
-    if (!f || forDpi != app.dpi) {
-        if (f) DeleteObject(f);
-        LOGFONTW lf{};
-        GetObjectW(app.font, sizeof lf, &lf);
-        lf.lfHeight = lf.lfHeight * 5 / 6;
-        f = CreateFontIndirectW(&lf);
-        forDpi = app.dpi;
-    }
-    return f;
-}
-
-bool mapPageChangesFor(int id);  // map_pages.inc: the page of rail item `id` has changes that are not applied
-int mapPageCommandOf(Workspace w) {
-    return w == Workspace::Properties ? ID_SCEN_PROPS : w == Workspace::Players ? ID_SCEN_PLAYERS : w == Workspace::ClassicTriggers ? ID_SCEN_CLASSICTRIG
-         : w == Workspace::ClassicSettings                                                     ? ID_SCEN_CLASSIC
-                                                                                                : ID_WS_MAP + int(w);  // ID_WS_* follow the Workspace order
-}
-
-void paintWsBar(HWND hwnd) {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-    HGDIOBJ ob = SelectObject(mem, back), of = SelectObject(mem, app.font);
-    const COLORREF railBg = kPanel, acc = kAccent, accBg = kSel, accLine = kAccentLine;
-    HBRUSH bg = CreateSolidBrush(railBg);
-    FillRect(mem, &rc, bg);
-    DeleteObject(bg);
-    SetBkMode(mem, TRANSPARENT);
-    auto fill = [&](RECT r, COLORREF c) {
-        HBRUSH b = CreateSolidBrush(c);
-        FillRect(mem, &r, b);
-        DeleteObject(b);
-    };
-    auto rounded = [&](RECT r, COLORREF fillC, COLORREF lineC) {
-        HBRUSH b = CreateSolidBrush(fillC);
-        HPEN p = CreatePen(PS_SOLID, 1, lineC);
-        HGDIOBJ obr = SelectObject(mem, b), op = SelectObject(mem, p);
-        RoundRect(mem, r.left, r.top, r.right, r.bottom, scale(9), scale(9));
-        SelectObject(mem, obr), SelectObject(mem, op);
-        DeleteObject(b), DeleteObject(p);
-    };
-    fill({rc.right - 1, 0, rc.right, rc.bottom}, kBorder);
-    gWsHits.clear();
-    // One item: icon over label.
-    auto item = [&](RECT r, UiIcon icon, const wchar_t* name, COLORREF color, COLORREF labelColor) {
-        RECT ir{r.left, r.top + scale(6), r.right, r.top + scale(30)};
-        uiIcon(mem, ir, icon, color, scale(16));
-        SelectObject(mem, railLabelFont());
-        SetTextColor(mem, labelColor);
-        RECT lr{r.left, r.top + scale(30), r.right, r.bottom - scale(4)};
-        DrawTextW(mem, name, -1, &lr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-    };
-    // One order for a classic map and an EUD project, so each item has the same place: Map, Data, Triggers (a classic map:
-    // the classic triggers), then in a project whose map has them the classic triggers, Briefing, Assets, Map properties,
-    // and last a project's Project. An item that the tab's mode does not have is left out. Assets
-    // is the Files workspace (Workspace::Files). The map pages (Properties, Players, Map data, classic triggers) are on
-    // while their page shows; a dot: the page has changes that are not applied.
-    const bool trigWs = commandInMode(ID_WS_TRIGGERS);
-    struct RailItem {
-        int id;
-        UiIcon icon;
-        const wchar_t* name;
-        std::wstring tip;
-        bool page;            // a map page (else a workspace)
-        Workspace ws = Workspace::Map;
-    };
-    const RailItem items[] = {
-        {ID_WS_MAP, UiIcon::Map, L"Map", L"the Map workspace", false, Workspace::Map},
-        {ID_SCEN_CLASSIC, UiIcon::Data, L"Data", L"Data: the map's units, upgrades and technologies", true},
-        {ID_WS_DATA, UiIcon::Data, L"Data", L"the Data workspace", false, Workspace::Data},
-        {trigWs ? 0 : ID_SCEN_CLASSICTRIG, UiIcon::Triggers, L"Triggers", L"Classic triggers", true},
-        {ID_WS_TRIGGERS, UiIcon::Triggers, L"Triggers", L"the Triggers workspace", false, Workspace::Triggers},
-        {trigWs ? ID_SCEN_CLASSICTRIG : 0, UiIcon::Log, L"Classic", L"Classic triggers (the map's own triggers)", true},
-        {ID_WS_BRIEFING, UiIcon::Briefing, L"Briefing", L"the Briefing workspace", false, Workspace::Briefing},
-        {ID_WS_FILES, UiIcon::Assets, L"Assets", L"the Assets workspace", false, Workspace::Files},
-        {ID_SCEN_PROPS, UiIcon::Tag, L"Properties", L"Map properties: the title, size and tileset, players and forces (Ctrl+M)", true},
-        {ID_WS_PROJECT, UiIcon::Project, L"Project", L"the Project page", false, Workspace::Project},  // after Properties: the classic map's order, then the project's own
-    };
-    const bool project = activeProject() != nullptr;
-    const int m = scale(6), itemH = scale(54);
-    int y = scale(8);
-    for (const RailItem& it : items) {
-        if (!it.id || !commandInMode(it.id)) continue;  // only the items of the tab's mode
-        RECT r{m, y, rc.right - m - 1, y + itemH};
-        const bool on = it.page ? gWorkspace >= Workspace::Properties && mapPageCommandOf(gWorkspace) == it.id : gWorkspace == it.ws,
-                   hot = gWsHot == it.id;
-        if (on || hot) rounded(r, on ? accBg : kHot, on ? accBg : kHot);
-        if (on) fill({0, r.top + scale(12), scale(3), r.bottom - scale(12)}, acc);
-        item(r, it.icon, it.name, on ? acc : kText, on ? acc : kDim);
-        if (it.page && mapPageChangesFor(it.id)) ui::changedDot(mem, r.right - scale(10), r.top + scale(10));
-        gWsHits.push_back({r, it.id, it.tip});
-        y += itemH + scale(4);
-    }
-    (void)accLine;
-    (void)project;
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, of), SelectObject(mem, ob);
-    DeleteObject(back);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
-}
-
-LRESULT CALLBACK wsBarProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_FEEDBACK_NAME: {
-        auto& q = *reinterpret_cast<FeedbackQuery*>(lp);
-        for (const auto& h : gWsHits)
-            if (PtInRect(&h.r, q.pt)) q.name = h.name;
-        return 0;
-    }
-    case WM_PAINT: paintWsBar(hwnd); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_MOUSEMOVE: {
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        int hot = -1;
-        for (const auto& h : gWsHits)
-            if (PtInRect(&h.r, pt)) hot = h.id;
-        if (hot != gWsHot) {
-            gWsHot = hot, InvalidateRect(hwnd, nullptr, FALSE);
-            if (hot == ID_PROJ_COMPILE) setHint(L"Build the map of the project with euddraft (Ctrl+B)");
-        }
-        TRACKMOUSEEVENT tme{sizeof tme, TME_LEAVE, hwnd, 0};
-        TrackMouseEvent(&tme);
-        return 0;
-    }
-    case WM_MOUSELEAVE: gWsHot = -1, InvalidateRect(hwnd, nullptr, FALSE); return 0;
-    case WM_LBUTTONUP: {
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        for (const auto& h : gWsHits)
-            if (PtInRect(&h.r, pt)) {
-                command(h.id);
-                break;
-            }
-        return 0;
-    }
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
+RailView gRail;
 
 // --- Data workspace (the ten .dat files) -----------------------------------------------------------------
 // A tab per .dat. The entry list on the left (icon, id, name; a dot where something is changed), the
@@ -7365,14 +5226,6 @@ int entryNameString(const std::string& dat, int e) {
     return 0;
 }
 
-// The name of an entry: units from stat_txt.tbl, the rest from the generated lists ("" when unnamed).
-std::wstring buttonSetName(int s);
-std::wstring entryName(const std::string& dat, int v) {
-    if (dat == "units") return unitDisplayName(v);
-    if (dat == "buttons") return v >= 0 && v < ButtonSets::kSets ? buttonSetName(v) : L"";
-    const auto& names = DatSchema::entryNames(dat);
-    return v >= 0 && v < int(names.size()) ? widen(names[size_t(v)]) : L"";
-}
 
 // Name of entry `v` of the .dat a reference points into: "None" past the last entry.
 std::wstring refName(const std::string& dat, uint32_t v) {
@@ -10805,7 +8658,7 @@ std::shared_ptr<PortraitClips> portraitClips(const std::string& path) {
         }
         entry->clips = std::move(clips);
         entry->ready.store(true, std::memory_order_release);
-        if (HWND form = gData.form) InvalidateRect(form, nullptr, FALSE);  // the form shows it (else "Loading" stays until a repaint)
+        shellPost([] { if (gData.form) InvalidateRect(gData.form, nullptr, FALSE); });  // the form shows it (else "Loading" stays until a repaint)
     }).detach();
     return entry;
 }
@@ -12072,8 +9925,6 @@ void createWorkspaces(HWND parent) {
     WNDCLASSEXW wc{sizeof wc};
     wc.hInstance = app.inst;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.lpfnWndProc = wsBarProc, wc.lpszClassName = L"StarDraftWsBar";
-    RegisterClassExW(&wc);
     wc.lpfnWndProc = dataWndProc, wc.lpszClassName = L"StarDraftData";
     RegisterClassExW(&wc);
     wc.lpfnWndProc = dataListProc, wc.lpszClassName = L"StarDraftDataList";
@@ -12082,7 +9933,7 @@ void createWorkspaces(HWND parent) {
     RegisterClassExW(&wc);
     wc.lpfnWndProc = dataRefsProc, wc.lpszClassName = L"StarDraftDataRefs";
     RegisterClassExW(&wc);
-    gWsBar = CreateWindowExW(0, L"StarDraftWsBar", L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, parent, nullptr, app.inst, nullptr);
+    gWsBar = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, parent, nullptr, app.inst, &gRail);
     gDataWnd = CreateWindowExW(0, L"StarDraftData", L"", WS_CHILD | WS_CLIPCHILDREN, 0, 0, 1, 1, parent, nullptr, app.inst, nullptr);
     gData.search = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 0, 0, 1, 1, gDataWnd, nullptr, app.inst, nullptr);
     SendMessageW(gData.search, EM_SETCUEBANNER, TRUE, LPARAM(L"Search units")); addSearchClear(gData.search);  // an x clears it
@@ -12116,60 +9967,8 @@ void createWorkspaces(HWND parent) {
 // project: its folder, map, output, and what the .eds builds.
 HWND gStubWnd = nullptr;
 
-LRESULT CALLBACK stubWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    if (msg == WM_PAINT) {
-        PAINTSTRUCT ps;
-        HDC dc = BeginPaint(hwnd, &ps);
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-        FillRect(dc, &rc, app.bgBrush);
-        SetBkMode(dc, TRANSPARENT);
-        HGDIOBJ of = SelectObject(dc, app.font);
-        std::wstring title, text;
-        if (gWorkspace == Workspace::Triggers) {
-            title = L"Triggers";
-            text = L"Triggers are in the Triggers workspace of a project.";
-        } else if (gWorkspace == Workspace::Assets) {
-            title = L"Assets";
-            text = L"Not available yet: graphics, sounds, portraits and fonts that you import into the map.";
-        } else if (const EudProject* pr = activeProject()) {
-            title = L"Project: " + widen(pr->name());
-            std::error_code ec;
-            const bool built = fs::exists(pr->outputMap(), ec);
-            auto rel = [&](const fs::path& p2) {
-                std::error_code e2;
-                const fs::path r = fs::relative(p2, pr->folder(), e2);
-                return (e2 || r.empty() ? p2 : r).wstring();
-            };
-            (void)built, (void)rel;
-            text.clear();  // the settings are the form's rows
-        } else {
-            title = L"Project";
-            text = L"No project is open. File > Project > New project makes one from the open map. File > Project > Open project opens one.";
-        }
-        HFONT big = nullptr;
-        {
-            LOGFONTW lf{};
-            GetObjectW(app.font, sizeof lf, &lf);
-            lf.lfHeight = lf.lfHeight * 3 / 2;
-            big = CreateFontIndirectW(&lf);
-        }
-        SelectObject(dc, big);
-        SetTextColor(dc, kText);
-        RECT t{scale(40), scale(36), rc.right - scale(40), scale(80)};
-        DrawTextW(dc, title.c_str(), -1, &t, DT_SINGLELINE | DT_NOPREFIX);
-        SelectObject(dc, gWorkspace == Workspace::Project && activeProject() ? monoFont() : app.font);
-        DeleteObject(big);
-        SetTextColor(dc, kDim);
-        RECT b{scale(40), scale(84), rc.right - scale(40), rc.bottom};
-        DrawTextW(dc, text.c_str(), -1, &b, DT_WORDBREAK | DT_NOPREFIX);
-        SelectObject(dc, of);
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    if (msg == WM_ERASEBKGND) return 1;
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
+// The stub view (core/views_stub.inc) shows gStubView.
+StubView gStubView;
 
 fs::path scriptPath(const EudProject& pr, const std::string& section) { return pr.scriptFile(section); }
 
@@ -12615,6 +10414,41 @@ void drawMatched(HDC dc, RECT r, const std::wstring& text, const std::vector<std
         GetTextExtentPoint32W(dc, shown.c_str() + i, int(j - i), &sz);
         x += sz.cx, i = j;
     }
+}
+// The same on a Canvas (the palette's list): each piece of the text is drawn at its place, the matched ones in the accent.
+void drawMatched(stardraft::draw::Canvas& c, stardraft::draw::Rect r, const std::wstring& text, const std::vector<std::wstring>& words, stardraft::draw::Color normal) {
+    std::wstring low = text;
+    std::transform(low.begin(), low.end(), low.begin(), ::towlower);
+    std::vector<uint8_t> hit(text.size(), 0);
+    for (const auto& w : words)
+        if (const size_t at = w.empty() ? std::wstring::npos : low.find(w); at != std::wstring::npos)
+            std::fill(hit.begin() + long(at), hit.begin() + long(at + w.size()), uint8_t(1));
+    const int y = (r.top + r.bottom - c.metrics().height) / 2;  // (the GDI version's rounding: a row partly above the top)
+    // Too wide: as much as fits, then an ellipsis (in the color of the last letter kept).
+    std::wstring shown = text;
+    if (c.measure(text) > r.width()) {
+        const int room = std::max(0, r.width() - c.measure(L"\x2026"));
+        size_t lo = 0, hi = text.size();  // the longest prefix that fits in `room` (widths grow with the prefix)
+        while (lo < hi) {
+            const size_t mid = (lo + hi + 1) / 2;
+            if (c.measure(std::wstring_view(text).substr(0, mid)) <= room) lo = mid;
+            else hi = mid - 1;
+        }
+        shown = text.substr(0, lo) + L"\x2026";
+        hit.resize(shown.size());
+        hit.back() = lo > 0 ? hit[lo - 1] : 0;
+    }
+    c.pushClip(r);
+    int x = r.left;
+    for (size_t i = 0; i < shown.size();) {
+        size_t j = i;
+        while (j < shown.size() && hit[j] == hit[i]) ++j;
+        const std::wstring piece = shown.substr(i, j - i);
+        c.text({x, y, r.right, y + c.metrics().height}, piece, hit[i] ? kAccent : normal, stardraft::draw::kLeft);
+        x += c.measure(piece);
+        i = j;
+    }
+    c.popClip();
 }
 int gTrigAdvance = 0;  // set by a popover closed with Tab (+1) or Shift+Tab (-1): open the next value's
 void (*gListPickHook)(HWND) = nullptr;  // self-test
@@ -17804,24 +15638,19 @@ void setWorkspace(Workspace w) {
         mapPageClose();
         if (mapPageKind(w) >= 0) w = Workspace::Map;
     }
-    if (app.status) InvalidateRect(app.status, nullptr, FALSE);  // the map's parts show in Map only
+    shellStatusChanged();  // the map's parts show in Map only
     if (w == Workspace::Data) dataLoadForProject(), dataRebuildList();
     else dataCommitEdit();
     gWorkspace = w;
     const bool map = w == Workspace::Map;
     for (HWND h : {app.minimap, app.tool, app.owner, app.view})
         if (h) ShowWindow(h, map ? SW_SHOW : SW_HIDE);
-    for (HWND h : app.modeBtn)  // the modes: a segmented control in the top tool bar (icons and names), in the Map workspace
-        if (h) ShowWindow(h, map ? SW_SHOW : SW_HIDE);
+    if (app.modeBar)  // the modes: a segmented control in the top tool bar (icons and names), in the Map workspace
+        ShowWindow(app.modeBar, map ? SW_SHOW : SW_HIDE);
     gWorkspace = w;
     setMode(app.mode);  // the panel's palette, or the locations list; hidden outside the map workspace
     ShowWindow(gDataWnd, w == Workspace::Data ? SW_SHOW : SW_HIDE);
-    if (!gStubWnd) {
-        WNDCLASSEXW wc{sizeof wc};
-        wc.hInstance = app.inst, wc.hCursor = LoadCursor(nullptr, IDC_ARROW), wc.lpfnWndProc = stubWndProc, wc.lpszClassName = L"StarDraftStub";
-        RegisterClassExW(&wc);
-        gStubWnd = CreateWindowExW(0, L"StarDraftStub", L"", WS_CHILD, 0, 0, 1, 1, app.main, nullptr, app.inst, nullptr);
-    }
+    if (!gStubWnd) gStubWnd = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD, 0, 0, 1, 1, app.main, nullptr, app.inst, &gStubView);
     createProjectPage();
     createTriggerEditor();
     const bool projectPage = w == Workspace::Project && activeProject();
@@ -17839,9 +15668,9 @@ void setWorkspace(Workspace w) {
     const bool stub = w == Workspace::Assets || (w == Workspace::Project && !projectPage);
     ShowWindow(gStubWnd, stub ? SW_SHOW : SW_HIDE);
     if (stub) InvalidateRect(gStubWnd, nullptr, FALSE);
-    layout();
+    shellRelayout();
     if (gMp.wnd) ShowWindow(gMp.wnd, SW_SHOW);  // after the layout: in its place at once
-    updateMenus();  // Edit's items follow the workspace (and with them Ctrl+C / X / V)
+    shellMenusChanged();  // Edit's items follow the workspace (and with them Ctrl+C / X / V)
     InvalidateRect(gWsBar, nullptr, FALSE);
     if (w == Workspace::Data && curTable()) dataShowTab(gData.datTab), SetFocus(gData.list);
     app.dirty = true;
@@ -18183,6 +16012,20 @@ bool secondPaints() {
     return app.ed && app.mode == Mode::Terrain && !app.terrainRect && app.palette2 > 0 && (tool == TBrush || tool == TSpray || tool == TFill || tool == TReplace);
 }
 
+// The modifier keys of a mouse message (draw::Mods): Shift and Ctrl as the message's keys say (a caller may take one
+// away, as the right button's stroke takes Ctrl), Alt as it is now.
+unsigned winMods(WPARAM keys) {
+    unsigned m = 0;
+    if (keys & MK_SHIFT) m |= draw::kShift;
+    if (keys & MK_CONTROL) m |= draw::kCtrl;
+    if (GetKeyState(VK_MENU) < 0) m |= draw::kAlt;
+    return m;
+}
+// The map's mouse input, as the core takes it (core/map_input.inc).
+void mouseDown(int sx, int sy, WPARAM keys) { mapMouseDown(app, sx, sy, winMods(keys)); }
+void mouseMove(int sx, int sy) { mapMouseMove(app, sx, sy); }
+void mouseUp(int sx, int sy, WPARAM keys) { mapMouseUp(app, sx, sy, winMods(keys)); }
+
 LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     static int panX = 0, panY = 0;
     static bool panByMiddle = false;  // the Pan drag is the middle button's (Options: Drag map)
@@ -18298,7 +16141,7 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_TIMER:
-        if (wp == kSprayTimer) return sprayHoldTimer(), 0;
+        if (wp == kSprayTimer) return sprayHoldTimer(app), 0;
         if (wp == kAutoPanTimer) {
             auto now = std::chrono::steady_clock::now();
             float dt = std::min(0.1f, std::chrono::duration<float>(now - lastTick).count());
@@ -18869,119 +16712,119 @@ RECT modeBarRect() {
     return {bx, by, bx + kModeCount * bw, by + bh};
 }
 
-void drawOwnerButton(const DRAWITEMSTRUCT* d) {
-    // A segmented choice: the active one as a selected (primary) button.
-    int i = int(d->CtlID) - IDC_MODEBTN;
-    bool active = i == int(app.mode);
-    HBRUSH barBg = CreateSolidBrush(kPanel);  // they sit on the top tool bar
-    FillRect(d->hDC, &d->rcItem, barBg);
-    DeleteObject(barBg);
-    // One segmented control: each segment is part of one box, rounded only at the two ends, with a line between
-    // segments; the chosen one is primary. (The box is drawn wider on the inner sides; the item's clip cuts it.)
-    const bool down = (d->itemState & ODS_SELECTED) != 0;
-    int k = 0;
-    while (k < kModeCount && int(kModeOrder[k]) != i) ++k;
-    const bool first = k == 0, last = k == kModeCount - 1;
-    const int over = scale(8);
-    RECT seg = d->rcItem;
-    if (!first) seg.left -= over;
-    if (!last) seg.right += over;
-    ui::box(d->hDC, seg, active ? kSel : down ? kCtlDown : kCtl, active ? kAccentLine : kBorder);
-    if (!last) {  // the line to the next segment
-        RECT line{d->rcItem.right - 1, d->rcItem.top + 1, d->rcItem.right, d->rcItem.bottom - 1};
-        HBRUSH lb = CreateSolidBrush(kBorder);
-        FillRect(d->hDC, &line, lb);
-        DeleteObject(lb);
+// The modes' segmented control: one view in the top tool bar, its segments side by side in the display order
+// (kModeOrder) with a line between them. Each segment is part of one box, rounded only at the two ends; the chosen
+// mode is primary. A click picks the segment's mode (on the release, while the mouse is still on it, as a button);
+// the tip is the mode's name. The icon alone when the names do not fit.
+ui::Surface gModeBarSurface;
+struct ModeBarView final : stardraft::draw::View {
+    using Canvas = stardraft::draw::Canvas;
+    using Point = stardraft::draw::Point;
+    using MouseEvent = stardraft::draw::MouseEvent;
+    using MouseKind = stardraft::draw::MouseKind;
+    int held = -1;        // the segment (its place in kModeOrder) the mouse is down on
+    bool inside = false;  // the mouse is still on that segment
+    // The segment under `p` (a place in kModeOrder), -1 outside the bar.
+    int segmentAt(Point p) const {
+        const int bw = width() / kModeCount;
+        if (bw <= 0 || p.x < 0 || p.y < 0 || p.x >= width() || p.y >= height()) return -1;
+        return std::min(p.x / bw, kModeCount - 1);
     }
-    // The mode's icon, then its name; the icon alone when the name does not fit.
-    static const UiIcon icons[kModeCount] = {UiIcon::Terrain, UiIcon::Units, UiIcon::Doodads, UiIcon::Locations, UiIcon::DatSprites};
-    const COLORREF c = active ? kAccent : kText;
-    HGDIOBJ of = SelectObject(d->hDC, app.font);
-    SIZE sz{};
-    GetTextExtentPoint32W(d->hDC, kModeNames[i], int(wcslen(kModeNames[i])), &sz);
-    const RECT& r = d->rcItem;
-    const int is = scale(16), gap = scale(5), w = r.right - r.left;
-    int widest = 0;  // all four with their names, or all four as icons only
-    for (const wchar_t* n : kModeNames) {
-        SIZE s2{};
-        GetTextExtentPoint32W(d->hDC, n, int(wcslen(n)), &s2);
-        widest = std::max<int>(widest, s2.cx);
+    RECT segmentRect(int k) const {
+        const int bw = width() / kModeCount;
+        return {k * bw, 0, k + 1 == kModeCount ? width() : (k + 1) * bw, height()};
     }
-    const bool label = is + gap + widest + scale(10) <= w;
-    const int x0 = label ? r.left + (w - (is + gap + sz.cx)) / 2 : r.left + (w - is) / 2;
-    uiIcon(d->hDC, {x0, r.top, x0 + is, r.bottom}, icons[i], c, is);
-    if (label) {
-        SetBkMode(d->hDC, TRANSPARENT);
-        SetTextColor(d->hDC, c);
-        RECT t{x0 + is + gap, r.top, r.right, r.bottom};
-        DrawTextW(d->hDC, kModeNames[i], -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+    void paint(Canvas& c) override {
+        const HWND hwnd = ui::Win32Host::windowOf(*this);
+        const int w = width(), h = height(), bw = width() / kModeCount;
+        static const UiIcon icons[kModeCount] = {UiIcon::Terrain, UiIcon::Units, UiIcon::Doodads, UiIcon::Locations, UiIcon::DatSprites};
+        c.fill({0, 0, w, h}, kPanel);  // they sit on the top tool bar
+        gModeBarSurface.begin(hwnd);
+        const stardraft::draw::Font prev = c.setFont(ui::fontOf(app.font));
+        const int is = scale(16), gap = scale(5), over = scale(8);
+        int widest = 0;  // all five with their names, or all five as icons only
+        for (const wchar_t* n : kModeNames) widest = std::max<int>(widest, c.measure(n));
+        for (int k = 0; k < kModeCount; ++k) {
+            const int i = int(kModeOrder[k]);
+            const bool active = i == int(app.mode);
+            const bool down = held == k && inside;
+            const RECT r = segmentRect(k);
+            c.pushClip(r);
+            c.fill(r, kPanel);
+            // (The box is drawn wider on the inner sides; the segment's clip cuts it.)
+            RECT seg = r;
+            if (k > 0) seg.left -= over;
+            if (k + 1 < kModeCount) seg.right += over;
+            ui::box(c, seg, active ? kSel : down ? kCtlDown : kCtl, active ? kAccentLine : kBorder);
+            if (k + 1 < kModeCount) c.fill({r.right - 1, r.top + 1, r.right, r.bottom - 1}, kBorder);  // the line to the next segment
+            // The mode's icon, then its name; the icon alone when the name does not fit.
+            const stardraft::draw::Color col = active ? kAccent : kText;
+            const int nameW = c.measure(kModeNames[i]);
+            const bool showName = is + gap + widest + scale(10) <= r.right - r.left;
+            const int x0 = showName ? r.left + (r.right - r.left - (is + gap + nameW)) / 2 : r.left + (r.right - r.left - is) / 2;
+            c.icon({x0, r.top, x0 + is, r.bottom}, int(icons[i]), col, is);
+            if (showName) c.text({x0 + is + gap, r.top, r.right, r.bottom}, kModeNames[i], col, stardraft::draw::kMiddle);
+            c.popClip();
+            gModeBarSurface.hits.push_back({r, nullptr, nullptr, kModeNames[i], IDC_ARROW, {}});
+        }
+        c.setFont(prev);
+        gModeBarSurface.end(hwnd);
     }
-    SelectObject(d->hDC, of);
-}
+    bool mouse(const MouseEvent& e) override {
+        switch (e.kind) {
+        case MouseKind::Down:
+        case MouseKind::DoubleClick:  // (a button takes a fast second press as a press)
+            if (e.button != 0) return false;
+            focus();  // as the old button: the press takes the focus (a tool-strip number box saves before the mode changes)
+            held = segmentAt(e.pt);
+            if (held < 0) return false;
+            inside = true;
+            if (stardraft::draw::Host* h = host()) h->capture(*this, true);
+            invalidate();
+            return true;
+        case MouseKind::Move:
+            if (held < 0) return false;
+            if ((segmentAt(e.pt) == held) != inside) inside = !inside, invalidate();
+            return true;
+        case MouseKind::Up: {
+            if (e.button != 0 || held < 0) return false;
+            const int k = held;
+            const bool pick = segmentAt(e.pt) == k;  // released off it: no click
+            held = -1, inside = false;
+            if (stardraft::draw::Host* h = host()) h->capture(*this, false);
+            invalidate();
+            if (pick) {
+                setMode(Mode(int(kModeOrder[k])));
+                SetFocus(app.view);
+            }
+            return true;
+        }
+        default: return false;
+        }
+    }
+    void captureLost() override {
+        held = -1, inside = false;
+        invalidate();
+    }
+    std::wstring tip(Point p) override {
+        const int k = segmentAt(p);
+        return k < 0 ? std::wstring() : std::wstring(kModeNames[int(kModeOrder[k])]);
+    }
+};
+ModeBarView gModeBarView;
 
-void drawStatusPart(const DRAWITEMSTRUCT* d) {
-    FillRect(d->hDC, &d->rcItem, app.bgBrush);
-    SetBkMode(d->hDC, TRANSPARENT);
-    SetTextColor(d->hDC, kText);
-    HGDIOBJ of = SelectObject(d->hDC, app.font);
-    RECT r = d->rcItem;
-    r.left += 4;
-    int i = int(d->itemData);
-    if (i >= 0 && i < 6) DrawTextW(d->hDC, app.statusText[i].c_str(), -1, &r, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    SelectObject(d->hDC, of);
-}
+// The status bar's view (core/views_status.inc) takes the app state's texts.
+StatusView gStatus{app};
 
-// The status bar drawn in full, flat: the panel color, a hairline on top and between the parts, no bevels. The map's
-// parts (mode and tool, the mouse's place, the zoom, the selection, frames) show in the Map workspace only; the
-// message shows only when there is no log line (which shows it already).
-void paintStatusBar(HWND w) {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(w, &ps);
-    RECT rc;
-    GetClientRect(w, &rc);
-    HBRUSH bg = CreateSolidBrush(kPanel);
-    FillRect(dc, &rc, bg);
-    DeleteObject(bg);
-    fillAlpha(dc, {rc.left, rc.top, rc.right, rc.top + 1}, kBorder, 255);
-    SetBkMode(dc, TRANSPARENT);
+// The status bar's height: the message font's line and a frame around it (what the bar had).
+int statusBarHeight() {
+    HDC dc = GetDC(nullptr);
     HGDIOBJ of = SelectObject(dc, app.font);
-    const bool map = gWorkspace == Workspace::Map && !activePage();  // (a page: Start, the map pages: no map parts)
-    const int pad = scale(8);
-    auto part = [&](RECT r, int i, COLORREF c) {
-        RECT t{r.left + pad, r.top + 1, r.right - pad, r.bottom};
-        SetTextColor(dc, c);
-        DrawTextW(dc, app.statusText[i].c_str(), -1, &t, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-    };
-    auto sep = [&](int x) { fillAlpha(dc, {x, rc.top + scale(4), x + 1, rc.bottom - scale(3)}, kBorder, 255); };
-    int x = rc.left + scale(4), right = rc.right - scale(16);  // room for the size grip
-    if (map) {
-        const int mins[4] = {150, 200, 110, 100};
-        for (int i = 0; i < 4; ++i) {
-            const int pw = std::max(scale(mins[i]), ui::textWidth(dc, app.statusText[i]) + 2 * pad);
-            part({x, rc.top, x + pw, rc.bottom}, i, i == 0 ? kText : kDim);
-            x += pw;
-            sep(x);
-        }
-#ifndef NDEBUG  // frames and sprites: for developers (debug builds), not in the release's status bar
-        const int fw = std::max(scale(130), ui::textWidth(dc, app.statusText[5]) + 2 * pad);
-        if (right - fw > x) {
-            part({right - fw, rc.top, right, rc.bottom}, 5, kDim);
-            sep(right - fw);
-            right -= fw;
-        }
-#endif
-    }
-    if (!gLog.wnd && right > x) part({x, rc.top, right, rc.bottom}, 4, kText);
+    TEXTMETRICW tm{};
+    GetTextMetricsW(dc, &tm);
     SelectObject(dc, of);
-    EndPaint(w, &ps);
-}
-LRESULT CALLBACK statusBarProc(HWND w, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
-    switch (msg) {
-    case WM_PAINT: paintStatusBar(w); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_NCDESTROY: RemoveWindowSubclass(w, statusBarProc, 1); break;
-    }
-    return DefSubclassProc(w, msg, wp, lp);
+    ReleaseDC(nullptr, dc);
+    return tm.tmHeight + scale(8);
 }
 
 // --- The tool strip ----------------------------------------------------------------------------------------------
@@ -19090,7 +16933,7 @@ void setTerrainRect(bool rect) {
     if (app.terrainRect == rect) return;
     app.terrainRect = rect;
     app.terrainPasting = false;
-    if (app.view) layout();  // the strip's height (no mirrors in Rectangle)
+    if (app.view) shellRelayout();  // the strip's height (no mirrors in Rectangle)
     fillToolCombo();         // tilesSync: the Tiles grid or the terrain palette
     updateStatus();
     setMessage(rect ? L"Rectangle: the tools place tiles as they are. Select a tile in the Tiles list."
@@ -19550,114 +17393,131 @@ LRESULT CALLBACK toolStripProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
 // --- The side panels' tabs --------------------------------------------------------------------------------------
 // Each side lists the modes docked there as tabs (icon and name; the icon only when the names do not fit). A click
-// goes to that mode; right-click moves that mode's panel to the other side.
-ui::Surface gPanelTabsSurface[2];
-void paintPanelTabs(HWND hwnd, int side) {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-    HGDIOBJ ob = SelectObject(mem, back), of = SelectObject(mem, app.font);
-    FillRect(mem, &rc, app.bgBrush);
-    SetBkMode(mem, TRANSPARENT);
-    gPanelTabsSurface[side].begin(hwnd);
-    std::vector<Mode> modes;
-    for (Mode m : kModeOrder)
-        if (gDock.toolsRight[int(m)] == (side == 1)) modes.push_back(m);
-    static const UiIcon icons[kModeCount] = {UiIcon::Terrain, UiIcon::Units, UiIcon::Doodads, UiIcon::Locations, UiIcon::DatSprites};
-    int widest = 0;
-    for (Mode m : modes) {
-        SIZE sz{};
-        GetTextExtentPoint32W(mem, kModeNames[int(m)], int(wcslen(kModeNames[int(m)])), &sz);
-        widest = std::max<int>(widest, sz.cx);
-    }
-    const int n = std::max<int>(1, int(modes.size()));
-    const int tw = int(rc.right) / n, is = scale(16), gap = scale(5);
-    const bool names = is + gap + widest + scale(12) <= tw;
-    for (size_t k = 0; k < modes.size(); ++k) {
-        const Mode m = modes[k];
-        const RECT r{int(k) * tw, 0, k + 1 == modes.size() ? int(rc.right) : int(k + 1) * tw, int(rc.bottom)};
-        // The tab of the active mode is the selected one; the panel that shows while another mode is active (Locations
-        // has none) gets only a quiet line under it.
-        const bool on = gPanelTab[side] == m, active = app.mode == m, hot = ui::hot(r);
-        if (active) fillAlpha(mem, r, kSel, 255);
-        else if (hot) fillAlpha(mem, r, kRowHot, 255);
-        if (active) fillAlpha(mem, {r.left, r.bottom - scale(2), r.right, r.bottom}, kAccent, 255);
-        else if (on) fillAlpha(mem, {r.left, r.bottom - scale(1), r.right, r.bottom}, kBorderStrong, 255);
-        const COLORREF c = active ? kAccent : on || hot ? kText : kDim;
-        SIZE sz{};
-        GetTextExtentPoint32W(mem, kModeNames[int(m)], int(wcslen(kModeNames[int(m)])), &sz);
-        const int w = names ? is + gap + sz.cx : is, x0 = (r.left + r.right - w) / 2;
-        uiIcon(mem, {x0, r.top, x0 + is, r.bottom}, icons[int(m)], c, is);
-        if (names) {
-            SetTextColor(mem, c);
-            RECT t{x0 + is + gap, r.top, r.right, r.bottom};
-            DrawTextW(mem, kModeNames[int(m)], -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-        }
-        gPanelTabsSurface[side].hits.push_back({r, nullptr, [m] { setMode(m); SetFocus(app.view); },
-                                                std::wstring(kModeNames[int(m)]) + L". Right-click: move it to the other side.", IDC_HAND, {}});
-    }
-    RECT line{0, rc.bottom - 1, rc.right, rc.bottom};
-    HBRUSH lb = CreateSolidBrush(kBorder);
-    FillRect(mem, &line, lb);
-    DeleteObject(lb);
-    gPanelTabsSurface[side].end(hwnd);
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, of), SelectObject(mem, ob);
-    DeleteObject(back);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
-}
-LRESULT CALLBACK panelTabsProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    const int side = hwnd == gPanelTabs[1] ? 1 : 0;
-    LRESULT r = 0;
-    if (msg != WM_PAINT && gPanelTabsSurface[side].message(hwnd, msg, wp, lp, r)) return r;
-    switch (msg) {
-    case WM_MOUSEWHEEL: {  // the next (or the one before) of this side's tabs, round again at the ends
-        std::vector<Mode> modes;
+// goes to that mode; right-click moves that mode's panel to the other side. The tabs are a View (apps/common/view.h)
+// shown by a view window: it paints on the Canvas and takes the mouse; its tabs are those of the last paint.
+struct PanelTabsView final : stardraft::draw::View {
+    using Canvas = stardraft::draw::Canvas;
+    using Color = stardraft::draw::Color;
+    using Cursor = stardraft::draw::Cursor;
+    using MouseEvent = stardraft::draw::MouseEvent;
+    using MouseKind = stardraft::draw::MouseKind;
+    using Point = stardraft::draw::Point;
+    using Rect = stardraft::draw::Rect;
+    struct Tab {
+        Rect r;
+        Mode m;
+    };
+    int side = 0;           // 0: the left side, 1: the right
+    std::vector<Tab> tabs;  // as the last paint put them, left to right
+    int over = -1;          // the tab under the mouse (an index into tabs), -1: none
+
+    // The modes docked on this side, in the order of the tabs.
+    std::vector<Mode> modes() const {
+        std::vector<Mode> out;
         for (Mode m : kModeOrder)
-            if (gDock.toolsRight[int(m)] == (side == 1)) modes.push_back(m);
-        if (modes.empty()) return 0;
-        int k = int(std::find(modes.begin(), modes.end(), gPanelTab[side]) - modes.begin());
-        const int n = int(modes.size());
-        k = ((k + (GET_WHEEL_DELTA_WPARAM(wp) > 0 ? -1 : 1)) % n + n) % n;
-        setMode(modes[size_t(k)]);
-        return 0;
+            if (gDock.toolsRight[int(m)] == (side == 1)) out.push_back(m);
+        return out;
     }
-    case WM_PAINT: paintPanelTabs(hwnd, side); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_CONTEXTMENU: {  // move the tab's mode to the other side
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        if (pt.x == -1 && pt.y == -1) GetCursorPos(&pt);
-        POINT c = pt;
-        ScreenToClient(hwnd, &c);
-        std::vector<Mode> modes;
-        for (Mode m : kModeOrder)
-            if (gDock.toolsRight[int(m)] == (side == 1)) modes.push_back(m);
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-        if (modes.empty()) return 0;
-        const Mode m = modes[size_t(std::clamp<int>(int(c.x) / std::max(1, int(rc.right) / int(modes.size())), 0, int(modes.size()) - 1))];
-        HMENU menu = CreatePopupMenu();
-        AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, (std::wstring(kModeNames[int(m)]) + L" panel").c_str());
-        AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-        AppendMenuW(menu, MF_STRING | (side == 0 ? MF_CHECKED : 0), 1, L"Left");
-        AppendMenuW(menu, MF_STRING | (side == 1 ? MF_CHECKED : 0), 2, L"Right");
-        const int pick = popupMenu(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD, pt.x, pt.y, hwnd);
-        DestroyMenu(menu);
-        if (pick == 1 || pick == 2) {
-            gDock.toolsRight[int(m)] = pick == 2;
-            gLastOnSide[pick == 2 ? 1 : 0] = m;
-            saveDock(), layout();
-            setMessage(std::wstring(kModeNames[int(m)]) + L" panel on the " + (pick == 2 ? L"right" : L"left"));
+    int tabAt(Point p) const {
+        for (size_t k = 0; k < tabs.size(); ++k)
+            if (tabs[k].r.contains(p)) return int(k);
+        return -1;
+    }
+    void paint(Canvas& c) override {
+        const Rect rc{0, 0, width(), height()};
+        // The tab under the mouse now is hot (the host knows where the mouse is).
+        const Point at = host() ? host()->mouse(*this) : Point{-1, -1};
+        c.fill(rc, kBg);
+        tabs.clear();
+        const std::vector<Mode> ms = modes();
+        static const UiIcon icons[kModeCount] = {UiIcon::Terrain, UiIcon::Units, UiIcon::Doodads, UiIcon::Locations, UiIcon::DatSprites};
+        int widest = 0;
+        for (Mode m : ms) widest = std::max<int>(widest, c.measure(kModeNames[int(m)]));
+        const int n = std::max<int>(1, int(ms.size()));
+        const int tw = rc.right / n, is = scale(16), gap = scale(5);
+        const bool names = is + gap + widest + scale(12) <= tw;
+        for (size_t k = 0; k < ms.size(); ++k) {
+            const Mode m = ms[k];
+            const Rect r{int(k) * tw, 0, k + 1 == ms.size() ? rc.right : int(k + 1) * tw, rc.bottom};
+            // The tab of the active mode is the selected one; the panel that shows while another mode is active (Locations
+            // has none) gets only a quiet line under it.
+            const bool on = gPanelTab[side] == m, active = app.mode == m, hot = r.contains(at);
+            if (active) c.fill(r, kSel);
+            else if (hot) c.fill(r, kRowHot);
+            if (active) c.fill({r.left, r.bottom - scale(2), r.right, r.bottom}, kAccent);
+            else if (on) c.fill({r.left, r.bottom - scale(1), r.right, r.bottom}, kBorderStrong);
+            const Color col = active ? kAccent : on || hot ? kText : kDim;
+            const int w = names ? is + gap + c.measure(kModeNames[int(m)]) : is, x0 = (r.left + r.right - w) / 2;
+            c.icon({x0, r.top, x0 + is, r.bottom}, int(icons[int(m)]), col, is);
+            if (names) c.text({x0 + is + gap, r.top, r.right, r.bottom}, kModeNames[int(m)], col, stardraft::draw::kMiddle);
+            tabs.push_back({r, m});
         }
-        return 0;
+        c.fill({0, rc.bottom - 1, rc.right, rc.bottom}, kBorder);
     }
+    bool mouse(const MouseEvent& e) override {
+        switch (e.kind) {
+        case MouseKind::Move: {
+            const int k = tabAt(e.pt);
+            if (k != over) over = k, invalidate();
+            return true;
+        }
+        case MouseKind::Leave: over = -1, invalidate(); return true;
+        case MouseKind::Down:
+        case MouseKind::DoubleClick: {  // (the class has CS_DBLCLKS: a second click comes as a double click)
+            if (e.button != 0) return false;
+            const int k = tabAt(e.pt);
+            if (k >= 0) {
+                const Mode m = tabs[size_t(k)].m;
+                setMode(m);
+                SetFocus(app.view);
+            }
+            return true;
+        }
+        case MouseKind::Up: {  // right-click: the tab's mode moves to the other side (its menu)
+            if (e.button != 1) return false;
+            const std::vector<Mode> ms = modes();
+            if (ms.empty()) return true;
+            const int tw = std::max(1, width() / int(ms.size()));
+            const Mode m = ms[size_t(std::clamp<int>(e.pt.x / tw, 0, int(ms.size()) - 1))];
+            POINT pt{};
+            GetCursorPos(&pt);
+            HMENU menu = CreatePopupMenu();
+            AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, (std::wstring(kModeNames[int(m)]) + L" panel").c_str());
+            AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+            AppendMenuW(menu, MF_STRING | (side == 0 ? MF_CHECKED : 0), 1, L"Left");
+            AppendMenuW(menu, MF_STRING | (side == 1 ? MF_CHECKED : 0), 2, L"Right");
+            const int pick = popupMenu(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD, pt.x, pt.y, app.main);
+            DestroyMenu(menu);
+            if (pick == 1 || pick == 2) {
+                gDock.toolsRight[int(m)] = pick == 2;
+                gLastOnSide[pick == 2 ? 1 : 0] = m;
+                saveDock(), shellRelayout();
+                setMessage(std::wstring(kModeNames[int(m)]) + L" panel on the " + (pick == 2 ? L"right" : L"left"));
+            }
+            return true;
+        }
+        case MouseKind::Wheel: {  // the next (or the one before) of this side's tabs, round again at the ends
+            if (e.horizontal) return false;
+            const std::vector<Mode> ms = modes();
+            if (ms.empty()) return true;
+            int k = int(std::find(ms.begin(), ms.end(), gPanelTab[side]) - ms.begin());
+            const int n = int(ms.size());
+            k = ((k + (e.wheel > 0 ? -1 : 1)) % n + n) % n;
+            setMode(ms[size_t(k)]);
+            return true;
+        }
+        default: return false;
+        }
     }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
+    Cursor cursor(Point p) override { return tabAt(p) >= 0 ? Cursor::Hand : Cursor::Arrow; }
+    std::wstring tip(Point p) override {
+        const int k = tabAt(p);
+        if (k < 0) return {};
+        return std::wstring(kModeNames[int(tabs[size_t(k)].m)]) + L". Right-click: move it to the other side.";
+    }
+    bool hoverTip() const override { return true; }
+};
+PanelTabsView gPanelTabsView[2];  // each side's tabs (the window of gPanelTabs[side] shows it)
 
 // The tool bar across the top of the window, under the menu: file and edit commands as icons, then (in the Map
 // workspace) the modes. The mode buttons are their own windows, placed after the icons.
@@ -19682,274 +17542,246 @@ int topBarIconsWidth() {
     const int b = scale(32), gap = scale(2), group = scale(14);
     return scale(8) + int(std::size(kTopItems)) * (b + gap) + 4 * group;
 }
-void paintTopBar(HWND hwnd) {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(hwnd, &ps);
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    HDC mem = CreateCompatibleDC(dc);
-    HBITMAP back = CreateCompatibleBitmap(dc, std::max(1, int(rc.right)), std::max(1, int(rc.bottom)));
-    HGDIOBJ ob = SelectObject(mem, back);
-    HBRUSH bg = CreateSolidBrush(kPanel);
-    FillRect(mem, &rc, bg);
-    DeleteObject(bg);
-    gTopBarSurface.begin(hwnd);
-    const int b = scale(32), gap = scale(2), group = scale(14);
-    int x = scale(8);
-    const int y = (int(rc.bottom) - b) / 2;
-    HMENU m = GetMenu(app.main);
-    for (size_t i = 0; i < std::size(kTopItems); ++i) {
-        if (i == 3 || i == 5 || i == 8 || i == 9) {  // groups: file | undo redo | clipboard | delete | search
-            const int lx = x + group / 2 - gap;
-            RECT sep{lx, y + scale(6), lx + 1, y + b - scale(6)};
-            HBRUSH sb = CreateSolidBrush(kBorder);
-            FillRect(mem, &sep, sb);
-            DeleteObject(sb);
-            x += group;
+// The top bar as a view (apps/common/view.h): its window is a view window (kViewClass) that shows gTopBarView. Its click
+// areas (the icons, Build, Debug, Report feedback) are gTopBarSurface's hits: the kit's controls put them in while the
+// view paints, and the view's mouse, cursor and tip read them.
+struct TopBarView final : stardraft::draw::View {
+    void paint(stardraft::draw::Canvas& c) override {
+        using stardraft::draw::Font;
+        using stardraft::draw::kMiddle;
+        const HWND hwnd = ui::Win32Host::windowOf(*this);
+        const int w = width(), h = height();
+        c.fill({0, 0, w, h}, kPanel);
+        gTopBarSurface.begin(hwnd);
+        const int b = scale(32), gap = scale(2), group = scale(14);
+        int x = scale(8);
+        const int y = (h - b) / 2;
+        HMENU m = GetMenu(app.main);
+        for (size_t i = 0; i < std::size(kTopItems); ++i) {
+            if (i == 3 || i == 5 || i == 8 || i == 9) {  // groups: file | undo redo | clipboard | delete | search
+                const int lx = x + group / 2 - gap;
+                c.fill({lx, y + scale(6), lx + 1, y + b - scale(6)}, kBorder);
+                x += group;
+            }
+            const TopItem& it = kTopItems[i];
+            const bool enabled = !m || !(GetMenuState(m, UINT(it.cmd), MF_BYCOMMAND) & (MF_GRAYED | MF_DISABLED));
+            const int cmd = it.cmd;
+            ui::iconButton(c, {x, y, x + b, y + b}, it.icon, [cmd] { command(cmd); }, it.tip, ui::Icon::Bare, false, enabled, ui::Tone::Normal);
+            x += b + gap;
         }
-        const TopItem& it = kTopItems[i];
-        const bool enabled = !m || !(GetMenuState(m, UINT(it.cmd), MF_BYCOMMAND) & (MF_GRAYED | MF_DISABLED));
-        const int cmd = it.cmd;
-        ui::iconButton(mem, {x, y, x + b, y + b}, it.icon, [cmd] { command(cmd); }, it.tip, ui::Icon::Bare, false, enabled, ui::Tone::Normal);
-        x += b + gap;
-    }
-    // The right end: Build (a project; its icon and name), then Report feedback in the corner.
-    {
-        int rx = int(rc.right) - scale(8);
-        // The icon and its label "Report feedback" (GitHub feedback #96).
-        HGDIOBJ ofb = SelectObject(mem, app.font);
-        const std::wstring fbText = L"Report feedback";
-        const int fbw = b + ui::textWidth(mem, fbText) + scale(12);
-        const RECT fb{rx - fbw, y, rx, y + b};
-        const bool fhot = ui::hot(fb);
-        if (fhot) ui::box(mem, fb, kCtlHot, CLR_NONE);
-        uiIcon(mem, {fb.left + scale(4), y, fb.left + scale(4) + b - scale(8), y + b}, UiIcon::Feedback, fhot ? kFeedback : kDim, scale(16));  // quiet; its color under the mouse
-        SetBkMode(mem, TRANSPARENT);
-        SetTextColor(mem, fhot ? kText : kDim);
-        RECT fbt{fb.left + b - scale(2), y, fb.right - scale(6), y + b};
-        DrawTextW(mem, fbText.c_str(), -1, &fbt, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-        SelectObject(mem, ofb);
-        gTopBarSurface.hits.push_back({fb, nullptr, [] { command(ID_HELP_FEEDBACK); }, L"Report feedback: what works, what does not, ideas", IDC_HAND, {}});
-        (void)rx;
-        if (activeProject()) {
-            const std::wstring text = gBuilding ? L"Building" : L"Build";
-            HGDIOBJ of2 = SelectObject(mem, app.font);
-            SIZE sz{};
-            GetTextExtentPoint32W(mem, text.c_str(), int(text.size()), &sz);
-            const int w = scale(16) + scale(8) + sz.cx + scale(24);
-            const RECT mr = modeBarRect();
-            // After the modes; where they are hidden (Data, Triggers, the pages), after the icons.
-            const bool modes = app.modeBtn[0] && IsWindowVisible(app.modeBtn[0]);
-            const int divX = (modes ? int(mr.right) : topBarIconsWidth()) + scale(10);
-            RECT div{divX, y + scale(6), divX + 1, y + b - scale(6)};  // the divider between the modes and Build
-            HBRUSH db = CreateSolidBrush(kBorder);
-            FillRect(mem, &div, db);
-            DeleteObject(db);
-            const int bx = divX + scale(10);
-            const RECT bb{bx, mr.top, bx + w, mr.bottom};
-            const bool bhot = !gBuilding && ui::hot(bb);
-            ui::buttonFace(mem, bb, L"", ui::Tone::Primary, gBuilding ? ui::State::Disabled : bhot ? ui::State::Hot : ui::State::Normal, app.font);
-            const COLORREF c = gBuilding ? kFaint : kAccent;
-            uiIcon(mem, {bb.left + scale(12), bb.top, bb.left + scale(12) + scale(16), bb.bottom}, UiIcon::Build, c, scale(16));
-            SetBkMode(mem, TRANSPARENT);
-            SetTextColor(mem, c);
-            RECT tr{bb.left + scale(12) + scale(16) + scale(8), bb.top, bb.right, bb.bottom};
-            DrawTextW(mem, text.c_str(), -1, &tr, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-            SelectObject(mem, of2);
-            gTopBarSurface.hits.push_back({bb, nullptr, gBuilding ? std::function<void()>() : [] { command(ID_PROJ_COMPILE); },
-                                           L"Build the project's map with euddraft (Ctrl+B)", gBuilding ? IDC_ARROW : IDC_HAND, {}});
-            {  // Debug mode, beside Build: the project's Debug build (index checks) and Trace build (epTrace) together
-                const EudProject* pr = activeProject();
-                const bool on = pr->debugBuild() || pr->traceBuild();
-                const int side = int(bb.bottom - bb.top);
-                const RECT dr{bb.right + scale(6), bb.top, bb.right + scale(6) + side, bb.bottom};
-                // A toggle button: on, selected (the accent fill and line); off, a plain button.
-                const bool dhot = ui::hot(dr);
-                ui::box(mem, dr, on ? kSel : dhot ? kCtlHot : kCtl, on ? kAccentLine : dhot ? kBorderHot : kBorder);
-                uiIcon(mem, dr, UiIcon::Debug, on ? kAccentBright : dhot ? kText : kDim, scale(16));
-                gTopBarSurface.hits.push_back({dr, nullptr,
-                               [hwnd] {
-                                   EudProject* p = activeProject();
-                                   if (!p) return;
-                                   const bool on = p->debugBuild() || p->traceBuild();  // now (the Project page can change it)
-                                   p->setDebugBuild(!on), p->setTraceBuild(!on);
-                                   projectSave(*p, on ? L"Debug mode off: Build does not add index checks or the trace for epTrace"
-                                                      : L"Debug mode on: Build adds index checks and the trace for epTrace");
-                                   projectFormRefresh();
-                                   InvalidateRect(hwnd, nullptr, FALSE);
-                               },
-                               on ? L"Debug mode is on: Build adds index checks and the trace for epTrace (turn it off for the map that you release)"
-                                  : L"Debug mode: Build adds index checks and the trace for epTrace (Project page > Build)",
-                               IDC_HAND, {}});
+        // The right end: Build (a project; its icon and name), then Report feedback in the corner.
+        {
+            const int rx = w - scale(8);
+            // The icon and its label "Report feedback" (GitHub feedback #96).
+            const Font ofb = c.setFont(ui::fontOf(app.font));
+            const std::wstring fbText = L"Report feedback";
+            const int fbw = b + c.measure(fbText) + scale(12);
+            const RECT fb{rx - fbw, y, rx, y + b};
+            const bool fhot = ui::hot(fb);
+            if (fhot) ui::box(c, fb, kCtlHot, CLR_NONE);
+            c.icon({fb.left + scale(4), y, fb.left + scale(4) + b - scale(8), y + b}, int(UiIcon::Feedback), fhot ? kFeedback : kDim, scale(16));  // quiet; its color under the mouse
+            c.text({fb.left + b - scale(2), y, fb.right - scale(6), y + b}, fbText, fhot ? kText : kDim, kMiddle);
+            c.setFont(ofb);
+            gTopBarSurface.hits.push_back({fb, nullptr, [] { command(ID_HELP_FEEDBACK); }, L"Report feedback: what works, what does not, ideas", IDC_HAND, {}});
+            if (activeProject()) {
+                const std::wstring text = gBuilding ? L"Building" : L"Build";
+                const Font of2 = c.setFont(ui::fontOf(app.font));
+                const int w2 = scale(16) + scale(8) + c.measure(text) + scale(24);
+                const RECT mr = modeBarRect();
+                // After the modes; where they are hidden (Data, Triggers, the pages), after the icons.
+                const bool modes = app.modeBar && IsWindowVisible(app.modeBar);
+                const int divX = (modes ? int(mr.right) : topBarIconsWidth()) + scale(10);
+                c.fill({divX, y + scale(6), divX + 1, y + b - scale(6)}, kBorder);  // the divider between the modes and Build
+                const int bx = divX + scale(10);
+                const RECT bb{bx, mr.top, bx + w2, mr.bottom};
+                const bool bhot = !gBuilding && ui::hot(bb);
+                ui::buttonFace(c, bb, L"", ui::Tone::Primary, gBuilding ? ui::State::Disabled : bhot ? ui::State::Hot : ui::State::Normal, app.font);
+                const COLORREF col = gBuilding ? kFaint : kAccent;
+                c.icon({bb.left + scale(12), bb.top, bb.left + scale(12) + scale(16), bb.bottom}, int(UiIcon::Build), col, scale(16));
+                c.text({bb.left + scale(12) + scale(16) + scale(8), bb.top, bb.right, bb.bottom}, text, col, kMiddle);
+                c.setFont(of2);
+                gTopBarSurface.hits.push_back({bb, nullptr, gBuilding ? std::function<void()>() : [] { command(ID_PROJ_COMPILE); },
+                                               L"Build the project's map with euddraft (Ctrl+B)", gBuilding ? IDC_ARROW : IDC_HAND, {}});
+                {  // Debug mode, beside Build: the project's Debug build (index checks) and Trace build (epTrace) together
+                    const EudProject* pr = activeProject();
+                    const bool on = pr->debugBuild() || pr->traceBuild();
+                    const int side = int(bb.bottom - bb.top);
+                    const RECT dr{bb.right + scale(6), bb.top, bb.right + scale(6) + side, bb.bottom};
+                    // A toggle button: on, selected (the accent fill and line); off, a plain button.
+                    const bool dhot = ui::hot(dr);
+                    ui::box(c, dr, on ? kSel : dhot ? kCtlHot : kCtl, on ? kAccentLine : dhot ? kBorderHot : kBorder);
+                    c.icon(dr, int(UiIcon::Debug), on ? kAccentBright : dhot ? kText : kDim, scale(16));
+                    gTopBarSurface.hits.push_back({dr, nullptr,
+                                   [hwnd] {
+                                       EudProject* p = activeProject();
+                                       if (!p) return;
+                                       const bool on = p->debugBuild() || p->traceBuild();  // now (the Project page can change it)
+                                       p->setDebugBuild(!on), p->setTraceBuild(!on);
+                                       projectSave(*p, on ? L"Debug mode off: Build does not add index checks or the trace for epTrace"
+                                                          : L"Debug mode on: Build adds index checks and the trace for epTrace");
+                                       projectFormRefresh();
+                                       InvalidateRect(hwnd, nullptr, FALSE);
+                                   },
+                                   on ? L"Debug mode is on: Build adds index checks and the trace for epTrace (turn it off for the map that you release)"
+                                      : L"Debug mode: Build adds index checks and the trace for epTrace (Project page > Build)",
+                                   IDC_HAND, {}});
+                }
             }
         }
+        gTopBarSurface.end(hwnd);
+        c.fill({0, h - 1, w, h}, kBorder);  // the line under the bar
     }
-    gTopBarSurface.end(hwnd);
-    RECT line{0, rc.bottom - 1, rc.right, rc.bottom};
-    HBRUSH lb = CreateSolidBrush(kBorder);
-    FillRect(mem, &line, lb);
-    DeleteObject(lb);
-    BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
-    SelectObject(mem, ob);
-    DeleteObject(back);
-    DeleteDC(mem);
-    EndPaint(hwnd, &ps);
-}
-LRESULT CALLBACK topBarProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    LRESULT r = 0;
-    if (gTopBarSurface.message(hwnd, msg, wp, lp, r)) return r;
-    switch (msg) {
-    case WM_PAINT: paintTopBar(hwnd); return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_LBUTTONUP: SetFocus(app.view); return 0;
+    bool mouse(const stardraft::draw::MouseEvent& e) override {
+        using stardraft::draw::MouseKind;
+        const POINT pt{e.pt.x, e.pt.y};
+        switch (e.kind) {
+        case MouseKind::Move: {
+            RECT part{};
+            for (auto it = gTopBarSurface.hits.rbegin(); it != gTopBarSurface.hits.rend(); ++it)
+                if (PtInRect(&it->r, pt)) {
+                    part = it->r;
+                    break;
+                }
+            if (!EqualRect(&part, &gTopBarSurface.over)) gTopBarSurface.over = part, invalidate();
+            return true;
+        }
+        case MouseKind::Leave: gTopBarSurface.over = {}, invalidate(); return true;
+        case MouseKind::Down:
+        case MouseKind::DoubleClick:  // (a fast second click runs the part again, as it did before the view)
+            if (e.button != 0) return false;
+            focus();  // the bar has the focus while the part runs; the mouse up gives it to the viewport
+            if (const DataWidgetHit* h = gTopBarSurface.at(pt))
+                if (h->click) {
+                    auto click = h->click;  // the click may repaint, which clears the hits
+                    click();
+                }
+            return true;
+        case MouseKind::Up:
+            if (e.button != 0) return false;
+            SetFocus(app.view);
+            return true;
+        default: return false;
+        }
     }
-    return DefWindowProcW(hwnd, msg, wp, lp);
+    stardraft::draw::Cursor cursor(stardraft::draw::Point p) override {
+        const POINT pt{p.x, p.y};
+        for (auto it = gTopBarSurface.hits.rbegin(); it != gTopBarSurface.hits.rend(); ++it)
+            if (PtInRect(&it->r, pt)) return it->cursor.c;
+        return stardraft::draw::Cursor::Arrow;
+    }
+    std::wstring tip(stardraft::draw::Point p) override {  // Report feedback names the part under the mouse (its name, else its tip)
+        const POINT pt{p.x, p.y};
+        for (auto it = gTopBarSurface.hits.rbegin(); it != gTopBarSurface.hits.rend(); ++it)
+            if (PtInRect(&it->r, pt) && (!it->name.empty() || !it->tip.empty())) return !it->name.empty() ? it->name : it->tip;
+        return {};
+    }
+};
+TopBarView gTopBarView;
+
+// The layout's input: the window's size, the dock state, and what the window system measures (core/layout.inc).
+LayoutInput layoutInput(const RECT& rc) {
+    LayoutInput in;
+    in.dpi = int(app.dpi);
+    in.clientW = rc.right, in.clientH = rc.bottom;
+    in.statusH = app.status ? statusBarHeight() : 0;
+    in.logH = logPanelHeight();
+    in.barH = topBarHeight(), in.tabsH = tabStripHeight(), in.railW = wsRailWidth();
+    in.modeBarH = modeBarHeight(), in.modeBar = modeBarRect();
+    in.toolStrip = [](int width) { return toolStripHeight(width, false); };
+    in.mode = app.mode, in.mapWs = gWorkspace == Workspace::Map;
+    for (int i = 0; i < kModeCount; ++i) in.toolsRight[i] = gDock.toolsRight[i];
+    in.minimapRight = gDock.minimapRight, in.minimapHidden = gDock.minimapHidden;
+    in.leftW = gDock.leftW, in.rightW = gDock.rightW;
+    in.lastOnSide[0] = gLastOnSide[0], in.lastOnSide[1] = gLastOnSide[1];
+    in.mapOpen = app.ed && app.ed->isOpen();
+    if (in.mapOpen) in.mapW = app.ed->width(), in.mapH = app.ed->height();
+    in.hasPanelTab[0] = gPanelTabs[0] != nullptr, in.hasPanelTab[1] = gPanelTabs[1] != nullptr;
+    in.hasSectionBox = gPal.sectionBox != nullptr;
+    in.hasPal2 = gPal2.wnd != nullptr;
+    in.pal2Shown = gPal2Shown, in.pal2Mode = gPal2Mode;
+    return in;
 }
 
+// Moves a window to a layout slot's place.
+void placeWindow(HWND w, const RECT& r) { MoveWindow(w, r.left, r.top, r.right - r.left, r.bottom - r.top, TRUE); }
+
+// The main window's panes: computed by computeLayout (core/layout.inc), placed here in the order the layout always
+// used.
 void layout() {
     RECT rc;
     GetClientRect(app.main, &rc);
-    SendMessageW(app.status, WM_SIZE, 0, 0);
-    RECT sr;
-    GetWindowRect(app.status, &sr);
-    int statusH = sr.bottom - sr.top;
-    int pad = scale(6), rowH = scale(24);
-    const int logH = logPanelHeight();
-    int h = rc.bottom - statusH - logH;
-    if (gLog.wnd) MoveWindow(gLog.wnd, 0, h, rc.right, logH, TRUE);
-    // Document tabs across the whole top (each a map or a project); the workspace rail down the left edge
-    // under them; the workspace fills the rest.
-    const int barH = topBarHeight(), tabsH = tabStripHeight(), top = barH + tabsH, left = wsRailWidth();
-    // The top tool bar: the icons, then the modes (in the Map workspace) on the same row.
-    if (gTopBar) MoveWindow(gTopBar, 0, 0, rc.right, barH, TRUE), InvalidateRect(gTopBar, nullptr, FALSE);
-    MoveWindow(app.tabs, 0, barH, rc.right, tabsH, TRUE);
-    MoveWindow(gWsBar, 0, top, left, std::max(1, h - top), TRUE);
-    MoveWindow(gDataWnd, left, top, std::max(1, int(rc.right) - left), std::max(1, h - top), TRUE);
-    if (gStubWnd) MoveWindow(gStubWnd, left, top, std::max(1, int(rc.right) - left), std::max(1, h - top), TRUE);
-    if (gProj.wnd) MoveWindow(gProj.wnd, left, top, std::max(1, int(rc.right) - left), std::max(1, h - top), TRUE);
-    if (gTE.wnd) MoveWindow(gTE.wnd, left, top, std::max(1, int(rc.right) - left), std::max(1, h - top), TRUE);
-    if (gBrief.wnd) MoveWindow(gBrief.wnd, left, top, std::max(1, int(rc.right) - left), std::max(1, h - top), TRUE);
-    if (gFiles.wnd) MoveWindow(gFiles.wnd, left, top, std::max(1, int(rc.right) - left), std::max(1, h - top), TRUE);
-    mapPageLayout(left, top, std::max(1, int(rc.right) - left), std::max(1, h - top));
-    // The map workspace: the map between two side columns. Each mode's panel (its list, and for the active mode its
-    // tools and options) is docked left or right and is always there; panels on the same side are tabs (gPanelTabs).
-    // The minimap tops its side. A side with nothing on it takes no room.
-    const int mtop = top + modeBarHeight();
-    const bool toolsRight = gDock.toolsRight[int(app.mode)], miniRight = gDock.minimapRight;
-    auto docked = [](int side) {
-        std::vector<Mode> v;
-        for (Mode m : kModeOrder)
-            if (gDock.toolsRight[int(m)] == (side == 1)) v.push_back(m);
-        return v;
-    };
-    // The other side's tab: the mode last used there, else its first.
+    const MainLayout L = computeLayout(layoutInput(rc));
+    const RECT& ws = L.workspace.rc;
+    const bool toolsRight = gDock.toolsRight[int(app.mode)];
     const int otherSide = toolsRight ? 0 : 1;
-    const std::vector<Mode> others = docked(otherSide);
-    Mode second = gLastOnSide[otherSide];
-    if (std::find(others.begin(), others.end(), second) == others.end()) second = others.empty() ? app.mode : others.front();
-    const bool secondShown = !others.empty();
-    gPanelTab[toolsRight ? 1 : 0] = app.mode, gPanelTab[otherSide] = second;
-    const bool miniShown = !gDock.minimapHidden;
-    const bool leftUsed = (miniShown && !miniRight) || !toolsRight || (secondShown && otherSide == 0),
-               rightUsed = (miniShown && miniRight) || toolsRight || (secondShown && otherSide == 1);
-    const int leftW = scale(gDock.leftW), rightW = scale(gDock.rightW);
-    const int lx = left, rx = int(rc.right) - rightW;
-    const int viewL = left + (leftUsed ? leftW : 0), viewR = int(rc.right) - (rightUsed ? rightW : 0);
-    gSplitters[0] = leftUsed ? RECT{viewL - pad, mtop, viewL, h} : RECT{};
-    gSplitters[1] = rightUsed ? RECT{viewR, mtop, viewR + pad, h} : RECT{};
-    // The minimap spans its column, as tall as the map's shape asks (at most half the column).
-    const int miniW = (miniRight ? rightW : leftW) - 2 * pad;
-    int mini = miniW;
-    if (app.ed && app.ed->isOpen() && app.ed->width()) mini = miniW * app.ed->height() / app.ed->width();
-    mini = std::clamp(mini, scale(40), std::max(scale(40), (h - mtop) / 2));
-    const int miniX = miniRight ? rx : lx;
-    if (!miniShown) mini = -pad;  // (no room for it: the panel starts at the top)
-    ShowWindow(app.minimap, miniShown && gWorkspace == Workspace::Map ? SW_SHOWNA : SW_HIDE);  // (other workspaces: never)
-    if (miniShown) MoveWindow(app.minimap, miniX + pad, mtop + pad, miniW, mini, TRUE);
-    // The modes: one segmented control in the top tool bar, after the file and edit icons (the segments side by side,
-    // with a line between them).
-    {
-        const RECT mr = modeBarRect();
-        const int bw = (mr.right - mr.left) / kModeCount;
-        for (int k = 0; k < kModeCount; ++k) {
-            const int i = int(kModeOrder[k]);
-            MoveWindow(app.modeBtn[i], mr.left + k * bw, mr.top, bw, mr.bottom - mr.top, TRUE);
-            SetWindowPos(app.modeBtn[i], HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);  // over the bar
-        }
+
+    if (app.status) placeWindow(app.status, L.status.rc);  // along the bottom
+    if (gLog.wnd) placeWindow(gLog.wnd, L.log.rc);
+    if (gTopBar) placeWindow(gTopBar, L.topBar.rc), InvalidateRect(gTopBar, nullptr, FALSE);
+    placeWindow(app.tabs, L.tabs.rc);
+    placeWindow(gWsBar, L.wsRail.rc);
+    placeWindow(gDataWnd, ws);
+    if (gStubWnd) placeWindow(gStubWnd, ws);
+    if (gProj.wnd) placeWindow(gProj.wnd, ws);
+    if (gTE.wnd) placeWindow(gTE.wnd, ws);
+    if (gBrief.wnd) placeWindow(gBrief.wnd, ws);
+    if (gFiles.wnd) placeWindow(gFiles.wnd, ws);
+    mapPageLayout(ws.left, ws.top, ws.right - ws.left, ws.bottom - ws.top);
+    // The map workspace: the panels' sides, the splitters and the minimap (see computeLayout).
+    gPanelTab[0] = L.panelTab[0], gPanelTab[1] = L.panelTab[1];
+    gSplitters[0] = L.splitters[0], gSplitters[1] = L.splitters[1];
+    ShowWindow(app.minimap, L.minimap.visible ? SW_SHOWNA : SW_HIDE);  // (other workspaces: never)
+    if (L.minimap.placed) placeWindow(app.minimap, L.minimap.rc);
+    // The modes: one segmented control in the top tool bar, after the file and edit icons.
+    if (app.modeBar) {
+        placeWindow(app.modeBar, L.modeBar.rc);
+        SetWindowPos(app.modeBar, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);  // over the bar
     }
-    const int belowMini = mtop + pad + mini + pad;
-    const int tabsRowH = scale(30);
     // The active mode's side: its tabs, then its tools (icons), its options, its list.
-    const int sideW = toolsRight ? rightW : leftW, inner = sideW - 2 * pad;
-    const int sx = toolsRight ? rx : lx;
-    int y = toolsRight == miniRight ? belowMini : mtop + pad;
-    const bool mapWs = gWorkspace == Workspace::Map;
     if (HWND t = gPanelTabs[toolsRight ? 1 : 0]) {
-        MoveWindow(t, sx + pad, y, inner, tabsRowH, TRUE), ShowWindow(t, mapWs ? SW_SHOW : SW_HIDE), InvalidateRect(t, nullptr, FALSE);
-        y += tabsRowH + pad;
+        placeWindow(t, L.panelTabActive.rc), ShowWindow(t, L.panelTabActive.visible ? SW_SHOW : SW_HIDE), InvalidateRect(t, nullptr, FALSE);
     }
-    const int stripH = toolStripHeight(inner, false);
-    MoveWindow(app.tool, sx + pad, y, inner, stripH, TRUE);
+    placeWindow(app.tool, L.tool.rc);
     InvalidateRect(app.tool, nullptr, FALSE);
-    y += stripH + pad;
-    const int half = (inner - pad) / 2;
-    auto row = [&](HWND a, HWND b) {
-        MoveWindow(a, sx + pad, y, b ? half : inner, scale(300), TRUE);
-        if (b) MoveWindow(b, sx + 2 * pad + half, y, half, scale(300), TRUE);
-        y += rowH + pad;
-    };
     // Each mode's own options.
-    switch (app.mode) {
-    case Mode::Terrain: break;
-    case Mode::Units: row(app.owner, nullptr); break;
-    case Mode::Doodads: break;
-    case Mode::Sprites: row(app.owner, nullptr); break;
-    case Mode::Locations: break;
+    if (L.owner.placed) placeWindow(app.owner, L.owner.rc);
+    if (L.sectionBox.placed) {  // the closed box only: the layout's height is the combo box's, whose list hid below the box
+        RECT sb = L.sectionBox.rc;
+        sb.bottom = sb.top + scale(24);
+        placeWindow(gPal.sectionBox, sb);
     }
-    if (gPal.sectionBox && (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites)) {
-        MoveWindow(gPal.sectionBox, sx + pad, y, inner, scale(400), TRUE);
-        y += rowH + pad;
-    }
-    const int btnW = scale(64);
-    MoveWindow(gPal.search, sx + pad, y, inner - pad - btnW, rowH, TRUE);
-    MoveWindow(gPal.viewBtn, sx + sideW - pad - btnW, y, btnW, rowH, TRUE);
-    MoveWindow(app.filter, sx + pad, y, inner, rowH, TRUE);
-    y += rowH + pad;
-    MoveWindow(gPal.wnd, sx + pad, y, inner, std::max(1, h - y - pad), TRUE);
-    MoveWindow(app.list, sx + pad, y, inner, std::max(1, h - y - pad), TRUE);
+    placeWindow(gPal.search, L.search.rc);
+    placeWindow(gPal.viewBtn, L.viewBtn.rc);
+    placeWindow(app.filter, L.filter.rc);
+    placeWindow(gPal.wnd, L.palette.rc);
+    placeWindow(app.list, L.list.rc);
     // The other side: its tabs, and the list of its tab's mode (a click there goes to that mode and picks).
     if (gPal2.wnd) {
-        const int ox = otherSide ? rx : lx, ow = otherSide ? rightW : leftW;
-        int oy = miniRight == (otherSide == 1) ? belowMini : mtop + pad;
         HWND t = gPanelTabs[otherSide];
-        if (t) ShowWindow(t, mapWs && secondShown ? SW_SHOW : SW_HIDE);
-        if (t && secondShown) MoveWindow(t, ox + pad, oy, ow - 2 * pad, tabsRowH, TRUE), InvalidateRect(t, nullptr, FALSE), oy += tabsRowH + pad;
-        const bool show = secondShown && mapWs && second != Mode::Locations;
-        const bool changed = second != gPal2Mode || show != gPal2Shown;
+        if (t) ShowWindow(t, L.panelTabOther.visible ? SW_SHOW : SW_HIDE);
+        if (t && L.secondShown) placeWindow(t, L.panelTabOther.rc), InvalidateRect(t, nullptr, FALSE);
+        const bool show = L.palette2.visible, changed = L.palette2Changed;
         gPal2Shown = show;
         ShowWindow(gPal2Label, SW_HIDE);
         ShowWindow(gPal2.wnd, show ? SW_SHOW : SW_HIDE);
         if (show) {
-            gPal2Mode = second;
+            gPal2Mode = L.secondMode;
             if (changed) {
                 SecondPaletteScope scope;
                 const PaletteView& v = gViewByMode[int(app.mode)];
                 gPal.grid = v.grid, gPal.sprites = v.sprites, gPal.large = v.large;
             }
-            MoveWindow(gPal2.wnd, ox + pad, oy, ow - 2 * pad, std::max(1, h - oy - pad), TRUE);
+            placeWindow(gPal2.wnd, L.palette2.rc);
             if (changed) {
                 SecondPaletteScope scope;
                 rebuildUnitPalette();
             }
         }
     }
-    gDockRects[0] = {lx, mtop, lx + (leftUsed ? leftW : 0), h};
-    gDockRects[1] = {rx, mtop, rightUsed ? int(rc.right) : rx, h};
-    MoveWindow(app.view, viewL, mtop, std::max(1, viewR - viewL), std::max(1, h - mtop), TRUE);
+    gDockRects[0] = L.dockRects[0], gDockRects[1] = L.dockRects[1];
+    placeWindow(app.view, L.view.rc);
     tilesSync();  // the Tiles panel goes where the palette is
     InvalidateRect(app.main, nullptr, TRUE);
-    int parts[6] = {scale(90), scale(260), scale(360), scale(460), std::max(scale(470), int(rc.right) - scale(170)), -1};
-    SendMessageW(app.status, SB_SETPARTS, 6, LPARAM(parts));
     app.dirty = true;
     if (activePage()) pageSync();  // the page over the area again
 }
@@ -19959,11 +17791,16 @@ void createFont() {
     NONCLIENTMETRICSW ncm{sizeof ncm};
     SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0, app.dpi);
     app.font = CreateFontIndirectW(&ncm.lfMessageFont);
-    for (HWND w : {app.owner, app.brush, app.filter, app.list, gPal.search, gPal.viewBtn, gPal.sectionBox, app.status, app.sym, app.density, app.modeBtn[0],
-                   app.modeBtn[1], app.modeBtn[2], app.modeBtn[3], app.modeBtn[4]})
+    for (HWND w : {app.owner, app.list, gPal.viewBtn, app.status})
         if (w) SendMessageW(w, WM_SETFONT, WPARAM(app.font), TRUE);
-    // The player list draws its rows itself: its closed box as tall as the other lists at this font.
-    if (app.owner && app.sym) SendMessageW(app.owner, CB_SETITEMHEIGHT, WPARAM(-1), SendMessageW(app.sym, CB_GETITEMHEIGHT, WPARAM(-1), 0));
+    // The player list draws its rows itself: its closed box as tall as a standard box at this font (measured on a box
+    // that is destroyed at once; the owner box is still a native combo box).
+    if (app.owner) {
+        HWND m = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | CBS_DROPDOWNLIST, 0, 0, 0, 0, app.main, nullptr, app.inst, nullptr);
+        SendMessageW(m, WM_SETFONT, WPARAM(app.font), FALSE);
+        SendMessageW(app.owner, CB_SETITEMHEIGHT, WPARAM(-1), SendMessageW(m, CB_GETITEMHEIGHT, WPARAM(-1), 0));
+        DestroyWindow(m);
+    }
     if (app.list) SendMessageW(app.list, LB_SETITEMHEIGHT, 0, scale(30));  // the painted rows (as WM_MEASUREITEM), at this DPI
     // Every other control with the old font, or with none (made before the first font), gets the new one; a deleted
     // font or none draws as the bold System font.
@@ -20027,163 +17864,223 @@ void setMenuIcons(HMENU bar) {
 
 #include "commands.inc"
 
-HMENU buildMenu() {
-    HMENU bar = CreateMenu();
-    HMENU file = CreatePopupMenu(), edit = CreatePopupMenu(), view = CreatePopupMenu(), mode = CreatePopupMenu();
-    HMENU project = CreatePopupMenu();
-    AppendMenuW(project, MF_STRING, ID_PROJ_NEW, L"&New EUD project\tCtrl+Shift+N");
-    AppendMenuW(project, MF_STRING, ID_PROJ_OPEN, L"&Open project\x2026");
-    AppendMenuW(project, MF_STRING, ID_PROJ_FROMMAP, L"&Make this map a project\x2026");
-    AppendMenuW(project, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(project, MF_STRING, ID_PROJ_COMPILE, L"&Build\tCtrl+B");
-    AppendMenuW(project, MF_STRING, ID_PROJ_ADDSCRIPT, L"&Add script\x2026");
-    AppendMenuW(project, MF_STRING, ID_PROJ_FOLDER, L"Open project &folder");
-    AppendMenuW(project, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(project, MF_STRING, ID_PROJ_SETTINGS, L"Project &settings");
-    AppendMenuW(file, MF_STRING, ID_FILE_NEW, L"&New project	Ctrl+N");
-    AppendMenuW(file, MF_STRING, ID_FILE_OPEN, L"&Open\x2026	Ctrl+O");
-    AppendMenuW(file, MF_STRING, ID_QUICKOPEN, L"&Quick open\x2026\tCtrl+Shift+O");
-    gRecentMapsMenu = CreatePopupMenu(), gRecentProjectsMenu = CreatePopupMenu();
-    AppendMenuW(file, MF_POPUP, UINT_PTR(gRecentMapsMenu), L"Recent &maps");
-    AppendMenuW(file, MF_POPUP, UINT_PTR(gRecentProjectsMenu), L"Recent pro&jects");
-    refreshRecentMenus();
-    AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(file, MF_POPUP, UINT_PTR(project), L"&Project");  // EUD projects: new, open, build, settings
-    AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(file, MF_STRING, ID_FILE_SAVE, L"&Save	Ctrl+S");
-    AppendMenuW(file, MF_STRING, ID_FILE_SAVEAS, L"Save &as\x2026	Ctrl+Shift+S");
-    AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(file, MF_STRING, ID_FILE_CLOSE, L"&Close	Ctrl+W");
-    AppendMenuW(file, MF_STRING, ID_FILE_CLOSEALL, L"Close a&ll	Ctrl+Shift+W");
-    AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(file, MF_STRING, ID_FILE_EXIT, L"E&xit");
-    AppendMenuW(edit, MF_STRING, ID_EDIT_UNDO, L"&Undo\tCtrl+Z");
-    AppendMenuW(edit, MF_STRING, ID_EDIT_REDO, L"&Redo\tCtrl+Y");
-    AppendMenuW(edit, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(edit, MF_STRING, ID_EDIT_CUT, L"Cu&t\tCtrl+X");
-    AppendMenuW(edit, MF_STRING, ID_EDIT_COPY, L"&Copy\tCtrl+C");
-    AppendMenuW(edit, MF_STRING, ID_EDIT_PASTE, L"&Paste\tCtrl+V");
-    AppendMenuW(edit, MF_STRING, ID_EDIT_DUPLICATE, L"&Duplicate\tCtrl+D");
-    AppendMenuW(edit, MF_STRING, ID_QUICKPICK, L"&Quick picker (the mode's units, terrains, doodads, sprites or locations; in Data, any entry)\x2026\tQ");
-    AppendMenuW(edit, MF_STRING, ID_EDIT_DELETE, L"&Delete\tDel");
-    AppendMenuW(edit, MF_STRING, ID_EDIT_SELECTALL, L"Select &all\tCtrl+A");
-    AppendMenuW(edit, MF_STRING, ID_EDIT_RENAME, L"Re&name location\tF2");
-    for (const char* id : {"view.hd2", "view.hd", "view.sd", "view.carbot"}) appendCommand(view, id);
-    AppendMenuW(view, MF_SEPARATOR, 0, nullptr);
-    appendCommand(view, "view.locations");
-    appendCommand(view, "view.grid");
+// The menu bar as data: each menu's items in order (core/menu_model.inc). The Mode menu and the View items come from the
+// command table (commands.inc); the recent lists, the feedback glyph and the icons are the Win32 menu's own (buildMenu).
+void menuCommand(MenuModel& m, const char* id) {
+    if (const stardraft::Command* c = gCommands.find(id)) {
+        MenuItem it;
+        it.id = nativeCommandId(id), it.label = widen(c->label), it.shortcut = widen(c->shortcut);
+        m.push_back(std::move(it));
+    }
+}
+void menuCommands(MenuModel& m, const char* menu) {
+    for (const stardraft::Command* c : gCommands.inMenu(menu)) {
+        MenuItem it;
+        it.id = nativeCommandId(c->id), it.label = widen(c->label), it.shortcut = widen(c->shortcut);
+        m.push_back(std::move(it));
+    }
+}
+MenuItem menuItem(int id, std::wstring label, std::wstring shortcut = {}, bool grayed = false, bool checked = false, bool reason = false) {
+    MenuItem it;
+    it.id = id, it.label = std::move(label), it.shortcut = std::move(shortcut);
+    it.grayed = grayed, it.checked = checked, it.reason = reason;
+    return it;
+}
+MenuItem menuSeparator() {
+    MenuItem it;
+    it.kind = MenuItem::Kind::Separator;
+    return it;
+}
+MenuItem menuPopup(std::wstring label, MenuModel items, std::string recent = {}) {
+    MenuItem it;
+    it.kind = MenuItem::Kind::Popup;
+    it.label = std::move(label), it.items = std::move(items), it.recent = std::move(recent);
+    return it;
+}
+
+MenuModel buildMenuModel() {
+    MenuModel project{menuItem(ID_PROJ_NEW, L"&New EUD project", L"Ctrl+Shift+N"),
+                      menuItem(ID_PROJ_OPEN, L"&Open project\x2026"),
+                      menuItem(ID_PROJ_FROMMAP, L"&Make this map a project\x2026"),
+                      menuSeparator(),
+                      menuItem(ID_PROJ_COMPILE, L"&Build", L"Ctrl+B"),
+                      menuItem(ID_PROJ_ADDSCRIPT, L"&Add script\x2026"),
+                      menuItem(ID_PROJ_FOLDER, L"Open project &folder"),
+                      menuSeparator(),
+                      menuItem(ID_PROJ_SETTINGS, L"Project &settings")};
+    MenuModel file{menuItem(ID_FILE_NEW, L"&New project", L"Ctrl+N"),
+                   menuItem(ID_FILE_OPEN, L"&Open\x2026", L"Ctrl+O"),
+                   menuItem(ID_QUICKOPEN, L"&Quick open\x2026", L"Ctrl+Shift+O"),
+                   menuPopup(L"Recent &maps", {}, "maps"),  // (the lists are filled by refreshRecentMenus)
+                   menuPopup(L"Recent pro&jects", {}, "projects"),
+                   menuSeparator(),
+                   menuPopup(L"&Project", project),  // EUD projects: new, open, build, settings
+                   menuSeparator(),
+                   menuItem(ID_FILE_SAVE, L"&Save", L"Ctrl+S"),
+                   menuItem(ID_FILE_SAVEAS, L"Save &as\x2026", L"Ctrl+Shift+S"),
+                   menuSeparator(),
+                   menuItem(ID_FILE_CLOSE, L"&Close", L"Ctrl+W"),
+                   menuItem(ID_FILE_CLOSEALL, L"Close a&ll", L"Ctrl+Shift+W"),
+                   menuSeparator(),
+                   menuItem(ID_FILE_EXIT, L"E&xit")};
+    MenuModel edit{menuItem(ID_EDIT_UNDO, L"&Undo", L"Ctrl+Z"),
+                   menuItem(ID_EDIT_REDO, L"&Redo", L"Ctrl+Y"),
+                   menuSeparator(),
+                   menuItem(ID_EDIT_CUT, L"Cu&t", L"Ctrl+X"),
+                   menuItem(ID_EDIT_COPY, L"&Copy", L"Ctrl+C"),
+                   menuItem(ID_EDIT_PASTE, L"&Paste", L"Ctrl+V"),
+                   menuItem(ID_EDIT_DUPLICATE, L"&Duplicate", L"Ctrl+D"),
+                   menuItem(ID_QUICKPICK, L"&Quick picker (the mode's units, terrains, doodads, sprites or locations; in Data, any entry)\x2026", L"Q"),
+                   menuItem(ID_EDIT_DELETE, L"&Delete", L"Del"),
+                   menuItem(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A"),
+                   menuItem(ID_EDIT_RENAME, L"Re&name location", L"F2")};
+    MenuModel view;
+    for (const char* id : {"view.hd2", "view.hd", "view.sd", "view.carbot"}) menuCommand(view, id);
+    view.push_back(menuSeparator());
+    menuCommand(view, "view.locations");
+    menuCommand(view, "view.grid");
     {  // the grid's size (GitHub feedback #87)
-        HMENU sizes = CreatePopupMenu();
+        MenuModel sizes;
         for (int k = 0; k < int(std::size(kGridPresets)); ++k)
-            AppendMenuW(sizes, MF_STRING, UINT_PTR(ID_GRID_SIZE + k),
-                        (std::wstring(kGridPresets[k].name) + L" (" + std::to_wstring(kGridPresets[k].px) + L" pixels)").c_str());
-        AppendMenuW(sizes, MF_SEPARATOR, 0, nullptr);
-        AppendMenuW(sizes, MF_STRING, ID_GRID_CUSTOM, L"&Custom\x2026");
-        AppendMenuW(view, MF_POPUP, UINT_PTR(sizes), L"Grid si&ze");
+            sizes.push_back(menuItem(ID_GRID_SIZE + k, std::wstring(kGridPresets[k].name) + L" (" + std::to_wstring(kGridPresets[k].px) + L" pixels)"));
+        sizes.push_back(menuSeparator());
+        sizes.push_back(menuItem(ID_GRID_CUSTOM, L"&Custom\x2026"));
+        view.push_back(menuPopup(L"Grid si&ze", sizes));
     }
-    AppendMenuW(view, MF_STRING, ID_VIEW_TOWNS, L"Show town a&reas");
-    appendCommand(view, "view.ranges");
-    appendCommand(view, "view.minimap");
+    view.push_back(menuItem(ID_VIEW_TOWNS, L"Show town a&reas"));
+    menuCommand(view, "view.ranges");
+    menuCommand(view, "view.minimap");
     {  // the map's layers that show (GitHub feedback #117)
-        HMENU layers = CreatePopupMenu();
-        appendCommands(layers, "View/Layers");
-        AppendMenuW(layers, MF_STRING, ID_VIEW_LOCATIONS, L"&Locations");
-        AppendMenuW(view, MF_POPUP, UINT_PTR(layers), L"La&yers");
+        MenuModel layers;
+        menuCommands(layers, "View/Layers");
+        layers.push_back(menuItem(ID_VIEW_LOCATIONS, L"&Locations"));
+        view.push_back(menuPopup(L"La&yers", layers));
     }
-    AppendMenuW(view, MF_SEPARATOR, 0, nullptr);
-    for (const char* id : {"view.zoomIn", "view.zoomOut", "view.actualSize", "view.fit"}) appendCommand(view, id);
-    AppendMenuW(view, MF_STRING, ID_VIEW_LOG, L"&Log\tCtrl+L");
-    AppendMenuW(view, MF_STRING, ID_VIEW_TRIGCODE, L"Trigger &code pane");
+    view.push_back(menuSeparator());
+    for (const char* id : {"view.zoomIn", "view.zoomOut", "view.actualSize", "view.fit"}) menuCommand(view, id);
+    view.push_back(menuItem(ID_VIEW_LOG, L"&Log", L"Ctrl+L"));
+    view.push_back(menuItem(ID_VIEW_TRIGCODE, L"Trigger &code pane"));
 #ifndef NDEBUG  // the control kit is for developers: only in debug builds (the kit: datashot opens it in any build)
-    AppendMenuW(view, MF_STRING, ID_VIEW_KIT, L"Control &kit");
+    view.push_back(menuItem(ID_VIEW_KIT, L"Control &kit"));
 #endif
-    AppendMenuW(view, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(view, MF_STRING, ID_WS_MAP, L"&Map workspace\tCtrl+1");
-    AppendMenuW(view, MF_STRING, ID_WS_DATA, L"&Data workspace\tCtrl+2");
-    AppendMenuW(view, MF_STRING, ID_WS_TRIGGERS, L"&Triggers workspace\tCtrl+3");
-    AppendMenuW(view, MF_STRING, ID_WS_BRIEFING, L"&Briefing workspace");  // (Ctrl+n: the side bar's n-th item)
-    AppendMenuW(view, MF_STRING, ID_WS_FILES, L"&Assets workspace");
-    AppendMenuW(view, MF_STRING, ID_WS_PROJECT, L"&Project page");
-    appendCommands(mode, "Mode");
-    AppendMenuW(bar, MF_POPUP, UINT_PTR(file), L"&File");
-    AppendMenuW(bar, MF_POPUP, UINT_PTR(edit), L"&Edit");
-    AppendMenuW(bar, MF_POPUP, UINT_PTR(view), L"&View");
-    AppendMenuW(bar, MF_POPUP, UINT_PTR(mode), L"&Mode");
-    HMENU scenario = CreatePopupMenu();
-    AppendMenuW(scenario, MF_STRING, ID_SCEN_PROPS, L"&Map properties (title, size, tileset)\tCtrl+M");
-    AppendMenuW(scenario, MF_STRING, ID_SCEN_PLAYERS, L"&Players and forces\tCtrl+P");
-    AppendMenuW(scenario, MF_STRING, ID_SCEN_CLASSIC, L"Map &data (units, upgrades, technologies)");
-    AppendMenuW(scenario, MF_STRING, ID_SCEN_CLASSICTRIG, L"Classic &triggers");
-    AppendMenuW(scenario, MF_STRING, ID_SCEN_CHECK, L"&Check that StarCraft can start the map");
-    AppendMenuW(bar, MF_POPUP, UINT_PTR(scenario), L"&Scenario");
+    view.push_back(menuSeparator());
+    view.push_back(menuItem(ID_WS_MAP, L"&Map workspace", L"Ctrl+1"));
+    view.push_back(menuItem(ID_WS_DATA, L"&Data workspace", L"Ctrl+2"));
+    view.push_back(menuItem(ID_WS_TRIGGERS, L"&Triggers workspace", L"Ctrl+3"));
+    view.push_back(menuItem(ID_WS_BRIEFING, L"&Briefing workspace"));  // (Ctrl+n: the side bar's n-th item)
+    view.push_back(menuItem(ID_WS_FILES, L"&Assets workspace"));
+    view.push_back(menuItem(ID_WS_PROJECT, L"&Project page"));
+    MenuModel mode;
+    menuCommands(mode, "Mode");
+    MenuModel scenario{menuItem(ID_SCEN_PROPS, L"&Map properties (title, size, tileset)", L"Ctrl+M"),
+                       menuItem(ID_SCEN_PLAYERS, L"&Players and forces", L"Ctrl+P"),
+                       menuItem(ID_SCEN_CLASSIC, L"Map &data (units, upgrades, technologies)"),
+                       menuItem(ID_SCEN_CLASSICTRIG, L"Classic &triggers"),
+                       menuItem(ID_SCEN_CHECK, L"&Check that StarCraft can start the map")};
     // Options: the snap and placement rules of each kind (the same items for each; a rule that does not change is
     // grayed), the terrain copy, then the program options (the window).
-    HMENU options = CreatePopupMenu();
-    auto snapItems = [](HMENU m, int first) {
-        AppendMenuW(m, MF_STRING, UINT_PTR(first), L"&Do not snap");
-        AppendMenuW(m, MF_STRING, UINT_PTR(first + 1), L"Snap to &tiles (32 px)");
-        AppendMenuW(m, MF_STRING, UINT_PTR(first + 2), L"Snap to &half tiles (16 px)");
-        AppendMenuW(m, MF_STRING, UINT_PTR(first + 3), L"Snap to &quarter tiles (8 px)");
-        AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+    auto snapItems = [](int first) {
+        return MenuModel{menuItem(first, L"&Do not snap"), menuItem(first + 1, L"Snap to &tiles (32 px)"),
+                         menuItem(first + 2, L"Snap to &half tiles (16 px)"), menuItem(first + 3, L"Snap to &quarter tiles (8 px)"), menuSeparator()};
     };
-    auto placeItems = [](HMENU m, int fit, int nearest, int anywhere) {
-        AppendMenuW(m, MF_STRING, UINT_PTR(fit), L"Place &only where it fits");
-        AppendMenuW(m, MF_STRING, UINT_PTR(nearest), L"&Move to the nearest place where it fits");
-        AppendMenuW(m, MF_STRING, UINT_PTR(anywhere), L"Place &anywhere");
-        AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+    auto placeItems = [](int fit, int nearest, int anywhere) {
+        return MenuModel{menuItem(fit, L"Place &only where it fits"), menuItem(nearest, L"&Move to the nearest place where it fits"),
+                         menuItem(anywhere, L"Place &anywhere"), menuSeparator()};
     };
-    HMENU units = CreatePopupMenu(), doodads = CreatePopupMenu(), sprites = CreatePopupMenu(), locations = CreatePopupMenu();
-    snapItems(units, ID_SNAP_UNITS);
-    placeItems(units, ID_OPT_STRICT, ID_OPT_SNAPVALID, ID_OPT_ILLEGAL);
-    AppendMenuW(units, MF_STRING, ID_OPT_STACK, L"&Can be on top of others");
-    AppendMenuW(units, MF_STRING, ID_OPT_DRAGBACK, L"Dragged units go &back to the last place where they fit");
-    AppendMenuW(doodads, MF_STRING | MF_GRAYED | MF_CHECKED, ID_FIXED_DOODAD_SNAP, L"Snap to tiles (32 px): always, a doodad is made of tiles");
-    markMenuReason(doodads, ID_FIXED_DOODAD_SNAP);
-    AppendMenuW(doodads, MF_SEPARATOR, 0, nullptr);
-    placeItems(doodads, ID_DOODAD_FIT, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE);
-    AppendMenuW(doodads, MF_STRING | MF_GRAYED, ID_FIXED_DOODAD_STACK, L"Can be on top of others: no, a doodad replaces the tiles under it");
-    markMenuReason(doodads, ID_FIXED_DOODAD_STACK);
-    snapItems(sprites, ID_SNAP_SPRITES);
-    AppendMenuW(sprites, MF_STRING | MF_GRAYED | MF_CHECKED, ID_FIXED_SPRITE_PLACE, L"Place anywhere: always");
-    markMenuReason(sprites, ID_FIXED_SPRITE_PLACE);
-    AppendMenuW(sprites, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(sprites, MF_STRING | MF_GRAYED | MF_CHECKED, ID_FIXED_SPRITE_STACK, L"Can be on top of others: always");
-    markMenuReason(sprites, ID_FIXED_SPRITE_STACK);
-    snapItems(locations, ID_SNAP_LOCATIONS);
-    AppendMenuW(locations, MF_STRING | MF_GRAYED | MF_CHECKED, ID_FIXED_LOC_PLACE, L"Place anywhere: always");
-    markMenuReason(locations, ID_FIXED_LOC_PLACE);
-    AppendMenuW(locations, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(locations, MF_STRING | MF_GRAYED | MF_CHECKED, ID_FIXED_LOC_STACK, L"Can be on top of others: always");
-    markMenuReason(locations, ID_FIXED_LOC_STACK);
-    AppendMenuW(locations, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(locations, MF_STRING, ID_OPT_LOCWRAP, L"&Names in lines that fit in the location");
-    AppendMenuW(options, MF_POPUP, UINT_PTR(units), L"&Units");
-    AppendMenuW(options, MF_POPUP, UINT_PTR(doodads), L"&Doodads");
-    AppendMenuW(options, MF_POPUP, UINT_PTR(sprites), L"&Sprites");
-    AppendMenuW(options, MF_POPUP, UINT_PTR(locations), L"&Locations");
-    AppendMenuW(options, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(options, MF_STRING, ID_EDIT_TERRAINUNITS, L"Terrain copy includes u&nits");
-    AppendMenuW(options, MF_STRING, ID_EDIT_TERRAINDOODADS, L"Terrain copy includes d&oodads");
-    AppendMenuW(options, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(options, MF_STRING, ID_OPT_WINDOW, L"&Program options\x2026\tCtrl+,");
-    AppendMenuW(bar, MF_POPUP, UINT_PTR(options), L"&Options");
-    HMENU help = CreatePopupMenu();
-    AppendMenuW(help, MF_STRING, ID_HELP_FEEDBACK, L"Report &feedback\x2026");
-    AppendMenuW(help, MF_STRING, ID_HELP_ISSUE, L"Report an &issue on GitHub");
-    AppendMenuW(help, MF_STRING, ID_HELP_DISCORD, L"Join &Discord");
-    AppendMenuW(help, MF_STRING, ID_HELP_GITHUB, L"StarDraft 2 on &GitHub");
-    AppendMenuW(help, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(help, MF_STRING, ID_HELP_UPDATES, L"Check for &updates");
-    AppendMenuW(help, MF_STRING, ID_HELP_ABOUT, L"&About StarDraft 2");
+    auto append = [](MenuModel& to, MenuModel&& from) {
+        for (MenuItem& it : from) to.push_back(std::move(it));
+    };
+    MenuModel units, doodads, sprites, locations;
+    append(units, snapItems(ID_SNAP_UNITS));
+    append(units, placeItems(ID_OPT_STRICT, ID_OPT_SNAPVALID, ID_OPT_ILLEGAL));
+    units.push_back(menuItem(ID_OPT_STACK, L"&Can be on top of others"));
+    units.push_back(menuItem(ID_OPT_DRAGBACK, L"Dragged units go &back to the last place where they fit"));
+    doodads.push_back(menuItem(ID_FIXED_DOODAD_SNAP, L"Snap to tiles (32 px): always, a doodad is made of tiles", {}, true, true, true));
+    doodads.push_back(menuSeparator());
+    append(doodads, placeItems(ID_DOODAD_FIT, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE));
+    doodads.push_back(menuItem(ID_FIXED_DOODAD_STACK, L"Can be on top of others: no, a doodad replaces the tiles under it", {}, true, false, true));
+    append(sprites, snapItems(ID_SNAP_SPRITES));
+    sprites.push_back(menuItem(ID_FIXED_SPRITE_PLACE, L"Place anywhere: always", {}, true, true, true));
+    sprites.push_back(menuSeparator());
+    sprites.push_back(menuItem(ID_FIXED_SPRITE_STACK, L"Can be on top of others: always", {}, true, true, true));
+    append(locations, snapItems(ID_SNAP_LOCATIONS));
+    locations.push_back(menuItem(ID_FIXED_LOC_PLACE, L"Place anywhere: always", {}, true, true, true));
+    locations.push_back(menuSeparator());
+    locations.push_back(menuItem(ID_FIXED_LOC_STACK, L"Can be on top of others: always", {}, true, true, true));
+    locations.push_back(menuSeparator());
+    locations.push_back(menuItem(ID_OPT_LOCWRAP, L"&Names in lines that fit in the location"));
+    MenuModel options{menuPopup(L"&Units", units),
+                      menuPopup(L"&Doodads", doodads),
+                      menuPopup(L"&Sprites", sprites),
+                      menuPopup(L"&Locations", locations),
+                      menuSeparator(),
+                      menuItem(ID_EDIT_TERRAINUNITS, L"Terrain copy includes u&nits"),
+                      menuItem(ID_EDIT_TERRAINDOODADS, L"Terrain copy includes d&oodads"),
+                      menuSeparator(),
+                      menuItem(ID_OPT_WINDOW, L"&Program options\x2026", L"Ctrl+,")};
+    MenuModel help{menuItem(ID_HELP_FEEDBACK, L"Report &feedback\x2026"),
+                   menuItem(ID_HELP_ISSUE, L"Report an &issue on GitHub"),
+                   menuItem(ID_HELP_DISCORD, L"Join &Discord"),
+                   menuItem(ID_HELP_GITHUB, L"StarDraft 2 on &GitHub"),
+                   menuSeparator(),
+                   menuItem(ID_HELP_UPDATES, L"Check for &updates"),
+                   menuItem(ID_HELP_ABOUT, L"&About StarDraft 2")};
+    return MenuModel{menuPopup(L"&File", file), menuPopup(L"&Edit", edit), menuPopup(L"&View", view), menuPopup(L"&Mode", mode),
+                     menuPopup(L"&Scenario", scenario), menuPopup(L"&Options", options), menuPopup(L"&Help", help)};
+}
+
+// The Win32 menu of the model: the bar (its popups) or a popup's items. The recent lists are filled after this
+// (refreshRecentMenus); a grayed item with a reason is marked with its reason (markMenuReason).
+HMENU toHmenu(const MenuModel& items, bool bar) {
+    HMENU m = bar ? CreateMenu() : CreatePopupMenu();
+    for (const MenuItem& it : items) {
+        switch (it.kind) {
+        case MenuItem::Kind::Separator: AppendMenuW(m, MF_SEPARATOR, 0, nullptr); break;
+        case MenuItem::Kind::Popup: {
+            HMENU sub = toHmenu(it.items, false);
+            if (it.recent == "maps") gRecentMapsMenu = sub;
+            else if (it.recent == "projects") gRecentProjectsMenu = sub;
+            AppendMenuW(m, MF_POPUP, UINT_PTR(sub), it.label.c_str());
+            break;
+        }
+        case MenuItem::Kind::Command: {
+            const std::wstring text = it.label + (it.shortcut.empty() ? L"" : L"\t" + it.shortcut);
+            AppendMenuW(m, MF_STRING | (it.grayed ? MF_GRAYED : 0) | (it.checked ? MF_CHECKED : 0), UINT_PTR(it.id), text.c_str());
+            if (it.reason) markMenuReason(m, UINT(it.id));
+            break;
+        }
+        }
+    }
+    return m;
+}
+
+HMENU buildMenu() {
+    HMENU bar = toHmenu(buildMenuModel(), true);
+    refreshRecentMenus();
     {
         static HBITMAP glyph = feedbackBitmap(GetSystemMetricsForDpi(SM_CYMENUCHECK, UINT(app.dpi)));
         MENUITEMINFOW mi{sizeof mi};
         mi.fMask = MIIM_BITMAP, mi.hbmpItem = glyph;
-        SetMenuItemInfoW(help, ID_HELP_FEEDBACK, FALSE, &mi);
+        SetMenuItemInfoW(bar, ID_HELP_FEEDBACK, FALSE, &mi);  // by command: found in any submenu
     }
-    AppendMenuW(bar, MF_POPUP, UINT_PTR(help), L"&Help");
     setMenuIcons(bar);
     return bar;
+}
+
+// The menu tree of a menu (datashot menutree:): one line per item, its depth, id, state flags, reason data and text.
+void dumpMenuTree(std::ostream& o, HMENU m, int depth) {
+    for (int i = 0; m && i < GetMenuItemCount(m); ++i) {
+        wchar_t text[512] = {};
+        GetMenuStringW(m, UINT(i), text, int(std::size(text)), MF_BYPOSITION);
+        MENUITEMINFOW mi{sizeof mi};
+        mi.fMask = MIIM_DATA;
+        GetMenuItemInfoW(m, UINT(i), TRUE, &mi);
+        const UINT state = GetMenuState(m, UINT(i), MF_BYPOSITION);
+        const int id = int(GetMenuItemID(m, UINT(i)));
+        o << std::string(size_t(depth) * 2, ' ') << "id " << id << " state 0x" << std::hex << state << std::dec << " data " << mi.dwItemData
+          << " text " << narrow(text) << "\n";
+        if (HMENU sub = GetSubMenu(m, UINT(i))) dumpMenuTree(o, sub, depth + 1);
+    }
 }
 
 // The Locations list with no rows (a search that agrees with no location): only None, dim, where the first row goes.
@@ -20207,10 +18104,12 @@ LRESULT CALLBACK emptyListProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_P
     return r;
 }
 
+#include "shell_win32.inc"  // the Windows host of shell.h
+
 LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_COMMAND && LOWORD(wp) >= ID_ACCENT && LOWORD(wp) < ID_ACCENT + theme::kAccentCount) {
         applyTheme(gLightTheme, LOWORD(wp) - ID_ACCENT);
-        updateMenus();
+        shellMenusChanged();
         return 0;
     }
     switch (msg) {
@@ -20233,28 +18132,11 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     }
-    case WM_ASK_MAPS: askMapsDefault(hwnd); return 0;
-    case WM_UPDATE_FOUND: {
-        std::unique_ptr<std::wstring> title(reinterpret_cast<std::wstring*>(lp));
-        setMessage(L"A newer release is available: " + *title + L". Use Help > Check for updates.");
+    case WM_SHELL_POST: {  // shellPost: a function from this thread or the UI's own
+        std::unique_ptr<std::function<void()>> fn(reinterpret_cast<std::function<void()>*>(lp));
+        (*fn)();
         return 0;
     }
-    case WM_FEEDBACK_SENT:
-        // A build made here has no token: it cannot send, so say that and where the feedback is.
-        if (wp) {  // its issue: the number in the status bar, the page in the log (Help > Report feedback > Your feedback lists them)
-            const auto sent = sentFeedback();
-            if (!sent.empty()) {
-                setMessage(L"Sent the feedback as #" + std::to_wstring(sent[0].number) + L". Thank you.");
-                logLine(L"Feedback #" + std::to_wstring(sent[0].number) + L": " + sent[0].page);
-            } else {
-                setMessage(L"Sent the feedback. Thank you.");
-            }
-        } else {
-            setMessage(crash::token().empty() ? L"This build cannot send feedback. The feedback is in " + feedbackFolder().wstring()
-                                              : L"StarDraft 2 cannot send the feedback now. It sends it at the next start.");
-        }
-        if (wp) sendPendingFeedback();  // GitHub can be reached now: feedback that waits goes too
-        return 0;
     case WM_UAHDRAWMENU:
         paintMenuBarBackground(hwnd, reinterpret_cast<UAHMENU*>(lp)->hdc);
         return 0;
@@ -20277,15 +18159,6 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SetBkColor(dc, kCtl);
         return LRESULT(app.ctlBrush);
     }
-    case WM_BUILD_LINE: {
-        std::unique_ptr<std::string> line(reinterpret_cast<std::string*>(lp));
-        buildLogAppend(widen(*line));
-        if (gTrigBuildError.empty() && triggerErrorLine(*line) > 0) gTrigBuildError = *line;
-        return 0;
-    }
-    case WM_BUILD_DONE:
-        buildFinished(reinterpret_cast<euddraft::BuildResult*>(lp));
-        return 0;
     case WM_ACTIVATEAPP:
         // Back from another program (perhaps an editor that changed a linked file): the Project page reads the files'
         // times again (R5). It does not build.
@@ -20325,7 +18198,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 GetClientRect(app.view, &v);
                 const float cx = app.camX + v.right / 2.0f / app.zoom, cy = app.camY + v.bottom / 2.0f / app.zoom;
                 w = nw;
-                layout();
+                shellRelayout();
                 GetClientRect(app.view, &v);
                 app.camX = cx - v.right / 2.0f / app.zoom, app.camY = cy - v.bottom / 2.0f / app.zoom;
                 UpdateWindow(hwnd);
@@ -20346,7 +18219,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         HWND src = HWND(wp);
         POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
         bool mini = src == app.minimap, tools = false;
-        for (HWND b : app.modeBtn) tools |= src == b;
+        tools |= src == app.modeBar;
         if (src == hwnd && gWorkspace == Workspace::Map) {
             POINT c = pt;
             ScreenToClient(hwnd, &c);
@@ -20406,7 +18279,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             }
             std::vector<std::wstring> words;
             {
-                std::wistringstream in(lowerText(app.filter));
+                std::wistringstream in(lowerText(gFilterBox.text()));
                 for (std::wstring w; in >> w;) words.push_back(w);
             }
             SetBkMode(dc, TRANSPARENT);
@@ -20415,8 +18288,6 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             SelectObject(dc, of);
             return TRUE;
         }
-        if (d->hwndItem == app.status) drawStatusPart(d);
-        else if (d->CtlID >= UINT(IDC_MODEBTN) && d->CtlID < UINT(IDC_MODEBTN + kModeCount)) drawOwnerButton(d);
         return TRUE;
     }
     case WM_CREATE: {
@@ -20425,24 +18296,12 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         loadRecent();
         refreshRecentMenus();  // the menu was built (empty) before this window existed
         app.dpi = GetDpiForWindow(hwnd);
+        syncKitTheme();
         setMenuIcons(GetMenu(hwnd));  // at this window's DPI
         BOOL dark = !gLightTheme;
         DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &dark, sizeof dark), titleColors(hwnd);
-        for (int i = 0; i < kModeCount; ++i)
-            app.modeBtn[i] = CreateWindowExW(0, WC_BUTTONW, kModeNames[i], WS_CHILD | BS_OWNERDRAW, 0, 0, 0, 0, hwnd,
-                                             HMENU(INT_PTR(IDC_MODEBTN + i)), app.inst, nullptr);
-        auto combo = [&](int id) {
-            HWND c = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL, 0, 0, 0, 0, hwnd,
-                                     HMENU(INT_PTR(id)), app.inst, nullptr);
-            return c;
-        };
+        app.modeBar = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD, 0, 0, 1, 1, hwnd, nullptr, app.inst, &gModeBarView);
         app.tool = CreateWindowExW(0, L"StarDraftToolStrip", L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, hwnd, HMENU(INT_PTR(IDC_TOOL)), app.inst, nullptr);
-        app.sym = combo(IDC_SYM);
-        for (int i = 0; i <= int(Symmetry::Rotate4); ++i) SendMessageW(app.sym, CB_ADDSTRING, 0, LPARAM(widen(std::string("Symmetry: ") + symmetryName(Symmetry(i))).c_str()));
-        SendMessageW(app.sym, CB_SETCURSEL, 0, 0);
-        app.density = combo(IDC_DENSITY);
-        for (const wchar_t* n : {L"Density: low", L"Density: medium", L"Density: high"}) SendMessageW(app.density, CB_ADDSTRING, 0, LPARAM(n));
-        SendMessageW(app.density, CB_SETCURSEL, 1, 0);
         // The player list draws each player's color before the name (WM_DRAWITEM: drawOwnerItem).
         app.owner = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | CBS_OWNERDRAWFIXED | CBS_HASSTRINGS | WS_VSCROLL,
                                     0, 0, 0, 0, hwnd, HMENU(IDC_OWNER), app.inst, nullptr);
@@ -20451,70 +18310,64 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             SendMessageW(app.owner, CB_ADDSTRING, 0, LPARAM(s.c_str()));
         }
         SendMessageW(app.owner, CB_SETCURSEL, 0, 0);
-        app.brush = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL, 0, 0, 0, 0, hwnd,
-                                    HMENU(IDC_BRUSH), app.inst, nullptr);
-        for (int i = 1; i <= 16; ++i) {
-            wchar_t b[32];
-            std::swprintf(b, 32, L"Size %d", i);
-            SendMessageW(app.brush, CB_ADDSTRING, 0, LPARAM(b));
-        }
-        SendMessageW(app.brush, CB_SETCURSEL, std::clamp(int(app.brushSize), 1, 16) - 1, 0);
-        app.filter = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 0, 0, 0, 0, hwnd,
-                                     HMENU(IDC_FILTER), app.inst, nullptr);
-        SendMessageW(app.filter, EM_SETCUEBANNER, TRUE, LPARAM(L"Filter")); addSearchClear(app.filter);  // an x clears it
+        gFilterBox.setPlaceholder(L"Filter");
+        gFilterBox.onChange = [] { rebuildList(); };
+        app.filter = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd, HMENU(IDC_FILTER), app.inst, &gFilterBox);
         // The list (locations): painted rows as the palette's, no frame.
         app.list = CreateWindowExW(0, WC_LISTBOXW, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT | LBS_EXTENDEDSEL |
                                                                LBS_OWNERDRAWFIXED | LBS_HASSTRINGS,
                                    0, 0, 0, 0, hwnd, HMENU(IDC_LIST), app.inst, nullptr);
         SetWindowSubclass(app.list, emptyListProc, 47, 0);
-        gPal.search = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 0, 0, 0, 0, hwnd,
-                                      HMENU(IDC_UNITSEARCH), app.inst, nullptr);
-        SendMessageW(gPal.search, EM_SETCUEBANNER, TRUE, LPARAM(L"Search")); addSearchClear(gPal.search);  // an x clears it
+        gPalSearchBox.setPlaceholder(L"Search");
+        gPalSearchBox.onChange = [] {
+            gPal.scroll = 0;
+            rebuildUnitPalette();
+        };
+        gPal.search = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd, HMENU(IDC_UNITSEARCH), app.inst, &gPalSearchBox);
         gPal.viewBtn = CreateWindowExW(0, WC_BUTTONW, L"View \x25BE", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd,
                                        HMENU(IDC_PALVIEW), app.inst, nullptr);
-        gPal.sectionBox = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL, 0, 0, 0, 0, hwnd,
-                                          HMENU(IDC_PALSECTION), app.inst, nullptr);
-        SetWindowSubclass(gPal.sectionBox, paletteSectionProc, 1, 0);
-        gPal.wnd = CreateWindowExW(0, L"StarDraftUnitPalette", L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL, 0, 0, 1, 1, hwnd, nullptr,
-                                   app.inst, nullptr);
-        gPal2.wnd = CreateWindowExW(0, L"StarDraftSecondPalette", L"", WS_CHILD | WS_VSCROLL, 0, 0, 1, 1, hwnd, nullptr, app.inst, nullptr);
+        gSectionBox.dropdown().onChange = [](int i) {
+            setPaletteSection(i);
+            if (!gWheelDispatch) SetFocus(app.view);  // the keys' choice goes back to the map; the wheel leaves the focus
+        };
+        gPal.sectionBox = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD, 0, 0, 0, 0, hwnd, HMENU(IDC_PALSECTION), app.inst, &gSectionBox);
+        gPal.wnd = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, hwnd, nullptr,
+                                   app.inst, &gPalView);
+        gPal2.wnd = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, hwnd, nullptr, app.inst, &gPal2View);
         gPal2Label = CreateWindowExW(0, WC_STATICW, L"", WS_CHILD | SS_NOPREFIX | SS_CENTERIMAGE, 0, 0, 1, 1, hwnd, nullptr, app.inst, nullptr);
         SendMessageW(gPal2Label, WM_SETFONT, WPARAM(app.font), TRUE);
         createWorkspaces(hwnd);
-        app.status = CreateWindowExW(0, STATUSCLASSNAMEW, L"", WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP, 0, 0, 0, 0, hwnd,
-                                     HMENU(IDC_STATUS), app.inst, nullptr);
-        app.minimap = CreateWindowExW(0, L"StarDraftMinimap", L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, hwnd, nullptr, app.inst, nullptr);
-        app.tabs = CreateWindowExW(0, L"StarDraftTabs", L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, hwnd, HMENU(IDC_TABS), app.inst, nullptr);
-        gTopBar = CreateWindowExW(0, L"StarDraftTopBar", L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0, 0, 1, 1, hwnd, nullptr, app.inst, nullptr);
-        for (HWND& t : gPanelTabs) t = CreateWindowExW(0, L"StarDraftPanelTabs", L"", WS_CHILD, 0, 0, 1, 1, hwnd, nullptr, app.inst, nullptr);
+        app.status = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd, HMENU(IDC_STATUS), app.inst, &gStatus);
+        app.minimap = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, hwnd, nullptr, app.inst, &gMinimap);
+        app.tabs = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, hwnd, HMENU(IDC_TABS), app.inst, &gTabs);
+        gTopBar = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0, 0, 1, 1, hwnd, nullptr, app.inst, &gTopBarView);
+        for (int s = 0; s < 2; ++s) {  // each side's tabs: a view window (the view paints and takes the mouse)
+            gPanelTabsView[s].side = s;
+            gPanelTabs[s] = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD, 0, 0, 1, 1, hwnd, nullptr, app.inst, &gPanelTabsView[s]);
+        }
         app.view = CreateWindowExW(0, L"StarDraftViewport", L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0, 0, 1, 1, hwnd,
                                    HMENU(IDC_VIEW), app.inst, nullptr);
         createFont();
         // Dark theme for the controls.
-        for (HWND c : {app.owner, app.brush, app.sym, app.density}) darkControl(c, L"DarkMode_CFD");
-        darkControl(app.filter, L"DarkMode_CFD");
-        darkControl(gPal.search, L"DarkMode_CFD");
+        darkControl(app.owner, L"DarkMode_CFD");
         darkControl(gPal.viewBtn, L"DarkMode_Explorer");
-        darkControl(gPal.sectionBox, L"DarkMode_CFD");
         darkControl(gPal.wnd, L"DarkMode_Explorer");
         darkControl(gPal2.wnd, L"DarkMode_Explorer");
         SetPropW(app.list, L"sdNoFrame", HANDLE(1));
         darkControl(app.list, L"DarkMode_Explorer");
-        SetWindowTheme(app.status, L"", L"");
-        SendMessageW(app.status, SB_SETBKCOLOR, 0, LPARAM(kPanel));
-        SetWindowSubclass(app.status, statusBarProc, 1, 0);  // flat, drawn in full
         return 0;
     }
     case WM_SIZE:
-        layout();
+        shellRelayout();
         return 0;
     case WM_DPICHANGED: {
         app.dpi = HIWORD(wp);
+        syncKitTheme();
         createFont();
         setMenuIcons(GetMenu(hwnd));
         const RECT* r = reinterpret_cast<const RECT*>(lp);
         SetWindowPos(hwnd, nullptr, r->left, r->top, r->right - r->left, r->bottom - r->top, SWP_NOZORDER | SWP_NOACTIVATE);
-        layout();
+        shellRelayout();
         return 0;
     }
     case WM_NOTIFY: {
@@ -20548,36 +18401,18 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         } else if (id == IDC_OWNER && code == CBN_SELCHANGE) {
             setPlayer(int(SendMessageW(app.owner, CB_GETCURSEL, 0, 0)));
             SetFocus(app.view);
-        } else if (id == IDC_BRUSH && code == CBN_SELCHANGE) {
-            app.brushSize = float(int(SendMessageW(app.brush, CB_GETCURSEL, 0, 0)) + 1);
-            SetFocus(app.view);
-        } else if (id == IDC_SYM && code == CBN_SELCHANGE) {
-            if (app.ed) app.ed->setSymmetry(Symmetry(SendMessageW(app.sym, CB_GETCURSEL, 0, 0)));
-            app.dirty = true;
-            SetFocus(app.view);
-        } else if (id >= IDC_MODEBTN && id < IDC_MODEBTN + kModeCount) {
-            setMode(Mode(id - IDC_MODEBTN));
-            SetFocus(app.view);
-        } else if (id == IDC_FILTER && code == EN_CHANGE) {
-            rebuildList();
-        } else if (id == IDC_PALSECTION && code == CBN_SELCHANGE) {
-            setPaletteSection(int(SendMessageW(gPal.sectionBox, CB_GETCURSEL, 0, 0)));
-            SetFocus(app.view);
         } else if (id == IDC_PALVIEW) {
             RECT r;
             GetWindowRect(gPal.viewBtn, &r);
             unitPaletteMenu(r.left, r.bottom, -1);
             SetFocus(app.view);
-        } else if (id == IDC_UNITSEARCH && code == EN_CHANGE) {
-            gPal.scroll = 0;
-            rebuildUnitPalette();
         } else if (id >= ID_FILE_OPEN) {
             command(id);
         }
         return 0;
     }
     case WM_INITMENUPOPUP:
-        updateMenus();
+        shellMenusChanged();
         return 0;
     case WM_NCLBUTTONDOWN:  // the menu bar: its menus are painted (context_menu.inc), as the context menus
         if (wp == HTMENU && GetMenu(hwnd)) {
@@ -20766,21 +18601,7 @@ void centerOn(float wx, float wy, float zoom) {
     app.dirty = true;
 }
 
-int selectPalette(int value) {
-    if (app.mode != Mode::Locations) {
-        gPal.chosen.clear();
-        if (value >= 0) gPal.chosen.push_back(value);
-        app.palette = value;
-        unitPaletteRepaint();
-        return value;
-    }
-    auto it = std::find(app.items.begin(), app.items.end(), value);
-    if (it == app.items.end()) return -1;
-    int i = int(it - app.items.begin());
-    setListSel(i);
-    app.palette = value;
-    return i;
-}
+int selectPalette(int value) { return selectPalette(app, value); }
 
 // The two modes (L.1): the map opened by itself next to the project tab. Each tab has only its own workspaces on the
 // rail and its own commands in the menus and shortcuts, and its tab and title say "(map)" or "(project)".
@@ -21098,22 +18919,23 @@ int runSelfTest(const fs::path& dir) {
                     pictured += b && b->bmp;
                     special += e.value == 214 || e.value == 36 || e.value == 204 || e.value == 205 || e.value == 4;
                 }
-            SetWindowTextW(gPal.search, L"start loc");
+            gPalSearchBox.setText(L"start loc");
             pump();
             const bool startFound = std::any_of(gPal.entries.begin(), gPal.entries.end(), [](const auto& e) { return e.value == 214; });
             capture(dir / "10b_palette_search_start_location.png");
-            SetWindowTextW(gPal.search, L"door");
+            gPalSearchBox.setText(L"door");
             pump();
             capture(dir / "10c_palette_search_door.png");
-            SetWindowTextW(gPal.search, L"");
+            gPalSearchBox.setText(L"");
             pump();
             log << "palette: all units " << pictured << " pictured (expect 228), start location/egg/floor hatch/door/turret listed " << special
                 << " (expect 5), search finds the start location " << (startFound ? "yes" : "NO") << "\n";
         }
         {
             // Ctrl+Backspace in the palette search: deletes the last word; Ctrl+Delete the next one.
-            SetWindowTextW(gPal.search, L"siege tank");
-            SendMessageW(gPal.search, EM_SETSEL, 10, 10);
+            gPalSearchBox.setText(L"siege tank");
+            gPalSearchBox.field().focus();
+            gPalSearchBox.field().model().setCaret(10);
             BYTE keys[256], ctrl[256];
             GetKeyboardState(keys);
             std::copy(std::begin(keys), std::end(keys), ctrl);
@@ -21121,13 +18943,13 @@ int runSelfTest(const fs::path& dir) {
             SetKeyboardState(ctrl);
             PostMessageW(gPal.search, WM_KEYDOWN, VK_BACK, 0);
             pump();
-            const std::wstring afterBack = windowText(gPal.search);
-            SendMessageW(gPal.search, EM_SETSEL, 0, 0);
+            const std::wstring afterBack = gPalSearchBox.text();
+            gPalSearchBox.field().model().setCaret(0);
             PostMessageW(gPal.search, WM_KEYDOWN, VK_DELETE, 0);
             pump();
-            const std::wstring afterDelete = windowText(gPal.search);
+            const std::wstring afterDelete = gPalSearchBox.text();
             SetKeyboardState(keys);
-            SetWindowTextW(gPal.search, L"");
+            gPalSearchBox.setText(L"");
             pump();
             log << "ctrl+backspace: \"siege tank\" -> \"" << narrow(afterBack) << "\" (expect \"siege \"), ctrl+delete at the start -> \""
                 << narrow(afterDelete) << "\" (expect \"\")\n";
@@ -21741,11 +19563,11 @@ int runSelfTest(const fs::path& dir) {
         seed = app.spraySeed;
         mouseDown(px, py, MK_LBUTTON);
         const bool timer = app.drag == Drag::Spray;
-        for (int i = 0; i < 4; ++i) sprayHoldTick(0.05);  // 0.2 s
+        for (int i = 0; i < 4; ++i) sprayHoldTick(app, 0.05);  // 0.2 s
         const uint32_t first = app.spraySeed - seed;
-        for (int i = 4; i < 20; ++i) sprayHoldTick(0.05);  // to 1 s
+        for (int i = 4; i < 20; ++i) sprayHoldTick(app, 0.05);  // to 1 s
         const uint32_t second1 = app.spraySeed - seed;
-        for (int i = 0; i < 20; ++i) sprayHoldTick(0.05);  // to 2 s
+        for (int i = 0; i < 20; ++i) sprayHoldTick(app, 0.05);  // to 2 s
         const uint32_t second2 = app.spraySeed - seed - second1;
         mouseUp(px, py, 0);
         ed.undo();
@@ -21760,7 +19582,7 @@ int runSelfTest(const fs::path& dir) {
         toScreen(tx - 200, ty + 300, px, py);  // open ground (the unit spray above)
         mouseDown(px, py, MK_LBUTTON);
         const size_t afterTap = ed.units().size();
-        for (int i = 0; i < 30; ++i) sprayHoldTick(0.05);
+        for (int i = 0; i < 30; ++i) sprayHoldTick(app, 0.05);
         const size_t afterHold = ed.units().size();
         mouseUp(px, py, 0);
         ed.undo();
@@ -23686,7 +21508,7 @@ int runSelfTest(const fs::path& dir) {
                 log << "resize: right column " << wBefore << " -> " << wAfter << " px (expect 100 wider), map center kept "
                     << (std::abs(c1 - c0) < 1 ? "yes" : "NO") << "\n";
                 gDock = saved;
-                layout();
+                shellRelayout();
             }
             activateDoc(projTab);
             // Themes (UI.5): every workspace and the control kit in the light theme with two accents, and in the dark
@@ -23967,7 +21789,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
         LocalFree(av);
         if (a1 == L"--send-crash") return crash::send(a2) ? 0 : 1;  // started by a crash: send its report, then stop
         crash::install();
-        crash::gBuild = narrow(buildStamp());
+        crash::gBuild = narrow(shellBuildStamp());
         DISPLAY_DEVICEW dd{sizeof dd};
         for (DWORD i = 0; EnumDisplayDevicesW(nullptr, i, &dd, 0); ++i)
             if (dd.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE) crash::gGpu = dd.DeviceString;
@@ -24024,35 +21846,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     vc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     vc.lpszClassName = L"StarDraftViewport";
     RegisterClassExW(&vc);
-    WNDCLASSEXW mc{sizeof mc};
-    mc.lpfnWndProc = minimapProc;
-    mc.hInstance = inst;
-    mc.hCursor = LoadCursor(nullptr, IDC_HAND);
-    mc.lpszClassName = L"StarDraftMinimap";
-    RegisterClassExW(&mc);
-    WNDCLASSEXW tc{sizeof tc};
-    tc.lpfnWndProc = tabsProc;
-    tc.hInstance = inst;
-    tc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    tc.lpszClassName = L"StarDraftTabs";
-    RegisterClassExW(&tc);
     WNDCLASSEXW uc{sizeof uc};
-    uc.lpfnWndProc = unitPaletteProc;
     uc.hInstance = inst;
     uc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    uc.lpszClassName = L"StarDraftUnitPalette";
-    RegisterClassExW(&uc);
-    uc.lpfnWndProc = secondPaletteProc;
-    uc.lpszClassName = L"StarDraftSecondPalette";
-    RegisterClassExW(&uc);
     uc.lpfnWndProc = toolStripProc;
     uc.lpszClassName = L"StarDraftToolStrip";
-    RegisterClassExW(&uc);
-    uc.lpfnWndProc = topBarProc;
-    uc.lpszClassName = L"StarDraftTopBar";
-    RegisterClassExW(&uc);
-    uc.lpfnWndProc = panelTabsProc;
-    uc.lpszClassName = L"StarDraftPanelTabs";
     RegisterClassExW(&uc);
     WNDCLASSEXW qc{sizeof qc};
     qc.lpfnWndProc = quickPickProc;
@@ -24060,6 +21858,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     qc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     qc.lpszClassName = L"StarDraftQuickPick";
     RegisterClassExW(&qc);
+    ui::registerViewClass(inst);
 
     // Self-test and screenshot runs work in the background: the window sits beyond the right edge of
     // the desktop, never activates and stays off the taskbar, so it does not take the user's focus.
@@ -24096,7 +21895,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
 
     startMark("main window");
     createLogPanel();
-    layout();
+    shellRelayout();
     if (!openGameData()) return device.wait(), 0;
     startMark("game data");
 
@@ -24187,6 +21986,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             if (s == "menutest:") {  // menutest.txt: the context menus driven with posted mouse and key messages
                 std::ofstream o(fs::path(datashots) / "menutest.txt");
                 for (const auto& line : menu_e2e::run(app.main)) o << line << "\n";
+                continue;
+            }
+            if (s == "menutree:") {  // menutree.txt: the main window's menu tree (texts, ids, states), to compare two builds
+                std::ofstream o(fs::path(datashots) / "menutree.txt", std::ios::binary);
+                dumpMenuTree(o, GetMenu(app.main), 0);
                 continue;
             }
             if (s.rfind("dpi:", 0) == 0) {  // dpi:<n>: as Windows tells a window that moved to a screen of that DPI (144: 150%)
@@ -24395,22 +22199,22 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 setWorkspace(Workspace::Map);
                 Editor& ed = *app.ed;
                 setMode(Mode::Terrain), app.terrainRect = false;
-                const bool terrain = pipette(1000, 1000) && app.palette == ed.terrainAt(1000, 1000);
+                const bool terrain = pipette(app, 1000, 1000) && app.palette == ed.terrainAt(1000, 1000);
                 setMode(Mode::Units);
                 bool unit = false;
                 if (!ed.units().empty()) {
                     const Unit u = ed.units().front();
-                    unit = pipette(float(u.x), float(u.y)) && app.palette == ed.units()[size_t(ed.unitAt(u.x, u.y))].type;
+                    unit = pipette(app, float(u.x), float(u.y)) && app.palette == ed.units()[size_t(ed.unitAt(u.x, u.y))].type;
                 }
                 setMode(Mode::Doodads);
                 bool doodad = ed.doodads().empty();
                 if (!ed.doodads().empty()) {
                     const Doodad d = ed.doodads().front();
-                    doodad = pipette(float(d.x), float(d.y)) && app.palette == ed.doodads()[size_t(ed.doodadAt(d.x, d.y))].id;
+                    doodad = pipette(app, float(d.x), float(d.y)) && app.palette == ed.doodads()[size_t(ed.doodadAt(d.x, d.y))].id;
                 }
                 setMode(Mode::Locations);
                 const int loc = ed.createLocation({64, 64, 192, 160});
-                const bool location = loc >= 0 && pipette(100, 100) && app.hasLocationClip && app.locationClip.right - app.locationClip.left == 128;
+                const bool location = loc >= 0 && pipette(app, 100, 100) && app.hasLocationClip && app.locationClip.right - app.locationClip.left == 128;
                 if (loc >= 0) ed.undo();
                 o << "terrain " << (terrain ? "yes" : "NO") << ", unit " << (unit ? "yes" : "NO") << ", doodad " << (doodad ? "yes" : "NO") << ", location "
                   << (location ? "yes" : "NO") << "\n";
@@ -24425,20 +22229,20 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     applyTheme(light != 0, gAccentIndex);
                     const std::string suffix = light ? "_light" : "";
                     setMode(Mode::Units);
-                    SetWindowTextW(gPal.search, L"zzqqxxnothing");
+                    gPalSearchBox.setText(L"zzqqxxnothing");
                     rebuildUnitPalette();
                     for (int i = 0; i < 8; ++i) pump();
                     capture(fs::path(datashots) / ("emptynone_palette" + suffix + ".png"));
                     o << "palette rows " << gPal.entries.size() << (gPal.entries.empty() ? "" : " WRONG");
-                    SetWindowTextW(gPal.search, L"");
+                    gPalSearchBox.setText(L"");
                     setMode(Mode::Locations);
-                    SetWindowTextW(app.filter, L"zzqqxxnothing");
+                    gFilterBox.setText(L"zzqqxxnothing");
                     rebuildList();
                     for (int i = 0; i < 8; ++i) pump();
                     capture(fs::path(datashots) / ("emptynone_locations" + suffix + ".png"));
                     const LRESULT rows = SendMessageW(app.list, LB_GETCOUNT, 0, 0);
                     o << ", Locations rows " << rows << (rows == 0 ? "" : " WRONG") << "\n";
-                    SetWindowTextW(app.filter, L"");
+                    gFilterBox.setText(L"");
                 }
                 applyTheme(wasLight, gAccentIndex);
                 setMode(Mode::Units), rebuildUnitPalette();
@@ -25117,7 +22921,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 gMsgBoxHook = [](HWND w) {
                     for (int i = 0; i < 3; ++i) pump();
                     if (!shot.empty()) capture(shot, w);
-                    PostMessageW(w, keyMsg, key, 0);
+                    PostMessageW(w, keyMsg, key, keyMsg == WM_SYSKEYDOWN ? LPARAM(1) << 29 : 0);  // (a system key: Alt is down)
                 };
                 std::ofstream log(fs::path(datashots) / "msgbox.txt");
                 const bool wasLight = gLightTheme;
@@ -25147,11 +22951,12 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 const Case cases[] = {{"Enter gives the default (Yes)", MB_YESNOCANCEL, WM_KEYDOWN, VK_RETURN, IDYES},
                                       {"Enter with MB_DEFBUTTON2 gives No", MB_YESNOCANCEL | MB_DEFBUTTON2, WM_KEYDOWN, VK_RETURN, IDNO},
                                       {"N gives No", MB_YESNOCANCEL, WM_CHAR, L'n', IDNO},
-                                      {"Alt+Y gives Yes", MB_YESNO, WM_SYSCHAR, L'y', IDYES},
+                                      {"Alt+Y gives Yes", MB_YESNO, WM_SYSKEYDOWN, L'Y', IDYES},
                                       {"Esc in Yes/No gives No", MB_YESNO, WM_KEYDOWN, VK_ESCAPE, IDNO},
                                       {"Esc in OK gives OK", MB_OK, WM_KEYDOWN, VK_ESCAPE, IDOK},
                                       {"Esc in OK/Cancel gives Cancel", MB_OKCANCEL, WM_KEYDOWN, VK_ESCAPE, IDCANCEL},
-                                      {"Tab then Enter gives Cancel in Retry/Cancel", MB_RETRYCANCEL, WM_KEYDOWN, VK_TAB, IDCANCEL}};
+                                      {"Tab then Enter gives Cancel in Retry/Cancel", MB_RETRYCANCEL, WM_KEYDOWN, VK_TAB, IDCANCEL},
+                                      {"The close box gives Cancel (No in Yes/No)", MB_YESNO, WM_CLOSE, 0, IDNO}};
                 for (const Case& c : cases) {
                     keyMsg = c.msg, key = c.key;
                     if (c.key == VK_TAB)
@@ -26385,7 +24190,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             }
             if (s.rfind("sidew:", 0) == 0) {  // sidew:<px>: both side columns that wide (96 dpi px; not saved)
                 gDock.leftW = gDock.rightW = std::atoi(s.c_str() + 6);
-                layout();
+                shellRelayout();
                 for (int i = 0; i < 4; ++i) pump();
                 continue;
             }
@@ -26409,13 +24214,13 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 capture(fs::path(datashots) / "about.png", gAbout.wnd);
                 // The EUD tools' links: euddraft and eudplib, then the repository and Discord; the mouse underlines one.
                 std::ofstream o(fs::path(datashots) / "about.txt");
-                const bool four = gAbout.links.size() == 4 && gAbout.links[0].url == L"https://github.com/armoha/euddraft" &&
-                                  gAbout.links[1].url == L"https://github.com/armoha/eudplib";
+                const bool four = gAbout.view.links.size() == 4 && gAbout.view.links[0].url == L"https://github.com/armoha/euddraft" &&
+                                  gAbout.view.links[1].url == L"https://github.com/armoha/eudplib";
                 o << "links: euddraft and eudplib first, 4 in all " << (four ? "yes" : "NO") << "\n";
                 if (four) {
-                    const RECT& r = gAbout.links[1].rc;
+                    const RECT r = ui::toRECT(gAbout.view.links[1].rc);
                     SendMessageW(gAbout.wnd, WM_MOUSEMOVE, 0, MAKELPARAM((r.left + r.right) / 2, (r.top + r.bottom) / 2));
-                    o << "the mouse on eudplib makes it the hot link " << (gAbout.hot == 1 ? "yes" : "NO") << "\n";
+                    o << "the mouse on eudplib makes it the hot link " << (gAbout.view.hot == 1 ? "yes" : "NO") << "\n";
                     UpdateWindow(gAbout.wnd);  // (no pump: the real mouse is elsewhere, and its leave message clears it)
                     capture(fs::path(datashots) / "about_hot.png", gAbout.wnd);
                 }
@@ -26602,7 +24407,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 int headers = 0, items = 0;
                 for (const auto& e : gPal.entries) (e.value < 0 ? headers : items)++;
                 o << "item " << k << " (" << narrow(gPal.section.empty() ? L"all" : gPal.section) << "): " << headers << " sections, " << items
-                  << " entries, box has " << SendMessageW(gPal.sectionBox, CB_GETCOUNT, 0, 0) << " items" << std::endl;
+                  << " entries, box has " << gSectionBox.dropdown().items().size() << " items" << std::endl;
                 capture(fs::path(datashots) / ("palfilter_" + std::to_string(k) + ".png"));
                 continue;
             }
@@ -26715,11 +24520,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 const bool right = s.find(":right") != std::string::npos;
                 const bool was = gDock.toolsRight[m];
                 gDock.toolsRight[m] = right;  // not saved: a test run leaves the settings alone
-                layout();
+                shellRelayout();
                 for (int i = 0; i < 6; ++i) pump();
                 capture(fs::path(datashots) / ("mode_" + std::to_string(m) + (right ? "_right" : "") + ".png"));
                 gDock.toolsRight[m] = was;
-                layout();
+                shellRelayout();
                 continue;
             }
             if (s.rfind("ws:", 0) == 0) {  // ws:map|data|triggers|assets|project|briefing|files: a workspace as it opens
@@ -26734,8 +24539,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 {
                     std::ofstream log(fs::path(datashots) / "datashots.txt", std::ios::app);
                     RECT r{};
-                    if (app.modeBtn[0]) GetWindowRect(app.modeBtn[0], &r);
-                    log << "ws:" << it->first << ": the mode buttons " << (app.modeBtn[0] && IsWindowVisible(app.modeBtn[0]) ? "shown" : "hidden") << " ("
+                    const RECT mr = modeBarRect();  // (one mode's segment: the bar's width over the modes)
+                    if (app.modeBar) r = {0, 0, (mr.right - mr.left) / kModeCount, mr.bottom - mr.top};
+                    log << "ws:" << it->first << ": the mode buttons " << (app.modeBar && IsWindowVisible(app.modeBar) ? "shown" : "hidden") << " ("
                         << (r.right - r.left) << " x " << (r.bottom - r.top) << ")" << std::endl;
                 }
                 continue;
@@ -27330,7 +25136,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 capture(fs::path(datashots) / "minimaphide.png", app.main);
                 command(ID_VIEW_MINIMAP);  // show again
                 command(ID_SCEN_PROPS);  // another workspace (a plain map has Map properties)
-                layout();
+                shellRelayout();
                 const bool notOnTriggers = gWorkspace != Workspace::Map && !IsWindowVisible(app.minimap);
                 setWorkspace(Workspace::Map);
                 o << "not over another workspace (Map properties) " << (notOnTriggers ? "yes" : "NO") << ", ";
@@ -28026,7 +25832,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 setMode(Mode::Units);
                 for (int i = 0; i < 5; ++i) pump();
                 const size_t all = gPal.entries.size();
-                SetWindowTextW(gPal.search, L"marine");
+                gPalSearchBox.setText(L"marine");
                 for (int i = 0; i < 5; ++i) pump();
                 const size_t found = gPal.entries.size();
                 RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
@@ -28035,7 +25841,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(gPal.search, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM((b.left + b.right) / 2, (b.top + b.bottom) / 2));
                 SendMessageW(gPal.search, WM_LBUTTONUP, 0, MAKELPARAM((b.left + b.right) / 2, (b.top + b.bottom) / 2));
                 for (int i = 0; i < 5; ++i) pump();
-                o << "search \"marine\": " << found << " of " << all << " shown; the x: the box " << (GetWindowTextLengthW(gPal.search) == 0 ? "empty" : "NOT EMPTY")
+                o << "search \"marine\": " << found << " of " << all << " shown; the x: the box " << (gPalSearchBox.text().empty() ? "empty" : "NOT EMPTY")
                   << ", " << gPal.entries.size() << " shown" << (gPal.entries.size() == all ? "" : " (NOT ALL)") << "\n";
                 continue;
             }
@@ -28109,7 +25915,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 std::ofstream o(fs::path(datashots) / "pastekeys.txt");
                 Editor& ed = *app.ed;
                 auto pasteOn = [] {
-                    updateMenus();
+                    shellMenusChanged();
                     return !(GetMenuState(GetMenu(app.main), ID_EDIT_PASTE, MF_BYCOMMAND) & (MF_GRAYED | MF_DISABLED));
                 };
                 setWorkspace(Workspace::Map);
@@ -28253,7 +26059,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                 capture(fs::path(datashots) / "logsize.png");
                 o << "open Log: " << h0 << " px, after the drag " << h1 << " px (" << (h1 > h0 ? "taller" : "NOT TALLER") << ")\n";
-                gDock.logH = wasH, logSetExpanded(wasOpen), layout();
+                gDock.logH = wasH, logSetExpanded(wasOpen), shellRelayout();
                 gSelfTest = wasTest;
                 continue;
             }
@@ -28557,7 +26363,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
         SDL_Quit();
         return 0;
     }
-    updateMenus();
+    shellMenusChanged();
 
     MSG msg{};
     // A slow frame (more than 40 ms from one frame to the next while the map is drawn) goes into the log with where its
@@ -28593,6 +26399,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             // An open dropdown list takes the typed letters (D goes to "Dirt", not to Doodads mode).
             if (!editFocus && _wcsicmp(cls, WC_COMBOBOXW) == 0 && SendMessageW(GetFocus(), CB_GETDROPPEDSTATE, 0, 0)) editFocus = true;
             if (!editFocus && _wcsicmp(cls, L"ComboLBox") == 0) editFocus = true;
+            if (!editFocus && (searchBoxFocused() || dropdownListOpen())) editFocus = true;  // a search box, a kit list (search_box.inc)
             // The trigger pane: a typed letter or number opens its block picker (the plain-key shortcuts wait).
             if (!editFocus && _wcsicmp(cls, L"StarDraftTrigPane") == 0 && msg.message == WM_KEYDOWN && !(GetKeyState(VK_CONTROL) & 0x8000) &&
                 !(GetKeyState(VK_MENU) & 0x8000) && ((msg.wParam >= 'A' && msg.wParam <= 'Z') || (msg.wParam >= '0' && msg.wParam <= '9')))
@@ -28607,7 +26414,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             if (rightClick) gMenuShown = false;
             TranslateMessage(&msg);
             const auto d0 = std::chrono::steady_clock::now();
+            gWheelDispatch = msg.message == WM_MOUSEWHEEL;  // a wheel step on the section box keeps the focus
             DispatchMessageW(&msg);
+            gWheelDispatch = false;
             if (const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - d0).count(); ms > 0.5) {
                 wchar_t wc[48] = L"";
                 if (msg.hwnd) GetClassNameW(msg.hwnd, wc, 48);

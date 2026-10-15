@@ -105,7 +105,7 @@ void optionsPaint(HWND hwnd) {
                 ui::box(mem, ring, CLR_NONE, chosen ? kText : kBorderHot);
             }
             ui::box(mem, sw, theme::swatch(i), CLR_NONE);
-            hitsOut().push_back({sw, nullptr, [i] { applyTheme(gLightTheme, i), updateMenus(); },
+            hitsOut().push_back({sw, nullptr, [i] { applyTheme(gLightTheme, i), shellMenusChanged(); },
                                  std::wstring(theme::kAccents[i].name) + (i == 0 ? L" (default)" : L""), IDC_HAND, {}});
             gOptions.parts["accent." + std::to_string(i)] = sw;
         }

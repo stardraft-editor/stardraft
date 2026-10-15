@@ -80,7 +80,7 @@ void toggleLayer(int k) {
     bool& on = *layer[k];
     on = !on;
     setMessage(std::wstring(names[k]) + (on ? L" show" : L" are hidden (View > Layers)"));
-    updateMenus();
+    shellMenusChanged();
     app.dirty = true;
 }
 
@@ -109,12 +109,12 @@ void registerMapCommands() {
         gShowRanges = !gShowRanges;
         setMessage(gShowRanges ? L"Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue)"
                                : L"Ranges are hidden");
-        updateMenus();
+        shellMenusChanged();
         app.dirty = true;
     }, [] { return gShowRanges; });
     addCommand(ID_VIEW_MINIMAP, "view.minimap", L"Show &minimap", "View", L"", [] {
         gDock.minimapHidden = !gDock.minimapHidden;
-        saveDock(), layout(), updateMenus();
+        saveDock(), shellRelayout(), shellMenusChanged();
         setMessage(gDock.minimapHidden ? L"The minimap is hidden (View > Show minimap shows it again)" : L"The minimap shows");
     }, [] { return !gDock.minimapHidden; });
     addCommand(ID_LAYER, "view.layer.terrain", L"&Terrain", "View/Layers", L"", [] { toggleLayer(0); }, [] { return gLayers.terrain; });
