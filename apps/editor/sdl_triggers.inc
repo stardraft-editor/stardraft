@@ -11,6 +11,8 @@
 // sdl_data.inc (SdlBarFrame); registerWorkspaceView(Workspace::Triggers, gSdlTriggers) puts it in the window, and
 // --trig <root>:<index>[:<child>...] and --trigsel <action> select a node and a block for a snapshot.
 
+#include "message_box.h"  // apps/kit: the delete question (trigAskDelete); this file includes it, so it does not depend on main_sdl.cpp's list
+
 void sdlTrigNotHere(const wchar_t* what) { setMessage(std::wstring(what) + L": not on this system yet"); }
 
 // --- The block help page (core/views_triggers_help.inc: BlockHelpView) ----------------------------------------------

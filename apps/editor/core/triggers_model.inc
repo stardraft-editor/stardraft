@@ -46,6 +46,7 @@ TrigClipboard gTrigClip;
 void trigCopy(bool cut);
 void trigPaste();
 
+// triggersFile and trigMapInfo are defined here only (Build in the core uses them too; it must not define them again).
 std::filesystem::path triggersFile(const EudProject& pr) { return pr.folder() / "triggers.json"; }
 
 // What the checker and the code need from the map: its locations, sounds, units and players.

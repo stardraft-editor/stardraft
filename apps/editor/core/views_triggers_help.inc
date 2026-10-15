@@ -272,6 +272,8 @@ private:
 
 // --- Build errors ------------------------------------------------------------------------------------------------
 
+// TrigCodeMap, trigFindCall, trigKeepCodeMap and trigShowBuildError are defined here only, for both programs (Build
+// in the core calls trigKeepCodeMap and trigShowBuildError; it must not define them again, nor a host a stand-in).
 // The block of each line of the last generated/triggers.eps: the node's path and the block (index -1: the trigger).
 struct TrigCodeMap {
     fs::path project;
