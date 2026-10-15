@@ -66,6 +66,7 @@ using std::min;
 #include "slider.h"  // the kit's slider: the Program options' volume (core/views_options.inc)
 #include "dialog.h"  // the kit's dialog (core/views_classic_batch.inc: the block dialog; the page's Host::runModal)
 #include "label.h"  // the kit's label (core/views_classic_batch.inc: the block dialog's text)
+#include "tree_view.h"  // the kit's tree: the Triggers workspace's tree (core/views_triggers_tree.inc)
 #include "button.h"       // the kit's push button: the Files page's Import and Rename (core/views_files.inc)
 #include "res/ui_icons.h"
 #include "stardraft/editor.h"
@@ -462,6 +463,7 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_classic_triggers.inc"  // Classic triggers' model: the sentences as parts, the variables of the blocks (classic_triggers.inc)
 #include "core/views_classic_batch.inc"  // the block dialog (BatchView, runBatchDialog; the host is classic_triggers.inc)
 #include "core/views_classic_value.inc"  // the number pop-out (CtValueView, runValueDialog; the host is classic_triggers.inc)
+#include "core/views_triggers_tree.inc"  // the Triggers workspace's tree (TrigTreeView; its host and instance are with the workspace below)
 #include "core/views_start.inc"  // the start page (StartView: the cards, the recent list, Open; the instance is gStartView in new_page.inc)
 #include "core/views_new_page.inc"  // the New page (NewPageView: the settings, the generator, the preview; the host is new_page.inc)
 #include "core/views_new_page_paint.inc"
@@ -9149,19 +9151,29 @@ void layout();
 // change; Build turns it into generated/triggers.eps.
 
 struct TriggerEditor {
-    HWND wnd = nullptr, tree = nullptr, pane = nullptr, info = nullptr, code = nullptr;
+    HWND wnd = nullptr, tree = nullptr, pane = nullptr, info = nullptr, code = nullptr;  // tree: the tree's view window (gTrigTree)
     TriggerSet set;
     const EudProject* project = nullptr;
     const std::vector<TriggerCall>* textValuesFor = nullptr;  // the text pop-out's block's values from the game (its chips' names)
     std::vector<TriggerCall> textValuesOut;                   // ... and as the pop-out left them (OK)
-    std::vector<std::vector<int>> paths;  // tree item lParam -> node path
     std::vector<int> sel;                 // selected node
     int scroll = 0, contentH = 0;
-    bool dragNode = false;  // dragging a tree node
-    HIMAGELIST icons = nullptr;
     std::vector<TriggerIssue> issues;  // from the last check
 };
 TriggerEditor gTE;
+
+// The tree's program parts (core/views_triggers_tree.inc): the model's nodes and the commands (defined below).
+class TrigTreeProgram final : public TrigTreeHost {
+public:
+    const TriggerNode* treeNode(const std::vector<int>& path) override;
+    void treeSelected(const std::vector<int>& path) override;
+    void treeRename(const std::vector<int>& path, const std::string& name) override;
+    void treeDelete(const std::vector<int>& path) override;
+    void treeMove(const std::vector<int>& from, const std::vector<int>& parent, int index) override;
+    void treeMenu(const std::vector<int>& path) override;
+};
+TrigTreeProgram gTrigTreeProgram;
+TrigTreeView gTrigTree(gTrigTreeProgram);
 struct TrigClipboard {
     std::optional<TriggerNode> node;
     std::optional<TriggerCall> block;
@@ -9237,99 +9249,20 @@ TriggerNode* trigSelected() {
 }
 
 // Issues of a node (its own and its blocks').
-int trigIssueCount(const TriggerNode& n, TriggerIssue::Level level) {
-    int c = 0;
-    for (const auto& i : gTE.issues) c += i.node == &n && i.level == level;
-    for (const auto& ch : n.children) c += trigIssueCount(ch, level);
-    return c;
-}
+int trigIssueCount(const TriggerNode& n, TriggerIssue::Level level) { return trigIssueCount(n, level, gTE.issues); }
 
-// The tree's icons (category, folder, trigger, variable): UI icons drawn into an image list.
-HIMAGELIST trigIcons() {
-    if (gTE.icons) return gTE.icons;
-    const int sz = scale(16);
-    gTE.icons = ImageList_Create(sz, sz, ILC_COLOR32, 4, 0);
-    const UiIcon glyphs[4] = {UiIcon::Log, UiIcon::Folder, UiIcon::Triggers, UiIcon::Tag};
-    const COLORREF colors[4] = {RGB(150, 150, 150), RGB(220, 184, 104), kAccent, kGood};
-    for (int i = 0; i < 4; ++i) {
-        BITMAPINFO bi{};
-        bi.bmiHeader = {sizeof(BITMAPINFOHEADER), sz, -sz, 1, 32, BI_RGB};
-        void* bits = nullptr;
-        HDC dc = CreateCompatibleDC(nullptr);
-        HBITMAP bmp = CreateDIBSection(dc, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
-        HGDIOBJ ob = SelectObject(dc, bmp);
-        std::fill_n(static_cast<uint32_t*>(bits), size_t(sz) * sz, 0u);
-        uiIcon(dc, {0, 0, sz, sz}, glyphs[i], RGB(255, 255, 255), sz);
-        GdiFlush();
-        auto* px = static_cast<uint8_t*>(bits);
-        for (int p = 0; p < sz * sz; ++p) {
-            const int a = std::max({px[p * 4], px[p * 4 + 1], px[p * 4 + 2]});
-            px[p * 4] = uint8_t(GetBValue(colors[i]) * a / 255), px[p * 4 + 1] = uint8_t(GetGValue(colors[i]) * a / 255);
-            px[p * 4 + 2] = uint8_t(GetRValue(colors[i]) * a / 255), px[p * 4 + 3] = uint8_t(a);
-        }
-        SelectObject(dc, ob);
-        DeleteDC(dc);
-        ImageList_Add(gTE.icons, bmp, nullptr);
-        DeleteObject(bmp);
-    }
-    return gTE.icons;
-}
+// The tree's label of a node: the name, with what to look at (errors, heavy) after it (core/views_triggers_tree.inc).
+std::wstring trigTreeLabel(const TriggerNode& n) { return trigTreeLabel(n, gTE.issues); }
 
-// The tree's label of a node: the name, with what to look at (errors, heavy) after it.
-std::wstring trigTreeLabel(const TriggerNode& n) {
-    std::wstring s = widen(n.name);
-    if (n.kind == TriggerNode::Kind::Variable) s += L"  (" + widen(TriggerVariable::kindLabel(n.variable.kind)) + L")";
-    if (n.kind == TriggerNode::Kind::Trigger && !n.enabled) s += L"  (off)";
-    if (n.kind == TriggerNode::Kind::Trigger || n.kind == TriggerNode::Kind::Variable) {
-        if (const int e = trigIssueCount(n, TriggerIssue::Level::Error)) s += L"  \x26A0 " + std::to_wstring(e);
-        if (n.kind == TriggerNode::Kind::Trigger && TriggerSet::cost(n) > TriggerSet::kHeavy) s += L"  \x23F1";
-    }
-    return s;
-}
+void trigTreeSelected(const std::vector<int>& path);
 
 // Rebuilds the tree from the model, keeping `select` selected (and its parents open).
-// `select` is a copy: clearing the tree changes gTE.sel, which callers often pass.
+// `select` is a copy: callers often pass gTE.sel. As the native tree did, the selection is made again (the pane's
+// selection and scroll reset, the code pane follows).
 void trigRefreshTree(std::vector<int> select) {
     trigRecheck();
-    SendMessageW(gTE.tree, WM_SETREDRAW, FALSE, 0);
-    TreeView_DeleteAllItems(gTE.tree);
-    gTE.paths.clear();
-    HTREEITEM selItem = nullptr;
-    std::function<void(HTREEITEM, const TriggerNode&, std::vector<int>)> add = [&](HTREEITEM parent, const TriggerNode& n, std::vector<int> path) {
-        TVINSERTSTRUCTW ins{};
-        ins.hParent = parent;
-        ins.hInsertAfter = TVI_LAST;
-        const std::wstring name = trigTreeLabel(n);
-        ins.item.mask = TVIF_TEXT | TVIF_PARAM | TVIF_STATE | TVIF_IMAGE | TVIF_SELECTEDIMAGE;
-        ins.item.pszText = const_cast<wchar_t*>(name.c_str());
-        ins.item.lParam = LPARAM(gTE.paths.size());
-        ins.item.iImage = ins.item.iSelectedImage = int(n.kind);
-        ins.item.stateMask = TVIS_BOLD | TVIS_EXPANDED;
-        ins.item.state = (n.kind == TriggerNode::Kind::Category ? TVIS_BOLD : 0) | TVIS_EXPANDED;
-        gTE.paths.push_back(path);
-        HTREEITEM item = TreeView_InsertItem(gTE.tree, &ins);
-        if (path == select) selItem = item;
-        for (size_t i = 0; i < n.children.size(); ++i) {
-            std::vector<int> child = path;
-            child.push_back(int(i));
-            add(item, n.children[i], child);
-        }
-    };
-    for (size_t i = 0; i < gTE.set.roots.size(); ++i) add(TVI_ROOT, gTE.set.roots[i], {int(i)});
-    SendMessageW(gTE.tree, WM_SETREDRAW, TRUE, 0);
-    gTE.sel = select;
-    if (selItem) TreeView_SelectItem(gTE.tree, selItem);
-    InvalidateRect(gTE.tree, nullptr, TRUE);
-    InvalidateRect(gTE.pane, nullptr, FALSE);
-    InvalidateRect(gTE.info, nullptr, FALSE);
-}
-
-std::vector<int> trigPathOf(HTREEITEM item) {
-    TVITEMW it{};
-    it.mask = TVIF_PARAM;
-    it.hItem = item;
-    if (!item || !TreeView_GetItem(gTE.tree, &it) || it.lParam < 0 || size_t(it.lParam) >= gTE.paths.size()) return {};
-    return gTE.paths[size_t(it.lParam)];
+    gTrigTree.rebuild(gTE.set, gTE.issues, select);
+    trigTreeSelected(select);
 }
 
 // A tab with this project closed: the Data and Triggers workspaces drop what they hold of it, so a project opened
@@ -9394,7 +9327,7 @@ void trigAdd(const std::vector<int>& at, bool folder) {
                                                             : TriggerSet::newTrigger(trigUniqueName(*parent, "New trigger")));
     trigSave();
     trigRefreshTree(path);
-    if (!gSelfTest) TreeView_EditLabel(gTE.tree, TreeView_GetSelection(gTE.tree));
+    if (!gSelfTest) gTrigTree.startRename(gTrigTree.selected());
 }
 
 void trigAddVariable(const std::vector<int>& at, TriggerVariable::Kind kind) {
@@ -9408,7 +9341,7 @@ void trigAddVariable(const std::vector<int>& at, TriggerVariable::Kind kind) {
     trigSave();
     trigRefreshTree(path);
     setMessage(L"Added a variable. Press F2 to rename it.");
-    if (!gSelfTest) TreeView_EditLabel(gTE.tree, TreeView_GetSelection(gTE.tree));
+    if (!gSelfTest) gTrigTree.startRename(gTrigTree.selected());
 }
 
 // --- Templates: ready-made triggers to start from --------------------------------------------------------------
@@ -9505,7 +9438,7 @@ void trigTreeMenu(const std::vector<int>& path, POINT screen) {
     switch (pick) {
     case NewTrigger: trigAdd(path, false); break;
     case NewFolder: trigAdd(path, true); break;
-    case Rename: TreeView_EditLabel(gTE.tree, TreeView_GetSelection(gTE.tree)); break;
+    case Rename: gTrigTree.startRename(gTrigTree.selected()); break;
     case Delete: trigDelete(path); break;
     case Copy: SetFocus(gTE.tree), trigCopy(false); break;
     case Cut: SetFocus(gTE.tree), trigCopy(true); break;
@@ -11275,15 +11208,7 @@ void trigChanged() {
     trigSave();
     trigCodeRefresh();
     // The tree's labels carry the issue counts.
-    if (TriggerNode* n = trigSelectedNode())
-        if (HTREEITEM item = TreeView_GetSelection(gTE.tree)) {
-            const std::wstring label = trigTreeLabel(*n);
-            TVITEMW it{};
-            it.mask = TVIF_TEXT;
-            it.hItem = item;
-            it.pszText = const_cast<wchar_t*>(label.c_str());
-            TreeView_SetItem(gTE.tree, &it);
-        }
+    if (TriggerNode* n = trigSelectedNode()) gTrigTree.relabelSelected(trigTreeLabel(*n));
     InvalidateRect(gTE.pane, nullptr, FALSE);
     InvalidateRect(gTE.info, nullptr, FALSE);
 }
@@ -14588,17 +14513,9 @@ LRESULT CALLBACK trigEditorProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
         break;
     case WM_LBUTTONDOWN:
-        if (gTE.dragNode) break;
         splitGrab = GET_X_LPARAM(lp), SetCapture(hwnd);
         return 0;
     case WM_MOUSEMOVE:
-        if (gTE.dragNode) {
-            POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-            MapWindowPoints(hwnd, gTE.tree, &pt, 1);
-            TVHITTESTINFO hit{pt};
-            TreeView_SelectDropTarget(gTE.tree, TreeView_HitTest(gTE.tree, &hit));
-            return 0;
-        }
         if (splitGrab >= 0) {
             const int dx = MulDiv(GET_X_LPARAM(lp) - splitGrab, 96, int(app.dpi));
             const int nw = std::clamp(gDock.dataListW + dx, kMinSideW, kMaxSideW);
@@ -14611,101 +14528,35 @@ LRESULT CALLBACK trigEditorProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     case WM_LBUTTONUP:
-        if (gTE.dragNode) {
-            // Drop: into a category or folder (at its end), or before a trigger or variable (in its folder).
-            gTE.dragNode = false;
-            ReleaseCapture();
-            HTREEITEM target = TreeView_GetDropHilight(gTE.tree);
-            TreeView_SelectDropTarget(gTE.tree, nullptr);
-            const std::vector<int> to = trigPathOf(target), from = gTE.sel;
-            const TriggerNode* tn = gTE.set.at(to);
-            if (!tn || from.size() < 2 || to == from) return 0;
-            std::vector<int> parent = to;
-            int index = -1;
-            if (tn->kind == TriggerNode::Kind::Trigger || tn->kind == TriggerNode::Kind::Variable) parent.pop_back(), index = to.back();
-            const std::vector<int> moved = gTE.set.move(from, parent, index);
-            if (!moved.empty()) trigSave(), trigRefreshTree(moved);
-            return 0;
-        }
         if (splitGrab >= 0) splitGrab = -1, ReleaseCapture(), saveDock();
         return 0;
-    case WM_NOTIFY: {
-        auto* nm = reinterpret_cast<NMHDR*>(lp);
-        if (nm->hwndFrom != gTE.tree) break;
-        switch (nm->code) {
-        case NM_CUSTOMDRAW: {  // the three categories: how many triggers each has, dim at the right
-            auto* cd = reinterpret_cast<NMTVCUSTOMDRAW*>(lp);
-            if (cd->nmcd.dwDrawStage == CDDS_PREPAINT) return CDRF_NOTIFYITEMDRAW;
-            if (cd->nmcd.dwDrawStage == CDDS_ITEMPREPAINT) return CDRF_NOTIFYPOSTPAINT;
-            if (cd->nmcd.dwDrawStage != CDDS_ITEMPOSTPAINT) return CDRF_DODEFAULT;
-            const std::vector<int> path = trigPathOf(HTREEITEM(cd->nmcd.dwItemSpec));
-            if (path.size() != 1 || path[0] < 0 || path[0] >= int(gTE.set.roots.size())) return CDRF_DODEFAULT;
-            std::function<int(const TriggerNode&)> count = [&](const TriggerNode& n) {
-                int c = n.kind == TriggerNode::Kind::Trigger;
-                for (const auto& k : n.children) c += count(k);
-                return c;
-            };
-            const int n = count(gTE.set.roots[size_t(path[0])]);
-            if (!n) return CDRF_DODEFAULT;
-            RECT r = cd->nmcd.rc;
-            r.right -= scale(10);
-            SetBkMode(cd->nmcd.hdc, TRANSPARENT);
-            SetTextColor(cd->nmcd.hdc, kDim);
-            DrawTextW(cd->nmcd.hdc, std::to_wstring(n).c_str(), -1, &r, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
-            return CDRF_DODEFAULT;
-        }
-        case TVN_SELCHANGEDW:
-            gTE.sel = trigPathOf(reinterpret_cast<NMTREEVIEWW*>(lp)->itemNew.hItem);
-            gTE.scroll = 0;
-            gTP.sel = {};
-            trigCodeRefresh();
-            InvalidateRect(gTE.pane, nullptr, FALSE);
-            InvalidateRect(gTE.info, nullptr, FALSE);
-            return 0;
-        case TVN_BEGINLABELEDITW: {
-            const auto* di = reinterpret_cast<NMTVDISPINFOW*>(lp);
-            const TriggerNode* n = gTE.set.at(trigPathOf(di->item.hItem));
-            if (!n || n->kind == TriggerNode::Kind::Category) return TRUE;  // categories keep their names
-            if (HWND e = TreeView_GetEditControl(gTE.tree)) SetWindowTextW(e, widen(n->name).c_str());  // without the notes
-            return FALSE;
-        }
-        case TVN_ENDLABELEDITW: {
-            const auto* di = reinterpret_cast<NMTVDISPINFOW*>(lp);
-            if (di->item.pszText && *di->item.pszText) trigRenameNode(trigPathOf(di->item.hItem), narrow(di->item.pszText));
-            return FALSE;
-        }
-        case TVN_KEYDOWN: {
-            const auto* kd = reinterpret_cast<NMTVKEYDOWN*>(lp);
-            if (kd->wVKey == VK_F2) TreeView_EditLabel(gTE.tree, TreeView_GetSelection(gTE.tree));
-            if (kd->wVKey == VK_DELETE) trigDelete(gTE.sel);
-            return 0;
-        }
-        case TVN_BEGINDRAGW: {
-            const std::vector<int> p = trigPathOf(reinterpret_cast<NMTREEVIEWW*>(lp)->itemNew.hItem);
-            if (p.size() < 2) return 0;  // categories stay put
-            TreeView_SelectItem(gTE.tree, reinterpret_cast<NMTREEVIEWW*>(lp)->itemNew.hItem);
-            gTE.sel = p;
-            gTE.dragNode = true;
-            SetCapture(hwnd);
-            return 0;
-        }
-        case NM_RCLICK: {
-            POINT pt;
-            GetCursorPos(&pt);
-            POINT local = pt;
-            ScreenToClient(gTE.tree, &local);
-            TVHITTESTINFO hit{local};
-            if (HTREEITEM item = TreeView_HitTest(gTE.tree, &hit)) {
-                TreeView_SelectItem(gTE.tree, item);
-                trigTreeMenu(trigPathOf(item), pt);
-            }
-            return TRUE;
-        }
-        }
-        break;
-    }
     }
     return DefWindowProcW(hwnd, msg, wp, lp);
+}
+
+// The tree's commands (TrigTreeHost, core/views_triggers_tree.inc).
+const TriggerNode* TrigTreeProgram::treeNode(const std::vector<int>& path) { return gTE.set.at(path); }
+
+void trigTreeSelected(const std::vector<int>& path) {
+    gTE.sel = path;
+    gTE.scroll = 0;
+    gTP.sel = {};
+    trigCodeRefresh();
+    InvalidateRect(gTE.pane, nullptr, FALSE);
+    InvalidateRect(gTE.info, nullptr, FALSE);
+}
+void TrigTreeProgram::treeSelected(const std::vector<int>& path) { trigTreeSelected(path); }
+void TrigTreeProgram::treeRename(const std::vector<int>& path, const std::string& name) { trigRenameNode(path, name); }
+void TrigTreeProgram::treeDelete(const std::vector<int>&) { trigDelete(gTE.sel); }
+// Drop: into a category or folder, or between triggers and variables (in their folder).
+void TrigTreeProgram::treeMove(const std::vector<int>& from, const std::vector<int>& parent, int index) {
+    const std::vector<int> moved = gTE.set.move(from, parent, index);
+    if (!moved.empty()) trigSave(), trigRefreshTree(moved);
+}
+void TrigTreeProgram::treeMenu(const std::vector<int>& path) {
+    POINT pt;
+    GetCursorPos(&pt);
+    trigTreeMenu(path, pt);
 }
 
 void createTriggerEditor() {
@@ -14718,15 +14569,7 @@ void createTriggerEditor() {
     wc.lpfnWndProc = trigInfoProc, wc.lpszClassName = L"StarDraftTrigInfo", wc.style = 0;
     RegisterClassExW(&wc);
     gTE.wnd = CreateWindowExW(0, L"StarDraftTrigEditor", L"", WS_CHILD | WS_CLIPCHILDREN, 0, 0, 1, 1, app.main, nullptr, app.inst, nullptr);
-    gTE.tree = CreateWindowExW(0, WC_TREEVIEWW, L"",
-                               WS_CHILD | WS_VISIBLE | WS_TABSTOP | TVS_HASBUTTONS | TVS_LINESATROOT | TVS_EDITLABELS | TVS_SHOWSELALWAYS | TVS_FULLROWSELECT, 0, 0,
-                               1, 1, gTE.wnd, nullptr, app.inst, nullptr);
-    SendMessageW(gTE.tree, WM_SETFONT, WPARAM(app.font), TRUE);
-    darkControl(gTE.tree, L"DarkMode_Explorer");
-    TreeView_SetBkColor(gTE.tree, kBg);
-    TreeView_SetTextColor(gTE.tree, kText);
-    TreeView_SetItemHeight(gTE.tree, scale(24));
-    TreeView_SetImageList(gTE.tree, trigIcons(), TVSIL_NORMAL);
+    gTE.tree = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, 0, 1, 1, gTE.wnd, nullptr, app.inst, &gTrigTree);  // the tree (core/views_triggers_tree.inc)
     gTE.pane = CreateWindowExW(0, L"StarDraftTrigPane", L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, gTE.wnd, nullptr, app.inst, nullptr);
     darkControl(gTE.pane, L"DarkMode_Explorer");
     gTE.info = CreateWindowExW(0, L"StarDraftTrigInfo", L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, gTE.wnd, nullptr, app.inst, nullptr);
@@ -14746,7 +14589,7 @@ void projectPreviewRefresh(bool force);
 // After a theme change: the trigger tree's colors, and the code panes again in the theme's colors.
 void themeRefreshControls() {
     mapPageThemeChanged();
-    if (gTE.tree) TreeView_SetBkColor(gTE.tree, kBg), TreeView_SetTextColor(gTE.tree, kText);
+    if (gTE.tree) InvalidateRect(gTE.tree, nullptr, FALSE);
     if (gTE.code) {
         SendMessageW(gTE.code, EM_SETBKGNDCOLOR, 0, kPanel);
         SetWindowTextW(gTE.code, L"");
@@ -21379,6 +21222,46 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                         }
                     log << "\n";
                 }
+                continue;
+            }
+            if (s == "trigtree:") {  // trigtree.txt: the Triggers tree by its keys and mouse: F2 renames in place, a drag moves a trigger into another category, Delete deletes (needs project:)
+                std::ofstream o(fs::path(datashots) / "trigtree.txt");
+                setWorkspace(Workspace::Triggers);
+                for (int i = 0; i < 10; ++i) pump();
+                TriggerSet before = gTE.set;
+                gTE.set.roots[1].children.insert(gTE.set.roots[1].children.begin(), TriggerSet::newTrigger("Tree test"));
+                trigSave();
+                trigRefreshTree({1, 0});
+                for (int i = 0; i < 5; ++i) pump();
+                const HWND t = gTE.tree;
+                auto key = [&](WPARAM vk) { SendMessageW(t, WM_KEYDOWN, vk, 0), SendMessageW(t, WM_KEYUP, vk, 0); };
+                key(VK_F2);
+                const bool editing = gTrigTree.renaming();
+                for (wchar_t ch : std::wstring(L"Renamed"))
+                    SendMessageW(t, WM_CHAR, ch, 0);
+                key(VK_RETURN);
+                const TriggerNode* n = gTE.set.at({1, 0});
+                const bool renamed = n && n->name == "Renamed";
+                // Drag the trigger (the third row) into On every trigger cycle (the fourth row, its middle: into it).
+                const int rh = scale(24), x = scale(80);
+                auto mouse = [&](UINT msg, int y, WPARAM keys) { SendMessageW(t, msg, keys, MAKELPARAM(x, y)); };
+                mouse(WM_MOUSEMOVE, 2 * rh + rh / 2, 0);
+                mouse(WM_LBUTTONDOWN, 2 * rh + rh / 2, MK_LBUTTON);
+                mouse(WM_MOUSEMOVE, 2 * rh + rh / 2 + scale(8), MK_LBUTTON);
+                mouse(WM_MOUSEMOVE, 3 * rh + rh / 2, MK_LBUTTON);
+                mouse(WM_LBUTTONUP, 3 * rh + rh / 2, 0);
+                const TriggerNode& cycle = gTE.set.roots[2];
+                const bool moved = !cycle.children.empty() && cycle.children.back().name == "Renamed" && gTE.sel == std::vector<int>{2, int(cycle.children.size()) - 1};
+                for (int i = 0; i < 5; ++i) pump();
+                capture(fs::path(datashots) / "trigtree.png");
+                const size_t count = cycle.children.size();
+                key(VK_DELETE);
+                const bool deleted = gTE.set.roots[2].children.size() + 1 == count;
+                o << "F2 opens the name field " << (editing ? "yes" : "NO") << ", Enter renames " << (renamed ? "yes" : "NO") << ", a drag moves into a category "
+                  << (moved ? "yes" : "NO") << ", Delete deletes " << (deleted ? "yes" : "NO") << "\n";
+                gTE.set = before;
+                trigSave();
+                trigRefreshTree({1});
                 continue;
             }
             if (s.rfind("trig:", 0) == 0) {  // trig:<root>:<index>[:<child>...]: the Triggers workspace with that node selected

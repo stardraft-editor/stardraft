@@ -235,3 +235,4 @@ std::uintptr_t shellStartElevated(const std::filesystem::path&, const std::files
 bool shellProcessEnded(std::uintptr_t) { return true; }
 void shellProcessClose(std::uintptr_t) {}
 void shellChooseInstallFolder() { setMessage(L"This is not on this system yet"); }
+bool shellUiIconMask(int, int, std::vector<uint8_t>&) { return false; }  // (the SDL canvas draws icons from its own atlases)

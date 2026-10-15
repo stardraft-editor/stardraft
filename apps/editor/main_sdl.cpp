@@ -51,6 +51,7 @@
 #include "slider.h"  // apps/kit: the volume and the generator's sliders (core/views_options.inc, core/views_new_page.inc)
 #include "list_view.h"  // apps/kit: the palette and the Locations list (sdl_panels.inc)
 #include "button.h"  // apps/kit: the View button (sdl_panels.inc)
+#include "tree_view.h"  // apps/kit: the Triggers workspace's tree (core/views_triggers_tree.inc)
 #include "res/ui_icons.h"
 #include "stardraft/commands.h"
 #include "stardraft/dat_edit.h"
@@ -67,6 +68,7 @@
 #include "stardraft/terrain.h"
 #include "stardraft/terrain_gen.h"  // the generator's settings (core/views_new_page.inc, sdl_new_page.inc)
 #include "stardraft/tileset.h"
+#include "stardraft/triggers.h"  // the Triggers workspace's model (core/views_triggers_tree.inc)
 #include "stardraft/units.h"
 
 using namespace stardraft;
