@@ -2857,15 +2857,15 @@ bool writeRemakeCode(EudProject& pr, std::string& err, std::vector<std::wstring>
             blocked += std::any_of(issues.begin(), issues.end(), [](PlacementIssue p) { return p != PlacementIssue::NearResources; });
         }
         if (count)
-            notes.push_back(L"New graphics for preplaced units: " + std::to_wstring(count) + (count == 1 ? L" unit is" : L" units are") +
-                            L" made again at the start");
+            notes.push_back(tr(L"New graphics for preplaced units: ") + std::to_wstring(count) + tr(count == 1 ? L" unit is" : L" units are") +
+                            tr(L" made again at the start"));
         if (kept)
-            notes.push_back(std::to_wstring(kept) + (kept == 1 ? L" preplaced unit keeps" : L" preplaced units keep") +
-                            L" the old graphics: a new unit cannot be cloaked, burrowed, lifted, loaded, a hallucination, linked to an add-on or a "
-                            L"Nydus Canal, or have interceptors or scarabs.");
+            notes.push_back(std::to_wstring(kept) + tr(kept == 1 ? L" preplaced unit keeps" : L" preplaced units keep") +
+                            tr(L" the old graphics: a new unit cannot be cloaked, burrowed, lifted, loaded, a hallucination, linked to an add-on or a "
+                               L"Nydus Canal, or have interceptors or scarabs."));
         if (blocked)
-            notes.push_back(std::to_wstring(blocked) + (blocked == 1 ? L" of the units that are made again stands" : L" of the units that are made again stand") +
-                            L" where the game cannot put a unit. The game puts it near its place, or does not make it again.");
+            notes.push_back(std::to_wstring(blocked) + tr(blocked == 1 ? L" of the units that are made again stands" : L" of the units that are made again stand") +
+                            tr(L" where the game cannot put a unit. The game puts it near its place, or does not make it again."));
     }
     return pr.writeGeneratedScript("remake.eps", EudProject::remakeUnitsScript(list), err);
 }
@@ -3395,7 +3395,7 @@ void openProject(const fs::path& edsOrFolder) {
     if (const int open = findOpenProject(pr->folder()); open >= 0) {  // open already: go to its tab
         activateDoc(open);
         addRecent(gRecentProjects, pr->folder());
-        setMessage(L"The project " + widen(pr->name()) + L" is open already");
+        setMessage(tr(L"The project ") + widen(pr->name()) + tr(L" is open already"));
         return;
     }
     const size_t before = gDocs.size();
@@ -6178,8 +6178,8 @@ void pickUnit(int v, bool add) {
         if (add && app.mode == Mode::Terrain && !app.terrainRect) {  // the second terrain: the right button paints it
             app.palette2 = app.palette2 == v ? -1 : v;
             if (currentTool() == TSelect) app.toolByMode[int(Mode::Terrain)] = TBrush, fillToolCombo();
-            setMessage(app.palette2 > 0 ? L"Right button paints " + paletteItemName(v) + L"; left button paints " +
-                                              (app.palette > 0 ? paletteItemName(app.palette) : std::wstring(L"the terrain you click")) : L"Right button: no terrain");
+            setMessage(app.palette2 > 0 ? tr(L"Right button paints ") + paletteItemName(v) + tr(L"; left button paints ") +
+                                              (app.palette > 0 ? paletteItemName(app.palette) : std::wstring(tr(L"the terrain you click"))) : L"Right button: no terrain");
             app.dirty = true;
             unitPaletteRepaint();
             return;
@@ -6257,7 +6257,7 @@ void doodadPinToggle(int value) {
     pr->setDoodadPins(pins);
     std::string err;
     if (!gSelfTest && !pr->save(err)) themedMessageBox(app.main, widen(err).c_str(), L"Could not save the project", MB_ICONERROR);
-    setMessage((was ? L"Unpinned " : L"Pinned to the top: ") + paletteItemName(value));
+    setMessage(tr(was ? L"Unpinned " : L"Pinned to the top: ") + paletteItemName(value));
     rebuildUnitPalette();
     unitPaletteRepaint();
 }
@@ -7573,7 +7573,7 @@ void dataTogglePin(int e) {
     dataRebuildList();
     std::wstring name = tabEntryName(tab, e);
     if (name.empty()) name = L"#" + std::to_wstring(e);
-    setMessage(pin ? L"Pinned " + name + L" to the top of the list" : L"Unpinned " + name);
+    setMessage(pin ? tr(L"Pinned ") + name + tr(L" to the top of the list") : tr(L"Unpinned ") + name);
 }
 
 void dataRebuildList() {
@@ -7796,8 +7796,9 @@ void dataPasteAll(int u) {
     const bool saved = dataSaved();
     InvalidateRect(gData.form, nullptr, FALSE), InvalidateRect(gData.list, nullptr, FALSE);
     if (saved)
-        setMessage(L"Pasted everything of " + entryName("units", gDatClip.entry) + L" onto " + entryName("units", u) + L": " + std::to_wstring(n) +
-                   L" values, the display and the button set" + (skipped ? L" (" + std::to_wstring(skipped) + L" values that this unit does not have: not pasted)" : L""));
+        setMessage(tr(L"Pasted everything of ") + entryName("units", gDatClip.entry) + tr(L" onto ") + entryName("units", u) + L": " + std::to_wstring(n) +
+                   tr(L" values, the display and the button set") +
+                   (skipped ? L" (" + std::to_wstring(skipped) + tr(L" values that this unit does not have: not pasted)") : L""));
 }
 
 bool dataCanPasteEntry() { return curTable() && !gDatClip.values.empty() && gDatClip.dat == curTable()->schema().name; }
@@ -7838,7 +7839,7 @@ void dataEntryMenu(int u, POINT screen) {
                 (L"&Paste values" + (dataCanPasteEntry() ? L" of " + entryName(gDatClip.dat, gDatClip.entry) : std::wstring()) + L"\tCtrl+V").c_str());
     if (t->schema().name == "units")
         AppendMenuW(m, MF_STRING | (dataCanPasteAll(u) ? 0 : MF_GRAYED), 5,
-                    (L"Paste &everything" + (dataCanPasteAll(u) ? L" of " + entryName("units", gDatClip.entry) : std::wstring()) + L" (values, display, buttons)").c_str());
+                    (tr(L"Paste &everything") + (dataCanPasteAll(u) ? tr(L" of ") + entryName("units", gDatClip.entry) : std::wstring()) + tr(L" (values, display, buttons)")).c_str());
     AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(m, MF_STRING | (changed ? 0 : MF_GRAYED), 3, L"&Reset to the game's values");
     AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
@@ -11193,11 +11194,11 @@ void paintDataForm(HWND hwnd) {
                 std::string text = gExtras.strings.text(sid - 1);
                 POINT pt;
                 GetCursorPos(&pt);
-                if (!editGameText(L"Name in the game (stat_txt.tbl string " + std::to_wstring(sid) + L")", text, pt)) return;
+                if (!editGameText(tr(L"Name in the game (stat_txt.tbl string ") + std::to_wstring(sid) + L")", text, pt)) return;
                 gExtras.strings.set(sid - 1, text);
                 extrasChanged();
                 dataRebuildList();
-                setMessage(L"Renamed: " + statString(sid));
+                setMessage(tr(L"Renamed: ") + statString(sid));
             }, L"Change the name that the game shows. Each entry that uses this string gets the new name.");
             ui::link(mem, right + scale(16), ly, scale(22), L"String " + std::to_wstring(sid), [sid] { dataGoTo("strings", sid); },
                      L"Open this string in the Strings tab");
@@ -13477,14 +13478,14 @@ std::wstring trigValueText(const std::string& type, const std::string& v) {
             if (app.ed && id < int(app.ed->unitTypes().size())) return widen(app.ed->unitTypes()[uint16_t(id)].name);
             return L"unit type #" + widen(v);
         }
-        return v.empty() ? L"(unit type)" : widen(v) + (trigIsPerPlayer(v, "UnitType") ? L" (the current player's)" : L"");
+        return v.empty() ? L"(unit type)" : widen(v) + (trigIsPerPlayer(v, "UnitType") ? tr(L" (the current player's)") : L"");
     case TriggerPicker::Location:
         if (trigIsNumberText(v)) {
             const int n = std::atoi(v.c_str());
             if (app.ed && n >= 1 && n <= app.ed->locationCount()) return widen(app.ed->locationName(n - 1));
             return L"location " + widen(v);
         }
-        return v.empty() ? L"(location)" : widen(v) + (trigIsPerPlayer(v, "Location") ? L" (the current player's)" : L"");
+        return v.empty() ? L"(location)" : widen(v) + (trigIsPerPlayer(v, "Location") ? tr(L" (the current player's)") : L"");
     case TriggerPicker::Property:
         if (const TriggerProperty* pr = triggerProperty(t->of, v)) return widen(pr->label);
         return v.empty() ? L"(a property)" : widen(v);
@@ -14677,7 +14678,7 @@ void trigEditParam(TrigParamHit h) {
         if (TriggerCall* c = trigHitCall(h); c && hp < int(c->args.size())) c->args[size_t(hp)] = v, trigChanged();
     };
     if (!type || type->picker == TriggerPicker::Unclear) {
-        setMessage(L"\"" + widen(p.name) + L"\" has no clear type yet (" + widen(typeName) + L"). Type it as a number.");
+        setMessage(L"\"" + widen(p.name) + tr(L"\" has no clear type yet (") + widen(typeName) + tr(L"). Type it as a number."));
         return trigEditText(h, value, true, false);
     }
     if (p.type == "GameString") {  // the game's texts (stat_txt.tbl), as on the Strings tab
@@ -16855,15 +16856,15 @@ void trigEditVariableField(TrigVarHit h) {
         std::vector<ListPickItem> items;
         if (v->variable.holds == "UnitType") {
             for (const auto& u : paletteUnits()) items.push_back({u.label, u.section, std::to_string(u.value), "units", u.value});
-            if (!showListPicker(L"Player " + std::to_wstring(p + 1) + L": search unit types", items, val, pt, pick) || pick.empty()) return;
+            if (!showListPicker(tr(L"Player ") + std::to_wstring(p + 1) + tr(L": search unit types"), items, val, pt, pick) || pick.empty()) return;
         } else if (v->variable.holds == "Location") {
             if (app.ed)
                 for (int i = 0; i < app.ed->locationCount(); ++i)
                     if (app.ed->locationUsed(i) || i == kAnywhereLocation) items.push_back({widen(app.ed->locationName(i)), L"", std::to_string(i + 1)});
-            if (!showListPicker(L"Player " + std::to_wstring(p + 1) + L": search the map's locations", items, val, pt, pick) || pick.empty()) return;
+            if (!showListPicker(tr(L"Player ") + std::to_wstring(p + 1) + tr(L": search the map's locations"), items, val, pt, pick) || pick.empty()) return;
         } else {
             ValuePopSpec spec;
-            spec.title = L"Player " + std::to_wstring(p + 1) + L": default value";
+            spec.title = tr(L"Player ") + std::to_wstring(p + 1) + tr(L": default value");
             spec.type = "Number", spec.constantOnly = true, spec.initial = val.empty() ? "0" : val;
             if (!showValuePopup(spec, pt, pick)) return;
         }

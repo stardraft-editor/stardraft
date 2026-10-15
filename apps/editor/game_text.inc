@@ -586,7 +586,7 @@ void gameTextPaint(GameTextBox& g) {
         std::wstring name;
         for (const TextSwatch& s : textSwatches(g.spec.palette))
             if (s.code == code) name = s.name;
-        name += g.rawMode ? std::wstring(L". Puts its code in at the cursor.") : std::wstring(L". Colors the selected text, or the text you type next.");
+        name += tr(g.rawMode ? L". Puts its code in at the cursor." : L". Colors the selected text, or the text you type next.");
         GameTextBox* gp = &g;
         const unsigned char c = code;
         hitsOut().push_back({r, nullptr, [gp, c] { gameTextApply(*gp, c); }, name, IDC_HAND, {}});

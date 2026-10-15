@@ -381,7 +381,7 @@ void classicCommand(int tab, int id, int code) {
         GetWindowRect(pg.title, &tr);
         std::string text = classicUseDefault(tab, e) ? "" : d.names[i];
         const std::wstring game = widen(app.ed->unitTypes()[uint16_t(e)].name);
-        if (!editGameText(L"Unit name   (empty: " + game + L")", text, {tr.left, tr.bottom + scale(4)})) return;
+        if (!editGameText(::tr(L"Unit name   (empty: ") + game + L")", text, {tr.left, tr.bottom + scale(4)})) return;
         if (classicUseDefault(tab, e)) classicSetUseDefault(tab, e, false);  // a name of its own: the entry's own values
         d.names[i] = text;
         classicFollowDefault(tab, e);
