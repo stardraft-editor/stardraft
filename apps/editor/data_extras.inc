@@ -161,6 +161,9 @@ std::wstring stringLine(const std::string& raw) {
 std::wstring statString(int id) {  // stat_txt.tbl string `id` (1-based), as the project has it
     return id >= 1 && id <= gExtras.strings.count() ? stringLine(gExtras.strings.text(id - 1)) : L"";
 }
+std::wstring projectUnitName(int u) {  // a unit's name string (u + 1) when the project changed it, else ""
+    return u >= 0 && u < gExtras.strings.count() && gExtras.strings.changed(u) ? statString(u + 1) : L"";
+}
 
 // Sets 0-227 are the units'. The others are named by the button that opens them ("Terran SCV: Build Structure").
 std::wstring buttonSetName(int s) {
