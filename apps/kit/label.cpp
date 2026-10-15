@@ -40,8 +40,10 @@ void Label::paint(draw::Canvas& c) {
         c.icon({0, top, s, top + s}, icon_, col, s);
     }
     const draw::Rect tr{textLeft(), 0, width(), h};
+    const draw::Font of = hasFont_ ? c.setFont(c.font(font_)) : draw::Font{};
     if (wrap_) c.text(tr, text_, col, draw::kWrap);
     else c.text(tr, text_, col, draw::kMiddle | draw::kEllipsis);
+    if (hasFont_) c.setFont(of);
 }
 
 }  // namespace stardraft::kit

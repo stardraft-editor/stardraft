@@ -31,11 +31,28 @@ inline draw::Point batchOriginOf(const draw::View& v) {
     return p;
 }
 
+// The layout is the native dialog's (its template, 240 x 206 dialog units at Segoe UI 9 pt: 1.5 px across and 2 px
+// down at 100 %), in pixels at 100 %, from the content's top left corner. The content sits 12 px from the left edge,
+// 8 px from the top, 9 px from the right, and ends where the buttons start (the Dialog's insets, runBatchDialog). The
+// kit's fields are kFieldH (24 px) high, where the native edit box was 28 px and the native combo 21 px; the values are
+// a kit list (rows of kRowH, the native rows were 17 px) with the kit's scroll bar.
+namespace batchLayout {
+constexpr int kLabelX = 0, kLabelW = 126;     // "Variable name", "Kind", "Values": the label column
+constexpr int kFieldX = 132, kFieldW = 204;   // the fields and the list start 132 px in (abs 144)
+constexpr int kIntroY = 8, kIntroH = 44;      // the text at the top (two lines)
+constexpr int kNameLabelY = 66, kNameY = 62;  // label text top; the name field's top (24 px, centered on the native box at 60..88)
+constexpr int kKindLabelY = 106, kKindY = 99;
+constexpr int kValuesLabelY = 146, kValuesY = 140, kValuesH = 160;
+constexpr int kButtonsY = 308, kButtonH = 28;  // Add values and Remove the value: 99 px and 102 px wide
+constexpr int kAddW = 99, kRemoveX = 237, kRemoveW = 102;
+constexpr int kContentW = 339;                 // 360 - 12 - 9
+}  // namespace batchLayout
+
 // The dialog's content: the text, the form's rows and the values' buttons. The dialog's own buttons are the Dialog's.
 class BatchView final : public draw::View {
 public:
     BatchView(BatchHost& host, const ClassicBatch& batch, bool editing) : host_(host), editing_(editing), shown_(batch.kind) {
-        intro_.setWrap(true), intro_.setTone(stardraft::kit::LabelTone::Dim);
+        intro_.setWrap(true), intro_.setTone(stardraft::kit::LabelTone::Dim);  // (the native statics were dim: CTLCOLORSTATIC)
         intro_.setText(tr(L"A block repeats the actions in it for each value. The variable is the value of each copy."));
         name_.setText(widen(batch.name));
         kind_.setItems(kindItems());
@@ -74,20 +91,23 @@ public:
     bool editing() const { return editing_; }
 
     void paint(draw::Canvas& c) override {
+        using namespace batchLayout;
         if (!focused_ && host()) focused_ = true, name_.focus();  // the name has the keyboard when the dialog opens
         c.fill({0, 0, width(), height()}, kBg);
-        c.text({0, scale(52), scale(128) - scale(8), scale(76)}, tr(L"Variable name"), kDim, draw::kMiddle);
-        c.text({0, scale(92), scale(128) - scale(8), scale(116)}, tr(L"Kind"), kDim, draw::kMiddle);
-        c.text({0, scale(132), scale(128) - scale(8), scale(156)}, tr(L"Values"), kDim, draw::kMiddle);
+        // The labels' text sits at the top of their boxes, as the native static text did.
+        const draw::Color text = stardraft::kit::labelColor(stardraft::kit::LabelTone::Dim);
+        c.text({scale(kLabelX), scale(kNameLabelY), scale(kLabelX + kLabelW), scale(kNameLabelY + 20)}, tr(L"Variable name"), text, draw::kLeft);
+        c.text({scale(kLabelX), scale(kKindLabelY), scale(kLabelX + kLabelW), scale(kKindLabelY + 20)}, tr(L"Kind"), text, draw::kLeft);
+        c.text({scale(kLabelX), scale(kValuesLabelY), scale(kLabelX + kLabelW), scale(kValuesLabelY + 20)}, tr(L"Values"), text, draw::kLeft);
     }
     void resized() override {
-        const int W = width();
-        intro_.setFrame({0, 0, W, scale(40)});
-        name_.setFrame({scale(128), scale(52), W, scale(76)});
-        kind_.setFrame({scale(128), scale(92), W, scale(116)});
-        values_.setFrame({scale(128), scale(132), W, scale(292)});
-        addValues_.setFrame({scale(128), scale(300), scale(128) + scale(96), scale(328)});
-        removeValue_.setFrame({W - scale(102), scale(300), W, scale(328)});
+        using namespace batchLayout;
+        intro_.setFrame({scale(kLabelX), scale(kIntroY), scale(kLabelX + kFieldX + kFieldW), scale(kIntroY + kIntroH)});
+        name_.setFrame({scale(kFieldX), scale(kNameY), scale(kFieldX + kFieldW), scale(kNameY + 24)});
+        kind_.setFrame({scale(kFieldX), scale(kKindY), scale(kFieldX + kFieldW), scale(kKindY + 24)});
+        values_.setFrame({scale(kFieldX), scale(kValuesY), scale(kFieldX + kFieldW), scale(kValuesY + kValuesH)});
+        addValues_.setFrame({scale(kFieldX), scale(kButtonsY), scale(kFieldX + kAddW), scale(kButtonsY + kButtonH)});
+        removeValue_.setFrame({scale(kRemoveX), scale(kButtonsY), scale(kRemoveX + kRemoveW), scale(kButtonsY + kButtonH)});
     }
 
 private:
@@ -180,14 +200,16 @@ inline int runBatchDialog(draw::View& from, BatchHost& host, ClassicBatch& batch
     dlg.setContent(view);
     view.setDialog(&dlg);
     std::vector<stardraft::kit::DialogButton> buttons;
-    if (editing) buttons.push_back({tr(L"Remove the block"), kBatchRemove, false, false, true});
-    buttons.push_back({tr(editing ? L"Save" : L"Add the block"), kBatchOk, true, false});
-    buttons.push_back({tr(L"Cancel"), kBatchCancel, false, true});
+    if (editing) buttons.push_back({tr(L"Remove the block"), kBatchRemove, false, false, true, 165});
+    buttons.push_back({tr(editing ? L"Save" : L"Add the block"), kBatchOk, true, false, false, 75});
+    buttons.push_back({tr(L"Cancel"), kBatchCancel, false, true, false, 75});
     dlg.setButtons(std::move(buttons));
+    dlg.setInsets({12, 8, 9, 12, 0, 6});  // the native template's margins: 12 px left, 8 top, 9 right, 12 bottom; buttons 6 apart
+    dlg.setCenterOnWorkArea(true);        // DS_CENTER
     dlg.setAllow([&view](int r) { return r != kBatchOk || view.canOk(); });
     dlg.setEnabledFor(kBatchOk, view.canOk());
     shown = &view;
-    const int r = dlg.run(from, tr(editing ? L"Edit the block" : L"Add a block"), draw::Point{scale(360), scale(412)});
+    const int r = dlg.run(from, tr(editing ? L"Edit the block" : L"Add a block"), draw::Point{scale(360), scale(412)});  // 240 x 206 dialog units
     shown = nullptr;
     if (r == kBatchOk) view.collect(batch);
     return r;

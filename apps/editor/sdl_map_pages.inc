@@ -19,7 +19,7 @@ struct SdlCopy {
     virtual bool applyToMap() = 0;     // the values into the map (one undo step); false: the map did not take them
     virtual void rebase() = 0;         // the values are the map's now
 };
-enum SdlPageKind { kSdlProps, kSdlPlayers, kSdlClassic, kSdlPageCount };
+enum SdlPageKind { kSdlProps, kSdlPlayers, kSdlClassic, kSdlClassicTrig, kSdlPageCount };
 
 struct SdlPropsCopy final : SdlCopy {
     std::shared_ptr<MapPropsValues> d;
@@ -42,6 +42,27 @@ struct SdlClassicCopy final : SdlCopy {
     bool applyToMap() override;
     void rebase() override;
 };
+// Classic triggers: the page's model (the core's CtModel, the page's collapsed rows) and its copy (the triggers as the page
+// edits them, against the map's as the page read them; the map takes them with one undo step, as classic_triggers.inc does).
+struct SdlClassicTrigModel : CtModel {
+    std::set<int> collapsed;  // the action rows of collapsed blocks (cleared when the trigger changes)
+};
+struct SdlClassicTrigCopy final : SdlCopy {
+    std::shared_ptr<SdlClassicTrigModel> d;
+    bool has() const override { return d != nullptr; }
+    bool differs() const override { return d && ctModelChanged(*d); }
+    bool applyToMap() override {
+        if (!d || !gState.ed) return false;
+        std::wstring message;
+        const int r = ctModelApply(*d, *gState.ed, message);
+        if (r == kCtApplySet) updateTitle();
+        setMessage(message);
+        return r != kCtApplyRefused;
+    }
+    void rebase() override {
+        if (d) d->before = d->trig.triggers;
+    }
+};
 
 // The copies of the map open in a tab (Doc::mapPages): one per page.
 struct MapPageCopies {
@@ -51,6 +72,7 @@ struct MapPageCopies {
         kinds[kSdlProps] = std::make_unique<SdlPropsCopy>();
         kinds[kSdlPlayers] = std::make_unique<SdlPlayersCopy>();
         kinds[kSdlClassic] = std::make_unique<SdlClassicCopy>();
+        kinds[kSdlClassicTrig] = std::make_unique<SdlClassicTrigCopy>();
     }
 };
 
@@ -469,6 +491,9 @@ SdlPropsHost gSdlPropsHost;
 SdlPlayersHost gSdlPlayersHost;
 SdlClassicHost gSdlClassicHost;
 
+// Classic triggers: the page's view and its commands (sdl_classic_triggers.inc; the model is the core's).
+#include "sdl_classic_triggers.inc"
+
 // The page's views of the open page (the copy's values are held by the copy; the views are made when the page opens).
 struct SdlPageState {
     int kind = -1;               // the open page (SdlPageKind), -1: none
@@ -479,6 +504,7 @@ struct SdlPageState {
     std::unique_ptr<SdlPropsView> props;
     std::unique_ptr<PlayersView> players;
     std::unique_ptr<ClassicPageView> classic[kClassicTabCount];
+    std::unique_ptr<SdlClassicTrigPage> classicTrig;
 };
 SdlPageState gSdlPage;
 
@@ -503,6 +529,7 @@ SdlCopy* sdlOpenCopy() {
 SdlPropsCopy& sdlPropsCopy(MapPageCopies& c) { return static_cast<SdlPropsCopy&>(*c.kinds[kSdlProps]); }
 SdlPlayersCopy& sdlPlayersCopy(MapPageCopies& c) { return static_cast<SdlPlayersCopy&>(*c.kinds[kSdlPlayers]); }
 SdlClassicCopy& sdlClassicCopy(MapPageCopies& c) { return static_cast<SdlClassicCopy&>(*c.kinds[kSdlClassic]); }
+SdlClassicTrigCopy& sdlClassicTrigCopy(MapPageCopies& c) { return static_cast<SdlClassicTrigCopy&>(*c.kinds[kSdlClassicTrig]); }
 
 // A copy goes: the page reads the map again when it is opened next.
 void sdlDropKind(MapPageCopies& all, int kind) {
@@ -510,6 +537,7 @@ void sdlDropKind(MapPageCopies& all, int kind) {
     case kSdlProps: sdlPropsCopy(all).d.reset(); break;
     case kSdlPlayers: sdlPlayersCopy(all).d.reset(); break;
     case kSdlClassic: sdlClassicCopy(all).d.reset(); break;
+    case kSdlClassicTrig: sdlClassicTrigCopy(all).d.reset(); break;
     }
     all.kinds[kind]->revision = 0, all.kinds[kind]->changed = false;
 }
@@ -538,6 +566,14 @@ bool sdlLoadKind(int kind, MapPageCopies& c) {
         k.d = d, k.revision = rev, k.changed = false;
         return true;
     }
+    case kSdlClassicTrig: {
+        auto& k = sdlClassicTrigCopy(c);
+        auto d = std::make_shared<SdlClassicTrigModel>();
+        ctModelLoad(*d, *gState.ed);  // the map's triggers (a batch is its template in the list)
+        d->ai = loadClassicAiScripts(gState.data);
+        k.d = d, k.revision = rev, k.changed = false;
+        return true;
+    }
     }
     return false;
 }
@@ -547,6 +583,7 @@ void sdlDropViews() {
     gSdlPage.props.reset();  // (each view takes itself out of the scroll view)
     gSdlPage.players.reset();
     for (auto& v : gSdlPage.classic) v.reset();
+    gSdlPage.classicTrig.reset();
     gClassic = nullptr;
 }
 void sdlShowTab(int k);
@@ -564,6 +601,8 @@ std::vector<draw::View*> sdlParts() {
     } else if (gSdlPage.kind == kSdlClassic) {
         for (auto& v : gSdlPage.classic)
             if (v) out.push_back(v.get());
+    } else if (gSdlPage.kind == kSdlClassicTrig) {
+        if (gSdlPage.classicTrig) out.push_back(gSdlPage.classicTrig.get());
     }
     return out;
 }
@@ -605,7 +644,11 @@ public:
         }
         return {w, h};
     }
-    void fitContent(int, int) override {}  // (Classic triggers fill the view: it is not on this system yet)
+    void fitContent(int w, int h) override {  // (Classic triggers fill the view, and are as tall as they need)
+        if (gSdlPage.kind != kSdlClassicTrig || !gSdlPage.classicTrig) return;
+        gSdlPage.classicTrig->setSize(std::max(w, gSdlPage.classicTrig->preferredWidth()), std::max(h, gSdlPage.classicTrig->preferredHeight()));
+        sdlPageRelayoutParts();
+    }
     void placeContent(int x, int y) override {
         const auto parts = sdlParts();
         for (size_t k = 0; k < parts.size(); ++k) {
@@ -613,7 +656,7 @@ public:
             parts[k]->setFrame({-x, top, -x + parts[k]->width(), top + parts[k]->height()});
         }
     }
-    static inline const wchar_t* const kSdlTitles[kSdlPageCount] = {L"Map properties", L"Players and forces", L"Data"};
+    static inline const wchar_t* const kSdlTitles[kSdlPageCount] = {L"Map properties", L"Players and forces", L"Data", L"Classic triggers"};
 };
 SdlPageFrameHost gSdlPageFrameHost;
 
@@ -839,6 +882,12 @@ void sdlMakeContent() {
         scroll.add(*gSdlPage.players, draw::Rect(0, 0, gSdlPage.players->preferredWidth(), gSdlPage.players->preferredHeight()));
         break;
     }
+    case kSdlClassicTrig: {
+        auto& k = sdlClassicTrigCopy(*all);
+        gSdlPage.classicTrig = std::make_unique<SdlClassicTrigPage>(*k.d);
+        scroll.add(*gSdlPage.classicTrig, draw::Rect(0, 0, gSdlPage.classicTrig->preferredWidth(), gSdlPage.classicTrig->preferredHeight()));
+        break;
+    }
     case kSdlClassic: {
         auto& k = sdlClassicCopy(*all);
         gClassic = k.d.get();  // (the core's Map data functions read the copy that shows)
@@ -911,19 +960,21 @@ bool sdlPageKindChanged(int kind) {
 
 // The rail's dot: the page of workspace `id` has changes that are not applied.
 int sdlPageKindOfCommand(int id) {
-    return id == ID_SCEN_PROPS ? kSdlProps : id == ID_SCEN_PLAYERS ? kSdlPlayers : id == ID_SCEN_CLASSIC ? kSdlClassic : -1;
+    return id == ID_SCEN_PROPS ? kSdlProps : id == ID_SCEN_PLAYERS ? kSdlPlayers : id == ID_SCEN_CLASSIC ? kSdlClassic
+           : id == ID_SCEN_CLASSICTRIG ? kSdlClassicTrig : -1;
 }
 bool mapPageChangesFor(int id) {
     const int kind = sdlPageKindOfCommand(id);
     return kind >= 0 && sdlPageKindChanged(kind);
 }
 
-// The page kind of a workspace (-1: none on this system; Classic triggers is not on it yet).
+// The page kind of a workspace (-1: none on this system).
 int sdlPageKindOfWorkspace(Workspace w) {
     switch (w) {
     case Workspace::Properties: return kSdlProps;
     case Workspace::Players: return kSdlPlayers;
     case Workspace::ClassicSettings: return kSdlClassic;
+    case Workspace::ClassicTriggers: return kSdlClassicTrig;
     default: return -1;
     }
 }
@@ -948,7 +999,7 @@ bool mapPagesConfirm() {
     MapPageCopies* all = sdlCopies(false);
     if (!all) return true;
     std::wstring names;
-    static const wchar_t* const kNames[kSdlPageCount] = {L"Properties", L"Players", L"Data"};
+    static const wchar_t* const kNames[kSdlPageCount] = {L"Properties", L"Players", L"Data", L"Classic triggers"};
     for (int k = 0; k < kSdlPageCount; ++k)
         if (all->kinds[k]->has() && all->kinds[k]->changed) names += (names.empty() ? L"" : L", ") + std::wstring(kNames[k]);
     if (names.empty()) return true;
@@ -972,4 +1023,5 @@ void registerMapPages() {
     registerWorkspaceView(Workspace::Properties, gSdlMapPages);
     registerWorkspaceView(Workspace::Players, gSdlMapPages);
     registerWorkspaceView(Workspace::ClassicSettings, gSdlMapPages);
+    registerWorkspaceView(Workspace::ClassicTriggers, gSdlMapPages);
 }
