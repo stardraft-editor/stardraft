@@ -26,6 +26,17 @@ inline unsigned keyMods() {
     return m;
 }
 
+// The modifiers of a mouse message: Shift and Ctrl from its key flags (MK_SHIFT, MK_CONTROL: they are the state of the
+// message, also for a message that was posted), Alt and the Windows keys from the keyboard state.
+inline unsigned mouseMods(WPARAM keys) {
+    unsigned m = 0;
+    if (keys & MK_SHIFT) m |= stardraft::draw::kShift;
+    if (keys & MK_CONTROL) m |= stardraft::draw::kCtrl;
+    if (GetKeyState(VK_MENU) < 0) m |= stardraft::draw::kAlt;
+    if (GetKeyState(VK_LWIN) < 0 || GetKeyState(VK_RWIN) < 0) m |= stardraft::draw::kSuper;
+    return m;
+}
+
 inline Key keyFromVk(WPARAM vk) {
     if ((vk >= 'A' && vk <= 'Z') || (vk >= '0' && vk <= '9')) return Key(int(vk));
     if (vk >= VK_F1 && vk <= VK_F12) return Key(int(Key::F1) + int(vk - VK_F1));
@@ -196,7 +207,7 @@ public:
         wnd_ = w;
         auto mouseEvent = [&](MouseKind k, int button) {
             MouseEvent e;
-            e.kind = k, e.button = button, e.pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)}, e.mods = keyMods();
+            e.kind = k, e.button = button, e.pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)}, e.mods = mouseMods(wp);
             return e;
         };
         switch (msg) {
@@ -261,7 +272,7 @@ public:
             POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
             ScreenToClient(w, &pt);
             MouseEvent e;
-            e.kind = MouseKind::Wheel, e.pt = {pt.x, pt.y}, e.mods = keyMods();
+            e.kind = MouseKind::Wheel, e.pt = {pt.x, pt.y}, e.mods = mouseMods(GET_KEYSTATE_WPARAM(wp));
             e.wheel = float(GET_WHEEL_DELTA_WPARAM(wp)) / WHEEL_DELTA, e.horizontal = msg == WM_MOUSEHWHEEL;
             return router_.mouse(e) ? (result = 0, true) : false;
         }
