@@ -184,6 +184,23 @@ void RichField::setSpans(std::vector<Span> spans) {
     invalidate();
 }
 
+void RichField::setLineAligns(std::vector<uint8_t> aligns) {
+    if (aligns == aligns_) return;
+    aligns_ = std::move(aligns);
+    ++style_;
+    invalidate();
+}
+
+void RichField::setPlain(bool on) {
+    plain_ = on;
+    invalidate();
+}
+
+size_t RichField::caretParagraph() const {
+    const std::wstring& t = model_.text();
+    return size_t(std::count(t.begin(), t.begin() + std::ptrdiff_t(std::min(model_.caret(), t.size())), L'\n'));
+}
+
 void RichField::setFont(draw::FontDesc f) {
     fontDesc_ = f;
     ++style_;
@@ -342,6 +359,20 @@ void RichField::buildLines(int vw) {
         lastHard = hard;
     } while (s < N);
     if (lastHard) lines_.push_back(Line{N, N, false, totalW_, 0});  // the caret after a last newline
+    // The paragraphs' alignment (lines that wrap): a line's spaces at its end do not count.
+    if (!(wraps && !aligns_.empty())) return;
+    size_t para = 0;
+    for (Line& ln : lines_) {
+        const uint8_t a = para < aligns_.size() ? aligns_[para] : 0;
+        if (a == 1 || a == 2) {
+            size_t e = ln.last;
+            if (e > ln.first && units_[e - 1].kind == kNewline) --e;
+            while (e > ln.first && units_[e - 1].kind == kChar && t[units_[e - 1].from] == L' ') --e;
+            const int w = e > ln.first ? units_[e - 1].x + units_[e - 1].w - ln.x0 : 0;
+            ln.off = std::max(0, a == 1 ? (vw - w) / 2 : vw - w);
+        }
+        if (ln.hard) ++para;
+    }
 }
 
 size_t RichField::lineOf(size_t u) const {
@@ -399,7 +430,7 @@ size_t RichField::hitCaret(draw::Point pt, bool& brk) const {
     if (lines_.empty()) return model_.caret();
     const size_t L = lineAtY(pt.y);
     const Line& ln = lines_[L];
-    const int absX = ln.x0 + (pt.x - inner().left + scrollX_);
+    const int absX = ln.x0 + (pt.x - inner().left - ln.off + scrollX_);
     const size_t u = posInLine(L, absX);
     brk = !ln.hard && L + 1 < lines_.size() && u == ln.last;
     return modelAt(u);
@@ -408,7 +439,7 @@ size_t RichField::hitCaret(draw::Point pt, bool& brk) const {
 size_t RichField::chipAt(draw::Point pt) const {
     if (lines_.empty()) return kNone;
     const Line& ln = lines_[lineAtY(pt.y)];
-    const int absX = ln.x0 + (pt.x - inner().left + scrollX_);
+    const int absX = ln.x0 + (pt.x - inner().left - ln.off + scrollX_);
     for (size_t i = ln.first; i < ln.last; ++i) {
         const Unit& u = units_[i];
         if (u.kind == kChip && absX >= u.x && absX < u.x + u.w) return i;
@@ -427,7 +458,7 @@ draw::Rect RichField::chipRect(size_t unit) const {
     if (lines_.empty() || unit >= units_.size()) return {};
     const size_t L = lineOf(unit);
     const Unit& u = units_[unit];
-    const int x = inner().left - scrollX_ + (u.x - lines_[L].x0);
+    const int x = inner().left - scrollX_ + lines_[L].off + (u.x - lines_[L].x0);
     const int top = lineTop(L);
     return draw::Rect{x + px(1), top + px(2), x + u.w - px(1), top + lineH_ - px(2)};
 }
@@ -476,7 +507,7 @@ void RichField::updateCaretRect() {
     if (!fresh() || lines_.empty()) return;
     const draw::Rect in = inner();
     const size_t L = caretLine();
-    const int x = in.left - scrollX_ + (caretX() - lines_[L].x0);
+    const int x = in.left - scrollX_ + lines_[L].off + (caretX() - lines_[L].x0);
     const int top = lineTop(L);
     caretRect_ = draw::Rect{x, top, x + 1, top + lineH_};
 }
@@ -490,7 +521,7 @@ void RichField::paint(draw::Canvas& c) {
     if (hot_) line = th.borderHot;
     if (readOnly()) fill = th.readOnly, line = th.readOnlyLine;
     if (focused_ && !readOnly()) line = th.accent;
-    c.roundBox(draw::Rect{0, 0, width(), height()}, fill, line, float(px(kRadius)));
+    if (!plain_) c.roundBox(draw::Rect{0, 0, width(), height()}, fill, line, float(px(kRadius)));
 
     const draw::Font prev = c.setFont(c.font(fontDesc_));
     if (!fresh()) relayout(c);
@@ -515,7 +546,7 @@ void RichField::paint(draw::Canvas& c) {
     }
     if (focused_ && !lines_.empty()) {
         const size_t L = caretLine();
-        const int x = in.left - scrollX_ + (caretX() - lines_[L].x0);
+        const int x = in.left - scrollX_ + lines_[L].off + (caretX() - lines_[L].x0);
         const int top = lineTop(L);
         c.fill(draw::Rect{x, top, x + std::max(1, px(1)), top + lineH_}, th.text);
     }
@@ -529,7 +560,7 @@ void RichField::paintLine(draw::Canvas& c, size_t L, const draw::Rect& in) {
     const Theme& th = theme();
     const Line& ln = lines_[L];
     const int top = lineTop(L);
-    const int baseX = in.left - scrollX_ - ln.x0;  // a unit's x is baseX + its x
+    const int baseX = in.left - scrollX_ + ln.off - ln.x0;  // a unit's x is baseX + its x
     const int spaceW = c.measure(L" ");
     size_t i = ln.first;
     while (i < ln.last) {
@@ -565,7 +596,8 @@ void RichField::paintLine(draw::Canvas& c, size_t L, const draw::Rect& in) {
         c.setFont(c.font(d));
         const std::wstring_view s = u.kind == kComp ? std::wstring_view(comp_).substr(u.aux, j - i)
                                                     : std::wstring_view(model_.text()).substr(u.from, units_[j - 1].to - u.from);
-        c.text(draw::Rect{x0, top, x1 + lineH_, top + lineH_}, s, a.color, draw::kLeft | draw::kMiddle);
+        // Each character at its measured advance (the caret and the mouse use those widths): textAt moves no pairs.
+        c.textAt({x0, top + (lineH_ - c.metrics().height) / 2}, s, a.color);
         c.setFont(c.font(fontDesc_));
         i = j;
     }
@@ -604,7 +636,7 @@ void RichField::setCaretAt(draw::Point pt, bool extend) {
 void RichField::vertical(int dir, bool extend) {
     if (lines_.empty()) return;
     const size_t L = caretLine();
-    if (goalX_ < 0) goalX_ = caretX() - lines_[L].x0;
+    if (goalX_ < 0) goalX_ = caretX() - lines_[L].x0 + lines_[L].off;
     const bool have = dir < 0 ? L > 0 : L + 1 < lines_.size();
     if (!have) {  // Up on the first line goes to the start of the text, Down on the last to its end
         model_.setCaret(dir < 0 ? 0 : model_.size(), extend);
@@ -613,7 +645,7 @@ void RichField::vertical(int dir, bool extend) {
     }
     const size_t LL = dir < 0 ? L - 1 : L + 1;
     const Line& ln = lines_[LL];
-    const size_t u = posInLine(LL, ln.x0 + goalX_);
+    const size_t u = posInLine(LL, ln.x0 + goalX_ - ln.off);
     atBreak_ = !ln.hard && LL + 1 < lines_.size() && u == ln.last;
     model_.setCaret(modelAt(u), extend);
     afterAction();  // keeps the column (goalX_)

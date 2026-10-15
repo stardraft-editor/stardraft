@@ -137,3 +137,98 @@ inline int drawGameText(draw::Canvas& c, draw::Rect r, const std::string& raw, d
     }
     return y - r.top;
 }
+
+// --- Raw: the bytes with each code as <XX> ------------------------------------------------------------------------
+
+// "<XX>" at v[i]: two hex digits for a code 01..1F.
+inline int gameTextTagAt(const std::wstring& v, size_t i) {
+    if (i + 3 >= v.size() || v[i] != L'<' || v[i + 3] != L'>' || !iswxdigit(v[i + 1]) || !iswxdigit(v[i + 2])) return -1;
+    const int c = int(std::wcstoul(v.substr(i + 1, 2).c_str(), nullptr, 16));
+    return c >= 1 && c < 0x20 ? c : -1;
+}
+// Bytes as text (UTF-8, else Windows-1252 for the whole text, as widen does).
+inline std::wstring gameTextDecode(const std::string& s, bool utf8) {
+    std::wstring w;
+    if (s.empty()) return w;
+    if (utf8 && stardraft::text::decodeUtf8(s, w)) return w;
+    w.clear();
+    for (const char ch : s) stardraft::text::appendWide(w, stardraft::text::cp1252(static_cast<unsigned char>(ch)));
+    return w;
+}
+inline bool gameTextIsUtf8(const std::string& s) {
+    std::wstring w;
+    return s.empty() || stardraft::text::decodeUtf8(s, w);
+}
+
+inline std::wstring gameTextToRaw(const std::string& bytes, bool multiline) {
+    const bool utf8 = gameTextIsUtf8(bytes);
+    // The text with each code as a place holder (a NUL, its code beside), then the tags; a "<" that could read as a
+    // tag, or that is followed by "<", is "<<".
+    std::wstring text;
+    std::map<size_t, unsigned char> codes;
+    std::string run;
+    auto flush = [&] { text += gameTextDecode(run, utf8), run.clear(); };
+    for (size_t i = 0; i < bytes.size(); ++i) {
+        const unsigned char c = static_cast<unsigned char>(bytes[i]);
+        if (c == '\r' && i + 1 < bytes.size() && bytes[i + 1] == '\n') continue;  // (the line end is the box's)
+        if (c == '\n' && multiline) {
+            flush(), text += L'\n';
+            continue;
+        }
+        if (c < 0x20) {
+            flush(), codes[text.size()] = c, text += L'\0';
+            continue;
+        }
+        run += char(c);
+    }
+    flush();
+    std::wstring out;
+    for (size_t i = 0; i < text.size(); ++i) {
+        const wchar_t ch = text[i];
+        if (const auto it = codes.find(i); it != codes.end()) {
+            wchar_t tag[8];
+            std::swprintf(tag, 8, L"<%02X>", unsigned(it->second));
+            out += tag;
+        } else if (ch == L'\n') {
+            out += L"\r\n";
+        } else if (ch == L'<' && ((i + 1 < text.size() && text[i + 1] == L'<') || codes.count(i + 1) || gameTextTagAt(text, i) > 0)) {
+            out += L"<<";
+        } else {
+            out += ch;
+        }
+    }
+    return out;
+}
+inline std::string gameTextFromRaw(const std::wstring& v, bool crlf) {
+    std::string out;
+    std::wstring run;
+    auto flush = [&] { out += narrow(run), run.clear(); };
+    for (size_t i = 0; i < v.size(); ++i) {
+        if (v[i] == L'\r') continue;
+        if (v[i] == L'\n') {
+            flush(), out += crlf ? "\r\n" : "\n";
+            continue;
+        }
+        if (v[i] == L'<' && i + 1 < v.size() && v[i + 1] == L'<') {  // "<<": a "<"
+            run += L'<', ++i;
+            continue;
+        }
+        if (const int c = gameTextTagAt(v, i); c > 0) {
+            flush(), out += char(c), i += 3;
+            continue;
+        }
+        run += v[i];
+    }
+    flush();
+    return out;
+}
+
+// --- The editor's settings ------------------------------------------------------------------------------------------
+
+struct GameTextSpec {
+    TextPalette palette = TextPalette::Game;
+    bool multiline = true;
+    bool align = true;   // the align buttons (multi-line texts)
+    bool crlf = false;   // lines end in \r\n (map texts); else as the text had them (\n for a new text)
+    std::wstring cue;    // shown in an empty box
+};
