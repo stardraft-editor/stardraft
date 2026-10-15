@@ -178,6 +178,42 @@ struct TrigPaneState {
 };
 TrigPaneState gTP;
 
+// Undo: the trigger set after each saved change; `at` is the one shown.
+struct TrigHistory {
+    std::vector<std::pair<TriggerSet, std::vector<int>>> steps;
+    size_t at = 0;
+    std::string last;  // the set's text at `at`, to see whether a save changed anything
+};
+TrigHistory gTrigHist;
+
+void trigHistoryReset() {
+    gTrigHist.steps = {{gTE.set, gTE.sel}}, gTrigHist.at = 0, gTrigHist.last = gTE.set.text();
+}
+
+void trigHistoryRecord() {
+    if (gTrigHist.steps.empty()) return trigHistoryReset();
+    std::string now = gTE.set.text();
+    if (now == gTrigHist.last) return;
+    gTrigHist.steps.resize(gTrigHist.at + 1);
+    gTrigHist.steps.push_back({gTE.set, gTE.sel});
+    if (gTrigHist.steps.size() > 200) gTrigHist.steps.erase(gTrigHist.steps.begin());
+    gTrigHist.at = gTrigHist.steps.size() - 1, gTrigHist.last = std::move(now);
+}
+
+// One step back (or forward, `redo`): the set as it was, and in `sel` what was selected when it changed. The pane's
+// selection goes. False when there is no step that way. (The program saves the file and shows the set: trigUndo.)
+bool trigHistoryStep(bool redo, std::vector<int>& sel) {
+    if (!gTE.project || (redo ? gTrigHist.at + 1 >= gTrigHist.steps.size() : gTrigHist.at == 0)) return false;
+    sel = gTrigHist.steps[gTrigHist.at].second;
+    gTrigHist.at = redo ? gTrigHist.at + 1 : gTrigHist.at - 1;
+    if (redo) sel = gTrigHist.steps[gTrigHist.at].second;
+    gTE.set = gTrigHist.steps[gTrigHist.at].first, gTrigHist.last = gTE.set.text();
+    gTP.sel = {}, gTP.focus = {}, gTP.focus.ref.index = -1;
+    return true;
+}
+bool trigCanUndo(bool redo) { return gTE.project && (redo ? gTrigHist.at + 1 < gTrigHist.steps.size() : gTrigHist.at > 0); }
+
+
 // The fixes shown on the pane and where their Apply links are (painted with the trigger).
 std::vector<std::pair<RECT, TriggerCostFix>> gTrigFixLinks;
 
@@ -219,6 +255,7 @@ public:
     virtual void menu(draw::Point pt) = 0;                            // the pane's menu (pt: the pane's coordinates)
     virtual void drop() = 0;                                          // a dragged block dropped where gTP.dropList and dropIdx say
     virtual void help() = 0;                                          // F1: the selected block's help page
+    virtual void undo(bool redo) = 0;  // Ctrl+Z, Ctrl+Y (the core's history, trigHistoryStep; the program saves and shows the set)
 };
 // The program's host (set when the pane is made): the values' texts read the data through it.
 TrigPaneHost* gTrigPaneHost = nullptr;
@@ -602,6 +639,10 @@ public:
             return true;
         }
         if (e.key == Key::Delete) return host_.deleteBlock(), true;
+        if ((e.mods & draw::kCtrl) && (e.key == Key('Z') || e.key == Key('Y'))) {  // (the Windows menu's accelerators take these first)
+            host_.undo(e.key == Key('Y') || (e.mods & draw::kShift));
+            return true;
+        }
         if (e.key == Key::F1) return host_.help(), true;
         return false;
     }
