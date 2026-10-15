@@ -398,108 +398,47 @@ int capacityBar(HDC dc, const FormLayout& l, int y, size_t used, size_t room, co
 }
 
 // --- Requirements section (Units, Upgrades, Tech Data, Orders) ------------------------------------------------
+// The section's paint and clicks are core/views_data_requirements_paint.inc (paintRequirementList); this is the
+// Windows program's side of it: its kit faces, the list pickers and the click areas.
 
-// Picks a step: the opcodes, then "End of the level's list". `then` gets the new step.
-void pickRequirementOp(RECT box, uint16_t current, std::function<void(RequirementOp)> then) {
-    std::vector<ListPickItem> items;
-    for (const auto& d : Requirements::ops()) items.push_back({widen(d.name), L"", std::to_string(d.op)});
-    items.push_back({L"End of the level's list", L"", std::to_string(0xFFFF)});
-    std::string picked;
-    if (!showListPicker(L"Step", items, std::to_string(requirementPickerCurrent(current)), belowBox(box), picked)) return;
-    then({uint16_t(std::stoul(picked)), 0});
-}
+struct WinRequirements final : RequirementsPaintHost {
+    HDC dc = nullptr;
+    std::unique_ptr<ui::Paint> paint;  // the surface being painted (its canvas over dc)
+    draw::Canvas& canvas() override { return **paint; }
+    Requirements& reqs() override { return gExtras.reqs; }
+    void edited() override { extrasChanged(); }
+    bool hot(draw::Rect r) override { return ui::hot(RECT{r.left, r.top, r.right, r.bottom}); }
+    void hit(draw::Rect r, std::function<void()> click, const std::wstring& tip, bool hand) override {
+        hitsOut().push_back({RECT{r.left, r.top, r.right, r.bottom}, nullptr, std::move(click), tip, hand ? IDC_HAND : IDC_ARROW, {}});
+    }
+    bool choose(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, draw::Rect box, std::string& out) override {
+        return showListPicker(prompt, std::move(items), current, belowBox(RECT{box.left, box.top, box.right, box.bottom}), out);
+    }
+    std::vector<ListPickItem> valueItems(const char* kind) override { return entryItems(kind); }
+    void pickBox(draw::Rect r, const std::wstring& text, bool changed, std::function<void(draw::Rect)> click) override {
+        ui::pickBox(dc, RECT{r.left, r.top, r.right, r.bottom}, text, changed, [click](RECT b) { click(draw::Rect(b)); });
+    }
+    void valueBox(draw::Rect r, const char* kind, int v, std::function<void(draw::Rect)> click) override {
+        ui::pickBox(dc, RECT{r.left, r.top, r.right, r.bottom}, argName(kind, v), false, [click](RECT b) { click(draw::Rect(b)); }, L"",
+                    argIcon(kind, v), v, openEntry(kind, v));
+    }
+    void removeRow(draw::Rect row, draw::Rect at, std::function<void()> click, const std::wstring& tip) override {
+        ::removeCross(dc, RECT{row.left, row.top, row.right, row.bottom}, RECT{at.left, at.top, at.right, at.bottom}, std::move(click), tip);
+    }
+    int linkButton(int x, int y, int h, const std::wstring& text, std::function<void()> click) override {
+        return ::linkButton(dc, x, y, h, text, std::move(click));
+    }
+    void fillAlpha(draw::Rect r, draw::Color c, uint8_t alpha) override { ::fillAlpha(dc, RECT{r.left, r.top, r.right, r.bottom}, c, alpha); }
+};
+WinRequirements gRequirementsPaint;  // lives as long as the click areas it makes
 
+// One list of the open entry (the core's paint; the surface is dc).
 int paintRequirementList(HDC dc, const FormLayout& l, int k, int entry, int y) {
-    const RequirementList& list = gExtras.reqs.list(k, entry);
-    const bool changed = gExtras.reqs.changed(k, entry);
-    static const wchar_t* titles[] = {L"Requirements to make", L"Requirements to research", L"Requirements to research",
-                                      L"Requirements to use", L"Requirements"};
-    y = sectionHeader(dc, l, y, titles[k], changed);
-    auto setList = [k, entry](RequirementList n) {
-        gExtras.reqs.set(k, entry, std::move(n));
-        extrasChanged();
-    };
-    const int mode = requirementWay(changed, list);  // the four ways (core/views_data_requirements.inc)
-    {
-        fieldLabel(dc, l, y, L"Use", changed);
-        struct Way {
-            const wchar_t* name;
-            const wchar_t* tip;
-        };
-        static const Way ways[] = {
-            {L"Default", L"The game's list"},
-            {L"Always", L"Nothing is needed: an empty list"},
-            {L"Disabled", L"No list: the entry's offset is 0, as EUD Editor's \"Do not use\". Not checked in the game yet."},
-            {L"Custom", L"Your own steps. Change a step below, or click here to start from the game's list."},
-        };
-        int x = l.x0 + l.labelW;
-        for (int w = 0; w < 4; ++w) {
-            const int s = scale(14), tw = ui::textWidth(dc, ways[w].name);
-            const RECT r{x, y, x + s + scale(8) + tw + scale(4), y + l.rowH};
-            const RECT b{r.left, (r.top + r.bottom - s) / 2, r.left + s, (r.top + r.bottom - s) / 2 + s};
-            ui::radioMark(dc, b, mode == w, ui::hot(r));
-            RECT t{b.right + scale(8), r.top, r.right, r.bottom};
-            SetTextColor(dc, mode == w ? (w == kReqDefault ? kText : kGood) : ui::hot(r) ? kText : kDim);
-            DrawTextW(dc, ways[w].name, -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-            hitsOut().push_back({r, nullptr,
-                                 [k, entry, w, mode, setList] {
-                                     RequirementList n;
-                                     if (requirementListForWay(w, mode, gExtras.reqs.stock(k, entry), n)) setList(n);
-                                 },
-                                 ways[w].tip, IDC_HAND, {}});
-            x = r.right + scale(18);
-        }
-        y += l.rowH;
-    }
-    if (list.used) {  // the steps (Default and Always show them too: a change makes it Custom)
-        const std::vector<int> levels = requirementLevels(list.ops);
-        for (size_t i = 0; i < list.ops.size(); ++i) {
-            const RequirementOp& r = list.ops[i];
-            const int indent = scale(levels[i] ? 22 : 0);
-            const bool end = r.op == 0xFFFF;
-            RECT opBox{l.x0 + indent, y + scale(2), l.x0 + l.labelW - scale(12), y + l.rowH - scale(2)};
-            pickBox(dc, opBox, requirementOpName(r), false, [k, entry, i](RECT b) {
-                pickRequirementOp(b, gExtras.reqs.list(k, entry).ops[i].op, [k, entry, i](RequirementOp n) {
-                    gExtras.reqs.set(k, entry, requirementWithOp(gExtras.reqs.list(k, entry), i, n));
-                    extrasChanged();
-                });
-            });
-            if (end) {  // dimmed: it only closes a level's list
-                RECT e{opBox.left + scale(8), opBox.top, opBox.right - scale(22), opBox.bottom};
-                fillAlpha(dc, opBox, kBg, 120);
-                (void)e;
-            }
-            if (const char* ak = requirementOpArgKind(r)) {
-                const int v = requirementOpValue(r);
-                RECT argBox{l.x0 + l.labelW, y + scale(2), l.x0 + l.labelW + scale(320), y + l.rowH - scale(2)};
-                pickBox(dc, argBox, argName(ak, v), false,
-                        [k, entry, i, ak](RECT b) {
-                            std::string picked;
-                            const RequirementOp cur = gExtras.reqs.list(k, entry).ops[i];
-                            if (!showListPicker(L"Value", entryItems(ak), std::to_string(requirementOpValue(cur)), belowBox(b), picked)) return;
-                            gExtras.reqs.set(k, entry, requirementWithArg(gExtras.reqs.list(k, entry), i, uint16_t(std::stoul(picked))));
-                            extrasChanged();
-                        },
-                        L"", argIcon(ak, v), v, openEntry(ak, v));
-            }
-            removeCross(dc, {l.x0, y, l.colRight, y + l.rowH}, {l.colRight - scale(24), y, l.colRight, y + l.rowH}, [k, entry, i] {
-                gExtras.reqs.set(k, entry, requirementWithoutStep(gExtras.reqs.list(k, entry), i));
-                extrasChanged();
-            }, L"Remove the step");
-            y += l.rowH;
-        }
-        const int ay = y;
-        const int ax = linkButton(dc, l.x0, y, l.rowH, L"Add a step", [k, entry, ay] {
-            pickRequirementOp({scale(18), ay, scale(218), ay + scale(26)}, 0xFF03, [k, entry](RequirementOp n) {
-                gExtras.reqs.set(k, entry, requirementWithNewStep(gExtras.reqs.list(k, entry), n));
-                extrasChanged();
-            });
-        });
-        (void)ax;
-    }
-    y += l.rowH;
-    y = capacityBar(dc, l, y, gExtras.reqs.used(), Requirements::capacity(), L"Memory all requirement lists use together");
-    return y + scale(14);
+    gRequirementsPaint.dc = dc;
+    gRequirementsPaint.paint = std::make_unique<ui::Paint>(dc);
+    y = paintRequirementList(gRequirementsPaint, RequirementLayout{l.x0, l.labelW, l.rowH, l.colRight}, k, entry, y);
+    gRequirementsPaint.paint.reset();
+    return y;
 }
 
 int gWireframeTop = -1;  // where the last painted Display section's wireframe rows start (form content; the self-test)
