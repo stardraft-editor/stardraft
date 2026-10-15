@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include <SDL3/SDL_gpu.h>
+
 #include "stardraft/hd_assets.h"
 
 struct SDL_Window;
@@ -127,6 +129,12 @@ public:
     double renderOffscreenAndWait(const Scene& scene);
     // Offscreen: read the last frame back as RGBA (for screenshots and tests).
     bool readOffscreen(std::vector<uint8_t>& rgba, int& width, int& height);
+
+    // A shell that draws its own UI with the same device (stardraft-next): the map goes into `target` (made by the
+    // shell with colorFormat(), COLOR_TARGET and SAMPLER usage) in the shell's command buffer. Needs createDevice.
+    SDL_GPUDevice* device() const;
+    SDL_GPUTextureFormat colorFormat() const;
+    bool drawTo(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uint32_t width, uint32_t height, const Scene& scene);
 
     // Per-frame budget (ms) for loading new sprite images; the rest load on later frames.
     void setLoadBudget(double ms);
