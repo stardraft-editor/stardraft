@@ -46,6 +46,10 @@ public:
     void setMultiline(bool on);
     bool multiline() const { return model_.multiline(); }
     void setWrap(bool on);
+    // Room at the right edge, in px, that the text never goes into (a search box's x). The mouse there is not the
+    // field's: the event goes on to the parent, and the pointer is an arrow.
+    void setTrailing(int px) { trailing_ = px; }
+    int trailing() const { return trailing_; }
     bool wrap() const { return wrap_; }
     void setReadOnly(bool on);
     bool readOnly() const { return model_.readOnly(); }
@@ -79,7 +83,7 @@ public:
     bool key(const draw::KeyEvent& e) override;
     bool text(const draw::TextEvent& e) override;
     bool compose(const draw::CompositionEvent& e) override;
-    draw::Cursor cursor(draw::Point) override { return draw::Cursor::IBeam; }
+    draw::Cursor cursor(draw::Point pt) override { return inTrailing(pt) ? draw::Cursor::Arrow : draw::Cursor::IBeam; }
     bool focusable() const override { return true; }
     void focusChanged(bool has) override;
     void captureLost() override;
@@ -128,6 +132,7 @@ private:
     int padX() const { return px(6); }
     int padY() const { return px(3); }
     draw::Rect inner() const;
+    bool inTrailing(draw::Point pt) const { return trailing_ > 0 && pt.x >= width() - trailing_; }
     int lineTop(size_t line) const;
     void ensureCaretVisible();
     void clampScroll();
@@ -172,6 +177,7 @@ private:
     std::vector<Span> spans_;
     draw::FontDesc fontDesc_;
     bool wrap_ = true, changed_ = false;
+    int trailing_ = 0;
     unsigned style_ = 0;  // changes with what the layout depends on besides the text and the width
 
     // The layout of the last paint.

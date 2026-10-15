@@ -57,6 +57,8 @@ using std::min;
 #include <stb_image.h>
 #include "../common/canvas.h"
 #include "../common/view.h"
+#include "text_field.h"  // the kit's text field (apps/kit): the search boxes (search_box.inc)
+#include "dropdown.h"     // the kit's dropdown: the palette's section box (search_box.inc)
 #include "res/ui_icons.h"
 #include "stardraft/editor.h"
 #include "stardraft/hd_assets.h"
@@ -339,8 +341,8 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 // The program: its state, and what Win32 and the renderer give it (windows, brushes, the font, the GPU).
 struct App : AppState {
     HINSTANCE inst = nullptr;
-    HWND main = nullptr, tabs = nullptr, owner = nullptr, brush = nullptr, filter = nullptr, list = nullptr;
-    HWND tool = nullptr, shape = nullptr, sym = nullptr, density = nullptr;
+    HWND main = nullptr, tabs = nullptr, owner = nullptr, filter = nullptr, list = nullptr;
+    HWND tool = nullptr, shape = nullptr;
     HWND modeBar = nullptr;  // the modes' segmented control (ModeBarView)
     HBRUSH bgBrush = nullptr, ctlBrush = nullptr;
     HWND status = nullptr, view = nullptr, minimap = nullptr;
@@ -576,15 +578,15 @@ std::wstring itemLabel(int v) {
     return L"";
 }
 
+#include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
+
 void rebuildList() {
     SendMessageW(app.list, WM_SETREDRAW, FALSE, 0);
     SendMessageW(app.list, LB_RESETCONTENT, 0, 0);
     app.items.clear();
     if (app.ed && app.ed->isOpen()) {
         Editor& ed = *app.ed;
-        wchar_t buf[256];
-        GetWindowTextW(app.filter, buf, 256);
-        std::wstring filter = buf;
+        std::wstring filter = gFilterBox.text();
         std::transform(filter.begin(), filter.end(), filter.begin(), ::towlower);
         std::vector<int> all;
         switch (app.mode) {
@@ -664,9 +666,6 @@ void setMode(Mode m) {
     if (app.modeBar) InvalidateRect(app.modeBar, nullptr, FALSE);
     // Only the active mode's options show (layout places them).
     const bool spray = m != Mode::Locations && m != Mode::Sprites;
-    ShowWindow(app.brush, SW_HIDE);  // the size and the mirrors are in the tool strip
-    ShowWindow(app.sym, SW_HIDE);
-    ShowWindow(app.density, SW_HIDE);  // density: a number box in the tool strip
     (void)spray;
 
     // The player: for units and sprites (their owner and color). Doodads have no player (they are placed as player 1).
@@ -3287,6 +3286,7 @@ void themeRefreshControls();  // the controls that keep colors of their own (def
 void setMenuIcons(HMENU bar);
 void applyTheme(bool light, int accent) {
     setThemeColors(light, accent);
+    syncKitTheme();
     const HBRUSH oldBg = app.bgBrush, oldCtl = app.ctlBrush;
     app.bgBrush = CreateSolidBrush(kBg), app.ctlBrush = CreateSolidBrush(kCtl);
     enableDarkModeForApp();
@@ -4472,7 +4472,7 @@ void mouseDown(int sx, int sy, WPARAM keys) {
             // Eyedropper: pick the terrain under the cursor as the brush terrain.
             uint16_t t = ed.terrainAt(int(wx), int(wy));
             if (selectPalette(t) < 0 && app.filter) {  // hidden by the filter: clear it and look again
-                SetWindowTextW(app.filter, L"");
+                gFilterBox.setText(L"");
                 rebuildList();
                 selectPalette(t);
             }
@@ -4943,6 +4943,10 @@ std::wstring lowerText(HWND edit) {
     std::transform(t.begin(), t.end(), t.begin(), ::towlower);
     return t;
 }
+std::wstring lowerText(std::wstring t) {
+    std::transform(t.begin(), t.end(), t.begin(), ::towlower);
+    return t;
+}
 
 // The side bar's items for the current mode: units, the tileset's terrains, or its doodads (by their
 // editor group, as StarEdit lists them).
@@ -5058,39 +5062,30 @@ void fillPaletteSections(const std::vector<PaletteUnit>& units) {
             if (std::find(names.begin(), names.end(), u.section) == names.end()) names.push_back(u.section);
     if (names == gPal.sectionNames) return;
     gPal.sectionNames = names;
-    SendMessageW(gPal.sectionBox, CB_RESETCONTENT, 0, 0);
-    SendMessageW(gPal.sectionBox, CB_ADDSTRING, 0,
-                 LPARAM(app.mode == Mode::Doodads ? L"All doodads" : app.mode == Mode::Sprites ? L"All sprites" : L"All units"));
-    for (const auto& n : names) SendMessageW(gPal.sectionBox, CB_ADDSTRING, 0, LPARAM(n.c_str()));
+    std::vector<stardraft::kit::DropdownItem> items;
+    items.push_back({app.mode == Mode::Doodads ? L"All doodads" : app.mode == Mode::Sprites ? L"All sprites" : L"All units"});
+    for (const auto& n : names) items.push_back({n});
+    gSectionBox.dropdown().setItems(std::move(items));
     const auto it = std::find(names.begin(), names.end(), gPal.section);
     if (it == names.end()) gPal.section.clear();
-    SendMessageW(gPal.sectionBox, CB_SETCURSEL, it == names.end() ? 0 : WPARAM(1 + (it - names.begin())), 0);
+    gSectionBox.dropdown().setValue(it == names.end() ? 0 : int(1 + (it - names.begin())));
 }
 
-// The section box's choice: the list shows that section (0: all of them).
+// The section box's choice: the list shows that section (0: all of them). The mouse wheel over the closed box steps
+// it too (the kit dropdown's wheel calls onChange).
 void setPaletteSection(int index) {
     if (!gPal.sectionBox) return;
     index = std::clamp(index, 0, int(gPal.sectionNames.size()));
-    SendMessageW(gPal.sectionBox, CB_SETCURSEL, WPARAM(index), 0);
+    gSectionBox.dropdown().setValue(index);
     gPal.section = index == 0 ? std::wstring() : gPal.sectionNames[size_t(index - 1)];
     gPal.scroll = 0;
     rebuildUnitPalette();
 }
 
-// The mouse wheel over the closed box goes to the next or the previous section.
-LRESULT CALLBACK paletteSectionProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
-    if (msg == WM_MOUSEWHEEL && !SendMessageW(hwnd, CB_GETDROPPEDSTATE, 0, 0)) {
-        const int now = int(SendMessageW(hwnd, CB_GETCURSEL, 0, 0));
-        setPaletteSection(now + (GET_WHEEL_DELTA_WPARAM(wp) < 0 ? 1 : -1));
-        return 0;
-    }
-    return DefSubclassProc(hwnd, msg, wp, lp);
-}
-
 void rebuildUnitPalette() {
     gPal.entries.clear();
     gPal.hover = -1;
-    const std::wstring filter = lowerText(gPal.search);
+    const std::wstring filter = lowerText(gPalSearchBox.text());
     const PaletteUnit* prev = nullptr;
     const auto units = paletteItems();
     fillPaletteSections(units);
@@ -5797,7 +5792,7 @@ void paintUnitPalette(stardraft::draw::Canvas& c, int width, int height) {
             static int wordsPaint = -1;
             if (wordsPaint != gPalPaintCount) {
                 wordsPaint = gPalPaintCount, words.clear();
-                std::wistringstream in(lowerText(gPal.search));
+                std::wistringstream in(lowerText(gPalSearchBox.text()));
                 for (std::wstring w; in >> w;) words.push_back(w);
             }
             if (words.empty()) c.text(t, e.label, kText, kMiddle | kEllipsis);
@@ -19602,7 +19597,11 @@ void layout() {
     InvalidateRect(app.tool, nullptr, FALSE);
     // Each mode's own options.
     if (L.owner.placed) placeWindow(app.owner, L.owner.rc);
-    if (L.sectionBox.placed) placeWindow(gPal.sectionBox, L.sectionBox.rc);
+    if (L.sectionBox.placed) {  // the closed box only: the layout's height is the combo box's, whose list hid below the box
+        RECT sb = L.sectionBox.rc;
+        sb.bottom = sb.top + scale(24);
+        placeWindow(gPal.sectionBox, sb);
+    }
     placeWindow(gPal.search, L.search.rc);
     placeWindow(gPal.viewBtn, L.viewBtn.rc);
     placeWindow(app.filter, L.filter.rc);
@@ -19644,10 +19643,16 @@ void createFont() {
     NONCLIENTMETRICSW ncm{sizeof ncm};
     SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0, app.dpi);
     app.font = CreateFontIndirectW(&ncm.lfMessageFont);
-    for (HWND w : {app.owner, app.brush, app.filter, app.list, gPal.search, gPal.viewBtn, gPal.sectionBox, app.status, app.sym, app.density})
+    for (HWND w : {app.owner, app.list, gPal.viewBtn, app.status})
         if (w) SendMessageW(w, WM_SETFONT, WPARAM(app.font), TRUE);
-    // The player list draws its rows itself: its closed box as tall as the other lists at this font.
-    if (app.owner && app.sym) SendMessageW(app.owner, CB_SETITEMHEIGHT, WPARAM(-1), SendMessageW(app.sym, CB_GETITEMHEIGHT, WPARAM(-1), 0));
+    // The player list draws its rows itself: its closed box as tall as a standard box at this font (measured on a box
+    // that is destroyed at once; the owner box is still a native combo box).
+    if (app.owner) {
+        HWND m = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | CBS_DROPDOWNLIST, 0, 0, 0, 0, app.main, nullptr, app.inst, nullptr);
+        SendMessageW(m, WM_SETFONT, WPARAM(app.font), FALSE);
+        SendMessageW(app.owner, CB_SETITEMHEIGHT, WPARAM(-1), SendMessageW(m, CB_GETITEMHEIGHT, WPARAM(-1), 0));
+        DestroyWindow(m);
+    }
     if (app.list) SendMessageW(app.list, LB_SETITEMHEIGHT, 0, scale(30));  // the painted rows (as WM_MEASUREITEM), at this DPI
     // Every other control with the old font, or with none (made before the first font), gets the new one; a deleted
     // font or none draws as the bold System font.
@@ -20126,7 +20131,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             }
             std::vector<std::wstring> words;
             {
-                std::wistringstream in(lowerText(app.filter));
+                std::wistringstream in(lowerText(gFilterBox.text()));
                 for (std::wstring w; in >> w;) words.push_back(w);
             }
             SetBkMode(dc, TRANSPARENT);
@@ -20143,22 +20148,12 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         loadRecent();
         refreshRecentMenus();  // the menu was built (empty) before this window existed
         app.dpi = GetDpiForWindow(hwnd);
+        syncKitTheme();
         setMenuIcons(GetMenu(hwnd));  // at this window's DPI
         BOOL dark = !gLightTheme;
         DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &dark, sizeof dark), titleColors(hwnd);
         app.modeBar = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD, 0, 0, 1, 1, hwnd, nullptr, app.inst, &gModeBarView);
-        auto combo = [&](int id) {
-            HWND c = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL, 0, 0, 0, 0, hwnd,
-                                     HMENU(INT_PTR(id)), app.inst, nullptr);
-            return c;
-        };
         app.tool = CreateWindowExW(0, L"StarDraftToolStrip", L"", WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, hwnd, HMENU(INT_PTR(IDC_TOOL)), app.inst, nullptr);
-        app.sym = combo(IDC_SYM);
-        for (int i = 0; i <= int(Symmetry::Rotate4); ++i) SendMessageW(app.sym, CB_ADDSTRING, 0, LPARAM(widen(std::string("Symmetry: ") + symmetryName(Symmetry(i))).c_str()));
-        SendMessageW(app.sym, CB_SETCURSEL, 0, 0);
-        app.density = combo(IDC_DENSITY);
-        for (const wchar_t* n : {L"Density: low", L"Density: medium", L"Density: high"}) SendMessageW(app.density, CB_ADDSTRING, 0, LPARAM(n));
-        SendMessageW(app.density, CB_SETCURSEL, 1, 0);
         // The player list draws each player's color before the name (WM_DRAWITEM: drawOwnerItem).
         app.owner = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | CBS_OWNERDRAWFIXED | CBS_HASSTRINGS | WS_VSCROLL,
                                     0, 0, 0, 0, hwnd, HMENU(IDC_OWNER), app.inst, nullptr);
@@ -20167,30 +20162,27 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             SendMessageW(app.owner, CB_ADDSTRING, 0, LPARAM(s.c_str()));
         }
         SendMessageW(app.owner, CB_SETCURSEL, 0, 0);
-        app.brush = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL, 0, 0, 0, 0, hwnd,
-                                    HMENU(IDC_BRUSH), app.inst, nullptr);
-        for (int i = 1; i <= 16; ++i) {
-            wchar_t b[32];
-            std::swprintf(b, 32, L"Size %d", i);
-            SendMessageW(app.brush, CB_ADDSTRING, 0, LPARAM(b));
-        }
-        SendMessageW(app.brush, CB_SETCURSEL, std::clamp(int(app.brushSize), 1, 16) - 1, 0);
-        app.filter = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 0, 0, 0, 0, hwnd,
-                                     HMENU(IDC_FILTER), app.inst, nullptr);
-        SendMessageW(app.filter, EM_SETCUEBANNER, TRUE, LPARAM(L"Filter")); addSearchClear(app.filter);  // an x clears it
+        gFilterBox.setPlaceholder(L"Filter");
+        gFilterBox.onChange = [] { rebuildList(); };
+        app.filter = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd, HMENU(IDC_FILTER), app.inst, &gFilterBox);
         // The list (locations): painted rows as the palette's, no frame.
         app.list = CreateWindowExW(0, WC_LISTBOXW, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT | LBS_EXTENDEDSEL |
                                                                LBS_OWNERDRAWFIXED | LBS_HASSTRINGS,
                                    0, 0, 0, 0, hwnd, HMENU(IDC_LIST), app.inst, nullptr);
         SetWindowSubclass(app.list, emptyListProc, 47, 0);
-        gPal.search = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 0, 0, 0, 0, hwnd,
-                                      HMENU(IDC_UNITSEARCH), app.inst, nullptr);
-        SendMessageW(gPal.search, EM_SETCUEBANNER, TRUE, LPARAM(L"Search")); addSearchClear(gPal.search);  // an x clears it
+        gPalSearchBox.setPlaceholder(L"Search");
+        gPalSearchBox.onChange = [] {
+            gPal.scroll = 0;
+            rebuildUnitPalette();
+        };
+        gPal.search = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd, HMENU(IDC_UNITSEARCH), app.inst, &gPalSearchBox);
         gPal.viewBtn = CreateWindowExW(0, WC_BUTTONW, L"View \x25BE", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd,
                                        HMENU(IDC_PALVIEW), app.inst, nullptr);
-        gPal.sectionBox = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL, 0, 0, 0, 0, hwnd,
-                                          HMENU(IDC_PALSECTION), app.inst, nullptr);
-        SetWindowSubclass(gPal.sectionBox, paletteSectionProc, 1, 0);
+        gSectionBox.dropdown().onChange = [](int i) {
+            setPaletteSection(i);
+            SetFocus(app.view);
+        };
+        gPal.sectionBox = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD, 0, 0, 0, 0, hwnd, HMENU(IDC_PALSECTION), app.inst, &gSectionBox);
         gPal.wnd = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, hwnd, nullptr,
                                    app.inst, &gPalView);
         gPal2.wnd = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, hwnd, nullptr, app.inst, &gPal2View);
@@ -20209,11 +20201,8 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                                    HMENU(IDC_VIEW), app.inst, nullptr);
         createFont();
         // Dark theme for the controls.
-        for (HWND c : {app.owner, app.brush, app.sym, app.density}) darkControl(c, L"DarkMode_CFD");
-        darkControl(app.filter, L"DarkMode_CFD");
-        darkControl(gPal.search, L"DarkMode_CFD");
+        darkControl(app.owner, L"DarkMode_CFD");
         darkControl(gPal.viewBtn, L"DarkMode_Explorer");
-        darkControl(gPal.sectionBox, L"DarkMode_CFD");
         darkControl(gPal.wnd, L"DarkMode_Explorer");
         darkControl(gPal2.wnd, L"DarkMode_Explorer");
         SetPropW(app.list, L"sdNoFrame", HANDLE(1));
@@ -20225,6 +20214,7 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_DPICHANGED: {
         app.dpi = HIWORD(wp);
+        syncKitTheme();
         createFont();
         setMenuIcons(GetMenu(hwnd));
         const RECT* r = reinterpret_cast<const RECT*>(lp);
@@ -20263,26 +20253,11 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         } else if (id == IDC_OWNER && code == CBN_SELCHANGE) {
             setPlayer(int(SendMessageW(app.owner, CB_GETCURSEL, 0, 0)));
             SetFocus(app.view);
-        } else if (id == IDC_BRUSH && code == CBN_SELCHANGE) {
-            app.brushSize = float(int(SendMessageW(app.brush, CB_GETCURSEL, 0, 0)) + 1);
-            SetFocus(app.view);
-        } else if (id == IDC_SYM && code == CBN_SELCHANGE) {
-            if (app.ed) app.ed->setSymmetry(Symmetry(SendMessageW(app.sym, CB_GETCURSEL, 0, 0)));
-            app.dirty = true;
-            SetFocus(app.view);
-        } else if (id == IDC_FILTER && code == EN_CHANGE) {
-            rebuildList();
-        } else if (id == IDC_PALSECTION && code == CBN_SELCHANGE) {
-            setPaletteSection(int(SendMessageW(gPal.sectionBox, CB_GETCURSEL, 0, 0)));
-            SetFocus(app.view);
         } else if (id == IDC_PALVIEW) {
             RECT r;
             GetWindowRect(gPal.viewBtn, &r);
             unitPaletteMenu(r.left, r.bottom, -1);
             SetFocus(app.view);
-        } else if (id == IDC_UNITSEARCH && code == EN_CHANGE) {
-            gPal.scroll = 0;
-            rebuildUnitPalette();
         } else if (id >= ID_FILE_OPEN) {
             command(id);
         }
@@ -20810,22 +20785,23 @@ int runSelfTest(const fs::path& dir) {
                     pictured += b && b->bmp;
                     special += e.value == 214 || e.value == 36 || e.value == 204 || e.value == 205 || e.value == 4;
                 }
-            SetWindowTextW(gPal.search, L"start loc");
+            gPalSearchBox.setText(L"start loc");
             pump();
             const bool startFound = std::any_of(gPal.entries.begin(), gPal.entries.end(), [](const auto& e) { return e.value == 214; });
             capture(dir / "10b_palette_search_start_location.png");
-            SetWindowTextW(gPal.search, L"door");
+            gPalSearchBox.setText(L"door");
             pump();
             capture(dir / "10c_palette_search_door.png");
-            SetWindowTextW(gPal.search, L"");
+            gPalSearchBox.setText(L"");
             pump();
             log << "palette: all units " << pictured << " pictured (expect 228), start location/egg/floor hatch/door/turret listed " << special
                 << " (expect 5), search finds the start location " << (startFound ? "yes" : "NO") << "\n";
         }
         {
             // Ctrl+Backspace in the palette search: deletes the last word; Ctrl+Delete the next one.
-            SetWindowTextW(gPal.search, L"siege tank");
-            SendMessageW(gPal.search, EM_SETSEL, 10, 10);
+            gPalSearchBox.setText(L"siege tank");
+            gPalSearchBox.field().focus();
+            gPalSearchBox.field().model().setCaret(10);
             BYTE keys[256], ctrl[256];
             GetKeyboardState(keys);
             std::copy(std::begin(keys), std::end(keys), ctrl);
@@ -20833,13 +20809,13 @@ int runSelfTest(const fs::path& dir) {
             SetKeyboardState(ctrl);
             PostMessageW(gPal.search, WM_KEYDOWN, VK_BACK, 0);
             pump();
-            const std::wstring afterBack = windowText(gPal.search);
-            SendMessageW(gPal.search, EM_SETSEL, 0, 0);
+            const std::wstring afterBack = gPalSearchBox.text();
+            gPalSearchBox.field().model().setCaret(0);
             PostMessageW(gPal.search, WM_KEYDOWN, VK_DELETE, 0);
             pump();
-            const std::wstring afterDelete = windowText(gPal.search);
+            const std::wstring afterDelete = gPalSearchBox.text();
             SetKeyboardState(keys);
-            SetWindowTextW(gPal.search, L"");
+            gPalSearchBox.setText(L"");
             pump();
             log << "ctrl+backspace: \"siege tank\" -> \"" << narrow(afterBack) << "\" (expect \"siege \"), ctrl+delete at the start -> \""
                 << narrow(afterDelete) << "\" (expect \"\")\n";
@@ -24119,20 +24095,20 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     applyTheme(light != 0, gAccentIndex);
                     const std::string suffix = light ? "_light" : "";
                     setMode(Mode::Units);
-                    SetWindowTextW(gPal.search, L"zzqqxxnothing");
+                    gPalSearchBox.setText(L"zzqqxxnothing");
                     rebuildUnitPalette();
                     for (int i = 0; i < 8; ++i) pump();
                     capture(fs::path(datashots) / ("emptynone_palette" + suffix + ".png"));
                     o << "palette rows " << gPal.entries.size() << (gPal.entries.empty() ? "" : " WRONG");
-                    SetWindowTextW(gPal.search, L"");
+                    gPalSearchBox.setText(L"");
                     setMode(Mode::Locations);
-                    SetWindowTextW(app.filter, L"zzqqxxnothing");
+                    gFilterBox.setText(L"zzqqxxnothing");
                     rebuildList();
                     for (int i = 0; i < 8; ++i) pump();
                     capture(fs::path(datashots) / ("emptynone_locations" + suffix + ".png"));
                     const LRESULT rows = SendMessageW(app.list, LB_GETCOUNT, 0, 0);
                     o << ", Locations rows " << rows << (rows == 0 ? "" : " WRONG") << "\n";
-                    SetWindowTextW(app.filter, L"");
+                    gFilterBox.setText(L"");
                 }
                 applyTheme(wasLight, gAccentIndex);
                 setMode(Mode::Units), rebuildUnitPalette();
@@ -26286,7 +26262,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 int headers = 0, items = 0;
                 for (const auto& e : gPal.entries) (e.value < 0 ? headers : items)++;
                 o << "item " << k << " (" << narrow(gPal.section.empty() ? L"all" : gPal.section) << "): " << headers << " sections, " << items
-                  << " entries, box has " << SendMessageW(gPal.sectionBox, CB_GETCOUNT, 0, 0) << " items" << std::endl;
+                  << " entries, box has " << gSectionBox.dropdown().items().size() << " items" << std::endl;
                 capture(fs::path(datashots) / ("palfilter_" + std::to_string(k) + ".png"));
                 continue;
             }
@@ -27711,7 +27687,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 setMode(Mode::Units);
                 for (int i = 0; i < 5; ++i) pump();
                 const size_t all = gPal.entries.size();
-                SetWindowTextW(gPal.search, L"marine");
+                gPalSearchBox.setText(L"marine");
                 for (int i = 0; i < 5; ++i) pump();
                 const size_t found = gPal.entries.size();
                 RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
@@ -27720,7 +27696,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 SendMessageW(gPal.search, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM((b.left + b.right) / 2, (b.top + b.bottom) / 2));
                 SendMessageW(gPal.search, WM_LBUTTONUP, 0, MAKELPARAM((b.left + b.right) / 2, (b.top + b.bottom) / 2));
                 for (int i = 0; i < 5; ++i) pump();
-                o << "search \"marine\": " << found << " of " << all << " shown; the x: the box " << (GetWindowTextLengthW(gPal.search) == 0 ? "empty" : "NOT EMPTY")
+                o << "search \"marine\": " << found << " of " << all << " shown; the x: the box " << (gPalSearchBox.text().empty() ? "empty" : "NOT EMPTY")
                   << ", " << gPal.entries.size() << " shown" << (gPal.entries.size() == all ? "" : " (NOT ALL)") << "\n";
                 continue;
             }
@@ -28278,6 +28254,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             // An open dropdown list takes the typed letters (D goes to "Dirt", not to Doodads mode).
             if (!editFocus && _wcsicmp(cls, WC_COMBOBOXW) == 0 && SendMessageW(GetFocus(), CB_GETDROPPEDSTATE, 0, 0)) editFocus = true;
             if (!editFocus && _wcsicmp(cls, L"ComboLBox") == 0) editFocus = true;
+            if (!editFocus && (searchBoxFocused() || dropdownListOpen())) editFocus = true;  // a search box, a kit list (search_box.inc)
             // The trigger pane: a typed letter or number opens its block picker (the plain-key shortcuts wait).
             if (!editFocus && _wcsicmp(cls, L"StarDraftTrigPane") == 0 && msg.message == WM_KEYDOWN && !(GetKeyState(VK_CONTROL) & 0x8000) &&
                 !(GetKeyState(VK_MENU) & 0x8000) && ((msg.wParam >= 'A' && msg.wParam <= 'Z') || (msg.wParam >= '0' && msg.wParam <= '9')))

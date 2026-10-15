@@ -20,7 +20,7 @@ struct DropdownItem {
 
 class Dropdown : public draw::View {
 public:
-    Dropdown() = default;
+    Dropdown();  // out of line: the list it may own is incomplete here
     explicit Dropdown(std::vector<DropdownItem> items, int value = -1);
     ~Dropdown() override;
 

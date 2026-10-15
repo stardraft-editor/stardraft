@@ -383,7 +383,7 @@ if(WIN32 AND STARDRAFT_RENDERER)
     target_include_directories(stardraft_editor PRIVATE ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
     set_source_files_properties(apps/editor/vorbis.c PROPERTIES COMPILE_OPTIONS "$<$<C_COMPILER_ID:MSVC>:/W0>")
     set_source_files_properties(apps/editor/stb_image.cpp PROPERTIES COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:MSVC>:/W0>")
-    target_link_libraries(stardraft_editor PRIVATE stardraft_render stardraft_platform comctl32 dwmapi shell32 ole32 comdlg32 uxtheme msimg32 gdiplus dbghelp winhttp)
+    target_link_libraries(stardraft_editor PRIVATE stardraft_render stardraft_platform stardraft_kit comctl32 dwmapi shell32 ole32 comdlg32 uxtheme msimg32 gdiplus dbghelp winhttp)
     # Crash reports: the commit, and the token that sends them to GitHub as issues (CI gives it; see crash.inc).
     # The commit: each build writes it into generated/build_info.h (cmake/build_info.cmake), so a build after a new
     # commit names that commit with no configure step.
