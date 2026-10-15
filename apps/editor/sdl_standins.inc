@@ -11,9 +11,5 @@ void dataPasteSelected() { notOnThisSystem(); }
 void trigCopy(bool) { notOnThisSystem(); }
 void trigPaste() { notOnThisSystem(); }
 void trigDuplicate() { notOnThisSystem(); }
-bool briefCommand(int) {
-    notOnThisSystem();
-    return false;
-}
 void dataGoTo(const std::string&, int) { notOnThisSystem(); }  // (the quick picker's Data jump: no projects here yet)
 bool classicCommandInProject(int) { return false; }  // (a query: no project of this system holds classic data yet)

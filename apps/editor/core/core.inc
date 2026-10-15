@@ -74,6 +74,7 @@
 #include "views_map_menu.inc"
 #include "views_quick_pick.inc"
 #include "views_briefing.inc"
+#include "views_briefing_page.inc"  // the Briefing workspace's page (BriefingPageView; the SDL host is sdl_briefing.inc)
 #include "views_start.inc"
 #include "views_new_page.inc"
 #include "views_new_page_paint.inc"
