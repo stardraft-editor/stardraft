@@ -544,14 +544,25 @@ POINT belowBox(RECT r) {
     return pt;
 }
 
+// The hover tooltips (tip_win32.inc): `w` shows the tip that `textAt` gives at a point of its client area. `key` names who
+// attached (detach with another key does nothing).
+void hoverTipsAttach(HWND w, std::function<std::wstring(POINT)> textAt, const void* key);
+void hoverTipsDetach(HWND w, const void* key);
+
+// The tip of the painted parts at `pt`: the first part with a tip that has the point (as a tooltip control finds its
+// tool), empty when none has.
+inline std::wstring hitTipAt(const std::vector<DataWidgetHit>& hits, POINT pt) {
+    for (const DataWidgetHit& h : hits)
+        if (!h.tip.empty() && PtInRect(&h.r, pt)) return h.tip;
+    return {};
+}
+
 // --- Painted surfaces ---------------------------------------------------------------------------------------------
-// A window painted with the kit: its click areas, the tooltips for them, the part under the mouse (a new part
-// repaints the window), the cursor. A page calls begin() and end() around its paint, and message() first in
-// its window procedure.
+// A window painted with the kit: its click areas, the tooltips for them (the kit's, tip_win32.inc), the part under the
+// mouse (a new part repaints the window), the cursor. A page calls begin() and end() around its paint, and message()
+// first in its window procedure.
 struct Surface {
     std::vector<DataWidgetHit> hits;
-    HWND tips = nullptr;
-    int tipCount = 0;
     RECT over{};
     struct {
         std::function<void(POINT)> drag;
@@ -561,33 +572,26 @@ struct Surface {
     std::vector<DataWidgetHit>* savedOut = nullptr;
     HWND savedWnd = nullptr;
 
-    HWND tipsFor = nullptr;  // the window the tooltips are for
-    // The tooltip window is owned by the top window (a child cannot own it), so it outlives the surface's window:
-    // it goes when the surface paints another window, and when the surface goes.
+    HWND tipsFor = nullptr;  // the window the tooltips are for (it asks this surface for the tip under the mouse)
     void releaseTips() {
-        if (tips && IsWindow(tips)) DestroyWindow(tips);
-        tips = nullptr, tipCount = 0, tipsFor = nullptr;
+        if (tipsFor) hoverTipsDetach(tipsFor, this);
+        tipsFor = nullptr;
     }
     Surface() = default;
     Surface(const Surface&) = delete;
     Surface& operator=(const Surface&) = delete;
-    Surface& operator=(Surface&& o) noexcept {  // (a page's host made again: the old tooltips go)
+    Surface& operator=(Surface&& o) noexcept {  // (a page's host made again: the tooltips ask the new one)
         if (this != &o) {
             releaseTips();
-            hits = std::move(o.hits), tips = std::exchange(o.tips, nullptr), tipCount = o.tipCount, over = o.over, tipsFor = o.tipsFor;
+            hits = std::move(o.hits), over = o.over, tipsFor = std::exchange(o.tipsFor, nullptr);
             grab = std::move(o.grab), savedOut = o.savedOut, savedWnd = o.savedWnd;
+            if (tipsFor) hoverTipsAttach(tipsFor, [this](POINT p) { return hitTipAt(hits, p); }, this);
         }
         return *this;
     }
     ~Surface() { releaseTips(); }
     void begin(HWND w) {
-        if (tips && tipsFor != w) releaseTips();
-        for (int i = 0; tips && i < tipCount; ++i) {
-            TOOLINFOW ti{sizeof ti};
-            ti.hwnd = w, ti.uId = UINT_PTR(i + 1);
-            SendMessageW(tips, TTM_DELTOOLW, 0, LPARAM(&ti));
-        }
-        tipCount = 0;
+        if (tipsFor && tipsFor != w) releaseTips();
         hits.clear();
         savedOut = gHitsOut, savedWnd = gHitsWnd;
         gHitsOut = &hits, gHitsWnd = w;
@@ -595,19 +599,9 @@ struct Surface {
     }
     void end(HWND w) {
         gHitsOut = savedOut, gHitsWnd = savedWnd;
-        if (!tips) {
-            tips = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, 0, 0, 0, 0, w, nullptr, app.inst, nullptr);
+        if (tipsFor != w) {
             tipsFor = w;
-            SendMessageW(tips, TTM_SETMAXTIPWIDTH, 0, scale(360));
-            styleTips(tips);
-        }
-        for (auto& h : hits) {
-            if (h.tip.empty()) continue;
-            TOOLINFOW ti{sizeof ti};
-            ti.uFlags = TTF_SUBCLASS;
-            ti.hwnd = w, ti.uId = UINT_PTR(++tipCount), ti.rect = h.r;
-            ti.lpszText = h.tip.data();
-            SendMessageW(tips, TTM_ADDTOOLW, 0, LPARAM(&ti));
+            hoverTipsAttach(w, [this](POINT p) { return hitTipAt(hits, p); }, this);
         }
     }
     const DataWidgetHit* at(POINT pt) const {
