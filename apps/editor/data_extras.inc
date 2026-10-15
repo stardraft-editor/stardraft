@@ -666,38 +666,15 @@ int paintRequirements(HDC dc, const std::string& dat, int entry, int, int y, int
 
 // --- Buttons tab -----------------------------------------------------------------------------------------------
 
-// A button's label: its tooltip's first line (or what it does). With its icon, that is enough to know it.
-std::wstring buttonRowText(const Button& b) {
-    std::wstring text = b.enabledString ? statString(b.enabledString) : L"";
-    if (const size_t nl = text.find(L'\n'); nl != std::wstring::npos) text.resize(nl);
-    if (text.empty())
-        if (const ButtonFunctionDef* a = ButtonSets::action(b.action)) text = widen(a->name);
-    return text.empty() ? L"(no text)" : text;
-}
+// A button's label (core views_data_buttons.inc): its tooltip's first line, or what it does.
+std::wstring buttonRowText(const Button& b) { return buttonRowTextFrom(b, b.enabledString ? statString(b.enabledString) : L""); }
 
 // The game's text with its colors, in the rich text pop-out (main.cpp); false when it was not changed.
 bool editGameText(const std::wstring& title, std::string& text, POINT at);
 
-// What a button costs, as the tooltip of its type shows it ("Make a unit", "Upgrade", "Use a tech", "Research").
+// What a button costs (core views_data_buttons.inc: the cost line of its type's tooltip).
 std::wstring buttonCost(const Button& b, int type) {
-    auto join = [](std::initializer_list<std::pair<int, const wchar_t*>> parts) {
-        std::wstring o;
-        for (const auto& [n, what] : parts)
-            if (n > 0) o += (o.empty() ? L"" : L"    ") + std::to_wstring(n) + L" " + what;
-        return o;
-    };
-    const int v = b.actionArg;
-    switch (type) {
-    case 1:
-    case 5: {
-        const int supply = datValue("units", "Supply Required", v);
-        return join({{datValue("units", "Mineral Cost", v), L"minerals"}, {datValue("units", "Vespene Cost", v), L"gas"}, {(supply + 1) / 2, L"supply"}});
-    }
-    case 2: return join({{datValue("upgrades", "Mineral Cost Base", v), L"minerals"}, {datValue("upgrades", "Vespene Cost Base", v), L"gas"}});
-    case 3: return join({{datValue("techdata", "Energy Required", v), L"energy"}});
-    case 4: return join({{datValue("techdata", "Mineral Cost", v), L"minerals"}, {datValue("techdata", "Vespene Cost", v), L"gas"}});
-    }
-    return L"";
+    return buttonCostText(b, type, [](const std::string& dat, const std::string& name, int e) { return datValue(dat, name, e); });
 }
 
 // The tooltip as the game shows it: the text, and the cost line its type adds.
@@ -733,9 +710,7 @@ int paintCommandCard(HDC dc, int set, int x, int y, int cell) {
     for (int p = 1; p <= 9; ++p) {
         RECT c{x + gap + (p - 1) % 3 * (cell + gap), y + gap + (p - 1) / 3 * (cell + gap), 0, 0};
         c.right = c.left + cell, c.bottom = c.top + cell;
-        std::vector<int> here;
-        for (size_t i = 0; i < bs.size(); ++i)
-            if (bs[i].pos == p) here.push_back(int(i));
+        const std::vector<int> here = buttonsAtPlace(bs, p);
         const bool sel = std::find(here.begin(), here.end(), gExtras.button) != here.end();
         const bool hot = mouseIn(c);
         fillAlpha(dc, c, sel ? kSel : hot ? RGB(36, 39, 44) : RGB(26, 28, 32), 255);
@@ -766,29 +741,23 @@ int paintCommandCard(HDC dc, int set, int x, int y, int cell) {
         const int p0 = p;
         hitsOut().push_back({c,
                                [set, x, y, cell, gap](POINT pt) {  // drag: the selected button to the cell under the mouse
-                                   const int cx = (pt.x - x - gap) / (cell + gap), cy = (pt.y - y - gap) / (cell + gap);
-                                   if (cx < 0 || cy < 0 || cx > 2 || cy > 2) return;
+                                   const uint16_t np = buttonPlaceAt((pt.x - x - gap) / (cell + gap), (pt.y - y - gap) / (cell + gap));
+                                   if (!np) return;
                                    auto bs2 = gExtras.buttons.set(set);
-                                   if (gExtras.button < 0 || gExtras.button >= int(bs2.size())) return;
-                                   const uint16_t np = uint16_t(cy * 3 + cx + 1);
-                                   if (bs2[size_t(gExtras.button)].pos == np) return;
-                                   bs2[size_t(gExtras.button)].pos = np;
+                                   if (!buttonMoveTo(bs2, gExtras.button, np)) return;
                                    gExtras.buttons.set(set, bs2);
                                    InvalidateRect(gData.form, nullptr, FALSE);
                                },
                                [set, here, p0] {
                                    if (here.empty()) {  // a new button
                                        auto bs2 = gExtras.buttons.set(set);
-                                       Button nb;
-                                       nb.pos = uint16_t(p0), nb.icon = 0, nb.condition = 0x4282D0, nb.action = 0x4233F0;
-                                       bs2.push_back(nb);
+                                       bs2.push_back(buttonNew(uint16_t(p0)));
                                        gExtras.buttons.set(set, bs2);
                                        gExtras.button = int(bs2.size()) - 1;
                                        extrasChanged();
                                        return;
                                    }
-                                   auto it = std::find(here.begin(), here.end(), gExtras.button);
-                                   gExtras.button = it == here.end() || it + 1 == here.end() ? here[0] : *(it + 1);
+                                   gExtras.button = buttonNextInPlace(here, gExtras.button);
                                    InvalidateRect(gData.form, nullptr, FALSE);
                                },
                                tip, here.empty() ? IDC_HAND : IDC_SIZEALL, {}});
@@ -825,7 +794,7 @@ void paintButtonsForm(HDC dc, RECT rc, int& y) {
         if (const auto* ic = datRefIcon("icons", b.icon); ic && ic->bmp) drawFitted(dc, *ic, {gx + scale(28), y + scale(3), gx + scale(48), y + l.rowH - scale(3)});
         RECT pr{gx + scale(54), y, gx + scale(120), y + l.rowH};
         SetTextColor(dc, sharing > 1 ? kWarn : kDim);
-        DrawTextW(dc, (L"R" + std::to_wstring((b.pos - 1) / 3 + 1) + L" C" + std::to_wstring((b.pos - 1) % 3 + 1)).c_str(), -1, &pr, DT_SINGLELINE | DT_VCENTER);
+        DrawTextW(dc, buttonCardCell(b.pos).c_str(), -1, &pr, DT_SINGLELINE | DT_VCENTER);
         RECT tr{gx + scale(120), y, l.colRight - scale(80), y + l.rowH};
         SetTextColor(dc, on ? kAccent : kText);
         DrawTextW(dc, buttonRowText(b).c_str(), -1, &tr, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
@@ -838,20 +807,16 @@ void paintButtonsForm(HDC dc, RECT rc, int& y) {
                              IDC_HAND, {}});
         ui::reorderRow(dc, "buttons", r, bi, [set](int from, int to) {
             auto bs2 = gExtras.buttons.set(set);
-            const Button moved = bs2[size_t(from)];
-            bs2.erase(bs2.begin() + from);
-            bs2.insert(bs2.begin() + to, moved);
+            gExtras.button = buttonReorder(bs2, from, to);
             gExtras.buttons.set(set, bs2);
-            gExtras.button = to;
             extrasChanged();
         });
         // On the row: earlier, later, remove.
         auto move = [set, bi](int by) {
             return [set, bi, by] {
                 auto bs2 = gExtras.buttons.set(set);
-                std::swap(bs2[size_t(bi)], bs2[size_t(bi + by)]);
+                gExtras.button = buttonSwapWith(bs2, bi, by);
                 gExtras.buttons.set(set, bs2);
-                gExtras.button = bi + by;
                 extrasChanged();
             };
         };
@@ -861,9 +826,8 @@ void paintButtonsForm(HDC dc, RECT rc, int& y) {
                         {UiIcon::Close, L"Remove the button",
                          [set, bi] {
                              auto bs2 = gExtras.buttons.set(set);
-                             if (size_t(bi) < bs2.size()) bs2.erase(bs2.begin() + long(bi));
+                             gExtras.button = buttonRemoveAt(bs2, bi);
                              gExtras.buttons.set(set, bs2);
-                             gExtras.button = std::max(0, bi - 1);
                              extrasChanged();
                          },
                          ui::Tone::Danger}},
@@ -875,12 +839,7 @@ void paintButtonsForm(HDC dc, RECT rc, int& y) {
         const int ay = y;
         linkButton(dc, l.x0, y, l.rowH, L"Add a button", [set, ay] {
             auto bs2 = gExtras.buttons.set(set);
-            uint16_t p = 1;
-            for (; p <= 9; ++p)
-                if (std::none_of(bs2.begin(), bs2.end(), [p](const Button& x) { return x.pos == p; })) break;
-            Button nb;
-            nb.pos = std::min<uint16_t>(p, 9), nb.condition = 0x4282D0, nb.action = 0x4233F0;
-            bs2.push_back(nb);
+            bs2.push_back(buttonNew(buttonFreePlace(bs2)));
             gExtras.buttons.set(set, bs2);
             gExtras.button = int(bs2.size()) - 1;
             extrasChanged();
@@ -913,10 +872,10 @@ void paintButtonsForm(HDC dc, RECT rc, int& y) {
                     std::move(open));
             y += l.rowH;
         };
-        row(L"Position", sb && sb->pos != b.pos, L"Row " + std::to_wstring((b.pos - 1) / 3 + 1) + L", column " + std::to_wstring((b.pos - 1) % 3 + 1),
+        row(L"Position", sb && sb->pos != b.pos, buttonRowColumn(b.pos),
             [edit, b](RECT r) {
                 std::vector<ListPickItem> items;
-                for (int p = 1; p <= 9; ++p) items.push_back({L"Row " + std::to_wstring((p - 1) / 3 + 1) + L", column " + std::to_wstring((p - 1) % 3 + 1), L"", std::to_string(p)});
+                for (int p = 1; p <= 9; ++p) items.push_back({buttonRowColumn(p), L"", std::to_string(p)});
                 std::string picked;
                 if (showListPicker(L"Position", items, std::to_string(b.pos), belowBox(r), picked)) edit([&](Button& x) { x.pos = uint16_t(std::stoul(picked)); });
             },
@@ -1039,21 +998,6 @@ void paintButtonsForm(HDC dc, RECT rc, int& y) {
 
 // --- A whole button, in a pop-out (a trigger's Replace a button) ------------------------------------------------
 
-// "place,icon,condition,action,conditionValue,actionValue,tooltip,tooltipNotUsable", and back.
-bool buttonFromText(const std::string& v, Button& b) {
-    std::vector<uint32_t> f;
-    std::stringstream ss(v);
-    for (std::string x; std::getline(ss, x, ',');) f.push_back(uint32_t(std::strtoul(x.c_str(), nullptr, 0)));
-    if (f.size() != 8) return false;
-    b = {uint16_t(f[0]), uint16_t(f[1]), f[2], f[3], uint16_t(f[4]), uint16_t(f[5]), uint16_t(f[6]), uint16_t(f[7])};
-    return true;
-}
-std::string buttonToText(const Button& b) {
-    return std::to_string(b.pos) + "," + std::to_string(b.icon) + "," + std::to_string(b.condition) + "," + std::to_string(b.action) + "," +
-           std::to_string(b.conditionArg) + "," + std::to_string(b.actionArg) + "," + std::to_string(b.enabledString) + "," + std::to_string(b.disabledString);
-}
-
-
 struct ButtonPop {
     HWND wnd = nullptr;
     Button b;
@@ -1120,10 +1064,9 @@ void buttonPopPaint(HWND hwnd) {
         y += l.rowH;
     };
     Button& b = p.b;
-    static const wchar_t* const kPlaces[9] = {L"Top left", L"Top center", L"Top right", L"Left", L"Center", L"Right", L"Bottom left", L"Bottom center", L"Bottom right"};
-    row(L"Place", b.pos >= 1 && b.pos <= 9 ? kPlaces[b.pos - 1] : L"?", [](RECT r) {
+    row(L"Place", buttonPlaceName(b.pos), [](RECT r) {
         std::vector<ListPickItem> items;
-        for (int k = 1; k <= 9; ++k) items.push_back({kPlaces[k - 1], L"", std::to_string(k)});
+        for (int k = 1; k <= 9; ++k) items.push_back({buttonPlaceName(k), L"", std::to_string(k)});
         std::string picked;
         if (showListPicker(L"Place", items, std::to_string(gButtonPop->b.pos), belowBox(r), picked)) gButtonPop->b.pos = uint16_t(std::stoul(picked));
     });
@@ -1239,7 +1182,7 @@ bool showButtonPopup(std::string& text, POINT at) {
     }
     dataLoadForProject();  // the icons and strings come from the project
     ButtonPop p;
-    if (!buttonFromText(text, p.b)) p.b = Button{1, 0, 0x4282D0, 0x4233F0, 0, 0, 0, 0};
+    if (!buttonFromText(text, p.b)) p.b = Button{1, 0, kButtonNewCondition, kButtonNewAction, 0, 0, 0, 0};
     ButtonPop* outer = gButtonPop;
     gButtonPop = &p;
     const int w = scale(560), h = scale(470);
