@@ -75,6 +75,18 @@ void shellForgetAnims() {
 }
 void shellPostCommand(int id) { PostMessageW(app.main, WM_COMMAND, id, 0); }
 void shellFocusView() { SetFocus(app.view); }
+int shellTabSideMenu(const std::wstring& title, int side) {
+    POINT pt{};
+    GetCursorPos(&pt);
+    HMENU menu = CreatePopupMenu();
+    AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, title.c_str());
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, MF_STRING | (side == 0 ? MF_CHECKED : 0), 1, L"Left");
+    AppendMenuW(menu, MF_STRING | (side == 1 ? MF_CHECKED : 0), 2, L"Right");
+    const int pick = popupMenu(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD, pt.x, pt.y, app.main);
+    DestroyMenu(menu);
+    return pick;
+}
 void shellPost(std::function<void()> fn) {
     auto* f = new std::function<void()>(std::move(fn));
     if (!PostMessageW(app.main, WM_SHELL_POST, 0, LPARAM(f))) delete f;

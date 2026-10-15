@@ -25,6 +25,8 @@
 #include "views_minimap.inc"
 #include "views_tabs.inc"
 #include "map_commands.inc"
+#include "views_modebar.inc"
+#include "views_panel_tabs.inc"
 #include "startup.inc"
 #include "names.inc"
 #include "title.inc"
