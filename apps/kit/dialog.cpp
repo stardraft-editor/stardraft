@@ -36,20 +36,22 @@ void Dialog::setButtons(std::vector<DialogButton> bs) {
         auto b = std::make_unique<Button>(s.text, s.primary ? Tone::Primary : Tone::Normal, [this, r = s.result] { press(r); });
         add(*b, {0, 0, 0, 0});
         buttons_.push_back(std::move(b));
-        widths_.push_back(px(kButtonMinW));
+        widths_.push_back(px(s.width > 0 ? s.width : kButtonMinW));
     }
     placeAll();
 }
 
 void Dialog::layout(Canvas& c) {
-    for (size_t k = 0; k < buttons_.size(); ++k) widths_[k] = buttons_[k]->preferredWidth(c);
+    for (size_t k = 0; k < buttons_.size(); ++k)
+        if (specs_[k].width <= 0) widths_[k] = buttons_[k]->preferredWidth(c);
     placeAll();
 }
 
 void Dialog::placeAll() {
-    const int W = width(), H = height(), pad = px(kDialogPad), bh = px(kButtonH), gap = px(kButtonGap), sep = px(kDialogGap);
-    const int by = H - pad - bh;
-    int x = W - pad, lx = pad;
+    const int W = width(), H = height(), bh = px(kButtonH), gap = px(insets_.buttonGap);
+    const int padL = px(insets_.left), padR = px(insets_.right), padT = px(insets_.top), padB = px(insets_.bottom);
+    const int by = H - padB - bh;
+    int x = W - padR, lx = padL;
     for (size_t k = buttons_.size(); k-- > 0;) {
         if (specs_[k].left) continue;
         place(*buttons_[k], {x - widths_[k], by, x, by + bh});
@@ -61,8 +63,8 @@ void Dialog::placeAll() {
         lx += widths_[k] + gap;
     }
     if (content_) {
-        const int bottom = buttons_.empty() ? H - pad : by - sep;
-        place(*content_, {pad, pad, std::max(pad, W - pad), std::max(pad, bottom)});
+        const int bottom = buttons_.empty() ? H - padB : by - px(insets_.gap);
+        place(*content_, {padL, padT, std::max(padL, W - padR), std::max(padT, bottom)});
     }
 }
 
@@ -75,7 +77,7 @@ const DialogButton* Dialog::find(bool cancel) const {
 int Dialog::run(draw::View& from, const std::wstring& title, draw::Point size) {
     done_ = false, result_ = kDialogClosed;
     from_ = &from;
-    if (draw::Host* h = from.host()) h->runModal(from, *this, draw::WindowSpec{draw::WindowKind::Dialog, Rect{0, 0, size.x, size.y}, title});
+    if (draw::Host* h = from.host()) h->runModal(from, *this, draw::WindowSpec{draw::WindowKind::Dialog, Rect{0, 0, size.x, size.y}, title, workArea_});
     if (done_) return result_;
     const DialogButton* c = find(true);
     return c ? c->result : kDialogClosed;

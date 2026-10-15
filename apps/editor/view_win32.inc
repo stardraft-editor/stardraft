@@ -519,6 +519,10 @@ inline HWND openViewWindow(HWND owner, View& content, const stardraft::draw::Win
         if (content.windowScrollBar(range, page, pos)) style |= WS_VSCROLL;  // the view's own bar (Program options)
         RECT o{};
         GetWindowRect(owner, &o);
+        if (spec.workArea) {  // DS_CENTER: the work area of the monitor the owner is on
+            MONITORINFO mi{sizeof mi};
+            if (GetMonitorInfoW(MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST), &mi)) o = mi.rcWork;
+        }
         const int w = r.right - r.left, h = r.bottom - r.top;
         r = {(o.left + o.right - w) / 2, (o.top + o.bottom - h) / 2, 0, 0};
         r.right = r.left + w, r.bottom = r.top + h;

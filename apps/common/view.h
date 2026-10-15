@@ -67,6 +67,7 @@ struct WindowSpec {
     WindowKind kind = WindowKind::Popup;
     Rect at;  // where, in the coordinates of the view that opens it (Dialog: only the size; the host centers it)
     std::wstring title;
+    bool workArea = false;  // Dialog: centered on the work area of the screen (else on the window that opens it)
 };
 
 class Host {
