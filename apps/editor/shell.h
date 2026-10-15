@@ -11,6 +11,10 @@ void shellRelayout();
 void shellMenusChanged();
 // The status bar is drawn again (its texts changed).
 void shellStatusChanged();
+// Whether the Log panel's window is open (the Log shows the status bar's message then).
+bool shellLogOpen();
+// The UI font's LOGFONT height (negative: the character height), for the views' title sizes.
+int shellUiFontLfHeight();
 // The map view's client size, in device pixels.
 void shellViewSize(int& w, int& h);
 // Runs `fn` on the UI thread, later. Safe to call from any thread; `fn` runs once.

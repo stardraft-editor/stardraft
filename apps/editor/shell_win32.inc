@@ -7,6 +7,12 @@ constexpr UINT WM_SHELL_POST = WM_APP + 40;  // lp: a std::function<void()>*, ru
 void shellRelayout() { layout(); }
 void shellMenusChanged() { updateMenus(); }
 void shellStatusChanged() { gStatus.invalidate(); }
+bool shellLogOpen() { return gLog.wnd != nullptr; }
+int shellUiFontLfHeight() {
+    LOGFONTW lf{};
+    GetObjectW(app.font, sizeof lf, &lf);
+    return lf.lfHeight;
+}
 void shellViewSize(int& w, int& h) {
     RECT r;
     GetClientRect(app.view, &r);
