@@ -1,8 +1,9 @@
 // --- Search boxes: kit text fields ------------------------------------------------------------------------------------
 // The Locations filter (app.filter) and the palette search are kit text fields (apps/kit/text_field.h) in view windows
-// (ui::kViewClass). The field fills the window; at its right an x clears it while there is text, as the native edit's
-// clear did. The text's changes call onChange (as EN_CHANGE did); setText does not (as SetWindowText did not).
-// Included by main.cpp after view_win32.inc.
+// (ui::kViewClass). The field fills the window; at its right an x clears it while there is text. The text's changes
+// call onChange (as EN_CHANGE did), and so does the x: a native clear sent no EN_CHANGE, so the list did not refresh
+// (a deliberate change). setText does not call onChange (as SetWindowText did not).
+// Included by main.cpp before rebuildList (after the tokens and the App).
 
 // The kit's widgets draw with the editor's tokens and the window's scale (apps/kit/theme.h); the editor calls this when
 // its colors, its theme or its DPI change.
