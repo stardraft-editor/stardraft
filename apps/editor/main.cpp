@@ -445,6 +445,7 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_players.inc"  // Players and forces' view: the players, the forces and the problems (PlayersView; main.cpp, map_pages.inc)
 #include "core/views_briefing.inc"  // the Briefing workspace's edit model (the actions, the regrouping; briefing_view.inc)
 #include "core/views_classic_settings.inc"  // Map data's views: the tabs' lists and fields (ClassicPageView; classic_settings.inc, map_pages.inc)
+#include "core/views_classic_triggers.inc"  // Classic triggers' model: the sentences as parts, the variables of the blocks (classic_triggers.inc)
 #include "core/views_start.inc"  // the start page (StartView: the cards, the recent list, Open; the instance is gStartView in new_page.inc)
 #include "core/views_new_page.inc"  // the New page (NewPageView: the settings, the generator, the preview; the host is new_page.inc)
 #include "core/views_new_page_paint.inc"

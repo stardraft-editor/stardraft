@@ -21,8 +21,6 @@ enum : int {
     kCtDim = 1,      // a dim label
     kCtHead = 3,     // a section heading (a line under it)
 };
-// A picker's value that is a block's variable: kCtVariable plus the block's depth (a field that holds it, not a value).
-constexpr uint32_t kCtVariable = 0xFFFF0000u;
 // The groups of the filter: players 1-8, all players, forces 1-4.
 constexpr int kCtGroups[] = {0, 1, 2, 3, 4, 5, 6, 7, 17, 18, 19, 20, 21};
 constexpr int kCtGroupCount = int(std::size(kCtGroups));
@@ -104,21 +102,6 @@ ClassicAction* ctAction() {
     return t && gCt->kind == 1 && gCt->entry >= 0 && gCt->entry < t->actionCount() ? &t->actions[size_t(gCt->entry)] : nullptr;
 }
 int ctEntryCount(const ClassicTrigger& t, int kind) { return kind ? t.actionCount() : t.conditionCount(); }
-// The variable slot k (classicVarField) of the action at `index` holds a variable: its block's depth plus 1, else 0.
-int ctVarOf(const ClassicTrigger& t, int index, int k) {
-    return index >= 0 && index < t.actionCount() ? t.actions[size_t(index)].var[size_t(k)] : 0;
-}
-// The blocks that hold the row at `row`, by depth (scope[d] is the block at depth d).
-std::vector<const ClassicBatch*> ctScopeOf(const ClassicTrigger& t, int row) {
-    std::vector<const ClassicBatch*> chain;
-    for (int i = 0; i < row && i < t.actionCount(); ++i) {
-        const ClassicAction& a = t.actions[size_t(i)];
-        chain.resize(std::min(chain.size(), size_t(a.depth)));
-        if (a.type == kClassicBlockType) chain.push_back(a.batch.get());
-    }
-    if (row >= 0 && row < t.actionCount()) chain.resize(std::min(chain.size(), size_t(t.actions[size_t(row)].depth)));
-    return chain;
-}
 // The most actions a trigger's rows have (each row is one action or a block with its children).
 int ctActionLimit(const ClassicTrigger&) { return kClassicActions; }
 
@@ -301,18 +284,6 @@ std::vector<std::pair<uint32_t, std::wstring>> ctKindChoices(ClassicKind k) {
 }
 
 // The picker's choices, and the variables of the blocks that hold the selected action (a variable of this kind).
-// The variable slot (classicVarField) of a field, or -1.
-int ctVarSlotOfField(ClassicField f) {
-    for (int k = 0; k < kClassicVarFields; ++k)
-        if (classicVarField(k) == f) return k;
-    return -1;
-}
-// The depth of the block whose variable the field of the action at `index` holds, or -1 (a value).
-int ctVarDepthAt(const ClassicTrigger& t, int index, ClassicField f) {
-    const int slot = ctVarSlotOfField(f);
-    const int v = slot < 0 ? 0 : ctVarOf(t, index, slot);
-    return v ? v - 1 : -1;
-}
 // The same for the selected entry (a condition has none).
 int ctVarDepthOf(const ClassicCondition* c, ClassicField f) {
     const ClassicTrigger* t = ctTrigger();
@@ -1116,11 +1087,15 @@ void ctAddClick(int kind, RECT link) {
     ctAddEntry(kind, uint8_t(std::stoi(picked)));
 }
 
-// The sentence of a condition or action, its values as chips (each a click area).
+// The sentence of a condition or action, its values as chips (each a click area). The parts are the core's
+// (ctSentenceParts); this paints them with the GDI.
 template <class E>
 void ctSentence(HDC dc, const E& e, int kind, int index, RECT area, bool dim, bool selected) {
     const ClassicDef* def = kind ? classicActionDef(e.type) : classicConditionDef(e.type);
     const ClassicNames n = ctNames();
+    CtSentenceEnv env;
+    env.names = n;
+    env.chipText = [n](const ClassicParam& p, uint32_t v) { return ctChipText(p, v, n); };
     const COLORREF word = dim ? kFaint : ui::rowText(selected);
     int x = area.left;
     auto text = [&](const std::wstring& s, COLORREF col, bool chip) -> RECT {
@@ -1136,52 +1111,20 @@ void ctSentence(HDC dc, const E& e, int kind, int index, RECT area, bool dim, bo
         x += w;
         return r;
     };
-    if constexpr (std::is_same_v<E, ClassicAction>) {
-        if (e.type == kClassicBlockType) {  // a block: "For each unit in ..." (its chevron is painted by the list)
-            text(widen(classicBatchText(*e.batch, n)), word, false);
-            return;
-        }
-    }
-    std::vector<const ClassicBatch*> scope;
-    if constexpr (std::is_same_v<E, ClassicAction>)
-        if (kind == 1 && ctTrigger()) scope = ctScopeOf(*ctTrigger(), index);
-    if (!def) {
-        std::string s;
-        if constexpr (std::is_same_v<E, ClassicAction>) s = classicActionText(e, n, &scope);
-        else s = classicConditionText(e, n);
-        for (char& ch : s)
-            if (static_cast<unsigned char>(ch) < 32) ch = ' ';
-        text(widen(s), word, false);
-        return;
-    }
-    const std::string s = def->sentence;
-    std::wstring run;
-    for (size_t i = 0; i < s.size(); ++i) {
-        if (s[i] != '{') {
-            run += wchar_t(static_cast<unsigned char>(s[i]));
-            continue;
-        }
-        const size_t end = s.find('}', i);
-        if (end == std::string::npos) break;
-        const std::string key = s.substr(i + 1, end - i - 1);
-        i = end;
-        text(run, word, false);
-        run.clear();
-        for (int pi = 0; pi < int(def->params.size()); ++pi) {
-            const ClassicParam& p = def->params[size_t(pi)];
-            if (key != p.name) continue;
-            const int vd = kind == 1 && ctTrigger() ? ctVarDepthAt(*ctTrigger(), index, p.field) : -1;
-            std::wstring v = vd >= 0 && size_t(vd) < scope.size() && scope[size_t(vd)] ? widen(classicBatchVariableText(*scope[size_t(vd)]))
-                                                                                     : ctChipText(p, classicValue(e, p.field), n);
-            if (x == area.left && !v.empty()) v[0] = towupper(v[0]);  // a sentence that starts with a value
-            const RECT r = text(v, dim ? kFaint : kText, true);
-            if (r.right > r.left)
+    for (const CtSegment& s : ctSentenceParts(e, kind, kind == 1 ? ctTrigger() : nullptr, index, env)) {
+        if (s.part == CtPart::Eud) {
+            text(s.text, kDim, false);
+        } else if (s.part == CtPart::Word) {
+            text(s.text, word, false);
+        } else {
+            const RECT r = text(s.text, dim ? kFaint : kText, true);
+            if (r.right > r.left && def && s.param >= 0 && s.param < int(def->params.size())) {
+                const ClassicParam& p = def->params[size_t(s.param)];
+                const int pi = s.param;
                 hitsOut().push_back({r, nullptr, [kind, index, pi, r] { ctChipClick(kind, index, pi, r); }, ctKindLabel(p.kind, p.name), IDC_HAND, {}});
-            break;
+            }
         }
     }
-    text(run, word, false);
-    if (classicEud(e)) text(L"  EUD", kDim, false);
 }
 
 // How many triggers the map gets for this trigger: 1, or more when its blocks make more than 64 slots.
