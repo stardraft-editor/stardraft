@@ -37,24 +37,18 @@ int textWidth(Paint p, const std::wstring& t) { return p->measure(t); }
 // --- Buttons ----------------------------------------------------------------------------------------------------
 // Normal: a command. Primary: the one a form or dialog is for (OK, Create, Build). Danger: removes something.
 using kitpaint::Tone;  // (core/kit_paint.inc: the tones are the core's)
-enum class State { Normal, Hot, Down, Disabled };
+using State = kitpaint::ButtonState;
 
 using kitpaint::toneText;
 
-// The face of a button (painted ones and the native push buttons alike).
+// The face of a button (painted ones and the native push buttons alike): core/kit_paint.inc's, in `font` when given.
 void buttonFace(Paint p, RECT r, const std::wstring& text, Tone tone, State s, HFONT font = nullptr) {
-    COLORREF fill = kCtl, line = kBorder;
-    if (tone == Tone::Primary) fill = kSel, line = kAccentLine;
-    if (s == State::Hot) fill = tone == Tone::Primary ? kSelHot : kCtlHot, line = tone == Tone::Primary ? kAccent : kBorderHot;
-    if (s == State::Down) fill = tone == Tone::Primary ? kSel : kCtlDown;
-    if (s == State::Disabled) fill = kBg, line = kBorder;
-    box(*p, r, fill, line);
     const Font of = font ? p->setFont(fontOf(font)) : Font{};
-    p->text(r, text, s == State::Disabled ? kFaint : toneText(tone == Tone::Quiet ? Tone::Normal : tone), kMiddle | kCenter | kEllipsis);
+    kitpaint::drawButtonFace(*p, r, text, tone, s);
     if (of) p->setFont(of);
 }
 // A button's width for its text.
-int buttonWidth(Paint p, const std::wstring& text) { return std::max(scale(kButtonMinW), textWidth(*p, text) + scale(28)); }
+int buttonWidth(Paint p, const std::wstring& text) { return kitpaint::buttonWidth(*p, text); }
 
 void button(Paint p, RECT r, const std::wstring& text, Tone tone, std::function<void()> click, const std::wstring& tip = L"", bool enabled = true) {
     buttonFace(*p, r, text, tone, !enabled ? State::Disabled : hot(r) ? State::Hot : State::Normal);
@@ -403,23 +397,9 @@ using kitpaint::Field;
 void fieldBox(Paint p, RECT r, Field f) { kitpaint::drawFieldBox(*p, r, f); }
 
 // --- Form parts ---------------------------------------------------------------------------------------------------
-// The form's layout, as the Data forms have it: the fields in a column on the left, the pictures beside them when
-// the form is wide (above them when narrow).
-struct FormLayout {
-    int x0, labelW, rowH, colW, colRight, picX, picW;
-    bool twoCol;
-};
-FormLayout formLayout(RECT rc) {
-    FormLayout l{};
-    l.x0 = scale(18), l.labelW = scale(230), l.rowH = scale(kRowH);
-    const int full = std::max(scale(300), int(rc.right) - 2 * l.x0);
-    l.twoCol = full >= scale(1150);
-    l.colW = l.twoCol ? std::min(scale(650), full * 11 / 20) : full;
-    l.colRight = l.x0 + l.colW;
-    l.picX = l.twoCol ? l.colRight + scale(28) : l.x0;
-    l.picW = l.twoCol ? full - l.colW - scale(28) : full;
-    return l;
-}
+// The form's layout, as the Data forms have it (core/kit_paint.inc: FormLayout), for the form's client rectangle.
+using kitpaint::FormLayout;
+FormLayout formLayout(RECT rc) { return kitpaint::formLayout(int(rc.right)); }
 HFONT titleFont() {
     static std::map<int, HFONT> fonts;  // by DPI
     HFONT& f = fonts[scale(100)];

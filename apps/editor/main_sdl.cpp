@@ -48,6 +48,7 @@
 #include "dialog.h"  // apps/kit: the map pages' pickers (sdl_map_pages.inc)
 #include "label.h"  // apps/kit: the block dialog's text (core/views_classic_batch.inc)
 #include "text_field.h"  // apps/kit: the search boxes (core/views_search.inc)
+#include "rich_field.h"  // apps/kit: the game text editor (core/views_game_text.inc)
 #include "dropdown.h"  // apps/kit: the palette's dropdown (core/views_search.inc)
 #include "check_box.h"  // apps/kit: the players and forces page (core/views_players.inc)
 #include "slider.h"  // apps/kit: the volume and the generator's sliders (core/views_options.inc, core/views_new_page.inc)
@@ -71,6 +72,7 @@
 #include "stardraft/terrain_gen.h"  // the generator's settings (core/views_new_page.inc, sdl_new_page.inc)
 #include "stardraft/tileset.h"
 #include "stardraft/units.h"
+#include "stardraft/wireframes.h"  // the Display section's wireframes (core/views_data_display.inc)
 
 using namespace stardraft;
 namespace fs = std::filesystem;

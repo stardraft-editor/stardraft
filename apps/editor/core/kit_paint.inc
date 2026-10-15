@@ -28,6 +28,32 @@ inline draw::Rect square(draw::Rect r) {
     return {x, y, x + s, y + s};
 }
 
+// --- Buttons ------------------------------------------------------------------------------------------------------
+// A button's state: resting, under the mouse, pressed, or not available.
+enum class ButtonState { Normal, Hot, Down, Disabled };
+// The face of a painted button (ui_kit.inc's buttonFace draws the native push buttons with it too): its box by tone and
+// state, and its text in the middle.
+inline void drawButtonFace(draw::Canvas& c, draw::Rect r, const std::wstring& text, Tone tone, ButtonState s) {
+    draw::Color fill = kCtl, line = kBorder;
+    if (tone == Tone::Primary) fill = kSel, line = kAccentLine;
+    if (s == ButtonState::Hot) fill = tone == Tone::Primary ? kSelHot : kCtlHot, line = tone == Tone::Primary ? kAccent : kBorderHot;
+    if (s == ButtonState::Down) fill = tone == Tone::Primary ? kSel : kCtlDown;
+    if (s == ButtonState::Disabled) fill = kBg, line = kBorder;
+    c.roundBox(r, fill, line, float(scale(stardraft::kit::kRadius)));
+    c.text(r, text, s == ButtonState::Disabled ? kFaint : toneText(tone == Tone::Quiet ? Tone::Normal : tone), draw::kMiddle | draw::kCenter | draw::kEllipsis);
+}
+// A button's width for its text (at least kButtonMinW).
+inline int buttonWidth(draw::Canvas& c, const std::wstring& text) {
+    return std::max(scale(stardraft::kit::kButtonMinW), c.measure(text) + scale(28));
+}
+// A small button (an action in a row, "Add an action"): as wide as its text and 20 px more, at most 24 px high, in the
+// middle of the row's height `h` from `y`. Its box; the caller draws it with drawButtonFace (a small button is never the
+// main action: Primary is drawn as Normal).
+inline draw::Rect smallButtonRect(draw::Canvas& c, int x, int y, int h, const std::wstring& text) {
+    const int bh = std::min(h, scale(24)), w = c.measure(text) + scale(20);
+    return {x, y + (h - bh) / 2, x + w, y + (h - bh) / 2 + bh};
+}
+
 // --- Fields -------------------------------------------------------------------------------------------------------
 // A text field's box (its ground and its line by state).
 inline void drawFieldBox(draw::Canvas& c, draw::Rect r, Field f) {
@@ -117,6 +143,24 @@ inline void drawChangedDot(draw::Canvas& c, int cx, int cy) {
 }
 
 // --- Form parts ---------------------------------------------------------------------------------------------------
+// The form's layout, as the Data forms have it, for a form `width` wide: the fields in a column on the left, the
+// pictures beside them when the form is wide (above them when narrow).
+struct FormLayout {
+    int x0, labelW, rowH, colW, colRight, picX, picW;
+    bool twoCol;
+};
+inline FormLayout formLayout(int width) {
+    FormLayout l{};
+    l.x0 = scale(18), l.labelW = scale(230), l.rowH = scale(stardraft::kit::kRowH);
+    const int full = std::max(scale(300), width - 2 * l.x0);
+    l.twoCol = full >= scale(1150);
+    l.colW = l.twoCol ? std::min(scale(650), full * 11 / 20) : full;
+    l.colRight = l.x0 + l.colW;
+    l.picX = l.twoCol ? l.colRight + scale(28) : l.x0;
+    l.picW = l.twoCol ? full - l.colW - scale(28) : full;
+    return l;
+}
+
 // A section heading: its name and a line under it to the column's right edge. Returns the y of the next row.
 inline int drawSectionHeader(draw::Canvas& c, int x0, int colRight, int y, int rowH, const std::wstring& name, bool changed = false) {
     c.text({x0, y, colRight, y + rowH}, name, changed ? kGood : kText, draw::kMiddle);
