@@ -288,6 +288,10 @@ file(GLOB STARDRAFT_KIT_TESTS CONFIGURE_DEPENDS tools/tests/kit/*.cpp)
 add_executable(kit_test tools/tests/kit_test.cpp ${STARDRAFT_KIT_TESTS})
 target_include_directories(kit_test PRIVATE tools/tests)
 target_link_libraries(kit_test PRIVATE stardraft_kit)
+if(MSVC)  # (the sources are UTF-8: Korean and Chinese in tests and texts)
+    target_compile_options(stardraft_kit PRIVATE /utf-8)
+    target_compile_options(kit_test PRIVATE /utf-8)
+endif()
 
 # --- stardraft-next: the new shell's spike (SDL3 + Dear ImGui; research/ports/PLAN.md, phase 4) ------------------
 # A program of its own beside the Win32 one, on every system. Off: no Dear ImGui is fetched.
