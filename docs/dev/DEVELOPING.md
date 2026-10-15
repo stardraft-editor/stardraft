@@ -114,6 +114,7 @@ The tool does not see the self-test, the kit gallery, log lines and the theme co
 | `mouse:<x>:<y>` | The next captures show the data form as if the mouse were at that place of it (hover states: number arrows, grid labels). The real mouse does not move. |
 | `ws:map`, `ws:data`, `ws:triggers`, `ws:briefing`, `ws:files`, `ws:project` | A workspace as it opens. |
 | `trig:<root>:<index>...` | The Triggers workspace with that node selected. |
+| `trigsel:<action>` | After `trig:` (a trigger): that action selected, its first value focused and the mouse on its row: the row's buttons and the info strip (`trigsel_<action>.png`). |
 | `trigtree:` | The Triggers tree by its keys and mouse: F2 and a typed name rename a trigger, a drag moves it into On every trigger cycle (`trigtree.png`), Delete deletes it; `trigtree.txt` says what holds. Put `project:` before it. |
 | `kit:` | The control kit's gallery, page by page. |
 | `perf:` | `perf.txt`: start-up steps, opening the file, each workspace's first show and paint, the map frame, memory. |

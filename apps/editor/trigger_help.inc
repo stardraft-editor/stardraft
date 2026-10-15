@@ -196,31 +196,7 @@ void trigPaneHelp() {
 
 // --- Cost fixes ------------------------------------------------------------------------------------------------------
 
-// The fixes shown on the pane and where their Apply links are (painted with the trigger).
-std::vector<std::pair<RECT, TriggerCostFix>> gTrigFixLinks;
-
-// Under the heavy trigger's cost: each fix with Apply. Returns the y under them.
-int trigDrawCostFixes(HDC mem, const TriggerNode& t, int x0, int w, int y) {
-    const int category = gTE.sel.empty() ? 2 : std::clamp(gTE.sel[0], 0, 2);
-    const auto fixes = TriggerSet::costFixes(t, category);
-    for (size_t k = 0; k < fixes.size() && k < 2; ++k) {
-        const std::wstring apply = L"Apply";
-        const int aw = ui::textWidth(mem, apply);
-        RECT ar{x0 + scale(18), y, x0 + scale(18) + aw, y + scale(20)};
-        const bool hot = ui::hotIn(gTE.pane, ar);
-        SetTextColor(mem, hot ? kAccentBright : kAccent);
-        DrawTextW(mem, apply.c_str(), -1, &ar, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-        if (hot) trigFill(mem, {ar.left, ar.bottom - scale(3), ar.right, ar.bottom - scale(2)}, kAccentBright);
-        gTrigFixLinks.push_back({ar, fixes[k]});
-        RECT tr{ar.right + scale(10), y, x0 + w, y + scale(20)};
-        SetTextColor(mem, kDim);
-        const std::wstring text = widen(fixes[k].text) + L" (about " + std::to_wstring(fixes[k].after) + L")";
-        DrawTextW(mem, text.c_str(), -1, &tr, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
-        gTP.tips.push_back({{ar.left, y, x0 + w, y + scale(20)}, text, kBorderHot});
-        y += scale(22);
-    }
-    return y;
-}
+// (The fixes' Apply links, gTrigFixLinks, and their paint are in core/views_triggers_pane.inc.)
 
 void trigApplyCostFix(const TriggerCostFix& fix) {
     TriggerNode* t = trigSelected();
