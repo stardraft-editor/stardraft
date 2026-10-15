@@ -307,6 +307,7 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/views_data_form.inc"  // the Data form: where each part of a row sits (dataFieldRow) and the form's view (DataFormView)
 #include "core/views_data_strings.inc"  // the Strings page's model: a string's text, its button prefix and the editor's text (stringLine, stringEditCommit)
 #include "core/views_data_buttons.inc"  // the Buttons tab's model: places, labels, costs, edits of a set (buttonRowTextFrom, buttonNew)
+#include "core/data_model.inc"  // the Data workspace's model: the tables, the extras, the tabs' lists, the notes, the references (gData, gExtras)
 #include "core/title.inc"  // the window's title and the rail's state (updateTitle)
 int selectPalette(int value);
 void pickUnit(int v, bool add);
@@ -4660,21 +4661,13 @@ RailView gRail;
 // click a field to put the game's value back. Every change is saved to the project's dat/<name>.dat at
 // once; Build turns the edits into generated/<name>.eps.
 
-struct DataView {
-    int datTab = 0;  // index into DatSchema::all(); units is 0
-    std::vector<std::unique_ptr<DatTable>> tables;  // one per DatSchema::all(), in that order
-    std::vector<int> tabEntry;                      // the entry each tab last had open
-    const EudProject* project = nullptr;
-    int entry = 0;
-    std::vector<int> shown;  // entries in the list
-    int listScroll = 0, formScroll = 0;  // (the form's height, click areas and section places are its view's: gDataFormView)
+// The state is the core's (core/data_model.inc: DataModel); the windows are this program's.
+struct DataView : DataModel {
     HWND list = nullptr, form = nullptr, edit = nullptr;
     HWND refs = nullptr;           // References: the entries that point at this one (a pane on the right; core/views_data_refs.inc)
-    int edits = 0;                 // goes up with each change (the references follow the values)
-    int editing = -1;  // field whose value box holds the edit control
-    DataEditHistory history;  // undo: each saved change is a step (core/data_edits.inc)
 };
 DataView gData;
+DataModel& dataState() { return gData; }
 extern DataFormView gDataFormView;  // the form's view (core/views_data_form.inc; its window is dataFormProc's)
 void dataFormRepaint() {
     if (gData.form) InvalidateRect(gData.form, nullptr, FALSE);
@@ -4796,7 +4789,6 @@ void rangesScene(render::Scene& s, float dx, float dy) {
         }
 }
 
-DatTable* datTable(int tab) { return tab >= 0 && tab < int(gData.tables.size()) ? gData.tables[size_t(tab)].get() : nullptr; }
 // The tabs after the .dat files: Strings and Buttons (data_extras.inc).
 int dataTabCount();
 bool extraTab(int tab);
@@ -4814,42 +4806,7 @@ bool extrasLoadFailed();  // a project file of the extras did not load
 bool writeExtrasEdits(EudProject& pr, std::string& err);
 void stringsCommitEdit();
 void stringsShowEdit(bool show);
-DatTable* curTable() { return datTable(gData.datTab); }
 
-int datTabOf(const std::string& dat) {
-    const auto& all = DatSchema::all();
-    if (dat == "strings") return int(all.size());
-    if (dat == "buttons") return int(all.size()) + 1;
-    for (size_t i = 0; i < all.size(); ++i)
-        if (all[i].name == dat) return int(i);
-    return -1;
-}
-
-const DatField* curField(int index) {
-    const DatTable* t = curTable();
-    if (!t) return nullptr;
-    for (const auto& f : t->schema().fields)
-        if (f.index == index) return &f;
-    return nullptr;
-}
-
-
-// The stat_txt.tbl string (1-based) that names an entry in the game: a unit's (its id + 1), or the Label of a weapon,
-// upgrade, technology or order; 0 for none (the other .dat files have no name in the game).
-int datValue(const std::string& dat, const std::string& name, int e, int fallback = 0);
-int entryNameString(const std::string& dat, int e) {
-    if (dat == "units") return e >= 0 && e < 228 ? e + 1 : 0;
-    if (dat == "weapons" || dat == "upgrades" || dat == "techdata" || dat == "orders") return datValue(dat, "Label", e, 0);
-    return 0;
-}
-
-
-// Name of entry `v` of the .dat a reference points into: "None" past the last entry.
-std::wstring refName(const std::string& dat, uint32_t v) {
-    const DatSchema* sc = DatSchema::find(dat);
-    if (sc && v >= uint32_t(sc->entries)) return L"None";
-    return entryName(dat, int(v));
-}
 
 // An entry's picture: units their command icon (or sprite); weapons, upgrades and tech their Icon field;
 // orders their Highlight icon. The rest have none.
@@ -4875,53 +4832,6 @@ const UnitPalette::Bitmap* datRefIcon(const std::string& dat, uint32_t v) {
     if (dat == "icons") return v < 0xFFFF ? unitPaletteBitmap(int(v), Mode::Units, true) : nullptr;
     if (dat == "weapons" || dat == "upgrades" || dat == "techdata" || dat == "orders") return entryIcon(datTabOf(dat), int(v));
     return nullptr;
-}
-bool datHasIcons(const std::string& dat) { return dat == "units" || dat == "icons" || dat == "weapons" || dat == "upgrades" || dat == "techdata" || dat == "orders"; }
-
-// The game's tables, each with the project's edits on top (dat/<name>.dat). A game table that does not load is null;
-// err gets the first such error. No message box: this can run from a paint.
-std::vector<std::unique_ptr<DatTable>> loadDatTables(const EudProject& pr, std::string& err) {
-    std::vector<std::unique_ptr<DatTable>> out;
-    std::string first;
-    for (const auto& sc : DatSchema::all()) {
-        auto t = std::make_unique<DatTable>();
-        if (!t->load(app.data, sc, err)) {
-            logLine(widen(err), true);
-            setMessage(widen(err));
-            if (first.empty()) first = err;
-            t.reset();
-        } else if (!t->loadEdits(pr.datFile(sc.name), err)) {
-            themedMessageBox(app.main, widen(err).c_str(), (L"Could not read the project's " + widen(sc.name) + L".dat").c_str(), MB_ICONERROR);
-            err.clear();
-        }
-        out.push_back(std::move(t));
-    }
-    err = first;
-    return out;
-}
-
-// Loads (or reloads, for another project) the tables: the game's .dat files plus the project's edits.
-// A project file of the open tables or extras did not load: nothing is saved over it. Build reads the files again
-// (writeDatEdits), and when they load then, the workspace loads them too.
-bool dataLoadFailed() {
-    for (const auto& t : gData.tables)
-        if (t && t->editsFailed()) return true;
-    return extrasLoadFailed();
-}
-
-void dataLoadForProject() {
-    const EudProject* pr = activeProject();
-    if (pr == gData.project && (!gData.tables.empty() || !pr)) return;
-    gData.entry = 0, gData.listScroll = gData.formScroll = 0;
-    gData.project = pr;
-    gData.tables.clear();
-    gData.tabEntry.assign(size_t(dataTabCount()), 0);
-    extrasLoad(pr);
-    if (!pr) return;
-    std::string err;
-    gData.tables = loadDatTables(*pr, err);
-    gData.history.reset(gData.tables);
-    ++gData.edits;  // other tables: the caches keyed on the edit count (sprites, pictures, references) read them again
 }
 
 // Before a build: every table's edits saved, and generated/<name>.eps written for each that has some.
@@ -4971,12 +4881,8 @@ bool writeDatEdits(EudProject& pr, std::string& err, std::vector<std::string>* n
 // False when a save failed (its error is the status message).
 bool dataSaved() {
     gDataMapEdits = 0;  // a data edit: Ctrl+Z goes to the data's undo
-    ++gData.edits;
-    bool ok = extrasSaved();
+    const bool ok = dataSaveChange();  // the files and the undo step (core/data_model.inc)
     if (gData.refs) InvalidateRect(gData.refs, nullptr, FALSE);
-    std::string err;
-    if (const DatTable* t = curTable(); t && gData.project && !t->saveEdits(gData.project->datFile(t->schema().name), err)) setMessage(widen(err)), ok = false;
-    if (const DatTable* t = curTable()) gData.history.recordTable(gData.datTab, gData.entry, t->bytes());
     if (gWsBar) InvalidateRect(gWsBar, nullptr, FALSE);
     if (gDataWnd) {
         RECT tabs{0, 0, 1 << 15, scale(34)};
@@ -5012,16 +4918,6 @@ bool dataPinned(int tab, int e) {
     return std::find(v.begin(), v.end(), e) != v.end();
 }
 void dataRebuildList();
-// The Data list's model host (core/data_list.inc): the tables, the entries' names and the changed flags.
-class DataListProgram final : public DataListHost {
-public:
-    bool hasTable(int tab) override { return datTable(tab) != nullptr || extraTab(tab); }
-    int entries(int tab) override { return tabEntries(tab); }
-    int firstEntry(int tab) override { return tabFirstEntry(tab); }
-    bool changed(int tab, int e) override { return tabEntryChanged(tab, e); }
-    std::wstring name(int tab, int e) override { return tabEntryName(tab, e); }
-};
-DataListProgram gDataListProgram;
 void dataEntryMenu(int u, POINT screen);
 bool dataXButton(WPARAM wp);
 // The Data list view's program parts (core/views_data_list.inc): the open tab's rows and names, a click's selection, and the
@@ -5312,47 +5208,6 @@ RECT numberArrows(RECT vb) {  // (core/kit_paint.inc: the arrows' box, the same 
 }
 // A core box as a RECT for the kit.
 RECT winRect(draw::Rect r) { return {r.left, r.top, r.right, r.bottom}; }
-
-// units.dat Rank/Sublabel: the title under the unit's name in the status panel, from stat_txt.tbl ("None" for 0).
-std::wstring rankName(uint32_t v) {
-    if (!v) return L"None";
-    std::wstring t = app.ed && v < 256 ? statString(UnitLooks::kRankString + int(v)) : L"";
-    if (const size_t nl = t.find_first_of(L"\r\n"); nl != std::wstring::npos) t.resize(nl);
-    return (t.empty() ? L"(no title)" : t) + (v < uint32_t(UnitLooks::kRanks) ? L"" : L"   (not a title)");
-}
-
-// What follows the value: the name of a choice or of the entry a reference points at, or a note.
-std::wstring fieldNote(const DatField& f, uint32_t v) {
-    if (!f.valueNames.empty()) return v < f.valueNames.size() ? f.valueNames[v].empty() ? L"" : widen(f.valueNames[v]) : L"(unnamed)";
-    if (!f.ref.empty()) {
-        const std::wstring n = refName(f.ref, v);
-        return n.empty() ? widen(f.ref) + L" #" + std::to_wstring(v) : n;
-    }
-    if (f.name == "Iscript ID") {
-        const auto& names = DatSchema::entryNames("iscript");
-        return v < names.size() ? widen(names[v]) : L"";
-    }
-    if (f.name == "Rank/Sublabel") return rankName(v);
-    if (f.name == "Icon" || f.name == "Highlight") {
-        if (v == 0xFFFF) return L"None";
-        const auto& icons = DatSchema::entryNames("icons");
-        return v < icons.size() ? L"icon: " + widen(icons[v]) : L"";
-    }
-    if (f.name == "Label" && app.ed) return v ? L"\x201C" + statString(int(v)) + L"\x201D" : L"None";
-    if (f.name == "Hit Points") {
-        wchar_t b[48];
-        std::swprintf(b, 48, L"= %g hit points", v / 256.0);
-        return b;
-    }
-    if (f.name == "Shield Amount" || f.name == "Mineral Cost" || f.name == "Vespene Cost") return L"";
-    if (f.name == "Build Time" || f.name == "Weapon Cooldown" || f.name == "Remove After" || f.name == "Research Time Base" ||
-        f.name == "Research Time Factor" || f.name == "Resarch Time") {
-        wchar_t b[48];
-        std::swprintf(b, 48, L"= %g s (fastest)", v / 24.0);
-        return b;
-    }
-    return L"";
-}
 
 void layoutData();
 std::wstring datTitle(const std::string& name);
@@ -5873,21 +5728,6 @@ void showLocationEdit(int loc) {
 
 void dataSetValue(const DatField& f, uint32_t v);
 
-// A field a map cannot change, and why ("" when it can). From the offset table of the EUD book
-// (armoha.github.io/eud-book/offset_table.html): the fields marked "Read Only" there; Sound File of a sound the game
-// loads before the map's code runs (Preload); and fields with no address in memory.
-std::wstring datFieldReadOnly(const std::string& dat, const DatField& f, int entry) {
-    static const std::set<std::pair<std::string, std::string>> readOnly = {
-        {"sprites", "Health Bar"},     {"sprites", "Sel.Circle Image"}, {"sprites", "Sel.Circle Offset"}, {"images", "GRP File"},
-        {"images", "Shield Overlay"},  {"images", "Attack Overlay"},    {"images", "Damage Overlay"},    {"images", "Special Overlay"},
-        {"images", "Landing Dust Overlay"}, {"images", "Lift-Off Overlay"}};
-    if (readOnly.count({dat, f.name})) return L"Read only. A change to this value has no effect in StarCraft: Remastered.";
-    if (const DatTable* t = datTable(datTabOf(dat)); t && t->pointerField(f) && t->soundPreloaded(entry))
-        return L"Read only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a "
-               L"change to the file has no effect.";
-    if (!f.memory) return L"Read only. StarDraft 2 does not know where the game keeps this value.";
-    return L"";
-}
 
 // --- Data widgets ---------------------------------------------------------------------------------------
 // Pictures of values beside their fields: a unit's footprint, angles as dials, ranges as rings, movement as a
@@ -5896,25 +5736,6 @@ std::wstring datFieldReadOnly(const std::string& dat, const DatField& f, int ent
 // their colors; the mouse over a chip, a part or a field shows the two together. Some parts can be dragged: a
 // drag changes the values live and is one undo step when the mouse is let go.
 
-// The game's graphics as the project's edits make them, for the Data workspace and its pictures (the map keeps its
-// own copy): set again from sprites.dat and images.dat after each change.
-UnitSprites& dataSprites() {
-    static std::unique_ptr<UnitSprites> own;
-    static int appliedAt = -1;
-    if (!own) {
-        own = std::make_unique<UnitSprites>();
-        std::string err;
-        own->load(app.data, err);
-        appliedAt = -1;
-    }
-    if (appliedAt != gData.edits) {
-        const DatTable* sprites = datTable(datTabOf("sprites"));
-        const DatTable* images = datTable(datTabOf("images"));
-        if (sprites && images) own->applyEdits(sprites->bytes(), images->bytes());
-        appliedAt = gData.edits;
-    }
-    return *own;
-}
 
 // New graphics for preplaced units (Project page, R8): the game makes the preplaced units before the .dat edits run,
 // so they keep the game's graphics. With the option on, Build adds code that makes them again, and the map shows them
@@ -6005,27 +5826,6 @@ COLORREF lit(COLORREF c, bool on) {
     return RGB(std::min(255, GetRValue(c) + 50), std::min(255, GetGValue(c) + 50), std::min(255, GetBValue(c) + 50));
 }
 
-const DatField* datFieldNamed(const std::string& dat, const std::string& name) {
-    const DatTable* t = datTable(datTabOf(dat));
-    if (!t) return nullptr;
-    for (const auto& f : t->schema().fields)
-        if (f.name == name) return &f;
-    return nullptr;
-}
-// A value shown other than it is: what a trigger block would make it (its pop-out shows the result).
-struct {
-    std::string dat, field;
-    int entry = -1;
-    long long value = 0;
-} gDatOverride;
-
-// A value of another entry (any .dat), or `fallback` if the field does not cover it.
-int datValue(const std::string& dat, const std::string& name, int e, int fallback) {
-    if (gDatOverride.entry == e && gDatOverride.entry >= 0 && gDatOverride.field == name && gDatOverride.dat == dat) return int(gDatOverride.value);
-    const DatTable* t = datTable(datTabOf(dat));
-    const DatField* f = datFieldNamed(dat, name);
-    return t && f && f->covers(e) ? int(t->value(*f, e)) : fallback;
-}
 // While a drag goes on: the value changes at once, and is saved (one undo step) when the mouse is let go.
 void datSetLive(const std::string& dat, const std::string& name, int e, long long v) {
     DatTable* t = datTable(datTabOf(dat));
@@ -8421,34 +8221,6 @@ void dataSetValue(const DatField& f, uint32_t v) { gDataFormView.setValue(f, v);
 bool showListPicker(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, POINT at, std::string& out);
 bool showListPickerMulti(const std::wstring& prompt, std::vector<ListPickItem> items, std::set<std::string>& checked, const std::wstring& okText, POINT at);
 
-// The values a dropdown offers, in its order.
-std::vector<ListPickItem> dataDropdownItems(const DatField& f) {
-    std::vector<ListPickItem> items;
-    const std::string dat = fieldRefDat(f);
-    if (!f.valueNames.empty()) {
-        for (size_t i = 0; i < f.valueNames.size(); ++i) items.push_back({widen(f.valueNames[i].empty() ? "(unnamed)" : f.valueNames[i]), L"", std::to_string(i)});
-    } else if (dat == "iscript") {  // the scripts iscript.bin has, by their names
-        const auto& names = DatSchema::entryNames("iscript");
-        for (uint32_t id : dataSprites().scriptIds())
-            items.push_back({(id < names.size() ? widen(names[id]) : L"(unnamed)") + L"   #" + std::to_wstring(id), L"", std::to_string(id)});
-    } else if (dat == "ranks") {  // the game's titles (stat_txt.tbl)
-        for (int v = 0; v < UnitLooks::kRanks; ++v) items.push_back({rankName(uint32_t(v)) + L"   #" + std::to_wstring(v), L"", std::to_string(v)});
-    } else if (dat == "icons") {
-        const auto& names = DatSchema::entryNames("icons");
-        items.push_back({L"None", L"", std::to_string(0xFFFF)});
-        for (size_t i = 0; i < names.size(); ++i) items.push_back({widen(names[i]) + L"   #" + std::to_wstring(i), L"", std::to_string(i), "icons", int(i)});
-    } else {
-        const DatSchema* sc = DatSchema::find(dat);
-        const int n = sc ? sc->entries : 0;
-        const bool icons = datHasIcons(dat);
-        if (f.maxValue() >= uint32_t(n)) items.push_back({L"None", L"", std::to_string(n)});
-        for (int i = 0; i < n; ++i) {
-            const std::wstring name = entryName(dat, i);
-            items.push_back({(name.empty() ? L"(unnamed)" : name) + L"   #" + std::to_wstring(i), L"", std::to_string(i), icons ? dat : "", icons ? i : -1});
-        }
-    }
-    return items;
-}
 
 void dataDropdown(const DatField& f, RECT box) {
     DatTable* t = curTable();
@@ -8760,95 +8532,13 @@ LRESULT CALLBACK dataFormProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 int dataListWidth() { return scale(gDock.dataListW); }
 int dataRefsWidth() { return scale(260); }
 
-// References: every entry of any .dat whose fields point at the open one, grouped by its .dat. Click a name to
-// go there.
-struct DataRef {
-    std::string dat;
-    int entry;
-    std::vector<std::string> via;
-};
-const std::vector<DataRef>& dataRefs(const std::string& dat, int e) {
-    static std::vector<DataRef> refs;
-    static std::tuple<std::string, int, int> key{"", -1, -1};
-    if (key == std::make_tuple(dat, e, gData.edits)) return refs;
-    key = {dat, e, gData.edits};
-    refs.clear();
-    for (const auto& sc : DatSchema::all()) {
-        const DatTable* t = datTable(datTabOf(sc.name));
-        if (!t) continue;
-        for (int i = 0; i < sc.entries; ++i)
-            for (const auto& f : t->schema().fields) {
-                // The selection circle is a number from image 561 on, not an image: it points nowhere here.
-                if (f.ref != dat || !f.covers(i) || f.name == "Sel.Circle Image" || int(t->value(f, i)) != e) continue;
-                if (sc.name == dat && i == e) continue;
-                if (refs.empty() || refs.back().dat != sc.name || refs.back().entry != i) refs.push_back({sc.name, i, {}});
-                refs.back().via.push_back(f.name);
-            }
-    }
-    auto add = [&](const std::string& d, int i, const std::string& via) {
-        for (auto& r : refs)
-            if (r.dat == d && r.entry == i) return r.via.push_back(via);
-        refs.push_back({d, i, {via}});
-    };
-    if (dat == "strings") {  // a string: the unit it names, the fields that show it, the buttons that show it
-        if (e >= 1 && e <= 228) add("units", e - 1, "Name");
-        for (const auto& sc : DatSchema::all()) {
-            const DatTable* t = datTable(datTabOf(sc.name));
-            if (!t) continue;
-            for (const auto& f : t->schema().fields)
-                if (f.name == "Label" || f.name == "Target Error Message")
-                    for (int i = f.first; i <= f.last; ++i)
-                        if (int(t->value(f, i)) == e) add(sc.name, i, f.name);
-        }
-        for (int b = 0; b < ButtonSets::kSets; ++b)
-            for (const Button& btn : gExtras.buttons.set(b))
-                if (btn.enabledString == e || btn.disabledString == e) add("buttons", b, "Text");
-    } else {
-        // The requirement lists that name this entry, and the buttons whose condition or action does.
-        for (int k = 0; k < Requirements::kKinds; ++k)
-            for (int i = 0; i < Requirements::kind(k).entries; ++i)
-                for (const RequirementOp& r : gExtras.reqs.list(k, i).ops) {
-                    const char* kind = requirementOpArgKind(r);
-                    if (kind && kind == dat && requirementOpValue(r) == e) {
-                        add(Requirements::kind(k).dat, i, "Requirements");
-                        break;
-                    }
-                }
-        for (int b = 0; b < ButtonSets::kSets; ++b)
-            for (const Button& btn : gExtras.buttons.set(b)) {
-                const ButtonFunctionDef* c = ButtonSets::condition(btn.condition);
-                const ButtonFunctionDef* a = ButtonSets::action(btn.action);
-                if ((c && c->arg && c->arg == dat && btn.conditionArg == e) || (a && a->arg && a->arg == dat && btn.actionArg == e)) {
-                    if (!(dat == "buttons" && b == e)) add("buttons", b, "Button");
-                    break;
-                }
-            }
-    }
-    return refs;
-}
 
 // The References panel (core/views_data_refs.inc): its program parts. The entries are dataRefs' (above); a link goes to the
 // entry in the Data workspace, and the mouse's back and forward buttons work over it as over the other panes.
 class DataRefsProgram final : public DataRefsHost {
 public:
-    std::vector<DataRefRow> refs(bool& shown) override {
-        const DatTable* t = curTable();
-        shown = t || (extraTab(gData.datTab) && gData.project);
-        std::vector<DataRefRow> out;
-        if (!shown) return out;
-        const auto& list = dataRefs(t ? t->schema().name : gData.datTab == stringsTab() ? "strings" : "buttons", gData.entry);
-        out.reserve(list.size());
-        for (const auto& r : list) {
-            DataRefRow row;
-            row.dat = r.dat, row.entry = r.entry;
-            row.group = tabTitle(datTabOf(r.dat)), row.groupIcon = tabIcon(datTabOf(r.dat));
-            row.name = tabEntryName(datTabOf(r.dat), r.entry);
-            row.feedback = entryName(r.dat, r.entry);
-            if (row.name.empty()) row.name = L"#" + std::to_wstring(r.entry);
-            row.icon = ui::imageOf(tabEntryIcon(datTabOf(r.dat), r.entry));
-            out.push_back(std::move(row));
-        }
-        return out;
+    std::vector<DataRefRow> refs(bool& shown) override {  // (the rows are the core's: core/views_data_refs.inc)
+        return dataRefRows(shown, [](int tab, int e) { return ui::imageOf(tabEntryIcon(tab, e)); });
     }
     void goTo(const std::string& dat, int entry) override { dataGoTo(dat, entry); }
     bool travel(int button) override { return dataXButton(MAKEWPARAM(0, button)); }
@@ -10993,21 +10683,9 @@ bool dataCanUndo(bool redo) { return gData.history.canUndo(redo); }
 bool dataUndo(bool redo) {
     dataCommitEdit();
     DataEditStep s;
-    if (!gData.history.take(redo, s)) return false;
+    std::string err;
+    if (!dataApplyUndo(redo, s, err)) return false;  // the step's table or text, saved (core/data_model.inc)
     if (s.extra) {
-        const int k = s.extra - 1;
-        const Bytes& b = redo ? s.after : s.before;
-        std::string err;
-        setExtrasText(k, std::string(b.begin(), b.end()), err);
-        gExtras.saved[k] = extrasText(k);
-        gExtras.textFor = -1;
-        std::string saveErr;
-        if (gData.project) {
-            const fs::path f = extrasFile(*gData.project, k);
-            extrasSaveFile(k, f, saveErr);
-        }
-        gData.history.done(redo, s);
-        ++gData.edits;
         if (s.tab >= 0 && s.tab < dataTabCount()) {
             gData.tabEntry.resize(size_t(dataTabCount()), 0);
             dataShowTab(s.tab);
@@ -11016,17 +10694,10 @@ bool dataUndo(bool redo) {
         dataRebuildList();
         if (gData.form) InvalidateRect(gData.form, nullptr, FALSE);
         if (gDataWnd) InvalidateRect(gDataWnd, nullptr, FALSE);
-        setMessage(!saveErr.empty() ? widen(saveErr) : redo ? L"Redo" : L"Undo");
+        setMessage(!err.empty() ? widen(err) : redo ? L"Redo" : L"Undo");
         return true;
     }
-    DatTable* t = datTable(s.tab);
-    if (!t) return false;
-    t->setBytes(redo ? s.after : s.before);
-    ++gData.edits;
-    gData.history.tableSaved(s.tab, t->bytes());
-    gData.history.done(redo, s);
-    std::string err;
-    const bool saved = !gData.project || t->saveEdits(gData.project->datFile(t->schema().name), err);
+    const bool saved = err.empty();
     dataGoTo(DatSchema::all()[size_t(s.tab)].name, s.entry);
     dataRebuildList();
     if (gData.list) InvalidateRect(gData.list, nullptr, FALSE);

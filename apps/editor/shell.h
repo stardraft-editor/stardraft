@@ -76,6 +76,8 @@ bool shellClearFilter();
 unsigned shellDpi();
 // Writes a line to the log (the status bar's message is logged too).
 void shellLogLine(const std::wstring& line);
+// Writes an error line to the log (in the error color where the log has colors).
+void shellLogError(const std::wstring& line);
 // Whether the status bar exists (updateStatus does nothing without it).
 bool shellHasStatusBar();
 // The sprites the renderer drew last frame (the status bar's last part).
