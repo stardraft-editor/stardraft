@@ -8,31 +8,9 @@ class FeedbackProgram final : public FeedbackHost {
 public:
     void send(FeedbackView& v, const std::wstring& typed) override {
         const fs::path file = feedbackWrite(v.on(), typed);  // the file waits there if it cannot go now
-        // A build made here has no token: it cannot send, so the note says where the feedback is.
-        if (crash::token().empty()) {
-            v.sending(L"");
-            v.done(false, 0, L"");
-            v.showStatus(L"This build cannot send feedback. StarDraft 2 keeps it in " + file.wstring() + L".");
-            return;
-        }
-        v.sending(L"Sending your feedback\x2026");
-        setMessage(L"Sending the feedback\x2026");
         const FeedbackView* sentFrom = &v;  // the dialog that sent it (and its open): the result goes only there
         const unsigned serial = gFbSerial;
-        std::thread([file, sentFrom, serial] {
-            const bool sent = sendFeedbackFile(file);
-            long number = 0;
-            std::wstring page;
-            if (sent)
-                if (const auto list = sentFeedback(); !list.empty()) {
-                    number = list[0].number;
-                    page = L"https://github.com/" + std::wstring(crash::kRepo) + L"/issues/" + std::to_wstring(number);
-                }
-            shellPost([sent, number, page, sentFrom, serial] {  // on the UI thread: the dialog (when it is still open), then the result
-                if (gFbView && gFbView == sentFrom && gFbSerial == serial) gFbView->done(sent, number, page);
-                feedbackSentResult(sent);
-            });
-        }).detach();
+        feedbackSend(v, file, [sentFrom, serial]() -> FeedbackView* { return gFbView && gFbView == sentFrom && gFbSerial == serial ? gFbView : nullptr; });
     }
     void openDiscord() override { ShellExecuteW(nullptr, L"open", kDiscordInvite, nullptr, nullptr, SW_SHOWNORMAL); }
     void openIssue(const std::wstring& page) override { ShellExecuteW(nullptr, L"open", page.c_str(), nullptr, nullptr, SW_SHOWNORMAL); }

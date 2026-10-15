@@ -2002,3 +2002,4 @@ Triggers do not run each second, so they can miss Exactly. Use At least or At mo
 Shift+drag paints 	Mayús+arrastrar pinta 
 ; drag paints 	; arrastrar pinta 
 Shift+drag: no terrain	Mayús+arrastrar: sin terreno
+Automatic (the language of the system)	Automático (el idioma del sistema)

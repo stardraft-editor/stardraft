@@ -16,37 +16,7 @@ struct DataExtras : DataExtrasModel {
     HWND textEdit = nullptr;
 } gExtras;
 DataExtrasModel& dataExtras() { return gExtras; }
-
-
-
-// Before a build: the edits saved, and their code written (or taken out when there are none).
-bool writeExtrasEdits(EudProject& pr, std::string& err) {
-    StatTxt strings;
-    Requirements reqs;
-    ButtonSets buttons;
-    UnitLooks looks;
-    // Another project than the one the Data workspace shows, or a file of it did not load (it may be repaired now):
-    // from disk.
-    const bool open = gData.project == &pr && !extrasLoadFailed();
-    if (!open) {
-        if (!strings.load(app.data, err) || !strings.loadEdits(extrasFile(pr, kExtraStrings), err) || !reqs.loadEdits(extrasFile(pr, kExtraReqs), err) ||
-            !buttons.loadEdits(extrasFile(pr, kExtraButtons), err) || !looks.loadEdits(extrasFile(pr, kExtraLooks), err))
-            return false;
-    }
-    const StatTxt& s = open ? gExtras.strings : strings;
-    const Requirements& r = open ? gExtras.reqs : reqs;
-    const ButtonSets& b = open ? gExtras.buttons : buttons;
-    const UnitLooks& lk = open ? gExtras.looks : looks;
-    if (!s.saveEdits(extrasFile(pr, kExtraStrings), err) || !r.saveEdits(extrasFile(pr, kExtraReqs), err) || !b.saveEdits(extrasFile(pr, kExtraButtons), err) ||
-        !lk.saveEdits(extrasFile(pr, kExtraLooks), err))
-        return false;
-    const std::string sCode = s.editsScript(err);
-    if (!err.empty()) return false;
-    const std::string rCode = r.editsScript(err);
-    if (!err.empty()) return false;
-    return pr.writeGeneratedScript("strings.eps", sCode, err) && pr.writeGeneratedScript("requirements.eps", rCode, err) &&
-           pr.writeGeneratedScript("buttons.eps", b.editsScript(), err) && pr.writeGeneratedScript("unit_display.eps", lk.editsScript(), err);
-}
+// (Build's writeExtrasEdits is core/project_build.inc's.)
 
 // --- What the tabs list ----------------------------------------------------------------------------------------
 

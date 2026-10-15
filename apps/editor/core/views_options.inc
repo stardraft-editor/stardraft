@@ -29,6 +29,7 @@ struct OptionsValues {
     bool checkUpdates = false;
     int crashReports = 0;     // 0 ask, 1 send, 2 do not send
     bool mapsWithSD2 = false; // .scm and .scx open with StarDraft 2
+    bool mapsRow = true;      // the Maps row shows (the file association: the Windows program's)
     std::wstring projectsFolder;  // the working folder (the default one when none is set)
     std::wstring installInUse;    // the StarCraft folder in use ("": none)
     std::wstring installNext;     // the folder used from the next start ("": the same)
@@ -458,11 +459,14 @@ void OptionsView::paint(draw::Canvas& c) {
     label(L"Crash reports");
     segmented(y, crashSeg_, 3, "crashreports");
     y += rowH;
-    // Maps (.scm, .scx): the program a double-click opens them with.
-    label(L"Maps");
-    if (v.mapsWithSD2) note(fx, y + (rowH - scale(20)) / 2, L"Maps (.scm, .scx) open with StarDraft 2");
-    else smallAt(maps_, fx, y, "maps");
-    y += rowH + pad;
+    // Maps (.scm, .scx): the program a double-click opens them with (where the system lets the program say it).
+    if (v.mapsRow) {
+        label(L"Maps");
+        if (v.mapsWithSD2) note(fx, y + (rowH - scale(20)) / 2, L"Maps (.scm, .scx) open with StarDraft 2");
+        else smallAt(maps_, fx, y, "maps");
+        y += rowH;
+    }
+    y += pad;
 
     // The working folder: where new projects go.
     header(L"Working folder");

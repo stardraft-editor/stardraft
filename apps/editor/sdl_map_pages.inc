@@ -477,9 +477,13 @@ public:
     std::wstring unitGameName(int u) override { return widen(gState.ed->unitTypes()[uint16_t(u)].name); }
     bool hasShields(int u) override { return gState.ed->unitTypes()[uint16_t(u)].hasShields; }
     void drawIcon(draw::Canvas& c, int tab, int e, draw::Rect box) override;
-    bool editUnitName(int, std::string&, draw::Point) override {  // (the game text pop-out is the Windows program's)
-        setMessage(L"Renaming a unit is not on this system yet");
-        return false;
+    // The unit's name in the text prompt, with the game's name it has when the field is empty (the Windows program's
+    // game text pop-out has the colors too). False: Cancel, or the same name.
+    bool editUnitName(int u, std::string& text, draw::Point) override {
+        std::wstring name = widen(text);
+        if (!shellPromptText(::tr(L"Unit name   (empty: ") + unitGameName(u) + L")", name) || narrow(name) == text) return false;
+        text = narrow(name);
+        return true;
     }
     int textWidth(const std::wstring& t) override { return sdlTextWidth(t); }
     void fitSize(int tab, int w, int h) override;

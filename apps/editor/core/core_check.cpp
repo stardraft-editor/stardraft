@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <ctime>
 #include <chrono>
 #include <charconv>
 #include <cmath>
@@ -22,6 +23,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 #include <atomic>
@@ -29,8 +31,11 @@
 #include <thread>
 #include <unordered_map>
 
+#include <mutex>
+
 #include "tr.h"
 #include "text_codec.h"
+#include "http.h"  // apps/common: one HTTPS request (core/feedback_send.inc)
 #include "text_field.h"  // the kit's text field (the tool strip's number edit); outside core.inc's namespace
 #include "view.h"
 #include "../shell.h"
@@ -65,6 +70,7 @@
 #include "stardraft/scene.h"
 #include "stardraft/settings.h"
 #include "stardraft/hd_assets.h"
+#include "stardraft/msqc.h"
 #include "stardraft/tileset.h"
 #include "stardraft/wireframes.h"
 #include "stardraft/terrain_gen.h"

@@ -74,8 +74,12 @@ const stardraft::Command* tableCommand(int id) {
 
 bool sdlDataUndo(bool redo);  // (sdl_data.inc: undo and redo in the Data workspace)
 
+bool sdlOptionsRuns(int id);     // (sdl_options.inc: the Program options commands)
+bool sdlOptionsCommand(int id);
+
 // Whether the SDL program runs the command now. The others are grayed, and their keys do nothing.
 bool sdlRuns(int id) {
+    if (sdlOptionsRuns(id)) return true;
     switch (id) {
     case ID_FILE_OPEN:
     case ID_FILE_SAVE:
@@ -109,6 +113,16 @@ bool sdlRuns(int id) {
     case ID_VIEW_KIT:
     case ID_HELP_DISCORD:
     case ID_HELP_GITHUB: return true;
+    case ID_PROJ_COMPILE:  // Build (core/project_build.inc), the Log, the StarCraft folder and the shell's own commands below
+    case ID_VIEW_LOG:
+    case ID_OPT_INSTALL:
+    case ID_SCEN_CHECK:
+    case ID_RECENT_CLEAR_MAPS:
+    case ID_RECENT_CLEAR_PROJECTS:
+    case ID_DOCK_MINI_LEFT:
+    case ID_DOCK_MINI_RIGHT:
+    case ID_DOCK_TOOLS_LEFT:
+    case ID_DOCK_TOOLS_RIGHT: return true;
     case ID_VIEW_TRIGCODE: return true;  // the Triggers workspace's code pane (sdl_triggers.inc)
     default: break;
     }
@@ -121,11 +135,14 @@ bool sdlRuns(int id) {
 bool sdlEnabled(int id) {
     if (!sdlRuns(id)) return false;
     if (mapCommand(id) && !docOpen()) return false;
+    if (id == ID_PROJ_COMPILE && gBuilding) return false;  // (a build runs)
     return commandForMode(id, projectMode());
 }
 
-// The menu item's text without the access keys ('&').
+// The menu item's text in the program's language (the tables have it with its access keys, as the Windows menus add
+// it), without the access keys ('&').
 std::wstring accessFree(std::wstring s) {
+    s = tr(s);
     std::erase(s, L'&');
     return s;
 }
@@ -326,11 +343,13 @@ void confirmReplace(std::function<void()> then) {
 // Runs a command by its id: the core's command path first (the table, the recent lists, the checks of the tab's mode),
 // then the commands the core leaves to the shell.
 bool sdlProjectCommand(int id);  // (sdl_project.inc: Open project, New EUD project, Add a script, the folder, the settings)
+#include "message_box.h"  // apps/kit: Scenario > Check's box (kit::messageBox)
 void command(int id) {
     if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax))
         return confirmReplace([id] { commandPortable(gState, id); });
     if (commandPortable(gState, id)) return;
     if (sdlProjectCommand(id)) return;
+    if (sdlOptionsCommand(id)) return;  // (sdl_options.inc: the theme, the language, the program's options)
     switch (id) {
     case ID_FILE_OPEN: confirmReplace([] {
             showFileDialog(false, [](const fs::path& p) {
@@ -377,12 +396,40 @@ void command(int id) {
     case ID_VIEW_KIT: showKitGallerySdl(); return;
     case ID_HELP_DISCORD: shellOpenUrl(kDiscordInvite); return;
     case ID_HELP_GITHUB: shellOpenUrl(L"https://github.com/" + std::wstring(kRepoName)); return;
+    case ID_PROJ_COMPILE: compileProject(); return;
+    case ID_VIEW_LOG: gLogPane.setExpanded(!gLogPane.expanded()); return;
+    case ID_OPT_INSTALL: shellChooseInstallFolder(); return;
+    case ID_SCEN_CHECK: {
+        const std::wstring problems = playabilityText();
+        if (problems.empty()) setMessage(L"StarCraft can start this map");
+        else if (gRoot)
+            kit::messageBox(*gRoot, shellTr(L"Check that StarCraft can start the map"), shellTr(L"StarCraft will not start this map:") + L"\r\n\r\n" + problems,
+                            {L"OK"}, kit::MessageIcon::Warning);
+        return;
+    }
+    case ID_RECENT_CLEAR_MAPS:
+    case ID_RECENT_CLEAR_PROJECTS:
+        (id == ID_RECENT_CLEAR_MAPS ? gRecentMaps : gRecentProjects).clear();
+        saveRecent();
+        gMenusDirty = true;
+        return;
+    case ID_DOCK_MINI_LEFT:
+    case ID_DOCK_MINI_RIGHT:
+        gDock.minimapRight = id == ID_DOCK_MINI_RIGHT, gDock.minimapHidden = false;
+        saveDock(), shellRelayout();
+        return;
+    case ID_DOCK_TOOLS_LEFT:
+    case ID_DOCK_TOOLS_RIGHT:
+        gDock.toolsRight[int(gState.mode)] = id == ID_DOCK_TOOLS_RIGHT;
+        saveDock(), shellRelayout();
+        setMessage(std::wstring(kModeNames[int(gState.mode)]) + L" toolbar on the " + (id == ID_DOCK_TOOLS_RIGHT ? L"right" : L"left"));
+        return;
     case ID_VIEW_TRIGCODE:  // shows or hides the code pane
         if (activeProject()) setWorkspace(Workspace::Triggers), showTriggerCode();
         return;
     default:
-        if (id >= ID_WS_MAP && id <= ID_WS_FILES) return setWorkspace(Workspace(id - ID_WS_MAP));  // the workspace order
-        setMessage(L"This is not on this system yet");
+        // (the workspaces in their order; a command this system does not run is gray in the menus, and its key does nothing)
+        if (id >= ID_WS_MAP && id <= ID_WS_FILES) return setWorkspace(Workspace(id - ID_WS_MAP));
         return;
     }
 }

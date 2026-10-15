@@ -264,7 +264,8 @@ void SdlHost::sizeInPixels(SDL_Window* sdl, int w, int h) {
 }
 
 bool SdlHost::show(draw::View& root, const std::wstring& title, int w, int h) {
-    SDL_Window* sdl = SDL_CreateWindow(utf8Text(title).c_str(), 1, 1,
+    std::wstring shownTitle;  // (the title in the program's language: uiText)
+    SDL_Window* sdl = SDL_CreateWindow(utf8Text(uiText(title, shownTitle)).c_str(), 1, 1,
                                        SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN);
     if (!sdl) return false;
     sizeInPixels(sdl, w, h);
@@ -455,7 +456,8 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
     SDL_Window* sdl = nullptr;
     if (spec.kind == WindowKind::Dialog) {
         // A dialog: a window of its own, centered on its opener.
-        sdl = SDL_CreateWindow(utf8Text(spec.title).c_str(), 1, 1, SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN);
+        std::wstring shownTitle;  // (uiText)
+        sdl = SDL_CreateWindow(utf8Text(uiText(spec.title, shownTitle)).c_str(), 1, 1, SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN);
         if (!sdl) return;
         sizeInPixels(sdl, width, height);
         SDL_SetWindowParent(sdl, parent->sdl);

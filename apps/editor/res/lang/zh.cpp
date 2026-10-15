@@ -2006,6 +2006,7 @@ constexpr UiText kRows[] = {
     {L"Shift+drag paints ", L"Shift+\u62D6\u52A8\u7ED8\u5236"},
     {L"; drag paints ", L"\uFF1B\u62D6\u52A8\u7ED8\u5236"},
     {L"Shift+drag: no terrain", L"Shift+\u62D6\u52A8\uFF1A\u65E0\u5730\u5F62"},
+    {L"Automatic (the language of the system)", L"\u81EA\u52A8\uFF08\u7CFB\u7EDF\u8BED\u8A00\uFF09"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }
