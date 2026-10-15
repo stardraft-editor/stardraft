@@ -146,18 +146,7 @@ int tabChangedCount(int tab) {
     return t ? t->changedCount() : 0;
 }
 
-// A string's text without its button prefix (a hotkey and a type byte) and with its control bytes left out: a line
-// for lists.
-bool buttonPrefix(const std::string& s) { return s.size() >= 2 && static_cast<unsigned char>(s[1]) <= 5 && static_cast<unsigned char>(s[0]) >= 0x20; }
-std::wstring stringLine(const std::string& raw) {
-    std::string o;
-    for (size_t i = buttonPrefix(raw) ? 2 : 0; i < raw.size(); ++i) {
-        const unsigned char c = static_cast<unsigned char>(raw[i]);
-        if (c == '\n' || c == '\r') o += ' ';
-        else if (c >= 0x20) o += char(c);
-    }
-    return widen(o);
-}
+// The string's text for a list, the button prefix and the control bytes left out (core views_data_strings.inc).
 std::wstring statString(int id) {  // stat_txt.tbl string `id` (1-based), as the project has it
     return id >= 1 && id <= gExtras.strings.count() ? stringLine(gExtras.strings.text(id - 1)) : L"";
 }
@@ -1271,20 +1260,14 @@ bool showButtonPopup(std::string& text, POINT at) {
 
 // --- Strings tab -----------------------------------------------------------------------------------------------
 
-// The editor (game_text.inc) holds the text without a button's hotkey and type characters (the fields show them).
-std::string stringEditBody(int id) {
-    const std::string& raw = gExtras.strings.text(id - 1);
-    return buttonPrefix(raw) ? raw.substr(2) : raw;
-}
-std::string stringEditPrefix(int id) {
-    const std::string& raw = gExtras.strings.text(id - 1);
-    return buttonPrefix(raw) ? raw.substr(0, 2) : "";
-}
+// The editor holds the text without a button's hotkey and type characters (core views_data_strings.inc).
+std::string stringEditBody(int id) { return stringEditBody(gExtras.strings.text(id - 1)); }
+std::string stringEditPrefix(int id) { return stringEditPrefix(gExtras.strings.text(id - 1)); }
 void stringsCommitEdit() {
     if (!gExtras.textEdit || gExtras.textFor < 1 || !gExtras.textDirty) return;
     gExtras.textDirty = false;
     const int id = gExtras.textFor;
-    const std::string text = stringEditPrefix(id) + gameTextGet(gExtras.textEdit);
+    const std::string text = stringEditCommit(gExtras.strings.text(id - 1), gameTextGet(gExtras.textEdit));
     if (text == gExtras.strings.text(id - 1)) return;
     gExtras.strings.set(id - 1, text);
     extrasChanged();
@@ -1319,7 +1302,7 @@ void paintStringsForm(HDC dc, RECT rc, int& y) {
     const int top = y;
     // The preview: a picture, in the right column (above the fields when narrow); its legend is the color codes.
     std::string previewRaw = raw;
-    if (gExtras.textDirty && gExtras.textEdit && gExtras.textFor == id) previewRaw = stringEditPrefix(id) + gameTextGet(gExtras.textEdit);
+    if (gExtras.textDirty && gExtras.textEdit && gExtras.textFor == id) previewRaw = stringEditCommit(raw, gameTextGet(gExtras.textEdit));
     int picBottom;
     {
         TEXTMETRICW tm;
@@ -1345,21 +1328,19 @@ void paintStringsForm(HDC dc, RECT rc, int& y) {
     for (int s = 0; s < ButtonSets::kSets && !enabledText; ++s)
         for (const Button& b : gExtras.buttons.set(s)) enabledText |= b.enabledString == id;
     if (enabledText) {
-        const bool has = buttonPrefix(raw);
-        const char hot = has ? raw[0] : 0;
-        const int type = has ? raw[1] : 0;
+        const StringButtonParts bp = stringButtonParts(raw);
+        const bool has = bp.has;
+        const char hot = bp.hot;
+        const int type = bp.type;
         const std::string& stockRaw = gExtras.strings.stock(id - 1);
         const bool hotChanged = buttonPrefix(stockRaw) != has || (has && stockRaw[0] != hot), typeChanged = buttonPrefix(stockRaw) != has || (has && stockRaw[1] != raw[1]);
-        static const wchar_t* types[] = {L"Command", L"Make a unit", L"Upgrade", L"Use a technology", L"Research a technology", L"Morph a unit"};
         auto setPrefix = [id](char h, int t) {
-            const std::string& r = gExtras.strings.text(id - 1);
-            std::string body = buttonPrefix(r) ? r.substr(2) : r;
-            gExtras.strings.set(id - 1, std::string(1, h) + char(t) + body);
+            gExtras.strings.set(id - 1, stringWithButtonPrefix(gExtras.strings.text(id - 1), h, t));
             gExtras.textFor = -1;
             extrasChanged();
         };
         fieldLabel(dc, l, y, L"Hotkey", hotChanged);
-        const std::wstring hotText = !has ? L"None" : hot == 27 ? L"Esc" : hot == ' ' ? L"Space" : std::wstring(1, wchar_t(std::toupper(static_cast<unsigned char>(hot))));
+        const std::wstring hotText = stringHotkeyText(bp);
         pickBox(dc, {l.x0 + l.labelW, y + scale(2), l.x0 + l.labelW + scale(320), y + l.rowH - scale(2)}, hotText, hotChanged, [setPrefix, type](RECT r) {
             std::vector<ListPickItem> items;
             for (char c = 'A'; c <= 'Z'; ++c) items.push_back({std::wstring(1, wchar_t(c)), L"", std::string(1, char(std::tolower(c)))});
@@ -1370,10 +1351,10 @@ void paintStringsForm(HDC dc, RECT rc, int& y) {
         }, L"The key that presses the button");
         y += l.rowH;
         fieldLabel(dc, l, y, L"Type", typeChanged);
-        pickBox(dc, {l.x0 + l.labelW, y + scale(2), l.x0 + l.labelW + scale(320), y + l.rowH - scale(2)}, has && type < 6 ? types[type] : L"None", typeChanged,
+        pickBox(dc, {l.x0 + l.labelW, y + scale(2), l.x0 + l.labelW + scale(320), y + l.rowH - scale(2)}, stringButtonTypeName(has ? type : -1), typeChanged,
                 [setPrefix, hot, has](RECT r) {
                     std::vector<ListPickItem> items;
-                    for (int t = 0; t < 6; ++t) items.push_back({types[t], L"", std::to_string(t)});
+                    for (int t = 0; t < 6; ++t) items.push_back({stringButtonTypeName(t), L"", std::to_string(t)});
                     std::string picked;
                     if (showListPicker(L"Type", items, "", belowBox(r), picked)) setPrefix(has ? hot : 'a', std::stoi(picked));
                 },
