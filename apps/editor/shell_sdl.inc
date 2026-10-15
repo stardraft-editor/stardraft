@@ -200,3 +200,30 @@ bool shellPathsFoldCase() {
     return false;
 #endif
 }
+// The Project page's files and programs (the Windows shell's open, the editor, Notepad, the folder and the elevation).
+void shellOpenFolder(const std::filesystem::path&) { setMessage(L"This is not on this system yet"); }
+void shellOpenInEditor(const std::filesystem::path&) { setMessage(L"This is not on this system yet"); }
+void shellOpenWithNotepad(const std::filesystem::path&) { setMessage(L"This is not on this system yet"); }
+void shellRevealFile(const std::filesystem::path&) { setMessage(L"This is not on this system yet"); }
+std::wstring shellFileTimeText(const std::filesystem::path& file) {
+    std::error_code ec;
+    const auto ft = std::filesystem::last_write_time(file, ec);
+    if (ec) return {};
+    // The file's clock as the system clock (the offset between the two clocks now), in local time.
+    const auto sys = std::chrono::system_clock::now() +
+                     std::chrono::duration_cast<std::chrono::system_clock::duration>(ft - std::filesystem::file_time_type::clock::now());
+    const std::time_t t = std::chrono::system_clock::to_time_t(sys);
+    const std::tm* tm = std::localtime(&t);
+    if (!tm) return {};
+    char buf[32];
+    std::snprintf(buf, sizeof buf, "%04d-%02d-%02d %02d:%02d", tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, tm->tm_hour, tm->tm_min);
+    return widen(buf);
+}
+std::uintptr_t shellStartElevated(const std::filesystem::path&, const std::filesystem::path&, const std::wstring&, const std::wstring& what,
+                                  std::wstring& error) {
+    error = what + L" is not on this system yet";
+    return 0;
+}
+bool shellProcessEnded(std::uintptr_t) { return true; }
+void shellProcessClose(std::uintptr_t) {}
+void shellChooseInstallFolder() { setMessage(L"This is not on this system yet"); }

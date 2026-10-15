@@ -11,7 +11,7 @@ struct ProjectPage {
     std::string previewOf;                  // what the preview shows
     std::string selected;               // a script (its .eds section name)
     std::vector<std::string> sections;  // the scripts, in build order
-    HANDLE epTrace = nullptr;           // epTrace while it is open
+    std::uintptr_t epTrace = 0;         // epTrace's process while it is open (the seam's token)
     fs::file_time_type epTraceStart{};  // when it started (a report from after it is new)
     fs::path epTraceReport;             // the report it writes (of the project that started it)
     fs::path epTraceFolder;             // that project's folder
@@ -109,24 +109,7 @@ std::string triggersAddFile(EudProject& pr, const fs::path& file) {
     setMessage((EudProject::isLinked(name) ? L"Linked " : L"Added ") + widen(name) + L" to the build");
     return name;
 }
-void triggersOpenFile(const fs::path& file) {
-    // The editor for .eps ("edit", else "open"); Notepad when nothing is registered for it.
-    if (INT_PTR(ShellExecuteW(app.main, L"edit", file.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL)) <= 32 &&
-        INT_PTR(ShellExecuteW(app.main, L"open", file.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL)) <= 32)
-        ShellExecuteW(app.main, L"open", L"notepad.exe", (L"\"" + file.wstring() + L"\"").c_str(), nullptr, SW_SHOWNORMAL);
-}
-// A script file's last change, in local time ("2026-10-11 14:02"); empty when it is not found.
-std::wstring projectFileTime(const fs::path& file) {
-    WIN32_FILE_ATTRIBUTE_DATA a{};
-    if (!GetFileAttributesExW(file.wstring().c_str(), GetFileExInfoStandard, &a)) return {};
-    FILETIME local;
-    SYSTEMTIME st;
-    FileTimeToLocalFileTime(&a.ftLastWriteTime, &local);
-    FileTimeToSystemTime(&local, &st);
-    wchar_t t[32];
-    std::swprintf(t, 32, L"%04d-%02d-%02d %02d:%02d", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute);
-    return t;
-}
+void triggersOpenFile(const fs::path& file) { shellOpenInEditor(file); }
 // The scripts' commands (also for the self-test): earlier, later, remove.
 bool projectMoveScript(const std::string& name, int by) {
     EudProject* pr = activeProject();
@@ -295,22 +278,15 @@ void projectStartEpTrace() {
     std::error_code ec;
     if (exe.empty()) return logLine(L"epTrace did not start: epTrace.exe is not in the euddraft folder", true), setMessage(L"epTrace.exe is not in the euddraft folder");
     if (!fs::exists(pr->traceMap(), ec)) return setMessage(L"No trace file: build the map with Trace build on");
+    // epTrace reads StarCraft's memory: it is started with administrator rights (the seam asks for them).
     const std::wstring args = L"\"" + pr->traceMap().wstring() + L"\"", dir = pr->traceMap().parent_path().wstring();
-    SHELLEXECUTEINFOW si{sizeof si};
-    si.fMask = SEE_MASK_NOCLOSEPROCESS;
-    si.hwnd = app.main;
-    si.lpVerb = L"runas";  // epTrace reads StarCraft's memory: it needs administrator rights (its manifest asks for them)
-    si.lpFile = exe.c_str();
-    si.lpParameters = args.c_str();
-    si.lpDirectory = dir.c_str();
-    si.nShow = SW_SHOWNORMAL;
-    if (!ShellExecuteExW(&si) || !si.hProcess) {
-        const DWORD e = GetLastError();
-        const std::wstring why = e == ERROR_CANCELLED ? L"epTrace did not start: it needs administrator rights" : L"Could not start epTrace (error " + std::to_wstring(e) + L")";
+    std::wstring why;
+    const std::uintptr_t proc = shellStartElevated(exe, dir, args, L"epTrace", why);
+    if (!proc) {
         logLine(why, true);
         return setMessage(why);
     }
-    gProj.epTrace = si.hProcess;
+    gProj.epTrace = proc;
     gProj.epTraceStart = fs::file_time_type::clock::now();
     gProj.epTraceReport = pr->traceReport();
     gProj.epTraceFolder = pr->folder();
@@ -357,7 +333,7 @@ public:
         projectPreviewRefresh(true);
     }
     void openFolder() override {
-        if (EudProject* pr = activeProject()) ShellExecuteW(app.main, L"open", pr->folder().wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        if (EudProject* pr = activeProject()) shellOpenFolder(pr->folder());
     }
     void editOutput(draw::Rect f) override {
         EudProject* p = activeProject();
@@ -377,7 +353,7 @@ public:
         if (EudProject* pr = activeProject()) projectSetOutput(fs::path(pr->defaultOutputMap()).wstring());
     }
     void changeInstall() override {
-        chooseInstallFolder();
+        shellChooseInstallFolder();
         projectFormRefresh();
     }
     void pageResized() override {
@@ -499,7 +475,7 @@ public:
                 std::error_code e2;
                 s.found = fs::is_regular_file(file, e2);
                 if (s.found) {
-                    s.changed = projectFileTime(file);
+                    s.changed = shellFileTimeText(file);
                     std::error_code e3;
                     const auto built = fs::last_write_time(pr->outputMap(), e3);
                     s.afterBuild = !e3 && fs::last_write_time(file, e2) > built;
@@ -519,9 +495,7 @@ public:
     }
     void showScript(const std::string& name) override {
         if (EudProject* pr = activeProject()) {
-            const fs::path file = scriptPath(*pr, name);
-            ShellExecuteW(app.main, L"open", L"explorer.exe", (L"/select,\"" + fs::path(file).make_preferred().wstring() + L"\"").c_str(), nullptr,
-                          SW_SHOWNORMAL);
+            shellRevealFile(scriptPath(*pr, name));
         }
     }
     void moveScript(const std::string& name, int by) override { projectMoveScript(name, by); }
@@ -543,18 +517,18 @@ public:
         Trace t;
         EudProject* pr = activeProject();
         if (!pr) return t;
-        t.open = gProj.epTrace != nullptr;
+        t.open = gProj.epTrace != 0;
         t.traceBuild = pr->traceBuild();
         t.hasReport = projectTraceReport(*pr);
         t.shown = t.traceBuild || t.hasReport;
         if (!t.shown) return t;
         std::error_code ec;
         t.built = fs::exists(pr->traceMap(), ec);
-        if (t.built) t.traceFile = projectRel(*pr, pr->traceMap()) + L"  \x00B7  " + projectFileTime(pr->traceMap());
+        if (t.built) t.traceFile = projectRel(*pr, pr->traceMap()) + L"  \x00B7  " + shellFileTimeText(pr->traceMap());
         if (!t.hasReport) return t;
         const auto& r = gProj.report;
         t.total = r.total, t.lineCount = r.lines.size();
-        t.reportTime = projectFileTime(pr->traceReport());
+        t.reportTime = shellFileTimeText(pr->traceReport());
         const auto triggerCode = epTraceTriggerCode(pr->folder());  // the triggers' code now: a line of an older build names no trigger
         for (size_t i = 0; i < r.lines.size() && i < 15; ++i) {
             const auto& ln = r.lines[i];
@@ -572,8 +546,7 @@ public:
     }
     void startEpTrace() override { projectStartEpTrace(); }
     void openReport() override {
-        if (EudProject* pr = activeProject())
-            ShellExecuteW(app.main, L"open", L"notepad.exe", (L"\"" + pr->traceReport().wstring() + L"\"").c_str(), nullptr, SW_SHOWNORMAL);
+        if (EudProject* pr = activeProject()) shellOpenWithNotepad(pr->traceReport());
     }
     void openTraceLine(size_t i) override {
         EudProject* pr = activeProject();
@@ -591,8 +564,8 @@ ProjectPageView gProjView(gProjProgram);
 // epTrace's timer: a tick every 500 ms while it is open (the page's own timer, through its view's host), and the report
 // when it closes.
 void projectEpTraceTick() {
-    if (!gProj.epTrace || WaitForSingleObject(gProj.epTrace, 0) == WAIT_OBJECT_0) {  // epTrace closed
-        if (gProj.epTrace) CloseHandle(gProj.epTrace), gProj.epTrace = nullptr;
+    if (!gProj.epTrace || shellProcessEnded(gProj.epTrace)) {  // epTrace closed
+        if (gProj.epTrace) shellProcessClose(gProj.epTrace), gProj.epTrace = 0;
         epTraceLogReport();
         InvalidateRect(gProj.wnd, nullptr, FALSE);
         return;
