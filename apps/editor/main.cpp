@@ -8494,6 +8494,7 @@ void paintDataForm(HWND hwnd) {
     SetBkMode(mem, TRANSPARENT);
     gData.hits.clear();
     auto fill = [&](RECT r, COLORREF c) { fillAlpha(mem, r, c, 255); };
+    const std::function<bool(draw::Rect)> hotRect = [](draw::Rect r) { return ui::hot(winRect(r)); };  // the form's hover, for the canvas parts
     int y = scale(12) - gData.formScroll;
     const int x0 = scale(18), labelW = scale(230), valW = scale(110), rowH = scale(26);
     // Wide: the fields in a column on the left and each section's pictures beside them; narrow: the pictures
@@ -8583,13 +8584,9 @@ void paintDataForm(HWND hwnd) {
                 if (!ro) gData.hits.push_back({lab, f.index, -3});
                 // A yes/no value: a checkbox (click: 0 or 1).
                 if (has && fieldIsBool(dat, f)) {
-                    const RECT cell = winRect(fr.boolCell), c = winRect(fr.boolCheck);
-                    ui::checkMark(mem, c, v != 0, !ro && ui::hot(cell), !ro);
-                    RECT ft = winRect(fr.boolText);
-                    SetTextColor(mem, ro ? kFaint : mod ? kGood : kText);
-                    DrawTextW(mem, v == 0 ? L"No" : v == 1 ? L"Yes" : (L"Yes (" + std::to_wstring(v) + L")").c_str(), -1, &ft,
-                              DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-                    if (!ro) gData.hits.push_back({cell, f.index, -5});
+                    ui::GdiCanvas canvas(mem);
+                    paintDataBool(canvas, fr, v, ro, mod, hotRect);
+                    if (!ro) gData.hits.push_back({winRect(fr.boolCell), f.index, -5});
                     y += rowH;
                     continue;
                 }
@@ -8647,19 +8644,9 @@ void paintDataForm(HWND hwnd) {
                 y += rowH;
                 // Flags: a grid of checkboxes under the value.
                 if (has && !f.flags.empty()) {
-                    const DataFormScale fs = dataFormScale();
-                    const int cols = dataFlagCols(colW, labelW, fs);
-                    for (size_t b = 0; b < f.flags.size(); ++b) {
-                        const DataFlagCell fc = dataFlagCell(x0, labelW, y, cols, b, fs);
-                        const bool set = (v >> b) & 1, bmod = ((t.stock(f, u) >> b) & 1) != set;
-                        const RECT c = winRect(fc.check), cell = winRect(fc.cell);
-                        ui::checkMark(mem, c, set, ui::hot(cell), true);
-                        RECT ft = winRect(fc.text);
-                        SetTextColor(mem, bmod ? kGood : set || ui::hot(cell) ? kText : kDim);
-                        DrawTextW(mem, widen(f.flags[b]).c_str(), -1, &ft, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-                        gData.hits.push_back({cell, f.index, int(b)});
-                    }
-                    y += dataFlagGridHeight(f.flags.size(), cols, fs);
+                    ui::GdiCanvas canvas(mem);
+                    y += paintDataFlags(canvas, f, t, u, v, x0, labelW, y, colW, dataFormScale(), hotRect,
+                                        [&f](draw::Rect cell, int b) { gData.hits.push_back({winRect(cell), f.index, b}); });
                 }
             }
             if (twoCol) y = std::max(y, widgetsBottom);
