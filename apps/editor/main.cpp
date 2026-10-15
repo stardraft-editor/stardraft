@@ -7750,13 +7750,37 @@ struct DatClipboard {
 };
 DatClipboard gDatClip;
 
+void extrasCopyUnit(int u);  // data_extras.inc: a unit's display and button set, for Paste everything (#11)
+bool extrasCanPasteUnit(int to);
+void extrasPasteUnit(int to);
+
 void dataCopyEntry(int u) {
     const DatTable* t = curTable();
     if (!t) return;
     gDatClip.dat = t->schema().name, gDatClip.entry = u, gDatClip.values.clear();
     for (const auto& f : t->schema().fields)
         if (f.covers(u)) gDatClip.values.push_back({f.index, t->value(f, u)});
+    if (gDatClip.dat == "units") extrasCopyUnit(u);
     setMessage(L"Copied " + entryName(gDatClip.dat, u) + L"'s values");
+}
+
+bool dataCanPasteEntry();
+// A unit: Paste everything: the values, the display (status panel, wireframes) and the button set of the copied unit.
+bool dataCanPasteAll(int u) { return dataCanPasteEntry() && gDatClip.dat == "units" && extrasCanPasteUnit(u) && gDatClip.entry != u; }
+void dataPasteAll(int u) {
+    DatTable* t = curTable();
+    if (!t || !dataCanPasteAll(u)) return;
+    int n = 0, skipped = 0;
+    for (const auto& [fi, v] : gDatClip.values) {
+        if (fi >= 0 && fi < int(t->schema().fields.size()) && t->schema().fields[size_t(fi)].covers(u)) t->set(t->schema().fields[size_t(fi)], u, v), ++n;
+        else ++skipped;
+    }
+    extrasPasteUnit(u);
+    const bool saved = dataSaved();
+    InvalidateRect(gData.form, nullptr, FALSE), InvalidateRect(gData.list, nullptr, FALSE);
+    if (saved)
+        setMessage(L"Pasted everything of " + entryName("units", gDatClip.entry) + L" onto " + entryName("units", u) + L": " + std::to_wstring(n) +
+                   L" values, the display and the button set" + (skipped ? L" (" + std::to_wstring(skipped) + L" values that this unit does not have: not pasted)" : L""));
 }
 
 bool dataCanPasteEntry() { return curTable() && !gDatClip.values.empty() && gDatClip.dat == curTable()->schema().name; }
@@ -7795,6 +7819,9 @@ void dataEntryMenu(int u, POINT screen) {
     AppendMenuW(m, MF_STRING, 1, L"&Copy values\tCtrl+C");
     AppendMenuW(m, MF_STRING | (dataCanPasteEntry() ? 0 : MF_GRAYED), 2,
                 (L"&Paste values" + (dataCanPasteEntry() ? L" of " + entryName(gDatClip.dat, gDatClip.entry) : std::wstring()) + L"\tCtrl+V").c_str());
+    if (t->schema().name == "units")
+        AppendMenuW(m, MF_STRING | (dataCanPasteAll(u) ? 0 : MF_GRAYED), 5,
+                    (L"Paste &everything" + (dataCanPasteAll(u) ? L" of " + entryName("units", gDatClip.entry) : std::wstring()) + L" (values, display, buttons)").c_str());
     AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(m, MF_STRING | (changed ? 0 : MF_GRAYED), 3, L"&Reset to the game's values");
     AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
@@ -7806,6 +7833,7 @@ void dataEntryMenu(int u, POINT screen) {
     else if (pick == 2) dataPasteEntry(u);
     else if (pick == 3) dataResetEntry(u);
     else if (pick == 4) dataTogglePin(u);
+    else if (pick == 5) dataPasteAll(u);
 }
 
 void dataFieldMenu(const DatField& f, POINT screen) {
@@ -26654,6 +26682,30 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     for (int i = 0; i < 3; ++i) pump();
                     o << c.name << " " << (gWorkspace == c.want ? "yes" : "NO") << "\n";
                 }
+                continue;
+            }
+            if (s == "copyunit:") {  // copyunit.txt: Data > Units: the marine's values, display and button set pasted onto unit 91 (#11; needs a project)
+                std::ofstream o(fs::path(datashots) / "copyunit.txt");
+                if (!activeProject()) {
+                    o << "open a project NO\n";
+                    continue;
+                }
+                command(ID_WS_DATA);
+                for (int i = 0; i < 5; ++i) pump();
+                dataGoTo("units", 0);
+                dataCopyEntry(0);
+                dataGoTo("units", 91);
+                const int hpBefore = datValue("units", "Hit Points", 91), setBefore = gExtras.buttons.unitSet(91);
+                o << "Paste everything can paste onto another unit " << (dataCanPasteAll(91) && !dataCanPasteAll(0) ? "yes" : "NO") << "\n";
+                dataPasteAll(91);
+                const bool values = datValue("units", "Hit Points", 91) == datValue("units", "Hit Points", 0) &&
+                                    datValue("units", "Graphics", 91) == datValue("units", "Graphics", 0);
+                const UnitLooks::Unit& l = gExtras.looks.unit(91);
+                o << "the values " << (values ? "yes" : "NO") << ", the wireframe (the marine's) " << (l.wireframe == 0 ? "yes" : "NO") << ", the button set "
+                  << (gExtras.buttons.unitSet(91) == gExtras.buttons.unitSet(0) ? "yes" : "NO") << "\n";
+                for (int k = 0; k < 4; ++k) dataUndo(false);  // (one step each: the values, the display, the buttons)
+                o << "undo gives unit 91 back " << (datValue("units", "Hit Points", 91) == hpBefore && gExtras.buttons.unitSet(91) == setBefore && !gExtras.looks.changed(91) ? "yes" : "NO")
+                  << "\n";
                 continue;
             }
             if (s == "dataname:") {  // dataname.txt, dataname.png: Data > Units > the marine: Rename at the top, then String 1 opens it (needs a project)
