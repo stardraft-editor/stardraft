@@ -2002,5 +2002,6 @@ Triggers do not run each second, so they can miss Exactly. Use At least or At mo
 Shift+drag paints 	Mayús+arrastrar pinta 
 ; drag paints 	; arrastrar pinta 
 Shift+drag: no terrain	Mayús+arrastrar: sin terreno
+Automatic (the language of the system)	Automático (el idioma del sistema)
 StarDraft 2 is not associated with Blizzard Entertainment.	StarDraft 2 no está asociado con Blizzard Entertainment.
 It needs an installation of StarCraft to work.	Necesita una instalación de StarCraft para funcionar.

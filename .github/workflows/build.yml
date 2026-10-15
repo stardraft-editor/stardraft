@@ -96,6 +96,14 @@ jobs:
           path: build/Release/render_smoke_test.exe
           retention-days: 7
 
+      # stardraft-next (the new shell's spike), to try by hand: the program and its fonts. Not in a release.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stardraft-next-windows-${{ github.sha }}
+          path: |
+            build/Release/stardraft-next.exe
+            build/Release/fonts
+
       - name: Make the release
         if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
@@ -208,6 +216,86 @@ jobs:
           build-gcc/settings_test "$RUNNER_TEMP"
           build-gcc/commands_test
           build-gcc/platform_test "$RUNNER_TEMP"
+          build-gcc/kit_test
+
+      # stardraft-next (the new shell's spike) with no window: a snapshot of each workspace, Korean and Chinese typed
+      # into a field. The pictures are kept with the run.
+      - name: Snapshot stardraft-next
+        env:
+          SDL_VIDEODRIVER: offscreen
+        run: |
+          build-gcc/stardraft-next --snapshot next-linux-map.png
+          build-gcc/stardraft-next --workspace triggers --type "한국어 입력 中文" --snapshot next-linux-triggers.png | tee next.txt
+          grep -q "search field: 한국어 입력 中文" next.txt
+          build-gcc/stardraft-next --workspace triggers --ime-inline --type "한국어 입" --compose "력" --snapshot next-linux-ime.png | tee ime.txt
+          grep -q "composing: 력" ime.txt
+
+      # The kit's tests again with AddressSanitizer and UndefinedBehaviorSanitizer: a widget that uses a view after it
+      # went away (a pop-up closed in its own callback, a removed child) fails here.
+      - name: Kit tests with sanitizers
+        run: |
+          g++ -std=c++20 -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer             -Iapps/common -Iapps/kit -Itools/tests apps/kit/*.cpp tools/tests/kit_test.cpp tools/tests/kit/*.cpp -o kit_test_asan
+          ./kit_test_asan
+
+      # The control kit on SDL (apps/kit_sdl): its widgets and the Canvas's drawing in one picture.
+      - name: Snapshot the kit demo
+        env:
+          SDL_VIDEODRIVER: offscreen
+        run: build-gcc/kit-demo --snapshot kit-demo-linux.png
+
+      - name: Pack stardraft-next
+        if: always()
+        run: tar -C build-gcc -czf stardraft-next-linux.tar.gz stardraft-next fonts
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stardraft-next-linux-${{ github.sha }}
+          path: |
+            next-linux-*.png
+            kit-demo-linux.png
+            stardraft-next-linux.tar.gz
+
+      # The editor on SDL (stardraft, research/ports/MAC-BUILD-PLAN.md step 6): its shell with no map open (no game data
+      # here), its picture kept with the run, and the program in a tar.
+      - name: Snapshot the editor
+        env:
+          SDL_VIDEODRIVER: offscreen
+        run: build-gcc/stardraft --snapshot editor-linux.png
+
+      # A workspace with no view on this system yet: the "Not on this system yet" view in its place.
+      - name: Snapshot the editor (Assets workspace, no view yet)
+        env:
+          SDL_VIDEODRIVER: offscreen
+        run: build-gcc/stardraft --workspace files --snapshot editor-linux-files.png
+
+      # Each workspace and dialog of the editor on SDL (tools/sdl_snapshots.py): a run exits with 0 and writes a PNG
+      # that is not one flat color. No game data and no map here: the cases that need them are skipped (the list is in
+      # summary.txt).
+      - name: Snapshot each workspace and dialog
+        env:
+          SDL_VIDEODRIVER: offscreen
+        run: python3 -I tools/sdl_snapshots.py --exe build-gcc/stardraft --out sdl-snapshots
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sdl-snapshots-linux-${{ github.sha }}
+          path: sdl-snapshots
+          if-no-files-found: warn
+
+      - name: Pack the editor
+        if: always()
+        run: tar -C build-gcc -czf stardraft-linux.tar.gz stardraft res fonts
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stardraft-editor-linux-${{ github.sha }}
+          path: |
+            editor-linux.png
+            editor-linux-files.png
+            stardraft-linux.tar.gz
 
   macos:
     runs-on: macos-15  # arm64, Xcode's clang and libc++
@@ -230,11 +318,75 @@ jobs:
           build/settings_test "$RUNNER_TEMP"
           build/commands_test
           build/platform_test "$RUNNER_TEMP"
+          build/kit_test
 
       # The renderer on Metal. GitHub's macOS machines may have no Metal device: a failure here does not stop the run.
       - name: Run the renderer on Metal
         continue-on-error: true
         run: build/render_smoke_test "$RUNNER_TEMP/render_smoke.png"
+
+      # (GitHub's macOS machines have had a Metal device; if one has none, the snapshot fails and the run goes on)
+      - name: Snapshot stardraft-next (Metal)
+        continue-on-error: true
+        run: |
+          app=build/stardraft-next.app/Contents/MacOS/stardraft-next
+          "$app" --snapshot next-macos-map.png
+          "$app" --workspace triggers --type "한국어 입력 中文" --snapshot next-macos-triggers.png | tee next.txt
+          grep -q "search field: 한국어 입력 中文" next.txt
+          "$app" --workspace triggers --ime-inline --type "한국어 입" --compose "력" --snapshot next-macos-ime.png | tee ime.txt
+          grep -q "composing: 력" ime.txt
+
+      - name: Snapshot the kit demo (Metal)
+        continue-on-error: true
+        run: build/kit-demo.app/Contents/MacOS/kit-demo --snapshot kit-demo-macos.png
+
+      # The app in a tar (an artifact keeps no file modes: the program would not start); and the snapshots.
+      - name: Pack stardraft-next
+        if: always()
+        run: tar -C build -czf stardraft-next-macos.tar.gz stardraft-next.app
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stardraft-next-macos-${{ github.sha }}
+          path: |
+            next-macos-*.png
+            kit-demo-macos.png
+            stardraft-next-macos.tar.gz
+
+      # The editor on SDL (stardraft, research/ports/MAC-BUILD-PLAN.md step 6): its shell with no map open, and the app.
+      - name: Snapshot the editor (Metal)
+        continue-on-error: true
+        run: build/stardraft.app/Contents/MacOS/stardraft --snapshot editor-macos.png
+
+      - name: Snapshot the editor (Assets workspace, Metal, no view yet)
+        continue-on-error: true
+        run: build/stardraft.app/Contents/MacOS/stardraft --workspace files --snapshot editor-macos-files.png
+
+      # Each workspace and dialog (tools/sdl_snapshots.py), as on Linux. Metal as above: a failure does not stop the run.
+      - name: Snapshot each workspace and dialog (Metal)
+        continue-on-error: true
+        run: python3 -I tools/sdl_snapshots.py --exe build/stardraft.app/Contents/MacOS/stardraft --out sdl-snapshots
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sdl-snapshots-macos-${{ github.sha }}
+          path: sdl-snapshots
+          if-no-files-found: warn
+
+      - name: Pack the editor
+        if: always()
+        run: tar -C build -czf stardraft-macos.tar.gz stardraft.app
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stardraft-editor-macos-${{ github.sha }}
+          path: |
+            editor-macos.png
+            editor-macos-files.png
+            stardraft-macos.tar.gz
 
   # The tests with the game's data, on a self-hosted runner in WSL Ubuntu on the owner's PC (labels self-hosted, linux,
   # scdata; research/ports/PLAN.md 1.6). Off until the repository variable STARDRAFT_DATA_RUNNER is "on". The
@@ -255,6 +407,14 @@ jobs:
         env:
           SDL_VIDEODRIVER: offscreen
         run: bash tools/ci/linux_data_tests.sh build "${STARDRAFT_SC_INSTALL:-$HOME/scmirror}" "$RUNNER_TEMP/data-tests"
+
+      # The editor's snapshots with the game data and a map open (tools/sdl_snapshots.py, from the step above).
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sdl-snapshots-linux-data-${{ github.sha }}
+          path: ${{ runner.temp }}/data-tests/sdl_snapshots
+          if-no-files-found: warn
 
   # The Windows build under Wine on Linux (research/ports/PLAN.md, phase 2): the renderer on Vulkan (Wine passes it to
   # the system's Vulkan, here lavapipe) and on Direct3D 12 (Wine's vkd3d makes it Vulkan). Only reports: Wine is a
