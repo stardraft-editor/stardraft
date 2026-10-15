@@ -22333,6 +22333,12 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 setThemeColors(wasLight, wasAccent);
                 continue;
             }
+            if (s == "players:") {  // players[_light].png: the Players page (players and forces), as it opens
+                command(ID_SCEN_PLAYERS);
+                for (int i = 0; i < 4; ++i) pump();
+                capture(fs::path(datashots) / (std::string("players") + (gLightTheme ? "_light" : "") + ".png"));
+                continue;
+            }
             if (s.rfind("mapprops", 0) == 0) {  // mapprops[:w:h:era]: the Properties page; with values, set them and Apply
                 const std::string light = gLightTheme ? "_light" : "";
                 command(ID_SCEN_PROPS);
