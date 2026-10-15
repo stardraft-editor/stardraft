@@ -8,6 +8,7 @@
 #include "modes.inc"
 #include "colors.inc"
 #include "app_state.inc"
+#include "palette_tools.inc"
 #include "layout.inc"
 #include "menu_model.inc"
 #include "commands_core.inc"

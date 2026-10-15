@@ -5,7 +5,6 @@
 // corner (sizeGrip). The instance (gStatus) is made in main.cpp, where the app state is.
 
 // Defined in main.cpp (the Win32 TU until they move into the core).
-int scale(int v);
 int activePage();
 
 // The status bar's view: its texts are the app state's (AppState::statusText, the bar's six parts).

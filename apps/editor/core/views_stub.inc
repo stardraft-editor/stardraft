@@ -3,7 +3,6 @@
 // (apps/common/view.h): its window is a view window (kViewClass) that shows gStubView (the instance is in main.cpp).
 
 // Defined in main.cpp (the Win32 TU until they move into the core).
-int scale(int v);
 stardraft::EudProject* activeProject();
 
 struct StubView final : stardraft::draw::View {

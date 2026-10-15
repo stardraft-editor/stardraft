@@ -20,7 +20,6 @@ void trigDuplicate();
 void dataCopySelected();
 void dataPasteSelected();
 void showQuickPicker(bool replace, bool open);
-void setMessage(const std::wstring& m);
 void shellMenusChanged();
 void openAny(const std::filesystem::path& path);
 void openProject(const std::filesystem::path& edsOrFolder);
@@ -62,7 +61,7 @@ bool commandPortable(AppState& app, int id) {
         const fs::path p = list[i];
         std::error_code ec;
         if (!fs::exists(p, ec)) {
-            setMessage(p.wstring() + L" is gone; removed from the list");
+            setMessage(app, p.wstring() + L" is gone; removed from the list");
             removeRecent(list, p), saveRecent(), refreshRecentMenus();
             return true;
         }
@@ -71,7 +70,7 @@ bool commandPortable(AppState& app, int id) {
         return true;
     }
     if (!commandInMode(id)) {  // a shortcut or a command of the other mode
-        setMessage(classicMode() ? L"This tab is a classic map. This command needs a project. File > Project > Make this map a project makes one."
+        setMessage(app, classicMode() ? L"This tab is a classic map. This command needs a project. File > Project > Make this map a project makes one."
                                  : L"This command is for classic maps only");
         return true;
     }
