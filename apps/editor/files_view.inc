@@ -3,20 +3,7 @@
 // audio (sound_files.inc), the file dialog, the briefings, and the window that shows the page (a view window with the
 // native vertical bar, which the window's host keeps in step with the page's scroll).
 
-// The briefings that use a sound: the first action of each briefing (by its players) that plays it.
-std::vector<FilesUse> soundUsesOf(const std::string& name) {
-    std::vector<FilesUse> out;
-    if (!app.ed || name.empty()) return out;
-    const auto& b = briefings();
-    for (size_t t = 0; t < b.size(); ++t)
-        for (size_t a = 0; a < b[t].actions.size(); ++a) {
-            if (_stricmp(b[t].actions[a].wav.c_str(), name.c_str()) != 0) continue;
-            // One entry per briefing (the triggers with that player list), at its first use.
-            if (std::none_of(out.begin(), out.end(), [&](const FilesUse& u) { return b[size_t(u.trig)].players == b[t].players; }))
-                out.push_back({int(t), int(a), whoName(b[t].players)});
-        }
-    return out;
-}
+// The briefings that use a sound are the core's (core/views_briefing.inc: soundUsesOf).
 
 // The Files page's program parts (core/views_files.inc: FilesHost).
 class FilesProgram final : public FilesHost {

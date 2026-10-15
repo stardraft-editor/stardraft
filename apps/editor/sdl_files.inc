@@ -1,7 +1,7 @@
 // The Files workspace on this system (the page is core/views_files.inc; its program parts are here): a sound is decoded
 // as the Windows program decodes it (sound_files.inc) and played on the default device through SDL's audio, and the
-// import takes files from the system's open dialog, which answers later (the sounds come in then). The briefings that use
-// a sound are not on this system yet, so no sound has uses here. Included by main_sdl.cpp after sdl_menus.inc.
+// import takes files from the system's open dialog, which answers later (the sounds come in then). A sound's uses are the
+// briefings that play it (core/views_briefing.inc: soundUsesOf). Included by main_sdl.cpp after sdl_menus.inc.
 
 extern "C" int stb_vorbis_decode_memory(const unsigned char* mem, int len, int* channels, int* sample_rate, short** output);
 
@@ -142,8 +142,8 @@ public:
         return {};
     }
     bool askName(const std::wstring& title, std::wstring& text) override { return prompt(title.c_str(), text); }  // (sdl_map_dialogs.inc)
-    std::vector<FilesUse> soundUses(const std::string&) override { return {}; }  // (the briefings are not on this system yet)
-    void showUse(const FilesUse&) override { setMessage(L"This is not on this system yet"); }
+    std::vector<FilesUse> soundUses(const std::string& name) override { return soundUsesOf(name); }
+    void showUse(const FilesUse& use) override;  // the Briefing workspace, at the action that uses the sound (sdl_briefing.inc)
     void soundsChanged() override;
 };
 

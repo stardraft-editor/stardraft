@@ -53,6 +53,7 @@
 #include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)
 #include "stardraft/game_data.h"
 #include "stardraft/pathing.h"
+#include "stardraft/portraits.h"  // the briefing's portraits (core/views_briefing.inc)
 #include "stardraft/previews.h"  // the tile pictures (core/views_tiles.inc)
 #include "stardraft/scene.h"
 #include "stardraft/settings.h"
