@@ -40,6 +40,7 @@
 #include "dialog.h"
 #include "label.h"
 #include "icon_button.h"
+#include "tree_view.h"
 #include "../shell.h"
 #include "../res/ui_icons.h"
 #include "stardraft/commands.h"
@@ -54,6 +55,7 @@
 #include "stardraft/hd_assets.h"
 #include "stardraft/tileset.h"
 #include "stardraft/terrain_gen.h"
+#include "stardraft/triggers.h"
 
 using namespace stardraft;
 namespace fs = std::filesystem;

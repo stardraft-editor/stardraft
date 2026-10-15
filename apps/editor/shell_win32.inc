@@ -244,6 +244,14 @@ void shellRecentMenu(bool projects, const std::vector<std::wstring>& labels, con
     AppendMenuW(m, MF_STRING | (labels.empty() ? MF_GRAYED : 0), UINT_PTR(clearId), L"&Clear list");
 }
 bool shellPathsFoldCase() { return true; }  // NTFS ignores case
+bool shellUiIconMask(int size, int icon, std::vector<uint8_t>& out) {
+    int stride = 0;
+    const uint8_t* m = uiIconMask(size, UiIcon(icon), stride);
+    if (!m) return false;
+    out.resize(size_t(size) * size_t(size));
+    for (int y = 0; y < size; ++y) std::copy_n(m + size_t(y) * size_t(stride), size, out.begin() + std::ptrdiff_t(y) * size);
+    return true;
+}
 void shellShowQuickPicker(bool replace, bool open) { showQuickPicker(replace, open); }
 void shellMapFileOpened(const std::filesystem::path& file) { mapFileOpened(file); }
 void shellOpenFolder(const std::filesystem::path& folder) { ShellExecuteW(app.main, L"open", folder.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL); }

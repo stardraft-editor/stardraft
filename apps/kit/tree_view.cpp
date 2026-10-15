@@ -13,23 +13,12 @@ using draw::Rect;
 
 namespace {
 
-// Layout, scaled with px(): a row's left pad, the width of a level, the arrow's box, the scroll bar's strip at the
-// right edge (its track sits inside it).
-int rowH() { return px(kRowH); }
-int levelW() { return px(18); }
+// Layout, scaled with px(): the arrow's box, the scroll bar's strip at the right edge (its track sits inside it). A
+// row's own sizes are the view's (TreeView::Metrics).
 int arrowW() { return px(16); }
 int scrollStrip() { return px(10); }
 int dragSlop() { return px(4); }
 int typeMs() { return 1000; }
-
-int arrowLeft(int depth) { return px(4) + depth * levelW(); }
-// The level a pointer x shows: the band of each level starts at its arrow.
-int levelAtX(int x) {
-    const int d = x - px(4);
-    return d < 0 ? 0 : d / levelW();
-}
-int iconLeft(int depth) { return arrowLeft(depth) + levelW(); }
-int textLeft(int depth, bool icons) { return iconLeft(depth) + (icons ? px(22) : 0); }
 
 // A node's place in the tree, as the owner keeps it: found by address.
 bool isSelfOrBelow(const TreeNode* a, const TreeNode* x) {
@@ -86,8 +75,8 @@ std::wstring lowered(std::wstring s) {
 }
 
 // A chevron: right when shut, down when open.
-void chevron(Canvas& c, int left, int top, bool open, Color col) {
-    const int cx = left + arrowW() / 2, cy = top + rowH() / 2, s = px(5), w = std::max(1, px(1));
+void chevron(Canvas& c, int left, int top, int rowH, bool open, Color col) {
+    const int cx = left + arrowW() / 2, cy = top + rowH / 2, s = px(5), w = std::max(1, px(1));
     if (open) {
         const Point p[] = {{cx - s, cy - s / 2}, {cx, cy + s / 2}, {cx + s, cy - s / 2}};
         c.polyline(p, 3, col, w);
@@ -109,6 +98,35 @@ TreeNode& TreeNode::addChild(std::wstring text, int iconId, uintptr_t value) {
 }
 
 TreeView::TreeView() = default;
+
+// --- Sizes -----------------------------------------------------------------------------------------------------------
+
+void TreeView::setMetrics(const Metrics& m) {
+    metrics_ = m;
+    refresh();
+}
+int TreeView::rowH() const { return px(metrics_.rowH); }
+int TreeView::levelW() const { return px(metrics_.level); }
+int TreeView::arrowLeft(int depth) const { return px(metrics_.arrow) + depth * levelW(); }
+int TreeView::iconLeft(int depth) const { return px(metrics_.icon) + depth * levelW(); }
+int TreeView::textLeft(int depth) const { return icons_ ? px(metrics_.text) + depth * levelW() : iconLeft(depth); }
+// The level a pointer x shows: the band of each level starts at its arrow.
+int TreeView::levelAtX(int x) const {
+    const int d = x - px(metrics_.arrow);
+    return d < 0 ? 0 : d / levelW();
+}
+
+TreeNode* TreeView::nodeAt(Point pt) const {
+    const int r = rowAt(pt);
+    return r >= 0 && pt.x < rowsRight() ? rows_[size_t(r)].node : nullptr;
+}
+
+Rect TreeView::labelRect(const TreeNode* n) const {
+    const int r = rowOf(n);
+    if (r < 0) return {};
+    const int top = rowTop(size_t(r)), tl = textLeft(rows_[size_t(r)].depth);
+    return {tl, top, std::max(tl, rowsRight()), top + rowH()};
+}
 
 TreeView::~TreeView() {
     if (typeTimerSet_)
@@ -245,28 +263,39 @@ Rect TreeView::thumbRect() const {
 // --- Painting -------------------------------------------------------------------------------------------------------------
 
 void TreeView::paint(Canvas& c) {
-    const Theme& th = theme();
     const int H = height(), rh = rowH(), right = rowsRight();
     const size_t first = size_t(std::max(0, scrollY_) / rh);
     for (size_t r = first; r < rows_.size() && rowTop(r) < H; ++r) {
         const Row& row = rows_[r];
-        const TreeNode& n = *row.node;
         const int top = rowTop(r);
-        const Rect box{0, top, right, top + rh};
-        const bool sel = row.node == selected_, hot = row.node == hover_ && !dragging_;
-        if (sel) {  // as ui_kit's listRow: the selected fill (also under the mouse) and a bar on the left
-            c.fill(box, th.sel);
-            c.fill({0, top, px(2), top + rh}, th.accent);
-        } else if (hot) {
-            c.fill(box, th.rowHot);
-        }
-        if (dragging_ && row.node == dragNode_) c.fill(box, th.sel, 160);  // the row taken
-        const Color text = sel ? th.accent : n.color != draw::kNone ? n.color : th.text;
-        if (!n.children.empty()) chevron(c, arrowLeft(row.depth), top, n.expanded, sel || hot ? th.text : th.dim);
-        if (n.icon >= 0) c.icon({iconLeft(row.depth), top, iconLeft(row.depth) + px(16), top + rh}, n.icon, text, px(16));
-        const int tl = textLeft(row.depth, icons_);
-        c.text({tl, top, std::max(tl, right - px(6)), top + rh}, n.label, text, draw::kMiddle | draw::kLeft | draw::kEllipsis);
+        const RowLook look{*row.node, {0, top, right, top + rh}, row.depth, row.node == selected_, row.node == hover_ && !dragging_,
+                           dragging_ && row.node == dragNode_, arrowLeft(row.depth), iconLeft(row.depth), textLeft(row.depth)};
+        paintRow(c, look);
     }
+    paintScrollBar(c);
+}
+
+void TreeView::paintRow(Canvas& c, const RowLook& row) {
+    const Theme& th = theme();
+    const TreeNode& n = row.node;
+    const Rect box = row.box;
+    const int top = box.top, rh = box.height(), right = box.right;
+    if (row.selected) {  // as ui_kit's listRow: the selected fill (also under the mouse) and a bar on the left
+        c.fill(box, th.sel);
+        c.fill({0, top, px(2), top + rh}, th.accent);
+    } else if (row.hot) {
+        c.fill(box, th.rowHot);
+    }
+    if (row.dragged) c.fill(box, th.sel, 160);  // the row taken
+    const Color text = row.selected ? th.accent : n.color != draw::kNone ? n.color : th.text;
+    if (!n.children.empty()) chevron(c, row.arrowLeft, top, rh, n.expanded, row.selected || row.hot ? th.text : th.dim);
+    if (n.icon >= 0) c.icon({row.iconLeft, top, row.iconLeft + px(16), top + rh}, n.icon, text, px(16));
+    const int tl = row.textLeft;
+    c.text({tl, top, std::max(tl, right - px(6)), top + rh}, n.label, text, draw::kMiddle | draw::kLeft | draw::kEllipsis);
+}
+
+void TreeView::paintScrollBar(Canvas& c) {
+    const Theme& th = theme();
     if (scrollable()) {  // as ui_kit's scrollFace: a thin thumb at rest, wider with the track under the mouse
         const bool lit = scrollHot_ || thumbDrag_;
         Rect thumb = thumbRect();
@@ -279,7 +308,7 @@ void TreeView::paint(Canvas& c) {
 void TreeView::paintOver(Canvas& c) {
     const Theme& th = theme();
     const int w = std::max(1, px(1));
-    if (hasFocus()) c.frame({0, 0, width(), height()}, th.accent, w);
+    if (metrics_.focusFrame && hasFocus()) c.frame({0, 0, width(), height()}, th.accent, w);
     if (!dragging_ || !drop_.valid) return;
     if (drop_.box) {  // into the folder: a box around its row
         const int top = rowTop(size_t(drop_.row));
@@ -304,7 +333,7 @@ bool TreeView::mouse(const draw::MouseEvent& e) {
         const int r = rowAt(e.pt);
         if (r < 0) return false;
         TreeNode* n = rows_[size_t(r)].node;
-        if (e.pt.x < arrowLeft(rows_[size_t(r)].depth) + levelW() && !n->children.empty()) return true;  // the arrow did it
+        if (e.pt.x < iconLeft(rows_[size_t(r)].depth) && !n->children.empty()) return true;  // the arrow did it
         if (!n->children.empty()) toggle(n);
         else if (onActivate) onActivate(n);
         return true;
@@ -355,7 +384,7 @@ bool TreeView::pointerDown(const draw::MouseEvent& e) {
     const int r = rowAt(e.pt);
     if (r < 0) return true;
     TreeNode* n = rows_[size_t(r)].node;
-    if (!n->children.empty() && e.pt.x < arrowLeft(rows_[size_t(r)].depth) + levelW()) {
+    if (!n->children.empty() && e.pt.x < iconLeft(rows_[size_t(r)].depth)) {
         select(n);
         toggle(n);
         return true;
@@ -474,7 +503,7 @@ draw::Cursor TreeView::cursor(Point pt) {
     if (dragging_) return draw::Cursor::SizeAll;
     if (scrollable() && pt.x >= width() - scrollStrip()) return draw::Cursor::Arrow;
     const int r = rowAt(pt);
-    if (r >= 0 && !rows_[size_t(r)].node->children.empty() && pt.x < arrowLeft(rows_[size_t(r)].depth) + levelW())
+    if (r >= 0 && !rows_[size_t(r)].node->children.empty() && pt.x < iconLeft(rows_[size_t(r)].depth))
         return draw::Cursor::Hand;
     return draw::Cursor::Arrow;
 }

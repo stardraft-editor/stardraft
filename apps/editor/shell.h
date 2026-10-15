@@ -153,3 +153,6 @@ bool shellProcessEnded(std::uintptr_t process);
 void shellProcessClose(std::uintptr_t process);
 // File > Options > StarCraft folder: another install is chosen (used from the next start).
 void shellChooseInstallFolder();
+// A UI icon's coverage (0..255, `size` x `size`, rows from the top) at the atlas size `size` (16, 24 or 32). False when
+// the program cannot read the atlas here (the caller then draws with Canvas::icon).
+bool shellUiIconMask(int size, int icon, std::vector<uint8_t>& out);
