@@ -1,0 +1,91 @@
+#pragma once
+// A dialog: a content view above a row of buttons at the bottom right. The buttons are laid out from the right edge
+// in the order given, as ui_kit.inc's buttonsRight does: the last is at the edge and the first one step left of it
+// (OK, then Cancel), so the main action goes first. Enter presses the primary button and Escape the cancel one, when
+// the focused view does not use the key itself (a focused button takes Enter and Space).
+//
+// run() shows the dialog in a window and returns which button closed it. The content fills the area above the
+// buttons, 16 px from the edges; it should be sized to fit (a Form sets its own height, see form.h).
+
+#include <functional>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "button.h"
+#include "view.h"
+
+namespace stardraft::kit {
+
+constexpr int kDialogGap = 24;     // between the content and the buttons, at 100 %
+constexpr int kDialogClosed = -1;  // run() and result(): no button closed the dialog
+
+struct DialogButton {
+    std::wstring text;
+    int result = 0;          // what run() returns when this button closes the dialog
+    bool primary = false;    // Enter presses it; drawn as the main action
+    bool cancel = false;     // Escape presses it
+    bool left = false;       // at the left edge, in order (the rest stay at the right)
+    int width = 0;           // at 100 %: the button's width (0: its preferred width)
+};
+
+// The space around a dialog's content and buttons, at 100 %: the content sits `top`/`left`/`right` from the window's
+// edges and `gap` above the buttons; the buttons sit `bottom` from the bottom edge, `buttonGap` apart.
+struct DialogInsets {
+    int left = 16, top = 16, right = 16, bottom = 16;
+    int gap = 24, buttonGap = 8;
+};
+
+class Dialog : public draw::View {
+public:
+    Dialog() = default;
+
+    // The content (not owned: it must outlive the dialog or be removed first).
+    void setContent(draw::View& c);
+    // The buttons, from left to right; the last of the right ones is at the right edge.
+    void setButtons(std::vector<DialogButton> bs);
+
+    // The space around the content and the buttons (the default: kDialogPad and kDialogGap).
+    void setInsets(const DialogInsets& in) { insets_ = in; }
+    // The window is centered on the work area of the screen (DS_CENTER), not on the window that opens it.
+    void setCenterOnWorkArea(bool on) { workArea_ = on; }
+
+    // Shows the dialog in a window `size` big (x: width, y: height) that `from` opens, and returns when it closes:
+    // the result of the button that closed it; a close without a button (the window's close box) gives the cancel
+    // button's result, or kDialogClosed. A host that does not block (the test host) returns at once: use result().
+    int run(draw::View& from, const std::wstring& title, draw::Point size);
+    // Closes the dialog with `result` (what a button does). Only the first close counts.
+    void close(int result);
+    // A button's result that the dialog may not take yet (OK with nothing to apply): the button is shown disabled and
+    // neither a click, Enter nor the close box takes it. `allow(result)` says when it may close.
+    void setAllow(std::function<bool(int)> allow);
+    void setEnabledFor(int result, bool on);
+    bool closed() const { return done_; }
+    // The result of the close, or kDialogClosed while the dialog is open.
+    int result() const { return done_ ? result_ : kDialogClosed; }
+
+    // Measures the buttons' text with `c` (paint does it too); the buttons are placed at the last widths.
+    void layout(draw::Canvas& c);
+
+    void paint(draw::Canvas& c) override;
+    bool key(const draw::KeyEvent& e) override;
+    void resized() override { placeAll(); }
+
+private:
+    void placeAll();
+    const DialogButton* find(bool cancel) const;
+    void press(int result);
+
+    draw::View* content_ = nullptr;
+    std::vector<DialogButton> specs_;
+    std::vector<std::unique_ptr<Button>> buttons_;
+    std::vector<int> widths_;
+    DialogInsets insets_;
+    bool workArea_ = false;
+    std::function<bool(int)> allow_;
+    draw::View* from_ = nullptr;  // the view that opened the window (its host closes it)
+    bool done_ = false;
+    int result_ = kDialogClosed;
+};
+
+}  // namespace stardraft::kit
