@@ -8355,7 +8355,7 @@ public:
         UpdateWindow(gData.form);
         return true;
     }
-    void widgetRelease() override {
+    void widgetRelease(bool lost) override {
         if (!gWidgetDrag.down) return;
         const bool moved = gWidgetDrag.moved;
         auto click = gWidgetDrag.click, release = gWidgetDrag.release;
@@ -8363,7 +8363,7 @@ public:
         gWidgetDrag = {};
         if (moved && release) release();
         if (moved && edit) dataSaved(), InvalidateRect(gData.list, nullptr, FALSE);
-        else if (click) click();
+        else if (click && !lost) click();
     }
     bool widgetHover(draw::Point p, std::set<std::string>& fields) override {
         const POINT pt{p.x, p.y};
@@ -8797,7 +8797,7 @@ std::vector<int> trigPathOf(HTREEITEM item) {
 void forgetProject(const EudProject* pr) {
     if (!pr) return;
     if (gTE.project == pr) gTE.project = nullptr, gTE.set = TriggerSet(), gTE.sel.clear(), trigHistoryReset();
-    if (gData.project == pr) gData.project = nullptr, gData.tables.clear(), gData.history.clear();
+    dataForgetProject(pr);
 }
 
 void trigLoadForProject() {

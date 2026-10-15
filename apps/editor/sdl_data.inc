@@ -22,7 +22,7 @@ void sdlDataNotHere(const wchar_t* what) { setMessage(std::wstring(what) + L": n
 
 class SdlBarFrame final : public draw::View {
 public:
-    explicit SdlBarFrame(draw::View& content) : content_(content) {
+    explicit SdlBarFrame(draw::View& content) : content_(content), bar_(content) {
         bar_.onScroll = [this](int pos) {
             int range = 0, page = 0, now = 0;
             content_.windowScrollBar(range, page, now);
@@ -37,21 +37,29 @@ public:
         content_.setFrame({0, 0, std::max(0, width() - barW()), height()});
         bar_.setFrame({width() - barW(), 0, width(), height()});
     }
-    void paint(draw::Canvas& c) override {
-        c.fill({0, 0, width(), height()}, kBg);
-        int range = 0, page = 0, pos = 0;  // the bar follows the view (its height is from the view's last paint)
-        if (content_.windowScrollBar(range, page, pos)) {
-            bar_.setRange(range + 1, page);
-            bar_.setPos(pos);
-        }
-    }
+    void paint(draw::Canvas& c) override { c.fill({0, 0, width(), height()}, kBg); }
     bool mouse(const draw::MouseEvent& e) override {  // the wheel over the bar scrolls the view
         return e.kind == draw::MouseKind::Wheel && content_.mouse(e);
     }
 
 private:
+    // The bar follows the view as the view's paint just measured it: the bar paints after the view (the frame's second
+    // child), so it is never one frame behind.
+    struct Bar final : stardraft::kit::ScrollBar {
+        explicit Bar(draw::View& content) : content(content) {}
+        void paint(draw::Canvas& c) override {
+            int range = 0, page = 0, pos = 0;
+            if (content.windowScrollBar(range, page, pos)) {
+                if (range + 1 != total || page != shown) total = range + 1, shown = page, setRange(total, shown);
+                setPos(pos);
+            }
+            stardraft::kit::ScrollBar::paint(c);
+        }
+        draw::View& content;
+        int total = -1, shown = -1;
+    };
     draw::View& content_;
-    stardraft::kit::ScrollBar bar_;
+    Bar bar_;
 };
 
 // --- The workspace's actions (the Windows program's dataShowTab, dataSelect, dataGoTo, dataRebuildList) ---------------
@@ -301,9 +309,9 @@ public:
         return true;
     }
     bool widgetDrag(draw::Point) override { return false; }
-    void widgetRelease() override {
+    void widgetRelease(bool lost) override {
         auto click = std::exchange(pressed, nullptr);
-        if (click) click();
+        if (click && !lost) click();
     }
     bool widgetHover(draw::Point, std::set<std::string>&) override { return true; }  // (the form repaints: the hot boxes follow the mouse)
     bool widgetCursor(draw::Point p, draw::Cursor& c) override {
@@ -382,10 +390,14 @@ struct SdlDataView final : draw::View {
         add(refsFrame, draw::Rect(0, 0, 0, 0));
         gSdlDataForm.add(gSdlDataEntry, draw::Rect(0, 0, 0, 0));
         gSdlDataEntry.setVisible(false);
-        gSdlDataEntry.onCommit = [] { sdlDataCommitEdit(); };  // Enter: the value goes in
-        gSdlDataEntry.onCancel = [] {                          // Escape: the value stays as it was
+        gSdlDataEntry.onCommit = [] {  // Enter: the value goes in, the form has the keys again
+            sdlDataCommitEdit();
+            static_cast<draw::View&>(gSdlDataForm).focus();
+        };
+        gSdlDataEntry.onCancel = [] {  // Escape: the value stays as it was
             gSdlDataState.editing = -1;
             gSdlDataEntry.setVisible(false);
+            static_cast<draw::View&>(gSdlDataForm).focus();
         };
         gSdlDataEntry.onFocusLost = [] { sdlDataCommitEdit(); };
         gSdlDataEntry.onTab = [](bool back) { gSdlDataForm.editNeighbour(gSdlDataState.editing, back ? -1 : 1); };
@@ -426,6 +438,15 @@ void sdlDataRepaint() {
     gSdlDataForm.invalidate();
     gSdlDataRefs.invalidate();
     gSdlDataWorkspace.invalidate();
+}
+
+// A tab with this project closed (forgetProject): the number entry goes, and the model drops the project's tables.
+void sdlDataForgetProject(const EudProject* pr) {
+    if (!pr || gSdlDataState.project != pr) return;
+    gSdlDataState.editing = -1;
+    gSdlDataEntry.setVisible(false);
+    dataForgetProject(pr);
+    sdlDataRepaint();
 }
 
 // --- The snapshot's entry: --data <tab>:<entry> (the Data workspace opens the entry as it is shown) -----------------------

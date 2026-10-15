@@ -72,6 +72,8 @@ const stardraft::Command* tableCommand(int id) {
     return it == gCommandIds.end() ? nullptr : gCommands.find(it->second);
 }
 
+bool sdlDataUndo(bool redo);  // (sdl_data.inc: undo and redo in the Data workspace)
+
 // Whether the SDL program runs the command now. The others are grayed, and their keys do nothing.
 bool sdlRuns(int id) {
     switch (id) {
@@ -327,6 +329,10 @@ void command(int id) {
     case ID_FILE_EXIT: requestQuit(); return;
     case ID_EDIT_UNDO:
     case ID_EDIT_REDO:
+        if (gWorkspace == Workspace::Data) {  // the Data workspace's own steps (sdl_data.inc), as the Windows program has them
+            sdlDataUndo(id == ID_EDIT_REDO);
+            return;
+        }
         if (gState.ed && gState.ed->isOpen()) {
             if (id == ID_EDIT_REDO) gState.ed->redo();
             else gState.ed->undo();

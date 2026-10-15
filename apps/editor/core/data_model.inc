@@ -179,6 +179,12 @@ void dataLoadForProject() {
     ++dataState().edits;  // other tables: the caches keyed on the edit count (sprites, pictures, references) read them again
 }
 
+// A tab with this project closed: the workspace drops its tables and undo steps, so a project opened later at the same
+// address loads its own files (and no edit of the closed project is saved into them).
+void dataForgetProject(const EudProject* pr) {
+    if (pr && dataState().project == pr) dataState().project = nullptr, dataState().tables.clear(), dataState().history.clear();
+}
+
 std::wstring tabTitle(int tab) {
     if (tab == stringsTab()) return L"Strings";
     if (tab == buttonsTab()) return L"Buttons";
