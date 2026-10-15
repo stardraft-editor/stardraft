@@ -468,6 +468,8 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_message_box.inc"  // the message box (MessageView, runMessageBox; the host is message_box.inc)
 #include "core/views_about.inc"  // Help > About StarDraft (AboutView; the host is about.inc)
 #include "core/views_tip.inc"  // the hover tooltip (TipView; the Windows host is tip_win32.inc)
+#include "core/kit_surface.inc"  // a painted surface in a view: the kit's controls with their click areas (kitui::Surface)
+#include "core/views_kit_gallery.inc"  // View > Control kit (KitGalleryView; the host is kit_gallery.inc)
 #include "search_box.inc"  // the Locations filter and the palette search (kit text fields in view windows)
 
 void rebuildList() { rebuildList(app); }
@@ -19683,7 +19685,7 @@ int runSelfTest(const fs::path& dir) {
                     }
                     showKitGallery();
                     for (int i = 0; i < 4; ++i) pump();
-                    if (gKit.wnd) capture(dir / ("90_theme_" + tag + "_kit.png"), gKit.wnd), DestroyWindow(gKit.wnd);
+                    if (HWND kw = kitGalleryWindow()) capture(dir / ("90_theme_" + tag + "_kit.png"), kw), DestroyWindow(kw);
                 }
                 applyTheme(false, 0);
                 setWorkspace(Workspace::Map);
@@ -22216,15 +22218,16 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 showKitGallery();
                 for (int i = 0; i < 10; ++i) pump();
                 // Page by page: kit_1.png, kit_2.png, ...
+                HWND kw = kitGalleryWindow();
                 RECT cr;
-                GetClientRect(gKit.wnd, &cr);
+                GetClientRect(kw, &cr);
                 for (int page = 1; page < 10; ++page) {
-                    RedrawWindow(gKit.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
-                    capture(fs::path(datashots) / ("kit_" + std::to_string(page) + ".png"), gKit.wnd);
-                    if (gKit.scroll + cr.bottom >= gKit.height) break;
-                    gKit.scroll = std::min(gKit.scroll + int(cr.bottom) - scale(60), gKit.height - int(cr.bottom));
+                    RedrawWindow(kw, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+                    capture(fs::path(datashots) / ("kit_" + std::to_string(page) + ".png"), kw);
+                    if (gKitView.scroll + cr.bottom >= gKitView.pageH) break;
+                    gKitView.scroll = std::min(gKitView.scroll + int(cr.bottom) - scale(60), gKitView.pageH - int(cr.bottom));
                 }
-                DestroyWindow(gKit.wnd);
+                DestroyWindow(kw);
                 continue;
             }
             if (s == "perf:") {  // perf: how long things take (start-up, opening, a paint of each workspace), to perf.txt
