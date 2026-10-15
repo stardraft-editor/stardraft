@@ -597,6 +597,21 @@ void ImguiCanvas::text(Rect r, std::wstring_view t, Color c, unsigned flags) {
 
 int ImguiCanvas::measure(std::wstring_view t) { return int(std::ceil(textWidth(*cur_, utf8Text(t)))); }
 
+void ImguiCanvas::textAt(Point at, std::wstring_view t, Color c) {
+    if (t.empty() || c == kNone) return;
+    const FontEntry& f = *cur_;
+    const ImU32 col = colorOf(c);
+    float x = origin_.x + float(at.x);
+    const float y = origin_.y + float(at.y);
+    for (size_t i = 0; i < t.size();) {
+        const size_t n = (t[i] >= 0xD800 && t[i] < 0xDC00 && i + 1 < t.size()) ? 2 : 1;  // (a surrogate pair is one character)
+        const std::string ch = utf8Text(t.substr(i, n));
+        drawString(dl_, f, x, y, col, ch);
+        x += std::ceil(textWidth(f, ch));
+        i += n;
+    }
+}
+
 Point ImguiCanvas::measureBox(std::wstring_view t, int width, unsigned flags) {
     const std::string s = utf8Text(t);
     const float lh = lineHeight(*cur_);

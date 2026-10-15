@@ -7947,6 +7947,9 @@ bool showListPickerMulti(const std::wstring& prompt, std::vector<ListPickItem> i
 // The picker is a core view (core/views_triggers_pick.inc: BlockPickView, runBlockPicker); this is its Windows host:
 // the window's size (most of the screen) and the help page (F1).
 #include "core/views_triggers_pick.inc"
+// The value pop-out's model (ValuePopSpec, the hint, the suggestions, the values to put in, a value's words); its core
+// view (ValuePopView) is the SDL program's, showValuePopup below is the Windows one.
+#include "core/views_value_pop.inc"
 
 void showBlockHelp(const std::string& id, HWND beside);  // trigger_help.inc
 
@@ -8358,23 +8361,7 @@ int trigHitParam(const TrigParamHit& h) { return h.inner.empty() ? h.param : h.i
 // Picks a value from the game; its id, or "".
 std::string showValueBlockPicker(POINT at, const std::string& current) {
     if (gListWheel) return "";  // the mouse wheel does not open a pop-out
-    std::vector<ListPickItem> items;
-    for (const auto& cat : TriggerDef::valueCategories())
-        for (const auto& d : TriggerDef::all())
-            if (d.value && d.category == cat && d.tier != "hidden") {
-                std::wstring sentence;
-                for (size_t i = 0; i < d.sentence.size();) {
-                    if (d.sentence[i] == '{') {
-                        const size_t end = d.sentence.find('}', i);
-                        const int pi = d.param(d.sentence.substr(i + 1, end - i - 1));
-                        sentence += L"(" + (pi >= 0 ? trigTypeNote(d.params[size_t(pi)]) : L"?") + L")";
-                        i = end + 1;
-                        continue;
-                    }
-                    sentence += wchar_t(static_cast<unsigned char>(d.sentence[i++]));
-                }
-                items.push_back({widen(d.title) + L"   \x2192 " + sentence, widen(cat), d.id});
-            }
+    const std::vector<ListPickItem> items = valueBlockPickItems();  // (core/views_value_pop.inc)
     std::string picked;
     return showListPicker(L"Search values from the game", items, current, at, picked) ? picked : std::string();
 }
@@ -8662,31 +8649,7 @@ void trigEditParam(TrigParamHit h) {
 // number means in the units players think in (frames as seconds, hit points as stored), and for numbers the
 // variables that fit (double-click one to put it in).
 
-struct ValuePopSpec {
-    std::wstring title, help;
-    bool inRepeat = false, inPlayerLoop = false;  // what the block sits in: counter and current player exist there
-    std::string type;                      // the value's type
-    const TriggerProperty* prop = nullptr;  // when the value is a property's
-    long long min = 0, max = -1;
-    bool constantOnly = false;   // a number known when the map builds (a variable's size or starting value)
-    bool constantsNamed = false;  // ... which may be a constant, by name (a list's size)
-    bool* wantsGame = nullptr;    // set: a "From the game..." button, which closes the pop-out and sets it
-    bool insertValues = false;    // a text with values: an "Insert value" button
-    bool colorsOnly = false;      // the game's text with its colors, as rich text (no values; braces are braces)
-    bool code = false;            // epScript: a box of several lines in the code font (Enter: a new line; OK applies)
-    std::string initial;
-    // A property block's .dat value: shown in a picture with the value it would have (set, add or subtract).
-    std::string previewDat, previewField;
-    int previewEntry = -1, previewMod = 0;  // 0 set to, 1 add, 2 subtract
-};
-// A row of the suggestions: a heading, a note, or something to put in (its name, kind, what it is, what goes in).
-struct ValueSuggestion {
-    enum class Kind { Heading, Note, Item } kind = Kind::Item;
-    std::wstring name, tag, about;
-    std::wstring insert;
-    int selectFrom = -1, selectLen = 0;  // what to select after putting it in (an array's index)
-    bool dim = false;                    // fits the kind but not here (a constant out of range)
-};
+// (ValuePopSpec, ValueSuggestion, the hint and the suggestions: core/views_value_pop.inc.)
 struct ValuePop {
     HWND wnd = nullptr, edit = nullptr, list = nullptr, ok = nullptr, cancel = nullptr, game = nullptr, insert = nullptr;
     bool picking = false;  // a list over the pop-out (Insert value): the pop-out stays
@@ -8722,53 +8685,7 @@ void (*gValuePopHook)(HWND) = nullptr;  // self-test
 // What the typed text means; false when it cannot be used as it is.
 bool valuePopCheck() {
     ValuePop& vp = *gValuePop;
-    const std::string text = narrow(windowText(vp.edit));
-    vp.hintBad = false;
-    if (vp.spec.type == "DecimalSeconds") {  // seconds, with decimals (kept as milliseconds)
-        char* end = nullptr;
-        const double v = std::strtod(text.c_str(), &end);
-        if (text.empty() || end == text.c_str() || *end || v < 0 || v > 2000000)
-            return vp.hint = L"Type a number of seconds, for example 2.5", vp.hintBad = true, false;
-        vp.hint = std::to_wstring(std::lround(v * 1000)) + L" milliseconds";
-        return true;
-    }
-    if (!vp.number) {
-        vp.hint = vp.spec.type == "Code"    ? L"Build puts this code into generated\\triggers.eps unchanged."
-                  : vp.spec.type == "Sound" ? (text.empty() ? L"The path of a sound file in the map (sound\\\x2026\\name.wav)" : L"Build makes sure that this file is in the map")
-                                            : L"";  // (no letter count: a name or a text needs none)
-        return true;
-    }
-    std::map<std::string, const TriggerNode*> names = gTE.set.variables();
-    if (vp.spec.constantOnly)
-        std::erase_if(names, [&](const auto& kv) { return !vp.spec.constantsNamed || kv.second->variable.kind != TriggerVariable::Kind::Constant; });
-    const TriggerExprResult r = triggerExpression(text.empty() ? "0" : text, names, 8);
-    if (!r.ok) return vp.hint = widen(r.error), vp.hintBad = true, false;
-    if (vp.spec.constantOnly && !r.constant)
-        return vp.hint = vp.spec.constantsNamed ? L"a number or a constant here" : L"a plain number here", vp.hintBad = true, false;
-    if (!r.constant) {
-        vp.hint = L"The game calculates this value while it runs";
-        return true;
-    }
-    if (vp.spec.max >= vp.spec.min && (r.value < vp.spec.min || r.value > vp.spec.max))
-        return vp.hint = L"Use a value from " + std::to_wstring(vp.spec.min) + L" to " + std::to_wstring(vp.spec.max), vp.hintBad = true, false;
-    auto seconds = [](double s) {
-        wchar_t b[48];
-        if (s >= 60) swprintf(b, 48, L"%d:%02d", int(s) / 60, int(s) % 60);
-        else swprintf(b, 48, L"%.2g seconds", s);
-        return std::wstring(b);
-    };
-    const std::string label = vp.spec.prop ? vp.spec.prop->label : "";
-    std::wstring h;
-    if (label.find("frames") != std::string::npos) h = L"\x2248 " + seconds(double(r.value) / 24.0) + L" at Fastest (24 frames a second)";
-    else if (vp.spec.type == "Seconds") h = L"= " + seconds(double(r.value)) + L" of game time";
-    else if (vp.spec.type == "Milliseconds") h = L"= " + seconds(double(r.value) / 1000.0);
-    else if (vp.spec.type == "Count" && r.value == 0) h = L"0 means all that match the other values";
-    else if (vp.spec.type == "Percent") h = std::to_wstring(r.value) + L"%";
-    if (vp.spec.prop && vp.spec.prop->scale > 1)
-        h += (h.empty() ? L"" : L"; ") + std::wstring(L"the game keeps it as ") + std::to_wstring(r.value * vp.spec.prop->scale) + L" (\x00D7" +
-             std::to_wstring(vp.spec.prop->scale) + L")";
-    vp.hint = h;
-    return true;
+    return valuePopHint(vp.spec, vp.number, narrow(windowText(vp.edit)), vp.hint, vp.hintBad);  // (core/views_value_pop.inc)
 }
 
 void valuePopRefresh() {
@@ -8781,58 +8698,7 @@ void valuePopRefresh() {
     const std::wstring text = windowText(vp.edit);
     DWORD caret = 0;
     SendMessageW(vp.edit, EM_GETSEL, WPARAM(&caret), 0);
-    size_t start = std::min<size_t>(caret, text.size());
-    while (start > 0 && (iswalnum(text[start - 1]) || text[start - 1] == L'_')) --start;
-    const std::wstring word = text.substr(start, std::min<size_t>(caret, text.size()) - start);
-    auto fits = [&](const std::wstring& name) { return name.rfind(word, 0) == 0; };
-    vp.rows.clear();
-    std::vector<ValueSuggestion> loop;
-    if (vp.spec.inRepeat && fits(L"counter"))
-        loop.push_back({ValueSuggestion::Kind::Item, L"counter", L"0, 1, 2 \x2026", L"", L"counter"});
-    if (vp.spec.inPlayerLoop && fits(L"current"))
-        loop.push_back({ValueSuggestion::Kind::Item, L"current player", L"0\x2013" L"7", L"", L"current player"});
-    if (!loop.empty()) {
-        vp.rows.push_back({ValueSuggestion::Kind::Heading, L"Loop"});
-        vp.rows.insert(vp.rows.end(), loop.begin(), loop.end());
-    }
-    std::vector<ValueSuggestion> vars;
-    for (const auto& [name, node] : gTE.set.variables()) {
-        const TriggerVariable& v = node->variable;
-        const std::wstring n = widen(name);
-        if (v.kind == TriggerVariable::Kind::Unit || !fits(n)) continue;
-        if (vp.spec.constantOnly && v.kind != TriggerVariable::Kind::Constant) continue;
-        ValueSuggestion s;
-        s.name = n, s.insert = n;
-        switch (v.kind) {
-        case TriggerVariable::Kind::Constant: {
-            const long long value = std::atoll(v.initial.c_str());
-            s.tag = L"constant", s.about = L"= " + std::to_wstring(value);
-            if (vp.spec.max >= vp.spec.min && (value < vp.spec.min || value > vp.spec.max))
-                s.about += L"  \x00B7  out of range", s.dim = true;
-            break;
-        }
-        case TriggerVariable::Kind::Number:
-            s.tag = L"number";
-            break;
-        case TriggerVariable::Kind::Flag: s.tag = L"flag"; break;
-        case TriggerVariable::Kind::PerPlayer:
-            s.tag = L"player array";
-            break;
-        case TriggerVariable::Kind::Array:
-            s.tag = L"list of " + std::to_wstring(v.size);
-            s.about.clear();
-            s.insert = n + L"[0]", s.selectFrom = int(n.size()) + 1, s.selectLen = 1;
-            break;
-        default: break;
-        }
-        if (!node->comment.empty()) s.about = widen(node->comment) + (s.about.empty() ? L"" : L"  \x00B7  " + s.about);
-        vars.push_back(s);
-    }
-    if (!vars.empty()) {
-        vp.rows.push_back({ValueSuggestion::Kind::Heading, vp.spec.constantOnly ? L"Constants" : L"Variables"});
-        vp.rows.insert(vp.rows.end(), vars.begin(), vars.end());
-    }
-    if (vp.rows.empty()) vp.rows.push_back({ValueSuggestion::Kind::Note, L"", L"", word.empty() ? L"No variables" : L"No match"});
+    vp.rows = valuePopSuggestions(vp.spec, text, caret);  // (core/views_value_pop.inc)
     SendMessageW(vp.list, WM_SETREDRAW, FALSE, 0);
     SendMessageW(vp.list, LB_RESETCONTENT, 0, 0);
     for (size_t i = 0; i < vp.rows.size(); ++i) SendMessageW(vp.list, LB_ADDSTRING, 0, LPARAM(L""));
@@ -8882,24 +8748,13 @@ void valuePopSetRaw(bool raw) {
     if (!vp.rich || !vp.rawEdit || raw == vp.raw) return;
     if (raw) {
         std::string t = richRawText(vp.edit);
-        if (vp.spec.colorsOnly) {  // a plain string: its braces are plain in Raw
-            std::string plain;
-            for (size_t i = 0; i < t.size(); ++i) {
-                plain += t[i];
-                if ((t[i] == '{' || t[i] == '}') && i + 1 < t.size() && t[i + 1] == t[i]) ++i;
-            }
-            t = plain;
-        }
+        if (vp.spec.colorsOnly) t = valuePopWordsToBraces(t);  // a plain string: its braces are plain in Raw
         SetWindowTextW(vp.rawEdit, textToRawView(t).c_str());
         ShowWindow(vp.edit, SW_HIDE), ShowWindow(vp.rawEdit, SW_SHOW);
         if (!gBackground) SetFocus(vp.rawEdit);
     } else {
         std::string t = rawViewToText(narrow(windowText(vp.rawEdit)));
-        if (vp.spec.colorsOnly) {
-            std::string e;
-            for (char ch : t) e += ch == '{' ? "{{" : ch == '}' ? "}}" : std::string(1, ch);
-            t = e;
-        }
+        if (vp.spec.colorsOnly) t = valuePopBracesToWords(t);
         vp.chipEdit = true;
         richSetText(vp.edit, t, &vp.richValues);
         CHARRANGE all{0, -1}, start{0, 0};
@@ -8932,15 +8787,7 @@ void valuePopAccept() {
     }
     gValuePop->result = gValuePop->rich ? richRawText(gValuePop->edit) : narrow(windowText(gValuePop->edit));
     if (gValuePop->spec.code) std::erase(gValuePop->result, '\r');  // the lines as \n
-    if (gValuePop->spec.colorsOnly) {  // braces back to plain braces
-        std::string plain;
-        const std::string& r = gValuePop->result;
-        for (size_t i = 0; i < r.size(); ++i) {
-            plain += r[i];
-            if ((r[i] == '{' || r[i] == '}') && i + 1 < r.size() && r[i + 1] == r[i]) ++i;
-        }
-        gValuePop->result = plain;
-    }
+    if (gValuePop->spec.colorsOnly) gValuePop->result = valuePopWordsToBraces(gValuePop->result);  // braces back to plain braces
     gValuePop->accepted = gValuePop->done = true;
 }
 
@@ -9035,38 +8882,7 @@ unsigned char richColorCode(COLORREF c) {
 
 // (textChipLabel and textFormatSuffix: core/views_triggers_pane.inc.)
 
-// A part of a value from the game in its words: where it is, and which of the value's values it is.
-struct RichSeg {
-    LONG from = 0, len = 0;
-    int param = -1;
-    bool block = false;  // a value from the game in it (its menu: another value, or a number)
-};
-// A value block as words: "kills of Zerg Zergling by Player 1"; `segs`: where its values are in them.
-std::wstring trigPlainSentence(const TriggerCall& c, std::vector<RichSeg>* segs = nullptr) {
-    const TriggerDef* d = TriggerDef::find(c.def);
-    if (!d) return widen(c.def);
-    std::wstring out;
-    const std::string& s = d->sentence;
-    for (size_t i = 0; i < s.size();) {
-        if (s[i] == '{') {
-            const size_t end = s.find('}', i);
-            const int p = end == std::string::npos ? -1 : d->param(s.substr(i + 1, end - i - 1));
-            if (p >= 0) {
-                const LONG at = LONG(out.size());
-                const bool block = p < int(c.argBlocks.size()) && !c.argBlocks[size_t(p)].empty();
-                if (block) out += L"(" + trigPlainSentence(c.argBlocks[size_t(p)][0]) + L")";
-                else if (d->params[size_t(p)].type == "ButtonIndex") out += trigButtonIndexText(*d, c, p < int(c.args.size()) ? c.args[size_t(p)] : "", nullptr);
-                else if (d->params[size_t(p)].type == "GameString") out += trigGameStringText(p < int(c.args.size()) ? c.args[size_t(p)] : "");
-                else out += trigValueText(triggerParamType(*d, c.args, p), p < int(c.args.size()) ? c.args[size_t(p)] : "");
-                if (segs) segs->push_back({at, LONG(out.size()) - at, p, block});
-                i = end + 1;
-                continue;
-            }
-        }
-        out += wchar_t(static_cast<unsigned char>(s[i++]));
-    }
-    return out;
-}
+// (RichSeg and trigPlainSentence, a value from the game in its words: core/views_value_pop.inc.)
 
 // A chip is protected, and has an id of its own (in the kerning threshold, which shows nothing at these sizes),
 // so two chips side by side stay two. chip 0: words.
@@ -9553,24 +9369,7 @@ std::string showValueBlockPicker(POINT at, const std::string& current);
 bool showValuePopup(const ValuePopSpec& spec, POINT at, std::string& out);
 bool pickTextValue(POINT at, std::string& token, std::wstring& label) {
     ValuePop& vp = *gValuePop;
-    std::vector<ListPickItem> items;
-    if (vp.spec.inRepeat) items.push_back({L"counter", L"This loop", "counter"});
-    if (vp.spec.inPlayerLoop) items.push_back({L"current player", L"This loop", "current player"});
-    for (const auto& [name, node] : gTE.set.variables()) {
-        const auto k = node->variable.kind;
-        if (k == TriggerVariable::Kind::Unit) continue;
-        const std::string v = k == TriggerVariable::Kind::PerPlayer ? name + "[current player]"
-                              : k == TriggerVariable::Kind::Array   ? name + "[0]"
-                              : k == TriggerVariable::Kind::Text    ? name + ":s"
-                                                                     : name;
-        items.push_back({widen(k == TriggerVariable::Kind::Text ? name : v), k == TriggerVariable::Kind::Text ? L"Texts" : L"Variables", v});
-    }
-    items.push_back({L"the current player's name", L"Players", "name(current player):s"});
-    items.push_back({L"A text of the game\x2026", L"Texts", "\x01" "tbl"});
-    for (const auto& cat : TriggerDef::valueCategories())
-        for (const auto& d : TriggerDef::all())
-            if (d.value && d.category == cat && d.tier != "hidden") items.push_back({widen(d.title), widen(cat), "\x01v:" + d.id});
-    items.push_back({L"A calculation\x2026", L"Calculations", "\x01" "calc"});
+    const std::vector<ListPickItem> items = valuePopInsertItems(vp.spec);  // (core/views_value_pop.inc)
     std::string picked;
     vp.picking = true;
     bool got = showListPicker(L"Insert value", items, "", at, picked);
@@ -10169,9 +9968,7 @@ bool showValuePopup(const ValuePopSpec& spec, POINT at, std::string& out) {
     if (outer) outer->picking = true;
     ValuePop vp;
     vp.spec = spec;
-    const TriggerType* t = triggerType(spec.type);
-    vp.number = spec.type != "DecimalSeconds" &&
-                (!t || t->picker == TriggerPicker::Number || t->picker == TriggerPicker::Unclear || triggerPlayerType(spec.type));  // the rest are typed as text
+    vp.number = valuePopIsNumber(spec);  // the rest are typed as text
     gValuePop = &vp;
     const int pad = scale(12), w = scale(spec.insertValues || spec.colorsOnly ? 680 : vp.number ? 460 : 520), eh = scale(28), bw = scale(96), bh = scale(ui::kButtonH);
     // The list is as tall as what it can hold (headings, the variables, the loop's values), up to a limit.
@@ -10202,12 +9999,7 @@ bool showValuePopup(const ValuePopSpec& spec, POINT at, std::string& out) {
         SendMessageW(vp.edit, EM_SETEVENTMASK, 0, ENM_PROTECTED | ENM_CHANGE | ENM_SELCHANGE);
         SendMessageW(vp.edit, WM_SETFONT, WPARAM(app.font), TRUE);
         if (gTE.textValuesFor) vp.richValues = *gTE.textValuesFor;
-        std::string initial = spec.initial;
-        if (spec.colorsOnly) {  // a plain string: its braces are words
-            std::string e;
-            for (char ch : initial) e += ch == '{' ? "{{" : ch == '}' ? "}}" : std::string(1, ch);
-            initial = e;
-        }
+        const std::string initial = spec.colorsOnly ? valuePopBracesToWords(spec.initial) : spec.initial;  // a plain string: its braces are words
         richSetText(vp.edit, initial, &vp.richValues);
         {  // room: inside the box, and between the lines (for the chips' outlines)
             RECT fr;

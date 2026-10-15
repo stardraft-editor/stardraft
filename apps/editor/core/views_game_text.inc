@@ -30,6 +30,31 @@ inline GameTextLook gameTextLook(TextPalette p, unsigned char code, draw::Color 
 }
 inline draw::Color gameTextLookColor(TextPalette p, unsigned char code, draw::Color normal) { return gameTextLook(p, code, normal).color; }
 
+// A text with values (GameTextSpec::values): a player's color is a code of the editor's own, kGameTextPlayerCode + 1 to
+// + 8 for Player 1 to 8, + 9 for the current player ({P2:c}, {current player:c}). It shows in that player's color with
+// dots under it (the current player: the normal color); the swatch kGameTextPlayerSwatch picks one.
+constexpr unsigned char kGameTextPlayerCode = 0xE0, kGameTextPlayerSwatch = 0xFF;
+inline std::string gameTextPlayerName(unsigned char code) {
+    return code == kGameTextPlayerCode + 9 ? std::string("current player") : "P" + std::to_string(code - kGameTextPlayerCode);
+}
+// The code of a player's color by its name ("P1" to "P8", "current player"); 0 when it is none of them.
+inline unsigned char gameTextPlayerCode(const std::string& name) {
+    if (name == "current player") return kGameTextPlayerCode + 9;
+    if (name.size() == 2 && name[0] == 'P' && name[1] >= '1' && name[1] <= '8') return static_cast<unsigned char>(kGameTextPlayerCode + (name[1] - '0'));
+    return 0;
+}
+inline draw::Color gameTextPlayerColor(unsigned char code, draw::Color normal) {
+    static const unsigned char codes[8] = {8, 0x0E, 0x0F, 0x10, 0x11, 0x15, 0x16, 0x17};
+    const int p = code - kGameTextPlayerCode;
+    return p >= 1 && p <= 8 ? gameTextColor(codes[p - 1], normal) : normal;
+}
+// The swatches the editor shows: the palette's, and in a text with values a player's color at the end.
+inline std::vector<TextSwatch> gameTextSwatches(const GameTextSpec& spec) {
+    std::vector<TextSwatch> s = textSwatches(spec.palette);
+    if (spec.values) s.push_back({kGameTextPlayerSwatch, L"A player's color (as the game shows that player's color)"});
+    return s;
+}
+
 // The tool row: the swatches from the left (as many rows as they need), the align buttons and Preview | Raw at the
 // right of the first row. `top`: the row's top; the boxes are in the editor's coordinates.
 struct GameTextToolLayout {
@@ -57,7 +82,7 @@ inline GameTextToolLayout gameTextToolLayout(draw::Canvas& c, const GameTextSpec
     // Left: the swatches, row by row
     x = 0;
     int y = top, rowRight = right;
-    for (const TextSwatch& sw : textSwatches(spec.palette)) {
+    for (const TextSwatch& sw : gameTextSwatches(spec)) {
         if (x > 0 && x + s > rowRight) x = 0, y += rowH, rowRight = width;
         const int sy = y + (rowH - s) / 2;
         t.swatches.push_back({{x, sy, x + s, sy + s}, sw.code});
@@ -91,6 +116,10 @@ public:
         rich_.setPlaceholder(spec.cue);
         rich_.onChange = [this] { richChanged(); };
         rich_.told = [this](bool has) { focusMoved(has); };
+        rich_.onChipClick = [this](size_t index, draw::Rect r) {
+            const draw::Rect f = rich_.frame();
+            if (onValueClick) onValueClick(index, valueToken(index), {r.left + f.left, r.top + f.top, r.right + f.left, r.bottom + f.top});
+        };
         raw_.setPlain(true);
         raw_.setMultiline(spec.multiline);
         raw_.setWrap(true);
@@ -127,6 +156,7 @@ public:
         crlf_ = spec_.crlf || bytes.find("\r\n") != std::string::npos;
         setting_ = true;
         if (rawMode_) raw_.setText(gameTextToRaw(bytes, spec_.multiline));
+        else if (spec_.values) fillValues(bytes);
         else fill(bytes);
         setting_ = false;
         base_ = bytes;
@@ -148,6 +178,12 @@ public:
     }
     // A swatch: the selected text (or the text typed next) takes the code. In Raw: the code's tag at the caret.
     void applyCode(unsigned char code) {
+        if (code == kGameTextPlayerSwatch && spec_.values) {  // a player's color: whose (the owner asks), then as a code
+            if (rawMode_ || !pickPlayerColor) return;
+            unsigned char player = 0;  // (the field keeps its selection while the picker is open)
+            if (!pickPlayerColor(player) || player <= kGameTextPlayerCode) return rich_.focus(), void();
+            code = player;
+        }
         if (rawMode_) return rawInsert(code, false);
         const unsigned char c = code == 1 ? 0 : code;
         const size_t a = std::min(rich_.caret(), rich_.anchor()), b = std::max(rich_.caret(), rich_.anchor());
@@ -186,6 +222,63 @@ public:
     std::function<void()> onChange;
     std::function<void()> onFocusLost;
 
+    // A text with values (GameTextSpec::values). chipLabel: a value's chip's words (empty: the value is left out, as a
+    // value from the game the block does not have). onValueClick: a click on a chip (its index in reading order, its
+    // token, its box in this view's coordinates). pickPlayerColor: the player's color swatch asks whose
+    // (kGameTextPlayerCode + n); false: none.
+    std::function<std::wstring(const TriggerTextPart& part)> chipLabel;
+    std::function<void(size_t index, const std::string& token, draw::Rect box)> onValueClick;
+    std::function<bool(unsigned char& code)> pickPlayerColor;
+    // A value put in at the caret (in place of the selection), as a chip with these words.
+    void insertValue(const std::wstring& label, const std::string& token) {
+        if (rawMode_) {  // Raw: the token as typed
+            raw_.model().insert(widen(token));
+            raw_.focus();
+            return changed();
+        }
+        tokens_.push_back(token);
+        rich_.insertChip({label, 0, uint64_t(tokens_.size())});
+        if (posText() != text_) richChanged();
+        rich_.focus();
+    }
+    // The chip `index` (reading order) with new words and token; Remove: the chip goes.
+    void replaceValue(size_t index, const std::wstring& label, const std::string& token) {
+        tokens_.push_back(token);
+        rich_.replaceChip(index, {label, 0, uint64_t(tokens_.size())});
+        changed();
+    }
+    void removeValue(size_t index) {
+        size_t at = 0, k = 0;
+        for (; at < text_.size(); ++at)
+            if (text_[at] == kChipMark && k++ == index) break;
+        if (at >= text_.size()) return;
+        std::vector<stardraft::kit::RichPart> parts = rich_.parts(), kept;
+        size_t n = 0;
+        for (auto& p : parts) {
+            if (p.chip && n++ == index) continue;
+            if (!p.chip && !kept.empty() && !kept.back().chip) kept.back().text += p.text;
+            else kept.push_back(std::move(p));
+        }
+        text_.erase(text_.begin() + long(at));
+        if (at < codes_.size()) codes_.erase(codes_.begin() + long(at));
+        rich_.setParts(std::move(kept));
+        rich_.setLineAligns(aligns_);
+        restyle();
+        rich_.focus();
+        changed();
+    }
+    std::string valueToken(size_t index) const {
+        const stardraft::kit::RichChip ch = rich_.chip(index);
+        return ch.id >= 1 && ch.id <= tokens_.size() ? tokens_[size_t(ch.id - 1)] : std::string();
+    }
+    std::wstring valueLabel(size_t index) const { return rich_.chip(index).label; }
+    // The caret's place in this view (a picker opens under it).
+    draw::Rect caretBox() const {
+        const draw::Rect cr = rawMode_ ? raw_.caretRect() : rich_.caretRect();
+        const draw::Rect f = rawMode_ ? raw_.frame() : rich_.frame();
+        return {cr.left + f.left, cr.top + f.top, cr.right + f.left, cr.bottom + f.top};
+    }
+
     // For the self-test: the boxes.
     stardraft::kit::RichField& preview() { return rich_; }
     stardraft::kit::TextField& rawBox() { return raw_; }
@@ -217,7 +310,11 @@ public:
                 c.roundBox(ring, draw::kNone, on ? kAccent : kBorderHot, float(scale(4)));
             }
             const unsigned char look = code;
-            if (look == 1) {  // normal: the normal color with a slash through it (as the trigger text pop-out has it)
+            if (look == kGameTextPlayerSwatch && spec_.values) {  // a player's color: the first players' colors side by side
+                static const draw::Color stripes[] = {draw::rgb(244, 4, 4), draw::rgb(12, 72, 204), draw::rgb(44, 180, 148), draw::rgb(136, 64, 156)};
+                for (int k = 0; k < 4; ++k) c.fill({r.left + k * r.width() / 4, r.top, r.left + (k + 1) * r.width() / 4, r.bottom}, stripes[k]);
+                c.roundBox(r, draw::kNone, draw::rgb(70, 70, 76), float(scale(3)));
+            } else if (look == 1) {  // normal: the normal color with a slash through it (as the trigger text pop-out has it)
                 c.roundBox(r, normal_, draw::rgb(150, 150, 156), float(scale(3)));
                 c.line(r.left + scale(3), r.bottom - scale(3), r.right - scale(3), r.top + scale(3), draw::rgb(30, 30, 32), scale(1));
             } else if (spec_.palette == TextPalette::Scenario && briefingTextColor(look, normal_) == kInvisibleText) {  // hidden: an empty box, crossed
@@ -227,9 +324,10 @@ public:
                 c.roundBox(r, gameTextLookColor(spec_.palette, look, normal_), kBorder, float(scale(3)));  // (a line round it: white on a light theme)
             }
             std::wstring name;
-            for (const TextSwatch& s : textSwatches(spec_.palette))
+            for (const TextSwatch& s : gameTextSwatches(spec_))
                 if (s.code == code) name = s.name;
-            name += tr(rawMode_ ? L". Puts its code in at the cursor." : L". Colors the selected text, or the text you type next.");
+            if (code == kGameTextPlayerSwatch && spec_.values) name = tr(name.c_str());
+            else name += tr(rawMode_ ?L". Puts its code in at the cursor." : L". Colors the selected text, or the text you type next.");
             tips_.push_back({r, name});
         }
         // The align buttons (Preview: the caret's line's alignment on)
@@ -308,7 +406,7 @@ private:
         int right = width() - (measured_[0] + scale(18)) - (measured_[1] + scale(18)) - scale(10);
         if (spec_.align && spec_.multiline) right -= 3 * scale(22) + scale(10);
         int x = 0, rows = 1, rowRight = right;
-        for (size_t k = 0; k < textSwatches(spec_.palette).size(); ++k) {
+        for (size_t k = 0; k < gameTextSwatches(spec_).size(); ++k) {
             if (x > 0 && x + s > rowRight) x = 0, ++rows, rowRight = width();
             x += s + gap;
         }
@@ -354,8 +452,135 @@ private:
         rich_.setLineAligns(aligns_);
         restyle();
     }
+    // A text with values into the Preview: the words with their codes, each value a chip (its token kept in tokens_), a
+    // code that is no color (hidden text 0B and 14, others) a chip too, a player's color as its code (as the Windows
+    // pop-out's rich box, main.cpp: richSetText).
+    void fillValues(const std::string& raw) {
+        const bool utf8 = gameTextIsUtf8(raw);
+        std::vector<stardraft::kit::RichPart> parts;
+        std::wstring text, piece;
+        std::vector<uint8_t> codes, aligns{0};
+        unsigned char code = 0;
+        auto flushText = [&] {
+            if (piece.empty()) return;
+            if (!parts.empty() && !parts.back().chip) parts.back().text += piece;
+            else parts.push_back(stardraft::kit::RichPart::plain(piece));
+            piece.clear();
+        };
+        auto addChars = [&](const std::wstring& w) { piece += w, text += w, codes.insert(codes.end(), w.size(), code); };
+        auto addChip = [&](const std::wstring& label, const std::string& token) {
+            flushText();
+            tokens_.push_back(token);
+            parts.push_back(stardraft::kit::RichPart::of({label, 0, uint64_t(tokens_.size())}));
+            text += kChipMark, codes.push_back(code);
+        };
+        for (const TriggerTextPart& part : triggerTextParts(raw)) {
+            if (part.kind == TriggerTextPart::Kind::Words) {
+                std::string run;
+                auto flushRun = [&] {
+                    if (!run.empty()) addChars(gameTextDecode(run, utf8)), run.clear();
+                };
+                for (const char ch : part.text) {
+                    const unsigned char u = static_cast<unsigned char>(ch);
+                    if (u == '\r' || u == 0) continue;
+                    if (u == '\n') {
+                        flushRun(), addChars(L"\n"), aligns.push_back(0);
+                        continue;
+                    }
+                    if (u == 0x12 || u == 0x13) {  // the line's alignment (the last one counts)
+                        aligns.back() = u == 0x13 ? 1 : 2;
+                        continue;
+                    }
+                    if (u < 0x20 && u != '\t') {
+                        flushRun();
+                        if (u == 1 || u == 2 || gameTextColor(u, 0xFFFFFFFF) != 0xFFFFFFFF) {  // a color: what follows has it
+                            code = u;
+                            continue;
+                        }
+                        wchar_t name[16];
+                        std::swprintf(name, 16, L"code %02X", unsigned(u));
+                        addChip(u == 0x0B ? std::wstring(L"hidden text") : u == 0x14 ? std::wstring(L"hidden text (14)") : std::wstring(name), std::string(1, ch));
+                        continue;
+                    }
+                    run += ch;
+                }
+                flushRun();
+                continue;
+            }
+            if (part.kind == TriggerTextPart::Kind::Expression && part.format == "c")
+                if (const unsigned char pc = gameTextPlayerCode(part.text)) {  // a player's color: what follows has it
+                    code = pc;
+                    continue;
+                }
+            const std::wstring label = chipLabel ? chipLabel(part) : std::wstring();
+            if (!label.empty()) addChip(label, triggerTextJoin({part}));
+        }
+        flushText();
+        startCode_ = text.empty() ? code : codes.empty() ? 0 : codes[0];
+        text_ = text, codes_ = std::move(codes), aligns_ = std::move(aligns);
+        pending_ = 0xFF;
+        rich_.setParts(std::move(parts));
+        rich_.setLineAligns(aligns_);
+        restyle();
+    }
+    // The Preview of a text with values as its text: the words (braces doubled), each run's code where it changes (a
+    // player's color as {P2:c}), each value's token (in the color before it), each aligned line's code at its start.
+    std::string readValues() const {
+        std::string out;
+        unsigned char cur = 0;
+        bool lineStart = true;
+        size_t para = 0, chip = 0;
+        std::wstring words;
+        auto flush = [&] { out += narrow(words), words.clear(); };
+        auto style = [&](unsigned char want) {
+            const bool normal = want == 0;
+            if (normal ? cur <= 1 : want == cur) return;
+            flush();
+            if (want > kGameTextPlayerCode) out += "{" + gameTextPlayerName(want) + ":c}";
+            else out += char(normal ? 1 : want);
+            cur = normal ? 1 : want;
+        };
+        for (size_t i = 0; i < text_.size(); ++i) {
+            const wchar_t ch = text_[i];
+            if (ch == L'\n') {
+                flush(), out += crlf_ ? "\r\n" : "\n", lineStart = true, ++para;
+                continue;
+            }
+            if (lineStart) {
+                lineStart = false;
+                const uint8_t a = para < aligns_.size() ? aligns_[para] : 0;
+                if (a == 1 || a == 2) flush(), out += char(a == 1 ? 0x13 : 0x12);
+            }
+            const unsigned char want = i < codes_.size() ? codes_[i] : 0;
+            if (ch == kChipMark) {
+                const std::string token = valueToken(chip++);
+                if (token.size() > 1) style(want);  // a value takes the color before it (a code chip is its own byte)
+                flush(), out += token;
+                continue;
+            }
+            style(want);
+            if (ch == L'{') words += L"{{";
+            else if (ch == L'}') words += L"}}";
+            else words += ch;
+        }
+        flush();
+        return out;
+    }
+    // The field's content with each chip as one kChipMark (the field's positions: a chip is one).
+    std::wstring posText() const {
+        std::wstring t;
+        for (const auto& p : rich_.parts()) {
+            if (p.chip) t += kChipMark;
+            else t += p.text;
+        }
+        return t;
+    }
+    static constexpr wchar_t kChipMark = L'\xFFFC';
+    std::vector<std::string> tokens_;  // a chip's token by its id - 1 (a text with values)
+
     // The Preview as bytes: each run's code where it changes, each aligned line's code at its start.
     std::string read() const {
+        if (spec_.values) return readValues();
         std::string out;
         unsigned char cur = 0;  // the code in force (0: none yet)
         bool lineStart = true;
@@ -396,7 +621,7 @@ private:
     }
     // The field's text changed: the codes and the alignments follow it.
     void richChanged() {
-        const std::wstring now = rich_.plainText();
+        const std::wstring now = spec_.values ? posText() : rich_.plainText();
         const std::wstring& old = text_;
         size_t p = 0;
         while (p < old.size() && p < now.size() && old[p] == now[p]) ++p;
@@ -427,6 +652,11 @@ private:
         for (size_t i = 0; i < codes_.size();) {
             size_t j = i + 1;
             while (j < codes_.size() && codes_[j] == codes_[i]) ++j;
+            if (spec_.values && codes_[i] > kGameTextPlayerCode) {  // a player's color: dots under it
+                spans.push_back({i, j - i, gameTextPlayerColor(codes_[i], normal_), false, false, true});
+                i = j;
+                continue;
+            }
             const GameTextLook look = gameTextLook(spec_.palette, codes_[i], normal_);
             spans.push_back({i, j - i, look.color, false, look.hidden, look.unknown});
             i = j;
@@ -444,6 +674,7 @@ private:
         } else {
             c = typingCode(a);
         }
+        if (spec_.values && c > kGameTextPlayerCode) return kGameTextPlayerSwatch;
         return c ? c : 1;
     }
     int caretAlign() const {
