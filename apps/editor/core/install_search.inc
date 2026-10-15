@@ -47,3 +47,14 @@ std::vector<fs::path> installTries(const fs::path& dir) {
     }
     return tries;
 }
+
+// Options > StarCraft folder: the folder a pick opens from: the folder itself when it has .build.info, else the folder below
+// it that has one (the last one listed), else the folder (its game data then says why it does not open).
+fs::path installFolderOf(const fs::path& picked) {
+    std::error_code ec;
+    fs::path dir = picked;
+    if (!fs::exists(dir / ".build.info", ec))
+        for (const auto& e : fs::directory_iterator(picked, ec))
+            if (e.is_directory(ec) && fs::exists(e.path() / ".build.info", ec)) dir = e.path();
+    return dir;
+}

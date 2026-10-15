@@ -235,6 +235,9 @@ struct MapView final : draw::View {
 bool shortcutRun(const draw::KeyEvent& e);
 void menusIfDirty();
 
+// The Log at the bottom of the window (core/views_log.inc; shell_sdl.inc adds the lines).
+LogPaneView gLogPane;
+
 // The main window: the menu bar, the document tabs, the workspace rail, the status bar, the map view with its minimap and
 // the panes that are not on this system yet, placed by computeLayout.
 struct MainView final : draw::View {
@@ -253,6 +256,7 @@ struct MainView final : draw::View {
         add(tabs, draw::Rect(0, 0, 0, 0));
         add(rail, draw::Rect(0, 0, 0, 0));
         add(status, draw::Rect(0, 0, 0, 0));
+        add(gLogPane, draw::Rect(0, 0, 0, 0));
         add(map, draw::Rect(0, 0, 0, 0));
         add(minimap, draw::Rect(0, 0, 0, 0));
         add(gToolStripView, draw::Rect(0, 0, 0, 0));  // the tool strip (core/views_toolstrip.inc)
@@ -309,6 +313,7 @@ struct MainView final : draw::View {
         in.dpi = int(gDpi);
         in.clientW = width(), in.clientH = height();
         in.statusH = scale(24);
+        in.logH = logPaneHeight(height(), scale(28), tabStripHeight(), in.statusH);  // (the Log's bar, or the open Log)
         in.barH = scale(28);             // the menu bar
         in.tabsH = tabStripHeight();     // the document tabs
         in.railW = shellHasRail() ? wsRailWidth() : 0;
@@ -353,6 +358,7 @@ struct MainView final : draw::View {
         apply(tabs, L.tabs, true);
         apply(rail, L.wsRail, shellHasRail());
         apply(status, L.status, true);
+        apply(gLogPane, L.log, true);
         apply(map, L.view, mapWs);
         apply(minimap, L.minimap, L.minimap.visible && mapWs);
         apply(modes, L.modeBar, mapWs);

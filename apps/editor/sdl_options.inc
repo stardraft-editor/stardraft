@@ -9,6 +9,7 @@
 const wchar_t* const kSdlDiscordInvite = L"https://discord.gg/JBMCwSRJBm";
 
 bool gOptionsOpen = false;        // the options window is open (its closed callback clears it)
+fs::path gInstallInUse, gInstallNext;  // the StarCraft folder in use; the one for the next start (Options > StarCraft folder)
 FeedbackView* gFbView = nullptr;  // the feedback dialog while it is open
 
 // The program's part of the options window: the values, the commands, the folder and the sliders' changes.
@@ -28,6 +29,8 @@ public:
         prefs::flag(L"CheckUpdates", flag), v.checkUpdates = flag;
         int crash = 0;
         prefs::number(L"CrashReports", crash, 0, 2), v.crashReports = crash;
+        v.installInUse = gInstallInUse.empty() ? std::wstring() : gInstallInUse.wstring();
+        v.installNext = !gInstallNext.empty() && gInstallNext != gInstallInUse ? gInstallNext.wstring() : std::wstring();
         v.projectsFolder = defaultProjectsFolder().make_preferred().wstring();
     }
     void command(int id) override { ::command(id); }  // (the menu's command: the same path as the menu)
@@ -64,7 +67,15 @@ void OptionsProgramSdl::setVolume(int value) {
     saveDock();
     gOptionsView.invalidate();
 }
-void OptionsProgramSdl::browseWorkingFolder() { setMessage(shellTr(L"Choosing a folder is not on this system yet")); }
+// Browse: the folder new projects go to (the system's folder dialog), as on Windows.
+void OptionsProgramSdl::browseWorkingFolder() {
+    const std::wstring f = shellPickFolder(shellTr(L"Working folder"));
+    if (f.empty()) return;
+    gProjectsFolder = fs::path(f).make_preferred().wstring();
+    saveRecent();
+    setMessage(shellTr(L"New projects go to ") + gProjectsFolder);
+    gOptionsView.invalidate();
+}
 void OptionsProgramSdl::useDefaultWorkingFolder() {
     gProjectsFolder.clear();
     saveRecent();

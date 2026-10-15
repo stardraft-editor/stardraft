@@ -211,53 +211,7 @@ void trigApplyCostFix(const TriggerCostFix& fix) {
 }
 
 // --- Build errors --------------------------------------------------------------------------------------------------
-
-// The block of each line of the last generated/triggers.eps: the node's path and the block (index -1: the trigger).
-struct TrigCodeMap {
-    fs::path project;
-    std::vector<std::pair<std::vector<int>, TrigBlockRef>> lines;
-};
-TrigCodeMap gTrigCodeMap;
-
-bool trigFindCall(const std::vector<TriggerCall>& list, const TrigListRef& ref, const TriggerCall* target, TrigBlockRef& out) {
-    for (size_t i = 0; i < list.size(); ++i) {
-        if (&list[i] == target) return out = {ref, int(i)}, true;
-        for (size_t n = 0; n < list[i].lists.size(); ++n) {
-            TrigListRef inner = ref;
-            inner.via.push_back({ref.list, int(i)});
-            inner.list = 2 + int(n);
-            if (trigFindCall(list[i].lists[n], inner, target, out)) return true;
-        }
-    }
-    return false;
-}
-
-// Keeps the line map of code made from `set` (Build calls it with the code it writes).
-void trigKeepCodeMap(const EudProject& pr, const TriggerSet& set, const std::vector<TriggerCodeLine>& lines) {
-    std::map<const TriggerNode*, std::vector<int>> paths;
-    std::function<void(const TriggerNode&, std::vector<int>)> walk = [&](const TriggerNode& n, std::vector<int> path) {
-        paths[&n] = path;
-        for (size_t i = 0; i < n.children.size(); ++i) {
-            auto p = path;
-            p.push_back(int(i));
-            walk(n.children[i], p);
-        }
-    };
-    for (size_t i = 0; i < set.roots.size(); ++i) walk(set.roots[i], {int(i)});
-    gTrigCodeMap = {pr.folder(), {}};
-    for (const auto& l : lines) {
-        std::pair<std::vector<int>, TrigBlockRef> m;
-        if (auto it = paths.find(l.node); it != paths.end()) m.first = it->second;
-        if (l.node && l.call) {
-            TrigListRef conds;
-            conds.list = 0;
-            TrigListRef acts;
-            acts.list = 1;
-            if (!trigFindCall(l.node->conditions, conds, l.call, m.second)) trigFindCall(l.node->actions, acts, l.call, m.second);
-        }
-        gTrigCodeMap.lines.push_back(std::move(m));
-    }
-}
+// (The line map of the last generated code, gTrigCodeMap, is core/project_build.inc's.)
 
 // The trigger (and block) that made a line of the last generated/triggers.eps: "Name, Block title" ("" if not known).
 std::wstring trigCodeLineName(int line) {

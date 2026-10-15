@@ -15,7 +15,7 @@ void shellMenusChanged() { gMenusDirty = true; }  // (the menu bar is made again
 void shellStatusChanged() {
     if (gRoot) gRoot->invalidate();
 }
-bool shellLogOpen() { return false; }  // (the Log is not on this system yet)
+bool shellLogOpen() { return gRoot != nullptr; }  // (the Log's bar is in the window: it shows the latest message)
 int shellUiFontLfHeight() { return -12; }  // (the Win32 UI font's height; the kit's views size their own text)
 // The map view's size: none until the root view is in a window (a map opened from the command line comes before the
 // window, and the layout's placeholder then is 1 x 1); fitMap waits for it (gFitPending).
@@ -60,8 +60,17 @@ bool shellClearFilter() {  // the Locations filter is cleared (the Win32 filter'
     return true;
 }
 unsigned shellDpi() { return gDpi; }
-void shellLogLine(const std::wstring& line) { std::fprintf(stderr, "%s\n", narrow(line).c_str()); }
-void shellLogError(const std::wstring& line) { std::fprintf(stderr, "%s\n", narrow(line).c_str()); }
+// A line in the Log (core/views_log.inc), and on stderr; an error opens the Log.
+void shellLogLine(const std::wstring& line) {
+    std::fprintf(stderr, "%s\n", narrow(line).c_str());
+    if (logAdd(logState(), line, false)) gLogPane.changed();
+}
+void shellLogError(const std::wstring& line) {
+    std::fprintf(stderr, "%s\n", narrow(line).c_str());
+    if (!logAdd(logState(), line, true)) return;
+    gLogPane.changed();
+    gLogPane.setExpanded(true);
+}
 bool shellHasStatusBar() { return true; }
 int shellSpriteCount() { return gRenderer ? gRenderer->stats().sprites : 0; }
 // The Locations list (sdl_panels.inc): its rows are the rebuildList's, its selection is the core's picks.
@@ -96,7 +105,19 @@ void shellPaletteRebuilt() {
     rebuildPaletteRows();
     if (gPal2Shown) rebuildSecondRows();
 }
-std::filesystem::path shellUnsavedRoot() { return {}; }  // (new projects are not on this system yet)
+// The folder of the projects that are not saved yet (core/documents.inc): StarDraft/Unsaved in the user's data folder
+// (~/Library/Application Support on macOS; $XDG_DATA_HOME or ~/.local/share on Linux), as the Windows program's
+// %LOCALAPPDATA%\StarDraft\Unsaved.
+std::filesystem::path shellUnsavedRoot() {
+    fs::path dir;
+#ifdef __APPLE__
+    if (const char* h = std::getenv("HOME"); h && *h) dir = fs::path(h) / "Library" / "Application Support";
+#else
+    if (const char* x = std::getenv("XDG_DATA_HOME"); x && *x) dir = fs::path(x);
+    else if (const char* h = std::getenv("HOME"); h && *h) dir = fs::path(h) / ".local" / "share";
+#endif
+    return dir.empty() ? fs::path() : dir / "StarDraft" / "Unsaved";
+}
 // The save question: Save, Do not save or Cancel, in the kit's message box (Escape, or no window, is Cancel).
 int shellAskSaveChanges(bool project) {
     if (!gRoot) return 2;
@@ -152,7 +173,28 @@ int shellAskUnapplied(const std::wstring& text, const std::wstring& title) {
                                              stardraft::kit::MessageIcon::Question);
     return r == 0 ? 0 : r == 1 ? 1 : 2;
 }
-int shellTabSideMenu(const std::wstring&, int) { return 0; }  // (the side menu is not on this system yet)
+// A side panel's tab, right-clicked: its menu at the mouse (the title, then Left and Right with the side's check). The
+// call waits for the pick: 1 Left, 2 Right, 0 none.
+int shellTabSideMenu(const std::wstring& title, int side) {
+    if (!gRoot || !gHost) return 0;
+    struct Pick {
+        bool closed = false;
+        int id = 0;
+    };
+    auto pick = std::make_shared<Pick>();
+    std::vector<stardraft::kit::MenuItem> items(4);
+    items[0].label = title, items[0].enabled = false;
+    items[1].separator = true;
+    items[2].label = shellTr(L"Left"), items[2].checked = side == 0, items[2].run = [pick] { pick->id = 1; };
+    items[3].label = shellTr(L"Right"), items[3].checked = side == 1, items[3].run = [pick] { pick->id = 2; };
+    stardraft::kit::MenuOptions opts;
+    opts.closed = [pick](bool) { shellPost([pick] { pick->closed = true; }); };  // (after the picked item ran)
+    ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)
+    kit_sdl::ImguiCanvas measure(list, nullptr);
+    if (!stardraft::kit::Menu::popup(*gRoot, gHost->mouse(*gRoot), items, stardraft::kit::Menu::measure(items, &measure), opts)) return 0;
+    gHost->waitUntil([pick] { return pick->closed; });
+    return pick->id;
+}
 void shellRecentMenu(bool, const std::vector<std::wstring>&, const std::wstring&) { gMenusDirty = true; }  // (the lists are the menus' own: sdl_menus.inc)
 void shellShowQuickPicker(bool replace, bool open) { showQuickPickerSdl(replace, open); }  // (sdl_map_dialogs.inc)
 void shellMapFileOpened(const std::filesystem::path&) {}  // (the file association is Windows only)
@@ -253,14 +295,62 @@ std::wstring shellFileTimeText(const std::filesystem::path& file) {
     std::snprintf(buf, sizeof buf, "%04d-%02d-%02d %02d:%02d", tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, tm->tm_hour, tm->tm_min);
     return widen(buf);
 }
-std::uintptr_t shellStartElevated(const std::filesystem::path&, const std::filesystem::path&, const std::wstring&, const std::wstring& what,
-                                  std::wstring& error) {
-    error = what + L" is not on this system yet";
-    return 0;
+// A program the Project page starts (epTrace): SDL's process in `dir`. These systems ask for no administrator rights
+// (the Windows program's elevation prompt). `args`: the words; a word in double quotes may have spaces.
+std::uintptr_t shellStartElevated(const std::filesystem::path& exe, const std::filesystem::path& dir, const std::wstring& args,
+                                  const std::wstring& what, std::wstring& error) {
+    std::vector<std::string> words = {narrow(exe.wstring())};
+    std::string word;
+    bool quoted = false, any = false;
+    for (const char ch : narrow(args)) {
+        if (ch == '"') quoted = !quoted, any = true;
+        else if (ch == ' ' && !quoted) {
+            if (any || !word.empty()) words.push_back(word);
+            word.clear(), any = false;
+        } else word += ch;
+    }
+    if (any || !word.empty()) words.push_back(word);
+    std::vector<const char*> argv;
+    for (const std::string& w : words) argv.push_back(w.c_str());
+    argv.push_back(nullptr);
+    const std::string where = narrow(dir.wstring());
+    const SDL_PropertiesID props = SDL_CreateProperties();
+    SDL_SetPointerProperty(props, SDL_PROP_PROCESS_CREATE_ARGS_POINTER, argv.data());
+    if (!where.empty()) SDL_SetStringProperty(props, SDL_PROP_PROCESS_CREATE_WORKING_DIRECTORY_STRING, where.c_str());
+    SDL_Process* p = SDL_CreateProcessWithProperties(props);
+    SDL_DestroyProperties(props);
+    if (!p) error = L"Could not start " + what + L" (" + widen(SDL_GetError()) + L")";
+    return std::uintptr_t(p);
 }
-bool shellProcessEnded(std::uintptr_t) { return true; }
-void shellProcessClose(std::uintptr_t) {}
-void shellChooseInstallFolder() { setMessage(L"This is not on this system yet"); }
+bool shellProcessEnded(std::uintptr_t process) {
+    int code = 0;
+    return !process || SDL_WaitProcess(reinterpret_cast<SDL_Process*>(process), false, &code);
+}
+void shellProcessClose(std::uintptr_t process) {
+    if (process) SDL_DestroyProcess(reinterpret_cast<SDL_Process*>(process));
+}
+// File > Options > StarCraft folder: another install is chosen; its game data must open. It is used from the next start
+// (the settings' StarCraftFolder), as on Windows.
+void shellChooseInstallFolder() {
+    const std::wstring picked = shellPickFolder(shellTr(L"Select the StarCraft: Remastered folder. It contains .build.info."));
+    if (picked.empty() || !gRoot) return;
+    const fs::path dir = installFolderOf(fs::path(picked));
+    GameData probe;
+    std::string err;
+    if (!probe.open(dir, err)) {
+        stardraft::kit::messageBox(*gRoot, shellTr(L"StarCraft folder"), shellTr(L"Could not read the game data in this folder:") + L"\r\n" + widen(err), {L"OK"},
+                                   stardraft::kit::MessageIcon::Warning);
+        return;
+    }
+    prefs::setText(L"StarCraftFolder", dir.wstring());
+    gInstallNext = dir;
+    gOptionsView.invalidate();
+    stardraft::kit::messageBox(*gRoot, shellTr(L"StarCraft folder"),
+                               shellTr(L"StarDraft 2 uses this folder after the next start:") + L"\r\n" + dir.wstring() + L"\r\n" +
+                                   shellTr(L"To use it now, restart StarDraft 2."),
+                               {L"OK"}, stardraft::kit::MessageIcon::Info);
+    shellLogLine(L"StarCraft folder set to " + dir.wstring() + L" (from the next start)");
+}
 // The file and folder dialogs: SDL's (asynchronous); the call waits for the answer (the host handles events and paints
 // meanwhile). A dialog whose answer comes after the program quits keeps its small state (the callback may still come).
 namespace {
@@ -377,3 +467,18 @@ void shellClosePopout(stardraft::draw::View& content) {
     if (gHost) gHost->closeWindow(content);
 }
 bool shellUiIconMask(int, int, std::vector<uint8_t>&) { return false; }  // (the SDL canvas draws icons from its own atlases)
+
+// Build and the Log (core/project_build.inc): the question in the kit's message box (Escape, or no window, is No).
+bool shellAskYesNo(const std::wstring& text, const std::wstring& title, const std::wstring& yes, const std::wstring& no) {
+    if (!gRoot) return false;
+    auto plain = [](std::wstring t) {  // (the kit's buttons have no access keys)
+        std::erase(t, L'&');
+        return shellTr(t.c_str());
+    };
+    return stardraft::kit::messageBox(*gRoot, shellTr(title.c_str()), text, {plain(yes), plain(no)}, stardraft::kit::MessageIcon::Warning) == 0;
+}
+void shellLogNewBuild() {
+    LogState& s = logState();
+    s.errors = 0, s.latestError = false;
+    gLogPane.invalidate();
+}

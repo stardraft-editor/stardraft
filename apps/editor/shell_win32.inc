@@ -392,3 +392,12 @@ void shellRunPopout(stardraft::draw::View& content, int x, int y, int w, int h, 
     gPopoutsClosing.erase(&content);
     if (IsWindow(wnd)) DestroyWindow(wnd);
 }
+
+// Build and the Log (core/project_build.inc).
+bool shellAskYesNo(const std::wstring& text, const std::wstring& title, const std::wstring& yes, const std::wstring& no) {
+    return themedMessageBox(app.main, text, title, MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2, {yes, no}) == IDYES;
+}
+void shellLogNewBuild() {
+    gLog.errors = 0, gLog.latestError = false;
+    if (gLog.wnd) InvalidateRect(gLog.wnd, nullptr, FALSE);
+}
