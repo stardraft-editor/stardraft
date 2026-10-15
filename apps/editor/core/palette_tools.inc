@@ -64,6 +64,11 @@ void setMessage(AppState& app, const std::wstring& m) {
     shellLogLine(m);
 }
 
+// (the program's one state: main.cpp has it as app)
+AppState& appState();
+void setMessage(const std::wstring& m) { setMessage(appState(), m); }
+void updateStatus() { updateStatus(appState()); }
+
 // The palette list allows multi-select (for sprays); the "current" entry is the caret.
 void setListSel(int i) { shellListSelect(i); }
 
