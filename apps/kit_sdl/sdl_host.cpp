@@ -584,6 +584,9 @@ void SdlHost::dispatch(const SDL_Event& e) {
         if (quitRequest_) return quitRequest_();
         quit_ = true;
         return;
+    case SDL_EVENT_DROP_FILE:
+        if (drop_ && !modal_ && e.drop.data && *e.drop.data) drop_(e.drop.data);
+        return;
     case SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
         Win* w = findWin(wid);
         if (!w) return;
