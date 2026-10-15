@@ -108,24 +108,8 @@ namespace {
 
 #include "core/ids.inc"  // the command ids, the modes, the dock layout
 #include "core/recent.inc"  // the recent maps and projects (saved in the settings; the File menu is the host's)
+#include "core/dock_prefs.inc"  // the dock layout in the settings (loadDock, saveDock, trigZoomReset)
 
-void loadDock() {
-    auto get = [](const wchar_t* name, bool& v) { prefs::flag(std::wstring(L"Layout/") + name, v); };
-    get(L"MinimapRight", gDock.minimapRight);
-    get(L"MinimapHidden", gDock.minimapHidden);
-    for (int i = 0; i < kModeCount; ++i) get(kDockSideNames[i], gDock.toolsRight[i]);
-    auto number = [](const wchar_t* name, int& v, int lo, int hi) { prefs::number(std::wstring(L"Layout/") + name, v, lo, hi); };
-    number(L"LeftWidth", gDock.leftW, kMinSideW, kMaxSideW), number(L"RightWidth", gDock.rightW, kMinSideW, kMaxSideW);
-    number(L"DataListWidth", gDock.dataListW, kMinSideW, kMaxSideW);
-    get(L"TriggerCode", gDock.triggerCode);
-    number(L"UnitNames", gDock.unitNames, 0, 3);
-    number(L"Volume", gDock.volume, 0, 100);
-    get(L"ScriptPreview", gDock.scriptPreview);
-    number(L"LogHeight", gDock.logH, 80, 1200);
-    number(L"GridWidth", gDock.gridW, 1, 8192), number(L"GridHeight", gDock.gridH, 1, 8192);
-    number(L"GridX", gDock.gridX, 0, 8191), number(L"GridY", gDock.gridY, 0, 8191);
-    number(L"TriggerZoom", gDock.triggerZoom, 70, 200);
-}
 
 extern bool gSelfTest;
 // Test runs (--selftest, --datashots, --screenshot) play no sound: the user may be at the computer.
@@ -137,21 +121,6 @@ SDL_AudioStream* openPlayback(const SDL_AudioSpec* spec) {
     return s;
 }
 
-void saveDock() {
-    if (gSelfTest) return;  // the self-test moves panels without touching the user's layout
-    auto put = [](const wchar_t* name, int v) { prefs::setNumber(std::wstring(L"Layout/") + name, v); };
-    put(L"MinimapRight", gDock.minimapRight);
-    put(L"MinimapHidden", gDock.minimapHidden);
-    put(L"UnitNames", gDock.unitNames);
-    put(L"Volume", gDock.volume);
-    for (int i = 0; i < kModeCount; ++i) put(kDockSideNames[i], gDock.toolsRight[i]);
-    put(L"LeftWidth", gDock.leftW), put(L"RightWidth", gDock.rightW), put(L"DataListWidth", gDock.dataListW);
-    put(L"LogHeight", gDock.logH);
-    put(L"GridWidth", gDock.gridW), put(L"GridHeight", gDock.gridH), put(L"GridX", gDock.gridX), put(L"GridY", gDock.gridY);
-    put(L"TriggerCode", gDock.triggerCode);
-    put(L"ScriptPreview", gDock.scriptPreview);
-    put(L"TriggerZoom", gDock.triggerZoom);
-}
 
 // Recently opened maps and projects, and the folder projects usually go in (where the last one was made or
 // opened): HKCU\Software\StarDraft, RecentMaps / RecentProjects (lists) and ProjectsFolder.
@@ -339,7 +308,6 @@ struct App : AppState {
 };
 
 App app;
-AppState& appState() { return app; }
 
 int gUnitGraphics = 0;  // changes when syncMapUnitGraphics gives the map other unit graphics
 
@@ -10803,10 +10771,8 @@ void paintTrigPaneAt(HWND hwnd);
 
 #include "trigger_help.inc"
 
-void trigZoomReset() {
-    gDock.triggerZoom = 100, saveDock();
+void trigPaneRepaint() {  // (core/dock_prefs.inc: trigZoomReset)
     if (gTE.pane) InvalidateRect(gTE.pane, nullptr, FALSE);
-    setMessage(L"Zoom 100%");
 }
 
 // The pane at its zoom: sizes (scale) and the UI font grow or shrink while it paints. Its hit areas are recorded

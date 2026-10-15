@@ -239,6 +239,7 @@ int main(int argc, char** argv) {
             if (!dataErr.empty()) gDataError += ". Game data: " + dataErr;
             gStartView.dataError = widen(gDataError);  // the start page keeps the reason (the status bar's text goes)
         }
+        loadDock();  // the dock layout in the settings (core/dock_prefs.inc), as the Windows program at its start
         registerMapCommands();  // the Map workspace's command table (core/map_commands.inc): the menus and keys read it
         registerWorkspaceView(Workspace::Files, gFilesPage);  // the Assets / Files workspace (sdl_files.inc)
         registerMapPages();  // the map pages' workspaces (sdl_map_pages.inc)

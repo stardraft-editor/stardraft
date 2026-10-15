@@ -4,6 +4,9 @@
 
 // The app state the core reads (documents.inc declares it).
 AppState& shellState() { return gState; }
+void shellRendererGraphics(GraphicsQuality q, bool carbot) {
+    if (gRenderer) gRenderer->setQuality(q), gRenderer->setCarbot(carbot);
+}
 
 void shellRelayout() {
     if (gRoot) gRoot->relayout();

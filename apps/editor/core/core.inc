@@ -8,6 +8,7 @@
 #include "prefs.inc"
 #include "install_search.inc"
 #include "recent.inc"
+#include "dock_prefs.inc"
 #include "modes.inc"
 #include "colors.inc"
 #include "app_state.inc"
