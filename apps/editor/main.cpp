@@ -7330,10 +7330,22 @@ const DatField* curField(int index) {
     return nullptr;
 }
 
+std::wstring projectUnitName(int u);  // data_extras.inc: the project's name of the unit when its string is changed, else ""
 std::wstring unitDisplayName(int u) {
     if (!app.ed || u < 0 || u >= int(app.ed->unitTypes().size())) return L"";
     const UnitType& t = app.ed->unitTypes()[uint16_t(u)];
-    return withCustomName(widen(t.name) + (t.subtitle.empty() ? L"" : L" (" + widen(t.subtitle) + L")"), u);
+    // The project's name when its string is changed (Data > Strings, or Rename at the top of the unit's form).
+    const std::wstring own = projectUnitName(u);
+    return withCustomName((own.empty() ? widen(t.name) : own) + (t.subtitle.empty() ? L"" : L" (" + widen(t.subtitle) + L")"), u);
+}
+
+// The stat_txt.tbl string (1-based) that names an entry in the game: a unit's (its id + 1), or the Label of a weapon,
+// upgrade, technology or order; 0 for none (the other .dat files have no name in the game).
+int datValue(const std::string& dat, const std::string& name, int e, int fallback = 0);
+int entryNameString(const std::string& dat, int e) {
+    if (dat == "units") return e >= 0 && e < 228 ? e + 1 : 0;
+    if (dat == "weapons" || dat == "upgrades" || dat == "techdata" || dat == "orders") return datValue(dat, "Label", e, 0);
+    return 0;
 }
 
 // The name of an entry: units from stat_txt.tbl, the rest from the generated lists ("" when unnamed).
@@ -8648,7 +8660,7 @@ struct {
 } gDatOverride;
 
 // A value of another entry (any .dat), or `fallback` if the field does not cover it.
-int datValue(const std::string& dat, const std::string& name, int e, int fallback = 0) {
+int datValue(const std::string& dat, const std::string& name, int e, int fallback) {
     if (gDatOverride.entry == e && gDatOverride.entry >= 0 && gDatOverride.field == name && gDatOverride.dat == dat) return int(gDatOverride.value);
     const DatTable* t = datTable(datTabOf(dat));
     const DatField* f = datFieldNamed(dat, name);
@@ -11128,6 +11140,23 @@ void paintDataForm(HWND hwnd) {
                       widen(dat) + L".dat entry " + std::to_wstring(u) + (changedHere ? L"  \x00B7  " + std::to_wstring(changedHere) + L" changed" : L""), false,
                       nullptr, tabIcon(gData.datTab));
         SelectObject(mem, app.font);
+        // The name in the game: Rename (its stat_txt.tbl string, with colors), and a link to that string in Strings.
+        if (const int sid = entryNameString(dat, u); sid > 0 && gData.project && sid <= gExtras.strings.count()) {
+            const int lx = x0 + scale(52), ly = y - scale(12);
+            const int right = ui::link(mem, lx, ly, scale(22), L"Rename", [sid] {
+                std::string text = gExtras.strings.text(sid - 1);
+                POINT pt;
+                GetCursorPos(&pt);
+                if (!editGameText(L"Name in the game (stat_txt.tbl string " + std::to_wstring(sid) + L")", text, pt)) return;
+                gExtras.strings.set(sid - 1, text);
+                extrasChanged();
+                dataRebuildList();
+                setMessage(L"Renamed: " + statString(sid));
+            }, L"Change the name that the game shows. Each entry that uses this string gets the new name.");
+            ui::link(mem, right + scale(16), ly, scale(22), L"String " + std::to_wstring(sid), [sid] { dataGoTo("strings", sid); },
+                     L"Open this string in the Strings tab");
+            y += scale(14);
+        }
         int rightTop = y;  // where the right column is free
         // Sections in the schema's order, fields in each section's order.
         const auto& sch = t.schema();
@@ -26625,6 +26654,40 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     for (int i = 0; i < 3; ++i) pump();
                     o << c.name << " " << (gWorkspace == c.want ? "yes" : "NO") << "\n";
                 }
+                continue;
+            }
+            if (s == "dataname:") {  // dataname.txt, dataname.png: Data > Units > the marine: Rename at the top, then String 1 opens it (needs a project)
+                std::ofstream o(fs::path(datashots) / "dataname.txt");
+                if (!activeProject()) {
+                    o << "open a project NO\n";
+                    continue;
+                }
+                command(ID_WS_DATA);
+                for (int i = 0; i < 5; ++i) pump();
+                dataGoTo("units", 0);
+                RedrawWindow(gData.form, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+                std::function<void()> rename, jump;
+                for (const auto& h : gWidgetHits) {
+                    if (h.tip.rfind(L"Change the name that the game shows", 0) == 0) rename = h.click;
+                    if (h.tip == L"Open this string in the Strings tab") jump = h.click;
+                }
+                o << "Rename and String 1 at the top " << (rename && jump ? "yes" : "NO") << "\n";
+                if (!rename || !jump) continue;
+                const std::string before = gExtras.strings.text(0);
+                gValuePopHook = [](HWND w) {  // the new name, typed in the pop-out, then OK
+                    SetWindowTextW(gValuePop->edit, L"Space Marine");
+                    PostMessageW(w, WM_COMMAND, IDOK, 0);
+                };
+                rename();
+                gValuePopHook = nullptr;
+                RedrawWindow(gData.form, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+                capture(fs::path(datashots) / "dataname.png");
+                o << "renamed: the string, the title and the list " << (stringLine(gExtras.strings.text(0)) == L"Space Marine" && entryName("units", 0).find(L"Space Marine") == 0 ? "yes" : "NO")
+                  << " (" << narrow(entryName("units", 0)) << ")\n";
+                jump();
+                o << "String 1 opens the Strings tab at it " << (gData.datTab == stringsTab() && gData.entry == 1 ? "yes" : "NO") << "\n";
+                dataUndo(false);
+                o << "one undo gives the name back " << (gExtras.strings.text(0) == before ? "yes" : "NO") << "\n";
                 continue;
             }
             if (s == "datapin:") {  // datapin.txt, datapin.png: Data > right-click an entry > Pin to the top
