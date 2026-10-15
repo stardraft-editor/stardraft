@@ -202,3 +202,13 @@ void shellClosePopout(stardraft::draw::View& content);
 // A UI icon's coverage (0..255, `size` x `size`, rows from the top) at the atlas size `size` (16, 24 or 32). False when
 // the program cannot read the atlas here (the caller then draws with Canvas::icon).
 bool shellUiIconMask(int size, int icon, std::vector<uint8_t>& out);
+
+// --- Build and the Log (core/project_build.inc, core/views_log.inc) ---
+// A question with two answers, as a warning: true when the first (`yes`) is chosen. The second is the default (Enter).
+bool shellAskYesNo(const std::wstring& text, const std::wstring& title, const std::wstring& yes, const std::wstring& no);
+// A build starts: the Log's error count goes to 0 (the lines stay).
+void shellLogNewBuild();
+
+// --- Program options and feedback (core/feedback_send.inc) ---
+// The folder where feedback waits to go and the list of the sent feedback is (Windows: %LOCALAPPDATA%\StarDraft\feedback).
+std::filesystem::path shellFeedbackFolder();

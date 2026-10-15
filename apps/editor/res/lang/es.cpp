@@ -2006,6 +2006,7 @@ constexpr UiText kRows[] = {
     {L"Shift+drag paints ", L"May\u00FAs+arrastrar pinta "},
     {L"; drag paints ", L"; arrastrar pinta "},
     {L"Shift+drag: no terrain", L"May\u00FAs+arrastrar: sin terreno"},
+    {L"Automatic (the language of the system)", L"Autom\u00E1tico (el idioma del sistema)"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

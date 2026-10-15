@@ -2002,3 +2002,4 @@ Triggers do not run each second, so they can miss Exactly. Use At least or At mo
 Shift+drag paints 	Shift+перетаскивание рисует 
 ; drag paints 	; перетаскивание рисует 
 Shift+drag: no terrain	Shift+перетаскивание: нет местности
+Automatic (the language of the system)	Автоматически (язык системы)

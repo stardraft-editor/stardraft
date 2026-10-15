@@ -8,6 +8,8 @@
 //
 // --snapshot: draws one frame without a window (SDL_VIDEODRIVER=offscreen needs no display), writes it, exits.
 // --silent: a test run that drives the window plays no sound (a snapshot plays none either).
+// --log: the Log is open; --build: Build runs first (a snapshot then shows its lines in the Log).
+// --theme light|dark, --accent <n>, --lang <code>: the theme, the accent and the language for this run (not saved).
 // The StarCraft install: --install, then STARDRAFT_INSTALL, the folder chosen before, then the usual folders of each
 // system (core/install_search.inc); when none opens, the window asks for the folder.
 
@@ -33,6 +35,7 @@
 #include <random>
 #include <set>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -44,6 +47,7 @@
 #include "view.h"
 #include "wintypes.h"
 #include "text_codec.h"
+#include "http.h"  // apps/common: one HTTPS request (core/feedback_send.inc: Send in Report feedback)
 #include "canvas_imgui.h"
 #include "sdl_host.h"
 #include "core/tr.h"
@@ -68,6 +72,7 @@
 #include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)
 #include "stardraft/game_data.h"
 #include "stardraft/hd_assets.h"
+#include "stardraft/msqc.h"  // the triggers' keys and buttons (core/project_build.inc)
 #include "stardraft/pathing.h"
 #include "stardraft/portraits.h"  // the portraits' clips (core/data_pictures.inc)
 #include "stardraft/previews.h"  // the terrain and doodad pictures (sdl_pictures.inc)
@@ -111,6 +116,7 @@ bool gNoBoxes = false;
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
 #include "sdl_data.inc"  // the Data workspace (the model is core/data_list.inc and core/views_data*.inc; the tables are the stock .dat files)
 #include "sdl_tips.inc"  // the hover tooltips (core/views_tip.inc)
+#include "sdl_build.inc"  // Build's parts of this system (core/project_build.inc)
 #include "sdl_triggers.inc"  // the Triggers workspace (the tree, the pane and the block picker are core/views_triggers_*.inc; the model core/triggers_model.inc)
 #include "shell_sdl.inc"
 
@@ -140,7 +146,7 @@ bool openInstall(const std::string& given, std::string& lastErr) {
         for (const fs::path& t : installTries(c)) {
             if (!fs::is_directory(t, ec)) continue;
             std::string err;
-            if (gState.data.open(t, err)) return true;
+            if (gState.data.open(t, err)) return gInstallInUse = t, true;
             if (lastErr.empty()) lastErr = err;
         }
     return false;
@@ -161,6 +167,7 @@ void useInstallFolder(const std::string& picked) {
     std::string err;
     for (const fs::path& t : installTries(fs::path(picked)))
         if (fs::is_directory(t) && gState.data.open(t, err)) {
+            gInstallInUse = t;
             prefs::setText(L"StarCraftFolder", t.wstring());
             gDataOk = true, gDataError.clear();
             gStartView.dataError.clear();
@@ -208,8 +215,10 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
-    std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, trigArg, trigSelArg, briefArg;
-    bool rectArg = false, previewArg = false, trigCodeArg = false;
+    std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, themeArg, langArg, trigArg, trigSelArg, briefArg;
+    int accentArg = -1;
+    gSelfPath = argc > 0 ? argv[0] : "";  // (Restart now starts it again, sdl_options.inc)
+    bool rectArg = false, previewArg = false, logArg = false, buildArg = false, trigCodeArg = false;
     int width = 1600, height = 1000;
     float scaleArg = 0;
     for (int i = 1; i < argc; ++i) {
@@ -231,6 +240,11 @@ int main(int argc, char** argv) {
         else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or blockpick, blockhelp:<block id>, unitprops, locprops, quick, about, message, error or tip: that view is the snapshot
         else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
         else if (a == "--scriptpreview") previewArg = true;  // the Project page's script preview on (not saved), for a snapshot
+        else if (a == "--log") logArg = true;  // the Log open (View > Log), for a snapshot
+        else if (a == "--build") buildArg = true;  // Build (Ctrl+B) runs first: its lines go to the Log, for a snapshot
+        else if (a == "--theme") themeArg = next();  // light or dark: the theme for this run (not saved), for a snapshot
+        else if (a == "--accent") accentArg = std::atoi(next().c_str());  // the accent's number (theme::kAccents), for a snapshot
+        else if (a == "--lang") langArg = next();  // en, ko, es, ru or zh: the language for this run (not saved), for a snapshot
         else if (a == "--silent") gSilent = true;
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
@@ -269,6 +283,8 @@ int main(int argc, char** argv) {
             gStartView.dataError = widen(gDataError);  // the start page keeps the reason (the status bar's text goes)
         }
         loadDock();  // the dock layout in the settings (core/dock_prefs.inc), as the Windows program at its start
+        loadLanguageSdl(langArg);  // the language (sdl_options.inc): the canvas translates with it from the first frame
+        loadThemeSdl(themeArg, accentArg);  // the theme and the accent in the settings
         if (previewArg) gDock.scriptPreview = true;
         if (trigCodeArg) gDock.triggerCode = true;
         registerMapCommands();  // the Map workspace's command table (core/map_commands.inc): the menus and keys read it
@@ -304,6 +320,8 @@ int main(int argc, char** argv) {
         if (trigCodeArg) trigCodeRefresh(true);
         if (!briefArg.empty()) sdlBriefingSelect(briefArg);
         if (newPageArg == "classic" || newPageArg == "eud") openNewPageSdl(newPageArg == "eud" ? 1 : 0);
+        if (buildArg) command(ID_PROJ_COMPILE);
+        if (logArg) gLogPane.setExpanded(true);
         if (!gDataOk) setMessage(widen(gDataError));
         std::printf("stardraft_editor: GPU %s, %s\n", renderer.driver(), gDataOk ? "game data" : gDataError.c_str());
 
@@ -384,6 +402,7 @@ int main(int argc, char** argv) {
             if (!host.show(root, L"StarDraft", width, height)) return std::fprintf(stderr, "could not open a window\n"), 1;
             updateTitle();  // (the window exists now: its title is the open map's)
             if (!gDataOk) shellPost(askInstallFolder);  // no install was found: the window asks for its folder
+            sendPendingFeedback();  // feedback that could not go before (core/feedback_send.inc)
             host.setAnimating(true);  // (the map and the posted work need frames; see shellPost)
             host.run();
         }

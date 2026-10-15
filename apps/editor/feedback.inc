@@ -27,13 +27,7 @@ HWND feedbackWindow();                        // the dialog's window (nullptr: n
 void feedbackClose();                         // closes the dialog
 void showFeedbackDialog(const std::wstring& on);
 
-std::wstring feedbackShort(std::wstring t) {
-    if (const size_t n = t.find_first_of(L"\r\n\t"); n != std::wstring::npos) t.resize(n);
-    std::erase(t, L'&');
-    while (!t.empty() && (t.back() == L' ' || t.back() == L':' || t.back() == L'.')) t.pop_back();
-    if (t.size() > 48) t = t.substr(0, 47) + L"\x2026";
-    return t;
-}
+// (feedbackShort, the files and the sending are core/feedback_send.inc.)
 
 // What is at `pt` in window `w`: a tooltip's text there, a control's text or item, else the pane and the workspace.
 std::wstring feedbackThingIn(HWND w, POINT pt) {
@@ -158,108 +152,9 @@ HBITMAP feedbackBitmap(int px) {
 }
 
 
-std::mutex gSentMutex;  // sent.tsv: written by the thread that sends, read by the window
-fs::path feedbackFolder() { return crash::folder().parent_path() / "feedback"; }
-
-// The feedback sent from this computer (sent.tsv), the newest first: the issue number, its page, the title.
-struct SentFeedback {
-    long number;
-    std::wstring page, title;
-};
-std::vector<SentFeedback> sentFeedback() {
-    std::lock_guard<std::mutex> lock(gSentMutex);
-    std::vector<SentFeedback> out;
-    std::ifstream in(feedbackFolder() / "sent.tsv", std::ios::binary);
-    for (std::string line; std::getline(in, line);) {
-        const size_t a = line.find('\t'), b = a == std::string::npos ? a : line.find('\t', a + 1);
-        if (b == std::string::npos) continue;
-        out.push_back({std::strtol(line.c_str(), nullptr, 10), widen(line.substr(a + 1, b - a - 1)), widen(line.substr(b + 1))});
-    }
-    std::reverse(out.begin(), out.end());
-    return out;
-}
-
-
-// Sends one waiting feedback file (line 1: the title; then the body); deleted when it arrived.
-bool sendFeedbackFile(const fs::path& file) {
-    if (crash::token().empty()) return false;
-    std::ifstream in(file, std::ios::binary);
-    std::string title, body;
-    std::getline(in, title);
-    body.assign(std::istreambuf_iterator<char>(in), {});
-    in.close();
-    std::string reply;
-    const HttpReply r = httpRequest(L"https://api.github.com/repos/" + std::wstring(crash::kRepo) + L"/issues", L"POST", L"application/vnd.github+json", crash::token(),
-                                    "{\"title\":" + crash::json(title) + ",\"body\":" + crash::json(body) + ",\"labels\":[\"feedback\"]}", &reply, nullptr, true);
-    // A reply that was not read completely, or has no link, keeps the file: the next start sends it again (a possible
-    // second issue is better than a lost note).
-    if (r.status != 201 || !r.complete) return false;
-    // The issue's number and page (the first "html_url" of the reply is the issue's), kept in sent.tsv: one line each,
-    // "number<TAB>page<TAB>title", so the feedback window can list them.
-    long number = 0;
-    std::string page;
-    if (const size_t a = reply.find("\"number\":"); a != std::string::npos) number = std::strtol(reply.c_str() + a + 9, nullptr, 10);
-    if (const size_t a = reply.find("\"html_url\":\""); a != std::string::npos) page = reply.substr(a + 12, reply.find('"', a + 12) - a - 12);
-    if (number <= 0 || page.empty()) return false;
-    {
-        std::lock_guard<std::mutex> lock(gSentMutex);
-        std::ofstream(feedbackFolder() / "sent.tsv", std::ios::binary | std::ios::app) << number << '\t' << page << '\t' << title << '\n';
-    }
-    std::error_code ec;
-    fs::remove(file, ec);
-    return true;
-}
-
-// A note that waits to go: a .txt file. The list of the sent ones is not one (sent.tsv; sent.txt in the builds of
-// 2026-10-11, which sent that list as an issue).
-bool waitingFeedbackFile(const fs::path& p) { return p.extension() == ".txt" && p.filename() != "sent.txt"; }
-
-// At start, on a thread: feedback that could not go before.
-void sendPendingFeedback() {
-    if (crash::token().empty()) return;
-    std::thread([] {
-        std::error_code ec;
-        for (const auto& e : fs::directory_iterator(feedbackFolder(), ec))
-            if (waitingFeedbackFile(e.path())) sendFeedbackFile(e.path());
-    }).detach();
-}
-
-
-
 // Writes the feedback to a file (it waits there if it cannot go now); returns the file. The dialog's Send does it.
 fs::path feedbackWrite(const std::wstring& on, const std::wstring& typed) {
-    SYSTEMTIME t;
-    GetLocalTime(&t);
-    char stamp[40];
-    std::snprintf(stamp, sizeof stamp, "%04d%02d%02d-%02d%02d%02d-%03d", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond, t.wMilliseconds);
-    std::error_code ec;
-    fs::create_directories(feedbackFolder(), ec);
-    const fs::path file = feedbackFolder() / (std::string(stamp) + ".txt");
-    std::string body = crash::utf8(typed);
-    std::erase(body, '\r');
-    const std::string summary = crash::utf8(feedbackShort(typed));
-    std::ofstream(file, std::ios::binary) << "Feedback on " << crash::utf8(on) << ": " << summary << "\n"
-                                          << body << "\n\n---\nOn: " << crash::utf8(on) << "\nWorkspace: " << crash::utf8(crash::gWhere ? crash::gWhere() : L"")
-                                          << "\nStarDraft " STARDRAFT_VERSION_NAME ", " << crash::gBuild << ", commit " STARDRAFT_COMMIT "\n" << crash::windowsVersion() << "\n";
-    return file;
-}
-
-// After a feedback send from the UI's queue (the thread's result): sent, or kept for the next start.
-void feedbackSentResult(bool sent) {
-    // A build made here has no token: it cannot send, so say that and where the feedback is.
-    if (sent) {  // its issue: the number in the status bar, the page in the log (Help > Report feedback > Your feedback lists them)
-        const auto list = sentFeedback();
-        if (!list.empty()) {
-            setMessage(L"Sent the feedback as #" + std::to_wstring(list[0].number) + L". Thank you.");
-            logLine(L"Feedback #" + std::to_wstring(list[0].number) + L": " + list[0].page);
-        } else {
-            setMessage(L"Sent the feedback. Thank you.");
-        }
-    } else {
-        setMessage(crash::token().empty() ? L"This build cannot send feedback. The feedback is in " + feedbackFolder().wstring()
-                                          : L"StarDraft 2 cannot send the feedback now. It sends it at the next start.");
-    }
-    if (sent) sendPendingFeedback();  // GitHub can be reached now: feedback that waits goes too
+    return feedbackWriteFile(on, typed, crash::gWhere ? crash::gWhere() : L"", crash::gBuild, crash::windowsVersion());
 }
 
 

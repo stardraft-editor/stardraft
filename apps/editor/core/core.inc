@@ -87,6 +87,7 @@
 #include "views_new_page_paint.inc"
 #include "views_options.inc"
 #include "views_feedback.inc"
+#include "feedback_send.inc"  // the feedback's files and sending (both programs' Send)
 #include "views_new_project.inc"
 #include "views_message_box.inc"
 #include "views_about.inc"
@@ -95,3 +96,5 @@
 #include "views_kit_gallery.inc"
 #include "title.inc"
 #include "project_page.inc"  // the Project page's program parts, createProject, newMap, addProjectScript (the host shows the page)
+#include "project_build.inc"  // Build: the files it writes, euddraft on a thread, the log of the build
+#include "views_log.inc"  // the Log at the bottom of the window: its lines, its bar and its height (the SDL program's; Windows keeps its own panel)
