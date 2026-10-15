@@ -190,13 +190,16 @@ target_link_libraries(commands_test PRIVATE stardraft)
 # library and its tests build without SDL3.
 option(STARDRAFT_RENDERER "Build the GPU renderer (SDL3) and its tools" ON)
 if(STARDRAFT_RENDERER)
+    option(STARDRAFT_SDL_DEBUG_IME "SDL logs the input method's calls on macOS (cmake/patch_sdl.cmake)" OFF)
     set(SDL_SHARED OFF CACHE BOOL "" FORCE)
     set(SDL_STATIC ON CACHE BOOL "" FORCE)
     set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(SDL3
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
         GIT_TAG release-3.4.18
-        GIT_SHALLOW TRUE)
+        GIT_SHALLOW TRUE
+        PATCH_COMMAND ${CMAKE_COMMAND} -DDEBUG_IME=${STARDRAFT_SDL_DEBUG_IME} -P ${CMAKE_SOURCE_DIR}/cmake/patch_sdl.cmake  # (macOS: Hanja; see the script)
+        UPDATE_DISCONNECTED TRUE)
     FetchContent_MakeAvailable(SDL3)
 
     # Shaders: SPIR-V and MSL are made once by tools/gen_shaders.py into shaders/gen/ (in git). On Windows the build
@@ -272,13 +275,144 @@ target_link_libraries(http_get PRIVATE stardraft_platform)
 add_executable(platform_test tools/tests/platform_test.cpp)
 target_link_libraries(platform_test PRIVATE stardraft_platform)
 
+# --- The control kit (apps/kit): the editor's widgets as views on a Canvas (apps/common/canvas.h, view.h), on every
+# system. Each widget is its own .cpp; kit_test drives them without a window.
+file(GLOB STARDRAFT_KIT_SOURCES CONFIGURE_DEPENDS apps/kit/*.cpp)
+add_library(stardraft_kit STATIC ${STARDRAFT_KIT_SOURCES})
+target_include_directories(stardraft_kit PUBLIC apps/common apps/kit)
+# The editor's portable core (apps/editor/core/core.inc) compiled with no Win32 headers: the ratchet that keeps it
+# portable (research/ports/MAC-BUILD-PLAN.md). Nothing to run; building it is the check.
+add_library(editor_core_check OBJECT apps/editor/core/core_check.cpp)
+target_include_directories(editor_core_check PRIVATE apps/common apps/kit include src)
+if(NOT MSVC)  # (the core's files are included alone here: what only the full editor uses is unused)
+    target_compile_options(editor_core_check PRIVATE -Wno-unused-function -Wno-unused-variable)
+endif()
+file(GLOB STARDRAFT_KIT_TESTS CONFIGURE_DEPENDS tools/tests/kit/*.cpp)
+add_executable(kit_test tools/tests/kit_test.cpp ${STARDRAFT_KIT_TESTS})
+target_include_directories(kit_test PRIVATE tools/tests)
+target_link_libraries(kit_test PRIVATE stardraft_kit)
+if(MSVC)  # (the sources are UTF-8: Korean and Chinese in tests and texts)
+    target_compile_options(stardraft_kit PRIVATE /utf-8)
+    target_compile_options(kit_test PRIVATE /utf-8)
+endif()
+
+# --- stardraft-next: the new shell's spike (SDL3 + Dear ImGui; research/ports/PLAN.md, phase 4) ------------------
+# A program of its own beside the Win32 one, on every system. Off: no Dear ImGui is fetched.
+option(STARDRAFT_NEXT "Build stardraft-next (the new shell's spike)" ${STARDRAFT_RENDERER})
+if(STARDRAFT_NEXT AND STARDRAFT_RENDERER)
+    FetchContent_Declare(imgui
+        GIT_REPOSITORY https://github.com/ocornut/imgui.git
+        GIT_TAG v1.92.9b
+        GIT_SHALLOW TRUE)
+    FetchContent_MakeAvailable(imgui)  # (no CMakeLists of its own: only fetched)
+    add_library(imgui STATIC ${imgui_SOURCE_DIR}/imgui.cpp ${imgui_SOURCE_DIR}/imgui_draw.cpp ${imgui_SOURCE_DIR}/imgui_tables.cpp
+                ${imgui_SOURCE_DIR}/imgui_widgets.cpp ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlgpu3.cpp)
+    target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+    target_link_libraries(imgui PUBLIC SDL3::SDL3-static)
+    add_executable(stardraft_next WIN32 MACOSX_BUNDLE apps/next/main.cpp apps/next/kit.cpp)
+    target_link_libraries(stardraft_next PRIVATE stardraft_render stardraft_platform imgui)
+    set_target_properties(stardraft_next PROPERTIES OUTPUT_NAME stardraft-next  # (Retina: NSHighResolutionCapable)
+                          MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/next/Info.plist.in)
+    # Its fonts (SIL Open Font License, NOTICE.md): Noto Sans for Latin, Korean and Chinese, at pinned commits,
+    # downloaded once into the build and put beside the program (fonts/), so every system shows the same text.
+    set(STARDRAFT_FONTS
+        "NotoSans-Regular.ttf|https://raw.githubusercontent.com/notofonts/notofonts.github.io/5c3913063bb189df4edc94b766584dfb4c04a187/fonts/NotoSans/hinted/ttf/NotoSans-Regular.ttf|478c558ea716033cd60c03438f628dfa75694dcf6b5f6d505a2f05fd2b4f3823"
+        "NotoSansKR-Regular.otf|https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/SubsetOTF/KR/NotoSansKR-Regular.otf|69975a0ac8472717870aefeab0a4d52739308d90856b9955313b2ad5e0148d68"
+        "NotoSansSC-Regular.otf|https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/SubsetOTF/SC/NotoSansSC-Regular.otf|faa6c9df652116dde789d351359f3d7e5d2285a2b2a1f04a2d7244df706d5ea9")
+    set(STARDRAFT_FONT_FILES)
+    foreach(entry ${STARDRAFT_FONTS})
+        string(REPLACE "|" ";" parts "${entry}")
+        list(GET parts 0 name)
+        list(GET parts 1 url)
+        list(GET parts 2 hash)
+        set(font ${CMAKE_BINARY_DIR}/fonts/${name})
+        # (a file with the right hash is not downloaded again; a failed download leaves no file)
+        file(DOWNLOAD ${url} ${font} EXPECTED_HASH SHA256=${hash} STATUS st)
+        list(GET st 0 code)
+        if(code EQUAL 0)
+            list(APPEND STARDRAFT_FONT_FILES ${font})
+        else()
+            file(REMOVE ${font})
+            message(WARNING "stardraft-next: ${name} was not downloaded (${st}); it uses the system's fonts")
+        endif()
+    endforeach()
+    if(APPLE)
+        set(fontDir $<TARGET_BUNDLE_CONTENT_DIR:stardraft_next>/Resources/fonts)
+    else()
+        set(fontDir $<TARGET_FILE_DIR:stardraft_next>/fonts)
+    endif()
+    if(STARDRAFT_FONT_FILES)
+        add_custom_command(TARGET stardraft_next POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${fontDir}
+                           COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_FONT_FILES} ${fontDir})
+    endif()
+    if(MSVC)
+        target_compile_options(stardraft_next PRIVATE /W4 /utf-8)
+        target_link_options(stardraft_next PRIVATE /SUBSYSTEM:CONSOLE)  # (it prints what it does; a test run reads it)
+    endif()
+
+    # --- The kit on SDL (apps/kit_sdl): SDL windows and a Dear ImGui canvas for the kit's views; kit_demo shows them.
+    # Its fonts are the same files as stardraft-next's; its icon atlases are copied to res/ beside it.
+    add_library(stardraft_kit_sdl STATIC apps/kit_sdl/canvas_imgui.cpp apps/kit_sdl/sdl_host.cpp)
+    target_include_directories(stardraft_kit_sdl PUBLIC apps/kit_sdl PRIVATE ${stb_SOURCE_DIR})
+    target_link_libraries(stardraft_kit_sdl PUBLIC stardraft_kit imgui SDL3::SDL3-static)
+    add_executable(kit_demo WIN32 MACOSX_BUNDLE apps/kit_sdl/kit_demo.cpp)
+    target_link_libraries(kit_demo PRIVATE stardraft_kit_sdl stardraft_render)
+    set_target_properties(kit_demo PROPERTIES OUTPUT_NAME kit-demo MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/next/Info.plist.in)
+    if(APPLE)
+        set(kitDemoDir $<TARGET_BUNDLE_CONTENT_DIR:kit_demo>/Resources)
+    else()
+        set(kitDemoDir $<TARGET_FILE_DIR:kit_demo>)
+    endif()
+    set(STARDRAFT_ATLASES ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-16.png ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-20.png
+                          ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-24.png ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-32.png)
+    add_custom_command(TARGET kit_demo POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${kitDemoDir}/res
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_ATLASES} ${kitDemoDir}/res)
+    if(STARDRAFT_FONT_FILES)
+        add_custom_command(TARGET kit_demo POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${kitDemoDir}/fonts
+                           COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_FONT_FILES} ${kitDemoDir}/fonts)
+    endif()
+    if(MSVC)
+        target_compile_options(kit_demo PRIVATE /W4 /utf-8)
+        target_link_options(kit_demo PRIVATE /SUBSYSTEM:CONSOLE)
+    endif()
+
+    # --- The editor on macOS and Linux (SDL; research/ports/MAC-BUILD-PLAN.md step 6): the portable core (core/core.inc)
+    # with the SDL shell (main_sdl.cpp). Windows keeps its own target below. Fonts and atlases as kit_demo's.
+    if(NOT WIN32)
+        add_executable(stardraft_editor MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
+                       apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp)
+        if(NOT STARDRAFT_VERSION_NAME)
+            set(STARDRAFT_VERSION_NAME "0.5 Alpha")
+        endif()
+        # The issues token (feedback's Send, core/feedback_send.inc): CI gives it in the environment; none here.
+        target_compile_definitions(stardraft_editor PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="$ENV{STARDRAFT_ISSUES_TOKEN}")
+        target_include_directories(stardraft_editor PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR})
+        target_link_libraries(stardraft_editor PRIVATE stardraft_kit_sdl stardraft_render stardraft_platform stardraft_kit stardraft)
+        set_target_properties(stardraft_editor PROPERTIES OUTPUT_NAME stardraft MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/editor/Info.plist.in)
+        if(APPLE)
+            set(editorDir $<TARGET_BUNDLE_CONTENT_DIR:stardraft_editor>/Resources)
+        else()
+            set(editorDir $<TARGET_FILE_DIR:stardraft_editor>)
+        endif()
+        add_custom_command(TARGET stardraft_editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/res
+                           COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_ATLASES} ${CMAKE_SOURCE_DIR}/apps/editor/res/stardraft.ico ${editorDir}/res)
+        if(STARDRAFT_FONT_FILES)
+            add_custom_command(TARGET stardraft_editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/fonts
+                               COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_FONT_FILES} ${editorDir}/fonts)
+        endif()
+        if(MSVC)
+            target_compile_options(stardraft_editor PRIVATE /W4 /utf-8)
+        endif()
+    endif()
+endif()
+
 # --- Windows editor (native Win32 shell) ------------------------------------------------------
 if(WIN32 AND STARDRAFT_RENDERER)
     add_executable(stardraft_editor WIN32 apps/editor/main.cpp apps/editor/vorbis.c apps/editor/stb_image.cpp apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp apps/editor/stardraft.manifest apps/editor/res/stardraft.rc)
     target_include_directories(stardraft_editor PRIVATE ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
     set_source_files_properties(apps/editor/vorbis.c PROPERTIES COMPILE_OPTIONS "$<$<C_COMPILER_ID:MSVC>:/W0>")
     set_source_files_properties(apps/editor/stb_image.cpp PROPERTIES COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:MSVC>:/W0>")
-    target_link_libraries(stardraft_editor PRIVATE stardraft_render stardraft_platform comctl32 dwmapi shell32 ole32 comdlg32 uxtheme msimg32 gdiplus dbghelp winhttp)
+    target_link_libraries(stardraft_editor PRIVATE stardraft_render stardraft_platform stardraft_kit comctl32 dwmapi shell32 ole32 comdlg32 uxtheme msimg32 gdiplus dbghelp winhttp)
     # Crash reports: the commit, and the token that sends them to GitHub as issues (CI gives it; see crash.inc).
     # The commit: each build writes it into generated/build_info.h (cmake/build_info.cmake), so a build after a new
     # commit names that commit with no configure step.

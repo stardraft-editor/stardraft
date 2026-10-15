@@ -41,54 +41,7 @@ constexpr UINT_PTR kBriefTimer = 7;
 
 // --- Game data: portraits and the map's sounds ---------------------------------------------------------------
 
-// The portrait of a unit (units.dat Portrait, then portdata.dat and portdata.tbl): "tmarine\tmafid".
-std::string unitPortraitPath(int unit, bool talking) {
-    static Bytes unitsDat, portDat, portTbl;
-    static bool loaded = false;
-    if (!loaded) {
-        loaded = true;
-        std::string err;
-        app.data.readFile("arr\\units.dat", unitsDat, err);
-        app.data.readFile("arr\\portdata.dat", portDat, err);
-        app.data.readFile("arr\\portdata.tbl", portTbl, err);
-    }
-    if (unit < 0 || unit >= 228 || unitsDat.size() < 14404 + 2 * 228 || portDat.size() < 220 * 4 || portTbl.size() < 2) return {};
-    int portrait = unitsDat[14404 + 2 * size_t(unit)] | unitsDat[14405 + 2 * size_t(unit)] << 8;
-    if (const DatTable* t = datTable(datTabOf("units")))
-        if (const DatField* f = datFieldNamed("units", "Portrait")) portrait = int(t->value(*f, unit));  // the project's, when it changes it
-    if (portrait < 0 || portrait >= 110) return {};
-    const int entry = portrait + (talking ? 110 : 0);
-    uint32_t file = uint32_t(portDat[4 * size_t(entry)] | portDat[4 * size_t(entry) + 1] << 8);
-    if (const DatTable* t = datTable(datTabOf("portdata")))
-        if (const DatField* f = datFieldNamed("portdata", "Portrait File")) file = t->value(*f, entry);  // the project's, when it changes it
-    const size_t n = size_t(portTbl[0] | portTbl[1] << 8);
-    if (!file || file > n) return {};
-    const size_t o = size_t(portTbl[2 + 2 * (file - 1)] | portTbl[3 + 2 * (file - 1)] << 8);
-    std::string path;
-    for (size_t i = o; i < portTbl.size() && portTbl[i]; ++i) path += char(portTbl[i]);
-    return path;
-}
-const PortraitVideo* unitPortrait(int unit, bool talking, int variant = 0) {
-    static std::map<std::tuple<int, bool, int, bool, int>, PortraitVideo> cache;
-    const int quality = int(app.quality);
-    auto [it, fresh] = cache.try_emplace({unit, talking, quality, app.carbot, variant});
-    if (fresh) {
-        const std::string path = unitPortraitPath(unit, talking);
-        std::string err;
-        if (path.empty() || !loadPortrait(app.data, path, variant, app.quality, app.carbot, it->second, err)) it->second = {};
-    }
-    return it->second.frames.empty() ? nullptr : &it->second;
-}
-// A unit's clips (tlk00, tlk01, ...: the game plays them one after another while the unit talks).
-std::vector<const PortraitVideo*> unitPortraitClips(int unit, bool talking) {
-    std::vector<const PortraitVideo*> out;
-    for (int v = 0; v < 8; ++v) {
-        const PortraitVideo* p = unitPortrait(unit, talking, v);
-        if (!p) break;
-        out.push_back(p);
-    }
-    return out;
-}
+// The portraits' videos are the core's (core/views_briefing.inc: unitPortrait, unitPortraitClips, briefPortraitFrame).
 // A frame as a GDI bitmap, drawn into `r` (kept for the last few frames).
 std::pair<int, int> gPortraitDrawnSize;  // the size of the last portrait picture drawn (a self-test reads it)
 void drawPortraitFrame(HDC dc, const PortraitVideo& v, int frame, RECT r) {
@@ -125,17 +78,6 @@ void drawPortraitFrame(HDC dc, const PortraitVideo& v, int frame, RECT r) {
 }
 // --- The briefing being edited ---------------------------------------------------------------------------------
 
-std::vector<BriefingTrigger> gBriefData;  // the map's, as last read
-uint64_t gBriefRev = ~0ull;
-std::array<int, 8> playerForces() {
-    std::array<int, 8> f{};
-    for (int p = 0; p < 8; ++p) f[size_t(p)] = app.ed ? app.ed->player(p).force : 0;
-    return f;
-}
-const std::vector<BriefingTrigger>& briefings() {
-    if (app.ed && app.ed->revision() != gBriefRev) gBriefData = app.ed->briefings(), gBriefRev = app.ed->revision();
-    return gBriefData;
-}
 std::vector<BriefingEvent> gBriefTimeline;
 uint32_t gBriefTotal = 0;
 const std::vector<BriefingEvent>& briefTimeline() {
@@ -152,70 +94,12 @@ void briefEdit(const std::function<void(std::vector<BriefingTrigger>&)>& edit) {
     InvalidateRect(gBrief.wnd, nullptr, FALSE);
     updateTitle();
 }
-// The briefing's rows: every action of every trigger with its player list, in order.
-struct BriefRow {
-    int trig, act;
-};
-std::vector<BriefRow> gBriefRows;
-const std::vector<BriefRow>& briefRows() {
-    gBriefRows.clear();
-    const auto& b = briefings();
-    for (size_t t = 0; t < b.size(); ++t)
-        if (b[t].players == gBrief.who)
-            for (size_t a = 0; a < b[t].actions.size(); ++a) gBriefRows.push_back({int(t), int(a)});
-    return gBriefRows;
-}
-// The players a player list is for (players 1-8: themselves, all players, their force).
-std::vector<int> whoPlayers(const std::array<bool, 27>& who) {
-    std::vector<int> out;
-    const auto forces = playerForces();
-    for (int p = 0; p < 8; ++p)
-        if (who[size_t(p)] || who[17] || who[size_t(18 + forces[size_t(p)])]) out.push_back(p);
-    return out;
-}
-std::wstring ownerName(int owner) {
-    if (owner >= 0 && owner < 8) return L"Player " + std::to_wstring(owner + 1);
-    if (owner == 17) return L"All players";
-    if (owner >= 18 && owner <= 21) {
-        std::string n = app.ed ? app.ed->force(owner - 18).name : "";
-        n.erase(std::remove_if(n.begin(), n.end(), [](char c) { return static_cast<unsigned char>(c) < 0x20; }), n.end());  // color codes
-        const bool blank = n.find_first_not_of(' ') == std::string::npos;
-        return blank ? L"Force " + std::to_wstring(owner - 17) : widen(n);
-    }
-    return L"";
-}
-// Whom a briefing is for, in words: "Force 1, Player 3"; "Nobody" when its list is empty.
-std::wstring whoName(const std::array<bool, 27>& who) {
-    std::wstring out;
-    for (int o : {17, 18, 19, 20, 21, 0, 1, 2, 3, 4, 5, 6, 7})
-        if (who[size_t(o)]) out += (out.empty() ? L"" : L", ") + ownerName(o);
-    return out.empty() ? L"Nobody" : out;
-}
-// The map's briefings: each player list its triggers have, in the order they first come.
-std::vector<std::array<bool, 27>> briefList() {
-    std::vector<std::array<bool, 27>> out;
-    for (const auto& t : briefings())
-        if (std::find(out.begin(), out.end(), t.players) == out.end()) out.push_back(t.players);
-    return out;
-}
-int briefActionCount(const std::array<bool, 27>& who) {
-    int n = 0;
-    for (const auto& t : briefings()) n += t.players == who ? int(t.actions.size()) : 0;
-    return n;
-}
 const Editor* gBriefShownFor = nullptr;  // the map the list was set up for
 void briefSetWho(const std::array<bool, 27>& who) {
     gBriefShownFor = app.ed.get();
     gBrief.who = who, gBrief.chosen = true;
     gBrief.sel = -1, gBrief.picked.clear(), gBrief.anchor = -1, gBrief.textFor = -1, gBrief.listScroll = 0;
-    // Preview a player who plays: a human or a computer it is for, else the first it is for.
-    const auto ps = whoPlayers(who);
-    gBrief.player = ps.empty() ? 0 : ps[0];
-    for (int p : ps)
-        if (app.ed && (app.ed->player(p).controller == Editor::Controller::Human || app.ed->player(p).controller == Editor::Controller::Computer)) {
-            gBrief.player = p;
-            break;
-        }
+    gBrief.player = briefPreviewPlayer(who);  // a player who plays: a human or a computer it is for, else the first it is for
     gBrief.t = 0;
 }
 // The focused action, to change: its trigger and index.
@@ -225,53 +109,7 @@ bool briefSelected(int& trig, int& act) {
     return true;
 }
 
-// The briefing's actions as one list, each with its trigger (-2: a new trigger with its player list), and back.
-struct FlatAction {
-    int trig;
-    BriefingAction a;
-};
-std::vector<FlatAction> briefFlat(const std::vector<BriefingTrigger>& b) {
-    std::vector<FlatAction> out;
-    for (size_t t = 0; t < b.size(); ++t)
-        if (b[t].players == gBrief.who)
-            for (const auto& a : b[t].actions) out.push_back({int(t), a});
-    return out;
-}
-void briefRegroup(std::vector<BriefingTrigger>& b, std::vector<FlatAction>& flat) {
-    if (std::any_of(flat.begin(), flat.end(), [](const FlatAction& f) { return f.trig == -2; })) {  // the briefing's first trigger
-        BriefingTrigger t;
-        t.players = gBrief.who;
-        b.push_back(t);
-        for (auto& f : flat)
-            if (f.trig == -2) f.trig = int(b.size()) - 1;
-    }
-    for (size_t t = 0; t < b.size(); ++t) {
-        if (b[t].players != gBrief.who) continue;
-        b[t].actions.clear();
-        for (const auto& f : flat)
-            if (f.trig == int(t)) b[t].actions.push_back(f.a);
-    }
-    // A trigger holds 64 actions: the rest go on in a copy of it, right after.
-    for (size_t t = 0; t < b.size(); ++t)
-        if (b[t].actions.size() > 64) {
-            BriefingTrigger more = b[t];
-            more.actions.assign(b[t].actions.begin() + 64, b[t].actions.end());
-            b[t].actions.resize(64);
-            b.insert(b.begin() + long(t) + 1, more);
-        }
-}
-// The trigger new actions at row `at` go into: that row's, the one before it, or a new one.
-int briefTagAt(const std::vector<FlatAction>& flat, int at) {
-    if (at >= 0 && at < int(flat.size())) return flat[size_t(at)].trig;
-    if (!flat.empty()) return flat.back().trig;
-    return -2;
-}
-std::vector<int> briefPickedRows() {
-    std::vector<int> rows(gBrief.picked.begin(), gBrief.picked.end());
-    if (rows.empty() && gBrief.sel >= 0) rows.push_back(gBrief.sel);
-    std::erase_if(rows, [](int r) { return r < 0 || r >= int(gBriefRows.size()); });
-    return rows;
-}
+std::vector<int> briefPickedRows() { return briefPickedRowsOf(gBrief.picked, gBrief.sel); }
 void briefSelectRange(int first, int count) {
     gBrief.picked.clear();
     for (int i = 0; i < count; ++i) gBrief.picked.insert(first + i);
@@ -281,14 +119,9 @@ std::vector<BriefingAction> gBriefClip;  // copied actions
 void briefCopy(bool cut) {
     const auto rows = briefPickedRows();
     if (rows.empty()) return;
-    gBriefClip.clear();
-    for (int r : rows) gBriefClip.push_back(briefings()[size_t(gBriefRows[size_t(r)].trig)].actions[size_t(gBriefRows[size_t(r)].act)]);
+    gBriefClip = briefActionsOf(rows);
     if (!cut) return setMessage(L"Copied " + std::to_wstring(rows.size()) + L" actions");
-    briefEdit([&](std::vector<BriefingTrigger>& b) {
-        auto flat = briefFlat(b);
-        for (auto it = rows.rbegin(); it != rows.rend(); ++it) flat.erase(flat.begin() + *it);
-        briefRegroup(b, flat);
-    });
+    briefEdit([&](std::vector<BriefingTrigger>& b) { briefEraseRows(b, gBrief.who, rows); });
     briefSelectRange(std::min(rows.front(), std::max(0, int(gBriefRows.size()) - int(rows.size()) - 1)), 0);
     setMessage(L"Cut " + std::to_wstring(rows.size()) + L" actions");
 }
@@ -296,16 +129,8 @@ void briefCopy(bool cut) {
 void briefInsert(int at, const std::vector<BriefingAction>& acts) {
     if (acts.empty()) return;
     if (std::none_of(gBrief.who.begin(), gBrief.who.end(), [](bool v) { return v; })) return setMessage(L"First, select the players of the briefing");
-    briefEdit([&](std::vector<BriefingTrigger>& b) {
-        auto flat = briefFlat(b);
-        at = std::clamp(at, 0, int(flat.size()));
-        const int tag = briefTagAt(flat, at == int(flat.size()) ? at - 1 : at);
-        std::vector<FlatAction> add;
-        for (const auto& a : acts) add.push_back({tag, a});
-        flat.insert(flat.begin() + at, add.begin(), add.end());
-        briefRegroup(b, flat);
-    });
-    briefRows();
+    briefEdit([&](std::vector<BriefingTrigger>& b) { at = briefInsertRows(b, gBrief.who, at, acts); });
+    briefRows(gBrief.who);
     briefSelectRange(at, int(acts.size()));
 }
 void briefPaste() {
@@ -315,18 +140,12 @@ void briefPaste() {
 void briefDuplicate() {
     const auto rows = briefPickedRows();
     if (rows.empty()) return;
-    std::vector<BriefingAction> acts;
-    for (int r : rows) acts.push_back(briefings()[size_t(gBriefRows[size_t(r)].trig)].actions[size_t(gBriefRows[size_t(r)].act)]);
-    briefInsert(rows.back() + 1, acts);
+    briefInsert(rows.back() + 1, briefActionsOf(rows));
 }
 void briefDelete() {
     const auto rows = briefPickedRows();
     if (rows.empty()) return;
-    briefEdit([&](std::vector<BriefingTrigger>& b) {
-        auto flat = briefFlat(b);
-        for (auto it = rows.rbegin(); it != rows.rend(); ++it) flat.erase(flat.begin() + *it);
-        briefRegroup(b, flat);
-    });
+    briefEdit([&](std::vector<BriefingTrigger>& b) { briefEraseRows(b, gBrief.who, rows); });
     gBrief.picked.clear(), gBrief.sel = -1, gBrief.textFor = -1;
 }
 // Moves the selected rows so they start before row `to` (as dropped there).
@@ -334,26 +153,14 @@ void briefMoveTo(int to) {
     const auto rows = briefPickedRows();
     if (rows.empty()) return;
     int first = 0;
-    briefEdit([&](std::vector<BriefingTrigger>& b) {
-        auto flat = briefFlat(b);
-        to = std::clamp(to, 0, int(flat.size()));
-        const int tag = briefTagAt(flat, to == int(flat.size()) ? to - 1 : to);
-        std::vector<FlatAction> moved;
-        for (int r : rows) moved.push_back(flat[size_t(r)]), moved.back().trig = tag;
-        int before = 0;
-        for (int r : rows) before += r < to;
-        for (auto it = rows.rbegin(); it != rows.rend(); ++it) flat.erase(flat.begin() + *it);
-        first = to - before;
-        flat.insert(flat.begin() + first, moved.begin(), moved.end());
-        briefRegroup(b, flat);
-    });
-    briefRows();
+    briefEdit([&](std::vector<BriefingTrigger>& b) { first = briefMoveRows(b, gBrief.who, rows, to); });
+    briefRows(gBrief.who);
     briefSelectRange(first, int(rows.size()));
 }
 void briefNudge(int delta) {
     const auto rows = briefPickedRows();
     if (rows.empty()) return;
-    briefMoveTo(delta < 0 ? std::max(0, rows.front() - 1) : std::min(int(gBriefRows.size()), rows.back() + 2));
+    briefMoveTo(briefNudgeTo(rows, delta));
 }
 // Edit's commands in the Briefing workspace (the text box keeps its own copy and paste).
 bool briefCommand(int id) {
@@ -451,16 +258,7 @@ void briefSeek(uint32_t t) {
 
 // --- Painting ----------------------------------------------------------------------------------------------------
 
-std::wstring briefTime(uint32_t ms) {
-    wchar_t b[24];
-    std::swprintf(b, 24, L"%u:%04.1f", ms / 60000, (ms % 60000) / 1000.0);
-    return b;
-}
-const wchar_t* briefTypeName(uint8_t t) {
-    static const wchar_t* n[] = {L"No action", L"Wait", L"Play sound", L"Text message", L"Mission objectives", L"Show portrait", L"Hide portrait",
-                                 L"Talking portrait", L"Transmission", L"Skip tutorial enabled"};
-    return t < 10 ? n[t] : L"Unknown";
-}
+// (briefTime, briefTypeName and briefTypeColor are the core's: core/views_briefing.inc.)
 // The briefing window, as a wireframe at time t: the game's 640 x 480 layout, scaled to `r` (4:3). Portrait slots
 // 1 and 4 on the sides, 2 and 3 on top; the message in the middle; Objectives at the bottom left.
 void paintBriefingWindow(HDC dc, RECT r) {
@@ -500,25 +298,12 @@ void paintBriefingWindow(HDC dc, RECT r) {
         const bool talking = p.shown && p.speaking;
         panel(f, talking ? talk : frame, talking ? std::max(2, int(2 * k)) : 1);
         if (p.shown) {
-            // Talking: the talking clips one after another; else the first idle clip, again and again.
-            std::vector<const PortraitVideo*> clips = p.speaking ? unitPortraitClips(p.unit, true) : std::vector<const PortraitVideo*>{};
-            if (clips.empty())
-                if (const PortraitVideo* idle = unitPortrait(p.unit, false)) clips = {idle};
+            // Talking: the talking clips one after another; else the first idle clip, again and again (the core's).
             RECT in = f;
             InflateRect(&in, -std::max(2, int(3 * k)), -std::max(2, int(3 * k)));
-            if (!clips.empty()) {
-                const uint32_t since = gBrief.t - std::min(gBrief.t, p.speaking ? p.talkSince : p.since);
-                size_t frames = 0;
-                for (const auto* c : clips) frames += c->frames.size();
-                size_t at = size_t(since * clips[0]->fps / 1000.0) % std::max<size_t>(1, frames);
-                for (const auto* c : clips) {
-                    if (at < c->frames.size()) {
-                        drawPortraitFrame(dc, *c, int(at), in);
-                        break;
-                    }
-                    at -= c->frames.size();
-                }
-            }
+            const PortraitVideo* video = nullptr;
+            int frameAt = 0;
+            if (briefPortraitFrame(p, gBrief.t, video, frameAt)) drawPortraitFrame(dc, *video, frameAt, in);
             if (talking) roundBox(dc, f, std::max(2, int(4 * k)), talk, std::max(2, int(2 * k)));
         }
         hitsOut().push_back({f, nullptr, nullptr, p.shown ? L"Slot " + std::to_wstring(i + 1) + L": " + entryName("units", p.unit) : L"Slot " + std::to_wstring(i + 1),
@@ -548,9 +333,7 @@ void paintBriefingWindow(HDC dc, RECT r) {
         IntersectClipRect(dc, 0, 0, 0, 0);  // measure only
         const int full = drawGameText(dc, tr, s.text, textColor, lh, true);
         RestoreDC(dc, saved);
-        const double since = double(gBrief.t - std::min(gBrief.t, s.textSince));
-        const int rest = std::max(0, full - inner);  // all of it scrolls by in the time it shows (none when that is 0)
-        const int off = s.textFor ? std::clamp(int(since / s.textFor * rest), 0, rest) : 0;
+        const int off = briefTextScroll(full, inner, double(gBrief.t - std::min(gBrief.t, s.textSince)), s.textFor);
         const int saved2 = SaveDC(dc);
         IntersectClipRect(dc, tr.left, tr.top, tr.right, tr.bottom);
         drawGameText(dc, {tr.left, tr.top - off, tr.right, tr.bottom}, s.text, textColor, lh, true);
@@ -569,7 +352,7 @@ int paintBriefingTimeline(HDC dc, RECT r) {
     for (size_t i = 0; i < gBriefTimeline.size(); ++i) {
         const BriefingEvent& e = gBriefTimeline[i];
         const BriefingAction& a = *e.a;
-        const int lane = a.type == BriefingAction::Transmission || a.type == BriefingAction::PlayWav ? 0 : a.type == BriefingAction::Wait ? 1 : 2;
+        const int lane = briefLane(a.type);
         const COLORREF c = lane == 0 ? kAccent : lane == 1 ? RGB(90, 94, 100) : kGood;
         RECT b{xAt(e.at), ly + lane * (laneH + scale(3)), std::max(xAt(e.at) + scale(3), xAt(e.at + e.length)), ly + lane * (laneH + scale(3)) + laneH};
         fillAlpha(dc, b, c, gBrief.picked.count(briefRowOf(e.trigger, e.action)) ? 255 : 130);
@@ -605,18 +388,6 @@ void briefPreviewText();
 int gBriefListEnd = 0;
 bool briefAskMs(const std::wstring& title, uint32_t cur, POINT at, uint32_t& out);  // the value pop-out (main.cpp)
 
-COLORREF briefTypeColor(uint8_t t) {
-    switch (t) {
-    case BriefingAction::Wait: return RGB(220, 184, 104);
-    case BriefingAction::PlayWav: return RGB(96, 200, 210);
-    case BriefingAction::ShowPortrait:
-    case BriefingAction::HidePortrait:
-    case BriefingAction::SpeakingPortrait: return RGB(214, 140, 200);
-    case BriefingAction::SkipTutorial: return RGB(170, 150, 240);
-    default: return kAccent;
-    }
-}
-
 void briefClickRow(int i, uint32_t at) {  // at: where the preview goes (UINT32_MAX: it stays)
     briefCommitText();
     const bool chip = at == UINT32_MAX;
@@ -635,102 +406,61 @@ void briefClickRow(int i, uint32_t at) {  // at: where the preview goes (UINT32_
     InvalidateRect(gBrief.wnd, nullptr, FALSE);
 }
 
+// The sentence's words and values are the core's (briefWords); a value's picker opens at `at` (screen).
 std::vector<BriefWord> briefSentence(const BriefingAction& a) {
+    using K = BriefWordSpec::Kind;
     std::vector<BriefWord> w;
-    auto say = [&](const std::wstring& t) {
-        size_t p = 0;
-        while (p < t.size()) {
-            const size_t q = t.find(L' ', p);
-            w.push_back({t.substr(p, q == std::wstring::npos ? std::wstring::npos : q - p)});
-            if (q == std::wstring::npos) break;
-            p = q + 1;
+    for (const BriefWordSpec& s : briefWords(a)) {
+        BriefWord bw{s.text, nullptr, nullptr, s.tip};
+        switch (s.kind) {
+        case K::Word: break;
+        case K::Time:
+            bw.pick = [title = s.title, cur = a.time](POINT at) {
+                uint32_t v;
+                if (briefAskMs(title, cur, at, v)) briefEditSelected([&](BriefingAction& x) { x.time = v; });
+            };
+            break;
+        case K::Slot:
+            bw.pick = [cur = a.slot](POINT at) {
+                std::string picked;
+                if (showListPicker(L"Slot", briefSlotItems(), std::to_string(cur), at, picked)) briefEditSelected([&](BriefingAction& x) { x.slot = std::stoi(picked); });
+            };
+            break;
+        case K::Text:
+            bw.pick = [](POINT) {
+                InvalidateRect(gBrief.wnd, nullptr, FALSE);
+                UpdateWindow(gBrief.wnd);  // the text box shows for this row, then gets the caret
+                SetFocus(gameTextFocusBox(gBrief.text));
+                SendMessageW(gameTextFocusBox(gBrief.text), EM_SETSEL, 0, -1);
+            };
+            break;
+        case K::Sound:
+            bw.pick = [cur = a.wav](POINT at) {
+                std::string picked;
+                if (!pickSound(at, cur, picked)) return;
+                const uint32_t len = soundLength(picked);
+                briefEditSelected([&](BriefingAction& x) { x.wav = picked, x.wavTime = len; });
+            };
+            break;
+        case K::Unit:
+            bw.pick = [cur = a.unit](POINT at) {
+                std::string picked;
+                if (showListPicker(L"Search unit types", entryItems("units"), std::to_string(cur), at, picked))
+                    briefEditSelected([&](BriefingAction& x) { x.unit = uint16_t(std::stoi(picked)); });
+            };
+            bw.icon = datRefIcon("units", a.unit);
+            break;
+        case K::Modifier:
+            bw.pick = [](POINT at) {
+                std::string picked;
+                if (showListPicker(L"Transmission duration", briefModifierItems(), "", at, picked))
+                    briefEditSelected([&](BriefingAction& x) { x.modifier = uint8_t(std::stoi(picked)); });
+            };
+            break;
         }
-    };
-    auto secs = [](uint32_t ms) {
-        wchar_t b[24];
-        std::swprintf(b, 24, L"%g", ms / 1000.0);
-        return std::wstring(b);
-    };
-    // A time: typed in seconds (decimals allowed), kept in milliseconds.
-    auto time = [&](const wchar_t* title) {
-        w.push_back({secs(a.time), [title, cur = a.time](POINT at) {
-                         uint32_t v;
-                         if (briefAskMs(title, cur, at, v)) briefEditSelected([&](BriefingAction& x) { x.time = v; });
-                     }});
-    };
-    // A slot: "slot 1", or "1" after the word "slot".
-    auto slot = [&](bool word) {
-        w.push_back({word ? std::to_wstring(a.slot + 1) : L"slot " + std::to_wstring(a.slot + 1), [cur = a.slot](POINT at) {
-                         std::vector<ListPickItem> items;
-                         for (int i = 0; i < 4; ++i) items.push_back({L"Slot " + std::to_wstring(i + 1), L"", std::to_string(i)});
-                         std::string picked;
-                         if (showListPicker(L"Slot", items, std::to_string(cur), at, picked)) briefEditSelected([&](BriefingAction& x) { x.slot = std::stoi(picked); });
-                     }});
-    };
-    auto text = [&] {
-        std::wstring t = stringLine(a.text);
-        const size_t b = t.find_first_not_of(L' '), e = t.find_last_not_of(L' ');
-        t = b == std::wstring::npos ? L"" : t.substr(b, e - b + 1);
-        if (t.size() > 40) t = t.substr(0, 39) + L"\x2026";
-        w.push_back({t.empty() ? L"(text)" : t, [](POINT) {
-                         InvalidateRect(gBrief.wnd, nullptr, FALSE);
-                         UpdateWindow(gBrief.wnd);  // the text box shows for this row, then gets the caret
-                         SetFocus(gameTextFocusBox(gBrief.text));
-                         SendMessageW(gameTextFocusBox(gBrief.text), EM_SETSEL, 0, -1);
-                     },
-                     nullptr, L"Edit the text under the list (with its colors)"});
-    };
-    auto sound = [&] {
-        w.push_back({a.wav.empty() ? L"(a WAV file)" : widen(fs::path(a.wav).filename().string()), [cur = a.wav](POINT at) {
-                         std::string picked;
-                         if (!pickSound(at, cur, picked)) return;
-                         const uint32_t len = soundLength(picked);
-                         briefEditSelected([&](BriefingAction& x) { x.wav = picked, x.wavTime = len; });
-                     },
-                     nullptr, a.wav.empty() ? L"A sound of the map, or of the game (by its path)" : widen(a.wav) + L"\n" + secs(a.wavTime) + L" seconds long"});
-    };
-    switch (a.type) {
-    case BriefingAction::Wait: say(L"Pause for"), time(L"Pause for (seconds)"), say(L"seconds."); break;
-    case BriefingAction::PlayWav: say(L"Play"), sound(), say(L"for current player."); break;
-    case BriefingAction::TextMessage: say(L"Display the following text for"), time(L"Display the text for (seconds)"), say(L"seconds:"), text(); break;
-    case BriefingAction::Objectives: say(L"Set Mission Objectives for current player to:"), text(); break;
-    case BriefingAction::ShowPortrait:
-        say(L"Show portrait of");
-        w.push_back({entryName("units", a.unit), [cur = a.unit](POINT at) {
-                         std::string picked;
-                         if (showListPicker(L"Search unit types", entryItems("units"), std::to_string(cur), at, picked))
-                             briefEditSelected([&](BriefingAction& x) { x.unit = uint16_t(std::stoi(picked)); });
-                     },
-                     datRefIcon("units", a.unit)});
-        say(L"in slot"), slot(true), say(L".");
-        break;
-    case BriefingAction::HidePortrait: say(L"Hide portrait in slot"), slot(true), say(L"."); break;
-    case BriefingAction::SpeakingPortrait:
-        say(L"Show speaking animation for"), slot(false), say(L"for"), time(L"Speaking animation for (seconds)"), say(L"seconds.");
-        break;
-    case BriefingAction::Transmission: {
-        say(L"Show speaking animation for"), slot(false), say(L". Play"), sound(), say(L". Modify transmission duration:");
-        const int m = a.modifier == BriefingAction::Add ? 1 : a.modifier == BriefingAction::Subtract ? 2 : 0;
-        static const wchar_t* mods[] = {L"Set", L"Add", L"Subtract"};
-        w.push_back({mods[m], [](POINT at) {
-                         std::vector<ListPickItem> items{{L"Set", L"", "7"}, {L"Add", L"", "8"}, {L"Subtract", L"", "9"}};
-                         std::string picked;
-                         if (showListPicker(L"Transmission duration", items, "", at, picked)) briefEditSelected([&](BriefingAction& x) { x.modifier = uint8_t(std::stoi(picked)); });
-                     },
-                     nullptr, L"With Set, the transmission lasts as many seconds as the next field shows. With Add, it lasts the WAV file's length plus those seconds. With Subtract, it lasts the WAV file's length minus those seconds, but not below 0."});
-        time(L"Transmission duration (seconds)"), say(L"seconds. Display the following text:"), text();
-        break;
-    }
-    case BriefingAction::SkipTutorial: say(L"Enable Skip Tutorial button."); break;
-    default: say(briefTypeName(a.type));
+        w.push_back(std::move(bw));
     }
     return w;
-}
-
-int briefRowOf(int trig, int act) {
-    for (size_t i = 0; i < gBriefRows.size(); ++i)
-        if (gBriefRows[i].trig == trig && gBriefRows[i].act == act) return int(i);
-    return -1;
 }
 
 // The selected action's text (when it has one): a game text editor in the briefing's colors (game_text.inc). Its
@@ -748,8 +478,7 @@ int paintBriefingFields(HDC dc, const FormLayout& l, int y) {
     }
     const BriefingAction& a = briefings()[size_t(ti)].actions[size_t(ai)];
     // Text: the editor (its colors under it).
-    const bool hasText = a.type == BriefingAction::TextMessage || a.type == BriefingAction::Objectives || a.type == BriefingAction::Transmission;
-    if (hasText) {
+    if (briefHasText(a.type)) {
         const int h = gameTextHeight(briefTextSpec(), l.colRight - l.x0, scale(110));
         const RECT r{l.x0, y + scale(4), l.colRight, y + scale(4) + h};
         if (gBrief.textFor != gBrief.sel) {
@@ -796,14 +525,9 @@ void paintBriefing(HWND hwnd) {
     FillRect(mem, &rc, app.bgBrush);
     SetBkMode(mem, TRANSPARENT);
     // A map opened (or changed) since the last look: its first briefing (none: a new one for player 1).
-    if (app.ed.get() != gBriefShownFor || !gBrief.chosen) {
-        const auto list = briefList();
-        std::array<bool, 27> who{};
-        who[0] = true;
-        briefSetWho(list.empty() ? who : list.front());
-    }
+    if (app.ed.get() != gBriefShownFor || !gBrief.chosen) briefSetWho(briefFirstWho());
     const auto& tl = briefTimeline();
-    const auto& rows = briefRows();
+    const auto& rows = briefRows(gBrief.who);
     if (gBrief.sel >= int(rows.size())) gBrief.sel = int(rows.size()) - 1;
     std::erase_if(gBrief.picked, [&](int r) { return r >= int(rows.size()); });
     const int listW = scale(220), rowH = scale(26);
@@ -831,17 +555,7 @@ void paintBriefing(HWND hwnd) {
                     n ? std::to_wstring(n) + L" actions" : L"None");
         y += scale(34);
         const int ax = ui::smallButton(mem, x, y, scale(24), L"New briefing", [] {
-            // For the first player who has no briefing of their own (else nobody yet: choose below).
-            std::array<bool, 27> who{};
-            const auto list = briefList();
-            for (int p = 0; p < 8; ++p) {
-                std::array<bool, 27> one{};
-                one[size_t(p)] = true;
-                if (std::find(list.begin(), list.end(), one) == list.end()) {
-                    who = one;
-                    break;
-                }
-            }
+            const std::array<bool, 27> who = briefNewWho();  // for the first player who has no briefing of their own (else nobody yet: choose below)
             briefCommitText();
             briefSetWho(who);
             briefPlay(false);
@@ -851,10 +565,7 @@ void paintBriefing(HWND hwnd) {
                 if (themedMessageBox(app.main, (L"Delete the briefing for " + whoName(gBrief.who) + L"?").c_str(), L"Delete briefing", MB_OKCANCEL | MB_ICONWARNING, {L"&Delete", L"Cancel"}) != IDOK) return;
                 const auto who = gBrief.who;
                 briefEdit([&](std::vector<BriefingTrigger>& b) { std::erase_if(b, [&](const BriefingTrigger& t) { return t.players == who; }); });
-                const auto list = briefList();
-                std::array<bool, 27> p1{};
-                p1[0] = true;
-                briefSetWho(list.empty() ? p1 : list.front());
+                briefSetWho(briefFirstWho());
             }, L"Delete the briefing and its actions", ui::Tone::Danger);
         y += scale(36);
         // Whom it is for: a check box for each; the briefing's triggers change with them.
@@ -868,10 +579,7 @@ void paintBriefing(HWND hwnd) {
                 if (std::find(list.begin(), list.end(), now) != list.end() && briefActionCount(before))
                     setMessage(L"A briefing for these players already exists. The actions of both briefings are now in the existing briefing.");
                 if (briefActionCount(before))
-                    briefEdit([&](std::vector<BriefingTrigger>& b) {
-                        for (auto& t : b)
-                            if (t.players == before) t.players = now;
-                    });
+                    briefEdit([&](std::vector<BriefingTrigger>& b) { briefRetarget(b, before, now); });
                 const int sel = gBrief.sel;
                 briefSetWho(now);
                 gBrief.sel = sel;
@@ -905,7 +613,7 @@ void paintBriefing(HWND hwnd) {
     bool selText = false;
     if (briefSelected(selTrig, selAct)) {
         const uint8_t ty = briefings()[size_t(selTrig)].actions[size_t(selAct)].type;
-        selText = ty == BriefingAction::TextMessage || ty == BriefingAction::Objectives || ty == BriefingAction::Transmission;
+        selText = briefHasText(ty);
     }
     const int textTop = int(rc.bottom) - (selText ? scale(170) : 0);
     const int listBottom = textTop - rowH - scale(14);  // room for "+ action"
@@ -1069,15 +777,10 @@ void paintBriefing(HWND hwnd) {
     }
     // Add an action: after the selected ones, or at the end.
     ui::addRow(mem, {l.x0 + gutter, y, l.colRight, y + scale(30)}, L"Add an action", [y] {
-        std::vector<ListPickItem> items;
-        for (uint8_t t = 1; t <= 9; ++t) items.push_back({briefTypeName(t), L"", std::to_string(t)});
         std::string picked;
         RECT anchor{scale(240), y, scale(440), y + scale(26)};
-        if (!showListPicker(L"Action", items, "", belowBox(anchor), picked)) return;
-        BriefingAction a;
-        a.type = uint8_t(std::stoi(picked));
-        if (a.type == BriefingAction::Wait) a.time = 1000;
-        if (a.type == BriefingAction::TextMessage) a.time = 5000;
+        if (!showListPicker(L"Action", briefTypeItems(), "", belowBox(anchor), picked)) return;
+        const BriefingAction a = briefNewAction(uint8_t(std::stoi(picked)));
         const auto sel = briefPickedRows();
         briefInsert(sel.empty() ? int(gBriefRows.size()) : sel.back() + 1, {a});
     });
