@@ -1,8 +1,12 @@
 // The SDL shell's root view (research/ports/MAC-BUILD-PLAN.md step 6): the main window's panes, placed by computeLayout
-// (core/layout.inc). The panes that are views in the core are shown (the status bar, the map view); the others have no
-// view on this system yet and show a dim "Not on this system yet". The map view paints the frame the renderer drew into
-// its own GPU texture (SdlHost::setFrameHook, as apps/next/main.cpp does) and forwards its mouse to the core's map input.
-// Included by main_sdl.cpp after the core.
+// (core/layout.inc). The panes that are views in the core are shown (the menu bar, the document tabs, the workspace rail,
+// the status bar, the minimap, the map view); the others have no view on this system yet and show a dim "Not on this
+// system yet". The map view paints the frame the renderer drew into its own GPU texture (SdlHost::setFrameHook, as
+// apps/next/main.cpp does) and forwards its mouse to the core's map input. Included by main_sdl.cpp after the core.
+
+#include "menu.h"
+
+namespace kit = stardraft::kit;
 
 // The editor's state: the core's (AppState), and the program's: the game data, the renderer, the host and the root.
 AppState gState;
@@ -188,16 +192,29 @@ struct MapView final : draw::View {
     draw::Cursor cursor(draw::Point) override { return panning ? draw::Cursor::SizeAll : draw::Cursor::Arrow; }
 };
 
-// The main window: the status bar, the map view and the panes that are not on this system yet, placed by computeLayout.
+// The shortcuts and the menus (sdl_menus.inc).
+bool shortcutRun(const draw::KeyEvent& e);
+void menusIfDirty();
+
+// The main window: the menu bar, the document tabs, the workspace rail, the status bar, the map view with its minimap and
+// the panes that are not on this system yet, placed by computeLayout.
 struct MainView final : draw::View {
-    static constexpr int kNotHere = 12;  // the panes of the map workspace that have no view yet (see relayout)
+    static constexpr int kNotHere = 11;  // the panes of the map workspace that have no view yet (see relayout)
+    kit::MenuBar menus;
+    TabsView tabs;
+    RailView rail;
     StatusView status{gState};
     MapView map;
+    MinimapView minimap;
     std::vector<std::unique_ptr<NotHereView>> notHere;
 
     MainView() {
+        add(menus, draw::Rect(0, 0, 0, 0));
+        add(tabs, draw::Rect(0, 0, 0, 0));
+        add(rail, draw::Rect(0, 0, 0, 0));
         add(status, draw::Rect(0, 0, 0, 0));
         add(map, draw::Rect(0, 0, 0, 0));
+        add(minimap, draw::Rect(0, 0, 0, 0));
         for (int i = 0; i < kNotHere; ++i) {
             notHere.push_back(std::make_unique<NotHereView>());
             add(*notHere.back(), draw::Rect(0, 0, 0, 0));
@@ -210,6 +227,8 @@ struct MainView final : draw::View {
     }
 
     void resized() override { relayout(); }
+    // The menus' keys run when no view takes the key (the focused view first, then up to here).
+    bool key(const draw::KeyEvent& e) override { return shortcutRun(e); }
 
     // Places the panes for the window's size and the state (computeLayout; the same rules as the Windows layout).
     void relayout() {
@@ -218,12 +237,18 @@ struct MainView final : draw::View {
         in.dpi = int(gDpi);
         in.clientW = width(), in.clientH = height();
         in.statusH = scale(24);
+        in.barH = scale(28);             // the menu bar
+        in.tabsH = tabStripHeight();     // the document tabs
+        in.railW = shellHasRail() ? wsRailWidth() : 0;
         in.mode = gState.mode;
         in.mapWs = true;
         in.toolStrip = [](int) { return 0; };  // (the tool strip is not on this system yet)
         in.mapOpen = gState.ed && gState.ed->isOpen();
         if (in.mapOpen) in.mapW = gState.ed->width(), in.mapH = gState.ed->height();
-        in.minimapHidden = true;
+        in.minimapHidden = gDock.minimapHidden;
+        in.minimapRight = gDock.minimapRight;
+        in.leftW = gDock.leftW, in.rightW = gDock.rightW;
+        std::copy(gDock.toolsRight, gDock.toolsRight + kModeCount, in.toolsRight);
         const MainLayout L = computeLayout(in);
         // Which panes show in the mode, as the Windows program shows them (main.cpp's SetMode): the list and the filter
         // in Locations; the palette and the search in the other modes; the owner in Units and Sprites; the section box
@@ -232,8 +257,12 @@ struct MainView final : draw::View {
         const bool locs = m == Mode::Locations;
         const bool owners = m == Mode::Units || m == Mode::Sprites;
         const bool sections = m == Mode::Units || m == Mode::Doodads || m == Mode::Sprites;
+        apply(menus, L.topBar, true);
+        apply(tabs, L.tabs, true);
+        apply(rail, L.wsRail, shellHasRail());
         apply(status, L.status, true);
         apply(map, L.view, true);
+        apply(minimap, L.minimap, L.minimap.visible);
         apply(*notHere[0], L.tool, true);
         apply(*notHere[1], oneRow(L.owner), owners);       // (a closed owner list is one row high)
         apply(*notHere[2], oneRow(L.sectionBox), sections);
@@ -245,7 +274,6 @@ struct MainView final : draw::View {
         apply(*notHere[8], L.panelTabActive, true);
         apply(*notHere[9], L.panelTabOther, true);
         apply(*notHere[10], L.palette2, true);
-        apply(*notHere[11], L.minimap, true);
         invalidate();
     }
     // A pane whose drop-down is tall in the layout (the owner, the section box) is one row high when closed.
@@ -270,6 +298,7 @@ void fitMapToView(float w, float h) {
 // The frame hook's map work (the window's map view size, in pixels).
 void drawMapOfRoot(SDL_GPUCommandBuffer* cmd) {
     if (!gRoot) return;
+    menusIfDirty();
     const int w = gRoot->map.width(), h = gRoot->map.height();
     if (gMapFitPending && gState.ed && gState.ed->isOpen() && w > 0 && h > 0) {
         fitMapToView(float(w), float(h));

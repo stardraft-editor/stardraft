@@ -68,6 +68,7 @@ namespace kit_sdl = stardraft::kit_sdl;
 #include "sdl_main_view.inc"
 #include "sdl_standins.inc"
 #include "sdl_pending.inc"
+#include "sdl_menus.inc"
 #include "shell_sdl.inc"
 
 namespace {
@@ -166,8 +167,11 @@ int main(int argc, char** argv) {
         const fs::path install = findInstall(installArg);
         if (!install.empty() && gState.data.open(install, err)) gDataOk = true;
         else gDataError = install.empty() ? "No StarCraft install found: start with --install <folder>, or STARDRAFT_INSTALL" : "Game data: " + err;
+        registerMapCommands();  // the Map workspace's command table (core/map_commands.inc): the menus and keys read it
         MainView root;
         gRoot = &root;
+        rebuildMenus();
+        host.setQuitRequest(requestQuit);  // the window's close and the system's quit ask about unsaved changes first
         host.setFrameHook([](SDL_GPUCommandBuffer* cmd) {
             runPosted();
             drawMapOfRoot(cmd);
