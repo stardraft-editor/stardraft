@@ -58,6 +58,7 @@ using std::min;
 #include "../common/canvas.h"
 #include "../common/view.h"
 #include "text_field.h"  // the kit's text field (apps/kit): the search boxes (search_box.inc)
+#include "dropdown.h"     // the kit's dropdown: the palette's section box (search_box.inc)
 #include "res/ui_icons.h"
 #include "stardraft/editor.h"
 #include "stardraft/hd_assets.h"
@@ -5064,33 +5065,24 @@ void fillPaletteSections(const std::vector<PaletteUnit>& units) {
             if (std::find(names.begin(), names.end(), u.section) == names.end()) names.push_back(u.section);
     if (names == gPal.sectionNames) return;
     gPal.sectionNames = names;
-    SendMessageW(gPal.sectionBox, CB_RESETCONTENT, 0, 0);
-    SendMessageW(gPal.sectionBox, CB_ADDSTRING, 0,
-                 LPARAM(app.mode == Mode::Doodads ? L"All doodads" : app.mode == Mode::Sprites ? L"All sprites" : L"All units"));
-    for (const auto& n : names) SendMessageW(gPal.sectionBox, CB_ADDSTRING, 0, LPARAM(n.c_str()));
+    std::vector<stardraft::kit::DropdownItem> items;
+    items.push_back({app.mode == Mode::Doodads ? L"All doodads" : app.mode == Mode::Sprites ? L"All sprites" : L"All units"});
+    for (const auto& n : names) items.push_back({n});
+    gSectionBox.dropdown().setItems(std::move(items));
     const auto it = std::find(names.begin(), names.end(), gPal.section);
     if (it == names.end()) gPal.section.clear();
-    SendMessageW(gPal.sectionBox, CB_SETCURSEL, it == names.end() ? 0 : WPARAM(1 + (it - names.begin())), 0);
+    gSectionBox.dropdown().setValue(it == names.end() ? 0 : int(1 + (it - names.begin())));
 }
 
-// The section box's choice: the list shows that section (0: all of them).
+// The section box's choice: the list shows that section (0: all of them). The mouse wheel over the closed box steps
+// it too (the kit dropdown's wheel calls onChange).
 void setPaletteSection(int index) {
     if (!gPal.sectionBox) return;
     index = std::clamp(index, 0, int(gPal.sectionNames.size()));
-    SendMessageW(gPal.sectionBox, CB_SETCURSEL, WPARAM(index), 0);
+    gSectionBox.dropdown().setValue(index);
     gPal.section = index == 0 ? std::wstring() : gPal.sectionNames[size_t(index - 1)];
     gPal.scroll = 0;
     rebuildUnitPalette();
-}
-
-// The mouse wheel over the closed box goes to the next or the previous section.
-LRESULT CALLBACK paletteSectionProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
-    if (msg == WM_MOUSEWHEEL && !SendMessageW(hwnd, CB_GETDROPPEDSTATE, 0, 0)) {
-        const int now = int(SendMessageW(hwnd, CB_GETCURSEL, 0, 0));
-        setPaletteSection(now + (GET_WHEEL_DELTA_WPARAM(wp) < 0 ? 1 : -1));
-        return 0;
-    }
-    return DefSubclassProc(hwnd, msg, wp, lp);
 }
 
 void rebuildUnitPalette() {
@@ -19607,7 +19599,11 @@ void layout() {
     InvalidateRect(app.tool, nullptr, FALSE);
     // Each mode's own options.
     if (L.owner.placed) placeWindow(app.owner, L.owner.rc);
-    if (L.sectionBox.placed) placeWindow(gPal.sectionBox, L.sectionBox.rc);
+    if (L.sectionBox.placed) {  // the closed box only: the layout's height is the combo box's, whose list hid below the box
+        RECT sb = L.sectionBox.rc;
+        sb.bottom = sb.top + scale(24);
+        placeWindow(gPal.sectionBox, sb);
+    }
     placeWindow(gPal.search, L.search.rc);
     placeWindow(gPal.viewBtn, L.viewBtn.rc);
     placeWindow(app.filter, L.filter.rc);
@@ -19649,7 +19645,7 @@ void createFont() {
     NONCLIENTMETRICSW ncm{sizeof ncm};
     SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0, app.dpi);
     app.font = CreateFontIndirectW(&ncm.lfMessageFont);
-    for (HWND w : {app.owner, app.brush, app.list, gPal.viewBtn, gPal.sectionBox, app.status, app.sym, app.density})
+    for (HWND w : {app.owner, app.brush, app.list, gPal.viewBtn, app.status, app.sym, app.density})
         if (w) SendMessageW(w, WM_SETFONT, WPARAM(app.font), TRUE);
     // The player list draws its rows itself: its closed box as tall as the other lists at this font.
     if (app.owner && app.sym) SendMessageW(app.owner, CB_SETITEMHEIGHT, WPARAM(-1), SendMessageW(app.sym, CB_GETITEMHEIGHT, WPARAM(-1), 0));
@@ -20197,9 +20193,11 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         gPal.search = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd, HMENU(IDC_UNITSEARCH), app.inst, &gPalSearchBox);
         gPal.viewBtn = CreateWindowExW(0, WC_BUTTONW, L"View \x25BE", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd,
                                        HMENU(IDC_PALVIEW), app.inst, nullptr);
-        gPal.sectionBox = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL, 0, 0, 0, 0, hwnd,
-                                          HMENU(IDC_PALSECTION), app.inst, nullptr);
-        SetWindowSubclass(gPal.sectionBox, paletteSectionProc, 1, 0);
+        gSectionBox.dropdown().onChange = [](int i) {
+            setPaletteSection(i);
+            SetFocus(app.view);
+        };
+        gPal.sectionBox = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD, 0, 0, 0, 0, hwnd, HMENU(IDC_PALSECTION), app.inst, &gSectionBox);
         gPal.wnd = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, hwnd, nullptr,
                                    app.inst, &gPalView);
         gPal2.wnd = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, hwnd, nullptr, app.inst, &gPal2View);
@@ -20220,7 +20218,6 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         // Dark theme for the controls.
         for (HWND c : {app.owner, app.brush, app.sym, app.density}) darkControl(c, L"DarkMode_CFD");
         darkControl(gPal.viewBtn, L"DarkMode_Explorer");
-        darkControl(gPal.sectionBox, L"DarkMode_CFD");
         darkControl(gPal.wnd, L"DarkMode_Explorer");
         darkControl(gPal2.wnd, L"DarkMode_Explorer");
         SetPropW(app.list, L"sdNoFrame", HANDLE(1));
@@ -20277,9 +20274,6 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         } else if (id == IDC_SYM && code == CBN_SELCHANGE) {
             if (app.ed) app.ed->setSymmetry(Symmetry(SendMessageW(app.sym, CB_GETCURSEL, 0, 0)));
             app.dirty = true;
-            SetFocus(app.view);
-        } else if (id == IDC_PALSECTION && code == CBN_SELCHANGE) {
-            setPaletteSection(int(SendMessageW(gPal.sectionBox, CB_GETCURSEL, 0, 0)));
             SetFocus(app.view);
         } else if (id == IDC_PALVIEW) {
             RECT r;
@@ -26290,7 +26284,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 int headers = 0, items = 0;
                 for (const auto& e : gPal.entries) (e.value < 0 ? headers : items)++;
                 o << "item " << k << " (" << narrow(gPal.section.empty() ? L"all" : gPal.section) << "): " << headers << " sections, " << items
-                  << " entries, box has " << SendMessageW(gPal.sectionBox, CB_GETCOUNT, 0, 0) << " items" << std::endl;
+                  << " entries, box has " << gSectionBox.dropdown().items().size() << " items" << std::endl;
                 capture(fs::path(datashots) / ("palfilter_" + std::to_string(k) + ".png"));
                 continue;
             }
@@ -28282,7 +28276,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             // An open dropdown list takes the typed letters (D goes to "Dirt", not to Doodads mode).
             if (!editFocus && _wcsicmp(cls, WC_COMBOBOXW) == 0 && SendMessageW(GetFocus(), CB_GETDROPPEDSTATE, 0, 0)) editFocus = true;
             if (!editFocus && _wcsicmp(cls, L"ComboLBox") == 0) editFocus = true;
-            if (!editFocus && searchBoxFocused()) editFocus = true;  // a search box's field (search_box.inc)
+            if (!editFocus && (searchBoxFocused() || dropdownListOpen())) editFocus = true;  // a search box, a kit list (search_box.inc)
             // The trigger pane: a typed letter or number opens its block picker (the plain-key shortcuts wait).
             if (!editFocus && _wcsicmp(cls, L"StarDraftTrigPane") == 0 && msg.message == WM_KEYDOWN && !(GetKeyState(VK_CONTROL) & 0x8000) &&
                 !(GetKeyState(VK_MENU) & 0x8000) && ((msg.wParam >= 'A' && msg.wParam <= 'Z') || (msg.wParam >= '0' && msg.wParam <= '9')))
