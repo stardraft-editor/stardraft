@@ -1091,6 +1091,8 @@ struct PromptState {
     std::wstring* text;
 };
 
+void (*gPromptHook)(HWND) = nullptr;  // captures: runs with the prompt open
+
 INT_PTR CALLBACK promptProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_INITDIALOG) {
         auto* st = reinterpret_cast<PromptState*>(lp);
@@ -1157,7 +1159,17 @@ bool prompt(const wchar_t* title, std::wstring& text) {
     item(WS_TABSTOP | BS_PUSHBUTTON, 162, 32, 50, 16, IDCANCEL, 0x0080);
     align();
     PromptState st{title, &text};
-    INT_PTR r = DialogBoxIndirectParamW(app.inst, reinterpret_cast<LPCDLGTEMPLATEW>(t.data()), app.main, promptProc, LPARAM(&st));
+    if (gBackground && gPromptHook) {  // (captures: the dialog off the screen, not activated, then closed)
+        HWND dlg = CreateDialogIndirectParamW(app.inst, reinterpret_cast<LPCDLGTEMPLATEW>(t.data()), app.main, promptProc, LPARAM(&st));
+        if (!dlg) return false;
+        SetWindowPos(dlg, nullptr, GetSystemMetrics(SM_XVIRTUALSCREEN) + GetSystemMetrics(SM_CXVIRTUALSCREEN) + 100, 0, 0, 0,
+                     SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+        ShowWindow(dlg, SW_SHOWNOACTIVATE);
+        gPromptHook(dlg);
+        DestroyWindow(dlg);
+        return false;
+    }
+    INT_PTR r =DialogBoxIndirectParamW(app.inst, reinterpret_cast<LPCDLGTEMPLATEW>(t.data()), app.main, promptProc, LPARAM(&st));
     // Button captions: set after creation is simpler via template text, but default empty buttons are
     // labeled in WM_INITDIALOG below if needed.
     return r == IDOK;
@@ -24077,6 +24089,42 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 o << "open Log: " << h0 << " px, after the drag " << h1 << " px (" << (h1 > h0 ? "taller" : "NOT TALLER") << ")\n";
                 gDock.logH = wasH, logSetExpanded(wasOpen), shellRelayout();
                 gSelfTest = wasTest;
+                continue;
+            }
+            if (s == "locprops:" || s == "locprops:any") {  // locprops.png, locprops_wrong.png: Location properties of a new location, then with
+                                                             // Right at 0 (the error line, OK off); locprops:any: the Anywhere location (locprops_any.png)
+                Editor& ed = *app.ed;
+                const bool any = s == "locprops:any";
+                const int loc = any ? kAnywhereLocation : ed.createLocation({512, 512, 704, 640}, true);
+                static fs::path shot;
+                shot = fs::path(datashots) / (any ? "locprops_any.png" : "locprops.png");
+                static bool wrong;
+                wrong = !any;
+                gLocEditHook = [](HWND w) {
+                    for (int i = 0; i < 4; ++i) pump();
+                    capture(shot, w);
+                    if (wrong) {
+                        SetWindowTextW(gLocDlg->edge[2], L"0");
+                        for (int i = 0; i < 4; ++i) pump();
+                        capture(shot.parent_path() / "locprops_wrong.png", w);
+                    }
+                    PostMessageW(w, WM_COMMAND, IDCANCEL, 0);
+                };
+                showLocationEdit(loc);
+                gLocEditHook = nullptr;
+                if (!any) ed.undo();
+                continue;
+            }
+            if (s.rfind("prompt:", 0) == 0) {  // prompt.png: the text prompt (Rename location) with the text after "prompt:", closed with Cancel
+                static fs::path shot;
+                shot = fs::path(datashots) / "prompt.png";
+                gPromptHook = [](HWND w) {
+                    for (int i = 0; i < 4; ++i) pump();
+                    capture(shot, w);
+                };
+                std::wstring text = widen(s.substr(7));
+                prompt(L"Rename location", text);
+                gPromptHook = nullptr;
                 continue;
             }
             if (s == "locinv:") {  // locinv.txt, locinv.png: Location properties' Inverted (#77); the terrain selection and the tools (#80)
