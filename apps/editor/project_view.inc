@@ -469,6 +469,65 @@ public:
         InvalidateRect(gProj.wnd, nullptr, FALSE);
         projectPreviewRefresh();
     }
+    bool buildOption(BuildOption o) override {
+        EudProject* p = activeProject();
+        if (!p) return false;
+        switch (o) {
+        case BuildOption::EudTurbo: return p->plugin("eudTurbo");
+        case BuildOption::MoreUnits: return p->plugin("unlimiter");
+        case BuildOption::NoAirCollision: return p->plugin("noAirCollision");
+        case BuildOption::RemakeUnits: return p->remakeUnits();
+        case BuildOption::DebugBuild: return p->debugBuild();
+        case BuildOption::TraceBuild: return p->traceBuild();
+        }
+        return false;
+    }
+    void toggleBuildOption(BuildOption o, bool set) override {
+        EudProject* p = activeProject();
+        if (!p) return;
+        switch (o) {
+        case BuildOption::EudTurbo:
+            p->setPlugin("eudTurbo", !set);
+            projectSave(*p, set ? L"EUD Turbo off" : L"EUD Turbo on");
+            break;
+        case BuildOption::MoreUnits:
+            p->setPlugin("unlimiter", !set);
+            projectSave(*p, set ? L"More units and sprites off" : L"More units and sprites on");
+            break;
+        case BuildOption::NoAirCollision:
+            p->setPlugin("noAirCollision", !set);
+            projectSave(*p, set ? L"Air units push apart" : L"Air units do not push apart");
+            break;
+        case BuildOption::RemakeUnits:
+            p->setRemakeUnits(!set);
+            projectSave(*p, set ? L"New graphics for preplaced units off" : L"New graphics for preplaced units on");
+            break;
+        case BuildOption::DebugBuild:
+            p->setDebugBuild(!set);
+            projectSave(*p, set ? L"Debug build off" : L"Debug build on");
+            break;
+        case BuildOption::TraceBuild:
+            p->setTraceBuild(!set);
+            projectSave(*p, set ? L"Trace build off" : L"Trace build on: build the map again to use epTrace");
+            break;
+        }
+        projectFormRefresh();
+        if (o == BuildOption::DebugBuild || o == BuildOption::TraceBuild) InvalidateRect(gTopBar, nullptr, FALSE);  // the bug button beside Build
+    }
+    Music music() override {
+        Music m;
+        EudProject* pr = activeProject();
+        if (!pr) return m;
+        m.on = pr->plugin("bgmplayer");
+        const std::string path = sectionValue(*pr, "bgmplayer", "path"), len = sectionValue(*pr, "bgmplayer", "length");
+        m.hasFile = !path.empty();
+        if (m.hasFile) m.name = fs::path(path).filename().wstring(), m.secs = std::atof(len.c_str());
+        return m;
+    }
+    void chooseMusic() override { projectChooseMusic(); }
+    void clearMusic() override {
+        if (EudProject* p = activeProject()) p->setPlugin("bgmplayer", false), projectSave(*p, L"No background music");
+    }
 };
 ProjectProgram gProjProgram;
 ProjectPageView gProjView(gProjProgram);
@@ -506,105 +565,7 @@ int shellPaintProjectRest(draw::Canvas& c, int y, int pageW, int pageH) {
     HWND savedWnd = gHitsWnd;
     gHitsOut = &gProj.surface.hits, gHitsWnd = gProj.wnd;
     gHitsOf[gProj.wnd] = &gProj.surface.hits;
-    // Build options: euddraft's plugins.
-    y = ui::sectionHeader(mem, l, y, L"Build");
-    {  // the label column names the options (not an empty column)
-        FormLayout rl = l;
-        rl.rowH = rowH;
-        ui::fieldLabel(mem, rl, y, L"Options", false);
-    }
-    auto option = [&](const wchar_t* label, const char* plugin, const std::wstring& tip, const std::wstring& on, const std::wstring& off) {
-        const bool set = pr->plugin(plugin);
-        const std::string name = plugin;
-        ui::check(mem, {l.x0 + l.labelW, y, l.colRight, y + rowH}, label, set,
-                  [name, set, on, off] {
-                      EudProject* p = activeProject();
-                      if (!p) return;
-                      p->setPlugin(name, !set);
-                      projectSave(*p, set ? off : on);
-                      projectFormRefresh();
-                  },
-                  tip);
-        y += rowH;
-    };
-    option(L"EUD Turbo", "eudTurbo", L"A shorter trigger cycle: the triggers run more often (euddraft's eudTurbo)", L"EUD Turbo on", L"EUD Turbo off");
-    option(L"More units and sprites", "unlimiter", L"Room for more sprites, images, bullets and orders (euddraft's unlimiter)", L"More units and sprites on",
-           L"More units and sprites off");
-    option(L"Air units do not push apart", "noAirCollision", L"Air units can stay on top of each other (euddraft's noAirCollision)",
-           L"Air units do not push apart", L"Air units push apart");
-    {  // New graphics for preplaced units (R8): the map's code makes them again at the start
-        const bool set = pr->remakeUnits();
-        ui::check(mem, {l.x0 + l.labelW, y, l.colRight, y + rowH}, L"New graphics for preplaced units", set,
-                  [set] {
-                      EudProject* p = activeProject();
-                      if (!p) return;
-                      p->setRemakeUnits(!set);
-                      projectSave(*p, set ? L"New graphics for preplaced units off" : L"New graphics for preplaced units on");
-                      projectFormRefresh();
-                  },
-                  L"The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, the map "
-                  L"removes each preplaced unit that the edits give other graphics, and makes it again on its place at the start. The map "
-                  L"view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground "
-                  L"that it cannot stand on) moves near its place, or the game does not make it again.");
-        y += rowH;
-    }
-    {  // Debug build: the triggers check indexes in the game (T.5)
-        const bool set = pr->debugBuild();
-        ui::check(mem, {l.x0 + l.labelW, y, l.colRight, y + rowH}, L"Debug build", set,
-                  [set] {
-                      EudProject* p = activeProject();
-                      if (!p) return;
-                      p->setDebugBuild(!set);
-                      projectSave(*p, set ? L"Debug build off" : L"Debug build on");
-                      projectFormRefresh();
-                      InvalidateRect(gTopBar, nullptr, FALSE);  // the bug button beside Build
-                  },
-                  L"The triggers check each list index that the game calculates. An index out of range shows a message on the screen, and the "
-                  L"triggers use the first item. Turn it off for the map that you release.");
-        y += rowH;
-    }
-    {  // Trace build: euddraft's debug mode, for epTrace
-        const bool set = pr->traceBuild();
-        ui::check(mem, {l.x0 + l.labelW, y, l.colRight, y + rowH}, L"Trace build (epTrace)", set,
-                  [set] {
-                      EudProject* p = activeProject();
-                      if (!p) return;
-                      p->setTraceBuild(!set);
-                      projectSave(*p, set ? L"Trace build off" : L"Trace build on: build the map again to use epTrace");
-                      projectFormRefresh();
-                      InvalidateRect(gTopBar, nullptr, FALSE);
-                  },
-                  L"The scripts record each line that they run, and Build writes a trace file beside the map. epTrace reads it while the map "
-                  L"plays in StarCraft and shows which lines use the most time. The map runs more slowly: turn it off for the map that you release.");
-        y += rowH;
-    }
-    y += scale(6);
-    // Background music (bgmplayer) and files in memory (dataDumper) are off for now: not shown. A project that has
-    // them keeps its sections, and Build uses them.
-    constexpr bool kMusicAndFiles = false;
-    if (kMusicAndFiles) {
-        FormLayout rl = l;
-        rl.rowH = rowH;
-        ui::fieldLabel(mem, rl, y, L"Background music", pr->plugin("bgmplayer"));
-        const std::string path = sectionValue(*pr, "bgmplayer", "path"), len = sectionValue(*pr, "bgmplayer", "length");
-        std::wstring text = L"None";
-        if (!path.empty()) {
-            const double secs = std::atof(len.c_str());
-            wchar_t t[32];
-            std::swprintf(t, 32, L"   %d:%02d", int(secs) / 60, int(secs) % 60);
-            text = fs::path(path).filename().wstring() + t;
-        }
-        const RECT box{l.x0 + l.labelW, y + scale(2), l.colRight - scale(ui::kIconBox + 8), y + rowH - scale(2)};
-        ui::pickBox(mem, box, text, false, [](RECT) { projectChooseMusic(); }, L"Plays again and again for every player (euddraft's bgmplayer)");
-        if (!path.empty())
-            ui::iconButton(mem, {box.right + scale(4), box.top, box.right + scale(4 + ui::kIconBox), box.bottom}, UiIcon::Close,
-                           [] {
-                               if (EudProject* p = activeProject()) p->setPlugin("bgmplayer", false), projectSave(*p, L"No background music");
-                           },
-                           L"No background music", ui::Icon::Bare, false, true, ui::Tone::Danger);
-        y += rowH + scale(4);
-    }
-    if (kMusicAndFiles) {
+    if (kProjectMusicAndFiles) {
         // Files in memory (euddraft's dataDumper): each file's bytes at an address, when the map starts.
         FormLayout rl = l;
         rl.rowH = rowH;
