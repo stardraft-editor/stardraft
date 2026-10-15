@@ -62,7 +62,7 @@ a title. Numbers in fields are right-aligned in the monospace font (the Data for
 | A fold | The chevrons (Segoe MDL2 E76C right, E70D down) through `ui::glyph`. |
 | A warning or "all right" line | `UiIcon::Warning` in `kWarn`, `UiIcon::Check` in `kGood`, then the text in the same color. |
 | A scroll bar | The system one with the theme (`darkControl(w, L"DarkMode_Explorer")`, also for painted pages); `ui::scrollFace` for lists that page by rows. |
-| The status bar | Flat: `kPanel`, a hairline on top and between the parts (`paintStatusBar`). The map's parts show in Map only; the message shows in the log line. |
+| The status bar | Flat: `kPanel`, a hairline on top and between the parts (`StatusView::paint`). The map's parts show in Map only; the message shows in the log line. |
 
 ## Controls
 
