@@ -35,13 +35,6 @@ void projectSave(EudProject& pr, const std::wstring& done = L"") {
     InvalidateRect(gProj.wnd, nullptr, FALSE);
 }
 
-// Sections the page sets up elsewhere (Build options) or Build writes (keys and mouse, chat commands): not scripts.
-bool projectManagedSection(const std::string& name) {
-    for (const char* n : {"eudTurbo", "unlimiter", "noAirCollision", "bgmplayer", "dataDumper", "MSQC", "chatEvent"})
-        if (name == n) return true;
-    return false;
-}
-
 // The scripts in build order (the generated .dat code first; [main] is not a script).
 void projectListScripts() {
     gProj.sections.clear();
@@ -49,8 +42,6 @@ void projectListScripts() {
         for (const auto& sec : pr->sections())
             if (sec.name != "main" && !projectManagedSection(sec.name)) gProj.sections.push_back(sec.name);
 }
-
-int projectPreviewWidth(int pageW) { return gDock.scriptPreview ? std::min(pageW / 2, std::max(scale(420), pageW * 2 / 5)) : 0; }
 
 // The preview's view (core/views_project.inc): a kit text field with epScript's colors, in the preview's window.
 ProjectPreviewView gProjPreview;
@@ -233,21 +224,6 @@ void projectChooseMusic() {
     pr->setPlugin("bgmplayer", true, {"path : music/" + from.filename().string(), std::string("length : ") + len});
     projectSave(*pr, L"Background music: " + from.filename().wstring());
 }
-std::string sectionValue(const EudProject& pr, const std::string& section, const std::string& key) {
-    for (const auto& l : pr.sectionLines(section)) {
-        const size_t c = l.find(':');
-        if (c == std::string::npos) continue;
-        std::string k = l.substr(0, c), v = l.substr(c + 1);
-        auto trim = [](std::string& s) {
-            s.erase(0, s.find_first_not_of(" \t"));
-            s.erase(s.find_last_not_of(" \t") + 1);
-        };
-        trim(k), trim(v);
-        if (k == key) return v;
-    }
-    return {};
-}
-
 // --- epTrace ------------------------------------------------------------------------------------------------
 // A trace build makes Build write <map>.epmap. epTrace (beside euddraft.exe; it asks for administrator rights) reads
 // it from the map that plays in StarCraft, and writes its report <map>.epmap.prof when its window closes. The page
@@ -265,18 +241,6 @@ bool projectTraceReport(const EudProject& pr) {
         gProj.hasReport = eptrace::read(file, pr.traceMap(), gProj.report, err);
     }
     return gProj.hasReport;
-}
-
-// The lines of a project's generated/triggers.eps now, without their indent.
-std::vector<std::string> epTraceTriggerCode(const fs::path& folder) {
-    std::vector<std::string> out;
-    std::ifstream f(folder / "generated" / "triggers.eps");
-    for (std::string s; std::getline(f, s);) {
-        if (!s.empty() && s.back() == '\r') s.pop_back();
-        s.erase(0, s.find_first_not_of(" \t"));
-        out.push_back(s);
-    }
-    return out;
 }
 
 // Where a line of a report is: the trigger and block (a line of the triggers' code that is the same now; `trig` is
