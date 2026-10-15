@@ -45,6 +45,7 @@ using std::min;
 #include <sstream>
 #include <string>
 #include <thread>
+#include <cwctype>
 #include <csignal>
 #include <deque>
 #include <dbghelp.h>
@@ -91,6 +92,7 @@ using std::min;
 #include "install.h"  // apps/common: the registry's install folders
 #include "crash_report.h"  // apps/common: the crash handler and sending reports (crash.inc)
 #include "update.h"  // apps/common: the self-update's system part (update.inc)
+#include "file_types.h"  // apps/common: the files that open with StarDraft 2 (update.inc)
 #include "stardraft/settings.h"
 #include "text_codec.h"  // apps/common: UTF-8 and wide strings (core/strings.inc)
 #include "core/tr.h"  // the translation's declaration (the core's use of tr; ui_text.h defines it)
@@ -478,6 +480,8 @@ EudProject* activeProject();
 bool classicMode();
 void updateMenus();
 
+#include "build_info.h"  // STARDRAFT_COMMIT (cmake/build_info.cmake), before the core's default for it
+#include "core/releases.inc"  // the issues token, the newest release, the crash reports' texts (crash.inc, update.inc)
 #include "github.inc"
 #include "crash.inc"
 
@@ -2456,15 +2460,13 @@ void commandBody(int id) {
     case ID_OPT_UPDATECHECK:
         gCheckUpdates = !gCheckUpdates;
         if (!gSelfTest) prefs::setNumber(L"CheckUpdates", gCheckUpdates ? 1 : 0);
-        setMessage(gCheckUpdates ? L"StarDraft 2 looks for a newer release on start" : L"StarDraft 2 does not look for a newer release on start");
+        setMessage(releases::updateCheckMessage(gCheckUpdates));
         break;
     case ID_CRASH_MODE:
     case ID_CRASH_MODE + 1:
     case ID_CRASH_MODE + 2:
         setCrashReports(id - ID_CRASH_MODE);
-        setMessage(gCrashReports == 1 ? L"StarDraft 2 sends an anonymous report when it crashes"
-                   : gCrashReports == 2 ? L"StarDraft 2 does not send crash reports (a report stays on this computer)"
-                                        : L"After a crash, StarDraft 2 asks at the next start if it can send the report");
+        setMessage(releases::crashModeMessage(gCrashReports));
         break;
     case ID_OPT_MAPSDEFAULT:
         if (!gSelfTest && !gBackground) makeMapsDefault(app.main);  // (tests leave the user's settings)
@@ -16212,10 +16214,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
         DISPLAY_DEVICEW dd{sizeof dd};
         for (DWORD i = 0; EnumDisplayDevicesW(nullptr, i, &dd, 0); ++i)
             if (dd.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE) crash::gGpu = dd.DeviceString;
-        crash::gWhere = [] {
-            static const wchar_t* names[] = {L"Map", L"Data", L"Triggers", L"Assets", L"Project", L"Briefing", L"Assets", L"Properties", L"Players", L"Classic triggers", L"Map data"};
-            return names[int(gWorkspace)];
-        };
+        crash::gWhere = [] { return releases::crashWorkspaceName(gWorkspace); };
         if (a1 == L"--crash-test") {  // a crash on purpose, to test the report (no message box)
             crash::gQuiet = true;
             *static_cast<volatile int*>(nullptr) = 1;
@@ -18377,7 +18376,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 // The zip downloads (with the token) and holds stardraft.exe.
                 const fs::path z = fs::path(datashots) / "update.zip";
                 std::ofstream(fs::path(datashots) / "update.txt", std::ios::app)
-                    << "zip downloads: " << (!r.zip.empty() && update::get(widen(r.zip), nullptr, &z, L"application/octet-stream") ? "yes" : "NO") << ", bytes: "
+                    << "zip downloads: " << (!r.zip.empty() && releases::get(r.zip, nullptr, &z, "application/octet-stream") ? "yes" : "NO") << ", bytes: "
                     << (fs::exists(z) ? fs::file_size(z) : 0) << "\n";
                 continue;
             }

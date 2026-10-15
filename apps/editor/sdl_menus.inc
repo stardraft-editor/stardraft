@@ -323,11 +323,13 @@ void confirmReplace(std::function<void()> then) {
 // Runs a command by its id: the core's command path first (the table, the recent lists, the checks of the tab's mode),
 // then the commands the core leaves to the shell.
 bool sdlProjectCommand(int id);  // (sdl_project.inc: Open project, New EUD project, Add a script, the folder, the settings)
+bool sdlUpdatesCommand(int id);  // (sdl_updates.inc: Check for updates, Look for updates on start, Crash reports, Maps)
 void command(int id) {
     if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax))
         return confirmReplace([id] { commandPortable(gState, id); });
     if (commandPortable(gState, id)) return;
     if (sdlProjectCommand(id)) return;
+    if (sdlUpdatesCommand(id)) return;
     switch (id) {
     case ID_FILE_OPEN: confirmReplace([] {
             showFileDialog(false, [](const fs::path& p) {
