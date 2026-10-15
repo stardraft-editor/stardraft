@@ -4,14 +4,15 @@
 // model (core/triggers_model.inc: the project's triggers.json loaded, checked, saved and changed, the tree's commands,
 // the clipboard, the undo steps and the menus). The menus show as kit menus, the pickers as the program's pop-outs and
 // dialogs; the block help page (core/views_triggers_help.inc: BlockHelpView) in a window of its own, and the code pane
-// (TrigCodeView) at the right. A value, the name at the top and the variable form's fields change in the text prompt
-// (the values' pop-outs are not on this system yet: a value block's menu, the text pop-out, the kinds and the sizes
-// of the variable form), and a value of one unit is picked on the map. Not on this system yet either: the entries'
-// pictures on the values. Included by main_sdl.cpp after
+// (TrigCodeView) at the right. A value, the name at the top and the variable form's fields open their pop-outs as on
+// Windows (core/triggers_values.inc: the list picker with the entries' icons, the value pop-out of
+// core/views_value_pop.inc, the button pop-out of core/views_data_button_pop.inc; Tab goes to the next value), a value
+// block has its menu, and a value of one unit is picked on the map. The values show their entries' pictures. Included
+// by main_sdl.cpp after
 // sdl_data.inc (SdlBarFrame); registerWorkspaceView(Workspace::Triggers, gSdlTriggers) puts it in the window, and
-// --trig <root>:<index>[:<child>...] and --trigsel <action> select a node and a block for a snapshot.
+// --trig <root>:<index>[:<child>...] and --trigsel <action> select a node and a block for a snapshot, and --trigpop <n>
+// shows the pop-out of its value n.
 
-void sdlTrigNotHere(const wchar_t* what) { setMessage(std::wstring(what) + L": not on this system yet"); }
 
 // --- The block help page (core/views_triggers_help.inc: BlockHelpView) ----------------------------------------------
 
@@ -64,16 +65,13 @@ std::string showBlockPicker(bool condition, const std::string& startCategory, co
 
 void sdlTriggersPlace();
 void sdlTrigRevealNow();
-void sdlTrigEditTitle();
-void sdlTrigEditVariable(TrigVarHit h);
-void sdlTrigEditValue(TrigParamHit h);
 extern TrigInfoView gSdlTrigInfo;
 
 struct SdlTrigPaneHost final : TrigPaneHost {
     void loadProjectData() override { dataLoadForProject(); }
     std::wstring gameString(int id) override { return statString(id); }
     const std::vector<Button>& buttonSet(int set) override { return dataExtras().buttons.set(set); }
-    draw::Image entryIcon(const std::string&, uint32_t) override { return {}; }  // (the entries' pictures: not on this system yet)
+    draw::Image entryIcon(const std::string& dat, uint32_t v) override { return datHasIcons(dat) ? sdlDataImage(dataRefPicture(dat, v)) : draw::Image{}; }
     void layoutCheck() override {  // (the pane asks as it paints: the strip is placed after the frame)
         if (gSdlTrigInfo.shown() != (trigInfoHeight() > 0)) shellPost(sdlTriggersPlace);
         shellPost(sdlTrigRevealNow);  // (trigRevealBlock: after this paint, the pane's lines are the new ones)
@@ -86,9 +84,9 @@ struct SdlTrigPaneHost final : TrigPaneHost {
     void toggleCode() override { showTriggerCode(); }
     void applyFix(TriggerCostFix fix) override { trigApplyCostFix(fix); }
     void addFromPage(int action, RECT button) override { trigAddFromPane(action, button); }
-    void editTitle() override { sdlTrigEditTitle(); }
-    void editVariable(TrigVarHit h) override { sdlTrigEditVariable(h); }
-    void editValue(TrigParamHit h) override { sdlTrigEditValue(h); }
+    void editTitle() override { trigEditTitle(); }
+    void editVariable(TrigVarHit h) override { trigEditVariableField(h); }
+    void editValue(TrigParamHit h) override { trigEditFlow(h); }
     void changed() override { trigChanged(); }
     void duplicate() override { trigDuplicate(); }
     void deleteBlock() override { trigDeleteLine(); }
@@ -99,7 +97,7 @@ struct SdlTrigPaneHost final : TrigPaneHost {
         const auto [ref, at] = trigAddTarget(condition);
         trigAddTo(ref, at, *TriggerDef::find(id));
     }
-    void valueBlockMenu(TrigParamHit) override { sdlTrigNotHere(L"The value block's menu"); }
+    void valueBlockMenu(TrigParamHit h) override { trigValueBlockMenu(h); }
     void menu(draw::Point pt) override;
     void drop() override { trigDrop(); }
     void help() override { sdlTrigPaneHelp(); }
@@ -211,60 +209,114 @@ void sdlTrigRevealNow() {
     gSdlTrigPane.invalidate();
 }
 
-// --- Changing values: the text prompt (the values' pop-outs are not on this system yet) ---------------------------
+// --- The values' pop-outs (core/triggers_values.inc: which one a value opens, with its spec) ---------------------------
 
-// The name at the top of a trigger's or variable's page.
-void sdlTrigEditTitle() {
-    TriggerNode* n = trigSelectedNode();
-    if (!n || n->kind == TriggerNode::Kind::Category || !gRoot) return;
-    std::wstring text = widen(n->name);
-    TextPromptView* shown = nullptr;
-    if (runTextPrompt(*gRoot, n->kind == TriggerNode::Kind::Variable ? L"Name   letters, digits and _" : L"Name", text, true, shown))
-        trigRenameNode(gTE.sel, narrow(text));
+int gSdlTrigAdvance = 0;  // Tab (+1) or Shift+Tab (-1) closed the last pop-out
+ValuePopView* gSdlTrigValuePop = nullptr;  // the value pop-out while it is open (the snapshots reach it)
+
+// A point of the pane in the main window.
+draw::Point sdlTrigPanePoint(draw::Point at) {
+    const draw::Point o = gSdlTrigPane.origin();
+    return {o.x + at.x, o.y + at.y};
 }
-// A field of the variable form: the default value (a unit: picked on the map) and the description. The kind, the
-// size and the players' values have their pop-outs on Windows only so far.
-void sdlTrigEditVariable(TrigVarHit h) {
-    TriggerNode* v = trigSelectedNode();
-    if (!v || v->kind != TriggerNode::Kind::Variable || !gRoot) return;
-    const bool perPlayer = v->variable.kind == TriggerVariable::Kind::PerPlayer && (h.field == 4 || (h.field >= 10 && h.field < 18));
-    if (h.field == 0 || h.field == 1 || perPlayer) return sdlTrigNotHere(L"This field's pop-out");
-    if (h.field == 2 && v->variable.kind == TriggerVariable::Kind::Unit) return trigStartUnitPick({}, -1);
-    const auto kind = v->variable.kind;
-    std::wstring title = L"Description", text = widen(v->comment);
-    if (h.field == 2) {
-        title = kind == TriggerVariable::Kind::Constant ? L"Value" : kind == TriggerVariable::Kind::Array ? L"Default value of each item" : L"Default value";
-        if (kind == TriggerVariable::Kind::Flag) title += L"   1 on, 0 off";
-        if (kind == TriggerVariable::Kind::Text) title = L"Text";
-        text = widen(v->variable.initial.empty() && kind != TriggerVariable::Kind::Text ? std::string("0") : v->variable.initial);
+// The list picker with each entry's icon (the units, the .dat entries, a set's buttons), as the Windows showListPicker.
+bool sdlTrigPickAt(const std::wstring& title, std::vector<ListPickItem> items, const std::string& current, draw::Point at, std::string& out) {
+    auto icon = [](const ListPickItem& it) { return it.iconDat.empty() || it.icon < 0 ? draw::Image{} : sdlDataImage(dataRefPicture(it.iconDat, uint32_t(it.icon))); };
+    if (gPopShot.wanted) {  // (a snapshot: the picker shows in the picture, sdl_popshot.inc)
+        auto v = std::make_unique<ListPickView>(title, std::move(items), current);
+        v->iconOf = icon;
+        const draw::Point size = v->outerSize();
+        popShotTake(std::move(v), at, size);
+        return false;
     }
-    TextPromptView* shown = nullptr;
-    if (!runTextPrompt(*gRoot, title, text, true, shown)) return;
-    v = trigSelectedNode();
-    if (!v || v->kind != TriggerNode::Kind::Variable) return;
-    (h.field == 2 ? v->variable.initial : v->comment) = narrow(text);
-    trigChanged();
+    ListPickView v(title, std::move(items), current);
+    v.iconOf = icon;
+    const bool picked = runListPick(v, at);
+    if (v.advance()) gSdlTrigAdvance = v.advance();
+    if (picked) out = v.result();
+    return picked;
 }
-// A value of a block (a chip): one unit is picked on the map; another value is typed as its code in the text prompt.
-void sdlTrigEditValue(TrigParamHit h) {
-    gTP.focus = h, gTP.sel = h.ref;
-    gSdlTrigPane.invalidate();
-    if (h.bracket) return sdlTrigNotHere(L"The value block's menu");
-    TriggerCall* call = trigHitCall(h);
-    const int hp = h.token != -1 ? h.param : trigHitParam(h);  // (a part of a text: the whole text)
-    const TriggerDef* d = call ? TriggerDef::find(call->def) : nullptr;
-    if (!d || hp < 0 || hp >= int(d->params.size()) || hp >= int(call->args.size()) || !gRoot) return;
-    const std::string typeName = triggerParamType(*d, call->args, hp);
-    const TriggerType* type = triggerType(typeName);
-    if (type && type->picker == TriggerPicker::UnitRef && h.token == -1) return trigStartUnitPick(h.ref, h.param, h.inner);
-    std::wstring text = widen(call->args[size_t(hp)]);
-    TextPromptView* shown = nullptr;
-    if (!runTextPrompt(*gRoot, widen(d->params[size_t(hp)].name), text, true, shown)) return;
-    if (TriggerCall* c = trigHitCall(h); c && hp < int(c->args.size())) {
-        c->args[size_t(hp)] = narrow(text);
-        if (h.token != -1) c->normalizeText();
-        trigChanged();
+bool trigPopList(const std::wstring& title, std::vector<ListPickItem> items, const std::string& current, draw::Point at, std::string& out) {
+    return sdlTrigPickAt(title, std::move(items), current, sdlTrigPanePoint(at), out);
+}
+// The value pop-out; "A text of the game..." lists the Strings tab's entries.
+std::vector<ListPickItem> sdlTrigGameTexts() {
+    dataLoadForProject();
+    return entryItems("strings", true);
+}
+bool trigPopValue(const ValuePopSpec& spec, draw::Point at, std::string& out) {
+    if (gPopShot.wanted) {  // (a snapshot: the pop-out shows in the picture)
+        auto v = std::make_unique<ValuePopView>(spec);
+        v->setPlace(sdlTrigPanePoint(at));
+        v->gameTexts = sdlTrigGameTexts;
+        const draw::Point size = v->outerSize();
+        popShotTake(std::move(v), sdlTrigPanePoint(at), {size.x - 2, size.y - 2});
+        return false;
     }
+    int advance = 0;
+    const bool ok = runValuePop(spec, sdlTrigPanePoint(at), out, &gSdlTrigValuePop, sdlTrigGameTexts, &advance);
+    if (advance) gSdlTrigAdvance = advance;
+    return ok;
+}
+std::string trigPopValueBlock(draw::Point at, const std::string& current) {
+    std::string picked;
+    return sdlTrigPickAt(L"Search values from the game", valueBlockPickItems(), current, sdlTrigPanePoint(at), picked) ? picked : std::string();
+}
+int trigPopAdvance() {
+    const int d = gSdlTrigAdvance;
+    gSdlTrigAdvance = 0;
+    return d;
+}
+void trigPanePaintNow() {}  // (the window paints every frame)
+
+// The button pop-out's program parts (the Windows ones are data_extras.inc's ButtonPop): the pictures and names of the
+// project's data, and the list pickers under their box.
+struct SdlButtonPopHost final : ButtonPopHost {
+    draw::View* view = nullptr;  // the pop-out
+    draw::Point place{0, 0};     // where its window is in the main window
+    draw::Image icon(const char* dat, int entry) override { return sdlDataImage(dataRefPicture(dat, uint32_t(entry))); }
+    draw::Image argIcon(const char* kind, int v) override { return sdlDataImage(dataArgPicture(kind, v)); }
+    std::wstring argName(const char* kind, int v) override { return ::argName(kind, v); }
+    std::wstring stringLine(int id) override { return statString(id); }
+    std::string stringBytes(int id) override {
+        const auto& st = dataExtras().strings;
+        return id >= 1 && id <= st.count() ? st.text(id - 1) : std::string();
+    }
+    std::wstring cost(const Button& b, int type) override {
+        return buttonCostText(b, type, [](const std::string& dat, const std::string& name, int e) { return datValue(dat, name, e, 0); });
+    }
+    std::vector<ListPickItem> entryItems(const char* kind, bool none) override { return ::entryItems(kind, none); }
+    std::vector<Button> buttonSet(int set) override { return dataExtras().buttons.set(set); }
+    std::wstring buttonLabel(const Button& b) override { return buttonRowTextFrom(b, b.enabledString ? statString(b.enabledString) : L""); }
+    bool choose(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current, draw::Rect box, std::string& out) override {
+        const draw::Point o = view ? view->origin() : draw::Point{0, 0};
+        return sdlTrigPickAt(prompt, std::move(items), current, {place.x + o.x + box.left, place.y + o.y + box.bottom + scale(2)}, out);
+    }
+};
+// A whole button (Replace a button): 560 x 470 px, as the Windows pop-out opens.
+bool trigPopButton(std::string& text, draw::Point at) {
+    dataLoadForProject();  // the icons and strings come from the project
+    Button b;
+    if (!buttonFromText(text, b)) b = Button{1, 0, kButtonNewCondition, kButtonNewAction, 0, 0, 0, 0};
+    static SdlButtonPopHost shotHost;  // (a snapshot's pop-out outlives this call)
+    if (gPopShot.wanted) {
+        shotHost.place = sdlTrigPanePoint(at);
+        auto v = std::make_unique<ButtonPopView>(shotHost, b);
+        shotHost.view = v.get();
+        popShotTake(std::move(v), shotHost.place, {scale(560), scale(470)});
+        return false;
+    }
+    SdlButtonPopHost h;
+    ButtonPopView view(h, b);
+    h.view = &view, h.place = sdlTrigPanePoint(at);
+    bool accepted = false;
+    view.onDone = [&](bool ok) {
+        accepted = ok;
+        shellClosePopout(view);
+    };
+    shellRunPopout(view, h.place.x, h.place.y, scale(560), scale(470), &view, nullptr);
+    if (accepted) text = buttonToText(view.button());
+    return accepted;
 }
 static bool sdlTrigFocusIn(const draw::View& v) {
     if (v.hasFocus()) return true;
@@ -285,11 +337,7 @@ bool trigAskDelete(const std::wstring& question) {
     return gRoot && msgbox::runMessageBox(*gRoot, shellTr(L"Delete"), sdlTrigDeleteBox(question), nullptr) == 0;
 }
 bool trigPickFromPane(const std::wstring& title, std::vector<ListPickItem> items, draw::Point at, std::string& out) {
-    ListPickView v(title, std::move(items), "");
-    const draw::Point o = gSdlTrigPane.origin();
-    if (!runListPick(v, {o.x + at.x, o.y + at.y})) return false;
-    out = v.result();
-    return true;
+    return trigPopList(title, std::move(items), "", at, out);
 }
 
 // A menu model (core/menu_model.inc) as kit menu items; a pick runs `pick` with the item's id.
@@ -364,4 +412,24 @@ void sdlTrigSelect(const std::string& node, const std::string& action) {
 void sdlTrigFocusFirstValue() {
     if (gTP.sel.index < 0) return;
     if (const auto order = trigTabOrder(gTP.sel); !order.empty()) gTP.focus = order[0];
+}
+// --trigpop n: then value n (from 0, in Tab's order) of the selected block is clicked (n -2: the words of its text; -100 - f,
+// --trigpop var:f: field f of the selected variable's form: 0 kind, 1 size, 2 default value, 3 description, 4 holds, 10.. a player's), and
+// the pop-out it opens shows in the picture (sdl_popshot.inc), as a click opens it.
+void sdlTrigPopShot(int n) {
+    if (n <= -100) {  // (-100 - field: a field of the selected variable's form, TrigVarHit)
+        for (const TrigVarHit& h : gTP.varHits)
+            if (h.field == -100 - n) return void(popShotOpen([h] { trigEditVariableField(h); }));
+        return;
+    }
+    if (gTP.sel.index < 0) return;
+    auto order = trigTabOrder(gTP.sel);
+    if (n == -2) {  // (the words are hit areas of the pane, not values that Tab goes to)
+        order.clear(), n = 0;
+        for (const TrigParamHit& h : gTP.params)
+            if (trigSameBlock(h.ref, gTP.sel) && h.token == -2) order.push_back(h);
+    }
+    if (order.empty()) return;
+    const TrigParamHit h = order[size_t(std::clamp(n, 0, int(order.size()) - 1))];
+    popShotOpen([h] { trigEditFlow(h); });
 }

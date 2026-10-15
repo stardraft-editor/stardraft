@@ -581,6 +581,7 @@ private:
         list_.invalidate();
         host_.typed();
     }
+public:
     // Rename: the game text pop-out under the title (the game's colors); empty: the game's name.
     void renameUnit() {
         const int e = d_.entry[tab_];
@@ -588,6 +589,8 @@ private:
         const Rows l = rows();
         if (host_.editUnitName(e, text, {l.x0, l.pad + l.titleH + scale(4)})) setName(text);
     }
+
+private:
     // What feedback names at a point of the page: the entry, and the field's row and column as the page's labels say
     // them (the Players column: Player N; the upgrades' columns: Max level, Start level).
     std::wstring feedbackName(draw::Point pt) override {
