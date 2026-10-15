@@ -66,6 +66,7 @@ struct MapPageHost {
     std::unique_ptr<MapScrollView> scrollView;
     std::unique_ptr<MapPropsView> props;  // Map properties' view (content[0] of that page; made with its window, freed after it)
     std::unique_ptr<PlayersView> players;  // Players and forces' view (content[0] of that page, content[1] of Map properties)
+    std::unique_ptr<ClassicPageView> classic[kClassicTabCount];  // Map data's views (content[k]: each tab's page)
     int reloadTimer = 0, typingTimer = 0;  // the host's timers: the check that the map changed (300 ms); the typing's stop (500 ms)
     bool typing = false;  // Map properties: a text is being typed (it goes into the map when the typing stops)
 } gMp;
@@ -305,8 +306,7 @@ void mapPageRegister() {
     WNDCLASSEXW wc{sizeof wc};
     wc.hInstance = app.inst;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    const std::pair<WNDPROC, const wchar_t*> classes[] = {{classicPageProc, L"StarDraftClassicPage"},
-                                                          {classicTrigProc, L"StarDraftClassicTriggers"},
+    const std::pair<WNDPROC, const wchar_t*> classes[] = {{classicTrigProc, L"StarDraftClassicTriggers"},
                                                           {ctListProc, L"StarDraftClassicTrigList"}};  // the painted lists
     for (const auto& [proc, name] : classes) wc.lpfnWndProc = proc, wc.lpszClassName = name, RegisterClassExW(&wc);
 }
@@ -318,7 +318,8 @@ void mapPageMakeContent() {
         if (c) DestroyWindow(c), c = nullptr;
     gMp.props.reset();  // (its window is gone: the view goes too)
     gMp.players.reset();
-    if (gClassic && gClassic->readOnlyBrush) DeleteObject(gClassic->readOnlyBrush), gClassic->readOnlyBrush = nullptr;
+    for (auto& v : gMp.classic) v.reset();
+    gClassicProgram.wnd[0] = gClassicProgram.wnd[1] = gClassicProgram.wnd[2] = nullptr;
     auto make = [](const wchar_t* cls, void* param) {
         return CreateWindowExW(WS_EX_CONTROLPARENT, cls, L"", WS_CHILD | WS_CLIPSIBLINGS, 0, 0, 10, 10, gMp.view, nullptr, app.inst, param);
     };
@@ -342,9 +343,13 @@ void mapPageMakeContent() {
         break;
     case kMpPlayers: gMp.content[0] = makePlayers(); break;
     case kMpClassicTrig: gMp.content[0] = make(L"StarDraftClassicTriggers", nullptr); break;
-    case kMpClassicSettings:
-        gClassic->readOnlyBrush = CreateSolidBrush(kReadOnly);
-        for (int k = 0; k < kClassicTabCount; ++k) gMp.content[k] = make(L"StarDraftClassicPage", reinterpret_cast<void*>(INT_PTR(k)));
+    case kMpClassicSettings:  // each tab: its view in its window (the page is as big as it, made before its first paint)
+        for (int k = 0; k < kClassicTabCount; ++k) {
+            gMp.classic[k] = std::make_unique<ClassicPageView>(gClassicProgram, *gClassic, k);
+            gMp.content[k] = CreateWindowExW(WS_EX_CONTROLPARENT, ui::kViewClass, L"", WS_CHILD | WS_CLIPSIBLINGS, 0, 0, gMp.classic[k]->preferredWidth(),
+                                             gMp.classic[k]->preferredHeight(), gMp.view, nullptr, app.inst, gMp.classic[k].get());
+            gClassicProgram.wnd[k] = gMp.content[k];
+        }
         break;
     }
     if (gMp.kind == kMpClassicSettings) mapPageShowTab(gClassic->tab);
@@ -365,7 +370,7 @@ void mapPageClose() {
     else mapPageCommit();
     gMp.ready = false;
     DestroyWindow(gMp.wnd);  // (its timers go with it)
-    if (gClassic && gClassic->readOnlyBrush) DeleteObject(gClassic->readOnlyBrush), gClassic->readOnlyBrush = nullptr;
+    gClassicProgram.wnd[0] = gClassicProgram.wnd[1] = gClassicProgram.wnd[2] = nullptr;
     mapPageSetGlobals(-1, nullptr);
     gMp = MapPageHost{};
     if (gWsBar) InvalidateRect(gWsBar, nullptr, FALSE);
@@ -414,14 +419,15 @@ void mapPageReload() {
         auto* was = static_cast<ClassicDialog*>(c->data.get());
         auto* now = static_cast<ClassicDialog*>(fresh.data.get());
         now->tab = was->tab;
-        for (int k = 0; k < kClassicTabCount; ++k) now->pages[k].entry = was->pages[k].entry;
-        if (was->readOnlyBrush) DeleteObject(was->readOnlyBrush), was->readOnlyBrush = nullptr;
+        for (int k = 0; k < kClassicTabCount; ++k) now->entry[k] = was->entry[k];
     }
     gMp.ready = false;
     for (HWND& w : gMp.content)  // the old content goes before its copy does
         if (w) DestroyWindow(w), w = nullptr;
     gMp.props.reset();
     gMp.players.reset();
+    for (auto& v : gMp.classic) v.reset();
+    gClassicProgram.wnd[0] = gClassicProgram.wnd[1] = gClassicProgram.wnd[2] = nullptr;
     *c = fresh;
     void* players = nullptr;
     if (gMp.kind == kMpProps)
@@ -758,11 +764,10 @@ void mapPagesDatashot(const fs::path& dir) {
                 ctAddTrigger();
             } else {
                 mapPageShowTab(kClassicUnits);
-                classicSelect(kClassicUnits, 0);  // the marine
-                ClassicPage& pg = gClassic->pages[kClassicUnits];
-                target = !classicChecked(pg.useDefault);
-                SendMessageW(pg.useDefault, BM_SETCHECK, target ? BST_CHECKED : BST_UNCHECKED, 0);
-                SendMessageW(pg.wnd, WM_COMMAND, MAKEWPARAM(kCsUseDefault, BN_CLICKED), LPARAM(pg.useDefault));
+                ClassicPageView& pg = *gMp.classic[kClassicUnits];
+                pg.select(0);  // the marine
+                target = !classicUseDefault(kClassicUnits, pg.entry());
+                pg.setUseDefault(target);
             }
             mapPageChanged();
         };
@@ -786,24 +791,19 @@ void mapPagesDatashot(const fs::path& dir) {
         const bool undone = !inMap() && !shows() && !mapPageHasChanges(k);
         log << names[k] << ": a change goes into the map at once (no Apply) " << yes(atOnce) << ", there again on the page " << yes(back)
             << ", one undo gives the map's value back and the page shows it " << yes(undone) << "\n";
-        if (k == kMpClassicSettings) {  // the unit's rename button: the name box in place of the title; Enter sets the name (#91)
+        if (k == kMpClassicSettings) {  // the unit's rename button (#91): the name is the game text pop-out's; the page shows it
             mapPageShowTab(kClassicUnits);
-            classicSelect(kClassicUnits, 3);  // the goliath
-            ClassicPage& pg = gClassic->pages[kClassicUnits];
-            const bool button = IsWindowVisible(pg.rename) != FALSE;
-            SendMessageW(pg.wnd, WM_COMMAND, MAKEWPARAM(kCsRename, BN_CLICKED), LPARAM(pg.rename));
-            const bool box = IsWindowVisible(pg.name) && !IsWindowVisible(pg.title);
-            SetWindowTextW(pg.name, L"Walker");
-            settle();
+            ClassicPageView& pg = *gMp.classic[kClassicUnits];
+            pg.select(3);  // the goliath
+            const bool button = pg.renameButton().visible();
             capture(dir / ("mappage_rename" + light + ".png"), app.main);
-            SendMessageW(pg.name, WM_KEYDOWN, VK_RETURN, 0);
+            pg.setName("Walker");  // what the pop-out sets (the title shows it)
             settle();
-            const bool set = app.ed->unitSettingName(3) == "Walker" && IsWindowVisible(pg.title) && windowText(pg.title).find(L"Walker") != std::wstring::npos;
+            const bool set = app.ed->unitSettingName(3) == "Walker" && pg.title().find(L"Walker") != std::wstring::npos;
             capture(dir / ("mappage_renamed" + light + ".png"), app.main);
             app.ed->undo();
             mapPageReloadIfStale();
-            log << names[k] << ": the rename button " << yes(button) << ", the name box in place of the title " << yes(box)
-                << ", Enter sets the name, the title shows it " << yes(set) << "\n";
+            log << names[k] << ": the rename button " << yes(button) << ", a name sets the map's name and the title shows it " << yes(set) << "\n";
         }
         command(ID_WS_MAP);
     }
@@ -816,7 +816,10 @@ bool mapPageHasFocus() {
     return gMp.wnd && f && (f == gMp.wnd || IsChild(gMp.wnd, f));
 }
 // A force name (a kit field of the players view) has the keyboard: the typed keys and Ctrl+Z are the field's.
-bool mapPageTextFocus() { return gMp.players && gMp.players->typingName(); }
+bool mapPageTextFocus() {
+    if (gMp.kind == kMpClassicSettings && gClassic && gMp.classic[gClassic->tab]) return gMp.classic[gClassic->tab]->typingField();
+    return gMp.players && gMp.players->typingName();
+}
 // Tab from a force name: the next (back: the previous) name; false: the Tab goes on to the page's next control.
 bool mapPageTabNames(bool back) { return gMp.players && gMp.players->tabName(back); }
 bool mapPageKeepsKey(const MSG& m) {
