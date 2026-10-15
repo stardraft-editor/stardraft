@@ -52,20 +52,40 @@ void shellSprayTimer(bool on) {
 }
 void shellTrackMouseLeave() {}  // (the host sends the leave of a view that the mouse leaves)
 bool shellCtrlOrShiftDown() { return (SDL_GetModState() & (SDL_KMOD_CTRL | SDL_KMOD_SHIFT)) != 0; }
-bool shellClearFilter() { return false; }  // (the palette's search box is not on this system yet)
+bool shellClearFilter() {  // the Locations filter is cleared (the Win32 filter's own rule: it is always there)
+    gFilterSdl.setText(L"");
+    return true;
+}
 unsigned shellDpi() { return gDpi; }
 void shellLogLine(const std::wstring& line) { std::fprintf(stderr, "%s\n", narrow(line).c_str()); }
 bool shellHasStatusBar() { return true; }
 int shellSpriteCount() { return gRenderer ? gRenderer->stats().sprites : 0; }
-void shellListSelect(int) {}  // (the palette's list is not on this system yet)
-void shellListFill(const std::vector<std::wstring>&) {}
-std::vector<int> shellListSelection() { return {}; }  // (the palette's list is not on this system yet)
-std::wstring shellFilterText() { return {}; }
+// The Locations list (sdl_panels.inc): its rows are the rebuildList's, its selection is the core's picks.
+void shellListSelect(int i) {
+    if (i >= 0) gLocList.selectOnly(i);
+    else gLocList.clearSelection();
+}
+void shellListFill(const std::vector<std::wstring>& rows) {
+    gListRows = rows;
+    gLocList.setCount(int(rows.size()));
+    gLocList.invalidate();
+}
+std::vector<int> shellListSelection() { return gLocList.selection(); }
+// The Locations filter's text (the palette's own search is not the list's filter).
+std::wstring shellFilterText() { return gFilterSdl.text(); }
 bool shellViewShown() { return gRoot != nullptr; }
 void shellToolsChanged() {}  // (the tool strip is not on this system yet)
-void shellOwnerSelect(int) {}  // (the player combo box is not on this system yet)
-void shellPaletteChanged() {}
-void shellPaletteRebuilt() {}
+void shellOwnerSelect(int i) { gOwnerBox.setValue(i); }  // (the owner dropdown shows player i; no change is sent)
+void shellPaletteChanged() {
+    gPalList.invalidate();
+    gPal2List.invalidate();
+    invalidateMapView();
+}
+// The palette's entries are made again: the list of its mode, its section box and the second palette's list.
+void shellPaletteRebuilt() {
+    rebuildPaletteRows();
+    if (gPal2Shown) rebuildSecondRows();
+}
 std::filesystem::path shellUnsavedRoot() { return {}; }  // (new projects are not on this system yet)
 // The save question: Save, Do not save or Cancel, in the kit's message box (Escape, or no window, is Cancel).
 int shellAskSaveChanges(bool project) {
@@ -83,7 +103,8 @@ bool shellSaveChanges(bool project) {
     saveOpenMap(false);
     return false;
 }
-void shellModeSide(Mode) {}  // (the palettes are not docked on this system yet)
+// The side the mode's tools are docked on (the Win32 rule: the mode last used on that side is remembered).
+void shellModeSide(Mode m) { gLastOnSide[gDock.toolsRight[int(m)] ? 1 : 0] = m; }
 void shellModeWindows(Mode) {}  // (the palette, list and player windows are not on this system yet)
 std::wstring shellTr(const wchar_t* english) { return tr(english); }
 std::vector<int>& shellPaletteChosen() {

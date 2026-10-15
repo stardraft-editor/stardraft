@@ -101,6 +101,8 @@ struct NotHereView final : draw::View {
     }
 };
 
+#include "sdl_panels.inc"  // the side panels: the palette, the owner, the filter, the search, the section box, the second palette
+
 // The map view: the texture of the map (drawn by the frame hook) and the core's map input.
 struct MapView final : draw::View {
     bool panning = false;  // the middle button (or a drag with it) pans
@@ -202,22 +204,35 @@ void menusIfDirty();
 // The main window: the menu bar, the document tabs, the workspace rail, the status bar, the map view with its minimap and
 // the panes that are not on this system yet, placed by computeLayout.
 struct MainView final : draw::View {
-    static constexpr int kNotHere = 11;  // the panes of the map workspace that have no view yet (see relayout)
+    static constexpr int kNotHere = 1;  // the panes of the map workspace that have no view yet: the tool strip (see relayout)
     kit::MenuBar menus;
     TabsView tabs;
     RailView rail;
     StatusView status{gState};
     MapView map;
     MinimapView minimap;
+    ModeBarView modes;  // the modes' segmented control, at the top bar's right
     std::vector<std::unique_ptr<NotHereView>> notHere;
 
     MainView() {
+        initPanels();
         add(menus, draw::Rect(0, 0, 0, 0));
         add(tabs, draw::Rect(0, 0, 0, 0));
         add(rail, draw::Rect(0, 0, 0, 0));
         add(status, draw::Rect(0, 0, 0, 0));
         add(map, draw::Rect(0, 0, 0, 0));
         add(minimap, draw::Rect(0, 0, 0, 0));
+        add(modes, draw::Rect(0, 0, 0, 0));
+        add(gPanelTabsSdl[0], draw::Rect(0, 0, 0, 0));
+        add(gPanelTabsSdl[1], draw::Rect(0, 0, 0, 0));
+        add(gOwnerBox, draw::Rect(0, 0, 0, 0));
+        add(gFilterSdl, draw::Rect(0, 0, 0, 0));
+        add(gSearchSdl, draw::Rect(0, 0, 0, 0));
+        add(gSectionDropSdl, draw::Rect(0, 0, 0, 0));
+        add(gViewBtnSdl, draw::Rect(0, 0, 0, 0));
+        add(gPalList, draw::Rect(0, 0, 0, 0));
+        add(gLocList, draw::Rect(0, 0, 0, 0));
+        add(gPal2List, draw::Rect(0, 0, 0, 0));
         for (int i = 0; i < kNotHere; ++i) {
             notHere.push_back(std::make_unique<NotHereView>());
             add(*notHere.back(), draw::Rect(0, 0, 0, 0));
@@ -233,9 +248,17 @@ struct MainView final : draw::View {
     // The menus' keys run when no view takes the key (the focused view first, then up to here).
     bool key(const draw::KeyEvent& e) override { return shortcutRun(e); }
 
+    // The modes' bar: at the top bar's right, after the menus (the menus take the left).
+    RECT modeBarRect() const {
+        const int bw = scale(112), bh = scale(26), by = (scale(28) - bh) / 2;
+        const int x1 = width() - scale(8), x0 = x1 - kModeCount * bw;
+        return RECT{x0, by, x1, by + bh};
+    }
+
     // Places the panes for the window's size and the state (computeLayout; the same rules as the Windows layout).
     void relayout() {
         if (draw::Host* h = host()) gDpi = unsigned(std::lround(96.0 * double(h->scale())));
+        syncKitThemeTokens(int(gDpi));
         LayoutInput in;
         in.dpi = int(gDpi);
         in.clientW = width(), in.clientH = height();
@@ -246,13 +269,26 @@ struct MainView final : draw::View {
         in.mode = gState.mode;
         in.mapWs = true;
         in.toolStrip = [](int) { return 0; };  // (the tool strip is not on this system yet)
+        in.modeBarH = 0, in.modeBar = modeBarRect();  // (the modes are in the top bar)
         in.mapOpen = gState.ed && gState.ed->isOpen();
         if (in.mapOpen) in.mapW = gState.ed->width(), in.mapH = gState.ed->height();
         in.minimapHidden = gDock.minimapHidden;
         in.minimapRight = gDock.minimapRight;
         in.leftW = gDock.leftW, in.rightW = gDock.rightW;
         std::copy(gDock.toolsRight, gDock.toolsRight + kModeCount, in.toolsRight);
+        in.lastOnSide[0] = gLastOnSide[0], in.lastOnSide[1] = gLastOnSide[1];
+        in.hasPanelTab[0] = in.hasPanelTab[1] = true;
+        in.hasSectionBox = true;
+        in.hasPal2 = true;
+        in.pal2Shown = gPal2Shown, in.pal2Mode = gPal2Mode;
         const MainLayout L = computeLayout(in);
+        // The state the layout sets (as the Win32 layout): the sides' tabs, the second palette's mode and its shown state.
+        gPanelTab[0] = L.panelTab[0], gPanelTab[1] = L.panelTab[1];
+        gPal2Shown = L.palette2.visible;
+        if (gPal2Shown) {
+            gPal2Mode = L.secondMode;
+            if (L.palette2Changed) rebuildSecondRows();
+        }
         // Which panes show in the mode, as the Windows program shows them (main.cpp's SetMode): the list and the filter
         // in Locations; the palette and the search in the other modes; the owner in Units and Sprites; the section box
         // in Units, Doodads and Sprites. The layout places the rows that share a place, so only these are shown.
@@ -260,25 +296,28 @@ struct MainView final : draw::View {
         const bool locs = m == Mode::Locations;
         const bool owners = m == Mode::Units || m == Mode::Sprites;
         const bool sections = m == Mode::Units || m == Mode::Doodads || m == Mode::Sprites;
+        const bool toolsRight = gDock.toolsRight[int(m)];
         apply(menus, L.topBar, true);
         apply(tabs, L.tabs, true);
         apply(rail, L.wsRail, shellHasRail());
         apply(status, L.status, true);
         apply(map, L.view, true);
         apply(minimap, L.minimap, L.minimap.visible);
+        apply(modes, L.modeBar, true);
         apply(*notHere[0], L.tool, true);
-        apply(*notHere[1], oneRow(L.owner), owners);       // (a closed owner list is one row high)
-        apply(*notHere[2], oneRow(L.sectionBox), sections);
-        apply(*notHere[3], L.search, !locs);
-        apply(*notHere[4], L.viewBtn, !locs);
-        apply(*notHere[5], L.filter, locs);
-        apply(*notHere[6], L.palette, !locs);
-        apply(*notHere[7], L.list, locs);
-        apply(*notHere[8], L.panelTabActive, true);
-        apply(*notHere[9], L.panelTabOther, true);
-        apply(*notHere[10], L.palette2, true);
+        apply(gPanelTabsSdl[toolsRight ? 1 : 0], L.panelTabActive, L.panelTabActive.visible);
+        apply(gPanelTabsSdl[toolsRight ? 0 : 1], L.panelTabOther, L.panelTabOther.visible);
+        apply(gOwnerBox, oneRow(L.owner), owners);       // (a closed owner list is one row high)
+        apply(gSectionDropSdl, oneRow(L.sectionBox), sections);
+        apply(gSearchSdl, L.search, !locs);
+        apply(gViewBtnSdl, L.viewBtn, !locs);
+        apply(gFilterSdl, L.filter, locs);
+        apply(gPalList, L.palette, !locs);
+        apply(gLocList, L.list, locs);
+        apply(gPal2List, L.palette2, L.palette2.visible);
         invalidate();
     }
+
     // A pane whose drop-down is tall in the layout (the owner, the section box) is one row high when closed.
     PaneSlot oneRow(PaneSlot s) const {
         s.rc.bottom = s.rc.top + scale(24);
@@ -291,11 +330,15 @@ struct MainView final : draw::View {
     }
 };
 
+void invalidateMapView() {
+    if (gRoot) gRoot->map.invalidate();
+}
+
 // The frame hook's map work (the window's map view size, in pixels).
 void drawMapOfRoot(SDL_GPUCommandBuffer* cmd) {
     if (!gRoot) return;
     menusIfDirty();
     const int w = gRoot->map.width(), h = gRoot->map.height();
-    if (gFitPending && w > 0 && h > 0) fitMap();  // (the map opened before the view had its size)
+    if (gFitPending && w > 0 && h > 0) fitMap(), updateStatus();  // (the map opened before the view had its size: the zoom it fit)
     drawMapFrame(cmd, w, h);
 }
