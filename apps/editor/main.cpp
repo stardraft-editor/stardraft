@@ -442,6 +442,8 @@ void fillToolCombo() { fillToolCombo(app); }
 std::wstring itemLabel(int v) { return itemLabel(app, v); }
 
 #include "core/views_search.inc"  // the search boxes and the palette's dropdown (SearchBox, DropdownBox)
+#include "core/views_data_entry.inc"  // the Data form's number entry (DataNumberEntry, dataReadEntry); its instance is gDataEntry below
+DataNumberEntry gDataEntry;  // the number typed over a field's value (the form's child view window, gData.edit)
 #include "core/sound_lists.inc"  // the map's and the game's sound files by name (mapSounds, gameSounds, soundFileBytes)
 #include "core/views_files.inc"  // the Files workspace's page (FilesPage; its instance is gFilesPage in files_view.inc)
 #include "core/views_data_refs.inc"  // the Data workspace's References panel (DataRefsPage; its instance is gDataRefsPage below, in the Data code)
@@ -8728,14 +8730,18 @@ bool dataCommitEdit() {
     if (gData.editing < 0 || !gData.edit) return true;
     const DatField* f = curField(gData.editing);
     gData.editing = -1;
-    const std::wstring text = windowText(gData.edit);
+    const std::wstring text = gDataEntry.text();
     ShowWindow(gData.edit, SW_HIDE);
-    if (!f || text.empty()) return true;
-    wchar_t* end = nullptr;
-    const unsigned long long v = wcstoull(text.c_str(), &end, 0);  // decimal, or 0x hex
-    if (end && *end == 0) return dataSetValue(*f, uint32_t(std::min<unsigned long long>(v, f->maxValue()))), true;
-    setMessage(L"Not a number: " + text);
-    return false;
+    if (!f) return true;
+    uint32_t v = 0;
+    const DataEntryRead r = dataReadEntry(text, f->maxValue(), v);
+    if (r == DataEntryRead::Empty) return true;
+    if (r == DataEntryRead::NotNumber) {
+        setMessage(L"Not a number: " + text);
+        return false;
+    }
+    dataSetValue(*f, v);
+    return true;
 }
 
 void dataBeginEdit(int field, const RECT& r) {
@@ -8744,10 +8750,10 @@ void dataBeginEdit(int field, const RECT& r) {
     if (!f || !curTable()) return;
     gData.editing = field;
     MoveWindow(gData.edit, r.left + scale(2), r.top + scale(3), r.right - r.left - scale(4), r.bottom - r.top - scale(6), TRUE);
-    SetWindowTextW(gData.edit, fieldValueText(*f, curTable()->value(*f, gData.entry)).c_str());
+    gDataEntry.setText(fieldValueText(*f, curTable()->value(*f, gData.entry)));
     ShowWindow(gData.edit, SW_SHOW);
-    SetFocus(gData.edit);
-    SendMessageW(gData.edit, EM_SETSEL, 0, -1);
+    gDataEntry.focus();
+    gDataEntry.select();
 }
 
 // Tab / Shift+Tab: keep the value and type the next (previous) field's, scrolling it into view.
@@ -8774,31 +8780,6 @@ void dataEditNeighbour(int delta) {
         if (!boxOf(r)) return;
     }
     dataBeginEdit(next, r);
-}
-
-LRESULT CALLBACK dataEditProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
-    if (msg == WM_KEYDOWN && wp == VK_TAB) {
-        dataEditNeighbour(GetKeyState(VK_SHIFT) < 0 ? -1 : 1);
-        return 0;
-    }
-    if (msg == WM_KEYDOWN && wp == VK_RETURN) {
-        dataCommitEdit();
-        SetFocus(gData.form);
-        return 0;
-    }
-    if (msg == WM_KEYDOWN && wp == VK_ESCAPE) {
-        gData.editing = -1;
-        ShowWindow(hwnd, SW_HIDE);
-        SetFocus(gData.form);
-        return 0;
-    }
-    if (msg == WM_CHAR && (wp == L'\r' || wp == L'\t' || wp == 27)) return 0;
-    if (msg == WM_KILLFOCUS) {
-        const LRESULT r = DefSubclassProc(hwnd, msg, wp, lp);
-        dataCommitEdit();
-        return r;
-    }
-    return DefSubclassProc(hwnd, msg, wp, lp);
 }
 
 LRESULT CALLBACK dataFormProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
@@ -9129,9 +9110,18 @@ void createWorkspaces(HWND parent) {
     gHitsOf[gData.form] = &gWidgetHits;
     gData.refs = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL, 0, 0, 1, 1, gDataWnd, nullptr, app.inst, &gDataRefsPage);
     darkControl(gData.refs, L"DarkMode_Explorer");
-    gData.edit = CreateWindowExW(0, WC_EDITW, L"", WS_CHILD | ES_RIGHT | ES_AUTOHSCROLL, 0, 0, 1, 1, gData.form, nullptr, app.inst, nullptr);
-    SetWindowSubclass(gData.edit, dataEditProc, 1, 0);
-    SendMessageW(gData.edit, WM_SETFONT, WPARAM(monoFont()), TRUE);
+    gData.edit = CreateWindowExW(0, ui::kViewClass, L"", WS_CHILD | WS_CLIPSIBLINGS, 0, 0, 1, 1, gData.form, nullptr, app.inst, &gDataEntry);
+    gDataEntry.onCommit = [] {  // Enter: the value goes in, the form has the keys again
+        dataCommitEdit();
+        SetFocus(gData.form);
+    };
+    gDataEntry.onCancel = [] {  // Escape: the value stays as it was
+        gData.editing = -1;
+        ShowWindow(gData.edit, SW_HIDE);
+        SetFocus(gData.form);
+    };
+    gDataEntry.onFocusLost = [] { dataCommitEdit(); };
+    gDataEntry.onTab = [](bool back) { dataEditNeighbour(back ? -1 : 1); };
     darkControl(gData.list, L"DarkMode_Explorer");
     darkControl(gData.form, L"DarkMode_Explorer");
 }
@@ -18365,26 +18355,19 @@ int runSelfTest(const fs::path& dir) {
             };
             const DatField* hpField = curField(8);
             const bool clickedHp = clickHit(8, -1);
-            SetWindowTextW(gData.edit, L"15360");
-            SendMessageW(gData.edit, WM_KEYDOWN, VK_RETURN, 0);
+            gDataEntry.setText(L"15360");
+            gDataEntry.press(draw::Key::Enter);
             pump();
             const bool clickedFlag = clickHit(22, 9);  // Cloakable
             {
                 // Tab moves the edit box to the next field, Shift+Tab back.
                 clickHit(8, -1);
                 const int start = gData.editing;
-                SendMessageW(gData.edit, WM_KEYDOWN, VK_TAB, 0);
+                gDataEntry.press(draw::Key::Tab);
                 const int after = gData.editing;
-                BYTE keys[256];
-                GetKeyboardState(keys);
-                BYTE shifted[256];
-                std::copy(std::begin(keys), std::end(keys), shifted);
-                shifted[VK_SHIFT] = 0x80;
-                SetKeyboardState(shifted);
-                SendMessageW(gData.edit, WM_KEYDOWN, VK_TAB, 0);
-                SetKeyboardState(keys);
+                gDataEntry.press(draw::Key::Tab, draw::kShift);
                 const int back = gData.editing;
-                SendMessageW(gData.edit, WM_KEYDOWN, VK_ESCAPE, 0);
+                gDataEntry.press(draw::Key::Escape);
                 log << "data: Tab moves from field " << start << " to " << after << ", Shift+Tab back to " << back
                     << ((after >= 0 && after != start && back == start) ? " (ok)" : " (WRONG)") << "\n";
             }
@@ -18508,8 +18491,8 @@ int runSelfTest(const fs::path& dir) {
                 for (const auto& f : w->schema().fields)
                     if (f.name == "Damage Amount") dmg = &f;
             const bool clickedDmg = dmg && clickHit(dmg->index, -1);
-            SetWindowTextW(gData.edit, L"9");
-            SendMessageW(gData.edit, WM_KEYDOWN, VK_RETURN, 0);
+            gDataEntry.setText(L"9");
+            gDataEntry.press(draw::Key::Enter);
             pump();
             const uint32_t dmgNow = dmg && curTable() ? curTable()->value(*dmg, 0) : 0;
             log << "data: ground weapon link opened weapons.dat at the Gauss Rifle " << (weaponLink && onWeapons ? "yes" : "NO") << ", damage "
