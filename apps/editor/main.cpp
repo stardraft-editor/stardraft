@@ -45,6 +45,7 @@ using std::min;
 #include <sstream>
 #include <string>
 #include <thread>
+#include <cwctype>
 #include <csignal>
 #include <deque>
 #include <dbghelp.h>
@@ -88,8 +89,10 @@ using std::min;
 #include "stardraft/commands.h"
 #include "http.h"  // apps/common: HTTPS requests (github.inc)
 #include "dialogs.h"  // apps/common: the file and folder dialogs
+#include "install.h"  // apps/common: the registry's install folders
 #include "crash_report.h"  // apps/common: the crash handler and sending reports (crash.inc)
 #include "update.h"  // apps/common: the self-update's system part (update.inc)
+#include "file_types.h"  // apps/common: the files that open with StarDraft 2 (update.inc)
 #include "stardraft/settings.h"
 #include "text_codec.h"  // apps/common: UTF-8 and wide strings (core/strings.inc)
 #include "core/tr.h"  // the translation's declaration (the core's use of tr; ui_text.h defines it)
@@ -107,6 +110,7 @@ namespace {
 #include "core/strings.inc"  // widen, narrow
 
 #include "core/prefs.inc"  // the settings file (prefs::): the portable part of the settings
+#include "core/install_search.inc"  // the usual install folders (installCandidatesOf)
 
 #include "core/ids.inc"  // the command ids, the modes, the dock layout
 #include "core/recent.inc"  // the recent maps and projects (saved in the settings; the File menu is the host's)
@@ -451,7 +455,9 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_new_page_paint.inc"
 #include "core/views_options.inc"  // Program options' view (OptionsView; the host is options_window.inc)
 #include "core/views_feedback.inc"  // the feedback dialog's view (FeedbackView; the host is feedback.inc and feedback_window.inc)
-#include "core/feedback_send.inc"  // the feedback's files and sending (feedbackWriteFile, sendFeedbackFile, feedbackSend; crash.inc's token)
+#include "build_info.h"  // STARDRAFT_COMMIT (cmake/build_info.cmake), before the core's default for it
+#include "core/releases.inc"  // the repository and its issues token, the newest release, the crash reports' texts (crash.inc, update.inc, feedback_send.inc)
+#include "core/feedback_send.inc"  // the feedback's files and sending (feedbackWriteFile, sendFeedbackFile, feedbackSend)
 #include "core/views_new_project.inc"  // File > New EUD project (NewProjectView, runNewProjectDialog; the host is new_project_window.inc)
 #include "core/views_message_box.inc"  // the message box (MessageView, runMessageBox; the host is message_box.inc)
 #include "core/views_about.inc"  // Help > About StarDraft (AboutView; the host is about.inc)
@@ -1124,23 +1130,12 @@ std::wstring pickFolderTitled(const wchar_t* title) {
 
 std::wstring pickFolder() { return pickFolderTitled(L"Select the StarCraft: Remastered folder. It contains .build.info."); }
 
-// Where StarCraft: Remastered might be: Blizzard's registry entries, then the usual install folders. The
-// folder that works is the one with .build.info (CASC opens it); a folder above or below it is tried too.
+// Where StarCraft: Remastered might be: Blizzard's registry entries (apps/common/install.h), then the usual install
+// folders (core/install_search.inc). The folder that works is the one with .build.info (CASC opens it); a folder above
+// or below it is tried too.
 std::vector<fs::path> installCandidates() {
-    std::vector<fs::path> out;
-    auto reg = [&](HKEY root, const wchar_t* key, const wchar_t* value) {
-        wchar_t buf[MAX_PATH] = L"";
-        DWORD size = sizeof buf;
-        if (RegGetValueW(root, key, value, RRF_RT_REG_SZ | RRF_SUBKEY_WOW6432KEY, nullptr, buf, &size) == ERROR_SUCCESS && *buf) out.push_back(buf);
-        size = sizeof buf;
-        if (RegGetValueW(root, key, value, RRF_RT_REG_SZ | RRF_SUBKEY_WOW6464KEY, nullptr, buf, &size) == ERROR_SUCCESS && *buf) out.push_back(buf);
-    };
-    reg(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Blizzard Entertainment\\Starcraft", L"InstallPath");
-    reg(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\StarCraft", L"InstallLocation");
-    reg(HKEY_CURRENT_USER, L"SOFTWARE\\Blizzard Entertainment\\Starcraft", L"InstallPath");
-    for (const wchar_t* p : {L"C:\\Program Files (x86)\\StarCraft", L"C:\\Program Files\\StarCraft", L"C:\\Program Files (x86)\\Starcraft Remastered\\StarCraft",
-                             L"C:\\Program Files (x86)\\Starcraft Remastered", L"C:\\StarCraft", L"D:\\StarCraft", L"D:\\Program Files (x86)\\StarCraft"})
-        out.push_back(p);
+    std::vector<fs::path> out = stardraft::platform::registryInstallFolders();
+    for (const fs::path& p : installCandidatesOf(InstallSystem::Windows, {})) out.push_back(p);
     return out;
 }
 
@@ -2071,11 +2066,11 @@ void commandBody(int id) {
     case ID_VIEW_KIT: showKitGallery(); return;
     case ID_HELP_FEEDBACK: showFeedbackDialog(L"StarDraft 2"); return;
     case ID_HELP_ISSUE:
-        ShellExecuteW(nullptr, L"open", (L"https://github.com/" + std::wstring(crash::kRepo) + L"/issues/new").c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        ShellExecuteW(nullptr, L"open", (L"https://github.com/" + std::wstring(kIssueRepo) + L"/issues/new").c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         return;
     case ID_HELP_UPDATES: update::check(); return;
     case ID_HELP_DISCORD: shellOpenUrl(kDiscordInvite); return;
-    case ID_HELP_GITHUB: shellOpenUrl(L"https://github.com/" + std::wstring(kRepoName)); return;  // the source, releases and issues
+    case ID_HELP_GITHUB: shellOpenUrl(L"https://github.com/" + std::wstring(kIssueRepo)); return;  // the source, releases and issues
     case ID_HELP_ABOUT: showAbout(); return;
     case ID_VIEW_TRIGCODE:
         if (activeProject()) setWorkspace(Workspace::Triggers), showTriggerCode();  // shows or hides the code pane
@@ -2309,15 +2304,13 @@ void commandBody(int id) {
     case ID_OPT_UPDATECHECK:
         gCheckUpdates = !gCheckUpdates;
         if (!gSelfTest) prefs::setNumber(L"CheckUpdates", gCheckUpdates ? 1 : 0);
-        setMessage(gCheckUpdates ? L"StarDraft 2 looks for a newer release on start" : L"StarDraft 2 does not look for a newer release on start");
+        setMessage(releases::updateCheckMessage(gCheckUpdates));
         break;
     case ID_CRASH_MODE:
     case ID_CRASH_MODE + 1:
     case ID_CRASH_MODE + 2:
         setCrashReports(id - ID_CRASH_MODE);
-        setMessage(gCrashReports == 1 ? L"StarDraft 2 sends an anonymous report when it crashes"
-                   : gCrashReports == 2 ? L"StarDraft 2 does not send crash reports (a report stays on this computer)"
-                                        : L"After a crash, StarDraft 2 asks at the next start if it can send the report");
+        setMessage(releases::crashModeMessage(gCrashReports));
         break;
     case ID_OPT_MAPSDEFAULT:
         if (!gSelfTest && !gBackground) makeMapsDefault(app.main);  // (tests leave the user's settings)
@@ -16332,7 +16325,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 // The zip downloads (with the token) and holds stardraft.exe.
                 const fs::path z = fs::path(datashots) / "update.zip";
                 std::ofstream(fs::path(datashots) / "update.txt", std::ios::app)
-                    << "zip downloads: " << (!r.zip.empty() && update::get(widen(r.zip), nullptr, &z, L"application/octet-stream") ? "yes" : "NO") << ", bytes: "
+                    << "zip downloads: " << (!r.zip.empty() && releases::get(r.zip, nullptr, &z, "application/octet-stream") ? "yes" : "NO") << ", bytes: "
                     << (fs::exists(z) ? fs::file_size(z) : 0) << "\n";
                 continue;
             }
@@ -16368,7 +16361,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     v.sending(L"Sending your feedback\x2026");
                     for (int i = 0; i < 5; ++i) pump();
                     capture(shot.parent_path() / "feedback_sending.png", w);
-                    v.done(true, 123, L"https://github.com/" + std::wstring(crash::kRepo) + L"/issues/123");
+                    v.done(true, 123, L"https://github.com/" + std::wstring(kIssueRepo) + L"/issues/123");
                     for (int i = 0; i < 5; ++i) pump();
                     capture(shot.parent_path() / "feedback_sent.png", w);
                     std::ofstream(shot.parent_path() / "feedback_sent.txt")
@@ -17892,8 +17885,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             }
             if (s == "crashask:") {  // crashask.txt, crashask.png: after a crash, the next start asks; Esc (Do not send) keeps it here (#45)
                 std::ofstream o(fs::path(datashots) / "crashask.txt");
-                if (!crash::unsentReports().empty() || crash::token().empty()) {
-                    o << "skipped: " << (crash::token().empty() ? "this build has no token" : "this computer has unsent reports") << "\n";
+                if (!crash::unsentReports().empty() || issueToken().empty()) {
+                    o << "skipped: " << (issueToken().empty() ? "this build has no token" : "this computer has unsent reports") << "\n";
                     continue;
                 }
                 const fs::path dir = crash::folder() / ("selftest-" + std::to_string(GetCurrentProcessId()));

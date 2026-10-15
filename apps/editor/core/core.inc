@@ -7,6 +7,7 @@
 #include "ids.inc"
 #include "prefs.inc"
 #include "install_search.inc"
+#include "releases.inc"
 #include "recent.inc"
 #include "dock_prefs.inc"
 #include "modes.inc"

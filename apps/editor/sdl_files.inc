@@ -120,7 +120,7 @@ void importSoundFilesSdl(const std::vector<fs::path>& files, const Editor* targe
 // The open dialog's answer (SDL's thread): the UI thread imports the files.
 void soundFilesPicked(void* userdata, const char* const* list, int) {
     std::vector<fs::path> files;
-    for (int i = 0; list && list[i]; ++i) files.push_back(fs::path(list[i]));
+    for (int i = 0; list && list[i]; ++i) files.push_back(fs::path(widen(list[i])));  // (UTF-8)
     if (files.empty()) return;
     const Editor* target = static_cast<const Editor*>(userdata);
     shellPost([files, target] { importSoundFilesSdl(files, target); });

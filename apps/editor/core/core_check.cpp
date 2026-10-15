@@ -35,7 +35,9 @@
 
 #include "tr.h"
 #include "text_codec.h"
-#include "http.h"  // apps/common: one HTTPS request (core/feedback_send.inc)
+#include "http.h"  // apps/common: the GitHub requests (core/releases.inc)
+#include "update.h"  // apps/common: the self-update's file steps (core/releases.inc)
+#include "crash_report.h"  // apps/common: sending crash reports (core/releases.inc)
 #include "text_field.h"  // the kit's text field (the tool strip's number edit); outside core.inc's namespace
 #include "view.h"
 #include "../shell.h"

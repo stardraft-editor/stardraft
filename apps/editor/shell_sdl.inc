@@ -62,13 +62,16 @@ bool shellClearFilter() {  // the Locations filter is cleared (the Win32 filter'
     return true;
 }
 unsigned shellDpi() { return gDpi; }
+void sdlRememberLogLine(const std::wstring& line);  // (shell_sdl_win.inc: the crash report's last lines on Windows)
 // A line in the Log (core/views_log.inc), and on stderr; an error opens the Log.
 void shellLogLine(const std::wstring& line) {
     std::fprintf(stderr, "%s\n", narrow(line).c_str());
+    sdlRememberLogLine(line);
     if (logAdd(logState(), line, false)) gLogPane.changed();
 }
 void shellLogError(const std::wstring& line) {
     std::fprintf(stderr, "%s\n", narrow(line).c_str());
+    sdlRememberLogLine(line);
     if (!logAdd(logState(), line, true)) return;
     gLogPane.changed();
     gLogPane.setExpanded(true);
@@ -145,17 +148,35 @@ std::vector<int>& shellPaletteChosen() {
     return chosen;
 }
 
-// The settings file: ~/Library/Application Support/StarDraft on macOS, $XDG_CONFIG_HOME or ~/.config/StarDraft on Linux
-// (the environment variable STARDRAFT_SETTINGS gives another file, as on Windows).
+// An environment variable as a path ("" when it is not set). SDL gives it as UTF-8 on each system (on Windows a path in
+// the system's code page would lose the letters outside it).
+fs::path envPath(const char* name) {
+    const char* v = SDL_getenv(name);
+    return v && *v ? fs::path(widen(v)) : fs::path();
+}
+// The user's folder: HOME, or USERPROFILE on Windows.
+fs::path homeFolder() {
+    fs::path h = envPath("HOME");
+#ifdef _WIN32
+    if (h.empty()) h = envPath("USERPROFILE");
+#endif
+    return h;
+}
+
+// The settings file: %APPDATA%\StarDraft on Windows (the Windows program's file), ~/Library/Application Support/StarDraft
+// on macOS, $XDG_CONFIG_HOME or ~/.config/StarDraft on Linux (the environment variable STARDRAFT_SETTINGS gives another
+// file, as on Windows).
 void shellSettingsChanged() {}  // (the SDL program keeps no options yet: the Windows program saves its options in the registry)
 std::filesystem::path shellSettingsFile() {
-    if (const char* file = std::getenv("STARDRAFT_SETTINGS"); file && *file) return file;
+    if (fs::path file = envPath("STARDRAFT_SETTINGS"); !file.empty()) return file;
     fs::path dir;
-#ifdef __APPLE__
-    if (const char* h = std::getenv("HOME")) dir = fs::path(h) / "Library" / "Application Support" / "StarDraft";
+#if defined(_WIN32)
+    if (const fs::path a = envPath("APPDATA"); !a.empty()) dir = a / "StarDraft";
+#elif defined(__APPLE__)
+    if (const fs::path h = homeFolder(); !h.empty()) dir = h / "Library" / "Application Support" / "StarDraft";
 #else
-    if (const char* x = std::getenv("XDG_CONFIG_HOME"); x && *x) dir = fs::path(x) / "StarDraft";
-    else if (const char* h = std::getenv("HOME")) dir = fs::path(h) / ".config" / "StarDraft";
+    if (const fs::path x = envPath("XDG_CONFIG_HOME"); !x.empty()) dir = x / "StarDraft";
+    else if (const fs::path h = homeFolder(); !h.empty()) dir = h / ".config" / "StarDraft";
 #endif
     if (dir.empty()) dir = fs::temp_directory_path() / "StarDraft";
     return dir / "settings.json";
@@ -201,7 +222,7 @@ int shellTabSideMenu(const std::wstring& title, int side) {
 }
 void shellRecentMenu(bool, const std::vector<std::wstring>&, const std::wstring&) { gMenusDirty = true; }  // (the lists are the menus' own: sdl_menus.inc)
 void shellShowQuickPicker(bool replace, bool open) { showQuickPickerSdl(replace, open); }  // (sdl_map_dialogs.inc)
-void shellMapFileOpened(const std::filesystem::path&) {}  // (the file association is Windows only)
+// (shellMapFileOpened: shell_sdl_win.inc; the file association is Windows only)
 
 // When the program started (its start-up marks count from here): main() takes it first.
 std::chrono::steady_clock::time_point shellProcessStart() {
@@ -338,6 +359,7 @@ void shellProcessClose(std::uintptr_t process) {
 #endif
 namespace {
 void useInstallFolder(const std::string& picked);  // (main_sdl.cpp: the first start's question)
+void saveInstallFolder(const fs::path& dir);  // (main_sdl.cpp: the settings, and on Windows the Windows program's file)
 }
 // File > Options > StarCraft folder (and the Project page's): another install is chosen; its game data must open. With no
 // game data open, the program opens it now (as the first start's question); else it is used from the next start (the
@@ -354,7 +376,7 @@ void shellChooseInstallFolder() {
                                    stardraft::kit::MessageIcon::Warning);
         return;
     }
-    if (!gSilent) prefs::setText(L"StarCraftFolder", dir.wstring());  // (tests never change the user's settings)
+    if (!gSilent) saveInstallFolder(dir);  // (tests never change the user's settings)
     gInstallNext = dir;
     gOptionsView.invalidate();
     stardraft::kit::messageBox(*gRoot, shellTr(L"StarCraft folder"),
@@ -441,8 +463,8 @@ std::wstring shellPickOutputFile(const std::wstring& name) {
 // The Documents folder: the system's (XDG's on Linux), else ~/Documents.
 std::filesystem::path shellDocumentsFolder() {
     if (const char* d = SDL_GetUserFolder(SDL_FOLDER_DOCUMENTS); d && *d) return std::filesystem::path(widen(d));
-    const char* home = std::getenv("HOME");
-    return home && *home ? std::filesystem::path(home) / "Documents" : std::filesystem::path();
+    const fs::path home = homeFolder();
+    return !home.empty() ? home / "Documents" : std::filesystem::path();
 }
 bool shellPromptText(const std::wstring& title, std::wstring& text) {
     TextPromptView* shown = nullptr;

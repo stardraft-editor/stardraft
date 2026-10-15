@@ -6,47 +6,8 @@
 
 // (The includer includes <mutex> and apps/common's http.h before the core: main.cpp, main_sdl.cpp, core_check.cpp.)
 
-#if __has_include("build_info.h")
-#include "build_info.h"  // STARDRAFT_COMMIT, written on each build of the Windows program (cmake/build_info.cmake)
-#endif
-#ifndef STARDRAFT_VERSION_NAME
-#define STARDRAFT_VERSION_NAME "dev"
-#endif
-#ifndef STARDRAFT_COMMIT
-#define STARDRAFT_COMMIT "unknown"
-#endif
-#ifndef STARDRAFT_ISSUES_TOKEN
-#define STARDRAFT_ISSUES_TOKEN ""
-#endif
-
-// The repository that gets the feedback and the crash reports.
-constexpr const wchar_t* kIssueRepo = L"stardraft-editor/stardraft";
-
-// A token that may only open issues on the repository. A build made here has none; the environment variable
-// STARDRAFT_ISSUES_TOKEN gives one to test with.
-std::string issueToken() {
-    static const std::string t = [] {
-        std::string v = STARDRAFT_ISSUES_TOKEN;
-        if (v.empty())
-            if (const char* e = std::getenv("STARDRAFT_ISSUES_TOKEN")) v = e;
-        return v;
-    }();
-    return t;
-}
-
-// A JSON string of UTF-8 text.
-std::string jsonText(const std::string& s) {
-    std::string o = "\"";
-    for (unsigned char ch : s) {
-        if (ch == '"' || ch == '\\') o += '\\', o += char(ch);
-        else if (ch == '\n') o += "\\n";
-        else if (ch == '\r') continue;
-        else if (ch == '\t') o += "\\t";
-        else if (ch < 0x20) continue;
-        else o += char(ch);
-    }
-    return o + "\"";
-}
+// (The repository, the token, jsonText and reportWorkspaceName are in releases.inc: the crash reports and the
+// update check use them too.)
 
 // The first line of a text, without access keys and the end's punctuation, at most 48 characters (a title).
 std::wstring feedbackShort(std::wstring t) {
@@ -55,14 +16,6 @@ std::wstring feedbackShort(std::wstring t) {
     while (!t.empty() && (t.back() == L' ' || t.back() == L':' || t.back() == L'.')) t.pop_back();
     if (t.size() > 48) t = t.substr(0, 47) + L"\x2026";
     return t;
-}
-
-// The workspace's name in a report (the crash reports' and the feedback's "Workspace:" line), in English.
-const wchar_t* reportWorkspaceName(Workspace w) {
-    static const wchar_t* const names[] = {L"Map",      L"Data",       L"Triggers", L"Assets",  L"Project",          L"Briefing",
-                                           L"Assets",   L"Properties", L"Players",  L"Classic triggers", L"Map data"};
-    const int i = int(w);
-    return i >= 0 && i < int(sizeof names / sizeof names[0]) ? names[i] : L"Map";
 }
 
 std::mutex gSentMutex;  // sent.tsv: written by the thread that sends, read by the window

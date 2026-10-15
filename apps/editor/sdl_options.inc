@@ -4,8 +4,8 @@
 // program's), the volume and the unit names in the dock, the unit limits in the core. The theme and the accent change at
 // once (the color tokens, core/colors.inc); the language applies at the next start (Restart now starts the program
 // again); the StarCraft folder is shellChooseInstallFolder's (shell_sdl.inc). Send files the feedback through
-// core/feedback_send.inc (curl). Not on this system: the Maps' program (the file association is Windows only) and Check
-// now (the update check). Included by main_sdl.cpp after sdl_new_page.inc.
+// core/feedback_send.inc. The Maps' program is Windows only (shell_sdl_win.inc); Check now, Look for updates on start
+// and the crash reports' choice are sdl_updates.inc's. Included by main_sdl.cpp after sdl_new_page.inc.
 
 // The Discord server's invitation (the Windows program's about.inc has the same link).
 
@@ -57,7 +57,13 @@ UiLang sdlLanguageChosen(const std::wstring& setting) {
 // STARDRAFT_LANG for this run).
 void loadLanguageSdl(const std::string& given) {
     prefs::text(L"Language", gLanguage);
-    if (!given.empty()) setenv("STARDRAFT_LANG", given.c_str(), 1);
+    if (!given.empty()) {
+#ifdef _WIN32
+        _putenv_s("STARDRAFT_LANG", given.c_str());
+#else
+        setenv("STARDRAFT_LANG", given.c_str(), 1);
+#endif
+    }
     gUiLang = sdlLanguageChosen(gLanguage);
     kit_sdl::setTextTranslator(gUiLang == UiLang::English ? nullptr : sdlTranslate);
 }
@@ -91,16 +97,18 @@ void loadThemeSdl(const std::string& given, int givenAccent) {
 
 // Program options > Language > Restart now: the open map asks to be saved (as on quit), then the program starts again
 // with it (or with the open project) and this one ends.
+std::uintptr_t sdlStartProgram(const fs::path& exe, const fs::path& dir, const std::wstring& args, const std::wstring& what,
+                               std::wstring& error);  // (shell_sdl_win.inc)
 void restartProgramSdl() {
     confirmReplace([] {
         std::error_code ec;
-        fs::path self = fs::read_symlink("/proc/self/exe", ec);  // Linux: the program's own file
-        if (ec || self.empty()) self = fs::absolute(fs::path(gSelfPath), ec);
+        fs::path self = stardraft::platform::programFile();  // the program's own file
+        if (self.empty()) self = fs::absolute(fs::path(gSelfPath), ec);
         std::wstring args;
         if (const EudProject* pr = activeProject(); pr && !isUnsavedProject(pr)) args = L"\"" + pr->folder().wstring() + L"\"";
         else if (gState.ed && gState.ed->isOpen() && !gState.ed->path().empty()) args = L"\"" + gState.ed->path().wstring() + L"\"";
         std::wstring error;
-        const std::uintptr_t p = shellStartElevated(self, fs::current_path(ec), args, L"StarDraft 2", error);
+        const std::uintptr_t p = sdlStartProgram(self, fs::current_path(ec), args, L"StarDraft 2", error);
         if (!p) {
             setMessage(L"StarDraft 2 could not start again. Close it and start it to show the new language.");
             return;
@@ -159,6 +167,8 @@ bool sdlOptionsCommand(int id) {
     return true;
 }
 
+bool sdlMapsOpenWithUs();  // (shell_sdl_win.inc)
+
 // The program's part of the options window: the values, the commands, the folder and the sliders' changes.
 class OptionsProgramSdl final : public OptionsHost {
 public:
@@ -181,8 +191,11 @@ public:
         prefs::number(L"CrashReports", crash, 0, 2), v.crashReports = crash;
         v.installInUse = gInstallInUse.empty() ? std::wstring() : gInstallInUse.wstring();
         v.installNext = !gInstallNext.empty() && gInstallNext != gInstallInUse ? gInstallNext.wstring() : std::wstring();
+        v.mapsWithSD2 = sdlMapsOpenWithUs();  // (Windows: .scm and .scx open with StarDraft 2; shell_sdl_win.inc)
         v.projectsFolder = defaultProjectsFolder().make_preferred().wstring();
-        v.mapsRow = false;  // (the file association is the Windows program's)
+#ifndef _WIN32
+        v.mapsRow = false;  // (the file association is Windows only)
+#endif
     }
     void command(int id) override { ::command(id); }  // (the menu's command: the same path as the menu)
     void setAccent(int i) override {
@@ -276,11 +289,14 @@ void showKitGallerySdl() {
     gHost->openWindow(*gRoot, gKitView, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect(0, 0, scale(1180), h), L"Control kit"}, [] { gKitOpen = false; });
 }
 
-// The feedback dialog's part of the program: sending is not on this system yet (the text stays in the dialog), the links.
 // --- Report feedback ----------------------------------------------------------------------------------------------------
 
-// The system and its version for the feedback's file ("Linux 6.6.87", "macOS 15.1"), as the Windows program writes Windows'.
+// The system and its version for the feedback's file ("Linux 6.6.87", "macOS 15.1", "Windows 10.0.26200"), as the
+// Windows program writes it.
 std::string sdlSystemName() {
+#ifdef _WIN32
+    return stardraft::platform::systemName();  // (apps/common/crash_win32.cpp: the crash reports' too)
+#else
     std::string name = SDL_GetPlatform();
 #ifndef __APPLE__
     std::ifstream in("/proc/sys/kernel/osrelease");
@@ -288,6 +304,7 @@ std::string sdlSystemName() {
     if (std::getline(in, release) && !release.empty()) name += " " + release;
 #endif
     return name;
+#endif
 }
 
 // The feedback dialog's part of the program: Send writes the file and sends it (core/feedback_send.inc), the links.
