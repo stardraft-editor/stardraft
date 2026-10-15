@@ -409,9 +409,15 @@ void sdlTrigFocusFirstValue() {
     if (gTP.sel.index < 0) return;
     if (const auto order = trigTabOrder(gTP.sel); !order.empty()) gTP.focus = order[0];
 }
-// --trigpop n: then value n (from 0, in Tab's order) of the selected block is clicked (n -2: the words of its text), and
+// --trigpop n: then value n (from 0, in Tab's order) of the selected block is clicked (n -2: the words of its text; -100 - f,
+// --trigpop var:f: field f of the selected variable's form: 0 kind, 1 size, 2 default value, 3 description, 4 holds, 10.. a player's), and
 // the pop-out it opens shows in the picture (sdl_popshot.inc), as a click opens it.
 void sdlTrigPopShot(int n) {
+    if (n <= -100) {  // (-100 - field: a field of the selected variable's form, TrigVarHit)
+        for (const TrigVarHit& h : gTP.varHits)
+            if (h.field == -100 - n) return void(popShotOpen([h] { trigEditVariableField(h); }));
+        return;
+    }
     if (gTP.sel.index < 0) return;
     auto order = trigTabOrder(gTP.sel);
     if (n == -2) {  // (the words are hit areas of the pane, not values that Tab goes to)

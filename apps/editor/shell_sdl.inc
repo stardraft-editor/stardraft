@@ -452,10 +452,28 @@ bool shellPromptText(const std::wstring& title, std::wstring& text) {
 // the Strings tab's entries. A text that is not changed is no change (as the Windows editTextValue).
 bool shellEditValue(stardraft::draw::View& v, stardraft::draw::Rect field, const ValuePopSpec& spec, std::string& out) {
     const draw::Point o = v.origin();
-    return runValuePop(spec, {o.x + field.left, o.y + field.bottom + scale(2)}, out, nullptr, [] {
+    const draw::Point at{o.x + field.left, o.y + field.bottom + scale(2)};
+    auto gameTexts = [] {
         dataLoadForProject();
         return entryItems("strings", true);
-    });
+    };
+    if (gPopShot.wanted) {  // (a snapshot: the pop-out shows in the picture, sdl_popshot.inc)
+        auto p = std::make_unique<ValuePopView>(spec);
+        p->setPlace(at);
+        p->gameTexts = gameTexts;
+        const draw::Point size = p->outerSize();
+        popShotTake(std::move(p), at, {size.x - 2, size.y - 2});
+        return false;
+    }
+    return runValuePop(spec, at, out, nullptr, gameTexts);
+}
+bool shellEditGameText(stardraft::draw::View& v, stardraft::draw::Rect field, const std::wstring& title, std::string& text) {
+    ValuePopSpec spec;
+    spec.type = "Text", spec.colorsOnly = true, spec.title = title, spec.initial = text;
+    std::string out;
+    if (!shellEditValue(v, field, spec, out) || out == text) return false;
+    text = out;
+    return true;
 }
 bool shellEditValueBelow(stardraft::draw::View& v, stardraft::draw::Rect field, const std::wstring& title, std::string& text) {
     ValuePopSpec spec;

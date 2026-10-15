@@ -220,7 +220,8 @@ int main(int argc, char** argv) {
     int accentArg = -1;
     gSelfPath = argc > 0 ? argv[0] : "";  // (Restart now starts it again, sdl_options.inc)
     bool rectArg = false, previewArg = false, logArg = false, buildArg = false, trigCodeArg = false;
-    int trigPopArg = -1;  // --trigpop: the value whose pop-out shows (sdl_popshot.inc); -2: a text's words
+    int trigPopArg = -1;  // --trigpop: the value whose pop-out shows (sdl_popshot.inc); -2: a text's words; -100 - n: the variable form's field n
+    std::string textPopArg;  // --textpop: a game text pop-out in the snapshot (sdl_data.inc)
     int width = 1600, height = 1000;
     float scaleArg = 0;
     for (int i = 1; i < argc; ++i) {
@@ -237,8 +238,9 @@ int main(int argc, char** argv) {
         else if (a == "--trigsel") trigSelArg = next();  // an action of the selected trigger: it is selected, for a snapshot
         else if (a == "--trigpop") {  // n or text: the pop-out of value n of the selected block (--trigsel), or of its text's words, shows, for a snapshot
             const std::string n = next();
-            trigPopArg = n == "text" ? -2 : std::atoi(n.c_str());
+            trigPopArg = n == "text" ? -2 : n.rfind("var:", 0) == 0 ? -100 - std::atoi(n.c_str() + 4) : std::atoi(n.c_str());  // (var:<field>: the variable form's field)
         }
+        else if (a == "--textpop") textPopArg = next();  // rename, tooltip or unitname: that game text pop-out shows (sdl_data.inc), for a snapshot
         else if (a == "--trigcode") trigCodeArg = true;  // the Triggers workspace's code pane on (not saved), for a snapshot
         else if (a == "--classictrig") ctArg = next();  // trigger:kind:entry[:value] (2:1:0): the Classic triggers page selects it (and shows the value's pop-out), for a snapshot
         else if (a == "--briefing") briefArg = next();  // row[:ms]: the Briefing page selects that row of the first briefing, the preview at that time, for a snapshot
@@ -422,6 +424,7 @@ int main(int argc, char** argv) {
             if (!trigSelArg.empty()) sdlTrigFocusFirstValue();  // (the pane's hit areas are the first frame's)
             if (trigPopArg != -1) sdlTrigPopShot(trigPopArg), host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             if (!ctArg.empty()) sdlClassicTrigPopShot(ctArg), host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+            if (!textPopArg.empty()) sdlTextPopShot(textPopArg), host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             const bool ok = writeSnapshot(device, tex, width, height, snapshot);
             std::printf("%s %s\n", ok ? "wrote" : "could not write", snapshot.c_str());

@@ -6120,7 +6120,7 @@ public:
         const int sid = entryNameString(dat(), gData.entry);
         return sid > 0 && gData.project && sid <= gExtras.strings.count() ? sid : 0;
     }
-    void rename(int sid) override {
+    void rename(int sid, draw::Rect) override {  // (the pop-out at the mouse)
         std::string text = gExtras.strings.text(sid - 1);
         POINT pt;
         GetCursorPos(&pt);

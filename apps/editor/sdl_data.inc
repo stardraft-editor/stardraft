@@ -525,11 +525,11 @@ public:
         const int sid = entryNameString(dat(), gSdlDataState.entry);
         return sid > 0 && gSdlDataState.project && sid <= gSdlDataExtras.strings.count() ? sid : 0;
     }
-    void rename(int sid) override {  // the name in the text prompt, its color and control codes written as <n> (StatTxt::escape)
-        std::wstring text = widen(StatTxt::escape(gSdlDataExtras.strings.text(sid - 1)));
+    void rename(int sid, draw::Rect link) override {  // the name in the game text pop-out under Rename (its colors, Preview and Raw)
+        std::string text = gSdlDataExtras.strings.text(sid - 1);
         const std::wstring title = shellTr(L"Name in the game (stat_txt.tbl string ") + std::to_wstring(sid) + L")";
-        if (!prompt(title.c_str(), text)) return;
-        gSdlDataExtras.strings.set(sid - 1, StatTxt::unescape(narrow(text)));
+        if (!shellEditGameText(gSdlDataForm, link, title, text)) return;
+        gSdlDataExtras.strings.set(sid - 1, text);
         sdlExtrasChanged();
         sdlDataRebuildList();
         setMessage(shellTr(L"Renamed: ") + statString(sid));
@@ -740,6 +740,23 @@ void sdlDataForgetProject(const EudProject* pr) {
 }
 
 // --- The snapshot's entry: --data <tab>:<entry>[:<scroll>] (the Data workspace opens the entry as it is shown) -----------------------
+
+// --textpop rename|tooltip|unitname (after a frame: the form's click areas are made as it paints): the game text pop-out
+// that Rename (the Data form), the first tooltip's box (the Buttons tab) or the Map data page's unit Rename opens shows in
+// the picture (sdl_popshot.inc), as a click opens it.
+void sdlTextPopShot(const std::string& which) {
+    if (which == "unitname") {
+        if (ClassicPageView* page = gSdlPage.classic[kClassicUnits].get()) popShotOpen([page] { page->renameUnit(); });
+        return;
+    }
+    const std::wstring tip = which == "rename" ? L"Change the name that the game shows" : L"Edit the text (string";
+    for (const auto& a : gSdlDataFormHost.areas)
+        if (a.click && a.tip.rfind(tip, 0) == 0) {
+            const std::function<void()> click = a.click;
+            popShotOpen(click);
+            return;
+        }
+}
 
 void sdlDataSelect(const std::string& spec) {
     const size_t colon = spec.find(':');
