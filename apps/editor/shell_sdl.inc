@@ -97,12 +97,12 @@ void shellPaletteRebuilt() {
     if (gPal2Shown) rebuildSecondRows();
 }
 std::filesystem::path shellUnsavedRoot() { return {}; }  // (new projects are not on this system yet)
-// The save question: Save, Do not save or Cancel, in the kit's message box (Escape, or no window, is Cancel).
+// The save question: Save, Do not save or Cancel, in the message box (core/views_message_box.inc; Escape, or no window, is Cancel).
 int shellAskSaveChanges(bool project) {
     if (!gRoot) return 2;
-    const int r = stardraft::kit::messageBox(*gRoot, shellTr(L"Unsaved changes"),
-                                             shellTr(project ? L"Save the new project?" : L"Save changes to the map?"),
-                                             {shellTr(L"Save"), shellTr(L"Do not save"), shellTr(L"Cancel")}, stardraft::kit::MessageIcon::Question);
+    const int r = msgbox::ask(*gRoot, shellTr(L"Unsaved changes"),
+                              shellTr(project ? L"Save the new project?" : L"Save changes to the map?"),
+                              {shellTr(L"Save"), shellTr(L"Do not save"), shellTr(L"Cancel")}, msgbox::Icon::Question);
     return r == 0 ? 0 : r == 1 ? 1 : 2;
 }
 // Save after the question: a map with a file is saved there (true when it was written); an untitled map asks for its
@@ -144,12 +144,14 @@ void shellLegacyRemove(const std::wstring&, const std::wstring&) {}
 
 void shellErrorBox(const std::wstring& text, const std::wstring& title) {
     std::fprintf(stderr, "%s: %s\n", narrow(title).c_str(), narrow(text).c_str());
-    setMessage(text);
+    if (gRoot && !gNoBoxes) msgbox::ask(*gRoot, title, text, {L"OK"}, msgbox::Icon::Error);  // (as the Windows program's MB_ICONERROR box)
+    else setMessage(text);  // (a snapshot run, or before the window: the status bar)
 }
+stardraft::draw::Canvas* shellMeasureCanvas() { return &stardraft::kit_sdl::measuringCanvas(); }
 int shellAskUnapplied(const std::wstring& text, const std::wstring& title) {
     if (!gRoot) return 2;
-    const int r = stardraft::kit::messageBox(*gRoot, title, text, {shellTr(L"Apply"), shellTr(L"Do not apply"), shellTr(L"Cancel")},
-                                             stardraft::kit::MessageIcon::Question);
+    const int r = msgbox::ask(*gRoot, title, text, {shellTr(L"Apply"), shellTr(L"Do not apply"), shellTr(L"Cancel")},
+                              msgbox::Icon::Question);
     return r == 0 ? 0 : r == 1 ? 1 : 2;
 }
 int shellTabSideMenu(const std::wstring&, int) { return 0; }  // (the side menu is not on this system yet)
@@ -239,6 +241,7 @@ void shellOpenFolder(const std::filesystem::path& folder) { openWithSystem(folde
 void shellOpenInEditor(const std::filesystem::path& file) { openWithSystem(file); }
 void shellOpenWithNotepad(const std::filesystem::path& file) { openWithSystem(file); }
 void shellRevealFile(const std::filesystem::path& file) { openWithSystem(file.parent_path()); }
+void shellOpenUrl(const std::wstring& url) { SDL_OpenURL(narrow(url).c_str()); }
 std::wstring shellFileTimeText(const std::filesystem::path& file) {
     std::error_code ec;
     const auto ft = std::filesystem::last_write_time(file, ec);

@@ -127,6 +127,9 @@ void shellLegacyNames(const std::wstring& sub, std::vector<std::wstring>& out);
 void shellLegacyRemove(const std::wstring& sub, const std::wstring& value);
 // An error message box (the theme's message box) with the title.
 void shellErrorBox(const std::wstring& text, const std::wstring& title);
+// A canvas that measures text in the UI fonts outside a paint (the message box's and the tooltip's sizes); nullptr
+// when the host has none (then they estimate from the font's letters). Windows: none (its boxes measure on a screen DC).
+stardraft::draw::Canvas* shellMeasureCanvas();
 // The question about changes that are not applied (text, title): Apply them, Do not apply them, or Cancel (stay). Returns 0
 // (Apply), 1 (Do not apply) or 2 (Cancel).
 int shellAskUnapplied(const std::wstring& text, const std::wstring& title);
@@ -139,6 +142,8 @@ void shellShowQuickPicker(bool replace, bool open);
 bool shellPathsFoldCase();
 // A map file was opened by itself: asks once whether maps open with StarDraft 2 (Windows only).
 void shellMapFileOpened(const std::filesystem::path& file);
+// A web page is opened in the browser.
+void shellOpenUrl(const std::wstring& url);
 // A folder is opened in the file manager.
 void shellOpenFolder(const std::filesystem::path& folder);
 // A script is opened in the user's editor for it ("edit", else "open"; Notepad when nothing is registered for it).
