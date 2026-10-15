@@ -1,4 +1,5 @@
-// StarDraft's editor on macOS and Linux (SDL3, Dear ImGui through apps/kit_sdl). It compiles the same portable core as
+// StarDraft's editor on macOS and Linux, and stardraft-sdl.exe on Windows until it replaces the Win32 program (SDL3,
+// Dear ImGui through apps/kit_sdl). It compiles the same portable core as
 // the Windows program (core/core.inc, research/ports/MAC-BUILD-PLAN.md step 6), then the SDL shell: the host seam
 // (shell_sdl.inc), the root view (sdl_main_view.inc), the functions the core still needs from the Win32 program
 // (sdl_pending.inc, each marked until it is in the core) and the other workspaces' entry points (sdl_standins.inc).
@@ -11,8 +12,11 @@
 // --log: the Log is open; --build: Build runs first (a snapshot then shows its lines in the Log).
 // --theme light|dark, --accent <n>, --lang <code>: the theme, the accent and the language for this run (not saved).
 // --drop <file>: the file is dropped on the window first (as a drop, or a map that Finder opens on macOS).
+// Windows: --send-crash <folder> sends a crash's report (the crashed program starts it); --crash-test crashes on purpose.
+// A map given while the program is open goes to the open program (not in a test run: a snapshot or --silent).
 // The StarCraft install: --install, then STARDRAFT_INSTALL, the folder chosen before, then the usual folders of each
-// system (core/install_search.inc); when none opens, the window asks for the folder.
+// system (core/install_search.inc; on Windows Blizzard's registry entries first); when none opens, the window asks for
+// the folder.
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -44,6 +48,7 @@
 #include <utility>
 #include <vector>
 #include <climits>
+#include <cwctype>
 #include <thread>
 #include <unordered_map>
 
@@ -56,6 +61,18 @@
 #include "sdl_host.h"
 #include "core/tr.h"
 #include "shell.h"
+#include "install.h"  // apps/common: the registry's install folders (Windows)
+#include "http.h"  // apps/common: the GitHub requests (core/releases.inc)
+#include "update.h"  // apps/common: the self-update's file steps (core/releases.inc, sdl_updates.inc)
+#include "crash_report.h"  // apps/common: the crash handler and sending reports (core/releases.inc, shell_sdl_win.inc)
+#ifdef _WIN32
+#include "file_types.h"  // apps/common: the files that open with StarDraft 2 (shell_sdl_win.inc)
+#include <dwmapi.h>      // the dark title bar (shell_sdl_win.inc)
+#include <shellapi.h>    // the elevated start (shell_sdl_win.inc)
+#endif
+#if __has_include("build_info.h")
+#include "build_info.h"  // STARDRAFT_COMMIT (cmake/build_info.cmake): Check for updates compares it with the release's
+#endif
 #include "dialog.h"  // apps/kit: the map pages' pickers (sdl_map_pages.inc)
 #include "label.h"  // apps/kit: the block dialog's text (core/views_classic_batch.inc)
 #include "text_field.h"  // apps/kit: the search boxes (core/views_search.inc)
@@ -122,7 +139,9 @@ bool gNoBoxes = false;
 #include "sdl_tips.inc"  // the hover tooltips (core/views_tip.inc)
 #include "sdl_build.inc"  // Build's parts of this system (core/project_build.inc)
 #include "sdl_triggers.inc"  // the Triggers workspace (the tree, the pane and the block picker are core/views_triggers_*.inc; the model core/triggers_model.inc)
+#include "sdl_updates.inc"  // Help > Check for updates, the crash reports' choice (core/releases.inc)
 #include "shell_sdl.inc"
+#include "shell_sdl_win.inc"  // the Windows parts: the crash handler, the map files, one program for all maps
 
 namespace {
 
@@ -133,18 +152,31 @@ namespace {
 bool openInstall(const std::string& given, std::string& lastErr) {
     std::vector<fs::path> candidates;
     if (!given.empty()) candidates.push_back(given);
-    if (const char* e = std::getenv("STARDRAFT_INSTALL"); e && *e) candidates.push_back(e);
+    if (fs::path e = envPath("STARDRAFT_INSTALL"); !e.empty()) candidates.push_back(e);
+    // (Windows: the Windows program's install.txt first, so both programs use one install)
+    if (const fs::path f = sdlWindowsInstallFile(); !f.empty())
+        if (std::ifstream in(f); in) {
+            std::string dir;
+            std::getline(in, dir);
+            if (!dir.empty()) candidates.push_back(fs::path(widen(dir)));
+        }
     std::wstring saved;
     if (prefs::text(L"StarCraftFolder", saved) && !saved.empty()) candidates.push_back(saved);
+#ifdef _WIN32
+    // Blizzard's registry entries, then the usual folders (as the Windows program searches).
+    for (const fs::path& p : stardraft::platform::registryInstallFolders()) candidates.push_back(p);
+    for (const fs::path& p : installCandidatesOf(InstallSystem::Windows, {})) candidates.push_back(p);
+#else
 #ifdef __APPLE__
     const InstallSystem system = InstallSystem::Mac;
 #else
     const InstallSystem system = InstallSystem::Linux;
 #endif
-    if (const char* h = std::getenv("HOME"); h && *h) {
-        candidates.push_back(fs::path(h) / "scmirror");  // the developer's mirror of the install
-        for (const fs::path& p : installCandidatesOf(system, fs::path(h))) candidates.push_back(p);
+    if (const fs::path h = homeFolder(); !h.empty()) {
+        candidates.push_back(h / "scmirror");  // the developer's mirror of the install
+        for (const fs::path& p : installCandidatesOf(system, h)) candidates.push_back(p);
     }
+#endif
     std::error_code ec;
     for (const fs::path& c : candidates)
         for (const fs::path& t : installTries(c)) {
@@ -158,6 +190,16 @@ bool openInstall(const std::string& given, std::string& lastErr) {
 
 // The folder dialog's answer (SDL's thread): the UI thread tries the folder, saves it and opens the game data from it.
 void useInstallFolder(const std::string& picked);
+// The StarCraft folder for the next starts: the settings' StarCraftFolder (and on Windows the Windows program's
+// install.txt, so both programs use one install).
+void saveInstallFolder(const fs::path& t) {
+    prefs::setText(L"StarCraftFolder", t.wstring());
+    if (const fs::path f = sdlWindowsInstallFile(); !f.empty()) {
+        std::error_code ec;
+        fs::create_directories(f.parent_path(), ec);
+        std::ofstream(f) << narrow(t.wstring());
+    }
+}
 void installFolderPicked(void*, const char* const* list, int) {
     const std::string picked = list && list[0] ? list[0] : std::string();
     shellPost([picked] { useInstallFolder(picked); });
@@ -188,10 +230,10 @@ void fitMainWindow(int w, int h) {
 void useInstallFolder(const std::string& picked) {
     if (picked.empty()) return;  // (cancelled: the program asks again on the next start)
     std::string err;
-    for (const fs::path& t : installTries(fs::path(picked)))
+    for (const fs::path& t : installTries(fs::path(widen(picked))))  // (UTF-8)
         if (fs::is_directory(t) && gState.data.open(t, err)) {
             gInstallInUse = t;
-            prefs::setText(L"StarCraftFolder", t.wstring());
+            saveInstallFolder(t);
             gDataOk = true, gDataError.clear();
             gStartView.dataError.clear();
             if (gRoot) gRoot->relayout(), gRoot->invalidate(), gRoot->map.invalidate();
@@ -281,6 +323,11 @@ int main(int argc, char** argv) {
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
     if (!snapshot.empty()) gSilent = true, gNoBoxes = true;
+    // A test run (a snapshot, --silent) asks nothing, sends nothing and leaves the user's file types.
+    const bool testRun = gSilent;
+    // Windows: a crash's sender ends here, the crash handler goes in, and a map for the open program goes to it.
+    if (const int sent = sdlWindowsFirst(argc, argv, testRun); sent >= 0) return sent;
+    if (sdlSendToOpenProgram(mapArg, testRun)) return 0;
     if (!SDL_Init(SDL_INIT_VIDEO)) return std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()), 1;
 
     // The device first (the renderer makes it with its shader formats), then the host on it.
@@ -478,6 +525,8 @@ int main(int argc, char** argv) {
             macSetupAppMenu(narrow(accessFree(shellTr(L"&About StarDraft 2"))), narrow(accessFree(shellTr(L"&Program options\x2026"))),
                             [] { shellPostCommand(ID_HELP_ABOUT); }, [] { shellPostCommand(ID_OPT_WINDOW); });
 #endif
+            sdlWindowsShown(testRun);  // (Windows: the dark title bar, an earlier crash's report, the file types)
+            if (!testRun) sdlUpdatesAtStart();  // (a release build: a newer release says so in the status bar)
             if (!gDataOk) shellPost(askInstallFolder);  // no install was found: the window asks for its folder
             sendPendingFeedback();  // feedback that could not go before (core/feedback_send.inc)
             host.setAnimating(true);  // (the map and the posted work need frames; see shellPost)

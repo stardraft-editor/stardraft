@@ -8,15 +8,7 @@
 // on the repository, built in by CI (secret STARDRAFT_ISSUES_TOKEN); a build without one keeps the reports on disk.
 
 #include "build_info.h"  // STARDRAFT_COMMIT, written on each build (cmake/build_info.cmake)
-#ifndef STARDRAFT_VERSION_NAME
-#define STARDRAFT_VERSION_NAME "dev"
-#endif
-#ifndef STARDRAFT_COMMIT
-#define STARDRAFT_COMMIT "unknown"
-#endif
-#ifndef STARDRAFT_ISSUES_TOKEN
-#define STARDRAFT_ISSUES_TOKEN ""
-#endif
+// (the defaults of STARDRAFT_VERSION_NAME, STARDRAFT_COMMIT and STARDRAFT_ISSUES_TOKEN: core/releases.inc, before this file)
 
 namespace crash {
 
@@ -60,11 +52,7 @@ void written(const fs::path& dir) {
     }
     if (gCrashReports != 1) {  // Ask (the next start asks) or Do not send: the report stays on disk
         if (gCrashReports == 2) std::ofstream(dir / "sent") << "not sent: crash reports are off";
-        MessageBoxW(nullptr,
-                    (L"StarDraft 2 stopped because of an error. The crash report is in " + dir.wstring() +
-                     (gCrashReports == 2 ? L" (crash reports are off)." : L". At the next start, StarDraft 2 asks if you want to send the crash report."))
-                        .c_str(),
-                    L"StarDraft 2 stopped", MB_ICONERROR | MB_TOPMOST);
+        MessageBoxW(nullptr, releases::crashStoppedText(dir, gCrashReports).c_str(), L"StarDraft 2 stopped", MB_ICONERROR | MB_TOPMOST);
         return;
     }
     wchar_t self[MAX_PATH];
@@ -73,16 +61,13 @@ void written(const fs::path& dir) {
     STARTUPINFOW si{sizeof si};
     PROCESS_INFORMATION pi{};
     if (CreateProcessW(self, cmd.data(), nullptr, nullptr, FALSE, DETACHED_PROCESS, nullptr, nullptr, &si, &pi)) CloseHandle(pi.hThread), CloseHandle(pi.hProcess);
-    MessageBoxW(nullptr, L"StarDraft 2 stopped because of an error. StarDraft 2 sends a crash report to the developers so that they can repair the error.", L"StarDraft 2 stopped",
-                MB_ICONERROR | MB_TOPMOST);
+    MessageBoxW(nullptr, releases::crashStoppedText(dir, 1).c_str(), L"StarDraft 2 stopped", MB_ICONERROR | MB_TOPMOST);
 }
 
 void install() {
     stardraft::platform::CrashHandler h;
     h.folder = folder();
-    h.header = [] {
-        return "StarDraft " STARDRAFT_VERSION_NAME ", " + gBuild + ", commit " STARDRAFT_COMMIT "\n" + windowsVersion() + ", video card: " + utf8(gGpu) + "\n";
-    };
+    h.header = [] { return releases::crashHeader(gBuild, gGpu); };
     h.context = [] { return gWhere ? "Workspace: " + utf8(gWhere()) + "\n" : std::string(); };
     h.log = [] {
         std::string r;
@@ -95,37 +80,21 @@ void install() {
 
 // --- Sending --------------------------------------------------------------------------------------------------------
 
-// A token that may only open issues on the repository, and a JSON string (core/feedback_send.inc has both).
-std::string token() { return issueToken(); }
-std::string json(const std::string& s) { return jsonText(s); }
-
 // Sends one report to GitHub; true when it arrived (apps/common/crash_report.cpp).
-bool send(const fs::path& dir) { return stardraft::platform::sendCrashReport(dir, utf8(kRepo), token()); }
+bool send(const fs::path& dir) { return releases::sendCrash(dir); }
 
 // At start, on a thread: reports that did not go yet (no network then). Reports older than 30 days go away.
-void sendPending() {
-    if (token().empty() || gCrashReports != 1) return;
-    std::thread([] {
-        std::error_code ec;
-        const auto old = fs::file_time_type::clock::now() - std::chrono::hours(24 * 30);
-        for (const auto& e : fs::directory_iterator(folder(), ec)) {
-            if (fs::last_write_time(e.path(), ec) < old) fs::remove_all(e.path(), ec);
-            else if (fs::exists(e.path() / "report.txt", ec) && !fs::exists(e.path() / "sent", ec)) send(e.path());
-        }
-    }).detach();
-}
+void sendPending() { releases::sendPendingCrashes(folder(), gCrashReports); }
 
 // The reports on this computer that did not go and were not refused.
 std::vector<fs::path> unsentReports() { return stardraft::platform::unsentCrashReports(folder()); }
 
 // At start, with Options > Crash reports: Ask: the reports of the last crash: send them, always send, or not.
 void askToSend() {
-    if (gCrashReports != 0 || token().empty()) return;
+    if (gCrashReports != 0 || issueToken().empty()) return;
     const auto reports = unsentReports();
     if (reports.empty()) return;
-    const std::wstring q = L"StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can "
-                           L"repair the error?\n\nThe report has the version, Windows, the video card, where it crashed and the last log lines. "
-                           L"It has no maps. It is in " + reports.front().parent_path().wstring() + L".";
+    const std::wstring q = releases::crashAskText(reports.front().parent_path());
     const int r = themedMessageBox(app.main, q.c_str(), L"Crash report", MB_YESNOCANCEL | MB_ICONQUESTION, {L"&Send", L"&Always send", L"Do &not send"});
     if (r == IDNO) setCrashReports(1);  // Always send: from now on, without the question
     if (r == IDYES || r == IDNO) {

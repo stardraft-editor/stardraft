@@ -262,8 +262,8 @@ endif()
 
 # --- What the shells ask of the system (apps/common): HTTPS, dialogs (Windows), crash reports, updates -------
 if(WIN32)
-    add_library(stardraft_platform STATIC apps/common/http_win32.cpp apps/common/dialogs_win32.cpp apps/common/crash_win32.cpp apps/common/crash_report.cpp apps/common/update_win32.cpp)
-    target_link_libraries(stardraft_platform PUBLIC stardraft winhttp comdlg32 ole32 dbghelp)
+    add_library(stardraft_platform STATIC apps/common/http_win32.cpp apps/common/dialogs_win32.cpp apps/common/crash_win32.cpp apps/common/crash_report.cpp apps/common/update_win32.cpp apps/common/install_win32.cpp apps/common/file_types_win32.cpp)
+    target_link_libraries(stardraft_platform PUBLIC stardraft winhttp comdlg32 ole32 dbghelp advapi32 shell32)
 else()
     add_library(stardraft_platform STATIC apps/common/http_curl.cpp apps/common/crash_report.cpp apps/common/update_posix.cpp)
     target_link_libraries(stardraft_platform PUBLIC stardraft)
@@ -295,6 +295,28 @@ if(MSVC)  # (the sources are UTF-8: Korean and Chinese in tests and texts)
     target_compile_options(stardraft_kit PRIVATE /utf-8)
     target_compile_options(kit_test PRIVATE /utf-8)
 endif()
+
+# --- The build's commit and the issues token -----------------------------------------------------------------
+# Crash reports: the commit, and the token that sends them to GitHub as issues (CI gives it; see core/releases.inc).
+# Both editors use them: the Win32 one (main.cpp) and the SDL one (main_sdl.cpp).
+# The commit: each build writes it into generated/build_info.h (cmake/build_info.cmake), so a build after a new
+# commit names that commit with no configure step.
+set(STARDRAFT_BUILD_INFO ${CMAKE_BINARY_DIR}/generated/build_info.h)
+add_custom_target(stardraft_build_info COMMAND ${CMAKE_COMMAND} -DSTARDRAFT_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+                  -DSTARDRAFT_BUILD_INFO=${STARDRAFT_BUILD_INFO} -P ${CMAKE_SOURCE_DIR}/cmake/build_info.cmake
+                  BYPRODUCTS ${STARDRAFT_BUILD_INFO} VERBATIM)  # Ninja reads the header again after the step
+# CI gives it in the environment; a build made here reads .issues-token in the repository's root (not in git).
+# Empty: reports and feedback stay on disk until a build with a token starts.
+set(STARDRAFT_ISSUES_TOKEN "$ENV{STARDRAFT_ISSUES_TOKEN}")
+if(NOT STARDRAFT_ISSUES_TOKEN AND EXISTS ${CMAKE_SOURCE_DIR}/.issues-token)
+    file(STRINGS ${CMAKE_SOURCE_DIR}/.issues-token STARDRAFT_ISSUES_TOKEN LIMIT_COUNT 1)
+    string(REGEX REPLACE "^ï»¿" "" STARDRAFT_ISSUES_TOKEN "${STARDRAFT_ISSUES_TOKEN}")  # Notepad's UTF-8 mark
+    string(STRIP "${STARDRAFT_ISSUES_TOKEN}" STARDRAFT_ISSUES_TOKEN)
+    if(STARDRAFT_ISSUES_TOKEN)
+        message(STATUS "StarDraft: the issues token from .issues-token is built in")
+    endif()
+endif()
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/.issues-token)
 
 # --- stardraft-next: the new shell's spike (SDL3 + Dear ImGui; research/ports/PLAN.md, phase 4) ------------------
 # A program of its own beside the Win32 one, on every system. Off: no Dear ImGui is fetched.
@@ -376,47 +398,60 @@ if(STARDRAFT_NEXT AND STARDRAFT_RENDERER)
         target_link_options(kit_demo PRIVATE /SUBSYSTEM:CONSOLE)
     endif()
 
-    # --- The editor on macOS and Linux (SDL; research/ports/MAC-BUILD-PLAN.md step 6): the portable core (core/core.inc)
-    # with the SDL shell (main_sdl.cpp). Windows keeps its own target below. Fonts and atlases as kit_demo's.
-    if(NOT WIN32)
-        add_executable(stardraft_editor MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
+    # --- The editor on SDL (research/ports/MAC-BUILD-PLAN.md step 6): the portable core (core/core.inc) with the SDL
+    # shell (main_sdl.cpp). On macOS and Linux it is the editor (stardraft_editor); on Windows it is stardraft_sdl
+    # (stardraft-sdl.exe) beside the Win32 editor below, until it replaces that one. Fonts and atlases as kit_demo's.
+    if(WIN32)
+        set(sdlEditor stardraft_sdl)
+        set(sdlEditorName stardraft-sdl)
+    else()
+        set(sdlEditor stardraft_editor)
+        set(sdlEditorName stardraft)
+    endif()
+    if(TRUE)
+        add_executable(${sdlEditor} WIN32 MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
                        apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp)
         if(NOT STARDRAFT_VERSION_NAME)
             set(STARDRAFT_VERSION_NAME "0.5 Alpha")
         endif()
-        # The issues token (feedback's Send, core/feedback_send.inc): CI gives it in the environment; none here.
-        target_compile_definitions(stardraft_editor PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="$ENV{STARDRAFT_ISSUES_TOKEN}")
-        target_include_directories(stardraft_editor PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR})
-        target_link_libraries(stardraft_editor PRIVATE stardraft_kit_sdl stardraft_render stardraft_platform stardraft_kit stardraft)
-        set_target_properties(stardraft_editor PROPERTIES OUTPUT_NAME stardraft MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/editor/Info.plist.in)
+        target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
+        target_include_directories(${sdlEditor} PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
+        add_dependencies(${sdlEditor} stardraft_build_info)  # (build_info.h: the commit that Check for updates compares)
+        if(WIN32)  # the program's icons (the window, the taskbar, Explorer) and the Windows parts (shell_sdl_win.inc)
+            target_sources(${sdlEditor} PRIVATE apps/editor/res/stardraft_sdl.rc)
+            target_link_libraries(${sdlEditor} PRIVATE dwmapi shell32 ole32)
+        endif()
+        target_link_libraries(${sdlEditor} PRIVATE stardraft_kit_sdl stardraft_render stardraft_platform stardraft_kit stardraft)
+        set_target_properties(${sdlEditor} PROPERTIES OUTPUT_NAME ${sdlEditorName} MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/editor/Info.plist.in)
         if(APPLE)
             # macOS: the application menu (mac_app_menu.mm), the icon (res/stardraft.icns, from the .ico by
             # tools/make_icns.py) and the version in Info.plist (numbers only: "0.5 Alpha" is 0.5).
             enable_language(OBJCXX)
-            target_sources(stardraft_editor PRIVATE apps/editor/mac_app_menu.mm apps/editor/res/stardraft.icns)
+            target_sources(${sdlEditor} PRIVATE apps/editor/mac_app_menu.mm apps/editor/res/stardraft.icns)
             set_source_files_properties(apps/editor/res/stardraft.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
-            target_link_libraries(stardraft_editor PRIVATE "-framework Cocoa")
+            target_link_libraries(${sdlEditor} PRIVATE "-framework Cocoa")
             string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" editorBundleVersion "${STARDRAFT_VERSION_NAME}")
             if(NOT editorBundleVersion)
                 set(editorBundleVersion 0.0)
             endif()
             string(REGEX MATCH "^[0-9]+(\\.[0-9]+)?(\\.[0-9]+)?" editorShortVersion "${editorBundleVersion}")
-            set_target_properties(stardraft_editor PROPERTIES MACOSX_BUNDLE_SHORT_VERSION_STRING ${editorShortVersion}
+            set_target_properties(${sdlEditor} PROPERTIES MACOSX_BUNDLE_SHORT_VERSION_STRING ${editorShortVersion}
                                   MACOSX_BUNDLE_BUNDLE_VERSION ${editorBundleVersion})
         endif()
         if(APPLE)
-            set(editorDir $<TARGET_BUNDLE_CONTENT_DIR:stardraft_editor>/Resources)
+            set(editorDir $<TARGET_BUNDLE_CONTENT_DIR:${sdlEditor}>/Resources)
         else()
-            set(editorDir $<TARGET_FILE_DIR:stardraft_editor>)
+            set(editorDir $<TARGET_FILE_DIR:${sdlEditor}>)
         endif()
-        add_custom_command(TARGET stardraft_editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/res
+        add_custom_command(TARGET ${sdlEditor} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/res
                            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_ATLASES} ${CMAKE_SOURCE_DIR}/apps/editor/res/stardraft.ico ${editorDir}/res)
         if(STARDRAFT_FONT_FILES)
-            add_custom_command(TARGET stardraft_editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/fonts
+            add_custom_command(TARGET ${sdlEditor} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/fonts
                                COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_FONT_FILES} ${editorDir}/fonts)
         endif()
         if(MSVC)
-            target_compile_options(stardraft_editor PRIVATE /W4 /utf-8)
+            # (main_sdl.cpp holds the whole editor, as main.cpp does: more sections than the default allows)
+            target_compile_options(${sdlEditor} PRIVATE /W4 /utf-8 /bigobj)
         endif()
     endif()
 endif()
@@ -428,31 +463,12 @@ if(WIN32 AND STARDRAFT_RENDERER)
     set_source_files_properties(apps/editor/vorbis.c PROPERTIES COMPILE_OPTIONS "$<$<C_COMPILER_ID:MSVC>:/W0>")
     set_source_files_properties(apps/editor/stb_image.cpp PROPERTIES COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:MSVC>:/W0>")
     target_link_libraries(stardraft_editor PRIVATE stardraft_render stardraft_platform stardraft_kit comctl32 dwmapi shell32 ole32 comdlg32 uxtheme msimg32 gdiplus dbghelp winhttp)
-    # Crash reports: the commit, and the token that sends them to GitHub as issues (CI gives it; see crash.inc).
-    # The commit: each build writes it into generated/build_info.h (cmake/build_info.cmake), so a build after a new
-    # commit names that commit with no configure step.
-    set(STARDRAFT_BUILD_INFO ${CMAKE_BINARY_DIR}/generated/build_info.h)
-    add_custom_target(stardraft_build_info COMMAND ${CMAKE_COMMAND} -DSTARDRAFT_SOURCE_DIR=${CMAKE_SOURCE_DIR}
-                      -DSTARDRAFT_BUILD_INFO=${STARDRAFT_BUILD_INFO} -P ${CMAKE_SOURCE_DIR}/cmake/build_info.cmake
-                      BYPRODUCTS ${STARDRAFT_BUILD_INFO} VERBATIM)  # Ninja reads the header again after the step
-    add_dependencies(stardraft_editor stardraft_build_info)
-    # CI gives it in the environment; a build made here reads .issues-token in the repository's root (not in git).
-    # Empty: reports and feedback stay on disk until a build with a token starts.
-    set(STARDRAFT_ISSUES_TOKEN "$ENV{STARDRAFT_ISSUES_TOKEN}")
-    if(NOT STARDRAFT_ISSUES_TOKEN AND EXISTS ${CMAKE_SOURCE_DIR}/.issues-token)
-        file(STRINGS ${CMAKE_SOURCE_DIR}/.issues-token STARDRAFT_ISSUES_TOKEN LIMIT_COUNT 1)
-        string(REGEX REPLACE "^ï»¿" "" STARDRAFT_ISSUES_TOKEN "${STARDRAFT_ISSUES_TOKEN}")  # Notepad's UTF-8 mark
-        string(STRIP "${STARDRAFT_ISSUES_TOKEN}" STARDRAFT_ISSUES_TOKEN)
-        if(STARDRAFT_ISSUES_TOKEN)
-            message(STATUS "StarDraft: the issues token from .issues-token is built in")
-        endif()
-    endif()
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/.issues-token)
     # The version the program says: a release build gets it from its tag (-DSTARDRAFT_VERSION_NAME=0.5.0.1, see
     # .github/workflows/build.yml); other builds say this one.
     if(NOT STARDRAFT_VERSION_NAME)
         set(STARDRAFT_VERSION_NAME "0.5 Alpha")
     endif()
+    add_dependencies(stardraft_editor stardraft_build_info)
     target_compile_definitions(stardraft_editor PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
     if(MSVC)  # symbols for Release, to read crash dumps
         target_compile_options(stardraft_editor PRIVATE $<$<CONFIG:Release>:/Zi>)

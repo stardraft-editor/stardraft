@@ -69,8 +69,8 @@ bool NewHostSdl::make() {
     std::string err;
     const TerrainGenParams p = gNewView.params();
     const bool copy = gNewView.project && gNewView.copyMap;  // Import an existing map: the project's map is a copy of it (the file stays as it is)
-    const bool ok = copy                   ? ed->open(fs::path(narrow(gNewView.fromMapText())), err)
-                    : gNewView.terrainOnly ? ed->newMapFromTerrain(fs::path(narrow(gNewView.fromMapText())), err)
+    const bool ok = copy                   ? ed->open(fs::path(gNewView.fromMapText()), err)
+                    : gNewView.terrainOnly ? ed->newMapFromTerrain(fs::path(gNewView.fromMapText()), err)
                     : gNewView.generate  ? ed->generateMap(p, err)
                                          : ed->newMap(gNewView.w, gNewView.h, gNewView.era, gNewView.terrainId(), err);
     if (!ok) {

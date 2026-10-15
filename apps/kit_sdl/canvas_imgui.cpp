@@ -523,9 +523,11 @@ bool loadResourceIcon(int id, const std::string& file) {
 }
 
 draw::Canvas& measuringCanvas() {
-    static ImDrawList list(ImGui::GetDrawListSharedData());
-    static ImguiCanvas canvas(list, nullptr);
-    return canvas;
+    // Never destroyed: a draw list takes itself out of the ImGui context's shared data when it goes, and at exit that
+    // context is gone before the statics (the program crashed at exit on Windows after a message box or a tooltip).
+    static ImDrawList* list = new ImDrawList(ImGui::GetDrawListSharedData());
+    static ImguiCanvas* canvas = new ImguiCanvas(*list, nullptr);
+    return *canvas;
 }
 
 ImguiCanvas::ImguiCanvas(ImDrawList& list, SDL_GPUDevice* device) : dl_(&list), dev_(device), cur_(fontEntry(FontDesc{})) {}
