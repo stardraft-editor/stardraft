@@ -4,9 +4,11 @@
 // core's model (core/data_model.inc: the open project's tables with its edits, the extras, the notes, the references, the
 // saves and the undo steps). The views are children of one view here (the Windows program puts each in a window of its
 // own), each with a kit scroll bar where the Windows window has its bar. The Strings and Buttons tabs' forms and the
-// requirements are sdl_data_extras.inc's. Not on this system yet: the pictures beside the fields, the Units display,
-// the map's players, the entries' icons, the pins, back and forward, the entry's and the field's menus (copy, paste,
-// reset) and Rename. Included by
+// requirements are sdl_data_extras.inc's. The pins, back and forward, the clipboard and the entry's and the field's
+// menus are the core's (core/data_nav.inc), the menus kit menus here; the entries' icons are the palette's pictures
+// (sdl_pictures.inc), and the pictures beside the fields are the core's (core/views_data_pictures.inc). Not on this
+// system yet: the other pictures beside the fields (the diagrams, the sound player), the Units display, the map's
+// players and Rename. Included by
 // main_sdl.cpp after sdl_briefing.inc; registerWorkspaceView(Workspace::Data, gSdlData) puts it in the window, and
 // --data <tab>:<entry> opens an entry for a snapshot.
 
@@ -76,10 +78,13 @@ bool gSdlDataRevealDue = false;  // the open entry's row is scrolled into the li
 
 void sdlDataRebuildList() {
     DataModel& d = gSdlDataState;
-    d.shown = dataListRows(gDataListProgram, d.datTab, gSdlDataWorkspace.filter().search, gSdlDataWorkspace.filter().changedOnly, {}).shown;
+    d.shown = dataListShown(gSdlDataWorkspace.filter().search, gSdlDataWorkspace.filter().changedOnly);  // (the pins first)
     gSdlDataList.clampScroll();  // a shorter list: the scroll goes back inside it
     sdlDataRepaint();
 }
+// The core's calls (core/data_nav.inc): the list again, the panes painted again.
+void dataRebuildList() { sdlDataRebuildList(); }
+void dataPanesChanged() { sdlDataRepaint(); }
 
 // A view that hides gives the keyboard back to the form (else the keys go to a box nobody sees: Ctrl+Z undoes its
 // hidden text, typed text changes a string of another tab). The Windows program does this when it hides a window.
@@ -119,6 +124,7 @@ bool sdlDataCommitEdit() {
 void sdlDataSelect(int u) {
     sdlDataCommitEdit();
     DataModel& d = gSdlDataState;
+    dataPlaceRecord(d.datTab, u);  // (Back goes to the entry open before)
     d.entry = std::clamp(u, tabFirstEntry(d.datTab), std::max(tabFirstEntry(d.datTab), tabEntries(d.datTab) - 1));
     d.formScroll = 0, gSdlDataRefs.resetScroll();
     gSdlDataRevealDue = true;  // keep it in view in the list (at the next paint: the list has its size then)
@@ -131,6 +137,7 @@ void sdlDataShowTab(int tab) {
     if (tab < 0 || tab >= dataTabCount()) return;
     if (d.tabEntry.size() < size_t(dataTabCount())) d.tabEntry.resize(size_t(dataTabCount()), 0);
     if (tab != d.datTab) {
+        dataPlaceRecord(tab, d.tabEntry[size_t(tab)]);
         dataSwitchTab(d.datTab, d.entry, d.tabEntry, d.listScroll, d.formScroll, tab);
         gSdlDataWorkspace.resetSearch(dataSearchCue(tabTitle(tab)));
     }
@@ -150,11 +157,88 @@ void sdlDataGoTo(const std::string& dat, int e) {
     sdlDataSelect(e);
     setMessage(tabTitle(tab) + L" " + std::to_wstring(e) + L": " + tabEntryName(tab, e));
 }
+void dataGoTo(const std::string& dat, int e) { sdlDataGoTo(dat, e); }  // (the core's: the quick picker's Data rows)
 
-// A value's change: saved with its undo step (core/data_model.inc), and the list's changed dots follow.
-void sdlDataSaved() {
-    dataSaveChange();
+// Back and forward (the arrows, the mouse's side buttons): core/data_nav.inc.
+void sdlDataTravel(bool back) {
+    if (dataTravelTo(back, [](int tab) { sdlDataShowTab(tab); }, [](int e) { sdlDataSelect(e); })) sdlDataRepaint();
+}
+
+// A value's change: saved with its undo step (core/data_model.inc), and the list's changed dots follow. False when a save
+// failed (the status says why).
+bool dataSaved() {
+    const bool ok = dataSaveChange();
     sdlDataRebuildList();
+    return ok;
+}
+void sdlDataSaved() { dataSaved(); }
+
+// --- The entries' pictures: the palette's pictures (sdl_pictures.inc) as images for the core's views ------------------
+
+draw::Image sdlDataImage(DataPicture p) {
+    if (p.kind == DataPicture::None || !gDevice) return {};
+    draw::Bitmap* b = paletteBitmap(Mode::Units, p.value, gState.playerOwner, p.kind == DataPicture::IconFrame);
+    return b ? kit_sdl::imageOfBitmap(gDevice, *b) : draw::Image{};
+}
+
+// A sound of the image player's script (the core's gImagePlayer, when its sounds are on), as the Windows program's
+// sfxPlayOnce: each sound decoded once, at most 8 at a time; a test run plays nothing (openPlaybackSdl).
+void sfxPlayOnce(int sfx) {
+    static std::vector<SDL_AudioStream*> playing;
+    for (auto it = playing.begin(); it != playing.end();)
+        if (SDL_GetAudioStreamQueued(*it) <= 0) SDL_DestroyAudioStream(*it), it = playing.erase(it);
+        else ++it;
+    if (playing.size() >= 8) return;
+    struct Decoded {
+        SDL_AudioSpec spec{};
+        std::vector<Uint8> pcm;
+    };
+    static std::map<int, Decoded> decoded;
+    auto it = decoded.find(sfx);
+    if (it == decoded.end()) {
+        const std::wstring path = sfxPath(sfx);
+        Bytes wav;
+        std::string err;
+        if (path.empty() || !gState.data.readFile("sound\\" + narrow(path), wav, err)) return;
+        Decoded d;
+        Uint8* buf = nullptr;
+        Uint32 len = 0;
+        if (!SDL_LoadWAV_IO(SDL_IOFromConstMem(wav.data(), wav.size()), true, &d.spec, &buf, &len)) return;
+        d.pcm.assign(buf, buf + len);
+        SDL_free(buf);
+        if (decoded.size() > 64) decoded.clear();
+        it = decoded.emplace(sfx, std::move(d)).first;
+    }
+    if (SDL_AudioStream* s = openPlaybackSdl(&it->second.spec)) {
+        SDL_PutAudioStreamData(s, it->second.pcm.data(), int(it->second.pcm.size()));
+        SDL_FlushAudioStream(s);
+        SDL_ResumeAudioStreamDevice(s);
+        playing.push_back(s);
+    }
+}
+
+// A menu of the core's items (core/data_nav.inc) at `at` of `from`, then "Report feedback on <on>..." as the Windows
+// menus end; a pick runs `pick` with the item's id.
+void sdlDataMenu(draw::View& from, draw::Point at, const MenuModel& items, std::function<void(int)> pick, const std::wstring& on) {
+    std::vector<kit::MenuItem> out;
+    for (const MenuItem& it : items) {
+        kit::MenuItem k;
+        if (it.kind == MenuItem::Kind::Separator) k.separator = true;
+        else {
+            k.label = accessFree(shellTr(it.label.c_str())), k.shortcut = it.shortcut, k.enabled = !it.grayed;
+            const int id = it.id;
+            k.run = [pick, id] { pick(id); };
+        }
+        out.push_back(std::move(k));
+    }
+    if (!out.empty()) out.push_back(kit::MenuItem{}), out.back().separator = true;
+    kit::MenuItem fb;
+    fb.label = shellTr(L"Report feedback on ") + on + L"\x2026";
+    fb.run = [on] { showFeedbackSdl(on); };
+    out.push_back(std::move(fb));
+    ImDrawList list(ImGui::GetDrawListSharedData());
+    kit_sdl::ImguiCanvas measure(list, nullptr);
+    kit::Menu::popup(from, at, out, kit::Menu::measure(out, &measure));
 }
 
 // Undo and redo in the Data workspace (Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z while it shows): the step's table or text as it
@@ -207,14 +291,14 @@ public:
         return d;
     }
     int currentTab() override { return gSdlDataState.datTab; }
-    bool canBack() override { return false; }  // (back and forward: not on this system yet)
-    bool canForward() override { return false; }
+    bool canBack() override { return !gDataBack.empty(); }
+    bool canForward() override { return !gDataForward.empty(); }
     void tabClicked(int tab) override {
         sdlDataShowTab(tab);
         const int n = ::tabChangedCount(tab);
         setMessage((extraTab(tab) ? ::tabTitle(tab) : widen(DatSchema::all()[size_t(tab)].name) + L".dat") + (n ? L": " + std::to_wstring(n) + L" changed" : L""));
     }
-    void travel(bool) override { sdlDataNotHere(L"Back and forward"); }
+    void travel(bool back) override { sdlDataTravel(back); }
     int listWidth() override { return scale(gDock.dataListW); }
     int dragList(int dx) override {  // the edge: the list's width (the dock's, clamped); returns the px it moved
         const int dpi = int(shellDpi());
@@ -238,26 +322,31 @@ class SdlDataListHost final : public DataListViewHost {
 public:
     int tab() override { return gSdlDataState.datTab; }
     const std::vector<int>& rows() override { return gSdlDataState.shown; }
-    int pinnedShown() override { return 0; }  // (pins: not on this system yet)
+    int pinnedShown() override { return gDataPinnedShown; }
     int entry() override { return gSdlDataState.entry; }
     int& scroll() override { return gSdlDataState.listScroll; }
     bool changed(int e) override { return tabEntryChanged(gSdlDataState.datTab, e); }
     std::wstring name(int e) override { return tabEntryName(gSdlDataState.datTab, e); }
-    draw::Image icon(int) override { return {}; }  // (the entries' icons: not on this system yet)
+    draw::Image icon(int e) override { return sdlDataImage(dataTabEntryPicture(gSdlDataState.datTab, e)); }
     void select(int e) override { sdlDataSelect(e); }
-    void menu(int, draw::Point) override { sdlDataNotHere(L"The entry's menu (copy, paste, reset, pin)"); }
-    bool travel(int) override { return false; }
+    void menu(int e, draw::Point pt) override;
+    bool travel(int button) override { return sdlDataTravel(button == 1), true; }
 };
 SdlDataListHost gSdlDataListHost;
 DataListView gSdlDataList(gSdlDataListHost);
+void SdlDataListHost::menu(int e, draw::Point pt) {  // the entry's menu (core/data_nav.inc), at the mouse
+    const DatTable* t = curTable();
+    if (!t) return;
+    sdlDataMenu(gSdlDataList, pt, dataEntryMenuModel(e), [e](int pick) { dataEntryMenuPick(e, pick); }, entryName(t->schema().name, e));
+}
 
 class SdlDataRefsHost final : public DataRefsHost {
 public:
     std::vector<DataRefRow> refs(bool& shown) override {
-        return dataRefRows(shown, [](int, int) { return draw::Image{}; });  // (the entries' icons: not on this system yet)
+        return dataRefRows(shown, [](int tab, int e) { return sdlDataImage(dataTabEntryPicture(tab, e)); });
     }
     void goTo(const std::string& dat, int entry) override { sdlDataGoTo(dat, entry); }
-    bool travel(int) override { return false; }
+    bool travel(int button) override { return sdlDataTravel(button == 1), true; }
 };
 SdlDataRefsHost gSdlDataRefsHost;
 DataRefsPage gSdlDataRefs(gSdlDataRefsHost);
@@ -298,7 +387,7 @@ public:
     void beforePaint() override { areas.clear(); }
     bool paintExtraTab(draw::Canvas& c, int& y) override { return sdlPaintExtraTab(c, y); }
     void afterPaint(draw::Canvas&) override;
-    draw::Image entryIcon() override { return {}; }  // (the entries' pictures: not on this system yet)
+    draw::Image entryIcon() override { return sdlDataImage(dataEntryPicture(gSdlDataState.datTab, gSdlDataState.entry)); }
     UiIcon tabIcon() override { return ::tabIcon(gSdlDataState.datTab); }
     int nameString() override {
         const int sid = entryNameString(dat(), gSdlDataState.entry);
@@ -308,7 +397,7 @@ public:
     void openString(int sid) override { sdlDataGoTo("strings", sid); }
     std::wstring fieldNote(const DatField& f, uint32_t v) override { return ::fieldNote(f, v); }
     std::wstring readOnlyWhy(const DatField& f) override { return datFieldReadOnly(dat(), f, gSdlDataState.entry); }
-    draw::Image refIcon(const std::string&, uint32_t) override { return {}; }
+    draw::Image refIcon(const std::string& d, uint32_t v) override { return sdlDataImage(dataRefPicture(d, v)); }
     int widgets(draw::Canvas&, int, int, int y, int) override { return y; }
     void soundButton(draw::Canvas&, draw::Rect, int) override {}
     int unitDisplay(draw::Canvas&, int y) override { return y; }
@@ -370,9 +459,9 @@ public:
     void valueSet() override { sdlDataSaved(); }
     void paintNow() override {}  // (the entry follows its box at each paint: placeEntry)
     void goTo(const std::string& d, int e) override { sdlDataGoTo(d, e); }
-    void fieldMenu(const DatField&, draw::Point) override { sdlDataNotHere(L"The field's menu (copy, paste, reset)"); }
+    void fieldMenu(const DatField& f, draw::Point p) override;
     void status(const std::wstring& text) override { setMessage(text); }
-    bool travel(int) override { return false; }
+    bool travel(int button) override { return sdlDataTravel(button == 1), true; }
 
     // The number entry sits on its field's value box, as the last paint placed it (also after a scroll).
     void placeEntry() {
@@ -393,6 +482,11 @@ SdlDataFormHost gSdlDataFormHost;
 DataFormView gSdlDataForm(gSdlDataFormHost);
 DataNumberEntry gSdlDataEntry;
 void SdlDataFormHost::afterPaint(draw::Canvas&) { placeEntry(); }
+void SdlDataFormHost::fieldMenu(const DatField& f, draw::Point p) {  // the field's menu (core/data_nav.inc), at the mouse
+    if (!curTable()) return;
+    const DatField* field = &f;  // (a field of the open table: it stays while the menu is open)
+    sdlDataMenu(gSdlDataForm, p, dataFieldMenuModel(f), [field](int pick) { dataFieldMenuPick(*field, pick); }, widen(f.name));
+}
 void sdlFormArea(draw::Rect r, std::function<void()> click, const std::wstring& tip, bool hand) {
     gSdlDataFormHost.area(r, std::move(click), tip, hand ? draw::Cursor::Hand : draw::Cursor::Arrow);
 }

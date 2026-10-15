@@ -20,11 +20,12 @@ void releasePaletteArt() { gPaletteArt = PaletteArt{}; }
 // The picture of one item (value) of a palette mode, or nullptr when it has none (the Win32 palette's blank case: the
 // game's "BLANK" icon). Terrains and doodads: their tiles; units: the command icon (HD in the HD modes); sprites: their
 // image (SD art, as the Win32 palette's sprites when the HD art is not there).
-draw::Bitmap* paletteBitmap(Mode what, int value, int owner) {
+// `iconFrame`: the command icon of that frame (cmdicons; HD in the HD modes), for the Data workspace's entries.
+draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = false) {
     if (!gState.ed || !gState.ed->isOpen() || value < 0) return nullptr;
     Editor& ed = *gState.ed;
     const int mode = gState.carbot ? 2 : gState.quality == GraphicsQuality::SD ? 0 : 1;
-    const bool unitKind = what == Mode::Units;
+    const bool unitKind = what == Mode::Units && !iconFrame;
     if (gPaletteArt.ed != &ed || gPaletteArt.era != int(ed.era()) || gPaletteArt.mode != mode) {
         gPaletteArt.bitmaps.clear();
         if (gPaletteArt.mode != mode) {
@@ -48,13 +49,16 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner) {
         gPaletteArt.hdTilesLoaded = false;
         gPaletteArt.ed = &ed, gPaletteArt.era = int(ed.era()), gPaletteArt.mode = mode;
     }
-    const auto key = std::make_tuple(int(what), value, unitKind ? owner : 0);
+    const auto key = std::make_tuple(iconFrame ? 100 : int(what), value, unitKind ? owner : 0);
     if (auto it = gPaletteArt.bitmaps.find(key); it != gPaletteArt.bitmaps.end()) return it->second.get();
 
     // The picture: a sprite of the game data (straight alpha), cropped to its opaque pixels below.
     Sprite art;
     const Sprite* s = nullptr;
-    if (!unitKind) {
+    if (iconFrame) {
+        if (!mode) s = ed.unitSprites().commandIcon(uint16_t(value));
+        else if (value < int(gPaletteArt.hdIcons.size()) && gPaletteArt.hdIcons[size_t(value)].width) s = &gPaletteArt.hdIcons[size_t(value)];
+    } else if (!unitKind) {
         if (mode && !gPaletteArt.hdTilesLoaded) {
             std::string err;
             gPaletteArt.hdTilesLoaded = true;
