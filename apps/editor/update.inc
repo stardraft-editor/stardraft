@@ -120,17 +120,44 @@ bool get(const std::wstring& url, std::string* body, const fs::path* file = null
     return r.status == 200 && r.complete;
 }
 
-using updcore::jsonString;  // (core/prompts.inc: the reading of the release and the texts)
-using updcore::Release;
+// A string value after `"key":"` (from `from` on); "" when there is none.
+std::string jsonString(const std::string& j, const std::string& key, size_t from = 0) {
+    const std::string k = "\"" + key + "\":\"";
+    const size_t a = j.find(k, from);
+    if (a == std::string::npos) return {};
+    const size_t b = j.find('"', a + k.size());
+    return b == std::string::npos ? std::string() : j.substr(a + k.size(), b - a - k.size());
+}
+
+struct Release {
+    std::string title, commit, zip, page;  // zip: the asset's API address (it downloads with the token)
+};
 
 // The newest release; false when GitHub cannot be reached.
 bool latest(Release& r) {
     std::string j;
     if (!get(L"https://api.github.com/repos/" + std::wstring(crash::kRepo) + L"/releases/latest", &j)) return false;
-    return updcore::parseRelease(j, stardraft::platform::releaseAssetSuffix(), r);
+    r.title = jsonString(j, "name");  // the release's own name comes before its assets' names
+    r.page = jsonString(j, "html_url");
+    if (const size_t a = r.title.find("(build "); a != std::string::npos) r.commit = r.title.substr(a + 7, r.title.find(')', a) - a - 7);
+    for (size_t p = 0; (p = j.find("\"browser_download_url\":\"", p)) != std::string::npos; ++p) {
+        const std::string u = jsonString(j, "browser_download_url", p);
+        // This system's download (StarDraft-<version>-win64.zip): a release can also have downloads for other systems.
+        static const std::string kOurs = stardraft::platform::releaseAssetSuffix();
+        if (u.size() < kOurs.size() || u.compare(u.size() - kOurs.size(), kOurs.size(), kOurs) != 0) continue;
+        // The asset's "url" (api.github.com/.../releases/assets/<id>) comes before its browser_download_url.
+        for (size_t k = j.rfind("\"url\":\"", p); k != std::string::npos; k = k ? j.rfind("\"url\":\"", k - 1) : std::string::npos) {
+            const std::string a = jsonString(j, "url", k);
+            if (a.find("/releases/assets/") != std::string::npos) {
+                r.zip = a;
+                break;
+            }
+        }
+    }
+    return !r.title.empty();
 }
 
-bool newer(const Release& r) { return updcore::newer(r, STARDRAFT_COMMIT); }
+bool newer(const Release& r) { return !r.commit.empty() && r.commit != STARDRAFT_COMMIT; }
 
 // A release build: the one CI makes (the others are built here, by a developer).
 bool releaseBuild() { return !crash::token().empty(); }
@@ -149,7 +176,7 @@ void atStart() {
         Release r;
         if (latest(r) && newer(r)) {
             const std::wstring title = widen(r.title);
-            shellPost([title] { setMessage(updcore::atStartNote(title)); });
+            shellPost([title] { setMessage(L"A newer release is available: " + title + L". Use Help > Check for updates."); });
         }
     }).detach();
 }
@@ -159,21 +186,24 @@ void check() {
     SetCursor(LoadCursor(nullptr, IDC_WAIT));
     Release r;
     if (!latest(r)) {
-        themedMessageBox(app.main, updcore::kNoReply, updcore::kTitle, MB_ICONWARNING);
+        themedMessageBox(app.main, L"Could not get the newest release from GitHub. Make sure that the computer is connected to the internet.", L"Check for updates",
+                         MB_ICONWARNING);
         return;
     }
     if (!newer(r)) {
-        themedMessageBox(app.main, updcore::upToDate(widen(r.title)), updcore::kTitle, MB_ICONINFORMATION);
+        themedMessageBox(app.main, (L"StarDraft 2 is up to date (" + widen(r.title) + L").").c_str(), L"Check for updates", MB_ICONINFORMATION);
         return;
     }
     const fs::path self = stardraft::platform::programFile();
     if (!releaseBuild() || _wcsicmp(self.filename().c_str(), L"stardraft.exe") != 0 || r.zip.empty()) {
         // A build made here: the release page, to get it by hand.
-        if (themedMessageBox(app.main, updcore::notReleaseBuild(widen(r.title)), updcore::kTitle, MB_YESNO | MB_ICONINFORMATION, {L"&Open the release page", L"Cancel"}) == IDYES)
+        if (themedMessageBox(app.main, (L"A newer release is available: " + widen(r.title) + L".\n\nThis is not a release build. Open the release page?").c_str(),
+                             L"Check for updates", MB_YESNO | MB_ICONINFORMATION, {L"&Open the release page", L"Cancel"}) == IDYES)
             ShellExecuteW(nullptr, L"open", widen(r.page).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         return;
     }
-    if (themedMessageBox(app.main, updcore::installQuestion(widen(r.title)), updcore::kTitle, MB_YESNO | MB_ICONQUESTION, {L"&Install", L"Cancel"}) != IDYES)
+    if (themedMessageBox(app.main, (L"A newer release is available: " + widen(r.title) + L".\n\nDownload and install it? StarDraft 2 starts again after it.").c_str(),
+                         L"Check for updates", MB_YESNO | MB_ICONQUESTION, {L"&Install", L"Cancel"}) != IDYES)
         return;
     // Download and unpack.
     setMessage(L"Downloading " + widen(r.title) + L"\x2026");

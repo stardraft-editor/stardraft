@@ -32,15 +32,11 @@
 #include <random>
 #include <set>
 #include <string>
-#include <thread>
 #include <tuple>
 #include <utility>
 #include <vector>
 
 #include "canvas.h"
-#include "crash_report.h"  // apps/common: unsent crash reports, sending them (sdl_prompts.inc)
-#include "http.h"          // apps/common: the update check's request (sdl_prompts.inc)
-#include "update.h"        // apps/common: this system's release download (sdl_prompts.inc)
 #include "view.h"
 #include "wintypes.h"
 #include "text_codec.h"
@@ -48,6 +44,7 @@
 #include "sdl_host.h"
 #include "core/tr.h"
 #include "shell.h"
+#include "message_box.h"  // apps/kit: kit::messageBox (the other SDL files' boxes; the core's is msgbox::ask)
 #include "dialog.h"  // apps/kit: the map pages' pickers (sdl_map_pages.inc)
 #include "label.h"  // apps/kit: the block dialog's text (core/views_classic_batch.inc)
 #include "text_field.h"  // apps/kit: the search boxes (core/views_search.inc)
@@ -107,7 +104,7 @@ bool gNoBoxes = false;
 #include "sdl_map_dialogs.inc"  // Unit and Location properties, the text prompt, the quick picker and the map's menu
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
 #include "sdl_data.inc"  // the Data workspace (the model is core/data_list.inc and core/views_data*.inc; the tables are the stock .dat files)
-#include "sdl_prompts.inc"  // the crash question, Check for updates and the hover tooltips (core/prompts.inc, core/views_tip.inc)
+#include "sdl_tips.inc"  // the hover tooltips (core/views_tip.inc)
 #include "shell_sdl.inc"
 
 namespace {
@@ -250,7 +247,7 @@ int main(int argc, char** argv) {
         std::printf("stardraft_editor: fonts %s, scale %.2f\n", kit_sdl::loadFonts(base + "fonts/").c_str(), double(scale));
         if (!kit_sdl::loadIconAtlases(device, base + "res/")) std::printf("stardraft_editor: no icon atlases in res/\n");
         if (!kit_sdl::loadResourceIcon(1, base + "res/stardraft.ico")) std::printf("stardraft_editor: no app icon in res/\n");  // (About's)
-        host.setHoverHook(sdlHover);  // the views' tooltips (sdl_prompts.inc)
+        host.setHoverHook(sdlHover);  // the views' tooltips (sdl_tips.inc)
 
         // The game data (the map needs it), then the map from the command line.
         std::string dataErr;
@@ -366,7 +363,6 @@ int main(int argc, char** argv) {
             if (!host.show(root, L"StarDraft", width, height)) return std::fprintf(stderr, "could not open a window\n"), 1;
             updateTitle();  // (the window exists now: its title is the open map's)
             if (!gDataOk) shellPost(askInstallFolder);  // no install was found: the window asks for its folder
-            else shellPost(sdlAskToSendCrashReports);  // after a crash: send its report? (Options > Crash reports: Ask)
             host.setAnimating(true);  // (the map and the posted work need frames; see shellPost)
             host.run();
         }

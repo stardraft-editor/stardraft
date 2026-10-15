@@ -6,6 +6,7 @@
 // Included by main_sdl.cpp after sdl_pending.inc, before shell_sdl.inc.
 
 #include "menu.h"
+#include "message_box.h"
 
 // The menus are made again on the UI thread when the state changed (shellMenusChanged) and no menu is open.
 bool gMenusDirty = true;
@@ -105,7 +106,6 @@ bool sdlRuns(int id) {
     case ID_EDIT_RENAME:  // the location's rename and the quick picker (sdl_map_dialogs.inc)
     case ID_QUICKPICK: return true;
     case ID_HELP_ABOUT:  // (sdl_options.inc) and the links
-    case ID_HELP_UPDATES:  // (sdl_prompts.inc)
     case ID_VIEW_KIT:
     case ID_HELP_DISCORD:
     case ID_HELP_GITHUB: return true;
@@ -369,7 +369,6 @@ void command(int id) {
         return;
     case ID_QUICKPICK: shellShowQuickPicker(false, false); return;
     case ID_HELP_ABOUT: showAboutSdl(); return;
-    case ID_HELP_UPDATES: sdlCheckUpdates(); return;
     case ID_VIEW_KIT: showKitGallerySdl(); return;
     case ID_HELP_DISCORD: shellOpenUrl(kDiscordInvite); return;
     case ID_HELP_GITHUB: shellOpenUrl(L"https://github.com/" + std::wstring(kRepoName)); return;
