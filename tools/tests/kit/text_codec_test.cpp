@@ -59,3 +59,43 @@ KIT_TEST(text_codec) {
     CHECK(narrowDiff == 0);
 #endif
 }
+
+// widenLegacy: a map's old text (UTF-8, else Korean CP949, else Windows-1252). On Windows each 2-byte CP949 code is
+// checked against code page 949.
+KIT_TEST(text_codec_legacy) {
+    using stardraft::text::widenLegacy;
+    CHECK(widenLegacy("") == L"");
+    CHECK(widenLegacy("Terran Marine") == L"Terran Marine");
+    CHECK(widenLegacy("\xED\x95\x9C\xEA\xB5\xAD") == L"한국");               // UTF-8 stays UTF-8
+    CHECK(widenLegacy("\xC7\xD1\xB1\xB9\xBE\xEE") == L"한국어");              // CP949 (KS X 1001)
+    CHECK(widenLegacy("\xC7\xD1\xB1\xB9 \x8C\x63 Map") == L"한국 똠 Map");    // with a UHC syllable (8C63) and ASCII
+    CHECK(widenLegacy("\x01\xBF\xEC\xB8\xAE\x04 \xB1\xBA\xB4\xEB") == L"\x01우리\x04 군대");  // with the game's color codes
+    CHECK(widenLegacy("caf\xE9") == L"café");                                 // Windows-1252: é at the end is no CP949
+    CHECK(widenLegacy("\xC4pfel") == L"Äpfel");                                // a valid UHC code, but no common syllable
+    CHECK(widenLegacy("\xE4\xE4") == L"ää");                                   // a valid Hanja code, but no Hangul
+    CHECK(widenLegacy("\x80\x81\x9F") == std::wstring(L"€\u0081Ÿ"));
+    CHECK(stardraft::text::cp949(0xC6, 0x52) == U'힣');  // the last UHC syllable
+    CHECK(stardraft::text::cp949(0xC6, 0x53) == 0);
+    CHECK(stardraft::text::cp949(0xB0, 0xA1) == U'가');
+    CHECK(stardraft::text::cp949(0x81, 0x41) == U'갂');
+    CHECK(stardraft::text::cp949(0xA1, 0xD8) == U'※');
+    CHECK(stardraft::text::cp949(0xF9, 0xD3) == U'漢');
+    CHECK(stardraft::text::cp949(0xC9, 0xA1) == 0xE000);  // the user-defined rows
+    CHECK(stardraft::text::cp949(0x80, 0x41) == 0);
+    int mapped = 0;
+    for (int l = 0x81; l <= 0xFE; ++l)
+        for (int t = 0x41; t <= 0xFE; ++t) mapped += stardraft::text::cp949((unsigned char)l, (unsigned char)t) ? 1 : 0;
+    CHECK(mapped == 17048 + 188);  // the codec's codes and the two user-defined rows
+#ifdef _WIN32
+    int diff = 0;
+    for (int l = 0x81; l <= 0xFE; ++l)
+        for (int t = 0x41; t <= 0xFE; ++t) {
+            const char b[2] = {char(l), char(t)};
+            wchar_t w[4]{};
+            const int n = MultiByteToWideChar(949, MB_ERR_INVALID_CHARS, b, 2, w, 4);
+            const char32_t ours = stardraft::text::cp949((unsigned char)l, (unsigned char)t);
+            if (ours ? (n != 1 || char32_t(w[0]) != ours) : n == 1) ++diff;
+        }
+    CHECK(diff == 0);
+#endif
+}
