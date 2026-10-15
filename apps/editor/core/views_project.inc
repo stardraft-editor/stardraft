@@ -221,8 +221,8 @@ public:
     std::wstring tip(draw::Point pt) override;
     // Report feedback names the part under the mouse by its tip; elsewhere on the page, the page.
     std::wstring feedbackName(draw::Point pt) override {
-        const int hi = hitAt(pt);
-        if (hi >= 0 && !hits_[size_t(hi)].tip.empty()) return hits_[size_t(hi)].tip;
+        const int hi = tipAt(pt);
+        if (hi >= 0) return hits_[size_t(hi)].tip;
         return L"the Project page";
     }
 
@@ -245,9 +245,23 @@ private:
         std::wstring text, tip;
         std::function<void()> click;
     };
+    // The top part under the point (the cursor and the hover take it, as the old page's WM_SETCURSOR did).
     int hitAt(draw::Point pt) const {
         for (size_t i = hits_.size(); i-- > 0;)
             if (hits_[i].r.contains(pt)) return int(i);
+        return -1;
+    }
+    // The top part a press acts on: one with a click or a grip (a disabled button passes the press on, as the old page's
+    // hit lookup skipped the parts without a click).
+    int clickAt(draw::Point pt) const {
+        for (size_t i = hits_.size(); i-- > 0;)
+            if (hits_[i].r.contains(pt) && (hits_[i].click || hits_[i].grip >= 0)) return int(i);
+        return -1;
+    }
+    // The top part with a tip (a part without one, such as a row's cover, does not hide the tips under it).
+    int tipAt(draw::Point pt) const {
+        for (size_t i = hits_.size(); i-- > 0;)
+            if (hits_[i].r.contains(pt) && !hits_[i].tip.empty()) return int(i);
         return -1;
     }
     // Whether the mouse is in `r` (the host's pointer, in this view's coordinates).
@@ -503,6 +517,8 @@ int ProjectPageView::paintScripts(draw::Canvas& c, int y, int x0, int rowH, int 
         if (can) {
             hits_.push_back({{r.left, r.top, r.left + scale(18), r.bottom}, nullptr, L"Drag to move", draw::Cursor::SizeAll, int(i)});
         }
+        // The row's cover (as the old row actions): an arrow over the whole row, the grip included; its clicks pass on.
+        hits_.push_back({r, nullptr, std::wstring(), draw::Cursor::Arrow});
         // The name in the mono font, the note after it in the UI font.
         const draw::Font ui = c.setFont(c.font({draw::Face::Mono, 0}));
         const draw::Rect t{x0 + scale(16), r.top, r.right - scale(380), r.bottom};
@@ -719,11 +735,12 @@ bool ProjectPageView::mouse(const draw::MouseEvent& e) {
     }
     case draw::MouseKind::Down:
         if (e.button != 0) return false;
-        if (const int hi = hitAt(e.pt); hi >= 0 && hits_[size_t(hi)].grip >= 0) {
+        focus();  // the press takes the keyboard focus (the old page was a window that took it)
+        if (const int hi = clickAt(e.pt); hi >= 0 && hits_[size_t(hi)].grip >= 0) {
             startDrag(hits_[size_t(hi)].grip, e.pt);
             return true;
         }
-        if (const int hi = hitAt(e.pt); hi >= 0 && hits_[size_t(hi)].click) {
+        if (const int hi = clickAt(e.pt); hi >= 0 && hits_[size_t(hi)].click) {
             const std::function<void()> run = hits_[size_t(hi)].click;  // a copy: the click may repaint and clear hits_
             run();
             return true;
@@ -767,7 +784,7 @@ draw::Cursor ProjectPageView::cursor(draw::Point pt) {
 }
 
 std::wstring ProjectPageView::tip(draw::Point pt) {
-    const int hi = hitAt(pt);
+    const int hi = tipAt(pt);
     return hi >= 0 ? hits_[size_t(hi)].tip : std::wstring();
 }
 
