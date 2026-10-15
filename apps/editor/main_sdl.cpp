@@ -203,7 +203,7 @@ int main(int argc, char** argv) {
         else if (a == "--workspace") workspaceArg = next();  // a workspace's name (map, data, triggers, project...), for a snapshot
         else if (a == "--data") dataArg = next();  // tab:entry (units:0, images:239, strings:5): the Data workspace opens it, for a snapshot
         else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
-        else if (a == "--dialog") dialogArg = next();  // options or feedback: that window's view is the snapshot (--size its size)
+        else if (a == "--dialog") dialogArg = next();  // options, feedback or listpick: that window's view is the snapshot (--size its size)
         else if (a == "--silent") gSilent = true;
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
@@ -276,11 +276,17 @@ int main(int argc, char** argv) {
             ti.width = uint32_t(width), ti.height = uint32_t(height), ti.layer_count_or_depth = 1, ti.num_levels = 1;
             SDL_GPUTexture* tex = SDL_CreateGPUTexture(device, &ti);
             if (!tex) return std::fprintf(stderr, "snapshot texture: %s\n", SDL_GetError()), 1;
-            // The picture is the window's root, or the dialog's view (--dialog options|feedback) at the --size given.
+            // The picture is the window's root, or the dialog's view (--dialog options|feedback|listpick) at the --size given.
             FeedbackView feedbackShot(gFeedbackProgram, L"StarDraft 2");
+            // listpick: the list picker as a multi-pick of unit types (classictrig:values on Windows; --size 378x494).
+            std::vector<ListPickItem> pickItems;
+            for (int u = 0; u <= 227; ++u) pickItems.push_back(ListPickItem{unitDisplayName(u), L"", std::to_string(u), "", -1});
+            ListPickView pickShot(L"Search values", pickItems, "");
+            pickShot.setMulti({"0", "1", "37"}, L"Set");
             draw::View* shown = &root;
             if (dialogArg == "options") shown = &gOptionsView;
             else if (dialogArg == "feedback") shown = &feedbackShot;
+            else if (dialogArg == "listpick") shown = &pickShot;
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             const bool ok = writeSnapshot(device, tex, width, height, snapshot);

@@ -45,6 +45,7 @@ ClassicTrigDialog* gCt = nullptr;  // the working copy of the page that shows (m
 HWND gCtValueDlg = nullptr;        // the value pop-out (ctValueProc) while it is open
 BatchView* gCtBatchView = nullptr;  // the block dialog (core/views_classic_batch.inc) while it is open
 CtValueView* gCtValueView = nullptr;  // the number pop-out (core/views_classic_value.inc) while it is open
+extern ListPickView* gListPick;       // the list picker (core/views_list_pick.inc) while it is open (main.cpp)
 void mapPageChanged();
 
 // Ctrl+C and Ctrl+V: a trigger, a condition or an action. The texts and sounds are kept as text, so a paste into
@@ -594,15 +595,8 @@ void ctDuplicateTriggers() { ctModelDuplicateTriggers(*gCt, gCtModelHost); }
 void ctForcesClick() {
     ClassicTrigger* t = ctTrigger();
     if (!t) return;
-    const ClassicNames n = ctNames();
-    std::vector<ListPickItem> items;
     std::set<std::string> checked;
-    for (int g : kCtForceGroups) {
-        ListPickItem it;
-        it.label = widen(classicPlayerName(uint32_t(g), n)), it.value = std::to_string(g);
-        items.push_back(std::move(it));
-        if (t->runsFor(g)) checked.insert(std::to_string(g));
-    }
+    std::vector<ListPickItem> items = ctForceItems(*t, ctNames(), checked);
     RECT rc;  // (the Forces button's place: the head's window, and the button in it)
     GetWindowRect(gCt->head, &rc);
     const draw::Rect f = gCt->headView->forces.frame();
@@ -1510,7 +1504,7 @@ VOID CALLBACK ctShotTimer(HWND, UINT, UINT_PTR id, DWORD) {
     KillTimer(nullptr, id);
     switch (gCtShotKind) {
     case CtShot::Picker:  // (the picker's window closes with WM_CLOSE: it is a cancel)
-        if (const HWND pick = FindWindowW(L"StarDraftListPick", nullptr)) capture(gCtShotFile, pick), PostMessageW(pick, WM_CLOSE, 0, 0);
+        if (const HWND pick = gListPick ? ui::Win32Host::windowOf(*gListPick) : nullptr) capture(gCtShotFile, pick), PostMessageW(pick, WM_CLOSE, 0, 0);
         break;
     case CtShot::Dialog: {
         if (gCtValueDlg) capture(gCtShotFile, gCtValueDlg), PostMessageW(gCtValueDlg, WM_COMMAND, IDCANCEL, 0);
