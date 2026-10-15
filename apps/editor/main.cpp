@@ -297,6 +297,7 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/names.inc"  // the names of the palette's entries and of a .dat's entries (paletteItemName, entryName)
 #include "core/palette_items.inc"  // the palette's items: units, terrains, doodads and sprites (paletteItems, paletteUnits)
 #include "core/data_list.inc"  // the Data workspace's list model: the shown entries, the filters, the pins, the tab switch (DataListHost)
+#include "core/views_data.inc"  // the Data workspace's tab strip layout (DataTabLayout, dataTabLayout)
 #include "core/title.inc"  // the window's title and the rail's state (updateTitle)
 int selectPalette(int value);
 void pickUnit(int v, bool add);
@@ -9276,29 +9277,26 @@ LRESULT CALLBACK dataWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         HGDIOBJ of = SelectObject(dc, app.font);
         SetBkMode(dc, TRANSPARENT);
         gData.tabRects.clear();
-        int x = scale(8);
-        // What fits before the back and forward arrows: icon, name and count; then without the counts; then names only.
-        bool showCounts = true, showIcons = true;
-        {
-            int names = 0, counts = 0;
-            for (int i = 0; i < dataTabCount(); ++i) {
-                const std::wstring name = tabTitle(i), count = std::to_wstring(tabEntries(i) - tabFirstEntry(i));
-                SIZE a{}, b{};
-                GetTextExtentPoint32W(dc, name.c_str(), int(name.size()), &a);
-                GetTextExtentPoint32W(dc, count.c_str(), int(count.size()), &b);
-                names += a.cx + scale(26) + scale(2), counts += b.cx;
-            }
-            const int room = int(rc.right) - scale(84), icons = dataTabCount() * scale(22);
-            if (names + counts + icons > room) showCounts = false;
-            if (names + icons > room) showIcons = false;
+        // The layout (core/views_data.inc): what fits before the back and forward arrows; the program measures the text.
+        std::vector<DataTabText> texts;
+        for (int i = 0; i < dataTabCount(); ++i) {
+            const std::wstring name = tabTitle(i), count = std::to_wstring(tabEntries(i) - tabFirstEntry(i));
+            SIZE a{}, b{};
+            GetTextExtentPoint32W(dc, name.c_str(), int(name.size()), &a);
+            GetTextExtentPoint32W(dc, count.c_str(), int(count.size()), &b);
+            texts.push_back({a.cx, b.cx});
         }
+        const DataTabMetrics metrics{scale(8), scale(84), scale(22), scale(16) + scale(6), scale(26), scale(2)};
+        const DataTabLayout tabLayout = dataTabLayout(texts, int(rc.right), metrics);
+        const bool showCounts = tabLayout.showCounts, showIcons = tabLayout.showIcons;
         for (size_t i = 0; i < size_t(dataTabCount()); ++i) {
             const std::wstring name = tabTitle(int(i)), count = showCounts ? std::to_wstring(tabEntries(int(i)) - tabFirstEntry(int(i))) : L"";
             SIZE a{}, b{};
             GetTextExtentPoint32W(dc, name.c_str(), int(name.size()), &a);
             GetTextExtentPoint32W(dc, count.c_str(), int(count.size()), &b);
             const int iw = showIcons ? scale(16) + scale(6) : 0;  // the tab's icon and the gap after it
-            RECT r{x, 0, x + iw + a.cx + b.cx + scale(26), top};
+            const auto [boxL, boxR] = tabLayout.boxes[i];
+            RECT r{boxL, 0, boxR, top};
             const bool on = int(i) == gData.datTab, hot = int(i) == gData.hotTab;
             if (on || hot) {
                 HBRUSH bg = CreateSolidBrush(on ? kBg : kCtl);
@@ -9337,7 +9335,6 @@ LRESULT CALLBACK dataWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             SelectObject(dc, app.font);
             DeleteObject(smallFont);
             gData.tabRects.push_back(r);
-            x = r.right + scale(2);
         }
         {
             const UiIcon arrows[2] = {UiIcon::Back, UiIcon::Forward};
