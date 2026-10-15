@@ -141,10 +141,7 @@ public:
         SDL_ShowOpenFileDialog(soundFilesPicked, gState.ed.get(), dialogWindow(), kSounds, 1, nullptr, true);  // (the map it opens for)
         return {};
     }
-    bool askName(const std::wstring&, std::wstring&) override {  // (the rename box is not on this system yet)
-        setMessage(L"Renaming a sound is not on this system yet");
-        return false;
-    }
+    bool askName(const std::wstring& title, std::wstring& text) override { return prompt(title.c_str(), text); }  // (sdl_map_dialogs.inc)
     std::vector<FilesUse> soundUses(const std::string&) override { return {}; }  // (the briefings are not on this system yet)
     void showUse(const FilesUse&) override { setMessage(L"This is not on this system yet"); }
     void soundsChanged() override;

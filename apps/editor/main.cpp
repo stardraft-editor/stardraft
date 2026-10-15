@@ -442,6 +442,11 @@ extern DataRefsPage gDataRefsPage;
 #include "core/views_list_pick.inc"  // the list picker (ListPickView, runListPick; showListPicker below runs it)
 #include "core/views_classic_page.inc"  // Classic triggers: the entries' commands, the pickers, the menus, the keys, the side and the editor (classic_triggers.inc)
 #include "core/views_triggers_tree.inc"  // the Triggers workspace's tree (TrigTreeView; its host and instance are with the workspace below)
+#include "core/views_unit_props.inc"  // Unit properties (UnitPropsView, runUnitPropsDialog; the host is showUnitProperties)
+#include "core/views_location_props.inc"  // Location properties (LocationPropsView, runLocationPropsDialog; the host is showLocationEdit)
+#include "core/views_text_prompt.inc"  // the text prompt (TextPromptView, runTextPrompt; the host is prompt)
+#include "core/views_map_menu.inc"  // the map's right-click menu and a location's menu (mapMenuModel, mapMenuPick, locationMenuModel)
+#include "core/views_quick_pick.inc"  // the quick picker (QuickPickView, the rows, the filter, quickPickRun; the host is showQuickPicker)
 #include "core/views_start.inc"  // the start page (StartView: the cards, the recent list, Open; the instance is gStartView in new_page.inc)
 #include "core/views_new_page.inc"  // the New page (NewPageView: the settings, the generator, the preview; the host is new_page.inc)
 #include "core/views_new_page_paint.inc"
@@ -1065,132 +1070,13 @@ bool gBackground = false;  // self-test / screenshot run: never activate a windo
 
 // --- Dialogs ---------------------------------------------------------------------------------------
 
-// Minimal modal text prompt built from an in-memory dialog template.
-struct PromptState {
-    const wchar_t* title;
-    std::wstring* text;
-};
+// The text prompt (core/views_text_prompt.inc): OK puts the typed text into `text` and returns true. (Defined after the
+// program's anchor, with Location properties.)
+bool prompt(const wchar_t* title, std::wstring& text);
 
-INT_PTR CALLBACK promptProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
-    if (msg == WM_INITDIALOG) {
-        auto* st = reinterpret_cast<PromptState*>(lp);
-        SetWindowLongPtrW(dlg, DWLP_USER, lp);
-        SetWindowTextW(dlg, st->title);
-        SetDlgItemTextW(dlg, 1000, st->text->c_str());
-        SendDlgItemMessageW(dlg, 1000, EM_SETSEL, 0, -1);
-        SetDlgItemTextW(dlg, IDOK, L"OK");
-        SetDlgItemTextW(dlg, IDCANCEL, L"Cancel");
-        // Dark, as the other dialogs: the title bar, the edit box and the buttons through the kit.
-        BOOL dark = !gLightTheme;
-        DwmSetWindowAttribute(dlg, 20, &dark, sizeof dark), titleColors(dlg);
-        for (int id : {1000, IDOK, IDCANCEL}) {
-            HWND c = GetDlgItem(dlg, id);
-            SendMessageW(c, WM_SETFONT, WPARAM(app.font), TRUE);
-            darkControl(c, id == 1000 ? L"DarkMode_CFD" : L"DarkMode_Explorer");
-        }
-        return TRUE;
-    }
-    if (msg == WM_CTLCOLORDLG) return INT_PTR(app.bgBrush);
-    if (msg == WM_CTLCOLOREDIT) {
-        SetTextColor(HDC(wp), kText);
-        SetBkColor(HDC(wp), kCtl);
-        return INT_PTR(app.ctlBrush);
-    }
-    if (msg == WM_COMMAND && (LOWORD(wp) == IDOK || LOWORD(wp) == IDCANCEL)) {
-        if (LOWORD(wp) == IDOK) {
-            auto* st = reinterpret_cast<PromptState*>(GetWindowLongPtrW(dlg, DWLP_USER));
-            wchar_t buf[512];
-            GetDlgItemTextW(dlg, 1000, buf, 512);
-            *st->text = buf;
-        }
-        EndDialog(dlg, LOWORD(wp));
-        return TRUE;
-    }
-    return FALSE;
-}
-
-bool prompt(const wchar_t* title, std::wstring& text) {
-    // DLGTEMPLATE + 3 items (edit, OK, Cancel), each DWORD-aligned.
-    std::vector<WORD> t;
-    auto align = [&] { if (t.size() % 2) t.push_back(0); };
-    auto str = [&](const wchar_t* s) { for (; *s; ++s) t.push_back(*s); t.push_back(0); };
-    auto dword = [&](DWORD d) { t.push_back(LOWORD(d)); t.push_back(HIWORD(d)); };
-    dword(WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME | DS_SETFONT | DS_CENTER);
-    dword(0);
-    t.push_back(3);  // items
-    t.push_back(0), t.push_back(0), t.push_back(220), t.push_back(56);
-    t.push_back(0), t.push_back(0);  // menu, class
-    str(L"");                        // title (set later)
-    t.push_back(9);
-    str(L"Segoe UI");
-    auto item = [&](DWORD style, short x, short y, short w, short h, WORD id, WORD cls) {
-        align();
-        dword(style | WS_CHILD | WS_VISIBLE);
-        dword(0);
-        t.push_back(x), t.push_back(y), t.push_back(w), t.push_back(h), t.push_back(id);
-        t.push_back(0xFFFF), t.push_back(cls);
-        t.push_back(0);  // no text
-        t.push_back(0);  // no creation data
-    };
-    item(WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL, 8, 8, 204, 14, 1000, 0x0081);
-    item(WS_TABSTOP | BS_DEFPUSHBUTTON, 106, 32, 50, 16, IDOK, 0x0080);
-    item(WS_TABSTOP | BS_PUSHBUTTON, 162, 32, 50, 16, IDCANCEL, 0x0080);
-    align();
-    PromptState st{title, &text};
-    INT_PTR r = DialogBoxIndirectParamW(app.inst, reinterpret_cast<LPCDLGTEMPLATEW>(t.data()), app.main, promptProc, LPARAM(&st));
-    // Button captions: set after creation is simpler via template text, but default empty buttons are
-    // labeled in WM_INITDIALOG below if needed.
-    return r == IDOK;
-}
-
-void renameSelectedLocation() {
-    Editor& ed = *app.ed;
-    int i = ed.selectedLocation();
-    if (!ed.locationUsed(i)) return;
-    std::wstring name = widen(ed.locationName(i));
-    if (prompt(L"Rename location", name) && !name.empty()) {
-        ed.renameLocation(i, narrow(name));
-        rebuildList();
-        app.dirty = true;
-    }
-}
-
-// A location's right-click menu (Locations tool): rename, delete, and the elevations that are in the location
-// (MRGN elevation flags; triggers see units only at the elevations that are checked).
-void command(int id);
-enum { ID_LOCMENU_RENAME = 1, ID_LOCMENU_DELETE, ID_LOCMENU_ALL, ID_LOCMENU_PROPS, ID_LOCMENU_ELEV = 10 /* + the bit */ };
-void showLocationEdit(int loc);
-const wchar_t* const kElevationNames[6] = {L"Low ground", L"Medium ground", L"High ground", L"Low air", L"Medium air", L"High air"};
-
-HMENU locationMenu(int loc) {
-    HMENU m = CreatePopupMenu();
-    AppendMenuW(m, MF_STRING, ID_LOCMENU_PROPS, L"P&roperties\x2026\tEnter");
-    AppendMenuW(m, MF_STRING, ID_LOCMENU_RENAME, L"Re&name\tF2");
-    AppendMenuW(m, MF_STRING, ID_LOCMENU_DELETE, L"&Delete\tDel");
-    AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(m, MF_STRING | MF_GRAYED, 0, L"Elevations in the location");
-    const uint16_t excluded = app.ed->locationElevation(loc);
-    for (int k = 0; k < 6; ++k) AppendMenuW(m, MF_STRING | (excluded & (1 << k) ? 0 : MF_CHECKED), UINT_PTR(ID_LOCMENU_ELEV + k), kElevationNames[k]);
-    AppendMenuW(m, MF_STRING | (excluded ? 0 : MF_GRAYED), ID_LOCMENU_ALL, L"&All elevations");
-    return m;
-}
-
-void locationMenuPick(int loc, int pick) {
-    Editor& ed = *app.ed;
-    if (!ed.locationUsed(loc)) return;
-    ed.selectLocation(loc);
-    if (pick == ID_LOCMENU_PROPS) showLocationEdit(loc);
-    else if (pick == ID_LOCMENU_RENAME) renameSelectedLocation();
-    else if (pick == ID_LOCMENU_DELETE) command(ID_EDIT_DELETE);
-    else if (pick == ID_LOCMENU_ALL && ed.setLocationElevation(loc, 0)) setMessage(widen(ed.locationName(loc)) + L": all elevations are in the location");
-    else if (pick >= ID_LOCMENU_ELEV && pick < ID_LOCMENU_ELEV + 6) {
-        const uint16_t bit = uint16_t(1 << (pick - ID_LOCMENU_ELEV));
-        ed.setLocationElevation(loc, ed.locationElevation(loc) ^ bit);
-        const bool in = !(ed.locationElevation(loc) & bit);
-        setMessage(widen(ed.locationName(loc)) + L": " + kElevationNames[pick - ID_LOCMENU_ELEV] + (in ? L" is in the location" : L" is not in the location"));
-    }
-    app.dirty = true;
-}
+// The location's rename and its menu are in the core (core/views_map_menu.inc); its Win32 menu (the self-test reads it):
+HMENU toHmenu(const MenuModel& items, bool bar);
+HMENU locationMenu(int loc) { return toHmenu(locationMenuModel(loc), false); }
 
 void openAny(const fs::path& path);
 
@@ -3851,232 +3737,98 @@ UnitPaletteView gPalView{false}, gPal2View{true};
 
 // --- Quick picker (Q) --------------------------------------------------------------------------------
 
-// A box in the middle of the map: type to filter the active mode's things (the palette's fuzzy search, best match
-// first), Up/Down to choose, Enter to place it (a unit, terrain, doodad or sprite), or in Locations to select the
-// location and show it; Esc or clicking elsewhere closes it.
-// In the Data workspace the same box jumps to any entry of any .dat: type a name (and, if you like, the
-// .dat's name: "weapon gauss"), each result shows its .dat; Enter opens it.
-struct QuickPicker {
-    HWND wnd = nullptr, edit = nullptr, list = nullptr;
-    HFONT font = nullptr;  // the UI font, a quarter larger
-    std::vector<PaletteUnit> shown;
-    bool data = false;  // Data workspace: value = tab * 10000 + entry, section = the .dat's title
-    Mode mode = Mode::Units;  // the map mode it picks for
-    bool replace = false;     // Replace with...: the pick replaces the selected units, doodads or sprites
-    bool open = false;        // Quick open: value = an open tab, kRecentProjectRow + recent project, kRecentMapRow + recent map
-    std::vector<std::wstring> words;  // what is typed, word by word (the rows show where each word is in the name)
-    RECT searchRow{};                 // the search row: the icon, the box, the count
-    HWND focus = nullptr;             // the window that had the focus before (it gets it back)
-    std::vector<PaletteUnit> openRows;  // Quick open's rows, made once when it opens
-};
+// The picker is a core view (core/views_quick_pick.inc: QuickPickView, the rows, the filter and what a pick does); this is
+// its Windows host: its window over the map (the Data workspace, or the main window for Quick open), the rows' pictures
+// (the palette's bitmaps) and the focus that goes back after it.
 std::wstring entryName(const std::string& dat, int v);
 const UnitPalette::Bitmap* entryIcon(int tab, int e);
 void dataGoTo(const std::string& dat, int e);
 std::wstring datTitle(const std::string& name);
-QuickPicker gQuick;
-// Quick open's rows (value): an open tab is its index; then these plus the index in the recent list; the last row browses.
-constexpr int kRecentProjectRow = 1000, kRecentMapRow = 2000, kBrowseProjectRow = 3000;
+void quickPickClose();
+QuickPickView gQuickView;
+struct QuickPickWin32 final : QuickPickHost {
+    bool open = false;
+    HWND focus = nullptr;  // the window that had the focus before (it gets it back)
+    bool drawPicture(draw::Canvas& c, QuickPickKind kind, Mode mode, const PaletteUnit& u, draw::Rect box) override {
+        const UnitPalette::Bitmap* bmp = kind == QuickPickKind::Data ? entryIcon(u.value / 10000, u.value % 10000) : unitPaletteBitmap(u.value, mode);
+        // A unit with nothing to show (the palette shows the game's "BLANK" placeholder): the view's dim icon in its place.
+        const bool blank = kind != QuickPickKind::Data && mode == Mode::Units && gBlankUnits.count(u.value);
+        if (!bmp || !bmp->bmp || blank) return false;
+        c.fitted(ui::imageOf(bmp), box);
+        return true;
+    }
+    // After the event that picked (the window goes after it): close, then the pick.
+    void closed(int v) override {
+        const QuickPickKind kind = gQuickView.kind();
+        const bool replace = gQuickView.replacing();
+        shellPost([kind, replace, v] {
+            quickPickClose();
+            quickPickRun(kind, replace, v);
+        });
+    }
+};
+QuickPickWin32 gQuickHost;
 
-void quickPickClose() {
-    if (!gQuick.wnd) return;
-    HWND w = gQuick.wnd, back = gQuick.focus;
-    HFONT f = gQuick.font;
-    gQuick = {};
-    DestroyWindow(w);
-    if (f) DeleteObject(f);
-    // The focus goes back where it was (a hidden view, as the map is in the other workspaces, would take the keys).
+// The picker's window while it is open (the captures), else nullptr.
+HWND quickPickWnd() { return gQuickHost.open ? ui::Win32Host::windowOf(gQuickView) : nullptr; }
+
+// The focus goes back where it was (a hidden view, as the map is in the other workspaces, would take the keys).
+void quickPickFocusBack() {
+    const HWND back = std::exchange(gQuickHost.focus, nullptr);
     if (!gBackground) SetFocus(back && IsWindow(back) && IsWindowVisible(back) ? back : IsWindowVisible(app.view) ? app.view : app.main);
 }
-
-void quickPickChoose() {
-    int i = int(SendMessageW(gQuick.list, LB_GETCURSEL, 0, 0));
-    int v = i >= 0 && i < int(gQuick.shown.size()) ? gQuick.shown[size_t(i)].value : -1;
-    const bool data = gQuick.data, replace = gQuick.replace, open = gQuick.open;
-    quickPickClose();
-    if (open) {
-        if (v >= 0 && v < int(gDocs.size())) activateDoc(v);
-        else if (v >= kRecentProjectRow && v < kRecentProjectRow + kRecentMax) command(ID_RECENT_PROJECT + (v - kRecentProjectRow));
-        else if (v >= kRecentMapRow && v < kRecentMapRow + kRecentMax) command(ID_RECENT_MAP + (v - kRecentMapRow));
-        else if (v == kBrowseProjectRow) command(ID_PROJ_OPEN);
-        return;
-    }
-    if (data) {
-        if (v >= 0) {
-            dataGoTo(DatSchema::all()[size_t(v / 10000)].name, v % 10000);
-        }
-        return;
-    }
-    if (v < 0 || !app.ed) return;
-    if (replace) return replaceSelectionWith(v);
-    if (app.mode == Mode::Locations) {  // select it, and show it in the middle of the view
-        app.ed->selectLocation(v);
-        setListSel(int(std::find(app.items.begin(), app.items.end(), v) - app.items.begin()));
-        const Rect r = app.ed->locationRect(v);
-        RECT vr;
-        GetClientRect(app.view, &vr);
-        app.camX = (r.left + r.right) / 2.0f - vr.right / 2.0f / app.zoom, app.camY = (r.top + r.bottom) / 2.0f - vr.bottom / 2.0f / app.zoom;
-        setMessage(L"Location " + widen(app.ed->locationName(v)));
-        app.dirty = true;
-        return;
-    }
-    pickUnit(v, false);  // a unit, terrain, doodad or sprite of the active mode: place (paint) it
+void quickPickClose() {
+    if (!gQuickHost.open) return;
+    gQuickHost.open = false;
+    gMainAnchor.host.closeWindow(gQuickView);
+    quickPickFocusBack();
 }
 
-// Replace with...: the selected units (each type of them), doodads or sprites become `v`, as one undo step.
-void replaceSelectionWith(int v) {
-    Editor& ed = *app.ed;
-    int n = 0;
-    if (app.mode == Mode::Units) {
-        std::set<uint16_t> types;
-        for (int i : ed.selection())
-            if (i >= 0 && i < int(ed.units().size())) types.insert(ed.units()[size_t(i)].type);
-        ed.beginStroke();
-        for (uint16_t t : types) n += ed.replaceUnits(t, uint16_t(v), true);
-        ed.endStroke();
-        setMessage(L"Replaced " + std::to_wstring(n) + L" units with " + paletteItemName(v));
-    } else if (app.mode == Mode::Doodads) {
-        const int asked = int(app.selDoodads.size());
-        n = ed.replaceDoodads(app.selDoodads, uint16_t(v), app.doodadCheck);
-        app.selDoodads.clear();
-        setMessage(L"Replaced " + std::to_wstring(n) + L" of " + std::to_wstring(asked) + L" doodads (the others: the new one does not fit there)");
-    } else if (app.mode == Mode::Sprites) {
-        n = ed.replaceSprites(app.selSprites, uint16_t(v));
-        setMessage(L"Replaced " + std::to_wstring(n) + L" sprites with " + paletteItemName(v));
+// The self-tests and the captures: the text typed, a key pressed (what the key does runs before this returns).
+void pump();
+void quickPickType(const std::wstring& text) {
+    if (gQuickHost.open) gQuickView.setTyped(text);
+}
+// A capture of the picker's window. Its window is a new top window (off the screen in a background run): the system's
+// compositor shows its paints some frames later (a capture at once can be all black), so the capture waits until the
+// window's pixels are there (at most two seconds).
+bool capture(const fs::path& file, HWND wnd);
+bool windowPixelsShown(HWND w) {
+    RECT r;
+    GetWindowRect(w, &r);
+    const int cw = r.right - r.left, ch = r.bottom - r.top;
+    if (cw <= 0 || ch <= 0) return false;
+    BITMAPINFO bi{};
+    bi.bmiHeader = {sizeof(BITMAPINFOHEADER), cw, -ch, 1, 32, BI_RGB};
+    void* bits = nullptr;
+    HDC screen = GetDC(nullptr), mem = CreateCompatibleDC(screen);
+    HBITMAP bmp = CreateDIBSection(screen, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
+    bool any = false;
+    if (bmp) {
+        HGDIOBJ old = SelectObject(mem, bmp);
+        PrintWindow(w, mem, 2 /* PW_RENDERFULLCONTENT */);
+        GdiFlush();
+        const uint32_t* px = static_cast<const uint32_t*>(bits);
+        for (int i = 0; i < cw * ch && !any; i += 7) any = (px[i] & 0xFFFFFF) != 0;
+        SelectObject(mem, old);
+        DeleteObject(bmp);
     }
-    app.dirty = true;
+    DeleteDC(mem), ReleaseDC(nullptr, screen);
+    return any;
+}
+bool quickPickCapture(const fs::path& file) {
+    const HWND w = quickPickWnd();
+    if (!w) return false;
+    RedrawWindow(w, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+    for (int i = 0; i < 80 && !windowPixelsShown(w); ++i) DwmFlush(), Sleep(25), pump();
+    return capture(file, w);
+}
+void quickPickKey(draw::Key k) {
+    if (!gQuickHost.open) return;
+    gQuickView.press(k);
+    for (int i = 0; i < 3; ++i) pump();
 }
 
-// The active mode's things for the quick picker: the palette's, or the locations.
-std::vector<PaletteUnit> quickPickItems() {
-    if (app.mode == Mode::Units) return paletteUnits();
-    if (app.mode != Mode::Locations) return paletteItems();
-    std::vector<PaletteUnit> out;
-    for (int i = 0; app.ed && i < app.ed->locationCount(); ++i) {
-        if (!app.ed->locationUsed(i)) continue;
-        PaletteUnit u;
-        u.value = i, u.label = widen(app.ed->locationName(i)), u.section = L"Location " + std::to_wstring(i + 1);
-        u.hay = u.label;
-        std::transform(u.hay.begin(), u.hay.end(), u.hay.begin(), ::towlower);
-        out.push_back(std::move(u));
-    }
-    return out;
-}
-
-// Quick open's rows: the open tabs (not the start and New pages), then the recent projects and maps that no tab has.
-// A row is found by its name only (the project's or the map file's), not by its folder, which shows under it.
-std::vector<PaletteUnit> quickOpenItems() {
-    std::vector<PaletteUnit> out;
-    auto add = [&](int value, const std::wstring& label, const std::wstring& section) {
-        PaletteUnit u;
-        u.value = value, u.label = label, u.section = section, u.hay = label;
-        std::transform(u.hay.begin(), u.hay.end(), u.hay.begin(), ::towlower);
-        out.push_back(std::move(u));
-    };
-    const auto same = samePath;
-    std::vector<fs::path> openProjects, openMaps;
-    for (int i = 0; i < int(gDocs.size()); ++i) {
-        const Editor* ed = docEditor(i);
-        if (!ed || gDocs[size_t(i)].page) continue;
-        const auto& pr = gDocs[size_t(i)].project;
-        if (pr) openProjects.push_back(pr->folder());
-        else openMaps.push_back(ed->path());
-        add(i, docTitle(i, false), std::wstring(tr(pr ? L"Open tab: project" : L"Open tab: map")) +
-                                       (pr ? L"  \x00B7  " + pr->folder().wstring() : ed->path().empty() ? L"" : L"  \x00B7  " + ed->path().parent_path().wstring()));
-    }
-    for (size_t k = 0; k < gRecentProjects.size() && k < size_t(kRecentMax); ++k) {
-        const fs::path f = gRecentProjects[k];
-        if (std::any_of(openProjects.begin(), openProjects.end(), [&](const fs::path& o) { return same(o, f); })) continue;
-        add(kRecentProjectRow + int(k), f.filename().wstring(), std::wstring(tr(L"Recent project")) + L"  \x00B7  " + f.parent_path().wstring());
-    }
-    for (size_t k = 0; k < gRecentMaps.size() && k < size_t(kRecentMax); ++k) {
-        const fs::path f = gRecentMaps[k];
-        if (std::any_of(openMaps.begin(), openMaps.end(), [&](const fs::path& o) { return same(o, f); })) continue;
-        add(kRecentMapRow + int(k), f.filename().wstring(), std::wstring(tr(L"Recent map")) + L"  \x00B7  " + f.parent_path().wstring());
-    }
-    return out;
-}
-
-// Every entry of every .dat, for the Data workspace's jump box.
-std::vector<PaletteUnit> dataJumpItems() {
-    std::vector<PaletteUnit> out;
-    const auto& all = DatSchema::all();
-    for (size_t tab = 0; tab < all.size(); ++tab) {
-        const std::wstring title = datTitle(all[tab].name);
-        for (int e = 0; e < all[tab].entries; ++e) {
-            PaletteUnit u;
-            u.value = int(tab) * 10000 + e;
-            u.label = entryName(all[tab].name, e);
-            if (u.label.empty()) u.label = L"(unnamed)";
-            u.label += L"  #" + std::to_wstring(e);
-            u.section = title;
-            u.hay = u.label + L" " + title;
-            std::transform(u.hay.begin(), u.hay.end(), u.hay.begin(), ::towlower);
-            out.push_back(std::move(u));
-        }
-    }
-    return out;
-}
-
-void quickPickFill() {
-    const std::wstring filter = lowerText(gQuick.edit);
-    std::vector<std::pair<int, PaletteUnit>> scored;
-    // Each word matches on its own, in any order ("weap gauss" and "gauss weap" both find the Gauss Rifle).
-    std::vector<std::wstring> words;
-    {
-        std::wistringstream in(filter);
-        for (std::wstring w; in >> w;) words.push_back(w);
-    }
-    for (auto& u : gQuick.data ? dataJumpItems() : gQuick.open ? gQuick.openRows : quickPickItems()) {
-        int sc = 0;
-        for (const auto& w : words) {
-            const int ws = fuzzyScore(u.hay, w);
-            if (ws < 0) {
-                sc = -1;
-                break;
-            }
-            sc += ws;
-        }
-        if (sc >= 0) scored.push_back({sc, std::move(u)});
-    }
-    std::stable_sort(scored.begin(), scored.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
-    if (scored.size() > 400) scored.erase(scored.begin() + 400, scored.end());  // enough to scroll; keeps the list quick
-    if (gQuick.open) {  // last, whatever is typed: the Open project window
-        PaletteUnit u;
-        u.value = kBrowseProjectRow, u.label = tr(L"Browse for a project\x2026"), u.section = tr(L"File > Project > Open project");
-        scored.push_back({0, std::move(u)});
-    }
-    gQuick.shown.clear();
-    gQuick.words = words;
-    if (gQuick.wnd) InvalidateRect(gQuick.wnd, &gQuick.searchRow, FALSE);  // the count
-    SendMessageW(gQuick.list, WM_SETREDRAW, FALSE, 0);
-    SendMessageW(gQuick.list, LB_RESETCONTENT, 0, 0);
-    for (auto& [sc, u] : scored) {
-        SendMessageW(gQuick.list, LB_ADDSTRING, 0, LPARAM(u.label.c_str()));
-        gQuick.shown.push_back(std::move(u));
-    }
-    SendMessageW(gQuick.list, LB_SETCURSEL, gQuick.shown.empty() ? -1 : 0, 0);
-    SendMessageW(gQuick.list, WM_SETREDRAW, TRUE, 0);
-    InvalidateRect(gQuick.list, nullptr, TRUE);
-}
-
-LRESULT CALLBACK quickEditProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
-    if (msg == WM_KEYDOWN) {
-        int n = int(gQuick.shown.size()), cur = int(SendMessageW(gQuick.list, LB_GETCURSEL, 0, 0));
-        int page = 8;
-        switch (wp) {
-        case VK_DOWN: case VK_UP: case VK_NEXT: case VK_PRIOR:
-            if (n) {
-                int step = wp == VK_DOWN ? 1 : wp == VK_UP ? -1 : wp == VK_NEXT ? page : -page;
-                SendMessageW(gQuick.list, LB_SETCURSEL, std::clamp(cur + step, 0, n - 1), 0);
-            }
-            return 0;
-        case VK_RETURN: quickPickChoose(); return 0;
-        case VK_ESCAPE: quickPickClose(); return 0;
-        }
-    }
-    if (msg == WM_CHAR && (wp == L'\r' || wp == 27)) return 0;  // no beep
-    return DefSubclassProc(hwnd, msg, wp, lp);
-}
 
 // A popover's list: the item under the mouse is highlighted, and one click picks it (refdata: the pick function).
 // Lists repaint fully after they scroll: a list box scrolls by copying its pixels and redraws only the strip
@@ -4190,182 +3942,36 @@ LRESULT CALLBACK clickPickList(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_P
     return DefSubclassProc(hwnd, msg, wp, lp);
 }
 
-LRESULT CALLBACK quickPickProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-    case WM_COMMAND:
-        if (HWND(lp) == gQuick.edit && HIWORD(wp) == EN_CHANGE) quickPickFill();
-
-        return 0;
-    case WM_ACTIVATE:
-        if (LOWORD(wp) == WA_INACTIVE && !gBackground) PostMessageW(hwnd, WM_CLOSE, 0, 0);
-        return 0;
-    case WM_CLOSE:
-        if (gQuick.wnd == hwnd) quickPickClose();
-        return 0;
-    case WM_MEASUREITEM: reinterpret_cast<MEASUREITEMSTRUCT*>(lp)->itemHeight = UINT(scale(48)); return TRUE;
-    case WM_DRAWITEM: {
-        // A row: the picture, the name (the typed words in the accent) and under it its group, small and dim; the
-        // row under the keys or the mouse is a rounded pill in the selection color.
-        auto* d = reinterpret_cast<DRAWITEMSTRUCT*>(lp);
-        if (d->itemID == UINT(-1) || d->itemID >= gQuick.shown.size()) return TRUE;
-        const PaletteUnit& u = gQuick.shown[d->itemID];
-        const bool sel = d->itemState & ODS_SELECTED;
-        HDC dc = d->hDC;
-        RECT r = d->rcItem;
-        FillRect(dc, &r, app.bgBrush);
-        if (sel) ui::box(dc, {r.left + scale(2), r.top + scale(2), r.right - scale(2), r.bottom - scale(2)}, kSel, kSel, scale(8));
-        const int pic = scale(36);
-        RECT box{r.left + scale(10), (r.top + r.bottom - pic) / 2, r.left + scale(10) + pic, (r.top + r.bottom - pic) / 2 + pic};
-        const auto* bmp = gQuick.open ? nullptr
-                          : gQuick.data ? entryIcon(u.value / 10000, u.value % 10000)
-                          : gQuick.mode == Mode::Locations ? nullptr : unitPaletteBitmap(u.value, gQuick.mode);
-        // A unit with nothing to show (the palette shows the game's "BLANK" placeholder): a dim unit icon in its place.
-        const bool blank = !gQuick.data && gQuick.mode == Mode::Units && gBlankUnits.count(u.value);
-        if (gQuick.open) {  // a tab, a recent project or map, or Browse
-            const bool project = u.value < kRecentProjectRow ? u.value < int(gDocs.size()) && gDocs[size_t(u.value)].project != nullptr
-                                                             : u.value < kRecentMapRow;
-            uiIcon(dc, box, u.value == kBrowseProjectRow ? UiIcon::Open : project ? UiIcon::Project : UiIcon::Map,
-                   u.value < kRecentProjectRow ? kText : kFaint, scale(20));
-        } else if (bmp && bmp->bmp && !blank) drawFitted(dc, *bmp, box);
-        else uiIcon(dc, box, gQuick.mode == Mode::Locations && !gQuick.data ? UiIcon::Locations : UiIcon::Units, kFaint, scale(20));
-        SetBkMode(dc, TRANSPARENT);
-        const int x = box.right + scale(12), right = r.right - scale(12), mid = (r.top + r.bottom) / 2;
-        // The name: the parts that the typed words found in the accent color.
-        HGDIOBJ of = SelectObject(dc, gQuick.font ? gQuick.font : app.font);
-        std::wstring low = u.label;
-        std::transform(low.begin(), low.end(), low.begin(), ::towlower);
-        std::vector<uint8_t> hit(u.label.size(), 0);
-        for (const auto& w : gQuick.words)
-            if (const size_t at = w.empty() ? std::wstring::npos : low.find(w); at != std::wstring::npos)
-                std::fill(hit.begin() + long(at), hit.begin() + long(at + w.size()), uint8_t(1));
-        TEXTMETRICW tm{};
-        GetTextMetricsW(dc, &tm);
-        const int nameTop = mid - tm.tmHeight + scale(2);
-        RECT clip{x, r.top, right, r.bottom};
-        int cx = x;
-        for (size_t i = 0; i < u.label.size();) {
-            size_t j = i;
-            while (j < u.label.size() && hit[j] == hit[i]) ++j;
-            SetTextColor(dc, hit[i] ? kAccent : kText);
-            ExtTextOutW(dc, cx, nameTop, ETO_CLIPPED, &clip, u.label.c_str() + i, UINT(j - i), nullptr);
-            SIZE sz{};
-            GetTextExtentPoint32W(dc, u.label.c_str() + i, int(j - i), &sz);
-            cx += sz.cx, i = j;
-        }
-        // The group, under the name (the typed words found in it in the accent too: "zerg spec").
-        SelectObject(dc, ui::smallFont());
-        std::wstring glow = u.section;
-        std::transform(glow.begin(), glow.end(), glow.begin(), ::towlower);
-        std::vector<uint8_t> ghit(u.section.size(), 0);
-        for (const auto& w : gQuick.words)
-            if (const size_t at = w.empty() ? std::wstring::npos : glow.find(w); at != std::wstring::npos)
-                std::fill(ghit.begin() + long(at), ghit.begin() + long(at + w.size()), uint8_t(1));
-        int gx = x;
-        const int gy = mid + scale(2);
-        for (size_t i = 0; i < u.section.size();) {
-            size_t j = i;
-            while (j < u.section.size() && ghit[j] == ghit[i]) ++j;
-            SetTextColor(dc, ghit[i] ? kAccent : kDim);
-            ExtTextOutW(dc, gx, gy, ETO_CLIPPED, &clip, u.section.c_str() + i, UINT(j - i), nullptr);
-            SIZE sz{};
-            GetTextExtentPoint32W(dc, u.section.c_str() + i, int(j - i), &sz);
-            gx += sz.cx, i = j;
-        }
-        SelectObject(dc, of);
-        return TRUE;
-    }
-    case WM_PAINT: {  // the search row: the icon, the count of results at the right, the line under it
-        PAINTSTRUCT ps;
-        HDC dc = BeginPaint(hwnd, &ps);
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-        FillRect(dc, &rc, app.bgBrush);
-        const RECT& sr = gQuick.searchRow;
-        const int is = scale(20);
-        uiIcon(dc, {sr.left, (sr.top + sr.bottom - is) / 2, sr.left + is, (sr.top + sr.bottom + is) / 2}, UiIcon::Search, kDim, is);
-        SetBkMode(dc, TRANSPARENT);
-        HGDIOBJ of = SelectObject(dc, ui::smallFont());
-        SetTextColor(dc, kDim);
-        RECT cr{sr.right - scale(80), sr.top, sr.right, sr.bottom};
-        const std::wstring count = std::to_wstring(gQuick.shown.size()) + (gQuick.shown.size() >= 400 ? L"+" : L"");
-        DrawTextW(dc, count.c_str(), -1, &cr, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
-        SelectObject(dc, of);
-        fillAlpha(dc, {0, sr.bottom + scale(8), rc.right, sr.bottom + scale(9)}, kBorder, 255);
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORLISTBOX:
-        SetTextColor(HDC(wp), kText);
-        SetBkColor(HDC(wp), kBg);  // on the window's ground: no box around the search, no frame around the list
-        return LRESULT(app.bgBrush);
-    case WM_ERASEBKGND: return 1;
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
-}
-
 void showQuickPicker(bool replace, bool open) {
     if (!open && (!app.ed || !app.ed->isOpen())) return;
-    if (gQuick.wnd) return quickPickClose();
+    if (gQuickHost.open) return quickPickClose();
     const bool data = !open && gWorkspace == Workspace::Data && activeProject();
     RECT v;
     GetWindowRect(open ? app.main : data ? gDataWnd : app.view, &v);
-    const int w = scale(620), h = scale(600), pad = scale(14), rowH = scale(32);
-    const int x = (v.left + v.right - w) / 2, y = v.top + std::max(0, int(v.bottom - v.top - h) / 3);
-    gQuick.wnd = CreateWindowExW(WS_EX_TOOLWINDOW | (gBackground ? WS_EX_NOACTIVATE : 0), L"StarDraftQuickPick", L"", WS_POPUP | WS_BORDER | WS_CLIPCHILDREN,
-                                 x, y, w, h, app.main, nullptr, app.inst, nullptr);
-    ui::popupFrame(gQuick.wnd);
-    {
-        const int round = 2;  // DWMWCP_ROUND: the larger corners of a command window
-        DwmSetWindowAttribute(gQuick.wnd, 33, &round, sizeof round);
-    }
-    {
-        LOGFONTW lf{};
-        GetObjectW(app.font, sizeof lf, &lf);
-        lf.lfHeight = lf.lfHeight * 5 / 4;
-        gQuick.font = CreateFontIndirectW(&lf);
-    }
-    // The search row: the icon at the left (painted), the text in a box with no frame, the count at the right.
-    gQuick.searchRow = {pad + scale(4), pad, w - pad - scale(4), pad + rowH};
-    TEXTMETRICW tm{};
-    {
-        HDC dc = GetDC(gQuick.wnd);
-        HGDIOBJ of = SelectObject(dc, gQuick.font);
-        GetTextMetricsW(dc, &tm);
-        SelectObject(dc, of);
-        ReleaseDC(gQuick.wnd, dc);
-    }
-    const int editH = tm.tmHeight + scale(4), editX = gQuick.searchRow.left + scale(32);
-    gQuick.edit = CreateWindowExW(0, WC_EDITW, L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, editX, pad + (rowH - editH) / 2,
-                                  gQuick.searchRow.right - scale(84) - editX, editH, gQuick.wnd, nullptr, app.inst, nullptr);
-    const int listTop = gQuick.searchRow.bottom + scale(9) + scale(6);
-    gQuick.list = CreateWindowExW(0, WC_LISTBOXW, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT |
-                                  LBS_OWNERDRAWFIXED | LBS_HASSTRINGS, scale(6), listTop, w - scale(12), h - listTop - scale(6),
-                                  gQuick.wnd, nullptr, app.inst, nullptr);
-    cleanScroll(gQuick.list);
-    SetWindowSubclass(gQuick.list, clickPickList, 2, DWORD_PTR(&quickPickChoose));
-    SendMessageW(gQuick.edit, WM_SETFONT, WPARAM(gQuick.font), TRUE);
-    gQuick.data = data;
-    gQuick.open = open;
-    gQuick.focus = GetFocus();
-    if (open) gQuick.openRows = quickOpenItems();
-    gQuick.mode = app.mode;
-    gQuick.replace = replace && !data && !open;
-    static const wchar_t* cues[kModeCount] = {L"Paint a terrain", L"Place a unit", L"Place a doodad", L"Go to a location", L"Place a sprite"};
-    static const wchar_t* replaceCues[kModeCount] = {L"", L"Replace with a unit", L"Replace with a doodad", L"", L"Replace with a sprite"};
-    SendMessageW(gQuick.edit, EM_SETCUEBANNER, TRUE,
-                 LPARAM(open ? tr(L"Go to an open tab, or open a recent project or map") : data ? L"Go to a .dat entry"
-                        : gQuick.replace ? replaceCues[int(app.mode)] : cues[int(app.mode)]));
-    SetWindowTheme(gQuick.list, gLightTheme ? L"Explorer" : L"DarkMode_Explorer", nullptr);  // the scroll bar in the theme (no frame)
-    SetWindowSubclass(gQuick.edit, quickEditProc, 1, 0);
-    quickPickFill();
-    if (gBackground) {
-        ShowWindow(gQuick.wnd, SW_SHOWNOACTIVATE);
+    const draw::Point size = QuickPickView::windowSize();
+    const int w = size.x, h = size.y;
+    POINT at{(v.left + v.right - w) / 2, v.top + std::max(0, int(v.bottom - v.top - h) / 3)};
+    ScreenToClient(app.main, &at);  // (the anchor's windows are placed in the main window's coordinates)
+    gQuickHost.focus = GetFocus();
+    gQuickView.start(gQuickHost, open ? QuickPickKind::Open : data ? QuickPickKind::Data : QuickPickKind::Map, app.mode, replace, true, !gBackground);
+    gQuickHost.open = true;
+    gMainAnchor.host.ownerWindow(app.main);
+    gMainAnchor.host.openWindow(gMainAnchor.view, gQuickView, draw::WindowSpec{draw::WindowKind::Popup, draw::Rect(at.x, at.y, at.x + w, at.y + h), L""}, [] {
+        gQuickHost.open = false;  // a click outside closed it
+        quickPickFocusBack();
+    });
+    if (HWND wnd = ui::Win32Host::windowOf(gQuickView)) {
+        // The old window's frame: a 1 px border inside its size and the larger corners of a command window (DWMWCP_ROUND).
+        SetWindowLongPtrW(wnd, GWL_STYLE, GetWindowLongPtrW(wnd, GWL_STYLE) | WS_BORDER | WS_CLIPCHILDREN);
+        SetWindowPos(wnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        const int round = 2;
+        DwmSetWindowAttribute(wnd, 33, &round, sizeof round);
+        if (!gBackground) gQuickView.field().focus();  // (at once: the keys typed before its first paint are its own)
     } else {
-        ShowWindow(gQuick.wnd, SW_SHOW);  // at once (no fade): it is for speed
-        SetFocus(gQuick.edit);
+        gQuickHost.open = false;
     }
 }
+
 
 // --- Workspaces --------------------------------------------------------------------------------------------
 // The bar across the top: Map and Data in the middle, the project and Build at the right. Map is the map
@@ -4993,220 +4599,33 @@ bool dataXButton(WPARAM wp) {
 // the state flags, each enabled only where the unit's type allows it. With several units selected the
 // fields you change apply to all of them. "Edit unit type" opens the type in the Data workspace (a project).
 
-struct UnitPropsDialog {
-    HWND wnd = nullptr, owner = nullptr, hp = nullptr, shields = nullptr, energy = nullptr, resources = nullptr, hangar = nullptr, x = nullptr,
-         y = nullptr, typeBtn = nullptr;
-    HWND state[5] = {};
-    std::vector<int> units;  // what the edit applies to
-    Unit first;              // the double-clicked unit: the values shown
-    bool accepted = false, editType = false;
-};
-UnitPropsDialog* gUnitDlg = nullptr;
-void (*gUnitPropsHook)(HWND) = nullptr;  // self-test
-const wchar_t* kUnitStateNames[5] = {L"Cloaked", L"Burrowed", L"In transit", L"Hallucinated", L"Invincible"};
+// The dialog is a core view (core/views_unit_props.inc: UnitPropsView, runUnitPropsDialog); this is its Windows host.
+UnitPropsView* gUnitPropsView = nullptr;               // the dialog's content while it is open
+void (*gUnitPropsHook)(UnitPropsView&) = nullptr;     // self-test: runs in the dialog once it shows
 
-LRESULT CALLBACK unitPropsProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    UnitPropsDialog* d = gUnitDlg;
-    switch (msg) {
-    case WM_CREATE: {
-        BOOL dark = !gLightTheme;
-        DwmSetWindowAttribute(hwnd, 20, &dark, sizeof dark), titleColors(hwnd);
-        d->wnd = hwnd;
-        const Unit& u = d->first;
-        const int pad = scale(ui::kDialogPad), rowH = scale(ui::kFieldH), gap = scale(8), labelW = scale(110), boxW = scale(110), colW = labelW + boxW + scale(24);
-        const int top = pad + scale(52);  // under the icon and name
-        auto label = [&](const wchar_t* t, int x, int y) {
-            HWND h = CreateWindowExW(0, WC_STATICW, t, WS_CHILD | WS_VISIBLE | SS_NOPREFIX | SS_CENTERIMAGE, x, y, labelW - scale(8), rowH, hwnd, HMENU(1), app.inst, nullptr);
-            SendMessageW(h, WM_SETFONT, WPARAM(app.font), TRUE);
-        };
-        auto edit = [&](int x, int y, uint32_t v, bool on) {
-            HWND h = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, std::to_wstring(v).c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_NUMBER | ES_RIGHT,
-                                     x + labelW, y, boxW, rowH, hwnd, nullptr, app.inst, nullptr);
-            SendMessageW(h, WM_SETFONT, WPARAM(monoFont()), TRUE);
-            darkControl(h, L"DarkMode_CFD");
-            EnableWindow(h, on);
-            return h;
-        };
-        int y = top;
-        const int x0 = pad, x1 = pad + colW;
-        label(L"Owner", x0, y);
-        d->owner = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL, x0 + labelW, y,
-                                   colW + labelW + boxW - labelW, scale(300), hwnd, nullptr, app.inst, nullptr);
-        SendMessageW(d->owner, WM_SETFONT, WPARAM(app.font), TRUE);
-        darkControl(d->owner, L"DarkMode_CFD");
-        for (int i = 0; i < 12; ++i)
-            SendMessageW(d->owner, CB_ADDSTRING, 0, LPARAM((L"Player " + std::to_wstring(i + 1) + (i == 11 ? L" (neutral)" : L"")).c_str()));
-        SendMessageW(d->owner, CB_SETCURSEL, std::min<int>(u.owner, 11), 0);
-        EnableWindow(d->owner, (u.validProps & UnitProp::Owner) != 0);
-        y += rowH + gap;
-        label(L"Hit points %", x0, y), d->hp = edit(x0, y, u.hitPoints, u.validProps & UnitProp::HitPoints);
-        label(L"Resources", x1, y), d->resources = edit(x1, y, u.resources, u.validProps & UnitProp::Resources);
-        y += rowH + gap;
-        label(L"Shields %", x0, y), d->shields = edit(x0, y, u.shields, u.validProps & UnitProp::Shields);
-        label(L"Hangar", x1, y), d->hangar = edit(x1, y, u.hangar, u.validProps & UnitProp::Hangar);
-        y += rowH + gap;
-        label(L"Energy %", x0, y), d->energy = edit(x0, y, u.energy, u.validProps & UnitProp::Energy);
-        y += rowH + gap;
-        const bool single = d->units.size() == 1;
-        label(L"X (pixels)", x0, y), d->x = edit(x0, y, u.x, single);
-        label(L"Y (pixels)", x1, y), d->y = edit(x1, y, u.y, single);
-        y += rowH + gap + scale(6);
-        int shown = 0;  // only the states this unit can have
-        for (int b = 0; b < 5; ++b) {
-            if (!((u.validState >> b) & 1)) continue;
-            HWND cb = CreateWindowExW(0, WC_BUTTONW, kUnitStateNames[b], WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, x0 + (shown % 3) * scale(150),
-                                      y + (shown / 3) * (rowH + scale(2)), scale(145), rowH, hwnd, nullptr, app.inst, nullptr);
-            ++shown;
-            SendMessageW(cb, WM_SETFONT, WPARAM(app.font), TRUE);
-            darkControl(cb, L"DarkMode_Explorer");
-            SendMessageW(cb, BM_SETCHECK, (u.state >> b) & 1 ? BST_CHECKED : BST_UNCHECKED, 0);
-            d->state[b] = cb;
-        }
-        y += ((shown + 2) / 3) * (rowH + scale(2)) + gap;
-        const int right = x1 + labelW + boxW;
-        // The unit's type: in a project, open it in the Data workspace.
-        const bool project = activeProject() != nullptr;
-        const std::wstring typeText = project ? L"Edit unit type in Data (" + unitDisplayName(u.type) + L")"
-                                              : L"To edit unit types, use an EUD project (File > Project)";
-        d->typeBtn = CreateWindowExW(0, WC_BUTTONW, typeText.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, x0, y, right - x0, scale(ui::kButtonH), hwnd,
-                                     HMENU(1801), app.inst, nullptr);
-        SendMessageW(d->typeBtn, WM_SETFONT, WPARAM(app.font), TRUE);
-        darkControl(d->typeBtn, L"DarkMode_Explorer");
-        EnableWindow(d->typeBtn, project);
-        y += scale(ui::kButtonH) + scale(24);
-        const int bw = scale(90);
-        const wchar_t* names[2] = {L"OK", L"Cancel"};
-        const int ids[2] = {IDOK, IDCANCEL};
-        for (int i = 0; i < 2; ++i) {
-            HWND b = CreateWindowExW(0, WC_BUTTONW, names[i], WS_CHILD | WS_VISIBLE | WS_TABSTOP | (i == 0 ? BS_DEFPUSHBUTTON : BS_PUSHBUTTON),
-                                     right - (2 - i) * bw - (1 - i) * scale(8), y, bw, scale(28), hwnd, HMENU(INT_PTR(ids[i])), app.inst, nullptr);
-            SendMessageW(b, WM_SETFONT, WPARAM(app.font), TRUE);
-            darkControl(b, L"DarkMode_Explorer");
-        }
-        ui::nativeButtonsRight({ui::dlgButton(hwnd, IDOK), ui::dlgButton(hwnd, IDCANCEL)}, right, y);
-        RECT r{0, 0, right + pad, y + scale(28) + pad};
-        AdjustWindowRectExForDpi(&r, WS_CAPTION | WS_SYSMENU, FALSE, WS_EX_DLGMODALFRAME, app.dpi);
-        SetWindowPos(hwnd, nullptr, 0, 0, r.right - r.left, r.bottom - r.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-        return 0;
-    }
-    case WM_PAINT: {
-        // The unit's picture and name over the fields.
-        PAINTSTRUCT ps;
-        HDC dc = BeginPaint(hwnd, &ps);
-        const int pad = scale(ui::kDialogPad);
-        RECT ib{pad, pad, pad + scale(40), pad + scale(40)};
-        if (const auto* b = unitPaletteBitmap(d->first.type, Mode::Units); b && b->bmp) drawFitted(dc, *b, ib);
-        SetBkMode(dc, TRANSPARENT);
-        LOGFONTW lf{};
-        GetObjectW(app.font, sizeof lf, &lf);
-        lf.lfHeight = lf.lfHeight * 3 / 2;
-        HFONT big = CreateFontIndirectW(&lf);
-        HGDIOBJ of = SelectObject(dc, big);
-        SetTextColor(dc, kText);
-        RECT t{ib.right + scale(12), pad - scale(2), scale(2000), pad + scale(24)};
-        DrawTextW(dc, unitDisplayName(d->first.type).c_str(), -1, &t, DT_SINGLELINE | DT_NOPREFIX);
-        SelectObject(dc, app.font);
-        DeleteObject(big);
-        SetTextColor(dc, kDim);
-        const std::wstring sub = d->units.size() > 1 ? std::to_wstring(d->units.size()) + L" units selected. Changes apply to all of them."
-                                                     : L"Unit " + std::to_wstring(d->first.type) + L"  \x00B7  serial " + std::to_wstring(d->first.serial);
-        RECT st{ib.right + scale(12), pad + scale(22), scale(2000), pad + scale(42)};
-        DrawTextW(dc, sub.c_str(), -1, &st, DT_SINGLELINE | DT_NOPREFIX);
-        SelectObject(dc, of);
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    case WM_COMMAND: {
-        const int id = LOWORD(wp);
-        if (id == IDOK || id == IDCANCEL || id == 1801) {
-            d->accepted = id != IDCANCEL;
-            d->editType = id == 1801;
-            if (d->accepted) {
-                // Only what changed from the shown values goes to the units.
-                const Unit was = d->first;
-                auto num = [](HWND h) { return uint32_t(std::wcstoul(windowText(h).c_str(), nullptr, 10)); };
-                const uint32_t owner = uint32_t(SendMessageW(d->owner, CB_GETCURSEL, 0, 0)), hp = std::min(num(d->hp), 100u),
-                               sh = std::min(num(d->shields), 100u), en = std::min(num(d->energy), 100u), res = num(d->resources),
-                               hang = std::min(num(d->hangar), 65535u), x = num(d->x), y = num(d->y);
-                uint16_t setBits = 0, clearBits = 0;
-                for (int b = 0; b < 5; ++b) {
-                    if (!d->state[b]) continue;
-                    const bool on = SendMessageW(d->state[b], BM_GETCHECK, 0, 0) == BST_CHECKED, wasOn = (was.state >> b) & 1;
-                    if (on && !wasOn) setBits |= uint16_t(1 << b);
-                    if (!on && wasOn) clearBits |= uint16_t(1 << b);
-                }
-                const bool single = d->units.size() == 1;
-                app.ed->updateUnits(d->units, [&](Unit& u) {
-                    if (owner != was.owner && (u.validProps & UnitProp::Owner)) u.owner = uint8_t(owner);
-                    if (hp != was.hitPoints && (u.validProps & UnitProp::HitPoints)) u.hitPoints = uint8_t(hp);
-                    if (sh != was.shields && (u.validProps & UnitProp::Shields)) u.shields = uint8_t(sh);
-                    if (en != was.energy && (u.validProps & UnitProp::Energy)) u.energy = uint8_t(en);
-                    if (res != was.resources && (u.validProps & UnitProp::Resources)) u.resources = res;
-                    if (hang != was.hangar && (u.validProps & UnitProp::Hangar)) u.hangar = uint16_t(hang);
-                    u.state = uint16_t((u.state | (setBits & u.validState)) & ~clearBits);
-                    if (single) u.x = uint16_t(std::min(x, 65535u)), u.y = uint16_t(std::min(y, 65535u));
-                });
-            }
-            DestroyWindow(hwnd);
-        }
-        return 0;
-    }
-    case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORSTATIC:
-    case WM_CTLCOLORBTN: {
-        HDC dc = HDC(wp);
-        const HWND c = HWND(lp);
-        SetTextColor(dc, !IsWindowEnabled(c) ? kFaint : GetDlgCtrlID(c) == 1 ? kDim : kText);
-        SetBkColor(dc, msg == WM_CTLCOLOREDIT ? kCtl : kBg);
-        return LRESULT(msg == WM_CTLCOLOREDIT ? app.ctlBrush : app.bgBrush);
-    }
-    case WM_CLOSE:
-        d->accepted = false;
-        DestroyWindow(hwnd);
-        return 0;
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
+VOID CALLBACK unitPropsHookTimer(HWND, UINT, UINT_PTR id, DWORD) {
+    KillTimer(nullptr, id);
+    if (gUnitPropsView && gUnitPropsHook) gUnitPropsHook(*gUnitPropsView);
 }
 
 // Opens the properties of unit `index` (and the rest of the selection, when it is part of it).
 void showUnitProperties(int index) {
     if (!app.ed || index < 0 || index >= int(app.ed->units().size())) return;
     if (!app.ed->isSelected(index)) app.ed->clearSelection(), app.ed->select(index, false);
-    static bool registered = false;
-    if (!registered) {
-        WNDCLASSEXW wc{sizeof wc};
-        wc.lpfnWndProc = unitPropsProc;
-        wc.hInstance = app.inst;
-        wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-        wc.hbrBackground = app.bgBrush;
-        wc.lpszClassName = L"StarDraftUnitProps";
-        RegisterClassExW(&wc);
-        registered = true;
-    }
-    UnitPropsDialog d;
-    d.units = app.ed->selection();
-    d.first = app.ed->units()[size_t(index)];
-    gUnitDlg = &d;
+    const std::vector<int> units = app.ed->selection();
+    const Unit first = app.ed->units()[size_t(index)];
     app.dirty = true;
-    RECT mr;
-    GetWindowRect(app.main, &mr);
-    const int w = scale(560), h = scale(420);
-    HWND wnd = CreateWindowExW(WS_EX_DLGMODALFRAME | WS_EX_CONTROLPARENT | (gBackground ? WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW : 0), L"StarDraftUnitProps", L"Unit properties",
-                               WS_CAPTION | WS_SYSMENU | (gBackground ? 0 : WS_VISIBLE), mr.left + (mr.right - mr.left - w) / 2,
-                               mr.top + (mr.bottom - mr.top - h) / 2, w, h, app.main, nullptr, app.inst, nullptr);
-    if (gBackground) ShowWindow(wnd, SW_SHOWNOACTIVATE);
-    EnableWindow(app.main, FALSE);
-    if (gUnitPropsHook) gUnitPropsHook(wnd);
-    MSG msg;
-    while (IsWindow(wnd) && GetMessageW(&msg, nullptr, 0, 0)) dialogMessage(msg, wnd);
-    EnableWindow(app.main, TRUE);
+    gMainAnchor.host.ownerWindow(app.main);  // the main window owns the dialog and waits until it closes
+    const UINT_PTR timer = gUnitPropsHook ? SetTimer(nullptr, 0, 100, unitPropsHookTimer) : 0;  // (a timer of the thread)
+    const int r = runUnitPropsDialog(gMainAnchor.view, *app.ed, units, first, ui::imageOf(unitPaletteBitmap(first.type, Mode::Units)),
+                                     activeProject() != nullptr, gUnitPropsView);
+    if (timer) KillTimer(nullptr, timer);
     if (!gBackground) SetForegroundWindow(app.main);
-    gUnitDlg = nullptr;
     updateTitle();
     app.dirty = true;
-    if (d.editType && activeProject()) {
+    if (r == kUnitPropsEditType && activeProject()) {
         setWorkspace(Workspace::Data);
-        dataGoTo("units", d.first.type);
+        dataGoTo("units", first.type);
     }
 }
 
@@ -5214,236 +4633,48 @@ void showUnitProperties(int index) {
 // The name, the edges in pixels (Left, Top, Right, Bottom; right more than left and bottom more than top, clamped to
 // the map) and the elevations in the location (MRGN flags). OK sets all of them as one undo step (Editor::editLocation).
 
-struct LocationEditDialog {
-    HWND wnd = nullptr, name = nullptr, edge[4] = {}, size = nullptr, error = nullptr, ok = nullptr, inverted = nullptr;
-    HWND elev[6] = {};
-    int loc = -1;
-    int headingY = 0;  // the elevations' heading (WM_PAINT)
-    bool accepted = false;
-};
-LocationEditDialog* gLocDlg = nullptr;
-void (*gLocEditHook)(HWND) = nullptr;  // self-test
-const wchar_t* const kEdgeNames[4] = {L"Left", L"Top", L"Right", L"Bottom"};
+// The dialog is a core view (core/views_location_props.inc: LocationPropsView, runLocationPropsDialog); this is its
+// Windows host.
+LocationPropsView* gLocPropsView = nullptr;            // the dialog's content while it is open
+void (*gLocEditHook)(LocationPropsView&) = nullptr;   // self-test: runs in the dialog once it shows
 
-// The edges in the fields, or false when a field is not a number.
-bool locEditEdges(const LocationEditDialog& d, Rect& r) {
-    int v[4];
-    for (int k = 0; k < 4; ++k) {
-        const std::wstring t = windowText(d.edge[k]);
-        if (t.empty() || t.size() > 9) return false;
-        v[k] = int(std::wcstol(t.c_str(), nullptr, 10));
-    }
-    r = {v[0], v[1], v[2], v[3]};
-    return true;
-}
-
-// The size and error lines from the fields; OK is off while the edges are wrong.
-void locEditCheck(LocationEditDialog& d) {
-    Rect r;
-    std::wstring err, size;
-    if (!locEditEdges(d, r)) err = L"Type a number in each edge";
-    else if (r.right <= r.left) err = L"Right must be more than left";
-    else if (r.bottom <= r.top) err = L"Bottom must be more than top";
-    else {
-        const int w = r.right - r.left, h = r.bottom - r.top;
-        auto tiles = [](int px) {
-            wchar_t b[32];
-            if (px % 32) std::swprintf(b, 32, L"%.1f", px / 32.0);
-            else std::swprintf(b, 32, L"%d", px / 32);
-            return std::wstring(b);
-        };
-        size = std::to_wstring(w) + L" x " + std::to_wstring(h) + L" pixels  \x00B7  " + tiles(w) + L" x " + tiles(h) + L" tiles";
-    }
-    SetWindowTextW(d.size, size.empty() ? L"\x2014" : size.c_str());
-    SetWindowTextW(d.error, err.c_str());
-    EnableWindow(d.ok, err.empty());
-}
-
-LRESULT CALLBACK locEditProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    LocationEditDialog* d = gLocDlg;
-    switch (msg) {
-    case WM_CREATE: {
-        BOOL dark = !gLightTheme;
-        DwmSetWindowAttribute(hwnd, 20, &dark, sizeof dark), titleColors(hwnd);
-        d->wnd = hwnd;
-        Editor& ed = *app.ed;
-        const Rect r = ed.locationRect(d->loc);
-        const uint16_t excluded = ed.locationElevation(d->loc);
-        const int pad = scale(ui::kDialogPad), rowH = scale(ui::kFieldH), pitch = scale(ui::kFormRowH), labelW = scale(64), boxW = scale(104),
-                  colW = labelW + boxW + scale(24);
-        const int right = pad + colW + labelW + boxW;
-        auto label = [&](const wchar_t* t, int x, int y, int w, int id = 1) {
-            HWND h = CreateWindowExW(0, WC_STATICW, t, WS_CHILD | WS_VISIBLE | SS_NOPREFIX | SS_CENTERIMAGE, x, y, w, rowH, hwnd, HMENU(INT_PTR(id)), app.inst, nullptr);
-            SendMessageW(h, WM_SETFONT, WPARAM(app.font), TRUE);
-            return h;
-        };
-        int y = pad;
-        label(L"Name", pad, y, labelW - scale(8));
-        d->name = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, widen(ed.locationName(d->loc)).c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL,
-                                  pad + labelW, y, right - pad - labelW, rowH, hwnd, nullptr, app.inst, nullptr);
-        SendMessageW(d->name, WM_SETFONT, WPARAM(app.font), TRUE);
-        SendMessageW(d->name, EM_SETLIMITTEXT, 200, 0);
-        darkControl(d->name, L"DarkMode_CFD");
-        y += pitch;
-        const int vals[4] = {r.left, r.top, r.right, r.bottom};
-        for (int k = 0; k < 4; ++k) {
-            const int x = pad + (k % 2) * colW, yy = y + (k / 2) * pitch;
-            label(kEdgeNames[k], x, yy, labelW - scale(8));
-            HWND h = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, std::to_wstring(vals[k]).c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_NUMBER | ES_RIGHT,
-                                     x + labelW, yy, boxW, rowH, hwnd, nullptr, app.inst, nullptr);
-            SendMessageW(h, WM_SETFONT, WPARAM(monoFont()), TRUE);
-            SendMessageW(h, EM_SETLIMITTEXT, 7, 0);
-            darkControl(h, L"DarkMode_CFD");
-            d->edge[k] = h;
-        }
-        y += 2 * pitch;
-        label(L"Size", pad, y, labelW - scale(8));
-        d->size = label(L"", pad + labelW, y, right - pad - labelW);
-        y += pitch;
-        // Inverted (it holds air units only): the axes on which the game reads the edges swapped. The edges above are
-        // always from the lower value to the higher.
-        label(L"Inverted", pad, y, labelW - scale(8));
-        d->inverted = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST, pad + labelW, y, right - pad - labelW,
-                                      scale(200), hwnd, nullptr, app.inst, nullptr);
-        SendMessageW(d->inverted, WM_SETFONT, WPARAM(app.font), TRUE);
-        darkControl(d->inverted, L"DarkMode_CFD");
-        for (const wchar_t* t : {L"No", L"Left and right", L"Top and bottom", L"Left and right, top and bottom"})
-            SendMessageW(d->inverted, CB_ADDSTRING, 0, LPARAM(t));
-        SendMessageW(d->inverted, CB_SETCURSEL, ed.locationInvertedAxes(d->loc), 0);
-        if (d->loc == kAnywhereLocation) EnableWindow(d->inverted, FALSE);
-        y += pitch + scale(8);
-        d->headingY = y;
-        y += scale(24) + scale(8);
-        const int cw = (right - pad) / 3;
-        for (int k = 0; k < 6; ++k) {
-            HWND cb = CreateWindowExW(0, WC_BUTTONW, kElevationNames[k], WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, pad + (k % 3) * cw,
-                                      y + (k / 3) * pitch, cw - scale(8), rowH, hwnd, nullptr, app.inst, nullptr);
-            SendMessageW(cb, WM_SETFONT, WPARAM(app.font), TRUE);
-            darkControl(cb, L"DarkMode_Explorer");
-            SendMessageW(cb, BM_SETCHECK, excluded & (1 << k) ? BST_UNCHECKED : BST_CHECKED, 0);
-            d->elev[k] = cb;
-        }
-        y += 2 * pitch + scale(16);
-        const wchar_t* names[2] = {L"OK", L"Cancel"};
-        const int ids[2] = {IDOK, IDCANCEL};
-        for (int i = 0; i < 2; ++i) {
-            HWND b = CreateWindowExW(0, WC_BUTTONW, names[i], WS_CHILD | WS_VISIBLE | WS_TABSTOP | (i == 0 ? BS_DEFPUSHBUTTON : BS_PUSHBUTTON), 0, y,
-                                     scale(ui::kButtonMinW), scale(ui::kButtonH), hwnd, HMENU(INT_PTR(ids[i])), app.inst, nullptr);
-            SendMessageW(b, WM_SETFONT, WPARAM(app.font), TRUE);
-            darkControl(b, L"DarkMode_Explorer");
-        }
-        d->ok = ui::dlgButton(hwnd, IDOK);
-        const int left = ui::nativeButtonsRight({d->ok, ui::dlgButton(hwnd, IDCANCEL)}, right, y);
-        d->error = label(L"", pad, y + (scale(ui::kButtonH) - rowH) / 2, left - pad - scale(8), 2);
-        locEditCheck(*d);
-        RECT wr{0, 0, right + pad, y + scale(ui::kButtonH) + pad};
-        AdjustWindowRectExForDpi(&wr, WS_CAPTION | WS_SYSMENU, FALSE, WS_EX_DLGMODALFRAME, app.dpi);
-        SetWindowPos(hwnd, nullptr, 0, 0, wr.right - wr.left, wr.bottom - wr.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-        return 0;
-    }
-    case WM_PAINT: {
-        // The elevations' heading: the text, and a hairline under it.
-        PAINTSTRUCT ps;
-        HDC dc = BeginPaint(hwnd, &ps);
-        RECT cr;
-        GetClientRect(hwnd, &cr);
-        const int pad = scale(ui::kDialogPad);
-        SetBkMode(dc, TRANSPARENT);
-        SetTextColor(dc, kText);
-        HGDIOBJ of = SelectObject(dc, app.font);
-        RECT t{pad, d->headingY, cr.right - pad, d->headingY + scale(24)};
-        DrawTextW(dc, L"Elevations in the location", -1, &t, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-        SelectObject(dc, of);
-        RECT line{pad, d->headingY + scale(24), cr.right - pad, d->headingY + scale(24) + 1};
-        HBRUSH b = CreateSolidBrush(kBorder);
-        FillRect(dc, &line, b);
-        DeleteObject(b);
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    case WM_COMMAND: {
-        const int id = LOWORD(wp);
-        if (HIWORD(wp) == EN_CHANGE) {
-            for (HWND e : d->edge)
-                if (HWND(lp) == e) locEditCheck(*d);
-            return 0;
-        }
-        if (id == IDOK || id == IDCANCEL) {
-            Rect r;
-            if (id == IDOK && (!locEditEdges(*d, r) || r.right <= r.left || r.bottom <= r.top)) return 0;  // OK is off then
-            d->accepted = id == IDOK;
-            if (d->accepted) {
-                Editor::LocationEdit e;
-                e.name = narrow(windowText(d->name));
-                e.rect = r;
-                for (int k = 0; k < 6; ++k)
-                    if (SendMessageW(d->elev[k], BM_GETCHECK, 0, 0) != BST_CHECKED) e.excluded |= uint16_t(1 << k);
-                e.invertedAxes = int(SendMessageW(d->inverted, CB_GETCURSEL, 0, 0));
-                std::string err;
-                if (app.ed->editLocation(d->loc, e, &err)) setMessage(L"Changed the location \"" + widen(app.ed->locationName(d->loc)) + L"\"");
-                else if (!err.empty()) setMessage(L"Could not change the location: " + widen(err));
-            }
-            DestroyWindow(hwnd);
-        }
-        return 0;
-    }
-    case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORSTATIC:
-    case WM_CTLCOLORBTN: {
-        HDC dc = HDC(wp);
-        const HWND c = HWND(lp);
-        const int cid = GetDlgCtrlID(c);
-        SetTextColor(dc, !IsWindowEnabled(c) ? kFaint : cid == 1 ? kDim : cid == 2 ? kBad : kText);
-        SetBkColor(dc, msg == WM_CTLCOLOREDIT ? kCtl : kBg);
-        return LRESULT(msg == WM_CTLCOLOREDIT ? app.ctlBrush : app.bgBrush);
-    }
-    case WM_CLOSE:
-        d->accepted = false;
-        DestroyWindow(hwnd);
-        return 0;
-    }
-    return DefWindowProcW(hwnd, msg, wp, lp);
+VOID CALLBACK locEditHookTimer(HWND, UINT, UINT_PTR id, DWORD) {
+    KillTimer(nullptr, id);
+    if (gLocPropsView && gLocEditHook) gLocEditHook(*gLocPropsView);
 }
 
 // Opens the properties of location `loc` (and selects it). Modal, as Unit properties.
 void showLocationEdit(int loc) {
-    if (!app.ed || !app.ed->locationUsed(loc) || gLocDlg) return;
+    if (!app.ed || !app.ed->locationUsed(loc) || gLocPropsView) return;
     app.ed->selectLocation(loc);
     setListSel(int(std::find(app.items.begin(), app.items.end(), loc) - app.items.begin()));
-    static bool registered = false;
-    if (!registered) {
-        WNDCLASSEXW wc{sizeof wc};
-        wc.lpfnWndProc = locEditProc;
-        wc.hInstance = app.inst;
-        wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-        wc.hbrBackground = app.bgBrush;
-        wc.lpszClassName = L"StarDraftLocationEdit";
-        RegisterClassExW(&wc);
-        registered = true;
-    }
-    LocationEditDialog d;
-    d.loc = loc;
-    gLocDlg = &d;
     app.drag = Drag::None;
     app.dirty = true;
-    RECT mr;
-    GetWindowRect(app.main, &mr);
-    const int w = scale(440), h = scale(360);
-    HWND wnd = CreateWindowExW(WS_EX_DLGMODALFRAME | WS_EX_CONTROLPARENT | (gBackground ? WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW : 0), L"StarDraftLocationEdit",
-                               L"Location properties", WS_CAPTION | WS_SYSMENU | (gBackground ? 0 : WS_VISIBLE), mr.left + (mr.right - mr.left - w) / 2,
-                               mr.top + (mr.bottom - mr.top - h) / 2, w, h, app.main, nullptr, app.inst, nullptr);
-    if (gBackground) ShowWindow(wnd, SW_SHOWNOACTIVATE);
-    else SetFocus(d.name), SendMessageW(d.name, EM_SETSEL, 0, -1);
-    EnableWindow(app.main, FALSE);
-    if (gLocEditHook) gLocEditHook(wnd);
-    MSG msg;
-    while (IsWindow(wnd) && GetMessageW(&msg, nullptr, 0, 0)) dialogMessage(msg, wnd);
-    EnableWindow(app.main, TRUE);
+    gMainAnchor.host.ownerWindow(app.main);  // the main window owns the dialog and waits until it closes
+    const UINT_PTR timer = gLocEditHook ? SetTimer(nullptr, 0, 100, locEditHookTimer) : 0;  // (a timer of the thread)
+    const int r = runLocationPropsDialog(gMainAnchor.view, *app.ed, loc, !gBackground, gLocPropsView);
+    if (timer) KillTimer(nullptr, timer);
     if (!gBackground) SetForegroundWindow(app.main);
-    gLocDlg = nullptr;
-    if (d.accepted) rebuildList(), setListSel(int(std::find(app.items.begin(), app.items.end(), loc) - app.items.begin()));
+    if (r == kLocPropsOk) rebuildList(), setListSel(int(std::find(app.items.begin(), app.items.end(), loc) - app.items.begin()));
     updateTitle();
     app.dirty = true;
+}
+
+// --- The text prompt (core/views_text_prompt.inc); this is its Windows host -----------------------------------------
+TextPromptView* gPromptView = nullptr;               // the prompt's content while it is open
+void (*gPromptHook)(TextPromptView&) = nullptr;      // captures: runs in the prompt once it shows
+
+VOID CALLBACK promptHookTimer(HWND, UINT, UINT_PTR id, DWORD) {
+    KillTimer(nullptr, id);
+    if (gPromptView && gPromptHook) gPromptHook(*gPromptView);
+}
+
+bool prompt(const wchar_t* title, std::wstring& text) {
+    gMainAnchor.host.ownerWindow(app.main);  // the main window owns the prompt and waits until it closes
+    const UINT_PTR timer = gPromptHook ? SetTimer(nullptr, 0, 100, promptHookTimer) : 0;
+    const bool ok = runTextPrompt(gMainAnchor.view, title, text, !gBackground, gPromptView);
+    if (timer) KillTimer(nullptr, timer);
+    return ok;
 }
 
 void dataSetValue(const DatField& f, uint32_t v);
@@ -12143,129 +11374,12 @@ void pieRelease() {
     if (h >= 0 && h < int(gPie.items.size())) pickUnit(gPie.items[size_t(h)], false);
 }
 
-// The map's right-click menu, for the active mode: what is under the mouse is selected first (when it is not
-// already), then Cut, Copy, Paste, Duplicate, Delete and Select all act on the mode's selection and its own copy
-// buffer. Units add Properties; a location adds its own menu (rename, elevations).
-enum { ID_MAPMENU_PROPS = 9001, ID_MAPMENU_SELECT, ID_MAPMENU_REPLACE, ID_MAPMENU_SAMETYPE, ID_MAPMENU_SAMETYPE_PLAYER, ID_MAPMENU_TOTERRAIN,
-       ID_MAPMENU_FILLSEL };
-int gMapMenuUnit = -1, gMapMenuLocation = -1, gMapMenuDoodad = -1, gMapMenuSprite = -1;
-
-// "Select all of this type": every unit (of `forPlayer`: only the same player's), doodad or sprite on the map of the
-// same type as the one the menu was opened on, in place of the mode's selection. Returns how many are selected.
-int selectSameType(bool forPlayer) {
-    if (!app.ed) return 0;
-    Editor& ed = *app.ed;
-    int n = 0;
-    std::wstring what;
-    if (gMapMenuUnit >= 0 && gMapMenuUnit < int(ed.units().size())) {
-        const Unit u = ed.units()[size_t(gMapMenuUnit)];
-        n = ed.selectUnitsOfType(u.type, forPlayer ? int(u.owner) : -1);
-        what = (n == 1 ? L" unit (" : L" units (") + unitDisplayName(u.type) + (forPlayer ? L", Player " + std::to_wstring(u.owner + 1) : L"") + L")";
-    } else if (gMapMenuDoodad >= 0 && gMapMenuDoodad < int(ed.doodads().size())) {
-        const uint16_t id = ed.doodads()[size_t(gMapMenuDoodad)].id;
-        app.selDoodads = ed.doodadsOfType(id);
-        n = int(app.selDoodads.size());
-        what = (n == 1 ? L" doodad (" : L" doodads (") + paletteItemName(id) + L")";
-    } else if (gMapMenuSprite >= 0 && gMapMenuSprite < int(ed.sprites().size())) {
-        const MapSprite s = ed.sprites()[size_t(gMapMenuSprite)];
-        app.selSprites = ed.spritesOfType(gMapMenuSprite);
-        n = int(app.selSprites.size());
-        what = (n == 1 ? L" sprite (" : L" sprites (") + ((s.flags & SpriteFlag::DrawAsSprite) ? entryName("sprites", s.id) : unitDisplayName(s.id)) + L")";
-    } else return 0;
-    setMessage(L"Selected " + std::to_wstring(n) + what);
-    app.dirty = true;
-    return n;
-}
-
+// The map's right-click menu (core/views_map_menu.inc: mapMenuModel, mapMenuPick) as the program's painted Win32 menu.
+void setMenuIcons(HMENU bar);
 HMENU mapMenu(float wx, float wy) {
-    HMENU m = CreatePopupMenu();
-    gMapMenuUnit = gMapMenuLocation = gMapMenuDoodad = gMapMenuSprite = -1;
-    if (!app.ed || !app.ed->isOpen()) return m;
-    Editor& ed = *app.ed;
-    bool has = false, canPaste = false;
-    switch (app.mode) {
-    case Mode::Units: {
-        const int u = ed.unitAt(int(wx), int(wy));
-        if (u >= 0 && !ed.isSelected(u)) ed.select(u, false);
-        gMapMenuUnit = u;
-        has = !ed.selection().empty(), canPaste = ed.canPaste();
-        break;
-    }
-    case Mode::Doodads:
-    case Mode::Sprites: {
-        const bool dd = app.mode == Mode::Doodads;
-        auto& sel = dd ? app.selDoodads : app.selSprites;
-        const int hit = dd ? ed.doodadAt(int(wx), int(wy)) : mapSpriteAt(*app.ed, int(wx), int(wy));
-        if (hit >= 0 && std::find(sel.begin(), sel.end(), hit) == sel.end()) sel = {hit};
-        (dd ? gMapMenuDoodad : gMapMenuSprite) = hit;
-        has = !sel.empty(), canPaste = !(dd ? app.doodadClip : app.spriteClip).empty();
-        break;
-    }
-    case Mode::Locations: {
-        const int loc = ed.locationAt(int(wx), int(wy));
-        if (loc >= 0) {
-            ed.selectLocation(loc);
-            setListSel(int(std::find(app.items.begin(), app.items.end(), loc) - app.items.begin()));
-        }
-        gMapMenuLocation = loc;
-        has = ed.selectedLocation() >= 0, canPaste = app.hasLocationClip;
-        break;
-    }
-    case Mode::Terrain: has = app.hasTerrainSel, canPaste = ed.hasTileClipboard() || ed.hasTerrainClipboard(); break;  // either copy (#83)
-    }
-    auto item = [&](int id, const wchar_t* text, bool on) { AppendMenuW(m, MF_STRING | (on ? 0 : MF_GRAYED), UINT_PTR(id), text); };
-    const bool terrain = app.mode == Mode::Terrain;
-    item(ID_EDIT_CUT, L"Cu&t\tCtrl+X", has);  // terrain: null tiles in its place
-    (void)terrain;
-    item(ID_EDIT_COPY, L"&Copy\tCtrl+C", has);
-    item(ID_EDIT_PASTE, L"&Paste\tCtrl+V", canPaste);
-    item(ID_EDIT_DUPLICATE, L"D&uplicate\tCtrl+D", has && !terrain);
-    item(ID_EDIT_DELETE, L"&Delete\tDel", has && !terrain);
-    item(ID_MAPMENU_REPLACE, L"&Replace with\x2026", has && (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites));
-    if (app.mode == Mode::Doodads) item(ID_MAPMENU_TOTERRAIN, L"Convert to t&errain", has);
-    if (terrain && app.terrainRect) item(ID_MAPMENU_FILLSEL, L"&Fill selection with the selected tiles", has && gTiles.picked >= 0);  // (#114)
-    AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-    item(ID_EDIT_SELECTALL, L"Select &all\tCtrl+A", !terrain && app.mode != Mode::Locations);
-    // On a unit, doodad or sprite: all of its type on the map (units: also only its player's).
-    if (gMapMenuUnit >= 0 || gMapMenuDoodad >= 0 || gMapMenuSprite >= 0) item(ID_MAPMENU_SAMETYPE, L"Select all of this t&ype", true);
-    if (gMapMenuUnit >= 0)
-        item(ID_MAPMENU_SAMETYPE_PLAYER, (L"Select all of this type for Player " + std::to_wstring(ed.units()[size_t(gMapMenuUnit)].owner + 1)).c_str(), true);
-    item(ID_MAPMENU_SELECT, L"&Select (no placing)\tEsc", !inSelection());
-    if (gMapMenuUnit >= 0) {
-        AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-        item(ID_MAPMENU_PROPS, L"P&roperties\x2026", true);
-    }
-    if (gMapMenuLocation >= 0) {  // the location's own menu after these
-        AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-        HMENU lm = locationMenu(gMapMenuLocation);
-        for (int k = 0, n = GetMenuItemCount(lm); k < n; ++k) {
-            wchar_t text[128] = L"";
-            MENUITEMINFOW mi{sizeof mi};
-            mi.fMask = MIIM_ID | MIIM_STRING | MIIM_STATE | MIIM_FTYPE, mi.dwTypeData = text, mi.cch = 127;
-            GetMenuItemInfoW(lm, UINT(k), TRUE, &mi);
-            if (mi.wID == ID_LOCMENU_DELETE) continue;  // Delete is above
-            InsertMenuItemW(m, UINT(GetMenuItemCount(m)), TRUE, &mi);
-        }
-        DestroyMenu(lm);
-    }
+    HMENU m = toHmenu(mapMenuModel(wx, wy), false);
     setMenuIcons(m);
     return m;
-}
-void mapMenuPick(int pick) {
-    if (pick == ID_MAPMENU_PROPS && gMapMenuUnit >= 0) showUnitProperties(gMapMenuUnit);
-    else if (pick == ID_MAPMENU_SELECT) enterSelection(), setMessage(std::wstring(kModeNames[int(app.mode)]) + L": select");
-    else if (pick == ID_MAPMENU_REPLACE) showQuickPicker(true);
-    else if (pick == ID_MAPMENU_FILLSEL) tilesFillSelection();
-    else if (pick == ID_MAPMENU_SAMETYPE || pick == ID_MAPMENU_SAMETYPE_PLAYER) selectSameType(pick == ID_MAPMENU_SAMETYPE_PLAYER);
-    else if (pick == ID_MAPMENU_TOTERRAIN && app.ed) {
-        // The selected doodads (the one under the mouse is selected by the menu): their tiles stay as plain terrain.
-        const int n = app.ed->convertDoodadsToTerrain(app.selDoodads);
-        app.selDoodads.clear();
-        if (n) setMessage(L"Converted " + std::to_wstring(n) + (n == 1 ? L" doodad" : L" doodads") + L" to terrain");
-        app.dirty = true;
-    }
-    else if (pick < 100 && gMapMenuLocation >= 0) locationMenuPick(gMapMenuLocation, pick);
-    else command(pick);
 }
 
 void cancelStep() {
@@ -12604,14 +11718,7 @@ void paintDarkBorder(HWND w) {
         inner = {wi.rcClient.left - wi.rcWindow.left, wi.rcClient.top - wi.rcWindow.top, wi.rcClient.right - wi.rcWindow.left,
                  wi.rcClient.bottom - wi.rcWindow.top};
     ExcludeClipRect(dc, inner.left, inner.top, inner.right, inner.bottom);
-    HWND parent = GetParent(w);
-    COLORREF outside = kBg;
-    if (parent) {
-        wchar_t cls[32] = L"";
-        GetClassNameW(parent, cls, 32);
-        if (!wcscmp(cls, L"StarDraftQuickPick")) outside = kBg;
-    }
-    HBRUSH bg = CreateSolidBrush(outside);
+    HBRUSH bg = CreateSolidBrush(kBg);
     FillRect(dc, &r, bg);
     DeleteObject(bg);
     // The kit's field box (read-only edits as read-only fields).
@@ -14404,8 +13511,8 @@ int runSelfTest(const fs::path& dir) {
         uint16_t terr = 1;
         while (tt && !tt->isTerrain(terr)) ++terr;
         command(ID_QUICKPICK);
-        SetWindowTextW(gQuick.edit, tt ? widen(tt->terrainName(terr)).c_str() : L"");
-        SendMessageW(gQuick.edit, WM_KEYDOWN, VK_RETURN, 0);
+        quickPickType(tt ? widen(tt->terrainName(terr)) : L"");
+        quickPickKey(draw::Key::Enter);
         log << "quick picker in Terrain: paints " << (app.mode == Mode::Terrain && app.palette == terr && currentTool() == TBrush ? "yes" : "NO") << std::endl;
         cancelStep();
     }
@@ -14413,18 +13520,18 @@ int runSelfTest(const fs::path& dir) {
     {
         setMode(Mode::Units);
         command(ID_QUICKPICK);
-        SetWindowTextW(gQuick.edit, L"zealt");
-        capture(dir / "quick_picker.png", gQuick.wnd);
+        quickPickType(L"zealt");
+        quickPickCapture(dir / "quick_picker.png");
         const uint16_t zealot = *ed.unitTypes().findByName("Protoss Zealot");
-        const int first = gQuick.shown.empty() ? -1 : gQuick.shown[0].value;
-        SendMessageW(gQuick.edit, WM_KEYDOWN, VK_RETURN, 0);
+        const int first = gQuickView.shown().empty() ? -1 : gQuickView.shown()[0].value;
+        quickPickKey(draw::Key::Enter);
         log << "quick picker: first match " << (first == zealot ? "Zealot" : "WRONG") << ", placing "
-            << (app.mode == Mode::Units && app.palette == zealot ? "Zealot" : "WRONG") << ", closed " << (gQuick.wnd ? "NO" : "yes") << "\n";
+            << (app.mode == Mode::Units && app.palette == zealot ? "Zealot" : "WRONG") << ", closed " << (quickPickWnd() ? "NO" : "yes") << "\n";
         command(ID_QUICKPICK);
-        SetWindowTextW(gQuick.edit, L"siege");
-        SendMessageW(gQuick.edit, WM_KEYDOWN, VK_DOWN, 0);
-        const int second = gQuick.shown.size() > 1 ? gQuick.shown[1].value : -1;
-        SendMessageW(gQuick.edit, WM_KEYDOWN, VK_RETURN, 0);
+        quickPickType(L"siege");
+        quickPickKey(draw::Key::Down);
+        const int second = gQuickView.shown().size() > 1 ? gQuickView.shown()[1].value : -1;
+        quickPickKey(draw::Key::Enter);
         log << "quick picker: Down then Enter picks the second match " << (app.palette == second && second >= 0 ? "yes" : "NO") << "\n";
         cancelStep();
     }
@@ -14586,23 +13693,24 @@ int runSelfTest(const fs::path& dir) {
         shotDark = dir / "location_properties.png", shotLight = dir / "location_properties_light.png";
         hookRan = okOffWhenWrong = false;
         want = {r0.left + 32, r0.top + 32, r0.right + 64, r0.bottom + 96};
-        gLocEditHook = [](HWND w) {
+        gLocEditHook = [](LocationPropsView& v) {
             hookRan = true;
-            auto set = [](int k, int v) { SetWindowTextW(gLocDlg->edge[k], std::to_wstring(v).c_str()); };
-            set(2, 0);  // right not more than left: OK turns off
-            okOffWhenWrong = !IsWindowEnabled(gLocDlg->ok);
+            const HWND w = ui::Win32Host::windowOf(v);
+            v.setEdge(2, 0);  // right not more than left: OK turns off
+            okOffWhenWrong = !v.okOn();
             for (int i = 0; i < 4; ++i) pump();
-            capture(shotDark.parent_path() / "location_properties_wrong.png", w);
-            set(0, want.left), set(1, want.top), set(2, want.right), set(3, want.bottom);
-            SendMessageW(gLocDlg->elev[3], BM_SETCHECK, BST_UNCHECKED, 0);  // low air
+            if (w) capture(shotDark.parent_path() / "location_properties_wrong.png", w);
+            v.setEdge(0, want.left), v.setEdge(1, want.top), v.setEdge(2, want.right), v.setEdge(3, want.bottom);
+            v.elevationBox(3).setOn(false);  // low air
             for (int i = 0; i < 4; ++i) pump();
-            capture(shotDark, w);
+            if (w) capture(shotDark, w);
             const int accent = gAccentIndex;
             applyTheme(true, accent);
+            if (w) InvalidateRect(w, nullptr, FALSE);
             for (int i = 0; i < 4; ++i) pump();
-            capture(shotLight, w);
+            if (w) capture(shotLight, w);
             applyTheme(false, accent);
-            PostMessageW(w, WM_COMMAND, IDOK, 0);
+            v.press(kLocPropsOk);
         };
         setMode(Mode::Locations);
         SendMessageW(app.view, WM_LBUTTONDBLCLK, MK_LBUTTON, MAKELPARAM(sx, sy));
@@ -15684,12 +14792,12 @@ int runSelfTest(const fs::path& dir) {
             dataShowTab(0);
             {
                 command(ID_QUICKPICK);
-                SetWindowTextW(gQuick.edit, L"weap gauss");
+                quickPickType(L"weap gauss");
                 pump();
-                const bool firstIsGauss = !gQuick.shown.empty() && gQuick.shown[0].section == L"Weapons" && gQuick.shown[0].value % 10000 <= 1;
+                const bool firstIsGauss = !gQuickView.shown().empty() && gQuickView.shown()[0].section == L"Weapons" && gQuickView.shown()[0].value % 10000 <= 1;
                 for (int i = 0; i < 10; ++i) pump(), Sleep(20);
-                capture(dir / "65e_data_quick_jump.png", gQuick.wnd);
-                SendMessageW(gQuick.edit, WM_KEYDOWN, VK_RETURN, 0);
+                quickPickCapture(dir / "65e_data_quick_jump.png");
+                quickPickKey(draw::Key::Enter);
                 const bool jumped = curTable() && curTable()->schema().name == "weapons" && gData.entry <= 1;
                 log << "data quick jump: \"weap gauss\" finds the Gauss Rifle in Weapons " << (firstIsGauss ? "yes" : "NO") << ", Enter opens it "
                     << (jumped ? "yes" : "NO") << "\n";
@@ -16683,13 +15791,13 @@ int runSelfTest(const fs::path& dir) {
                     unitShot = dir / "76_unit_properties.png";
                     static bool hookRan;
                     hookRan = false;
-                    gUnitPropsHook = [](HWND w) {
+                    gUnitPropsHook = [](UnitPropsView& v) {
                         hookRan = true;
-                        SetWindowTextW(gUnitDlg->hp, L"50");
-                        SendMessageW(gUnitDlg->state[4], BM_SETCHECK, BST_CHECKED, 0);
+                        v.hitPointsField().setText(L"50");
+                        if (auto* cb = v.stateBox(4)) cb->setOn(true);
                         for (int i = 0; i < 15; ++i) pump(), Sleep(30);
-                        capture(unitShot, w);
-                        PostMessageW(w, WM_COMMAND, 1801, 0);  // Edit unit type in Data (applies the edits too)
+                        if (HWND w = ui::Win32Host::windowOf(v)) capture(unitShot, w);
+                        v.close(kUnitPropsEditType);  // Edit unit type in Data (applies the edits too)
                     };
                     SendMessageW(app.view, WM_LBUTTONDBLCLK, MK_LBUTTON, MAKELPARAM(sx, sy));
                     gUnitPropsHook = nullptr;
@@ -17166,12 +16274,6 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     vc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     vc.lpszClassName = L"StarDraftViewport";
     RegisterClassExW(&vc);
-    WNDCLASSEXW qc{sizeof qc};
-    qc.lpfnWndProc = quickPickProc;
-    qc.hInstance = inst;
-    qc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    qc.lpszClassName = L"StarDraftQuickPick";
-    RegisterClassExW(&qc);
     ui::registerViewClass(inst);
 
     // Self-test and screenshot runs work in the background: the window sits beyond the right edge of
@@ -17305,6 +16407,31 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
             if (s == "menutree:") {  // menutree.txt: the main window's menu tree (texts, ids, states), to compare two builds
                 std::ofstream o(fs::path(datashots) / "menutree.txt", std::ios::binary);
                 dumpMenuTree(o, GetMenu(app.main), 0);
+                continue;
+            }
+            if (s == "mapmenu:") {  // mapmenu.txt: the map's right-click menu on the first unit (Units) and the first location (Locations)
+                std::ofstream o(fs::path(datashots) / "mapmenu.txt", std::ios::binary);
+                if (app.ed && app.ed->isOpen()) {
+                    Editor& ed = *app.ed;
+                    if (!ed.units().empty()) {
+                        command(ID_MODE_UNITS);
+                        const Unit u = ed.units()[0];
+                        o << "units, at the first unit:\n";
+                        HMENU m = mapMenu(float(u.x), float(u.y));
+                        dumpMenuTree(o, m, 1);
+                        DestroyMenu(m);
+                    }
+                    for (int i = 0; i < ed.locationCount(); ++i)
+                        if (i != kAnywhereLocation && ed.locationUsed(i)) {
+                            command(ID_MODE_LOCATIONS);
+                            const Rect r = ed.locationRect(i);
+                            o << "locations, at the first location:\n";
+                            HMENU m = mapMenu((r.left + r.right) / 2.0f, (r.top + r.bottom) / 2.0f);
+                            dumpMenuTree(o, m, 1);
+                            DestroyMenu(m);
+                            break;
+                        }
+                }
                 continue;
             }
             if (s.rfind("dpi:", 0) == 0) {  // dpi:<n>: as Windows tells a window that moved to a screen of that DPI (144: 150%)
@@ -17795,11 +16922,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 command(mode == "terrain" ? ID_MODE_TERRAIN : mode == "doodads" ? ID_MODE_DOODADS : mode == "locations" ? ID_MODE_LOCATIONS : ID_MODE_UNITS);
                 for (int i = 0; i < 3; ++i) pump();
                 showQuickPicker();
-                if (gQuick.edit) SetWindowTextW(gQuick.edit, widen(text).c_str());
+                quickPickType(widen(text));
                 for (int i = 0; i < 6; ++i) pump(), Sleep(20);
-                if (gQuick.wnd) {
-                    RedrawWindow(gQuick.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
-                    capture(fs::path(datashots) / ("quick_" + mode + (gLightTheme ? "_light" : "") + ".png"), gQuick.wnd);
+                if (quickPickWnd()) {
+                    RedrawWindow(quickPickWnd(), nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                    quickPickCapture(fs::path(datashots) / ("quick_" + mode + (gLightTheme ? "_light" : "") + ".png"));
                 }
                 quickPickClose();
                 continue;
@@ -20405,18 +19532,18 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 }
                 command(ID_QUICKOPEN);
                 for (int i = 0; i < 3; ++i) pump();
-                o << "it opens " << (gQuick.wnd && gQuick.open ? "yes" : "NO") << ", rows " << gQuick.shown.size() << "\n";
-                for (const auto& u : gQuick.shown) o << "  " << narrow(u.label) << " | " << narrow(u.section) << "\n";
-                if (gQuick.wnd) {
-                    RedrawWindow(gQuick.wnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
-                    capture(fs::path(datashots) / "quickopen.png", gQuick.wnd);
+                o << "it opens " << (quickPickWnd() && gQuickView.kind() == QuickPickKind::Open ? "yes" : "NO") << ", rows " << gQuickView.shown().size() << "\n";
+                for (const auto& u : gQuickView.shown()) o << "  " << narrow(u.label) << " | " << narrow(u.section) << "\n";
+                if (quickPickWnd()) {
+                    RedrawWindow(quickPickWnd(), nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                    quickPickCapture(fs::path(datashots) / "quickopen.png");
                     // Typing a part of the open map's name: the open tab first; a folder's name finds nothing.
-                    SetWindowTextW(gQuick.edit, L"bottle");
+                    quickPickType(L"bottle");
                     for (int i = 0; i < 3; ++i) pump();
-                    o << "\"bottle\" finds the open tab first " << (!gQuick.shown.empty() && gQuick.shown[0].value == gActive ? "yes" : "NO") << "\n";
-                    SetWindowTextW(gQuick.edit, L"starcraft remastered");
+                    o << "\"bottle\" finds the open tab first " << (!gQuickView.shown().empty() && gQuickView.shown()[0].value == gActive ? "yes" : "NO") << "\n";
+                    quickPickType(L"starcraft remastered");
                     for (int i = 0; i < 3; ++i) pump();
-                    o << "a folder's name finds only the browse row " << (gQuick.shown.size() == 1 && gQuick.shown[0].value == kBrowseProjectRow ? "yes" : "NO") << "\n";
+                    o << "a folder's name finds only the browse row " << (gQuickView.shown().size() == 1 && gQuickView.shown()[0].value == kBrowseProjectRow ? "yes" : "NO") << "\n";
                     quickPickClose();
                 }
                 continue;
@@ -20999,6 +20126,26 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 tilesSetFilter(0);
                 continue;
             }
+            if (s.rfind("unitprops:", 0) == 0) {  // unitprops_<n>.png: Unit properties of unit n (unitprops: unit 0), closed with Cancel;
+                                                  // unitprops:u<type> (unitprops_u<type>.png) places a unit of that type for player 1 first
+                const bool place = s.size() > 10 && s[10] == 'u';
+                int n = s.size() > 10 ? std::atoi(s.c_str() + 10 + (place ? 1 : 0)) : 0;
+                static fs::path shot;
+                shot = fs::path(datashots) / ("unitprops_" + s.substr(10).append(s.size() > 10 ? "" : "0") + ".png");
+                setWorkspace(Workspace::Map);
+                command(ID_MODE_UNITS);
+                if (app.ed && place) app.ed->placeUnit(uint16_t(n), 0, (8 + n % 64) * 64 + 16, 20 * 32 + 16, false), n = int(app.ed->units().size()) - 1;
+                if (app.ed && n >= 0 && n < int(app.ed->units().size())) {
+                    app.ed->clearSelection();
+                    gUnitPropsHook = [](UnitPropsView& v) {
+                        if (HWND w = ui::Win32Host::windowOf(v)) capture(shot, w);
+                        v.close(kUnitPropsCancel);
+                    };
+                    showUnitProperties(n);
+                    gUnitPropsHook = nullptr;
+                }
+                continue;
+            }
             if (s == "enterunit:") {  // enterunit.txt: Enter on a selected unit opens Unit properties (GitHub feedback #115)
                 std::ofstream o(fs::path(datashots) / "enterunit.txt");
                 static bool opened;
@@ -21008,7 +20155,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 if (app.ed && !app.ed->units().empty()) {
                     app.ed->clearSelection();
                     app.ed->select(0, false);
-                    gUnitPropsHook = [](HWND w) { opened = true, PostMessageW(w, WM_CLOSE, 0, 0); };
+                    gUnitPropsHook = [](UnitPropsView& v) { opened = true, v.close(kUnitPropsCancel); };
                     SendMessageW(app.view, WM_KEYDOWN, VK_RETURN, 0);
                     gUnitPropsHook = nullptr;
                 }
@@ -21024,13 +20171,13 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     o << "no units\n";
                     continue;
                 }
-                gUnitPropsHook = [](HWND w) {
-                    const HWND child = GetWindow(w, GW_CHILD);
-                    fromIt = child && feedbackRoot(child) == w;
-                    RECT r;
-                    GetWindowRect(child, &r);
-                    on = feedbackThing(POINT{(r.left + r.right) / 2, (r.top + r.bottom) / 2});
-                    PostMessageW(w, WM_CLOSE, 0, 0);
+                gUnitPropsHook = [](UnitPropsView& v) {  // (the owner's label: the window's first part, as the native static was)
+                    const HWND w = ui::Win32Host::windowOf(v);
+                    fromIt = w && feedbackRoot(w) == w;
+                    const draw::Point o = batchOriginOf(v);
+                    const draw::Rect f = v.ownerList().frame();
+                    if (w) on = feedbackThingIn(w, POINT{o.x + scale(8), o.y + (f.top + f.bottom) / 2});
+                    v.close(kUnitPropsCancel);
                 };
                 showUnitProperties(0);
                 gUnitPropsHook = nullptr;
@@ -21486,6 +20633,39 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 gSelfTest = wasTest;
                 continue;
             }
+            if (s == "locprops:") {  // locprops.png, locprops_wrong.png: Location properties of a new location, then with Right at 0
+                                     // (the error line, OK off); closed with Cancel, the new location undone
+                Editor& ed = *app.ed;
+                const int loc = ed.createLocation({512, 512, 704, 640}, true);
+                static fs::path shot;
+                shot = fs::path(datashots) / "locprops.png";
+                gLocEditHook = [](LocationPropsView& v) {
+                    const HWND w = ui::Win32Host::windowOf(v);
+                    for (int i = 0; i < 4; ++i) pump();
+                    if (w) capture(shot, w);
+                    v.setEdge(2, 0);
+                    for (int i = 0; i < 4; ++i) pump();
+                    if (w) capture(shot.parent_path() / "locprops_wrong.png", w);
+                    v.press(kLocPropsCancel);
+                };
+                showLocationEdit(loc);
+                gLocEditHook = nullptr;
+                if (loc >= 0) ed.undo();
+                continue;
+            }
+            if (s.rfind("prompt:", 0) == 0) {  // prompt.png: the text prompt (Rename location) with the text after "prompt:", closed with Cancel
+                static fs::path shot;
+                shot = fs::path(datashots) / "prompt.png";
+                gPromptHook = [](TextPromptView& v) {
+                    for (int i = 0; i < 4; ++i) pump();
+                    if (const HWND w = ui::Win32Host::windowOf(v)) capture(shot, w);
+                    v.close(kPromptCancel);
+                };
+                std::wstring text = widen(s.substr(7));
+                prompt(L"Rename location", text);
+                gPromptHook = nullptr;
+                continue;
+            }
             if (s == "locinv:") {  // locinv.txt, locinv.png: Location properties' Inverted (#77); the terrain selection and the tools (#80)
                 std::ofstream o(fs::path(datashots) / "locinv.txt");
                 Editor& ed = *app.ed;
@@ -21493,11 +20673,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 static int setTo = 1;
                 static fs::path shot;
                 shot = fs::path(datashots) / "locinv.png";
-                gLocEditHook = [](HWND w) {
+                gLocEditHook = [](LocationPropsView& v) {
                     for (int i = 0; i < 4; ++i) pump();
-                    capture(shot, w);
-                    SendMessageW(gLocDlg->inverted, CB_SETCURSEL, setTo, 0);
-                    PostMessageW(w, WM_COMMAND, IDOK, 0);
+                    if (const HWND w = ui::Win32Host::windowOf(v)) capture(shot, w);
+                    v.invertedList().setValue(setTo);
+                    v.press(kLocPropsOk);
                 };
                 const int before = ed.locationInvertedAxes(loc);
                 showLocationEdit(loc);
