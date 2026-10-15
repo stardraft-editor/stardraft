@@ -80,7 +80,8 @@ private:
     bool hot_ = false;  // the pointer is over the x
 };
 
-SearchBox gFilterBox;  // the Locations filter
+SearchBox gFilterBox;     // the Locations filter
+SearchBox gPalSearchBox;  // the palette search (Units, Doodads, Sprites)
 
 // Whether a search box's field has the keyboard (the message loop leaves its keys to it, as to an edit control).
-bool searchBoxFocused() { return gFilterBox.field().hasFocus(); }
+bool searchBoxFocused() { return gFilterBox.field().hasFocus() || gPalSearchBox.field().hasFocus(); }
