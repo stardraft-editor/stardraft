@@ -256,6 +256,25 @@ jobs:
             kit-demo-linux.png
             stardraft-next-linux.tar.gz
 
+      # The editor on SDL (stardraft, research/ports/MAC-BUILD-PLAN.md step 6): its shell with no map open (no game data
+      # here), its picture kept with the run, and the program in a tar.
+      - name: Snapshot the editor
+        env:
+          SDL_VIDEODRIVER: offscreen
+        run: build-gcc/stardraft --snapshot editor-linux.png
+
+      - name: Pack the editor
+        if: always()
+        run: tar -C build-gcc -czf stardraft-linux.tar.gz stardraft res fonts
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stardraft-editor-linux-${{ github.sha }}
+          path: |
+            editor-linux.png
+            stardraft-linux.tar.gz
+
   macos:
     runs-on: macos-15  # arm64, Xcode's clang and libc++
     steps:
@@ -312,6 +331,23 @@ jobs:
             next-macos-*.png
             kit-demo-macos.png
             stardraft-next-macos.tar.gz
+
+      # The editor on SDL (stardraft, research/ports/MAC-BUILD-PLAN.md step 6): its shell with no map open, and the app.
+      - name: Snapshot the editor (Metal)
+        continue-on-error: true
+        run: build/stardraft.app/Contents/MacOS/stardraft --snapshot editor-macos.png
+
+      - name: Pack the editor
+        if: always()
+        run: tar -C build -czf stardraft-macos.tar.gz stardraft.app
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stardraft-editor-macos-${{ github.sha }}
+          path: |
+            editor-macos.png
+            stardraft-macos.tar.gz
 
   # The tests with the game's data, on a self-hosted runner in WSL Ubuntu on the owner's PC (labels self-hosted, linux,
   # scdata; research/ports/PLAN.md 1.6). Off until the repository variable STARDRAFT_DATA_RUNNER is "on". The

@@ -375,6 +375,29 @@ if(STARDRAFT_NEXT AND STARDRAFT_RENDERER)
         target_compile_options(kit_demo PRIVATE /W4 /utf-8)
         target_link_options(kit_demo PRIVATE /SUBSYSTEM:CONSOLE)
     endif()
+
+    # --- The editor on macOS and Linux (SDL; research/ports/MAC-BUILD-PLAN.md step 6): the portable core (core/core.inc)
+    # with the SDL shell (main_sdl.cpp). Windows keeps its own target below. Fonts and atlases as kit_demo's.
+    if(NOT WIN32)
+        add_executable(stardraft_editor MACOSX_BUNDLE apps/editor/main_sdl.cpp)
+        target_include_directories(stardraft_editor PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src)
+        target_link_libraries(stardraft_editor PRIVATE stardraft_kit_sdl stardraft_render stardraft_platform stardraft_kit stardraft)
+        set_target_properties(stardraft_editor PROPERTIES OUTPUT_NAME stardraft MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/editor/Info.plist.in)
+        if(APPLE)
+            set(editorDir $<TARGET_BUNDLE_CONTENT_DIR:stardraft_editor>/Resources)
+        else()
+            set(editorDir $<TARGET_FILE_DIR:stardraft_editor>)
+        endif()
+        add_custom_command(TARGET stardraft_editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/res
+                           COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_ATLASES} ${editorDir}/res)
+        if(STARDRAFT_FONT_FILES)
+            add_custom_command(TARGET stardraft_editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/fonts
+                               COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_FONT_FILES} ${editorDir}/fonts)
+        endif()
+        if(MSVC)
+            target_compile_options(stardraft_editor PRIVATE /W4 /utf-8)
+        endif()
+    endif()
 endif()
 
 # --- Windows editor (native Win32 shell) ------------------------------------------------------
