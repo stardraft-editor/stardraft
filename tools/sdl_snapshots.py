@@ -158,6 +158,7 @@ def main():
     if not a.exe or not a.out:
         ap.error("--exe and --out are necessary")
     os.makedirs(a.out, exist_ok=True)
+    a.exe = os.path.abspath(a.exe)  # (Windows starts no program by a relative path with "/": build/Release/x.exe)
     env = dict(os.environ)
     if sys.platform != "darwin":  # (on macOS the offscreen driver has no Metal device: SDL's own driver, no window)
         env.setdefault("SDL_VIDEODRIVER", "offscreen")

@@ -6,7 +6,8 @@
 # last section, what StarDraft is) for new visitors. The symbols go to a draft release symbols-v<version>.
 # StarDraft's Check for updates reads "(build <commit>)" in the newest release's title. Each release keeps its own
 # download count. Most tests need a StarCraft: Remastered install, so they are not run here. The jobs linux and macos
-# build the library, the tools and the tests on those systems; the job windows-sdl builds stardraft-sdl.exe.
+# build the library, the tools and the tests on those systems; the job windows-sdl builds stardraft-sdl.exe and
+# snapshots it (tools/sdl_snapshots.py).
 name: Build
 
 on:
@@ -206,6 +207,26 @@ jobs:
           grep -q "^wrote " snap.txt
           "$exe" --dialog options --size 720x820 --snapshot editor-windows-options.png | tee snap.txt
           grep -q "^wrote " snap.txt
+
+      # Each workspace and dialog (tools/sdl_snapshots.py), as on Linux: a run exits with 0 and writes a PNG that is not
+      # one flat color. No game data and no map here: the cases that need them are skipped (summary.txt). WARP as
+      # above: a failure here does not stop the run.
+      - name: Snapshot each workspace and dialog (WARP)
+        continue-on-error: true
+        shell: bash
+        env:
+          SDL_VIDEODRIVER: offscreen
+        run: |
+          export APPDATA="$RUNNER_TEMP\\appdata" LOCALAPPDATA="$RUNNER_TEMP\\localappdata"
+          mkdir -p "$RUNNER_TEMP/appdata" "$RUNNER_TEMP/localappdata"
+          python -I tools/sdl_snapshots.py --exe build/Release/stardraft-sdl.exe --out sdl-snapshots
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sdl-snapshots-windows-${{ github.sha }}
+          path: sdl-snapshots
+          if-no-files-found: warn
 
       - name: Pack the editor
         if: always()

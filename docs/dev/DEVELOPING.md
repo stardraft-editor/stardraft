@@ -55,8 +55,14 @@ and writes it as a PNG; a snapshot run asks nothing, sends nothing and changes n
     build\Release\stardraft-sdl.exe [map] --dialog options --size 720x820 --snapshot out.png
 
 The comments on the options in `main()` of `main_sdl.cpp` (`--workspace`, `--dialog`, `--data`, ...) say what a
-snapshot can show. GitHub builds `stardraft-sdl.exe` on each push (the job windows-sdl) and keeps its snapshots
-(with no game data: no map) and the program in a zip with the run.
+snapshot can show. `tools/sdl_snapshots.py` takes one snapshot of each workspace and dialog and checks each one
+(`--help` tells how; `--install`, `--map` and `--project` add the cases that need them):
+
+    python -I tools/sdl_snapshots.py --exe build\Release\stardraft-sdl.exe --out snapshots
+
+GitHub builds `stardraft-sdl.exe` on each push (the job windows-sdl), runs `sdl_snapshots.py` on it and keeps the
+snapshots (with no game data: no map) and the program in a zip with the run. GitHub's Windows machines have no
+GPU: there Direct3D 12 draws on the CPU (WARP), and a failed snapshot does not stop the run.
 
 ### Linux and macOS
 
@@ -68,6 +74,15 @@ for the tools only; `-DSTARDRAFT_RENDERER=OFF` builds without SDL.
 
     cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
     cmake --build build
+
+To run the SDL program and take its snapshots (the same options as on Windows):
+
+    build/stardraft [map]                                        # Linux
+    open build/stardraft.app --args [map]                        # macOS
+    python3 -I tools/sdl_snapshots.py --exe build/stardraft --out snapshots
+    python3 -I tools/sdl_snapshots.py --exe build/stardraft.app/Contents/MacOS/stardraft --out snapshots   # macOS
+
+The `res` and `fonts` folders next to `stardraft` (on macOS, in the app) must stay with it.
 
 The renderer's tools render offscreen; with no display, set `SDL_VIDEODRIVER=offscreen`. On Windows,
 `STARDRAFT_GPU_DRIVER=vulkan` (an environment variable) makes the renderer, the editor's map view included, use
