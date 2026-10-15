@@ -404,7 +404,7 @@ int capacityBar(HDC dc, const FormLayout& l, int y, size_t used, size_t room, co
     RECT t{r.right + scale(12), y, l.colRight, y + l.rowH};
     SetTextColor(dc, over ? kBad : kDim);
     DrawTextW(dc, num, -1, &t, DT_SINGLELINE | DT_VCENTER | DT_RIGHT);
-    hitsOut().push_back({{l.x0, y, l.colRight, y + l.rowH}, nullptr, nullptr, (what.ends_with(L".") ? what : what + L".") + (over ? L" The total is more than the game has room for. Build stops." : L""), IDC_ARROW, {}});
+    hitsOut().push_back({{l.x0, y, l.colRight, y + l.rowH}, nullptr, nullptr, (what.ends_with(L".") ? what : what + L".") + (over ? tr(L" The total is more than the game has room for. Build stops.") : L""), IDC_ARROW, {}});
     return y + l.rowH;
 }
 

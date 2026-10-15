@@ -227,7 +227,7 @@ void check() {
     case stardraft::platform::Replace::OldNotMoved: return fail(L"Could not replace the program file in " + self.parent_path().wstring() + L".");
     case stardraft::platform::Replace::NewNotPlaced: return fail(L"Could not put the new program in " + self.parent_path().wstring() + L".");
     case stardraft::platform::Replace::Broken:
-        return fail(L"Could not put the new program in " + self.parent_path().wstring() + L". The old program is " +
+        return fail(tr(L"Could not put the new program in ") + self.parent_path().wstring() + tr(L". The old program is ") +
                     stardraft::platform::oldProgramFile(self).wstring() + L".");
     case stardraft::platform::Replace::Done: break;
     }

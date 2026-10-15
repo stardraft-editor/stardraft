@@ -1860,3 +1860,142 @@ Player arrays	玩家数组
 Select a player array	请选择玩家数组
  is not a player array	 不是玩家数组
 list (or player array)	列表（或玩家数组）
+New graphics for preplaced units: 	预放置单位的新图形：
+ unit is	 个单位
+ units are	 个单位
+ made again at the start	在开始时重新创建
+ preplaced unit keeps	 个预放置单位保留
+ preplaced units keep	 个预放置单位保留
+ the old graphics: a new unit cannot be cloaked, burrowed, lifted, loaded, a hallucination, linked to an add-on or a Nydus Canal, or have interceptors or scarabs.	旧图形：新单位不能隐形、潜地、升空、装载、作为幻象、连接到附加建筑或虫道，也不能带有截击机或圣甲虫。
+ of the units that are made again stands	 个重新创建的单位位于
+ of the units that are made again stand	 个重新创建的单位位于
+ where the game cannot put a unit. The game puts it near its place, or does not make it again.	游戏无法放置单位的位置。游戏会把它放在附近，或不再创建它。
+The project 	项目
+ is open already	 已打开
+All location slots are in use	所有位置槽都已使用
+Pinned	已固定
+Right button paints 	右键绘制
+; left button paints 	；左键绘制
+the terrain you click	您点击的地形
+Right button: no terrain	右键：无地形
+Unpinned 	已取消固定：
+Pinned to the top: 	已固定到顶部：
+Pinned 	已固定：
+ to the top of the list	（列表顶部）
+Pasted everything of 	已粘贴全部：
+ values, the display and the button set	 个值、显示和按钮组
+ values that this unit does not have: not pasted)	 个此单位没有的值：未粘贴）
+Paste &everything	全部粘贴(&E)
+ (values, display, buttons)	（值、显示、按钮）
+Loading the portrait…	正在加载头像…
+Name in the game (stat_txt.tbl string 	游戏中的名称（stat_txt.tbl 字符串
+Renamed: 	已重命名：
+Change the name that the game shows. Each entry that uses this string gets the new name.	更改游戏显示的名称。使用此字符串的每个条目都会获得新名称。
+Changed: show only the entries that you changed (click again to show all)	已更改：只显示您更改的条目（再次点击显示全部）
+ (the current player's)	（当前玩家的）
+Unit types	单位类型
+Numbers	数字
+" has no clear type yet (	" 还没有明确的类型（
+hidden text	隐藏文本
+hidden text (14)	隐藏文本 (14)
+Code	代码
+Preview	预览
+Align left	左对齐
+Center the line (code 13)	行居中（代码 13）
+Align right (code 12)	右对齐（代码 12）
+: search unit types	：搜索单位类型
+: search the map's locations	：搜索地图位置
+: default value	：默认值
+Brush height: 1 to 32. Click to type a height (empty: the same as the size). The arrows and the mouse wheel change it.	画笔高度：1 到 32。点击输入高度（留空：与大小相同）。箭头和鼠标滚轮可更改。
+Diamond	菱形
+Square	正方形
+Circle	圆形
+Brush shape: diamond, square or circle. Click to select one; the mouse wheel changes it.	画笔形状：菱形、正方形或圆形。点击选择；鼠标滚轮可更改。
+The height is the same as the size. Click to give the height a value of its own.	高度与大小相同。点击可为高度设置单独的值。
+The height has a value of its own. Click to make it the same as the size.	高度有单独的值。点击使其与大小相同。
+Unit name   (empty: 	单位名称   （留空：
+Trigger 	触发器
+ in For each 	 位于“对每个”
+Turned off the triggers	已关闭触发器
+Turned off the trigger	已关闭触发器
+Turned on the triggers	已开启触发器
+Turned on the trigger	已开启触发器
+Deleted the triggers	已删除触发器
+Deleted the trigger	已删除触发器
+Duplicated the triggers	已创建触发器副本
+Duplicated the trigger	已创建触发器副本
+Search forces	搜索队伍
+Copied the triggers	已复制触发器
+Copied the block	已复制块
+Pasted the triggers	已粘贴触发器
+Pasted the block	已粘贴块
+For each 	对每个
+Blocks	块
+Duplicate\tCtrl+D	创建副本\tCtrl+D
+Delete\tDel	删除\tDel
+Copy\tCtrl+C	复制\tCtrl+C
+Paste\tCtrl+V	粘贴\tCtrl+V
+Edit the block…	编辑块…
+Move out\tCtrl+Left	移出\tCtrl+Left
+Move in\tCtrl+Right	移入\tCtrl+Right
+Becomes 	在地图中变为
+ triggers in the map. 	 个触发器。
+Off	关
+Show the actions of the block	显示块的动作
+Hide the actions of the block	隐藏块的动作
+Edit the block	编辑块
+Move out (Ctrl+Left)	移出 (Ctrl+Left)
+Move in (Ctrl+Right)	移入 (Ctrl+Right)
+Add an action…	添加动作…
+Add a condition…	添加条件…
+A trigger has at most 64 actions	一个触发器最多有 64 个动作
+A trigger has at most 16 conditions	一个触发器最多有 16 个条件
+Add an action to For each 	向“对每个”添加动作
+Add an action inside the block (the end of its actions)	在块内添加动作（在其动作末尾）
+Add a block	添加块
+Save	保存
+Add the block	添加块
+Remove the block	移除块
+Search values	搜索值
+A block repeats the actions in it for each value. The variable is the value of each copy.	块会对每个值重复其中的动作。变量是每个副本的值。
+Variable name	变量名称
+Add values…	添加值…
+Remove the value	移除值
+Removed the block	已移除块
+Changed the block	已更改块
+Added a block	已添加块
+Delete the trigger	删除触发器
+Forces…	队伍…
+Forces: the forces that run the trigger	队伍：运行此触发器的队伍
+The condition or action does nothing in the game (Turn off)	此条件或动作在游戏中不起作用（关闭）
+The game's Always display flag for this action	游戏中此动作的“始终显示”标志
+Could not set the classic triggers. A long trigger needs a switch that no trigger uses.	无法设置经典触发器。长触发器需要一个没有触发器使用的开关。
+Show &grid	显示网格(&G)
+Zoom &in	放大(&I)
+Zoom &out	缩小(&O)
+&Actual size	实际大小(&A)
+&Fit map	适应地图(&F)
+ The total is more than the game has room for. Build stops.	 总数超过游戏的容量。构建会停止。
+Feedback is anonymous, and we publish it on our Discord server for review. Do not include sensitive or private information. Ctrl+Enter sends it.	反馈是匿名的，我们会将其发布到 Discord 服务器上以供审阅。请勿包含敏感或私人信息。按 Ctrl+Enter 发送。
+Open the Discord server	打开 Discord 服务器
+Sending your feedback…	正在发送反馈…
+Thank you for your feedback.	感谢您的反馈。
+Open it on GitHub (#	在 GitHub 上打开 (#
+StarDraft 2 could not send it now. It sends it when StarDraft 2 starts the next time.	StarDraft 2 现在无法发送。StarDraft 2 下次启动时会发送。
+Bright yellow (Player 10)	亮黄色（玩家 10）
+Pink (Player 11)	粉色（玩家 11）
+Hidden (the game does not show this text)	隐藏（游戏不显示此文本）
+. Puts its code in at the cursor.	。在光标处插入其代码。
+. Colors the selected text, or the text you type next.	。为所选文本或接下来输入的文本着色。
+The text as the game shows it	游戏中显示的文本
+The text with its codes as <XX> ("<<" is a "<")	以 <XX> 显示代码的文本（"<<" 表示 "<"）
+ is not found	 未找到
+ from the list	（从列表中）
+New graphics for preplaced units	预放置单位的新图形
+New graphics for preplaced units off	预放置单位的新图形：关
+New graphics for preplaced units on	预放置单位的新图形：开
+The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, the map removes each preplaced unit that the edits give other graphics, and makes it again on its place at the start. The map view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground that it cannot stand on) moves near its place, or the game does not make it again.	游戏会在 .dat 编辑之前创建预放置单位，所以它们保留旧图形。启用此选项后，地图会移除编辑后图形改变的每个预放置单位，并在开始时在原位重新创建。地图视图以新图形显示这些单位。位于游戏无法放置单位之处（其他单位上或无法站立的地面上）的单位会移到附近，或游戏不再创建它。
+StarDraft 2 map	StarDraft 2 地图
+. The old program is 	。旧程序是
+). Type it as a number	）。请以数字输入
+Triggers do not run each second, so they can miss Exactly. Use At least or At most	触发器并非每秒运行，因此可能错过 Exactly。请使用 At least 或 At most
