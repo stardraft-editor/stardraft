@@ -296,6 +296,7 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/startup.inc"  // the start-up marks (startMark, gStartMarks, gOpenMs)
 #include "core/names.inc"  // the names of the palette's entries and of a .dat's entries (paletteItemName, entryName)
 #include "core/palette_items.inc"  // the palette's items: units, terrains, doodads and sprites (paletteItems, paletteUnits)
+#include "core/data_list.inc"  // the Data workspace's list model: the shown entries, the filters, the pins, the tab switch (DataListHost)
 #include "core/title.inc"  // the window's title and the rail's state (updateTitle)
 int selectPalette(int value);
 void pickUnit(int v, bool add);
@@ -5015,9 +5016,8 @@ std::vector<int>& dataPins(int tab) {
             std::wstring value;
             if (!prefs::text(L"DataPins/" + name, value)) continue;
             auto& v = gDataPins[narrow(name)];
-            std::wistringstream in(value);
-            for (std::wstring part; std::getline(in, part, L',');)
-                if (!part.empty()) v.push_back(_wtoi(part.c_str()));
+            const std::vector<int> parsed = dataPinsParse(value);
+            v.insert(v.end(), parsed.begin(), parsed.end());
         }
     }
     return gDataPins[dataTabKey(tab)];
@@ -5027,55 +5027,35 @@ bool dataPinned(int tab, int e) {
     return std::find(v.begin(), v.end(), e) != v.end();
 }
 void dataRebuildList();
+// The Data list's model host (core/data_list.inc): the tables, the entries' names and the changed flags.
+class DataListProgram final : public DataListHost {
+public:
+    bool hasTable(int tab) override { return datTable(tab) != nullptr || extraTab(tab); }
+    int entries(int tab) override { return tabEntries(tab); }
+    int firstEntry(int tab) override { return tabFirstEntry(tab); }
+    bool changed(int tab, int e) override { return tabEntryChanged(tab, e); }
+    std::wstring name(int tab, int e) override { return tabEntryName(tab, e); }
+};
+DataListProgram gDataListProgram;
 void dataTogglePin(int e) {
     const int tab = gData.datTab;
-    auto& v = dataPins(tab);
-    const auto it = std::find(v.begin(), v.end(), e);
-    const bool pin = it == v.end();
-    if (pin) v.push_back(e);
-    else v.erase(it);
+    const bool pin = dataPinToggle(dataPins(tab), e);
     if (!gSelfTest) {  // (tests leave the user's settings alone)
-        std::wstring list;
-        for (int x : v) list += (list.empty() ? L"" : L",") + std::to_wstring(x);
-        prefs::setText(L"DataPins/" + widen(dataTabKey(tab)), list);
+        prefs::setText(L"DataPins/" + widen(dataTabKey(tab)), dataPinsText(dataPins(tab)));
     }
     dataRebuildList();
-    std::wstring name = tabEntryName(tab, e);
-    if (name.empty()) name = L"#" + std::to_wstring(e);
+    const std::wstring name = dataEntryName(gDataListProgram, tab, e);
     setMessage(pin ? tr(L"Pinned ") + name + tr(L" to the top of the list") : tr(L"Unpinned ") + name);
 }
 
 void dataRebuildList() {
-    gData.shown.clear();
-    gDataPinnedShown = 0;
-    const int tab = gData.datTab;
-    if (!curTable() && !extraTab(tab)) return;
-    std::wstring filter = lowerText(gData.search);
-    for (int e = tabFirstEntry(tab); e < tabEntries(tab); ++e) {
-        if (gData.changedOnly && !tabEntryChanged(tab, e)) continue;
-        if (!filter.empty()) {
-            std::wstring hay = std::to_wstring(e) + L" " + tabEntryName(tab, e);
-            std::transform(hay.begin(), hay.end(), hay.begin(), ::towlower);
-            if (fuzzyScore(hay, filter) < 0) continue;
-        }
-        gData.shown.push_back(e);
-    }
-    // The pinned entries that the list shows: first, in the order they were pinned.
-    std::vector<int> head;
-    for (int p : dataPins(tab))
-        if (std::find(gData.shown.begin(), gData.shown.end(), p) != gData.shown.end() &&
-            std::find(head.begin(), head.end(), p) == head.end())
-            head.push_back(p);
-    if (!head.empty()) {
-        std::erase_if(gData.shown, [&](int e) { return std::find(head.begin(), head.end(), e) != head.end(); });
-        gData.shown.insert(gData.shown.begin(), head.begin(), head.end());
-        gDataPinnedShown = int(head.size());
-    }
+    const DataListRows rows = dataListRows(gDataListProgram, gData.datTab, lowerText(gData.search), gData.changedOnly, dataPins(gData.datTab));
+    gData.shown = rows.shown;
+    gDataPinnedShown = rows.pinnedShown;
     // A shorter list: the scroll goes back inside it (else the list shows empty rows below its end).
     RECT rc{};
     if (gData.list) GetClientRect(gData.list, &rc);
-    const int most = std::max(0, int(gData.shown.size()) * dataRowH() - int(rc.bottom));
-    gData.listScroll = std::clamp(gData.listScroll, 0, most);
+    dataListClampScroll(gData.listScroll, gData.shown.size(), dataRowH(), int(rc.bottom));
     InvalidateRect(gData.list, nullptr, FALSE);
 }
 
@@ -5503,15 +5483,11 @@ void dataShowTab(int tab) {
     if (tab != gData.datTab) stringsShowEdit(false);
     if (tab != gData.datTab) {
         dataRecordPlace(tab, gData.tabEntry[size_t(tab)]);
-        gData.tabEntry[size_t(gData.datTab)] = gData.entry;
-        gData.datTab = tab;
-        gData.entry = gData.tabEntry[size_t(tab)];
-        gData.listScroll = gData.formScroll = 0;
+        dataSwitchTab(gData.datTab, gData.entry, gData.tabEntry, gData.listScroll, gData.formScroll, tab);
         if (gData.search) {
             SetWindowTextW(gData.search, L"");
-            std::wstring what = tabTitle(tab);
-            std::transform(what.begin(), what.end(), what.begin(), ::towlower);
-            SendMessageW(gData.search, EM_SETCUEBANNER, TRUE, LPARAM((L"Search " + what).c_str()));
+            const std::wstring cue = dataSearchCue(tabTitle(tab));
+            SendMessageW(gData.search, EM_SETCUEBANNER, TRUE, LPARAM(cue.c_str()));
         }
     }
     dataRebuildList();
