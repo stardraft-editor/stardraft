@@ -1,0 +1,31 @@
+// The editor's portable core: the parts of apps/editor that compile without Win32 (research/ports/MAC-BUILD-PLAN.md).
+// main.cpp includes these files where they always were; core_check.cpp compiles them on every system without Win32
+// headers, so a Win32 call that comes into the core breaks the build at once (the ratchet). A file moves in here when it
+// has no Win32 call left; it never moves back.
+
+#include "strings.inc"
+#include "ids.inc"
+#include "prefs.inc"
+#include "recent.inc"
+#include "modes.inc"
+#include "colors.inc"
+#include "app_state.inc"
+#include "palette_tools.inc"
+#include "documents.inc"
+#include "layout.inc"
+#include "menu_model.inc"
+#include "commands_core.inc"
+#include "views_status.inc"
+#include "views_stub.inc"
+#include "map_edit.inc"
+#include "tiles_edit.inc"
+#include "path_overlay.inc"
+#include "map_input.inc"
+#include "views_rail.inc"
+#include "views_minimap.inc"
+#include "views_tabs.inc"
+#include "views_modebar.inc"
+#include "views_panel_tabs.inc"
+#include "startup.inc"
+#include "names.inc"
+#include "title.inc"
