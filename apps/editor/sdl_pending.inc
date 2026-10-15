@@ -2,14 +2,6 @@
 // this system's version until its surface is in the core, and its comment names the surface. The core declares them.
 // Included by main_sdl.cpp after the core, next to sdl_main_view.inc.
 
-// The Triggers workspace's values' pop-outs are not on this system yet: no trigger block waits for a unit picked on the map here.
-bool trigUnitPickClick(float, float) { return false; }
-
-// The Triggers workspace's code pane is not on this system yet: a line of the triggers' code names no trigger here, and no block shows
-// (epTrace's report on the Project page names the script's line and opens the script instead; core/project_page.inc).
-std::wstring trigCodeLineName(int) { return L""; }
-bool trigShowCodeLine(int) { return false; }
-
 // The workspaces (the core's setWorkspace; the Windows program's is in main.cpp, with its windows): Assets is Files, and
 // a workspace the tab's mode does not have falls back to Map with the same message as Windows. The workspace shows its
 // view (sdl_main_view.inc: the registered one, else "Not on this system yet"), and the map's panes show in Map only.

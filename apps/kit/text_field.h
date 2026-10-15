@@ -78,6 +78,13 @@ public:
     draw::Rect caretRect() const { return caretRect_; }
     int scrollX() const { return scrollX_; }
     int scrollY() const { return scrollY_; }
+    // Several lines: line `line` of the text (a paragraph, from 0) goes to the top at the next paint, as far as the
+    // text allows (a code view that shows a function). The height of a line as last painted.
+    void scrollToLine(size_t line) {
+        scrollToLine_ = line;
+        invalidate();
+    }
+    int lineHeight() const { return lineH_; }
 
     // Called after the user changed the text (typing, paste, cut, undo, redo); not after setText.
     std::function<void()> onChange;
@@ -208,6 +215,7 @@ private:
     std::vector<int> px_;  // x of each index of the shown text (px_[n] is the end); a surrogate's second unit: as the first
     std::wstring shown_;
     int lineH_ = 16, contentW_ = 0;
+    size_t scrollToLine_ = ~size_t(0);  // scrollToLine's line until the next paint
     bool laidOut_ = false, barShown_ = false, hbarShown_ = false;
     LayoutKey layoutKey_;
 

@@ -104,7 +104,8 @@ bool sdlRuns(int id) {
     case ID_OPT_WINDOW:
     case ID_HELP_FEEDBACK:
     case ID_EDIT_RENAME:  // the location's rename and the quick picker (sdl_map_dialogs.inc)
-    case ID_QUICKPICK: return true;
+    case ID_QUICKPICK:
+    case ID_VIEW_TRIGCODE: return true;  // the Triggers workspace's code pane (sdl_triggers.inc)
     default: break;
     }
     if (id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) return true;
@@ -370,6 +371,9 @@ void command(int id) {
         if (gState.ed && gState.ed->isOpen()) renameSelectedLocation();
         return;
     case ID_QUICKPICK: shellShowQuickPicker(false, false); return;
+    case ID_VIEW_TRIGCODE:  // shows or hides the code pane
+        if (activeProject()) setWorkspace(Workspace::Triggers), showTriggerCode();
+        return;
     default:
         if (id >= ID_WS_MAP && id <= ID_WS_FILES) return setWorkspace(Workspace(id - ID_WS_MAP));  // the workspace order
         setMessage(L"This is not on this system yet");

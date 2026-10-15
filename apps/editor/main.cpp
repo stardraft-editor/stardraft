@@ -7754,6 +7754,7 @@ void trigFill(HDC dc, RECT r, COLORREF c) {
     DeleteObject(b);
 }
 
+#include "core/views_triggers_help.inc"  // the block help page's texts and view, the code pane's code and view, the build errors' line map
 #include "trigger_help.inc"
 
 void trigPaneRepaint() {  // (core/dock_prefs.inc: trigZoomReset)
@@ -7816,61 +7817,7 @@ void trigPaneMenu(POINT screen) {
     trigPaneMenuPick(pick, blocks);
 }
 
-// --- Picking a unit on the map ----------------------------------------------------------------------------------
-// A value of type "one unit" (or a unit variable's starting unit) can be picked by clicking the unit on the map.
-TriggerCall* trigValueOwner(TriggerCall* c, int param, const std::vector<int>& inner);
-
-struct TrigUnitPick {
-    bool active = false;
-    std::vector<int> node;  // the trigger or variable
-    TrigBlockRef ref;
-    int param = -1;  // -1: the variable's starting unit
-    std::vector<int> inner;  // inside value blocks (see TrigParamHit)
-};
-TrigUnitPick gUnitPick;
-
-void trigStartUnitPick(TrigBlockRef ref, int param, std::vector<int> inner = {}) {
-    const std::vector<int> node = gTE.sel;
-    setWorkspace(Workspace::Map);
-    setMode(Mode::Units);  // (cancels steps in progress, so the pick starts after it)
-    app.palette = -1;
-    gUnitPick = {true, node, ref, param, inner};
-    setMessage(L"Click the unit to use. Esc goes back to the triggers.");
-}
-
-// True while a trigger action waits for a click on a unit in the map view.
-bool trigUnitPickActive() { return gUnitPick.active; }
-// The map view's click while picking: true when it was taken.
-bool trigUnitPickClick(float wx, float wy) {
-    if (!gUnitPick.active || !app.ed) return false;
-    const int hit = app.ed->unitAt(int(wx), int(wy));
-    if (hit < 0) {
-        setMessage(L"There is no unit there. Click a unit, or press Esc to go back.");
-        return true;
-    }
-    const std::string v = "@" + std::to_string(app.ed->units()[size_t(hit)].serial);
-    gUnitPick.active = false;
-    setWorkspace(Workspace::Triggers);
-    trigRefreshTree(gUnitPick.node);
-    if (TriggerNode* n = gTE.set.at(gUnitPick.node)) {
-        if (gUnitPick.param < 0 && n->kind == TriggerNode::Kind::Variable) n->variable.initial = v;
-        else if (TriggerCall* c = trigValueOwner(trigBlock(*n, gUnitPick.ref), gUnitPick.param, gUnitPick.inner)) {
-            const int at = gUnitPick.inner.empty() ? gUnitPick.param : gUnitPick.inner.back();
-            if (at >= 0 && at < int(c->args.size())) c->args[size_t(at)] = v;
-        }
-        trigChanged();
-        trigRefreshTree(gUnitPick.node);
-    }
-    setMessage(L"Selected " + trigPickedUnitName(v));
-    return true;
-}
-
-void trigCancelUnitPick() {
-    if (!gUnitPick.active) return;
-    gUnitPick.active = false;
-    setWorkspace(Workspace::Triggers);
-    trigRefreshTree(gUnitPick.node);
-}
+// (Picking a unit on the map, trigStartUnitPick and trigUnitPickClick, is in core/triggers_model.inc.)
 
 // --- Changing values ----------------------------------------------------------------------------------------------
 
@@ -7904,24 +7851,7 @@ std::vector<ListPickItem> trigVariableItems(const std::string& type) {
 
 void trigEditText(TrigParamHit h, const std::string& value, bool number, bool wide);  // in a pop-out
 
-// The block (or value block) whose value a hit is: from `top`, down through value `param` and the path but its last.
-TriggerCall* trigValueOwner(TriggerCall* c, int param, const std::vector<int>& inner) {
-    if (!c || inner.empty()) return c;
-    std::vector<int> steps = {param};
-    steps.insert(steps.end(), inner.begin(), inner.end() - 1);
-    for (int st : steps) {
-        if (st < 0 || st >= int(c->argBlocks.size()) || c->argBlocks[size_t(st)].empty()) return nullptr;
-        c = &c->argBlocks[size_t(st)][0];
-    }
-    return c;
-}
-TriggerCall* gTrigEditOverride = nullptr;  // set: the pickers edit this value block (a chip's in the text pop-out)
-TriggerCall* trigHitCall(const TrigParamHit& h) {
-    if (gTrigEditOverride) return trigValueOwner(gTrigEditOverride, h.param, h.inner);
-    TriggerNode* t = trigSelected();
-    return trigValueOwner(t ? trigBlock(*t, h.ref) : nullptr, h.param, h.inner);
-}
-int trigHitParam(const TrigParamHit& h) { return h.inner.empty() ? h.param : h.inner.back(); }
+// (trigValueOwner, gTrigEditOverride, trigHitCall and trigHitParam are in core/triggers_model.inc.)
 
 // Picks a value from the game; its id, or "".
 std::string showValueBlockPicker(POINT at, const std::string& current) {
@@ -10251,9 +10181,7 @@ TrigInfoView gTrigInfo(gTrigPaneProgram);
 
 // --- Show code -----------------------------------------------------------------------------------------------------
 
-std::string trigGeneratedCode(std::vector<TriggerIssue>& issues) {
-    return gTE.set.generate(trigMapInfo(), issues, TriggerBuildOptions{gTE.project && gTE.project->debugBuild()});
-}
+// (trigGeneratedCode is in core/views_triggers_help.inc.)
 
 // epScript as RTF, colored like TypeScript in VS Code's dark theme: keywords, strings, comments, numbers, calls, types.
 std::string trigCodeRtf(const std::string& code) {
@@ -10376,11 +10304,7 @@ LRESULT CALLBACK trigCodeKeys(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PT
 // The code pane: the generated triggers.eps, top to bottom, scrolled to the selected trigger's function.
 void trigCodeRefresh(bool force) {
     if (!gTE.code || !gDock.triggerCode || !IsWindowVisible(gTE.code)) return;
-    std::vector<TriggerIssue> issues;
-    std::string code = trigGeneratedCode(issues);
-    int errors = 0;
-    for (const auto& i2 : issues) errors += i2.level == TriggerIssue::Level::Error;
-    if (errors) code = "// " + std::to_string(errors) + " problem(s) to fix before this builds (marked red on the blocks)\n\n" + code;
+    const std::string code = trigCodeShown();
     static std::string shown;  // what the pane holds, to leave it (and its scroll) alone when nothing changed
     if (code != shown || force) {
         shown = code;
@@ -10391,24 +10315,10 @@ void trigCodeRefresh(bool force) {
     // The selected trigger's function: the line above it is its path ("// Category / Folder / Name").
     std::vector<std::pair<int, int>> marks;
     if (const TriggerNode* t = trigSelected()) {
-        const size_t found = code.find(" / " + t->name + "\nfunction ");
-        const size_t at = found == std::string::npos ? 0 : code.rfind('\n', found) + 1;
-        const int line = found == std::string::npos ? 0 : int(std::count(code.begin(), code.begin() + std::ptrdiff_t(at), '\n'));
+        const TrigCodeMarks m = trigCodeMarksFor(code, t);
         const int first = int(SendMessageW(gTE.code, EM_GETFIRSTVISIBLELINE, 0, 0));
-        SendMessageW(gTE.code, EM_LINESCROLL, 0, line - first);
-        if (found != std::string::npos) {
-            // To the function's closing brace (at the line's start), and the lines that call it.
-            const size_t fn = code.find("function ", found), open = code.find('(', fn);
-            const std::string name = fn == std::string::npos || open == std::string::npos ? "" : code.substr(fn + 9, open - fn - 9);
-            const size_t end = code.find("\n}\n", found);
-            const int last = end == std::string::npos ? line : int(std::count(code.begin(), code.begin() + std::ptrdiff_t(end), '\n')) + 1;
-            marks.push_back({line, last});
-            if (!name.empty())
-                for (size_t c = code.find("    " + name + "();"); c != std::string::npos; c = code.find("    " + name + "();", c + 1)) {
-                    const int cl = int(std::count(code.begin(), code.begin() + std::ptrdiff_t(c), '\n'));
-                    if (cl < line || cl > last) marks.push_back({cl, cl});
-                }
-        }
+        SendMessageW(gTE.code, EM_LINESCROLL, 0, m.top - first);
+        marks = m.marks;
     }
     if (marks != gCodeMarks) gCodeMarks = std::move(marks), InvalidateRect(gTE.code, nullptr, FALSE);
 }
