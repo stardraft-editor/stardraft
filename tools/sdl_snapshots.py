@@ -39,6 +39,8 @@ CASES += [
     ("dialog-newproject", ["--dialog", "newproject", "--size", "688x394"], ""),
     ("dialog-prompt", ["--dialog", "prompt", "--size", "385x105"], ""),
     ("dialog-listpick", ["--dialog", "listpick", "--size", "378x494"], ""),
+    ("dialog-message", ["--dialog", "message"], ""),  # the message box (msgbox::ask: questions, updates, crash reports)
+    ("dialog-error", ["--dialog", "error"], ""),
     # The game data, no map.
     ("data-units", ["--workspace", "data", "--data", "units:0"], "data"),
     ("data-images", ["--workspace", "data", "--data", "images:239"], "data"),

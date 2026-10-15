@@ -69,8 +69,8 @@ void askToSendCrashes() {
     if (gSdlCrashReports != 0 || issueToken().empty() || !gRoot) return;
     const auto reports = stardraft::platform::unsentCrashReports(crashFolder());
     if (reports.empty()) return;
-    const int r = kit::messageBox(*gRoot, shellTr(L"Crash report"), releases::crashAskText(reports.front().parent_path()),
-                                  {shellTr(L"Send"), shellTr(L"Always send"), shellTr(L"Do not send")}, kit::MessageIcon::Question);
+    const int r = msgbox::ask(*gRoot, shellTr(L"Crash report"), releases::crashAskText(reports.front().parent_path()),
+                                  {shellTr(L"&Send"), shellTr(L"&Always send"), shellTr(L"Do &not send")}, msgbox::Icon::Question);
     if (r == 1) gSdlCrashReports = 1, prefs::setNumber(L"CrashReports", 1);  // Always send: from now on, without the question
     if (r == 0 || r == 1) {
         std::thread([reports] {
@@ -190,20 +190,20 @@ void makeMapsDefault() {
         return;
     }
     if (gRoot)
-        kit::messageBox(*gRoot, shellTr(L"Default apps"),
+        msgbox::ask(*gRoot, shellTr(L"Default apps"),
                         shellTr(L"Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select "
                                 L"StarDraft 2."),
-                        {L"OK"}, kit::MessageIcon::Info);
+                        {L"OK"}, msgbox::Icon::Info);
     SDL_OpenURL("ms-settings:defaultapps");
 }
 
 void askMapsDefault() {
     if (askedMapsDefault() || !gRoot) return;  // (two maps opened at once: one question)
     prefs::setNumber(L"AskedMapsDefault", 1);
-    if (kit::messageBox(*gRoot, L"StarDraft 2",
+    if (msgbox::ask(*gRoot, L"StarDraft 2",
                         shellTr(L"Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in "
                                 L"Program options > Maps."),
-                        {shellTr(L"Yes"), shellTr(L"No")}, kit::MessageIcon::Question) == 0)
+                        {shellTr(L"&Yes"), shellTr(L"&No")}, msgbox::Icon::Question) == 0)
         makeMapsDefault();
 }
 
