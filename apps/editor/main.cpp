@@ -19108,7 +19108,7 @@ void setTerrainRect(bool rect) {
 // A number box: its name, then the value in a field with up and down arrows at its right. The arrows and the mouse
 // wheel step through the values (Size: 0.5, 1, 2, ... 16, then 18 to 32; Density: 1 to kDensityMax, in steps of 1). Click the value to type a
 // number: Enter or leaving the box sets it (in the range; Size to a whole number), Esc cancels, Up and Down step.
-enum StripNumber { kNumSize, kNumDensity, kNumHeight };
+enum StripNumber { kNumSize, kNumDensity, kNumHeight, kNumShape };  // (kNumShape: the brush shape, for the wheel)
 struct StripNumberBox {
     RECT r;
     int which;
@@ -19130,7 +19130,10 @@ void stripNumberChanged() {
 }
 // One step up (dir 1) or down (-1).
 void stripNumberStep(int which, int dir) {
-    if (which == kNumSize) {
+    if (which == kNumShape) {  // diamond, square, circle, round and round
+        app.brushShape = Brush::Shape((int(app.brushShape) + (dir > 0 ? 1 : 2)) % 3);
+        saveAppSettings();
+    } else if (which == kNumSize) {
         const auto& v = brushSizes();
         float next = app.brushSize;
         if (dir > 0) {
@@ -19421,7 +19424,8 @@ void paintToolStrip(HWND hwnd) {
                                    }
                                    SetFocus(app.view);
                                },
-                               L"Brush shape: diamond, square or circle", IDC_HAND, {}});
+                               L"Brush shape: diamond, square or circle. Click to select one; the mouse wheel changes it.", IDC_HAND, {}});
+        gStripNumbers.push_back({sr, kNumShape});
         divider(sr.right);
         // The link.
         const RECT lk{box.right - linkW, box.top, box.right, box.bottom};
@@ -27393,6 +27397,13 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 o << "the Height box takes 1 " << (typed ? "yes" : "NO") << ", Rectangle: 3 x 1 tiles " << (tiles == 3 ? "yes" : "NO") << " (" << tiles
                   << "), isometric: fewer corners than 3 x 3 " << (flat < square && flat > 0 ? "yes" : "NO") << " (" << flat << " of " << square
                   << "), a typed 3 stays, empty links it to the size " << (same ? "yes" : "NO") << "\n";
+                app.brushShape = Brush::Diamond;
+                stripNumberStep(kNumShape, 1);
+                const bool next = app.brushShape == Brush::Square;
+                stripNumberStep(kNumShape, -1), stripNumberStep(kNumShape, -1);
+                o << "the wheel on the shape: diamond up is square " << (next ? "yes" : "NO") << ", diamond down is circle "
+                  << (app.brushShape == Brush::Circle ? "yes" : "NO") << "\n";
+                app.brushShape = Brush::Square;
                 RedrawWindow(app.main, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                 capture(fs::path(datashots) / "brushheight.png", app.main);
                 continue;
