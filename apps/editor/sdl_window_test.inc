@@ -68,6 +68,7 @@ struct WinTest {
     Uint64 since = 0;
     long long framesAt = 0, missedAt = 0, pumps = 0;
     int mapW = 0, railW = 0, fullW = 0, fullH = 0;
+    bool minSeen = false;  // (step 5: the window is minimized now; macOS's animation comes first)
     float camX = 0, camY = 0, zoom = 0, testScale = 1.5f;
     std::wstring mapPath;
 #ifdef _WIN32
@@ -165,9 +166,10 @@ void sdlWinTestPump() {
             SDL_GetWindowSize(w, &lw, &lh);
             SDL_GetWindowSizeInPixels(w, &pw, &ph);
             std::snprintf(buf, sizeof buf, "display: \"%s\", %dx%d points, mode %dx%d at density %.2f, %.0f Hz; content scale %.2f; the window %dx%d points, "
-                          "%dx%d px, pixel density %.2f, display scale %.2f, dpi %d", name ? name : "?", bounds.w, bounds.h, mode ? mode->w : 0, mode ? mode->h : 0,
+                          "%dx%d px, pixel density %.2f, display scale %.2f, dpi %d%s", name ? name : "?", bounds.w, bounds.h, mode ? mode->w : 0, mode ? mode->h : 0,
                           mode ? double(mode->pixel_density) : 0.0, mode ? double(mode->refresh_rate) : 0.0, double(SDL_GetDisplayContentScale(display)), lw, lh,
-                          pw, ph, double(SDL_GetWindowPixelDensity(w)), double(SDL_GetWindowDisplayScale(w)), kit::theme().dpi);
+                          pw, ph, double(SDL_GetWindowPixelDensity(w)), double(SDL_GetWindowDisplayScale(w)), kit::theme().dpi,
+                          (SDL_GetWindowFlags(w) & SDL_WINDOW_MAXIMIZED) ? ", maximized" : "");
             const float d = SDL_GetWindowPixelDensity(w);
             winTestLine(bounds.w > 0 && d > 0 && std::abs(float(pw) - float(lw) * d) <= 1 && kit::theme().dpi == int(std::lround(96 * SDL_GetWindowDisplayScale(w))), buf);
         }
@@ -206,8 +208,14 @@ void sdlWinTestPump() {
         else {
             int pw = 0, ph = 0;
             SDL_GetWindowSizeInPixels(w, &pw, &ph);
-            std::snprintf(buf, sizeof buf, "resize: the window is %dx%d px (asked: 1100x700)", pw, ph);
-            winTestLine(std::abs(pw - 1100) <= 2 && std::abs(ph - 700) <= 2, buf);
+            // (a small display: the system keeps the window in its free area, the title bar too)
+            SDL_Rect area{};
+            SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(w), &area);
+            const float d = SDL_GetWindowPixelDensity(w) > 0 ? SDL_GetWindowPixelDensity(w) : 1.0f;
+            const bool wide = std::abs(pw - 1100) <= 2 || (pw < 1100 && pw >= int(float(area.w) * d) - 80);
+            const bool high = std::abs(ph - 700) <= 2 || (ph < 700 && ph >= int(float(area.h) * d) - 80);
+            std::snprintf(buf, sizeof buf, "resize: the window is %dx%d px (asked: 1100x700; the display's free area %dx%d points)", pw, ph, area.w, area.h);
+            winTestLine(wide && high, buf);
         }
         // The window moves to a display of 50 % more (SDL's event, with the scale that the display gives): 150 % from
         // a display of 100 %, 250 % from a Retina display (200 %).
@@ -247,9 +255,17 @@ void sdlWinTestPump() {
         winTestNext();
         return;
     }
-    case 5: {  // minimized
-        if (!winTestWaited(1000, 0)) return;
+    case 5: {  // minimized: from the moment the system says so (macOS: after the animation into the Dock), one second
         const bool minimized = (SDL_GetWindowFlags(w) & SDL_WINDOW_MINIMIZED) != 0;
+        if (!t.minSeen) {
+            if (!minimized && SDL_GetTicks() - t.since < 5000) return;
+            t.minSeen = true;
+            const int step = t.step;
+            winTestNext();  // (the counts start now)
+            t.step = step;
+            return;
+        }
+        if (!winTestWaited(1000, 0)) return;
         std::snprintf(buf, sizeof buf, "minimized: %s, %lld frames presented, %lld turns without a swapchain texture, %lld turns in 1 s",
                       minimized ? "yes" : "no", gHost->presentedFrames() - t.framesAt, gHost->missedFrames() - t.missedAt, t.pumps);
         winTestLine(minimized && gHost->presentedFrames() - t.framesAt <= 1 && t.pumps <= 40, buf);  // (nothing is painted after the frame of that turn: SdlHost::pump)

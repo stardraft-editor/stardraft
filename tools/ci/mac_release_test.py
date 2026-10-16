@@ -200,7 +200,7 @@ def part_dmg(a, out, apps):
     p.say(text)
     sig = "ad hoc" if "Signature=adhoc" in text else "Developer ID" if "Developer ID Application" in text else "?"
     p.check(sig != "?", f"signed: {sig}")
-    p.check("flags=0x10000(runtime)" in text or "(runtime)" in text, "the hardened runtime is on")
+    p.check(re.search(r"flags=0x[0-9a-f]+\([^)]*\bruntime\b", text) is not None, "the hardened runtime is on")
     # The Info.plist: the document types and the exported types.
     plist = os.path.join(app, "Contents", "Info.plist")
     code, text = run(["plutil", "-lint", plist])

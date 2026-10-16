@@ -787,7 +787,13 @@ int main(int argc, char** argv) {
             SDL_ReleaseGPUTexture(device, tex);
             gPopShot.frame.reset();  // (before the root view goes)
         } else {
-            if (!host.show(root, L"StarDraft", width, height)) return std::fprintf(stderr, "could not open a window\n"), 1;
+            // The first size is already in the display's free area (fitMainWindow sets the size in points next): macOS
+            // takes a window as large as the free area as zoomed, and SDL keeps that first size as the window's own
+            // (after full screen it came back that large, wider than a small display).
+            int showW = width, showH = height;
+            if (SDL_Rect area{}; !sizeArg && SDL_GetDisplayUsableBounds(SDL_GetPrimaryDisplay(), &area) && area.w > 0 && area.h > 0)
+                showW = std::min(width, area.w * 9 / 10), showH = std::min(height, area.h * 9 / 10);
+            if (!host.show(root, L"StarDraft", showW, showH)) return std::fprintf(stderr, "could not open a window\n"), 1;
             updateTitle();  // (the window exists now: its title is the open map's)
             if (!sizeArg) fitMainWindow(width, height);
             {
