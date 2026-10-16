@@ -1118,6 +1118,12 @@ static GpuBitmap* gpuBitmapOf(SDL_GPUDevice* dev, draw::Bitmap& b) {
     return g;
 }
 
+void bitmapTextureStats(int& count, size_t& bytes) {
+    count = 0, bytes = 0;
+    for (const GpuBitmap* g : liveBitmaps())
+        if (g->tex) ++count, bytes += size_t(g->w) * size_t(g->h) * 4;
+}
+
 draw::Image imageOfBitmap(SDL_GPUDevice* device, draw::Bitmap& b) {
     if (!device || b.width() <= 0 || b.height() <= 0) return {};
     GpuBitmap* g = gpuBitmapOf(device, b);

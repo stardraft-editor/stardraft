@@ -342,12 +342,18 @@ bool sdlMapsOpenWithUs() { return stardraft::platform::mapsOpenWithStarDraft(); 
 
 // main()'s Windows steps. Before anything else: a crashed program's sender (--send-crash <folder>) sends its report and
 // ends (returns its exit code; -1 otherwise), and the crash handler goes in (a test run's reports stay on disk);
-// --crash-test crashes on purpose (no message box).
+// --crash-test crashes on purpose (no message box); --crash-test stack: with a stack overflow (a call that calls itself).
+int sdlCrashTestDepth(volatile int n) {
+    volatile char frame[4096];
+    frame[0] = char(n);
+    return n > 0 ? sdlCrashTestDepth(n + 1) + frame[0] : 0;  // (n never ends at 0: the stack runs out)
+}
 int sdlWindowsFirst(int argc, char** argv, bool testRun) {
     const std::string a1 = argc > 1 ? argv[1] : "", a2 = argc > 2 ? argv[2] : "";
     if (a1 == "--send-crash") return releases::sendCrash(fs::path(widen(a2))) ? 0 : 1;
     prefs::number(L"CrashReports", gSdlCrashReports, 0, 2);
     winsdl::installCrashHandler(testRun || a1 == "--crash-test");
+    if (a1 == "--crash-test" && a2 == "stack") return sdlCrashTestDepth(1);
     if (a1 == "--crash-test") *static_cast<volatile int*>(nullptr) = 1;
     return -1;
 }

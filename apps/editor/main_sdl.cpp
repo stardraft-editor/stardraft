@@ -83,6 +83,8 @@
 #include "file_types.h"  // apps/common: the files that open with StarDraft 2 (shell_sdl_win.inc)
 #include <dwmapi.h>      // the dark title bar (shell_sdl_win.inc)
 #include <shellapi.h>    // the elevated start (shell_sdl_win.inc)
+#include <psapi.h>       // the working set (sdl_soak.inc: --script stats)
+#include <dxgi1_4.h>     // the GPU memory (sdl_soak.inc: --script stats)
 #else
 #include <cerrno>
 #include <signal.h>  // kill (shell_sdl_win.inc)
@@ -145,6 +147,7 @@ bool gNoActivate = false;
 #include "sdl_main_view.inc"
 #include "sdl_pending.inc"
 #include "sdl_menus.inc"
+#include "sdl_soak.inc"  // --script: a long session's inputs from a file, the memory and the undo steps
 #include "sdl_native_menus.inc"  // macOS: the menu bar and the context menus are the system's (mac_menus.mm)
 #include "sdl_popshot.inc"  // a value's pop-out in a snapshot (--trigpop, --classictrig with a value)
 #include "sdl_files.inc"  // the Files workspace's page and its sounds (core/views_files.inc)
@@ -415,6 +418,7 @@ int main(int argc, char** argv) {
         else if (a == "--smartzoom") inputArgs.emplace_back('z', next());  // x,y: a trackpad's smart zoom (macOS: a double tap with two fingers) there, for a snapshot
         else if (a == "--swipe") inputArgs.emplace_back('g', next());  // x,y,left|right: a swipe of three fingers there (macOS's Swipe between pages), for a snapshot
         else if (a == "--wait") inputArgs.emplace_back('w', next());  // ms: the time passes for the program's timers (in order with the inputs), for a snapshot
+        else if (a == "--script") { if (!sdlReadScript(next(), inputArgs)) return 1; }  // file[:times]: inputs from a file, times over (sdl_soak.inc), for a snapshot
         else if (a == "--rclick") rclickArgs.push_back(next());  // x,y[:n]: a right click there; the menu's items go to the output, item n runs, for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
@@ -584,10 +588,7 @@ int main(int argc, char** argv) {
             if (name == modeArg) setMode(Mode(m));
         }
         // A workspace by name (the order of the Workspace enum): its view shows, or "Not on this system yet" where none is.
-        static const char* const kWorkspaceNames[] = {"map",    "data",     "triggers",        "assets",  "project",
-                                                      "briefing", "files", "props", "players", "classictriggers", "classic"};
-        for (int w = 0; !workspaceArg.empty() && w < int(sizeof kWorkspaceNames / sizeof kWorkspaceNames[0]); ++w)
-            if (workspaceArg == kWorkspaceNames[w]) setWorkspace(Workspace(w));
+        if (!workspaceArg.empty()) sdlWorkspaceByName(workspaceArg);  // (sdl_soak.inc: kWorkspaceNames)
         if (!dropArg.empty()) {  // (after the workspace: in the Assets workspace a sound imports)
             dropFile(dropArg);
             sdlFlushAssetDrops();
@@ -731,7 +732,9 @@ int main(int argc, char** argv) {
                 while (sdlShotInputNext()) {
                     // (a frame after each: the views lay out and the map's scene takes the change, as between a user's inputs)
                     host.snapshotTimers(20);
+                    const auto t0 = std::chrono::steady_clock::now();
                     host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+                    sdlSoakFrame(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());  // (--script stats)
                 }
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
                 host.setSnapshotModalHook(nullptr);
