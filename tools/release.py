@@ -464,10 +464,10 @@ def cmd_shots(args):
     if not (install / ".build.info").is_file():
         raise Fail(f"no StarCraft install at {install} (set STARCRAFT_INSTALL)")
     build = ROOT / (opt(args, "--build-dir") or "build")
-    exe = build / "Release" / "stardraft-testing.exe"
+    exe = build / "Release" / "stardraft-testing-win32.exe"  # (the Win32 program: --datashots is its own)
     if not exe.is_file():
         raise Fail(f"no {exe.relative_to(ROOT)}: cmake -S . -B build -DSTARDRAFT_EXE_NAME=stardraft-testing, "
-                   "cmake --build build --config Release --target stardraft_editor")
+                   "cmake --build build --config Release --target stardraft_win32")
     scratch = Path(tempfile.mkdtemp(prefix=f"stardraft-shots-{version}-"))
     captures = {}
     for i, r in enumerate(spec["runs"]):

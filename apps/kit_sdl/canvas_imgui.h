@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "canvas.h"
@@ -27,6 +28,12 @@ struct FontEntry {
 // The UI fonts (fontDir first, then the system's: Latin, then Korean and Chinese merged in) and the monospace font,
 // into the current ImGui context. Call it before the first frame. Returns what was loaded, for the log.
 std::string loadFonts(const std::string& fontDir);
+
+// The files built into the program (on Windows its RCDATA resources, so that stardraft.exe is one file): for a UTF-8
+// path that has no file, its bytes (they stay valid while the program runs) and their size, or {nullptr, 0}. The
+// fonts, the icon atlases and the resource icons read them when the file is not there. Null (the default): none.
+using EmbeddedFile = std::pair<const void*, size_t> (*)(const std::string& path);
+void setEmbeddedFiles(EmbeddedFile files);
 
 // The UI icon atlases (atlas-16.png, atlas-20.png, atlas-24.png, atlas-32.png in dir) uploaded to `device`.
 // False when none is found. unloadIconAtlases() before the device goes.

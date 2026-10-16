@@ -109,7 +109,9 @@ inline bool newer(const Release& r) { return !r.commit.empty() && r.commit != ST
 // A release build: the one CI makes (the others are built here, by a developer).
 inline bool releaseBuild() { return !issueToken().empty(); }
 
-// The program's file name in a release's download: stardraft.exe on Windows, stardraft on the other systems.
+// The program's file name in a release's download: stardraft.exe on Windows, stardraft on the other systems. On Windows
+// it is the SDL program; an installed Win32 stardraft.exe (a release before the switch) updates to it in the same way
+// (the zip holds stardraft.exe only, which has its fonts and icons in it: shell_sdl_win.inc, embeddedFile).
 inline std::wstring releaseProgramName() {
 #ifdef _WIN32
     return L"stardraft.exe";
@@ -119,7 +121,7 @@ inline std::wstring releaseProgramName() {
 }
 
 // Whether this program can put the release in its own place: a release build whose file has the release program's
-// name (not stardraft-testing.exe, not stardraft-sdl.exe while it is beside the Windows program), and the release has
+// name (not stardraft-testing.exe, not the Win32 fallback stardraft-win32.exe), and the release has
 // this system's download. Else the user gets the release page.
 // (Windows only for now: the macOS and Linux downloads hold an app folder, not one program file.)
 inline bool installable(const fs::path& self, const Release& r) {

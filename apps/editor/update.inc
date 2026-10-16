@@ -52,12 +52,18 @@ using releases::Release;
 using releases::releaseBuild;
 
 // At start: the .old program of an update goes; project.stardraft opens with this program (not with a copy that
-// StarDraft-latest started: the launcher does that); a release build looks for a newer release, on a thread.
+// StarDraft-latest started: the launcher does that); a release build looks for a newer release, on a thread. This
+// program is the fallback now (stardraft-win32.exe; the SDL program is stardraft.exe): with "-win32" in its name it
+// leaves the file types to the SDL program.
 void atStart() {
     wchar_t self[MAX_PATH];
     GetModuleFileNameW(nullptr, self, MAX_PATH);
-    if (fs::path(self).filename().wstring().rfind(L"stardraft-latest-", 0) != 0) registerProjectFiles(self);
-    registerMapFiles(associationExe(), false);  // in Explorer's Open with list for maps (the default when asked: mapFileOpened)
+    std::wstring name = fs::path(self).stem().wstring();
+    for (wchar_t& ch : name) ch = wchar_t(towlower(ch));
+    if (name.find(L"-win32") == std::wstring::npos) {
+        if (name.rfind(L"stardraft-latest-", 0) != 0) registerProjectFiles(self);
+        registerMapFiles(associationExe(), false);  // in Explorer's Open with list for maps (the default when asked: mapFileOpened)
+    }
     std::error_code ec;
     fs::remove(stardraft::platform::oldProgramFile(self), ec);
     if (!releaseBuild() || !gCheckUpdates) return;  // File > Options > Look for updates on start (on by default)

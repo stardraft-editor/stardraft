@@ -305,17 +305,45 @@ std::vector<uint8_t> straightPixels(const draw::Bitmap& b) {
     return out;
 }
 
+EmbeddedFile gEmbedded = nullptr;  // setEmbeddedFiles
+
+bool isFile(const std::string& utf8) {
+    std::error_code ec;
+    return fs::is_regular_file(fs::path(reinterpret_cast<const char8_t*>(utf8.c_str())), ec);
+}
+
+// A file built into the program for a path that has no file: {nullptr, 0} when there is none.
+std::pair<const void*, size_t> embeddedFile(const std::string& utf8) {
+    if (!gEmbedded || isFile(utf8)) return {nullptr, 0};
+    const auto e = gEmbedded(utf8);
+    return e.first && e.second ? e : std::pair<const void*, size_t>{nullptr, 0};
+}
+
 std::vector<unsigned char> readFile(const std::string& utf8) {
+    if (const auto e = embeddedFile(utf8); e.first) {
+        const auto* b = static_cast<const unsigned char*>(e.first);
+        return std::vector<unsigned char>(b, b + e.second);
+    }
     std::ifstream in(fs::path(reinterpret_cast<const char8_t*>(utf8.c_str())), std::ios::binary);
     return std::vector<unsigned char>(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
 }
 
-// The first of the files that is there (UTF-8 paths).
+// The first of the files that is there (UTF-8 paths), as a file or built into the program.
 std::string firstFile(std::initializer_list<std::string> paths) {
-    std::error_code ec;
     for (const std::string& p : paths)
-        if (fs::is_regular_file(fs::path(reinterpret_cast<const char8_t*>(p.c_str())), ec)) return p;
+        if (isFile(p) || embeddedFile(p).first) return p;
     return {};
+}
+
+// A font from a file, or from the program's own bytes (not copied: ImGui only reads them).
+ImFont* addFont(const std::string& path, float size, const ImFontConfig* cfg = nullptr, const ImWchar* ranges = nullptr) {
+    ImGuiIO& io = ImGui::GetIO();
+    if (const auto e = embeddedFile(path); e.first) {
+        ImFontConfig c = cfg ? *cfg : ImFontConfig();
+        c.FontDataOwnedByAtlas = false;
+        return io.Fonts->AddFontFromMemoryTTF(const_cast<void*>(e.first), int(e.second), size, &c, ranges);
+    }
+    return io.Fonts->AddFontFromFileTTF(path.c_str(), size, cfg, ranges);
 }
 
 std::string fileName(const std::string& path) { return fs::path(reinterpret_cast<const char8_t*>(path.c_str())).filename().string(); }
@@ -391,6 +419,8 @@ size_t utf8Next(const std::string& s, size_t i) {
     return std::min(s.size(), i + n);
 }
 
+void setEmbeddedFiles(EmbeddedFile files) { gEmbedded = files; }
+
 std::string loadFonts(const std::string& fontDir) {
     ImGuiIO& io = ImGui::GetIO();
     io.Fonts->Clear();
@@ -425,7 +455,7 @@ std::string loadFonts(const std::string& fontDir) {
     const float size = 15.0f;  // the size the font file is read at; each canvas font is drawn at its own size
     std::string loaded;
     ImFontConfig cfg;
-    if (!latin.empty() && (gUi = io.Fonts->AddFontFromFileTTF(latin.c_str(), size, &cfg))) loaded = fileName(latin);
+    if (!latin.empty() && (gUi = addFont(latin, size, &cfg))) loaded = fileName(latin);
     else gUi = io.Fonts->AddFontDefault(), loaded = "ImGui's own (no system font found)";
     // The symbols that the text fonts do not have (a game text's line end mark U+21B5, the pencil U+270E): the
     // system's symbol font, as Windows's font linking gives them to GDI (else they show as boxes).
@@ -440,9 +470,9 @@ std::string loadFonts(const std::string& fontDir) {
         if (f->empty() || (f == &chinese && *f == korean) || (f == &symbols && *f == latin)) continue;
         ImFontConfig merge;
         merge.MergeMode = true;
-        if (io.Fonts->AddFontFromFileTTF(f->c_str(), size, &merge)) loaded += " + " + fileName(*f);
+        if (addFont(*f, size, &merge)) loaded += " + " + fileName(*f);
     }
-    gMono = mono.empty() ? nullptr : io.Fonts->AddFontFromFileTTF(mono.c_str(), size);
+    gMono = mono.empty() ? nullptr : addFont(mono, size);
     if (gMono) {
         loaded += "; code: " + fileName(mono);
         // Korean and Chinese in code (a script's comments and texts), as the Windows RichEdit's font linking gives them.
@@ -450,13 +480,13 @@ std::string loadFonts(const std::string& fontDir) {
             if (f->empty() || (f == &chinese && *f == korean)) continue;
             ImFontConfig merge;
             merge.MergeMode = true;
-            io.Fonts->AddFontFromFileTTF(f->c_str(), size, &merge);
+            addFont(*f, size, &merge);
         }
     } else gMono = gUi;
     // The icon glyphs (the message box's info icon is U+E946 in Segoe MDL2 Assets): only their range is loaded.
     static const ImWchar kGlyphRanges[] = {0xE000, 0xF8FF, 0};
     const std::string glyphs = firstFile({"C:\\Windows\\Fonts\\segmdl2.ttf"});
-    gGlyphs = glyphs.empty() ? nullptr : io.Fonts->AddFontFromFileTTF(glyphs.c_str(), size, nullptr, kGlyphRanges);
+    gGlyphs = glyphs.empty() ? nullptr : addFont(glyphs, size, nullptr, kGlyphRanges);
     if (gGlyphs) loaded += "; glyphs: " + fileName(glyphs);
     else gGlyphs = gUi;
     return loaded;
