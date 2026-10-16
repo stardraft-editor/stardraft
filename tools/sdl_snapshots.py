@@ -408,6 +408,46 @@ CASES += [
 ]
 
 
+# The release-candidate fixes: what is kept when StarDraft 2 ends, what a Save writes, Undo, the pop-outs.
+CASES += [
+    # Quit with a changed map in a tab that is not the active one (a new project's tab is active): the map's tab asks
+    # (sdl_menus.inc: confirmQuit), and the program does not end (the box closes with no answer: Cancel).
+    ("map-quit-tabs", ["--newproject", "{newdir}", "--script", "{script:quittabs}"], "map"),
+    # Save as with the Properties page's title still being typed (no wait for its timer): the file has the title (the
+    # tab closes with no question, and the map that opens again has it).
+    ("map-save-typing", ["--workspace", "props", "--click", "420,214", "--key", "Ctrl+A", "--type", "Typed title", "--key", "Ctrl+Shift+S",
+                         "--pick", "{out}/typed.scx", "--key", "Ctrl+W", "--key", "Ctrl+O", "--pick", "{out}/typed.scx", "--check", "names"], "map"),
+    # The Briefing's text being typed in a saved map, then quit: the map has a change, so the quit asks.
+    ("map-briefing-quit", ["--pick", "{out}/brief.scx", "--script", "{script:briefquit}"], "map"),
+    # File > Save of a map in a Program Files folder asks for another place (Save as), as the Windows program did.
+    ("map-program-files", ["--mode", "units", "--key", "Ctrl+Shift+S", "--pick", "{pfdir}/pf.scx", "--key", "Ctrl+A", "--key", "Del",
+                           "--key", "Ctrl+S", "--pick", "cancel"], "map"),
+    # Save as answers while the program waits (--pick defer:): a tab switch in that time does nothing, and the answer
+    # saves the map that asked (not the other tab's map).
+    ("map-saveas-tab", ["--newproject", "{newdir}", "--pick", "defer:{out}/asked.scx", "--script", "{script:saveastab}"], "map"),
+    # Ctrl+Z while the mouse button still paints terrain does nothing; one Undo after the stroke takes all of it back.
+    ("map-undo-midstroke", ["--mode", "terrain", "--click", "202,759", "--key", "B", "--drag", "520,650-640,690:Undo", "--key", "Ctrl+Z"], "map"),
+    # Undo back to the map as it was opened: no change (no "*"); Redo: a change again.
+    ("map-undo-saved", ["--mode", "units", "--click", "1386,429", "--click", "700,650", "--key", "Ctrl+Z", "--key", "Ctrl+Y"], "map"),
+    # A unit deleted, another selected, Undo: the selection is still that other unit (not the unit that came back).
+    ("map-undo-selection", ["--mode", "units", "--click", "825,128", "--key", "Del", "--click", "1240,580", "--key", "Ctrl+Z"], "map"),
+    # A unit placed, then the Properties page's title typed and Edit > Undo at once: Undo takes the title back (the page
+    # does not put it in again after the Undo), and the unit stays.
+    ("map-props-typing-undo", ["--script", "{script:propsundo}", "--check", "names"], "map"),
+    # Data: a Players setting (Can build), then a unit placed in Map, then Ctrl+Z in Data: the unit stays (Data's Undo
+    # does not take back a Map edit that it cannot show).
+    ("data-map-undo", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--script", "{script:datamapundo}"], "data"),
+    # The Triggers' value pop-out: Insert value's picker, a click on its row: the value pop-out stays open and takes it.
+    ("data-value-insert", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169", "--click", "460,347",
+                           "--type", "Display text", "--key", "Enter", "--click", "498,353", "--click", "568,632", "--type", "player's name",
+                           "--click", "556,749", "--click", "996,635"], "data"),
+    # Check for updates: a release published before this build's commit is not newer (a CI build of a later commit is
+    # never offered an older release); a token that GitHub refuses (expired) gets the release without it.
+    ("update-release-older", ["--check", "release:{releaseold}"], ""),
+    ("update-release-token", ["--check", "release-token:{release}"], ""),
+]
+
+
 INPUT_START = re.compile(r"^(key|type|ime|click|wait) (.*?): (?:\d+ units|no map)")
 FOCUS_LINE = re.compile(r'^  focus: (.+?) at (-?\d+),(-?\d+) "(.*?)"(?: selected (\d+)-(\d+) composing "(.*)"; input method (on|off) at '
                         r'.* (\(yes\)|\(WRONG\)))?$')
@@ -687,6 +727,50 @@ key Ctrl+L
 key Ctrl+L
 workspace map
 stats
+""",
+    "quittabs": """key Ctrl+Shift+Tab
+mode units
+key Ctrl+A
+key Del
+key Ctrl+Tab
+command file.exit
+""",
+    "briefquit": """workspace briefing
+click 543,166
+type Text message
+key Enter
+key Ctrl+Shift+S
+click 510,840
+type Hello there
+command file.exit
+key Esc
+""",
+    "saveastab": """key Ctrl+Shift+Tab
+mode units
+key Ctrl+A
+key Del
+key Ctrl+Shift+S
+key Ctrl+Tab
+""",
+    "propsundo": """mode units
+click 1386,429
+click 700,650
+workspace props
+click 420,214
+key Ctrl+A
+type Undo title
+command edit.undo
+wait 700
+""",
+    "datamapundo": """wheel 800,500,0,-300
+click 714,697
+workspace map
+mode units
+click 1386,429
+click 700,650
+workspace data
+click 900,170
+key Ctrl+Z
 """,
     "reopen": """workspace data
 wait 0
@@ -1523,6 +1607,135 @@ LEGACY_LINES = ["settings: language ko", "settings: theme light, accent Green", 
 
 
 # Checks of a case's output (after the PNG's): a function that returns None, or what is wrong.
+def check_quit_tabs(output):
+    """None when the quit asked about the changed map in the other tab, and StarDraft 2 did not end (no answer: Cancel)."""
+    asked = re.findall(r"^question: Save changes to the map\? \(tab (.*)\)\r?$", output, re.M)
+    if len(asked) != 1 or not asked[0].startswith("* ") or asked[0].endswith("Sample"):
+        return f"the quit asked {len(asked)} times about {asked} (not once about the changed map's tab)"
+    if re.search(r"^quit: ", output, re.M):
+        return "StarDraft 2 ended without an answer (the changes of the other tab are lost)"
+    return None
+
+
+def check_save_typing(output):
+    """None when the title being typed went into the saved file: the tab closed with no question and the map opened again
+    has the title."""
+    if "question:" in output:
+        return "the tab asked to be saved after Save as (the typed title was not in the saved map)"
+    if not re.search(r"^dialog: open", output, re.M):
+        return "Ctrl+O did not show the open dialog"
+    if not re.search(r'^names: title "Typed title"', output, re.M):
+        return "the map opened again does not have the typed title"
+    return None
+
+
+def check_briefing_quit(output):
+    """None when the quit after the Briefing text was typed in a saved map asked to save it (and did not end)."""
+    if not re.search(r"^question: Save changes to the map\?", output, re.M):
+        return "the quit did not ask: the typed Briefing text was not a change of the map"
+    if re.search(r"^quit: ", output, re.M):
+        return "StarDraft 2 ended after Cancel"
+    return None
+
+
+def check_program_files(output):
+    """None when File > Save of a map in a Program Files folder showed the save dialog again (and said why)."""
+    saves = re.findall(r"^dialog: save, .* starts at \"(.*)\": (.*)\r?$", output, re.M)
+    if len(saves) != 2:
+        return f"{len(saves)} save dialogs, not 2 (Save as, then Save of the map in Program Files)"
+    if "Program Files" not in saves[1][0]:
+        return f"the second save dialog starts at {saves[1][0]}"
+    return None
+
+
+def check_saveas_tab(output):
+    """None when the tab switch during the Save as dialog did nothing and its answer saved the map that asked."""
+    s = {x["input"]: x for x in steps(output)}
+    try:
+        switched, answered = s["key Ctrl+Tab"], s["wait dialog answer"]
+    except KeyError:
+        return "no line for Ctrl+Tab or for the dialog's answer"
+    if switched.get("tabs") != "1/2":
+        return f"Ctrl+Tab switched the tab while the save dialog was open: {switched.get('tabs')}"
+    if answered.get("tabs") != "1/2" or answered.get("tab") != "asked.scx":
+        return f"the answer saved another map: tab {answered.get('tab')} {answered.get('tabs')}"
+    return None
+
+
+def check_undo_midstroke(output):
+    """None when the stroke painted (the Ctrl+Z during it did nothing) and one Undo after it took the stroke back."""
+    return expect(output, 4, [
+        ("the stroke painted nothing", lambda s: s[2]["terrain"] != s[1]["terrain"]),
+        ("Undo after the stroke did not take it back", lambda s: s[3]["terrain"] == s[1]["terrain"]),
+    ])
+
+
+def check_undo_saved(output):
+    """None when Undo back to the opened map shows no change, and Redo shows one."""
+    return expect(output, 4, [
+        ("the placed unit is not a change", lambda s: s[1]["tab"].startswith("* ")),
+        ("Undo back to the map as it was opened still shows a change", lambda s: not s[2]["tab"].startswith("* ")),
+        ("Redo is not a change", lambda s: s[3]["tab"].startswith("* ")),
+    ])
+
+
+def check_undo_selection(output):
+    """None when the unit that was selected before Undo is still the selected one after it (the same place)."""
+    first = dict(re.findall(r"^(click 1240,580|key Ctrl\+Z): \d+ units, \d+ doodads, 1 selected \(the first at (\d+,\d+)\)", output, re.M))
+    if len(first) != 2:
+        return f"one selected unit before and after Undo: {first}"
+    if first["click 1240,580"] != first["key Ctrl+Z"]:
+        return f"after Undo the selection is another unit: at {first['key Ctrl+Z']}, not {first['click 1240,580']}"
+    return None
+
+
+def check_props_typing_undo(output):
+    """None when Undo took the typed title back (the map's title is not the typed one) and the placed unit stayed."""
+    m = re.search(r'^names: title "(.*)"', output, re.M)
+    if not m:
+        return "no title line"
+    if m.group(1) == "Undo title":
+        return "the map has the typed title after Undo"
+    placed, later = re.search(r"^click 700,650: (\d+) units", output, re.M), re.search(r"^wait 700: (\d+) units", output, re.M)
+    if not placed or not later or placed.group(1) != later.group(1):
+        return "Undo took back the placed unit, not the typed title"
+    return None
+
+
+def check_data_map_undo(output):
+    """None when Ctrl+Z in Data did not take back the unit placed in Map after the Players setting."""
+    placed = re.search(r"^click 700,650: (\d+) units", output, re.M)
+    undone = re.search(r"^key Ctrl\+Z: (\d+) units", output, re.M)
+    if not placed or not undone:
+        return "no line for the placed unit or for Ctrl+Z"
+    if placed.group(1) != undone.group(1):
+        return f"Ctrl+Z in Data took back the unit placed in Map ({placed.group(1)} units, then {undone.group(1)})"
+    return None
+
+
+def check_value_insert(output):
+    """None when the value picked with a click in Insert value's picker went into the text (the value pop-out stayed)."""
+    m = re.search(r"^click 498,353: .*\n  state: .*act\.showtext\(([^,]*),", output, re.M)
+    if not m or "{name(current player):s}" not in m.group(1):
+        return f"the text is {m.group(1) if m else 'not there'}, without the inserted value"
+    return None
+
+
+def check_release_older(output):
+    """None when a release published before this build's commit is not newer (nothing to install)."""
+    if not re.search(r"^release: newer no, .*Check for updates: nothing \(up to date\)", output, re.M):
+        return "an older release is offered as newer"
+    return None
+
+
+def check_release_token(output):
+    """None when the request that GitHub refused with the token was made again without it, and found the release."""
+    if not re.search(r'^release-token: 1 request with the token \(refused\), 1 without it: "StarDraft 2 - v9\.9\.9\.9 \(build 0123abc\)" \(yes\)',
+                     output, re.M):
+        return "the release was not found when GitHub refused the token"
+    return None
+
+
 CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
           "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
           "map-doodad-ghost": check_doodad_ghost, "map-sprite-place": check_sprite_place,
@@ -1555,7 +1768,12 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "map-text-input": check_text_input, "map-text-korean-save": check_korean_save, "map-dialog-tab": check_dialog_tab,
           "data-tree-typeahead": check_tree_typeahead, "data-file-dialogs": check_file_dialogs,
           "map-script-session": check_session, "map-script-dialogs": check_dialogs, "project-script-reopen": check_reopen,
-          "text-input-cjk": check_text_cjk, "script-nodata": check_soak_nodata}
+          "text-input-cjk": check_text_cjk, "script-nodata": check_soak_nodata,
+          "map-quit-tabs": check_quit_tabs, "map-save-typing": check_save_typing, "map-briefing-quit": check_briefing_quit,
+          "map-program-files": check_program_files, "map-saveas-tab": check_saveas_tab, "map-undo-midstroke": check_undo_midstroke,
+          "map-undo-saved": check_undo_saved, "map-undo-selection": check_undo_selection, "map-props-typing-undo": check_props_typing_undo,
+          "data-map-undo": check_data_map_undo, "data-value-insert": check_value_insert, "update-release-older": check_release_older,
+          "update-release-token": check_release_token}
 
 # GitHub's answer for the newest release ({release}; /releases/latest, shortened): a release with a download for each
 # system, as tools/release.py and the macos-release job make it, indented as GitHub gives it to a request without a
@@ -1572,6 +1790,15 @@ RELEASE_JSON = json.dumps({
     "assets": [{"url": f"https://api.github.com/repos/stardraft-editor/stardraft/releases/assets/{11 + k}", "name": name,
                 "browser_download_url": RELEASE_DOWNLOAD + name} for k, name in enumerate(RELEASE_DOWNLOADS.values())],
     "body": "What is new"}, indent=2) + "\n"
+
+# A release published in 2020 ({releaseold}), before any commit of this build: never newer than this build.
+RELEASE_OLD_JSON = json.dumps({
+    "url": "https://api.github.com/repos/stardraft-editor/stardraft/releases/0",
+    "html_url": "https://github.com/stardraft-editor/stardraft/releases/tag/v0.0.0.1", "id": 0,
+    "tag_name": "v0.0.0.1", "name": "StarDraft 2 - v0.0.0.1 (build 0000abc)", "published_at": "2020-01-01T00:00:00Z",
+    "assets": [{"url": "https://api.github.com/repos/stardraft-editor/stardraft/releases/assets/1", "name": name,
+                "browser_download_url": RELEASE_DOWNLOAD + name} for name in RELEASE_DOWNLOADS.values()],
+    "body": "An old release"}, indent=2) + "\n"
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -1759,6 +1986,11 @@ def main():
         newdir = tempfile.mkdtemp(prefix=name + "-", dir=a.out) if any("{newdir}" in x for x in args) else ""
         # {kodir}: the same, its name in Korean with spaces (a path that is not ASCII: the save and the open)
         kodir = tempfile.mkdtemp(prefix=name + " \ud55c\uad6d \ud3f4\ub354 ", dir=a.out) if any("{kodir}" in x for x in args) else ""
+        # {pfdir}: a new folder named "Program Files" in --out (a map there: File > Save asks for another place)
+        pfdir = ""
+        if any("{pfdir}" in x for x in args):
+            pfdir = os.path.join(tempfile.mkdtemp(prefix=name + "-", dir=a.out), "Program Files")
+            os.makedirs(pfdir)
         wav = os.path.join(a.out, "drop-sound.wav")
         if any("{wav}" in x for x in args) and not os.path.exists(wav):
             write_wav(wav)
@@ -1766,13 +1998,18 @@ def main():
         if any("{release}" in x for x in args):
             with open(release, "w", encoding="utf-8") as f:
                 f.write(RELEASE_JSON)
+        releaseold = os.path.join(a.out, "release-older.json")
+        if any("{releaseold}" in x for x in args):
+            with open(releaseold, "w", encoding="utf-8") as f:
+                f.write(RELEASE_OLD_JSON)
         oldsettings, legacyhive = os.path.join(a.out, "old-settings.json"), os.path.join(a.out, "legacy-settings.hive")
         if any("{oldsettings}" in x for x in args):
             write_old_settings(oldsettings, a.out)
         if any("{legacyhive}" in x for x in args):
             write_legacy_hive(legacyhive)
         paths = dict(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
-                     kodir=kodir, wav=wav, release=release, oldsettings=oldsettings, legacyhive=legacyhive)
+                     kodir=kodir, wav=wav, release=release, oldsettings=oldsettings, legacyhive=legacyhive, pfdir=pfdir,
+                     releaseold=releaseold)
 
         def script(m):  # {script:<name>}: SCRIPTS[name] with the paths, as a file in --out
             path = os.path.join(a.out, f"{name}-{m.group(1)}.txt")

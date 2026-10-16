@@ -528,4 +528,4 @@ bool dataApplyUndo(bool redo, DataEditStep& s, std::string& err) {
 }
 
 // Whether Edit > Undo (or Redo) has a step of the Data workspace's edits (the menus gray it when not).
-bool dataCanUndo(bool redo) { return dataState().history.canUndo(redo); }
+bool dataCanUndo(bool redo) { return dataState().history.canUndo(redo) || dataMapCanUndo(redo); }

@@ -49,11 +49,39 @@ void zoomAt(float factor, int sx, int sy) {
 // the message follow. False, with the error text in err, when the file could not be written.
 bool saveMapFile(const fs::path& path, std::string& err) {
     AppState& app = shellState();
+    if (!app.ed) return err = "No map is open.", false;
     if (!app.ed->save(path, err)) return false;
     updateTitle();
     if (!activeProject()) addRecent(gRecentMaps, path);
     setMessage(L"Saved " + path.filename().wstring());
     return true;
+}
+// The same for the map `asked` (the map whose Save as dialog answers): only while it is the open map. A dialog's answer
+// that comes after a tab switch or a close does not write another map to the file picked for this one.
+bool saveMapFileOf(const Editor* asked, const fs::path& path, std::string& err) {
+    if (!asked || shellState().ed.get() != asked) return err = "The map is no longer open. Nothing was saved.", false;
+    return saveMapFile(path, err);
+}
+
+// File > Save to the map's own file asks for another place (Save as) when StarDraft cannot write there: a folder under
+// Program Files (Windows lets only an administrator write there, as the default StarCraft install's Maps folder), or a
+// folder that does not take a new file (the save writes <name>.tmp beside the map first).
+bool saveNeedsOtherPlace(const fs::path& path) {
+    for (const fs::path& part : path.parent_path()) {
+        std::wstring p = part.wstring();
+        std::transform(p.begin(), p.end(), p.begin(), [](wchar_t ch) { return wchar_t(std::towlower(ch)); });
+        if (p == L"program files" || p == L"program files (x86)") return true;
+    }
+    std::error_code ec;
+    const fs::path dir = path.parent_path();
+    if (dir.empty() || !fs::is_directory(dir, ec)) return false;  // (the save says why)
+    const fs::path probe = dir / (L".stardraft-write-test-" + std::to_wstring(shellProcessId()));
+    {
+        std::ofstream f(probe, std::ios::binary);
+        if (!f) return true;
+    }
+    fs::remove(probe, ec);
+    return false;
 }
 
 // A test of File > Save as (the snapshots' --saveas): the open map is saved to `path` as Save as saves it, then the file

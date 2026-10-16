@@ -1850,7 +1850,7 @@ Removed from the favorites: 	즐겨찾기에서 제거함:
 Run local block: StarDraft cannot tell what 	로컬 블록 실행: StarDraft는 무엇이 
 Send an anonymous report after a crash: the version, Windows, the video card, where it crashed and the last log lines; no maps	충돌 후 익명 보고서를 보냅니다: 버전, Windows, 그래픽 카드, 충돌 위치, 마지막 로그 줄. 맵은 보내지 않습니다
 StarDraft 2 - v	StarDraft 2 - v
-StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, Windows, the video card, where it crashed and the last log lines. It has no maps. It is in 	지난번에 오류로 StarDraft 2가 멈췄습니다. 개발자가 오류를 고칠 수 있도록 충돌 보고서를 보낼까요?\n\n보고서에는 버전, Windows, 그래픽 카드, 충돌 위치와 마지막 로그 줄이 있습니다. 맵은 없습니다. 보고서는 다음 위치에 있습니다: 
+StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, the operating system, the video card, where it crashed and the last log lines. The log lines can have the names of maps and folders (your user folder shows as ~). The report is public on GitHub. It has no maps. It is in 	지난번에 오류로 StarDraft 2가 멈췄습니다. 개발자가 오류를 고칠 수 있도록 충돌 보고서를 보낼까요?\n\n보고서에는 버전, 운영 체제, 그래픽 카드, 충돌 위치와 마지막 로그 줄이 있습니다. 로그 줄에는 맵과 폴더의 이름이 있을 수 있습니다(사용자 폴더는 ~로 표시됩니다). 보고서는 GitHub에 공개됩니다. 맵은 없습니다. 보고서는 다음 위치에 있습니다: 
 Terran Marine	테란 마린
 The language of the program's texts	프로그램 텍스트의 언어
 The map has 	맵에 

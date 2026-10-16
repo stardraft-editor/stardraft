@@ -29,6 +29,14 @@ bool putClassesValue(const std::wstring& key, const std::wstring& value, const w
 
 const wchar_t* const kMapExtensions[] = {L".scm", L".scx"};
 
+// The default value of HKCU\Software\Classes\<key> ("" when there is none).
+std::wstring classesValue(const std::wstring& key) {
+    wchar_t now[1024] = L"";
+    DWORD size = sizeof now;
+    if (RegGetValueW(HKEY_CURRENT_USER, (L"Software\\Classes\\" + key).c_str(), nullptr, RRF_RT_REG_SZ, nullptr, now, &size)) return {};
+    return now;
+}
+
 // A program that the user chose for the extension in Windows' Open with window, other than StarDraft 2.
 bool userChoiceElsewhere(const wchar_t* ext) {
     // UserChoice, and UserChoiceLatest (where Windows 11 keeps it, often without UserChoice).
@@ -44,10 +52,14 @@ bool userChoiceElsewhere(const wchar_t* ext) {
 
 }  // namespace
 
-void registerProjectFiles(const std::wstring& exe) {
+void registerProjectFiles(const std::wstring& exe, bool keepOther) {
     auto put = [](const std::wstring& key, const std::wstring& value) { return putClassesValue(key, value); };
     bool changed = put(L".stardraft", L"StarDraft.Project");
     changed |= put(L"StarDraft.Project", L"StarDraft 2 project");
+    if (keepOther && keepRegisteredProgram(classesValue(L"StarDraft.Project\\shell\\open\\command"), exe)) {
+        if (changed) SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
+        return;
+    }
     changed |= put(L"StarDraft.Project\\DefaultIcon", L"\"" + exe + L"\",1");  // the second icon: the document icon
     changed |= put(L"StarDraft.Project\\shell\\open\\command", L"\"" + exe + L"\" \"%1\"");
     if (changed) SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
@@ -74,10 +86,12 @@ bool mapsOpenWithStarDraft() {
     return true;
 }
 
-bool registerMapFiles(const std::wstring& exe, bool makeDefault) {
+bool registerMapFiles(const std::wstring& exe, bool makeDefault, bool keepOther) {
     bool changed = putClassesValue(L"StarDraft.Map", L"StarDraft 2 map");
-    changed |= putClassesValue(L"StarDraft.Map\\DefaultIcon", L"\"" + exe + L"\",1");
-    changed |= putClassesValue(L"StarDraft.Map\\shell\\open\\command", L"\"" + exe + L"\" \"%1\"");
+    if (makeDefault || !keepOther || !keepRegisteredProgram(classesValue(L"StarDraft.Map\\shell\\open\\command"), exe)) {
+        changed |= putClassesValue(L"StarDraft.Map\\DefaultIcon", L"\"" + exe + L"\",1");
+        changed |= putClassesValue(L"StarDraft.Map\\shell\\open\\command", L"\"" + exe + L"\" \"%1\"");
+    }
     bool ours = true;
     for (const wchar_t* ext : kMapExtensions) {
         changed |= putClassesValue(std::wstring(ext) + L"\\OpenWithProgids", L"", L"StarDraft.Map", REG_NONE);

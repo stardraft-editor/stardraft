@@ -624,11 +624,22 @@ bool sdlScriptStep(char kind, const std::string& value);  // --script's own verb
 // A snapshot's inputs (main_sdl.cpp: --key, --type, --click, --drag, --move, --wait; the option's letter k, t, c, d,
 // m, w and its value) that have not run yet, in their order.
 std::deque<std::pair<char, std::string>> gShotInputs;
-// Runs the next input (the main loop, or the loop of a modal window an input opened). False when there is none.
+int gShotInputCount = 0, gShotDeferredAt = 0;  // the inputs that ran; the input during which a dialog's answer waits (--pick defer:)
+bool sdlShotDeferredAnswer();
+bool sdlFileDialogOpen();
+// Runs the next input (the main loop, or the loop of a modal window an input opened). False when there is none. A
+// dialog's answer that waits (--pick defer:) comes after the input that follows the one that opened the dialog, or
+// when there are no more inputs: its line is "wait dialog answer".
 bool sdlShotInputNext() {
+    if (sdlFileDialogOpen() && (gShotInputs.empty() || gShotInputCount >= gShotDeferredAt + 1) && sdlShotDeferredAnswer()) {
+        runPosted();
+        sdlInputLine("wait dialog answer");
+        return true;
+    }
     if (gShotInputs.empty()) return false;
     const auto [kind, value] = gShotInputs.front();
     gShotInputs.pop_front();
+    ++gShotInputCount;
     if (sdlScriptStep(kind, value)) return true;
     if (kind == 'k') sdlPressKey(value);
     else if (kind == 't') sdlTypeText(value);
@@ -649,7 +660,8 @@ bool sdlShotInputNext() {
 // gives it, in the window's pixels: the mouse comes to the first point, the button goes down, (a drag: the mouse moves
 // to the second point in steps, the button held), the button goes up. The events go the host's way for a window's
 // (SdlHost::snapshotMouse), with the modifier keys held (Shift, Ctrl, Alt, joined with +; Ctrl is Cmd on macOS);
-// Double in the mods: a double click (a second press and release, SDL's clicks 2).
+// Double in the mods: a double click (a second press and release, SDL's clicks 2). Undo in a drag's mods: Ctrl+Z is
+// pressed halfway, while the button is held.
 // The points are the main window's, as a user's mouse is on the screen: a pop-out that an input opened takes the
 // events when the first point is on it, and a press outside it closes it; a dialog takes them in its own pixels.
 // --move x,y: only the mouse comes to the point (no button): a paste's copy follows it there. --lostdrag
@@ -666,7 +678,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
         return void(std::fprintf(stderr, "--%s%s: not %s[:mods]\n", name.c_str(), spec.c_str(), drag ? "x0,y0-x1,y1" : "x,y"));
     if (!drag) x1 = x0, y1 = y0;
     SDL_Keymod held = SDL_KMOD_NONE;
-    bool twice = false;
+    bool twice = false, undoHalfway = false;
     std::stringstream in(mods);
     for (std::string m; std::getline(in, m, '+');) {
 #ifdef __APPLE__
@@ -677,6 +689,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
         else if (m == "Shift") held = SDL_Keymod(held | SDL_KMOD_LSHIFT);
         else if (m == "Alt") held = SDL_Keymod(held | SDL_KMOD_LALT);
         else if (m == "Double" && !drag) twice = true;
+        else if (m == "Undo" && drag) undoHalfway = true;
         else return void(std::fprintf(stderr, "--%s%s: %s is not Shift, Ctrl or Alt\n", name.c_str(), spec.c_str(), m.c_str()));
     }
     std::vector<SDL_Event> events;
@@ -699,8 +712,21 @@ void sdlMouseShot(const std::string& spec, char kind) {
     if (!moveOnly) {
         button(true, float(x0), float(y0));
         if (drag)
-            for (int i = 1; i <= 10; ++i)
+            for (int i = 1; i <= 10; ++i) {
                 move(float(x0) + float(x1 - x0) * float(i) / 10, float(y0) + float(y1 - y0) * float(i) / 10, true);
+                if (i == 5 && undoHalfway)
+                    for (const bool down : {true, false}) {
+                        SDL_Event k{};
+                        k.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+                        k.key.key = SDLK_Z, k.key.down = down;
+#ifdef __APPLE__
+                        k.key.mod = SDL_KMOD_LGUI;
+#else
+                        k.key.mod = SDL_KMOD_LCTRL;
+#endif
+                        events.push_back(k);
+                    }
+            }
         if (lost) {
             SDL_Event e{};
             e.type = SDL_EVENT_WINDOW_FOCUS_LOST;
@@ -851,7 +877,8 @@ void sdlPinchShot(const std::string& spec) {
 void sdlCommandShot(const std::string& name) {
     static const std::pair<const char*, int> kNames[] = {{"view.towns", ID_VIEW_TOWNS}, {"view.log", ID_VIEW_LOG}, {"scen.check", ID_SCEN_CHECK},
                                                          {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO},
-                                                         {"project.open", ID_PROJ_OPEN}, {"project.addscript", ID_PROJ_ADDSCRIPT}};
+                                                         {"project.open", ID_PROJ_OPEN}, {"project.addscript", ID_PROJ_ADDSCRIPT},
+                                                         {"file.exit", ID_FILE_EXIT}, {"options.restart", ID_OPT_RESTART}};
     int id = -1;
     for (const auto& [native, cmd] : gCommandIds)
         if (cmd == name) id = native;
@@ -880,13 +907,42 @@ void dialogDone(void* data, const char* const* list, int) {
     shellPost([done, picked] { done(picked.empty() ? fs::path() : fs::path(widen(picked))); });  // (UTF-8)
 }
 
-// The window the dialogs belong to: the program's first window (nullptr when there is none).
-SDL_Window* dialogWindow() {
-    int n = 0;
-    SDL_Window** wins = SDL_GetWindows(&n);
-    SDL_Window* win = wins && n > 0 ? wins[0] : nullptr;
-    SDL_free(wins);
-    return win;
+// The window the dialogs belong to: the main window (nullptr when there is none). (SDL_GetWindows' first window is the
+// newest one: a menu that just closed, or a tooltip.)
+SDL_Window* dialogWindow() { return gHost ? gHost->mainWindow() : nullptr; }
+
+// The file and folder dialogs that are open. While one is open the program waits for it, as for a sheet: no window
+// takes input (a click, a key, a tab switch, Close all, a quit), and no file opens from the system.
+int gFileDialogsOpen = 0;
+bool sdlFileDialogOpen() { return gFileDialogsOpen > 0; }
+void sdlFileDialogBegins() {
+    ++gFileDialogsOpen;
+    if (gHost) gHost->setSheetOpen(true);
+}
+void sdlFileDialogEnds() {
+    if (gFileDialogsOpen <= 0) return;
+    --gFileDialogsOpen;
+    if (gHost) gHost->setSheetOpen(false);
+}
+// The dialog's answer, on SDL's thread: the program takes input again (on the UI thread, before the answer's own work).
+struct FileDialogWrap {
+    SDL_DialogFileCallback answered;
+    void* data;
+};
+void fileDialogAnswered(void* p, const char* const* list, int filter) {
+    std::unique_ptr<FileDialogWrap> w(static_cast<FileDialogWrap*>(p));
+    shellPost([] { sdlFileDialogEnds(); });
+    w->answered(w->data, list, filter);
+}
+
+// A snapshot's dialog answer that waits (--pick defer:<path>): it comes after the next input, as a user's answer comes
+// while the program runs. sdlShotDeferredAnswer gives it (true when there was one).
+std::function<void()> gShotDeferred;
+bool sdlShotDeferredAnswer() {
+    if (!gShotDeferred) return false;
+    const std::function<void()> f = std::exchange(gShotDeferred, {});
+    f();
+    return true;
 }
 
 // A snapshot's file and folder dialogs (main_sdl.cpp: --pick): none shows. Each answers at once with the next --pick
@@ -920,13 +976,22 @@ void sdlFileDialog(SDL_FileDialogType type, SDL_DialogFileCallback answered, voi
         static const char* const kKinds[] = {"open", "save", "folder"};
         std::string list;
         for (int i = 0; i < filterCount; ++i) list += std::string(i ? " | " : "") + filters[i].name + " (" + filters[i].pattern + ")";
-        const std::string answer = gShotPicks.empty() ? std::string("cancel") : gShotPicks.front();
+        std::string answer = gShotPicks.empty() ? std::string("cancel") : gShotPicks.front();
         if (!gShotPicks.empty()) gShotPicks.pop_front();
         std::printf("dialog: %s, title \"%s\", filters %s, starts at \"%s\": %s\n", kKinds[int(type) % 3], title.c_str(),
                     list.empty() ? "none" : list.c_str(), location.c_str(), answer.c_str());
-        const char* const none[] = {nullptr};
-        const char* const picked[] = {answer.c_str(), nullptr};
-        return answered(data, answer == "cancel" ? none : picked, 0);  // (SDL: an empty list is a cancel)
+        sdlFileDialogBegins();
+        auto* wrap = new FileDialogWrap{answered, data};
+        const bool later = answer.rfind("defer:", 0) == 0;
+        if (later) answer = answer.substr(6);
+        auto give = [wrap, answer] {
+            const char* const none[] = {nullptr};
+            const char* const picked[] = {answer.c_str(), nullptr};
+            fileDialogAnswered(wrap, answer == "cancel" ? none : picked, 0);  // (SDL: an empty list is a cancel)
+        };
+        if (later) gShotDeferred = give, gShotDeferredAt = gShotInputCount;
+        else give();
+        return;
     }
     const SDL_PropertiesID props = SDL_CreateProperties();
     SDL_SetPointerProperty(props, SDL_PROP_FILE_DIALOG_WINDOW_POINTER, dialogWindow());
@@ -938,7 +1003,8 @@ void sdlFileDialog(SDL_FileDialogType type, SDL_DialogFileCallback answered, voi
     // (the title says what to pick: the dialog's title bar on Windows and Linux, the panel's message on macOS)
     if (!title.empty()) SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_TITLE_STRING, title.c_str());
     SDL_SetBooleanProperty(props, SDL_PROP_FILE_DIALOG_MANY_BOOLEAN, many);
-    SDL_ShowFileDialogWithProperties(type, answered, data, props);
+    sdlFileDialogBegins();
+    SDL_ShowFileDialogWithProperties(type, fileDialogAnswered, new FileDialogWrap{answered, data}, props);
     SDL_DestroyProperties(props);
 }
 
@@ -964,9 +1030,10 @@ void showFileDialog(bool save, std::function<void(const fs::path&)> done) {
 // --- Save and quit ----------------------------------------------------------------------------------------------------
 
 // Writes the open map to `path` (core's saveMapFile); an error is shown in a message box. True when it was saved.
-bool saveTo(const fs::path& path) {
+// `asked`: the map that asked (a dialog's answer): when it is no longer the open map, nothing is written.
+bool saveTo(const fs::path& path, const Editor* asked = nullptr) {
     std::string err;
-    if (saveMapFile(path, err)) return true;
+    if (saveMapFileOf(asked ? asked : gState.ed.get(), path, err)) return true;
     shellErrorBox(widen(err), shellTr(L"Could not save the map"));  // (the core message box, as on Windows)
     return false;
 }
@@ -979,47 +1046,55 @@ void saveOpenMap(bool as, std::function<void(bool)> done = {}) {
         if (done) done(false);
         return;
     }
+    typingFlush();  // a text being typed (a map page's field, the Briefing's text) is saved too
     if (isUnsavedProject(activeProject())) {
         const bool ok = sdlSaveUnsavedProject();
         if (done) done(ok);
         return;
     }
-    if (!as && !gState.ed->path().empty()) {
-        const bool ok = saveTo(gState.ed->path());
+    const fs::path path = gState.ed->path();
+    if (!as && !path.empty() && !saveNeedsOtherPlace(path)) {
+        const bool ok = saveTo(path);
         if (done) done(ok);
         return;
     }
-    showFileDialog(true, [done](const fs::path& picked) {
+    if (!as && !path.empty()) setMessage(L"StarDraft 2 cannot write to the map's folder. Select another place for the map.");
+    const Editor* asked = gState.ed.get();  // (the answer saves this map, not the tab that is active then)
+    showFileDialog(true, [done, asked](const fs::path& picked) {
         fs::path p = picked;
         if (!p.empty() && !p.has_extension()) p += ".scx";  // a name without an extension is a StarCraft map
-        const bool ok = !p.empty() && saveTo(p);
+        const bool ok = !p.empty() && saveTo(p, asked);
         if (done) done(ok);
     });
 }
 
 void quitNow() {
+    if (gShotDialogs) std::printf("quit: StarDraft 2 ends\n");  // (a snapshot: the run goes on, the output says it)
     if (gHost) gHost->quit();
 }
 
-// Quit (File > Exit, the window's close, the system's quit): a map with changes is asked about first: Save (it quits once
-// saved), Do not save, or Cancel.
-// True while the quit prompt is open: its box, or the Save it started (a dialog). A quit request then waits for it.
+// True while the quit's questions are open: their boxes. A quit request then waits for them.
 bool gQuitPrompt = false;
+// While the quit's questions are open: what a Save that asks for a file (an untitled map) runs once it saved: the
+// questions go on, and then the quit.
+std::function<void()> gQuitRetry;
 
-void requestQuit() {
-    if (gQuitPrompt) return;
-    if (!gRoot || !gState.ed || !gState.ed->isOpen() || !gState.ed->modified()) return quitNow();
+// Before StarDraft ends (quit, Restart now, an update's install): each tab with changes is asked about (Save, Do not
+// save, Cancel: core/views_tabs.inc, confirmAllDocs). `then` runs when StarDraft may end.
+void confirmQuit(std::function<void()> then) {
+    if (gQuitPrompt || sdlFileDialogOpen()) return;
     gQuitPrompt = true;
-    const int r = shellAskSaveChanges(false);  // (the save question: shell_sdl.inc)
-    if (r == 0) saveOpenMap(false, [](bool ok) {
-        gQuitPrompt = false;
-        if (ok) quitNow();
-    });
-    else if (r == 1) quitNow();
-    else gQuitPrompt = false;
+    gQuitRetry = [then] { confirmQuit(then); };
+    const bool ok = !gRoot || confirmAllDocs();
+    gQuitRetry = {};
+    gQuitPrompt = false;
+    if (ok) then();
 }
 
-// Before a map replaces the open one (SDL has one tab): Save, Do not save or Cancel. `then` runs when the map may go on:
+// Quit (File > Exit, the window's close, the system's quit).
+void requestQuit() { confirmQuit(quitNow); }
+
+// Before a map opens (the active tab is asked about): Save, Do not save or Cancel. `then` runs when the map may go on:
 // after Do not save, or after a Save that saved.
 void confirmReplace(std::function<void()> then) {
     if (!gRoot || !gState.ed || !gState.ed->isOpen() || !gState.ed->modified()) return then();
@@ -1070,9 +1145,13 @@ void commandSdl(int id) {
             return;
         }
         if (gState.ed && gState.ed->isOpen()) {
+            if (gState.ed->inStroke()) return setMessage(L"Release the mouse button to undo or redo");
+            typingFlush();  // a text being typed on a map page is a step of its own first: Undo takes it back
+            const std::vector<Doodad> doodads = gState.ed->doodads();
+            const std::vector<MapSprite> sprites = gState.ed->sprites();
             if (id == ID_EDIT_REDO) gState.ed->redo();
             else gState.ed->undo();
-            dropGoneItems(gState);
+            keepItemSelection(gState, doodads, sprites);
             gState.terrainRev = 0;
             rebuildList(gState);
             gState.dirty = true;

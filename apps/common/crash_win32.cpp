@@ -12,6 +12,7 @@
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
+#include <algorithm>
 #include <exception>
 #include <fstream>
 
@@ -64,7 +65,8 @@ std::string where(DWORD64 address) {
 }
 
 // The crash's report, written by its own thread (crashWork): `thread` is the crashed one (its id and a handle to it).
-void writeCrash(EXCEPTION_POINTERS* ep, DWORD threadId, HANDLE thread) {
+// `wrote` is set once report.txt is written, before `written` (which can wait for the user).
+void writeCrash(EXCEPTION_POINTERS* ep, DWORD threadId, HANDLE thread, HANDLE wrote = nullptr) {
     SYSTEMTIME t;
     GetLocalTime(&t);
     char stamp[32];
@@ -117,17 +119,19 @@ void writeCrash(EXCEPTION_POINTERS* ep, DWORD threadId, HANDLE thread) {
     r += "\nLog (last lines):\n";
     if (gHandler.log) r += gHandler.log();
     std::ofstream(dir / "report.txt", std::ios::binary) << r;
+    if (wrote) SetEvent(wrote);
     if (gHandler.written) gHandler.written(dir);
 }
 
 struct CrashJob {
     EXCEPTION_POINTERS* ep;
     DWORD threadId;
+    HANDLE wrote;
 };
 DWORD WINAPI crashWork(void* p) {
     const CrashJob& job = *static_cast<const CrashJob*>(p);
     HANDLE thread = OpenThread(THREAD_ALL_ACCESS, FALSE, job.threadId);
-    writeCrash(job.ep, job.threadId, thread ? thread : GetCurrentThread());
+    writeCrash(job.ep, job.threadId, thread ? thread : GetCurrentThread(), job.wrote);
     if (thread) CloseHandle(thread);
     return 0;
 }
@@ -136,9 +140,17 @@ LONG WINAPI onCrash(EXCEPTION_POINTERS* ep) {
     static LONG once = 0;
     if (InterlockedExchange(&once, 1)) return EXCEPTION_EXECUTE_HANDLER;
     // The report is written by a new thread with a stack of its own: after a stack overflow the crashed thread has
-    // too little stack left for it (the minidump was written, and then the report stopped).
-    CrashJob job{ep, GetCurrentThreadId()};
+    // too little stack left for it (the minidump was written, and then the report stopped). A crash inside the heap can
+    // leave its lock taken by this thread, and the report's thread then waits for it forever: after writeSeconds
+    // without the report, the program ends (as the macOS and Linux handler's alarm). After the report, `written` can
+    // wait for the user (its message box).
+    HANDLE wrote = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    CrashJob job{ep, GetCurrentThreadId(), wrote};
     if (HANDLE worker = CreateThread(nullptr, 1u << 20, crashWork, &job, 0, nullptr)) {
+        HANDLE both[2] = {wrote, worker};
+        const DWORD limit = DWORD(std::max(1, gHandler.writeSeconds)) * 1000;
+        const DWORD r = wrote ? WaitForMultipleObjects(2, both, FALSE, limit) : WaitForSingleObject(worker, limit);
+        if (r == WAIT_TIMEOUT) TerminateProcess(GetCurrentProcess(), ep->ExceptionRecord->ExceptionCode);
         WaitForSingleObject(worker, INFINITE);
         CloseHandle(worker);
     } else {

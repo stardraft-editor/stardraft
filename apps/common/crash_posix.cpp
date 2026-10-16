@@ -121,7 +121,7 @@ void onSignal(int sig, siginfo_t* info, void* context) {
         gOnce = 1;
         // (a crash inside the C library's heap can make the report wait for a lock forever: the program ends after
         // 2 minutes; `written` may show a message box that waits for the user)
-        alarm(120);
+        alarm(unsigned(gHandler.writeSeconds > 0 ? gHandler.writeSeconds : 120));
         writeCrash(sig, info, context);
     }
     // The program ends with the signal, as without the handler.

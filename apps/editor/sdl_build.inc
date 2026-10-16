@@ -8,6 +8,12 @@ void mapPageFlush() {
     if (gSdlPage.kind == kSdlProps) sdlPropsAutoApply();
     else sdlMapPageCommit();
 }
+// The texts being typed go into their map now (a Save, a quit, a tab switch, Undo): a map page's field and the
+// Briefing's text box.
+void typingFlush() {
+    mapPageFlush();
+    gSdlBriefing.commitTyping();
+}
 // The Data workspace's Strings text and number entry (sdl_data.inc).
 void stringsCommitEdit() { sdlStringsCommit(); }
 bool dataCommitEdit() { return sdlDataCommitEdit(); }

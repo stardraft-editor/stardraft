@@ -81,6 +81,7 @@
 #include "http.h"  // apps/common: the GitHub requests (core/releases.inc)
 #include "update.h"  // apps/common: the self-update's file steps (core/releases.inc, sdl_updates.inc)
 #include "crash_report.h"  // apps/common: the crash handler and sending reports (core/releases.inc, shell_sdl_win.inc)
+#include "instance.h"  // apps/common: one program for all maps (shell_sdl_win.inc, sdl_xdg.inc)
 #ifdef _WIN32
 #include "file_types.h"  // apps/common: the files that open with StarDraft 2 (shell_sdl_win.inc)
 #include <dwmapi.h>      // the dark title bar (shell_sdl_win.inc)
@@ -138,6 +139,7 @@ namespace kit_sdl = stardraft::kit_sdl;
 bool gSilent = false;
 // A snapshot run: no message box waits for the user (errors go to the status bar and the log).
 bool gNoBoxes = false;
+bool gFailDeviceArg = false;  // --fail-device: the graphics device is not made (a test of a computer without one)
 // --noactivate: a test with real windows that never take the focus or come to the front (sdl_window_test.inc).
 bool gNoActivate = false;
 
@@ -395,6 +397,7 @@ int main(int argc, char** argv) {
         else if (a == "--lang") langArg = next();  // en, ko, es, ru or zh: the language for this run (not saved), for a snapshot
         else if (a == "--drop") dropArg = next();  // a file dropped on the window (as from Finder on macOS), for a snapshot
         else if (a == "--silent") gSilent = true;
+        else if (a == "--fail-device") gFailDeviceArg = true;  // the graphics device is not made, as on a computer without one (a test)
         else if (a == "--settings") gSettingsFileArg = widen(next()), settingsArg = true;  // a settings file: the run reads it as a start reads the user's (a snapshot saves nothing in it), for a snapshot
         else if (a == "--legacyhive") gLegacyHiveArg = widen(next());  // Windows: a registry file in place of HKCU for the settings of the builds before the settings file (with --settings), for a snapshot
         else if (a == "--noactivate") gNoActivate = true;  // a real window that never takes the focus (a test: sdl_window_test.inc)
@@ -432,7 +435,7 @@ int main(int argc, char** argv) {
     // Windows: a crash's sender ends here, the crash handler goes in, and a map for the open program goes to it.
     if (const int sent = sdlWindowsFirst(argc, argv, testRun); sent >= 0) return sent;
     if (restartPid) restartWaitFor(restartPid);  // (before the pipe: the old program still listens; core/documents.inc)
-    sdlRemoveOldProgram();  // (an update's old program file: sdl_updates.inc)
+    // (an update's old program file goes once the graphics device is made, below: until then it can go back)
     // (--noactivate: the test pipe, shell_sdl_win.inc's pipeName; a snapshot never sends or listens)
     if (sdlSendToOpenProgram(mapArg, testRun && !gNoActivate)) return 0;
     if (gNoActivate) SDL_SetHint(SDL_HINT_WINDOW_ACTIVATE_WHEN_SHOWN, "0");
@@ -456,7 +459,28 @@ int main(int argc, char** argv) {
     // The device first (the renderer makes it with its shader formats), then the host on it.
     render::Renderer renderer;
     std::string err;
-    if (!renderer.createDevice(err)) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+    if (gFailDeviceArg) err = "a test: no graphics device";  // (--fail-device: as a computer without Direct3D 12 or Vulkan)
+    if (gFailDeviceArg || !renderer.createDevice(err)) {
+        // The window cannot show: a message box says why (the program has no console). After an update, the program
+        // before it goes back in its place and starts (core/releases.inc: rollBackUpdate).
+        std::fprintf(stderr, "%s\n", err.c_str());
+        std::vector<std::string> args;
+        for (int i = 1; i < argc; ++i)
+            if (std::string(argv[i]) != "--fail-device") args.push_back(argv[i]);
+        std::wstring said = releases::rollBackUpdate(stardraft::platform::programFile(), args, err);
+#if defined(_WIN32)
+        const wchar_t* needs = L"Direct3D 12 or Vulkan";
+#elif defined(__APPLE__)
+        const wchar_t* needs = L"Metal";
+#else
+        const wchar_t* needs = L"Vulkan";
+#endif
+        if (said.empty()) said = L"StarDraft 2 cannot start: it could not use the video card (" + widen(err) + L"). It needs " + needs + L".";
+        std::printf("graphics: %s\n", narrow(said).c_str());
+        if (!gNoBoxes) SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "StarDraft 2", narrow(said).c_str(), nullptr);
+        return 1;
+    }
+    sdlRemoveOldProgram();  // (an update's old program file: the new program works here; sdl_updates.inc)
     SDL_GPUDevice* device = renderer.device();
     gRenderer = &renderer;
     gDevice = device;
@@ -531,6 +555,8 @@ int main(int argc, char** argv) {
         gSettingsOff = gSilent && !settingsArg;
         if (loadSettingsTable()) shellRendererGraphics(gState.quality, gState.carbot);  // the menus' options (core/app_settings.inc)
         gSettingsOff = gSilent;  // (snapshots and tests: the defaults, and nothing saved)
+        // A settings file that is not JSON (a hand edit): the Log says so; its first save keeps a copy of it.
+        if (const std::string& bad = prefs::store().readError(); !bad.empty()) shellLogError(widen(bad));
         cleanUnsavedProjects();  // the unsaved projects' folders of programs that ended (core/documents.inc; not in a test run)
         loadLanguageSdl(langArg);  // the language (sdl_options.inc): the canvas translates with it from the first frame
         loadThemeSdl(themeArg, accentArg);  // the theme and the accent in the settings

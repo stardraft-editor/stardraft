@@ -167,7 +167,7 @@ void sdlDataTravel(bool back) {
 // A value's change: saved with its undo step (core/data_model.inc), and the list's changed dots follow. False when a save
 // failed (the status says why).
 bool dataSaved() {
-    gDataMapEdits = 0;  // a data edit: Ctrl+Z goes to the data's undo (core/views_data_players.inc)
+    dataMapStepsClear();  // a data edit: Ctrl+Z goes to the data's undo (core/views_data_players.inc)
     const bool ok = dataSaveChange();
     sdlDataRebuildList();
     return ok;
@@ -322,8 +322,7 @@ void sdlDataMenu(draw::View& from, draw::Point at, const MenuModel& items, std::
 // was, at the entry that changed.
 bool sdlDataUndo(bool redo) {
     sdlDataCommitEdit();
-    if (!redo && gDataMapEdits > 0 && gState.ed && gState.ed->isOpen()) {  // the Players section's edits: the map's undo
-        --gDataMapEdits, gState.ed->undo();
+    if (dataMapUndo(redo)) {  // the Players section's edits: the map's undo and redo (core/views_data_players.inc)
         updateTitle();
         gSdlDataForm.invalidate();
         return true;

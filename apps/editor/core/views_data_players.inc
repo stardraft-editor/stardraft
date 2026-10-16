@@ -5,7 +5,39 @@
 // SDL form's (the Windows form paints the same rows with GDI, main.cpp: paintMapPlayers). The program's parts come in
 // through MapPlayersHost.
 
-int gDataMapEdits = 0;  // the Data workspace's Players edits since its last data edit: Ctrl+Z in Data undoes these first (the map's undo)
+// The Data workspace's Players edits since its last data edit: Ctrl+Z in Data undoes these first (the map's undo),
+// Ctrl+Y redoes them. Each is the map's state (Editor::stateId) after the step: only while the map's last step is still
+// that one (no Map edit came after it) does Data's Undo take it back; else the list goes. gDataMapRedo: the map's
+// state after each of those undos, for its redo.
+std::vector<uint64_t> gDataMapSteps, gDataMapRedo;
+void dataMapStepsClear() { gDataMapSteps.clear(), gDataMapRedo.clear(); }
+// Whether Data's Undo (redo: Redo) is a Players edit of the map now.
+bool dataMapCanUndo(bool redo) {
+    const Editor* ed = shellState().ed.get();
+    if (!ed || !ed->isOpen()) return false;
+    if (redo) return !gDataMapRedo.empty() && gDataMapRedo.back() == ed->stateId() && ed->canRedo();
+    return !gDataMapSteps.empty() && gDataMapSteps.back() == ed->stateId() && ed->canUndo();
+}
+// Data's Undo (redo: Redo) of a Players edit: true when one was taken back (or given again). A list that is not the
+// map's last step any more goes.
+bool dataMapUndo(bool redo) {
+    Editor* ed = shellState().ed.get();
+    if (!dataMapCanUndo(redo)) {
+        if (redo) gDataMapRedo.clear();
+        else gDataMapSteps.clear();
+        return false;
+    }
+    if (redo) {
+        gDataMapRedo.pop_back();
+        ed->redo();
+        gDataMapSteps.push_back(ed->stateId());
+    } else {
+        gDataMapSteps.pop_back();
+        ed->undo();
+        gDataMapRedo.push_back(ed->stateId());
+    }
+    return true;
+}
 
 // The kind of settings entry `u` of `dat` has: 0 units, 1 upgrades, 2 technologies; -1 none.
 int mapPlayersKind(const std::string& dat, int u) {
@@ -72,7 +104,7 @@ void applyMapPlayerSetting(int u, int which, int player, int value) {
         else (field ? t.researched[size_t(player)] : t.available[size_t(player)]) = v != 0;
         ed.setTechSettings(s);
     }
-    ++gDataMapEdits;
+    gDataMapSteps.push_back(ed.stateId()), gDataMapRedo.clear();
     shellState().dirty = true;
 }
 

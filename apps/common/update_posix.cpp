@@ -88,6 +88,20 @@ bool restoreProgram(const fs::path& self) {
     return !ec;
 }
 
+fs::path failedProgramFile(const fs::path& self) {
+    fs::path f = self;
+    f += ".failed";
+    return f;
+}
+
+bool rollBackUpdate(const fs::path& self) {
+    const fs::path old = oldProgramFile(self);
+    std::error_code ec;
+    if (!fs::exists(old, ec)) return false;
+    fs::rename(old, self, ec);  // (a running program's file can be replaced here)
+    return !ec;
+}
+
 bool startProgram(const fs::path& exe, const std::vector<std::string>& args) {
     const std::string path = exe.string(), dir = exe.parent_path().string();
     std::vector<char*> argv = {const_cast<char*>(path.c_str())};
