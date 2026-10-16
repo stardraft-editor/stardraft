@@ -52,12 +52,7 @@ int formTitle(HDC dc, const FormLayout& l, int y, const UnitPalette::Bitmap* ico
 }
 // (The pickers' entries and a value's name, entryItems and argName: core/data_model.inc.)
 const UnitPalette::Bitmap* argIcon(const char* kind, int v) { return dataPictureBitmap(dataArgPicture(kind, v)); }  // (core/data_nav.inc)
-// Opens entry `v` of `kind` (a .dat, "buttons" or "strings").
-std::function<void()> openEntry(const char* kind, int v) {
-    if (!kind) return nullptr;
-    const std::string k = kind;
-    return [k, v] { dataGoTo(k, v); };
-}
+// (A value's open button, openEntry: core/data_nav.inc.)
 // A thin bar, how much of the game's room is used, with the numbers beside it.
 int capacityBar(HDC dc, const FormLayout& l, int y, size_t used, size_t room, const std::wstring& what) {
     const bool over = used > room;
