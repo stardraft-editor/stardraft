@@ -201,8 +201,9 @@ public:
         if (s != scroll_) scroll_ = s, invalidate();
     }
     int scroll() const { return scroll_; }
-    // The window was closed: the next one starts at the top (no paint: the window is going).
-    void resetScroll() { scroll_ = 0; }
+    // The window was closed: the next one starts at the top (no paint: the window is going), and a tab gives its height
+    // again (onTabHeight: the new window takes it).
+    void resetScroll() { scroll_ = 0, tabHeight_ = 0; }
     // The fields and check boxes the tests drive.
     stardraft::kit::CheckBox& animate() { return animate_; }
     stardraft::kit::TextField& limitField(int k) { return limit_[k]; }
