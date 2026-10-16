@@ -1,13 +1,15 @@
-# Builds stardraft.exe on every push (and on pull requests) and keeps it as a downloadable artifact. A push to a
-# branch never makes a release.
+# Builds stardraft.exe (the SDL program, CMake target stardraft_editor) on every push (and on pull requests) and keeps
+# it as a downloadable artifact, with the Win32 program stardraft-win32.exe (target stardraft_win32: a fallback, not in
+# a release). A push to a branch never makes a release.
 # A tag v<version> (v0.5.0.1; `python -I tools/release.py publish <version> --yes` makes it) makes the release of that
-# commit: "StarDraft 2 - v<version> (build <commit>)", with StarDraft-<version>-win64.zip (stardraft.exe only), marked
+# commit: "StarDraft 2 - v<version> (build <commit>)", with StarDraft-<version>-win64.zip (stardraft.exe only: its fonts
+# and icons are in it, so an installed stardraft.exe, also the Win32 program of an older release, updates to it), marked
 # Latest; its text is the "## <version>" section of docs/user/CHANGELOG.md (what is new), then the base changelog (its
 # last section, what StarDraft is) for new visitors. The symbols go to a draft release symbols-v<version>.
 # StarDraft's Check for updates reads "(build <commit>)" in the newest release's title. Each release keeps its own
 # download count. Most tests need a StarCraft: Remastered install, so they are not run here. The jobs linux and macos
-# build the library, the tools and the tests on those systems; the job windows-sdl builds stardraft-sdl.exe and
-# snapshots it (tools/sdl_snapshots.py).
+# build the library, the tools and the tests on those systems; the job windows-sdl builds stardraft.exe and snapshots it
+# (tools/sdl_snapshots.py).
 name: Build
 
 on:
@@ -72,6 +74,7 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --target stardraft_editor --parallel
 
+      # The program only: a release is this file (its fonts and icons are in it).
       - uses: actions/upload-artifact@v4
         with:
           name: stardraft-${{ github.sha }}
@@ -89,6 +92,13 @@ jobs:
       # stops the build (and the release); the editor above is already uploaded.
       - name: Build all targets
         run: cmake --build build --config Release --parallel
+
+      # The Win32 program (the fallback, not in a release), to try by hand.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stardraft-win32-${{ github.sha }}
+          path: build/Release/stardraft-win32.exe
+          if-no-files-found: error
 
       # For the Wine job: the renderer's test program, built for Windows.
       - uses: actions/upload-artifact@v4
@@ -169,10 +179,10 @@ jobs:
           }
           if ($failed) { throw "$failed Discord posts did not go: post again with Actions > Post screenshots to Discord" }
 
-  # The editor on SDL for Windows (stardraft-sdl.exe, CMake target stardraft_sdl): the same main_sdl.cpp as on Linux and
-  # macOS, built with MSVC beside stardraft.exe, until it replaces that one. Its snapshots draw without a window
-  # (SDL_VIDEODRIVER=offscreen) on Direct3D 12; GitHub's Windows machines have no GPU, so Direct3D 12 uses WARP (the
-  # CPU). There is no game data here: the snapshots show the shell with no map. Not in a release yet.
+  # The editor on Windows (stardraft.exe, CMake target stardraft_editor): the same main_sdl.cpp as on Linux and macOS,
+  # built with MSVC. Its snapshots draw without a window (SDL_VIDEODRIVER=offscreen) on Direct3D 12; GitHub's Windows
+  # machines have no GPU, so Direct3D 12 uses WARP (the CPU). There is no game data here: the snapshots show the shell
+  # with no map. The release's stardraft.exe is the windows job's build of the same target.
   windows-sdl:
     runs-on: windows-latest
     steps:
@@ -187,7 +197,7 @@ jobs:
         run: cmake -S . -B build -A x64
 
       - name: Build
-        run: cmake --build build --config Release --target stardraft_sdl --parallel
+        run: cmake --build build --config Release --target stardraft_editor --parallel
 
       # A test run (a snapshot) asks nothing, sends nothing and changes no settings or file types. APPDATA and
       # LOCALAPPDATA point to the run's own folder too. GitHub's machines draw with WARP (D3D12 in software).
@@ -198,13 +208,20 @@ jobs:
         run: |
           export APPDATA="$RUNNER_TEMP\\appdata" LOCALAPPDATA="$RUNNER_TEMP\\localappdata"
           mkdir -p "$RUNNER_TEMP/appdata" "$RUNNER_TEMP/localappdata"
-          exe=build/Release/stardraft-sdl.exe
+          exe=build/Release/stardraft.exe
           "$exe" --snapshot editor-windows.png | tee snap.txt
           grep -q "^wrote " snap.txt
           "$exe" --workspace files --snapshot editor-windows-files.png | tee snap.txt
           grep -q "^wrote " snap.txt
           "$exe" --dialog options --size 720x820 --snapshot editor-windows-options.png | tee snap.txt
           grep -q "^wrote " snap.txt
+          # As a release has it: stardraft.exe alone in a folder (no res/, no fonts/ beside it). The fonts and the icons
+          # come from the program itself.
+          mkdir -p alone && cp "$exe" alone/
+          alone/stardraft.exe --snapshot editor-windows-alone.png | tee snap.txt
+          grep -q "^wrote " snap.txt
+          grep -q "fonts NotoSans-Regular.ttf" snap.txt
+          if grep -q "no icon atlases\|no app icon" snap.txt; then exit 1; fi
 
       # Each workspace and dialog (tools/sdl_snapshots.py), as on Linux: a run exits with 0 and writes a PNG that is not
       # one flat color. No game data and no map here: the cases that need them are skipped (summary.txt).
@@ -215,7 +232,7 @@ jobs:
         run: |
           export APPDATA="$RUNNER_TEMP\\appdata" LOCALAPPDATA="$RUNNER_TEMP\\localappdata"
           mkdir -p "$RUNNER_TEMP/appdata" "$RUNNER_TEMP/localappdata"
-          python -I tools/sdl_snapshots.py --exe build/Release/stardraft-sdl.exe --out sdl-snapshots
+          python -I tools/sdl_snapshots.py --exe build/Release/stardraft.exe --out sdl-snapshots
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -226,15 +243,15 @@ jobs:
 
       - name: Pack the editor
         if: always()
-        run: Compress-Archive -Force -Path build/Release/stardraft-sdl.exe, build/Release/res, build/Release/fonts -DestinationPath stardraft-sdl-windows.zip
+        run: Compress-Archive -Force -Path build/Release/stardraft.exe -DestinationPath stardraft-windows.zip
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: stardraft-editor-windows-sdl-${{ github.sha }}
+          name: stardraft-editor-windows-${{ github.sha }}
           path: |
             editor-windows*.png
-            stardraft-sdl-windows.zip
+            stardraft-windows.zip
 
   # The library, the tools and the tests on Linux and macOS (research/ports/PLAN.md, phase 1): built, and the tests
   # that need no game data run. No program for these systems yet, so nothing is uploaded and no release waits for them.

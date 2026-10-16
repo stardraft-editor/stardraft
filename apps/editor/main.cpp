@@ -1,4 +1,5 @@
-// stardraft editor: native Win32 shell around the stardraft core and the SDL3 GPU renderer.
+// stardraft editor: native Win32 shell around the stardraft core and the SDL3 GPU renderer (stardraft-win32.exe, the
+// fallback; stardraft.exe is the SDL program, main_sdl.cpp).
 //
 // Layout: side panel (mode tabs, owner/brush, filter, palette list) | map viewport (SDL3 GPU) ;
 // status bar at the bottom. All editing goes through stardraft::Editor.
@@ -146,16 +147,14 @@ bool gMiddleDrag = false;
 HMENU gRecentMapsMenu = nullptr, gRecentProjectsMenu = nullptr;
 extern int gUnitLimitClassic, gUnitLimitEud;  // (core/map_edit.inc)
 
+void loadUnitLimits();  // (core/map_edit.inc)
 void loadRecent() {
-    prefs::list(L"RecentMaps", gRecentMaps), prefs::list(L"RecentProjects", gRecentProjects);
-    prefs::text(L"ProjectsFolder", gProjectsFolder);
+    loadRecentLists();  // (core/recent.inc)
     prefs::flag(L"OpenLastProject", gOpenLastProject);
     prefs::flag(L"CheckUpdates", gCheckUpdates);
     prefs::number(L"CrashReports", gCrashReports, 0, 2);
     prefs::flag(L"MiddleDrag", gMiddleDrag);
-    int64_t limit = 0;
-    if (prefs::number(L"UnitLimitClassic", limit) && limit > 0) gUnitLimitClassic = int(std::min<int64_t>(limit, 65535));
-    if (prefs::number(L"UnitLimitEud", limit) && limit > 0) gUnitLimitEud = int(std::min<int64_t>(limit, 65535));
+    loadUnitLimits();
 }
 
 // The language (Program options > Language), before the menus are made: their texts are translated when they are added.
@@ -8854,7 +8853,7 @@ HACCEL buildAccelerators() {
 }
 
 // --- Self test ---------------------------------------------------------------------------------------
-// `stardraft_editor <map> --selftest <dir>` drives the real input handlers through a scripted session and
+// `stardraft-win32 <map> --selftest <dir>` drives the real input handlers through a scripted session and
 // saves a window capture after each step, so the UI can be checked without a person at the mouse.
 
 // The mouse's back and forward buttons: in the Data workspace, over any of its panes (the list, the form, the tabs,

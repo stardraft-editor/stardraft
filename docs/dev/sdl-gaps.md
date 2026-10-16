@@ -117,3 +117,33 @@ this list.
 | The text fields' context menu | The system's menu of an edit box (Cut, Copy, Paste, Select all); the Triggers code pane: Copy (Copy all) and Select all (`trigCodeKeys`). | The kit's text field has no menu (the keys work). |
 | Report feedback in the other windows | Each window (dialogs, pop-outs, the block help) gets the feedback menu on a right click. | Only the main window (and the menus above). |
 | The feedback item's icon | In the feedback color (kFeedback). | In the menu's text color. |
+
+## The switch on Windows (2026-10-16)
+
+`stardraft.exe` is the SDL program now (CMake target `stardraft_editor` on every system); the Win32 program builds
+as `stardraft-win32.exe` (target `stardraft_win32`), a fallback that is not in a release. A user who updates keeps
+what the Win32 program kept; this table is what was checked and what changed for that.
+
+| What | Win32 program | SDL program now |
+|---|---|---|
+| The release and the update | `StarDraft-<version>-win64.zip` with `stardraft.exe` only; the update unpacks it and puts `stardraft.exe` in place of the running one (`core/releases.inc`, `apps/common/update_win32.cpp`). | The same zip and asset name. The fonts, the icon atlases and the app icon are RCDATA resources of `stardraft.exe` (generated `stardraft_editor_files.rc`, `embeddedFile` in `shell_sdl_win.inc`, `kit_sdl::setEmbeddedFiles`), so the one file runs alone: an installed Win32 `stardraft.exe` updates to it with no change, and a StarDraft-latest copy runs too. Files beside the program (`res/`, `fonts/`) come first. CI takes a snapshot of `stardraft.exe` alone in a folder (windows-sdl). |
+| The manifest and the version resource | `stardraft.manifest`: common controls 6, per monitor DPI (v2), UTF-8 code page. No version resource. | `stardraft_sdl.manifest`: per monitor DPI (v2), UTF-8 code page, long paths (no common controls). Both programs have a version resource now (`res/version.rc.in`: StarDraft 2, the version, `stardraft.exe` or `stardraft-win32.exe`). |
+| The settings file | `%APPDATA%\StarDraft\settings.json` (`shellSettingsFile`) | The same file. |
+| The settings of the builds before the file | The registry `HKCU\Software\StarDraft` for a value the file does not have (`shellLegacyValue`). | Was nothing on SDL: an update from an old build lost those settings. Done: the same registry reads (`shell_sdl_win.inc`). |
+| The recent maps and projects, the working folder, the unit limits | Read at start (`loadRecent`). | Were never read on SDL: the lists showed empty, and the first map opened wrote a list of one over the user's lists. Done: `loadRecentLists` (`core/recent.inc`) and `loadUnitLimits` (`core/map_edit.inc`), for both programs. |
+| Options > Open the last project on start | The last project opens at start. | Was saved only. Done: it opens at start (not with a file on the command line, not in a test run). |
+| The unsaved projects' folder | `%LOCALAPPDATA%\StarDraft\Unsaved` | Was `$XDG_DATA_HOME` or `~/.local/share` on Windows too (no folder, as HOME is not set). Done: `%LOCALAPPDATA%\StarDraft\Unsaved`. |
+| The StarCraft folder | `%APPDATA%\stardraft\install.txt` | Read and written too (`sdlWindowsInstallFile`), and the setting StarCraftFolder. |
+| The dock layout, the options of the menus, the theme, the language, crash reports, updates on start | The settings file | The same names in the same file. |
+| One program for all maps (the pipe) | None: each start was a new program. | `\.\pipe\StarDraft-<file name>-<session>`: `stardraft.exe` and `stardraft-win32.exe` do not share it. The StarDraft-latest copies (`stardraft-latest-<n>.exe`) share one name now (before, each copy had its own). |
+| The file types (maps, project.stardraft) | Registered at start by each program file. | Done: `stardraft.exe` registers them at start (before, only a file named `stardraft.exe`; now each name, as the Win32 program did); `stardraft-win32.exe` leaves them to it (a name with `-win32`). |
+| StarDraft-latest | Starts a copy of `stardraft-testing.exe`, else `stardraft.exe`, of the build folder. | The same files: now the SDL program. |
+| Self-tests and release screenshots | `--selftest`, `--datashots` | Stay on `stardraft-win32.exe` (`tools/release.py shots` runs `stardraft-testing-win32.exe`). |
+
+Open:
+
+| What | Win32 program | SDL program |
+|---|---|---|
+| Options > Middle mouse click and hold (MiddleDrag) | Pan (toward the mouse) or drag. | Saved, but the middle button always drags. |
+| The start with a new unsaved project | Starts with a 128 x 128 badlands project in the unsaved folder (`newUntitledProject`), and removes the folders of programs that ended (`cleanUnsavedProjects`). | Starts with the start page; the unsaved folder of a Win32 program that crashed stays. |
+| The restart after Language (`--restart <pid>`, the setting Reopen) | Opens the maps and projects that were open. | The SDL program's own restart; the Reopen list of a Win32 program is not read. |

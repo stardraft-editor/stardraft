@@ -1,6 +1,6 @@
-// StarDraft's editor on macOS and Linux, and stardraft-sdl.exe on Windows until it replaces the Win32 program (SDL3,
-// Dear ImGui through apps/kit_sdl). It compiles the same portable core as
-// the Windows program (core/core.inc, research/ports/MAC-BUILD-PLAN.md step 6), then the SDL shell: the host seam
+// StarDraft's editor on Windows (stardraft.exe), macOS and Linux (SDL3, Dear ImGui through apps/kit_sdl; the Win32
+// program, main.cpp, builds as stardraft-win32.exe, a fallback that is not in releases). It compiles the same portable
+// core as the Win32 program (core/core.inc, research/ports/MAC-BUILD-PLAN.md step 6), then the SDL shell: the host seam
 // (shell_sdl.inc), the root view (sdl_main_view.inc), the functions the core still needs from the Win32 program
 // (sdl_pending.inc, each marked until it is in the core) and the workspaces (sdl_*.inc).
 //
@@ -354,6 +354,7 @@ int main(int argc, char** argv) {
         kit_sdl::SdlHost host(device);
         gHost = &host;
         host.setScale(scaleArg);  // (0: the display's scale; the views lay out at it)
+        kit_sdl::setEmbeddedFiles(sdlEmbeddedFiles());  // (Windows: the fonts, atlases and icon are in stardraft.exe too)
         std::printf("stardraft_editor: fonts %s, scale %.2f\n", kit_sdl::loadFonts(base + "fonts/").c_str(), double(scale));
         if (!kit_sdl::loadIconAtlases(device, base + "res/")) std::printf("stardraft_editor: no icon atlases in res/\n");
         kit_sdl::setGlyphIcons(kitpaint::glyphIcon);  // the glyphs as UI icons (no system has to have Segoe MDL2 Assets)
@@ -368,7 +369,9 @@ int main(int argc, char** argv) {
             if (!dataErr.empty()) gDataError += ". Game data: " + dataErr;
             gStartView.dataError = widen(gDataError);  // the start page keeps the reason (the status bar's text goes)
         }
-        if (!gSilent) loadDock();  // the dock layout in the settings (core/dock_prefs.inc), as the Windows program at its start (snapshots: the defaults)
+        // The dock layout (core/dock_prefs.inc), the recent lists, the working folder and the unit limits in the
+        // settings, as the Win32 program at its start (snapshots: the defaults).
+        if (!gSilent) loadDock(), loadRecentLists(), loadUnitLimits();
         gSettingsOff = gSilent;  // (snapshots and tests: the defaults, and nothing saved)
         if (loadSettingsTable()) shellRendererGraphics(gState.quality, gState.carbot);  // the menus' options (core/app_settings.inc)
         loadLanguageSdl(langArg);  // the language (sdl_options.inc): the canvas translates with it from the first frame
@@ -393,6 +396,11 @@ int main(int argc, char** argv) {
         host.setBeforePump(runPosted);  // the posted work runs outside the frame hook (a dialog it opens pumps frames)
         host.setFrameHook([](SDL_GPUCommandBuffer* cmd) { drawMapOfRoot(cmd); });
         if (!mapArg.empty()) openAny(widen(mapArg));  // a map, or a project (.eds, .stardraft, its folder): as File > Open does
+        bool openLast = false;  // Program options > Open the last project on start (as the Win32 program)
+        if (mapArg.empty() && dropArg.empty() && !gSilent && prefs::flag(L"OpenLastProject", openLast) && openLast && !gRecentProjects.empty()) {
+            std::error_code ec;
+            if (fs::exists(gRecentProjects.front(), ec)) openAny(gRecentProjects.front());
+        }
         if (!dropArg.empty()) dropFile(dropArg);
         for (int m = 0; !modeArg.empty() && m < kModeCount; ++m) {
             std::string name = narrow(kModeNames[m]);

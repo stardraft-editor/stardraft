@@ -24,6 +24,14 @@ You need Windows, Visual Studio 2022, CMake 3.20 or newer, and the Windows SDK (
     cmake -S . -B build
     cmake --build build --config Release --target stardraft_editor
 
+The target `stardraft_editor` is `stardraft.exe`: the SDL program (`apps/editor/main_sdl.cpp` and its `sdl_*.inc`
+files, which draw the portable views in `apps/editor/core`), the same program as on macOS and Linux. Its fonts and
+icons are in the program file, so `stardraft.exe` runs alone (a release is that one file); the `res` and `fonts`
+folders that the build puts next to it come first when they are there. The Win32 program (`main.cpp`) builds as
+`stardraft-win32.exe` (target `stardraft_win32`): a fallback while the SDL program takes its place, not in a
+release. It uses the same settings file, StarCraft folder and recent lists; it leaves the file types (maps,
+project.stardraft) to `stardraft.exe`. Its self-test and `--datashots` (below) are its own.
+
 To build while you use StarDraft (Windows locks a running .exe), give the build its own name and start the newest
 build with `StarDraft-latest.exe` in the repository's root (built with the editor), which runs a copy of it; pin it to
 Start or the taskbar. It also makes project.stardraft files open with it:
@@ -32,43 +40,34 @@ Start or the taskbar. It also makes project.stardraft files open with it:
     cmake --build build --config Release --target stardraft_editor
     StarDraft-latest.exe [map or project]
 
-The window title shows when the build was made. The first build takes long: CMake fetches SDL3, StormLib, CascLib,
-stb and libvpx.
+With that name the Win32 program is `stardraft-testing-win32.exe`. The window title shows when the build was made.
+The first build takes long: CMake fetches SDL3, StormLib, CascLib, stb, libvpx and Dear ImGui, and the fonts.
 
-### The SDL program on Windows (stardraft-sdl.exe)
+### Snapshots
 
-StarDraft is moving to one program for Windows, macOS and Linux: the SDL program (`apps/editor/main_sdl.cpp` and its
-`sdl_*.inc` files, which draw the portable views in `apps/editor/core`). On Windows it is `stardraft-sdl.exe` (CMake
-target `stardraft_sdl`), built with MSVC beside `stardraft.exe` until it replaces that one. It uses the same settings
-file and StarCraft folder as `stardraft.exe`.
-
-    cmake -S . -B build
-    cmake --build build --config Release --target stardraft_sdl
-    build\Release\stardraft-sdl.exe [map]
-
-The `res` and `fonts` folders next to the program must stay with it. A snapshot draws one frame without a window
-and writes it as a PNG; a snapshot run asks nothing, sends nothing and changes no settings:
+A snapshot draws one frame without a window and writes it as a PNG; a snapshot run asks nothing, sends nothing and
+changes no settings:
 
     set SDL_VIDEODRIVER=offscreen
-    build\Release\stardraft-sdl.exe [map] --snapshot out.png
-    build\Release\stardraft-sdl.exe [map] --workspace triggers --snapshot out.png
-    build\Release\stardraft-sdl.exe [map] --dialog options --size 720x820 --snapshot out.png
+    build\Release\stardraft.exe [map] --snapshot out.png
+    build\Release\stardraft.exe [map] --workspace triggers --snapshot out.png
+    build\Release\stardraft.exe [map] --dialog options --size 720x820 --snapshot out.png
 
 The comments on the options in `main()` of `main_sdl.cpp` (`--workspace`, `--dialog`, `--data`, ...) say what a
 snapshot can show. `tools/sdl_snapshots.py` takes one snapshot of each workspace and dialog and checks each one
 (`--help` tells how; `--install`, `--map` and `--project` add the cases that need them):
 
-    python -I tools/sdl_snapshots.py --exe build\Release\stardraft-sdl.exe --out snapshots
+    python -I tools/sdl_snapshots.py --exe build\Release\stardraft.exe --out snapshots
 
-GitHub builds `stardraft-sdl.exe` on each push (the job windows-sdl), runs `sdl_snapshots.py` on it and keeps the
-snapshots (with no game data: no map) and the program in a zip with the run. GitHub's Windows machines have no
-GPU: there Direct3D 12 draws on the CPU (WARP), and a failed snapshot does not stop the run.
+GitHub builds `stardraft.exe` on each push (the jobs windows and windows-sdl), runs `sdl_snapshots.py` on it, takes a
+snapshot of it alone in a folder (as a release has it), and keeps the snapshots (with no game data: no map) and the
+program with the run. GitHub's Windows machines have no GPU: there Direct3D 12 draws on the CPU (WARP).
 
 ### Linux and macOS
 
 The library, the tools and the tests also build on Linux (GCC or Clang) and macOS (Xcode's Clang); GitHub builds
-them on each push. The SDL program builds there as `stardraft` (target `stardraft_editor`); `stardraft.exe` (the
-Win32 program) is Windows only. The renderer and its tests use Vulkan on Linux and Metal on macOS.
+them on each push. The SDL program builds there as `stardraft` (target `stardraft_editor`); `stardraft-win32.exe`
+(the Win32 program) is Windows only. The renderer and its tests use Vulkan on Linux and Metal on macOS.
 On Linux, SDL needs the X11 or Wayland headers (SDL's `docs/README-linux.md`), or `-DSDL_UNIX_CONSOLE_BUILD=ON`
 for the tools only; `-DSTARDRAFT_RENDERER=OFF` builds without SDL.
 
@@ -107,7 +106,7 @@ Give each test a new, empty scratch folder.
 
 | Test | Command | What it checks |
 |---|---|---|
-| Self-test | `stardraft.exe <map> --selftest <dir>` | Drives the real program through a scripted session (every workspace) and saves a capture after each step; `selftest.txt` lists the results. Use `(2)Bottleneck.scm`. |
+| Self-test | `stardraft-win32.exe <map> --selftest <dir>` | Drives the real program through a scripted session (every workspace) and saves a capture after each step; `selftest.txt` lists the results. Use `(2)Bottleneck.scm`. |
 | `trigger_test` | `trigger_test <dir> <install> <map.scx> [--update-lock]` (a Brood War map, e.g. `Maps\BroodWar\(2)Binary Burghs.scx`) | The block library, the checker, the generated epScript, and that euddraft builds a map with it. Linked .eps files (R5): saved relative, built with what they import, a missing one stops Build, an error names the file and line. |
 | `dat_test` | `dat_test <install> <map.scx> <dir>` | .dat editing, strings, requirements, buttons, unit display; euddraft builds a map with them. |
 | `editor_test` | `editor_test <install> <map> <dir> [sounds]` | The editor document: placement, selection, copy and paste, undo, save and reopen. |
@@ -144,7 +143,7 @@ The tool does not see the self-test, the kit gallery, log lines and the theme co
 
 ### Captures and measurements
 
-`stardraft.exe <map or project> --datashots <dir> <spec>...` opens the file, does each spec and saves pictures into
+`stardraft-win32.exe <map or project> --datashots <dir> <spec>...` (the Win32 program) opens the file, does each spec and saves pictures into
 `<dir>`, without a person at the mouse. Some specs:
 
 | Spec | Result |
@@ -242,7 +241,8 @@ token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, 
 - **Updates** (`apps/editor/update.inc`; unpacking and replacing the program in `apps/common/update.h`): Help > Check for updates compares the newest release's title ("... (build
   <commit>)") with the build's commit, downloads the zip, puts its `stardraft.exe` in place of the running one (that
   one becomes `stardraft.exe.old`, deleted at the next start) and starts it. A release build also checks at start and
-  says so in the status bar.
+  says so in the status bar. The SDL program does the same (`sdl_updates.inc`); an installed Win32 `stardraft.exe`
+  of an older release gets the SDL program in this way, as the zip holds only `stardraft.exe`.
 
 ## Commits and releases
 
