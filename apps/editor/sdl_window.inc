@@ -8,6 +8,7 @@
 SDL_Window* gMainWindow = nullptr;  // the program's main window, after host.show (none in a snapshot)
 
 void applyThemeSdl(bool light, int accent, bool save);  // (sdl_options.inc)
+void sdlTitleBarsDark(bool dark);  // Windows: the title bars in the theme (shell_sdl_win.inc; elsewhere nothing)
 
 // --- The window's document ------------------------------------------------------------------------------------------
 
@@ -185,6 +186,7 @@ void sdlSetLook(bool light, int accent) {
     uint8_t r = 0, g = 0, b = 0;
     if (macSidebarColor(!light, r, g, b)) kRail = RGB(r, g, b);
     macSetWindowDark(gMainWindow, !light);
+    sdlTitleBarsDark(!light);
 }
 // Each frame: a change of the system's appearance or colors applies when the program follows them.
 void sdlFollowSystemLook() {

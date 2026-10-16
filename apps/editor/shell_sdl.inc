@@ -278,17 +278,17 @@ std::chrono::steady_clock::time_point shellProcessStart() {
 }
 std::wstring shellVersion() { return widen(STARDRAFT_VERSION_NAME); }
 std::wstring shellBuildStamp() { return widen(std::string("built ") + __DATE__ + " " + __TIME__); }
+// The main window's title only: a dialog window (Program options, About, Block help) keeps its own.
 void shellSetTitle(const std::wstring& title) {
-    int n = 0;
-    SDL_Window** wins = SDL_GetWindows(&n);
+    SDL_Window* main = gHost ? gHost->mainWindow() : nullptr;
+    if (!main) return;
 #ifdef __APPLE__
     // (the close button's dot shows the changes: the title has no "* ")
     const std::string shown = narrow(title.rfind(L"* ", 0) == 0 ? title.substr(2) : title);
 #else
     const std::string shown = narrow(title);
 #endif
-    for (int i = 0; wins && i < n; ++i) SDL_SetWindowTitle(wins[i], shown.c_str());
-    SDL_free(wins);
+    SDL_SetWindowTitle(main, shown.c_str());
 }
 bool shellHasRail() { return true; }  // (the workspace rail: the Map workspace's items, as the core lists them)
 void shellShowRail(bool) {}

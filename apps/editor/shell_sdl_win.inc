@@ -94,6 +94,8 @@ std::wstring pipeName() {
     std::wstring stem = fs::path(self).stem().wstring();
     for (wchar_t& ch : stem) ch = wchar_t(std::towlower(ch));
     if (stem.rfind(L"stardraft-latest-", 0) == 0) stem = L"stardraft-latest";
+    // (a test with real windows, --noactivate: a pipe of its own, so a test never sends a map to the user's program)
+    if (gNoActivate) stem += L"-test";
     return L"\\\\.\\pipe\\StarDraft-" + stem + L"-" + std::to_wstring(session);
 }
 
@@ -121,8 +123,9 @@ bool sendToOpenProgram(const std::vector<std::wstring>& files) {
     return ok;
 }
 
-// The window comes to the front (restored when it is minimized).
+// The window comes to the front (restored when it is minimized). Not in a test with real windows (--noactivate).
 void raiseMainWindow() {
+    if (gNoActivate) return;
     int n = 0;
     SDL_Window** wins = SDL_GetWindows(&n);
     if (wins && n > 0) {
@@ -210,15 +213,21 @@ void fileTypesAtStart() {
 
 // --- The window -----------------------------------------------------------------------------------------------------
 
-// The title bar is dark, as the program is (Windows 10 2004 and later; older ones keep theirs).
-void darkTitleBar() {
+HWND windowHandle(SDL_Window* w) {
+    return w ? static_cast<HWND>(SDL_GetPointerProperty(SDL_GetWindowProperties(w), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr)) : nullptr;
+}
+
+// A window's title bar in the program's theme: dark in the dark theme, light in the light theme (Windows 10 2004 and
+// later; older ones keep theirs).
+void titleBarDark(SDL_Window* w, bool dark) {
+    const BOOL on = dark ? TRUE : FALSE;
+    if (HWND hwnd = windowHandle(w)) DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &on, sizeof on);
+}
+// The title bars of all the program's windows (the main window and its dialogs).
+void titleBarsDark(bool dark) {
     int n = 0;
     SDL_Window** wins = SDL_GetWindows(&n);
-    for (int i = 0; wins && i < n; ++i) {
-        HWND hwnd = static_cast<HWND>(SDL_GetPointerProperty(SDL_GetWindowProperties(wins[i]), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
-        const BOOL dark = TRUE;
-        if (hwnd) DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &dark, sizeof dark);
-    }
+    for (int i = 0; wins && i < n; ++i) titleBarDark(wins[i], dark);
     SDL_free(wins);
 }
 
@@ -350,9 +359,13 @@ bool sdlSendToOpenProgram(const std::string& file, bool testRun) {
     winsdl::listenForOtherPrograms();
     return false;
 }
-// After the window shows (not in a test run): the dark title bar, the reports of a crash, the file types.
+// The title bars follow the theme: the windows open now, and each dialog window before it shows (sdlSetLook calls it
+// again when the theme changes).
+void sdlTitleBarsDark(bool dark) { winsdl::titleBarsDark(dark); }
+void sdlTitleBarOfNewWindow(SDL_Window* w) { winsdl::titleBarDark(w, !gLightTheme); }
+// After the window shows (not in a test run): the title bar in the theme, the reports of a crash, the file types.
 void sdlWindowsShown(bool testRun) {
-    winsdl::darkTitleBar();
+    winsdl::titleBarsDark(!gLightTheme);
     if (testRun) return;
     releases::sendPendingCrashes(winsdl::crashFolder(), gSdlCrashReports);
     shellPost(winsdl::askToSendCrashes);
@@ -459,6 +472,8 @@ void shellMapFileOpened(const std::filesystem::path&) {}  // (the file associati
 bool sdlMapsOpenWithUs() { return false; }
 int sdlWindowsFirst(int, char**, bool) { return -1; }
 bool sdlSendToOpenProgram(const std::string&, bool) { return false; }
+void sdlTitleBarsDark(bool) {}
+void sdlTitleBarOfNewWindow(SDL_Window*) {}
 void sdlWindowsShown(bool) {}
 // (core/documents.inc: the unsaved projects' folders; the restart)
 std::uint32_t shellProcessId() { return std::uint32_t(getpid()); }
