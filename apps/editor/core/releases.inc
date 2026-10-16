@@ -180,7 +180,11 @@ inline UpdateWay updateWay(const fs::path& self, const Release& r, Packaged pack
     if (packaged == Packaged::AppImage) return r.download.empty() ? UpdateWay::Page : UpdateWay::Download;
     if (packaged == Packaged::Flatpak) return UpdateWay::Package;
     if (installable(self, r)) return UpdateWay::Install;
+#ifdef _WIN32
+    return UpdateWay::Page;  // (a file with another name, as stardraft-testing.exe: the release page, as before)
+#else
     return releaseBuild() && !r.download.empty() ? UpdateWay::Download : UpdateWay::Page;
+#endif
 }
 
 // Unpacks a release's archive into `dir` (made if it is not there): the new program, or empty with the reason in `why`.
