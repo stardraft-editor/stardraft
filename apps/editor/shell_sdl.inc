@@ -16,7 +16,9 @@ void shellStatusChanged() {
     if (gRoot) gRoot->invalidate();
 }
 bool shellLogOpen() { return gRoot != nullptr; }  // (the Log's bar is in the window: it shows the latest message)
-int shellUiFontLfHeight() { return -12; }  // (the Win32 UI font's height; the kit's views size their own text)
+// The Win32 UI font's height (-12 at 100 %) at the program's scale, in the display's pixels: the small fonts, titles and
+// counts that are sized from it grow with the scale and the pixel density (a Retina display: 2), as the UI font does.
+int shellUiFontLfHeight() { return -stardraft::kit::px(12); }
 // The map view's size: none until the root view is in a window (a map opened from the command line comes before the
 // window, and the layout's placeholder then is 1 x 1); fitMap waits for it (gFitPending).
 void shellViewSize(int& w, int& h) {
@@ -409,16 +411,20 @@ void shellProcessClose(std::uintptr_t process) {
 }
 #endif
 namespace {
-void useInstallFolder(const std::string& picked);  // (main_sdl.cpp: the first start's question)
+bool useInstallFolder(const std::string& picked);  // (main_sdl.cpp: the start page's banner)
 void saveInstallFolder(const fs::path& dir);  // (main_sdl.cpp: the settings, and on Windows the Windows program's file)
 }
 // File > Options > StarCraft folder (and the Project page's): another install is chosen; its game data must open. With no
-// game data open, the program opens it now (as the first start's question); else it is used from the next start (the
+// game data open, the program opens it now (as the start page's Browse does); else it is used from the next start (the
 // settings' StarCraftFolder), as on Windows.
 void shellChooseInstallFolder() {
     const std::wstring picked = shellPickFolder(shellTr(L"Select the StarCraft: Remastered folder. It contains .build.info."));
     if (picked.empty() || !gRoot) return;
-    if (!gDataOk) return useInstallFolder(narrow(picked));
+    if (!gDataOk) {
+        if (!useInstallFolder(narrow(picked)))
+            msgbox::ask(*gRoot, shellTr(L"StarCraft folder"), shellTr(L"That folder has no StarCraft game data."), {L"OK"}, msgbox::Icon::Warning);
+        return;
+    }
     const fs::path dir = installFolderOf(fs::path(picked));
     GameData probe;
     std::string err;
@@ -506,10 +512,17 @@ bool sdlSaveUnsavedProject() {
     const fs::path picked = shellPickFile(d);
     return !picked.empty() && saveUnsavedProjectTo(picked);
 }
-std::wstring shellPickFolder(const std::wstring&) {
-    const std::string where = narrow(defaultProjectsFolder().wstring());
+std::wstring shellPickFolder(const std::wstring& title) {
+    const std::string where = narrow(defaultProjectsFolder().wstring()), shownTitle = narrow(title);
     return sdlPickWait([&](SdlPickState* st) {
-               SDL_ShowOpenFolderDialog(sdlPickAnswered, st, dialogWindow(), where.empty() ? nullptr : where.c_str(), false);
+               // (the title says what to pick: the dialog's title bar on Windows and Linux, the panel's on macOS)
+               const SDL_PropertiesID props = SDL_CreateProperties();
+               SDL_SetPointerProperty(props, SDL_PROP_FILE_DIALOG_WINDOW_POINTER, dialogWindow());
+               if (!where.empty()) SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_LOCATION_STRING, where.c_str());
+               if (!shownTitle.empty()) SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_TITLE_STRING, shownTitle.c_str());
+               SDL_SetBooleanProperty(props, SDL_PROP_FILE_DIALOG_MANY_BOOLEAN, false);
+               SDL_ShowFileDialogWithProperties(SDL_FILEDIALOG_OPENFOLDER, sdlPickAnswered, st, props);
+               SDL_DestroyProperties(props);
            })
         .wstring();
 }

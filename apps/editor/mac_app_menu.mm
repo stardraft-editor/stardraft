@@ -70,3 +70,19 @@ void macSetupAppMenu(const std::string& aboutText, const std::string& settingsTe
                 if ([it action] == @selector(performClose:) || [it action] == @selector(performMiniaturize:)) [it setKeyEquivalent:@""];
     }
 }
+
+namespace {
+bool gLastPrecise = false;
+id gScrollMonitor = nil;
+}  // namespace
+
+void macWatchScrolls() {
+    if (gScrollMonitor) return;
+    gScrollMonitor = [[NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskScrollWheel
+                                                            handler:^NSEvent*(NSEvent* event) {
+                                                                gLastPrecise = [event hasPreciseScrollingDeltas];
+                                                                return event;
+                                                            }] retain];
+}
+
+bool macLastScrollPrecise() { return gLastPrecise; }

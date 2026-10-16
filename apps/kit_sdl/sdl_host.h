@@ -96,6 +96,10 @@ public:
     // The program shows its Report feedback menu there (the Windows program's feedbackAfterRightClick).
     using RightClickHook = std::function<void(draw::View& root, draw::Point pt, const std::wstring& title)>;
     void setRightClickHook(RightClickHook fn) { rightClick_ = std::move(fn); }
+    // Whether the wheel event that SDL gives now is a trackpad's (precise) scroll, not a wheel's notches: macOS knows
+    // it (NSEvent's hasPreciseScrollingDeltas; the program asks it). With no hook, a scroll with fractions is precise
+    // (Windows' precision touchpads, Wayland, X11's smooth scrolling), and so are the scroll's next steps for 0.2 s.
+    void setPreciseScrollHook(std::function<bool()> fn) { precise_ = std::move(fn); }
 
     // draw::Host
     void invalidate(draw::View& v) override;
@@ -162,6 +166,10 @@ private:
     HoverHook hover_;                    // setHoverHook
     std::function<void(const std::string&)> drop_;  // setDropHook
     RightClickHook rightClick_;                     // setRightClickHook
+    std::function<bool()> precise_;                 // setPreciseScrollHook
+    Uint64 preciseUntil_ = 0;                       // a precise scroll's next steps are precise until then (ns)
+    float pinchLast_ = 1;                           // a pinch's scale so far (the systems that give it from its start)
+    bool preciseScroll(const SDL_MouseWheelEvent& e);
     std::function<bool(draw::View&)> modalHook_;    // setSnapshotModalHook
     SDL_WindowID shotSeq_ = 0xFFFFFF00u;            // the ids of a snapshot's windows (ids SDL does not give)
     Win* shotWin(draw::View& root, int w, int h);   // the snapshot's window of `root` (made at the first input)

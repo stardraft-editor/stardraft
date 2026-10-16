@@ -2014,6 +2014,9 @@ constexpr UiText kRows[] = {
     {L"Paste", L"\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u044C"},
     {L"Copy all", L"\u041A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0432\u0441\u0451"},
     {L"Select all", L"\u0412\u044B\u0434\u0435\u043B\u0438\u0442\u044C \u0432\u0441\u0451"},
+    {L"Could not find StarCraft on your system.", L"\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043D\u0430\u0439\u0442\u0438 StarCraft \u0432 \u0441\u0438\u0441\u0442\u0435\u043C\u0435."},
+    {L"That folder has no StarCraft game data.", L"\u0412 \u044D\u0442\u043E\u0439 \u043F\u0430\u043F\u043A\u0435 \u043D\u0435\u0442 \u0438\u0433\u0440\u043E\u0432\u044B\u0445 \u0434\u0430\u043D\u043D\u044B\u0445 StarCraft."},
+    {L"Select the StarCraft folder", L"\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 StarCraft"},
 };
 }  // namespace
 std::span<const UiText> langTableRu() { return kRows; }

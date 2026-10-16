@@ -2014,6 +2014,9 @@ constexpr UiText kRows[] = {
     {L"Paste", L"Pegar"},
     {L"Copy all", L"Copiar todo"},
     {L"Select all", L"Seleccionar todo"},
+    {L"Could not find StarCraft on your system.", L"No se encontr\u00F3 StarCraft en su sistema."},
+    {L"That folder has no StarCraft game data.", L"Esa carpeta no tiene datos del juego de StarCraft."},
+    {L"Select the StarCraft folder", L"Seleccione la carpeta de StarCraft"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

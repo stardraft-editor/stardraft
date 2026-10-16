@@ -728,3 +728,63 @@ bool mapBrushWheel(AppState& app, bool up) {
     app.dirty = true;
     return true;
 }
+
+// --- The map's wheel, trackpad and pinch (one rule for every system) ----------------------------------------------
+// The zoom changes by `factor` around the view point (x, y) (screen pixels): the map's point under it stays under it.
+void mapZoomAt(AppState& app, float x, float y, float factor) {
+    if (app.zoom <= 0 || !(factor > 0)) return;
+    const float wx = app.camX + x / app.zoom, wy = app.camY + y / app.zoom;
+    app.zoom = std::clamp(app.zoom * factor, 1.0f / 16, 4.0f);
+    app.camX = wx - x / app.zoom, app.camY = wy - y / app.zoom;
+    clampCamera();
+    app.dirty = true;
+}
+// The map moves (dx, dy) screen pixels on the screen (a trackpad's two fingers: the map follows them).
+void mapPanBy(AppState& app, float dx, float dy) {
+    if (app.zoom <= 0) return;
+    app.camX -= dx / app.zoom, app.camY -= dy / app.zoom;
+    clampCamera();
+    app.dirty = true;
+}
+// The wheel or a two-finger scroll on the map at (x, y). `notches`: the wheel's steps, positive away from the user
+// (a trackpad's are fractions); `panX`, `panY`: how far the content moves in screen pixels, in the system's scroll
+// direction (natural scrolling: it follows the fingers); `precise`: a trackpad's (or a precise mouse's) scroll, not a
+// wheel's notches; `horizontal`: a wheel's sideways steps (a tilt wheel). The rules:
+//  - Alt + wheel: the active brush one size up or down (mapBrushWheel); a trackpad's scroll steps once per notch.
+//  - Ctrl (Cmd on macOS) + wheel or scroll: the zoom at the mouse (a trackpad's: smoothly; Windows sends a touchpad's
+//    pinch as Ctrl + wheel).
+//  - A mouse wheel: the zoom at the mouse (a sideways tilt does nothing).
+//  - A trackpad's scroll: the map moves, on both axes.
+// True: the map took it.
+bool mapWheel(AppState& app, float x, float y, float notches, float panX, float panY, bool precise, bool horizontal, bool ctrl, bool alt) {
+    static float brushSteps = 0;  // a trackpad's fractions until a whole step
+    if (alt) {
+        if (!precise) {
+            if (!horizontal && notches != 0 && mapBrushWheel(app, notches > 0)) return true;
+        } else if (!horizontal) {
+            brushSteps += notches;
+            bool took = false;
+            while (std::fabs(brushSteps) >= 1) {
+                const bool up = brushSteps > 0;
+                brushSteps += up ? -1.0f : 1.0f;
+                took = mapBrushWheel(app, up) || took;
+            }
+            if (took) return true;
+        }
+    }
+    if (ctrl || !precise) {
+        if (horizontal || notches == 0) return false;
+        // A notch: 1.2 times; a trackpad's scroll: 1.2 times each 4 of its steps (its steps are small and many).
+        mapZoomAt(app, x, y, std::pow(1.2f, precise ? notches / 4 : notches));
+        return true;
+    }
+    if (panX == 0 && panY == 0) return false;
+    mapPanBy(app, panX, panY);
+    return true;
+}
+// A pinch on the map: the zoom changes by `scale` (more than 1: in) around the point between the fingers (x, y).
+bool mapPinch(AppState& app, float x, float y, float scale) {
+    if (!(scale > 0) || scale == 1) return false;
+    mapZoomAt(app, x, y, scale);
+    return true;
+}

@@ -461,6 +461,8 @@ void sdlInputLine(const std::string& what) {
 }
 
 void sdlMouseShot(const std::string& spec, char kind);
+void sdlWheelShot(const std::string& spec);
+void sdlPinchShot(const std::string& spec);
 
 // A snapshot's inputs (main_sdl.cpp: --key, --type, --click, --drag, --move, --wait; the option's letter k, t, c, d,
 // m, w and its value) that have not run yet, in their order.
@@ -477,6 +479,8 @@ bool sdlShotInputNext() {
         runPosted();
         sdlInputLine("wait " + value);
     }
+    else if (kind == 'h') sdlWheelShot(value);
+    else if (kind == 'p') sdlPinchShot(value);
     else sdlMouseShot(value, kind);  // 'c', 'd' or 'm'
     return true;
 }
@@ -540,6 +544,85 @@ void sdlMouseShot(const std::string& spec, char kind) {
     SDL_SetModState(before);
     runPosted();
     sdlInputLine(name + spec);
+}
+
+// The map's camera before and after a --wheel or --pinch at the window's point (x, y) (the CHECKS read it): the point
+// in the map view, then each camera: the map's point at the view's top left and the zoom.
+struct SdlCamera {
+    float x, y, zoom;
+};
+SdlCamera sdlCamera() { return {gState.camX, gState.camY, gState.zoom}; }
+void sdlCameraLine(const std::string& what, const SdlCamera& was, float x, float y) {
+    const draw::Point o = gRoot ? gRoot->map.origin() : draw::Point{};
+    std::printf("%s: at map %.1f,%.1f; camera %.2f,%.2f zoom %.4f -> %.2f,%.2f zoom %.4f\n", what.c_str(), double(x - float(o.x)), double(y - float(o.y)),
+                double(was.x), double(was.y), double(was.zoom), double(gState.camX), double(gState.camY), double(gState.zoom));
+}
+
+// --wheel x,y,dx,dy[:precise][:mods] in a snapshot: the wheel at (x, y) in the main window's pixels, as SDL gives it:
+// dy notches away from the user, dx to the right (fractions allowed). precise: a trackpad's two-finger scroll (macOS:
+// hasPreciseScrollingDeltas), not a wheel's notches. mods: Shift, Ctrl, Alt joined with + (Ctrl is Cmd on macOS).
+void sdlWheelShot(const std::string& spec) {
+    std::stringstream parts(spec);
+    std::string at, word;
+    std::getline(parts, at, ':');
+    bool precise = false;
+    SDL_Keymod held = SDL_KMOD_NONE;
+    while (std::getline(parts, word, ':')) {
+        if (word == "precise") {
+            precise = true;
+            continue;
+        }
+        std::stringstream keys(word);
+        for (std::string m; std::getline(keys, m, '+');) {
+#ifdef __APPLE__
+            if (m == "Ctrl") held = SDL_Keymod(held | SDL_KMOD_LGUI);
+#else
+            if (m == "Ctrl") held = SDL_Keymod(held | SDL_KMOD_LCTRL);
+#endif
+            else if (m == "Shift") held = SDL_Keymod(held | SDL_KMOD_LSHIFT);
+            else if (m == "Alt") held = SDL_Keymod(held | SDL_KMOD_LALT);
+            else return void(std::fprintf(stderr, "--wheel %s: %s is not precise, Shift, Ctrl or Alt\n", spec.c_str(), m.c_str()));
+        }
+    }
+    float x = 0, y = 0, dx = 0, dy = 0;
+    if (!gRoot || !gHost || std::sscanf(at.c_str(), "%f,%f,%f,%f", &x, &y, &dx, &dy) != 4)
+        return void(std::fprintf(stderr, "--wheel %s: not x,y,dx,dy[:precise][:mods]\n", spec.c_str()));
+    std::vector<SDL_Event> events(2);
+    events[0].type = SDL_EVENT_MOUSE_MOTION;
+    events[0].motion.x = x, events[0].motion.y = y;
+    events[1].type = SDL_EVENT_MOUSE_WHEEL;
+    events[1].wheel.x = dx, events[1].wheel.y = dy, events[1].wheel.mouse_x = x, events[1].wheel.mouse_y = y;
+    events[1].wheel.direction = SDL_MOUSEWHEEL_NORMAL;
+    const SdlCamera was = sdlCamera();
+    const SDL_Keymod before = SDL_GetModState();
+    SDL_SetModState(held);
+    gHost->setPreciseScrollHook([precise] { return precise; });
+    gHost->snapshotMouse(*gRoot, events);
+    gHost->setPreciseScrollHook(nullptr);
+    SDL_SetModState(before);
+    runPosted();
+    sdlInputLine("wheel " + spec);
+    sdlCameraLine("wheel " + spec, was, x, y);
+}
+
+// --pinch x,y,scale in a snapshot: a trackpad's pinch with the mouse at (x, y): it begins, the fingers move apart
+// (scale more than 1) or together, it ends.
+void sdlPinchShot(const std::string& spec) {
+    float x = 0, y = 0, scale = 1;
+    if (!gRoot || !gHost || std::sscanf(spec.c_str(), "%f,%f,%f", &x, &y, &scale) != 3)
+        return void(std::fprintf(stderr, "--pinch %s: not x,y,scale\n", spec.c_str()));
+    std::vector<SDL_Event> events(4);
+    events[0].type = SDL_EVENT_MOUSE_MOTION;
+    events[0].motion.x = x, events[0].motion.y = y;
+    events[1].type = SDL_EVENT_PINCH_BEGIN;
+    events[2].type = SDL_EVENT_PINCH_UPDATE;
+    events[2].pinch.scale = scale;
+    events[3].type = SDL_EVENT_PINCH_END;
+    const SdlCamera was = sdlCamera();
+    gHost->snapshotMouse(*gRoot, events);
+    runPosted();
+    sdlInputLine("pinch " + spec);
+    sdlCameraLine("pinch " + spec, was, x, y);
 }
 
 // --command <name> in a snapshot: a command of the menus by its name in the command table (core/map_commands.inc:

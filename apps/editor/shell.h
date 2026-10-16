@@ -26,7 +26,8 @@ void shellMenusChanged();
 void shellStatusChanged();
 // Whether the Log panel's window is open (the Log shows the status bar's message then).
 bool shellLogOpen();
-// The UI font's LOGFONT height (negative: the character height), for the views' title sizes.
+// The UI font's LOGFONT height (negative: the character height) at the program's scale, in the display's pixels, for the
+// views' title and small text sizes.
 int shellUiFontLfHeight();
 // The map view's client size, in device pixels.
 void shellViewSize(int& w, int& h);

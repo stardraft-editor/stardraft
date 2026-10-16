@@ -2014,6 +2014,9 @@ constexpr UiText kRows[] = {
     {L"Paste", L"\uBD99\uC5EC\uB123\uAE30"},
     {L"Copy all", L"\uBAA8\uB450 \uBCF5\uC0AC"},
     {L"Select all", L"\uBAA8\uB450 \uC120\uD0DD"},
+    {L"Could not find StarCraft on your system.", L"\uC2DC\uC2A4\uD15C\uC5D0\uC11C StarCraft\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."},
+    {L"That folder has no StarCraft game data.", L"\uC774 \uD3F4\uB354\uC5D0\uB294 StarCraft \uAC8C\uC784 \uB370\uC774\uD130\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4."},
+    {L"Select the StarCraft folder", L"StarCraft \uD3F4\uB354 \uC120\uD0DD"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
