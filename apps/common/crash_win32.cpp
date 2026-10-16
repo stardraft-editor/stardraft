@@ -63,9 +63,8 @@ std::string where(DWORD64 address) {
     return utf8(fs::path(name).filename().wstring()) + b;
 }
 
-LONG WINAPI onCrash(EXCEPTION_POINTERS* ep) {
-    static LONG once = 0;
-    if (InterlockedExchange(&once, 1)) return EXCEPTION_EXECUTE_HANDLER;
+// The crash's report, written by its own thread (crashWork): `thread` is the crashed one (its id and a handle to it).
+void writeCrash(EXCEPTION_POINTERS* ep, DWORD threadId, HANDLE thread) {
     SYSTEMTIME t;
     GetLocalTime(&t);
     char stamp[32];
@@ -76,7 +75,7 @@ LONG WINAPI onCrash(EXCEPTION_POINTERS* ep) {
     // The minidump: threads, stacks and the memory they point at.
     HANDLE f = CreateFileW((dir / "crash.dmp").c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (f != INVALID_HANDLE_VALUE) {
-        MINIDUMP_EXCEPTION_INFORMATION mei{GetCurrentThreadId(), ep, FALSE};
+        MINIDUMP_EXCEPTION_INFORMATION mei{threadId, ep, FALSE};
         MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), f, MINIDUMP_TYPE(MiniDumpWithIndirectlyReferencedMemory | MiniDumpWithThreadInfo), &mei,
                           nullptr, nullptr);
         CloseHandle(f);
@@ -102,7 +101,7 @@ LONG WINAPI onCrash(EXCEPTION_POINTERS* ep) {
     sf.AddrPC.Offset = ctx.Rip, sf.AddrPC.Mode = AddrModeFlat;
     sf.AddrFrame.Offset = ctx.Rbp, sf.AddrFrame.Mode = AddrModeFlat;
     sf.AddrStack.Offset = ctx.Rsp, sf.AddrStack.Mode = AddrModeFlat;
-    HANDLE proc = GetCurrentProcess(), thread = GetCurrentThread();
+    HANDLE proc = GetCurrentProcess();
     SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS);
     const bool syms = SymInitialize(proc, nullptr, TRUE);
     for (int i = 0; i < 64; ++i) {
@@ -119,6 +118,32 @@ LONG WINAPI onCrash(EXCEPTION_POINTERS* ep) {
     if (gHandler.log) r += gHandler.log();
     std::ofstream(dir / "report.txt", std::ios::binary) << r;
     if (gHandler.written) gHandler.written(dir);
+}
+
+struct CrashJob {
+    EXCEPTION_POINTERS* ep;
+    DWORD threadId;
+};
+DWORD WINAPI crashWork(void* p) {
+    const CrashJob& job = *static_cast<const CrashJob*>(p);
+    HANDLE thread = OpenThread(THREAD_ALL_ACCESS, FALSE, job.threadId);
+    writeCrash(job.ep, job.threadId, thread ? thread : GetCurrentThread());
+    if (thread) CloseHandle(thread);
+    return 0;
+}
+
+LONG WINAPI onCrash(EXCEPTION_POINTERS* ep) {
+    static LONG once = 0;
+    if (InterlockedExchange(&once, 1)) return EXCEPTION_EXECUTE_HANDLER;
+    // The report is written by a new thread with a stack of its own: after a stack overflow the crashed thread has
+    // too little stack left for it (the minidump was written, and then the report stopped).
+    CrashJob job{ep, GetCurrentThreadId()};
+    if (HANDLE worker = CreateThread(nullptr, 1u << 20, crashWork, &job, 0, nullptr)) {
+        WaitForSingleObject(worker, INFINITE);
+        CloseHandle(worker);
+    } else {
+        writeCrash(ep, job.threadId, GetCurrentThread());
+    }
     return EXCEPTION_EXECUTE_HANDLER;
 }
 
@@ -129,6 +154,8 @@ void raise(DWORD code) { RaiseException(code, EXCEPTION_NONCONTINUABLE, 0, nullp
 
 void installCrashHandler(CrashHandler handler) {
     gHandler = std::move(handler);
+    ULONG guarantee = 64 * 1024;  // the stack that this thread's handler has after a stack overflow (to start the report's thread)
+    SetThreadStackGuarantee(&guarantee);
     SetUnhandledExceptionFilter(onCrash);
     std::set_terminate([] { raise(0xE5D0000B); });
     _set_purecall_handler([] { raise(0xE5D0000C); });

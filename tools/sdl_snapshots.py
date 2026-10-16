@@ -16,8 +16,9 @@ To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (i
 case's options, {map}, {project}, {install} (the --install folder), {root} (the repository), {out} (the --out folder),
 {newdir} (a new empty folder in --out), {kodir} (a new empty folder in --out with Korean letters and spaces in its
 name), {wav} (a short sound that the script writes in --out), {oldsettings} (the settings file of an older release)
-and {legacyhive} (Windows: a registry file with the settings of the releases before the settings file) are paths. A
-run also fails when its output has "(WRONG)", or when the
+and {legacyhive} (Windows: a registry file with the settings of the releases before the settings file) are paths, and
+{script:<name>} is the path of the input script SCRIPTS[name] (main_sdl.cpp's --script), written into --out with the
+same paths in it. A run also fails when its output has "(WRONG)", or when the
 case's function in CHECKS finds a problem in its output.
 """
 
@@ -314,6 +315,11 @@ CASES += [
 # zooms as the wheel (1.2 times a notch); Ctrl too. A pinch zooms around the mouse on each system. Each line says the
 # point in the map view and the camera before and after: CHECKS reads them.
 CASES += [
+    ("map-script-session", ["--script", "{script:session}:3"], "map"),
+    ("map-script-dialogs", ["--mode", "locations", "--drag", "520,640-600,700", "--script", "{script:dialogs}:300"], "map"),
+    ("project-script-reopen", ["--script", "{script:reopen}:6"], "project"),
+]
+CASES += [
     ("map-wheel-zoom", ["--wheel", "700,500,0,1"], "map"),
     ("map-wheel-smooth", ["--wheel", "700,500,0,0.25:precise"], "map"),
     ("map-trackpad-pan", ["--wheel", "700,500,1,-1.5:precise"], "map"),
@@ -510,6 +516,109 @@ CASES += [("update-settings", ["--settings", "{oldsettings}", "--check", "settin
           ("update-checks", ["--check", "crashes", "--check", "filetypes", "--check", "update"], "")]
 if sys.platform == "win32":
     CASES += [("update-registry", ["--settings", "{out}/no-settings.json", "--legacyhive", "{legacyhive}", "--check", "settings"], "")]
+
+
+# A long session (--script <file>[:<times>], apps/editor/sdl_soak.inc): the inputs of a file, the times over. The edits of
+# each mode on (4)Bottleneck (the points above), the zoom, then "undocheck" (the undo steps undone and redone: each redo
+# gives the map again as it was) and the save round trip ({n}: the time over); "stats" says the memory and the undo
+# steps. reopen: the project's Data workspace, the project closes and opens again: the pictures of the closed project go.
+# dialogs: F2's prompt renames the location, 300 times (each prompt is a window of the snapshot: more than 255 of them).
+SCRIPTS = {
+    "dialogs": """key F2
+type Spot {n}
+key Enter
+""",
+    "session": """mode units
+click 1386,429
+click 700,650
+key Esc
+drag 780,110-880,150
+key Ctrl+C
+key Ctrl+V
+move 700,650
+click 700,650
+key Esc
+click 825,128
+drag 825,128-825,168
+key Ctrl+Z
+key Ctrl+Y
+mode doodads
+click 115,600
+click 559,590
+key Esc
+click 559,590
+key Del
+key Ctrl+Z
+mode locations
+drag 520,640-600,700
+mode terrain
+click 202,759
+key B
+drag 520,650-640,690
+key V
+drag 520,640-600,700
+key Ctrl+C
+key Ctrl+V
+move 900,800
+click 900,800
+key Esc
+key Ctrl+Z
+key Esc
+rect
+click 160,660
+key B
+click 560,690
+rect off
+mode units
+wheel 800,500,0,1
+wheel 800,500,0,-1
+undocheck
+roundtrip {out}/session{n}.scx
+stats
+""",
+    "reopen": """workspace data
+wait 0
+workspace map
+key Ctrl+W
+key Esc
+open {project}
+stats
+""",
+}
+
+
+def check_session(output):
+    """None when each time over of the session undid and redid its steps to the same map and saved a map that opens
+    the same, and the undo steps went up; else the reason."""
+    undo = re.findall(r"^undocheck: (\d+) steps undone and redone, (\d+) undo steps: the same map \(yes\)", output, re.M)
+    saved = re.findall(r"^save round-trip: session\d\.scx: .* the saved map is the same \(yes\)", output, re.M)
+    steps = [int(s) for s in re.findall(r"^stats: .*; 128x128, \d+ units, \d+ doodads, undo (\d+),", output, re.M)]
+    if len(undo) != 3 or any(int(n) == 0 for n, _ in undo):
+        return f"{len(undo)} good undo checks, not 3"
+    if len(saved) != 3:
+        return f"{len(saved)} good round trips, not 3"
+    if len(steps) != 3 or not steps[0] < steps[1] < steps[2]:
+        return f"the undo steps of the stats lines: {steps}"
+    return None
+
+
+def check_dialogs(output):
+    """None when each of the 300 prompts renamed the location (the last name is Spot 300); else the reason."""
+    names = re.findall(r'^key F2: .*\n  state: .* name="([^"]*)"', output, re.M)
+    if len(names) != 300 or names[-1] != "Spot 300":
+        return f"{len(names)} renames, the last name {names[-1] if names else None}, not 300 and Spot 300"
+    return None
+
+
+def check_reopen(output):
+    """None when the project opened again each time and the bitmaps with a texture stayed as many (the closed project's
+    Data pictures went); else the reason."""
+    counts = [int(c) for c in re.findall(r"^stats: .*, (\d+) bitmaps [\d.]+ MB; 1 tabs; ", output, re.M)]
+    if len(counts) != 6:
+        return f"{len(counts)} stats lines with one tab, not 6"
+    if counts[-1] > counts[1]:
+        return f"the bitmaps went up from {counts[1]} to {counts[-1]} (the closed project's pictures stay)"
+    return None
 
 
 def check_undo(output):
@@ -1326,7 +1435,8 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "update-settings": check_update_settings, "update-checks": check_update_checks,
           "update-registry": check_settings_read(LEGACY_LINES),
           "map-text-input": check_text_input, "map-text-korean-save": check_korean_save, "map-dialog-tab": check_dialog_tab,
-          "data-tree-typeahead": check_tree_typeahead, "data-file-dialogs": check_file_dialogs}
+          "data-tree-typeahead": check_tree_typeahead, "data-file-dialogs": check_file_dialogs,
+          "map-script-session": check_session, "map-script-dialogs": check_dialogs, "project-script-reopen": check_reopen}
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -1522,8 +1632,15 @@ def main():
             write_old_settings(oldsettings, a.out)
         if any("{legacyhive}" in x for x in args):
             write_legacy_hive(legacyhive)
-        args = [x.format(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
-                         kodir=kodir, wav=wav, oldsettings=oldsettings, legacyhive=legacyhive) for x in args]
+        paths = dict(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
+                     kodir=kodir, wav=wav, oldsettings=oldsettings, legacyhive=legacyhive)
+
+        def script(m):  # {script:<name>}: SCRIPTS[name] with the paths, as a file in --out
+            path = os.path.join(a.out, f"{name}-{m.group(1)}.txt")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(SCRIPTS[m.group(1)].replace("{n}", "\0").format(**paths).replace("\0", "{n}"))
+            return path.replace("{", "{{").replace("}", "}}")
+        args = [re.sub(r"\{script:(\w+)\}", script, x).format(**paths) for x in args]
         if needs == "map" and not given:
             cmd.append(a.map)
         elif needs == "project" and not given:

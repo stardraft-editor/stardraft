@@ -371,7 +371,7 @@ void SdlHost::snapshot(draw::View& root, SDL_GPUTexture* target, int w, int h, S
 SdlHost::Win* SdlHost::shotWin(draw::View& root, int w, int h) {
     if (Win* x = rootWin(root)) return root.attach(this), x;
     auto win = std::make_unique<Win>();
-    win->id = ++shotSeq_;
+    win->id = nextShotId();
     win->root = &root;
     win->router = std::make_unique<draw::Router>(root);
     win->kind = WindowKind::Dialog;
@@ -679,7 +679,7 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
         // A dialog or pop-out from a snapshot's window: a snapshot's window too, in its own pixels (a tooltip: none).
         if (spec.kind == WindowKind::Tooltip) return;
         auto w = std::make_unique<Win>();
-        w->id = ++shotSeq_;
+        w->id = nextShotId();
         w->root = &content;
         w->router = std::make_unique<draw::Router>(content);
         w->kind = spec.kind;
