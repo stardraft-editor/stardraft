@@ -83,7 +83,7 @@ struct SdlMemory {
 
 SdlMemory sdlMemory() {
     SdlMemory m;
-    constexpr double kMb = 1024.0 * 1024.0;
+    [[maybe_unused]] constexpr double kMb = 1024.0 * 1024.0;
 #ifdef _WIN32
     PROCESS_MEMORY_COUNTERS_EX pmc{};
     if (GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc), sizeof pmc))
