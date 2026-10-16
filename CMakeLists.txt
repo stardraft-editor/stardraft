@@ -271,8 +271,11 @@ else()
     add_library(stardraft_platform STATIC apps/common/http_curl.cpp apps/common/crash_report.cpp apps/common/update_posix.cpp)
     target_link_libraries(stardraft_platform PUBLIC stardraft)
 endif()
-if(UNIX AND NOT APPLE)  # Linux and the BSDs: the XDG folders, the desktop portal, notifications, recently used files
-    target_sources(stardraft_platform PRIVATE apps/common/desktop_xdg.cpp)
+if(UNIX AND NOT APPLE)  # Linux and the BSDs: the XDG folders, the desktop portal, notifications, recently used files,
+    # one program for all maps (a socket), the crash handler (signals)
+    target_sources(stardraft_platform PRIVATE apps/common/desktop_xdg.cpp apps/common/crash_posix.cpp)
+    find_package(Threads REQUIRED)
+    target_link_libraries(stardraft_platform PUBLIC Threads::Threads)
     target_link_libraries(stardraft_platform PUBLIC ${CMAKE_DL_LIBS})  # (libdbus-1 is loaded at run time)
 endif()
 target_include_directories(stardraft_platform PUBLIC apps/common)

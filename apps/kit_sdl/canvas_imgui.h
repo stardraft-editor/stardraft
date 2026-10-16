@@ -50,6 +50,9 @@ int iconAtlasCell(int icon, int px);
 // The program's own picture `id` (Canvas::resourceIcon; 1: the app icon) from an .ico (its largest PNG image) or a PNG
 // file. False when it could not be read. unloadIconAtlases() releases its textures too.
 bool loadResourceIcon(int id, const std::string& file);
+// The window's icon (X11's _NET_WM_ICON: the task bar's and Alt+Tab's picture) from the picture `id` that
+// loadResourceIcon read. False when there is none.
+bool setWindowIcon(SDL_Window* window, int id);
 // A canvas for measuring text outside a paint (a window's size for its text), in the fonts that loadFonts loaded. It
 // draws nothing.
 draw::Canvas& measuringCanvas();

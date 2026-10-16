@@ -36,7 +36,7 @@ const char* releaseAssetSuffix() {
 #ifdef __APPLE__
     return "-macos-universal.app.tar.gz";
 #else
-    return "-linux-x86_64.tar.gz";
+    return "-x86_64.AppImage";  // (the Linux download of a release is the AppImage: tools/ci/linux_appimage.sh)
 #endif
 }
 

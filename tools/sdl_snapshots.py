@@ -16,7 +16,8 @@ To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (i
 case's options, {map}, {project}, {install} (the --install folder), {root} (the repository), {out} (the --out folder),
 {newdir} (a new empty folder in --out), {kodir} (a new empty folder in --out with Korean letters and spaces in its
 name), {wav} (a short sound that the script writes in --out), {oldsettings} (the settings file of an older release)
-and {legacyhive} (Windows: a registry file with the settings of the releases before the settings file) are paths, and
+and {legacyhive} (Windows: a registry file with the settings of the releases before the settings file) and {release}
+(GitHub's JSON of a newer release, with a download for each system) are paths, and
 {script:<name>} is the path of the input script SCRIPTS[name] (main_sdl.cpp's --script), written into --out with the
 same paths in it. A run also fails when its output has "(WRONG)", or when the
 case's function in CHECKS finds a problem in its output.
@@ -430,14 +431,15 @@ def check_text_input(output):
     """The composition shows in the field (not in its text) with the input method's area at the caret; the commit, the
     keys, the clipboard and Undo give the texts in order."""
     first = "abc\ud55c\uad6d \u041f\u0440\u0438\u0432\u0435\u0442 \u4f60\u597d "
+    end = 18 if sys.platform == "win32" else 17  # (the places count wchar_t: UTF-16 on Windows, there the emoji is two)
     return expect_focus(output, [
         ("type abc", "abc", (3, 3), ""),
         ("ime \u314e", "abc", (3, 3), "\u314e"),
         ("ime \ud55c", "abc", (3, 3), "\ud55c"),
         ("ime \ud55c\u3131@1", "abc", (3, 3), "\ud55c\u3131"),
         ("type \ud55c\uad6d", "abc\ud55c\uad6d", (5, 5), ""),
-        ("type  \u041f\u0440\u0438\u0432\u0435\u0442 \u4f60\u597d \U0001f600", first + "\U0001f600", (18, 18), ""),
-        ("key Backspace", first, (16, 16), ""),  # (the emoji: two UTF-16 units, one Backspace)
+        ("type  \u041f\u0440\u0438\u0432\u0435\u0442 \u4f60\u597d \U0001f600", first + "\U0001f600", (end, end), ""),
+        ("key Backspace", first, (16, 16), ""),  # (the emoji: one Backspace)
         ("key Shift+Home", first, (0, 16), ""),
         ("key Ctrl+C", first, (0, 16), ""),
         ("key End", first, (16, 16), ""),
@@ -513,7 +515,10 @@ def check_file_dialogs(output):
 # file of its own, never the user's registry). --check update: the old program's file and the list of files to open
 # again are gone; crashes and filetypes: the crash reports' state and the file types (read only).
 CASES += [("update-settings", ["--settings", "{oldsettings}", "--check", "settings", "--check", "update"], ""),
-          ("update-checks", ["--check", "crashes", "--check", "filetypes", "--check", "update"], "")]
+          ("update-checks", ["--check", "crashes", "--check", "filetypes", "--check", "update"], ""),
+          # Check for updates with a release of a test ({release}: GitHub's JSON of a release with the downloads of each
+          # system; no network): the newer release, this system's download, and what Check for updates does.
+          ("update-release", ["--check", "release:{release}"], "")]
 if sys.platform == "win32":
     CASES += [("update-registry", ["--settings", "{out}/no-settings.json", "--legacyhive", "{legacyhive}", "--check", "settings"], "")]
 
@@ -1383,6 +1388,44 @@ def check_update_settings(output):
     return None
 
 
+RELEASE_DOWNLOADS = {"win32": "StarDraft-9.9.9.9-win64.zip", "darwin": "StarDraft-9.9.9.9-macos-universal.app.tar.gz",
+                     "linux": "StarDraft-9.9.9.9-x86_64.AppImage"}
+
+
+def write_release(path):
+    """GitHub's JSON of a release ({release}), as releases/latest gives it: a newer build, a download for each system."""
+    import json
+    base = "https://github.com/stardraft-editor/stardraft/releases/download/v9.9.9.9/"
+    assets = [{"url": f"https://api.github.com/repos/stardraft-editor/stardraft/releases/assets/{100 + k}", "name": name,
+               "browser_download_url": base + name} for k, name in enumerate(RELEASE_DOWNLOADS.values())]
+    release = {"url": "https://api.github.com/repos/stardraft-editor/stardraft/releases/1",
+               "html_url": "https://github.com/stardraft-editor/stardraft/releases/tag/v9.9.9.9",
+               "tag_name": "v9.9.9.9", "name": "StarDraft 2 - v9.9.9.9 (build 0abc123)", "assets": assets}
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(release, f, indent=2)  # (indented, as GitHub gives it to a request without a token)
+
+
+def check_update_release(output):
+    """None when the release of the test is newer, its download is this system's (Linux: the AppImage, not an .exe or
+    a zip) and Check for updates opens the release page or the download (or installs it, a release build on Windows)."""
+    if "release: StarDraft 2 - v9.9.9.9 (build 0abc123), build 0abc123, newer yes" not in output:
+        return "the release is not read, or not newer"
+    want = RELEASE_DOWNLOADS.get(sys.platform if sys.platform in ("win32", "darwin") else "linux")
+    m = re.search(r"^release: this system's download \([^)]*\) (\S+)$", output, re.M)
+    if not m or not m.group(1).endswith("/" + want):
+        return f"this system's download is {m.group(1) if m else 'none'}, not {want}"
+    m = re.search(r"^release: Check for updates (.*): (\S+)$", output, re.M)
+    if not m:
+        return "no Check for updates line"
+    if m.group(1) == "opens the release page" and not m.group(2).endswith("/releases/tag/v9.9.9.9"):
+        return f"the release page is {m.group(2)}"
+    if m.group(1) == "opens the download" and not m.group(2).endswith("/" + want):
+        return f"the download is {m.group(2)}"
+    if m.group(1) not in ("opens the release page", "opens the download", "installs it"):
+        return f"Check for updates {m.group(1)}"
+    return None
+
+
 def check_update_checks(output):
     """None when the crash reports, the file types and the update each printed their lines."""
     for prefix in ("crashes: ", "filetypes: ", "update: "):
@@ -1432,7 +1475,7 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "drop-sound-assets": check_drop("Imported 1 sounds"), "drop-image-assets": check_drop("Did not import atlas-16.png"),
           "check-dock": check_dock, "map-check-desktop": check_desktop, "dialog-options-tab-general": check_options_tab, "dialog-options-tab-map": check_options_tab,
           "dialog-options-tab-start": check_options_tab, "dialog-options-tab-folders": check_options_tab,
-          "update-settings": check_update_settings, "update-checks": check_update_checks,
+          "update-settings": check_update_settings, "update-checks": check_update_checks, "update-release": check_update_release,
           "update-registry": check_settings_read(LEGACY_LINES),
           "map-text-input": check_text_input, "map-text-korean-save": check_korean_save, "map-dialog-tab": check_dialog_tab,
           "data-tree-typeahead": check_tree_typeahead, "data-file-dialogs": check_file_dialogs,
@@ -1632,8 +1675,11 @@ def main():
             write_old_settings(oldsettings, a.out)
         if any("{legacyhive}" in x for x in args):
             write_legacy_hive(legacyhive)
+        release = os.path.join(a.out, "release.json")
+        if any("{release}" in x for x in args):
+            write_release(release)
         paths = dict(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
-                     kodir=kodir, wav=wav, oldsettings=oldsettings, legacyhive=legacyhive)
+                     kodir=kodir, wav=wav, oldsettings=oldsettings, legacyhive=legacyhive, release=release)
 
         def script(m):  # {script:<name>}: SCRIPTS[name] with the paths, as a file in --out
             path = os.path.join(a.out, f"{name}-{m.group(1)}.txt")

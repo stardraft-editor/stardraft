@@ -1,7 +1,8 @@
 // --noactivate, --frames and --wintest: tests of the real window (not a snapshot), which never take the user's desktop.
 // --noactivate: the windows do not take the keyboard focus and do not come to the front (SdlHost::setNoActivate,
 // SDL_HINT_WINDOW_ACTIVATE_WHEN_SHOWN), the run is a test run (no sound, the default settings, nothing saved, no file
-// types), and the pipe that a second program sends its map on is a test pipe of its own (shell_sdl_win.inc: pipeName).
+// types), and the pipe that a second program sends its map on is a test pipe of its own (shell_sdl_win.inc: pipeName;
+// Linux and the BSDs: a test socket of its own, sdl_xdg.inc: instanceSocket).
 // --frames N: the program ends after N frames went to the window. --wintest <map>: the checks below, in the window,
 // one after the other; each prints what it saw (a "(WRONG)" line when it is not right), then the program ends (exit
 // code 1 when a check was wrong). Included by main_sdl.cpp before main().
@@ -68,6 +69,8 @@ struct WinTest {
     std::wstring mapPath;
 #ifdef _WIN32
     PROCESS_INFORMATION second{};
+#elif defined(STARDRAFT_XDG)
+    SDL_Process* second = nullptr;
 #endif
 } gWinTest;
 
@@ -152,6 +155,12 @@ void sdlWinTestPump() {
         const HICON cls = HICON(GetClassLongPtrW(hwnd, GCLP_HICON));
         std::snprintf(buf, sizeof buf, "taskbar icon: WM_GETICON big %s, small %s, class icon %s", big ? "yes" : "no", little ? "yes" : "no", cls ? "yes" : "no");
         winTestLine(big || cls, buf);
+#elif defined(STARDRAFT_XDG)
+        // The app id (Wayland) and WM_CLASS (X11) that the dock and the task bar find the .desktop file with.
+        const char* appId = SDL_GetHint(SDL_HINT_APP_ID);
+        winTestLine(appId && std::string(appId) == stardraft::xdg::kAppId,
+                    std::string("app id ") + (appId ? appId : "none") + ", video driver " + (SDL_GetCurrentVideoDriver() ? SDL_GetCurrentVideoDriver() : "?"));
+        winTestLine(!(SDL_GetWindowFlags(w) & SDL_WINDOW_INPUT_FOCUS), "focus: the test window does not have the keyboard focus");
 #endif
         int pw = 0, ph = 0;
         SDL_GetWindowSizeInPixels(w, &pw, &ph);
@@ -209,7 +218,12 @@ void sdlWinTestPump() {
         const bool minimized = (SDL_GetWindowFlags(w) & SDL_WINDOW_MINIMIZED) != 0;
         std::snprintf(buf, sizeof buf, "minimized: %s, %lld frames presented, %lld turns without a swapchain texture, %lld turns in 1 s",
                       minimized ? "yes" : "no", gHost->presentedFrames() - t.framesAt, gHost->missedFrames() - t.missedAt, t.pumps);
-        winTestLine(minimized && gHost->presentedFrames() - t.framesAt <= 1 && t.pumps <= 40, buf);  // (nothing is painted after the frame of that turn: SdlHost::pump)
+#ifdef _WIN32
+        const long long framesWhileMinimizing = 1;  // (nothing is painted after the frame of that turn: SdlHost::pump)
+#else
+        const long long framesWhileMinimizing = 2;  // (X11: the window manager minimizes the window after a round trip)
+#endif
+        winTestLine(minimized && gHost->presentedFrames() - t.framesAt <= framesWhileMinimizing && t.pumps <= 40, buf);
 #ifdef _WIN32
         ShowWindow(hwnd, SW_SHOWNOACTIVATE);
 #else
@@ -220,7 +234,13 @@ void sdlWinTestPump() {
     }
     case 6: {  // restored
         if (!winTestWaited(500, 5)) {
-            if (SDL_GetTicks() - t.since > 5000) winTestLine(false, "restored: no frames in 5 s"), winTestNext();
+            if (SDL_GetTicks() - t.since > 5000) {
+                std::snprintf(buf, sizeof buf, "restored: %lld frames in 5 s, minimized %s, %lld turns without a swapchain texture",
+                              gHost->presentedFrames() - t.framesAt, (SDL_GetWindowFlags(w) & SDL_WINDOW_MINIMIZED) ? "yes" : "no",
+                              gHost->missedFrames() - t.missedAt);
+                winTestLine(false, buf);
+                t.step = 98;  // (the next checks need frames: the end)
+            }
             return;
         }
         const int colors = winTestMapColors();
@@ -267,6 +287,16 @@ void sdlWinTestPump() {
             t.step = 99;
             return;
         }
+#elif defined(STARDRAFT_XDG)
+        // A second program with a map: it gives the map to this one through the socket and ends.
+        const std::string self = narrow(stardraft::platform::programFile().wstring());
+        const char* args[] = {self.c_str(), "--noactivate", gWinTestMap.c_str(), nullptr};
+        t.second = SDL_CreateProcess(args, false);
+        if (!t.second) {
+            winTestLine(false, std::string("socket: the second program did not start: ") + SDL_GetError());
+            t.step = 99;
+            return;
+        }
 #endif
         winTestNext();
         return;
@@ -295,6 +325,27 @@ void sdlWinTestPump() {
         const std::string title = winTestTitle(w);
         winTestLine(title.find(narrow(want.filename().wstring())) != std::string::npos, "pipe: title \"" + title + "\"");
         winTestLine(GetForegroundWindow() != hwnd, "pipe: the window did not come to the front (a test)");
+#elif defined(STARDRAFT_XDG)
+        if (t.second) {
+            int code = 99;
+            if (!SDL_WaitProcess(t.second, false, &code)) {
+                if (SDL_GetTicks() - t.since < 20000) return;
+                SDL_KillProcess(t.second, true);  // (the test's own second program)
+                winTestLine(false, "socket: the second program did not end in 20 s");
+            } else {
+                std::snprintf(buf, sizeof buf, "socket: the second program ended with %d after %llu ms", code, (unsigned long long)(SDL_GetTicks() - t.since));
+                winTestLine(code == 0, buf);
+            }
+            SDL_DestroyProcess(t.second);
+            t.second = nullptr;
+        }
+        std::error_code ec;
+        const fs::path want = fs::absolute(widen(gWinTestMap), ec);
+        const bool opened = gState.ed && gState.ed->isOpen() && fs::equivalent(gState.ed->path(), want, ec);
+        if (!opened && SDL_GetTicks() - t.since < 25000) return;
+        winTestLine(opened, "socket: the open map is " + (gState.ed ? narrow(gState.ed->path().wstring()) : std::string("none")));
+        const std::string title = winTestTitle(w);
+        winTestLine(title.find(narrow(want.filename().wstring())) != std::string::npos, "socket: title \"" + title + "\"");
 #endif
         winTestNext();
         return;

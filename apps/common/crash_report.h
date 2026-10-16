@@ -1,6 +1,7 @@
 #pragma once
 
-// Crash reports. The system part (crash_win32.cpp; a signal handler on other systems later) catches the crash and
+// Crash reports. The system part (crash_win32.cpp; crash_posix.cpp on Linux and the BSDs: a signal handler; none on
+// macOS yet) catches the crash and
 // writes <folder>/<time>/report.txt (the program's lines, where it crashed, the stack) and, on Windows, crash.dmp.
 // The portable part (crash_report.cpp) sends a report to GitHub as an issue, or as a comment on the open issue of the
 // same crash. What the user is asked and told stays in the program.

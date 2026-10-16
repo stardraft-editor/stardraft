@@ -5,9 +5,13 @@
 #include "desktop_xdg.h"
 
 #include <dlfcn.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/un.h>
 #include <unistd.h>
 
 #include <cctype>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -15,6 +19,7 @@
 #include <fstream>
 #include <sstream>
 #include <system_error>
+#include <thread>
 #include <type_traits>
 
 namespace fs = std::filesystem;
@@ -459,6 +464,99 @@ bool addRecent(const fs::path& xbel, const fs::path& file, const std::string& mi
         fs::remove(tmp, ec);
         return false;
     }
+    return true;
+}
+
+// --- One program for all maps ---
+
+fs::path instanceSocket(const std::string& name) {
+    std::error_code ec;
+    fs::path dir;
+    if (const char* run = std::getenv("XDG_RUNTIME_DIR"); run && *run == '/' && fs::is_directory(run, ec)) {
+        dir = run;
+        // (a Flatpak: $XDG_RUNTIME_DIR is the sandbox's own; app/<id> is shared by all of the app's sandboxes)
+        const char* id = std::getenv("FLATPAK_ID");
+        if (inFlatpak() && id && *id && fs::is_directory(dir / "app" / id, ec)) dir = dir / "app" / id;
+    } else {
+        dir = "/tmp/stardraft-" + std::to_string(getuid());
+        mkdir(dir.c_str(), 0700);
+        struct stat st{};
+        // (a folder that another user made, or that others can open, is not used)
+        if (lstat(dir.c_str(), &st) != 0 || !S_ISDIR(st.st_mode) || st.st_uid != getuid() || (st.st_mode & 077) != 0) return {};
+    }
+    const fs::path p = dir / name;
+    return p.string().size() < sizeof(sockaddr_un{}.sun_path) ? p : fs::path();
+}
+
+namespace {
+
+bool socketAddress(const fs::path& socket, sockaddr_un& a) {
+    a = {};
+    a.sun_family = AF_UNIX;
+    const std::string s = socket.string();
+    if (s.empty() || s.size() >= sizeof a.sun_path) return false;
+    std::memcpy(a.sun_path, s.c_str(), s.size() + 1);
+    return true;
+}
+
+// A connection to the program that listens on `socket` (-1: none listens).
+int connectTo(const fs::path& socket) {
+    sockaddr_un a;
+    if (!socketAddress(socket, a)) return -1;
+    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    if (fd < 0) return -1;
+    if (connect(fd, reinterpret_cast<const sockaddr*>(&a), sizeof a) != 0) {
+        close(fd);
+        return -1;
+    }
+    return fd;
+}
+
+}  // namespace
+
+bool sendToInstance(const fs::path& socket, const std::string& text) {
+    const int fd = connectTo(socket);
+    if (fd < 0) return false;
+    size_t sent = 0;
+    while (sent < text.size()) {
+        const ssize_t n = ::send(fd, text.data() + sent, text.size() - sent, MSG_NOSIGNAL);
+        if (n <= 0) break;
+        sent += size_t(n);
+    }
+    shutdown(fd, SHUT_WR);
+    char done;
+    while (recv(fd, &done, 1, 0) > 0) {}  // (until the open program has read it all and closes the connection)
+    close(fd);
+    return sent == text.size();
+}
+
+bool listenAsInstance(const fs::path& socket, std::function<void(std::string)> got) {
+    sockaddr_un a;
+    if (!socketAddress(socket, a)) return false;
+    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    if (fd < 0) return false;
+    if (bind(fd, reinterpret_cast<const sockaddr*>(&a), sizeof a) != 0) {
+        // The file is there: another program listens (it stays the first), or a program that ended left the file.
+        if (errno != EADDRINUSE) return close(fd), false;
+        if (const int other = connectTo(socket); other >= 0) return close(other), close(fd), false;
+        unlink(a.sun_path);
+        if (bind(fd, reinterpret_cast<const sockaddr*>(&a), sizeof a) != 0) return close(fd), false;
+    }
+    if (listen(fd, 8) != 0) return close(fd), false;
+    std::thread([fd, got = std::move(got)] {
+        for (;;) {
+            const int c = accept4(fd, nullptr, nullptr, SOCK_CLOEXEC);
+            if (c < 0) {
+                if (errno == EINTR || errno == ECONNABORTED) continue;
+                return;
+            }
+            std::string text;
+            char buf[4096];
+            for (ssize_t n; (n = recv(c, buf, sizeof buf, 0)) > 0 && text.size() < (1u << 20);) text.append(buf, size_t(n));
+            close(c);
+            if (!text.empty()) got(std::move(text));  // (an empty one: a program that looked if this one listens)
+        }
+    }).detach();
     return true;
 }
 

@@ -2039,6 +2039,9 @@ constexpr UiText kRows[] = {
     {L"Edit StarCraft maps and EUD projects", L"StarCraft \uB9F5\uACFC EUD \uD504\uB85C\uC81D\uD2B8\uB97C \uD3B8\uC9D1\uD569\uB2C8\uB2E4"},
     {L"Edit the terrain, units, locations and triggers of StarCraft maps. Build EUD maps with euddraft.", L"StarCraft \uB9F5\uC758 \uC9C0\uD615, \uC720\uB2DB, \uC704\uCE58, \uD2B8\uB9AC\uAC70\uB97C \uD3B8\uC9D1\uD569\uB2C8\uB2E4. euddraft\uB85C EUD \uB9F5\uC744 \uBE4C\uB4DC\uD569\uB2C8\uB2E4."},
     {L"StarDraft project", L"StarDraft \uD504\uB85C\uC81D\uD2B8"},
+    {L"Download the new AppImage?", L"\uC0C8 AppImage\uB97C \uB2E4\uC6B4\uB85C\uB4DC\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?"},
+    {L"&Download", L"\uB2E4\uC6B4\uB85C\uB4DC(&D)"},
+    {L"Update StarDraft 2 in your software center.", L"\uC18C\uD504\uD2B8\uC6E8\uC5B4 \uC13C\uD130\uC5D0\uC11C StarDraft 2\uB97C \uC5C5\uB370\uC774\uD2B8\uD558\uC2ED\uC2DC\uC624."},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

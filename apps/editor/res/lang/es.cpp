@@ -2039,6 +2039,9 @@ constexpr UiText kRows[] = {
     {L"Edit StarCraft maps and EUD projects", L"Edita mapas de StarCraft y proyectos EUD"},
     {L"Edit the terrain, units, locations and triggers of StarCraft maps. Build EUD maps with euddraft.", L"Edita el terreno, las unidades, las ubicaciones y los disparadores de los mapas de StarCraft. Compila mapas EUD con euddraft."},
     {L"StarDraft project", L"Proyecto de StarDraft"},
+    {L"Download the new AppImage?", L"\u00BFDescargar la nueva AppImage?"},
+    {L"&Download", L"&Descargar"},
+    {L"Update StarDraft 2 in your software center.", L"Actualice StarDraft 2 en su centro de software."},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

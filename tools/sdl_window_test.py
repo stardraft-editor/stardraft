@@ -9,7 +9,9 @@ minimize and restore (nothing is painted while minimized), a dialog's title and 
 gives <map2> to the first through the single-instance pipe (a test pipe of its own) and ends. Each check prints a line;
 a "(WRONG)" line or an exit code other than 0 fails. The settings are in a new temporary folder (STARDRAFT_SETTINGS,
 APPDATA, LOCALAPPDATA), so the user's settings, recent files and file types stay as they are. Needs a desktop (not
-SDL_VIDEODRIVER=offscreen); on Windows only, the title bar, icon and pipe checks run.
+SDL_VIDEODRIVER=offscreen); on Windows only, the title bar, icon and pipe checks run; on Linux and the BSDs, the app id,
+the focus and the single-instance socket checks (sdl_xdg.inc). Linux: give the program an X server of its own with a
+window manager (Xvfb and openbox: minimize needs one), never the user's desktop; XDG_RUNTIME_DIR in a new folder too.
 """
 import argparse
 import os
@@ -31,7 +33,9 @@ def main():
     env = dict(os.environ)
     env.pop("SDL_VIDEODRIVER", None)  # (a real window)
     folder = tempfile.mkdtemp(prefix="stardraft-wintest-")  # (a new folder each run)
-    for name, sub in (("STARDRAFT_SETTINGS", "settings"), ("APPDATA", "appdata"), ("LOCALAPPDATA", "localappdata")):
+    # (Linux and the BSDs: the XDG folders too: the data, the cache with the tile colors, the crash reports)
+    for name, sub in (("STARDRAFT_SETTINGS", "settings"), ("APPDATA", "appdata"), ("LOCALAPPDATA", "localappdata"),
+                      ("XDG_DATA_HOME", "data"), ("XDG_CACHE_HOME", "cache"), ("XDG_STATE_HOME", "state")):
         env[name] = os.path.join(folder, sub)
         os.makedirs(env[name])
     cmd = [os.path.abspath(a.exe), a.map, "--wintest", a.map2] + (["--install", a.install] if a.install else []) + a.args
