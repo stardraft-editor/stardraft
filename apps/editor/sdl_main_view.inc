@@ -291,7 +291,9 @@ struct MainView final : draw::View {
         // Esc while a trigger waits for a unit picked on the map: back to the triggers (the Windows cancelStep).
         if (e.down && e.key == draw::Key::Escape && trigUnitPickActive()) return trigCancelUnitPick(), true;
         if (shortcutRun(e)) return true;  // (the menus' keys first, as the Windows accelerators run before the map's keys)
-        return e.down && !typing && map.shown() && mapKey(e);
+        // The map's keys (Esc, R, the arrows) run only when the map has the keyboard, or no view has it (as the Windows
+        // map window's WM_KEYDOWN): Left or Right in a list does not move the selected units.
+        return e.down && !typing && map.shown() && (map.hasFocus() || !hasFocusIn(*this)) && mapKey(e);
     }
 
     // A right click on the minimap, the tool strip or the modes' bar (the Windows main window's WM_CONTEXTMENU): the
