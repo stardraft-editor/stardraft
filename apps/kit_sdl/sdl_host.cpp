@@ -574,7 +574,7 @@ void SdlHost::closeTree(SDL_WindowID id) {
 }
 
 bool SdlHost::inModal(SDL_WindowID id) const {
-    if (!modal_) return true;
+    if (!modal_) return sheets_ == 0;  // (a sheet: no window takes input; a dialog that opens over it does)
     while (id) {
         if (id == modal_) return true;
         const Win* w = findWin(id);
@@ -814,7 +814,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
         quit_ = true;
         return;
     case SDL_EVENT_DROP_FILE:
-        if (drop_ && !modal_ && e.drop.data && *e.drop.data) drop_(e.drop.data);
+        if (drop_ && !modal_ && !sheets_ && e.drop.data && *e.drop.data) drop_(e.drop.data);
         return;
     case SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
         Win* w = findWin(wid);

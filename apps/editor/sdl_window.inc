@@ -1,8 +1,8 @@
 // The main window as a document window of the system (mac_window.h; included by main_sdl.cpp before sdl_options.inc).
 // On macOS: the title bar shows the open map or project (the proxy icon) and the edited dot when it has changes, the
 // window goes full screen and into Split View with the green button, the message boxes about the window are alert
-// sheets on it, the maps that open go to the system's recent documents, and the theme, the accent color and the rail's
-// color follow the system (Program options > Automatic). On Windows and Linux the seam's functions do nothing.
+// sheets on it, and the theme, the accent color and the rail's color follow the system (Program options > Automatic).
+// On Windows and Linux the seam's functions do nothing.
 
 SDL_Window* gMainWindow = nullptr;  // the program's main window, after host.show (none in a snapshot)
 
@@ -89,8 +89,10 @@ MacAlert sdlSheetSpec(const std::wstring& caption, const msgbox::Box& box, std::
 
 // The message box as a sheet on the main window (msgbox::hostBox): only for a box from a view of the main window.
 // Waits for the answer as the box's own window does (the frames go on); quitting first answers with the cancel button.
+// While it waits, the program is modal (SdlHost::modalOpen): no window takes input and no file opens from the system.
+// A box while a dialog or a sheet is open is the kit's box.
 int sdlSheetBox(draw::View& from, const std::wstring& caption, const msgbox::Box& box) {
-    if (!gMainWindow || !gHost || !gRoot) return -1;
+    if (!gMainWindow || !gHost || !gRoot || gHost->modalOpen()) return -1;
     const draw::View* top = &from;
     while (top->parent()) top = top->parent();
     if (top != gRoot) return -1;  // (a box over a dialog or a pop-out: the kit's box, over that window)
@@ -98,7 +100,9 @@ int sdlSheetBox(draw::View& from, const std::wstring& caption, const msgbox::Box
     const MacAlert spec = sdlSheetSpec(caption, box, order);
     auto answer = std::make_shared<int>(-2);
     if (!macBeginSheet(gMainWindow, spec, [answer](int k) { *answer = k; })) return -1;
+    gHost->setSheetOpen(true);
     gHost->waitUntil([answer] { return *answer != -2; });
+    gHost->setSheetOpen(false);
     const int k = *answer;
     return k >= 0 && k < int(order.size()) ? order[size_t(k)] : box.cancel;
 }
@@ -166,14 +170,6 @@ void sdlWindowFrame() {
     sdlWindowDocumentSync();
     sdlFollowSystemLook();
 }
-// The system's recent documents get the map that is first in File > Open recent (when it changes; not in a test run).
-void sdlNoteRecentMap() {
-    static std::wstring noted;
-    if (gSilent || gRecentMaps.empty() || gRecentMaps.front() == noted) return;
-    noted = gRecentMaps.front();
-    macNoteRecent(narrow(noted));
-}
-
 // --check window: what the window and the look are (after a snapshot: a hidden window of its own on macOS, the map of
 // the run as its file, with changes), and the sheet of the save question (each system: the alert that macOS shows).
 void sdlWindowCheck(const std::string& mapPath) {

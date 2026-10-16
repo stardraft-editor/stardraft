@@ -96,19 +96,6 @@ void macSetWindowDark(SDL_Window* w, bool dark) {
     }
 }
 
-void macNoteRecent(const std::string& path) {
-    @autoreleasepool {
-        if (path.empty()) return;
-        [[NSDocumentController sharedDocumentController] noteNewRecentDocumentURL:[NSURL fileURLWithPath:nsText(path)]];
-    }
-}
-
-void macClearRecents() {
-    @autoreleasepool {
-        [[NSDocumentController sharedDocumentController] clearRecentDocuments:nil];
-    }
-}
-
 bool macSystemDark() {
     @autoreleasepool {
         NSAppearance* a = [NSApp effectiveAppearance];

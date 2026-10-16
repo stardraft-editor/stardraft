@@ -119,6 +119,12 @@ public:
     // A Dialog spec (or a Menu or Tooltip): a dialog window of its own. A Popup spec: a modal pop-out at spec.at; a
     // press outside it only closes it (the press and its release do not go to the window under the mouse).
     void runModal(draw::View& from, draw::View& content, const draw::WindowSpec& spec) override;
+    // A system sheet waits on the main window (macOS: a message box as an alert sheet, while its caller waits in
+    // waitUntil). Until it closes, as for a modal dialog: the windows take no input and a dropped file does nothing.
+    void setSheetOpen(bool open) { sheets_ += open ? 1 : -1; }
+    // A modal dialog or pop-out is open (runModal), or a sheet (setSheetOpen): the other windows wait (macOS: the menu
+    // bar's commands, and the maps that the Dock or Spotlight opens, too).
+    bool modalOpen() const { return modal_ != 0 || sheets_ > 0; }
     void forget(const draw::View& v) override;
 
 private:
@@ -160,6 +166,7 @@ private:
     std::function<void()> beforePump_;  // setBeforePump
     bool animating_ = false;
     SDL_WindowID modal_ = 0;  // the dialog that takes all input (runModal), or 0
+    int sheets_ = 0;          // the system sheets that are open (setSheetOpen)
     Uint8 eatUp_ = 0;  // the mouse button whose release goes to no view (its press closed a modal pop-out), or 0
     SDL_WindowID mainId_ = 0;  // the window show() made first (the program's main window), or 0
     std::function<void()> quitRequest_;  // setQuitRequest

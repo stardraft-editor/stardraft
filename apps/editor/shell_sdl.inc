@@ -263,11 +263,7 @@ int shellTabSideMenu(const std::wstring& title, int side) {
     gHost->waitUntil([pick] { return pick->closed; });
     return pick->id;
 }
-// (the lists are the menus' own: sdl_menus.inc; on macOS the newest map also goes to the system's recent documents)
-void shellRecentMenu(bool projects, const std::vector<std::wstring>&, const std::wstring&) {
-    gMenusDirty = true;
-    if (!projects) sdlNoteRecentMap();
-}
+void shellRecentMenu(bool, const std::vector<std::wstring>&, const std::wstring&) { gMenusDirty = true; }  // (the lists are the menus' own: sdl_menus.inc)
 void shellShowQuickPicker(bool replace, bool open) { showQuickPickerSdl(replace, open); }  // (sdl_map_dialogs.inc)
 // (shellMapFileOpened: shell_sdl_win.inc; the file association is Windows only)
 
