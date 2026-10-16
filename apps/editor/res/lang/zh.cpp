@@ -2017,6 +2017,9 @@ constexpr UiText kRows[] = {
     {L"Could not find StarCraft on your system.", L"\u5728\u60A8\u7684\u7CFB\u7EDF\u4E0A\u627E\u4E0D\u5230 StarCraft\u3002"},
     {L"That folder has no StarCraft game data.", L"\u8BE5\u6587\u4EF6\u5939\u4E2D\u6CA1\u6709 StarCraft \u6E38\u620F\u6570\u636E\u3002"},
     {L"Select the StarCraft folder", L"\u9009\u62E9 StarCraft \u6587\u4EF6\u5939"},
+    {L"Dark theme", L"\u6DF1\u8272\u4E3B\u9898"},
+    {L"The theme of the system, dark or light (default)", L"\u7CFB\u7EDF\u7684\u4E3B\u9898\uFF0C\u6DF1\u8272\u6216\u6D45\u8272\uFF08\u9ED8\u8BA4\uFF09"},
+    {L"Automatic (the color of the system)", L"\u81EA\u52A8\uFF08\u7CFB\u7EDF\u989C\u8272\uFF09"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

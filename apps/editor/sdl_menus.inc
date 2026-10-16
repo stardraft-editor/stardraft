@@ -836,6 +836,7 @@ void commandSdl(int id) {
     case ID_RECENT_CLEAR_MAPS:
     case ID_RECENT_CLEAR_PROJECTS:
         (id == ID_RECENT_CLEAR_MAPS ? gRecentMaps : gRecentProjects).clear();
+        if (id == ID_RECENT_CLEAR_MAPS && !gSilent) macClearRecents();  // (macOS: the system's list of the maps too)
         saveRecent();
         gMenusDirty = true;
         return;

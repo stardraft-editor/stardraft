@@ -263,7 +263,11 @@ int shellTabSideMenu(const std::wstring& title, int side) {
     gHost->waitUntil([pick] { return pick->closed; });
     return pick->id;
 }
-void shellRecentMenu(bool, const std::vector<std::wstring>&, const std::wstring&) { gMenusDirty = true; }  // (the lists are the menus' own: sdl_menus.inc)
+// (the lists are the menus' own: sdl_menus.inc; on macOS the newest map also goes to the system's recent documents)
+void shellRecentMenu(bool projects, const std::vector<std::wstring>&, const std::wstring&) {
+    gMenusDirty = true;
+    if (!projects) sdlNoteRecentMap();
+}
 void shellShowQuickPicker(bool replace, bool open) { showQuickPickerSdl(replace, open); }  // (sdl_map_dialogs.inc)
 // (shellMapFileOpened: shell_sdl_win.inc; the file association is Windows only)
 
@@ -277,7 +281,13 @@ std::wstring shellBuildStamp() { return widen(std::string("built ") + __DATE__ +
 void shellSetTitle(const std::wstring& title) {
     int n = 0;
     SDL_Window** wins = SDL_GetWindows(&n);
-    for (int i = 0; wins && i < n; ++i) SDL_SetWindowTitle(wins[i], narrow(title).c_str());
+#ifdef __APPLE__
+    // (the close button's dot shows the changes: the title has no "* ")
+    const std::string shown = narrow(title.rfind(L"* ", 0) == 0 ? title.substr(2) : title);
+#else
+    const std::string shown = narrow(title);
+#endif
+    for (int i = 0; wins && i < n; ++i) SDL_SetWindowTitle(wins[i], shown.c_str());
     SDL_free(wins);
 }
 bool shellHasRail() { return true; }  // (the workspace rail: the Map workspace's items, as the core lists them)
