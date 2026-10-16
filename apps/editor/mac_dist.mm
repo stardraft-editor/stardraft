@@ -93,7 +93,8 @@ void macHandleSpotlightOpens(void (*open)(const std::string&)) {
     if ([delegate respondsToSelector:sel]) return;  // (SDL's delegate has its own: it stays)
     const objc_method_description d = protocol_getMethodDescription(@protocol(NSApplicationDelegate), sel, NO, YES);
     if (!d.types) return;
-    IMP imp = imp_implementationWithBlock(^BOOL(id, NSApplication*, NSUserActivity* activity, id) {
+    IMP imp = imp_implementationWithBlock(^BOOL(id me, NSApplication* app, NSUserActivity* activity, id restore) {
+        (void)me, (void)app, (void)restore;
         if (![activity.activityType isEqualToString:CSSearchableItemActionType]) return NO;
         NSString* path = activity.userInfo[CSSearchableItemActivityIdentifier];
         if (!path || !gOpen) return NO;

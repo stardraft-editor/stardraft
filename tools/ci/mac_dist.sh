@@ -106,7 +106,9 @@ ok=1
 [ -L "$mount/Applications" ] || { echo "::error::no Applications link in the image"; ok=0; }
 codesign --verify --strict --deep "$mount/StarDraft.app" || ok=0
 if [ "$made" = dmgbuild ]; then
-    [ -f "$mount/.background/background.tiff" ] || ls "$mount/.background" 2>/dev/null || { echo "::error::no background in the image"; ok=0; }
+    # (dmgbuild names it .background.tiff, beside .DS_Store, which places it in the window)
+    [ -f "$mount/.background.tiff" ] || [ -d "$mount/.background" ] || { echo "::error::no background in the image"; ok=0; }
+    [ -f "$mount/.DS_Store" ] || { echo "::error::no window settings (.DS_Store) in the image"; ok=0; }
 fi
 hdiutil detach "$mount" >/dev/null
 [ "$ok" = 1 ]
