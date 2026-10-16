@@ -652,8 +652,14 @@ void SdlHost::dispatch(const SDL_Event& e) {
         return;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
         if (Win* w = findWin(wid); w && hover_ && w->kind != WindowKind::Tooltip) hover_(*w->root, {}, {}, true);
-        // Popups close when the program loses the keyboard focus (another program took it).
-        if (!SDL_GetKeyboardFocus()) dismissPopupsExcept(0);
+        // Popups close when the program loses the keyboard focus (another program took it). An open dialog and the
+        // pop-outs it is opened from stay (the Report feedback dialog of a value's pop-out keeps its typed text).
+        if (!SDL_GetKeyboardFocus()) {
+            SDL_WindowID keep = 0;
+            for (const auto& d : wins_)
+                if (d->kind == WindowKind::Dialog) keep = d->id;  // (the last one opened: its chain has the others)
+            dismissPopupsExcept(keep);
+        }
         return;
     case SDL_EVENT_WINDOW_EXPOSED:
         if (Win* w = findWin(wid)) w->dirty = true;
