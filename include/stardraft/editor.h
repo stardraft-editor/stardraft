@@ -474,6 +474,8 @@ public:
     // --- Undo -----------------------------------------------------------------------------------
     bool canUndo() const { return !undo_.empty(); }
     bool canRedo() const { return !redo_.empty(); }
+    size_t undoSteps() const { return undo_.size(); }  // the steps that Undo can take back (and Redo give again)
+    size_t redoSteps() const { return redo_.size(); }
     void undo();
     void redo();
 

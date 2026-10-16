@@ -60,6 +60,8 @@ SDL_GPUTexture* uploadRgba(SDL_GPUDevice* device, int w, int h, const uint8_t* r
 // A bitmap as an image (draw::Image: for the views that take one, such as a list's icons): its texture, made or brought
 // up to date now. The image is good while the bitmap is there and unchanged (the texture is the bitmap's own).
 draw::Image imageOfBitmap(SDL_GPUDevice* device, draw::Bitmap& b);
+// The bitmaps that have a texture now: how many, and their pixels' bytes (a test's memory line: --script stats).
+void bitmapTextureStats(int& count, size_t& bytes);
 
 // Text helpers: UTF-8 of a wide text (without control codes other than tab and line ends: they are not drawn), and the byte index after the code point at `i`.
 std::string utf8Text(std::wstring_view w);
