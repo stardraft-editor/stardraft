@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- What the software centers (GNOME Software, Discover, Flathub) show of StarDraft 2. Made by CMakeLists.txt from this
+     file and apps/editor/res/lang/*.tsv (the texts in each language). -->
+<component type="desktop-application">
+  <id>io.github.stardraft_editor.StarDraft</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>StarDraft 2</name>
+  <summary>Edit StarCraft maps and EUD projects</summary>
+@SUMMARIES@
+  <description>
+    <p>Edit the terrain, units, locations and triggers of StarCraft maps. Build EUD maps with euddraft.</p>
+@DESCRIPTIONS@
+    <p>StarDraft 2 is not associated with Blizzard Entertainment.</p>
+@NOTICES@
+    <p>It needs an installation of StarCraft to work.</p>
+@NEEDS@
+  </description>
+  <launchable type="desktop-id">io.github.stardraft_editor.StarDraft.desktop</launchable>
+  <developer id="io.github.stardraft_editor">
+    <name>The StarDraft authors</name>
+  </developer>
+  <url type="homepage">https://github.com/stardraft-editor/stardraft</url>
+  <url type="bugtracker">https://github.com/stardraft-editor/stardraft/issues</url>
+  <url type="vcs-browser">https://github.com/stardraft-editor/stardraft</url>
+  <content_rating type="oars-1.1"/>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+  <provides>
+    <binary>stardraft</binary>
+    <mediatype>application/x-starcraft-scm</mediatype>
+    <mediatype>application/x-starcraft-scx</mediatype>
+  </provides>
+  <categories>
+    <category>Game</category>
+    <category>StrategyGame</category>
+    <category>Development</category>
+  </categories>
+  <releases>
+    <release version="@METAINFO_VERSION@" date="@METAINFO_DATE@"/>
+  </releases>
+</component>

@@ -2031,3 +2031,7 @@ Folders	Папки
 Did not import 	Не импортировано: 
 : the Assets workspace imports only sounds (WAV, OGG)	: рабочая область «Ассеты» импортирует только звуки (WAV, OGG)
 StarCraft map	Карта StarCraft
+Map editor	Редактор карт
+Edit StarCraft maps and EUD projects	Редактирование карт StarCraft и проектов EUD
+Edit the terrain, units, locations and triggers of StarCraft maps. Build EUD maps with euddraft.	Редактируйте местность, юниты, локации и триггеры карт StarCraft. Собирайте карты EUD с помощью euddraft.
+StarDraft project	Проект StarDraft

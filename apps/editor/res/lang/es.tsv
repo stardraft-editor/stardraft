@@ -2031,3 +2031,7 @@ Folders	Carpetas
 Did not import 	No se importó 
 : the Assets workspace imports only sounds (WAV, OGG)	: el espacio de trabajo Recursos solo importa sonidos (WAV, OGG)
 StarCraft map	Mapa de StarCraft
+Map editor	Editor de mapas
+Edit StarCraft maps and EUD projects	Edita mapas de StarCraft y proyectos EUD
+Edit the terrain, units, locations and triggers of StarCraft maps. Build EUD maps with euddraft.	Edita el terreno, las unidades, las ubicaciones y los disparadores de los mapas de StarCraft. Compila mapas EUD con euddraft.
+StarDraft project	Proyecto de StarDraft
