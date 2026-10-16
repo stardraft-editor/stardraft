@@ -91,11 +91,42 @@ std::vector<int> shellListSelection() { return gLocList.selection(); }
 std::wstring shellFilterText() { return gFilterSdl.text(); }
 bool shellViewShown() { return gRoot != nullptr; }
 void shellToolsChanged() { gToolStripView.invalidate(); }
-int shellPopupPick(const std::vector<std::wstring>& items, int checked, int, int) {  // (a modal list: sdl_map_pages.inc)
-    return sdlPickFromList(items, checked, shellTr(L"Select"));
+// A menu of `items` at `at` of `from` that waits for the pick (the Windows paintedMenu with TPM_RETURNCMD): the item's
+// index, or -1. feedback: "Report feedback on ..." at the end (the Windows popupMenu's context menus).
+int sdlMenuPick(draw::View& from, draw::Point at, const std::vector<std::wstring>& items, int checked, bool feedback) {
+    if (!gHost) return -1;
+    struct Pick {
+        bool closed = false;
+        int index = -1;
+    };
+    auto pick = std::make_shared<Pick>();
+    std::vector<stardraft::kit::MenuItem> kitItems(items.size());
+    for (size_t i = 0; i < items.size(); ++i) {
+        kitItems[i].label = items[i], kitItems[i].checked = int(i) == checked;
+        kitItems[i].run = [pick, i] { pick->index = int(i); };
+    }
+    stardraft::kit::MenuOptions opts;
+    opts.closed = [pick](bool) { shellPost([pick] { pick->closed = true; }); };  // (after the picked item ran)
+    bool open = false;
+    if (feedback) {
+        open = sdlPopupMenu(from, at, std::move(kitItems), sdlFeedbackOn(from, at, L""), std::move(opts));
+    } else if (!(open = sdlMenuShot(kitItems, opts))) {  // (a snapshot's click: sdl_menus.inc)
+        ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)
+        kit_sdl::ImguiCanvas measure(list, nullptr);
+        open = stardraft::kit::Menu::popup(from, at, kitItems, stardraft::kit::Menu::measure(kitItems, &measure), std::move(opts));
+    }
+    if (!open) return -1;
+    gHost->waitUntil([pick] { return pick->closed; });
+    return pick->index;
 }
-int shellContextMenu(const std::vector<std::wstring>& items) {  // (a modal list: sdl_map_pages.inc)
-    return sdlPickFromList(items, -1, shellTr(L"Select")) + 1;
+// The tool strip's dropdown (the brush shape): a menu under the box (x, y: the strip's coordinates), as on Windows.
+int shellPopupPick(const std::vector<std::wstring>& items, int checked, int x, int y) {
+    return sdlMenuPick(gToolStripView, {x, y}, items, checked, false);
+}
+// A context menu at the mouse (the Tiles panel's favorites), with Report feedback: the item from 1, 0 for none.
+int shellContextMenu(const std::vector<std::wstring>& items) {
+    if (!gRoot || !gHost) return 0;
+    return sdlMenuPick(*gRoot, gHost->mouse(*gRoot), items, -1, true) + 1;
 }
 void shellOwnerSelect(int i) { gOwnerBox.setValue(i); }  // (the owner dropdown shows player i; no change is sent)
 void shellPaletteChanged() {

@@ -101,6 +101,16 @@ CASES += [
     # The map's scene (core/map_scene.inc): the grid (G), and the selection circles of all units zoomed in (+).
     ("map-scene-grid", ["--key", "G"], "map"),
     ("map-scene-select", ["--mode", "units", "--key", "Ctrl+A", "--key", "+", "--key", "+", "--key", "+", "--key", "+"], "map"),
+    # The map's own keys (core/map_input.inc): Esc clears the selection; the arrows move the view (zoomed in).
+    ("map-key-esc", ["--mode", "units", "--key", "Ctrl+A", "--key", "Esc"], "map"),
+    ("map-key-arrows", ["--key", "+", "--key", "+", "--key", "Right", "--key", "Right", "--key", "Down"], "map"),
+    # Right clicks (--rclick x,y[:n]: the menu's items go to the output, item n runs): the minimap's and the tool strip's
+    # dock menus (the minimap to the right, the Units toolbar to the left), the map's menu and a right click on empty
+    # space (only Report feedback).
+    ("map-rclick-minimap", ["--rclick", "200,200:3"], "map"),
+    ("map-rclick-tools", ["--rclick", "1450,148:2"], "map"),
+    ("map-rclick-map", ["--mode", "units", "--rclick", "800,400"], "map"),
+    ("map-rclick-feedback", ["--rclick", "30,600"], "map"),
     # A project open.
     # A trigger whose blocks name units: the units' pictures in the values (the second trigger of the second group).
     ("project-trig-icons", ["--workspace", "triggers", "--trig", "1:1"], "project"),

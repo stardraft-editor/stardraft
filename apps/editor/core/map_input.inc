@@ -641,4 +641,74 @@ stardraft::draw::Cursor mapCursorAt(AppState& app, int x, int y) {
     const bool h = e & 5, v = e & 10;
     if (h && v) return ((e & 1) && (e & 2)) || ((e & 4) && (e & 8)) ? Cursor::SizeNWSE : Cursor::SizeNESW;
     return h ? Cursor::SizeWE : v ? Cursor::SizeNS : Cursor::Arrow;
+// --- The map's keys (both programs: the Windows map's WM_KEYDOWN and WM_MOUSEWHEEL, the SDL map view's key()) -----
+
+void enterSelection();
+void trigCancelUnitPick();
+
+// Esc on the map: a trigger's unit pick stops; a stroke (place, spray, paste, paint) ends as one undo step; then back
+// to the mode's selection (Select, nothing picked, no paste), and in it already, the selection goes. Returns true when
+// a stroke ended (the host lets the mouse go).
+bool mapCancelStep(AppState& app) {
+    trigCancelUnitPick();
+    bool stroke = false;
+    if (app.ed && (app.drag == Drag::PlaceStroke || app.drag == Drag::Spray || app.drag == Drag::PasteStroke || app.drag == Drag::Paint)) {
+        sprayHoldStop();
+        app.ed->endStroke();  // the press so far is one undo step; later edits are steps of their own
+        app.drag = Drag::None;
+        stroke = true;
+    }
+    if (!inSelection()) {
+        enterSelection();
+        setMessage(app, std::wstring(kModeNames[int(app.mode)]) + L": select");
+    } else if (app.hasTerrainSel && app.mode == Mode::Terrain) {
+        app.hasTerrainSel = false;
+        setMessage(app, L"Cleared the selection");
+    } else if (app.ed) {
+        app.ed->clearSelection();
+        if (app.mode == Mode::Locations) app.ed->selectLocation(-1);
+        app.selDoodads.clear(), app.selSprites.clear();
+        setMessage(app, L"Cleared the selection");
+    }
+    app.drag = Drag::None;
+    app.dirty = true;
+    return stroke;
+}
+
+// R (back: Shift+R) while terrain is about to be pasted: the copy turns clockwise (back: the other way). Tiles
+// (Rectangle) do not turn.
+void mapTurnPaste(AppState& app, bool back) {
+    if (!app.terrainPasting || app.terrainRect || !app.ed || !app.ed->hasTerrainClipboard()) return;
+    int dropped = 0;
+    for (int k = back ? 3 : 1; k > 0; --k) dropped += app.ed->rotateTerrainClipboard();
+    setMessage(app, dropped ? L"Turned the terrain; its " + std::to_wstring(dropped) + L" doodads cannot turn, so they are not included"
+                            : L"Turned the terrain (R turns clockwise, Shift+R turns back)");
+}
+
+// An arrow key (dx, dy: -1, 0 or 1): selected units move (1 pixel, big: 8, with Options > Units snap a grid cell; a
+// unit that does not fit there makes the move refused, unless "Units anywhere" is on); else the view moves.
+void mapArrowKey(AppState& app, int dx, int dy, bool big) {
+    if (app.mode == Mode::Units && app.ed && !app.ed->selection().empty() && !app.pasting) {
+        const int d = app.unitGrid ? app.unitGrid : big ? 8 : 1;
+        const int moved = app.ed->moveSelection(dx * d, dy * d, false);
+        setMessage(app, moved ? L"Moved " + std::to_wstring(moved) + L" units" : L"The units do not fit there. They stay where they were.");
+        return;
+    }
+    const float step = 64 / app.zoom;
+    app.camX += dx * step, app.camY += dy * step;
+}
+
+// Alt + wheel on the map: the active brush (the terrain brush or spray, the unit and doodad spray) one size up or down
+// (brushSizes). False when no brush is active (the wheel zooms then).
+bool mapBrushWheel(AppState& app, bool up) {
+    const bool brushActive = (app.mode == Mode::Terrain && (currentTool() == TBrush || currentTool() == TSpray)) || objectSprayOn();
+    if (!brushActive) return false;
+    const int k = std::clamp(brushSizeIndex(app.brushSize) + (up ? 1 : -1), 0, int(brushSizes().size()) - 1);
+    app.brushSize = brushSizes()[size_t(k)];
+    shellToolsChanged();  // the size slider
+    wchar_t m[48];
+    std::swprintf(m, 48, L"Brush size %g", app.brushSize);
+    setMessage(app, m);
+    app.dirty = true;
+    return true;
 }

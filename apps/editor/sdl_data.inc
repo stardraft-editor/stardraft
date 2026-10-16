@@ -315,25 +315,7 @@ bool sdlSfxWave(int sfx, std::vector<float>& peaks, double& seconds) {
 // A menu of the core's items (core/data_nav.inc) at `at` of `from`, then "Report feedback on <on>..." as the Windows
 // menus end; a pick runs `pick` with the item's id.
 void sdlDataMenu(draw::View& from, draw::Point at, const MenuModel& items, std::function<void(int)> pick, const std::wstring& on) {
-    std::vector<kit::MenuItem> out;
-    for (const MenuItem& it : items) {
-        kit::MenuItem k;
-        if (it.kind == MenuItem::Kind::Separator) k.separator = true;
-        else {
-            k.label = accessFree(shellTr(it.label.c_str())), k.shortcut = it.shortcut, k.enabled = !it.grayed;
-            const int id = it.id;
-            k.run = [pick, id] { pick(id); };
-        }
-        out.push_back(std::move(k));
-    }
-    if (!out.empty()) out.push_back(kit::MenuItem{}), out.back().separator = true;
-    kit::MenuItem fb;
-    fb.label = shellTr(L"Report feedback on ") + on + L"\x2026";
-    fb.run = [on] { showFeedbackSdl(on); };
-    out.push_back(std::move(fb));
-    ImDrawList list(ImGui::GetDrawListSharedData());
-    kit_sdl::ImguiCanvas measure(list, nullptr);
-    kit::Menu::popup(from, at, out, kit::Menu::measure(out, &measure));
+    sdlPopupMenu(from, at, sdlModelItems(items, std::move(pick)), on);  // (sdl_menus.inc)
 }
 
 // Undo and redo in the Data workspace (Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z while it shows): the step's table or text as it

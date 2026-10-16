@@ -54,6 +54,10 @@ bool keyOfChord(const std::string& name, draw::Key& out) {
     else if (name == "Tab") out = draw::Key::Tab;
     else if (name == "Enter") out = draw::Key::Enter;
     else if (name == "Esc") out = draw::Key::Escape;
+    else if (name == "Left") out = draw::Key::Left;  // (the arrows: --key in a snapshot)
+    else if (name == "Right") out = draw::Key::Right;
+    else if (name == "Up") out = draw::Key::Up;
+    else if (name == "Down") out = draw::Key::Down;
     else if (name.size() >= 2 && name[0] == 'F' && std::isdigit(static_cast<unsigned char>(name[1]))) {
         const int n = std::atoi(name.c_str() + 1);
         if (n < 1 || n > 12) return false;
@@ -192,6 +196,65 @@ std::wstring accessFree(std::wstring s) {
     return s;
 }
 
+// What "Report feedback on ..." names at `at` of `from` (the Windows feedbackThing): the name of the deepest view
+// there that has one (its feedbackName, else its tip), else `pane`, else the workspace.
+std::wstring sdlFeedbackOn(draw::View& from, draw::Point at, const std::wstring& pane) {
+    draw::Point local;
+    for (draw::View* v = from.viewAt(at, local); v; v = v == &from ? nullptr : v->parent()) {
+        const draw::Point o = v->origin(), f = from.origin();
+        if (std::wstring t = v->feedbackName({at.x + f.x - o.x, at.y + f.y - o.y}); !t.empty()) return feedbackShort(t);
+    }
+    return pane.empty() ? feedbackWorkspaceName(gWorkspace) : pane;
+}
+
+void showFeedbackSdl(const std::wstring& on);  // (sdl_options.inc)
+
+// --rclick in a snapshot (a snapshot has no windows of its own): the menu that opens next does not open; its items go
+// to the output ("menu: <label>") and item gMenuShotPick runs (-1: none). -2: no snapshot click.
+int gMenuShotPick = -2;
+bool sdlMenuShot(const std::vector<kit::MenuItem>& items, const kit::MenuOptions& opts) {
+    if (gMenuShotPick == -2) return false;
+    for (const kit::MenuItem& it : items) std::printf("menu: %s%s\n", it.separator ? "-" : narrow(it.label).c_str(), it.checked ? " (checked)" : "");
+    const int n = std::exchange(gMenuShotPick, -2);
+    if (n >= 0 && n < int(items.size()) && items[size_t(n)].enabled && items[size_t(n)].run) items[size_t(n)].run();
+    if (opts.closed) opts.closed(false);
+    return true;
+}
+
+// "Report feedback on <on>..." at the end of a context menu, as every Windows context menu ends (popupMenu).
+void sdlAddFeedbackItem(std::vector<kit::MenuItem>& items, const std::wstring& on) {
+    if (!items.empty()) items.push_back(kit::MenuItem{}), items.back().separator = true;
+    kit::MenuItem fb;
+    fb.label = shellTr(L"Report feedback on ") + on + L"\x2026";
+    fb.icon = int(kFeedbackIcon);
+    fb.run = [on] { showFeedbackSdl(on); };
+    items.push_back(std::move(fb));
+}
+// A context menu (the Windows popupMenu): `items` at `at` of `from`, then the feedback item (on: sdlFeedbackOn).
+bool sdlPopupMenu(draw::View& from, draw::Point at, std::vector<kit::MenuItem> items, const std::wstring& on, kit::MenuOptions opts) {
+    sdlAddFeedbackItem(items, on);
+    if (sdlMenuShot(items, opts)) return true;
+    ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)
+    kit_sdl::ImguiCanvas measure(list, nullptr);
+    return kit::Menu::popup(from, at, items, kit::Menu::measure(items, &measure), std::move(opts));
+}
+
+// A core menu model as kit items (a pick runs `pick` with the item's id; a check, a gray item as the model has them).
+std::vector<kit::MenuItem> sdlModelItems(const MenuModel& model, std::function<void(int)> pick) {
+    std::vector<kit::MenuItem> out;
+    for (const MenuItem& it : model) {
+        kit::MenuItem k;
+        if (it.kind == MenuItem::Kind::Separator) k.separator = true;
+        else {
+            k.label = accessFree(it.label), k.shortcut = it.shortcut, k.checked = it.checked, k.enabled = !it.grayed && it.id != 0;
+            const int id = it.id;
+            k.run = [pick, id] { pick(id); };
+        }
+        out.push_back(std::move(k));
+    }
+    return out;
+}
+
 std::vector<kit::MenuItem> recentItems(bool projects) {
     const std::vector<std::wstring>& list = projects ? gRecentProjects : gRecentMaps;
     const int base = projects ? ID_RECENT_PROJECT : ID_RECENT_MAP;
@@ -290,6 +353,23 @@ bool shortcutRun(const draw::KeyEvent& e) {
 }
 
 // A key pressed in the window (main_sdl.cpp's --key, for a snapshot): "Ctrl+A", "5", "Ctrl+Shift+Z" (Ctrl is Cmd on macOS).
+// --rclick x,y[:n]: the right button pressed and let go at (x, y) of the window (the panes' own handling), then the
+// posted work; the menu that opens shows its items in the output and runs item n (sdlMenuShot).
+void sdlRightClickShot(const std::string& spec) {
+    int x = 0, y = 0, n = -1;
+    if (!gRoot || std::sscanf(spec.c_str(), "%d,%d:%d", &x, &y, &n) < 2) return void(std::fprintf(stderr, "--rclick %s: not x,y[:n]\n", spec.c_str()));
+    draw::Router router(*gRoot);
+    draw::MouseEvent e;
+    e.button = 1, e.pt = {x, y};
+    e.kind = draw::MouseKind::Down;
+    router.mouse(e);
+    gMenuShotPick = n;
+    e.kind = draw::MouseKind::Up;
+    router.mouse(e);
+    runPosted();
+    gMenuShotPick = -2;
+}
+
 void sdlPressKey(const std::string& chord) {
     const auto c = stardraft::parseShortcut(chord);
     draw::KeyEvent e;
