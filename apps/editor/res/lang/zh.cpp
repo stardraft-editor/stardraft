@@ -2017,6 +2017,7 @@ constexpr UiText kRows[] = {
     {L"Could not find StarCraft on your system.", L"\u5728\u60A8\u7684\u7CFB\u7EDF\u4E0A\u627E\u4E0D\u5230 StarCraft\u3002"},
     {L"That folder has no StarCraft game data.", L"\u8BE5\u6587\u4EF6\u5939\u4E2D\u6CA1\u6709 StarCraft \u6E38\u620F\u6570\u636E\u3002"},
     {L"Select the StarCraft folder", L"\u9009\u62E9 StarCraft \u6587\u4EF6\u5939"},
+    {L"StarCraft map", L"StarCraft \u5730\u56FE"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

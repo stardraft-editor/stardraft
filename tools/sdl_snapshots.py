@@ -90,6 +90,13 @@ CASES += [
     ("drop-other", ["--drop", "{root}/README.md"], ""),
     ("drop-map", ["--drop", "{map}"], "map"),
     ("drop-project", ["--drop", "{project}"], "project"),
+    # What the program sets up for the system (--check, sdl_dist.inc). bundle: on macOS the app's document types,
+    # exported types, Quick Look extensions and signatures (elsewhere "not macOS"). preview: the map's Quick Look
+    # picture (every system), its terrain the same as the minimap's. spotlight: on macOS the map's Spotlight entry,
+    # indexed and removed again.
+    ("check-bundle", ["--check", "bundle"], ""),
+    ("map-check-preview", ["--check", "preview:{newdir}"], "map"),
+    ("map-check-spotlight", ["--check", "spotlight"], "map"),
     # The classic page with the pop-out of the selected action's value (trigger:kind:entry:value): the first action of
     # the first trigger, its value 3 (a map whose first trigger has an action, as Set deaths: the number pop-out).
     ("map-classictrig-value", ["--workspace", "classictriggers", "--classictrig", "1:1:0:3"], "map"),
@@ -737,6 +744,48 @@ def check_trackpad_pan(output):
     return None
 
 
+def check_bundle(output):
+    """None when the app bundle (macOS) has the map types, the Quick Look extensions in their sandbox; or not macOS."""
+    if "bundle: not macOS" in output:
+        return None
+    lines = [x for x in output.splitlines() if x.startswith("bundle: ")]
+    for ext in ("scm", "scx"):
+        uti = "io.github.stardraft-editor.map-" + ext
+        if not any(x.startswith(f"bundle: exported type {uti} ({ext})") and "icon text " + ext in x for x in lines):
+            return f"no exported type {uti} with its icon"
+        if not any(x.startswith("bundle: document type ") and f"({uti})" in x and "role Editor" in x for x in lines):
+            return f"no document type for {uti}"
+    for name, point in (("StarDraftPreview.appex", "com.apple.quicklook.preview"),
+                        ("StarDraftThumbnail.appex", "com.apple.quicklook.thumbnail")):
+        if not any(x.startswith(f"bundle: plug-in {name} {point} types ") and "map-scx" in x for x in lines):
+            return f"no plug-in {name} ({point})"
+        if not any(x.startswith(f"bundle: {name} entitlements: ") and "com.apple.security.app-sandbox" in x for x in lines):
+            return f"{name} is not signed with its sandbox"
+    return None
+
+
+def check_preview(output):
+    """None when the map's Quick Look picture was drawn with its tile color table and its terrain is the minimap's."""
+    if not re.search(r"^preview: \d+ x \d+ tiles, .* table yes", output, re.M):
+        return "no picture with the table"
+    if not re.search(r"^preview: the terrain is the minimap's: .*\(yes\)\s*$", output, re.M):
+        return "the terrain is not the minimap's"
+    return None
+
+
+def check_spotlight(output):
+    """None when the map's Spotlight entry has its title and picture and was indexed and removed; or not macOS."""
+    if "spotlight: not macOS" in output:
+        return None
+    if not re.search(r"^spotlight: title .+", output, re.M) or not re.search(r"^spotlight: picture [1-9]\d* bytes", output, re.M):
+        return "no entry with a title and a picture"
+    if "spotlight: indexing not available" in output:
+        return None  # (a Mac whose Spotlight is off)
+    if "spotlight: indexed yes" not in output or "spotlight: removed yes" not in output:
+        return "not indexed and removed"
+    return None
+
+
 # Checks of a case's output (after the PNG's): a function that returns None, or what is wrong.
 CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
           "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
@@ -754,7 +803,8 @@ CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-clic
           "start-noinstall-pick": check_banner(False, "none", True), "start-scale2": check_scale2,
           "map-wheel-zoom": check_zoom_at("wheel 700,500,0,1", 1.2), "map-trackpad-pan": check_trackpad_pan,
           "map-trackpad-ctrl-zoom": check_zoom_at("wheel 700,500,0,8:precise:Ctrl", 1.44),
-          "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5)}
+          "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5), "check-bundle": check_bundle,
+          "map-check-preview": check_preview, "map-check-spotlight": check_spotlight}
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
