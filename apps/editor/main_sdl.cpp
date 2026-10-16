@@ -133,6 +133,8 @@ namespace kit_sdl = stardraft::kit_sdl;
 bool gSilent = false;
 // A snapshot run: no message box waits for the user (errors go to the status bar and the log).
 bool gNoBoxes = false;
+// --noactivate: a test with real windows that never take the focus or come to the front (sdl_window_test.inc).
+bool gNoActivate = false;
 
 // The portable core (the same files the Windows program includes, in the same order, core_check.cpp).
 #include "core/core.inc"
@@ -308,6 +310,8 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 
 }  // namespace
 
+#include "sdl_window_test.inc"  // --noactivate, --frames, --wintest: tests of the real window
+
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, themeArg, langArg, trigArg, trigSelArg, briefArg, dropArg;
@@ -380,6 +384,9 @@ int main(int argc, char** argv) {
         else if (a == "--lang") langArg = next();  // en, ko, es, ru or zh: the language for this run (not saved), for a snapshot
         else if (a == "--drop") dropArg = next();  // a file dropped on the window (as from Finder on macOS), for a snapshot
         else if (a == "--silent") gSilent = true;
+        else if (a == "--noactivate") gNoActivate = true;  // a real window that never takes the focus (a test: sdl_window_test.inc)
+        else if (a == "--frames") gFramesArg = std::atoll(next().c_str());  // with --noactivate: the program ends after that many frames
+        else if (a == "--wintest") gWinTestMap = next(), gNoActivate = true;  // a map: the real window's checks (sdl_window_test.inc)
         else if (a == "--palview") palViewArg = next();  // list, icons, sprites, normal, large (comma separated): the palette's view of the mode, for a snapshot
         else if (a == "--pie") pieArg = true;  // the pie palette (hold Space in Terrain mode) open, the mouse at a slice, for a snapshot
         else if (a == "--restart") restartPid = std::uint32_t(std::strtoul(next().c_str(), nullptr, 10));  // the old program's process id (sdl_options.inc)
@@ -402,12 +409,15 @@ int main(int argc, char** argv) {
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
     if (!snapshot.empty()) gSilent = true, gNoBoxes = true;
+    if (gNoActivate) gSilent = true, gNoBoxes = true;  // (a test: no sound, the default settings, no question waits)
     // A test run (a snapshot, --silent) asks nothing, sends nothing and leaves the user's file types.
     const bool testRun = gSilent;
     // Windows: a crash's sender ends here, the crash handler goes in, and a map for the open program goes to it.
     if (const int sent = sdlWindowsFirst(argc, argv, testRun); sent >= 0) return sent;
     if (restartPid) restartWaitFor(restartPid);  // (before the pipe: the old program still listens; core/documents.inc)
-    if (sdlSendToOpenProgram(mapArg, testRun)) return 0;
+    // (--noactivate: the test pipe, shell_sdl_win.inc's pipeName; a snapshot never sends or listens)
+    if (sdlSendToOpenProgram(mapArg, testRun && !gNoActivate)) return 0;
+    if (gNoActivate) SDL_SetHint(SDL_HINT_WINDOW_ACTIVATE_WHEN_SHOWN, "0");
 #if defined(STARDRAFT_XDG)
     // The Wayland app id and X11's WM_CLASS: the .desktop file's name, so that the dock and the task bar show the
     // program's icon and name (packaging/linux), and SDL's launcher progress finds its .desktop file.
@@ -450,6 +460,8 @@ int main(int argc, char** argv) {
         kit_sdl::SdlHost host(device);
         gHost = &host;
         host.setScale(scaleArg);  // (0: the display's scale; the views lay out at it)
+        host.setNoActivate(gNoActivate);
+        host.setWindowMadeHook(sdlTitleBarOfNewWindow);  // (Windows: each window's title bar in the theme)
         kit_sdl::setEmbeddedFiles(sdlEmbeddedFiles());  // (Windows: the atlases, the icon and the Noto Sans fallback are in stardraft.exe too)
         kit_sdl::setUiFontHeight(sdlUiFontHeight());  // (Windows: the system's message font size)
         std::printf("stardraft_editor: fonts %s, scale %.2f\n", kit_sdl::loadFonts(base + "fonts/").c_str(), double(scale));
@@ -528,6 +540,7 @@ int main(int argc, char** argv) {
             runPosted();  // the posted work runs outside the frame hook (a dialog it opens pumps frames)
             sdlDockWatchBuild();  // (macOS: Build's bar and badge on the Dock icon)
             sdlXdgFrame();  // (Linux: the recently used files, Build's notification and progress: sdl_xdg.inc)
+            sdlWinTestPump();  // (--frames, --wintest: sdl_window_test.inc)
         });
         host.setFrameHook([](SDL_GPUCommandBuffer* cmd) {
             drawMapOfRoot(cmd);
@@ -769,6 +782,7 @@ int main(int argc, char** argv) {
             sendPendingFeedback();  // feedback that could not go before (core/feedback_send.inc)
             host.setAnimating(true);  // (the map and the posted work need frames; see shellPost)
             host.run();
+            if (gWinTestWrong) status = 1;
         }
         // The map view's texture and the scene's state go before the device; the views before the host.
         releaseMapTexture();
