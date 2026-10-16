@@ -42,6 +42,7 @@
 #include <optional>
 #include <random>
 #include <set>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <tuple>
@@ -286,6 +287,8 @@ int main(int argc, char** argv) {
     bool rectArg = false, previewArg = false, logArg = false, buildArg = false, trigCodeArg = false;
     int trigPopArg = -1;  // --trigpop: the value whose pop-out shows (sdl_popshot.inc); -2: a text's words; -100 - n: the variable form's field n
     std::string textPopArg;  // --textpop: a game text pop-out in the snapshot (sdl_data.inc)
+    std::string palViewArg;  // --palview: the palette's view items (list, icons, sprites, normal, large), comma separated
+    bool pieArg = false;  // --pie: the pie palette open (Terrain mode), the mouse to the right of its middle
     bool cursorsArg = false;  // --cursors: the cursors at some points, as text after the snapshot (sdl_cursor_check.inc)
     std::vector<std::string> keyArgs;  // --key: keys pressed before the snapshot (sdl_menus.inc: sdlPressKey)
     std::vector<std::string> rclickArgs;  // --rclick: right clicks before the snapshot (sdl_menus.inc: sdlRightClickShot)
@@ -323,6 +326,8 @@ int main(int argc, char** argv) {
         else if (a == "--lang") langArg = next();  // en, ko, es, ru or zh: the language for this run (not saved), for a snapshot
         else if (a == "--drop") dropArg = next();  // a file dropped on the window (as from Finder on macOS), for a snapshot
         else if (a == "--silent") gSilent = true;
+        else if (a == "--palview") palViewArg = next();  // list, icons, sprites, normal, large (comma separated): the palette's view of the mode, for a snapshot
+        else if (a == "--pie") pieArg = true;  // the pie palette (hold Space in Terrain mode) open, the mouse at a slice, for a snapshot
         else if (a == "--cursors") cursorsArg = true;  // the map view's and a text field's cursors as text, after the snapshot
         else if (a == "--key") keyArgs.push_back(next());  // a key (Ctrl+A, 5, Ctrl+2: Ctrl is Cmd on macOS) pressed in the window, for a snapshot
         else if (a == "--rclick") rclickArgs.push_back(next());  // x,y[:n]: a right click there; the menu's items go to the output, item n runs, for a snapshot
@@ -405,6 +410,7 @@ int main(int argc, char** argv) {
         for (int w = 0; !workspaceArg.empty() && w < int(sizeof kWorkspaceNames / sizeof kWorkspaceNames[0]); ++w)
             if (workspaceArg == kWorkspaceNames[w]) setWorkspace(Workspace(w));
         if (rectArg) setMode(Mode::Terrain), setTerrainRect(true);
+        if (!palViewArg.empty()) sdlPaletteViewShot(palViewArg);  // (not saved: a snapshot saves no settings)
         if (previewArg && !gProj.sections.empty()) triggersRefresh(gProj.sections.back());  // the last script in the preview (as scriptpreview:)
         if (!dataArg.empty()) sdlDataSelect(dataArg);
         if (!ctArg.empty()) sdlClassicTrigSelect(ctArg);
@@ -523,6 +529,10 @@ int main(int argc, char** argv) {
                 for (const std::string& k : keyArgs) sdlPressKey(k);
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             }
+            if (pieArg) {  // the pie after the first frame (the map is placed), then a frame more
+                sdlPieShot();
+                host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+            }
             if (!rclickArgs.empty()) {  // the right clicks after the first frame (the panes are placed), then a frame more
                 for (const std::string& r : rclickArgs) sdlRightClickShot(r);
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
@@ -535,6 +545,7 @@ int main(int argc, char** argv) {
             const bool ok = writeSnapshot(device, tex, width, height, snapshot);
             std::printf("%s %s\n", ok ? "wrote" : "could not write", snapshot.c_str());
             if (!ok) status = 1;
+            if (pieArg) sdlPieShotRelease();  // (after the picture: letting go of Space paints with the slice's terrain)
             if (cursorsArg) sdlCursorChecks();  // (after the picture: it changes the mode and the camera)
             SDL_WaitForGPUIdle(device);
             SDL_ReleaseGPUTexture(device, tex);

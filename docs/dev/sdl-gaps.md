@@ -24,7 +24,7 @@ the value pop-outs of the Triggers workspace, the game text colors, the message 
 
 | Seam | SDL | Windows |
 |---|---|---|
-| `shellSettingsChanged` | Was nothing: the menus' options (graphics, grid, layers, snaps, place rules, the terrain copy) were not saved. | `saveAppSettings` (the `AppSetting` table in the settings file). Done: the table is `core/app_settings.inc`; the SDL program reads it at its start and saves it after each command (not in snapshots and tests). Open: the palette's views of each mode (PaletteViews) are the Windows program's only. |
+| `shellSettingsChanged` | Was nothing: the menus' options (graphics, grid, layers, snaps, place rules, the terrain copy) were not saved. | `saveAppSettings` (the `AppSetting` table in the settings file). Done: the table is `core/app_settings.inc`; the SDL program reads it at its start and saves it after each command (not in snapshots and tests). Done: the palette's views of each mode (PaletteViews) are in the table (`core/palette_view.inc`), for both programs. |
 | `shellSaveChanges(true)` | Was false: Save in the save question of a new project stopped the close, and the project was not saved. | `saveUnsavedProject` (asks where the project goes, then moves it there). Done: the move is the core's `saveUnsavedProjectTo` (`core/project_page.inc`) for both programs; each host asks where with its own save dialog (SDL: `sdlSaveUnsavedProject`, also for File > Save). |
 | `shellModeWindows` | Nothing (the SDL layout shows the mode's panes itself). | Shows the filter, the list, the section box and the palette of the mode. No gap. |
 | `shellShowRail` | Nothing: the rail always shows. | Shows or hides the rail; the core (`core/title.inc`) always shows it now. No gap. |
@@ -90,8 +90,8 @@ cursor after a press or a release, not only when the mouse moves. `--cursors` wr
 ## The second sweep (2026-10-16, after the second round)
 
 This sweep compared each menu command, key, window, dialog, pane and context menu of the Windows program with the SDL
-program. The menu model is the same for both programs, and each command of it runs on SDL (`sdlRuns`), except the
-palette's views (below) and Options > Maps (Windows only). The other work streams of this round have the top bar, the
+program. The menu model is the same for both programs, and each command of it runs on SDL (`sdlRuns`), except
+Options > Maps (Windows only). The other work streams of this round have the top bar, the
 glyph icons, the cursors, the clicks outside a pop-out, the save of a new project and the legacy text: they are not in
 this list.
 
@@ -107,13 +107,13 @@ this list.
 | The tool strip's brush shape list and the Tiles panel's favorites menu | Menus at the box and at the mouse (`shellPopupPick`, `shellContextMenu`) | Menus there too (`sdlMenuPick`, `shell_sdl.inc`); before, a list in a dialog. |
 | The snapshots kept the user's settings | The self-test saves nothing | The dock layout and the recent lists are not saved in a test or screenshot run (`gSettingsOff`, `core/recent.inc`), and the SDL snapshots use the default layout. (A snapshot that moved the minimap had saved it.) |
 | `--rclick x,y[:n]` (`main_sdl.cpp`, `sdlRightClickShot`) | | A right click in a snapshot: the menu that opens writes its items to the output (`menu: ...`), and item n runs. |
+| The palette's views | The View button and a right click on the palette: List, Grid (units: icons or sprites), Normal or Large, the list's sections (go to one), and in a project Pin to the top / Unpin for a doodad (`unitPaletteMenu`, `setUnitPaletteView`, `doodadPinToggle`). The views of each mode are saved (PaletteViews). | Done: the views, the View menu (`paletteMenuModel`), the rows with the pinned doodads first (`paletteRows`), the places of the rows and cells (`paletteLayout`), Shift+click (`paletteShiftPick`) and the pins (`doodadPinToggle`) are in the core (`core/palette_view.inc`) for both programs; PaletteViews is in the settings table. On SDL the palette and the second palette are the core's `PaletteGridView` (`core/views_palette.inc`): a list or a grid with the sprites of units (`paletteBitmap`'s `sprite`), the grid's footer with the item's name, the pin of a pinned doodad. The View button and a right click on either palette open the menu. Snapshots: map-palette-grid, map-palette-sprites (`--palview`), map-palette-menu, project-palette-pin. |
+| The pie palette (hold Space in Terrain mode) | `pieOpen`, `pieRelease` (main.cpp): a ring of the tileset's terrains. | Done: the ring is the core's `PieView` (`core/views_palette.inc`) over the middle of the map while Space is held, also with Shift (`MainView::pieOpen`, `pieRelease`); letting go of Space paints with any keys held, and when the program loses the keyboard (Alt+Tab) the ring closes with no change, as on Windows; the terrains, the slice under the mouse and the sizes are the core's (`pieTerrains`, `pieSliceAt`, `pieRadius`), and the Windows ring uses them too. Snapshot map-pie (`--pie`: the output says the slices, the slice under the mouse and that letting go paints with it). |
 
 ### Open
 
 | What | Windows | SDL |
 |---|---|---|
-| The palette's views | The View button and a right click on the palette: List, Grid (units: icons or sprites), Normal or Large, the list's sections (go to one), and in a project Pin to the top / Unpin for a doodad (`unitPaletteMenu`, `setUnitPaletteView`, `doodadPinToggle`). The views of each mode are saved (PaletteViews). | The list only. The View button shows a message. No menu on a right click. |
-| The pie palette (hold Space in Terrain mode) | `pieOpen`, `pieRelease` (main.cpp): a ring of the tileset's terrains. | Nothing. |
 | The text fields' context menu | The system's menu of an edit box (Cut, Copy, Paste, Select all); the Triggers code pane: Copy (Copy all) and Select all (`trigCodeKeys`). | The kit's text field has no menu (the keys work). |
 | Report feedback in the other windows | Each window (dialogs, pop-outs, the block help) gets the feedback menu on a right click. | Only the main window (and the menus above). |
 | The feedback item's icon | In the feedback color (kFeedback). | In the menu's text color. |

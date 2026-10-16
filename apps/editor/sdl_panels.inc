@@ -27,15 +27,6 @@ struct SecondPaletteScope {
     }
 };
 
-// A row of a palette: an item (value), or a section's name (value -1: a header that picks nothing).
-struct PanelRow {
-    int value = -1;
-    std::wstring label;
-};
-std::vector<PanelRow> gPalRows;   // the palette's rows (the mode's items, filtered and sectioned)
-std::vector<PanelRow> gPal2Rows;  // the second palette's rows (its mode's items, unfiltered)
-Mode gPalRowsMode = Mode::Units;   // the mode the rows were made for (their pictures are of it)
-Mode gPal2RowsMode = Mode::Units;
 std::vector<std::wstring> gListRows;  // the Locations list's rows (rebuildList fills them)
 std::vector<std::wstring> gSectionNames;  // the section box's sections, after its "All ..." entry
 Mode gSectionMode = Mode::Units;          // the mode the section box was filled for
@@ -43,32 +34,9 @@ std::wstring gPalSection;                 // the section the palette shows ("" i
 
 void invalidateMapView();  // (sdl_main_view.inc: the map view is drawn again)
 
-// The palette's list: a click picks the item under it (Ctrl adds to the pick, as Win32), a header row picks nothing.
-// The second palette's click picks in its own mode (SecondPaletteScope). A pick gives the keyboard to the map (as Win32's
-// SetFocus on the view), so the map's keys and undo run after it.
-struct PalettePanel final : kit::ListView {
-    bool second = false;
-    bool mouse(const draw::MouseEvent& e) override {
-        const bool down = e.kind == draw::MouseKind::Down && e.button == 0;
-        const int row = down ? rowAt(e.pt) : -1;
-        const bool handled = kit::ListView::mouse(e);
-        const std::vector<PanelRow>& rows = second ? gPal2Rows : gPalRows;
-        if (row >= 0 && row < int(rows.size()) && rows[size_t(row)].value >= 0) {
-            const int v = rows[size_t(row)].value;
-            const bool add = (e.mods & draw::kCtrl) != 0;
-            if (second) {
-                SecondPaletteScope scope;
-                pickUnit(gState, v, add);
-            } else {
-                pickUnit(gState, v, add);
-            }
-            invalidate();
-            invalidateMapView();
-            shellFocusView();
-        }
-        return handled;
-    }
-};
+// The palette and the second palette: the core's view (core/views_palette.inc: PaletteGridView, a list or a grid as the
+// mode's view says). initPanels wires the picks, the pictures and the View menu.
+using PalettePanel = PaletteGridView;
 
 // The Locations list: a click on a row picks it and gives the keyboard to the map (the keys' own list moves keep it).
 struct LocationListPanel final : kit::ListView {
@@ -90,8 +58,9 @@ kit::Dropdown gOwnerBox;
 SearchBox gFilterSdl;   // the Locations filter
 SearchBox gSearchSdl;   // the palette's search
 DropdownBox gSectionDropSdl;  // the section box (Units, Doodads, Sprites)
-kit::Button gViewBtnSdl{L"View", kit::Tone::Normal, [] {
-    setMessage(shellTr(L"The palette shows its list on this system; the other views are not here yet"));
+void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int row);
+kit::Button gViewBtnSdl{L"View", kit::Tone::Normal, [] {  // the View menu under the button (as the Windows View button)
+    paletteMenuSdl(gPalList, gViewBtnSdl, {0, gViewBtnSdl.height()}, -1);
 }};
 PanelTabsView gPanelTabsSdl[2];
 
@@ -112,22 +81,6 @@ std::vector<PaletteUnit> paletteUnitsOf(Mode m) {
     return units;
 }
 
-// The rows of a palette over `units`: the ones the search and the section keep, with a header at each section's start
-// (the Win32 palette's rule: the same section order, the search's words first, the fuzzy match when none has them).
-std::vector<PanelRow> panelRows(const std::vector<PaletteUnit>& units, const std::wstring& search, const std::wstring& section) {
-    const std::wstring filter = lowerPanelText(search);
-    const bool literal = paletteLiteralSearch(units, filter);
-    std::vector<PanelRow> rows;
-    const PaletteUnit* prev = nullptr;
-    for (const PaletteUnit& u : units) {
-        if (!paletteUnitShown(u, literal, filter, section)) continue;
-        if (!prev || prev->order != u.order) rows.push_back({-1, u.section});
-        rows.push_back({u.value, u.label});
-        prev = &u;
-    }
-    return rows;
-}
-
 // The section box: "All units" (doodads, sprites), then the sections in their order. Filled again when the sections or the
 // mode change; a section that is gone goes back to all.
 void fillSectionBox(const std::vector<std::wstring>& names) {
@@ -143,28 +96,40 @@ void fillSectionBox(const std::vector<std::wstring>& names) {
     gSectionDropSdl.dropdown().setValue(it == names.end() ? 0 : int(1 + (it - names.begin())));
 }
 
-// The row's look: a pick (the palette's choice) is the selection color; a header is dim. An item has its picture at the
-// left (the Win32 palette's: a square, a terrain swatch twice as wide) and its name after it.
-// `chosen` and `palette` are the palette's own picks (the second palette's are its own, not the active mode's).
-void paintPanelRow(draw::Canvas& c, const std::vector<PanelRow>& rows, const std::vector<int>& chosen, int palette, int i,
-                   draw::Rect r, kit::RowState s, Mode what) {
-    if (i < 0 || i >= int(rows.size())) return;
-    const PanelRow& row = rows[size_t(i)];
-    const int pad = scale(8);
-    if (row.value < 0) {
-        c.text({r.left + pad, r.top, r.right - pad, r.bottom}, row.label, kDim, draw::kMiddle);
-        return;
-    }
-    const bool picked = palette == row.value || std::find(chosen.begin(), chosen.end(), row.value) != chosen.end();
-    if (picked) c.fill(r, kSel);
-    else if (s.hot) c.fill(r, kRowHot);
-    const int bw = (r.bottom - r.top) * (what == Mode::Terrain ? 2 : 1);
-    const draw::Rect box{r.left + scale(4), r.top + scale(2), r.left + scale(4) + bw, r.bottom - scale(2)};
-    if (draw::Bitmap* b = paletteBitmap(what, row.value, gState.playerOwner)) drawPaletteArt(c, *b, box);
-    else if (what == Mode::Terrain) c.roundBox(box, draw::rgb(6, 6, 10), kBorder, float(scale(3)));  // nothing to show (Space): an empty swatch, as Win32
-    c.text({box.right + scale(8), r.top, r.right - pad, r.bottom}, row.label, picked ? kAccent : kText, draw::kMiddle);
+// A palette item's picture (the palette's pictures, sdl_pictures.inc): false when it has none.
+bool panelPicture(draw::Canvas& c, Mode what, int value, bool sprites, draw::Rect box) {
+    draw::Bitmap* b = paletteBitmap(what, value, gState.playerOwner, false, sprites);
+    if (b) drawPaletteArt(c, *b, box);
+    return b != nullptr;
 }
 
+// The View menu (core/palette_view.inc: paletteMenuModel) of the palette `pal` at `at` of `from`: on its item of `row`
+// (-1: none), a doodad of a project gets Pin to the top or Unpin first. A view item changes the view of the palette's
+// mode (saved in the settings), a section scrolls the list to it.
+void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int row) {
+    const int value = row >= 0 && row < int(pal.rows.size()) ? pal.rows[size_t(row)].value : -1;
+    const Mode mode = pal.mode;
+    std::vector<int> sections;  // the rows of the list's sections (units, doodads, sprites)
+    if (mode == Mode::Units || mode == Mode::Doodads || mode == Mode::Sprites)
+        for (size_t i = 0; i < pal.rows.size(); ++i)
+            if (pal.rows[i].value < 0) sections.push_back(int(i));
+    std::vector<std::wstring> names;
+    for (int i : sections) names.push_back(pal.rows[size_t(i)].label);
+    const MenuModel model = paletteMenuModel(mode, gViewByMode[int(mode)], names, palettePinState(mode, value));
+    const std::wstring on = sdlFeedbackOn(from, at, L"the palette");
+    PaletteGridView* p = &pal;
+    sdlPopupMenu(from, at, sdlModelItems(model, [p, value, sections, mode](int id) {
+        if (id == kPalPin) return doodadPinToggle(value);
+        if (id >= kPalSectionFirst && id < kPalSectionFirst + int(sections.size())) {
+            p->scrollTo(p->rowRect(sections[size_t(id - kPalSectionFirst)]).top);
+            return;
+        }
+        if (applyPaletteViewCommand(mode, id)) {
+            gPalList.layout(), gPal2List.layout();  // (both palettes show the view of their mode)
+            shellSettingsChanged();
+        }
+    }), on);
+}
 
 // The Locations list's pick (as the Win32 list's LBN_SELCHANGE): the location is selected and the camera goes to it;
 // elsewhere the item is the palette's pick, and picking a terrain while selecting paints with it.
@@ -194,18 +159,17 @@ void locationListPicked() {
 void rebuildPaletteRows() {
     const std::vector<PaletteUnit> units = paletteUnitsOf(gState.mode);
     fillSectionBox(paletteSectionNames(units));
-    gPalRows = panelRows(units, gSearchSdl.text(), gPalSection);
-    gPalRowsMode = gState.mode;
-    gPalList.setCount(int(gPalRows.size()));
-    gPalList.invalidate();
+    int pinned = 0;
+    gPalList.searchWords = lowerPanelText(gSearchSdl.text());
+    std::vector<PaletteRow> rows = paletteRows(units, gState.mode, gPalList.searchWords, gPalSection, pinned);
+    gPalList.setRows(std::move(rows), gState.mode, pinned);
 }
 
 // The second palette's rows: its mode's items, unfiltered (it has no search box).
 void rebuildSecondRows() {
-    gPal2Rows = panelRows(paletteUnitsOf(gPal2Mode), std::wstring(), std::wstring());
-    gPal2RowsMode = gPal2Mode;
-    gPal2List.setCount(int(gPal2Rows.size()));
-    gPal2List.invalidate();
+    int pinned = 0;
+    std::vector<PaletteRow> rows = paletteRows(paletteUnitsOf(gPal2Mode), gPal2Mode, std::wstring(), std::wstring(), pinned);
+    gPal2List.setRows(std::move(rows), gPal2Mode, pinned);
 }
 
 // The views' wiring, once (MainView's constructor): the rows, the look, the changes that rebuild them.
@@ -213,18 +177,33 @@ void initPanels() {
     static bool done = false;
     if (done) return;
     done = true;
-    gPalList.setRowHeight(30);
-    gPal2List.setRowHeight(30);
     gLocList.setRowHeight(30);
     gPal2List.second = true;
-    gPalList.setEmptyHint(shellTr(L"Nothing to list"));
-    gPal2List.setEmptyHint(shellTr(L"Nothing to list"));
-    gPalList.paintRow = [](draw::Canvas& c, int i, draw::Rect r, kit::RowState s) {
-        paintPanelRow(c, gPalRows, shellPaletteChosen(), gState.palette, i, r, s, gPalRowsMode);
+    gPalList.chosen = &shellPaletteChosen();
+    gPal2List.chosen = &gPal2Chosen;
+    gPalList.picture = gPal2List.picture = panelPicture;
+    // A click picks the item (Ctrl adds to the pick; Shift picks every item from the last pick, as on Windows); the second
+    // palette picks in its own mode with its own picks (SecondPaletteScope). The keyboard goes to the map after it
+    // (Windows: SetFocus on the view), so the map's keys and undo run.
+    gPalList.picked = [](int row, unsigned mods) {
+        const int v = gPalList.rows[size_t(row)].value;
+        const bool ctrl = (mods & draw::kCtrl) != 0;
+        if (!((mods & draw::kShift) && paletteShiftPick(gState, gPalList.rows, row, ctrl))) pickUnit(gState, v, ctrl);
+        invalidateMapView();
+        shellFocusView();
     };
-    gPal2List.paintRow = [](draw::Canvas& c, int i, draw::Rect r, kit::RowState s) {
-        paintPanelRow(c, gPal2Rows, gPal2Chosen, -1, i, r, s, gPal2RowsMode);
+    gPal2List.picked = [](int row, unsigned mods) {
+        const int v = gPal2List.rows[size_t(row)].value;
+        {
+            SecondPaletteScope scope;
+            pickUnit(gState, v, (mods & draw::kCtrl) != 0);
+        }
+        gPal2List.invalidate();
+        invalidateMapView();
+        shellFocusView();
     };
+    gPalList.context = [](int row, draw::Point pt) { paletteMenuSdl(gPalList, gPalList, pt, row); };
+    gPal2List.context = [](int row, draw::Point pt) { paletteMenuSdl(gPal2List, gPal2List, pt, row); };
     gLocList.label = [](int i) { return i >= 0 && i < int(gListRows.size()) ? gListRows[size_t(i)] : std::wstring(); };
     gLocList.setMode(kit::SelectMode::Multiple);
     gLocList.onSelect = [] { locationListPicked(); };
@@ -242,13 +221,13 @@ void initPanels() {
     gFilterSdl.onChange = [] { rebuildList(gState); };
     gSearchSdl.setPlaceholder(L"Search");
     gSearchSdl.onChange = [] {
-        gPalList.setScrollTop(0);
+        gPalList.scrollTo(0);
         rebuildPaletteRows();
     };
     gSectionDropSdl.dropdown().onChange = [](int i) {
         i = std::clamp(i, 0, int(gSectionNames.size()));
         gPalSection = i == 0 ? std::wstring() : gSectionNames[size_t(i - 1)];
-        gPalList.setScrollTop(0);
+        gPalList.scrollTo(0);
         rebuildPaletteRows();
     };
     for (int s = 0; s < 2; ++s) gPanelTabsSdl[s].side = s;

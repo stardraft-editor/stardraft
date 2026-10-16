@@ -37,6 +37,7 @@
 #include "startup.inc"
 #include "names.inc"
 #include "palette_items.inc"
+#include "palette_view.inc"  // the palette's views: list or grid, the View menu, the pins, the rows' places, the pie's terrains
 #include "data_list.inc"
 #include "views_data.inc"
 #include "views_data_requirements.inc"
@@ -73,6 +74,7 @@
 #include "views_classic_batch.inc"
 #include "views_classic_value.inc"
 #include "views_list_pick.inc"
+#include "views_palette.inc"  // the palette's list and grid (PaletteGridView) and the pie palette (PieView): the SDL program's
 #include "views_classic_page.inc"
 #include "views_triggers_tree.inc"
 #include "views_triggers_pane.inc"
