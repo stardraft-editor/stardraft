@@ -13,8 +13,8 @@ A case that needs the game data runs only with --install; one that needs a map, 
 one that needs a project, only with --project. The others run everywhere (CI has no game data).
 
 To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (its argument loop in main()). In a
-case's options, {map}, {project}, {install} (the --install folder), {root} (the repository), {out} (the --out folder)
-and {newdir} (a new empty folder in --out) are paths. A run also fails when its output has "(WRONG)", or when the
+case's options, {map}, {project}, {install} (the --install folder), {root} (the repository), {out} (the --out folder),
+{newdir} (a new empty folder in --out) and {wav} (a short sound that the script writes in --out) are paths. A run also fails when its output has "(WRONG)", or when the
 case's function in CHECKS finds a problem in its output.
 """
 
@@ -90,6 +90,16 @@ CASES += [
     ("drop-other", ["--drop", "{root}/README.md"], ""),
     ("drop-map", ["--drop", "{map}"], "map"),
     ("drop-project", ["--drop", "{project}"], "project"),
+    # In the Assets workspace a dropped sound imports into the map (as Import sounds...); another file says so.
+    ("drop-sound-assets", ["--workspace", "files", "--drop", "{wav}"], "map"),
+    ("drop-image-assets", ["--workspace", "files", "--drop", "{root}/apps/editor/res/atlas-16.png"], ""),
+    # macOS: what the Dock and Finder parts set up (the Dock menu, Build's bar and badge, the Settings toolbar), as text;
+    # elsewhere one line says that they are macOS only. Program options' tabs as macOS's Settings window shows them.
+    ("check-dock", ["--check", "dock"], ""),
+    ("dialog-options-tab-general", ["--dialog", "options:0", "--size", "720x520"], ""),
+    ("dialog-options-tab-map", ["--dialog", "options:1", "--size", "720x520"], ""),
+    ("dialog-options-tab-start", ["--dialog", "options:2", "--size", "720x520"], ""),
+    ("dialog-options-tab-folders", ["--dialog", "options:3", "--size", "720x520", "--theme", "light"], ""),
     # The classic page with the pop-out of the selected action's value (trigger:kind:entry:value): the first action of
     # the first trigger, its value 3 (a map whose first trigger has an action, as Set deaths: the number pop-out).
     ("map-classictrig-value", ["--workspace", "classictriggers", "--classictrig", "1:1:0:3"], "map"),
@@ -737,6 +747,38 @@ def check_trackpad_pan(output):
     return None
 
 
+def check_drop(want):
+    """A check that the drop's line ("drop: <the status bar>") has `want`."""
+    def check(output):
+        m = re.search(r"^drop: (.*?)\r?$", output, re.M)
+        if not m:
+            return "no drop line"
+        return None if want in m.group(1) else f"drop: {m.group(1)!r}, not {want!r}"
+    return check
+
+
+def check_dock(output):
+    """None when on macOS the Dock menu, Build's tile and the Settings toolbar are set up (elsewhere: macOS only)."""
+    if sys.platform != "darwin":
+        return None if "dock: not on this system (macOS only)" in output else "no macOS only line"
+    wants = ["application:openFile: yes", "applicationDockMenu: yes; 4 items: \"(2)Bottleneck.scm\" \"(4)Lost Temple.scx\" | "
+             "\"AshenCrown\"", "dock: build running: tile shows the bar, timer on",
+             "dock: build ended with 3 errors: badge \"3\", tile is the icon, timer off",
+             "settings: toolbar style preference; 4 items: \"General\" \"Map\" \"Start\" \"Folders\"; selected"]
+    for w in wants:
+        if w not in output:
+            return f"no {w!r}"
+    return None
+
+
+def check_options_tab(output):
+    """None when the tab's content fits in the picture (520 px): macOS's Settings window is as high as it."""
+    m = re.search(r"^options tab (\d+): content (\d+) px high\r?$", output, re.M)
+    if not m:
+        return "no options tab line"
+    return None if 100 < int(m.group(2)) <= 520 else f"the tab is {m.group(2)} px high"
+
+
 # Checks of a case's output (after the PNG's): a function that returns None, or what is wrong.
 CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
           "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
@@ -754,9 +796,23 @@ CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-clic
           "start-noinstall-pick": check_banner(False, "none", True), "start-scale2": check_scale2,
           "map-wheel-zoom": check_zoom_at("wheel 700,500,0,1", 1.2), "map-trackpad-pan": check_trackpad_pan,
           "map-trackpad-ctrl-zoom": check_zoom_at("wheel 700,500,0,8:precise:Ctrl", 1.44),
-          "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5)}
+          "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5),
+          "drop-sound-assets": check_drop("Imported 1 sounds"), "drop-image-assets": check_drop("Did not import atlas-16.png"),
+          "check-dock": check_dock, "dialog-options-tab-general": check_options_tab, "dialog-options-tab-map": check_options_tab,
+          "dialog-options-tab-start": check_options_tab, "dialog-options-tab-folders": check_options_tab}
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+def write_wav(path):
+    """A short sound (0.1 s of a 440 Hz tone, 16-bit mono at 22050 Hz) for the drop cases ({wav})."""
+    import math
+    import wave
+    with wave.open(path, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(22050)
+        w.writeframes(b"".join(struct.pack("<h", int(8000 * math.sin(2 * math.pi * 440 * i / 22050))) for i in range(2205)))
 
 
 def png_check(path):
@@ -877,8 +933,11 @@ def main():
         given = any("{map}" in x or "{project}" in x for x in args)  # (the path is in the options)
         # {newdir}: a new empty folder in --out for each run (a folder is never deleted)
         newdir = tempfile.mkdtemp(prefix=name + "-", dir=a.out) if any("{newdir}" in x for x in args) else ""
-        args = [x.format(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir)
-                for x in args]
+        wav = os.path.join(a.out, "drop-sound.wav")
+        if any("{wav}" in x for x in args) and not os.path.exists(wav):
+            write_wav(wav)
+        args = [x.format(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
+                         wav=wav) for x in args]
         if needs == "map" and not given:
             cmd.append(a.map)
         elif needs == "project" and not given:

@@ -2013,3 +2013,7 @@ Select all	Выделить всё
 Could not find StarCraft on your system.	Не удалось найти StarCraft в системе.
 That folder has no StarCraft game data.	В этой папке нет игровых данных StarCraft.
 Select the StarCraft folder	Выберите папку StarCraft
+General	Общие
+Folders	Папки
+Did not import 	Не импортировано: 
+: the Assets workspace imports only sounds (WAV, OGG)	: рабочая область «Ассеты» импортирует только звуки (WAV, OGG)
