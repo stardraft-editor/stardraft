@@ -209,12 +209,12 @@ jobs:
           grep -q "^wrote " snap.txt
           "$exe" --dialog options --size 720x820 --snapshot editor-windows-options.png | tee snap.txt
           grep -q "^wrote " snap.txt
-          # As a release has it: stardraft.exe alone in a folder (no res/, no fonts/ beside it). The fonts and the icons
-          # come from the program itself.
+          # As a release has it: stardraft.exe alone in a folder (no res/, no fonts/ beside it). The icons come from the
+          # program itself, the fonts from the system (Segoe UI).
           mkdir -p alone && cp "$exe" alone/
           alone/stardraft.exe --snapshot editor-windows-alone.png | tee snap.txt
           grep -q "^wrote " snap.txt
-          grep -q "fonts NotoSans-Regular.ttf" snap.txt
+          grep -q "fonts segoeui.ttf" snap.txt
           if grep -q "no icon atlases\|no app icon" snap.txt; then exit 1; fi
 
       # Each workspace and dialog (tools/sdl_snapshots.py), as on Linux: a run exits with 0 and writes a PNG that is not

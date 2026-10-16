@@ -757,7 +757,8 @@ def check_icons(icon, icon_cell, card, card_cell):
 
 
 def check_fonts(output):
-    """On macOS the UI text is SF Pro (SFNS.ttf), drawn as macOS draws text; elsewhere it is Noto Sans, as before."""
+    """On macOS the UI text is SF Pro (SFNS.ttf), drawn as macOS draws text; on Windows Segoe UI (the system's), at the
+    system's message font size; elsewhere Noto Sans, as before."""
     m = re.search(r"^stardraft_editor: fonts (.*), scale", output, re.M)
     if not m:
         return "no fonts line"
@@ -765,6 +766,8 @@ def check_fonts(output):
     if sys.platform == "darwin":
         if not fonts.startswith("SFNS") or "rasterizer: macOS" not in fonts:
             return f"the UI font is not SF Pro with macOS's rasterizer settings: {fonts}"
+    elif sys.platform == "win32" and not fonts.startswith("segoeui.ttf"):
+        return f"the UI font is not Segoe UI: {fonts}"
     elif "SFNS" in fonts or "rasterizer" in fonts:
         return f"SF Pro or macOS's rasterizer on another system: {fonts}"
     return None

@@ -250,6 +250,16 @@ std::pair<const void*, size_t> embeddedFile(const std::string& path) {
 // The files built into the program (kit_sdl::setEmbeddedFiles).
 stardraft::kit_sdl::EmbeddedFile sdlEmbeddedFiles() { return winsdl::embeddedFile; }
 
+// The UI text's character height at 96 DPI (kit_sdl::setUiFontHeight): the system's message font, as the Win32 program
+// used it (Segoe UI 9 pt: 12 px). 0 when the system does not say.
+int sdlUiFontHeight() {
+    NONCLIENTMETRICSW ncm{};
+    ncm.cbSize = sizeof ncm;
+    if (!SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0, 96)) return 0;
+    const int h = ncm.lfMessageFont.lfHeight;
+    return h < 0 ? -h : 0;  // (a positive height is a cell height, not the characters': not used)
+}
+
 // The settings of the Windows builds before the settings file: HKCU\Software\StarDraft (core/prefs.inc reads a value
 // there that the file does not have yet), the same as the Win32 program's (shell_win32.inc), so an update from an old
 // build keeps them.
@@ -380,6 +390,7 @@ bool shellProcessRunning(std::uint32_t pid) {
 #else  // (the other systems: none of these parts)
 
 stardraft::kit_sdl::EmbeddedFile sdlEmbeddedFiles() { return nullptr; }  // (the files are beside the program, or in the app bundle)
+int sdlUiFontHeight() { return 0; }  // (the kit's own size)
 
 fs::path sdlWindowsInstallFile() { return {}; }
 // (shellStartElevated, shellProcessEnded and shellProcessClose: shell_sdl.inc, SDL's processes; they ask for no rights)
