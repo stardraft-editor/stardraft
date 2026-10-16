@@ -259,6 +259,22 @@ struct MapView final : draw::View {
         if (!panning || panDrags || !open()) return;
         if (middlePanStep(gState, float(last.x - anchor.x), float(last.y - anchor.y), dt)) clampCamera(), updateStatus(), invalidate();
     }
+    // The mouse capture went away during a press (the window lost the focus: Alt+Tab, another program; the host's
+    // SDL_EVENT_WINDOW_FOCUS_LOST): the stroke, the drag or the pan ends at once where the mouse was last, as one undo
+    // step, as a release there (the Windows map's WM_CAPTURECHANGED). The first terrain is the palette's pick again after
+    // a Shift stroke. After a release (the view lets the capture go itself) there is nothing left to end.
+    void captureLost() override {
+        rightDown = false;
+        if (panning) {
+            panning = false;
+            if (gState.drag == Drag::Pan || gState.drag == Drag::AutoPan) gState.drag = Drag::None;
+            gState.dirty = true;
+        }
+        const bool second = std::exchange(rightStroke, false);
+        if (gState.drag != Drag::None) mapMouseUp(gState, gState.mouseX, gState.mouseY, 0);
+        if (second) gState.palette = savedPalette, gState.dirty = true;
+        invalidate();
+    }
     // The release of the middle button: the press ends.
     void panEnd() {
         if (!panning) return;

@@ -261,6 +261,12 @@ CASES += [
                            "--type", "Selftest Spot", "--key", "Enter", "--key", "Ctrl+Z", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "map"),
     # Terrain: a palette pick (Solar Array), the brush (B) and a drag paints; Undo takes the paint back.
     ("map-terrain-brush", ["--mode", "terrain", "--click", "202,759", "--key", "B", "--drag", "520,650-640,690", "--key", "Ctrl+Z"], "map"),
+    # The window loses the focus during a stroke (--lostdrag: Alt+Tab before the release, which does not come): the
+    # Shift stroke with the second terrain (Ctrl+click on Solar Array) ends at once, as the Windows program's
+    # WM_CAPTURECHANGED: the mouse that moves after it paints nothing, the first terrain is the pick again, and one Undo
+    # takes the stroke back.
+    ("map-terrain-lostdrag", ["--mode", "terrain", "--click", "202,759:Ctrl", "--key", "B", "--lostdrag", "520,650-640,690:Shift",
+                              "--move", "700,650", "--key", "Ctrl+Z"], "map"),
     # Rectangle: a tile of the Tiles list, the brush and a click puts the tile there; Undo takes it back.
     ("map-terrain-rect-paint", ["--rect", "--click", "160,660", "--key", "B", "--click", "560,690", "--key", "Ctrl+Z"], "map"),
     # Terrain select (V): a drag selects, Copy, Paste: the copy follows the mouse; a click puts it; Undo; Cut; Undo.
@@ -360,7 +366,7 @@ def check_edited(output):
     return None if "save round-trip: edited.scx: 0 units," in output else "the saved map has units after Delete"
 
 
-INPUT_LINE = re.compile(r"^(key|type|click|drag|move|wait) (.*?): (\d+) units, (\d+) doodads, (\d+) selected(?: \(the first at (\d+),(\d+)\))?:")
+INPUT_LINE = re.compile(r"^(key|type|click|drag|lostdrag|move|wait) (.*?): (\d+) units, (\d+) doodads, (\d+) selected(?: \(the first at (\d+),(\d+)\))?:")
 
 
 def input_lines(output):
@@ -509,6 +515,17 @@ def check_terrain_brush(output):
         ("B did not pick the brush", lambda s: s[1]["tool"] == "0"),
         ("the drag did not paint", lambda s: s[2]["terrain"] != s[1]["terrain"]),
         ("Undo did not take the paint back", lambda s: s[3]["terrain"] == s[1]["terrain"]),
+    ])
+
+
+def check_terrain_lostdrag(output):
+    """A Shift stroke with the second terrain ends when the window loses the focus: one undo step, the first pick again."""
+    return expect(output, 5, [
+        ("Ctrl+click picked no second terrain", lambda s: "Shift+drag paints" in output),
+        ("the stroke did not paint", lambda s: s[2]["terrain"] != s[1]["terrain"]),
+        ("the first terrain is not the pick after the stroke", lambda s: s[2]["palette"] == s[1]["palette"]),
+        ("the stroke did not end: the mouse paints after the focus went", lambda s: s[3]["terrain"] == s[2]["terrain"]),
+        ("one Undo did not take the stroke back", lambda s: s[4]["terrain"] == s[1]["terrain"]),
     ])
 
 
@@ -999,7 +1016,7 @@ def check_spotlight(output):
 
 
 # Checks of a case's output (after the PNG's): a function that returns None, or what is wrong.
-CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
+CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
           "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
           "map-doodad-ghost": check_doodad_ghost, "map-sprite-place": check_sprite_place,
           "map-location-make": check_location_make, "map-terrain-brush": check_terrain_brush,

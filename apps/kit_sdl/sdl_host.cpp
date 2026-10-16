@@ -161,6 +161,7 @@ SDL_WindowID windowOf(const SDL_Event& e) {
     case SDL_EVENT_TEXT_EDITING: return e.edit.windowID;
     case SDL_EVENT_WINDOW_MOUSE_LEAVE: case SDL_EVENT_WINDOW_CLOSE_REQUESTED: case SDL_EVENT_WINDOW_EXPOSED:
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: case SDL_EVENT_WINDOW_RESIZED: case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
+    case SDL_EVENT_WINDOW_FOCUS_LOST:
         return e.window.windowID;
     default:
         if (gGestureEvent && e.type == gGestureEvent) {
@@ -373,6 +374,7 @@ void SdlHost::snapshotInput(draw::View& root, int w, int h, const std::vector<SD
         else if (e.type == SDL_EVENT_MOUSE_WHEEL) e.wheel.windowID = id;
         else if (e.type == SDL_EVENT_PINCH_BEGIN || e.type == SDL_EVENT_PINCH_UPDATE || e.type == SDL_EVENT_PINCH_END) e.pinch.windowID = id;
         else if (gGestureEvent && e.type == gGestureEvent) e.user.windowID = id;
+        else if (e.type == SDL_EVENT_WINDOW_FOCUS_LOST) e.window.windowID = id;
         dispatch(e);
     }
     hover_ = std::move(hover);
@@ -853,6 +855,13 @@ void SdlHost::dispatch(const SDL_Event& e) {
         return;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
         if (Win* w = findWin(wid); w && hover_ && w->kind != WindowKind::Tooltip) hover_(*w->root, {}, {}, true);
+        // The window lost the keyboard focus during a press (Alt+Tab, another program or window took it): the view with
+        // the mouse capture loses it now and ends what the press was for (a stroke on the map ends as one undo step), as
+        // the Windows program did on WM_CAPTURECHANGED. The button's release may never come to the window.
+        if (Win* w = findWin(wid); w && w->router->captured()) {
+            if (captureWin_ == wid) SDL_CaptureMouse(false), captureWin_ = 0;
+            w->router->setCapture(nullptr);  // (captureLost: the view may close windows; `w` is not used after it)
+        }
         // Popups close when the program loses the keyboard focus (another program took it). An open dialog and the
         // pop-outs it is opened from stay (the Report feedback dialog of a value's pop-out keeps its typed text).
         if (!SDL_GetKeyboardFocus()) {
