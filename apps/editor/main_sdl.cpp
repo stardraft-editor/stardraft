@@ -430,7 +430,8 @@ int main(int argc, char** argv) {
         kit_sdl::SdlHost host(device);
         gHost = &host;
         host.setScale(scaleArg);  // (0: the display's scale; the views lay out at it)
-        kit_sdl::setEmbeddedFiles(sdlEmbeddedFiles());  // (Windows: the fonts, atlases and icon are in stardraft.exe too)
+        kit_sdl::setEmbeddedFiles(sdlEmbeddedFiles());  // (Windows: the atlases, the icon and the Noto Sans fallback are in stardraft.exe too)
+        kit_sdl::setUiFontHeight(sdlUiFontHeight());  // (Windows: the system's message font size)
         std::printf("stardraft_editor: fonts %s, scale %.2f\n", kit_sdl::loadFonts(base + "fonts/").c_str(), double(scale));
         // The text sizes at this scale (the snapshots check that the small text grows with the UI's: the rail's labels)
         std::printf("stardraft_editor: text %d px, small text %d px, titles %d px\n", kit::px(15), -(shellUiFontLfHeight() * 5 / 6),

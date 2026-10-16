@@ -8,6 +8,7 @@
 #include <array>
 #include <cfloat>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <deque>
 #include <set>
@@ -39,6 +40,8 @@ namespace {
 ImFont* gUi = nullptr;
 ImFont* gMono = nullptr;
 ImFont* gGlyphs = nullptr;  // the icon glyph face (Segoe MDL2 Assets on Windows); the UI face when there is none
+int gUiEmPx = 0;            // setUiFontHeight: the UI text's character height at scale 1 (0: the kit's own size)
+float gUiSizeFactor = 1;    // the ImGui size of a UI face font for each of its pixels (loadFonts, from gUiEmPx)
 std::deque<FontEntry> gFonts;
 std::map<std::tuple<int, int, bool>, size_t> gFontIndex;
 
@@ -351,7 +354,8 @@ std::string fileName(const std::string& path) { return fs::path(reinterpret_cast
 const FontEntry* fontEntry(const draw::FontDesc& d) {
     const int face = d.face == draw::Face::Mono ? 1 : d.face == draw::Face::Glyphs ? 2 : 0;
     ImFont* base = face == 1 && gMono ? gMono : face == 2 && gGlyphs ? gGlyphs : gUi;
-    const int px = d.px > 0 ? d.px : kit::px(15);
+    int px = d.px > 0 ? d.px : kit::px(15);
+    if (face == 0 && gUiSizeFactor != 1) px = std::max(1, int(std::lround(float(px) * gUiSizeFactor)));
     const auto key = std::make_tuple(face, px, d.underline);
     if (auto it = gFontIndex.find(key); it != gFontIndex.end()) return &gFonts[it->second];
     gFonts.push_back(FontEntry{base, px, d.underline});
@@ -437,21 +441,59 @@ size_t utf8Next(const std::string& s, size_t i) {
 
 void setEmbeddedFiles(EmbeddedFile files) { gEmbedded = files; }
 
+void setUiFontHeight(int emPx) { gUiEmPx = emPx; }
+
+namespace {
+
+// The height that ImGui gives a font of size 1 (its ascent minus its descent, from the 'hhea' table) in em units: the
+// size at which ImGui draws the font with characters of a GDI font's height (a LOGFONT's negative lfHeight) is that
+// height times this. 0 when the file cannot be read. `face`: the font in a collection (.ttc).
+float ascentDescentPerEm(const std::string& path, int face = 0) {
+    const std::vector<unsigned char> b = readFile(path);
+    auto u16 = [&](size_t o) { return o + 2 <= b.size() ? unsigned(b[o] << 8 | b[o + 1]) : 0u; };
+    auto u32 = [&](size_t o) { return o + 4 <= b.size() ? uint32_t(u16(o)) << 16 | u16(o + 2) : 0u; };
+    size_t dir = 0;
+    if (u32(0) == 0x74746366u) dir = u32(12 + 4 * size_t(face));  // 'ttcf': each face's table directory
+    unsigned upem = 0;
+    int ascent = 0, descent = 0;
+    for (unsigned i = 0, n = u16(dir + 4); i < n; ++i) {
+        const size_t rec = dir + 12 + 16 * size_t(i);
+        const uint32_t tag = u32(rec), off = u32(rec + 8);
+        if (tag == 0x68656164u) upem = u16(off + 18);  // 'head': unitsPerEm
+        if (tag == 0x68686561u) ascent = int16_t(u16(off + 4)), descent = int16_t(u16(off + 6));  // 'hhea'
+    }
+    return upem && ascent > descent ? float(ascent - descent) / float(upem) : 0.0f;
+}
+
+#if defined(_WIN32)
+// The system's font folder (%WINDIR%\Fonts\), as UTF-8.
+std::string windowsFonts() {
+    const wchar_t* w = _wgetenv(L"WINDIR");
+    const std::u8string u = (fs::path(w && *w ? w : L"C:\\Windows") / L"Fonts").u8string();
+    return std::string(u.begin(), u.end()) + "\\";
+}
+#endif
+
+}  // namespace
+
 std::string loadFonts(const std::string& fontDir) {
     ImGuiIO& io = ImGui::GetIO();
     io.Fonts->Clear();
     gFonts.clear(), gFontIndex.clear();
     const std::string d = fontDir;
     // The program's own fonts first (Noto Sans, KR, SC: the build puts them beside the program), so every system shows
-    // the same text; else the system's.
+    // the same text; else the system's. (Windows: the other way round, below.)
     const std::string ownLatin = firstFile({d + "NotoSans-Regular.ttf"});
     const std::string ownKorean = firstFile({d + "NotoSansKR-Regular.otf"});
     const std::string ownChinese = firstFile({d + "NotoSansSC-Regular.otf"});
 #if defined(_WIN32)
-    std::string latin = firstFile({"C:\\Windows\\Fonts\\segoeui.ttf"});
-    std::string korean = firstFile({"C:\\Windows\\Fonts\\malgun.ttf"});
-    std::string chinese = firstFile({"C:\\Windows\\Fonts\\msyh.ttc", "C:\\Windows\\Fonts\\simsun.ttc"});
-    const std::string mono = firstFile({"C:\\Windows\\Fonts\\CascadiaMono.ttf", "C:\\Windows\\Fonts\\consola.ttf"});
+    // Windows: the system's fonts, as the Win32 program had them (Segoe UI, Malgun Gothic for Korean, Microsoft YaHei for
+    // Chinese, Cascadia Mono or Consolas for code); the program's own Noto Sans only when a system font is not there.
+    const std::string w = windowsFonts();
+    std::string latin = firstFile({w + "segoeui.ttf", ownLatin});
+    std::string korean = firstFile({w + "malgun.ttf", ownKorean});
+    std::string chinese = firstFile({w + "msyh.ttc", w + "simsun.ttc", ownChinese});
+    const std::string mono = firstFile({w + "CascadiaMono.ttf", w + "consola.ttf"});
 #elif defined(__APPLE__)
     std::string latin = firstFile({"/System/Library/Fonts/Supplemental/Arial.ttf", "/System/Library/Fonts/Helvetica.ttc"});
     std::string korean = firstFile({"/System/Library/Fonts/AppleSDGothicNeo.ttc", "/System/Library/Fonts/Supplemental/AppleGothic.ttf"});
@@ -464,9 +506,11 @@ std::string loadFonts(const std::string& fontDir) {
     std::string chinese = korean;  // (Noto Sans CJK has both)
     const std::string mono = firstFile({"/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"});
 #endif
+#if !defined(_WIN32)
     if (!ownLatin.empty()) latin = ownLatin;
     if (!ownKorean.empty()) korean = ownKorean;
     if (!ownChinese.empty()) chinese = ownChinese;
+#endif
     // macOS: the system's UI font (SF Pro, SFNS.ttf) for the UI text, as the system's own programs; the program's Noto
     // Sans is merged after it for the characters that SF Pro does not have, then Korean and Chinese as on the others.
     std::string fill;  // (a font merged after the UI font, before Korean)
@@ -496,13 +540,18 @@ std::string loadFonts(const std::string& fontDir) {
     // The symbols that the text fonts do not have (a game text's line end mark U+21B5, the pencil U+270E): the
     // system's symbol font, as Windows's font linking gives them to GDI (else they show as boxes).
 #if defined(_WIN32)
-    std::string symbols = firstFile({"C:\\Windows\\Fonts\\seguisym.ttf"});
+    std::string symbols = firstFile({w + "seguisym.ttf"});
 #elif defined(__APPLE__)
     std::string symbols = firstFile({"/System/Library/Fonts/Apple Symbols.ttf", "/System/Library/Fonts/Supplemental/Arial Unicode.ttf"});
 #else
     std::string symbols = firstFile({"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/truetype/noto/NotoSansSymbols2-Regular.ttf"});
 #endif
-    for (const std::string* f : {&korean, &chinese, &symbols}) {
+#if defined(_WIN32)
+    const std::string emoji = firstFile({w + "seguiemj.ttf"});  // (Segoe UI Emoji: its glyphs in one color)
+#else
+    const std::string emoji;
+#endif
+    for (const std::string* f : std::initializer_list<const std::string*>{&korean, &chinese, &symbols, &emoji}) {
         if (f->empty() || (f == &chinese && *f == korean) || (f == &symbols && *f == latin)) continue;
         ImFontConfig merge = cfg;
         merge.MergeMode = true;
@@ -521,10 +570,23 @@ std::string loadFonts(const std::string& fontDir) {
     } else gMono = gUi;
     // The icon glyphs (the message box's info icon is U+E946 in Segoe MDL2 Assets): only their range is loaded.
     static const ImWchar kGlyphRanges[] = {0xE000, 0xF8FF, 0};
-    const std::string glyphs = firstFile({"C:\\Windows\\Fonts\\segmdl2.ttf"});
+#if defined(_WIN32)
+    const std::string glyphs = firstFile({w + "segmdl2.ttf"});
+#else
+    const std::string glyphs;
+#endif
     gGlyphs = glyphs.empty() ? nullptr : addFont(glyphs, size, nullptr, kGlyphRanges);
     if (gGlyphs) loaded += "; glyphs: " + fileName(glyphs);
     else gGlyphs = gUi;
+    // The UI text at the system's size (setUiFontHeight): the kit's UI size (15 px) draws characters of that height.
+    gUiSizeFactor = 1;
+    if (gUiEmPx > 0 && !latin.empty())
+        if (const float r = ascentDescentPerEm(latin); r > 0) gUiSizeFactor = float(gUiEmPx) * r / 15.0f;
+    if (gUiSizeFactor != 1) {
+        char buf[32];
+        std::snprintf(buf, sizeof buf, "; text size x%.3f", double(gUiSizeFactor));
+        loaded += buf;
+    }
     return loaded + rasterizer;
 }
 

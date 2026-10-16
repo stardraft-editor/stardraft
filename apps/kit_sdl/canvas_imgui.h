@@ -25,9 +25,13 @@ struct FontEntry {
     bool underline = false;
 };
 
-// The UI fonts (fontDir first, then the system's: Latin, then Korean and Chinese merged in) and the monospace font,
-// into the current ImGui context. Call it before the first frame. Returns what was loaded, for the log.
+// The UI fonts (fontDir first, then the system's; on Windows the system's first: Latin, then Korean and Chinese merged
+// in) and the monospace font, into the current ImGui context. Call it before the first frame. Returns what was loaded, for the log.
 std::string loadFonts(const std::string& fontDir);
+// The UI text's character height in pixels at scale 1 (as a LOGFONT's negative lfHeight; Windows: the system's message
+// font), for the next loadFonts: the UI face's fonts are drawn so that the kit's UI size (15 px) has it. 0 (the
+// default): the kit's sizes as they are.
+void setUiFontHeight(int emPx);
 
 // The files built into the program (on Windows its RCDATA resources, so that stardraft.exe is one file): for a UTF-8
 // path that has no file, its bytes (they stay valid while the program runs) and their size, or {nullptr, 0}. The
