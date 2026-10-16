@@ -204,8 +204,8 @@ bool shellEditValue(stardraft::draw::View& v, stardraft::draw::Rect field, const
 bool shellEditGameText(stardraft::draw::View& v, stardraft::draw::Rect field, const std::wstring& title, std::string& text);
 // Writes an error line to the log (the Windows log shows it in the error color).
 void shellLogError(const std::wstring& line);
-// A file's bytes as text in the system's code page (Windows: the ANSI code page, as the RichEdit read a script; other
-// systems: UTF-8).
+// A file's bytes as text in the system's code page (Windows: the ANSI code page, as the RichEdit read a script; the SDL
+// program: UTF-8, else Korean CP949, else Windows-1252: text_codec.h widenLegacy).
 std::wstring shellCodePageText(const std::string& bytes);
 // The StarCraft folder that StarDraft reads game data from, as saved; empty when it is found by itself.
 std::wstring shellInstallFolderText();

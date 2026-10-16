@@ -532,7 +532,8 @@ bool shellEditValueBelow(stardraft::draw::View& v, stardraft::draw::Rect field, 
     text = out;
     return true;
 }
-std::wstring shellCodePageText(const std::string& bytes) { return widen(bytes); }  // (UTF-8)
+// (no system code page to read in: UTF-8, else Korean CP949, else Windows-1252, as apps/common/text_codec.h decides)
+std::wstring shellCodePageText(const std::string& bytes) { return stardraft::text::widenLegacy(bytes); }
 std::wstring shellInstallFolderText() {
     std::wstring saved;
     return prefs::text(L"StarCraftFolder", saved) ? saved : std::wstring();

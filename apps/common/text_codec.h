@@ -63,6 +63,75 @@ inline std::wstring widen(std::string_view s) {
     return w;
 }
 
+// --- CP949 (Korean: KS X 1001 and the Unified Hangul Code), as Windows' code page 949 ---------------------------------
+
+namespace cp949data {
+#include "cp949_table.inc"
+}
+
+// The code point of a 2-byte CP949 code, or 0 when it has none.
+inline char32_t cp949(unsigned char lead, unsigned char trail) {
+    // The 11172 Hangul syllables in their order: the KS X 1001 ones (lead bytes B0-C8), then the others (the UHC part).
+    struct Syllables {
+        char16_t ks[2350]{}, ext[8822]{};
+        Syllables() {
+            int k = 0, e = 0;
+            for (int i = 0; i < 11172; ++i)
+                if (cp949data::kCp949KsHangul[i / 32] >> (i % 32) & 1u) ks[k++] = char16_t(0xAC00 + i);
+                else ext[e++] = char16_t(0xAC00 + i);
+        }
+    };
+    static const Syllables syl;
+    if (lead < 0x81 || lead == 0xFF) return 0;
+    if (trail >= 0xA1 && trail <= 0xFE && lead >= 0xA1) {
+        if (lead >= 0xB0 && lead <= 0xC8) return syl.ks[(lead - 0xB0) * 94 + (trail - 0xA1)];
+        const int row = lead < 0xB0 ? lead - 0xA1 : lead - 0xC9 + (0xB0 - 0xA1);
+        return cp949data::kCp949Rows[row * 94 + (trail - 0xA1)];
+    }
+    // The UHC part: lead bytes 81-A0 with 178 trail bytes (41-5A, 61-7A, 81-FE), A1-C6 with 84 (41-5A, 61-7A, 81-A0).
+    int t = trail >= 0x41 && trail <= 0x5A ? trail - 0x41 : trail >= 0x61 && trail <= 0x7A ? trail - 0x61 + 26 : trail >= 0x81 && trail <= 0xFE ? trail - 0x81 + 52 : -1;
+    if (t < 0 || lead > 0xC6 || (lead >= 0xA1 && t >= 84)) return 0;
+    const int i = lead < 0xA1 ? (lead - 0x81) * 178 + t : 32 * 178 + (lead - 0xA1) * 84 + t;
+    return i < 8822 ? char32_t(syl.ext[i]) : 0;
+}
+
+// Strict CP949: bytes 00-7F stay; each other byte is the lead of a 2-byte code that has a code point. False otherwise.
+// `hangul` and `others` count the KS X 1001 syllables (the common ones) and the other 2-byte codes.
+inline bool decodeCp949(std::string_view s, std::wstring& out, int* hangul = nullptr, int* others = nullptr) {
+    out.clear();
+    int h = 0, o = 0;
+    for (size_t i = 0; i < s.size(); ++i) {
+        const unsigned char b = static_cast<unsigned char>(s[i]);
+        if (b < 0x80) {
+            out.push_back(wchar_t(b));
+            continue;
+        }
+        if (i + 1 >= s.size()) return false;
+        const unsigned char t = static_cast<unsigned char>(s[i + 1]);
+        const char32_t c = cp949(b, t);
+        if (!c) return false;
+        appendWide(out, c);
+        (b >= 0xB0 && b <= 0xC8 && t >= 0xA1 ? h : o) += 1;
+        ++i;
+    }
+    if (hangul) *hangul = h;
+    if (others) *others = o;
+    return true;
+}
+
+// Text in an old code page (a map's strings and scripts from before UTF-8): UTF-8 when the bytes are valid UTF-8; else
+// CP949 when they read as Korean text (valid CP949, and at least half of its 2-byte codes are common Hangul
+// syllables); else Windows-1252 (the European maps).
+inline std::wstring widenLegacy(std::string_view s) {
+    std::wstring w;
+    if (decodeUtf8(s, w)) return w;
+    int hangul = 0, others = 0;
+    if (decodeCp949(s, w, &hangul, &others) && hangul > 0 && hangul >= others) return w;
+    w.clear();
+    for (char ch : s) appendWide(w, cp1252(static_cast<unsigned char>(ch)));
+    return w;
+}
+
 // UTF-8; a lone surrogate (UTF-16) becomes U+FFFD.
 inline std::string narrow(std::wstring_view w) {
     std::string out;

@@ -443,8 +443,16 @@ std::string loadFonts(const std::string& fontDir) {
         if (io.Fonts->AddFontFromFileTTF(f->c_str(), size, &merge)) loaded += " + " + fileName(*f);
     }
     gMono = mono.empty() ? nullptr : io.Fonts->AddFontFromFileTTF(mono.c_str(), size);
-    if (gMono) loaded += "; code: " + fileName(mono);
-    else gMono = gUi;
+    if (gMono) {
+        loaded += "; code: " + fileName(mono);
+        // Korean and Chinese in code (a script's comments and texts), as the Windows RichEdit's font linking gives them.
+        for (const std::string* f : {&korean, &chinese}) {
+            if (f->empty() || (f == &chinese && *f == korean)) continue;
+            ImFontConfig merge;
+            merge.MergeMode = true;
+            io.Fonts->AddFontFromFileTTF(f->c_str(), size, &merge);
+        }
+    } else gMono = gUi;
     // The icon glyphs (the message box's info icon is U+E946 in Segoe MDL2 Assets): only their range is loaded.
     static const ImWchar kGlyphRanges[] = {0xE000, 0xF8FF, 0};
     const std::string glyphs = firstFile({"C:\\Windows\\Fonts\\segmdl2.ttf"});
