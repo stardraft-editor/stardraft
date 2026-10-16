@@ -78,12 +78,13 @@ inline std::string jsonString(const std::string& j, const std::string& key, size
 
 struct Release {
     std::string title, commit, zip, page;  // zip: the asset's API address (it downloads with the token)
+    std::string download;                  // this system's download for the browser (its browser_download_url)
 };
 
-// The newest release; false when GitHub cannot be reached.
-inline bool latest(Release& r) {
-    std::string j;
-    if (!get("https://api.github.com/repos/" + narrow(kIssueRepo) + "/releases/latest", &j)) return false;
+// The release in GitHub's answer `j` (a release's JSON): its title, commit, page and this system's download; false
+// when it has no title.
+inline bool parseRelease(const std::string& j, Release& r) {
+    r = Release{};
     r.title = jsonString(j, "name");  // the release's own name comes before its assets' names
     r.page = jsonString(j, "html_url");
     if (const size_t a = r.title.find("(build "); a != std::string::npos) r.commit = r.title.substr(a + 7, r.title.find(')', a) - a - 7);
@@ -92,6 +93,7 @@ inline bool latest(Release& r) {
         // This system's download (StarDraft-<version>-win64.zip): a release can also have downloads for other systems.
         static const std::string kOurs = stardraft::platform::releaseAssetSuffix();
         if (u.size() < kOurs.size() || u.compare(u.size() - kOurs.size(), kOurs.size(), kOurs) != 0) continue;
+        r.download = u;
         // The asset's "url" (api.github.com/.../releases/assets/<id>) comes before its browser_download_url.
         for (size_t k = j.rfind("\"url\":\"", p); k != std::string::npos; k = k ? j.rfind("\"url\":\"", k - 1) : std::string::npos) {
             const std::string a = jsonString(j, "url", k);
@@ -102,6 +104,12 @@ inline bool latest(Release& r) {
         }
     }
     return !r.title.empty();
+}
+
+// The newest release; false when GitHub cannot be reached.
+inline bool latest(Release& r) {
+    std::string j;
+    return get("https://api.github.com/repos/" + narrow(kIssueRepo) + "/releases/latest", &j) && parseRelease(j, r);
 }
 
 inline bool newer(const Release& r) { return !r.commit.empty() && r.commit != STARDRAFT_COMMIT; }
@@ -133,6 +141,17 @@ inline bool installable(const fs::path& self, const Release& r) {
     for (auto* s : {&a, &b})
         for (wchar_t& ch : *s) ch = wchar_t(std::towlower(ch));  // (Windows: the file name's case does not matter)
     return releaseBuild() && a == b && !r.zip.empty();
+}
+
+// What Check for updates does with a newer release: Install (this program takes the download's program: Windows),
+// Download (a release build that cannot put a new program in its place, as macOS's app in a disk image: the browser
+// gets this system's download), or Page (a build made here, a package that updates as packages do, or a release with
+// no download for this system: the release page).
+enum class UpdateWay { Install, Download, Page };
+inline UpdateWay updateWay(const fs::path& self, const Release& r, bool package) {
+    if (package) return UpdateWay::Page;
+    if (installable(self, r)) return UpdateWay::Install;
+    return releaseBuild() && !r.download.empty() ? UpdateWay::Download : UpdateWay::Page;
 }
 
 // Unpacks a release's archive into `dir` (made if it is not there): the new program, or empty with the reason in `why`.

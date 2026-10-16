@@ -15,7 +15,8 @@ one that needs a project, only with --project. The others run everywhere (CI has
 To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (its argument loop in main()). In a
 case's options, {map}, {project}, {install} (the --install folder), {root} (the repository), {out} (the --out folder),
 {newdir} (a new empty folder in --out), {kodir} (a new empty folder in --out with Korean letters and spaces in its
-name), {wav} (a short sound that the script writes in --out), {oldsettings} (the settings file of an older release)
+name), {wav} (a short sound that the script writes in --out), {release} (GitHub's answer for the newest release, with a
+download for each system: RELEASE_JSON), {oldsettings} (the settings file of an older release)
 and {legacyhive} (Windows: a registry file with the settings of the releases before the settings file) are paths, and
 {script:<name>} is the path of the input script SCRIPTS[name] (main_sdl.cpp's --script), written into --out with the
 same paths in it. A run also fails when its output has "(WRONG)", or when the
@@ -318,6 +319,7 @@ CASES += [
     ("map-script-session", ["--script", "{script:session}:3"], "map"),
     ("map-script-dialogs", ["--mode", "locations", "--drag", "520,640-600,700", "--script", "{script:dialogs}:300"], "map"),
     ("project-script-reopen", ["--script", "{script:reopen}:6"], "project"),
+    ("script-nodata", ["--noinstall", "--script", "{script:nodata}:3"], ""),
 ]
 CASES += [
     ("map-wheel-zoom", ["--wheel", "700,500,0,1"], "map"),
@@ -396,6 +398,15 @@ CASES += [
 ]
 
 
+# With no game data and no map (as on GitHub's machines): the Files workspace's search box takes Korean and Japanese
+# compositions (each shows in the field, not in its text, until the commit), and emoji (one Backspace removes one).
+CASES += [
+    ("text-input-cjk", ["--noinstall", "--workspace", "files", "--click", "240,289", "--type", "abc", "--ime", "\u314e", "--ime", "\ud55c",
+                        "--ime", "\ud55c\u3131@1", "--type", "\ud55c\uad6d", "--ime", "\u306b", "--ime", "\u306b\u307b\u3093",
+                        "--ime", "\u65e5\u672c@1", "--type", "\u65e5\u672c\u8a9e", "--type", " \U0001f600\U0001f3ae", "--key", "Backspace"], ""),
+]
+
+
 INPUT_START = re.compile(r"^(key|type|ime|click|wait) (.*?): (?:\d+ units|no map)")
 FOCUS_LINE = re.compile(r'^  focus: (.+?) at (-?\d+),(-?\d+) "(.*?)"(?: selected (\d+)-(\d+) composing "(.*)"; input method (on|off) at '
                         r'.* (\(yes\)|\(WRONG\)))?$')
@@ -448,6 +459,58 @@ def check_text_input(output):
         ("key Ctrl+Z", "", (0, 0), ""),
         ("key Ctrl+Z", first + first, None, ""),
     ])
+
+
+def check_text_cjk(output):
+    """Korean and Japanese compositions show in the field until the commit; emoji are one character each."""
+    ko, ja = "abc\ud55c\uad6d", "abc\ud55c\uad6d\u65e5\u672c\u8a9e"
+    return expect_focus(output, [
+        ("type abc", "abc", (3, 3), ""),
+        ("ime \u314e", "abc", (3, 3), "\u314e"),
+        ("ime \ud55c", "abc", (3, 3), "\ud55c"),
+        ("ime \ud55c\u3131@1", "abc", (3, 3), "\ud55c\u3131"),
+        ("type \ud55c\uad6d", ko, (5, 5), ""),
+        ("ime \u306b", ko, (5, 5), "\u306b"),
+        ("ime \u306b\u307b\u3093", ko, (5, 5), "\u306b\u307b\u3093"),
+        ("ime \u65e5\u672c@1", ko, (5, 5), "\u65e5\u672c"),
+        ("type \u65e5\u672c\u8a9e", ja, (8, 8), ""),
+        ("type  \U0001f600\U0001f3ae", ja + " \U0001f600\U0001f3ae", (13, 13), ""),
+        ("key Backspace", ja + " \U0001f600", (11, 11), ""),
+    ])
+
+
+def check_release(output):
+    """None when Check for updates found the release of the answer: its title and commit, this system's download and
+    what it does with it (a release build: installs it on Windows, opens the disk image on macOS)."""
+    if not re.search(r'^release: "StarDraft 2 - v9\.9\.9\.9 \(build 0123abc\)", commit 0123abc, page https://github\.com/.*/releases/tag/v9\.9\.9\.9\r?$',
+                     output, re.M):
+        return "no release line with the title, the commit and the page"
+    want = {"win32": "StarDraft-9.9.9.9-win64.zip", "darwin": "StarDraft-9.9.9.9-macos-arm64.dmg"}.get(sys.platform)
+    m = re.search(r"^release: this system's download \((\S+)\) (\S+)\r?$", output, re.M)
+    if not m or (want and not m.group(2).endswith("/" + want)) or (not want and m.group(2) != "none"):
+        return f"this system's download is not {want or 'none'}: {m.group(0) if m else 'no line'}"
+    m = re.search(r"^release: newer yes, a release build (yes|no), Check for updates: (.*?)\r?$", output, re.M)
+    if not m:
+        return "no line of what Check for updates does (or the release is not newer)"
+    release, does = m.group(1) == "yes", m.group(2)
+    if sys.platform == "darwin" and release and does != "opens " + RELEASE_DOWNLOAD + want:
+        return f"a release build on macOS: {does}, not the disk image"
+    if not release and not does.startswith("opens https://github.com/"):
+        return f"a build made here: {does}, not the release page"
+    return None
+
+
+def check_soak_nodata(output):
+    """None when each time over of the session with no map printed the memory (each system says it) and the bitmaps
+    with a texture stayed as many."""
+    stats = re.findall(r"^stats: loop (\d+), .*?working set ([-\d.]+) MB .*?, (\d+) bitmaps ", output, re.M)
+    if len(stats) < 2:
+        return f"{len(stats)} stats lines, not 2 or more"
+    if any(float(ws) <= 0 for _, ws, _ in stats):
+        return "a stats line has no memory (the system did not say)"
+    if int(stats[-1][2]) > int(stats[0][2]):
+        return f"the bitmaps went up from {stats[0][2]} to {stats[-1][2]}"
+    return None
 
 
 def check_korean_save(output):
@@ -516,6 +579,10 @@ CASES += [("update-settings", ["--settings", "{oldsettings}", "--check", "settin
           ("update-checks", ["--check", "crashes", "--check", "filetypes", "--check", "update"], "")]
 if sys.platform == "win32":
     CASES += [("update-registry", ["--settings", "{out}/no-settings.json", "--legacyhive", "{legacyhive}", "--check", "settings"], "")]
+# Check for updates with a release of GitHub as the answer ({release}): it finds the release's commit and this system's
+# download (Windows: the zip; macOS: the disk image; Linux: none yet), and says what it does: a release build installs
+# it (Windows) or opens the download (macOS), a build made here opens the release page.
+CASES += [("check-release", ["--check", "release:{release}"], "")]
 
 
 # A long session (--script <file>[:<times>], apps/editor/sdl_soak.inc): the inputs of a file, the times over. The edits of
@@ -574,6 +641,32 @@ wheel 800,500,0,1
 wheel 800,500,0,-1
 undocheck
 roundtrip {out}/session{n}.scx
+stats
+""",
+    # nodata: no game data and no map (as on GitHub's machines): the start page's scroll and keys, the workspaces, the
+    # Files workspace's search box, the Log. tools/ci/mac_release_test.py runs it for 10 minutes (<file>:10m).
+    "nodata": """workspace map
+wheel 500,300,0,-3
+wheel 500,300,0,3
+wheel 500,300,0,-3:precise
+key Tab
+key Tab
+key Shift+Tab
+workspace files
+click 240,289
+type marine {n}
+key Ctrl+A
+key Backspace
+wait 200
+workspace data
+workspace triggers
+workspace project
+workspace briefing
+workspace props
+workspace classic
+key Ctrl+L
+key Ctrl+L
+workspace map
 stats
 """,
     "reopen": """workspace data
@@ -1436,7 +1529,20 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "update-registry": check_settings_read(LEGACY_LINES),
           "map-text-input": check_text_input, "map-text-korean-save": check_korean_save, "map-dialog-tab": check_dialog_tab,
           "data-tree-typeahead": check_tree_typeahead, "data-file-dialogs": check_file_dialogs,
-          "map-script-session": check_session, "map-script-dialogs": check_dialogs, "project-script-reopen": check_reopen}
+          "map-script-session": check_session, "map-script-dialogs": check_dialogs, "project-script-reopen": check_reopen,
+          "text-input-cjk": check_text_cjk, "check-release": check_release, "script-nodata": check_soak_nodata}
+
+# GitHub's answer for the newest release ({release}; /releases/latest, shortened): a release with a download for each
+# system, as tools/release.py and the macos-release job make it.
+RELEASE_DOWNLOAD = "https://github.com/stardraft-editor/stardraft/releases/download/v9.9.9.9/"
+RELEASE_JSON = """{"url":"https://api.github.com/repos/stardraft-editor/stardraft/releases/1","html_url":"https://github.com/stardraft-editor/stardraft/releases/tag/v9.9.9.9",
+"id":1,"author":{"login":"stardraft-editor","url":"https://api.github.com/users/stardraft-editor","html_url":"https://github.com/stardraft-editor"},
+"tag_name":"v9.9.9.9","name":"StarDraft 2 - v9.9.9.9 (build 0123abc)","draft":false,"prerelease":false,"assets":[
+{"url":"https://api.github.com/repos/stardraft-editor/stardraft/releases/assets/11","name":"StarDraft-9.9.9.9-win64.zip",
+"browser_download_url":"%sStarDraft-9.9.9.9-win64.zip"},
+{"url":"https://api.github.com/repos/stardraft-editor/stardraft/releases/assets/12","name":"StarDraft-9.9.9.9-macos-arm64.dmg",
+"browser_download_url":"%sStarDraft-9.9.9.9-macos-arm64.dmg"}],"body":"What is new"}
+""" % (RELEASE_DOWNLOAD, RELEASE_DOWNLOAD)
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -1627,13 +1733,17 @@ def main():
         wav = os.path.join(a.out, "drop-sound.wav")
         if any("{wav}" in x for x in args) and not os.path.exists(wav):
             write_wav(wav)
+        release = os.path.join(a.out, "release-latest.json")
+        if any("{release}" in x for x in args):
+            with open(release, "w", encoding="utf-8") as f:
+                f.write(RELEASE_JSON)
         oldsettings, legacyhive = os.path.join(a.out, "old-settings.json"), os.path.join(a.out, "legacy-settings.hive")
         if any("{oldsettings}" in x for x in args):
             write_old_settings(oldsettings, a.out)
         if any("{legacyhive}" in x for x in args):
             write_legacy_hive(legacyhive)
         paths = dict(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
-                     kodir=kodir, wav=wav, oldsettings=oldsettings, legacyhive=legacyhive)
+                     kodir=kodir, wav=wav, release=release, oldsettings=oldsettings, legacyhive=legacyhive)
 
         def script(m):  # {script:<name>}: SCRIPTS[name] with the paths, as a file in --out
             path = os.path.join(a.out, f"{name}-{m.group(1)}.txt")

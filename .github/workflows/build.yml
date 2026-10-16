@@ -632,6 +632,42 @@ jobs:
             editor-macos-files.png
             stardraft-macos.tar.gz
 
+  # The release test of the macOS app (tools/ci/mac_release_test.py): the macos job's disk image on another of GitHub's
+  # macOS machines, as a user gets it: mounted, the app copied to an Applications folder and started from there, its
+  # signature, map types and Quick Look extensions; the snapshots with no game data, a session of 10 minutes (the memory
+  # flat), the real window (it never takes the focus: Metal, the Retina scale, resize, minimize, full screen), text
+  # input in Korean and Japanese, the crash reports and Check for updates. Only for pushes to port/kit and the port/t-*
+  # branches, and by hand (not on main).
+  release-test-macos:
+    if: github.ref != 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/heads/port/t-'))))
+    needs: macos
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: stardraft-dmg-${{ github.sha }}
+          path: dist
+
+      - name: Test the app of the disk image
+        run: python3 -I tools/ci/mac_release_test.py --dmg "$(ls dist/*.dmg | head -n 1)" --out "$RUNNER_TEMP/release-test" --minutes 10
+
+      # The outputs and pictures (not the app, the runs' home folders or the mount point).
+      - name: Collect the outputs
+        if: always()
+        run: |
+          mkdir -p release-test-macos
+          rsync -a --exclude 'home-*' --exclude 'Applications' --exclude 'mnt' "$RUNNER_TEMP/release-test/" release-test-macos/ || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-test-macos-${{ github.sha }}
+          path: release-test-macos
+          if-no-files-found: warn
+
   # A release tag, with the repository variable RELEASE_MAC "on": the macOS disk image goes on the release that the
   # windows job made (it is made first: this job waits for both). A run again leaves a release's disk image as it is, as
   # the windows job leaves its zip. RELEASE_MAC not "on" (the default): the disk image is only the macos job's artifact.

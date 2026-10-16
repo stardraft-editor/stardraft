@@ -26,6 +26,10 @@
 #include <SDL3/SDL_main.h>
 #ifdef __APPLE__
 #include "mac_input.h"  // the trackpad's scrolls, smart zoom, swipes and scroll phases (mac_input.mm)
+#include <dlfcn.h>  // (sdl_soak.inc: the memory of the process and of its Metal device)
+#include <mach/mach.h>
+#include <objc/message.h>
+#include <objc/runtime.h>
 #endif
 #include "mac_window.h"  // macOS's document window and look (mac_window.mm; elsewhere its functions do nothing)
 #include "mac_dock.h"  // the Dock, Finder and the Settings window (mac_dock.mm; on Windows and Linux they do nothing)
@@ -398,6 +402,7 @@ int main(int argc, char** argv) {
         else if (a == "--noactivate") gNoActivate = true;  // a real window that never takes the focus (a test: sdl_window_test.inc)
         else if (a == "--frames") gFramesArg = std::atoll(next().c_str());  // with --noactivate: the program ends after that many frames
         else if (a == "--wintest") gWinTestMap = next(), gNoActivate = true;  // a map: the real window's checks (sdl_window_test.inc)
+        else if (a == "--wintest-fullscreen") gWinTestFull = true;  // with --wintest: full screen on and off too (sdl_window_test.inc)
         else if (a == "--palview") palViewArg = next();  // list, icons, sprites, normal, large (comma separated): the palette's view of the mode, for a snapshot
         else if (a == "--pie") pieArg = true;  // the pie palette (hold Space in Terrain mode) open, the mouse at a slice, for a snapshot
         else if (a == "--restart") restartPid = std::uint32_t(std::strtoul(next().c_str(), nullptr, 10));  // the old program's process id (sdl_options.inc)

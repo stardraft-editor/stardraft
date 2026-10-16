@@ -34,7 +34,7 @@ fs::path programFile() {
 
 const char* releaseAssetSuffix() {
 #ifdef __APPLE__
-    return "-macos-universal.app.tar.gz";
+    return "-macos-arm64.dmg";  // (the macos job's disk image, tools/ci/mac_dist.sh: Check for updates opens it in the browser)
 #else
     return "-linux-x86_64.tar.gz";
 #endif

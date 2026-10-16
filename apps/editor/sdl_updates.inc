@@ -50,9 +50,18 @@ void sdlCheckForUpdates() {
         return;
     }
     const fs::path self = stardraft::platform::programFile();
+    const releases::UpdateWay way = releases::updateWay(self, r, sdlUpdatesWithPackage());
+    // A release build that cannot put the new program in its place (macOS: the app is in a disk image): the browser
+    // gets this system's download.
+    if (way == releases::UpdateWay::Download) {
+        if (updatesBox(shellTr(L"A newer release is available: ") + title + L".\n\n" + shellTr(L"Download it? The download opens in the browser."),
+                       {shellTr(L"&Download"), shellTr(L"Cancel")}, msgbox::Icon::Info) == 0)
+            SDL_OpenURL(r.download.c_str());
+        return;
+    }
     // A build made here, or a package (an AppImage, a Flatpak: sdl_xdg.inc) that updates as packages do: the release
     // page, to get it by hand.
-    if (sdlUpdatesWithPackage() || !releases::installable(self, r)) {
+    if (way == releases::UpdateWay::Page) {
         if (updatesBox(shellTr(L"A newer release is available: ") + title + L".\n\n" + shellTr(L"This is not a release build. Open the release page?"),
                        {shellTr(L"&Open the release page"), shellTr(L"Cancel")}, msgbox::Icon::Info) == 0)
             openReleasePage(r);
@@ -176,7 +185,7 @@ bool sdlUpdatesCommand(int id) {
 
 // --- What an update keeps (--check) -------------------------------------------------------------------------------------
 
-std::string sdlCrashCheck();      // (shell_sdl_win.inc: the crash reports; other systems: none yet)
+std::string sdlCrashCheck();      // (shell_sdl_win.inc: the crash reports, on each system)
 std::string sdlFileTypesCheck();  // (shell_sdl_win.inc: the map files and project.stardraft in Explorer)
 std::filesystem::path sdlWindowsInstallFile();
 
@@ -235,6 +244,18 @@ bool sdlUpdateCheck(const std::string& what, std::string& out) {
         std::vector<std::wstring> reopen;
         line("update: program " + narrow(self.filename().wstring()) + ", the program file of the update before is " + (gone ? "gone (yes)" : "still there (WRONG)") +
              ", the list of files to open again is " + (prefs::list(L"Reopen", reopen) ? "still there (WRONG)" : "gone (yes)"));
+        return true;
+    }
+    if (what.rfind("release:", 0) == 0) {  // release:<file>: Check for updates with that file as GitHub's answer
+        std::ifstream in{fs::path(widen(what.substr(8))), std::ios::binary};
+        const std::string j((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        releases::Release r;
+        if (!in || !releases::parseRelease(j, r)) return line("release: no release in " + what.substr(8) + " (WRONG)"), true;
+        line("release: \"" + r.title + "\", commit " + r.commit + ", page " + r.page);
+        line("release: this system's download (" + std::string(stardraft::platform::releaseAssetSuffix()) + ") " + (r.download.empty() ? "none" : r.download));
+        const releases::UpdateWay way = releases::updateWay(stardraft::platform::programFile(), r, sdlUpdatesWithPackage());
+        line("release: newer " + yes(releases::newer(r)) + ", a release build " + yes(releases::releaseBuild()) + ", Check for updates: " +
+             (way == releases::UpdateWay::Install ? "installs it" : way == releases::UpdateWay::Download ? "opens " + r.download : "opens " + r.page));
         return true;
     }
     if (what == "crashes") return out = sdlCrashCheck(), true;

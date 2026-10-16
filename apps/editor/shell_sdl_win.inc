@@ -3,8 +3,12 @@
 // Explorer, one program for all maps (a map opened from Explorer goes to the program that is open), and the window's
 // dark title bar. The icons are res/stardraft_sdl.rc's (SDL gives the first one to its windows). The texts and the
 // sending are the core's (core/releases.inc), the registry and the crash's system part apps/common's (file_types.h,
-// crash_report.h). On the other systems the same functions do nothing (the end of this file).
+// crash_report.h). On the other systems the same functions do nothing (the end of this file); the crash handler and
+// the crash reports are on each system (macOS and Linux: crash_posix.cpp's signal handler).
 // Included by main_sdl.cpp after sdl_updates.inc.
+
+fs::path sdlCrashFolder();   // the crash reports' folder (each system's)
+void sdlAskToSendCrashes();  // the question at start about an earlier crash's reports (the end of this file)
 
 #ifdef _WIN32
 
@@ -62,23 +66,6 @@ void installCrashHandler(bool quiet) {
     };
     h.written = crashWritten;
     stardraft::platform::installCrashHandler(std::move(h));
-}
-
-// At start, with Options > Crash reports: Ask: the reports of the last crash: send them, always send, or not.
-void askToSendCrashes() {
-    if (gSdlCrashReports != 0 || issueToken().empty() || !gRoot) return;
-    const auto reports = stardraft::platform::unsentCrashReports(crashFolder());
-    if (reports.empty()) return;
-    const int r = msgbox::ask(*gRoot, shellTr(L"Crash report"), releases::crashAskText(reports.front().parent_path()),
-                                  {shellTr(L"&Send"), shellTr(L"&Always send"), shellTr(L"Do &not send")}, msgbox::Icon::Question);
-    if (r == 1) gSdlCrashReports = 1, prefs::setNumber(L"CrashReports", 1);  // Always send: from now on, without the question
-    if (r == 0 || r == 1) {
-        std::thread([reports] {
-            for (const auto& d : reports) releases::sendCrash(d);
-        }).detach();
-    } else {
-        for (const auto& d : reports) stardraft::platform::markCrashReport(d, "not sent: the user said no");
-    }
 }
 
 // --- One program for all maps -----------------------------------------------------------------------------------------
@@ -374,7 +361,7 @@ void sdlWindowsShown(bool testRun) {
     winsdl::titleBarsDark(!gLightTheme);
     if (testRun) return;
     releases::sendPendingCrashes(winsdl::crashFolder(), gSdlCrashReports);
-    shellPost(winsdl::askToSendCrashes);
+    shellPost(sdlAskToSendCrashes);
     winsdl::fileTypesAtStart();
 }
 // The Windows program's StarCraft folder file (%APPDATA%\stardraft\install.txt: its first line), so that both programs
@@ -421,29 +408,7 @@ bool shellProcessRunning(std::uint32_t pid) {
     return alive;
 }
 
-// --check crashes (sdl_updates.inc): the crash reports in the folder (each one's state) and what the next start does
-// with the ones that were not sent (Options > Crash reports; a build made here has no token, and asks and sends nothing).
-std::string sdlCrashCheck() {
-    int mode = 0;
-    prefs::number(L"CrashReports", mode, 0, 2);
-    const fs::path folder = winsdl::crashFolder();
-    std::string out = "crashes: folder " + narrow(folder.wstring()) + ", crash reports " + std::to_string(mode) + "\n";
-    std::error_code ec;
-    for (const auto& e : fs::directory_iterator(folder, ec)) {
-        std::string state = "not sent";
-        if (std::ifstream in(e.path() / "sent"); in) std::getline(in, state);
-        const auto size = fs::exists(e.path() / "report.txt", ec) ? fs::file_size(e.path() / "report.txt", ec) : 0;
-        out += "crashes: report " + e.path().filename().string() + ", report.txt " + std::to_string(size) + " bytes, crash.dmp " +
-               (fs::exists(e.path() / "crash.dmp", ec) ? "yes" : "no") + ", " + state + "\n";
-    }
-    const auto unsent = stardraft::platform::unsentCrashReports(folder);
-    const std::string token = issueToken().empty() ? " (a build made here: nothing, it has no token)" : "";
-    if (unsent.empty()) out += "crashes: the next start: nothing (no report waits)\n";
-    else if (mode == 0) out += "crashes: the next start asks" + token + ": " + narrow(releases::crashAskText(unsent.front().parent_path())) + "\n";
-    else if (mode == 1) out += "crashes: the next start sends " + std::to_string(unsent.size()) + token + "\n";
-    else out += "crashes: the next start: nothing (crash reports are off)\n";
-    return out;
-}
+fs::path sdlCrashFolder() { return winsdl::crashFolder(); }
 
 // --check filetypes (sdl_updates.inc): what opens the maps and project.stardraft in Explorer (the user's file types:
 // read only).
@@ -472,19 +437,136 @@ std::uintptr_t sdlStartProgram(const fs::path& exe, const fs::path& dir, const s
     return shellStartElevated(exe, dir, args, what, error);
 }
 
-void sdlRememberLogLine(const std::wstring&) {}
 bool sdlMakeMapsDefault() { return false; }
 void shellMapFileOpened(const std::filesystem::path&) {}  // (the file association is Windows only)
 bool sdlMapsOpenWithUs() { return false; }
-int sdlWindowsFirst(int, char**, bool) { return -1; }
 bool sdlSendToOpenProgram(const std::string&, bool) { return false; }
 void sdlTitleBarsDark(bool) {}
 void sdlTitleBarOfNewWindow(SDL_Window*) {}
-void sdlWindowsShown(bool) {}
 // (core/documents.inc: the unsaved projects' folders; the restart)
 std::uint32_t shellProcessId() { return std::uint32_t(getpid()); }
 bool shellProcessRunning(std::uint32_t pid) { return pid && (kill(pid_t(pid), 0) == 0 || errno == EPERM); }
-std::string sdlCrashCheck() { return "crashes: none on this system yet\n"; }
 std::string sdlFileTypesCheck() { return "filetypes: none on this system\n"; }
 
+// --- Crash reports (macOS and Linux) ----------------------------------------------------------------------------------
+
+namespace posixsdl {
+
+std::deque<std::wstring> gLog;  // the last log lines (the report's end)
+bool gQuiet = false;            // test runs: the report stays on disk
+std::string gBuild;             // "built Oct 10 12:00"
+
+// After the crash's report is written (in the crashed program: little is safe now): send it now (a new process sends
+// it), or keep it for the next start (it asks, or crash reports are off). Test runs keep it on disk only. The text
+// goes to the error output (a window is not safe now).
+void crashWritten(const fs::path& dir) {
+    if (gQuiet) {
+        std::ofstream(dir / "sent") << "a test run: not sent";
+        std::fprintf(stderr, "crash: report %s (a test run: not sent)\n", dir.string().c_str());
+        return;
+    }
+    if (gSdlCrashReports == 2) std::ofstream(dir / "sent") << "not sent: crash reports are off";
+    if (gSdlCrashReports == 1) stardraft::platform::startProgram(stardraft::platform::programFile(), {"--send-crash", dir.string()});
+    std::fprintf(stderr, "%s\n", narrow(releases::crashStoppedText(dir, gSdlCrashReports)).c_str());
+}
+
+void installCrashHandler(bool quiet) {
+    gQuiet = quiet;
+    gBuild = narrow(shellBuildStamp());
+    stardraft::platform::CrashHandler h;
+    h.folder = sdlCrashFolder();
+    h.header = [] { return releases::crashHeader(gBuild, widen(gRenderer ? gRenderer->driver() : "no GPU yet")); };
+    h.context = [] { return "Workspace: " + narrow(reportWorkspaceName(gWorkspace)) + "\n"; };
+    h.log = [] {
+        std::string r;
+        for (const auto& l : gLog) r += "  " + narrow(l) + "\n";
+        return r;
+    };
+    h.written = crashWritten;
+    stardraft::platform::installCrashHandler(std::move(h));
+}
+
+}  // namespace posixsdl
+
+// The crash reports' folder: StarDraft/crashes in the user's data folder (~/Library/Application Support on macOS,
+// $XDG_DATA_HOME or ~/.local/share on Linux), beside the projects that are not saved yet.
+fs::path sdlCrashFolder() {
+    const fs::path unsaved = shellUnsavedRoot();
+    return unsaved.empty() ? fs::path() : unsaved.parent_path() / "crashes";
+}
+
+// The log's lines go into the crash report's end too.
+void sdlRememberLogLine(const std::wstring& line) {
+    posixsdl::gLog.push_back(line);
+    if (posixsdl::gLog.size() > 60) posixsdl::gLog.pop_front();
+}
+
+// main()'s first steps (as on Windows): a crashed program's sender (--send-crash <folder>) sends its report and ends
+// (returns its exit code; -1 otherwise), and the crash handler goes in (a test run's reports stay on disk);
+// --crash-test crashes on purpose; --crash-test stack: with a stack overflow (a call that calls itself).
+int sdlCrashTestDepth(volatile int n) {
+    volatile char frame[4096];
+    frame[0] = char(n);
+    return n > 0 ? sdlCrashTestDepth(n + 1) + frame[0] : 0;  // (n never ends at 0: the stack runs out)
+}
+int sdlWindowsFirst(int argc, char** argv, bool testRun) {
+    const std::string a1 = argc > 1 ? argv[1] : "", a2 = argc > 2 ? argv[2] : "";
+    if (a1 == "--send-crash") return releases::sendCrash(fs::path(widen(a2))) ? 0 : 1;
+    prefs::number(L"CrashReports", gSdlCrashReports, 0, 2);
+    posixsdl::installCrashHandler(testRun || a1 == "--crash-test");
+    if (a1 == "--crash-test" && a2 == "stack") return sdlCrashTestDepth(1);
+    if (a1 == "--crash-test") *static_cast<volatile int*>(nullptr) = 1;
+    return -1;
+}
+
+// After the window shows (not in a test run): the reports of an earlier crash (sent, or the question).
+void sdlWindowsShown(bool testRun) {
+    if (testRun) return;
+    releases::sendPendingCrashes(sdlCrashFolder(), gSdlCrashReports);
+    shellPost(sdlAskToSendCrashes);
+}
+
 #endif
+
+// --- Crash reports (each system) --------------------------------------------------------------------------------------
+
+// At start, with Options > Crash reports: Ask: the reports of the last crash: send them, always send, or not.
+void sdlAskToSendCrashes() {
+    if (gSdlCrashReports != 0 || issueToken().empty() || !gRoot) return;
+    const auto reports = stardraft::platform::unsentCrashReports(sdlCrashFolder());
+    if (reports.empty()) return;
+    const int r = msgbox::ask(*gRoot, shellTr(L"Crash report"), releases::crashAskText(reports.front().parent_path()),
+                                  {shellTr(L"&Send"), shellTr(L"&Always send"), shellTr(L"Do &not send")}, msgbox::Icon::Question);
+    if (r == 1) gSdlCrashReports = 1, prefs::setNumber(L"CrashReports", 1);  // Always send: from now on, without the question
+    if (r == 0 || r == 1) {
+        std::thread([reports] {
+            for (const auto& d : reports) releases::sendCrash(d);
+        }).detach();
+    } else {
+        for (const auto& d : reports) stardraft::platform::markCrashReport(d, "not sent: the user said no");
+    }
+}
+
+// --check crashes (sdl_updates.inc): the crash reports in the folder (each one's state) and what the next start does
+// with the ones that were not sent (Options > Crash reports; a build made here has no token, and asks and sends nothing).
+std::string sdlCrashCheck() {
+    int mode = 0;
+    prefs::number(L"CrashReports", mode, 0, 2);
+    const fs::path folder = sdlCrashFolder();
+    std::string out = "crashes: folder " + narrow(folder.wstring()) + ", crash reports " + std::to_string(mode) + "\n";
+    std::error_code ec;
+    for (const auto& e : fs::directory_iterator(folder, ec)) {
+        std::string state = "not sent";
+        if (std::ifstream in(e.path() / "sent"); in) std::getline(in, state);
+        const auto size = fs::exists(e.path() / "report.txt", ec) ? fs::file_size(e.path() / "report.txt", ec) : 0;
+        out += "crashes: report " + e.path().filename().string() + ", report.txt " + std::to_string(size) + " bytes, crash.dmp " +
+               (fs::exists(e.path() / "crash.dmp", ec) ? "yes" : "no") + ", " + state + "\n";
+    }
+    const auto unsent = stardraft::platform::unsentCrashReports(folder);
+    const std::string token = issueToken().empty() ? " (a build made here: nothing, it has no token)" : "";
+    if (unsent.empty()) out += "crashes: the next start: nothing (no report waits)\n";
+    else if (mode == 0) out += "crashes: the next start asks" + token + ": " + narrow(releases::crashAskText(unsent.front().parent_path())) + "\n";
+    else if (mode == 1) out += "crashes: the next start sends " + std::to_string(unsent.size()) + token + "\n";
+    else out += "crashes: the next start: nothing (crash reports are off)\n";
+    return out;
+}
