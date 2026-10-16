@@ -304,10 +304,18 @@ struct MainView final : draw::View {
         if (e.down && !e.repeat && e.key == draw::Key::Enter && !e.mods && !typing && map.shown() && mapEnterSdl()) return true;
         // Esc while a trigger waits for a unit picked on the map: back to the triggers (the Windows cancelStep).
         if (e.down && e.key == draw::Key::Escape && trigUnitPickActive()) return trigCancelUnitPick(), true;
-        // Space on the map in Terrain mode: the pie palette while it is held (the Windows map's VK_SPACE); its repeats do
-        // nothing more, and letting go paints with the slice's terrain.
-        if (e.key == draw::Key::Space && !e.mods && !typing && map.shown() && (map.hasFocus() || !hasFocusIn(*this))) {
-            if (!e.down) return pie.shown() ? (pieRelease(), true) : false;
+        // Space on the map in Terrain mode: the pie palette while it is held (the Windows map's VK_SPACE, also with Shift);
+        // its repeats do nothing more, and letting go paints with the slice's terrain, with any keys held. When the program
+        // lost the keyboard (Alt+Tab: SDL lets go of the held keys), the ring closes with no change (the Windows
+        // WM_KILLFOCUS).
+        if (e.key == draw::Key::Space && !e.down && pie.shown()) {
+            if (SDL_GetKeyboardFocus()) return pieRelease(), true;
+            pie.setVisible(false);
+            invalidate();
+            return true;
+        }
+        if (e.key == draw::Key::Space && e.down && !(e.mods & ~unsigned(draw::kShift)) && !typing && map.shown() &&
+            (map.hasFocus() || !hasFocusIn(*this))) {
             if (!e.repeat) pieOpen();
             return pie.shown();
         }
