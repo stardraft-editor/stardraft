@@ -782,6 +782,20 @@ bool mapWheel(AppState& app, float x, float y, float notches, float panX, float 
     mapPanBy(app, panX, panY);
     return true;
 }
+// macOS's smart zoom (a double tap with two fingers) on the map at (x, y): the zoom goes in two times around the point;
+// the next one, while the zoom is still that, goes back to the zoom before. At the largest zoom it goes out two times.
+void mapSmartZoom(AppState& app, float x, float y) {
+    static float before = 0, after = 0;  // the zoom before the last smart zoom in, and the zoom it gave
+    if (before > 0 && app.zoom == after) {
+        mapZoomAt(app, x, y, before / app.zoom);
+        before = after = 0;
+        return;
+    }
+    const float was = app.zoom;
+    mapZoomAt(app, x, y, 2);
+    if (app.zoom == was) mapZoomAt(app, x, y, 0.5f), before = after = 0;  // (at the largest zoom: out)
+    else before = was, after = app.zoom;
+}
 // A pinch on the map: the zoom changes by `scale` (more than 1: in) around the point between the fingers (x, y).
 bool mapPinch(AppState& app, float x, float y, float scale) {
     if (!(scale > 0) || scale == 1) return false;

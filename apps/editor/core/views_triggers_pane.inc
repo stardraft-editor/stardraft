@@ -583,10 +583,10 @@ public:
                 setMessage(L"Zoom " + std::to_wstring(z) + L"% (Ctrl+0 resets it)");
                 return true;
             }
-            scrollTo(gTE.scroll - delta * scale(60) / 120);
+            scrollTo(e.exact ? gTE.scroll - int(e.panY) : gTE.scroll - delta * scale(60) / 120);  // (exact: macOS's trackpad)
             return true;
         }
-        case draw::MouseKind::Pinch: return false;
+        case draw::MouseKind::Pinch: case draw::MouseKind::SmartZoom: case draw::MouseKind::Swipe: return false;
         }
         return false;
     }

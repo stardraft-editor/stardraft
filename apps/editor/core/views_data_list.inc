@@ -133,7 +133,7 @@ bool DataListView::mouse(const draw::MouseEvent& e) {
         return true;
     case MouseKind::Wheel:
         if (e.horizontal) return false;
-        setScroll(host_.scroll() - int(std::lround(e.wheel * rowH() * 3)));  // three rows a notch
+        setScroll(host_.scroll() - int(std::lround(draw::wheelDistance(e, float(rowH() * 3)))));  // three rows a notch
         return true;
     case MouseKind::Down:
     case MouseKind::DoubleClick:

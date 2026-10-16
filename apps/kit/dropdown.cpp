@@ -77,9 +77,13 @@ public:
                 if (const int i = rowAt(e.pt); i >= 0) pick_(i);
             return e.button == 0;
         case MouseKind::Wheel: {  // positive: away from the user, the list scrolls up; a part of a notch waits
-            wheelAcc_ += e.wheel;
-            const int notches = int(wheelAcc_);  // whole notches, toward zero
-            wheelAcc_ -= float(notches);
+            int notches = 0;
+            if (e.exact) notches = draw::exactSteps(e, float(rowH()), wheelAcc_);  // (macOS's trackpad: rows of its distance)
+            else {
+                wheelAcc_ += e.wheel;
+                notches = int(wheelAcc_);  // whole notches, toward zero
+                wheelAcc_ -= float(notches);
+            }
             const int before = top_;
             top_ = std::clamp(top_ - notches, 0, maxTop());
             if (top_ != before) invalidate();

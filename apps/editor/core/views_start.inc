@@ -263,7 +263,7 @@ public:
             }
             return false;
         case draw::MouseKind::Wheel:
-            scrollBy(-int(e.wheel * float(scale(32) * 3)));
+            scrollBy(-int(draw::wheelDistance(e, float(scale(32) * 3))));
             return true;
         default: return false;
         }
@@ -319,6 +319,8 @@ public:
         const Hit& h = hits_[size_t(hi)];
         return h.name.empty() ? h.tip : h.name;
     }
+
+    int scrollPos() const { return scroll_; }  // (how far the page is scrolled down, in pixels)
 
 private:
     struct Hit {

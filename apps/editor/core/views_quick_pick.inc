@@ -286,7 +286,7 @@ public:
         const draw::Rect L = listRect();
         if (e.kind == draw::MouseKind::Wheel) {  // three rows a notch (the list box's)
             if (e.wheel == 0 || e.horizontal) return false;
-            setTop(top_ - int(std::lround(e.wheel * 3)));
+            setTop(top_ - (e.exact ? draw::exactSteps(e, float(scale(quickPickLayout::kItemH)), wheelCarry_) : int(std::lround(e.wheel * 3))));
             return true;
         }
         if (e.kind != draw::MouseKind::Move && e.kind != draw::MouseKind::Down && e.kind != draw::MouseKind::DoubleClick) return false;
@@ -473,6 +473,7 @@ private:
     std::vector<PaletteUnit> shown_;
     std::vector<std::wstring> words_;  // what is typed, word by word (the rows show where each word is in the name)
     int sel_ = -1, top_ = 0;
+    float wheelCarry_ = 0;  // an exact scroll's part of a row (draw::exactSteps)
     int lineHeight_ = 0;  // the rows' font's line height, from the last paint
     draw::Rect sr_;       // the search row: the icon, the field, the count
     stardraft::kit::TextField field_;

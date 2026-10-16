@@ -366,14 +366,30 @@ GlyphIcons gGlyphIcons = nullptr;      // setGlyphIcons
 int glyphIconOf(std::wstring_view t) { return gGlyphIcons && t.size() == 1 ? gGlyphIcons(t[0]) : -1; }
 
 // The atlas that a glyph of `px` pixels is drawn with: the smallest that is as large (else the largest); null: none.
+// Only the atlases of 32 px and less (the text's glyph icons keep their sizes; the large atlases are for Canvas::icon).
 const Atlas* glyphAtlas(int px) {
     const Atlas* best = nullptr;
     for (const Atlas& a : gAtlases)
-        if (a.size >= px && (!best || a.size < best->size)) best = &a;
+        if (a.size <= 32 && a.size >= px && (!best || a.size < best->size)) best = &a;
     if (!best)
         for (const Atlas& a : gAtlases)
-            if (!best || a.size > best->size) best = &a;
+            if (a.size <= 32 && (!best || a.size > best->size)) best = &a;
     return best;
+}
+
+// The size that Canvas::icon draws an icon of `px` pixels at: up to 32 px, the Win32 editor's (its uiIconSize: 32 from
+// 32 px, 24 from 28, else 16); larger, px itself.
+int iconDrawnPx(int px) { return px >= 33 ? px : px >= 32 ? 32 : px >= 28 ? 24 : 16; }
+// The atlas that an icon drawn at `want` pixels comes from: the smallest that has the icon and is as large, else the
+// largest that has it (an icon newer than the large atlases); null: none.
+const Atlas* iconAtlas(int icon, int want) {
+    const Atlas* a = nullptr;
+    for (const Atlas& cand : gAtlases)
+        if (icon < cand.w / cand.size && cand.size >= want && (!a || cand.size < a->size)) a = &cand;
+    if (!a)
+        for (const Atlas& cand : gAtlases)
+            if (icon < cand.w / cand.size && (!a || cand.size > a->size)) a = &cand;
+    return a;
 }
 
 // A private use character (an icon font's glyph) that the font does not have: not drawn (no box).
@@ -451,12 +467,32 @@ std::string loadFonts(const std::string& fontDir) {
     if (!ownLatin.empty()) latin = ownLatin;
     if (!ownKorean.empty()) korean = ownKorean;
     if (!ownChinese.empty()) chinese = ownChinese;
+    // macOS: the system's UI font (SF Pro, SFNS.ttf) for the UI text, as the system's own programs; the program's Noto
+    // Sans is merged after it for the characters that SF Pro does not have, then Korean and Chinese as on the others.
+    std::string fill;  // (a font merged after the UI font, before Korean)
+#if defined(__APPLE__)
+    if (const std::string sf = firstFile({"/System/Library/Fonts/SFNS.ttf", "/System/Library/Fonts/SFNSText.ttf"}); !sf.empty())
+        fill = latin, latin = sf;
+#endif
 
     const float size = 15.0f;  // the size the font file is read at; each canvas font is drawn at its own size
     std::string loaded;
     ImFontConfig cfg;
+#if defined(__APPLE__)
+    // As macOS draws text: no hinting (stb_truetype has none), each glyph at its sub-pixel place (three positions in a
+    // pixel, no snap to whole pixels), and the strokes a little heavier, as macOS's text gamma makes them.
+    cfg.OversampleH = 3, cfg.PixelSnapH = false, cfg.RasterizerMultiply = 1.15f;
+    const std::string rasterizer = "; rasterizer: macOS (no hinting, sub-pixel places, x1.15)";
+#else
+    const std::string rasterizer;
+#endif
     if (!latin.empty() && (gUi = addFont(latin, size, &cfg))) loaded = fileName(latin);
     else gUi = io.Fonts->AddFontDefault(), loaded = "ImGui's own (no system font found)";
+    if (!fill.empty() && fill != latin) {
+        ImFontConfig merge = cfg;
+        merge.MergeMode = true;
+        if (addFont(fill, size, &merge)) loaded += " + " + fileName(fill);
+    }
     // The symbols that the text fonts do not have (a game text's line end mark U+21B5, the pencil U+270E): the
     // system's symbol font, as Windows's font linking gives them to GDI (else they show as boxes).
 #if defined(_WIN32)
@@ -468,17 +504,17 @@ std::string loadFonts(const std::string& fontDir) {
 #endif
     for (const std::string* f : {&korean, &chinese, &symbols}) {
         if (f->empty() || (f == &chinese && *f == korean) || (f == &symbols && *f == latin)) continue;
-        ImFontConfig merge;
+        ImFontConfig merge = cfg;
         merge.MergeMode = true;
         if (addFont(*f, size, &merge)) loaded += " + " + fileName(*f);
     }
-    gMono = mono.empty() ? nullptr : addFont(mono, size);
+    gMono = mono.empty() ? nullptr : addFont(mono, size, &cfg);
     if (gMono) {
         loaded += "; code: " + fileName(mono);
         // Korean and Chinese in code (a script's comments and texts), as the Windows RichEdit's font linking gives them.
         for (const std::string* f : {&korean, &chinese}) {
             if (f->empty() || (f == &chinese && *f == korean)) continue;
-            ImFontConfig merge;
+            ImFontConfig merge = cfg;
             merge.MergeMode = true;
             addFont(*f, size, &merge);
         }
@@ -489,7 +525,7 @@ std::string loadFonts(const std::string& fontDir) {
     gGlyphs = glyphs.empty() ? nullptr : addFont(glyphs, size, nullptr, kGlyphRanges);
     if (gGlyphs) loaded += "; glyphs: " + fileName(glyphs);
     else gGlyphs = gUi;
-    return loaded;
+    return loaded + rasterizer;
 }
 
 SDL_GPUTexture* uploadRgba(SDL_GPUDevice* device, int w, int h, const uint8_t* rgba) {
@@ -531,7 +567,7 @@ SDL_GPUTexture* uploadRgba(SDL_GPUDevice* device, int w, int h, const uint8_t* r
 bool loadIconAtlases(SDL_GPUDevice* device, const std::string& dir) {
     unloadIconAtlases();
     gAtlasDevice = device;
-    for (int size : {16, 20, 24, 32}) {
+    for (int size : {16, 20, 24, 32, 40, 48, 64}) {
         const std::vector<unsigned char> file = readFile(dir + "atlas-" + std::to_string(size) + ".png");
         if (file.empty()) continue;
         int w = 0, h = 0, n = 0;
@@ -951,21 +987,25 @@ void ImguiCanvas::bitmap(draw::Bitmap& b, Rect src, Rect dst, bool, uint8_t alph
 
 void ImguiCanvas::icon(Rect r, int icon, Color c, int px) {
     if (c == kNone || icon < 0 || gAtlases.empty()) return;
-    // The atlas of the size the Win32 editor draws at px (its uiIconSize): 32 from 32 px, 24 from 28, else 16.
-    const int want = px >= 32 ? 32 : px >= 28 ? 24 : 16;
-    const Atlas* a = &gAtlases.back();
-    for (const Atlas& cand : gAtlases)
-        if (cand.size == want) {
-            a = &cand;
-            break;
-        }
+    // Up to 32 px, the atlas of the size the Win32 editor draws at px (its uiIconSize): 32 from 32 px, 24 from 28, else
+    // 16; each at its own size (a 16 px icon at scale 2 is the 32 px atlas: sharp on a Retina display). Larger (a card's
+    // icon at scale 2, 64 px): the smallest atlas that is as large (40, 48, 64), drawn at px; a larger px, the largest.
+    // An icon that an atlas does not have (it is newer than the atlas): the largest atlas that has it, at that size.
+    const int want = iconDrawnPx(px);
+    const Atlas* a = iconAtlas(icon, want);
+    if (!a) return;
     const int cell = a->size;
-    if (icon >= a->w / cell) return;
+    const float drawn = float(want > 32 ? want : std::min(cell, want));  // (an atlas that has no larger cell: scaled up)
     const float cx = origin_.x + r.left + r.width() / 2.0f, cy = origin_.y + r.top + r.height() / 2.0f;
-    const ImVec2 p0(std::floor(cx - cell / 2.0f), std::floor(cy - cell / 2.0f));
-    const ImVec2 p1(p0.x + float(cell), p0.y + float(cell));
+    const ImVec2 p0(std::floor(cx - drawn / 2.0f), std::floor(cy - drawn / 2.0f));
+    const ImVec2 p1(p0.x + drawn, p0.y + drawn);
     const float u0 = float(icon * cell) / float(a->w), u1 = float((icon + 1) * cell) / float(a->w);
     dl_->AddImage(texRef(a->tex), p0, p1, ImVec2(u0, 0), ImVec2(u1, 1), colorOf(c));
+}
+
+int iconAtlasCell(int icon, int px) {
+    const Atlas* a = icon >= 0 ? iconAtlas(icon, iconDrawnPx(px)) : nullptr;
+    return a ? a->size : 0;
 }
 
 void ImguiCanvas::resourceIcon(Rect r, int resourceId, int px) {

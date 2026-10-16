@@ -100,6 +100,21 @@ public:
     // it (NSEvent's hasPreciseScrollingDeltas; the program asks it). With no hook, a scroll with fractions is precise
     // (Windows' precision touchpads, Wayland, X11's smooth scrolling), and so are the scroll's next steps for 0.2 s.
     void setPreciseScrollHook(std::function<bool()> fn) { precise_ = std::move(fn); }
+    // Whether the scroll event that SDL gives now continues a trackpad's scroll (the fingers moved on, or its momentum
+    // after they lifted): it then goes to the point where that scroll began, so the view it began on keeps it (as
+    // macOS latches a scroll). macOS knows it (NSEvent's phase and momentumPhase; the program asks it with the event's
+    // SDL x and y, which find that event's phase). With no hook, each scroll goes to the view under the mouse.
+    void setScrollContinuesHook(std::function<bool(float x, float y)> fn) { scrollContinues_ = std::move(fn); }
+    // For a snapshot on any system: the scrolls are macOS's (SDL's tenths of points; a precise one is exact, so the
+    // lists move by its distance: MouseEvent::exact). False: as the system gives them.
+    void setMacScrollTest(bool on) { macScrollTest_ = on; }
+    // A trackpad gesture that SDL has no event for (macOS's smart zoom and three-finger swipe: the program's monitor of
+    // the system's events gives them): it goes to the window `window` (0: the one under the mouse), at the mouse, as a
+    // MouseKind::SmartZoom or Swipe event (`swipe`: -1 the fingers moved to the left, 1 to the right). It is pushed as
+    // an SDL event: the views get it with the next events. From the UI thread, after the host is made.
+    static void pushGesture(draw::MouseKind kind, int swipe, SDL_WindowID window = 0);
+    // The SDL event that pushGesture pushes (a snapshot feeds it to snapshotMouse).
+    static SDL_Event gestureEvent(draw::MouseKind kind, int swipe, SDL_WindowID window = 0);
 
     // draw::Host
     void invalidate(draw::View& v) override;
@@ -176,6 +191,11 @@ private:
     std::function<bool()> precise_;                 // setPreciseScrollHook
     Uint64 preciseUntil_ = 0;                       // a precise scroll's next steps are precise until then (ns)
     float pinchLast_ = 1;                           // a pinch's scale so far (the systems that give it from its start)
+    std::function<bool(float, float)> scrollContinues_;         // setScrollContinuesHook
+    bool macScrollTest_ = false;                    // setMacScrollTest
+    SDL_WindowID latchWin_ = 0;                     // the window and the point where the last scroll began
+    draw::Point latchPt_;
+    float exactRestX_ = 0, exactRestY_ = 0;         // an exact scroll's fractions of a pixel, for its next event
     bool preciseScroll(const SDL_MouseWheelEvent& e);
     std::function<bool(draw::View&)> modalHook_;    // setSnapshotModalHook
     SDL_WindowID shotSeq_ = 0xFFFFFF00u;            // the ids of a snapshot's windows (ids SDL does not give)
