@@ -163,7 +163,13 @@ bool sdlRuns(int id) {
     case ID_DOODAD_FIT:
     case ID_DOODAD_NEAREST:
     case ID_DOODAD_ANYWHERE:
-    case ID_GRID_CUSTOM: return true;
+    case ID_GRID_CUSTOM:
+    case ID_VIEW_TOWNS:  // View > Show town areas, and the other pathing overlays (core/path_overlay.inc)
+    case ID_VIEW_WALK:
+    case ID_VIEW_PATHS:
+    case ID_PATHSIZE_SMALL:
+    case ID_PATHSIZE_MEDIUM:
+    case ID_PATHSIZE_LARGE: return true;
     default: break;
     }
     if (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 10) return true;  // the keys 1 to 0
@@ -405,6 +411,30 @@ void sdlPressKey(const std::string& chord) {
     if (!gRoot || !c || !keyOfChord(c->key, e.key)) return void(std::fprintf(stderr, "--key %s: no such key\n", chord.c_str()));
     e.mods = (c->ctrl ? kShortcutCtrl : 0) | (c->shift ? draw::kShift : 0) | (c->alt ? draw::kAlt : 0);
     gRoot->key(e);
+    runPosted();
+    // (the output says what the key did, as the Windows self-test's log: Delete, then Undo, gives the units back)
+    if (gState.ed && gState.ed->isOpen())
+        std::printf("key %s: %zu units, %zu doodads, %zu selected: %s\n", chord.c_str(), gState.ed->units().size(), gState.ed->doodads().size(),
+                    gState.ed->selection().size(), narrow(gState.message).c_str());
+}
+
+// --command <name> in a snapshot: a command of the menus by its name in the command table (core/map_commands.inc:
+// view.grid, view.ranges...) or one of the names below, as its menu item runs it. The output says whether the item is
+// enabled (a gray item: "(WRONG)").
+void sdlCommandShot(const std::string& name) {
+    static const std::pair<const char*, int> kNames[] = {{"view.towns", ID_VIEW_TOWNS}, {"view.log", ID_VIEW_LOG}, {"scen.check", ID_SCEN_CHECK},
+                                                         {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO}};
+    int id = -1;
+    for (const auto& [native, cmd] : gCommandIds)
+        if (cmd == name) id = native;
+    for (const auto& [n, native] : kNames)
+        if (name == n) id = native;
+    if (id < 0) return void(std::printf("command %s: no such command (WRONG)\n", name.c_str()));
+    if (!sdlEnabled(id)) return void(std::printf("command %s: the menu item is gray (WRONG)\n", name.c_str()));
+    command(id);
+    runPosted();
+    pathOverlayPoll(true);  // (a pathing overlay: its analysis is done before the picture)
+    std::printf("command %s: ran (yes): %s\n", name.c_str(), narrow(gState.message).c_str());
 }
 
 // --- File dialogs -----------------------------------------------------------------------------------------------------

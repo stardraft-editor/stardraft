@@ -27,3 +27,20 @@ void buildDataReloaded(int tab, int entry) {
 // The repaired triggers.json loads now: the Triggers workspace's tree shows it (as the Windows program does). A euddraft
 // error in the triggers' code selects its block with the core's trigShowBuildError (core/views_triggers_help.inc).
 void buildTriggersReloaded() { trigRefreshTree({1}); }
+
+// --build in a snapshot: Build (Ctrl+B) when this computer has euddraft (a test run never downloads it), then frames
+// until the build ends; the output says the result (a failed build: "(WRONG)"), and the Log has euddraft's lines.
+void sdlBuildShot() {
+    if (!euddraft::find({})) return void(std::printf("build: skipped (no euddraft on this computer)\n"));
+    gBuildResult = -1;
+    command(ID_PROJ_COMPILE);
+    if (!gBuilding) return void(std::printf("build: did not start: %s (WRONG)\n", narrow(gState.message).c_str()));
+    const auto start = std::chrono::steady_clock::now();
+    while (gBuilding && std::chrono::steady_clock::now() - start < std::chrono::minutes(5)) {
+        runPosted();
+        SDL_Delay(50);
+    }
+    runPosted();
+    if (gBuilding) return void(std::printf("build: still running after 5 minutes (WRONG)\n"));
+    std::printf("build: %s: %s\n", gBuildResult == 1 ? "built (yes)" : "failed (WRONG)", narrow(gState.message).c_str());
+}

@@ -110,19 +110,14 @@ this list.
 | The palette's views | The View button and a right click on the palette: List, Grid (units: icons or sprites), Normal or Large, the list's sections (go to one), and in a project Pin to the top / Unpin for a doodad (`unitPaletteMenu`, `setUnitPaletteView`, `doodadPinToggle`). The views of each mode are saved (PaletteViews). | Done: the views, the View menu (`paletteMenuModel`), the rows with the pinned doodads first (`paletteRows`), the places of the rows and cells (`paletteLayout`), Shift+click (`paletteShiftPick`) and the pins (`doodadPinToggle`) are in the core (`core/palette_view.inc`) for both programs; PaletteViews is in the settings table. On SDL the palette and the second palette are the core's `PaletteGridView` (`core/views_palette.inc`): a list or a grid with the sprites of units (`paletteBitmap`'s `sprite`), the grid's footer with the item's name, the pin of a pinned doodad. The View button and a right click on either palette open the menu. Snapshots: map-palette-grid, map-palette-sprites (`--palview`), map-palette-menu, project-palette-pin. |
 | The pie palette (hold Space in Terrain mode) | `pieOpen`, `pieRelease` (main.cpp): a ring of the tileset's terrains. | Done: the ring is the core's `PieView` (`core/views_palette.inc`) over the middle of the map while Space is held, also with Shift (`MainView::pieOpen`, `pieRelease`); letting go of Space paints with any keys held, and when the program loses the keyboard (Alt+Tab) the ring closes with no change, as on Windows; the terrains, the slice under the mouse and the sizes are the core's (`pieTerrains`, `pieSliceAt`, `pieRadius`), and the Windows ring uses them too. Snapshot map-pie (`--pie`: the output says the slices, the slice under the mouse and that letting go paints with it). |
 
-### Open
+### Also done in this sweep
 
 | What | Windows | SDL |
 |---|---|---|
 | The text fields' context menu | The system's menu of an edit box (Cut, Copy, Paste, Select all); the Triggers code pane: Copy (Copy all) and Select all (`trigCodeKeys`). | Done: a right click on a kit text field opens its menu through the kit menu (`TextField::editMenu`), in both programs where the kit field is used: Undo, Cut, Copy, Paste, Delete, Select all; a read-only field (the code pane, the script preview) only Copy (Copy all with nothing selected) and Select all. kit_test `text_field_context_menu`; snapshots map-rclick-search, project-rclick-code. |
 | Report feedback in the other windows | Each window (dialogs, pop-outs, the block help) gets the feedback menu on a right click. | Done: a right click that no view takes in a dialog or a pop-out (`SdlHost::setRightClickHook`) gets the menu with only "Report feedback on ..." (`sdlWindowRightClick`, `sdl_menus.inc`): the view there, else the window's title; not on a text field, not in the feedback dialog. The feedback dialog opens over that window, and it stays open (with its text) when another program takes the focus: the host keeps the pop-outs that an open dialog is opened from (`SdlHost::dispatch`, focus lost). Snapshots dialog-options-rclick, dialog-blockhelp-rclick. |
 | The feedback item's icon | In the feedback color (kFeedback). | Done: `kit::MenuItem::iconColor`. |
-| The palette's views | The View button and a right click on the palette: List, Grid (units: icons or sprites), Normal or Large, the list's sections (go to one), and in a project Pin to the top / Unpin for a doodad (`unitPaletteMenu`, `setUnitPaletteView`, `doodadPinToggle`). The views of each mode are saved (PaletteViews). | The list only. The View button shows a message. No menu on a right click. |
-| The pie palette (hold Space in Terrain mode) | `pieOpen`, `pieRelease` (main.cpp): a ring of the tileset's terrains. | Nothing. |
 | The menus in the snapshots | | Done: `--rclick x,y` with no item number leaves the menu open, and the snapshot shows it over the window (`SdlHost` paints the menus that views with no window open). Every kit menu (a text field's too) writes its items to the output (`kit::Menu::setTestHook`). |
-| The text fields' context menu | The system's menu of an edit box (Cut, Copy, Paste, Select all); the Triggers code pane: Copy (Copy all) and Select all (`trigCodeKeys`). | The kit's text field has no menu (the keys work). |
-| Report feedback in the other windows | Each window (dialogs, pop-outs, the block help) gets the feedback menu on a right click. | Only the main window (and the menus above). |
-| The feedback item's icon | In the feedback color (kFeedback). | In the menu's text color. |
 ## The switch on Windows (2026-10-16)
 `stardraft.exe` is the SDL program now (CMake target `stardraft_editor` on every system); the Win32 program builds
 as `stardraft-win32.exe` (target `stardraft_win32`), a fallback that is not in a release. A user who updates keeps
@@ -148,3 +143,78 @@ Open:
 | Options > Middle mouse click and hold (MiddleDrag) | Pan (toward the mouse) or drag. | Saved, but the middle button always drags. |
 | The start with a new unsaved project | Starts with a 128 x 128 badlands project in the unsaved folder (`newUntitledProject`), and removes the folders of programs that ended (`cleanUnsavedProjects`). | Starts with the start page; the unsaved folder of a Win32 program that crashed stays. |
 | The restart after Language (`--restart <pid>`, the setting Reopen) | Opens the maps and projects that were open. | The SDL program's own restart; the Reopen list of a Win32 program is not read. |
+
+## The final check (2026-10-16)
+
+Each command id of `core/ids.inc`, each key of `kProgramKeys` (`core/map_edit_commands.inc`), each workspace, dialog
+and pane was compared with the Win32 fallback, by reading the code (the SDL menus run what `sdlRuns` lists, the keys
+go through `shortcutRun`, the same table as the Win32 accelerators) and with the snapshots.
+
+| What | State |
+|---|---|
+| The commands of the menus | Each item of the core's menu model runs on SDL, except Options > Maps (Windows only, as on the Win32 program). The ids that no menu has (`ID_EDIT_CORRECTION`, `ID_EDIT_DOODADCHECK`, `ID_EDIT_SNAPLOC`, `ID_EDIT_SNAPUNITS`, `ID_SCEN_REPLAY`, `ID_OPT_CRASHREPORTS`) are not in the menus of either program; the `ID_FIXED_*` items are always gray in both. `ID_ACCENT` is the accent swatches of Program options in both. The palette's view ids (`ID_PAL_*`) are the palette's View menu (`paletteMenuModel`). |
+| View > Show town areas | Was gray on SDL: `sdlRuns` did not list it (nor the other pathing overlay ids). Done: they run (`commandMapEdit`, `core/path_overlay.inc`). Snapshot map-view-towns (`--command view.towns`: the output says that the item is not gray, and the town areas show). |
+| The keys of `kProgramKeys` | Each one runs on SDL (`shortcutRun`: the program's keys, then the menus' keys). Snapshots: map-key-copy, map-key-rail, map-key-undo (Ctrl+A, Del, Ctrl+Z, Ctrl+Y). |
+| The workspaces | Map, Data, Triggers, Assets, Project, Briefing, Files, and the map pages (Map properties, Players, Classic triggers, Map data): each has its SDL view (snapshots ws-* and map-ws-*). |
+| The dialogs | Program options, About, Report feedback, New EUD project, the text prompt, the list picker, the block picker, a block's help, the unit and location properties, the quick picker, the value pop-out, the message boxes, the tooltip: each has a snapshot. Project settings is the Project page in both. The button pop-out (Replace a button) is `ButtonPopView` on SDL. |
+| The panes | The menu bar, the top tool bar, the tabs, the rail, the status bar, the Log, the minimap, the palettes, the tool strip, the modes' bar, the code pane: on SDL (snapshots). |
+| Open | Options > Middle mouse click and hold, the start with a new unsaved project and the restart's Reopen list (see "The switch on Windows"). The working folder row of Program options is below the end of the dialog-options pictures (the dialog scrolls). |
+
+New snapshot options (`main_sdl.cpp`): `--command <name>` runs a menu command by its name; `--saveas <file>` saves
+the open map as File > Save as does, opens the file again and compares it (`mapSaveRoundTrip`,
+`core/map_commands.inc`); `--newproject <folder>` makes the project Sample with a new map, as File > Project > New EUD
+project; `--build` in a snapshot waits for the end of the build and says its result (`gBuildResult`,
+`core/project_build.inc`), and is skipped when the computer has no euddraft (a test run never downloads it). Each key
+of `--key` writes the units, doodads and selection after it.
+
+## Tests
+
+The Win32 fallback's self-tests (`stardraft-win32 <map> --selftest <dir>`, `runSelfTest` in main.cpp, and the
+`--datashots <dir> <spec>...` specs) drive the Win32 windows; they stay on `stardraft-win32.exe`. This is what of them
+has an SDL snapshot case (`tools/sdl_snapshots.py`) or a test, and what has none.
+
+### Has an SDL case now
+
+| Win32 test | SDL case |
+|---|---|
+| The start page, the New page, the workspaces of a map and of a project (`pages:`) | start, newpage-classic, newpage-eud, ws-*, map-ws-* (the dark theme only; dialog-options-light is the light theme) |
+| undo_twice (Undo of an edit) | map-key-undo (Delete, Undo, Redo, Undo: CHECKS reads the counts) |
+| A save of the map (the steps that save, `openagain:`) | map-save-roundtrip and map-save-edited (`--saveas` into the --out folder: the saved file opens again and is the same; after Delete it has no units) |
+| project created, project compiled (`project:`, a Build) | data-newproject-build (a new project Sample in a new folder in --out, then Build when euddraft is there) |
+| sd_quality, carbot_graphics | map-view-sd, map-view-carbot |
+| The pathing overlays (`--pathshots`, the town areas step) | map-view-towns |
+| palette_list, palette_icons, palette_sprites, palette_large_neutral | map-palette-grid, map-palette-sprites, map-palette-menu, project-palette-pin |
+| grid_snap_ghost, selection_circles | map-scene-grid, map-scene-select |
+| quick picker (`quick:`) | map-dialog-quick |
+| unit properties, location properties (the double-clicks) | map-dialog-unitprops, map-dialog-locprops (the dialogs only) |
+| `blockpick`, `blockhelp:`, `listpick:`, `pickstyle:`, `projectdlg:`, `msgbox:`, `tooltip:` | dialog-blockpick, dialog-blockhelp-rclick, dialog-listpick, dialog-newproject, dialog-message*, dialog-error, dialog-tip |
+| `textpop:`, `trigshow:`, `trigtext:`, `trigobj:` | project-textpop-*, project-trigpop-*, project-varpop-* |
+| `mapmenu:`, `ctxmenu:`, `feedbacknames:` (some of it) | map-rclick-map, map-rclick-*, project-rclick-code, dialog-options-rclick |
+| `dat:entry[:section]` (the Data workspace) | data-units, data-images, data-strings, project-data-open |
+| The Classic triggers page (`bowner:`, `bsel:`) | map-classictrig, map-classictrig-value (the page and a value's pop-out; not the owners, the selection or the Edit commands) |
+| The briefing (`brec:`) | project-briefing (one picture, not the video) |
+| The cursors | map-cursors |
+
+### No SDL case yet
+
+| Win32 test | What it checks |
+|---|---|
+| place_cc_on_water_corrected, place_marines_corrected, drag_place, unit_spray, unit_replace_marines_with_zealots | Units placed with the mouse (the correction to a free place, the spray, Replace). The snapshots have no left click or drag yet (`--rclick` only). |
+| box_select, drag_move, drag_snap_back, drag_over_water_red, drag_dropped_corrected | The selection box and a dragged selection (snap back, red where it does not fit). |
+| paste_ghost, paste_ghost_on_water_red, paste_placed, terrain_paste_ghost, terrain_pasted | Paste: the copy that follows the mouse and its place (map-key-copy only copies). |
+| doodad_ghost, doodad, doodad_selected, doodad_spray, sprite_details_hd, sprite_details_sd, `spritetools:` | Doodads and sprites placed with the mouse. |
+| location_create, location_resize, location_move, location_rename, `locwrap:` | Locations made and changed with the mouse; a long name in lines. |
+| terrain_paint, brush_circle_*, fill_lake_with_grass, spray_mud, replace_mud_with_rocky, terrain_select, symmetry_*, rect_paint, `selshape:`, `terraincut:`, `pipette:` | The terrain tools on the map (map-terrain-rect shows the tool only). |
+| zoom_25, hd4x_zoom_200 | The zoom to a percent and HD 4x (the + key zooms in map-view-sd). |
+| new_page_map, new_map_ice, generated_map, generated_again | A map made on the New page (Blank, a tileset, Generate). |
+| tab_previous, tab_closed, `cardagain:` | Ctrl+Shift+Tab and Ctrl+W with more than one tab; the start page's cards. |
+| The player keys (1 to 0), the recent menus at the start, `menutree:`, `barmenu:`, `menutest:` | The player keys, the menu tree, the File menu by the keys, the context menus driven by messages. |
+| The Data workspace's steps (tabs, Tab, back and forward, a weapons.dat save, `portrait:`, `mapplayers:`, `classicdefault:`, `unitnames:`) | The Data form's edits and their save. |
+| The Triggers editor's steps (copy and paste, the keyboard, values, variables, properties, an external script, `trigreplace:`, `emptylists:`, `bcmd:`) and `trigger_selftest.inc` (help, fixes, a picked unit deleted, a build error) | The Triggers workspace's edits. |
+| `eptrace:` | Trace build and its report. |
+| `files:`, `fref:` | The Files workspace's search and a sound the map names. |
+| `spray:`, `emptynone:`, `rightpan:`, `wheelpick:`, `dpi:` | Doodads > Spray, an empty search, the right button on the map, the wheel on a dropdown, a DPI change. |
+| `opentimes:`, `leaks:` | The time to open each workspace; GDI and USER objects (Win32 only). |
+
+The kit's own tests (`tools/tests/kit_test.cpp`) check the portable views without a program (a text field's menu,
+the text codec).
