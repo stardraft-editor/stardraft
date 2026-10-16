@@ -421,7 +421,7 @@ int main(int argc, char** argv) {
             host.setPreciseScrollHook(macLastScrollPrecise);
             // A scroll's fingers and its momentum stay on the view it began on; the smart zoom and the swipes go to the
             // window under the mouse (mac_input.mm).
-            host.setScrollContinuesHook(macLastScrollContinues);
+            host.setScrollContinuesHook(macScrollContinues);
             macWatchGestures([] { kit_sdl::SdlHost::pushGesture(draw::MouseKind::SmartZoom, 0); },
                              [](int dir) { kit_sdl::SdlHost::pushGesture(draw::MouseKind::Swipe, dir); });
         }

@@ -937,7 +937,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
         m.panX = -e.wheel.x * unit, m.panY = e.wheel.y * unit;
         m.precise = preciseScroll(e.wheel);
         // A scroll that goes on (its fingers moved on, or its momentum) goes to where it began, as macOS latches it.
-        if (scrollContinues_ && scrollContinues_() && latchWin_ == wid) m.pt = latchPt_;
+        if (scrollContinues_ && scrollContinues_(e.wheel.x, e.wheel.y) && latchWin_ == wid) m.pt = latchPt_;
         else if (scrollContinues_) latchWin_ = wid, latchPt_ = m.pt, exactRestX_ = exactRestY_ = 0;  // (a new scroll)
         // macOS's trackpad (and its momentum): the lists move by the system's own distance, in whole pixels (the
         // fractions add up to the next event's).

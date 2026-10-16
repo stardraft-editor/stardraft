@@ -102,9 +102,9 @@ public:
     void setPreciseScrollHook(std::function<bool()> fn) { precise_ = std::move(fn); }
     // Whether the scroll event that SDL gives now continues a trackpad's scroll (the fingers moved on, or its momentum
     // after they lifted): it then goes to the point where that scroll began, so the view it began on keeps it (as
-    // macOS latches a scroll). macOS knows it (NSEvent's phase and momentumPhase; the program asks it). With no hook,
-    // each scroll goes to the view under the mouse.
-    void setScrollContinuesHook(std::function<bool()> fn) { scrollContinues_ = std::move(fn); }
+    // macOS latches a scroll). macOS knows it (NSEvent's phase and momentumPhase; the program asks it with the event's
+    // SDL x and y, which find that event's phase). With no hook, each scroll goes to the view under the mouse.
+    void setScrollContinuesHook(std::function<bool(float x, float y)> fn) { scrollContinues_ = std::move(fn); }
     // For a snapshot on any system: the scrolls are macOS's (SDL's tenths of points; a precise one is exact, so the
     // lists move by its distance: MouseEvent::exact). False: as the system gives them.
     void setMacScrollTest(bool on) { macScrollTest_ = on; }
@@ -184,7 +184,7 @@ private:
     std::function<bool()> precise_;                 // setPreciseScrollHook
     Uint64 preciseUntil_ = 0;                       // a precise scroll's next steps are precise until then (ns)
     float pinchLast_ = 1;                           // a pinch's scale so far (the systems that give it from its start)
-    std::function<bool()> scrollContinues_;         // setScrollContinuesHook
+    std::function<bool(float, float)> scrollContinues_;         // setScrollContinuesHook
     bool macScrollTest_ = false;                    // setMacScrollTest
     SDL_WindowID latchWin_ = 0;                     // the window and the point where the last scroll began
     draw::Point latchPt_;
