@@ -2035,6 +2035,10 @@ constexpr UiText kRows[] = {
     {L"Did not import ", L"\uB2E4\uC74C \uD30C\uC77C\uC744 \uAC00\uC838\uC624\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4: "},
     {L": the Assets workspace imports only sounds (WAV, OGG)", L": \uC5D0\uC14B \uC791\uC5C5 \uACF5\uAC04\uC740 \uC0AC\uC6B4\uB4DC(WAV, OGG)\uB9CC \uAC00\uC838\uC635\uB2C8\uB2E4"},
     {L"StarCraft map", L"StarCraft \uB9F5"},
+    {L"Map editor", L"\uB9F5 \uC5D0\uB514\uD130"},
+    {L"Edit StarCraft maps and EUD projects", L"StarCraft \uB9F5\uACFC EUD \uD504\uB85C\uC81D\uD2B8\uB97C \uD3B8\uC9D1\uD569\uB2C8\uB2E4"},
+    {L"Edit the terrain, units, locations and triggers of StarCraft maps. Build EUD maps with euddraft.", L"StarCraft \uB9F5\uC758 \uC9C0\uD615, \uC720\uB2DB, \uC704\uCE58, \uD2B8\uB9AC\uAC70\uB97C \uD3B8\uC9D1\uD569\uB2C8\uB2E4. euddraft\uB85C EUD \uB9F5\uC744 \uBE4C\uB4DC\uD569\uB2C8\uB2E4."},
+    {L"StarDraft project", L"StarDraft \uD504\uB85C\uC81D\uD2B8"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

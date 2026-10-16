@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The file types of StarDraft 2 (shared-mime-info): the maps (.scm, .scx) and the projects (project.stardraft, .eds).
+     Made by CMakeLists.txt from this file and apps/editor/res/lang/*.tsv (the types' names in each language). -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-starcraft-scm">
+    <comment>StarCraft map</comment>
+@MAP_COMMENTS@
+    <icon name="io.github.stardraft_editor.StarDraft-map"/>
+    <glob pattern="*.scm"/>
+  </mime-type>
+  <mime-type type="application/x-starcraft-scx">
+    <comment>StarCraft map</comment>
+@MAP_COMMENTS@
+    <icon name="io.github.stardraft_editor.StarDraft-map"/>
+    <glob pattern="*.scx"/>
+  </mime-type>
+  <mime-type type="application/x-stardraft-project">
+    <comment>StarDraft project</comment>
+@PROJECT_COMMENTS@
+    <sub-class-of type="text/plain"/>
+    <glob pattern="*.stardraft"/>
+  </mime-type>
+  <mime-type type="application/x-euddraft-project">
+    <comment>EUD project</comment>
+@EUD_COMMENTS@
+    <sub-class-of type="text/plain"/>
+    <glob pattern="*.eds"/>
+  </mime-type>
+</mime-info>

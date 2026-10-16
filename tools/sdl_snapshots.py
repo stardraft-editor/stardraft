@@ -122,6 +122,10 @@ CASES += [
     ("check-bundle", ["--check", "bundle"], ""),
     ("map-check-preview", ["--check", "preview:{newdir}"], "map"),
     ("map-check-spotlight", ["--check", "spotlight"], "map"),
+    # The free desktops (Linux, sdl_xdg.inc): the app id (the .desktop file's name, also SDL's), the XDG folders, what
+    # the desktop has (the session bus, the portal, the notification server) and the recently used files' entry of the
+    # map, written two times into {newdir} (one entry, its count 2). Elsewhere one line says that it is Linux only.
+    ("map-check-desktop", ["--check", "desktop:{newdir}"], "map"),
     # The classic page with the pop-out of the selected action's value (trigger:kind:entry:value): the first action of
     # the first trigger, its value 3 (a map whose first trigger has an action, as Set deaths: the number pop-out).
     ("map-classictrig-value", ["--workspace", "classictriggers", "--classictrig", "1:1:0:3"], "map"),
@@ -848,9 +852,16 @@ def check_window(system):
                 return f"the system's {color} does not give {accent}"
         if "window: system accent purple -> hue " not in text:
             return "the system's purple does not keep its own hue"
-        mac = "window: system look yes" in text
+        mac = "window: system look yes" in text and sys.platform == "darwin"
         if not mac:
-            return None if "window: not macOS" in text else "no 'not macOS' line"
+            if "window: not macOS" not in text:
+                return "no 'not macOS' line"
+            if "window: system look yes (the desktop's)" in text:  # (Linux: the desktop portal's look)
+                if not re.search(r"^window: system appearance (dark|light), desktop portal ", text, re.M):
+                    return "no system appearance line"
+                if system and "(the system's)" not in next((x for x in lines if x.startswith("window: theme ")), ""):
+                    return "the theme is not the system's"
+            return None
         win = next((x for x in lines if x.startswith("window: represented file ")), "")
         if not win or win.startswith("window: represented file none"):
             return f"the window has no file: {win!r}"
@@ -976,6 +987,22 @@ def check_bundle(output):
     return None
 
 
+def check_desktop(output):
+    """None when on Linux the app id, the XDG folders and the recently used files' entry are right; elsewhere: Linux only."""
+    if "desktop: not on this system (Linux and the BSDs only)" in output:
+        return None if sys.platform in ("win32", "darwin") else "Linux says that it is not Linux"
+    app = "io.github.stardraft_editor.StarDraft"
+    if f"desktop: app id {app}; SDL app id {app}" not in output:
+        return "the app id is not the .desktop file's name"
+    for line in ("desktop: settings ", "desktop: data ", "desktop: tile colors "):
+        m = re.search("^" + line + r"(\S.*?)\r?$", output, re.M)
+        if not m or not m.group(1).startswith("/"):
+            return f"no absolute path for {line.strip()}"
+    if not re.search(r"^desktop: recently used written, 1 entry, type application/x-starcraft-sc[mx] \(yes\)", output, re.M):
+        return "no recently used entry"
+    return None
+
+
 def check_preview(output):
     """None when the map's Quick Look picture was drawn with its tile color table and its terrain is the minimap's."""
     if not re.search(r"^preview: \d+ x \d+ tiles, .* table yes", output, re.M):
@@ -1019,7 +1046,7 @@ CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-clic
           "check-window": check_window(False), "check-window-system": check_window(True), "start": check_start,
           "start-trackpad-scroll": check_trackpad_scroll, "map-smartzoom": check_smartzoom, "map-swipe": check_swipe,
           "drop-sound-assets": check_drop("Imported 1 sounds"), "drop-image-assets": check_drop("Did not import atlas-16.png"),
-          "check-dock": check_dock, "dialog-options-tab-general": check_options_tab, "dialog-options-tab-map": check_options_tab,
+          "check-dock": check_dock, "map-check-desktop": check_desktop, "dialog-options-tab-general": check_options_tab, "dialog-options-tab-map": check_options_tab,
           "dialog-options-tab-start": check_options_tab, "dialog-options-tab-folders": check_options_tab}
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"

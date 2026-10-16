@@ -132,6 +132,9 @@ void restartProgramSdl() {
         std::error_code ec;
         fs::path self = stardraft::platform::programFile();  // the program's own file
         if (self.empty()) self = fs::absolute(fs::path(gSelfPath), ec);
+#if defined(STARDRAFT_XDG)
+        if (const fs::path image = stardraft::xdg::appImageFile(); !image.empty()) self = image;  // (the AppImage, not its mounted program)
+#endif
         restartWrite(sdlOpenFiles());
         std::wstring error;
         const std::uintptr_t p = sdlStartProgram(self, fs::current_path(ec), L"--restart " + std::to_wstring(shellProcessId()), L"StarDraft 2", error);

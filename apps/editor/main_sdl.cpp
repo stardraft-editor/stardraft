@@ -30,6 +30,10 @@
 #include "mac_dock.h"  // the Dock, Finder and the Settings window (mac_dock.mm; on Windows and Linux they do nothing)
 #include "mac_dist.h"  // macOS: Quick Look's tile colors, the maps in Spotlight, --check bundle (mac_dist.mm; elsewhere nothing)
 #include "map_preview.h"  // apps/quicklook: a map's picture without a GPU (sdl_dist.inc: --check preview)
+#if !defined(_WIN32) && !defined(__APPLE__)
+#define STARDRAFT_XDG 1  // Linux and the BSDs: the free desktops' parts (desktop_xdg.h; sdl_xdg.inc, sdl_window.inc)
+#include "desktop_xdg.h"
+#endif
 
 #include <algorithm>
 #include <atomic>
@@ -158,6 +162,7 @@ bool gNoBoxes = false;
 #include "shell_sdl.inc"
 #include "sdl_cursor_check.inc"  // --cursors: the window's cursors at some points, as text (a snapshot run)
 #include "sdl_dist.inc"  // what a map that opens gives the system (macOS: Quick Look, Spotlight), and --check
+#include "sdl_xdg.inc"  // Linux and the BSDs: the recently used files, Build's notification and progress, --check desktop
 #include "shell_sdl_win.inc"  // the Windows parts: the crash handler, the map files, one program for all maps
 
 namespace {
@@ -401,6 +406,12 @@ int main(int argc, char** argv) {
     if (const int sent = sdlWindowsFirst(argc, argv, testRun); sent >= 0) return sent;
     if (restartPid) restartWaitFor(restartPid);  // (before the pipe: the old program still listens; core/documents.inc)
     if (sdlSendToOpenProgram(mapArg, testRun)) return 0;
+#if defined(STARDRAFT_XDG)
+    // The Wayland app id and X11's WM_CLASS: the .desktop file's name, so that the dock and the task bar show the
+    // program's icon and name (packaging/linux), and SDL's launcher progress finds its .desktop file.
+    SDL_SetAppMetadata("StarDraft 2", STARDRAFT_VERSION_NAME, stardraft::xdg::kAppId);
+    SDL_SetHint(SDL_HINT_APP_ID, stardraft::xdg::kAppId);
+#endif
 #ifdef __APPLE__
     SDL_SetHint(SDL_HINT_MAC_SCROLL_MOMENTUM, "1");  // a trackpad's scroll goes on after the fingers lift (its momentum), as in macOS's own programs
 #endif
@@ -423,7 +434,14 @@ int main(int argc, char** argv) {
     float scale = scaleArg > 0 ? scaleArg : SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
     if (scale <= 0) scale = 1;
     const char* basePath = SDL_GetBasePath();
-    const std::string base = basePath ? basePath : "";
+    std::string base = basePath ? basePath : "";
+#if defined(STARDRAFT_XDG)
+    {  // (the files beside the program, as a build has them; an installed program has them in ../share/stardraft)
+        std::error_code ec;
+        const fs::path shared = fs::path(base) / ".." / "share" / "stardraft";
+        if (!fs::exists(fs::path(base) / "res", ec) && fs::exists(shared / "res", ec)) base = (shared.lexically_normal() / "").string();
+    }
+#endif
     int status = 0;
     {
         // Order matters: the host (which makes the ImGui context the fonts go into) outlives the root view.
@@ -506,6 +524,7 @@ int main(int argc, char** argv) {
         host.setBeforePump([] {
             runPosted();  // the posted work runs outside the frame hook (a dialog it opens pumps frames)
             sdlDockWatchBuild();  // (macOS: Build's bar and badge on the Dock icon)
+            sdlXdgFrame();  // (Linux: the recently used files, Build's notification and progress: sdl_xdg.inc)
         });
         host.setFrameHook([](SDL_GPUCommandBuffer* cmd) {
             drawMapOfRoot(cmd);
@@ -564,7 +583,7 @@ int main(int argc, char** argv) {
         for (const std::string& c : checkArgs) {
             std::string out;
             const bool afterSnapshot = c == "window" || c == "menus" || c == "dock";
-            if (!(sdlDistCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
+            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
             std::printf("%s", out.c_str());
         }
 
