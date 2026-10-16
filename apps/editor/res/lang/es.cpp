@@ -2017,6 +2017,10 @@ constexpr UiText kRows[] = {
     {L"Could not find StarCraft on your system.", L"No se encontr\u00F3 StarCraft en su sistema."},
     {L"That folder has no StarCraft game data.", L"Esa carpeta no tiene datos del juego de StarCraft."},
     {L"Select the StarCraft folder", L"Seleccione la carpeta de StarCraft"},
+    {L"General", L"General"},
+    {L"Folders", L"Carpetas"},
+    {L"Did not import ", L"No se import\u00F3 "},
+    {L": the Assets workspace imports only sounds (WAV, OGG)", L": el espacio de trabajo Recursos solo importa sonidos (WAV, OGG)"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

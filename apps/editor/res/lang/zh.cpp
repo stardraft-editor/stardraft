@@ -2017,6 +2017,10 @@ constexpr UiText kRows[] = {
     {L"Could not find StarCraft on your system.", L"\u5728\u60A8\u7684\u7CFB\u7EDF\u4E0A\u627E\u4E0D\u5230 StarCraft\u3002"},
     {L"That folder has no StarCraft game data.", L"\u8BE5\u6587\u4EF6\u5939\u4E2D\u6CA1\u6709 StarCraft \u6E38\u620F\u6570\u636E\u3002"},
     {L"Select the StarCraft folder", L"\u9009\u62E9 StarCraft \u6587\u4EF6\u5939"},
+    {L"General", L"\u5E38\u89C4"},
+    {L"Folders", L"\u6587\u4EF6\u5939"},
+    {L"Did not import ", L"\u672A\u5BFC\u5165 "},
+    {L": the Assets workspace imports only sounds (WAV, OGG)", L": \u7D20\u6750\u5DE5\u4F5C\u533A\u53EA\u5BFC\u5165\u58F0\u97F3\uFF08WAV\u3001OGG\uFF09"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

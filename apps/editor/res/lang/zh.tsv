@@ -2013,3 +2013,7 @@ Select all	全选
 Could not find StarCraft on your system.	在您的系统上找不到 StarCraft。
 That folder has no StarCraft game data.	该文件夹中没有 StarCraft 游戏数据。
 Select the StarCraft folder	选择 StarCraft 文件夹
+General	常规
+Folders	文件夹
+Did not import 	未导入 
+: the Assets workspace imports only sounds (WAV, OGG)	: 素材工作区只导入声音（WAV、OGG）

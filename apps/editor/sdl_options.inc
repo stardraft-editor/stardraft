@@ -260,14 +260,49 @@ void OptionsProgramSdl::useDefaultWorkingFolder() {
     gOptionsView.invalidate();
 }
 
-// Options > Program options (one window; a second Ctrl+, does nothing while it is open).
+#ifdef __APPLE__
+// macOS: Program options is a Settings window (mac_dock.h): a toolbar with the tabs (core/views_options.inc:
+// optionsview::kTabs), the tab's name as the title, the window as high as the tab's content. The tab stays chosen for
+// the next open.
+std::vector<MacSettingsTab> sdlSettingsTabs();  // (sdl_dock.inc)
+int gSettingsTab = 0;
+bool gSettingsSized = false;  // the window has its first height (then a tab change animates the height)
+void* sdlNsWindow(draw::View& v) {
+    SDL_Window* w = gHost ? gHost->sdlWindow(v) : nullptr;
+    return w ? SDL_GetPointerProperty(SDL_GetWindowProperties(w), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr) : nullptr;
+}
+void sdlSettingsHeight(int px) {
+    SDL_Window* w = gOptionsOpen && gHost ? gHost->sdlWindow(gOptionsView) : nullptr;
+    if (!w) return;
+    const float density = SDL_GetWindowPixelDensity(w);
+    macSettingsContentHeight(sdlNsWindow(gOptionsView), double(px) / double(density > 0 ? density : 1), gSettingsSized);
+    gSettingsSized = true;
+}
+void sdlSettingsShowTab(int i) {
+    gSettingsTab = i;
+    gOptionsView.setTab(i);
+    if (SDL_Window* w = gHost ? gHost->sdlWindow(gOptionsView) : nullptr) SDL_SetWindowTitle(w, narrow(shellTr(optionsview::kTabs[i].name)).c_str());
+}
+#endif
+
+// Options > Program options (one window; a second Ctrl+, does nothing while it is open). On macOS a Settings window.
 void showOptionsSdl() {
     if (!gRoot || gOptionsOpen) return;
-    const int h = std::min(scale(820), std::max(scale(300), gRoot->height() - scale(80)));  // as high as the window has room for
+    int h = std::min(scale(820), std::max(scale(300), gRoot->height() - scale(80)));  // as high as the window has room for
+    const wchar_t* title = L"Program options";
+#ifdef __APPLE__
+    gOptionsView.setTab(gSettingsTab);
+    gSettingsSized = false;
+    gOptionsView.onTabHeight = [](int px) { shellPost([px] { sdlSettingsHeight(px); }); };  // (after the paint)
+    h = scale(400), title = optionsview::kTabs[gSettingsTab].name;  // (the first paint gives the tab's height)
+#endif
     gOptionsView.resetScroll();
     gOptionsOpen = true;
-    gHost->openWindow(*gRoot, gOptionsView, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect(0, 0, scale(720), h), L"Program options"},
+    gHost->openWindow(*gRoot, gOptionsView, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect(0, 0, scale(720), h), title},
                       [] { gOptionsOpen = false; });
+#ifdef __APPLE__
+    macSettingsToolbar(sdlNsWindow(gOptionsView), sdlSettingsTabs(), gSettingsTab, [](int i) { shellPost([i] { sdlSettingsShowTab(i); }); });
+#endif
 }
 
 // Help > About StarDraft (core/views_about.inc; one window: a second click does nothing while it is open).

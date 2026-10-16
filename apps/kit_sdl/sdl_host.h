@@ -100,6 +100,9 @@ public:
     // it (NSEvent's hasPreciseScrollingDeltas; the program asks it). With no hook, a scroll with fractions is precise
     // (Windows' precision touchpads, Wayland, X11's smooth scrolling), and so are the scroll's next steps for 0.2 s.
     void setPreciseScrollHook(std::function<bool()> fn) { precise_ = std::move(fn); }
+    // The SDL window that shows `v` (a view in a window that show() or openWindow made), or nullptr: the program's
+    // system parts reach it (macOS: a Settings window's toolbar).
+    SDL_Window* sdlWindow(const draw::View& v) const;
 
     // draw::Host
     void invalidate(draw::View& v) override;

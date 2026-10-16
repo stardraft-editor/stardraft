@@ -2017,6 +2017,10 @@ constexpr UiText kRows[] = {
     {L"Could not find StarCraft on your system.", L"\uC2DC\uC2A4\uD15C\uC5D0\uC11C StarCraft\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."},
     {L"That folder has no StarCraft game data.", L"\uC774 \uD3F4\uB354\uC5D0\uB294 StarCraft \uAC8C\uC784 \uB370\uC774\uD130\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4."},
     {L"Select the StarCraft folder", L"StarCraft \uD3F4\uB354 \uC120\uD0DD"},
+    {L"General", L"\uC77C\uBC18"},
+    {L"Folders", L"\uD3F4\uB354"},
+    {L"Did not import ", L"\uB2E4\uC74C \uD30C\uC77C\uC744 \uAC00\uC838\uC624\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4: "},
+    {L": the Assets workspace imports only sounds (WAV, OGG)", L": \uC5D0\uC14B \uC791\uC5C5 \uACF5\uAC04\uC740 \uC0AC\uC6B4\uB4DC(WAV, OGG)\uB9CC \uAC00\uC838\uC635\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

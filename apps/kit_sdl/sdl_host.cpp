@@ -532,6 +532,11 @@ SdlHost::Win* SdlHost::rootWin(const draw::View& v) const {
     return nullptr;
 }
 
+SDL_Window* SdlHost::sdlWindow(const draw::View& v) const {
+    const Win* w = rootWin(v);
+    return w ? w->sdl : nullptr;
+}
+
 // Takes one window out of the host. It is hidden now and destroyed after this turn's events: SDL destroys a window's
 // children with it, so the children are retired before their parent (closeTree).
 void SdlHost::retire(SDL_WindowID id) {

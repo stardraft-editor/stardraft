@@ -2013,3 +2013,7 @@ Select all	Seleccionar todo
 Could not find StarCraft on your system.	No se encontró StarCraft en su sistema.
 That folder has no StarCraft game data.	Esa carpeta no tiene datos del juego de StarCraft.
 Select the StarCraft folder	Seleccione la carpeta de StarCraft
+General	General
+Folders	Carpetas
+Did not import 	No se importó 
+: the Assets workspace imports only sounds (WAV, OGG)	: el espacio de trabajo Recursos solo importa sonidos (WAV, OGG)
