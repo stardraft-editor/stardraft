@@ -52,6 +52,8 @@ bool keyOfChord(const std::string& name, draw::Key& out) {
     }
     if (name == "Del") out = draw::Key::Delete;
     else if (name == "Tab") out = draw::Key::Tab;
+    else if (name == "Home") out = draw::Key::Home;
+    else if (name == "End") out = draw::Key::End;
     else if (name == "Enter") out = draw::Key::Enter;
     else if (name == "Esc") out = draw::Key::Escape;
     else if (name == "Left") out = draw::Key::Left;  // (the arrows: --key in a snapshot)
@@ -407,34 +409,82 @@ void sdlRightClickShot(const std::string& spec, draw::View* in, const std::wstri
 
 void sdlInputLine(const std::string& what);
 
+// The window that takes a snapshot's input now (SdlHost::snapshotTop): a dialog or pop-out that an input opened (in
+// its own pixels), else the main window.
+draw::View& sdlShotTarget(draw::Point& size) {
+    size = {gRoot->width(), gRoot->height()};
+    return gHost ? gHost->snapshotTop(*gRoot, size) : *gRoot;
+}
+
 void sdlPressKey(const std::string& chord) {
     const auto c = stardraft::parseShortcut(chord);
     draw::KeyEvent e;
-    if (!gRoot || !c || !keyOfChord(c->key, e.key)) return void(std::fprintf(stderr, "--key %s: no such key\n", chord.c_str()));
+    if (!gRoot || !gHost || !c || !keyOfChord(c->key, e.key)) return void(std::fprintf(stderr, "--key %s: no such key\n", chord.c_str()));
     e.mods = (c->ctrl ? kShortcutCtrl : 0) | (c->shift ? draw::kShift : 0) | (c->alt ? draw::kAlt : 0);
-    gRoot->key(e);
+    draw::Point size;
+    draw::View& target = sdlShotTarget(size);
+    gHost->snapshotKey(target, size.x, size.y, e);  // (the view with the focus first, then its parents: the window's keys)
     runPosted();
     sdlInputLine("key " + chord);
 }
 
-// The output line after a --key, --click or --drag (as the Windows self-test's log: Delete, then Undo, gives the units
-// back): the units, the doodads, the selection (the first selected unit's place) and the status bar's text.
+// --type <text> in a snapshot: the text typed into the view with the focus (a search box, a number entry), as the
+// keyboard's text events give it.
+void sdlTypeText(const std::string& text) {
+    if (!gRoot || !gHost) return;
+    draw::Point size;
+    draw::View& target = sdlShotTarget(size);
+    gHost->snapshotText(target, size.x, size.y, text);
+    runPosted();
+    sdlInputLine("type " + text);
+}
+
+// The output line after a --key, --type, --click or --drag (as the Windows self-test's log: Delete, then Undo, gives
+// the units back): the units, the doodads, the selection (the first selected unit's place) and the status bar's text
+// ("no map" in place of the counts when no map is open); then, on a line of its own, what the workspace holds
+// (sdl_shot_state.inc: the Data entry's changed values, the selected trigger's blocks...).
+std::string sdlShotState();
 void sdlInputLine(const std::string& what) {
-    if (!gState.ed || !gState.ed->isOpen()) return;
-    const auto& units = gState.ed->units();
-    const auto& sel = gState.ed->selection();
-    std::string first;
-    if (!sel.empty() && sel[0] >= 0 && size_t(sel[0]) < units.size())
-        first = " (the first at " + std::to_string(units[size_t(sel[0])].x) + "," + std::to_string(units[size_t(sel[0])].y) + ")";
-    std::printf("%s: %zu units, %zu doodads, %zu selected%s: %s\n", what.c_str(), units.size(), gState.ed->doodads().size(), sel.size(),
-                first.c_str(), narrow(gState.message).c_str());
+    if (!gState.ed || !gState.ed->isOpen()) {
+        std::printf("%s: no map: %s\n", what.c_str(), narrow(gState.message).c_str());
+    } else {
+        const auto& units = gState.ed->units();
+        const auto& sel = gState.ed->selection();
+        std::string first;
+        if (!sel.empty() && sel[0] >= 0 && size_t(sel[0]) < units.size())
+            first = " (the first at " + std::to_string(units[size_t(sel[0])].x) + "," + std::to_string(units[size_t(sel[0])].y) + ")";
+        std::printf("%s: %zu units, %zu doodads, %zu selected%s: %s\n", what.c_str(), units.size(), gState.ed->doodads().size(), sel.size(),
+                    first.c_str(), narrow(gState.message).c_str());
+    }
+    if (const std::string state = sdlShotState(); !state.empty()) std::printf("  state: %s\n", state.c_str());
+}
+
+void sdlMouseShot(const std::string& spec, bool drag);
+
+// A snapshot's inputs (main_sdl.cpp: --key, --type, --click, --drag, --wait; the option's letter k, t, c, d, w and its
+// value) that have not run yet, in their order.
+std::deque<std::pair<char, std::string>> gShotInputs;
+// Runs the next input (the main loop, or the loop of a modal window an input opened). False when there is none.
+bool sdlShotInputNext() {
+    if (gShotInputs.empty()) return false;
+    const auto [kind, value] = gShotInputs.front();
+    gShotInputs.pop_front();
+    if (kind == 'k') sdlPressKey(value);
+    else if (kind == 't') sdlTypeText(value);
+    else if (kind == 'w') {  // --wait ms: the program's timers that are due in that time run (a page that reads the map again)
+        if (gHost) gHost->snapshotTimers(std::atoi(value.c_str()));
+        runPosted();
+        sdlInputLine("wait " + value);
+    }
+    else sdlMouseShot(value, kind == 'd');
+    return true;
 }
 
 // --click x,y[:mods] and --drag x0,y0-x1,y1[:mods] in a snapshot (main_sdl.cpp): the left button as a user's mouse
 // gives it, in the window's pixels: the mouse comes to the first point, the button goes down, (a drag: the mouse moves
 // to the second point in steps, the button held), the button goes up. The events go the host's way for a window's
 // (SdlHost::snapshotInput), with the modifier keys held (Shift, Ctrl, Alt, joined with +; Ctrl is Cmd on macOS).
-void sdlMouseShot(const std::string& spec, bool drag, int width, int height) {
+void sdlMouseShot(const std::string& spec, bool drag) {
     const std::string name = drag ? "drag " : "click ";
     const size_t colon = spec.find(':');
     const std::string at = spec.substr(0, colon), mods = colon == std::string::npos ? "" : spec.substr(colon + 1);
@@ -479,7 +529,9 @@ void sdlMouseShot(const std::string& spec, bool drag, int width, int height) {
     button(false, float(x1), float(y1));
     const SDL_Keymod before = SDL_GetModState();
     SDL_SetModState(held);
-    gHost->snapshotInput(*gRoot, width, height, events);
+    draw::Point size;
+    draw::View& target = sdlShotTarget(size);
+    gHost->snapshotInput(target, size.x, size.y, events);
     SDL_SetModState(before);
     runPosted();
     sdlInputLine(name + spec);

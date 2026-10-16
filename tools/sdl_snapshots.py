@@ -188,6 +188,33 @@ CASES += [
     # A click selects the unit; a drag moves it 40 px down (192 map pixels); Undo puts it back.
     ("map-drag-unit", ["--mode", "units", "--click", "825,128", "--drag", "825,128-825,168", "--key", "Ctrl+Z"], "map"),
 ]
+# The workspaces' edits with the mouse and the keys (the Windows self-test's steps off the map). --type types text into
+# the view with the focus; --wait ms lets the program's timers run. An input goes to the window that takes input now: a
+# dialog or pop-out that an input opened (a list picker, the block picker, a value's pop-out; in its own pixels) takes
+# the next inputs, and closes when there are no more. Its inputs' lines come before the line of the input that opened
+# it. After each input's line, a line "  state: ..." says what the workspace holds (sdl_shot_state.inc).
+CASES += [
+    # The New page: the tileset Ice, then Create makes the map (128 x 128).
+    ("newpage-create", ["--newpage", "classic", "--click", "489,545", "--click", "1126,895"], "data"),
+    # The Data form of the Marine in a new project: Hit points typed (50, Enter), Shield enable clicked, Unit size picked
+    # (Medium in the list picker), then three Undo steps.
+    ("data-form-edits", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "671,742", "--type", "50",
+                         "--key", "Enter", "--click", "624,768", "--click", "776,872", "--type", "Medium", "--key", "Enter",
+                         "--key", "Ctrl+Z", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "data"),
+    # The Triggers workspace of a new project: On map start > New trigger, Add an action (the block picker: Set
+    # resources), its amount typed in the value's pop-out (800), Delete, then Undo twice (the block, then its amount).
+    ("data-triggers-edits", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169",
+                             "--click", "460,347", "--type", "Set resources", "--key", "Enter", "--click", "827,352",
+                             "--type", "800", "--key", "Enter", "--key", "Del", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "data"),
+    # The Classic triggers page: Add a trigger, Player 3, Undo (the page reads the map again after a moment).
+    ("map-classictrig-edits", ["--workspace", "classictriggers", "--click", "310,250", "--click", "819,221", "--key", "Ctrl+Z",
+                               "--wait", "400"], "map"),
+    # The Files workspace: the search box of the game's sounds, "marine" typed.
+    ("map-files-search", ["--workspace", "files", "--click", "240,289", "--type", "marine"], "map"),
+    # The Briefing: Add an action (the list picker: Text message), then Undo.
+    ("map-briefing-add", ["--workspace", "briefing", "--click", "543,166", "--type", "Text message", "--key", "Enter",
+                          "--key", "Ctrl+Z"], "map"),
+]
 
 
 def check_undo(output):
@@ -266,9 +293,127 @@ def check_drag_unit(output):
     return None
 
 
+STATE_LINE = re.compile(r"^(key|type|click|drag|wait) (.*?): (?:no map|\d+ units)")
+
+
+def states(output):
+    """The input lines and the state line after each, in the order of the output: [(input, state)]."""
+    out, last = [], None
+    for line in output.splitlines():
+        m = STATE_LINE.match(line)
+        if m:
+            last = m.group(1) + " " + m.group(2)
+            out.append((last, ""))
+        elif line.startswith("  state: ") and out and out[-1][0] == last:
+            out[-1] = (last, line[9:])
+    return out
+
+
+def check_newpage_create(output):
+    """None when no map was open before Create, and Create made an Ice map of 128 x 128."""
+    s = states(output)
+    if len(s) != 2:
+        return f"{len(s)} input lines, not 2"
+    if "click 1126,895" != s[1][0] or s[1][1] != "map: Ice 128 x 128":
+        return f"after Create: {s[1][1] or 'no map'} (not an Ice map of 128 x 128)"
+    if not re.search(r"^click 489,545: no map:", output, re.M):
+        return "a map was open before Create"
+    return None
+
+
+def check_data_edits(output):
+    """None when the number, the flag and the picked value went into the entry, and three Undo steps took them out."""
+    s = [st for _, st in states(output)]
+    if len(s) != 10:
+        return f"{len(s)} input lines, not 10"
+    want = [(2, "Hit Points=50 "), (3, "Shield Enable=1 "), (6, "Unit Size=2 ")]  # (the picker's inputs come before its click)
+    for i, text in want:
+        if text not in s[i]:
+            return f"input {i + 1}: {s[i]} (no {text.strip()})"
+    if "Unit Size=" in s[7] or "Shield Enable=" not in s[7]:
+        return f"the first Undo: {s[7]}"
+    if "Shield Enable=" in s[8] or "Hit Points=50 " not in s[8]:
+        return f"the second Undo: {s[8]}"
+    if "no changed values; 0 undo steps, 3 redo steps" not in s[9]:
+        return f"the third Undo: {s[9]}"
+    return None
+
+
+def check_trigger_edits(output):
+    """None when the block was added, its value changed, Delete removed it, Undo gave it back and then its old value."""
+    lines = states(output)
+    if len(lines) != 10:
+        return f"{len(lines)} input lines, not 10"
+    if '"New trigger"; 1 conditions: cond.always(); 0 actions' not in lines[0][1]:
+        return f"New trigger: {lines[0][1]}"
+    by = dict(lines)
+    added, changed, deleted = by.get("click 460,347", ""), by.get("click 827,352", ""), by.get("key Del", "")
+    undos = [st for k, st in lines if k == "key Ctrl+Z"]
+    m = re.search(r"1 actions: (act\.\w+\([^)]*,)(\d+)\)$", added)  # (the amount is the block's last value)
+    if not m:
+        return f"Add an action: {added}"
+    edited = m.group(1) + "800)"
+    if not changed.endswith(edited):
+        return f"the value: {changed} (not 800)"
+    if not deleted.endswith("0 actions:"):
+        return f"Delete: {deleted}"
+    if len(undos) != 2 or not undos[0].endswith(edited) or not undos[1].endswith(m.group(1) + m.group(2) + ")"):
+        return f"Undo: {undos} (not the block with 800, then with {m.group(2)})"
+    return None
+
+
+def check_classic_edits(output):
+    """None when the trigger was added with Player 3 (on the page and in the map), and Undo took Player 3 out of both."""
+    s = states(output)
+    if len(s) != 4:
+        return f"{len(s)} input lines, not 4"
+    added, player, undone, waited = (st for _, st in s)
+    m = re.search(r"the page has (\d+), selected (\d+)", added)
+    if not m or m.group(1) != m.group(2):
+        return f"Add a trigger: {added} (the new trigger is not selected)"
+    n = int(m.group(1))
+    if f"the map has {n}:" not in added:
+        return f"Add a trigger: {added} (not in the map)"
+    if "(players 3;" not in player or not player.endswith("[players 3]"):
+        return f"Player 3: {player}"
+    if not undone.endswith("[players none]"):
+        return f"Undo: {undone} (the map's trigger still has Player 3)"
+    if "players 3" in waited:
+        return f"after Undo: {waited} (the page still has Player 3)"
+    return None
+
+
+def check_files_search(output):
+    """None when the search shows fewer game sounds, and each is one with the text."""
+    s = states(output)
+    if len(s) != 2:
+        return f"{len(s)} input lines, not 2"
+    m0 = re.search(r'search "", (\d+) game sounds', s[0][1])
+    m1 = re.search(r'search "marine", (\d+) game sounds', s[1][1])
+    if not m0 or not m1 or not 0 < int(m1.group(1)) < int(m0.group(1)):
+        return f"the search: {s[0][1]} -> {s[1][1]}"
+    return None
+
+
+def check_briefing_add(output):
+    """None when Add an action made a briefing with a Text message (type 3), and Undo took it out."""
+    s = states(output)
+    if len(s) != 4:
+        return f"{len(s)} input lines, not 4"
+    by = {k: v for k, v in s}
+    if not by.get("click 543,166", "").endswith("1 briefings; 1 actions: 3"):
+        return f"Add an action: {by.get('click 543,166')}"
+    if s[-1][1] != "briefing: 0 briefings":
+        return f"Undo: {s[-1][1]}"
+    return None
+
+
 # Checks of a case's output (after the PNG's): a function that returns None, or what is wrong.
 CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
-          "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit}
+          "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit, "newpage-create": check_newpage_create,
+          "data-form-edits": check_data_edits, "data-triggers-edits": check_trigger_edits,
+          "map-classictrig-edits": check_classic_edits, "map-files-search": check_files_search,
+          "map-briefing-add": check_briefing_add}
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 

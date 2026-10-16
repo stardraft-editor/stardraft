@@ -54,6 +54,12 @@ public:
     void setSearch(std::wstring t) { search_.setText(std::move(t)); }
     // The search box has the keyboard: the message loop leaves the typed keys to it (as to an edit control).
     bool typing() { return search_.field().hasFocus(); }
+    // The search text, and how many of the game's sounds the list shows for it (the snapshots' input lines).
+    const std::wstring& searchText() const { return filter_; }
+    int gameSoundsShown() const {
+        const std::wstring f = lowerText(filter_);
+        return int(std::count_if(gameSounds().begin(), gameSounds().end(), [&](const std::string& g) { return soundMatches(g, f); }));
+    }
     void setSelected(std::string name) {
         selected_ = std::move(name);
         invalidate();
@@ -75,6 +81,14 @@ public:
     }
 
 private:
+    // The search: a game sound shows when its name has the text (`lower`: lower case), in any case; no text: all.
+    static std::wstring lowerText(std::wstring t) {
+        std::transform(t.begin(), t.end(), t.begin(), ::towlower);
+        return t;
+    }
+    static bool soundMatches(const std::string& name, const std::wstring& lower) {
+        return lower.empty() || lowerText(widen(name)).find(lower) != std::wstring::npos;
+    }
     // A row of the table as the last paint drew it (the mouse and the tips work from these).
     struct Row {
         draw::Rect r, kindCell, last, play, add;
@@ -386,15 +400,10 @@ void FilesPage::paint(draw::Canvas& c) {
     y += scale(32);
     tableHeader(c, {x0, y, colRight, y + rowH}, cols);
     y += rowH;
-    std::wstring f = filter_;
-    std::transform(f.begin(), f.end(), f.begin(), ::towlower);
+    const std::wstring f = lowerText(filter_);
     int shown = 0;
     for (const auto& g : gameSounds()) {
-        if (!f.empty()) {
-            std::wstring wg = widen(g);
-            std::transform(wg.begin(), wg.end(), wg.begin(), ::towlower);
-            if (wg.find(f) == std::wstring::npos) continue;
-        }
+        if (!soundMatches(g, f)) continue;
         soundRow(g, 0, 2);
         ++shown;
     }

@@ -188,13 +188,14 @@ public:
             return true;
         }
         if (e.kind == draw::MouseKind::Up && e.button == 0 && grab_.down) {
-            if (host()) host()->capture(*this, false);
+            // The press's state first: letting go of the mouse calls captureLost, which forgets it.
             auto click = grab_.click;
             const bool moved = grab_.moved;
+            const int from = dragFrom_, to = dragTo_;
             grab_ = {};
-            if (dragFrom_ >= 0) {  // rows dropped: the selected ones (or the one dragged) go there
-                const int from = dragFrom_, to = dragTo_;
-                dragFrom_ = dragTo_ = -1;
+            dragFrom_ = dragTo_ = -1;
+            if (host()) host()->capture(*this, false);
+            if (from >= 0) {  // rows dropped: the selected ones (or the one dragged) go there
                 if (!picked.count(from)) picked = {from}, sel = from;
                 if (to >= 0) moveTo(to);
                 invalidate();

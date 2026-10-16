@@ -174,7 +174,7 @@ has an SDL snapshot case (`tools/sdl_snapshots.py`) or a test, and what has none
 |---|---|
 | The start page, the New page, the workspaces of a map and of a project (`pages:`) | start, newpage-classic, newpage-eud, ws-*, map-ws-* (the dark theme only; dialog-options-light is the light theme) |
 | undo_twice (Undo of an edit) | map-key-undo (Delete, Undo, Redo, Undo: CHECKS reads the counts) |
-| place_marines (a unit placed with the mouse), box_select, drag_move | map-click-place (a palette pick, a click on the map, Undo), map-drag-select (a box, Shift and a second box), map-drag-unit (a click selects, a drag moves the unit, Undo puts it back): `--click` and `--drag` go the host's way for a window's mouse events; CHECKS reads the counts and the unit's place |
+| place_marines (a unit placed with the mouse), box_select, drag_move | map-click-place (a palette pick, a click on the map, Undo), map-drag-select (a box, Shift and a second box), map-drag-unit (a click selects, a drag moves the unit, Undo puts it back): `--click` and `--drag` go the host's way for a window's mouse events, `--key` and `--type` to the view with the focus; a dialog or pop-out that an input opens takes the next inputs (`--wait` lets the timers run); CHECKS reads the counts and the unit's place, and each input's state line (sdl_shot_state.inc) |
 | A save of the map (the steps that save, `openagain:`) | map-save-roundtrip and map-save-edited (`--saveas` into the --out folder: the saved file opens again and is the same; after Delete it has no units) |
 | project created, project compiled (`project:`, a Build) | data-newproject-build (a new project Sample in a new folder in --out, then Build when euddraft is there) |
 | sd_quality, carbot_graphics | map-view-sd, map-view-carbot |
@@ -187,8 +187,12 @@ has an SDL snapshot case (`tools/sdl_snapshots.py`) or a test, and what has none
 | `textpop:`, `trigshow:`, `trigtext:`, `trigobj:` | project-textpop-*, project-trigpop-*, project-varpop-* |
 | `mapmenu:`, `ctxmenu:`, `feedbacknames:` (some of it) | map-rclick-map, map-rclick-*, project-rclick-code, dialog-options-rclick |
 | `dat:entry[:section]` (the Data workspace) | data-units, data-images, data-strings, project-data-open |
-| The Classic triggers page (`bowner:`, `bsel:`) | map-classictrig, map-classictrig-value (the page and a value's pop-out; not the owners, the selection or the Edit commands) |
-| The briefing (`brec:`) | project-briefing (one picture, not the video) |
+| The Classic triggers page (`bowner:`, `bsel:`) | map-classictrig, map-classictrig-value (the page and a value's pop-out; not the selection or the Edit commands), map-classictrig-edits (Add a trigger, Player 3, Undo: the page and the map) |
+| The briefing (`brec:`), its actions | project-briefing (one picture, not the video), map-briefing-add (Add an action: the list picker, Text message; Undo) |
+| new_page_map, new_map_ice (a map made on the New page) | newpage-create (the tileset Ice, Create: the map is Ice, 128 x 128) |
+| The Data form's edits (a number, a flag, a picker) and Undo | data-form-edits (the Marine of a new project: Hit points typed, Shield enable, Unit size picked in the list picker, three Undo steps) |
+| The Triggers editor's edits (add a block, a value, Delete, Undo) | data-triggers-edits (a new project: New trigger, Add an action in the block picker, the amount in the value's pop-out, Delete, Undo twice) |
+| `files:` (the Files workspace's search) | map-files-search (the search box of the game's sounds: "marine" typed) |
 | The cursors | map-cursors |
 ### No SDL case yet
 | Win32 test | What it checks |
@@ -200,13 +204,13 @@ has an SDL snapshot case (`tools/sdl_snapshots.py`) or a test, and what has none
 | location_create, location_resize, location_move, location_rename, `locwrap:` | Locations made and changed with the mouse; a long name in lines. |
 | terrain_paint, brush_circle_*, fill_lake_with_grass, spray_mud, replace_mud_with_rocky, terrain_select, symmetry_*, rect_paint, `selshape:`, `terraincut:`, `pipette:` | The terrain tools on the map (map-terrain-rect shows the tool only). |
 | zoom_25, hd4x_zoom_200 | The zoom to a percent and HD 4x (the + key zooms in map-view-sd). |
-| new_page_map, new_map_ice, generated_map, generated_again | A map made on the New page (Blank, a tileset, Generate). |
+| generated_map, generated_again | A map that the New page generates (Generate). |
 | tab_previous, tab_closed, `cardagain:` | Ctrl+Shift+Tab and Ctrl+W with more than one tab; the start page's cards. |
 | The player keys (1 to 0), the recent menus at the start, `menutree:`, `barmenu:`, `menutest:` | The player keys, the menu tree, the File menu by the keys, the context menus driven by messages. |
-| The Data workspace's steps (tabs, Tab, back and forward, a weapons.dat save, `portrait:`, `mapplayers:`, `classicdefault:`, `unitnames:`) | The Data form's edits and their save. |
-| The Triggers editor's steps (copy and paste, the keyboard, values, variables, properties, an external script, `trigreplace:`, `emptylists:`, `bcmd:`) and `trigger_selftest.inc` (help, fixes, a picked unit deleted, a build error) | The Triggers workspace's edits. |
+| The Data workspace's other steps (tabs, Tab, back and forward, a weapons.dat save, `portrait:`, `mapplayers:`, `classicdefault:`, `unitnames:`) | The Data workspace's navigation, the save of a table, the map's own data. |
+| The Triggers editor's other steps (copy and paste, the keyboard, variables, properties, an external script, `trigreplace:`, `emptylists:`, `bcmd:`) and `trigger_selftest.inc` (help, fixes, a picked unit deleted, a build error) | The Triggers workspace's other edits and its checks. |
 | `eptrace:` | Trace build and its report. |
-| `files:`, `fref:` | The Files workspace's search and a sound the map names. |
+| `fref:` | A sound that the map names (the Files workspace's References). |
 | `spray:`, `emptynone:`, `rightpan:`, `wheelpick:`, `dpi:` | Doodads > Spray, an empty search, the right button on the map, the wheel on a dropdown, a DPI change. |
 | `opentimes:`, `leaks:` | The time to open each workspace; GDI and USER objects (Win32 only). |
 The kit's own tests (`tools/tests/kit_test.cpp`) check the portable views without a program (a text field's menu,
