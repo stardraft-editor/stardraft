@@ -1,5 +1,5 @@
 // What a map that opens gives the system (shell.h: shellMapOpened; on macOS mac_dist.mm: the Quick Look extensions'
-// tile colors and Spotlight), and the checks of a test run that print what the program set up for it (--check):
+// tile colors and Spotlight; on Linux the thumbnailer's tile colors in the cache), and the checks of a test run that print what the program set up for it (--check):
 //   --check bundle          the app bundle's document types, exported types, plug-ins and signature (macOS)
 //   --check spotlight       the open map's Spotlight entry: made, indexed and removed again (macOS)
 //   --check preview:<dir>   the open map's Quick Look picture (apps/quicklook/map_preview.h, every system): its tile
@@ -10,6 +10,21 @@ void shellMapOpened(const std::wstring& path) {
 #ifdef __APPLE__
     if (gSilent || !gState.ed || gState.ed->tileset().megatiles.empty()) return;  // (a test run leaves the system as it is)
     macMapOpened(fs::path(path), stardraft::preview::tileColors(gState.ed->tileset()), gState.ed->era());
+#elif defined(STARDRAFT_XDG)
+    // The tile color table of the map's tileset in the cache, for the thumbnailer (stardraft-thumbnailer): written
+    // when it is not there or not the same.
+    (void)path;
+    if (gSilent || !gState.ed || gState.ed->tileset().megatiles.empty()) return;
+    const fs::path dir = stardraft::preview::tileColorsFolder();
+    if (dir.empty()) return;
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    const fs::path file = stardraft::preview::tileColorsFile(dir, gState.ed->era());
+    const std::vector<uint32_t> colors = stardraft::preview::tileColors(gState.ed->tileset());
+    std::vector<uint32_t> old;
+    std::string err;
+    if ((!stardraft::preview::readTileColors(file, old) || old != colors) && !stardraft::preview::writeTileColors(file, colors, err))
+        std::fprintf(stderr, "tile colors: %s\n", err.c_str());
 #else
     (void)path;
 #endif

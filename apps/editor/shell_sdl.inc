@@ -143,7 +143,7 @@ void shellPaletteRebuilt() {
 }
 // The folder of the projects that are not saved yet (core/documents.inc): StarDraft/Unsaved in the user's data folder
 // (%LOCALAPPDATA% on Windows, the Win32 program's folder; ~/Library/Application Support on macOS; $XDG_DATA_HOME or
-// ~/.local/share on Linux).
+// ~/.local/share on Linux: desktop_xdg.h).
 std::filesystem::path shellUnsavedRoot() {
     fs::path dir;
 #if defined(_WIN32)
@@ -151,8 +151,7 @@ std::filesystem::path shellUnsavedRoot() {
 #elif defined(__APPLE__)
     if (const char* h = std::getenv("HOME"); h && *h) dir = fs::path(h) / "Library" / "Application Support";
 #else
-    if (const char* x = std::getenv("XDG_DATA_HOME"); x && *x) dir = fs::path(x);
-    else if (const char* h = std::getenv("HOME"); h && *h) dir = fs::path(h) / ".local" / "share";
+    dir = stardraft::xdg::dataHome();
 #endif
     return dir.empty() ? fs::path() : dir / "StarDraft" / "Unsaved";
 }
@@ -210,8 +209,7 @@ std::filesystem::path shellSettingsFile() {
 #elif defined(__APPLE__)
     if (const fs::path h = homeFolder(); !h.empty()) dir = h / "Library" / "Application Support" / "StarDraft";
 #else
-    if (const fs::path x = envPath("XDG_CONFIG_HOME"); !x.empty()) dir = x / "StarDraft";
-    else if (const fs::path h = homeFolder(); !h.empty()) dir = h / ".config" / "StarDraft";
+    if (const fs::path x = stardraft::xdg::configHome(); !x.empty()) dir = x / "StarDraft";  // (desktop_xdg.h)
 #endif
     if (dir.empty()) dir = fs::temp_directory_path() / "StarDraft";
     return dir / "settings.json";
@@ -641,5 +639,11 @@ void shellLogNewBuild() {
     gLogPane.invalidate();
 }
 // --- Program options and feedback ---
-// The feedback folder: next to the settings file (~/.config/StarDraft/feedback, ~/Library/Application Support/StarDraft/feedback).
-fs::path shellFeedbackFolder() { return shellSettingsFile().parent_path() / "feedback"; }
+// The feedback folder: next to the settings file (%APPDATA%\StarDraft\feedback, ~/Library/Application
+// Support/StarDraft/feedback); on Linux in the data folder ($XDG_DATA_HOME/StarDraft/feedback: it is not a setting).
+fs::path shellFeedbackFolder() {
+#if defined(STARDRAFT_XDG)
+    if (const fs::path d = stardraft::xdg::dataHome(); !d.empty() && !SDL_getenv("STARDRAFT_SETTINGS")) return d / "StarDraft" / "feedback";
+#endif
+    return shellSettingsFile().parent_path() / "feedback";
+}

@@ -2035,6 +2035,10 @@ constexpr UiText kRows[] = {
     {L"Did not import ", L"No se import\u00F3 "},
     {L": the Assets workspace imports only sounds (WAV, OGG)", L": el espacio de trabajo Recursos solo importa sonidos (WAV, OGG)"},
     {L"StarCraft map", L"Mapa de StarCraft"},
+    {L"Map editor", L"Editor de mapas"},
+    {L"Edit StarCraft maps and EUD projects", L"Edita mapas de StarCraft y proyectos EUD"},
+    {L"Edit the terrain, units, locations and triggers of StarCraft maps. Build EUD maps with euddraft.", L"Edita el terreno, las unidades, las ubicaciones y los disparadores de los mapas de StarCraft. Compila mapas EUD con euddraft."},
+    {L"StarDraft project", L"Proyecto de StarDraft"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

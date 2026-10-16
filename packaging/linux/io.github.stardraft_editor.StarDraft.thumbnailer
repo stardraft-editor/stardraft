@@ -1,0 +1,4 @@
+[Thumbnailer Entry]
+TryExec=stardraft-thumbnailer
+Exec=stardraft-thumbnailer -s %s %u %o
+MimeType=application/x-starcraft-scm;application/x-starcraft-scx;

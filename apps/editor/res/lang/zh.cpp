@@ -2035,6 +2035,10 @@ constexpr UiText kRows[] = {
     {L"Did not import ", L"\u672A\u5BFC\u5165 "},
     {L": the Assets workspace imports only sounds (WAV, OGG)", L": \u7D20\u6750\u5DE5\u4F5C\u533A\u53EA\u5BFC\u5165\u58F0\u97F3\uFF08WAV\u3001OGG\uFF09"},
     {L"StarCraft map", L"StarCraft \u5730\u56FE"},
+    {L"Map editor", L"\u5730\u56FE\u7F16\u8F91\u5668"},
+    {L"Edit StarCraft maps and EUD projects", L"\u7F16\u8F91 StarCraft \u5730\u56FE\u548C EUD \u9879\u76EE"},
+    {L"Edit the terrain, units, locations and triggers of StarCraft maps. Build EUD maps with euddraft.", L"\u7F16\u8F91 StarCraft \u5730\u56FE\u7684\u5730\u5F62\u3001\u5355\u4F4D\u3001\u4F4D\u7F6E\u548C\u89E6\u53D1\u5668\u3002\u4F7F\u7528 euddraft \u6784\u5EFA EUD \u5730\u56FE\u3002"},
+    {L"StarDraft project", L"StarDraft \u9879\u76EE"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

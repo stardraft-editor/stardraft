@@ -2031,3 +2031,7 @@ Folders	폴더
 Did not import 	다음 파일을 가져오지 않았습니다: 
 : the Assets workspace imports only sounds (WAV, OGG)	: 에셋 작업 공간은 사운드(WAV, OGG)만 가져옵니다
 StarCraft map	StarCraft 맵
+Map editor	맵 에디터
+Edit StarCraft maps and EUD projects	StarCraft 맵과 EUD 프로젝트를 편집합니다
+Edit the terrain, units, locations and triggers of StarCraft maps. Build EUD maps with euddraft.	StarCraft 맵의 지형, 유닛, 위치, 트리거를 편집합니다. euddraft로 EUD 맵을 빌드합니다.
+StarDraft project	StarDraft 프로젝트

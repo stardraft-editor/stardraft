@@ -31,6 +31,8 @@ void updateFailed(const releases::Release& r, const std::wstring& why, const fs:
 
 }  // namespace
 
+bool sdlUpdatesWithPackage();  // (sdl_xdg.inc)
+
 // Help > Check for updates (and Program options > Check now).
 void sdlCheckForUpdates() {
     shellWaitCursor();
@@ -46,7 +48,9 @@ void sdlCheckForUpdates() {
         return;
     }
     const fs::path self = stardraft::platform::programFile();
-    if (!releases::installable(self, r)) {  // a build made here: the release page, to get it by hand
+    // A build made here, or a package (an AppImage, a Flatpak: sdl_xdg.inc) that updates as packages do: the release
+    // page, to get it by hand.
+    if (sdlUpdatesWithPackage() || !releases::installable(self, r)) {
         if (updatesBox(shellTr(L"A newer release is available: ") + title + L".\n\n" + shellTr(L"This is not a release build. Open the release page?"),
                        {shellTr(L"&Open the release page"), shellTr(L"Cancel")}, msgbox::Icon::Info) == 0)
             openReleasePage(r);
