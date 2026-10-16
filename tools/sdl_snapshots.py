@@ -44,6 +44,10 @@ CASES += [
     ("start-noinstall", ["--noinstall"], ""),
     ("start-noinstall-nodata", ["--noinstall", "--pickinstall", "{root}"], ""),
     ("start-noinstall-pick", ["--noinstall", "--pickinstall", "found"], "data"),
+    # The banner's Browse is a Tab stop: Tab goes through the cards and Browse, Shift+Tab back; Left and Right from
+    # Browse go to a card (each --key line says where the page's keys are).
+    ("start-noinstall-keys", ["--noinstall"] + [a for k in ["Tab"] * 5 + ["Shift+Tab"] * 3 + ["Right", "Shift+Tab", "Left"]
+                                                for a in ("--key", k)], ""),
     # Scale 2 (a Retina display of macOS, or 200 % on Windows): the small text (the rail's labels, captions, table
     # headers) is two thirds of the UI text, as at scale 1.
     ("start-scale2", ["--scale", "2", "--size", "3200x2000"], ""),
@@ -301,14 +305,16 @@ CASES += [
                          "--click", "1200,850"], "map"),
 ]
 # The wheel and a trackpad on the map (--wheel x,y,dx,dy[:precise][:mods], --pinch x,y,scale; in the window's pixels):
-# a wheel's notch zooms at the mouse (1.2 times); a trackpad's two-finger scroll (precise) moves the map with the
-# fingers (a notch of SDL's: 48 px at scale 1); Ctrl (Cmd on macOS) and a trackpad's scroll zoom (1.2 times each 4 of
-# its notches); a pinch zooms around the mouse. Each line says the point in the map view and the camera before and
-# after: CHECKS reads them.
+# a wheel's notch zooms at the mouse (1.2 times). Only macOS tells a trackpad's two-finger scroll (precise) from a
+# wheel's: there it moves the map with the fingers, and Cmd and a trackpad's scroll zoom (1.2 times each 4 of its
+# notches). On Windows and Linux a scroll with fractions is a smooth wheel's (a Logitech MX: 0.25 a step), and it
+# zooms as the wheel (1.2 times a notch); Ctrl too. A pinch zooms around the mouse on each system. Each line says the
+# point in the map view and the camera before and after: CHECKS reads them.
 CASES += [
     ("map-wheel-zoom", ["--wheel", "700,500,0,1"], "map"),
+    ("map-wheel-smooth", ["--wheel", "700,500,0,0.25:precise"], "map"),
     ("map-trackpad-pan", ["--wheel", "700,500,1,-1.5:precise"], "map"),
-    ("map-trackpad-ctrl-zoom", ["--wheel", "700,500,0,8:precise:Ctrl"], "map"),
+    ("map-trackpad-ctrl-zoom", ["--wheel", "700,500,0,2:precise:Ctrl"], "map"),
     ("map-pinch", ["--pinch", "700,500,1.5"], "map"),
     # macOS's smart zoom (a double tap with two fingers; --smartzoom feeds the event that mac_input.mm gives): in two
     # times at the mouse, then back to the zoom before.
@@ -751,6 +757,29 @@ def check_banner(shown, note, data):
     return check
 
 
+def check_start_keys(output):
+    """None when the start page's keys went as the rule says (from each card or Browse: Tab, Shift+Tab, Left, Right),
+    and Browse was reached with Tab and with Shift+Tab."""
+    steps = re.findall(r"^key (\S+): start page: keys on (.+?)\r?$", output, re.M)
+    if len(steps) != 11:
+        return f"{len(steps)} key lines, not 11"
+    rule = {("card 0", "Tab"): "card 1", ("card 1", "Tab"): "Browse", ("Browse", "Tab"): "card 0",
+            ("card 0", "Shift+Tab"): "Browse", ("card 1", "Shift+Tab"): "card 0", ("Browse", "Shift+Tab"): "card 1",
+            ("card 0", "Right"): "card 1", ("card 1", "Right"): "card 1", ("Browse", "Right"): "card 1",
+            ("card 0", "Left"): "card 0", ("card 1", "Left"): "card 0", ("Browse", "Left"): "card 0"}
+    was, reached = "none", set()
+    for key, now in steps:
+        want = rule.get((was, key))
+        if want and now != want:
+            return f"{key} on {was} went to {now}, not {want}"
+        if want == "Browse":
+            reached.add(key)
+        was = now
+    if reached != {"Tab", "Shift+Tab"}:
+        return f"Browse was reached only with {sorted(reached)}"
+    return None
+
+
 def check_scale2(output):
     """None when at scale 2 the UI text is 30 px and the small text (the rail's labels) two thirds of it (20 px), and
     the icons are sharp: a 16 px icon from the 32 px atlas, the Start page's card icons from the 64 px atlas."""
@@ -896,18 +925,27 @@ def check_window(system):
     return check
 
 
-def check_trackpad_pan(output):
-    """None when a trackpad's scroll (1 right, 1.5 toward the user) moved the map 48 px left and 72 px up, not the zoom."""
-    c = camera(output, "wheel 700,500,1,-1.5:precise")
-    if not c:
-        return "no camera line"
-    _, (cx0, cy0, z0), (cx1, cy1, z1) = c
-    if abs(z1 - z0) > 1e-4:
-        return f"the zoom changed ({z0} -> {z1})"
-    dx, dy = (cx1 - cx0) * z0, (cy1 - cy0) * z0  # (the camera's move in screen pixels: the map moves the other way)
-    if abs(dx - 48) > 1 or abs(dy - 72) > 1:
-        return f"the camera moved {dx:.1f},{dy:.1f} screen px, not 48,72"
-    return None
+def check_pan(what, rx, ry):
+    """A check that a trackpad's scroll moved the map, not the zoom: the camera moved in screen pixels as (rx, ry)
+    times one unit (macOS's: its tenths of points at the display's density), the map the other way."""
+    def check(output):
+        c = camera(output, what)
+        if not c:
+            return f"no camera line for {what}"
+        _, (cx0, cy0, z0), (cx1, cy1, z1) = c
+        if abs(z1 - z0) > 1e-4:
+            return f"the zoom changed ({z0} -> {z1})"
+        dx, dy = (cx1 - cx0) * z0, (cy1 - cy0) * z0  # (the camera's move in screen pixels: the map moves the other way)
+        unit = max(abs(dx), abs(dy)) / max(abs(rx), abs(ry))
+        if unit < 1 or abs(dx - rx * unit) > 1 or abs(dy - ry * unit) > 1:
+            return f"the camera moved {dx:.1f},{dy:.1f} screen px, not as {rx},{ry}"
+        return None
+    return check
+
+
+def per_system(mac, other):
+    """macOS's check (a precise scroll is a trackpad's), else the one of Windows and Linux (it is a smooth wheel's)."""
+    return mac if sys.platform == "darwin" else other
 
 
 def check_menubar(output):
@@ -1059,9 +1097,14 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "map-files-search": check_files_search, "map-briefing-add": check_briefing_add,
           "start-noinstall": check_banner(True, "none", False),
           "start-noinstall-nodata": check_banner(True, "That folder has no StarCraft game data.", False),
-          "start-noinstall-pick": check_banner(False, "none", True), "start-scale2": check_scale2,
-          "map-wheel-zoom": check_zoom_at("wheel 700,500,0,1", 1.2), "map-trackpad-pan": check_trackpad_pan,
-          "map-trackpad-ctrl-zoom": check_zoom_at("wheel 700,500,0,8:precise:Ctrl", 1.44),
+          "start-noinstall-pick": check_banner(False, "none", True), "start-noinstall-keys": check_start_keys, "start-scale2": check_scale2,
+          "map-wheel-zoom": check_zoom_at("wheel 700,500,0,1", 1.2),
+          "map-wheel-smooth": per_system(check_pan("wheel 700,500,0,0.25:precise", 0, -0.25),
+                                         check_zoom_at("wheel 700,500,0,0.25:precise", 1.2 ** 0.25)),
+          "map-trackpad-pan": per_system(check_pan("wheel 700,500,1,-1.5:precise", 1, 1.5),
+                                         check_zoom_at("wheel 700,500,1,-1.5:precise", 1.2 ** -1.5)),
+          "map-trackpad-ctrl-zoom": per_system(check_zoom_at("wheel 700,500,0,2:precise:Ctrl", 1.2 ** 0.5),
+                                               check_zoom_at("wheel 700,500,0,2:precise:Ctrl", 1.44)),
           "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5), "start-menubar": check_menubar,
           "check-window": check_window(False), "check-window-system": check_window(True), "start": check_start,
           "start-trackpad-scroll": check_trackpad_scroll, "map-smartzoom": check_smartzoom, "map-swipe": check_swipe,

@@ -30,6 +30,16 @@ public:
     bool focusable() const override { return false; }
 };
 
+// The banner's Browse: a Tab stop (the page's Tab goes from the cards to it and back), with the focus ring of the
+// other buttons; Enter or Space runs it.
+class StartBrowse final : public stardraft::kit::Button {
+public:
+    using stardraft::kit::Button::Button;
+    bool focusable() const override { return visible() && enabled(); }
+    void focusChanged(bool) override { invalidate(); }
+    bool key(const draw::KeyEvent& e) override { return visible() && stardraft::kit::Button::key(e); }
+};
+
 // A row's remove button (a bare icon button that is shown under the mouse, or where the file is not found).
 class StartRemove final : public stardraft::kit::IconButton {
 public:
@@ -70,8 +80,14 @@ public:
     std::function<void()> onBrowseInstall;
     // Whether the last paint showed the banner (the snapshots read it).
     bool bannerShown() const { return bannerShown_; }
+    // Where the page's keys go (the snapshots read it): "Browse", "card 0", "card 1", or "none" (not on the page).
+    std::string keysOn() const {
+        if (browse_.visible() && browse_.hasFocus()) return "Browse";
+        return hasFocus() ? "card " + std::to_string(card_) : "none";
+    }
 
-    // The card the keyboard is on (0 or 1); Left, Right and Tab move it, Enter and Space open it.
+    // The card the keyboard is on (0 or 1); Left, Right and Tab move it, Enter and Space open it (Tab also goes to the
+    // banner's Browse, when it is shown).
     void setCard(int k) {
         if (card_ != k) card_ = k, invalidate();
     }
@@ -103,7 +119,10 @@ public:
         const int w = width(), h = height();
         c.fill({0, 0, w, h}, kBg);
         hits_.clear();
-        if (!installMissing && browse_.visible()) browse_.setVisible(false);
+        if (!installMissing && browse_.visible()) {
+            if (browse_.hasFocus()) focus();  // (the keys go to the cards again)
+            browse_.setVisible(false);
+        }
         const int pad = scale(stardraft::kit::kDialogPad), rowH = scale(stardraft::kit::kRowH), bh = scale(stardraft::kit::kButtonH), gap = scale(16);
         const int avail = w - 2 * pad;
         const int cardW = std::clamp((avail - 3 * gap) / 4, scale(180), scale(320));
@@ -269,13 +288,24 @@ public:
         }
     }
 
-    // The keys: the cards. Left and Right move the card, Tab moves it to the other one, Enter and Space open it.
+    // The keys: the cards. Left and Right move the card, Tab moves it to the other one, Enter and Space open it. With
+    // the banner, Tab goes through Browse, the first card and the second card (Shift+Tab: back); Browse takes Enter
+    // and Space itself.
     bool key(const draw::KeyEvent& e) override {
         if (!e.down) return false;
-        if (e.key == draw::Key::Left) card_ = 0;
-        else if (e.key == draw::Key::Right) card_ = 1;
-        else if (e.key == draw::Key::Tab) card_ = 1 - card_;
-        else if (e.key == draw::Key::Enter || e.key == draw::Key::Space) {
+        const bool banner = browse_.visible(), onBrowse = banner && browse_.hasFocus();
+        if (e.key == draw::Key::Left || e.key == draw::Key::Right) {
+            card_ = e.key == draw::Key::Left ? 0 : 1;
+            if (onBrowse) focus();
+        } else if (e.key == draw::Key::Tab) {
+            const bool back = (e.mods & draw::kShift) != 0;
+            if (onBrowse) {
+                card_ = back ? 1 : 0;
+                focus();
+            } else if (banner && card_ == (back ? 0 : 1)) {
+                browse_.focus();
+            } else card_ = 1 - card_;
+        } else if (e.key == draw::Key::Enter || e.key == draw::Key::Space) {
             if (onCard) onCard(card_);
             return true;
         } else return false;
@@ -395,7 +425,7 @@ private:
     }
 
     StartButton open_;              // (set up in the constructor; it never takes the keyboard)
-    StartButton browse_;            // the banner's Browse (shown with the banner)
+    StartBrowse browse_;            // the banner's Browse (shown with the banner; a Tab stop)
     bool bannerShown_ = false;
     std::vector<std::unique_ptr<StartRemove>> removes_;
     std::vector<Hit> hits_;         // what each paint put under the mouse (cleared at each paint)
