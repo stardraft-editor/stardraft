@@ -86,3 +86,34 @@ cursor after a press or a release, not only when the mouse moves. `--cursors` wr
 | The glyph icons (Segoe MDL2 Assets, which only Windows has): the game text editor's align buttons, the Rename button of Map data's Units page (the pencil U+270E), the start page's alpha note mark, the chevrons, + and -, the brush size's link, the pin of a pinned Data entry, Turn off | Done: the SDL canvas draws each glyph of the core's table (`kitpaint::glyphIcon`, `core/kit_paint.inc`) as its UI icon (`kit_sdl::setGlyphIcons`), on every system; the atlases have the five icons that were not there (align left, chevron right, info, pin, link). A private use glyph that is not in the table and not in the font is not drawn (no box). Snapshots start, map-ws-classic, project-textpop-tooltip, map-mode-terrain, project-trig-icons. |
 | The snapshots (`main_sdl.cpp`) | `--key <key>` presses a key in the window after the first frame (new in the sweep; `tools/sdl_snapshots.py`: map-key-copy, map-key-rail, map-scene-grid, map-scene-select). |
 | The status bar, the Log, the tabs, the rail, the minimap, the palettes, the tool strip, the map pages, Data, Triggers, Briefing, Files, Project, the New page, the start page, Program options, About, the feedback dialog | On SDL. |
+
+## The second sweep (2026-10-16, after the second round)
+
+This sweep compared each menu command, key, window, dialog, pane and context menu of the Windows program with the SDL
+program. The menu model is the same for both programs, and each command of it runs on SDL (`sdlRuns`), except the
+palette's views (below) and Options > Maps (Windows only). The other work streams of this round have the top bar, the
+glyph icons, the cursors, the clicks outside a pop-out, the save of a new project and the legacy text: they are not in
+this list.
+
+### Done in this sweep
+
+| What | Windows | SDL now |
+|---|---|---|
+| The map's own keys: Esc, R and Shift+R, the arrows | `viewProc` (WM_KEYDOWN): Esc ends a stroke (one undo step), goes back to the mode's selection, then clears the selection; R turns the terrain to paste; the arrows move the selected units (1 px, Shift 8, with snap a grid cell) or the view. | The same functions for both programs: `mapCancelStep`, `mapTurnPaste`, `mapArrowKey` (`core/map_input.inc`); `MainView::mapKey` (`sdl_main_view.inc`) after the menus' keys, only when the map has the keyboard (or no view has it), as on Windows. Before, Esc only stopped a unit pick for a trigger, and R and the arrows did nothing. Snapshots: map-key-esc, map-key-arrows. |
+| Alt + wheel on the map: the brush's size | `viewProc` (WM_MOUSEWHEEL) | `mapBrushWheel` (`core/map_input.inc`) for both; before, the wheel always zoomed on SDL. (`brushSizeIndex` is in `core/views_toolstrip.inc` now.) |
+| The dock menu: a right click on the minimap, the tool strip or the modes' bar (Left, Right, Hide) | The main window's WM_CONTEXTMENU | `dockMenuModel` (`core/menu_model.inc`) for both; `MainView::mouse`. Before, SDL had no way to move them. Snapshots: map-rclick-minimap, map-rclick-tools. |
+| "Report feedback on ..." at the end of each context menu | `popupMenu` (feedback.inc) | `sdlPopupMenu` and `sdlFeedbackOn` (`sdl_menus.inc`): the map's menu, the Triggers tree and pane, the Classic triggers page, the dock menu and the Data menus. The name is the view's `feedbackName` (its tip) at the mouse, else the pane, else the workspace (`feedbackWorkspaceName`, `core/feedback_send.inc`, for both programs: the Windows list had no names for the map's pages). Snapshot: map-rclick-map. |
+| A right click where no menu opens: a menu with only "Report feedback on ..." | `feedbackAfterRightClick` | `MainView::mouse` (not on the map and the text fields). Snapshot: map-rclick-feedback. |
+| The tool strip's brush shape list and the Tiles panel's favorites menu | Menus at the box and at the mouse (`shellPopupPick`, `shellContextMenu`) | Menus there too (`sdlMenuPick`, `shell_sdl.inc`); before, a list in a dialog. |
+| The snapshots kept the user's settings | The self-test saves nothing | The dock layout and the recent lists are not saved in a test or screenshot run (`gSettingsOff`, `core/recent.inc`), and the SDL snapshots use the default layout. (A snapshot that moved the minimap had saved it.) |
+| `--rclick x,y[:n]` (`main_sdl.cpp`, `sdlRightClickShot`) | | A right click in a snapshot: the menu that opens writes its items to the output (`menu: ...`), and item n runs. |
+
+### Open
+
+| What | Windows | SDL |
+|---|---|---|
+| The palette's views | The View button and a right click on the palette: List, Grid (units: icons or sprites), Normal or Large, the list's sections (go to one), and in a project Pin to the top / Unpin for a doodad (`unitPaletteMenu`, `setUnitPaletteView`, `doodadPinToggle`). The views of each mode are saved (PaletteViews). | The list only. The View button shows a message. No menu on a right click. |
+| The pie palette (hold Space in Terrain mode) | `pieOpen`, `pieRelease` (main.cpp): a ring of the tileset's terrains. | Nothing. |
+| The text fields' context menu | The system's menu of an edit box (Cut, Copy, Paste, Select all); the Triggers code pane: Copy (Copy all) and Select all (`trigCodeKeys`). | The kit's text field has no menu (the keys work). |
+| Report feedback in the other windows | Each window (dialogs, pop-outs, the block help) gets the feedback menu on a right click. | Only the main window (and the menus above). |
+| The feedback item's icon | In the feedback color (kFeedback). | In the menu's text color. |

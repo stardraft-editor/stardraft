@@ -362,22 +362,21 @@ std::vector<kit::MenuItem> sdlTrigMenuKit(const MenuModel& items, const std::fun
     }
     return out;
 }
-void sdlTrigPopup(draw::View& from, draw::Point at, const std::vector<kit::MenuItem>& items) {
-    ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)
-    kit_sdl::ImguiCanvas measure(list, nullptr);
-    kit::Menu::popup(from, at, items, kit::Menu::measure(items, &measure));
+// (With Report feedback at the end, as the Windows menus: sdl_menus.inc.)
+void sdlTrigPopup(draw::View& from, draw::Point at, const std::vector<kit::MenuItem>& items, const std::wstring& pane) {
+    sdlPopupMenu(from, at, items, sdlFeedbackOn(from, at, pane));
 }
 
 void trigTreeMenuAt(const std::vector<int>& path) {
     if (!gTE.set.at(path)) return;
     const draw::Point at = gHost ? gHost->mouse(gTrigTree) : draw::Point{0, 0};
-    sdlTrigPopup(gTrigTree, at, sdlTrigMenuKit(trigTreeMenuModel(path), [path](int id) { trigTreeMenuPick(path, id); }));
+    sdlTrigPopup(gTrigTree, at, sdlTrigMenuKit(trigTreeMenuModel(path), [path](int id) { trigTreeMenuPick(path, id); }), L"the triggers");
 }
 void SdlTrigPaneHost::menu(draw::Point pt) {
     auto blocks = std::make_shared<std::vector<const TriggerDef*>>();
     const MenuModel m = trigPaneMenuModel(*blocks);
     if (m.empty()) return;
-    sdlTrigPopup(gSdlTrigPane, pt, sdlTrigMenuKit(m, [blocks](int id) { trigPaneMenuPick(id, *blocks); }));
+    sdlTrigPopup(gSdlTrigPane, pt, sdlTrigMenuKit(m, [blocks](int id) { trigPaneMenuPick(id, *blocks); }), L"the trigger");
 }
 
 // The workspace shows (setWorkspace, sdl_pending.inc): the active project's triggers, read when they are not the ones

@@ -21,7 +21,7 @@ void loadDock() {
 }
 
 void saveDock() {
-    if (gSelfTest) return;  // the self-test moves panels without touching the user's layout
+    if (gSelfTest || gSettingsOff) return;  // the self-test and the screenshot runs move panels without touching the user's layout
     auto put = [](const wchar_t* name, int v) { prefs::setNumber(std::wstring(L"Layout/") + name, v); };
     put(L"MinimapRight", gDock.minimapRight);
     put(L"MinimapHidden", gDock.minimapHidden);

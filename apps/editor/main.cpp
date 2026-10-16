@@ -387,14 +387,6 @@ void replaceSelectionWith(int v);
 
 // --- Tools ------------------------------------------------------------------------------------------
 
-int brushSizeIndex(float size) {  // the nearest size in the list
-    const auto& v = brushSizes();
-    int best = 0;
-    for (int i = 0; i < int(v.size()); ++i)
-        if (std::abs(v[size_t(i)] - size) < std::abs(v[size_t(best)] - size)) best = i;
-    return best;
-}
-
 void fillToolCombo() { fillToolCombo(app); }
 
 
@@ -7373,14 +7365,6 @@ void setWorkspace(Workspace w) {
     pageSync();
 }
 
-// Arrow keys on selected units. A unit that does not fit at the new spot makes the move refused (the units stay),
-// unless "Units anywhere" is on.
-void nudgeSelection(WPARAM key, bool big) {
-    const int d = app.unitGrid ? app.unitGrid : big ? 8 : 1;  // Options > Units snap: a grid cell
-    const int dx = key == VK_LEFT ? -d : key == VK_RIGHT ? d : 0, dy = key == VK_UP ? -d : key == VK_DOWN ? d : 0;
-    const int moved = app.ed->moveSelection(dx, dy, false);
-    setMessage(moved ? L"Moved " + std::to_wstring(moved) + L" units" : L"The units do not fit there. They stay where they were.");
-}
 
 // --- The pie palette (roadmap 1.9) ------------------------------------------------------------------------------
 // Terrain mode: hold Space and a ring of the tileset's terrains comes up in the middle of the map; move the mouse
@@ -7558,28 +7542,7 @@ HMENU mapMenu(float wx, float wy) {
 }
 
 void cancelStep() {
-    trigCancelUnitPick();
-    if (app.ed && (app.drag == Drag::PlaceStroke || app.drag == Drag::Spray || app.drag == Drag::PasteStroke || app.drag == Drag::Paint)) {
-        sprayHoldStop();
-        app.ed->endStroke();  // the press so far is one undo step; later edits are steps of their own
-        app.drag = Drag::None;
-        ReleaseCapture();
-    }
-    // Esc: always to the mode's selection (Select, nothing picked, no paste); in it already, the selection goes.
-    if (!inSelection()) {
-        enterSelection();
-        setMessage(std::wstring(kModeNames[int(app.mode)]) + L": select");
-    } else if (app.hasTerrainSel && app.mode == Mode::Terrain) {
-        app.hasTerrainSel = false;
-        setMessage(L"Cleared the selection");
-    } else if (app.ed) {
-        app.ed->clearSelection();
-        if (app.mode == Mode::Locations) app.ed->selectLocation(-1);
-        app.selDoodads.clear(), app.selSprites.clear();
-        setMessage(L"Cleared the selection");
-    }
-    app.drag = Drag::None;
-    app.dirty = true;
+    if (mapCancelStep(app)) ReleaseCapture();  // (core/map_input.inc)
 }
 
 // The first terrain during a stroke with the second (secondPaints, core/map_input.inc).
@@ -7765,17 +7728,8 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
         // Alt + wheel resizes the active brush (terrain brush or spray; unit and doodad spray) through the sizes
         // (brushSizes: 1 to 32); otherwise the wheel zooms.
-        const bool brushActive = (app.mode == Mode::Terrain && (currentTool() == TBrush || currentTool() == TSpray)) ||
-                                 objectSprayOn();
-        if ((GetKeyState(VK_MENU) & 0x8000) && brushActive) {
-            const int k = std::clamp(brushSizeIndex(app.brushSize) + (GET_WHEEL_DELTA_WPARAM(wp) > 0 ? 1 : -1), 0, int(brushSizes().size()) - 1);
-            app.brushSize = brushSizes()[size_t(k)];
-            InvalidateRect(app.tool, nullptr, FALSE);  // the size slider
-            wchar_t m[48];
-            std::swprintf(m, 48, L"Brush size %g", app.brushSize);
-            setMessage(m);
+        if ((GetKeyState(VK_MENU) & 0x8000) && mapBrushWheel(app, GET_WHEEL_DELTA_WPARAM(wp) > 0)) {  // (core/map_input.inc)
             altWheelUsed = true;  // so releasing Alt does not open the menu bar
-            app.dirty = true;
             return 0;
         }
         POINT p{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
@@ -7801,19 +7755,10 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             if (!(lp & 0x40000000)) pieOpen();
             return 0;
         }
-        float step = 64 / app.zoom;
         switch (wp) {
         case VK_DELETE: command(ID_EDIT_DELETE); break;
         case VK_ESCAPE: cancelStep(); break;
-        case 'R':
-            // Turn the terrain about to be pasted: R clockwise, Shift+R the other way.
-            if (app.terrainPasting && !app.terrainRect && app.ed && app.ed->hasTerrainClipboard()) {  // tiles do not turn
-                int dropped = 0;
-                for (int k = GetKeyState(VK_SHIFT) < 0 ? 3 : 1; k > 0; --k) dropped += app.ed->rotateTerrainClipboard();
-                setMessage(dropped ? L"Turned the terrain; its " + std::to_wstring(dropped) + L" doodads cannot turn, so they are not included"
-                                   : L"Turned the terrain (R turns clockwise, Shift+R turns back)");
-            }
-            break;
+        case 'R': mapTurnPaste(app, GetKeyState(VK_SHIFT) < 0); break;  // the terrain about to be pasted turns (core/map_input.inc)
         case VK_F2: command(ID_EDIT_RENAME); break;
         case VK_RETURN:  // the selected location or unit: its properties (a unit: GitHub feedback #115)
             if (app.mode == Mode::Locations && app.ed && app.ed->locationUsed(app.ed->selectedLocation()) && app.drag == Drag::None)
@@ -7823,14 +7768,7 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             break;
         case VK_LEFT: case VK_RIGHT: case VK_UP: case VK_DOWN:
             // Selected units: the arrows move them (1 pixel, Shift 8, with snap a tile); else they move the view.
-            if (app.mode == Mode::Units && app.ed && !app.ed->selection().empty() && !app.pasting) {
-                nudgeSelection(wp, GetKeyState(VK_SHIFT) < 0);
-                break;
-            }
-            if (wp == VK_LEFT) app.camX -= step;
-            else if (wp == VK_RIGHT) app.camX += step;
-            else if (wp == VK_UP) app.camY -= step;
-            else app.camY += step;
+            mapArrowKey(app, wp == VK_LEFT ? -1 : wp == VK_RIGHT ? 1 : 0, wp == VK_UP ? -1 : wp == VK_DOWN ? 1 : 0, GetKeyState(VK_SHIFT) < 0);
             break;
         case VK_OEM_PLUS: case VK_ADD: command(ID_VIEW_ZOOMIN); break;
         case VK_OEM_MINUS: case VK_SUBTRACT: command(ID_VIEW_ZOOMOUT); break;
@@ -8690,14 +8628,8 @@ LRESULT CALLBACK mainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             tools = PtInRect(&side, c) != 0;
         }
         if (!mini && !tools) break;
-        HMENU m = CreatePopupMenu();
         const bool right = mini ? gDock.minimapRight : gDock.toolsRight[int(app.mode)];
-        const std::wstring what = mini ? L"Minimap" : std::wstring(kModeNames[int(app.mode)]) + L" toolbar";
-        AppendMenuW(m, MF_STRING | MF_GRAYED, 0, what.c_str());
-        AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-        AppendMenuW(m, MF_STRING | (right ? 0 : MF_CHECKED), mini ? ID_DOCK_MINI_LEFT : ID_DOCK_TOOLS_LEFT, L"Left");
-        AppendMenuW(m, MF_STRING | (right ? MF_CHECKED : 0), mini ? ID_DOCK_MINI_RIGHT : ID_DOCK_TOOLS_RIGHT, L"Right");
-        if (mini) AppendMenuW(m, MF_STRING, ID_VIEW_MINIMAP, L"Hide");
+        HMENU m = toHmenu(dockMenuModel(mini, right, app.mode), false);  // (core/menu_model.inc)
         if (pt.x == -1 && pt.y == -1) GetCursorPos(&pt);
         const int pick = popupMenu(m, TPM_RIGHTBUTTON, pt.x, pt.y, hwnd);
         DestroyMenu(m);

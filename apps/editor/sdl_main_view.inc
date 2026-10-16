@@ -200,6 +200,7 @@ struct MapView final : draw::View {
             return true;
         case draw::MouseKind::Wheel: {  // zoom at the mouse: the point under it stays under it (a sideways swipe does nothing)
             if (!open() || e.wheel == 0 || e.horizontal) return false;
+            if ((e.mods & draw::kAlt) && mapBrushWheel(gState, e.wheel > 0)) return invalidate(), true;  // Alt: the brush's size (core/map_input.inc)
             const float wx = gState.camX + e.pt.x / gState.zoom, wy = gState.camY + e.pt.y / gState.zoom;
             gState.zoom = std::clamp(gState.zoom * std::pow(1.2f, e.wheel), 1.0f / 16, 4.0f);
             gState.camX = wx - e.pt.x / gState.zoom, gState.camY = wy - e.pt.y / gState.zoom;
@@ -225,6 +226,10 @@ struct MapView final : draw::View {
 // The shortcuts and the menus (sdl_menus.inc).
 bool shortcutRun(const draw::KeyEvent& e);
 void menusIfDirty();
+void command(int id);
+std::wstring sdlFeedbackOn(draw::View& from, draw::Point at, const std::wstring& pane);
+bool sdlPopupMenu(draw::View& from, draw::Point at, std::vector<kit::MenuItem> items, const std::wstring& on, kit::MenuOptions opts = {});
+std::vector<kit::MenuItem> sdlModelItems(const MenuModel& model, std::function<void(int)> pick);
 
 // The Log at the bottom of the window (core/views_log.inc; shell_sdl.inc adds the lines).
 LogPaneView gLogPane;
@@ -292,7 +297,62 @@ struct MainView final : draw::View {
         if (e.down && !e.repeat && e.key == draw::Key::Enter && !e.mods && !typing && map.shown() && mapEnterSdl()) return true;
         // Esc while a trigger waits for a unit picked on the map: back to the triggers (the Windows cancelStep).
         if (e.down && e.key == draw::Key::Escape && trigUnitPickActive()) return trigCancelUnitPick(), true;
-        return shortcutRun(e);
+        if (shortcutRun(e)) return true;  // (the menus' keys first, as the Windows accelerators run before the map's keys)
+        // The map's keys (Esc, R, the arrows) run only when the map has the keyboard, or no view has it (as the Windows
+        // map window's WM_KEYDOWN): Left or Right in a list does not move the selected units.
+        return e.down && !typing && map.shown() && (map.hasFocus() || !hasFocusIn(*this)) && mapKey(e);
+    }
+
+    // A right click on the minimap, the tool strip or the modes' bar (the Windows main window's WM_CONTEXTMENU): the
+    // dock menu (core/menu_model.inc: dockMenuModel), Left or Right, and Hide for the minimap.
+    bool mouse(const draw::MouseEvent& e) override {
+        if (e.kind != draw::MouseKind::Up || e.button != 1) return false;
+        auto over = [&](const draw::View& v) { return v.shown() && v.frame().contains(e.pt); };
+        const bool mini = over(minimap), tools = !mini && (over(gToolStripView) || over(modes));
+        if (!mini && !tools) {
+            // Nothing took the right click: a menu with only Report feedback (the Windows feedbackAfterRightClick), when
+            // no menu opened for it (a view's menu may open after the event: the check waits for that). The map and the
+            // text fields are left alone.
+            draw::Point local;
+            for (draw::View* v = viewAt(e.pt, local); v && v != this; v = v->parent())
+                if (v == &map || dynamic_cast<kit::TextField*>(v)) return false;
+            const draw::Point at = e.pt;
+            const std::wstring on = sdlFeedbackOn(*this, at, L"");
+            shellPost([this, at, on] {
+                if (!kit::Menu::open()) sdlPopupMenu(*this, at, {}, on);
+            });
+            return true;
+        }
+        const bool right = mini ? gDock.minimapRight : gDock.toolsRight[int(gState.mode)];
+        sdlPopupMenu(*this, e.pt, sdlModelItems(dockMenuModel(mini, right, gState.mode), [](int id) { command(id); }),
+                     mini ? L"the minimap" : sdlFeedbackOn(*this, e.pt, L""));
+        return true;
+    }
+
+    // The map's own keys (the Windows map's WM_KEYDOWN; the core's functions, core/map_input.inc): Esc stops the step
+    // or clears the selection, R and Shift+R turn the terrain to paste, the arrows move the selected units or the view.
+    bool mapKey(const draw::KeyEvent& e) {
+        if (!map.open() || (e.mods & (draw::kCtrl | draw::kAlt))) return false;
+        const bool shift = (e.mods & draw::kShift) != 0;
+        switch (e.key) {
+        case draw::Key::Escape:
+            if (mapCancelStep(gState))
+                if (draw::Host* h = host()) h->capture(map, false);
+            break;
+        case draw::Key('R'): mapTurnPaste(gState, shift); break;
+        case draw::Key::Left:
+        case draw::Key::Right:
+        case draw::Key::Up:
+        case draw::Key::Down:
+            mapArrowKey(gState, e.key == draw::Key::Left ? -1 : e.key == draw::Key::Right ? 1 : 0,
+                        e.key == draw::Key::Up ? -1 : e.key == draw::Key::Down ? 1 : 0, shift);
+            clampCamera();
+            break;
+        default: return false;
+        }
+        gState.dirty = true;
+        map.invalidate();
+        return true;
     }
 
     // The menu bar's height; the top tool bar is under it (as the Windows menu and its top bar).
