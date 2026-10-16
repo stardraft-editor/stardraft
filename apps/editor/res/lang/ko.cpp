@@ -2034,6 +2034,7 @@ constexpr UiText kRows[] = {
     {L"Folders", L"\uD3F4\uB354"},
     {L"Did not import ", L"\uB2E4\uC74C \uD30C\uC77C\uC744 \uAC00\uC838\uC624\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4: "},
     {L": the Assets workspace imports only sounds (WAV, OGG)", L": \uC5D0\uC14B \uC791\uC5C5 \uACF5\uAC04\uC740 \uC0AC\uC6B4\uB4DC(WAV, OGG)\uB9CC \uAC00\uC838\uC635\uB2C8\uB2E4"},
+    {L"StarCraft map", L"StarCraft \uB9F5"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

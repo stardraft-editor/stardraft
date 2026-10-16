@@ -2034,6 +2034,7 @@ constexpr UiText kRows[] = {
     {L"Folders", L"Carpetas"},
     {L"Did not import ", L"No se import\u00F3 "},
     {L": the Assets workspace imports only sounds (WAV, OGG)", L": el espacio de trabajo Recursos solo importa sonidos (WAV, OGG)"},
+    {L"StarCraft map", L"Mapa de StarCraft"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

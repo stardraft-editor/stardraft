@@ -2,7 +2,7 @@
 // The Dock, Finder and the Settings window on macOS (mac_dock.mm). The SDL program calls these functions on every
 // system: on Windows and Linux they do nothing (the bodies below), so the callers need no #ifdef.
 //
-// - The Dock icon's menu (applicationDockMenu: of the application's delegate, SDL's, which has none) lists the recent
+// - The Dock icon's menu (applicationDockMenu: of the application's delegate, SDL's, which has none: mac_app_delegate.mm adds it) lists the recent
 //   maps and projects; a click on one opens it (`open`). A file that is in the system's recent documents
 //   (NSDocumentController: the Dock lists them below) is not in it again. The maps that Finder opens with the program, and those that
 //   are dropped on the Dock icon, are SDL's application:openFile: (an SDL_EVENT_DROP_FILE, as a drop on the window).

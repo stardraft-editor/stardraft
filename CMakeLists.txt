@@ -278,6 +278,19 @@ target_link_libraries(http_get PRIVATE stardraft_platform)
 add_executable(platform_test tools/tests/platform_test.cpp)
 target_link_libraries(platform_test PRIVATE stardraft_platform)
 
+# --- A map's picture without a window or a GPU (apps/quicklook/map_preview.cpp): the minimap's colors, the units and the
+# start locations. The macOS Quick Look extensions and the editor's Spotlight entries use it; on every system the
+# editor's --check preview draws it and map_preview_test tests it (no game data needed).
+add_library(stardraft_map_preview STATIC apps/quicklook/map_preview.cpp)
+target_include_directories(stardraft_map_preview PUBLIC apps/quicklook apps/common)
+target_link_libraries(stardraft_map_preview PUBLIC stardraft)
+add_executable(map_preview_test tools/tests/map_preview_test.cpp)
+target_link_libraries(map_preview_test PRIVATE stardraft_map_preview)
+if(MSVC)
+    target_compile_options(stardraft_map_preview PRIVATE /W4 /utf-8)
+    target_compile_options(map_preview_test PRIVATE /W4 /utf-8)
+endif()
+
 # --- The control kit (apps/kit): the editor's widgets as views on a Canvas (apps/common/canvas.h, view.h), on every
 # system. Each widget is its own .cpp; kit_test drives them without a window.
 file(GLOB STARDRAFT_KIT_SOURCES CONFIGURE_DEPENDS apps/kit/*.cpp)
@@ -466,15 +479,16 @@ if(STARDRAFT_RENDERER)
         stardraft_version_rc(${sdlEditor} ${sdlEditorName} "StarDraft 2")
         target_link_libraries(${sdlEditor} PRIVATE dwmapi shell32 ole32 advapi32)
     endif()
-    target_link_libraries(${sdlEditor} PRIVATE stardraft_kit_sdl stardraft_render stardraft_platform stardraft_kit stardraft)
+    target_link_libraries(${sdlEditor} PRIVATE stardraft_kit_sdl stardraft_render stardraft_platform stardraft_kit stardraft_map_preview stardraft)
     set_target_properties(${sdlEditor} PROPERTIES OUTPUT_NAME ${sdlEditorName} MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/editor/Info.plist.in)
     if(APPLE)
         # macOS: the menus (mac_menus.mm: the menu bar, the context menus), the trackpad's scrolls, smart zoom and swipes
         # (mac_input.mm: the only event monitors), the window and document look (mac_window.mm), the Dock, Finder and the
-        # Settings window (mac_dock.mm), the icon (res/stardraft.icns, from the .ico by tools/make_icns.py) and the
-        # version in Info.plist (numbers only: "0.5 Alpha" is 0.5).
+        # Settings window (mac_dock.mm), the methods added to SDL's application delegate (mac_app_delegate.mm: the only
+        # place that changes it), the icon (res/stardraft.icns, from the .ico by tools/make_icns.py) and the version in
+        # Info.plist (numbers only: "0.5 Alpha" is 0.5).
         target_sources(${sdlEditor} PRIVATE apps/editor/mac_menus.mm apps/editor/mac_input.mm apps/editor/mac_window.mm apps/editor/mac_dock.mm
-                       apps/editor/res/stardraft.icns)
+                       apps/editor/mac_app_delegate.mm apps/editor/res/stardraft.icns)
         set_source_files_properties(apps/editor/res/stardraft.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
         target_link_libraries(${sdlEditor} PRIVATE "-framework Cocoa")
         string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" editorBundleVersion "${STARDRAFT_VERSION_NAME}")
@@ -484,6 +498,60 @@ if(STARDRAFT_RENDERER)
         string(REGEX MATCH "^[0-9]+(\\.[0-9]+)?(\\.[0-9]+)?" editorShortVersion "${editorBundleVersion}")
         set_target_properties(${sdlEditor} PROPERTIES MACOSX_BUNDLE_SHORT_VERSION_STRING ${editorShortVersion}
                               MACOSX_BUNDLE_BUNDLE_VERSION ${editorBundleVersion})
+        # The maps in Spotlight, the Quick Look extensions' tile colors and --check bundle (mac_dist.mm, with ARC).
+        target_sources(${sdlEditor} PRIVATE apps/editor/mac_dist.mm)
+        set_source_files_properties(apps/editor/mac_dist.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+        target_link_libraries(${sdlEditor} PRIVATE "-framework CoreSpotlight" "-framework UniformTypeIdentifiers"
+                              "-framework Security" "-framework ImageIO" "-framework CoreGraphics")
+        # The map type's name in Finder ("StarCraft map", Info.plist) in each language of res/lang/*.tsv:
+        # <language>.lproj/InfoPlist.strings in Resources.
+        foreach(lang ko es ru zh)
+            file(STRINGS ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/${lang}.tsv typeLine ENCODING UTF-8 REGEX "^StarCraft map\t")
+            string(REGEX REPLACE "^StarCraft map\t([^\r]*).*" "\\1" typeText "${typeLine}")
+            set(lproj ${lang})
+            if(lang STREQUAL "zh")
+                set(lproj zh-Hans)
+            endif()
+            set(stringsFile ${CMAKE_BINARY_DIR}/generated/lproj/${lproj}.lproj/InfoPlist.strings)
+            file(CONFIGURE OUTPUT ${stringsFile} CONTENT "\"StarCraft map\" = \"${typeText}\";\n")
+            target_sources(${sdlEditor} PRIVATE ${stringsFile})
+            set_source_files_properties(${stringsFile} PROPERTIES MACOSX_PACKAGE_LOCATION Resources/${lproj}.lproj)
+        endforeach()
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/ko.tsv
+                     ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/es.tsv ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/ru.tsv
+                     ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/zh.tsv)
+        # The Quick Look extensions (apps/quicklook): Finder's icon of a map (thumbnail) and the space bar's preview,
+        # each a .appex in the app's Contents/PlugIns. An extension must be in a sandbox (quicklook.entitlements): the
+        # build signs it ad hoc with it; tools/ci/mac_dist.sh signs it again for a release (a Developer ID).
+        foreach(ql preview thumbnail)
+            if(ql STREQUAL "preview")
+                set(qlName StarDraftPreview)
+                set(qlFrameworks "-framework Cocoa" "-framework Quartz" "-framework QuartzCore")
+            else()
+                set(qlName StarDraftThumbnail)
+                set(qlFrameworks "-framework QuickLookThumbnailing")
+            endif()
+            set(qlTarget stardraft_ql_${ql})
+            add_executable(${qlTarget} MACOSX_BUNDLE apps/quicklook/ql_${ql}.mm)
+            set_target_properties(${qlTarget} PROPERTIES OUTPUT_NAME ${qlName} BUNDLE_EXTENSION appex
+                                  MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/quicklook/Info-${ql}.plist.in
+                                  MACOSX_BUNDLE_GUI_IDENTIFIER io.github.stardraft-editor.stardraft.quicklook-${ql}
+                                  MACOSX_BUNDLE_SHORT_VERSION_STRING ${editorShortVersion}
+                                  MACOSX_BUNDLE_BUNDLE_VERSION ${editorBundleVersion})
+            target_compile_options(${qlTarget} PRIVATE -fobjc-arc -fapplication-extension)
+            target_link_libraries(${qlTarget} PRIVATE stardraft_map_preview ${qlFrameworks} "-framework Foundation"
+                                  "-framework ImageIO" "-framework CoreGraphics")
+            target_link_options(${qlTarget} PRIVATE -fapplication-extension "LINKER:-e,_NSExtensionMain")
+            add_custom_command(TARGET ${qlTarget} POST_BUILD
+                               COMMAND codesign --force --sign - --entitlements ${CMAKE_SOURCE_DIR}/apps/quicklook/quicklook.entitlements
+                                       $<TARGET_BUNDLE_DIR:${qlTarget}>
+                               VERBATIM)
+            add_dependencies(${sdlEditor} ${qlTarget})
+            add_custom_command(TARGET ${sdlEditor} POST_BUILD
+                               COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_BUNDLE_CONTENT_DIR:${sdlEditor}>/PlugIns
+                               COMMAND ditto $<TARGET_BUNDLE_DIR:${qlTarget}> $<TARGET_BUNDLE_CONTENT_DIR:${sdlEditor}>/PlugIns/${qlName}.appex
+                               VERBATIM)
+        endforeach()
     endif()
     if(APPLE)
         set(editorDir $<TARGET_BUNDLE_CONTENT_DIR:${sdlEditor}>/Resources)

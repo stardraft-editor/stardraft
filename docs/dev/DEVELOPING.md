@@ -93,6 +93,59 @@ What does not work there:
 StarDraft needs StarCraft: Remastered (it reads the game's files from the install). It finds the usual install
 folder, or asks for it; Options > Program options > StarCraft folder changes it. EUD projects download euddraft on their first build.
 
+### The macOS app: the disk image, signing and notarizing
+
+The macOS download is `StarDraft-<version>-macos-arm64.dmg` (Apple silicon): `StarDraft.app` in a disk image with a
+background and a link to Applications. The `macos` job of CI makes it on each push (`tools/ci/mac_dist.sh`, an
+artifact of the run); for a tag `v<version>`, the job `macos-release` attaches it to the release that the `windows` job
+made. To make it on a Mac:
+
+    cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+    cmake --build build
+    bash tools/ci/mac_dist.sh build/stardraft.app StarDraft.dmg
+
+What is in the app for the system:
+
+- Info.plist (`apps/editor/Info.plist.in`) exports the types of `.scm` and `.scx` maps
+  (`io.github.stardraft-editor.map-scm`, `-scx`). StarDraft is their owner, so Finder opens them with it. Their icons
+  are made by the system from the app's icon and the extension. The type's name ("StarCraft map") is translated in
+  `<language>.lproj/InfoPlist.strings`, which CMake makes from the line `StarCraft map` of `res/lang/*.tsv`.
+- Two Quick Look extensions in `Contents/PlugIns` (`apps/quicklook`, built by CMake): `StarDraftThumbnail.appex` is a
+  map's icon in Finder, `StarDraftPreview.appex` is the space bar's preview (the picture, the name, the size, the
+  description). Both draw the map with `map_preview.cpp` (the minimap's colors, no GPU). An extension is in a sandbox
+  and cannot read the game data: when a map opens, the editor writes its tileset's colors to
+  `~/Library/Application Support/StarDraft/quicklook/tile-colors-<era>.bin`, which the extensions can read
+  (`quicklook.entitlements`). Before that, a map is drawn in the tileset's base color.
+- Spotlight: when a map opens, the editor adds its name, its description and its picture to Spotlight (CoreSpotlight,
+  `mac_dist.mm`). A Spotlight result opens the map in StarDraft.
+
+Test runs: `--check bundle` prints the app's types, extensions and signatures, `--check spotlight` makes the open map's
+Spotlight entry and removes it, `--check preview:<folder>` draws the open map's Quick Look picture (on every system).
+`tools/sdl_snapshots.py` runs them (`check-bundle`, `map-check-spotlight`, `map-check-preview`); `map_preview_test`
+tests the picture with no game data.
+
+**Signing.** The app and its extensions get the hardened runtime and their entitlements
+(`apps/editor/stardraft.entitlements`: the network for updates and feedback, the files that the user picks;
+`apps/quicklook/quicklook.entitlements`: the sandbox, the map that Quick Look gives, the tile colors' folder). Metal
+(the GPU) needs no entitlement. The app itself is not in a sandbox: it reads the StarCraft install and runs euddraft.
+`mac_dist.sh` signs each extension first, then the app, then the disk image. These repository secrets (Settings >
+Secrets and variables > Actions) give it the Developer ID:
+
+| Secret | What it is |
+|---|---|
+| `APPLE_CERT_P12` | The "Developer ID Application" certificate with its private key, exported from Keychain Access as a `.p12` file, in base64 (`base64 -i cert.p12 \| pbcopy`). |
+| `APPLE_CERT_PASSWORD` | The password of that `.p12` file. |
+| `APPLE_ID` | The Apple ID (an e-mail address) of the developer account, for `notarytool`. |
+| `APPLE_TEAM_ID` | The team ID of the account (10 characters: developer.apple.com > Account > Membership). |
+| `APPLE_APP_PASSWORD` | An app-specific password of that Apple ID (account.apple.com > Sign-In and Security > App-Specific Passwords). |
+
+All five need an Apple Developer Program membership (paid, each year). With the first two, the app and the disk image
+are signed with the Developer ID and a timestamp; with all five, Apple notarizes the disk image (`xcrun notarytool
+submit --wait`, a few minutes) and its ticket is stapled (`xcrun stapler staple`), so macOS opens the app with no
+warning, also with no network. Without the secrets (a fork, a pull request, or no account yet), the app is signed ad
+hoc and the log says "Signing skipped". macOS then shows a warning the first time: the user right-clicks the app and
+selects Open, or allows it in System Settings > Privacy & Security.
+
 ## Tests
 
 Most tests need the StarCraft install, so GitHub does not run them (it runs `trigger_test` without a map and
@@ -242,7 +295,8 @@ a commit on `main`). Then it builds that commit as that version and makes the re
 <commit>)" with `StarDraft-<version>-win64.zip` (only `stardraft.exe`), marked Latest. Its text is the version's
 section, then the changelog's last section (what StarDraft is), with the pictures as addresses at the tag
 (`release.py notes <version>` shows the text). Discord gets one post with the pictures. The symbols (`stardraft.pdb`)
-go to the draft release `symbols-v<version>`, which only the repository's members see, for crash reports. Check for
+go to the draft release `symbols-v<version>`, which only the repository's members see, for crash reports. The job
+`macos-release` then attaches the macOS disk image `StarDraft-<version>-macos-arm64.dmg` (see "The macOS app"). Check for
 updates finds the release. Each release keeps its own download count: `gh api repos/stardraft-editor/stardraft/releases
 --jq '.[] | "\(.tag_name)  \([.assets[].download_count] | add)"'` lists them.
 

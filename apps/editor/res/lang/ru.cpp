@@ -2034,6 +2034,7 @@ constexpr UiText kRows[] = {
     {L"Folders", L"\u041F\u0430\u043F\u043A\u0438"},
     {L"Did not import ", L"\u041D\u0435 \u0438\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u043E: "},
     {L": the Assets workspace imports only sounds (WAV, OGG)", L": \u0440\u0430\u0431\u043E\u0447\u0430\u044F \u043E\u0431\u043B\u0430\u0441\u0442\u044C \u00AB\u0410\u0441\u0441\u0435\u0442\u044B\u00BB \u0438\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u0443\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u0437\u0432\u0443\u043A\u0438 (WAV, OGG)"},
+    {L"StarCraft map", L"\u041A\u0430\u0440\u0442\u0430 StarCraft"},
 };
 }  // namespace
 std::span<const UiText> langTableRu() { return kRows; }
