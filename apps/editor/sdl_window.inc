@@ -1,0 +1,217 @@
+// The main window as a document window of the system (mac_window.h; included by main_sdl.cpp before sdl_options.inc).
+// On macOS: the title bar shows the open map or project (the proxy icon) and the edited dot when it has changes, the
+// window goes full screen and into Split View with the green button, the message boxes about the window are alert
+// sheets on it, the maps that open go to the system's recent documents, and the theme, the accent color and the rail's
+// color follow the system (Program options > Automatic). On Windows and Linux the seam's functions do nothing.
+
+SDL_Window* gMainWindow = nullptr;  // the program's main window, after host.show (none in a snapshot)
+
+void applyThemeSdl(bool light, int accent, bool save);  // (sdl_options.inc)
+
+// --- The window's document ------------------------------------------------------------------------------------------
+
+// The file that the title bar shows for the active tab: the map's file, or the project's file (its .eds, else its
+// project.stardraft, else its folder); "" for a page, an untitled map and an unsaved project.
+std::string sdlWindowDocumentPath() {
+    if (gActive < 0 || gActive >= int(gDocs.size()) || activePage() || !gState.ed || !gState.ed->isOpen()) return {};
+    const Doc& d = gDocs[size_t(gActive)];
+    std::error_code ec;
+    if (d.project) {
+        if (isUnsavedProject(d.project.get())) return {};
+        for (const fs::path& p : {d.project->edsFile(), d.project->file(), d.project->folder()})
+            if (!p.empty() && fs::exists(p, ec)) return narrow(p.wstring());
+        return {};
+    }
+    return gState.ed->path().empty() ? std::string() : narrow(fs::absolute(gState.ed->path(), ec).wstring());
+}
+bool sdlWindowDocumentEdited() { return docOpen() && gState.ed->modified(); }
+
+// Each frame: the title bar follows the active tab's file and its changes (only when they change).
+void sdlWindowDocumentSync() {
+    static std::string shownPath = "\x01";
+    static bool shownEdited = false;
+    if (!gMainWindow) return;
+    const std::string path = sdlWindowDocumentPath();
+    const bool edited = sdlWindowDocumentEdited();
+    if (path == shownPath && edited == shownEdited) return;
+    shownPath = path, shownEdited = edited;
+    macSetWindowDocument(gMainWindow, path, edited);
+}
+
+// --- Message boxes as sheets ----------------------------------------------------------------------------------------
+
+// A button name without its "&" (the access key; "&&" is one "&").
+std::wstring sdlSheetName(const std::wstring& name) {
+    std::wstring out;
+    for (size_t i = 0; i < name.size(); ++i) {
+        if (name[i] == L'&' && i + 1 < name.size()) ++i;
+        out += name[i];
+    }
+    return out;
+}
+
+// The alert of a message box: the short text is the message (a long one goes under the caption), and the buttons in
+// the system's order: the box's default button first (at the right: Return), then its cancel button (Escape), then the
+// others from left to right (Cmd and the access key). order[k]: the index in box.buttons of the alert's button k.
+MacAlert sdlSheetSpec(const std::wstring& caption, const msgbox::Box& box, std::vector<int>& order) {
+    MacAlert a;
+    std::wstring text = box.text;
+    std::erase(text, L'\r');
+    while (!text.empty() && text.back() == L'\n') text.pop_back();
+    if (text.find(L'\n') == std::wstring::npos && text.size() <= 90) a.message = narrow(text);
+    else a.message = narrow(caption), a.info = narrow(text);
+    a.style = box.icon == msgbox::Icon::Error ? 2 : box.icon == msgbox::Icon::Warning ? 1 : 0;
+    order.clear();
+    const int n = int(box.buttons.size());
+    if (n == 0) return a;
+    order.push_back(std::clamp(box.focus, 0, n - 1));
+    if (box.cancel != order[0] && box.cancel >= 0 && box.cancel < n) order.push_back(box.cancel);
+    for (int i = 0; i < n; ++i)
+        if (std::find(order.begin(), order.end(), i) == order.end()) order.push_back(i);
+    for (size_t k = 0; k < order.size(); ++k) {
+        const msgbox::Button& b = box.buttons[size_t(order[k])];
+        a.buttons.push_back(narrow(sdlSheetName(b.name)));
+        if (k == 0) a.keys.push_back("\r");
+        else if (order[k] == box.cancel) a.keys.push_back("\x1b");
+        else if (const wchar_t key = msgbox::accessKey(b.name); key > L' ' && key < 0x80) a.keys.push_back(std::string(1, char(key)));
+        else a.keys.push_back("");
+    }
+    return a;
+}
+
+// The message box as a sheet on the main window (msgbox::hostBox): only for a box from a view of the main window.
+// Waits for the answer as the box's own window does (the frames go on); quitting first answers with the cancel button.
+int sdlSheetBox(draw::View& from, const std::wstring& caption, const msgbox::Box& box) {
+    if (!gMainWindow || !gHost || !gRoot) return -1;
+    const draw::View* top = &from;
+    while (top->parent()) top = top->parent();
+    if (top != gRoot) return -1;  // (a box over a dialog or a pop-out: the kit's box, over that window)
+    std::vector<int> order;
+    const MacAlert spec = sdlSheetSpec(caption, box, order);
+    auto answer = std::make_shared<int>(-2);
+    if (!macBeginSheet(gMainWindow, spec, [answer](int k) { *answer = k; })) return -1;
+    gHost->waitUntil([answer] { return *answer != -2; });
+    const int k = *answer;
+    return k >= 0 && k < int(order.size()) ? order[size_t(k)] : box.cancel;
+}
+
+// --- The system's look ----------------------------------------------------------------------------------------------
+
+#ifdef __APPLE__
+constexpr bool kSystemLook = true;  // Program options has Automatic (the system's theme and accent color): the default
+#else
+constexpr bool kSystemLook = false;
+#endif
+bool gThemeAuto = false, gAccentAuto = false;  // the theme, the accent color: the system's (Automatic)
+
+// The system's accent color as one of the program's (the nearest, when its hue is near one) or as its own hue.
+void sdlSystemAccent(int& accent, double& hue) {
+    accent = 0, hue = -1;
+    uint8_t r = 0, g = 0, b = 0;
+    if (!macSystemAccent(r, g, b)) return;
+    const int found = theme::nearestAccent(RGB(r, g, b), 15, hue);
+    if (found >= 0) accent = found, hue = -1;
+    else {
+        double ignored = 0;
+        accent = std::max(0, theme::nearestAccent(RGB(r, g, b), 360, ignored));  // (its name)
+    }
+}
+// The swatch of Automatic in Program options: the accent that the system's color gives, as the swatches show theirs.
+COLORREF sdlSystemAccentSwatch() {
+    int accent = 0;
+    double hue = -1;
+    sdlSystemAccent(accent, hue);
+    if (hue < 0) return theme::swatch(accent);
+    const theme::Oklch b = theme::oklch(theme::kDefaultBlue);
+    return theme::color(b.L, b.C, hue);
+}
+// The colors of the theme `light` with `accent`, or the system's when Automatic is on; the rail in the system's sidebar
+// color (macOS); the window's title bar and sheets in the theme.
+void sdlSetLook(bool light, int accent) {
+    double hue = -1;
+    if (gThemeAuto) light = !macSystemDark();
+    if (gAccentAuto) sdlSystemAccent(accent, hue);
+    setThemeColors(light, accent, hue);
+    uint8_t r = 0, g = 0, b = 0;
+    if (macSidebarColor(!light, r, g, b)) kRail = RGB(r, g, b);
+    macSetWindowDark(gMainWindow, !light);
+}
+// Each frame: a change of the system's appearance or colors applies when the program follows them.
+void sdlFollowSystemLook() {
+    if (!macLookChanged()) return;
+    applyThemeSdl(gLightTheme, gAccentIndex, false);
+}
+
+// --- The window ------------------------------------------------------------------------------------------------------
+
+// The main window is shown (`testRun`: a test drives it; its message boxes stay the program's own, as a test reads them).
+void sdlMainWindowShown(SDL_Window* w, bool testRun) {
+    gMainWindow = w;
+    macSetupWindow(w);
+    macSetWindowDark(w, !gLightTheme);
+    macWatchLook();
+    if constexpr (kSystemLook)
+        if (!testRun) msgbox::hostBox() = sdlSheetBox;
+    sdlWindowDocumentSync();
+}
+void sdlWindowFrame() {
+    sdlWindowDocumentSync();
+    sdlFollowSystemLook();
+}
+// The system's recent documents get the map that is first in File > Open recent (when it changes; not in a test run).
+void sdlNoteRecentMap() {
+    static std::wstring noted;
+    if (gSilent || gRecentMaps.empty() || gRecentMaps.front() == noted) return;
+    noted = gRecentMaps.front();
+    macNoteRecent(narrow(noted));
+}
+
+// --check window: what the window and the look are (after a snapshot: a hidden window of its own on macOS, the map of
+// the run as its file, with changes), and the sheet of the save question (each system: the alert that macOS shows).
+void sdlWindowCheck(const std::string& mapPath) {
+    std::printf("window: system look %s\n", kSystemLook ? "yes" : "no");
+    std::printf("window: theme %s%s, accent %ls%s\n", gLightTheme ? "light" : "dark", gThemeAuto ? " (the system's)" : "",
+                theme::kAccents[gAccentIndex].name, gAccentAuto ? " (the system's)" : "");
+    // The system's accent colors (macOS's light appearance) and the accent each one gives.
+    const struct {
+        const char* name;
+        COLORREF c;
+    } colors[] = {{"blue", RGB(0, 122, 255)},   {"purple", RGB(149, 61, 150)}, {"pink", RGB(247, 79, 158)},  {"red", RGB(224, 56, 62)},
+                  {"orange", RGB(247, 130, 27)}, {"yellow", RGB(255, 199, 38)}, {"green", RGB(98, 186, 70)}, {"graphite", RGB(152, 152, 152)}};
+    for (const auto& c : colors) {
+        double hue = -1;
+        const int k = theme::nearestAccent(c.c, 15, hue);
+        if (k >= 0) std::printf("window: system accent %s -> %ls\n", c.name, theme::kAccents[k].name);
+        else std::printf("window: system accent %s -> hue %.0f\n", c.name, hue);
+    }
+    msgbox::Box save = msgbox::makeBox(shellTr(L"Save changes to the map?"), {shellTr(L"&Save"), shellTr(L"Do &not save"), shellTr(L"Cancel")},
+                                       msgbox::Icon::Question);
+    std::vector<int> order;
+    const MacAlert a = sdlSheetSpec(shellTr(L"Unsaved changes"), save, order);
+    std::string line = "window: sheet \"" + a.message + "\":";
+    for (size_t k = 0; k < a.buttons.size(); ++k) {
+        const std::string& key = a.keys[k];
+        line += " " + a.buttons[k] + " [" + (key == "\r" ? "Return" : key == "\x1b" ? "Escape" : key.empty() ? "none" : "Cmd+" + key) + "]";
+    }
+    std::printf("%s\n", line.c_str());
+#ifdef __APPLE__
+    uint8_t r = 0, g = 0, b = 0;
+    std::printf("window: system appearance %s\n", macSystemDark() ? "dark" : "light");
+    if (macSystemAccent(r, g, b)) std::printf("window: system accent color %d,%d,%d\n", r, g, b);
+    else std::printf("window: system accent color none (WRONG)\n");
+    if (macSidebarColor(!gLightTheme, r, g, b)) std::printf("window: rail color %d,%d,%d\n", r, g, b);
+    else std::printf("window: rail color none (WRONG)\n");
+    SDL_Window* w = SDL_CreateWindow("StarDraft 2", 800, 500, SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    if (!w) return void(std::printf("window: no window: %s (WRONG)\n", SDL_GetError()));
+    std::error_code ec;
+    const std::string file = mapPath.empty() ? std::string() : narrow(fs::absolute(widen(mapPath), ec).wstring());
+    macSetupWindow(w);
+    macSetWindowDark(w, !gLightTheme);
+    macSetWindowDocument(w, file, true);
+    std::printf("window: %s\n", macWindowReport(w).c_str());
+    SDL_DestroyWindow(w);
+#else
+    (void)mapPath;
+    std::printf("window: %s\n", macWindowReport(nullptr).c_str());
+#endif
+}

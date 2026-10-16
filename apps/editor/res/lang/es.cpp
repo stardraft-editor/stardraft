@@ -2017,6 +2017,9 @@ constexpr UiText kRows[] = {
     {L"Could not find StarCraft on your system.", L"No se encontr\u00F3 StarCraft en su sistema."},
     {L"That folder has no StarCraft game data.", L"Esa carpeta no tiene datos del juego de StarCraft."},
     {L"Select the StarCraft folder", L"Seleccione la carpeta de StarCraft"},
+    {L"Dark theme", L"Tema oscuro"},
+    {L"The theme of the system, dark or light (default)", L"El tema del sistema, oscuro o claro (predeterminado)"},
+    {L"Automatic (the color of the system)", L"Autom\u00E1tico (el color del sistema)"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
