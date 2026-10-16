@@ -40,7 +40,7 @@ const std::vector<AppSetting>& appSettings() {
     return all;
 }
 std::map<std::wstring, int> gSavedSettings;  // what the settings file has (written only when a value differs)
-bool gSettingsOff = false;                   // tests and screenshot runs: the defaults, and nothing saved
+// (gSettingsOff, tests and screenshot runs: the defaults, and nothing saved, is in recent.inc.)
 
 // One option: written when it differs from what the file has.
 void putAppSetting(const wchar_t* name, int v) {

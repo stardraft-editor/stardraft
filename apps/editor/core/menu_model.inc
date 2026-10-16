@@ -191,3 +191,14 @@ MenuModel buildMenuModel() {
     return MenuModel{menuPopup(L"&File", file), menuPopup(L"&Edit", edit), menuPopup(L"&View", view), menuPopup(L"&Mode", mode),
                      menuPopup(L"&Scenario", scenario), menuPopup(L"&Options", options), menuPopup(L"&Help", help)};
 }
+
+// The dock menu of the minimap (mini) or of the active mode's toolbar (a right click on it): its name (grayed), then
+// Left and Right (the side it is on checked) and, for the minimap, Hide. `right`: it is on the right now.
+MenuModel dockMenuModel(bool mini, bool right, Mode mode) {
+    const std::wstring what = mini ? L"Minimap" : std::wstring(kModeNames[int(mode)]) + L" toolbar";
+    MenuModel m{menuItem(0, what, {}, true), menuSeparator(),
+                menuItem(mini ? ID_DOCK_MINI_LEFT : ID_DOCK_TOOLS_LEFT, L"Left", {}, false, !right),
+                menuItem(mini ? ID_DOCK_MINI_RIGHT : ID_DOCK_TOOLS_RIGHT, L"Right", {}, false, right)};
+    if (mini) m.push_back(menuItem(ID_VIEW_MINIMAP, L"Hide"));
+    return m;
+}
