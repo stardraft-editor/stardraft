@@ -17,6 +17,7 @@ struct MenuItem {
     std::wstring label;
     std::wstring shortcut;        // at the right, in dim (e.g. L"Ctrl+Z"); empty: none
     int icon = -1;                // a UI icon (apps/editor/res/ui_icons.h); -1: none
+    draw::Color iconColor = draw::kNone;  // the icon's color while enabled (the feedback item's); kNone: the text's
     bool checked = false;         // a check mark in the icon column (it takes the place of the icon)
     bool enabled = true;          // a disabled item is faint and cannot be picked or highlighted
     bool separator = false;       // a line between groups (the other fields are not used)
@@ -58,6 +59,11 @@ public:
     // Opens `items` at `at` (in `from`'s coordinates). Returns false when `from` is not in a host.
     static bool popup(draw::View& from, draw::Point at, const std::vector<MenuItem>& items, const MenuLayout& layout, Options opts = {});
     static bool popup(draw::View& from, draw::Point at, const std::vector<MenuItem>& items, draw::Canvas& c, Options opts = {});
+
+    // A test run's look at each menu before it opens (a snapshot has no windows): the hook gets the items; when it
+    // returns true the menu does not open (the hook ran an item), and the closed callback runs. Empty: none.
+    using TestHook = std::function<bool(const std::vector<MenuItem>& items)>;
+    static void setTestHook(TestHook hook);
 
     // Closes the open menus, if any (the closed callback runs).
     static void close();

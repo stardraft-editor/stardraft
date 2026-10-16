@@ -39,6 +39,7 @@ struct SdlHost::Win {
     int pw = 0, ph = 0;            // pixels
     float density = 1;             // pixels per logical point
     Point mouse;                   // the pointer, in pixels
+    std::wstring title;            // a dialog's title (openWindow's spec)
     bool popup() const { return kind == WindowKind::Popup || kind == WindowKind::Menu; }
     bool transient() const { return kind != WindowKind::Dialog; }
 };
@@ -307,6 +308,14 @@ void SdlHost::snapshot(draw::View& root, SDL_GPUTexture* target, int w, int h, S
     ImGui_ImplSDLGPU3_NewFrame();
     ImGui::NewFrame();
     auto list = recordView(device_, root, w, h);
+    if (!shots_.empty()) {  // the menus opened in the snapshot's views, over the root at their places
+        ImguiCanvas canvas(*list, device_);
+        for (const Shot& s : shots_) {
+            canvas.pushView(s.at);
+            s.content->paintAll(canvas);
+            canvas.popView();
+        }
+    }
     ImGui::Render();
     SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device_);
     submit(device_, *list, w, h, cmd, target);
@@ -430,6 +439,12 @@ bool SdlHost::inModal(SDL_WindowID id) const {
 }
 
 void SdlHost::closeWindow(draw::View& content) {
+    for (size_t i = 0; i < shots_.size(); ++i)
+        if (shots_[i].content == &content) {
+            content.attach(nullptr);
+            shots_.erase(shots_.begin() + std::ptrdiff_t(i));
+            return;
+        }
     for (const auto& w : wins_)
         if (w->root == &content) return closeTree(w->id);
 }
@@ -453,7 +468,21 @@ void SdlHost::dismissPopupsExcept(SDL_WindowID keep) {
 
 void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::WindowSpec& spec, std::function<void()> closed) {
     Win* parent = rootWin(from);
-    if (!parent) return;
+    if (!parent) {
+        // A snapshot's views (attached to the host with no window): a menu shows over them in the picture, at its
+        // place, kept inside the root (as a menu is kept on the work area). (Not a pop-out: runModal's content goes
+        // when the call returns.)
+        const draw::View* top = &from;
+        while (top->parent()) top = top->parent();
+        if (top->host() != this || spec.kind != WindowKind::Menu) return;
+        const Point o = from.origin();
+        const int w = std::max(1, spec.at.width()), h = std::max(1, spec.at.height());
+        const int x = std::clamp(o.x + spec.at.left, 0, std::max(0, top->width() - w)), y = std::clamp(o.y + spec.at.top, 0, std::max(0, top->height() - h));
+        content.attach(this);
+        content.setFrame(Rect(0, 0, w, h));
+        shots_.push_back(Shot{&content, Rect(x, y, x + w, y + h)});
+        return;
+    }
     const int width = std::max(1, spec.at.width()), height = std::max(1, spec.at.height());
     SDL_Window* sdl = nullptr;
     if (spec.kind == WindowKind::Dialog) {
@@ -479,6 +508,7 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
     }
     auto w = makeWin(sdl, content, spec.kind, std::move(closed));
     w->parent = parent->id;
+    w->title = spec.title;
     if (!claim(*w)) {
         SDL_DestroyWindow(sdl);
         return;
@@ -622,8 +652,14 @@ void SdlHost::dispatch(const SDL_Event& e) {
         return;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
         if (Win* w = findWin(wid); w && hover_ && w->kind != WindowKind::Tooltip) hover_(*w->root, {}, {}, true);
-        // Popups close when the program loses the keyboard focus (another program took it).
-        if (!SDL_GetKeyboardFocus()) dismissPopupsExcept(0);
+        // Popups close when the program loses the keyboard focus (another program took it). An open dialog and the
+        // pop-outs it is opened from stay (the Report feedback dialog of a value's pop-out keeps its typed text).
+        if (!SDL_GetKeyboardFocus()) {
+            SDL_WindowID keep = 0;
+            for (const auto& d : wins_)
+                if (d->kind == WindowKind::Dialog) keep = d->id;  // (the last one opened: its chain has the others)
+            dismissPopupsExcept(keep);
+        }
         return;
     case SDL_EVENT_WINDOW_EXPOSED:
         if (Win* w = findWin(wid)) w->dirty = true;
@@ -675,7 +711,11 @@ void SdlHost::dispatch(const SDL_Event& e) {
         m.mods = modsOf(SDL_GetModState());
         if (e.type == SDL_EVENT_MOUSE_BUTTON_UP) m.kind = MouseKind::Up;
         else m.kind = e.button.clicks >= 2 ? MouseKind::DoubleClick : MouseKind::Down;
-        w->router->mouse(m);
+        const bool taken = w->router->mouse(m);
+        // A right click that no view of a dialog or a pop-out took: the program's hook (Report feedback).
+        if (rightClick_ && !taken && m.kind == MouseKind::Up && button == 1 && wid != mainId_)
+            if (Win* now = findWin(wid); now && (now->kind == WindowKind::Dialog || now->kind == WindowKind::Popup))
+                rightClick_(*now->root, m.pt, now->title);
         // The cursor for what the press or release changed (a drag that starts or ends), before the mouse moves.
         if (Win* now = findWin(wid); now && now->kind != WindowKind::Tooltip) setCursor(now->router->cursor(now->mouse));
         return;

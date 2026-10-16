@@ -65,6 +65,11 @@ public:
     // A file dropped on a window, or (macOS) a file that Finder opens with the program, also at its start: `fn` gets its
     // path (UTF-8). Not while a modal dialog is open (runModal): the drop then does nothing.
     void setDropHook(std::function<void(const std::string& path)> fn) { drop_ = std::move(fn); }
+    // A right click (the release) in a dialog or a pop-out window (not the window show() made, not a menu) that no
+    // view took: `fn` gets the window's root view, the point in its pixels and the window's title (a pop-out: empty).
+    // The program shows its Report feedback menu there (the Windows program's feedbackAfterRightClick).
+    using RightClickHook = std::function<void(draw::View& root, draw::Point pt, const std::wstring& title)>;
+    void setRightClickHook(RightClickHook fn) { rightClick_ = std::move(fn); }
 
     // draw::Host
     void invalidate(draw::View& v) override;
@@ -130,6 +135,14 @@ private:
     std::function<void()> quitRequest_;  // setQuitRequest
     HoverHook hover_;                    // setHoverHook
     std::function<void(const std::string&)> drop_;  // setDropHook
+    RightClickHook rightClick_;                     // setRightClickHook
+    // The menus that views attached with no window (a snapshot's) opened: snapshot() paints them over
+    // the root, at their places (in the root's pixels), until they close.
+    struct Shot {
+        draw::View* content = nullptr;
+        draw::Rect at;
+    };
+    std::vector<Shot> shots_;
     SDL_WindowID captureWin_ = 0;  // the window whose mouse is captured (SDL_CaptureMouse), or 0
     int timerSeq_ = 0;
     std::map<int, Timer> timers_;

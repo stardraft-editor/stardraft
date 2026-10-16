@@ -109,7 +109,8 @@ public:
     void captureLost() override;
 
 private:
-    // A right click opens the edit commands (Undo, Cut, Copy, Paste, Delete, Select All), as the native edit box did.
+    // A right click opens the edit commands (Undo, Cut, Copy, Paste, Delete, Select all), as the native edit box did;
+    // a read-only field: Copy (Copy all with setCopyWhole and no selection) and Select all, as the Windows code pane.
     std::vector<MenuItem> editMenu();
     void openEditMenu(draw::Point at);
     MenuLayout menuLayout_;  // measured while painting (the menu's size)

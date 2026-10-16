@@ -2009,6 +2009,11 @@ constexpr UiText kRows[] = {
     {L"Automatic (the language of the system)", L"\uC790\uB3D9(\uC2DC\uC2A4\uD15C \uC5B8\uC5B4)"},
     {L"StarDraft 2 is not associated with Blizzard Entertainment.", L"StarDraft 2\uB294 Blizzard Entertainment\uC640 \uAD00\uB828\uC774 \uC5C6\uC2B5\uB2C8\uB2E4."},
     {L"It needs an installation of StarCraft to work.", L"\uC0AC\uC6A9\uD558\uB824\uBA74 \uC2A4\uD0C0\uD06C\uB798\uD504\uD2B8\uAC00 \uC124\uCE58\uB418\uC5B4 \uC788\uC5B4\uC57C \uD569\uB2C8\uB2E4."},
+    {L"Cut", L"\uC798\uB77C\uB0B4\uAE30"},
+    {L"Copy", L"\uBCF5\uC0AC"},
+    {L"Paste", L"\uBD99\uC5EC\uB123\uAE30"},
+    {L"Copy all", L"\uBAA8\uB450 \uBCF5\uC0AC"},
+    {L"Select all", L"\uBAA8\uB450 \uC120\uD0DD"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
