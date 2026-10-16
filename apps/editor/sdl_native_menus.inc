@@ -131,19 +131,25 @@ std::vector<MacMenuItem> macPopupItems(const std::vector<kit::MenuItem>& items, 
     return out;
 }
 
-// A pick of the menu bar: a command, or a tab of the Window menu (after the menu closed: posted). Not while a modal
-// dialog is open: the program waits for it, as the window's menus do.
+// True while the program waits for a dialog: a kit box (the host's modal loop), or a system dialog or a sheet on a
+// window (macDialogOpen). The posted work runs while a sheet waits, so the menu bar's commands must not.
+bool macMenusWait() { return (gHost && gHost->modalOpen()) || macDialogOpen(); }
+
+// A pick of the menu bar: a command, or a tab of the Window menu (after the menu closed: posted). Not while a dialog
+// is open (macMenusWait): the program waits for it, as the window's menus do. The posted pick looks again: a dialog
+// can open before it runs.
 void macMenuPick(int tag) {
-    if (gHost && gHost->modalOpen()) return;
-    if (tag <= kMacTabTag) {
-        const int i = kMacTabTag - tag;
-        shellPost([i] {
+    if (macMenusWait()) return;
+    shellPost([tag] {
+        if (macMenusWait()) return;
+        if (tag <= kMacTabTag) {
+            const int i = kMacTabTag - tag;
             if (i >= 0 && i < int(gDocs.size()) && i != gActive) activateDoc(i);
             gMenusDirty = true;
-        });
-        return;
-    }
-    shellPostCommand(tag);
+            return;
+        }
+        command(tag);
+    });
 }
 
 std::string macSignature(const std::vector<MacMenuItem>& items) {

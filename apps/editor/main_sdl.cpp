@@ -303,7 +303,11 @@ int main(int argc, char** argv) {
     bool untitledArg = false;  // --untitled: a new unsaved project (as the Win32 program's screenshot run starts with), for a snapshot
     bool midPanArg = false;  // --midpan: Options > Middle mouse click and hold (Pan map, Drag map), as text after the snapshot
     bool cursorsArg = false;  // --cursors: the cursors at some points, as text after the snapshot (sdl_cursor_check.inc)
-    std::string checkArg;  // --check menus: the menu bar's items and keys as text after the snapshot (sdl_native_menus.inc)
+    // --check <name> (one or more times): checks as text after the snapshot. Each part of the program looks only for
+    // its own names (hasCheck) and prints its lines; a name that no part knows prints nothing (the snapshot's case
+    // then fails). menus: the menu bar's items and keys (sdl_native_menus.inc).
+    std::vector<std::string> checkArgs;
+    auto hasCheck = [&checkArgs](const char* name) { return std::find(checkArgs.begin(), checkArgs.end(), name) != checkArgs.end(); };
     // --key, --type, --click, --drag, --move, --wait: keys pressed, text typed, left clicks and drags and moves of the
     // mouse before the snapshot, in their order (sdl_menus.inc: sdlShotInputNext): the option's letter (k, t, c, d, m,
     // w) and its value.
@@ -359,7 +363,7 @@ int main(int argc, char** argv) {
         else if (a == "--untitled") untitledArg = true;  // a new project that is not saved yet (core/documents.inc), for a snapshot
         else if (a == "--midpan") midPanArg = true;  // the middle button's pan and drag of the map as text, after the snapshot
         else if (a == "--cursors") cursorsArg = true;  // the map view's and a text field's cursors as text, after the snapshot
-        else if (a == "--check") checkArg = next();  // menus: the menu bar's items and keys as text (macOS: the system's menu bar), after the snapshot
+        else if (a == "--check") checkArgs.push_back(next());  // a check's name (checkArgs): its lines after the snapshot
         else if (a == "--key") inputArgs.emplace_back('k', next());  // a key (Ctrl+A, 5, Ctrl+2: Ctrl is Cmd on macOS) pressed in the window, for a snapshot
         else if (a == "--click") inputArgs.emplace_back('c', next());  // x,y[:mods]: a left click there (window pixels; mods Shift+Ctrl+Alt), for a snapshot
         else if (a == "--drag") inputArgs.emplace_back('d', next());  // x0,y0-x1,y1[:mods]: a left drag from the first point to the second, for a snapshot
@@ -455,7 +459,7 @@ int main(int argc, char** argv) {
         // The menus show the shortcuts as this system does (macOS: the Mac symbols). macOS: the menu bar is the
         // system's (in a snapshot only for --check menus) and so are the context menus (a run with a window).
         kit::Menu::setShortcutText([](const std::wstring& s) { return shortcutText(s); });
-        if (snapshot.empty() || checkArg == "menus") sdlUseNativeMenus(snapshot.empty());
+        if (snapshot.empty() || hasCheck("menus")) sdlUseNativeMenus(snapshot.empty());
         rebuildMenus();
         host.setQuitRequest(requestQuit);  // the window's close and the system's quit ask about unsaved changes first
         // Files dropped on the window, and on macOS the maps that Finder opens with StarDraft: as the Windows program's
@@ -657,8 +661,7 @@ int main(int argc, char** argv) {
                             gStartView.installNote.empty() ? "none" : narrow(gStartView.installNote).c_str(), gDataOk ? "open" : "not open");
             if (midPanArg) sdlMidPanCheck();  // (after the picture: it moves the camera)
             if (cursorsArg) sdlCursorChecks();  // (after the picture: it changes the mode and the camera)
-            if (checkArg == "menus") sdlMenuCheck();
-            else if (!checkArg.empty()) std::printf("--check %s: not menus (WRONG)\n", checkArg.c_str());
+            if (hasCheck("menus")) sdlMenuCheck();
             if (untitledArg) {  // (the project's folder goes: a snapshot leaves nothing)
                 const EudProject* pr = activeProject();
                 std::printf("untitled: an unsaved project %s (%s)\n", isUnsavedProject(pr) ? "yes" : "(WRONG)", pr ? narrow(pr->folder().filename().wstring()).c_str() : "none");
