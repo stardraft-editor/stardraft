@@ -104,13 +104,20 @@ CASES += [
     # The map's own keys (core/map_input.inc): Esc clears the selection; the arrows move the view (zoomed in).
     ("map-key-esc", ["--mode", "units", "--key", "Ctrl+A", "--key", "Esc"], "map"),
     ("map-key-arrows", ["--key", "+", "--key", "+", "--key", "Right", "--key", "Right", "--key", "Down"], "map"),
-    # Right clicks (--rclick x,y[:n]: the menu's items go to the output, item n runs): the minimap's and the tool strip's
-    # dock menus (the minimap to the right, the Units toolbar to the left), the map's menu and a right click on empty
-    # space (only Report feedback).
+    # Right clicks (--rclick x,y[:n]: the menu's items go to the output, item n runs; with no n the menu shows in the
+    # picture): the minimap's and the tool strip's dock menus (the minimap to the right, the Units toolbar to the left),
+    # the map's menu, a right click on empty space (only Report feedback) and the palette's search box (the text
+    # field's edit menu).
     ("map-rclick-minimap", ["--rclick", "200,200:3"], "map"),
     ("map-rclick-tools", ["--rclick", "1450,148:2"], "map"),
     ("map-rclick-map", ["--mode", "units", "--rclick", "800,400"], "map"),
     ("map-rclick-feedback", ["--rclick", "30,600"], "map"),
+    ("map-rclick-search", ["--mode", "units", "--rclick", "1420,280"], "map"),
+    # The Triggers code pane's menu (Copy all, Select all), and Report feedback in a dialog (Program options, a block's
+    # help page): a right click that no view takes there.
+    ("project-rclick-code", ["--workspace", "triggers", "--trig", "1:0", "--trigcode", "--rclick", "1300,700"], "project"),
+    ("dialog-options-rclick", ["--dialog", "options", "--size", "720x820", "--rclick", "600,30"], ""),
+    ("dialog-blockhelp-rclick", ["--dialog", "blockhelp:act.createunit", "--size", "460x600", "--rclick", "200,300"], "data"),
     # A project open.
     # A trigger whose blocks name units: the units' pictures in the values (the second trigger of the second group).
     ("project-trig-icons", ["--workspace", "triggers", "--trig", "1:1"], "project"),

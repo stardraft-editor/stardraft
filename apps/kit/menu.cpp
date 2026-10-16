@@ -66,6 +66,7 @@ struct Chain {
 };
 
 Chain* g_current = nullptr;  // the open chain (one at a time)
+Menu::TestHook g_testHook;   // Menu::setTestHook
 
 // One menu: its rows, the highlighted row and the submenu that is open.
 class Panel final : public View {
@@ -204,7 +205,7 @@ void Panel::paint(Canvas& c) {
         const Color fg = on ? th.text : th.faint;
         const Rect mark{r.left + px(8), r.top + (r.height() - px(18)) / 2, r.left + px(26), r.top + (r.height() + px(18)) / 2};
         if (it.checked) c.icon(mark, kIconCheck, on ? th.accent : th.faint, px(16));
-        else if (it.icon >= 0) c.icon(mark, it.icon, fg, px(16));
+        else if (it.icon >= 0) c.icon(mark, it.icon, on && it.iconColor != draw::kNone ? it.iconColor : fg, px(16));
         const int textRight = r.right - px(it.sub.empty() ? 10 : kSubW);
         c.text({r.left + px(kIconCol), r.top, textRight, r.bottom}, it.label, fg, draw::kMiddle | draw::kEllipsis);
         if (!it.shortcut.empty())
@@ -375,7 +376,13 @@ MenuLayout Menu::measure(const std::vector<MenuItem>& items, Canvas* c) {
     return out;
 }
 
+void Menu::setTestHook(TestHook hook) { g_testHook = std::move(hook); }
+
 bool Menu::popup(View& from, Point at, const std::vector<MenuItem>& items, const MenuLayout& layout, Options opts) {
+    if (g_testHook && g_testHook(items)) {
+        if (opts.closed) opts.closed(false);
+        return true;
+    }
     draw::Host* host = from.host();
     if (!host) return false;
     close();

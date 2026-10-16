@@ -2009,6 +2009,11 @@ constexpr UiText kRows[] = {
     {L"Automatic (the language of the system)", L"\u0410\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438 (\u044F\u0437\u044B\u043A \u0441\u0438\u0441\u0442\u0435\u043C\u044B)"},
     {L"StarDraft 2 is not associated with Blizzard Entertainment.", L"StarDraft 2 \u043D\u0435 \u0441\u0432\u044F\u0437\u0430\u043D \u0441 Blizzard Entertainment."},
     {L"It needs an installation of StarCraft to work.", L"\u0414\u043B\u044F \u0440\u0430\u0431\u043E\u0442\u044B \u043D\u0443\u0436\u043D\u0430 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043D\u0430\u044F StarCraft."},
+    {L"Cut", L"\u0412\u044B\u0440\u0435\u0437\u0430\u0442\u044C"},
+    {L"Copy", L"\u041A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C"},
+    {L"Paste", L"\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u044C"},
+    {L"Copy all", L"\u041A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0432\u0441\u0451"},
+    {L"Select all", L"\u0412\u044B\u0434\u0435\u043B\u0438\u0442\u044C \u0432\u0441\u0451"},
 };
 }  // namespace
 std::span<const UiText> langTableRu() { return kRows; }
