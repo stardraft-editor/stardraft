@@ -264,7 +264,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ninja-build clang pkg-config mesa-vulkan-drivers libasound2-dev libpulse-dev \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
-            libxkbcommon-dev libwayland-dev libdecor-0-dev libdrm-dev libgbm-dev libegl1-mesa-dev libdbus-1-dev libudev-dev
+            libxkbcommon-dev libwayland-dev libdecor-0-dev libdrm-dev libgbm-dev libegl1-mesa-dev libdbus-1-dev libudev-dev \
+            desktop-file-utils appstream shared-mime-info
 
       # The SPIR-V and MSL shaders in shaders/gen/ are made from the shaders as they are now.
       - name: Check the shaders for Vulkan and Metal
@@ -279,8 +280,27 @@ jobs:
 
       - name: Build with GCC
         run: |
-          cmake -S . -B build-gcc -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++ -DCMAKE_C_COMPILER=gcc
+          cmake -S . -B build-gcc -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++ -DCMAKE_C_COMPILER=gcc \
+            -DSTARDRAFT_REQUIRE_DBUS=ON  # (SDL with D-Bus: the desktop portal's file dialogs)
           cmake --build build-gcc --parallel
+
+      # The desktop's files (packaging/linux: the .desktop file, the file types, the metainfo, the thumbnailer, the
+      # icons) as `cmake --install` puts them, checked with the desktops' own tools; the thumbnailer draws a map.
+      - name: Check the desktop files and the thumbnailer
+        run: |
+          inst="$RUNNER_TEMP/inst"
+          DESTDIR="$inst" cmake --install build-gcc --prefix /usr --component stardraft
+          desktop-file-validate "$inst"/usr/share/applications/io.github.stardraft_editor.StarDraft.desktop
+          appstreamcli validate --no-net "$inst"/usr/share/metainfo/io.github.stardraft_editor.StarDraft.metainfo.xml
+          mkdir -p "$RUNNER_TEMP/mime" && cp -r "$inst/usr/share/mime/packages" "$RUNNER_TEMP/mime/"
+          update-mime-database "$RUNNER_TEMP/mime"
+          grep -q "application/x-starcraft-scx:\*.scx" "$RUNNER_TEMP/mime/globs2"
+          for s in 16 24 32 48 64 128 256 512; do
+            test -f "$inst/usr/share/icons/hicolor/${s}x${s}/apps/io.github.stardraft_editor.StarDraft.png"
+          done
+          build-gcc/map_preview_test "$RUNNER_TEMP/preview"
+          "$inst/usr/bin/stardraft-thumbnailer" -s 128 "file://$RUNNER_TEMP/preview/test.scx" thumbnail-linux.png
+          file thumbnail-linux.png | grep -q "PNG image data"
 
       - name: Build with Clang
         run: |
@@ -379,6 +399,105 @@ jobs:
             editor-linux.png
             editor-linux-files.png
             stardraft-linux.tar.gz
+
+  # The AppImage (tools/ci/linux_appimage.sh): built on Ubuntu 22.04, the oldest system it is for (its glibc), with
+  # GCC 12 and the C++ library in the program. It is kept with the run.
+  linux-appimage:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build g++-12 pkg-config libasound2-dev libpulse-dev \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
+            libxkbcommon-dev libwayland-dev libdecor-0-dev libdrm-dev libgbm-dev libegl1-mesa-dev libdbus-1-dev libudev-dev
+
+      - uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: deps-appimage-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-12 -DCMAKE_C_COMPILER=gcc-12 \
+            -DSTARDRAFT_STATIC_LIBSTDCXX=ON -DSTARDRAFT_REQUIRE_DBUS=ON -DSTARDRAFT_NEXT=OFF
+          cmake --build build --parallel --target stardraft_editor stardraft_thumbnailer -- -k 0  # (all the errors at once)
+
+      - name: Make the AppImage
+        run: bash tools/ci/linux_appimage.sh build StarDraft-x86_64.AppImage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stardraft-appimage-${{ github.sha }}
+          path: StarDraft-x86_64.AppImage
+          if-no-files-found: error
+
+  # The AppImage starts on the oldest and on the newest Ubuntu (a container of ubuntu:rolling): a snapshot without a
+  # window (Vulkan on the CPU: lavapipe), and what the program finds of the desktop (--check desktop).
+  linux-appimage-run:
+    needs: linux-appimage
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-22.04
+            os: ubuntu-22.04
+            container: ''
+          - name: ubuntu-rolling
+            os: ubuntu-24.04
+            container: ubuntu:rolling
+    name: linux-appimage-run (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: stardraft-appimage-${{ github.sha }}
+
+      - name: Install Vulkan on the CPU
+        run: |
+          if [ "$(id -u)" = 0 ]; then sudo=; else sudo=sudo; fi
+          $sudo apt-get update
+          DEBIAN_FRONTEND=noninteractive $sudo apt-get install -y mesa-vulkan-drivers libvulkan1 file
+
+      - name: Start the AppImage
+        env:
+          SDL_VIDEODRIVER: offscreen
+          APPIMAGE_EXTRACT_AND_RUN: 1  # (no FUSE on these machines)
+        run: |
+          chmod +x StarDraft-x86_64.AppImage
+          mkdir -p "$RUNNER_TEMP/desktop"
+          ./StarDraft-x86_64.AppImage --check "desktop:$RUNNER_TEMP/desktop" --snapshot appimage-${{ matrix.name }}.png | tee run.txt
+          grep -q "^wrote " run.txt
+          grep -q "^desktop: package AppImage" run.txt
+          grep -q "^desktop: app id io.github.stardraft_editor.StarDraft; SDL app id io.github.stardraft_editor.StarDraft" run.txt
+          if grep -q "no icon atlases\|no app icon\|(WRONG)" run.txt; then exit 1; fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: appimage-snapshot-${{ matrix.name }}-${{ github.sha }}
+          path: appimage-*.png
+          if-no-files-found: warn
+
+  # The Flatpak (packaging/flatpak): built with flatpak-builder in the Freedesktop runtime, as Flathub builds it, and
+  # kept with the run as a bundle (flatpak install --user stardraft.flatpak).
+  flatpak:
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-24.08
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: flathub-infra/flatpak-github-actions/flatpak-builder@master
+        with:
+          bundle: stardraft.flatpak
+          manifest-path: packaging/flatpak/io.github.stardraft_editor.StarDraft.yml
+          cache-key: flatpak-builder-${{ hashFiles('packaging/flatpak/*.yml', 'CMakeLists.txt') }}
+          upload-artifact: true
 
   macos:
     runs-on: macos-15  # arm64, Xcode's clang and libc++

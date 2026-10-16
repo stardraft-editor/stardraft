@@ -271,6 +271,10 @@ else()
     add_library(stardraft_platform STATIC apps/common/http_curl.cpp apps/common/crash_report.cpp apps/common/update_posix.cpp)
     target_link_libraries(stardraft_platform PUBLIC stardraft)
 endif()
+if(UNIX AND NOT APPLE)  # Linux and the BSDs: the XDG folders, the desktop portal, notifications, recently used files
+    target_sources(stardraft_platform PRIVATE apps/common/desktop_xdg.cpp)
+    target_link_libraries(stardraft_platform PUBLIC ${CMAKE_DL_LIBS})  # (libdbus-1 is loaded at run time)
+endif()
 target_include_directories(stardraft_platform PUBLIC apps/common)
 # A request by hand (needs the network, so GitHub does not run it): http_get <url> [<file>]
 add_executable(http_get tools/http_get.cpp)
@@ -576,6 +580,64 @@ if(STARDRAFT_RENDERER)
         target_compile_options(${sdlEditor} PRIVATE $<$<CONFIG:Release>:/Zi>)
         target_link_options(${sdlEditor} PRIVATE $<$<CONFIG:Release>:/DEBUG /OPT:REF /OPT:ICF>)
     endif()
+endif()
+
+# --- Linux and the BSDs: the desktop's files and the install (packaging/linux, docs/dev/linux-packaging.md) ----------
+# `cmake --install <build> --component stardraft` puts the editor in <prefix>/bin, its fonts and icon atlases in <prefix>/share/stardraft (the
+# program looks there when they are not beside it), the .desktop file, the icons (hicolor), the file types
+# (shared-mime-info), the metainfo and the map thumbnailer (stardraft-thumbnailer) in <prefix>/share. The AppImage
+# (tools/ci/linux_appimage.sh) and the Flatpak (packaging/flatpak) are made from it.
+if(UNIX AND NOT APPLE AND STARDRAFT_RENDERER)
+    # A program that runs on older systems too (the AppImage): the C++ library in the program, not the system's.
+    option(STARDRAFT_STATIC_LIBSTDCXX "Link libstdc++ and libgcc statically (the AppImage)" OFF)
+    if(STARDRAFT_STATIC_LIBSTDCXX)
+        target_link_options(stardraft_editor PRIVATE -static-libstdc++ -static-libgcc)
+    endif()
+    # The file dialogs are the desktop portal's (SDL: org.freedesktop.portal.FileChooser, over D-Bus), else zenity's: SDL
+    # has the portal only when it was built with D-Bus (libdbus-1-dev). STARDRAFT_REQUIRE_DBUS (CI, the packages)
+    # stops the build without it.
+    option(STARDRAFT_REQUIRE_DBUS "Stop when SDL is built without D-Bus (no portal file dialogs)" OFF)
+    # (SDL's configure writes its build config here first; HAVE_DBUS_DBUS_H turns SDL's D-Bus parts on)
+    set(sdlDbus OFF)
+    set(sdlBuildConfig ${sdl3_BINARY_DIR}/CMakeFiles/SDL_build_config.h.intermediate)
+    if(EXISTS ${sdlBuildConfig})
+        file(STRINGS ${sdlBuildConfig} dbusLine REGEX "^#define HAVE_DBUS_DBUS_H 1")
+        if(dbusLine)
+            set(sdlDbus ON)
+        endif()
+    endif()
+    if(sdlDbus)
+        message(STATUS "SDL has D-Bus: the file dialogs are the desktop portal's (zenity when there is no portal)")
+    elseif(STARDRAFT_REQUIRE_DBUS)
+        message(FATAL_ERROR "SDL is built without D-Bus: install libdbus-1-dev (the desktop portal's file dialogs)")
+    else()
+        message(WARNING "SDL is built without D-Bus (no libdbus-1-dev): the file dialogs are zenity's only")
+    endif()
+
+    # The thumbnailer: a map's picture for the file managers (apps/quicklook/thumbnailer_xdg.cpp).
+    add_executable(stardraft_thumbnailer apps/quicklook/thumbnailer_xdg.cpp)
+    target_link_libraries(stardraft_thumbnailer PRIVATE stardraft_map_preview)
+    set_target_properties(stardraft_thumbnailer PROPERTIES OUTPUT_NAME stardraft-thumbnailer)
+    if(STARDRAFT_STATIC_LIBSTDCXX)
+        target_link_options(stardraft_thumbnailer PRIVATE -static-libstdc++ -static-libgcc)
+    endif()
+    add_dependencies(stardraft_editor stardraft_thumbnailer)
+
+    include(cmake/linux_desktop.cmake)
+    set(linuxDesktopDir ${CMAKE_BINARY_DIR}/generated/linux)
+    stardraft_linux_desktop_files(${linuxDesktopDir} "${STARDRAFT_VERSION_NAME}")
+    set(linuxId io.github.stardraft_editor.StarDraft)
+    include(GNUInstallDirs)
+    install(TARGETS stardraft_editor stardraft_thumbnailer RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT stardraft)
+    install(FILES ${STARDRAFT_ATLASES} ${CMAKE_SOURCE_DIR}/apps/editor/res/stardraft.ico DESTINATION ${CMAKE_INSTALL_DATADIR}/stardraft/res COMPONENT stardraft)
+    if(STARDRAFT_FONT_FILES)
+        install(FILES ${STARDRAFT_FONT_FILES} DESTINATION ${CMAKE_INSTALL_DATADIR}/stardraft/fonts COMPONENT stardraft)
+    endif()
+    install(FILES ${linuxDesktopDir}/${linuxId}.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT stardraft)
+    install(FILES ${linuxDesktopDir}/${linuxId}.metainfo.xml DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo COMPONENT stardraft)
+    install(FILES ${linuxDesktopDir}/${linuxId}.xml DESTINATION ${CMAKE_INSTALL_DATADIR}/mime/packages COMPONENT stardraft)
+    install(FILES ${CMAKE_SOURCE_DIR}/packaging/linux/${linuxId}.thumbnailer DESTINATION ${CMAKE_INSTALL_DATADIR}/thumbnailers COMPONENT stardraft)
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/packaging/linux/icons/hicolor DESTINATION ${CMAKE_INSTALL_DATADIR}/icons COMPONENT stardraft)
 endif()
 
 # --- StarDraft-latest.exe (Windows): starts a copy of the newest build of the editor (stardraft-testing.exe, else

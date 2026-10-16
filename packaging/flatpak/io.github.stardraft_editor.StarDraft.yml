@@ -1,0 +1,81 @@
+# The Flatpak of StarDraft 2 (docs/dev/linux-packaging.md). flatpak-builder has no network while it builds: each
+# source that CMakeLists.txt would fetch (FetchContent, the fonts) is a source here, at the same version, and CMake
+# takes it from its folder. A change of a version in CMakeLists.txt is a change here too.
+#
+#   flatpak-builder --user --install --force-clean build-flatpak packaging/flatpak/io.github.stardraft_editor.StarDraft.yml
+#   flatpak run io.github.stardraft_editor.StarDraft
+app-id: io.github.stardraft_editor.StarDraft
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: stardraft
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --socket=pulseaudio
+  # Check for updates, Report feedback and the crash reports (GitHub).
+  - --share=network
+  # The StarCraft install (the game data), the maps and the projects, and euddraft's builds of them.
+  - --filesystem=home
+  # A Build that ends while the window does not have the focus: a desktop notification.
+  - --talk-name=org.freedesktop.Notifications
+modules:
+  - name: stardraft
+    buildsystem: simple
+    build-commands:
+      - cmake -S . -B _flatpak_build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/app
+        -DFETCHCONTENT_FULLY_DISCONNECTED=ON -DSTARDRAFT_REQUIRE_DBUS=ON -DSTARDRAFT_NEXT=OFF
+        -DFETCHCONTENT_SOURCE_DIR_SDL3=$PWD/deps/sdl3 -DFETCHCONTENT_SOURCE_DIR_STORMLIB=$PWD/deps/stormlib
+        -DFETCHCONTENT_SOURCE_DIR_CASCLIB=$PWD/deps/casclib -DFETCHCONTENT_SOURCE_DIR_STB=$PWD/deps/stb
+        -DFETCHCONTENT_SOURCE_DIR_LIBVPX=$PWD/deps/libvpx -DFETCHCONTENT_SOURCE_DIR_IMGUI=$PWD/deps/imgui
+      - cmake --build _flatpak_build --target stardraft_editor stardraft_thumbnailer
+      - cmake --install _flatpak_build --component stardraft
+    sources:
+      # This repository (Flathub: type git, its url and the release's tag and commit).
+      - type: dir
+        path: ../..
+        skip:
+          - build
+          - build-pane
+          - build-flatpak
+          - .flatpak-builder
+      - type: git
+        url: https://github.com/libsdl-org/SDL.git
+        tag: release-3.4.18
+        dest: deps/sdl3
+      - type: git
+        url: https://github.com/ladislav-zezula/StormLib.git
+        tag: v9.30
+        dest: deps/stormlib
+      - type: git
+        url: https://github.com/ladislav-zezula/CascLib.git
+        commit: 38a34665624b8775bb875274b36191b21c38d97b
+        dest: deps/casclib
+      - type: git
+        url: https://github.com/nothings/stb.git
+        commit: 2c980bb59875b0d32144a71867fbdebb2f77cd20
+        dest: deps/stb
+      - type: archive
+        url: https://github.com/webmproject/libvpx/archive/refs/tags/v1.14.1.tar.gz
+        sha256: 901747254d80a7937c933d03bd7c5d41e8e6c883e0665fadcb172542167c7977
+        dest: deps/libvpx
+      - type: git
+        url: https://github.com/ocornut/imgui.git
+        tag: v1.92.9b
+        dest: deps/imgui
+      # The fonts (CMakeLists.txt: STARDRAFT_FONTS), where the build looks for them first (a file with the right hash
+      # is not downloaded).
+      - type: file
+        url: https://raw.githubusercontent.com/notofonts/notofonts.github.io/5c3913063bb189df4edc94b766584dfb4c04a187/fonts/NotoSans/hinted/ttf/NotoSans-Regular.ttf
+        sha256: 478c558ea716033cd60c03438f628dfa75694dcf6b5f6d505a2f05fd2b4f3823
+        dest: _flatpak_build/fonts
+      - type: file
+        url: https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/SubsetOTF/KR/NotoSansKR-Regular.otf
+        sha256: 69975a0ac8472717870aefeab0a4d52739308d90856b9955313b2ad5e0148d68
+        dest: _flatpak_build/fonts
+      - type: file
+        url: https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/SubsetOTF/SC/NotoSansSC-Regular.otf
+        sha256: faa6c9df652116dde789d351359f3d7e5d2285a2b2a1f04a2d7244df706d5ea9
+        dest: _flatpak_build/fonts

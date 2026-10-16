@@ -39,8 +39,8 @@ fs::path localData() {
     if (const char* h = std::getenv("HOME")) return fs::path(h) / "Library" / "Application Support";
     return fs::temp_directory_path();
 #else
-    if (const char* v = std::getenv("XDG_DATA_HOME")) return v;
-    if (const char* h = std::getenv("HOME")) return fs::path(h) / ".local" / "share";
+    if (const char* v = std::getenv("XDG_DATA_HOME"); v && *v == '/') return v;  // (the specification: only an absolute path)
+    if (const char* h = std::getenv("HOME"); h && *h) return fs::path(h) / ".local" / "share";
     return fs::temp_directory_path();
 #endif
 }

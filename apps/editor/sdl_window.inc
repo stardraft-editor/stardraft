@@ -2,7 +2,8 @@
 // On macOS: the title bar shows the open map or project (the proxy icon) and the edited dot when it has changes, the
 // window goes full screen and into Split View with the green button, the message boxes about the window are alert
 // sheets on it, and the theme, the accent color and the rail's color follow the system (Program options > Automatic).
-// On Windows and Linux the seam's functions do nothing.
+// On Linux and the BSDs the theme and the accent color follow the desktop (the desktop portal: desktop_xdg.h). On
+// Windows the seam's functions do nothing.
 
 SDL_Window* gMainWindow = nullptr;  // the program's main window, after host.show (none in a snapshot)
 
@@ -109,18 +110,55 @@ int sdlSheetBox(draw::View& from, const std::wstring& caption, const msgbox::Box
 
 // --- The system's look ----------------------------------------------------------------------------------------------
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(STARDRAFT_XDG)
 constexpr bool kSystemLook = true;  // Program options has Automatic (the system's theme and accent color): the default
 #else
 constexpr bool kSystemLook = false;
 #endif
 bool gThemeAuto = false, gAccentAuto = false;  // the theme, the accent color: the system's (Automatic)
 
+// The system's appearance and accent color: macOS's (mac_window.mm), or the desktop portal's on Linux and the BSDs
+// (desktop_xdg.h: org.freedesktop.appearance color-scheme and accent-color; with no portal, SDL's system theme, else dark).
+bool sdlSystemDark() {
+#if defined(STARDRAFT_XDG)
+    if (const int scheme = stardraft::xdg::portalColorScheme()) return scheme == 1;
+    return SDL_GetSystemTheme() != SDL_SYSTEM_THEME_LIGHT;
+#else
+    return macSystemDark();
+#endif
+}
+bool sdlSystemAccentColor(uint8_t& r, uint8_t& g, uint8_t& b) {
+#if defined(STARDRAFT_XDG)
+    return stardraft::xdg::portalAccent(r, g, b);
+#else
+    return macSystemAccent(r, g, b);
+#endif
+}
+void sdlWatchSystemLook() {
+#if defined(STARDRAFT_XDG)
+    stardraft::xdg::watchLook();
+#else
+    macWatchLook();
+#endif
+}
+bool sdlSystemLookChanged() {
+#if defined(STARDRAFT_XDG)
+    // (the portal's signal; SDL's own theme too, for a desktop whose portal SDL reads and this program does not)
+    static SDL_SystemTheme sdlTheme = SDL_GetSystemTheme();
+    const SDL_SystemTheme now = SDL_GetSystemTheme();
+    const bool sdlChanged = now != sdlTheme;
+    sdlTheme = now;
+    return stardraft::xdg::lookChanged() || sdlChanged;
+#else
+    return macLookChanged();
+#endif
+}
+
 // The system's accent color as one of the program's (the nearest, when its hue is near one) or as its own hue.
 void sdlSystemAccent(int& accent, double& hue) {
     accent = 0, hue = -1;
     uint8_t r = 0, g = 0, b = 0;
-    if (!macSystemAccent(r, g, b)) return;
+    if (!sdlSystemAccentColor(r, g, b)) return;
     const int found = theme::nearestAccent(RGB(r, g, b), 15, hue);
     if (found >= 0) accent = found, hue = -1;
     else {
@@ -141,7 +179,7 @@ COLORREF sdlSystemAccentSwatch() {
 // color (macOS); the window's title bar and sheets in the theme.
 void sdlSetLook(bool light, int accent) {
     double hue = -1;
-    if (gThemeAuto) light = !macSystemDark();
+    if (gThemeAuto) light = !sdlSystemDark();
     if (gAccentAuto) sdlSystemAccent(accent, hue);
     setThemeColors(light, accent, hue);
     uint8_t r = 0, g = 0, b = 0;
@@ -150,7 +188,7 @@ void sdlSetLook(bool light, int accent) {
 }
 // Each frame: a change of the system's appearance or colors applies when the program follows them.
 void sdlFollowSystemLook() {
-    if (!macLookChanged()) return;
+    if (!sdlSystemLookChanged()) return;
     applyThemeSdl(gLightTheme, gAccentIndex, false);
 }
 
@@ -161,9 +199,12 @@ void sdlMainWindowShown(SDL_Window* w, bool testRun) {
     gMainWindow = w;
     macSetupWindow(w);
     macSetWindowDark(w, !gLightTheme);
-    macWatchLook();
-    if constexpr (kSystemLook)
-        if (!testRun) msgbox::hostBox() = sdlSheetBox;
+    sdlWatchSystemLook();
+#ifdef __APPLE__
+    if (!testRun) msgbox::hostBox() = sdlSheetBox;  // (the sheets are macOS's)
+#else
+    (void)testRun;
+#endif
     sdlWindowDocumentSync();
 }
 void sdlWindowFrame() {
@@ -173,7 +214,11 @@ void sdlWindowFrame() {
 // --check window: what the window and the look are (after a snapshot: a hidden window of its own on macOS, the map of
 // the run as its file, with changes), and the sheet of the save question (each system: the alert that macOS shows).
 void sdlWindowCheck(const std::string& mapPath) {
+#ifdef __APPLE__
     std::printf("window: system look %s\n", kSystemLook ? "yes" : "no");
+#else
+    std::printf("window: system look %s\n", kSystemLook ? "yes (the desktop's)" : "no");
+#endif
     std::printf("window: theme %s%s, accent %ls%s\n", gLightTheme ? "light" : "dark", gThemeAuto ? " (the system's)" : "",
                 theme::kAccents[gAccentIndex].name, gAccentAuto ? " (the system's)" : "");
     // The system's accent colors (macOS's light appearance) and the accent each one gives.
@@ -216,6 +261,10 @@ void sdlWindowCheck(const std::string& mapPath) {
     SDL_DestroyWindow(w);
 #else
     (void)mapPath;
+#if defined(STARDRAFT_XDG)
+    std::printf("window: system appearance %s, desktop portal %s\n", sdlSystemDark() ? "dark" : "light",
+                stardraft::xdg::portalColorScheme() ? "yes" : "no (SDL's system theme)");
+#endif
     std::printf("window: %s\n", macWindowReport(nullptr).c_str());
 #endif
 }

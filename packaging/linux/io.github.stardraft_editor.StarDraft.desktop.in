@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=StarDraft 2
+GenericName=Map editor
+@GENERIC_NAMES@
+Comment=Edit StarCraft maps and EUD projects
+@COMMENTS@
+Icon=io.github.stardraft_editor.StarDraft
+Exec=stardraft %f
+Terminal=false
+StartupNotify=true
+StartupWMClass=io.github.stardraft_editor.StarDraft
+SingleMainWindow=true
+Categories=Game;StrategyGame;Development;
+Keywords=StarCraft;Brood War;map;editor;EUD;euddraft;scm;scx;
+MimeType=application/x-starcraft-scm;application/x-starcraft-scx;application/x-stardraft-project;application/x-euddraft-project;

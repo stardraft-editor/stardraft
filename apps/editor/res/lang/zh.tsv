@@ -2031,3 +2031,7 @@ Folders	文件夹
 Did not import 	未导入 
 : the Assets workspace imports only sounds (WAV, OGG)	: 素材工作区只导入声音（WAV、OGG）
 StarCraft map	StarCraft 地图
+Map editor	地图编辑器
+Edit StarCraft maps and EUD projects	编辑 StarCraft 地图和 EUD 项目
+Edit the terrain, units, locations and triggers of StarCraft maps. Build EUD maps with euddraft.	编辑 StarCraft 地图的地形、单位、位置和触发器。使用 euddraft 构建 EUD 地图。
+StarDraft project	StarDraft 项目

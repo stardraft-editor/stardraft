@@ -118,6 +118,12 @@ fs::path tileColorsFolder() {
     const char* home = pw && pw->pw_dir ? pw->pw_dir : std::getenv("HOME");
     if (!home || !*home) return {};
     return fs::path(home) / "Library" / "Application Support" / "StarDraft" / "quicklook";
+#elif !defined(_WIN32)
+    // The free desktops: the cache (the thumbnailer, stardraft-thumbnailer, reads it; it is made again when a map opens).
+    if (const char* c = std::getenv("XDG_CACHE_HOME"); c && *c == '/') return fs::path(c) / "StarDraft" / "tile-colors";
+    const char* home = std::getenv("HOME");
+    if (!home || !*home) return {};
+    return fs::path(home) / ".cache" / "StarDraft" / "tile-colors";
 #else
     return {};
 #endif

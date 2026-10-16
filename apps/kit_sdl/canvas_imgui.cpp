@@ -9,6 +9,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <deque>
 #include <set>
@@ -338,6 +339,81 @@ std::string firstFile(std::initializer_list<std::string> paths) {
     return {};
 }
 
+#if !defined(_WIN32) && !defined(__APPLE__)
+// The first line that a command writes ("" when it does not run).
+std::string commandOutput(const std::string& cmd) {
+    FILE* p = popen(cmd.c_str(), "r");
+    if (!p) return {};
+    char buf[1024];
+    std::string out;
+    if (std::fgets(buf, sizeof buf, p)) out = buf;
+    pclose(p);
+    while (!out.empty() && (out.back() == '\n' || out.back() == '\r')) out.pop_back();
+    return out;
+}
+
+// A font that stb_truetype (ImGui's rasterizer) reads: TrueType outlines, or CFF ones (OTTO) that are not CFF2 (the
+// variable CFF fonts, as Cantarell's newer files): the first font of a collection is looked at.
+bool rasterizerReads(const std::string& path) {
+    std::ifstream in(fs::path(reinterpret_cast<const char8_t*>(path.c_str())), std::ios::binary);
+    unsigned char head[12] = {};
+    if (!in.read(reinterpret_cast<char*>(head), 12)) return false;
+    auto u32 = [](const unsigned char* b) { return uint32_t(b[0]) << 24 | uint32_t(b[1]) << 16 | uint32_t(b[2]) << 8 | b[3]; };
+    uint32_t at = 0;
+    if (std::memcmp(head, "ttcf", 4) == 0) {
+        unsigned char off[4] = {};  // (the first font's offset, after the tag, the version and the count)
+        in.seekg(12);
+        if (!in.read(reinterpret_cast<char*>(off), 4)) return false;
+        at = u32(off);
+        in.seekg(at);
+        if (!in.read(reinterpret_cast<char*>(head), 12)) return false;
+    }
+    const uint32_t tag = u32(head);
+    if (tag != 0x00010000 && std::memcmp(head, "true", 4) != 0 && std::memcmp(head, "OTTO", 4) != 0) return false;
+    const int tables = head[4] << 8 | head[5];
+    for (int i = 0; i < tables; ++i) {
+        unsigned char rec[16];
+        if (!in.read(reinterpret_cast<char*>(rec), 16)) return false;
+        if (std::memcmp(rec, "CFF2", 4) == 0) return false;
+    }
+    return true;
+}
+
+// The desktop's UI font as a file (fontconfig, fc-match): KDE's font (kdeglobals: [General] font=), GNOME's and the
+// desktops' that use its settings (gsettings: org.gnome.desktop.interface font-name), else fontconfig's sans-serif. ""
+// when there is no fontconfig or no font that the rasterizer reads.
+std::string desktopUiFont() {
+    std::string family;
+    const char* desk = std::getenv("XDG_CURRENT_DESKTOP");
+    const std::string desktop = desk ? desk : "";
+    if (desktop.find("KDE") != std::string::npos) {
+        const char* cfg = std::getenv("XDG_CONFIG_HOME");
+        const char* home = std::getenv("HOME");
+        const fs::path file = cfg && *cfg == '/' ? fs::path(cfg) / "kdeglobals" : home ? fs::path(home) / ".config" / "kdeglobals" : fs::path();
+        std::ifstream in(file);
+        bool general = false;
+        for (std::string line; std::getline(in, line);) {
+            if (!line.empty() && line[0] == '[') general = line.rfind("[General]", 0) == 0;
+            else if (general && line.rfind("font=", 0) == 0) family = line.substr(5, line.find(',') - 5);  // "Noto Sans,10,-1,5,50,..."
+        }
+    } else if (!desktop.empty()) {
+        std::string f = commandOutput("gsettings get org.gnome.desktop.interface font-name 2>/dev/null");  // "'Cantarell 11'"
+        if (f.size() >= 2 && f.front() == '\'' && f.back() == '\'') f = f.substr(1, f.size() - 2);
+        if (const size_t sp = f.find_last_of(' '); sp != std::string::npos && f.find_first_not_of("0123456789.", sp + 1) == std::string::npos)
+            f.resize(sp);  // (the size)
+        family = f;
+    }
+    // (only letters, digits, spaces and - _ go to the shell)
+    if (family.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -_") != std::string::npos) family.clear();
+    for (const std::string& pattern : {family, std::string("sans-serif")}) {
+        if (pattern.empty()) continue;
+        const std::string file = commandOutput("fc-match -f '%{file}' '" + pattern + ":style=Regular' 2>/dev/null");
+        if (!file.empty() && isFile(file) && rasterizerReads(file)) return file;
+    }
+    return {};
+}
+#endif
+
 // A font from a file, or from the program's own bytes (not copied: ImGui only reads them).
 ImFont* addFont(const std::string& path, float size, const ImFontConfig* cfg = nullptr, const ImWchar* ranges = nullptr) {
     ImGuiIO& io = ImGui::GetIO();
@@ -517,6 +593,12 @@ std::string loadFonts(const std::string& fontDir) {
 #if defined(__APPLE__)
     if (const std::string sf = firstFile({"/System/Library/Fonts/SFNS.ttf", "/System/Library/Fonts/SFNSText.ttf"}); !sf.empty())
         fill = latin, latin = sf;
+#elif !defined(_WIN32)
+    // Linux and the BSDs: the desktop's UI font (fontconfig), as the desktop's own programs; Noto Sans after it, as above.
+    // STARDRAFT_FONT=noto keeps Noto Sans (the same text on every computer).
+    const char* only = std::getenv("STARDRAFT_FONT");
+    if (!(only && std::strcmp(only, "noto") == 0))
+        if (const std::string ui = desktopUiFont(); !ui.empty() && fileName(ui) != fileName(latin)) fill = latin, latin = ui;
 #endif
 
     const float size = 15.0f;  // the size the font file is read at; each canvas font is drawn at its own size
@@ -531,6 +613,7 @@ std::string loadFonts(const std::string& fontDir) {
     const std::string rasterizer;
 #endif
     if (!latin.empty() && (gUi = addFont(latin, size, &cfg))) loaded = fileName(latin);
+    else if (!fill.empty() && (gUi = addFont(fill, size, &cfg))) loaded = fileName(fill), latin = fill;  // (the UI font did not load)
     else gUi = io.Fonts->AddFontDefault(), loaded = "ImGui's own (no system font found)";
     if (!fill.empty() && fill != latin) {
         ImFontConfig merge = cfg;

@@ -37,7 +37,8 @@ bool writeTileColors(const std::filesystem::path& file, const std::vector<uint32
 bool readTileColors(const std::filesystem::path& file, std::vector<uint32_t>& colors);
 
 // The folder for the tables: <the user's home>/Library/Application Support/StarDraft/quicklook on macOS (the real home,
-// also in a sandbox), else empty.
+// also in a sandbox); $XDG_CACHE_HOME/StarDraft/tile-colors (~/.cache) on Linux and the BSDs (stardraft-thumbnailer reads
+// it); empty on Windows.
 std::filesystem::path tileColorsFolder();
 
 // A map's text in UTF-8: the game's color and format codes go, line ends stay; UTF-8, else CP949 or Windows-1252.
