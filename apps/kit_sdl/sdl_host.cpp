@@ -320,7 +320,7 @@ void SdlHost::snapshot(draw::View& root, SDL_GPUTexture* target, int w, int h, S
     SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device_);
     submit(device_, *list, w, h, cmd, target);
     SDL_WaitForGPUIdle(device_);
-    root.attach(nullptr);
+    if (!rootWin(root)) root.attach(nullptr);  // (a root with a snapshot's window stays in the host for its input)
     if (switched && before != SDL_GPU_TEXTUREFORMAT_INVALID) {
         ImGui_ImplSDLGPU3_Shutdown();
         rendererReady_ = false;
@@ -328,29 +328,92 @@ void SdlHost::snapshot(draw::View& root, SDL_GPUTexture* target, int w, int h, S
     }
 }
 
-void SdlHost::snapshotInput(draw::View& root, int w, int h, const std::vector<SDL_Event>& events) {
-    // A window of the host with no SDL window, for the call only (its id is one SDL does not give).
-    constexpr SDL_WindowID kShotId = 0xFFFFFFF0u;
+// A snapshot's window: a window of the host with no SDL window (its id is one SDL does not give), kept until
+// snapshotInputEnd.
+SdlHost::Win* SdlHost::shotWin(draw::View& root, int w, int h) {
+    if (Win* x = rootWin(root)) return root.attach(this), x;
     auto win = std::make_unique<Win>();
-    win->id = kShotId;
+    win->id = ++shotSeq_;
     win->root = &root;
     win->router = std::make_unique<draw::Router>(root);
     win->kind = WindowKind::Dialog;
     win->pw = w, win->ph = h;
     root.attach(this);
+    root.setFrame(Rect(0, 0, w, h));
     wins_.push_back(std::move(win));
+    return wins_.back().get();
+}
+
+void SdlHost::snapshotInput(draw::View& root, int w, int h, const std::vector<SDL_Event>& events) {
+    const SDL_WindowID id = shotWin(root, w, h)->id;
     HoverHook hover = std::move(hover_);
     hover_ = nullptr;
     for (SDL_Event e : events) {
-        if (e.type == SDL_EVENT_MOUSE_MOTION) e.motion.windowID = kShotId;
-        else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_UP) e.button.windowID = kShotId;
-        else if (e.type == SDL_EVENT_MOUSE_WHEEL) e.wheel.windowID = kShotId;
+        if (e.type == SDL_EVENT_MOUSE_MOTION) e.motion.windowID = id;
+        else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_UP) e.button.windowID = id;
+        else if (e.type == SDL_EVENT_MOUSE_WHEEL) e.wheel.windowID = id;
         dispatch(e);
     }
     hover_ = std::move(hover);
-    if (captureWin_ == kShotId) SDL_CaptureMouse(false), captureWin_ = 0;
-    wins_.erase(std::remove_if(wins_.begin(), wins_.end(), [&](const std::unique_ptr<Win>& x) { return x->id == kShotId; }), wins_.end());
-    root.attach(nullptr);
+    if (captureWin_ == id) SDL_CaptureMouse(false), captureWin_ = 0;
+}
+
+void SdlHost::snapshotKey(draw::View& root, int w, int h, const draw::KeyEvent& k) {
+    Win* win = shotWin(root, w, h);
+    if (!inModal(win->id)) return;  // (as dispatch: only the modal window and what it opened take input)
+    if (k.down && k.key == Key::Escape && win->popup()) return dismiss(win->id);
+    win->router->key(k);
+}
+
+void SdlHost::snapshotText(draw::View& root, int w, int h, const std::string& utf8) {
+    Win* win = shotWin(root, w, h);
+    if (!inModal(win->id)) return;
+    win->router->text(draw::TextEvent{utf8});
+}
+
+draw::View& SdlHost::snapshotTop(draw::View& root, Point& size) {
+    for (auto it = wins_.rbegin(); it != wins_.rend(); ++it) {
+        const Win& w = **it;
+        if (w.sdl || w.kind == WindowKind::Tooltip) continue;
+        if (w.root == &root) break;
+        size = {w.pw, w.ph};
+        return *w.root;
+    }
+    size = {root.width(), root.height()};
+    return root;
+}
+
+void SdlHost::snapshotTimers(int ms) {
+    const Uint64 end = SDL_GetTicks() + Uint64(std::max(0, ms));
+    do {
+        SDL_Event e;
+        while (SDL_PollEvent(&e))
+            if (gTimerEvent && e.type == gTimerEvent) dispatch(e);  // (the snapshot has no windows: nothing else is for it)
+        if (SDL_GetTicks() >= end) break;
+        SDL_Delay(1);
+    } while (true);
+}
+
+void SdlHost::snapshotInputEnd() {
+    std::vector<SDL_WindowID> ids;
+    for (const auto& w : wins_)
+        if (!w->sdl && !w->parent) ids.push_back(w->id);
+    for (SDL_WindowID id : ids) closeTree(id);
+    destroyRetired();
+}
+
+// A snapshot's window has no paint of its own: a record of it, dropped, lays it out (views place their hit areas as
+// they paint), as a window's first frame does before the user's input.
+void SdlHost::paintShot(Win& w) {
+    ensureRenderer(format_ != SDL_GPU_TEXTUREFORMAT_INVALID ? format_ : SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+    ImGuiIO& io = ImGui::GetIO();
+    io.DeltaTime = 1.0f / 60;
+    io.DisplaySize = ImVec2(float(w.pw), float(w.ph));
+    ImGui_ImplSDLGPU3_NewFrame();
+    ImGui::NewFrame();
+    auto list = recordView(device_, *w.root, w.pw, w.ph);
+    ImGui::Render();
+    w.dirty = false;
 }
 
 // --- Windows ------------------------------------------------------------------------------------------------------
@@ -419,7 +482,7 @@ void SdlHost::retire(SDL_WindowID id) {
         Win& w = *wins_[i];
         if (w.root && w.router->focused()) w.router->setFocus(nullptr);  // (the view that had the focus is told)
         if (captureWin_ == id) SDL_CaptureMouse(false), captureWin_ = 0;
-        SDL_HideWindow(w.sdl);
+        if (w.sdl) SDL_HideWindow(w.sdl);
         if (w.id == modal_) modal_ = 0;
         if (w.root) w.root->attach(nullptr);
         retired_.push_back(std::move(wins_[i]));
@@ -493,7 +556,24 @@ void SdlHost::dismissPopupsExcept(SDL_WindowID keep) {
 
 void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::WindowSpec& spec, std::function<void()> closed) {
     Win* parent = rootWin(from);
-    if (!parent) {
+    if (parent && !parent->sdl && spec.kind != WindowKind::Menu) {
+        // A dialog or pop-out from a snapshot's window: a snapshot's window too, in its own pixels (a tooltip: none).
+        if (spec.kind == WindowKind::Tooltip) return;
+        auto w = std::make_unique<Win>();
+        w->id = ++shotSeq_;
+        w->root = &content;
+        w->router = std::make_unique<draw::Router>(content);
+        w->kind = spec.kind;
+        w->closed = std::move(closed);
+        w->parent = parent->id;
+        w->title = spec.title;
+        w->pw = std::max(1, spec.at.width()), w->ph = std::max(1, spec.at.height());
+        content.attach(this);
+        content.setFrame(Rect(0, 0, w->pw, w->ph));
+        wins_.push_back(std::move(w));
+        return;
+    }
+    if (!parent || !parent->sdl) {
         // A snapshot's views (attached to the host with no window): a menu shows over them in the picture, at its
         // place, kept inside the root (as a menu is kept on the work area). (Not a pop-out: runModal's content goes
         // when the call returns.)
@@ -551,6 +631,20 @@ void SdlHost::runModal(draw::View& from, draw::View& content, const draw::Window
     if (!w) return;
     const SDL_WindowID id = w->id, outer = modal_;
     modal_ = id;
+    if (!w->sdl) {  // a snapshot's: the hook gives the input, until the window closes or there is no more
+        while (!quit_ && findWin(id)) {
+            snapshotTimers(20);  // (a pop-out focuses its field on a timer once it shows)
+            Win* now = findWin(id);
+            if (!now) break;
+            paintShot(*now);
+            if (!modalHook_ || !modalHook_(content)) {
+                if (findWin(id)) closeTree(id);
+                break;
+            }
+        }
+        modal_ = outer;
+        return;
+    }
     if (s.kind == WindowKind::Dialog) SDL_SetWindowModal(w->sdl, true);  // (SDL: a pop-out cannot be modal; the host keeps the input)
     while (!quit_ && findWin(id)) pump(true);
     modal_ = outer;
@@ -588,7 +682,7 @@ void SdlHost::destroyRetired() {
     SDL_WaitForGPUIdle(device_);  // (a closed window's swapchain may still be in use)
     for (auto& w : retired_) {
         if (w->claimed) SDL_ReleaseWindowFromGPUDevice(device_, w->sdl);
-        SDL_DestroyWindow(w->sdl);
+        if (w->sdl) SDL_DestroyWindow(w->sdl);  // (a snapshot's window has none)
     }
     retired_.clear();
 }
@@ -861,7 +955,7 @@ void SdlHost::cancelTimer(int id) {
 
 void SdlHost::textInput(draw::View& v, bool on, Rect caret) {
     Win* w = rootWin(v);
-    if (!w) return;
+    if (!w || !w->sdl) return;  // (a snapshot's window: the text comes from snapshotText)
     if (!on) {
         SDL_StopTextInput(w->sdl);
         return;
