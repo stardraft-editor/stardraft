@@ -22,6 +22,8 @@
 #ifdef __APPLE__
 #include "mac_app_menu.h"  // the application menu's About and Program options (mac_app_menu.mm)
 #endif
+#include "mac_dist.h"  // macOS: Quick Look's tile colors, the maps in Spotlight, --check bundle (mac_dist.mm; elsewhere nothing)
+#include "map_preview.h"  // apps/quicklook: a map's picture without a GPU (sdl_dist.inc: --check preview)
 
 #include <algorithm>
 #include <atomic>
@@ -146,6 +148,7 @@ bool gNoBoxes = false;
 #include "sdl_updates.inc"  // Help > Check for updates, the crash reports' choice (core/releases.inc)
 #include "shell_sdl.inc"
 #include "sdl_cursor_check.inc"  // --cursors: the window's cursors at some points, as text (a snapshot run)
+#include "sdl_dist.inc"  // what a map that opens gives the system (macOS: Quick Look, Spotlight), and --check
 #include "shell_sdl_win.inc"  // the Windows parts: the crash handler, the map files, one program for all maps
 
 namespace {
@@ -308,6 +311,7 @@ int main(int argc, char** argv) {
     std::vector<std::pair<char, std::string>> inputArgs;
     std::vector<std::string> rclickArgs;  // --rclick: right clicks before the snapshot (sdl_menus.inc: sdlRightClickShot)
     std::vector<std::string> commandArgs;  // --command: menu commands run before the snapshot (sdl_menus.inc: sdlCommandShot)
+    std::vector<std::string> checkArgs;  // --check: what the program set up, as text (sdl_dist.inc: bundle, spotlight, preview:<dir>)
     std::string saveAsArg;  // --saveas: the save round-trip (core/map_commands.inc: mapSaveRoundTrip)
     std::string newProjectArg;  // --newproject: a new project in that folder (core/project_page.inc: createProject)
     int width = 1600, height = 1000;
@@ -365,6 +369,7 @@ int main(int argc, char** argv) {
         else if (a == "--wheel") inputArgs.emplace_back('h', next());  // x,y,dx,dy[:precise][:mods]: the wheel there (dy notches away from the user), or a trackpad's scroll (precise), for a snapshot
         else if (a == "--pinch") inputArgs.emplace_back('p', next());  // x,y,scale: a trackpad's pinch there (scale more than 1: the fingers move apart), for a snapshot
         else if (a == "--wait") inputArgs.emplace_back('w', next());  // ms: the time passes for the program's timers (in order with the inputs), for a snapshot
+        else if (a == "--check") checkArgs.push_back(next());  // bundle, spotlight or preview:<folder>: what the program set up, as text (sdl_dist.inc), for a test run
         else if (a == "--rclick") rclickArgs.push_back(next());  // x,y[:n]: a right click there; the menu's items go to the output, item n runs, for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
@@ -499,6 +504,7 @@ int main(int argc, char** argv) {
         if (logArg) gLogPane.setExpanded(true);
         if (!gDataOk) setMessage(widen(gDataError));
         std::printf("stardraft_editor: GPU %s, %s\n", renderer.driver(), gDataOk ? "game data" : gDataError.c_str());
+        for (const std::string& c : checkArgs) std::printf("%s", sdlDistCheck(c).c_str());
 
         if (!snapshot.empty()) {
             // A map's dialog (--dialog unitprops|locprops|prompt|quick, sdl_map_dialogs.inc) is the picture at its own size.
@@ -665,6 +671,7 @@ int main(int argc, char** argv) {
 #ifdef __APPLE__
             macSetupAppMenu(narrow(accessFree(shellTr(L"&About StarDraft 2"))), narrow(accessFree(shellTr(L"&Program options\x2026"))),
                             [] { shellPostCommand(ID_HELP_ABOUT); }, [] { shellPostCommand(ID_OPT_WINDOW); });
+            macHandleSpotlightOpens([](const std::string& path) { shellPost([path] { dropFile(path); }); });  // (a map that Spotlight finds)
 #endif
             sdlWindowsShown(testRun);  // (Windows: the dark title bar, an earlier crash's report, the file types)
             if (!testRun) sdlUpdatesAtStart();  // (a release build: a newer release says so in the status bar)
