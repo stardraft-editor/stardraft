@@ -285,8 +285,12 @@ void sdlSettingsShowTab(int i) {
 }
 #endif
 
-// Options > Program options (one window; a second Ctrl+, does nothing while it is open). On macOS a Settings window.
+// Options > Program options (one window; a second Ctrl+, does nothing while it is open). On macOS a Settings window
+// (a second Cmd+, brings it to the front).
 void showOptionsSdl() {
+#ifdef __APPLE__
+    if (SDL_Window* w = gOptionsOpen && gHost ? gHost->sdlWindow(gOptionsView) : nullptr) SDL_RaiseWindow(w);
+#endif
     if (!gRoot || gOptionsOpen) return;
     int h = std::min(scale(820), std::max(scale(300), gRoot->height() - scale(80)));  // as high as the window has room for
     const wchar_t* title = L"Program options";
