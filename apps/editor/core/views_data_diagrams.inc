@@ -54,16 +54,19 @@ inline void fillShape(draw::Canvas& c, const std::vector<draw::Point>& pts, draw
 }
 
 // The game's pictures in the diagrams: each frame made once (core/data_pictures.inc: gameImageSprite) and kept as a
-// bitmap (a texture on SDL) until the edits or the art change.
+// bitmap (a texture on SDL) until the edits or the art change: then they all go (an edit, or another project that
+// opens, makes new ones; the old ones are never drawn again).
 struct ImageBitmap {
     draw::Bitmap b;
     int originX = 0, originY = 0, k = 0;
 };
-inline std::map<std::tuple<int, int, bool, int, int, bool>, ImageBitmap> gImageBitmaps;
+inline std::map<std::tuple<int, int, bool, int>, ImageBitmap> gImageBitmaps;
+inline std::pair<int, bool> gImageBitmapsOf{-1, false};  // the edits and the art of the bitmaps (dataState().edits, widgetsHd())
 inline void drawGameImage(draw::Canvas& c, int image, int frame, bool flip, int owner, int cx, int cy, float zoom, uint8_t alpha = 255) {
     if (!shellState().ed || image < 0) return;
-    if (gImageBitmaps.size() > 256) gImageBitmaps.clear();
-    auto [it, fresh] = gImageBitmaps.try_emplace({image, frame, flip, owner, dataState().edits, widgetsHd()});
+    if (const std::pair<int, bool> of{dataState().edits, widgetsHd()}; of != gImageBitmapsOf || gImageBitmaps.size() > 256)
+        gImageBitmaps.clear(), gImageBitmapsOf = of;
+    auto [it, fresh] = gImageBitmaps.try_emplace({image, frame, flip, owner});
     ImageBitmap& ib = it->second;
     if (fresh) {
         Sprite s;
