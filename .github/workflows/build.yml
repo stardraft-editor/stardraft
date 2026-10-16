@@ -469,8 +469,14 @@ jobs:
         run: |
           chmod +x StarDraft-x86_64.AppImage
           mkdir -p "$RUNNER_TEMP/desktop"
-          ./StarDraft-x86_64.AppImage --check "desktop:$RUNNER_TEMP/desktop" --snapshot appimage-${{ matrix.name }}.png | tee run.txt
+          ./StarDraft-x86_64.AppImage --check "desktop:$RUNNER_TEMP/desktop" --check settings --check crashes --snapshot appimage-${{ matrix.name }}.png | tee run.txt
           grep -q "^wrote " run.txt
+          grep -q "^settings: file .*/StarDraft/settings.json" run.txt
+          grep -q "^crashes: the next start" run.txt
+          # A crash writes its report (a test run: it is not sent), and the next start's check sees it.
+          if ./StarDraft-x86_64.AppImage --crash-test; then echo "--crash-test did not crash"; exit 1; fi
+          ./StarDraft-x86_64.AppImage --check crashes --snapshot crash-check.png | tee crash.txt
+          grep -q "^crashes: report .*report.txt [1-9][0-9]* bytes, crash.dmp no, a test run: not sent" crash.txt
           grep -q "^desktop: package AppImage" run.txt
           grep -q "^desktop: app id io.github.stardraft_editor.StarDraft; SDL app id io.github.stardraft_editor.StarDraft" run.txt
           if grep -q "no icon atlases\|no app icon\|(WRONG)" run.txt; then exit 1; fi
