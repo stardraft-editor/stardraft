@@ -734,3 +734,30 @@ KIT_TEST(text_field_change_may_destroy_the_field) {
     host.type("a");
     CHECK(!field);
 }
+
+// A right click opens the edit menu through the kit menu: an editable field has the edit commands, a read-only code
+// view only Copy (Copy all with nothing selected) and Select all, and Copy all takes the whole text.
+KIT_TEST(text_field_context_menu) {
+    std::vector<std::wstring> labels;
+    std::function<void()> copyRun;
+    Menu::setTestHook([&](const std::vector<MenuItem>& items) {
+        labels.clear();
+        for (const MenuItem& it : items) {
+            labels.push_back(it.separator ? L"-" : it.label);
+            if (it.label.rfind(L"Copy", 0) == 0) copyRun = it.run;
+        }
+        return true;
+    });
+    Rig r;
+    r.field.setText(L"abc");
+    r.host.down(20, 10, 1), r.host.up(20, 10, 1);
+    CHECK((labels == std::vector<std::wstring>{L"Undo", L"-", L"Cut", L"Copy", L"Paste", L"Delete", L"-", L"Select all"}));
+    r.field.setReadOnly(true);
+    r.field.setCopyWhole(true);
+    r.host.down(20, 10, 1), r.host.up(20, 10, 1);
+    CHECK((labels == std::vector<std::wstring>{L"Copy all", L"Select all"}));
+    CHECK(bool(copyRun));
+    if (copyRun) copyRun();
+    CHECK(r.host.clipboard == "abc");
+    Menu::setTestHook(nullptr);
+}

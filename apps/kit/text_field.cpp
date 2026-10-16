@@ -383,22 +383,27 @@ std::vector<MenuItem> TextField::editMenu() {
     };
     MenuItem sep;
     sep.separator = true;
+    const bool whole = copyWhole_ && !sel && !model_.text().empty();  // Copy takes the whole text (see setCopyWhole)
+    MenuItem copy = item(whole ? L"Copy all" : L"Copy", L"Ctrl+C", sel || whole, [this] { copySelection(); });
+    MenuItem all = item(L"Select all", L"Ctrl+A", !model_.text().empty(), [this] {
+        model_.selectAll();
+        goalX_ = -1;
+        afterAction();
+    });
+    // A read-only field (a code view): only Copy and Select all, as the Windows code pane's menu has.
+    if (ro) return {std::move(copy), std::move(all)};
     return {
-        item(L"Undo", L"Ctrl+Z", !ro && model_.canUndo(), [this] { edit([this] { return model_.undo(); }); }),
+        item(L"Undo", L"Ctrl+Z", model_.canUndo(), [this] { edit([this] { return model_.undo(); }); }),
         sep,
-        item(L"Cut", L"Ctrl+X", !ro && sel, [this] {
+        item(L"Cut", L"Ctrl+X", sel, [this] {
             copySelection();
             edit([this] { return model_.deleteSelection(); });
         }),
-        item(L"Copy", L"Ctrl+C", sel || (copyWhole_ && !model_.text().empty()), [this] { copySelection(); }),
-        item(L"Paste", L"Ctrl+V", !ro, [this] { paste(); }),
-        item(L"Delete", L"Del", !ro && sel, [this] { edit([this] { return model_.deleteSelection(); }); }),
+        std::move(copy),
+        item(L"Paste", L"Ctrl+V", true, [this] { paste(); }),
+        item(L"Delete", L"Del", sel, [this] { edit([this] { return model_.deleteSelection(); }); }),
         sep,
-        item(L"Select All", L"Ctrl+A", !model_.text().empty(), [this] {
-            model_.selectAll();
-            goalX_ = -1;
-            afterAction();
-        }),
+        std::move(all),
     };
 }
 
@@ -408,7 +413,7 @@ void TextField::openEditMenu(draw::Point at) {
 }
 
 void TextField::paint(draw::Canvas& c) {
-    menuLayout_ = Menu::measure(editMenu(), &c);  // the menu's size (the labels do not change)
+    menuLayout_ = Menu::measure(editMenu(), &c);  // the menu's size (the read-only state sets its rows)
     const Theme& th = theme();
     // The field box, as ui_kit.inc's fieldBox: Hot, ReadOnly, Changed, then Focus over them.
     draw::Color fill = th.ctl, line = th.border;

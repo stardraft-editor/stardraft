@@ -335,12 +335,15 @@ public:
 };
 FeedbackProgramSdl gFeedbackProgram;
 
-// Options > Report feedback: a modal dialog over the window, about `on` (the menu's name, or "StarDraft 2").
-void showFeedbackSdl(const std::wstring& on) {
+// Options > Report feedback: a modal dialog over the window, about `on` (the menu's name, or "StarDraft 2"). owner:
+// the root view of the window it opens over (a dialog or a pop-out that a right click was in); null: the main window.
+void showFeedbackSdl(const std::wstring& on, draw::View* owner) {
     if (!gRoot || gFbView) return;
     FeedbackView view(gFeedbackProgram, on);
     gFbView = &view;
     ++gFbSerial;
-    gHost->runModal(*gRoot, view, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect(0, 0, scale(592), scale(370)), L"Report feedback"});
+    gHost->runModal(owner && owner->host() ? *owner : *gRoot, view,
+                    draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect(0, 0, scale(592), scale(370)), L"Report feedback"});
     gFbView = nullptr;
 }
+void showFeedbackSdl(const std::wstring& on) { showFeedbackSdl(on, nullptr); }

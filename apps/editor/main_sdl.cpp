@@ -359,6 +359,7 @@ int main(int argc, char** argv) {
         kit_sdl::setGlyphIcons(kitpaint::glyphIcon);  // the glyphs as UI icons (no system has to have Segoe MDL2 Assets)
         if (!kit_sdl::loadResourceIcon(1, base + "res/stardraft.ico")) std::printf("stardraft_editor: no app icon in res/\n");  // (About's)
         host.setHoverHook(sdlHover);  // the views' tooltips (sdl_tips.inc)
+        host.setRightClickHook(sdlWindowRightClick);  // Report feedback in the dialogs and pop-outs (sdl_menus.inc)
 
         // The game data (the map needs it), then the map from the command line.
         std::string dataErr;
@@ -524,7 +525,10 @@ int main(int argc, char** argv) {
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             }
             if (!rclickArgs.empty()) {  // the right clicks after the first frame (the panes are placed), then a frame more
-                for (const std::string& r : rclickArgs) sdlRightClickShot(r);
+                // (a dialog's title, as its window has it: Report feedback names it)
+                const std::wstring title = dialogArg == "options" ? L"Program options" : dialogArg == "about" ? L"About StarDraft 2"
+                                         : dialogArg.rfind("blockhelp:", 0) == 0 ? L"Block help" : L"";
+                for (const std::string& r : rclickArgs) sdlRightClickShot(r, shown == &root ? nullptr : shown, title);
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             }
             // The map's sprites load over a few frames: frames until they are all there (as the Windows program paints
