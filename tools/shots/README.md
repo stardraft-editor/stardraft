@@ -1,8 +1,8 @@
 # Release screenshots
 
 One file for each release, `<version>.json`: what `python -I tools/release.py shots <version>` captures and how it
-crops each picture into `docs/user/images/<version>/`. The captures run the testing build (`build/Release/
-stardraft-testing.exe`) off the screen with `--datashots` (docs/dev/DEVELOPING.md, "Captures and measurements"), with
+crops each picture into `docs/user/images/<version>/`. The captures run the Win32 testing build (`build/Release/
+stardraft-testing-win32.exe`; the SDL program has no `--datashots`) off the screen with `--datashots` (docs/dev/DEVELOPING.md, "Captures and measurements"), with
 no sound and without the focus.
 
 - `runs`: one start of the program each. `map` is relative to the StarCraft install (the environment variable
