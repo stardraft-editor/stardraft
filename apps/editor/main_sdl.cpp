@@ -351,6 +351,7 @@ int main(int argc, char** argv) {
         host.setScale(scaleArg);  // (0: the display's scale; the views lay out at it)
         std::printf("stardraft_editor: fonts %s, scale %.2f\n", kit_sdl::loadFonts(base + "fonts/").c_str(), double(scale));
         if (!kit_sdl::loadIconAtlases(device, base + "res/")) std::printf("stardraft_editor: no icon atlases in res/\n");
+        kit_sdl::setGlyphIcons(kitpaint::glyphIcon);  // the glyphs as UI icons (no system has to have Segoe MDL2 Assets)
         if (!kit_sdl::loadResourceIcon(1, base + "res/stardraft.ico")) std::printf("stardraft_editor: no app icon in res/\n");  // (About's)
         host.setHoverHook(sdlHover);  // the views' tooltips (sdl_tips.inc)
 

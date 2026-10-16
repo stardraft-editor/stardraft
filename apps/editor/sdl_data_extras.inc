@@ -42,11 +42,17 @@ bool sdlChoose(const std::wstring& prompt, const std::vector<ListPickItem>& item
 
 namespace sdlx {
 
-// A dropdown's face (with the value's icon); a click gets its box (ui::pickBox).
+void iconButton(draw::Canvas& c, draw::Rect r, kitpaint::Ico g, std::function<void()> click, const std::wstring& tip, kitpaint::Tone tone = kitpaint::Tone::Normal,
+                bool enabled = true);
+// A dropdown's face (with the value's icon); a click gets its box (ui::pickBox). `open`: the open button after the box
+// (go to the value's entry; openEntry).
 void pickBox(draw::Canvas& c, draw::Rect r, const std::wstring& text, bool changed, std::function<void(draw::Rect)> click, const std::wstring& tip = L"",
-             int number = -1, draw::Image icon = {}) {
+             int number = -1, draw::Image icon = {}, std::function<void()> open = nullptr) {
     kitpaint::drawPickFace(c, r, text, changed, sdlFormHot(r), icon, number);
     sdlFormArea(r, [r, click] { click(r); }, tip, true);
+    if (open)
+        iconButton(c, {r.right + scale(4), r.top, r.right + scale(4 + stardraft::kit::kIconBox), r.bottom}, UiIcon::OpenExternal, std::move(open), L"Open it",
+                   kitpaint::Tone::Primary);
 }
 // A small button: text width + 20, at most 24 high, in the middle of the row (ui::smallButton). Its right edge.
 int smallButton(draw::Canvas& c, int x, int y, int h, const std::wstring& text, std::function<void()> click, const std::wstring& tip = L"") {
@@ -56,8 +62,7 @@ int smallButton(draw::Canvas& c, int x, int y, int h, const std::wstring& text, 
     return r.right;
 }
 // A bare icon button (ui::iconButton, Icon::Bare).
-void iconButton(draw::Canvas& c, draw::Rect r, kitpaint::Ico g, std::function<void()> click, const std::wstring& tip, kitpaint::Tone tone = kitpaint::Tone::Normal,
-                bool enabled = true) {
+void iconButton(draw::Canvas& c, draw::Rect r, kitpaint::Ico g, std::function<void()> click, const std::wstring& tip, kitpaint::Tone tone, bool enabled) {
     r = kitpaint::square(r);
     kitpaint::drawIconFace(c, r, g, tone, false, enabled && sdlFormHot(r), enabled);
     sdlFormArea(r, enabled ? std::move(click) : nullptr, tip, enabled);
@@ -123,7 +128,7 @@ struct SdlRequirements final : RequirementsPaintHost {
         sdlx::pickBox(*c, r, text, changed, std::move(click));
     }
     void valueBox(draw::Rect r, const char* kind, int v, std::function<void(draw::Rect)> click) override {
-        sdlx::pickBox(*c, r, argName(kind, v), false, std::move(click), L"", v, sdlDataImage(dataArgPicture(kind, v)));
+        sdlx::pickBox(*c, r, argName(kind, v), false, std::move(click), L"", v, sdlDataImage(dataArgPicture(kind, v)), openEntry(kind, v));
     }
     // The remove cross: on the row under the mouse (the row is a click area without a click, as on Windows).
     void removeRow(draw::Rect row, draw::Rect at, std::function<void()> click, const std::wstring& tip) override {
@@ -493,10 +498,10 @@ void sdlPaintButtonsForm(draw::Canvas& c, int& y) {
             sdlSetButtons(set, std::move(bs2), bi);
         };
         auto row = [&](const wchar_t* name, bool changed, const std::wstring& text, std::function<void(draw::Rect)> click, int number, const std::wstring& tip = L"",
-                       draw::Image icon = {}) {
+                       draw::Image icon = {}, std::function<void()> open = nullptr) {
             sdlx::fieldLabel(c, l, y, name, changed);
             sdlx::pickBox(c, {l.x0 + l.labelW, y + scale(2), l.x0 + l.labelW + scale(320), y + l.rowH - scale(2)}, text, changed, std::move(click), tip, number,
-                          icon);
+                          icon, std::move(open));
             y += l.rowH;
         };
         row(L"Position", sb && sb->pos != b.pos, buttonRowColumn(b.pos),
@@ -540,7 +545,7 @@ void sdlPaintButtonsForm(draw::Canvas& c, int& y) {
                         if (sdlChoose(L"Value", entryItems(kind), std::to_string(v), picked))
                             edit([&](Button& o) { (cond ? o.conditionArg : o.actionArg) = uint16_t(std::stoul(picked)); });
                     },
-                    v, L"", sdlDataImage(dataArgPicture(kind, v)));
+                    v, L"", sdlDataImage(dataArgPicture(kind, v)), openEntry(kind, v));
             }
         }
         // Texts: the tooltip's first line in the game's colors (a click opens the string in the Strings tab; the arrow
@@ -647,8 +652,9 @@ struct SdlUnitDisplay final : UnitDisplayHost {
     std::wstring unitName(int unit) override { return entryName("units", unit); }
     bool hasShields(int unit) override { return datValue("units", "Shield Enable", unit) != 0; }
     void pickBox(draw::Rect r, const std::wstring& text, bool changed, std::function<void(draw::Rect)> click, const std::wstring& tip, const char* iconDat,
-                 int iconEntry, int number, const char*) override {  // (the open button is not on this system yet)
-        sdlx::pickBox(*c, r, text, changed, std::move(click), tip, number, iconDat ? sdlDataImage(dataRefPicture(iconDat, uint32_t(iconEntry))) : draw::Image{});
+                 int iconEntry, int number, const char* open) override {
+        sdlx::pickBox(*c, r, text, changed, std::move(click), tip, number, iconDat ? sdlDataImage(dataRefPicture(iconDat, uint32_t(iconEntry))) : draw::Image{},
+                      openEntry(open, number));
     }
     Wireframes* wireframes(WireKind kind) override { return wireframeSet(kind); }
     void sprite(const Sprite& s, int cx, int cy, float zoom) override {
