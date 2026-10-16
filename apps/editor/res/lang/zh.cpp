@@ -2030,6 +2030,10 @@ constexpr UiText kRows[] = {
     {L"Dark theme", L"\u6DF1\u8272\u4E3B\u9898"},
     {L"The theme of the system, dark or light (default)", L"\u7CFB\u7EDF\u7684\u4E3B\u9898\uFF0C\u6DF1\u8272\u6216\u6D45\u8272\uFF08\u9ED8\u8BA4\uFF09"},
     {L"Automatic (the color of the system)", L"\u81EA\u52A8\uFF08\u7CFB\u7EDF\u989C\u8272\uFF09"},
+    {L"General", L"\u5E38\u89C4"},
+    {L"Folders", L"\u6587\u4EF6\u5939"},
+    {L"Did not import ", L"\u672A\u5BFC\u5165 "},
+    {L": the Assets workspace imports only sounds (WAV, OGG)", L": \u7D20\u6750\u5DE5\u4F5C\u533A\u53EA\u5BFC\u5165\u58F0\u97F3\uFF08WAV\u3001OGG\uFF09"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

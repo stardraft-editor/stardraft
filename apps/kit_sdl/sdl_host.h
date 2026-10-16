@@ -115,6 +115,9 @@ public:
     static void pushGesture(draw::MouseKind kind, int swipe, SDL_WindowID window = 0);
     // The SDL event that pushGesture pushes (a snapshot feeds it to snapshotMouse).
     static SDL_Event gestureEvent(draw::MouseKind kind, int swipe, SDL_WindowID window = 0);
+    // The SDL window that shows `v` (a view in a window that show() or openWindow made), or nullptr: the program's
+    // system parts reach it (macOS: a Settings window's toolbar).
+    SDL_Window* sdlWindow(const draw::View& v) const;
 
     // draw::Host
     void invalidate(draw::View& v) override;

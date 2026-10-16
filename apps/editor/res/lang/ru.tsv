@@ -2026,3 +2026,7 @@ Bring all to front	Все окна на передний план
 Dark theme	Тёмная тема
 The theme of the system, dark or light (default)	Тема системы, тёмная или светлая (по умолчанию)
 Automatic (the color of the system)	Автоматически (цвет системы)
+General	Общие
+Folders	Папки
+Did not import 	Не импортировано: 
+: the Assets workspace imports only sounds (WAV, OGG)	: рабочая область «Ассеты» импортирует только звуки (WAV, OGG)

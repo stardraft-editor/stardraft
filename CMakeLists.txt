@@ -470,10 +470,11 @@ if(STARDRAFT_RENDERER)
     set_target_properties(${sdlEditor} PROPERTIES OUTPUT_NAME ${sdlEditorName} MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/editor/Info.plist.in)
     if(APPLE)
         # macOS: the menus (mac_menus.mm: the menu bar, the context menus), the trackpad's scrolls, smart zoom and swipes
-        # (mac_input.mm: the only event monitors), the window and document look (mac_window.mm), the icon
-        # (res/stardraft.icns, from the .ico by tools/make_icns.py) and the version in Info.plist (numbers only: "0.5
-        # Alpha" is 0.5).
-        target_sources(${sdlEditor} PRIVATE apps/editor/mac_menus.mm apps/editor/mac_input.mm apps/editor/mac_window.mm apps/editor/res/stardraft.icns)
+        # (mac_input.mm: the only event monitors), the window and document look (mac_window.mm), the Dock, Finder and the
+        # Settings window (mac_dock.mm), the icon (res/stardraft.icns, from the .ico by tools/make_icns.py) and the
+        # version in Info.plist (numbers only: "0.5 Alpha" is 0.5).
+        target_sources(${sdlEditor} PRIVATE apps/editor/mac_menus.mm apps/editor/mac_input.mm apps/editor/mac_window.mm apps/editor/mac_dock.mm
+                       apps/editor/res/stardraft.icns)
         set_source_files_properties(apps/editor/res/stardraft.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
         target_link_libraries(${sdlEditor} PRIVATE "-framework Cocoa")
         string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" editorBundleVersion "${STARDRAFT_VERSION_NAME}")
