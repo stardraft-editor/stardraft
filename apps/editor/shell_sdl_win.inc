@@ -262,7 +262,19 @@ int sdlUiFontHeight() {
 
 // The settings of the Windows builds before the settings file: HKCU\Software\StarDraft (core/prefs.inc reads a value
 // there that the file does not have yet), the same as the Win32 program's (shell_win32.inc), so an update from an old
-// build keeps them.
+// build keeps them. A test that gives the settings file (shellSettingsFileGiven) reads none, or the registry file that
+// --legacyhive gives (gLegacyHiveArg: its own Software\StarDraft; made when it is not there), so a test of an update
+// from those builds never reads or changes the user's.
+static HKEY legacyRoot() {
+    static const HKEY root = [] {
+        if (!gLegacyHiveArg.empty()) {
+            HKEY k = nullptr;
+            return RegLoadAppKeyW(gLegacyHiveArg.c_str(), &k, KEY_ALL_ACCESS, 0, 0) == ERROR_SUCCESS ? k : HKEY(nullptr);
+        }
+        return shellSettingsFileGiven() ? HKEY(nullptr) : HKEY_CURRENT_USER;
+    }();
+    return root;
+}
 static std::wstring legacyKeyPath(const std::wstring& sub) {
     std::wstring key = L"Software\\StarDraft";
     if (!sub.empty()) {
@@ -278,16 +290,17 @@ bool shellLegacyValue(const std::wstring& sub, const std::wstring& value, Legacy
                         : kind == LegacyKind::Texts ? RRF_RT_REG_MULTI_SZ
                                                     : RRF_RT_REG_BINARY;
     const std::wstring key = legacyKeyPath(sub);
+    const HKEY root = legacyRoot();
     DWORD size = 0;
-    if (RegGetValueW(HKEY_CURRENT_USER, key.c_str(), value.c_str(), flags, nullptr, nullptr, &size) != ERROR_SUCCESS) return false;
+    if (!root || RegGetValueW(root, key.c_str(), value.c_str(), flags, nullptr, nullptr, &size) != ERROR_SUCCESS) return false;
     out.assign(size, 0);
-    if (RegGetValueW(HKEY_CURRENT_USER, key.c_str(), value.c_str(), flags, nullptr, out.data(), &size) != ERROR_SUCCESS) return false;
+    if (RegGetValueW(root, key.c_str(), value.c_str(), flags, nullptr, out.data(), &size) != ERROR_SUCCESS) return false;
     out.resize(size);
     return true;
 }
 void shellLegacyNames(const std::wstring& sub, std::vector<std::wstring>& out) {
     HKEY k;
-    if (RegOpenKeyExW(HKEY_CURRENT_USER, legacyKeyPath(sub).c_str(), 0, KEY_READ, &k) != ERROR_SUCCESS) return;
+    if (!legacyRoot() || RegOpenKeyExW(legacyRoot(), legacyKeyPath(sub).c_str(), 0, KEY_READ, &k) != ERROR_SUCCESS) return;
     for (DWORD i = 0;; ++i) {
         wchar_t name[256];
         DWORD len = 256;
@@ -296,7 +309,9 @@ void shellLegacyNames(const std::wstring& sub, std::vector<std::wstring>& out) {
     }
     RegCloseKey(k);
 }
-void shellLegacyRemove(const std::wstring& sub, const std::wstring& value) { RegDeleteKeyValueW(HKEY_CURRENT_USER, legacyKeyPath(sub).c_str(), value.c_str()); }
+void shellLegacyRemove(const std::wstring& sub, const std::wstring& value) {
+    if (legacyRoot()) RegDeleteKeyValueW(legacyRoot(), legacyKeyPath(sub).c_str(), value.c_str());
+}
 
 // The log's lines go into the crash report's end too.
 void sdlRememberLogLine(const std::wstring& line) {
@@ -387,6 +402,46 @@ bool shellProcessRunning(std::uint32_t pid) {
     return alive;
 }
 
+// --check crashes (sdl_updates.inc): the crash reports in the folder (each one's state) and what the next start does
+// with the ones that were not sent (Options > Crash reports; a build made here has no token, and asks and sends nothing).
+std::string sdlCrashCheck() {
+    int mode = 0;
+    prefs::number(L"CrashReports", mode, 0, 2);
+    const fs::path folder = winsdl::crashFolder();
+    std::string out = "crashes: folder " + narrow(folder.wstring()) + ", crash reports " + std::to_string(mode) + "\n";
+    std::error_code ec;
+    for (const auto& e : fs::directory_iterator(folder, ec)) {
+        std::string state = "not sent";
+        if (std::ifstream in(e.path() / "sent"); in) std::getline(in, state);
+        const auto size = fs::exists(e.path() / "report.txt", ec) ? fs::file_size(e.path() / "report.txt", ec) : 0;
+        out += "crashes: report " + e.path().filename().string() + ", report.txt " + std::to_string(size) + " bytes, crash.dmp " +
+               (fs::exists(e.path() / "crash.dmp", ec) ? "yes" : "no") + ", " + state + "\n";
+    }
+    const auto unsent = stardraft::platform::unsentCrashReports(folder);
+    const std::string token = issueToken().empty() ? " (a build made here: nothing, it has no token)" : "";
+    if (unsent.empty()) out += "crashes: the next start: nothing (no report waits)\n";
+    else if (mode == 0) out += "crashes: the next start asks" + token + ": " + narrow(releases::crashAskText(unsent.front().parent_path())) + "\n";
+    else if (mode == 1) out += "crashes: the next start sends " + std::to_string(unsent.size()) + token + "\n";
+    else out += "crashes: the next start: nothing (crash reports are off)\n";
+    return out;
+}
+
+// --check filetypes (sdl_updates.inc): what opens the maps and project.stardraft in Explorer (the user's file types:
+// read only).
+std::string sdlFileTypesCheck() {
+    auto classes = [](const std::wstring& key) {
+        wchar_t v[1024] = L"";
+        DWORD size = sizeof v;
+        return RegGetValueW(HKEY_CURRENT_USER, (L"Software\\Classes\\" + key).c_str(), nullptr, RRF_RT_REG_SZ, nullptr, v, &size) == ERROR_SUCCESS ? narrow(v)
+                                                                                                                                                 : std::string("(none)");
+    };
+    std::string out = "filetypes: this program " + narrow(stardraft::platform::programFile().wstring()) + "\n";
+    out += "filetypes: project.stardraft " + classes(L".stardraft") + ", opens with " + classes(L"StarDraft.Project\\shell\\open\\command") + "\n";
+    out += "filetypes: maps " + classes(L".scm") + " " + classes(L".scx") + ", opens with " + classes(L"StarDraft.Map\\shell\\open\\command") +
+           ", maps open with StarDraft 2: " + (stardraft::platform::mapsOpenWithStarDraft() ? "yes" : "no") + "\n";
+    return out;
+}
+
 #else  // (the other systems: none of these parts)
 
 stardraft::kit_sdl::EmbeddedFile sdlEmbeddedFiles() { return nullptr; }  // (the files are beside the program, or in the app bundle)
@@ -408,5 +463,7 @@ void sdlWindowsShown(bool) {}
 // (core/documents.inc: the unsaved projects' folders; the restart)
 std::uint32_t shellProcessId() { return std::uint32_t(getpid()); }
 bool shellProcessRunning(std::uint32_t pid) { return pid && (kill(pid_t(pid), 0) == 0 || errno == EPERM); }
+std::string sdlCrashCheck() { return "crashes: none on this system yet\n"; }
+std::string sdlFileTypesCheck() { return "filetypes: none on this system\n"; }
 
 #endif

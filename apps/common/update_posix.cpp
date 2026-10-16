@@ -79,14 +79,25 @@ Replace replaceProgram(const fs::path& self, const fs::path& fresh) {
     return Replace::Done;
 }
 
-bool startProgram(const fs::path& exe) {
+bool restoreProgram(const fs::path& self) {
+    const fs::path old = oldProgramFile(self);
+    std::error_code ec;
+    if (!fs::exists(old, ec)) return false;
+    fs::remove_all(self, ec);  // (the new program, which does not run)
+    fs::rename(old, self, ec);
+    return !ec;
+}
+
+bool startProgram(const fs::path& exe, const std::vector<std::string>& args) {
     const std::string path = exe.string(), dir = exe.parent_path().string();
-    char* argv[] = {const_cast<char*>(path.c_str()), nullptr};
+    std::vector<char*> argv = {const_cast<char*>(path.c_str())};
+    for (const std::string& a : args) argv.push_back(const_cast<char*>(a.c_str()));
+    argv.push_back(nullptr);
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
     posix_spawn_file_actions_addchdir_np(&actions, dir.c_str());  // (its folder the working folder, as on Windows)
     pid_t pid = 0;
-    const bool started = posix_spawn(&pid, path.c_str(), &actions, nullptr, argv, environ) == 0;
+    const bool started = posix_spawn(&pid, path.c_str(), &actions, nullptr, argv.data(), environ) == 0;
     posix_spawn_file_actions_destroy(&actions);
     return started;
 }

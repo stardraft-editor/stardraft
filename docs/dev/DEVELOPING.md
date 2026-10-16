@@ -238,7 +238,10 @@ are in `docs/dev/PRINCIPLES.md`. Read them before a change. The rules here are f
 The program keeps its settings (options, layout, recent files) in `%APPDATA%\StarDraft\settings.json`
 (`stardraft::Settings`, `apps/editor/core/prefs.inc`). A value the file does not have yet is read from the registry
 (`HKCU\Software\StarDraft`), where builds before the file kept it; the registry is not written. The environment
-variable `STARDRAFT_SETTINGS` gives another file. File associations stay in the registry.
+variable `STARDRAFT_SETTINGS` gives another file (and then the registry is not read: a test never reads the user's).
+File associations stay in the registry. A snapshot reads a settings file as a start does with `--settings <file>`, and
+on Windows the registry of the builds before the file from a registry file of its own with `--legacyhive <file>`;
+`--check settings` prints what it read (`tools/sdl_snapshots.py`: the `update-*` cases).
 
 ## Crash reports, feedback and updates
 
@@ -251,7 +254,8 @@ token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, 
   video card, the exception, the stack, the last log lines) into `%LOCALAPPDATA%\StarDraft\crashes\<time>\` and
   sends the report at once, with no user action: an issue with the label `crash`, or a comment on the open issue for
   the same place. Reports that could not go are sent at the next start. `stardraft.exe --crash-test` crashes on
-  purpose. Each CI run keeps the build's `stardraft.pdb` (artifact `stardraft-symbols-<commit>`, 90 days), and each
+  purpose (a test run: the report stays on disk); `--check crashes` prints the reports and what the next start does
+  with them. Each CI run keeps the build's `stardraft.pdb` (artifact `stardraft-symbols-<commit>`, 90 days), and each
   release keeps it for good in the draft release `symbols-v<version>`: open `crash.dmp` with it to get function names
   and lines.
 - **Feedback** (`core/views_feedback.inc`, `core/feedback_send.inc`, `sdl_options.inc`): a right click on almost
@@ -262,9 +266,13 @@ token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, 
   `%LOCALAPPDATA%\StarDraft\feedback\`. The glyph and its color (`kFeedback`, yellow) are the same everywhere.
 - **Updates** (`apps/editor/sdl_updates.inc` and `core/releases.inc`; unpacking and replacing the program in `apps/common/update.h`): Help > Check for updates compares the newest release's title ("... (build
   <commit>)") with the build's commit, downloads the zip, puts its `stardraft.exe` in place of the running one (that
-  one becomes `stardraft.exe.old`, deleted at the next start) and starts it. A release build also checks at start and
+  one becomes `stardraft.exe.old`) and starts it with `--restart <pid>` and the open maps and projects (as Restart
+  now); the new program waits for the old one to end and deletes `stardraft.exe.old`. A new program that does not
+  start (a damaged download) goes, and the old one is in its place again. A release build also checks at start and
   says so in the status bar. An installed `stardraft.exe` of an older release (the Windows program before the SDL
-  one) gets the new program in this way, as the zip holds only `stardraft.exe`.
+  one) gets the new program in this way, as the zip holds only `stardraft.exe`. `stardraft.exe --update-test <zip>
+  [options]` does the install with a zip on this computer (no network) in a copy of the program in a temporary
+  folder: the zip's program starts with the options after the zip (`--snapshot <png> --check update`).
 
 ## Commits and releases
 

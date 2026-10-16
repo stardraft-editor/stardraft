@@ -42,14 +42,37 @@ Replace replaceProgram(const fs::path& self, const fs::path& fresh) {
     // (a running program can be renamed on Windows, not deleted)
     if (!MoveFileExW(self.c_str(), old.c_str(), MOVEFILE_REPLACE_EXISTING)) return Replace::OldNotMoved;
     if (!MoveFileExW(fresh.c_str(), self.c_str(), MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING)) {
-        MoveFileExW(old.c_str(), self.c_str(), MOVEFILE_REPLACE_EXISTING);  // back as it was
+        DeleteFileW(self.c_str());  // (what a copy from another drive left of it)
+        if (!MoveFileExW(old.c_str(), self.c_str(), MOVEFILE_REPLACE_EXISTING)) return Replace::Broken;  // back as it was
         return Replace::NewNotPlaced;
     }
     return Replace::Done;
 }
 
-bool startProgram(const fs::path& exe) {
+bool restoreProgram(const fs::path& self) {
+    const fs::path old = oldProgramFile(self);
+    if (GetFileAttributesW(old.c_str()) == INVALID_FILE_ATTRIBUTES) return false;
+    DeleteFileW(self.c_str());  // (the new program, which does not run)
+    // (the old program is the running one: a running program's file can be renamed)
+    return MoveFileExW(old.c_str(), self.c_str(), MOVEFILE_REPLACE_EXISTING) != 0;
+}
+
+bool startProgram(const fs::path& exe, const std::vector<std::string>& args) {
     std::wstring run = L"\"" + exe.wstring() + L"\"";
+    for (const std::string& a : args) {  // each in quotes, as the C runtime reads a command line
+        const int n = MultiByteToWideChar(CP_UTF8, 0, a.data(), int(a.size()), nullptr, 0);
+        std::wstring w(size_t(n), L'\0');
+        MultiByteToWideChar(CP_UTF8, 0, a.data(), int(a.size()), w.data(), n);
+        run += L" \"";
+        size_t slashes = 0;
+        for (wchar_t ch : w) {
+            if (ch == L'"') run.append(slashes + 1, L'\\');  // (a quote, and the backslashes before it, escaped)
+            slashes = ch == L'\\' ? slashes + 1 : 0;
+            run += ch;
+        }
+        run.append(slashes, L'\\');  // (the backslashes before the closing quote)
+        run += L"\"";
+    }
     STARTUPINFOW si{sizeof si};
     PROCESS_INFORMATION pi{};
     if (!CreateProcessW(exe.c_str(), run.data(), nullptr, nullptr, FALSE, 0, nullptr, exe.parent_path().c_str(), &si, &pi)) return false;
