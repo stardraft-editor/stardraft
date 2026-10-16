@@ -23,11 +23,77 @@ constexpr unsigned kShortcutCtrl = draw::kSuper;
 constexpr unsigned kShortcutCtrl = draw::kCtrl;
 #endif
 
-// A shortcut as the menus show it: on macOS Ctrl is Cmd and Alt is Option (Ctrl+Shift+S is Cmd+Shift+S there).
-std::wstring shortcutText(std::wstring s) {
+// The shortcuts in a text as this system shows them. On macOS: the Mac symbols, in the Mac order (Control, Option,
+// Shift, Command), with Cmd where Windows has Ctrl and Option where it has Alt: "Ctrl+Shift+S" is "⇧⌘S", "Del" "⌦",
+// "Ctrl+click" "⌘-click". `whole`: the text is one shortcut (a menu's), so a key with no modifier changes too.
+// Elsewhere the text stays as it is.
+std::wstring shellKeysText(const std::wstring& s, bool whole) {
 #ifdef __APPLE__
-    for (const auto& [from, to] : {std::pair<std::wstring, std::wstring>{L"Ctrl+", L"Cmd+"}, {L"Alt+", L"Option+"}})
-        for (size_t at = s.find(from); at != std::wstring::npos; at = s.find(from, at + to.size())) s.replace(at, from.size(), to);
+    static const std::pair<const wchar_t*, const wchar_t*> kKeys[] = {
+        {L"mouse wheel", nullptr}, {L"wheel", nullptr}, {L"click", nullptr}, {L"drag", nullptr}, {L"Backspace", L"\x232B"}, {L"Plus", L"+"},
+        {L"Minus", L"-"}, {L"Del", L"\x2326"}, {L"Tab", L"\x21E5"}, {L"Enter", L"\x21A9"}, {L"Esc", L"\x238B"}, {L"Home", L"\x2196"},
+        {L"End", L"\x2198"}, {L"PgUp", L"\x21DE"}, {L"PgDn", L"\x21DF"}, {L"Left", L"\x2190"}, {L"Right", L"\x2192"}, {L"Up", L"\x2191"},
+        {L"Down", L"\x2193"}, {L"Space", L"Space"}};
+    auto word = [](wchar_t c) { return std::iswalnum(wint_t(c)) != 0; };
+    std::wstring out;
+    for (size_t i = 0; i < s.size();) {
+        if (i == 0 || !word(s[i - 1])) {
+            bool ctrl = false, shift = false, alt = false;
+            size_t j = i;
+            for (bool more = true; more;) {
+                more = false;
+                for (auto [name, flag] : {std::pair{L"Ctrl+", &ctrl}, std::pair{L"Cmd+", &ctrl}, std::pair{L"Shift+", &shift}, std::pair{L"Alt+", &alt}})
+                    if (s.compare(j, std::wcslen(name), name) == 0 && j + std::wcslen(name) < s.size()) j += std::wcslen(name), *flag = more = true;
+            }
+            if (ctrl || shift || alt || whole) {
+                std::wstring mods = std::wstring(alt ? L"\x2325" : L"") + (shift ? L"\x21E7" : L"") + (ctrl ? L"\x2318" : L"");
+                std::wstring key;
+                size_t end = j;
+                for (const auto& [name, symbol] : kKeys) {
+                    const size_t n = std::wcslen(name);
+                    if (s.compare(j, n, name) == 0 && (j + n == s.size() || !word(s[j + n]))) {
+                        if (!symbol && mods.empty()) break;  // (a "click" with no modifier is a word)
+                        key = symbol ? std::wstring(symbol) : L"-" + std::wstring(name), end = j + n;
+                        break;
+                    }
+                }
+                if (key.empty() && j < s.size() && s[j] == L'F' && j + 1 < s.size() && std::iswdigit(wint_t(s[j + 1]))) {
+                    end = j + 1;
+                    while (end < s.size() && std::iswdigit(wint_t(s[end]))) ++end;
+                    if (end < s.size() && word(s[end])) end = j;
+                    else key = s.substr(j, end - j);
+                }
+                if (key.empty() && !mods.empty() && j < s.size() && s[j] > L' ' && (j + 1 == s.size() || !word(s[j + 1]) || !word(s[j])))
+                    key = std::wstring(1, wchar_t(std::towupper(wint_t(s[j])))), end = j + 1;
+                if (!key.empty()) {
+                    out += mods + key;
+                    i = end;
+                    continue;
+                }
+            }
+        }
+        out += s[i++];
+    }
+    return out;
+#else
+    (void)whole;
+    return s;
+#endif
+}
+std::wstring shellKeysText(const std::wstring& s) { return shellKeysText(s, false); }
+
+// A shortcut as the menus show it (shellKeysText: the Mac symbols on macOS).
+std::wstring shortcutText(const std::wstring& s) { return shellKeysText(s, true); }
+
+// A menu command's shortcut on this system. macOS: Redo is Cmd+Shift+Z, Delete is Cmd+Delete (the Delete key of a Mac
+// keyboard is Backspace), and Map properties has none (Cmd+M is the Window menu's Minimize).
+std::wstring platformShortcut(int id, const std::wstring& s) {
+#ifdef __APPLE__
+    if (id == ID_EDIT_REDO) return L"Ctrl+Shift+Z";
+    if (id == ID_EDIT_DELETE) return L"Ctrl+Backspace";
+    if (id == ID_SCEN_PROPS) return {};
+#else
+    (void)id;
 #endif
     return s;
 }
@@ -46,11 +112,15 @@ bool keyOfChord(const std::string& name, draw::Key& out) {
         case ',': out = draw::Key::Comma; return true;
         case '.': out = draw::Key::Period; return true;
         case '/': out = draw::Key::Slash; return true;
+        case '`': out = draw::Key::Grave; return true;
+        case '[': out = draw::Key::LeftBracket; return true;
+        case ']': out = draw::Key::RightBracket; return true;
         case ' ': out = draw::Key::Space; return true;
         default: return false;
         }
     }
     if (name == "Del") out = draw::Key::Delete;
+    else if (name == "Backspace") out = draw::Key::Backspace;
     else if (name == "Tab") out = draw::Key::Tab;
     else if (name == "Home") out = draw::Key::Home;
     else if (name == "End") out = draw::Key::End;
@@ -319,7 +389,7 @@ std::vector<kit::MenuItem> toKit(const MenuModel& items) {
             else k.sub = toKit(it.items);
             break;
         case MenuItem::Kind::Command: {
-            k.label = accessFree(it.label), k.shortcut = shortcutText(it.shortcut);
+            k.label = accessFree(it.label), k.shortcut = platformShortcut(it.id, it.shortcut);  // (the menus show it with shortcutText)
             const stardraft::Command* tc = tableCommand(it.id);
             k.checked = it.checked || (tc && tc->isChecked()) || mapMenuCheck(it.id) == 1;
             k.enabled = !it.grayed && sdlEnabled(it.id);
@@ -337,12 +407,23 @@ std::vector<kit::MenuItem> toKit(const MenuModel& items) {
 void collectShortcuts(const MenuModel& items) {
     for (const MenuItem& it : items) {
         if (it.kind == MenuItem::Kind::Popup) collectShortcuts(it.items);
-        else if (it.kind == MenuItem::Kind::Command && !it.shortcut.empty())
+        else if (it.kind == MenuItem::Kind::Command && !it.shortcut.empty()) {
+            // The item's key, and this system's when it has another (macOS: Cmd+Delete as well as Del; none for a
+            // key that the system has, Cmd+M).
+            const std::wstring own = platformShortcut(it.id, it.shortcut);
+            if (own.empty()) continue;
             if (const auto c = stardraft::parseShortcut(narrow(it.shortcut))) gShortcuts.push_back({*c, it.id});
+            if (own != it.shortcut)
+                if (const auto c = stardraft::parseShortcut(narrow(own))) gShortcuts.push_back({*c, it.id});
+        }
     }
 }
 
-// Makes the menu bar again from the model (its checks, its enabled items, the recent lists).
+bool sdlNativeMenusRebuild(const MenuModel& model);  // (sdl_native_menus.inc: the system's menu bar on macOS)
+void sdlNativeMenusPoll();
+
+// Makes the menu bar again from the model (its checks, its enabled items, the recent lists): the window's, and the
+// system's when the program uses it (macOS).
 void rebuildMenus() {
     if (!gRoot) return;
     const MenuModel model = buildMenuModel();
@@ -351,7 +432,7 @@ void rebuildMenus() {
     std::vector<kit::MenuGroup> groups;
     for (const MenuItem& top : model) groups.push_back(kit::MenuGroup{accessFree(top.label), toKit(top.items)});
     gRoot->menus.setMenus(std::move(groups));
-    gMenusDirty = false;
+    gMenusDirty = !sdlNativeMenusRebuild(model);  // (a system menu that is open: again on a later frame)
 }
 
 // The frame hook's part: the menus are made again when they changed and none is open (an open menu keeps its items).
@@ -361,6 +442,7 @@ void menusIfDirty() {
     static int grayed = -1;
     const int now = int(mapMenuGrayed(ID_EDIT_UNDO)) | int(mapMenuGrayed(ID_EDIT_REDO)) << 1 | int(mapMenuGrayed(ID_EDIT_PASTE)) << 2;
     if (now != grayed) grayed = now, gMenusDirty = true;
+    sdlNativeMenusPoll();  // (the Window menu's tabs)
     if (gMenusDirty && gRoot && gRoot->menus.openIndex() < 0) rebuildMenus();
 }
 

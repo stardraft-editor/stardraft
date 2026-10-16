@@ -266,6 +266,7 @@ struct MapView final : draw::View {
 // The shortcuts and the menus (sdl_menus.inc).
 bool shortcutRun(const draw::KeyEvent& e);
 void menusIfDirty();
+bool sdlNativeMenuBar();  // (sdl_native_menus.inc: the menus are in the system's menu bar, macOS)
 void command(int id);
 
 // The Log at the bottom of the window (core/views_log.inc; shell_sdl.inc adds the lines).
@@ -435,7 +436,8 @@ struct MainView final : draw::View {
     }
 
     // The menu bar's height; the top tool bar is under it (as the Windows menu and its top bar).
-    static int menuBarHeight() { return scale(28); }
+    // macOS: none, the menus are in the system's menu bar (sdl_native_menus.inc).
+    static int menuBarHeight() { return sdlNativeMenuBar() ? 0 : scale(28); }
     // The modes' bar: in the top tool bar, after its icons (core/views_topbar.inc), in the window's coordinates.
     RECT modeBarRect() const {
         RECT r = topBarModesRect();
@@ -495,7 +497,7 @@ struct MainView final : draw::View {
         PaneSlot menuSlot = L.topBar, barSlot = L.topBar;  // the menus, then the tool bar under them
         menuSlot.rc.bottom = menuSlot.rc.top + menuBarHeight();
         barSlot.rc.top = menuSlot.rc.bottom;
-        apply(menus, menuSlot, true);
+        apply(menus, menuSlot, !sdlNativeMenuBar());
         apply(topBar, barSlot, true);
         apply(tabs, L.tabs, true);
         apply(rail, L.wsRail, shellHasRail());

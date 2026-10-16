@@ -65,6 +65,17 @@ public:
     using TestHook = std::function<bool(const std::vector<MenuItem>& items)>;
     static void setTestHook(TestHook hook);
 
+    // The system's own menus in place of the kit's (macOS: NSMenu at the pointer). The hook shows the items, waits
+    // until the menu closes and returns true; `picked` is then the item that was picked (nullptr: none). The menu's
+    // closed callback runs, then the item's run. The test hook comes first. Empty: the kit's menus.
+    using NativeHook = std::function<bool(draw::View& from, draw::Point at, const std::vector<MenuItem>& items, const MenuItem*& picked)>;
+    static void setNativeHook(NativeHook hook);
+
+    // How a shortcut shows in the menus (macOS: the Mac symbols, Cmd+S for Ctrl+S). Empty: as the item has it.
+    using ShortcutText = std::function<std::wstring(const std::wstring&)>;
+    static void setShortcutText(ShortcutText f);
+    static std::wstring shortcutText(const std::wstring& s);
+
     // Closes the open menus, if any (the closed callback runs).
     static void close();
     static bool open();

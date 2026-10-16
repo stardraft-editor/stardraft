@@ -67,6 +67,8 @@ struct Chain {
 
 Chain* g_current = nullptr;  // the open chain (one at a time)
 Menu::TestHook g_testHook;   // Menu::setTestHook
+Menu::NativeHook g_nativeHook;  // Menu::setNativeHook
+Menu::ShortcutText g_shortcutText;  // Menu::setShortcutText
 
 // One menu: its rows, the highlighted row and the submenu that is open.
 class Panel final : public View {
@@ -209,7 +211,7 @@ void Panel::paint(Canvas& c) {
         const int textRight = r.right - px(it.sub.empty() ? 10 : kSubW);
         c.text({r.left + px(kIconCol), r.top, textRight, r.bottom}, it.label, fg, draw::kMiddle | draw::kEllipsis);
         if (!it.shortcut.empty())
-            c.text({r.left + px(kIconCol), r.top, textRight, r.bottom}, it.shortcut, on ? th.dim : th.faint, draw::kMiddle | draw::kRight);
+            c.text({r.left + px(kIconCol), r.top, textRight, r.bottom}, Menu::shortcutText(it.shortcut), on ? th.dim : th.faint, draw::kMiddle | draw::kRight);
         if (!it.sub.empty()) {  // a chevron: the submenu opens to the side
             const int cx = r.right - px(13), cy = (r.top + r.bottom) / 2, a = px(4);
             const Point chevron[] = {{cx - a / 2, cy - a}, {cx + a / 2, cy}, {cx - a / 2, cy + a + 1}};
@@ -366,7 +368,7 @@ MenuLayout Menu::measure(const std::vector<MenuItem>& items, Canvas* c) {
     bool anySub = false;
     for (const MenuItem& it : items) {
         h += rowHeight(it);
-        if (c && !it.separator) textW = std::max(textW, c->measure(it.label)), keysW = std::max(keysW, c->measure(it.shortcut));
+        if (c && !it.separator) textW = std::max(textW, c->measure(it.label)), keysW = std::max(keysW, c->measure(Menu::shortcutText(it.shortcut)));
         anySub = anySub || !it.sub.empty();
         out.sub.push_back(it.sub.empty() ? MenuLayout{} : measure(it.sub, c));
     }
@@ -377,6 +379,9 @@ MenuLayout Menu::measure(const std::vector<MenuItem>& items, Canvas* c) {
 }
 
 void Menu::setTestHook(TestHook hook) { g_testHook = std::move(hook); }
+void Menu::setNativeHook(NativeHook hook) { g_nativeHook = std::move(hook); }
+void Menu::setShortcutText(ShortcutText f) { g_shortcutText = std::move(f); }
+std::wstring Menu::shortcutText(const std::wstring& s) { return g_shortcutText && !s.empty() ? g_shortcutText(s) : s; }
 
 bool Menu::popup(View& from, Point at, const std::vector<MenuItem>& items, const MenuLayout& layout, Options opts) {
     if (g_testHook && g_testHook(items)) {
@@ -386,6 +391,15 @@ bool Menu::popup(View& from, Point at, const std::vector<MenuItem>& items, const
     draw::Host* host = from.host();
     if (!host) return false;
     close();
+    if (g_nativeHook) {
+        const MenuItem* picked = nullptr;
+        if (g_nativeHook(from, at, items, picked)) {
+            const std::function<void()> run = picked && picked->enabled ? picked->run : std::function<void()>();
+            if (opts.closed) opts.closed(false);
+            if (run) run();
+            return true;
+        }
+    }
     auto chain = std::make_unique<Chain>(*host, std::move(opts), &from);
     Chain* c = chain.release();
     g_current = c;

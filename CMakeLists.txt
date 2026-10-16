@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(stardraft LANGUAGES C CXX)
 if(APPLE)
-    enable_language(OBJCXX)  # (the editor's macOS application menu, apps/editor/mac_app_menu.mm: here, before any target)
+    enable_language(OBJCXX)  # (the editor's macOS parts, apps/editor/mac_*.mm: here, before any target)
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -466,9 +466,9 @@ if(STARDRAFT_RENDERER)
     target_link_libraries(${sdlEditor} PRIVATE stardraft_kit_sdl stardraft_render stardraft_platform stardraft_kit stardraft)
     set_target_properties(${sdlEditor} PROPERTIES OUTPUT_NAME ${sdlEditorName} MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/editor/Info.plist.in)
     if(APPLE)
-        # macOS: the application menu (mac_app_menu.mm), the icon (res/stardraft.icns, from the .ico by
+        # macOS: the menus (mac_menus.mm: the menu bar, the context menus), the scroll monitor (mac_app_menu.mm), the icon (res/stardraft.icns, from the .ico by
         # tools/make_icns.py) and the version in Info.plist (numbers only: "0.5 Alpha" is 0.5).
-        target_sources(${sdlEditor} PRIVATE apps/editor/mac_app_menu.mm apps/editor/res/stardraft.icns)
+        target_sources(${sdlEditor} PRIVATE apps/editor/mac_app_menu.mm apps/editor/mac_menus.mm apps/editor/res/stardraft.icns)
         set_source_files_properties(apps/editor/res/stardraft.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
         target_link_libraries(${sdlEditor} PRIVATE "-framework Cocoa")
         string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" editorBundleVersion "${STARDRAFT_VERSION_NAME}")

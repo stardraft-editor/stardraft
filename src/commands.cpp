@@ -23,7 +23,7 @@ std::optional<KeyChord> parseShortcut(const std::string& text) {
         k.key = std::string(1, char(std::toupper(c)));
         return k;
     }
-    static const char* const kNames[] = {"Del", "Tab", "Enter", "Esc", "Home", "End", "PgUp", "PgDn", "Left", "Right", "Up", "Down", "Ins", "Space"};
+    static const char* const kNames[] = {"Del", "Tab", "Enter", "Esc", "Home", "End", "PgUp", "PgDn", "Left", "Right", "Up", "Down", "Ins", "Space", "Backspace"};
     if (std::find_if(std::begin(kNames), std::end(kNames), [&](const char* n) { return rest == n; }) != std::end(kNames)) {
         k.key = rest;
         return k;
