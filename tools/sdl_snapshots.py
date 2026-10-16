@@ -63,6 +63,8 @@ CASES += [
     ("map-dialog-message-delete", ["--dialog", "message:delete"], "map"),  # the Triggers' question before Delete
     # A project open.
     ("project-scriptpreview", ["--workspace", "project", "--scriptpreview"], "project"),
+    # The top tool bar of a project's map: the icons, the modes, Build and Debug mode, Report feedback.
+    ("project-topbar", ["--workspace", "map"], "project"),
     # The game's text codes (colors) in a block's text: drawn without boxes (the first trigger of the second category).
     ("project-trig-gametext", ["--workspace", "triggers", "--trig", "1:0"], "project"),
     ("project-briefing", ["--workspace", "briefing", "--briefing", "0"], "project"),

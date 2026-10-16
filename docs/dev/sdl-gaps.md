@@ -76,7 +76,7 @@ Open: the map view's cursor (the move and resize cursors: main.cpp `mapCursorAt`
 
 | Surface | State |
 |---|---|
-| The top tool bar (main.cpp `TopBarView`: New, Open, Save, Undo, Redo, Cut, Copy, Paste, Delete, Quick search, Build, Report feedback) | Open: the SDL top bar has the menus and the modes only. Build and Report feedback are in the menus. |
+| The top tool bar (main.cpp `TopBarView`: New, Open, Save, Undo, Redo, Cut, Copy, Paste, Delete, Quick search, Build, Report feedback) | Done: the bar is `core/views_topbar.inc` (`TopBarView`), for both programs. On SDL it is under the menu bar, as on Windows, with the modes after its icons; the icons are gray as the menu items are (`commandEnabled`). Snapshots: map-mode-units (a map), project-topbar (a project: Build and Debug mode). |
 | Some icons: the button after the entry's name on Map data (a classic map's Data page), the mark before the start page's alpha note | Show a missing glyph (a box with a question mark) on Linux: an icon that the SDL icon atlases do not have. Open. |
 | The snapshots (`main_sdl.cpp`) | `--key <key>` presses a key in the window after the first frame (new in the sweep; `tools/sdl_snapshots.py`: map-key-copy, map-key-rail, map-scene-grid, map-scene-select). |
 | The status bar, the Log, the tabs, the rail, the minimap, the palettes, the tool strip, the map pages, Data, Triggers, Briefing, Files, Project, the New page, the start page, Program options, About, the feedback dialog | On SDL. |

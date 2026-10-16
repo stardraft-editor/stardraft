@@ -224,10 +224,11 @@ void menusIfDirty();
 // The Log at the bottom of the window (core/views_log.inc; shell_sdl.inc adds the lines).
 LogPaneView gLogPane;
 
-// The main window: the menu bar, the document tabs, the workspace rail, the status bar, the map view with its minimap and
+// The main window: the menu bar, the top tool bar under it (core/views_topbar.inc), the document tabs, the workspace rail, the status bar, the map view with its minimap and
 // the panes that are not on this system yet, placed by computeLayout.
 struct MainView final : draw::View {
     kit::MenuBar menus;
+    TopBarView topBar;  // the top tool bar under the menus: the icons, the modes, Build, Report feedback
     TabsView tabs;
     RailView rail;
     StatusView status{gState};
@@ -239,6 +240,7 @@ struct MainView final : draw::View {
     MainView() {
         initPanels();
         add(menus, draw::Rect(0, 0, 0, 0));
+        add(topBar, draw::Rect(0, 0, 0, 0));
         add(tabs, draw::Rect(0, 0, 0, 0));
         add(rail, draw::Rect(0, 0, 0, 0));
         add(status, draw::Rect(0, 0, 0, 0));
@@ -288,11 +290,13 @@ struct MainView final : draw::View {
         return shortcutRun(e);
     }
 
-    // The modes' bar: at the top bar's right, after the menus (the menus take the left).
+    // The menu bar's height; the top tool bar is under it (as the Windows menu and its top bar).
+    static int menuBarHeight() { return scale(28); }
+    // The modes' bar: in the top tool bar, after its icons (core/views_topbar.inc), in the window's coordinates.
     RECT modeBarRect() const {
-        const int bw = scale(112), bh = scale(26), by = (scale(28) - bh) / 2;
-        const int x1 = width() - scale(8), x0 = x1 - kModeCount * bw;
-        return RECT{x0, by, x1, by + bh};
+        RECT r = topBarModesRect();
+        r.top += menuBarHeight(), r.bottom += menuBarHeight();
+        return r;
     }
 
     // Places the panes for the window's size and the state (computeLayout; the same rules as the Windows layout).
@@ -303,8 +307,8 @@ struct MainView final : draw::View {
         in.dpi = int(gDpi);
         in.clientW = width(), in.clientH = height();
         in.statusH = scale(24);
-        in.logH = logPaneHeight(height(), scale(28), tabStripHeight(), in.statusH);  // (the Log's bar, or the open Log)
-        in.barH = scale(28);             // the menu bar
+        in.barH = menuBarHeight() + topBarHeight();  // the menu bar and the top tool bar
+        in.logH = logPaneHeight(height(), in.barH, tabStripHeight(), in.statusH);  // (the Log's bar, or the open Log)
         in.tabsH = tabStripHeight();     // the document tabs
         in.railW = shellHasRail() ? wsRailWidth() : 0;
         in.mode = gState.mode;
@@ -344,7 +348,11 @@ struct MainView final : draw::View {
         const bool owners = m == Mode::Units || m == Mode::Sprites;
         const bool sections = m == Mode::Units || m == Mode::Doodads || m == Mode::Sprites;
         const bool toolsRight = gDock.toolsRight[int(m)];
-        apply(menus, L.topBar, true);
+        PaneSlot menuSlot = L.topBar, barSlot = L.topBar;  // the menus, then the tool bar under them
+        menuSlot.rc.bottom = menuSlot.rc.top + menuBarHeight();
+        barSlot.rc.top = menuSlot.rc.bottom;
+        apply(menus, menuSlot, true);
+        apply(topBar, barSlot, true);
         apply(tabs, L.tabs, true);
         apply(rail, L.wsRail, shellHasRail());
         apply(status, L.status, true);
@@ -418,6 +426,9 @@ void tilesSync() {
     if (gRoot && gTilesShown != (tilesOn() && !gNewOpen)) gRoot->relayout();
     if (gTilesShown) tilesFresh(), gTilesGrid.invalidate();
 }
+
+// The modes' control shows in the top tool bar (Build goes after it then: core/views_topbar.inc).
+bool topBarModesShown() { return gRoot && gRoot->modes.shown(); }
 
 void invalidateMapView() {
     if (gRoot) gRoot->map.invalidate();
