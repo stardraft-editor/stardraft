@@ -1411,10 +1411,10 @@ def check_update_release(output):
     if "release: StarDraft 2 - v9.9.9.9 (build 0abc123), build 0abc123, newer yes" not in output:
         return "the release is not read, or not newer"
     want = RELEASE_DOWNLOADS.get(sys.platform if sys.platform in ("win32", "darwin") else "linux")
-    m = re.search(r"^release: this system's download \([^)]*\) (\S+)$", output, re.M)
+    m = re.search(r"^release: this system's download \([^)]*\) (\S+)\r?$", output, re.M)  # (Windows: the lines end in \r\n)
     if not m or not m.group(1).endswith("/" + want):
         return f"this system's download is {m.group(1) if m else 'none'}, not {want}"
-    m = re.search(r"^release: Check for updates (.*): (\S+)$", output, re.M)
+    m = re.search(r"^release: Check for updates (.*): (\S+)\r?$", output, re.M)
     if not m:
         return "no Check for updates line"
     if m.group(1) == "opens the release page" and not m.group(2).endswith("/releases/tag/v9.9.9.9"):
