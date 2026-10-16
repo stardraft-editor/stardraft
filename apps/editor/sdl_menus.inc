@@ -548,6 +548,7 @@ void sdlWheelShot(const std::string& spec);
 void sdlPinchShot(const std::string& spec);
 void sdlGestureShot(const std::string& spec, bool smartZoom);
 std::string sdlScrollLine(int x, int y);
+bool sdlScriptStep(char kind, const std::string& value);  // --script's own verbs (sdl_soak.inc)
 
 // A snapshot's inputs (main_sdl.cpp: --key, --type, --click, --drag, --move, --wait; the option's letter k, t, c, d,
 // m, w and its value) that have not run yet, in their order.
@@ -557,6 +558,7 @@ bool sdlShotInputNext() {
     if (gShotInputs.empty()) return false;
     const auto [kind, value] = gShotInputs.front();
     gShotInputs.pop_front();
+    if (sdlScriptStep(kind, value)) return true;
     if (kind == 'k') sdlPressKey(value);
     else if (kind == 't') sdlTypeText(value);
     else if (kind == 'w') {  // --wait ms: the program's timers that are due in that time run (a page that reads the map again)

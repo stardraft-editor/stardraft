@@ -199,6 +199,13 @@ Captures are snapshots (see "Snapshots" above): `--snapshot <png>` with the opti
 `tools/sdl_snapshots.py` is one such run (`--list` shows them); a case's check reads what the run prints. The release
 pictures are cases too (`tools/shots/README.md`).
 
+A long session is `--script <file>[:<times>]` (`apps/editor/sdl_soak.inc`): the inputs of a file, one a line
+(`click 700,650`, `key Ctrl+Z`, `mode terrain`, `workspace data`, `open <map>`), that many times over. `undocheck`
+undoes and redoes the undo steps and compares the map at each step, `roundtrip <file>` saves the map and opens it again
+(`{n}` in a value: the time over), and `stats` prints the memory (the working set, the GPU's, the bitmaps with a
+texture), the undo steps and the frame times since the last `stats`; `open` prints the open's time and the first
+frame's. The cases `map-script-session`, `map-script-dialogs` and `project-script-reopen` use it.
+
 Test runs never play sound and never take the focus or move the mouse: they draw with no window
 (`SDL_VIDEODRIVER=offscreen`), and the user may be at the computer. They also leave the user's settings (recent files, options, panes) alone. Keep it so
 for new tests.
@@ -251,7 +258,7 @@ token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, 
   video card, the exception, the stack, the last log lines) into `%LOCALAPPDATA%\StarDraft\crashes\<time>\` and
   sends the report at once, with no user action: an issue with the label `crash`, or a comment on the open issue for
   the same place. Reports that could not go are sent at the next start. `stardraft.exe --crash-test` crashes on
-  purpose. Each CI run keeps the build's `stardraft.pdb` (artifact `stardraft-symbols-<commit>`, 90 days), and each
+  purpose (`--crash-test stack`: with a stack overflow; the report is written by a thread of its own). Each CI run keeps the build's `stardraft.pdb` (artifact `stardraft-symbols-<commit>`, 90 days), and each
   release keeps it for good in the draft release `symbols-v<version>`: open `crash.dmp` with it to get function names
   and lines.
 - **Feedback** (`core/views_feedback.inc`, `core/feedback_send.inc`, `sdl_options.inc`): a right click on almost
