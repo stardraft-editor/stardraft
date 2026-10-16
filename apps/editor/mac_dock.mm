@@ -268,15 +268,15 @@ std::string macDockCheck(const std::vector<MacSettingsTab>& tabs) {
         out << "\n";
         // The first map as one of the system's recent documents (the Dock lists it): it is not in the menu again. And
         // the menu while a dialog waits: its items cannot be clicked.
-        std::vector<MacDockItem> items = gDockItems ? gDockItems() : std::vector<MacDockItem>();
-        if (!items.empty()) {
-            NSMenu* m = makeDockMenu(items, @[[NSURL fileURLWithPath:nsText(items[0].path)]]);
+        std::vector<MacDockItem> recent = gDockItems ? gDockItems() : std::vector<MacDockItem>();
+        if (!recent.empty()) {
+            NSMenu* m = makeDockMenu(recent, @[[NSURL fileURLWithPath:nsText(recent[0].path)]]);
             bool again = false;
-            for (NSMenuItem* it in [m itemArray]) again |= utf8((NSString*)[it representedObject]) == items[0].path;
-            out << "dock: \"" << items[0].title << "\" in the system's recent documents: " << (again ? "in the menu again (WRONG)" : "not in the menu again")
+            for (NSMenuItem* it in [m itemArray]) again |= utf8((NSString*)[it representedObject]) == recent[0].path;
+            out << "dock: \"" << recent[0].title << "\" in the system's recent documents: " << (again ? "in the menu again (WRONG)" : "not in the menu again")
                 << "; " << [m numberOfItems] << " items\n";
-            for (MacDockItem& it : items) it.enabled = false;
-            m = makeDockMenu(items, @[]);
+            for (MacDockItem& it : recent) it.enabled = false;
+            m = makeDockMenu(recent, @[]);
             int on = 0, all = 0;
             for (NSMenuItem* it in [m itemArray])
                 if (![it isSeparatorItem]) ++all, on += [it isEnabled] ? 1 : 0;
