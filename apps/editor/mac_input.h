@@ -7,6 +7,8 @@
 // Starts the monitor (once): `smartZoom` runs for each smart zoom; `swipe` for each swipe to the left or right (-1: the
 // fingers moved to the left, the next tab; 1: to the right, the tab before), as Safari goes between its pages.
 void macWatchGestures(void (*smartZoom)(), void (*swipe)(int dir));
-// Whether the last scroll event continues a trackpad's scroll: its fingers moved on, or its momentum after they lifted
-// (NSEvent's phase and momentumPhase). False for a new scroll and for a mouse wheel's notches.
-bool macLastScrollContinues();
+// Whether the scroll event that SDL gives now (its SDL_MouseWheelEvent's x and y) continues a trackpad's scroll: its
+// fingers moved on, or its momentum after they lifted. This is that event's NSEvent phase and momentumPhase, not the
+// last event's (SDL handles all the waiting events before it gives the first). False for a new scroll and for a mouse
+// wheel's notches.
+bool macScrollContinues(float x, float y);
