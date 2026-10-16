@@ -21,6 +21,11 @@ void saveRecent() {
     prefs::setList(L"RecentProjects", gRecentProjects);
     prefs::setText(L"ProjectsFolder", gProjectsFolder);
 }
+// The lists and the working folder as the last run left them (both programs, at start; not in tests).
+void loadRecentLists() {
+    prefs::list(L"RecentMaps", gRecentMaps), prefs::list(L"RecentProjects", gRecentProjects);
+    prefs::text(L"ProjectsFolder", gProjectsFolder);
+}
 
 // The File menu's two lists: "1  MyMap.scx    C:\Maps", newest first (the host makes the menu items, with Clear).
 std::vector<std::wstring> recentLabels(const std::vector<std::wstring>& list) {

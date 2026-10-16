@@ -140,11 +140,13 @@ void shellPaletteRebuilt() {
     if (gPal2Shown) rebuildSecondRows();
 }
 // The folder of the projects that are not saved yet (core/documents.inc): StarDraft/Unsaved in the user's data folder
-// (~/Library/Application Support on macOS; $XDG_DATA_HOME or ~/.local/share on Linux), as the Windows program's
-// %LOCALAPPDATA%\StarDraft\Unsaved.
+// (%LOCALAPPDATA% on Windows, the Win32 program's folder; ~/Library/Application Support on macOS; $XDG_DATA_HOME or
+// ~/.local/share on Linux).
 std::filesystem::path shellUnsavedRoot() {
     fs::path dir;
-#ifdef __APPLE__
+#if defined(_WIN32)
+    if (const wchar_t* l = _wgetenv(L"LOCALAPPDATA"); l && *l) dir = fs::path(l);
+#elif defined(__APPLE__)
     if (const char* h = std::getenv("HOME"); h && *h) dir = fs::path(h) / "Library" / "Application Support";
 #else
     if (const char* x = std::getenv("XDG_DATA_HOME"); x && *x) dir = fs::path(x);
@@ -212,10 +214,13 @@ std::filesystem::path shellSettingsFile() {
     if (dir.empty()) dir = fs::temp_directory_path() / "StarDraft";
     return dir / "settings.json";
 }
-// The registry of the Windows builds before the file: this system never had one, so no value is there.
+#ifndef _WIN32
+// The registry of the Windows builds before the file: this system never had one, so no value is there. (Windows:
+// shell_sdl_win.inc reads it, as the Win32 program does.)
 bool shellLegacyValue(const std::wstring&, const std::wstring&, LegacyKind, std::vector<uint8_t>&) { return false; }
 void shellLegacyNames(const std::wstring&, std::vector<std::wstring>&) {}
 void shellLegacyRemove(const std::wstring&, const std::wstring&) {}
+#endif
 
 void shellErrorBox(const std::wstring& text, const std::wstring& title) {
     std::fprintf(stderr, "%s: %s\n", narrow(title).c_str(), narrow(text).c_str());

@@ -1,5 +1,6 @@
-// The SDL program's Windows-only parts (stardraft-sdl.exe; the Windows program has them in crash.inc, update.inc and
-// main.cpp): the crash handler and the crash report question, the map files (.scm, .scx) and project.stardraft in
+// The SDL program's Windows-only parts (stardraft.exe; the Win32 program, stardraft-win32.exe, has them in crash.inc,
+// update.inc and main.cpp): the files built into the program, the settings of the builds before the settings file (the
+// registry), the crash handler and the crash report question, the map files (.scm, .scx) and project.stardraft in
 // Explorer, one program for all maps (a map opened from Explorer goes to the program that is open), and the window's
 // dark title bar. The icons are res/stardraft_sdl.rc's (SDL gives the first one to its windows). The texts and the
 // sending are the core's (core/releases.inc), the registry and the crash's system part apps/common's (file_types.h,
@@ -84,7 +85,8 @@ void askToSendCrashes() {
 // --- One program for all maps -----------------------------------------------------------------------------------------
 
 // The pipe that the open program listens on: one for each program file name and Windows session, so a test build
-// (another name) and another user's program never get this program's maps.
+// (another name) and another user's program never get this program's maps. The copies that StarDraft-latest starts
+// (stardraft-latest-<n>.exe) share one name.
 std::wstring pipeName() {
     wchar_t self[MAX_PATH];
     GetModuleFileNameW(nullptr, self, MAX_PATH);
@@ -92,6 +94,7 @@ std::wstring pipeName() {
     ProcessIdToSessionId(GetCurrentProcessId(), &session);
     std::wstring stem = fs::path(self).stem().wstring();
     for (wchar_t& ch : stem) ch = wchar_t(std::towlower(ch));
+    if (stem.rfind(L"stardraft-latest-", 0) == 0) stem = L"stardraft-latest";
     return L"\\\\.\\pipe\\StarDraft-" + stem + L"-" + std::to_wstring(session);
 }
 
@@ -165,16 +168,6 @@ void listenForOtherPrograms() {
 
 // --- The map files ------------------------------------------------------------------------------------------------------
 
-// Whether this program is the one a release puts in place (stardraft.exe): only that one makes project.stardraft open
-// with itself at start. stardraft-sdl.exe, beside the Windows program until it replaces it, leaves the Windows
-// program's file types (Program options > Maps still makes maps open with it, when the user asks).
-bool isReleaseProgram() {
-    std::wstring a = stardraft::platform::programFile().filename().wstring(), b = releases::releaseProgramName();
-    for (auto* s : {&a, &b})
-        for (wchar_t& ch : *s) ch = wchar_t(std::towlower(ch));
-    return a == b;
-}
-
 bool askedMapsDefault() {
     bool asked = false;
     prefs::flag(L"AskedMapsDefault", asked);
@@ -207,9 +200,10 @@ void askMapsDefault() {
         makeMapsDefault();
 }
 
-// At start (not in a test run): the file types, as the Windows program does them at start.
+// At start (not in a test run): the file types, as the Win32 program did them at start: project.stardraft opens with
+// this program (not with a copy that StarDraft-latest started: the launcher does that), and it is in Explorer's Open
+// with list for maps. (The Win32 program, stardraft-win32.exe, now leaves them to this one.)
 void fileTypesAtStart() {
-    if (!isReleaseProgram()) return;
     if (stardraft::platform::programFile().filename().wstring().rfind(L"stardraft-latest-", 0) != 0)
         stardraft::platform::registerProjectFiles(stardraft::platform::programFile().wstring());
     stardraft::platform::registerMapFiles(stardraft::platform::associationExe(), false);  // in Explorer's Open with list for maps
@@ -229,7 +223,71 @@ void darkTitleBar() {
     SDL_free(wins);
 }
 
+// --- The files built into the program -----------------------------------------------------------------------------
+
+// The fonts, the icon atlases and the app icon are the program's RCDATA resources (the build's
+// generated/<target>_files.rc), named by their path under the program's folder ("fonts/NotoSans-Regular.ttf"), so a
+// release is stardraft.exe only (the update puts one file in place) and a copy of it (StarDraft-latest) runs anywhere.
+// A file beside the program comes first (kit_sdl reads it).
+std::pair<const void*, size_t> embeddedFile(const std::string& path) {
+    static const std::string base = [] {
+        const char* b = SDL_GetBasePath();
+        return std::string(b ? b : "");
+    }();
+    if (base.empty() || path.size() <= base.size() || path.compare(0, base.size(), base) != 0) return {nullptr, 0};
+    std::wstring name = widen(path.substr(base.size()));
+    std::replace(name.begin(), name.end(), L'\\', L'/');
+    // (rc keeps a resource's name in upper case, and a quoted name with its quotes)
+    for (wchar_t& ch : name) ch = wchar_t(std::towupper(ch));
+    HRSRC r = FindResourceW(nullptr, (L"\"" + name + L"\"").c_str(), MAKEINTRESOURCEW(10) /* RT_RCDATA */);
+    if (!r) r = FindResourceW(nullptr, name.c_str(), MAKEINTRESOURCEW(10));
+    HGLOBAL g = r ? LoadResource(nullptr, r) : nullptr;
+    const void* data = g ? LockResource(g) : nullptr;
+    return data ? std::pair<const void*, size_t>{data, size_t(SizeofResource(nullptr, r))} : std::pair<const void*, size_t>{nullptr, 0};
+}
+
 }  // namespace winsdl
+
+// The files built into the program (kit_sdl::setEmbeddedFiles).
+stardraft::kit_sdl::EmbeddedFile sdlEmbeddedFiles() { return winsdl::embeddedFile; }
+
+// The settings of the Windows builds before the settings file: HKCU\Software\StarDraft (core/prefs.inc reads a value
+// there that the file does not have yet), the same as the Win32 program's (shell_win32.inc), so an update from an old
+// build keeps them.
+static std::wstring legacyKeyPath(const std::wstring& sub) {
+    std::wstring key = L"Software\\StarDraft";
+    if (!sub.empty()) {
+        std::wstring path = sub;
+        std::replace(path.begin(), path.end(), L'/', L'\\');
+        key += L"\\" + path;
+    }
+    return key;
+}
+bool shellLegacyValue(const std::wstring& sub, const std::wstring& value, LegacyKind kind, std::vector<uint8_t>& out) {
+    const DWORD flags = kind == LegacyKind::Dword   ? RRF_RT_REG_DWORD
+                        : kind == LegacyKind::Text  ? RRF_RT_REG_SZ
+                        : kind == LegacyKind::Texts ? RRF_RT_REG_MULTI_SZ
+                                                    : RRF_RT_REG_BINARY;
+    const std::wstring key = legacyKeyPath(sub);
+    DWORD size = 0;
+    if (RegGetValueW(HKEY_CURRENT_USER, key.c_str(), value.c_str(), flags, nullptr, nullptr, &size) != ERROR_SUCCESS) return false;
+    out.assign(size, 0);
+    if (RegGetValueW(HKEY_CURRENT_USER, key.c_str(), value.c_str(), flags, nullptr, out.data(), &size) != ERROR_SUCCESS) return false;
+    out.resize(size);
+    return true;
+}
+void shellLegacyNames(const std::wstring& sub, std::vector<std::wstring>& out) {
+    HKEY k;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, legacyKeyPath(sub).c_str(), 0, KEY_READ, &k) != ERROR_SUCCESS) return;
+    for (DWORD i = 0;; ++i) {
+        wchar_t name[256];
+        DWORD len = 256;
+        if (RegEnumValueW(k, i, name, &len, nullptr, nullptr, nullptr, nullptr) != ERROR_SUCCESS) break;
+        if (std::find(out.begin(), out.end(), name) == out.end()) out.emplace_back(name);
+    }
+    RegCloseKey(k);
+}
+void shellLegacyRemove(const std::wstring& sub, const std::wstring& value) { RegDeleteKeyValueW(HKEY_CURRENT_USER, legacyKeyPath(sub).c_str(), value.c_str()); }
 
 // The log's lines go into the crash report's end too.
 void sdlRememberLogLine(const std::wstring& line) {
@@ -312,6 +370,8 @@ bool shellProcessEnded(std::uintptr_t process) { return WaitForSingleObject(HAND
 void shellProcessClose(std::uintptr_t process) { CloseHandle(HANDLE(process)); }
 
 #else  // (the other systems: none of these parts)
+
+stardraft::kit_sdl::EmbeddedFile sdlEmbeddedFiles() { return nullptr; }  // (the files are beside the program, or in the app bundle)
 
 fs::path sdlWindowsInstallFile() { return {}; }
 // (shellStartElevated, shellProcessEnded and shellProcessClose: shell_sdl.inc, SDL's processes; they ask for no rights)
