@@ -76,6 +76,8 @@ public:
 
     // As last painted: the caret's rectangle and the scroll offsets, in the view's coordinates.
     draw::Rect caretRect() const { return caretRect_; }
+    // An input method's text that is not committed yet (shown at the caret, not in the text).
+    const std::wstring& composition() const { return comp_; }
     int scrollX() const { return scrollX_; }
     int scrollY() const { return scrollY_; }
     // Several lines: line `line` of the text (a paragraph, from 0) goes to the top at the next paint, as far as the
@@ -106,6 +108,7 @@ public:
     bool focusable() const override { return tabStop_; }
     bool typesText() const override { return true; }
     void focusChanged(bool has) override;
+    void tabbedTo() override;
     void captureLost() override;
 
 private:
