@@ -120,6 +120,7 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
     }
     open_ = true;
     modified_ = false;
+    state_ = savedState_ = nextRevision();
     return true;
 }
 
@@ -153,6 +154,7 @@ bool Editor::newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terr
     reload();
     open_ = !tileset_.groups.empty();
     modified_ = false;
+    state_ = savedState_ = nextRevision();
     if (!open_) {
         error = "could not load tileset " + std::string(tilesetName(era_));
         if (!tilesetError_.empty()) error += ": " + tilesetError_;
@@ -180,6 +182,7 @@ bool Editor::newMapFromTerrain(const std::filesystem::path& path, std::string& e
     writeSprites(chk_, overlays);
     reload();
     modified_ = true;
+    state_ = nextRevision();
     return true;
 }
 
@@ -196,6 +199,7 @@ bool Editor::generateMap(const TerrainGenParams& params, std::string& error) {
     if (!generateTerrain(chk_, tileset_, params, error)) return false;
     reload();
     modified_ = true;
+    state_ = nextRevision();
     return true;
 }
 
@@ -214,6 +218,7 @@ bool Editor::save(const std::filesystem::path& path, std::string& error) {
     }
     path_ = path;
     modified_ = false;
+    savedState_ = state_;
     return true;
 }
 
@@ -315,6 +320,7 @@ void Editor::restoreFiles(const std::vector<Snapshot::File>& files) {
 
 void Editor::pushUndo(const Chk& chk, const std::vector<std::string>& files) {
     undo_.push_back(snapshot(chk, undo_));
+    undo_.back().state = state_;
     undo_.back().files = fileStates(files);
     for (const auto& f : undo_.back().files) undo_.back().ownBytes += f.data.size();
     undoBytes_ += undo_.back().ownBytes;
@@ -354,36 +360,61 @@ void Editor::beginEdit() {
 void Editor::commit(bool terrain) {
     lastRedo_.clear();  // a change: the cleared redo steps are gone for good
     modified_ = true;
+    state_ = nextRevision();
     revision_ = nextRevision();
     if (terrain) reloadTerrain();
 }
 
+// After an undo or redo: the units that were selected stay selected where they are now (by their serial; a unit that
+// is not on the map now is no longer selected), so a selection never points to another unit.
+std::vector<int> Editor::selectionAfterRestore(const std::vector<Unit>& before) const {
+    std::vector<int> out;
+    for (int i : selection_) {
+        if (i < 0 || size_t(i) >= before.size()) continue;
+        const Unit& was = before[size_t(i)];
+        int at = -1;
+        if (size_t(i) < units_.size() && units_[size_t(i)].serial == was.serial) at = i;
+        for (size_t j = 0; at < 0 && j < units_.size(); ++j)
+            if (units_[j].serial == was.serial) at = int(j);
+        if (at >= 0 && std::find(out.begin(), out.end(), at) == out.end()) out.push_back(at);
+    }
+    return out;
+}
+
 void Editor::undo() {
-    if (undo_.empty()) return;
+    if (undo_.empty() || inStroke_) return;  // (a stroke that the mouse still holds: its end comes first)
+    const std::vector<Unit> before = units_;
     lastRedo_.clear();
     redo_.push_back(snapshot(chk_, redo_));
+    redo_.back().state = state_;
     redo_.back().files = fileStates(undo_.back().files);
     for (const auto& f : redo_.back().files) redo_.back().ownBytes += f.data.size();
     restoreFiles(undo_.back().files);
     chk_ = restore(undo_.back());
+    state_ = undo_.back().state;
     undoBytes_ -= std::min(undoBytes_, undo_.back().ownBytes);
     undo_.pop_back();
     reload();
-    modified_ = true;
+    selection_ = selectionAfterRestore(before);
+    modified_ = state_ != savedState_;
 }
 
 void Editor::redo() {
-    if (redo_.empty()) return;
+    if (redo_.empty() || inStroke_) return;
+    const std::vector<Unit> before = units_;
     lastRedo_.clear();
     undo_.push_back(snapshot(chk_, undo_));
+    undo_.back().state = state_;
     undo_.back().files = fileStates(redo_.back().files);
     for (const auto& f : undo_.back().files) undo_.back().ownBytes += f.data.size();
     undoBytes_ += undo_.back().ownBytes;
     restoreFiles(redo_.back().files);
     chk_ = restore(redo_.back());
+    state_ = redo_.back().state;
     redo_.pop_back();
     reload();
-    modified_ = true;
+    selection_ = selectionAfterRestore(before);
+    modified_ = state_ != savedState_;
 }
 
 // --- Terrain -------------------------------------------------------------------------------------

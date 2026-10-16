@@ -1734,7 +1734,7 @@ Removed from the favorites: 	已移出收藏:
 Run local block: StarDraft cannot tell what 	运行本地块：StarDraft 无法判断 
 Send an anonymous report after a crash: the version, Windows, the video card, where it crashed and the last log lines; no maps	崩溃后发送匿名报告：版本、Windows、显卡、崩溃位置和最后的日志行；不包含地图
 StarDraft 2 - v	StarDraft 2 - v
-StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, Windows, the video card, where it crashed and the last log lines. It has no maps. It is in 	StarDraft 2 上次因错误而停止。是否将崩溃报告发送给开发者，以便他们修复该错误？\n\n报告包含版本、Windows、显卡、崩溃位置和最后的日志行。不包含地图。报告位于 
+StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, the operating system, the video card, where it crashed and the last log lines. The log lines can have the names of maps and folders (your user folder shows as ~). The report is public on GitHub. It has no maps. It is in 	StarDraft 2 上次因错误而停止。是否将崩溃报告发送给开发者，以便他们修复该错误？\n\n报告包含版本、操作系统、显卡、崩溃位置和最后的日志行。日志行中可能有地图和文件夹的名称（你的用户文件夹显示为 ~）。报告在 GitHub 上公开。不包含地图。报告位于 
 Terran Marine	人类机枪兵
 The language of the program's texts	程序文本的语言
 The map has 	地图有 

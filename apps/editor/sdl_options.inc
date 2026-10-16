@@ -110,7 +110,7 @@ std::wstring sdlThemeMessage() {
 
 // --- Restart now ----------------------------------------------------------------------------------------------------
 
-// Program options > Language > Restart now: the open map asks to be saved (as on quit), then the program starts again
+// Program options > Language > Restart now: each tab with changes asks to be saved (as on quit), then the program starts again
 // with `--restart <this process>` and this one ends. The maps and projects that were open go to the setting Reopen
 // (core/documents.inc: restartWrite), as the Win32 program's restart writes them: the new program opens them again.
 std::uintptr_t sdlStartProgram(const fs::path& exe, const fs::path& dir, const std::wstring& args, const std::wstring& what,
@@ -128,7 +128,7 @@ std::vector<std::wstring> sdlOpenFiles() {
     return files;
 }
 void restartProgramSdl() {
-    confirmReplace([] {
+    confirmQuit([] {
         std::error_code ec;
         fs::path self = stardraft::platform::programFile();  // the program's own file
         if (self.empty()) self = fs::absolute(fs::path(gSelfPath), ec);

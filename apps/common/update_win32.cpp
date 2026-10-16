@@ -57,6 +57,19 @@ bool restoreProgram(const fs::path& self) {
     return MoveFileExW(old.c_str(), self.c_str(), MOVEFILE_REPLACE_EXISTING) != 0;
 }
 
+fs::path failedProgramFile(const fs::path& self) { return fs::path(self).replace_extension(L".exe.failed"); }
+
+bool rollBackUpdate(const fs::path& self) {
+    const fs::path old = oldProgramFile(self), failed = failedProgramFile(self);
+    if (GetFileAttributesW(old.c_str()) == INVALID_FILE_ATTRIBUTES) return false;
+    DeleteFileW(failed.c_str());
+    // (the new program runs: its file can be renamed, not replaced)
+    if (!MoveFileExW(self.c_str(), failed.c_str(), MOVEFILE_REPLACE_EXISTING)) return false;
+    if (MoveFileExW(old.c_str(), self.c_str(), MOVEFILE_REPLACE_EXISTING)) return true;
+    MoveFileExW(failed.c_str(), self.c_str(), MOVEFILE_REPLACE_EXISTING);  // (back as it was)
+    return false;
+}
+
 bool startProgram(const fs::path& exe, const std::vector<std::string>& args) {
     std::wstring run = L"\"" + exe.wstring() + L"\"";
     for (const std::string& a : args) {  // each in quotes, as the C runtime reads a command line

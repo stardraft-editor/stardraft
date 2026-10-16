@@ -6,6 +6,8 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
+#include <map>
 #include <string>
 
 #include "stardraft/settings.h"
@@ -74,8 +76,36 @@ int main(int argc, char** argv) {
     {
         std::ofstream(file, std::ios::binary) << "{ not json";
         Settings s(file);
-        check(s.names().empty(), "a file that cannot be read has no values");
+        check(s.names().empty() && !s.readError().empty(), "a file that cannot be read has no values, and says so");
         check(s.set("Layout/Volume", int64_t(10)) && Settings(file).number("Layout/Volume") == 10, "and is written again on a change");
+        std::ifstream kept(fs::path(file) += ".unreadable", std::ios::binary);
+        const std::string before((std::istreambuf_iterator<char>(kept)), {});
+        check(before == "{ not json" && s.readError().find("settings.json.unreadable") != std::string::npos,
+              "the change keeps a copy of the file that could not be read (its values are not lost for good)");
+    }
+    {  // a hand edit saved with Notepad's "UTF-8 with BOM": the file's values are read
+        std::ofstream(file, std::ios::binary) << "\xEF\xBB\xBF{\n  \"Language\": \"ko\",\n  \"RecentMaps\": [\"a.scx\"]\n}\n";
+        Settings s(file);
+        check(s.text("Language") == std::string("ko") && s.list("RecentMaps") && s.readError().empty(), "a file with a UTF-8 mark at its start is read");
+        s.set("Theme", int64_t(2));
+        check(Settings(file).text("Language") == std::string("ko"), "a change keeps the values of a file with a UTF-8 mark");
+    }
+    {  // values of other kinds (as a newer version writes them) stay in the file after a change
+        std::ofstream(file, std::ios::binary) << "{\"Volume\": 0.75, \"Layout/Window\": {\"x\": 10, \"y\": 20}, \"Sound\": true, "
+                                                 "\"Mixed\": [\"a\", 2], \"Language\": \"es\"}";
+        Settings s(file);
+        check(s.set("Theme", int64_t(1)), "a change in a file with values of other kinds");
+        std::map<std::string, Settings::Value> values;
+        std::map<std::string, std::string> other;
+        std::string text;
+        {
+            std::ifstream in(file, std::ios::binary);  // (closed before the next change: Windows replaces no open file)
+            text.assign(std::istreambuf_iterator<char>(in), {});
+        }
+        check(Settings::fromText(text, values, &other) && other.size() == 4 && other["Volume"] == "0.75" && other["Sound"] == "true" &&
+                  other["Layout/Window"] == "{\"x\": 10, \"y\": 20}" && other["Mixed"] == "[\"a\", 2]" && values.size() == 2,
+              "the values of other kinds stay as they were: " + text);
+        check(s.set("Volume", int64_t(5)) && Settings(file).number("Volume") == 5, "a value of another kind that this version sets takes the new value");
     }
     fs::remove_all(dir, ec);
     std::printf("%d failures\n", failures);

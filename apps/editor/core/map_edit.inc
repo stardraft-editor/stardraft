@@ -38,6 +38,35 @@ void dropGoneItems(AppState& app) {
     drop(app.selSprites, app.ed->sprites().size());
 }
 
+// After an undo or redo: the doodads and sprites that were selected (`doodads`, `sprites`: the map's before it) stay
+// selected where the same ones are now (the same kind, place and owner); with as many as before, one of the same kind
+// and owner in its place (a move taken back) stays too. One that is not there is no longer selected, so a selection
+// never points to another doodad or sprite.
+void keepItemSelection(AppState& app, const std::vector<Doodad>& doodads, const std::vector<MapSprite>& sprites) {
+    if (!app.ed) return;
+    auto keep = [](std::vector<int>& sel, const auto& before, const auto& now, auto same) {
+        std::vector<int> out;
+        auto free = [&out](int j) { return std::find(out.begin(), out.end(), j) == out.end(); };
+        for (int i : sel) {
+            if (i < 0 || size_t(i) >= before.size()) continue;
+            const auto& was = before[size_t(i)];
+            int at = -1;
+            if (size_t(i) < now.size() && same(now[size_t(i)], was, true)) at = i;
+            for (size_t j = 0; at < 0 && j < now.size(); ++j)
+                if (same(now[j], was, true) && free(int(j))) at = int(j);
+            if (at < 0 && now.size() == before.size() && size_t(i) < now.size() && same(now[size_t(i)], was, false)) at = i;
+            if (at >= 0 && free(at)) out.push_back(at);
+        }
+        sel = std::move(out);
+    };
+    keep(app.selDoodads, doodads, app.ed->doodads(), [](const Doodad& a, const Doodad& b, bool place) {
+        return a.id == b.id && a.owner == b.owner && (!place || (a.x == b.x && a.y == b.y));
+    });
+    keep(app.selSprites, sprites, app.ed->sprites(), [](const MapSprite& a, const MapSprite& b, bool place) {
+        return a.id == b.id && a.owner == b.owner && a.flags == b.flags && (!place || (a.x == b.x && a.y == b.y));
+    });
+}
+
 // The spray's density: the number of things one spray puts down in the brush (each tick of a held spray too), 1 to
 // kDensityMax. Units or doodads (sprayCount; only where they fit, so fewer can land) and terrain dabs or tiles
 // (sprayDabs). The defaults: 5 dabs for terrain, 10 units or doodads (about the earlier "medium").

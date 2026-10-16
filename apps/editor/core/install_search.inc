@@ -42,12 +42,14 @@ std::vector<fs::path> installCandidatesOf(InstallSystem sys, const fs::path& hom
 }
 
 // The folders an install opens from, in order: the folder itself, then (when it has no .build.info) the folder above it
-// and the folders below it that hold .build.info. The Windows program tries the same (tryInstall).
+// when that one holds .build.info (a folder inside the install, as x86_64), and the folders below it that hold
+// .build.info. A folder that is not an install's never gives its parent (C:\Program Files (x86) for a StarCraft folder
+// that is not there): its game data's error would say that an install is damaged.
 std::vector<fs::path> installTries(const fs::path& dir) {
     std::error_code ec;
     std::vector<fs::path> tries = {dir};
     if (!fs::exists(dir / ".build.info", ec)) {
-        tries.push_back(dir.parent_path());
+        if (fs::exists(dir.parent_path() / ".build.info", ec)) tries.push_back(dir.parent_path());
         for (const auto& e : fs::directory_iterator(dir, ec))
             if (e.is_directory(ec) && fs::exists(e.path() / ".build.info", ec)) tries.push_back(e.path());
     }

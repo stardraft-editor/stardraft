@@ -5,13 +5,30 @@
 //
 // usage: platform_test <scratch dir>
 
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <vector>
+#include <chrono>
+#include <thread>
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
 
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
+#include "../../src/file_write.h"
 #include "crash_report.h"
+#include "file_types.h"
+#include "instance.h"
 #include "update.h"
 
 #if !defined(_WIN32) && !defined(__APPLE__)
@@ -56,6 +73,12 @@ const unsigned char kZip[] = {
     0x00, 0x00, 0x00, 0x00, 0x80, 0x01, 0x00, 0x00, 0x00, 0x00, 0x73, 0x74, 0x61, 0x72, 0x64, 0x72, 0x61, 0x66, 0x74, 0x2e, 0x65, 0x78, 0x65,
     0x50, 0x4b, 0x05, 0x06, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x3b, 0x00, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00, 0x00, 0x00};
 
+// The editor's install search (apps/editor/core/install_search.inc: portable, files only).
+namespace install {
+namespace fs = std::filesystem;
+#include "../../apps/editor/core/install_search.inc"
+}  // namespace install
+
 #if !defined(_WIN32) && !defined(__APPLE__)
 // A call that calls itself until the stack runs out.
 int crashDepth(int n) {
@@ -65,9 +88,33 @@ int crashDepth(int n) {
 }
 #endif
 
+#ifdef _WIN32
+// The child of the crash handler's test (platform_test --crash-hang <folder>): it crashes, and its report's write waits
+// forever (as when the crash left the heap's lock taken). The handler must end it after writeSeconds.
+int crashHang(const fs::path& folder) {
+    CrashHandler h;
+    h.folder = folder;
+    h.header = [] {
+        Sleep(INFINITE);
+        return std::string();
+    };
+    h.writeSeconds = 2;
+    installCrashHandler(std::move(h));
+    *static_cast<volatile int*>(nullptr) = 1;
+    return 0;
+}
+#endif
+
 }  // namespace
 
 int main(int argc, char** argv) {
+#ifdef _WIN32
+    if (argc > 2 && std::string(argv[1]) == "--crash-hang") return crashHang(argv[2]);
+#endif
+    if (argc > 1 && std::string(argv[1]) == "--sleep") {  // (a copy that runs a while: an update's new program, running)
+        std::this_thread::sleep_for(std::chrono::seconds(6));
+        return 0;
+    }
     if (argc < 2) return std::fprintf(stderr, "usage: platform_test <scratch dir>\n"), 2;
     const fs::path dir = fs::path(argv[1]) / "platform test";
     std::error_code ec;
@@ -98,11 +145,148 @@ int main(int argc, char** argv) {
     check(replaceProgram(program, dir / "no such file") == Replace::NewNotPlaced && read(program) == "old program",
           "a new program that is not there: the program stays as it was");
 
+    // An update's new program that runs but cannot work here (no graphics device): the program before the update goes
+    // back in its place while the new one still runs (Windows: a running program's file cannot be replaced).
+    {
+        const fs::path run = dir / "running" / ("stardraft" + self.extension().string());
+        fs::create_directories(run.parent_path(), ec);
+        fs::copy_file(self, run, ec);
+        std::ofstream(oldProgramFile(run), std::ios::binary) << "old program";
+        const bool started = startProgram(run, {"--sleep"});
+        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+        check(started && rollBackUpdate(run) && read(run) == "old program" && !fs::exists(oldProgramFile(run), ec),
+              "a running new program that cannot work here: the program before the update is in its place again");
+        check(!rollBackUpdate(run) && read(run) == "old program", "no program before an update: nothing changes");
+    }
+
+    // A project file's write (src/file_write.h: triggers.json, the project file, the data edits): a new file takes the
+    // old one's place, so a write that stops (a full disk, a crash) never leaves the file empty or cut off. A second
+    // name for the same file (a hard link) still has the old bytes: the old file was not written over in place.
+    {
+        const fs::path f = dir / "triggers.json", link = dir / "triggers-link.json";
+        std::ofstream(f, std::ios::binary) << "old triggers";
+        std::error_code lec;
+        fs::create_hard_link(f, link, lec);
+        std::string err;
+        const bool wrote = stardraft::writeFile(f, "new triggers", err);
+        check(wrote && read(f) == "new triggers", "a file write gives the file its new bytes");
+        if (!lec) check(read(link) == "old triggers", "a file write does not write over the old file in place (a new file takes its place)");
+        else std::printf("note  no hard link here (%s): the in-place check is skipped\n", lec.message().c_str());
+        int parts = 0;
+        for (const auto& e : fs::directory_iterator(dir, ec)) parts += e.path().filename().string().find(".part") != std::string::npos;
+        check(parts == 0, "a file write leaves no new file beside it");
+        check(!stardraft::writeFile(dir / "no such folder" / "x.json", "x", err) && !err.empty(), "a write into a folder that is not there fails: " + err);
+    }
+
     // A crash report's title: the place, without the address read (it differs each time).
     check(crashTitle("StarDraft\nException 0xC0000005 (access violation) at stardraft.exe+0x1234, reading 0x10\nStack:\n") ==
               "Crash: Exception 0xC0000005 (access violation) at stardraft.exe+0x1234",
           "a crash report's title");
     check(unsentCrashReports(dir / "no crashes").empty(), "no reports in a folder that is not there");
+
+    // The install search: a StarCraft folder that is not there does not try the folder above it (C:\Program Files (x86)
+    // is no install: its game data error would say that the install is damaged); a folder inside an install does.
+    {
+        const fs::path games = dir / "Program Files (x86)", inst = dir / "Games" / "StarCraft";
+        fs::create_directories(games, ec), fs::create_directories(inst / "x86_64", ec);
+        std::ofstream(inst / ".build.info") << "x";
+        const auto missing = install::installTries(games / "StarCraft");
+        check(missing.size() == 1 && missing[0] == games / "StarCraft", "a StarCraft folder that is not there is the only try");
+        const auto inside = install::installTries(inst / "x86_64");
+        check(std::find(inside.begin(), inside.end(), inst) != inside.end(), "a folder inside an install tries the install");
+    }
+
+#if defined(_WIN32) || !defined(__APPLE__)
+    // One program for all maps when several start at once (Explorer starts one for each of several selected maps): one
+    // listens, and each of the others sends its map to it (none opens a window of its own).
+    {
+#ifdef _WIN32
+        const fs::path where = L"\\\\.\\pipe\\StarDraft-platform-test-" + std::to_wstring(GetCurrentProcessId());
+#else
+        const fs::path where = dir / "race.sock";
+#endif
+        std::mutex m;
+        std::condition_variable cv;
+        std::vector<std::string> got;
+        std::atomic<int> sent{0}, listening{0};
+        std::vector<std::thread> starts;
+        for (int i = 0; i < 6; ++i)
+            starts.emplace_back([&, i] {
+                const InstanceStart r = sendOrListen(where, "map " + std::to_string(i) + "\n", [&](std::string text) {
+                    std::lock_guard<std::mutex> lock(m);
+                    got.push_back(std::move(text));
+                    cv.notify_all();
+                });
+                (r == InstanceStart::Sent ? sent : listening) += r != InstanceStart::Neither;
+            });
+        for (auto& t : starts) t.join();
+        std::unique_lock<std::mutex> lock(m);
+        cv.wait_for(lock, std::chrono::seconds(10), [&] { return got.size() >= 5; });
+        check(listening == 1 && sent == 5 && got.size() == 5, "six programs that start at once: one listens (" + std::to_string(listening.load()) +
+                                                                  "), and the others' maps go to it (" + std::to_string(got.size()) + " of 5)");
+    }
+#endif
+
+    // The map files' open command at a start: another copy of StarDraft 2 that is still there keeps it (a copy run once
+    // from Downloads or a USB stick does not take the maps); a command of a program that is not there any more, or none,
+    // is this program's now.
+    {
+        const fs::path installed = dir / "Tools" / "stardraft.exe", copy = dir / "Downloads" / "stardraft.exe";
+        fs::create_directories(installed.parent_path(), ec), fs::create_directories(copy.parent_path(), ec);
+        std::ofstream(installed) << "x", std::ofstream(copy) << "x";
+        const std::wstring cmd = L"\"" + installed.wstring() + L"\" \"%1\"";
+        check(commandProgram(cmd) == installed.wstring(), "the program of a file type's open command");
+        check(keepRegisteredProgram(cmd, copy.wstring()), "a start of a second copy keeps the installed copy's command");
+        check(!keepRegisteredProgram(cmd, installed.wstring()), "the installed copy's own command is its own");
+        check(!keepRegisteredProgram(L"\"" + (dir / "USB" / "stardraft.exe").wstring() + L"\" \"%1\"", copy.wstring()),
+              "a command of a copy that is not there any more is this program's now");
+        check(!keepRegisteredProgram(L"", copy.wstring()), "no command: this program's");
+    }
+
+    // One sender for a report: the crashed program's sender takes the folder ("sending"), so the next start does not
+    // send the same report too (two issues for one crash).
+    {
+        const fs::path reports = dir / "crash reports", one = reports / "20261016-120000";
+        fs::create_directories(one, ec);
+        std::ofstream(one / "report.txt") << "StarDraft\nException 0xC0000005 (access violation) at stardraft.exe+0x1234\n";
+        check(unsentCrashReports(reports).size() == 1, "a report that was not sent is unsent");
+        check(claimCrashReport(one), "a sender takes the report");
+        check(!claimCrashReport(one), "a second sender does not take a report that a sender has");
+        check(unsentCrashReports(reports).empty(), "a report that a sender sends now is not sent again by the next start");
+        check(!sendCrashReport(one, "stardraft-editor/no-such-repo", "a token"), "a report that a sender has is not sent by another");
+        releaseCrashReport(one);
+        check(claimCrashReport(one) && (releaseCrashReport(one), unsentCrashReports(reports).size() == 1), "after the sender, the report can be taken again");
+    }
+
+    // A crash report's log lines go to a public issue: the user's folder is "~", the account's name "<user>".
+    check(withoutUserFolder("  Built C:\\Users\\Jane Doe\\Documents\\StarDraft\\out.scx\n  Saved the project to c:/users/jane doe/maps/a\n"
+                            "  euddraft found an error in D:\\Jane Doe\\x.eps; jane doex stays\n",
+                            "C:\\Users\\Jane Doe") ==
+              "  Built ~\\Documents\\StarDraft\\out.scx\n  Saved the project to ~/maps/a\n  euddraft found an error in D:\\<user>\\x.eps; jane doex stays\n",
+          "a crash report's log lines have no user folder or account name");
+    check(withoutUserFolder("Opened /home/jdoe/maps/(2)Bottleneck.scm", "/home/jdoe/") == "Opened ~/maps/(2)Bottleneck.scm",
+          "a crash report's log lines: the home folder on Linux");
+
+#ifdef _WIN32
+    // The crash handler, in a child that crashes and whose report's write waits forever (a heap lock that the crash
+    // left taken): the handler ends it after its time (2 s here), so the window never freezes.
+    {
+        std::wstring cmd = L"\"" + self.wstring() + L"\" --crash-hang \"" + (dir / "hang").wstring() + L"\"";
+        STARTUPINFOW si{sizeof si};
+        PROCESS_INFORMATION pi{};
+        if (CreateProcessW(self.wstring().c_str(), cmd.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi)) {
+            const DWORD r = WaitForSingleObject(pi.hProcess, 30000);
+            DWORD code = 0;
+            GetExitCodeProcess(pi.hProcess, &code);
+            if (r == WAIT_TIMEOUT) TerminateProcess(pi.hProcess, 1);
+            check(r == WAIT_OBJECT_0 && code == EXCEPTION_ACCESS_VIOLATION,
+                  "a crash whose report cannot be written ends the program after its time (exit code " + std::to_string(code) + ")");
+            CloseHandle(pi.hThread), CloseHandle(pi.hProcess);
+        } else {
+            check(false, "the crash handler's test child starts");
+        }
+    }
+#endif
 
 #if !defined(_WIN32) && !defined(__APPLE__)
     // Linux and the BSDs: one program for all maps (a socket, desktop_xdg.h).

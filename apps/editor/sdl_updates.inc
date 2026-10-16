@@ -92,9 +92,9 @@ void sdlCheckForUpdates() {
     std::wstring why;
     const fs::path fresh = releases::downloadRelease(r, dir, why);
     if (fresh.empty()) return updateFailed(r, why, dir);
-    // The open map is asked about first (Save, Do not save, Cancel); then the new program takes this one's place and
+    // Each tab with changes is asked about first (Save, Do not save, Cancel); then the new program takes this one's place and
     // starts, with the maps and projects that are open (as Restart now). A new program that does not start goes again.
-    confirmReplace([r, self, fresh, dir] {
+    confirmQuit([r, self, fresh, dir] {
         if (const std::wstring failed = sdlInstallRelease(self, fresh); !failed.empty()) return updateFailed(r, failed, dir);
         std::error_code e;
         fs::remove_all(dir, e);
@@ -279,6 +279,28 @@ bool sdlUpdateCheck(const std::string& what, std::string& out) {
               : way == UpdateWay::Download ? "opens " + r.download
               : way == UpdateWay::Package ? std::string("says that the package manager updates it")
                                           : "opens " + r.page));
+        return true;
+    }
+    // release-token:<file>: the newest release when GitHub refuses the build's token (401: it expired or was revoked),
+    // with GitHub's JSON in <file> as the answer to a request without it (no network).
+    if (what.rfind("release-token:", 0) == 0) {
+        std::string j;
+        if (std::ifstream in(fs::path(widen(what.substr(14))), std::ios::binary); in) j.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+        int withToken = 0, without = 0;
+        const releases::HttpCall real = releases::httpCall();
+        releases::httpCall() = [&](const stardraft::platform::HttpRequest& q, std::string* text, const fs::path*) {
+            stardraft::platform::HttpReply r;
+            r.complete = true;
+            if (!q.token.empty()) return ++withToken, r.status = 401, r;
+            ++without, r.status = 200;
+            if (text) *text = j;
+            return r;
+        };
+        releases::Release r;
+        const bool found = releases::latest(r, "an expired token");
+        releases::httpCall() = real;
+        line("release-token: " + std::to_string(withToken) + " request with the token (refused), " + std::to_string(without) + " without it: " +
+             (found ? "\"" + r.title + "\" (yes)" : std::string("no release (WRONG)")));
         return true;
     }
     if (what == "crashes") return out = sdlCrashCheck(), true;

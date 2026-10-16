@@ -11,7 +11,13 @@ endif()
 if(NOT commit)
     set(commit "unknown")  # no git (a zip download): the value of the crash.inc fallback
 endif()
+# The commit's time (seconds since 1970): a build that is not a release's is newer than a release published before it.
+execute_process(COMMAND git log -1 --format=%ct WORKING_DIRECTORY ${STARDRAFT_SOURCE_DIR} OUTPUT_VARIABLE commitTime
+                OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+if(NOT commitTime MATCHES "^[0-9]+$")
+    set(commitTime 0)  # (no git: unknown; Check for updates then compares the commits only)
+endif()
 get_filename_component(dir ${STARDRAFT_BUILD_INFO} DIRECTORY)
 file(MAKE_DIRECTORY ${dir})
-file(WRITE ${STARDRAFT_BUILD_INFO}.tmp "#pragma once\n#define STARDRAFT_COMMIT \"${commit}\"\n")
+file(WRITE ${STARDRAFT_BUILD_INFO}.tmp "#pragma once\n#define STARDRAFT_COMMIT \"${commit}\"\n#define STARDRAFT_COMMIT_TIME ${commitTime}LL\n")
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_BUILD_INFO}.tmp ${STARDRAFT_BUILD_INFO})

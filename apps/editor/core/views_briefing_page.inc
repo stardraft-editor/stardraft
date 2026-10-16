@@ -134,6 +134,10 @@ public:
         stopSounds();
     }
 
+    // The text being typed goes into the map now (one undo step): a Save, a quit or a tab switch while the box has the
+    // keyboard keeps it.
+    void commitTyping() { commitText(); }
+
     // The portraits' pictures go (the SDL program: their textures before the GPU device goes).
     void releasePictures() { portraits_.clear(); }
 

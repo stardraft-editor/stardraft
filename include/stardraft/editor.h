@@ -476,8 +476,14 @@ public:
     bool canRedo() const { return !redo_.empty(); }
     size_t undoSteps() const { return undo_.size(); }  // the steps that Undo can take back (and Redo give again)
     size_t redoSteps() const { return redo_.size(); }
+    // Undo and Redo wait for the end of a stroke (a paint, a spray or a place that the mouse button still holds):
+    // during one they do nothing. After them, the map is modified unless it is as it was at its last open or save.
     void undo();
     void redo();
+    bool inStroke() const { return inStroke_; }
+    // The map's state: a number that changes with each change, undo and redo (an undo gives back the number the state
+    // had). Another part of the program can tell with it whether the map's last step is still the one it made.
+    uint64_t stateId() const { return state_; }
 
 private:
     struct TerrainClip {
@@ -573,6 +579,7 @@ private:
         };
         std::vector<File> files;
         size_t ownBytes = 0;  // section and file data this snapshot added (not shared with the one before)
+        uint64_t state = 0;   // the map's state (state_) that the snapshot holds
     };
     static Snapshot snapshot(const Chk& chk, const std::deque<Snapshot>& stack);
     static Chk restore(const Snapshot& s);
@@ -589,6 +596,10 @@ private:
     bool inStroke_ = false, strokeStep_ = false;  // strokeStep_: the stroke's start took an undo step
     static uint64_t nextRevision();
     uint64_t revision_ = nextRevision(), terrainRevision_ = nextRevision();
+    // The map's state: a new number at each change (an undo or redo gives the number of the state it restores), and the
+    // state at the last open or save. Undo or Redo back to that state: the map is not modified.
+    uint64_t state_ = nextRevision(), savedState_ = state_;
+    std::vector<int> selectionAfterRestore(const std::vector<Unit>& before) const;  // the same units selected (by serial)
     std::vector<std::pair<const char*, double>> openSteps_;
     mutable std::unique_ptr<SettingDefaults> settingDefaults_;
     mutable bool settingDefaultsTried_ = false;

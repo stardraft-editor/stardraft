@@ -3,8 +3,11 @@
 // headers to build and runs on a system without D-Bus (no portal and no notifications then).
 
 #include "desktop_xdg.h"
+#include "instance.h"
 
 #include <dlfcn.h>
+#include <fcntl.h>
+#include <sys/file.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
@@ -578,3 +581,23 @@ std::string report() {
 }
 
 }  // namespace stardraft::xdg
+
+namespace stardraft::platform {
+
+// (instance.h) Programs that start at the same moment take turns with a lock file beside the socket: the first one
+// listens before the next one looks (else the next one could take the socket file while the first one makes it, and
+// both would open windows).
+InstanceStart sendOrListen(const fs::path& where, const std::string& text, std::function<void(std::string)> got) {
+    fs::path lockFile = where;
+    lockFile += ".lock";
+    const int lock = open(lockFile.c_str(), O_CREAT | O_RDWR | O_CLOEXEC, 0600);
+    if (lock >= 0)
+        while (flock(lock, LOCK_EX) != 0 && errno == EINTR) {}
+    InstanceStart r = InstanceStart::Neither;
+    if (!text.empty() && xdg::sendToInstance(where, text)) r = InstanceStart::Sent;
+    else if (xdg::listenAsInstance(where, std::move(got))) r = InstanceStart::Listening;
+    if (lock >= 0) flock(lock, LOCK_UN), close(lock);
+    return r;
+}
+
+}  // namespace stardraft::platform

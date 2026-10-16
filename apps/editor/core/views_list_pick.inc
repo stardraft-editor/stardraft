@@ -380,7 +380,7 @@ private:
     stardraft::kit::Button ok_, cancel_;
 };
 
-// Runs the picker at `at` (a point on the screen; the SDL program: in its main window) until it is picked or closed.
+// Runs the picker at `at` (the SDL program: a point in the window that takes the input now: the main window, or the dialog or pop-out it opens from) until it is picked or closed.
 // True when picked (the view's result, or its checks). `opened` runs once its window shows (the self-tests).
 inline bool runListPick(ListPickView& v, draw::Point at, const std::function<void()>& opened = nullptr) {
     v.onDone = [&v] { shellClosePopout(v); };

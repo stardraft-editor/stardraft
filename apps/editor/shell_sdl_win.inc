@@ -11,15 +11,17 @@ fs::path sdlCrashFolder();                 // the crash reports' folder (each sy
 void sdlInstallCrashHandler(bool quiet);   // the system's crash handler (a test run: the report stays on disk)
 void sdlAskToSendCrashes();                // the question at start about an earlier crash's reports (the end of this file)
 
-// The last log lines (the end of a crash report: each system's handler reads them).
-std::deque<std::wstring> gSdlCrashLog;
+// The last log lines (the end of a crash report: each system's handler reads them). A report goes to a public issue:
+// the user's folder in them is "~", and the account's name "<user>" (crash_report.h: withoutUserFolder).
+std::deque<std::string> gSdlCrashLog;
 void sdlRememberLogLine(const std::wstring& line) {
-    gSdlCrashLog.push_back(line);
+    static const std::string home = narrow(homeFolder().wstring());
+    gSdlCrashLog.push_back(stardraft::platform::withoutUserFolder(narrow(line), home));
     if (gSdlCrashLog.size() > 60) gSdlCrashLog.pop_front();
 }
 std::string sdlCrashLogText() {
     std::string r;
-    for (const auto& l : gSdlCrashLog) r += "  " + narrow(l) + "\n";
+    for (const auto& l : gSdlCrashLog) r += "  " + l + "\n";
     return r;
 }
 
@@ -53,6 +55,7 @@ void crashWritten(const fs::path& dir) {
     }
     wchar_t self[MAX_PATH];
     GetModuleFileNameW(nullptr, self, MAX_PATH);
+    stardraft::platform::claimCrashReport(dir);  // (the sender has it: the next start does not send it too)
     std::wstring cmd = L"\"" + std::wstring(self) + L"\" --send-crash \"" + dir.wstring() + L"\"";
     STARTUPINFOW si{sizeof si};
     PROCESS_INFORMATION pi{};
@@ -94,73 +97,37 @@ std::wstring pipeName() {
     return L"\\\\.\\pipe\\StarDraft-" + stem + L"-" + std::to_wstring(session);
 }
 
-// A program is open already: the files go to it (it opens them and comes to the front), and this one ends. False when
-// no program listens (this one is the first).
-bool sendToOpenProgram(const std::vector<std::wstring>& files) {
-    const std::wstring name = pipeName();
-    HANDLE pipe = INVALID_HANDLE_VALUE;
-    for (int tries = 0; tries < 3 && pipe == INVALID_HANDLE_VALUE; ++tries) {
-        pipe = CreateFileW(name.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
-        if (pipe == INVALID_HANDLE_VALUE && (GetLastError() != ERROR_PIPE_BUSY || !WaitNamedPipeW(name.c_str(), 2000))) break;
+// The window comes to the front (restored when it is minimized). Not in a test with real windows (--noactivate).
+void raiseMainWindow() {
+    if (gNoActivate || !gHost) return;
+    if (SDL_Window* w = gHost->mainWindow()) {  // (not SDL_GetWindows' first: that is the newest window, a menu or a tooltip)
+        if (SDL_GetWindowFlags(w) & SDL_WINDOW_MINIMIZED) SDL_RestoreWindow(w);
+        SDL_RaiseWindow(w);
     }
-    if (pipe == INVALID_HANDLE_VALUE) return false;
-    AllowSetForegroundWindow(ASFW_ANY);  // (the open program's window may come to the front)
+}
+
+// A map given to this program goes to the program that is open already (it opens it and comes to the front), and this
+// one ends; else this program is the first and listens (on a thread) for the files that later ones send, each opened
+// as File > Open does. Programs that start at once take turns (apps/common/instance.h). True: the file went.
+bool sendOrListen(const std::vector<std::wstring>& files) {
     std::string text;
     for (const std::wstring& f : files) {
         std::error_code ec;
         const fs::path abs = fs::absolute(f, ec);  // (the open program has another working folder)
         text += narrow((ec ? fs::path(f) : abs).wstring()) + "\n";
     }
-    DWORD wrote = 0;
-    const bool ok = WriteFile(pipe, text.data(), DWORD(text.size()), &wrote, nullptr) && wrote == text.size();
-    FlushFileBuffers(pipe);
-    CloseHandle(pipe);
-    return ok;
-}
-
-// The window comes to the front (restored when it is minimized). Not in a test with real windows (--noactivate).
-void raiseMainWindow() {
-    if (gNoActivate) return;
-    int n = 0;
-    SDL_Window** wins = SDL_GetWindows(&n);
-    if (wins && n > 0) {
-        SDL_Window* w = wins[0];
-        if (SDL_GetWindowFlags(w) & SDL_WINDOW_MINIMIZED) SDL_RestoreWindow(w);
-        SDL_RaiseWindow(w);
-    }
-    SDL_free(wins);
-}
-
-// The first program listens (on a thread) for the files that a second one sends; each opens as File > Open does.
-void listenForOtherPrograms() {
-    const std::wstring name = pipeName();
-    std::thread([name] {
-        bool first = true;
-        for (;;) {
-            HANDLE pipe = CreateNamedPipeW(name.c_str(), PIPE_ACCESS_INBOUND | (first ? FILE_FLAG_FIRST_PIPE_INSTANCE : 0),
-                                           PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS, 1, 0, 64 * 1024, 0, nullptr);
-            if (pipe == INVALID_HANDLE_VALUE) return;  // (another program listens already)
-            first = false;
-            if (ConnectNamedPipe(pipe, nullptr) || GetLastError() == ERROR_PIPE_CONNECTED) {
-                std::string text;
-                char buf[4096];
-                DWORD got = 0;
-                while (ReadFile(pipe, buf, sizeof buf, &got, nullptr) && got) text.append(buf, got);
-                std::vector<fs::path> files;
-                for (size_t a = 0, b; a < text.size(); a = b + 1) {
-                    b = text.find('\n', a);
-                    if (b == std::string::npos) b = text.size();
-                    if (b > a) files.push_back(fs::path(widen(text.substr(a, b - a))));
-                }
-                shellPost([files] {
-                    raiseMainWindow();
-                    for (const fs::path& f : files) confirmReplace([f] { openAny(f); });
-                });
-            }
-            DisconnectNamedPipe(pipe);
-            CloseHandle(pipe);
-        }
-    }).detach();
+    return stardraft::platform::sendOrListen(pipeName(), text, [](std::string got) {
+               std::vector<fs::path> opened;
+               for (size_t a = 0, b; a < got.size(); a = b + 1) {
+                   b = got.find('\n', a);
+                   if (b == std::string::npos) b = got.size();
+                   if (b > a) opened.push_back(fs::path(widen(got.substr(a, b - a))));
+               }
+               shellPost([opened] {
+                   raiseMainWindow();
+                   for (const fs::path& f : opened) confirmReplace([f] { openAny(f); });
+               });
+           }) == stardraft::platform::InstanceStart::Sent;
 }
 
 // --- The map files ------------------------------------------------------------------------------------------------------
@@ -199,11 +166,12 @@ void askMapsDefault() {
 
 // At start (not in a test run): the file types, as the Win32 program did them at start: project.stardraft opens with
 // this program (not with a copy that StarDraft-latest started: the launcher does that), and it is in Explorer's Open
-// with list for maps.
+// with list for maps. A command that opens another copy of StarDraft 2 that is still there stays (a copy run once from
+// Downloads or a USB stick does not take the maps from the installed one); the user's Yes points them here.
 void fileTypesAtStart() {
     if (stardraft::platform::programFile().filename().wstring().rfind(L"stardraft-latest-", 0) != 0)
-        stardraft::platform::registerProjectFiles(stardraft::platform::programFile().wstring());
-    stardraft::platform::registerMapFiles(stardraft::platform::associationExe(), false);  // in Explorer's Open with list for maps
+        stardraft::platform::registerProjectFiles(stardraft::platform::programFile().wstring(), true);
+    stardraft::platform::registerMapFiles(stardraft::platform::associationExe(), false, true);  // in Explorer's Open with list for maps
 }
 
 // --- The window -----------------------------------------------------------------------------------------------------
@@ -335,9 +303,7 @@ void sdlInstallCrashHandler(bool quiet) { winsdl::installCrashHandler(quiet); }
 // run (a snapshot, --silent) never sends and never listens.
 bool sdlSendToOpenProgram(const std::string& file, bool testRun) {
     if (testRun) return false;
-    if (!file.empty() && winsdl::sendToOpenProgram({widen(file)})) return true;
-    winsdl::listenForOtherPrograms();
-    return false;
+    return winsdl::sendOrListen(file.empty() ? std::vector<std::wstring>{} : std::vector<std::wstring>{widen(file)});
 }
 // The title bars follow the theme: the windows open now, and each dialog window before it shows (sdlSetLook calls it
 // again when the theme changes).
@@ -464,6 +430,7 @@ void crashWritten(const fs::path& dir) {
     if (gSdlCrashReports == 2) std::ofstream(dir / "sent") << "not sent: crash reports are off";
     if (gSdlCrashReports == 1 && !gSelf.empty()) {
         const std::string dirText = dir.string();
+        stardraft::platform::claimCrashReport(dir);  // (the sender has it: the next start does not send it too)
         if (fork() == 0) {  // (the sender: this program with --send-crash)
             execl(gSelf.c_str(), gSelf.c_str(), "--send-crash", dirText.c_str(), static_cast<char*>(nullptr));
             _exit(1);
@@ -532,7 +499,7 @@ int sdlCrashTestDepth(volatile int n) {
 }
 int sdlWindowsFirst(int argc, char** argv, bool testRun) {
     const std::string a1 = argc > 1 ? argv[1] : "", a2 = argc > 2 ? argv[2] : "";
-    if (a1 == "--send-crash") return releases::sendCrash(fs::path(widen(a2))) ? 0 : 1;
+    if (a1 == "--send-crash") return releases::sendCrash(fs::path(widen(a2)), true) ? 0 : 1;  // (the crashed program claimed it)
     prefs::number(L"CrashReports", gSdlCrashReports, 0, 2);
     sdlInstallCrashHandler(testRun || a1 == "--crash-test");
     if (a1 == "--crash-test" && a2 == "stack") return sdlCrashTestDepth(1);

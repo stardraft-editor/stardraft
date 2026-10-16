@@ -158,19 +158,24 @@ std::filesystem::path shellUnsavedRoot() {
 // The save question: Save, Do not save or Cancel, in the message box (core/views_message_box.inc; Escape, or no window, is Cancel).
 int shellAskSaveChanges(bool project) {
     if (!gRoot) return 2;
+    if (gShotDialogs)  // (a snapshot: the output says which tab asks; the next inputs answer the box)
+        std::printf("question: %s (tab %s)\n", project ? "Save the new project?" : "Save changes to the map?", narrow(docTitle(gActive, false)).c_str());
     const int r = msgbox::ask(*gRoot, shellTr(L"Unsaved changes"),
                               shellTr(project ? L"Save the new project?" : L"Save changes to the map?"),
                               {shellTr(L"&Save"), shellTr(L"Do &not save"), shellTr(L"Cancel")}, msgbox::Icon::Question);
     return r == 0 ? 0 : r == 1 ? 1 : 2;
 }
-// Save after the question: a map with a file is saved there (true when it was written); an untitled map asks for its
-// file and stays open until it is saved (false: close it again then). An unsaved project asks where it goes.
+// Save after the question: a map with a file is saved there (true when it was written); an untitled map (or one in a
+// folder StarDraft cannot write to) asks for its file and stays open until it is saved (false: close it again then;
+// a quit goes on once it is saved). An unsaved project asks where it goes.
 bool sdlSaveUnsavedProject();
 bool shellSaveChanges(bool project) {
     if (project) return sdlSaveUnsavedProject();
     if (!gState.ed || !gState.ed->isOpen()) return false;
-    if (!gState.ed->path().empty()) return saveTo(gState.ed->path());
-    saveOpenMap(false);
+    if (!gState.ed->path().empty() && !saveNeedsOtherPlace(gState.ed->path())) return saveTo(gState.ed->path());
+    saveOpenMap(false, [retry = gQuitRetry](bool ok) {
+        if (ok && retry) shellPost(retry);
+    });
     return false;
 }
 // The side the mode's tools are docked on (the Win32 rule: the mode last used on that side is remembered).
@@ -605,7 +610,14 @@ void shellRunPopout(stardraft::draw::View& content, int x, int y, int w, int h, 
         if (focus) focus->focus();
         if (opened) opened();
     });
-    gHost->runModal(*gRoot, frame, stardraft::draw::WindowSpec{stardraft::draw::WindowKind::Popup, stardraft::draw::Rect{x, y, x + w, y + h}, L""});
+    // The pop-out belongs to the window that takes the input now (x, y are in its pixels): the main window, or the
+    // dialog or pop-out it opens from (a value pop-out's Insert value, the block dialog's Add values). So a click in it
+    // keeps that one open, and the keys go back to that one when it closes.
+    stardraft::draw::View* owner = gHost->modalView();
+    if (gShotDialogs)  // (a snapshot: where it opens, for the inputs that click in it)
+        std::printf("pop-out: %dx%d at %d,%d of %s\n", w, h, x, y, owner ? "the window it opens from" : "the main window");
+    gHost->runModal(owner ? *owner : *gRoot, frame,
+                    stardraft::draw::WindowSpec{stardraft::draw::WindowKind::Popup, stardraft::draw::Rect{x, y, x + w, y + h}, L""});
     gHost->forget(content);
     frame.remove(content);
 }

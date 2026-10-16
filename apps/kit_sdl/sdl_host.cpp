@@ -394,6 +394,7 @@ void SdlHost::snapshotInput(draw::View& root, int w, int h, const std::vector<SD
         else if (e.type == SDL_EVENT_PINCH_BEGIN || e.type == SDL_EVENT_PINCH_UPDATE || e.type == SDL_EVENT_PINCH_END) e.pinch.windowID = id;
         else if (gGestureEvent && e.type == gGestureEvent) e.user.windowID = id;
         else if (e.type == SDL_EVENT_WINDOW_FOCUS_LOST) e.window.windowID = id;
+        else if (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_KEY_UP) e.key.windowID = id;  // (a key while the button is held)
         dispatch(e);
     }
     hover_ = std::move(hover);
@@ -632,6 +633,11 @@ void SdlHost::closeTree(SDL_WindowID id) {
     if (hover_)
         for (draw::View* v : gone) hover_(*v, {}, {}, true);
     for (auto& f : closed) f();  // (after the windows are gone: a callback may open others)
+}
+
+draw::View* SdlHost::modalView() const {
+    const Win* w = modal_ ? findWin(modal_) : nullptr;
+    return w ? w->root : nullptr;
 }
 
 bool SdlHost::inModal(SDL_WindowID id) const {

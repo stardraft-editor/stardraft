@@ -57,13 +57,29 @@ const wchar_t* reportWorkspaceName(Workspace w) {
 
 namespace releases {
 
-// A GET; api.github.com gets the token (the repository is private). A redirect (a release asset is served from
-// another host, with its own signed address) is followed without it. `file`: write the body there.
-inline bool get(const std::string& url, std::string* body, const fs::path* file = nullptr, const char* accept = "application/vnd.github+json", int hops = 0) {
+// The requests (apps/common/http.h); a test puts its own answers here (sdl_updates.inc: --check release-token).
+using HttpCall = std::function<stardraft::platform::HttpReply(const stardraft::platform::HttpRequest&, std::string*, const fs::path*)>;
+inline HttpCall& httpCall() {
+    static HttpCall call = [](const stardraft::platform::HttpRequest& q, std::string* text, const fs::path* file) {
+        return stardraft::platform::httpRequest(q, text, file);
+    };
+    return call;
+}
+
+// A GET; api.github.com gets the token (more requests an hour than without one). The repository is public: a token
+// that GitHub refuses (401: it expired or was revoked) gets the request again without it, so that Check for updates
+// works in every build after the token ends. A redirect (a release asset is served from another host, with its own
+// signed address) is followed without it. `file`: write the body there.
+inline bool get(const std::string& url, std::string* body, const fs::path* file = nullptr, const char* accept = "application/vnd.github+json", int hops = 0,
+                const std::string& token = issueToken()) {
     stardraft::platform::HttpRequest q;
-    q.url = url, q.method = "GET", q.accept = accept, q.token = issueToken(), q.followRedirects = false;
-    const stardraft::platform::HttpReply r = stardraft::platform::httpRequest(q, body, file);
-    if (!r.location.empty() && hops < 5) return get(r.location, body, file, accept, hops + 1);
+    q.url = url, q.method = "GET", q.accept = accept, q.token = token, q.followRedirects = false;
+    const stardraft::platform::HttpReply r = httpCall()(q, body, file);
+    if (!r.location.empty() && hops < 5) return get(r.location, body, file, accept, hops + 1, token);
+    if (r.status == 401 && !token.empty()) {
+        if (body) body->clear();
+        return get(url, body, file, accept, hops, std::string());
+    }
     return r.status == 200 && r.complete;
 }
 
@@ -79,6 +95,7 @@ inline std::string jsonString(const std::string& j, const std::string& key, size
 struct Release {
     std::string title, commit, zip, page;  // zip: the asset's API address (it downloads with the token)
     std::string download;                  // this system's download for the browser (its browser_download_url)
+    std::string tag, published;            // v0.5.0.8; when it was published (2026-10-11T18:00:00Z)
 };
 
 // The JSON without the spaces and line breaks between its values (GitHub indents its JSON for a request without a
@@ -109,6 +126,7 @@ inline bool parseRelease(const std::string& json, Release& r) {
     r = Release{};
     r.title = jsonString(j, "name");  // the release's own name comes before its assets' names
     r.page = jsonString(j, "html_url");
+    r.tag = jsonString(j, "tag_name"), r.published = jsonString(j, "published_at");
     if (const size_t a = r.title.find("(build "); a != std::string::npos) r.commit = r.title.substr(a + 7, r.title.find(')', a) - a - 7);
     for (size_t p = 0; (p = j.find("\"browser_download_url\":\"", p)) != std::string::npos; ++p) {
         const std::string u = jsonString(j, "browser_download_url", p);
@@ -130,12 +148,53 @@ inline bool parseRelease(const std::string& json, Release& r) {
 }
 
 // The newest release; false when GitHub cannot be reached.
-inline bool latest(Release& r) {
+inline bool latest(Release& r, const std::string& token = issueToken()) {
     std::string j;
-    return get("https://api.github.com/repos/" + narrow(kIssueRepo) + "/releases/latest", &j) && parseRelease(j, r);
+    return get("https://api.github.com/repos/" + narrow(kIssueRepo) + "/releases/latest", &j, nullptr, "application/vnd.github+json", 0, token) &&
+           parseRelease(j, r);
 }
 
-inline bool newer(const Release& r) { return !r.commit.empty() && r.commit != STARDRAFT_COMMIT; }
+// A version's numbers ("v0.5.0.8", "0.5.0.8": 0 5 0 8); none when it is not only numbers and dots ("0.5 Alpha": a build
+// that is not a release's).
+inline std::vector<int> versionNumbers(std::string v) {
+    if (!v.empty() && (v[0] == 'v' || v[0] == 'V')) v.erase(0, 1);
+    std::vector<int> out;
+    int n = -1;
+    for (const char ch : v) {
+        if (ch >= '0' && ch <= '9') n = (n < 0 ? 0 : n * 10) + (ch - '0');
+        else if (ch == '.' && n >= 0) out.push_back(n), n = -1;
+        else return {};
+    }
+    if (n < 0) return {};
+    out.push_back(n);
+    return out;
+}
+
+// "2026-10-11T18:00:00Z" as seconds since 1970 (0: not such a time).
+inline long long isoSeconds(const std::string& t) {
+    int y = 0, mo = 0, d = 0, h = 0, mi = 0, s = 0;
+    if (std::sscanf(t.c_str(), "%d-%d-%dT%d:%d:%d", &y, &mo, &d, &h, &mi, &s) != 6 || mo < 1 || mo > 12) return 0;
+    y -= mo <= 2;  // (days from the civil date: H. Hinnant's algorithm)
+    const long long era = (y >= 0 ? y : y - 399) / 400, yoe = y - era * 400;
+    const long long doy = (153LL * (mo + (mo > 2 ? -3 : 9)) + 2) / 5 + d - 1, doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    return (era * 146097 + doe - 719468) * 86400 + h * 3600 + mi * 60 + s;
+}
+
+#ifndef STARDRAFT_COMMIT_TIME
+#define STARDRAFT_COMMIT_TIME 0  // (no git: unknown)
+#endif
+// Whether the release is newer than this build. A release build (a version of numbers) compares the numbers. Another
+// build (a CI build of a commit, a build made here) is older than the release when its commit is older than the
+// release's publishing: a build of a later commit is never offered the older release (its Install would go back).
+inline bool newerThan(const Release& r, const std::string& version, const std::string& commit, long long commitTime) {
+    if (r.commit.empty() || r.commit == commit) return false;
+    const std::vector<int> mine = versionNumbers(version), theirs = versionNumbers(r.tag);
+    if (!mine.empty() && !theirs.empty()) return std::lexicographical_compare(mine.begin(), mine.end(), theirs.begin(), theirs.end());
+    const long long published = isoSeconds(r.published);
+    if (commitTime > 0 && published > 0) return published > commitTime;
+    return true;
+}
+inline bool newer(const Release& r) { return newerThan(r, STARDRAFT_VERSION_NAME, STARDRAFT_COMMIT, (long long)STARDRAFT_COMMIT_TIME); }
 
 // A release build: the one CI makes (the others are built here, by a developer).
 inline bool releaseBuild() { return !issueToken().empty(); }
@@ -235,12 +294,26 @@ inline std::wstring installRelease(const fs::path& self, const fs::path& fresh, 
 // does), then the old program's file goes (removeOldProgram).
 inline std::vector<std::string> restartArguments(std::uint32_t pid) { return {"--restart", std::to_string(pid)}; }
 
-// At start: the program file of an earlier update (stardraft.exe.old) goes; true when there is none now.
+// At start, once the program works here (its graphics device is made): the program file of an earlier update
+// (stardraft.exe.old) goes, and a new program that an update gave back (stardraft.exe.failed); true when there is no
+// old one now.
 inline bool removeOldProgram(const fs::path& self) {
     std::error_code ec;
     const fs::path old = stardraft::platform::oldProgramFile(self);
     fs::remove(old, ec);
+    fs::remove(stardraft::platform::failedProgramFile(self), ec);
     return !fs::exists(old, ec);
+}
+
+// The new program of an update that cannot make its graphics device on this computer (no Direct3D 12 or Vulkan): the
+// program before the update goes back in its place and starts with the same options. Empty when there was no update
+// to give back; else what the user is told.
+inline std::wstring rollBackUpdate(const fs::path& self, const std::vector<std::string>& args, const std::string& why) {
+    std::error_code ec;
+    if (self.empty() || !fs::exists(stardraft::platform::oldProgramFile(self), ec) || !stardraft::platform::rollBackUpdate(self)) return {};
+    const bool started = stardraft::platform::startProgram(self, args);
+    return L"StarDraft 2 could not start the new release on this computer: it could not use the video card (" + widen(why) +
+           L").\n\nThe release before the update is in its place again" + (started ? L" and starts now." : L". Start StarDraft 2 again.");
 }
 
 // Program options > Look for updates on start: the status bar's text after a change.
@@ -273,12 +346,16 @@ inline std::wstring crashStoppedText(const fs::path& dir, int mode) {
 // The question at the next start (Options > Crash reports: Ask), about the reports in `folder`.
 inline std::wstring crashAskText(const fs::path& folder) {
     return L"StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can "
-           L"repair the error?\n\nThe report has the version, Windows, the video card, where it crashed and the last log lines. "
-           L"It has no maps. It is in " + folder.wstring() + L".";
+           L"repair the error?\n\nThe report has the version, the operating system, the video card, where it crashed and the last "
+           L"log lines. The log lines can have the names of maps and folders (your user folder shows as ~). The report is public "
+           L"on GitHub. It has no maps. It is in " + folder.wstring() + L".";
 }
 
-// Sends one report to GitHub; true when it arrived (apps/common/crash_report.cpp).
-inline bool sendCrash(const fs::path& dir) { return stardraft::platform::sendCrashReport(dir, narrow(kIssueRepo), issueToken()); }
+// Sends one report to GitHub; true when it arrived (apps/common/crash_report.cpp). `claimed`: the crashed program took
+// the folder for this sender (claimCrashReport), so that the next start does not send it too.
+inline bool sendCrash(const fs::path& dir, bool claimed = false) {
+    return stardraft::platform::sendCrashReport(dir, narrow(kIssueRepo), issueToken(), claimed);
+}
 
 // At start, on a thread, with Options > Crash reports: Send (mode 1): the reports in `folder` that did not go yet (no
 // network then). Reports older than 30 days go away.

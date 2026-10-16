@@ -82,37 +82,36 @@ void raiseMainWindow() {
 }
 
 // The first program: the files that a second one sends open as File > Open does (one line each).
-void listenForOtherPrograms(const fs::path& socket) {
-    stardraft::xdg::listenAsInstance(socket, [](std::string text) {
-        std::vector<fs::path> files;
-        for (size_t a = 0, b; a < text.size(); a = b + 1) {
-            b = text.find('\n', a);
-            if (b == std::string::npos) b = text.size();
-            if (b > a) files.push_back(fs::path(widen(text.substr(a, b - a))));
-        }
-        if (files.empty()) return;
-        shellPost([files] {
-            raiseMainWindow();
-            for (const fs::path& f : files) confirmReplace([f] { openAny(f); });
-        });
+void openSentFiles(const std::string& text) {
+    std::vector<fs::path> files;
+    for (size_t a = 0, b; a < text.size(); a = b + 1) {
+        b = text.find('\n', a);
+        if (b == std::string::npos) b = text.size();
+        if (b > a) files.push_back(fs::path(widen(text.substr(a, b - a))));
+    }
+    if (files.empty()) return;
+    shellPost([files] {
+        raiseMainWindow();
+        for (const fs::path& f : files) confirmReplace([f] { openAny(f); });
     });
 }
 
 }  // namespace xdgsdl
 
-// A map or project given to a second program goes to the first one: true when it went (this program then ends). A test
-// run (a snapshot, --silent) never sends and never listens.
+// A map or project given to a second program goes to the first one: true when it went (this program then ends); else
+// this one listens. Programs that start at once take turns (apps/common/instance.h). A test run (a snapshot,
+// --silent) never sends and never listens.
 bool sdlSendToOpenProgram(const std::string& file, bool testRun) {
     if (testRun) return false;
     const fs::path socket = xdgsdl::instanceSocket();
     if (socket.empty()) return false;
+    std::string text;
     if (!file.empty()) {
         std::error_code ec;
         const fs::path abs = fs::absolute(widen(file), ec);  // (the open program has another working folder)
-        if (stardraft::xdg::sendToInstance(socket, narrow((ec ? fs::path(widen(file)) : abs).wstring()) + "\n")) return true;
+        text = narrow((ec ? fs::path(widen(file)) : abs).wstring()) + "\n";
     }
-    xdgsdl::listenForOtherPrograms(socket);
-    return false;
+    return stardraft::platform::sendOrListen(socket, text, xdgsdl::openSentFiles) == stardraft::platform::InstanceStart::Sent;
 }
 #endif
 

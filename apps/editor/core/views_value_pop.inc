@@ -587,8 +587,8 @@ private:
     // A list picker under `box` (this view's coordinates): the picked value, or "" when none.
     std::string pick(const std::wstring& title, std::vector<ListPickItem> items, const std::string& current, draw::Rect box) {
         ListPickView v(title, std::move(items), current);
-        const draw::Point o = origin();
-        if (!runListPick(v, {place_.x + o.x + box.left, place_.y + o.y + box.bottom + scale(2)})) return {};
+        const draw::Point o = origin();  // (the picker belongs to this pop-out: a point in its window)
+        if (!runListPick(v, {o.x + box.left, o.y + box.bottom + scale(2)})) return {};
         return v.result();
     }
     // Insert value: a value at the caret, as a chip.
@@ -686,7 +686,7 @@ private:
     std::string result_;
 };
 
-// Runs the pop-out at `at` (a point on the screen; the SDL program: in its main window) until it is applied or closed.
+// Runs the pop-out at `at` (the SDL program: a point in the window that takes the input now: the main window, or the dialog or pop-out it opens from) until it is applied or closed.
 // True when applied (`out` holds the value). `shown` is the pop-out while it is open (the self-tests reach it there);
 // `gameTexts` gives "A text of the game..." its entries; `advance` gets Tab's +1 or Shift+Tab's -1 (0: OK or Enter).
 inline bool runValuePop(const ValuePopSpec& spec, draw::Point at, std::string& out, ValuePopView** shown = nullptr,
@@ -705,6 +705,6 @@ inline bool runValuePop(const ValuePopSpec& spec, draw::Point at, std::string& o
     return true;
 }
 inline bool ValuePopView::nested(const ValuePopSpec& spec, draw::Rect box, std::string& out) {
-    const draw::Point o = origin();
-    return runValuePop(spec, {place_.x + o.x + box.left, place_.y + o.y + box.bottom + scale(2)}, out, nullptr, gameTexts);
+    const draw::Point o = origin();  // (the nested pop-out belongs to this one: a point in its window)
+    return runValuePop(spec, {o.x + box.left, o.y + box.bottom + scale(2)}, out, nullptr, gameTexts);
 }

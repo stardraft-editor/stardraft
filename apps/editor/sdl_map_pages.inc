@@ -954,6 +954,16 @@ bool sdlPageKindChanged(int kind) {
     return all && all->kinds[kind]->changed;
 }
 
+// Tab i's map pages have changes that are not applied (a size or tileset not applied yet): the quit asks about them.
+bool docMapPagesChanged(int i) {
+    if (i < 0 || i >= int(gDocs.size())) return false;
+    const auto& sp = gDocs[size_t(i)].mapPages;
+    if (!sp || sp->owner != docEditor(i)) return false;
+    for (const auto& k : sp->kinds)
+        if (k->has() && k->changed) return true;
+    return false;
+}
+
 // The rail's dot: the page of workspace `id` has changes that are not applied.
 int sdlPageKindOfCommand(int id) {
     return id == ID_SCEN_PROPS ? kSdlProps : id == ID_SCEN_PLAYERS ? kSdlPlayers : id == ID_SCEN_CLASSIC ? kSdlClassic

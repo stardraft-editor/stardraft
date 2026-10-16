@@ -282,7 +282,7 @@ void buildFinished(euddraft::BuildResult* r) {
 // Build: save the map into the project, then run euddraft on a thread; its output streams into the Log.
 void compileProject() {
     AppState& app = appState();
-    mapPageFlush();  // a text being typed on a map page is in the build too
+    typingFlush();  // a text being typed on a map page or in the Briefing is in the build too
     stringsCommitEdit();  // and a text or value being typed in the Data workspace (not a number: no build, the status says why)
     if (!dataCommitEdit()) return;
     EudProject* pr = activeProject();

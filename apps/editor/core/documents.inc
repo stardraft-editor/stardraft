@@ -229,10 +229,11 @@ bool isUnsavedProject(const EudProject* pr) {
     const fs::path root = shellUnsavedRoot();
     return !root.empty() && fs::equivalent(pr->folder().parent_path().parent_path(), root, ec);
 }
-// Whether an unsaved project holds work: a changed map, triggers, data or scripts.
-bool unsavedProjectTouched(const EudProject& pr) {
-    AppState& app = appState();
-    if (app.ed && (app.ed->modified() || app.ed->canUndo())) return true;
+// Whether an unsaved project holds work: a changed map, triggers, data or scripts. `ed`: the project's map (nullptr:
+// the active tab's).
+bool unsavedProjectTouched(const EudProject& pr, const Editor* ed = nullptr) {
+    if (!ed) ed = appState().ed.get();
+    if (ed && (ed->modified() || ed->canUndo())) return true;
     std::error_code ec;
     if (fs::exists(pr.folder() / "triggers.json", ec)) return true;
     if (fs::exists(pr.folder() / "dat", ec) && !fs::is_empty(pr.folder() / "dat", ec)) return true;

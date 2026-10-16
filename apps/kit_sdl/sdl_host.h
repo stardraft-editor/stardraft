@@ -167,6 +167,9 @@ public:
     // A modal dialog or pop-out is open (runModal), or a sheet (setSheetOpen): the other windows wait (macOS: the menu
     // bar's commands, and the maps that the Dock or Spotlight opens, too).
     bool modalOpen() const { return modal_ != 0 || sheets_ > 0; }
+    // The content of the modal dialog or pop-out that takes the input now (runModal's innermost), or nullptr. A pop-out
+    // opened from it belongs to it: a click in the pop-out keeps it, and the keys go back to it when the pop-out closes.
+    draw::View* modalView() const;
     void forget(const draw::View& v) override;
 
 private:

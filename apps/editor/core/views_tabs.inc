@@ -10,6 +10,8 @@ void mapPageClose();  // map_pages.inc: the open map page goes (its working copy
 void pageSync();
 void openStartPage();
 bool mapPagesConfirm();  // map_pages.inc: the map pages with changes that are not applied: apply them, or not
+bool docMapPagesChanged(int i);  // map_pages.inc: tab i's map pages have changes that are not applied
+void typingFlush();  // the texts being typed (a map page's field, the Briefing's text) go into their map now
 // The save question's host parts (shell.h): shellAskSaveChanges answers 0 Save, 1 Do not save or 2 Cancel; shellSaveChanges
 // saves the map (or the unsaved project, which asks where it goes) and says whether it was saved.
 int shellAskSaveChanges(bool project);
@@ -66,6 +68,7 @@ int tabStripHeight() { return scale(30); }
 void stashActive() {
     AppState& app = shellState();
     if (gActive < 0 || gActive >= int(gDocs.size()) || !app.ed) return;
+    typingFlush();  // a text being typed goes into this tab's map before the tab goes to the back
     mapPageClose();
     Doc& d = gDocs[size_t(gActive)];
     d.camX = app.camX, d.camY = app.camY, d.zoom = app.zoom;
@@ -120,6 +123,37 @@ bool closeDoc(int i) {
     gActive = -1;
     if (gDocs.empty()) openStartPage();  // the last tab closed: the start page
     else activateDoc(std::min(i, int(gDocs.size()) - 1));
+    return true;
+}
+
+// Whether tab i holds work that its save question asks about: a changed map, an unsaved project with work in it, or
+// map pages with changes that are not applied. (The active tab: confirmDiscard asks itself.)
+bool docHasWork(int i) {
+    if (i < 0 || i >= int(gDocs.size())) return false;
+    const Doc& d = gDocs[size_t(i)];
+    if (d.page) return false;
+    const Editor* ed = docEditor(i);
+    if (isUnsavedProject(d.project.get())) return unsavedProjectTouched(*d.project, ed) || docMapPagesChanged(i);
+    return (ed && ed->modified()) || docMapPagesChanged(i);
+}
+
+// Before StarDraft ends (quit, the window's close, Restart now, an update's install): each tab with work asks its save
+// question (Save, Do not save, Cancel), the active tab first; the texts being typed go into their maps first. False:
+// canceled (the tab that asked stays active, with its page). No tab closes, so a cancel loses nothing.
+bool confirmAllDocs() {
+    typingFlush();
+    const Workspace was = gWorkspace;
+    auto stay = [was] {
+        if (gWorkspace == was) setWorkspace(was);  // (the save question closed the map page: it opens again)
+        return false;
+    };
+    const int first = gActive;
+    if (first >= 0 && first < int(gDocs.size()) && !confirmDiscard()) return stay();
+    for (int i = 0; i < int(gDocs.size()); ++i) {
+        if (i == first || !docHasWork(i)) continue;
+        activateDoc(i);
+        if (!confirmDiscard()) return stay();
+    }
     return true;
 }
 
