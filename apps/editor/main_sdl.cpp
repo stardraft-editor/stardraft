@@ -14,8 +14,8 @@
 // Windows: --send-crash <folder> sends a crash's report (the crashed program starts it); --crash-test crashes on purpose.
 // A map given while the program is open goes to the open program (not in a test run: a snapshot or --silent).
 // The StarCraft install: --install, then STARDRAFT_INSTALL, the folder chosen before, then the usual folders of each
-// system (core/install_search.inc; on Windows Blizzard's registry entries first); when none opens, the window asks for
-// the folder.
+// system (core/install_search.inc; on Windows Blizzard's registry entries first); when none opens, a banner on the start
+// page asks for the folder (Browse).
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -152,7 +152,7 @@ namespace {
 
 // The StarCraft install: --install, STARDRAFT_INSTALL, the folder the user chose before (the setting StarCraftFolder),
 // then the usual folders of this system (core/install_search.inc). The first folder whose game data opens is the install.
-// Returns false when none opens; the window then asks for the folder (askInstallFolder). lastErr is the first error the
+// Returns false when none opens; the start page's banner then asks for the folder (browseInstallFolder). lastErr is the first error the
 // game data gave for a folder that exists (CASC's text), so a damaged install says why.
 bool openInstall(const std::string& given, std::string& lastErr) {
     std::vector<fs::path> candidates;
@@ -193,8 +193,6 @@ bool openInstall(const std::string& given, std::string& lastErr) {
     return false;
 }
 
-// The folder dialog's answer (SDL's thread): the UI thread tries the folder, saves it and opens the game data from it.
-void useInstallFolder(const std::string& picked);
 // The StarCraft folder for the next starts: the settings' StarCraftFolder (and on Windows the Windows program's
 // install.txt, so both programs use one install).
 void saveInstallFolder(const fs::path& t) {
@@ -205,14 +203,20 @@ void saveInstallFolder(const fs::path& t) {
         std::ofstream(f) << narrow(t.wstring());
     }
 }
-void installFolderPicked(void*, const char* const* list, int) {
-    const std::string picked = list && list[0] ? list[0] : std::string();
-    shellPost([picked] { useInstallFolder(picked); });
+// The StarCraft folder that the user picked while no game data is open (the start page's Browse, or Program options):
+// the game data opens from it (or from the install in it), and it is saved for the next starts. False: that folder has
+// no game data.
+bool useInstallFolder(const std::string& picked);
+// The start page's banner when no install was found: Browse opens the folder dialog. A folder with game data opens
+// it, and the banner goes; else the banner says that the folder has none, and stays.
+void installFolderPicked(const std::string& picked) {
+    if (picked.empty()) return;  // (cancelled: the banner stays)
+    if (!useInstallFolder(picked)) {
+        gStartView.installNote = L"That folder has no StarCraft game data.";
+        gStartView.invalidate();
+    }
 }
-// Asks for the StarCraft folder (the window is up; the game data is not open yet).
-void askInstallFolder() {
-    SDL_ShowOpenFolderDialog(installFolderPicked, nullptr, dialogWindow(), nullptr, false);
-}
+void browseInstallFolder() { installFolderPicked(narrow(shellPickFolder(shellTr(L"Select the StarCraft folder")))); }
 // A file dropped on the window, or (macOS) opened from Finder: the Windows program's drop (core/documents.inc), after the
 // save question for the open map (SDL has one tab).
 void dropFile(const std::string& utf8) {
@@ -232,21 +236,22 @@ void fitMainWindow(int w, int h) {
     SDL_SetWindowPosition(win, SDL_WINDOWPOS_CENTERED_DISPLAY(SDL_GetDisplayForWindow(win)), SDL_WINDOWPOS_CENTERED_DISPLAY(SDL_GetDisplayForWindow(win)));
 }
 
-void useInstallFolder(const std::string& picked) {
-    if (picked.empty()) return;  // (cancelled: the program asks again on the next start)
+bool useInstallFolder(const std::string& picked) {
+    if (picked.empty()) return false;
     std::string err;
+    std::error_code ec;
     for (const fs::path& t : installTries(fs::path(widen(picked))))  // (UTF-8)
-        if (fs::is_directory(t) && gState.data.open(t, err)) {
+        if (fs::is_directory(t, ec) && gState.data.open(t, err)) {
             gInstallInUse = t;
-            saveInstallFolder(t);
+            if (!gSilent) saveInstallFolder(t);  // (tests never change the user's settings)
             gDataOk = true, gDataError.clear();
-            gStartView.dataError.clear();
+            gStartView.dataError.clear(), gStartView.installMissing = false, gStartView.installNote.clear();
             if (gRoot) gRoot->relayout(), gRoot->invalidate(), gRoot->map.invalidate();
+            gStartView.invalidate();
             setMessage(L"The StarCraft folder is set");
-            return;
+            return true;
         }
-    msgbox::ask(*gRoot, shellTr(L"Not a StarCraft: Remastered folder"), widen(err.empty() ? picked : err), {L"OK"}, msgbox::Icon::Warning);
-    askInstallFolder();  // asks again: the folder above the install is a common pick
+    return false;
 }
 
 // The PNG of the window's pixels, from the snapshot's texture (RGBA8, as the snapshot makes it).
@@ -308,6 +313,8 @@ int main(int argc, char** argv) {
     int width = 1600, height = 1000;
     bool sizeArg = false;
     float scaleArg = 0;
+    bool noInstallArg = false;  // --noinstall
+    std::string pickInstallArg;  // --pickinstall
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         auto next = [&] { return i + 1 < argc ? std::string(argv[++i]) : std::string(); };
@@ -315,6 +322,8 @@ int main(int argc, char** argv) {
         else if (a == "--size") std::sscanf(next().c_str(), "%dx%d", &width, &height), sizeArg = true;
         else if (a == "--scale") scaleArg = float(std::atof(next().c_str()));
         else if (a == "--install") installArg = next();
+        else if (a == "--noinstall") noInstallArg = true;  // no StarCraft install is searched for (the start page's banner asks for it), for a snapshot
+        else if (a == "--pickinstall") pickInstallArg = next();  // a folder: the start page's Browse picks it (the folder dialog's answer), for a snapshot; "found": the folder that the search finds
         else if (a == "--mode") modeArg = next();  // a mode's name (units, terrain, doodads, sprites, locations), for a snapshot
         else if (a == "--workspace") workspaceArg = next();  // a workspace's name (map, data, triggers, project...), for a snapshot
         else if (a == "--data") dataArg = next();  // tab:entry (units:0, images:239, strings:5): the Data workspace opens it, for a snapshot
@@ -353,6 +362,8 @@ int main(int argc, char** argv) {
         else if (a == "--drag") inputArgs.emplace_back('d', next());  // x0,y0-x1,y1[:mods]: a left drag from the first point to the second, for a snapshot
         else if (a == "--move") inputArgs.emplace_back('m', next());  // x,y: the mouse moves there (no button), for a snapshot
         else if (a == "--type") inputArgs.emplace_back('t', next());  // text typed into the view with the focus (a search box, a number), for a snapshot
+        else if (a == "--wheel") inputArgs.emplace_back('h', next());  // x,y,dx,dy[:precise][:mods]: the wheel there (dy notches away from the user), or a trackpad's scroll (precise), for a snapshot
+        else if (a == "--pinch") inputArgs.emplace_back('p', next());  // x,y,scale: a trackpad's pinch there (scale more than 1: the fingers move apart), for a snapshot
         else if (a == "--wait") inputArgs.emplace_back('w', next());  // ms: the time passes for the program's timers (in order with the inputs), for a snapshot
         else if (a == "--rclick") rclickArgs.push_back(next());  // x,y[:n]: a right click there; the menu's items go to the output, item n runs, for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
@@ -386,20 +397,38 @@ int main(int argc, char** argv) {
         host.setScale(scaleArg);  // (0: the display's scale; the views lay out at it)
         kit_sdl::setEmbeddedFiles(sdlEmbeddedFiles());  // (Windows: the fonts, atlases and icon are in stardraft.exe too)
         std::printf("stardraft_editor: fonts %s, scale %.2f\n", kit_sdl::loadFonts(base + "fonts/").c_str(), double(scale));
+        // The text sizes at this scale (the snapshots check that the small text grows with the UI's: the rail's labels)
+        std::printf("stardraft_editor: text %d px, small text %d px, titles %d px\n", kit::px(15), -(shellUiFontLfHeight() * 5 / 6),
+                    -(shellUiFontLfHeight() * 3 / 2));
         if (!kit_sdl::loadIconAtlases(device, base + "res/")) std::printf("stardraft_editor: no icon atlases in res/\n");
         kit_sdl::setGlyphIcons(kitpaint::glyphIcon);  // the glyphs as UI icons (no system has to have Segoe MDL2 Assets)
         if (!kit_sdl::loadResourceIcon(1, base + "res/stardraft.ico")) std::printf("stardraft_editor: no app icon in res/\n");  // (About's)
         host.setHoverHook(sdlHover);  // the views' tooltips (sdl_tips.inc)
         host.setRightClickHook(sdlWindowRightClick);  // Report feedback in the dialogs and pop-outs (sdl_menus.inc)
+#ifdef __APPLE__
+        if (snapshot.empty()) {  // a trackpad's scroll moves the map, a wheel zooms it: macOS tells them apart (mac_app_menu.mm)
+            macWatchScrolls();
+            host.setPreciseScrollHook(macLastScrollPrecise);
+        }
+#endif
 
         // The game data (the map needs it), then the map from the command line.
         std::string dataErr;
-        if (openInstall(installArg, dataErr)) gDataOk = true;
+        if (!noInstallArg && openInstall(installArg, dataErr)) gDataOk = true;
         else {
             gDataError = "No StarCraft install found: choose the StarCraft folder, or start with --install <folder>, or STARDRAFT_INSTALL";
             if (!dataErr.empty()) gDataError += ". Game data: " + dataErr;
-            gStartView.dataError = widen(gDataError);  // the start page keeps the reason (the status bar's text goes)
+            // The start page's banner asks for the folder (Browse); under the notice, the game data's own reason when
+            // a folder was there but its data did not open (a damaged install).
+            gStartView.installMissing = true;
+            gStartView.dataError = widen(dataErr);
         }
+        gStartView.onBrowseInstall = [] { shellPost(browseInstallFolder); };  // (after the click: the dialog waits for its answer)
+        if (pickInstallArg == "found") {  // (a snapshot: the folder that the search finds, as if the user picked it)
+            std::string ignored;
+            pickInstallArg = openInstall(installArg, ignored) ? narrow(gInstallInUse.wstring()) : std::string();
+        }
+        if (!pickInstallArg.empty()) installFolderPicked(pickInstallArg);  // (a snapshot: the folder as Browse's dialog gives it)
         // The dock layout (core/dock_prefs.inc), the recent lists, the working folder and the unit limits in the
         // settings, as the Win32 program at its start (snapshots: the defaults).
         if (!gSilent) loadDock(), loadRecentLists(), loadUnitLimits();
@@ -616,6 +645,9 @@ int main(int argc, char** argv) {
             std::printf("%s %s\n", ok ? "wrote" : "could not write", snapshot.c_str());
             if (!ok) status = 1;
             if (pieArg) sdlPieShotRelease();  // (after the picture: letting go of Space paints with the slice's terrain)
+            if (noInstallArg || !pickInstallArg.empty())  // the start page's banner (no install found), as the picture shows it
+                std::printf("start page: banner %s; note: %s; game data %s\n", gStartView.bannerShown() ? "shown" : "not shown",
+                            gStartView.installNote.empty() ? "none" : narrow(gStartView.installNote).c_str(), gDataOk ? "open" : "not open");
             if (midPanArg) sdlMidPanCheck();  // (after the picture: it moves the camera)
             if (cursorsArg) sdlCursorChecks();  // (after the picture: it changes the mode and the camera)
             if (untitledArg) {  // (the project's folder goes: a snapshot leaves nothing)
@@ -636,7 +668,6 @@ int main(int argc, char** argv) {
 #endif
             sdlWindowsShown(testRun);  // (Windows: the dark title bar, an earlier crash's report, the file types)
             if (!testRun) sdlUpdatesAtStart();  // (a release build: a newer release says so in the status bar)
-            if (!gDataOk) shellPost(askInstallFolder);  // no install was found: the window asks for its folder
             sendPendingFeedback();  // feedback that could not go before (core/feedback_send.inc)
             host.setAnimating(true);  // (the map and the posted work need frames; see shellPost)
             host.run();

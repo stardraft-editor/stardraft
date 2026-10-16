@@ -13,8 +13,8 @@ A case that needs the game data runs only with --install; one that needs a map, 
 one that needs a project, only with --project. The others run everywhere (CI has no game data).
 
 To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (its argument loop in main()). In a
-case's options, {map}, {project}, {root} (the repository), {out} (the --out folder) and {newdir} (a new empty folder in
---out) are paths. A run also fails when its output has "(WRONG)", or when the
+case's options, {map}, {project}, {install} (the --install folder), {root} (the repository), {out} (the --out folder)
+and {newdir} (a new empty folder in --out) are paths. A run also fails when its output has "(WRONG)", or when the
 case's function in CHECKS finds a problem in its output.
 """
 
@@ -37,6 +37,17 @@ WORKSPACES = ["map", "data", "triggers", "assets", "project", "briefing", "files
 MODES = ["units", "terrain", "doodads", "sprites", "locations"]  # main_sdl.cpp, --mode
 
 CASES = [("start", [], "")]
+# No StarCraft install found (--noinstall: no search): the start page's banner asks for the folder. --pickinstall gives
+# Browse's folder dialog an answer: a folder with no game data (the banner says so and stays), or the install (the game
+# data opens and the banner goes; a snapshot saves no setting). "found": the folder that the search finds.
+CASES += [
+    ("start-noinstall", ["--noinstall"], ""),
+    ("start-noinstall-nodata", ["--noinstall", "--pickinstall", "{root}"], ""),
+    ("start-noinstall-pick", ["--noinstall", "--pickinstall", "found"], "data"),
+    # Scale 2 (a Retina display of macOS, or 200 % on Windows): the small text (the rail's labels, captions, table
+    # headers) is two thirds of the UI text, as at scale 1.
+    ("start-scale2", ["--scale", "2", "--size", "3200x2000"], ""),
+]
 CASES += [("ws-" + w, ["--workspace", w], "") for w in WORKSPACES]
 CASES += [
     ("newpage-classic", ["--newpage", "classic"], ""),
@@ -242,6 +253,17 @@ CASES += [
     # places a Marine there, as the press of a user's mouse does.
     ("map-quick-click", ["--mode", "units", "--key", "Q", "--type", "marine", "--click", "832,280", "--key", "Q",
                          "--click", "1200,850"], "map"),
+]
+# The wheel and a trackpad on the map (--wheel x,y,dx,dy[:precise][:mods], --pinch x,y,scale; in the window's pixels):
+# a wheel's notch zooms at the mouse (1.2 times); a trackpad's two-finger scroll (precise) moves the map with the
+# fingers (a notch of SDL's: 48 px at scale 1); Ctrl (Cmd on macOS) and a trackpad's scroll zoom (1.2 times each 4 of
+# its notches); a pinch zooms around the mouse. Each line says the point in the map view and the camera before and
+# after: CHECKS reads them.
+CASES += [
+    ("map-wheel-zoom", ["--wheel", "700,500,0,1"], "map"),
+    ("map-trackpad-pan", ["--wheel", "700,500,1,-1.5:precise"], "map"),
+    ("map-trackpad-ctrl-zoom", ["--wheel", "700,500,0,8:precise:Ctrl"], "map"),
+    ("map-pinch", ["--pinch", "700,500,1.5"], "map"),
 ]
 # The workspaces' edits with the mouse and the keys (the Windows self-test's steps off the map). --type types text into
 # the view with the focus; --wait ms lets the program's timers run. A dialog or pop-out that an input opened (a list
@@ -651,6 +673,70 @@ def check_briefing_add(output):
     return None
 
 
+def check_banner(shown, note, data):
+    """A check that the start page's line ("start page: banner shown; note: none; game data not open") is as given."""
+    def check(output):
+        m = re.search(r"^start page: banner (shown|not shown); note: (.*); game data (open|not open)\r?$", output, re.M)
+        if not m:
+            return "no start page line"
+        want = ("shown" if shown else "not shown", note, "open" if data else "not open")
+        if m.groups() != want:
+            return f"start page: {m.groups()}, not {want}"
+        return None
+    return check
+
+
+def check_scale2(output):
+    """None when at scale 2 the UI text is 30 px and the small text (the rail's labels) two thirds of it (20 px)."""
+    m = re.search(r"text (\d+) px, small text (\d+) px, titles (\d+) px", output)
+    if not m:
+        return "no text sizes line"
+    ui, small, title = map(int, m.groups())
+    if (ui, small, title) != (30, 20, 36):
+        return f"text {ui} px, small {small} px, titles {title} px; not 30, 20 and 36"
+    return None
+
+
+def camera(output, what):
+    """The point in the map view and the camera before and after (x, y, zoom) of the --wheel or --pinch line."""
+    f = r"(-?[\d.]+)"
+    m = re.search(rf"^{re.escape(what)}: at map {f},{f}; camera {f},{f} zoom {f} -> {f},{f} zoom {f}\r?$", output, re.M)
+    if not m:
+        return None
+    v = list(map(float, m.groups()))
+    return (v[0], v[1]), (v[2], v[3], v[4]), (v[5], v[6], v[7])
+
+
+def check_zoom_at(what, factor):
+    """A check that the zoom changed `factor` times and the map's point under the mouse stayed under it."""
+    def check(output):
+        c = camera(output, what)
+        if not c:
+            return f"no camera line for {what}"
+        (x, y), (cx0, cy0, z0), (cx1, cy1, z1) = c
+        if abs(z1 / z0 - factor) > 0.01:
+            return f"the zoom changed {z1 / z0:.3f} times, not {factor}"
+        for a, c0, c1 in ((x, cx0, cx1), (y, cy0, cy1)):
+            if abs((c0 + a / z0) - (c1 + a / z1)) > 0.5:
+                return f"the map's point under the mouse moved ({c0 + a / z0:.1f} -> {c1 + a / z1:.1f})"
+        return None
+    return check
+
+
+def check_trackpad_pan(output):
+    """None when a trackpad's scroll (1 right, 1.5 toward the user) moved the map 48 px left and 72 px up, not the zoom."""
+    c = camera(output, "wheel 700,500,1,-1.5:precise")
+    if not c:
+        return "no camera line"
+    _, (cx0, cy0, z0), (cx1, cy1, z1) = c
+    if abs(z1 - z0) > 1e-4:
+        return f"the zoom changed ({z0} -> {z1})"
+    dx, dy = (cx1 - cx0) * z0, (cy1 - cy0) * z0  # (the camera's move in screen pixels: the map moves the other way)
+    if abs(dx - 48) > 1 or abs(dy - 72) > 1:
+        return f"the camera moved {dx:.1f},{dy:.1f} screen px, not 48,72"
+    return None
+
+
 # Checks of a case's output (after the PNG's): a function that returns None, or what is wrong.
 CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
           "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
@@ -662,7 +748,13 @@ CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-clic
           "map-player-keys": check_player_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click,
           "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
           "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits,
-          "map-files-search": check_files_search, "map-briefing-add": check_briefing_add}
+          "map-files-search": check_files_search, "map-briefing-add": check_briefing_add,
+          "start-noinstall": check_banner(True, "none", False),
+          "start-noinstall-nodata": check_banner(True, "That folder has no StarCraft game data.", False),
+          "start-noinstall-pick": check_banner(False, "none", True), "start-scale2": check_scale2,
+          "map-wheel-zoom": check_zoom_at("wheel 700,500,0,1", 1.2), "map-trackpad-pan": check_trackpad_pan,
+          "map-trackpad-ctrl-zoom": check_zoom_at("wheel 700,500,0,8:precise:Ctrl", 1.44),
+          "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5)}
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -785,7 +877,8 @@ def main():
         given = any("{map}" in x or "{project}" in x for x in args)  # (the path is in the options)
         # {newdir}: a new empty folder in --out for each run (a folder is never deleted)
         newdir = tempfile.mkdtemp(prefix=name + "-", dir=a.out) if any("{newdir}" in x for x in args) else ""
-        args = [x.format(map=a.map or "", project=a.project or "", root=ROOT, out=a.out, newdir=newdir) for x in args]
+        args = [x.format(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir)
+                for x in args]
         if needs == "map" and not given:
             cmd.append(a.map)
         elif needs == "project" and not given:

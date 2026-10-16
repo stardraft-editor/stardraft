@@ -357,6 +357,7 @@ void TilesGridView::paint(draw::Canvas& c) {
 
 bool TilesGridView::mouse(const draw::MouseEvent& e) {
     switch (e.kind) {
+    case draw::MouseKind::Pinch: return false;
     case draw::MouseKind::Wheel:
         if (e.horizontal) return false;
         tilesScrollTo(gTiles.scroll - int(e.wheel * float(scale(90))));

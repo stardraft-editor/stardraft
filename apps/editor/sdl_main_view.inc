@@ -218,16 +218,19 @@ struct MapView final : draw::View {
             if (draw::Host* h = host()) h->capture(*this, false);
             invalidate();
             return true;
-        case draw::MouseKind::Wheel: {  // zoom at the mouse: the point under it stays under it (a sideways swipe does nothing)
-            if (!open() || e.wheel == 0 || e.horizontal) return false;
-            if ((e.mods & draw::kAlt) && mapBrushWheel(gState, e.wheel > 0)) return invalidate(), true;  // Alt: the brush's size (core/map_input.inc)
-            const float wx = gState.camX + e.pt.x / gState.zoom, wy = gState.camY + e.pt.y / gState.zoom;
-            gState.zoom = std::clamp(gState.zoom * std::pow(1.2f, e.wheel), 1.0f / 16, 4.0f);
-            gState.camX = wx - e.pt.x / gState.zoom, gState.camY = wy - e.pt.y / gState.zoom;
-            clampCamera();
+        case draw::MouseKind::Wheel:  // a wheel zooms at the mouse, a trackpad's scroll moves the map (core/map_input.inc: mapWheel)
+            if (!open()) return false;
+            if (!mapWheel(gState, float(e.pt.x), float(e.pt.y), e.wheel, e.panX, e.panY, e.precise, e.horizontal, (e.mods & draw::kCtrl) != 0,
+                          (e.mods & draw::kAlt) != 0))
+                return false;
+            updateStatus();
             invalidate();
             return true;
-        }
+        case draw::MouseKind::Pinch:  // the zoom around the point between the fingers (core/map_input.inc: mapPinch)
+            if (!open() || !mapPinch(gState, float(e.pt.x), float(e.pt.y), e.pinch)) return false;
+            updateStatus();
+            invalidate();
+            return true;
         case draw::MouseKind::Leave:
             gState.mouseIn = false;
             invalidate();

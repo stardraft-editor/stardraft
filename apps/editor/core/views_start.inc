@@ -1,6 +1,7 @@
 // The start page (portable, core.inc; docs/dev/CONTROLS.md, "New page and start page"): the project kinds as cards (a
 // card opens its settings), the recent projects and maps (the newest first, each with its date and a remove button),
-// Open, and the alpha notice under them. A view: it paints on a Canvas, and its Open button and remove buttons are kit
+// Open, and the alpha notice under them. When no StarCraft install was found, a banner at the top asks for its folder
+// (Browse). A view: it paints on a Canvas, and its Open button and remove buttons are kit
 // widgets. The host (new_page.inc on Windows) says what a card and a row do, and gives the date of a file.
 
 const wchar_t* kKindNames[] = {L"Classic project", L"EUD project", L"Campaign project", L"Mod project"};
@@ -15,6 +16,9 @@ const wchar_t* const kKindCards[] = {
     L"Make mods with your own graphics and game files. Use your own MPQs and data files, for StarCraft 1.16.1 and "
     L"Remastered.",
 };
+
+// The banner when no StarCraft install was found (the start page's top).
+const wchar_t* const kNoInstallText = L"Could not find StarCraft on your system.";
 
 const wchar_t* const kStartNotice = L"StarDraft 2 is alpha software. Errors can occur. Make backup copies of your projects and maps before you edit them. "
                                     L"Your feedback makes StarDraft 2 better: right-click anything and select \"Report feedback on \x2026\".";
@@ -34,12 +38,18 @@ public:
 
 class StartView final : public draw::View {
 public:
-    StartView() : open_(L"Open\x2026", stardraft::kit::Tone::Normal, nullptr) {
+    StartView() : open_(L"Open\x2026", stardraft::kit::Tone::Normal, nullptr), browse_(L"Browse\x2026", stardraft::kit::Tone::Primary, nullptr) {
         open_.onClick = [this] {
             if (onOpen) onOpen();
         };
         open_.setTip(L"A project or a map (Ctrl+O)");
         add(open_, {0, 0, 0, 0});
+        browse_.onClick = [this] {
+            if (onBrowseInstall) onBrowseInstall();
+        };
+        browse_.setTip(L"Select the StarCraft folder");
+        browse_.setVisible(false);
+        add(browse_, {0, 0, 0, 0});
     }
 
     // What the page does. onCard: 0 a classic project, 1 an EUD project. onOpenRecent / onRemoveRecent: project (else a
@@ -52,6 +62,14 @@ public:
     std::function<void(int, int, int)> scrollInfo;
     // Why the game data is not open (the host sets it; empty when it is open): the page says so under the notice.
     std::wstring dataError;
+    // No StarCraft install was found (the host sets it): the banner at the top asks for its folder. Its Browse runs
+    // onBrowseInstall (the host's folder dialog). installNote: the banner's second line (a picked folder with no game
+    // data); empty: none.
+    bool installMissing = false;
+    std::wstring installNote;
+    std::function<void()> onBrowseInstall;
+    // Whether the last paint showed the banner (the snapshots read it).
+    bool bannerShown() const { return bannerShown_; }
 
     // The card the keyboard is on (0 or 1); Left, Right and Tab move it, Enter and Space open it.
     void setCard(int k) {
@@ -85,12 +103,17 @@ public:
         const int w = width(), h = height();
         c.fill({0, 0, w, h}, kBg);
         hits_.clear();
+        if (!installMissing && browse_.visible()) browse_.setVisible(false);
         const int pad = scale(stardraft::kit::kDialogPad), rowH = scale(stardraft::kit::kRowH), bh = scale(stardraft::kit::kButtonH), gap = scale(16);
         const int avail = w - 2 * pad;
         const int cardW = std::clamp((avail - 3 * gap) / 4, scale(180), scale(320));
         const int cw = 4 * cardW + 3 * gap;
         const int x1 = std::max(pad, (w - cw) / 2);
-        const int startY = std::max(pad, (h - blockH_) / 2) - scroll_;  // the block is in the middle (it has the notice under the list)
+        // The banner (no StarCraft install found): at the top of the page, as wide as the cards; the block is under it.
+        const int bannerH = installMissing ? paintBanner(c, x1, pad - scroll_, cw) : 0;
+        bannerShown_ = installMissing;
+        const int top = bannerH ? pad + bannerH + gap : pad;
+        const int startY = std::max(top, (h - blockH_) / 2) - scroll_;  // the block is in the middle (it has the notice under the list)
         int y = startY;
 
         // The cards: the kinds side by side. Click a card (or Enter on it) to go to its settings.
@@ -336,6 +359,28 @@ private:
         return *removes_[k];
     }
 
+    // The banner at (x, y), `w` wide: a warning icon, the text (and the note under it), Browse at the right. Returns
+    // its height.
+    int paintBanner(draw::Canvas& c, int x, int y, int w) {
+        const int inPad = scale(12), iconS = scale(16), bh = scale(stardraft::kit::kButtonH);
+        const int bw = std::max(scale(stardraft::kit::kButtonMinW), c.measure(L"Browse\x2026") + scale(28));
+        const int textL = x + inPad + iconS + scale(10), textR = x + w - inPad - bw - scale(16);
+        const int lineH = scale(20);
+        const int noteH = installNote.empty() ? 0 : c.measureBox(installNote, std::max(1, textR - textL), draw::kWrap).y;
+        const int contentH = std::max(bh, lineH + (noteH ? scale(2) + noteH : 0));
+        const int h = contentH + 2 * inPad;
+        const draw::Rect box{x, y, x + w, y + h};
+        c.roundBox(box, kCtl, kWarn, float(scale(stardraft::kit::kRadius)));
+        const int ty = y + inPad + (contentH - lineH - (noteH ? scale(2) + noteH : 0)) / 2;
+        c.icon({x + inPad, ty + (lineH - iconS) / 2, x + inPad + iconS, ty + (lineH - iconS) / 2 + iconS}, int(UiIcon::Warning), kWarn, iconS);
+        c.text({textL, ty, textR, ty + lineH}, kNoInstallText, kText, draw::kMiddle | draw::kEllipsis);
+        if (noteH) c.text({textL, ty + lineH + scale(2), textR, ty + lineH + scale(2) + noteH}, installNote, kWarn, draw::kWrap | draw::kLeft);
+        const draw::Rect br{x + w - inPad - bw, y + (h - bh) / 2, x + w - inPad, y + (h - bh) / 2 + bh};
+        if (!sameRect(browse_.frame(), br)) browse_.setFrame(br);
+        browse_.setVisible(true);
+        return h;
+    }
+
     // The title's font (the UI font at 3/2 of its height) and the small font (at 5/6), as the Windows program has them.
     static draw::Font titleFont(draw::Canvas& c) { return c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}); }
     static draw::Font smallFont(draw::Canvas& c) { return c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}); }
@@ -348,6 +393,8 @@ private:
     }
 
     StartButton open_;              // (set up in the constructor; it never takes the keyboard)
+    StartButton browse_;            // the banner's Browse (shown with the banner)
+    bool bannerShown_ = false;
     std::vector<std::unique_ptr<StartRemove>> removes_;
     std::vector<Hit> hits_;         // what each paint put under the mouse (cleared at each paint)
     int hover_ = -1;                // the hit under the mouse at the last move

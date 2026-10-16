@@ -586,6 +586,7 @@ public:
             scrollTo(gTE.scroll - delta * scale(60) / 120);
             return true;
         }
+        case draw::MouseKind::Pinch: return false;
         }
         return false;
     }

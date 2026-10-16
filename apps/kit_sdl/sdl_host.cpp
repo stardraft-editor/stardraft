@@ -149,6 +149,10 @@ SDL_WindowID windowOf(const SDL_Event& e) {
     case SDL_EVENT_MOUSE_MOTION: return e.motion.windowID;
     case SDL_EVENT_MOUSE_BUTTON_DOWN: case SDL_EVENT_MOUSE_BUTTON_UP: return e.button.windowID;
     case SDL_EVENT_MOUSE_WHEEL: return e.wheel.windowID;
+    case SDL_EVENT_PINCH_BEGIN: case SDL_EVENT_PINCH_UPDATE: case SDL_EVENT_PINCH_END:
+        if (e.pinch.windowID) return e.pinch.windowID;
+        if (SDL_Window* f = SDL_GetMouseFocus()) return SDL_GetWindowID(f);  // (macOS gives no window: the one under the mouse)
+        return 0;
     case SDL_EVENT_KEY_DOWN: case SDL_EVENT_KEY_UP: return e.key.windowID;
     case SDL_EVENT_TEXT_INPUT: return e.text.windowID;
     case SDL_EVENT_TEXT_EDITING: return e.edit.windowID;
@@ -163,6 +167,7 @@ SDL_WindowID windowOf(const SDL_Event& e) {
 bool isInput(const SDL_Event& e) {
     switch (e.type) {
     case SDL_EVENT_MOUSE_MOTION: case SDL_EVENT_MOUSE_BUTTON_DOWN: case SDL_EVENT_MOUSE_BUTTON_UP: case SDL_EVENT_MOUSE_WHEEL:
+    case SDL_EVENT_PINCH_BEGIN: case SDL_EVENT_PINCH_UPDATE: case SDL_EVENT_PINCH_END:
     case SDL_EVENT_KEY_DOWN: case SDL_EVENT_KEY_UP: case SDL_EVENT_TEXT_INPUT: case SDL_EVENT_TEXT_EDITING:
     case SDL_EVENT_WINDOW_MOUSE_LEAVE: case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
         return true;
@@ -356,6 +361,7 @@ void SdlHost::snapshotInput(draw::View& root, int w, int h, const std::vector<SD
         if (e.type == SDL_EVENT_MOUSE_MOTION) e.motion.windowID = id;
         else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_UP) e.button.windowID = id;
         else if (e.type == SDL_EVENT_MOUSE_WHEEL) e.wheel.windowID = id;
+        else if (e.type == SDL_EVENT_PINCH_BEGIN || e.type == SDL_EVENT_PINCH_UPDATE || e.type == SDL_EVENT_PINCH_END) e.pinch.windowID = id;
         dispatch(e);
     }
     hover_ = std::move(hover);
@@ -367,6 +373,15 @@ void SdlHost::snapshotKey(draw::View& root, int w, int h, const draw::KeyEvent& 
     if (!inModal(win->id)) return;  // (as dispatch: only the modal window and what it opened take input)
     if (k.down && k.key == Key::Escape && win->popup()) return dismiss(win->id);
     win->router->key(k);
+}
+
+// A trackpad's scroll or a wheel's notches (setPreciseScrollHook).
+bool SdlHost::preciseScroll(const SDL_MouseWheelEvent& e) {
+    if (precise_) return precise_();
+    const Uint64 now = SDL_GetTicksNS();
+    const bool fractions = e.x != std::trunc(e.x) || e.y != std::trunc(e.y);
+    if (fractions) preciseUntil_ = now + 200'000'000;  // (a scroll's whole steps between its fractions are its too)
+    return fractions || now < preciseUntil_;
 }
 
 void SdlHost::snapshotText(draw::View& root, int w, int h, const std::string& utf8) {
@@ -388,6 +403,9 @@ void SdlHost::snapshotMouse(draw::View& root, const std::vector<SDL_Event>& even
     for (const SDL_Event& e : events)
         if (e.type == SDL_EVENT_MOUSE_MOTION) {
             at = {int(e.motion.x), int(e.motion.y)};
+            break;
+        } else if (e.type == SDL_EVENT_MOUSE_WHEEL) {
+            at = {int(e.wheel.mouse_x), int(e.wheel.mouse_y)};
             break;
         } else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_UP) {
             at = {int(e.button.x), int(e.button.y)};
@@ -787,6 +805,8 @@ void SdlHost::dispatch(const SDL_Event& e) {
             return dismiss(modal_);
         }
     }
+    // (a pinch's start and end reset its scale even while a modal dialog takes the input: its next step is right)
+    if (e.type == SDL_EVENT_PINCH_BEGIN || e.type == SDL_EVENT_PINCH_END) pinchLast_ = 1;
     if (!inModal(wid) && isInput(e)) return;  // only the dialog that runModal shows, and what it opened, takes input
     switch (e.type) {
     case SDL_EVENT_QUIT:
@@ -896,10 +916,42 @@ void SdlHost::dispatch(const SDL_Event& e) {
         if (e.wheel.direction == SDL_MOUSEWHEEL_FLIPPED) dx = -dx, dy = -dy;  // (natural scrolling: the system's)
         if (dy != 0) m.wheel = dy;
         else m.wheel = dx, m.horizontal = true;
+        // Both axes as the content moves, in the system's direction (SDL's own values: a wheel away from the user, or a
+        // trackpad's natural scroll down, moves the content down). macOS and Wayland give a precise scroll in tenths of
+        // its points; the others in notches (a notch: 48 px at 100 %, Windows' three lines).
+        const char* driver = SDL_GetCurrentVideoDriver();
+        const bool tenths = driver && (std::strcmp(driver, "cocoa") == 0 || std::strcmp(driver, "wayland") == 0);
+        const float unit = tenths ? 10.0f * w->density : float(kit::px(48));
+        m.panX = -e.wheel.x * unit, m.panY = e.wheel.y * unit;
+        m.precise = preciseScroll(e.wheel);
         m.mods = modsOf(SDL_GetModState());
         w->router->mouse(m);
         return;
     }
+    case SDL_EVENT_PINCH_BEGIN:
+    case SDL_EVENT_PINCH_UPDATE: {
+        // macOS gives each step's change; X11 and Wayland the scale since the pinch began.
+        const char* driver = SDL_GetCurrentVideoDriver();
+        const bool steps = driver && std::strcmp(driver, "cocoa") == 0;
+        if (e.type == SDL_EVENT_PINCH_BEGIN) {
+            pinchLast_ = 1;
+            return;
+        }
+        if (!(e.pinch.scale > 0)) return;
+        const float change = steps ? e.pinch.scale : e.pinch.scale / pinchLast_;
+        if (!steps) pinchLast_ = e.pinch.scale;
+        Win* w = findWin(wid);
+        if (!w) return;
+        if (hover_) hover_(*w->root, {}, {}, true);
+        MouseEvent m;
+        m.kind = MouseKind::Pinch;
+        m.pt = w->mouse;  // (a trackpad's pinch is around the mouse)
+        m.pinch = change;
+        m.mods = modsOf(SDL_GetModState());
+        w->router->mouse(m);
+        return;
+    }
+    case SDL_EVENT_PINCH_END: pinchLast_ = 1; return;
     case SDL_EVENT_KEY_DOWN:
     case SDL_EVENT_KEY_UP: {
         Win* w = findWin(wid);

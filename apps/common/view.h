@@ -21,14 +21,20 @@ enum class Cursor { Arrow, Hand, IBeam, SizeAll, SizeWE, SizeNS, No, Wait, SizeN
 
 enum Mods : unsigned { kShift = 1, kCtrl = 2, kAlt = 4, kSuper = 8 };
 
-enum class MouseKind { Move, Down, Up, DoubleClick, Wheel, Leave };
+// Pinch: two fingers on a trackpad move apart or together (pt: the mouse, which is between them on a trackpad).
+enum class MouseKind { Move, Down, Up, DoubleClick, Wheel, Leave, Pinch };
 struct MouseEvent {
     MouseKind kind = MouseKind::Move;
     Point pt;
     int button = 0;     // Down, Up, DoubleClick: 0 left, 1 right, 2 middle
-    float wheel = 0;    // Wheel: notches, positive away from the user
+    float wheel = 0;    // Wheel: notches, positive away from the user (a trackpad's: fractions)
     bool horizontal = false;
     unsigned mods = 0;  // Mods
+    // Wheel: how far the content moves, in pixels, on both axes (positive: right, down), in the system's scroll
+    // direction (natural scrolling: it follows the fingers).
+    float panX = 0, panY = 0;
+    bool precise = false;  // Wheel: a trackpad's (or a precise mouse's) scroll, not a wheel's notches
+    float pinch = 1;       // Pinch: the scale change since the last (more than 1: the fingers move apart)
 };
 
 // Keys by their meaning, not by the system's codes. Letters and digits are their ASCII capitals ('A', '0').
@@ -300,7 +306,7 @@ public:
         }
         Point local;
         View* v = root_.viewAt(e.pt, local);
-        if (v != hovered_ && e.kind != MouseKind::Wheel) {
+        if (v != hovered_ && e.kind != MouseKind::Wheel && e.kind != MouseKind::Pinch) {
             if (hovered_) {
                 MouseEvent leave;
                 leave.kind = MouseKind::Leave;
