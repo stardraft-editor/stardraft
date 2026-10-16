@@ -65,7 +65,10 @@ Uint32 timerFired(void* userdata, SDL_TimerID, Uint32) {
     return 0;  // (one shot)
 }
 
+float gTestDisplayScale = 0;  // SdlHost::setTestDisplayScale
+
 float displayScale(SDL_Window* w) {
+    if (gTestDisplayScale > 0) return gTestDisplayScale;
     const float s = SDL_GetWindowDisplayScale(w);
     return s > 0 ? s : 1.0f;
 }
@@ -255,6 +258,13 @@ SdlHost::~SdlHost() {
         if (c) SDL_DestroyCursor(c), c = nullptr;
 }
 
+void SdlHost::setTestDisplayScale(float s) { gTestDisplayScale = s > 0 ? s : 0; }
+
+SDL_Window* SdlHost::mainWindow() const {
+    const Win* w = mainId_ ? findWin(mainId_) : nullptr;
+    return w ? w->sdl : nullptr;
+}
+
 void SdlHost::setScale(float s) {
     scaleOverride_ = s > 0 ? s : 0;
     const float own = wins_.empty() ? SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay()) : displayScale(wins_[0]->sdl);
@@ -289,7 +299,8 @@ void SdlHost::sizeInPixels(SDL_Window* sdl, int w, int h) {
 bool SdlHost::show(draw::View& root, const std::wstring& title, int w, int h) {
     std::wstring shownTitle;  // (the title in the program's language: uiText)
     SDL_Window* sdl = SDL_CreateWindow(utf8Text(uiText(title, shownTitle)).c_str(), 1, 1,
-                                       SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN);
+                                       SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN |
+                                           (noActivate_ ? SDL_WINDOW_NOT_FOCUSABLE : 0));
     if (!sdl) return false;
     sizeInPixels(sdl, w, h);
     applyScale(displayScale(sdl));  // (before the layout: the views are laid out at this scale)
@@ -299,6 +310,7 @@ bool SdlHost::show(draw::View& root, const std::wstring& title, int w, int h) {
         return false;
     }
     SDL_StartTextInput(sdl);
+    if (windowMade_) windowMade_(sdl);
     SDL_ShowWindow(sdl);
     if (!mainId_) mainId_ = win->id;
     wins_.push_back(std::move(win));
@@ -670,7 +682,8 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
     if (spec.kind == WindowKind::Dialog) {
         // A dialog: a window of its own, centered on its opener.
         std::wstring shownTitle;  // (uiText)
-        sdl = SDL_CreateWindow(utf8Text(uiText(spec.title, shownTitle)).c_str(), 1, 1, SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN);
+        sdl = SDL_CreateWindow(utf8Text(uiText(spec.title, shownTitle)).c_str(), 1, 1, SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN |
+                                                                                        (noActivate_ ? SDL_WINDOW_NOT_FOCUSABLE : 0));
         if (!sdl) return;
         sizeInPixels(sdl, width, height);
         SDL_SetWindowParent(sdl, parent->sdl);
@@ -685,7 +698,8 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
         const int x = toLogical(o.x + spec.at.left, parent->density), y = toLogical(o.y + spec.at.top, parent->density);
         const SDL_WindowFlags type = spec.kind == WindowKind::Tooltip ? SDL_WINDOW_TOOLTIP : SDL_WINDOW_POPUP_MENU;
         sdl = SDL_CreatePopupWindow(parent->sdl, x, y, std::max(1, toLogical(width, parent->density)),
-                                    std::max(1, toLogical(height, parent->density)), type | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+                                    std::max(1, toLogical(height, parent->density)),
+                                    type | SDL_WINDOW_HIGH_PIXEL_DENSITY | (noActivate_ ? SDL_WINDOW_NOT_FOCUSABLE : 0));
         if (!sdl) return;
     }
     auto w = makeWin(sdl, content, spec.kind, std::move(closed));
@@ -695,8 +709,9 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
         SDL_DestroyWindow(sdl);
         return;
     }
+    if (spec.kind == WindowKind::Dialog && windowMade_) windowMade_(sdl);
     SDL_ShowWindow(sdl);
-    if (spec.kind == WindowKind::Dialog) SDL_RaiseWindow(sdl);
+    if (spec.kind == WindowKind::Dialog && !noActivate_) SDL_RaiseWindow(sdl);
     wins_.push_back(std::move(w));
 }
 
@@ -731,14 +746,29 @@ void SdlHost::runModal(draw::View& from, draw::View& content, const draw::Window
 
 void SdlHost::pump(bool block) {
     SDL_Event e;
-    if (block && !animating_ && !anyDirty() && SDL_WaitEventTimeout(&e, 100)) dispatch(e);
+    // While the windows are minimized nothing is painted (the swapchain may still give textures: the program would
+    // draw the map at the display's rate where no one sees it); the events and the posted work still run, at most
+    // 50 ms late. The windows paint again when they are restored (they stay dirty).
+    const bool asleep = allMinimized();
+    if (block && (asleep || (!animating_ && !anyDirty())) && SDL_WaitEventTimeout(&e, asleep ? 50 : 100)) dispatch(e);
     while (SDL_PollEvent(&e)) dispatch(e);
     destroyRetired();
     if (beforePump_) beforePump_();
+    if (asleep && allMinimized()) return;
     if (animating_)
         for (const auto& w : wins_) w->dirty = true;
     runFrameHook();
     renderDirty();
+}
+
+bool SdlHost::allMinimized() const {
+    bool any = false;
+    for (const auto& w : wins_) {
+        if (w->kind != WindowKind::Dialog) continue;  // (the main window and the dialogs; a pop-out goes with its opener)
+        if (!w->sdl || !(SDL_GetWindowFlags(w->sdl) & SDL_WINDOW_MINIMIZED)) return false;
+        any = true;
+    }
+    return any;
 }
 
 bool SdlHost::anyDirty() const {
@@ -786,9 +816,11 @@ void SdlHost::renderDirty() {
         if (!SDL_WaitAndAcquireGPUSwapchainTexture(cmd, w->sdl, &tex, &sw, &sh) || !tex) {
             SDL_SubmitGPUCommandBuffer(cmd);  // (minimized: try again on a later turn)
             missed = true;
+            ++missed_;
             continue;
         }
         w->dirty = false;
+        ++presented_;
         submit(device_, *lists[i], w->pw, w->ph, cmd, tex);
         if (todo.size() > 1) SDL_WaitForGPUIdle(device_);  // (the windows share one vertex buffer)
     }
