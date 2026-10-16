@@ -244,6 +244,10 @@ def part_dmg(a, out, apps):
     code, text = run(["qlmanage", "-t", "-s", "256", "-o", thumbs, scx], timeout=60)
     p.say(text)
     made = glob.glob(os.path.join(thumbs, "*.png"))
+    if not made:  # (again with the map's content type given: the runner's file type of .scx may not be known yet)
+        code, text = run(["qlmanage", "-t", "-s", "256", "-c", "io.github.stardraft-editor.map-scx", "-o", thumbs, scx], timeout=60)
+        p.say(text)
+        made = glob.glob(os.path.join(thumbs, "*.png"))
     if made:
         p.check(os.path.getsize(made[0]) > 1000, f"Quick Look's thumbnail of the map: {made[0]} ({os.path.getsize(made[0])} bytes)")
     else:
