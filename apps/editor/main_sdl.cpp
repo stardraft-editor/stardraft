@@ -28,8 +28,6 @@
 #include "mac_input.h"  // the trackpad's scrolls, smart zoom, swipes and scroll phases (mac_input.mm)
 #include <dlfcn.h>  // (sdl_soak.inc: the memory of the process and of its Metal device)
 #include <mach/mach.h>
-#include <objc/message.h>
-#include <objc/runtime.h>
 #endif
 #include "mac_window.h"  // macOS's document window and look (mac_window.mm; elsewhere its functions do nothing)
 #include "mac_dock.h"  // the Dock, Finder and the Settings window (mac_dock.mm; on Windows and Linux they do nothing)

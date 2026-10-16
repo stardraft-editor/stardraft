@@ -706,11 +706,17 @@ def check_dialogs(output):
 def check_reopen(output):
     """None when the project opened again each time and the bitmaps with a texture stayed as many (the closed project's
     Data pictures went); else the reason."""
-    counts = [int(c) for c in re.findall(r"^stats: .*, (\d+) bitmaps [\d.]+ MB; 1 tabs; ", output, re.M)]
-    if len(counts) != 6:
-        return f"{len(counts)} stats lines with one tab, not 6"
-    if counts[-1] > counts[1]:
-        return f"the bitmaps went up from {counts[1]} to {counts[-1]} (the closed project's pictures stay)"
+    # (the map's images load on threads, and the loaded ones stay for the next open: so the counts are compared only
+    # between the opens whose first frame had the same images still loading, 24 or 0)
+    found = re.findall(r"^first frame: [\d.]+ ms \((\d+) images still loading\)\s*\nstats: .*, (\d+) bitmaps [\d.]+ MB; 1 tabs; ", output, re.M)
+    if len(found) != 6:
+        return f"{len(found)} stats lines with one tab after an open, not 6"
+    by_pending = {}
+    for pending, count in found[1:]:
+        by_pending.setdefault(int(pending), []).append(int(count))
+    for pending, counts in by_pending.items():
+        if counts[-1] > counts[0]:
+            return f"the bitmaps went up from {counts[0]} to {counts[-1]} (the closed project's pictures stay; {pending} images loading)"
     return None
 
 
