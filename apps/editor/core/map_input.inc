@@ -716,9 +716,11 @@ void mapArrowKey(AppState& app, int dx, int dy, bool big) {
 
 // Alt + wheel on the map: the active brush (the terrain brush or spray, the unit and doodad spray) one size up or down
 // (brushSizes). False when no brush is active (the wheel zooms then).
+bool mapBrushActive(const AppState& app) {
+    return (app.mode == Mode::Terrain && (currentTool() == TBrush || currentTool() == TSpray)) || objectSprayOn();
+}
 bool mapBrushWheel(AppState& app, bool up) {
-    const bool brushActive = (app.mode == Mode::Terrain && (currentTool() == TBrush || currentTool() == TSpray)) || objectSprayOn();
-    if (!brushActive) return false;
+    if (!mapBrushActive(app)) return false;
     const int k = std::clamp(brushSizeIndex(app.brushSize) + (up ? 1 : -1), 0, int(brushSizes().size()) - 1);
     app.brushSize = brushSizes()[size_t(k)];
     shellToolsChanged();  // the size slider
@@ -748,28 +750,29 @@ void mapPanBy(AppState& app, float dx, float dy) {
 }
 // The wheel or a two-finger scroll on the map at (x, y). `notches`: the wheel's steps, positive away from the user
 // (a trackpad's are fractions); `panX`, `panY`: how far the content moves in screen pixels, in the system's scroll
-// direction (natural scrolling: it follows the fingers); `precise`: a trackpad's (or a precise mouse's) scroll, not a
-// wheel's notches; `horizontal`: a wheel's sideways steps (a tilt wheel). The rules:
-//  - Alt + wheel: the active brush one size up or down (mapBrushWheel); a trackpad's scroll steps once per notch.
+// direction (natural scrolling: it follows the fingers); `precise`: a trackpad's scroll, not a wheel's (only macOS
+// tells them apart: on Windows and Linux each scroll is a wheel's, also a smooth wheel's fractions of a notch);
+// `horizontal`: a wheel's sideways steps (a tilt wheel). The rules:
+//  - Alt + wheel: the active brush one size up or down (mapBrushWheel); a trackpad's scroll and a smooth wheel's
+//    fractions step once per notch.
 //  - Ctrl (Cmd on macOS) + wheel or scroll: the zoom at the mouse (a trackpad's: smoothly; Windows sends a touchpad's
 //    pinch as Ctrl + wheel).
 //  - A mouse wheel: the zoom at the mouse (a sideways tilt does nothing).
-//  - A trackpad's scroll: the map moves, on both axes.
+//  - A trackpad's scroll (macOS): the map moves, on both axes. A pinch zooms on each system (mapPinch).
 // True: the map took it.
 bool mapWheel(AppState& app, float x, float y, float notches, float panX, float panY, bool precise, bool horizontal, bool ctrl, bool alt) {
-    static float brushSteps = 0;  // a trackpad's fractions until a whole step
+    static float brushSteps = 0;  // a trackpad's or a smooth wheel's fractions until a whole step
     if (alt) {
-        if (!precise) {
+        if (!precise && notches == std::trunc(notches)) {
             if (!horizontal && notches != 0 && mapBrushWheel(app, notches > 0)) return true;
-        } else if (!horizontal) {
-            brushSteps += notches;
-            bool took = false;
+        } else if (!horizontal && mapBrushActive(app)) {
+            brushSteps += notches;  // (the fractions before a whole step are the brush's too: the map does not move)
             while (std::fabs(brushSteps) >= 1) {
                 const bool up = brushSteps > 0;
                 brushSteps += up ? -1.0f : 1.0f;
-                took = mapBrushWheel(app, up) || took;
+                mapBrushWheel(app, up);
             }
-            if (took) return true;
+            return true;
         }
     }
     if (ctrl || !precise) {

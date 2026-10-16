@@ -388,14 +388,9 @@ void SdlHost::snapshotKey(draw::View& root, int w, int h, const draw::KeyEvent& 
     win->router->key(k);
 }
 
-// A trackpad's scroll or a wheel's notches (setPreciseScrollHook).
-bool SdlHost::preciseScroll(const SDL_MouseWheelEvent& e) {
-    if (precise_) return precise_();
-    const Uint64 now = SDL_GetTicksNS();
-    const bool fractions = e.x != std::trunc(e.x) || e.y != std::trunc(e.y);
-    if (fractions) preciseUntil_ = now + 200'000'000;  // (a scroll's whole steps between its fractions are its too)
-    return fractions || now < preciseUntil_;
-}
+// A trackpad's scroll or a wheel's notches (setPreciseScrollHook). Only the system can tell them apart: a smooth or
+// high-resolution wheel also gives fractions (Windows, X11, Wayland). With no hook, each scroll is a wheel's.
+bool SdlHost::preciseScroll(const SDL_MouseWheelEvent&) { return precise_ && precise_(); }
 
 void SdlHost::snapshotText(draw::View& root, int w, int h, const std::string& utf8) {
     Win* win = shotWin(root, w, h);

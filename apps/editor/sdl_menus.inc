@@ -508,6 +508,7 @@ void sdlPressKey(const std::string& chord) {
     gHost->snapshotKey(target, size.x, size.y, e);  // (the view with the focus first, then its parents: the window's keys)
     runPosted();
     sdlInputLine("key " + chord);
+    if (gStartView.shown()) std::printf("key %s: start page: keys on %s\n", chord.c_str(), gStartView.keysOn().c_str());
 }
 
 // --type <text> in a snapshot: the text typed into the view with the focus (a search box, a number entry), as the
@@ -653,7 +654,8 @@ void sdlCameraLine(const std::string& what, const SdlCamera& was, float x, float
 
 // --wheel x,y,dx,dy[:precise][:mac][:mods] in a snapshot: the wheel at (x, y) in the main window's pixels, as SDL gives it:
 // dy notches away from the user, dx to the right (fractions allowed). precise: a trackpad's two-finger scroll (macOS:
-// hasPreciseScrollingDeltas), not a wheel's notches. mac: as macOS gives it on any system (dx and dy in tenths of
+// hasPreciseScrollingDeltas), not a wheel's notches; only macOS tells them apart, so elsewhere (with no mac) it is a
+// smooth wheel's scroll, as the system gives it (a wheel's). mac: as macOS gives it on any system (dx and dy in tenths of
 // points; a precise one is exact: the lists move by its distance). mods: Shift, Ctrl, Alt joined with + (Ctrl is Cmd
 // on macOS). The output's line says the map's camera, and the scroll position of the lists under the point.
 void sdlWheelShot(const std::string& spec) {
@@ -692,6 +694,9 @@ void sdlWheelShot(const std::string& spec) {
     const SDL_Keymod before = SDL_GetModState();
     SDL_SetModState(held);
     const std::string scrolledBefore = sdlScrollLine(int(x), int(y));
+#ifndef __APPLE__
+    precise = precise && mac;  // (Windows and Linux have no hook: a scroll with fractions is a smooth wheel's)
+#endif
     gHost->setPreciseScrollHook([precise] { return precise; });
     gHost->setMacScrollTest(mac);
     gHost->snapshotMouse(*gRoot, events);

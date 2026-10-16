@@ -97,8 +97,8 @@ public:
     using RightClickHook = std::function<void(draw::View& root, draw::Point pt, const std::wstring& title)>;
     void setRightClickHook(RightClickHook fn) { rightClick_ = std::move(fn); }
     // Whether the wheel event that SDL gives now is a trackpad's (precise) scroll, not a wheel's notches: macOS knows
-    // it (NSEvent's hasPreciseScrollingDeltas; the program asks it). With no hook, a scroll with fractions is precise
-    // (Windows' precision touchpads, Wayland, X11's smooth scrolling), and so are the scroll's next steps for 0.2 s.
+    // it (NSEvent's hasPreciseScrollingDeltas; the program asks it). With no hook, no scroll is precise: on Windows
+    // and Linux a smooth or high-resolution wheel also gives fractions, and SDL does not say which device it is.
     void setPreciseScrollHook(std::function<bool()> fn) { precise_ = std::move(fn); }
     // Whether the scroll event that SDL gives now continues a trackpad's scroll (the fingers moved on, or its momentum
     // after they lifted): it then goes to the point where that scroll began, so the view it began on keeps it (as
@@ -192,7 +192,6 @@ private:
     std::function<void(const std::string&)> drop_;  // setDropHook
     RightClickHook rightClick_;                     // setRightClickHook
     std::function<bool()> precise_;                 // setPreciseScrollHook
-    Uint64 preciseUntil_ = 0;                       // a precise scroll's next steps are precise until then (ns)
     float pinchLast_ = 1;                           // a pinch's scale so far (the systems that give it from its start)
     std::function<bool(float, float)> scrollContinues_;         // setScrollContinuesHook
     bool macScrollTest_ = false;                    // setMacScrollTest
