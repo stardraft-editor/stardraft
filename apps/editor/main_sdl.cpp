@@ -38,6 +38,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <charconv>  // (core/prefs.inc: std::from_chars; GCC 12 does not include it with the others)
 #include <chrono>
 #include <cmath>
 #include <cstdio>

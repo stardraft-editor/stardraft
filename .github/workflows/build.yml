@@ -419,7 +419,7 @@ jobs:
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-12 -DCMAKE_C_COMPILER=gcc-12 \
             -DSTARDRAFT_STATIC_LIBSTDCXX=ON -DSTARDRAFT_REQUIRE_DBUS=ON -DSTARDRAFT_NEXT=OFF
-          cmake --build build --parallel --target stardraft_editor stardraft_thumbnailer
+          cmake --build build --parallel --target stardraft_editor stardraft_thumbnailer -- -k 0  # (all the errors at once)
 
       - name: Make the AppImage
         run: bash tools/ci/linux_appimage.sh build StarDraft-x86_64.AppImage
