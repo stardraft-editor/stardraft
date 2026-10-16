@@ -190,10 +190,8 @@ jobs:
         run: cmake --build build --config Release --target stardraft_sdl --parallel
 
       # A test run (a snapshot) asks nothing, sends nothing and changes no settings or file types. APPDATA and
-      # LOCALAPPDATA point to the run's own folder too. The snapshots are not yet tried on GitHub's machines (WARP):
-      # as on macOS, a failure here does not stop the run.
+      # LOCALAPPDATA point to the run's own folder too. GitHub's machines draw with WARP (D3D12 in software).
       - name: Snapshot the editor
-        continue-on-error: true
         shell: bash
         env:
           SDL_VIDEODRIVER: offscreen
@@ -209,10 +207,8 @@ jobs:
           grep -q "^wrote " snap.txt
 
       # Each workspace and dialog (tools/sdl_snapshots.py), as on Linux: a run exits with 0 and writes a PNG that is not
-      # one flat color. No game data and no map here: the cases that need them are skipped (summary.txt). WARP as
-      # above: a failure here does not stop the run.
+      # one flat color. No game data and no map here: the cases that need them are skipped (summary.txt).
       - name: Snapshot each workspace and dialog (WARP)
-        continue-on-error: true
         shell: bash
         env:
           SDL_VIDEODRIVER: offscreen
@@ -437,16 +433,14 @@ jobs:
 
       # The editor on SDL (stardraft, research/ports/MAC-BUILD-PLAN.md step 6): its shell with no map open, and the app.
       - name: Snapshot the editor (Metal)
-        continue-on-error: true
         run: build/stardraft.app/Contents/MacOS/stardraft --snapshot editor-macos.png
 
       - name: Snapshot the editor (Assets workspace, Metal, no view yet)
         continue-on-error: true
         run: build/stardraft.app/Contents/MacOS/stardraft --workspace files --snapshot editor-macos-files.png
 
-      # Each workspace and dialog (tools/sdl_snapshots.py), as on Linux. Metal as above: a failure does not stop the run.
+      # Each workspace and dialog (tools/sdl_snapshots.py), as on Linux (a failure stops the run: it has passed on GitHub's Metal).
       - name: Snapshot each workspace and dialog (Metal)
-        continue-on-error: true
         run: python3 -I tools/sdl_snapshots.py --exe build/stardraft.app/Contents/MacOS/stardraft --out sdl-snapshots
 
       - uses: actions/upload-artifact@v4
