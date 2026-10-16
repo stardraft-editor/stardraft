@@ -46,7 +46,7 @@ UiLang sdlSystemLanguage() {
 }
 
 // The language to use: STARDRAFT_LANG (en, ko, es, ru or zh, for test runs) wins, then the setting, and automatic is the
-// language of the system (the Windows program's uiLanguageChosen).
+// language of the system.
 UiLang sdlLanguageChosen(const std::wstring& setting) {
     std::wstring code = setting;
     if (const char* e = std::getenv("STARDRAFT_LANG"); e && *e) code = widen(e);

@@ -3,7 +3,7 @@
 // the switch between documents (activateDoc, showActive, closeDoc, moveDoc). The instance (gTabs) is made in main.cpp,
 // where the window is; the strip's native window, the host's redraws and the focus are the seam (shell.h).
 
-// Defined in main.cpp (the Win32 TU until they move into the core).
+// Defined by the program (main_sdl.cpp and its sdl_*.inc files) until they move into the core.
 const wchar_t* gNewTitle();
 std::wstring docTitle(int i, bool withMode = true);
 void mapPageClose();  // map_pages.inc: the open map page goes (its working copy stays with its tab)

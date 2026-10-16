@@ -2,7 +2,7 @@
 // tab, and the map pages' items; a click runs the item's command. The instance (gRail) is made in main.cpp, where the
 // window is. The rail's hit list is the state the menus and the keys read (railItemId).
 
-// Defined in main.cpp (the Win32 TU until they move into the core).
+// Defined by the program (main_sdl.cpp and its sdl_*.inc files) until they move into the core.
 void command(int id);
 bool mapPageChangesFor(int id);  // map_pages.inc: the page of rail item `id` has changes that are not applied
 void setWorkspace(Workspace w);

@@ -1,7 +1,7 @@
 # The SDL program's gaps
 
-The SDL program (`apps/editor/main_sdl.cpp` and the `sdl_*.inc` files) is to replace the Windows program
-(`main.cpp` and its Win32 `.inc` files) on Windows, macOS and Linux. This list is what the SDL program does not do
+The SDL program (`apps/editor/main_sdl.cpp` and the `sdl_*.inc` files) took the place of the Windows program
+(`main.cpp` and its Win32 `.inc` files, removed on 2026-10-16) on Windows, macOS and Linux. This list is what the SDL program does not do
 yet, or does in a different way, as the gap sweep of 2026-10-16 found it. Each item names where it is and what the
 Windows program does. "Done" items were done in the sweep; the others are open.
 
@@ -120,8 +120,8 @@ this list.
 | The feedback item's icon | In the feedback color (kFeedback). | Done: `kit::MenuItem::iconColor`. |
 | The menus in the snapshots | | Done: `--rclick x,y` with no item number leaves the menu open, and the snapshot shows it over the window (`SdlHost` paints the menus that views with no window open). Every kit menu (a text field's too) writes its items to the output (`kit::Menu::setTestHook`). |
 ## The switch on Windows (2026-10-16)
-`stardraft.exe` is the SDL program now (CMake target `stardraft_editor` on every system); the Win32 program builds
-as `stardraft-win32.exe` (target `stardraft_win32`), a fallback that is not in a release. A user who updates keeps
+`stardraft.exe` is the SDL program now (CMake target `stardraft_editor` on every system); the Win32 program
+(`stardraft-win32.exe`, target `stardraft_win32`) was a fallback for a time and is removed. A user who updates keeps
 what the Win32 program kept; this table is what was checked and what changed for that.
 | What | Win32 program | SDL program now |
 |---|---|---|
@@ -134,10 +134,10 @@ what the Win32 program kept; this table is what was checked and what changed for
 | The unsaved projects' folder | `%LOCALAPPDATA%\StarDraft\Unsaved` | Was `$XDG_DATA_HOME` or `~/.local/share` on Windows too (no folder, as HOME is not set). Done: `%LOCALAPPDATA%\StarDraft\Unsaved`. |
 | The StarCraft folder | `%APPDATA%\stardraft\install.txt` | Read and written too (`sdlWindowsInstallFile`), and the setting StarCraftFolder. |
 | The dock layout, the options of the menus, the theme, the language, crash reports, updates on start | The settings file | The same names in the same file. |
-| One program for all maps (the pipe) | None: each start was a new program. | `\.\pipe\StarDraft-<file name>-<session>`: `stardraft.exe` and `stardraft-win32.exe` do not share it. The StarDraft-latest copies (`stardraft-latest-<n>.exe`) share one name now (before, each copy had its own). |
-| The file types (maps, project.stardraft) | Registered at start by each program file. | Done: `stardraft.exe` registers them at start (before, only a file named `stardraft.exe`; now each name, as the Win32 program did); `stardraft-win32.exe` leaves them to it (a name with `-win32`). |
+| One program for all maps (the pipe) | None: each start was a new program. | `\.\pipe\StarDraft-<file name>-<session>`. The StarDraft-latest copies (`stardraft-latest-<n>.exe`) share one name now (before, each copy had its own). |
+| The file types (maps, project.stardraft) | Registered at start by each program file. | Done: `stardraft.exe` registers them at start (before, only a file named `stardraft.exe`; now each name, as the Win32 program did). |
 | StarDraft-latest | Starts a copy of `stardraft-testing.exe`, else `stardraft.exe`, of the build folder. | The same files: now the SDL program. |
-| Self-tests and release screenshots | `--selftest`, `--datashots` | Stay on `stardraft-win32.exe` (`tools/release.py shots` runs `stardraft-testing-win32.exe`). |
+| Self-tests and release screenshots | `--selftest`, `--datashots` | The cases of `tools/sdl_snapshots.py` (see "Tests"); `tools/release.py shots` runs its cases on `stardraft-testing.exe` (`tools/shots/README.md`). |
 | Options > Middle mouse click and hold (MiddleDrag) | Pan map (the default): the map moves toward the mouse while the button is held, faster the farther the mouse is from where it went down; Drag map: the map follows the mouse. | Was saved, but the middle button always dragged. Done: both, as on Windows; the pan's step is the core's (`middlePanStep`, `core/map_input.inc`), the Win32 program's timer uses it too; on SDL the map view steps each frame (`MapView::panStep`). A right click during it opens no menu, and a left click starts no drag. Snapshot map-midpan (`--midpan`: the output says that Pan map moves toward the mouse while held and stops on release, that a left click during it starts no drag, and that Drag map follows the mouse). |
 | The new unsaved project, the unsaved projects' folders | `newUntitledProject`: a 128 x 128 badlands project in the unsaved folder (the screenshot runs and the self-tests start with it; a normal start shows the start page, as on SDL). `cleanUnsavedProjects`: the folders of programs that ended go. | Was nothing: the folder of a Win32 program that crashed stayed. Done: both are in the core (`core/documents.inc`; `shellProcessId`, `shellProcessRunning`), for both programs; each program removes the folders of programs that ended at its start (not in a test run). Snapshot untitled-project (`--untitled`: the new project in the Project workspace; its folder goes after the picture). |
 | The restart after Language (`--restart <pid>`, the setting Reopen) | Writes the open maps and projects to Reopen, starts itself with `--restart <pid>`; the new program waits for the old one to end, then opens them. | Was its own: the active map or project on the command line, and the new program could send it to the old one (the pipe) before that one ended. Done: the same setting and argument (`restartWrite`, `restartWaitFor`, `restartReopen` in `core/documents.inc`), for both programs; the SDL program waits before the pipe. Checked in WSL with a settings file of its own (`STARDRAFT_SETTINGS`): Reopen with a map, `--restart 999999`: the map opens and Reopen goes. |
@@ -166,11 +166,11 @@ project; `--build` in a snapshot waits for the end of the build and says its res
 `core/project_build.inc`), and is skipped when the computer has no euddraft (a test run never downloads it). Each key
 of `--key` writes the units, doodads and selection after it.
 ## Tests
-The Win32 fallback's self-tests (`stardraft-win32 <map> --selftest <dir>`, `runSelfTest` in main.cpp, and the
-`--datashots <dir> <spec>...` specs) drive the Win32 windows; they stay on `stardraft-win32.exe`. This is what of them
-has an SDL snapshot case (`tools/sdl_snapshots.py`) or a test, and what has none.
+The tests of the editor are the SDL snapshot cases (`tools/sdl_snapshots.py`) and the test programs. The Win32
+program's self-tests (`--selftest`, `runSelfTest`, and the `--datashots <dir> <spec>...` specs) went with it. This is
+what of them has an SDL case or a test, and what has none.
 ### Has an SDL case now
-| Win32 test | SDL case |
+| Former Win32 test | SDL case |
 |---|---|
 | The start page, the New page, the workspaces of a map and of a project (`pages:`) | start, newpage-classic, newpage-eud, ws-*, map-ws-* (the dark theme only; dialog-options-light is the light theme) |
 | undo_twice (Undo of an edit) | map-key-undo (Delete, Undo, Redo, Undo: CHECKS reads the counts) |
@@ -214,7 +214,7 @@ These cases found a bug that both programs had: after Undo of a placed sprite or
 selection kept it (the status bar said "1 selected" for a sprite that was not there). Now Undo and Redo drop the
 selected doodads and sprites that are not on the map (`dropGoneItems`, core/map_edit.inc).
 ### No SDL case yet
-| Win32 test | What it checks |
+| Former Win32 test | What it checks |
 |---|---|
 | place_cc_on_water_corrected, place_marines_corrected, drag_place, unit_spray, unit_replace_marines_with_zealots | Units placed with the mouse: the correction to a free place, a row, the spray, Replace (`--click` and `--drag` can do these now). |
 | drag_snap_back, drag_over_water_red, drag_dropped_corrected | A dragged selection that does not fit (snap back, red where it does not fit). |
@@ -226,7 +226,7 @@ selected doodads and sprites that are not on the map (`dropGoneItems`, core/map_
 | `cardagain:` | The start page's cards. |
 | The recent menus at the start, `menutree:`, `barmenu:`, `menutest:` | The menu tree, the File menu by the keys, the context menus driven by messages. |
 | The Data workspace's other steps (tabs, Tab, back and forward, a weapons.dat save, `portrait:`, `mapplayers:`, `classicdefault:`, `unitnames:`) | The Data workspace's navigation, the save of a table, the map's own data. |
-| The Triggers editor's other steps (copy and paste, the keyboard, variables, properties, an external script, `trigreplace:`, `emptylists:`, `bcmd:`) and `trigger_selftest.inc` (help, fixes, a picked unit deleted, a build error) | The Triggers workspace's other edits and its checks. |
+| The Triggers editor's other steps (copy and paste, the keyboard, variables, properties, an external script, `trigreplace:`, `emptylists:`, `bcmd:`) and the Win32 trigger self-test's checks (help, fixes, a picked unit deleted, a build error) | The Triggers workspace's other edits and its checks. |
 | `eptrace:` | Trace build and its report. |
 | `fref:` | A sound that the map names (the Files workspace's References). |
 | `spray:`, `emptynone:`, `rightpan:`, `wheelpick:`, `dpi:` | Doodads > Spray, an empty search, the right button on the map, the wheel on a dropdown, a DPI change. |

@@ -2,7 +2,7 @@
 // already lists the real project: its folder, map, output, and what the .eds builds. The stub as a view
 // (apps/common/view.h): its window is a view window (kViewClass) that shows gStubView (the instance is in main.cpp).
 
-// Defined in main.cpp (the Win32 TU until they move into the core).
+// Defined by the program (main_sdl.cpp and its sdl_*.inc files) until they move into the core.
 stardraft::EudProject* activeProject();
 
 struct StubView final : stardraft::draw::View {

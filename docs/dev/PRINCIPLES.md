@@ -215,7 +215,7 @@ the next control shows at once, so that the user can read a row quickly.
 **Before a UI change is done**, do a usability check on the real UI. Do not check your own work alone.
 
 1. Name the main task of the surface, for example "give a unit a new weapon and test it in the game".
-2. Capture the surface in its first state, as a new user sees it (`kit:` or a datashot, in the background). Then do
+2. Capture the surface in its first state, as a new user sees it (a snapshot, `--snapshot`, with no window). Then do
    the task and capture each step. Capture at 100 % and 200 %, in the dark and the light theme.
 3. Give the captures to a reviewer that did not make the change (a person or a separate agent). The reviewer checks
    them against Nielsen's 10 heuristics and the rules in this section, and gives each problem a place, a severity and

@@ -9,13 +9,13 @@ texts follow.
 |---|---|
 | `include/stardraft/`, `src/` | The library, without a window or a GPU: map files (`chk`, `map_file`: scenario.chk and the .scm/.scx archive), game data from the install (`game_data`: CASC), tilesets and ISOM terrain, units, sprites and iscript (`sprites`), doodads, locations, strings, the editor document with undo (`editor`), a classic map's unit, upgrade and tech settings (`classic_settings`) and triggers (`classic_triggers`), .dat editing (`dat_edit`, `dat_extras`), EUD projects and euddraft (`eud_project`, `euddraft`), triggers and their epScript (`triggers`), keys and mouse (`msqc`), briefings, portraits. |
 | `src/render/`, `shaders/` | The map view's renderer: SDL3 GPU (Direct3D 12 on Windows, Vulkan on Linux, Metal on macOS). HLSL, compiled to DXIL by `dxc` at build time; the SPIR-V and MSL in `shaders/gen/` are generated (see below). |
-| `apps/editor/` | The Windows program. `main.cpp` is the shell and most workspaces; the `.inc` files are parts of it: `ui_kit.inc` (the control kit), `data_extras.inc` (Strings, Buttons, requirements, unit display), `briefing_view.inc`, `files_view.inc`, `sound_files.inc`, `project_view.inc`, `kit_gallery.inc` (View > Control kit), `tiles_view.inc` (Terrain mode's Rectangle: the Tiles panel's windows, the preview on the map and the datashots; the panel itself is `core/views_tiles.inc`), `classic_settings.inc` (Scenario > Classic settings: a classic map's unit, upgrade and tech settings), `classic_triggers.inc` (Scenario > Classic triggers: a classic map's TRIG), `trigger_help.inc` (the block help page on F1, the fixes for heavy triggers, a euddraft error that selects its block), `trigger_selftest.inc` (the self-test's checks of those). |
+| `apps/editor/` | The editor. `main_sdl.cpp` is the program (SDL3 on Windows, macOS and Linux); `shell_sdl.inc` and `shell_sdl_win.inc` (its Windows parts: the crash handler, the file types, the files built into the program) are the host's side of `shell.h`; the `sdl_*.inc` files are the windows, the panes and the dialogs. `core/` is the portable core (`core/core.inc`: the commands, the map's tools and every view, drawn on the Canvas of `apps/common/canvas.h`); `core/core_check.cpp` (target `editor_core_check`) compiles it with no Win32 headers. |
 | `src/data/` | Generated tables (see below). Do not edit them by hand. |
 | `tools/` | Tools (each a CMake target) and the UI text lint. `tools/tests/`: the test programs; `tools/probes/`: one-off programs from finding out how the game works. |
 | `docs/` | `dev/`: this guide, the principles, the control kit. `project/`: the roadmap, how feedback is used. `user/`: the changelog. |
 
-The library knows nothing about Windows; the editor is the only Windows-only part. Keep it that way: platforms come
-after 1.0 (see the roadmap).
+The library knows nothing about Windows; in the editor, only `shell_sdl_win.inc` and `apps/common`'s `*_win32.cpp`
+files are Windows-only. Keep it that way.
 
 ## Build and run
 
@@ -27,10 +27,7 @@ You need Windows, Visual Studio 2022, CMake 3.20 or newer, and the Windows SDK (
 The target `stardraft_editor` is `stardraft.exe`: the SDL program (`apps/editor/main_sdl.cpp` and its `sdl_*.inc`
 files, which draw the portable views in `apps/editor/core`), the same program as on macOS and Linux. Its fonts and
 icons are in the program file, so `stardraft.exe` runs alone (a release is that one file); the `res` and `fonts`
-folders that the build puts next to it come first when they are there. The Win32 program (`main.cpp`) builds as
-`stardraft-win32.exe` (target `stardraft_win32`): a fallback while the SDL program takes its place, not in a
-release. It uses the same settings file, StarCraft folder and recent lists; it leaves the file types (maps,
-project.stardraft) to `stardraft.exe`. Its self-test and `--datashots` (below) are its own.
+folders that the build puts next to it come first when they are there.
 
 To build while you use StarDraft (Windows locks a running .exe), give the build its own name and start the newest
 build with `StarDraft-latest.exe` in the repository's root (built with the editor), which runs a copy of it; pin it to
@@ -40,7 +37,7 @@ Start or the taskbar. It also makes project.stardraft files open with it:
     cmake --build build --config Release --target stardraft_editor
     StarDraft-latest.exe [map or project]
 
-With that name the Win32 program is `stardraft-testing-win32.exe`. The window title shows when the build was made.
+The window title shows when the build was made.
 The first build takes long: CMake fetches SDL3, StormLib, CascLib, stb, libvpx and Dear ImGui, and the fonts.
 
 ### Snapshots
@@ -66,8 +63,7 @@ program with the run. GitHub's Windows machines have no GPU: there Direct3D 12 d
 ### Linux and macOS
 
 The library, the tools and the tests also build on Linux (GCC or Clang) and macOS (Xcode's Clang); GitHub builds
-them on each push. The SDL program builds there as `stardraft` (target `stardraft_editor`); `stardraft-win32.exe`
-(the Win32 program) is Windows only. The renderer and its tests use Vulkan on Linux and Metal on macOS.
+them on each push. The SDL program builds there as `stardraft` (target `stardraft_editor`). The renderer and its tests use Vulkan on Linux and Metal on macOS.
 On Linux, SDL needs the X11 or Wayland headers (SDL's `docs/README-linux.md`), or `-DSDL_UNIX_CONSOLE_BUILD=ON`
 for the tools only; `-DSTARDRAFT_RENDERER=OFF` builds without SDL.
 
@@ -106,7 +102,7 @@ Give each test a new, empty scratch folder.
 
 | Test | Command | What it checks |
 |---|---|---|
-| Self-test | `stardraft-win32.exe <map> --selftest <dir>` | Drives the real program through a scripted session (every workspace) and saves a capture after each step; `selftest.txt` lists the results. Use `(2)Bottleneck.scm`. |
+| `sdl_snapshots.py` | `python -I tools/sdl_snapshots.py --exe <stardraft.exe> --out <dir> --install <install> --map <map> [--project <project>]` | The real program, with no window: each workspace, mode and dialog, and the cases that drive it with the mouse and the keys (place, select, paste, undo, save, the Data form, the triggers) and check what its output says. Use `(2)Bottleneck.scm`. See "Snapshots" above. |
 | `trigger_test` | `trigger_test <dir> <install> <map.scx> [--update-lock]` (a Brood War map, e.g. `Maps\BroodWar\(2)Binary Burghs.scx`) | The block library, the checker, the generated epScript, and that euddraft builds a map with it. Linked .eps files (R5): saved relative, built with what they import, a missing one stops Build, an error names the file and line. |
 | `dat_test` | `dat_test <install> <map.scx> <dir>` | .dat editing, strings, requirements, buttons, unit display; euddraft builds a map with them. |
 | `editor_test` | `editor_test <install> <map> <dir> [sounds]` | The editor document: placement, selection, copy and paste, undo, save and reopen. |
@@ -131,7 +127,7 @@ Run the tests that a change needs; the whole set when the owner asks for it.
 ### UI text
 
 `python -I tools/ui_text_lint.py` checks the texts that users see against the rules in `docs/dev/PRINCIPLES.md` ("Text"). It
-extracts the strings of `apps/editor/main.cpp`, the `.inc` files of the editor, the checker messages in
+extracts the strings of `apps/editor/main_sdl.cpp`, the `.inc` files of the editor, the checker messages in
 `src/triggers.cpp` and the block texts (in `src/data/trigger_blocks.inc`), and it reads `README.md` and
 `docs/user/CHANGELOG.md`. It needs only Python, and GitHub runs it before the build. A new violation makes it exit with
 1. An accepted exception goes into `tools/ui_text_lint_baseline.txt`, one per line with its reason.
@@ -139,46 +135,18 @@ extracts the strings of `apps/editor/main.cpp`, the `.inc` files of the editor, 
 - `--warnings` also shows the heuristic checks (passive voice, lists of three). They do not change the exit code.
 - `--dump <file>` writes all the extracted strings (file, line, surface, text) to a JSON file.
 
-The tool does not see the self-test, the kit gallery, log lines and the theme code.
+The tool does not see the kit gallery, log lines and the theme code.
 
 ### Captures and measurements
 
-`stardraft-win32.exe <map or project> --datashots <dir> <spec>...` (the Win32 program) opens the file, does each spec and saves pictures into
-`<dir>`, without a person at the mouse. Some specs:
+Captures are snapshots (see "Snapshots" above): `--snapshot <png>` with the options of `main()` in `main_sdl.cpp`
+(`--workspace`, `--mode`, `--dialog`, `--data`, `--trig`, `--classictrig`, `--key`, `--click`, `--drag`, `--type`,
+...), which open a state or drive the program with the mouse and the keys before the picture. Each case of
+`tools/sdl_snapshots.py` is one such run (`--list` shows them); a case's check reads what the run prints. The release
+pictures are cases too (`tools/shots/README.md`).
 
-| Spec | Result |
-|---|---|
-| `units:0`, `images:239`, `buttons:7`, ... | The Data workspace at that .dat entry. |
-| `mouse:<x>:<y>` | The next captures show the data form as if the mouse were at that place of it (hover states: number arrows, grid labels). The real mouse does not move. |
-| `ws:map`, `ws:data`, `ws:triggers`, `ws:briefing`, `ws:files`, `ws:project` | A workspace as it opens. |
-| `trig:<root>:<index>...` | The Triggers workspace with that node selected. |
-| `trigsel:<action>` | After `trig:` (a trigger): that action selected, its first value focused and the mouse on its row: the row's buttons and the info strip (`trigsel_<action>.png`). |
-| `trigtree:` | The Triggers tree by its keys and mouse: F2 and a typed name rename a trigger, a drag moves it into On every trigger cycle (`trigtree.png`), Delete deletes it; `trigtree.txt` says what holds. Put `project:` before it. |
-| `kit:` | The control kit's gallery, page by page. |
-| `perf:` | `perf.txt`: start-up steps, opening the file, each workspace's first show and paint, the map frame, memory. |
-| `view:sd`, `view:hd2`, `view:hd`, `view:carbot`, `cam:<x>:<y>:<zoom>` | The next captures use those graphics, and the map view centered on map pixel (x, y) at that zoom (1 = 100%). |
-| `viewshot:<name>` | The map view only (no tool bars), as `<name>.png`. With `view:` and `cam:` before it: StarDraft's picture of a spot to compare with the game (see "Checks in the game through replays"). |
-| `irec:<image>:<anim>:<ticks>`, `ideath:<anim>[:from:to]` | The image player tick by tick; every image's animation played to its end (a crash test). |
-| `btnpop:`, `scriptpreview:`, `trigtext:...` | Pop-outs and panes. |
-| `blockhelp:<block id>` | The help page of a trigger block (F1), as `blockhelp_<id>.png`. Put `theme:light:0` before it for the light theme. |
-| `drawtest:` | D.2: a project `DrawFunctionTest` with one unit type for each draw function (created by a trigger at the start, in a 4 x 4 grid), built; `drawtest_reference.png` is StarDraft's picture of the same, `drawtest.txt` the grid. Play the map and compare. |
-| `projectpage:` | A test project `ProjectPage` in the datashots folder (its build option EUD Turbo on), with the Project workspace shown. Use with `ws:project` and `scriptpreview:` (the script preview). `projectpage.txt` says where it is and its scripts. |
-| `remaketest:`, `remake:on`, `remake:off` | R8: a project `RemakeTest` whose Terran Marine has the Terran Firebat's graphics, with preplaced marines and New graphics for preplaced units on, built. `remake.txt`: the changed unit types, the build and `generated/remake.eps`. `remake:on|off` sets the option for the next captures (`viewshot:`). |
-| `classiccorpus:<folder>` | L.1 on a map corpus: opens each .scm, .scx and .chk under the folder by itself (classic mode), checks the rail, the grayed project commands, Build and Data refused, "(map)" in the title, Briefing and Assets, then saves it unchanged and compares each CHK section. `classiccorpus.txt`: a line per map and the totals. Protected maps do not open. |
-| `classic:`, `classic:set` | L.3: the Classic settings window, each tab (`classic_units.png`, `classic_upgrades.png`, `classic_tech.png`). With `set`: the marine, Terran Infantry Armor and Stim Packs set through the fields, OK, saved and opened again, then undone; `classic.txt` says what holds. Open a classic map (not a project). |
-| `classictrig:`, `classictrig:set`, `classicproject:` | L.2: the Classic triggers window (`classic_triggers.png`, `_light` in the light theme). With `set`: a trigger made through the window (player 1, Bring, Create unit, a text), OK, saved and opened again, undone. `classicproject:` (L.4): the map made a project, its sections compared, Classic triggers opened in the project. `classictrig.txt`, `classicproject.txt` say what holds. Open a classic map. |
-| `classictrig:<state>`, the states: `search` (a search with results), `off` (a turned-off trigger), `add` (the add-action picker, `classictrig_popout_add.png`; the Blocks group only when `kClassicBatchesOffered` is on), `value` and `text` (a number and a text pop-out, OK and Cancel), `forces` and `values` (the multi-pick lists), `blockdlg` (the block dialog), `menu` (the right-click menu). Each pop-out is captured by its own timer in its modal loop (`classictrig_popout_<state>.png`) and closed without a change; the page is `classic_triggers_<state>.png`. Put `theme:light:0` before a spec for the light theme and `dpi:192` for 200 %: the names get `_light` and `_200`. Each state undoes what it changed. `classictrig.txt` says what holds. Open a classic map (use a copy with a simple name, e.g. `fortress.scm`, the install path with parentheses fails silently). |
-| `unitprops:<n>`, `unitprops:u<type>` | The Unit properties dialog of unit n (`unitprops:` is unit 0), captured in a background run and closed with Cancel: `unitprops_<n>.png`. With `u<type>` a unit of that type is placed for Player 1 first (`unitprops_u<type>.png`; `u1`, the Terran Ghost, has three state boxes, `u72`, the Protoss Carrier, a hangar). Put `project:` first for the enabled Edit unit type button. |
-| `locprops:` | The Location properties dialog of a new location (512, 512 to 704, 640), captured in a background run: `locprops.png`, then with Right at 0 (the error line, OK off): `locprops_wrong.png`. Closed with Cancel; the new location is undone. |
-| `prompt:<text>` | The text prompt (Rename location) with `<text>` in its field, captured in a background run and closed with Cancel: `prompt.png`. In a background run the field does not take the keyboard, so the text is not selected. |
-| `classictrig:batch` | R23: a trigger for Player 1 with a block "For each unit" (Terran Marine, Terran Ghost, Zerg Zergling) that holds a block "For each player" (Player 1, Player 2), and Create unit in the inner block: its unit is the outer variable, its player the inner one; the inner block is selected. `classic_triggers_batch.png` (`_light` in the light theme); `classictrig.txt` says that the action picker offers new blocks only when they are on, that the blocks read back the same after Apply and after a save and reopen, and how many undo steps take the page's changes back. Open a classic map. |
-| `tiles:[<search>]` | N.7: Terrain mode in Rectangle, the Tiles grid's search set, the first tile with a picture picked: `tiles.png` and `tiles_panel.png`; `datashots.txt` counts the tiles shown and the null tiles. |
-| `tilesplace:[<tile value>]` | After `tiles:`: places the picked tile on one tile and as a 6 x 4 rectangle in the middle of the map (`tiles_placed.png`), then paints a brush beside them (`tiles_brushed.png`); `datashots.txt` says how many placed tiles stay. |
-
-The full list is in `main.cpp` (search for `--datashots`).
-
-Test runs never play sound and never take the focus or move the mouse: they work in a window off the screen, and the
-user may be at the computer. They also leave the user's settings (recent files, options, panes) alone. Keep it so
+Test runs never play sound and never take the focus or move the mouse: they draw with no window
+(`SDL_VIDEODRIVER=offscreen`), and the user may be at the computer. They also leave the user's settings (recent files, options, panes) alone. Keep it so
 for new tests.
 
 ## Generated files
@@ -214,7 +182,7 @@ are in `docs/dev/PRINCIPLES.md`. Read them before a change. The rules here are f
 ## Settings
 
 The program keeps its settings (options, layout, recent files) in `%APPDATA%\StarDraft\settings.json`
-(`stardraft::Settings`, `apps/editor/settings.inc`). A value the file does not have yet is read from the registry
+(`stardraft::Settings`, `apps/editor/core/prefs.inc`). A value the file does not have yet is read from the registry
 (`HKCU\Software\StarDraft`), where builds before the file kept it; the registry is not written. The environment
 variable `STARDRAFT_SETTINGS` gives another file. File associations stay in the registry.
 
@@ -223,26 +191,26 @@ variable `STARDRAFT_SETTINGS` gives another file. File associations stay in the 
 All three use GitHub, with the token in the repository secret `STARDRAFT_ISSUES_TOKEN`: a fine-grained token for
 this repository only, with **Issues: read and write** and **Contents: read**. CI builds it into the program. A build made here reads the token from `.issues-token` in the
 repository's root (one line; not in git); without it, reports and feedback stay on disk and go when a build with a
-token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, at build time or when StarDraft runs. All three send their requests through `apps/editor/github.inc`, which calls `apps/common/http.h` (WinHTTP on Windows, curl elsewhere; `http_get <url>` tries one by hand); a feedback file stays when GitHub's reply cannot be read.
+token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, at build time or when StarDraft runs. All three send their requests through `apps/common/http.h` (WinHTTP on Windows, curl elsewhere; `http_get <url>` tries one by hand); a feedback file stays when GitHub's reply cannot be read.
 
-- **Crash reports** (`apps/editor/crash.inc`; the crash handler and the sending in `apps/common/crash_report.h`): a crash writes `crash.dmp` and `report.txt` (version, commit, Windows,
+- **Crash reports** (`apps/editor/shell_sdl_win.inc` and `core/releases.inc`; the crash handler and the sending in `apps/common/crash_report.h`): a crash writes `crash.dmp` and `report.txt` (version, commit, Windows,
   video card, the exception, the stack, the last log lines) into `%LOCALAPPDATA%\StarDraft\crashes\<time>\` and
   sends the report at once, with no user action: an issue with the label `crash`, or a comment on the open issue for
   the same place. Reports that could not go are sent at the next start. `stardraft.exe --crash-test` crashes on
   purpose. Each CI run keeps the build's `stardraft.pdb` (artifact `stardraft-symbols-<commit>`, 90 days), and each
   release keeps it for good in the draft release `symbols-v<version>`: open `crash.dmp` with it to get function names
   and lines.
-- **Feedback** (`apps/editor/feedback.inc`): a right click on almost anything gives "Report feedback on <the
-  thing>...", and Help > Report feedback. Every context menu goes through `popupMenu()`, which adds the item; where a
-  right click opens no menu, the main loop opens one with only that item. A painted pane names what is under the
-  mouse by answering `WM_FEEDBACK_NAME`; else a tooltip's text, a control's text or the pane's name is used. Send
+- **Feedback** (`core/views_feedback.inc`, `core/feedback_send.inc`, `sdl_options.inc`): a right click on almost
+  anything gives "Report feedback on <the thing>...", and Help > Report feedback. Every context menu adds the item;
+  where a right click opens no menu, one opens with only that item. A view names what is under the mouse
+  (`feedbackName`). Send
   makes an issue with the label `feedback` (no user name); feedback that could not go waits in
   `%LOCALAPPDATA%\StarDraft\feedback\`. The glyph and its color (`kFeedback`, yellow) are the same everywhere.
-- **Updates** (`apps/editor/update.inc`; unpacking and replacing the program in `apps/common/update.h`): Help > Check for updates compares the newest release's title ("... (build
+- **Updates** (`apps/editor/sdl_updates.inc` and `core/releases.inc`; unpacking and replacing the program in `apps/common/update.h`): Help > Check for updates compares the newest release's title ("... (build
   <commit>)") with the build's commit, downloads the zip, puts its `stardraft.exe` in place of the running one (that
   one becomes `stardraft.exe.old`, deleted at the next start) and starts it. A release build also checks at start and
-  says so in the status bar. The SDL program does the same (`sdl_updates.inc`); an installed Win32 `stardraft.exe`
-  of an older release gets the SDL program in this way, as the zip holds only `stardraft.exe`.
+  says so in the status bar. An installed `stardraft.exe` of an older release (the Windows program before the SDL
+  one) gets the new program in this way, as the zip holds only `stardraft.exe`.
 
 ## Commits and releases
 

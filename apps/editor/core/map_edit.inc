@@ -2,7 +2,7 @@
 // doodads and sprites, the snap and the drag offsets, the selection and location edges, and the unit limit. The map
 // input (map_input.inc) calls them; they moved here from main.cpp as they were.
 
-// main.cpp and the other files define these. appState() is the app state: main.cpp's App is its AppState part.
+// The program (main_sdl.cpp and its sdl_*.inc files) defines these. appState() is the app state (shell_sdl.inc).
 AppState& appState();
 int gUnitLimitClassic = 3400, gUnitLimitEud = 1700;  // the Map unit limit (Program options; saved in the settings)
 // The unit limits that Program options saved (both programs, at start; not in tests).

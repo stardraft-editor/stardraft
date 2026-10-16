@@ -1,10 +1,10 @@
 // The documents (portable core): the workspaces, the open maps and projects (the tabs), the two modes (classic and
 // project), the commands' table of the Map workspace, and the commands that open a document (openProject, openAny).
-// Included by core.inc after app_state.inc, and by main.cpp at the same place. The helpers below are defined in main.cpp
-// (the Win32 TU) until they move into the core themselves.
+// Included by core.inc after app_state.inc. The helpers below are defined by the program (main_sdl.cpp and its
+// sdl_*.inc files) until they move into the core themselves.
 
-extern bool gSelfTest;  // main.cpp
-// The editor's state (what the program holds apart from its windows): the host's (shell_win32.inc gives the app).
+extern bool gSelfTest;  // (recent.inc)
+// The editor's state (what the program holds apart from its windows): the host's (shell_sdl.inc: gState).
 AppState& shellState();
 void setMessage(const std::wstring& m);
 void startMark(const char* what);

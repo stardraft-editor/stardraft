@@ -212,8 +212,8 @@ Bottom in pixels (monospace, right-aligned, two columns); Size (dim: pixels and 
 location" with a hairline, then the six elevations as check boxes (checked: in the location); OK (Primary) and
 Cancel at the bottom right. While right is not more than left, or bottom not more than top, a red line at the left
 of the buttons says so and OK is off. OK sets all of it as one undo step (`Editor::editLocation`); the edges are
-clamped to the map. The Anywhere location is not in the list and keeps the whole map. The self-test captures it
-(location_properties.png, _light, _wrong).
+clamped to the map. The Anywhere location is not in the list and keeps the whole map. The snapshot case
+map-dialog-locprops (`tools/sdl_snapshots.py`) captures it.
 
 ## Town areas (View menu)
 
@@ -245,9 +245,8 @@ theme's colors, with transparency (`apps/editor/path_overlay.inc`).
   85 ms on the 256x256 maps. The labels go on by priority (the one under the mouse, the start locations, the
   counts, the expansions, the path lengths); a label that would cover one before it does not show.
 - **Tests:** `pathing_test <install> <maps dir>` checks a ground path on (2)Bottleneck.scm, none on (5)Island Hop.scm,
-  the town area counts and the time (`--dump <dir>` writes a picture of each map with the overlays). The self-test
-  turns each overlay on, captures it (01b_pathing_*.png) and checks the path, the status bar on it, the town counts,
-  and the update after a building is put on the path. `<map> --pathshots <dir>` captures the three overlays together
+  the town area counts and the time (`--dump <dir>` writes a picture of each map with the overlays). The snapshot case
+  map-view-towns turns the town areas on and captures them. `<map> --pathshots <dir>` captures the three overlays together
   in the dark and the light theme.
 
 ## The Options menu and the Program options window
@@ -287,8 +286,7 @@ padding, rows 32 apart, fields 24 high, dim labels, the system scroll bar in the
 A change applies at once, through the same command as the menu (`command(ID_OPT_...)`, `ID_SNAP_...`,
 `ID_DOODAD_...`, `ID_THEME_...`), so a shortcut and the tests get the same result. `updateMenus()` sets the marks in
 the Options menu and paints the window again after each command, and a theme change paints it in the new theme. The
-`options:` test run captures the window in both themes (options_dark.png, options_light.png); the self-test also
-captures it (91_options.png, 91_options_light.png) and writes the Options menu as text in its log ("options menu:").
+snapshot cases dialog-options and dialog-options-light capture the window in both themes.
 
 ## The gallery
 
@@ -314,4 +312,4 @@ is kept in the settings.
 - Pictures of the game stay dark in both themes: the briefing preview, game text with its color codes, the image
   and weapon previews, the button card.
 - Every text token has a contrast of at least 4.5:1 to the grounds it is drawn on, in both themes and with every
-  accent (the self-test checks it; `--datashots <dir> contrast:` writes the table).
+  accent.

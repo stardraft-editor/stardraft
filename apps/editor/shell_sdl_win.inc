@@ -1,5 +1,4 @@
-// The SDL program's Windows-only parts (stardraft.exe; the Win32 program, stardraft-win32.exe, has them in crash.inc,
-// update.inc and main.cpp): the files built into the program, the settings of the builds before the settings file (the
+// The SDL program's Windows-only parts (stardraft.exe): the files built into the program, the settings of the builds before the settings file (the
 // registry), the crash handler and the crash report question, the map files (.scm, .scx) and project.stardraft in
 // Explorer, one program for all maps (a map opened from Explorer goes to the program that is open), and the window's
 // dark title bar. The icons are res/stardraft_sdl.rc's (SDL gives the first one to its windows). The texts and the
@@ -202,7 +201,7 @@ void askMapsDefault() {
 
 // At start (not in a test run): the file types, as the Win32 program did them at start: project.stardraft opens with
 // this program (not with a copy that StarDraft-latest started: the launcher does that), and it is in Explorer's Open
-// with list for maps. (The Win32 program, stardraft-win32.exe, now leaves them to this one.)
+// with list for maps.
 void fileTypesAtStart() {
     if (stardraft::platform::programFile().filename().wstring().rfind(L"stardraft-latest-", 0) != 0)
         stardraft::platform::registerProjectFiles(stardraft::platform::programFile().wstring());

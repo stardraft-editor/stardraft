@@ -2,7 +2,7 @@
 // docked there (the icon and the name), and a click shows that mode's panel. The instances (gPanelTabsView) are made in
 // main.cpp, where the window is; the right-click menu (the side) is the host's (shellTabSideMenu, shell.h).
 
-// Defined in main.cpp (the Win32 TU until they move into the core).
+// Defined by the program (main_sdl.cpp and its sdl_*.inc files) until they move into the core.
 extern Mode gPanelTab[2];   // the tab each side shows
 extern Mode gLastOnSide[2];  // the mode last used on each side (left, right)
 void saveDock();

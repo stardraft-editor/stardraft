@@ -188,7 +188,7 @@ CASES += [
     # A click selects the unit; a drag moves it 40 px down (192 map pixels); Undo puts it back.
     ("map-drag-unit", ["--mode", "units", "--click", "825,128", "--drag", "825,128-825,168", "--key", "Ctrl+Z"], "map"),
 ]
-# The Windows self-test's map steps (main.cpp: runSelfTest) with the mouse and the keys. After each input line a second
+# The map steps of the old Windows self-test with the mouse and the keys. After each input line a second
 # line ("  state: map: <tileset> <size>; name=value ...") says the mode, the player, the sprites, the selected doodad,
 # the locations, the paste, the terrain (a hash of its tiles, the tile under the mouse, the terrain selection) and the
 # tabs: CHECKS reads them. --move x,y moves the mouse only (a paste's copy follows it). More points of the map at the fitted zoom: open ground at 520..640,640..720 and 900,800, space (no

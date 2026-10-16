@@ -11,8 +11,6 @@ void tilesPanelClearSearch();       // the search box is emptied (its change reb
 void tilesPanelShowAllFilter();     // the filter box shows its first entry, All tiles
 
 struct TilesView {
-    HWND wnd = nullptr;     // the Win32 program's windows (tiles_view.inc): the panel's (gTilesPanel), the grid's (gTilesGrid)
-    HWND list = nullptr;
     std::vector<uint16_t> values;  // the tile values shown (group << 4 | index), in the tileset's order
     int perRow = 1;
     int scroll = 0, contentH = 0, layoutW = -1;

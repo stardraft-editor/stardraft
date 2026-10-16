@@ -21,9 +21,9 @@ if hasattr(sys.stdout, "reconfigure"):
 
 # --- Extraction ----------------------------------------------------------------------------------
 
-SKIP_FILES = {"apps/editor/trigger_selftest.inc", "apps/editor/kit_gallery.inc", "apps/editor/theme.inc"}
-# In main.cpp, the self-test, datashot and screenshot drivers (not seen by users) are between these lines.
-SKIP_MARKERS = {"apps/editor/main.cpp": ("// --- Self test ---", "int WINAPI wWinMain(")}
+SKIP_FILES = {"apps/editor/theme.inc"}
+# Parts of a file that users do not see (test drivers), between two lines: {file: (first line, line after)}.
+SKIP_MARKERS = {}
 LOG_CALLS = {"logLine", "log", "buildLogAppend", "OutputDebugStringW", "OutputDebugStringA", "printf", "fprintf",
              "wprintf", "logSetExpanded", "trace", "dbg"}
 NON_UI_CALLS = {"GetPropW", "SetPropW", "RemovePropW", "LoadLibraryW", "GetProcAddress", "RegisterClassExW",
@@ -223,7 +223,7 @@ def looks_ui(t):
 
 def extract(repo):
     out = []
-    sources = ["apps/editor/main.cpp"] + sorted(
+    sources = ["apps/editor/main_sdl.cpp"] + sorted(
         str(p.relative_to(repo)).replace("\\", "/") for p in (repo / "apps/editor").glob("*.inc"))
     sources.append("src/triggers.cpp")
     for rel in sources:

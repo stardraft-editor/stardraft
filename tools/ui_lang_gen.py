@@ -4,11 +4,11 @@ Usage: python -I tools/ui_lang_gen.py [--repo DIR]
 
 Each translation file has one line per English UI text: ENGLISH<TAB>TRANSLATION. Both columns use backslash escapes:
 \\ (a backslash), \\t (a tab: the shortcut part of a menu item), \\r and \\n. The English column is the key that
-tr() looks up in apps/editor/ui_text.h, so it must be the exact text of the call site. Lines that are empty or start
+tr() looks up in apps/editor/ui_lang.h, so it must be the exact text of the call site. Lines that are empty or start
 with # are skipped. A translation that is equal to another English key is reported: tr() would translate it again.
 
 The output is a C++ file per language: a table of {L"English", L"translation"}, with non-ASCII characters as \\uXXXX,
-and the function that returns it (langTableKo, langTableEs, langTableRu or langTableZh, declared in apps/editor/ui_text.h).
+and the function that returns it (langTableKo, langTableEs, langTableRu or langTableZh, declared in apps/editor/ui_lang.h).
 """
 import argparse
 import sys

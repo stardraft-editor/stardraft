@@ -4,8 +4,9 @@ A push to main never makes a release. A tag v<version> does (.github/workflows/b
 the same way each time, after the owner approves the scope and the release notes. Run it with `python -I`:
 
     pending                     The newest release tag, the commits after it (* = not pushed) and the next version.
-    shots <version> [--measure] The screenshots of tools/shots/<version>.json: captured off the screen with the
-                                testing build, cropped into docs/user/images/<version>/. --measure: only the captures.
+    shots <version> [--measure] The screenshots of tools/shots/<version>.json: snapshots of the testing build with
+                                no window (tools/sdl_snapshots.py), cropped into docs/user/images/<version>/.
+                                --measure: only the captures.
     check <version>             All checks, without a change: the version, the push account, the working tree, the
                                 changelog section and its pictures, the UI text, the translation tables, the build.
     publish <version> --yes     check, then commit the changelog and its pictures ("Changelog <version>"), tag
@@ -464,25 +465,36 @@ def cmd_shots(args):
     if not (install / ".build.info").is_file():
         raise Fail(f"no StarCraft install at {install} (set STARCRAFT_INSTALL)")
     build = ROOT / (opt(args, "--build-dir") or "build")
-    exe = build / "Release" / "stardraft-testing-win32.exe"  # (the Win32 program: --datashots is its own)
+    exe = build / "Release" / "stardraft-testing.exe"  # (the testing build: the user's stardraft.exe stays alone)
     if not exe.is_file():
         raise Fail(f"no {exe.relative_to(ROOT)}: cmake -S . -B build -DSTARDRAFT_EXE_NAME=stardraft-testing, "
-                   "cmake --build build --config Release --target stardraft_win32")
+                   "cmake --build build --config Release --target stardraft_editor")
     scratch = Path(tempfile.mkdtemp(prefix=f"stardraft-shots-{version}-"))
     captures = {}
     for i, r in enumerate(spec["runs"]):
+        if "cases" not in r:
+            raise Fail(f"run {i} has no cases (runs with specs were for --datashots of the old Win32 program, which "
+                       "is gone; see tools/shots/README.md)")
         out = scratch / f"run{i}"
         out.mkdir()
         env = {**os.environ, **r.get("env", {})}
+        # The snapshots (no window, no sound, no focus): each case of tools/sdl_snapshots.py writes <case>.png.
+        cmd = [sys.executable, "-I", "tools/sdl_snapshots.py", "--exe", str(exe), "--out", str(out),
+               "--install", str(install), "--only", ",".join(r["cases"])]
+        if "map" in r:
+            cmd += ["--map", str(install / r["map"])]
+        if "project" in r:
+            cmd += ["--project", str(ROOT / r["project"])]
         t = time.time()
-        p = subprocess.run([str(exe), str(install / r["map"]), "--datashots", str(out), *r["specs"]], cwd=ROOT,
-                           env=env, capture_output=True, text=True, timeout=600)
-        print(f"run {i} ({' '.join(r['specs'])}): {time.time() - t:.0f} s, exit {p.returncode}")
-        for txt in out.glob("*.txt"):
-            for line in txt.read_text(encoding="utf-8", errors="replace").splitlines():
-                if re.search(r"\b(NO|NOT|WRONG)\b", line):
-                    raise Fail(f"{txt.name}: {line.strip()}")
-        for png in out.glob("*.png"):
+        p = subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           timeout=600 + 120 * len(r["cases"]))
+        print(f"run {i} ({', '.join(r['cases'])}): {time.time() - t:.0f} s, exit {p.returncode}")
+        if p.returncode:
+            raise Fail(f"run {i}: " + ((p.stdout + p.stderr).strip().splitlines() or ["no output"])[-1])
+        for case in r["cases"]:
+            png = out / f"{case}.png"
+            if not png.is_file():
+                raise Fail(f"run {i}: no picture of the case {case} (it needs a map, a project or the game data)")
             captures[f"{i}/{png.name}"] = png
     if "--measure" in args:
         for name, p in sorted(captures.items()):

@@ -30,7 +30,7 @@ repository).
 3. **Count people, not messages.** One loud user is one user. Five users with the same problem is a strong signal.
 4. **Find the need.** A user's solution is a hint, not a specification. Find the problem behind it. Do the smallest
    change that removes the problem and agrees with the rest of StarDraft.
-5. **Reproduce first.** A defect fix starts with a test, a self-test step or a map that shows the defect. The fix
+5. **Reproduce first.** A defect fix starts with a test, a snapshot case or a map that shows the defect. The fix
    makes it pass. If you cannot reproduce the defect, do not guess: record what you tried on the item.
 6. **The usual rules apply.** Every change from feedback obeys PRINCIPLES.md: rules from the game's data, one undo
    step for each edit, the speed limits, ASD-STE100 texts, the control kit.
