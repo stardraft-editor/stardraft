@@ -200,7 +200,11 @@ private:
     float exactRestX_ = 0, exactRestY_ = 0;         // an exact scroll's fractions of a pixel, for its next event
     bool preciseScroll(const SDL_MouseWheelEvent& e);
     std::function<bool(draw::View&)> modalHook_;    // setSnapshotModalHook
-    SDL_WindowID shotSeq_ = 0xFFFFFF00u;            // the ids of a snapshot's windows (ids SDL does not give)
+    // The ids of a snapshot's windows: ids SDL does not give (it counts up from 1), never 0 (no window), and enough of them
+    // for a long session's dialogs and pop-outs (--script).
+    static constexpr SDL_WindowID kShotIds = 0x80000000u;
+    SDL_WindowID shotSeq_ = kShotIds;
+    SDL_WindowID nextShotId() { return shotSeq_ = shotSeq_ == 0xFFFFFFFFu ? kShotIds : shotSeq_ + 1; }
     Win* shotWin(draw::View& root, int w, int h);   // the snapshot's window of `root` (made at the first input)
     void paintShot(Win& w);                         // lays a snapshot's window out by painting it (its hit areas)
     // The menus that views attached with no window (a snapshot's) opened: snapshot() paints them over
