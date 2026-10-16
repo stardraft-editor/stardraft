@@ -111,9 +111,19 @@ CASES += [
     ("map-rclick-tools", ["--rclick", "1450,148:2"], "map"),
     ("map-rclick-map", ["--mode", "units", "--rclick", "800,400"], "map"),
     ("map-rclick-feedback", ["--rclick", "30,600"], "map"),
+    # The palette's views (core/palette_view.inc, --palview): the Units palette as a grid of icons, and as a large grid of
+    # sprites; a right click on it (the View menu: List, Grid, Normal, Large, the sections; item 1 is Grid: icons).
+    ("map-palette-grid", ["--mode", "units", "--palview", "icons"], "map"),
+    ("map-palette-sprites", ["--mode", "units", "--palview", "sprites,large"], "map"),
+    ("map-palette-menu", ["--mode", "units", "--rclick", "1500,400:1"], "map"),
+    # The pie palette (hold Space in Terrain mode): the ring of the tileset's terrains, the mouse at a slice; the output
+    # says the slices, the hot one and whether letting go paints with it.
+    ("map-pie", ["--pie"], "map"),
     # A project open.
     # A trigger whose blocks name units: the units' pictures in the values (the second trigger of the second group).
     ("project-trig-icons", ["--workspace", "triggers", "--trig", "1:1"], "project"),
+    # The Doodads palette's menu (on the left) on a doodad of a project: Pin to the top first (the menu's items go to the output).
+    ("project-palette-pin", ["--mode", "doodads", "--rclick", "200,600"], "project"),
 ]
 # The Map data page's unit Rename: the game text pop-out.
 CASES += [("map-textpop-unitname", ["--workspace", "classic", "--textpop", "unitname"], "map")]

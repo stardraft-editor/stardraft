@@ -254,6 +254,7 @@ const char* kDefaultInstall = "C:\\Program Files (x86)\\Starcraft Remastered\\St
 #include "core/startup.inc"  // the start-up marks (startMark, gStartMarks, gOpenMs)
 #include "core/names.inc"  // the names of the palette's entries and of a .dat's entries (paletteItemName, entryName)
 #include "core/palette_items.inc"  // the palette's items: units, terrains, doodads and sprites (paletteItems, paletteUnits)
+#include "core/palette_view.inc"  // the palette's views, its View menu, the pins, the rows and their places, the pie's terrains
 #include "core/data_list.inc"  // the Data workspace's list model: the shown entries, the filters, the pins, the tab switch (DataListHost)
 #include "core/views_data.inc"  // the Data workspace's tab strip layout (DataTabLayout, dataTabLayout)
 #include "core/views_data_requirements.inc"  // the Requirements section's model: step names, ways, levels, edits (requirement*)
@@ -346,12 +347,6 @@ HWND gPal2Label = nullptr;
 Mode gLastOnSide[2] = {Mode::Terrain, Mode::Units};  // left, right
 HWND gPanelTabs[2] = {};                              // each side's tabs: the modes docked there
 Mode gPanelTab[2] = {Mode::Terrain, Mode::Units};    // the tab each side shows
-struct PaletteView {
-    bool grid = false, sprites = false, large = false;
-};
-// List or grid (units: icons or sprites) and size, per mode: terrain a large list (its swatches show more), doodads and
-// sprites a large grid (their pictures say more than their names).
-PaletteView gViewByMode[kModeCount] = {{false, false, true}, {}, {true, false, true}, {}, {true, false, true}};
 struct SecondPaletteScope {  // gPal (and the layer) are the second palette's while this lives
     int savedPalette;
     SecondPaletteScope() : savedPalette(app.palette) {
@@ -1237,24 +1232,9 @@ void dataCopySelected();
 void dataPasteSelected();
 
 void mapPageShowPlayers();  // map_pages.inc: the Map properties page, scrolled to players and forces
-// The options of the menus and the palette's view (the table and its file: core/app_settings.inc), with the palette's
-// views of each mode (PaletteViews).
-int paletteViewBits() {
-    int bits = 0;
-    for (int m = 0; m < kModeCount; ++m) bits |= (gViewByMode[m].grid | gViewByMode[m].sprites << 1 | gViewByMode[m].large << 2) << (m * 3);
-    return bits;
-}
-void saveAppSettings() {
-    if (saveSettingsTable()) putAppSetting(L"PaletteViews", paletteViewBits());
-}
-void loadAppSettings() {
-    if (!loadSettingsTable()) return;
-    if (int v = 0; getAppSetting(L"PaletteViews", v))
-        for (int m = 0; m < kModeCount; ++m) {
-            const int b = v >> (m * 3);
-            gViewByMode[m] = {(b & 1) != 0, (b & 2) != 0, (b & 4) != 0};
-        }
-}
+// The options of the menus and the palette's views of each mode (the table and its file: core/app_settings.inc).
+void saveAppSettings() { saveSettingsTable(); }
+void loadAppSettings() { loadSettingsTable(); }
 
 void commandBody(int id);
 void command(int id) {
@@ -1455,7 +1435,7 @@ void trigCancelUnitPick();
 // The custom names are read once for each version of the map.
 
 
-int unitPaletteFooter() { return gPal.grid ? scale(26) : 0; }
+int unitPaletteFooter() { return paletteFooterHeight({gPal.grid, gPal.sprites, gPal.large}); }
 
 void scrollUnitPalette(int pos) {
     RECT rc;
@@ -1470,26 +1450,12 @@ void layoutUnitPalette() {
     if (!gPal.wnd) return;
     RECT rc;
     GetClientRect(gPal.wnd, &rc);
-    const int w = rc.right, pad = scale(4), headerH = scale(26), rowH = gPal.large ? scale(46) : scale(30);
-    const int cell = scale((gPal.sprites ? 56 : 44) * (gPal.large ? 3 : 2) / 2), cols = std::max(1, (w - 2 * pad) / cell);
-    // As many columns as fit, and the cells share the width (a resize moves them at once, not a column at a time).
-    const int cw = std::max(cell, (w - 2 * pad) / cols);
-    int y = 0, col = 0;
-    for (auto& e : gPal.entries) {
-        if (e.value < 0) {
-            if (col) y += cell, col = 0;
-            e.rc = {0, y, w, y + headerH};
-            y += headerH;
-        } else if (gPal.grid) {
-            e.rc = {pad + col * cw, y, pad + (col + 1) * cw, y + cell};
-            if (++col == cols) col = 0, y += cell;
-        } else {
-            e.rc = {0, y, w, y + rowH};
-            y += rowH;
-        }
-    }
-    if (col) y += cell;
-    gPal.contentH = y + pad;
+    std::vector<PaletteRow> rows;  // (the places need only the values)
+    rows.reserve(gPal.entries.size());
+    for (const auto& e : gPal.entries) rows.push_back({e.value, {}});
+    std::vector<stardraft::draw::Rect> places;
+    gPal.contentH = paletteLayout(rows, {gPal.grid, gPal.sprites, gPal.large}, int(rc.right), places);  // (core/palette_view.inc)
+    for (size_t i = 0; i < gPal.entries.size(); ++i) gPal.entries[i].rc = {places[i].left, places[i].top, places[i].right, places[i].bottom};
     int viewH = std::max(0, int(rc.bottom) - unitPaletteFooter());
     SCROLLINFO si{sizeof si, SIF_RANGE | SIF_PAGE | SIF_DISABLENOSCROLL, 0, std::max(0, gPal.contentH - 1), UINT(viewH), 0};
     SetScrollInfo(gPal.wnd, SB_VERT, &si, TRUE);
@@ -1547,31 +1513,11 @@ void rebuildUnitPalette() {
     gPal.entries.clear();
     gPal.hover = -1;
     const std::wstring filter = lowerText(gPalSearchBox.text());
-    const PaletteUnit* prev = nullptr;
     const auto units = paletteItems();
     fillPaletteSections(units);
-    // Words in the names ("door", "start loc") narrow to those; only when nothing contains them does the
-    // looser fuzzy match apply.
-    const bool literal = paletteLiteralSearch(units, filter);
-    auto shown = [&](const PaletteUnit& u) { return paletteUnitShown(u, literal, filter, gPal.section); };
-    // Doodads in a project: the pinned ones first, in the order they were pinned; each stays in its place below too.
-    gPal.pinned = 0;
-    if (app.mode == Mode::Doodads)
-        if (const EudProject* pr = activeProject())
-            for (uint16_t id : pr->doodadPins())
-                for (const auto& u : units)
-                    if (u.value == id && shown(u)) {
-                        if (!gPal.pinned) gPal.entries.push_back({-1, L"Pinned", {}});
-                        gPal.entries.push_back({u.value, u.label, {}});
-                        ++gPal.pinned;
-                        break;
-                    }
-    for (const auto& u : units) {
-        if (!shown(u)) continue;
-        if (!prev || prev->order != u.order) gPal.entries.push_back({-1, u.section, {}});
-        gPal.entries.push_back({u.value, u.label, {}});
-        prev = &u;
-    }
+    // The rows (core/palette_view.inc): the search's words first, the fuzzy match when no item has them; doodads in a
+    // project: the pinned ones first.
+    for (PaletteRow& r : paletteRows(units, app.mode, filter, gPal.section, gPal.pinned)) gPal.entries.push_back({r.value, std::move(r.label), {}});
     layoutUnitPalette();
     static bool inSecond = false;
     if (!inSecond && gPal2.wnd && gPal2Shown) {
@@ -2268,107 +2214,33 @@ int unitPaletteHit(int x, int y) {
 void pickUnit(int v, bool add) { pickUnit(app, v, add); }
 
 void setUnitPaletteView(int id) {
-    if (id == ID_PAL_LIST) gPal.grid = gPal.sprites = false;
-    if (id == ID_PAL_ICONS) gPal.grid = true, gPal.sprites = false;
-    if (id == ID_PAL_SPRITES) gPal.grid = gPal.sprites = true;
-    if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE) gPal.large = id == ID_PAL_LARGE;
-    gViewByMode[int(app.mode)] = {gPal.grid, gPal.sprites, gPal.large};
+    applyPaletteViewCommand(app.mode, id);  // (core/palette_view.inc)
+    const PaletteView& v = gViewByMode[int(app.mode)];
+    gPal.grid = v.grid, gPal.sprites = v.sprites, gPal.large = v.large;
     layoutUnitPalette();
     saveAppSettings();
 }
 
-std::pair<std::wstring, std::wstring> paletteGoGroup(const std::wstring& section);
-
-// The palette's view menu: a list or a grid (units: a grid of command icons or of sprites), normal or large; then the
-// list's sections (units, sprites: under their group headings; doodads: only the categories): the list scrolls to the
-// one picked. `value`: the entry right-clicked (-1: none); a doodad in a project gets Pin to the top / Unpin first.
-constexpr int kPalPin = 0xDF00;  // the palette menu's Pin / Unpin item
-// Pins a doodad to the top of the Doodads palette, or unpins it; kept in the project at once (no project: nothing).
-void doodadPinToggle(int value) {
-    EudProject* pr = activeProject();
-    if (!pr || value < 0) return;
-    std::vector<uint16_t> pins = pr->doodadPins();
-    const auto it = std::find(pins.begin(), pins.end(), uint16_t(value));
-    const bool was = it != pins.end();
-    if (was) pins.erase(it);
-    else pins.push_back(uint16_t(value));
-    pr->setDoodadPins(pins);
-    std::string err;
-    if (!gSelfTest && !pr->save(err)) themedMessageBox(app.main, widen(err).c_str(), L"Could not save the project", MB_ICONERROR);
-    setMessage(tr(was ? L"Unpinned " : L"Pinned to the top: ") + paletteItemName(value));
-    rebuildUnitPalette();
-    unitPaletteRepaint();
-}
-
+// The palette's View menu (core/palette_view.inc: paletteMenuModel): a list or a grid (units: a grid of command icons or of
+// sprites), normal or large; then the list's sections (units, sprites: under their group headings; doodads: only the
+// categories): the list scrolls to the one picked. `value`: the entry right-clicked (-1: none); a doodad in a project gets
+// Pin to the top / Unpin first (doodadPinToggle).
 void unitPaletteMenu(int sx, int sy, int value) {
-    HMENU m = CreatePopupMenu();
-    EudProject* pr = app.mode == Mode::Doodads && value >= 0 ? activeProject() : nullptr;  // pins are kept in the project
-    const std::vector<uint16_t> pins = pr ? pr->doodadPins() : std::vector<uint16_t>{};
-    const bool isPinned = std::find(pins.begin(), pins.end(), uint16_t(value)) != pins.end();
-    if (pr) {
-        AppendMenuW(m, MF_STRING, kPalPin, isPinned ? L"Un&pin" : L"&Pin to the top");
-        AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-    }
-    AppendMenuW(m, MF_STRING, ID_PAL_LIST, L"&List");
-    if (app.mode == Mode::Units) {
-        AppendMenuW(m, MF_STRING, ID_PAL_ICONS, L"&Grid: icons");
-        AppendMenuW(m, MF_STRING, ID_PAL_SPRITES, L"Grid: &sprites");
-    } else {
-        AppendMenuW(m, MF_STRING, ID_PAL_ICONS, L"&Grid");
-        if (gPal.sprites) gPal.sprites = false;  // sprites or icons: only units have both
-    }
-    AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(m, MF_STRING, ID_PAL_NORMAL, L"&Normal");
-    AppendMenuW(m, MF_STRING, ID_PAL_LARGE, L"L&arge");
-    CheckMenuItem(m, !gPal.grid ? ID_PAL_LIST : gPal.sprites ? ID_PAL_SPRITES : ID_PAL_ICONS, MF_BYCOMMAND | MF_CHECKED);
-    CheckMenuRadioItem(m, ID_PAL_NORMAL, ID_PAL_LARGE, gPal.large ? ID_PAL_LARGE : ID_PAL_NORMAL, MF_BYCOMMAND);
-    constexpr int kFirst = 0xE000;
     std::vector<size_t> sections;
+    std::vector<std::wstring> names;
     if (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites)
         for (size_t i = 0; i < gPal.entries.size() && sections.size() < 0x1000; ++i)
-            if (gPal.entries[i].value < 0) sections.push_back(i);
-    auto escaped = [](std::wstring t) {
-        for (size_t p = t.find(L'&'); p != std::wstring::npos; p = t.find(L'&', p + 2)) t.insert(p, 1, L'&');
-        return t;
-    };
-    std::wstring group;
-    bool first = true;
-    for (size_t k = 0; k < sections.size(); ++k) {
-        const auto [g, name] = paletteGoGroup(gPal.entries[sections[k]].label);
-        if (first || g != group) {  // a heading (not a command) for each group, in the order the list has them
-            AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-            if (!g.empty()) AppendMenuW(m, MF_STRING | MF_DISABLED, 0, escaped(g).c_str());
-            group = g, first = false;
-        }
-        AppendMenuW(m, MF_STRING, UINT_PTR(kFirst + k), escaped(name).c_str());
-    }
+            if (gPal.entries[i].value < 0) sections.push_back(i), names.push_back(gPal.entries[i].label);
+    const int pin = palettePinState(app.mode, value);
+    HMENU m = toHmenu(paletteMenuModel(app.mode, {gPal.grid, gPal.sprites, gPal.large}, names, pin), false);
     int id = popupMenu(m, TPM_RIGHTBUTTON, sx, sy, app.main);
     DestroyMenu(m);
-    if (id == kPalPin && pr) return doodadPinToggle(value);
-    if (id >= kFirst && id < kFirst + int(sections.size())) {
-        scrollUnitPalette(gPal.entries[sections[size_t(id - kFirst)]].rc.top);
+    if (id == kPalPin && pin >= 0) return doodadPinToggle(value);
+    if (id >= kPalSectionFirst && id < kPalSectionFirst + int(sections.size())) {
+        scrollUnitPalette(gPal.entries[sections[size_t(id - kPalSectionFirst)]].rc.top);
         return;
     }
     if (id) setUnitPaletteView(id);
-}
-
-// A palette section's group in the View menu (a heading there) and its name under it: units by race ("Terran Ground Units":
-// Terran > Ground Units), sprites as doodads, units and buildings, other; doodads have no group (only the categories).
-std::pair<std::wstring, std::wstring> paletteGoGroup(const std::wstring& section) {
-    if (app.mode == Mode::Units) {
-        const size_t sp = section.find(L' ');
-        if (sp == std::wstring::npos) return {section, section};
-        const std::wstring group = section.substr(0, sp), rest = section.substr(sp + 1);
-        return {group, rest == group ? L"Other " + group : rest};
-    }
-    if (app.mode == Mode::Sprites) {
-        static const std::wstring kDoodads = L" doodads";
-        if (section.size() > kDoodads.size() && section.ends_with(kDoodads)) return {L"Doodads", section.substr(0, section.size() - kDoodads.size())};
-        if (section == L"Terran" || section == L"Zerg" || section == L"Protoss") return {L"Units and buildings", section};
-        return {L"Other", section};
-    }
-    if (app.mode == Mode::Doodads) return {L"", section};  // only the categories, no group headings (2026-10-15)
-    return {L"", section};
 }
 
 
@@ -7380,18 +7252,8 @@ struct PieMenu {
     void* bits = nullptr;
     int size = 0;
 } gPie;
-int pieRadius() { return scale(190); }
-int pieHole() { return scale(46); }
-
-// The slice in the direction of `screen` from the middle (-1: inside the hole).
-int pieSliceAt(POINT screen) {
-    const int n = int(gPie.items.size());
-    const double dx = screen.x - gPie.center.x, dy = screen.y - gPie.center.y;
-    if (!n || dx * dx + dy * dy < double(pieHole()) * pieHole()) return -1;
-    double a = std::atan2(dx, -dy);  // 0 at the top, clockwise
-    if (a < 0) a += 2 * kPi;
-    return int(a / (2 * kPi / n) + 0.5) % n;  // the first slice is centered on the top
-}
+// The slice in the direction of `screen` from the middle (-1: inside the hole; core/palette_view.inc: pieSliceAt).
+int pieSliceAt(POINT screen) { return pieSliceAt(screen.x - gPie.center.x, screen.y - gPie.center.y, int(gPie.items.size())); }
 
 void piePaint() {
     const int S = gPie.size, R = pieRadius(), r0 = pieHole(), n = int(gPie.items.size());
@@ -7482,16 +7344,13 @@ void pieClose() {
 
 // Space down (Terrain mode): the ring, in the middle of the map view.
 void pieOpen() {
-    if (gPie.open || !app.ed || !app.ed->isOpen() || app.mode != Mode::Terrain || !app.ed->canPaintTerrain()) return;
-    const IsomTerrainTable* t = IsomTerrainTable::forEra(app.ed->era());
-    if (!t) return;
-    gPie.items.clear();
-    for (uint16_t i = 1; i <= t->terrainCount(); ++i)
-        if (t->isTerrain(i)) gPie.items.push_back(i);
+    if (gPie.open) return;
+    gPie.items = pieTerrains(app);  // (core/palette_view.inc)
+    if (gPie.items.empty()) return;
     RECT vr;
     GetWindowRect(app.view, &vr);
     gPie.center = {(vr.left + vr.right) / 2, (vr.top + vr.bottom) / 2};
-    const int S = 2 * pieRadius() + scale(8);
+    const int S = pieSize();
     if (gPie.size != S) {
         if (gPie.bmp) DeleteObject(gPie.bmp);
         BITMAPINFO bi{};
@@ -14888,7 +14747,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                 for (const auto& e : gPal.entries)
                     if (e.value < 0) {
                         if (n == k) top = size_t(e.rc.top);
-                        const auto [group, name] = paletteGoGroup(e.label);
+                        const auto [group, name] = paletteGoGroup(app.mode, e.label);
                         o << n++ << " " << narrow(e.label) << "  (View menu: " << narrow(group) << " > " << narrow(name) << ")" << std::endl;
                     }
                 scrollUnitPalette(int(top));
