@@ -328,6 +328,31 @@ void SdlHost::snapshot(draw::View& root, SDL_GPUTexture* target, int w, int h, S
     }
 }
 
+void SdlHost::snapshotInput(draw::View& root, int w, int h, const std::vector<SDL_Event>& events) {
+    // A window of the host with no SDL window, for the call only (its id is one SDL does not give).
+    constexpr SDL_WindowID kShotId = 0xFFFFFFF0u;
+    auto win = std::make_unique<Win>();
+    win->id = kShotId;
+    win->root = &root;
+    win->router = std::make_unique<draw::Router>(root);
+    win->kind = WindowKind::Dialog;
+    win->pw = w, win->ph = h;
+    root.attach(this);
+    wins_.push_back(std::move(win));
+    HoverHook hover = std::move(hover_);
+    hover_ = nullptr;
+    for (SDL_Event e : events) {
+        if (e.type == SDL_EVENT_MOUSE_MOTION) e.motion.windowID = kShotId;
+        else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_UP) e.button.windowID = kShotId;
+        else if (e.type == SDL_EVENT_MOUSE_WHEEL) e.wheel.windowID = kShotId;
+        dispatch(e);
+    }
+    hover_ = std::move(hover);
+    if (captureWin_ == kShotId) SDL_CaptureMouse(false), captureWin_ = 0;
+    wins_.erase(std::remove_if(wins_.begin(), wins_.end(), [&](const std::unique_ptr<Win>& x) { return x->id == kShotId; }), wins_.end());
+    root.attach(nullptr);
+}
+
 // --- Windows ------------------------------------------------------------------------------------------------------
 
 std::unique_ptr<SdlHost::Win> SdlHost::makeWin(SDL_Window* sdl, draw::View& root, WindowKind kind, std::function<void()> closed) {

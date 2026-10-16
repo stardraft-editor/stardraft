@@ -21,6 +21,7 @@ case's function in CHECKS finds a problem in its output.
 import argparse
 import hashlib
 import os
+import re
 import struct
 import subprocess
 import sys
@@ -174,6 +175,19 @@ CASES += [
     # euddraft's lines.
     ("data-newproject-build", ["--newproject", "{newdir}", "--workspace", "project", "--build", "--log"], "data"),
 ]
+# The left mouse button (--click x,y[:mods], --drag x0,y0-x1,y1[:mods], in the window's pixels at scale 1, in their order
+# with the --key options): each goes the host's way for a window's events (down, moves, up) and writes the same line as
+# a key (with the first selected unit's place). The points are those of the map (4)Bottleneck at the fitted zoom: the
+# Units palette's Marine at 1386,429, open ground at 700,650, the mineral fields at the top at 780..880,110..150 (the
+# first unit at 825,128) and at the right at 1225..1260,560..600.
+CASES += [
+    # Units mode: a palette pick (Marine), a click on the map places it, Undo removes it.
+    ("map-click-place", ["--mode", "units", "--click", "1386,429", "--click", "700,650", "--key", "Ctrl+Z"], "map"),
+    # A box selects the units in it; Shift and a box adds the units of the second box; Undo changes no unit.
+    ("map-drag-select", ["--mode", "units", "--drag", "780,110-880,150", "--drag", "1225,560-1260,600:Shift", "--key", "Ctrl+Z"], "map"),
+    # A click selects the unit; a drag moves it 40 px down (192 map pixels); Undo puts it back.
+    ("map-drag-unit", ["--mode", "units", "--click", "825,128", "--drag", "825,128-825,168", "--key", "Ctrl+Z"], "map"),
+]
 
 
 def check_undo(output):
@@ -197,8 +211,64 @@ def check_edited(output):
     return None if "save round-trip: edited.scx: 0 units," in output else "the saved map has units after Delete"
 
 
+INPUT_LINE = re.compile(r"^(key|click|drag) (\S+): (\d+) units, (\d+) doodads, (\d+) selected(?: \(the first at (\d+),(\d+)\))?:")
+
+
+def input_lines(output):
+    """The lines of --key, --click and --drag: (option, value, units, selected, (x, y) of the first selected unit or None)."""
+    lines = []
+    for line in output.splitlines():
+        m = INPUT_LINE.match(line)
+        if m:
+            at = (int(m.group(6)), int(m.group(7))) if m.group(6) else None
+            lines.append((m.group(1), m.group(2), int(m.group(3)), int(m.group(5)), at))
+    return lines
+
+
+def check_place(output):
+    """None when the palette pick and the click on the map placed one unit and Undo removed it."""
+    lines = input_lines(output)
+    if len(lines) != 3:
+        return f"{len(lines)} input lines, not 3"
+    picked, placed, undone = (n for _, _, n, _, _ in lines)
+    if placed != picked + 1 or undone != picked:
+        return f"units: {picked} after the pick, {placed} after the click (not one more), {undone} after Undo"
+    if "Placed " not in output:
+        return "the status bar does not say Placed"
+    return None
+
+
+def check_box_select(output):
+    """None when the box selected units, Shift and a second box added more, and no unit count changed."""
+    lines = input_lines(output)
+    if len(lines) != 3:
+        return f"{len(lines)} input lines, not 3"
+    (_, _, u1, s1, _), (_, _, u2, s2, _), (_, _, u3, _, _) = lines
+    if not 0 < s1 < u1 or s2 <= s1:
+        return f"selected: {s1} after the box, {s2} after Shift and the second box (of {u1} units)"
+    if not u1 == u2 == u3:
+        return f"units: {u1}, {u2}, {u3} (a box changed the units)"
+    return None
+
+
+def check_drag_unit(output):
+    """None when the click selected one unit, the drag moved it down, and Undo put it back."""
+    lines = input_lines(output)
+    if len(lines) != 3:
+        return f"{len(lines)} input lines, not 3"
+    (_, _, _, s1, a1), (_, _, _, s2, a2), (_, _, _, _, a3) = lines
+    if s1 != 1 or not a1:
+        return f"{s1} units selected after the click, not 1"
+    if not a2 or a2[0] != a1[0] or a2[1] <= a1[1]:
+        return f"the unit did not move down: {a1} -> {a2}"
+    if a3 != a1:
+        return f"Undo did not put the unit back: {a1} -> {a2} -> {a3}"
+    return None
+
+
 # Checks of a case's output (after the PNG's): a function that returns None, or what is wrong.
-CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited}
+CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
+          "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit}
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 

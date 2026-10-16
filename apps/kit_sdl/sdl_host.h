@@ -44,6 +44,11 @@ public:
     // Paints `root` (laid out for w x h pixels) into `target`, a texture of `format` with color target usage. Its
     // own, without a window: for snapshots. Waits for the GPU to finish.
     void snapshot(draw::View& root, SDL_GPUTexture* target, int w, int h, SDL_GPUTextureFormat format);
+    // A snapshot's input: SDL's mouse events (`events`, at points in `root`'s pixels; their window id is not read)
+    // go through the same path as a window's events (dispatch: the press closes pop-outs, the router's hit test,
+    // capture and hover, the pointer that mouse() gives, the modifier keys of SDL_GetModState), as if `root` were in a
+    // window of its own while they run (it is attached to the host for the call). No hover tips open.
+    void snapshotInput(draw::View& root, int w, int h, const std::vector<SDL_Event>& events);
     // Called once per frame, before the windows are painted, with a command buffer the host submits after the call.
     // The program draws its own GPU textures here (the views show them with draw::Canvas::externalImage). It runs on
     // the frames that paint, and on every frame while setAnimating(true); snapshot() calls it too.

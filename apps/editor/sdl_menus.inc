@@ -405,6 +405,8 @@ void sdlRightClickShot(const std::string& spec, draw::View* in, const std::wstri
     target->attach(nullptr);
 }
 
+void sdlInputLine(const std::string& what);
+
 void sdlPressKey(const std::string& chord) {
     const auto c = stardraft::parseShortcut(chord);
     draw::KeyEvent e;
@@ -412,10 +414,75 @@ void sdlPressKey(const std::string& chord) {
     e.mods = (c->ctrl ? kShortcutCtrl : 0) | (c->shift ? draw::kShift : 0) | (c->alt ? draw::kAlt : 0);
     gRoot->key(e);
     runPosted();
-    // (the output says what the key did, as the Windows self-test's log: Delete, then Undo, gives the units back)
-    if (gState.ed && gState.ed->isOpen())
-        std::printf("key %s: %zu units, %zu doodads, %zu selected: %s\n", chord.c_str(), gState.ed->units().size(), gState.ed->doodads().size(),
-                    gState.ed->selection().size(), narrow(gState.message).c_str());
+    sdlInputLine("key " + chord);
+}
+
+// The output line after a --key, --click or --drag (as the Windows self-test's log: Delete, then Undo, gives the units
+// back): the units, the doodads, the selection (the first selected unit's place) and the status bar's text.
+void sdlInputLine(const std::string& what) {
+    if (!gState.ed || !gState.ed->isOpen()) return;
+    const auto& units = gState.ed->units();
+    const auto& sel = gState.ed->selection();
+    std::string first;
+    if (!sel.empty() && sel[0] >= 0 && size_t(sel[0]) < units.size())
+        first = " (the first at " + std::to_string(units[size_t(sel[0])].x) + "," + std::to_string(units[size_t(sel[0])].y) + ")";
+    std::printf("%s: %zu units, %zu doodads, %zu selected%s: %s\n", what.c_str(), units.size(), gState.ed->doodads().size(), sel.size(),
+                first.c_str(), narrow(gState.message).c_str());
+}
+
+// --click x,y[:mods] and --drag x0,y0-x1,y1[:mods] in a snapshot (main_sdl.cpp): the left button as a user's mouse
+// gives it, in the window's pixels: the mouse comes to the first point, the button goes down, (a drag: the mouse moves
+// to the second point in steps, the button held), the button goes up. The events go the host's way for a window's
+// (SdlHost::snapshotInput), with the modifier keys held (Shift, Ctrl, Alt, joined with +; Ctrl is Cmd on macOS).
+void sdlMouseShot(const std::string& spec, bool drag, int width, int height) {
+    const std::string name = drag ? "drag " : "click ";
+    const size_t colon = spec.find(':');
+    const std::string at = spec.substr(0, colon), mods = colon == std::string::npos ? "" : spec.substr(colon + 1);
+    int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+    const int got = drag ? std::sscanf(at.c_str(), "%d,%d-%d,%d", &x0, &y0, &x1, &y1) : std::sscanf(at.c_str(), "%d,%d", &x0, &y0);
+    if (!gRoot || !gHost || got != (drag ? 4 : 2))
+        return void(std::fprintf(stderr, "--%s%s: not %s[:mods]\n", name.c_str(), spec.c_str(), drag ? "x0,y0-x1,y1" : "x,y"));
+    if (!drag) x1 = x0, y1 = y0;
+    SDL_Keymod held = SDL_KMOD_NONE;
+    std::stringstream in(mods);
+    for (std::string m; std::getline(in, m, '+');) {
+#ifdef __APPLE__
+        if (m == "Ctrl") held = SDL_Keymod(held | SDL_KMOD_LGUI);
+#else
+        if (m == "Ctrl") held = SDL_Keymod(held | SDL_KMOD_LCTRL);
+#endif
+        else if (m == "Shift") held = SDL_Keymod(held | SDL_KMOD_LSHIFT);
+        else if (m == "Alt") held = SDL_Keymod(held | SDL_KMOD_LALT);
+        else return void(std::fprintf(stderr, "--%s%s: %s is not Shift, Ctrl or Alt\n", name.c_str(), spec.c_str(), m.c_str()));
+    }
+    std::vector<SDL_Event> events;
+    float px = float(x0), py = float(y0);
+    auto move = [&](float x, float y, bool down) {
+        SDL_Event e{};
+        e.type = SDL_EVENT_MOUSE_MOTION;
+        e.motion.x = x, e.motion.y = y, e.motion.xrel = x - px, e.motion.yrel = y - py;
+        e.motion.state = down ? SDL_BUTTON_LMASK : 0;
+        events.push_back(e);
+        px = x, py = y;
+    };
+    auto button = [&](bool down, float x, float y) {
+        SDL_Event e{};
+        e.type = down ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
+        e.button.button = SDL_BUTTON_LEFT, e.button.down = down, e.button.clicks = 1, e.button.x = x, e.button.y = y;
+        events.push_back(e);
+    };
+    move(float(x0), float(y0), false);
+    button(true, float(x0), float(y0));
+    if (drag)
+        for (int i = 1; i <= 10; ++i)
+            move(float(x0) + float(x1 - x0) * float(i) / 10, float(y0) + float(y1 - y0) * float(i) / 10, true);
+    button(false, float(x1), float(y1));
+    const SDL_Keymod before = SDL_GetModState();
+    SDL_SetModState(held);
+    gHost->snapshotInput(*gRoot, width, height, events);
+    SDL_SetModState(before);
+    runPosted();
+    sdlInputLine(name + spec);
 }
 
 // --command <name> in a snapshot: a command of the menus by its name in the command table (core/map_commands.inc:
