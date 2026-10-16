@@ -17,6 +17,9 @@ struct OptionsValues {
     bool light = false;
     int accent = 0;
     std::vector<OptionsAccent> accents;
+    int defaultAccent = 0;     // the accent that is the default (its tooltip says so)
+    bool systemTheme = false;  // the Theme row has Automatic: the system's theme (macOS); it is the default then
+    bool themeAuto = false;    // the theme is the system's
     bool animate = false;
     bool middleDrag = true;   // the middle button drags the map (else it pans it)
     int volume = 0;           // every sound's volume, 0 to 100
@@ -74,6 +77,8 @@ public:
     explicit OptionsView(OptionsHost& host) : host_(host) {
         lightSeg_[0].setText(L"Dark"), lightSeg_[0].setTip(L"Dark theme (default)");
         lightSeg_[1].setText(L"Light"), lightSeg_[1].setTip(L"Light theme");
+        lightSeg_[2].setText(L"Automatic"), lightSeg_[2].setTip(L"The theme of the system, dark or light (default)");
+        lightSeg_[2].onClick = [this] { host_.command(ID_THEME_SYSTEM); };
         middleSeg_[0].setText(L"Drag map"), middleSeg_[0].setTip(L"The map moves with the mouse");
         middleSeg_[1].setText(L"Pan map"), middleSeg_[1].setTip(L"The farther the mouse is from where you pressed, the faster the map moves toward it (default)");
         crashSeg_[0].setText(L"Ask"), crashSeg_[0].setTip(L"After a crash, StarDraft 2 asks at the next start if it can send the report (default)");
@@ -184,7 +189,7 @@ public:
     }
     std::wstring tip(draw::Point pt) override {
         const int i = accentAt(pt);
-        return i >= 0 && i < int(accents_.size()) ? accents_[size_t(i)].name + (i == 0 ? L" (default)" : L"") : std::wstring();
+        return i >= 0 && i < int(accents_.size()) ? accents_[size_t(i)].name + (i == defaultAccent_ ? L" (default)" : L"") : std::wstring();
     }
     draw::Cursor cursor(draw::Point pt) override { return accentAt(pt) >= 0 ? draw::Cursor::Hand : draw::Cursor::Arrow; }
     void resized() override { invalidate(); }
@@ -199,6 +204,7 @@ private:
     std::vector<stardraft::kit::Button*> allButtons() {
         std::vector<stardraft::kit::Button*> out;
         for (int i = 0; i < 2; ++i) out.push_back(&lightSeg_[i]), out.push_back(&middleSeg_[i]);
+        out.push_back(&lightSeg_[2]);
         for (int i = 0; i < 3; ++i) out.push_back(&crashSeg_[i]);
         for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &check_, &restart_, &maps_, &close_}) out.push_back(b);
         return out;
@@ -232,7 +238,7 @@ private:
     void sync(const OptionsValues& v);
 
     OptionsHost& host_;
-    stardraft::kit::Button lightSeg_[2], middleSeg_[2], crashSeg_[3];
+    stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, check_, restart_, maps_, close_;
     stardraft::kit::CheckBox animate_, lastProject_, updates_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
@@ -242,6 +248,8 @@ private:
     std::vector<OptionsAccent> accents_;
     std::vector<draw::Rect> accentRects_;
     int hoverAccent_ = -1;
+    int defaultAccent_ = 0;
+    int systemThemeShown_ = -1;  // (the Theme buttons' tips were set for systemTheme)
     int lightChosen_ = -1, middleChosen_ = -1, crashChosen_ = -1;  // the segmented choices' Primary buttons (sync)
     int limitValue_[2] = {3400, 1700};
     int scroll_ = 0;        // the content's scroll position (px)
@@ -256,11 +264,16 @@ private:
 // The rows of the options: the same places as the window had.
 void OptionsView::sync(const OptionsValues& v) {
     // A segmented choice's Primary button is the chosen one (set only when the choice changes: a tone change repaints).
-    const int light = v.light ? 1 : 0, middle = v.middleDrag ? 0 : 1, crash = v.crashReports;
+    const int light = v.systemTheme && v.themeAuto ? 2 : v.light ? 1 : 0, middle = v.middleDrag ? 0 : 1, crash = v.crashReports;
     if (light != lightChosen_) {
         lightChosen_ = light;
-        for (int i = 0; i < 2; ++i) lightSeg_[i].setTone(i == light ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
+        for (int i = 0; i < 3; ++i) lightSeg_[i].setTone(i == light ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
     }
+    if (int(v.systemTheme) != systemThemeShown_) {  // (with Automatic, Automatic is the default: not Dark)
+        systemThemeShown_ = int(v.systemTheme);
+        lightSeg_[0].setTip(v.systemTheme ? L"Dark theme" : L"Dark theme (default)");
+    }
+    defaultAccent_ = v.defaultAccent;
     if (middle != middleChosen_) {
         middleChosen_ = middle;
         for (int i = 0; i < 2; ++i) middleSeg_[i].setTone(i == middle ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
@@ -362,7 +375,7 @@ void OptionsView::paint(draw::Canvas& c) {
     // Appearance.
     header(L"Appearance");
     label(L"Theme");
-    segmented(y, lightSeg_, 2, "theme");
+    segmented(y, lightSeg_, v.systemTheme ? 3 : 2, "theme");
     y += rowH;
     // The language: a choice that applies at the next start (the names of the languages are in their own language).
     label(L"Language");

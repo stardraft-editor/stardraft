@@ -49,6 +49,16 @@ CASES += [
     ("start-scale2", ["--scale", "2", "--size", "3200x2000"], ""),
 ]
 CASES += [("ws-" + w, ["--workspace", w], "") for w in WORKSPACES]
+# The main window as the system's document window (sdl_window.inc; a native window and a sheet are not in a picture):
+# --check window prints what the window has. macOS: a hidden window with the picture as its file, with changes (the
+# proxy icon, the edited dot), full screen and Split View, the system's appearance, accent color and sidebar color. Each
+# system: the accent that each of macOS's accent colors gives, and the sheet of the save question (its buttons in the
+# system's order, with their keys). -system: the theme and the accent color are the system's (macOS's Automatic).
+CASES += [
+    ("check-window", ["--check", "window", "--lang", "en"], ""),
+    ("check-window-system", ["--check", "window", "--lang", "en", "--theme", "system", "--accent", "system"], ""),
+    ("dialog-options-system", ["--dialog", "options", "--size", "720x820", "--theme", "system", "--accent", "system"], ""),
+]
 CASES += [
     ("newpage-classic", ["--newpage", "classic"], ""),
     ("newpage-eud", ["--newpage", "eud"], ""),
@@ -727,6 +737,38 @@ def check_zoom_at(what, factor):
     return check
 
 
+def check_window(system):
+    """--check window: the lines that sdl_window.inc's sdlWindowCheck prints."""
+    def check(output):
+        lines = [x for x in output.splitlines() if x.startswith("window: ")]
+        text = "\n".join(lines)
+        if not lines:
+            return "no window lines"
+        sheet = next((x for x in lines if x.startswith("window: sheet ")), "")
+        if not re.search(r'"Save changes to the map\?": Save \[Return\] Cancel \[Escape\] Do not save \[Cmd\+n\]', sheet):
+            return f"the save question's sheet is not Save, Cancel, Do not save: {sheet!r}"
+        for color, accent in (("blue", "Blue"), ("red", "Red"), ("green", "Green"), ("graphite", "Blue")):
+            if f"window: system accent {color} -> {accent}" not in text:
+                return f"the system's {color} does not give {accent}"
+        if "window: system accent purple -> hue " not in text:
+            return "the system's purple does not keep its own hue"
+        mac = "window: system look yes" in text
+        if not mac:
+            return None if "window: not macOS" in text else "no 'not macOS' line"
+        win = next((x for x in lines if x.startswith("window: represented file ")), "")
+        if not win or win.startswith("window: represented file none"):
+            return f"the window has no file: {win!r}"
+        for part in ("edited yes", "full screen yes", "split view yes", "resizable yes"):
+            if part not in win:
+                return f"the window does not have '{part}': {win!r}"
+        if not re.search(r"window: rail color \d+,\d+,\d+", text):
+            return "no rail color"
+        if system and "(the system's)" not in next((x for x in lines if x.startswith("window: theme ")), ""):
+            return "the theme is not the system's"
+        return None
+    return check
+
+
 def check_trackpad_pan(output):
     """None when a trackpad's scroll (1 right, 1.5 toward the user) moved the map 48 px left and 72 px up, not the zoom."""
     c = camera(output, "wheel 700,500,1,-1.5:precise")
@@ -799,7 +841,8 @@ CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-clic
           "start-noinstall-pick": check_banner(False, "none", True), "start-scale2": check_scale2,
           "map-wheel-zoom": check_zoom_at("wheel 700,500,0,1", 1.2), "map-trackpad-pan": check_trackpad_pan,
           "map-trackpad-ctrl-zoom": check_zoom_at("wheel 700,500,0,8:precise:Ctrl", 1.44),
-          "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5), "start-menubar": check_menubar}
+          "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5), "start-menubar": check_menubar,
+          "check-window": check_window(False), "check-window-system": check_window(True)}
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 

@@ -277,7 +277,13 @@ std::wstring shellBuildStamp() { return widen(std::string("built ") + __DATE__ +
 void shellSetTitle(const std::wstring& title) {
     int n = 0;
     SDL_Window** wins = SDL_GetWindows(&n);
-    for (int i = 0; wins && i < n; ++i) SDL_SetWindowTitle(wins[i], narrow(title).c_str());
+#ifdef __APPLE__
+    // (the close button's dot shows the changes: the title has no "* ")
+    const std::string shown = narrow(title.rfind(L"* ", 0) == 0 ? title.substr(2) : title);
+#else
+    const std::string shown = narrow(title);
+#endif
+    for (int i = 0; wins && i < n; ++i) SDL_SetWindowTitle(wins[i], shown.c_str());
     SDL_free(wins);
 }
 bool shellHasRail() { return true; }  // (the workspace rail: the Map workspace's items, as the core lists them)

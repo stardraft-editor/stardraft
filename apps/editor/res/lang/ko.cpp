@@ -2027,6 +2027,9 @@ constexpr UiText kRows[] = {
     {L"Zoom", L"\uD655\uB300/\uCD95\uC18C"},
     {L"Next tab", L"\uB2E4\uC74C \uD0ED"},
     {L"Bring all to front", L"\uBAA8\uB450 \uC55E\uC73C\uB85C \uAC00\uC838\uC624\uAE30"},
+    {L"Dark theme", L"\uC5B4\uB450\uC6B4 \uD14C\uB9C8"},
+    {L"The theme of the system, dark or light (default)", L"\uC2DC\uC2A4\uD15C \uD14C\uB9C8, \uC5B4\uB461\uAC8C \uB610\uB294 \uBC1D\uAC8C (\uAE30\uBCF8\uAC12)"},
+    {L"Automatic (the color of the system)", L"\uC790\uB3D9(\uC2DC\uC2A4\uD15C \uC0C9)"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

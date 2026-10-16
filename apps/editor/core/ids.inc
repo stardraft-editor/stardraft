@@ -25,6 +25,7 @@ enum : int {
     ID_RECENT_CLEAR_MAPS = 840, ID_RECENT_CLEAR_PROJECTS,
     ID_HELP_FEEDBACK = 860, ID_HELP_ISSUE, ID_HELP_UPDATES, ID_OPT_UPDATECHECK, ID_HELP_DISCORD, ID_HELP_ABOUT, ID_OPT_CRASHREPORTS, ID_HELP_GITHUB,
     ID_THEME_DARK = 880, ID_THEME_LIGHT, ID_SCEN_PROPS, ID_SCEN_CLASSIC, ID_SCEN_CLASSICTRIG, ID_ACCENT = 890,  // + accent index (theme::kAccents)
+    ID_THEME_SYSTEM = 888,  // Program options > Theme > Automatic: the system's theme (macOS)
     ID_OPT_SNAPVALID = 640, ID_OPT_STRICT, ID_OPT_ILLEGAL, ID_OPT_DRAGBACK, ID_OPT_ANIMATE, ID_OPT_STACK, ID_OPT_LASTPROJECT,
     ID_OPT_WINDOW,  // Options > Program options (the window with the program options)
     // The Options menu: the snap of units, sprites and locations (+ the choice in kSnapGrids), the place rule of doodads,
