@@ -145,6 +145,9 @@ bool macBeginSheet(SDL_Window* w, const MacAlert& spec, std::function<void(int)>
     @autoreleasepool {
         NSWindow* nw = cocoaWindow(w);
         if (!nw || ![nw isVisible] || [nw isMiniaturized] || spec.buttons.empty()) return false;
+        // (another window of the program is in front, a dialog: the program's own box shows over it, not a sheet behind it)
+        if ([NSApp keyWindow] && [NSApp keyWindow] != nw) return false;
+        if ([nw attachedSheet]) return false;  // (a sheet is open: the next box is the program's own)
         NSAlert* alert = [[NSAlert alloc] init];
         [alert setMessageText:nsText(spec.message)];
         if (!spec.info.empty()) [alert setInformativeText:nsText(spec.info)];

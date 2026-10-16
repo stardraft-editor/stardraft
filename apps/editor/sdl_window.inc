@@ -26,16 +26,24 @@ std::string sdlWindowDocumentPath() {
 }
 bool sdlWindowDocumentEdited() { return docOpen() && gState.ed->modified(); }
 
-// Each frame: the title bar follows the active tab's file and its changes (only when they change).
+// Each frame: the title bar follows the active tab's file and its changes (only when they change; the file is looked
+// for again only when the tab, its map's file or its project's file changes). Only on macOS.
 void sdlWindowDocumentSync() {
+#ifdef __APPLE__
     static std::string shownPath = "\x01";
+    static std::wstring key = L"\x01";
     static bool shownEdited = false;
     if (!gMainWindow) return;
-    const std::string path = sdlWindowDocumentPath();
+    std::wstring now = std::to_wstring(gActive) + L"|" + std::to_wstring(activePage());
+    if (gState.ed) now += L"|" + gState.ed->path().wstring();
+    if (gActive >= 0 && gActive < int(gDocs.size()) && gDocs[size_t(gActive)].project) now += L"|" + gDocs[size_t(gActive)].project->file().wstring();
+    const std::string path = now == key ? shownPath : sdlWindowDocumentPath();
+    key = std::move(now);
     const bool edited = sdlWindowDocumentEdited();
     if (path == shownPath && edited == shownEdited) return;
     shownPath = path, shownEdited = edited;
     macSetWindowDocument(gMainWindow, path, edited);
+#endif
 }
 
 // --- Message boxes as sheets ----------------------------------------------------------------------------------------
