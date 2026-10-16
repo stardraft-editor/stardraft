@@ -97,8 +97,9 @@ folder, or asks for it; Options > Program options > StarCraft folder changes it.
 
 The macOS download is `StarDraft-<version>-macos-arm64.dmg` (Apple silicon): `StarDraft.app` in a disk image with a
 background and a link to Applications. The `macos` job of CI makes it on each push (`tools/ci/mac_dist.sh`, an
-artifact of the run); for a tag `v<version>`, the job `macos-release` attaches it to the release that the `windows` job
-made. To make it on a Mac:
+artifact of the run). For a tag `v<version>`, the job `macos-release` attaches it to the release that the `windows` job
+made, but only when the repository variable `RELEASE_MAC` is `on` (default: off; a release has only the Windows build
+for now). To make it on a Mac:
 
     cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
     cmake --build build
@@ -193,7 +194,7 @@ The tool does not see the kit gallery, log lines and the theme code.
 ### Captures and measurements
 
 Captures are snapshots (see "Snapshots" above): `--snapshot <png>` with the options of `main()` in `main_sdl.cpp`
-(`--workspace`, `--mode`, `--dialog`, `--data`, `--trig`, `--classictrig`, `--key`, `--click`, `--drag`, `--type`,
+(`--workspace`, `--mode`, `--dialog`, `--data`, `--trig`, `--classictrig`, `--key`, `--click`, `--drag`, `--lostdrag`, `--type`,
 ...), which open a state or drive the program with the mouse and the keys before the picture. Each case of
 `tools/sdl_snapshots.py` is one such run (`--list` shows them); a case's check reads what the run prints. The release
 pictures are cases too (`tools/shots/README.md`).
@@ -295,8 +296,12 @@ a commit on `main`). Then it builds that commit as that version and makes the re
 <commit>)" with `StarDraft-<version>-win64.zip` (only `stardraft.exe`), marked Latest. Its text is the version's
 section, then the changelog's last section (what StarDraft is), with the pictures as addresses at the tag
 (`release.py notes <version>` shows the text). Discord gets one post with the pictures. The symbols (`stardraft.pdb`)
-go to the draft release `symbols-v<version>`, which only the repository's members see, for crash reports. The job
-`macos-release` then attaches the macOS disk image `StarDraft-<version>-macos-arm64.dmg` (see "The macOS app"). Check for
+go to the draft release `symbols-v<version>`, which only the repository's members see, for crash reports. For now the
+release has only the Windows build. The repository variable `RELEASE_MAC` (Settings > Secrets and variables > Actions >
+Variables), default off, = `on` lets the job `macos-release` attach the macOS disk image
+`StarDraft-<version>-macos-arm64.dmg` (see "The macOS app"); off, it is only an artifact of the run. The linux job's
+`stardraft-linux.tar.gz` is never put on a release (it needs Ubuntu 24.04's glibc and has no desktop files): the Linux
+download is to be the AppImage, built on Ubuntu 22.04, with its own release job. Check for
 updates finds the release. Each release keeps its own download count: `gh api repos/stardraft-editor/stardraft/releases
 --jq '.[] | "\(.tag_name)  \([.assets[].download_count] | add)"'` lists them.
 

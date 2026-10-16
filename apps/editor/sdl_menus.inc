@@ -566,7 +566,7 @@ bool sdlShotInputNext() {
     else if (kind == 'h') sdlWheelShot(value);
     else if (kind == 'p') sdlPinchShot(value);
     else if (kind == 'z' || kind == 'g') sdlGestureShot(value, kind == 'z');
-    else sdlMouseShot(value, kind);  // 'c', 'd' or 'm'
+    else sdlMouseShot(value, kind);  // 'c', 'd', 'l' or 'm'
     return true;
 }
 
@@ -576,10 +576,12 @@ bool sdlShotInputNext() {
 // (SdlHost::snapshotMouse), with the modifier keys held (Shift, Ctrl, Alt, joined with +; Ctrl is Cmd on macOS).
 // The points are the main window's, as a user's mouse is on the screen: a pop-out that an input opened takes the
 // events when the first point is on it, and a press outside it closes it; a dialog takes them in its own pixels.
-// --move x,y: only the mouse comes to the point (no button): a paste's copy follows it there. `kind`: 'c', 'd' or 'm'.
+// --move x,y: only the mouse comes to the point (no button): a paste's copy follows it there. --lostdrag
+// x0,y0-x1,y1[:mods]: a drag, but the window loses the focus (Alt+Tab) before the button goes up, and the release does
+// not come (SDL_EVENT_WINDOW_FOCUS_LOST): the press ends there. `kind`: 'c', 'd', 'l' or 'm'.
 void sdlMouseShot(const std::string& spec, char kind) {
-    const bool drag = kind == 'd', moveOnly = kind == 'm';
-    const std::string name = drag ? "drag " : moveOnly ? "move " : "click ";
+    const bool lost = kind == 'l', drag = kind == 'd' || lost, moveOnly = kind == 'm';
+    const std::string name = lost ? "lostdrag " : drag ? "drag " : moveOnly ? "move " : "click ";
     const size_t colon = spec.find(':');
     const std::string at = spec.substr(0, colon), mods = colon == std::string::npos ? "" : spec.substr(colon + 1);
     int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
@@ -621,7 +623,13 @@ void sdlMouseShot(const std::string& spec, char kind) {
         if (drag)
             for (int i = 1; i <= 10; ++i)
                 move(float(x0) + float(x1 - x0) * float(i) / 10, float(y0) + float(y1 - y0) * float(i) / 10, true);
-        button(false, float(x1), float(y1));
+        if (lost) {
+            SDL_Event e{};
+            e.type = SDL_EVENT_WINDOW_FOCUS_LOST;
+            events.push_back(e);
+        } else {
+            button(false, float(x1), float(y1));
+        }
     }
     const SDL_Keymod before = SDL_GetModState();
     SDL_SetModState(held);
