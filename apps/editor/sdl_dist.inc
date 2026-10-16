@@ -54,14 +54,15 @@ std::string sdlPreviewCheck(const std::string& dirArg) {
     return out;
 }
 
-std::string sdlDistCheck(const std::string& what) {
-    if (what == "bundle") return macBundleReport();
-    if (what == "spotlight") {
-        if (!gState.ed || gState.ed->path().empty()) return "spotlight: no map open (WRONG)\n";
-        return macSpotlightCheck(gState.ed->path());
-    }
-    if (what.rfind("preview", 0) == 0) return sdlPreviewCheck(what.size() > 8 ? what.substr(8) : std::string());
-    return "check: no check \"" + what + "\" (WRONG)\n";
+// One --check value: bundle, spotlight or preview:<folder>. false: not one of these (another part of the program can
+// have it: main_sdl.cpp, the --check list).
+bool sdlDistCheck(const std::string& what, std::string& out) {
+    if (what == "bundle") out = macBundleReport();
+    else if (what == "spotlight")
+        out = !gState.ed || gState.ed->path().empty() ? "spotlight: no map open (WRONG)\n" : macSpotlightCheck(gState.ed->path());
+    else if (what == "preview" || what.rfind("preview:", 0) == 0) out = sdlPreviewCheck(what.size() > 8 ? what.substr(8) : std::string());
+    else return false;
+    return true;
 }
 
 }  // namespace

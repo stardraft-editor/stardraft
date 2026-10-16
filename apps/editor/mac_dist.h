@@ -17,7 +17,7 @@
 void macMapOpened(const std::filesystem::path& map, const std::vector<uint32_t>& tileColors, uint16_t era);
 
 // A Spotlight result that the user opens starts (or goes to) StarDraft with the map: `open` gets its path, on the UI
-// thread. Once, before the window shows.
+// thread. Once, right after SDL_Init (SDL's delegate is there, and AppKit can give the activity during the launch).
 void macHandleSpotlightOpens(void (*open)(const std::string& path));
 
 // --check spotlight: the map's Spotlight entry is made, indexed and removed again; the lines to print. Waits for
