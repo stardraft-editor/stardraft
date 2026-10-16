@@ -237,12 +237,18 @@ CASES += [
     # Tabs: a new project (--newproject, its map in a second tab), Ctrl+Shift+Tab goes back to the map, Ctrl+Tab to the
     # project, Ctrl+W closes it (the map's tab is active).
     ("map-tabs", ["--newproject", "{newdir}", "--key", "Ctrl+Shift+Tab", "--key", "Ctrl+Tab", "--key", "Ctrl+W"], "map"),
+    # The quick picker (Q), a pop-out over the map that is not modal (at 522,182-1142,782): "marine" typed, a click on
+    # its first row picks the Marine and closes it; Q opens it again, and a click on the map outside it closes it and
+    # places a Marine there, as the press of a user's mouse does.
+    ("map-quick-click", ["--mode", "units", "--key", "Q", "--type", "marine", "--click", "832,280", "--key", "Q",
+                         "--click", "1200,850"], "map"),
 ]
 # The workspaces' edits with the mouse and the keys (the Windows self-test's steps off the map). --type types text into
-# the view with the focus; --wait ms lets the program's timers run. An input goes to the window that takes input now: a
-# dialog or pop-out that an input opened (a list picker, the block picker, a value's pop-out; in its own pixels) takes
-# the next inputs, and closes when there are no more. Its inputs' lines come before the line of the input that opened
-# it. After each input's line, a line "  state: ..." says what the workspace holds (sdl_shot_state.inc).
+# the view with the focus; --wait ms lets the program's timers run. A dialog or pop-out that an input opened (a list
+# picker, the block picker, a value's pop-out, a text prompt) takes the next keys and text, and closes when there are no
+# more. The mouse's points are the main window's, as on the screen: a pop-out takes a click on it, and a click outside
+# it closes it; a dialog takes the clicks in its own pixels. A modal window's inputs' lines come before the line of the
+# input that opened it. After each input's line, a line "  state: ..." says what the workspace holds (sdl_shot_state.inc).
 CASES += [
     # The New page: the tileset Ice, then Create makes the map (128 x 128).
     ("newpage-create", ["--newpage", "classic", "--click", "489,545", "--click", "1126,895"], "data"),
@@ -507,6 +513,19 @@ def check_player_keys(output):
     ])
 
 
+def check_quick_click(output):
+    """A click on the quick picker goes to it (its row picks), and a click outside it closes it (the main window takes
+    the press): the mouse's points are the main window's, as on the screen."""
+    return expect(output, 5, [
+        ("Q did not open the quick picker", lambda s: s[0]["quick"] == "open" and s[1]["quick"] == "open"),
+        ("the click on the picker's first row did not pick a unit and close it",
+         lambda s: s[2]["quick"] == "-" and s[2]["palette"] != "-1" and s[1]["palette"] == "-1"),
+        ("Q did not open the picker again", lambda s: s[3]["quick"] == "open"),
+        ("the click outside the picker did not close it", lambda s: s[4]["quick"] == "-"),
+        ("the click outside the picker did not go to the map (no unit placed)", lambda s: s[4]["units"] == s[3]["units"] + 1),
+    ])
+
+
 def check_tabs(output):
     """The Windows tab_previous and tab_closed steps: two tabs, Ctrl+Shift+Tab, Ctrl+Tab, Ctrl+W."""
     return expect(output, 3, [
@@ -639,7 +658,7 @@ CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-clic
           "map-terrain-rect-paint": check_rect_paint, "map-terrain-paste": check_terrain_paste,
           "map-terrain-paste-ghost": check_terrain_paste_ghost, "map-paste-ghost": check_paste_ghost,
           "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed,
-          "map-player-keys": check_player_keys, "map-tabs": check_tabs,
+          "map-player-keys": check_player_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click,
           "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
           "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits,
           "map-files-search": check_files_search, "map-briefing-add": check_briefing_add}

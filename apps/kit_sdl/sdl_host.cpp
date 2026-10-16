@@ -40,6 +40,10 @@ struct SdlHost::Win {
     float density = 1;             // pixels per logical point
     Point mouse;                   // the pointer, in pixels
     std::wstring title;            // a dialog's title (openWindow's spec)
+    // A snapshot's pop-out (no SDL window): the window it shows on (the main window or a dialog: the base) and its
+    // place there, in the base's pixels, as the screen shows a pop-out over its window. 0: not a pop-out (a base).
+    SDL_WindowID shotBase = 0;
+    Rect shotAt;
     bool popup() const { return kind == WindowKind::Popup || kind == WindowKind::Menu; }
     bool transient() const { return kind != WindowKind::Dialog; }
 };
@@ -371,6 +375,42 @@ void SdlHost::snapshotText(draw::View& root, int w, int h, const std::string& ut
     win->router->text(draw::TextEvent{utf8});
 }
 
+void SdlHost::snapshotMouse(draw::View& root, const std::vector<SDL_Event>& events) {
+    Win* base = shotWin(root, root.width(), root.height());
+    // The window that the mouse is on, as on a screen: a modal dialog (it is over the main window and takes the
+    // input), else the main window; over it, the last pop-out opened that has the first point.
+    for (auto it = wins_.rbegin(); it != wins_.rend() && it->get() != base; ++it)
+        if (!(*it)->sdl && (*it)->kind == WindowKind::Dialog) {
+            base = it->get();
+            break;
+        }
+    Point at;
+    for (const SDL_Event& e : events)
+        if (e.type == SDL_EVENT_MOUSE_MOTION) {
+            at = {int(e.motion.x), int(e.motion.y)};
+            break;
+        } else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_UP) {
+            at = {int(e.button.x), int(e.button.y)};
+            break;
+        }
+    Win* target = base;
+    for (auto it = wins_.rbegin(); it != wins_.rend() && it->get() != base; ++it) {
+        Win& w = **it;
+        if (w.sdl || w.kind == WindowKind::Tooltip || w.shotBase != base->id || !w.shotAt.contains(at)) continue;
+        target = &w;
+        break;
+    }
+    const Point o = target == base ? Point{0, 0} : Point{target->shotAt.left, target->shotAt.top};
+    std::vector<SDL_Event> moved = events;
+    for (SDL_Event& e : moved)
+        if (e.type == SDL_EVENT_MOUSE_MOTION) e.motion.x -= float(o.x), e.motion.y -= float(o.y);
+        else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_UP) e.button.x -= float(o.x), e.button.y -= float(o.y);
+        else if (e.type == SDL_EVENT_MOUSE_WHEEL) e.wheel.mouse_x -= float(o.x), e.wheel.mouse_y -= float(o.y);
+    // A pop-out that is not modal has no loop that paints it: a paint lays it out (its hit areas) as the screen shows it.
+    if (target->root != &root) paintShot(*target);
+    snapshotInput(*target->root, target->pw, target->ph, moved);
+}
+
 draw::View& SdlHost::snapshotTop(draw::View& root, Point& size) {
     for (auto it = wins_.rbegin(); it != wins_.rend(); ++it) {
         const Win& w = **it;
@@ -568,6 +608,12 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
         w->parent = parent->id;
         w->title = spec.title;
         w->pw = std::max(1, spec.at.width()), w->ph = std::max(1, spec.at.height());
+        if (spec.kind != WindowKind::Dialog) {  // a pop-out: at spec.at in the opener's view, over the opener's base window
+            const Point o = from.origin();
+            const Point p = parent->shotBase ? Point{parent->shotAt.left, parent->shotAt.top} : Point{0, 0};
+            w->shotBase = parent->shotBase ? parent->shotBase : parent->id;
+            w->shotAt = Rect(p.x + o.x + spec.at.left, p.y + o.y + spec.at.top, p.x + o.x + spec.at.left + w->pw, p.y + o.y + spec.at.top + w->ph);
+        }
         content.attach(this);
         content.setFrame(Rect(0, 0, w->pw, w->ph));
         wins_.push_back(std::move(w));
