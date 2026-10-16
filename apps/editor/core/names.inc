@@ -3,7 +3,7 @@
 // come from the Data workspace, which stays in main.cpp).
 
 AppState& shellState();
-std::wstring projectUnitName(int u);  // the Win32 TU (data_extras.inc): the project's name of the unit when its string is changed, else ""
+std::wstring projectUnitName(int u);  // core/data_model.inc: the project's name of the unit when its string is changed, else ""
 
 // A unit's game name with its custom name `c`, in the format of Program options > Unit names.
 std::wstring formatUnitName(const std::wstring& game, const std::wstring& c) {
