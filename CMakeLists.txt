@@ -348,6 +348,8 @@ if(STARDRAFT_RENDERER)
     add_library(imgui STATIC ${imgui_SOURCE_DIR}/imgui.cpp ${imgui_SOURCE_DIR}/imgui_draw.cpp ${imgui_SOURCE_DIR}/imgui_tables.cpp
                 ${imgui_SOURCE_DIR}/imgui_widgets.cpp ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlgpu3.cpp)
     target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+    # Characters past U+FFFF (emoji, rare Chinese characters) are glyphs of the fonts, not the replacement mark.
+    target_compile_definitions(imgui PUBLIC IMGUI_USE_WCHAR32)
     target_link_libraries(imgui PUBLIC SDL3::SDL3-static)
     # The fonts (SIL Open Font License, NOTICE.md): Noto Sans for Latin, Korean and Chinese, at pinned commits,
     # downloaded once into the build and put beside the programs (fonts/), so every system shows the same text. The

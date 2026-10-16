@@ -36,6 +36,12 @@ struct SdlHost::Win {
     bool dirty = true;             // to paint on the next turn
     bool claimed = false;          // claimed for the GPU device (a swapchain)
     bool composing = false;        // an input method's text is not committed yet
+    bool inputOn = false;          // a view that types text has the keyboard (textInput): the input method is on
+    // SDL gives the window typed text (SDL_StartTextInput): its text events come only then. A window that takes the
+    // keyboard (the main window, a dialog, a pop-out) always does: a list's or tree's type-ahead, the triggers pane's
+    // typed block and a message box's letters take text too, not only a text field.
+    bool typing = false;
+    Rect inputArea;                // where the input method shows its text: the caret, in the window's pixels
     int pw = 0, ph = 0;            // pixels
     float density = 1;             // pixels per logical point
     Point mouse;                   // the pointer, in pixels
@@ -309,7 +315,7 @@ bool SdlHost::show(draw::View& root, const std::wstring& title, int w, int h) {
         SDL_DestroyWindow(sdl);
         return false;
     }
-    SDL_StartTextInput(sdl);
+    setTyping(*win, true);
     if (windowMade_) windowMade_(sdl);
     SDL_ShowWindow(sdl);
     if (!mainId_) mainId_ = win->id;
@@ -370,6 +376,7 @@ SdlHost::Win* SdlHost::shotWin(draw::View& root, int w, int h) {
     win->router = std::make_unique<draw::Router>(root);
     win->kind = WindowKind::Dialog;
     win->pw = w, win->ph = h;
+    win->typing = true;  // (as show(): the main window takes typed text)
     root.attach(this);
     root.setFrame(Rect(0, 0, w, h));
     wins_.push_back(std::move(win));
@@ -406,8 +413,37 @@ bool SdlHost::preciseScroll(const SDL_MouseWheelEvent&) { return precise_ && pre
 
 void SdlHost::snapshotText(draw::View& root, int w, int h, const std::string& utf8) {
     Win* win = shotWin(root, w, h);
-    if (!inModal(win->id)) return;
-    win->router->text(draw::TextEvent{utf8});
+    SDL_Event e{};  // (as SDL gives typed text: dispatch ends a composition first)
+    e.type = SDL_EVENT_TEXT_INPUT;
+    e.text.windowID = win->id;
+    e.text.text = utf8.c_str();
+    dispatch(e);
+}
+
+void SdlHost::snapshotCompose(draw::View& root, int w, int h, const std::string& utf8, int start) {
+    Win* win = shotWin(root, w, h);
+    SDL_Event e{};
+    e.type = SDL_EVENT_TEXT_EDITING;
+    e.edit.windowID = win->id;
+    e.edit.text = utf8.c_str();
+    e.edit.start = start;
+    dispatch(e);
+}
+
+void SdlHost::snapshotLayout(const draw::View& v) {
+    if (Win* w = rootWin(v); w && !w->sdl) paintShot(*w);
+}
+
+bool SdlHost::textInputState(const draw::View& v, Rect& area) const {
+    const Win* w = rootWin(v);
+    if (!w) return false;
+    area = w->inputArea;
+    return w->inputOn;
+}
+
+draw::View* SdlHost::focusedView(const draw::View& v) const {
+    const Win* w = rootWin(v);
+    return w ? w->router->focused() : nullptr;
 }
 
 void SdlHost::snapshotMouse(draw::View& root, const std::vector<SDL_Event>& events) {
@@ -650,6 +686,7 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
         w->closed = std::move(closed);
         w->parent = parent->id;
         w->title = spec.title;
+        w->typing = true;  // (as a window's: setTyping in openWindow)
         w->pw = std::max(1, spec.at.width()), w->ph = std::max(1, spec.at.height());
         if (spec.kind != WindowKind::Dialog) {  // a pop-out: at spec.at in the opener's view, over the opener's base window
             const Point o = from.origin();
@@ -709,6 +746,7 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
         SDL_DestroyWindow(sdl);
         return;
     }
+    if (spec.kind == WindowKind::Dialog || spec.kind == WindowKind::Popup) setTyping(*w, true);  // (a menu's keys are keys)
     if (spec.kind == WindowKind::Dialog && windowMade_) windowMade_(sdl);
     SDL_ShowWindow(sdl);
     if (spec.kind == WindowKind::Dialog && !noActivate_) SDL_RaiseWindow(sdl);
@@ -1033,7 +1071,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
     }
     case SDL_EVENT_TEXT_INPUT: {
         Win* w = findWin(wid);
-        if (!w) return;
+        if (!w || !w->typing) return;  // (SDL sends none then: a snapshot's window does the same)
         if (w->composing) {  // the text is committed: the composition ends
             w->composing = false;
             w->router->compose(draw::CompositionEvent{});
@@ -1043,7 +1081,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
     }
     case SDL_EVENT_TEXT_EDITING: {
         Win* w = findWin(wid);
-        if (!w) return;
+        if (!w || !w->typing) return;
         draw::CompositionEvent c;
         c.utf8 = e.edit.text ? e.edit.text : "";
         c.cursor = int(byteIndex(c.utf8, e.edit.start));
@@ -1143,17 +1181,26 @@ void SdlHost::cancelTimer(int id) {
 
 void SdlHost::textInput(draw::View& v, bool on, Rect caret) {
     Win* w = rootWin(v);
-    if (!w || !w->sdl) return;  // (a snapshot's window: the text comes from snapshotText)
+    if (!w) return;
+    const Point o = v.origin();
+    w->inputOn = on;
+    if (on) w->inputArea = Rect(o.x + caret.left, o.y + caret.top, o.x + caret.right, o.y + caret.bottom);
+    // The field let the keyboard go: the input method's text not committed yet goes (the window still takes typed text).
     if (!on) {
-        SDL_StopTextInput(w->sdl);
+        if (w->sdl && w->composing) SDL_ClearComposition(w->sdl);
         return;
     }
-    const Point o = v.origin();
+    setTyping(*w, true);
+    if (!w->sdl) return;  // (a snapshot's window: the text comes from snapshotText and snapshotCompose)
     SDL_Rect r{};
     r.x = toLogical(o.x + caret.left, w->density), r.y = toLogical(o.y + caret.top, w->density);
     r.w = std::max(1, toLogical(caret.width(), w->density)), r.h = std::max(1, toLogical(caret.height(), w->density));
     SDL_SetTextInputArea(w->sdl, &r, 0);
-    SDL_StartTextInput(w->sdl);
+}
+
+void SdlHost::setTyping(Win& w, bool on) {
+    w.typing = on;
+    if (w.sdl) on ? SDL_StartTextInput(w.sdl) : SDL_StopTextInput(w.sdl);
 }
 
 void SdlHost::forget(const draw::View& v) {

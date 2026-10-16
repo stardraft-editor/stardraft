@@ -141,7 +141,7 @@ public:
     void previewStop() override { previewStopSdl(); }
     std::vector<std::string> importSounds() override {  // (the dialog answers later: no name is added now)
         static const SDL_DialogFileFilter kSounds[] = {{"Sounds (WAV, OGG)", "wav;ogg"}};
-        SDL_ShowOpenFileDialog(soundFilesPicked, gState.ed.get(), dialogWindow(), kSounds, 1, nullptr, true);  // (the map it opens for)
+        sdlFileDialog(SDL_FILEDIALOG_OPENFILE, soundFilesPicked, gState.ed.get(), kSounds, 1, "", "", true);  // (the map it opens for)
         return {};
     }
     bool askName(const std::wstring& title, std::wstring& text) override { return prompt(title.c_str(), text); }  // (sdl_map_dialogs.inc)

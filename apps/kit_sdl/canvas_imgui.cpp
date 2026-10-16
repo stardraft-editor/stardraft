@@ -414,6 +414,9 @@ std::string desktopUiFont() {
 }
 #endif
 
+// Emoji and the other characters past U+FFFF (two UTF-16 units) are the fonts' glyphs, not the replacement mark.
+static_assert(sizeof(ImWchar) == 4, "ImGui needs IMGUI_USE_WCHAR32 (CMakeLists.txt) for the characters past U+FFFF");
+
 // A font from a file, or from the program's own bytes (not copied: ImGui only reads them).
 ImFont* addFont(const std::string& path, float size, const ImFontConfig* cfg = nullptr, const ImWchar* ranges = nullptr) {
     ImGuiIO& io = ImGui::GetIO();
