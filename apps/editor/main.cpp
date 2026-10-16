@@ -1423,42 +1423,12 @@ void commandBody(int id) {
 
 // --- Viewport input --------------------------------------------------------------------------------
 
-// The map view's cursor at a point of the view: the resize cursors on the selected location's edges and corners
-// (GitHub feedback #76), the move cursor while the camera moves, else the arrow.
-bool trigUnitPickActive();
+// The map view's cursor at a point of the view (core/map_input.inc), as the Win32 cursor id.
 LPCWSTR mapCursorAt(int x, int y) {
-    if (app.drag == Drag::Pan || app.drag == Drag::AutoPan) return IDC_SIZEALL;
-    if (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
-        // The move cursor over a selected unit, doodad or sprite that a press would move, and during that move; over
-        // one that is not selected, the arrow (a click selects it).
-        if (app.drag == Drag::MoveUnits || app.drag == Drag::MoveDoodad || app.drag == Drag::MoveSprite) return IDC_SIZEALL;
-        if (app.drag != Drag::None || !app.ed || !app.ed->isOpen() || modeLayerHidden() || app.pasting || app.pastingItems ||
-            app.palette >= 0 || trigUnitPickActive())
-            return IDC_ARROW;
-        Editor& ed = *app.ed;
-        float wx, wy;
-        toWorld(x, y, wx, wy);
-        auto in = [](const std::vector<int>& v, int i) { return i >= 0 && std::find(v.begin(), v.end(), i) != v.end(); };
-        bool hit = false;
-        if (app.mode == Mode::Units) {
-            const int u = currentTool() == UPlace && !ed.selection().empty() ? ed.unitAt(int(wx), int(wy)) : -1;
-            hit = u >= 0 && ed.isSelected(u);
-        } else if (app.mode == Mode::Doodads)
-            hit = currentTool() == DPlace && !app.selDoodads.empty() && in(app.selDoodads, ed.doodadAt(int(wx), int(wy)));
-        else
-            hit = !app.selSprites.empty() && in(app.selSprites, mapSpriteAt(ed, int(wx), int(wy)));
-        return hit ? IDC_SIZEALL : IDC_ARROW;
-    }
-    if (app.mode != Mode::Locations || !app.ed || (app.drag != Drag::None && app.drag != Drag::LocResize)) return IDC_ARROW;
-    int e = app.locEdges;
-    if (app.drag == Drag::None) {
-        float wx, wy;
-        toWorld(x, y, wx, wy);
-        e = locationEdgesAt(wx, wy);
-    }
-    const bool h = e & 5, v = e & 10;
-    if (h && v) return ((e & 1) && (e & 2)) || ((e & 4) && (e & 8)) ? IDC_SIZENWSE : IDC_SIZENESW;
-    return h ? IDC_SIZEWE : v ? IDC_SIZENS : IDC_ARROW;
+    using stardraft::draw::Cursor;
+    const Cursor c = mapCursorAt(app, x, y);
+    return c == Cursor::SizeNWSE ? IDC_SIZENWSE : c == Cursor::SizeNESW ? IDC_SIZENESW : c == Cursor::SizeAll ? IDC_SIZEALL
+         : c == Cursor::SizeWE  ? IDC_SIZEWE   : c == Cursor::SizeNS   ? IDC_SIZENS   : IDC_ARROW;
 }
 
 bool spriteIsOverlay(int i) { return spriteIsOverlay(app, i); }

@@ -140,6 +140,7 @@ bool gNoBoxes = false;
 #include "sdl_triggers.inc"  // the Triggers workspace (the tree, the pane and the block picker are core/views_triggers_*.inc; the model core/triggers_model.inc)
 #include "sdl_updates.inc"  // Help > Check for updates, the crash reports' choice (core/releases.inc)
 #include "shell_sdl.inc"
+#include "sdl_cursor_check.inc"  // --cursors: the window's cursors at some points, as text (a snapshot run)
 #include "shell_sdl_win.inc"  // the Windows parts: the crash handler, the map files, one program for all maps
 
 namespace {
@@ -285,6 +286,7 @@ int main(int argc, char** argv) {
     bool rectArg = false, previewArg = false, logArg = false, buildArg = false, trigCodeArg = false;
     int trigPopArg = -1;  // --trigpop: the value whose pop-out shows (sdl_popshot.inc); -2: a text's words; -100 - n: the variable form's field n
     std::string textPopArg;  // --textpop: a game text pop-out in the snapshot (sdl_data.inc)
+    bool cursorsArg = false;  // --cursors: the cursors at some points, as text after the snapshot (sdl_cursor_check.inc)
     std::vector<std::string> keyArgs;  // --key: keys pressed before the snapshot (sdl_menus.inc: sdlPressKey)
     int width = 1600, height = 1000;
     bool sizeArg = false;
@@ -320,6 +322,7 @@ int main(int argc, char** argv) {
         else if (a == "--lang") langArg = next();  // en, ko, es, ru or zh: the language for this run (not saved), for a snapshot
         else if (a == "--drop") dropArg = next();  // a file dropped on the window (as from Finder on macOS), for a snapshot
         else if (a == "--silent") gSilent = true;
+        else if (a == "--cursors") cursorsArg = true;  // the map view's and a text field's cursors as text, after the snapshot
         else if (a == "--key") keyArgs.push_back(next());  // a key (Ctrl+A, 5, Ctrl+2: Ctrl is Cmd on macOS) pressed in the window, for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
@@ -526,6 +529,7 @@ int main(int argc, char** argv) {
             const bool ok = writeSnapshot(device, tex, width, height, snapshot);
             std::printf("%s %s\n", ok ? "wrote" : "could not write", snapshot.c_str());
             if (!ok) status = 1;
+            if (cursorsArg) sdlCursorChecks();  // (after the picture: it changes the mode and the camera)
             SDL_WaitForGPUIdle(device);
             SDL_ReleaseGPUTexture(device, tex);
             gPopShot.frame.reset();  // (before the root view goes)
