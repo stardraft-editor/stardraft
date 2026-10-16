@@ -6,9 +6,10 @@
 # Latest; its text is the "## <version>" section of docs/user/CHANGELOG.md (what is new), then the base changelog (its
 # last section, what StarDraft is) for new visitors. The symbols go to a draft release symbols-v<version>.
 # For now a release has only the Windows build. The macOS disk image (StarDraft-<version>-macos-arm64.dmg: the macos job,
-# tools/ci/mac_dist.sh) and the Linux build (StarDraft-<version>-linux-x64.tar.gz: the linux job) are CI artifacts of
-# each run; each goes on the release too when its repository variable is "on" (Settings > Secrets and variables >
-# Actions > Variables): RELEASE_MAC (the job macos-release), RELEASE_LINUX (the job linux-release). Not set: off.
+# tools/ci/mac_dist.sh) is a CI artifact of each run; it goes on the release too when the repository variable
+# RELEASE_MAC is "on" (Settings > Secrets and variables > Actions > Variables; the job macos-release). Not set: off.
+# The Linux build of the linux job (stardraft-linux.tar.gz: Ubuntu 24.04's glibc, no desktop files) is only an
+# artifact: the Linux download of a release is to be the AppImage (built on Ubuntu 22.04), with its own release job.
 # StarDraft's Check for updates reads "(build <commit>)" in the newest release's title. Each release keeps its own
 # download count. Most tests need a StarCraft: Remastered install, so they are not run here. The jobs linux and macos
 # build the library, the tools and the tests on those systems; the job windows-sdl builds stardraft.exe and snapshots it
@@ -250,8 +251,8 @@ jobs:
             stardraft-windows.zip
 
   # The library, the tools and the tests on Linux and macOS (research/ports/PLAN.md, phase 1): built, and the tests
-  # that need no game data run, and the editor is built and snapshotted (its artifact: stardraft-linux.tar.gz; on the
-  # release only with RELEASE_LINUX "on": the job linux-release).
+  # that need no game data run, and the editor is built and snapshotted (its artifact: stardraft-linux.tar.gz, not
+  # on a release).
   linux:
     runs-on: ubuntu-24.04
     steps:
@@ -537,32 +538,6 @@ jobs:
             exit 0
           fi
           gh release upload "$tag" "$dmg" --repo "$GITHUB_REPOSITORY"
-
-  # A release tag, with the repository variable RELEASE_LINUX "on": the Linux build (the linux job's
-  # stardraft-linux.tar.gz) goes on the release that the windows job made, as StarDraft-<version>-linux-x64.tar.gz.
-  # A run again leaves it as it is. RELEASE_LINUX not "on" (the default): it is only the linux job's artifact.
-  linux-release:
-    if: startsWith(github.ref, 'refs/tags/v') && vars.RELEASE_LINUX == 'on'
-    needs: [windows, linux]
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: stardraft-editor-linux-${{ github.sha }}
-          path: dist
-
-      - name: Attach the Linux build to the release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          tag="$GITHUB_REF_NAME"
-          name="StarDraft-${tag#v}-linux-x64.tar.gz"
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qxF "$name"; then
-            echo "The release $tag has $name: nothing changes."
-            exit 0
-          fi
-          mv dist/stardraft-linux.tar.gz "dist/$name"
-          gh release upload "$tag" "dist/$name" --repo "$GITHUB_REPOSITORY"
 
   # The tests with the game's data, on a self-hosted runner in WSL Ubuntu on the owner's PC (labels self-hosted, linux,
   # scdata; research/ports/PLAN.md 1.6). Off until the repository variable STARDRAFT_DATA_RUNNER is "on". The

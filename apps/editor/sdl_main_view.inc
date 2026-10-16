@@ -121,6 +121,7 @@ struct MapView final : draw::View {
     // default): the map moves toward the mouse while the button is held (panStep, each frame), as the Win32 program.
     bool panning = false;
     bool panDrags = false;  // (this press: Drag map)
+    bool leftUpInPan = false;  // the left button went up during the pan: its drag ends with the pan
     draw::Point anchor;  // where the middle button went down
     std::chrono::steady_clock::time_point panLast;  // (Pan map: the time of the last step)
     static inline int middleDragTest = -1;  // (--midpan: 0 Pan map, 1 Drag map, in place of the setting)
@@ -195,7 +196,10 @@ struct MapView final : draw::View {
             return true;
         case draw::MouseKind::Up:
             if (panning) {
-                if (e.button != 2) return true;  // another button during it: nothing (the press goes on)
+                // Another button during it: nothing (the press goes on). A left drag from before the pan ends with it.
+                if (e.button == 0 && gState.drag != Drag::None && gState.drag != Drag::Pan && gState.drag != Drag::AutoPan)
+                    leftUpInPan = true;
+                if (e.button != 2) return true;
                 panEnd();
                 return true;
             }
@@ -264,7 +268,7 @@ struct MapView final : draw::View {
     // step, as a release there (the Windows map's WM_CAPTURECHANGED). The first terrain is the palette's pick again after
     // a Shift stroke. After a release (the view lets the capture go itself) there is nothing left to end.
     void captureLost() override {
-        rightDown = false;
+        rightDown = false, leftUpInPan = false;
         if (panning) {
             panning = false;
             if (gState.drag == Drag::Pan || gState.drag == Drag::AutoPan) gState.drag = Drag::None;
@@ -275,13 +279,18 @@ struct MapView final : draw::View {
         if (second) gState.palette = savedPalette, gState.dirty = true;
         invalidate();
     }
-    // The release of the middle button: the press ends.
+    // The release of the middle button: the press ends. A left drag from before the pan (move units, paint, a Shift
+    // stroke) goes on while its button is held: the view keeps the capture. If its button went up during the pan, the
+    // drag ends here (captureLost: a release where the mouse was last).
     void panEnd() {
         if (!panning) return;
         panning = false;
         if (gState.drag == Drag::Pan || gState.drag == Drag::AutoPan) gState.drag = Drag::None;
-        if (draw::Host* h = host()) h->capture(*this, false);
         gState.dirty = true;
+        if (gState.drag != Drag::None && !leftUpInPan) return;
+        if (gState.drag != Drag::None) captureLost();  // (the left release of the pan: the drag ends where the mouse was last)
+        leftUpInPan = false;
+        if (draw::Host* h = host()) h->capture(*this, false);
     }
 };
 
@@ -675,6 +684,22 @@ void sdlMidPanCheck() {
     std::printf("midpan: Drag map: the map follows the mouse %s (%.1f -> %.1f), and stays when the mouse stays %s, the drag ends on release %s\n",
                 std::abs(moved - 100.0f) < 0.01f ? "yes" : "(WRONG)", double(d0), double(d0 - moved), still ? "yes" : "(WRONG)",
                 gState.drag == Drag::None && !map.panning ? "yes" : "(WRONG)");
+    // A pan during a left drag (the mode's tool: paint, move units): the left drag goes on after the middle release,
+    // and ends on the left release. A left release during the pan ends the drag with the pan.
+    MapView::middleDragTest = 0;
+    center();
+    mouse(draw::MouseKind::Down, 400, 0);
+    const Drag left = gState.drag;
+    mouse(draw::MouseKind::Down, 420), mouse(draw::MouseKind::Up, 420);
+    const bool leftGoesOn = left != Drag::None && gState.drag == left && !map.panning;
+    mouse(draw::MouseKind::Up, 420, 0);
+    const bool leftEnds = gState.drag == Drag::None;
+    mouse(draw::MouseKind::Down, 400, 0), mouse(draw::MouseKind::Down, 420), mouse(draw::MouseKind::Up, 420, 0);
+    mouse(draw::MouseKind::Up, 420);
+    const bool endsWithPan = gState.drag == Drag::None && !map.panning;
+    std::printf("midpan: a pan during a left drag: the left drag goes on after the middle release %s, it ends on the left release %s, "
+                "a left release during the pan ends it with the pan %s\n",
+                leftGoesOn ? "yes" : "(WRONG)", leftEnds ? "yes" : "(WRONG)", endsWithPan ? "yes" : "(WRONG)");
     MapView::middleDragTest = -1;
 }
 
