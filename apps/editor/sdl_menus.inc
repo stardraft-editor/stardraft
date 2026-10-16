@@ -192,8 +192,11 @@ bool commandEnabled(int id) { return sdlEnabled(id); }
 // it), without the access keys ('&').
 std::wstring accessFree(std::wstring s) {
     s = tr(s);
-    std::erase(s, L'&');
-    return s;
+    std::wstring out;  // (&& is an & of the text)
+    for (size_t i = 0; i < s.size(); ++i)
+        if (s[i] != L'&') out += s[i];
+        else if (i + 1 < s.size() && s[i + 1] == L'&') out += L'&', ++i;
+    return out;
 }
 
 // What "Report feedback on ..." names at `at` of `from` (the Windows feedbackThing): the name of the deepest view

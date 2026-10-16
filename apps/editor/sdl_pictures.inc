@@ -11,7 +11,7 @@ struct PaletteArt {
     std::vector<Sprite> hdIcons;  // HD2 (or Carbot) command icons, for the mode
     HdTiles hdTiles;              // HD2 (or Carbot) megatiles, for terrain and doodad pictures
     bool hdTilesLoaded = false;
-    std::map<std::tuple<int, int, int>, std::unique_ptr<draw::Bitmap>> bitmaps;  // (mode of the row, value, owner)
+    std::map<std::tuple<int, int, int, bool>, std::unique_ptr<draw::Bitmap>> bitmaps;  // (mode of the row, value, owner, sprite)
 };
 PaletteArt gPaletteArt;
 // The pictures' textures go before the GPU device does (main_sdl.cpp's shutdown); a later release would use a freed device.
@@ -21,7 +21,8 @@ void releasePaletteArt() { gPaletteArt = PaletteArt{}; }
 // game's "BLANK" icon). Terrains and doodads: their tiles; units: the command icon (HD in the HD modes); sprites: their
 // image (SD art, as the Win32 palette's sprites when the HD art is not there).
 // `iconFrame`: the command icon of that frame (cmdicons; HD in the HD modes), for the Data workspace's entries.
-draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = false) {
+// `sprite`: a unit's sprite, not its command icon (the palette's Grid: sprites view).
+draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = false, bool sprite = false) {
     if (!gState.ed || !gState.ed->isOpen() || value < 0) return nullptr;
     Editor& ed = *gState.ed;
     const int mode = gState.carbot ? 2 : gState.quality == GraphicsQuality::SD ? 0 : 1;
@@ -49,7 +50,8 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
         gPaletteArt.hdTilesLoaded = false;
         gPaletteArt.ed = &ed, gPaletteArt.era = int(ed.era()), gPaletteArt.mode = mode;
     }
-    const auto key = std::make_tuple(iconFrame ? 100 : int(what), value, unitKind ? owner : 0);
+    if (!unitKind) sprite = false;
+    const auto key = std::make_tuple(iconFrame ? 100 : int(what), value, unitKind ? owner : 0, sprite);
     if (auto it = gPaletteArt.bitmaps.find(key); it != gPaletteArt.bitmaps.end()) return it->second.get();
 
     // The picture: a sprite of the game data (straight alpha), cropped to its opaque pixels below.
@@ -78,8 +80,10 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
         } else if (const DoodadType* d = ed.doodadTypes().find(uint16_t(value))) art = doodadPicture(*d, ed.tileset(), ed.unitSprites(), hd);
         if (art.width) s = &art;
     } else {
-        if (!mode) s = ed.unitSprites().commandIcon(uint16_t(value));
-        else if (value < int(gPaletteArt.hdIcons.size()) && gPaletteArt.hdIcons[size_t(value)].width) s = &gPaletteArt.hdIcons[size_t(value)];
+        if (!sprite) {  // the command icon (a sprite view: the unit's picture below)
+            if (!mode) s = ed.unitSprites().commandIcon(uint16_t(value));
+            else if (value < int(gPaletteArt.hdIcons.size()) && gPaletteArt.hdIcons[size_t(value)].width) s = &gPaletteArt.hdIcons[size_t(value)];
+        }
         if (!s && mode) {  // no icon: the unit's picture of the HD art
             std::string err;
             if (hdUnitPicture(gState.data, ed.unitSprites(), uint16_t(value), ed.playerRgb(owner), mode == 2, art, err) && art.width) s = &art;

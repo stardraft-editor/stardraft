@@ -641,6 +641,8 @@ stardraft::draw::Cursor mapCursorAt(AppState& app, int x, int y) {
     const bool h = e & 5, v = e & 10;
     if (h && v) return ((e & 1) && (e & 2)) || ((e & 4) && (e & 8)) ? Cursor::SizeNWSE : Cursor::SizeNESW;
     return h ? Cursor::SizeWE : v ? Cursor::SizeNS : Cursor::Arrow;
+}
+
 // --- The map's keys (both programs: the Windows map's WM_KEYDOWN and WM_MOUSEWHEEL, the SDL map view's key()) -----
 
 void enterSelection();

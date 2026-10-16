@@ -1,8 +1,11 @@
 // The options of the menus (View, Options, Edit; portable, core.inc; moved from main.cpp): kept in the settings file
 // (Settings/<name>), so they stay after StarDraft starts again, also after an update (GitHub feedback #122). Saved after
-// each command (only what changed), read at the start; tests use the defaults and save nothing. The Windows program
-// adds the palette's views (main.cpp: saveAppSettings, loadAppSettings); the SDL program saves the table
-// (shell_sdl.inc: shellSettingsChanged).
+// each command (only what changed), read at the start; tests use the defaults and save nothing. The palette's views of
+// each mode are in the table too (PaletteViews: core/palette_view.inc). Both programs save the table (the Windows
+// main.cpp: saveAppSettings; shell_sdl.inc: shellSettingsChanged).
+
+int paletteViewBits();  // (core/palette_view.inc)
+void setPaletteViewBits(int v);
 
 struct AppSetting {
     const wchar_t* name;
@@ -35,6 +38,7 @@ const std::vector<AppSetting>& appSettings() {
         SD_SETTING("LayerDoodads", gLayers.doodads, bool),
         SD_SETTING("LayerSprites", gLayers.sprites, bool),
         SD_SETTING("LayerUnits", gLayers.units, bool),
+        {L"PaletteViews", [] { return paletteViewBits(); }, [](int v) { setPaletteViewBits(v); }},
     };
 #undef SD_SETTING
     return all;
