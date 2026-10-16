@@ -286,6 +286,7 @@ int main(int argc, char** argv) {
     int trigPopArg = -1;  // --trigpop: the value whose pop-out shows (sdl_popshot.inc); -2: a text's words; -100 - n: the variable form's field n
     std::string textPopArg;  // --textpop: a game text pop-out in the snapshot (sdl_data.inc)
     std::vector<std::string> keyArgs;  // --key: keys pressed before the snapshot (sdl_menus.inc: sdlPressKey)
+    std::vector<std::string> rclickArgs;  // --rclick: right clicks before the snapshot (sdl_menus.inc: sdlRightClickShot)
     int width = 1600, height = 1000;
     bool sizeArg = false;
     float scaleArg = 0;
@@ -321,6 +322,7 @@ int main(int argc, char** argv) {
         else if (a == "--drop") dropArg = next();  // a file dropped on the window (as from Finder on macOS), for a snapshot
         else if (a == "--silent") gSilent = true;
         else if (a == "--key") keyArgs.push_back(next());  // a key (Ctrl+A, 5, Ctrl+2: Ctrl is Cmd on macOS) pressed in the window, for a snapshot
+        else if (a == "--rclick") rclickArgs.push_back(next());  // x,y[:n]: a right click there; the menu's items go to the output, item n runs, for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
     if (!snapshot.empty()) gSilent = true, gNoBoxes = true;
@@ -362,7 +364,7 @@ int main(int argc, char** argv) {
             if (!dataErr.empty()) gDataError += ". Game data: " + dataErr;
             gStartView.dataError = widen(gDataError);  // the start page keeps the reason (the status bar's text goes)
         }
-        loadDock();  // the dock layout in the settings (core/dock_prefs.inc), as the Windows program at its start
+        if (!gSilent) loadDock();  // the dock layout in the settings (core/dock_prefs.inc), as the Windows program at its start (snapshots: the defaults)
         gSettingsOff = gSilent;  // (snapshots and tests: the defaults, and nothing saved)
         if (loadSettingsTable()) shellRendererGraphics(gState.quality, gState.carbot);  // the menus' options (core/app_settings.inc)
         loadLanguageSdl(langArg);  // the language (sdl_options.inc): the canvas translates with it from the first frame
@@ -515,6 +517,10 @@ int main(int argc, char** argv) {
             if (!textPopArg.empty()) sdlTextPopShot(textPopArg), host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             if (!keyArgs.empty()) {  // the keys after the first frame (the rail's items are the first frame's), then a frame more
                 for (const std::string& k : keyArgs) sdlPressKey(k);
+                host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+            }
+            if (!rclickArgs.empty()) {  // the right clicks after the first frame (the panes are placed), then a frame more
+                for (const std::string& r : rclickArgs) sdlRightClickShot(r);
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             }
             // The map's sprites load over a few frames: frames until they are all there (as the Windows program paints

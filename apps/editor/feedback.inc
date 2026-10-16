@@ -114,9 +114,7 @@ std::wstring feedbackThingIn(HWND w, POINT pt) {
         const std::wstring title = windowText(root);
         if (!title.empty()) return title;
     }
-    static const wchar_t* ws[] = {L"the Map workspace", L"the Data workspace", L"the Triggers workspace", L"the Assets workspace",
-                                  L"the Project page", L"the Briefing workspace", L"the Assets workspace"};
-    return ws[int(gWorkspace)];
+    return feedbackWorkspaceName(gWorkspace);  // (core/feedback_send.inc)
 }
 
 std::wstring feedbackThing(POINT screen) {

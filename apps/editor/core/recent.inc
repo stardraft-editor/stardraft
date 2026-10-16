@@ -3,6 +3,7 @@
 // (shellRecentMenu). Portable: included by core.inc and by main.cpp after ids.inc.
 
 bool gSelfTest = false;             // the self-test runs (its settings are not the user's)
+bool gSettingsOff = false;          // tests and screenshot runs: the defaults, and nothing saved (the lists, the layout, the options)
 std::wstring gProjectsFolder;         // Program options > Projects folder
 
 // The working folder: new projects go there (Program options > Working folder; Documents/StarDraft by default).
@@ -15,7 +16,7 @@ fs::path defaultProjectsFolder() {
 std::vector<std::wstring> gRecentMaps, gRecentProjects;
 
 void saveRecent() {
-    if (gSelfTest) return;  // the self-test leaves the user's lists alone
+    if (gSelfTest || gSettingsOff) return;  // the self-test and the screenshot runs leave the user's lists alone
     prefs::setList(L"RecentMaps", gRecentMaps);
     prefs::setList(L"RecentProjects", gRecentProjects);
     prefs::setText(L"ProjectsFolder", gProjectsFolder);

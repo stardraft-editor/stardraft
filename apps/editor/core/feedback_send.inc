@@ -20,6 +20,14 @@ std::wstring feedbackShort(std::wstring t) {
     return t;
 }
 
+// What "Report feedback on ..." names when nothing at the mouse has a name: the workspace or the map's page.
+std::wstring feedbackWorkspaceName(Workspace w) {
+    static const wchar_t* ws[] = {L"the Map workspace", L"the Data workspace", L"the Triggers workspace", L"the Assets workspace",
+                                  L"the Project page", L"the Briefing workspace", L"the Assets workspace", L"the Properties page",
+                                  L"the Players page", L"the Classic triggers page", L"the Map data page"};
+    return size_t(w) < std::size(ws) ? ws[size_t(w)] : L"StarDraft 2";
+}
+
 std::mutex gSentMutex;  // sent.tsv: written by the thread that sends, read by the window
 std::filesystem::path feedbackFolder() { return shellFeedbackFolder(); }
 

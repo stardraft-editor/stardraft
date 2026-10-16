@@ -21,6 +21,13 @@ const std::vector<float>& brushSizes() {
     }();
     return v;
 }
+int brushSizeIndex(float size) {  // the nearest size in the list
+    const auto& v = brushSizes();
+    int best = 0;
+    for (int i = 0; i < int(v.size()); ++i)
+        if (std::abs(v[size_t(i)] - size) < std::abs(v[size_t(best)] - size)) best = i;
+    return best;
+}
 
 // The tool strip's number boxes (Size, Density, the Terrain height and the brush shape, for the wheel).
 enum StripNumber { kNumSize, kNumDensity, kNumHeight, kNumShape };

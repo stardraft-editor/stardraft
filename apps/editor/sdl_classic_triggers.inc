@@ -343,8 +343,12 @@ void SdlCtPageHost::entriesLaid() {
     if (gSdlTrigPage) gSdlTrigPage->place();  // the entries' height changed: the page places them again
 }
 void SdlCtPageHost::menu(const draw::View& from, draw::Point at, const std::vector<CtMenuItem>& items, std::function<void(int)> run) {
-    const std::vector<stardraft::kit::MenuItem> kitItems = sdlTrigMenuItems(items, run);
-    stardraft::kit::MenuLayout layout = stardraft::kit::Menu::measure(kitItems);  // (its height; the width is the measured one)
+    std::vector<stardraft::kit::MenuItem> kitItems = sdlTrigMenuItems(items, run);
+    // Report feedback at the end, as the Windows menus (sdl_menus.inc); the width is at least the page's menu width.
+    sdlAddFeedbackItem(kitItems, sdlFeedbackOn(const_cast<draw::View&>(from), at, L"the Classic triggers page"));
+    ImDrawList list(ImGui::GetDrawListSharedData());
+    kit_sdl::ImguiCanvas measure(list, nullptr);
+    stardraft::kit::MenuLayout layout = stardraft::kit::Menu::measure(kitItems, &measure);
     if (gSdlTrigPage) layout.size.x = std::max(layout.size.x, gSdlTrigPage->menuWidth());
     stardraft::kit::Menu::popup(const_cast<draw::View&>(from), at, kitItems, layout);
 }

@@ -130,10 +130,7 @@ void mapRightClickSdl(draw::View& map, draw::Point at) {
     const std::vector<kit::MenuItem> items = mapMenuKit(mapMenuModel(wx, wy));
     gState.dirty = true;
     map.invalidate();
-    // The menu's size, its text measured with a canvas of its own (the window's canvas is there only while it paints).
-    ImDrawList list(ImGui::GetDrawListSharedData());
-    kit_sdl::ImguiCanvas measure(list, nullptr);
-    kit::Menu::popup(map, at, items, kit::Menu::measure(items, &measure));
+    sdlPopupMenu(map, at, items, sdlFeedbackOn(map, at, L"the map"));  // (sdl_menus.inc: with Report feedback, as on Windows)
 }
 
 // --- The quick picker (Q, Quick open, Replace with...; core/views_quick_pick.inc) -----------------------------------
