@@ -47,8 +47,25 @@ public:
     // A snapshot's input: SDL's mouse events (`events`, at points in `root`'s pixels; their window id is not read)
     // go through the same path as a window's events (dispatch: the press closes pop-outs, the router's hit test,
     // capture and hover, the pointer that mouse() gives, the modifier keys of SDL_GetModState), as if `root` were in a
-    // window of its own while they run (it is attached to the host for the call). No hover tips open.
+    // window of its own (it is attached to the host). No hover tips open. That window stays (its focus and capture
+    // stay for the next input) until snapshotInputEnd(). A dialog or pop-out that a view opens from it is a window
+    // with no SDL window too (in its own pixels; snapshotTop gives it), and a runModal of one runs the modal hook
+    // (setSnapshotModalHook) for its input; a menu shows over the root in the picture, as before.
     void snapshotInput(draw::View& root, int w, int h, const std::vector<SDL_Event>& events);
+    // A key (a press) and typed text for such a window, the same way as a window's (dispatch: Esc closes a pop-out;
+    // the router: the view with the focus first, then its parents).
+    void snapshotKey(draw::View& root, int w, int h, const draw::KeyEvent& k);
+    void snapshotText(draw::View& root, int w, int h, const std::string& utf8);
+    // The window that takes a snapshot's input now: the last dialog or pop-out opened (with no SDL window), else
+    // `root`; `size` its size in pixels.
+    draw::View& snapshotTop(draw::View& root, draw::Point& size);
+    // The timers that are due (a snapshot has no event loop): within `ms` milliseconds, as SDL fires them.
+    void snapshotTimers(int ms);
+    // The snapshot's windows go (the views stay the caller's).
+    void snapshotInputEnd();
+    // While runModal shows a window with no SDL window (a snapshot's): `hook` gets its root view and gives it the
+    // next input; false when there is none (the window then closes, as Esc closes it).
+    void setSnapshotModalHook(std::function<bool(draw::View& content)> hook) { modalHook_ = std::move(hook); }
     // Called once per frame, before the windows are painted, with a command buffer the host submits after the call.
     // The program draws its own GPU textures here (the views show them with draw::Canvas::externalImage). It runs on
     // the frames that paint, and on every frame while setAnimating(true); snapshot() calls it too.
@@ -141,6 +158,10 @@ private:
     HoverHook hover_;                    // setHoverHook
     std::function<void(const std::string&)> drop_;  // setDropHook
     RightClickHook rightClick_;                     // setRightClickHook
+    std::function<bool(draw::View&)> modalHook_;    // setSnapshotModalHook
+    SDL_WindowID shotSeq_ = 0xFFFFFF00u;            // the ids of a snapshot's windows (ids SDL does not give)
+    Win* shotWin(draw::View& root, int w, int h);   // the snapshot's window of `root` (made at the first input)
+    void paintShot(Win& w);                         // lays a snapshot's window out by painting it (its hit areas)
     // The menus that views attached with no window (a snapshot's) opened: snapshot() paints them over
     // the root, at their places (in the root's pixels), until they close.
     struct Shot {
