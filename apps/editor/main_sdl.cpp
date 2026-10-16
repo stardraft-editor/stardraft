@@ -12,7 +12,8 @@
 // --theme light|dark, --accent <n>, --lang <code>: the theme, the accent and the language for this run (not saved).
 // --drop <file>: the file is dropped on the window first (as a drop, or a map that Finder opens on macOS), after
 // --workspace (in the Assets workspace a sound imports); the status bar's text goes to the output.
-// --check dock: what the Dock and Finder parts set up (macOS), as text after the snapshot.
+// --check <name> (more than one --check can be given): what a part of the program set up, as text after the snapshot.
+// Each part prints only for its own names (dock: the Dock and Finder parts on macOS) and says nothing for the others.
 // Windows: --send-crash <folder> sends a crash's report (the crashed program starts it); --crash-test crashes on purpose.
 // A map given while the program is open goes to the open program (not in a test run: a snapshot or --silent).
 // The StarCraft install: --install, then STARDRAFT_INSTALL, the folder chosen before, then the usual folders of each
@@ -296,7 +297,7 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
-    std::string checkArg;  // --check: dock
+    std::vector<std::string> checkArgs;  // --check <name>, each one (dock: sdl_dock.inc)
     std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, themeArg, langArg, trigArg, trigSelArg, briefArg, dropArg;
     int accentArg = -1;
     gSelfPath = argc > 0 ? argv[0] : "";  // (Restart now starts it again, sdl_options.inc)
@@ -357,7 +358,7 @@ int main(int argc, char** argv) {
         else if (a == "--accent") accentArg = std::atoi(next().c_str());  // the accent's number (theme::kAccents), for a snapshot
         else if (a == "--lang") langArg = next();  // en, ko, es, ru or zh: the language for this run (not saved), for a snapshot
         else if (a == "--drop") dropArg = next();  // a file dropped on the window (as from Finder on macOS), for a snapshot
-        else if (a == "--check") checkArg = next();  // dock: what the Dock and Finder parts set up (macOS), as text after the snapshot
+        else if (a == "--check") checkArgs.push_back(next());  // a part's name: what it set up, as text after the snapshot (each part takes its own names)
         else if (a == "--silent") gSilent = true;
         else if (a == "--palview") palViewArg = next();  // list, icons, sprites, normal, large (comma separated): the palette's view of the mode, for a snapshot
         else if (a == "--pie") pieArg = true;  // the pie palette (hold Space in Terrain mode) open, the mouse at a slice, for a snapshot
@@ -461,7 +462,7 @@ int main(int argc, char** argv) {
         host.setQuitRequest(requestQuit);  // the window's close and the system's quit ask about unsaved changes first
         // Files dropped on the window, and on macOS the maps that Finder opens with StarDraft: as the Windows program's
         // drop (core/documents.inc), after the save question for the open map (SDL has one tab).
-        host.setDropHook([](const std::string& path) { shellPost([path] { dropFile(path); }); });
+        host.setDropHook([](const std::string& path) { shellPost([path] { if (!sdlUiWaits()) dropFile(path); }); });
         macDockSetup(sdlDockItems, sdlDockOpen);  // macOS: the Dock icon's menu of recent maps and projects (sdl_dock.inc)
         host.setBeforePump([] {
             runPosted();  // the posted work runs outside the frame hook (a dialog it opens pumps frames)
@@ -666,7 +667,7 @@ int main(int argc, char** argv) {
                 std::printf("start page: banner %s; note: %s; game data %s\n", gStartView.bannerShown() ? "shown" : "not shown",
                             gStartView.installNote.empty() ? "none" : narrow(gStartView.installNote).c_str(), gDataOk ? "open" : "not open");
             if (gOptionsView.tab() >= 0) std::printf("options tab %d: content %d px high\n", gOptionsView.tab(), gOptionsView.contentHeight());
-            if (checkArg == "dock") sdlDockCheck();
+            for (const std::string& c : checkArgs) sdlDockCheck(c);  // (only "dock"; the other names are other parts')
             if (midPanArg) sdlMidPanCheck();  // (after the picture: it moves the camera)
             if (cursorsArg) sdlCursorChecks();  // (after the picture: it changes the mode and the camera)
             if (untitledArg) {  // (the project's folder goes: a snapshot leaves nothing)

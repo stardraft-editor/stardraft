@@ -32,22 +32,31 @@ bool sdlAssetsDrop(const fs::path& f) {
 
 // --- The Dock (macOS) --------------------------------------------------------------------------------------------------
 
-// The Dock icon's menu: the recent maps, then the recent projects (as File > Recent maps and Recent projects).
+// A dialog waits for an answer (runModal): what the Dock and Finder give (a recent map, a dropped file) does not open
+// then. (Posted work runs while the dialog waits: an open then could change the documents under the dialog's caller.)
+bool sdlUiWaits() { return gHost && gHost->modalOpen(); }
+
+// The Dock icon's menu: the recent maps, then the recent projects (as File > Recent maps and Recent projects). While a
+// dialog waits, the items show but cannot be clicked.
 std::vector<MacDockItem> sdlDockItems() {
     std::vector<MacDockItem> items;
+    const bool enabled = !sdlUiWaits();
     for (size_t k = 0; k < gRecentMaps.size() && k < size_t(kRecentMax); ++k)
-        items.push_back({narrow(fs::path(gRecentMaps[k]).filename().wstring()), narrow(gRecentMaps[k]), false});
+        items.push_back({narrow(fs::path(gRecentMaps[k]).filename().wstring()), narrow(gRecentMaps[k]), false, enabled});
     for (size_t k = 0; k < gRecentProjects.size() && k < size_t(kRecentMax); ++k) {
         fs::path p = fs::path(gRecentProjects[k]);
         if (!p.has_filename()) p = p.parent_path();  // (a folder with a slash at its end)
-        items.push_back({narrow(p.filename().wstring()), narrow(gRecentProjects[k]), true});
+        items.push_back({narrow(p.filename().wstring()), narrow(gRecentProjects[k]), true, enabled});
     }
     return items;
 }
-// A click on one: it opens as from File > Recent (after the save question for the open map).
+// A click on one: it opens as from File > Recent (after the save question for the open map). Not while a dialog waits
+// (the click came before the dialog opened).
 void sdlDockOpen(const std::string& utf8) {
     const fs::path f = fs::path(widen(utf8));
-    shellPost([f] { confirmReplace([f] { openAny(f); }); });
+    shellPost([f] {
+        if (!sdlUiWaits()) confirmReplace([f] { openAny(f); });
+    });
 }
 
 // Each turn of the event loop: Build started or ended (core/project_build.inc: gBuilding), the Dock icon shows it.
@@ -68,11 +77,14 @@ std::vector<MacSettingsTab> sdlSettingsTabs() {
 
 // --check dock (a snapshot): what the Dock and Finder parts set up, as lines (mac_dock.mm; on Windows and Linux one line
 // that says that they are macOS only). The Dock menu shows two sample maps and a project (a snapshot saves nothing).
-void sdlDockCheck() {
+// Another name is another part's check: nothing.
+void sdlDockCheck(const std::string& name) {
+    if (name != "dock") return;
     const auto maps = gRecentMaps, projects = gRecentProjects;
     gRecentMaps = {(fs::path(L"maps") / L"(2)Bottleneck.scm").wstring(), (fs::path(L"maps") / L"(4)Lost Temple.scx").wstring()};
     gRecentProjects = {(fs::path(L"projects") / L"AshenCrown").wstring()};
     std::printf("dock: window drops: %s\n", gHost ? "the drop hook takes them (SDL_EVENT_DROP_FILE)" : "no host (WRONG)");
     std::printf("%s", macDockCheck(sdlSettingsTabs()).c_str());
+    std::printf("dock: dialog waits: %s\n", sdlUiWaits() ? "yes (WRONG: a snapshot has none)" : "no; the menu's items and the drops open");
     gRecentMaps = maps, gRecentProjects = projects;
 }

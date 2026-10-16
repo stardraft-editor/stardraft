@@ -94,8 +94,9 @@ CASES += [
     ("drop-sound-assets", ["--workspace", "files", "--drop", "{wav}"], "map"),
     ("drop-image-assets", ["--workspace", "files", "--drop", "{root}/apps/editor/res/atlas-16.png"], ""),
     # macOS: what the Dock and Finder parts set up (the Dock menu, Build's bar and badge, the Settings toolbar), as text;
-    # elsewhere one line says that they are macOS only. Program options' tabs as macOS's Settings window shows them.
-    ("check-dock", ["--check", "dock"], ""),
+    # elsewhere one line says that they are macOS only. A second --check (another part's name) adds nothing to the
+    # Dock's lines. Program options' tabs as macOS's Settings window shows them.
+    ("check-dock", ["--check", "dock", "--check", "other"], ""),
     ("dialog-options-tab-general", ["--dialog", "options:0", "--size", "720x520"], ""),
     ("dialog-options-tab-map", ["--dialog", "options:1", "--size", "720x520"], ""),
     ("dialog-options-tab-start", ["--dialog", "options:2", "--size", "720x520"], ""),
@@ -759,9 +760,15 @@ def check_drop(want):
 
 def check_dock(output):
     """None when on macOS the Dock menu, Build's tile and the Settings toolbar are set up (elsewhere: macOS only)."""
+    if "(WRONG)" in output:
+        return "a line says WRONG"
+    if "dock: dialog waits: no; the menu's items and the drops open" not in output:
+        return "no dialog waits line"
     if sys.platform != "darwin":
         return None if "dock: not on this system (macOS only)" in output else "no macOS only line"
-    wants = ["application:openFile: yes", "applicationDockMenu: yes; 4 items: \"(2)Bottleneck.scm\" \"(4)Lost Temple.scx\" | "
+    wants = ["\"(2)Bottleneck.scm\" in the system's recent documents: not in the menu again; 3 items",
+             "dock: while a dialog waits: 0 of 3 items can be clicked", "application:openFile: yes",
+             "applicationDockMenu: yes; 4 items: \"(2)Bottleneck.scm\" \"(4)Lost Temple.scx\" | "
              "\"AshenCrown\"", "dock: build running: tile shows the bar, timer on",
              "dock: build ended with 3 errors: badge \"3\", tile is the icon, timer off",
              "settings: toolbar style preference; 4 items: \"General\" \"Map\" \"Start\" \"Folders\"; selected"]

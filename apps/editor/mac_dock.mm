@@ -109,13 +109,20 @@ StarDraftDockTarget* target() {
     return gTarget;
 }
 
-// The Dock icon's menu: the recent maps, a line, the recent projects (the Dock adds its own items under them).
-NSMenu* dockMenu(id self, SEL cmd, NSApplication* app) {
-    (void)self, (void)cmd, (void)app;
+// A file's path in one form (absolute, no symbolic links), to compare the program's recent files with the system's.
+NSString* pathKey(NSURL* url) { return [[[url URLByStandardizingPath] URLByResolvingSymlinksInPath] path] ?: @""; }
+
+// The Dock icon's menu: the recent maps, a line, the recent projects (the Dock adds its own items under them). A file
+// that is in `systemRecents` (the system's recent documents, which the Dock lists below) is not in it again.
+NSMenu* makeDockMenu(const std::vector<MacDockItem>& items, NSArray<NSURL*>* systemRecents) {
     NSMenu* menu = [[[NSMenu alloc] initWithTitle:@""] autorelease];
-    const std::vector<MacDockItem> items = gDockItems ? gDockItems() : std::vector<MacDockItem>();
+    [menu setAutoenablesItems:NO];  // (an item's enabled state is the program's: no item while a dialog waits)
+    NSMutableSet<NSString*>* listed = [NSMutableSet set];
+    for (NSURL* u in systemRecents)
+        if ([u isFileURL]) [listed addObject:pathKey(u)];
     bool maps = false;
     for (const MacDockItem& it : items) {
+        if ([listed containsObject:pathKey([NSURL fileURLWithPath:nsText(it.path)])]) continue;
         if (it.project && maps && [menu numberOfItems] > 0 && ![[menu itemAtIndex:[menu numberOfItems] - 1] isSeparatorItem])
             [menu addItem:[NSMenuItem separatorItem]];
         maps |= !it.project;
@@ -123,9 +130,16 @@ NSMenu* dockMenu(id self, SEL cmd, NSApplication* app) {
         [m setTarget:target()];
         [m setRepresentedObject:nsText(it.path)];
         [m setToolTip:nsText(it.path)];
+        [m setEnabled:it.enabled ? YES : NO];
         [menu addItem:m];
     }
     return menu;
+}
+
+NSMenu* dockMenu(id self, SEL cmd, NSApplication* app) {
+    (void)self, (void)cmd, (void)app;
+    const std::vector<MacDockItem> items = gDockItems ? gDockItems() : std::vector<MacDockItem>();
+    return makeDockMenu(items, [[NSDocumentController sharedDocumentController] recentDocumentURLs]);
 }
 
 // applicationDockMenu: on the application's delegate (SDL's SDLAppDelegate has none: the method is added to its class).
@@ -252,6 +266,22 @@ std::string macDockCheck(const std::vector<MacSettingsTab>& tabs) {
             for (NSMenuItem* it in [m itemArray]) out << " " << ([it isSeparatorItem] ? std::string("|") : "\"" + utf8([it title]) + "\"");
         }
         out << "\n";
+        // The first map as one of the system's recent documents (the Dock lists it): it is not in the menu again. And
+        // the menu while a dialog waits: its items cannot be clicked.
+        std::vector<MacDockItem> items = gDockItems ? gDockItems() : std::vector<MacDockItem>();
+        if (!items.empty()) {
+            NSMenu* m = makeDockMenu(items, @[[NSURL fileURLWithPath:nsText(items[0].path)]]);
+            bool again = false;
+            for (NSMenuItem* it in [m itemArray]) again |= utf8((NSString*)[it representedObject]) == items[0].path;
+            out << "dock: \"" << items[0].title << "\" in the system's recent documents: " << (again ? "in the menu again (WRONG)" : "not in the menu again")
+                << "; " << [m numberOfItems] << " items\n";
+            for (MacDockItem& it : items) it.enabled = false;
+            m = makeDockMenu(items, @[]);
+            int on = 0, all = 0;
+            for (NSMenuItem* it in [m itemArray])
+                if (![it isSeparatorItem]) ++all, on += [it isEnabled] ? 1 : 0;
+            out << "dock: while a dialog waits: " << on << " of " << all << " items can be clicked" << (on ? " (WRONG)" : "") << "\n";
+        }
         // The tile while Build runs, then after a build with 3 errors (no jump), then as it was.
         gBuildRunning = true;
         showProgress(true);
