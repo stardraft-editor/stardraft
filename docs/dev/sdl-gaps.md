@@ -174,6 +174,7 @@ has an SDL snapshot case (`tools/sdl_snapshots.py`) or a test, and what has none
 |---|---|
 | The start page, the New page, the workspaces of a map and of a project (`pages:`) | start, newpage-classic, newpage-eud, ws-*, map-ws-* (the dark theme only; dialog-options-light is the light theme) |
 | undo_twice (Undo of an edit) | map-key-undo (Delete, Undo, Redo, Undo: CHECKS reads the counts) |
+| place_marines (a unit placed with the mouse), box_select, drag_move | map-click-place (a palette pick, a click on the map, Undo), map-drag-select (a box, Shift and a second box), map-drag-unit (a click selects, a drag moves the unit, Undo puts it back): `--click` and `--drag` go the host's way for a window's mouse events; CHECKS reads the counts and the unit's place |
 | A save of the map (the steps that save, `openagain:`) | map-save-roundtrip and map-save-edited (`--saveas` into the --out folder: the saved file opens again and is the same; after Delete it has no units) |
 | project created, project compiled (`project:`, a Build) | data-newproject-build (a new project Sample in a new folder in --out, then Build when euddraft is there) |
 | sd_quality, carbot_graphics | map-view-sd, map-view-carbot |
@@ -192,8 +193,8 @@ has an SDL snapshot case (`tools/sdl_snapshots.py`) or a test, and what has none
 ### No SDL case yet
 | Win32 test | What it checks |
 |---|---|
-| place_cc_on_water_corrected, place_marines_corrected, drag_place, unit_spray, unit_replace_marines_with_zealots | Units placed with the mouse (the correction to a free place, the spray, Replace). The snapshots have no left click or drag yet (`--rclick` only). |
-| box_select, drag_move, drag_snap_back, drag_over_water_red, drag_dropped_corrected | The selection box and a dragged selection (snap back, red where it does not fit). |
+| place_cc_on_water_corrected, place_marines_corrected, drag_place, unit_spray, unit_replace_marines_with_zealots | Units placed with the mouse: the correction to a free place, a row, the spray, Replace (`--click` and `--drag` can do these now). |
+| drag_snap_back, drag_over_water_red, drag_dropped_corrected | A dragged selection that does not fit (snap back, red where it does not fit). |
 | paste_ghost, paste_ghost_on_water_red, paste_placed, terrain_paste_ghost, terrain_pasted | Paste: the copy that follows the mouse and its place (map-key-copy only copies). |
 | doodad_ghost, doodad, doodad_selected, doodad_spray, sprite_details_hd, sprite_details_sd, `spritetools:` | Doodads and sprites placed with the mouse. |
 | location_create, location_resize, location_move, location_rename, `locwrap:` | Locations made and changed with the mouse; a long name in lines. |

@@ -297,7 +297,9 @@ int main(int argc, char** argv) {
     bool untitledArg = false;  // --untitled: a new unsaved project (as the Win32 program's screenshot run starts with), for a snapshot
     bool midPanArg = false;  // --midpan: Options > Middle mouse click and hold (Pan map, Drag map), as text after the snapshot
     bool cursorsArg = false;  // --cursors: the cursors at some points, as text after the snapshot (sdl_cursor_check.inc)
-    std::vector<std::string> keyArgs;  // --key: keys pressed before the snapshot (sdl_menus.inc: sdlPressKey)
+    // --key, --click, --drag: keys pressed and left clicks and drags of the mouse before the snapshot, in their order
+    // (sdl_menus.inc: sdlPressKey, sdlMouseShot): the option's letter (k, c, d) and its value.
+    std::vector<std::pair<char, std::string>> inputArgs;
     std::vector<std::string> rclickArgs;  // --rclick: right clicks before the snapshot (sdl_menus.inc: sdlRightClickShot)
     std::vector<std::string> commandArgs;  // --command: menu commands run before the snapshot (sdl_menus.inc: sdlCommandShot)
     std::string saveAsArg;  // --saveas: the save round-trip (core/map_commands.inc: mapSaveRoundTrip)
@@ -345,7 +347,9 @@ int main(int argc, char** argv) {
         else if (a == "--untitled") untitledArg = true;  // a new project that is not saved yet (core/documents.inc), for a snapshot
         else if (a == "--midpan") midPanArg = true;  // the middle button's pan and drag of the map as text, after the snapshot
         else if (a == "--cursors") cursorsArg = true;  // the map view's and a text field's cursors as text, after the snapshot
-        else if (a == "--key") keyArgs.push_back(next());  // a key (Ctrl+A, 5, Ctrl+2: Ctrl is Cmd on macOS) pressed in the window, for a snapshot
+        else if (a == "--key") inputArgs.emplace_back('k', next());  // a key (Ctrl+A, 5, Ctrl+2: Ctrl is Cmd on macOS) pressed in the window, for a snapshot
+        else if (a == "--click") inputArgs.emplace_back('c', next());  // x,y[:mods]: a left click there (window pixels; mods Shift+Ctrl+Alt), for a snapshot
+        else if (a == "--drag") inputArgs.emplace_back('d', next());  // x0,y0-x1,y1[:mods]: a left drag from the first point to the second, for a snapshot
         else if (a == "--rclick") rclickArgs.push_back(next());  // x,y[:n]: a right click there; the menu's items go to the output, item n runs, for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
@@ -561,8 +565,13 @@ int main(int argc, char** argv) {
             if (trigPopArg != -1) sdlTrigPopShot(trigPopArg), host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             if (!ctArg.empty()) sdlClassicTrigPopShot(ctArg), host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             if (!textPopArg.empty()) sdlTextPopShot(textPopArg), host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
-            if (!keyArgs.empty()) {  // the keys after the first frame (the rail's items are the first frame's), then a frame more
-                for (const std::string& k : keyArgs) sdlPressKey(k);
+            if (!inputArgs.empty()) {  // the keys and the mouse after the first frame (the rail's items are the first frame's), then a frame more
+                for (const auto& [kind, value] : inputArgs) {
+                    if (kind == 'k') sdlPressKey(value);
+                    else sdlMouseShot(value, kind == 'd', width, height);
+                    // (a frame after each: the views lay out and the map's scene takes the change, as between a user's inputs)
+                    host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+                }
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             }
             if (!commandArgs.empty()) {  // the menu commands after the first frame, then a frame more
