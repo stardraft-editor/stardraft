@@ -462,8 +462,10 @@ def check_text_input(output):
 
 
 def check_text_cjk(output):
-    """Korean and Japanese compositions show in the field until the commit; emoji are one character each."""
+    """Korean and Japanese compositions show in the field until the commit; one Backspace removes one emoji. (The
+    caret's place counts the text's wchar_t: UTF-16 units on Windows, where an emoji is two; elsewhere code points.)"""
     ko, ja = "abc\ud55c\uad6d", "abc\ud55c\uad6d\u65e5\u672c\u8a9e"
+    emoji = 2 if sys.platform == "win32" else 1
     return expect_focus(output, [
         ("type abc", "abc", (3, 3), ""),
         ("ime \u314e", "abc", (3, 3), "\u314e"),
@@ -474,8 +476,8 @@ def check_text_cjk(output):
         ("ime \u306b\u307b\u3093", ko, (5, 5), "\u306b\u307b\u3093"),
         ("ime \u65e5\u672c@1", ko, (5, 5), "\u65e5\u672c"),
         ("type \u65e5\u672c\u8a9e", ja, (8, 8), ""),
-        ("type  \U0001f600\U0001f3ae", ja + " \U0001f600\U0001f3ae", (13, 13), ""),
-        ("key Backspace", ja + " \U0001f600", (11, 11), ""),
+        ("type  \U0001f600\U0001f3ae", ja + " \U0001f600\U0001f3ae", (9 + 2 * emoji, 9 + 2 * emoji), ""),
+        ("key Backspace", ja + " \U0001f600", (9 + emoji, 9 + emoji), ""),
     ])
 
 
