@@ -2026,3 +2026,7 @@ Bring all to front	Traer todo al frente
 Dark theme	Tema oscuro
 The theme of the system, dark or light (default)	El tema del sistema, oscuro o claro (predeterminado)
 Automatic (the color of the system)	Automático (el color del sistema)
+General	General
+Folders	Carpetas
+Did not import 	No se importó 
+: the Assets workspace imports only sounds (WAV, OGG)	: el espacio de trabajo Recursos solo importa sonidos (WAV, OGG)
