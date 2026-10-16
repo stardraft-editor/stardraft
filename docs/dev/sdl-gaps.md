@@ -190,19 +190,36 @@ has an SDL snapshot case (`tools/sdl_snapshots.py`) or a test, and what has none
 | The Classic triggers page (`bowner:`, `bsel:`) | map-classictrig, map-classictrig-value (the page and a value's pop-out; not the owners, the selection or the Edit commands) |
 | The briefing (`brec:`) | project-briefing (one picture, not the video) |
 | The cursors | map-cursors |
+| doodad_ghost, doodad, doodad_selected (a doodad placed, selected, dragged, deleted) | map-doodad-ghost (the ghost: red, then green where it fits), map-doodad-place (a palette pick, a click places it, Esc, a click selects it, a drag moves it, Undo, Delete, Undo) |
+| Sprites placed with the mouse | map-sprite-place (a palette pick, a click places the sprite, Esc, a click selects it, Undo removes it and its selection) |
+| location_create, location_resize, location_rename | map-location-make (a drag makes a location, a drag of its right edge makes it wider, F2 and the prompt rename it: `--prompt` types the name and Enter; three Undos) |
+| terrain_paint, rect_paint | map-terrain-brush (a terrain of the palette, B, a drag paints; Undo), map-terrain-rect-paint (Rectangle: a tile of the Tiles list, B, a click; Undo) |
+| terrain_select, terrain_paste_ghost, terrain_pasted, `terraincut:` | map-terrain-paste (V, a drag selects, Copy, Paste follows the mouse, a click pastes, Undo, Esc, Cut, Undo), map-terrain-paste-ghost (the copy at the mouse) |
+| paste_ghost, paste_ghost_on_water_red, paste_placed | map-paste-ghost (the copy of the mineral fields at the mouse, green on ground), map-paste-ghost-red (red over space), map-paste-placed (a click places it; Undo): `--move` moves the mouse only |
+| The player keys (1 to 0) | map-player-keys (3 picks the player; 5 and 0 give a selected Marine to players 5 and 10; 7 while placing picks the player and leaves the Marine) |
+| tab_previous, tab_closed | map-tabs (a new project in a second tab, Ctrl+Shift+Tab, Ctrl+Tab, Ctrl+W) |
+
+After each `--key`, `--click`, `--drag` and `--move`, a second output line (`  state: name=value ...`, sdl_menus.inc:
+`sdlStateLine`) says the mode, the player, the owners, the sprites, the selected doodad, the locations, the paste (and
+how many of its units are red), the terrain (a hash of its tiles, the tile under the mouse, the terrain selection) and
+the tabs; CHECKS reads it. On SDL File > New shows the start page in the map's tab (no page tabs), so map-tabs makes
+its second tab with `--newproject`.
+
+These cases found a bug that both programs had: after Undo of a placed sprite or doodad that was selected, the
+selection kept it (the status bar said "1 selected" for a sprite that was not there). Now Undo and Redo drop the
+selected doodads and sprites that are not on the map (`dropGoneItems`, core/map_edit.inc).
 ### No SDL case yet
 | Win32 test | What it checks |
 |---|---|
 | place_cc_on_water_corrected, place_marines_corrected, drag_place, unit_spray, unit_replace_marines_with_zealots | Units placed with the mouse: the correction to a free place, a row, the spray, Replace (`--click` and `--drag` can do these now). |
 | drag_snap_back, drag_over_water_red, drag_dropped_corrected | A dragged selection that does not fit (snap back, red where it does not fit). |
-| paste_ghost, paste_ghost_on_water_red, paste_placed, terrain_paste_ghost, terrain_pasted | Paste: the copy that follows the mouse and its place (map-key-copy only copies). |
-| doodad_ghost, doodad, doodad_selected, doodad_spray, sprite_details_hd, sprite_details_sd, `spritetools:` | Doodads and sprites placed with the mouse. |
-| location_create, location_resize, location_move, location_rename, `locwrap:` | Locations made and changed with the mouse; a long name in lines. |
-| terrain_paint, brush_circle_*, fill_lake_with_grass, spray_mud, replace_mud_with_rocky, terrain_select, symmetry_*, rect_paint, `selshape:`, `terraincut:`, `pipette:` | The terrain tools on the map (map-terrain-rect shows the tool only). |
+| doodad_spray, sprite_details_hd, sprite_details_sd, `spritetools:` | The doodads' spray; the units' sprite details in HD and SD; the sprite tools. |
+| location_move, `locwrap:` | A location moved with the mouse; a long name in lines. |
+| brush_circle_*, fill_lake_with_grass, spray_mud, replace_mud_with_rocky, symmetry_*, `selshape:`, `pipette:` | The other terrain tools on the map (the brush's shapes, Fill, Spray, Replace, the mirrors, the selection's shapes, Ctrl+click). |
 | zoom_25, hd4x_zoom_200 | The zoom to a percent and HD 4x (the + key zooms in map-view-sd). |
 | new_page_map, new_map_ice, generated_map, generated_again | A map made on the New page (Blank, a tileset, Generate). |
-| tab_previous, tab_closed, `cardagain:` | Ctrl+Shift+Tab and Ctrl+W with more than one tab; the start page's cards. |
-| The player keys (1 to 0), the recent menus at the start, `menutree:`, `barmenu:`, `menutest:` | The player keys, the menu tree, the File menu by the keys, the context menus driven by messages. |
+| `cardagain:` | The start page's cards. |
+| The recent menus at the start, `menutree:`, `barmenu:`, `menutest:` | The menu tree, the File menu by the keys, the context menus driven by messages. |
 | The Data workspace's steps (tabs, Tab, back and forward, a weapons.dat save, `portrait:`, `mapplayers:`, `classicdefault:`, `unitnames:`) | The Data form's edits and their save. |
 | The Triggers editor's steps (copy and paste, the keyboard, values, variables, properties, an external script, `trigreplace:`, `emptylists:`, `bcmd:`) and `trigger_selftest.inc` (help, fixes, a picked unit deleted, a build error) | The Triggers workspace's edits. |
 | `eptrace:` | Trace build and its report. |

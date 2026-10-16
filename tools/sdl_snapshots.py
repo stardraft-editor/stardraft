@@ -188,6 +188,56 @@ CASES += [
     # A click selects the unit; a drag moves it 40 px down (192 map pixels); Undo puts it back.
     ("map-drag-unit", ["--mode", "units", "--click", "825,128", "--drag", "825,128-825,168", "--key", "Ctrl+Z"], "map"),
 ]
+# The Windows self-test's map steps (main.cpp: runSelfTest) with the mouse and the keys. After each input line a second
+# line ("  state: name=value ...") says the mode, the player, the sprites, the selected doodad, the locations, the paste,
+# the terrain (a hash of its tiles, the tile under the mouse, the terrain selection) and the tabs: CHECKS reads them.
+# --move x,y moves the mouse only (a paste's copy follows it); --prompt <text> is the text typed into the next text prompt
+# (then Enter). More points of the map at the fitted zoom: open ground at 520..640,640..720 and 900,800, space (no
+# ground) at 450,450, a place where the first doodad (Dark Platform #0) fits at 559,590 and at 535,590; the Doodads
+# and Sprites palettes' first item at 115,600; the Terrain palette's Solar Array at
+# 202,759; the Tiles list's first tile at 160,660 (Rectangle).
+CASES += [
+    # Doodads: a palette pick, a click places the doodad, Esc lets go of the pick, a click selects the doodad, a drag
+    # moves it, Undo puts it back, Delete removes it, Undo gives it back.
+    ("map-doodad-place", ["--mode", "doodads", "--click", "115,600", "--click", "559,590", "--key", "Esc", "--click", "559,590",
+                          "--drag", "559,590-535,590", "--key", "Ctrl+Z", "--key", "Del", "--key", "Ctrl+Z"], "map"),
+    # The doodad's ghost at the mouse before the click, zoomed in (+ twice: 559,590 of the fitted zoom is at 679,870):
+    # where it fits (green), then where it does not (red).
+    ("map-doodad-ghost", ["--mode", "doodads", "--click", "115,600", "--key", "+", "--key", "+", "--move", "830,520",
+                          "--move", "679,870"], "map"),
+    # Sprites: a palette pick, a click places the sprite, Esc, a click selects it, Undo removes it.
+    ("map-sprite-place", ["--mode", "sprites", "--click", "115,600", "--click", "560,690", "--key", "Esc", "--click", "560,690",
+                          "--key", "Ctrl+Z"], "map"),
+    # Locations: a drag makes one, a drag of its right edge makes it wider, F2 and the prompt rename it; three Undos take
+    # the name, the size and the location back.
+    ("map-location-make", ["--mode", "locations", "--drag", "520,640-600,700", "--drag", "600,670-640,670", "--key", "F2",
+                           "--prompt", "Selftest Spot", "--key", "Ctrl+Z", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "map"),
+    # Terrain: a palette pick (Solar Array), the brush (B) and a drag paints; Undo takes the paint back.
+    ("map-terrain-brush", ["--mode", "terrain", "--click", "202,759", "--key", "B", "--drag", "520,650-640,690", "--key", "Ctrl+Z"], "map"),
+    # Rectangle: a tile of the Tiles list, the brush and a click puts the tile there; Undo takes it back.
+    ("map-terrain-rect-paint", ["--rect", "--click", "160,660", "--key", "B", "--click", "560,690", "--key", "Ctrl+Z"], "map"),
+    # Terrain select (V): a drag selects, Copy, Paste: the copy follows the mouse; a click puts it; Undo; Cut; Undo.
+    ("map-terrain-paste", ["--mode", "terrain", "--key", "V", "--drag", "520,640-600,700", "--key", "Ctrl+C", "--key", "Ctrl+V",
+                           "--move", "900,800", "--click", "900,800", "--key", "Ctrl+Z", "--key", "Esc", "--key", "V",
+                           "--drag", "520,640-600,700", "--key", "Ctrl+X", "--key", "Ctrl+Z"], "map"),
+    # The terrain paste's ghost at the mouse.
+    ("map-terrain-paste-ghost", ["--mode", "terrain", "--key", "V", "--drag", "520,640-600,700", "--key", "Ctrl+C", "--key", "Ctrl+V",
+                                 "--move", "900,800"], "map"),
+    # The units' paste: a box selects the mineral fields at the top, Copy, Paste: the copy follows the mouse (on ground:
+    # green; over space: red); a click on ground places it; Undo.
+    ("map-paste-ghost", ["--mode", "units", "--drag", "780,110-880,150", "--key", "Ctrl+C", "--key", "Ctrl+V", "--move", "700,650"], "map"),
+    ("map-paste-ghost-red", ["--mode", "units", "--drag", "780,110-880,150", "--key", "Ctrl+C", "--key", "Ctrl+V", "--move", "450,450"], "map"),
+    ("map-paste-placed", ["--mode", "units", "--drag", "780,110-880,150", "--key", "Ctrl+C", "--key", "Ctrl+V", "--move", "700,650",
+                          "--click", "700,650", "--key", "Ctrl+Z"], "map"),
+    # The player keys: 3 picks the placement's player; a Marine placed is player 3's; Esc and a click select it; 5 gives
+    # it to player 5 and 0 to player 10 (the placement's player stays 3); with the Marine picked again, 7 is the
+    # placement's player and the selected Marine stays player 10's.
+    ("map-player-keys", ["--mode", "units", "--key", "3", "--click", "1386,429", "--click", "700,650", "--key", "Esc",
+                         "--click", "700,650", "--key", "5", "--key", "0", "--click", "1386,429", "--key", "7"], "map"),
+    # Tabs: a new project (--newproject, its map in a second tab), Ctrl+Shift+Tab goes back to the map, Ctrl+Tab to the
+    # project, Ctrl+W closes it (the map's tab is active).
+    ("map-tabs", ["--newproject", "{newdir}", "--key", "Ctrl+Shift+Tab", "--key", "Ctrl+Tab", "--key", "Ctrl+W"], "map"),
+]
 
 
 def check_undo(output):
@@ -211,11 +261,11 @@ def check_edited(output):
     return None if "save round-trip: edited.scx: 0 units," in output else "the saved map has units after Delete"
 
 
-INPUT_LINE = re.compile(r"^(key|click|drag) (\S+): (\d+) units, (\d+) doodads, (\d+) selected(?: \(the first at (\d+),(\d+)\))?:")
+INPUT_LINE = re.compile(r"^(key|click|drag|move) (\S+): (\d+) units, (\d+) doodads, (\d+) selected(?: \(the first at (\d+),(\d+)\))?:")
 
 
 def input_lines(output):
-    """The lines of --key, --click and --drag: (option, value, units, selected, (x, y) of the first selected unit or None)."""
+    """The lines of --key, --click, --drag and --move: (option, value, units, selected, (x, y) of the first selected unit or None)."""
     lines = []
     for line in output.splitlines():
         m = INPUT_LINE.match(line)
@@ -266,9 +316,186 @@ def check_drag_unit(output):
     return None
 
 
+STATE_FIELD = re.compile(r'(\w+)=("[^"]*"|\S+)')
+
+
+def steps(output):
+    """Each input's state: its input line's counts (input, units, doodads, selected) and its state line's name=value."""
+    out = []
+    for line in output.splitlines():
+        m = INPUT_LINE.match(line)
+        if m:
+            out.append({"input": f"{m.group(1)} {m.group(2)}", "units": int(m.group(3)), "doodads": int(m.group(4)),
+                        "selected": int(m.group(5))})
+        elif line.startswith("  state: ") and out:
+            out[-1].update((k, v.strip('"')) for k, v in STATE_FIELD.findall(line))
+    return out
+
+
+def expect(output, count, rules):
+    """None when the output has `count` inputs and each rule holds; else the first rule that does not. A rule is
+    (what, function of the steps list)."""
+    s = steps(output)
+    if len(s) != count:
+        return f"{len(s)} inputs with a state line, not {count}"
+    for what, ok in rules:
+        try:
+            good = ok(s)
+        except (KeyError, ValueError, IndexError):
+            good = False
+        if not good:
+            return what
+    return None
+
+
+def check_doodad_place(output):
+    """The Windows doodad, doodad_selected steps: placed, selected by a click, moved by a drag, Undo, Delete, Undo."""
+    return expect(output, 8, [
+        ("the palette click picked no doodad", lambda s: int(s[0]["palette"]) >= 0),
+        ("the click placed no doodad", lambda s: s[1]["doodads"] == s[0]["doodads"] + 1),
+        ("Esc did not let go of the pick", lambda s: s[2]["palette"] == "-1"),
+        ("the click did not select the doodad", lambda s: s[3]["doodadsel"] == "1" and s[3]["doodad"] != "-"),
+        ("the drag did not move the doodad", lambda s: s[4]["doodadsel"] == "1" and s[4]["doodad"] != s[3]["doodad"]),
+        ("Undo did not put the doodad back", lambda s: s[5]["doodad"] == s[3]["doodad"] and s[5]["terrain"] == s[3]["terrain"]),
+        ("Delete did not remove the doodad (and its tiles)", lambda s: s[6]["doodads"] == s[0]["doodads"] and s[6]["terrain"] == s[0]["terrain"]),
+        ("Undo did not give the doodad back", lambda s: s[7]["doodads"] == s[1]["doodads"] and s[7]["terrain"] == s[1]["terrain"]),
+    ])
+
+
+def check_doodad_ghost(output):
+    """The picked doodad's ghost: red where it does not fit, green (fits) where a click places it."""
+    return expect(output, 5, [
+        ("the ghost is not red where the doodad does not fit", lambda s: s[3]["ghost"] == "red"),
+        ("the ghost does not fit where the doodad fits", lambda s: s[4]["ghost"] == "fits"),
+    ])
+
+
+def check_sprite_place(output):
+    """A sprite placed with the mouse, selected by a click; Undo removes it and its selection."""
+    return expect(output, 5, [
+        ("the palette click picked no sprite", lambda s: int(s[0]["palette"]) >= 0),
+        ("the click placed no sprite", lambda s: int(s[1]["sprites"]) == int(s[0]["sprites"]) + 1),
+        ("the click did not select the sprite", lambda s: s[3]["spritesel"] == "1"),
+        ("Undo did not remove the sprite and its selection", lambda s: s[4]["sprites"] == s[0]["sprites"] and s[4]["spritesel"] == "0"),
+    ])
+
+
+def location_box(step):
+    """The selected location's edges (left, top, right, bottom), or None."""
+    loc = step["location"]
+    return tuple(int(v) for v in loc.split(":", 1)[1].split(",")) if ":" in loc else None
+
+
+def check_location_make(output):
+    """The Windows location_create, location_resize, location_rename steps, then Undo of each."""
+    if 'prompt Rename location: "Location' not in output or '-> "Selftest Spot" (OK)' not in output:
+        return "the prompt did not rename the location to Selftest Spot"
+    return expect(output, 6, [
+        ("the drag made no location", lambda s: int(s[0]["locations"]) == 2 and location_box(s[0])),
+        ("the edge's drag did not make the location wider", lambda s: location_box(s[1])[2] > location_box(s[0])[2] and
+         location_box(s[1])[:2] == location_box(s[0])[:2]),
+        ("F2 did not rename the location", lambda s: s[2]["name"] == "Selftest Spot"),
+        ("Undo did not give the old name back", lambda s: s[3]["name"] == s[1]["name"]),
+        ("Undo did not give the old size back", lambda s: location_box(s[4]) == location_box(s[0])),
+        ("Undo did not remove the location", lambda s: s[5]["locations"] == "1" and s[5]["location"] == "-"),
+    ])
+
+
+def check_terrain_brush(output):
+    """The Windows terrain_paint step: a palette pick, the brush and a drag change the terrain; Undo takes it back."""
+    return expect(output, 4, [
+        ("the palette click picked no terrain", lambda s: int(s[0]["palette"]) > 0),
+        ("B did not pick the brush", lambda s: s[1]["tool"] == "0"),
+        ("the drag did not paint", lambda s: s[2]["terrain"] != s[1]["terrain"]),
+        ("Undo did not take the paint back", lambda s: s[3]["terrain"] == s[1]["terrain"]),
+    ])
+
+
+def check_rect_paint(output):
+    """The Windows rect_paint step: a tile of the Tiles list, the brush and a click put tiles; Undo takes them back."""
+    return expect(output, 4, [
+        ("the click did not put tiles", lambda s: s[2]["terrain"] != s[1]["terrain"] and "Placed" in output),
+        ("Undo did not take the tiles back", lambda s: s[3]["terrain"] == s[1]["terrain"]),
+    ])
+
+
+def check_terrain_paste(output):
+    """The Windows terrain_select, terrain_paste_ghost, terrain_pasted and terraincut: steps, with Undo."""
+    return expect(output, 12, [
+        ("the drag did not select terrain", lambda s: s[1]["tsel"] != "-"),
+        ("Ctrl+V did not start the paste", lambda s: s[3]["paste"] == "terrain" and s[4]["paste"] == "terrain"),
+        ("the click did not paste", lambda s: s[5]["terrain"] != s[4]["terrain"]),
+        ("Undo did not take the paste back", lambda s: s[6]["terrain"] == s[4]["terrain"]),
+        ("Esc did not stop the paste", lambda s: s[7]["paste"] == "none"),
+        ("Cut did not change the terrain", lambda s: s[10]["terrain"] != s[9]["terrain"]),
+        ("Undo did not take the cut back", lambda s: s[11]["terrain"] == s[9]["terrain"]),
+    ])
+
+
+def check_terrain_paste_ghost(output):
+    """The terrain paste follows the mouse (the picture shows its ghost)."""
+    return expect(output, 5, [("the paste is not on", lambda s: s[4]["paste"] == "terrain" and s[4]["tsel"] != "-")])
+
+
+def paste_ghost(step):
+    """(units, red) of a units' paste ghost, or None."""
+    p = step["paste"]
+    return (int(p.split(":")[1]), int(p.split(":")[2][:-3])) if p.startswith("units:") else None
+
+
+def check_paste_ghost(output):
+    """The Windows paste_ghost step: the copy follows the mouse, green on ground."""
+    return expect(output, 4, [
+        ("the box selected no units", lambda s: s[0]["selected"] > 0),
+        ("the paste is not on, or has red units on ground", lambda s: paste_ghost(s[3]) == (s[0]["selected"], 0)),
+    ])
+
+
+def check_paste_ghost_red(output):
+    """The Windows paste_ghost_on_water_red step: over space (no ground) the copy is red."""
+    return expect(output, 4, [
+        ("the copy is not all red over space", lambda s: paste_ghost(s[3]) == (s[0]["selected"], s[0]["selected"])),
+    ])
+
+
+def check_paste_placed(output):
+    """The Windows paste_placed step: a click places the copy; Undo takes it back."""
+    return expect(output, 6, [
+        ("the click did not place the copy", lambda s: s[4]["units"] == s[0]["units"] + s[0]["selected"]),
+        ("Undo did not take the copy back", lambda s: s[5]["units"] == s[0]["units"]),
+    ])
+
+
+def check_player_keys(output):
+    """The Windows player key steps: 3, then 5 and 0 on a selected unit, then 7 while placing."""
+    return expect(output, 9, [
+        ("3 did not pick player 3", lambda s: s[0]["player"] == "3"),
+        ("the placed Marine is not player 3's", lambda s: s[2]["units"] == s[0]["units"] + 1 and s[2]["lastowner"] == "3"),
+        ("the click did not select the Marine", lambda s: s[4]["selected"] == 1 and s[4]["owner"] == "3"),
+        ("5 did not give the Marine to player 5", lambda s: s[5]["owner"] == "5" and s[5]["player"] == "3"),
+        ("0 did not give the Marine to player 10 (or changed the placement's player)", lambda s: s[6]["owner"] == "10" and s[6]["player"] == "3"),
+        ("7 while placing did not pick player 7 (or changed the Marine)", lambda s: s[8]["player"] == "7" and s[8]["lastowner"] == "10"),
+    ])
+
+
+def check_tabs(output):
+    """The Windows tab_previous and tab_closed steps: two tabs, Ctrl+Shift+Tab, Ctrl+Tab, Ctrl+W."""
+    return expect(output, 3, [
+        ("Ctrl+Shift+Tab did not go to the map's tab", lambda s: s[0]["tabs"] == "1/2" and s[0]["tab"] == "bneck.scm"),
+        ("Ctrl+Tab did not go to the project's tab", lambda s: s[1]["tabs"] == "2/2" and s[1]["tab"] == "Sample"),
+        ("Ctrl+W did not close the project's tab", lambda s: s[2]["tabs"] == "1/1" and s[2]["tab"] == "bneck.scm"),
+    ])
+
+
 # Checks of a case's output (after the PNG's): a function that returns None, or what is wrong.
 CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
-          "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit}
+          "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
+          "map-doodad-ghost": check_doodad_ghost, "map-sprite-place": check_sprite_place,
+          "map-location-make": check_location_make, "map-terrain-brush": check_terrain_brush,
+          "map-terrain-rect-paint": check_rect_paint, "map-terrain-paste": check_terrain_paste,
+          "map-terrain-paste-ghost": check_terrain_paste_ghost, "map-paste-ghost": check_paste_ghost,
+          "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed,
+          "map-player-keys": check_player_keys, "map-tabs": check_tabs}
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 

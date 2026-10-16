@@ -27,6 +27,17 @@ void toWorld(int sx, int sy, float& wx, float& wy) {
 
 int currentTool() { return appState().toolByMode[int(appState().mode)]; }
 
+// After Undo or Redo: the selected doodads and sprites that are not on the map now (an Undo of a placed one) leave the
+// selection, so that the status bar, Delete and a drag do not count them.
+void dropGoneItems(AppState& app) {
+    if (!app.ed) return;
+    auto drop = [](std::vector<int>& sel, size_t n) {
+        sel.erase(std::remove_if(sel.begin(), sel.end(), [n](int i) { return i < 0 || size_t(i) >= n; }), sel.end());
+    };
+    drop(app.selDoodads, app.ed->doodads().size());
+    drop(app.selSprites, app.ed->sprites().size());
+}
+
 // The spray's density: the number of things one spray puts down in the brush (each tick of a held spray too), 1 to
 // kDensityMax. Units or doodads (sprayCount; only where they fit, so fewer can land) and terrain dabs or tiles
 // (sprayDabs). The defaults: 5 dabs for terrain, 10 units or doodads (about the earlier "medium").

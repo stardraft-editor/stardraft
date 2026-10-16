@@ -297,8 +297,8 @@ int main(int argc, char** argv) {
     bool untitledArg = false;  // --untitled: a new unsaved project (as the Win32 program's screenshot run starts with), for a snapshot
     bool midPanArg = false;  // --midpan: Options > Middle mouse click and hold (Pan map, Drag map), as text after the snapshot
     bool cursorsArg = false;  // --cursors: the cursors at some points, as text after the snapshot (sdl_cursor_check.inc)
-    // --key, --click, --drag: keys pressed and left clicks and drags of the mouse before the snapshot, in their order
-    // (sdl_menus.inc: sdlPressKey, sdlMouseShot): the option's letter (k, c, d) and its value.
+    // --key, --click, --drag, --move: keys pressed and left clicks and drags of the mouse before the snapshot, in their order
+    // (sdl_menus.inc: sdlPressKey, sdlMouseShot): the option's letter (k, c, d, m) and its value.
     std::vector<std::pair<char, std::string>> inputArgs;
     std::vector<std::string> rclickArgs;  // --rclick: right clicks before the snapshot (sdl_menus.inc: sdlRightClickShot)
     std::vector<std::string> commandArgs;  // --command: menu commands run before the snapshot (sdl_menus.inc: sdlCommandShot)
@@ -350,6 +350,8 @@ int main(int argc, char** argv) {
         else if (a == "--key") inputArgs.emplace_back('k', next());  // a key (Ctrl+A, 5, Ctrl+2: Ctrl is Cmd on macOS) pressed in the window, for a snapshot
         else if (a == "--click") inputArgs.emplace_back('c', next());  // x,y[:mods]: a left click there (window pixels; mods Shift+Ctrl+Alt), for a snapshot
         else if (a == "--drag") inputArgs.emplace_back('d', next());  // x0,y0-x1,y1[:mods]: a left drag from the first point to the second, for a snapshot
+        else if (a == "--move") inputArgs.emplace_back('m', next());  // x,y: the mouse moves there (no button), for a snapshot
+        else if (a == "--prompt") gPromptAnswers.push_back(widen(next()));  // the text typed into the next text prompt (then Enter), for a snapshot
         else if (a == "--rclick") rclickArgs.push_back(next());  // x,y[:n]: a right click there; the menu's items go to the output, item n runs, for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
@@ -568,7 +570,7 @@ int main(int argc, char** argv) {
             if (!inputArgs.empty()) {  // the keys and the mouse after the first frame (the rail's items are the first frame's), then a frame more
                 for (const auto& [kind, value] : inputArgs) {
                     if (kind == 'k') sdlPressKey(value);
-                    else sdlMouseShot(value, kind == 'd', width, height);
+                    else sdlMouseShot(value, kind, width, height);
                     // (a frame after each: the views lay out and the map's scene takes the change, as between a user's inputs)
                     host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
                 }

@@ -3,9 +3,29 @@
 // the map's right-click menu (core/views_map_menu.inc) as a kit Menu. The Windows hosts are main.cpp's showUnitProperties,
 // showLocationEdit, prompt and mapMenu. Included by main_sdl.cpp after sdl_options.inc.
 
+// --prompt <text> (a snapshot, main_sdl.cpp): the texts for the next prompts, in their order. A snapshot has no window
+// for the dialog: the prompt's view gets the text in its field and Enter, as a user types them (the output says so).
+std::deque<std::wstring> gPromptAnswers;
+
 // The prompt (Rename location, a sound's name): OK puts the typed text into `text` and returns true.
 bool prompt(const wchar_t* title, std::wstring& text) {
     if (!gRoot) return false;
+    if (!gPromptAnswers.empty()) {
+        TextPromptView view(text, false);
+        stardraft::kit::Dialog dlg;
+        dlg.setContent(view);
+        view.setDialog(&dlg);
+        const std::wstring was = view.text();
+        view.field().setText(gPromptAnswers.front());
+        gPromptAnswers.pop_front();
+        draw::KeyEvent enter;
+        enter.key = draw::Key::Enter;
+        view.field().key(enter);
+        const bool ok = dlg.closed() && dlg.result() == kPromptOk;
+        std::printf("prompt %s: \"%s\" -> \"%s\" (%s)\n", narrow(title).c_str(), narrow(was).c_str(), narrow(view.text()).c_str(), ok ? "OK" : "not closed (WRONG)");
+        if (ok) text = view.text();
+        return ok;
+    }
     TextPromptView* shown = nullptr;
     return runTextPrompt(*gRoot, title, text, true, shown);
 }
