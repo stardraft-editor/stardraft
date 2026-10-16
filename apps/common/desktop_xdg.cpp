@@ -142,8 +142,8 @@ bool hasOwner(const char* name) {
     return yes;
 }
 
-// A method call that waits for its reply (at most `timeoutMs`); null on an error.
-Msg* call(Msg* m, int timeoutMs) {
+// A method call that waits for its reply (at most `timeoutMs`); null on an error, with the error's name in `*error`.
+Msg* call(Msg* m, int timeoutMs, std::string* error = nullptr) {
     Conn* c = session();
     DBus& d = dbus();
     if (!c || !m) {
@@ -154,25 +154,47 @@ Msg* call(Msg* m, int timeoutMs) {
     d.error_init(&err);
     Msg* reply = d.send_with_reply_and_block(c, m, timeoutMs, &err);
     d.unref(m);
-    if (d.error_is_set(&err)) d.error_free(&err);
+    if (d.error_is_set(&err)) {
+        if (error && err.name) *error = err.name;
+        d.error_free(&err);
+    }
     return reply;
 }
 
-// The portal's setting (ReadOne, else the older Read): the reply's value with its variants opened, in `out` (which
-// points into `reply`: unref the reply after use). Null: no portal or no such setting.
+// The portal reads run on the UI thread: each one waits at most kPortalWaitMs. After a read that got no reply (a
+// portal that hangs while it starts), the reads stop for kPortalPauseS, so the window does not wait again and again.
+constexpr int kPortalWaitMs = 250;
+constexpr std::time_t kPortalPauseS = 10;
+std::time_t gPortalPausedUntil = 0;
+
+bool portalPaused() {
+    return gPortalPausedUntil != 0 && std::time(nullptr) < gPortalPausedUntil;
+}
+
+// The portal's setting (ReadOne, else the older Read when the portal has no ReadOne): the reply's value with its
+// variants opened, in `out` (which points into `reply`: unref the reply after use). Null: no portal or no such setting.
 Msg* readSetting(const char* ns, const char* key, DBusIter& out) {
-    if (!session()) return nullptr;
+    if (!session() || portalPaused()) return nullptr;
     DBus& d = dbus();
     for (const char* method : {"ReadOne", "Read"}) {
         Msg* m = d.new_method_call("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop", "org.freedesktop.portal.Settings", method);
         if (!m) return nullptr;
         d.append_args(m, kString, &ns, kString, &key, kInvalid);
-        Msg* reply = call(m, 500);
-        if (!reply) continue;
+        std::string error;
+        Msg* reply = call(m, kPortalWaitMs, &error);
+        if (!reply) {
+            if (error == "org.freedesktop.DBus.Error.NoReply" || error == "org.freedesktop.DBus.Error.Timeout" ||
+                error == "org.freedesktop.DBus.Error.TimedOut") {
+                gPortalPausedUntil = std::time(nullptr) + kPortalPauseS;
+                return nullptr;
+            }
+            if (error == "org.freedesktop.DBus.Error.UnknownMethod") continue;  // (an old portal: try Read)
+            return nullptr;
+        }
         DBusIter it;
         if (!d.iter_init(reply, &it)) {
             d.unref(reply);
-            continue;
+            return nullptr;
         }
         while (d.iter_type(&it) == kVariant) {
             DBusIter inner;
