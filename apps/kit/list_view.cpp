@@ -346,7 +346,7 @@ bool ListView::mouse(const draw::MouseEvent& e) {
     }
     case MouseKind::Wheel: {
         if (e.horizontal || maxTop() <= 0) return false;
-        scrollBy(int(std::lround(-e.wheel * float(kWheelRows * rowPx()))));
+        scrollBy(int(std::lround(-draw::wheelDistance(e, float(kWheelRows * rowPx())))));
         hot_ = rowAt(e.pt);
         return true;
     }

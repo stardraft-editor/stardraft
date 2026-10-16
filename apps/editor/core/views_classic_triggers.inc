@@ -726,7 +726,7 @@ public:
             return true;
         }
         case draw::MouseKind::Wheel:
-            scrollTo(scroll_ - int(std::lround(e.wheel * float(scale(26)) * 3.0f)));
+            scrollTo(scroll_ - int(std::lround(draw::wheelDistance(e, float(scale(26)) * 3.0f))));
             return true;
         default: return false;
         }

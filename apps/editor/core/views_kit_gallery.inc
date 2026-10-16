@@ -387,7 +387,7 @@ public:
 
     bool mouse(const draw::MouseEvent& e) override {
         if (e.kind == draw::MouseKind::Wheel && !e.horizontal) {
-            setScroll(scroll - int(std::lround(e.wheel * float(scale(40) * 3))));
+            setScroll(scroll - int(std::lround(draw::wheelDistance(e, float(scale(40) * 3)))));
             return true;
         }
         return s_.mouse(*this, e);

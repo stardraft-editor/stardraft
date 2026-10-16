@@ -535,7 +535,7 @@ bool OptionsView::mouse(const draw::MouseEvent& e) {
         return false;
     }
     if (e.kind == draw::MouseKind::Wheel) {
-        scrollTo(scroll_ - int(e.wheel * float(scale(40) * 3)));
+        scrollTo(scroll_ - int(draw::wheelDistance(e, float(scale(40) * 3))));
         return true;
     }
     if (e.kind == draw::MouseKind::Down && e.button == 0) {

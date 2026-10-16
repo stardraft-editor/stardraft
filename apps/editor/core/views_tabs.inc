@@ -142,6 +142,14 @@ void moveDoc(int from, int to) {
 // The strip above the workspace: a tab per open document (its title, an x, or a dot where it is unsaved), and the +
 // that posts New. A press on a tab activates it and starts a drag: a tab dragged sideways takes the places of the tabs
 // it passes (moveDoc). The middle button or the x closes a tab.
+// A swipe to the left or right on the trackpad (dir -1: the fingers moved to the left): the next tab, or the tab
+// before, round again at the ends (as Ctrl+Tab and Ctrl+Shift+Tab). With one tab, nothing.
+void swipeTabs(int dir) {
+    if (gDocs.size() < 2 || dir == 0) return;
+    const int n = int(gDocs.size());
+    activateDoc(((gActive + (dir < 0 ? 1 : -1)) % n + n) % n);
+}
+
 struct TabsView final : stardraft::draw::View {
     void paint(stardraft::draw::Canvas& c) override {
         const unsigned center = stardraft::draw::kCenter | stardraft::draw::kMiddle;
@@ -206,6 +214,8 @@ struct TabsView final : stardraft::draw::View {
             gTabHot = gTabHotClose = -1;
             invalidate();
             return true;
+        case MouseKind::Wheel:  // macOS's trackpad: a swipe of two fingers to the left or right on the strip changes the tab
+            return e.exact && swipeStep(e);
         case MouseKind::Down:
         case MouseKind::DoubleClick:  // (the old tab strip had no double clicks: a second press is a press)
             if (e.button != 0) return false;
@@ -234,6 +244,23 @@ struct TabsView final : stardraft::draw::View {
     stardraft::draw::Cursor cursor(stardraft::draw::Point) override { return stardraft::draw::Cursor::Arrow; }
 
 private:
+    // A two-finger scroll on the strip (its exact distance: MouseEvent::exact): once it went 50 px sideways (more than
+    // up or down), one tab to that side (swipeTabs). The rest of that scroll and its momentum change no more tabs: a
+    // new swipe starts after a pause of 0.3 s.
+    float swipeX_ = 0, swipeY_ = 0;
+    bool swiped_ = false;
+    std::chrono::steady_clock::time_point swipeLast_{};
+    bool swipeStep(const stardraft::draw::MouseEvent& e) {
+        const auto now = std::chrono::steady_clock::now();
+        if (now - swipeLast_ > std::chrono::milliseconds(300)) swipeX_ = swipeY_ = 0, swiped_ = false;
+        swipeLast_ = now;
+        swipeX_ += e.panX, swipeY_ += e.panY;
+        if (swiped_ || std::fabs(swipeX_) < float(scale(50)) || std::fabs(swipeX_) < std::fabs(swipeY_)) return swipeX_ != 0;
+        swiped_ = true;
+        swipeTabs(swipeX_ < 0 ? -1 : 1);  // (the content moves left with the fingers: the next tab)
+        return true;
+    }
+
     // A press on the strip (or a middle click): the tab's x or a middle click closes it; a press on the tab activates
     // it and starts a drag.
     void pressAt(POINT pt, bool middle) {

@@ -22,7 +22,9 @@ enum class Cursor { Arrow, Hand, IBeam, SizeAll, SizeWE, SizeNS, No, Wait, SizeN
 enum Mods : unsigned { kShift = 1, kCtrl = 2, kAlt = 4, kSuper = 8 };
 
 // Pinch: two fingers on a trackpad move apart or together (pt: the mouse, which is between them on a trackpad).
-enum class MouseKind { Move, Down, Up, DoubleClick, Wheel, Leave, Pinch };
+// SmartZoom: a double tap with two fingers on a trackpad (macOS's smart zoom), at the mouse. Swipe: a swipe of three
+// fingers to the left or right on a trackpad (macOS's "Swipe between pages"), at the mouse; `swipe` gives its direction.
+enum class MouseKind { Move, Down, Up, DoubleClick, Wheel, Leave, Pinch, SmartZoom, Swipe };
 struct MouseEvent {
     MouseKind kind = MouseKind::Move;
     Point pt;
@@ -35,7 +37,24 @@ struct MouseEvent {
     float panX = 0, panY = 0;
     bool precise = false;  // Wheel: a trackpad's (or a precise mouse's) scroll, not a wheel's notches
     float pinch = 1;       // Pinch: the scale change since the last (more than 1: the fingers move apart)
+    // Wheel: panX and panY are the system's own scroll distance, in whole pixels (macOS: a trackpad's or a Magic Mouse's
+    // scroll and its momentum after the fingers lift). A list then moves by them (wheelDistance), not by notches.
+    bool exact = false;
+    int swipe = 0;  // Swipe: -1 the fingers moved to the left (the next tab), 1 to the right (the tab before)
 };
+
+// How far a vertical scroll moves a view's content down, in pixels (a scroll position goes up by it): a wheel's
+// notches times `notchPx` (a notch away from the user: positive), or the system's exact distance (MouseEvent::exact).
+inline float wheelDistance(const MouseEvent& e, float notchPx) { return e.exact ? e.panY : e.wheel * notchPx; }
+// The same distance in whole steps of `stepPx` (a list that scrolls by rows); the part of a step that is left waits in
+// `carry` for the next event. Only for an exact scroll (else 0).
+inline int exactSteps(const MouseEvent& e, float stepPx, float& carry) {
+    if (!e.exact || !(stepPx > 0)) return 0;
+    carry += e.panY / stepPx;
+    const int whole = int(carry);  // (toward zero)
+    carry -= float(whole);
+    return whole;
+}
 
 // Keys by their meaning, not by the system's codes. Letters and digits are their ASCII capitals ('A', '0').
 enum class Key : int {
@@ -306,7 +325,8 @@ public:
         }
         Point local;
         View* v = root_.viewAt(e.pt, local);
-        if (v != hovered_ && e.kind != MouseKind::Wheel && e.kind != MouseKind::Pinch) {
+        if (v != hovered_ && e.kind != MouseKind::Wheel && e.kind != MouseKind::Pinch && e.kind != MouseKind::SmartZoom &&
+            e.kind != MouseKind::Swipe) {
             if (hovered_) {
                 MouseEvent leave;
                 leave.kind = MouseKind::Leave;

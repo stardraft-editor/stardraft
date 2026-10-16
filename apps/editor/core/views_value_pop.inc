@@ -405,7 +405,7 @@ public:
     bool mouse(const draw::MouseEvent& e) override {
         using draw::MouseKind;
         if (!listH_ || !list_.contains(e.pt)) return false;
-        if (e.kind == MouseKind::Wheel) return scrollTo(top_ - int(e.wheel * scale(kListWheelStep))), true;
+        if (e.kind == MouseKind::Wheel) return scrollTo(top_ - int(draw::wheelDistance(e, float(scale(kListWheelStep))))), true;
         const int i = rowAt(e.pt);
         if (e.kind == MouseKind::Down && e.button == 0) {
             if (i >= 0 && rows_[size_t(i)].kind == ValueSuggestion::Kind::Item) select(i);
