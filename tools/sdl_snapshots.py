@@ -103,6 +103,9 @@ CASES += [
 ]
 # The Map data page's unit Rename: the game text pop-out.
 CASES += [("map-textpop-unitname", ["--workspace", "classic", "--textpop", "unitname"], "map")]
+# The cursors (the system's cursor is not in a picture): --cursors writes the map view's and a text field's cursors at
+# some points to the case's .txt (lines "cursor: ...", each with "(yes)" or "(WRONG)").
+CASES += [("map-cursors", ["--mode", "units", "--cursors"], "map")]
 # Not in the program yet (add them to CASES when main_sdl.cpp reads them): --dialog about, message, tip, valuepop.
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -244,6 +247,8 @@ def main():
             f.write(" ".join(cmd) + "\n\n" + output)
         print(output, end="" if output.endswith("\n") else "\n")
         problem = f"exit code {code}" if code != 0 else png_check(png)
+        if not problem and "(WRONG)" in output:  # (a check the run prints, as --cursors)
+            problem = "a check printed (WRONG)"
         print("::endgroup::", flush=True)
         if problem:
             failed.append(name)

@@ -81,6 +81,8 @@ public:
     float scale() const override { return scale_; }
     void openWindow(draw::View& from, draw::View& content, const draw::WindowSpec& spec, std::function<void()> closed) override;
     void closeWindow(draw::View& content) override;
+    // A Dialog spec (or a Menu or Tooltip): a dialog window of its own. A Popup spec: a modal pop-out at spec.at; a
+    // press outside it only closes it (the press and its release do not go to the window under the mouse).
     void runModal(draw::View& from, draw::View& content, const draw::WindowSpec& spec) override;
     void forget(const draw::View& v) override;
 
@@ -123,6 +125,7 @@ private:
     std::function<void()> beforePump_;  // setBeforePump
     bool animating_ = false;
     SDL_WindowID modal_ = 0;  // the dialog that takes all input (runModal), or 0
+    Uint8 eatUp_ = 0;  // the mouse button whose release goes to no view (its press closed a modal pop-out), or 0
     SDL_WindowID mainId_ = 0;  // the window show() made first (the program's main window), or 0
     std::function<void()> quitRequest_;  // setQuitRequest
     HoverHook hover_;                    // setHoverHook
@@ -132,7 +135,7 @@ private:
     std::map<int, Timer> timers_;
     std::vector<std::unique_ptr<Win>> wins_;
     std::vector<std::unique_ptr<Win>> retired_;  // closed windows, destroyed after the events of this turn
-    SDL_Cursor* cursors_[8] = {};
+    SDL_Cursor* cursors_[16] = {};  // (by draw::Cursor)
 };
 
 }  // namespace stardraft::kit_sdl

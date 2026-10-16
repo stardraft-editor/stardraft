@@ -80,6 +80,8 @@ inline LPCWSTR cursorId(Cursor c) {
     case Cursor::SizeNS: return IDC_SIZENS;
     case Cursor::No: return IDC_NO;
     case Cursor::Wait: return IDC_WAIT;
+    case Cursor::SizeNWSE: return IDC_SIZENWSE;
+    case Cursor::SizeNESW: return IDC_SIZENESW;
     default: return IDC_ARROW;
     }
 }
