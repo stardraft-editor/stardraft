@@ -152,7 +152,7 @@ public:
     bool mouse(const draw::MouseEvent& e) override {
         if (e.kind != draw::MouseKind::Wheel || e.horizontal) return false;
         const int most = std::max(0, contentH_ - height() + scale(14));
-        scroll_ = std::clamp(scroll_ - int(e.wheel * float(scale(40))), 0, most);
+        scroll_ = std::clamp(scroll_ - int(draw::wheelDistance(e, float(scale(40)))), 0, most);
         invalidate();
         return true;
     }

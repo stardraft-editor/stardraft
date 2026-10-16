@@ -56,6 +56,7 @@ public:
     bool playing = false;
     uint32_t t = 0;                   // the preview's time (ms)
     int listScroll = 0;               // the first action row shown
+    float wheelCarry_ = 0;            // an exact scroll's part of a row (draw::exactSteps)
     std::vector<BriefingAction> clip;  // copied actions
 
     GameTextView& textBox() { return text_; }
@@ -155,8 +156,9 @@ public:
     bool mouse(const draw::MouseEvent& e) override {
         mouse_ = e.pt;
         if (e.kind == draw::MouseKind::Wheel) {
-            if (e.wheel < 0 && allShown_) return true;
-            listScroll = std::max(0, listScroll - int(e.wheel) * 2);
+            const int rows = e.exact ? draw::exactSteps(e, float(scale(26)), wheelCarry_) : int(e.wheel) * 2;  // (exact: macOS's trackpad)
+            if (rows < 0 && allShown_) return true;
+            listScroll = std::max(0, listScroll - rows);
             invalidate();
             return true;
         }

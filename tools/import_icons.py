@@ -13,6 +13,8 @@ res.mkdir(parents=True, exist_ok=True)
 
 files = [out / 'app' / 'stardraft.ico', out / 'app' / 'stardraft-document.ico', out / 'ui' / 'ui_icons.h']
 files += [out / 'ui' / f'atlas-{size}.png' for size in (16, 20, 24, 32)]
+# The large atlases (the large icons at a high scale: build.mjs's sizes must have them) are copied when they are there.
+files += [f for f in (out / 'ui' / f'atlas-{size}.png' for size in (40, 48, 64)) if f.exists()]
 for f in files:
     if not f.exists():
         raise SystemExit(f'missing: {f} (run node tools/icongen/build.mjs)')

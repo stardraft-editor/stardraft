@@ -360,7 +360,7 @@ bool TreeView::mouse(const draw::MouseEvent& e) {
     }
     case MouseKind::Wheel:
         if (e.horizontal || !scrollable()) return false;
-        scrollTo(scrollY_ - int(e.wheel * float(rowH() * 3)));  // notches away from the user scroll up
+        scrollTo(scrollY_ - int(draw::wheelDistance(e, float(rowH() * 3))));  // notches away from the user scroll up
         return true;
     default: return false;
     }

@@ -35,10 +35,14 @@ std::string loadFonts(const std::string& fontDir);
 using EmbeddedFile = std::pair<const void*, size_t> (*)(const std::string& path);
 void setEmbeddedFiles(EmbeddedFile files);
 
-// The UI icon atlases (atlas-16.png, atlas-20.png, atlas-24.png, atlas-32.png in dir) uploaded to `device`.
-// False when none is found. unloadIconAtlases() before the device goes.
+// The UI icon atlases (atlas-16.png, atlas-20.png, atlas-24.png, atlas-32.png in dir, and for the large icons at a
+// high scale atlas-40.png, atlas-48.png and atlas-64.png) uploaded to `device`. False when none is found.
+// unloadIconAtlases() before the device goes.
 bool loadIconAtlases(SDL_GPUDevice* device, const std::string& dir);
 void unloadIconAtlases();
+// The size of the atlas cell that Canvas::icon draws `icon` from when it is asked for `px` pixels (0: no atlas has it):
+// a snapshot's check that the icons are sharp at the scale.
+int iconAtlasCell(int icon, int px);
 // The program's own picture `id` (Canvas::resourceIcon; 1: the app icon) from an .ico (its largest PNG image) or a PNG
 // file. False when it could not be read. unloadIconAtlases() releases its textures too.
 bool loadResourceIcon(int id, const std::string& file);

@@ -756,7 +756,7 @@ bool ProjectPageView::mouse(const draw::MouseEvent& e) {
         host_.openSelectedScript();
         return true;
     case draw::MouseKind::Wheel:
-        scrollTo(scroll_ - int(e.wheel * float(scale(32) * 3)));
+        scrollTo(scroll_ - int(draw::wheelDistance(e, float(scale(32) * 3))));
         return true;
     default: return false;
     }

@@ -52,6 +52,9 @@ namespace {
 
 // The user event that a timer pushes; its data is the timer's id.
 Uint32 gTimerEvent = 0;
+// The user event of a trackpad gesture that SDL has no event for (SdlHost::pushGesture): code is the MouseKind, data1
+// the swipe's direction, windowID the window (0: the one under the mouse).
+Uint32 gGestureEvent = 0;
 
 // Runs on SDL's timer thread: it only pushes the event; the UI thread runs the timer.
 Uint32 timerFired(void* userdata, SDL_TimerID, Uint32) {
@@ -159,12 +162,18 @@ SDL_WindowID windowOf(const SDL_Event& e) {
     case SDL_EVENT_WINDOW_MOUSE_LEAVE: case SDL_EVENT_WINDOW_CLOSE_REQUESTED: case SDL_EVENT_WINDOW_EXPOSED:
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: case SDL_EVENT_WINDOW_RESIZED: case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
         return e.window.windowID;
-    default: return 0;
+    default:
+        if (gGestureEvent && e.type == gGestureEvent) {
+            if (e.user.windowID) return e.user.windowID;
+            if (SDL_Window* f = SDL_GetMouseFocus()) return SDL_GetWindowID(f);
+        }
+        return 0;
     }
 }
 
 // Events the views get from the user (a modal dialog takes these and nothing else).
 bool isInput(const SDL_Event& e) {
+    if (gGestureEvent && e.type == gGestureEvent) return true;
     switch (e.type) {
     case SDL_EVENT_MOUSE_MOTION: case SDL_EVENT_MOUSE_BUTTON_DOWN: case SDL_EVENT_MOUSE_BUTTON_UP: case SDL_EVENT_MOUSE_WHEEL:
     case SDL_EVENT_PINCH_BEGIN: case SDL_EVENT_PINCH_UPDATE: case SDL_EVENT_PINCH_END:
@@ -229,6 +238,7 @@ SdlHost::SdlHost(SDL_GPUDevice* device) : device_(device) {
     ImGui::CreateContext();
     ImGui::GetIO().IniFilename = nullptr;  // (the windows' layout is the program's, not saved)
     if (!gTimerEvent) gTimerEvent = SDL_RegisterEvents(1);
+    if (!gGestureEvent) gGestureEvent = SDL_RegisterEvents(1);
 }
 
 SdlHost::~SdlHost() {
@@ -362,6 +372,7 @@ void SdlHost::snapshotInput(draw::View& root, int w, int h, const std::vector<SD
         else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_UP) e.button.windowID = id;
         else if (e.type == SDL_EVENT_MOUSE_WHEEL) e.wheel.windowID = id;
         else if (e.type == SDL_EVENT_PINCH_BEGIN || e.type == SDL_EVENT_PINCH_UPDATE || e.type == SDL_EVENT_PINCH_END) e.pinch.windowID = id;
+        else if (gGestureEvent && e.type == gGestureEvent) e.user.windowID = id;
         dispatch(e);
     }
     hover_ = std::move(hover);
@@ -920,10 +931,22 @@ void SdlHost::dispatch(const SDL_Event& e) {
         // trackpad's natural scroll down, moves the content down). macOS and Wayland give a precise scroll in tenths of
         // its points; the others in notches (a notch: 48 px at 100 %, Windows' three lines).
         const char* driver = SDL_GetCurrentVideoDriver();
-        const bool tenths = driver && (std::strcmp(driver, "cocoa") == 0 || std::strcmp(driver, "wayland") == 0);
+        const bool cocoa = macScrollTest_ || (driver && std::strcmp(driver, "cocoa") == 0);
+        const bool tenths = cocoa || (driver && std::strcmp(driver, "wayland") == 0);
         const float unit = tenths ? 10.0f * w->density : float(kit::px(48));
         m.panX = -e.wheel.x * unit, m.panY = e.wheel.y * unit;
         m.precise = preciseScroll(e.wheel);
+        // A scroll that goes on (its fingers moved on, or its momentum) goes to where it began, as macOS latches it.
+        if (scrollContinues_ && scrollContinues_() && latchWin_ == wid) m.pt = latchPt_;
+        else if (scrollContinues_) latchWin_ = wid, latchPt_ = m.pt, exactRestX_ = exactRestY_ = 0;  // (a new scroll)
+        // macOS's trackpad (and its momentum): the lists move by the system's own distance, in whole pixels (the
+        // fractions add up to the next event's).
+        m.exact = cocoa && m.precise;
+        if (m.exact) {
+            exactRestX_ += m.panX, exactRestY_ += m.panY;
+            m.panX = std::trunc(exactRestX_), m.panY = std::trunc(exactRestY_);
+            exactRestX_ -= m.panX, exactRestY_ -= m.panY;
+        }
         m.mods = modsOf(SDL_GetModState());
         w->router->mouse(m);
         return;
@@ -988,8 +1011,34 @@ void SdlHost::dispatch(const SDL_Event& e) {
         return;
     }
     default:
+        if (gGestureEvent && e.type == gGestureEvent) {  // (pushGesture: macOS's smart zoom and three-finger swipe)
+            Win* w = findWin(wid);
+            if (!w) return;
+            if (hover_) hover_(*w->root, {}, {}, true);
+            MouseEvent m;
+            m.kind = MouseKind(e.user.code);
+            m.pt = w->mouse;  // (a trackpad's gesture is at the mouse)
+            m.swipe = int(reinterpret_cast<intptr_t>(e.user.data1));
+            m.mods = modsOf(SDL_GetModState());
+            w->router->mouse(m);
+        }
         return;
     }
+}
+
+SDL_Event SdlHost::gestureEvent(draw::MouseKind kind, int swipe, SDL_WindowID window) {
+    if (!gGestureEvent) gGestureEvent = SDL_RegisterEvents(1);
+    SDL_Event e{};
+    e.type = gGestureEvent;
+    e.user.code = Sint32(kind);
+    e.user.data1 = reinterpret_cast<void*>(intptr_t(swipe));
+    e.user.windowID = window;
+    return e;
+}
+
+void SdlHost::pushGesture(draw::MouseKind kind, int swipe, SDL_WindowID window) {
+    SDL_Event e = gestureEvent(kind, swipe, window);
+    SDL_PushEvent(&e);
 }
 
 // --- draw::Host ---------------------------------------------------------------------------------------------------

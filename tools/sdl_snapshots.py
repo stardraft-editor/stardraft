@@ -47,6 +47,10 @@ CASES += [
     # Scale 2 (a Retina display of macOS, or 200 % on Windows): the small text (the rail's labels, captions, table
     # headers) is two thirds of the UI text, as at scale 1.
     ("start-scale2", ["--scale", "2", "--size", "3200x2000"], ""),
+    # A trackpad's scroll as macOS gives it (--wheel ...:precise:mac: in tenths of points, on any system): the start page
+    # moves by its exact distance (3 tenths of 10 points: 30 px), not by notches; the momentum after the fingers lift
+    # comes as more such events.
+    ("start-trackpad-scroll", ["--noinstall", "--size", "1000x500", "--wheel", "500,300,0,-3:precise:mac"], ""),
 ]
 CASES += [("ws-" + w, ["--workspace", w], "") for w in WORKSPACES]
 CASES += [
@@ -264,6 +268,14 @@ CASES += [
     ("map-trackpad-pan", ["--wheel", "700,500,1,-1.5:precise"], "map"),
     ("map-trackpad-ctrl-zoom", ["--wheel", "700,500,0,8:precise:Ctrl"], "map"),
     ("map-pinch", ["--pinch", "700,500,1.5"], "map"),
+    # macOS's smart zoom (a double tap with two fingers; --smartzoom feeds the event that mac_input.mm gives): in two
+    # times at the mouse, then back to the zoom before.
+    ("map-smartzoom", ["--smartzoom", "700,500", "--smartzoom", "700,500"], "map"),
+    # Swipes between the tabs (a new project gives the second tab): three fingers to the right (the tab before: the
+    # map's) and to the left (the next: the project's), as macOS's monitor gives them (--swipe); then two fingers to
+    # the right on the tabs' strip (a scroll as macOS gives it), the map's tab again.
+    ("map-swipe", ["--newproject", "{newdir}", "--swipe", "800,500,right", "--swipe", "800,500,left",
+                   "--wheel", "100,83,-8,0:precise:mac"], "map"),
 ]
 # The workspaces' edits with the mouse and the keys (the Windows self-test's steps off the map). --type types text into
 # the view with the focus; --wait ms lets the program's timers run. A dialog or pop-out that an input opened (a list
@@ -687,13 +699,79 @@ def check_banner(shown, note, data):
 
 
 def check_scale2(output):
-    """None when at scale 2 the UI text is 30 px and the small text (the rail's labels) two thirds of it (20 px)."""
+    """None when at scale 2 the UI text is 30 px and the small text (the rail's labels) two thirds of it (20 px), and
+    the icons are sharp: a 16 px icon from the 32 px atlas, the Start page's card icons from the 64 px atlas."""
     m = re.search(r"text (\d+) px, small text (\d+) px, titles (\d+) px", output)
     if not m:
         return "no text sizes line"
     ui, small, title = map(int, m.groups())
     if (ui, small, title) != (30, 20, 36):
         return f"text {ui} px, small {small} px, titles {title} px; not 30, 20 and 36"
+    return check_icons(32, 32, 64, 64)(output)
+
+
+def check_icons(icon, icon_cell, card, card_cell):
+    """A check of the line of the icons' sizes: a 16 px icon and the Start page's 32 px card icon (each at the scale)
+    from atlas cells of their own size (sharp, not scaled)."""
+    def check(output):
+        m = re.search(r"icons (\d+) px from the (\d+) px atlas, card icons (\d+) px from the (\d+) px atlas", output)
+        if not m:
+            return "no icons line"
+        got = tuple(map(int, m.groups()))
+        if got != (icon, icon_cell, card, card_cell):
+            return f"icons {got}, not {(icon, icon_cell, card, card_cell)}"
+        return None
+    return check
+
+
+def check_fonts(output):
+    """On macOS the UI text is SF Pro (SFNS.ttf), drawn as macOS draws text; elsewhere it is Noto Sans, as before."""
+    m = re.search(r"^stardraft_editor: fonts (.*), scale", output, re.M)
+    if not m:
+        return "no fonts line"
+    fonts = m.group(1)
+    if sys.platform == "darwin":
+        if not fonts.startswith("SFNS") or "rasterizer: macOS" not in fonts:
+            return f"the UI font is not SF Pro with macOS's rasterizer settings: {fonts}"
+    elif "SFNS" in fonts or "rasterizer" in fonts:
+        return f"SF Pro or macOS's rasterizer on another system: {fonts}"
+    return None
+
+
+def check_start(output):
+    """The start page at scale 1: Noto Sans or SF Pro (check_fonts), and the icons at their sizes."""
+    return check_fonts(output) or check_icons(16, 16, 32, 32)(output)
+
+
+def check_trackpad_scroll(output):
+    """None when macOS's trackpad scroll moved the start page by its exact distance (30 px), not by notches."""
+    m = re.search(r"^wheel 500,300,0,-3:precise:mac: scroll (\S+) -> (\S+)\r?$", output, re.M)
+    if not m:
+        return "no scroll line"
+    if m.groups() != ("0", "30"):
+        return f"the start page scrolled {m.group(1)} -> {m.group(2)}, not 0 -> 30"
+    return None
+
+
+def check_smartzoom(output):
+    """None when the first smart zoom zoomed in two times at the mouse, and the second gave the zoom before."""
+    lines = re.findall(r"^smartzoom 700,500: at map .*\r?$", output, re.M)
+    if len(lines) != 2:
+        return f"{len(lines)} smart zoom lines, not 2"
+    first = check_zoom_at("smartzoom 700,500", 2)(lines[0])
+    if first:
+        return "the first: " + first
+    (_, (cx0, cy0, z0), _), (_, _, (cx1, cy1, z1)) = camera(lines[0], "smartzoom 700,500"), camera(lines[1], "smartzoom 700,500")
+    if abs(z1 - z0) > 1e-4 or abs(cx1 - cx0) > 0.5 or abs(cy1 - cy0) > 0.5:
+        return f"the second did not give the camera before ({cx0},{cy0} zoom {z0} -> {cx1},{cy1} zoom {z1})"
+    return None
+
+
+def check_swipe(output):
+    """None when the swipes went to the map's tab, to the project's, then (two fingers on the strip) to the map's."""
+    got = re.findall(r"^(?:swipe|wheel) [^:]*(?::precise:mac)?: .*: Switched to .* \((map|project)\)\r?$", output, re.M)
+    if got != ["map", "project", "map"]:
+        return f"the tabs after the swipes: {got}, not map, project, map"
     return None
 
 
@@ -754,7 +832,8 @@ CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-clic
           "start-noinstall-pick": check_banner(False, "none", True), "start-scale2": check_scale2,
           "map-wheel-zoom": check_zoom_at("wheel 700,500,0,1", 1.2), "map-trackpad-pan": check_trackpad_pan,
           "map-trackpad-ctrl-zoom": check_zoom_at("wheel 700,500,0,8:precise:Ctrl", 1.44),
-          "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5)}
+          "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5), "start": check_start,
+          "start-trackpad-scroll": check_trackpad_scroll, "map-smartzoom": check_smartzoom, "map-swipe": check_swipe}
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 

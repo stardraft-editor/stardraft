@@ -456,7 +456,7 @@ bool FilesPage::mouse(const draw::MouseEvent& e) {
         return false;
     }
     case MouseKind::Wheel:
-        setScroll(scroll_ - int(std::lround(e.wheel * scale(26) * 3)));  // three rows a notch
+        setScroll(scroll_ - int(std::lround(draw::wheelDistance(e, float(scale(26) * 3)))));  // three rows a notch
         return true;
     case MouseKind::Down: {
         setPointer(e.pt);
