@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """The SDL program's real window (not a snapshot): the window test (--wintest, apps/editor/sdl_window_test.inc).
 
-usage: python3 -I tools/sdl_window_test.py --exe <stardraft> --map <map> --map2 <second map> [--install <folder>]
+usage: python3 -I tools/sdl_window_test.py --exe <stardraft> [--map <map> --map2 <second map>] [--install <folder>]
+                                            [--fullscreen]
 
 The program opens <map> in a real window that never takes the focus or comes to the front (--noactivate), and
 checks: the swapchain presents, the title, the icon, the title bar in the theme, a resize, a display of 150 %,
@@ -9,7 +10,10 @@ minimize and restore (nothing is painted while minimized), a dialog's title and 
 gives <map2> to the first through the single-instance pipe (a test pipe of its own) and ends. Each check prints a line;
 a "(WRONG)" line or an exit code other than 0 fails. The settings are in a new temporary folder (STARDRAFT_SETTINGS,
 APPDATA, LOCALAPPDATA), so the user's settings, recent files and file types stay as they are. Needs a desktop (not
-SDL_VIDEODRIVER=offscreen); on Windows only, the title bar, icon and pipe checks run.
+SDL_VIDEODRIVER=offscreen); on Windows only, the title bar, icon and pipe checks run. With no --map (no game data, as
+on GitHub's machines) the start page is in the window and the map's checks do not run; with no --map2, no second
+program. --fullscreen: also full screen on and off (macOS: a space of its own; only on a computer that no user works
+on, as GitHub's). The display (on macOS a Retina display's pixel density) is on the "display:" line.
 """
 import argparse
 import os
@@ -21,8 +25,9 @@ import tempfile
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--exe", required=True, help="the SDL program")
-    ap.add_argument("--map", required=True, help="the map that the first program opens")
-    ap.add_argument("--map2", required=True, help="the map that the second program gives to the first")
+    ap.add_argument("--map", help="the map that the first program opens (none: the start page)")
+    ap.add_argument("--map2", default="-", help="the map that the second program gives to the first (none: no second program)")
+    ap.add_argument("--fullscreen", action="store_true", help="also full screen on and off")
     ap.add_argument("--install", help="a StarCraft: Remastered install (else the program's search)")
     ap.add_argument("--timeout", type=int, default=120, help="seconds (default 120)")
     ap.add_argument("args", nargs="*", help="more options for the program (--theme light, --scale 1.5)")
@@ -34,7 +39,8 @@ def main():
     for name, sub in (("STARDRAFT_SETTINGS", "settings"), ("APPDATA", "appdata"), ("LOCALAPPDATA", "localappdata")):
         env[name] = os.path.join(folder, sub)
         os.makedirs(env[name])
-    cmd = [os.path.abspath(a.exe), a.map, "--wintest", a.map2] + (["--install", a.install] if a.install else []) + a.args
+    cmd = [os.path.abspath(a.exe)] + ([a.map] if a.map else []) + ["--wintest", a.map2] + (["--install", a.install] if a.install else [])
+    cmd += (["--wintest-fullscreen"] if a.fullscreen else []) + a.args
     print(" ".join(cmd), flush=True)
     try:
         run = subprocess.run(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=a.timeout)

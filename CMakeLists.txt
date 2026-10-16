@@ -268,7 +268,7 @@ if(WIN32)
     add_library(stardraft_platform STATIC apps/common/http_win32.cpp apps/common/dialogs_win32.cpp apps/common/crash_win32.cpp apps/common/crash_report.cpp apps/common/update_win32.cpp apps/common/install_win32.cpp apps/common/file_types_win32.cpp)
     target_link_libraries(stardraft_platform PUBLIC stardraft winhttp comdlg32 ole32 dbghelp advapi32 shell32)
 else()
-    add_library(stardraft_platform STATIC apps/common/http_curl.cpp apps/common/crash_report.cpp apps/common/update_posix.cpp)
+    add_library(stardraft_platform STATIC apps/common/http_curl.cpp apps/common/crash_report.cpp apps/common/crash_posix.cpp apps/common/update_posix.cpp)
     target_link_libraries(stardraft_platform PUBLIC stardraft)
 endif()
 if(UNIX AND NOT APPLE)  # Linux and the BSDs: the XDG folders, the desktop portal, notifications, recently used files

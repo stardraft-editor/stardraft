@@ -375,17 +375,7 @@ void showKitGallerySdl() {
 // The system and its version for the feedback's file ("Linux 6.6.87", "macOS 15.1", "Windows 10.0.26200"), as the
 // Windows program writes it.
 std::string sdlSystemName() {
-#ifdef _WIN32
-    return stardraft::platform::systemName();  // (apps/common/crash_win32.cpp: the crash reports' too)
-#else
-    std::string name = SDL_GetPlatform();
-#ifndef __APPLE__
-    std::ifstream in("/proc/sys/kernel/osrelease");
-    std::string release;
-    if (std::getline(in, release) && !release.empty()) name += " " + release;
-#endif
-    return name;
-#endif
+    return stardraft::platform::systemName();  // (apps/common/crash_win32.cpp, crash_posix.cpp: the crash reports' too)
 }
 
 // The feedback dialog's part of the program: Send writes the file and sends it (core/feedback_send.inc), the links.
