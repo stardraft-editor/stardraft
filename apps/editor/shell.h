@@ -66,6 +66,9 @@ void shellUpdateTabs(stardraft::draw::View& v);
 void shellForgetAnims();
 // Posts a WM_COMMAND with the command id to the main window (it runs after the current message).
 void shellPostCommand(int id);
+// A map file opened in a tab (File > Open, a drop, Finder): on macOS the system learns of it (its picture for Quick
+// Look, its name and description for Spotlight: mac_dist.h); elsewhere nothing.
+void shellMapOpened(const std::wstring& path);
 // The map view takes the keyboard focus.
 void shellFocusView();
 // The panel tabs' right-click menu: a grayed title line, then Left and Right (the side is checked). Returns 1 (Left),

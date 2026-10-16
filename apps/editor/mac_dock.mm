@@ -1,11 +1,11 @@
 // The Dock, Finder and the Settings window on macOS (mac_dock.h). Built without ARC (CMake's default for .mm files).
 
 #import <Cocoa/Cocoa.h>
-#include <objc/runtime.h>
 
 #include <cmath>
 #include <sstream>
 
+#include "mac_app_delegate.h"
 #include "mac_dock.h"
 
 namespace {
@@ -136,22 +136,10 @@ NSMenu* makeDockMenu(const std::vector<MacDockItem>& items, NSArray<NSURL*>* sys
     return menu;
 }
 
-NSMenu* dockMenu(id self, SEL cmd, NSApplication* app) {
-    (void)self, (void)cmd, (void)app;
+// The application delegate's applicationDockMenu: (mac_app_delegate.mm adds it to SDL's delegate).
+NSMenu* dockMenu() {
     const std::vector<MacDockItem> items = gDockItems ? gDockItems() : std::vector<MacDockItem>();
     return makeDockMenu(items, [[NSDocumentController sharedDocumentController] recentDocumentURLs]);
-}
-
-// applicationDockMenu: on the application's delegate (SDL's SDLAppDelegate has none: the method is added to its class).
-bool installDockMenu() {
-    id delegate = [NSApp delegate];
-    if (!delegate) return false;
-    Class c = object_getClass(delegate);
-    const SEL sel = @selector(applicationDockMenu:);
-    if (class_addMethod(c, sel, (IMP)dockMenu, "@@:@")) return true;
-    Method m = class_getInstanceMethod(c, sel);  // (it has one: ours takes its place)
-    if (m) method_setImplementation(m, (IMP)dockMenu);
-    return m != nullptr;
 }
 
 void showProgress(bool on) {
@@ -182,7 +170,7 @@ void endBuild(int errors, bool attention) {
 void macDockSetup(std::function<std::vector<MacDockItem>()> items, std::function<void(const std::string& path)> open) {
     @autoreleasepool {
         gDockItems = std::move(items), gDockOpen = std::move(open);
-        installDockMenu();
+        macDelegateDockMenu(dockMenu);
         static bool observing = false;
         if (!observing) {
             observing = true;

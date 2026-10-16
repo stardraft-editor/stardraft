@@ -2034,6 +2034,7 @@ constexpr UiText kRows[] = {
     {L"Folders", L"\u6587\u4EF6\u5939"},
     {L"Did not import ", L"\u672A\u5BFC\u5165 "},
     {L": the Assets workspace imports only sounds (WAV, OGG)", L": \u7D20\u6750\u5DE5\u4F5C\u533A\u53EA\u5BFC\u5165\u58F0\u97F3\uFF08WAV\u3001OGG\uFF09"},
+    {L"StarCraft map", L"StarCraft \u5730\u56FE"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

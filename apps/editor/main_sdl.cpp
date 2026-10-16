@@ -28,6 +28,8 @@
 #endif
 #include "mac_window.h"  // macOS's document window and look (mac_window.mm; elsewhere its functions do nothing)
 #include "mac_dock.h"  // the Dock, Finder and the Settings window (mac_dock.mm; on Windows and Linux they do nothing)
+#include "mac_dist.h"  // macOS: Quick Look's tile colors, the maps in Spotlight, --check bundle (mac_dist.mm; elsewhere nothing)
+#include "map_preview.h"  // apps/quicklook: a map's picture without a GPU (sdl_dist.inc: --check preview)
 
 #include <algorithm>
 #include <atomic>
@@ -155,6 +157,7 @@ bool gNoBoxes = false;
 #include "sdl_dock.inc"  // the Dock and Finder (macOS), the sounds dropped in the Assets workspace
 #include "shell_sdl.inc"
 #include "sdl_cursor_check.inc"  // --cursors: the window's cursors at some points, as text (a snapshot run)
+#include "sdl_dist.inc"  // what a map that opens gives the system (macOS: Quick Look, Spotlight), and --check
 #include "shell_sdl_win.inc"  // the Windows parts: the crash handler, the map files, one program for all maps
 
 namespace {
@@ -314,9 +317,9 @@ int main(int argc, char** argv) {
     bool midPanArg = false;  // --midpan: Options > Middle mouse click and hold (Pan map, Drag map), as text after the snapshot
     bool cursorsArg = false;  // --cursors: the cursors at some points, as text after the snapshot (sdl_cursor_check.inc)
     // --check <name> (one or more times): checks as text after the snapshot. Each part of the program looks only for
-    // its own names (hasCheck) and prints its lines; a name that no part knows prints nothing (the snapshot's case
-    // then fails). menus: the menu bar's items and keys (sdl_native_menus.inc); window: what the window and the look
-    // are (sdl_window.inc); dock: the Dock and Finder parts (sdl_dock.inc).
+    // its own names (hasCheck) and prints its lines; a name that no part knows prints a WRONG line. menus: the menu
+    // bar's items and keys (sdl_native_menus.inc); window: what the window and the look are (sdl_window.inc); dock: the
+    // Dock and Finder parts (sdl_dock.inc); bundle, spotlight, preview:<dir>: what a map gives the system (sdl_dist.inc).
     std::vector<std::string> checkArgs;
     auto hasCheck = [&checkArgs](const char* name) { return std::find(checkArgs.begin(), checkArgs.end(), name) != checkArgs.end(); };
     // --key, --type, --click, --drag, --move, --wait: keys pressed, text typed, left clicks and drags and moves of the
@@ -402,6 +405,12 @@ int main(int argc, char** argv) {
     SDL_SetHint(SDL_HINT_MAC_SCROLL_MOMENTUM, "1");  // a trackpad's scroll goes on after the fingers lift (its momentum), as in macOS's own programs
 #endif
     if (!SDL_Init(SDL_INIT_VIDEO)) return std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()), 1;
+#ifdef __APPLE__
+    // A map that the user opens from Spotlight while StarDraft is not running comes during the launch: the handler goes
+    // on SDL's application delegate now (SDL_Init made it), before the first events. (The work waits for the window:
+    // shellPost; not while a dialog or a sheet waits, as the Dock's and Finder's files: sdlUiWaits.)
+    if (snapshot.empty()) macHandleSpotlightOpens([](const std::string& path) { shellPost([path] { if (!sdlUiWaits()) dropFile(path); }); });
+#endif
 
     // The device first (the renderer makes it with its shader formats), then the host on it.
     render::Renderer renderer;
@@ -549,6 +558,15 @@ int main(int argc, char** argv) {
         if (logArg) gLogPane.setExpanded(true);
         if (!gDataOk) setMessage(widen(gDataError));
         std::printf("stardraft_editor: GPU %s, %s\n", renderer.driver(), gDataOk ? "game data" : gDataError.c_str());
+        // --check: one list for all the checks. Each part of the program takes its own values (false: not its value);
+        // a value that no part takes is WRONG. (A new check: one more "||" here, not one more --check option.) The
+        // window's, the menu bar's and the Dock's lines come after the snapshot (hasCheck).
+        for (const std::string& c : checkArgs) {
+            std::string out;
+            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock";
+            if (!(sdlDistCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
+            std::printf("%s", out.c_str());
+        }
 
         if (!snapshot.empty()) {
             // A map's dialog (--dialog unitprops|locprops|prompt|quick, sdl_map_dialogs.inc) is the picture at its own size.
