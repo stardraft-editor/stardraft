@@ -3,7 +3,8 @@
 // system: on Windows and Linux they do nothing (the bodies below), so the callers need no #ifdef.
 //
 // - The Dock icon's menu (applicationDockMenu: of the application's delegate, SDL's, which has none) lists the recent
-//   maps and projects; a click on one opens it (`open`). The maps that Finder opens with the program, and those that
+//   maps and projects; a click on one opens it (`open`). A file that is in the system's recent documents
+//   (NSDocumentController: the Dock lists them below) is not in it again. The maps that Finder opens with the program, and those that
 //   are dropped on the Dock icon, are SDL's application:openFile: (an SDL_EVENT_DROP_FILE, as a drop on the window).
 // - While Build runs, the Dock icon shows a bar that moves; when the build ends with errors, the icon has a badge with
 //   their number and, when the program is not the active one, it jumps once. The badge goes when the program becomes
@@ -21,6 +22,7 @@
 struct MacDockItem {
     std::string title, path;
     bool project = false;  // the projects come after the maps, below a line
+    bool enabled = true;   // false while a dialog waits for an answer: the item shows but cannot be clicked
 };
 // A tab of the Settings window: its toolbar label and its icon (an SF Symbols name).
 struct MacSettingsTab {
