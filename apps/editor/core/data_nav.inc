@@ -305,6 +305,13 @@ DataPicture dataArgPicture(const char* kind, int v) {
     if (k == "buttons") return v >= 0 && v < 228 ? DataPicture{DataPicture::Unit, v} : DataPicture{};
     return datHasIcons(k) ? dataRefPicture(k, uint32_t(v)) : DataPicture{};
 }
+void dataGoTo(const std::string& dat, int e);  // (the program's: the entry in its tab)
+// The open button of a value's pick box: goes to entry `v` of `kind` (a .dat, "buttons" or "strings"); null: none.
+std::function<void()> openEntry(const char* kind, int v) {
+    if (!kind) return nullptr;
+    const std::string k = kind;
+    return [k, v] { dataGoTo(k, v); };
+}
 // A list row's picture: the Strings tab has none; a button set has its unit's.
 DataPicture dataTabEntryPicture(int tab, int e) {
     if (tab == stringsTab()) return {};
