@@ -90,6 +90,8 @@ CASES += [
     # The game text pop-out (its colors, Preview and Raw) of the Data form's Rename and of a button's tooltip.
     ("project-textpop-rename", ["--workspace", "data", "--data", "units:0", "--textpop", "rename"], "project"),
     ("project-textpop-tooltip", ["--workspace", "data", "--data", "buttons:0", "--textpop", "tooltip"], "project"),
+    # A pick box's open button (go to the value's entry): the requirements' values of Stim Packs (the form's end).
+    ("project-data-open", ["--workspace", "data", "--data", "techdata:0:99999"], "project"),
     # Keys pressed in the window (--key): Select all and Copy of the doodads (the status bar says how many); Ctrl+2,
     # the rail's second item (Map data in a classic map, as on Windows).
     ("map-key-copy", ["--mode", "doodads", "--key", "Ctrl+A", "--key", "Ctrl+C"], "map"),

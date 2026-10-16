@@ -57,6 +57,12 @@ using TextTranslator = bool (*)(std::wstring_view text, std::wstring& translated
 void setTextTranslator(TextTranslator translator);
 // The text as the screen shows it: `t`, or its translation (kept in `buf`).
 std::wstring_view uiText(std::wstring_view t, std::wstring& buf);
+// The icons of the glyphs (the program's table: kitpaint::glyphIcon): a text that is one such character is drawn as
+// that UI icon (an atlas cell, at the atlas size for the font's size), and measured as it, on every system. The other
+// characters of the private use area (U+E000 to U+F8FF) that the font does not have are not drawn (no missing-glyph
+// box). Null (the default): no icons.
+using GlyphIcons = int (*)(wchar_t glyph);
+void setGlyphIcons(GlyphIcons icons);
 
 class ImguiCanvas final : public draw::Canvas {
 public:
