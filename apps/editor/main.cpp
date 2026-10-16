@@ -1302,7 +1302,7 @@ void commandBody(int id) {
         else if (gWorkspace == Workspace::Data && !redo && gDataMapEdits > 0 && open)  // the Players section's edits: the map's undo
             --gDataMapEdits, app.ed->undo(), dataFormRepaint();
         else if (gWorkspace == Workspace::Data) dataUndo(redo);
-        else if (open) redo ? app.ed->redo() : app.ed->undo(), app.terrainRev = 0, rebuildList(), repaintSoundViews();
+        else if (open) redo ? app.ed->redo() : app.ed->undo(), dropGoneItems(app), app.terrainRev = 0, rebuildList(), repaintSoundViews();
         break;
     }
     case ID_OPT_UPDATECHECK:

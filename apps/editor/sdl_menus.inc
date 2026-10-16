@@ -406,6 +406,7 @@ void sdlRightClickShot(const std::string& spec, draw::View* in, const std::wstri
 }
 
 void sdlInputLine(const std::string& what);
+void sdlStateLine();
 
 void sdlPressKey(const std::string& chord) {
     const auto c = stardraft::parseShortcut(chord);
@@ -428,14 +429,73 @@ void sdlInputLine(const std::string& what) {
         first = " (the first at " + std::to_string(units[size_t(sel[0])].x) + "," + std::to_string(units[size_t(sel[0])].y) + ")";
     std::printf("%s: %zu units, %zu doodads, %zu selected%s: %s\n", what.c_str(), units.size(), gState.ed->doodads().size(), sel.size(),
                 first.c_str(), narrow(gState.message).c_str());
+    sdlStateLine();
+}
+
+// The second line after an input: the rest of the map's state that the self-test's log reads, as name=value (a value
+// with spaces in quotes; "-" where there is none): the mode, the placement's player, the first selected unit's owner,
+// the last unit's owner, the palette's pick, the sprites, the selected doodads and the first one's place, the locations and the selected one,
+// the paste (units: how many of the ghost's units are red), the terrain (a hash of its tiles, the tile under the
+// mouse, the terrain selection) and the tabs.
+void sdlStateLine() {
+    const AppState& app = gState;
+    Editor& ed = *app.ed;
+    auto quoted = [](const std::string& s) { return "\"" + s + "\""; };
+    auto box = [](const Rect& r) { return std::to_string(r.left) + "," + std::to_string(r.top) + "," + std::to_string(r.right) + "," + std::to_string(r.bottom); };
+    std::string s = "  state: mode=" + narrow(kModeNames[int(app.mode)]) + " player=" + std::to_string(app.playerOwner + 1);
+    const auto& sel = ed.selection();
+    s += " owner=" + (!sel.empty() && size_t(sel[0]) < ed.units().size() ? std::to_string(int(ed.units()[size_t(sel[0])].owner) + 1) : std::string("-"));
+    s += " lastowner=" + (!ed.units().empty() ? std::to_string(int(ed.units().back().owner) + 1) : std::string("-"));
+    s += " palette=" + std::to_string(app.palette) + " tool=" + std::to_string(currentTool());
+    s += " sprites=" + std::to_string(ed.sprites().size()) + " spritesel=" + std::to_string(app.selSprites.size());
+    s += " doodadsel=" + std::to_string(app.selDoodads.size()) + " doodad=";
+    if (!app.selDoodads.empty() && app.selDoodads[0] >= 0 && size_t(app.selDoodads[0]) < ed.doodads().size()) {
+        const Doodad& d = ed.doodads()[size_t(app.selDoodads[0])];
+        s += std::to_string(d.x) + "," + std::to_string(d.y);
+    } else s += "-";
+    int used = 0;
+    for (int i = 0; i < ed.locationCount(); ++i) used += ed.locationUsed(i);
+    const int loc = ed.selectedLocation();
+    s += " locations=" + std::to_string(used) + " location=";
+    s += loc >= 0 && ed.locationUsed(loc) ? std::to_string(loc) + ":" + box(ed.locationRect(loc)) + " name=" + quoted(ed.locationName(loc)) : "- name=-";
+    float wx = 0, wy = 0;
+    toWorld(app.mouseX, app.mouseY, wx, wy);
+    s += " paste=";
+    if (app.pasting && ed.canPaste()) {
+        int red = 0;
+        const auto ghost = unitPasteGhost(wx, wy);
+        for (const PasteGhostUnit& g : ghost) red += g.red;
+        s += "units:" + std::to_string(ghost.size()) + ":" + std::to_string(red) + "red";
+    } else if (app.terrainPasting) s += "terrain";
+    else if (app.pastingItems) s += "items";
+    else s += "none";
+    if (app.mode == Mode::Doodads && app.palette >= 0)  // the picked doodad's ghost at the mouse: green where a click places it
+        if (const DoodadType* d = ed.doodadTypes().find(uint16_t(app.palette))) {
+            int tx = 0, ty = 0;
+            ed.doodadOrigin(*d, int(wx), int(wy), tx, ty);
+            s += doodadFits(ed.chk(), *d, tx, ty, app.doodadCheck) && !ed.doodadOverlaps(*d, tx, ty) ? " ghost=fits" : " ghost=red";
+        }
+    std::uint32_t hash = 2166136261u;  // FNV-1a of the tiles
+    for (uint16_t t : ed.terrain().tiles) hash = (hash ^ (t & 0xFF)) * 16777619u, hash = (hash ^ (t >> 8)) * 16777619u;
+    char hex[16];
+    std::snprintf(hex, sizeof hex, "%08x", hash);
+    const int tx = int(wx) / 32, ty = int(wy) / 32;
+    const bool onMap = wx >= 0 && wy >= 0 && tx < ed.width() && ty < ed.height();
+    s += std::string(" terrain=") + hex + " tile=" + (onMap ? std::to_string(ed.terrain().tiles[size_t(ty) * ed.width() + size_t(tx)]) : std::string("-"));
+    s += " tsel=" + (app.hasTerrainSel ? box(app.terrainSel) : std::string("-"));
+    s += " tabs=" + std::to_string(gActive + 1) + "/" + std::to_string(gDocs.size()) + " page=" + std::to_string(activePage()) +
+         " tab=" + quoted(narrow(docTitle(gActive, false)));
+    std::printf("%s\n", s.c_str());
 }
 
 // --click x,y[:mods] and --drag x0,y0-x1,y1[:mods] in a snapshot (main_sdl.cpp): the left button as a user's mouse
 // gives it, in the window's pixels: the mouse comes to the first point, the button goes down, (a drag: the mouse moves
 // to the second point in steps, the button held), the button goes up. The events go the host's way for a window's
 // (SdlHost::snapshotInput), with the modifier keys held (Shift, Ctrl, Alt, joined with +; Ctrl is Cmd on macOS).
-void sdlMouseShot(const std::string& spec, bool drag, int width, int height) {
-    const std::string name = drag ? "drag " : "click ";
+// --move x,y: only the mouse comes to the point (no button): a paste's copy follows it there. `kind`: 'c', 'd' or 'm'.
+void sdlMouseShot(const std::string& spec, char kind, int width, int height) {
+    const bool drag = kind == 'd', moveOnly = kind == 'm';
+    const std::string name = drag ? "drag " : moveOnly ? "move " : "click ";
     const size_t colon = spec.find(':');
     const std::string at = spec.substr(0, colon), mods = colon == std::string::npos ? "" : spec.substr(colon + 1);
     int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
@@ -472,11 +532,13 @@ void sdlMouseShot(const std::string& spec, bool drag, int width, int height) {
         events.push_back(e);
     };
     move(float(x0), float(y0), false);
-    button(true, float(x0), float(y0));
-    if (drag)
-        for (int i = 1; i <= 10; ++i)
-            move(float(x0) + float(x1 - x0) * float(i) / 10, float(y0) + float(y1 - y0) * float(i) / 10, true);
-    button(false, float(x1), float(y1));
+    if (!moveOnly) {
+        button(true, float(x0), float(y0));
+        if (drag)
+            for (int i = 1; i <= 10; ++i)
+                move(float(x0) + float(x1 - x0) * float(i) / 10, float(y0) + float(y1 - y0) * float(i) / 10, true);
+        button(false, float(x1), float(y1));
+    }
     const SDL_Keymod before = SDL_GetModState();
     SDL_SetModState(held);
     gHost->snapshotInput(*gRoot, width, height, events);
@@ -658,6 +720,7 @@ void commandSdl(int id) {
         if (gState.ed && gState.ed->isOpen()) {
             if (id == ID_EDIT_REDO) gState.ed->redo();
             else gState.ed->undo();
+            dropGoneItems(gState);
             gState.terrainRev = 0;
             rebuildList(gState);
             gState.dirty = true;

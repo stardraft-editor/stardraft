@@ -240,6 +240,30 @@ std::vector<std::pair<int, uint16_t>> ghostTiles;  // doodad preview tiles, set 
 void syncMapUnitGraphics();
 void rangesScene(render::Scene& s, float dx = 0, float dy = 0);
 void tilesScene(render::Scene& s, float wx, float wy);
+
+// The units' paste ghost with the mouse at (wx, wy) in the map: each copied unit where a click puts it, and red when it
+// does not fit there (the units before it in the copy count as placed).
+struct PasteGhostUnit {
+    Unit unit;
+    bool red = false;
+};
+std::vector<PasteGhostUnit> unitPasteGhost(float wx, float wy) {
+    const AppState& app = appState();
+    Editor& ed = *app.ed;
+    std::vector<PasteGhostUnit> out;
+    std::vector<Unit> placed = ed.units();
+    float pwx = wx, pwy = wy;
+    snapUnitPoint(pwx, pwy);
+    for (Unit u : ed.clipboard()) {
+        u.x = uint16_t(std::clamp(int(pwx) + int16_t(u.x), 0, ed.width() * 32 - 1));
+        u.y = uint16_t(std::clamp(int(pwy) + int16_t(u.y), 0, ed.height() * 32 - 1));
+        if (u.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[u.type], u.x, u.y);
+        out.push_back({u, !app.allowIllegalUnits && !placementOk(ed.placementContext(&placed), u)});
+        placed.push_back(u);
+    }
+    return out;
+}
+
 render::Scene buildScene() {
     AppState& app = shellState();
     syncMapUnitGraphics();  // before the animations: they hold the images of the unit types
@@ -414,17 +438,9 @@ render::Scene buildScene() {
     if (!app.mouseIn) return s;
     if (app.pasting && ed.canPaste()) {
         // Ghost of the clipboard at the cursor; red where a unit could not be placed as is.
-        std::vector<Unit> placed = units;
-        float pwx = wx, pwy = wy;
-        snapUnitPoint(pwx, pwy);
-        for (Unit u : ed.clipboard()) {
-            u.x = uint16_t(std::clamp(int(pwx) + int16_t(u.x), 0, ed.width() * 32 - 1));
-            u.y = uint16_t(std::clamp(int(pwy) + int16_t(u.y), 0, ed.height() * 32 - 1));
-            if (u.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[u.type], u.x, u.y);
-            bool red = !app.allowIllegalUnits && !placementOk(ed.placementContext(&placed), u);
-            addUnitSprites(s, u, 0, 0, 0.7f, red);
-            outline(s, ed.unitBox(u), red ? 0xFF4040C0u : 0x40FF40C0u);
-            placed.push_back(u);
+        for (const PasteGhostUnit& g : unitPasteGhost(wx, wy)) {
+            addUnitSprites(s, g.unit, 0, 0, 0.7f, g.red);
+            outline(s, ed.unitBox(g.unit), g.red ? 0xFF4040C0u : 0x40FF40C0u);
         }
         return s;
     }
