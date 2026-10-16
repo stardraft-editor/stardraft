@@ -2017,6 +2017,16 @@ constexpr UiText kRows[] = {
     {L"Could not find StarCraft on your system.", L"\u5728\u60A8\u7684\u7CFB\u7EDF\u4E0A\u627E\u4E0D\u5230 StarCraft\u3002"},
     {L"That folder has no StarCraft game data.", L"\u8BE5\u6587\u4EF6\u5939\u4E2D\u6CA1\u6709 StarCraft \u6E38\u620F\u6570\u636E\u3002"},
     {L"Select the StarCraft folder", L"\u9009\u62E9 StarCraft \u6587\u4EF6\u5939"},
+    {L"Services", L"\u670D\u52A1"},
+    {L"Hide StarDraft 2", L"\u9690\u85CF StarDraft 2"},
+    {L"Hide others", L"\u9690\u85CF\u5176\u4ED6"},
+    {L"Show all", L"\u5168\u90E8\u663E\u793A"},
+    {L"Quit StarDraft 2", L"\u9000\u51FA StarDraft 2"},
+    {L"Window", L"\u7A97\u53E3"},
+    {L"Minimize", L"\u6700\u5C0F\u5316"},
+    {L"Zoom", L"\u7F29\u653E"},
+    {L"Next tab", L"\u4E0B\u4E00\u4E2A\u6807\u7B7E\u9875"},
+    {L"Bring all to front", L"\u524D\u7F6E\u5168\u90E8\u7A97\u53E3"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

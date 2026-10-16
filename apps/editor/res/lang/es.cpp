@@ -2017,6 +2017,16 @@ constexpr UiText kRows[] = {
     {L"Could not find StarCraft on your system.", L"No se encontr\u00F3 StarCraft en su sistema."},
     {L"That folder has no StarCraft game data.", L"Esa carpeta no tiene datos del juego de StarCraft."},
     {L"Select the StarCraft folder", L"Seleccione la carpeta de StarCraft"},
+    {L"Services", L"Servicios"},
+    {L"Hide StarDraft 2", L"Ocultar StarDraft 2"},
+    {L"Hide others", L"Ocultar otros"},
+    {L"Show all", L"Mostrar todo"},
+    {L"Quit StarDraft 2", L"Salir de StarDraft 2"},
+    {L"Window", L"Ventana"},
+    {L"Minimize", L"Minimizar"},
+    {L"Zoom", L"Ampliar"},
+    {L"Next tab", L"Pesta\u00F1a siguiente"},
+    {L"Bring all to front", L"Traer todo al frente"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

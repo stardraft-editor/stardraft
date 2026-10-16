@@ -2017,6 +2017,16 @@ constexpr UiText kRows[] = {
     {L"Could not find StarCraft on your system.", L"\uC2DC\uC2A4\uD15C\uC5D0\uC11C StarCraft\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."},
     {L"That folder has no StarCraft game data.", L"\uC774 \uD3F4\uB354\uC5D0\uB294 StarCraft \uAC8C\uC784 \uB370\uC774\uD130\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4."},
     {L"Select the StarCraft folder", L"StarCraft \uD3F4\uB354 \uC120\uD0DD"},
+    {L"Services", L"\uC11C\uBE44\uC2A4"},
+    {L"Hide StarDraft 2", L"StarDraft 2 \uAC00\uB9AC\uAE30"},
+    {L"Hide others", L"\uAE30\uD0C0 \uAC00\uB9AC\uAE30"},
+    {L"Show all", L"\uBAA8\uB450 \uBCF4\uAE30"},
+    {L"Quit StarDraft 2", L"StarDraft 2 \uC885\uB8CC"},
+    {L"Window", L"\uC708\uB3C4\uC6B0"},
+    {L"Minimize", L"\uCD5C\uC18C\uD654"},
+    {L"Zoom", L"\uD655\uB300/\uCD95\uC18C"},
+    {L"Next tab", L"\uB2E4\uC74C \uD0ED"},
+    {L"Bring all to front", L"\uBAA8\uB450 \uC55E\uC73C\uB85C \uAC00\uC838\uC624\uAE30"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

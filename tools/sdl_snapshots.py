@@ -156,6 +156,10 @@ CASES += [("map-cursors", ["--mode", "units", "--cursors"], "map")]
 # Options > Middle mouse click and hold: --midpan writes to the .txt whether Pan map moves the map toward the mouse while
 # the button is held and Drag map makes it follow the mouse ("(WRONG)" when not).
 CASES += [("map-midpan", ["--midpan"], "map")]
+# The menu bar (a system menu is not in a picture): --check menus writes its items and keys to the .txt (lines
+# "menubar: File > Save [cmd+S]"). On macOS it is the system's menu bar (the application menu, the program's menus,
+# the Window menu; Cmd keys), and the window has no menu bar of its own (the picture); elsewhere the window's.
+CASES += [("start-menubar", ["--check", "menus"], "")]
 # A new project that is not saved yet (core/documents.inc: newUntitledProject), as the Win32 program's screenshot run
 # starts; its folder goes after the picture.
 CASES += [("untitled-project", ["--untitled", "--workspace", "project"], "data")]
@@ -737,6 +741,47 @@ def check_trackpad_pan(output):
     return None
 
 
+def check_menubar(output):
+    """None when --check menus printed the menu bar of this system: macOS the system's (the application menu, the
+    Window menu, the Cmd keys, the Mac symbols in tooltips), elsewhere the window's (the Ctrl keys)."""
+    lines = [l[len("menubar: "):] for l in output.splitlines() if l.startswith("menubar: ")]
+    tips = [l[len("tip: "):] for l in output.splitlines() if l.startswith("tip: ")]
+    if not lines or not tips:
+        return "no menubar or tip lines"
+    tops = ["File", "Edit", "View", "Mode", "Scenario", "Options", "Help"]
+    if sys.platform == "darwin":
+        if not lines[0].startswith("the system's"):
+            return f"not the system's menu bar: {lines[0]}"
+        tops = ["StarDraft 2"] + tops + ["Window"]
+        need = ["StarDraft 2 > About StarDraft 2", "StarDraft 2 > Program options… [cmd+,]", "StarDraft 2 > Services",
+                "StarDraft 2 > Hide StarDraft 2 [cmd+H]", "StarDraft 2 > Hide others [option+cmd+H]",
+                "StarDraft 2 > Show all", "StarDraft 2 > Quit StarDraft 2 [cmd+Q]", "File > Open… [cmd+O]",
+                "File > Save [cmd+S]", "File > Save as… [shift+cmd+S]", "File > Close [cmd+W]", "File > Recent maps > None",
+                "Edit > Undo [cmd+Z]", "Edit > Redo [shift+cmd+Z]", "Edit > Delete [cmd+Backspace]",
+                "Window > Minimize [cmd+M]", "Window > Zoom", "Window > Next tab [cmd+`]", "Window > Bring all to front"]
+        never = ["File > Exit", "Options > Program options", "Help > About", "Scenario > Map properties (title, size, tileset) [cmd+M"]
+        tip = "Zoom in (⌘+); ⇧⌘S; ⌘-click; ⌥-drag; Del"
+    else:
+        if not lines[0].startswith("the window's (shown)"):
+            return f"not the window's menu bar: {lines[0]}"
+        need = ["File > Save [Ctrl+S]", "File > Save as… [Ctrl+Shift+S]", "File > Exit", "Edit > Undo [Ctrl+Z]",
+                "Edit > Redo [Ctrl+Y]", "Edit > Delete [Del]", "Scenario > Map properties (title, size, tileset) [Ctrl+M]"]
+        never = ["Window > "]
+        tip = "Zoom in (Ctrl+Plus); Ctrl+Shift+S; Ctrl+click; Alt+drag; Del"
+    for t in tops:
+        if t not in lines:
+            return f"no menu {t}"
+    for n in need:
+        if not any(l == n or l.startswith(n + " (") for l in lines):
+            return f"no item {n}"
+    for n in never:
+        if any(l.startswith(n) for l in lines):
+            return f"an item {n}, which should not be there"
+    if tips[0] != tip:
+        return f"the tooltip's keys are {tips[0]!r}, not {tip!r}"
+    return None
+
+
 # Checks of a case's output (after the PNG's): a function that returns None, or what is wrong.
 CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
           "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
@@ -754,7 +799,7 @@ CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-clic
           "start-noinstall-pick": check_banner(False, "none", True), "start-scale2": check_scale2,
           "map-wheel-zoom": check_zoom_at("wheel 700,500,0,1", 1.2), "map-trackpad-pan": check_trackpad_pan,
           "map-trackpad-ctrl-zoom": check_zoom_at("wheel 700,500,0,8:precise:Ctrl", 1.44),
-          "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5)}
+          "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5), "start-menubar": check_menubar}
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 

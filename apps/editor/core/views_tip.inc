@@ -4,6 +4,9 @@
 // Tooltip window (Host::openWindow: no title, never active, the pop-ups' rounded corners and quiet border). The Windows
 // host is tip_win32.inc (the delays, the place under the mouse).
 
+// The shortcuts in a text as this system shows them (the shell's: on macOS the Mac symbols, "⇧⌘S" for Ctrl+Shift+S).
+std::wstring shellKeysText(const std::wstring& s);
+
 class TipView final : public draw::View {
 public:
     std::wstring text;
@@ -91,7 +94,7 @@ private:
         open();
     }
     void open() {
-        view_.text = text_;
+        view_.text = shellKeysText(text_);  // (macOS: the Mac symbols of the shortcuts)
         draw::Point size{};
         if (draw::Canvas* c = shellMeasureCanvas()) size = view_.measure(*c);
         else size = {std::min(int(text_.size()) * scale(7), scale(TipView::kMaxTextW)) + 2 * scale(TipView::kMarginX) + TipView::kExtraW,

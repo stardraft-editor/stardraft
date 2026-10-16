@@ -20,7 +20,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #ifdef __APPLE__
-#include "mac_app_menu.h"  // the application menu's About and Program options (mac_app_menu.mm)
+#include "mac_app_menu.h"  // the trackpad's scrolls (mac_app_menu.mm)
 #endif
 
 #include <algorithm>
@@ -129,6 +129,7 @@ bool gNoBoxes = false;
 #include "sdl_main_view.inc"
 #include "sdl_pending.inc"
 #include "sdl_menus.inc"
+#include "sdl_native_menus.inc"  // macOS: the menu bar and the context menus are the system's (mac_menus.mm)
 #include "sdl_popshot.inc"  // a value's pop-out in a snapshot (--trigpop, --classictrig with a value)
 #include "sdl_files.inc"  // the Files workspace's page and its sounds (core/views_files.inc)
 #include "sdl_start.inc"  // the start page (core/views_start.inc)
@@ -302,6 +303,7 @@ int main(int argc, char** argv) {
     bool untitledArg = false;  // --untitled: a new unsaved project (as the Win32 program's screenshot run starts with), for a snapshot
     bool midPanArg = false;  // --midpan: Options > Middle mouse click and hold (Pan map, Drag map), as text after the snapshot
     bool cursorsArg = false;  // --cursors: the cursors at some points, as text after the snapshot (sdl_cursor_check.inc)
+    std::string checkArg;  // --check menus: the menu bar's items and keys as text after the snapshot (sdl_native_menus.inc)
     // --key, --type, --click, --drag, --move, --wait: keys pressed, text typed, left clicks and drags and moves of the
     // mouse before the snapshot, in their order (sdl_menus.inc: sdlShotInputNext): the option's letter (k, t, c, d, m,
     // w) and its value.
@@ -357,6 +359,7 @@ int main(int argc, char** argv) {
         else if (a == "--untitled") untitledArg = true;  // a new project that is not saved yet (core/documents.inc), for a snapshot
         else if (a == "--midpan") midPanArg = true;  // the middle button's pan and drag of the map as text, after the snapshot
         else if (a == "--cursors") cursorsArg = true;  // the map view's and a text field's cursors as text, after the snapshot
+        else if (a == "--check") checkArg = next();  // menus: the menu bar's items and keys as text (macOS: the system's menu bar), after the snapshot
         else if (a == "--key") inputArgs.emplace_back('k', next());  // a key (Ctrl+A, 5, Ctrl+2: Ctrl is Cmd on macOS) pressed in the window, for a snapshot
         else if (a == "--click") inputArgs.emplace_back('c', next());  // x,y[:mods]: a left click there (window pixels; mods Shift+Ctrl+Alt), for a snapshot
         else if (a == "--drag") inputArgs.emplace_back('d', next());  // x0,y0-x1,y1[:mods]: a left drag from the first point to the second, for a snapshot
@@ -449,6 +452,10 @@ int main(int argc, char** argv) {
         initStartPage();  // the start page's callbacks (sdl_start.inc)
         MainView root;
         gRoot = &root;
+        // The menus show the shortcuts as this system does (macOS: the Mac symbols). macOS: the menu bar is the
+        // system's (in a snapshot only for --check menus) and so are the context menus (a run with a window).
+        kit::Menu::setShortcutText([](const std::wstring& s) { return shortcutText(s); });
+        if (snapshot.empty() || checkArg == "menus") sdlUseNativeMenus(snapshot.empty());
         rebuildMenus();
         host.setQuitRequest(requestQuit);  // the window's close and the system's quit ask about unsaved changes first
         // Files dropped on the window, and on macOS the maps that Finder opens with StarDraft: as the Windows program's
@@ -585,7 +592,7 @@ int main(int argc, char** argv) {
                 width = sz.x, height = sz.y;
             } else if (dialogArg == "tip") {
                 shown = &tipShot;
-                tipShot.text = L"Zoom in (Ctrl+Plus): the map shows larger; the tooltip wraps a text this long at 360 px";
+                tipShot.text = shellKeysText(L"Zoom in (Ctrl+Plus): the map shows larger; the tooltip wraps a text this long at 360 px");  // (macOS: the Mac symbols)
                 const draw::Point sz = tipShot.measure(kit_sdl::measuringCanvas());
                 width = sz.x, height = sz.y;
             }
@@ -650,6 +657,8 @@ int main(int argc, char** argv) {
                             gStartView.installNote.empty() ? "none" : narrow(gStartView.installNote).c_str(), gDataOk ? "open" : "not open");
             if (midPanArg) sdlMidPanCheck();  // (after the picture: it moves the camera)
             if (cursorsArg) sdlCursorChecks();  // (after the picture: it changes the mode and the camera)
+            if (checkArg == "menus") sdlMenuCheck();
+            else if (!checkArg.empty()) std::printf("--check %s: not menus (WRONG)\n", checkArg.c_str());
             if (untitledArg) {  // (the project's folder goes: a snapshot leaves nothing)
                 const EudProject* pr = activeProject();
                 std::printf("untitled: an unsaved project %s (%s)\n", isUnsavedProject(pr) ? "yes" : "(WRONG)", pr ? narrow(pr->folder().filename().wstring()).c_str() : "none");
@@ -662,10 +671,7 @@ int main(int argc, char** argv) {
             if (!host.show(root, L"StarDraft", width, height)) return std::fprintf(stderr, "could not open a window\n"), 1;
             updateTitle();  // (the window exists now: its title is the open map's)
             if (!sizeArg) fitMainWindow(width, height);
-#ifdef __APPLE__
-            macSetupAppMenu(narrow(accessFree(shellTr(L"&About StarDraft 2"))), narrow(accessFree(shellTr(L"&Program options\x2026"))),
-                            [] { shellPostCommand(ID_HELP_ABOUT); }, [] { shellPostCommand(ID_OPT_WINDOW); });
-#endif
+            sdlNativeMenusReset(), rebuildMenus();  // (macOS: the system's menu bar in place of SDL's, now that the window is there)
             sdlWindowsShown(testRun);  // (Windows: the dark title bar, an earlier crash's report, the file types)
             if (!testRun) sdlUpdatesAtStart();  // (a release build: a newer release says so in the status bar)
             sendPendingFeedback();  // feedback that could not go before (core/feedback_send.inc)
