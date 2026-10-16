@@ -135,6 +135,15 @@ inline bool installable(const fs::path& self, const Release& r) {
     return releaseBuild() && a == b && !r.zip.empty();
 }
 
+// Unpacks a release's archive into `dir` (made if it is not there): the new program, or empty with the reason in `why`.
+inline fs::path unpackRelease(const fs::path& archive, const fs::path& dir, std::wstring& why) {
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    const fs::path fresh = dir / releaseProgramName();
+    if (!stardraft::platform::unpackArchive(archive, dir) || !fs::exists(fresh, ec)) return why = L"Could not unpack the download.", fs::path();
+    return fresh;
+}
+
 // Downloads the release's archive into `dir` (made empty first) and unpacks it there: the new program, or empty with
 // the reason in `why`.
 inline fs::path downloadRelease(const Release& r, const fs::path& dir, std::wstring& why) {
@@ -143,9 +152,7 @@ inline fs::path downloadRelease(const Release& r, const fs::path& dir, std::wstr
     fs::create_directories(dir, ec);
     const fs::path zip = dir / "update.zip";
     if (!get(r.zip, nullptr, &zip, "application/octet-stream")) return why = L"The download did not complete.", fs::path();
-    const fs::path fresh = dir / releaseProgramName();
-    if (!stardraft::platform::unpackArchive(zip, dir) || !fs::exists(fresh, ec)) return why = L"Could not unpack the download.", fs::path();
-    return fresh;
+    return unpackRelease(zip, dir, why);
 }
 
 // Puts the new program in place of `self`: empty when it is done, else the reason.
@@ -160,6 +167,28 @@ inline std::wstring placeRelease(const fs::path& self, const fs::path& fresh) {
     case Replace::Done: break;
     }
     return {};
+}
+
+// Puts the new program in place of `self` and starts it (`start`): empty when the new program runs (this one then
+// ends), else the reason. A new program that does not start (a damaged download) goes, and the old program is in its
+// place again: this one goes on.
+inline std::wstring installRelease(const fs::path& self, const fs::path& fresh, const std::function<bool(const fs::path&)>& start) {
+    if (const std::wstring failed = placeRelease(self, fresh); !failed.empty()) return failed;
+    if (start(self)) return {};
+    if (stardraft::platform::restoreProgram(self)) return L"The new program did not start. StarDraft 2 did not change.";
+    return tr(L"The new program did not start. The old program is ") + stardraft::platform::oldProgramFile(self).wstring() + L".";
+}
+
+// The arguments of the new program after an update: it waits until this program ended (--restart, as Restart now
+// does), then the old program's file goes (removeOldProgram).
+inline std::vector<std::string> restartArguments(std::uint32_t pid) { return {"--restart", std::to_string(pid)}; }
+
+// At start: the program file of an earlier update (stardraft.exe.old) goes; true when there is none now.
+inline bool removeOldProgram(const fs::path& self) {
+    std::error_code ec;
+    const fs::path old = stardraft::platform::oldProgramFile(self);
+    fs::remove(old, ec);
+    return !fs::exists(old, ec);
 }
 
 // Program options > Look for updates on start: the status bar's text after a change.

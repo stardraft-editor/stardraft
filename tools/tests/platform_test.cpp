@@ -61,7 +61,14 @@ int main(int argc, char** argv) {
     check(replaceProgram(program, dir / "unpacked" / "stardraft.exe") == Replace::Done && read(program) == "new program" &&
               read(oldProgramFile(program)) == "old program",
           "the new program takes the old one's place; the old one is kept beside it");
-    check(replaceProgram(program, dir / "no such file") == Replace::NewNotPlaced && read(program) == "new program",
+#ifdef _WIN32
+    check(!startProgram(program, {"--restart", "1"}), "a file that is not a program (a damaged download) does not start");
+#endif
+    // The new program did not start: it goes, and the old one is in its place again.
+    check(restoreProgram(program) && read(program) == "old program" && !fs::exists(oldProgramFile(program), ec),
+          "a new program that did not start: the old one is in its place again");
+    check(!restoreProgram(program) && read(program) == "old program", "no old program to put back: the program stays");
+    check(replaceProgram(program, dir / "no such file") == Replace::NewNotPlaced && read(program) == "old program",
           "a new program that is not there: the program stays as it was");
 
     // A crash report's title: the place, without the address read (it differs each time).

@@ -14,7 +14,9 @@ one that needs a project, only with --project. The others run everywhere (CI has
 
 To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (its argument loop in main()). In a
 case's options, {map}, {project}, {install} (the --install folder), {root} (the repository), {out} (the --out folder),
-{newdir} (a new empty folder in --out) and {wav} (a short sound that the script writes in --out) are paths. A run also fails when its output has "(WRONG)", or when the
+{newdir} (a new empty folder in --out), {wav} (a short sound that the script writes in --out), {oldsettings} (the
+settings file of an older release) and {legacyhive} (Windows: a registry file with the settings of the releases before
+the settings file) are paths. A run also fails when its output has "(WRONG)", or when the
 case's function in CHECKS finds a problem in its output.
 """
 
@@ -353,6 +355,16 @@ CASES += [
     ("map-briefing-add", ["--workspace", "briefing", "--click", "543,166", "--type", "Text message", "--key", "Enter",
                           "--key", "Ctrl+Z"], "map"),
 ]
+
+# An update from an older release keeps the user's settings (--check settings: the values this run read). --settings
+# gives the settings file of the last Win32 release, 0.5.0.8 ({oldsettings}: as its code wrote it); on Windows,
+# --legacyhive gives the registry of the releases before the settings file, 0.5.0.7 and older ({legacyhive}: a registry
+# file of its own, never the user's registry). --check update: the old program's file and the list of files to open
+# again are gone; crashes and filetypes: the crash reports' state and the file types (read only).
+CASES += [("update-settings", ["--settings", "{oldsettings}", "--check", "settings", "--check", "update"], ""),
+          ("update-checks", ["--check", "crashes", "--check", "filetypes", "--check", "update"], "")]
+if sys.platform == "win32":
+    CASES += [("update-registry", ["--settings", "{out}/no-settings.json", "--legacyhive", "{legacyhive}", "--check", "settings"], "")]
 
 
 def check_undo(output):
@@ -1083,6 +1095,61 @@ def check_spotlight(output):
     return None
 
 
+def check_settings_read(expected):
+    """None when each expected "settings: ..." line is in the output (--check settings)."""
+    def check(output):
+        lines = set(line.rstrip() for line in output.splitlines())
+        missing = [e for e in expected if e not in lines]
+        return "not read: " + "; ".join(missing) if missing else None
+    return check
+
+
+# The settings file of 0.5.0.8 that write_old_settings writes: the lines of --check settings (and the working folder).
+OLD_SETTINGS_LINES = ["settings: language es", "settings: theme light, accent Red", "settings: Quality 1", "settings: Carbot 1",
+                      "settings: ShowGrid 1", "settings: AllowStacking 1", "settings: UnitGrid 16", "settings: BrushShape 1",
+                      "settings: LayerDoodads 0", "settings: PaletteViews 12345",
+                      "settings: layout minimap right hidden; Terrain right, Units left, Doodads right, Locations right, Sprites right",
+                      "settings: layout widths 411 248 333, log 294, grid 48x16+3+5, trigger zoom 90, volume 40, unit names 1, code pane yes, "
+                      "script preview yes",
+                      "settings: recent map C:\\Maps\\(2)Bottleneck.scm", "settings: recent map /home/user/maps/Ice \uc5bc\uc74c.scx",
+                      "settings: recent project C:\\StarDraft\\AshenCrown", "settings: unit limits 2000 1500",
+                      "settings: open the last project yes, look for updates no, crash reports 2, middle button drags yes, asked about maps yes",
+                      "settings: data pins units 0,7,37"]
+
+
+def check_update_settings(output):
+    """None when the settings of 0.5.0.8 were read, and the update left nothing behind."""
+    problem = check_settings_read(OLD_SETTINGS_LINES)(output)
+    if problem:
+        return problem
+    if not re.search(r"^settings: working folder .+[\\/]projects\s*$", output, re.M):  # (the --out folder's projects)
+        return "not read: the working folder"
+    if not re.search(r"^update: .*gone \(yes\), .*gone \(yes\)", output, re.M):
+        return "no update line"
+    return None
+
+
+def check_update_checks(output):
+    """None when the crash reports, the file types and the update each printed their lines."""
+    for prefix in ("crashes: ", "filetypes: ", "update: "):
+        if not re.search("^" + re.escape(prefix), output, re.M):
+            return "no " + prefix.strip() + " lines"
+    return None
+
+
+# The registry of 0.5.0.7 that write_legacy_hive writes: the lines of --check settings.
+LEGACY_LINES = ["settings: language ko", "settings: theme light, accent Green", "settings: Quality 0", "settings: ShowGrid 1",
+                "settings: BrushShape 1", "settings: PaletteViews 777", "settings: layout minimap right; Terrain left, Units left, Doodads left, "
+                "Locations left, Sprites left",
+                "settings: layout widths 350 280 300, log 220, grid 64x32+0+0, trigger zoom 150, volume 25, unit names 2, code pane no, "
+                "script preview no",
+                "settings: recent map C:\\Maps\\(2)Bottleneck.scm", "settings: recent map C:\\Maps\\Ice \uc5bc\uc74c.scx",
+                "settings: recent project C:\\StarDraft\\AshenCrown", "settings: working folder C:\\StarDraft Projects",
+                "settings: unit limits 2500 1200",
+                "settings: open the last project yes, look for updates no, crash reports 1, middle button drags yes, asked about maps yes",
+                "settings: data pins units 5,6", "settings: data pins weapons 1"]
+
+
 # Checks of a case's output (after the PNG's): a function that returns None, or what is wrong.
 CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
           "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
@@ -1110,7 +1177,9 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "start-trackpad-scroll": check_trackpad_scroll, "map-smartzoom": check_smartzoom, "map-swipe": check_swipe,
           "drop-sound-assets": check_drop("Imported 1 sounds"), "drop-image-assets": check_drop("Did not import atlas-16.png"),
           "check-dock": check_dock, "map-check-desktop": check_desktop, "dialog-options-tab-general": check_options_tab, "dialog-options-tab-map": check_options_tab,
-          "dialog-options-tab-start": check_options_tab, "dialog-options-tab-folders": check_options_tab}
+          "dialog-options-tab-start": check_options_tab, "dialog-options-tab-folders": check_options_tab,
+          "update-settings": check_update_settings, "update-checks": check_update_checks,
+          "update-registry": check_settings_read(LEGACY_LINES)}
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -1124,6 +1193,51 @@ def write_wav(path):
         w.setsampwidth(2)
         w.setframerate(22050)
         w.writeframes(b"".join(struct.pack("<h", int(8000 * math.sin(2 * math.pi * 440 * i / 22050))) for i in range(2205)))
+
+
+def write_old_settings(path, out):
+    """The settings file of StarDraft 0.5.0.8, the last Win32 release, as its code wrote it ({oldsettings}): values that
+    are not the defaults, so that each one read shows."""
+    import json
+    values = {
+        "Accent": 3, "AskedMapsDefault": 1, "CheckUpdates": 0, "CrashReports": 2, "DataPins/units": "0,7,37", "Language": "es",
+        "Layout/DataListWidth": 333, "Layout/DoodadsRight": 1, "Layout/GridHeight": 16, "Layout/GridWidth": 48, "Layout/GridX": 3,
+        "Layout/GridY": 5, "Layout/LeftWidth": 411, "Layout/LocationsRight": 1, "Layout/LogHeight": 294, "Layout/MinimapHidden": 1,
+        "Layout/MinimapRight": 1, "Layout/RightWidth": 248, "Layout/ScriptPreview": 1, "Layout/SpritesRight": 1, "Layout/TerrainRight": 1,
+        "Layout/TriggerCode": 1, "Layout/TriggerZoom": 90, "Layout/UnitNames": 1, "Layout/UnitsRight": 0, "Layout/Volume": 40,
+        "LightTheme": 1, "MiddleDrag": 1, "OpenLastProject": 1, "ProjectsFolder": os.path.join(out, "projects"),
+        "RecentMaps": ["C:\\Maps\\(2)Bottleneck.scm", "/home/user/maps/Ice \uc5bc\uc74c.scx"], "RecentProjects": ["C:\\StarDraft\\AshenCrown"],
+        "Settings/AllowStacking": 1, "Settings/BrushShape": 1, "Settings/Carbot": 1, "Settings/LayerDoodads": 0,
+        "Settings/PaletteViews": 12345, "Settings/Quality": 1, "Settings/ShowGrid": 1, "Settings/UnitGrid": 16,
+        "UnitLimitClassic": 2000, "UnitLimitEud": 1500}
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(values, f, ensure_ascii=False, indent=2)
+
+
+def write_legacy_hive(path):
+    """A registry file of its own (Windows) with Software\\StarDraft as StarDraft 0.5.0.7 and older kept the settings
+    ({legacyhive}); the user's registry is never opened."""
+    import ctypes
+    import winreg
+    advapi = ctypes.WinDLL("advapi32")
+    key = ctypes.c_void_p()
+    if advapi.RegLoadAppKeyW(ctypes.c_wchar_p(path), ctypes.byref(key), winreg.KEY_ALL_ACCESS, 0, 0) != 0:
+        raise OSError("RegLoadAppKey failed: " + path)
+    values = {"": {"RecentMaps": ["C:\\Maps\\(2)Bottleneck.scm", "C:\\Maps\\Ice \uc5bc\uc74c.scx"], "RecentProjects": ["C:\\StarDraft\\AshenCrown"],
+                   "ProjectsFolder": "C:\\StarDraft Projects", "OpenLastProject": 1, "CheckUpdates": 0, "CrashReports": 1, "MiddleDrag": 1,
+                   "UnitLimitClassic": 2500, "UnitLimitEud": 1200, "Language": "ko", "LightTheme": 1, "Accent": 6, "AskedMapsDefault": 1},
+              "\\Layout": {"MinimapRight": 1, "UnitsRight": 0, "LeftWidth": 350, "Volume": 25, "TriggerZoom": 150, "GridWidth": 64},
+              "\\Settings": {"Quality": 0, "ShowGrid": 1, "PaletteViews": 777, "BrushShape": 1},
+              "\\DataPins": {"units": "5,6", "weapons": "1"}}
+    try:
+        for sub, items in values.items():
+            k = winreg.CreateKeyEx(key.value, "Software\\StarDraft" + sub, 0, winreg.KEY_ALL_ACCESS)
+            for name, v in items.items():
+                kind = winreg.REG_MULTI_SZ if isinstance(v, list) else winreg.REG_SZ if isinstance(v, str) else winreg.REG_DWORD
+                winreg.SetValueEx(k, name, 0, kind, v)
+            winreg.CloseKey(k)
+    finally:
+        advapi.RegCloseKey(key)
 
 
 def png_check(path):
@@ -1196,6 +1310,8 @@ def png_check(path):
 
 
 def main():
+    # (a run's output can have text that the console's code page has no letters for: a Korean path)
+    sys.stdout.reconfigure(errors="backslashreplace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--exe", help="the SDL program (on macOS: stardraft.app/Contents/MacOS/stardraft)")
     ap.add_argument("--out", help="the folder for the PNGs, the output of each run and summary.txt")
@@ -1250,8 +1366,13 @@ def main():
         wav = os.path.join(a.out, "drop-sound.wav")
         if any("{wav}" in x for x in args) and not os.path.exists(wav):
             write_wav(wav)
+        oldsettings, legacyhive = os.path.join(a.out, "old-settings.json"), os.path.join(a.out, "legacy-settings.hive")
+        if any("{oldsettings}" in x for x in args):
+            write_old_settings(oldsettings, a.out)
+        if any("{legacyhive}" in x for x in args):
+            write_legacy_hive(legacyhive)
         args = [x.format(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
-                         wav=wav) for x in args]
+                         wav=wav, oldsettings=oldsettings, legacyhive=legacyhive) for x in args]
         if needs == "map" and not given:
             cmd.append(a.map)
         elif needs == "project" and not given:

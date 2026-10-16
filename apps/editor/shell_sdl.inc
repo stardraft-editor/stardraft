@@ -201,7 +201,13 @@ fs::path homeFolder() {
 // on macOS, $XDG_CONFIG_HOME or ~/.config/StarDraft on Linux (the environment variable STARDRAFT_SETTINGS gives another
 // file, as on Windows).
 void shellSettingsChanged() { saveSettingsTable(); }  // (the menus' options: core/app_settings.inc)
+fs::path gSettingsFileArg;  // --settings <file> (main_sdl.cpp): this run's settings file
+fs::path gLegacyHiveArg;    // --legacyhive <file> (Windows): the registry of the builds before the settings file, for a test
+// A settings file that a test gives (--settings, or STARDRAFT_SETTINGS): then the registry of the Windows builds before
+// the file is not read either (shell_sdl_win.inc: only --legacyhive's), so a test never reads the user's.
+bool shellSettingsFileGiven() { return !gSettingsFileArg.empty() || !envPath("STARDRAFT_SETTINGS").empty(); }
 std::filesystem::path shellSettingsFile() {
+    if (!gSettingsFileArg.empty()) return gSettingsFileArg;
     if (fs::path file = envPath("STARDRAFT_SETTINGS"); !file.empty()) return file;
     fs::path dir;
 #if defined(_WIN32)

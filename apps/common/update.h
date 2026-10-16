@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace stardraft::platform {
 
@@ -24,8 +25,12 @@ bool unpackArchive(const std::filesystem::path& archive, const std::filesystem::
 enum class Replace { Done, OldNotMoved, NewNotPlaced, Broken };
 Replace replaceProgram(const std::filesystem::path& self, const std::filesystem::path& fresh);
 std::filesystem::path oldProgramFile(const std::filesystem::path& self);  // stardraft.exe.old
+// After replaceProgram, when the new program did not start: the new file goes and the old program is at `self` again.
+// False when the old program could not be put back (it stays at oldProgramFile(self)).
+bool restoreProgram(const std::filesystem::path& self);
 
-// Starts a program (its folder the working folder), not waiting for it. False when it did not start.
-bool startProgram(const std::filesystem::path& exe);
+// Starts a program (its folder the working folder) with these arguments, not waiting for it. False when it did not
+// start (Windows: a file that is not a program for this system, such as a damaged download).
+bool startProgram(const std::filesystem::path& exe, const std::vector<std::string>& args = {});
 
 }  // namespace stardraft::platform

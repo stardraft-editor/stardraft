@@ -16,6 +16,7 @@
 // Each part prints only for its own names and says nothing for the others: window (what the window and the look are;
 // macOS: a hidden window of its own), menus (the menu bar), dock (the Dock and Finder parts on macOS).
 // Windows: --send-crash <folder> sends a crash's report (the crashed program starts it); --crash-test crashes on purpose.
+// --update-test <zip> [options]: Check for updates' install with a zip on this computer (sdl_updates.inc), for a test.
 // A map given while the program is open goes to the open program (not in a test run: a snapshot or --silent).
 // The StarCraft install: --install, then STARDRAFT_INSTALL, the folder chosen before, then the usual folders of each
 // system (core/install_search.inc; on Windows Blizzard's registry entries first); when none opens, a banner on the start
@@ -310,6 +311,9 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
+    // --update-test <zip> [options]: the update's install with a zip on this computer (sdl_updates.inc), then the end.
+    if (argc > 2 && std::string(argv[1]) == "--update-test")
+        return sdlUpdateTest(fs::path(widen(argv[2])), std::vector<std::string>(argv + 3, argv + argc));
     std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, themeArg, langArg, trigArg, trigSelArg, briefArg, dropArg;
     int accentArg = -1;
     gSelfPath = argc > 0 ? argv[0] : "";  // (Restart now starts it again, sdl_options.inc)
@@ -322,10 +326,12 @@ int main(int argc, char** argv) {
     bool untitledArg = false;  // --untitled: a new unsaved project (as the Win32 program's screenshot run starts with), for a snapshot
     bool midPanArg = false;  // --midpan: Options > Middle mouse click and hold (Pan map, Drag map), as text after the snapshot
     bool cursorsArg = false;  // --cursors: the cursors at some points, as text after the snapshot (sdl_cursor_check.inc)
+    bool settingsArg = false;  // --settings <file>: a snapshot reads the settings in it (gSettingsFileArg, shell_sdl.inc)
     // --check <name> (one or more times): checks as text after the snapshot. Each part of the program looks only for
     // its own names (hasCheck) and prints its lines; a name that no part knows prints a WRONG line. menus: the menu
     // bar's items and keys (sdl_native_menus.inc); window: what the window and the look are (sdl_window.inc); dock: the
-    // Dock and Finder parts (sdl_dock.inc); bundle, spotlight, preview:<dir>: what a map gives the system (sdl_dist.inc).
+    // Dock and Finder parts (sdl_dock.inc); bundle, spotlight, preview:<dir>: what a map gives the system (sdl_dist.inc);
+    // settings, update, crashes, filetypes: what an update keeps (sdl_updates.inc).
     std::vector<std::string> checkArgs;
     auto hasCheck = [&checkArgs](const char* name) { return std::find(checkArgs.begin(), checkArgs.end(), name) != checkArgs.end(); };
     // --key, --type, --click, --drag, --move, --wait: keys pressed, text typed, left clicks and drags and moves of the
@@ -380,6 +386,8 @@ int main(int argc, char** argv) {
         else if (a == "--lang") langArg = next();  // en, ko, es, ru or zh: the language for this run (not saved), for a snapshot
         else if (a == "--drop") dropArg = next();  // a file dropped on the window (as from Finder on macOS), for a snapshot
         else if (a == "--silent") gSilent = true;
+        else if (a == "--settings") gSettingsFileArg = widen(next()), settingsArg = true;  // a settings file: the run reads it as a start reads the user's (a snapshot saves nothing in it), for a snapshot
+        else if (a == "--legacyhive") gLegacyHiveArg = widen(next());  // Windows: a registry file in place of HKCU for the settings of the builds before the settings file (with --settings), for a snapshot
         else if (a == "--palview") palViewArg = next();  // list, icons, sprites, normal, large (comma separated): the palette's view of the mode, for a snapshot
         else if (a == "--pie") pieArg = true;  // the pie palette (hold Space in Terrain mode) open, the mouse at a slice, for a snapshot
         else if (a == "--restart") restartPid = std::uint32_t(std::strtoul(next().c_str(), nullptr, 10));  // the old program's process id (sdl_options.inc)
@@ -407,6 +415,7 @@ int main(int argc, char** argv) {
     // Windows: a crash's sender ends here, the crash handler goes in, and a map for the open program goes to it.
     if (const int sent = sdlWindowsFirst(argc, argv, testRun); sent >= 0) return sent;
     if (restartPid) restartWaitFor(restartPid);  // (before the pipe: the old program still listens; core/documents.inc)
+    sdlRemoveOldProgram();  // (an update's old program file: sdl_updates.inc)
     if (sdlSendToOpenProgram(mapArg, testRun)) return 0;
 #if defined(STARDRAFT_XDG)
     // The Wayland app id and X11's WM_CLASS: the .desktop file's name, so that the dock and the task bar show the
@@ -496,10 +505,12 @@ int main(int argc, char** argv) {
         if (!pickInstallArg.empty()) installFolderPicked(pickInstallArg);  // (a snapshot: the folder as Browse's dialog gives it)
         // The dock layout (core/dock_prefs.inc), the recent lists, the working folder and the unit limits in the
         // settings, as the Win32 program at its start (snapshots: the defaults).
-        if (!gSilent) loadDock(), loadRecentLists(), loadUnitLimits();
+        // (--settings: a snapshot reads the file's, and still saves nothing)
+        if (!gSilent || settingsArg) loadDock(), loadRecentLists(), loadUnitLimits();
+        gSettingsOff = gSilent && !settingsArg;
+        if (loadSettingsTable()) shellRendererGraphics(gState.quality, gState.carbot);  // the menus' options (core/app_settings.inc)
         gSettingsOff = gSilent;  // (snapshots and tests: the defaults, and nothing saved)
         cleanUnsavedProjects();  // the unsaved projects' folders of programs that ended (core/documents.inc; not in a test run)
-        if (loadSettingsTable()) shellRendererGraphics(gState.quality, gState.carbot);  // the menus' options (core/app_settings.inc)
         loadLanguageSdl(langArg);  // the language (sdl_options.inc): the canvas translates with it from the first frame
         loadThemeSdl(themeArg, accentArg);  // the theme and the accent in the settings
         if (previewArg) gDock.scriptPreview = true;
@@ -586,7 +597,7 @@ int main(int argc, char** argv) {
         for (const std::string& c : checkArgs) {
             std::string out;
             const bool afterSnapshot = c == "window" || c == "menus" || c == "dock";
-            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
+            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlUpdateCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
             std::printf("%s", out.c_str());
         }
 
