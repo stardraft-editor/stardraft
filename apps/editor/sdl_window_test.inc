@@ -5,10 +5,14 @@
 // Linux and the BSDs: a test socket of its own, sdl_xdg.inc: instanceSocket).
 // --frames N: the program ends after N frames went to the window. --wintest <map>: the checks below, in the window,
 // one after the other; each prints what it saw (a "(WRONG)" line when it is not right), then the program ends (exit
-// code 1 when a check was wrong). Included by main_sdl.cpp before main().
+// code 1 when a check was wrong). <map> is the second program's map (Windows: the single-instance pipe's check); "-":
+// no second program. With no map open (no game data, as on GitHub's machines) the checks of the map's picture do not
+// run. --wintest-fullscreen: also full screen on and off (macOS: a space of its own; only on a computer that no user
+// works on). Included by main_sdl.cpp before main().
 
 long long gFramesArg = 0;      // --frames
-std::string gWinTestMap;       // --wintest: the second program's map (the single-instance pipe's check)
+std::string gWinTestMap;       // --wintest: the second program's map (the single-instance pipe's check), or "-"
+bool gWinTestFull = false;     // --wintest-fullscreen
 int gWinTestWrong = 0, gWinTestChecks = 0;
 
 void winTestLine(bool ok, const std::string& text) {
@@ -64,8 +68,9 @@ struct WinTest {
     int step = 0;
     Uint64 since = 0;
     long long framesAt = 0, missedAt = 0, pumps = 0;
-    int mapW = 0, railW = 0;
-    float camX = 0, camY = 0, zoom = 0;
+    int mapW = 0, railW = 0, fullW = 0, fullH = 0;
+    bool minSeen = false;  // (step 5: the window is minimized now; macOS's animation comes first)
+    float camX = 0, camY = 0, zoom = 0, testScale = 1.5f;
     std::wstring mapPath;
 #ifdef _WIN32
     PROCESS_INFORMATION second{};
@@ -94,10 +99,17 @@ void winTestScaleEvent(SDL_Window* w) {
     SDL_PushEvent(&e);
 }
 
+bool winTestMapOpen() { return gState.ed && gState.ed->isOpen(); }
+
 void winTestLayout(const char* when, SDL_Window* w) {
     int pw = 0, ph = 0;
     SDL_GetWindowSizeInPixels(w, &pw, &ph);
     const bool fits = gRoot->width() == pw && gRoot->height() == ph;
+    if (!winTestMapOpen()) {  // (no map: the start page fills the window)
+        char buf[160];
+        std::snprintf(buf, sizeof buf, "%s: window %dx%d px, root %dx%d (no map open)", when, pw, ph, gRoot->width(), gRoot->height());
+        return winTestLine(fits && pw > 0 && ph > 0, buf);
+    }
     const draw::Point o = gRoot->map.origin();  // (in the window)
     const draw::Rect m(o.x, o.y, o.x + gRoot->map.width(), o.y + gRoot->map.height());
     const bool inside = m.width() > 0 && m.height() > 0 && m.right <= pw && m.bottom <= ph;
@@ -136,12 +148,35 @@ void sdlWinTestPump() {
                       gRenderer ? gRenderer->driver() : "?");
         winTestLine(gHost->presentedFrames() >= 10, buf);
         const std::string title = winTestTitle(w);
-        const std::string mapName = gState.ed ? narrow(gState.ed->path().filename().wstring()) : "";
-        winTestLine(!mapName.empty() && title.find(mapName) != std::string::npos && title.find("StarDraft 2 - v") != std::string::npos,
-                    "title \"" + title + "\"");
-        const int colors = winTestMapColors();
-        winTestLine(colors > 50, "map texture: " + std::to_string(colors) + " colors");
+        if (winTestMapOpen()) {
+            const std::string mapName = narrow(gState.ed->path().filename().wstring());
+            winTestLine(!mapName.empty() && title.find(mapName) != std::string::npos && title.find("StarDraft 2 - v") != std::string::npos,
+                        "title \"" + title + "\"");
+            const int colors = winTestMapColors();
+            winTestLine(colors > 50, "map texture: " + std::to_string(colors) + " colors");
+        } else {
+            winTestLine(title.find("StarDraft 2") != std::string::npos, "title \"" + title + "\" (no map open)");
+        }
         t.mapPath = gState.ed ? gState.ed->path().wstring() : L"";
+        // The display (macOS: a Retina display has the pixel density 2) and the window on it, in points and pixels.
+        {
+            const SDL_DisplayID display = SDL_GetDisplayForWindow(w);
+            SDL_Rect bounds{};
+            SDL_GetDisplayBounds(display, &bounds);
+            const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(display);
+            const char* name = SDL_GetDisplayName(display);
+            int lw = 0, lh = 0, pw = 0, ph = 0;
+            SDL_GetWindowSize(w, &lw, &lh);
+            SDL_GetWindowSizeInPixels(w, &pw, &ph);
+            std::snprintf(buf, sizeof buf, "display: \"%s\", %dx%d points, mode %dx%d at density %.2f, %.0f Hz; content scale %.2f; the window %dx%d points, "
+                          "%dx%d px, pixel density %.2f, display scale %.2f, dpi %d%s", name ? name : "?", bounds.w, bounds.h, mode ? mode->w : 0, mode ? mode->h : 0,
+                          mode ? double(mode->pixel_density) : 0.0, mode ? double(mode->refresh_rate) : 0.0, double(SDL_GetDisplayContentScale(display)), lw, lh,
+                          pw, ph, double(SDL_GetWindowPixelDensity(w)), double(SDL_GetWindowDisplayScale(w)), kit::theme().dpi,
+                          (SDL_GetWindowFlags(w) & SDL_WINDOW_MAXIMIZED) ? ", maximized" : "");
+            const float d = SDL_GetWindowPixelDensity(w);
+            winTestLine(bounds.w > 0 && d > 0 && std::abs(float(pw) - float(lw) * d) <= 1 && kit::theme().dpi == int(std::lround(96 * SDL_GetWindowDisplayScale(w))), buf);
+        }
+        winTestLine(SDL_GetKeyboardFocus() != w, std::string("keyboard focus: ") + (SDL_GetKeyboardFocus() == w ? "the test window has it" : "not the test window's"));
 #ifdef _WIN32
         winTestLine(GetForegroundWindow() != hwnd, std::string("focus: the test window is ") + (GetForegroundWindow() == hwnd ? "in front" : "not in front"));
         const LONG_PTR ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
@@ -177,22 +212,38 @@ void sdlWinTestPump() {
         winTestLayout("after the resize", w);
         std::snprintf(buf, sizeof buf, "resize: %lld frames presented since", gHost->presentedFrames() - t.framesAt);
         winTestLine(gHost->presentedFrames() - t.framesAt >= 5, buf);
-        winTestLine(gRoot->map.width() != t.mapW, "resize: the map view's width " + std::to_string(t.mapW) + " -> " + std::to_string(gRoot->map.width()));
-        // The window moves to a display of 150 % (SDL's event, with the scale that the display gives).
+        if (winTestMapOpen())
+            winTestLine(gRoot->map.width() != t.mapW, "resize: the map view's width " + std::to_string(t.mapW) + " -> " + std::to_string(gRoot->map.width()));
+        else {
+            int pw = 0, ph = 0;
+            SDL_GetWindowSizeInPixels(w, &pw, &ph);
+            // (a small display: the system keeps the window in its free area, the title bar too)
+            SDL_Rect area{};
+            SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(w), &area);
+            const float d = SDL_GetWindowPixelDensity(w) > 0 ? SDL_GetWindowPixelDensity(w) : 1.0f;
+            const bool wide = std::abs(pw - 1100) <= 2 || (pw < 1100 && pw >= int(float(area.w) * d) - 80);
+            const bool high = std::abs(ph - 700) <= 2 || (ph < 700 && ph >= int(float(area.h) * d) - 80);
+            std::snprintf(buf, sizeof buf, "resize: the window is %dx%d px (asked: 1100x700; the display's free area %dx%d points)", pw, ph, area.w, area.h);
+            winTestLine(wide && high, buf);
+        }
+        // The window moves to a display of 50 % more (SDL's event, with the scale that the display gives): 150 % from
+        // a display of 100 %, 250 % from a Retina display (200 %).
         t.mapW = gRoot->map.width(), t.railW = gRoot->rail.width();
+        t.testScale = (SDL_GetWindowDisplayScale(w) > 0 ? SDL_GetWindowDisplayScale(w) : 1.0f) + 0.5f;
         std::printf("wintest: display scale %.2f, dpi %d, text %d px\n", double(SDL_GetWindowDisplayScale(w)), kit::theme().dpi, kit::px(15));
-        kit_sdl::SdlHost::setTestDisplayScale(1.5f);
+        kit_sdl::SdlHost::setTestDisplayScale(t.testScale);
         winTestScaleEvent(w);
         winTestNext();
         return;
     }
-    case 3: {  // at 150 %
+    case 3: {  // at 50 % more
         if (!winTestWaited(300, 5)) return;
-        std::snprintf(buf, sizeof buf, "150 %%: dpi %d, text %d px, icons %d px from the %d px atlas, %lld frames presented", kit::theme().dpi, kit::px(15),
+        const int pct = int(std::lround(t.testScale * 100));
+        std::snprintf(buf, sizeof buf, "%d %%: dpi %d, text %d px, icons %d px from the %d px atlas, %lld frames presented", pct, kit::theme().dpi, kit::px(15),
                       kit::px(16), kit_sdl::iconAtlasCell(0, kit::px(16)), gHost->presentedFrames() - t.framesAt);
-        winTestLine(kit::theme().dpi == 144 && kit::px(15) >= 22, buf);  // (a 24 px icon is the 16 px one, sharp: iconDrawnPx)
-        winTestLayout("150 %", w);
-        std::snprintf(buf, sizeof buf, "150 %%: the rail %d -> %d px wide", t.railW, gRoot->rail.width());
+        winTestLine(kit::theme().dpi == int(std::lround(96 * t.testScale)) && kit::px(15) >= int(15 * t.testScale) - 1, buf);  // (a 24 px icon is the 16 px one, sharp: iconDrawnPx)
+        winTestLayout(pct == 150 ? "150 %" : "50 % more", w);
+        std::snprintf(buf, sizeof buf, "%d %%: the rail %d -> %d px wide", pct, t.railW, gRoot->rail.width());
         winTestLine(gRoot->rail.width() > t.railW, buf);
         kit_sdl::SdlHost::setTestDisplayScale(0);
         winTestScaleEvent(w);
@@ -213,9 +264,17 @@ void sdlWinTestPump() {
         winTestNext();
         return;
     }
-    case 5: {  // minimized
-        if (!winTestWaited(1000, 0)) return;
+    case 5: {  // minimized: from the moment the system says so (macOS: after the animation into the Dock), one second
         const bool minimized = (SDL_GetWindowFlags(w) & SDL_WINDOW_MINIMIZED) != 0;
+        if (!t.minSeen) {
+            if (!minimized && SDL_GetTicks() - t.since < 5000) return;
+            t.minSeen = true;
+            const int step = t.step;
+            winTestNext();  // (the counts start now)
+            t.step = step;
+            return;
+        }
+        if (!winTestWaited(1000, 0)) return;
         std::snprintf(buf, sizeof buf, "minimized: %s, %lld frames presented, %lld turns without a swapchain texture, %lld turns in 1 s",
                       minimized ? "yes" : "no", gHost->presentedFrames() - t.framesAt, gHost->missedFrames() - t.missedAt, t.pumps);
 #ifdef _WIN32
@@ -243,11 +302,17 @@ void sdlWinTestPump() {
             }
             return;
         }
-        const int colors = winTestMapColors();
-        std::snprintf(buf, sizeof buf, "restored: %lld frames presented, the map %s, camera %s, map texture %d colors", gHost->presentedFrames() - t.framesAt,
-                      gState.ed && gState.ed->path().wstring() == t.mapPath ? "the same" : "another",
-                      gState.camX == t.camX && gState.camY == t.camY && gState.zoom == t.zoom ? "the same" : "moved", colors);
-        winTestLine(gState.ed && gState.ed->path().wstring() == t.mapPath && colors > 50 && gState.zoom == t.zoom, buf);
+        if (winTestMapOpen()) {
+            const int colors = winTestMapColors();
+            std::snprintf(buf, sizeof buf, "restored: %lld frames presented, the map %s, camera %s, map texture %d colors", gHost->presentedFrames() - t.framesAt,
+                          gState.ed && gState.ed->path().wstring() == t.mapPath ? "the same" : "another",
+                          gState.camX == t.camX && gState.camY == t.camY && gState.zoom == t.zoom ? "the same" : "moved", colors);
+            winTestLine(gState.ed && gState.ed->path().wstring() == t.mapPath && colors > 50 && gState.zoom == t.zoom, buf);
+        } else {
+            std::snprintf(buf, sizeof buf, "restored: %lld frames presented, minimized %s", gHost->presentedFrames() - t.framesAt,
+                          (SDL_GetWindowFlags(w) & SDL_WINDOW_MINIMIZED) ? "yes" : "no");
+            winTestLine(!(SDL_GetWindowFlags(w) & SDL_WINDOW_MINIMIZED), buf);
+        }
         winTestLayout("restored", w);
         showAboutSdl();  // a dialog window
         winTestNext();
@@ -275,6 +340,7 @@ void sdlWinTestPump() {
 #endif
         if (about) gHost->closeWindow(gAboutView);
 #ifdef _WIN32
+        if (gWinTestMap == "-") return winTestNext();  // (no second program)
         // A second program with a map: it gives the map to this one through the pipe and ends.
         wchar_t self[MAX_PATH];
         GetModuleFileNameW(nullptr, self, MAX_PATH);
@@ -347,6 +413,37 @@ void sdlWinTestPump() {
         const std::string title = winTestTitle(w);
         winTestLine(title.find(narrow(want.filename().wstring())) != std::string::npos, "socket: title \"" + title + "\"");
 #endif
+        winTestNext();
+        return;
+    }
+    case 9: {  // --wintest-fullscreen: full screen on
+        if (!gWinTestFull) return void(t.step = 99);
+        SDL_GetWindowSizeInPixels(w, &t.fullW, &t.fullH);
+        if (!SDL_SetWindowFullscreen(w, true)) winTestLine(false, std::string("full screen: SDL_SetWindowFullscreen: ") + SDL_GetError());
+        winTestNext();
+        return;
+    }
+    case 10:    // full screen: the window has the display's size, and frames go to it
+    case 11: {  // full screen off: the window's size of before
+        const bool on = t.step == 10;
+        const bool flag = (SDL_GetWindowFlags(w) & SDL_WINDOW_FULLSCREEN) != 0;
+        int pw = 0, ph = 0;
+        SDL_GetWindowSizeInPixels(w, &pw, &ph);
+        const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(w));
+        // (off: a window in the display's free area again; SDL gives it the size it last asked for that the system
+        // took, not always the size before)
+        SDL_Rect area{};
+        SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(w), &area);
+        const float d = SDL_GetWindowPixelDensity(w) > 0 ? SDL_GetWindowPixelDensity(w) : 1.0f;
+        const bool sized = on ? mode && pw == int(std::lround(mode->w * mode->pixel_density))
+                              : pw > 0 && ph > 0 && pw <= int(float(area.w) * d) + 1 && ph <= int(float(area.h) * d) + 1;
+        if ((flag != on || !sized || !winTestWaited(500, 5)) && SDL_GetTicks() - t.since < 10000) return;  // (macOS's animation: about a second)
+        std::snprintf(buf, sizeof buf, "full screen %s: flag %s, the window %dx%d px (%s %dx%d; before full screen %dx%d), %lld frames presented, root %dx%d",
+                      on ? "on" : "off", flag ? "yes" : "no", pw, ph, on ? "the display" : "the free area", on && mode ? int(std::lround(mode->w * mode->pixel_density)) : int(float(area.w) * d),
+                      on && mode ? int(std::lround(mode->h * mode->pixel_density)) : int(float(area.h) * d), t.fullW, t.fullH, gHost->presentedFrames() - t.framesAt,
+                      gRoot->width(), gRoot->height());
+        winTestLine(flag == on && sized && gHost->presentedFrames() - t.framesAt >= 5 && gRoot->width() == pw && gRoot->height() == ph, buf);
+        if (on) SDL_SetWindowFullscreen(w, false);
         winTestNext();
         return;
     }

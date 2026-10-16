@@ -2042,6 +2042,7 @@ constexpr UiText kRows[] = {
     {L"Download the new AppImage?", L"\u4E0B\u8F7D\u65B0\u7684 AppImage\uFF1F"},
     {L"&Download", L"\u4E0B\u8F7D(&D)"},
     {L"Update StarDraft 2 in your software center.", L"\u8BF7\u5728\u8F6F\u4EF6\u4E2D\u5FC3\u66F4\u65B0 StarDraft 2\u3002"},
+    {L"Download it? The download opens in the browser.", L"\u8981\u4E0B\u8F7D\u5417\uFF1F\u4E0B\u8F7D\u5C06\u5728\u6D4F\u89C8\u5668\u4E2D\u6253\u5F00\u3002"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

@@ -26,6 +26,8 @@
 #include <SDL3/SDL_main.h>
 #ifdef __APPLE__
 #include "mac_input.h"  // the trackpad's scrolls, smart zoom, swipes and scroll phases (mac_input.mm)
+#include <dlfcn.h>  // (sdl_soak.inc: the memory of the process and of its Metal device)
+#include <mach/mach.h>
 #endif
 #include "mac_window.h"  // macOS's document window and look (mac_window.mm; elsewhere its functions do nothing)
 #include "mac_dock.h"  // the Dock, Finder and the Settings window (mac_dock.mm; on Windows and Linux they do nothing)
@@ -398,6 +400,7 @@ int main(int argc, char** argv) {
         else if (a == "--noactivate") gNoActivate = true;  // a real window that never takes the focus (a test: sdl_window_test.inc)
         else if (a == "--frames") gFramesArg = std::atoll(next().c_str());  // with --noactivate: the program ends after that many frames
         else if (a == "--wintest") gWinTestMap = next(), gNoActivate = true;  // a map: the real window's checks (sdl_window_test.inc)
+        else if (a == "--wintest-fullscreen") gWinTestFull = true;  // with --wintest: full screen on and off too (sdl_window_test.inc)
         else if (a == "--palview") palViewArg = next();  // list, icons, sprites, normal, large (comma separated): the palette's view of the mode, for a snapshot
         else if (a == "--pie") pieArg = true;  // the pie palette (hold Space in Terrain mode) open, the mouse at a slice, for a snapshot
         else if (a == "--restart") restartPid = std::uint32_t(std::strtoul(next().c_str(), nullptr, 10));  // the old program's process id (sdl_options.inc)
@@ -784,7 +787,13 @@ int main(int argc, char** argv) {
             SDL_ReleaseGPUTexture(device, tex);
             gPopShot.frame.reset();  // (before the root view goes)
         } else {
-            if (!host.show(root, L"StarDraft", width, height)) return std::fprintf(stderr, "could not open a window\n"), 1;
+            // The first size is already in the display's free area (fitMainWindow sets the size in points next): macOS
+            // takes a window as large as the free area as zoomed, and SDL keeps that first size as the window's own
+            // (after full screen it came back that large, wider than a small display).
+            int showW = width, showH = height;
+            if (SDL_Rect area{}; !sizeArg && SDL_GetDisplayUsableBounds(SDL_GetPrimaryDisplay(), &area) && area.w > 0 && area.h > 0)
+                showW = std::min(width, area.w * 9 / 10), showH = std::min(height, area.h * 9 / 10);
+            if (!host.show(root, L"StarDraft", showW, showH)) return std::fprintf(stderr, "could not open a window\n"), 1;
             updateTitle();  // (the window exists now: its title is the open map's)
             if (!sizeArg) fitMainWindow(width, height);
             {

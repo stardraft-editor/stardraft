@@ -1,9 +1,11 @@
 // Help > Check for updates, the options Look for updates on start and Crash reports, and the quiet check at start, on
 // this system (the Windows program's update.inc and its commands in main.cpp). The release, the download and the texts
 // are the core's (core/releases.inc); this file asks the user with the core's message box (msgbox::ask). A release build on Windows
-// puts the new stardraft.exe in its own place and starts it; a build that cannot (made here, or a file with another
-// name, such as stardraft-testing.exe, or macOS and Linux for now) opens the release page.
-// The Windows parts (the crash handler, the map files, one program for all maps) are shell_sdl_win.inc's.
+// puts the new stardraft.exe in its own place and starts it; a release build on macOS opens its disk image's download,
+// an AppImage the new AppImage's download, and a Flatpak tells that its package manager updates it; a build that cannot
+// (made here, or a file with another name, such as stardraft-testing.exe) opens the release page.
+// The crash reports (the handler, the question, --check crashes) and the Windows parts (the map files, one program for
+// all maps) are shell_sdl_win.inc's.
 // Included by main_sdl.cpp after sdl_options.inc.
 
 // Options > Crash reports (0 ask after a crash, 1 send, 2 do not send), read at start (the crash handler reads it).
@@ -31,23 +33,12 @@ void updateFailed(const releases::Release& r, const std::wstring& why, const fs:
 
 }  // namespace
 
-bool sdlUpdatesWithPackage();  // (sdl_xdg.inc)
+releases::Packaged sdlPackaged();  // (sdl_xdg.inc)
 std::vector<std::wstring> sdlOpenFiles();  // (sdl_options.inc)
 std::wstring sdlInstallRelease(const fs::path& self, const fs::path& fresh, const std::vector<std::string>& more = {});
 
-// What Check for updates does with the newest release on this system: nothing (up to date), install it (a release
-// build on Windows), open the download of a new AppImage in the browser, tell that the package manager updates it (a
-// Flatpak), or open the release page (a build made here, or no download for this system).
-enum class UpdateWay { UpToDate, Install, OpenDownload, Package, OpenPage };
-UpdateWay sdlUpdateWay(const releases::Release& r) {
-    if (!releases::newer(r)) return UpdateWay::UpToDate;
-#if defined(STARDRAFT_XDG)
-    if (!stardraft::xdg::appImageFile().empty()) return r.download.empty() ? UpdateWay::OpenPage : UpdateWay::OpenDownload;
-    if (stardraft::xdg::inFlatpak()) return UpdateWay::Package;
-#endif
-    if (sdlUpdatesWithPackage() || !releases::installable(stardraft::platform::programFile(), r)) return UpdateWay::OpenPage;
-    return UpdateWay::Install;
-}
+// What Check for updates does with the newest release on this system (releases::updateWay).
+releases::UpdateWay sdlUpdateWay(const releases::Release& r) { return releases::updateWay(stardraft::platform::programFile(), r, sdlPackaged()); }
 
 // Help > Check for updates (and Program options > Check now).
 void sdlCheckForUpdates() {
@@ -59,15 +50,20 @@ void sdlCheckForUpdates() {
         return;
     }
     const std::wstring title = widen(r.title);
+    using releases::UpdateWay;
     const UpdateWay way = sdlUpdateWay(r);
     if (way == UpdateWay::UpToDate) {
         updatesBox(shellTr(L"StarDraft 2 is up to date (") + title + L").", {L"OK"}, msgbox::Icon::Info);
         return;
     }
     const fs::path self = stardraft::platform::programFile();
-    // An AppImage: the new AppImage downloads in the browser (the user puts it in place of the old one).
-    if (way == UpdateWay::OpenDownload) {
-        if (updatesBox(shellTr(L"A newer release is available: ") + title + L".\n\n" + shellTr(L"Download the new AppImage?"),
+    // The browser gets this system's download: an AppImage, the new AppImage (the user puts it in place of the old
+    // one); a release build that cannot put the new program in its place (macOS: the app is in a disk image), its
+    // download.
+    if (way == UpdateWay::Download) {
+        const bool appImage = sdlPackaged() == releases::Packaged::AppImage;
+        if (updatesBox(shellTr(L"A newer release is available: ") + title + L".\n\n" +
+                           shellTr(appImage ? L"Download the new AppImage?" : L"Download it? The download opens in the browser."),
                        {shellTr(L"&Download"), shellTr(L"Cancel")}, msgbox::Icon::Info) == 0)
             SDL_OpenURL(r.download.c_str());
         return;
@@ -79,7 +75,7 @@ void sdlCheckForUpdates() {
         return;
     }
     // A build made here, or no download for this system: the release page, to get it by hand.
-    if (way == UpdateWay::OpenPage) {
+    if (way == UpdateWay::Page) {
         if (updatesBox(shellTr(L"A newer release is available: ") + title + L".\n\n" + shellTr(L"This is not a release build. Open the release page?"),
                        {shellTr(L"&Open the release page"), shellTr(L"Cancel")}, msgbox::Icon::Info) == 0)
             openReleasePage(r);
@@ -201,51 +197,9 @@ bool sdlUpdatesCommand(int id) {
     }
 }
 
-// --- Crash reports (the crash handler is the system's: shell_sdl_win.inc on Windows, sdl_xdg.inc on Linux) -----------
-
-// At start, with Options > Crash reports: Ask: the reports of the last crash in `folder`: send them, always send, or not.
-void sdlAskToSendCrashes(const fs::path& folder) {
-    if (gSdlCrashReports != 0 || issueToken().empty() || !gRoot) return;
-    const auto reports = stardraft::platform::unsentCrashReports(folder);
-    if (reports.empty()) return;
-    const int r = msgbox::ask(*gRoot, shellTr(L"Crash report"), releases::crashAskText(reports.front().parent_path()),
-                              {shellTr(L"&Send"), shellTr(L"&Always send"), shellTr(L"Do &not send")}, msgbox::Icon::Question);
-    if (r == 1) gSdlCrashReports = 1, prefs::setNumber(L"CrashReports", 1);  // Always send: from now on, without the question
-    if (r == 0 || r == 1) {
-        std::thread([reports] {
-            for (const auto& d : reports) releases::sendCrash(d);
-        }).detach();
-    } else {
-        for (const auto& d : reports) stardraft::platform::markCrashReport(d, "not sent: the user said no");
-    }
-}
-
-// --check crashes: the crash reports in `folder` (each one's state) and what the next start does with the ones that
-// were not sent (Options > Crash reports; a build made here has no token, and asks and sends nothing).
-std::string sdlCrashReportsCheck(const fs::path& folder) {
-    int mode = 0;
-    prefs::number(L"CrashReports", mode, 0, 2);
-    std::string out = "crashes: folder " + narrow(folder.wstring()) + ", crash reports " + std::to_string(mode) + "\n";
-    std::error_code ec;
-    for (const auto& e : fs::directory_iterator(folder, ec)) {
-        std::string state = "not sent";
-        if (std::ifstream in(e.path() / "sent"); in) std::getline(in, state);
-        const auto size = fs::exists(e.path() / "report.txt", ec) ? fs::file_size(e.path() / "report.txt", ec) : 0;
-        out += "crashes: report " + e.path().filename().string() + ", report.txt " + std::to_string(size) + " bytes, crash.dmp " +
-               (fs::exists(e.path() / "crash.dmp", ec) ? "yes" : "no") + ", " + state + "\n";
-    }
-    const auto unsent = stardraft::platform::unsentCrashReports(folder);
-    const std::string token = issueToken().empty() ? " (a build made here: nothing, it has no token)" : "";
-    if (unsent.empty()) out += "crashes: the next start: nothing (no report waits)\n";
-    else if (mode == 0) out += "crashes: the next start asks" + token + ": " + narrow(releases::crashAskText(unsent.front().parent_path())) + "\n";
-    else if (mode == 1) out += "crashes: the next start sends " + std::to_string(unsent.size()) + token + "\n";
-    else out += "crashes: the next start: nothing (crash reports are off)\n";
-    return out;
-}
-
 // --- What an update keeps (--check) -------------------------------------------------------------------------------------
 
-std::string sdlCrashCheck();      // (shell_sdl_win.inc and sdl_xdg.inc: the crash reports; other systems: none yet)
+std::string sdlCrashCheck();      // (shell_sdl_win.inc: the crash reports, on each system)
 std::string sdlFileTypesCheck();  // (shell_sdl_win.inc: the map files and project.stardraft in Explorer)
 std::filesystem::path sdlWindowsInstallFile();
 
@@ -313,13 +267,18 @@ bool sdlUpdateCheck(const std::string& what, std::string& out) {
         if (std::ifstream in(fs::path(widen(what.substr(8))), std::ios::binary); in) j.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
         releases::Release r;
         if (!releases::parseRelease(j, r)) return line("release: no release in " + what.substr(8) + " (WRONG)"), true;
-        static const char* const ways[] = {"nothing (up to date)", "installs it", "opens the download", "says that the package manager updates it",
-                                           "opens the release page"};
+        using releases::UpdateWay;
+        static const char* const kPackaged[] = {"none", "AppImage", "Flatpak"};
         const UpdateWay way = sdlUpdateWay(r);
-        line("release: " + r.title + ", build " + r.commit + ", newer " + yes(releases::newer(r)));
+        line("release: \"" + r.title + "\", commit " + r.commit + ", page " + r.page);
         line("release: this system's download (" + std::string(stardraft::platform::releaseAssetSuffix()) + ") " + (r.download.empty() ? "none" : r.download));
-        line("release: Check for updates " + std::string(ways[int(way)]) + ": " +
-             (way == UpdateWay::OpenDownload ? r.download : way == UpdateWay::OpenPage ? r.page : std::string("-")));
+        line("release: newer " + yes(releases::newer(r)) + ", a release build " + yes(releases::releaseBuild()) + ", packaged " + kPackaged[int(sdlPackaged())] +
+             ", Check for updates: " +
+             (way == UpdateWay::UpToDate  ? std::string("nothing (up to date)")
+              : way == UpdateWay::Install ? std::string("installs it")
+              : way == UpdateWay::Download ? "opens " + r.download
+              : way == UpdateWay::Package ? std::string("says that the package manager updates it")
+                                          : "opens " + r.page));
         return true;
     }
     if (what == "crashes") return out = sdlCrashCheck(), true;

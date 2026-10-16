@@ -1,7 +1,8 @@
-// The crash handler on Linux and the BSDs: a signal that ends the program (a bad memory access, an illegal
-// instruction, a division by zero, abort, a C++ exception that nobody caught) writes report.txt, then calls the
-// program's `written`, then the program ends with that signal as before (the system's core dump, if it makes one).
-// The handler runs on a stack of its own, so a stack overflow is reported too. (No minidump: report.txt only.)
+// The crash handler on macOS, Linux and the BSDs: a signal that ends the program (a bad memory access, an illegal
+// instruction, a division by zero, a trap, abort, a C++ exception that nobody caught) writes report.txt, then calls the
+// program's `written`, then the program ends with that signal as before (macOS's own crash report, the system's core
+// dump, the exit status). The handler runs on a stack of its own, so a stack overflow is reported too. (No minidump:
+// report.txt only.)
 
 #include "crash_report.h"
 
@@ -21,7 +22,10 @@
 #include <execinfo.h>
 #define STARDRAFT_HAS_BACKTRACE 1
 #endif
-#if __has_include(<ucontext.h>)
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#include <sys/ucontext.h>
+#elif __has_include(<ucontext.h>)
 #include <ucontext.h>
 #endif
 
@@ -42,6 +46,7 @@ const char* signalName(int sig) {
     case SIGILL: return "SIGILL (illegal instruction)";
     case SIGFPE: return "SIGFPE (arithmetic error)";
     case SIGABRT: return gTerminate ? "SIGABRT (C++ exception not caught: terminate)" : "SIGABRT (abort)";
+    case SIGTRAP: return "SIGTRAP (trap)";
     default: return "signal";
     }
 }
@@ -66,6 +71,12 @@ const void* crashedAt(void* context) {
     if (context) return reinterpret_cast<const void*>(static_cast<ucontext_t*>(context)->uc_mcontext.gregs[REG_RIP]);
 #elif defined(__linux__) && defined(__aarch64__)
     if (context) return reinterpret_cast<const void*>(static_cast<ucontext_t*>(context)->uc_mcontext.pc);
+#elif defined(__APPLE__) && defined(__aarch64__)
+    if (context && static_cast<ucontext_t*>(context)->uc_mcontext)
+        return reinterpret_cast<const void*>(__darwin_arm_thread_state64_get_pc(static_cast<ucontext_t*>(context)->uc_mcontext->__ss));
+#elif defined(__APPLE__) && defined(__x86_64__)
+    if (context && static_cast<ucontext_t*>(context)->uc_mcontext)
+        return reinterpret_cast<const void*>(static_cast<ucontext_t*>(context)->uc_mcontext->__ss.__rip);
 #else
     (void)context;
 #endif
@@ -135,7 +146,7 @@ void installCrashHandler(CrashHandler handler) {
     sa.sa_sigaction = onSignal;
     sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
     sigemptyset(&sa.sa_mask);
-    for (int sig : {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT}) sigaction(sig, &sa, nullptr);
+    for (int sig : {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT, SIGTRAP}) sigaction(sig, &sa, nullptr);
     std::set_terminate([] {
         gTerminate = 1;
         std::abort();
@@ -143,6 +154,12 @@ void installCrashHandler(CrashHandler handler) {
 }
 
 std::string systemName() {
+#ifdef __APPLE__
+    char v[64] = "";
+    size_t size = sizeof v;
+    if (sysctlbyname("kern.osproductversion", v, &size, nullptr, 0) == 0 && v[0]) return std::string("macOS ") + v;
+    return "macOS";
+#else
     std::string name;
 #ifdef __linux__
     // The distribution's name and version (/etc/os-release: PRETTY_NAME), then the kernel.
@@ -157,6 +174,7 @@ std::string systemName() {
     utsname u{};
     if (uname(&u) == 0) name += (name.empty() ? "" : ", ") + std::string(u.sysname) + " " + u.release + " " + u.machine;
     return name.empty() ? std::string("Unix") : name;
+#endif
 }
 
 }  // namespace stardraft::platform

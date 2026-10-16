@@ -263,7 +263,10 @@ token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, 
   the same place. Reports that could not go are sent at the next start. `stardraft.exe --crash-test` crashes on
   purpose (a test run: the report stays on disk; `--crash-test stack`: with a stack overflow, the report is written by
   a thread of its own); `--check crashes` prints the reports and what the next start does
-  with them. Each CI run keeps the build's `stardraft.pdb` (artifact `stardraft-symbols-<commit>`, 90 days), and each
+  with them. On macOS, Linux and the BSDs a signal handler (`apps/common/crash_posix.cpp`) writes `report.txt` only (no
+  minidump) into `~/Library/Application Support/StarDraft/crashes/<time>/` (macOS) or
+  `$XDG_STATE_HOME/StarDraft/crashes/<time>/` (Linux and the BSDs); the question, the sending and `--check crashes` are
+  the same as on Windows (`apps/editor/shell_sdl_win.inc`). Each CI run keeps the build's `stardraft.pdb` (artifact `stardraft-symbols-<commit>`, 90 days), and each
   release keeps it for good in the draft release `symbols-v<version>`: open `crash.dmp` with it to get function names
   and lines.
 - **Feedback** (`core/views_feedback.inc`, `core/feedback_send.inc`, `sdl_options.inc`): a right click on almost

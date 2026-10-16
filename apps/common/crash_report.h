@@ -1,8 +1,8 @@
 #pragma once
 
-// Crash reports. The system part (crash_win32.cpp; crash_posix.cpp on Linux and the BSDs: a signal handler; none on
-// macOS yet) catches the crash and
-// writes <folder>/<time>/report.txt (the program's lines, where it crashed, the stack) and, on Windows, crash.dmp.
+// Crash reports. The system part (crash_win32.cpp; on macOS and Linux crash_posix.cpp, a signal handler) catches the
+// crash and writes <folder>/<time>/report.txt (the program's lines, where it crashed, the stack) and, on Windows,
+// crash.dmp.
 // The portable part (crash_report.cpp) sends a report to GitHub as an issue, or as a comment on the open issue of the
 // same crash. What the user is asked and told stays in the program.
 
@@ -26,7 +26,7 @@ struct CrashHandler {
 // pure virtual call, an invalid parameter).
 void installCrashHandler(CrashHandler handler);
 
-// The system and its version ("Windows 10.0.26200").
+// The system and its version ("Windows 10.0.26200", "macOS 15.1", "Linux 6.6.87").
 std::string systemName();
 
 // A report's issue title: the place it crashed, without what changes each time (the address read), so the same crash

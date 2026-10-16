@@ -1,5 +1,6 @@
 // --script <file>[:<times>] in a snapshot (main_sdl.cpp): a long session's inputs from a file, <times> times over
-// (default 1), in their order with the other inputs. Each line of the file is "<verb> <value>" ('#' starts a comment
+// (default 1), in their order with the other inputs; <file>:<minutes>m: the file again and again until that many
+// minutes have gone (at least one time: a session of a set time on any computer). Each line of the file is "<verb> <value>" ('#' starts a comment
 // line). The verbs of the input options: key, type, click, drag, lostdrag, move, wheel, pinch, wait (their values are
 // the options' values). And the verbs of a session:
 //   command <name>     a menu command by name, as --command
@@ -35,14 +36,39 @@ bool sdlModeByName(const std::string& name) {
     return false;
 }
 
+// A script of a set time (<file>:<minutes>m): its lines, the minutes, and when its first time over started.
+struct SdlScriptRepeat {
+    std::vector<std::pair<char, std::string>> lines;
+    int minutes = 0;
+    std::chrono::steady_clock::time_point start{};
+    bool started = false;
+};
+SdlScriptRepeat& sdlScriptRepeat() {
+    static SdlScriptRepeat r;
+    return r;
+}
+
+// Time over t of the script's lines into `inputs`: its number first (for the "{n}" of the values), then the lines.
+template <class Inputs>
+void sdlScriptTime(int t, const std::vector<std::pair<char, std::string>>& lines, Inputs& inputs) {
+    inputs.emplace_back('N', std::to_string(t));
+    for (auto [kind, value] : lines) {
+        for (size_t at; (at = value.find("{n}")) != std::string::npos;) value.replace(at, 3, std::to_string(t));
+        inputs.emplace_back(kind, value);
+    }
+}
+
 // Adds the script's inputs to `inputs` (main_sdl.cpp's inputArgs). False (and a line on stderr) when the file cannot
 // be read or a line has no such verb.
 bool sdlReadScript(const std::string& spec, std::vector<std::pair<char, std::string>>& inputs) {
     std::string file = spec;
-    int times = 1;
-    if (const size_t colon = spec.rfind(':'); colon != std::string::npos && colon > 1 && colon + 1 < spec.size() &&
-                                              std::all_of(spec.begin() + long(colon) + 1, spec.end(), [](unsigned char c) { return std::isdigit(c); }))
-        file = spec.substr(0, colon), times = std::max(1, std::atoi(spec.c_str() + colon + 1));
+    int times = 1, minutes = 0;
+    auto digits = [](const std::string& s) { return !s.empty() && std::all_of(s.begin(), s.end(), [](unsigned char c) { return std::isdigit(c); }); };
+    if (const size_t colon = spec.rfind(':'); colon != std::string::npos && colon > 1 && colon + 1 < spec.size()) {
+        const std::string n = spec.substr(colon + 1);
+        if (digits(n)) file = spec.substr(0, colon), times = std::max(1, std::atoi(n.c_str()));
+        else if (n.back() == 'm' && digits(n.substr(0, n.size() - 1))) file = spec.substr(0, colon), minutes = std::max(1, std::atoi(n.c_str()));
+    }
     std::ifstream in{fs::path(widen(file))};
     if (!in) return std::fprintf(stderr, "--script %s: the file cannot be read\n", file.c_str()), false;
     static const std::pair<const char*, char> kVerbs[] = {
@@ -65,13 +91,13 @@ bool sdlReadScript(const std::string& spec, std::vector<std::pair<char, std::str
         if (!kind) return std::fprintf(stderr, "--script %s: line %d: no verb \"%s\"\n", file.c_str(), lineNo, verb.c_str()), false;
         lines.emplace_back(kind, value);
     }
-    for (int t = 1; t <= times; ++t) {
-        inputs.emplace_back('N', std::to_string(t));  // (the start of a time over: its number for the "{n}" of the values)
-        for (auto [kind, value] : lines) {
-            for (size_t at; (at = value.find("{n}")) != std::string::npos;) value.replace(at, 3, std::to_string(t));
-            inputs.emplace_back(kind, value);
-        }
+    if (minutes > 0) {  // (one time now; at its end 'L' adds the next one while the minutes have not gone: sdlScriptStep)
+        sdlScriptRepeat().lines = lines, sdlScriptRepeat().minutes = minutes;
+        sdlScriptTime(1, lines, inputs);
+        inputs.emplace_back('L', "");
+        return true;
     }
+    for (int t = 1; t <= times; ++t) sdlScriptTime(t, lines, inputs);
     return true;
 }
 
@@ -110,6 +136,27 @@ SdlMemory sdlMemory() {
         factory->Release();
         if (any) m.gpuLocal = local, m.gpuShared = shared;
     }
+#elif defined(__APPLE__)
+    // The resident memory and its peak (Mach's task info), the memory that the system counts for the process (its
+    // physical footprint, as Activity Monitor's Memory column), and the Metal device's own allocations (the GPU memory;
+    // Metal gives the process one device, also SDL's).
+    mach_task_basic_info_data_t basic{};
+    mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
+    if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, reinterpret_cast<task_info_t>(&basic), &count) == KERN_SUCCESS)
+        m.workingSet = double(basic.resident_size) / kMb, m.peak = double(basic.resident_size_max) / kMb;
+    task_vm_info_data_t vm{};
+    count = TASK_VM_INFO_COUNT;
+    if (task_info(mach_task_self(), TASK_VM_INFO, reinterpret_cast<task_info_t>(&vm), &count) == KERN_SUCCESS)
+        m.privateBytes = double(vm.phys_footprint) / kMb;
+    // (the Objective-C runtime's functions by name: its headers' BOOL is not wintypes.h's)
+    using DeviceFn = void* (*)();
+    using SelFn = void* (*)(const char*);
+    using SizeFn = unsigned long (*)(void*, void*);
+    static auto create = reinterpret_cast<DeviceFn>(dlsym(RTLD_DEFAULT, "MTLCreateSystemDefaultDevice"));
+    static auto selector = reinterpret_cast<SelFn>(dlsym(RTLD_DEFAULT, "sel_registerName"));
+    static auto send = reinterpret_cast<SizeFn>(dlsym(RTLD_DEFAULT, "objc_msgSend"));
+    static void* device = create ? create() : nullptr;
+    if (device && selector && send) m.gpuLocal = double(send(device, selector("currentAllocatedSize"))) / kMb, m.gpuShared = 0;
 #elif defined(__linux__)
     std::ifstream status("/proc/self/status");
     for (std::string line; std::getline(status, line);) {
@@ -226,7 +273,22 @@ void sdlSoakStats() {
 bool sdlScriptStep(char kind, const std::string& value) {
     ++gSoakFrames.steps;
     switch (kind) {
-    case 'N': gSoakFrames.loop = std::atoi(value.c_str()); return true;
+    case 'N': {
+        gSoakFrames.loop = std::atoi(value.c_str());
+        SdlScriptRepeat& r = sdlScriptRepeat();
+        if (r.minutes > 0 && !r.started) r.start = std::chrono::steady_clock::now(), r.started = true;
+        return true;
+    }
+    case 'L': {  // the end of a time over of a script of a set time: the next one, while the minutes have not gone
+        SdlScriptRepeat& r = sdlScriptRepeat();
+        const double gone = std::chrono::duration<double>(std::chrono::steady_clock::now() - r.start).count();
+        if (gone >= r.minutes * 60.0) return std::printf("script: %d times over in %.0f s\n", gSoakFrames.loop, gone), true;
+        std::deque<std::pair<char, std::string>> next;
+        sdlScriptTime(gSoakFrames.loop + 1, r.lines, next);
+        next.emplace_back('L', "");
+        gShotInputs.insert(gShotInputs.begin(), next.begin(), next.end());
+        return true;
+    }
     case 'C': sdlCommandShot(value); return true;
     case 'M':
         if (!sdlModeByName(value)) std::printf("mode %s: no such mode (WRONG)\n", value.c_str());

@@ -2042,6 +2042,7 @@ constexpr UiText kRows[] = {
     {L"Download the new AppImage?", L"\u00BFDescargar la nueva AppImage?"},
     {L"&Download", L"&Descargar"},
     {L"Update StarDraft 2 in your software center.", L"Actualice StarDraft 2 en su centro de software."},
+    {L"Download it? The download opens in the browser.", L"\u00BFDescargarla? La descarga se abre en el navegador."},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

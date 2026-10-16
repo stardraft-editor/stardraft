@@ -81,7 +81,6 @@ struct Release {
     std::string download;                  // this system's download for the browser (its browser_download_url)
 };
 
-// The release in GitHub's JSON of a release (releases/latest); false when it has no name.
 // The JSON without the spaces and line breaks between its values (GitHub indents its JSON for a request without a
 // token: "name": "..."), so that jsonString finds "name":"...".
 inline std::string compactJson(const std::string& j) {
@@ -103,9 +102,11 @@ inline std::string compactJson(const std::string& j) {
     return o;
 }
 
+// The release in GitHub's answer `json` (a release's JSON, indented or not): its title, commit, page and this system's
+// download; false when it has no title.
 inline bool parseRelease(const std::string& json, Release& r) {
     const std::string j = compactJson(json);
-    r = {};
+    r = Release{};
     r.title = jsonString(j, "name");  // the release's own name comes before its assets' names
     r.page = jsonString(j, "html_url");
     if (const size_t a = r.title.find("(build "); a != std::string::npos) r.commit = r.title.substr(a + 7, r.title.find(')', a) - a - 7);
@@ -131,8 +132,7 @@ inline bool parseRelease(const std::string& json, Release& r) {
 // The newest release; false when GitHub cannot be reached.
 inline bool latest(Release& r) {
     std::string j;
-    if (!get("https://api.github.com/repos/" + narrow(kIssueRepo) + "/releases/latest", &j)) return false;
-    return parseRelease(j, r);
+    return get("https://api.github.com/repos/" + narrow(kIssueRepo) + "/releases/latest", &j) && parseRelease(j, r);
 }
 
 inline bool newer(const Release& r) { return !r.commit.empty() && r.commit != STARDRAFT_COMMIT; }
@@ -164,6 +164,23 @@ inline bool installable(const fs::path& self, const Release& r) {
     for (auto* s : {&a, &b})
         for (wchar_t& ch : *s) ch = wchar_t(std::towlower(ch));  // (Windows: the file name's case does not matter)
     return releaseBuild() && a == b && !r.zip.empty();
+}
+
+// How this program is packaged: by itself (stardraft.exe, the macOS app), as an AppImage, or as a Flatpak.
+enum class Packaged { None, AppImage, Flatpak };
+
+// What Check for updates does with the newest release: UpToDate (nothing), Install (this program takes the download's
+// program: a release build on Windows), Download (the browser gets this system's download: macOS's disk image, as the
+// app cannot put a new app in its place; a new AppImage, that the user puts in place of the old one), Package (a
+// Flatpak: its package manager gets the new release), or Page (a build made here, or a release with no download for
+// this system: the release page).
+enum class UpdateWay { UpToDate, Install, Download, Package, Page };
+inline UpdateWay updateWay(const fs::path& self, const Release& r, Packaged packaged) {
+    if (!newer(r)) return UpdateWay::UpToDate;
+    if (packaged == Packaged::AppImage) return r.download.empty() ? UpdateWay::Page : UpdateWay::Download;
+    if (packaged == Packaged::Flatpak) return UpdateWay::Package;
+    if (installable(self, r)) return UpdateWay::Install;
+    return releaseBuild() && !r.download.empty() ? UpdateWay::Download : UpdateWay::Page;
 }
 
 // Unpacks a release's archive into `dir` (made if it is not there): the new program, or empty with the reason in `why`.
