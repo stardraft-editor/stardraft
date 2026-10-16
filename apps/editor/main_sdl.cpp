@@ -70,6 +70,10 @@
 #include "file_types.h"  // apps/common: the files that open with StarDraft 2 (shell_sdl_win.inc)
 #include <dwmapi.h>      // the dark title bar (shell_sdl_win.inc)
 #include <shellapi.h>    // the elevated start (shell_sdl_win.inc)
+#else
+#include <cerrno>
+#include <signal.h>  // kill (shell_sdl_win.inc)
+#include <unistd.h>  // getpid (shell_sdl_win.inc: the processes that still run)
 #endif
 #if __has_include("build_info.h")
 #include "build_info.h"  // STARDRAFT_COMMIT (cmake/build_info.cmake): Check for updates compares it with the release's
@@ -289,6 +293,9 @@ int main(int argc, char** argv) {
     std::string textPopArg;  // --textpop: a game text pop-out in the snapshot (sdl_data.inc)
     std::string palViewArg;  // --palview: the palette's view items (list, icons, sprites, normal, large), comma separated
     bool pieArg = false;  // --pie: the pie palette open (Terrain mode), the mouse to the right of its middle
+    std::uint32_t restartPid = 0;  // --restart <pid> (Program options > Language): the old program, which ends first
+    bool untitledArg = false;  // --untitled: a new unsaved project (as the Win32 program's screenshot run starts with), for a snapshot
+    bool midPanArg = false;  // --midpan: Options > Middle mouse click and hold (Pan map, Drag map), as text after the snapshot
     bool cursorsArg = false;  // --cursors: the cursors at some points, as text after the snapshot (sdl_cursor_check.inc)
     std::vector<std::string> keyArgs;  // --key: keys pressed before the snapshot (sdl_menus.inc: sdlPressKey)
     std::vector<std::string> rclickArgs;  // --rclick: right clicks before the snapshot (sdl_menus.inc: sdlRightClickShot)
@@ -328,6 +335,9 @@ int main(int argc, char** argv) {
         else if (a == "--silent") gSilent = true;
         else if (a == "--palview") palViewArg = next();  // list, icons, sprites, normal, large (comma separated): the palette's view of the mode, for a snapshot
         else if (a == "--pie") pieArg = true;  // the pie palette (hold Space in Terrain mode) open, the mouse at a slice, for a snapshot
+        else if (a == "--restart") restartPid = std::uint32_t(std::strtoul(next().c_str(), nullptr, 10));  // the old program's process id (sdl_options.inc)
+        else if (a == "--untitled") untitledArg = true;  // a new project that is not saved yet (core/documents.inc), for a snapshot
+        else if (a == "--midpan") midPanArg = true;  // the middle button's pan and drag of the map as text, after the snapshot
         else if (a == "--cursors") cursorsArg = true;  // the map view's and a text field's cursors as text, after the snapshot
         else if (a == "--key") keyArgs.push_back(next());  // a key (Ctrl+A, 5, Ctrl+2: Ctrl is Cmd on macOS) pressed in the window, for a snapshot
         else if (a == "--rclick") rclickArgs.push_back(next());  // x,y[:n]: a right click there; the menu's items go to the output, item n runs, for a snapshot
@@ -338,6 +348,7 @@ int main(int argc, char** argv) {
     const bool testRun = gSilent;
     // Windows: a crash's sender ends here, the crash handler goes in, and a map for the open program goes to it.
     if (const int sent = sdlWindowsFirst(argc, argv, testRun); sent >= 0) return sent;
+    if (restartPid) restartWaitFor(restartPid);  // (before the pipe: the old program still listens; core/documents.inc)
     if (sdlSendToOpenProgram(mapArg, testRun)) return 0;
     if (!SDL_Init(SDL_INIT_VIDEO)) return std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()), 1;
 
@@ -379,6 +390,7 @@ int main(int argc, char** argv) {
         // settings, as the Win32 program at its start (snapshots: the defaults).
         if (!gSilent) loadDock(), loadRecentLists(), loadUnitLimits();
         gSettingsOff = gSilent;  // (snapshots and tests: the defaults, and nothing saved)
+        cleanUnsavedProjects();  // the unsaved projects' folders of programs that ended (core/documents.inc; not in a test run)
         if (loadSettingsTable()) shellRendererGraphics(gState.quality, gState.carbot);  // the menus' options (core/app_settings.inc)
         loadLanguageSdl(langArg);  // the language (sdl_options.inc): the canvas translates with it from the first frame
         loadThemeSdl(themeArg, accentArg);  // the theme and the accent in the settings
@@ -403,11 +415,13 @@ int main(int argc, char** argv) {
         host.setFrameHook([](SDL_GPUCommandBuffer* cmd) { drawMapOfRoot(cmd); });
         if (!mapArg.empty()) openAny(widen(mapArg));  // a map, or a project (.eds, .stardraft, its folder): as File > Open does
         bool openLast = false;  // Program options > Open the last project on start (as the Win32 program)
-        if (mapArg.empty() && dropArg.empty() && !gSilent && prefs::flag(L"OpenLastProject", openLast) && openLast && !gRecentProjects.empty()) {
+        if (restartPid) restartReopen();  // what the old program had open (the setting Reopen: core/documents.inc)
+        else if (mapArg.empty() && dropArg.empty() && !gSilent && prefs::flag(L"OpenLastProject", openLast) && openLast && !gRecentProjects.empty()) {
             std::error_code ec;
             if (fs::exists(gRecentProjects.front(), ec)) openAny(gRecentProjects.front());
         }
         if (!dropArg.empty()) dropFile(dropArg);
+        if (untitledArg) newUntitledProject();
         for (int m = 0; !modeArg.empty() && m < kModeCount; ++m) {
             std::string name = narrow(kModeNames[m]);
             std::transform(name.begin(), name.end(), name.begin(), [](unsigned char ch) { return char(std::tolower(ch)); });
@@ -558,7 +572,13 @@ int main(int argc, char** argv) {
             std::printf("%s %s\n", ok ? "wrote" : "could not write", snapshot.c_str());
             if (!ok) status = 1;
             if (pieArg) sdlPieShotRelease();  // (after the picture: letting go of Space paints with the slice's terrain)
+            if (midPanArg) sdlMidPanCheck();  // (after the picture: it moves the camera)
             if (cursorsArg) sdlCursorChecks();  // (after the picture: it changes the mode and the camera)
+            if (untitledArg) {  // (the project's folder goes: a snapshot leaves nothing)
+                const EudProject* pr = activeProject();
+                std::printf("untitled: an unsaved project %s (%s)\n", isUnsavedProject(pr) ? "yes" : "(WRONG)", pr ? narrow(pr->folder().filename().wstring()).c_str() : "none");
+                if (gActive >= 0 && gActive < int(gDocs.size())) dropUnsavedProject(gDocs[size_t(gActive)].project);
+            }
             SDL_WaitForGPUIdle(device);
             SDL_ReleaseGPUTexture(device, tex);
             gPopShot.frame.reset();  // (before the root view goes)

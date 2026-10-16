@@ -60,6 +60,21 @@ void clampCamera() {
     clampAxis(app.camY, vh, mh);
 }
 
+// Options > Middle mouse click and hold > Pan map (both programs): while the middle button is held, the camera moves
+// toward the mouse, faster the farther the mouse is from where the button went down. (dx, dy): the mouse from that
+// point, in screen pixels; dt: the seconds since the last step (at most 0.1 count). The 8 pixels around the point do
+// not move the camera. True: the camera moved.
+bool middlePanStep(AppState& app, float dx, float dy, float dt) {
+    const float len = std::sqrt(dx * dx + dy * dy), dead = 8.0f;
+    if (len <= dead || app.zoom <= 0) return false;
+    const float speed = (len - dead) * 6.0f;  // screen pixels per second
+    dt = std::min(0.1f, std::max(0.0f, dt));
+    app.camX += dx / len * speed * dt / app.zoom;
+    app.camY += dy / len * speed * dt / app.zoom;
+    app.dirty = true;
+    return true;
+}
+
 // A fit asked for while the map view had no size yet (a map opened before the window exists): the host fits the map
 // when the view has its size.
 bool gFitPending = false;

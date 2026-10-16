@@ -171,6 +171,10 @@ std::uintptr_t shellStartElevated(const std::filesystem::path& exe, const std::f
 bool shellProcessEnded(std::uintptr_t process);
 // The process's token is let go (it is not used again).
 void shellProcessClose(std::uintptr_t process);
+// This program's process id, and whether a process with that id still runs (the unsaved projects' folders of programs
+// that ended go; a restart waits for the old program).
+std::uint32_t shellProcessId();
+bool shellProcessRunning(std::uint32_t pid);
 // File > Options > StarCraft folder: another install is chosen (used from the next start).
 void shellChooseInstallFolder();
 // A folder picker with the title (File > New EUD project's Browse): the folder, or empty when none is picked.

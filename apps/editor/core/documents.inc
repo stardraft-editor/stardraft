@@ -242,6 +242,68 @@ void dropUnsavedProject(const std::shared_ptr<EudProject>& pr) {
     std::error_code ec;
     fs::remove_all(pr->folder().parent_path(), ec);
 }
+// The folders of unsaved projects whose StarDraft no longer runs (a crash, an older start): each folder's name starts
+// with the process id of its program (<process>-<time>). Both programs run it once (newUntitledProject, the start);
+// a test or snapshot run leaves the folder alone.
+void cleanUnsavedProjects() {
+    static bool cleaned = false;
+    if (gSelfTest || gSettingsOff || std::exchange(cleaned, true)) return;
+    const fs::path root = shellUnsavedRoot();
+    if (root.empty()) return;
+    std::error_code ec;
+    std::vector<fs::path> gone;
+    for (const auto& e : fs::directory_iterator(root, ec)) {
+        const std::string name = e.path().filename().string();
+        const auto pid = std::uint32_t(std::strtoul(name.c_str(), nullptr, 10));
+        if (pid == shellProcessId() || shellProcessRunning(pid)) continue;  // this program's, or another StarDraft's that runs
+        gone.push_back(e.path());
+    }
+    for (const fs::path& p : gone) fs::remove_all(p, ec);
+}
+void newMap();
+// A new project that is not saved yet: a 128 x 128 badlands map in <unsaved root>\<process>-<time>\Untitled. With no
+// unsaved root, or when the folder cannot be made, the new map stays a plain map.
+void newUntitledProject() {
+    AppState& app = appState();
+    newMap();
+    if (!app.ed || gActive < 0) return;
+    cleanUnsavedProjects();
+    const fs::path root = shellUnsavedRoot();
+    if (root.empty()) return;
+    std::error_code ec;
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    const fs::path parent = root / (std::to_string(shellProcessId()) + "-" + std::to_string(ms));
+    fs::create_directories(parent, ec);
+    auto pr = std::make_shared<EudProject>();
+    std::string err;
+    if (!EudProject::create(parent, "Untitled", {}, *pr, err) || !app.ed->save(pr->folder() / "Untitled.scx", err) || !pr->open(pr->file(), err)) {
+        shellLogError(L"Cannot make the new project: " + widen(err));  // the map stays: a plain map
+        return;
+    }
+    gDocs[size_t(gActive)].project = pr;
+    updateTitle();
+    shellInvalidateWorkspaceBar();
+    shellInvalidateTabs();
+}
+
+// --- The restart (Program options > Language, Restart now) -----------------------------------------------------------
+// The program that ends writes the maps and projects it had open to the setting Reopen and starts the program again
+// with `--restart <its process id>`; the new program waits until the old one ends (its settings saved), then opens them.
+// Both programs read and write the same setting, so either program can restart into the other.
+void restartWrite(const std::vector<std::wstring>& files) { prefs::setList(L"Reopen", files); }
+// The new program, before it opens anything: up to 15 seconds for the old program to end.
+void restartWaitFor(std::uint32_t pid) {
+    for (int i = 0; i < 300 && pid && shellProcessRunning(pid); ++i) std::this_thread::sleep_for(std::chrono::milliseconds(50));
+}
+// Then the maps and projects of the old program open again (the ones that are still there); the setting goes.
+void restartReopen() {
+    std::vector<std::wstring> reopen;
+    prefs::list(L"Reopen", reopen);
+    prefs::remove(L"Reopen");
+    std::error_code ec;
+    for (const auto& p : reopen)
+        if (fs::exists(p, ec)) openAny(p);
+}
 
 int gNewDocPage = 0;        // the page of the tab addDocument opens next
 bool gReplacePage = false;  // addDocument puts the map in the active tab (the New page's Create)

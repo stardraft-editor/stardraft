@@ -96,20 +96,32 @@ void loadThemeSdl(const std::string& given, int givenAccent) {
 // --- Restart now ----------------------------------------------------------------------------------------------------
 
 // Program options > Language > Restart now: the open map asks to be saved (as on quit), then the program starts again
-// with it (or with the open project) and this one ends.
+// with `--restart <this process>` and this one ends. The maps and projects that were open go to the setting Reopen
+// (core/documents.inc: restartWrite), as the Win32 program's restart writes them: the new program opens them again.
 std::uintptr_t sdlStartProgram(const fs::path& exe, const fs::path& dir, const std::wstring& args, const std::wstring& what,
                                std::wstring& error);  // (shell_sdl_win.inc)
+// The maps and projects that are open (an unsaved project and an untitled map have no file to open again).
+std::vector<std::wstring> sdlOpenFiles() {
+    std::vector<std::wstring> files;
+    for (int i = 0; i < int(gDocs.size()); ++i) {
+        const Doc& d = gDocs[size_t(i)];
+        if (d.page) continue;
+        const Editor* ed = i == gActive ? gState.ed.get() : d.ed.get();
+        if (d.project && !isUnsavedProject(d.project.get())) files.push_back(d.project->folder().wstring());
+        else if (!d.project && ed && ed->isOpen() && !ed->path().empty()) files.push_back(ed->path().wstring());
+    }
+    return files;
+}
 void restartProgramSdl() {
     confirmReplace([] {
         std::error_code ec;
         fs::path self = stardraft::platform::programFile();  // the program's own file
         if (self.empty()) self = fs::absolute(fs::path(gSelfPath), ec);
-        std::wstring args;
-        if (const EudProject* pr = activeProject(); pr && !isUnsavedProject(pr)) args = L"\"" + pr->folder().wstring() + L"\"";
-        else if (gState.ed && gState.ed->isOpen() && !gState.ed->path().empty()) args = L"\"" + gState.ed->path().wstring() + L"\"";
+        restartWrite(sdlOpenFiles());
         std::wstring error;
-        const std::uintptr_t p = sdlStartProgram(self, fs::current_path(ec), args, L"StarDraft 2", error);
+        const std::uintptr_t p = sdlStartProgram(self, fs::current_path(ec), L"--restart " + std::to_wstring(shellProcessId()), L"StarDraft 2", error);
         if (!p) {
+            prefs::remove(L"Reopen");
             setMessage(L"StarDraft 2 could not start again. Close it and start it to show the new language.");
             return;
         }

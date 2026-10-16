@@ -137,6 +137,12 @@ CASES += [("map-textpop-unitname", ["--workspace", "classic", "--textpop", "unit
 # The cursors (the system's cursor is not in a picture): --cursors writes the map view's and a text field's cursors at
 # some points to the case's .txt (lines "cursor: ...", each with "(yes)" or "(WRONG)").
 CASES += [("map-cursors", ["--mode", "units", "--cursors"], "map")]
+# Options > Middle mouse click and hold: --midpan writes to the .txt whether Pan map moves the map toward the mouse while
+# the button is held and Drag map makes it follow the mouse ("(WRONG)" when not).
+CASES += [("map-midpan", ["--midpan"], "map")]
+# A new project that is not saved yet (core/documents.inc: newUntitledProject), as the Win32 program's screenshot run
+# starts; its folder goes after the picture.
+CASES += [("untitled-project", ["--untitled", "--workspace", "project"], "data")]
 # Not in the program yet (add them to CASES when main_sdl.cpp reads them): --dialog about, message, tip, valuepop.
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
