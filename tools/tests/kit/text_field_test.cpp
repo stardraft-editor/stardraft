@@ -246,6 +246,32 @@ KIT_TEST(text_field_tab_leaves_single_line) {
     CHECK(host.router.focused() == &after);
 }
 
+// Tab into a one-line field selects its text, so that a typed value takes its place (a dialog's number); a click keeps
+// the caret where it is; a field of several lines keeps its caret.
+KIT_TEST(text_field_tab_selects_its_text) {
+    draw::View root;
+    test::FakeHost host(root);
+    TextField first, second, notes;
+    first.setText(L"100");
+    second.setText(L"1500");
+    notes.setMultiline(true);
+    notes.setText(L"a\nb");
+    root.add(first, {0, 0, 100, 24});
+    root.add(second, {0, 30, 100, 54});
+    root.add(notes, {0, 60, 100, 120});
+    host.click(90, 40);
+    CHECK(host.router.focused() == &second && !second.model().hasSelection());
+    CHECK(host.press(Key::Tab));  // to the notes: the caret stays
+    CHECK(host.router.focused() == &notes && !notes.model().hasSelection());
+    CHECK(host.press(Key::Tab));  // around to the first
+    CHECK(host.router.focused() == &first && first.model().selectionStart() == 0 && first.model().selectionEnd() == 3);
+    host.type("50");
+    CHECK(first.text() == L"50");
+    CHECK(host.press(Key::Tab, draw::kShift));  // back around to the notes
+    CHECK(host.press(Key::Tab, draw::kShift));
+    CHECK(host.router.focused() == &second && second.model().selectionEnd() - second.model().selectionStart() == 4);
+}
+
 KIT_TEST(text_field_multiline_enter_and_vertical_keys) {
     Rig r(200, 100);
     r.field.setMultiline(true);

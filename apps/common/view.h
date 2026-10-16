@@ -166,6 +166,9 @@ public:
     // The window of the view got the keyboard focus with no view of it focused (Tab came in from another control):
     // the view takes it on its first (back: its last) focusable part.
     virtual void focusEntered(bool /*back*/) {}
+    // Tab (or Shift+Tab) gave the view the focus, after focusChanged: a one-line text field selects its text, so that
+    // what is typed takes its place (as a dialog's edit box on Windows and a text field on macOS).
+    virtual void tabbedTo() {}
     virtual void focusChanged(bool /*has*/) {}
     // The mouse capture left the view (it went to another view, the system took it, or the view let it go): the view
     // ends what the capture was for.
@@ -395,7 +398,9 @@ public:
         size_t i = 0;
         while (i < chain.size() && chain[i] != focused_) ++i;
         if (i == chain.size()) i = back ? 0 : chain.size() - 1;
-        chain[back ? (i + chain.size() - 1) % chain.size() : (i + 1) % chain.size()]->focus();
+        View* next = chain[back ? (i + chain.size() - 1) % chain.size() : (i + 1) % chain.size()];
+        next->focus();
+        if (focused_ == next) next->tabbedTo();
         return true;
     }
 
