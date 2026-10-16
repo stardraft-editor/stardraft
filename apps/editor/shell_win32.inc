@@ -329,6 +329,15 @@ std::uintptr_t shellStartElevated(const std::filesystem::path& exe, const std::f
 }
 bool shellProcessEnded(std::uintptr_t process) { return WaitForSingleObject(HANDLE(process), 0) == WAIT_OBJECT_0; }
 void shellProcessClose(std::uintptr_t process) { CloseHandle(HANDLE(process)); }
+// (core/documents.inc: the unsaved projects' folders; the restart)
+std::uint32_t shellProcessId() { return std::uint32_t(GetCurrentProcessId()); }
+bool shellProcessRunning(std::uint32_t pid) {
+    HANDLE h = pid ? OpenProcess(SYNCHRONIZE, FALSE, DWORD(pid)) : nullptr;
+    if (!h) return false;
+    const bool alive = WaitForSingleObject(h, 0) == WAIT_TIMEOUT;
+    CloseHandle(h);
+    return alive;
+}
 void shellChooseInstallFolder() { chooseInstallFolder(); }
 // (the active window owns the picker: the dialog that asks, else the main window)
 std::wstring shellPickFolder(const std::wstring& title) {

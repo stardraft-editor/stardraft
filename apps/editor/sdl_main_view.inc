@@ -117,7 +117,13 @@ void mapRightClickSdl(draw::View& map, draw::Point at);
 // The map view: the texture of the map (drawn by the frame hook) and the core's map input.
 struct MapView final : draw::View {
     bool rightDown = false;  // the right button went down on the map: its release opens the map's menu
-    bool panning = false;  // the middle button (or a drag with it) pans
+    // The middle button held: Options > Middle mouse click and hold. Drag map: the map follows the mouse; Pan map (the
+    // default): the map moves toward the mouse while the button is held (panStep, each frame), as the Win32 program.
+    bool panning = false;
+    bool panDrags = false;  // (this press: Drag map)
+    draw::Point anchor;  // where the middle button went down
+    std::chrono::steady_clock::time_point panLast;  // (Pan map: the time of the last step)
+    static inline int middleDragTest = -1;  // (--midpan: 0 Pan map, 1 Drag map, in place of the setting)
     bool rightStroke = false;  // a Shift+left stroke paints with the second terrain; the palette is the first one again after it
     int savedPalette = -1;
     draw::Point last;
@@ -137,8 +143,14 @@ struct MapView final : draw::View {
         case draw::MouseKind::Down:
         case draw::MouseKind::DoubleClick: {
             focus();  // the map takes the keyboard back from a text field or a list (the map is not focusable itself)
-            if (e.button == 2) {  // middle: pan
-                panning = true, last = e.pt;
+            if (e.button == 2) {  // middle: drag or pan the map (Options > Middle mouse click and hold)
+                if (panning) return true;  // (a press goes on)
+                bool drags = false;
+                if (middleDragTest >= 0) drags = middleDragTest == 1;
+                else prefs::flag(L"MiddleDrag", drags);
+                panning = true, panDrags = drags, last = anchor = e.pt;
+                panLast = std::chrono::steady_clock::now();
+                if (gState.drag == Drag::None) gState.drag = drags ? Drag::Pan : Drag::AutoPan;  // (the right button's menu waits, as on Windows)
                 if (draw::Host* h = host()) h->capture(*this, true);
                 return true;
             }
@@ -167,10 +179,12 @@ struct MapView final : draw::View {
         case draw::MouseKind::Move:
             gState.mouseX = e.pt.x, gState.mouseY = e.pt.y, gState.mouseIn = true;
             if (panning) {
-                gState.camX -= float(e.pt.x - last.x) / gState.zoom, gState.camY -= float(e.pt.y - last.y) / gState.zoom;
-                last = e.pt;
-                clampCamera();
-                invalidate();
+                if (panDrags) {
+                    gState.camX -= float(e.pt.x - last.x) / gState.zoom, gState.camY -= float(e.pt.y - last.y) / gState.zoom;
+                    clampCamera();
+                    invalidate();
+                }
+                last = e.pt;  // (Pan map: panStep moves toward it)
                 return true;
             }
             if (!open()) return false;
@@ -179,8 +193,8 @@ struct MapView final : draw::View {
             return true;
         case draw::MouseKind::Up:
             if (panning) {
-                panning = false;
-                if (draw::Host* h = host()) h->capture(*this, false);
+                if (e.button != 2) return true;  // another button during it: nothing (the press goes on)
+                panEnd();
                 return true;
             }
             if (rightStroke && e.button == 0) {  // the end of a second-terrain stroke: the first terrain again
@@ -224,6 +238,23 @@ struct MapView final : draw::View {
     draw::Cursor cursor(draw::Point pt) override {
         if (panning) return draw::Cursor::SizeAll;
         return open() ? mapCursorAt(gState, pt.x, pt.y) : draw::Cursor::Arrow;
+    }
+    // Each frame (drawMapOfRoot): Pan map moves the camera toward the mouse (core/map_input.inc). `dt`: the seconds
+    // since the last step (a test gives them; else the clock's).
+    void panStep(float dt = -1) {
+        const auto now = std::chrono::steady_clock::now();
+        if (dt < 0) dt = std::chrono::duration<float>(now - panLast).count();
+        panLast = now;
+        if (!panning || panDrags || !open()) return;
+        if (middlePanStep(gState, float(last.x - anchor.x), float(last.y - anchor.y), dt)) clampCamera(), updateStatus(), invalidate();
+    }
+    // The release of the middle button: the press ends.
+    void panEnd() {
+        if (!panning) return;
+        panning = false;
+        if (gState.drag == Drag::Pan || gState.drag == Drag::AutoPan) gState.drag = Drag::None;
+        if (draw::Host* h = host()) h->capture(*this, false);
+        gState.dirty = true;
     }
 };
 
@@ -564,6 +595,54 @@ void sdlPieShotRelease() {
     std::printf("pie: painting it %s\n", hot >= 0 && gState.palette == want && currentTool(gState) == TBrush ? "yes" : "NO");
 }
 
+// --midpan (after the picture): Options > Middle mouse click and hold, both values, as the Win32 self-test's midpan:.
+// The middle button goes down at (400, 300) of the map view and the mouse moves 100 px to the right.
+void sdlMidPanCheck() {
+    if (!gRoot || !gState.ed || !gState.ed->isOpen()) return void(std::printf("midpan: no map open\n"));
+    MapView& map = gRoot->map;
+    auto mouse = [&](draw::MouseKind kind, int x, int button = 2) {
+        draw::MouseEvent e;
+        e.kind = kind, e.pt = {x, 300}, e.button = button;
+        map.mouse(e);
+    };
+    auto center = [&] {
+        gState.zoom = 1;
+        gState.camX = gState.ed->width() * 16.0f - map.width() / 2.0f, gState.camY = gState.ed->height() * 16.0f - map.height() / 2.0f;
+    };
+    // Pan map: the map moves to the right while the button is held, and goes on when the mouse stands still.
+    MapView::middleDragTest = 0;
+    center();
+    const float x0 = gState.camX, y0 = gState.camY;
+    mouse(draw::MouseKind::Down, 400), mouse(draw::MouseKind::Move, 500);
+    const bool noJump = gState.camX == x0;
+    map.panStep(0.05f);
+    const float x1 = gState.camX;
+    map.panStep(0.05f);
+    const bool goesOn = gState.camX > x1 && x1 > x0 && std::abs(gState.camY - y0) < 0.01f;
+    mouse(draw::MouseKind::Down, 500, 1), mouse(draw::MouseKind::Up, 500, 1);  // a right click during it: no menu, the press goes on
+    const bool rightKeeps = map.panning && gState.drag == Drag::AutoPan;
+    mouse(draw::MouseKind::Up, 500);
+    const float x2 = gState.camX;
+    map.panStep(0.05f);
+    std::printf("midpan: Pan map: the map moves toward the mouse while the button is held %s (%.1f -> %.1f -> %.1f), not when the mouse moves %s, "
+                "a right click does not end it %s, it stops on release %s\n",
+                goesOn ? "yes" : "(WRONG)", double(x0), double(x1), double(x2), noJump ? "yes" : "(WRONG)", rightKeeps ? "yes" : "(WRONG)",
+                gState.camX == x2 && gState.drag == Drag::None ? "yes" : "(WRONG)");
+    // Drag map: the map follows the mouse, and stays when the mouse stays.
+    MapView::middleDragTest = 1;
+    center();
+    const float d0 = gState.camX;
+    mouse(draw::MouseKind::Down, 400), mouse(draw::MouseKind::Move, 500);
+    const float moved = d0 - gState.camX;
+    map.panStep(0.05f);
+    const bool still = std::abs(d0 - moved - gState.camX) < 0.01f;
+    mouse(draw::MouseKind::Up, 500);
+    std::printf("midpan: Drag map: the map follows the mouse %s (%.1f -> %.1f), and stays when the mouse stays %s, the drag ends on release %s\n",
+                std::abs(moved - 100.0f) < 0.01f ? "yes" : "(WRONG)", double(d0), double(d0 - moved), still ? "yes" : "(WRONG)",
+                gState.drag == Drag::None && !map.panning ? "yes" : "(WRONG)");
+    MapView::middleDragTest = -1;
+}
+
 // --palview in a snapshot: the View menu's items (list, icons, sprites, normal, large) on the palette of the mode.
 void sdlPaletteViewShot(const std::string& spec) {
     std::stringstream in(spec);
@@ -590,5 +669,6 @@ void drawMapOfRoot(SDL_GPUCommandBuffer* cmd) {
     menusIfDirty();
     const int w = gRoot->map.width(), h = gRoot->map.height();
     if (gFitPending && w > 0 && h > 0) fitMap(), updateStatus();  // (the map opened before the view had its size: the zoom it fit)
+    gRoot->map.panStep();  // (Options > Middle mouse click and hold > Pan map: the map moves toward the mouse)
     if (gWorkspace == Workspace::Map) drawMapFrame(cmd, w, h);  // (the other workspaces hide the map: no frame)
 }

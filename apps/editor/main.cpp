@@ -734,11 +734,11 @@ void restartProgram();
 
 // Program options > Language: StarDraft 2 starts again, in the chosen language. The open maps and projects open again
 // (each modified one asks to be saved first, as on exit; Cancel stops the restart). The new program waits until this one
-// has ended (its settings saved), then opens them (the list: HKCU\\Software\\StarDraft\\Reopen).
+// has ended (its settings saved), then opens them (the setting Reopen: core/documents.inc, restartWrite).
 void restartProgram() {
     std::vector<std::wstring> files;
     if (!closeAllDocs(&files)) return;
-    prefs::setList(L"Reopen", files);  // (the new program opens them)
+    restartWrite(files);  // (the new program opens them)
     wchar_t self[MAX_PATH], dir[MAX_PATH];
     GetModuleFileNameW(nullptr, self, MAX_PATH);
     GetCurrentDirectoryW(MAX_PATH, dir);
@@ -1002,40 +1002,7 @@ fs::path unsavedRoot() {
     CoTaskMemFree(local);
     return p;
 }
-// The folders of unsaved projects whose StarDraft is no longer running (a crash, an older start).
-void cleanUnsavedProjects() {
-    std::error_code ec;
-    for (const auto& e : fs::directory_iterator(unsavedRoot(), ec)) {
-        const std::string name = e.path().filename().string();
-        const DWORD pid = DWORD(std::strtoul(name.c_str(), nullptr, 10));
-        if (pid == GetCurrentProcessId()) continue;
-        if (HANDLE h = OpenProcess(SYNCHRONIZE, FALSE, pid)) {  // still running (another StarDraft)
-            const bool alive = WaitForSingleObject(h, 0) == WAIT_TIMEOUT;
-            CloseHandle(h);
-            if (alive) continue;
-        }
-        fs::remove_all(e.path(), ec);
-    }
-}
-void newUntitledProject() {
-    newMap();
-    if (!app.ed || gActive < 0) return;
-    static bool cleaned = false;
-    if (!cleaned) cleaned = true, cleanUnsavedProjects();
-    std::error_code ec;
-    const fs::path parent = unsavedRoot() / (std::to_string(GetCurrentProcessId()) + "-" + std::to_string(GetTickCount64()));
-    fs::create_directories(parent, ec);
-    auto pr = std::make_shared<EudProject>();
-    std::string err;
-    if (!EudProject::create(parent, "Untitled", {}, *pr, err) || !app.ed->save(pr->folder() / "Untitled.scx", err) || !pr->open(pr->file(), err)) {
-        logLine(L"Cannot make the new project: " + widen(err), true);  // the map stays: a plain map
-        return;
-    }
-    gDocs[size_t(gActive)].project = pr;
-    updateTitle();
-    if (gWsBar) InvalidateRect(gWsBar, nullptr, FALSE);
-    if (app.tabs) InvalidateRect(app.tabs, nullptr, FALSE);
-}
+// (cleanUnsavedProjects and newUntitledProject: core/documents.inc)
 bool saveUnsavedProjectTo(const fs::path& chosen);
 // Save for an unsaved project: where it goes (a folder of its name is made there), then everything moves there and
 // the tab goes on as that project.
@@ -7538,18 +7505,10 @@ LRESULT CALLBACK viewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (wp == kSprayTimer) return sprayHoldTimer(app), 0;
         if (wp == kAutoPanTimer) {
             auto now = std::chrono::steady_clock::now();
-            float dt = std::min(0.1f, std::chrono::duration<float>(now - lastTick).count());
+            const float dt = std::chrono::duration<float>(now - lastTick).count();
             lastTick = now;
             if (app.drag != Drag::AutoPan) return KillTimer(hwnd, kAutoPanTimer), 0;
-            float dx = float(curX - anchorX), dy = float(curY - anchorY), len = std::sqrt(dx * dx + dy * dy);
-            const float dead = 8.0f;  // pixels around the anchor that do not move the camera
-            if (len > dead) {
-                float speed = (len - dead) * 6.0f;  // screen pixels per second
-                app.camX += dx / len * speed * dt / app.zoom;
-                app.camY += dy / len * speed * dt / app.zoom;
-                app.dirty = true;
-                updateStatus();
-            }
+            if (middlePanStep(app, float(curX - anchorX), float(curY - anchorY), dt)) updateStatus();  // (core/map_input.inc)
             return 0;
         }
         break;
@@ -12121,23 +12080,18 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     for (int i = 4; !datashots.empty() && i < argc; ++i) shotSpecs.push_back(argv[i]);
     // `--restart <pid>` (Program options > Language): the old program ends first (it saves its settings on the way).
     const bool restarted = argc > 2 && std::wstring(argv[1]) == L"--restart";
-    if (restarted)
-        if (HANDLE old = OpenProcess(SYNCHRONIZE, FALSE, DWORD(_wtoi(argv[2])))) WaitForSingleObject(old, 15000), CloseHandle(old);
+    if (restarted) restartWaitFor(std::uint32_t(_wtoi(argv[2])));  // (core/documents.inc)
     gSelfTest = !selftest.empty() || !datashots.empty() || !pathshots.empty();  // before opening anything: tests leave the user's settings alone
     gSettingsOff = gSelfTest || !screenshot.empty();  // a screenshot run: the defaults, and nothing saved
     loadAppSettings();  // the options as the user left them (not in tests)
     app.renderer.setQuality(app.quality), app.renderer.setCarbot(app.carbot);
     gSilent = !selftest.empty() || !datashots.empty() || !screenshot.empty() || !pathshots.empty();
+    cleanUnsavedProjects();  // the unsaved projects' folders of programs that ended (core/documents.inc; not in a test run)
     const auto openStart = std::chrono::steady_clock::now();
     if (argc > 1 && screenshot.empty() && !restarted) openAny(argv[1]);
     else if (argc <= 1 || restarted) openStartPage();  // the start page first: the last project (Options) opens in its place
     if (restarted) {  // what the old program had open
-        std::vector<std::wstring> reopen;
-        prefs::list(L"Reopen", reopen);
-        prefs::remove(L"Reopen");
-        std::error_code ec;
-        for (const auto& p : reopen)
-            if (fs::exists(p, ec)) openAny(p);
+        restartReopen();
     } else if (argc <= 1 && gOpenLastProject && !gRecentProjects.empty()) {  // Options: the last project
         std::error_code ec;
         if (fs::exists(gRecentProjects.front(), ec)) openAny(gRecentProjects.front());

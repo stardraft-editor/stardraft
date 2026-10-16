@@ -368,6 +368,15 @@ std::uintptr_t sdlStartProgram(const fs::path& exe, const fs::path& dir, const s
 }
 bool shellProcessEnded(std::uintptr_t process) { return WaitForSingleObject(HANDLE(process), 0) == WAIT_OBJECT_0; }
 void shellProcessClose(std::uintptr_t process) { CloseHandle(HANDLE(process)); }
+// (core/documents.inc: the unsaved projects' folders; the restart)
+std::uint32_t shellProcessId() { return std::uint32_t(GetCurrentProcessId()); }
+bool shellProcessRunning(std::uint32_t pid) {
+    HANDLE h = pid ? OpenProcess(SYNCHRONIZE, FALSE, DWORD(pid)) : nullptr;
+    if (!h) return false;
+    const bool alive = WaitForSingleObject(h, 0) == WAIT_TIMEOUT;
+    CloseHandle(h);
+    return alive;
+}
 
 #else  // (the other systems: none of these parts)
 
@@ -386,5 +395,8 @@ bool sdlMapsOpenWithUs() { return false; }
 int sdlWindowsFirst(int, char**, bool) { return -1; }
 bool sdlSendToOpenProgram(const std::string&, bool) { return false; }
 void sdlWindowsShown(bool) {}
+// (core/documents.inc: the unsaved projects' folders; the restart)
+std::uint32_t shellProcessId() { return std::uint32_t(getpid()); }
+bool shellProcessRunning(std::uint32_t pid) { return pid && (kill(pid_t(pid), 0) == 0 || errno == EPERM); }
 
 #endif
