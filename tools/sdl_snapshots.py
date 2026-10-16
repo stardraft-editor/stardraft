@@ -12,7 +12,10 @@ output (<name>.txt) and a summary (summary.txt) go into the --out folder. The sc
 A case that needs the game data runs only with --install; one that needs a map, only with --map (and --install);
 one that needs a project, only with --project. The others run everywhere (CI has no game data).
 
-To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (its argument loop in main()).
+To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (its argument loop in main()). In a
+case's options, {map}, {project}, {root} (the repository), {out} (the --out folder) and {newdir} (a new empty folder in
+--out) are paths. A run also fails when its output has "(WRONG)", or when the
+case's function in CHECKS finds a problem in its output.
 """
 
 import argparse
@@ -21,6 +24,7 @@ import os
 import struct
 import subprocess
 import sys
+import tempfile
 import zlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -143,7 +147,58 @@ CASES += [("map-midpan", ["--midpan"], "map")]
 # A new project that is not saved yet (core/documents.inc: newUntitledProject), as the Win32 program's screenshot run
 # starts; its folder goes after the picture.
 CASES += [("untitled-project", ["--untitled", "--workspace", "project"], "data")]
-# Not in the program yet (add them to CASES when main_sdl.cpp reads them): --dialog about, message, tip, valuepop.
+# The dialogs that take their own sizes (About, a tooltip, the value pop-out) and Add an action's block picker.
+CASES += [
+    ("dialog-about", ["--dialog", "about"], ""),
+    ("dialog-tip", ["--dialog", "tip"], ""),
+    ("dialog-valuepop", ["--dialog", "valuepop"], ""),
+    ("dialog-valuepop-number", ["--dialog", "valuepop:number"], ""),
+    ("dialog-blockpick", ["--dialog", "blockpick", "--size", "1266x861"], "data"),
+    ("dialog-options-light", ["--dialog", "options", "--size", "720x820", "--theme", "light"], ""),
+    ("map-log", ["--log"], "map"),
+]
+# Edits, Undo and the save (the Windows self-test's steps): each key's line in the output says the units, the doodads,
+# the selection and the status bar (CHECKS reads them). --saveas saves the map into the --out folder ({out}) as File >
+# Save as does, opens that file again and compares it with the open map ("(WRONG)" when a part is different).
+CASES += [
+    ("map-key-undo", ["--mode", "units", "--key", "Ctrl+A", "--key", "Del", "--key", "Ctrl+Z", "--key", "Ctrl+Y", "--key", "Ctrl+Z"], "map"),
+    ("map-save-roundtrip", ["--saveas", "{out}/roundtrip.scx"], "map"),
+    ("map-save-edited", ["--mode", "units", "--key", "Ctrl+A", "--key", "Del", "--saveas", "{out}/edited.scx"], "map"),
+    # A menu command by its name (--command): View > Show town areas (the item is not gray, the areas show).
+    ("map-view-towns", ["--command", "view.towns"], "map"),
+    # The graphics (View > Standard definition, Carbot), zoomed in on the units.
+    ("map-view-sd", ["--command", "view.sd", "--key", "+", "--key", "+", "--key", "+"], "map"),
+    ("map-view-carbot", ["--command", "view.carbot", "--key", "+", "--key", "+", "--key", "+"], "map"),
+    # File > Project > New EUD project (--newproject: the project Sample with a new map, in a new folder {newdir}), then
+    # Build (Ctrl+B) when this computer has euddraft (else the output says that the build is skipped); the Log shows
+    # euddraft's lines.
+    ("data-newproject-build", ["--newproject", "{newdir}", "--workspace", "project", "--build", "--log"], "data"),
+]
+
+
+def check_undo(output):
+    """None when Delete removed the units and Undo gave them back (and Redo removed them again); else the reason."""
+    units = {}
+    for line in output.splitlines():
+        if line.startswith("key ") and " units," in line:
+            key, rest = line[4:].split(":", 1)
+            units.setdefault(key, []).append(int(rest.split()[0]))
+    try:
+        before, deleted, undone, redone, again = units["Ctrl+A"][0], units["Del"][0], units["Ctrl+Z"][0], units["Ctrl+Y"][0], units["Ctrl+Z"][1]
+    except (KeyError, IndexError):
+        return "the output has no key lines"
+    if not before or deleted != 0 or undone != before or redone != 0 or again != before:
+        return f"units: {before}, after Delete {deleted}, Undo {undone}, Redo {redone}, Undo {again}"
+    return None
+
+
+def check_edited(output):
+    """None when the saved map has no units after Delete (the round-trip's line says 0 units)."""
+    return None if "save round-trip: edited.scx: 0 units," in output else "the saved map has units after Delete"
+
+
+# Checks of a case's output (after the PNG's): a function that returns None, or what is wrong.
+CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited}
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -243,6 +298,7 @@ def main():
     if not a.exe or not a.out:
         ap.error("--exe and --out are necessary")
     os.makedirs(a.out, exist_ok=True)
+    a.out = os.path.abspath(a.out)  # (the {out} of a case: the program may run in another folder)
     a.exe = os.path.abspath(a.exe)  # (Windows starts no program by a relative path with "/": build/Release/x.exe)
     env = dict(os.environ)
     if sys.platform != "darwin":  # (on macOS the offscreen driver has no Metal device: SDL's own driver, no window)
@@ -263,7 +319,9 @@ def main():
             os.replace(png, png + ".old")  # (a PNG from an earlier run does not count; never deleted)
         cmd = [a.exe]
         given = any("{map}" in x or "{project}" in x for x in args)  # (the path is in the options)
-        args = [x.format(map=a.map or "", project=a.project or "", root=ROOT) for x in args]
+        # {newdir}: a new empty folder in --out for each run (a folder is never deleted)
+        newdir = tempfile.mkdtemp(prefix=name + "-", dir=a.out) if any("{newdir}" in x for x in args) else ""
+        args = [x.format(map=a.map or "", project=a.project or "", root=ROOT, out=a.out, newdir=newdir) for x in args]
         if needs == "map" and not given:
             cmd.append(a.map)
         elif needs == "project" and not given:
@@ -286,6 +344,8 @@ def main():
         problem = f"exit code {code}" if code != 0 else png_check(png)
         if not problem and "(WRONG)" in output:  # (a check the run prints, as --cursors)
             problem = "a check printed (WRONG)"
+        if not problem and name in CHECKS:
+            problem = CHECKS[name](output)
         print("::endgroup::", flush=True)
         if problem:
             failed.append(name)

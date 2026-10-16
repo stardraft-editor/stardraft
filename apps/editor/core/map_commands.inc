@@ -56,6 +56,42 @@ bool saveMapFile(const fs::path& path, std::string& err) {
     return true;
 }
 
+// A test of File > Save as (the snapshots' --saveas): the open map is saved to `path` as Save as saves it, then the file
+// opens in a second editor and its parts are compared with the open map's. The line ends with "(yes)" when they are the
+// same, else with what is different and "(WRONG)".
+std::string mapSaveRoundTrip(const fs::path& path) {
+    AppState& app = shellState();
+    if (!app.ed || !app.ed->isOpen()) return "save round-trip: no map is open (WRONG)";
+    std::string err;
+    if (!saveMapFile(path, err)) return "save round-trip: could not save " + narrow(path.wstring()) + ": " + err + " (WRONG)";
+    const Editor& a = *app.ed;
+    Editor b(app.data);
+    if (!b.open(path, err)) return "save round-trip: could not open the saved map again: " + err + " (WRONG)";
+    std::vector<std::string> diff;
+    if (a.width() != b.width() || a.height() != b.height() || a.era() != b.era()) diff.push_back("size or tileset");
+    if (a.terrain().tiles != b.terrain().tiles) diff.push_back("terrain");
+    auto sameUnit = [](const Unit& x, const Unit& y) {
+        return x.x == y.x && x.y == y.y && x.type == y.type && x.owner == y.owner && x.hitPoints == y.hitPoints && x.resources == y.resources &&
+               x.state == y.state;
+    };
+    if (!std::equal(a.units().begin(), a.units().end(), b.units().begin(), b.units().end(), sameUnit)) diff.push_back("units");
+    auto sameDoodad = [](const Doodad& x, const Doodad& y) { return x.id == y.id && x.x == y.x && x.y == y.y && x.owner == y.owner; };
+    if (!std::equal(a.doodads().begin(), a.doodads().end(), b.doodads().begin(), b.doodads().end(), sameDoodad)) diff.push_back("doodads");
+    auto sameSprite = [](const MapSprite& x, const MapSprite& y) { return x.id == y.id && x.x == y.x && x.y == y.y && x.flags == y.flags; };
+    if (!std::equal(a.sprites().begin(), a.sprites().end(), b.sprites().begin(), b.sprites().end(), sameSprite)) diff.push_back("sprites");
+    auto sameLocation = [](const Location& x, const Location& y) {
+        return x.left == y.left && x.top == y.top && x.right == y.right && x.bottom == y.bottom && x.nameString == y.nameString;
+    };
+    if (!std::equal(a.locations().begin(), a.locations().end(), b.locations().begin(), b.locations().end(), sameLocation)) diff.push_back("locations");
+    if (a.strings().size() != b.strings().size()) diff.push_back("strings");
+    std::string line = "save round-trip: " + narrow(path.filename().wstring()) + ": " + std::to_string(a.units().size()) + " units, " +
+                       std::to_string(a.doodads().size()) + " doodads, " + std::to_string(a.sprites().size()) + " sprites, " +
+                       std::to_string(a.locations().size()) + " locations, " + std::to_string(a.width()) + " x " + std::to_string(a.height()) + ": ";
+    if (diff.empty()) return line + "the saved map is the same (yes)";
+    for (size_t i = 0; i < diff.size(); ++i) line += (i ? ", " : "") + diff[i];
+    return line + " different (WRONG)";
+}
+
 void registerMapCommands() {
     // Mode
     addCommand(ID_MODE_TERRAIN, "mode.terrain", L"&Terrain", "Mode", L"T", [] { setMode(Mode::Terrain); });

@@ -299,6 +299,9 @@ int main(int argc, char** argv) {
     bool cursorsArg = false;  // --cursors: the cursors at some points, as text after the snapshot (sdl_cursor_check.inc)
     std::vector<std::string> keyArgs;  // --key: keys pressed before the snapshot (sdl_menus.inc: sdlPressKey)
     std::vector<std::string> rclickArgs;  // --rclick: right clicks before the snapshot (sdl_menus.inc: sdlRightClickShot)
+    std::vector<std::string> commandArgs;  // --command: menu commands run before the snapshot (sdl_menus.inc: sdlCommandShot)
+    std::string saveAsArg;  // --saveas: the save round-trip (core/map_commands.inc: mapSaveRoundTrip)
+    std::string newProjectArg;  // --newproject: a new project in that folder (core/project_page.inc: createProject)
     int width = 1600, height = 1000;
     bool sizeArg = false;
     float scaleArg = 0;
@@ -327,7 +330,10 @@ int main(int argc, char** argv) {
         else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
         else if (a == "--scriptpreview") previewArg = true;  // the Project page's script preview on (not saved), for a snapshot
         else if (a == "--log") logArg = true;  // the Log open (View > Log), for a snapshot
-        else if (a == "--build") buildArg = true;  // Build (Ctrl+B) runs first: its lines go to the Log, for a snapshot
+        else if (a == "--build") buildArg = true;  // Build (Ctrl+B) runs first: its lines go to the Log; a snapshot waits for its end
+        else if (a == "--newproject") newProjectArg = next();  // a folder: File > Project > New EUD project makes the project Sample (a new map) in it, for a snapshot
+        else if (a == "--saveas") saveAsArg = next();  // a file: File > Save as saves the map there, then it is compared with the map that opens from it, for a snapshot
+        else if (a == "--command") commandArgs.push_back(next());  // a command by name (view.towns, view.grid...) as its menu item runs it, for a snapshot
         else if (a == "--theme") themeArg = next();  // light or dark: the theme for this run (not saved), for a snapshot
         else if (a == "--accent") accentArg = std::atoi(next().c_str());  // the accent's number (theme::kAccents), for a snapshot
         else if (a == "--lang") langArg = next();  // en, ko, es, ru or zh: the language for this run (not saved), for a snapshot
@@ -422,6 +428,13 @@ int main(int argc, char** argv) {
         }
         if (!dropArg.empty()) dropFile(dropArg);
         if (untitledArg) newUntitledProject();
+        if (!newProjectArg.empty()) {  // (as the Windows datashot project:)
+            std::string err;
+            const bool was = std::exchange(gSelfTest, true);  // (the user's recent lists stay as they are)
+            const bool made = gDataOk && createProject(fs::path(widen(newProjectArg)), "Sample", false, err, {});
+            gSelfTest = was;
+            std::printf("new project: %s %s\n", made && activeProject() ? "made (yes)" : "not made (WRONG)", err.c_str());
+        }
         for (int m = 0; !modeArg.empty() && m < kModeCount; ++m) {
             std::string name = narrow(kModeNames[m]);
             std::transform(name.begin(), name.end(), name.begin(), [](unsigned char ch) { return char(std::tolower(ch)); });
@@ -441,7 +454,7 @@ int main(int argc, char** argv) {
         if (trigCodeArg) trigCodeRefresh(true);
         if (!briefArg.empty()) sdlBriefingSelect(briefArg);
         if (newPageArg == "classic" || newPageArg == "eud") openNewPageSdl(newPageArg == "eud" ? 1 : 0);
-        if (buildArg) command(ID_PROJ_COMPILE);
+        if (buildArg) snapshot.empty() ? command(ID_PROJ_COMPILE) : sdlBuildShot();  // (a snapshot: until the build ends, sdl_build.inc)
         if (logArg) gLogPane.setExpanded(true);
         if (!gDataOk) setMessage(widen(gDataError));
         std::printf("stardraft_editor: GPU %s, %s\n", renderer.driver(), gDataOk ? "game data" : gDataError.c_str());
@@ -552,6 +565,11 @@ int main(int argc, char** argv) {
                 for (const std::string& k : keyArgs) sdlPressKey(k);
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             }
+            if (!commandArgs.empty()) {  // the menu commands after the first frame, then a frame more
+                for (const std::string& c : commandArgs) sdlCommandShot(c);
+                host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+            }
+            if (!saveAsArg.empty()) std::printf("%s\n", mapSaveRoundTrip(fs::path(widen(saveAsArg))).c_str());  // (the status bar: Saved ...)
             if (pieArg) {  // the pie after the first frame (the map is placed), then a frame more
                 sdlPieShot();
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);

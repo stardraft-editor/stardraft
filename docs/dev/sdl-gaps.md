@@ -111,6 +111,7 @@ this list.
 | The pie palette (hold Space in Terrain mode) | `pieOpen`, `pieRelease` (main.cpp): a ring of the tileset's terrains. | Done: the ring is the core's `PieView` (`core/views_palette.inc`) over the middle of the map while Space is held, also with Shift (`MainView::pieOpen`, `pieRelease`); letting go of Space paints with any keys held, and when the program loses the keyboard (Alt+Tab) the ring closes with no change, as on Windows; the terrains, the slice under the mouse and the sizes are the core's (`pieTerrains`, `pieSliceAt`, `pieRadius`), and the Windows ring uses them too. Snapshot map-pie (`--pie`: the output says the slices, the slice under the mouse and that letting go paints with it). |
 
 ### The menus and the palette (were open)
+### Also done in this sweep
 
 | What | Windows | SDL |
 |---|---|---|
@@ -141,3 +142,71 @@ what the Win32 program kept; this table is what was checked and what changed for
 | The new unsaved project, the unsaved projects' folders | `newUntitledProject`: a 128 x 128 badlands project in the unsaved folder (the screenshot runs and the self-tests start with it; a normal start shows the start page, as on SDL). `cleanUnsavedProjects`: the folders of programs that ended go. | Was nothing: the folder of a Win32 program that crashed stayed. Done: both are in the core (`core/documents.inc`; `shellProcessId`, `shellProcessRunning`), for both programs; each program removes the folders of programs that ended at its start (not in a test run). Snapshot untitled-project (`--untitled`: the new project in the Project workspace; its folder goes after the picture). |
 | The restart after Language (`--restart <pid>`, the setting Reopen) | Writes the open maps and projects to Reopen, starts itself with `--restart <pid>`; the new program waits for the old one to end, then opens them. | Was its own: the active map or project on the command line, and the new program could send it to the old one (the pipe) before that one ended. Done: the same setting and argument (`restartWrite`, `restartWaitFor`, `restartReopen` in `core/documents.inc`), for both programs; the SDL program waits before the pipe. Checked in WSL with a settings file of its own (`STARDRAFT_SETTINGS`): Reopen with a map, `--restart 999999`: the map opens and Reopen goes. |
 Open: none.
+Open:
+| What | Win32 program | SDL program |
+|---|---|---|
+| The start with a new unsaved project | Starts with a 128 x 128 badlands project in the unsaved folder (`newUntitledProject`), and removes the folders of programs that ended (`cleanUnsavedProjects`). | Starts with the start page; the unsaved folder of a Win32 program that crashed stays. |
+## The final check (2026-10-16)
+Each command id of `core/ids.inc`, each key of `kProgramKeys` (`core/map_edit_commands.inc`), each workspace, dialog
+and pane was compared with the Win32 fallback, by reading the code (the SDL menus run what `sdlRuns` lists, the keys
+go through `shortcutRun`, the same table as the Win32 accelerators) and with the snapshots.
+| What | State |
+|---|---|
+| The commands of the menus | Each item of the core's menu model runs on SDL, except Options > Maps (Windows only, as on the Win32 program). The ids that no menu has (`ID_EDIT_CORRECTION`, `ID_EDIT_DOODADCHECK`, `ID_EDIT_SNAPLOC`, `ID_EDIT_SNAPUNITS`, `ID_SCEN_REPLAY`, `ID_OPT_CRASHREPORTS`) are not in the menus of either program; the `ID_FIXED_*` items are always gray in both. `ID_ACCENT` is the accent swatches of Program options in both. The palette's view ids (`ID_PAL_*`) are the palette's View menu (`paletteMenuModel`). |
+| View > Show town areas | Was gray on SDL: `sdlRuns` did not list it (nor the other pathing overlay ids). Done: they run (`commandMapEdit`, `core/path_overlay.inc`). Snapshot map-view-towns (`--command view.towns`: the output says that the item is not gray, and the town areas show). |
+| The keys of `kProgramKeys` | Each one runs on SDL (`shortcutRun`: the program's keys, then the menus' keys). Snapshots: map-key-copy, map-key-rail, map-key-undo (Ctrl+A, Del, Ctrl+Z, Ctrl+Y). |
+| The workspaces | Map, Data, Triggers, Assets, Project, Briefing, Files, and the map pages (Map properties, Players, Classic triggers, Map data): each has its SDL view (snapshots ws-* and map-ws-*). |
+| The dialogs | Program options, About, Report feedback, New EUD project, the text prompt, the list picker, the block picker, a block's help, the unit and location properties, the quick picker, the value pop-out, the message boxes, the tooltip: each has a snapshot. Project settings is the Project page in both. The button pop-out (Replace a button) is `ButtonPopView` on SDL. |
+| The panes | The menu bar, the top tool bar, the tabs, the rail, the status bar, the Log, the minimap, the palettes, the tool strip, the modes' bar, the code pane: on SDL (snapshots). |
+| Open | Options > Middle mouse click and hold, the start with a new unsaved project and the restart's Reopen list (see "The switch on Windows"). The working folder row of Program options is below the end of the dialog-options pictures (the dialog scrolls). |
+New snapshot options (`main_sdl.cpp`): `--command <name>` runs a menu command by its name; `--saveas <file>` saves
+the open map as File > Save as does, opens the file again and compares it (`mapSaveRoundTrip`,
+`core/map_commands.inc`); `--newproject <folder>` makes the project Sample with a new map, as File > Project > New EUD
+project; `--build` in a snapshot waits for the end of the build and says its result (`gBuildResult`,
+`core/project_build.inc`), and is skipped when the computer has no euddraft (a test run never downloads it). Each key
+of `--key` writes the units, doodads and selection after it.
+## Tests
+The Win32 fallback's self-tests (`stardraft-win32 <map> --selftest <dir>`, `runSelfTest` in main.cpp, and the
+`--datashots <dir> <spec>...` specs) drive the Win32 windows; they stay on `stardraft-win32.exe`. This is what of them
+has an SDL snapshot case (`tools/sdl_snapshots.py`) or a test, and what has none.
+### Has an SDL case now
+| Win32 test | SDL case |
+|---|---|
+| The start page, the New page, the workspaces of a map and of a project (`pages:`) | start, newpage-classic, newpage-eud, ws-*, map-ws-* (the dark theme only; dialog-options-light is the light theme) |
+| undo_twice (Undo of an edit) | map-key-undo (Delete, Undo, Redo, Undo: CHECKS reads the counts) |
+| A save of the map (the steps that save, `openagain:`) | map-save-roundtrip and map-save-edited (`--saveas` into the --out folder: the saved file opens again and is the same; after Delete it has no units) |
+| project created, project compiled (`project:`, a Build) | data-newproject-build (a new project Sample in a new folder in --out, then Build when euddraft is there) |
+| sd_quality, carbot_graphics | map-view-sd, map-view-carbot |
+| The pathing overlays (`--pathshots`, the town areas step) | map-view-towns |
+| palette_list, palette_icons, palette_sprites, palette_large_neutral | map-palette-grid, map-palette-sprites, map-palette-menu, project-palette-pin |
+| grid_snap_ghost, selection_circles | map-scene-grid, map-scene-select |
+| quick picker (`quick:`) | map-dialog-quick |
+| unit properties, location properties (the double-clicks) | map-dialog-unitprops, map-dialog-locprops (the dialogs only) |
+| `blockpick`, `blockhelp:`, `listpick:`, `pickstyle:`, `projectdlg:`, `msgbox:`, `tooltip:` | dialog-blockpick, dialog-blockhelp-rclick, dialog-listpick, dialog-newproject, dialog-message*, dialog-error, dialog-tip |
+| `textpop:`, `trigshow:`, `trigtext:`, `trigobj:` | project-textpop-*, project-trigpop-*, project-varpop-* |
+| `mapmenu:`, `ctxmenu:`, `feedbacknames:` (some of it) | map-rclick-map, map-rclick-*, project-rclick-code, dialog-options-rclick |
+| `dat:entry[:section]` (the Data workspace) | data-units, data-images, data-strings, project-data-open |
+| The Classic triggers page (`bowner:`, `bsel:`) | map-classictrig, map-classictrig-value (the page and a value's pop-out; not the owners, the selection or the Edit commands) |
+| The briefing (`brec:`) | project-briefing (one picture, not the video) |
+| The cursors | map-cursors |
+### No SDL case yet
+| Win32 test | What it checks |
+|---|---|
+| place_cc_on_water_corrected, place_marines_corrected, drag_place, unit_spray, unit_replace_marines_with_zealots | Units placed with the mouse (the correction to a free place, the spray, Replace). The snapshots have no left click or drag yet (`--rclick` only). |
+| box_select, drag_move, drag_snap_back, drag_over_water_red, drag_dropped_corrected | The selection box and a dragged selection (snap back, red where it does not fit). |
+| paste_ghost, paste_ghost_on_water_red, paste_placed, terrain_paste_ghost, terrain_pasted | Paste: the copy that follows the mouse and its place (map-key-copy only copies). |
+| doodad_ghost, doodad, doodad_selected, doodad_spray, sprite_details_hd, sprite_details_sd, `spritetools:` | Doodads and sprites placed with the mouse. |
+| location_create, location_resize, location_move, location_rename, `locwrap:` | Locations made and changed with the mouse; a long name in lines. |
+| terrain_paint, brush_circle_*, fill_lake_with_grass, spray_mud, replace_mud_with_rocky, terrain_select, symmetry_*, rect_paint, `selshape:`, `terraincut:`, `pipette:` | The terrain tools on the map (map-terrain-rect shows the tool only). |
+| zoom_25, hd4x_zoom_200 | The zoom to a percent and HD 4x (the + key zooms in map-view-sd). |
+| new_page_map, new_map_ice, generated_map, generated_again | A map made on the New page (Blank, a tileset, Generate). |
+| tab_previous, tab_closed, `cardagain:` | Ctrl+Shift+Tab and Ctrl+W with more than one tab; the start page's cards. |
+| The player keys (1 to 0), the recent menus at the start, `menutree:`, `barmenu:`, `menutest:` | The player keys, the menu tree, the File menu by the keys, the context menus driven by messages. |
+| The Data workspace's steps (tabs, Tab, back and forward, a weapons.dat save, `portrait:`, `mapplayers:`, `classicdefault:`, `unitnames:`) | The Data form's edits and their save. |
+| The Triggers editor's steps (copy and paste, the keyboard, values, variables, properties, an external script, `trigreplace:`, `emptylists:`, `bcmd:`) and `trigger_selftest.inc` (help, fixes, a picked unit deleted, a build error) | The Triggers workspace's edits. |
+| `eptrace:` | Trace build and its report. |
+| `files:`, `fref:` | The Files workspace's search and a sound the map names. |
+| `spray:`, `emptynone:`, `rightpan:`, `wheelpick:`, `dpi:` | Doodads > Spray, an empty search, the right button on the map, the wheel on a dropdown, a DPI change. |
+| `opentimes:`, `leaks:` | The time to open each workspace; GDI and USER objects (Win32 only). |
+The kit's own tests (`tools/tests/kit_test.cpp`) check the portable views without a program (a text field's menu,
+the text codec).

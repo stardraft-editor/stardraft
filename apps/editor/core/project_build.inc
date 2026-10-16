@@ -14,6 +14,7 @@ bool projectShowScriptError(const std::string& log);  // core/project_page.inc
 void projectFormRefresh();
 
 bool gBuilding = false;  // a build runs (Build grays, and the top bar's Build says "Building")
+int gBuildResult = -1;   // the last build: 1 built, 0 failed, -1 none yet (the snapshots' --build reads it)
 // The first line of the build's output that names a line of the triggers' code (it selects the block when the build fails).
 std::string gTrigBuildError;
 
@@ -258,6 +259,7 @@ void buildStatus(const std::wstring& m) {
 
 void buildFinished(euddraft::BuildResult* r) {
     gBuilding = false;
+    gBuildResult = r->ok ? 1 : 0;
     shellMenusChanged();
     projectFormRefresh();
     const EudProject* pr = activeProject();
