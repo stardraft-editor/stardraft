@@ -582,6 +582,10 @@ std::string loadFonts(const std::string& fontDir) {
     gUiSizeFactor = 1;
     if (gUiEmPx > 0 && !latin.empty())
         if (const float r = ascentDescentPerEm(latin); r > 0) gUiSizeFactor = float(gUiEmPx) * r / 15.0f;
+    // Only a small change: the row heights (kRowH, kMenuRowH, kFormRowH) change with the DPI only, and a larger Windows
+    // text size (Settings > Accessibility > Text size, which also makes the message font larger) would make the text
+    // overflow its rows. The default message font (12 px) gives about 1.06.
+    gUiSizeFactor = std::clamp(gUiSizeFactor, 0.9f, 1.1f);
     if (gUiSizeFactor != 1) {
         char buf[32];
         std::snprintf(buf, sizeof buf, "; text size x%.3f", double(gUiSizeFactor));
