@@ -102,6 +102,10 @@ struct MainView;
 bool sdlMapPageTyping();  // a field of the open map page has the keyboard (sdl_map_pages.inc)
 void registerWorkspaceView(Workspace w, draw::View& v);
 
+// The context menus (sdl_menus.inc): the palette's View menu opens one too.
+std::wstring sdlFeedbackOn(draw::View& from, draw::Point at, const std::wstring& pane);
+bool sdlPopupMenu(draw::View& from, draw::Point at, std::vector<kit::MenuItem> items, const std::wstring& on, kit::MenuOptions opts = {});
+std::vector<kit::MenuItem> sdlModelItems(const MenuModel& model, std::function<void(int)> pick);
 #include "sdl_pictures.inc"  // the palette's pictures (the terrain, doodad, unit and sprite art from the game data)
 #include "sdl_panels.inc"  // the side panels: the palette, the owner, the filter, the search, the section box, the second palette
 
@@ -227,9 +231,6 @@ struct MapView final : draw::View {
 bool shortcutRun(const draw::KeyEvent& e);
 void menusIfDirty();
 void command(int id);
-std::wstring sdlFeedbackOn(draw::View& from, draw::Point at, const std::wstring& pane);
-bool sdlPopupMenu(draw::View& from, draw::Point at, std::vector<kit::MenuItem> items, const std::wstring& on, kit::MenuOptions opts = {});
-std::vector<kit::MenuItem> sdlModelItems(const MenuModel& model, std::function<void(int)> pick);
 
 // The Log at the bottom of the window (core/views_log.inc; shell_sdl.inc adds the lines).
 LogPaneView gLogPane;
@@ -246,6 +247,7 @@ struct MainView final : draw::View {
     MinimapView minimap;
     ModeBarView modes;  // the modes' segmented control, at the top bar's right
     NotHereView notHere;  // the workspace area of a workspace with no view on this system
+    PieView pie;  // the pie palette (core/views_palette.inc): over the map while Space is held in Terrain mode
 
     MainView() {
         initPanels();
@@ -275,6 +277,11 @@ struct MainView final : draw::View {
         add(gStartView, draw::Rect(0, 0, 0, 0));  // the start page (sdl_start.inc): no map open
         add(gNewView, draw::Rect(0, 0, 0, 0));    // the New page (sdl_new_page.inc): File > New project, a card
         for (auto& [w, v] : gWorkspaceViews) add(*v, draw::Rect(0, 0, 0, 0));
+        add(pie, draw::Rect(0, 0, 0, 0));  // (the last child: over the map)
+        pie.setVisible(false);
+        pie.picture = [](draw::Canvas& c, uint16_t t, draw::Rect box) {
+            if (draw::Bitmap* b = paletteBitmap(Mode::Terrain, t, 0)) drawPaletteArt(c, *b, box);
+        };
         relayout();
     }
     ~MainView() override {  // (the children go before the members do: their views unlink here)
@@ -297,6 +304,21 @@ struct MainView final : draw::View {
         if (e.down && !e.repeat && e.key == draw::Key::Enter && !e.mods && !typing && map.shown() && mapEnterSdl()) return true;
         // Esc while a trigger waits for a unit picked on the map: back to the triggers (the Windows cancelStep).
         if (e.down && e.key == draw::Key::Escape && trigUnitPickActive()) return trigCancelUnitPick(), true;
+        // Space on the map in Terrain mode: the pie palette while it is held (the Windows map's VK_SPACE, also with Shift);
+        // its repeats do nothing more, and letting go paints with the slice's terrain, with any keys held. When the program
+        // lost the keyboard (Alt+Tab: SDL lets go of the held keys), the ring closes with no change (the Windows
+        // WM_KILLFOCUS).
+        if (e.key == draw::Key::Space && !e.down && pie.shown()) {
+            if (SDL_GetKeyboardFocus()) return pieRelease(), true;
+            pie.setVisible(false);
+            invalidate();
+            return true;
+        }
+        if (e.key == draw::Key::Space && e.down && !(e.mods & ~unsigned(draw::kShift)) && !typing && map.shown() &&
+            (map.hasFocus() || !hasFocusIn(*this))) {
+            if (!e.repeat) pieOpen();
+            return pie.shown();
+        }
         if (shortcutRun(e)) return true;  // (the menus' keys first, as the Windows accelerators run before the map's keys)
         // The map's keys (Esc, R, the arrows) run only when the map has the keyboard, or no view has it (as the Windows
         // map window's WM_KEYDOWN): Left or Right in a list does not move the selected units.
@@ -353,6 +375,27 @@ struct MainView final : draw::View {
         gState.dirty = true;
         map.invalidate();
         return true;
+    }
+
+    // The pie palette (core/palette_view.inc: pieTerrains): the ring in the middle of the map, its slice the one the
+    // mouse points at. Nothing when the map has no terrain to paint (or the mode is not Terrain).
+    void pieOpen() {
+        pie.items = pieTerrains(gState);
+        if (pie.items.empty() || !map.shown()) return;
+        const draw::Rect m = map.frame();
+        const int s = pieSize(), cx = (m.left + m.right) / 2, cy = (m.top + m.bottom) / 2;
+        pie.setFrame({cx - s / 2, cy - s / 2, cx - s / 2 + s, cy - s / 2 + s});
+        pie.setVisible(true);
+        const draw::Point at = host() ? host()->mouse(pie) : draw::Point{s / 2, s / 2};
+        pie.hot = pie.sliceAt(at);
+        pie.invalidate();
+    }
+    // Space is let go: the brush paints with the slice's terrain (none in the middle).
+    void pieRelease() {
+        const int h = pie.hot;
+        pie.setVisible(false);
+        invalidate();
+        if (h >= 0 && h < int(pie.items.size())) pickUnit(gState, pie.items[size_t(h)], false), invalidateMapView();
     }
 
     // The menu bar's height; the top tool bar is under it (as the Windows menu and its top bar).
@@ -497,6 +540,39 @@ bool topBarModesShown() { return gRoot && gRoot->modes.shown(); }
 
 void invalidateMapView() {
     if (gRoot) gRoot->map.invalidate();
+}
+
+// --pie in a snapshot: Terrain mode, the pie open with the mouse at two thirds of the radius to the right of its middle
+// (as the Windows test's pie:); the output says how many slices and which one is hot. sdlPieShotRelease lets go of Space
+// after the picture and says whether the brush paints with that terrain.
+void sdlPieShot() {
+    if (!gRoot) return;
+    setWorkspace(Workspace::Map);
+    setMode(Mode::Terrain);
+    gRoot->relayout();
+    gRoot->pieOpen();
+    PieView& p = gRoot->pie;
+    if (!p.shown()) return void(std::printf("pie: not open (no terrain to paint)\n"));
+    p.track({p.width() / 2 + pieRadius() * 2 / 3, p.height() / 2});
+    std::printf("pie: slices %d, pointed at %d\n", int(p.items.size()), p.hot);
+}
+void sdlPieShotRelease() {
+    if (!gRoot || !gRoot->pie.shown()) return;
+    const int hot = gRoot->pie.hot;
+    const int want = hot >= 0 && hot < int(gRoot->pie.items.size()) ? gRoot->pie.items[size_t(hot)] : 0;
+    gRoot->pieRelease();
+    std::printf("pie: painting it %s\n", hot >= 0 && gState.palette == want && currentTool(gState) == TBrush ? "yes" : "NO");
+}
+
+// --palview in a snapshot: the View menu's items (list, icons, sprites, normal, large) on the palette of the mode.
+void sdlPaletteViewShot(const std::string& spec) {
+    std::stringstream in(spec);
+    for (std::string w; std::getline(in, w, ',');) {
+        const int id = w == "list" ? ID_PAL_LIST : w == "icons" ? ID_PAL_ICONS : w == "sprites" ? ID_PAL_SPRITES : w == "normal" ? ID_PAL_NORMAL
+                                                                                                  : w == "large" ? ID_PAL_LARGE : 0;
+        if (!applyPaletteViewCommand(gState.mode, id)) std::fprintf(stderr, "--palview %s: not list, icons, sprites, normal or large\n", w.c_str());
+    }
+    shellPaletteRebuilt();
 }
 
 // A workspace's view is added to the window (now when the window exists, else when it is made).
