@@ -1,7 +1,7 @@
 // The modes' segmented control (portable, core.inc): moved from main.cpp. Its instance (gModeBarView) is made in main.cpp,
 // where the top tool bar is; its place in the bar is modeBarRect (main.cpp).
 
-// Defined in main.cpp (the Win32 TU until they move into the core).
+// Defined by the program (main_sdl.cpp and its sdl_*.inc files) until they move into the core.
 void setMode(Mode m);
 
 // The box's corner radius: the kit's kRadius (main.cpp's ui namespace).

@@ -1,6 +1,6 @@
 #pragma once
 // What the editor's UI draws on: the control kit and the panes paint through this, never through a system API, so
-// the same UI code runs in a Win32 window (GdiCanvas, apps/editor/canvas_gdi.inc) and in an SDL window (later).
+// the same UI code runs on every system (the SDL program's canvas: apps/kit_sdl/canvas_imgui.h).
 //
 // Coordinates are pixels of the surface (already scaled for the display), right and bottom edges exclusive.
 // Colors are 0x00BBGGRR (as the kit's color tokens); kNone: nothing is drawn.

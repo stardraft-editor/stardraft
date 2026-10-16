@@ -1,8 +1,8 @@
 // The map view's mouse input (the editor's portable core): a click, a drag, a move and a release on the map, with the
-// spray held down and the pipette. The Windows view (viewProc in main.cpp) only translates its messages into these calls
-// (winMods gives the modifier keys). Included by core.inc; main.cpp defines the helpers declared below.
+// spray held down and the pipette. The program's map view (sdl_main_view.inc) only translates its events into these
+// calls. Included by core.inc; the program defines the helpers declared below.
 
-// main.cpp and its included files define these (the Win32 TU), until they move into the core themselves.
+// Defined by the program (main_sdl.cpp and its sdl_*.inc files), until they move into the core themselves.
 bool objectSprayOn();
 int mapSpriteAt(Editor& ed, int x, int y);
 void snapUnitPoint(float& x, float& y);
@@ -26,7 +26,6 @@ void showUnitProperties(int index);
 void showLocationEdit(int loc);
 bool inSelection();
 bool secondPaints();
-void cancelStep();
 int sprayRadius();
 int brushSizeIndex(float size);
 const std::vector<float>& brushSizes();

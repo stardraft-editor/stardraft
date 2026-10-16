@@ -121,7 +121,7 @@ inline std::wstring releaseProgramName() {
 }
 
 // Whether this program can put the release in its own place: a release build whose file has the release program's
-// name (not stardraft-testing.exe, not the Win32 fallback stardraft-win32.exe), and the release has
+// name (not stardraft-testing.exe), and the release has
 // this system's download. Else the user gets the release page.
 // (Windows only for now: the macOS and Linux downloads hold an app folder, not one program file.)
 inline bool installable(const fs::path& self, const Release& r) {

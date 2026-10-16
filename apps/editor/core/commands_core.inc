@@ -1,7 +1,7 @@
-// The portable part of commandBody (main.cpp): the checks before its switch, the commands that need no Win32 call
-// (commands.inc's table and the recent lists). Returns true when the command is handled. Included by core.inc, after
-// documents.inc (the workspaces, the tabs and the recent lists). The helpers below are defined in main.cpp (the Win32
-// TU) until they move into the core themselves.
+// The portable part of the commands: the checks before the switch, the commands that need no system call (the
+// command table and the recent lists). Returns true when the command is handled. Included by core.inc, after
+// documents.inc (the workspaces, the tabs and the recent lists). The helpers below are defined by the program
+// (main_sdl.cpp and its sdl_*.inc files) until they move into the core themselves.
 
 bool modeLayerHidden();
 void modeLayerHiddenMessage();
@@ -12,7 +12,6 @@ void trigPaste();
 void trigDuplicate();
 void dataCopySelected();
 void dataPasteSelected();
-void showQuickPicker(bool replace, bool open);
 void setMessage(const std::wstring& m);
 void shellMenusChanged();
 

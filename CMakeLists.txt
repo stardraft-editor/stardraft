@@ -301,7 +301,6 @@ endif()
 
 # --- The build's commit and the issues token -----------------------------------------------------------------
 # Crash reports: the commit, and the token that sends them to GitHub as issues (CI gives it; see core/releases.inc).
-# Both editors use them: the Win32 one (main.cpp) and the SDL one (main_sdl.cpp).
 # The commit: each build writes it into generated/build_info.h (cmake/build_info.cmake), so a build after a new
 # commit names that commit with no configure step.
 set(STARDRAFT_BUILD_INFO ${CMAKE_BINARY_DIR}/generated/build_info.h)
@@ -385,7 +384,7 @@ function(stardraft_version_rc target fileName description)
 endfunction()
 
 # The editor's file name: stardraft (stardraft.exe on Windows). A second name (-DSTARDRAFT_EXE_NAME=stardraft-testing)
-# lets a build run while stardraft.exe is open; the Win32 program is then stardraft-testing-win32.exe.
+# lets a build run while stardraft.exe is open.
 set(STARDRAFT_EXE_NAME stardraft CACHE STRING "File name of the editor (without .exe)")
 
 # --- stardraft-next: the new shell's spike (SDL3 + Dear ImGui; research/ports/PLAN.md, phase 4), and kit_demo -------
@@ -492,37 +491,18 @@ if(STARDRAFT_RENDERER)
                            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_FONT_FILES} ${editorDir}/fonts)
     endif()
     if(MSVC)
-        # (main_sdl.cpp holds the whole editor, as main.cpp does: more sections than the default allows)
+        # (main_sdl.cpp holds the whole editor: more sections than the default allows)
         target_compile_options(${sdlEditor} PRIVATE /W4 /utf-8 /bigobj)
+        set_source_files_properties(apps/editor/vorbis.c PROPERTIES COMPILE_OPTIONS /W0)  # (stb_vorbis: not our code)
         # Symbols for Release, to read crash dumps (stardraft.pdb: a release keeps them in a draft release).
         target_compile_options(${sdlEditor} PRIVATE $<$<CONFIG:Release>:/Zi>)
         target_link_options(${sdlEditor} PRIVATE $<$<CONFIG:Release>:/DEBUG /OPT:REF /OPT:ICF>)
     endif()
 endif()
 
-# --- The Win32 program (target stardraft_win32, stardraft-win32.exe): the editor's native Windows shell (main.cpp), a
-# fallback while the SDL program takes its place. Not in a release; its self-tests (--selftest, --datashots) and
-# release.py's screenshots run on it.
+# --- StarDraft-latest.exe (Windows): starts a copy of the newest build of the editor (stardraft-testing.exe, else
+# stardraft.exe; pin it to Start), so builds can go on while it runs.
 if(WIN32 AND STARDRAFT_RENDERER)
-    add_executable(stardraft_win32 WIN32 apps/editor/main.cpp apps/editor/vorbis.c apps/editor/stb_image.cpp apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp apps/editor/stardraft.manifest apps/editor/res/stardraft.rc)
-    target_include_directories(stardraft_win32 PRIVATE ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
-    set_source_files_properties(apps/editor/vorbis.c PROPERTIES COMPILE_OPTIONS "$<$<C_COMPILER_ID:MSVC>:/W0>")
-    set_source_files_properties(apps/editor/stb_image.cpp PROPERTIES COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:MSVC>:/W0>")
-    target_link_libraries(stardraft_win32 PRIVATE stardraft_render stardraft_platform stardraft_kit comctl32 dwmapi shell32 ole32 comdlg32 uxtheme msimg32 gdiplus dbghelp winhttp)
-    add_dependencies(stardraft_win32 stardraft_build_info)
-    target_compile_definitions(stardraft_win32 PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
-    if(MSVC)  # symbols for Release, to read crash dumps
-        target_compile_options(stardraft_win32 PRIVATE $<$<CONFIG:Release>:/Zi>)
-        target_link_options(stardraft_win32 PRIVATE $<$<CONFIG:Release>:/DEBUG /OPT:REF /OPT:ICF>)
-    endif()
-    target_compile_definitions(stardraft_win32 PRIVATE UNICODE _UNICODE)
-    set_target_properties(stardraft_win32 PROPERTIES OUTPUT_NAME ${STARDRAFT_EXE_NAME}-win32)
-    stardraft_version_rc(stardraft_win32 ${STARDRAFT_EXE_NAME}-win32 "StarDraft 2 (Win32)")
-    if(MSVC)
-        target_compile_options(stardraft_win32 PRIVATE /W4 /utf-8 /bigobj)  # main.cpp has more sections than the default allows
-    endif()
-    # StarDraft-latest.exe: starts a copy of the newest build of the editor (stardraft-testing.exe, else stardraft.exe:
-    # the SDL program; pin it to Start), so builds can go on while it runs.
     add_executable(stardraft_latest WIN32 apps/latest/main.cpp apps/latest/latest.rc)
     target_link_libraries(stardraft_latest PRIVATE shell32 ole32 advapi32)
     target_compile_definitions(stardraft_latest PRIVATE UNICODE _UNICODE)

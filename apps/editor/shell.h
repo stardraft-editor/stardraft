@@ -1,7 +1,7 @@
 #pragma once
 // The host seam (research/ports/MAC-BUILD-PLAN.md step 2): what the editor's code asks of the window system, as free
-// functions. The portable code calls these; each host implements them. The Windows host is shell_win32.inc (included
-// by main.cpp), where each one is the line it replaced.
+// functions. The portable code calls these; each host implements them. The host is shell_sdl.inc (with
+// shell_sdl_win.inc for its Windows parts), included by main_sdl.cpp.
 
 #include <chrono>
 #include <cstdint>

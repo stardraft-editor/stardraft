@@ -1,9 +1,8 @@
-# Builds stardraft.exe (the SDL program, CMake target stardraft_editor) on every push (and on pull requests) and keeps
-# it as a downloadable artifact, with the Win32 program stardraft-win32.exe (target stardraft_win32: a fallback, not in
-# a release). A push to a branch never makes a release.
+# Builds stardraft.exe (the editor, CMake target stardraft_editor) on every push (and on pull requests) and keeps it as
+# a downloadable artifact. A push to a branch never makes a release.
 # A tag v<version> (v0.5.0.1; `python -I tools/release.py publish <version> --yes` makes it) makes the release of that
 # commit: "StarDraft 2 - v<version> (build <commit>)", with StarDraft-<version>-win64.zip (stardraft.exe only: its fonts
-# and icons are in it, so an installed stardraft.exe, also the Win32 program of an older release, updates to it), marked
+# and icons are in it, so an installed stardraft.exe, also the Windows program of an older release, updates to it), marked
 # Latest; its text is the "## <version>" section of docs/user/CHANGELOG.md (what is new), then the base changelog (its
 # last section, what StarDraft is) for new visitors. The symbols go to a draft release symbols-v<version>.
 # StarDraft's Check for updates reads "(build <commit>)" in the newest release's title. Each release keeps its own
@@ -62,7 +61,7 @@ jobs:
       - name: Configure
         shell: pwsh
         env:
-          STARDRAFT_ISSUES_TOKEN: ${{ secrets.STARDRAFT_ISSUES_TOKEN }}  # crash reports go to Issues (apps/editor/crash.inc)
+          STARDRAFT_ISSUES_TOKEN: ${{ secrets.STARDRAFT_ISSUES_TOKEN }}  # crash reports go to Issues (core/releases.inc)
         run: |
           # A release tag (v0.5.0.1): the program says that version; other builds keep the version in CMakeLists.txt.
           if ($env:GITHUB_REF -like 'refs/tags/v*') {
@@ -92,13 +91,6 @@ jobs:
       # stops the build (and the release); the editor above is already uploaded.
       - name: Build all targets
         run: cmake --build build --config Release --parallel
-
-      # The Win32 program (the fallback, not in a release), to try by hand.
-      - uses: actions/upload-artifact@v4
-        with:
-          name: stardraft-win32-${{ github.sha }}
-          path: build/Release/stardraft-win32.exe
-          if-no-files-found: error
 
       # For the Wine job: the renderer's test program, built for Windows.
       - uses: actions/upload-artifact@v4

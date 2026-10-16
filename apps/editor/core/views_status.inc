@@ -4,7 +4,7 @@
 // already). The corner keeps room for the size grip, which the bar does not draw: over it, the window resizes from the
 // corner (sizeGrip). The instance (gStatus) is made in main.cpp, where the app state is.
 
-// Defined in main.cpp (the Win32 TU until they move into the core).
+// Defined by the program (main_sdl.cpp and its sdl_*.inc files) until they move into the core.
 int activePage();
 
 // The status bar's view: its texts are the app state's (AppState::statusText, the bar's six parts).

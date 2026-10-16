@@ -57,8 +57,7 @@ draw::Image imageOfBitmap(SDL_GPUDevice* device, draw::Bitmap& b);
 std::string utf8Text(std::wstring_view w);
 size_t utf8Next(const std::string& s, size_t i);
 
-// The program's language: the canvas's text, its measures and the windows' titles go through the translator first, as
-// the Windows program's DrawTextW, GetTextExtentPoint32W and SetWindowTextW wrappers do (apps/editor/ui_text.h). It
+// The program's language: the canvas's text, its measures and the windows' titles go through the translator first. It
 // returns false when the text has no translation (the text is drawn as it is). Null (the default): no translation.
 using TextTranslator = bool (*)(std::wstring_view text, std::wstring& translated);
 void setTextTranslator(TextTranslator translator);

@@ -1,4 +1,4 @@
-// The SDL program's icons on Windows (stardraft.exe), the same as the Win32 program's (stardraft.rc): SDL gives
+// The program's icons on Windows (stardraft.exe): SDL gives
 // the first icon to its windows (the title bar, the taskbar, Alt+Tab), and Explorer shows it for the program file.
 // Icon 1 (index 0): the program. Icon 2 (index 1): the documents (DefaultIcon "<exe>",1: maps and project.stardraft).
 1 ICON "stardraft.ico"

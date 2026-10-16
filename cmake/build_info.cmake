@@ -1,6 +1,6 @@
 # Writes build_info.h with the commit the build is made from (run on each build, see CMakeLists.txt):
 #   cmake -DSTARDRAFT_SOURCE_DIR=<repository> -DSTARDRAFT_BUILD_INFO=<header> -P build_info.cmake
-# The header changes only when its text changes, so main.cpp compiles again only after a new commit.
+# The header changes only when its text changes, so the editor compiles again only after a new commit.
 # 7 characters, as the release title's "(build <commit>)" (Check for updates compares the two; git's own short form
 # grows with the repository).
 execute_process(COMMAND git rev-parse HEAD WORKING_DIRECTORY ${STARDRAFT_SOURCE_DIR} OUTPUT_VARIABLE commit

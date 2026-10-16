@@ -1,6 +1,7 @@
 # Copies the icons the editor uses from tools/icongen/out/ into apps/editor/res/.
 # Run it after build.mjs made new icons:  python tools/import_icons.py [out folder]
-# The editor embeds these files (apps/editor/res/stardraft.rc); build it again after the import.
+# The editor embeds these files (apps/editor/res/stardraft_sdl.rc and the build's stardraft_editor_files.rc); build it
+# again after the import.
 import pathlib
 import shutil
 import sys

@@ -81,7 +81,7 @@
 using namespace stardraft;
 namespace fs = std::filesystem;
 
-// (A named namespace: the core declares editor functions and globals that only main.cpp defines; this object is never
+// (A named namespace: the core declares editor functions and globals that only the program (main_sdl.cpp) defines; this object is never
 // linked, and MSVC refuses undefined declarations with internal linkage.)
 namespace core_check {
 #include "core.inc"

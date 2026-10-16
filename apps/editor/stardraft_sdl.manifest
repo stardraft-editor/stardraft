@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<!-- The SDL program's manifest (stardraft.exe), as the Win32 program's (stardraft.manifest) without the common
-     controls (SDL draws every control): per monitor DPI (v2), UTF-8 as the code page of the narrow file functions, and
+<!-- The program's manifest (stardraft.exe), without the common controls (SDL draws every control): per monitor DPI (v2), UTF-8 as the code page of the narrow file functions, and
      paths longer than MAX_PATH where Windows allows them. -->
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <assemblyIdentity type="win32" name="stardraft.editor" version="1.0.0.0" />

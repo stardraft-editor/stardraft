@@ -1,7 +1,6 @@
-// StarDraft's editor on Windows (stardraft.exe), macOS and Linux (SDL3, Dear ImGui through apps/kit_sdl; the Win32
-// program, main.cpp, builds as stardraft-win32.exe, a fallback that is not in releases). It compiles the same portable
-// core as the Win32 program (core/core.inc, research/ports/MAC-BUILD-PLAN.md step 6), then the SDL shell: the host seam
-// (shell_sdl.inc), the root view (sdl_main_view.inc), the functions the core still needs from the Win32 program
+// StarDraft's editor on Windows (stardraft.exe), macOS and Linux (SDL3, Dear ImGui through apps/kit_sdl). It compiles
+// the portable core (core/core.inc, research/ports/MAC-BUILD-PLAN.md step 6), then the SDL shell: the host seam
+// (shell_sdl.inc), the root view (sdl_main_view.inc), the functions the core still needs from the program
 // (sdl_pending.inc, each marked until it is in the core) and the workspaces (sdl_*.inc).
 //
 // usage: stardraft_editor [map] [--install <folder>] [--size <w>x<h>] [--scale <s>]
