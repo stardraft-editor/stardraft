@@ -220,7 +220,7 @@ public:
         using draw::MouseKind;
         if (e.kind == MouseKind::Wheel) {
             if (!list_.contains(e.pt)) return false;
-            scrollTo(top_ - int(e.wheel * 3));  // (3 rows a notch, as the list box)
+            scrollTo(top_ - (e.exact ? draw::exactSteps(e, float(rowH()), wheelCarry_) : int(e.wheel * 3)));  // (3 rows a notch, as the list box)
             return true;
         }
         // (A double click's second press only selects, as the native list's did: a multi-pick checks the row once.)
@@ -373,6 +373,7 @@ private:
     std::vector<std::wstring> words_;
     ListPickRows rows_;
     int sel_ = -1, top_ = 0;
+    float wheelCarry_ = 0;  // an exact scroll's part of a row (draw::exactSteps)
     draw::Rect search_, list_;
     stardraft::kit::TextField field_;
     stardraft::kit::ScrollBar bar_;

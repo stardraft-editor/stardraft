@@ -357,10 +357,10 @@ void TilesGridView::paint(draw::Canvas& c) {
 
 bool TilesGridView::mouse(const draw::MouseEvent& e) {
     switch (e.kind) {
-    case draw::MouseKind::Pinch: return false;
+    case draw::MouseKind::Pinch: case draw::MouseKind::SmartZoom: case draw::MouseKind::Swipe: return false;
     case draw::MouseKind::Wheel:
         if (e.horizontal) return false;
-        tilesScrollTo(gTiles.scroll - int(e.wheel * float(scale(90))));
+        tilesScrollTo(gTiles.scroll - int(draw::wheelDistance(e, float(scale(90)))));
         return true;
     case draw::MouseKind::Move: {
         if (gTiles.boxing) {  // the box: the tiles in it, as it grows

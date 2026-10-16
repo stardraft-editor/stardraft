@@ -463,6 +463,8 @@ void sdlInputLine(const std::string& what) {
 void sdlMouseShot(const std::string& spec, char kind);
 void sdlWheelShot(const std::string& spec);
 void sdlPinchShot(const std::string& spec);
+void sdlGestureShot(const std::string& spec, bool smartZoom);
+std::string sdlScrollLine(int x, int y);
 
 // A snapshot's inputs (main_sdl.cpp: --key, --type, --click, --drag, --move, --wait; the option's letter k, t, c, d,
 // m, w and its value) that have not run yet, in their order.
@@ -481,6 +483,7 @@ bool sdlShotInputNext() {
     }
     else if (kind == 'h') sdlWheelShot(value);
     else if (kind == 'p') sdlPinchShot(value);
+    else if (kind == 'z' || kind == 'g') sdlGestureShot(value, kind == 'z');
     else sdlMouseShot(value, kind);  // 'c', 'd' or 'm'
     return true;
 }
@@ -558,18 +561,20 @@ void sdlCameraLine(const std::string& what, const SdlCamera& was, float x, float
                 double(was.x), double(was.y), double(was.zoom), double(gState.camX), double(gState.camY), double(gState.zoom));
 }
 
-// --wheel x,y,dx,dy[:precise][:mods] in a snapshot: the wheel at (x, y) in the main window's pixels, as SDL gives it:
+// --wheel x,y,dx,dy[:precise][:mac][:mods] in a snapshot: the wheel at (x, y) in the main window's pixels, as SDL gives it:
 // dy notches away from the user, dx to the right (fractions allowed). precise: a trackpad's two-finger scroll (macOS:
-// hasPreciseScrollingDeltas), not a wheel's notches. mods: Shift, Ctrl, Alt joined with + (Ctrl is Cmd on macOS).
+// hasPreciseScrollingDeltas), not a wheel's notches. mac: as macOS gives it on any system (dx and dy in tenths of
+// points; a precise one is exact: the lists move by its distance). mods: Shift, Ctrl, Alt joined with + (Ctrl is Cmd
+// on macOS). The output's line says the map's camera, and the scroll position of the lists under the point.
 void sdlWheelShot(const std::string& spec) {
     std::stringstream parts(spec);
     std::string at, word;
     std::getline(parts, at, ':');
-    bool precise = false;
+    bool precise = false, mac = false;
     SDL_Keymod held = SDL_KMOD_NONE;
     while (std::getline(parts, word, ':')) {
-        if (word == "precise") {
-            precise = true;
+        if (word == "precise" || word == "mac") {
+            (word == "mac" ? mac : precise) = true;
             continue;
         }
         std::stringstream keys(word);
@@ -596,13 +601,55 @@ void sdlWheelShot(const std::string& spec) {
     const SdlCamera was = sdlCamera();
     const SDL_Keymod before = SDL_GetModState();
     SDL_SetModState(held);
+    const std::string scrolledBefore = sdlScrollLine(int(x), int(y));
     gHost->setPreciseScrollHook([precise] { return precise; });
+    gHost->setMacScrollTest(mac);
     gHost->snapshotMouse(*gRoot, events);
+    gHost->setMacScrollTest(false);
     gHost->setPreciseScrollHook(nullptr);
     SDL_SetModState(before);
     runPosted();
     sdlInputLine("wheel " + spec);
     sdlCameraLine("wheel " + spec, was, x, y);
+    std::printf("wheel %s: scroll %s -> %s\n", spec.c_str(), scrolledBefore.c_str(), sdlScrollLine(int(x), int(y)).c_str());
+}
+
+// The scroll positions of the scrolling views under the window's point (x, y), from the inside out (the CHECKS read
+// them): the kit's lists and trees and the program's pages (a view's scroll is what it paints from).
+std::string sdlScrollLine(int x, int y) {
+    if (!gRoot) return "-";
+    draw::Point local;
+    std::string out;
+    for (draw::View* v = gRoot->viewAt({x, y}, local); v; v = v->parent()) {
+        int at = -1;
+        if (auto* l = dynamic_cast<kit::ListView*>(v)) at = l->scrollTop();
+        else if (auto* t = dynamic_cast<kit::TreeView*>(v)) at = t->scrollY();
+        else if (v == &gStartView) at = gStartView.scrollPos();
+        if (at >= 0) out += (out.empty() ? "" : ",") + std::to_string(at);
+    }
+    return out.empty() ? "-" : out;
+}
+
+// --smartzoom x,y and --swipe x,y,left|right in a snapshot: a trackpad's gesture with the mouse at (x, y), as macOS's
+// monitor gives it (mac_input.mm: SdlHost::pushGesture): a smart zoom (a double tap with two fingers), or a swipe of
+// three fingers (left: the next tab). The output's line says the map's camera and the tabs.
+void sdlGestureShot(const std::string& spec, bool smartZoom) {
+    const std::string name = smartZoom ? "smartzoom " : "swipe ";
+    float x = 0, y = 0;
+    char dir[16] = {};
+    const int got = smartZoom ? std::sscanf(spec.c_str(), "%f,%f", &x, &y) : std::sscanf(spec.c_str(), "%f,%f,%15s", &x, &y, dir);
+    const std::string d = dir;
+    if (!gRoot || !gHost || got != (smartZoom ? 2 : 3) || (!smartZoom && d != "left" && d != "right"))
+        return void(std::fprintf(stderr, "--%s%s: not %s\n", name.c_str(), spec.c_str(), smartZoom ? "x,y" : "x,y,left|right"));
+    std::vector<SDL_Event> events(2);
+    events[0].type = SDL_EVENT_MOUSE_MOTION;
+    events[0].motion.x = x, events[0].motion.y = y;
+    events[1] = kit_sdl::SdlHost::gestureEvent(smartZoom ? draw::MouseKind::SmartZoom : draw::MouseKind::Swipe, d == "left" ? -1 : d == "right" ? 1 : 0);
+    const SdlCamera was = sdlCamera();
+    gHost->snapshotMouse(*gRoot, events);
+    runPosted();
+    sdlInputLine(name + spec);
+    sdlCameraLine(name + spec, was, x, y);
 }
 
 // --pinch x,y,scale in a snapshot: a trackpad's pinch with the mouse at (x, y): it begins, the fingers move apart

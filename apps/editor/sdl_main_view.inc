@@ -231,6 +231,12 @@ struct MapView final : draw::View {
             updateStatus();
             invalidate();
             return true;
+        case draw::MouseKind::SmartZoom:  // macOS's smart zoom: in at the point, then out again (core/map_input.inc: mapSmartZoom)
+            if (!open()) return false;
+            mapSmartZoom(gState, float(e.pt.x), float(e.pt.y));
+            updateStatus();
+            invalidate();
+            return true;
         case draw::MouseKind::Leave:
             gState.mouseIn = false;
             invalidate();
@@ -364,6 +370,9 @@ struct MainView final : draw::View {
     // A right click on the minimap, the tool strip or the modes' bar (the Windows main window's WM_CONTEXTMENU): the
     // dock menu (core/menu_model.inc: dockMenuModel), Left or Right, and Hide for the minimap.
     bool mouse(const draw::MouseEvent& e) override {
+        // A swipe of three fingers (macOS's Swipe between pages) that no view took: the next tab (to the left) or the
+        // tab before, as Safari goes between its pages (the tabs' strip takes a two-finger swipe too: core/views_tabs.inc).
+        if (e.kind == draw::MouseKind::Swipe) return swipeTabs(e.swipe), true;
         if (e.kind != draw::MouseKind::Up || e.button != 1) return false;
         auto over = [&](const draw::View& v) { return v.shown() && v.frame().contains(e.pt); };
         const bool mini = over(minimap), tools = !mini && (over(gToolStripView) || over(modes));

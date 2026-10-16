@@ -21,6 +21,7 @@
 #include <SDL3/SDL_main.h>
 #ifdef __APPLE__
 #include "mac_app_menu.h"  // the application menu's About and Program options (mac_app_menu.mm)
+#include "mac_input.h"     // the trackpad's smart zoom, swipes and scroll phases (mac_input.mm)
 #endif
 
 #include <algorithm>
@@ -364,6 +365,8 @@ int main(int argc, char** argv) {
         else if (a == "--type") inputArgs.emplace_back('t', next());  // text typed into the view with the focus (a search box, a number), for a snapshot
         else if (a == "--wheel") inputArgs.emplace_back('h', next());  // x,y,dx,dy[:precise][:mods]: the wheel there (dy notches away from the user), or a trackpad's scroll (precise), for a snapshot
         else if (a == "--pinch") inputArgs.emplace_back('p', next());  // x,y,scale: a trackpad's pinch there (scale more than 1: the fingers move apart), for a snapshot
+        else if (a == "--smartzoom") inputArgs.emplace_back('z', next());  // x,y: a trackpad's smart zoom (macOS: a double tap with two fingers) there, for a snapshot
+        else if (a == "--swipe") inputArgs.emplace_back('g', next());  // x,y,left|right: a swipe of three fingers there (macOS's Swipe between pages), for a snapshot
         else if (a == "--wait") inputArgs.emplace_back('w', next());  // ms: the time passes for the program's timers (in order with the inputs), for a snapshot
         else if (a == "--rclick") rclickArgs.push_back(next());  // x,y[:n]: a right click there; the menu's items go to the output, item n runs, for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
@@ -375,6 +378,9 @@ int main(int argc, char** argv) {
     if (const int sent = sdlWindowsFirst(argc, argv, testRun); sent >= 0) return sent;
     if (restartPid) restartWaitFor(restartPid);  // (before the pipe: the old program still listens; core/documents.inc)
     if (sdlSendToOpenProgram(mapArg, testRun)) return 0;
+#ifdef __APPLE__
+    SDL_SetHint(SDL_HINT_MAC_SCROLL_MOMENTUM, "1");  // a trackpad's scroll goes on after the fingers lift (its momentum), as in macOS's own programs
+#endif
     if (!SDL_Init(SDL_INIT_VIDEO)) return std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()), 1;
 
     // The device first (the renderer makes it with its shader formats), then the host on it.
@@ -401,6 +407,10 @@ int main(int argc, char** argv) {
         std::printf("stardraft_editor: text %d px, small text %d px, titles %d px\n", kit::px(15), -(shellUiFontLfHeight() * 5 / 6),
                     -(shellUiFontLfHeight() * 3 / 2));
         if (!kit_sdl::loadIconAtlases(device, base + "res/")) std::printf("stardraft_editor: no icon atlases in res/\n");
+        // The atlas cells of the icons at this scale (the snapshots check them: at scale 2 a 16 px icon is 32 px from the
+        // 32 px atlas, and the Start page's 32 px card icon 64 px from the 64 px atlas, sharp on a Retina display).
+        std::printf("stardraft_editor: icons %d px from the %d px atlas, card icons %d px from the %d px atlas\n", kit::px(16),
+                    kit_sdl::iconAtlasCell(0, kit::px(16)), kit::px(32), kit_sdl::iconAtlasCell(0, kit::px(32)));
         kit_sdl::setGlyphIcons(kitpaint::glyphIcon);  // the glyphs as UI icons (no system has to have Segoe MDL2 Assets)
         if (!kit_sdl::loadResourceIcon(1, base + "res/stardraft.ico")) std::printf("stardraft_editor: no app icon in res/\n");  // (About's)
         host.setHoverHook(sdlHover);  // the views' tooltips (sdl_tips.inc)
@@ -409,6 +419,11 @@ int main(int argc, char** argv) {
         if (snapshot.empty()) {  // a trackpad's scroll moves the map, a wheel zooms it: macOS tells them apart (mac_app_menu.mm)
             macWatchScrolls();
             host.setPreciseScrollHook(macLastScrollPrecise);
+            // A scroll's fingers and its momentum stay on the view it began on; the smart zoom and the swipes go to the
+            // window under the mouse (mac_input.mm).
+            host.setScrollContinuesHook(macLastScrollContinues);
+            macWatchGestures([] { kit_sdl::SdlHost::pushGesture(draw::MouseKind::SmartZoom, 0); },
+                             [](int dir) { kit_sdl::SdlHost::pushGesture(draw::MouseKind::Swipe, dir); });
         }
 #endif
 

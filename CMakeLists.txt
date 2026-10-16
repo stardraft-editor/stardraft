@@ -356,8 +356,11 @@ if(STARDRAFT_RENDERER)
             message(WARNING "StarDraft: ${name} was not downloaded (${st}); the programs use the system's fonts")
         endif()
     endforeach()
+    # (40, 48 and 64: the large icons at a high scale, as the Start page's cards at scale 2 on a Retina display)
     set(STARDRAFT_ATLASES ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-16.png ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-20.png
-                          ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-24.png ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-32.png)
+                          ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-24.png ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-32.png
+                          ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-40.png ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-48.png
+                          ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-64.png)
 
     # The kit on SDL (apps/kit_sdl): SDL windows and a Dear ImGui canvas for the kit's views; kit_demo shows them.
     add_library(stardraft_kit_sdl STATIC apps/kit_sdl/canvas_imgui.cpp apps/kit_sdl/sdl_host.cpp)
@@ -470,6 +473,7 @@ if(STARDRAFT_RENDERER)
         # tools/make_icns.py) and the version in Info.plist (numbers only: "0.5 Alpha" is 0.5).
         target_sources(${sdlEditor} PRIVATE apps/editor/mac_app_menu.mm apps/editor/res/stardraft.icns)
         set_source_files_properties(apps/editor/res/stardraft.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+        target_sources(${sdlEditor} PRIVATE apps/editor/mac_input.mm)  # the trackpad's smart zoom, swipes and scroll phases
         target_link_libraries(${sdlEditor} PRIVATE "-framework Cocoa")
         string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" editorBundleVersion "${STARDRAFT_VERSION_NAME}")
         if(NOT editorBundleVersion)
