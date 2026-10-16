@@ -72,7 +72,7 @@ void loadLanguageSdl(const std::string& given) {
 
 // The theme and the accent: every token, the kit's theme, and every window painted again. `save`: kept in the settings
 // (a snapshot's --theme is not).
-// With Automatic (macOS, sdl_window.inc: gThemeAuto, gAccentAuto) the system gives the theme or the accent, and the
+// With Automatic (macOS and Linux, sdl_window.inc: gThemeAuto, gAccentAuto) the system gives the theme or the accent, and the
 // choice that is saved stays the last one the user picked.
 void applyThemeSdl(bool light, int accent, bool save) {
     sdlSetLook(light, accent);
@@ -87,7 +87,7 @@ void applyThemeSdl(bool light, int accent, bool save) {
     if (gFbView) gFbView->invalidate();
 }
 // At the start: the theme in the settings (`given`: --theme light, dark or system, and --accent (-2: system), for a
-// snapshot). On macOS the system's theme and accent color are the default (not in a test run: a test sees the same
+// snapshot). On macOS and Linux the system's theme and accent color are the default (not in a test run: a test sees the same
 // colors on each computer, unless it asks for the system's).
 void loadThemeSdl(const std::string& given, int givenAccent) {
     int64_t light = 0, accent = 0, sysTheme = kSystemLook && !gSilent ? 1 : 0, sysAccent = sysTheme;
@@ -206,7 +206,7 @@ public:
         bool flag = false;
         v.light = gLightTheme, v.accent = gAccentIndex;
         for (int i = 0; i < theme::kAccentCount; ++i) v.accents.push_back({theme::kAccents[i].name, theme::swatch(i)});
-        if constexpr (kSystemLook) {  // (macOS: Automatic, the last swatch, is the default)
+        if constexpr (kSystemLook) {  // (macOS and Linux: Automatic, the last swatch, is the default)
             v.accents.push_back({L"Automatic (the color of the system)", sdlSystemAccentSwatch()});
             v.defaultAccent = theme::kAccentCount;
             if (gAccentAuto) v.accent = theme::kAccentCount;
