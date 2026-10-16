@@ -2042,6 +2042,7 @@ constexpr UiText kRows[] = {
     {L"Download the new AppImage?", L"\uC0C8 AppImage\uB97C \uB2E4\uC6B4\uB85C\uB4DC\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?"},
     {L"&Download", L"\uB2E4\uC6B4\uB85C\uB4DC(&D)"},
     {L"Update StarDraft 2 in your software center.", L"\uC18C\uD504\uD2B8\uC6E8\uC5B4 \uC13C\uD130\uC5D0\uC11C StarDraft 2\uB97C \uC5C5\uB370\uC774\uD2B8\uD558\uC2ED\uC2DC\uC624."},
+    {L"Download it? The download opens in the browser.", L"\uB2E4\uC6B4\uB85C\uB4DC\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C? \uB2E4\uC6B4\uB85C\uB4DC\uAC00 \uBE0C\uB77C\uC6B0\uC800\uC5D0\uC11C \uC5F4\uB9BD\uB2C8\uB2E4."},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

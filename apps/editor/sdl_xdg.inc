@@ -1,16 +1,17 @@
 // The free desktops (Linux and the BSDs: desktop_xdg.h), included by main_sdl.cpp after sdl_dock.inc: the maps and
 // projects that open go to the desktop's recently used files, a Build that ends while the window does not have the focus
 // gives a desktop notification, Build's progress shows on the dock's or the task bar's icon (SDL: the launcher API), and
-// --check desktop:<folder>. The theme and the accent color are sdl_window.inc's; the paths are shell_sdl.inc's. On
+// --check desktop:<folder>, and one program for all maps. The crash reports are shell_sdl_win.inc's (each system's).
+// The theme and the accent color are sdl_window.inc's; the paths are shell_sdl.inc's. On
 // Windows and macOS the functions do nothing (and --check desktop says so).
 
-// The program's packaged form: an AppImage or a Flatpak updates as its package does (not with Help > Check for updates).
-bool sdlUpdatesWithPackage() {
+// The program's packaged form (Help > Check for updates: a new AppImage downloads; a Flatpak updates as its package does).
+releases::Packaged sdlPackaged() {
 #if defined(STARDRAFT_XDG)
-    return !stardraft::xdg::appImageFile().empty() || stardraft::xdg::inFlatpak();
-#else
-    return false;
+    if (!stardraft::xdg::appImageFile().empty()) return releases::Packaged::AppImage;
+    if (stardraft::xdg::inFlatpak()) return releases::Packaged::Flatpak;
 #endif
+    return releases::Packaged::None;
 }
 
 #if defined(STARDRAFT_XDG)
@@ -60,65 +61,6 @@ void watchBuild() {
     stardraft::xdg::notify(narrow(text), "");
 }
 
-// --- Crash reports (apps/common/crash_posix.cpp; the question and --check crashes: sdl_updates.inc) ---
-
-std::deque<std::wstring> gLog;  // the last log lines (the report's end)
-std::string gGpu = "?";         // the video card (when the window shows)
-std::string gBuild;             // "built Oct 10 12:00"
-bool gQuiet = false;            // test runs: the report stays on disk, no message box
-fs::path gSelf;                 // the program's file (found before a crash: the sender starts it)
-
-// $XDG_STATE_HOME/StarDraft/crashes (~/.local/state).
-fs::path crashFolder() {
-    const fs::path s = stardraft::xdg::stateHome();
-    return s.empty() ? fs::path() : s / "StarDraft" / "crashes";
-}
-
-// After the crash's report is written (in the crashed program: little is safe now): send it now (a new process sends
-// it), or say where it is (the next start asks, or crash reports are off). Test runs keep it on disk only.
-void crashWritten(const fs::path& dir) {
-    if (gQuiet) {
-        std::ofstream(dir / "sent") << "a test run: not sent";
-        std::fprintf(stderr, "crash: the report is in %s (a test run: not sent)\n", dir.c_str());
-        return;
-    }
-    if (gSdlCrashReports == 2) std::ofstream(dir / "sent") << "not sent: crash reports are off";
-    if (gSdlCrashReports == 1 && !gSelf.empty()) {
-        const std::string dirText = dir.string();
-        if (fork() == 0) {  // (the sender: this program with --send-crash)
-            execl(gSelf.c_str(), gSelf.c_str(), "--send-crash", dirText.c_str(), static_cast<char*>(nullptr));
-            _exit(1);
-        }
-    }
-    const std::string text = narrow(releases::crashStoppedText(dir, gSdlCrashReports));
-    std::fprintf(stderr, "%s\n", text.c_str());
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "StarDraft 2 stopped", text.c_str(), nullptr);
-}
-
-void installCrashHandler(bool quiet) {
-    gQuiet = quiet;
-    gBuild = narrow(shellBuildStamp());
-    gSelf = stardraft::platform::programFile();
-    stardraft::platform::CrashHandler h;
-    h.folder = crashFolder();
-    h.header = [] { return releases::crashHeader(gBuild, widen(gGpu)); };
-    h.context = [] { return "Workspace: " + narrow(reportWorkspaceName(gWorkspace)) + "\n"; };
-    h.log = [] {
-        std::string r;
-        for (const auto& l : gLog) r += "  " + narrow(l) + "\n";
-        return r;
-    };
-    h.written = crashWritten;
-    stardraft::platform::installCrashHandler(std::move(h));
-}
-
-// --crash-test stack: a call that calls itself until the stack runs out.
-int crashTestDepth(int n) {
-    volatile char frame[4096];
-    frame[0] = char(n);
-    return n > 0 ? crashTestDepth(n + 1) + frame[0] : 0;
-}
-
 // --- One program for all maps: a map or project that a second program gets (the file manager's Open) goes to the
 // first one, through a socket (desktop_xdg.h: instanceSocket) ---
 
@@ -158,22 +100,6 @@ void listenForOtherPrograms(const fs::path& socket) {
 
 }  // namespace xdgsdl
 
-// main()'s first steps (the Windows program's are shell_sdl_win.inc's): a crashed program's sender (--send-crash
-// <folder>) sends its report and ends (returns its exit code; -1 otherwise), and the crash handler goes in (a test
-// run's reports stay on disk); --crash-test crashes on purpose; --crash-test stack: with a stack overflow.
-int sdlWindowsFirst(int argc, char** argv, bool testRun) {
-    const std::string a1 = argc > 1 ? argv[1] : "", a2 = argc > 2 ? argv[2] : "";
-    if (a1 == "--send-crash") return releases::sendCrash(fs::path(widen(a2))) ? 0 : 1;
-    prefs::number(L"CrashReports", gSdlCrashReports, 0, 2);
-    xdgsdl::installCrashHandler(testRun || a1 == "--crash-test");
-    if (a1 == "--crash-test" && a2 == "stack") return xdgsdl::crashTestDepth(1);
-    if (a1 == "--crash-test") *static_cast<volatile int*>(nullptr) = 1;
-    return -1;
-}
-void sdlRememberLogLine(const std::wstring& line) {
-    xdgsdl::gLog.push_back(line);
-    if (xdgsdl::gLog.size() > 60) xdgsdl::gLog.pop_front();
-}
 // A map or project given to a second program goes to the first one: true when it went (this program then ends). A test
 // run (a snapshot, --silent) never sends and never listens.
 bool sdlSendToOpenProgram(const std::string& file, bool testRun) {
@@ -188,17 +114,6 @@ bool sdlSendToOpenProgram(const std::string& file, bool testRun) {
     xdgsdl::listenForOtherPrograms(socket);
     return false;
 }
-// After the window shows: the video card for a crash's report; not in a test run: the reports of an earlier crash.
-void sdlWindowsShown(bool testRun) {
-    if (gDevice) {
-        const char* name = SDL_GetStringProperty(SDL_GetGPUDeviceProperties(gDevice), SDL_PROP_GPU_DEVICE_NAME_STRING, nullptr);
-        xdgsdl::gGpu = name && *name ? name : gRenderer ? gRenderer->driver() : "?";
-    }
-    if (testRun) return;
-    releases::sendPendingCrashes(xdgsdl::crashFolder(), gSdlCrashReports);
-    shellPost([] { sdlAskToSendCrashes(xdgsdl::crashFolder()); });
-}
-std::string sdlCrashCheck() { return sdlCrashReportsCheck(xdgsdl::crashFolder()); }
 #endif
 
 // Each turn of the event loop (main_sdl.cpp: the host's before-pump hook).

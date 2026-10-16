@@ -15,9 +15,9 @@ one that needs a project, only with --project. The others run everywhere (CI has
 To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (its argument loop in main()). In a
 case's options, {map}, {project}, {install} (the --install folder), {root} (the repository), {out} (the --out folder),
 {newdir} (a new empty folder in --out), {kodir} (a new empty folder in --out with Korean letters and spaces in its
-name), {wav} (a short sound that the script writes in --out), {oldsettings} (the settings file of an older release)
-and {legacyhive} (Windows: a registry file with the settings of the releases before the settings file) and {release}
-(GitHub's JSON of a newer release, with a download for each system) are paths, and
+name), {wav} (a short sound that the script writes in --out), {release} (GitHub's answer for the newest release, with a
+download for each system: RELEASE_JSON), {oldsettings} (the settings file of an older release)
+and {legacyhive} (Windows: a registry file with the settings of the releases before the settings file) are paths, and
 {script:<name>} is the path of the input script SCRIPTS[name] (main_sdl.cpp's --script), written into --out with the
 same paths in it. A run also fails when its output has "(WRONG)", or when the
 case's function in CHECKS finds a problem in its output.
@@ -25,6 +25,7 @@ case's function in CHECKS finds a problem in its output.
 
 import argparse
 import hashlib
+import json
 import os
 import re
 import struct
@@ -319,6 +320,7 @@ CASES += [
     ("map-script-session", ["--script", "{script:session}:3"], "map"),
     ("map-script-dialogs", ["--mode", "locations", "--drag", "520,640-600,700", "--script", "{script:dialogs}:300"], "map"),
     ("project-script-reopen", ["--script", "{script:reopen}:6"], "project"),
+    ("script-nodata", ["--noinstall", "--script", "{script:nodata}:3"], ""),
 ]
 CASES += [
     ("map-wheel-zoom", ["--wheel", "700,500,0,1"], "map"),
@@ -397,6 +399,15 @@ CASES += [
 ]
 
 
+# With no game data and no map (as on GitHub's machines): the Files workspace's search box takes Korean and Japanese
+# compositions (each shows in the field, not in its text, until the commit), and emoji (one Backspace removes one).
+CASES += [
+    ("text-input-cjk", ["--noinstall", "--workspace", "files", "--click", "240,289", "--type", "abc", "--ime", "\u314e", "--ime", "\ud55c",
+                        "--ime", "\ud55c\u3131@1", "--type", "\ud55c\uad6d", "--ime", "\u306b", "--ime", "\u306b\u307b\u3093",
+                        "--ime", "\u65e5\u672c@1", "--type", "\u65e5\u672c\u8a9e", "--type", " \U0001f600\U0001f3ae", "--key", "Backspace"], ""),
+]
+
+
 INPUT_START = re.compile(r"^(key|type|ime|click|wait) (.*?): (?:\d+ units|no map)")
 FOCUS_LINE = re.compile(r'^  focus: (.+?) at (-?\d+),(-?\d+) "(.*?)"(?: selected (\d+)-(\d+) composing "(.*)"; input method (on|off) at '
                         r'.* (\(yes\)|\(WRONG\)))?$')
@@ -450,6 +461,73 @@ def check_text_input(output):
         ("key Ctrl+Z", "", (0, 0), ""),
         ("key Ctrl+Z", first + first, None, ""),
     ])
+
+
+def check_text_cjk(output):
+    """Korean and Japanese compositions show in the field until the commit; one Backspace removes one emoji. (The
+    caret's place counts the text's wchar_t: UTF-16 units on Windows, where an emoji is two; elsewhere code points.)"""
+    ko, ja = "abc\ud55c\uad6d", "abc\ud55c\uad6d\u65e5\u672c\u8a9e"
+    emoji = 2 if sys.platform == "win32" else 1
+    return expect_focus(output, [
+        ("type abc", "abc", (3, 3), ""),
+        ("ime \u314e", "abc", (3, 3), "\u314e"),
+        ("ime \ud55c", "abc", (3, 3), "\ud55c"),
+        ("ime \ud55c\u3131@1", "abc", (3, 3), "\ud55c\u3131"),
+        ("type \ud55c\uad6d", ko, (5, 5), ""),
+        ("ime \u306b", ko, (5, 5), "\u306b"),
+        ("ime \u306b\u307b\u3093", ko, (5, 5), "\u306b\u307b\u3093"),
+        ("ime \u65e5\u672c@1", ko, (5, 5), "\u65e5\u672c"),
+        ("type \u65e5\u672c\u8a9e", ja, (8, 8), ""),
+        ("type  \U0001f600\U0001f3ae", ja + " \U0001f600\U0001f3ae", (9 + 2 * emoji, 9 + 2 * emoji), ""),
+        ("key Backspace", ja + " \U0001f600", (9 + emoji, 9 + emoji), ""),
+    ])
+
+
+def check_release(output):
+    """None when Check for updates found the release of the answer (RELEASE_JSON): its title, commit and page, this
+    system's download, and what it does with it: a release build installs it (Windows) or opens the disk image (macOS),
+    an AppImage opens the new AppImage, a Flatpak tells that the package manager updates it, and a build made here (not
+    in a package) opens the release page."""
+    if not re.search(r'^release: "StarDraft 2 - v9\.9\.9\.9 \(build 0123abc\)", commit 0123abc, page https://github\.com/.*/releases/tag/v9\.9\.9\.9\r?$',
+                     output, re.M):
+        return "no release line with the title, the commit and the page"
+    want = RELEASE_DOWNLOADS.get(sys.platform if sys.platform in ("win32", "darwin") else "linux")
+    m = re.search(r"^release: this system's download \((\S+)\) (\S+)\r?$", output, re.M)  # (Windows: the lines end in \r\n)
+    if not m or not m.group(2).endswith("/" + want):
+        return f"this system's download is not {want}: {m.group(0) if m else 'no line'}"
+    m = re.search(r"^release: newer yes, a release build (yes|no), packaged (none|AppImage|Flatpak), Check for updates: (.*?)\r?$", output, re.M)
+    if not m:
+        return "no line of what Check for updates does (or the release is not newer)"
+    release, packaged, does = m.group(1) == "yes", m.group(2), m.group(3)
+    page = "opens https://github.com/stardraft-editor/stardraft/releases/tag/v9.9.9.9"
+    if packaged == "AppImage":
+        expect = "opens " + RELEASE_DOWNLOAD + want
+    elif packaged == "Flatpak":
+        expect = "says that the package manager updates it"
+    elif not release:
+        expect = page
+    elif sys.platform == "darwin":
+        expect = "opens " + RELEASE_DOWNLOAD + want
+    else:
+        expect = None  # (a release build on Windows: it installs it, or opens the page when the file has another name)
+    if expect and does != expect:
+        return f"packaged {packaged}, a release build {m.group(1)}: Check for updates {does}, not {expect}"
+    if not expect and does not in ("installs it", page):
+        return f"a release build: Check for updates {does}"
+    return None
+
+
+def check_soak_nodata(output):
+    """None when each time over of the session with no map printed the memory (each system says it) and the bitmaps
+    with a texture stayed as many."""
+    stats = re.findall(r"^stats: loop (\d+), .*?working set ([-\d.]+) MB .*?, (\d+) bitmaps ", output, re.M)
+    if len(stats) < 2:
+        return f"{len(stats)} stats lines, not 2 or more"
+    if any(float(ws) <= 0 for _, ws, _ in stats):
+        return "a stats line has no memory (the system did not say)"
+    if int(stats[-1][2]) > int(stats[0][2]):
+        return f"the bitmaps went up from {stats[0][2]} to {stats[-1][2]}"
+    return None
 
 
 def check_korean_save(output):
@@ -516,8 +594,11 @@ def check_file_dialogs(output):
 # again are gone; crashes and filetypes: the crash reports' state and the file types (read only).
 CASES += [("update-settings", ["--settings", "{oldsettings}", "--check", "settings", "--check", "update"], ""),
           ("update-checks", ["--check", "crashes", "--check", "filetypes", "--check", "update"], ""),
-          # Check for updates with a release of a test ({release}: GitHub's JSON of a release with the downloads of each
-          # system; no network): the newer release, this system's download, and what Check for updates does.
+          # Check for updates with a release of GitHub as the answer ({release}: RELEASE_JSON, no network): it finds the
+          # release's commit and this system's download (Windows: the zip; macOS: the disk image; Linux: the AppImage),
+          # and says what it does: a release build installs it (Windows) or opens the download (macOS), an AppImage opens
+          # the new AppImage, a Flatpak tells that its package manager updates it, a build made here opens the release
+          # page.
           ("update-release", ["--check", "release:{release}"], "")]
 if sys.platform == "win32":
     CASES += [("update-registry", ["--settings", "{out}/no-settings.json", "--legacyhive", "{legacyhive}", "--check", "settings"], "")]
@@ -581,6 +662,32 @@ undocheck
 roundtrip {out}/session{n}.scx
 stats
 """,
+    # nodata: no game data and no map (as on GitHub's machines): the start page's scroll and keys, the workspaces, the
+    # Files workspace's search box, the Log. tools/ci/mac_release_test.py runs it for 10 minutes (<file>:10m).
+    "nodata": """workspace map
+wheel 500,300,0,-3
+wheel 500,300,0,3
+wheel 500,300,0,-3:precise
+key Tab
+key Tab
+key Shift+Tab
+workspace files
+click 240,289
+type marine {n}
+key Ctrl+A
+key Backspace
+wait 200
+workspace data
+workspace triggers
+workspace project
+workspace briefing
+workspace props
+workspace classic
+key Ctrl+L
+key Ctrl+L
+workspace map
+stats
+""",
     "reopen": """workspace data
 wait 0
 workspace map
@@ -618,11 +725,17 @@ def check_dialogs(output):
 def check_reopen(output):
     """None when the project opened again each time and the bitmaps with a texture stayed as many (the closed project's
     Data pictures went); else the reason."""
-    counts = [int(c) for c in re.findall(r"^stats: .*, (\d+) bitmaps [\d.]+ MB; 1 tabs; ", output, re.M)]
-    if len(counts) != 6:
-        return f"{len(counts)} stats lines with one tab, not 6"
-    if counts[-1] > counts[1]:
-        return f"the bitmaps went up from {counts[1]} to {counts[-1]} (the closed project's pictures stay)"
+    # (the map's images load on threads, and the loaded ones stay for the next open: so the counts are compared only
+    # between the opens whose first frame had the same images still loading, 24 or 0)
+    found = re.findall(r"^first frame: [\d.]+ ms \((\d+) images still loading\)\s*\nstats: .*, (\d+) bitmaps [\d.]+ MB; 1 tabs; ", output, re.M)
+    if len(found) != 6:
+        return f"{len(found)} stats lines with one tab after an open, not 6"
+    by_pending = {}
+    for pending, count in found[1:]:
+        by_pending.setdefault(int(pending), []).append(int(count))
+    for pending, counts in by_pending.items():
+        if counts[-1] > counts[0]:
+            return f"the bitmaps went up from {counts[0]} to {counts[-1]} (the closed project's pictures stay; {pending} images loading)"
     return None
 
 
@@ -1388,44 +1501,6 @@ def check_update_settings(output):
     return None
 
 
-RELEASE_DOWNLOADS = {"win32": "StarDraft-9.9.9.9-win64.zip", "darwin": "StarDraft-9.9.9.9-macos-universal.app.tar.gz",
-                     "linux": "StarDraft-9.9.9.9-x86_64.AppImage"}
-
-
-def write_release(path):
-    """GitHub's JSON of a release ({release}), as releases/latest gives it: a newer build, a download for each system."""
-    import json
-    base = "https://github.com/stardraft-editor/stardraft/releases/download/v9.9.9.9/"
-    assets = [{"url": f"https://api.github.com/repos/stardraft-editor/stardraft/releases/assets/{100 + k}", "name": name,
-               "browser_download_url": base + name} for k, name in enumerate(RELEASE_DOWNLOADS.values())]
-    release = {"url": "https://api.github.com/repos/stardraft-editor/stardraft/releases/1",
-               "html_url": "https://github.com/stardraft-editor/stardraft/releases/tag/v9.9.9.9",
-               "tag_name": "v9.9.9.9", "name": "StarDraft 2 - v9.9.9.9 (build 0abc123)", "assets": assets}
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(release, f, indent=2)  # (indented, as GitHub gives it to a request without a token)
-
-
-def check_update_release(output):
-    """None when the release of the test is newer, its download is this system's (Linux: the AppImage, not an .exe or
-    a zip) and Check for updates opens the release page or the download (or installs it, a release build on Windows)."""
-    if "release: StarDraft 2 - v9.9.9.9 (build 0abc123), build 0abc123, newer yes" not in output:
-        return "the release is not read, or not newer"
-    want = RELEASE_DOWNLOADS.get(sys.platform if sys.platform in ("win32", "darwin") else "linux")
-    m = re.search(r"^release: this system's download \([^)]*\) (\S+)\r?$", output, re.M)  # (Windows: the lines end in \r\n)
-    if not m or not m.group(1).endswith("/" + want):
-        return f"this system's download is {m.group(1) if m else 'none'}, not {want}"
-    m = re.search(r"^release: Check for updates (.*): (\S+)\r?$", output, re.M)
-    if not m:
-        return "no Check for updates line"
-    if m.group(1) == "opens the release page" and not m.group(2).endswith("/releases/tag/v9.9.9.9"):
-        return f"the release page is {m.group(2)}"
-    if m.group(1) == "opens the download" and not m.group(2).endswith("/" + want):
-        return f"the download is {m.group(2)}"
-    if m.group(1) not in ("opens the release page", "opens the download", "installs it"):
-        return f"Check for updates {m.group(1)}"
-    return None
-
-
 def check_update_checks(output):
     """None when the crash reports, the file types and the update each printed their lines."""
     for prefix in ("crashes: ", "filetypes: ", "update: "):
@@ -1475,11 +1550,28 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "drop-sound-assets": check_drop("Imported 1 sounds"), "drop-image-assets": check_drop("Did not import atlas-16.png"),
           "check-dock": check_dock, "map-check-desktop": check_desktop, "dialog-options-tab-general": check_options_tab, "dialog-options-tab-map": check_options_tab,
           "dialog-options-tab-start": check_options_tab, "dialog-options-tab-folders": check_options_tab,
-          "update-settings": check_update_settings, "update-checks": check_update_checks, "update-release": check_update_release,
+          "update-settings": check_update_settings, "update-checks": check_update_checks, "update-release": check_release,
           "update-registry": check_settings_read(LEGACY_LINES),
           "map-text-input": check_text_input, "map-text-korean-save": check_korean_save, "map-dialog-tab": check_dialog_tab,
           "data-tree-typeahead": check_tree_typeahead, "data-file-dialogs": check_file_dialogs,
-          "map-script-session": check_session, "map-script-dialogs": check_dialogs, "project-script-reopen": check_reopen}
+          "map-script-session": check_session, "map-script-dialogs": check_dialogs, "project-script-reopen": check_reopen,
+          "text-input-cjk": check_text_cjk, "script-nodata": check_soak_nodata}
+
+# GitHub's answer for the newest release ({release}; /releases/latest, shortened): a release with a download for each
+# system, as tools/release.py and the macos-release job make it, indented as GitHub gives it to a request without a
+# token (core/releases.inc: compactJson).
+RELEASE_DOWNLOAD = "https://github.com/stardraft-editor/stardraft/releases/download/v9.9.9.9/"
+RELEASE_DOWNLOADS = {"win32": "StarDraft-9.9.9.9-win64.zip", "darwin": "StarDraft-9.9.9.9-macos-arm64.dmg",
+                     "linux": "StarDraft-9.9.9.9-x86_64.AppImage"}
+RELEASE_JSON = json.dumps({
+    "url": "https://api.github.com/repos/stardraft-editor/stardraft/releases/1",
+    "html_url": "https://github.com/stardraft-editor/stardraft/releases/tag/v9.9.9.9", "id": 1,
+    "author": {"login": "stardraft-editor", "url": "https://api.github.com/users/stardraft-editor",
+               "html_url": "https://github.com/stardraft-editor"},
+    "tag_name": "v9.9.9.9", "name": "StarDraft 2 - v9.9.9.9 (build 0123abc)", "draft": False, "prerelease": False,
+    "assets": [{"url": f"https://api.github.com/repos/stardraft-editor/stardraft/releases/assets/{11 + k}", "name": name,
+                "browser_download_url": RELEASE_DOWNLOAD + name} for k, name in enumerate(RELEASE_DOWNLOADS.values())],
+    "body": "What is new"}, indent=2) + "\n"
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -1670,16 +1762,17 @@ def main():
         wav = os.path.join(a.out, "drop-sound.wav")
         if any("{wav}" in x for x in args) and not os.path.exists(wav):
             write_wav(wav)
+        release = os.path.join(a.out, "release-latest.json")
+        if any("{release}" in x for x in args):
+            with open(release, "w", encoding="utf-8") as f:
+                f.write(RELEASE_JSON)
         oldsettings, legacyhive = os.path.join(a.out, "old-settings.json"), os.path.join(a.out, "legacy-settings.hive")
         if any("{oldsettings}" in x for x in args):
             write_old_settings(oldsettings, a.out)
         if any("{legacyhive}" in x for x in args):
             write_legacy_hive(legacyhive)
-        release = os.path.join(a.out, "release.json")
-        if any("{release}" in x for x in args):
-            write_release(release)
         paths = dict(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
-                     kodir=kodir, wav=wav, oldsettings=oldsettings, legacyhive=legacyhive, release=release)
+                     kodir=kodir, wav=wav, release=release, oldsettings=oldsettings, legacyhive=legacyhive)
 
         def script(m):  # {script:<name>}: SCRIPTS[name] with the paths, as a file in --out
             path = os.path.join(a.out, f"{name}-{m.group(1)}.txt")
