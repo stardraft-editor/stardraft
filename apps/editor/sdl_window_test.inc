@@ -379,11 +379,18 @@ void sdlWinTestPump() {
         int pw = 0, ph = 0;
         SDL_GetWindowSizeInPixels(w, &pw, &ph);
         const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(w));
-        const bool sized = on ? mode && pw == int(std::lround(mode->w * mode->pixel_density)) : pw == t.fullW && ph == t.fullH;
+        // (off: a window in the display's free area again; SDL gives it the size it last asked for that the system
+        // took, not always the size before)
+        SDL_Rect area{};
+        SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(w), &area);
+        const float d = SDL_GetWindowPixelDensity(w) > 0 ? SDL_GetWindowPixelDensity(w) : 1.0f;
+        const bool sized = on ? mode && pw == int(std::lround(mode->w * mode->pixel_density))
+                              : pw > 0 && ph > 0 && pw <= int(float(area.w) * d) + 1 && ph <= int(float(area.h) * d) + 1;
         if ((flag != on || !sized || !winTestWaited(500, 5)) && SDL_GetTicks() - t.since < 10000) return;  // (macOS's animation: about a second)
-        std::snprintf(buf, sizeof buf, "full screen %s: flag %s, the window %dx%d px (%s %dx%d), %lld frames presented, root %dx%d", on ? "on" : "off",
-                      flag ? "yes" : "no", pw, ph, on ? "the display" : "before", on && mode ? int(std::lround(mode->w * mode->pixel_density)) : t.fullW,
-                      on && mode ? int(std::lround(mode->h * mode->pixel_density)) : t.fullH, gHost->presentedFrames() - t.framesAt, gRoot->width(), gRoot->height());
+        std::snprintf(buf, sizeof buf, "full screen %s: flag %s, the window %dx%d px (%s %dx%d; before full screen %dx%d), %lld frames presented, root %dx%d",
+                      on ? "on" : "off", flag ? "yes" : "no", pw, ph, on ? "the display" : "the free area", on && mode ? int(std::lround(mode->w * mode->pixel_density)) : int(float(area.w) * d),
+                      on && mode ? int(std::lround(mode->h * mode->pixel_density)) : int(float(area.h) * d), t.fullW, t.fullH, gHost->presentedFrames() - t.framesAt,
+                      gRoot->width(), gRoot->height());
         winTestLine(flag == on && sized && gHost->presentedFrames() - t.framesAt >= 5 && gRoot->width() == pw && gRoot->height() == ph, buf);
         if (on) SDL_SetWindowFullscreen(w, false);
         winTestNext();
