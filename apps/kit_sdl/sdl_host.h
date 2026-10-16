@@ -59,7 +59,18 @@ public:
     // A key (a press) and typed text for such a window, the same way as a window's (dispatch: Esc closes a pop-out;
     // the router: the view with the focus first, then its parents).
     void snapshotKey(draw::View& root, int w, int h, const draw::KeyEvent& k);
+    // The text comes as SDL gives it (SDL_EVENT_TEXT_INPUT): a composition ends first.
     void snapshotText(draw::View& root, int w, int h, const std::string& utf8);
+    // An input method's composition as SDL gives it (SDL_EVENT_TEXT_EDITING: the text not committed yet, `start` its
+    // caret in characters; an empty text ends it).
+    void snapshotCompose(draw::View& root, int w, int h, const std::string& utf8, int start);
+    // The window of `v` (a snapshot's too): whether the input method is on (a view that types text has the keyboard),
+    // and `area`, where it shows its text (the caret that the view gave textInput, in the window's pixels).
+    bool textInputState(const draw::View& v, draw::Rect& area) const;
+    // The window of `v` (a snapshot's) is laid out as a paint does (no picture): the views' places of the last input.
+    void snapshotLayout(const draw::View& v);
+    // The view with the keyboard in the window of `v` (nullptr: none).
+    draw::View* focusedView(const draw::View& v) const;
     // The window that takes a snapshot's keys and text now: the last dialog or pop-out opened (with no SDL window),
     // else `root`; `size` its size in pixels.
     draw::View& snapshotTop(draw::View& root, draw::Point& size);
@@ -172,6 +183,7 @@ private:
     void runFrameHook();
     void destroyRetired();
     void dispatch(const SDL_Event& e);
+    void setTyping(Win& w, bool on);  // the window takes typed text (SDL_StartTextInput) or not
     void fireTimer(int id);
 
     SDL_GPUDevice* device_;

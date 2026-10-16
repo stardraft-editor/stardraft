@@ -140,6 +140,22 @@ std::string shotMapState() {
 
 }  // namespace
 
+// --check names (after the inputs): the open map's file, its title and the units' own names, as the pages show them
+// (the map's strings: UTF-8, else Windows-1252), with "utf-8" or "legacy" for their bytes.
+void sdlNamesCheck() {
+    if (!gState.ed || !gState.ed->isOpen()) return void(std::printf("names: no map open (WRONG)\n"));
+    auto kind = [](const std::string& b) {
+        std::wstring w;
+        return b.empty() ? "empty" : stardraft::text::decodeUtf8(b, w) ? "utf-8" : "legacy";
+    };
+    const std::string title = gState.ed->scenarioName();
+    std::printf("names: map \"%s\"\n", narrow(gState.ed->path().wstring()).c_str());
+    std::printf("names: title \"%s\" (%s)\n", narrow(widen(title)).c_str(), kind(title));
+    for (int u = 0; u < kSettingUnits; ++u)
+        if (const std::string n = gState.ed->unitSettingName(u); !n.empty())
+            std::printf("names: unit %d \"%s\" (%s)\n", u, narrow(gameTextPlain(n)).c_str(), kind(n));
+}
+
 // The line's state part (empty: none for this workspace).
 std::string sdlShotState() {
     const bool map = gState.ed && gState.ed->isOpen();

@@ -393,6 +393,8 @@ int main(int argc, char** argv) {
         else if (a == "--lostdrag") inputArgs.emplace_back('l', next());  // x0,y0-x1,y1[:mods]: a left drag, then the window loses the focus before the release (Alt+Tab), for a snapshot
         else if (a == "--move") inputArgs.emplace_back('m', next());  // x,y: the mouse moves there (no button), for a snapshot
         else if (a == "--type") inputArgs.emplace_back('t', next());  // text typed into the view with the focus (a search box, a number), for a snapshot
+        else if (a == "--pick") gShotPicks.push_back(next());  // a path, or cancel: the answer of the next file or folder dialog (none shows; the output says what it asked), for a snapshot
+        else if (a == "--ime") inputArgs.emplace_back('i', next());  // text[@caret]: an input method's composition (not committed; empty: it ends) in the view with the focus, for a snapshot
         else if (a == "--wheel") inputArgs.emplace_back('h', next());  // x,y,dx,dy[:precise][:mods]: the wheel there (dy notches away from the user), or a trackpad's scroll (precise), for a snapshot
         else if (a == "--pinch") inputArgs.emplace_back('p', next());  // x,y,scale: a trackpad's pinch there (scale more than 1: the fingers move apart), for a snapshot
         else if (a == "--smartzoom") inputArgs.emplace_back('z', next());  // x,y: a trackpad's smart zoom (macOS: a double tap with two fingers) there, for a snapshot
@@ -401,7 +403,7 @@ int main(int argc, char** argv) {
         else if (a == "--rclick") rclickArgs.push_back(next());  // x,y[:n]: a right click there; the menu's items go to the output, item n runs, for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
-    if (!snapshot.empty()) gSilent = true, gNoBoxes = true;
+    if (!snapshot.empty()) gSilent = true, gNoBoxes = true, gShotDialogs = true;  // (a snapshot shows no file dialog: --pick answers)
     // A test run (a snapshot, --silent) asks nothing, sends nothing and leaves the user's file types.
     const bool testRun = gSilent;
     // Windows: a crash's sender ends here, the crash handler goes in, and a map for the open program goes to it.
@@ -585,7 +587,7 @@ int main(int argc, char** argv) {
         // window's, the menu bar's and the Dock's lines come after the snapshot (hasCheck).
         for (const std::string& c : checkArgs) {
             std::string out;
-            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock";
+            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names";
             if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
             std::printf("%s", out.c_str());
         }
@@ -745,6 +747,7 @@ int main(int argc, char** argv) {
             if (hasCheck("window")) sdlWindowCheck(mapArg.empty() ? snapshot : mapArg);  // (no map: the picture is the file)
             if (cursorsArg) sdlCursorChecks();  // (after the picture: it changes the mode and the camera)
             if (hasCheck("menus")) sdlMenuCheck();
+            if (hasCheck("names")) sdlNamesCheck();  // (after the inputs: a map saved and opened again)
             if (untitledArg) {  // (the project's folder goes: a snapshot leaves nothing)
                 const EudProject* pr = activeProject();
                 std::printf("untitled: an unsaved project %s (%s)\n", isUnsavedProject(pr) ? "yes" : "(WRONG)", pr ? narrow(pr->folder().filename().wstring()).c_str() : "none");

@@ -490,15 +490,10 @@ std::filesystem::path shellPickFile(const ShellFilePick& pick) {
     std::vector<SDL_DialogFileFilter> filters;
     for (size_t i = 0; i < names.size(); ++i) filters.push_back({names[i].c_str(), patterns[i].c_str()});
     // The place to start: the folder, and for a save dialog the name in it.
-    std::string where;
-    if (!pick.initialDir.empty()) where = narrow(pick.initialDir.wstring());
-    if (pick.save && !pick.fileName.empty())
-        where = narrow((pick.initialDir.empty() ? std::filesystem::path(pick.fileName) : pick.initialDir / pick.fileName).wstring());
+    const std::string where = sdlDialogLocation(pick.initialDir, pick.save ? pick.fileName : std::wstring());
     std::filesystem::path picked = sdlPickWait([&](SdlPickState* st) {
-        if (pick.save)
-            SDL_ShowSaveFileDialog(sdlPickAnswered, st, dialogWindow(), filters.data(), int(filters.size()), where.empty() ? nullptr : where.c_str());
-        else
-            SDL_ShowOpenFileDialog(sdlPickAnswered, st, dialogWindow(), filters.data(), int(filters.size()), where.empty() ? nullptr : where.c_str(), false);
+        sdlFileDialog(pick.save ? SDL_FILEDIALOG_SAVEFILE : SDL_FILEDIALOG_OPENFILE, sdlPickAnswered, st, filters.data(), int(filters.size()),
+                      where, narrow(shellTr(pick.title.c_str())));
     });
     if (pick.save && !picked.empty() && picked.extension().empty() && !pick.defaultExtension.empty()) picked += L"." + pick.defaultExtension;
     return picked;
@@ -517,17 +512,8 @@ bool sdlSaveUnsavedProject() {
     return !picked.empty() && saveUnsavedProjectTo(picked);
 }
 std::wstring shellPickFolder(const std::wstring& title) {
-    const std::string where = narrow(defaultProjectsFolder().wstring()), shownTitle = narrow(title);
-    return sdlPickWait([&](SdlPickState* st) {
-               // (the title says what to pick: the dialog's title bar on Windows and Linux, the panel's on macOS)
-               const SDL_PropertiesID props = SDL_CreateProperties();
-               SDL_SetPointerProperty(props, SDL_PROP_FILE_DIALOG_WINDOW_POINTER, dialogWindow());
-               if (!where.empty()) SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_LOCATION_STRING, where.c_str());
-               if (!shownTitle.empty()) SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_TITLE_STRING, shownTitle.c_str());
-               SDL_SetBooleanProperty(props, SDL_PROP_FILE_DIALOG_MANY_BOOLEAN, false);
-               SDL_ShowFileDialogWithProperties(SDL_FILEDIALOG_OPENFOLDER, sdlPickAnswered, st, props);
-               SDL_DestroyProperties(props);
-           })
+    const std::string where = sdlDialogLocation(defaultProjectsFolder()), shownTitle = narrow(title);
+    return sdlPickWait([&](SdlPickState* st) { sdlFileDialog(SDL_FILEDIALOG_OPENFOLDER, sdlPickAnswered, st, nullptr, 0, where, shownTitle); })
         .wstring();
 }
 std::wstring shellPickOutputFile(const std::wstring& name) {
