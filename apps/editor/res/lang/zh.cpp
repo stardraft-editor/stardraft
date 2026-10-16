@@ -2039,6 +2039,9 @@ constexpr UiText kRows[] = {
     {L"Edit StarCraft maps and EUD projects", L"\u7F16\u8F91 StarCraft \u5730\u56FE\u548C EUD \u9879\u76EE"},
     {L"Edit the terrain, units, locations and triggers of StarCraft maps. Build EUD maps with euddraft.", L"\u7F16\u8F91 StarCraft \u5730\u56FE\u7684\u5730\u5F62\u3001\u5355\u4F4D\u3001\u4F4D\u7F6E\u548C\u89E6\u53D1\u5668\u3002\u4F7F\u7528 euddraft \u6784\u5EFA EUD \u5730\u56FE\u3002"},
     {L"StarDraft project", L"StarDraft \u9879\u76EE"},
+    {L"Download the new AppImage?", L"\u4E0B\u8F7D\u65B0\u7684 AppImage\uFF1F"},
+    {L"&Download", L"\u4E0B\u8F7D(&D)"},
+    {L"Update StarDraft 2 in your software center.", L"\u8BF7\u5728\u8F6F\u4EF6\u4E2D\u5FC3\u66F4\u65B0 StarDraft 2\u3002"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

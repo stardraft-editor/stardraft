@@ -115,7 +115,41 @@ SdlMemory sdlMemory() {
     for (std::string line; std::getline(status, line);) {
         if (line.rfind("VmRSS:", 0) == 0) m.workingSet = std::atof(line.c_str() + 6) / 1024.0;
         else if (line.rfind("VmHWM:", 0) == 0) m.peak = std::atof(line.c_str() + 6) / 1024.0;
+        // private: the memory of this process only (its anonymous pages, also the ones in swap)
+        else if (line.rfind("RssAnon:", 0) == 0) m.privateBytes = (m.privateBytes < 0 ? 0 : m.privateBytes) + std::atof(line.c_str() + 8) / 1024.0;
+        else if (line.rfind("VmSwap:", 0) == 0) m.privateBytes = (m.privateBytes < 0 ? 0 : m.privateBytes) + std::atof(line.c_str() + 7) / 1024.0;
     }
+    // The GPU memory of this process: the kernel's DRM statistics of each open GPU device (/proc/self/fdinfo:
+    // drm-total-<region> or drm-memory-<region>, in KiB): vram is the card's own memory, the other regions the shared.
+    // None (a driver without them, as NVIDIA's or a GPU in software): -1.
+    std::error_code ec;
+    double local = 0, shared = 0;
+    bool any = false;
+    std::set<std::string> clients;  // (one device open twice counts once: its drm-client-id)
+    for (const auto& e : fs::directory_iterator("/proc/self/fd", ec)) {
+        const fs::path target = fs::read_symlink(e.path(), ec);
+        if (ec || target.string().rfind("/dev/dri/", 0) != 0) continue;
+        std::ifstream info(fs::path("/proc/self/fdinfo") / e.path().filename());
+        std::string client;
+        double l = 0, s = 0;
+        bool has = false;
+        for (std::string line; std::getline(info, line);) {
+            if (line.rfind("drm-client-id:", 0) == 0) client = line.substr(14);
+            const bool total = line.rfind("drm-total-", 0) == 0, memory = line.rfind("drm-memory-", 0) == 0;
+            if (!total && !memory) continue;
+            const size_t colon = line.find(':');
+            if (colon == std::string::npos) continue;
+            const std::string region = line.substr(total ? 10 : 11, colon - (total ? 10 : 11));
+            double v = std::atof(line.c_str() + colon + 1);
+            if (line.find("MiB", colon) != std::string::npos) v *= 1024.0;
+            else if (line.find("KiB", colon) == std::string::npos) v /= 1024.0;  // (bytes)
+            (region == "vram" || region == "local0" ? l : s) += v / 1024.0;
+            has = true;
+        }
+        if (!has || !clients.insert(client.empty() ? e.path().filename().string() : client).second) continue;
+        local += l, shared += s, any = true;
+    }
+    if (any) m.gpuLocal = local, m.gpuShared = shared;
 #endif
     return m;
 }

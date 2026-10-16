@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <string>
 
 namespace stardraft::xdg {
@@ -53,6 +54,19 @@ std::filesystem::path recentFile();
 bool addRecent(const std::filesystem::path& xbel, const std::filesystem::path& file, const std::string& mimeType, std::string& error);
 // The MIME type of a map or project file by its extension (the types of packaging/linux/stardraft-mime.xml).
 std::string mimeTypeOf(const std::filesystem::path& file);
+
+// --- One program for all maps (a map that opens from the file manager goes to the program that is open) ---
+
+// The socket that the open program listens on, with the file name `name`: in $XDG_RUNTIME_DIR (in a Flatpak: the
+// app's own folder there, which each of its sandboxes shares), else in /tmp/stardraft-<uid> (a folder that only this
+// user can open). Empty when there is no such folder.
+std::filesystem::path instanceSocket(const std::string& name);
+// Sends `text` to the program that listens on `socket`. False when no program listens there (this one is the first).
+bool sendToInstance(const std::filesystem::path& socket, const std::string& text);
+// Listens on `socket` on a thread of its own: the text of each connection goes to `got` (on that thread). A socket
+// file that no program listens on (a program that crashed left it) is replaced. False when another program listens
+// already, or the socket cannot be made.
+bool listenAsInstance(const std::filesystem::path& socket, std::function<void(std::string)> got);
 
 // (The desktop's UI font is apps/kit_sdl/canvas_imgui.cpp's: fontconfig, with all of the kit's programs.)
 

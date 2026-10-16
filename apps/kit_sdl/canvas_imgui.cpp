@@ -771,6 +771,17 @@ bool loadResourceIcon(int id, const std::string& file) {
     return true;
 }
 
+bool setWindowIcon(SDL_Window* window, int id) {
+    const auto it = gResourceIcons.find({id, 0});
+    if (!window || it == gResourceIcons.end() || it->second.rgba.empty()) return false;
+    ResourceIcon& r = it->second;
+    SDL_Surface* s = SDL_CreateSurfaceFrom(r.w, r.h, SDL_PIXELFORMAT_RGBA32, r.rgba.data(), r.w * 4);
+    if (!s) return false;
+    const bool ok = SDL_SetWindowIcon(window, s);  // (SDL copies the pixels)
+    SDL_DestroySurface(s);
+    return ok;
+}
+
 draw::Canvas& measuringCanvas() {
     // Never destroyed: a draw list takes itself out of the ImGui context's shared data when it goes, and at exit that
     // context is gone before the statics (the program crashed at exit on Windows after a message box or a tooltip).

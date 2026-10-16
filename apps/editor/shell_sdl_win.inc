@@ -64,22 +64,8 @@ void installCrashHandler(bool quiet) {
     stardraft::platform::installCrashHandler(std::move(h));
 }
 
-// At start, with Options > Crash reports: Ask: the reports of the last crash: send them, always send, or not.
-void askToSendCrashes() {
-    if (gSdlCrashReports != 0 || issueToken().empty() || !gRoot) return;
-    const auto reports = stardraft::platform::unsentCrashReports(crashFolder());
-    if (reports.empty()) return;
-    const int r = msgbox::ask(*gRoot, shellTr(L"Crash report"), releases::crashAskText(reports.front().parent_path()),
-                                  {shellTr(L"&Send"), shellTr(L"&Always send"), shellTr(L"Do &not send")}, msgbox::Icon::Question);
-    if (r == 1) gSdlCrashReports = 1, prefs::setNumber(L"CrashReports", 1);  // Always send: from now on, without the question
-    if (r == 0 || r == 1) {
-        std::thread([reports] {
-            for (const auto& d : reports) releases::sendCrash(d);
-        }).detach();
-    } else {
-        for (const auto& d : reports) stardraft::platform::markCrashReport(d, "not sent: the user said no");
-    }
-}
+// At start, with Options > Crash reports: Ask: the reports of the last crash (sdl_updates.inc).
+void askToSendCrashes() { sdlAskToSendCrashes(crashFolder()); }
 
 // --- One program for all maps -----------------------------------------------------------------------------------------
 
@@ -423,27 +409,7 @@ bool shellProcessRunning(std::uint32_t pid) {
 
 // --check crashes (sdl_updates.inc): the crash reports in the folder (each one's state) and what the next start does
 // with the ones that were not sent (Options > Crash reports; a build made here has no token, and asks and sends nothing).
-std::string sdlCrashCheck() {
-    int mode = 0;
-    prefs::number(L"CrashReports", mode, 0, 2);
-    const fs::path folder = winsdl::crashFolder();
-    std::string out = "crashes: folder " + narrow(folder.wstring()) + ", crash reports " + std::to_string(mode) + "\n";
-    std::error_code ec;
-    for (const auto& e : fs::directory_iterator(folder, ec)) {
-        std::string state = "not sent";
-        if (std::ifstream in(e.path() / "sent"); in) std::getline(in, state);
-        const auto size = fs::exists(e.path() / "report.txt", ec) ? fs::file_size(e.path() / "report.txt", ec) : 0;
-        out += "crashes: report " + e.path().filename().string() + ", report.txt " + std::to_string(size) + " bytes, crash.dmp " +
-               (fs::exists(e.path() / "crash.dmp", ec) ? "yes" : "no") + ", " + state + "\n";
-    }
-    const auto unsent = stardraft::platform::unsentCrashReports(folder);
-    const std::string token = issueToken().empty() ? " (a build made here: nothing, it has no token)" : "";
-    if (unsent.empty()) out += "crashes: the next start: nothing (no report waits)\n";
-    else if (mode == 0) out += "crashes: the next start asks" + token + ": " + narrow(releases::crashAskText(unsent.front().parent_path())) + "\n";
-    else if (mode == 1) out += "crashes: the next start sends " + std::to_string(unsent.size()) + token + "\n";
-    else out += "crashes: the next start: nothing (crash reports are off)\n";
-    return out;
-}
+std::string sdlCrashCheck() { return sdlCrashReportsCheck(winsdl::crashFolder()); }
 
 // --check filetypes (sdl_updates.inc): what opens the maps and project.stardraft in Explorer (the user's file types:
 // read only).
@@ -472,19 +438,27 @@ std::uintptr_t sdlStartProgram(const fs::path& exe, const fs::path& dir, const s
     return shellStartElevated(exe, dir, args, what, error);
 }
 
+#if !defined(STARDRAFT_XDG)  // (Linux and the BSDs: sdl_xdg.inc has the crash handler and one program for all maps)
 void sdlRememberLogLine(const std::wstring&) {}
+int sdlWindowsFirst(int, char**, bool) { return -1; }
+bool sdlSendToOpenProgram(const std::string&, bool) { return false; }
+void sdlWindowsShown(bool) {}
+std::string sdlCrashCheck() { return "crashes: none on this system yet\n"; }
+#endif
 bool sdlMakeMapsDefault() { return false; }
 void shellMapFileOpened(const std::filesystem::path&) {}  // (the file association is Windows only)
 bool sdlMapsOpenWithUs() { return false; }
-int sdlWindowsFirst(int, char**, bool) { return -1; }
-bool sdlSendToOpenProgram(const std::string&, bool) { return false; }
 void sdlTitleBarsDark(bool) {}
+#if defined(STARDRAFT_XDG)
+// Each window gets the program's icon (X11: the task bar and Alt+Tab show it also when no .desktop file matches the
+// window, as an AppImage that is not installed).
+void sdlTitleBarOfNewWindow(SDL_Window* w) { kit_sdl::setWindowIcon(w, 1); }
+#else
 void sdlTitleBarOfNewWindow(SDL_Window*) {}
-void sdlWindowsShown(bool) {}
+#endif
 // (core/documents.inc: the unsaved projects' folders; the restart)
 std::uint32_t shellProcessId() { return std::uint32_t(getpid()); }
 bool shellProcessRunning(std::uint32_t pid) { return pid && (kill(pid_t(pid), 0) == 0 || errno == EPERM); }
-std::string sdlCrashCheck() { return "crashes: none on this system yet\n"; }
 std::string sdlFileTypesCheck() { return "filetypes: none on this system\n"; }
 
 #endif

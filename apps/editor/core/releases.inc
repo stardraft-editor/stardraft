@@ -78,20 +78,44 @@ inline std::string jsonString(const std::string& j, const std::string& key, size
 
 struct Release {
     std::string title, commit, zip, page;  // zip: the asset's API address (it downloads with the token)
+    std::string download;                  // this system's download for the browser (its browser_download_url)
 };
 
-// The newest release; false when GitHub cannot be reached.
-inline bool latest(Release& r) {
-    std::string j;
-    if (!get("https://api.github.com/repos/" + narrow(kIssueRepo) + "/releases/latest", &j)) return false;
+// The release in GitHub's JSON of a release (releases/latest); false when it has no name.
+// The JSON without the spaces and line breaks between its values (GitHub indents its JSON for a request without a
+// token: "name": "..."), so that jsonString finds "name":"...".
+inline std::string compactJson(const std::string& j) {
+    std::string o;
+    o.reserve(j.size());
+    bool text = false, escape = false;
+    for (const char ch : j) {
+        if (text) {
+            o += ch;
+            if (escape) escape = false;
+            else if (ch == '\\') escape = true;
+            else if (ch == '"') text = false;
+        } else if (ch == '"') {
+            o += ch, text = true;
+        } else if (ch != ' ' && ch != '\n' && ch != '\r' && ch != '\t') {
+            o += ch;
+        }
+    }
+    return o;
+}
+
+inline bool parseRelease(const std::string& json, Release& r) {
+    const std::string j = compactJson(json);
+    r = {};
     r.title = jsonString(j, "name");  // the release's own name comes before its assets' names
     r.page = jsonString(j, "html_url");
     if (const size_t a = r.title.find("(build "); a != std::string::npos) r.commit = r.title.substr(a + 7, r.title.find(')', a) - a - 7);
     for (size_t p = 0; (p = j.find("\"browser_download_url\":\"", p)) != std::string::npos; ++p) {
         const std::string u = jsonString(j, "browser_download_url", p);
-        // This system's download (StarDraft-<version>-win64.zip): a release can also have downloads for other systems.
+        // This system's download (StarDraft-<version>-win64.zip; Linux: the AppImage): a release can also have downloads
+        // for other systems.
         static const std::string kOurs = stardraft::platform::releaseAssetSuffix();
         if (u.size() < kOurs.size() || u.compare(u.size() - kOurs.size(), kOurs.size(), kOurs) != 0) continue;
+        r.download = u;
         // The asset's "url" (api.github.com/.../releases/assets/<id>) comes before its browser_download_url.
         for (size_t k = j.rfind("\"url\":\"", p); k != std::string::npos; k = k ? j.rfind("\"url\":\"", k - 1) : std::string::npos) {
             const std::string a = jsonString(j, "url", k);
@@ -102,6 +126,13 @@ inline bool latest(Release& r) {
         }
     }
     return !r.title.empty();
+}
+
+// The newest release; false when GitHub cannot be reached.
+inline bool latest(Release& r) {
+    std::string j;
+    if (!get("https://api.github.com/repos/" + narrow(kIssueRepo) + "/releases/latest", &j)) return false;
+    return parseRelease(j, r);
 }
 
 inline bool newer(const Release& r) { return !r.commit.empty() && r.commit != STARDRAFT_COMMIT; }
