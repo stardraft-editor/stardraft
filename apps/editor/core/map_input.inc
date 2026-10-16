@@ -603,3 +603,42 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     app.dirty = true;
     shellMenusChanged();
 }
+
+// The map view's cursor at a point of the view (both programs): the resize cursors on the selected location's edges and
+// corners (GitHub feedback #76), the move cursor while the camera moves and over a selected unit, doodad or sprite that
+// a press would move (and during that move), else the arrow.
+bool trigUnitPickActive();
+stardraft::draw::Cursor mapCursorAt(AppState& app, int x, int y) {
+    using stardraft::draw::Cursor;
+    if (app.drag == Drag::Pan || app.drag == Drag::AutoPan) return Cursor::SizeAll;
+    if (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
+        // Over one that is not selected: the arrow (a click selects it).
+        if (app.drag == Drag::MoveUnits || app.drag == Drag::MoveDoodad || app.drag == Drag::MoveSprite) return Cursor::SizeAll;
+        if (app.drag != Drag::None || !app.ed || !app.ed->isOpen() || modeLayerHidden() || app.pasting || app.pastingItems ||
+            app.palette >= 0 || trigUnitPickActive())
+            return Cursor::Arrow;
+        Editor& ed = *app.ed;
+        float wx, wy;
+        toWorld(x, y, wx, wy);
+        auto in = [](const std::vector<int>& v, int i) { return i >= 0 && std::find(v.begin(), v.end(), i) != v.end(); };
+        bool hit = false;
+        if (app.mode == Mode::Units) {
+            const int u = currentTool() == UPlace && !ed.selection().empty() ? ed.unitAt(int(wx), int(wy)) : -1;
+            hit = u >= 0 && ed.isSelected(u);
+        } else if (app.mode == Mode::Doodads)
+            hit = currentTool() == DPlace && !app.selDoodads.empty() && in(app.selDoodads, ed.doodadAt(int(wx), int(wy)));
+        else
+            hit = !app.selSprites.empty() && in(app.selSprites, mapSpriteAt(ed, int(wx), int(wy)));
+        return hit ? Cursor::SizeAll : Cursor::Arrow;
+    }
+    if (app.mode != Mode::Locations || !app.ed || (app.drag != Drag::None && app.drag != Drag::LocResize)) return Cursor::Arrow;
+    int e = app.locEdges;
+    if (app.drag == Drag::None) {
+        float wx, wy;
+        toWorld(x, y, wx, wy);
+        e = locationEdgesAt(wx, wy);
+    }
+    const bool h = e & 5, v = e & 10;
+    if (h && v) return ((e & 1) && (e & 2)) || ((e & 4) && (e & 8)) ? Cursor::SizeNWSE : Cursor::SizeNESW;
+    return h ? Cursor::SizeWE : v ? Cursor::SizeNS : Cursor::Arrow;
+}
