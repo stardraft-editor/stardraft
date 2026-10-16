@@ -10,6 +10,8 @@
     <string>StarDraft</string>
     <key>CFBundleDisplayName</key>
     <string>StarDraft 2</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -26,8 +28,11 @@
     <true/>
     <key>NSSupportsAutomaticGraphicsSwitching</key>
     <true/>
-    <!-- StarCraft maps (.scm, .scx): Finder opens them with StarDraft (an SDL_EVENT_DROP_FILE for each file). -->
-    <key>UTImportedTypeDeclarations</key>
+    <!-- StarCraft maps (.scm, .scx): StarDraft exports their types, so Finder opens them with StarDraft (an
+         SDL_EVENT_DROP_FILE for each file). Their icons are made by the system from the app's icon (the badge) and the
+         extension (the text); the Quick Look extensions in PlugIns (apps/quicklook) show each map's own picture. The type's
+         name is translated in <language>.lproj/InfoPlist.strings (CMakeLists.txt makes them from res/lang/*.tsv). -->
+    <key>UTExportedTypeDeclarations</key>
     <array>
         <dict>
             <key>UTTypeIdentifier</key>
@@ -37,7 +42,15 @@
             <key>UTTypeConformsTo</key>
             <array>
                 <string>public.data</string>
+                <string>public.content</string>
             </array>
+            <key>UTTypeIcons</key>
+            <dict>
+                <key>UTTypeIconText</key>
+                <string>scm</string>
+                <key>UTTypeIconBadgeName</key>
+                <string>stardraft</string>
+            </dict>
             <key>UTTypeTagSpecification</key>
             <dict>
                 <key>public.filename-extension</key>
@@ -50,11 +63,19 @@
             <key>UTTypeIdentifier</key>
             <string>io.github.stardraft-editor.map-scx</string>
             <key>UTTypeDescription</key>
-            <string>StarCraft map (Brood War)</string>
+            <string>StarCraft map</string>
             <key>UTTypeConformsTo</key>
             <array>
                 <string>public.data</string>
+                <string>public.content</string>
             </array>
+            <key>UTTypeIcons</key>
+            <dict>
+                <key>UTTypeIconText</key>
+                <string>scx</string>
+                <key>UTTypeIconBadgeName</key>
+                <string>stardraft</string>
+            </dict>
             <key>UTTypeTagSpecification</key>
             <dict>
                 <key>public.filename-extension</key>
@@ -72,18 +93,54 @@
             <key>CFBundleTypeRole</key>
             <string>Editor</string>
             <key>LSHandlerRank</key>
-            <string>Default</string>
-            <key>CFBundleTypeIconFile</key>
-            <string>stardraft</string>
+            <string>Owner</string>
+            <key>CFBundleTypeIconSystemGenerated</key>
+            <true/>
             <key>LSItemContentTypes</key>
             <array>
                 <string>io.github.stardraft-editor.map-scm</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>StarCraft map</string>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>LSHandlerRank</key>
+            <string>Owner</string>
+            <key>CFBundleTypeIconSystemGenerated</key>
+            <true/>
+            <key>LSItemContentTypes</key>
+            <array>
                 <string>io.github.stardraft-editor.map-scx</string>
             </array>
+        </dict>
+        <!-- Projects (project.stardraft, .eds, a project's folder) and .chk files: they open when they are dropped on the
+             Dock icon, as on the window; StarDraft is not the program that Finder opens them with (rank None). -->
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>StarDraft project</string>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>LSHandlerRank</key>
+            <string>None</string>
             <key>CFBundleTypeExtensions</key>
             <array>
-                <string>scm</string>
-                <string>scx</string>
+                <string>stardraft</string>
+                <string>eds</string>
+                <string>chk</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>Folder</string>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>LSHandlerRank</key>
+            <string>None</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.folder</string>
             </array>
         </dict>
     </array>

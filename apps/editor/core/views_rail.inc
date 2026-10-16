@@ -43,7 +43,7 @@ struct RailView final : stardraft::draw::View {
         using stardraft::draw::Rect;
         const Rect rc{0, 0, width(), height()};
         const COLORREF acc = kAccent, accBg = kSel;
-        c.fill(rc, kPanel);
+        c.fill(rc, kRail);
         c.fill({rc.right - 1, 0, rc.right, rc.bottom}, kBorder);
         gWsHits.clear();
         // One item: icon over label.

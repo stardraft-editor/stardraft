@@ -245,7 +245,8 @@ bool ScrollView::mouse(const draw::MouseEvent& e) {
     // A notch: up (positive) goes towards the top. Shift, or a content with no vertical room, turns it into a
     // horizontal scroll; a horizontal wheel goes right when positive.
     int dx = 0, dy = 0;
-    if (e.horizontal) dx = step;
+    if (e.exact) dx = -int(e.panX), dy = -int(e.panY);  // the system's exact distance on both axes (macOS's trackpad)
+    else if (e.horizontal) dx = step;
     else if (shift || maxOffsetY() == 0) dx = -step;
     else dy = -step;
     const int bx = offX_, by = offY_;

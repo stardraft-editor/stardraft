@@ -5,6 +5,8 @@
 # and icons are in it, so an installed stardraft.exe, also the Windows program of an older release, updates to it), marked
 # Latest; its text is the "## <version>" section of docs/user/CHANGELOG.md (what is new), then the base changelog (its
 # last section, what StarDraft is) for new visitors. The symbols go to a draft release symbols-v<version>.
+# The macOS disk image (StarDraft-<version>-macos-arm64.dmg: the macos job, tools/ci/mac_dist.sh) goes on the release too
+# (the job macos-release).
 # StarDraft's Check for updates reads "(build <commit>)" in the newest release's title. Each release keeps its own
 # download count. Most tests need a StarCraft: Remastered install, so they are not run here. The jobs linux and macos
 # build the library, the tools and the tests on those systems; the job windows-sdl builds stardraft.exe and snapshots it
@@ -384,19 +386,32 @@ jobs:
           path: build/_deps
           key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
 
+      # A release tag (v0.5.0.1): the app says that version (as the Windows release); the issues token, as there.
       - name: Build
+        env:
+          STARDRAFT_ISSUES_TOKEN: ${{ secrets.STARDRAFT_ISSUES_TOKEN }}
         run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+          version=()
+          case "$GITHUB_REF" in refs/tags/v*) version=("-DSTARDRAFT_VERSION_NAME=${GITHUB_REF_NAME#v}") ;; esac
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 "${version[@]}"
           cmake --build build --parallel
 
-      # The editor's app: its Info.plist is good (document types .scm and .scx, the version), and its icon is the one
-      # that tools/make_icns.py makes from the Windows icon.
+      # The editor's app: its Info.plist is good (document types .scm and .scx, exported, the version), its icon is the
+      # one that tools/make_icns.py makes from the Windows icon, the map type's name is translated, and the Quick Look
+      # extensions are in PlugIns with their own Info.plist.
       - name: Check the editor's app bundle
         run: |
           python3 -I tools/make_icns.py --check
           plutil -lint build/stardraft.app/Contents/Info.plist
-          plutil -p build/stardraft.app/Contents/Info.plist | grep -E "CFBundleShortVersionString|CFBundleIconFile|scx"
+          plutil -p build/stardraft.app/Contents/Info.plist | grep -E "CFBundleShortVersionString|CFBundleIconFile|UTExportedTypeDeclarations|scx"
           test -f build/stardraft.app/Contents/Resources/stardraft.icns
+          for l in ko es ru zh-Hans; do plutil -lint "build/stardraft.app/Contents/Resources/$l.lproj/InfoPlist.strings"; done
+          cat build/stardraft.app/Contents/Resources/ko.lproj/InfoPlist.strings
+          for x in StarDraftPreview StarDraftThumbnail; do
+            plutil -lint "build/stardraft.app/Contents/PlugIns/$x.appex/Contents/Info.plist"
+            plutil -p "build/stardraft.app/Contents/PlugIns/$x.appex/Contents/Info.plist" | grep -E "NSExtensionPointIdentifier|map-scx"
+            codesign -d --entitlements - "build/stardraft.app/Contents/PlugIns/$x.appex" | grep -q app-sandbox
+          done
 
       - name: Run the tests that need no game data
         run: |
@@ -405,6 +420,7 @@ jobs:
           build/commands_test
           build/platform_test "$RUNNER_TEMP"
           build/kit_test
+          build/map_preview_test "$RUNNER_TEMP/map_preview_test"
 
       # The renderer on Metal. GitHub's macOS machines may have no Metal device: a failure here does not stop the run.
       - name: Run the renderer on Metal
@@ -463,6 +479,27 @@ jobs:
         if: always()
         run: tar -C build -czf stardraft-macos.tar.gz stardraft.app
 
+      # The download for Mac users (tools/ci/mac_dist.sh): StarDraft.app in a disk image with a background and a link
+      # to Applications. Signed with the Developer ID and notarized when the repository has the secrets (forks and pull
+      # requests do not: then signed ad hoc, and the log says that signing was skipped). docs/dev/DEVELOPING.md tells how.
+      - name: Make the disk image
+        env:
+          APPLE_CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
+          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          case "$GITHUB_REF" in refs/tags/v*) name="StarDraft-${GITHUB_REF_NAME#v}-macos-arm64.dmg" ;; *) name="StarDraft-macos-arm64.dmg" ;; esac
+          mkdir -p dist
+          bash tools/ci/mac_dist.sh build/stardraft.app "dist/$name"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stardraft-dmg-${{ github.sha }}
+          path: dist/*.dmg
+          if-no-files-found: error
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -471,6 +508,31 @@ jobs:
             editor-macos.png
             editor-macos-files.png
             stardraft-macos.tar.gz
+
+  # A release tag: the macOS disk image goes on the release that the windows job made (it is made first: this job waits
+  # for both). A run again leaves a release's disk image as it is, as the windows job leaves its zip.
+  macos-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, macos]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: stardraft-dmg-${{ github.sha }}
+          path: dist
+
+      - name: Attach the disk image to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          dmg=$(ls dist/*.dmg | head -n 1)
+          name=$(basename "$dmg")
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qxF "$name"; then
+            echo "The release $tag has $name: nothing changes."
+            exit 0
+          fi
+          gh release upload "$tag" "$dmg" --repo "$GITHUB_REPOSITORY"
 
   # The tests with the game's data, on a self-hosted runner in WSL Ubuntu on the owner's PC (labels self-hosted, linux,
   # scdata; research/ports/PLAN.md 1.6). Off until the repository variable STARDRAFT_DATA_RUNNER is "on". The

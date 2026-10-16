@@ -1,7 +1,9 @@
 // Options > Program options (Ctrl+,): the options of the program in one window (portable, core.inc; the snap and placement
 // options are in the Options menu). A view: its rows are kit widgets (check boxes, dropdowns, text fields, a slider,
 // buttons), its section headers, labels, notes and accent swatches are painted on the canvas, and it scrolls with its
-// own bar (or the wheel) above a footer with Close. A change applies at once, through the same command as the menu (the
+// own bar (or the wheel) above a footer with Close. On macOS the window can show one tab at a time (setTab: a Settings
+// window with toolbar tabs, sdl_options.inc): the sections of that tab, no footer, and the window takes the content's
+// height (onTabHeight). A change applies at once, through the same command as the menu (the
 // host runs command(ID_OPT_...)), so the shortcuts and the tests that call the commands get the same result. Close, Esc
 // and Enter close the window. The host (options_window.inc on Windows) runs the commands, the folder pickers and the
 // list pickers, and tells the view what the options are now (values()).
@@ -17,6 +19,9 @@ struct OptionsValues {
     bool light = false;
     int accent = 0;
     std::vector<OptionsAccent> accents;
+    int defaultAccent = 0;     // the accent that is the default (its tooltip says so)
+    bool systemTheme = false;  // the Theme row has Automatic: the system's theme (macOS); it is the default then
+    bool themeAuto = false;    // the theme is the system's
     bool animate = false;
     bool middleDrag = true;   // the middle button drags the map (else it pans it)
     int volume = 0;           // every sound's volume, 0 to 100
@@ -61,6 +66,24 @@ public:
 
 namespace optionsview {
 
+// The sections of the window, in their order (the headers), and the tabs of a Settings window (macOS): each tab shows
+// some sections, in this order.
+enum Section : unsigned {
+    kAppearance = 1u << 0, kMouse = 1u << 1, kUnitNames = 1u << 2, kUnitLimit = 1u << 3, kStart = 1u << 4,
+    kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kAllSections = (1u << 7) - 1,
+};
+struct Tab {
+    const wchar_t* name;  // the toolbar item's label and the window's title
+    unsigned sections;
+};
+inline const Tab kTabs[] = {
+    {L"General", kAppearance | kMouse},
+    {L"Map", kUnitNames | kUnitLimit},
+    {L"Start", kStart},
+    {L"Folders", kWorkingFolder | kStarCraftFolder},
+};
+constexpr int kTabCount = int(sizeof kTabs / sizeof kTabs[0]);
+
 // The names of the unit name forms (the dropdown's items).
 const wchar_t* const kUnitNameForms[4] = {L"Terran Marine", L"Terran Marine (Custom Name)", L"Custom Name (Terran Marine)", L"Custom Name"};
 
@@ -74,6 +97,8 @@ public:
     explicit OptionsView(OptionsHost& host) : host_(host) {
         lightSeg_[0].setText(L"Dark"), lightSeg_[0].setTip(L"Dark theme (default)");
         lightSeg_[1].setText(L"Light"), lightSeg_[1].setTip(L"Light theme");
+        lightSeg_[2].setText(L"Automatic"), lightSeg_[2].setTip(L"The theme of the system, dark or light (default)");
+        lightSeg_[2].onClick = [this] { host_.command(ID_THEME_SYSTEM); };
         middleSeg_[0].setText(L"Drag map"), middleSeg_[0].setTip(L"The map moves with the mouse");
         middleSeg_[1].setText(L"Pan map"), middleSeg_[1].setTip(L"The farther the mouse is from where you pressed, the faster the map moves toward it (default)");
         crashSeg_[0].setText(L"Ask"), crashSeg_[0].setTip(L"After a crash, StarDraft 2 asks at the next start if it can send the report (default)");
@@ -140,6 +165,18 @@ public:
     // The window's size (the host asks): the content's height and what the footer takes.
     int contentHeight() const { return height_; }
 
+    // One tab of a Settings window (0 to optionsview::kTabCount - 1): only its sections, with no footer (the window's
+    // close button closes it); -1: every section and Close (one window, the default).
+    void setTab(int t) {
+        t = t >= 0 && t < optionsview::kTabCount ? t : -1;
+        if (t == tab_) return;
+        tab_ = t, scroll_ = 0, tabHeight_ = 0;
+        invalidate();
+    }
+    int tab() const { return tab_; }
+    // A tab's content changed its height (px, after a paint): the window takes that height.
+    std::function<void(int height)> onTabHeight;
+
     // The part of the window named `name` at its last paint (view coordinates, scrolled): the tests click them.
     bool part(const std::string& name, draw::Rect& r) const {
         const auto it = parts_.find(name);
@@ -169,8 +206,9 @@ public:
         if (s != scroll_) scroll_ = s, invalidate();
     }
     int scroll() const { return scroll_; }
-    // The window was closed: the next one starts at the top (no paint: the window is going).
-    void resetScroll() { scroll_ = 0; }
+    // The window was closed: the next one starts at the top (no paint: the window is going), and a tab gives its height
+    // again (onTabHeight: the new window takes it).
+    void resetScroll() { scroll_ = 0, tabHeight_ = 0; }
     // The fields and check boxes the tests drive.
     stardraft::kit::CheckBox& animate() { return animate_; }
     stardraft::kit::TextField& limitField(int k) { return limit_[k]; }
@@ -180,11 +218,13 @@ public:
     bool key(const draw::KeyEvent& e) override {
         if (!e.down) return false;
         if (e.key == draw::Key::Escape || e.key == draw::Key::Enter) return host_.close(), true;
+        // A Settings window (macOS): Cmd+W closes it, as each window there.
+        if (tab_ >= 0 && e.key == static_cast<draw::Key>('W') && (e.mods & draw::kSuper)) return host_.close(), true;
         return false;
     }
     std::wstring tip(draw::Point pt) override {
         const int i = accentAt(pt);
-        return i >= 0 && i < int(accents_.size()) ? accents_[size_t(i)].name + (i == 0 ? L" (default)" : L"") : std::wstring();
+        return i >= 0 && i < int(accents_.size()) ? accents_[size_t(i)].name + (i == defaultAccent_ ? L" (default)" : L"") : std::wstring();
     }
     draw::Cursor cursor(draw::Point pt) override { return accentAt(pt) >= 0 ? draw::Cursor::Hand : draw::Cursor::Arrow; }
     void resized() override { invalidate(); }
@@ -199,6 +239,7 @@ private:
     std::vector<stardraft::kit::Button*> allButtons() {
         std::vector<stardraft::kit::Button*> out;
         for (int i = 0; i < 2; ++i) out.push_back(&lightSeg_[i]), out.push_back(&middleSeg_[i]);
+        out.push_back(&lightSeg_[2]);
         for (int i = 0; i < 3; ++i) out.push_back(&crashSeg_[i]);
         for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &check_, &restart_, &maps_, &close_}) out.push_back(b);
         return out;
@@ -232,7 +273,7 @@ private:
     void sync(const OptionsValues& v);
 
     OptionsHost& host_;
-    stardraft::kit::Button lightSeg_[2], middleSeg_[2], crashSeg_[3];
+    stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, check_, restart_, maps_, close_;
     stardraft::kit::CheckBox animate_, lastProject_, updates_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
@@ -242,8 +283,12 @@ private:
     std::vector<OptionsAccent> accents_;
     std::vector<draw::Rect> accentRects_;
     int hoverAccent_ = -1;
+    int defaultAccent_ = 0;
+    int systemThemeShown_ = -1;  // (the Theme buttons' tips were set for systemTheme)
     int lightChosen_ = -1, middleChosen_ = -1, crashChosen_ = -1;  // the segmented choices' Primary buttons (sync)
     int limitValue_[2] = {3400, 1700};
+    int tab_ = -1;          // setTab
+    int tabHeight_ = 0;     // the height that onTabHeight got last
     int scroll_ = 0;        // the content's scroll position (px)
     int height_ = 0;        // the content's full height (px), at the last paint
     int contentBottom_ = 0; // the bottom of the content (above the footer), at the last paint
@@ -256,11 +301,16 @@ private:
 // The rows of the options: the same places as the window had.
 void OptionsView::sync(const OptionsValues& v) {
     // A segmented choice's Primary button is the chosen one (set only when the choice changes: a tone change repaints).
-    const int light = v.light ? 1 : 0, middle = v.middleDrag ? 0 : 1, crash = v.crashReports;
+    const int light = v.systemTheme && v.themeAuto ? 2 : v.light ? 1 : 0, middle = v.middleDrag ? 0 : 1, crash = v.crashReports;
     if (light != lightChosen_) {
         lightChosen_ = light;
-        for (int i = 0; i < 2; ++i) lightSeg_[i].setTone(i == light ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
+        for (int i = 0; i < 3; ++i) lightSeg_[i].setTone(i == light ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
     }
+    if (int(v.systemTheme) != systemThemeShown_) {  // (with Automatic, Automatic is the default: not Dark)
+        systemThemeShown_ = int(v.systemTheme);
+        lightSeg_[0].setTip(v.systemTheme ? L"Dark theme" : L"Dark theme (default)");
+    }
+    defaultAccent_ = v.defaultAccent;
     if (middle != middleChosen_) {
         middleChosen_ = middle;
         for (int i = 0; i < 2; ++i) middleSeg_[i].setTone(i == middle ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
@@ -304,7 +354,9 @@ void OptionsView::paint(draw::Canvas& c) {
     c.fill({0, 0, W, H}, kBg);
     const int pad = scale(stardraft::kit::kDialogPad), rowH = scale(stardraft::kit::kFormRowH), fieldH = scale(stardraft::kit::kFieldH);
     const int btnH = scale(stardraft::kit::kButtonH), gap = scale(stardraft::kit::kButtonGap);
-    const int footerH = pad + btnH + pad;
+    const bool tabbed = tab_ >= 0;
+    const unsigned shown = tabbed ? optionsview::kTabs[tab_].sections : optionsview::kAllSections;
+    const int footerH = tabbed ? 0 : pad + btnH + pad;
     contentBottom_ = std::max(0, H - footerH);
     const int x0 = pad, labelW = scale(210), colRight = W - pad, fx = x0 + labelW;
     int y = pad - scroll_;
@@ -360,117 +412,127 @@ void OptionsView::paint(draw::Canvas& c) {
     c.pushClip({0, 0, W, contentBottom_});  // the content scrolls above the footer
 
     // Appearance.
-    header(L"Appearance");
-    label(L"Theme");
-    segmented(y, lightSeg_, 2, "theme");
-    y += rowH;
-    // The language: a choice that applies at the next start (the names of the languages are in their own language).
-    label(L"Language");
-    {
-        const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(260)), fieldTop(y) + fieldH};
-        place(language_, box, true);
-        parts_["language"] = box;
-    }
-    if (v.restartDue) {
-        const int x = parts_["language"].right + scale(12);
-        smallAt(restart_, x, y, "restart");
-    }
-    y += rowH;
-    note(fx, y - scale(4), v.restartDue ? L"The new language shows after a restart" : L"A new language shows after a restart");
-    y += scale(20);
-    // The accent: the swatches (a ring around the chosen one and the one under the mouse).
-    label(L"Accent color");
-    {
-        const int s = scale(20), top = y + (rowH - s) / 2;
-        for (size_t i = 0; i < v.accents.size(); ++i) {
-            const int x = fx + int(i) * (s + scale(8));
-            const draw::Rect sw{x, top, x + s, top + s};
-            const bool chosen = int(i) == v.accent, over = hoverAccent_ == int(i);
-            if (chosen || over) {
-                draw::Rect ring = sw;
-                ring.left -= scale(3), ring.top -= scale(3), ring.right += scale(3), ring.bottom += scale(3);
-                c.roundBox(ring, draw::kNone, chosen ? kText : kBorderHot, float(scale(stardraft::kit::kRadius)));
-            }
-            c.roundBox(sw, v.accents[i].color, draw::kNone, float(scale(stardraft::kit::kRadius)));
-            accentRects_.push_back(sw);
-            parts_["accent." + std::to_string(i)] = sw;
-        }
-        if (v.accent >= 0 && v.accent < int(v.accents.size()))
-            note(fx + int(v.accents.size()) * (s + scale(8)) + scale(4), y + (rowH - scale(20)) / 2, v.accents[size_t(v.accent)].name);
-    }
-    y += rowH;
-    checkRow(y, animate_, "animate");
-    y += rowH;
-    // The volume: its name and value, a slider.
-    {
-        const int rowH = scale(stardraft::kit::kRowH);  // a dense row, as the Data form's volume row
-        const int right = std::min<int>(colRight, fx + scale(260));
-        c.text({x0, y, x0 + labelW - scale(48), y + rowH}, L"Volume", kDim, draw::kMiddle);
-        c.text({x0 + labelW - scale(56), y, x0 + labelW - scale(4), y + rowH}, std::to_wstring(v.volume) + L"%", kText, draw::kMiddle | draw::kRight);
-        const int x1 = std::max(fx + scale(8) + scale(60), right - scale(8));
-        const draw::Rect area{fx + scale(8) - scale(8), y, x1 + scale(8), y + rowH};
-        place(slider_, area, true);
-        parts_["volume"] = area;
+    if (shown & optionsview::kAppearance) {
+        header(L"Appearance");
+        label(L"Theme");
+        segmented(y, lightSeg_, v.systemTheme ? 3 : 2, "theme");
         y += rowH;
+        // The language: a choice that applies at the next start (the names of the languages are in their own language).
+        label(L"Language");
+        {
+            const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(260)), fieldTop(y) + fieldH};
+            place(language_, box, true);
+            parts_["language"] = box;
+        }
+        if (v.restartDue) {
+            const int x = parts_["language"].right + scale(12);
+            smallAt(restart_, x, y, "restart");
+        }
+        y += rowH;
+        note(fx, y - scale(4), v.restartDue ? L"The new language shows after a restart" : L"A new language shows after a restart");
+        y += scale(20);
+        // The accent: the swatches (a ring around the chosen one and the one under the mouse).
+        label(L"Accent color");
+        {
+            const int s = scale(20), top = y + (rowH - s) / 2;
+            for (size_t i = 0; i < v.accents.size(); ++i) {
+                const int x = fx + int(i) * (s + scale(8));
+                const draw::Rect sw{x, top, x + s, top + s};
+                const bool chosen = int(i) == v.accent, over = hoverAccent_ == int(i);
+                if (chosen || over) {
+                    draw::Rect ring = sw;
+                    ring.left -= scale(3), ring.top -= scale(3), ring.right += scale(3), ring.bottom += scale(3);
+                    c.roundBox(ring, draw::kNone, chosen ? kText : kBorderHot, float(scale(stardraft::kit::kRadius)));
+                }
+                c.roundBox(sw, v.accents[i].color, draw::kNone, float(scale(stardraft::kit::kRadius)));
+                accentRects_.push_back(sw);
+                parts_["accent." + std::to_string(i)] = sw;
+            }
+            if (v.accent >= 0 && v.accent < int(v.accents.size()))
+                note(fx + int(v.accents.size()) * (s + scale(8)) + scale(4), y + (rowH - scale(20)) / 2, v.accents[size_t(v.accent)].name);
+        }
+        y += rowH;
+        checkRow(y, animate_, "animate");
+        y += rowH;
+        // The volume: its name and value, a slider.
+        {
+            const int rowH = scale(stardraft::kit::kRowH);  // a dense row, as the Data form's volume row
+            const int right = std::min<int>(colRight, fx + scale(260));
+            c.text({x0, y, x0 + labelW - scale(48), y + rowH}, L"Volume", kDim, draw::kMiddle);
+            c.text({x0 + labelW - scale(56), y, x0 + labelW - scale(4), y + rowH}, std::to_wstring(v.volume) + L"%", kText, draw::kMiddle | draw::kRight);
+            const int x1 = std::max(fx + scale(8) + scale(60), right - scale(8));
+            const draw::Rect area{fx + scale(8) - scale(8), y, x1 + scale(8), y + rowH};
+            place(slider_, area, true);
+            parts_["volume"] = area;
+            y += rowH;
+        }
+        y += pad;
     }
-    y += pad;
 
     // Mouse: what holding the middle button does on the map (the middle button is the only one that moves it).
-    header(L"Mouse");
-    label(L"Middle mouse click and hold");
-    segmented(y, middleSeg_, 2, "middle");
-    y += rowH + pad;
-
-    // Unit names: a unit with a custom name (the map's unit settings), in every list that names it.
-    header(L"Unit names");
-    label(L"Custom names");
-    {
-        const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(300)), fieldTop(y) + fieldH};
-        place(unitNames_, box, true);
-        parts_["unitnames"] = box;
+    if (shown & optionsview::kMouse) {
+        header(L"Mouse");
+        label(L"Middle mouse click and hold");
+        segmented(y, middleSeg_, 2, "middle");
         y += rowH + pad;
     }
 
-    // Map unit limit: placing, spraying and pasting units stop there (GitHub feedback #103).
-    header(L"Map unit limit");
-    for (int k = 0; k < 2; ++k) {
-        label(k == 0 ? L"Standard maps" : L"EUD projects");
-        const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(120)), fieldTop(y) + fieldH};
-        place(limit_[k], box, true);
-        c.text({box.right + scale(6), y, box.right + scale(60), y + rowH}, L"units", kDim, draw::kMiddle);
-        parts_[k == 0 ? "unitlimit.classic" : "unitlimit.eud"] = box;
-        y += rowH;
+    // Unit names: a unit with a custom name (the map's unit settings), in every list that names it.
+    if (shown & optionsview::kUnitNames) {
+        header(L"Unit names");
+        label(L"Custom names");
+        {
+            const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(300)), fieldTop(y) + fieldH};
+            place(unitNames_, box, true);
+            parts_["unitnames"] = box;
+            y += rowH + pad;
+        }
     }
-    note(x0, y - scale(4), L"StarCraft without mods takes at most 3400 units in a map.");
-    y += scale(20) + pad;
+
+    // Map unit limit: placing, spraying and pasting units stop there (GitHub feedback #103).
+    if (shown & optionsview::kUnitLimit) {
+        header(L"Map unit limit");
+        for (int k = 0; k < 2; ++k) {
+            label(k == 0 ? L"Standard maps" : L"EUD projects");
+            const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(120)), fieldTop(y) + fieldH};
+            place(limit_[k], box, true);
+            c.text({box.right + scale(6), y, box.right + scale(60), y + rowH}, L"units", kDim, draw::kMiddle);
+            parts_[k == 0 ? "unitlimit.classic" : "unitlimit.eud"] = box;
+            y += rowH;
+        }
+        note(x0, y - scale(4), L"StarCraft without mods takes at most 3400 units in a map.");
+        y += scale(20) + pad;
+    }
 
     // Start.
-    header(L"Start");
-    checkRow(y, lastProject_, "lastproject");
-    y += rowH;
-    {
-        const draw::Rect cr{x0, y, x0 + scale(24) + c.measure(updates_.label()), y + rowH};  // as ui::check
-        place(updates_, cr, true);
-        parts_["updatecheck"] = cr;
-        smallAt(check_, cr.right + scale(16), y, "check");
-    }
-    y += rowH;
-    // Crash reports (GitHub feedback #45): a crash always keeps its report on this computer; ask, send or not.
-    label(L"Crash reports");
-    segmented(y, crashSeg_, 3, "crashreports");
-    y += rowH;
-    // Maps (.scm, .scx): the program a double-click opens them with (where the system lets the program say it).
-    if (v.mapsRow) {
-        label(L"Maps");
-        if (v.mapsWithSD2) note(fx, y + (rowH - scale(20)) / 2, L"Maps (.scm, .scx) open with StarDraft 2");
-        else smallAt(maps_, fx, y, "maps");
+    if (shown & optionsview::kStart) {
+        header(L"Start");
+        checkRow(y, lastProject_, "lastproject");
         y += rowH;
+        {
+            const draw::Rect cr{x0, y, x0 + scale(24) + c.measure(updates_.label()), y + rowH};  // as ui::check
+            place(updates_, cr, true);
+            parts_["updatecheck"] = cr;
+            smallAt(check_, cr.right + scale(16), y, "check");
+        }
+        y += rowH;
+        // Crash reports (GitHub feedback #45): a crash always keeps its report on this computer; ask, send or not.
+        label(L"Crash reports");
+        segmented(y, crashSeg_, 3, "crashreports");
+        y += rowH;
+        // Maps (.scm, .scx): the program a double-click opens them with (where the system lets the program say it).
+        if (v.mapsRow) {
+            label(L"Maps");
+            if (v.mapsWithSD2) note(fx, y + (rowH - scale(20)) / 2, L"Maps (.scm, .scx) open with StarDraft 2");
+            else smallAt(maps_, fx, y, "maps");
+            y += rowH;
+        }
+        y += pad;
     }
-    y += pad;
 
     // The working folder: where new projects go.
-    header(L"Working folder");
-    {
+    if (shown & optionsview::kWorkingFolder) {
+        header(L"Working folder");
         const int bw = browse_.preferredWidth(c), dw = defaultFolder_.preferredWidth(c);
         const draw::Rect field{x0, fieldTop(y), colRight - bw - dw - 2 * gap, fieldTop(y) + fieldH};
         place(folder_, field, true);
@@ -485,8 +547,8 @@ void OptionsView::paint(draw::Canvas& c) {
     }
 
     // StarCraft folder.
-    header(L"StarCraft folder");
-    {
+    if (shown & optionsview::kStarCraftFolder) {
+        header(L"StarCraft folder");
         const int bw = installBrowse_.preferredWidth(c);
         const draw::Rect field{x0, fieldTop(y), colRight - bw - gap, fieldTop(y) + fieldH};
         place(install_, field, true);
@@ -501,9 +563,9 @@ void OptionsView::paint(draw::Canvas& c) {
 
     height_ = y + scroll_;
     c.popClip();
-    // The footer: Close (the content scrolls under it, a line between).
-    if (height_ > contentBottom_) c.fill({0, contentBottom_, W, contentBottom_ + 1}, kBorder);
-    {
+    // The footer: Close (the content scrolls under it, a line between). A tab has none: its window takes its height.
+    if (!tabbed && height_ > contentBottom_) c.fill({0, contentBottom_, W, contentBottom_ + 1}, kBorder);
+    if (!tabbed) {
         const int w = close_.preferredWidth(c);
         const draw::Rect r{colRight - w, H - pad - btnH, colRight, H - pad};
         place(close_, r, true, H);
@@ -511,6 +573,10 @@ void OptionsView::paint(draw::Canvas& c) {
     }
     hideUnplaced();
     c.setFont(of);
+    if (tabbed && height_ != tabHeight_) {
+        tabHeight_ = height_;
+        if (onTabHeight) onTabHeight(height_);
+    }
     // The scroll: a bar's page is the content's height above the footer.
     if (scroll_ > maxScroll()) scroll_ = maxScroll(), invalidate();
 }
@@ -522,7 +588,7 @@ bool OptionsView::mouse(const draw::MouseEvent& e) {
         return false;
     }
     if (e.kind == draw::MouseKind::Wheel) {
-        scrollTo(scroll_ - int(e.wheel * float(scale(40) * 3)));
+        scrollTo(scroll_ - int(draw::wheelDistance(e, float(scale(40) * 3))));
         return true;
     }
     if (e.kind == draw::MouseKind::Down && e.button == 0) {

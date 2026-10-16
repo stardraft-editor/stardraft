@@ -6,6 +6,8 @@
 // Surfaces: the window, side panels, a control's face (and under the mouse, pressed), a read-only field.
 COLORREF kBg = RGB(32, 32, 32), kPanel = RGB(28, 28, 30), kCtl = RGB(43, 43, 43), kCtlHot = RGB(52, 52, 56), kCtlDown = RGB(36, 36, 38),
          kReadOnly = RGB(30, 30, 32), kReadOnlyLine = RGB(48, 48, 52);
+// The workspace rail's ground: kPanel (on macOS the system's sidebar color: sdl_window.inc).
+COLORREF kRail = RGB(28, 28, 30);
 // Text: normal, dim (labels, notes), faint (what cannot be used now).
 COLORREF kText = RGB(224, 224, 224), kDim = RGB(148, 148, 148), kFaint = RGB(90, 90, 96);
 // Lines: a quiet 1px border a few shades above the field, brighter under the mouse; the box of a check box.

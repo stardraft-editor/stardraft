@@ -207,6 +207,7 @@ void openMap(const std::wstring& path, bool switchToOpen) {
     }
     addDocument(std::move(ed), true);  // replaces the untouched startup map
     addRecent(gRecentMaps, path);
+    shellMapOpened(path);
     setMessage(L"Opened " + fs::path(path).filename().wstring() + L" (" + widen(tilesetName(app.ed->era())) + L")");
     if (app.ed->isomRebuilt())  // a map made by a tool that writes only the tiles (or protected)
         shellLogLine(L"The map had no isometric terrain data (ISOM). StarDraft 2 made it from the tiles, so the isometric tools work. Saving the map keeps it.");
