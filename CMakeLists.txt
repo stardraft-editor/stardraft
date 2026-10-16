@@ -321,10 +321,9 @@ if(NOT STARDRAFT_ISSUES_TOKEN AND EXISTS ${CMAKE_SOURCE_DIR}/.issues-token)
 endif()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/.issues-token)
 
-# --- stardraft-next: the new shell's spike (SDL3 + Dear ImGui; research/ports/PLAN.md, phase 4) ------------------
-# A program of its own beside the Win32 one, on every system. Off: no Dear ImGui is fetched.
-option(STARDRAFT_NEXT "Build stardraft-next (the new shell's spike)" ${STARDRAFT_RENDERER})
-if(STARDRAFT_NEXT AND STARDRAFT_RENDERER)
+# --- Dear ImGui, the program's fonts and the kit on SDL: the editor (below) and stardraft-next use them --------------
+# They build with the renderer: the SDL program is the editor on every system.
+if(STARDRAFT_RENDERER)
     FetchContent_Declare(imgui
         GIT_REPOSITORY https://github.com/ocornut/imgui.git
         GIT_TAG v1.92.9b
@@ -334,12 +333,9 @@ if(STARDRAFT_NEXT AND STARDRAFT_RENDERER)
                 ${imgui_SOURCE_DIR}/imgui_widgets.cpp ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlgpu3.cpp)
     target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
     target_link_libraries(imgui PUBLIC SDL3::SDL3-static)
-    add_executable(stardraft_next WIN32 MACOSX_BUNDLE apps/next/main.cpp apps/next/kit.cpp)
-    target_link_libraries(stardraft_next PRIVATE stardraft_render stardraft_platform imgui)
-    set_target_properties(stardraft_next PROPERTIES OUTPUT_NAME stardraft-next  # (Retina: NSHighResolutionCapable)
-                          MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/next/Info.plist.in)
-    # Its fonts (SIL Open Font License, NOTICE.md): Noto Sans for Latin, Korean and Chinese, at pinned commits,
-    # downloaded once into the build and put beside the program (fonts/), so every system shows the same text.
+    # The fonts (SIL Open Font License, NOTICE.md): Noto Sans for Latin, Korean and Chinese, at pinned commits,
+    # downloaded once into the build and put beside the programs (fonts/; on Windows also in stardraft.exe), so every
+    # system shows the same text.
     set(STARDRAFT_FONTS
         "NotoSans-Regular.ttf|https://raw.githubusercontent.com/notofonts/notofonts.github.io/5c3913063bb189df4edc94b766584dfb4c04a187/fonts/NotoSans/hinted/ttf/NotoSans-Regular.ttf|478c558ea716033cd60c03438f628dfa75694dcf6b5f6d505a2f05fd2b4f3823"
         "NotoSansKR-Regular.otf|https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/SubsetOTF/KR/NotoSansKR-Regular.otf|69975a0ac8472717870aefeab0a4d52739308d90856b9955313b2ad5e0148d68"
@@ -358,9 +354,48 @@ if(STARDRAFT_NEXT AND STARDRAFT_RENDERER)
             list(APPEND STARDRAFT_FONT_FILES ${font})
         else()
             file(REMOVE ${font})
-            message(WARNING "stardraft-next: ${name} was not downloaded (${st}); it uses the system's fonts")
+            message(WARNING "StarDraft: ${name} was not downloaded (${st}); the programs use the system's fonts")
         endif()
     endforeach()
+    set(STARDRAFT_ATLASES ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-16.png ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-20.png
+                          ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-24.png ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-32.png)
+
+    # The kit on SDL (apps/kit_sdl): SDL windows and a Dear ImGui canvas for the kit's views; kit_demo shows them.
+    add_library(stardraft_kit_sdl STATIC apps/kit_sdl/canvas_imgui.cpp apps/kit_sdl/sdl_host.cpp)
+    target_include_directories(stardraft_kit_sdl PUBLIC apps/kit_sdl PRIVATE ${stb_SOURCE_DIR})
+    target_link_libraries(stardraft_kit_sdl PUBLIC stardraft_kit imgui SDL3::SDL3-static)
+endif()
+
+# The version name that the editors say: a release build gets it from its tag (-DSTARDRAFT_VERSION_NAME=0.5.0.1, see
+# .github/workflows/build.yml); other builds say this one.
+if(NOT STARDRAFT_VERSION_NAME)
+    set(STARDRAFT_VERSION_NAME "0.5 Alpha")
+endif()
+# A Windows program's version resource (Explorer: Properties > Details): apps/editor/res/version.rc.in, with the
+# numbers of the version name ("0.5 Alpha" is 0.5.0.0, "0.5.0.1" is 0.5.0.1).
+function(stardraft_version_rc target fileName description)
+    string(REGEX MATCHALL "[0-9]+" nums "${STARDRAFT_VERSION_NAME}")
+    list(APPEND nums 0 0 0 0)
+    list(SUBLIST nums 0 4 nums)
+    list(JOIN nums "," STARDRAFT_RC_VERSION)
+    set(STARDRAFT_RC_FILE ${fileName})
+    set(STARDRAFT_RC_DESCRIPTION ${description})
+    configure_file(${CMAKE_SOURCE_DIR}/apps/editor/res/version.rc.in ${CMAKE_BINARY_DIR}/generated/${target}_version.rc @ONLY)
+    target_sources(${target} PRIVATE ${CMAKE_BINARY_DIR}/generated/${target}_version.rc)
+endfunction()
+
+# The editor's file name: stardraft (stardraft.exe on Windows). A second name (-DSTARDRAFT_EXE_NAME=stardraft-testing)
+# lets a build run while stardraft.exe is open; the Win32 program is then stardraft-testing-win32.exe.
+set(STARDRAFT_EXE_NAME stardraft CACHE STRING "File name of the editor (without .exe)")
+
+# --- stardraft-next: the new shell's spike (SDL3 + Dear ImGui; research/ports/PLAN.md, phase 4), and kit_demo -------
+# Programs of their own beside the editor, on every system. Off: they are not built.
+option(STARDRAFT_NEXT "Build stardraft-next (the new shell's spike) and kit-demo" ${STARDRAFT_RENDERER})
+if(STARDRAFT_NEXT AND STARDRAFT_RENDERER)
+    add_executable(stardraft_next WIN32 MACOSX_BUNDLE apps/next/main.cpp apps/next/kit.cpp)
+    target_link_libraries(stardraft_next PRIVATE stardraft_render stardraft_platform imgui)
+    set_target_properties(stardraft_next PROPERTIES OUTPUT_NAME stardraft-next  # (Retina: NSHighResolutionCapable)
+                          MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/next/Info.plist.in)
     if(APPLE)
         set(fontDir $<TARGET_BUNDLE_CONTENT_DIR:stardraft_next>/Resources/fonts)
     else()
@@ -375,11 +410,8 @@ if(STARDRAFT_NEXT AND STARDRAFT_RENDERER)
         target_link_options(stardraft_next PRIVATE /SUBSYSTEM:CONSOLE)  # (it prints what it does; a test run reads it)
     endif()
 
-    # --- The kit on SDL (apps/kit_sdl): SDL windows and a Dear ImGui canvas for the kit's views; kit_demo shows them.
-    # Its fonts are the same files as stardraft-next's; its icon atlases are copied to res/ beside it.
-    add_library(stardraft_kit_sdl STATIC apps/kit_sdl/canvas_imgui.cpp apps/kit_sdl/sdl_host.cpp)
-    target_include_directories(stardraft_kit_sdl PUBLIC apps/kit_sdl PRIVATE ${stb_SOURCE_DIR})
-    target_link_libraries(stardraft_kit_sdl PUBLIC stardraft_kit imgui SDL3::SDL3-static)
+    # kit_demo: the kit's views on SDL. Its fonts are the same files as stardraft-next's; its icon atlases are copied to
+    # res/ beside it.
     add_executable(kit_demo WIN32 MACOSX_BUNDLE apps/kit_sdl/kit_demo.cpp)
     target_link_libraries(kit_demo PRIVATE stardraft_kit_sdl stardraft_render)
     set_target_properties(kit_demo PROPERTIES OUTPUT_NAME kit-demo MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/next/Info.plist.in)
@@ -388,8 +420,6 @@ if(STARDRAFT_NEXT AND STARDRAFT_RENDERER)
     else()
         set(kitDemoDir $<TARGET_FILE_DIR:kit_demo>)
     endif()
-    set(STARDRAFT_ATLASES ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-16.png ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-20.png
-                          ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-24.png ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-32.png)
     add_custom_command(TARGET kit_demo POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${kitDemoDir}/res
                        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_ATLASES} ${kitDemoDir}/res)
     if(STARDRAFT_FONT_FILES)
@@ -400,91 +430,99 @@ if(STARDRAFT_NEXT AND STARDRAFT_RENDERER)
         target_compile_options(kit_demo PRIVATE /W4 /utf-8)
         target_link_options(kit_demo PRIVATE /SUBSYSTEM:CONSOLE)
     endif()
+endif()
 
-    # --- The editor on SDL (research/ports/MAC-BUILD-PLAN.md step 6): the portable core (core/core.inc) with the SDL
-    # shell (main_sdl.cpp). On macOS and Linux it is the editor (stardraft_editor); on Windows it is stardraft_sdl
-    # (stardraft-sdl.exe) beside the Win32 editor below, until it replaces that one. Fonts and atlases as kit_demo's.
+# --- The editor (target stardraft_editor): the portable core (core/core.inc) with the SDL shell (main_sdl.cpp), on
+# every system: stardraft.exe on Windows, stardraft on Linux, stardraft.app on macOS. The fonts and atlases go beside
+# it (res/, fonts/); on Windows they are also in stardraft.exe (generated/stardraft_editor_files.rc), so a release is
+# that one file.
+if(STARDRAFT_RENDERER)
+    set(sdlEditor stardraft_editor)
+    set(sdlEditorName ${STARDRAFT_EXE_NAME})
+    add_executable(${sdlEditor} WIN32 MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
+                   apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp)
+    target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
+    target_include_directories(${sdlEditor} PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
+    add_dependencies(${sdlEditor} stardraft_build_info)  # (build_info.h: the commit that Check for updates compares)
     if(WIN32)
-        set(sdlEditor stardraft_sdl)
-        set(sdlEditorName stardraft-sdl)
-    else()
-        set(sdlEditor stardraft_editor)
-        set(sdlEditorName stardraft)
+        # The program's icons (the window, the taskbar, Explorer), its manifest (per monitor DPI, UTF-8, long paths), its
+        # version resource, and its files: the icon atlases, the app icon and the fonts as RCDATA named by their path
+        # beside the program (shell_sdl_win.inc, embeddedFile).
+        set(editorFiles ${CMAKE_BINARY_DIR}/generated/${sdlEditor}_files.rc)
+        set(editorFilesText "// Made by CMakeLists.txt: the files that stardraft.exe reads when they are not beside it.\n")
+        foreach(f ${STARDRAFT_ATLASES} ${CMAKE_SOURCE_DIR}/apps/editor/res/stardraft.ico)
+            get_filename_component(n ${f} NAME)
+            string(APPEND editorFilesText "\"res/${n}\" RCDATA \"${f}\"\n")
+        endforeach()
+        foreach(f ${STARDRAFT_FONT_FILES})
+            get_filename_component(n ${f} NAME)
+            string(APPEND editorFilesText "\"fonts/${n}\" RCDATA \"${f}\"\n")
+        endforeach()
+        file(CONFIGURE OUTPUT ${editorFiles} CONTENT "${editorFilesText}")  # (written only when it changes)
+        set_source_files_properties(${editorFiles} PROPERTIES OBJECT_DEPENDS "${STARDRAFT_ATLASES};${STARDRAFT_FONT_FILES}")
+        target_sources(${sdlEditor} PRIVATE apps/editor/res/stardraft_sdl.rc apps/editor/stardraft_sdl.manifest ${editorFiles})
+        stardraft_version_rc(${sdlEditor} ${sdlEditorName} "StarDraft 2")
+        target_link_libraries(${sdlEditor} PRIVATE dwmapi shell32 ole32 advapi32)
     endif()
-    if(TRUE)
-        add_executable(${sdlEditor} WIN32 MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
-                       apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp)
-        if(NOT STARDRAFT_VERSION_NAME)
-            set(STARDRAFT_VERSION_NAME "0.5 Alpha")
+    target_link_libraries(${sdlEditor} PRIVATE stardraft_kit_sdl stardraft_render stardraft_platform stardraft_kit stardraft)
+    set_target_properties(${sdlEditor} PROPERTIES OUTPUT_NAME ${sdlEditorName} MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/editor/Info.plist.in)
+    if(APPLE)
+        # macOS: the application menu (mac_app_menu.mm), the icon (res/stardraft.icns, from the .ico by
+        # tools/make_icns.py) and the version in Info.plist (numbers only: "0.5 Alpha" is 0.5).
+        target_sources(${sdlEditor} PRIVATE apps/editor/mac_app_menu.mm apps/editor/res/stardraft.icns)
+        set_source_files_properties(apps/editor/res/stardraft.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+        target_link_libraries(${sdlEditor} PRIVATE "-framework Cocoa")
+        string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" editorBundleVersion "${STARDRAFT_VERSION_NAME}")
+        if(NOT editorBundleVersion)
+            set(editorBundleVersion 0.0)
         endif()
-        target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
-        target_include_directories(${sdlEditor} PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
-        add_dependencies(${sdlEditor} stardraft_build_info)  # (build_info.h: the commit that Check for updates compares)
-        if(WIN32)  # the program's icons (the window, the taskbar, Explorer) and the Windows parts (shell_sdl_win.inc)
-            target_sources(${sdlEditor} PRIVATE apps/editor/res/stardraft_sdl.rc)
-            target_link_libraries(${sdlEditor} PRIVATE dwmapi shell32 ole32)
-        endif()
-        target_link_libraries(${sdlEditor} PRIVATE stardraft_kit_sdl stardraft_render stardraft_platform stardraft_kit stardraft)
-        set_target_properties(${sdlEditor} PROPERTIES OUTPUT_NAME ${sdlEditorName} MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/editor/Info.plist.in)
-        if(APPLE)
-            # macOS: the application menu (mac_app_menu.mm), the icon (res/stardraft.icns, from the .ico by
-            # tools/make_icns.py) and the version in Info.plist (numbers only: "0.5 Alpha" is 0.5).
-            target_sources(${sdlEditor} PRIVATE apps/editor/mac_app_menu.mm apps/editor/res/stardraft.icns)
-            set_source_files_properties(apps/editor/res/stardraft.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
-            target_link_libraries(${sdlEditor} PRIVATE "-framework Cocoa")
-            string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" editorBundleVersion "${STARDRAFT_VERSION_NAME}")
-            if(NOT editorBundleVersion)
-                set(editorBundleVersion 0.0)
-            endif()
-            string(REGEX MATCH "^[0-9]+(\\.[0-9]+)?(\\.[0-9]+)?" editorShortVersion "${editorBundleVersion}")
-            set_target_properties(${sdlEditor} PROPERTIES MACOSX_BUNDLE_SHORT_VERSION_STRING ${editorShortVersion}
-                                  MACOSX_BUNDLE_BUNDLE_VERSION ${editorBundleVersion})
-        endif()
-        if(APPLE)
-            set(editorDir $<TARGET_BUNDLE_CONTENT_DIR:${sdlEditor}>/Resources)
-        else()
-            set(editorDir $<TARGET_FILE_DIR:${sdlEditor}>)
-        endif()
-        add_custom_command(TARGET ${sdlEditor} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/res
-                           COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_ATLASES} ${CMAKE_SOURCE_DIR}/apps/editor/res/stardraft.ico ${editorDir}/res)
-        if(STARDRAFT_FONT_FILES)
-            add_custom_command(TARGET ${sdlEditor} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/fonts
-                               COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_FONT_FILES} ${editorDir}/fonts)
-        endif()
-        if(MSVC)
-            # (main_sdl.cpp holds the whole editor, as main.cpp does: more sections than the default allows)
-            target_compile_options(${sdlEditor} PRIVATE /W4 /utf-8 /bigobj)
-        endif()
+        string(REGEX MATCH "^[0-9]+(\\.[0-9]+)?(\\.[0-9]+)?" editorShortVersion "${editorBundleVersion}")
+        set_target_properties(${sdlEditor} PROPERTIES MACOSX_BUNDLE_SHORT_VERSION_STRING ${editorShortVersion}
+                              MACOSX_BUNDLE_BUNDLE_VERSION ${editorBundleVersion})
+    endif()
+    if(APPLE)
+        set(editorDir $<TARGET_BUNDLE_CONTENT_DIR:${sdlEditor}>/Resources)
+    else()
+        set(editorDir $<TARGET_FILE_DIR:${sdlEditor}>)
+    endif()
+    add_custom_command(TARGET ${sdlEditor} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/res
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_ATLASES} ${CMAKE_SOURCE_DIR}/apps/editor/res/stardraft.ico ${editorDir}/res)
+    if(STARDRAFT_FONT_FILES)
+        add_custom_command(TARGET ${sdlEditor} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/fonts
+                           COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_FONT_FILES} ${editorDir}/fonts)
+    endif()
+    if(MSVC)
+        # (main_sdl.cpp holds the whole editor, as main.cpp does: more sections than the default allows)
+        target_compile_options(${sdlEditor} PRIVATE /W4 /utf-8 /bigobj)
+        # Symbols for Release, to read crash dumps (stardraft.pdb: a release keeps them in a draft release).
+        target_compile_options(${sdlEditor} PRIVATE $<$<CONFIG:Release>:/Zi>)
+        target_link_options(${sdlEditor} PRIVATE $<$<CONFIG:Release>:/DEBUG /OPT:REF /OPT:ICF>)
     endif()
 endif()
 
-# --- Windows editor (native Win32 shell) ------------------------------------------------------
+# --- The Win32 program (target stardraft_win32, stardraft-win32.exe): the editor's native Windows shell (main.cpp), a
+# fallback while the SDL program takes its place. Not in a release; its self-tests (--selftest, --datashots) and
+# release.py's screenshots run on it.
 if(WIN32 AND STARDRAFT_RENDERER)
-    add_executable(stardraft_editor WIN32 apps/editor/main.cpp apps/editor/vorbis.c apps/editor/stb_image.cpp apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp apps/editor/stardraft.manifest apps/editor/res/stardraft.rc)
-    target_include_directories(stardraft_editor PRIVATE ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
+    add_executable(stardraft_win32 WIN32 apps/editor/main.cpp apps/editor/vorbis.c apps/editor/stb_image.cpp apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp apps/editor/stardraft.manifest apps/editor/res/stardraft.rc)
+    target_include_directories(stardraft_win32 PRIVATE ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
     set_source_files_properties(apps/editor/vorbis.c PROPERTIES COMPILE_OPTIONS "$<$<C_COMPILER_ID:MSVC>:/W0>")
     set_source_files_properties(apps/editor/stb_image.cpp PROPERTIES COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:MSVC>:/W0>")
-    target_link_libraries(stardraft_editor PRIVATE stardraft_render stardraft_platform stardraft_kit comctl32 dwmapi shell32 ole32 comdlg32 uxtheme msimg32 gdiplus dbghelp winhttp)
-    # The version the program says: a release build gets it from its tag (-DSTARDRAFT_VERSION_NAME=0.5.0.1, see
-    # .github/workflows/build.yml); other builds say this one.
-    if(NOT STARDRAFT_VERSION_NAME)
-        set(STARDRAFT_VERSION_NAME "0.5 Alpha")
-    endif()
-    add_dependencies(stardraft_editor stardraft_build_info)
-    target_compile_definitions(stardraft_editor PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
+    target_link_libraries(stardraft_win32 PRIVATE stardraft_render stardraft_platform stardraft_kit comctl32 dwmapi shell32 ole32 comdlg32 uxtheme msimg32 gdiplus dbghelp winhttp)
+    add_dependencies(stardraft_win32 stardraft_build_info)
+    target_compile_definitions(stardraft_win32 PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
     if(MSVC)  # symbols for Release, to read crash dumps
-        target_compile_options(stardraft_editor PRIVATE $<$<CONFIG:Release>:/Zi>)
-        target_link_options(stardraft_editor PRIVATE $<$<CONFIG:Release>:/DEBUG /OPT:REF /OPT:ICF>)
+        target_compile_options(stardraft_win32 PRIVATE $<$<CONFIG:Release>:/Zi>)
+        target_link_options(stardraft_win32 PRIVATE $<$<CONFIG:Release>:/DEBUG /OPT:REF /OPT:ICF>)
     endif()
-    target_compile_definitions(stardraft_editor PRIVATE UNICODE _UNICODE)
-    # The editor's file name: stardraft.exe. A second name (-DSTARDRAFT_EXE_NAME=stardraft-testing) lets a build
-    # run while stardraft.exe is open.
-    set(STARDRAFT_EXE_NAME stardraft CACHE STRING "File name of the editor (without .exe)")
-    set_target_properties(stardraft_editor PROPERTIES OUTPUT_NAME ${STARDRAFT_EXE_NAME})
+    target_compile_definitions(stardraft_win32 PRIVATE UNICODE _UNICODE)
+    set_target_properties(stardraft_win32 PROPERTIES OUTPUT_NAME ${STARDRAFT_EXE_NAME}-win32)
+    stardraft_version_rc(stardraft_win32 ${STARDRAFT_EXE_NAME}-win32 "StarDraft 2 (Win32)")
     if(MSVC)
-        target_compile_options(stardraft_editor PRIVATE /W4 /utf-8 /bigobj)  # main.cpp has more sections than the default allows
+        target_compile_options(stardraft_win32 PRIVATE /W4 /utf-8 /bigobj)  # main.cpp has more sections than the default allows
     endif()
-    # StarDraft-latest.exe: starts a copy of the newest build (pin it to Start), so builds can go on while it runs.
+    # StarDraft-latest.exe: starts a copy of the newest build of the editor (stardraft-testing.exe, else stardraft.exe:
+    # the SDL program; pin it to Start), so builds can go on while it runs.
     add_executable(stardraft_latest WIN32 apps/latest/main.cpp apps/latest/latest.rc)
     target_link_libraries(stardraft_latest PRIVATE shell32 ole32 advapi32)
     target_compile_definitions(stardraft_latest PRIVATE UNICODE _UNICODE)

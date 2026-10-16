@@ -2,7 +2,7 @@
 // this system (the Windows program's update.inc and its commands in main.cpp). The release, the download and the texts
 // are the core's (core/releases.inc); this file asks the user with the core's message box (msgbox::ask). A release build on Windows
 // puts the new stardraft.exe in its own place and starts it; a build that cannot (made here, or a file with another
-// name, such as stardraft-sdl.exe beside the Windows program, or macOS and Linux for now) opens the release page.
+// name, such as stardraft-testing.exe, or macOS and Linux for now) opens the release page.
 // The Windows parts (the crash handler, the map files, one program for all maps) are shell_sdl_win.inc's.
 // Included by main_sdl.cpp after sdl_options.inc.
 

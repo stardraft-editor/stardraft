@@ -4,7 +4,13 @@
 
 // main.cpp and the other files define these. appState() is the app state: main.cpp's App is its AppState part.
 AppState& appState();
-int gUnitLimitClassic = 3400, gUnitLimitEud = 1700;  // the Map unit limit (Program options; main.cpp reads and saves them)
+int gUnitLimitClassic = 3400, gUnitLimitEud = 1700;  // the Map unit limit (Program options; saved in the settings)
+// The unit limits that Program options saved (both programs, at start; not in tests).
+void loadUnitLimits() {
+    int64_t limit = 0;
+    if (prefs::number(L"UnitLimitClassic", limit) && limit > 0) gUnitLimitClassic = int(std::min<int64_t>(limit, 65535));
+    if (prefs::number(L"UnitLimitEud", limit) && limit > 0) gUnitLimitEud = int(std::min<int64_t>(limit, 65535));
+}
 bool classicMode();
 void updateStatus();
 std::vector<int> selectedPalette();
