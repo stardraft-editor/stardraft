@@ -211,35 +211,54 @@ std::wstring sdlFeedbackOn(draw::View& from, draw::Point at, const std::wstring&
 }
 
 void showFeedbackSdl(const std::wstring& on);  // (sdl_options.inc)
+void showFeedbackSdl(const std::wstring& on, draw::View* owner);
 
-// --rclick in a snapshot (a snapshot has no windows of its own): the menu that opens next does not open; its items go
-// to the output ("menu: <label>") and item gMenuShotPick runs (-1: none). -2: no snapshot click.
+// --rclick in a snapshot (kit::Menu's test hook): the items of the menu that opens next go to the output ("menu:
+// <label>"). With gMenuShotPick n >= 0, item n runs and the menu does not open; with -1, the menu opens and the
+// snapshot shows it (the host paints it over the window), and gMenuShotOpen says so. -2: no snapshot click.
 int gMenuShotPick = -2;
-bool sdlMenuShot(const std::vector<kit::MenuItem>& items, const kit::MenuOptions& opts) {
+bool gMenuShotOpen = false;
+bool sdlMenuShot(const std::vector<kit::MenuItem>& items) {
     if (gMenuShotPick == -2) return false;
     for (const kit::MenuItem& it : items) std::printf("menu: %s%s\n", it.separator ? "-" : narrow(it.label).c_str(), it.checked ? " (checked)" : "");
     const int n = std::exchange(gMenuShotPick, -2);
-    if (n >= 0 && n < int(items.size()) && items[size_t(n)].enabled && items[size_t(n)].run) items[size_t(n)].run();
-    if (opts.closed) opts.closed(false);
+    if (n < 0) return gMenuShotOpen = true, false;
+    if (n < int(items.size()) && items[size_t(n)].enabled && items[size_t(n)].run) items[size_t(n)].run();
     return true;
 }
 
 // "Report feedback on <on>..." at the end of a context menu, as every Windows context menu ends (popupMenu).
-void sdlAddFeedbackItem(std::vector<kit::MenuItem>& items, const std::wstring& on) {
+// owner: the root view of the window the menu opens in (the feedback dialog opens over it); null: the main window.
+void sdlAddFeedbackItem(std::vector<kit::MenuItem>& items, const std::wstring& on, draw::View* owner = nullptr) {
     if (!items.empty()) items.push_back(kit::MenuItem{}), items.back().separator = true;
     kit::MenuItem fb;
     fb.label = shellTr(L"Report feedback on ") + on + L"\x2026";
     fb.icon = int(kFeedbackIcon);
-    fb.run = [on] { showFeedbackSdl(on); };
+    fb.iconColor = draw::Color(kFeedback);  // (as the Windows menus' feedbackBitmap)
+    fb.run = [on, owner] { showFeedbackSdl(on, owner); };
     items.push_back(std::move(fb));
 }
 // A context menu (the Windows popupMenu): `items` at `at` of `from`, then the feedback item (on: sdlFeedbackOn).
 bool sdlPopupMenu(draw::View& from, draw::Point at, std::vector<kit::MenuItem> items, const std::wstring& on, kit::MenuOptions opts) {
-    sdlAddFeedbackItem(items, on);
-    if (sdlMenuShot(items, opts)) return true;
+    draw::View* owner = &from;  // the window's root: the feedback dialog opens over that window (a dialog, a pop-out)
+    while (owner->parent()) owner = owner->parent();
+    sdlAddFeedbackItem(items, on, owner);
     ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)
     kit_sdl::ImguiCanvas measure(list, nullptr);
     return kit::Menu::popup(from, at, items, kit::Menu::measure(items, &measure), std::move(opts));
+}
+
+// A right click that no view took in a dialog or a pop-out (Program options, About, the block help, a value's
+// pop-out...; SdlHost's right-click hook): a menu with only "Report feedback on ...", as the Windows program's
+// feedbackAfterRightClick, about the view there, else the window's title, else the workspace. Not when the click
+// opened a menu, not on a text field (it has its own menu), not in the feedback dialog itself.
+extern FeedbackView* gFbView;  // (sdl_options.inc)
+void sdlWindowRightClick(draw::View& root, draw::Point at, const std::wstring& title) {
+    if (kit::Menu::open() || (gFbView && &root == static_cast<draw::View*>(gFbView))) return;
+    draw::Point local;
+    for (draw::View* v = root.viewAt(at, local); v; v = v->parent())
+        if (dynamic_cast<kit::TextField*>(v)) return;
+    sdlPopupMenu(root, at, {}, sdlFeedbackOn(root, at, title.empty() ? std::wstring() : std::wstring(shellTr(title.c_str()))));
 }
 
 // A core menu model as kit items (a pick runs `pick` with the item's id; a check, a gray item as the model has them).
@@ -357,20 +376,27 @@ bool shortcutRun(const draw::KeyEvent& e) {
 
 // A key pressed in the window (main_sdl.cpp's --key, for a snapshot): "Ctrl+A", "5", "Ctrl+Shift+Z" (Ctrl is Cmd on macOS).
 // --rclick x,y[:n]: the right button pressed and let go at (x, y) of the window (the panes' own handling), then the
-// posted work; the menu that opens shows its items in the output and runs item n (sdlMenuShot).
-void sdlRightClickShot(const std::string& spec) {
+// posted work; the menu that opens shows its items in the output and runs item n (sdlMenuShot), or with no n stays
+// open in the picture. `in`: the snapshot's view (the window, or a dialog of --dialog with its title: a click that no
+// view takes there gets the dialogs' Report feedback menu, sdlWindowRightClick).
+void sdlRightClickShot(const std::string& spec, draw::View* in, const std::wstring& title) {
     int x = 0, y = 0, n = -1;
-    if (!gRoot || std::sscanf(spec.c_str(), "%d,%d:%d", &x, &y, &n) < 2) return void(std::fprintf(stderr, "--rclick %s: not x,y[:n]\n", spec.c_str()));
-    draw::Router router(*gRoot);
+    draw::View* target = in ? in : gRoot;
+    if (!target || std::sscanf(spec.c_str(), "%d,%d:%d", &x, &y, &n) < 2) return void(std::fprintf(stderr, "--rclick %s: not x,y[:n]\n", spec.c_str()));
+    kit::Menu::setTestHook(sdlMenuShot);  // (every kit menu: a text field's too)
+    target->attach(gHost);  // the views are in the host while the click runs: a menu that opens shows in the picture
+    draw::Router router(*target);
     draw::MouseEvent e;
     e.button = 1, e.pt = {x, y};
     e.kind = draw::MouseKind::Down;
+    gMenuShotPick = n;  // (before the press: a text field's menu opens on it)
+    gMenuShotOpen = false;
     router.mouse(e);
-    gMenuShotPick = n;
     e.kind = draw::MouseKind::Up;
-    router.mouse(e);
+    if (!router.mouse(e) && target != gRoot) sdlWindowRightClick(*target, e.pt, title);
     runPosted();
     gMenuShotPick = -2;
+    target->attach(nullptr);
 }
 
 void sdlPressKey(const std::string& chord) {

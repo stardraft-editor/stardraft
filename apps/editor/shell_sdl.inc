@@ -110,12 +110,12 @@ int sdlMenuPick(draw::View& from, draw::Point at, const std::vector<std::wstring
     bool open = false;
     if (feedback) {
         open = sdlPopupMenu(from, at, std::move(kitItems), sdlFeedbackOn(from, at, L""), std::move(opts));
-    } else if (!(open = sdlMenuShot(kitItems, opts))) {  // (a snapshot's click: sdl_menus.inc)
+    } else {
         ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)
         kit_sdl::ImguiCanvas measure(list, nullptr);
         open = stardraft::kit::Menu::popup(from, at, kitItems, stardraft::kit::Menu::measure(kitItems, &measure), std::move(opts));
     }
-    if (!open) return -1;
+    if (!open || std::exchange(gMenuShotOpen, false)) return -1;  // (a snapshot's click: the menu stays in the picture)
     gHost->waitUntil([pick] { return pick->closed; });
     return pick->index;
 }
