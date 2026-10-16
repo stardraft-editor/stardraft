@@ -244,9 +244,8 @@ void shellSetTitle(const std::wstring& title) {
 }
 bool shellHasRail() { return true; }  // (the workspace rail: the Map workspace's items, as the core lists them)
 void shellShowRail(bool) {}
-void shellWaitCursor() {
-    static SDL_Cursor* wait = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
-    SDL_SetCursor(wait);
+void shellWaitCursor() {  // (until the mouse moves: the host sets the cursor of the view under it then)
+    if (gHost) gHost->setCursor(stardraft::draw::Cursor::Wait);
 }
 void shellMinimapSize(int& w, int& h) {
     w = gRoot ? gRoot->minimap.width() : 0;
@@ -539,10 +538,19 @@ std::wstring shellInstallFolderText() {
     return prefs::text(L"StarCraftFolder", saved) ? saved : std::wstring();
 }
 
-// A pop-out: the host's modal window over the main window (a click outside does not close it yet: Esc and its own
-// buttons do).
+// A pop-out: the host's modal pop-out window at (x, y) in the main window, with a 1 px frame in the border color (as
+// the Windows pop-out's border, ui::popupFrame); `content` is in the frame. A press outside it only closes it (SdlHost
+// eats the press and its release, as the Windows loop's popoutEatsPress); Esc closes it too.
+struct PopoutFrameView final : stardraft::draw::View {
+    void paint(stardraft::draw::Canvas& c) override { c.frame({0, 0, width(), height()}, stardraft::kit::theme().borderHot); }
+    void resized() override {
+        for (View* k : children()) k->setFrame({1, 1, std::max(1, width() - 1), std::max(1, height() - 1)});
+    }
+};
 void shellRunPopout(stardraft::draw::View& content, int x, int y, int w, int h, stardraft::draw::View* focus, const std::function<void()>& opened) {
     if (!gHost || !gRoot) return;
+    PopoutFrameView frame;
+    frame.add(content, {1, 1, std::max(1, w - 1), std::max(1, h - 1)});
     // The timer does nothing once the pop-out is gone (runModal can return before its loop runs, and the content and
     // its focus are the caller's).
     auto alive = std::make_shared<bool>(true);
@@ -551,10 +559,14 @@ void shellRunPopout(stardraft::draw::View& content, int x, int y, int w, int h, 
         if (focus) focus->focus();
         if (opened) opened();
     });
-    gHost->runModal(*gRoot, content, stardraft::draw::WindowSpec{stardraft::draw::WindowKind::Popup, stardraft::draw::Rect{x, y, x + w, y + h}, L""});
+    gHost->runModal(*gRoot, frame, stardraft::draw::WindowSpec{stardraft::draw::WindowKind::Popup, stardraft::draw::Rect{x, y, x + w, y + h}, L""});
+    gHost->forget(content);
+    frame.remove(content);
 }
 void shellClosePopout(stardraft::draw::View& content) {
-    if (gHost) gHost->closeWindow(content);
+    if (!gHost) return;
+    auto* frame = dynamic_cast<PopoutFrameView*>(content.parent());
+    gHost->closeWindow(frame ? static_cast<stardraft::draw::View&>(*frame) : content);
 }
 bool shellUiIconMask(int, int, std::vector<uint8_t>&) { return false; }  // (the SDL canvas draws icons from its own atlases)
 

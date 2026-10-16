@@ -30,7 +30,7 @@ the value pop-outs of the Triggers workspace, the game text colors, the message 
 | `shellShowRail` | Nothing: the rail always shows. | Shows or hides the rail; the core (`core/title.inc`) always shows it now. No gap. |
 | `shellForgetAnims` | Was nothing (the SDL map had no unit animations). | Clears the animations. Done: both clear the core's animations (`core/map_scene.inc`). |
 | `shellCodePageText` | UTF-8. | The system's ANSI code page (a map's legacy strings). Open: a Korean or European map's old text shows wrong. |
-| `shellRunPopout` | A click outside does not close the pop-out (Esc and its buttons do). | A click outside closes it. Open. |
+| `shellRunPopout` | Was a modal dialog window (centered, with a title bar) that a click outside did not close. | A pop-out window at its place with a border; a press outside only closes it (`popoutEatsPress`). Done: on SDL it is a modal pop-out window at its place with a 1 px border (`PopoutFrameView`); a press outside only closes it, and the press and its release go to no view (`SdlHost::runModal` with a Popup spec); Esc closes it too. Checked by reading (a snapshot shows the main window only). |
 | `shellUiFontLfHeight`, `shellTrackMouseLeave`, `shellUiIconMask`, `shellLegacy*`, `shellMapFileOpened` | Fixed values or nothing. | Win32-only things (the LOGFONT height, the registry of old builds, the file association). No gap. |
 | `shellRailUpdateNow`, `shellViewMouse` | New in the sweep: nothing (the rail paints each frame, so its items are the last frame's) and the state's mouse. | `RedrawWindow` of the rail; `GetCursorPos` in the map view. |
 ## Menu commands and keys
@@ -70,7 +70,13 @@ title and status bar after a frame: `mapFrameDone`) are in `core/map_scene.inc`;
 program's snapshots wait until the map's sprites are loaded (`imagesPending`). Snapshots: map-scene-grid,
 map-scene-select.
 
-Open: the map view's cursor (the move and resize cursors: main.cpp `mapCursorAt`) is the arrow on SDL.
+Done: the map view's cursor (the move cursor while the camera moves and over a selected unit, doodad or sprite that a
+press moves, the resize cursors on the selected location's edges and corners) is the core's `mapCursorAt`
+(`core/map_input.inc`) for both programs; the SDL map view gives it to the host (`MapView::cursor`), which shows it
+with `SDL_CreateSystemCursor` (`SdlHost::setCursor`; the diagonal cursors are new in `draw::Cursor`). The kit views
+give their own cursors in the same way (a text field: the I-beam; a link, a button: the hand). The host also sets the
+cursor after a press or a release, not only when the mouse moves. `--cursors` writes the cursors at some points as text
+(snapshot map-cursors; a "(WRONG)" line fails the case).
 
 ## Other surfaces
 

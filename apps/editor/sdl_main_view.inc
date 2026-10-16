@@ -214,7 +214,12 @@ struct MapView final : draw::View {
         default: return false;
         }
     }
-    draw::Cursor cursor(draw::Point) override { return panning ? draw::Cursor::SizeAll : draw::Cursor::Arrow; }
+    // The core's cursor (core/map_input.inc: the move cursor over a selected unit, doodad or sprite and while it moves,
+    // the resize cursors on the selected location's edges and corners), as the Windows map view's mapCursorAt.
+    draw::Cursor cursor(draw::Point pt) override {
+        if (panning) return draw::Cursor::SizeAll;
+        return open() ? mapCursorAt(gState, pt.x, pt.y) : draw::Cursor::Arrow;
+    }
 };
 
 // The shortcuts and the menus (sdl_menus.inc).

@@ -132,6 +132,8 @@ SDL_SystemCursor systemCursor(Cursor c) {
     case Cursor::SizeNS: return SDL_SYSTEM_CURSOR_NS_RESIZE;
     case Cursor::No: return SDL_SYSTEM_CURSOR_NOT_ALLOWED;
     case Cursor::Wait: return SDL_SYSTEM_CURSOR_WAIT;
+    case Cursor::SizeNWSE: return SDL_SYSTEM_CURSOR_NWSE_RESIZE;
+    case Cursor::SizeNESW: return SDL_SYSTEM_CURSOR_NESW_RESIZE;
     default: return SDL_SYSTEM_CURSOR_DEFAULT;
     }
 }
@@ -488,13 +490,13 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
 
 void SdlHost::runModal(draw::View& from, draw::View& content, const draw::WindowSpec& spec) {
     draw::WindowSpec s = spec;
-    s.kind = WindowKind::Dialog;
+    if (s.kind != WindowKind::Popup) s.kind = WindowKind::Dialog;  // (a modal pop-out stays a pop-out)
     openWindow(from, content, s, nullptr);
     Win* w = rootWin(content);
     if (!w) return;
     const SDL_WindowID id = w->id, outer = modal_;
     modal_ = id;
-    SDL_SetWindowModal(w->sdl, true);
+    if (s.kind == WindowKind::Dialog) SDL_SetWindowModal(w->sdl, true);  // (SDL: a pop-out cannot be modal; the host keeps the input)
     while (!quit_ && findWin(id)) pump(true);
     modal_ = outer;
 }
@@ -578,6 +580,18 @@ void SdlHost::fireTimer(int id) {
 void SdlHost::dispatch(const SDL_Event& e) {
     if (gTimerEvent && e.type == gTimerEvent) return fireTimer(int(reinterpret_cast<intptr_t>(e.user.data1)));
     const SDL_WindowID wid = windowOf(e);
+    // A press outside a modal pop-out only closes it: the press and its release go to no view (as a Windows pop-out's
+    // loop eats the press, popoutEatsPress), so the press cannot open a second pop-out or change what is under it.
+    if (e.type == SDL_EVENT_MOUSE_BUTTON_UP && eatUp_ && e.button.button == eatUp_) {
+        eatUp_ = 0;
+        return;
+    }
+    if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && modal_ && !inModal(wid)) {
+        if (const Win* m = findWin(modal_); m && m->popup()) {
+            eatUp_ = e.button.button;
+            return dismiss(modal_);
+        }
+    }
     if (!inModal(wid) && isInput(e)) return;  // only the dialog that runModal shows, and what it opened, takes input
     switch (e.type) {
     case SDL_EVENT_QUIT:
@@ -662,6 +676,8 @@ void SdlHost::dispatch(const SDL_Event& e) {
         if (e.type == SDL_EVENT_MOUSE_BUTTON_UP) m.kind = MouseKind::Up;
         else m.kind = e.button.clicks >= 2 ? MouseKind::DoubleClick : MouseKind::Down;
         w->router->mouse(m);
+        // The cursor for what the press or release changed (a drag that starts or ends), before the mouse moves.
+        if (Win* now = findWin(wid); now && now->kind != WindowKind::Tooltip) setCursor(now->router->cursor(now->mouse));
         return;
     }
     case SDL_EVENT_MOUSE_WHEEL: {
