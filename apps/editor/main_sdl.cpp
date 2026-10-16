@@ -295,7 +295,7 @@ int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, themeArg, langArg, trigArg, trigSelArg, briefArg, dropArg;
     int accentArg = -1;
-    std::string checkArg;  // --check
+    std::vector<std::string> checkArgs;  // --check: what the program set up, as text (each part checks its own values)
     gSelfPath = argc > 0 ? argv[0] : "";  // (Restart now starts it again, sdl_options.inc)
     bool rectArg = false, previewArg = false, logArg = false, buildArg = false, trigCodeArg = false;
     int trigPopArg = -1;  // --trigpop: the value whose pop-out shows (sdl_popshot.inc); -2: a text's words; -100 - n: the variable form's field n
@@ -355,7 +355,7 @@ int main(int argc, char** argv) {
             const std::string n = next();
             accentArg = n == "system" ? -2 : std::atoi(n.c_str());
         }
-        else if (a == "--check") checkArg = next();  // window: what the window and the look are (sdl_window.inc), as text after the snapshot
+        else if (a == "--check") checkArgs.push_back(next());  // window: what the window and the look are (sdl_window.inc), as text after the snapshot
         else if (a == "--lang") langArg = next();  // en, ko, es, ru or zh: the language for this run (not saved), for a snapshot
         else if (a == "--drop") dropArg = next();  // a file dropped on the window (as from Finder on macOS), for a snapshot
         else if (a == "--silent") gSilent = true;
@@ -660,8 +660,8 @@ int main(int argc, char** argv) {
                 std::printf("start page: banner %s; note: %s; game data %s\n", gStartView.bannerShown() ? "shown" : "not shown",
                             gStartView.installNote.empty() ? "none" : narrow(gStartView.installNote).c_str(), gDataOk ? "open" : "not open");
             if (midPanArg) sdlMidPanCheck();  // (after the picture: it moves the camera)
-            if (checkArg == "window") sdlWindowCheck(mapArg.empty() ? snapshot : mapArg);  // (no map: the picture is the file)
-            else if (!checkArg.empty()) std::printf("--check %s: no such check (WRONG)\n", checkArg.c_str());
+            for (const std::string& c : checkArgs)  // (other values are the other parts' checks)
+                if (c == "window") sdlWindowCheck(mapArg.empty() ? snapshot : mapArg);  // (no map: the picture is the file)
             if (cursorsArg) sdlCursorChecks();  // (after the picture: it changes the mode and the camera)
             if (untitledArg) {  // (the project's folder goes: a snapshot leaves nothing)
                 const EudProject* pr = activeProject();
