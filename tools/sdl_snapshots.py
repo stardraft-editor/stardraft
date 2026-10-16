@@ -14,7 +14,8 @@ one that needs a project, only with --project. The others run everywhere (CI has
 
 To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (its argument loop in main()). In a
 case's options, {map}, {project}, {install} (the --install folder), {root} (the repository), {out} (the --out folder),
-{newdir} (a new empty folder in --out) and {wav} (a short sound that the script writes in --out) are paths. A run also fails when its output has "(WRONG)", or when the
+{newdir} (a new empty folder in --out), {kodir} (a new empty folder in --out with Korean letters and spaces in its
+name) and {wav} (a short sound that the script writes in --out) are paths. A run also fails when its output has "(WRONG)", or when the
 case's function in CHECKS finds a problem in its output.
 """
 
@@ -353,6 +354,150 @@ CASES += [
     ("map-briefing-add", ["--workspace", "briefing", "--click", "543,166", "--type", "Text message", "--key", "Enter",
                           "--key", "Ctrl+Z"], "map"),
 ]
+# Typed text as SDL gives it (--type: SDL_EVENT_TEXT_INPUT; --ime: an input method's composition, SDL_EVENT_TEXT_EDITING)
+# in English, Korean, Russian, Chinese and emoji. After each input a "focus:" line says the view with the keyboard, a
+# field's text, selection and composition, and whether the input method is on with its area at the caret (the system's
+# composition and candidate windows show there). Clipboard: an offscreen run has SDL's own (not the system's).
+CASES += [
+    # The Files search box: a composition (its caret at its end, then after its first syllable), the commit, more text,
+    # Backspace over an emoji, select, copy, paste, select all, cut, paste, then Undo twice.
+    ("map-text-input", ["--workspace", "files", "--click", "240,289", "--type", "abc", "--ime", "\u314e", "--ime", "\ud55c",
+                        "--ime", "\ud55c\u3131@1", "--type", "\ud55c\uad6d", "--type", " \u041f\u0440\u0438\u0432\u0435\u0442 \u4f60\u597d \U0001f600",
+                        "--key", "Backspace", "--key", "Shift+Home", "--key", "Ctrl+C", "--key", "End", "--key", "Ctrl+V",
+                        "--key", "Ctrl+A", "--key", "Ctrl+X", "--key", "Ctrl+V", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "map"),
+    # The map's title (Properties) and the Marine's name (Map data > Units: the game text pop-out) in Korean, File > Save
+    # as into a folder with a Korean name ({kodir}; the save dialog's answer, --pick: a name without .scx), the tab closed,
+    # File > Open of that file: --check names says the title and the name that the map has again.
+    ("map-text-korean-save", ["--workspace", "props", "--click", "420,214", "--key", "Ctrl+A", "--ime", "\ubcd1",
+                              "--type", "\ubcd1\ubaa9 \uc9c0\ub3c4 \U0001f600", "--click", "30,190", "--click", "474,224",
+                              "--ime", "\ub9c8\ub9b0", "--type", "\ub9c8\ub9b0 \ud574\ubcd1", "--key", "Tab", "--key", "Enter",
+                              "--key", "Ctrl+Shift+S", "--pick", "{kodir}/\ubcd1\ubaa9 \uc9c0\ub3c4", "--key", "Ctrl+W",
+                              "--key", "Ctrl+O", "--pick", "{kodir}/\ubcd1\ubaa9 \uc9c0\ub3c4.scx", "--check", "names"], "map"),
+    # Unit properties (a double click on the unit): Tab into a number selects it, so that 50 takes its place; Tab and
+    # Shift+Tab go through the fields in order.
+    ("map-dialog-tab", ["--mode", "units", "--click", "825,128:Double", "--key", "Tab", "--type", "50", "--key", "Tab",
+                        "--key", "Shift+Tab", "--key", "Escape"], "map"),
+    # The Triggers tree takes typed letters (type-ahead) after a text field of the window had the keyboard: New trigger
+    # (its name's field), Enter, then "o" goes to On every trigger cycle.
+    ("data-tree-typeahead", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169",
+                             "--key", "Enter", "--wait", "1200", "--type", "o"], "data"),
+    # The file and folder dialogs as the program asks for them (--pick: none shows, each is canceled): Add a script (a
+    # save dialog in the project's scripts folder, new.eps) and Open project (in the projects' folder, its path ending
+    # with a separator: else the dialogs of Windows and macOS take the folder's name as the file's).
+    ("data-file-dialogs", ["--newproject", "{newdir}", "--command", "project.addscript", "--command", "project.open"], "data"),
+]
+
+
+INPUT_START = re.compile(r"^(key|type|ime|click|wait) (.*?): (?:\d+ units|no map)")
+FOCUS_LINE = re.compile(r'^  focus: (.+?) at (-?\d+),(-?\d+) "(.*?)"(?: selected (\d+)-(\d+) composing "(.*)"; input method (on|off) at '
+                        r'.* (\(yes\)|\(WRONG\)))?$')
+
+
+def focus_lines(output):
+    """The focus line after each input: [(input, kind, text, (selection start, end) or None, composition)]."""
+    out, last = [], None
+    for line in output.splitlines():
+        m = INPUT_START.match(line)
+        if m:
+            last = m.group(1) + " " + m.group(2)
+        m = FOCUS_LINE.match(line)
+        if m and last:
+            sel = (int(m.group(5)), int(m.group(6))) if m.group(5) else None
+            out.append((last, m.group(1), m.group(4), sel, m.group(7)))
+    return out
+
+
+def expect_focus(output, want):
+    """None when the focus lines are `want`: [(input, text, selection or None, composition or None)] in order."""
+    got = focus_lines(output)
+    if len(got) != len(want):
+        return f"{len(got)} focus lines, not {len(want)}: {got}"
+    for (inp, kind, text, sel, comp), (w_inp, w_text, w_sel, w_comp) in zip(got, want):
+        if inp != w_inp or text != w_text or (w_sel is not None and sel != w_sel) or (w_comp is not None and comp != w_comp):
+            return f"{inp}: {kind} \"{text}\" selected {sel} composing \"{comp}\" (not \"{w_text}\" {w_sel} \"{w_comp}\")"
+    return None
+
+
+def check_text_input(output):
+    """The composition shows in the field (not in its text) with the input method's area at the caret; the commit, the
+    keys, the clipboard and Undo give the texts in order."""
+    first = "abc\ud55c\uad6d \u041f\u0440\u0438\u0432\u0435\u0442 \u4f60\u597d "
+    return expect_focus(output, [
+        ("type abc", "abc", (3, 3), ""),
+        ("ime \u314e", "abc", (3, 3), "\u314e"),
+        ("ime \ud55c", "abc", (3, 3), "\ud55c"),
+        ("ime \ud55c\u3131@1", "abc", (3, 3), "\ud55c\u3131"),
+        ("type \ud55c\uad6d", "abc\ud55c\uad6d", (5, 5), ""),
+        ("type  \u041f\u0440\u0438\u0432\u0435\u0442 \u4f60\u597d \U0001f600", first + "\U0001f600", (18, 18), ""),
+        ("key Backspace", first, (16, 16), ""),  # (the emoji: two UTF-16 units, one Backspace)
+        ("key Shift+Home", first, (0, 16), ""),
+        ("key Ctrl+C", first, (0, 16), ""),
+        ("key End", first, (16, 16), ""),
+        ("key Ctrl+V", first + first, (32, 32), ""),
+        ("key Ctrl+A", first + first, (0, 32), ""),
+        ("key Ctrl+X", "", (0, 0), ""),
+        ("key Ctrl+V", first + first, (32, 32), ""),
+        ("key Ctrl+Z", "", (0, 0), ""),
+        ("key Ctrl+Z", first + first, None, ""),
+    ])
+
+
+def check_korean_save(output):
+    """The title and the unit's name typed in Korean (with an emoji) are the map's again after Save as into a folder with
+    a Korean name and File > Open of that file; the save dialog asked for a StarCraft map."""
+    title, unit = "\ubcd1\ubaa9 \uc9c0\ub3c4 \U0001f600", "\ub9c8\ub9b0 \ud574\ubcd1"
+    if not re.search(r"^dialog: save, title \"\", filters StarCraft maps \(scx;scm\)", output, re.M):
+        return "no save dialog for a StarCraft map"
+    m = re.search(r'^names: map "([^"]*)"', output, re.M)
+    if not m or not m.group(1).endswith("\ubcd1\ubaa9 \uc9c0\ub3c4.scx") or "\ud55c\uad6d" not in m.group(1):
+        return f"the map that opened: {m.group(1) if m else 'none'}"
+    if f'names: title "{title}" (utf-8)' not in output:
+        return "the title is not the one typed"
+    if f'names: unit 0 "{unit}" (utf-8)' not in output:
+        return "the Marine's name is not the one typed"
+    return None
+
+
+def check_dialog_tab(output):
+    """Tab into a number selects it; the typed number takes its place; Tab and Shift+Tab select the next and the one before."""
+    got = focus_lines(output)
+    if len(got) < 4:
+        return f"{len(got)} focus lines: {got}"
+    (_, k1, t1, s1, _), (_, k2, t2, s2, _), (_, k3, t3, s3, _), (_, k4, t4, s4, _) = got[:4]
+    if k1 != "text field" or s1 != (0, len(t1)) or not t1:
+        return f"Tab: {k1} \"{t1}\" selected {s1} (not all of it)"
+    if t2 != "50":
+        return f"50 typed: \"{t2}\""
+    if k3 != "text field" or s3 != (0, len(t3)) or t3 == t2:
+        return f"Tab: {k3} \"{t3}\" selected {s3}"
+    if t4 != "50" or s4 != (0, 2):
+        return f"Shift+Tab: \"{t4}\" selected {s4}"
+    return None
+
+
+def check_tree_typeahead(output):
+    """After the name's field, the tree took the typed "o"."""
+    lines = states(output)
+    typed = [st for k, st in lines if k == "type o"]
+    if not typed or not typed[0].startswith('triggers: "On every trigger cycle"'):
+        return f"type o: {typed}"
+    return None
+
+
+def check_file_dialogs(output):
+    """Add a script: a save dialog with its title and filters, starting at scripts/new.eps; Open project: an open dialog
+    for project files, starting in a folder (its path ends with a separator)."""
+    dialogs = re.findall(r'^dialog: (\w+), title "(.*?)", filters (.*?), starts at "(.*)": (.*)$', output, re.M)
+    if len(dialogs) != 2:
+        return f"{len(dialogs)} dialogs, not 2: {dialogs}"
+    (k1, t1, f1, at1, _), (k2, _, f2, at2, _) = dialogs
+    if k1 != "save" or not t1.startswith("Add a script") or not f1.startswith("epScript (*.eps) (eps)"):
+        return f"Add a script: {dialogs[0]}"
+    if not re.search(r"[\\/]scripts[\\/]new\.eps$", at1):
+        return f"Add a script starts at {at1}"
+    if k2 != "open" or "(stardraft;eds)" not in f2 or not at2 or at2[-1] not in "\\/":
+        return f"Open project: {dialogs[1]}"
+    return None
 
 
 def check_undo(output):
@@ -1110,7 +1255,9 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "start-trackpad-scroll": check_trackpad_scroll, "map-smartzoom": check_smartzoom, "map-swipe": check_swipe,
           "drop-sound-assets": check_drop("Imported 1 sounds"), "drop-image-assets": check_drop("Did not import atlas-16.png"),
           "check-dock": check_dock, "map-check-desktop": check_desktop, "dialog-options-tab-general": check_options_tab, "dialog-options-tab-map": check_options_tab,
-          "dialog-options-tab-start": check_options_tab, "dialog-options-tab-folders": check_options_tab}
+          "dialog-options-tab-start": check_options_tab, "dialog-options-tab-folders": check_options_tab,
+          "map-text-input": check_text_input, "map-text-korean-save": check_korean_save, "map-dialog-tab": check_dialog_tab,
+          "data-tree-typeahead": check_tree_typeahead, "data-file-dialogs": check_file_dialogs}
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -1196,6 +1343,10 @@ def png_check(path):
 
 
 def main():
+    # (the cases' text is not all ASCII: Korean, Chinese, emoji; a Windows console's code page cannot show it all)
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--exe", help="the SDL program (on macOS: stardraft.app/Contents/MacOS/stardraft)")
     ap.add_argument("--out", help="the folder for the PNGs, the output of each run and summary.txt")
@@ -1247,11 +1398,13 @@ def main():
         given = any("{map}" in x or "{project}" in x for x in args)  # (the path is in the options)
         # {newdir}: a new empty folder in --out for each run (a folder is never deleted)
         newdir = tempfile.mkdtemp(prefix=name + "-", dir=a.out) if any("{newdir}" in x for x in args) else ""
+        # {kodir}: the same, its name in Korean with spaces (a path that is not ASCII: the save and the open)
+        kodir = tempfile.mkdtemp(prefix=name + " \ud55c\uad6d \ud3f4\ub354 ", dir=a.out) if any("{kodir}" in x for x in args) else ""
         wav = os.path.join(a.out, "drop-sound.wav")
         if any("{wav}" in x for x in args) and not os.path.exists(wav):
             write_wav(wav)
         args = [x.format(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
-                         wav=wav) for x in args]
+                         kodir=kodir, wav=wav) for x in args]
         if needs == "map" and not given:
             cmd.append(a.map)
         elif needs == "project" and not given:
