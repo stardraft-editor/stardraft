@@ -174,7 +174,7 @@ has an SDL snapshot case (`tools/sdl_snapshots.py`) or a test, and what has none
 |---|---|
 | The start page, the New page, the workspaces of a map and of a project (`pages:`) | start, newpage-classic, newpage-eud, ws-*, map-ws-* (the dark theme only; dialog-options-light is the light theme) |
 | undo_twice (Undo of an edit) | map-key-undo (Delete, Undo, Redo, Undo: CHECKS reads the counts) |
-| place_marines (a unit placed with the mouse), box_select, drag_move | map-click-place (a palette pick, a click on the map, Undo), map-drag-select (a box, Shift and a second box), map-drag-unit (a click selects, a drag moves the unit, Undo puts it back): `--click` and `--drag` go the host's way for a window's mouse events; CHECKS reads the counts and the unit's place |
+| place_marines (a unit placed with the mouse), box_select, drag_move | map-click-place (a palette pick, a click on the map, Undo), map-drag-select (a box, Shift and a second box), map-drag-unit (a click selects, a drag moves the unit, Undo puts it back): `--click` and `--drag` go the host's way for a window's mouse events, `--key` and `--type` to the view with the focus; a dialog or pop-out that an input opens takes the next inputs (`--wait` lets the timers run); CHECKS reads the counts and the unit's place, and each input's state line (sdl_shot_state.inc) |
 | A save of the map (the steps that save, `openagain:`) | map-save-roundtrip and map-save-edited (`--saveas` into the --out folder: the saved file opens again and is the same; after Delete it has no units) |
 | project created, project compiled (`project:`, a Build) | data-newproject-build (a new project Sample in a new folder in --out, then Build when euddraft is there) |
 | sd_quality, carbot_graphics | map-view-sd, map-view-carbot |
@@ -187,22 +187,26 @@ has an SDL snapshot case (`tools/sdl_snapshots.py`) or a test, and what has none
 | `textpop:`, `trigshow:`, `trigtext:`, `trigobj:` | project-textpop-*, project-trigpop-*, project-varpop-* |
 | `mapmenu:`, `ctxmenu:`, `feedbacknames:` (some of it) | map-rclick-map, map-rclick-*, project-rclick-code, dialog-options-rclick |
 | `dat:entry[:section]` (the Data workspace) | data-units, data-images, data-strings, project-data-open |
-| The Classic triggers page (`bowner:`, `bsel:`) | map-classictrig, map-classictrig-value (the page and a value's pop-out; not the owners, the selection or the Edit commands) |
-| The briefing (`brec:`) | project-briefing (one picture, not the video) |
+| The Classic triggers page (`bowner:`, `bsel:`) | map-classictrig, map-classictrig-value (the page and a value's pop-out; not the selection or the Edit commands), map-classictrig-edits (Add a trigger, Player 3, Undo: the page and the map) |
+| The briefing (`brec:`), its actions | project-briefing (one picture, not the video), map-briefing-add (Add an action: the list picker, Text message; Undo) |
+| new_page_map, new_map_ice (a map made on the New page) | newpage-create (the tileset Ice, Create: the map is Ice, 128 x 128) |
+| The Data form's edits (a number, a flag, a picker) and Undo | data-form-edits (the Marine of a new project: Hit points typed, Shield enable, Unit size picked in the list picker, three Undo steps) |
+| The Triggers editor's edits (add a block, a value, Delete, Undo) | data-triggers-edits (a new project: New trigger, Add an action in the block picker, the amount in the value's pop-out, Delete, Undo twice) |
+| `files:` (the Files workspace's search) | map-files-search (the search box of the game's sounds: "marine" typed) |
 | The cursors | map-cursors |
 | doodad_ghost, doodad, doodad_selected (a doodad placed, selected, dragged, deleted) | map-doodad-ghost (the ghost: red, then green where it fits), map-doodad-place (a palette pick, a click places it, Esc, a click selects it, a drag moves it, Undo, Delete, Undo) |
 | Sprites placed with the mouse | map-sprite-place (a palette pick, a click places the sprite, Esc, a click selects it, Undo removes it and its selection) |
-| location_create, location_resize, location_rename | map-location-make (a drag makes a location, a drag of its right edge makes it wider, F2 and the prompt rename it: `--prompt` types the name and Enter; three Undos) |
+| location_create, location_resize, location_rename | map-location-make (a drag makes a location, a drag of its right edge makes it wider, F2 opens the prompt, which takes the next inputs: the name typed and Enter; three Undos) |
 | terrain_paint, rect_paint | map-terrain-brush (a terrain of the palette, B, a drag paints; Undo), map-terrain-rect-paint (Rectangle: a tile of the Tiles list, B, a click; Undo) |
 | terrain_select, terrain_paste_ghost, terrain_pasted, `terraincut:` | map-terrain-paste (V, a drag selects, Copy, Paste follows the mouse, a click pastes, Undo, Esc, Cut, Undo), map-terrain-paste-ghost (the copy at the mouse) |
 | paste_ghost, paste_ghost_on_water_red, paste_placed | map-paste-ghost (the copy of the mineral fields at the mouse, green on ground), map-paste-ghost-red (red over space), map-paste-placed (a click places it; Undo): `--move` moves the mouse only |
 | The player keys (1 to 0) | map-player-keys (3 picks the player; 5 and 0 give a selected Marine to players 5 and 10; 7 while placing picks the player and leaves the Marine) |
 | tab_previous, tab_closed | map-tabs (a new project in a second tab, Ctrl+Shift+Tab, Ctrl+Tab, Ctrl+W) |
 
-After each `--key`, `--click`, `--drag` and `--move`, a second output line (`  state: name=value ...`, sdl_menus.inc:
-`sdlStateLine`) says the mode, the player, the owners, the sprites, the selected doodad, the locations, the paste (and
-how many of its units are red), the terrain (a hash of its tiles, the tile under the mouse, the terrain selection) and
-the tabs; CHECKS reads it. On SDL File > New shows the start page in the map's tab (no page tabs), so map-tabs makes
+After each input, the state line (`  state: ...`, sdl_shot_state.inc: `sdlShotState`) in the Map workspace is
+`map: <tileset> <size>;` and then name=value parts (`shotMapState`): the mode, the player, the owners, the sprites,
+the selected doodad, the locations, the paste (and how many of its units are red), the terrain (a hash of its tiles,
+the tile under the mouse, the terrain selection) and the tabs; CHECKS reads it. On SDL File > New shows the start page in the map's tab (no page tabs), so map-tabs makes
 its second tab with `--newproject`.
 
 These cases found a bug that both programs had: after Undo of a placed sprite or doodad that was selected, the
@@ -217,13 +221,13 @@ selected doodads and sprites that are not on the map (`dropGoneItems`, core/map_
 | location_move, `locwrap:` | A location moved with the mouse; a long name in lines. |
 | brush_circle_*, fill_lake_with_grass, spray_mud, replace_mud_with_rocky, symmetry_*, `selshape:`, `pipette:` | The other terrain tools on the map (the brush's shapes, Fill, Spray, Replace, the mirrors, the selection's shapes, Ctrl+click). |
 | zoom_25, hd4x_zoom_200 | The zoom to a percent and HD 4x (the + key zooms in map-view-sd). |
-| new_page_map, new_map_ice, generated_map, generated_again | A map made on the New page (Blank, a tileset, Generate). |
+| generated_map, generated_again | A map that the New page generates (Generate). |
 | `cardagain:` | The start page's cards. |
 | The recent menus at the start, `menutree:`, `barmenu:`, `menutest:` | The menu tree, the File menu by the keys, the context menus driven by messages. |
-| The Data workspace's steps (tabs, Tab, back and forward, a weapons.dat save, `portrait:`, `mapplayers:`, `classicdefault:`, `unitnames:`) | The Data form's edits and their save. |
-| The Triggers editor's steps (copy and paste, the keyboard, values, variables, properties, an external script, `trigreplace:`, `emptylists:`, `bcmd:`) and `trigger_selftest.inc` (help, fixes, a picked unit deleted, a build error) | The Triggers workspace's edits. |
+| The Data workspace's other steps (tabs, Tab, back and forward, a weapons.dat save, `portrait:`, `mapplayers:`, `classicdefault:`, `unitnames:`) | The Data workspace's navigation, the save of a table, the map's own data. |
+| The Triggers editor's other steps (copy and paste, the keyboard, variables, properties, an external script, `trigreplace:`, `emptylists:`, `bcmd:`) and `trigger_selftest.inc` (help, fixes, a picked unit deleted, a build error) | The Triggers workspace's other edits and its checks. |
 | `eptrace:` | Trace build and its report. |
-| `files:`, `fref:` | The Files workspace's search and a sound the map names. |
+| `fref:` | A sound that the map names (the Files workspace's References). |
 | `spray:`, `emptynone:`, `rightpan:`, `wheelpick:`, `dpi:` | Doodads > Spray, an empty search, the right button on the map, the wheel on a dropdown, a DPI change. |
 | `opentimes:`, `leaks:` | The time to open each workspace; GDI and USER objects (Win32 only). |
 The kit's own tests (`tools/tests/kit_test.cpp`) check the portable views without a program (a text field's menu,

@@ -189,10 +189,9 @@ CASES += [
     ("map-drag-unit", ["--mode", "units", "--click", "825,128", "--drag", "825,128-825,168", "--key", "Ctrl+Z"], "map"),
 ]
 # The Windows self-test's map steps (main.cpp: runSelfTest) with the mouse and the keys. After each input line a second
-# line ("  state: name=value ...") says the mode, the player, the sprites, the selected doodad, the locations, the paste,
-# the terrain (a hash of its tiles, the tile under the mouse, the terrain selection) and the tabs: CHECKS reads them.
-# --move x,y moves the mouse only (a paste's copy follows it); --prompt <text> is the text typed into the next text prompt
-# (then Enter). More points of the map at the fitted zoom: open ground at 520..640,640..720 and 900,800, space (no
+# line ("  state: map: <tileset> <size>; name=value ...") says the mode, the player, the sprites, the selected doodad,
+# the locations, the paste, the terrain (a hash of its tiles, the tile under the mouse, the terrain selection) and the
+# tabs: CHECKS reads them. --move x,y moves the mouse only (a paste's copy follows it). More points of the map at the fitted zoom: open ground at 520..640,640..720 and 900,800, space (no
 # ground) at 450,450, a place where the first doodad (Dark Platform #0) fits at 559,590 and at 535,590; the Doodads
 # and Sprites palettes' first item at 115,600; the Terrain palette's Solar Array at
 # 202,759; the Tiles list's first tile at 160,660 (Rectangle).
@@ -201,17 +200,18 @@ CASES += [
     # moves it, Undo puts it back, Delete removes it, Undo gives it back.
     ("map-doodad-place", ["--mode", "doodads", "--click", "115,600", "--click", "559,590", "--key", "Esc", "--click", "559,590",
                           "--drag", "559,590-535,590", "--key", "Ctrl+Z", "--key", "Del", "--key", "Ctrl+Z"], "map"),
-    # The doodad's ghost at the mouse before the click, zoomed in (+ twice: 559,590 of the fitted zoom is at 679,870):
-    # where it fits (green), then where it does not (red).
+    # The doodad's ghost at the mouse before the click, zoomed in (+ twice, about the middle of the map view: 559,590 of
+    # the fitted zoom is at 405,627): where it does not fit (red), then where it fits (green).
     ("map-doodad-ghost", ["--mode", "doodads", "--click", "115,600", "--key", "+", "--key", "+", "--move", "830,520",
-                          "--move", "679,870"], "map"),
+                          "--move", "405,627"], "map"),
     # Sprites: a palette pick, a click places the sprite, Esc, a click selects it, Undo removes it.
     ("map-sprite-place", ["--mode", "sprites", "--click", "115,600", "--click", "560,690", "--key", "Esc", "--click", "560,690",
                           "--key", "Ctrl+Z"], "map"),
-    # Locations: a drag makes one, a drag of its right edge makes it wider, F2 and the prompt rename it; three Undos take
-    # the name, the size and the location back.
+    # Locations: a drag makes one, a drag of its right edge makes it wider, F2 opens the prompt (Rename location): the
+    # name typed over the old one (selected when the prompt opens) and Enter rename it; three Undos take the name, the
+    # size and the location back. The prompt's inputs' lines come before F2's line.
     ("map-location-make", ["--mode", "locations", "--drag", "520,640-600,700", "--drag", "600,670-640,670", "--key", "F2",
-                           "--prompt", "Selftest Spot", "--key", "Ctrl+Z", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "map"),
+                           "--type", "Selftest Spot", "--key", "Enter", "--key", "Ctrl+Z", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "map"),
     # Terrain: a palette pick (Solar Array), the brush (B) and a drag paints; Undo takes the paint back.
     ("map-terrain-brush", ["--mode", "terrain", "--click", "202,759", "--key", "B", "--drag", "520,650-640,690", "--key", "Ctrl+Z"], "map"),
     # Rectangle: a tile of the Tiles list, the brush and a click puts the tile there; Undo takes it back.
@@ -238,6 +238,33 @@ CASES += [
     # project, Ctrl+W closes it (the map's tab is active).
     ("map-tabs", ["--newproject", "{newdir}", "--key", "Ctrl+Shift+Tab", "--key", "Ctrl+Tab", "--key", "Ctrl+W"], "map"),
 ]
+# The workspaces' edits with the mouse and the keys (the Windows self-test's steps off the map). --type types text into
+# the view with the focus; --wait ms lets the program's timers run. An input goes to the window that takes input now: a
+# dialog or pop-out that an input opened (a list picker, the block picker, a value's pop-out; in its own pixels) takes
+# the next inputs, and closes when there are no more. Its inputs' lines come before the line of the input that opened
+# it. After each input's line, a line "  state: ..." says what the workspace holds (sdl_shot_state.inc).
+CASES += [
+    # The New page: the tileset Ice, then Create makes the map (128 x 128).
+    ("newpage-create", ["--newpage", "classic", "--click", "489,545", "--click", "1126,895"], "data"),
+    # The Data form of the Marine in a new project: Hit points typed (50, Enter), Shield enable clicked, Unit size picked
+    # (Medium in the list picker), then three Undo steps.
+    ("data-form-edits", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "671,742", "--type", "50",
+                         "--key", "Enter", "--click", "624,768", "--click", "776,872", "--type", "Medium", "--key", "Enter",
+                         "--key", "Ctrl+Z", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "data"),
+    # The Triggers workspace of a new project: On map start > New trigger, Add an action (the block picker: Set
+    # resources), its amount typed in the value's pop-out (800), Delete, then Undo twice (the block, then its amount).
+    ("data-triggers-edits", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169",
+                             "--click", "460,347", "--type", "Set resources", "--key", "Enter", "--click", "827,352",
+                             "--type", "800", "--key", "Enter", "--key", "Del", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "data"),
+    # The Classic triggers page: Add a trigger, Player 3, Undo (the page reads the map again after a moment).
+    ("map-classictrig-edits", ["--workspace", "classictriggers", "--click", "310,250", "--click", "819,221", "--key", "Ctrl+Z",
+                               "--wait", "400"], "map"),
+    # The Files workspace: the search box of the game's sounds, "marine" typed.
+    ("map-files-search", ["--workspace", "files", "--click", "240,289", "--type", "marine"], "map"),
+    # The Briefing: Add an action (the list picker: Text message), then Undo.
+    ("map-briefing-add", ["--workspace", "briefing", "--click", "543,166", "--type", "Text message", "--key", "Enter",
+                          "--key", "Ctrl+Z"], "map"),
+]
 
 
 def check_undo(output):
@@ -261,7 +288,7 @@ def check_edited(output):
     return None if "save round-trip: edited.scx: 0 units," in output else "the saved map has units after Delete"
 
 
-INPUT_LINE = re.compile(r"^(key|click|drag|move) (\S+): (\d+) units, (\d+) doodads, (\d+) selected(?: \(the first at (\d+),(\d+)\))?:")
+INPUT_LINE = re.compile(r"^(key|type|click|drag|move|wait) (.*?): (\d+) units, (\d+) doodads, (\d+) selected(?: \(the first at (\d+),(\d+)\))?:")
 
 
 def input_lines(output):
@@ -387,17 +414,19 @@ def location_box(step):
 
 
 def check_location_make(output):
-    """The Windows location_create, location_resize, location_rename steps, then Undo of each."""
-    if 'prompt Rename location: "Location' not in output or '-> "Selftest Spot" (OK)' not in output:
-        return "the prompt did not rename the location to Selftest Spot"
-    return expect(output, 6, [
+    """The Windows location_create, location_resize, location_rename steps (F2, the name typed in the prompt, Enter),
+    then Undo of each. The prompt's two inputs come before F2's line."""
+    return expect(output, 8, [
         ("the drag made no location", lambda s: int(s[0]["locations"]) == 2 and location_box(s[0])),
         ("the edge's drag did not make the location wider", lambda s: location_box(s[1])[2] > location_box(s[0])[2] and
          location_box(s[1])[:2] == location_box(s[0])[:2]),
-        ("F2 did not rename the location", lambda s: s[2]["name"] == "Selftest Spot"),
-        ("Undo did not give the old name back", lambda s: s[3]["name"] == s[1]["name"]),
-        ("Undo did not give the old size back", lambda s: location_box(s[4]) == location_box(s[0])),
-        ("Undo did not remove the location", lambda s: s[5]["locations"] == "1" and s[5]["location"] == "-"),
+        ("F2 did not open the prompt (its inputs did not come first)", lambda s: s[2]["input"] == "type Selftest Spot" and
+         s[3]["input"] == "key Enter" and s[4]["input"] == "key F2"),
+        ("the name changed before OK", lambda s: s[2]["name"] == s[1]["name"]),
+        ("the prompt did not rename the location to Selftest Spot", lambda s: s[4]["name"] == "Selftest Spot"),
+        ("Undo did not give the old name back", lambda s: s[5]["name"] == s[1]["name"]),
+        ("Undo did not give the old size back", lambda s: location_box(s[6]) == location_box(s[0])),
+        ("Undo did not remove the location", lambda s: s[7]["locations"] == "1" and s[7]["location"] == "-"),
     ])
 
 
@@ -487,6 +516,121 @@ def check_tabs(output):
     ])
 
 
+STATE_LINE = re.compile(r"^(key|type|click|drag|move|wait) (.*?): (?:no map|\d+ units)")
+
+
+def states(output):
+    """The input lines and the state line after each, in the order of the output: [(input, state)]."""
+    out, last = [], None
+    for line in output.splitlines():
+        m = STATE_LINE.match(line)
+        if m:
+            last = m.group(1) + " " + m.group(2)
+            out.append((last, ""))
+        elif line.startswith("  state: ") and out and out[-1][0] == last:
+            out[-1] = (last, line[9:])
+    return out
+
+
+def check_newpage_create(output):
+    """None when no map was open before Create, and Create made an Ice map of 128 x 128."""
+    s = states(output)
+    if len(s) != 2:
+        return f"{len(s)} input lines, not 2"
+    if "click 1126,895" != s[1][0] or not s[1][1].startswith("map: Ice 128 x 128;"):
+        return f"after Create: {s[1][1] or 'no map'} (not an Ice map of 128 x 128)"
+    if not re.search(r"^click 489,545: no map:", output, re.M):
+        return "a map was open before Create"
+    return None
+
+
+def check_data_edits(output):
+    """None when the number, the flag and the picked value went into the entry, and three Undo steps took them out."""
+    s = [st for _, st in states(output)]
+    if len(s) != 10:
+        return f"{len(s)} input lines, not 10"
+    want = [(2, "Hit Points=50 "), (3, "Shield Enable=1 "), (6, "Unit Size=2 ")]  # (the picker's inputs come before its click)
+    for i, text in want:
+        if text not in s[i]:
+            return f"input {i + 1}: {s[i]} (no {text.strip()})"
+    if "Unit Size=" in s[7] or "Shield Enable=" not in s[7]:
+        return f"the first Undo: {s[7]}"
+    if "Shield Enable=" in s[8] or "Hit Points=50 " not in s[8]:
+        return f"the second Undo: {s[8]}"
+    if "no changed values; 0 undo steps, 3 redo steps" not in s[9]:
+        return f"the third Undo: {s[9]}"
+    return None
+
+
+def check_trigger_edits(output):
+    """None when the block was added, its value changed, Delete removed it, Undo gave it back and then its old value."""
+    lines = states(output)
+    if len(lines) != 10:
+        return f"{len(lines)} input lines, not 10"
+    if '"New trigger"; 1 conditions: cond.always(); 0 actions' not in lines[0][1]:
+        return f"New trigger: {lines[0][1]}"
+    by = dict(lines)
+    added, changed, deleted = by.get("click 460,347", ""), by.get("click 827,352", ""), by.get("key Del", "")
+    undos = [st for k, st in lines if k == "key Ctrl+Z"]
+    m = re.search(r"1 actions: (act\.\w+\([^)]*,)(\d+)\)$", added)  # (the amount is the block's last value)
+    if not m:
+        return f"Add an action: {added}"
+    edited = m.group(1) + "800)"
+    if not changed.endswith(edited):
+        return f"the value: {changed} (not 800)"
+    if not deleted.endswith("0 actions:"):
+        return f"Delete: {deleted}"
+    if len(undos) != 2 or not undos[0].endswith(edited) or not undos[1].endswith(m.group(1) + m.group(2) + ")"):
+        return f"Undo: {undos} (not the block with 800, then with {m.group(2)})"
+    return None
+
+
+def check_classic_edits(output):
+    """None when the trigger was added with Player 3 (on the page and in the map), and Undo took Player 3 out of both."""
+    s = states(output)
+    if len(s) != 4:
+        return f"{len(s)} input lines, not 4"
+    added, player, undone, waited = (st for _, st in s)
+    m = re.search(r"the page has (\d+), selected (\d+)", added)
+    if not m or m.group(1) != m.group(2):
+        return f"Add a trigger: {added} (the new trigger is not selected)"
+    n = int(m.group(1))
+    if f"the map has {n}:" not in added:
+        return f"Add a trigger: {added} (not in the map)"
+    if "(players 3;" not in player or not player.endswith("[players 3]"):
+        return f"Player 3: {player}"
+    if not undone.endswith("[players none]"):
+        return f"Undo: {undone} (the map's trigger still has Player 3)"
+    if "players 3" in waited:
+        return f"after Undo: {waited} (the page still has Player 3)"
+    return None
+
+
+def check_files_search(output):
+    """None when the search shows fewer game sounds, and each is one with the text."""
+    s = states(output)
+    if len(s) != 2:
+        return f"{len(s)} input lines, not 2"
+    m0 = re.search(r'search "", (\d+) game sounds', s[0][1])
+    m1 = re.search(r'search "marine", (\d+) game sounds', s[1][1])
+    if not m0 or not m1 or not 0 < int(m1.group(1)) < int(m0.group(1)):
+        return f"the search: {s[0][1]} -> {s[1][1]}"
+    return None
+
+
+def check_briefing_add(output):
+    """None when Add an action made a briefing with a Text message (type 3), and Undo took it out."""
+    s = states(output)
+    if len(s) != 4:
+        return f"{len(s)} input lines, not 4"
+    by = {k: v for k, v in s}
+    if not by.get("click 543,166", "").endswith("1 briefings; 1 actions: 3"):
+        return f"Add an action: {by.get('click 543,166')}"
+    if s[-1][1] != "briefing: 0 briefings":
+        return f"Undo: {s[-1][1]}"
+    return None
+
+
 # Checks of a case's output (after the PNG's): a function that returns None, or what is wrong.
 CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
           "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
@@ -495,7 +639,10 @@ CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-clic
           "map-terrain-rect-paint": check_rect_paint, "map-terrain-paste": check_terrain_paste,
           "map-terrain-paste-ghost": check_terrain_paste_ghost, "map-paste-ghost": check_paste_ghost,
           "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed,
-          "map-player-keys": check_player_keys, "map-tabs": check_tabs}
+          "map-player-keys": check_player_keys, "map-tabs": check_tabs,
+          "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
+          "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits,
+          "map-files-search": check_files_search, "map-briefing-add": check_briefing_add}
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 

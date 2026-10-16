@@ -52,6 +52,8 @@ bool keyOfChord(const std::string& name, draw::Key& out) {
     }
     if (name == "Del") out = draw::Key::Delete;
     else if (name == "Tab") out = draw::Key::Tab;
+    else if (name == "Home") out = draw::Key::Home;
+    else if (name == "End") out = draw::Key::End;
     else if (name == "Enter") out = draw::Key::Enter;
     else if (name == "Esc") out = draw::Key::Escape;
     else if (name == "Left") out = draw::Key::Left;  // (the arrows: --key in a snapshot)
@@ -406,86 +408,77 @@ void sdlRightClickShot(const std::string& spec, draw::View* in, const std::wstri
 }
 
 void sdlInputLine(const std::string& what);
-void sdlStateLine();
+
+// The window that takes a snapshot's input now (SdlHost::snapshotTop): a dialog or pop-out that an input opened (in
+// its own pixels), else the main window.
+draw::View& sdlShotTarget(draw::Point& size) {
+    size = {gRoot->width(), gRoot->height()};
+    return gHost ? gHost->snapshotTop(*gRoot, size) : *gRoot;
+}
 
 void sdlPressKey(const std::string& chord) {
     const auto c = stardraft::parseShortcut(chord);
     draw::KeyEvent e;
-    if (!gRoot || !c || !keyOfChord(c->key, e.key)) return void(std::fprintf(stderr, "--key %s: no such key\n", chord.c_str()));
+    if (!gRoot || !gHost || !c || !keyOfChord(c->key, e.key)) return void(std::fprintf(stderr, "--key %s: no such key\n", chord.c_str()));
     e.mods = (c->ctrl ? kShortcutCtrl : 0) | (c->shift ? draw::kShift : 0) | (c->alt ? draw::kAlt : 0);
-    gRoot->key(e);
+    draw::Point size;
+    draw::View& target = sdlShotTarget(size);
+    gHost->snapshotKey(target, size.x, size.y, e);  // (the view with the focus first, then its parents: the window's keys)
     runPosted();
     sdlInputLine("key " + chord);
 }
 
-// The output line after a --key, --click or --drag (as the Windows self-test's log: Delete, then Undo, gives the units
-// back): the units, the doodads, the selection (the first selected unit's place) and the status bar's text.
-void sdlInputLine(const std::string& what) {
-    if (!gState.ed || !gState.ed->isOpen()) return;
-    const auto& units = gState.ed->units();
-    const auto& sel = gState.ed->selection();
-    std::string first;
-    if (!sel.empty() && sel[0] >= 0 && size_t(sel[0]) < units.size())
-        first = " (the first at " + std::to_string(units[size_t(sel[0])].x) + "," + std::to_string(units[size_t(sel[0])].y) + ")";
-    std::printf("%s: %zu units, %zu doodads, %zu selected%s: %s\n", what.c_str(), units.size(), gState.ed->doodads().size(), sel.size(),
-                first.c_str(), narrow(gState.message).c_str());
-    sdlStateLine();
+// --type <text> in a snapshot: the text typed into the view with the focus (a search box, a number entry), as the
+// keyboard's text events give it.
+void sdlTypeText(const std::string& text) {
+    if (!gRoot || !gHost) return;
+    draw::Point size;
+    draw::View& target = sdlShotTarget(size);
+    gHost->snapshotText(target, size.x, size.y, text);
+    runPosted();
+    sdlInputLine("type " + text);
 }
 
-// The second line after an input: the rest of the map's state that the self-test's log reads, as name=value (a value
-// with spaces in quotes; "-" where there is none): the mode, the placement's player, the first selected unit's owner,
-// the last unit's owner, the palette's pick, the sprites, the selected doodads and the first one's place, the locations and the selected one,
-// the paste (units: how many of the ghost's units are red), the terrain (a hash of its tiles, the tile under the
-// mouse, the terrain selection) and the tabs.
-void sdlStateLine() {
-    const AppState& app = gState;
-    Editor& ed = *app.ed;
-    auto quoted = [](const std::string& s) { return "\"" + s + "\""; };
-    auto box = [](const Rect& r) { return std::to_string(r.left) + "," + std::to_string(r.top) + "," + std::to_string(r.right) + "," + std::to_string(r.bottom); };
-    std::string s = "  state: mode=" + narrow(kModeNames[int(app.mode)]) + " player=" + std::to_string(app.playerOwner + 1);
-    const auto& sel = ed.selection();
-    s += " owner=" + (!sel.empty() && size_t(sel[0]) < ed.units().size() ? std::to_string(int(ed.units()[size_t(sel[0])].owner) + 1) : std::string("-"));
-    s += " lastowner=" + (!ed.units().empty() ? std::to_string(int(ed.units().back().owner) + 1) : std::string("-"));
-    s += " palette=" + std::to_string(app.palette) + " tool=" + std::to_string(currentTool());
-    s += " sprites=" + std::to_string(ed.sprites().size()) + " spritesel=" + std::to_string(app.selSprites.size());
-    s += " doodadsel=" + std::to_string(app.selDoodads.size()) + " doodad=";
-    if (!app.selDoodads.empty() && app.selDoodads[0] >= 0 && size_t(app.selDoodads[0]) < ed.doodads().size()) {
-        const Doodad& d = ed.doodads()[size_t(app.selDoodads[0])];
-        s += std::to_string(d.x) + "," + std::to_string(d.y);
-    } else s += "-";
-    int used = 0;
-    for (int i = 0; i < ed.locationCount(); ++i) used += ed.locationUsed(i);
-    const int loc = ed.selectedLocation();
-    s += " locations=" + std::to_string(used) + " location=";
-    s += loc >= 0 && ed.locationUsed(loc) ? std::to_string(loc) + ":" + box(ed.locationRect(loc)) + " name=" + quoted(ed.locationName(loc)) : "- name=-";
-    float wx = 0, wy = 0;
-    toWorld(app.mouseX, app.mouseY, wx, wy);
-    s += " paste=";
-    if (app.pasting && ed.canPaste()) {
-        int red = 0;
-        const auto ghost = unitPasteGhost(wx, wy);
-        for (const PasteGhostUnit& g : ghost) red += g.red;
-        s += "units:" + std::to_string(ghost.size()) + ":" + std::to_string(red) + "red";
-    } else if (app.terrainPasting) s += "terrain";
-    else if (app.pastingItems) s += "items";
-    else s += "none";
-    if (app.mode == Mode::Doodads && app.palette >= 0)  // the picked doodad's ghost at the mouse: green where a click places it
-        if (const DoodadType* d = ed.doodadTypes().find(uint16_t(app.palette))) {
-            int tx = 0, ty = 0;
-            ed.doodadOrigin(*d, int(wx), int(wy), tx, ty);
-            s += doodadFits(ed.chk(), *d, tx, ty, app.doodadCheck) && !ed.doodadOverlaps(*d, tx, ty) ? " ghost=fits" : " ghost=red";
-        }
-    std::uint32_t hash = 2166136261u;  // FNV-1a of the tiles
-    for (uint16_t t : ed.terrain().tiles) hash = (hash ^ (t & 0xFF)) * 16777619u, hash = (hash ^ (t >> 8)) * 16777619u;
-    char hex[16];
-    std::snprintf(hex, sizeof hex, "%08x", hash);
-    const int tx = int(wx) / 32, ty = int(wy) / 32;
-    const bool onMap = wx >= 0 && wy >= 0 && tx < ed.width() && ty < ed.height();
-    s += std::string(" terrain=") + hex + " tile=" + (onMap ? std::to_string(ed.terrain().tiles[size_t(ty) * ed.width() + size_t(tx)]) : std::string("-"));
-    s += " tsel=" + (app.hasTerrainSel ? box(app.terrainSel) : std::string("-"));
-    s += " tabs=" + std::to_string(gActive + 1) + "/" + std::to_string(gDocs.size()) + " page=" + std::to_string(activePage()) +
-         " tab=" + quoted(narrow(docTitle(gActive, false)));
-    std::printf("%s\n", s.c_str());
+// The output line after a --key, --type, --click, --drag, --move or --wait (as the Windows self-test's log: Delete,
+// then Undo, gives the units back): the units, the doodads, the selection (the first selected unit's place) and the
+// status bar's text ("no map" in place of the counts when no map is open); then, on a line of its own, what the
+// workspace holds (sdl_shot_state.inc: the map's parts, the Data entry's changed values, the selected trigger's
+// blocks...). This is the only state line.
+std::string sdlShotState();
+void sdlInputLine(const std::string& what) {
+    if (!gState.ed || !gState.ed->isOpen()) {
+        std::printf("%s: no map: %s\n", what.c_str(), narrow(gState.message).c_str());
+    } else {
+        const auto& units = gState.ed->units();
+        const auto& sel = gState.ed->selection();
+        std::string first;
+        if (!sel.empty() && sel[0] >= 0 && size_t(sel[0]) < units.size())
+            first = " (the first at " + std::to_string(units[size_t(sel[0])].x) + "," + std::to_string(units[size_t(sel[0])].y) + ")";
+        std::printf("%s: %zu units, %zu doodads, %zu selected%s: %s\n", what.c_str(), units.size(), gState.ed->doodads().size(), sel.size(),
+                    first.c_str(), narrow(gState.message).c_str());
+    }
+    if (const std::string state = sdlShotState(); !state.empty()) std::printf("  state: %s\n", state.c_str());
+}
+
+void sdlMouseShot(const std::string& spec, char kind);
+
+// A snapshot's inputs (main_sdl.cpp: --key, --type, --click, --drag, --move, --wait; the option's letter k, t, c, d,
+// m, w and its value) that have not run yet, in their order.
+std::deque<std::pair<char, std::string>> gShotInputs;
+// Runs the next input (the main loop, or the loop of a modal window an input opened). False when there is none.
+bool sdlShotInputNext() {
+    if (gShotInputs.empty()) return false;
+    const auto [kind, value] = gShotInputs.front();
+    gShotInputs.pop_front();
+    if (kind == 'k') sdlPressKey(value);
+    else if (kind == 't') sdlTypeText(value);
+    else if (kind == 'w') {  // --wait ms: the program's timers that are due in that time run (a page that reads the map again)
+        if (gHost) gHost->snapshotTimers(std::atoi(value.c_str()));
+        runPosted();
+        sdlInputLine("wait " + value);
+    }
+    else sdlMouseShot(value, kind);  // 'c', 'd' or 'm'
+    return true;
 }
 
 // --click x,y[:mods] and --drag x0,y0-x1,y1[:mods] in a snapshot (main_sdl.cpp): the left button as a user's mouse
@@ -493,7 +486,7 @@ void sdlStateLine() {
 // to the second point in steps, the button held), the button goes up. The events go the host's way for a window's
 // (SdlHost::snapshotInput), with the modifier keys held (Shift, Ctrl, Alt, joined with +; Ctrl is Cmd on macOS).
 // --move x,y: only the mouse comes to the point (no button): a paste's copy follows it there. `kind`: 'c', 'd' or 'm'.
-void sdlMouseShot(const std::string& spec, char kind, int width, int height) {
+void sdlMouseShot(const std::string& spec, char kind) {
     const bool drag = kind == 'd', moveOnly = kind == 'm';
     const std::string name = drag ? "drag " : moveOnly ? "move " : "click ";
     const size_t colon = spec.find(':');
@@ -541,7 +534,9 @@ void sdlMouseShot(const std::string& spec, char kind, int width, int height) {
     }
     const SDL_Keymod before = SDL_GetModState();
     SDL_SetModState(held);
-    gHost->snapshotInput(*gRoot, width, height, events);
+    draw::Point size;
+    draw::View& target = sdlShotTarget(size);
+    gHost->snapshotInput(target, size.x, size.y, events);
     SDL_SetModState(before);
     runPosted();
     sdlInputLine(name + spec);

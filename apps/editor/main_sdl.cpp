@@ -143,6 +143,7 @@ bool gNoBoxes = false;
 #include "sdl_tips.inc"  // the hover tooltips (core/views_tip.inc)
 #include "sdl_build.inc"  // Build's parts of this system (core/project_build.inc)
 #include "sdl_triggers.inc"  // the Triggers workspace (the tree, the pane and the block picker are core/views_triggers_*.inc; the model core/triggers_model.inc)
+#include "sdl_shot_state.inc"  // a snapshot's input lines: what the workspace holds after each input
 #include "sdl_updates.inc"  // Help > Check for updates, the crash reports' choice (core/releases.inc)
 #include "shell_sdl.inc"
 #include "sdl_cursor_check.inc"  // --cursors: the window's cursors at some points, as text (a snapshot run)
@@ -297,8 +298,9 @@ int main(int argc, char** argv) {
     bool untitledArg = false;  // --untitled: a new unsaved project (as the Win32 program's screenshot run starts with), for a snapshot
     bool midPanArg = false;  // --midpan: Options > Middle mouse click and hold (Pan map, Drag map), as text after the snapshot
     bool cursorsArg = false;  // --cursors: the cursors at some points, as text after the snapshot (sdl_cursor_check.inc)
-    // --key, --click, --drag, --move: keys pressed and left clicks and drags of the mouse before the snapshot, in their order
-    // (sdl_menus.inc: sdlPressKey, sdlMouseShot): the option's letter (k, c, d, m) and its value.
+    // --key, --type, --click, --drag, --move, --wait: keys pressed, text typed, left clicks and drags and moves of the
+    // mouse before the snapshot, in their order (sdl_menus.inc: sdlShotInputNext): the option's letter (k, t, c, d, m,
+    // w) and its value.
     std::vector<std::pair<char, std::string>> inputArgs;
     std::vector<std::string> rclickArgs;  // --rclick: right clicks before the snapshot (sdl_menus.inc: sdlRightClickShot)
     std::vector<std::string> commandArgs;  // --command: menu commands run before the snapshot (sdl_menus.inc: sdlCommandShot)
@@ -351,7 +353,8 @@ int main(int argc, char** argv) {
         else if (a == "--click") inputArgs.emplace_back('c', next());  // x,y[:mods]: a left click there (window pixels; mods Shift+Ctrl+Alt), for a snapshot
         else if (a == "--drag") inputArgs.emplace_back('d', next());  // x0,y0-x1,y1[:mods]: a left drag from the first point to the second, for a snapshot
         else if (a == "--move") inputArgs.emplace_back('m', next());  // x,y: the mouse moves there (no button), for a snapshot
-        else if (a == "--prompt") gPromptAnswers.push_back(widen(next()));  // the text typed into the next text prompt (then Enter), for a snapshot
+        else if (a == "--type") inputArgs.emplace_back('t', next());  // text typed into the view with the focus (a search box, a number), for a snapshot
+        else if (a == "--wait") inputArgs.emplace_back('w', next());  // ms: the time passes for the program's timers (in order with the inputs), for a snapshot
         else if (a == "--rclick") rclickArgs.push_back(next());  // x,y[:n]: a right click there; the menu's items go to the output, item n runs, for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
@@ -425,6 +428,10 @@ int main(int argc, char** argv) {
         host.setDropHook([](const std::string& path) { shellPost([path] { dropFile(path); }); });
         host.setBeforePump(runPosted);  // the posted work runs outside the frame hook (a dialog it opens pumps frames)
         host.setFrameHook([](SDL_GPUCommandBuffer* cmd) { drawMapOfRoot(cmd); });
+        // A snapshot with input: the root is in the host's window for the snapshot from the start (SdlHost::snapshotInput),
+        // as a window's views are: what opens before the first frame (a page's timer that reads the map again after an
+        // undo) has the host, and the focus stays from one input to the next.
+        if (!snapshot.empty() && !inputArgs.empty()) host.snapshotInput(root, width, height, {});
         if (!mapArg.empty()) openAny(widen(mapArg));  // a map, or a project (.eds, .stardraft, its folder): as File > Open does
         bool openLast = false;  // Program options > Open the last project on start (as the Win32 program)
         if (restartPid) restartReopen();  // what the old program had open (the setting Reopen: core/documents.inc)
@@ -568,13 +575,22 @@ int main(int argc, char** argv) {
             if (!ctArg.empty()) sdlClassicTrigPopShot(ctArg), host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             if (!textPopArg.empty()) sdlTextPopShot(textPopArg), host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             if (!inputArgs.empty()) {  // the keys and the mouse after the first frame (the rail's items are the first frame's), then a frame more
-                for (const auto& [kind, value] : inputArgs) {
-                    if (kind == 'k') sdlPressKey(value);
-                    else sdlMouseShot(value, kind, width, height);
+                // Each input goes to the window that takes input now: the main window, or a dialog or pop-out that an
+                // input opened (sdl_menus.inc: sdlShotTarget). While a modal one shows, its loop takes the next inputs
+                // (the modal hook); with none left it closes, as Esc closes it.
+                // A second frame first: a view that places its parts from the last paint's size (the New page's block)
+                // is where the user sees it, as a window has painted more than once before a user's first input.
+                host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+                gShotInputs.assign(inputArgs.begin(), inputArgs.end());
+                host.setSnapshotModalHook([](draw::View&) { return sdlShotInputNext(); });
+                while (sdlShotInputNext()) {
                     // (a frame after each: the views lay out and the map's scene takes the change, as between a user's inputs)
+                    host.snapshotTimers(20);
                     host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
                 }
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+                host.setSnapshotModalHook(nullptr);
+                host.snapshotInputEnd();
             }
             if (!commandArgs.empty()) {  // the menu commands after the first frame, then a frame more
                 for (const std::string& c : commandArgs) sdlCommandShot(c);
