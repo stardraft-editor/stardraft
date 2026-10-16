@@ -148,13 +148,15 @@ SdlMemory sdlMemory() {
     count = TASK_VM_INFO_COUNT;
     if (task_info(mach_task_self(), TASK_VM_INFO, reinterpret_cast<task_info_t>(&vm), &count) == KERN_SUCCESS)
         m.privateBytes = double(vm.phys_footprint) / kMb;
+    // (the Objective-C runtime's functions by name: its headers' BOOL is not wintypes.h's)
     using DeviceFn = void* (*)();
+    using SelFn = void* (*)(const char*);
+    using SizeFn = unsigned long (*)(void*, void*);
     static auto create = reinterpret_cast<DeviceFn>(dlsym(RTLD_DEFAULT, "MTLCreateSystemDefaultDevice"));
+    static auto selector = reinterpret_cast<SelFn>(dlsym(RTLD_DEFAULT, "sel_registerName"));
+    static auto send = reinterpret_cast<SizeFn>(dlsym(RTLD_DEFAULT, "objc_msgSend"));
     static void* device = create ? create() : nullptr;
-    if (device) {
-        using SizeFn = unsigned long (*)(void*, SEL);
-        m.gpuLocal = double(reinterpret_cast<SizeFn>(objc_msgSend)(device, sel_registerName("currentAllocatedSize"))) / kMb, m.gpuShared = 0;
-    }
+    if (device && selector && send) m.gpuLocal = double(send(device, selector("currentAllocatedSize"))) / kMb, m.gpuShared = 0;
 #elif defined(__linux__)
     std::ifstream status("/proc/self/status");
     for (std::string line; std::getline(status, line);) {

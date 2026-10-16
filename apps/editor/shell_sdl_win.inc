@@ -504,7 +504,7 @@ void sdlRememberLogLine(const std::wstring& line) {
 // main()'s first steps (as on Windows): a crashed program's sender (--send-crash <folder>) sends its report and ends
 // (returns its exit code; -1 otherwise), and the crash handler goes in (a test run's reports stay on disk);
 // --crash-test crashes on purpose; --crash-test stack: with a stack overflow (a call that calls itself).
-int sdlCrashTestDepth(volatile int n) {
+int sdlCrashTestDepth(int n) {
     volatile char frame[4096];
     frame[0] = char(n);
     return n > 0 ? sdlCrashTestDepth(n + 1) + frame[0] : 0;  // (n never ends at 0: the stack runs out)
