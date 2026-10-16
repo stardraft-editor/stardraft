@@ -10,7 +10,11 @@
 // --silent: a test run that drives the window plays no sound (a snapshot plays none either).
 // --log: the Log is open; --build: Build runs first (a snapshot then shows its lines in the Log).
 // --theme light|dark, --accent <n>, --lang <code>: the theme, the accent and the language for this run (not saved).
-// --drop <file>: the file is dropped on the window first (as a drop, or a map that Finder opens on macOS).
+// --drop <file>: the file is dropped on the window first (as a drop, or a map that Finder opens on macOS), after
+// --workspace (in the Assets workspace a sound imports); the status bar's text goes to the output.
+// --check <name> (more than one --check can be given): what a part of the program set up, as text after the snapshot.
+// Each part prints only for its own names and says nothing for the others: window (what the window and the look are;
+// macOS: a hidden window of its own), menus (the menu bar), dock (the Dock and Finder parts on macOS).
 // Windows: --send-crash <folder> sends a crash's report (the crashed program starts it); --crash-test crashes on purpose.
 // A map given while the program is open goes to the open program (not in a test run: a snapshot or --silent).
 // The StarCraft install: --install, then STARDRAFT_INSTALL, the folder chosen before, then the usual folders of each
@@ -20,8 +24,12 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #ifdef __APPLE__
-#include "mac_app_menu.h"  // the trackpad's scrolls (mac_app_menu.mm)
+#include "mac_input.h"  // the trackpad's scrolls, smart zoom, swipes and scroll phases (mac_input.mm)
 #endif
+#include "mac_window.h"  // macOS's document window and look (mac_window.mm; elsewhere its functions do nothing)
+#include "mac_dock.h"  // the Dock, Finder and the Settings window (mac_dock.mm; on Windows and Linux they do nothing)
+#include "mac_dist.h"  // macOS: Quick Look's tile colors, the maps in Spotlight, --check bundle (mac_dist.mm; elsewhere nothing)
+#include "map_preview.h"  // apps/quicklook: a map's picture without a GPU (sdl_dist.inc: --check preview)
 
 #include <algorithm>
 #include <atomic>
@@ -136,6 +144,7 @@ bool gNoBoxes = false;
 #include "sdl_map_pages.inc"  // the map pages: Properties, Players and forces, Data (core/views_map_pages.inc and its views)
 #include "sdl_new_page.inc"  // the New page (core/views_new_page.inc)
 #include "sdl_project.inc"  // the Project workspace and the project commands (core/views_project.inc, core/project_page.inc)
+#include "sdl_window.inc"  // the main window as the system's document window, the system's look (mac_window.h)
 #include "sdl_options.inc"  // Program options and Report feedback (core/views_options.inc, core/views_feedback.inc)
 #include "sdl_map_dialogs.inc"  // Unit and Location properties, the text prompt, the quick picker and the map's menu
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
@@ -145,8 +154,10 @@ bool gNoBoxes = false;
 #include "sdl_triggers.inc"  // the Triggers workspace (the tree, the pane and the block picker are core/views_triggers_*.inc; the model core/triggers_model.inc)
 #include "sdl_shot_state.inc"  // a snapshot's input lines: what the workspace holds after each input
 #include "sdl_updates.inc"  // Help > Check for updates, the crash reports' choice (core/releases.inc)
+#include "sdl_dock.inc"  // the Dock and Finder (macOS), the sounds dropped in the Assets workspace
 #include "shell_sdl.inc"
 #include "sdl_cursor_check.inc"  // --cursors: the window's cursors at some points, as text (a snapshot run)
+#include "sdl_dist.inc"  // what a map that opens gives the system (macOS: Quick Look, Spotlight), and --check
 #include "shell_sdl_win.inc"  // the Windows parts: the crash handler, the map files, one program for all maps
 
 namespace {
@@ -220,7 +231,9 @@ void installFolderPicked(const std::string& picked) {
 void browseInstallFolder() { installFolderPicked(narrow(shellPickFolder(shellTr(L"Select the StarCraft folder")))); }
 // A file dropped on the window, or (macOS) opened from Finder: the Windows program's drop (core/documents.inc), after the
 // save question for the open map (SDL has one tab).
+// In the Assets workspace a sound imports into the map (sdl_dock.inc).
 void dropFile(const std::string& utf8) {
+    if (sdlAssetsDrop(fs::path(widen(utf8)))) return;
     openDropped({fs::path(widen(utf8))}, [](const fs::path& f) { confirmReplace([f] { openAny(f); }); });
 }
 
@@ -304,8 +317,9 @@ int main(int argc, char** argv) {
     bool midPanArg = false;  // --midpan: Options > Middle mouse click and hold (Pan map, Drag map), as text after the snapshot
     bool cursorsArg = false;  // --cursors: the cursors at some points, as text after the snapshot (sdl_cursor_check.inc)
     // --check <name> (one or more times): checks as text after the snapshot. Each part of the program looks only for
-    // its own names (hasCheck) and prints its lines; a name that no part knows prints nothing (the snapshot's case
-    // then fails). menus: the menu bar's items and keys (sdl_native_menus.inc).
+    // its own names (hasCheck) and prints its lines; a name that no part knows prints a WRONG line. menus: the menu
+    // bar's items and keys (sdl_native_menus.inc); window: what the window and the look are (sdl_window.inc); dock: the
+    // Dock and Finder parts (sdl_dock.inc); bundle, spotlight, preview:<dir>: what a map gives the system (sdl_dist.inc).
     std::vector<std::string> checkArgs;
     auto hasCheck = [&checkArgs](const char* name) { return std::find(checkArgs.begin(), checkArgs.end(), name) != checkArgs.end(); };
     // --key, --type, --click, --drag, --move, --wait: keys pressed, text typed, left clicks and drags and moves of the
@@ -352,8 +366,11 @@ int main(int argc, char** argv) {
         else if (a == "--newproject") newProjectArg = next();  // a folder: File > Project > New EUD project makes the project Sample (a new map) in it, for a snapshot
         else if (a == "--saveas") saveAsArg = next();  // a file: File > Save as saves the map there, then it is compared with the map that opens from it, for a snapshot
         else if (a == "--command") commandArgs.push_back(next());  // a command by name (view.towns, view.grid...) as its menu item runs it, for a snapshot
-        else if (a == "--theme") themeArg = next();  // light or dark: the theme for this run (not saved), for a snapshot
-        else if (a == "--accent") accentArg = std::atoi(next().c_str());  // the accent's number (theme::kAccents), for a snapshot
+        else if (a == "--theme") themeArg = next();  // light, dark or system (macOS: the system's): the theme for this run (not saved), for a snapshot
+        else if (a == "--accent") {  // the accent's number (theme::kAccents), or system (macOS: the system's accent color), for a snapshot
+            const std::string n = next();
+            accentArg = n == "system" ? -2 : std::atoi(n.c_str());
+        }
         else if (a == "--lang") langArg = next();  // en, ko, es, ru or zh: the language for this run (not saved), for a snapshot
         else if (a == "--drop") dropArg = next();  // a file dropped on the window (as from Finder on macOS), for a snapshot
         else if (a == "--silent") gSilent = true;
@@ -371,6 +388,8 @@ int main(int argc, char** argv) {
         else if (a == "--type") inputArgs.emplace_back('t', next());  // text typed into the view with the focus (a search box, a number), for a snapshot
         else if (a == "--wheel") inputArgs.emplace_back('h', next());  // x,y,dx,dy[:precise][:mods]: the wheel there (dy notches away from the user), or a trackpad's scroll (precise), for a snapshot
         else if (a == "--pinch") inputArgs.emplace_back('p', next());  // x,y,scale: a trackpad's pinch there (scale more than 1: the fingers move apart), for a snapshot
+        else if (a == "--smartzoom") inputArgs.emplace_back('z', next());  // x,y: a trackpad's smart zoom (macOS: a double tap with two fingers) there, for a snapshot
+        else if (a == "--swipe") inputArgs.emplace_back('g', next());  // x,y,left|right: a swipe of three fingers there (macOS's Swipe between pages), for a snapshot
         else if (a == "--wait") inputArgs.emplace_back('w', next());  // ms: the time passes for the program's timers (in order with the inputs), for a snapshot
         else if (a == "--rclick") rclickArgs.push_back(next());  // x,y[:n]: a right click there; the menu's items go to the output, item n runs, for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
@@ -382,7 +401,16 @@ int main(int argc, char** argv) {
     if (const int sent = sdlWindowsFirst(argc, argv, testRun); sent >= 0) return sent;
     if (restartPid) restartWaitFor(restartPid);  // (before the pipe: the old program still listens; core/documents.inc)
     if (sdlSendToOpenProgram(mapArg, testRun)) return 0;
+#ifdef __APPLE__
+    SDL_SetHint(SDL_HINT_MAC_SCROLL_MOMENTUM, "1");  // a trackpad's scroll goes on after the fingers lift (its momentum), as in macOS's own programs
+#endif
     if (!SDL_Init(SDL_INIT_VIDEO)) return std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()), 1;
+#ifdef __APPLE__
+    // A map that the user opens from Spotlight while StarDraft is not running comes during the launch: the handler goes
+    // on SDL's application delegate now (SDL_Init made it), before the first events. (The work waits for the window:
+    // shellPost; not while a dialog or a sheet waits, as the Dock's and Finder's files: sdlUiWaits.)
+    if (snapshot.empty()) macHandleSpotlightOpens([](const std::string& path) { shellPost([path] { if (!sdlUiWaits()) dropFile(path); }); });
+#endif
 
     // The device first (the renderer makes it with its shader formats), then the host on it.
     render::Renderer renderer;
@@ -408,14 +436,23 @@ int main(int argc, char** argv) {
         std::printf("stardraft_editor: text %d px, small text %d px, titles %d px\n", kit::px(15), -(shellUiFontLfHeight() * 5 / 6),
                     -(shellUiFontLfHeight() * 3 / 2));
         if (!kit_sdl::loadIconAtlases(device, base + "res/")) std::printf("stardraft_editor: no icon atlases in res/\n");
+        // The atlas cells of the icons at this scale (the snapshots check them: at scale 2 a 16 px icon is 32 px from the
+        // 32 px atlas, and the Start page's 32 px card icon 64 px from the 64 px atlas, sharp on a Retina display).
+        std::printf("stardraft_editor: icons %d px from the %d px atlas, card icons %d px from the %d px atlas\n", kit::px(16),
+                    kit_sdl::iconAtlasCell(0, kit::px(16)), kit::px(32), kit_sdl::iconAtlasCell(0, kit::px(32)));
         kit_sdl::setGlyphIcons(kitpaint::glyphIcon);  // the glyphs as UI icons (no system has to have Segoe MDL2 Assets)
         if (!kit_sdl::loadResourceIcon(1, base + "res/stardraft.ico")) std::printf("stardraft_editor: no app icon in res/\n");  // (About's)
         host.setHoverHook(sdlHover);  // the views' tooltips (sdl_tips.inc)
         host.setRightClickHook(sdlWindowRightClick);  // Report feedback in the dialogs and pop-outs (sdl_menus.inc)
 #ifdef __APPLE__
-        if (snapshot.empty()) {  // a trackpad's scroll moves the map, a wheel zooms it: macOS tells them apart (mac_app_menu.mm)
+        if (snapshot.empty()) {  // a trackpad's scroll moves the map, a wheel zooms it: macOS tells them apart (mac_input.mm)
             macWatchScrolls();
             host.setPreciseScrollHook(macLastScrollPrecise);
+            // A scroll's fingers and its momentum stay on the view it began on; the smart zoom and the swipes go to the
+            // window under the mouse (mac_input.mm).
+            host.setScrollContinuesHook(macScrollContinues);
+            macWatchGestures([] { kit_sdl::SdlHost::pushGesture(draw::MouseKind::SmartZoom, 0); },
+                             [](int dir) { kit_sdl::SdlHost::pushGesture(draw::MouseKind::Swipe, dir); });
         }
 #endif
 
@@ -464,9 +501,16 @@ int main(int argc, char** argv) {
         host.setQuitRequest(requestQuit);  // the window's close and the system's quit ask about unsaved changes first
         // Files dropped on the window, and on macOS the maps that Finder opens with StarDraft: as the Windows program's
         // drop (core/documents.inc), after the save question for the open map (SDL has one tab).
-        host.setDropHook([](const std::string& path) { shellPost([path] { dropFile(path); }); });
-        host.setBeforePump(runPosted);  // the posted work runs outside the frame hook (a dialog it opens pumps frames)
-        host.setFrameHook([](SDL_GPUCommandBuffer* cmd) { drawMapOfRoot(cmd); });
+        host.setDropHook([](const std::string& path) { shellPost([path] { if (!sdlUiWaits()) dropFile(path); }); });
+        macDockSetup(sdlDockItems, sdlDockOpen);  // macOS: the Dock icon's menu of recent maps and projects (sdl_dock.inc)
+        host.setBeforePump([] {
+            runPosted();  // the posted work runs outside the frame hook (a dialog it opens pumps frames)
+            sdlDockWatchBuild();  // (macOS: Build's bar and badge on the Dock icon)
+        });
+        host.setFrameHook([](SDL_GPUCommandBuffer* cmd) {
+            drawMapOfRoot(cmd);
+            sdlWindowFrame();  // (the title bar's file and edited dot, the system's look: sdl_window.inc)
+        });
         // A snapshot with input: the root is in the host's window for the snapshot from the start (SdlHost::snapshotInput),
         // as a window's views are: what opens before the first frame (a page's timer that reads the map again after an
         // undo) has the host, and the focus stays from one input to the next.
@@ -478,7 +522,6 @@ int main(int argc, char** argv) {
             std::error_code ec;
             if (fs::exists(gRecentProjects.front(), ec)) openAny(gRecentProjects.front());
         }
-        if (!dropArg.empty()) dropFile(dropArg);
         if (untitledArg) newUntitledProject();
         if (!newProjectArg.empty()) {  // (as the Windows datashot project:)
             std::string err;
@@ -497,6 +540,11 @@ int main(int argc, char** argv) {
                                                       "briefing", "files", "props", "players", "classictriggers", "classic"};
         for (int w = 0; !workspaceArg.empty() && w < int(sizeof kWorkspaceNames / sizeof kWorkspaceNames[0]); ++w)
             if (workspaceArg == kWorkspaceNames[w]) setWorkspace(Workspace(w));
+        if (!dropArg.empty()) {  // (after the workspace: in the Assets workspace a sound imports)
+            dropFile(dropArg);
+            sdlFlushAssetDrops();
+            std::printf("drop: %s\n", narrow(gState.message).c_str());
+        }
         if (rectArg) setMode(Mode::Terrain), setTerrainRect(true);
         if (!palViewArg.empty()) sdlPaletteViewShot(palViewArg);  // (not saved: a snapshot saves no settings)
         if (previewArg && !gProj.sections.empty()) triggersRefresh(gProj.sections.back());  // the last script in the preview (as scriptpreview:)
@@ -510,6 +558,15 @@ int main(int argc, char** argv) {
         if (logArg) gLogPane.setExpanded(true);
         if (!gDataOk) setMessage(widen(gDataError));
         std::printf("stardraft_editor: GPU %s, %s\n", renderer.driver(), gDataOk ? "game data" : gDataError.c_str());
+        // --check: one list for all the checks. Each part of the program takes its own values (false: not its value);
+        // a value that no part takes is WRONG. (A new check: one more "||" here, not one more --check option.) The
+        // window's, the menu bar's and the Dock's lines come after the snapshot (hasCheck).
+        for (const std::string& c : checkArgs) {
+            std::string out;
+            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock";
+            if (!(sdlDistCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
+            std::printf("%s", out.c_str());
+        }
 
         if (!snapshot.empty()) {
             // A map's dialog (--dialog unitprops|locprops|prompt|quick, sdl_map_dialogs.inc) is the picture at its own size.
@@ -555,6 +612,7 @@ int main(int argc, char** argv) {
             pickShot.setMulti({"0", "1", "37"}, L"Set");
             draw::View* shown = &root;
             if (dialogArg == "options") shown = &gOptionsView;
+            else if (dialogArg.rfind("options:", 0) == 0) shown = &gOptionsView, gOptionsView.setTab(std::atoi(dialogArg.c_str() + 8));  // a tab of macOS's Settings window
             else if (dialogArg == "feedback") shown = &feedbackShot;
             else if (dialogArg == "newproject") shown = &projectShot;
             else if (dialogArg == "prompt") shown = &promptShot;
@@ -659,7 +717,10 @@ int main(int argc, char** argv) {
             if (noInstallArg || !pickInstallArg.empty())  // the start page's banner (no install found), as the picture shows it
                 std::printf("start page: banner %s; note: %s; game data %s\n", gStartView.bannerShown() ? "shown" : "not shown",
                             gStartView.installNote.empty() ? "none" : narrow(gStartView.installNote).c_str(), gDataOk ? "open" : "not open");
+            if (gOptionsView.tab() >= 0) std::printf("options tab %d: content %d px high\n", gOptionsView.tab(), gOptionsView.contentHeight());
+            if (hasCheck("dock")) sdlDockCheck("dock");
             if (midPanArg) sdlMidPanCheck();  // (after the picture: it moves the camera)
+            if (hasCheck("window")) sdlWindowCheck(mapArg.empty() ? snapshot : mapArg);  // (no map: the picture is the file)
             if (cursorsArg) sdlCursorChecks();  // (after the picture: it changes the mode and the camera)
             if (hasCheck("menus")) sdlMenuCheck();
             if (untitledArg) {  // (the project's folder goes: a snapshot leaves nothing)
@@ -674,6 +735,12 @@ int main(int argc, char** argv) {
             if (!host.show(root, L"StarDraft", width, height)) return std::fprintf(stderr, "could not open a window\n"), 1;
             updateTitle();  // (the window exists now: its title is the open map's)
             if (!sizeArg) fitMainWindow(width, height);
+            {
+                int n = 0;
+                SDL_Window** wins = SDL_GetWindows(&n);
+                if (wins && n > 0) sdlMainWindowShown(wins[0], testRun);  // (macOS: the document window, the sheets)
+                SDL_free(wins);
+            }
             sdlNativeMenusReset(), rebuildMenus();  // (macOS: the system's menu bar in place of SDL's, now that the window is there)
             sdlWindowsShown(testRun);  // (Windows: the dark title bar, an earlier crash's report, the file types)
             if (!testRun) sdlUpdatesAtStart();  // (a release build: a newer release says so in the status bar)

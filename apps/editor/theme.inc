@@ -61,16 +61,37 @@ inline COLORREF swatch(int i) {
     return i == 0 ? kDefaultBlue : color(b.L, b.C, h);
 }
 
+// The accent that is nearest to a color (a system's accent color): the index of kAccents whose hue is at most
+// `maxApart` degrees from the color's, else -1 (`hue` gets the color's own hue). A gray (low chroma) is the default blue.
+inline int nearestAccent(COLORREF c, double maxApart, double& hue) {
+    const Oklch o = oklch(c);
+    hue = o.h;
+    if (o.C < 0.03) return hue = -1, 0;
+    int best = -1;
+    double bestApart = 1e9;
+    for (int i = 0; i < kAccentCount; ++i) {
+        const double h = kAccents[i].hue < 0 ? oklch(kDefaultBlue).h : kAccents[i].hue;
+        double d = std::fabs(h - o.h);
+        d = std::min(d, 360 - d);
+        if (d < bestApart) bestApart = d, best = i;
+    }
+    return bestApart <= maxApart ? best : -1;
+}
+
 }  // namespace theme
 
 bool gLightTheme = false;
 int gAccentIndex = 0;
+double gAccentHue = -1;  // the accent's own hue (OKLCH degrees: a system's accent color), or -1: kAccents[gAccentIndex]'s
 
-void setThemeColors(bool light, int accent) {
+// `hue` (0 to 360): the accent has that hue (a system's accent color that is not near one of kAccents; `accent` is the
+// nearest one, for its name); -1: kAccents[accent]'s hue.
+void setThemeColors(bool light, int accent, double hue = -1) {
     using namespace theme;
     gLightTheme = light;
     gAccentIndex = accent = std::clamp(accent, 0, kAccentCount - 1);
-    const double h = kAccents[accent].hue < 0 ? oklch(kDefaultBlue).h : kAccents[accent].hue;
+    gAccentHue = hue >= 0 && hue <= 360 ? hue : -1;
+    const double h = gAccentHue >= 0 ? gAccentHue : kAccents[accent].hue < 0 ? oklch(kDefaultBlue).h : kAccents[accent].hue;
     if (!light) {
         kBg = RGB(32, 32, 32), kPanel = RGB(28, 28, 30), kCtl = RGB(43, 43, 43), kCtlHot = RGB(52, 52, 56), kCtlDown = RGB(36, 36, 38);
         kReadOnly = RGB(30, 30, 32), kReadOnlyLine = RGB(48, 48, 52);
@@ -80,13 +101,13 @@ void setThemeColors(bool light, int accent) {
         kGood = RGB(127, 201, 138), kGoodFill = RGB(28, 49, 34), kGoodLine = RGB(61, 107, 71), kWarn = RGB(224, 164, 88), kBad = RGB(232, 104, 96);
         kFeedback = RGB(242, 204, 84);
         // The accent and its versions: the default blue's lightness and chroma, the accent's hue.
-        kAccent = swatch(accent);
+        kAccent = gAccentHue >= 0 ? color(oklch(kDefaultBlue).L, oklch(kDefaultBlue).C, h) : swatch(accent);
         kAccentBright = color(0.807, 0.105, h), kAccentLine = color(0.515, 0.094, h), kAccentFill = kAccentLine;
         kSel = color(0.296, 0.041, h), kSelHot = color(0.349, 0.052, h), kOnText = color(0.951, 0.017, h);
         kChip = color(0.282, 0.022, h), kChipLine = color(0.373, 0.030, h), kChipDim = RGB(38, 38, 41);
         kBadFill = RGB(64, 32, 32), kBadFillHot = RGB(84, 40, 38);
         kThumb = RGB(84, 84, 90), kThumbHot = RGB(120, 120, 128), kRowLine = RGB(44, 46, 52), kGripDot = RGB(110, 110, 116);
-        if (accent == 0)  // the default blue keeps its own values exactly
+        if (accent == 0 && gAccentHue < 0)  // the default blue keeps its own values exactly
             kChip = RGB(34, 42, 52), kChipLine = RGB(52, 66, 80),
             kAccentBright = RGB(130, 200, 255), kAccentLine = kAccentFill = RGB(47, 109, 153), kSel = RGB(23, 48, 63), kSelHot = RGB(30, 62, 82),
             kOnText = RGB(230, 240, 250);
@@ -105,6 +126,7 @@ void setThemeColors(bool light, int accent) {
         kBadFill = RGB(253, 234, 232), kBadFillHot = RGB(250, 218, 214);
         kThumb = RGB(196, 196, 204), kThumbHot = RGB(150, 150, 160), kRowLine = RGB(226, 227, 232), kGripDot = RGB(150, 150, 158);
     }
+    kRail = kPanel;  // (a host can give the rail the system's sidebar color after this: macOS)
 }
 
 // WCAG contrast of two colors (1 to 21).

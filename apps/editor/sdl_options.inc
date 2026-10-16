@@ -72,25 +72,40 @@ void loadLanguageSdl(const std::string& given) {
 
 // The theme and the accent: every token, the kit's theme, and every window painted again. `save`: kept in the settings
 // (a snapshot's --theme is not).
+// With Automatic (macOS, sdl_window.inc: gThemeAuto, gAccentAuto) the system gives the theme or the accent, and the
+// choice that is saved stays the last one the user picked.
 void applyThemeSdl(bool light, int accent, bool save) {
-    setThemeColors(light, accent);
+    sdlSetLook(light, accent);
     syncKitThemeTokens(int(gDpi));
     if (save) {
-        prefs::setNumber(L"LightTheme", light ? 1 : 0);
-        prefs::setNumber(L"Accent", gAccentIndex);
+        if (!gThemeAuto) prefs::setNumber(L"LightTheme", light ? 1 : 0);
+        if (!gAccentAuto) prefs::setNumber(L"Accent", gAccentIndex);
+        if constexpr (kSystemLook) prefs::setNumber(L"SystemTheme", gThemeAuto ? 1 : 0), prefs::setNumber(L"SystemAccent", gAccentAuto ? 1 : 0);
     }
     if (gRoot) gRoot->relayout(), gRoot->invalidate(), gRoot->map.invalidate();
     gOptionsView.invalidate();
     if (gFbView) gFbView->invalidate();
 }
-// At the start: the theme in the settings (`given`: --theme light or dark, and --accent, for a snapshot).
+// At the start: the theme in the settings (`given`: --theme light, dark or system, and --accent (-2: system), for a
+// snapshot). On macOS the system's theme and accent color are the default (not in a test run: a test sees the same
+// colors on each computer, unless it asks for the system's).
 void loadThemeSdl(const std::string& given, int givenAccent) {
-    int64_t light = 0, accent = 0;
+    int64_t light = 0, accent = 0, sysTheme = kSystemLook && !gSilent ? 1 : 0, sysAccent = sysTheme;
     prefs::number(L"LightTheme", light), prefs::number(L"Accent", accent);
-    if (given == "light" || given == "dark") light = given == "light";
-    if (givenAccent >= 0) accent = givenAccent;
-    setThemeColors(light != 0, int(accent));
+    if constexpr (kSystemLook)
+        if (!gSilent) prefs::number(L"SystemTheme", sysTheme), prefs::number(L"SystemAccent", sysAccent);
+    if (given == "light" || given == "dark") light = given == "light", sysTheme = 0;
+    if (given == "system") sysTheme = kSystemLook ? 1 : 0;
+    if (givenAccent >= 0) accent = givenAccent, sysAccent = 0;
+    if (givenAccent == -2) sysAccent = kSystemLook ? 1 : 0;
+    gThemeAuto = sysTheme != 0, gAccentAuto = sysAccent != 0;
+    sdlSetLook(light != 0, int(accent));
     syncKitThemeTokens(int(gDpi));
+}
+// The message of a theme change: the theme and the accent color.
+std::wstring sdlThemeMessage() {
+    return std::wstring(gLightTheme ? L"Light" : L"Dark") + L" theme" + (gThemeAuto ? L" (the system's)" : L"") + L", accent color " +
+           theme::kAccents[gAccentIndex].name + (gAccentAuto ? L" (the system's)" : L"");
 }
 
 // --- Restart now ----------------------------------------------------------------------------------------------------
@@ -135,7 +150,7 @@ void restartProgramSdl() {
 void showOptionsSdl();
 // The Program options commands this system runs (the menus and the keys ask sdlRuns).
 bool sdlOptionsRuns(int id) {
-    return id == ID_THEME_DARK || id == ID_THEME_LIGHT || (id >= ID_OPT_LANG && id < ID_OPT_LANG + kLanguageChoiceCount) || id == ID_OPT_RESTART ||
+    return id == ID_THEME_DARK || id == ID_THEME_LIGHT || (id == ID_THEME_SYSTEM && kSystemLook) || (id >= ID_OPT_LANG && id < ID_OPT_LANG + kLanguageChoiceCount) || id == ID_OPT_RESTART ||
            id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_LASTPROJECT;
     // (Look for updates on start and Crash reports are the update check's and the crash reports' commands, with them.)
 }
@@ -146,8 +161,10 @@ bool sdlOptionsCommand(int id) {
     switch (id) {
     case ID_THEME_DARK:
     case ID_THEME_LIGHT:
+    case ID_THEME_SYSTEM:
+        gThemeAuto = id == ID_THEME_SYSTEM;
         applyThemeSdl(id == ID_THEME_LIGHT, gAccentIndex, true);
-        setMessage(std::wstring(gLightTheme ? L"Light" : L"Dark") + L" theme, accent color " + theme::kAccents[gAccentIndex].name);
+        setMessage(sdlThemeMessage());
         break;
     case ID_OPT_RESTART: restartProgramSdl(); break;
     case ID_MIDDLE_MODE:
@@ -186,6 +203,12 @@ public:
         bool flag = false;
         v.light = gLightTheme, v.accent = gAccentIndex;
         for (int i = 0; i < theme::kAccentCount; ++i) v.accents.push_back({theme::kAccents[i].name, theme::swatch(i)});
+        if constexpr (kSystemLook) {  // (macOS: Automatic, the last swatch, is the default)
+            v.accents.push_back({L"Automatic (the color of the system)", sdlSystemAccentSwatch()});
+            v.defaultAccent = theme::kAccentCount;
+            if (gAccentAuto) v.accent = theme::kAccentCount;
+            v.systemTheme = true, v.themeAuto = gThemeAuto;
+        }
         v.animate = gState.animate;
         prefs::flag(L"MiddleDrag", flag), v.middleDrag = flag;
         v.volume = gDock.volume;
@@ -209,8 +232,9 @@ public:
     }
     void command(int id) override { ::command(id); }  // (the menu's command: the same path as the menu)
     void setAccent(int i) override {
-        applyThemeSdl(gLightTheme, i, true);
-        setMessage(std::wstring(gLightTheme ? L"Light" : L"Dark") + L" theme, accent color " + theme::kAccents[gAccentIndex].name);
+        gAccentAuto = kSystemLook && i == theme::kAccentCount;  // (the last swatch: Automatic)
+        applyThemeSdl(gLightTheme, gAccentAuto ? gAccentIndex : i, true);
+        setMessage(sdlThemeMessage());
     }
     void setUnitNames(int i) override;
     void setUnitLimit(int k, int value) override;
@@ -260,14 +284,53 @@ void OptionsProgramSdl::useDefaultWorkingFolder() {
     gOptionsView.invalidate();
 }
 
-// Options > Program options (one window; a second Ctrl+, does nothing while it is open).
+#ifdef __APPLE__
+// macOS: Program options is a Settings window (mac_dock.h): a toolbar with the tabs (core/views_options.inc:
+// optionsview::kTabs), the tab's name as the title, the window as high as the tab's content. The tab stays chosen for
+// the next open.
+std::vector<MacSettingsTab> sdlSettingsTabs();  // (sdl_dock.inc)
+int gSettingsTab = 0;
+bool gSettingsSized = false;  // the window has its first height (then a tab change animates the height)
+void* sdlNsWindow(draw::View& v) {
+    SDL_Window* w = gHost ? gHost->sdlWindow(v) : nullptr;
+    return w ? SDL_GetPointerProperty(SDL_GetWindowProperties(w), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr) : nullptr;
+}
+void sdlSettingsHeight(int px) {
+    SDL_Window* w = gOptionsOpen && gHost ? gHost->sdlWindow(gOptionsView) : nullptr;
+    if (!w) return;
+    const float density = SDL_GetWindowPixelDensity(w);
+    macSettingsContentHeight(sdlNsWindow(gOptionsView), double(px) / double(density > 0 ? density : 1), gSettingsSized);
+    gSettingsSized = true;
+}
+void sdlSettingsShowTab(int i) {
+    gSettingsTab = i;
+    gOptionsView.setTab(i);
+    if (SDL_Window* w = gHost ? gHost->sdlWindow(gOptionsView) : nullptr) SDL_SetWindowTitle(w, narrow(shellTr(optionsview::kTabs[i].name)).c_str());
+}
+#endif
+
+// Options > Program options (one window; a second Ctrl+, does nothing while it is open). On macOS a Settings window
+// (a second Cmd+, brings it to the front).
 void showOptionsSdl() {
+#ifdef __APPLE__
+    if (SDL_Window* w = gOptionsOpen && gHost ? gHost->sdlWindow(gOptionsView) : nullptr) SDL_RaiseWindow(w);
+#endif
     if (!gRoot || gOptionsOpen) return;
-    const int h = std::min(scale(820), std::max(scale(300), gRoot->height() - scale(80)));  // as high as the window has room for
+    int h = std::min(scale(820), std::max(scale(300), gRoot->height() - scale(80)));  // as high as the window has room for
+    const wchar_t* title = L"Program options";
+#ifdef __APPLE__
+    gOptionsView.setTab(gSettingsTab);
+    gSettingsSized = false;
+    gOptionsView.onTabHeight = [](int px) { shellPost([px] { sdlSettingsHeight(px); }); };  // (after the paint)
+    h = scale(400), title = optionsview::kTabs[gSettingsTab].name;  // (the first paint gives the tab's height)
+#endif
     gOptionsView.resetScroll();
     gOptionsOpen = true;
-    gHost->openWindow(*gRoot, gOptionsView, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect(0, 0, scale(720), h), L"Program options"},
+    gHost->openWindow(*gRoot, gOptionsView, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect(0, 0, scale(720), h), title},
                       [] { gOptionsOpen = false; });
+#ifdef __APPLE__
+    macSettingsToolbar(sdlNsWindow(gOptionsView), sdlSettingsTabs(), gSettingsTab, [](int i) { shellPost([i] { sdlSettingsShowTab(i); }); });
+#endif
 }
 
 // Help > About StarDraft (core/views_about.inc; one window: a second click does nothing while it is open).

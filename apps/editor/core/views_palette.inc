@@ -142,7 +142,7 @@ struct PaletteGridView : draw::View {
             return true;
         case draw::MouseKind::Wheel:
             if (e.horizontal) return false;
-            scrollTo(scroll_ - int(std::lround(e.wheel * scale(90))));
+            scrollTo(scroll_ - int(std::lround(draw::wheelDistance(e, float(scale(90))))));
             return true;
         case draw::MouseKind::Down:
         case draw::MouseKind::DoubleClick: {

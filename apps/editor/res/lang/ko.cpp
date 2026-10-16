@@ -2027,6 +2027,14 @@ constexpr UiText kRows[] = {
     {L"Zoom", L"\uD655\uB300/\uCD95\uC18C"},
     {L"Next tab", L"\uB2E4\uC74C \uD0ED"},
     {L"Bring all to front", L"\uBAA8\uB450 \uC55E\uC73C\uB85C \uAC00\uC838\uC624\uAE30"},
+    {L"Dark theme", L"\uC5B4\uB450\uC6B4 \uD14C\uB9C8"},
+    {L"The theme of the system, dark or light (default)", L"\uC2DC\uC2A4\uD15C \uD14C\uB9C8, \uC5B4\uB461\uAC8C \uB610\uB294 \uBC1D\uAC8C (\uAE30\uBCF8\uAC12)"},
+    {L"Automatic (the color of the system)", L"\uC790\uB3D9(\uC2DC\uC2A4\uD15C \uC0C9)"},
+    {L"General", L"\uC77C\uBC18"},
+    {L"Folders", L"\uD3F4\uB354"},
+    {L"Did not import ", L"\uB2E4\uC74C \uD30C\uC77C\uC744 \uAC00\uC838\uC624\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4: "},
+    {L": the Assets workspace imports only sounds (WAV, OGG)", L": \uC5D0\uC14B \uC791\uC5C5 \uACF5\uAC04\uC740 \uC0AC\uC6B4\uB4DC(WAV, OGG)\uB9CC \uAC00\uC838\uC635\uB2C8\uB2E4"},
+    {L"StarCraft map", L"StarCraft \uB9F5"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

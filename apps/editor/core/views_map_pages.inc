@@ -176,7 +176,7 @@ public:
     // The wheel scrolls down and up three lines a notch (a sideways wheel does nothing here).
     bool mouse(const draw::MouseEvent& e) override {
         if (e.kind != draw::MouseKind::Wheel || e.horizontal) return false;
-        scrollTo(x_, y_ - int(e.wheel * float(scale(32)) * 3.0f));
+        scrollTo(x_, y_ - int(draw::wheelDistance(e, float(scale(32)) * 3.0f)));
         return true;
     }
     void resized() override { scrollTo(x_, y_); }

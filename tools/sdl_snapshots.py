@@ -13,8 +13,8 @@ A case that needs the game data runs only with --install; one that needs a map, 
 one that needs a project, only with --project. The others run everywhere (CI has no game data).
 
 To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (its argument loop in main()). In a
-case's options, {map}, {project}, {install} (the --install folder), {root} (the repository), {out} (the --out folder)
-and {newdir} (a new empty folder in --out) are paths. A run also fails when its output has "(WRONG)", or when the
+case's options, {map}, {project}, {install} (the --install folder), {root} (the repository), {out} (the --out folder),
+{newdir} (a new empty folder in --out) and {wav} (a short sound that the script writes in --out) are paths. A run also fails when its output has "(WRONG)", or when the
 case's function in CHECKS finds a problem in its output.
 """
 
@@ -47,8 +47,22 @@ CASES += [
     # Scale 2 (a Retina display of macOS, or 200 % on Windows): the small text (the rail's labels, captions, table
     # headers) is two thirds of the UI text, as at scale 1.
     ("start-scale2", ["--scale", "2", "--size", "3200x2000"], ""),
+    # A trackpad's scroll as macOS gives it (--wheel ...:precise:mac: in tenths of points, on any system): the start page
+    # moves by its exact distance (3 tenths of 10 points: 30 px), not by notches; the momentum after the fingers lift
+    # comes as more such events.
+    ("start-trackpad-scroll", ["--noinstall", "--size", "1000x500", "--wheel", "500,300,0,-3:precise:mac"], ""),
 ]
 CASES += [("ws-" + w, ["--workspace", w], "") for w in WORKSPACES]
+# The main window as the system's document window (sdl_window.inc; a native window and a sheet are not in a picture):
+# --check window prints what the window has. macOS: a hidden window with the picture as its file, with changes (the
+# proxy icon, the edited dot), full screen and Split View, the system's appearance, accent color and sidebar color. Each
+# system: the accent that each of macOS's accent colors gives, and the sheet of the save question (its buttons in the
+# system's order, with their keys). -system: the theme and the accent color are the system's (macOS's Automatic).
+CASES += [
+    ("check-window", ["--check", "window", "--lang", "en"], ""),
+    ("check-window-system", ["--check", "window", "--lang", "en", "--theme", "system", "--accent", "system"], ""),
+    ("dialog-options-system", ["--dialog", "options", "--size", "720x820", "--theme", "system", "--accent", "system"], ""),
+]
 CASES += [
     ("newpage-classic", ["--newpage", "classic"], ""),
     ("newpage-eud", ["--newpage", "eud"], ""),
@@ -90,6 +104,24 @@ CASES += [
     ("drop-other", ["--drop", "{root}/README.md"], ""),
     ("drop-map", ["--drop", "{map}"], "map"),
     ("drop-project", ["--drop", "{project}"], "project"),
+    # In the Assets workspace a dropped sound imports into the map (as Import sounds...); another file says so.
+    ("drop-sound-assets", ["--workspace", "files", "--drop", "{wav}"], "map"),
+    ("drop-image-assets", ["--workspace", "files", "--drop", "{root}/apps/editor/res/atlas-16.png"], ""),
+    # macOS: what the Dock and Finder parts set up (the Dock menu, Build's bar and badge, the Settings toolbar), as text;
+    # elsewhere one line says that they are macOS only. A second --check (another part's name) adds nothing to the
+    # Dock's lines. Program options' tabs as macOS's Settings window shows them.
+    ("check-dock", ["--check", "dock", "--check", "bundle"], ""),
+    ("dialog-options-tab-general", ["--dialog", "options:0", "--size", "720x520"], ""),
+    ("dialog-options-tab-map", ["--dialog", "options:1", "--size", "720x520"], ""),
+    ("dialog-options-tab-start", ["--dialog", "options:2", "--size", "720x520"], ""),
+    ("dialog-options-tab-folders", ["--dialog", "options:3", "--size", "720x520", "--theme", "light"], ""),
+    # What the program sets up for the system (--check, sdl_dist.inc). bundle: on macOS the app's document types,
+    # exported types, Quick Look extensions and signatures (elsewhere "not macOS"). preview: the map's Quick Look
+    # picture (every system), its terrain the same as the minimap's. spotlight: on macOS the map's Spotlight entry,
+    # indexed and removed again.
+    ("check-bundle", ["--check", "bundle"], ""),
+    ("map-check-preview", ["--check", "preview:{newdir}"], "map"),
+    ("map-check-spotlight", ["--check", "spotlight"], "map"),
     # The classic page with the pop-out of the selected action's value (trigger:kind:entry:value): the first action of
     # the first trigger, its value 3 (a map whose first trigger has an action, as Set deaths: the number pop-out).
     ("map-classictrig-value", ["--workspace", "classictriggers", "--classictrig", "1:1:0:3"], "map"),
@@ -268,6 +300,14 @@ CASES += [
     ("map-trackpad-pan", ["--wheel", "700,500,1,-1.5:precise"], "map"),
     ("map-trackpad-ctrl-zoom", ["--wheel", "700,500,0,8:precise:Ctrl"], "map"),
     ("map-pinch", ["--pinch", "700,500,1.5"], "map"),
+    # macOS's smart zoom (a double tap with two fingers; --smartzoom feeds the event that mac_input.mm gives): in two
+    # times at the mouse, then back to the zoom before.
+    ("map-smartzoom", ["--smartzoom", "700,500", "--smartzoom", "700,500"], "map"),
+    # Swipes between the tabs (a new project gives the second tab): three fingers to the right (the tab before: the
+    # map's) and to the left (the next: the project's), as macOS's monitor gives them (--swipe); then two fingers to
+    # the right on the tabs' strip (a scroll as macOS gives it), the map's tab again.
+    ("map-swipe", ["--newproject", "{newdir}", "--swipe", "800,500,right", "--swipe", "800,500,left",
+                   "--wheel", "100,83,-8,0:precise:mac"], "map"),
 ]
 # The workspaces' edits with the mouse and the keys (the Windows self-test's steps off the map). --type types text into
 # the view with the focus; --wait ms lets the program's timers run. A dialog or pop-out that an input opened (a list
@@ -691,13 +731,79 @@ def check_banner(shown, note, data):
 
 
 def check_scale2(output):
-    """None when at scale 2 the UI text is 30 px and the small text (the rail's labels) two thirds of it (20 px)."""
+    """None when at scale 2 the UI text is 30 px and the small text (the rail's labels) two thirds of it (20 px), and
+    the icons are sharp: a 16 px icon from the 32 px atlas, the Start page's card icons from the 64 px atlas."""
     m = re.search(r"text (\d+) px, small text (\d+) px, titles (\d+) px", output)
     if not m:
         return "no text sizes line"
     ui, small, title = map(int, m.groups())
     if (ui, small, title) != (30, 20, 36):
         return f"text {ui} px, small {small} px, titles {title} px; not 30, 20 and 36"
+    return check_icons(32, 32, 64, 64)(output)
+
+
+def check_icons(icon, icon_cell, card, card_cell):
+    """A check of the line of the icons' sizes: a 16 px icon and the Start page's 32 px card icon (each at the scale)
+    from atlas cells of their own size (sharp, not scaled)."""
+    def check(output):
+        m = re.search(r"icons (\d+) px from the (\d+) px atlas, card icons (\d+) px from the (\d+) px atlas", output)
+        if not m:
+            return "no icons line"
+        got = tuple(map(int, m.groups()))
+        if got != (icon, icon_cell, card, card_cell):
+            return f"icons {got}, not {(icon, icon_cell, card, card_cell)}"
+        return None
+    return check
+
+
+def check_fonts(output):
+    """On macOS the UI text is SF Pro (SFNS.ttf), drawn as macOS draws text; elsewhere it is Noto Sans, as before."""
+    m = re.search(r"^stardraft_editor: fonts (.*), scale", output, re.M)
+    if not m:
+        return "no fonts line"
+    fonts = m.group(1)
+    if sys.platform == "darwin":
+        if not fonts.startswith("SFNS") or "rasterizer: macOS" not in fonts:
+            return f"the UI font is not SF Pro with macOS's rasterizer settings: {fonts}"
+    elif "SFNS" in fonts or "rasterizer" in fonts:
+        return f"SF Pro or macOS's rasterizer on another system: {fonts}"
+    return None
+
+
+def check_start(output):
+    """The start page at scale 1: Noto Sans or SF Pro (check_fonts), and the icons at their sizes."""
+    return check_fonts(output) or check_icons(16, 16, 32, 32)(output)
+
+
+def check_trackpad_scroll(output):
+    """None when macOS's trackpad scroll moved the start page by its exact distance (30 px), not by notches."""
+    m = re.search(r"^wheel 500,300,0,-3:precise:mac: scroll (\S+) -> (\S+)\r?$", output, re.M)
+    if not m:
+        return "no scroll line"
+    if m.groups() != ("0", "30"):
+        return f"the start page scrolled {m.group(1)} -> {m.group(2)}, not 0 -> 30"
+    return None
+
+
+def check_smartzoom(output):
+    """None when the first smart zoom zoomed in two times at the mouse, and the second gave the zoom before."""
+    lines = re.findall(r"^smartzoom 700,500: at map .*\r?$", output, re.M)
+    if len(lines) != 2:
+        return f"{len(lines)} smart zoom lines, not 2"
+    first = check_zoom_at("smartzoom 700,500", 2)(lines[0])
+    if first:
+        return "the first: " + first
+    (_, (cx0, cy0, z0), _), (_, _, (cx1, cy1, z1)) = camera(lines[0], "smartzoom 700,500"), camera(lines[1], "smartzoom 700,500")
+    if abs(z1 - z0) > 1e-4 or abs(cx1 - cx0) > 0.5 or abs(cy1 - cy0) > 0.5:
+        return f"the second did not give the camera before ({cx0},{cy0} zoom {z0} -> {cx1},{cy1} zoom {z1})"
+    return None
+
+
+def check_swipe(output):
+    """None when the swipes went to the map's tab, to the project's, then (two fingers on the strip) to the map's."""
+    got = re.findall(r"^(?:swipe|wheel) [^:]*(?::precise:mac)?: .*: Switched to .* \((map|project)\)\r?$", output, re.M)
+    if got != ["map", "project", "map"]:
+        return f"the tabs after the swipes: {got}, not map, project, map"
     return None
 
 
@@ -723,6 +829,38 @@ def check_zoom_at(what, factor):
         for a, c0, c1 in ((x, cx0, cx1), (y, cy0, cy1)):
             if abs((c0 + a / z0) - (c1 + a / z1)) > 0.5:
                 return f"the map's point under the mouse moved ({c0 + a / z0:.1f} -> {c1 + a / z1:.1f})"
+        return None
+    return check
+
+
+def check_window(system):
+    """--check window: the lines that sdl_window.inc's sdlWindowCheck prints."""
+    def check(output):
+        lines = [x for x in output.splitlines() if x.startswith("window: ")]
+        text = "\n".join(lines)
+        if not lines:
+            return "no window lines"
+        sheet = next((x for x in lines if x.startswith("window: sheet ")), "")
+        if not re.search(r'"Save changes to the map\?": Save \[Return\] Cancel \[Escape\] Do not save \[Cmd\+n\]', sheet):
+            return f"the save question's sheet is not Save, Cancel, Do not save: {sheet!r}"
+        for color, accent in (("blue", "Blue"), ("red", "Red"), ("green", "Green"), ("graphite", "Blue")):
+            if f"window: system accent {color} -> {accent}" not in text:
+                return f"the system's {color} does not give {accent}"
+        if "window: system accent purple -> hue " not in text:
+            return "the system's purple does not keep its own hue"
+        mac = "window: system look yes" in text
+        if not mac:
+            return None if "window: not macOS" in text else "no 'not macOS' line"
+        win = next((x for x in lines if x.startswith("window: represented file ")), "")
+        if not win or win.startswith("window: represented file none"):
+            return f"the window has no file: {win!r}"
+        for part in ("edited yes", "full screen yes", "split view yes", "resizable yes"):
+            if part not in win:
+                return f"the window does not have '{part}': {win!r}"
+        if not re.search(r"window: rail color \d+,\d+,\d+", text):
+            return "no rail color"
+        if system and "(the system's)" not in next((x for x in lines if x.startswith("window: theme ")), ""):
+            return "the theme is not the system's"
         return None
     return check
 
@@ -782,6 +920,84 @@ def check_menubar(output):
     return None
 
 
+def check_drop(want):
+    """A check that the drop's line ("drop: <the status bar>") has `want`."""
+    def check(output):
+        m = re.search(r"^drop: (.*?)\r?$", output, re.M)
+        if not m:
+            return "no drop line"
+        return None if want in m.group(1) else f"drop: {m.group(1)!r}, not {want!r}"
+    return check
+
+
+def check_dock(output):
+    """None when on macOS the Dock menu, Build's tile and the Settings toolbar are set up (elsewhere: macOS only)."""
+    if "(WRONG)" in output:
+        return "a line says WRONG"
+    if "dock: dialog waits: no; the menu's items and the drops open" not in output:
+        return "no dialog waits line"
+    if sys.platform != "darwin":
+        return None if "dock: not on this system (macOS only)" in output else "no macOS only line"
+    wants = ["\"(2)Bottleneck.scm\" in the system's recent documents: not in the menu again; 3 items",
+             "dock: while a dialog waits: 0 of 3 items can be clicked", "application:openFile: yes",
+             "applicationDockMenu: yes; 4 items: \"(2)Bottleneck.scm\" \"(4)Lost Temple.scx\" | "
+             "\"AshenCrown\"", "dock: build running: tile shows the bar, timer on",
+             "dock: build ended with 3 errors: badge \"3\", tile is the icon, timer off",
+             "settings: toolbar style preference; 4 items: \"General\" \"Map\" \"Start\" \"Folders\"; selected"]
+    for w in wants:
+        if w not in output:
+            return f"no {w!r}"
+    return None
+
+
+def check_options_tab(output):
+    """None when the tab's content fits in the picture (520 px): macOS's Settings window is as high as it."""
+    m = re.search(r"^options tab (\d+): content (\d+) px high\r?$", output, re.M)
+    if not m:
+        return "no options tab line"
+    return None if 100 < int(m.group(2)) <= 520 else f"the tab is {m.group(2)} px high"
+def check_bundle(output):
+    """None when the app bundle (macOS) has the map types, the Quick Look extensions in their sandbox; or not macOS."""
+    if "bundle: not macOS" in output:
+        return None
+    lines = [x for x in output.splitlines() if x.startswith("bundle: ")]
+    for ext in ("scm", "scx"):
+        uti = "io.github.stardraft-editor.map-" + ext
+        if not any(x.startswith(f"bundle: exported type {uti} ({ext})") and "icon text " + ext in x for x in lines):
+            return f"no exported type {uti} with its icon"
+        if not any(x.startswith("bundle: document type ") and f"({uti})" in x and "role Editor" in x for x in lines):
+            return f"no document type for {uti}"
+    for name, point in (("StarDraftPreview.appex", "com.apple.quicklook.preview"),
+                        ("StarDraftThumbnail.appex", "com.apple.quicklook.thumbnail")):
+        if not any(x.startswith(f"bundle: plug-in {name} {point} types ") and "map-scx" in x for x in lines):
+            return f"no plug-in {name} ({point})"
+        if not any(x.startswith(f"bundle: {name} entitlements: ") and "com.apple.security.app-sandbox" in x for x in lines):
+            return f"{name} is not signed with its sandbox"
+    return None
+
+
+def check_preview(output):
+    """None when the map's Quick Look picture was drawn with its tile color table and its terrain is the minimap's."""
+    if not re.search(r"^preview: \d+ x \d+ tiles, .* table yes", output, re.M):
+        return "no picture with the table"
+    if not re.search(r"^preview: the terrain is the minimap's: .*\(yes\)\s*$", output, re.M):
+        return "the terrain is not the minimap's"
+    return None
+
+
+def check_spotlight(output):
+    """None when the map's Spotlight entry has its title and picture and was indexed and removed; or not macOS."""
+    if "spotlight: not macOS" in output:
+        return None
+    if not re.search(r"^spotlight: title .+", output, re.M) or not re.search(r"^spotlight: picture [1-9]\d* bytes", output, re.M):
+        return "no entry with a title and a picture"
+    if "spotlight: indexing not available" in output:
+        return None  # (a Mac whose Spotlight is off)
+    if "spotlight: indexed yes" not in output or "spotlight: removed yes" not in output:
+        return "not indexed and removed"
+    return None
+
+
 # Checks of a case's output (after the PNG's): a function that returns None, or what is wrong.
 CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
           "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
@@ -799,9 +1015,25 @@ CHECKS = {"map-key-undo": check_undo, "map-save-edited": check_edited, "map-clic
           "start-noinstall-pick": check_banner(False, "none", True), "start-scale2": check_scale2,
           "map-wheel-zoom": check_zoom_at("wheel 700,500,0,1", 1.2), "map-trackpad-pan": check_trackpad_pan,
           "map-trackpad-ctrl-zoom": check_zoom_at("wheel 700,500,0,8:precise:Ctrl", 1.44),
-          "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5), "start-menubar": check_menubar}
+          "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5), "start-menubar": check_menubar,
+          "check-window": check_window(False), "check-window-system": check_window(True), "start": check_start,
+          "start-trackpad-scroll": check_trackpad_scroll, "map-smartzoom": check_smartzoom, "map-swipe": check_swipe,
+          "drop-sound-assets": check_drop("Imported 1 sounds"), "drop-image-assets": check_drop("Did not import atlas-16.png"),
+          "check-dock": check_dock, "dialog-options-tab-general": check_options_tab, "dialog-options-tab-map": check_options_tab,
+          "dialog-options-tab-start": check_options_tab, "dialog-options-tab-folders": check_options_tab}
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+def write_wav(path):
+    """A short sound (0.1 s of a 440 Hz tone, 16-bit mono at 22050 Hz) for the drop cases ({wav})."""
+    import math
+    import wave
+    with wave.open(path, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(22050)
+        w.writeframes(b"".join(struct.pack("<h", int(8000 * math.sin(2 * math.pi * 440 * i / 22050))) for i in range(2205)))
 
 
 def png_check(path):
@@ -922,8 +1154,11 @@ def main():
         given = any("{map}" in x or "{project}" in x for x in args)  # (the path is in the options)
         # {newdir}: a new empty folder in --out for each run (a folder is never deleted)
         newdir = tempfile.mkdtemp(prefix=name + "-", dir=a.out) if any("{newdir}" in x for x in args) else ""
-        args = [x.format(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir)
-                for x in args]
+        wav = os.path.join(a.out, "drop-sound.wav")
+        if any("{wav}" in x for x in args) and not os.path.exists(wav):
+            write_wav(wav)
+        args = [x.format(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
+                         wav=wav) for x in args]
         if needs == "map" and not given:
             cmd.append(a.map)
         elif needs == "project" and not given:

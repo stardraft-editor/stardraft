@@ -519,6 +519,7 @@ inline void DataFormView::wheel(const draw::MouseEvent& e) {
             return;
         }
     lastScroll_ = now;
+    if (e.exact) return scrollTo(host_.scroll() - int(e.panY));  // (macOS's trackpad: its own distance)
     scrollTo(host_.scroll() - delta * scale(26) * 3 / 120);
 }
 

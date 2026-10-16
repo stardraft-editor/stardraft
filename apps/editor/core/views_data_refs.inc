@@ -159,7 +159,7 @@ bool DataRefsPage::mouse(const draw::MouseEvent& e) {
         return false;
     case MouseKind::Wheel:
         if (e.horizontal) return false;  // the old panel had no sideways wheel
-        setScroll(scroll_ - int(std::lround(e.wheel * scale(20) * 3)));  // three rows a notch
+        setScroll(scroll_ - int(std::lround(draw::wheelDistance(e, float(scale(20) * 3)))));  // three rows a notch
         return true;
     case MouseKind::Down:
     case MouseKind::DoubleClick: {  // (the class has CS_DBLCLKS: a quick second click is a double click, and it opens the link too)

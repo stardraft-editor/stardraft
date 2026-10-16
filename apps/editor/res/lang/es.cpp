@@ -2027,6 +2027,14 @@ constexpr UiText kRows[] = {
     {L"Zoom", L"Ampliar"},
     {L"Next tab", L"Pesta\u00F1a siguiente"},
     {L"Bring all to front", L"Traer todo al frente"},
+    {L"Dark theme", L"Tema oscuro"},
+    {L"The theme of the system, dark or light (default)", L"El tema del sistema, oscuro o claro (predeterminado)"},
+    {L"Automatic (the color of the system)", L"Autom\u00E1tico (el color del sistema)"},
+    {L"General", L"General"},
+    {L"Folders", L"Carpetas"},
+    {L"Did not import ", L"No se import\u00F3 "},
+    {L": the Assets workspace imports only sounds (WAV, OGG)", L": el espacio de trabajo Recursos solo importa sonidos (WAV, OGG)"},
+    {L"StarCraft map", L"Mapa de StarCraft"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
