@@ -118,6 +118,19 @@ public:
     // The SDL window that shows `v` (a view in a window that show() or openWindow made), or nullptr: the program's
     // system parts reach it (macOS: a Settings window's toolbar).
     SDL_Window* sdlWindow(const draw::View& v) const;
+    // The window that show() made (the program's main window), or nullptr.
+    SDL_Window* mainWindow() const;
+    // Called for each window that show() makes and each dialog window, before it shows (the program's title bar look).
+    void setWindowMadeHook(std::function<void(SDL_Window*)> fn) { windowMade_ = std::move(fn); }
+    // For a test with real windows (--noactivate): no window that the host makes takes the keyboard focus or comes to
+    // the front (SDL_WINDOW_NOT_FOCUSABLE, no raise), so a test never takes the user's desktop.
+    void setNoActivate(bool on) { noActivate_ = on; }
+    // The frames that went to a window's swapchain, and the turns when a window had no swapchain texture (minimized).
+    long long presentedFrames() const { return presented_; }
+    long long missedFrames() const { return missed_; }
+    // For a test: the display scale that the windows' displays have (0: the real one), as a window that moves to a
+    // display of another scale gets it with SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED.
+    static void setTestDisplayScale(float s);
 
     // draw::Host
     void invalidate(draw::View& v) override;
@@ -168,6 +181,7 @@ private:
     void dismissPopupsExcept(SDL_WindowID keep);  // (the clicked window's own chain of parents stays)
     void pump(bool block);
     bool anyDirty() const;
+    bool allMinimized() const;  // every window (the main window, the dialogs) is minimized: nothing is painted
     void renderDirty();
     void runFrameHook();
     void destroyRetired();
@@ -187,6 +201,9 @@ private:
     int sheets_ = 0;          // the system sheets that are open (setSheetOpen)
     Uint8 eatUp_ = 0;  // the mouse button whose release goes to no view (its press closed a modal pop-out), or 0
     SDL_WindowID mainId_ = 0;  // the window show() made first (the program's main window), or 0
+    std::function<void(SDL_Window*)> windowMade_;  // setWindowMadeHook
+    bool noActivate_ = false;  // setNoActivate
+    long long presented_ = 0, missed_ = 0;  // presentedFrames, missedFrames
     std::function<void()> quitRequest_;  // setQuitRequest
     HoverHook hover_;                    // setHoverHook
     std::function<void(const std::string&)> drop_;  // setDropHook
