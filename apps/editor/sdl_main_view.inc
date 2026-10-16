@@ -154,6 +154,8 @@ struct MapView final : draw::View {
                 if (draw::Host* h = host()) h->capture(*this, true);
                 return true;
             }
+            // Another button while the middle button pans: nothing (its release is not sent on, so it must not start a drag)
+            if (panning) return true;
             // A double click: a location's or a unit's properties (as the Windows map's).
             if (e.kind == draw::MouseKind::DoubleClick && e.button == 0 && mapDoubleClickSdl(e.pt.x, e.pt.y)) return true;
             // The right button: its release opens the map's menu (or stops placing), as on Windows.
@@ -621,12 +623,15 @@ void sdlMidPanCheck() {
     const bool goesOn = gState.camX > x1 && x1 > x0 && std::abs(gState.camY - y0) < 0.01f;
     mouse(draw::MouseKind::Down, 500, 1), mouse(draw::MouseKind::Up, 500, 1);  // a right click during it: no menu, the press goes on
     const bool rightKeeps = map.panning && gState.drag == Drag::AutoPan;
+    mouse(draw::MouseKind::Down, 500, 0), mouse(draw::MouseKind::Up, 500, 0);  // a left click during it: no drag starts
+    const bool leftKeeps = map.panning && gState.drag == Drag::AutoPan;
     mouse(draw::MouseKind::Up, 500);
     const float x2 = gState.camX;
     map.panStep(0.05f);
     std::printf("midpan: Pan map: the map moves toward the mouse while the button is held %s (%.1f -> %.1f -> %.1f), not when the mouse moves %s, "
-                "a right click does not end it %s, it stops on release %s\n",
+                "a right click does not end it %s, a left click starts no drag %s, it stops on release %s\n",
                 goesOn ? "yes" : "(WRONG)", double(x0), double(x1), double(x2), noJump ? "yes" : "(WRONG)", rightKeeps ? "yes" : "(WRONG)",
+                leftKeeps ? "yes" : "(WRONG)",
                 gState.camX == x2 && gState.drag == Drag::None ? "yes" : "(WRONG)");
     // Drag map: the map follows the mouse, and stays when the mouse stays.
     MapView::middleDragTest = 1;
