@@ -311,7 +311,7 @@ int main(int argc, char** argv) {
     std::vector<std::pair<char, std::string>> inputArgs;
     std::vector<std::string> rclickArgs;  // --rclick: right clicks before the snapshot (sdl_menus.inc: sdlRightClickShot)
     std::vector<std::string> commandArgs;  // --command: menu commands run before the snapshot (sdl_menus.inc: sdlCommandShot)
-    std::vector<std::string> checkArgs;  // --check: what the program set up, as text (sdl_dist.inc: bundle, spotlight, preview:<dir>)
+    std::vector<std::string> checkArgs;  // --check (one or more): what the program set up, as text; each part takes its own values (sdl_dist.inc: bundle, spotlight, preview:<dir>)
     std::string saveAsArg;  // --saveas: the save round-trip (core/map_commands.inc: mapSaveRoundTrip)
     std::string newProjectArg;  // --newproject: a new project in that folder (core/project_page.inc: createProject)
     int width = 1600, height = 1000;
@@ -381,6 +381,12 @@ int main(int argc, char** argv) {
     if (restartPid) restartWaitFor(restartPid);  // (before the pipe: the old program still listens; core/documents.inc)
     if (sdlSendToOpenProgram(mapArg, testRun)) return 0;
     if (!SDL_Init(SDL_INIT_VIDEO)) return std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()), 1;
+#ifdef __APPLE__
+    // A map that the user opens from Spotlight while StarDraft is not running comes during the launch: the handler goes
+    // on SDL's application delegate now (SDL_Init made it), before the first events. (The work waits for the window:
+    // shellPost.)
+    if (snapshot.empty()) macHandleSpotlightOpens([](const std::string& path) { shellPost([path] { dropFile(path); }); });
+#endif
 
     // The device first (the renderer makes it with its shader formats), then the host on it.
     render::Renderer renderer;
@@ -504,7 +510,13 @@ int main(int argc, char** argv) {
         if (logArg) gLogPane.setExpanded(true);
         if (!gDataOk) setMessage(widen(gDataError));
         std::printf("stardraft_editor: GPU %s, %s\n", renderer.driver(), gDataOk ? "game data" : gDataError.c_str());
-        for (const std::string& c : checkArgs) std::printf("%s", sdlDistCheck(c).c_str());
+        // --check: one list for all the checks. Each part of the program takes its own values (false: not its value);
+        // a value that no part takes is WRONG. (A new check: one more "||" here, not one more --check option.)
+        for (const std::string& c : checkArgs) {
+            std::string out;
+            if (!(sdlDistCheck(c, out))) out = "check: no check \"" + c + "\" (WRONG)\n";
+            std::printf("%s", out.c_str());
+        }
 
         if (!snapshot.empty()) {
             // A map's dialog (--dialog unitprops|locprops|prompt|quick, sdl_map_dialogs.inc) is the picture at its own size.
@@ -671,7 +683,6 @@ int main(int argc, char** argv) {
 #ifdef __APPLE__
             macSetupAppMenu(narrow(accessFree(shellTr(L"&About StarDraft 2"))), narrow(accessFree(shellTr(L"&Program options\x2026"))),
                             [] { shellPostCommand(ID_HELP_ABOUT); }, [] { shellPostCommand(ID_OPT_WINDOW); });
-            macHandleSpotlightOpens([](const std::string& path) { shellPost([path] { dropFile(path); }); });  // (a map that Spotlight finds)
 #endif
             sdlWindowsShown(testRun);  // (Windows: the dark title bar, an earlier crash's report, the file types)
             if (!testRun) sdlUpdatesAtStart();  // (a release build: a newer release says so in the status bar)
