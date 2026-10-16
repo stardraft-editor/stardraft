@@ -52,12 +52,16 @@ public:
     // with no SDL window too (in its own pixels; snapshotTop gives it), and a runModal of one runs the modal hook
     // (setSnapshotModalHook) for its input; a menu shows over the root in the picture, as before.
     void snapshotInput(draw::View& root, int w, int h, const std::vector<SDL_Event>& events);
+    // A snapshot's mouse events at points of the main window `root` (as a user's mouse on the screen): they go to the
+    // window that the first point is on (a modal dialog, in its own pixels, takes them all; else the last pop-out that
+    // has the point, else `root`), by snapshotInput. A press outside the pop-outs closes them, as dispatch does.
+    void snapshotMouse(draw::View& root, const std::vector<SDL_Event>& events);
     // A key (a press) and typed text for such a window, the same way as a window's (dispatch: Esc closes a pop-out;
     // the router: the view with the focus first, then its parents).
     void snapshotKey(draw::View& root, int w, int h, const draw::KeyEvent& k);
     void snapshotText(draw::View& root, int w, int h, const std::string& utf8);
-    // The window that takes a snapshot's input now: the last dialog or pop-out opened (with no SDL window), else
-    // `root`; `size` its size in pixels.
+    // The window that takes a snapshot's keys and text now: the last dialog or pop-out opened (with no SDL window),
+    // else `root`; `size` its size in pixels.
     draw::View& snapshotTop(draw::View& root, draw::Point& size);
     // The timers that are due (a snapshot has no event loop): within `ms` milliseconds, as SDL fires them.
     void snapshotTimers(int ms);

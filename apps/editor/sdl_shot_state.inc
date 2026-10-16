@@ -84,7 +84,7 @@ std::string shotBriefingState() {
 // spaces in quotes; "-" where there is none): the mode, the placement's player, the first selected unit's owner, the
 // last unit's owner, the palette's pick and the tool, the sprites, the selected doodads and the first one's place, the
 // locations and the selected one, the paste (units: how many of the ghost's units are red), the picked doodad's ghost,
-// the terrain (a hash of its tiles, the tile under the mouse, the terrain selection) and the tabs.
+// the terrain (a hash of its tiles, the tile under the mouse, the terrain selection), the tabs and the quick picker.
 std::string shotMapState() {
     const AppState& app = gState;
     Editor& ed = *app.ed;
@@ -134,6 +134,7 @@ std::string shotMapState() {
     s += " tsel=" + (app.hasTerrainSel ? box(app.terrainSel) : std::string("-"));
     s += " tabs=" + std::to_string(gActive + 1) + "/" + std::to_string(gDocs.size()) + " page=" + std::to_string(activePage()) +
          " tab=" + quoted(narrow(docTitle(gActive, false)));
+    s += std::string(" quick=") + (gQuickHostSdl.open ? "open" : "-");  // the quick picker (Q): a pop-out over the map
     return s;
 }
 

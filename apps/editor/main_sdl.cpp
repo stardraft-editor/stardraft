@@ -575,8 +575,8 @@ int main(int argc, char** argv) {
             if (!ctArg.empty()) sdlClassicTrigPopShot(ctArg), host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             if (!textPopArg.empty()) sdlTextPopShot(textPopArg), host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             if (!inputArgs.empty()) {  // the keys and the mouse after the first frame (the rail's items are the first frame's), then a frame more
-                // Each input goes to the window that takes input now: the main window, or a dialog or pop-out that an
-                // input opened (sdl_menus.inc: sdlShotTarget). While a modal one shows, its loop takes the next inputs
+                // Each key and text goes to the window that takes input now: the main window, or a dialog or pop-out
+                // that an input opened (sdl_menus.inc: sdlShotTarget); the mouse to the window under its point. While a modal one shows, its loop takes the next inputs
                 // (the modal hook); with none left it closes, as Esc closes it.
                 // A second frame first: a view that places its parts from the last paint's size (the New page's block)
                 // is where the user sees it, as a window has painted more than once before a user's first input.

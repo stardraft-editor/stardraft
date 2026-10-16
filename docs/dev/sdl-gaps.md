@@ -174,7 +174,7 @@ has an SDL snapshot case (`tools/sdl_snapshots.py`) or a test, and what has none
 |---|---|
 | The start page, the New page, the workspaces of a map and of a project (`pages:`) | start, newpage-classic, newpage-eud, ws-*, map-ws-* (the dark theme only; dialog-options-light is the light theme) |
 | undo_twice (Undo of an edit) | map-key-undo (Delete, Undo, Redo, Undo: CHECKS reads the counts) |
-| place_marines (a unit placed with the mouse), box_select, drag_move | map-click-place (a palette pick, a click on the map, Undo), map-drag-select (a box, Shift and a second box), map-drag-unit (a click selects, a drag moves the unit, Undo puts it back): `--click` and `--drag` go the host's way for a window's mouse events, `--key` and `--type` to the view with the focus; a dialog or pop-out that an input opens takes the next inputs (`--wait` lets the timers run); CHECKS reads the counts and the unit's place, and each input's state line (sdl_shot_state.inc) |
+| place_marines (a unit placed with the mouse), box_select, drag_move | map-click-place (a palette pick, a click on the map, Undo), map-drag-select (a box, Shift and a second box), map-drag-unit (a click selects, a drag moves the unit, Undo puts it back): `--click` and `--drag` go the host's way for a window's mouse events, `--key` and `--type` to the view with the focus; a dialog or pop-out that an input opens takes the next keys and text (`--wait` lets the timers run); the mouse's points are the main window's, so a click on a pop-out goes to it and a click outside it closes it, as on the screen (`SdlHost::snapshotMouse`; a dialog takes the clicks in its own pixels); CHECKS reads the counts and the unit's place, and each input's state line (sdl_shot_state.inc) |
 | A save of the map (the steps that save, `openagain:`) | map-save-roundtrip and map-save-edited (`--saveas` into the --out folder: the saved file opens again and is the same; after Delete it has no units) |
 | project created, project compiled (`project:`, a Build) | data-newproject-build (a new project Sample in a new folder in --out, then Build when euddraft is there) |
 | sd_quality, carbot_graphics | map-view-sd, map-view-carbot |
@@ -202,6 +202,7 @@ has an SDL snapshot case (`tools/sdl_snapshots.py`) or a test, and what has none
 | paste_ghost, paste_ghost_on_water_red, paste_placed | map-paste-ghost (the copy of the mineral fields at the mouse, green on ground), map-paste-ghost-red (red over space), map-paste-placed (a click places it; Undo): `--move` moves the mouse only |
 | The player keys (1 to 0) | map-player-keys (3 picks the player; 5 and 0 give a selected Marine to players 5 and 10; 7 while placing picks the player and leaves the Marine) |
 | tab_previous, tab_closed | map-tabs (a new project in a second tab, Ctrl+Shift+Tab, Ctrl+Tab, Ctrl+W) |
+| quick picker (`quick:`): a click on it and outside it | map-quick-click (Q, "marine" typed, a click on its first row picks the Marine; Q again, a click on the map outside it closes it and places a Marine) |
 
 After each input, the state line (`  state: ...`, sdl_shot_state.inc: `sdlShotState`) in the Map workspace is
 `map: <tileset> <size>;` and then name=value parts (`shotMapState`): the mode, the player, the owners, the sprites,
