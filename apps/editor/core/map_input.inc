@@ -777,8 +777,10 @@ bool mapWheel(AppState& app, float x, float y, float notches, float panX, float 
     }
     if (ctrl || !precise) {
         if (horizontal || notches == 0) return false;
-        // A notch: 1.2 times; a trackpad's scroll: 1.2 times each 4 of its steps (its steps are small and many).
-        mapZoomAt(app, x, y, std::pow(1.2f, precise ? notches / 4 : notches));
+        // A notch: 1.2 times; a trackpad's scroll: 1.2 times each 4 of its steps (its steps are small and many). A
+        // Windows touchpad's pinch comes as Ctrl and a wheel's fractions: as gentle as a trackpad's.
+        const bool fraction = notches != std::trunc(notches);
+        mapZoomAt(app, x, y, std::pow(1.2f, precise || (ctrl && fraction) ? notches / 4 : notches));
         return true;
     }
     if (panX == 0 && panY == 0) return false;
