@@ -529,9 +529,10 @@ def check_quick_click(output):
 def check_tabs(output):
     """The Windows tab_previous and tab_closed steps: two tabs, Ctrl+Shift+Tab, Ctrl+Tab, Ctrl+W."""
     return expect(output, 3, [
-        ("Ctrl+Shift+Tab did not go to the map's tab", lambda s: s[0]["tabs"] == "1/2" and s[0]["tab"] == "bneck.scm"),
+        # (the map's tab is named after the --map file: any name but the project's)
+        ("Ctrl+Shift+Tab did not go to the map's tab", lambda s: s[0]["tabs"] == "1/2" and s[0]["tab"] not in ("", "Sample")),
         ("Ctrl+Tab did not go to the project's tab", lambda s: s[1]["tabs"] == "2/2" and s[1]["tab"] == "Sample"),
-        ("Ctrl+W did not close the project's tab", lambda s: s[2]["tabs"] == "1/1" and s[2]["tab"] == "bneck.scm"),
+        ("Ctrl+W did not close the project's tab", lambda s: s[2]["tabs"] == "1/1" and s[2]["tab"] == s[0]["tab"]),
     ])
 
 
