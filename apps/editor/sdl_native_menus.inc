@@ -131,8 +131,10 @@ std::vector<MacMenuItem> macPopupItems(const std::vector<kit::MenuItem>& items, 
     return out;
 }
 
-// A pick of the menu bar: a command, or a tab of the Window menu (after the menu closed: posted).
+// A pick of the menu bar: a command, or a tab of the Window menu (after the menu closed: posted). Not while a modal
+// dialog is open: the program waits for it, as the window's menus do.
 void macMenuPick(int tag) {
+    if (gHost && gHost->modalOpen()) return;
     if (tag <= kMacTabTag) {
         const int i = kMacTabTag - tag;
         shellPost([i] {

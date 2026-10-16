@@ -1,7 +1,7 @@
 // The SDL shell's menus, keys and commands (research/ports/MAC-BUILD-PLAN.md steps 5 and 6). The menu bar is the core's menu
-// model (buildMenuModel, core/menu_model.inc) shown as kit menus; a click or a key runs command(id), the core's command
-// path first. An item the SDL program cannot run yet is grayed, and its key does nothing. Ctrl in a shortcut is Cmd on
-// macOS. File > Open, Save and Save as use the system's file dialogs: they answer later, on another thread, so their
+// model (buildMenuModel, core/menu_model.inc) shown as kit menus (macOS: the system's menu bar, sdl_native_menus.inc);
+// a click or a key runs command(id), the core's command path first. An item the SDL program cannot run yet is grayed,
+// and its key does nothing. Ctrl in a shortcut is Cmd on macOS (platformShortcut: its own keys there). File > Open, Save and Save as use the system's file dialogs: they answer later, on another thread, so their
 // result comes back to the UI thread through shellPost. Quit asks about unsaved changes (the save question, shellAskSaveChanges: the core message box).
 // Included by main_sdl.cpp after sdl_pending.inc, before shell_sdl.inc.
 

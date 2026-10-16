@@ -119,6 +119,8 @@ public:
     // A Dialog spec (or a Menu or Tooltip): a dialog window of its own. A Popup spec: a modal pop-out at spec.at; a
     // press outside it only closes it (the press and its release do not go to the window under the mouse).
     void runModal(draw::View& from, draw::View& content, const draw::WindowSpec& spec) override;
+    // A modal dialog or pop-out is open (runModal): the other windows wait (macOS: the menu bar's commands too).
+    bool modalOpen() const { return modal_ != 0; }
     void forget(const draw::View& v) override;
 
 private:

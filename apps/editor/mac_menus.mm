@@ -171,7 +171,8 @@ std::string keyText(NSMenuItem* mi) {
 
 void menuLines(NSMenu* m, const std::string& path, std::vector<std::string>& out) {
     for (NSMenuItem* mi in [m itemArray]) {
-        if ([mi isSeparatorItem]) continue;
+        // (the system's hidden items and the alternates that Option shows, as Emoji & Symbols for each keyboard: not shown)
+        if ([mi isSeparatorItem] || [mi isHidden] || [mi isAlternate]) continue;
         const std::string title = [[mi title] UTF8String];
         const std::string at = path.empty() ? title : path + " > " + title;
         if ([mi hasSubmenu] && !path.empty() && [[mi submenu] numberOfItems] > 0) {
