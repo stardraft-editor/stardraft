@@ -1165,6 +1165,9 @@ def main():
         env.setdefault("SDL_VIDEODRIVER", "offscreen")
     if a.install:
         env["STARDRAFT_INSTALL"] = a.install
+    # Linux: Noto Sans, not the desktop's UI font (canvas_imgui.cpp), so that the text and the places the cases click
+    # are the same on each computer.
+    env.setdefault("STARDRAFT_FONT", "noto")
 
     results, failed, skipped, hashes = [], [], [], {}
     for name, args, needs in CASES:
