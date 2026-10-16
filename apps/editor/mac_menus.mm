@@ -274,6 +274,15 @@ void macSetMenuBar(const MacMenuTexts& t, int aboutTag, int settingsTag, int nex
 
 bool macMenuOpen() { return gOpen > 0 || gPopupOpen; }
 
+bool macDialogOpen() {
+    @autoreleasepool {
+        if ([NSApp modalWindow]) return true;
+        for (NSWindow* w in [NSApp windows])
+            if ([w attachedSheet]) return true;
+        return false;
+    }
+}
+
 int macPopupMenu(const std::vector<MacMenuItem>& items) {
     @autoreleasepool {
         makeObjects();

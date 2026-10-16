@@ -34,6 +34,8 @@ void macSetMenuBar(const MacMenuTexts& texts, int aboutTag, int settingsTag, int
                    const std::vector<MacMenuItem>& tabs, void (*pick)(int tag));
 // True while a menu of the menu bar or a context menu is open.
 bool macMenuOpen();
+// True while a system dialog is open: a modal window (NSApp's modal loop) or a sheet on one of the program's windows.
+bool macDialogOpen();
 
 // Opens `items` as a context menu at the pointer and waits until it closes. Returns the tag of the item that was
 // picked, or INT_MIN for none.
