@@ -103,6 +103,8 @@ public:
 
     // As last painted: the caret's rectangle and the scroll offsets, in the view's coordinates.
     draw::Rect caretRect() const { return caretRect_; }
+    // An input method's text that is not committed yet (shown at the caret, not in the text).
+    const std::wstring& composition() const { return comp_; }
     int scrollX() const { return scrollX_; }
     int scrollY() const { return scrollY_; }
 

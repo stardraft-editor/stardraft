@@ -498,6 +498,53 @@ draw::View& sdlShotTarget(draw::Point& size) {
     return gHost ? gHost->snapshotTop(*gRoot, size) : *gRoot;
 }
 
+// After a --key, --type or --ime: the view with the keyboard in the window that takes the keys now, on a line of its
+// own: its kind and place (a dialog's Tab order), and for a text field its text, selection and composition, and
+// whether the input method is on with its area at the caret (SDL_SetTextInputArea: the system's composition and
+// candidate windows show there): "(WRONG)" when it is off or not at the caret.
+void sdlFocusLine() {
+    if (!gRoot || !gHost) return;
+    draw::Point size;
+    const draw::View& top = sdlShotTarget(size);
+    gHost->snapshotLayout(top);  // (a field places its caret as it paints)
+    const draw::View* f = gHost->focusedView(top);
+    if (!f) return void(std::printf("  focus: none\n"));
+    const draw::Point o = f->origin();
+    std::string kind = "view", text;
+    draw::Rect caret;
+    bool typing = false;
+    std::wstring comp;
+    size_t a = 0, b = 0;
+    if (const auto* t = dynamic_cast<const kit::TextField*>(f)) {
+        kind = "text field", text = narrow(t->text()), caret = t->caretRect(), typing = true, comp = t->composition();
+        a = t->model().selectionStart(), b = t->model().selectionEnd();
+    } else if (const auto* r = dynamic_cast<const kit::RichField*>(f)) {
+        kind = "rich field", text = narrow(r->plainText()), caret = r->caretRect(), typing = true, comp = r->composition();
+        a = std::min(r->anchor(), r->caret()), b = std::max(r->anchor(), r->caret());
+    } else if (const auto* bt = dynamic_cast<const kit::Button*>(f)) {
+        kind = "button", text = narrow(bt->text());
+    } else if (const auto* cb = dynamic_cast<const kit::ChoiceBox*>(f)) {
+        kind = "check box", text = narrow(cb->label());
+    } else if (dynamic_cast<const kit::Dropdown*>(f)) {
+        kind = "dropdown";
+    }
+    std::string shown;  // (one line: a line end as \n)
+    for (const char ch : text)
+        if (ch == '\n') shown += "\\n";
+        else if (ch != '\r') shown += ch;
+    std::printf("  focus: %s at %d,%d \"%s\"", kind.c_str(), o.x, o.y, shown.c_str());
+    if (typing) {
+        draw::Rect area;
+        const bool on = gHost->textInputState(*f, area);
+        const draw::Rect want(o.x + caret.left, o.y + caret.top, o.x + caret.right, o.y + caret.bottom);
+        const bool at = area.left == want.left && area.top == want.top && area.bottom == want.bottom;
+        std::printf(" selected %zu-%zu composing \"%s\"; input method %s at %d,%d-%d,%d, the caret at %d,%d-%d,%d %s", a, b,
+                    narrow(comp).c_str(), on ? "on" : "off", area.left, area.top, area.right, area.bottom, want.left, want.top, want.right,
+                    want.bottom, on && at ? "(yes)" : "(WRONG)");
+    }
+    std::printf("\n");
+}
+
 void sdlPressKey(const std::string& chord) {
     const auto c = stardraft::parseShortcut(chord);
     draw::KeyEvent e;
@@ -508,6 +555,7 @@ void sdlPressKey(const std::string& chord) {
     gHost->snapshotKey(target, size.x, size.y, e);  // (the view with the focus first, then its parents: the window's keys)
     runPosted();
     sdlInputLine("key " + chord);
+    sdlFocusLine();
     if (gStartView.shown()) std::printf("key %s: start page: keys on %s\n", chord.c_str(), gStartView.keysOn().c_str());
 }
 
@@ -520,6 +568,29 @@ void sdlTypeText(const std::string& text) {
     gHost->snapshotText(target, size.x, size.y, text);
     runPosted();
     sdlInputLine("type " + text);
+    sdlFocusLine();
+}
+
+// --ime <text>[@<caret>] in a snapshot: an input method's composition (Korean, Chinese, Japanese) as SDL gives it
+// (SDL_EVENT_TEXT_EDITING): the text is not committed; its caret is <caret> characters in (default: at its end). An
+// empty text ends the composition (a cancel); --type commits it, as the input method's text event does.
+void sdlImeText(const std::string& spec) {
+    if (!gRoot || !gHost) return;
+    std::string text = spec;
+    int start = -1;
+    if (const size_t at = spec.rfind('@'); at != std::string::npos && at + 1 < spec.size() &&
+                                           spec.find_first_not_of("0123456789", at + 1) == std::string::npos)
+        text = spec.substr(0, at), start = std::atoi(spec.c_str() + at + 1);
+    if (start < 0) {  // (SDL counts the characters: the bytes that start one)
+        start = 0;
+        for (const char ch : text) start += (static_cast<unsigned char>(ch) & 0xC0) != 0x80;
+    }
+    draw::Point size;
+    draw::View& target = sdlShotTarget(size);
+    gHost->snapshotCompose(target, size.x, size.y, text, start);
+    runPosted();
+    sdlInputLine("ime " + spec);
+    sdlFocusLine();
 }
 
 // The output line after a --key, --type, --click, --drag, --move or --wait (as the Windows self-test's log: Delete,
@@ -559,6 +630,7 @@ bool sdlShotInputNext() {
     gShotInputs.pop_front();
     if (kind == 'k') sdlPressKey(value);
     else if (kind == 't') sdlTypeText(value);
+    else if (kind == 'i') sdlImeText(value);
     else if (kind == 'w') {  // --wait ms: the program's timers that are due in that time run (a page that reads the map again)
         if (gHost) gHost->snapshotTimers(std::atoi(value.c_str()));
         runPosted();
@@ -574,7 +646,8 @@ bool sdlShotInputNext() {
 // --click x,y[:mods] and --drag x0,y0-x1,y1[:mods] in a snapshot (main_sdl.cpp): the left button as a user's mouse
 // gives it, in the window's pixels: the mouse comes to the first point, the button goes down, (a drag: the mouse moves
 // to the second point in steps, the button held), the button goes up. The events go the host's way for a window's
-// (SdlHost::snapshotMouse), with the modifier keys held (Shift, Ctrl, Alt, joined with +; Ctrl is Cmd on macOS).
+// (SdlHost::snapshotMouse), with the modifier keys held (Shift, Ctrl, Alt, joined with +; Ctrl is Cmd on macOS);
+// Double in the mods: a double click (a second press and release, SDL's clicks 2).
 // The points are the main window's, as a user's mouse is on the screen: a pop-out that an input opened takes the
 // events when the first point is on it, and a press outside it closes it; a dialog takes them in its own pixels.
 // --move x,y: only the mouse comes to the point (no button): a paste's copy follows it there. --lostdrag
@@ -591,6 +664,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
         return void(std::fprintf(stderr, "--%s%s: not %s[:mods]\n", name.c_str(), spec.c_str(), drag ? "x0,y0-x1,y1" : "x,y"));
     if (!drag) x1 = x0, y1 = y0;
     SDL_Keymod held = SDL_KMOD_NONE;
+    bool twice = false;
     std::stringstream in(mods);
     for (std::string m; std::getline(in, m, '+');) {
 #ifdef __APPLE__
@@ -600,6 +674,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
 #endif
         else if (m == "Shift") held = SDL_Keymod(held | SDL_KMOD_LSHIFT);
         else if (m == "Alt") held = SDL_Keymod(held | SDL_KMOD_LALT);
+        else if (m == "Double" && !drag) twice = true;
         else return void(std::fprintf(stderr, "--%s%s: %s is not Shift, Ctrl or Alt\n", name.c_str(), spec.c_str(), m.c_str()));
     }
     std::vector<SDL_Event> events;
@@ -612,10 +687,10 @@ void sdlMouseShot(const std::string& spec, char kind) {
         events.push_back(e);
         px = x, py = y;
     };
-    auto button = [&](bool down, float x, float y) {
+    auto button = [&](bool down, float x, float y, Uint8 clicks = 1) {
         SDL_Event e{};
         e.type = down ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
-        e.button.button = SDL_BUTTON_LEFT, e.button.down = down, e.button.clicks = 1, e.button.x = x, e.button.y = y;
+        e.button.button = SDL_BUTTON_LEFT, e.button.down = down, e.button.clicks = clicks, e.button.x = x, e.button.y = y;
         events.push_back(e);
     };
     move(float(x0), float(y0), false);
@@ -631,6 +706,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
         } else {
             button(false, float(x1), float(y1));
         }
+        if (twice) button(true, float(x0), float(y0), 2), button(false, float(x0), float(y0), 2);
     }
     const SDL_Keymod before = SDL_GetModState();
     SDL_SetModState(held);
@@ -772,7 +848,8 @@ void sdlPinchShot(const std::string& spec) {
 // enabled (a gray item: "(WRONG)").
 void sdlCommandShot(const std::string& name) {
     static const std::pair<const char*, int> kNames[] = {{"view.towns", ID_VIEW_TOWNS}, {"view.log", ID_VIEW_LOG}, {"scen.check", ID_SCEN_CHECK},
-                                                         {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO}};
+                                                         {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO},
+                                                         {"project.open", ID_PROJ_OPEN}, {"project.addscript", ID_PROJ_ADDSCRIPT}};
     int id = -1;
     for (const auto& [native, cmd] : gCommandIds)
         if (cmd == name) id = native;
@@ -810,6 +887,59 @@ SDL_Window* dialogWindow() {
     return win;
 }
 
+// A snapshot's file and folder dialogs (main_sdl.cpp: --pick): none shows. Each answers at once with the next --pick
+// in order (a path; "cancel", or none left: canceled), and the output says what it asked: the kind, the title, the
+// filters and where it starts.
+bool gShotDialogs = false;
+std::deque<std::string> gShotPicks;
+
+// Where a file or folder dialog starts, as SDL takes it (UTF-8): `folder`, or the nearest folder above it that is there
+// (Windows' dialog does not open in a folder that is not there), with a separator at its end (a folder: SDL's dialogs on
+// Windows and macOS take the last part of a path without one as the file's name), then `fileName` (a save dialog's).
+// Empty when there is no such folder and no name: the system chooses.
+std::string sdlDialogLocation(const fs::path& folder, const std::wstring& fileName = {}) {
+    std::error_code ec;
+    fs::path dir = folder;
+    while (!dir.empty() && !fs::is_directory(dir, ec)) {
+        const fs::path up = dir.parent_path();
+        if (up == dir) dir.clear();
+        else dir = up;
+    }
+    std::wstring where = dir.wstring();
+    if (!where.empty() && where.back() != L'/' && where.back() != fs::path::preferred_separator) where += fs::path::preferred_separator;
+    return narrow(where + fileName);
+}
+
+// Shows the system's file or folder dialog (asynchronous: `answered` gets the list, on any thread). `location` from
+// sdlDialogLocation; `filters` must stay until the answer.
+void sdlFileDialog(SDL_FileDialogType type, SDL_DialogFileCallback answered, void* data, const SDL_DialogFileFilter* filters,
+                   int filterCount, const std::string& location, const std::string& title, bool many = false) {
+    if (gShotDialogs) {
+        static const char* const kKinds[] = {"open", "save", "folder"};
+        std::string list;
+        for (int i = 0; i < filterCount; ++i) list += std::string(i ? " | " : "") + filters[i].name + " (" + filters[i].pattern + ")";
+        const std::string answer = gShotPicks.empty() ? std::string("cancel") : gShotPicks.front();
+        if (!gShotPicks.empty()) gShotPicks.pop_front();
+        std::printf("dialog: %s, title \"%s\", filters %s, starts at \"%s\": %s\n", kKinds[int(type) % 3], title.c_str(),
+                    list.empty() ? "none" : list.c_str(), location.c_str(), answer.c_str());
+        const char* const none[] = {nullptr};
+        const char* const picked[] = {answer.c_str(), nullptr};
+        return answered(data, answer == "cancel" ? none : picked, 0);  // (SDL: an empty list is a cancel)
+    }
+    const SDL_PropertiesID props = SDL_CreateProperties();
+    SDL_SetPointerProperty(props, SDL_PROP_FILE_DIALOG_WINDOW_POINTER, dialogWindow());
+    if (filters && filterCount > 0) {
+        SDL_SetPointerProperty(props, SDL_PROP_FILE_DIALOG_FILTERS_POINTER, const_cast<SDL_DialogFileFilter*>(filters));
+        SDL_SetNumberProperty(props, SDL_PROP_FILE_DIALOG_NFILTERS_NUMBER, filterCount);
+    }
+    if (!location.empty()) SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_LOCATION_STRING, location.c_str());
+    // (the title says what to pick: the dialog's title bar on Windows and Linux, the panel's message on macOS)
+    if (!title.empty()) SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_TITLE_STRING, title.c_str());
+    SDL_SetBooleanProperty(props, SDL_PROP_FILE_DIALOG_MANY_BOOLEAN, many);
+    SDL_ShowFileDialogWithProperties(type, answered, data, props);
+    SDL_DestroyProperties(props);
+}
+
 // Opens the system's open or save dialog (asynchronous: `done` runs later, on the UI thread).
 void showFileDialog(bool save, std::function<void(const fs::path&)> done) {
     static const SDL_DialogFileFilter kOpen[] = {{"Maps and projects", "scx;scm;chk;stardraft;eds"},
@@ -819,13 +949,13 @@ void showFileDialog(bool save, std::function<void(const fs::path&)> done) {
                                                  {"All files", "*"}};
     static const SDL_DialogFileFilter kSave[] = {{"StarCraft maps", "scx;scm"}, {"Scenario data", "chk"}, {"All files", "*"}};
     auto* call = new DialogCall{std::move(done)};
-    SDL_Window* win = dialogWindow();
     if (save) {
-        static std::string where;  // (SDL reads the location while the dialog is open: it lives on)
-        where = gState.ed && !gState.ed->path().empty() ? narrow(gState.ed->path().wstring()) : std::string("Untitled.scx");
-        SDL_ShowSaveFileDialog(dialogDone, call, win, kSave, 3, where.empty() ? nullptr : where.c_str());
+        // The map's own folder and name; a new map: Untitled.scx where the system chooses.
+        const fs::path path = gState.ed ? gState.ed->path() : fs::path();
+        const std::string where = path.empty() ? std::string("Untitled.scx") : sdlDialogLocation(path.parent_path(), path.filename().wstring());
+        sdlFileDialog(SDL_FILEDIALOG_SAVEFILE, dialogDone, call, kSave, 3, where, "");
     } else {
-        SDL_ShowOpenFileDialog(dialogDone, call, win, kOpen, 5, nullptr, false);
+        sdlFileDialog(SDL_FILEDIALOG_OPENFILE, dialogDone, call, kOpen, 5, "", "");
     }
 }
 

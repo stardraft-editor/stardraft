@@ -821,6 +821,14 @@ void TextField::focusChanged(bool has) {
     if (onFocusLost) onFocusLost();
 }
 
+// One line: its text is selected (what is typed takes its place). Several lines keep the caret.
+void TextField::tabbedTo() {
+    if (multiline() || model_.text().empty()) return;
+    model_.selectAll();
+    goalX_ = -1;
+    afterAction();
+}
+
 // --- Helpers ------------------------------------------------------------------------------------------------------
 
 void TextField::afterAction() {
