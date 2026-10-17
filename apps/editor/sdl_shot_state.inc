@@ -188,7 +188,13 @@ std::string shotMapState() {
     const int tx = int(wx) / 32, ty = int(wy) / 32;
     const bool onMap = wx >= 0 && wy >= 0 && tx < ed.width() && ty < ed.height();
     s += std::string(" terrain=") + hex + " tile=" + (onMap ? std::to_string(ed.terrain().tiles[size_t(ty) * ed.width() + size_t(tx)]) : std::string("-"));
-    s += " tsel=" + (app.hasTerrainSel ? box(app.terrainSel) : std::string("-"));
+    s += " tsel=" + (app.hasTerrainSel ? box(app.terrainSel) : std::string("-")) + " tsellines=";  // (and its outline's lines)
+    if (app.ed && app.ed->isOpen()) {
+        render::Scene sel;
+        s += std::to_string(terrainSelScene(sel, wx, wy));
+    } else {
+        s += "0";
+    }
     s += " tabs=" + std::to_string(gActive + 1) + "/" + std::to_string(gDocs.size()) + " page=" + std::to_string(activePage()) +
          " tab=" + quoted(narrow(docTitle(gActive, false)));
     s += std::string(" quick=") + (gQuickHostSdl.open ? "open" : "-");  // the quick picker (Q): a pop-out over the map
@@ -199,6 +205,12 @@ std::string shotMapState() {
     if (app.mode == Mode::Terrain && app.terrainRect && app.mouseIn) {  // the brush preview as the next paint draws it
         render::Scene preview;
         tilesScene(preview, wx, wy);
+    }
+    {  // the brush's tiles in Rectangle mode, the number in each row from the top (tilesFootprint)
+        std::map<int, int> rows;
+        for (auto [x, y] : tilesFootprint(0, 0)) ++rows[y];
+        s += " brushrows=";
+        for (auto it = rows.begin(); it != rows.end(); ++it) s += (it == rows.begin() ? "" : ",") + std::to_string(it->second);
     }
     s += std::string(" brushshape=") + kShapes[int(app.brushShape) % 3] + " tilepreview=" + std::to_string(gTilesPreview.tiles) + "/" + std::to_string(gTilesPreview.lines);  // (Rectangle: the brush preview's tiles and lines)
     // The Tiles list (Rectangle): its scroll, its pictures kept, the tile picked; and the bitmaps that went while the

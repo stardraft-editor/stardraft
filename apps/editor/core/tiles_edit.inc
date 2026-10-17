@@ -147,10 +147,14 @@ std::vector<std::pair<int, int>> tilesFootprint(int cx, int cy) {
         for (int dx = lo; dx <= hi; ++dx) {
             // In the units of the width: y scaled by width / height, so a stretched shape keeps the size's rules.
             const float x = dx - mid, y = (dy - midY) * (rY > 0 ? r / rY : 1.0f);
+            // The Diamond (its height about half its width): the rows at the middle line (one row, or two at an even
+            // height) are the full width; each row further out is narrower, as the diamond's edge at the row's side
+            // nearest the middle (GitHub #138: size 7 is 3, 7, 7, 3 tiles; size 5 is 3, 5, 3).
+            const float e = std::max(0.0f, std::abs(dy - midY) - 0.5f), halfW = n / 2.0f * (1.0f - e / (m / 2.0f));
             const bool in = appState().brushShape == Brush::Square ? true
                           : n == 1 || m == 1                ? true  // one tile wide or high: the whole line
                           : appState().brushShape == Brush::Circle ? x * x + y * y <= r * r + r + 0.25f
-                                                            : std::abs(x) + std::abs(y) <= r + 0.5f;  // (even sizes: the tiles touch the middle)
+                                                            : std::abs(x) <= halfW + 0.01f;
             if (in) out.push_back({cx + dx, cy + dy});
         }
     return out;

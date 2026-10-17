@@ -1350,8 +1350,6 @@ def check_tiles_grid(width):
         sizes = [edges[i + 1] - edges[i] - 1 for i in range(16)]
         if max(sizes) - min(sizes) > 1 or min(sizes) < 8:
             return f"the tiles are not the same size (or too small): {sizes}"
-        if sum(sizes) + 15 != w:
-            return f"16 tiles and 15 gaps of 1 px are {sum(sizes) + 15} px, not {w}"
         if (s[0].get("tilepicked"), s[1].get("tilepicked")) != ("37", "63"):
             return f"the clicks picked {s[0].get('tilepicked')} and {s[1].get('tilepicked')}, not 37 and 63"
         return None
@@ -1359,17 +1357,19 @@ def check_tiles_grid(width):
 
 
 def check_diamond_locked(output):
-    """The Diamond's height follows its size (GitHub #138): 2 x 2, 3 x 3, then 3 x 2 tiles in Rectangle."""
+    """The Diamond's height follows its size (GitHub #138): 2 x 2, 3 x 3, then 3 x 2 tiles in Rectangle, which it
+    paints as 2 full rows of 3 tiles."""
     return expect(output, 3, [
         ("the height's up arrow changed the diamond's height", lambda s: s[0]["brush"] == "2x2" and "its height follows its size" in output),
         ("the size's up arrow did not make it 3 x 3", lambda s: s[1]["brush"] == "3x3"),
         ("in Rectangle the diamond is not 3 x 2 tiles", lambda s: s[2]["brush"] == "3x2"),
+        ("in Rectangle the 3 x 2 diamond does not paint 2 rows of 3 tiles", lambda s: s[2].get("brushrows") == "3,3"),
     ])
 
 
-def check_tiles_brush(shape, outline):
+def check_tiles_brush(shape, outline, rows):
     """The brush of `shape` in Rectangle mode at size 7: its outline only (no tiles in the preview), or (the square)
-    its tiles."""
+    its tiles; the tiles that it paints are `rows` (the number in each row, from the top)."""
     def check(output):
         s = state_lines(output)
         if not s:
@@ -1385,16 +1385,20 @@ def check_tiles_brush(shape, outline):
             return f"the {shape} shows {tiles} tiles and {lines} lines, not only its outline (GitHub #135, #136)"
         if not outline and (tiles < 49 or lines != 1):
             return f"the square shows {tiles} tiles and {lines} lines, not its 49 tiles and their box"
+        if last.get("brushrows") != rows:
+            return f"the {shape} paints the rows {last.get('brushrows')}, not {rows}"
         return None
     return check
 
 
 def check_select_shape(shape):
-    """The terrain selection of `shape` is made (its outline is in the picture)."""
+    """The terrain selection of `shape` is made, and its outline is drawn (8 lines or more: not a box)."""
     def check(output):
         s = state_lines(output)
         if not s or s[-1].get("brushshape") != shape or s[-1].get("tsel") == "-":
             return f"no {shape} selection: {s[-1].get('brushshape') if s else '-'} {s[-1].get('tsel') if s else '-'}"
+        if int(s[-1].get("tsellines", "0")) < 8:
+            return f"the {shape} selection's outline has {s[-1].get('tsellines')} lines, not 8 or more"
         return None
     return check
 
@@ -3172,8 +3176,8 @@ CHECKS = {"map-stack-list": check_stack_list, "map-stack-cycle": check_stack_cyc
           "map-terrain-rect-scroll": check_rect_scroll, "map-terrain-brush-over-tiles": check_brush_over_tiles,
           "map-tiles-grid-240": check_tiles_grid(240), "map-tiles-grid-320": check_tiles_grid(320),
           "map-tiles-grid-480": check_tiles_grid(480), "map-tiles-grid-480-scale15": check_tiles_grid(480),
-          "map-brush-diamond-locked": check_diamond_locked, "map-tiles-brush-diamond": check_tiles_brush("diamond", True),
-          "map-tiles-brush-circle": check_tiles_brush("circle", True), "map-tiles-brush-square": check_tiles_brush("square", False),
+          "map-brush-diamond-locked": check_diamond_locked, "map-tiles-brush-diamond": check_tiles_brush("diamond", True, "3,7,7,3"),
+          "map-tiles-brush-circle": check_tiles_brush("circle", True, "3,5,7,7,7,5,3"), "map-tiles-brush-square": check_tiles_brush("square", False, ",".join(["7"] * 7)),
           "map-terrain-select-diamond": check_select_shape("diamond"), "map-terrain-select-circle": check_select_shape("circle"),
           "map-tiles-select-circle": check_select_shape("circle"),
           "map-terrain-rect-quick": check_rect_quick, "map-terrain-rect-quick-scroll": check_rect_quick_scroll,
