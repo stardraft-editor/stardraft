@@ -210,11 +210,39 @@ bool pipette(AppState& app, float wx, float wy) {
     return false;
 }
 
+// A stack of units (units on top of others): the list of the units at a map point (views_map_menu.inc), and the click
+// that goes through them. A click again at the same place (4 px or less from the click before it) on the selected unit of
+// a stack selects the next unit there when the button comes up with no drag (the top one again after the last). A
+// press on the unit that the list or such a click selected keeps it, so a drag moves it, also when it is under others;
+// the map menu and a double click act on it too (stackUnitAt).
+void showUnitStack(float wx, float wy, int sx, int sy, bool add);
+std::wstring unitDisplayName(int u);  // (names.inc)
+int gStackClickX = -1000, gStackClickY = -1000;  // the place of the last select click in Units mode (the map view's pixels)
+int gStackNext = -1;                             // the unit that the button's release selects (-1: none)
+int gStackChosen = -1;                           // the unit that the list or a click again selected last (-1: none)
+
+// The unit that a click at the map point (wx, wy) is on: the unit of the stack there that the list or a click again
+// selected (while it is selected), else the top one (Editor::unitAt). -1: none.
+int stackUnitAt(const Editor& ed, float wx, float wy) {
+    const std::vector<int> stack = ed.unitsAt(int(wx), int(wy));
+    if (gStackChosen >= 0 && ed.isSelected(gStackChosen) && std::find(stack.begin(), stack.end(), gStackChosen) != stack.end()) return gStackChosen;
+    return stack.empty() ? -1 : stack.front();
+}
+
 void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     if (!app.ed || !app.ed->isOpen()) return;
     Editor& ed = *app.ed;
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
+    gStackNext = -1;
+    // Alt+click (macOS: Option+click) on two or more units: the list of the units there (on one unit: the pipette).
+    if ((mods & draw::kAlt) && app.mode == Mode::Units && !app.pasting && !modeLayerHidden() && ed.unitsAt(int(wx), int(wy)).size() > 1) {
+        gStackClickX = gStackClickY = -1000;
+        app.drag = Drag::None;
+        showUnitStack(wx, wy, sx, sy, (mods & draw::kShift) != 0);
+        app.dirty = true;
+        return;
+    }
     if ((mods & draw::kAlt) && pipette(app, wx, wy)) {  // Alt+click: the pipette
         app.dirty = true;
         return;
@@ -271,11 +299,22 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
             app.lastPlaceX = wx, app.lastPlaceY = wy;
             app.drag = Drag::PlaceStroke;
         } else if (hit >= 0) {
-            if (ctrl) ed.toggleSelected(hit);
-            else if (!ed.isSelected(hit)) ed.select(hit, shift);
-            app.drag = ed.isSelected(hit) ? Drag::MoveUnits : Drag::None;
+            const bool again = std::abs(sx - gStackClickX) <= 4 && std::abs(sy - gStackClickY) <= 4;
+            gStackClickX = sx, gStackClickY = sy;
+            const std::vector<int> stack = ed.unitsAt(int(wx), int(wy));
+            const auto in = ed.selection().size() == 1 ? std::find(stack.begin(), stack.end(), ed.selection()[0]) : stack.end();
+            if (!shift && !ctrl && stack.size() > 1 && in != stack.end() && (again || in == stack.begin() || *in == gStackChosen)) {
+                // The selected unit of a stack: it stays selected (a drag moves it); a click again here selects the next.
+                if (again) gStackNext = stack[size_t(in - stack.begin() + 1) % stack.size()];
+                app.drag = Drag::MoveUnits;
+            } else {
+                if (ctrl) ed.toggleSelected(hit);
+                else if (!ed.isSelected(hit)) ed.select(hit, shift);
+                app.drag = ed.isSelected(hit) ? Drag::MoveUnits : Drag::None;
+            }
             app.lastValidDX = app.lastValidDY = 0;
         } else {
+            gStackClickX = gStackClickY = -1000;
             app.drag = Drag::BoxSelect;
         }
         break;
@@ -496,6 +535,18 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     bool shift = mods & draw::kShift;
     switch (app.drag) {
     case Drag::MoveUnits:
+        if (!app.dragMoved && gStackNext >= 0 && gStackNext < int(ed.units().size())) {  // a click again on a stack: the next unit
+            const std::vector<int> stack = ed.unitsAt(int(app.dragWX), int(app.dragWY));
+            const auto at = std::find(stack.begin(), stack.end(), gStackNext);
+            if (at != stack.end()) {
+                ed.select(gStackNext, false);
+                gStackChosen = gStackNext;
+                const Unit& u = ed.units()[size_t(gStackNext)];
+                setMessage(app, L"Selected unit " + std::to_wstring(at - stack.begin() + 1) + L" of " + std::to_wstring(stack.size()) + L" here: " +
+                                    unitDisplayName(u.type) + L", Player " + std::to_wstring(u.owner + 1) + L". Click again for the next unit.");
+            }
+        }
+        gStackNext = -1;
         if (app.dragMoved) {
             float dx, dy;
             dragMoveDelta(wx, wy, dx, dy);

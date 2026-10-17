@@ -2115,3 +2115,12 @@ Delete 1 location	위치 1개 삭제
 Delete %d locations	위치 %d개 삭제
 Change 1 location	위치 1개 변경
 Change %d locations	위치 %d개 변경
+%d units here (Alt+click: list)	여기에 유닛 %d개 (Alt+클릭: 목록)
+Select a unit &here…	여기의 유닛 선택(&H)…
+Search the units here	여기의 유닛 검색
+Selected unit 	선택한 유닛 
+Added unit 	추가한 유닛 
+ of 	 / 
+ here: 	 (이 위치): 
+. Click again for the next unit.	. 다시 클릭하면 다음 유닛을 선택합니다.
+, at 	, 위치 
