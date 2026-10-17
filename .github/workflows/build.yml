@@ -126,9 +126,18 @@ jobs:
           # The text: what is new in this version (its changelog section), then the base changelog (what StarDraft is
           # and does, how to start) for new visitors; picture paths become addresses at this tag. tools/release.py
           # makes it, the same text that `release.py notes <version>` shows before a release.
-          python -I tools/release.py notes $version --tag $tag --out notes.md
-          if ($LASTEXITCODE) { throw "No release text for $version" }
-          $title = python -I tools/release.py title $version
+          # A preview (a tag v<version>-preview.<n>, made from the branch port/kit): a pre-release for early testers on
+          # Windows, macOS and Linux. It is never the latest release, so Check for updates of a release build does not
+          # offer it; its text is tools/preview_notes.md, and it is not posted in Discord.
+          $preview = $tag -like '*-preview*'
+          if ($preview) {
+            Copy-Item tools/preview_notes.md notes.md
+            $title = "StarDraft 2 $version"
+          } else {
+            python -I tools/release.py notes $version --tag $tag --out notes.md
+            if ($LASTEXITCODE) { throw "No release text for $version" }
+            $title = python -I tools/release.py title $version
+          }
           # A run again (Re-run of a failed run): a release that has its zip stays as it is (people can have that zip,
           # and its symbols match it); a release without its zip gets this build's zip and symbols.
           $assets = gh release view $tag --json assets --jq '.assets[].name' 2>$null
@@ -153,9 +162,14 @@ jobs:
           if ($exists) {
             gh release upload $tag $zip
           } else {
-            gh release create $tag $zip --title $title --latest --verify-tag --notes-file notes.md
+            if ($preview) {
+              gh release create $tag $zip --title $title --prerelease --latest=false --verify-tag --notes-file notes.md
+            } else {
+              gh release create $tag $zip --title $title --latest --verify-tag --notes-file notes.md
+            }
           }
           if ($LASTEXITCODE) { throw "The release $tag was not made ($LASTEXITCODE)" }
+          if ($preview) { Write-Output "Preview $tag is out (a pre-release): not posted in Discord."; exit 0 }
           # Discord: one post in each channel that has a webhook (a webhook posts in its own channel only), with the
           # screenshots of this version's changelog section as files (at most 10). A post that does not go makes the
           # run fail after the release is out: post again in that channel with Actions > Post screenshots to Discord.
@@ -674,11 +688,11 @@ jobs:
           path: release-test-macos
           if-no-files-found: warn
 
-  # A release tag, with the repository variable RELEASE_MAC "on": the macOS disk image goes on the release that the
+  # A release tag with the repository variable RELEASE_MAC "on", or a preview tag: the macOS disk image goes on the release that the
   # windows job made (it is made first: this job waits for both). A run again leaves a release's disk image as it is, as
   # the windows job leaves its zip. RELEASE_MAC not "on" (the default): the disk image is only the macos job's artifact.
   macos-release:
-    if: startsWith(github.ref, 'refs/tags/v') && vars.RELEASE_MAC == 'on'
+    if: startsWith(github.ref, 'refs/tags/v') && (vars.RELEASE_MAC == 'on' || contains(github.ref_name, '-preview'))
     needs: [windows, macos]
     runs-on: ubuntu-24.04
     steps:
@@ -699,6 +713,32 @@ jobs:
             exit 0
           fi
           gh release upload "$tag" "$dmg" --repo "$GITHUB_REPOSITORY"
+
+  # A release tag with the repository variable RELEASE_LINUX "on", or a preview tag: the AppImage goes on the release
+  # that the windows job made, as StarDraft-<version>-x86_64.AppImage (the name Check for updates looks for). A run again
+  # leaves a release's AppImage as it is.
+  linux-release:
+    if: startsWith(github.ref, 'refs/tags/v') && (vars.RELEASE_LINUX == 'on' || contains(github.ref_name, '-preview'))
+    needs: [windows, linux-appimage]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: stardraft-appimage-${{ github.sha }}
+          path: dist
+
+      - name: Attach the AppImage to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          name="StarDraft-${tag#v}-x86_64.AppImage"
+          mv dist/StarDraft-x86_64.AppImage "dist/$name"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qxF "$name"; then
+            echo "The release $tag has $name: nothing changes."
+            exit 0
+          fi
+          gh release upload "$tag" "dist/$name" --repo "$GITHUB_REPOSITORY"
 
   # The tests with the game's data, on a self-hosted runner in WSL Ubuntu on the owner's PC (labels self-hosted, linux,
   # scdata; research/ports/PLAN.md 1.6). Off until the repository variable STARDRAFT_DATA_RUNNER is "on". The
