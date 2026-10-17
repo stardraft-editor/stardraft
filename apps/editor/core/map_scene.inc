@@ -296,6 +296,30 @@ std::vector<PasteGhostUnit> unitPasteGhost(float wx, float wy) {
     return out;
 }
 
+// The terrain selection (the copy area; while it is made: to the mouse at wx, wy): its outline. Returns the number of
+// lines (the tests read it).
+size_t terrainSelScene(render::Scene& s, float wx, float wy) {
+    AppState& app = shellState();
+    Editor& ed = *app.ed;
+    const bool dragging = app.mode == Mode::Terrain && app.drag == Drag::TerrainSelect;
+    const size_t from = s.rects.size();
+    if (dragging || (app.mode == Mode::Terrain && app.hasTerrainSel)) {
+        const Rect r = dragging ? terrainSelectRect(wx, wy) : app.terrainSel;
+        if (selectShape() == Editor::SelectShape::Rect) outline(s, r, 0xFFD040FFu, 1.5f);
+        else if (app.terrainRect) {  // a diamond or an ellipse: the outline of the tiles in it (on the tile edges)
+            std::vector<std::pair<int, int>> tiles;
+            for (int y = r.top / 32; y * 32 < r.bottom; ++y)
+                for (int x = r.left / 32; x * 32 < r.right; ++x)
+                    if (Editor::inSelectShape(r, selectShape(), x * 32 + 16, y * 32 + 16)) tiles.push_back({x, y});
+            tileOutline(s, tiles, 0xFFD040FFu);
+        } else {  // the outline of the diamonds whose corners are in it (on the diamonds' edges)
+            const auto corners = ed.cornersInShape(r, selectShape());
+            diamondOutline(s, std::set<std::pair<int, int>>(corners.begin(), corners.end()), 0xFFD040FFu);
+        }
+    }
+    return s.rects.size() - from;
+}
+
 render::Scene buildScene() {
     AppState& app = shellState();
     syncMapUnitGraphics();  // before the animations: they hold the images of the unit types
@@ -422,22 +446,7 @@ render::Scene buildScene() {
         }
     }
 
-    // Terrain selection (copy area).
-    const bool dragging = app.mode == Mode::Terrain && app.drag == Drag::TerrainSelect;
-    if (dragging || (app.mode == Mode::Terrain && app.hasTerrainSel)) {
-        const Rect r = dragging ? terrainSelectRect(wx, wy) : app.terrainSel;
-        if (selectShape() == Editor::SelectShape::Rect) outline(s, r, 0xFFD040FFu, 1.5f);
-        else if (app.terrainRect) {  // a diamond or an ellipse: the outline of the tiles in it (on the tile edges)
-            std::vector<std::pair<int, int>> tiles;
-            for (int y = r.top / 32; y * 32 < r.bottom; ++y)
-                for (int x = r.left / 32; x * 32 < r.right; ++x)
-                    if (Editor::inSelectShape(r, selectShape(), x * 32 + 16, y * 32 + 16)) tiles.push_back({x, y});
-            tileOutline(s, tiles, 0xFFD040FFu);
-        } else {  // the outline of the diamonds whose corners are in it (on the diamonds' edges)
-            const auto corners = ed.cornersInShape(r, selectShape());
-            diamondOutline(s, std::set<std::pair<int, int>>(corners.begin(), corners.end()), 0xFFD040FFu);
-        }
-    }
+    terrainSelScene(s, wx, wy);  // Terrain selection (copy area)
 
     if (gShowRanges && app.mode == Mode::Units) rangesScene(s, moveDX, moveDY);  // (they follow a unit being moved)
 
