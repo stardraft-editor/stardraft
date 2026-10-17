@@ -138,5 +138,55 @@ int main(int argc, char** argv) {
     }
     std::printf("%d of %zu perfect; %.3f ms a stroke (the old engine: %d of %d with the same ISOM terrains)\n", pass, kCases.size(),
                 strokes ? paintMs / double(strokes) : 0.0, oldPerfect, oldPerfect + oldImperfect);
+    // ScmDraft's resize (IsomTerrain's runResizeMapTests): a source map resized and moved, the new area filled.
+    struct Resize {
+        const char* source;
+        const char* expected;
+        uint16_t width, height;
+        int x, y;
+        size_t fill;
+    };
+    using B = Sc::Isom::Brush;
+    const Resize resizes[] = {
+        {"Resize Source Maps/dirt.scm", "ScmDraft Resized Maps/dirtToGrass64.scm", 64, 64, 0, 0, B::Badlands::Grass},
+        {"Resize Source Maps/dirt.scm", "ScmDraft Resized Maps/dirtToGrass256.scm", 256, 256, 0, 0, B::Badlands::Grass},
+        {"Resize Source Maps/dirt.scm", "ScmDraft Resized Maps/dirtToGrass256_p12_p9.scm", 256, 256, 12, 9, B::Badlands::Grass},
+        {"Resize Source Maps/dirt.scm", "ScmDraft Resized Maps/dirtToGrass256_p12_m9.scm", 256, 256, 12, -9, B::Badlands::Grass},
+        {"Resize Source Maps/dirt.scm", "ScmDraft Resized Maps/dirtToGrass256_m12_p9.scm", 256, 256, -12, 9, B::Badlands::Grass},
+        {"Resize Source Maps/dirt.scm", "ScmDraft Resized Maps/dirtToGrass256_m12_m9.scm", 256, 256, -12, -9, B::Badlands::Grass},
+        {"Resize Source Maps/Helms Deep Annatar East 8.7.scx", "ScmDraft Resized Maps/hde64.scm", 64, 64, 0, 0, B::Jungle::Water},
+        {"Resize Source Maps/Helms Deep Annatar East 8.7.scx", "ScmDraft Resized Maps/hde256.scm", 256, 256, 0, 0, B::Jungle::Water},
+        {"Resize Source Maps/Helms Deep Annatar East 8.7.scx", "ScmDraft Resized Maps/hde256_p12_p9.scm", 256, 256, 12, 9, B::Jungle::Water},
+        {"Resize Source Maps/Helms Deep Annatar East 8.7.scx", "ScmDraft Resized Maps/hde256_m12_m9.scm", 256, 256, -12, -9, B::Jungle::Water},
+    };
+    int resizePass = 0;
+    for (const Resize& r : resizes) {
+        Bytes raw, rawExpected;
+        if (!readMapChk(pack / r.source, raw, err) || !readMapChk(pack / r.expected, rawExpected, err)) {
+            std::printf("FAIL  %s: %s\n", r.expected, err.c_str());
+            ++fail;
+            continue;
+        }
+        stardraft::Chk chk = stardraft::Chk::parse(raw), expected = stardraft::Chk::parse(rawExpected);
+        const uint16_t era = uint16_t(readEra(chk) & 7);
+        if (tilesets[era].groups.empty() && !tilesets[era].load(data, era, err)) return 2;
+        IsomCore core;
+        const bool done = core.load(chk, tilesets[era], err) &&
+                          core.resize(r.width, r.height, r.x, r.y, Sc::Isom::tilesetTerrainTypes[era][r.fill].isomValue);
+        core.store(chk);
+        size_t diff[3] = {};
+        const char* names[3] = {"ISOM", "TILE", "MTXM"};
+        for (int s = 0; s < 3; ++s) {
+            const SectionName n = s == 0 ? SectionName("ISOM") : s == 1 ? SectionName("TILE") : SectionName("MTXM");
+            const auto a = u16s(chk, n), b = u16s(expected, n);
+            diff[s] = a.size() == b.size() ? 0 : std::max(a.size(), b.size());
+            for (size_t i = 0; i < std::min(a.size(), b.size()); ++i) diff[s] += s == 0 ? a[i] != b[i] : (a[i] >> 4) != (b[i] >> 4);
+        }
+        const bool ok = done && !diff[0] && !diff[1] && !diff[2];
+        std::printf("%s  %-48s %s %zu, %s %zu, %s %zu differ\n", ok ? "ok  " : "FAIL", r.expected, names[0], diff[0], names[1], diff[1], names[2],
+                    diff[2]);
+        ok ? ++resizePass : ++fail;
+    }
+    std::printf("resize: %d of %zu perfect\n", resizePass, std::size(resizes));
     return fail ? 1 : 0;
 }

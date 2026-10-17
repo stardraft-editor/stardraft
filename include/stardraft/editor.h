@@ -119,9 +119,10 @@ public:
     // The terrain core (IsomCore) paints the brush where it can (on unless STARDRAFT_TERRAIN_CORE=0: the old engine
     // only, to compare them while the core takes over; docs/dev/isom-terrain-plan.md).
     static bool terrainCoreOn();
-    // Where the core leaves a rect without a tile, the old engine makes the edit (on unless STARDRAFT_TERRAIN_REPAIR=0:
-    // the core's result as StarEdit's, null tiles too).
+    // Where the core leaves a rect without a tile, the old engine makes the edit (Program options > Map > Terrain; off
+    // also with STARDRAFT_TERRAIN_REPAIR=0: the core's result as StarEdit's, null tiles too).
     static bool terrainRepairOn();
+    static void setTerrainRepair(bool on);
     // A brush stroke: begin once (one undo step), paint any number of times, end.
     void beginTerrainStroke();
     void paintTerrain(int px, int py, uint16_t terrain, int brushSize);

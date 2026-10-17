@@ -1,6 +1,6 @@
 # Plan: IsomTerrain as the isometric terrain core
 
-State: in progress (2026-10-17), branch `isom-terrain`. See "Progress" at the end.
+State: done for what StarEdit has (2026-10-17), branch `isom-terrain`. See "Progress" at the end.
 
 ## The goal
 
@@ -100,8 +100,16 @@ compare with Chkdraft's newer code for fixes worth taking.
   nearest diamond, an even size a block centered on the nearest corner (so it moves in half-diamond steps), both
   StarEdit's blocks through the core; size 0.5 (back in the size list, Alt + wheel and a typed value) is one corner,
   half a diamond, with the old engine.
-- The old engine stays for now: the repair, the half-size brush, paste and Rectangle mode use it, so its learned tables
-  stay too (point 4 of the setup waits for that).
-- Next: tiles from ISOM (regen: new maps, maps without an ISOM, resize) through the core; the tile variant choice on
-  top (the core picks a random common or rare subtile, as StarEdit); the repair as a setting in Options; paste as ISOM
-  copies (the core's `copyIsomFrom`).
+- Done: resize with the same tileset through the core: ScmDraft's own resize (`IsomCore::resize`: the terrain moved,
+  the new ground filled, the edges made, the tiles that stay keep theirs); `isomterrain_test` runs IsomTerrain's 10
+  resize reference tests: 10 of 10 perfect. A change of tileset keeps StarDraft's resize (IsomTerrain has none).
+- Done: new maps (File > New, the New page's Create) get their tiles from the core: StarEdit's new map (`IsomCore::fill`).
+- Done: the repair is a setting: Program options > Map > Terrain, "Repair the spots StarEdit's terrain rules leave
+  without a tile" (on by default; `STARDRAFT_TERRAIN_REPAIR=0` also turns it off).
+- Decided: the tile variants stay the core's: StarEdit's own rule (a common or a rare variant at random, the right
+  tile of a rect as the left one, a cliff stack repeating the variant above). StarDraft's learned choice imitated it.
+- paint_stress (189 Blizzard maps, 40 strokes each): 0.21 ms a brush call (old engine 0.76), 22 misfit tiles (80), no
+  invalid diamonds.
+- The old engine stays, with its learned tables: the repair, the 0.5 brush (one corner), paste, Rectangle mode, the
+  terrain generator, maps without an ISOM and a resize to another tileset use it. These are StarDraft's own features
+  with no StarEdit equivalent; the core cannot take them over as they are.
