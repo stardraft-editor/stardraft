@@ -9,9 +9,23 @@
 // program puts the grid in the panel (TilesPanelView::holdGrid) and places the panel (sdl_main_view.inc).
 
 int tilesFooterH() { return scale(26); }
-int tilesCell() { return scale(32); }
-int tilesGap() { return scale(3); }
-int tilesPad() { return scale(4); }
+
+// The grid's places (GitHub #128, #139): always 16 tiles in a row, a tile group in each row (its tiles 0 to 15, as
+// StarEdit and ScmDraft show them), no padding, 1 px between the tiles and between the rows. The tiles scale so that
+// 16 tiles and 15 gaps fill the list's width (gTiles.listW) exactly: column i is from tilesEdge(i) to
+// tilesEdge(i + 1) - 1, and the pixel after it is the gap (the tiles' widths differ by 1 px at most). Rows use the
+// same edges, so the tiles are square (or 1 px from it). A tile is tilesMinCell() at least: a list narrower than 16 of
+// them and the gaps shows the left part of the rows (the side bar's minimum width has more room than that).
+constexpr int kTilesPerRow = 16;
+int tilesMinCell() { return scale(8); }
+int tilesEdge(int i) { return int(int64_t(i) * (gTiles.listW + 1) / kTilesPerRow); }
+// The column (or row) at content pixel p (the gap after a tile counts as that tile's); p < 0: -1.
+int tilesIndexAt(int p) { return p < 0 ? -1 : int((int64_t(p + 1) * kTilesPerRow - 1) / (gTiles.listW + 1)); }
+// The tile's place in the grid's content: the k-th slot of the grid.
+draw::Rect tilesSlotRect(int k) {
+    const int col = k % kTilesPerRow, row = k / kTilesPerRow;
+    return {tilesEdge(col), tilesEdge(row), tilesEdge(col + 1) - 1, tilesEdge(row + 1) - 1};
+}
 
 void shellFocusView();
 std::wstring shellTr(const wchar_t* english);
@@ -137,16 +151,14 @@ public:
         return v >= 0 ? tilesValueLabel(v) : L"the Tiles list";
     }
 
-    // The tile value at a point of the grid, or -1.
+    // The tile value at a point of the grid, or -1 (a gap, a slot with no tile).
     int hit(int x, int y) {
         tilesFresh();
-        if (!appState().ed || y >= tilesViewH() || gTiles.values.empty()) return -1;
-        const int pad = tilesPad(), step = tilesCell() + tilesGap(), cy = y + gTiles.scroll;
-        if (x < pad || cy < pad) return -1;
-        const int col = (x - pad) / step, row = (cy - pad) / step;
-        if (col >= gTiles.perRow || (x - pad) % step >= tilesCell() || (cy - pad) % step >= tilesCell()) return -1;
-        const size_t k = size_t(row) * size_t(gTiles.perRow) + size_t(col);
-        return k < gTiles.values.size() ? gTiles.values[k] : -1;
+        if (!appState().ed || y < 0 || y >= tilesViewH() || gTiles.values.empty()) return -1;
+        const int cy = y + gTiles.scroll, col = tilesIndexAt(x), row = tilesIndexAt(cy);
+        if (col < 0 || row < 0 || col >= kTilesPerRow || x >= tilesEdge(col + 1) - 1 || cy >= tilesEdge(row + 1) - 1) return -1;
+        const size_t k = size_t(row) * size_t(kTilesPerRow) + size_t(col);
+        return k < gTiles.values.size() && gTiles.values[k] != kTilesNone ? gTiles.values[k] : -1;
     }
 
 private:
@@ -266,8 +278,10 @@ void tilesRebuild() {
     gTiles.values.clear();
     gTiles.hover = -1;
     if (!app.ed || !app.ed->isOpen()) return;
-    const int pad = tilesPad(), cell = tilesCell(), gap = tilesGap(), w = gTilesGrid.width();
-    gTiles.perRow = std::max(1, (w - 2 * pad + gap) / (cell + gap));
+    const int w = gTilesGrid.width();
+    gTiles.listW = std::max(w, kTilesPerRow * tilesMinCell() + kTilesPerRow - 1);
+    // A row is a tile group (the tiles that the filter hides are empty slots), but the favorites follow one another.
+    const bool byGroup = !(gTiles.filter > 0 && gTiles.filter < int(gTiles.filters.size()) && gTiles.filters[size_t(gTiles.filter)].kind == 5);
     std::wstring text = gTilesPanel.search().text();
     std::transform(text.begin(), text.end(), text.begin(), ::towlower);
     std::vector<std::wstring> words;
@@ -279,7 +293,7 @@ void tilesRebuild() {
         if (i > s) words.push_back(text.substr(s, i - s));
     }
     tilesFillFilters();
-    const size_t groups = std::min<size_t>(app.ed->tileset().groups.size(), 4096);
+    const size_t groups = std::min<size_t>(app.ed->tileset().groups.size(), 4095);  // (4095 << 4 | 15 is kTilesNone)
     for (size_t g = 0; g < groups; ++g) {
         if (!words.empty()) {  // the search: the group's number and what it is
             std::wstring hay = L"group " + std::to_wstring(g) + L" " + tilesGroupNote(int(g));
@@ -288,11 +302,15 @@ void tilesRebuild() {
             for (const auto& wd : words) all = all && hay.find(wd) != std::wstring::npos;
             if (!all) continue;
         }
+        bool any = false;
+        for (int s = 0; s < 16 && !any; ++s) any = tilesInFilter(uint16_t(g << 4 | s));
+        if (!any) continue;
         for (int s = 0; s < 16; ++s)
             if (tilesInFilter(uint16_t(g << 4 | s))) gTiles.values.push_back(uint16_t(g << 4 | s));
+            else if (byGroup) gTiles.values.push_back(kTilesNone);
     }
-    const int rows = (int(gTiles.values.size()) + gTiles.perRow - 1) / gTiles.perRow;
-    gTiles.contentH = pad + rows * (cell + gap) + pad;
+    const int rows = (int(gTiles.values.size()) + kTilesPerRow - 1) / kTilesPerRow;
+    gTiles.contentH = rows ? tilesEdge(rows) - 1 : 0;
     gTiles.layoutW = w;
     gTiles.builtFor = app.ed.get(), gTiles.builtEra = app.ed->era();
     tilesScrollTo(gTiles.scroll);
@@ -307,9 +325,19 @@ void tilesScrollTo(int pos) {
 
 // Where the k-th tile of the grid is, in content coordinates.
 RECT tilesCellRect(int k) {
-    const int pad = tilesPad(), cell = tilesCell(), gap = tilesGap();
-    const int x = pad + (k % gTiles.perRow) * (cell + gap), y = pad + (k / gTiles.perRow) * (cell + gap);
-    return {x, y, x + cell, y + cell};
+    const draw::Rect r = tilesSlotRect(k);
+    return {r.left, r.top, r.right, r.bottom};
+}
+
+// A snapshot's click on a tile of the list (--click tile<k>): the middle of the grid's k-th slot in the window, when it
+// shows (sdl_menus.inc).
+bool tilesSlotCenter(int k, int& x, int& y) {
+    tilesFresh();
+    if (k < 0 || k >= int(gTiles.values.size()) || !gTilesGrid.shown()) return false;
+    const draw::Rect r = tilesSlotRect(k);
+    const draw::Point o = gTilesGrid.origin();
+    x = o.x + (r.left + r.right) / 2, y = o.y + (r.top + r.bottom) / 2 - gTiles.scroll;
+    return y - o.y >= 0 && y - o.y < tilesViewH() && x - o.x < gTilesGrid.width();
 }
 
 // The filter box's choice (clamped): the grid shows those tiles.
@@ -323,16 +351,16 @@ void tilesSetFilter(int index) {
 
 // The box: the tiles whose cells it touches, added to the ones selected before it.
 void TilesGridView::boxSelect() {
-    const int pad = tilesPad(), step = tilesCell() + tilesGap();
     const int x0 = std::min(gTiles.boxFrom.x, gTiles.boxTo.x), x1 = std::max(gTiles.boxFrom.x, gTiles.boxTo.x);
     const int y0 = std::min(gTiles.boxFrom.y, gTiles.boxTo.y), y1 = std::max(gTiles.boxFrom.y, gTiles.boxTo.y);
-    const int c0 = std::max(0, (x0 - pad) / step), c1 = std::min(gTiles.perRow - 1, (x1 - pad) / step);
-    const int r0 = std::max(0, (y0 - pad) / step), r1 = std::max(0, (y1 - pad) / step);
+    const int c0 = std::max(0, tilesIndexAt(x0)), c1 = std::min(kTilesPerRow - 1, tilesIndexAt(x1));
+    const int r0 = std::max(0, tilesIndexAt(y0)), r1 = std::max(0, tilesIndexAt(y1));
     std::vector<uint16_t> chosen = gTiles.boxBase;
     for (int r = r0; r <= r1; ++r)
         for (int c = c0; c <= c1; ++c) {
-            const size_t k = size_t(r) * size_t(gTiles.perRow) + size_t(c);
-            if (k < gTiles.values.size() && std::find(chosen.begin(), chosen.end(), gTiles.values[k]) == chosen.end()) chosen.push_back(gTiles.values[k]);
+            const size_t k = size_t(r) * size_t(kTilesPerRow) + size_t(c);
+            if (k < gTiles.values.size() && gTiles.values[k] != kTilesNone && std::find(chosen.begin(), chosen.end(), gTiles.values[k]) == chosen.end())
+                chosen.push_back(gTiles.values[k]);
         }
     if (chosen.empty()) return;
     gTiles.chosen = chosen;
@@ -349,27 +377,37 @@ void TilesGridView::paint(draw::Canvas& c) {
     const int viewH = tilesViewH();
     if (app.ed && app.ed->isOpen()) {
         c.pushClip({0, 0, w, viewH});
-        const int step = tilesCell() + tilesGap();
-        const int firstRow = std::max(0, (gTiles.scroll - tilesPad()) / step), lastRow = (gTiles.scroll + viewH) / step + 1;
+        const int firstRow = std::max(0, tilesIndexAt(gTiles.scroll)), lastRow = tilesIndexAt(gTiles.scroll + viewH);
+        // The pictures scale to the tiles: nearest pixels when each tile is a whole number of the picture's pixels (2x,
+        // 3x), else filtered (smaller, or a part of a pixel more). One rule for all the tiles of the list.
+        const int nominal = gTiles.listW - (kTilesPerRow - 1);
+        int whole = -1;  // (the first tile drawn sets it: the picture's size is the art's)
+        std::vector<std::pair<draw::Rect, uint16_t>> marks;  // the outlines go over the tiles next to them: after them
         for (int row = firstRow; row <= lastRow; ++row)
-            for (int col = 0; col < gTiles.perRow; ++col) {
-                const size_t k = size_t(row) * size_t(gTiles.perRow) + size_t(col);
+            for (int col = 0; col < kTilesPerRow; ++col) {
+                const size_t k = size_t(row) * size_t(kTilesPerRow) + size_t(col);
                 if (k >= gTiles.values.size()) break;
                 const uint16_t v = gTiles.values[k];
-                const RECT cr = tilesCellRect(int(k));
-                const draw::Rect cell{cr.left, cr.top - gTiles.scroll, cr.right, cr.bottom - gTiles.scroll};
+                if (v == kTilesNone) continue;
+                const draw::Rect sr = tilesSlotRect(int(k));
+                const draw::Rect cell{sr.left, sr.top - gTiles.scroll, sr.right, sr.bottom - gTiles.scroll};
                 draw::Rect src;
                 draw::Bitmap& px = tilesPixels(v, src);
-                c.bitmap(px, src, cell);
-                if (v == gTiles.picked || (gTiles.chosen.size() > 1 && std::find(gTiles.chosen.begin(), gTiles.chosen.end(), v) != gTiles.chosen.end())) {
-                    const int g = scale(2);
-                    c.frame({cell.left - g, cell.top - g, cell.right + g, cell.bottom + g}, kAccent, scale(2));
-                } else if (v == gTiles.hover) {
-                    c.frame({cell.left - 1, cell.top - 1, cell.right + 1, cell.bottom + 1}, kBorderStrong, 1);
-                } else if (tilesIsNull(v)) {  // a null tile: its frame, so it shows on the dark background
-                    c.frame(cell, kBorder, 1);
-                }
+                const int size = src.right - src.left;
+                if (whole < 0) whole = size > 0 && nominal % kTilesPerRow == 0 && (nominal / kTilesPerRow) % size == 0;
+                c.bitmap(px, src, cell, !whole);
+                const bool sel = v == gTiles.picked || (gTiles.chosen.size() > 1 && std::find(gTiles.chosen.begin(), gTiles.chosen.end(), v) != gTiles.chosen.end());
+                if (sel || v == gTiles.hover) marks.push_back({cell, v});
+                else if (tilesIsNull(v)) c.frame(cell, kBorder, 1);  // a null tile: its frame, so it shows on the dark background
             }
+        // The selection: an accent frame on the gaps around the tile and its edge; the tile under the mouse: a line on
+        // the gaps around it.
+        for (const auto& [cell, v] : marks) {
+            const bool sel = v == gTiles.picked || std::find(gTiles.chosen.begin(), gTiles.chosen.end(), v) != gTiles.chosen.end();
+            const draw::Rect around{cell.left - 1, cell.top - 1, cell.right + 1, cell.bottom + 1};
+            if (sel) c.frame(around, kAccent, std::max(2, scale(2)));
+            else c.frame(around, kBorderStrong, 1);
+        }
         c.popClip();
         if (gTiles.values.empty()) c.text({scale(8), scale(8), w - scale(8), viewH}, shellTr(L"None"), kDim, draw::kLeft);
     }
@@ -417,7 +455,7 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
                 const int a = std::min(at(gTiles.picked), at(v)), b = std::max(at(gTiles.picked), at(v));
                 if (!ctrl) gTiles.chosen.clear();
                 for (int k = a; k <= b && k < int(gTiles.values.size()); ++k)
-                    if (std::find(gTiles.chosen.begin(), gTiles.chosen.end(), gTiles.values[size_t(k)]) == gTiles.chosen.end())
+                    if (gTiles.values[size_t(k)] != kTilesNone && std::find(gTiles.chosen.begin(), gTiles.chosen.end(), gTiles.values[size_t(k)]) == gTiles.chosen.end())
                         gTiles.chosen.push_back(gTiles.values[size_t(k)]);
             } else if (auto it = std::find(gTiles.chosen.begin(), gTiles.chosen.end(), uint16_t(v)); it != gTiles.chosen.end()) {
                 if (gTiles.chosen.size() > 1) gTiles.chosen.erase(it);

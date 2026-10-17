@@ -2180,6 +2180,9 @@ constexpr UiText kRows[] = {
     {L" here: ", L" (\uC774 \uC704\uCE58): "},
     {L". Click again for the next unit.", L". \uB2E4\uC2DC \uD074\uB9AD\uD558\uBA74 \uB2E4\uC74C \uC720\uB2DB\uC744 \uC120\uD0DD\uD569\uB2C8\uB2E4."},
     {L", at ", L", \uC704\uCE58 "},
+    {L"The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.", L"\uB9C8\uB984\uBAA8\uB294 \uB9F5\uC758 \uB9C8\uB984\uBAA8 \uBAA8\uC591\uC744 \uAC00\uC9D1\uB2C8\uB2E4: \uB192\uC774\uB294 \uD06C\uAE30\uB97C \uB530\uB985\uB2C8\uB2E4. \uB192\uC774\uB97C \uC815\uD558\uB824\uBA74 \uC815\uC0AC\uAC01\uD615\uC774\uB098 \uC6D0\uC744 \uC120\uD0DD\uD558\uC2ED\uC2DC\uC624."},
+    {L"The diamond has the shape of the map's diamonds: its height follows its size.", L"\uB9C8\uB984\uBAA8\uB294 \uB9F5\uC758 \uB9C8\uB984\uBAA8 \uBAA8\uC591\uC744 \uAC00\uC9D1\uB2C8\uB2E4: \uB192\uC774\uB294 \uD06C\uAE30\uB97C \uB530\uB985\uB2C8\uB2E4."},
+    {L"Brush height: the diamond has the shape of the map's diamonds, so its height follows its size. To set the height, select the square or the circle.", L"\uBE0C\uB7EC\uC2DC \uB192\uC774: \uB9C8\uB984\uBAA8\uB294 \uB9F5\uC758 \uB9C8\uB984\uBAA8 \uBAA8\uC591\uC744 \uAC00\uC9C0\uBBC0\uB85C \uB192\uC774\uB294 \uD06C\uAE30\uB97C \uB530\uB985\uB2C8\uB2E4. \uB192\uC774\uB97C \uC815\uD558\uB824\uBA74 \uC815\uC0AC\uAC01\uD615\uC774\uB098 \uC6D0\uC744 \uC120\uD0DD\uD558\uC2ED\uC2DC\uC624."},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

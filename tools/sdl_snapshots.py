@@ -302,7 +302,8 @@ CASES += [
 # tabs: CHECKS reads them. --move x,y moves the mouse only (a paste's copy follows it). More points of the map at the fitted zoom: open ground at 520..640,640..720 and 900,800, space (no
 # ground) at 450,450, a place where the first doodad (Dark Platform #0) fits at 559,590 and at 535,590; the Doodads
 # and Sprites palettes' first item at 115,600; the Terrain palette's Solar Array at
-# 202,759; the Tiles list's first tile at 160,660 (Rectangle).
+# 202,759; a tile of the Tiles list (Rectangle): --click tile<k>, the middle of the list's k-th slot (with All tiles,
+# slot k is tile value k: group k / 16, tile k % 16).
 CASES += [
     # Doodads: a palette pick, a click places the doodad, Esc lets go of the pick, a click selects the doodad, a drag
     # moves it, Undo puts it back, Delete removes it, Undo gives it back.
@@ -329,7 +330,7 @@ CASES += [
     ("map-terrain-lostdrag", ["--mode", "terrain", "--click", "202,759:Ctrl", "--key", "B", "--lostdrag", "520,650-640,690:Shift",
                               "--move", "700,650", "--key", "Ctrl+Z"], "map"),
     # Rectangle: a tile of the Tiles list, the brush and a click puts the tile there; Undo takes it back.
-    ("map-terrain-rect-paint", ["--rect", "--click", "160,660", "--key", "B", "--click", "560,690", "--key", "Ctrl+Z"], "map"),
+    ("map-terrain-rect-paint", ["--rect", "--click", "tile16", "--key", "B", "--click", "560,690", "--key", "Ctrl+Z"], "map"),
     # The Tiles list scrolled to its end and back to its start with the wheel (GitHub #148: a crash at the end of the
     # list): a frame after each notch, each with new tiles. No picture that a frame drew goes before the GPU has drawn
     # that frame (freedinframe), and the list keeps the pictures of a few tile groups, not of all.
@@ -338,7 +339,7 @@ CASES += [
     # Tiles list is placed there (Rectangle at 271,427), then the same click paints Solar Array again (Isometric at
     # 135,427; the ISOM does not change): a tile of the brush's group is there again, not the placed one.
     ("map-terrain-brush-over-tiles", ["--mode", "terrain", "--click", "202,759", "--key", "B", "--click", "560,690",
-                                      "--move", "560,690", "--click", "271,427", "--click", "160,660", "--key", "B",
+                                      "--move", "560,690", "--click", "271,427", "--click", "tile16", "--key", "B",
                                       "--click", "560,690", "--click", "135,427", "--click", "202,759", "--key", "B",
                                       "--click", "560,690"], "map"),
     # The quick picker (Q) in Rectangle mode (GitHub #141): its rows are the tile groups, found as the Tiles list's
@@ -348,6 +349,32 @@ CASES += [
     # window painting (as when it scrolls; the Tiles list does not paint): it keeps the pictures of a few tile groups,
     # not of each group it showed (each is 16 tiles).
     ("map-terrain-rect-quick-scroll", ["--rect", "--key", "Q", "--wheel", "832,500,0,-1:Repeat200"], "map"),
+    # The Tiles list at the side bar's widths that give it 240, 320 and 480 px ({leftwidth:<n>}: a settings file with
+    # that side width; the list is the side less 6 px at each side), and 480 px at the scale 1.5 (GitHub #128, #139):
+    # 16 tiles in a row, the tiles scaled to fill the width with 1 px between them; a click at the middle of slot 37
+    # (group 2, tile 5) and of slot 63 (group 3, tile 15, the last column) picks that tile.
+    ("map-tiles-grid-240", ["--settings", "{leftwidth:252}", "--rect", "--click", "tile37", "--click", "tile63"], "map"),
+    ("map-tiles-grid-320", ["--settings", "{leftwidth:332}", "--rect", "--click", "tile37", "--click", "tile63"], "map"),
+    ("map-tiles-grid-480", ["--settings", "{leftwidth:492}", "--rect", "--click", "tile37", "--click", "tile63"], "map"),
+    ("map-tiles-grid-480-scale15", ["--settings", "{leftwidth:332}", "--scale", "1.5", "--size", "2400x1500", "--rect",
+                                    "--click", "tile37", "--click", "tile63"], "map"),
+    # The Diamond keeps the map's diamond shape (GitHub #138): two clicks on the height's up arrow change nothing (a
+    # message says why), the size's up arrow makes it 3 x 3 (diamonds, Isometric), and in Rectangle it is 3 x 2 tiles.
+    ("map-brush-diamond-locked", ["--mode", "terrain", "--click", "296,485:Repeat2", "--click", "198,485",
+                                  "--click", "271,427"], "map"),
+    # The Circle's and the Diamond's brush in Rectangle mode drawn as their outline on the tile edges, not as tiles
+    # (GitHub #135, #136): size 7 (five clicks on the size's up arrow), the mouse over the map. The Square stays as
+    # it was: its tiles and a box.
+    ("map-tiles-brush-diamond", ["--rect", "--click", "tile16", "--key", "B", "--click", "198,487:Repeat5", "--move", "700,600"], "map"),
+    ("map-tiles-brush-circle", ["--rect", "--click", "tile16", "--key", "B", "--wheel", "90,491,0,-1", "--click", "198,487:Repeat5",
+                                "--move", "700,600"], "map"),
+    ("map-tiles-brush-square", ["--rect", "--click", "tile16", "--key", "B", "--wheel", "90,491,0,1", "--click", "198,487:Repeat5",
+                                "--move", "700,600"], "map"),
+    # The terrain selection (V) of the Diamond and of the Circle: its outline (Isometric: on the diamonds' edges;
+    # Rectangle: on the tile edges), as the rectangle's (GitHub #135, #136).
+    ("map-terrain-select-diamond", ["--mode", "terrain", "--key", "V", "--drag", "520,600-700,720"], "map"),
+    ("map-terrain-select-circle", ["--mode", "terrain", "--wheel", "90,485,0,-1", "--key", "V", "--drag", "520,600-700,720"], "map"),
+    ("map-tiles-select-circle", ["--rect", "--wheel", "90,491,0,-1", "--key", "V", "--drag", "520,600-700,720"], "map"),
     # Terrain select (V): a drag selects, Copy, Paste: the copy follows the mouse; a click puts it; Undo; Cut; Undo.
     ("map-terrain-paste", ["--mode", "terrain", "--key", "V", "--drag", "520,640-600,700", "--key", "Ctrl+C", "--key", "Ctrl+V",
                            "--move", "900,800", "--click", "900,800", "--key", "Ctrl+Z", "--key", "Esc", "--key", "V",
@@ -458,7 +485,7 @@ CASES += [
     # height's up arrow (Terrain: 2 to 10).
     ("data-quick-armor", ["--newproject", "{newdir}", "--workspace", "data", "--data", "weapons:0", "--click", "1084,404:Repeat8"], "data"),
     ("data-quick-toggle", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "554,285:Repeat8"], "data"),
-    ("map-quick-arrow", ["--mode", "terrain", "--click", "296,485:Repeat8"], "map"),
+    ("map-quick-arrow", ["--mode", "terrain", "--wheel", "90,485,0,1", "--click", "296,485:Repeat8"], "map"),
     # A double click needs both clicks on the same row (--click x,y:Quick: a click that comes quickly after the one
     # before, which SDL counts as a double click): two quick clicks on two rows select the second one and play nothing;
     # a double click on one row plays its sound. The Assets page's game sounds and the SFX data list.
@@ -862,7 +889,7 @@ key Esc
 key Ctrl+Z
 key Esc
 rect
-click 160,660
+click tile16
 key B
 click 560,690
 rect off
@@ -1302,6 +1329,74 @@ def check_rect_scroll(output):
     if pics > 100:
         return f"the list kept the pictures of {pics} tile groups"
     return None
+
+
+def check_tiles_grid(width):
+    """The Tiles list is `width` px: 16 tiles in a row that fill it with 1 px between them (GitHub #128, #139); the
+    clicks at the middle of slots 37 and 63 pick tiles 37 and 63."""
+    def check(output):
+        s = state_lines(output)
+        if len(s) < 2:
+            return f"{len(s)} state lines, not 2"
+        try:
+            w, edges = s[0]["tilegrid"].split(":")
+            w, edges = int(w), [int(e) for e in edges.split(",")]
+        except (KeyError, ValueError):
+            return "no tilegrid in the state line"
+        if w != width:
+            return f"the list is {w} px, not {width}"
+        if len(edges) != 17 or edges[0] != 0 or edges[16] != w + 1:
+            return f"not 16 columns that fill {w} px with 1 px gaps: {edges}"
+        sizes = [edges[i + 1] - edges[i] - 1 for i in range(16)]
+        if max(sizes) - min(sizes) > 1 or min(sizes) < 8:
+            return f"the tiles are not the same size (or too small): {sizes}"
+        if sum(sizes) + 15 != w:
+            return f"16 tiles and 15 gaps of 1 px are {sum(sizes) + 15} px, not {w}"
+        if (s[0].get("tilepicked"), s[1].get("tilepicked")) != ("37", "63"):
+            return f"the clicks picked {s[0].get('tilepicked')} and {s[1].get('tilepicked')}, not 37 and 63"
+        return None
+    return check
+
+
+def check_diamond_locked(output):
+    """The Diamond's height follows its size (GitHub #138): 2 x 2, 3 x 3, then 3 x 2 tiles in Rectangle."""
+    return expect(output, 3, [
+        ("the height's up arrow changed the diamond's height", lambda s: s[0]["brush"] == "2x2" and "its height follows its size" in output),
+        ("the size's up arrow did not make it 3 x 3", lambda s: s[1]["brush"] == "3x3"),
+        ("in Rectangle the diamond is not 3 x 2 tiles", lambda s: s[2]["brush"] == "3x2"),
+    ])
+
+
+def check_tiles_brush(shape, outline):
+    """The brush of `shape` in Rectangle mode at size 7: its outline only (no tiles in the preview), or (the square)
+    its tiles."""
+    def check(output):
+        s = state_lines(output)
+        if not s:
+            return "no state lines"
+        last = s[-1]
+        if last.get("brushshape") != shape or not last.get("brush", "").startswith("7x"):
+            return f"the brush is {last.get('brushshape')} {last.get('brush')}, not {shape} 7 x n"
+        try:
+            tiles, lines = (int(x) for x in last["tilepreview"].split("/"))
+        except (KeyError, ValueError):
+            return "no tilepreview in the state line"
+        if outline and (tiles or lines < 8):
+            return f"the {shape} shows {tiles} tiles and {lines} lines, not only its outline (GitHub #135, #136)"
+        if not outline and (tiles < 49 or lines != 1):
+            return f"the square shows {tiles} tiles and {lines} lines, not its 49 tiles and their box"
+        return None
+    return check
+
+
+def check_select_shape(shape):
+    """The terrain selection of `shape` is made (its outline is in the picture)."""
+    def check(output):
+        s = state_lines(output)
+        if not s or s[-1].get("brushshape") != shape or s[-1].get("tsel") == "-":
+            return f"no {shape} selection: {s[-1].get('brushshape') if s else '-'} {s[-1].get('tsel') if s else '-'}"
+        return None
+    return check
 
 
 def check_brush_over_tiles(output):
@@ -3075,6 +3170,12 @@ CHECKS = {"map-stack-list": check_stack_list, "map-stack-cycle": check_stack_cyc
           "map-location-make": check_location_make, "map-terrain-brush": check_terrain_brush,
           "map-terrain-rect-paint": check_rect_paint, "map-terrain-paste": check_terrain_paste,
           "map-terrain-rect-scroll": check_rect_scroll, "map-terrain-brush-over-tiles": check_brush_over_tiles,
+          "map-tiles-grid-240": check_tiles_grid(240), "map-tiles-grid-320": check_tiles_grid(320),
+          "map-tiles-grid-480": check_tiles_grid(480), "map-tiles-grid-480-scale15": check_tiles_grid(480),
+          "map-brush-diamond-locked": check_diamond_locked, "map-tiles-brush-diamond": check_tiles_brush("diamond", True),
+          "map-tiles-brush-circle": check_tiles_brush("circle", True), "map-tiles-brush-square": check_tiles_brush("square", False),
+          "map-terrain-select-diamond": check_select_shape("diamond"), "map-terrain-select-circle": check_select_shape("circle"),
+          "map-tiles-select-circle": check_select_shape("circle"),
           "map-terrain-rect-quick": check_rect_quick, "map-terrain-rect-quick-scroll": check_rect_quick_scroll,
           "map-terrain-paste-ghost": check_terrain_paste_ghost, "map-paste-ghost": check_paste_ghost,
           "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed,
@@ -3186,7 +3287,7 @@ CHECKS = {"map-stack-list": check_stack_list, "map-stack-cycle": check_stack_cyc
           "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True),
           "data-quick-armor": quick_check("damage table armor 8;", "eight clicks on More armor"),
           "data-quick-toggle": quick_check("no changed values; 8 undo steps", "eight clicks on Shield enable"),
-          "map-quick-arrow": quick_check(" brush=2x10", "eight clicks on the height's up arrow"),
+          "map-quick-arrow": quick_check(" brush=2x10", "the square, then eight clicks on the height's up arrow"),
           "data-turn-nohandle": check_no_still_handles, "data-range-handles": check_range_handles,
           "map-location-inverted": check_location_inverted,
           "map-props-caret": check_caret_lines(2), "data-text-caret": check_caret_lines(2),
@@ -3504,7 +3605,11 @@ def main():
             with open(path, "w", encoding="utf-8") as f:
                 f.write(SCRIPTS[m.group(1)].replace("{n}", "\0").format(**paths).replace("\0", "{n}"))
             return path.replace("{", "{{").replace("}", "}}")
-        args = [re.sub(r"\{script:(\w+)\}", script, x).format(**paths) for x in args]
+        def leftwidth(m):  # {leftwidth:<n>}: a settings file with the left side bar n px wide (96 dpi)
+            path = os.path.join(a.out, f"leftwidth-{m.group(1)}-settings.json")
+            write_once(path, write_text(path, json.dumps({"Layout/LeftWidth": int(m.group(1))})))
+            return path.replace("{", "{{").replace("}", "}}")
+        args = [re.sub(r"\{leftwidth:(\d+)\}", leftwidth, re.sub(r"\{script:(\w+)\}", script, x)).format(**paths) for x in args]
         if needs == "map" and not given:
             cmd.append(a.map)
         elif needs == "project" and not given:

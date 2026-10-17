@@ -2180,6 +2180,9 @@ constexpr UiText kRows[] = {
     {L" here: ", L" (\u6B64\u5904): "},
     {L". Click again for the next unit.", L"\u3002\u518D\u6B21\u5355\u51FB\u53EF\u9009\u62E9\u4E0B\u4E00\u4E2A\u5355\u4F4D\u3002"},
     {L", at ", L"\uFF0C\u4F4D\u7F6E "},
+    {L"The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.", L"\u83F1\u5F62\u4E0E\u5730\u56FE\u7684\u83F1\u5F62\u5F62\u72B6\u76F8\u540C\uFF1A\u5176\u9AD8\u5EA6\u968F\u5927\u5C0F\u53D8\u5316\u3002\u8981\u8BBE\u7F6E\u9AD8\u5EA6\uFF0C\u8BF7\u9009\u62E9\u6B63\u65B9\u5F62\u6216\u5706\u5F62\u3002"},
+    {L"The diamond has the shape of the map's diamonds: its height follows its size.", L"\u83F1\u5F62\u4E0E\u5730\u56FE\u7684\u83F1\u5F62\u5F62\u72B6\u76F8\u540C\uFF1A\u5176\u9AD8\u5EA6\u968F\u5927\u5C0F\u53D8\u5316\u3002"},
+    {L"Brush height: the diamond has the shape of the map's diamonds, so its height follows its size. To set the height, select the square or the circle.", L"\u753B\u7B14\u9AD8\u5EA6\uFF1A\u83F1\u5F62\u4E0E\u5730\u56FE\u7684\u83F1\u5F62\u5F62\u72B6\u76F8\u540C\uFF0C\u56E0\u6B64\u5176\u9AD8\u5EA6\u968F\u5927\u5C0F\u53D8\u5316\u3002\u8981\u8BBE\u7F6E\u9AD8\u5EA6\uFF0C\u8BF7\u9009\u62E9\u6B63\u65B9\u5F62\u6216\u5706\u5F62\u3002"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

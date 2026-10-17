@@ -235,6 +235,38 @@ void diamondOutline(render::Scene& s, const std::set<std::pair<int, int>>& set, 
         }
 }
 
+// The outline of a set of tiles (x, y in tiles): lines on the tile edges between a tile of the set and one that is not
+// in it (GitHub #135, #136: the Circle's and the Diamond's brush and selection are drawn as their outline). The edges
+// in a line are one line each.
+void tileOutline(render::Scene& s, const std::vector<std::pair<int, int>>& tiles, uint32_t rgba, float thickness = 1.5f) {
+    if (tiles.empty()) return;
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    for (auto [x, y] : tiles) x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
+    const int w = x1 - x0 + 1, h = y1 - y0 + 1;
+    std::vector<uint8_t> in(size_t(w) * size_t(h), 0);
+    for (auto [x, y] : tiles) in[size_t(y - y0) * size_t(w) + size_t(x - x0)] = 1;
+    auto at = [&](int x, int y) { return x >= 0 && y >= 0 && x < w && y < h && in[size_t(y) * size_t(w) + size_t(x)]; };
+    auto line = [&](float ax, float ay, float bx, float by) {
+        render::RectDraw r;
+        r.x0 = ax, r.y0 = ay, r.x1 = bx, r.y1 = by, r.rgba = rgba, r.thickness = thickness, r.line = true;
+        s.rects.push_back(r);
+    };
+    for (int y = 0; y <= h; ++y)  // the edges across: between the rows y - 1 and y
+        for (int x = 0; x < w;) {
+            if (at(x, y - 1) == at(x, y)) { ++x; continue; }
+            const int from = x;
+            while (x < w && at(x, y - 1) != at(x, y) && at(x, y) == at(from, y)) ++x;
+            line(float((x0 + from) * 32), float((y0 + y) * 32), float((x0 + x) * 32), float((y0 + y) * 32));
+        }
+    for (int x = 0; x <= w; ++x)  // the edges down: between the columns x - 1 and x
+        for (int y = 0; y < h;) {
+            if (at(x - 1, y) == at(x, y)) { ++y; continue; }
+            const int from = y;
+            while (y < h && at(x - 1, y) != at(x, y) && at(x, y) == at(x, from)) ++y;
+            line(float((x0 + x) * 32), float((y0 + from) * 32), float((x0 + x) * 32), float((y0 + y) * 32));
+        }
+}
+
 std::vector<std::pair<int, uint16_t>> ghostTiles;  // doodad preview tiles, set by buildScene
 
 void syncMapUnitGraphics();
@@ -395,19 +427,15 @@ render::Scene buildScene() {
     if (dragging || (app.mode == Mode::Terrain && app.hasTerrainSel)) {
         const Rect r = dragging ? terrainSelectRect(wx, wy) : app.terrainSel;
         if (selectShape() == Editor::SelectShape::Rect) outline(s, r, 0xFFD040FFu, 1.5f);
-        else {  // a diamond or an ellipse: dots along it (the box dim around it)
-            outline(s, r, 0xFFD04050u, 1.0f);
-            const float cx = (r.left + r.right) / 2.0f, cy = (r.top + r.bottom) / 2.0f, hw = (r.right - r.left) / 2.0f, hh = (r.bottom - r.top) / 2.0f;
-            const float d = std::max(1.5f, 2.0f / app.zoom);
-            for (int k = 0; k < 160; ++k) {
-                const float a = float(k) * 6.2831853f / 160.0f, c = std::cos(a), sn = std::sin(a);
-                float x = cx + hw * c, y = cy + hh * sn;
-                if (selectShape() == Editor::SelectShape::Diamond) {
-                    const float n = std::abs(c) + std::abs(sn);
-                    x = cx + hw * c / n, y = cy + hh * sn / n;
-                }
-                s.rects.push_back({x - d, y - d, x + d, y + d, 0xFFD040FFu, true});
-            }
+        else if (app.terrainRect) {  // a diamond or an ellipse: the outline of the tiles in it (on the tile edges)
+            std::vector<std::pair<int, int>> tiles;
+            for (int y = r.top / 32; y * 32 < r.bottom; ++y)
+                for (int x = r.left / 32; x * 32 < r.right; ++x)
+                    if (Editor::inSelectShape(r, selectShape(), x * 32 + 16, y * 32 + 16)) tiles.push_back({x, y});
+            tileOutline(s, tiles, 0xFFD040FFu);
+        } else {  // the outline of the diamonds whose corners are in it (on the diamonds' edges)
+            const auto corners = ed.cornersInShape(r, selectShape());
+            diamondOutline(s, std::set<std::pair<int, int>>(corners.begin(), corners.end()), 0xFFD040FFu);
         }
     }
 
@@ -747,8 +775,13 @@ void syncMapUnitGraphics() {
 
 
 // The preview: the picked tile in the brush's footprint at the mouse, with its outline; a paste: the copied tiles.
+// The Circle's and the Diamond's brush: only the outline. gTilesPreview: the last preview's tiles and outline lines.
+struct TilesPreviewCount {
+    size_t tiles = 0, lines = 0;
+} gTilesPreview;
 void tilesScene(render::Scene& s, float wx, float wy) {
     AppState& app = shellState();
+    gTilesPreview = {};
     if (!app.ed || !app.ed->isOpen()) return;
     tilesFresh();
     Editor& ed = *app.ed;
@@ -769,12 +802,23 @@ void tilesScene(render::Scene& s, float wx, float wy) {
             for (int x = 0; x < cw; ++x) add(cx + x, cy + y, ed.tileClipboard()[size_t(y) * cw + x]);
     } else if (tool == TBrush || tool == TSpray) {
         if (gTiles.picked < 0 || !ed.tileset().groupFor(uint16_t(gTiles.picked))) return;
+        if (app.brushShape != Brush::Square) {  // the Circle and the Diamond: their outline on the tile edges (#135, #136)
+            std::vector<std::pair<int, int>> tiles;
+            for (auto [x, y] : tilesFootprint(cx, cy))
+                if (x >= 0 && y >= 0 && x < ed.width() && y < ed.height()) tiles.push_back({x, y});
+            ghostTiles.clear();
+            const size_t before = s.rects.size();
+            tileOutline(s, tiles, tool == TSpray ? 0xFFD040E0u : 0x40FF40FFu);
+            gTilesPreview.lines = s.rects.size() - before;
+            return;
+        }
         for (auto [x, y] : tilesFootprint(cx, cy))
             if (tool == TBrush) add(x, y, uint16_t(gTiles.picked));
             else x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);  // the spray: its area only
     } else {
         return;
     }
+    gTilesPreview.tiles = cells.size(), gTilesPreview.lines = x0 <= x1 ? 1 : 0;
     ghostTiles = std::move(cells);
     x0 = std::max(x0, 0), y0 = std::max(y0, 0), x1 = std::min(x1, ed.width() - 1), y1 = std::min(y1, ed.height() - 1);
     if (x0 <= x1) outline(s, Rect{x0 * 32, y0 * 32, (x1 + 1) * 32, (y1 + 1) * 32}, 0x40FF40FFu, 1.5f);

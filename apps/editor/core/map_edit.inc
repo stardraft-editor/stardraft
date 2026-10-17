@@ -78,7 +78,7 @@ int sprayDabs() { return std::clamp(appState().sprayDensity, 1, kDensityMax); }
 
 int sprayRadius() { return int(appState().brushSize * 64); }
 
-Brush currentBrush() { return Brush{appState().brushShape, appState().brushSize, appState().mode == Mode::Terrain ? appState().brushHeight : 0.0f}; }
+Brush currentBrush() { return currentBrush(appState()); }
 
 // The terrain selection's shape: the brush shape (diamond, square, circle) while it is made with Select.
 Editor::SelectShape selectShape() {
