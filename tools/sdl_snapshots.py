@@ -505,6 +505,11 @@ CASES += [
     # Triggers workspace (a new trigger, an action added, its amount, the action deleted): the list has those steps,
     # and a jump back and forward gives the entry and the trigger as after that step.
     ("data-undo-history", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--script", "{script:dataundohistory}"], "data"),
+    # Data's history with a Map edit between two Players edits: Hit points (a data step), a Players setting, a unit
+    # placed in Map, the Players setting again. Data's Ctrl+Z takes the last Players setting and then Hit points (not
+    # the Map edit, and not the first Players setting): the list has those two steps only; a pick of Hit points goes
+    # back one step, and the Hit points value stays.
+    ("data-map-undo-history", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--script", "{script:datamaphistory}"], "data"),
     ("data-triggers-undo-history", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--script", "{script:trigundohistory}"], "data"),
     # The Triggers' value pop-out: Insert value's picker, a click on its row: the value pop-out stays open and takes it.
     ("data-value-insert", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169", "--click", "460,347",
@@ -894,6 +899,25 @@ history
 command edit.history
 key Up
 key Up
+key Enter
+history
+""",
+    "datamaphistory": """click 671,742
+type 50
+key Enter
+history
+wheel 800,500,0,-300
+click 714,697
+history
+workspace map
+mode units
+click 1386,429
+click 700,650
+workspace data
+click 714,697
+history
+command edit.history
+key Down
 key Enter
 history
 """,
@@ -2145,6 +2169,22 @@ def check_data_map_undo(output):
     return None
 
 
+def check_data_map_history(output):
+    """None when Data's history with a Map edit between two Players edits has only the steps that Data's Ctrl+Z takes
+    (the last Players setting, then Hit points), and a pick of Hit points went back one step only."""
+    h = history_lines(output)
+    if len(h) != 4:
+        return f"{len(h)} history lines, not 4"
+    if h[1][0] != 2 or h[2][0] != 2:
+        return f"the list has {h[1][0]} and then {h[2][0]} steps done after the Players settings, not 2 (the Players setting and Hit points)"
+    names = h[2][3]
+    if len(names) != 2 or names[0] != h[1][3][0] or "Hit Points" not in names[1]:
+        return f"the list after the Map edit is not the Players setting and then Hit points: {names}"
+    if h[3][0] != 1 or len(h[3][3]) != 1 or "Hit Points" not in h[3][3][0]:
+        return f"a pick of Hit points did not go back one step to it: {h[3][0]} done, {h[3][3]}"
+    return None
+
+
 def check_value_insert(output):
     """None when the value picked with a click in Insert value's picker went into the text (the value pop-out stayed)."""
     m = re.search(r"^click 498,353: .*\n  state: .*act\.showtext\(([^,]*),", output, re.M)
@@ -2362,7 +2402,7 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "map-quit-tabs": check_quit_tabs, "map-save-typing": check_save_typing, "map-briefing-quit": check_briefing_quit,
           "map-program-files": check_program_files, "map-saveas-tab": check_saveas_tab, "map-undo-midstroke": check_undo_midstroke,
           "map-undo-saved": check_undo_saved, "map-undo-selection": check_undo_selection, "map-props-typing-undo": check_props_typing_undo,
-          "data-map-undo": check_data_map_undo, "data-value-insert": check_value_insert, "update-release-older": check_release_older,
+          "data-map-undo": check_data_map_undo, "data-map-undo-history": check_data_map_history, "data-value-insert": check_value_insert, "update-release-older": check_release_older,
           "update-release-token": check_release_token,
           "newpage-noback": expect_ui(2, [
               ("a click where Back was closed the page (Back is there)", lambda u: u[0][1]["page"] == "new"),
