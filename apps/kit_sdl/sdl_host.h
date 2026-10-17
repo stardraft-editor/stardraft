@@ -59,6 +59,10 @@ public:
     // A key (a press) and typed text for such a window, the same way as a window's (dispatch: Esc closes a pop-out;
     // the router: the view with the focus first, then its parents).
     void snapshotKey(draw::View& root, int w, int h, const draw::KeyEvent& k);
+    // For a test: the keys, the typed text and the input method's text of a snapshot's pop-out come as SDL gives them on
+    // Windows: from the window that the pop-out opens over (the system's keyboard focus stays there), not from the
+    // pop-out. The host gives them to the pop-out (keyWindow).
+    void setSnapshotKeysFromOpener(bool on) { keysFromOpener_ = on; }
     // The text comes as SDL gives it (SDL_EVENT_TEXT_INPUT): a composition ends first.
     void snapshotText(draw::View& root, int w, int h, const std::string& utf8);
     // An input method's composition as SDL gives it (SDL_EVENT_TEXT_EDITING: the text not committed yet, `start` its
@@ -191,6 +195,13 @@ private:
     void closeTree(SDL_WindowID id);  // the window, the windows opened from it, and so on: children first
     void collectTree(SDL_WindowID id, std::vector<SDL_WindowID>& out) const;
     bool inModal(SDL_WindowID id) const;  // the window is the modal dialog or opened from it
+    // The window that takes a key or typed text that SDL gives window `id` (the window with the system's keyboard
+    // focus): the modal pop-out when it opens over `id` (Windows keeps the keyboard focus on the window under a
+    // pop-out: SDL gives the pop-out's keys and text to that window), else `id`.
+    SDL_WindowID keyWindow(SDL_WindowID id) const;
+    // Where the input method shows its text for window `w`: the window with the system's keyboard focus when `w` is a
+    // pop-out over it, with `r` (logical points of `w`) moved into it.
+    SDL_Window* imeWindow(const Win& w, SDL_Rect* r) const;
     void dismiss(SDL_WindowID id);
     void dismissPopupsExcept(SDL_WindowID keep);  // (the clicked window's own chain of parents stays)
     void pump(bool block);
@@ -218,6 +229,7 @@ private:
     SDL_WindowID mainId_ = 0;  // the window show() made first (the program's main window), or 0
     std::function<void(SDL_Window*)> windowMade_;  // setWindowMadeHook
     bool noActivate_ = false;  // setNoActivate
+    bool keysFromOpener_ = false;  // setSnapshotKeysFromOpener
     long long presented_ = 0, missed_ = 0;  // presentedFrames, missedFrames
     std::function<void()> quitRequest_;  // setQuitRequest
     HoverHook hover_;                    // setHoverHook

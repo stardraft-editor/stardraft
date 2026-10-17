@@ -374,6 +374,12 @@ No	Нет
 Left and right	Слева и справа
 Top and bottom	Сверху и снизу
 Left and right, top and bottom	Слева и справа, сверху и снизу
+Inverted left and right	Инвертировано слева и справа
+Inverted top and bottom	Инвертировано сверху и снизу
+Inverted on both	Инвертировано по обеим осям
+Each edge must be in the map	Каждый край должен быть в пределах карты
+Left and right must be different	Значения «Слева» и «Справа» должны быть разными
+Top and bottom must be different	Значения «Сверху» и «Снизу» должны быть разными
 Changed the location "	Изменено местоположение "
 Could not change the location: 	Не удалось изменить местоположение: 
 Location properties	Свойства местоположения

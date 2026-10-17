@@ -391,6 +391,12 @@ No	아니요
 Left and right	왼쪽과 오른쪽
 Top and bottom	위쪽과 아래쪽
 Left and right, top and bottom	왼쪽과 오른쪽, 위쪽과 아래쪽
+Inverted left and right	왼쪽과 오른쪽이 반전됨
+Inverted top and bottom	위쪽과 아래쪽이 반전됨
+Inverted on both	양쪽 모두 반전됨
+Each edge must be in the map	각 가장자리는 맵 안에 있어야 합니다
+Left and right must be different	왼쪽과 오른쪽은 달라야 합니다
+Top and bottom must be different	위쪽과 아래쪽은 달라야 합니다
 Changed the location "	위치를 변경했습니다: "
 Could not change the location: 	위치를 변경할 수 없습니다: 
 Location properties	위치 속성

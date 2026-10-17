@@ -324,7 +324,7 @@ public:
         if (captured_) {
             const Point o = captured_->origin();
             e.pt = {e.pt.x - o.x, e.pt.y - o.y};
-            return captured_->mouse(e);
+            return press(*captured_, e);
         }
         Point local;
         View* v = root_.viewAt(e.pt, local);
@@ -347,9 +347,19 @@ public:
             const Point o = t->origin();
             MouseEvent te = e;
             te.pt = {e.pt.x - o.x, e.pt.y - o.y};
-            if (t->mouse(te)) return true;
+            if (press(*t, te)) return true;
         }
         return false;
+    }
+    // A view gets the event. A double click (the system counts quick presses: the second and each next quick press is
+    // a double click) that the view does not take comes to it again as a press: a view that does not have a separate
+    // double-click action (a button, a stepper, a toggle, a diagram) acts on each quick press.
+    static bool press(View& v, const MouseEvent& e) {
+        if (v.mouse(e)) return true;
+        if (e.kind != MouseKind::DoubleClick) return false;
+        MouseEvent d = e;
+        d.kind = MouseKind::Down;
+        return v.mouse(d);
     }
     bool key(const KeyEvent& e) {
         for (View* t = focused_ ? focused_ : &root_; t; t = t->parent())
