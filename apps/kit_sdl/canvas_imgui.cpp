@@ -95,18 +95,37 @@ std::set<GpuBitmap*>& liveBitmaps() {
     static auto* s = new std::set<GpuBitmap*>;
     return *s;
 }
+// The frame being recorded (beginBitmapFrame: the frames before it are submitted). A bitmap that goes while the frame
+// that drew it is not yet submitted keeps its texture until the next frame begins: the frame's draw list names the
+// texture, and the GPU draws the list only after the views are recorded (GitHub #148: a crash when a view freed its
+// bitmaps in its paint). gBitmapsFreedInFrame counts such bitmaps (a test's line: a view should not do it).
+uint64_t gBitmapFrame = 1;
+int gBitmapsFreedInFrame = 0;
+std::vector<std::pair<SDL_GPUDevice*, SDL_GPUTexture*>>& droppedTextures() {
+    static auto* v = new std::vector<std::pair<SDL_GPUDevice*, SDL_GPUTexture*>>;  // (never destroyed, as liveBitmaps)
+    return *v;
+}
+void releaseDroppedTextures() {
+    for (auto [device, tex] : droppedTextures()) SDL_ReleaseGPUTexture(device, tex);
+    droppedTextures().clear();
+}
 struct GpuBitmap final : draw::Bitmap::Native {
     SDL_GPUDevice* device = nullptr;
     SDL_GPUTexture* tex = nullptr;
     int w = 0, h = 0;
+    uint64_t drawn = 0;  // the frame that drew it last
     GpuBitmap() { liveBitmaps().insert(this); }
     ~GpuBitmap() override {
         liveBitmaps().erase(this);
-        if (tex && device) SDL_ReleaseGPUTexture(device, tex);
+        if (drawn == gBitmapFrame) ++gBitmapsFreedInFrame;
+        if (!tex || !device) return;
+        if (drawn == gBitmapFrame) droppedTextures().push_back({device, tex});  // (after the frame)
+        else SDL_ReleaseGPUTexture(device, tex);
     }
 };
 // The textures of all bitmaps go (each bitmap uploads its pixels again if it is drawn later).
 void releaseBitmapTextures() {
+    releaseDroppedTextures();
     for (GpuBitmap* g : liveBitmaps()) {
         if (g->tex && g->device) SDL_ReleaseGPUTexture(g->device, g->tex);
         g->tex = nullptr, g->device = nullptr, g->w = 0, g->h = 0;
@@ -1129,6 +1148,12 @@ static GpuBitmap* gpuBitmapOf(SDL_GPUDevice* dev, draw::Bitmap& b) {
     return g;
 }
 
+void beginBitmapFrame() {
+    ++gBitmapFrame;
+    releaseDroppedTextures();  // (the frames that drew them are submitted: SDL keeps a texture until the GPU is done with it)
+}
+int bitmapsFreedInFrame() { return gBitmapsFreedInFrame; }
+
 void bitmapTextureStats(int& count, size_t& bytes) {
     count = 0, bytes = 0;
     for (const GpuBitmap* g : liveBitmaps())
@@ -1138,6 +1163,7 @@ void bitmapTextureStats(int& count, size_t& bytes) {
 draw::Image imageOfBitmap(SDL_GPUDevice* device, draw::Bitmap& b) {
     if (!device || b.width() <= 0 || b.height() <= 0) return {};
     GpuBitmap* g = gpuBitmapOf(device, b);
+    if (g) g->drawn = gBitmapFrame;
     return g ? draw::Image{g->tex, b.width(), b.height()} : draw::Image{};
 }
 
@@ -1145,6 +1171,7 @@ void ImguiCanvas::bitmap(draw::Bitmap& b, Rect src, Rect dst, bool, uint8_t alph
     if (!dev_ || b.width() <= 0 || b.height() <= 0 || dst.empty() || alpha == 0) return;
     GpuBitmap* g = gpuBitmapOf(dev_, b);
     if (!g) return;
+    g->drawn = gBitmapFrame;
     // The part of the bitmap that is src (inside the bitmap).
     const float W = float(b.width()), H = float(b.height());
     const float sl = float(std::clamp(src.left, 0, b.width())), sr = float(std::clamp(src.right, 0, b.width()));

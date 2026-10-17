@@ -289,6 +289,20 @@ CASES += [
                               "--move", "700,650", "--key", "Ctrl+Z"], "map"),
     # Rectangle: a tile of the Tiles list, the brush and a click puts the tile there; Undo takes it back.
     ("map-terrain-rect-paint", ["--rect", "--click", "160,660", "--key", "B", "--click", "560,690", "--key", "Ctrl+Z"], "map"),
+    # The Tiles list scrolled to its end and back to its start with the wheel (GitHub #148: a crash at the end of the
+    # list): a frame after each notch, each with new tiles. No picture that a frame drew goes before the GPU has drawn
+    # that frame (freedinframe), and the list keeps the pictures of a few tile groups, not of all.
+    ("map-terrain-rect-scroll", ["--rect"] + ["--wheel", "200,750,0,-20"] * 100 + ["--wheel", "200,750,0,200"] * 10, "map"),
+    # The isometric brush over tiles placed in Rectangle mode (GitHub #143): a click paints Solar Array, a tile of the
+    # Tiles list is placed there (Rectangle at 271,427), then the same click paints Solar Array again (Isometric at
+    # 135,427; the ISOM does not change): a tile of the brush's group is there again, not the placed one.
+    ("map-terrain-brush-over-tiles", ["--mode", "terrain", "--click", "202,759", "--key", "B", "--click", "560,690",
+                                      "--move", "560,690", "--click", "271,427", "--click", "160,660", "--key", "B",
+                                      "--click", "560,690", "--click", "135,427", "--click", "202,759", "--key", "B",
+                                      "--click", "560,690"], "map"),
+    # The quick picker (Q) in Rectangle mode (GitHub #141): its rows are the tile groups, found as the Tiles list's
+    # search finds them; Enter picks the first one's tile, as a click in the list does.
+    ("map-terrain-rect-quick", ["--rect", "--key", "Q", "--type", "solar array", "--key", "Enter"], "map"),
     # Terrain select (V): a drag selects, Copy, Paste: the copy follows the mouse; a click puts it; Undo; Cut; Undo.
     ("map-terrain-paste", ["--mode", "terrain", "--key", "V", "--drag", "520,640-600,700", "--key", "Ctrl+C", "--key", "Ctrl+V",
                            "--move", "900,800", "--click", "900,800", "--key", "Ctrl+Z", "--key", "Esc", "--key", "V",
@@ -1071,6 +1085,52 @@ def check_rect_paint(output):
     return expect(output, 4, [
         ("the click did not put tiles", lambda s: s[2]["terrain"] != s[1]["terrain"] and "Placed" in output),
         ("Undo did not take the tiles back", lambda s: s[3]["terrain"] == s[1]["terrain"]),
+    ])
+
+
+def state_lines(output):
+    """Every input's state line (any input, also --wheel) as a dict of its name=value fields."""
+    return [dict((k, v.strip('"')) for k, v in STATE_FIELD.findall(line)) for line in output.splitlines() if line.startswith("  state: ")]
+
+
+def check_rect_scroll(output):
+    """The Tiles list went to its end and back; no bitmap went in the frame that drew it; few pictures kept."""
+    s = state_lines(output)
+    if len(s) < 110:
+        return f"{len(s)} state lines, not 110 (the program stopped?)"
+    try:
+        pos = [tuple(int(x) for x in d["tilescroll"].split("/")) for d in s]
+        freed = int(s[-1]["freedinframe"])
+        pics = max(int(d["tilepics"]) for d in s)
+    except (KeyError, ValueError):
+        return "no tilescroll, tilepics or freedinframe in the state lines"
+    if not any(p == m and m > 20000 for p, m in pos):
+        return f"the list did not come to its end (the last at {pos[99]})"
+    if pos[-1][0] != 0:
+        return f"the list did not come back to its start ({pos[-1]})"
+    if freed:
+        return f"{freed} bitmaps went while the frame that drew them was not drawn yet (GitHub #148)"
+    if pics > 100:
+        return f"the list kept the pictures of {pics} tile groups"
+    return None
+
+
+def check_brush_over_tiles(output):
+    """The brush with the terrain under placed tiles gives the brush's tile again (GitHub #143)."""
+    return expect(output, 12, [
+        ("no tile under the mouse after the first click", lambda s: s[3]["tile"] != "-"),
+        ("the click in Rectangle mode placed no other tile", lambda s: s[7]["tile"] != s[3]["tile"] and "Placed" in output),
+        # (the same group: a click on the same terrain also gives new variants)
+        ("the brush left the placed tile (GitHub #143)", lambda s: int(s[11]["tile"]) >> 4 == int(s[3]["tile"]) >> 4),
+    ])
+
+
+def check_rect_quick(output):
+    """Q in Rectangle mode opens the picker with the tile groups; Enter picks a tile of the first (GitHub #141)."""
+    return expect(output, 3, [
+        ("Q did not open the quick picker", lambda s: s[0]["quick"] == "open"),
+        ("Enter picked no tile", lambda s: s[2]["quick"] == "-" and int(s[2]["tilepicked"]) >= 0 and s[0]["tilepicked"] == "-1"),
+        ("the pick is not a Solar Array tile", lambda s: re.search(r"^key Enter: .*Placing Group \d+, tile \d+ .*Solar Array", output, re.M)),
     ])
 
 
@@ -2158,6 +2218,8 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "map-doodad-ghost": check_doodad_ghost, "map-sprite-place": check_sprite_place,
           "map-location-make": check_location_make, "map-terrain-brush": check_terrain_brush,
           "map-terrain-rect-paint": check_rect_paint, "map-terrain-paste": check_terrain_paste,
+          "map-terrain-rect-scroll": check_rect_scroll, "map-terrain-brush-over-tiles": check_brush_over_tiles,
+          "map-terrain-rect-quick": check_rect_quick,
           "map-terrain-paste-ghost": check_terrain_paste_ghost, "map-paste-ghost": check_paste_ghost,
           "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed,
           "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click,

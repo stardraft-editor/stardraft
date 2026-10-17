@@ -302,6 +302,7 @@ constexpr UiText kRows[] = {
     {L"Place a doodad", L"\u653E\u7F6E\u88C5\u9970\u7269"},
     {L"Go to a location", L"\u8F6C\u5230\u5730\u70B9"},
     {L"Place a sprite", L"\u653E\u7F6E\u7CBE\u7075"},
+    {L"Place a tile", L"\u653E\u7F6E\u74E6\u7247"},
     {L"Replace with a unit", L"\u66FF\u6362\u4E3A\u5355\u4F4D"},
     {L"Replace with a doodad", L"\u66FF\u6362\u4E3A\u88C5\u9970\u7269"},
     {L"Replace with a sprite", L"\u66FF\u6362\u4E3A\u7CBE\u7075"},

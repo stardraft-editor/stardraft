@@ -142,6 +142,12 @@ struct QuickPickSdl final : QuickPickHost {
     bool open = false;
     bool drawPicture(draw::Canvas& c, QuickPickKind kind, Mode mode, const PaletteUnit& u, draw::Rect box) override {
         if (kind == QuickPickKind::Data) return false;
+        if (mode == Mode::Terrain && tilesOn()) {  // Rectangle: the row's tile, as the Tiles list shows it
+            draw::Rect src;
+            draw::Bitmap& t = tilesPixels(uint16_t(u.value), src);
+            c.bitmap(t, src, box);
+            return true;
+        }
         draw::Bitmap* b = paletteBitmap(mode, u.value, gState.playerOwner);  // (nullptr for a unit with nothing to show)
         if (!b) return false;
         drawPaletteArt(c, *b, box);

@@ -174,7 +174,8 @@ public:
     // correction, and the ISOM does not change. Doodads whose tiles it covers go (as when terrain is painted over
     // them); units it makes unplaceable go unless illegal placement is allowed. Symmetry does not apply (tiles do
     // not mirror). Returns the tiles changed; one undo step (none when nothing changes).
-    // Later terrain edits keep these tiles unless they change the ISOM of the tiles' own rects.
+    // Later terrain edits keep these tiles unless they change the ISOM of the tiles' own rects; the brush (paintBrush)
+    // makes them again from the ISOM where it paints.
     int placeTiles(int tx0, int ty0, int tx1, int ty1, uint16_t value);
     // The same for a list of tiles (a brush's footprint: x, y in tiles).
     int placeTileCells(const std::vector<std::pair<int, int>>& cells, uint16_t value);
@@ -331,6 +332,10 @@ public:
     bool deleteDoodad(int index);
     // Doodads removed because terrain was painted over them, since the last call.
     int takeDoodadsRemovedByTerrain() { return std::exchange(doodadsRemovedByTerrain_, 0); }
+    // Does the terrain under doodad `d` (TILE, else MTXM: `now`) still fit it? Where it needs a tile group (dddata.bin),
+    // that group or another variant of the same piece; where it needs none, the piece that was there `before`. A
+    // terrain edit removes a doodad only when this is false after it (as StarEdit does).
+    bool doodadTerrainHolds(const Doodad& d, const TerrainLayer& now, const TerrainLayer& before) const;
     // Does a doodad at this origin overlap an existing doodad's footprint?
     bool doodadOverlaps(const DoodadType& t, int tileX, int tileY) const;
     // Top-left tile a doodad would occupy when centered near (x, y).
@@ -498,7 +503,8 @@ private:
         std::vector<Doodad> doodads;       // likewise
         int width = 0, height = 0;         // pixels
     };
-    bool applyTerrain(const std::vector<CornerValue>& corners);  // engine + store + commit
+    // engine + store + commit; overPlaced: the tiles placed in Rectangle mode in the rects of the corners are made again
+    bool applyTerrain(const std::vector<CornerValue>& corners, bool overPlaced = false);
     std::pair<int, int> mirror(int px, int py, int which) const;
     TerrainClip terrainClip_;
     struct TileClip {
@@ -553,8 +559,13 @@ private:
     int doodadsRemovedByTerrain_ = 0;
     // Per doodad: are all its tiles still in MTXM?
     std::vector<uint8_t> doodadsIntact() const;
-    // Doodads intact before a terrain edit whose tiles it replaced are removed (as StarEdit does).
-    int pruneDoodads(const std::vector<uint8_t>& intactBefore);
+    // Doodads intact before an edit whose tiles it replaced are removed (as StarEdit does). With `tileBefore` (an
+    // edit of the isometric terrain: TILE, else MTXM, before it): a doodad stays, with its tiles, while the terrain
+    // under it still fits it (doodadTerrainHolds); only a doodad whose terrain the edit changed goes.
+    int pruneDoodads(const std::vector<uint8_t>& intactBefore, const TerrainLayer* tileBefore = nullptr);
+    // The tiles of rects that the corners touch and that the ISOM does not give (tiles placed in Rectangle mode, null
+    // tiles) are made again from the ISOM on the next store (GitHub #143).
+    void markPlacedTilesDirty(const std::vector<CornerValue>& corners);
     void removeDoodads(const std::vector<int>& indices);  // DD2, overlay sprites, tiles back to TILE
     std::vector<int> placeableUnitsIn(const Rect& area) const;
     void pruneUnits(const std::vector<int>& wasPlaceable);
