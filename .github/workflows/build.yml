@@ -4,7 +4,8 @@
 # The jobs: windows (stardraft.exe, CMake target stardraft_editor: built with MSVC and Ninja, snapshotted, then all the
 # other targets), linux and linux-clang (the library, the tools and the tests with GCC and with Clang, and the editor's
 # snapshots), linux-appimage (the AppImage), macos (the app and its disk image). Most tests need a StarCraft:
-# Remastered install, so they are not run here (linux-data: a self-hosted runner with the game data, off by default).
+# Remastered install, so they are not run here (.github/workflows/data.yml: a self-hosted runner with the game data,
+# off by default; a workflow of its own, so that a release never waits for that runner).
 # The heavy extras (flatpak, linux-appimage-run, wine) run only on port/kit, main, tags and runs by hand; the
 # release test of the macOS app (release-test-macos) only on port/kit, the port/t-* branches and by hand.
 # A compiler cache in each build job (Windows: sccache; Linux and macOS: ccache), kept with actions/cache: each run
@@ -799,34 +800,6 @@ jobs:
         with:
           name: release-test-macos-${{ github.sha }}
           path: release-test-macos
-          if-no-files-found: warn
-
-  # The tests with the game's data, on a self-hosted runner in WSL Ubuntu on the owner's PC (labels self-hosted, linux,
-  # scdata; research/ports/PLAN.md 1.6). Off until the repository variable STARDRAFT_DATA_RUNNER is "on". The
-  # repository is public: this job never runs for pull requests or forks, only for pushes here and by hand.
-  # The install: $STARDRAFT_SC_INSTALL on the runner, else ~/scmirror (exact-case names, see linux_data_tests.sh).
-  linux-data:
-    if: vars.STARDRAFT_DATA_RUNNER == 'on' && github.event_name != 'pull_request' && github.repository == 'stardraft-editor/stardraft'
-    runs-on: [self-hosted, linux, scdata]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build
-        run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSDL_UNIX_CONSOLE_BUILD=ON  # (no X11 or Wayland needed)
-          cmake --build build --parallel
-
-      - name: Run the tests with game data
-        env:
-          SDL_VIDEODRIVER: offscreen
-        run: bash tools/ci/linux_data_tests.sh build "${STARDRAFT_SC_INSTALL:-$HOME/scmirror}" "$RUNNER_TEMP/data-tests"
-
-      # The editor's snapshots with the game data and a map open (tools/sdl_snapshots.py, from the step above).
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: sdl-snapshots-linux-data-${{ github.sha }}
-          path: ${{ runner.temp }}/data-tests/sdl_snapshots
           if-no-files-found: warn
 
   # The Windows build under Wine on Linux (research/ports/PLAN.md, phase 2): the renderer on Vulkan (Wine passes it to

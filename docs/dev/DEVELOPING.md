@@ -57,8 +57,8 @@ snapshot can show. `tools/sdl_snapshots.py` takes one snapshot of each workspace
     python -I tools/sdl_snapshots.py --exe build\Release\stardraft.exe --out snapshots
 
 `--jobs <n>` runs n cases at the same time (each case has its own files; the shared input files are written once,
-before the runs). With all the data, the 215 cases take about 3.5 minutes one at a time; use at most `--jobs 3` on a
-computer with 8 GB of free memory.
+before the runs). With all the data, the 215 cases take about 3.5 minutes one at a time and 1.2 minutes with `--jobs 3`;
+use at most `--jobs 3` on a computer with 8 GB of free memory.
 
 GitHub builds `stardraft.exe` on each push (the job windows), runs `sdl_snapshots.py` on it, takes a snapshot of it
 alone in a folder (as a release has it), and keeps the snapshots (with no game data: no map) and the program with the
@@ -303,7 +303,10 @@ release of a tag. The jobs of build.yml:
 | macos | The app, its checks and tests, the snapshots and the disk image (signed and notarized when the secrets are there). |
 | linux-appimage-run, flatpak, wine | Only on `port/kit`, `main`, tags and runs by hand (Actions > Build > Run workflow). |
 | release-test-macos | Only on `port/kit`, the `port/t-*` branches and runs by hand. |
-| linux-data | The tests with the game data on the self-hosted runner (repository variable `STARDRAFT_DATA_RUNNER`). |
+
+The tests with the game data (the job linux-data, on the owner's self-hosted runner: repository variable
+`STARDRAFT_DATA_RUNNER`) are a workflow of their own, `.github/workflows/data.yml`: a release never waits for that
+runner.
 
 - A push that changes only docs (`docs/`, `*.md`) starts no run. `README.md`, `docs/user/CHANGELOG.md` (the UI text
   check reads them), `docs/user/images/` and `tools/preview_notes.md` (a release reads them) still start one.
