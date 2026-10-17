@@ -1,6 +1,7 @@
 """Releases of StarDraft 2: the unreleased work, the checks, the screenshots and the release itself.
 
-A push to main never makes a release. A tag v<version> does (.github/workflows/build.yml). This script makes that tag
+A push to main never makes a release. A tag v<version> does (.github/workflows/release.yml, with the files that
+build.yml built and tested for the commit pushed with it). This script makes that tag
 the same way each time, after the owner approves the scope and the release notes. Run it with `python -I`:
 
     pending                     The newest release tag, the commits after it (* = not pushed) and the next version.
@@ -23,7 +24,7 @@ CI uses these (they need only Python and git):
                                 --images: the version's picture files, one on each line (the Discord post).
     title <version>             "StarDraft 2 - v<version> (build <commit>)", the commit of HEAD (7 characters, as
                                 cmake/build_info.cmake writes it: Check for updates compares the two).
-    ci-check <tag>              Before the tag's build: the tag is a version and the newest one, its section and
+    ci-check <tag>              Before the tag's release: the tag is a version and the newest one, its section and
                                 pictures are good, and the commit is on main.
 """
 
@@ -391,7 +392,7 @@ def cmd_publish(args):
     # pushed again after untag) does not count.
     run_id, t = None, time.time()
     while not run_id and time.time() - t < 300:
-        out = run(["gh", "run", "list", "--repo", REPO, "--workflow", "build.yml", "--branch", tag, "--limit", "5",
+        out = run(["gh", "run", "list", "--repo", REPO, "--workflow", "release.yml", "--branch", tag, "--limit", "5",
                    "--json", "databaseId,headSha,createdAt"], env=env, check=False)
         for r in json.loads(out or "[]"):  # newest first
             made = calendar.timegm(time.strptime(r["createdAt"], "%Y-%m-%dT%H:%M:%SZ"))  # (UTC)
@@ -401,8 +402,8 @@ def cmd_publish(args):
         if not run_id:
             time.sleep(10)
     if not run_id:
-        raise Fail(f"no CI run for {tag} after 5 minutes: gh run list --workflow build.yml --branch {tag}")
-    print(f"CI run {run_id}: https://github.com/{REPO}/actions/runs/{run_id} (about 8 minutes)")
+        raise Fail(f"no CI run for {tag} after 5 minutes: gh run list --workflow release.yml --branch {tag}")
+    print(f"CI run {run_id}: https://github.com/{REPO}/actions/runs/{run_id} (it waits for the build and tests of main's push, about 15 minutes, then releases)")
     while True:
         st = json.loads(run(["gh", "run", "view", str(run_id), "--repo", REPO, "--json", "status,conclusion"], env=env))
         if st["status"] == "completed":

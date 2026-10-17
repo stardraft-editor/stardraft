@@ -2,7 +2,7 @@ name: Post screenshots to Discord
 
 # Run by hand (Actions > Post screenshots to Discord > Run workflow): the screenshots of a version's changelog section
 # (docs/user/images/<version>/...), posted as files in each Discord channel that has a webhook, with the
-# release's name and link. A release posts them itself (build.yml); this is for a post that did not go.
+# release's name and link. A release posts them itself (release.yml); this is for a post that did not go.
 on:
   workflow_dispatch:
     inputs:
