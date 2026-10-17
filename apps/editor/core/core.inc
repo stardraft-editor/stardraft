@@ -80,6 +80,7 @@
 #include "views_triggers_pane.inc"
 #include "views_triggers_pick.inc"
 #include "triggers_model.inc"  // the Triggers workspace's program parts (the set, the tree's commands, the menus' models)
+#include "undo_history.inc"  // Edit > Undo history: the steps of the workspace's undo, with their names
 #include "views_triggers_help.inc"  // the block help page, the code pane, the build errors' line map
 #include "views_value_pop.inc"
 #include "triggers_values.inc"  // the Triggers pane's values: which pop-out each one opens, Tab, the value block's menu

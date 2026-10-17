@@ -381,9 +381,16 @@ std::vector<int> Editor::selectionAfterRestore(const std::vector<Unit>& before) 
     return out;
 }
 
-void Editor::undo() {
-    if (undo_.empty() || inStroke_) return;  // (a stroke that the mouse still holds: its end comes first)
+void Editor::undo(size_t steps) {
+    if (undo_.empty() || inStroke_ || !steps) return;  // (a stroke that the mouse still holds: its end comes first)
     const std::vector<Unit> before = units_;
+    for (size_t i = 0; i < steps && !undo_.empty(); ++i) undoOne();
+    reload();
+    selection_ = selectionAfterRestore(before);
+    modified_ = state_ != savedState_;
+}
+
+void Editor::undoOne() {
     lastRedo_.clear();
     redo_.push_back(snapshot(chk_, redo_));
     redo_.back().state = state_;
@@ -394,14 +401,18 @@ void Editor::undo() {
     state_ = undo_.back().state;
     undoBytes_ -= std::min(undoBytes_, undo_.back().ownBytes);
     undo_.pop_back();
+}
+
+void Editor::redo(size_t steps) {
+    if (redo_.empty() || inStroke_ || !steps) return;
+    const std::vector<Unit> before = units_;
+    for (size_t i = 0; i < steps && !redo_.empty(); ++i) redoOne();
     reload();
     selection_ = selectionAfterRestore(before);
     modified_ = state_ != savedState_;
 }
 
-void Editor::redo() {
-    if (redo_.empty() || inStroke_) return;
-    const std::vector<Unit> before = units_;
+void Editor::redoOne() {
     lastRedo_.clear();
     undo_.push_back(snapshot(chk_, undo_));
     undo_.back().state = state_;
@@ -412,9 +423,6 @@ void Editor::redo() {
     chk_ = restore(redo_.back());
     state_ = redo_.back().state;
     redo_.pop_back();
-    reload();
-    selection_ = selectionAfterRestore(before);
-    modified_ = state_ != savedState_;
 }
 
 // --- Terrain -------------------------------------------------------------------------------------

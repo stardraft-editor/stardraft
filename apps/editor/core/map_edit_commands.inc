@@ -23,7 +23,7 @@ constexpr ProgramKey kProgramKeys[] = {
     {"Ctrl+,", ID_OPT_WINDOW},     {"Ctrl+W", ID_FILE_CLOSE},        {"Ctrl+Shift+W", ID_FILE_CLOSEALL}, {"Ctrl+Tab", ID_TAB_NEXT},
     {"Ctrl+Shift+Tab", ID_TAB_PREV}, {"Ctrl+N", ID_FILE_NEW},        {"Ctrl+Shift+N", ID_PROJ_NEW},      {"Ctrl+Shift+O", ID_QUICKOPEN},
     {"Ctrl+O", ID_FILE_OPEN},      {"Ctrl+S", ID_FILE_SAVE},         {"Ctrl+Shift+S", ID_FILE_SAVEAS},   {"Ctrl+Z", ID_EDIT_UNDO},
-    {"Ctrl+Y", ID_EDIT_REDO},      {"Ctrl+Shift+Z", ID_EDIT_REDO},   {"Ctrl+X", ID_EDIT_CUT},            {"Ctrl+C", ID_EDIT_COPY},
+    {"Ctrl+Y", ID_EDIT_REDO},      {"Ctrl+Shift+Z", ID_EDIT_REDO},   {"Ctrl+Shift+H", ID_EDIT_HISTORY},   {"Ctrl+X", ID_EDIT_CUT},            {"Ctrl+C", ID_EDIT_COPY},
     {"Ctrl+D", ID_EDIT_DUPLICATE}, {"Ctrl+V", ID_EDIT_PASTE},        {"Ctrl+A", ID_EDIT_SELECTALL},      {"V", ID_TOOL_KEY},
     {"B", ID_TOOL_KEY + 1},        {"A", ID_TOOL_KEY + 2},           {"F", ID_TOOL_KEY + 3},             {"Ctrl+1", ID_RAIL_KEY},
     {"Ctrl+2", ID_RAIL_KEY + 1},   {"Ctrl+3", ID_RAIL_KEY + 2},      {"Ctrl+4", ID_RAIL_KEY + 3},        {"Ctrl+5", ID_RAIL_KEY + 4},
@@ -474,6 +474,7 @@ bool mapMenuGrayed(int id) {
         if (gWorkspace == Workspace::Data) return !dataCanUndo(redo);
         return !(app.ed && app.ed->isOpen() && (redo ? app.ed->canRedo() : app.ed->canUndo()));
     }
+    if (id == ID_EDIT_HISTORY) return mapMenuGrayed(ID_EDIT_UNDO) && mapMenuGrayed(ID_EDIT_REDO);  // (no step either way)
     if (id == ID_EDIT_PASTE) {
         if (gWorkspace == Workspace::Triggers || gWorkspace == Workspace::Briefing || gWorkspace == Workspace::Data || gWorkspace == Workspace::ClassicSettings)
             return false;

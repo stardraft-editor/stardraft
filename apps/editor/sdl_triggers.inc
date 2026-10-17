@@ -101,7 +101,7 @@ struct SdlTrigPaneHost final : TrigPaneHost {
     void menu(draw::Point pt) override;
     void drop() override { trigDrop(); }
     void help() override { sdlTrigPaneHelp(); }
-    void undo(bool redo) override { trigUndo(redo); }
+    void undo(bool redo) override { sdlUndoSteps(redo, 1); }  // (sdl_history.inc: the status bar says the step's name)
 };
 SdlTrigPaneHost gSdlTrigPaneHost;
 TrigPaneView gSdlTrigPane(gSdlTrigPaneHost);
