@@ -2051,6 +2051,9 @@ constexpr UiText kRows[] = {
     {L"&Download", L"&Descargar"},
     {L"Update StarDraft 2 in your software center.", L"Actualice StarDraft 2 en su centro de software."},
     {L"Download it? The download opens in the browser.", L"\u00BFDescargarla? La descarga se abre en el navegador."},
+    {L"Map data: only the changed entries show", L"Datos del mapa: solo se muestran las entradas cambiadas"},
+    {L"Map data: all the entries show", L"Datos del mapa: se muestran todas las entradas"},
+    {L"Copy the values of an entry on this tab first", L"Primero copie los valores de una entrada de esta pesta\u00F1a"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

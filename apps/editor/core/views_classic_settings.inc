@@ -1,6 +1,7 @@
 // The Map data page's views (portable, core.inc; classic maps only): the map's own unit, upgrade and tech settings, as
 // StarEdit's Unit, Upgrade and Tech settings edit them. Three tabs; each tab is a view with a list (the entries with their
-// icons, a search field over it) and the fields of the selected entry. "Use default" grays nothing: an entry takes the
+// icons, a search field and the Changed filter over it, the pinned entries first, a menu to copy, paste, reset and pin
+// an entry) and the fields of the selected entry. "Use default" grays nothing: an entry takes the
 // game's values when nothing differs from them. The values are the page's working copy (ClassicDialog); the program puts
 // a change into the map (ClassicHost, map_pages.inc) and loads and applies the copy (classic_settings.inc).
 
@@ -183,6 +184,105 @@ uint32_t classicNumberOf(const std::wstring& t) {
     return t.empty() ? 0 : uint32_t(std::min<unsigned long long>(wcstoull(t.c_str(), nullptr, 10), 0xFFFFFFFFull));
 }
 
+// --- The list's Changed filter and pins, and an entry's Copy, Paste and Reset (as the Data workspace's list) -------------
+// The rows come from the Data workspace's list model (data_list.inc: dataListRows): the search, the Changed filter and the
+// pinned entries first. The pins are the Data workspace's pins of the same table (data_nav.inc: dataPins, the user's
+// settings), so an entry pinned in one list is pinned in the other. Copy and Paste take the entry's values as the fields
+// show them (the Data workspace copies one table's values too: not the unit's name, its weapons or its players); Reset
+// gives the entry the game's values, its players' values included.
+
+bool gClassicChangedOnly[kClassicTabCount] = {};  // each tab's Changed filter (it stays while the program runs)
+
+// The Data workspace's table of a tab (its pins).
+int classicDataTab(int tab) { return datTabOf(tab == kClassicUnits ? "units" : tab == kClassicUpgrades ? "upgrades" : "techdata"); }
+bool classicPinned(int tab, int e) {
+    const std::vector<int>& pins = dataPins(classicDataTab(tab));
+    return std::find(pins.begin(), pins.end(), e) != pins.end();
+}
+
+// The page's entries as the Data workspace's list model reads them (the names are the page's).
+class ClassicListModel final : public DataListHost {
+public:
+    explicit ClassicListModel(std::function<std::wstring(int, int)> name) : name_(std::move(name)) {}
+    bool hasTable(int) override { return gClassic != nullptr; }
+    int entries(int tab) override { return classicEntryCount(tab); }
+    int firstEntry(int) override { return 0; }
+    bool changed(int tab, int e) override { return classicEntryChanged(tab, e); }
+    std::wstring name(int tab, int e) override { return name_(tab, e); }
+
+private:
+    std::function<std::wstring(int, int)> name_;
+};
+
+// The copied entry's values (one tab's: they paste onto an entry of the same tab).
+struct ClassicClipboard {
+    int tab = -1, entry = -1;
+    std::vector<uint32_t> values;  // each field's value, in the fields' order
+};
+ClassicClipboard gClassicClip;
+
+void classicCopyEntry(int tab, int e) {
+    const bool def = classicUseDefault(tab, e);
+    gClassicClip = {tab, e, {}};
+    for (int f = 0; f < classicFieldCount(tab); ++f) gClassicClip.values.push_back(classicFieldValue(tab, e, f, def));
+}
+bool classicCanPaste(int tab) { return gClassicClip.tab == tab && !gClassicClip.values.empty(); }
+// The copied values onto entry `e` (a unit without shields keeps its shields: 0). The entry has its own values after
+// it, unless they are the game's.
+void classicPasteEntry(int tab, int e, bool hasShields) {
+    if (!classicCanPaste(tab)) return;
+    if (classicUseDefault(tab, e)) classicSetUseDefault(tab, e, false);
+    for (int f = 0; f < classicFieldCount(tab) && f < int(gClassicClip.values.size()); ++f)
+        if (tab != kClassicUnits || f != 1 || hasShields) classicSetField(tab, e, f, gClassicClip.values[size_t(f)]);
+    classicFollowDefault(tab, e);
+}
+// The game's values for entry `e`: its fields, its name and weapons (Use default), and players 1-8's values.
+void classicResetEntry(int tab, int e) {
+    ClassicDialog& d = *gClassic;
+    const size_t i = size_t(e);
+    classicSetUseDefault(tab, e, true);
+    if (tab == kClassicUnits) {
+        UnitSettings::Availability& a = d.units.availability[i];
+        const UnitSettings::Availability& g = d.def->units.availability[i];
+        a.global = g.global;
+        for (size_t p = 0; p < size_t(kClassicPlayers); ++p) a.usesDefault[p] = g.usesDefault[p], a.player[p] = g.player[p];
+    } else if (tab == kClassicUpgrades) {
+        UpgradeSettings::Levels& l = d.upgrades.levels[i];
+        const UpgradeSettings::Levels& g = d.def->upgrades.levels[i];
+        l.defaultMax = g.defaultMax, l.defaultStart = g.defaultStart;
+        for (size_t p = 0; p < size_t(kClassicPlayers); ++p) l.usesDefault[p] = g.usesDefault[p], l.max[p] = g.max[p], l.start[p] = g.start[p];
+    } else {  // (the defaults for all players stay: they have no game value, see classicEntryChanged)
+        TechSettings::Players& t = d.techs.players[i];
+        const TechSettings::Players& g = d.def->techs.players[i];
+        for (size_t p = 0; p < size_t(kClassicPlayers); ++p) t.usesDefault[p] = g.usesDefault[p], t.available[p] = g.available[p], t.researched[p] = g.researched[p];
+    }
+}
+
+// An entry's menu (the right button over the list), as the Data workspace's: the ids are what ClassicPageView::menuPick
+// takes. `copied`: the name of the copied entry (empty: nothing to paste).
+enum ClassicMenuId { kClassicMenuCopy = 1, kClassicMenuPaste, kClassicMenuReset, kClassicMenuPin };
+MenuModel classicEntryMenuModel(int tab, int e, const std::wstring& copied) {
+    MenuModel m;
+    auto item = [&m](int id, const std::wstring& label, const std::wstring& shortcut, bool enabled) {
+        MenuItem it;
+        it.id = id, it.label = label, it.shortcut = shortcut, it.grayed = !enabled;
+        m.push_back(std::move(it));
+    };
+    auto separator = [&m] {
+        MenuItem it;
+        it.kind = MenuItem::Kind::Separator;
+        m.push_back(std::move(it));
+    };
+    const bool paste = classicCanPaste(tab);
+    item(kClassicMenuCopy, L"&Copy values", L"Ctrl+C", true);
+    item(kClassicMenuPaste, tr(L"&Paste values") + (paste ? L" (" + copied + L")" : std::wstring()), L"Ctrl+V", paste);
+    separator();
+    item(kClassicMenuReset, L"&Reset to the game's values", L"", classicEntryChanged(tab, e));
+    separator();
+    item(kClassicMenuPin, classicPinned(tab, e) ? L"Un&pin" : L"&Pin to the top", L"", true);
+    return m;
+}
+
 // The program's part of the page (map_pages.inc: ClassicProgram): the map's changes, the names and the game text pop-out.
 class ClassicHost {
 public:
@@ -204,6 +304,8 @@ public:
     virtual int textWidth(const std::wstring& t) = 0;
     // The page's content is w x h (the program sizes the window it is in).
     virtual void fitSize(int tab, int w, int h) = 0;
+    // An entry's menu at `at` of `from` (`on`: what Report feedback names); a pick runs `pick` with the item's id.
+    virtual void menu(draw::View& from, draw::Point at, const MenuModel& items, std::function<void(int)> pick, const std::wstring& on) = 0;
 };
 
 // One value field: a kit text field. Its text's color is the page's: the changed color, the disabled and the read-only ones
@@ -218,10 +320,17 @@ struct ClassicNumber {
 // selected entry. The page's rows are the Map data page's (the same places as the windows it was).
 class ClassicPageView final : public draw::View {
 public:
-    ClassicPageView(ClassicHost& host, ClassicDialog& d, int tab) : host_(host), d_(d), tab_(tab) {
+    ClassicPageView(ClassicHost& host, ClassicDialog& d, int tab) : host_(host), d_(d), tab_(tab), model_([&host](int t, int e) { return host.entryName(t, e); }) {
         search_.setPlaceholder(L"Search");
         search_.onChange = [this] { fillList(); };
         add(search_, {0, 0, 0, 0});
+        // The Changed filter: the Data workspace's button (core/views_data_workspace.inc), at the search box's right.
+        changed_.setGlyph(stardraft::kit::IconGlyph::ofIcon(int(UiIcon::Filter)));
+        changed_.setStyle(stardraft::kit::IconStyle::Face);
+        changed_.setTip(L"Changed: show only the entries that you changed (click again to show all)");
+        changed_.setOn(gClassicChangedOnly[tab_]);
+        changed_.onClick = [this] { setChangedOnly(!gClassicChangedOnly[tab_]); };
+        add(changed_, {0, 0, 0, 0});
         list_.setRowHeight(28);
         list_.label = [this](int i) { return host_.entryName(tab_, shown_[size_t(i)]); };
         list_.paintRow = [this](draw::Canvas& c, int i, draw::Rect r, stardraft::kit::RowState s) { paintRow(c, i, r, s); };
@@ -230,6 +339,13 @@ public:
             if (sel.empty() || sel[0] < 0 || sel[0] >= int(shown_.size())) return;
             d_.entry[tab_] = shown_[size_t(sel[0])];
             fill();
+        };
+        list_.onContext = [this](int i, draw::Point pt) {  // the entry's menu: copy, paste, reset, pin
+            if (i < 0 || i >= int(shown_.size())) return;
+            const int e = shown_[size_t(i)];
+            if (d_.entry[tab_] != e) d_.entry[tab_] = e, fill();
+            const std::wstring copied = classicCanPaste(tab_) ? host_.entryName(tab_, gClassicClip.entry) : std::wstring();
+            host_.menu(list_, pt, classicEntryMenuModel(tab_, e, copied), [this, e](int pick) { menuPick(e, pick); }, host_.entryName(tab_, e));
         };
         add(list_, {0, 0, 0, 0});
         for (int f = 0; f < classicFieldCount(tab_); ++f) {
@@ -302,9 +418,46 @@ public:
     int preferredWidth() { return rows().width; }
     int preferredHeight() { return rows().height; }
 
-    // The entries in the list, and the entry shown.
+    // The entries in the list (in order; the first `pinnedShown` are pinned), and the entry shown.
     int shownCount() const { return int(shown_.size()); }
+    int shownEntry(int i) const { return shown_[size_t(i)]; }
+    int pinnedShown() const { return pinnedShown_; }
     int entry() const { return d_.entry[tab_]; }
+    bool changedOnly() const { return gClassicChangedOnly[tab_]; }
+
+    // The Changed filter on or off (its button): the list shows only the changed entries, or all of them.
+    void setChangedOnly(bool on) {
+        gClassicChangedOnly[tab_] = on;
+        changed_.setOn(on);
+        fillList();
+        setMessage(on ? tr(L"Map data: only the changed entries show") : tr(L"Map data: all the entries show"));
+    }
+    // A pick of the entry's menu (classicEntryMenuModel): each change goes into the map as one undo step.
+    void menuPick(int e, int pick) {
+        const std::wstring name = host_.entryName(tab_, e);
+        if (pick == kClassicMenuCopy) {
+            classicCopyEntry(tab_, e);
+            setMessage(tr(L"Copied ") + name + tr(L"'s values"));
+        } else if (pick == kClassicMenuPaste) {
+            if (!classicCanPaste(tab_)) return;
+            const std::wstring from = host_.entryName(tab_, gClassicClip.entry);
+            classicPasteEntry(tab_, e, tab_ != kClassicUnits || host_.hasShields(e));
+            valuesChanged(tr(L"Pasted ") + from + tr(L"'s values onto ") + host_.entryName(tab_, e));
+        } else if (pick == kClassicMenuReset) {
+            classicResetEntry(tab_, e);
+            valuesChanged(tr(L"Reset ") + host_.entryName(tab_, e) + tr(L" to the game's values"));
+        } else if (pick == kClassicMenuPin) {
+            const bool pin = dataPinSave(classicDataTab(tab_), e);
+            fillList();
+            setMessage(pin ? tr(L"Pinned ") + name + tr(L" to the top of the list") : tr(L"Unpinned ") + name);
+        }
+    }
+    // Edit > Copy and Edit > Paste (Ctrl+C, Ctrl+V): the selected entry's values.
+    void copySelected() { menuPick(d_.entry[tab_], kClassicMenuCopy); }
+    void pasteSelected() {
+        if (!classicCanPaste(tab_)) return setMessage(tr(L"Copy the values of an entry on this tab first"));
+        menuPick(d_.entry[tab_], kClassicMenuPaste);
+    }
     // Selects an entry (tests, and the list): the list shows it, and its fields.
     void select(int e) {
         d_.entry[tab_] = std::clamp(e, 0, classicEntryCount(tab_) - 1);
@@ -372,11 +525,19 @@ public:
         c.roundBox(listRect(l.pad, l.listTop, l.listW, l.listH), draw::kNone, kBorder, float(scale(stardraft::kit::kRadius)), scale(1) + 1);
     }
 
+    // The right button's release over the list: the list's menu opened at the press (the window shows no Report feedback
+    // menu of its own for it).
+    bool mouse(const draw::MouseEvent& e) override {
+        return e.kind == draw::MouseKind::Up && e.button == 1 && list_.visible() && list_.frame().contains(e.pt);
+    }
+
     void paint(draw::Canvas& c) override {
         c.fill({0, 0, width(), height()}, kBg);
         const Rows l = rows();
         if (width() != l.width || height() != l.height) host_.fitSize(tab_, l.width, l.height);  // (its own size: a paint again)
-        place(search_, {l.pad, l.pad, l.pad + l.listW, l.pad + l.rowH});
+        const int fb = l.rowH, fx = l.pad + l.listW - fb;  // the Changed filter's button: a square at the search box's right
+        place(search_, {l.pad, l.pad, fx - scale(6), l.pad + l.rowH});
+        place(changed_, {fx, l.pad, fx + fb, l.pad + fb});
         place(list_, listRect(l.pad, l.listTop, l.listW, l.listH));
         if (scrollToRow_ >= 0 && list_.height() > 0) {  // the selected row: in view, once the list has its size
             list_.ensureVisible(scrollToRow_);
@@ -614,23 +775,27 @@ private:
             row = L"Default", column = at(globalA_.field) || at(globalB_.field) || at(globalCheckA_) || at(globalCheckB_);
             col = (at(globalB_.field) || at(globalCheckB_)) ? (tab_ == kClassicUpgrades ? L"Start level" : L"Researched") : (tab_ == kClassicUpgrades ? L"Max level" : L"");
         }
-        if (at(rename_) || at(search_) || at(list_)) return n;
+        if (at(rename_) || at(search_) || at(changed_) || at(list_)) return n;
         std::wstring field = row;
         if (column && !col.empty()) field += L", " + col;
         if (field.empty()) return n;
         return n.empty() ? field : n + L": " + field;
     }
 
-    // The list: the entries whose name has the search text.
+    // The entry's values changed through its menu (Paste, Reset): the fields and the list show them, the program puts
+    // them into the map (one undo step), and the status says `message`. (The program can make the page again in
+    // changed(): nothing of the view is used after it.)
+    void valuesChanged(const std::wstring& message) {
+        fill();
+        fillList();
+        host_.changed();
+        setMessage(message);
+    }
+    // The list: the entries that the search finds (the Data workspace's search: the number and the name) and the Changed
+    // filter shows, the pinned ones first.
     void fillList() {
-        std::wstring q = search_.text();
-        for (wchar_t& c : q) c = wchar_t(towlower(c));
-        shown_.clear();
-        for (int e = 0; e < classicEntryCount(tab_); ++e) {
-            std::wstring n = host_.entryName(tab_, e);
-            for (wchar_t& c : n) c = wchar_t(towlower(c));
-            if (q.empty() || n.find(q) != std::wstring::npos) shown_.push_back(e);
-        }
+        const DataListRows rows = dataListRows(model_, tab_, search_.text(), gClassicChangedOnly[tab_], dataPins(classicDataTab(tab_)));
+        shown_ = rows.shown, pinnedShown_ = rows.pinnedShown;
         list_.setCount(int(shown_.size()));
         selectRow(true);
         list_.invalidate();
@@ -760,7 +925,14 @@ private:
         }
         const draw::Rect box{r.left + scale(6), r.top + scale(2), r.left + scale(30), r.bottom - scale(2)};
         host_.drawIcon(c, tab_, e, box);
-        const draw::Rect t{box.right + scale(8), r.top, r.right - scale(16), r.bottom};
+        const bool pinned = i < pinnedShown_;
+        const draw::Rect t{box.right + scale(8), r.top, r.right - scale(pinned ? 34 : 16), r.bottom};
+        if (pinned) {  // a pin at the right, and a line under the last pinned row (as the Data workspace's list)
+            const draw::Font old = c.setFont(c.font({draw::Face::Glyphs, scale(11)}));
+            c.text({r.right - scale(33), r.top, r.right - scale(18), r.bottom}, L"\xE718", kDim, draw::kCenter | draw::kMiddle);
+            c.setFont(old);
+            if (i == pinnedShown_ - 1 && i + 1 < int(shown_.size())) c.fill({r.left + scale(6), r.bottom - 1, r.right - scale(6), r.bottom}, kBorder);
+        }
         c.text(t, host_.entryName(tab_, e), sel ? kAccent : kText, draw::kMiddle | draw::kEllipsis);
         if (classicEntryChanged(tab_, e)) {
             const int cx = r.right - scale(9), cy = (r.top + r.bottom) / 2, rr = scale(3);
@@ -771,9 +943,12 @@ private:
     ClassicHost& host_;
     ClassicDialog& d_;
     int tab_ = 0;
+    ClassicListModel model_;
     SearchBox search_;
+    stardraft::kit::IconButton changed_;
     stardraft::kit::ListView list_;
     std::vector<int> shown_;  // the entries in the list, in order
+    int pinnedShown_ = 0;     // how many of the first rows are pinned
     int scrollToRow_ = -1;    // the selected row, to bring in view at the next paint (-1: none)
     stardraft::kit::Button rename_;
     ClassicNumber fields_[6];
