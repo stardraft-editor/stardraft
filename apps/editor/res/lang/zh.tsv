@@ -2177,3 +2177,11 @@ Added unit 	已添加单位
  here: 	 (此处): 
 . Click again for the next unit.	。再次单击可选择下一个单位。
 , at 	，位置 
+&Floating terrain palette	浮动地形调色板(&F)
+Terrain palette	地形调色板
+Dock	停靠
+Put the palette back in the side bar	将调色板放回侧栏
+The terrain palette is in its own window	地形调色板在单独的窗口中
+Moved the terrain palette to its own window	已将地形调色板移到单独的窗口
+The terrain palette shows in its own window in Terrain mode	在地形模式下，地形调色板显示在单独的窗口中
+Docked the terrain palette	已停靠地形调色板

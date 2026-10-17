@@ -2177,3 +2177,11 @@ Added unit 	Добавлен юнит
  here: 	 здесь: 
 . Click again for the next unit.	. Щёлкните снова, чтобы выбрать следующий юнит.
 , at 	, в точке 
+&Floating terrain palette	&Плавающая палитра местности
+Terrain palette	Палитра местности
+Dock	Закрепить
+Put the palette back in the side bar	Вернуть палитру на боковую панель
+The terrain palette is in its own window	Палитра местности в отдельном окне
+Moved the terrain palette to its own window	Палитра местности перемещена в отдельное окно
+The terrain palette shows in its own window in Terrain mode	В режиме «Местность» палитра местности показана в отдельном окне
+Docked the terrain palette	Палитра местности закреплена

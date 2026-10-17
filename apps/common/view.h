@@ -88,6 +88,10 @@ enum class WindowKind {
     Menu,     // as Popup; a menu and its submenus
     Tooltip,  // never takes the mouse or the keyboard
     Dialog,   // a window with a title; other windows of the program wait until it closes (runModal)
+    // A window with a title that stays over the window that opens it (a floating palette): the other windows do not
+    // wait, the user can move it (also to another screen) and change its size. `at`: its place in the coordinates of
+    // the view that opens it. Its close button closes it (then `closed` runs). A snapshot shows it over its opener.
+    Tool,
 };
 struct WindowSpec {
     WindowKind kind = WindowKind::Popup;

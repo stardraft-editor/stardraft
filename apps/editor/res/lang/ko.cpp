@@ -2180,6 +2180,14 @@ constexpr UiText kRows[] = {
     {L" here: ", L" (\uC774 \uC704\uCE58): "},
     {L". Click again for the next unit.", L". \uB2E4\uC2DC \uD074\uB9AD\uD558\uBA74 \uB2E4\uC74C \uC720\uB2DB\uC744 \uC120\uD0DD\uD569\uB2C8\uB2E4."},
     {L", at ", L", \uC704\uCE58 "},
+    {L"&Floating terrain palette", L"\uB5A0 \uC788\uB294 \uC9C0\uD615 \uD314\uB808\uD2B8(&F)"},
+    {L"Terrain palette", L"\uC9C0\uD615 \uD314\uB808\uD2B8"},
+    {L"Dock", L"\uB3C4\uD0B9"},
+    {L"Put the palette back in the side bar", L"\uD314\uB808\uD2B8\uB97C \uC0AC\uC774\uB4DC\uBC14\uB85C \uB418\uB3CC\uB9BD\uB2C8\uB2E4"},
+    {L"The terrain palette is in its own window", L"\uC9C0\uD615 \uD314\uB808\uD2B8\uAC00 \uBCC4\uB3C4 \uCC3D\uC5D0 \uC788\uC2B5\uB2C8\uB2E4"},
+    {L"Moved the terrain palette to its own window", L"\uC9C0\uD615 \uD314\uB808\uD2B8\uB97C \uBCC4\uB3C4 \uCC3D\uC73C\uB85C \uC62E\uACBC\uC2B5\uB2C8\uB2E4"},
+    {L"The terrain palette shows in its own window in Terrain mode", L"\uC9C0\uD615 \uBAA8\uB4DC\uC5D0\uC11C \uC9C0\uD615 \uD314\uB808\uD2B8\uAC00 \uBCC4\uB3C4 \uCC3D\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4"},
+    {L"Docked the terrain palette", L"\uC9C0\uD615 \uD314\uB808\uD2B8\uB97C \uB3C4\uD0B9\uD588\uC2B5\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

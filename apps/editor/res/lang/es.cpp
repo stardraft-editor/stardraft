@@ -2180,6 +2180,14 @@ constexpr UiText kRows[] = {
     {L" here: ", L" aqu\u00ED: "},
     {L". Click again for the next unit.", L". Haga clic otra vez para la unidad siguiente."},
     {L", at ", L", en "},
+    {L"&Floating terrain palette", L"Paleta de terreno &flotante"},
+    {L"Terrain palette", L"Paleta de terreno"},
+    {L"Dock", L"Acoplar"},
+    {L"Put the palette back in the side bar", L"Devolver la paleta a la barra lateral"},
+    {L"The terrain palette is in its own window", L"La paleta de terreno est\u00E1 en su propia ventana"},
+    {L"Moved the terrain palette to its own window", L"Se movi\u00F3 la paleta de terreno a su propia ventana"},
+    {L"The terrain palette shows in its own window in Terrain mode", L"En el modo Terreno, la paleta de terreno se muestra en su propia ventana"},
+    {L"Docked the terrain palette", L"Se acopl\u00F3 la paleta de terreno"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

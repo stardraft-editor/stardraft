@@ -44,6 +44,7 @@ enum : int {
     ID_TOOL_KEY = 970,  // + the tool of the keys V, B, A, F: select, brush or place, spray, fill (GitHub feedback #98)
     ID_VIEW_RANGES = 975,  // View > Show ranges of the selected units (GitHub feedback #109)
     ID_VIEW_MINIMAP = 976,  // View > Show minimap (GitHub feedback #127)
+    ID_VIEW_FLOATPAL = 977,  // View > Floating terrain palette (Roadmap R40: the Terrain palette in a window of its own)
     ID_LAYER = 990,         // + View > Layers: 0 terrain, 1 doodads, 2 sprites, 3 units
     ID_RAIL_KEY = 1000,     // + n: Ctrl+1 to Ctrl+9, the n-th item of the side bar (the tab's mode: a classic map or a project)
     ID_CRASH_MODE = 980,   // + Options > Crash reports: 0 ask, 1 send, 2 do not send

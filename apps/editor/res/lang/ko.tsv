@@ -2177,3 +2177,11 @@ Added unit 	추가한 유닛
  here: 	 (이 위치): 
 . Click again for the next unit.	. 다시 클릭하면 다음 유닛을 선택합니다.
 , at 	, 위치 
+&Floating terrain palette	떠 있는 지형 팔레트(&F)
+Terrain palette	지형 팔레트
+Dock	도킹
+Put the palette back in the side bar	팔레트를 사이드바로 되돌립니다
+The terrain palette is in its own window	지형 팔레트가 별도 창에 있습니다
+Moved the terrain palette to its own window	지형 팔레트를 별도 창으로 옮겼습니다
+The terrain palette shows in its own window in Terrain mode	지형 모드에서 지형 팔레트가 별도 창에 표시됩니다
+Docked the terrain palette	지형 팔레트를 도킹했습니다
