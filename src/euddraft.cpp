@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>  // strsignal
 #include <fstream>
 #include <regex>
 #include <sstream>
@@ -191,6 +192,10 @@ BuildResult build(const fs::path& exe, const fs::path& edsFile, const std::funct
         if (line.find("[Error]") != std::string::npos || line.find("Traceback") != std::string::npos) r.errors.push_back(line);
         if (onLine) onLine(line);
     });
+#ifndef _WIN32
+    // A crash (a signal stopped it: runProcess gives 128 + its number) prints no error line: the error says so.
+    if (r.exitCode > 128) r.errors.insert(r.errors.begin(), "euddraft crashed (" + std::string(strsignal(r.exitCode - 128)) + ")");
+#endif
     r.ok = r.exitCode == 0 && r.errors.empty();
     return r;
 }
