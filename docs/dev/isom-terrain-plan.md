@@ -96,6 +96,10 @@ compare with Chkdraft's newer code for fixes worth taking.
   | Invalid diamonds | 0 | 0 |
 
   Without the repair the core had 48 misfits, 22 of them null tiles on (4)Zoo Keeper.
+- Done: StarEdit's brush moves in half-diamond steps, as StarDraft's did (`starEditBrushAt`): an odd size is centered
+  on the nearest diamond, an even size on the nearest corner (both StarEdit's blocks, through the core); an odd size
+  nearer a corner (between diamonds) paints the brush's own footprint there (size 1: that corner, half a diamond),
+  with the old engine. paint_stress: 0.27 ms a call, 16 misfits (old engine 80), no invalid diamonds.
 - The old engine stays for now: the repair, the half-size brush, paste and Rectangle mode use it, so its learned tables
   stay too (point 4 of the setup waits for that).
 - Next: tiles from ISOM (regen: new maps, maps without an ISOM, resize) through the core; the tile variant choice on

@@ -1022,19 +1022,22 @@ bool Editor::terrainCoreOn() {
 }
 
 bool Editor::applyCoreBrush(int px, int py, uint16_t terrain, int extent) {
-    std::vector<std::pair<int, int>> diamonds;
+    // Each symmetric point's block of diamonds (starEditBrushAt); a point between diamonds (an odd size nearest a
+    // corner) has none: then the brush's own footprint, as for the other brushes.
+    std::vector<std::vector<std::pair<int, int>>> blocks;
     for (auto [x, y] : symmetricPoints(px, py)) {
-        int dx = 0, dy = 0;
-        diamondAtPixel(x, y, dx, dy);
-        if (std::find(diamonds.begin(), diamonds.end(), std::make_pair(dx, dy)) == diamonds.end()) diamonds.push_back({dx, dy});
+        auto block = starEditBrushAt(x, y, extent);
+        if (block.empty()) return false;
+        if (std::find(blocks.begin(), blocks.end(), block) == blocks.end()) blocks.push_back(std::move(block));
     }
     int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
-    for (auto [dx, dy] : diamonds) x0 = std::min(x0, dx), y0 = std::min(y0, dy), x1 = std::max(x1, dx), y1 = std::max(y1, dy);
-    const int reach = (extent + 1) / 2 + 1;  // (in grid steps: the brush's half and the diamonds around it)
+    for (const auto& b : blocks)
+        for (auto [dx, dy] : b) x0 = std::min(x0, dx), y0 = std::min(y0, dy), x1 = std::max(x1, dx), y1 = std::max(y1, dy);
+    const int reach = 1;  // (in grid steps: the diamonds around the blocks)
     return applyCore(
         [&] {
             bool painted = false;
-            for (auto [dx, dy] : diamonds) painted = core_.paint(dx, dy, terrain, extent) || painted;
+            for (const auto& b : blocks) painted = core_.paintDiamonds(b, terrain) || painted;
             return painted;
         },
         [&] {  // (the old engine: the same diamonds' corners)
@@ -1052,7 +1055,11 @@ bool Editor::paintBrush(int px, int py, uint16_t terrain, const Brush& brush) {
     if (own) beginTerrainStroke();
     bool ok;
     // StarEdit's own brush (a diamond of whole diamonds, as wide as high): the terrain core paints it as StarEdit does.
-    if (terrainCoreOn() && brush.starEdit()) {
+    // (between diamonds, an odd size, at any symmetric point: not StarEdit's block, the brush's own footprint below)
+    bool between = false;
+    if (brush.starEdit())
+        for (auto [x, y] : symmetricPoints(px, py)) between = between || starEditBrushAt(x, y, int(brush.size)).empty();
+    if (terrainCoreOn() && brush.starEdit() && !between) {
         ok = applyCoreBrush(px, py, terrain, int(brush.size));
     } else {
         std::vector<CornerValue> corners;

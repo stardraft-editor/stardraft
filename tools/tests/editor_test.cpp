@@ -1717,6 +1717,20 @@ int main(int argc, char** argv) {
             };
             CHECK(changed > 0 && isomTerrain(same.chk().effective("ISOM")) == isomTerrain(isomBefore),
                   "a brush over its own terrain redraws tiles (new variants), the ISOM's terrain the same");
+            {  // StarEdit's brush in half-diamond steps: on a diamond, its block; between diamonds (a corner), the corner
+                const int gx = (same.width() / 4) & ~1, gy = (same.height() / 2) & ~1;  // a diamond in the middle (gx + gy even)
+                const Brush one{Brush::Diamond, 1}, two{Brush::Diamond, 2};
+                const auto onDiamond = same.brushCorners(gx * 64, gy * 32, one), between = same.brushCorners((gx + 1) * 64, gy * 32, one);
+                const auto block = same.brushCorners((gx + 1) * 64, gy * 32, two);
+                CHECK(onDiamond.size() == 4 && between.size() == 1 && between[0] == std::make_pair(gx + 1, gy) && block.size() == 9,
+                      "the size 1 brush covers a diamond's 4 corners on it and 1 corner between diamonds; size 2 on that corner, a 2 x 2 block");
+                const uint16_t other = same.terrainAt((gx + 1) * 64, gy * 32) == 1 ? 2 : 1;
+                const Bytes before = same.chk().effective("ISOM");
+                same.paintBrush((gx + 1) * 64, gy * 32, other, one);
+                CHECK(same.chk().effective("ISOM") != before && same.terrainAt((gx + 1) * 64, gy * 32) == other && same.invalidTerrain() == 0,
+                      "the size 1 brush between diamonds paints that corner (half a diamond), the terrain valid");
+                same.undo();
+            }
             same.undo();
             CHECK(same.terrain().tiles == tilesBefore && same.chk().effective("ISOM") == isomBefore, "one undo gives the map back");
         }
