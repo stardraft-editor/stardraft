@@ -748,8 +748,6 @@ std::vector<std::pair<int, int>> IsomGrid::brushCorners(int px, int py, const Br
             for (auto [cx, cy] : {std::pair{dx - 1, dy}, {dx, dy - 1}, {dx + 1, dy}, {dx, dy + 1}})
                 if (isCorner(cx, cy) && std::find(out.begin(), out.end(), std::make_pair(cx, cy)) == out.end()) out.push_back({cx, cy});
         if (!out.empty()) return out;
-        // Between diamonds (half a diamond off): the footprint around that corner (size 1: the corner alone).
-        px = int(std::lround(px / 64.0)) * 64, py = int(std::lround(py / 32.0)) * 32;
     }
     const double w = std::max(0.5, double(brush.size)) * 64, h = std::max(0.5, double(brush.height())) * 32;  // half extents in pixels
     int x0 = int(std::floor((px - w) / 64)) - 1, x1 = int(std::ceil((px + w) / 64)) + 1;
@@ -1026,9 +1024,11 @@ std::vector<std::pair<int, int>> starEditBrushAt(int px, int py, int extent) {
     extent = std::max(extent, 1);
     // The nearest grid point (64 px across, 32 down; with the diamond distance, rounding each axis is nearest).
     int x = int(std::lround(px / 64.0)), y = int(std::lround(py / 32.0));
-    const bool odd = extent % 2 == 1;  // centered on a diamond (x + y even); else on a corner
-    if (odd) return ((x + y) & 1) ? std::vector<std::pair<int, int>>{} : starEditBrushDiamonds(x, y, extent);
-    if (!((x + y) & 1)) {  // a diamond is nearest: the nearest of its four corners
+    if (extent % 2 == 1) {  // centered on a diamond: the nearest one
+        diamondAtPixel(px, py, x, y);
+        return starEditBrushDiamonds(x, y, extent);
+    }
+    if (!((x + y) & 1)) {  // centered on a corner; a diamond is nearest: the nearest of its four corners
         double best = 1e9;
         int bx = x, by = y;
         for (auto [cx, cy] : {std::pair{x - 1, y}, {x + 1, y}, {x, y - 1}, {x, y + 1}}) {

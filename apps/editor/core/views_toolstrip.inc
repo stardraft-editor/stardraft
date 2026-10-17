@@ -11,10 +11,10 @@ constexpr double kStripPi = 3.14159265358979323846;
 void setTerrainRect(bool rect);
 bool objectSprayOn();
 
-// The brush sizes (diamonds; the sprays' radius too): 1 to 16, then every other to 32.
+// The brush sizes (diamonds; the sprays' radius too): 0.5 (half a diamond: one corner), 1 to 16, then every other to 32.
 const std::vector<float>& brushSizes() {
     static const std::vector<float> v = [] {
-        std::vector<float> o;
+        std::vector<float> o{0.5f};
         for (int i = 1; i <= 16; ++i) o.push_back(float(i));
         for (int i = 18; i <= 32; i += 2) o.push_back(float(i));
         return o;
@@ -131,7 +131,7 @@ void stripNumberStep(int which, int dir) {
     }
     stripNumberChanged();
 }
-// A typed number: into the range; Size to a whole number (StarCraft terrain has no half sizes).
+// A typed number: into the range; Size to a whole number, or 0.5 below 1 (half a diamond: one corner).
 bool stripNumberSet(int which, const std::wstring& text) {
     AppState& app = appState();
     if (which == kNumHeight && text.empty()) {  // linked: the same as the size
@@ -147,7 +147,7 @@ bool stripNumberSet(int which, const std::wstring& text) {
         return false;
     }
     if (which == kNumSize) {
-        app.brushSize = float(std::clamp(std::round(v), 1.0, 32.0));
+        app.brushSize = v < 1 ? 0.5f : float(std::clamp(std::round(v), 1.0, 32.0));
     } else if (which == kNumHeight) {
         app.brushHeight = float(std::clamp(std::round(v), 1.0, 32.0));  // a value of its own (the link turns off)
     } else {

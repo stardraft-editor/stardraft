@@ -1717,18 +1717,21 @@ int main(int argc, char** argv) {
             };
             CHECK(changed > 0 && isomTerrain(same.chk().effective("ISOM")) == isomTerrain(isomBefore),
                   "a brush over its own terrain redraws tiles (new variants), the ISOM's terrain the same");
-            {  // StarEdit's brush in half-diamond steps: on a diamond, its block; between diamonds (a corner), the corner
+            {  // Each brush size keeps its shape wherever it is: size 1 is a diamond (snapped to the nearest), also near a
+               // corner; size 2 a 2 x 2 block around the nearest corner; size 0.5 that corner alone (half a diamond)
                 const int gx = (same.width() / 4) & ~1, gy = (same.height() / 2) & ~1;  // a diamond in the middle (gx + gy even)
-                const Brush one{Brush::Diamond, 1}, two{Brush::Diamond, 2};
-                const auto onDiamond = same.brushCorners(gx * 64, gy * 32, one), between = same.brushCorners((gx + 1) * 64, gy * 32, one);
-                const auto block = same.brushCorners((gx + 1) * 64, gy * 32, two);
-                CHECK(onDiamond.size() == 4 && between.size() == 1 && between[0] == std::make_pair(gx + 1, gy) && block.size() == 9,
-                      "the size 1 brush covers a diamond's 4 corners on it and 1 corner between diamonds; size 2 on that corner, a 2 x 2 block");
-                const uint16_t other = same.terrainAt((gx + 1) * 64, gy * 32) == 1 ? 2 : 1;
+                const Brush half{Brush::Diamond, 0.5f}, one{Brush::Diamond, 1}, two{Brush::Diamond, 2};
+                const int cx = (gx + 1) * 64, cy = gy * 32;  // the corner (gx + 1, gy)
+                const auto onDiamond = same.brushCorners(gx * 64, gy * 32, one), nearCorner = same.brushCorners(cx - 8, cy, one);
+                const auto block = same.brushCorners(cx, cy, two), corner = same.brushCorners(cx, cy, half), corner2 = same.brushCorners(gx * 64 + 8, gy * 32, half);
+                CHECK(onDiamond.size() == 4 && nearCorner.size() == 4 && block.size() == 9 && corner.size() == 1 &&
+                          corner[0] == std::make_pair(gx + 1, gy) && corner2.size() == 1,
+                      "brush sizes keep their shape: 1 a diamond (also near a corner), 2 a 2 x 2 block, 0.5 one corner (also near a diamond)");
+                const uint16_t other = same.terrainAt(cx, cy) == 1 ? 2 : 1;
                 const Bytes before = same.chk().effective("ISOM");
-                same.paintBrush((gx + 1) * 64, gy * 32, other, one);
-                CHECK(same.chk().effective("ISOM") != before && same.terrainAt((gx + 1) * 64, gy * 32) == other && same.invalidTerrain() == 0,
-                      "the size 1 brush between diamonds paints that corner (half a diamond), the terrain valid");
+                same.paintBrush(cx, cy, other, half);
+                CHECK(same.chk().effective("ISOM") != before && same.terrainAt(cx, cy) == other && same.invalidTerrain() == 0,
+                      "the 0.5 brush paints one corner (half a diamond), the terrain valid");
                 same.undo();
             }
             same.undo();
