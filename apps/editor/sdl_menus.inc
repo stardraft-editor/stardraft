@@ -660,7 +660,8 @@ bool sdlShotInputNext() {
 // gives it, in the window's pixels: the mouse comes to the first point, the button goes down, (a drag: the mouse moves
 // to the second point in steps, the button held), the button goes up. The events go the host's way for a window's
 // (SdlHost::snapshotMouse), with the modifier keys held (Shift, Ctrl, Alt, joined with +; Ctrl is Cmd on macOS);
-// Double in the mods: a double click (a second press and release, SDL's clicks 2). Undo in a drag's mods: Ctrl+Z is
+// Double in the mods: a double click (a second press and release, SDL's clicks 2); Repeat<n>: n quick clicks at the
+// point, as a user's fast clicks come (SDL counts them: clicks 1, 2, 3 ... n). Undo in a drag's mods: Ctrl+Z is
 // pressed halfway, while the button is held.
 // The points are the main window's, as a user's mouse is on the screen: a pop-out that an input opened takes the
 // events when the first point is on it, and a press outside it closes it; a dialog takes them in its own pixels.
@@ -679,6 +680,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
     if (!drag) x1 = x0, y1 = y0;
     SDL_Keymod held = SDL_KMOD_NONE;
     bool twice = false, undoHalfway = false;
+    int repeat = 0;  // Repeat<n>: n quick clicks
     std::stringstream in(mods);
     for (std::string m; std::getline(in, m, '+');) {
 #ifdef __APPLE__
@@ -689,6 +691,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
         else if (m == "Shift") held = SDL_Keymod(held | SDL_KMOD_LSHIFT);
         else if (m == "Alt") held = SDL_Keymod(held | SDL_KMOD_LALT);
         else if (m == "Double" && !drag) twice = true;
+        else if (m.rfind("Repeat", 0) == 0 && !drag && std::atoi(m.c_str() + 6) > 1) repeat = std::min(255, std::atoi(m.c_str() + 6));
         else if (m == "Undo" && drag) undoHalfway = true;
         else return void(std::fprintf(stderr, "--%s%s: %s is not Shift, Ctrl or Alt\n", name.c_str(), spec.c_str(), m.c_str()));
     }
@@ -735,6 +738,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
             button(false, float(x1), float(y1));
         }
         if (twice) button(true, float(x0), float(y0), 2), button(false, float(x0), float(y0), 2);
+        for (int k = 2; k <= repeat; ++k) button(true, float(x0), float(y0), Uint8(k)), button(false, float(x0), float(y0), Uint8(k));
     }
     const SDL_Keymod before = SDL_GetModState();
     SDL_SetModState(held);

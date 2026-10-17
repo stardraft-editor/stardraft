@@ -346,6 +346,17 @@ CASES += [
 CASES += [
     # The New page: the tileset Ice, then Create makes the map (128 x 128).
     ("newpage-create", ["--newpage", "classic", "--click", "489,545", "--click", "1126,895"], "data"),
+    # Generate (a window wide enough for its settings to be beside the preview), then 8 quick clicks (Repeat8: SDL counts
+    # them, so all but the first are double clicks) on Randomize seed, Randomize values and Randomize all, a wait after
+    # each: each click randomizes, and one map is made, for the last values shown.
+    ("newpage-randomize-quick", ["--size", "2400x1300", "--newpage", "classic", "--click", "894,422", "--wait", "600",
+                                 "--click", "1870,463:Repeat8", "--wait", "600", "--click", "1566,529:Repeat8", "--wait", "600",
+                                 "--click", "1679,529:Repeat8", "--wait", "600"], "data"),
+    # Generate, then the Symmetry dropdown: a click opens its list, Down twice and Enter pick Mirror top and bottom, and
+    # the map is made again with it. Then Blank (the dropdown goes from view) and Down twice: the symmetry stays.
+    ("newpage-symmetry-dropdown", ["--size", "2400x1300", "--newpage", "classic", "--click", "894,422", "--wait", "600",
+                                   "--click", "1822,496", "--key", "Down", "--key", "Down", "--key", "Enter", "--wait", "600",
+                                   "--click", "894,390", "--key", "Down", "--key", "Down"], "data"),
     # The Data form of the Marine in a new project: Hit points typed (50, Enter), Shield enable clicked, Unit size picked
     # (Medium in the list picker), then three Undo steps.
     ("data-form-edits", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "671,742", "--type", "50",
@@ -1125,6 +1136,62 @@ def check_newpage_create(output):
     return None
 
 
+NEWPAGE_STATE = re.compile(r"^new page: (.*); (\d+) randomize presses, (\d+) maps made, the last for (the same choices|other choices .*); "
+                           r"the symmetry list (open|closed)$")
+
+
+def newpage_states(output):
+    """The New page's state after each input: [(input, choices, presses, maps, same, list open)]."""
+    out = []
+    for what, st in states(output):
+        m = NEWPAGE_STATE.match(st)
+        if not m:
+            return None
+        out.append((what, m.group(1), int(m.group(2)), int(m.group(3)), m.group(4) == "the same choices", m.group(5) == "open"))
+    return out
+
+
+def check_newpage_randomize(output):
+    """None when each of the 8 quick clicks on each Randomize button randomized, the page shows new values, and the
+    wait after them made one map, for the values shown."""
+    s = newpage_states(output)
+    if not s or len(s) != 8:
+        return f"{len(s) if s else 0} New page state lines, not 8"
+    if s[1][3] < 1 or not s[1][4]:
+        return f"after Generate: {s[1]} (no map for the choices)"
+    for k in range(3):
+        before, click, wait = s[1 + 2 * k], s[2 + 2 * k], s[3 + 2 * k]
+        if click[2] - before[2] != 8:
+            return f"{click[0]}: {click[2] - before[2]} of the 8 clicks randomized"
+        if click[1] == before[1]:
+            return f"{click[0]}: the values did not change ({click[1]})"
+        if wait[1] != click[1]:
+            return f"the wait after {click[0]}: the values changed ({wait[1]}, not {click[1]})"
+        if wait[3] - before[3] != 1 or not wait[4]:
+            return f"the wait after {click[0]}: {wait[3] - before[3]} maps made (not 1), for {'the same' if wait[4] else 'other'} choices"
+    if " era 0 " not in s[4][1] or " shape 30 75 180 35" not in s[3][1]:
+        return "Randomize seed changed more than the seed, or the tileset changed before Randomize all"
+    return None
+
+
+def check_newpage_symmetry(output):
+    """None when a click on Symmetry opened its list, Down, Down, Enter picked Mirror top and bottom (2) and closed it,
+    the wait made the map with it, and the keys after Blank did not change the dropdown that is not shown."""
+    s = newpage_states(output)
+    if not s or len(s) != 10:
+        return f"{len(s) if s else 0} New page state lines, not 10"
+    if not s[2][5] or " symmetry 0 " not in s[2][1]:
+        return f"after the click on Symmetry: the list is {'open' if s[2][5] else 'closed'} ({s[2][1]})"
+    if s[5][5] or " symmetry 2 " not in s[5][1]:
+        return f"after Enter: the list is {'open' if s[5][5] else 'closed'} ({s[5][1]}; not symmetry 2)"
+    if s[6][3] - s[5][3] != 1 or not s[6][4]:
+        return f"after the wait: {s[6][3] - s[5][3]} maps made (not 1) for {'the same' if s[6][4] else 'other'} choices"
+    for st in s[7:]:
+        if " blank " not in st[1] or " symmetry 2 " not in st[1]:
+            return f"{st[0]}: {st[1]} (not blank with symmetry 2)"
+    return None
+
+
 def check_data_edits(output):
     """None when the number, the flag and the picked value went into the entry, and three Undo steps took them out."""
     s = [st for _, st in states(output)]
@@ -1745,6 +1812,7 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed,
           "map-player-keys": check_player_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click,
           "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
+          "newpage-randomize-quick": check_newpage_randomize, "newpage-symmetry-dropdown": check_newpage_symmetry,
           "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits,
           "map-files-search": check_files_search, "map-briefing-add": check_briefing_add,
           "start-noinstall": check_banner(True, "none", False),

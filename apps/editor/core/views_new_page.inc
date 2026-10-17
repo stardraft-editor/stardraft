@@ -11,7 +11,7 @@
 #include <cstring>
 
 
-// The list the Terrain and Symmetry pickers show: a label and the value that comes back.
+// The list the Terrain picker shows: a label and the value that comes back.
 struct NewListItem {
     std::wstring label;
     std::string value;
@@ -150,6 +150,13 @@ int scaled(int v) { return scale(v); }
 
 }  // namespace newpage
 
+// The generator's Symmetry: a kit dropdown whose closed field lets the wheel go to the page (the page scrolls under
+// the mouse, as it did over the field before).
+class NewPageDropdown final : public stardraft::kit::Dropdown {
+public:
+    bool mouse(const draw::MouseEvent& e) override { return e.kind != draw::MouseKind::Wheel && Dropdown::mouse(e); }
+};
+
 // The New page's view: the choices, the tileset's generator, the preview, and the painting and the clicks of the page.
 class NewPageView final : public draw::View {
 public:
@@ -160,6 +167,12 @@ public:
         for (draw::View* f : {static_cast<draw::View*>(&name_), static_cast<draw::View*>(&location_), static_cast<draw::View*>(&output_),
                               static_cast<draw::View*>(&seed_), static_cast<draw::View*>(&fromMap_)})
             add(*f, {0, 0, 0, 0}), f->setVisible(false);
+        add(symmetry_, {0, 0, 0, 0}), symmetry_.setVisible(false);
+        std::vector<stardraft::kit::DropdownItem> sym;
+        for (const wchar_t* n : newpage::kSymmetryNames) sym.push_back({n, -1, -1});
+        symmetry_.setItems(std::move(sym));
+        symmetry_.setValue(0);
+        symmetry_.onChange = [this](int i) { symmetry = i, changed(); };
         name_.onChange = location_.onChange = output_.onChange = fromMap_.onChange = [this] { invalidate(); };
         seed_.onChange = [this] { changed(generate); };
         seed_.setFilter([](wchar_t c) { return c >= L'0' && c <= L'9'; });
@@ -270,7 +283,7 @@ public:
     // Randomize: shares around the tileset's averages (half to one and a half times), shape within useful ranges, a new
     // seed. `all`: the tileset and the size too.
     void randomize(bool all) {
-        uint32_t r = uint32_t(std::chrono::steady_clock::now().time_since_epoch().count()) ^ 0x9E3779B9u;
+        uint32_t r = nextRandom();
         auto roll = [&r](int lo, int hi) {
             r = r * 1664525u + 1013904223u;
             return lo + int((r >> 8) % uint32_t(hi - lo + 1));
@@ -283,8 +296,38 @@ public:
         const int ranges[4][2] = {{15, 60}, {50, 140}, {120, 300}, {10, 70}};
         for (size_t i = 0; i < shape.size(); ++i) shape[i].value = roll(ranges[i][0], ranges[i][1]);
         setSeedText(std::to_wstring(roll(1, 999999)));
+        ++randomized;
         changed();
     }
+    // Randomize seed: a new seed (the amounts and the shape stay).
+    void randomizeSeed() {
+        setSeedText(std::to_wstring(nextRandom() % 999999u + 1));
+        ++randomized;
+        changed();
+    }
+    // A new random number for each press: the clock, mixed into a state that each press moves on (two presses in the
+    // same tick of the clock give different values too).
+    uint32_t nextRandom() {
+        rng_ = rng_ * 6364136223846793005ull + 1442695040888963407ull +
+               uint64_t(std::chrono::steady_clock::now().time_since_epoch().count());
+        return uint32_t(rng_ >> 33) ^ uint32_t(rng_ >> 11);
+    }
+    // The presses of the Randomize buttons, the preview's maps made, and the choices of the last one (the self-tests
+    // read them: quick presses make one map, for the last choices).
+    int randomized = 0, generations = 0;
+    std::string generatedFor;
+    // The choices that the preview's map is made with, as text (the size, the tileset, the seed, the symmetry, the
+    // amounts and the shape).
+    std::string choicesText() {
+        std::string s = std::to_string(w) + "x" + std::to_string(h) + " era " + std::to_string(era) + (generate ? " generated" : " blank") +
+                        " seed " + std::to_string(seedValue()) + " symmetry " + std::to_string(symmetry) + " amounts";
+        for (const auto& sl : shares) s += " " + std::to_string(sl.value);
+        s += " shape";
+        for (const auto& sl : shape) s += " " + std::to_string(sl.value);
+        return s;
+    }
+    bool symmetryListOpen() const { return symmetry_.listOpen(); }
+    draw::Rect symmetryRect() const { return symmetry_.frame(); }
 
     // The preview again, a moment after the last change (a slider drag changes it many times).
     void changed(bool regenerate = true) {
@@ -297,7 +340,8 @@ public:
         if (importing()) return;
         const TerrainGenParams p = params();
         previewMade = newpage::makeTiles(tileset, p, generate, terrainId(), tiles, tilesW, tilesH);
-        ++tilesVersion;
+        ++tilesVersion, ++generations;
+        generatedFor = choicesText();
         invalidate();
     }
     // Import an existing map (an EUD project) or a map's terrain: the map has the terrain, so there is no preview.
@@ -457,15 +501,19 @@ public:
     std::vector<Hit> hits;
     std::vector<std::pair<draw::Rect, std::function<void(int)>>> wheels;
 
-    // The text fields are placed by the paint (hidden where they do not show, and under the Create bar).
-    void placeField(stardraft::kit::TextField& f, draw::Rect r, bool show, int clipTop, int clipBottom) {
+    // The text fields and the dropdown are placed by the paint (hidden where they do not show, and under the Create
+    // bar). A field that goes from view lets the keyboard go too (the keys do not change a field that is not shown).
+    void placeField(draw::View& f, draw::Rect r, bool show, int clipTop, int clipBottom) {
         show = show && r.top >= clipTop && r.bottom <= clipBottom;
         if (show && !sameRect(f.frame(), r)) f.setFrame(r);
+        if (!show && f.hasFocus())
+            if (draw::Host* h = f.host()) h->focus(*this);  // (the page: its keys, then its parents')
         if (f.visible() != show) f.setVisible(show);
     }
     // The fields are hidden (the page is not shown: the start page's).
     void hideFields() {
         for (stardraft::kit::TextField* f : {&name_, &location_, &output_, &seed_, &fromMap_}) placeField(*f, {}, false, 0, 0);
+        placeField(symmetry_, {}, false, 0, 0);
     }
 
 private:
@@ -505,10 +553,11 @@ private:
     void paintSizeRow(draw::Canvas& c, int x, int y, int labelW, int right, const wchar_t* name, uint16_t& value, int which);
     void paintSliderRow(draw::Canvas& c, int x, int y, int labelW, int right, NewSlider& sl, bool percent);
     void pickTerrain(draw::Rect b);
-    void pickSymmetry(draw::Rect b);
     int openEra_ = 0;
     NewPageHost& host_;
     stardraft::kit::TextField name_, location_, output_, seed_, fromMap_;
+    NewPageDropdown symmetry_;  // the generator's Symmetry
+    uint64_t rng_ = 0x9E3779B97F4A7C15ull;
     int timer_ = 0;
     int hover_ = -1;
 };
