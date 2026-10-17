@@ -86,7 +86,8 @@ compare with Chkdraft's newer code for fixes worth taking.
   engine.
 - Done: the repair step. Where the core leaves a rect that no tile group fits (StarEdit's rule writes the null tile; it
   happens on maps whose ISOM StarEdit would not make, e.g. (4)Zoo Keeper), the old engine makes that edit instead
-  (`IsomCore::untileable`, `Editor::applyCore`; `STARDRAFT_TERRAIN_REPAIR=0` keeps the core's result).
+  (`IsomCore::untileable`, `Editor::applyCore`). Always on: StarEdit's null tiles there are glitches, and exactness
+  with StarEdit is the reference tests' job.
 - Measured (paint_stress, 189 Blizzard maps outside `ladder`, 40 strokes each, through the Editor as the UI paints):
 
   | | Old engine | Core + repair |
@@ -104,12 +105,23 @@ compare with Chkdraft's newer code for fixes worth taking.
   the new ground filled, the edges made, the tiles that stay keep theirs); `isomterrain_test` runs IsomTerrain's 10
   resize reference tests: 10 of 10 perfect. A change of tileset keeps StarDraft's resize (IsomTerrain has none).
 - Done: new maps (File > New, the New page's Create) get their tiles from the core: StarEdit's new map (`IsomCore::fill`).
-- Done: the repair is a setting: Program options > Map > Terrain, "Repair the spots StarEdit's terrain rules leave
-  without a tile" (on by default; `STARDRAFT_TERRAIN_REPAIR=0` also turns it off).
 - Decided: the tile variants stay the core's: StarEdit's own rule (a common or a rare variant at random, the right
   tile of a rect as the left one, a cliff stack repeating the variant above). StarDraft's learned choice imitated it.
-- paint_stress (189 Blizzard maps, 40 strokes each): 0.21 ms a brush call (old engine 0.76), 22 misfit tiles (80), no
-  invalid diamonds.
-- The old engine stays, with its learned tables: the repair, the 0.5 brush (one corner), paste, Rectangle mode, the
-  terrain generator, maps without an ISOM and a resize to another tileset use it. These are StarDraft's own features
-  with no StarEdit equivalent; the core cannot take them over as they are.
+- Done: the old engine's tiles come from the core too (`regenerateTiles` with the tileset: `IsomCore::retile`, the
+  learned rules only for the rects no tile group fits; `IsomGrid::setTileset`). isom_test (290 maps, every tile made
+  again from the ISOM): 0.9496 overall against the learned rules' 0.9493; Blizzard's maps 1.0000 on every tileset but
+  jungle (0.9999).
+- paint_stress (189 Blizzard maps, 40 strokes each):
+
+  | | Time per brush call | Misfit tiles (most on one map) | Invalid diamonds |
+  |---|---|---|---|
+  | Old engine, learned tiles (before) | 0.76 ms | 80 (4) | 0 |
+  | Old engine, the core's tiles | 0.46 ms | 0 | 0 |
+  | Core + repair (the editor) | 0.22 ms | 22 (2) | 0 |
+
+- The old engine's corners stay (the repair, the 0.5 brush, paste, Rectangle mode, the terrain generator, maps without
+  an ISOM and a resize to another tileset use them: StarDraft's own features with no StarEdit equivalent), and so do
+  the learned rules, for less each time: the rects no tile group fits, which rects can be tiled while the old engine
+  corrects corners (`rectTileable`, `stacksWithAbove`: before the edge ids exist, so the core's lookup cannot answer),
+  whether a tile was placed by hand (`tileFromIsom`), and the tiles where no tileset is at hand (a new map's first
+  tiles, the New page's preview).

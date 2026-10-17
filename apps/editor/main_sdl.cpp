@@ -606,11 +606,6 @@ int main(int argc, char** argv) {
         // as a window's views are: what opens before the first frame (a page's timer that reads the map again after an
         // undo) has the host, and the focus stays from one input to the next.
         if (!snapshot.empty() && !inputArgs.empty()) host.snapshotInput(root, width, height, {});
-        {  // Program options > Map > Terrain: the repair after StarEdit's terrain rules (on unless turned off)
-            bool repair = true;
-            prefs::flag(L"TerrainRepair", repair);
-            Editor::setTerrainRepair(repair);
-        }
         if (!mapArg.empty()) openAny(widen(mapArg));  // a map, or a project (.eds, .stardraft, its folder): as File > Open does
         bool openLast = false;  // Program options > Open the last project on start (as the Win32 program)
         if (restartPid) restartReopen();  // what the old program had open (the setting Reopen: core/documents.inc)

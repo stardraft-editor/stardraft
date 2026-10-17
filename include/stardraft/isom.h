@@ -136,8 +136,11 @@ public:
         if (rx >= 0 && ry >= 0 && rx < rectCols_ && ry < rectRows_ && size_t(ry) * rectCols_ + rx < dirtyRects_.size()) dirtyRects_[size_t(ry) * rectCols_ + rx] = 1;
     }
 
-    // Write ISOM back to the chk, and regenerate TILE + MTXM for the changed area.
+    // Write ISOM back to the chk, and regenerate TILE + MTXM for the changed area (with the tileset when it is set:
+    // regenerateTiles through the terrain core).
     bool store(Chk& chk, std::string& error);
+    // The map's tileset, for store's tiles (StarEdit's, from its CV5); none: the learned rules alone.
+    void setTileset(const struct Tileset* tileset) { tileset_ = tileset; }
 
     int rectCols() const { return rectCols_; }
     int rectRows() const { return rectRows_; }
@@ -180,6 +183,7 @@ private:
     uint16_t sourceAt(int x, int y) const { return source_[size_t(y + 1) * (rectCols_ + 3) + (x + 1)]; }
 
     const IsomTerrainTable* table_ = nullptr;
+    const struct Tileset* tileset_ = nullptr;
     uint16_t era_ = 0;
     int mapWidth_ = 0, mapHeight_ = 0;  // tiles
     int rectCols_ = 0, rectRows_ = 0;   // width/2 + 1, height + 1
@@ -195,6 +199,9 @@ private:
 // (cliff pieces stack vertically). Uses corpus-learned rules; returns false if the
 // tileset has no rules.
 bool regenerateTiles(Chk& chk, const std::vector<uint8_t>& dirtyRects, std::string& error);
+// With the tileset: the terrain core (IsomCore::retile: StarEdit's tiles, from the tileset's CV5) makes them; the
+// learned rules only those of rects that no tile group fits. (isom_test: 0.9496 against the rules' 0.9493 on 290 maps.)
+bool regenerateTiles(Chk& chk, const std::vector<uint8_t>& dirtyRects, std::string& error, const struct Tileset* tileset);
 // How regenerateTiles found its tiles since the last reset (for tests and paint_stress): from the rules, predicted for a
 // combination the rules lack, or not at all (the old tile stays: a visible glitch).
 struct TileRegenStats {

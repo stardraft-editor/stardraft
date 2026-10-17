@@ -31,7 +31,6 @@ struct OptionsValues {
     int unitNames = 0;        // how lists name a unit with a custom name (0 to 3)
     int unitLimit[2] = {3400, 1700};  // standard maps, EUD projects
     bool openLast = false;
-    bool terrainRepair = true;  // where StarEdit's terrain rules leave a spot without a tile, StarDraft's engine paints it
     bool checkUpdates = false;
     int crashReports = 0;     // 0 ask, 1 send, 2 do not send
     bool mapsWithSD2 = false; // .scm and .scx open with StarDraft 2
@@ -71,7 +70,7 @@ namespace optionsview {
 // some sections, in this order.
 enum Section : unsigned {
     kAppearance = 1u << 0, kMouse = 1u << 1, kUnitNames = 1u << 2, kUnitLimit = 1u << 3, kStart = 1u << 4,
-    kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kTerrain = 1u << 7, kAllSections = (1u << 8) - 1,
+    kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kAllSections = (1u << 7) - 1,
 };
 struct Tab {
     const wchar_t* name;  // the toolbar item's label and the window's title
@@ -79,7 +78,7 @@ struct Tab {
 };
 inline const Tab kTabs[] = {
     {L"General", kAppearance | kMouse},
-    {L"Map", kUnitNames | kUnitLimit | kTerrain},
+    {L"Map", kUnitNames | kUnitLimit},
     {L"Start", kStart},
     {L"Folders", kWorkingFolder | kStarCraftFolder},
 };
@@ -119,12 +118,7 @@ public:
         updates_.setLabel(L"Look for updates on start");
         updates_.setTip(L"Release builds only");
         updates_.onChange = [this](bool) { host_.command(ID_OPT_UPDATECHECK); };
-        terrainRepair_.setLabel(L"Repair the spots StarEdit's terrain rules leave without a tile");
-        terrainRepair_.setTip(L"Terrain is painted as StarEdit paints it. On some maps that leaves a spot with no tile (it shows black); "
-                              L"then StarDraft's own terrain engine paints that edit. Off: exactly StarEdit's result");
-        terrainRepair_.onChange = [this](bool) { host_.command(ID_OPT_TERRAINREPAIR); };
-        for (auto* c : {static_cast<draw::View*>(&animate_), static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&updates_),
-                        static_cast<draw::View*>(&terrainRepair_)})
+        for (auto* c : {static_cast<draw::View*>(&animate_), static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&updates_)})
             add(*c, {0, 0, 0, 0}), c->setVisible(false);
         language_.onChange = [this](int i) {
             if (i >= 0 && i < int(langChoices_.size())) host_.command(ID_OPT_LANG + langChoices_[size_t(i)]);
@@ -281,7 +275,7 @@ private:
     OptionsHost& host_;
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, check_, restart_, maps_, close_;
-    stardraft::kit::CheckBox animate_, lastProject_, updates_, terrainRepair_;
+    stardraft::kit::CheckBox animate_, lastProject_, updates_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
     stardraft::kit::Slider slider_;
     stardraft::kit::TextField limit_[2], folder_, install_;
@@ -326,7 +320,7 @@ void OptionsView::sync(const OptionsValues& v) {
         for (int i = 0; i < 3; ++i) crashSeg_[i].setTone(i == crash ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
     }
     accents_ = v.accents;
-    animate_.setOn(v.animate), lastProject_.setOn(v.openLast), updates_.setOn(v.checkUpdates), terrainRepair_.setOn(v.terrainRepair);
+    animate_.setOn(v.animate), lastProject_.setOn(v.openLast), updates_.setOn(v.checkUpdates);
     // The languages offered (rebuilt when they change), the chosen one.
     if (langChoices_.size() != v.languages.size() || !std::equal(langChoices_.begin(), langChoices_.end(), v.languages.begin(), [](int a, const auto& b) {
             return a == b.first;
@@ -508,13 +502,6 @@ void OptionsView::paint(draw::Canvas& c) {
         }
         note(x0, y - scale(4), L"StarCraft without mods takes at most 3400 units in a map.");
         y += scale(20) + pad;
-    }
-
-    // Terrain: the repair after StarEdit's rules (Editor::terrainRepairOn; docs/dev/isom-terrain-plan.md).
-    if (shown & optionsview::kTerrain) {
-        header(L"Terrain");
-        checkRow(y, terrainRepair_, "terrainrepair");
-        y += rowH + pad;
     }
 
     // Start.

@@ -250,6 +250,7 @@ void Editor::reload() {
     }
     reloadTerrain();
     std::string err;
+    isom_.setTileset(tileset_.groups.empty() ? nullptr : &tileset_);  // (its tiles: StarEdit's, through the terrain core)
     isomOk_ = isom_.load(chk_, err);
     isomRebuilt_ = false;
     if (!isomOk_ && (!chk_.find("ISOM") || chk_.find("ISOM")->data.empty()))  // no ISOM: made from the tiles, so isometric painting works
@@ -963,16 +964,6 @@ static std::vector<std::pair<int, int>> wholeDiamonds(const IsomGrid& grid, cons
     return {diamonds.begin(), diamonds.end()};
 }
 
-static bool gTerrainRepair = true;
-bool Editor::terrainRepairOn() {
-    static const bool envOff = [] {
-        const char* v = std::getenv("STARDRAFT_TERRAIN_REPAIR");
-        return v && std::string(v) == "0";
-    }();
-    return gTerrainRepair && !envOff;
-}
-void Editor::setTerrainRepair(bool on) { gTerrainRepair = on; }
-
 bool Editor::applyCore(const std::function<bool()>& paint, const std::function<bool()>& repair, int x0, int y0, int x1, int y1) {
     std::string err;
     if (!core_.load(chk_, tileset_, err)) return repair();
@@ -981,7 +972,7 @@ bool Editor::applyCore(const std::function<bool()>& paint, const std::function<b
     if (!paint()) return false;
     // A rect that no tile group fits (StarEdit's rule leaves the null tile there; on maps whose ISOM StarEdit would not
     // make): the old engine makes this edit instead, as it keeps every rect tileable. The map is still as it was.
-    if (core_.untileable() && terrainRepairOn()) return repair();
+    if (core_.untileable()) return repair();
     core_.store(chk_);
     if (!isom_.load(chk_, err)) isomOk_ = false;  // (the core writes a full ISOM: this does not fail)
     commit(true);
@@ -1572,7 +1563,7 @@ bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX
     // between them made; the tiles that stay keep theirs). MTXM is TILE again: the doodads are placed again below.
     // Else (a new tileset, or a rect no tile fits): the terrain is made again from its corners (below).
     bool viaCore = terrainCoreOn() && era == era_ && core_.load(chk_, tileset_, err) && core_.resize(width, height, dx * 2, dy, fill) &&
-                   !(core_.untileable() && terrainRepairOn());
+                   !core_.untileable();
     if (viaCore) {
         core_.store(chk_);
         chk_.set("MTXM", chk_.effective("TILE"));

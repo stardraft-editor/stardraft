@@ -29,7 +29,6 @@ enum : int {
     ID_OPT_SNAPVALID = 640, ID_OPT_STRICT, ID_OPT_ILLEGAL, ID_OPT_DRAGBACK, ID_OPT_ANIMATE, ID_OPT_STACK, ID_OPT_LASTPROJECT,
     ID_OPT_WINDOW,  // Options > Program options (the window with the program options)
     ID_OPT_SNAPBUILDINGS,  // Options > Units > Snap buildings to tile edges (a check item)
-    ID_OPT_TERRAINREPAIR,  // Program options > Map > Terrain: repair what StarEdit's terrain rules leave without a tile
     // The Options menu: the snap of units, sprites and locations (+ the choice in kSnapGrids), the place rule of doodads,
     // and the items that show a rule that does not change (always grayed).
     ID_SNAP_UNITS = 910, ID_SNAP_SPRITES = 914, ID_SNAP_LOCATIONS = 918, ID_DOODAD_FIT = 922, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE,

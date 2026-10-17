@@ -43,6 +43,11 @@ public:
     // themselves (each starts a new changed area); this is for a change made otherwise.
     void updateTiles();
 
+    // The tiles of the rects marked in `rects` (per ISOM rect, row-major: (width / 2 + 1) x (height + 1); empty: all)
+    // made again from the ISOM as StarEdit makes them, down the cliff stacks under them. Rects that no tile group fits
+    // keep their tiles and are marked in `missed` (when given). For the old engine's edits and tests.
+    void retile(const std::vector<uint8_t>& rects, std::vector<uint8_t>* missed = nullptr);
+
     // StarEdit's new map: every diamond `fill` (an ISOM solid value), and all the tiles from it. False when `fill` is
     // no brush of the tileset.
     bool fill(uint16_t fill);
