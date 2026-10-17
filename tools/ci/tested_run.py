@@ -19,7 +19,7 @@ import time
 REPO = os.environ.get("GITHUB_REPOSITORY", "stardraft-editor/stardraft")
 # The jobs whose files a release has, or that test them: each one must have passed (not skipped).
 REQUIRED = {"windows", "macos", "linux-appimage", "linux", "linux-clang"}
-# Not waited for: the self-hosted runner with the game data is usually off; wine only reports (continue-on-error).
+# Not waited for: linux-data (now in data.yml; its runner is usually off); wine only reports (continue-on-error).
 IGNORED = {"linux-data", "wine"}
 VERSIONS = ("windows", "macos")  # (the jobs that build with the version name: build-version-<job>-<commit>)
 
