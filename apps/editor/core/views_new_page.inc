@@ -446,6 +446,14 @@ public:
         });
     }
 
+    // The larger preview (a click on the preview, or its Larger preview button): the map in the tileset's tiles, in the
+    // art of View > graphics, in a dialog as large as the window; Export writes it as a PNG.
+    void showLargePreview();
+    int largePreviews = 0;  // (the self-tests read it)
+    // The HD2 tiles of the tileset for the larger preview (loaded the first time it opens, for its era and skin).
+    HdTiles hdTiles;
+    int hdFor = -1;  // era * 2 + carbot of hdTiles; -1: none
+
     // The page was shown again: it starts at the top.
     void resetScroll() {
         if (scroll) scroll = 0, invalidate();
@@ -581,4 +589,56 @@ void NewPageView::paintPreview(draw::Canvas& c, draw::Rect pv) {
                  true);
     }
     c.roundBox(pv, draw::kNone, kBorder, float(scale(2)));
+    if (tilesW <= 0 || tilesH <= 0) return;
+    // A click on the preview, or the button at its top right: the larger preview.
+    hitAdd(pv, [this] { shellPost([this] { showLargePreview(); }); }, L"Show the map larger, as it looks in the game");
+    const std::wstring label = L"Larger preview";
+    const int bw = c.measure(label) + scale(20), bh = scale(24);
+    const draw::Rect br{pv.right - bw - scale(8), pv.top + scale(8), pv.right - scale(8), pv.top + scale(8) + bh};
+    buttonFace(c, br, label, false, hot(br) ? BtnState::Hot : BtnState::Normal);
+    hitAdd(br, [this] { shellPost([this] { showLargePreview(); }); }, L"Show the map larger, as it looks in the game");
+}
+
+void NewPageView::showLargePreview() {
+    if (tilesW <= 0 || tilesH <= 0 || !host()) return;
+    ++largePreviews;
+    AppState& app = appState();
+    // The art of View > graphics: the HD2 tiles for the HD art (they have 64 pixels a tile), else the game's tiles.
+    const HdTiles* hd = nullptr;
+    if (app.quality != GraphicsQuality::SD) {
+        const int want = era * 2 + (app.carbot ? 1 : 0);
+        if (hdFor != want) {
+            std::string err;
+            hdTiles = HdTiles{};
+            if (!loadHdTiles(app.data, era, GraphicsQuality::HD2, hdTiles, err, app.carbot)) hdTiles = HdTiles{};
+            hdFor = want;
+        }
+        if (!hdTiles.tiles.empty()) hd = &hdTiles;
+    }
+    TerrainLayer t;
+    t.width = uint16_t(tilesW), t.height = uint16_t(tilesH), t.tiles = tiles;
+    const std::wstring info = std::wstring(tr(kTilesetNames[era & 7])) + L"  \x00B7  " + std::to_wstring(tilesW) + L" x " + std::to_wstring(tilesH) +
+                              L" " + tr(L"tiles") + (generate ? std::wstring(L"  \x00B7  ") + tr(L"Seed") + L" " + std::to_wstring(seedValue()) : std::wstring());
+    NewPreviewView view(tileset, hd, t, info);
+    stardraft::kit::Dialog dlg;
+    const draw::View* top = this;
+    while (top->parent()) top = top->parent();
+    const draw::Point size = newPreviewDialogSetup(dlg, view, {top->width(), top->height()});
+    if (dlg.run(*this, tr(L"Larger preview"), size) != kNewPreviewExport) return;
+    const int px = view.exportPx();
+    const std::wstring name = std::wstring(kTilesetNames[era & 7]) + L" " + std::to_wstring(tilesW) + L"x" + std::to_wstring(tilesH) +
+                              (generate ? L" " + std::to_wstring(seedValue()) : std::wstring()) + L".png";
+    const fs::path file = pickPngFile(L"Export the preview", name);
+    if (file.empty()) return;
+    std::string err;
+    if (!writeTerrainPng(file, tileset, hd, t, px, err)) {
+        host_.message(tr(L"Could not export the preview. ") + widen(err));
+        return;
+    }
+    const int ppx = px > 32 && !hd ? 32 : px, pw = tilesW * ppx, ph = tilesH * ppx;
+    shellMapImageWritten(file, pw, ph,
+                         "New page preview, " + std::to_string(ppx) + " px a tile, " + (hd ? "HD2" : "SD") + " art, shown at " + std::to_string(view.shownPx) +
+                             " px a tile (" + std::to_string(view.pictureSize().x) + " x " + std::to_string(view.pictureSize().y) + ")");
+    host_.message(tr(L"Exported the preview ") + file.filename().wstring() + L" (" + std::to_wstring(pw) + L" x " + std::to_wstring(ph) + L" " + tr(L"pixels") +
+                  L")");
 }

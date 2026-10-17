@@ -2141,3 +2141,30 @@ StarDraft 2 offers pre-releases too	StarDraft 2 también ofrece versiones prelim
 StarDraft 2 offers the stable releases only	StarDraft 2 solo ofrece las versiones estables
 StarDraft 2 looks for a newer release at start and each hour	StarDraft 2 busca una versión más reciente al iniciar y cada hora
 StarDraft 2 does not look for newer releases	StarDraft 2 no busca versiones más recientes
+&Export map image…\tCtrl+Shift+E	&Exportar imagen del mapa…\tCtrl+Shift+E
+Export map image	Exportar imagen del mapa
+Full size in HD (64 pixels a tile)	Tamaño completo en HD (64 píxeles por ficha)
+Full size (32 pixels a tile)	Tamaño completo (32 píxeles por ficha)
+1/2 (16 pixels a tile)	1/2 (16 píxeles por ficha)
+1/4 (8 pixels a tile)	1/4 (8 píxeles por ficha)
+1/8 (4 pixels a tile)	1/8 (4 píxeles por ficha)
+Area	Área
+Scale	Escala
+Show	Mostrar
+Whole map	Todo el mapa
+Current view	Vista actual
+Selected area	Área seleccionada
+The terrain selection (Terrain mode, Select), else the selected location	La selección de terreno (modo Terreno, Seleccionar); si no, la ubicación seleccionada
+Locations and their names	Ubicaciones y sus nombres
+Grid	Cuadrícula
+pixels	píxeles
+Export…	Exportar…
+Exported the map image 	Imagen del mapa exportada: 
+Could not export the map image	No se pudo exportar la imagen del mapa
+Larger preview	Vista previa grande
+Show the map larger, as it looks in the game	Muestra el mapa más grande, como se ve en el juego
+Export the preview	Exportar la vista previa
+Could not export the preview. 	No se pudo exportar la vista previa. 
+Exported the preview 	Vista previa exportada: 
+Part %d of %d	Parte %d de %d
+Canceled the map image export	Exportación de la imagen del mapa cancelada

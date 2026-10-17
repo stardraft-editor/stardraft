@@ -161,6 +161,7 @@ bool sdlDataUndo(bool redo, const std::wstring& done = {});  // (sdl_data.inc: u
 void sdlUndoSteps(bool redo, size_t steps);  // (sdl_history.inc: Undo, Redo and the undo history's jumps)
 void sdlShowUndoHistory();
 
+void sdlExportMapImage();  // (sdl_map_image.inc: File > Export map image)
 bool sdlOptionsRuns(int id);     // (sdl_options.inc: the Program options commands)
 bool sdlOptionsCommand(int id);
 
@@ -172,6 +173,7 @@ bool sdlRuns(int id) {
     case ID_FILE_OPEN:
     case ID_FILE_SAVE:
     case ID_FILE_SAVEAS:
+    case ID_FILE_EXPORTIMAGE:  // (core/map_image.inc)
     case ID_FILE_EXIT:
     case ID_EDIT_UNDO:
     case ID_EDIT_REDO:
@@ -1192,6 +1194,9 @@ void commandSdl(int id) {
         return;
     case ID_FILE_SAVE: saveOpenMap(false); return;
     case ID_FILE_SAVEAS: saveOpenMap(true); return;
+    case ID_FILE_EXPORTIMAGE:
+        sdlExportMapImage();  // (sdl_map_image.inc; as Save as, its dialogs run here)
+        return;
     case ID_FILE_EXIT: requestQuit(); return;
     case ID_EDIT_UNDO:
     case ID_EDIT_REDO: sdlUndoSteps(id == ID_EDIT_REDO, 1); return;  // (sdl_history.inc: the workspace's own steps)

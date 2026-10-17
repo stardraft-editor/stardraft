@@ -206,6 +206,8 @@ struct MapDialogShot {
     std::unique_ptr<UnitPropsView> unit;
     std::unique_ptr<LocationPropsView> loc;
     std::unique_ptr<TextPromptView> prompt;
+    std::unique_ptr<MapImageView> image;  // mapimage: File > Export map image (core/map_image.inc)
+    std::unique_ptr<MapImageProgressView> progress;  // mapimage-progress: its progress window, at part 3 of 16
     stardraft::kit::Dialog dlg;
     draw::View* view = nullptr;
     draw::Point size;
@@ -241,6 +243,19 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
         s.prompt->setDialog(&s.dlg);
         s.dlg.setInsets({0, 0, 0, 0, 0, 0});  // (as runTextPrompt: the view places its field and buttons)
         s.size = {scale(promptLayout::kW), scale(promptLayout::kH)}, s.view = &s.dlg;
+        return true;
+    }
+    if (name == "mapimage") {
+        Rect sel{};
+        s.image = std::make_unique<MapImageView>(gMapImageLast, shellMapImageHd(), mapImageSelection(sel));
+        s.size = mapImageDialogSetup(s.dlg, *s.image), s.view = &s.dlg;
+        return true;
+    }
+    if (name == "mapimage-progress") {
+        s.progress = std::make_unique<MapImageProgressView>(L"map.png");
+        s.size = mapImageProgressSetup(s.dlg, *s.progress), s.view = &s.dlg;
+        s.progress->setProgress(2, 16);
+        std::printf("map image progress: %s, %d%%\n", narrow(s.progress->partText()).c_str(), int(s.progress->value() * 100 + 0.5f));
         return true;
     }
     if (name == "quick") {

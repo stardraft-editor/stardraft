@@ -53,6 +53,7 @@
 #include "button.h"
 #include "dialog.h"
 #include "label.h"
+#include "progress_bar.h"
 #include "icon_button.h"
 #include "tree_view.h"
 #include "scroll_view.h"
@@ -75,6 +76,8 @@
 #include "stardraft/settings.h"
 #include "stardraft/hd_assets.h"
 #include "stardraft/msqc.h"
+#include "stardraft/png_writer.h"  // File > Export map image (core/map_image.inc)
+#include "stardraft/terrain.h"
 #include "stardraft/tileset.h"
 #include "stardraft/wireframes.h"
 #include "stardraft/terrain_gen.h"

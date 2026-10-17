@@ -2141,3 +2141,30 @@ StarDraft 2 offers pre-releases too	StarDraft 2 也提供预发行版
 StarDraft 2 offers the stable releases only	StarDraft 2 仅提供稳定版
 StarDraft 2 looks for a newer release at start and each hour	StarDraft 2 在启动时和每小时检查较新版本
 StarDraft 2 does not look for newer releases	StarDraft 2 不检查较新版本
+&Export map image…\tCtrl+Shift+E	导出地图图像(&E)…\tCtrl+Shift+E
+Export map image	导出地图图像
+Full size in HD (64 pixels a tile)	HD 原始大小（每图块 64 像素）
+Full size (32 pixels a tile)	原始大小（每图块 32 像素）
+1/2 (16 pixels a tile)	1/2（每图块 16 像素）
+1/4 (8 pixels a tile)	1/4（每图块 8 像素）
+1/8 (4 pixels a tile)	1/8（每图块 4 像素）
+Area	区域
+Scale	比例
+Show	显示
+Whole map	整个地图
+Current view	当前视图
+Selected area	所选区域
+The terrain selection (Terrain mode, Select), else the selected location	地形选区（地形模式，选择），否则为所选位置
+Locations and their names	位置及其名称
+Grid	网格
+pixels	像素
+Export…	导出…
+Exported the map image 	已导出地图图像 
+Could not export the map image	无法导出地图图像
+Larger preview	放大预览
+Show the map larger, as it looks in the game	以游戏中的样子放大显示地图
+Export the preview	导出预览
+Could not export the preview. 	无法导出预览。
+Exported the preview 	已导出预览 
+Part %d of %d	第 %d 部分，共 %d 部分
+Canceled the map image export	已取消导出地图图像

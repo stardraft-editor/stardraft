@@ -50,6 +50,7 @@ enum : int {
     ID_MIDDLE_MODE = 984,  // + Options > Middle mouse click and hold: 0 pan the map (the default), 1 drag the map
     ID_OPT_MAPSDEFAULT = 986,  // Options > Maps: .scm and .scx open with StarDraft 2
     ID_OPT_RESTART = 987,      // Options > Language > Restart now: StarDraft 2 starts again in the chosen language
+    ID_FILE_EXPORTIMAGE = 230,  // File > Export map image (core/map_image.inc)
 };
 // View > Grid size: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
 struct GridPreset {
