@@ -160,7 +160,12 @@ public:
         tabs_.setFrame(at(0, 0, w, top));
         search_.setFrame(at(pad, top + pad, lw - pad - rowH - scale(6) - pad, scale(stardraft::kit::kFieldH)));
         changed_.setFrame(at(lw - pad - rowH, top + pad, rowH, rowH));
-        const int gap = scale(5), rw = host_.refsWidth();
+        // A narrow window: the References panel narrows so that the form keeps 400 px, and goes when it would be
+        // narrower than 160 px (the form had no room at all: a small window at scale 2).
+        const int gap = scale(5), formMin = scale(400);
+        int rw = host_.refsWidth();
+        if (rw > 0 && w - lw - gap - rw < formMin) rw = std::max(0, w - lw - gap - formMin);
+        if (rw < scale(160)) rw = 0;
         const draw::Rect list = at(0, top + rowH + 2 * pad, lw, std::max(1, h - top - rowH - 2 * pad));
         const draw::Rect form = at(lw + gap, top, std::max(1, w - lw - gap - rw), std::max(1, h - top));
         const draw::Rect refs = rw > 0 ? at(w - rw, top, rw, std::max(1, h - top)) : draw::Rect{};

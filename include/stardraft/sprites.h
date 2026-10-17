@@ -166,6 +166,7 @@ private:
     struct Image {
         int id = 0, base = 0, dirIndex = 0;
         bool flipped = false, hidden = false, special = false, directional = false, alive = true;
+        bool queued = false;  // playAnim: the image is still to get the animation
         int ox = 0, oy = 0;
         size_t pc = 0, ret = 0;
         int wait = 0;

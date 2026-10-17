@@ -89,6 +89,33 @@ inline DataFormScale dataFormScale() {
     return {scale(2), scale(8), scale(4), scale(7), scale(110), scale(320), scale(190), scale(22), scale(14)};
 }
 
+// The form's columns for a form `width` px wide. Two columns when the fields and the pictures both have room: the
+// fields on the left (at most 650 px), each section's pictures beside them (at least 320 px). One column: the
+// pictures under the section's fields, so that the values stay in view. A narrow column makes the labels and the
+// dropdowns narrower (to 160 and 240 px; in one column less), so that the parts of a row do not go over the next.
+struct DataFormLayout {
+    DataFormScale s;
+    int full = 0;              // the width inside the margins
+    bool twoCol = false;
+    int colW = 0, labelW = 0;  // the fields' column, and its labels' width
+    int picX = 0, picW = 0;    // the pictures' left (from the form's left) and width
+};
+inline DataFormLayout dataFormLayout(int width) {
+    DataFormLayout l;
+    l.s = dataFormScale();
+    const int x0 = scale(18), gap = scale(28), picMin = scale(320), colMax = scale(650);
+    const int after = scale(60);  // after a dropdown: its open button and a sound's play button
+    const int colMin = scale(160) + scale(240) + after;
+    l.full = std::max(scale(200), width - 2 * x0);
+    l.twoCol = l.full >= colMin + gap + picMin;
+    l.colW = l.twoCol ? std::min(std::clamp(l.full * 11 / 20, colMin, colMax), l.full - gap - picMin) : l.full;
+    l.labelW = std::clamp(l.colW - l.s.dropW - after, std::min(scale(160), l.colW / 3), scale(230));
+    l.s.dropW = std::clamp(l.colW - l.labelW - after, scale(80), l.s.dropW);
+    if (l.twoCol) l.picX = x0 + l.colW + gap, l.picW = l.full - l.colW - gap;
+    else l.picX = x0 + l.labelW, l.picW = l.full - l.labelW;
+    return l;
+}
+
 // --- The form as a view ---------------------------------------------------------------------------------------------
 // A .dat entry's form (DataFormView): the title, the Rename and String links, the sections in the schema's order with
 // each section's fields (labels, value boxes, yes/no values, dropdowns, notes, flag grids), the scroll (the window's own
@@ -102,6 +129,13 @@ struct DataFormHit {
     int field = 0;  // the field's index in its schema
     int bit = 0;    // -1 the value box; >=0 a flag; -2 a reference link; -3 the label; -4 a dropdown; -5 a yes/no value;
                     // -6 a number's up arrow; -7 its down arrow
+};
+
+// A part of the form from the last paint, for a check (the SDL program's --check dataform): a section's fields or
+// pictures, the Units display, the requirements, the map's players; its rectangle in the view's coordinates.
+struct DataFormPart {
+    std::string what;
+    draw::Rect r;
 };
 
 class DataFormViewHost {
@@ -192,6 +226,7 @@ public:
     }
 
     void paint(draw::Canvas& c) override;
+    const std::vector<DataFormPart>& parts() const { return parts_; }
     bool mouse(const draw::MouseEvent& e) override;
     draw::Cursor cursor(draw::Point pt) override;
     std::wstring feedbackName(draw::Point pt) override;
@@ -213,6 +248,7 @@ private:
     DataFormViewHost& host_;
     std::vector<DataFormHit> hits_;
     std::vector<int> sectionTops_;
+    std::vector<DataFormPart> parts_;
     int height_ = 0;
     bool pressed_ = false;  // a press on a program's part: the mouse is captured until it goes up
     std::chrono::steady_clock::time_point lastScroll_{};
@@ -226,15 +262,14 @@ inline void DataFormView::paint(draw::Canvas& c) {
     host_.beforePaint();
     hits_.clear();
     int& scrollPos = host_.scroll();
-    const DataFormScale s = dataFormScale();
     const std::function<bool(draw::Rect)> hotRect = [this](draw::Rect r) { return host_.hot(r); };
     int y = scale(12) - scrollPos;
-    const int x0 = scale(18), labelW = scale(230), valW = scale(110), rowH = scale(26);
-    // Wide: the fields in a column on the left and each section's pictures beside them; narrow: the pictures above the
-    // fields.
-    const int full = std::max(scale(300), rc.right - 2 * x0);
-    const bool twoCol = full >= scale(1150);
-    const int colW = twoCol ? std::min(scale(650), full * 11 / 20) : full, colRight = x0 + colW;
+    const int x0 = scale(18), valW = scale(110), rowH = scale(26);
+    const DataFormLayout lay = dataFormLayout(rc.right);
+    const DataFormScale& s = lay.s;
+    const int labelW = lay.labelW, colW = lay.colW, colRight = x0 + colW;
+    const bool twoCol = lay.twoCol;
+    parts_.clear();
     const DatTable* tp = host_.table();
     if (host_.paintExtraTab(c, y)) {
     } else if (!tp) {
@@ -291,11 +326,10 @@ inline void DataFormView::paint(draw::Canvas& c) {
             y = kitpaint::drawSectionHeader(c, x0, twoCol ? colRight : rc.right - x0, y, scale(stardraft::kit::kRowH), title);
             int widgetsBottom = y;
             if (twoCol) {  // the pictures, under what the right column already holds; none: the fields go on as they are
-                const int wy = std::max(y, rightTop), wb = host_.widgets(c, si, colRight + scale(28), wy, full - colW - scale(28));
-                if (wb > wy) widgetsBottom = wb, rightTop = wb + scale(14);
-            } else {
-                y = host_.widgets(c, si, x0 + labelW, y, full - labelW), y += y > widgetsBottom ? scale(14) : 0;
+                const int wy = std::max(y, rightTop), wb = host_.widgets(c, si, lay.picX, wy, lay.picW);
+                if (wb > wy) widgetsBottom = wb, rightTop = wb + scale(14), parts_.push_back({"pictures " + std::to_string(si), {lay.picX, wy, lay.picX + lay.picW, wb}});
             }
+            const int fieldsTop = y;
             c.setFont(uiFont);
             auto& hotFields = host_.hotFields();
             for (const DatField* fp : fields) {
@@ -366,12 +400,22 @@ inline void DataFormView::paint(draw::Canvas& c) {
                     y += paintDataFlags(c, f, t, u, v, x0, labelW, y, colW, s, hotRect,
                                         [this, &f](draw::Rect cell, int b) { hits_.push_back({cell, f.index, b}); });
             }
+            if (y > fieldsTop) parts_.push_back({"fields " + std::to_string(si), {x0, fieldsTop, colRight, y}});
             if (twoCol) y = std::max(y, widgetsBottom);
+            else if (const int wy = y + scale(14), wb = host_.widgets(c, si, lay.picX, wy, lay.picW); wb > wy)  // one column: under the fields
+                parts_.push_back({"pictures " + std::to_string(si), {lay.picX, wy, lay.picX + lay.picW, wb}}), y = wb;
+            c.setFont(uiFont);
             y += scale(14);
         }
-        if (dat == "units") y = host_.unitDisplay(c, y);
-        y = host_.requirements(c, x0, y, colW);
-        y = host_.mapPlayers(c, x0, y + scale(8), colW, labelW, rowH);  // the map's settings for each player
+        // The parts under the sections, each across the fields' column (the part's name and its rows, for a check).
+        auto part = [&](const char* what, int top, int bottom) {
+            if (bottom > top) parts_.push_back({what, {x0, top, colRight, bottom}});
+            c.setFont(uiFont);
+            return bottom;
+        };
+        if (dat == "units") y = part("display", y, host_.unitDisplay(c, y));
+        y = part("requirements", y, host_.requirements(c, x0, y, colW));
+        y = part("players", y + scale(8), host_.mapPlayers(c, x0, y + scale(8), colW, labelW, rowH));  // the map's settings for each player
         y += rowH;
     }
     height_ = y + scrollPos;

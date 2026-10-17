@@ -187,8 +187,14 @@ int paintImagePlayer(draw::Canvas& c, DataPicturesHost& host, int image, int x, 
                          L"Drag to put a target. The image turns to it at the turn rate of its unit, as a turret does.", draw::Cursor::Hand);
     needsVerification(c, host, st,
                       L"Ported from OpenBW, not yet compared with the game: images and overlays, shadows, glows, cloaks, flips, turning to the target, move steps and weapon cooldowns. Other parts of the orders do not run.");
-    // The transport bar under the stage: restart, play / pause, one tick, loop; the frame; the facing.
-    const int by = st.bottom + scale(8), bs = barH - scale(8);
+    // The transport bar under the stage and the list: restart, play / pause, one tick, loop, sounds, code; the frame;
+    // the facing at its right end. In a narrow player the buttons are smaller, so that the six and the dial fit.
+    // (The list of the animations beside the stage can be longer than the stage is high: the bar goes under both.)
+    int anims = 0;
+    for (int a = 0; a < 28; ++a) anims += a == 0 || sp.animOffset(image, a) != 0;
+    const int rowH = scale(28), listBottom = std::max(int(st.bottom), y + scale(8) + anims * rowH);
+    const int barRight = st.right + scale(12) + listW, by = listBottom + scale(8);
+    const int bs = std::max(scale(12), std::min(barH - scale(8), (barRight - x - scale(52)) / 7));
     int bx = x;
     auto next = [&] { bx += bs + scale(6); };
     glyphButton(c, host, {bx, by, bx + bs, by + bs}, UiIcon::ToStart, false, [image, &host] { imagePlayerStart(image, gImagePlayer.anim), host.pictureRepaint(); },
@@ -211,9 +217,9 @@ int paintImagePlayer(draw::Canvas& c, DataPicturesHost& host, int image, int x, 
     bx += bs + scale(14);
     wchar_t b[96];
     std::swprintf(b, 96, L"frame %d  \x00B7  tick %d%ls", gImagePlayer.run.mainFrame(), gImagePlayer.ticks, gImagePlayer.run.running() ? L"" : L"  \x00B7  end");
-    c.text({bx, by, st.right - bs - scale(8), by + bs}, b, kDim, draw::kMiddle | draw::kEllipsis);
+    c.text({bx, by, barRight - bs - scale(8), by + bs}, b, kDim, draw::kMiddle | draw::kEllipsis);
     if (sp.turns(image)) {  // the facing: a small dial at the right of the bar
-        const int ds = bs, dx = st.right - ds, dcx = dx + ds / 2, dcy = by + ds / 2;
+        const int ds = bs, dx = barRight - ds, dcx = dx + ds / 2, dcy = by + ds / 2;
         box(c, {dx, by, dx + ds, by + ds});
         const draw::Point e = dialPoint(dcx, dcy, gImagePlayer.run.direction() / 32.0, ds / 2 - scale(5));
         c.line(dcx, dcy, e.x, e.y, draw::rgb(240, 160, 60), scale(2));
@@ -226,8 +232,8 @@ int paintImagePlayer(draw::Canvas& c, DataPicturesHost& host, int image, int x, 
                          L"Drag to turn the image. This removes the target.", draw::Cursor::Hand);
     }
     // The animations: a list beside the stage.
-    const int lx = st.right + scale(12), rowH = scale(28);
-    box(c, {lx, y, lx + listW, st.bottom}, draw::rgb(22, 22, 25));
+    const int lx = st.right + scale(12);
+    box(c, {lx, y, lx + listW, listBottom}, draw::rgb(22, 22, 25));
     int ly = y + scale(4);
     for (int a = 0; a < 28; ++a) {
         if (a > 0 && !sp.animOffset(image, a)) continue;
@@ -284,8 +290,11 @@ int paintTimeline(draw::Canvas& c, DataPicturesHost& host, int image, int x, int
         else if (tl[size_t(t)].sound) kitpaint::drawGlyph(c, m, kitpaint::Ico(UiIcon::DatSfx), draw::rgb(240, 200, 90));
     }
     // Seconds under the blocks, and where the player is.
+    const int loopsLeft = ends ? x1 : x1 - c.measure(L"\x2192 loops") - scale(6);  // (no seconds under "loops")
     for (int t = 0; t < n; t += 24) {
         c.line(X(t), by + bh, X(t), by + bh + scale(4), draw::rgb(90, 90, 96));
+        const std::wstring sec = std::to_wstring(t / 24) + L" s";
+        if (X(t) + scale(2) + c.measure(sec) > loopsLeft) continue;
         c.text({X(t) + scale(2), by + bh + scale(2), X(t) + scale(40), cr.bottom - scale(2)}, std::to_wstring(t / 24) + L" s", kDim, draw::kMiddle);
     }
     if (!ends) c.text({x1 - scale(60), by + bh + scale(2), x1, cr.bottom - scale(2)}, L"\x2192 loops", kDim, draw::kMiddle | draw::kRight);
