@@ -371,6 +371,8 @@ void setMode(Mode m) {
     AppState& app = appState();
     const bool changed = app.mode != m;
     if (changed) app.selDoodads.clear(), app.selSprites.clear(), app.pastingItems = false;
+    // The selected units are Units mode's: they show in each mode, so they are let go when another mode starts.
+    if (changed && app.mode == Mode::Units && app.ed) app.ed->clearSelection();
     if (app.mode != m) app.palette = -1, app.palette2 = -1, shellPaletteChosen().clear();
     // Density and symmetry are each mode's own.
     app.densityByMode[int(app.mode)] = app.sprayDensity;

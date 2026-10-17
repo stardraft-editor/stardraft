@@ -250,6 +250,9 @@ CASES += [
 CASES += [
     # Units mode: a palette pick (Marine), a click on the map places it, Undo removes it.
     ("map-click-place", ["--mode", "units", "--click", "1386,429", "--click", "700,650", "--key", "Ctrl+Z"], "map"),
+    # The selected units are let go when another mode starts (GitHub #145): a box selects the mineral fields at the top,
+    # T (Terrain) lets them go, U (Units) gives no selection back.
+    ("map-mode-unselect", ["--mode", "units", "--drag", "780,110-880,150", "--key", "T", "--key", "U"], "map"),
     # A box selects the units in it; Shift and a box adds the units of the second box; Undo changes no unit.
     ("map-drag-select", ["--mode", "units", "--drag", "780,110-880,150", "--drag", "1225,560-1260,600:Shift", "--key", "Ctrl+Z"], "map"),
     # A click selects the unit; a drag moves it 40 px down (192 map pixels); Undo puts it back.
@@ -496,9 +499,10 @@ CASES += [
                          "--pick", "{out}/typed.scx", "--key", "Ctrl+W", "--key", "Ctrl+O", "--pick", "{out}/typed.scx", "--check", "names"], "map"),
     # The Briefing's text being typed in a saved map, then quit: the map has a change, so the quit asks.
     ("map-briefing-quit", ["--pick", "{out}/brief.scx", "--script", "{script:briefquit}"], "map"),
-    # File > Save of a map in a Program Files folder asks for another place (Save as), as the Windows program did.
+    # File > Save of a map in a folder named Program Files that StarDraft can write to (GitHub #148) saves the map in
+    # place: no second save dialog. (Save asks for another place only when the folder does not take a new file.)
     ("map-program-files", ["--mode", "units", "--key", "Ctrl+Shift+S", "--pick", "{pfdir}/pf.scx", "--key", "Ctrl+A", "--key", "Del",
-                           "--key", "Ctrl+S", "--pick", "cancel"], "map"),
+                           "--key", "Ctrl+S"], "map"),
     # Save as answers while the program waits (--pick defer:): a tab switch in that time does nothing, and the answer
     # saves the map that asked (not the other tab's map).
     ("map-saveas-tab", ["--newproject", "{newdir}", "--pick", "defer:{out}/asked.scx", "--script", "{script:saveastab}"], "map"),
@@ -1989,12 +1993,26 @@ def check_briefing_quit(output):
 
 
 def check_program_files(output):
-    """None when File > Save of a map in a Program Files folder showed the save dialog again (and said why)."""
+    """None when File > Save of a map in a Program Files folder that StarDraft can write to saved it in place: one save
+    dialog (Save as), and Ctrl+S's line says that pf.scx is saved."""
     saves = re.findall(r"^dialog: save, .* starts at \"(.*)\": (.*)\r?$", output, re.M)
-    if len(saves) != 2:
-        return f"{len(saves)} save dialogs, not 2 (Save as, then Save of the map in Program Files)"
-    if "Program Files" not in saves[1][0]:
-        return f"the second save dialog starts at {saves[1][0]}"
+    if len(saves) != 1:
+        return f"{len(saves)} save dialogs, not 1 (Save as only; Save writes the map in place)"
+    s = re.findall(r"^key Ctrl\+S: .*$", output, re.M)
+    if not s or not s[-1].rstrip().endswith("Saved pf.scx"):
+        return f"Ctrl+S did not save pf.scx in place: {s[-1] if s else 'no line for Ctrl+S'}"
+    return None
+
+
+def check_mode_unselect(output):
+    """None when the box selected units and the change to Terrain mode let them go (and Units mode did not give them back)."""
+    s = steps(output)
+    if len(s) != 3:
+        return f"{len(s)} inputs with a state line, not 3"
+    if s[0]["selected"] == 0:
+        return "the box selected no unit"
+    if s[1]["selected"] or s[2]["selected"]:
+        return f"selected after T: {s[1]['selected']}, after U: {s[2]['selected']} (not 0)"
     return None
 
 
@@ -2242,7 +2260,7 @@ def check_edit_elsewhere(ws, enabled, last_quick="no"):
 
 
 CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
-          "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
+          "map-drag-select": check_box_select, "map-mode-unselect": check_mode_unselect, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
           "map-doodad-ghost": check_doodad_ghost, "map-sprite-place": check_sprite_place,
           "map-location-make": check_location_make, "map-terrain-brush": check_terrain_brush,
           "map-terrain-rect-paint": check_rect_paint, "map-terrain-paste": check_terrain_paste,
