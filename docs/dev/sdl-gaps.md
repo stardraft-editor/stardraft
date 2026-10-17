@@ -47,7 +47,7 @@ list is gray.
 | File > Close, Close all; Ctrl+Tab, Ctrl+Shift+Tab | Done. |
 | File > Quick open | Done (the core ran it; the item was gray). |
 | Help > Report an issue on GitHub | Done (`issueNewUrl`, `core/feedback_send.inc`). |
-| The keys 1 to 0 (the player), V, B, A, F (the tools), Ctrl+1 to Ctrl+9 (the rail's items), Ctrl+Shift+Z | Done: `kProgramKeys` in `core/map_edit_commands.inc` is the key table of both programs (the Windows accelerators are made from it). Ctrl+2 is now the rail's second item on SDL too (Map data in a classic map), as on Windows. |
+| The keys 1 to 0 (the player; in Terrain mode the palette's terrains), V, B, A, F (the tools), Ctrl+1 to Ctrl+9 (the rail's items), Ctrl+Shift+Z | Done: `kProgramKeys` in `core/map_edit_commands.inc` is the key table of both programs (the Windows accelerators are made from it). Ctrl+2 is now the rail's second item on SDL too (Map data in a classic map), as on Windows. |
 | View > Show town areas (and the walk and path overlays) | Done: the core's scene draws them (see "The map view"). |
 | Help > Check for updates; Options > Look for updates, Crash reports | The Windows SDL work stream. |
 | Options > Maps (.scm and .scx open with StarDraft 2) | Windows only. |

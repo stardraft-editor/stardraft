@@ -302,6 +302,8 @@ CASES += [
     # placement's player and the selected Marine stays player 10's.
     ("map-player-keys", ["--mode", "units", "--key", "3", "--click", "1386,429", "--click", "700,650", "--key", "Esc",
                          "--click", "700,650", "--key", "5", "--key", "0", "--click", "1386,429", "--key", "7"], "map"),
+    # In Terrain mode the keys pick the palette's terrains: 1 the first, 3 the third, 0 the tenth (the player stays 1).
+    ("map-terrain-keys", ["--mode", "terrain", "--key", "1", "--key", "3", "--key", "0"], "map"),
     # Tabs: a new project (--newproject, its map in a second tab), Ctrl+Shift+Tab goes back to the map, Ctrl+Tab to the
     # project, Ctrl+W closes it (the map's tab is active).
     ("map-tabs", ["--newproject", "{newdir}", "--key", "Ctrl+Shift+Tab", "--key", "Ctrl+Tab", "--key", "Ctrl+W"], "map"),
@@ -1112,6 +1114,25 @@ def check_paste_placed(output):
         ("the click did not place the copy", lambda s: s[4]["units"] == s[0]["units"] + s[0]["selected"]),
         ("Undo did not take the copy back", lambda s: s[5]["units"] == s[0]["units"]),
     ])
+
+
+def check_terrain_keys(output):
+    """None when 1, 3 and 0 in Terrain mode each picked another terrain (Painting ...) and the player stayed 1."""
+    s = states(output)
+    if [i for i, _ in s] != ["key 1", "key 3", "key 0"]:
+        return f"input lines {[i for i, _ in s]}, not keys 1, 3, 0"
+    picks = []
+    for i, st in s:
+        m = re.search(r" palette=(-?\d+)", st)
+        if "mode=Terrain" not in st or " player=1 " not in st or not m or int(m.group(1)) < 0:
+            return f"{i}: {st or 'no state'} (not Terrain mode, player 1 and a terrain picked)"
+        picks.append(int(m.group(1)))
+    if len(set(picks)) != 3:
+        return f"the keys picked {picks} (not three terrains)"
+    names = re.findall(r"^key [130]: .*: Painting (.+?)\r?$", output, re.M)
+    if len(names) != 3:
+        return f"{len(names)} Painting messages, not 3"
+    return None
 
 
 def check_player_keys(output):
@@ -2155,7 +2176,7 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "map-terrain-rect-paint": check_rect_paint, "map-terrain-paste": check_terrain_paste,
           "map-terrain-paste-ghost": check_terrain_paste_ghost, "map-paste-ghost": check_paste_ghost,
           "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed,
-          "map-player-keys": check_player_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click,
+          "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click,
           "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
           "newpage-randomize-quick": check_newpage_randomize, "newpage-symmetry-dropdown": check_newpage_symmetry,
           "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits,

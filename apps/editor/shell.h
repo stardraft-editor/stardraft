@@ -116,6 +116,8 @@ int shellContextMenu(const std::vector<std::wstring>& items);
 void shellOwnerSelect(int i);
 // The palette is drawn again (its selection or the player's colors changed).
 void shellPaletteChanged();
+// The palette's list scrolls so the row of `value` shows (a key picked it: Terrain mode's 1 to 0).
+void shellPaletteReveal(int value);
 // The palette's unit entries are made again (the mode or the list changed).
 void shellPaletteRebuilt();
 // The translation of an English text for the UI (ui_text.h's tr).

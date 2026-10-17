@@ -131,6 +131,7 @@ int shellContextMenu(const std::vector<std::wstring>& items) {
     return sdlMenuPick(*gRoot, gHost->mouse(*gRoot), items, -1, true) + 1;
 }
 void shellOwnerSelect(int i) { gOwnerBox.setValue(i); }  // (the owner dropdown shows player i; no change is sent)
+void shellPaletteReveal(int value) { gPalList.reveal(value); }
 void shellPaletteChanged() {
     gPalList.invalidate();
     gPal2List.invalidate();
