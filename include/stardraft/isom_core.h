@@ -43,7 +43,17 @@ public:
     // themselves (each starts a new changed area); this is for a change made otherwise.
     void updateTiles();
 
-    // Writes ISOM, TILE and MTXM to `chk` (ISOM without the core's editing flags).
+    // StarEdit's new map: every diamond `fill` (an ISOM solid value), and all the tiles from it. False when `fill` is
+    // no brush of the tileset.
+    bool fill(uint16_t fill);
+
+    // ScmDraft's resize (StarEdit's): the map becomes width x height tiles, the old terrain moved by (xOffset, yOffset)
+    // tiles (xOffset even: whole rects), the new area filled with `fill` (an ISOM solid value) and the edges between
+    // them made as ScmDraft makes them; the tiles that stay on the map keep theirs. Same tileset only. False when
+    // `fill` is no brush of the tileset.
+    bool resize(uint16_t width, uint16_t height, int xOffset, int yOffset, uint16_t fill);
+
+    // Writes DIM, ISOM, TILE and MTXM to `chk` (ISOM without the core's editing flags).
     void store(Chk& chk) const;
 
     // Rects that the paints since load left without a tile: their ISOM has no tile group in the tileset, so StarEdit's rule

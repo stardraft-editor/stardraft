@@ -154,6 +154,12 @@ bool Editor::newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terr
     selectedLocation_ = -1;
     reload();
     open_ = !tileset_.groups.empty();
+    // The terrain core makes the tiles as StarEdit's new map does (unless a rect no tile fits: then they stay).
+    if (open_ && terrainCoreOn() && core_.load(chk_, tileset_, error) && core_.fill(terrain) && !core_.untileable()) {
+        core_.store(chk_);
+        reload();
+    }
+    error.clear();
     modified_ = false;
     state_ = savedState_ = nextRevision();
     if (!open_) {
@@ -957,13 +963,15 @@ static std::vector<std::pair<int, int>> wholeDiamonds(const IsomGrid& grid, cons
     return {diamonds.begin(), diamonds.end()};
 }
 
+static bool gTerrainRepair = true;
 bool Editor::terrainRepairOn() {
-    static const bool on = [] {
+    static const bool envOff = [] {
         const char* v = std::getenv("STARDRAFT_TERRAIN_REPAIR");
-        return !(v && std::string(v) == "0");
+        return v && std::string(v) == "0";
     }();
-    return on;
+    return gTerrainRepair && !envOff;
 }
+void Editor::setTerrainRepair(bool on) { gTerrainRepair = on; }
 
 bool Editor::applyCore(const std::function<bool()>& paint, const std::function<bool()>& repair, int x0, int y0, int x1, int y1) {
     std::string err;
@@ -1560,8 +1568,17 @@ bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX
 
     beginEdit();
     std::string err;
+    // The same tileset: the terrain core resizes as ScmDraft does (the terrain moved, the new ground filled, the edges
+    // between them made; the tiles that stay keep theirs). MTXM is TILE again: the doodads are placed again below.
+    // Else (a new tileset, or a rect no tile fits): the terrain is made again from its corners (below).
+    bool viaCore = terrainCoreOn() && era == era_ && core_.load(chk_, tileset_, err) && core_.resize(width, height, dx * 2, dy, fill) &&
+                   !(core_.untileable() && terrainRepairOn());
+    if (viaCore) {
+        core_.store(chk_);
+        chk_.set("MTXM", chk_.effective("TILE"));
+    }
     IsomGrid fresh;
-    if (!fresh.create(chk_, width, height, era, fill, err)) {
+    if (!viaCore && !fresh.create(chk_, width, height, era, fill, err)) {
         {
             chk_ = restore(undo_.back());  // as before (inside a stroke: as before the stroke)
             if (!inStroke_) dropLastUndo();
@@ -1595,7 +1612,7 @@ bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX
     writeLocations(chk_, locs);
     reload();  // the new tileset, terrain and doodad types
     std::erase_if(corners, [&](const CornerValue& c) { return !isom_.isCorner(c.x, c.y); });
-    if (!isom_.apply(corners) || !isom_.store(chk_, err)) {
+    if (!viaCore && (!isom_.apply(corners) || !isom_.store(chk_, err))) {
         {
             chk_ = restore(undo_.back());  // as before (inside a stroke: as before the stroke)
             if (!inStroke_) dropLastUndo();

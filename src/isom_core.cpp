@@ -186,9 +186,55 @@ void IsomCore::updateTiles() {
 
 int IsomCore::untileable() const { return impl_->untileable; }
 
+bool IsomCore::fill(uint16_t fill) {
+    Impl& m = *impl_;
+    if (!m.cache || !m.terrainType(fill)) return false;
+    // (IsomTerrain's newMap)
+    const uint16_t value = uint16_t(fill << 4 | ::Chk::IsomRect::EditorFlag::Modified);
+    m.map.isomRects.assign(m.map.isomRects.size(), ::Chk::IsomRect{value, value, value, value});
+    m.cache->setAllChanged();
+    m.updateTiles();
+    return true;
+}
+
+bool IsomCore::resize(uint16_t width, uint16_t height, int xOffset, int yOffset, uint16_t fill) {
+    Impl& m = *impl_;
+    if (!m.cache || !width || !height || !m.terrainType(fill)) return false;
+    const ScMap& src = m.map;
+    ScMap dest{};
+    dest.tileset = src.tileset, dest.tileWidth = width, dest.tileHeight = height;
+    auto cache = std::make_unique<::Chk::IsomCache>(src.tileset, width, height, *m.tables);
+    // (IsomTerrain's resizeMap: the tiles cropped or padded at the top left first; the moved ones are copied last)
+    auto crop = [&](const std::vector<uint16_t>& from) {
+        std::vector<uint16_t> to(size_t(width) * height, 0);
+        for (size_t y = 0; y < std::min<size_t>(height, src.tileHeight); ++y)
+            for (size_t x = 0; x < std::min<size_t>(width, src.tileWidth); ++x) to[y * width + x] = from[y * src.tileWidth + x];
+        return to;
+    };
+    dest.editorTiles = crop(src.editorTiles), dest.tiles = crop(src.tiles);
+    const uint16_t value = uint16_t(fill << 4 | ::Chk::IsomRect::EditorFlag::Modified);
+    dest.isomRects.assign((size_t(width) / 2 + 1) * (size_t(height) + 1), ::Chk::IsomRect{value, value, value, value});
+    dest.copyIsomFrom(src, xOffset, yOffset, false, *cache);
+    dest.resizeIsom(xOffset, yOffset, src.tileWidth, src.tileHeight, false, *cache);
+    ScMap old = std::move(m.map);
+    m.map = std::move(dest);
+    m.cache = std::move(cache);
+    m.updateTiles();
+    const Sc::BoundingBox kept{old.tileWidth, old.tileHeight, width, height, xOffset, yOffset};
+    const size_t toX = xOffset < 0 ? 0 : size_t(xOffset), toY = yOffset < 0 ? 0 : size_t(yOffset);
+    for (size_t y = 0; y < kept.bottom - kept.top; ++y)
+        for (size_t x = 0; x < kept.right - kept.left; ++x) {
+            const size_t from = (y + kept.top) * old.tileWidth + (x + kept.left), to = (y + toY) * width + (x + toX);
+            m.map.editorTiles[to] = old.editorTiles[from], m.map.tiles[to] = old.tiles[from];
+        }
+    return true;
+}
+
 void IsomCore::store(Chk& chk) const {
     const Impl& m = *impl_;
     if (!m.cache) return;
+    const uint16_t dim[2] = {m.map.tileWidth, m.map.tileHeight};
+    chk.set("DIM ", bytesOf(dim, sizeof dim));
     std::vector<::Chk::IsomRect> isom = m.map.isomRects;
     for (auto& r : isom) r.clearEditorFlags();
     chk.set("ISOM", bytesOf(isom.data(), isom.size() * sizeof(::Chk::IsomRect)));
