@@ -182,7 +182,7 @@ void sdlUpdateFound(const releases::Release& r) {
 void sdlLookForUpdate() {
     bool check = true;
     prefs::flag(L"CheckUpdates", check);
-    if (!releases::releaseBuild() || !check) return;
+    if (!releases::releaseBuild() || !check || gSilent) return;  // (a test run: no network)
     const bool previews = sdlUpdatePreviews();
     const fs::path cache = shellCacheFolder() / "releases";
     std::thread([previews, cache] {
