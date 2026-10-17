@@ -237,6 +237,9 @@ public:
     virtual ~QuickPickHost() = default;
     // Draws the picture of row `u` into `box`; false when it has none (the view draws a dim icon in its place).
     virtual bool drawPicture(draw::Canvas& c, QuickPickKind kind, Mode mode, const PaletteUnit& u, draw::Rect box) = 0;
+    // Before a paint draws the rows' pictures (none of this paint is drawn yet): the host may let go of pictures that
+    // the last paints did not draw.
+    virtual void paintStarts(QuickPickKind, Mode) {}
     // The picker closed (a pick, Escape, a click outside): the keys go back where they were. `v` is the picked row's
     // value (-1: none); the host runs quickPickRun after it.
     virtual void closed(int v) = 0;
@@ -276,6 +279,7 @@ public:
     // The rows shown, best first, and the one chosen (-1: none).
     const std::vector<PaletteUnit>& shown() const { return shown_; }
     int selected() const { return sel_; }
+    int top() const { return top_; }  // the first row shown
     // The search field (the self-tests type into it).
     stardraft::kit::TextField& field() { return field_; }
     // Types `text` in place of the field's text (the rows follow), as a user's typing does.
@@ -339,6 +343,7 @@ public:
     void paint(draw::Canvas& c) override {
         using namespace quickPickLayout;
         if (focusText_ && !focused_ && host()) focused_ = true, field_.focus();
+        if (host_) host_->paintStarts(kind_, mode_);
         c.fill({0, 0, width(), height()}, kBg);
         if (!framed_) c.frame({0, 0, width(), height()}, kBorderHot);
         // The search row: the icon, the count of results at the right, the line under it.

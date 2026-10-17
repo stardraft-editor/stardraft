@@ -728,8 +728,42 @@ static void rampsStay(const GameData& data, const fs::path& install) {
                 before - e.doodads().size(), before);
     CHECK(has() && shown(), "ramps: terrain painted next to a ramp (not under it) leaves the ramp and its tiles");
     e.undo();
-    // Every doodad, with the terrain of the next tile 3 tiles to each side of it: a doodad goes only when its terrain changed.
-    int tries = 0, wrong = 0;
+    // Every doodad, with the terrain of the next tile 3 tiles to each side of it: a doodad goes only when its terrain
+    // changed. Its terrain here is the ISOM, not the tile groups that the editor compares (this check does not ask the
+    // editor's own rule again): a doodad that goes had the ISOM of one of its tiles' rects changed, and a doodad that
+    // stays has the same terrain type at each corner of its tiles.
+    auto footprint = [&](const Doodad& o) {  // its tiles (x, y)
+        std::vector<std::pair<int, int>> out;
+        const DoodadType* ot = e.doodadTypes().find(o.id);
+        if (!ot) return out;
+        const int tx = (int(o.x) - ot->width * 16) / 32, ty = (int(o.y) - ot->height * 16) / 32;
+        for (int rr = 0; rr < ot->height; ++rr) {
+            const size_t g = size_t(ot->firstGroup) + rr;
+            if (g >= e.tileset().groups.size()) break;
+            for (int cc = 0; cc < ot->width; ++cc) {
+                const int cx = tx + cc, cy = ty + rr;
+                if (e.tileset().groups[g].megatiles[size_t(cc)] && cx >= 0 && cy >= 0 && cx < int(e.width()) && cy < int(e.height())) out.push_back({cx, cy});
+            }
+        }
+        return out;
+    };
+    auto isomOf = [&](const Doodad& o) {  // the ISOM entries of its tiles' rects
+        std::vector<uint8_t> out;
+        const Section* isom = e.chk().find("ISOM");
+        const size_t cols = e.width() / 2 + 1;
+        for (auto [cx, cy] : footprint(o))
+            for (size_t k = 0; k < 8; ++k)
+                if (const size_t at = (size_t(cy) * cols + size_t(cx / 2)) * 8 + k; isom && at < isom->data.size()) out.push_back(isom->data[at]);
+        return out;
+    };
+    auto corners = [&](const Doodad& o) {  // the terrain type at each corner of its tiles
+        std::vector<uint16_t> out;
+        for (auto [cx, cy] : footprint(o))
+            for (const int px : {cx * 32 + 2, cx * 32 + 29})
+                for (const int py : {cy * 32 + 2, cy * 32 + 29}) out.push_back(e.terrainAt(px, py));
+        return out;
+    };
+    int tries = 0, went = 0, wentSame = 0, stayed = 0, stayedChanged = 0;
     for (size_t i = 0; i < e.doodads().size(); ++i) {
         const Doodad d = e.doodads()[i];
         const DoodadType* dt = e.doodadTypes().find(d.id);
@@ -737,20 +771,28 @@ static void rampsStay(const GameData& data, const fs::path& install) {
         const int l = d.x - dt->width * 16, r = l + dt->width * 32;
         for (const int x : {l - 3 * 32, r + 3 * 32}) {
             if (x < 0 || x >= e.width() * 32) continue;
-            const TerrainLayer tile0 = readTerrain(e.chk(), "TILE");
-            const std::vector<Doodad> d0 = e.doodads();
+            struct Near {
+                Doodad d;
+                std::vector<uint8_t> isom;
+                std::vector<uint16_t> corners;
+            };
+            std::vector<Near> near;  // the doodads that the stroke can reach
+            for (const Doodad& o : e.doodads())
+                if (std::abs(int(o.x) - x) < 16 * 32 && std::abs(int(o.y) - int(d.y)) < 16 * 32) near.push_back({o, isomOf(o), corners(o)});
             e.paintBrush(x, d.y, e.terrainAt(x, d.y), brush);
             ++tries;
-            const TerrainLayer tile1 = readTerrain(e.chk(), "TILE");
-            for (const Doodad& was : d0) {  // each doodad that went had its terrain changed
-                if (std::any_of(e.doodads().begin(), e.doodads().end(), [&](const Doodad& n) { return n.id == was.id && n.x == was.x && n.y == was.y; })) continue;
-                if (e.doodadTerrainHolds(was, tile1, tile0)) ++wrong;
+            for (const Near& n : near) {
+                const bool goes = std::none_of(e.doodads().begin(), e.doodads().end(), [&](const Doodad& o) { return o.id == n.d.id && o.x == n.d.x && o.y == n.d.y; });
+                if (goes) ++went, wentSame += isomOf(n.d) == n.isom;
+                else ++stayed, stayedChanged += corners(n.d) != n.corners;
             }
             if (e.canUndo()) e.undo();
         }
     }
-    std::printf("      %d strokes next to doodads, %d doodads went with their terrain unchanged\n", tries, wrong);
-    CHECK(tries > 100 && wrong == 0, "ramps: a stroke near doodads removes only those whose terrain it changed");
+    std::printf("      %d strokes next to doodads: %d doodads went (%d with the ISOM of their tiles as before), %d stayed (%d "
+                "with another terrain at their tiles' corners)\n", tries, went, wentSame, stayed, stayedChanged);
+    CHECK(tries > 100 && went > 0 && wentSame == 0, "ramps: a stroke near doodads removes only those whose terrain it changed");
+    CHECK(stayedChanged == 0, "ramps: a stroke that changes the terrain type at a doodad's tiles removes it");
     // Over it, with another terrain: the ramp goes, its tiles too.
     e.paintBrush(ramp.x, ramp.y, side != center ? side : uint16_t(center == 1 ? 2 : 1), Brush{Brush::Diamond, 2.0f});
     CHECK(!has(), "ramps: another terrain painted over a ramp removes it");

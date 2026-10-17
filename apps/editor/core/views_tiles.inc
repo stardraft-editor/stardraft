@@ -87,8 +87,9 @@ draw::Bitmap& tilesPixels(uint16_t value, draw::Rect& src) {
     return b;
 }
 
-// Before the grid's paint (no picture of this frame is drawn yet): a new paint, and when many groups have pictures,
-// those that the last two paints did not draw go (a long scroll keeps the memory small).
+// Before a paint that draws the pictures (the grid's, the quick picker's in Rectangle mode; no picture of it is drawn
+// yet): a new paint, and when many groups have pictures, those that the last two paints did not draw go (a long
+// scroll keeps the memory small).
 void tilesPixelsTrim() {
     ++gTiles.paints;
     if (gTiles.pixels.size() <= 64) return;
