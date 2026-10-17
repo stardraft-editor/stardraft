@@ -2115,3 +2115,29 @@ Delete 1 location	删除 1 个位置
 Delete %d locations	删除 %d 个位置
 Change 1 location	更改 1 个位置
 Change %d locations	更改 %d 个位置
+&What is new	新功能(&W)
+Update	更新
+Show the release notes of the newer release	显示较新版本的发行说明
+Release notes	发行说明
+Open on GitHub	在 GitHub 上打开
+Open the release page in the browser	在浏览器中打开发布页面
+Install	安装
+Download	下载
+Download and install it. StarDraft 2 starts again after it.	下载并安装。之后 StarDraft 2 会重新启动。
+The download opens in the browser	在浏览器中打开下载
+This release has no release notes	此版本没有发行说明
+Getting the release notes from GitHub…	正在从 GitHub 获取发行说明…
+Could not get the release notes. GitHub cannot be reached.	无法获取发行说明。无法连接到 GitHub。
+Published	发布于
+Pre-release	预发行版
+GitHub cannot be reached: this is the copy from before	无法连接到 GitHub：这是之前保存的副本
+Open the release page on GitHub to read the release notes.	在 GitHub 上打开发布页面以阅读发行说明。
+Look for updates	检查更新
+At start and one time each hour (release builds only)	启动时以及每小时一次（仅限发布版本）
+Previews	预览版
+Pre-releases too, not only the stable releases	也包括预发行版，而不仅是稳定版
+Updates	更新
+StarDraft 2 offers pre-releases too	StarDraft 2 也提供预发行版
+StarDraft 2 offers the stable releases only	StarDraft 2 仅提供稳定版
+StarDraft 2 looks for a newer release at start and each hour	StarDraft 2 在启动时和每小时检查较新版本
+StarDraft 2 does not look for newer releases	StarDraft 2 不检查较新版本

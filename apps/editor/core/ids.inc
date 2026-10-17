@@ -25,6 +25,9 @@ enum : int {
     ID_RECENT_PROJECT = 820,   // + index
     ID_RECENT_CLEAR_MAPS = 840, ID_RECENT_CLEAR_PROJECTS,
     ID_HELP_FEEDBACK = 860, ID_HELP_ISSUE, ID_HELP_UPDATES, ID_OPT_UPDATECHECK, ID_HELP_DISCORD, ID_HELP_ABOUT, ID_OPT_CRASHREPORTS, ID_HELP_GITHUB,
+    // Help > What is new (the release notes of this version), the top bar's Update (the newer release's notes), Program
+    // options > Updates > Previews (pre-releases too).
+    ID_HELP_WHATSNEW = 870, ID_UPDATE_NOTES, ID_OPT_PREVIEWS,
     ID_THEME_DARK = 880, ID_THEME_LIGHT, ID_SCEN_PROPS, ID_SCEN_CLASSIC, ID_SCEN_CLASSICTRIG, ID_ACCENT = 890,  // + accent index (theme::kAccents)
     ID_THEME_SYSTEM = 888,  // Program options > Theme > Automatic: the system's theme (macOS)
     ID_OPT_SNAPVALID = 640, ID_OPT_STRICT, ID_OPT_ILLEGAL, ID_OPT_DRAGBACK, ID_OPT_ANIMATE, ID_OPT_STACK, ID_OPT_LASTPROJECT,

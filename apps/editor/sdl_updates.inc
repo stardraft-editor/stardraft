@@ -1,4 +1,5 @@
-// Help > Check for updates, the options Look for updates on start and Crash reports, and the quiet check at start, on
+// Help > Check for updates, the options Look for updates, Previews and Crash reports, the quiet check at start and each
+// hour (the top bar's Update), the release notes window (Help > What is new, core/views_changelog.inc), on
 // this system (the Windows program's update.inc and its commands in main.cpp). The release, the download and the texts
 // are the core's (core/releases.inc); this file asks the user with the core's message box (msgbox::ask). A release build on Windows
 // puts the new stardraft.exe in its own place and starts it; a release build on macOS opens its disk image's download,
@@ -40,15 +41,22 @@ std::wstring sdlInstallRelease(const fs::path& self, const fs::path& fresh, cons
 // What Check for updates does with the newest release on this system (releases::updateWay).
 releases::UpdateWay sdlUpdateWay(const releases::Release& r) { return releases::updateWay(stardraft::platform::programFile(), r, sdlPackaged()); }
 
-// Help > Check for updates (and Program options > Check now).
+void sdlInstallUpdate(const releases::Release& r);
+bool sdlUpdatePreviews();
+void sdlUpdateFound(const releases::Release& r);
+
+// Help > Check for updates (and Program options > Check now): the newest release of the track (Updates > Previews).
 void sdlCheckForUpdates() {
     shellWaitCursor();
     releases::Release r;
-    if (!releases::latest(r)) {
+    std::string json;
+    if (!releases::newest(r, sdlUpdatePreviews(), &json)) {
         updatesBox(shellTr(L"Could not get the newest release from GitHub. Make sure that the computer is connected to the internet."), {L"OK"},
                    msgbox::Icon::Warning);
         return;
     }
+    releases::keepRelease(shellCacheFolder() / "releases", r.tag, json);
+    sdlUpdateFound(r);  // (the top bar's Update)
     const std::wstring title = widen(r.title);
     using releases::UpdateWay;
     const UpdateWay way = sdlUpdateWay(r);
@@ -56,7 +64,6 @@ void sdlCheckForUpdates() {
         updatesBox(shellTr(L"StarDraft 2 is up to date (") + title + L").", {L"OK"}, msgbox::Icon::Info);
         return;
     }
-    const fs::path self = stardraft::platform::programFile();
     // The browser gets this system's download: an AppImage, the new AppImage (the user puts it in place of the old
     // one); a release build that cannot put the new program in its place (macOS: the app is in a disk image), its
     // download.
@@ -84,6 +91,14 @@ void sdlCheckForUpdates() {
     if (updatesBox(shellTr(L"A newer release is available: ") + title + L".\n\n" + shellTr(L"Download and install it? StarDraft 2 starts again after it."),
                    {shellTr(L"&Install"), shellTr(L"Cancel")}, msgbox::Icon::Question) != 0)
         return;
+    sdlInstallUpdate(r);
+}
+
+// Downloads the release and puts it in place of this program (each tab with changes is asked about first), then the
+// new program starts: Check for updates' Install and the release notes' Install.
+void sdlInstallUpdate(const releases::Release& r) {
+    const std::wstring title = widen(r.title);
+    const fs::path self = stardraft::platform::programFile();
     setMessage(L"Downloading " + title + L"\x2026");
     shellWaitCursor();
     std::error_code ec;
@@ -146,20 +161,149 @@ void sdlRemoveOldProgram() {
     if (const fs::path self = stardraft::platform::programFile(); !self.empty()) releases::removeOldProgram(self);
 }
 
-// After the window shows (not in a test run): a release build looks for a newer release on a thread (Program options >
-// Look for updates on start, on by default) and says so in the status bar.
-void sdlUpdatesAtStart() {
-    sdlRemoveOldProgram();  // (again: the old program of an update from a release before --restart may have ended only now)
+// Program options > Updates > Previews: the pre-releases too (off by default: the stable releases only).
+bool sdlUpdatePreviews() {
+    bool on = false;
+    prefs::flag(L"UpdatePreviews", on);
+    return on;
+}
+
+// The newest release that the update check found (on the UI thread): when it is newer than this build, the top bar
+// shows Update (core/views_topbar.inc), else not.
+void sdlUpdateFound(const releases::Release& r) {
+    if (releases::newer(r)) releases::available() = r;
+    else releases::available().reset();
+    if (gRoot) gRoot->topBar.invalidate();
+}
+
+// The quiet update check (a release build, Program options > Updates > Look for updates on): the newest release of
+// the track on a thread; GitHub's answer goes into the cache folder (the release notes when GitHub cannot be reached).
+// No question and no box: the top bar's Update shows a newer release.
+void sdlLookForUpdate() {
     bool check = true;
     prefs::flag(L"CheckUpdates", check);
     if (!releases::releaseBuild() || !check) return;
-    std::thread([] {
+    const bool previews = sdlUpdatePreviews();
+    const fs::path cache = shellCacheFolder() / "releases";
+    std::thread([previews, cache] {
         releases::Release r;
-        if (releases::latest(r) && releases::newer(r)) {
-            const std::wstring title = widen(r.title);
-            shellPost([title] { setMessage(L"A newer release is available: " + title + L". Use Help > Check for updates."); });
-        }
+        std::string json;
+        if (!releases::newest(r, previews, &json)) return;  // (no network: the next hour)
+        releases::keepRelease(cache, r.tag, json);
+        releases::keepRelease(cache, releases::newestName(previews), json);
+        shellPost([r] { sdlUpdateFound(r); });
     }).detach();
+}
+
+// Each hour, the update check again (the timer is the window's; it ends with the program).
+void sdlUpdateEachHour() {
+    if (!gHost) return;
+    gHost->timer(60 * 60 * 1000, [] {
+        sdlLookForUpdate();
+        sdlUpdateEachHour();
+    });
+}
+
+// After the window shows (not in a test run): the update check now, then each hour.
+void sdlUpdatesAtStart() {
+    sdlRemoveOldProgram();  // (again: the old program of an update from a release before --restart may have ended only now)
+    sdlLookForUpdate();
+    sdlUpdateEachHour();
+}
+
+// --- The release notes window (core/views_changelog.inc) ------------------------------------------------------------
+
+ChangelogView gChangelogView;
+bool gChangelogOpen = false;
+int gChangelogAsk = 0;          // the newest request for the window's release (an older answer that comes later is dropped)
+std::string gReleaseFixture;    // --release <file>: GitHub's answer for the newest release, in place of GitHub's (a test: no network)
+
+// What Install does with the release on this system (Check for updates' ways): its button's text and tooltip, or a note.
+void sdlChangelogShow(const releases::Release& r, bool kept) {
+    using releases::UpdateWay;
+    std::wstring label, tip, note;
+    switch (sdlUpdateWay(r)) {
+    case UpdateWay::Install: label = L"Install", tip = tr(L"Download and install it. StarDraft 2 starts again after it."); break;
+    case UpdateWay::Download: label = L"Download", tip = tr(L"The download opens in the browser"); break;
+    case UpdateWay::Package: note = tr(L"Update StarDraft 2 in your software center."); break;
+    default: break;
+    }
+    gChangelogView.setRelease(r, kept, label, tip, note);
+}
+
+void sdlShowChangelog(const std::string& tag);
+
+// The window's parts: the links, Install, the other releases (once).
+void sdlChangelogWire() {
+    static bool wired = false;
+    if (wired) return;
+    wired = true;
+    changelog::setHtmlHooks(!gSilent);
+    gChangelogView.onOpenUrl = [](const std::string& url) {
+        if (gSilent) std::printf("changelog: the browser opens %s\n", url.c_str());  // (a test run opens no browser)
+        else SDL_OpenURL(url.c_str());
+    };
+    gChangelogView.onRelease = [](const std::string& tag) { sdlShowChangelog(tag); };
+    gChangelogView.onInstall = [] {
+        const releases::Release r = gChangelogView.release();
+        if (sdlUpdateWay(r) == releases::UpdateWay::Download) {
+            SDL_OpenURL(r.download.c_str());
+            return;
+        }
+        gChangelogView.close();
+        sdlInstallUpdate(r);
+    };
+    gChangelogView.closed = [] { gChangelogOpen = false; };
+}
+
+// The release notes of the release with the tag `tag` ("": the newest release of the track; the top bar's Update has
+// it already) in the window (one window: it shows the new release). From GitHub on a thread; when GitHub cannot be
+// reached, the copy that the cache folder kept, else a line and Open on GitHub.
+void sdlShowChangelog(const std::string& tag) {
+    sdlChangelogWire();
+    const int ask = ++gChangelogAsk;
+    const bool previews = sdlUpdatePreviews();
+    const std::string repo = "https://github.com/" + narrow(kIssueRepo) + "/releases";
+    releases::Release fixture;
+    const bool fixed = !gReleaseFixture.empty() && releases::parseRelease(gReleaseFixture, fixture);
+    if (fixed && (tag.empty() || tag == fixture.tag)) sdlChangelogShow(fixture, false);
+    else if (tag.empty() && releases::available()) sdlChangelogShow(*releases::available(), false);
+    else if (gSilent) gChangelogView.setNotReached(tag.empty() ? repo : repo + "/tag/" + tag);  // (a test run: no network)
+    else {
+        gChangelogView.setLoading(tag.empty() ? repo : repo + "/tag/" + tag);
+        const fs::path cache = shellCacheFolder() / "releases";
+        std::thread([ask, tag, previews, cache, repo] {
+            releases::Release r;
+            std::string json;
+            const bool got = tag.empty() ? releases::newest(r, previews, &json) : releases::byTag(tag, r, &json);
+            if (got) releases::keepRelease(cache, r.tag, json);
+            shellPost([ask, tag, previews, cache, repo, got, r] {
+                if (ask != gChangelogAsk) return;  // (another release was asked for since)
+                releases::Release kept;
+                if (got) sdlChangelogShow(r, false);
+                else if (releases::keptRelease(cache, tag.empty() ? releases::newestName(previews) : tag, kept)) sdlChangelogShow(kept, true);
+                else gChangelogView.setNotReached(tag.empty() ? repo : repo + "/tag/" + tag);
+            });
+        }).detach();
+    }
+    if (gChangelogOpen || !gRoot || !gHost) return;
+    gChangelogOpen = true;
+    const draw::Point sz = ChangelogView::size();
+    const int h = std::min(sz.y, std::max(scale(300), gRoot->height() - scale(80)));
+    gHost->openWindow(*gRoot, gChangelogView, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect(0, 0, sz.x, h), L"Release notes"},
+                      [] { gChangelogOpen = false; });
+}
+
+// --release <file>: the newest release is the one in GitHub's answer in <file> (a test of the top bar's Update and the
+// release notes, with no network). Read before the window; it shows in the top bar when it is newer than this build.
+void sdlSetReleaseFixture(const std::string& file) {
+    if (std::ifstream in(fs::path(widen(file)), std::ios::binary); in)
+        gReleaseFixture.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    if (gReleaseFixture.empty()) std::printf("release: no file %s (WRONG)\n", file.c_str());
+}
+void sdlApplyReleaseFixture() {
+    releases::Release r;
+    if (!gReleaseFixture.empty() && releases::parseRelease(gReleaseFixture, r)) sdlUpdateFound(r);
 }
 
 // The options' commands of this file that this system runs (the menus and the keys ask sdlRuns).
@@ -167,7 +311,8 @@ bool sdlUpdatesRuns(int id) {
 #ifdef _WIN32
     if (id == ID_OPT_MAPSDEFAULT) return true;  // (the map files are Windows only)
 #endif
-    return id == ID_OPT_UPDATECHECK || (id >= ID_CRASH_MODE && id <= ID_CRASH_MODE + 2);
+    return id == ID_OPT_UPDATECHECK || id == ID_OPT_PREVIEWS || id == ID_HELP_WHATSNEW || id == ID_UPDATE_NOTES ||
+           (id >= ID_CRASH_MODE && id <= ID_CRASH_MODE + 2);
 }
 
 // The commands of this file (sdl_menus.inc's command() asks it): true when the command was one of them.
@@ -175,6 +320,16 @@ bool sdlMakeMapsDefault();  // (shell_sdl_win.inc on Windows; false elsewhere: t
 bool sdlUpdatesCommand(int id) {
     switch (id) {
     case ID_HELP_UPDATES: sdlCheckForUpdates(); return true;
+    case ID_HELP_WHATSNEW: sdlShowChangelog(releases::ownTag()); return true;  // (a build that is not a release's: the newest release)
+    case ID_UPDATE_NOTES: sdlShowChangelog(releases::available() ? releases::available()->tag : std::string()); return true;
+    case ID_OPT_PREVIEWS: {
+        const bool on = !sdlUpdatePreviews();
+        if (!gSilent) prefs::setNumber(L"UpdatePreviews", on ? 1 : 0);  // (tests never change the user's settings)
+        setMessage(on ? L"StarDraft 2 offers pre-releases too" : L"StarDraft 2 offers the stable releases only");
+        gOptionsView.invalidate();
+        sdlLookForUpdate();  // (the newest release of the track now)
+        return true;
+    }
     case ID_OPT_UPDATECHECK: {
         bool on = true;
         prefs::flag(L"CheckUpdates", on);
@@ -306,4 +461,120 @@ bool sdlUpdateCheck(const std::string& what, std::string& out) {
     if (what == "crashes") return out = sdlCrashCheck(), true;
     if (what == "filetypes") return out = sdlFileTypesCheck(), true;
     return false;
+}
+
+// --- Snapshots of the HTML view and the release notes (--dialog html:<file>, changelog, changelog:offline) ---------
+
+// --dialog html:<file>: a page on disk in the HTML view, in a scroll view as large as the picture (--size).
+struct HtmlPageShot final : draw::View {
+    stardraft::kit::ScrollView scroll;
+    stardraft::html::HtmlView page;
+    HtmlPageShot() {
+        scroll.setContent(&page);
+        page.setExtraCss("body { padding: 12px 16px; }");
+        page.onScrollTo = [this](int y) { scroll.setOffset(0, y); };
+        add(scroll, {});
+    }
+    void paint(draw::Canvas& c) override { c.fill({0, 0, width(), height()}, kBg); }
+    void resized() override { scroll.setFrame({0, 0, width(), height()}); }
+};
+std::unique_ptr<HtmlPageShot> gHtmlShot;
+
+// The view of a --dialog of this file (null: not one of them); `w` and `h`: the picture's size.
+draw::View* sdlChangelogShot(const std::string& arg, int& w, int& h) {
+    if (arg.rfind("html:", 0) == 0) {
+        changelog::setHtmlHooks(false);
+        std::string html;
+        const fs::path file = fs::path(widen(arg.substr(5)));
+        if (std::ifstream in(file, std::ios::binary); in) html.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+        if (html.empty()) std::printf("html: no file %s (WRONG)\n", arg.substr(5).c_str());
+        gHtmlShot = std::make_unique<HtmlPageShot>();
+        gHtmlShot->setFrame({0, 0, w, h});
+        const std::u8string base = file.u8string();
+        gHtmlShot->page.setHtml(html, std::string(base.begin(), base.end()));
+        return gHtmlShot.get();
+    }
+    if (arg == "changelog" || arg == "changelog:offline" || arg == "changelog:links") {
+        if (arg == "changelog:offline") gReleaseFixture.clear();  // (no answer and no kept copy: GitHub cannot be reached)
+        sdlChangelogWire();
+        const draw::Point sz = ChangelogView::size();
+        w = sz.x, h = sz.y;
+        gChangelogView.setFrame({0, 0, w, h});
+        sdlShowChangelog(std::string());
+        return &gChangelogView;
+    }
+    return nullptr;
+}
+
+// After the picture: what the HTML view laid out (its height, the images, each link's box), what the release notes
+// window shows, and the top bar's Update (`root`: the picture is the main window).
+void sdlChangelogShotLines(const std::string& arg, bool root) {
+    auto htmlLines = [](const char* what, stardraft::html::HtmlView& v) {
+        std::printf("%s: laid out %d x %d px, title \"%s\", images %d of %d shown\n", what, v.width(), v.contentHeight(), v.title().c_str(), v.imagesShown(),
+                    v.imagesAsked());
+        for (const stardraft::html::Link& l : v.links())
+            std::printf("%s: link %s at %d,%d,%d,%d\n", what, l.url.c_str(), l.box.left, l.box.top, l.box.right, l.box.bottom);
+    };
+    // A click on a point of the view (a press and a release, after the mouse moved there), as the window's router
+    // gives it: the deepest view first, then its parents.
+    auto clickAt = [](draw::View& v, draw::Point at) {
+        draw::MouseEvent e;
+        e.pt = at;
+        for (const draw::MouseKind k : {draw::MouseKind::Move, draw::MouseKind::Down, draw::MouseKind::Up}) {
+            e.kind = k;
+            v.mouse(e);
+        }
+    };
+    auto middle = [](const draw::Rect& r) { return draw::Point{(r.left + r.right) / 2, (r.top + r.bottom) / 2}; };
+    if (arg.rfind("html:", 0) == 0 && gHtmlShot) {
+        // The wheel (the HTML view leaves it to the scroll view), three notches down; then the "#a-list" link scrolls
+        // to its heading.
+        draw::MouseEvent wheel;
+        wheel.kind = draw::MouseKind::Wheel, wheel.wheel = -3, wheel.pt = {100, 100};
+        const bool pageTook = gHtmlShot->page.mouse(wheel);
+        gHtmlShot->scroll.mouse(wheel);
+        std::printf("html: the wheel (3 notches) scrolls to %d px%s\n", gHtmlShot->scroll.offsetY(), pageTook ? " (the page took it: WRONG)" : "");
+        for (const stardraft::html::Link& l : gHtmlShot->page.links())
+            if (l.url == "#a-list") {
+                gHtmlShot->scroll.setOffset(0, gHtmlShot->scroll.maxOffsetY());
+                clickAt(gHtmlShot->page, middle(l.box));
+                std::printf("html: the link #a-list scrolls to %d px (its heading at %d px)\n", gHtmlShot->scroll.offsetY(), gHtmlShot->page.anchorY("a-list"));
+            }
+        htmlLines("html", gHtmlShot->page);
+        std::printf("html: scroll bar %s, content %d px, view %d px\n", gHtmlShot->scroll.hasVerticalBar() ? "shown" : "not shown", gHtmlShot->page.height(),
+                    gHtmlShot->scroll.viewportHeight());
+    }
+    if (arg.rfind("changelog", 0) == 0) {
+        static const char* const kStates[] = {"loading", "shown", "kept", "not reached"};
+        const ChangelogView& v = gChangelogView;
+        std::string buttons;
+        for (const std::wstring& b : v.buttons()) buttons += (buttons.empty() ? "" : ", ") + narrow(b);
+        std::printf("changelog: %s, \"%s\", page %s, buttons %s; line \"%s\"\n", kStates[int(v.state())], v.release().title.c_str(), v.page().c_str(),
+                    buttons.c_str(), narrow(v.statusLine()).c_str());
+        htmlLines("changelog", gChangelogView.html());
+        if (arg == "changelog:links") {
+            // The mouse on each link: the hand; a click on the link to the pull request opens the browser, a click on
+            // the link to another release shows its notes in the window.
+            stardraft::html::HtmlView& page = gChangelogView.html();
+            for (const stardraft::html::Link& l : page.links()) {
+                draw::MouseEvent move;
+                move.kind = draw::MouseKind::Move, move.pt = middle(l.box);
+                page.mouse(move);
+                std::printf("changelog: the mouse on %s: %s\n", l.url.c_str(), page.cursor(move.pt) == draw::Cursor::Hand ? "the hand" : "the arrow (WRONG)");
+            }
+            const std::vector<stardraft::html::Link> links = page.links();
+            for (const stardraft::html::Link& l : links)
+                if (l.url.find("/pull/") != std::string::npos) clickAt(page, middle(l.box));
+            for (const stardraft::html::Link& l : links)
+                if (l.url.find("/releases/tag/") != std::string::npos) clickAt(page, middle(l.box));
+            std::printf("changelog: then %s, page %s\n", kStates[int(gChangelogView.state())], gChangelogView.page().c_str());
+        }
+    }
+    if (root && gRoot) {
+        const RECT u = gRoot->topBar.updateRc;
+        if (u.right > u.left)
+            std::printf("topbar: Update at %d,%d,%d,%d, tip \"%s\"\n", int(u.left), int(u.top), int(u.right), int(u.bottom),
+                        narrow(releases::available() ? topBarUpdateTip(*releases::available()) : std::wstring()).c_str());
+        else std::printf("topbar: no Update\n");
+    }
 }

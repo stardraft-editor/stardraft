@@ -19,7 +19,7 @@ To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (i
 case's options, {map}, {project}, {install} (the --install folder), {root} (the repository), {out} (the --out folder),
 {newdir} (a new empty folder in --out), {kodir} (a new empty folder in --out with Korean letters and spaces in its
 name), {wav} (a short sound that the script writes in --out), {release} (GitHub's answer for the newest release, with a
-download for each system: RELEASE_JSON), {oldsettings} (the settings file of an older release), {nosnapsettings} (a settings file with
+download for each system: RELEASE_JSON), {htmlpage} (the HTML view's test page HTML_PAGE, with its image), {oldsettings} (the settings file of an older release), {nosnapsettings} (a settings file with
 Options > Units > Snap buildings to tile edges off)
 and {legacyhive} (Windows: a registry file with the settings of the releases before the settings file) are paths, and
 {script:<name>} is the path of the input script SCRIPTS[name] (main_sdl.cpp's --script), written into --out with the
@@ -566,6 +566,20 @@ CASES += [
     # never offered an older release); a token that GitHub refuses (expired) gets the release without it.
     ("update-release-older", ["--check", "release:{releaseold}"], ""),
     ("update-release-token", ["--check", "release-token:{release}"], ""),
+    # The HTML view (core/html_view.h) on a page on disk ({htmlpage}: HTML_PAGE and its image): headings, lists, a
+    # table, code, an image and links, laid out in a scroll view (the laid-out height, the image, each link's box).
+    ("html-view", ["--dialog", "html:{htmlpage}", "--size", "640x520"], ""),
+    ("html-view-light", ["--dialog", "html:{htmlpage}", "--size", "640x520", "--theme", "light"], ""),
+    # The release notes window (core/views_changelog.inc) for the newest release ({release}: RELEASE_JSON, with its
+    # notes as GitHub's body_html; no network): the notes, Install or Download where this build can, Open on GitHub.
+    # -offline: no answer and no kept copy (GitHub cannot be reached): a line and Open on GitHub. The top bar's Update
+    # shows the newer release ({release} is newer than every build).
+    ("changelog", ["--release", "{release}", "--dialog", "changelog"], ""),
+    ("changelog-light", ["--release", "{release}", "--dialog", "changelog", "--theme", "light"], ""),
+    ("changelog-offline", ["--dialog", "changelog:offline"], ""),
+    # The links: the hand on each; the pull request opens in the browser, the release before opens in the window.
+    ("changelog-links", ["--release", "{release}", "--dialog", "changelog:links"], ""),
+    ("update-topbar", ["--release", "{release}"], ""),
 ]
 
 
@@ -2434,6 +2448,110 @@ def check_value_insert(output):
     return None
 
 
+def html_lines(output, what):
+    """The HTML view's lines of a run: (width, height, title, images shown, images asked), and the links as
+    (url, (left, top, right, bottom))."""
+    out = output.replace("\r", "")
+    m = re.search(rf'^{what}: laid out (\d+) x (\d+) px, title "(.*)", images (\d+) of (\d+) shown$', out, re.M)
+    links = [(u, tuple(map(int, b.split(",")))) for u, b in re.findall(rf"^{what}: link (\S+) at (\S+)$", out, re.M)]
+    return (int(m.group(1)), int(m.group(2)), m.group(3), int(m.group(4)), int(m.group(5))) if m else None, links
+
+
+def check_html_view(output):
+    """None when the HTML view laid out HTML_PAGE: as wide as the view (less the scroll bar), taller than the view
+    (the bar shows), its title and its image, and its four links in the order of the page, each in the page; the wheel
+    scrolls it (3 notches: 3 rows of 26 px each), and the "#a-list" link scrolls to its heading."""
+    m = re.search(r"^html: the wheel \(3 notches\) scrolls to (\d+) px\r?$", output, re.M)
+    if not m or int(m.group(1)) != 3 * 3 * 26:
+        return f"the wheel scrolled to {m.group(1) if m else 'nothing'} (not {3 * 3 * 26} px)"
+    m = re.search(r"^html: the link #a-list scrolls to (\d+) px \(its heading at (\d+) px\)\r?$", output, re.M)
+    if not m or int(m.group(1)) != int(m.group(2)) or int(m.group(2)) <= 0:
+        return f"the link #a-list did not scroll to its heading ({m.group(0) if m else 'no line'})"
+    page, links = html_lines(output, "html")
+    if not page:
+        return "no line of the laid-out page"
+    w, h, title, shown, asked = page
+    if not 560 <= w <= 640 or not 700 <= h <= 4000:
+        return f"the page is laid out {w} x {h} px (not about 628 wide and 700 to 4000 high)"
+    if title != "HTML view test":
+        return f"the title is {title!r}"
+    if (shown, asked) != (1, 1):
+        return f"{shown} of {asked} images shown (not 1 of 1)"
+    if not re.search(r"^html: scroll bar shown", output, re.M):
+        return "the scroll bar does not show for a page taller than the view"
+    urls = [u for u, _ in links]
+    want = ["https://example.com/start", "second.html", "https://github.com/stardraft-editor/stardraft", "#a-list"]
+    if len(urls) != 4 or not urls[0] == want[0] or not urls[1].replace("\\", "/").endswith("/" + want[1]) or urls[2] != want[2] or urls[3] != want[3]:
+        return f"the links are {urls} (not {want})"
+    tops = []
+    for u, (l, t, r, b) in links:
+        if not (0 <= l < r <= w and 0 <= t < b <= h and 8 <= b - t <= 40 and r - l >= 20):
+            return f"the link {u} has the box {l},{t},{r},{b}"
+        tops.append(t)
+    if tops != sorted(tops) or tops[0] == tops[-1]:
+        return f"the links' boxes are not in the order of the page: {tops}"
+    return None
+
+
+def check_changelog(output):
+    """None when the release notes window shows RELEASE_JSON's release with its notes (two links, one to the release
+    before), Open on GitHub and Close (Install or Download first where this build can)."""
+    out = output.replace("\r", "")
+    m = re.search(r'^changelog: shown, "StarDraft 2 - v9\.9\.9\.9 \(build 0123abc\)", page (\S+), buttons (.*); line "(.*)"$', out, re.M)
+    if not m:
+        return "no line of the shown release"
+    if not m.group(1).endswith("/releases/tag/v9.9.9.9"):
+        return f"the page is {m.group(1)}"
+    if m.group(2) not in ("Open on GitHub, Close", "Install, Open on GitHub, Close", "Download, Open on GitHub, Close"):
+        return f"the buttons are {m.group(2)}"
+    page, links = html_lines(output, "changelog")
+    if not page or page[1] < 60:
+        return f"the notes are not laid out ({page})"
+    urls = [u for u, _ in links]
+    if urls != ["https://github.com/stardraft-editor/stardraft/releases/tag/v9.9.9.8", "https://github.com/stardraft-editor/stardraft/pull/1"]:
+        return f"the notes' links are {urls}"
+    return None
+
+
+def check_changelog_links(output):
+    """None when the mouse on each link shows the hand, the pull request goes to the browser and the release before
+    shows in the window (a test run: GitHub cannot be reached, so its page and Open on GitHub)."""
+    out = output.replace("\r", "")
+    hands = re.findall(r"^changelog: the mouse on (\S+): the hand$", out, re.M)
+    if len(hands) != 2:
+        return f"the hand shows on {hands} (not on both links)"
+    if not re.search(r"^changelog: the browser opens https://github\.com/stardraft-editor/stardraft/pull/1$", out, re.M):
+        return "the link to the pull request did not open the browser"
+    if re.search(r"^changelog: the browser opens .*/releases/tag/", out, re.M):
+        return "the link to the release before opened the browser (not the window)"
+    if not re.search(r"^changelog: then not reached, page https://github\.com/stardraft-editor/stardraft/releases/tag/v9\.9\.9\.8$", out, re.M):
+        return "the window did not go to the release before"
+    return None
+
+
+def check_changelog_offline(output):
+    """None when the window says that GitHub cannot be reached, with Open on GitHub (the releases page) and Close."""
+    out = output.replace("\r", "")
+    if not re.search(r'^changelog: not reached, "", page https://github\.com/stardraft-editor/stardraft/releases, buttons Open on GitHub, Close; '
+                     r'line "Could not get the release notes\. GitHub cannot be reached\."$', out, re.M):
+        return "no line of the window that cannot reach GitHub"
+    return None
+
+
+def check_update_topbar(output):
+    """None when the top bar shows Update for the newer release, its tooltip with the version."""
+    out = output.replace("\r", "")
+    m = re.search(r'^topbar: Update at (\d+),(\d+),(\d+),(\d+), tip "(.*)"$', out, re.M)
+    if not m:
+        return "the top bar has no Update"
+    l, t, r, b = map(int, m.groups()[:4])
+    if not (r - l >= 50 and 20 <= b - t <= 40 and t >= 0):
+        return f"Update's box is {l},{t},{r},{b}"
+    if m.group(5) != "Show the release notes of the newer release (v9.9.9.9)":
+        return f"Update's tooltip is {m.group(5)!r}"
+    return None
+
+
 def check_release_older(output):
     """None when a release published before this build's commit is not newer (nothing to install)."""
     if not re.search(r"^release: newer no, .*Check for updates: nothing \(up to date\)", output, re.M):
@@ -2647,7 +2765,9 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "map-program-files": check_program_files, "map-saveas-tab": check_saveas_tab, "map-undo-midstroke": check_undo_midstroke,
           "map-undo-saved": check_undo_saved, "map-undo-selection": check_undo_selection, "map-props-typing-undo": check_props_typing_undo,
           "data-map-undo": check_data_map_undo, "data-map-undo-history": check_data_map_history, "data-value-insert": check_value_insert, "update-release-older": check_release_older,
-          "update-release-token": check_release_token,
+          "update-release-token": check_release_token, "html-view": check_html_view, "html-view-light": check_html_view,
+          "changelog": check_changelog, "changelog-light": check_changelog, "changelog-offline": check_changelog_offline,
+          "update-topbar": check_update_topbar, "changelog-links": check_changelog_links,
           "newpage-noback": expect_ui(2, [
               ("a click where Back was closed the page (Back is there)", lambda u: u[0][1]["page"] == "new"),
               ("Esc did not close the New page", lambda u: u[1][1]["page"] == "start")]),
@@ -2741,9 +2861,54 @@ RELEASE_JSON = json.dumps({
     "author": {"login": "stardraft-editor", "url": "https://api.github.com/users/stardraft-editor",
                "html_url": "https://github.com/stardraft-editor"},
     "tag_name": "v9.9.9.9", "name": "StarDraft 2 - v9.9.9.9 (build 0123abc)", "draft": False, "prerelease": False,
+    "published_at": "2030-01-01T00:00:00Z",
     "assets": [{"url": f"https://api.github.com/repos/stardraft-editor/stardraft/releases/assets/{11 + k}", "name": name,
                 "browser_download_url": RELEASE_DOWNLOAD + name} for k, name in enumerate(RELEASE_DOWNLOADS.values())],
-    "body": "What is new"}, indent=2) + "\n"
+    "body": "What is new",
+    # (the notes as GitHub gives them with Accept: application/vnd.github.html+json: the release notes window shows them)
+    "body_html": '<div class="markdown-heading"><h2 class="heading-element">What is new</h2><a id="user-content-what-is-new" class="anchor" '
+                 'href="#what-is-new"><svg class="octicon"></svg></a></div><ul><li>The <strong>release notes</strong> window, with '
+                 '<code>Install</code></li><li>A link to <a href="https://github.com/stardraft-editor/stardraft/releases/tag/v9.9.9.8">the '
+                 'release before</a></li></ul><p>See <a href="https://github.com/stardraft-editor/stardraft/pull/1">the pull request</a> '
+                 '\u2014 \ud55c\uad6d\uc5b4 too.</p>'}, indent=2) + "\n"
+
+# The HTML view's test page ({htmlpage}; html-view): each kind of content that GitHub's release notes and the help
+# pages have. Its image is HTML_IMAGE (a PNG that write_html_page writes beside it).
+HTML_PAGE = """<!doctype html>
+<html><head><title>HTML view test</title></head><body>
+<h1>StarDraft 2 help</h1>
+<p>This page tests the <strong>HTML view</strong>: <em>text</em>, <code>inline code</code> and <a href="https://example.com/start">a link</a>.
+A long sentence wraps to the next line when the view is narrow, as a paragraph of a help page does.</p>
+<h2 id="a-list">A list</h2>
+<ul><li>First item</li><li>Second item, with <a href="second.html">a relative link</a></li><li>Third item<ul><li>A nested item</li></ul></li></ul>
+<ol><li>One</li><li>Two</li></ol>
+<h2>A table</h2>
+<table><tr><th>Unit</th><th>Hit points</th></tr><tr><td>Terran Marine</td><td>40</td></tr><tr><td>Zerg Zergling</td><td>35</td></tr></table>
+<h2>Code</h2>
+<pre><code>function onPluginStart() {
+    SetResources(P1, SetTo, 50, Ore);
+}</code></pre>
+<h3>An image</h3>
+<p><img src="html-view-image.png" alt="A test image"></p>
+<blockquote><p>A quote: <a href="https://github.com/stardraft-editor/stardraft">the repository</a>.</p></blockquote>
+<hr>
+<p><a href="#a-list">Back to the list</a></p>
+</body></html>
+"""
+
+
+def write_html_page(path):
+    """HTML_PAGE in `path`, and its image beside it (html-view-image.png: 96 x 48, a gradient)."""
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(HTML_PAGE)
+    w, h = 96, 48
+    rows = b"".join(b"\0" + bytes(c for x in range(w) for c in (x * 255 // w, y * 255 // h, 160, 255)) for y in range(h))
+
+    def chunk(kind, body):
+        return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body) & 0xFFFFFFFF)
+    png = PNG_SIGNATURE + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b"")
+    with open(os.path.join(os.path.dirname(path), "html-view-image.png"), "wb") as f:
+        f.write(png)
 
 # A release published in 2020 ({releaseold}), before any commit of this build: never newer than this build.
 RELEASE_OLD_JSON = json.dumps({
@@ -2965,6 +3130,9 @@ def main():
             return write
         if any("{release}" in x for x in args):
             write_once(release, write_text(release, RELEASE_JSON))
+        htmlpage = os.path.join(a.out, "html-view-page.html")
+        if any("{htmlpage}" in x for x in args):
+            write_once(htmlpage, lambda: write_html_page(htmlpage))
         releaseold = os.path.join(a.out, "release-older.json")
         if any("{releaseold}" in x for x in args):
             write_once(releaseold, write_text(releaseold, RELEASE_OLD_JSON))
@@ -2978,7 +3146,7 @@ def main():
             write_once(legacyhive, lambda: write_legacy_hive(legacyhive))
         paths = dict(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
                      kodir=kodir, wav=wav, release=release, oldsettings=oldsettings, legacyhive=legacyhive, pfdir=pfdir,
-                     releaseold=releaseold, nosnapsettings=nosnapsettings)
+                     releaseold=releaseold, nosnapsettings=nosnapsettings, htmlpage=htmlpage)
 
         def script(m):  # {script:<name>}: SCRIPTS[name] with the paths, as a file in --out
             path = os.path.join(a.out, f"{name}-{m.group(1)}.txt")

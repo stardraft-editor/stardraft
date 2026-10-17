@@ -10,12 +10,12 @@
 
 #include <memory>
 
+#include "scroll_bar.h"  // (kScrollBarW: a bar's thickness, at 100 %)
 #include "theme.h"
 #include "view.h"
 
 namespace stardraft::kit {
 
-constexpr int kScrollBarW = 12;  // a bar's thickness, at 100 %
 constexpr int kWheelRows = 3;    // rows one wheel notch scrolls (a row is kRowH)
 
 class ScrollView : public draw::View {

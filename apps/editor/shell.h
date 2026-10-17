@@ -126,6 +126,9 @@ std::wstring shellTr(const wchar_t* english);
 std::vector<int>& shellPaletteChosen();
 // The folder of the unsaved projects (a new project nobody saved yet lives there); empty when the system has none.
 std::filesystem::path shellUnsavedRoot();
+// The program's cache folder (the release notes and their images): %LOCALAPPDATA%\StarDraft\Cache on Windows,
+// ~/Library/Caches/StarDraft on macOS, $XDG_CACHE_HOME/StarDraft on Linux; empty in a test run (nothing is kept).
+std::filesystem::path shellCacheFolder();
 // The settings file (%APPDATA%\StarDraft\settings.json; the environment variable STARDRAFT_SETTINGS gives another).
 std::filesystem::path shellSettingsFile();
 // A setting the core changed is saved now (the Windows host saves its options as they change, only what differs).

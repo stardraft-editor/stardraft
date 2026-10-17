@@ -55,6 +55,8 @@
 #include "label.h"
 #include "icon_button.h"
 #include "tree_view.h"
+#include "scroll_view.h"
+#include "html_view.h"
 #include "../shell.h"
 #include "../res/ui_icons.h"
 #include "stardraft/commands.h"

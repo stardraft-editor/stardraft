@@ -96,7 +96,81 @@ struct Release {
     std::string title, commit, zip, page;  // zip: the asset's API address (it downloads with the token)
     std::string download;                  // this system's download for the browser (its browser_download_url)
     std::string tag, published;            // v0.5.0.8; when it was published (2026-10-11T18:00:00Z)
+    std::string notes;                     // the release notes as HTML (GitHub's body_html: the release page's text)
+    bool prerelease = false;               // a preview (GitHub's pre-release)
 };
+
+// A string value after `"key":` (from `from` on) with its escapes decoded, as UTF-8; "" when there is none.
+inline std::string jsonValue(const std::string& j, const std::string& key, size_t from = 0) {
+    const std::string k = "\"" + key + "\":\"";
+    const size_t a = j.find(k, from);
+    if (a == std::string::npos) return {};
+    std::string o;
+    auto put = [&o](unsigned cp) {
+        if (cp < 0x80) o += char(cp);
+        else if (cp < 0x800) o += char(0xC0 | cp >> 6), o += char(0x80 | (cp & 0x3F));
+        else if (cp < 0x10000) o += char(0xE0 | cp >> 12), o += char(0x80 | (cp >> 6 & 0x3F)), o += char(0x80 | (cp & 0x3F));
+        else o += char(0xF0 | cp >> 18), o += char(0x80 | (cp >> 12 & 0x3F)), o += char(0x80 | (cp >> 6 & 0x3F)), o += char(0x80 | (cp & 0x3F));
+    };
+    auto hex4 = [&j](size_t at) {
+        unsigned v = 0;
+        for (size_t i = at; i < at + 4 && i < j.size(); ++i) {
+            const char ch = j[i];
+            v = v * 16 + unsigned(ch >= '0' && ch <= '9' ? ch - '0' : ch >= 'a' && ch <= 'f' ? ch - 'a' + 10 : ch >= 'A' && ch <= 'F' ? ch - 'A' + 10 : 0);
+        }
+        return v;
+    };
+    for (size_t i = a + k.size(); i < j.size(); ++i) {
+        const char ch = j[i];
+        if (ch == '"') break;
+        if (ch != '\\' || i + 1 >= j.size()) {
+            o += ch;
+            continue;
+        }
+        const char e = j[++i];
+        switch (e) {
+        case 'n': o += '\n'; break;
+        case 't': o += '\t'; break;
+        case 'r': o += '\r'; break;
+        case 'b': o += '\b'; break;
+        case 'f': o += '\f'; break;
+        case 'u': {
+            unsigned cp = hex4(i + 1);
+            i += 4;
+            if (cp >= 0xD800 && cp < 0xDC00 && i + 6 < j.size() && j[i + 1] == '\\' && j[i + 2] == 'u') {
+                const unsigned lo = hex4(i + 3);
+                if (lo >= 0xDC00 && lo < 0xE000) cp = 0x10000 + ((cp - 0xD800) << 10) + (lo - 0xDC00), i += 6;
+            }
+            put(cp);
+            break;
+        }
+        default: o += e; break;  // (\" \\ \/)
+        }
+    }
+    return o;
+}
+
+// The objects of a JSON array (GitHub's list of releases), each as its own text, in their order.
+inline std::vector<std::string> jsonObjects(const std::string& j) {
+    std::vector<std::string> out;
+    int depth = 0;
+    bool text = false, escape = false;
+    size_t start = 0;
+    for (size_t i = 0; i < j.size(); ++i) {
+        const char ch = j[i];
+        if (text) {
+            if (escape) escape = false;
+            else if (ch == '\\') escape = true;
+            else if (ch == '"') text = false;
+            continue;
+        }
+        if (ch == '"') text = true;
+        else if (ch == '{') {
+            if (depth++ == 0) start = i;
+        } else if (ch == '}' && depth > 0 && --depth == 0) out.push_back(j.substr(start, i - start + 1));
+    }
+    return out;
+}
 
 // The JSON without the spaces and line breaks between its values (GitHub indents its JSON for a request without a
 // token: "name": "..."), so that jsonString finds "name":"...".
@@ -127,6 +201,8 @@ inline bool parseRelease(const std::string& json, Release& r) {
     r.title = jsonString(j, "name");  // the release's own name comes before its assets' names
     r.page = jsonString(j, "html_url");
     r.tag = jsonString(j, "tag_name"), r.published = jsonString(j, "published_at");
+    r.notes = jsonValue(j, "body_html");
+    r.prerelease = j.find("\"prerelease\":true") != std::string::npos;
     if (const size_t a = r.title.find("(build "); a != std::string::npos) r.commit = r.title.substr(a + 7, r.title.find(')', a) - a - 7);
     for (size_t p = 0; (p = j.find("\"browser_download_url\":\"", p)) != std::string::npos; ++p) {
         const std::string u = jsonString(j, "browser_download_url", p);
@@ -195,6 +271,93 @@ inline bool newerThan(const Release& r, const std::string& version, const std::s
     return true;
 }
 inline bool newer(const Release& r) { return newerThan(r, STARDRAFT_VERSION_NAME, STARDRAFT_COMMIT, (long long)STARDRAFT_COMMIT_TIME); }
+
+// --- The release notes (the release notes window, views_changelog.inc) ------------------------------------------------
+
+// GitHub's Accept type that gives a release's notes as HTML too (body_html).
+inline const char* const kReleaseHtml = "application/vnd.github.html+json";
+
+// The newest release of a track: the stable one (GitHub's latest release, the default), or with previews also the
+// newest pre-release. `json`: GitHub's answer for that release (for the cache). False when GitHub cannot be reached.
+inline bool newest(Release& r, bool previews, std::string* json = nullptr) {
+    std::string j;
+    const std::string repo = "https://api.github.com/repos/" + narrow(kIssueRepo);
+    if (!previews) {
+        if (!get(repo + "/releases/latest", &j, nullptr, kReleaseHtml) || !parseRelease(j, r)) return false;
+        if (json) *json = j;
+        return true;
+    }
+    if (!get(repo + "/releases?per_page=10", &j, nullptr, kReleaseHtml)) return false;
+    for (const std::string& o : jsonObjects(j)) {  // (newest first; a draft is not a release)
+        if (compactJson(o).find("\"draft\":true") != std::string::npos || !parseRelease(o, r)) continue;
+        if (json) *json = o;
+        return true;
+    }
+    return false;
+}
+
+// The release with the tag `tag` (v0.6.0). False when GitHub cannot be reached or has no such release.
+inline bool byTag(const std::string& tag, Release& r, std::string* json = nullptr) {
+    std::string j;
+    if (tag.empty() || !get("https://api.github.com/repos/" + narrow(kIssueRepo) + "/releases/tags/" + tag, &j, nullptr, kReleaseHtml) || !parseRelease(j, r))
+        return false;
+    if (json) *json = j;
+    return true;
+}
+
+// The tag of this build's release: v and the version ("" for a build that is not a release's: its version is not only
+// numbers).
+inline std::string ownTag(const std::string& version = STARDRAFT_VERSION_NAME) {
+    if (versionNumbers(version).empty()) return {};
+    return version[0] == 'v' ? version : "v" + version;
+}
+
+// The tag of a release page's address ("" when `url` is not a release page of this program's repository): a link to
+// another release opens its notes in the release notes window.
+inline std::string releasePageTag(const std::string& url) {
+    const std::string prefix = "https://github.com/" + narrow(kIssueRepo) + "/releases/tag/";
+    if (url.size() <= prefix.size() || url.compare(0, prefix.size(), prefix) != 0) return {};
+    std::string tag = url.substr(prefix.size());
+    if (const size_t cut = tag.find_first_of("?#/"); cut != std::string::npos) tag.erase(cut);
+    return tag;
+}
+
+// The release notes that StarDraft 2 keeps (the cache folder's releases/): GitHub's answer for each release by its tag,
+// and the newest release of each track, for when GitHub cannot be reached. `dir` empty: none (a test run).
+inline std::string keptName(std::string s) {
+    for (char& ch : s)
+        if (!std::isalnum((unsigned char)ch) && ch != '.' && ch != '-' && ch != '_') ch = '_';
+    return s;
+}
+inline void keepRelease(const fs::path& dir, const std::string& name, const std::string& json) {
+    if (dir.empty() || json.empty() || name.empty()) return;
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    const fs::path f = dir / (keptName(name) + ".json"), part = dir / (keptName(name) + ".json.part");
+    {
+        std::ofstream out(part, std::ios::binary);
+        if (!out) return;
+        out.write(json.data(), std::streamsize(json.size()));
+        if (!out) return;
+    }
+    fs::rename(part, f, ec);
+}
+inline bool keptRelease(const fs::path& dir, const std::string& name, Release& r) {
+    if (dir.empty() || name.empty()) return false;
+    std::ifstream in(dir / (keptName(name) + ".json"), std::ios::binary);
+    if (!in) return false;
+    const std::string j((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    return parseRelease(j, r);
+}
+// The cache's name of a track's newest release.
+inline std::string newestName(bool previews) { return previews ? "newest-previews" : "newest-stable"; }
+
+// The newest release when it is newer than this build (the update check finds it at start and each hour); the top
+// bar's Update button shows it. Set on the UI thread.
+inline std::optional<Release>& available() {
+    static std::optional<Release> r;
+    return r;
+}
 
 // A release build: the one CI makes (the others are built here, by a developer).
 inline bool releaseBuild() { return !issueToken().empty(); }
@@ -316,9 +479,9 @@ inline std::wstring rollBackUpdate(const fs::path& self, const std::vector<std::
            L").\n\nThe release before the update is in its place again" + (started ? L" and starts now." : L". Start StarDraft 2 again.");
 }
 
-// Program options > Look for updates on start: the status bar's text after a change.
+// Program options > Updates > Look for updates: the status bar's text after a change.
 inline std::wstring updateCheckMessage(bool on) {
-    return on ? L"StarDraft 2 looks for a newer release on start" : L"StarDraft 2 does not look for a newer release on start";
+    return on ? L"StarDraft 2 looks for a newer release at start and each hour" : L"StarDraft 2 does not look for newer releases";
 }
 
 // --- Crash reports ---------------------------------------------------------------------------------------------------

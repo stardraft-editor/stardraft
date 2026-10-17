@@ -386,6 +386,14 @@ if(STARDRAFT_RENDERER)
                           ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-40.png ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-48.png
                           ${CMAKE_SOURCE_DIR}/apps/editor/res/atlas-64.png)
 
+    # litehtml: lays out the HTML view's pages (apps/editor/core/html_view.cpp: the release notes). BSD-3-Clause; its
+    # HTML parser Gumbo (in its sources) is Apache-2.0 (NOTICE.md). Pinned at v0.10.
+    FetchContent_Declare(litehtml
+        GIT_REPOSITORY https://github.com/litehtml/litehtml.git
+        GIT_TAG 9bc84b8b8d15a4e50f18b327aa30955048b441c2)  # v0.10
+    set(LITEHTML_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(litehtml)
+
     # The kit on SDL (apps/kit_sdl): SDL windows and a Dear ImGui canvas for the kit's views; kit_demo shows them.
     add_library(stardraft_kit_sdl STATIC apps/kit_sdl/canvas_imgui.cpp apps/kit_sdl/sdl_host.cpp)
     target_include_directories(stardraft_kit_sdl PUBLIC apps/kit_sdl PRIVATE ${stb_SOURCE_DIR})
@@ -465,7 +473,7 @@ endif()
 if(STARDRAFT_RENDERER)
     set(sdlEditor stardraft_editor)
     set(sdlEditorName ${STARDRAFT_EXE_NAME})
-    add_executable(${sdlEditor} WIN32 MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
+    add_executable(${sdlEditor} WIN32 MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/core/html_view.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
                    apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp)
     target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
     target_include_directories(${sdlEditor} PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
@@ -493,7 +501,7 @@ if(STARDRAFT_RENDERER)
         stardraft_version_rc(${sdlEditor} ${sdlEditorName} "StarDraft 2")
         target_link_libraries(${sdlEditor} PRIVATE dwmapi shell32 ole32 advapi32)
     endif()
-    target_link_libraries(${sdlEditor} PRIVATE stardraft_kit_sdl stardraft_render stardraft_platform stardraft_kit stardraft_map_preview stardraft)
+    target_link_libraries(${sdlEditor} PRIVATE stardraft_kit_sdl stardraft_render stardraft_platform stardraft_kit stardraft_map_preview stardraft litehtml)
     set_target_properties(${sdlEditor} PROPERTIES OUTPUT_NAME ${sdlEditorName} MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/editor/Info.plist.in)
     if(APPLE)
         # macOS: the menus (mac_menus.mm: the menu bar, the context menus), the trackpad's scrolls, smart zoom and swipes

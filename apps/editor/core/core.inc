@@ -100,6 +100,7 @@
 #include "views_new_project.inc"
 #include "views_message_box.inc"
 #include "views_about.inc"
+#include "views_changelog.inc"  // the release notes window (the top bar's Update, Help > What is new): the HTML view (html_view.h)
 #include "views_tip.inc"
 #include "kit_surface.inc"
 #include "views_kit_gallery.inc"
