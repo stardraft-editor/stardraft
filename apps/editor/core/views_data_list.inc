@@ -19,6 +19,7 @@ public:
     virtual void select(int e) = 0;                // a row is clicked or the keys move the selection
     virtual void menu(int e, draw::Point pt) = 0;  // the right button is released over an entry (pt: the list's coordinates)
     virtual bool travel(int button) = 0;           // the mouse's back (1) or forward (2) button
+    virtual void open(int) {}                      // a row is double-clicked (SFX data: its sound plays or stops)
 };
 
 class DataListView final : public draw::View {
@@ -44,6 +45,7 @@ public:
 
     void paint(draw::Canvas& c) override;
     bool mouse(const draw::MouseEvent& e) override;
+    bool sameItem(draw::Point a, draw::Point b) const override { return rowAt(a) == rowAt(b); }  // (a double click: one row)
     bool key(const draw::KeyEvent& e) override;
     bool vscroll(int code, int pos, int track, int page) override;
     // The window's vertical bar: the list's last line, the list's height and the position. (The bar is disabled, not hidden,
@@ -136,10 +138,11 @@ bool DataListView::mouse(const draw::MouseEvent& e) {
         setScroll(host_.scroll() - int(std::lround(draw::wheelDistance(e, float(rowH() * 3)))));  // three rows a notch
         return true;
     case MouseKind::Down:
-    case MouseKind::DoubleClick:
+    case MouseKind::DoubleClick:  // (the second click on the row of the first: Router)
         if (e.button == 0) {
             const int u = rowAt(e.pt);
             if (u >= 0) host_.select(u);
+            if (u >= 0 && e.kind == MouseKind::DoubleClick) host_.open(u);
         }
         return true;
     case MouseKind::Up:  // an entry: copy, paste or reset its values (the menu)

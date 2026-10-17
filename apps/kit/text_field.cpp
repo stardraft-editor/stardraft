@@ -176,9 +176,14 @@ void TextField::relayout(draw::Canvas& c) {
     bool bold = fontDesc_.bold;  // the font the canvas has now
     const int tab = px(48);      // the tab stops: every half inch, as the rich edit's default ones
     int lineX0 = 0;              // x of the current line's start (a line's tab stops start there)
-    // A character's width is measured once per layout (per character and weight), not once per place in the text:
-    // a long text is laid out again with each edit.
-    std::unordered_map<uint64_t, int> widths;
+    // Each character's place is the width of the text before it in its piece (a piece: up to kPiece characters of one
+    // weight, with no tab or line end), measured as one string, as the paint draws each piece: the caret, the selection
+    // and the mouse are where the letters are drawn. (A sum of each character's rounded width drifts from the drawn
+    // letters along a line, by up to a pixel for each character.)
+    constexpr size_t kPiece = 48;
+    piece_.assign(n + 1, 0);
+    size_t pieceStart = n;  // (none yet)
+    int pieceX = 0;
     for (size_t d = 0; d < n;) {
         const bool b = fontDesc_.bold || attrAt(d).bold;
         if (b != bold) {
@@ -186,22 +191,19 @@ void TextField::relayout(draw::Canvas& c) {
             f.bold = b;
             c.setFont(c.font(f));
             bold = b;
+            pieceStart = n;
         }
         const size_t len = nextIndex(shown_, d, n) - d;
         int w = 0;
         if (shown_[d] == '\n') {
             lineX0 = x;
+            pieceStart = n;
         } else if (shown_[d] == '\t') {
             w = tab - (x - lineX0) % tab;  // to the next tab stop, counted from the line's start
+            pieceStart = n;
         } else {
-            const uint64_t key = (uint64_t(shown_[d]) << 32) | (uint64_t(len == 2 ? shown_[d + 1] : 0) << 1) | (b ? 1u : 0u);
-            const auto it = widths.find(key);
-            if (it != widths.end()) {
-                w = it->second;
-            } else {
-                w = c.measure(std::wstring_view(shown_).substr(d, len));
-                widths.emplace(key, w);
-            }
+            if (pieceStart == n || d - pieceStart >= kPiece) pieceStart = d, pieceX = x, piece_[d] = 1;
+            w = std::max(0, pieceX + c.measure(std::wstring_view(shown_).substr(pieceStart, d + len - pieceStart)) - x);
         }
         px_[d] = x;
         if (len == 2) px_[d + 1] = x;  // the second unit of a pair has no place of its own
@@ -449,6 +451,7 @@ void TextField::paint(draw::Canvas& c) {
     } else {
         const int baseX = in.left - scrollX_ + alignOff();
         const int spaceW = c.measure(L" ");
+        textRight_ = 0;
         size_t first = 0, last = lines_.size();
         if (multiline()) {
             first = std::min(lines_.size(), size_t(scrollY_ / lineH_));
@@ -466,9 +469,18 @@ void TextField::paint(draw::Canvas& c) {
                 d.bold = fontDesc_.bold || run.attr.bold;
                 d.underline = run.attr.comp;
                 c.setFont(c.font(d));
+                // Each piece of the layout (relayout) from its own place: the letters are where the caret and the mouse
+                // put them.
                 if (shown_[run.from] != '\t')  // a tab is space only
-                    c.text(draw::Rect{x0, top, x0 + w + lineH_, top + lineH_}, std::wstring_view(shown_).substr(run.from, run.to - run.from),
-                           run.attr.color, draw::kLeft | draw::kMiddle);
+                    for (size_t a = run.from; a < run.to;) {
+                        size_t b = a + 1;
+                        while (b < run.to && !piece_[b]) ++b;
+                        const int xa = baseX + (px_[a] - px_[L.start]);
+                        const std::wstring_view s = std::wstring_view(shown_).substr(a, b - a);
+                        c.text(draw::Rect{xa, top, xa + (px_[b] - px_[a]) + lineH_, top + lineH_}, s, run.attr.color, draw::kLeft | draw::kMiddle);
+                        if (li == caretLine()) textRight_ = std::max(textRight_, xa + c.measure(s));
+                        a = b;
+                    }
             }
             c.setFont(c.font(fontDesc_));
         }

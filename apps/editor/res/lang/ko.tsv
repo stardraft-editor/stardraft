@@ -391,6 +391,9 @@ No	아니요
 Left and right	왼쪽과 오른쪽
 Top and bottom	위쪽과 아래쪽
 Left and right, top and bottom	왼쪽과 오른쪽, 위쪽과 아래쪽
+Inverted left and right	왼쪽과 오른쪽이 반전됨
+Inverted top and bottom	위쪽과 아래쪽이 반전됨
+Inverted on both	양쪽 모두 반전됨
 Changed the location "	위치를 변경했습니다: "
 Could not change the location: 	위치를 변경할 수 없습니다: 
 Location properties	위치 속성

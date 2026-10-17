@@ -76,6 +76,10 @@ class TilesGridView final : public draw::View {
 public:
     void paint(draw::Canvas& c) override;
     bool mouse(const draw::MouseEvent& e) override;
+    bool sameItem(draw::Point a, draw::Point b) const override {  // (a double click: one tile)
+        auto* self = const_cast<TilesGridView*>(this);  // (hit reads the grid first)
+        return self->hit(a.x, a.y) == self->hit(b.x, b.y);
+    }
     void captureLost() override {
         if (gTiles.boxing) gTiles.boxing = false, invalidate();
     }

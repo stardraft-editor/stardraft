@@ -374,6 +374,9 @@ No	否
 Left and right	左右
 Top and bottom	上下
 Left and right, top and bottom	左右、上下
+Inverted left and right	左右反转
+Inverted top and bottom	上下反转
+Inverted on both	两个方向都反转
 Changed the location "	已更改位置 "
 Could not change the location: 	无法更改位置: 
 Location properties	位置属性

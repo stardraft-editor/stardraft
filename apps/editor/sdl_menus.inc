@@ -512,6 +512,7 @@ draw::View& sdlShotTarget(draw::Point& size) {
 // own: its kind and place (a dialog's Tab order), and for a text field its text, selection and composition, and
 // whether the input method is on with its area at the caret (SDL_SetTextInputArea: the system's composition and
 // candidate windows show there): "(WRONG)" when it is off or not at the caret.
+bool gCaretCheck = false;  // --check caret (main_sdl.cpp)
 void sdlFocusLine() {
     if (!gRoot || !gHost) return;
     draw::Point size;
@@ -543,6 +544,13 @@ void sdlFocusLine() {
         if (ch == '\n') shown += "\\n";
         else if (ch != '\r') shown += ch;
     std::printf("  focus: %s at %d,%d \"%s\"", kind.c_str(), o.x, o.y, shown.c_str());
+    if (gCaretCheck) {  // --check caret: the caret and the end of the drawn letters of its line (the caret at the end)
+        int right = -1;
+        if (const auto* t = dynamic_cast<const kit::TextField*>(f)) right = t->textRight();
+        else if (const auto* r = dynamic_cast<const kit::RichField*>(f)) right = r->textRight();
+        if (right >= 0)
+            std::printf(" [caret at %d, the letters end at %d %s]", caret.left, right, std::abs(caret.left - right) <= 1 ? "(yes)" : "(WRONG)");
+    }
     if (typing) {
         draw::Rect area;
         const bool on = gHost->textInputState(*f, area);
@@ -626,6 +634,12 @@ void sdlInputLine(const std::string& what) {
     }
     if (const std::string state = sdlShotState(); !state.empty()) std::printf("  state: %s\n", state.c_str());
     std::printf("  ui: %s\n", sdlShotUi().c_str());
+    if (gListPickShown) {  // a list picker is open: its search and the rows it shows
+        const auto rows = gListPickShown->shownLabels();
+        std::string s;
+        for (size_t i = 0; i < rows.size() && i < 12; ++i) s += (i ? ", " : "") + narrow(rows[i]);
+        std::printf("  picker: search \"%s\", %zu rows: %s\n", narrow(gListPickShown->searchField().text()).c_str(), rows.size(), s.c_str());
+    }
 }
 
 void sdlMouseShot(const std::string& spec, char kind);
@@ -674,9 +688,11 @@ bool sdlShotInputNext() {
 // gives it, in the window's pixels: the mouse comes to the first point, the button goes down, (a drag: the mouse moves
 // to the second point in steps, the button held), the button goes up. The events go the host's way for a window's
 // (SdlHost::snapshotMouse), with the modifier keys held (Shift, Ctrl, Alt, joined with +; Ctrl is Cmd on macOS);
-// Double in the mods: a double click (a second press and release, SDL's clicks 2); Repeat<n>: n quick clicks at the
-// point, as a user's fast clicks come (SDL counts them: clicks 1, 2, 3 ... n). Undo in a drag's mods: Ctrl+Z is
-// pressed halfway, while the button is held.
+// Double in the mods: a double click (a second press and release, SDL's clicks 2). Repeat<n> in a click's mods: n quick
+// clicks at the point, as SDL counts them (clicks 1, 2, ... n: the second and each next press is a double click to the
+// views). Quick in a click's mods: the click comes quickly after the click before it (SDL's clicks 2, anywhere: the
+// system counts it as a double click when it is near the first). Undo in a drag's mods: Ctrl+Z is pressed halfway,
+// while the button is held.
 // The points are the main window's, as a user's mouse is on the screen: a pop-out that an input opened takes the
 // events when the first point is on it, and a press outside it closes it; a dialog takes them in its own pixels.
 // --move x,y: only the mouse comes to the point (no button): a paste's copy follows it there. --lostdrag
@@ -694,7 +710,8 @@ void sdlMouseShot(const std::string& spec, char kind) {
     if (!drag) x1 = x0, y1 = y0;
     SDL_Keymod held = SDL_KMOD_NONE;
     bool twice = false, undoHalfway = false;
-    int repeat = 0;  // Repeat<n>: n quick clicks
+    int repeat = 1;
+    Uint8 firstClicks = 1;
     std::stringstream in(mods);
     for (std::string m; std::getline(in, m, '+');) {
 #ifdef __APPLE__
@@ -705,9 +722,10 @@ void sdlMouseShot(const std::string& spec, char kind) {
         else if (m == "Shift") held = SDL_Keymod(held | SDL_KMOD_LSHIFT);
         else if (m == "Alt") held = SDL_Keymod(held | SDL_KMOD_LALT);
         else if (m == "Double" && !drag) twice = true;
-        else if (m.rfind("Repeat", 0) == 0 && !drag && std::atoi(m.c_str() + 6) > 1) repeat = std::min(255, std::atoi(m.c_str() + 6));
+        else if (m == "Quick" && !drag && !moveOnly) firstClicks = 2;
+        else if (m.rfind("Repeat", 0) == 0 && m.size() > 6 && !drag && !moveOnly) repeat = std::clamp(std::atoi(m.c_str() + 6), 1, 100);
         else if (m == "Undo" && drag) undoHalfway = true;
-        else return void(std::fprintf(stderr, "--%s%s: %s is not Shift, Ctrl or Alt\n", name.c_str(), spec.c_str(), m.c_str()));
+        else return void(std::fprintf(stderr, "--%s%s: %s is not Shift, Ctrl, Alt, Double, Quick, Repeat<n> or Undo\n", name.c_str(), spec.c_str(), m.c_str()));
     }
     std::vector<SDL_Event> events;
     float px = float(x0), py = float(y0);
@@ -728,7 +746,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
     gHost->snapshotLayout(*gRoot);  // (the window paints between a user's inputs: the views are placed, a page's fields too)
     move(float(x0), float(y0), false);
     if (!moveOnly) {
-        button(true, float(x0), float(y0));
+        button(true, float(x0), float(y0), firstClicks);
         if (drag)
             for (int i = 1; i <= 10; ++i) {
                 move(float(x0) + float(x1 - x0) * float(i) / 10, float(y0) + float(y1 - y0) * float(i) / 10, true);
@@ -750,10 +768,10 @@ void sdlMouseShot(const std::string& spec, char kind) {
             e.type = SDL_EVENT_WINDOW_FOCUS_LOST;
             events.push_back(e);
         } else {
-            button(false, float(x1), float(y1));
+            button(false, float(x1), float(y1), firstClicks);
         }
         if (twice) button(true, float(x0), float(y0), 2), button(false, float(x0), float(y0), 2);
-        for (int k = 2; k <= repeat; ++k) button(true, float(x0), float(y0), Uint8(k)), button(false, float(x0), float(y0), Uint8(k));
+        for (int k = 2; k <= repeat; ++k) button(true, float(x0), float(y0), Uint8(std::min(k, 255))), button(false, float(x0), float(y0), Uint8(std::min(k, 255)));
     }
     const SDL_Keymod before = SDL_GetModState();
     SDL_SetModState(held);

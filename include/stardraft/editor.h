@@ -341,6 +341,9 @@ public:
     bool locationUsed(int i) const;
     std::string locationName(int i) const;
     Rect locationRect(int i) const;
+    // The edges as the location has them (not put in order: an inverted location's left is more than its right, or its
+    // top more than its bottom).
+    Rect locationEdges(int i) const;
     int locationAt(int x, int y) const;  // smallest used location containing the point, or -1 (never Anywhere)
     // Returns index or -1 if all slots are used. inverted: right < left and bottom < top (the game's trick: such a
     // location holds air units only); one undo step either way.
@@ -361,11 +364,14 @@ public:
     // location keeps its edges (it is always the whole map). Edges equal to locationRect(i) keep the location as it
     // is (an inverted location stays inverted). Returns false when nothing changed or the edges are wrong (`error`
     // then says why; nothing changed).
+    // asTyped: `rect` is the edges as the location gets them (Location properties), with no limit but 0: left more
+    // than right inverts it left and right, top more than bottom inverts it top and bottom; invertedAxes is not used.
     struct LocationEdit {
         std::string name;
         Rect rect;
         uint16_t excluded = 0;  // LocationElevation bits
         int invertedAxes = -1;  // 1 left/right, 2 top/bottom (as locationInvertedAxes); -1: as it is
+        bool asTyped = false;
     };
     bool editLocation(int i, const LocationEdit& edit, std::string* error = nullptr);
     void deleteLocation(int i);

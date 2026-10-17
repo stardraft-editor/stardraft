@@ -544,6 +544,7 @@ void RichField::paint(draw::Canvas& c) {
             first = std::min(lines_.size(), size_t(std::max(0, scrollY_) / lineH_));
             last = std::min(lines_.size(), size_t((scrollY_ + in.height()) / lineH_) + 1);
         }
+        textRight_ = 0;
         for (size_t L = first; L < last; ++L) paintLine(c, L, in);
     }
     if (focused_ && !lines_.empty()) {
@@ -603,6 +604,7 @@ void RichField::paintLine(draw::Canvas& c, size_t L, const draw::Rect& in) {
         const draw::FontMetrics m = c.metrics();
         const int ty = top + (lineH_ - m.height) / 2;
         c.textAt({x0, ty}, s, a.color);
+        if (L == caretLine()) textRight_ = std::max(textRight_, x0 + c.measureAt(s));
         const int base = ty + m.height - m.descent;  // the baseline
         if (a.strike) c.fill(draw::Rect{x0, base - (m.height - m.descent) * 3 / 10 - 1, x1, base - (m.height - m.descent) * 3 / 10}, a.color);
         if (a.dotted)

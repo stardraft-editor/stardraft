@@ -363,6 +363,44 @@ CASES += [
     ("data-form-edits", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "671,742", "--type", "50",
                          "--key", "Enter", "--click", "624,768", "--click", "776,872", "--type", "Medium", "--key", "Enter",
                          "--key", "Ctrl+Z", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "data"),
+    # Quick clicks (--click x,y:Repeat8: eight clicks, as SDL counts them: the second and each next one is a double
+    # click to the views): each one acts, on each kind of control. The damage table's More armor (a diagram's button:
+    # armor 8), a check box of the Data form (Shield enable: eight changes, eight undo steps, off again) and the brush
+    # height's up arrow (Terrain: 2 to 10).
+    ("data-quick-armor", ["--newproject", "{newdir}", "--workspace", "data", "--data", "weapons:0", "--click", "779,404:Repeat8"], "data"),
+    ("data-quick-toggle", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "624,768:Repeat8"], "data"),
+    ("map-quick-arrow", ["--mode", "terrain", "--click", "296,485:Repeat8"], "map"),
+    # A double click needs both clicks on the same row (--click x,y:Quick: a click that comes quickly after the one
+    # before, which SDL counts as a double click): two quick clicks on two rows select the second one and play nothing;
+    # a double click on one row plays its sound. The Assets page's game sounds and the SFX data list.
+    ("files-double-click", ["--workspace", "files", "--click", "300,375", "--click", "300,401:Quick", "--click", "300,453:Double"], "map"),
+    ("data-sfx-double-click", ["--newproject", "{newdir}", "--workspace", "data", "--data", "sfxdata:1", "--click", "200,239",
+                               "--click", "200,265:Quick", "--click", "200,317:Double"], "data"),
+    # The caret is where the drawn letters end, after a long text (51 letters, no spaces) is typed (--check caret: each
+    # focus line has the caret's x and the x where the letters of its line end): Map properties' Title and Description,
+    # the Strings tab's text (a game text field) and the Data list's search box.
+    ("map-props-caret", ["--check", "caret", "--workspace", "props", "--click", "420,214", "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox",
+                         "--click", "420,300", "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox"], "map"),
+    ("data-text-caret", ["--check", "caret", "--newproject", "{newdir}", "--workspace", "data", "--data", "strings:5", "--click", "800,360",
+                         "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox", "--click", "190,152", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox"], "data"),
+    # The diagrams' handles (the small squares) are only on parts that the mouse drags: the flingy's turn path has none
+    # (its Turn Radius is typed, as on Windows); the weapon's ranges have their handles.
+    ("data-turn-nohandle", ["--newproject", "{newdir}", "--workspace", "data", "--data", "flingy:0", "--move", "10,10"], "data"),
+    ("data-range-handles", ["--newproject", "{newdir}", "--workspace", "data", "--data", "weapons:0", "--move", "10,10"], "data"),
+    # Location properties, both ways: the edges typed freely set the Type list (0,0,32,32: Normal; 64 in Left: inverted
+    # left and right), and a type picked in the list (Up, Down: the list has the keyboard) swaps the edges to give it,
+    # with the same numbers (Normal: 32,0,64,32; inverted left and right: 64,0,32,32; inverted top and bottom:
+    # 32,32,64,0). OK puts the edges in as they are; Undo takes them back. The dialog's inputs' lines come before
+    # Enter's (the key that opened it).
+    ("map-location-inverted", ["--mode", "locations", "--drag", "520,640-600,700", "--key", "Enter"] +
+     [a for v in ["0", "0", "32", "32"] for a in ("--key", "Tab", "--key", "Ctrl+A", "--type", v)] +
+     ["--key", "Shift+Tab"] * 3 + ["--key", "Ctrl+A", "--type", "64"] + ["--key", "Tab"] * 4 +
+     ["--key", "Up", "--key", "Down", "--key", "Down", "--key", "Shift+Tab", "--key", "Enter", "--key", "Ctrl+Z"], "map"),
+    # A list picker's search box takes typing (Unit size of the Marine's Data form), with the keys and the text as SDL
+    # gives them on Windows (--keysfromopener: from the main window under the pop-out): the typed letters filter the
+    # rows, Korean through the input method (its composition, then the text), Backspace takes a letter back, Esc closes it.
+    ("data-picker-typing", ["--keysfromopener", "--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "776,872",
+                            "--type", "Med", "--ime", "\ud55c", "--type", "\ud55c", "--key", "Backspace", "--key", "Esc"], "data"),
     # The Triggers workspace of a new project: On map start > New trigger, Add an action (the block picker: Set
     # resources), its amount typed in the value's pop-out (800), Delete, then Undo twice (the block, then its amount).
     ("data-triggers-edits", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169",
@@ -1208,6 +1246,117 @@ def check_data_edits(output):
         return f"the second Undo: {s[8]}"
     if "no changed values; 0 undo steps, 3 redo steps" not in s[9]:
         return f"the third Undo: {s[9]}"
+    return None
+
+
+def quick_check(want, what):
+    def check(output):
+        s = states(output)
+        if len(s) != 1:
+            return f"{len(s)} input lines, not 1"
+        if want not in s[0][1]:
+            return f"{what}: {s[0][1]} (no {want})"
+        return None
+    return check
+
+
+def check_double_click_rows(sel, plays):
+    """None when the two quick clicks on two rows selected the second (no play) and the double click played one sound."""
+    def check(output):
+        s = states(output)
+        if len(s) != 3:
+            return f"{len(s)} input lines, not 3"
+        if sel[0] not in s[1][1] or "0 plays" not in s[1][1]:
+            return f"two quick clicks on two rows: {s[1][1]} (not {sel[0]} with no play)"
+        if sel[1] not in s[2][1] or plays not in s[2][1]:
+            return f"a double click on one row: {s[2][1]} (not {sel[1]}, {plays})"
+        return None
+    return check
+
+
+def check_caret_lines(want):
+    """None when each field's caret is at the end of its drawn letters after the long text, in `want` fields."""
+    def check(output):
+        lines = re.findall(r'focus: (?:text|rich) field at [^"]*"(\w*)" \[caret at (\d+), the letters end at (\d+) \((yes|WRONG)\)\]', output)
+        long_ = [m for m in lines if len(m[0]) >= 40]
+        if len(long_) != want:
+            return f"{len(long_)} fields with the long text, not {want}"
+        for text, caret, end, ok in long_:
+            if ok != "yes":
+                return f"the caret at {caret}, the letters end at {end} (after {len(text)} letters)"
+        return None
+    return check
+
+
+def check_no_still_handles(output):
+    """None when no diagram handle is on a part that the mouse cannot drag."""
+    m = re.search(r"; (\d+) handles, (\d+) not dragged", output)
+    if m and m.group(2) != "0":
+        return f"{m.group(2)} of {m.group(1)} handles cannot be dragged"
+    if not re.search(r"^move 10,10: ", output, re.M):
+        return "no input line"
+    return None
+
+
+def check_range_handles(output):
+    """None when the weapon's diagrams have handles and each one drags."""
+    m = re.search(r"; (\d+) handles, (\d+) not dragged", output)
+    if not m or m.group(1) == "0":
+        return "no handles (the state line does not count them)"
+    if m.group(2) != "0":
+        return f"{m.group(2)} of {m.group(1)} handles cannot be dragged"
+    return None
+
+
+def check_location_inverted(output):
+    """None when the Type list followed the typed edges, a picked type swapped the edges (the same numbers), OK put
+    them in as they were and Undo took them back."""
+    s = steps(output)
+    by = {st["input"]: st for st in s}
+    typed = [(st.get("locedges"), st.get("locprops")) for st in s if st["input"].startswith("type ")]
+    want = [("0,2592,928,2880", "Normal"), ("0,0,928,2880", "Normal"), ("0,0,32,2880", "Normal"), ("0,0,32,32", "Normal"),
+            ("64,0,32,32", "Inverted left and right")]
+    if typed != want:
+        return f"the edges and the Type list after each typed edge: {typed}"
+    picked = [(st.get("locedges"), st.get("locprops")) for st in s if st["input"] in ("key Up", "key Down")]
+    want = [("32,0,64,32", "Normal"), ("64,0,32,32", "Inverted left and right"), ("32,32,64,0", "Inverted top and bottom")]
+    if picked != want:
+        return f"the edges after each type picked in the list: {picked}"
+    enter = [st for st in s if st["input"] == "key Enter"]
+    if len(enter) != 2 or enter[1].get("edges") != "32,32,64,0" or "locprops" in enter[1]:
+        return f"after OK: edges {enter[-1].get('edges') if enter else None} (not 32,32,64,0 as in the dialog)"
+    undo = by.get("key Ctrl+Z")
+    if not undo or undo.get("edges") != s[0].get("edges"):
+        return f"Undo: edges {undo.get('edges') if undo else None}, not {s[0].get('edges')}"
+    return None
+
+
+def check_picker_typing(output):
+    """None when the picker's search took the typed text, the composition, Korean and Backspace, and filtered its rows."""
+    seen = []
+    cur = None
+    for line in output.splitlines():
+        m = re.match(r"^(key|type|ime|click) (.*?): ", line)
+        if m:
+            cur = {"input": f"{m.group(1)} {m.group(2)}"}
+            seen.append(cur)
+        elif cur is not None and line.startswith("  picker: "):
+            pm = re.match(r'  picker: search "(.*)", (\d+) rows: ?(.*)$', line)
+            if pm:
+                cur["search"], cur["rows"], cur["names"] = pm.group(1), int(pm.group(2)), pm.group(3)
+        elif cur is not None and line.startswith("  focus: "):
+            cm = re.search(r'composing "(.*?)"', line)
+            cur["composing"] = cm.group(1) if cm else None
+    want = [("type Med", "Med", 1, "Medium"), ("ime \ud55c", "Med", 1, "Medium"), ("type \ud55c", "Med\ud55c", 0, ""),
+            ("key Backspace", "Med", 1, "Medium")]
+    for i, (inp, search, rows, names) in enumerate(want):
+        if i >= len(seen) or seen[i]["input"] != inp:
+            return f"input {i + 1}: {seen[i]['input'] if i < len(seen) else 'none'}, not {inp}"
+        got = seen[i]
+        if got.get("search") != search or got.get("rows") != rows or got.get("names") != names:
+            return f"after {inp}: search {got.get('search')!r}, {got.get('rows')} rows {got.get('names')!r} (not {search!r}, {rows} {names!r})"
+    if seen[1].get("composing") != "\ud55c":
+        return f"the input method's text is not in the search box: {seen[1].get('composing')!r}"
     return None
 
 
@@ -2087,7 +2236,16 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
                lambda u: u[1][1]["ws"] == "map" and u[1][1]["page"] == "map" and u[1][1]["tabs"] == "1/1")]),
           "project-edit-data": check_edit_elsewhere("data", {"copy", "paste", "quick"}, "data"),
           "project-edit-triggers": check_edit_elsewhere("triggers", {"cut", "copy", "paste", "dup"}),
-          "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True)}
+          "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True),
+          "data-quick-armor": quick_check("damage table armor 8;", "eight clicks on More armor"),
+          "data-quick-toggle": quick_check("no changed values; 8 undo steps", "eight clicks on Shield enable"),
+          "map-quick-arrow": quick_check(" brush=2x10", "eight clicks on the height's up arrow"),
+          "data-turn-nohandle": check_no_still_handles, "data-range-handles": check_range_handles,
+          "map-location-inverted": check_location_inverted,
+          "map-props-caret": check_caret_lines(2), "data-text-caret": check_caret_lines(2),
+          "files-double-click": check_double_click_rows(('selected "sound\\bullet\\dragbull.wav"', 'selected "sound\\bullet\\laserb.wav"'),
+                                                        '1 plays, last "sound\\bullet\\laserb.wav"'),
+          "data-sfx-double-click": check_double_click_rows(("list entry 3;", "list entry 5;"), '1 plays, last "sfx 5"'), "data-picker-typing": check_picker_typing}
 
 # GitHub's answer for the newest release ({release}; /releases/latest, shortened): a release with a download for each
 # system, as tools/release.py and the macos-release job make it, indented as GitHub gives it to a request without a
