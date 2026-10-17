@@ -62,7 +62,7 @@ bool mapDoubleClickSdl(int x, int y) {
         return true;
     }
     if (gState.mode == Mode::Units && gState.palette < 0) {
-        const int u = ed.unitAt(int(wx), int(wy));
+        const int u = stackUnitAt(ed, wx, wy);  // (a stack: the unit that a click again or the list selected, else the top one)
         if (u < 0) return false;
         gState.drag = Drag::None;
         shellPost([u] { showUnitProperties(u); });
@@ -86,6 +86,19 @@ bool mapEnterSdl() {
         return true;
     }
     return false;
+}
+
+// The list of the units of a stack (core/views_map_menu.inc: showUnitStack) at the map view's point (sx, sy): the list
+// picker with each unit's icon. True with the picked unit's value and the modifier keys held at the pick.
+draw::Image sdlDataImage(DataPicture p);
+bool shellPickStackUnit(std::vector<ListPickItem> items, const std::string& current, int sx, int sy, std::string& out, unsigned& mods) {
+    if (!gRoot || items.empty()) return false;
+    const draw::Point o = gRoot->map.origin();
+    ListPickView v(tr(L"Search the units here"), std::move(items), current);
+    v.iconOf = [](const ListPickItem& it) { return it.iconDat.empty() || it.icon < 0 ? draw::Image{} : sdlDataImage(dataRefPicture(it.iconDat, uint32_t(it.icon))); };
+    if (!runListPick(v, {o.x + sx, o.y + sy})) return false;
+    out = v.result(), mods = v.pickMods();
+    return true;
 }
 
 // The map menu's items as kit items: the core's model with its own enabled states; a pick runs mapMenuPick. The icons

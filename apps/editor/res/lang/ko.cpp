@@ -2118,6 +2118,15 @@ constexpr UiText kRows[] = {
     {L"Delete %d locations", L"\uC704\uCE58 %d\uAC1C \uC0AD\uC81C"},
     {L"Change 1 location", L"\uC704\uCE58 1\uAC1C \uBCC0\uACBD"},
     {L"Change %d locations", L"\uC704\uCE58 %d\uAC1C \uBCC0\uACBD"},
+    {L"%d units here (Alt+click: list)", L"\uC5EC\uAE30\uC5D0 \uC720\uB2DB %d\uAC1C (Alt+\uD074\uB9AD: \uBAA9\uB85D)"},
+    {L"Select a unit &here\u2026", L"\uC5EC\uAE30\uC758 \uC720\uB2DB \uC120\uD0DD(&H)\u2026"},
+    {L"Search the units here", L"\uC5EC\uAE30\uC758 \uC720\uB2DB \uAC80\uC0C9"},
+    {L"Selected unit ", L"\uC120\uD0DD\uD55C \uC720\uB2DB "},
+    {L"Added unit ", L"\uCD94\uAC00\uD55C \uC720\uB2DB "},
+    {L" of ", L" / "},
+    {L" here: ", L" (\uC774 \uC704\uCE58): "},
+    {L". Click again for the next unit.", L". \uB2E4\uC2DC \uD074\uB9AD\uD558\uBA74 \uB2E4\uC74C \uC720\uB2DB\uC744 \uC120\uD0DD\uD569\uB2C8\uB2E4."},
+    {L", at ", L", \uC704\uCE58 "},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

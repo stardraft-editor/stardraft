@@ -2115,3 +2115,12 @@ Delete 1 location	Удалить 1 локацию
 Delete %d locations	Удалить локации: %d
 Change 1 location	Изменить 1 локацию
 Change %d locations	Изменить локации: %d
+%d units here (Alt+click: list)	Юнитов здесь: %d (Alt+щелчок: список)
+Select a unit &here…	Выбрать юнит &здесь…
+Search the units here	Поиск юнитов здесь
+Selected unit 	Выбран юнит 
+Added unit 	Добавлен юнит 
+ of 	 из 
+ here: 	 здесь: 
+. Click again for the next unit.	. Щёлкните снова, чтобы выбрать следующий юнит.
+, at 	, в точке 

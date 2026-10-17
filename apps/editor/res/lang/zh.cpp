@@ -2118,6 +2118,15 @@ constexpr UiText kRows[] = {
     {L"Delete %d locations", L"\u5220\u9664 %d \u4E2A\u4F4D\u7F6E"},
     {L"Change 1 location", L"\u66F4\u6539 1 \u4E2A\u4F4D\u7F6E"},
     {L"Change %d locations", L"\u66F4\u6539 %d \u4E2A\u4F4D\u7F6E"},
+    {L"%d units here (Alt+click: list)", L"\u6B64\u5904\u6709 %d \u4E2A\u5355\u4F4D (Alt+\u5355\u51FB: \u5217\u8868)"},
+    {L"Select a unit &here\u2026", L"\u9009\u62E9\u6B64\u5904\u7684\u5355\u4F4D(&H)\u2026"},
+    {L"Search the units here", L"\u641C\u7D22\u6B64\u5904\u7684\u5355\u4F4D"},
+    {L"Selected unit ", L"\u5DF2\u9009\u62E9\u5355\u4F4D "},
+    {L"Added unit ", L"\u5DF2\u6DFB\u52A0\u5355\u4F4D "},
+    {L" of ", L" / "},
+    {L" here: ", L" (\u6B64\u5904): "},
+    {L". Click again for the next unit.", L"\u3002\u518D\u6B21\u5355\u51FB\u53EF\u9009\u62E9\u4E0B\u4E00\u4E2A\u5355\u4F4D\u3002"},
+    {L", at ", L"\uFF0C\u4F4D\u7F6E "},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

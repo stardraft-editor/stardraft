@@ -159,6 +159,8 @@ public:
     // -1 Shift+Tab, 0 none).
     const std::string& result() const { return result_; }
     bool picked() const { return picked_; }
+    // The modifier keys (draw::kShift...) held at the pick: the click's or Enter's (a stack's list: Shift adds the unit).
+    unsigned pickMods() const { return pickMods_; }
     bool done() const { return done_; }
     int advance() const { return advance_; }
     // The search field (the host gives it the keyboard when the picker opens).
@@ -235,7 +237,7 @@ public:
         const int i = rowAt(e.pt);
         if (i < 0) return e.kind != MouseKind::Move;
         if (i != sel_) setSel(i);  // the row under the mouse is the selected one
-        if (e.kind == MouseKind::Down) choose();
+        if (e.kind == MouseKind::Down) pickMods_ = e.mods, choose();
         return true;
     }
 
@@ -255,6 +257,7 @@ public:
             return true;
         }
         case Key::Enter:  // a multi-pick: Enter is OK (the checks are kept)
+            pickMods_ = e.mods;
             if (multi_) finish(true);
             else choose();
             return true;
@@ -377,6 +380,7 @@ private:
     std::set<std::string> checked_;
     bool multi_ = false, done_ = false, picked_ = false, laid_ = false;
     int advance_ = 0;
+    unsigned pickMods_ = 0;
     std::vector<std::wstring> words_;
     ListPickRows rows_;
     int sel_ = -1, top_ = 0;

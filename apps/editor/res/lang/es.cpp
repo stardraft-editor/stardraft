@@ -2118,6 +2118,15 @@ constexpr UiText kRows[] = {
     {L"Delete %d locations", L"Eliminar %d ubicaciones"},
     {L"Change 1 location", L"Cambiar 1 ubicaci\u00F3n"},
     {L"Change %d locations", L"Cambiar %d ubicaciones"},
+    {L"%d units here (Alt+click: list)", L"%d unidades aqu\u00ED (Alt+clic: lista)"},
+    {L"Select a unit &here\u2026", L"Seleccionar una unidad &aqu\u00ED\u2026"},
+    {L"Search the units here", L"Buscar las unidades de aqu\u00ED"},
+    {L"Selected unit ", L"Unidad seleccionada "},
+    {L"Added unit ", L"Unidad a\u00F1adida "},
+    {L" of ", L" de "},
+    {L" here: ", L" aqu\u00ED: "},
+    {L". Click again for the next unit.", L". Haga clic otra vez para la unidad siguiente."},
+    {L", at ", L", en "},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
