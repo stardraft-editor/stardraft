@@ -33,14 +33,17 @@ refuses: `save --force` writes over it, `save --to` writes another file.
 | Command | What it does |
 | --- | --- |
 | `open <map> [--reopen]` | Makes the working folder. `--reopen` starts again from the map file. |
+| `new <map> [--size w,h] [--tileset name] [--terrain name]` | Writes a new map file (default 128x128 badlands). |
 | `status <map>` | The change number, the undo and redo steps, the history. |
-| `get <map> [part...]` | `summary` (default), `units`, `doodads`, `sprites`, `locations`, `players`, `forces`, `terrain [--step px]`, `terrains`, `unit-types`, `doodad-types`. |
+| `get <map> [part...]` | `summary` (default), `units`, `doodads`, `sprites`, `locations`, `players`, `forces`, `terrain [--step px]`, `terrains`, `unit-types`, `doodad-types`, `triggers`, `briefings`, `files`, `unit-settings`, `upgrade-settings`, `tech-settings` (`--all`: also the entries that use the game's values). |
 | `apply <map> <ops> [--expect n] [--dry-run] [--label text]` | The operations from a file, from stdin (`-`) or as JSON text. All of them, or none. |
 | `undo` / `redo <map> [--steps n]` | Go back or forward. |
 | `render <map> -o <png>` | See below. |
+| `add-file <map> <name> <file> [--remove]` | Puts a file (a sound, `sound\x.wav`) into the map, or takes one out. Not an undo step: it stays until `close`. |
 | `save <map> [--to path] [--force]` | Writes .scm, .scx or .chk. |
 | `close <map> [--discard]` | Removes the working folder. Refused when changes are not saved. |
 | `ops` | The operations with their parameters. |
+| `trigger-types` | The trigger conditions and actions with their parameters and values. |
 
 `<map>` is the map file or its working folder. Positions are map pixels (a tile is 32 px). Players are 1-12 (12:
 neutral), forces 1-4, locations by their number. Units are named by their serial (`"units": [...]`, from `get
@@ -70,6 +73,45 @@ replace), doodads, sprites, terrain (`paint_terrain` with brush points, `paint_a
 `replace_terrain`, `place_tiles`), locations, players, forces, the scenario's name and description, and the map's
 size and tileset. `paint_area` paints the area with the smallest square brush, so its edges follow the diamond grid.
 
+## Triggers
+
+`add_trigger`, `add_triggers` (many in one op), `set_trigger`, `delete_trigger` and `move_trigger` edit the map's
+classic triggers. A trigger is the groups that run it, its conditions and its actions:
+
+```json
+{"op": "add_trigger", "trigger": {
+  "players": ["Force 1"],
+  "conditions": [{"type": "Bring", "player": "Current player", "cmp": "at least", "n": 1, "unit": "men", "location": "Shop: Heal"},
+                 {"type": "Accumulate", "player": "Current player", "cmp": "at least", "n": 50, "resource": "minerals"}],
+  "actions": [{"type": "Set resources", "player": "Current player", "modifier": "subtract", "n": 50, "resource": "minerals"},
+              {"type": "Display text message", "text": "Your units are healed."},
+              {"type": "Preserve trigger"}]}}
+```
+
+`stardraft-cli trigger-types` lists each condition and action with its parameters and their values. A player is 1-12
+or a group ("Current player", "All players", "Force 1"); a unit type is an id or a name, or "men", "buildings", "any
+unit"; a location is a number or a name; a switch is 1-256; a text is the text (it becomes a map string). A parameter
+that is not given has StarEdit's default value. No conditions: Always. Play WAV and Transmission also take
+`wav_time`, the sound's length in ms. `flags` (the game's bits) is given only where it differs from StarEdit's
+default. EUD conditions and actions show `"eud": true` and cannot be edited yet.
+
+`get triggers` gives each trigger in the same form, with a `sentence` for each condition and action: an edited
+trigger can be given back to `set_trigger` as it is.
+
+## Briefings
+
+`set_briefings` replaces the mission briefing, `add_briefing` adds a briefing trigger. The action types are `wait`,
+`play_wav`, `text`, `objectives`, `show_portrait`, `hide_portrait`, `speaking_portrait`, `transmission` and
+`skip_tutorial`, with `text`, `time` (ms), `wav` and `wav_time`, `slot` (1-4), `unit`, `modifier` and `disabled`.
+`add-file` puts a sound file into the map. `get briefings` gives the same form.
+
+## Unit, upgrade and tech settings
+
+`set_unit_settings` (hit points, shields, armor, build time, cost, the unit's name in the map, who can build it),
+`set_upgrade_settings` (costs, the max and start level) and `set_tech_settings` (costs, energy, available and
+researched). Per player: `"players": {"1": ..., "4": ...}`; `null` gives the player the default again. A value that is
+given makes the entry stop using the game's values; `"use_default": true` uses them again.
+
 ## Render
 
 A picture of the map or of an area: the terrain, doodads, sprites and units (SD graphics).
@@ -84,4 +126,4 @@ The output gives the area and the zoom: picture pixel (px, py) is map pixel (lef
 
 ## Not yet
 
-Triggers, briefings, unit settings, the Data workspace and projects. See [agent-interface.md](agent-interface.md).
+The Data workspace, projects and EUD triggers; switch names. See [agent-interface.md](agent-interface.md).
