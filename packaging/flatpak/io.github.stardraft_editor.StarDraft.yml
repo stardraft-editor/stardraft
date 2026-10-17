@@ -30,6 +30,7 @@ modules:
         -DFETCHCONTENT_SOURCE_DIR_SDL3=$PWD/deps/sdl3 -DFETCHCONTENT_SOURCE_DIR_STORMLIB=$PWD/deps/stormlib
         -DFETCHCONTENT_SOURCE_DIR_CASCLIB=$PWD/deps/casclib -DFETCHCONTENT_SOURCE_DIR_STB=$PWD/deps/stb
         -DFETCHCONTENT_SOURCE_DIR_LIBVPX=$PWD/deps/libvpx -DFETCHCONTENT_SOURCE_DIR_IMGUI=$PWD/deps/imgui
+        -DFETCHCONTENT_SOURCE_DIR_LITEHTML=$PWD/deps/litehtml
       - cmake --build _flatpak_build --target stardraft_editor stardraft_thumbnailer
       - cmake --install _flatpak_build --component stardraft
     sources:
@@ -65,6 +66,10 @@ modules:
         url: https://github.com/ocornut/imgui.git
         tag: v1.92.9b
         dest: deps/imgui
+      - type: git
+        url: https://github.com/litehtml/litehtml.git
+        commit: 9bc84b8b8d15a4e50f18b327aa30955048b441c2
+        dest: deps/litehtml
       # The fonts (CMakeLists.txt: STARDRAFT_FONTS), where the build looks for them first (a file with the right hash
       # is not downloaded).
       - type: file
