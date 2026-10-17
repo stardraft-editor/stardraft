@@ -32,7 +32,14 @@ def gh(*args):
 
 
 def api(path):
-    return json.loads(gh("api", path))
+    for attempt in range(6):  # (a 502 or a rate limit now and then: try again)
+        try:
+            return json.loads(gh("api", path))
+        except RuntimeError as e:
+            if attempt == 5:
+                raise
+            print(f"{e}: again in 30 s", file=sys.stderr)
+            time.sleep(30)
 
 
 def state(run):
@@ -45,7 +52,12 @@ def state(run):
     if any(j["status"] != "completed" for j in jobs) or (run["status"] != "completed" and not ignored_open):
         return "wait", "not done"
     bad = [f"{j['name']} {j['conclusion']}" for j in jobs if j["conclusion"] not in ("success", "skipped")]
-    required = REQUIRED | ({"release-test-macos"} if run["head_branch"] == "port/kit" or run["head_branch"].startswith("port/t-") else set())
+    branch = run["head_branch"] or ""
+    required = set(REQUIRED)
+    if branch in ("main", "port/kit"):  # (the heavy extras run there: a job that waits for another is listed late)
+        required |= {"flatpak", "linux-appimage-run (ubuntu-22.04)", "linux-appimage-run (ubuntu-rolling)"}
+    if branch == "port/kit" or branch.startswith("port/t-"):
+        required.add("release-test-macos")
     bad += [f"{n} not run" for n in sorted(required - {j["name"] for j in jobs if j["conclusion"] == "success"})]
     return ("bad", ", ".join(bad)) if bad else ("good", "all jobs passed")
 
@@ -65,6 +77,7 @@ def main():
     ap.add_argument("--wait", type=float, default=100, help="minutes to wait for a run that is not done")
     a = ap.parse_args()
     deadline = time.time() + a.wait * 60
+    first = time.time() + 180  # (the branch's run can start some seconds after the tag's: wait 3 minutes for one)
     seen = {}
     while True:
         runs = api(f"repos/{REPO}/actions/workflows/build.yml/runs?head_sha={a.sha}&event=push&per_page=30")["workflow_runs"]
@@ -92,6 +105,9 @@ def main():
             print(f"run {r['id']}: the tested build of {a.sha[:7]} (versions {versions})", file=sys.stderr)
             print(r["id"])
             return 0
+        if not runs and time.time() < first:
+            time.sleep(15)
+            continue
         if not waiting or time.time() > deadline:
             print(f"no tested run of {a.sha[:7]}" + (" in time" if waiting else "") + ": the release builds it", file=sys.stderr)
             return 0
