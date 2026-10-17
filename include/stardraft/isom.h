@@ -57,6 +57,13 @@ private:
     mutable std::vector<int> distances_;  // firstTransition_^2, filled on first use
 };
 
+// The diamond (rect-grid point with x + y even) nearest a map pixel: grid points are 64 px apart across, 32 down.
+void diamondAtPixel(int px, int py, int& x, int& y);
+
+// The diamonds StarEdit's brush paints: extent x extent diamonds around the diamond (x, y); an even extent grows down
+// and left, as StarEdit's does (IsomTerrain's placeIsomTerrain).
+std::vector<std::pair<int, int>> starEditBrushDiamonds(int x, int y, int extent);
+
 // A corner of the diamond grid (rect-grid point with x + y odd) and the terrain it should have.
 struct CornerValue {
     int x = 0, y = 0;
@@ -70,6 +77,9 @@ struct Brush {
     float size = 1;
     float sizeY = 0;  // its height, when it differs from its width (GitHub #113); 0: the same as size
     float height() const { return sizeY > 0 ? sizeY : size; }
+    // StarEdit's own brush: a diamond of whole diamonds, as wide as high. It paints starEditBrushDiamonds around the
+    // diamond nearest the cursor (the terrain core paints it as StarEdit does).
+    bool starEdit() const { return shape == Diamond && size >= 1 && size == float(int(size)) && height() == size; }
 };
 
 class IsomGrid {

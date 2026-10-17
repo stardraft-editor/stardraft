@@ -23,6 +23,7 @@
 #include "stardraft/classic_triggers.h"
 #include "stardraft/doodads.h"
 #include "stardraft/isom.h"
+#include "stardraft/isom_core.h"
 #include "stardraft/locations.h"
 #include "stardraft/map_file.h"
 #include "stardraft/sprites.h"
@@ -115,6 +116,9 @@ public:
 
     // --- Terrain --------------------------------------------------------------------------------
     bool canPaintTerrain() const { return isomOk_; }
+    // The terrain core (IsomCore) paints the brush where it can (on unless STARDRAFT_TERRAIN_CORE=0: the old engine
+    // only, to compare them while the core takes over; docs/dev/isom-terrain-plan.md).
+    static bool terrainCoreOn();
     // A brush stroke: begin once (one undo step), paint any number of times, end.
     void beginTerrainStroke();
     void paintTerrain(int px, int py, uint16_t terrain, int brushSize);
@@ -499,6 +503,11 @@ private:
         int width = 0, height = 0;         // pixels
     };
     bool applyTerrain(const std::vector<CornerValue>& corners);  // engine + store + commit
+    // StarEdit's brush through the terrain core (IsomCore: IsomTerrain): `terrain` on extent x extent diamonds at the
+    // diamond nearest each symmetric point, then the tiles; the corner model (isom_) loads the result. The editor's
+    // undo, doodad and unit checks as applyTerrain's. False when nothing could be painted.
+    bool applyCoreBrush(int px, int py, uint16_t terrain, int extent);
+    IsomCore core_;
     std::pair<int, int> mirror(int px, int py, int which) const;
     TerrainClip terrainClip_;
     struct TileClip {

@@ -1708,7 +1708,15 @@ int main(int argc, char** argv) {
             int changed = 0;
             for (size_t i = 0; i < tilesBefore.size(); ++i) changed += same.terrain().tiles[i] != tilesBefore[i];
             std::printf("      brush over its own terrain: %d tiles redrawn (%d changed)\n", rerolled, changed);
-            CHECK(changed > 0 && same.chk().effective("ISOM") == isomBefore, "a brush over its own terrain redraws tiles (new variants), the ISOM the same");
+            // (The terrain of each ISOM slot, bits 4 and up: StarEdit's brush, the terrain core's, writes the edge ids of
+            // the diamonds it touches, bits 1 to 3, also where the terrain stays.)
+            auto isomTerrain = [](const Bytes& b) {
+                std::vector<uint16_t> v(b.size() / 2);
+                for (size_t i = 0; i < v.size(); ++i) v[i] = uint16_t((b[2 * i] | b[2 * i + 1] << 8) >> 4);
+                return v;
+            };
+            CHECK(changed > 0 && isomTerrain(same.chk().effective("ISOM")) == isomTerrain(isomBefore),
+                  "a brush over its own terrain redraws tiles (new variants), the ISOM's terrain the same");
             same.undo();
             CHECK(same.terrain().tiles == tilesBefore && same.chk().effective("ISOM") == isomBefore, "one undo gives the map back");
         }

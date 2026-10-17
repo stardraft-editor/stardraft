@@ -12,6 +12,7 @@
 
 #include "IsomApi.h"  // (the brush ids of the cases: Sc::Isom::Brush)
 #include "stardraft/game_data.h"
+#include "stardraft/isom.h"
 #include "stardraft/isom_core.h"
 #include "stardraft/map_file.h"
 #include "stardraft/terrain.h"
@@ -56,7 +57,7 @@ int main(int argc, char** argv) {
     }
     const fs::path pack = argv[2];
     Tileset tilesets[8];
-    int pass = 0, fail = 0;
+    int pass = 0, fail = 0, oldPerfect = 0, oldImperfect = 0;
     double paintMs = 0;
     long strokes = 0;
     for (const Case& c : kCases) {
@@ -100,11 +101,26 @@ int main(int argc, char** argv) {
             groupDiff[s] = a.size() == b.size() ? 0 : std::max(a.size(), b.size());
             for (size_t i = 0; i < std::min(a.size(), b.size()); ++i) groupDiff[s] += (a[i] >> 4) != (b[i] >> 4);
         }
+        // The old engine (IsomGrid: corners and learned tile rules) on the same strokes, for comparison only.
+        stardraft::Chk old = stardraft::Chk::parse(raw);
+        IsomGrid grid;
+        size_t oldIsomDiff = 0;
+        if (grid.load(old, err)) {
+            for (const Op& op : c.ops) {
+                grid.paint(int(op.x), int(op.y), Sc::Isom::tilesetTerrainTypes[era][op.terrainType].isomValue, int(op.extent));
+                grid.store(old, err);
+            }
+            const auto oldIsom = u16s(old, "ISOM");
+            for (size_t i = 0; i < std::min(oldIsom.size(), isomExpected.size()); ++i) oldIsomDiff += (oldIsom[i] >> 4) != (isomExpected[i] >> 4);
+            ++(oldIsomDiff ? oldImperfect : oldPerfect);
+        }
         const bool ok = painted && !isomDiff && !groupDiff[0] && !groupDiff[1];
-        std::printf("%s  %-40s %3zu strokes: ISOM %zu, TILE %zu, MTXM %zu differ%s\n", ok ? "ok  " : "FAIL", c.expected, c.ops.size(),
-                    isomDiff, groupDiff[0], groupDiff[1], painted ? "" : " (a stroke was refused)");
+        std::printf("%s  %-40s %3zu strokes: ISOM %zu, TILE %zu, MTXM %zu differ%s (old engine: %zu ISOM terrains differ)\n",
+                    ok ? "ok  " : "FAIL", c.expected, c.ops.size(), isomDiff, groupDiff[0], groupDiff[1], painted ? "" : " (a stroke was refused)",
+                    oldIsomDiff);
         ok ? ++pass : ++fail;
     }
-    std::printf("%d of %zu perfect; %.3f ms a stroke\n", pass, kCases.size(), strokes ? paintMs / double(strokes) : 0.0);
+    std::printf("%d of %zu perfect; %.3f ms a stroke (the old engine: %d of %d with the same ISOM terrains)\n", pass, kCases.size(),
+                strokes ? paintMs / double(strokes) : 0.0, oldPerfect, oldPerfect + oldImperfect);
     return fail ? 1 : 0;
 }
