@@ -43,10 +43,32 @@ void replaceSelectionWith(int v) {
     app.dirty = true;
 }
 
-// The active mode's things for the quick picker: the palette's, or the locations.
+// Rectangle mode's rows for the quick picker (GitHub #141): each tile group that has a tile, found by the words of the
+// Tiles list's search (its number, its terrain or its doodad); the row's value is the group's first tile.
+std::vector<PaletteUnit> quickPickTileGroups() {
+    std::vector<PaletteUnit> out;
+    const Editor& ed = *appState().ed;
+    for (const Editor::TileGroupEntry& e : ed.tileGroups()) {
+        int first = -1;
+        for (int s = 0; s < 16 && first < 0; ++s)
+            if (ed.tileset().megatileFor(uint16_t(e.group << 4 | s)) > 0) first = s;
+        if (first < 0) continue;
+        PaletteUnit u;
+        u.value = int(e.group) << 4 | first;
+        u.label = L"Group " + std::to_wstring(e.group);
+        u.section = tilesGroupNote(int(e.group));
+        u.hay = L"group " + std::to_wstring(e.group) + L" " + u.section;
+        std::transform(u.hay.begin(), u.hay.end(), u.hay.begin(), ::towlower);
+        out.push_back(std::move(u));
+    }
+    return out;
+}
+
+// The active mode's things for the quick picker: the palette's, the tile groups (Rectangle), or the locations.
 std::vector<PaletteUnit> quickPickItems() {
     AppState& app = appState();
     if (app.mode == Mode::Units) return paletteUnits(app);
+    if (tilesOn()) return quickPickTileGroups();
     if (app.mode != Mode::Locations) return paletteItems(app);
     std::vector<PaletteUnit> out;
     for (int i = 0; app.ed && i < app.ed->locationCount(); ++i) {
@@ -172,6 +194,11 @@ void quickPickRun(QuickPickKind kind, bool replace, int v) {
     }
     if (v < 0 || !app.ed) return;
     if (replace) return replaceSelectionWith(v);
+    if (tilesOn()) {  // Rectangle: the group's tile is picked, as a click in the Tiles list picks it, and the list shows it
+        tilesPick(v, false);
+        tilesReveal(v);
+        return;
+    }
     if (app.mode == Mode::Locations) {  // select it, and show it in the middle of the view
         app.ed->selectLocation(v);
         setListSel(int(std::find(app.items.begin(), app.items.end(), v) - app.items.begin()));
@@ -192,6 +219,7 @@ std::wstring quickPickCue(QuickPickKind kind, bool replace, Mode mode) {
     static const wchar_t* replaceCues[kModeCount] = {L"", L"Replace with a unit", L"Replace with a doodad", L"", L"Replace with a sprite"};
     if (kind == QuickPickKind::Open) return tr(L"Go to an open tab, or open a recent project or map");
     if (kind == QuickPickKind::Data) return L"Go to a .dat entry";
+    if (!replace && mode == Mode::Terrain && tilesOn()) return tr(L"Place a tile");
     return replace ? replaceCues[int(mode)] : cues[int(mode)];
 }
 

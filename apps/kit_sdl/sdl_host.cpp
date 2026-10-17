@@ -333,6 +333,7 @@ void SdlHost::snapshot(draw::View& root, SDL_GPUTexture* target, int w, int h, S
     const bool switched = rendererReady_ && before != format;
     if (switched) ImGui_ImplSDLGPU3_Shutdown(), rendererReady_ = false;
     ensureRenderer(format);
+    beginBitmapFrame();
     root.attach(this);
     root.setFrame(Rect(0, 0, w, h));
     ImGuiIO& io = ImGui::GetIO();
@@ -525,6 +526,7 @@ void SdlHost::snapshotInputEnd() {
 // they paint), as a window's first frame does before the user's input.
 void SdlHost::paintShot(Win& w) {
     ensureRenderer(format_ != SDL_GPU_TEXTUREFORMAT_INVALID ? format_ : SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+    beginBitmapFrame();
     ImGuiIO& io = ImGui::GetIO();
     io.DeltaTime = 1.0f / 60;
     io.DisplaySize = ImVec2(float(w.pw), float(w.ph));
@@ -871,6 +873,7 @@ void SdlHost::renderDirty() {
     for (const auto& w : wins_)
         if (w->dirty) todo.push_back(w.get());
     if (todo.empty()) return;
+    beginBitmapFrame();
     ImGuiIO& io = ImGui::GetIO();
     io.DeltaTime = 1.0f / 60;
     io.DisplaySize = ImVec2(float(todo[0]->pw), float(todo[0]->ph));

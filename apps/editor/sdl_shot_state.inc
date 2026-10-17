@@ -155,6 +155,11 @@ std::string shotMapState() {
     s += std::string(" quick=") + (gQuickHostSdl.open ? "open" : "-");  // the quick picker (Q): a pop-out over the map
     s += " lastat=" + (!ed.units().empty() ? std::to_string(ed.units().back().x) + "," + std::to_string(ed.units().back().y) : std::string("-"));  // the last unit's place
     s += " brush=" + narrow(stripNumberText(kNumSize)) + "x" + narrow(stripNumberText(kNumHeight));  // (Terrain: the brush's size and height)
+    // The Tiles list (Rectangle): its scroll, its pictures kept, the tile picked; and the bitmaps that went while the
+    // frame that drew them was not yet drawn by the GPU (none should: GitHub #148).
+    s += " tilescroll=" + std::to_string(gTiles.scroll) + "/" + std::to_string(std::max(0, gTiles.contentH - tilesViewH())) +
+         " tilepics=" + std::to_string(gTiles.pixels.size()) + " tilepicked=" + std::to_string(gTiles.picked) +
+         " freedinframe=" + std::to_string(kit_sdl::bitmapsFreedInFrame());
     return s;
 }
 

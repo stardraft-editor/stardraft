@@ -65,6 +65,10 @@ SDL_GPUTexture* uploadRgba(SDL_GPUDevice* device, int w, int h, const uint8_t* r
 draw::Image imageOfBitmap(SDL_GPUDevice* device, draw::Bitmap& b);
 // The bitmaps that have a texture now: how many, and their pixels' bytes (a test's memory line: --script stats).
 void bitmapTextureStats(int& count, size_t& bytes);
+// A frame begins (the host calls it before it records the windows' views).
+void beginBitmapFrame();
+// The bitmaps that went while the frame that drew them was not yet submitted (a snapshot's check: none should).
+int bitmapsFreedInFrame();
 
 // Text helpers: UTF-8 of a wide text (without control codes other than tab and line ends: they are not drawn), and the byte index after the code point at `i`.
 std::string utf8Text(std::wstring_view w);

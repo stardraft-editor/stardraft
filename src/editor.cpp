@@ -432,22 +432,22 @@ void Editor::paintTerrain(int px, int py, uint16_t terrain, int brushSize) {
     const int reach = brushSize * 64 + 256;
     const std::vector<int> watch = placeableUnitsIn({px - reach, py - reach, px + reach, py + reach});
     const std::vector<uint8_t> intact = doodadsIntact();
+    const TerrainLayer before = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
     if (isom_.paintAtPixel(px, py, terrain, brushSize)) {
-        // Null tiles under the brush (placed in Rectangle mode) get the terrain's tiles, also where the ISOM terrain
-        // is the painted one already (GitHub feedback #118).
+        // Tiles under the brush that the ISOM does not give (null tiles and other tiles placed in Rectangle mode) get
+        // the terrain's tiles, also where the ISOM terrain is the painted one already (GitHub feedback #118, #143).
         // Only the tiles in the painted diamond (brushSize diamonds of 64 x 32 px), not a box around it.
-        const TerrainLayer tiles = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
         const float hw = brushSize * 32.0f, hh = brushSize * 16.0f;
         for (int ty = std::max(0, int(py - hh) / 32); ty <= std::min(int(height_) - 1, int(py + hh) / 32); ++ty)
             for (int tx = std::max(0, int(px - hw) / 32); tx <= std::min(int(width_) - 1, int(px + hw) / 32); ++tx) {
                 const float dx = std::abs(tx * 32 + 16 - float(px)) / hw, dy = std::abs(ty * 32 + 16 - float(py)) / hh;
-                if (dx + dy <= 1.0f && size_t(ty) * width_ + tx < tiles.tiles.size() && tiles.tiles[size_t(ty) * width_ + tx] == 0)
+                if (dx + dy <= 1.0f && size_t(ty) * width_ + tx < before.tiles.size() && !tileFromIsom(chk_, before, tx, ty))
                     isom_.markRectDirty(tx / 2, ty);
             }
         std::string err;
         isom_.store(chk_, err);
         commit(true);
-        pruneDoodads(intact);
+        pruneDoodads(intact, &before);
         pruneUnits(watch);
     }
     if (own) endTerrainStroke();
@@ -612,12 +612,56 @@ std::vector<uint8_t> Editor::doodadsIntact() const {
     return out;
 }
 
-int Editor::pruneDoodads(const std::vector<uint8_t>& intactBefore) {
+bool Editor::doodadTerrainHolds(const Doodad& d, const TerrainLayer& now, const TerrainLayer& before) const {
+    const DoodadType* t = doodadTypes_.find(d.id);
+    if (!t) return true;
+    const DoodadGroundInfo* gi = t->ground.get();
+    auto samePiece = [&](size_t a, size_t b) { return a == b || (gi && a < gi->piece.size() && b < gi->piece.size() && gi->piece[a] == gi->piece[b]); };
+    const int tx = (int(d.x) - t->width * 16) / 32, ty = (int(d.y) - t->height * 16) / 32;
+    for (int r = 0; r < t->height; ++r) {
+        const size_t g = size_t(t->firstGroup) + r;
+        if (g >= tileset_.groups.size()) break;
+        for (int c = 0; c < t->width; ++c) {
+            const int x = tx + c, y = ty + r;
+            if (!tileset_.groups[g].megatiles[size_t(c)] || x < 0 || y < 0 || x >= width_ || y >= height_) continue;
+            const size_t k = size_t(y) * width_ + x;
+            if (k >= now.tiles.size() || k >= before.tiles.size()) continue;
+            const size_t cell = size_t(r) * t->width + c;
+            const uint16_t need = cell < t->required.size() ? t->required[cell] : 0;
+            const size_t under = now.tiles[k] >> 4;
+            if (need ? !samePiece(under, need) : !samePiece(under, size_t(before.tiles[k] >> 4))) return false;
+        }
+    }
+    return true;
+}
+
+int Editor::pruneDoodads(const std::vector<uint8_t>& intactBefore, const TerrainLayer* tileBefore) {
     const std::vector<uint8_t> now = doodadsIntact();
-    std::vector<int> gone;
+    std::vector<int> gone, back;
+    const TerrainLayer tileNow = tileBefore ? readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM") : TerrainLayer{};
     for (size_t i = 0; i < now.size() && i < intactBefore.size(); ++i)
-        if (intactBefore[i] && !now[i]) gone.push_back(int(i));
-    if (gone.empty()) return 0;
+        if (intactBefore[i] && !now[i]) (tileBefore && doodadTerrainHolds(doodads_[i], tileNow, *tileBefore) ? back : gone).push_back(int(i));
+    if (gone.empty() && back.empty()) return 0;
+    if (!back.empty()) {  // the terrain under them still fits: their tiles go back over the new terrain
+        TerrainLayer mtxm = readTerrain(chk_, "MTXM");
+        for (int i : back) {
+            const Doodad& d = doodads_[size_t(i)];
+            const DoodadType* t = doodadTypes_.find(d.id);
+            const int tx = (int(d.x) - t->width * 16) / 32, ty = (int(d.y) - t->height * 16) / 32;
+            for (int r = 0; r < t->height; ++r) {
+                const size_t g = size_t(t->firstGroup) + r;
+                if (g >= tileset_.groups.size()) break;
+                for (int c = 0; c < t->width; ++c) {
+                    const int x = tx + c, y = ty + r;
+                    if (!tileset_.groups[g].megatiles[size_t(c)] || x < 0 || y < 0 || x >= width_ || y >= height_) continue;
+                    if (const size_t k = size_t(y) * width_ + x; k < mtxm.tiles.size()) mtxm.tiles[k] = uint16_t(g << 4 | c);
+                }
+            }
+        }
+        Bytes packed;
+        for (uint16_t v : mtxm.tiles) appendU16(packed, v);
+        chk_.set("MTXM", std::move(packed));
+    }
     removeDoodads(gone);
     doodadsRemovedByTerrain_ += int(gone.size());
     commit(true);
@@ -934,20 +978,37 @@ bool Editor::deleteDoodad(int index) {
     return true;
 }
 
-bool Editor::applyTerrain(const std::vector<CornerValue>& corners) {
+bool Editor::applyTerrain(const std::vector<CornerValue>& corners, bool overPlaced) {
     if (!isomOk_ || corners.empty()) return false;
     // The repair around an edit stays within a few tiles of it.
     int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
     for (const auto& c : corners) x0 = std::min(x0, c.x), y0 = std::min(y0, c.y), x1 = std::max(x1, c.x), y1 = std::max(y1, c.y);
     const std::vector<int> watch = placeableUnitsIn({x0 * 64 - 256, y0 * 32 - 256, x1 * 64 + 256, y1 * 32 + 256});
     const std::vector<uint8_t> intact = doodadsIntact();
+    const TerrainLayer before = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
     if (!isom_.apply(corners)) return false;
+    if (overPlaced) markPlacedTilesDirty(corners);
     std::string err;
     isom_.store(chk_, err);
     commit(true);
-    pruneDoodads(intact);
+    pruneDoodads(intact, &before);
     pruneUnits(watch);
     return true;
+}
+
+void Editor::markPlacedTilesDirty(const std::vector<CornerValue>& corners) {
+    const TerrainLayer tiles = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
+    std::set<std::pair<int, int>> rects;
+    for (const auto& c : corners)  // a corner gives the ISOM of the four rects around it
+        for (int ry = c.y - 1; ry <= c.y; ++ry)
+            for (int rx = c.x - 1; rx <= c.x; ++rx)
+                if (rx >= 0 && ry >= 0 && rx * 2 < int(width_) && ry < int(height_)) rects.insert({rx, ry});
+    for (auto [rx, ry] : rects)
+        for (int tx = rx * 2; tx <= rx * 2 + 1 && tx < int(width_); ++tx)
+            if (!tileFromIsom(chk_, tiles, tx, ry)) {
+                isom_.markRectDirty(rx, ry);
+                break;
+            }
 }
 
 uint16_t Editor::terrainAt(int px, int py) const {
@@ -963,7 +1024,7 @@ bool Editor::paintBrush(int px, int py, uint16_t terrain, const Brush& brush) {
     std::vector<CornerValue> corners;
     for (auto [x, y] : symmetricPoints(px, py))
         for (auto [cx, cy] : isom_.brushCorners(x, y, brush)) corners.push_back({cx, cy, terrain});
-    bool ok = applyTerrain(corners);
+    bool ok = applyTerrain(corners, true);  // (the brush's tiles replace the tiles placed in Rectangle mode: GitHub #143)
     if (own) endTerrainStroke();
     return ok;
 }

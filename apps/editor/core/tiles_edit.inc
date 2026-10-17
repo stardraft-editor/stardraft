@@ -24,7 +24,14 @@ struct TilesView {
     std::vector<uint16_t> boxBase;
     const Editor* builtFor = nullptr;
     int builtEra = -1;
-    std::map<uint16_t, draw::Bitmap> pixels;  // per tile value (32 x 32 SD, 64 x 64 HD2 and Carbot), for builtFor's tileset, in pixelsMode's art
+    // The tiles' pictures, per tile group: its 16 tiles in a row (32 px each in SD, 64 in HD2 and Carbot), for
+    // builtFor's tileset, in pixelsMode's art. `used`: the grid's paint that drew it last (tilesPixelsTrim).
+    struct GroupPicture {
+        draw::Bitmap bitmap;
+        uint32_t used = 0;
+    };
+    std::map<uint16_t, GroupPicture> pixels;
+    uint32_t paints = 0;                // the grid's paints
     int pixelsMode = -1;                // the map's art: 0 SD, 1 HD, 2 Carbot
     HdTiles hd;                         // HD2 or Carbot megatiles (pixelsMode 1, 2) of hdEra
     int hdEra = -1, hdMode = -1;

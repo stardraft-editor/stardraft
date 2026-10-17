@@ -45,31 +45,54 @@ void tilesSaveFavorites(int era) {
 // --- The grid ---
 
 // The tile's picture: its megatile in the art the map shows: SD, HD (HD2 resolution is plenty here) or Carbot
-// (feedback #52: the grid was SD only).
-draw::Bitmap& tilesPixels(uint16_t value) {
+// (feedback #52: the grid was SD only). It is a part (`src`) of its group's picture, which has the group's 16 tiles in
+// a row: one texture for 16 tiles. The pictures stay until tilesPixelsTrim, between the grid's paints (GitHub #148:
+// the old cache was emptied in the middle of a paint, and the textures it had drawn went before the GPU drew them).
+draw::Bitmap& tilesPixels(uint16_t value, draw::Rect& src) {
     AppState& app = appState();
     const int mode = app.carbot ? 2 : app.quality == GraphicsQuality::SD ? 0 : 1;
     if (mode != gTiles.pixelsMode) gTiles.pixels.clear(), gTiles.pixelsMode = mode;
-    if (gTiles.pixels.size() > 4096 && !gTiles.pixels.count(value)) gTiles.pixels.clear();  // a long scroll: keep the memory small
     if (mode && (gTiles.hdEra != app.ed->era() || gTiles.hdMode != mode)) {
         std::string err;
         gTiles.hdEra = app.ed->era(), gTiles.hdMode = mode;
         if (!loadHdTiles(app.data, app.ed->era(), GraphicsQuality::HD2, gTiles.hd, err, mode == 2)) gTiles.hd = {};
     }
-    auto [it, fresh] = gTiles.pixels.try_emplace(value);
+    auto [it, fresh] = gTiles.pixels.try_emplace(uint16_t(value >> 4));
+    draw::Bitmap& b = it->second.bitmap;
+    it->second.used = gTiles.paints;
     if (fresh) {
         const HdTiles* hd = mode && !gTiles.hd.tiles.empty() ? &gTiles.hd : nullptr;
-        const Sprite pic = mapTilesPicture(app.ed->tileset(), {value}, 1, 0, 0, 1, 1, hd);
-        const int size = pic.width > 0 && pic.width == pic.height ? pic.width : 32;
-        draw::Bitmap& b = it->second;
-        b.resize(size, size);
+        std::vector<uint16_t> row(16);
+        for (int s = 0; s < 16; ++s) row[size_t(s)] = uint16_t((value & 0xFFF0) | s);
+        const Sprite pic = mapTilesPicture(app.ed->tileset(), row, 16, 0, 0, 16, 1, hd);
+        const int size = pic.height > 0 && pic.width == pic.height * 16 ? pic.height : 32;
+        // Each tile has a frame of 1 px around it with the colors of its edge, so that a scaled tile does not take
+        // colors from the next one (as each tile's own texture did not).
+        const int cell = size + 2;
+        b.resize(cell * 16, cell);
         b.opaque = true;
         uint8_t* px = reinterpret_cast<uint8_t*>(b.pixels());  // bytes R, G, B, A, as the picture's
-        for (size_t i = 0; i < size_t(size) * size && i * 4 + 3 < pic.rgba.size(); ++i)
-            px[i * 4] = pic.rgba[i * 4], px[i * 4 + 1] = pic.rgba[i * 4 + 1], px[i * 4 + 2] = pic.rgba[i * 4 + 2], px[i * 4 + 3] = 255;
+        for (int y = 0; y < cell; ++y)
+            for (int x = 0; x < cell * 16; ++x) {
+                const int t = x / cell, sx = t * size + std::clamp(x % cell - 1, 0, size - 1), sy = std::clamp(y - 1, 0, size - 1);
+                const size_t from = (size_t(sy) * size_t(size) * 16 + size_t(sx)) * 4, to = (size_t(y) * size_t(cell) * 16 + size_t(x)) * 4;
+                const bool has = from + 3 < pic.rgba.size();
+                for (int k = 0; k < 3; ++k) px[to + size_t(k)] = has ? pic.rgba[from + size_t(k)] : 0;
+                px[to + 3] = 255;
+            }
         b.changed();
     }
-    return it->second;
+    const int cell = b.height(), size = cell - 2;
+    src = {(value & 15) * cell + 1, 1, (value & 15) * cell + 1 + size, 1 + size};
+    return b;
+}
+
+// Before the grid's paint (no picture of this frame is drawn yet): a new paint, and when many groups have pictures,
+// those that the last two paints did not draw go (a long scroll keeps the memory small).
+void tilesPixelsTrim() {
+    ++gTiles.paints;
+    if (gTiles.pixels.size() <= 64) return;
+    std::erase_if(gTiles.pixels, [](const auto& kv) { return kv.second.used + 2 < gTiles.paints; });
 }
 
 class TilesGridView final : public draw::View {
@@ -318,6 +341,7 @@ void TilesGridView::boxSelect() {
 
 void TilesGridView::paint(draw::Canvas& c) {
     tilesFresh();
+    tilesPixelsTrim();
     AppState& app = appState();
     const int w = width(), h = height();
     c.fill({0, 0, w, h}, kBg);
@@ -333,8 +357,9 @@ void TilesGridView::paint(draw::Canvas& c) {
                 const uint16_t v = gTiles.values[k];
                 const RECT cr = tilesCellRect(int(k));
                 const draw::Rect cell{cr.left, cr.top - gTiles.scroll, cr.right, cr.bottom - gTiles.scroll};
-                draw::Bitmap& px = tilesPixels(v);
-                c.bitmap(px, {0, 0, px.width(), px.height()}, cell);
+                draw::Rect src;
+                draw::Bitmap& px = tilesPixels(v, src);
+                c.bitmap(px, src, cell);
                 if (v == gTiles.picked || (gTiles.chosen.size() > 1 && std::find(gTiles.chosen.begin(), gTiles.chosen.end(), v) != gTiles.chosen.end())) {
                     const int g = scale(2);
                     c.frame({cell.left - g, cell.top - g, cell.right + g, cell.bottom + g}, kAccent, scale(2));

@@ -652,6 +652,110 @@ static void classicTriggersTest(const GameData& data, const char* map, const fs:
     CHECK(kept, "classic triggers: every trigger not edited keeps its bytes");
 }
 
+// The isometric brush over tiles placed in Rectangle mode (GitHub #143): where it paints, they give way to the
+// terrain's tiles, also when the brush's terrain is the terrain under them (the ISOM does not change).
+static void brushOverPlacedTiles(const GameData& data, const char* map) {
+    std::string err;
+    Editor e(data);
+    if (!e.open(map, err)) {
+        CHECK(false, "brush over placed tiles: the map opens");
+        return;
+    }
+    const int px = e.width() * 16 + 16, py = e.height() * 16 + 16;  // (the middle of a tile)
+    const size_t k = size_t(py / 32) * e.width() + size_t(px / 32);
+    const uint16_t terrain = e.terrainAt(px, py);
+    const Brush brush{Brush::Diamond, 1.0f};
+    e.paintBrush(px, py, terrain, brush);  // the brush's own tiles there first
+    const uint16_t painted = e.terrain().tiles[k];
+    uint16_t other = 0;  // a tile of another terrain's group
+    for (const auto& g : e.tileGroups())
+        if (g.doodad < 0 && g.terrains[0] && g.terrains[0] != terrain && g.terrains[1] == 0 && (g.group << 4) != (painted & 0xFFF0)) {
+            other = uint16_t(g.group << 4);
+            break;
+        }
+    CHECK(other != 0 && e.placeTiles(px / 32, py / 32, px / 32, py / 32, other) == 1 && e.terrain().tiles[k] == other,
+          "brush over placed tiles: a tile of another terrain placed as it is");
+    e.paintBrush(px, py, terrain, brush);
+    const TerrainLayer tile = readTerrain(e.chk(), "TILE");
+    std::printf("      tile %zu: %u painted, %u placed, %u after the brush with the same terrain (%u)\n", k, painted, other, e.terrain().tiles[k], terrain);
+    CHECK(e.terrain().tiles[k] == painted && k < tile.tiles.size() && tile.tiles[k] == painted,
+          "brush over placed tiles: the brush with the terrain under them gives the terrain's tile again (#143)");
+}
+
+// Ramps (and other doodads) stay when terrain is painted near them, as in StarEdit: a doodad goes only when the terrain
+// under its tiles no longer fits it (the owner's note: ramps went too often). A Blizzard map with ramps on cliffs:
+// (4)Lost Civilization (jungle), doodad 1 (a ramp of the Cliff group, 4 x 4 tiles).
+static void rampsStay(const GameData& data, const fs::path& install) {
+    const fs::path map = install / "Maps" / "(4)Lost Civilization.scm";
+    std::error_code ec;
+    if (!fs::exists(map, ec)) {
+        std::printf("      (no %s: the ramp checks are skipped)\n", map.string().c_str());
+        return;
+    }
+    std::string err;
+    Editor e(data);
+    if (!e.open(map, err) || e.doodads().size() < 2) {
+        CHECK(false, "ramps: Lost Civilization opens, with its doodads");
+        return;
+    }
+    const Doodad ramp = e.doodads()[1];
+    const DoodadType* t = e.doodadTypes().find(ramp.id);
+    CHECK(t && t->width == 4 && t->height == 4, "ramps: doodad 1 of Lost Civilization is a 4 x 4 ramp");
+    if (!t) return;
+    auto has = [&] {
+        for (const Doodad& d : e.doodads())
+            if (d.id == ramp.id && d.x == ramp.x && d.y == ramp.y) return true;
+        return false;
+    };
+    auto shown = [&] {  // its tiles are on the map (MTXM)
+        const int tx = (ramp.x - t->width * 16) / 32, ty = (ramp.y - t->height * 16) / 32;
+        for (int r = 0; r < t->height; ++r)
+            for (int c = 0; c < t->width; ++c) {
+                const size_t g = size_t(t->firstGroup) + r;
+                if (g < e.tileset().groups.size() && e.tileset().groups[g].megatiles[size_t(c)] &&
+                    (e.terrain().tiles[size_t(ty + r) * e.width() + size_t(tx + c)] >> 4) != g)
+                    return false;
+            }
+        return true;
+    };
+    const int right = ramp.x + t->width * 16;
+    const uint16_t center = e.terrainAt(ramp.x, ramp.y), side = e.terrainAt(right + 3 * 32, ramp.y);
+    const Brush brush{Brush::Diamond, 1.0f};
+    // Next to it (3 tiles to its right), the terrain of its middle: its tiles stay as they are.
+    const size_t before = e.doodads().size();
+    e.paintBrush(right + 3 * 32, ramp.y, center, brush);
+    std::printf("      ramp %u at %u,%u: painted terrain %u 3 tiles to its right: %zu of %zu doodads gone\n", ramp.id, ramp.x, ramp.y, center,
+                before - e.doodads().size(), before);
+    CHECK(has() && shown(), "ramps: terrain painted next to a ramp (not under it) leaves the ramp and its tiles");
+    e.undo();
+    // Every doodad, with the terrain of the next tile 3 tiles to each side of it: a doodad goes only when its terrain changed.
+    int tries = 0, wrong = 0;
+    for (size_t i = 0; i < e.doodads().size(); ++i) {
+        const Doodad d = e.doodads()[i];
+        const DoodadType* dt = e.doodadTypes().find(d.id);
+        if (!dt) continue;
+        const int l = d.x - dt->width * 16, r = l + dt->width * 32;
+        for (const int x : {l - 3 * 32, r + 3 * 32}) {
+            if (x < 0 || x >= e.width() * 32) continue;
+            const TerrainLayer tile0 = readTerrain(e.chk(), "TILE");
+            const std::vector<Doodad> d0 = e.doodads();
+            e.paintBrush(x, d.y, e.terrainAt(x, d.y), brush);
+            ++tries;
+            const TerrainLayer tile1 = readTerrain(e.chk(), "TILE");
+            for (const Doodad& was : d0) {  // each doodad that went had its terrain changed
+                if (std::any_of(e.doodads().begin(), e.doodads().end(), [&](const Doodad& n) { return n.id == was.id && n.x == was.x && n.y == was.y; })) continue;
+                if (e.doodadTerrainHolds(was, tile1, tile0)) ++wrong;
+            }
+            if (e.canUndo()) e.undo();
+        }
+    }
+    std::printf("      %d strokes next to doodads, %d doodads went with their terrain unchanged\n", tries, wrong);
+    CHECK(tries > 100 && wrong == 0, "ramps: a stroke near doodads removes only those whose terrain it changed");
+    // Over it, with another terrain: the ramp goes, its tiles too.
+    e.paintBrush(ramp.x, ramp.y, side != center ? side : uint16_t(center == 1 ? 2 : 1), Brush{Brush::Diamond, 2.0f});
+    CHECK(!has(), "ramps: another terrain painted over a ramp removes it");
+}
+
 // Sound files of the map: import, rename and remove are each one undo step, and undo puts the archive and the
 // briefings back together (no briefing names a sound that the file list does not have).
 static void soundFileSteps(const GameData& data, const char* map) {
@@ -715,6 +819,12 @@ int main(int argc, char** argv) {
     }
     if (argc > 4 && std::string(argv[4]) == "sounds") {  // only the sound file checks
         soundFileSteps(data, argv[2]);
+        return failures ? 1 : 0;
+    }
+    if (argc > 4 && std::string(argv[4]) == "terrain") {  // only the brush and doodad checks (GitHub #143, ramps)
+        brushOverPlacedTiles(data, argv[2]);
+        rampsStay(data, argv[1]);
+        std::printf("\n%d failures\n", failures);
         return failures ? 1 : 0;
     }
     Editor ed(data);
@@ -1759,6 +1869,8 @@ int main(int argc, char** argv) {
     }
 
     iscriptPlayerTest(ed);
+    brushOverPlacedTiles(data, argv[2]);
+    rampsStay(data, argv[1]);
     classicSettings(data, argv[2], fs::path(argv[3]));
     classicTriggersTest(data, argv[2], fs::path(argv[3]));
 
