@@ -3,6 +3,7 @@
 #include "html_view.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -14,7 +15,23 @@
 
 #include <litehtml.h>
 #include <litehtml/url.h>
-#include <stb_image.h>  // (its code is in the kit's canvas, apps/kit_sdl/canvas_imgui.cpp)
+#include <utility>
+
+// stb_image of its own (static: the kit's canvas has one for PNG only), for the images of a page: PNG, JPEG, GIF, BMP.
+#define STB_IMAGE_STATIC
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_NO_PSD
+#define STBI_NO_HDR
+#define STBI_NO_PIC
+#define STBI_NO_PNM
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+#endif
+#include <stb_image.h>
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 #include "theme.h"  // apps/kit: the colors and the display scale
 
