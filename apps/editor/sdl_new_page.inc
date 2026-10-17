@@ -78,7 +78,7 @@ bool NewHostSdl::make() {
     // What it is: the tileset and the size (as the Windows program's message says).
     const std::wstring what = std::wstring(kTilesetNames[ed->era() & 7]) + L" " + std::to_wstring(ed->width()) + L" x " + std::to_wstring(ed->height());
     const std::wstring message = gNewView.generate ? L"Generated a map: " + what + L" (seed " + std::to_wstring(p.seed) + L")" : L"Created a map: " + what;
-    addDocument(std::move(ed), true);
+    addDocument(std::move(ed), false);  // (a tab of its own: the open maps and projects stay, also an untouched one)
     gNewOpen = false;
     shellRelayout(), shellMenusChanged();
     if (!project) return setMessage(message), true;
