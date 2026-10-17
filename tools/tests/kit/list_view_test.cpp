@@ -649,7 +649,12 @@ KIT_TEST(list_on_select_may_destroy_the_list) {
     list->setCount(10);
     int activated = -1;
     list->onActivate = [&](int i) { activated = i; };
-    host.click(10, 2 * kRow + 5);  // row 2 selected; no owner action yet
+    host.click(10, 5 * kRow + 5);  // the press before the double click: on row 5 (a double click needs both on one row)
+    draw::MouseEvent d;
+    d.kind = draw::MouseKind::Down, d.pt = {10, 2 * kRow + 5};
+    list->mouse(d);  // row 2 selected (straight to the list: the router's last press stays on row 5); no owner action yet
+    d.kind = draw::MouseKind::Up;
+    list->mouse(d);
     list->onSelect = [&] { list.reset(); };  // the owner takes the list down on the next selection
     draw::MouseEvent e;
     e.kind = draw::MouseKind::DoubleClick;  // row 5: the selection changes, the list goes, the activation still runs

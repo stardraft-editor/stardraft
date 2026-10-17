@@ -34,6 +34,8 @@ std::string shotDataState() {
     if (!changed) s += " no changed values";
     s += "; " + std::to_string(d.history.undo.size()) + " undo steps, " + std::to_string(d.history.redo.size()) + " redo steps";
     if (t->schema().name == "weapons") s += "; damage table armor " + std::to_string(datapics::gDamageArmor);
+    if (t->schema().name == "sfxdata")  // (the list's selected entry, and the sounds asked for)
+        s += "; list entry " + std::to_string(gSdlDataState.entry) + "; " + std::to_string(gSoundAsks) + " plays, last \"" + gSoundAsked + "\"";
     // The diagrams' handles (small squares) and how many of them the mouse cannot drag (no drag there: WRONG).
     int still = 0;
     for (const draw::Point& p : datapics::gHandles) {
@@ -178,7 +180,9 @@ std::string sdlShotState() {
     case Workspace::Data: return activeProject() ? shotDataState() : "";
     case Workspace::Triggers: return activeProject() ? shotTriggersState() : "";
     case Workspace::ClassicTriggers: return map ? shotClassicState() : "";
-    case Workspace::Files: return "files: search \"" + narrow(gFilesPage.searchText()) + "\", " + std::to_string(gFilesPage.gameSoundsShown()) + " game sounds";
+    case Workspace::Files:
+        return "files: search \"" + narrow(gFilesPage.searchText()) + "\", " + std::to_string(gFilesPage.gameSoundsShown()) + " game sounds; selected \"" +
+               gFilesPage.selected() + "\"; " + std::to_string(gSoundAsks) + " plays, last \"" + gSoundAsked + "\"";
     case Workspace::Briefing: return map ? shotBriefingState() : "";
     default: return map ? shotMapState() : "";
     }

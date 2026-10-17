@@ -68,6 +68,10 @@ public:
 
     void paint(draw::Canvas& c) override;
     bool mouse(const draw::MouseEvent& e) override;
+    bool sameItem(draw::Point a, draw::Point b) const override {  // (a double click: one row)
+        const Row *x = rowAt(a), *y = rowAt(b);
+        return x == y || (x && y && x->name == y->name);
+    }
     bool key(const draw::KeyEvent& e) override;
     draw::Cursor cursor(draw::Point pt) override { return hitAny(pt) ? draw::Cursor::Hand : draw::Cursor::Arrow; }
     std::wstring tip(draw::Point pt) override;

@@ -358,6 +358,12 @@ CASES += [
     ("data-quick-armor", ["--newproject", "{newdir}", "--workspace", "data", "--data", "weapons:0", "--click", "779,404:Repeat8"], "data"),
     ("data-quick-toggle", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "624,768:Repeat8"], "data"),
     ("map-quick-arrow", ["--mode", "terrain", "--click", "296,485:Repeat8"], "map"),
+    # A double click needs both clicks on the same row (--click x,y:Quick: a click that comes quickly after the one
+    # before, which SDL counts as a double click): two quick clicks on two rows select the second one and play nothing;
+    # a double click on one row plays its sound. The Assets page's game sounds and the SFX data list.
+    ("files-double-click", ["--workspace", "files", "--click", "300,375", "--click", "300,401:Quick", "--click", "300,453:Double"], "map"),
+    ("data-sfx-double-click", ["--newproject", "{newdir}", "--workspace", "data", "--data", "sfxdata:1", "--click", "200,239",
+                               "--click", "200,265:Quick", "--click", "200,317:Double"], "data"),
     # The diagrams' handles (the small squares) are only on parts that the mouse drags: the flingy's turn path has none
     # (its Turn Radius is typed, as on Windows); the weapon's ranges have their handles.
     ("data-turn-nohandle", ["--newproject", "{newdir}", "--workspace", "data", "--data", "flingy:0", "--move", "10,10"], "data"),
@@ -1179,6 +1185,20 @@ def quick_check(want, what):
     return check
 
 
+def check_double_click_rows(sel, plays):
+    """None when the two quick clicks on two rows selected the second (no play) and the double click played one sound."""
+    def check(output):
+        s = states(output)
+        if len(s) != 3:
+            return f"{len(s)} input lines, not 3"
+        if sel[0] not in s[1][1] or "0 plays" not in s[1][1]:
+            return f"two quick clicks on two rows: {s[1][1]} (not {sel[0]} with no play)"
+        if sel[1] not in s[2][1] or plays not in s[2][1]:
+            return f"a double click on one row: {s[2][1]} (not {sel[1]}, {plays})"
+        return None
+    return check
+
+
 def check_no_still_handles(output):
     """None when no diagram handle is on a part that the mouse cannot drag."""
     m = re.search(r"; (\d+) handles, (\d+) not dragged", output)
@@ -1886,7 +1906,10 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "data-quick-toggle": quick_check("no changed values; 8 undo steps", "eight clicks on Shield enable"),
           "map-quick-arrow": quick_check(" brush=2x10", "eight clicks on the height's up arrow"),
           "data-turn-nohandle": check_no_still_handles, "data-range-handles": check_range_handles,
-          "map-location-inverted": check_location_inverted, "data-picker-typing": check_picker_typing}
+          "map-location-inverted": check_location_inverted,
+          "files-double-click": check_double_click_rows(('selected "sound\\bullet\\dragbull.wav"', 'selected "sound\\bullet\\laserb.wav"'),
+                                                        '1 plays, last "sound\\bullet\\laserb.wav"'),
+          "data-sfx-double-click": check_double_click_rows(("list entry 3;", "list entry 5;"), '1 plays, last "sfx 5"'), "data-picker-typing": check_picker_typing}
 
 # GitHub's answer for the newest release ({release}; /releases/latest, shortened): a release with a download for each
 # system, as tools/release.py and the macos-release job make it, indented as GitHub gives it to a request without a

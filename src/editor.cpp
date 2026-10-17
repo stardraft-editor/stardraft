@@ -2631,11 +2631,18 @@ bool Editor::editLocation(int i, const LocationEdit& edit, std::string* error) {
     if (edit.asTyped) {  // the edges as they are (an inverted location: left more than right, or top more than bottom)
         const Rect& r = edit.rect;
         if (i != kAnywhereLocation) {
-            if (r.left < 0 || r.top < 0 || r.right < 0 || r.bottom < 0) {
-                if (error) *error = "An edge is less than 0";
-                return false;
+            // An edge as the location has it stays (also one of 2^31 or more, which locationEdges gives as less than 0).
+            const Rect now = locationEdges(i);
+            const int typed[4] = {r.left, r.top, r.right, r.bottom}, had[4] = {now.left, now.top, now.right, now.bottom};
+            uint32_t* edges[4] = {&l.left, &l.top, &l.right, &l.bottom};
+            for (int k = 0; k < 4; ++k) {
+                if (typed[k] == had[k]) continue;
+                if (typed[k] < 0) {
+                    if (error) *error = "An edge is less than 0";
+                    return false;
+                }
+                *edges[k] = uint32_t(typed[k]);
             }
-            l.left = uint32_t(r.left), l.top = uint32_t(r.top), l.right = uint32_t(r.right), l.bottom = uint32_t(r.bottom);
         }
     } else if (axes != locationInvertedAxes(i)) {  // another inversion: the same edges, from the lower value to the higher
         const Rect n = locationRect(i);
