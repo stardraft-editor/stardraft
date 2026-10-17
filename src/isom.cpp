@@ -643,9 +643,10 @@ bool IsomGrid::paint(int x, int y, uint16_t terrain, int brushSize) {
     // Diamond lattice coords: a = (x + y) / 2, b = (x - y) / 2. Diamond (a, b) has corners at
     // corner-lattice coords (u, v) = (a-1, b), (a-1, b+1), (a, b+1), (a, b) with
     // u = (x + y - 1) / 2, v = (x - y + 1) / 2, so a square of diamonds is a square of corners.
+    // StarEdit's footprint (starEditBrushDiamonds): an even size grows down and left, toward a + and b -.
     int a = (x + y) / 2, b = (x - y) / 2;
     int a0 = a - (brushSize - 1) / 2, a1 = a0 + brushSize - 1;
-    int b0 = b - (brushSize - 1) / 2, b1 = b0 + brushSize - 1;
+    int b0 = b - brushSize / 2, b1 = b0 + brushSize - 1;
     std::vector<CornerValue> locked;
     for (int u = a0 - 1; u <= a1; ++u)
         for (int v = b0; v <= b1 + 1; ++v) {
@@ -742,6 +743,14 @@ void IsomGrid::cornerAtPixel(int px, int py, int& x, int& y) const {
 
 std::vector<std::pair<int, int>> IsomGrid::brushCorners(int px, int py, const Brush& brush) const {
     std::vector<std::pair<int, int>> out;
+    if (brush.starEdit()) {  // StarEdit's brush: the corners of its diamonds (the core paints those)
+        int x = 0, y = 0;
+        diamondAtPixel(px, py, x, y);
+        for (auto [dx, dy] : starEditBrushDiamonds(x, y, int(brush.size)))
+            for (auto [cx, cy] : {std::pair{dx - 1, dy}, {dx, dy - 1}, {dx + 1, dy}, {dx, dy + 1}})
+                if (isCorner(cx, cy) && std::find(out.begin(), out.end(), std::make_pair(cx, cy)) == out.end()) out.push_back({cx, cy});
+        if (!out.empty()) return out;
+    }
     const double w = std::max(0.5, double(brush.size)) * 64, h = std::max(0.5, double(brush.height())) * 32;  // half extents in pixels
     int x0 = int(std::floor((px - w) / 64)) - 1, x1 = int(std::ceil((px + w) / 64)) + 1;
     int y0 = int(std::floor((py - h) / 32)) - 1, y1 = int(std::ceil((py + h) / 32)) + 1;
@@ -991,15 +1000,31 @@ void IsomGrid::repairUntileable() {
     }
 }
 
-bool IsomGrid::paintAtPixel(int px, int py, uint16_t terrain, int brushSize) {
+void diamondAtPixel(int px, int py, int& x, int& y) {
     // Rect grid points are 64 px apart horizontally and 32 px vertically.
-    int x = (px + 32) / 64, y = (py + 16) / 32;
+    x = (px + 32) / 64, y = (py + 16) / 32;
     if ((x + y) & 1) {
         // Pick whichever even neighbor is nearer.
         double fx = px / 64.0 - x, fy = py / 32.0 - y;
         if (std::abs(fx) > std::abs(fy)) x += fx > 0 ? 1 : -1;
         else y += fy > 0 ? 1 : -1;
     }
+}
+
+std::vector<std::pair<int, int>> starEditBrushDiamonds(int x, int y, int extent) {
+    extent = std::max(extent, 1);
+    // (IsomTerrain's placeIsomTerrain: offsets brushMin .. brushMax - 1 on both diagonals, one further for an even extent)
+    int lo = -(extent / 2), hi = lo + extent;
+    if (extent % 2 == 0) ++lo, ++hi;
+    std::vector<std::pair<int, int>> out;
+    for (int ox = lo; ox < hi; ++ox)
+        for (int oy = lo; oy < hi; ++oy) out.push_back({x + ox - oy, y + ox + oy});
+    return out;
+}
+
+bool IsomGrid::paintAtPixel(int px, int py, uint16_t terrain, int brushSize) {
+    int x = 0, y = 0;
+    diamondAtPixel(px, py, x, y);
     return paint(x, y, terrain, brushSize);
 }
 

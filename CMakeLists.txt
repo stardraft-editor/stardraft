@@ -128,6 +128,8 @@ add_executable(isomterrain_test tools/tests/isomterrain_test.cpp)
 target_include_directories(isomterrain_test PRIVATE third_party/IsomTerrain/IsomTerrain)
 target_link_libraries(isomterrain_test PRIVATE stardraft)
 
+add_executable(isom_core_probe tools/probes/isom_core_probe.cpp)
+target_link_libraries(isom_core_probe PRIVATE stardraft)
 add_executable(isom_paint tools/probes/isom_paint.cpp)
 target_link_libraries(isom_paint PRIVATE stardraft)
 

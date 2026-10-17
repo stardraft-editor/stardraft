@@ -1,6 +1,7 @@
 #include "stardraft/editor.h"
 
 #include <climits>
+#include <cstdlib>
 #include <cstring>
 #include <tuple>
 #include "byteio.h"
@@ -956,14 +957,54 @@ uint16_t Editor::terrainAt(int px, int py) const {
     return isom_.terrainAt(x, y);
 }
 
+bool Editor::terrainCoreOn() {
+    static const bool on = [] {
+        const char* v = std::getenv("STARDRAFT_TERRAIN_CORE");
+        return !(v && std::string(v) == "0");
+    }();
+    return on;
+}
+
+bool Editor::applyCoreBrush(int px, int py, uint16_t terrain, int extent) {
+    std::string err;
+    if (!core_.load(chk_, tileset_, err)) return false;
+    std::vector<std::pair<int, int>> diamonds;
+    for (auto [x, y] : symmetricPoints(px, py)) {
+        int dx = 0, dy = 0;
+        diamondAtPixel(x, y, dx, dy);
+        if (std::find(diamonds.begin(), diamonds.end(), std::make_pair(dx, dy)) == diamonds.end()) diamonds.push_back({dx, dy});
+    }
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    for (auto [dx, dy] : diamonds) x0 = std::min(x0, dx), y0 = std::min(y0, dy), x1 = std::max(x1, dx), y1 = std::max(y1, dy);
+    const int reach = extent * 64 + 256;
+    const std::vector<int> watch = placeableUnitsIn({x0 * 64 - reach, y0 * 32 - reach, x1 * 64 + reach, y1 * 32 + reach});
+    const std::vector<uint8_t> intact = doodadsIntact();
+    bool painted = false;
+    for (auto [dx, dy] : diamonds) painted = core_.paint(dx, dy, terrain, extent) || painted;
+    if (!painted) return false;
+    core_.updateTiles();
+    core_.store(chk_);
+    if (!isom_.load(chk_, err)) isomOk_ = false;  // (the core writes a full ISOM: this does not fail)
+    commit(true);
+    pruneDoodads(intact);
+    pruneUnits(watch);
+    return true;
+}
+
 bool Editor::paintBrush(int px, int py, uint16_t terrain, const Brush& brush) {
     if (!isomOk_) return false;
     bool own = !inStroke_;
     if (own) beginTerrainStroke();
-    std::vector<CornerValue> corners;
-    for (auto [x, y] : symmetricPoints(px, py))
-        for (auto [cx, cy] : isom_.brushCorners(x, y, brush)) corners.push_back({cx, cy, terrain});
-    bool ok = applyTerrain(corners);
+    bool ok;
+    // StarEdit's own brush (a diamond of whole diamonds, as wide as high): the terrain core paints it as StarEdit does.
+    if (terrainCoreOn() && brush.starEdit()) {
+        ok = applyCoreBrush(px, py, terrain, int(brush.size));
+    } else {
+        std::vector<CornerValue> corners;
+        for (auto [x, y] : symmetricPoints(px, py))
+            for (auto [cx, cy] : isom_.brushCorners(x, y, brush)) corners.push_back({cx, cy, terrain});
+        ok = applyTerrain(corners);
+    }
     if (own) endTerrainStroke();
     return ok;
 }
