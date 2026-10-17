@@ -2180,6 +2180,9 @@ constexpr UiText kRows[] = {
     {L" here: ", L" aqu\u00ED: "},
     {L". Click again for the next unit.", L". Haga clic otra vez para la unidad siguiente."},
     {L", at ", L", en "},
+    {L"The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.", L"El rombo tiene la forma de los rombos del mapa: su alto sigue a su tama\u00F1o. Para dar un alto, seleccione el cuadrado o el c\u00EDrculo."},
+    {L"The diamond has the shape of the map's diamonds: its height follows its size.", L"El rombo tiene la forma de los rombos del mapa: su alto sigue a su tama\u00F1o."},
+    {L"Brush height: the diamond has the shape of the map's diamonds, so its height follows its size. To set the height, select the square or the circle.", L"Alto del pincel: el rombo tiene la forma de los rombos del mapa, as\u00ED que su alto sigue a su tama\u00F1o. Para dar un alto, seleccione el cuadrado o el c\u00EDrculo."},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

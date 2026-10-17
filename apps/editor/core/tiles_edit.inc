@@ -10,10 +10,13 @@ void tilesPanelRepaint();           // the panel's grid is painted again
 void tilesPanelClearSearch();       // the search box is emptied (its change rebuilds the grid)
 void tilesPanelShowAllFilter();     // the filter box shows its first entry, All tiles
 
+constexpr uint16_t kTilesNone = 0xFFFF;  // a slot of the grid with no tile: one that the filter hides
 struct TilesView {
-    std::vector<uint16_t> values;  // the tile values shown (group << 4 | index), in the tileset's order
-    int perRow = 1;
+    // The grid's slots, 16 in a row (views_tiles.inc): the tile values shown (group << 4 | index) in the tileset's
+    // order, each group in a row of its own (kTilesNone: a tile that the filter hides).
+    std::vector<uint16_t> values;
     int scroll = 0, contentH = 0, layoutW = -1;
+    int listW = 16 * 32 + 15;  // the grid's width for the tiles: the view's, or more (tilesMinCell)
     int picked = -1;        // the tile value to place (group << 4 | subtile), -1: none
     std::vector<uint16_t> chosen;  // Ctrl+click and Shift+click: several tiles; Spray places one of them at random (#81)
     int hover = -1;         // the tile value under the mouse in the list
@@ -135,8 +138,9 @@ void tilesAt(float wx, float wy, int& tx, int& ty) {
 // (an even size: the tile at the mouse is the one left of and above the middle).
 std::vector<std::pair<int, int>> tilesFootprint(int cx, int cy) {
     std::vector<std::pair<int, int>> out;
-    // Its width is the size, its height the Height (GitHub #113; linked: the size): circle and diamond stretch to it.
-    const int n = std::max(1, int(std::lround(appState().brushSize))), m = appState().brushHeight > 0 ? std::max(1, int(std::lround(appState().brushHeight))) : n;
+    // Its width is the size, its height the Height (GitHub #113; linked: the size): the circle stretches to it. The
+    // diamond's height is half its size (GitHub #138: the map's diamonds are 2 to 1; brushHeightOf).
+    const int n = std::max(1, int(std::lround(appState().brushSize))), m = std::max(1, int(std::lround(brushHeightOf(appState()))));
     const int lo = -(n - 1) / 2, hi = n / 2, loY = -(m - 1) / 2, hiY = m / 2;
     const float mid = (lo + hi) / 2.0f, midY = (loY + hiY) / 2.0f, r = (n - 1) / 2.0f, rY = (m - 1) / 2.0f;
     for (int dy = loY; dy <= hiY; ++dy)

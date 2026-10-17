@@ -195,11 +195,22 @@ std::string shotMapState() {
     s += " quicktop=" + std::to_string(gQuickViewSdl.top()) + "/" + std::to_string(gQuickViewSdl.shown().size());  // its first row shown, of its rows
     s += " lastat=" + (!ed.units().empty() ? std::to_string(ed.units().back().x) + "," + std::to_string(ed.units().back().y) : std::string("-"));  // the last unit's place
     s += " brush=" + narrow(stripNumberText(kNumSize)) + "x" + narrow(stripNumberText(kNumHeight));  // (Terrain: the brush's size and height)
+    static const char* const kShapes[3] = {"diamond", "square", "circle"};
+    if (app.mode == Mode::Terrain && app.terrainRect && app.mouseIn) {  // the brush preview as the next paint draws it
+        render::Scene preview;
+        tilesScene(preview, wx, wy);
+    }
+    s += std::string(" brushshape=") + kShapes[int(app.brushShape) % 3] + " tilepreview=" + std::to_string(gTilesPreview.tiles) + "/" + std::to_string(gTilesPreview.lines);  // (Rectangle: the brush preview's tiles and lines)
     // The Tiles list (Rectangle): its scroll, its pictures kept, the tile picked; and the bitmaps that went while the
     // frame that drew them was not yet drawn by the GPU (none should: GitHub #148).
     s += " tilescroll=" + std::to_string(gTiles.scroll) + "/" + std::to_string(std::max(0, gTiles.contentH - tilesViewH())) +
          " tilepics=" + std::to_string(gTiles.pixels.size()) + " tilepicked=" + std::to_string(gTiles.picked) +
          " freedinframe=" + std::to_string(kit_sdl::bitmapsFreedInFrame());
+    // The Tiles list's width and its columns' left edges (and the right end + 1): a tile is from an edge to the next
+    // edge - 1 (views_tiles.inc: tilesEdge); and its slots (a row is 16).
+    s += " tilegrid=" + std::to_string(gTilesGrid.width()) + ":";
+    for (int i = 0; i <= 16; ++i) s += (i ? "," : "") + std::to_string(tilesEdge(i));
+    s += " tileslots=" + std::to_string(gTiles.values.size());
     return s;
 }
 

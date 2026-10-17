@@ -24,7 +24,18 @@ void toWorld(const AppState& app, int sx, int sy, float& wx, float& wy) {
 
 int currentTool(const AppState& app) { return app.toolByMode[int(app.mode)]; }
 
-Brush currentBrush(const AppState& app) { return Brush{app.brushShape, app.brushSize, app.mode == Mode::Terrain ? app.brushHeight : 0.0f}; }
+// The Diamond keeps the shape of the map's diamonds (GitHub #138): 2 to 1 in pixels, as the ISOM cells. Its height
+// follows its size (Height has no value of its own for it): in diamonds (Isometric) the height is the size; in tiles
+// (Rectangle) it is half the size, rounded up. Square and Circle: their Height (0: the same as the size; GitHub #113).
+bool brushHeightLocked(const AppState& app) { return app.brushShape == Brush::Diamond; }
+float brushHeightOf(const AppState& app) {
+    if (brushHeightLocked(app)) return app.terrainRect ? float((std::max(1L, std::lround(app.brushSize)) + 1) / 2) : app.brushSize;
+    return app.brushHeight > 0 ? app.brushHeight : app.brushSize;
+}
+
+Brush currentBrush(const AppState& app) {
+    return Brush{app.brushShape, app.brushSize, app.mode == Mode::Terrain && !brushHeightLocked(app) ? app.brushHeight : 0.0f};
+}
 
 // The terrain selection's shape: the brush shape (diamond, square, circle) while it is made with Select.
 Editor::SelectShape selectShape(const AppState& app) {

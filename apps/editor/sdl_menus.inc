@@ -648,6 +648,7 @@ void sdlInputLine(const std::string& what) {
 }
 
 void sdlMouseShot(const std::string& spec, char kind);
+bool tilesSlotCenter(int k, int& x, int& y);  // (core/views_tiles.inc)
 void sdlWheelShot(const std::string& spec);
 void sdlPinchShot(const std::string& spec);
 void sdlGestureShot(const std::string& spec, bool smartZoom);
@@ -710,7 +711,12 @@ void sdlMouseShot(const std::string& spec, char kind) {
     const size_t colon = spec.find(':');
     const std::string at = spec.substr(0, colon), mods = colon == std::string::npos ? "" : spec.substr(colon + 1);
     int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
-    const int got = drag ? std::sscanf(at.c_str(), "%d,%d-%d,%d", &x0, &y0, &x1, &y1) : std::sscanf(at.c_str(), "%d,%d", &x0, &y0);
+    int got = drag ? std::sscanf(at.c_str(), "%d,%d-%d,%d", &x0, &y0, &x1, &y1) : std::sscanf(at.c_str(), "%d,%d", &x0, &y0);
+    if (!drag && at.rfind("tile", 0) == 0 && gRoot && gHost) {  // tile<k>: the middle of the Tiles list's k-th slot
+        gHost->snapshotLayout(*gRoot);
+        if (tilesSlotCenter(std::atoi(at.c_str() + 4), x0, y0)) got = 2;
+        else return void(std::printf("%s%s: the Tiles list does not show that slot (WRONG)\n", name.c_str(), spec.c_str()));
+    }
     if (!gRoot || !gHost || got != (drag ? 4 : 2))
         return void(std::fprintf(stderr, "--%s%s: not %s[:mods]\n", name.c_str(), spec.c_str(), drag ? "x0,y0-x1,y1" : "x,y"));
     if (!drag) x1 = x0, y1 = y0;

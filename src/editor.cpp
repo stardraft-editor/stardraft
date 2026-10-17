@@ -1279,11 +1279,18 @@ bool Editor::inSelectShape(const Rect& box, SelectShape shape, int px, int py) {
     return shape == SelectShape::Diamond ? std::abs(dx) + std::abs(dy) <= 1.0 : dx * dx + dy * dy <= 1.0;
 }
 
+std::vector<std::pair<int, int>> Editor::cornersInShape(const Rect& area, SelectShape shape) const {
+    if (!isomOk_) return {};
+    const Rect r = area.normalized();
+    auto cs = isom_.cornersInRect(r.left, r.top, r.right, r.bottom);
+    std::erase_if(cs, [&](const auto& c) { return !inSelectShape(r, shape, c.first * 64, c.second * 32); });
+    return cs;
+}
+
 bool Editor::copyTerrain(const Rect& area, bool withUnits, bool withDoodads, SelectShape shape) {
     if (!isomOk_) return false;
     Rect r = area.normalized();
-    auto cs = isom_.cornersInRect(r.left, r.top, r.right, r.bottom);
-    std::erase_if(cs, [&](const auto& c) { return !inSelectShape(r, shape, c.first * 64, c.second * 32); });  // the corners in the shape
+    auto cs = cornersInShape(r, shape);
     if (cs.empty()) return false;
     // Origin: the top-left-most corner; offsets keep the corner lattice parity.
     int ox = cs.front().first, oy = cs.front().second;

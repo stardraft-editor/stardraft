@@ -139,6 +139,8 @@ public:
     // A selection's shape in its box (feedback #31, #33, #52): the whole box, the diamond in it, or the ellipse in it.
     enum class SelectShape { Rect, Diamond, Ellipse };
     static bool inSelectShape(const Rect& box, SelectShape shape, int px, int py);
+    // The ISOM corners (rect-grid points) in the shape of `area` (map pixels): those copyTerrain copies.
+    std::vector<std::pair<int, int>> cornersInShape(const Rect& area, SelectShape shape) const;
     // Terrain clipboard: the ISOM corners of `area` (in its shape) plus (optionally) the units and doodads in it.
     bool copyTerrain(const Rect& area, bool withUnits, bool withDoodads, SelectShape shape = SelectShape::Rect);
     bool hasTerrainClipboard() const { return !terrainClip_.corners.empty(); }
