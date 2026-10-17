@@ -259,6 +259,7 @@ bool sdlRuns(int id) {
 bool sdlEnabled(int id) {
     if (!sdlRuns(id)) return false;
     if (mapCommand(id) && !docOpen()) return false;
+    if (!editInWorkspace(id)) return false;  // (the map's Edit commands in another workspace: core/commands_core.inc)
     // The start page or the New page over the open map (File > New, the tabs' +): the map's commands are gray, as on the
     // Windows program's page tabs (a Delete or Paste would change the map nobody sees).
     if (mapCommand(id) && (gStartOpen || gNewOpen) && gWorkspace == Workspace::Map) return false;
