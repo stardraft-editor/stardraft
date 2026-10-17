@@ -1561,7 +1561,7 @@ std::optional<std::pair<uint16_t, uint16_t>> Editor::findValidPosition(const Uni
         for (const auto& [d, p] : ring) {
             u.x = uint16_t(p.first);
             u.y = uint16_t(p.second);
-            if (building) snapToGrid(t, u.x, u.y);
+            snapToGrid(t, u.x, u.y);  // (a building, while building snap is on)
             if (placementOk(ctx, u)) return std::make_pair(u.x, u.y);
         }
     }

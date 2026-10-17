@@ -16,7 +16,8 @@ To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (i
 case's options, {map}, {project}, {install} (the --install folder), {root} (the repository), {out} (the --out folder),
 {newdir} (a new empty folder in --out), {kodir} (a new empty folder in --out with Korean letters and spaces in its
 name), {wav} (a short sound that the script writes in --out), {release} (GitHub's answer for the newest release, with a
-download for each system: RELEASE_JSON), {oldsettings} (the settings file of an older release)
+download for each system: RELEASE_JSON), {oldsettings} (the settings file of an older release), {nosnapsettings} (a settings file with
+Options > Units > Snap buildings to tile edges off)
 and {legacyhive} (Windows: a registry file with the settings of the releases before the settings file) are paths, and
 {script:<name>} is the path of the input script SCRIPTS[name] (main_sdl.cpp's --script), written into --out with the
 same paths in it. A run also fails when its output has "(WRONG)", or when the
@@ -345,7 +346,7 @@ CASES += [
 # input that opened it. After each input's line, a line "  state: ..." says what the workspace holds (sdl_shot_state.inc).
 CASES += [
     # The New page: the tileset Ice, then Create makes the map (128 x 128).
-    ("newpage-create", ["--newpage", "classic", "--click", "489,545", "--click", "1126,895"], "data"),
+    ("newpage-create", ["--newpage", "classic", "--click", "489,517", "--click", "1126,895"], "data"),
     # Generate (a window wide enough for its settings to be beside the preview), then 8 quick clicks (Repeat8: SDL counts
     # them, so all but the first are double clicks) on Randomize seed, Randomize values and Randomize all, a wait after
     # each: each click randomizes, and one map is made, for the last values shown.
@@ -1131,7 +1132,7 @@ def check_newpage_create(output):
         return f"{len(s)} input lines, not 2"
     if "click 1126,895" != s[1][0] or not s[1][1].startswith("map: Ice 128 x 128;"):
         return f"after Create: {s[1][1] or 'no map'} (not an Ice map of 128 x 128)"
-    if not re.search(r"^click 489,545: no map:", output, re.M):
+    if not re.search(r"^click 489,517: no map:", output, re.M):
         return "a map was open before Create"
     return None
 
@@ -1519,6 +1520,9 @@ def check_menubar(output):
     for n in never:
         if any(l.startswith(n) for l in lines):
             return f"an item {n}, which should not be there"
+    snap = [l for l in lines if l.startswith("Options > Units > Snap buildings to tile edges")]
+    if not snap or "(checked)" not in snap[0]:
+        return f"no checked item Options > Units > Snap buildings to tile edges: {snap}"
     if tips[0] != tip:
         return f"the tooltip's keys are {tips[0]!r}, not {tip!r}"
     return None
@@ -1803,6 +1807,182 @@ def check_release_token(output):
     return None
 
 
+# The New page, the start page, the side bars and the building snap (the window's own parts: the "  ui: ..." line after
+# each input, sdl_shot_state.inc: sdlShotUi). Bug reports of 0.6.0-preview.1:
+# The New page has no Back button (Cancel and Esc leave it): a click where Back was does nothing, Esc closes the page.
+# A classic project can start from the terrain of a map (as an EUD project can import a map): Create makes a new map
+# (untitled) with the map's tileset, size, terrain and doodads, and no units; the map file is the case's map ({map}: it is
+# not opened before).
+# File > New (Ctrl+N) and the tabs' + show the start page with a project open (Esc goes back to the map); its EUD card and
+# Create make a new project in a tab of its own (the open project stays).
+# Each side bar is resized by a drag of its edge next to the map (the width cursor over it), from 200 to 640 px.
+# Buildings snap to tile edges while Options > Units > Snap buildings to tile edges is on (the default; the unit snap is
+# for the other units): a placed or dragged Command Center has its box on the tile grid (x on a tile edge, y 16 px off);
+# with the option off ({nosnapsettings}) it stays where the mouse put it.
+# Every New entry works after a project was opened (File > Open, the project given to the program, another workspace
+# first, its tab closed): File > New project (Ctrl+N) and the tabs' + show the start page, its cards and Project > New
+# EUD project (Ctrl+Shift+N) the New page, and Create makes the project in the folder typed ({newdir}), in a tab of its
+# own. While the New page (or the start page over a map) shows, the side bar's other workspaces and Ctrl+2 do nothing.
+# The last tab closed from any workspace (Data, Triggers, Briefing) goes to the start page in the Map workspace; a classic
+# map's tab after a project's in Data shows its map.
+CASES += [
+    ("newpage-noback", ["--newpage", "eud", "--click", "382,218", "--key", "Esc"], ""),
+    ("map-newpage-classic-terrain", ["--newpage", "classic", "--click", "489,517", "--click", "815,314", "--click", "960,353", "--type", "{map}",
+                                     "--click", "1126,897"], "map"),
+    ("project-newproject", ["--key", "Ctrl+N", "--click", "711,430", "--click", "437,406", "--key", "Ctrl+A", "--type", "{newdir}",
+                            "--click", "1162,815"], "project"),
+    # The map's commands do nothing while the start page shows over the map (Del after Select all deletes no unit).
+    ("map-start-over-map", ["--mode", "units", "--key", "Ctrl+A", "--key", "Ctrl+N", "--key", "Del", "--key", "Esc"], "map"),
+    ("project-newpage-esc", ["--key", "Ctrl+N", "--key", "Esc", "--click", "176,84", "--key", "Esc", "--key", "Ctrl+Shift+N", "--key", "Esc"], "project"),
+    ("project-open-new", ["--key", "Ctrl+O", "--pick", "{project}", "--key", "Ctrl+N", "--click", "711,430", "--click", "437,406", "--key", "Ctrl+A", "--type", "{newdir}", "--click", "1162,815"], "project"),
+    ("project-triggers-neweud", ["--workspace", "triggers", "--key", "Ctrl+Shift+N", "--click", "437,406", "--key", "Ctrl+A", "--type", "{newdir}", "--click", "1162,815"], "project"),
+    ("project-close-new", ["--workspace", "data", "--key", "Ctrl+W", "--click", "711,430", "--click", "30,190", "--key", "Ctrl+2",
+                           "--click", "437,406", "--key", "Ctrl+A", "--type", "{newdir}", "--click", "1162,815"], "project"),
+    ("project-newpage-locked", ["--key", "Ctrl+Shift+N", "--click", "30,190", "--key", "Ctrl+2", "--key", "Ctrl+3", "--key", "Esc",
+                                "--key", "Ctrl+N", "--click", "471,430", "--click", "30,190", "--key", "Esc"], "project"),
+    ("project-close-data", ["--workspace", "data", "--key", "Ctrl+W"], "project"),
+    ("project-close-triggers", ["--workspace", "triggers", "--key", "Ctrl+W"], "project"),
+    ("project-close-briefing", ["--workspace", "briefing", "--key", "Ctrl+W"], "project"),
+    ("map-close-project-data", ["--newproject", "{newdir}", "--key", "Ctrl+2", "--key", "Ctrl+W"], "map"),
+    # The map's Edit commands, the quick picker (Q) and Rename location (F2) do nothing to the map in Data and Triggers
+    # (the units, doodads, locations and the selection stay); the workspace's own Edit commands are enabled, the others
+    # gray (the menu items and the top bar's buttons): Data copies and pastes entries, Triggers cuts, copies, pastes and
+    # duplicates; Q in Data opens the quick picker of its entries (Go to a .dat entry), not the map's.
+    ("project-edit-data", ["--mode", "units", "--key", "Ctrl+A", "--key", "Ctrl+2", "--key", "Ctrl+A", "--key", "Ctrl+C", "--key", "Ctrl+X",
+                           "--key", "Ctrl+D", "--key", "F2", "--key", "Del", "--key", "Q"], "project"),
+    ("project-edit-triggers", ["--mode", "units", "--key", "Ctrl+A", "--key", "Ctrl+3", "--key", "Ctrl+A", "--key", "Del", "--key", "F2",
+                               "--key", "Q", "--key", "1"], "project"),
+    ("map-sidebar-resize", ["--move", "341,500", "--drag", "341,500-401,500", "--move", "1323,500", "--drag", "1323,500-1263,500",
+                            "--drag", "401,500-1001,500", "--drag", "701,500-101,500", "--move", "900,500"], "map"),
+    ("map-building-nosnap", ["--settings", "{nosnapsettings}", "--mode", "units", "--key", "Q", "--type", "Command Center", "--key", "Enter", "--click", "701,651", "--key", "Esc",
+                             "--drag", "701,651-713,659"], "map"),
+    ("map-building-snap", ["--mode", "units", "--key", "Q", "--type", "Command Center", "--key", "Enter",
+                           "--click", "701,651", "--key", "Esc", "--drag", "701,651-713,659"], "map"),
+]
+
+
+def ui_lines(output):
+    """The input lines and the ui line after each: [(input, {name: value})] (the last value of a name that comes twice)."""
+    out, last = [], None
+    for line in output.splitlines():
+        m = STATE_LINE.match(line)
+        if m:
+            last = m.group(1) + " " + m.group(2)
+            out.append((last, {}))
+        elif line.startswith("  ui: ") and out and out[-1][0] == last:
+            out[-1] = (last, dict(kv.split("=", 1) for kv in line[6:].split() if "=" in kv))
+    return out
+
+
+def expect_ui(count, rules):
+    """A check: `count` inputs with a ui line, and each rule (what, function of the [(input, ui)] list) holds."""
+    def check(output):
+        u = ui_lines(output)
+        if len(u) != count or any(not d for _, d in u):
+            return f"{len(u)} inputs ({sum(1 for _, d in u if d)} with a ui line), not {count}"
+        for what, ok in rules:
+            try:
+                good = ok(u)
+            except (KeyError, ValueError, IndexError):
+                good = False
+            if not good:
+                return f"{what}: {u}"
+        return None
+    return check
+
+
+def check_building_snap(snapped):
+    """None when the Command Center that was placed, then dragged, is on the tile grid (`snapped`) or off it each time."""
+    def on_grid(st):
+        x, y = (int(v) for v in re.search(r" lastat=(\d+),(\d+)", st).group(1, 2))
+        return x % 32 == 0 and y % 32 == 16  # (its box, 128 x 96, on tile edges)
+
+    def check(output):
+        s = states(output)
+        if len(s) != 6:
+            return f"{len(s)} input lines, not 6"
+        for i, what in ((3, "placed"), (5, "dragged")):
+            if not re.search(r" lastat=\d+,\d+", s[i][1]):
+                return f"no place of the {what} unit: {s[i][1]}"
+            if on_grid(s[i][1]) != snapped:
+                return f"the {what} Command Center is {'not ' if snapped else ''}on the tile grid: {s[i][1]}"
+        if "59 units" not in output.split("click 701,651:")[1].split("\n")[0]:
+            return "the Command Center was not placed"
+        return None
+    return check
+
+
+def check_new_project_in(case, count, before):
+    """A check: `count` inputs; the ui line of each input in `before` ({index: (what, function of the ui)}) holds; the last
+    one is the new project in a tab of its own, made in the case's {newdir} (not in the projects folder)."""
+    def check(output):
+        u = ui_lines(output)
+        if len(u) != count or any(not d for _, d in u):
+            return f"{len(u)} inputs ({sum(1 for _, d in u if d)} with a ui line), not {count}"
+        for i, (what, ok) in before.items():
+            try:
+                good = ok(u[i][1])
+            except (KeyError, ValueError):
+                good = False
+            if not good:
+                return f"{what}: {u[i]}"
+        last = u[-1][1]
+        if last.get("page") != "map" or last.get("project") != "yes":
+            return f"Create did not make the project: {last}"
+        if not re.search(r"Created the project \S+.* in .*" + re.escape(case) + "-", output):
+            return "the project is not in the folder typed in Location"
+        return None
+    return check
+
+
+def check_edit_elsewhere(ws, enabled, last_quick="no"):
+    """A check: after Select all on the map, the inputs in workspace `ws` leave the map's units, doodads, locations and
+    selection as they were, the quick picker closed, and the Edit commands in `enabled` on, the others gray."""
+    names = ["cut", "copy", "paste", "dup", "del", "all", "rename", "quick"]
+
+    def check(output):
+        u = ui_lines(output)
+        if len(u) < 3 or any(not d for _, d in u):
+            return f"{len(u)} inputs with a ui line"
+        first = u[0][1]
+        if first.get("ws") != "map" or first.get("sel", "0").startswith("0,"):
+            return f"Select all on the map selected nothing: {first}"
+        for inp, d in u[1:]:
+            if d.get("ws") != ws:
+                return f"{inp}: not in {ws}: {d}"
+            for k in ("units", "doodads", "locations", "sel"):
+                if d.get(k) != first.get(k):
+                    return f"{inp} changed the map's {k}: {first.get(k)} -> {d.get(k)}"
+            want = last_quick if inp == u[-1][0] else "no"
+            if d.get("quickopen") != want:
+                return f"{inp}: the quick picker is {d.get('quickopen')}, not {want}, in {ws}"
+            flags = dict(kv.split(":") for kv in d.get("edit", "").split(",") if ":" in kv)
+            for n in names:
+                if flags.get(n) != ("1" if n in enabled else "0"):
+                    return f"{inp}: Edit's {n} is {'gray' if flags.get(n) == '0' else 'enabled'} in {ws}: {d.get('edit')}"
+        return None
+    return check
+
+
+def check_classic_terrain(output):
+    """The classic New page offers the terrain of a map; Create makes an untitled map with the map's tileset, size and
+    doodads (the --map: Space Platform, 128 x 128, 50 doodads) and no units."""
+    u, s = ui_lines(output), states(output)
+    if len(u) != 5 or len(s) != 5:
+        return f"{len(u)} inputs, not 5"
+    if "terrain" not in u[0][1].get("offered", "").split(","):
+        return f"the classic New page does not offer the terrain of a map: {u[0][1]}"
+    if u[1][1].get("start") != "terrain":
+        return f"The terrain of a map is not selected: {u[1][1]}"
+    if u[4][1].get("page") != "map" or u[4][1].get("tabs") != "1/1":
+        return f"after Create: {u[4][1]} (not the new map in a tab)"
+    if not s[4][1].startswith("map: Space Platform 128 x 128;") or 'tab="* Untitled"' not in s[4][1]:
+        return f"the new map is not an untitled map with the map's tileset and size: {s[4][1]}"
+    if not re.search(r"^click 1126,897: 0 units, 50 doodads", output, re.M):
+        return "the new map does not have the map's doodads and no units"
+    return None
+
+
 CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
           "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
           "map-doodad-ghost": check_doodad_ghost, "map-sprite-place": check_sprite_place,
@@ -1841,7 +2021,73 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "map-program-files": check_program_files, "map-saveas-tab": check_saveas_tab, "map-undo-midstroke": check_undo_midstroke,
           "map-undo-saved": check_undo_saved, "map-undo-selection": check_undo_selection, "map-props-typing-undo": check_props_typing_undo,
           "data-map-undo": check_data_map_undo, "data-value-insert": check_value_insert, "update-release-older": check_release_older,
-          "update-release-token": check_release_token}
+          "update-release-token": check_release_token,
+          "newpage-noback": expect_ui(2, [
+              ("a click where Back was closed the page (Back is there)", lambda u: u[0][1]["page"] == "new"),
+              ("Esc did not close the New page", lambda u: u[1][1]["page"] == "start")]),
+          "map-newpage-classic-terrain": check_classic_terrain,
+          "project-newproject": lambda output: expect_ui(6, [
+              ("File > New (Ctrl+N) did not show the start page with a project open", lambda u: u[0][1]["page"] == "start"),
+              ("the EUD project card did not show the New page", lambda u: u[1][1]["page"] == "new" and u[1][1]["new"] == "eud"),
+              ("Create did not make the project in a tab of its own", lambda u: u[5][1]["page"] == "map" and u[5][1]["tabs"] == "2/2"
+               and u[5][1]["project"] == "yes")])(output) or (
+              None if re.search(r"Created the project .* in .*project-newproject-", output) else "the project is not in the folder typed"),
+          "project-newpage-esc": expect_ui(6, [
+              ("Ctrl+N did not show the start page", lambda u: u[0][1]["page"] == "start"),
+              ("Esc did not close the start page", lambda u: u[1][1]["page"] == "map"),
+              ("the tabs' + did not show the start page", lambda u: u[2][1]["page"] == "start"),
+              ("Esc did not close the start page", lambda u: u[3][1]["page"] == "map"),
+              ("Ctrl+Shift+N did not show the New page", lambda u: u[4][1]["page"] == "new" and u[4][1]["new"] == "eud"),
+              ("Esc did not close the New page", lambda u: u[5][1]["page"] == "map" and u[5][1]["tabs"] == "1/1")]),
+          "map-sidebar-resize": expect_ui(7, [
+              ("no width cursor over the left side bar's edge", lambda u: u[0][1]["cursor"] == "width"),
+              ("the drag did not make the left side bar 60 px wider", lambda u: u[1][1]["left"] == "340" and u[1][1]["right"] == "280"),
+              ("no width cursor over the right side bar's edge", lambda u: u[2][1]["cursor"] == "width"),
+              ("the drag did not make the right side bar 60 px wider", lambda u: u[3][1]["right"] == "340" and u[3][1]["left"] == "340"),
+              ("the left side bar is not at most 640 px", lambda u: u[4][1]["left"] == "640"),
+              ("the left side bar is not at least 200 px", lambda u: u[5][1]["left"] == "200"),
+              ("the width cursor over the map", lambda u: u[6][1]["cursor"] != "width")]),
+          "map-start-over-map": lambda output: expect_ui(4, [
+              ("Ctrl+N did not show the start page over the map", lambda u: u[1][1]["page"] == "start"),
+              ("Esc did not close the start page", lambda u: u[3][1]["page"] == "map")])(output) or (
+              None if re.search(r"^key Del: 58 units", output, re.M) else "Del deleted units of the map under the start page"),
+          "project-open-new": check_new_project_in("project-open-new", 7, {
+              0: ("File > Open did not open the project", lambda d: d["project"] == "yes" and d["tabs"] == "1/1"),
+              1: ("File > New project (Ctrl+N) did not show the start page", lambda d: d["page"] == "start"),
+              2: ("the EUD project card did not show the New page", lambda d: d["page"] == "new" and d["new"] == "eud"),
+              6: ("the new project is not in a second tab", lambda d: d["tabs"] == "2/2")}),
+          "project-triggers-neweud": check_new_project_in("project-triggers-neweud", 5, {
+              0: ("Project > New EUD project (Ctrl+Shift+N) in Triggers did not show the New page", lambda d: d["page"] == "new" and d["ws"] == "map"),
+              4: ("the new project is not in a second tab", lambda d: d["tabs"] == "2/2")}),
+          "project-close-new": check_new_project_in("project-close-new", 8, {
+              0: ("the last tab closed in Data did not show the start page in Map", lambda d: d["page"] == "start" and d["ws"] == "map"),
+              1: ("the EUD project card did not show the New page", lambda d: d["page"] == "new"),
+              2: ("the side bar's Data left the New page", lambda d: d["page"] == "new" and d["ws"] == "map"),
+              3: ("Ctrl+2 left the New page", lambda d: d["page"] == "new" and d["ws"] == "map"),
+              7: ("the new project is not in the only tab", lambda d: d["tabs"] == "1/1")}),
+          "project-newpage-locked": expect_ui(9, [
+              ("Ctrl+Shift+N did not show the New page", lambda u: u[0][1]["page"] == "new"),
+              ("the side bar's Data left the New page", lambda u: u[1][1]["page"] == "new" and u[1][1]["ws"] == "map"),
+              ("Ctrl+2 left the New page", lambda u: u[2][1]["page"] == "new" and u[2][1]["ws"] == "map"),
+              ("Ctrl+3 left the New page", lambda u: u[3][1]["page"] == "new" and u[3][1]["ws"] == "map"),
+              ("Esc did not close the New page", lambda u: u[4][1]["page"] == "map"),
+              ("Ctrl+N did not show the start page", lambda u: u[5][1]["page"] == "start"),
+              ("the classic project card did not show the New page", lambda u: u[6][1]["page"] == "new" and u[6][1]["new"] == "classic"),
+              ("the side bar's Data left the classic New page", lambda u: u[7][1]["page"] == "new" and u[7][1]["ws"] == "map"),
+              ("Esc did not close the classic New page", lambda u: u[8][1]["page"] == "map" and u[8][1]["tabs"] == "1/1")]),
+          "project-close-data": expect_ui(1, [("closing the last tab in Data did not show the start page in Map",
+                                               lambda u: u[0][1]["page"] == "start" and u[0][1]["ws"] == "map")]),
+          "project-close-triggers": expect_ui(1, [("closing the last tab in Triggers did not show the start page in Map",
+                                                   lambda u: u[0][1]["page"] == "start" and u[0][1]["ws"] == "map")]),
+          "project-close-briefing": expect_ui(1, [("closing the last tab in Briefing did not show the start page in Map",
+                                                   lambda u: u[0][1]["page"] == "start" and u[0][1]["ws"] == "map")]),
+          "map-close-project-data": expect_ui(2, [
+              ("Ctrl+2 did not show the project's Data", lambda u: u[0][1]["ws"] == "data" and u[0][1]["tabs"] == "2/2"),
+              ("the classic map's tab after the project's (closed in Data) does not show its map",
+               lambda u: u[1][1]["ws"] == "map" and u[1][1]["page"] == "map" and u[1][1]["tabs"] == "1/1")]),
+          "project-edit-data": check_edit_elsewhere("data", {"copy", "paste", "quick"}, "data"),
+          "project-edit-triggers": check_edit_elsewhere("triggers", {"cut", "copy", "paste", "dup"}),
+          "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True)}
 
 # GitHub's answer for the newest release ({release}; /releases/latest, shortened): a release with a download for each
 # system, as tools/release.py and the macos-release job make it, indented as GitHub gives it to a request without a
@@ -2071,13 +2317,17 @@ def main():
             with open(releaseold, "w", encoding="utf-8") as f:
                 f.write(RELEASE_OLD_JSON)
         oldsettings, legacyhive = os.path.join(a.out, "old-settings.json"), os.path.join(a.out, "legacy-settings.hive")
+        nosnapsettings = os.path.join(a.out, "nosnap-settings.json")  # {nosnapsettings}: Snap buildings to tile edges off
+        if any("{nosnapsettings}" in x for x in args):
+            with open(nosnapsettings, "w", encoding="utf-8") as f:
+                json.dump({"Settings/SnapBuildings": 0}, f)
         if any("{oldsettings}" in x for x in args):
             write_old_settings(oldsettings, a.out)
         if any("{legacyhive}" in x for x in args):
             write_legacy_hive(legacyhive)
         paths = dict(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
                      kodir=kodir, wav=wav, release=release, oldsettings=oldsettings, legacyhive=legacyhive, pfdir=pfdir,
-                     releaseold=releaseold)
+                     releaseold=releaseold, nosnapsettings=nosnapsettings)
 
         def script(m):  # {script:<name>}: SCRIPTS[name] with the paths, as a file in --out
             path = os.path.join(a.out, f"{name}-{m.group(1)}.txt")

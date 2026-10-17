@@ -333,6 +333,11 @@ bool commandMapEdit(AppState& app, int id) {
         break;
     case ID_EDIT_CORRECTION: app.correction = !app.correction; break;
     case ID_OPT_DRAGBACK: app.dragSnapBack = !app.dragSnapBack; break;
+    case ID_OPT_SNAPBUILDINGS:  // buildings on tile edges, or where they are placed (the unit snap is for the other units)
+        app.snapBuildings = !app.snapBuildings;
+        setBuildingSnap(app.snapBuildings);
+        setMessage(app.snapBuildings ? L"Buildings: snap to tile edges" : L"Buildings: do not snap");
+        break;
     case ID_OPT_STACK:
         app.allowStacking = !app.allowStacking;
         for (auto& d : gDocs)
@@ -429,6 +434,7 @@ int mapMenuCheck(int id) {
     case ID_DOODAD_NEAREST: return app.doodadCheck && app.doodadNearest;
     case ID_DOODAD_ANYWHERE: return !app.doodadCheck;
     case ID_OPT_STACK: return app.allowStacking;
+    case ID_OPT_SNAPBUILDINGS: return app.snapBuildings;
     case ID_OPT_DRAGBACK: return app.dragSnapBack && !app.allowIllegalUnits;
     case ID_EDIT_TERRAINUNITS: return app.copyUnitsWithTerrain;
     case ID_OPT_LOCWRAP: return app.locationWrap;
