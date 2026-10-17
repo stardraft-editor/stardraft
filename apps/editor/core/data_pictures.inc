@@ -475,7 +475,9 @@ void simOrderStep(SpriteSim& sim, int image, int anim, int& pending, int& kind, 
         if (w != 3) return;
         kind = 3, pending = 24;
     }
-    if (const int h = sim.takeHandoff(); h && pending < 0) {
+    // Init that comes to a long wait: the unit is idle. The game does not start Init again (it makes the images
+    // again: a building's shadow showed its first frame for a tick, once a second), so the sprite stays as it is.
+    if (const int h = sim.takeHandoff(); h && pending < 0 && !(h == 3 && anim == 0)) {
         kind = h, pending = h == 2 ? 12 : 24;
         if (h == 1) {
             const int unit = unitOfImage(image), air = anim == 3 || anim == 6;
@@ -488,7 +490,8 @@ void simOrderStep(SpriteSim& sim, int image, int anim, int& pending, int& kind, 
     pending = -1;
     const int again = anim == 2 || anim == 5 ? 5 : anim == 3 || anim == 6 ? 6 : anim;  // an attack: its repeat
     if (kind == 1 || kind == 2) sim.playAnim(again);
-    else sim = imagePlayerSim(image, anim, sim.direction());
+    else if (sim.warpState()) sim = imagePlayerSim(image, anim, sim.direction());  // the whole warp-in again
+    else sim.playAnim(anim);  // the order gives the animation again to the sprite's images (they are not made again)
 }
 
 void sfxPlayOnce(int sfx);
@@ -524,6 +527,26 @@ bool imagePlayerTick() {
     // (A step can start the animation again, which sets `last` to the time now: compare, never subtract.)
     for (; now >= gImagePlayer.last + 42; gImagePlayer.last += 42) imagePlayerStep(), stepped = true;
     return stepped;
+}
+
+// A check of the image player (the SDL program's --check imageplayer): `anim` of `image` played from its start for
+// `ticks` ticks with Play on, as the player plays it; a line for each tick with what the stage draws (image/frame,
+// and :df<n> for a draw function). After it, the player has its settings again and starts its animation again.
+std::string imagePlayerRunText(int image, int anim, int ticks) {
+    const ImagePlayer kept = gImagePlayer;
+    imagePlayerStart(image, anim);
+    gImagePlayer.loop = true, gImagePlayer.muted = true, gImagePlayer.playing = false;
+    std::string out;
+    for (int t = 0; t < ticks; ++t) {
+        out += "tick " + std::to_string(t) + ":";
+        for (const auto& d : gImagePlayer.run.draws())
+            out += " " + std::to_string(d.image) + "/" + std::to_string(d.frame) + (d.drawFunction ? ":df" + std::to_string(d.drawFunction) : "");
+        out += "\n";
+        imagePlayerStep();
+    }
+    gImagePlayer = kept;  // (its sprites made by the script are shared with the run: so it starts again)
+    if (kept.image >= 0) imagePlayerStart(kept.image, kept.anim);
+    return out;
 }
 
 struct TimelineTick {

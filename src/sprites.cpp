@@ -677,9 +677,17 @@ void SpriteSim::runAnim(int index, int anim) {
     execute(index);
 }
 
+// Only the images there now: an image that the animation makes (imgol) runs its own Init, not this animation. (An
+// overlay made above an image moves that image one place down: by index it ran again, and each run made one more
+// overlay, up to the limit of images.)
 void SpriteSim::playAnim(int anim) {
-    for (size_t k = 0; k < images_.size(); ++k)
-        if (images_[k].alive && sp_->animOffset(images_[k].id, anim)) runAnim(int(k), anim);
+    for (auto& im : images_) im.queued = im.alive && sp_->animOffset(im.id, anim);
+    for (;;) {
+        const auto it = std::find_if(images_.begin(), images_.end(), [](const Image& im) { return im.queued; });
+        if (it == images_.end()) break;
+        it->queued = false;
+        runAnim(int(it - images_.begin()), anim);
+    }
 }
 
 void SpriteSim::tick() {
