@@ -889,12 +889,14 @@ void sdlGestureShot(const std::string& spec, bool smartZoom) {
     sdlCameraLine(name + spec, was, x, y);
 }
 
-// --pinch x,y,scale in a snapshot: a trackpad's pinch with the mouse at (x, y): it begins, the fingers move apart
-// (scale more than 1) or together, it ends.
+// --pinch x,y,scale[:Alt] in a snapshot: a trackpad's pinch with the mouse at (x, y): it begins, the fingers move
+// apart (scale more than 1) or together, it ends. Alt: held during it (the brush's size).
 void sdlPinchShot(const std::string& spec) {
     float x = 0, y = 0, scale = 1;
-    if (!gRoot || !gHost || std::sscanf(spec.c_str(), "%f,%f,%f", &x, &y, &scale) != 3)
-        return void(std::fprintf(stderr, "--pinch %s: not x,y,scale\n", spec.c_str()));
+    const size_t colon = spec.find(':');
+    const std::string mods = colon == std::string::npos ? "" : spec.substr(colon + 1);
+    if (!gRoot || !gHost || std::sscanf(spec.c_str(), "%f,%f,%f", &x, &y, &scale) != 3 || (!mods.empty() && mods != "Alt"))
+        return void(std::fprintf(stderr, "--pinch %s: not x,y,scale[:Alt]\n", spec.c_str()));
     std::vector<SDL_Event> events(4);
     events[0].type = SDL_EVENT_MOUSE_MOTION;
     events[0].motion.x = x, events[0].motion.y = y;
@@ -903,7 +905,10 @@ void sdlPinchShot(const std::string& spec) {
     events[2].pinch.scale = scale;
     events[3].type = SDL_EVENT_PINCH_END;
     const SdlCamera was = sdlCamera();
+    const SDL_Keymod before = SDL_GetModState();
+    if (!mods.empty()) SDL_SetModState(SDL_Keymod(before | SDL_KMOD_LALT));
     gHost->snapshotMouse(*gRoot, events);
+    SDL_SetModState(before);
     runPosted();
     sdlInputLine("pinch " + spec);
     sdlCameraLine("pinch " + spec, was, x, y);

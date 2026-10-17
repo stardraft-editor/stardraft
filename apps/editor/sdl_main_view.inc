@@ -234,7 +234,9 @@ struct MapView final : draw::View {
             invalidate();
             return true;
         case draw::MouseKind::Pinch:  // the zoom around the point between the fingers (core/map_input.inc: mapPinch)
-            if (!open() || !mapPinch(gState, float(e.pt.x), float(e.pt.y), e.pinch)) return false;
+            if (!open()) return false;  // Alt: the active brush's size (mapBrushPinch); no brush: the zoom
+            if (!((e.mods & draw::kAlt) && mapBrushPinch(gState, e.pinch)) && !mapPinch(gState, float(e.pt.x), float(e.pt.y), e.pinch))
+                return false;
             updateStatus();
             invalidate();
             return true;
@@ -621,9 +623,11 @@ struct MainView final : draw::View {
         const auto found = gWorkspaceViews.find(gWorkspace);
         draw::View* wsView = mapWs || found == gWorkspaceViews.end() ? nullptr : found->second;
         for (auto& [w, v] : gWorkspaceViews) apply(*v, L.workspace, v == wsView);  // (the whole workspace, as the Windows windows)
-        apply(gStartView, L.view, startShown);
+        // The start page and "Not on this system yet" take the whole workspace too: the map's side columns are not
+        // shown with them (L.view keeps their room, so a narrow window cut the start page's cards off).
+        apply(gStartView, L.workspace, startShown);
         apply(gNewView, L.view, newShown);
-        apply(notHere, L.view, !mapWs && !wsView && !startShown && !newShown);
+        apply(notHere, L.workspace, !mapWs && !wsView && !startShown && !newShown);
         // A hidden pane keeps no keyboard: when a switch hid the focused one (a search box, the palette's list), the
         // window's root takes the focus, so the keys reach the menus and shortcuts, not a box nobody sees.
         for (View* c : children())

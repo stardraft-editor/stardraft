@@ -801,6 +801,19 @@ void mapSmartZoom(AppState& app, float x, float y) {
     if (app.zoom == was) mapZoomAt(app, x, y, 0.5f), before = after = 0;  // (at the largest zoom: out)
     else before = was, after = app.zoom;
 }
+// Alt + pinch on the map: the active brush (as Alt + wheel) one size up when the fingers have moved apart by a step,
+// down when together. The steps add up over the pinch's events (each one is a small change). False when no brush is
+// active (the pinch zooms then).
+bool mapBrushPinch(AppState& app, float scale) {
+    static float gathered = 1;  // (what is left of the pinch since the last size: less than a step)
+    constexpr float kStep = 1.15f;
+    if (!(scale > 0) || !mapBrushActive(app)) return false;
+    gathered = std::clamp(gathered * scale, 1 / (kStep * kStep), kStep * kStep);
+    for (; gathered >= kStep; gathered /= kStep) mapBrushWheel(app, true);
+    for (; gathered <= 1 / kStep; gathered *= kStep) mapBrushWheel(app, false);
+    return true;
+}
+
 // A pinch on the map: the zoom changes by `scale` (more than 1: in) around the point between the fingers (x, y).
 bool mapPinch(AppState& app, float x, float y, float scale) {
     if (!(scale > 0) || scale == 1) return false;
