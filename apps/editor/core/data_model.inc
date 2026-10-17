@@ -269,8 +269,8 @@ bool extrasSaved() {
     for (int k = 0; k < kExtraKinds; ++k) {
         const std::string now = extrasText(k);
         if (now == dataExtras().saved[k]) continue;
-        const int tab = k == kExtraStrings ? stringsTab() : k == kExtraButtons ? buttonsTab() : dataState().datTab;
-        dataState().history.recordExtra(tab, dataState().entry, k + 1, Bytes(dataExtras().saved[k].begin(), dataExtras().saved[k].end()), Bytes(now.begin(), now.end()));
+        // The step shows where the edit was made: a unit's Rename changes a string, and its Undo stays on the unit.
+        dataState().history.recordExtra(dataState().datTab, dataState().entry, k + 1, Bytes(dataExtras().saved[k].begin(), dataExtras().saved[k].end()), Bytes(now.begin(), now.end()));
         dataExtras().saved[k] = now;
         if (dataState().project) {
             const fs::path f = extrasFile(*dataState().project, k);

@@ -336,7 +336,7 @@ bool sdlDataUndo(bool redo) {
     }
     if (s.tab >= 0 && s.tab < dataTabCount()) {
         gSdlDataState.tabEntry.resize(size_t(dataTabCount()), 0);
-        if (!s.extra) gSdlDataState.tabEntry[size_t(s.tab)] = s.entry;
+        gSdlDataState.tabEntry[size_t(s.tab)] = s.entry;  // (an extra's step too: its tab and entry are where it was made)
         sdlDataShowTab(s.tab);
         sdlDataSelect(s.entry);
     }
