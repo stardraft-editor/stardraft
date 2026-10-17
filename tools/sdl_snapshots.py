@@ -926,13 +926,13 @@ history
 key Ctrl+Z
 history
 """,
-    "dataundohistory": """click 671,742
+    "dataundohistory": """click 620,259
 type 50
 key Enter
 history
-click 624,768
+click 554,285
 history
-click 624,768
+click 554,285
 history
 command edit.history
 key Down
@@ -966,7 +966,7 @@ key Up
 key Enter
 history
 """,
-    "datamaphistory": """click 671,742
+    "datamaphistory": """click 620,259
 type 50
 key Enter
 history
