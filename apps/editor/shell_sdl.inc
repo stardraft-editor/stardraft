@@ -156,6 +156,18 @@ std::filesystem::path shellUnsavedRoot() {
 #endif
     return dir.empty() ? fs::path() : dir / "StarDraft" / "Unsaved";
 }
+std::filesystem::path shellCacheFolder() {
+    if (gSilent) return {};  // (a test run keeps nothing and reads nothing that a run before kept)
+    fs::path dir;
+#if defined(_WIN32)
+    if (const wchar_t* l = _wgetenv(L"LOCALAPPDATA"); l && *l) dir = fs::path(l) / "StarDraft" / "Cache";
+#elif defined(__APPLE__)
+    if (const char* h = std::getenv("HOME"); h && *h) dir = fs::path(h) / "Library" / "Caches" / "StarDraft";
+#else
+    if (const fs::path x = stardraft::xdg::cacheHome(); !x.empty()) dir = x / "StarDraft";
+#endif
+    return dir;
+}
 // The save question: Save, Do not save or Cancel, in the message box (core/views_message_box.inc; Escape, or no window, is Cancel).
 int shellAskSaveChanges(bool project) {
     if (!gRoot) return 2;

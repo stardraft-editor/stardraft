@@ -2115,3 +2115,29 @@ Delete 1 location	Удалить 1 локацию
 Delete %d locations	Удалить локации: %d
 Change 1 location	Изменить 1 локацию
 Change %d locations	Изменить локации: %d
+&What is new	&Что нового
+Update	Обновить
+Show the release notes of the newer release	Показать примечания к новой версии
+Release notes	Примечания к выпуску
+Open on GitHub	Открыть на GitHub
+Open the release page in the browser	Открыть страницу выпуска в браузере
+Install	Установить
+Download	Скачать
+Download and install it. StarDraft 2 starts again after it.	Скачать и установить. После этого StarDraft 2 запустится снова.
+The download opens in the browser	Загрузка откроется в браузере
+This release has no release notes	У этого выпуска нет примечаний
+Getting the release notes from GitHub…	Получение примечаний к выпуску с GitHub…
+Could not get the release notes. GitHub cannot be reached.	Не удалось получить примечания к выпуску. GitHub недоступен.
+Published	Опубликовано
+Pre-release	Предварительный выпуск
+GitHub cannot be reached: this is the copy from before	GitHub недоступен: это сохранённая ранее копия
+Open the release page on GitHub to read the release notes.	Откройте страницу выпуска на GitHub, чтобы прочитать примечания.
+Look for updates	Проверять обновления
+At start and one time each hour (release builds only)	При запуске и раз в час (только релизные сборки)
+Previews	Предварительные версии
+Pre-releases too, not only the stable releases	Также предварительные выпуски, а не только стабильные
+Updates	Обновления
+StarDraft 2 offers pre-releases too	StarDraft 2 предлагает и предварительные выпуски
+StarDraft 2 offers the stable releases only	StarDraft 2 предлагает только стабильные выпуски
+StarDraft 2 looks for a newer release at start and each hour	StarDraft 2 ищет новую версию при запуске и каждый час
+StarDraft 2 does not look for newer releases	StarDraft 2 не ищет новые версии

@@ -106,6 +106,8 @@
 #include "list_view.h"  // apps/kit: the palette and the Locations list (sdl_panels.inc)
 #include "button.h"  // apps/kit: the View button (sdl_panels.inc)
 #include "tree_view.h"  // apps/kit: the Triggers workspace's tree (core/views_triggers_tree.inc)
+#include "scroll_view.h"  // apps/kit: the release notes' scrolling (core/views_changelog.inc)
+#include "core/html_view.h"  // the HTML view: the release notes (core/views_changelog.inc)
 #include "res/ui_icons.h"
 #include "stardraft/commands.h"
 #include "stardraft/dat_edit.h"
@@ -416,6 +418,7 @@ int main(int argc, char** argv) {
         else if (a == "--midpan") midPanArg = true;  // the middle button's pan and drag of the map as text, after the snapshot
         else if (a == "--cursors") cursorsArg = true;  // the map view's and a text field's cursors as text, after the snapshot
         else if (a == "--check") checkArgs.push_back(next());  // a check's name (checkArgs): its lines after the snapshot
+        else if (a == "--release") sdlSetReleaseFixture(next());  // GitHub's answer for the newest release in a file, in place of GitHub's (sdl_updates.inc)
         else if (a == "--key") inputArgs.emplace_back('k', next());  // a key (Ctrl+A, 5, Ctrl+2: Ctrl is Cmd on macOS) pressed in the window, for a snapshot
         else if (a == "--click") inputArgs.emplace_back('c', next());  // x,y[:mods]: a left click there (window pixels; mods Shift+Ctrl+Alt), for a snapshot
         else if (a == "--drag") inputArgs.emplace_back('d', next());  // x0,y0-x1,y1[:mods]: a left drag from the first point to the second, for a snapshot
@@ -650,6 +653,7 @@ int main(int argc, char** argv) {
         // --check: one list for all the checks. Each part of the program takes its own values (false: not its value);
         // a value that no part takes is WRONG. (A new check: one more "||" here, not one more --check option.) The
         // window's, the menu bar's and the Dock's lines come after the snapshot (hasCheck).
+        sdlApplyReleaseFixture();  // (--release: the top bar's Update)
         for (const std::string& c : checkArgs) {
             std::string out;
             const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform";
@@ -710,6 +714,7 @@ int main(int argc, char** argv) {
             else if (dialogArg.rfind("blockhelp:", 0) == 0) shown = &gSdlBlockHelp, gSdlBlockHelp.setBlock(dialogArg.substr(10));  // a block's help page (--size 460x600)
             else if (mapShot.view) shown = mapShot.view;
             else if (valueShot) shown = valueShot.get();
+            else if (draw::View* notes = sdlChangelogShot(dialogArg, width, height)) shown = notes;  // html:<file>, changelog, changelog:offline (sdl_updates.inc)
             msgbox::MessageView messageShot;
             TipView tipShot;
             if (dialogArg == "about") {
@@ -808,6 +813,7 @@ int main(int argc, char** argv) {
             if (noInstallArg || !pickInstallArg.empty())  // the start page's banner (no install found), as the picture shows it
                 std::printf("start page: banner %s; note: %s; game data %s\n", gStartView.bannerShown() ? "shown" : "not shown",
                             gStartView.installNote.empty() ? "none" : narrow(gStartView.installNote).c_str(), gDataOk ? "open" : "not open");
+            sdlChangelogShotLines(dialogArg, shown == &root);  // (the HTML view's layout, the release notes, the top bar's Update)
             if (gOptionsView.tab() >= 0) std::printf("options tab %d: content %d px high\n", gOptionsView.tab(), gOptionsView.contentHeight());
             if (hasCheck("dock")) sdlDockCheck("dock");
             if (midPanArg) sdlMidPanCheck();  // (after the picture: it moves the camera)

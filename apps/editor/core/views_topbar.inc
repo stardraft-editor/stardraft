@@ -37,8 +37,15 @@ RECT topBarModesRect() {
 
 // The bar as a view: its click areas (the icons, Build, Debug, Report feedback) are its surface's hits, which its mouse,
 // cursor and tips read.
+// The Update button's text and tooltip (the release's version: its tag, else its title).
+inline std::wstring topBarUpdateLabel() { return L"Update"; }  // (the canvas translates it)
+inline std::wstring topBarUpdateTip(const releases::Release& r) {
+    return std::wstring(tr(L"Show the release notes of the newer release")) + L" (" + widen(r.tag.empty() ? r.title : r.tag) + L")";
+}
+
 struct TopBarView final : stardraft::draw::View {
     kitui::Surface surface;
+    RECT updateRc{};  // the Update button at the last paint (empty: not shown)
     void paint(stardraft::draw::Canvas& c) override {
         using stardraft::draw::Font;
         using stardraft::draw::kMiddle;
@@ -75,6 +82,23 @@ struct TopBarView final : stardraft::draw::View {
         c.text({fb.left + b - scale(2), y, fb.right - scale(6), y + b}, fbText, fhot ? kText : kDim, kMiddle);
         c.setFont(ofb);
         surface.add({fb, nullptr, [] { command(ID_HELP_FEEDBACK); }, L"Report feedback: what works, what does not, ideas", draw::Cursor::Hand});
+        // Update, before it: a newer release is out (the update check at start and each hour found it). Tinted with the
+        // accent; a click shows its release notes, with Install.
+        updateRc = {};
+        if (const std::optional<releases::Release>& up = releases::available()) {
+            const Font ofu = c.setFont(ui);
+            const std::wstring label = topBarUpdateLabel();
+            const int bh = scale(stardraft::kit::kButtonH), uy = (h - bh) / 2;
+            const int uw = scale(12) + scale(16) + scale(8) + c.measure(label) + scale(14);
+            const RECT ub{fb.left - scale(8) - uw, uy, fb.left - scale(8), uy + bh};
+            const bool uhot = surface.hot(ub);
+            kitpaint::drawBox(c, ub, uhot ? kSelHot : kSel, kAccentLine);
+            c.icon({ub.left + scale(12), ub.top, ub.left + scale(12) + scale(16), ub.bottom}, int(UiIcon::Update), kAccentBright, scale(16));
+            c.text({ub.left + scale(12) + scale(16) + scale(8), ub.top, ub.right, ub.bottom}, label, kOnText, kMiddle);
+            c.setFont(ofu);
+            surface.add({ub, nullptr, [] { command(ID_UPDATE_NOTES); }, topBarUpdateTip(*up), draw::Cursor::Hand});
+            updateRc = ub;
+        }
         if (activeProject()) {
             const std::wstring text = gBuilding ? L"Building" : L"Build";
             const Font of2 = c.setFont(ui);

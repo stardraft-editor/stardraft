@@ -32,6 +32,7 @@ struct OptionsValues {
     int unitLimit[2] = {3400, 1700};  // standard maps, EUD projects
     bool openLast = false;
     bool checkUpdates = false;
+    bool previews = false;    // Updates > Previews: the pre-releases too (else the stable releases only)
     int crashReports = 0;     // 0 ask, 1 send, 2 do not send
     bool mapsWithSD2 = false; // .scm and .scx open with StarDraft 2
     bool mapsRow = true;      // the Maps row shows (the file association: the Windows program's)
@@ -70,7 +71,7 @@ namespace optionsview {
 // some sections, in this order.
 enum Section : unsigned {
     kAppearance = 1u << 0, kMouse = 1u << 1, kUnitNames = 1u << 2, kUnitLimit = 1u << 3, kStart = 1u << 4,
-    kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kAllSections = (1u << 7) - 1,
+    kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kUpdates = 1u << 7, kAllSections = (1u << 8) - 1,
 };
 struct Tab {
     const wchar_t* name;  // the toolbar item's label and the window's title
@@ -79,7 +80,7 @@ struct Tab {
 inline const Tab kTabs[] = {
     {L"General", kAppearance | kMouse},
     {L"Map", kUnitNames | kUnitLimit},
-    {L"Start", kStart},
+    {L"Start", kStart | kUpdates},
     {L"Folders", kWorkingFolder | kStarCraftFolder},
 };
 constexpr int kTabCount = int(sizeof kTabs / sizeof kTabs[0]);
@@ -115,10 +116,14 @@ public:
         animate_.onChange = [this](bool) { host_.command(ID_OPT_ANIMATE); };
         lastProject_.setLabel(L"Open the last project on start");
         lastProject_.onChange = [this](bool) { host_.command(ID_OPT_LASTPROJECT); };
-        updates_.setLabel(L"Look for updates on start");
-        updates_.setTip(L"Release builds only");
+        updates_.setLabel(L"Look for updates");
+        updates_.setTip(L"At start and one time each hour (release builds only)");
         updates_.onChange = [this](bool) { host_.command(ID_OPT_UPDATECHECK); };
-        for (auto* c : {static_cast<draw::View*>(&animate_), static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&updates_)})
+        previews_.setLabel(L"Previews");
+        previews_.setTip(L"Pre-releases too, not only the stable releases");
+        previews_.onChange = [this](bool) { host_.command(ID_OPT_PREVIEWS); };
+        for (auto* c : {static_cast<draw::View*>(&animate_), static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&updates_),
+                        static_cast<draw::View*>(&previews_)})
             add(*c, {0, 0, 0, 0}), c->setVisible(false);
         language_.onChange = [this](int i) {
             if (i >= 0 && i < int(langChoices_.size())) host_.command(ID_OPT_LANG + langChoices_[size_t(i)]);
@@ -275,7 +280,7 @@ private:
     OptionsHost& host_;
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, check_, restart_, maps_, close_;
-    stardraft::kit::CheckBox animate_, lastProject_, updates_;
+    stardraft::kit::CheckBox animate_, lastProject_, updates_, previews_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
     stardraft::kit::Slider slider_;
     stardraft::kit::TextField limit_[2], folder_, install_;
@@ -320,7 +325,7 @@ void OptionsView::sync(const OptionsValues& v) {
         for (int i = 0; i < 3; ++i) crashSeg_[i].setTone(i == crash ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
     }
     accents_ = v.accents;
-    animate_.setOn(v.animate), lastProject_.setOn(v.openLast), updates_.setOn(v.checkUpdates);
+    animate_.setOn(v.animate), lastProject_.setOn(v.openLast), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
     // The languages offered (rebuilt when they change), the chosen one.
     if (langChoices_.size() != v.languages.size() || !std::equal(langChoices_.begin(), langChoices_.end(), v.languages.begin(), [](int a, const auto& b) {
             return a == b.first;
@@ -509,13 +514,6 @@ void OptionsView::paint(draw::Canvas& c) {
         header(L"Start");
         checkRow(y, lastProject_, "lastproject");
         y += rowH;
-        {
-            const draw::Rect cr{x0, y, x0 + scale(24) + c.measure(updates_.label()), y + rowH};  // as ui::check
-            place(updates_, cr, true);
-            parts_["updatecheck"] = cr;
-            smallAt(check_, cr.right + scale(16), y, "check");
-        }
-        y += rowH;
         // Crash reports (GitHub feedback #45): a crash always keeps its report on this computer; ask, send or not.
         label(L"Crash reports");
         segmented(y, crashSeg_, 3, "crashreports");
@@ -527,6 +525,21 @@ void OptionsView::paint(draw::Canvas& c) {
             else smallAt(maps_, fx, y, "maps");
             y += rowH;
         }
+        y += pad;
+    }
+
+    // Updates: the check at start and each hour (the top bar's Update shows a newer release), and the track.
+    if (shown & optionsview::kUpdates) {
+        header(L"Updates");
+        {
+            const draw::Rect cr{x0, y, x0 + scale(24) + c.measure(updates_.label()), y + rowH};  // as ui::check
+            place(updates_, cr, true);
+            parts_["updatecheck"] = cr;
+            smallAt(check_, cr.right + scale(16), y, "check");
+        }
+        y += rowH;
+        checkRow(y, previews_, "previews");
+        y += rowH;
         y += pad;
     }
 

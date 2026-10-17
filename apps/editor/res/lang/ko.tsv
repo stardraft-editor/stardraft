@@ -2115,3 +2115,29 @@ Delete 1 location	위치 1개 삭제
 Delete %d locations	위치 %d개 삭제
 Change 1 location	위치 1개 변경
 Change %d locations	위치 %d개 변경
+&What is new	새로운 기능(&W)
+Update	업데이트
+Show the release notes of the newer release	새 릴리스의 릴리스 노트 보기
+Release notes	릴리스 노트
+Open on GitHub	GitHub에서 열기
+Open the release page in the browser	브라우저에서 릴리스 페이지 열기
+Install	설치
+Download	다운로드
+Download and install it. StarDraft 2 starts again after it.	다운로드하여 설치합니다. 그 후 StarDraft 2가 다시 시작됩니다.
+The download opens in the browser	브라우저에서 다운로드가 열립니다
+This release has no release notes	이 릴리스에는 릴리스 노트가 없습니다
+Getting the release notes from GitHub…	GitHub에서 릴리스 노트를 가져오는 중…
+Could not get the release notes. GitHub cannot be reached.	릴리스 노트를 가져올 수 없습니다. GitHub에 연결할 수 없습니다.
+Published	게시일
+Pre-release	시험판
+GitHub cannot be reached: this is the copy from before	GitHub에 연결할 수 없음: 이전에 저장한 사본입니다
+Open the release page on GitHub to read the release notes.	GitHub에서 릴리스 페이지를 열어 릴리스 노트를 읽으십시오.
+Look for updates	업데이트 확인
+At start and one time each hour (release builds only)	시작할 때와 매시간 한 번 (릴리스 빌드만)
+Previews	미리 보기 릴리스
+Pre-releases too, not only the stable releases	안정 릴리스뿐 아니라 시험판도
+Updates	업데이트
+StarDraft 2 offers pre-releases too	StarDraft 2가 시험판도 제공합니다
+StarDraft 2 offers the stable releases only	StarDraft 2가 안정 릴리스만 제공합니다
+StarDraft 2 looks for a newer release at start and each hour	StarDraft 2는 시작할 때와 매시간 새 릴리스를 확인합니다
+StarDraft 2 does not look for newer releases	StarDraft 2는 새 릴리스를 확인하지 않습니다

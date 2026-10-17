@@ -190,6 +190,7 @@ MenuModel buildMenuModel() {
                    menuItem(ID_HELP_DISCORD, L"Join &Discord"),
                    menuItem(ID_HELP_GITHUB, L"StarDraft 2 on &GitHub"),
                    menuSeparator(),
+                   menuItem(ID_HELP_WHATSNEW, L"&What is new"),
                    menuItem(ID_HELP_UPDATES, L"Check for &updates"),
                    menuItem(ID_HELP_ABOUT, L"&About StarDraft 2")};
     return MenuModel{menuPopup(L"&File", file), menuPopup(L"&Edit", edit), menuPopup(L"&View", view), menuPopup(L"&Mode", mode),

@@ -199,6 +199,8 @@ bool sdlOptionsCommand(int id) {
 
 bool sdlMapsOpenWithUs();  // (shell_sdl_win.inc)
 
+bool sdlUpdatePreviews();  // (sdl_updates.inc: Updates > Previews)
+
 // The program's part of the options window: the values, the commands, the folder and the sliders' changes.
 class OptionsProgramSdl final : public OptionsHost {
 public:
@@ -223,6 +225,7 @@ public:
         prefs::flag(L"OpenLastProject", flag), v.openLast = flag;
         flag = true;
         prefs::flag(L"CheckUpdates", flag), v.checkUpdates = flag;
+        v.previews = sdlUpdatePreviews();  // (sdl_updates.inc)
         int crash = 0;
         prefs::number(L"CrashReports", crash, 0, 2), v.crashReports = crash;
         v.installInUse = gInstallInUse.empty() ? std::wstring() : gInstallInUse.wstring();
