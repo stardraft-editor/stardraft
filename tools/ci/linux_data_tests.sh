@@ -27,7 +27,9 @@ run hd_test "$build/hd_test" "$install"
 run portrait_test "$build/portrait_test" "$install" "$(s portrait_test)"
 run pathing_test "$build/pathing_test" "$install" "$maps"
 run briefing_test "$build/briefing_test" "$install"
-run isom_test "$build/isom_test" "$maps"
+run isom_test "$build/isom_test" "$install" "$maps"
+# The terrain core against StarEdit and ScmDraft: IsomTerrain's reference maps (in the repository).
+run isomterrain_test "$build/isomterrain_test" "$install" "$(dirname "$0")/../../third_party/IsomTerrain/Map Testing Pack"
 run trigger_test "$build/trigger_test" "$(s trigger_test)" "$install" "$maps/BroodWar/(2)Binary Burghs.scx"
 run dat_test "$build/dat_test" "$install" "$maps/BroodWar/(2)Binary Burghs.scx" "$(s dat_test)"
 # The renderer (Vulkan; with SDL_VIDEODRIVER=offscreen no window is needed), when the build has it. It needs a Vulkan

@@ -29,7 +29,6 @@ int main(int argc, char** argv) {
     const bool fresh = src.rfind("--new", 0) == 0;
     const uint16_t era = fresh && src.size() > 6 ? uint16_t(std::atoi(src.c_str() + 6)) : 0;
     bool ok = fresh ? ed.newMap(128, 128, era, 1, err) : ed.open(argv[2], err);
-    tileRegenStats() = {};
     if (!ok || !ed.canPaintTerrain()) return std::fprintf(stderr, "cannot paint: %s\n", err.c_str()), 1;
     int strokes = argc > 4 ? std::atoi(argv[4]) : 60;
     std::mt19937 rng(argc > 5 ? unsigned(std::atoi(argv[5])) : 1u);
@@ -60,7 +59,7 @@ int main(int argc, char** argv) {
             if (std::getenv("PS_TRACE")) {
                 static int last = 0;
                 std::vector<std::pair<int, int>> wh;
-                const int now = countTileMisfits(ed.chk(), &wh);
+                const int now = countTileMisfits(ed.chk(), ed.tileset(), &wh);
                 if (now > last) std::printf("stroke %d step %d at (%d,%d) terrain %d brush %d: misfits %d -> %d, first (%d,%d)\n", s, i, int(x + dx * i) / 32 * 2, int(y + dy * i) / 32, terrain, brush, last, now, wh[0].first, wh[0].second);
                 last = now;
             }
@@ -69,11 +68,10 @@ int main(int argc, char** argv) {
         ed.endTerrainStroke();
         strokeEnd = std::max(strokeEnd, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t1).count());
     }
-    std::printf("tiles: %ld from the rules, %ld predicted, %ld unknown (the old tile stays); invalid diamonds %d\n", tileRegenStats().chosen,
-                tileRegenStats().predicted, tileRegenStats().unknown, ed.invalidTerrain());
+    std::printf("invalid diamonds %d\n", ed.invalidTerrain());
     {
         std::vector<std::pair<int, int>> where;
-        const int bad = countTileMisfits(ed.chk(), &where);
+        const int bad = countTileMisfits(ed.chk(), ed.tileset(), &where);
         std::printf("misfits: %d", bad);
         for (size_t k = 0; k < where.size() && k < 8; ++k) std::printf(" (%d,%d)", where[k].first, where[k].second);
         std::printf("\n");

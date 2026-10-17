@@ -1,11 +1,11 @@
 // Validate the ISOM model on every map (all tilesets) under the given directories:
 //  1. decode + store without edits leaves ISOM/TILE/MTXM untouched
 //  2. every decoded diamond is a valid shape
-//  3. regenerating all of TILE from ISOM matches the original TILE (with STARDRAFT_INSTALL set: also through the
-//     terrain core, IsomCore::retile, the learned rules only for rects no tile group fits)
+//  3. regenerating all of TILE from ISOM (the terrain core: StarEdit's tiles from the tileset's CV5) matches the
+//     original TILE
 //  4. random paints leave no invalid diamonds and stack-consistent tiles
 //
-// usage: isom_test <maps dir> [more dirs, e.g. extracted campaign .chk files]
+// usage: isom_test <StarCraft install> <maps dir> [more dirs, e.g. extracted campaign .chk files]
 
 #include <algorithm>
 #include <cctype>
@@ -28,10 +28,14 @@ namespace fs = std::filesystem;
 using namespace stardraft;
 
 int main(int argc, char** argv) {
-    if (argc < 2) {
-        std::fprintf(stderr, "usage: isom_test <maps dir> [more dirs]\n");
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: isom_test <StarCraft install> <maps dir> [more dirs]\n");
         return 2;
     }
+    GameData data;
+    std::string dataErr;
+    if (!data.open(argv[1], dataErr)) return std::fprintf(stderr, "%s\n", dataErr.c_str()), 2;
+    Tileset tilesets[8];
     int maps = 0, failures = 0, perMaps[8] = {}, perFail[8] = {};
     size_t tilesTotal = 0, tilesSame = 0, perTotal[8] = {}, perSame[8] = {};
     // Blizzard's own maps (what the tile rules must reproduce): "(n)Name" maps outside a "ladder"
@@ -39,15 +43,8 @@ int main(int argc, char** argv) {
     size_t blizTotal[8] = {}, blizSame[8] = {};
     int blizMaps[8] = {};
     std::mt19937 rng(1234);
-    // The terrain core's regeneration beside the learned rules' (needs the game's CV5: STARDRAFT_INSTALL).
-    GameData data;
-    std::string dataErr;
-    const char* install = std::getenv("STARDRAFT_INSTALL");
-    const bool core = install && data.open(install, dataErr);
-    Tileset tilesets[8];
-    size_t coreSame = 0, perCoreSame[8] = {}, blizCoreSame[8] = {}, coreMissed = 0;
     std::vector<fs::path> files;
-    for (int d = 1; d < argc; ++d)
+    for (int d = 2; d < argc; ++d)
         for (const auto& entry : fs::recursive_directory_iterator(argv[d])) files.push_back(entry.path());
     for (const auto& path : files) {
         std::string ext = path.extension().string();
@@ -66,8 +63,15 @@ int main(int argc, char** argv) {
         const IsomTerrainTable* table = IsomTerrainTable::forEra(era);
         std::string name = std::string(tilesetName(era)) + "  " + path.filename().string();
         const int failuresBefore = failures;
+        if (tilesets[era & 7].groups.empty() && !tilesets[era & 7].load(data, uint16_t(era & 7), err)) {
+            std::printf("TILESET FAIL %s: %s\n", name.c_str(), err.c_str());
+            ++failures;
+            continue;
+        }
+        const Tileset& tileset = tilesets[era & 7];
 
         IsomGrid grid;
+        grid.setTileset(&tileset);
         if (!grid.load(chk, err)) {
             std::printf("LOAD SKIP %s: %s\n", name.c_str(), err.c_str());  // e.g. a truncated ISOM section
             continue;
@@ -88,7 +92,7 @@ int main(int argc, char** argv) {
         // 3. full regeneration
         Chk regen = chk;
         std::vector<uint8_t> all(size_t(grid.rectCols()) * grid.rectRows(), 1);
-        if (!regenerateTiles(regen, all, err)) {
+        if (!regenerateTiles(regen, all, tileset, err)) {
             std::printf("REGEN FAIL %s: %s\n", name.c_str(), err.c_str());
             ++failures;
             perFail[era] += failures - failuresBefore;
@@ -107,25 +111,7 @@ int main(int argc, char** argv) {
         for (const auto& part : path.parent_path())
             if (part == "ladder") blizzard = false;
         if (blizzard) blizTotal[era] += n, blizSame[era] += same, ++blizMaps[era];
-        size_t sameCore = 0;
-        if (core && (!tilesets[era].groups.empty() || tilesets[era].load(data, era, err))) {
-            Chk viaCore = chk;
-            IsomCore c;
-            std::vector<uint8_t> missed;
-            if (c.load(viaCore, tilesets[era], err)) {
-                c.retile({}, &missed);
-                c.store(viaCore);
-                for (uint8_t m : missed) coreMissed += m;
-                if (std::find(missed.begin(), missed.end(), 1) != missed.end()) regenerateTiles(viaCore, missed, err);
-                const TerrainLayer t = readTerrain(viaCore, "TILE");
-                for (size_t i = 0; i < a.tiles.size() && i < t.tiles.size(); ++i)
-                    if ((a.tiles[i] >> 4) < 1024) sameCore += (a.tiles[i] >> 4) == (t.tiles[i] >> 4);
-            }
-            coreSame += sameCore, perCoreSame[era] += sameCore;
-            if (blizzard) blizCoreSame[era] += sameCore;
-        }
-        std::printf("%-55s regen match %.4f%s\n", name.c_str(), n ? double(same) / n : 1.0,
-                    core ? (", core " + std::to_string(n ? double(sameCore) / n : 1.0).substr(0, 6)).c_str() : "");
+        std::printf("%-55s regen match %.4f\n", name.c_str(), n ? double(same) / n : 1.0);
 
         // 4. random paints with this tileset's terrains. Needs a consistent start: some maps were edited by
         // hand so that neighboring corners hold terrains that cannot touch (tree distance > 1); repairs
@@ -145,6 +131,7 @@ int main(int argc, char** argv) {
         }
         Chk edited = chk;
         IsomGrid g2;
+        g2.setTileset(&tileset);
         g2.load(edited, err);
         for (int k = 0; k < 20; ++k) {
             int y = int(rng() % grid.rectRows()), x = int(rng() % grid.rectCols());
@@ -165,19 +152,14 @@ int main(int argc, char** argv) {
     }
     std::printf("\n");
     for (int e = 0; e < 8; ++e)
-        std::printf("%-9s %3d maps, %d failures, regen match %.4f%s\n", tilesetName(uint16_t(e)), perMaps[e], perFail[e],
-                    perTotal[e] ? double(perSame[e]) / perTotal[e] : 1.0,
-                    core ? (", core " + std::to_string(perTotal[e] ? double(perCoreSame[e]) / perTotal[e] : 1.0).substr(0, 6)).c_str() : "");
+        std::printf("%-9s %3d maps, %d failures, regen match %.4f\n", tilesetName(uint16_t(e)), perMaps[e], perFail[e],
+                    perTotal[e] ? double(perSame[e]) / perTotal[e] : 1.0);
     std::printf("\nBlizzard maps only (roadmap 3.2: >= 99%% per tileset):\n");
     for (int e = 0; e < 8; ++e) {
         const double m = blizTotal[e] ? double(blizSame[e]) / blizTotal[e] : 1.0;
-        std::printf("%s %-9s %3d maps, regen match %.4f%s\n", m >= 0.99 ? "ok  " : "FAIL", tilesetName(uint16_t(e)), blizMaps[e], m,
-                    core ? (", core " + std::to_string(blizTotal[e] ? double(blizCoreSame[e]) / blizTotal[e] : 1.0).substr(0, 6)).c_str() : "");
+        std::printf("%s %-9s %3d maps, regen match %.4f\n", m >= 0.99 ? "ok  " : "FAIL", tilesetName(uint16_t(e)), blizMaps[e], m);
         if (m < 0.99) ++failures;
     }
     std::printf("\n%d maps, %d failures, overall regen match %.4f\n", maps, failures, tilesTotal ? double(tilesSame) / tilesTotal : 1.0);
-    if (core)
-        std::printf("through the terrain core: overall regen match %.4f (%zu rects no tile group fits: the learned rules)\n",
-                    tilesTotal ? double(coreSame) / tilesTotal : 1.0, coreMissed);
     return failures ? 1 : 0;
 }

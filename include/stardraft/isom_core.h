@@ -76,4 +76,40 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
+// The terrain core's tables for a tileset (made from its CV5 once), as questions about rects, for StarDraft's own
+// terrain engine (isom.h) in place of tables learned from maps. A rect (2 x 1 tiles, rect-grid point (rx, ry)) lies
+// between two diamonds; `parity` is (rx + ry) & 1, `left` and `right` are their shapes (ISOM values): even parity, the
+// diamonds (rx, ry) and (rx + 1, ry + 1); odd parity, (rx, ry + 1) and (rx + 1, ry). Its ISOM slots follow from those
+// (with StarEdit's edge ids), and so do the tiles StarEdit picks for it.
+class IsomTiles {
+public:
+    // The tables of `tileset` (kept for each tileset and CV5); nullptr when it has no groups.
+    static const IsomTiles* forTileset(const Tileset& tileset);
+
+    // The tile groups StarEdit picks from for the rect's left tile (its right tile: the next group), in StarEdit's
+    // order (the first unless the stack above asks for another). Empty: no group fits (StarEdit gives the null tile).
+    const std::vector<uint16_t>& groups(int parity, uint16_t left, uint16_t right) const;
+    // The rects whose groups hold `group` (a left tile's group).
+    struct Rect {
+        uint8_t parity;
+        uint16_t left, right;
+    };
+    const std::vector<Rect>& rectsOf(uint16_t group) const;
+    // CV5's stack connections of a group (0: none): a group sits under another when its top is the other's bottom.
+    uint16_t stackTop(uint16_t group) const;
+    uint16_t stackBottom(uint16_t group) const;
+    // Can these two rects (their left tiles' groups) sit side by side? Neighboring rects share a diamond (the left
+    // rect's right one is the right rect's left one): some rect of each with that diamond's shape in common.
+    bool beside(uint16_t leftGroup, uint16_t rightGroup) const;
+    // ISOM values (shapes) are below this.
+    uint16_t shapeCount() const;
+
+    struct Data;
+    explicit IsomTiles(std::unique_ptr<Data> data);
+    ~IsomTiles();
+
+private:
+    std::unique_ptr<Data> d_;
+};
+
 }  // namespace stardraft

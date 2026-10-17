@@ -905,6 +905,7 @@ int main(int argc, char** argv) {
         Chk noIsom = real;
         noIsom.remove("ISOM");
         IsomGrid rebuilt;
+        rebuilt.setTileset(&ed.tileset());
         const bool ok = rebuilt.rebuildFromTiles(noIsom, e);
         int same = 0, total = 0;
         for (int y = 0; ok && hadIsom && y <= orig.rectRows(); ++y)
@@ -1515,7 +1516,7 @@ int main(int argc, char** argv) {
                 for (int i = 0; i < 40; ++i) t.paintBrush(int(x + dx * i), int(y + dy * i), terrain, Brush{Brush::Diamond, 1.0f});
                 t.endTerrainStroke();
             }
-            misfits += countTileMisfits(t.chk());
+            misfits += countTileMisfits(t.chk(), t.tileset());
         }
         const std::string what = "size 1 brush strokes on every tileset leave few tiles that do not fit (" + std::to_string(misfits) + " in " +
                                  std::to_string(tilesets) + " maps, at most 12)";
@@ -1594,8 +1595,9 @@ int main(int argc, char** argv) {
         {
             const Bytes before = te.chk().effective("ISOM");
             std::vector<uint8_t> foreign(size_t(w) * te.height(), 0);
+            const TerrainLayer placedTiles = readTerrain(te.chk(), "TILE");
             for (int y = y0; y <= y1; ++y)
-                for (int x = x0; x <= x1; ++x) foreign[size_t(y) * w + x] = !tileFromIsom(te.chk(), x, y);
+                for (int x = x0; x <= x1; ++x) foreign[size_t(y) * w + x] = !tileFromIsom(te.chk(), placedTiles, x, y, te.tileset());
             uint16_t other = 1;
             const IsomTerrainTable* table = IsomTerrainTable::forEra(te.era());
             const uint16_t at = te.terrainAt(x0 * 32 - 128, cy * 32);  // a terrain next to it in the terrain tree: a small change
