@@ -403,6 +403,10 @@ void SdlHost::snapshotInput(draw::View& root, int w, int h, const std::vector<SD
 
 void SdlHost::snapshotKey(draw::View& root, int w, int h, const draw::KeyEvent& k) {
     Win* win = shotWin(root, w, h);
+    if (keysFromOpener_ && win->shotBase) {  // (as Windows gives a pop-out's key: from the window under it; dispatch)
+        win = findWin(keyWindow(win->shotBase));
+        if (!win) return;
+    }
     if (!inModal(win->id)) return;  // (as dispatch: only the modal window and what it opened take input)
     if (k.down && k.key == Key::Escape && win->popup()) return dismiss(win->id);
     win->router->key(k);
@@ -416,7 +420,7 @@ void SdlHost::snapshotText(draw::View& root, int w, int h, const std::string& ut
     Win* win = shotWin(root, w, h);
     SDL_Event e{};  // (as SDL gives typed text: dispatch ends a composition first)
     e.type = SDL_EVENT_TEXT_INPUT;
-    e.text.windowID = win->id;
+    e.text.windowID = keysFromOpener_ && win->shotBase ? win->shotBase : win->id;
     e.text.text = utf8.c_str();
     dispatch(e);
 }
@@ -425,7 +429,7 @@ void SdlHost::snapshotCompose(draw::View& root, int w, int h, const std::string&
     Win* win = shotWin(root, w, h);
     SDL_Event e{};
     e.type = SDL_EVENT_TEXT_EDITING;
-    e.edit.windowID = win->id;
+    e.edit.windowID = keysFromOpener_ && win->shotBase ? win->shotBase : win->id;
     e.edit.text = utf8.c_str();
     e.edit.start = start;
     dispatch(e);
@@ -649,6 +653,30 @@ bool SdlHost::inModal(SDL_WindowID id) const {
         id = w->parent;
     }
     return false;
+}
+
+SDL_WindowID SdlHost::keyWindow(SDL_WindowID id) const {
+    const Win* m = modal_ ? findWin(modal_) : nullptr;
+    if (!m || !m->popup() || id == modal_) return id;
+    for (const Win* p = m; p && p->popup(); p = findWin(p->parent))  // (the pop-outs it opens from, then their window)
+        if (p->parent == id || (p->shotBase && p->shotBase == id)) return modal_;  // (a snapshot's pop-out: its base)
+    return id;
+}
+
+SDL_Window* SdlHost::imeWindow(const Win& w, SDL_Rect* r) const {
+    SDL_Window* focus = SDL_GetKeyboardFocus();
+    if (!w.sdl || !focus || focus == w.sdl) return w.sdl;
+    int ox = 0, oy = 0;
+    SDL_Window* p = w.sdl;
+    while (p && p != focus && (SDL_GetWindowFlags(p) & SDL_WINDOW_POPUP_MENU)) {  // (a pop-out's place is its parent's)
+        int x = 0, y = 0;
+        SDL_GetWindowPosition(p, &x, &y);
+        ox += x, oy += y;
+        p = SDL_GetWindowParent(p);
+    }
+    if (p != focus) return w.sdl;
+    if (r) r->x += ox, r->y += oy;
+    return focus;
 }
 
 void SdlHost::closeWindow(draw::View& content) {
@@ -882,6 +910,16 @@ void SdlHost::fireTimer(int id) {
 void SdlHost::dispatch(const SDL_Event& e) {
     if (gTimerEvent && e.type == gTimerEvent) return fireTimer(int(reinterpret_cast<intptr_t>(e.user.data1)));
     const SDL_WindowID wid = windowOf(e);
+    // A key, typed text or the input method's text while a modal pop-out is open over the window that SDL gives them
+    // (Windows: a pop-out does not take the system's keyboard focus): the pop-out takes them (its search field types).
+    if (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_KEY_UP || e.type == SDL_EVENT_TEXT_INPUT || e.type == SDL_EVENT_TEXT_EDITING)
+        if (const SDL_WindowID to = keyWindow(wid); to != wid) {
+            SDL_Event r = e;
+            if (e.type == SDL_EVENT_TEXT_INPUT) r.text.windowID = to;
+            else if (e.type == SDL_EVENT_TEXT_EDITING) r.edit.windowID = to;
+            else r.key.windowID = to;
+            return dispatch(r);
+        }
     // A press outside a modal pop-out only closes it: the press and its release go to no view (as a Windows pop-out's
     // loop eats the press, popoutEatsPress), so the press cannot open a second pop-out or change what is under it.
     if (e.type == SDL_EVENT_MOUSE_BUTTON_UP && eatUp_ && e.button.button == eatUp_) {
@@ -1193,7 +1231,7 @@ void SdlHost::textInput(draw::View& v, bool on, Rect caret) {
     if (on) w->inputArea = Rect(o.x + caret.left, o.y + caret.top, o.x + caret.right, o.y + caret.bottom);
     // The field let the keyboard go: the input method's text not committed yet goes (the window still takes typed text).
     if (!on) {
-        if (w->sdl && w->composing) SDL_ClearComposition(w->sdl);
+        if (w->sdl && w->composing) SDL_ClearComposition(imeWindow(*w, nullptr));
         return;
     }
     setTyping(*w, true);
@@ -1201,7 +1239,7 @@ void SdlHost::textInput(draw::View& v, bool on, Rect caret) {
     SDL_Rect r{};
     r.x = toLogical(o.x + caret.left, w->density), r.y = toLogical(o.y + caret.top, w->density);
     r.w = std::max(1, toLogical(caret.width(), w->density)), r.h = std::max(1, toLogical(caret.height(), w->density));
-    SDL_SetTextInputArea(w->sdl, &r, 0);
+    SDL_SetTextInputArea(imeWindow(*w, &r), &r, 0);  // (a pop-out's: on the window with the keyboard focus, at the caret)
 }
 
 void SdlHost::setTyping(Win& w, bool on) {

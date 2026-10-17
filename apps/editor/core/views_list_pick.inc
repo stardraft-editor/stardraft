@@ -163,6 +163,13 @@ public:
     int advance() const { return advance_; }
     // The search field (the host gives it the keyboard when the picker opens).
     stardraft::kit::TextField& searchField() { return field_; }
+    // The rows that the search shows (not the section headings), for a snapshot's input lines.
+    std::vector<std::wstring> shownLabels() const {
+        std::vector<std::wstring> out;
+        for (const int idx : rows_.shown)
+            if (idx >= 0 && size_t(idx) < items_.size()) out.push_back(items_[size_t(idx)].label);
+        return out;
+    }
 
     // The search's text, as typed (the self-tests type this way).
     void setSearch(const std::wstring& t) {
@@ -382,9 +389,12 @@ private:
 
 // Runs the picker at `at` (the SDL program: a point in the window that takes the input now: the main window, or the dialog or pop-out it opens from) until it is picked or closed.
 // True when picked (the view's result, or its checks). `opened` runs once its window shows (the self-tests).
+inline ListPickView* gListPickShown = nullptr;  // the picker while it is open (a snapshot's input lines say its rows)
 inline bool runListPick(ListPickView& v, draw::Point at, const std::function<void()>& opened = nullptr) {
     v.onDone = [&v] { shellClosePopout(v); };
     const draw::Point size = v.outerSize();
+    ListPickView* const outer = std::exchange(gListPickShown, &v);
     shellRunPopout(v, at.x, at.y, size.x, size.y, &v.searchField(), opened);
+    gListPickShown = outer;
     return v.picked();
 }

@@ -32,7 +32,17 @@ std::string shotDataState() {
         if (f.covers(entry) && t->changed(f, entry))
             s += " " + f.name + "=" + std::to_string(t->value(f, entry)) + " (stock " + std::to_string(t->stock(f, entry)) + ")", ++changed;
     if (!changed) s += " no changed values";
-    return s + "; " + std::to_string(d.history.undo.size()) + " undo steps, " + std::to_string(d.history.redo.size()) + " redo steps";
+    s += "; " + std::to_string(d.history.undo.size()) + " undo steps, " + std::to_string(d.history.redo.size()) + " redo steps";
+    if (t->schema().name == "weapons") s += "; damage table armor " + std::to_string(datapics::gDamageArmor);
+    // The diagrams' handles (small squares) and how many of them the mouse cannot drag (no drag there: WRONG).
+    int still = 0;
+    for (const draw::Point& p : datapics::gHandles) {
+        bool drags = false;
+        for (const auto& a : gSdlDataFormHost.areas) drags = drags || (a.drag && a.r.contains(p));
+        still += !drags;
+    }
+    if (!datapics::gHandles.empty()) s += "; " + std::to_string(datapics::gHandles.size()) + " handles, " + std::to_string(still) + " not dragged";
+    return s;
 }
 
 std::string shotTriggersState() {
@@ -107,6 +117,10 @@ std::string shotMapState() {
     const int loc = ed.selectedLocation();
     s += " locations=" + std::to_string(used) + " location=";
     s += loc >= 0 && ed.locationUsed(loc) ? std::to_string(loc) + ":" + box(ed.locationRect(loc)) + " name=" + quoted(ed.locationName(loc)) : "- name=-";
+    // The selected location's edges as it has them (an inverted one: left more than right, or top more than bottom), and
+    // Location properties' type line while it is open.
+    s += " edges=" + (loc >= 0 && ed.locationUsed(loc) ? box(ed.locationEdges(loc)) : std::string("-"));
+    if (gLocPropsShown) s += " locprops=" + quoted(narrow(gLocPropsShown->typeText()));
     float wx = 0, wy = 0;
     toWorld(app.mouseX, app.mouseY, wx, wy);
     s += " paste=";
@@ -134,7 +148,8 @@ std::string shotMapState() {
     s += " tsel=" + (app.hasTerrainSel ? box(app.terrainSel) : std::string("-"));
     s += " tabs=" + std::to_string(gActive + 1) + "/" + std::to_string(gDocs.size()) + " page=" + std::to_string(activePage()) +
          " tab=" + quoted(narrow(docTitle(gActive, false)));
-    s += std::string(" quick=") + (gQuickHostSdl.open ? "open" : "-");  // the quick picker (Q): a pop-out over the map
+    s += std::string(" quick=") + (gQuickHostSdl.open ? "open" : "-");
+    s += " brush=" + narrow(stripNumberText(kNumSize)) + "x" + narrow(stripNumberText(kNumHeight));  // (Terrain: the brush's size and height)  // the quick picker (Q): a pop-out over the map
     return s;
 }
 

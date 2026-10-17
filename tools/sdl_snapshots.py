@@ -351,6 +351,28 @@ CASES += [
     ("data-form-edits", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "671,742", "--type", "50",
                          "--key", "Enter", "--click", "624,768", "--click", "776,872", "--type", "Medium", "--key", "Enter",
                          "--key", "Ctrl+Z", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "data"),
+    # Quick clicks (--click x,y:Repeat8: eight clicks, as SDL counts them: the second and each next one is a double
+    # click to the views): each one acts, on each kind of control. The damage table's More armor (a diagram's button:
+    # armor 8), a check box of the Data form (Shield enable: eight changes, eight undo steps, off again) and the brush
+    # height's up arrow (Terrain: 2 to 10).
+    ("data-quick-armor", ["--newproject", "{newdir}", "--workspace", "data", "--data", "weapons:0", "--click", "779,404:Repeat8"], "data"),
+    ("data-quick-toggle", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "624,768:Repeat8"], "data"),
+    ("map-quick-arrow", ["--mode", "terrain", "--click", "296,485:Repeat8"], "map"),
+    # The diagrams' handles (the small squares) are only on parts that the mouse drags: the flingy's turn path has none
+    # (its Turn Radius is typed, as on Windows); the weapon's ranges have their handles.
+    ("data-turn-nohandle", ["--newproject", "{newdir}", "--workspace", "data", "--data", "flingy:0", "--move", "10,10"], "data"),
+    ("data-range-handles", ["--newproject", "{newdir}", "--workspace", "data", "--data", "weapons:0", "--move", "10,10"], "data"),
+    # Location properties: the edges typed as they are (Left 800 more than Right 200: inverted left and right; then
+    # Bottom 100 less than Top 300: inverted on both), the type line under them says it; OK puts the edges in as typed,
+    # and Undo takes them back. The dialog's inputs' lines come before Enter's (the key that opened it).
+    ("map-location-inverted", ["--mode", "locations", "--drag", "520,640-600,700", "--key", "Enter", "--key", "Tab", "--key", "Ctrl+A",
+                               "--type", "800", "--key", "Tab", "--key", "Ctrl+A", "--type", "300", "--key", "Tab", "--key", "Ctrl+A",
+                               "--type", "200", "--key", "Tab", "--key", "Ctrl+A", "--type", "100", "--key", "Enter", "--key", "Ctrl+Z"], "map"),
+    # A list picker's search box takes typing (Unit size of the Marine's Data form), with the keys and the text as SDL
+    # gives them on Windows (--keysfromopener: from the main window under the pop-out): the typed letters filter the
+    # rows, Korean through the input method (its composition, then the text), Backspace takes a letter back, Esc closes it.
+    ("data-picker-typing", ["--keysfromopener", "--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "776,872",
+                            "--type", "Med", "--ime", "\ud55c", "--type", "\ud55c", "--key", "Backspace", "--key", "Esc"], "data"),
     # The Triggers workspace of a new project: On map start > New trigger, Add an action (the block picker: Set
     # resources), its amount typed in the value's pop-out (800), Delete, then Undo twice (the block, then its amount).
     ("data-triggers-edits", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169",
@@ -1143,6 +1165,85 @@ def check_data_edits(output):
     return None
 
 
+def quick_check(want, what):
+    def check(output):
+        s = states(output)
+        if len(s) != 1:
+            return f"{len(s)} input lines, not 1"
+        if want not in s[0][1]:
+            return f"{what}: {s[0][1]} (no {want})"
+        return None
+    return check
+
+
+def check_no_still_handles(output):
+    """None when no diagram handle is on a part that the mouse cannot drag."""
+    m = re.search(r"; (\d+) handles, (\d+) not dragged", output)
+    if m and m.group(2) != "0":
+        return f"{m.group(2)} of {m.group(1)} handles cannot be dragged"
+    if not re.search(r"^move 10,10: ", output, re.M):
+        return "no input line"
+    return None
+
+
+def check_range_handles(output):
+    """None when the weapon's diagrams have handles and each one drags."""
+    m = re.search(r"; (\d+) handles, (\d+) not dragged", output)
+    if not m or m.group(1) == "0":
+        return "no handles (the state line does not count them)"
+    if m.group(2) != "0":
+        return f"{m.group(2)} of {m.group(1)} handles cannot be dragged"
+    return None
+
+
+def check_location_inverted(output):
+    """None when the type line followed the typed edges, OK put them in as typed and Undo took them back."""
+    s = steps(output)
+    by = {st["input"]: st for st in s}
+    typed = [st for st in s if st["input"].startswith("type ")]
+    if len(typed) != 4:
+        return f"{len(typed)} typed edges, not 4"
+    types = [st.get("locprops") for st in typed]
+    if types != ["Normal", "Normal", "Inverted left and right", "Inverted on both"]:
+        return f"the type line after each edge: {types}"
+    enter = [st for st in s if st["input"] == "key Enter"]
+    if len(enter) != 2 or enter[1].get("edges") != "800,300,200,100" or "locprops" in enter[1]:
+        return f"after OK: edges {enter[-1].get('edges') if enter else None} (not 800,300,200,100 as typed)"
+    undo = by.get("key Ctrl+Z")
+    if not undo or undo.get("edges") != s[0].get("edges"):
+        return f"Undo: edges {undo.get('edges') if undo else None}, not {s[0].get('edges')}"
+    return None
+
+
+def check_picker_typing(output):
+    """None when the picker's search took the typed text, the composition, Korean and Backspace, and filtered its rows."""
+    seen = []
+    cur = None
+    for line in output.splitlines():
+        m = re.match(r"^(key|type|ime|click) (.*?): ", line)
+        if m:
+            cur = {"input": f"{m.group(1)} {m.group(2)}"}
+            seen.append(cur)
+        elif cur is not None and line.startswith("  picker: "):
+            pm = re.match(r'  picker: search "(.*)", (\d+) rows: ?(.*)$', line)
+            if pm:
+                cur["search"], cur["rows"], cur["names"] = pm.group(1), int(pm.group(2)), pm.group(3)
+        elif cur is not None and line.startswith("  focus: "):
+            cm = re.search(r'composing "(.*?)"', line)
+            cur["composing"] = cm.group(1) if cm else None
+    want = [("type Med", "Med", 1, "Medium"), ("ime \ud55c", "Med", 1, "Medium"), ("type \ud55c", "Med\ud55c", 0, ""),
+            ("key Backspace", "Med", 1, "Medium")]
+    for i, (inp, search, rows, names) in enumerate(want):
+        if i >= len(seen) or seen[i]["input"] != inp:
+            return f"input {i + 1}: {seen[i]['input'] if i < len(seen) else 'none'}, not {inp}"
+        got = seen[i]
+        if got.get("search") != search or got.get("rows") != rows or got.get("names") != names:
+            return f"after {inp}: search {got.get('search')!r}, {got.get('rows')} rows {got.get('names')!r} (not {search!r}, {rows} {names!r})"
+    if seen[1].get("composing") != "\ud55c":
+        return f"the input method's text is not in the search box: {seen[1].get('composing')!r}"
+    return None
+
+
 def check_trigger_edits(output):
     """None when the block was added, its value changed, Delete removed it, Undo gave it back and then its old value."""
     lines = states(output)
@@ -1773,7 +1874,12 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "map-program-files": check_program_files, "map-saveas-tab": check_saveas_tab, "map-undo-midstroke": check_undo_midstroke,
           "map-undo-saved": check_undo_saved, "map-undo-selection": check_undo_selection, "map-props-typing-undo": check_props_typing_undo,
           "data-map-undo": check_data_map_undo, "data-value-insert": check_value_insert, "update-release-older": check_release_older,
-          "update-release-token": check_release_token}
+          "update-release-token": check_release_token,
+          "data-quick-armor": quick_check("damage table armor 8;", "eight clicks on More armor"),
+          "data-quick-toggle": quick_check("no changed values; 8 undo steps", "eight clicks on Shield enable"),
+          "map-quick-arrow": quick_check(" brush=2x10", "eight clicks on the height's up arrow"),
+          "data-turn-nohandle": check_no_still_handles, "data-range-handles": check_range_handles,
+          "map-location-inverted": check_location_inverted, "data-picker-typing": check_picker_typing}
 
 # GitHub's answer for the newest release ({release}; /releases/latest, shortened): a release with a download for each
 # system, as tools/release.py and the macos-release job make it, indented as GitHub gives it to a request without a

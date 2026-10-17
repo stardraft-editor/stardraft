@@ -497,7 +497,7 @@ public:
         return h && r.contains(h->mouse(gSdlDataForm));
     }
     bool projectOpen() override { return activeProject() != nullptr; }
-    void beforePaint() override { areas.clear(); }
+    void beforePaint() override { areas.clear(), datapics::gHandles.clear(); }
     bool paintExtraTab(draw::Canvas& c, int& y) override { return sdlPaintExtraTab(c, y); }
     void afterPaint(draw::Canvas&) override;
     draw::Image entryIcon() override { return sdlDataImage(dataEntryPicture(gSdlDataState.datTab, gSdlDataState.entry)); }

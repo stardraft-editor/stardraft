@@ -2097,6 +2097,12 @@ Rect Editor::locationRect(int i) const {
     return Rect{int(l.left), int(l.top), int(l.right), int(l.bottom)}.normalized();
 }
 
+Rect Editor::locationEdges(int i) const {
+    if (i < 0 || i >= int(locations_.size())) return {};
+    const Location& l = locations_[size_t(i)];
+    return Rect{int(l.left), int(l.top), int(l.right), int(l.bottom)};
+}
+
 int Editor::locationAt(int x, int y) const {
     int best = -1;
     long long bestArea = 1LL << 62;
@@ -2622,13 +2628,29 @@ bool Editor::editLocation(int i, const LocationEdit& edit, std::string* error) {
     }
     Location l = locations_[size_t(i)];
     const int axes = edit.invertedAxes >= 0 && i != kAnywhereLocation ? (edit.invertedAxes & 3) : locationInvertedAxes(i);
-    if (axes != locationInvertedAxes(i)) {  // another inversion: the same edges, from the lower value to the higher
+    if (edit.asTyped) {  // the edges as they are (an inverted location: left more than right, or top more than bottom)
+        const Rect& r = edit.rect;
+        const Rect now = locationEdges(i);  // (the edges as they are stay as they are, also when a map has them out of range)
+        if (i != kAnywhereLocation && !(r.left == now.left && r.top == now.top && r.right == now.right && r.bottom == now.bottom)) {
+            const int w = int(width_) * 32, h = int(height_) * 32;
+            auto in = [](int v, int most) { return v >= 0 && v <= most; };
+            if (!in(r.left, w) || !in(r.right, w) || !in(r.top, h) || !in(r.bottom, h)) {
+                if (error) *error = "Each edge must be in the map";
+                return false;
+            }
+            if (r.left == r.right || r.top == r.bottom) {
+                if (error) *error = r.left == r.right ? "Left and right must be different" : "Top and bottom must be different";
+                return false;
+            }
+            l.left = uint32_t(r.left), l.top = uint32_t(r.top), l.right = uint32_t(r.right), l.bottom = uint32_t(r.bottom);
+        }
+    } else if (axes != locationInvertedAxes(i)) {  // another inversion: the same edges, from the lower value to the higher
         const Rect n = locationRect(i);
         l.left = uint32_t(n.left), l.top = uint32_t(n.top), l.right = uint32_t(n.right), l.bottom = uint32_t(n.bottom);
         if (axes & 1) std::swap(l.left, l.right);
         if (axes & 2) std::swap(l.top, l.bottom);
     }
-    if (i != kAnywhereLocation && !(edit.rect.left == locationRect(i).left && edit.rect.top == locationRect(i).top &&
+    if (!edit.asTyped && i != kAnywhereLocation && !(edit.rect.left == locationRect(i).left && edit.rect.top == locationRect(i).top &&
                                     edit.rect.right == locationRect(i).right && edit.rect.bottom == locationRect(i).bottom)) {
         const Rect& r = edit.rect;
         if (r.right <= r.left || r.bottom <= r.top) {
