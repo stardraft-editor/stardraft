@@ -131,7 +131,7 @@ int runProcess(const std::vector<std::string>& args, const fs::path& workDir, co
     int status = 0;
     while (waitpid(pid, &status, 0) < 0)
         if (errno != EINTR) return -1;
-    return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    return WIFEXITED(status) ? WEXITSTATUS(status) : WIFSIGNALED(status) ? 128 + WTERMSIG(status) : -1;
 #endif
 }
 
