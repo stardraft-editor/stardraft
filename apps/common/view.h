@@ -149,6 +149,10 @@ public:
     virtual bool text(const TextEvent&) { return false; }
     virtual bool compose(const CompositionEvent&) { return false; }
     virtual Cursor cursor(Point) { return Cursor::Arrow; }
+    // Whether two points (the view's own) are on the same item (a list's row, a grid's cell): a second quick press is
+    // a double click only on the item of the first press, else it is a new press (Router). By default the whole view
+    // is one item.
+    virtual bool sameItem(Point, Point) const { return true; }
     // The tooltip at `pt` (empty: none).
     virtual std::wstring tip(Point) { return {}; }
     // What Report feedback names at a point (a view can name a part that has no tooltip); by default its tip.
@@ -314,6 +318,7 @@ public:
         if (gone(focused_)) focused_ = nullptr;
         if (gone(captured_)) captured_ = nullptr;
         if (gone(hovered_)) hovered_ = nullptr;
+        if (gone(pressed_)) pressed_ = nullptr;
     }
 
     bool mouse(MouseEvent e) {
@@ -324,10 +329,14 @@ public:
         if (captured_) {
             const Point o = captured_->origin();
             e.pt = {e.pt.x - o.x, e.pt.y - o.y};
+            pressedAt(*captured_, e);
+            if (e.kind == MouseKind::DoubleClick && !doubleClick_) e.kind = MouseKind::Down;
             return press(*captured_, e);
         }
         Point local;
         View* v = root_.viewAt(e.pt, local);
+        pressedAt(*v, MouseEvent{e.kind, local, e.button});
+        if (e.kind == MouseKind::DoubleClick && !doubleClick_) e.kind = MouseKind::Down;
         if (v != hovered_ && e.kind != MouseKind::Wheel && e.kind != MouseKind::Pinch && e.kind != MouseKind::SmartZoom &&
             e.kind != MouseKind::Swipe) {
             if (hovered_) {
@@ -350,6 +359,13 @@ public:
             if (press(*t, te)) return true;
         }
         return false;
+    }
+    // A press or a double click on view `v` at `local` (its own point): a double click is one only when the press
+    // before it was on the same view, with the same button, on the same item (View::sameItem); else it is a new press.
+    void pressedAt(View& v, const MouseEvent& e) {
+        if (e.kind != MouseKind::Down && e.kind != MouseKind::DoubleClick) return;
+        doubleClick_ = e.kind == MouseKind::DoubleClick && pressed_ == &v && pressButton_ == e.button && v.sameItem(pressPt_, e.pt);
+        pressed_ = &v, pressPt_ = e.pt, pressButton_ = e.button;
     }
     // A view gets the event. A double click (the system counts quick presses: the second and each next quick press is
     // a double click) that the view does not take comes to it again as a press: a view that does not have a separate
@@ -419,6 +435,10 @@ private:
     View* focused_ = nullptr;
     View* captured_ = nullptr;
     View* hovered_ = nullptr;
+    View* pressed_ = nullptr;  // the view of the last press (pressedAt), its point and button
+    Point pressPt_;
+    int pressButton_ = 0;
+    bool doubleClick_ = false;  // the last press was a double click on the item of the press before it
 };
 
 }  // namespace stardraft::draw

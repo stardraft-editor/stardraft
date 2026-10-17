@@ -244,6 +244,7 @@ void sdlSfxStop() {
     gSdlSfx = {};
 }
 void sdlSfxToggle(int sfx) {
+    ++gSoundAsks, gSoundAsked = "sfx " + std::to_string(sfx);  // (a snapshot's state line: a test run plays nothing)
     if (gSdlSfx.sfx == sfx && gSdlSfx.stream) {
         gSdlSfx.paused = !gSdlSfx.paused;
         gSdlSfx.paused ? SDL_PauseAudioStreamDevice(gSdlSfx.stream) : SDL_ResumeAudioStreamDevice(gSdlSfx.stream);
@@ -413,9 +414,14 @@ public:
     void select(int e) override { sdlDataSelect(e); }
     void menu(int e, draw::Point pt) override;
     bool travel(int button) override { return sdlDataTravel(button == 1), true; }
+    void open(int e) override;
 };
 SdlDataListHost gSdlDataListHost;
 DataListView gSdlDataList(gSdlDataListHost);
+// A double click on an SFX data row: its sound plays (or pauses, as the form's Play button).
+void SdlDataListHost::open(int e) {
+    if (curTable() && curTable()->schema().name == "sfxdata") sdlSfxToggle(e), gSdlDataForm.invalidate();
+}
 void SdlDataListHost::menu(int e, draw::Point pt) {  // the entry's menu (core/data_nav.inc), at the mouse
     const DatTable* t = curTable();
     if (!t) return;

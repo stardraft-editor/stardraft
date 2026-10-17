@@ -668,7 +668,9 @@ bool sdlShotInputNext() {
 // (SdlHost::snapshotMouse), with the modifier keys held (Shift, Ctrl, Alt, joined with +; Ctrl is Cmd on macOS);
 // Double in the mods: a double click (a second press and release, SDL's clicks 2). Repeat<n> in a click's mods: n quick
 // clicks at the point, as SDL counts them (clicks 1, 2, ... n: the second and each next press is a double click to the
-// views). Undo in a drag's mods: Ctrl+Z is pressed halfway, while the button is held.
+// views). Quick in a click's mods: the click comes quickly after the click before it (SDL's clicks 2, anywhere: the
+// system counts it as a double click when it is near the first). Undo in a drag's mods: Ctrl+Z is pressed halfway,
+// while the button is held.
 // The points are the main window's, as a user's mouse is on the screen: a pop-out that an input opened takes the
 // events when the first point is on it, and a press outside it closes it; a dialog takes them in its own pixels.
 // --move x,y: only the mouse comes to the point (no button): a paste's copy follows it there. --lostdrag
@@ -687,6 +689,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
     SDL_Keymod held = SDL_KMOD_NONE;
     bool twice = false, undoHalfway = false;
     int repeat = 1;
+    Uint8 firstClicks = 1;
     std::stringstream in(mods);
     for (std::string m; std::getline(in, m, '+');) {
 #ifdef __APPLE__
@@ -697,9 +700,10 @@ void sdlMouseShot(const std::string& spec, char kind) {
         else if (m == "Shift") held = SDL_Keymod(held | SDL_KMOD_LSHIFT);
         else if (m == "Alt") held = SDL_Keymod(held | SDL_KMOD_LALT);
         else if (m == "Double" && !drag) twice = true;
+        else if (m == "Quick" && !drag && !moveOnly) firstClicks = 2;
         else if (m.rfind("Repeat", 0) == 0 && m.size() > 6 && !drag && !moveOnly) repeat = std::clamp(std::atoi(m.c_str() + 6), 1, 100);
         else if (m == "Undo" && drag) undoHalfway = true;
-        else return void(std::fprintf(stderr, "--%s%s: %s is not Shift, Ctrl, Alt, Double, Repeat<n> or Undo\n", name.c_str(), spec.c_str(), m.c_str()));
+        else return void(std::fprintf(stderr, "--%s%s: %s is not Shift, Ctrl, Alt, Double, Quick, Repeat<n> or Undo\n", name.c_str(), spec.c_str(), m.c_str()));
     }
     std::vector<SDL_Event> events;
     float px = float(x0), py = float(y0);
@@ -719,7 +723,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
     };
     move(float(x0), float(y0), false);
     if (!moveOnly) {
-        button(true, float(x0), float(y0));
+        button(true, float(x0), float(y0), firstClicks);
         if (drag)
             for (int i = 1; i <= 10; ++i) {
                 move(float(x0) + float(x1 - x0) * float(i) / 10, float(y0) + float(y1 - y0) * float(i) / 10, true);
@@ -741,7 +745,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
             e.type = SDL_EVENT_WINDOW_FOCUS_LOST;
             events.push_back(e);
         } else {
-            button(false, float(x1), float(y1));
+            button(false, float(x1), float(y1), firstClicks);
         }
         if (twice) button(true, float(x0), float(y0), 2), button(false, float(x0), float(y0), 2);
         for (int k = 2; k <= repeat; ++k) button(true, float(x0), float(y0), Uint8(std::min(k, 255))), button(false, float(x0), float(y0), Uint8(std::min(k, 255)));

@@ -42,3 +42,38 @@ KIT_TEST(router_double_click_press_goes_to_the_view_first) {
     host.doubleClick(20, 20);
     CHECK(child.downs == 2 && parent.doubleClicks == 0);
 }
+
+namespace {
+// Two items: the left half and the right half.
+struct Halves final : draw::View {
+    int downs = 0, doubleClicks = 0;
+    bool sameItem(draw::Point a, draw::Point b) const override { return (a.x < width() / 2) == (b.x < width() / 2); }
+    bool mouse(const draw::MouseEvent& e) override {
+        if (e.kind == draw::MouseKind::Down) return ++downs, true;
+        if (e.kind == draw::MouseKind::DoubleClick) return ++doubleClicks, true;
+        return e.kind == draw::MouseKind::Up;
+    }
+};
+}  // namespace
+
+// A double click is one only on the item of the press before it (and on the same view); else it is a new press.
+KIT_TEST(router_double_click_needs_the_same_item) {
+    draw::View root;
+    FakeHost host(root);
+    Halves h;
+    Presses other;
+    other.doubles = true;
+    root.add(h, {0, 0, 100, 50});
+    root.add(other, {0, 60, 100, 110});
+    draw::MouseEvent e;
+    host.click(20, 20);  // the left item, then a quick press on the right item: a press
+    e.kind = draw::MouseKind::DoubleClick, e.pt = {80, 20};
+    host.router.mouse(e), host.up(80, 20);
+    CHECK(h.downs == 2 && h.doubleClicks == 0);
+    e.pt = {85, 25};  // the right item again: a double click
+    host.router.mouse(e), host.up(85, 25);
+    CHECK(h.downs == 2 && h.doubleClicks == 1);
+    e.pt = {50, 80};  // another view: a press
+    host.router.mouse(e), host.up(50, 80);
+    CHECK(other.downs == 1 && other.doubleClicks == 0);
+}

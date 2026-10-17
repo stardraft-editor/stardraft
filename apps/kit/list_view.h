@@ -94,6 +94,7 @@ public:
     void resized() override { layout(); }
     void paint(draw::Canvas& c) override;
     bool mouse(const draw::MouseEvent& e) override;
+    bool sameItem(draw::Point a, draw::Point b) const override { return rowAt(a) == rowAt(b); }  // (a double click: one row)
     bool key(const draw::KeyEvent& e) override;
     bool text(const draw::TextEvent& e) override;
 

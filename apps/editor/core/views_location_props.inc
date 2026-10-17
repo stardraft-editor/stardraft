@@ -25,12 +25,17 @@ struct LocPropsCheck {
     int type = -1;
     std::wstring size, error;
 };
-inline LocPropsCheck locPropsCheck(const std::wstring (&edges)[4]) {
+// `start`: the edges when the dialog opened; an edge that still has its text (also a long one, of a map made with
+// another program) is right as it is.
+inline std::wstring locEdgeText(int edge) { return std::to_wstring(uint32_t(edge)); }
+inline LocPropsCheck locPropsCheck(const std::wstring (&edges)[4], const Rect& start) {
     LocPropsCheck c;
     int v[4];
+    const int was[4] = {start.left, start.top, start.right, start.bottom};
     bool numbers = true;
     for (int k = 0; k < 4; ++k) {
-        if (edges[k].empty() || edges[k].size() > 9) numbers = false;
+        if (edges[k] == locEdgeText(was[k])) v[k] = was[k];
+        else if (edges[k].empty() || edges[k].size() > 9) numbers = false;
         else v[k] = int(std::wcstol(edges[k].c_str(), nullptr, 10));
     }
     if (!numbers) c.error = L"Type a number in each edge";
@@ -83,7 +88,7 @@ public:
     // `edges`: the location's edges as it has them (Editor::locationEdges). The Anywhere location keeps its edges (its
     // Type list is off).
     LocationPropsView(const std::wstring& name, const Rect& edges, uint16_t excluded, bool anywhere, bool focusName)
-        : focusName_(focusName) {
+        : start_(edges), focusName_(focusName) {
         using stardraft::kit::LabelTone;
         auto label = [&](stardraft::kit::Label& l, const wchar_t* t) {
             l.setText(tr(t)), l.setTone(LabelTone::Dim);  // (the native labels were the dim color)
@@ -97,7 +102,7 @@ public:
         for (int k = 0; k < 4; ++k) {
             label(labels_[1 + k], kEdgeNames[k]);
             stardraft::kit::TextField& f = edge_[k];
-            f.setText(std::to_wstring(vals[k]));
+            f.setText(locEdgeText(vals[k]));
             f.setFont({draw::Face::Mono, 0}), f.setAlignRight(true);
             f.setTrailing(scale(2));  // (the native edit's right margin: the digits end where they did)
             f.setFilter([](wchar_t c) { return c >= L'0' && c <= L'9'; });  // ES_NUMBER
@@ -218,7 +223,7 @@ private:
     void check() {
         std::wstring t[4];
         for (int k = 0; k < 4; ++k) t[k] = edge_[k].text();
-        const LocPropsCheck c = locPropsCheck(t);
+        const LocPropsCheck c = locPropsCheck(t, start_);
         valid_ = c.ok, rect_ = c.rect;
         size_.setText(c.size);
         if (c.type >= 0) type_.setValue(c.type);  // (the list follows the edges; setValue does not call onChange)
@@ -232,7 +237,7 @@ private:
         const LocPropsCheck c = [&] {
             std::wstring e[4];
             for (int k = 0; k < 4; ++k) e[k] = edge_[k].text();
-            return locPropsCheck(e);
+            return locPropsCheck(e, start_);
         }();
         if (c.type < 0) return check();
         auto swapEdges = [this](int a, int b) {
@@ -249,7 +254,7 @@ private:
     stardraft::kit::TextField name_, edge_[4];
     stardraft::kit::Dropdown type_;
     stardraft::kit::CheckBox elev_[6];
-    Rect rect_;
+    Rect rect_, start_;
     bool valid_ = false, focusName_ = true, focused_ = false;
 };
 

@@ -450,6 +450,9 @@ int main(int argc, char** argv) {
     SDL_SetHint(SDL_HINT_APP_ID, stardraft::xdg::kAppId);
 #endif
 #ifdef __APPLE__
+    // A second press is a double click only within 4 points of the first (SDL's default is 32, for touch screens: two
+    // quick clicks on two rows of a list were a double click), as the desktop systems' own distance.
+    SDL_SetHint(SDL_HINT_MOUSE_DOUBLE_CLICK_RADIUS, "4");
     SDL_SetHint(SDL_HINT_MAC_SCROLL_MOMENTUM, "1");  // a trackpad's scroll goes on after the fingers lift (its momentum), as in macOS's own programs
 #endif
     if (!SDL_Init(SDL_INIT_VIDEO)) return std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()), 1;
