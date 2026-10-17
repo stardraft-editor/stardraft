@@ -12,6 +12,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <optional>
 #include <sstream>
@@ -21,6 +22,9 @@
 
 #include "install.h"  // apps/common: the registry's install folders (Windows)
 #include "json.h"     // src: the library's JSON reader and writer
+#include "stardraft/classic_settings.h"
+#include "stardraft/classic_triggers.h"
+#include "stardraft/dat_edit.h"
 #include "stardraft/editor.h"
 #include "stardraft/game_data.h"
 #include "stardraft/isom.h"
@@ -149,7 +153,7 @@ struct Args {
 
 // The options that take no value.
 bool isFlag(const std::string& name) {
-    for (const char* f : {"timing", "discard", "reopen", "force", "dry-run", "locations", "no-units", "no-sprites", "help"})
+    for (const char* f : {"timing", "discard", "reopen", "force", "all", "remove", "dry-run", "locations", "no-units", "no-sprites", "help"})
         if (name == f) return true;
     return false;
 }
@@ -463,7 +467,15 @@ Json unitJson(const Editor& ed, const Unit& u) {
         .add("hangar", int(u.hangar));
 }
 
-Json getWhat(Editor& ed, const std::string& what, int step) {
+// (map_parts.inc)
+Json triggersJson(const Editor& ed);
+Json briefingsJson(const Editor& ed);
+Json unitSettingsJson(const Editor& ed, bool all);
+Json upgradeSettingsJson(const Editor& ed, bool all);
+Json techSettingsJson(const Editor& ed, bool all);
+std::string entryLabel(const std::string& dat, int i);
+
+Json getWhat(Editor& ed, const std::string& what, int step, bool all) {
     if (what == "summary") return summary(ed);
     Json a = jarr();
     if (what == "units") {
@@ -487,6 +499,8 @@ Json getWhat(Editor& ed, const std::string& what, int step) {
             a.items.push_back(Obj()
                                   .add("index", int(i))
                                   .add("id", int(s.id))
+                                  .add("name", (s.flags & SpriteFlag::DrawAsSprite) ? entryLabel("sprites", s.id)
+                                                                                   : s.id < ed.unitTypes().size() ? ed.unitTypes()[s.id].name : std::string())
                                   .add("x", int(s.x))
                                   .add("y", int(s.y))
                                   .add("player", s.owner + 1)
@@ -503,6 +517,18 @@ Json getWhat(Editor& ed, const std::string& what, int step) {
                                   .add("area", jrect(r.left, r.top, r.right, r.bottom))
                                   .add("excluded_elevations", int(ed.locationElevation(i))));
         }
+    } else if (what == "triggers") {
+        return triggersJson(ed);
+    } else if (what == "briefings") {
+        return briefingsJson(ed);
+    } else if (what == "unit-settings") {
+        return unitSettingsJson(ed, all);
+    } else if (what == "upgrade-settings") {
+        return upgradeSettingsJson(ed, all);
+    } else if (what == "tech-settings") {
+        return techSettingsJson(ed, all);
+    } else if (what == "files") {
+        for (const ArchiveFile& f : ed.archiveFiles()) a.items.push_back(Obj().add("name", f.name).add("bytes", double(f.data.size())));
     } else if (what == "players") {
         for (int p = 0; p < 8; ++p) a.items.push_back(playerJson(ed, p));
     } else if (what == "forces") {
@@ -625,9 +651,12 @@ Editor::SelectShape selectShape(const Json& op) {
     return Editor::SelectShape::Rect;
 }
 
+#include "map_parts.inc"
+
 // One operation; returns what it did (an object) or fails.
-Json applyOp(Editor& ed, const Json& op) {
+Json applyOp(Editor& ed, const Json& op, const std::vector<ClassicAiScript>& ai) {
     const std::string name = op.str("op");
+    if (std::optional<Json> done = applyMapPartOp(ed, name, op, ai)) return *done;
     Obj r;
     if (name == "place_unit") {
         const uint16_t type = unitTypeId(ed, need(op, "type"), "type");
@@ -1206,6 +1235,58 @@ Json cmdStatus(Session& s) {
     return o;
 }
 
+// The map's other files (sounds and the like): the map file's as it was opened, with the files that `add-file` put
+// in the working folder (files/, listed in files.json) in place of those of the same name.
+std::vector<ArchiveFile> mapFiles(const Work& w) {
+    std::vector<ArchiveFile> files;
+    std::string err;
+    if (!isChk(w.source)) {
+        if (!readMapFiles(w.sourceCopy(), files, err)) fail(err);
+        files.erase(std::remove_if(files.begin(), files.end(), [](const ArchiveFile& f) { return lower(f.name) == lower(kChkArchivePath); }), files.end());
+    }
+    std::error_code ec;
+    if (!fs::exists(w.dir / "files.json", ec)) return files;
+    const Json added = parseJson(readText(w.dir / "files.json"), "files.json");
+    for (const Json& f : added.items) {
+        const std::string name = f.str("name");
+        files.erase(std::remove_if(files.begin(), files.end(), [&](const ArchiveFile& a) { return lower(a.name) == lower(name); }), files.end());
+        if (!f.boolean("removed", false)) files.push_back({name, readBytes(w.dir / "files" / upath(f.str("stored")))});
+    }
+    return files;
+}
+
+// add-file <map> <name in the map> <file> [--remove]: puts a file (a sound) into the map, or takes one out. It is
+// not an undo step: it stays until `close`.
+Json cmdAddFile(Session& s) {
+    if (s.args.positional.size() < (s.args.has("remove") ? 2u : 3u)) fail("usage: stardraft-cli add-file <map> <name in the map> <file> | --remove");
+    const Target t = resolve(s.args.positional[0]);
+    Work w = loadWork(t);
+    const std::string name = s.args.positional[1];
+    std::error_code ec;
+    Json list = jarr();
+    if (fs::exists(w.dir / "files.json", ec)) list = parseJson(readText(w.dir / "files.json"), "files.json");
+    std::vector<Json> kept;
+    for (const Json& f : list.items) {
+        if (lower(f.str("name")) != lower(name)) kept.push_back(f);
+        else if (!f.str("stored").empty()) fs::remove(w.dir / "files" / upath(f.str("stored")), ec);
+    }
+    list.items = kept;
+    if (s.args.has("remove")) {
+        list.items.push_back(Obj().add("name", name).add("removed", true));
+    } else {
+        const Bytes data = readBytes(upath(s.args.positional[2]));
+        fs::create_directories(w.dir / "files");
+        const std::string stored = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".bin";
+        writeBytes(w.dir / "files" / stored, data);
+        list.items.push_back(Obj().add("name", name).add("stored", stored));
+    }
+    const std::string text = jsonText(list) + "\n";
+    writeBytes(w.dir / "files.json", Bytes(text.begin(), text.end()));
+    w.savedChange = 0;  // the map now differs from the map file
+    w.save();
+    return Obj().add("name", name).add("removed", s.args.has("remove"));
+}
+
 Json cmdGet(Session& s) {
     const Target t = resolve(s.args.positional.at(0));
     Editor& ed = s.load(t);
@@ -1213,7 +1294,15 @@ Json cmdGet(Session& s) {
     if (parts.empty()) parts.push_back("summary");
     const int step = std::max(32, int(std::strtol(s.args.get("step", "128").c_str(), nullptr, 10)));
     Obj o = Obj(fileInfo(t));
-    for (const std::string& p : parts) o.add(p, getWhat(ed, p, step));
+    for (const std::string& p : parts) {
+        if (p == "files" && t.open) {  // the working folder's, with the added ones
+            Json a = jarr();
+            for (const ArchiveFile& f : mapFiles(loadWork(t))) a.items.push_back(Obj().add("name", f.name).add("bytes", double(f.data.size())));
+            o.add(p, a);
+            continue;
+        }
+        o.add(p, getWhat(ed, p, step, s.args.has("all")));
+    }
     return o;
 }
 
@@ -1241,12 +1330,18 @@ Json cmdApply(Session& s) {
         ed.setAllowStacking(opt->boolean("stacking", false));
     }
     const Bytes before = ed.chk().serialize();
+    std::vector<ClassicAiScript> ai;  // (only trigger operations need them)
+    for (const Json& op : ops->items)
+        if (op.str("op").find("trigger") != std::string::npos) {
+            ai = loadClassicAiScripts(s.data);
+            break;
+        }
     Json results = jarr();
     for (size_t i = 0; i < ops->items.size(); ++i) {
         const Json& op = ops->items[i];
         try {
             if (op.type != Json::Type::Object) fail("an operation must be an object");
-            results.items.push_back(applyOp(ed, op));
+            results.items.push_back(applyOp(ed, op, ai));
         } catch (const std::exception& e) {
             fail("op " + std::to_string(i) + " (" + op.str("op", "?") + "): " + e.what() + "; nothing was changed");
         }
@@ -1298,13 +1393,8 @@ Json cmdSave(Session& s) {
         writeBytes(dst, chk);
     } else {
         // The map's other files (sounds and the like) come from the map file as it was opened.
-        std::vector<ArchiveFile> files;
         std::string err;
-        if (!isChk(w.source)) {
-            if (!readMapFiles(w.sourceCopy(), files, err)) fail(err);
-            files.erase(std::remove_if(files.begin(), files.end(), [](const ArchiveFile& f) { return lower(f.name) == lower(kChkArchivePath); }), files.end());
-        }
-        if (!writeMap(dst, chk, files, err)) fail(err);
+        if (!writeMap(dst, chk, mapFiles(w), err)) fail(err);
     }
     if (toSource) {
         w.savedChange = w.change();
@@ -1325,6 +1415,13 @@ Json cmdClose(Session& s) {
         if (ec) fail("could not remove " + ustr(p) + ": " + ec.message());
     };
     for (size_t i = 0; i < w.steps.size(); ++i) remove(w.stepFile(i));
+    std::error_code ec;
+    if (fs::exists(w.dir / "files.json", ec)) {
+        for (const Json& f : parseJson(readText(w.dir / "files.json"), "files.json").items)
+            if (!f.str("stored").empty()) remove(w.dir / "files" / upath(f.str("stored")));
+        if (fs::exists(w.dir / "files", ec)) remove(w.dir / "files");
+        remove(w.dir / "files.json");
+    }
     remove(w.sourceCopy());
     remove(w.dir / "steps");
     remove(w.dir / "work.json");
@@ -1403,6 +1500,16 @@ const char* kOps = R"OPS([
   {"op": "set_player", "params": {"player": "1-8", "controller": "human | computer | rescue | neutral | closed | inactive", "race": "zerg | terran | protoss | user_select | random", "force": "1-4", "color": "a color name, 0-21, random, choice or #RRGGBB"}},
   {"op": "set_force", "params": {"force": "1-4", "name": "text", "allies": "bool", "allied_victory": "bool", "shared_vision": "bool", "random_start": "bool"}},
   {"op": "set_scenario", "params": {"name": "text", "description": "text"}},
+  {"op": "add_trigger", "params": {"trigger": {"players": "[1-8 or group names]", "conditions": "[{type, ...params}] (see trigger-types; none: Always)", "actions": "[{type, ...params}]", "disabled": "bool"}, "at": "index (default: the end)"}, "result": {"index": "its index"}},
+  {"op": "add_triggers", "params": {"triggers": "[trigger, ...] (as add_trigger's)"}},
+  {"op": "set_trigger", "params": {"index": "number", "trigger": "as add_trigger's"}},
+  {"op": "delete_trigger", "params": {"index": "number"}},
+  {"op": "move_trigger", "params": {"index": "number", "to": "number"}},
+  {"op": "set_briefings", "params": {"briefings": "[{players, actions: [{type: wait | play_wav | text | objectives | show_portrait | hide_portrait | speaking_portrait | transmission | skip_tutorial, text, time (ms), wav, wav_time, slot (1-4), unit, modifier}]}] (all of them)"}},
+  {"op": "add_briefing", "params": {"players": "[...]", "actions": "[...] as set_briefings"}},
+  {"op": "set_unit_settings", "params": {"unit": "type", "hit_points": "number", "shields": "number", "armor": "number", "build_time": "frames", "minerals": "number", "gas": "number", "name": "text (the unit's name in this map)", "use_default": "bool", "available": "bool (for all players)", "players": "{\"1\": true|false|null (null: the default), ...}"}},
+  {"op": "set_upgrade_settings", "params": {"upgrade": "id or name", "minerals": "", "minerals_per_level": "", "gas": "", "gas_per_level": "", "time": "frames", "time_per_level": "", "use_default": "bool", "max_level": "number", "start_level": "number", "players": "{\"1\": {max_level, start_level} | null}"}},
+  {"op": "set_tech_settings", "params": {"tech": "id or name", "minerals": "", "gas": "", "time": "frames", "energy": "", "use_default": "bool", "available": "bool", "researched": "bool", "players": "{\"1\": {available, researched} | null}"}},
   {"op": "resize_map", "params": {"width": "tiles", "height": "tiles", "tileset": "badlands | platform | install | ashworld | jungle | desert | ice | twilight", "shift_x": "tiles", "shift_y": "tiles", "fill": "terrain for new ground"}}
 ])OPS";
 
@@ -1413,7 +1520,9 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
   stardraft-cli open <map>                  make the working folder <map>.work (the map file does not change)
   stardraft-cli status <map>                the working folder: change number, undo and redo steps, history
   stardraft-cli get <map> [part...]         JSON: summary (default), units, doodads, sprites, locations, players,
-                                            forces, terrain [--step px], terrains, unit-types, doodad-types
+                                            forces, terrain [--step px], terrains, unit-types, doodad-types,
+                                            triggers, briefings, files, unit-settings, upgrade-settings,
+                                            tech-settings ([--all]: also those that use the game's values)
   stardraft-cli apply <map> <ops>           apply operations (a file, - for stdin, or JSON text) as one undo step
                     [--expect <change>] [--dry-run] [--label <text>]
   stardraft-cli undo <map> [--steps n]      go back one step (or n)
@@ -1421,9 +1530,11 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
   stardraft-cli render <map> -o <file.png>  a picture of the map, or part of it:
                     [--area l,t,r,b | --center x,y [--size w,h]] [--zoom z] [--size w,h]
                     [--grid px] [--locations] [--no-units] [--no-sprites]
+  stardraft-cli add-file <map> <name> <file> put a file (a sound: sound\\x.wav) into the map; --remove takes one out
   stardraft-cli save <map> [--to <path>]    write the map (.scm, .scx or .chk)
   stardraft-cli close <map> [--discard]     remove the working folder
   stardraft-cli ops                         the operations that apply takes, with their parameters
+  stardraft-cli trigger-types               the trigger conditions and actions, with their parameters
 
 Positions are map pixels (a tile is 32 px). Players are 1-12, forces 1-4, locations by their number.
 <map> is the map file, or its working folder. After `open`, get, apply and render work on the working copy.
@@ -1466,11 +1577,14 @@ static int run(std::vector<std::string> argv) {
     try {
         if (c == "ops") {
             result = Obj().add("ops", parseJson(kOps, "the operation list"));
+        } else if (c == "trigger-types") {
+            result = triggerTypesJson();
         } else {
-            if (s.args.positional.empty()) fail(c + " needs a map");
+            if (s.args.positional.empty()) fail(c + " needs a map (stardraft-cli help)");
             if (c == "open") result = cmdOpen(s);
             else if (c == "status") result = cmdStatus(s);
             else if (c == "new") result = cmdNew(s);
+            else if (c == "add-file") result = cmdAddFile(s);
             else if (c == "get") result = cmdGet(s);
             else if (c == "apply") result = cmdApply(s);
             else if (c == "undo") result = cmdUndoRedo(s, true);
