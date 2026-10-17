@@ -2,7 +2,10 @@
 //   isom_core_probe ids <era>: each tileset terrain: our id and name (IsomTerrainTable), the core's brush values
 //   isom_core_probe same <map> <px> <py> [extent]: paint the terrain of the corner at (px, py) there with the core;
 //     which ISOM slots change their terrain
+//   isom_core_probe render <map or .chk> <tx> <ty> <w> <h> <out.png>: those tiles of MTXM as an image (misfits framed)
 #include <cstdio>
+#include <fstream>
+#include <iterator>
 #include <cstdlib>
 #include <string>
 
@@ -65,6 +68,38 @@ int main(int argc, char** argv) {
         }
         return 0;
     }
-    std::fprintf(stderr, "usage: isom_core_probe ids <era> | same <map> <px> <py> [extent]\n");
+    if (what == "render" && argc > 7) {
+        const std::string path = argv[2];
+        Bytes raw;
+        if (path.size() > 4 && path.substr(path.size() - 4) == ".chk") {
+            std::ifstream f(path, std::ios::binary);
+            raw.assign(std::istreambuf_iterator<char>(f), {});
+        } else if (!readMapChk(path, raw, e)) {
+            return std::fprintf(stderr, "%s\n", e.c_str()), 2;
+        }
+        const Chk chk = Chk::parse(raw);
+        Tileset ts;
+        if (!ts.load(d, uint16_t(readEra(chk) & 7), e)) return 2;
+        const TerrainLayer all = readTerrain(chk);
+        const int tx = std::atoi(argv[3]), ty = std::atoi(argv[4]), w = std::atoi(argv[5]), h = std::atoi(argv[6]);
+        TerrainLayer part;
+        part.width = uint16_t(w), part.height = uint16_t(h);
+        for (int y = ty; y < ty + h; ++y)
+            for (int x = tx; x < tx + w; ++x)
+                part.tiles.push_back(x < all.width && y < all.height ? all.tiles[size_t(y) * all.width + x] : 0);
+        Image img = renderTerrain(ts, part);
+        std::vector<std::pair<int, int>> where;
+        countTileMisfits(chk, &where);
+        for (auto [mx, my] : where) {  // a red frame on each misfit
+            if (mx < tx || my < ty || mx >= tx + w || my >= ty + h) continue;
+            for (int k = 0; k < 32; ++k)
+                for (auto [px, py] : {std::pair{k, 0}, {k, 31}, {0, k}, {31, k}}) {
+                    uint8_t* p = &img.rgba[(size_t((my - ty) * 32 + py) * img.width + size_t((mx - tx) * 32 + px)) * 4];
+                    p[0] = 255, p[1] = 0, p[2] = 0, p[3] = 255;
+                }
+        }
+        return writePng(argv[7], img) ? 0 : 2;
+    }
+    std::fprintf(stderr, "usage: isom_core_probe ids <era> | same <map> <px> <py> [extent] | render <map> <tx> <ty> <w> <h> <out.png>\n");
     return 2;
 }
