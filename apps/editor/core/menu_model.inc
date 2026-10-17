@@ -81,6 +81,7 @@ MenuModel buildMenuModel() {
                    menuSeparator(),
                    menuItem(ID_FILE_SAVE, L"&Save", L"Ctrl+S"),
                    menuItem(ID_FILE_SAVEAS, L"Save &as\x2026", L"Ctrl+Shift+S"),
+                   menuItem(ID_FILE_EXPORTIMAGE, L"&Export map image\x2026", L"Ctrl+Shift+E"),
                    menuSeparator(),
                    menuItem(ID_FILE_CLOSE, L"&Close", L"Ctrl+W"),
                    menuItem(ID_FILE_CLOSEALL, L"Close a&ll", L"Ctrl+Shift+W"),

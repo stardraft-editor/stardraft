@@ -78,6 +78,7 @@ add_library(stardraft
     src/doodads.cpp
     src/hd_assets.cpp
     src/hd_preview.cpp
+    src/png_writer.cpp
     src/previews.cpp
     src/euddraft.cpp
     src/eptrace.cpp

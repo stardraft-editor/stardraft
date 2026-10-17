@@ -102,6 +102,9 @@ CASES += [
     ("map-classictrig", ["--workspace", "classictriggers", "--classictrig", "1:1:0"], "map"),
     ("map-dialog-unitprops", ["--dialog", "unitprops"], "map"),
     ("map-dialog-locprops", ["--dialog", "locprops"], "map"),
+    ("map-dialog-mapimage", ["--dialog", "mapimage"], "map"),  # File > Export map image (core/map_image.inc)
+    ("map-dialog-mapimage-progress", ["--dialog", "mapimage-progress"], "map"),  # ... its progress window, at part 3 of 16
+    ("dialog-newpreview", ["--dialog", "newpreview"], "data"),  # the New page's larger preview of a generated map
     ("map-dialog-prompt", ["--dialog", "prompt"], "map"),
     ("map-dialog-quick", ["--dialog", "quick", "--mode", "units"], "map"),
     ("map-newpage-classic", ["--newpage", "classic"], "map"),
@@ -399,6 +402,27 @@ CASES += [
 # more. The mouse's points are the main window's, as on the screen: a pop-out takes a click on it, and a click outside
 # it closes it; a dialog takes the clicks in its own pixels. A modal window's inputs' lines come before the line of the
 # input that opened it. After each input's line, a line "  state: ..." says what the workspace holds (sdl_shot_state.inc).
+# File > Export map image (Ctrl+Shift+E): the dialog (--mapimage: its first options; Enter: Export), the save dialog's
+# answer (--pick), then the PNG. Each case exports twice, with the units and without them: the PNGs have the size of
+# the area at the scale, and the pixel at a unit's place is not the same in the two (CHECKS: check_map_image).
+# quarter: the whole map at 1/4 (8 pixels a tile); region: a terrain selection of 32 x 24 tiles at full size.
+MAP_IMAGE = "--mapimage", "--key", "Ctrl+Shift+E", "--key", "Enter", "--pick"
+CASES += [
+    ("map-image-quarter", [MAP_IMAGE[0], "8,whole,units", *MAP_IMAGE[1:], "{out}/map-image-quarter-units.png",
+                           MAP_IMAGE[0], "8,whole,nounits", *MAP_IMAGE[1:], "{out}/map-image-quarter-nounits.png"], "map"),
+    ("map-image-region", [MAP_IMAGE[0], "32,selection,units,sel=50:0:82:24", *MAP_IMAGE[1:], "{out}/map-image-region-units.png",
+                          MAP_IMAGE[0], "32,selection,nounits,sel=50:0:82:24", *MAP_IMAGE[1:], "{out}/map-image-region-nounits.png"], "map"),
+    # parts: the whole map at 1/2 (16 pixels a tile: 2048 x 2048, 4 parts in 2 bands; each band goes into the PNG on a
+    # thread while the next is drawn). cancel: the same file at 1/4, then again at 1/2 with cancel=2 (the export stops
+    # after 2 parts, as the progress window's Cancel does): the file of the first export stays, and no .part file.
+    ("map-image-parts", [MAP_IMAGE[0], "16,whole,units", *MAP_IMAGE[1:], "{out}/map-image-parts-map.png"], "map"),
+    ("map-image-cancel", [MAP_IMAGE[0], "8,whole,units", *MAP_IMAGE[1:], "{out}/map-image-cancel-map.png",
+                          MAP_IMAGE[0], "16,whole,units,cancel=2", *MAP_IMAGE[1:], "{out}/map-image-cancel-map.png"], "map"),
+    # The New page: Generate, a wait for the preview, Larger preview (the button at the preview's top right), then the
+    # dialog's Export at 1/4 (8 pixels a tile) and the save dialog's answer.
+    ("newpage-preview-export", ["--newpage", "classic", "--click", "757,299", "--wait", "600", "--click", "1200,346", "--wait", "100",
+                                "--click", "1040,890", "--pick", "{out}/newpage-preview-export-map.png"], "data"),
+]
 CASES += [
     # The New page: the tileset Ice, then Create makes the map (128 x 128).
     ("newpage-create", ["--newpage", "classic", "--click", "489,517", "--click", "1126,895"], "data"),
@@ -1879,6 +1903,200 @@ def check_files_search(output):
     return None
 
 
+MAP_IMAGE_LINE = re.compile(r"^map image: wrote (.+?): (\d+) x (\d+) pixels; (.*)$", re.M)
+
+
+def png_rows(path):
+    """The PNG's (width, height, channels, rows): rows gives each row's bytes in order (decoded as they are read). A
+    string: the reason the file is no PNG this can read (8-bit, not interlaced)."""
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError as e:
+        return f"no PNG ({e.strerror})"
+    if not data.startswith(PNG_SIGNATURE):
+        return "not a PNG"
+    pos, ihdr, idat = 8, None, []
+    while pos + 8 <= len(data):
+        length, kind = struct.unpack(">I4s", data[pos:pos + 8])
+        body = data[pos + 8:pos + 8 + length]
+        if kind == b"IHDR":
+            ihdr = struct.unpack(">IIBBBBB", body)
+        elif kind == b"IDAT":
+            idat.append(body)
+        elif kind == b"IEND":
+            break
+        pos += 12 + length
+    if not ihdr or not idat:
+        return "the PNG has no IHDR or no IDAT"
+    width, height, depth, color, _, _, interlace = ihdr
+    channels = {0: 1, 2: 3, 4: 2, 6: 4}.get(color)
+    if depth != 8 or channels is None or interlace:
+        return "the PNG is not 8-bit RGB or RGBA"
+    try:
+        raw = zlib.decompress(b"".join(idat))
+    except zlib.error as e:
+        return f"the PNG does not decode ({e})"
+    stride = width * channels
+    if len(raw) < height * (stride + 1):
+        return "the PNG's data is short"
+
+    def rows():
+        bpp, prev = channels, bytearray(stride)
+        for y in range(height):
+            start = y * (stride + 1)
+            ftype, line = raw[start], bytearray(raw[start + 1:start + 1 + stride])
+            if ftype == 1:
+                for i in range(bpp, stride):
+                    line[i] = (line[i] + line[i - bpp]) & 0xFF
+            elif ftype == 2:
+                line = bytearray((a + b) & 0xFF for a, b in zip(line, prev))
+            elif ftype == 3:
+                for i in range(stride):
+                    left = line[i - bpp] if i >= bpp else 0
+                    line[i] = (line[i] + ((left + prev[i]) >> 1)) & 0xFF
+            elif ftype == 4:
+                for i in range(stride):
+                    a = line[i - bpp] if i >= bpp else 0
+                    b, c = prev[i], prev[i - bpp] if i >= bpp else 0
+                    pp = a + b - c
+                    pa, pb, pc = abs(pp - a), abs(pp - b), abs(pp - c)
+                    line[i] = (line[i] + (a if pa <= pb and pa <= pc else (b if pb <= pc else c))) & 0xFF
+            elif ftype != 0:
+                raise ValueError(f"the PNG has a bad filter ({ftype})")
+            yield bytes(line)
+            prev = line
+    return width, height, channels, rows()
+
+
+def png_rows_to(path, last):
+    """The PNG's (width, height, channels, [rows 0 to last]), or the reason it cannot be read."""
+    got = png_rows(path)
+    if isinstance(got, str):
+        return got
+    width, height, channels, rows = got
+    out = []
+    try:
+        for y, row in enumerate(rows):
+            out.append(row)
+            if y >= last:
+                break
+    except ValueError as e:
+        return str(e)
+    return width, height, channels, out
+
+
+def check_map_image(want_w, want_h):
+    """None when the two exports (units on, then off) have the size want_w x want_h, the first is not one flat color,
+    and the pixels at the unit's place (the line of the first) are not the same in the two."""
+    def check(output):
+        lines = MAP_IMAGE_LINE.findall(output)
+        if len(lines) != 2:
+            return f"{len(lines)} map image lines, not 2"
+        (on_file, w1, h1, on_what), (off_file, w2, h2, off_what) = lines
+        if "units on" not in on_what or "units off" not in off_what:
+            return f"the units are not on, then off ({on_what}; {off_what})"
+        for f, w, h in ((on_file, w1, h1), (off_file, w2, h2)):
+            if (int(w), int(h)) != (want_w, want_h):
+                return f"{f}: {w} x {h} pixels, not {want_w} x {want_h}"
+            problem = png_check(f)
+            if problem:
+                return f"{f}: {problem}"
+        m = re.search(r"unit \d+ at (\d+),(\d+)", on_what)
+        if not m:
+            return f"no unit in the area ({on_what})"
+        ux, uy = int(m.group(1)), int(m.group(2))
+        a, b = png_rows_to(on_file, uy + 2), png_rows_to(off_file, uy + 2)
+        for f, got in ((on_file, a), (off_file, b)):
+            if isinstance(got, str):
+                return f"{f}: {got}"
+            if (got[0], got[1]) != (want_w, want_h):
+                return f"{f}: the PNG is {got[0]} x {got[1]}, not {want_w} x {want_h}"
+        ch = a[2]
+        diff = 0
+        for y in range(max(0, uy - 2), min(want_h, uy + 3)):
+            for x in range(max(0, ux - 2), min(want_w, ux + 3)):
+                pa, pb = a[3][y][x * ch:x * ch + 3], b[3][y][x * ch:x * ch + 3]
+                diff = max(diff, max(abs(p - q) for p, q in zip(pa, pb)))
+        if diff < 24:
+            return f"the pixels at the unit's place ({ux},{uy}) are the ground's with the units on (a difference of {diff})"
+        return None
+    return check
+
+
+def check_map_image_parts(output):
+    """None when the export in 4 parts (2 bands) wrote 2048 x 2048 pixels that decode, and a row of the second band
+    is not one flat color (the band was drawn and written)."""
+    lines = MAP_IMAGE_LINE.findall(output)
+    if len(lines) != 1:
+        return f"{len(lines)} map image lines, not 1"
+    f, w, h, what = lines[0]
+    if (int(w), int(h)) != (2048, 2048):
+        return f"{f}: {w} x {h} pixels, not 2048 x 2048"
+    problem = png_check(f)
+    if problem:
+        return f"{f}: {problem}"
+    got = png_rows_to(f, 1030)
+    if isinstance(got, str):
+        return f"{f}: {got}"
+    width, height, ch, rows = got
+    if (width, height) != (2048, 2048) or len(rows) < 1031:
+        return f"{f}: the PNG is {width} x {height} with {len(rows)} rows read"
+    row = bytes(rows[1030])
+    if row == row[:ch] * width:
+        return f"{f}: row 1030 (the second band) is one flat color"
+    return None
+
+
+def check_map_image_cancel(output):
+    """None when the first export wrote the file (1024 x 1024), and the second stopped after part 2 of 4 with the
+    first file still there (it decodes, at its own size) and no .part file."""
+    lines = MAP_IMAGE_LINE.findall(output)
+    if len(lines) != 1:
+        return f"{len(lines)} map image lines, not 1 (the canceled export must not write one)"
+    f, w, h, _ = lines[0]
+    m = re.search(r"^map image: canceled after part (\d+) of (\d+); (\S+): (there|not there); (\S+): (there|not there)\r?$", output, re.M)
+    if not m:
+        return "no line of a canceled map image export"
+    if (m.group(1), m.group(2)) != ("2", "4"):
+        return f"canceled after part {m.group(1)} of {m.group(2)}, not 2 of 4"
+    if m.group(4) != "there" or m.group(6) != "not there":
+        return f"after the Cancel: {m.group(3)} {m.group(4)}, {m.group(5)} {m.group(6)} (the old file must stay, with no .part file)"
+    got = png_rows_to(f, 0)
+    if isinstance(got, str):
+        return f"{f}: {got}"
+    if (got[0], got[1]) != (1024, 1024):
+        return f"{f}: the PNG is {got[0]} x {got[1]}, not the first export's 1024 x 1024"
+    return png_check(f)
+
+
+def check_map_image_progress(output):
+    """None when the progress window shows part 3 of 16 with the bar at 2 of 16 parts (13 %)."""
+    m = re.search(r"^map image progress: (.*?)\r?$", output, re.M)
+    if not m:
+        return "no progress window"
+    if m.group(1) != "Part 3 of 16, 13%":
+        return f"the progress window shows {m.group(1)!r}, not 'Part 3 of 16, 13%'"
+    return None
+
+
+def check_newpage_preview_export(output):
+    """None when the larger preview's Export wrote the generated 128 x 128 map at 8 pixels a tile (1024 x 1024), not
+    one flat color."""
+    lines = MAP_IMAGE_LINE.findall(output)
+    if len(lines) != 1:
+        return f"{len(lines)} map image lines, not 1 (the larger preview or its Export did not open)"
+    f, w, h, what = lines[0]
+    if (int(w), int(h)) != (1024, 1024) or "New page preview, 8 px a tile" not in what:
+        return f"{f}: {w} x {h} pixels ({what}), not the preview at 8 pixels a tile (1024 x 1024)"
+    got = png_rows_to(f, 0)
+    if isinstance(got, str):
+        return f"{f}: {got}"
+    if (got[0], got[1]) != (1024, 1024):
+        return f"{f}: the PNG is {got[0]} x {got[1]}, not 1024 x 1024"
+    return png_check(f)
+
+
 def check_briefing_add(output):
     """None when Add an action made a briefing with a Text message (type 3), and Undo took it out."""
     s = states(output)
@@ -2743,6 +2961,10 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "map-undo-history": check_undo_history, "data-undo-history": check_data_undo_history,
           "data-triggers-undo-history": check_trigger_undo_history,
           "map-files-search": check_files_search, "map-briefing-add": check_briefing_add,
+          "map-image-quarter": check_map_image(1024, 1024), "map-image-region": check_map_image(1024, 768),
+          "newpage-preview-export": check_newpage_preview_export,
+          "map-image-parts": check_map_image_parts, "map-image-cancel": check_map_image_cancel,
+          "map-dialog-mapimage-progress": check_map_image_progress,
           "start-noinstall": check_banner(True, "none", False),
           "start-noinstall-nodata": check_banner(True, "That folder has no StarCraft game data.", False),
           "start-noinstall-pick": check_banner(False, "none", True), "start-noinstall-keys": check_start_keys, "start-scale2": check_scale2,
