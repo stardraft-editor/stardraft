@@ -60,7 +60,8 @@ if ($LASTEXITCODE) { throw "The symbols were not kept ($LASTEXITCODE)" }
 if ($exists) {
   gh release upload $tag $zip
 } elseif ($test) {
-  $kind = if ($preview) { @('--prerelease') } else { @() }
+  $kind = @()  # (an array: a string would be splatted one character at a time)
+  if ($preview) { $kind += '--prerelease' }
   gh release create $tag $zip --draft @kind --latest=false --target $env:GITHUB_SHA --title $title --notes-file notes.md
 } elseif ($preview) {
   gh release create $tag $zip --title $title --prerelease --latest=false --verify-tag --notes-file notes.md
