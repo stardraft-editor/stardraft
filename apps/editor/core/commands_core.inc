@@ -104,7 +104,7 @@ bool commandPortable(AppState& app, int id) {
 // The commands that act on a map: a page tab (the New page, the start page) has none. The graphics quality (View >
 // High definition ... Carbot) is a program setting, not one of them.
 bool mapCommand(int id) {
-    return id == ID_FILE_SAVE || id == ID_FILE_SAVEAS || (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) ||
+    return id == ID_FILE_SAVE || id == ID_FILE_SAVEAS || id == ID_FILE_EXPORTIMAGE || (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) ||
            (id >= ID_VIEW_LOCATIONS && id <= ID_PATHSIZE_LARGE) || (id >= ID_MODE_TERRAIN && id <= ID_MODE_SPRITES) ||
            (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 10) || id == ID_QUICKPICK || (id >= ID_PROJ_COMPILE && id <= ID_PROJ_FROMMAP) ||
            (id >= ID_WS_MAP && id <= ID_WS_FILES) || (id >= ID_DOCK_MINI_LEFT && id <= ID_DOCK_TOOLS_RIGHT) || id == ID_SCEN_PLAYERS ||
