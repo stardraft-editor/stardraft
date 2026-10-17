@@ -3,6 +3,7 @@
 #include <cstring>
 #include <map>
 #include <mutex>
+#include <unordered_map>
 
 #include "IsomApi.h"  // third_party/IsomTerrain/IsomTerrain (unchanged; its includes are StarDraft's stand-ins beside it)
 #include "stardraft/terrain.h"
@@ -272,5 +273,76 @@ std::vector<uint16_t> IsomCore::brushes() const {
         for (const auto& b : impl_->tables->brushes) out.push_back(b.isomValue);
     return out;
 }
+
+// --- IsomTiles ---------------------------------------------------------------------------------------------------------
+
+struct IsomTiles::Data {
+    const Sc::Terrain_::Tiles* tables = nullptr;
+    std::unordered_map<uint32_t, std::vector<uint16_t>> byRect;  // (parity, left, right) -> groups
+    std::vector<std::vector<Rect>> rectsOf;                      // group -> rects
+    std::vector<uint16_t> none;
+    std::vector<Rect> noRects;
+    static uint32_t key(int parity, uint16_t left, uint16_t right) { return uint32_t(parity & 1) << 30 | uint32_t(left) << 15 | right; }
+};
+
+IsomTiles::IsomTiles(std::unique_ptr<Data> data) : d_(std::move(data)) {}
+IsomTiles::~IsomTiles() = default;
+
+const IsomTiles* IsomTiles::forTileset(const Tileset& tileset) {
+    if (tileset.groups.empty()) return nullptr;
+    const Sc::Terrain_::Tiles* tables = tablesFor(tileset);
+    static std::mutex m;
+    static std::map<const Sc::Terrain_::Tiles*, std::unique_ptr<IsomTiles>> cache;
+    std::lock_guard<std::mutex> lock(m);
+    if (auto it = cache.find(tables); it != cache.end()) return it->second.get();
+    auto d = std::make_unique<Data>();
+    d->tables = tables;
+    d->rectsOf.resize(tables->tileGroups.size());
+    // Every rect a tileset can have: its two diamonds' shapes give its slots (as StarEdit writes them: IsomRect::set
+    // with each diamond's quadrant), the slots its hash, the hash StarEdit's groups.
+    const Span<Sc::Isom::ShapeLinks> links(tables->isomLinks.data(), tables->isomLinks.size());
+    const uint16_t n = uint16_t(std::min<size_t>(tables->isomLinks.size(), 0x7FFF));
+    for (int parity = 0; parity < 2; ++parity)
+        for (uint16_t l = 1; l < n; ++l) {
+            if (links[l].terrainType == 0) continue;
+            for (uint16_t r = 1; r < n; ++r) {
+                if (links[r].terrainType == 0) continue;
+                ::Chk::IsomRect rect{};
+                using Q = Sc::Isom::Quadrant;
+                rect.set(Sc::Isom::ProjectedQuadrant(parity ? Q::TopRight : Q::BottomRight), l);
+                rect.set(Sc::Isom::ProjectedQuadrant(parity ? Q::BottomLeft : Q::TopLeft), r);
+                auto it = tables->hashToTileGroup.find(rect.getHash(links));
+                if (it == tables->hashToTileGroup.end()) continue;
+                d->byRect.emplace(Data::key(parity, l, r), it->second);
+                for (uint16_t g : it->second)
+                    if (g < d->rectsOf.size()) d->rectsOf[g].push_back({uint8_t(parity), l, r});
+            }
+        }
+    return cache.emplace(tables, std::make_unique<IsomTiles>(std::move(d))).first->second.get();
+}
+
+const std::vector<uint16_t>& IsomTiles::groups(int parity, uint16_t left, uint16_t right) const {
+    auto it = d_->byRect.find(Data::key(parity, left, right));
+    return it == d_->byRect.end() ? d_->none : it->second;
+}
+const std::vector<IsomTiles::Rect>& IsomTiles::rectsOf(uint16_t group) const {
+    return group < d_->rectsOf.size() ? d_->rectsOf[group] : d_->noRects;
+}
+uint16_t IsomTiles::stackTop(uint16_t group) const {
+    return group < d_->tables->tileGroups.size() ? d_->tables->tileGroups[group].stackConnections.top : 0;
+}
+uint16_t IsomTiles::stackBottom(uint16_t group) const {
+    return group < d_->tables->tileGroups.size() ? d_->tables->tileGroups[group].stackConnections.bottom : 0;
+}
+bool IsomTiles::beside(uint16_t leftGroup, uint16_t rightGroup) const {
+    const auto& a = rectsOf(leftGroup);
+    const auto& b = rectsOf(rightGroup);
+    if (a.empty() || b.empty()) return true;  // (not from the ISOM: no rule)
+    for (const Rect& l : a)
+        for (const Rect& r : b)
+            if (l.parity != r.parity && l.right == r.left) return true;
+    return false;
+}
+uint16_t IsomTiles::shapeCount() const { return uint16_t(d_->tables->isomLinks.size()); }
 
 }  // namespace stardraft

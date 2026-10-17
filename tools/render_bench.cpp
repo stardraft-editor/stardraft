@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
     // Map: 256x256 dirt with random terrain blobs.
     Chk chk;
     IsomGrid grid;
-    grid.create(chk, 256, 256, 0, 1, err);
+    grid.create(chk, 256, 256, 0, 1, ts, err);
     std::mt19937 rng(7);
     for (int i = 0; i < 400; ++i) {
         int x = int(rng() % 128), y = int(rng() % 256);

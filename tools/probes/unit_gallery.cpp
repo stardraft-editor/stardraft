@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
     uint16_t w = uint16_t(cols * cell / 32), h = uint16_t(rows * cell / 32);
     Chk chk;
     IsomGrid grid;
-    if (!grid.create(chk, w + (w & 1), h, 0, 1, err)) {
+    if (!grid.create(chk, w + (w & 1), h, 0, 1, ts, err)) {
         std::fprintf(stderr, "%s\n", err.c_str());
         return 1;
     }

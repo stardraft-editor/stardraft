@@ -27,265 +27,23 @@ constexpr std::array<std::array<uint8_t, 4>, 14> kPairPatterns = {{
 // Positional edge ids per slot (left, top, right, bottom) for even / odd rects.
 constexpr std::array<std::array<uint16_t, 4>, 2> kEdgeIds = {{{4, 5, 0, 1}, {2, 6, 7, 3}}};
 
-// --- Corpus-learned ISOM -> TILE rules ---------------------------------------------------
-
-struct TileRule {
-    uint64_t key;
-    uint16_t group;
-};
-
-struct TileGroupInfo {
-    uint8_t stackBottom, stackTop;  // CV5 vertical stack connections
-    uint16_t leftEdge, rightEdge;   // CV5 horizontal edge codes
-    uint16_t commonSubtiles;        // bit mask of megatile slots
-    uint16_t rareSubtiles;
-};
-
-struct TileCandidate {
-    uint64_t key;  // ISOM key without context
-    uint16_t group;
-    uint32_t count;  // how often Blizzard maps use this group for the key
-};
-
-#include "data/badlands_tile_rules.inc"
-#include "data/platform_tile_rules.inc"
-#include "data/install_tile_rules.inc"
-#include "data/ashworld_tile_rules.inc"
-#include "data/jungle_tile_rules.inc"
-#include "data/desert_tile_rules.inc"
-#include "data/ice_tile_rules.inc"
-#include "data/twilight_tile_rules.inc"
-
-// CV5 fields per tile group that the rules above leave out.
-struct TileEdges {
-    uint16_t type, topEdge, bottomEdge;
-    uint8_t art;  // the group has a megatile other than 0
-};
-#include "data/tile_edges.inc"
-
-struct TileRules {
-    std::span<const TileRule> t1, t2, t0;
-    std::span<const TileGroupInfo> groups;
-    std::span<const TileCandidate> candidates;  // sorted by key, most common first within a key
-    std::span<const uint32_t> hpairs;           // sorted (leftHalf << 31 | rightEdge << 16 | leftEdge)
-    std::span<const TileEdges> edges;           // CV5 type, top and bottom edges per group
-    // Groups that are the same piece of terrain (CV5 type, four edges, index parity), sorted by that key;
-    // they differ only in their stack connections. Built on first use.
-    mutable std::vector<std::pair<uint64_t, uint16_t>> siblings;
-    mutable std::vector<uint32_t> useCounts;
-
-    static const TileRules* forEra(uint16_t era) {
-        static const TileRules badlands{k_badlands_t1, k_badlands_t2, k_badlands_t0, k_badlands_groups, k_badlands_candidates, k_badlands_hpairs, k_badlands_edges};
-        static const TileRules platform{k_platform_t1, k_platform_t2, k_platform_t0, k_platform_groups, k_platform_candidates, k_platform_hpairs, k_platform_edges};
-        static const TileRules install{k_install_t1, k_install_t2, k_install_t0, k_install_groups, k_install_candidates, k_install_hpairs, k_install_edges};
-        static const TileRules ashworld{k_ashworld_t1, k_ashworld_t2, k_ashworld_t0, k_ashworld_groups, k_ashworld_candidates, k_ashworld_hpairs, k_ashworld_edges};
-        static const TileRules jungle{k_jungle_t1, k_jungle_t2, k_jungle_t0, k_jungle_groups, k_jungle_candidates, k_jungle_hpairs, k_jungle_edges};
-        static const TileRules desert{k_desert_t1, k_desert_t2, k_desert_t0, k_desert_groups, k_desert_candidates, k_desert_hpairs, k_desert_edges};
-        static const TileRules ice{k_ice_t1, k_ice_t2, k_ice_t0, k_ice_groups, k_ice_candidates, k_ice_hpairs, k_ice_edges};
-        static const TileRules twilight{k_twilight_t1, k_twilight_t2, k_twilight_t0, k_twilight_groups, k_twilight_candidates, k_twilight_hpairs, k_twilight_edges};
-        static const TileRules* all[8] = {&badlands, &platform, &install, &ashworld, &jungle, &desert, &ice, &twilight};
-        return all[era & 7];
-    }
-
-    // The piece key of a group: CV5 type, left, top, right and bottom edge, index parity. 0 if unknown.
-    uint64_t pieceKey(int g) const {
-        if (g < 0 || size_t(g) >= groups.size() || size_t(g) >= edges.size() || !edges[g].art) return 0;
-        const TileGroupInfo& gi = groups[g];
-        const TileEdges& e = edges[g];
-        return (uint64_t(e.type) << 52) | (uint64_t(gi.leftEdge) << 39) | (uint64_t(e.topEdge) << 26) |
-               (uint64_t(gi.rightEdge) << 13) | (uint64_t(e.bottomEdge) << 1) | uint64_t(g & 1) | (uint64_t(1) << 63);
-    }
-    // Groups with the same piece key as g (g included).
-    std::span<const std::pair<uint64_t, uint16_t>> siblingsOf(int g) const {
-        static std::mutex m;
-        {
-            std::lock_guard lock(m);
-            if (siblings.empty()) {
-                for (size_t i = 0; i < groups.size() && i < 1024; ++i)
-                    if (uint64_t k = pieceKey(int(i))) siblings.push_back({k, uint16_t(i)});
-                std::sort(siblings.begin(), siblings.end());
-            }
-        }
-        const uint64_t k = pieceKey(g);
-        if (!k) return {};
-        auto lo = std::lower_bound(siblings.begin(), siblings.end(), std::pair<uint64_t, uint16_t>{k, uint16_t(0)});
-        auto hi = std::upper_bound(siblings.begin(), siblings.end(), std::pair<uint64_t, uint16_t>{k, uint16_t(0xFFFF)});
-        return {lo, hi};
-    }
-
-    static uint64_t key(int parity, int half, uint16_t left, uint16_t right, uint16_t ctx) {
-        return (uint64_t(parity) << 63) | (uint64_t(half) << 62) | (uint64_t(left) << 44) | (uint64_t(right) << 26) |
-               ctx;
-    }
-    static int find(std::span<const TileRule> t, uint64_t k) {
-        auto it = std::lower_bound(t.begin(), t.end(), k, [](const TileRule& r, uint64_t v) { return r.key < v; });
-        return it != t.end() && it->key == k ? it->group : -1;
-    }
-    uint8_t stackBottom(int group) const {
-        return group >= 0 && size_t(group) < groups.size() ? groups[group].stackBottom : 0;
-    }
-    const TileGroupInfo* info(int g) const { return g >= 0 && size_t(g) < groups.size() ? &groups[g] : nullptr; }
-    // Does group g sit correctly below `above` and right of `left` (-1 = no neighbor)?
-    bool fits(int g, int above, int left, int leftHalf) const {
-        const TileGroupInfo* gi = info(g);
-        if (!gi) return false;
-        if (const TileGroupInfo* a = info(above); a && a->stackBottom != gi->stackTop) return false;
-        if (const TileGroupInfo* l = info(left)) {
-            uint32_t pair = (uint32_t(leftHalf) << 31) | (uint32_t(l->rightEdge) << 16) | gi->leftEdge;
-            if (!std::binary_search(hpairs.begin(), hpairs.end(), pair)) return false;
-        }
-        return true;
-    }
-    // Best group for a tile: the context rule if it fits its neighbors, else the most common
-    // candidate for this ISOM combination that does, else the context rule anyway.
-    int choose(int parity, int half, uint16_t leftShape, uint16_t rightShape, int above, int left) const {
-        int g = lookup(parity, half, leftShape, rightShape, above);
-        int leftHalf = half ^ 1;  // the tile to the left is the other half (or the previous rect's right half)
-        if (g >= 0 && fits(g, above, left, leftHalf)) return g;
-        uint64_t k = key(parity, half, leftShape, rightShape, 0);
-        auto it = std::lower_bound(candidates.begin(), candidates.end(), k,
-                                   [](const TileCandidate& c, uint64_t v) { return c.key < v; });
-        // Prefer fitting both neighbors, then at least the tile above (cliff stacks). When no candidate that
-        // Blizzard's maps use for this rect fits, the same piece of terrain with other stack connections
-        // (a CV5 sibling: same type, edges and half) can: a cliff or wall piece under a piece that Blizzard's
-        // maps never put above it.
-        for (int pass = 0; pass < 2; ++pass) {
-            for (auto c = it; c != candidates.end() && c->key == k; ++c)
-                if (fits(c->group, above, pass == 0 ? left : -1, leftHalf)) return c->group;
-            for (auto c = it; c != candidates.end() && c->key == k; ++c)
-                for (const auto& s : siblingsOf(c->group))
-                    if (s.second != c->group && fits(s.second, above, pass == 0 ? left : -1, leftHalf)) return s.second;
-        }
-        return g;
-    }
-    // A group for an ISOM combination that Blizzard's maps do not have (terrain painted in a way StarEdit
-    // never did, for example two edges of Temple close together). A tile's CV5 edges come from the
-    // corner terrains of its rect's two diamonds (checked on every Blizzard map, no exceptions):
-    //   even rect: left and top edge from the left diamond; right and bottom edge from the right and
-    //              bottom corners of both diamonds;
-    //   odd rect:  left and bottom edge from the left diamond; top and right edge from the top and right
-    //              corners of both diamonds.
-    // Each half is looked up in the combinations Blizzard's maps do have; the result is a CV5 group of the
-    // same half with both, the one Blizzard's maps use most that fits the tiles above and to the left.
-    // -1 if no group has both halves.
-    int predict(const IsomTerrainTable& table, int parity, int half, uint16_t leftShape, uint16_t rightShape, int above, int left) const {
-        const auto cl = table.corners(leftShape), cr = table.corners(rightShape);
-        auto bKey = [&](const std::array<uint16_t, 4>& a, const std::array<uint16_t, 4>& b) {
-            return parity == 0 ? std::array<uint16_t, 4>{a[2], a[3], b[2], b[3]} : std::array<uint16_t, 4>{a[1], a[2], b[1], b[2]};
-        };
-        const auto want = bKey(cl, cr);
-        auto edgesA = [&](int g) { return parity == 0 ? std::pair{groups[g].leftEdge, edges[g].topEdge} : std::pair{groups[g].leftEdge, edges[g].bottomEdge}; };
-        auto edgesB = [&](int g) { return parity == 0 ? std::pair{groups[g].rightEdge, edges[g].bottomEdge} : std::pair{edges[g].topEdge, groups[g].rightEdge}; };
-        std::vector<std::pair<uint16_t, uint16_t>> setA, setB;
-        const uint64_t lo = key(parity, half, 0, 0, 0), hi = key(parity, half, 0xFFFF, 0xFFFF, 0xFFFF);
-        auto it = std::lower_bound(candidates.begin(), candidates.end(), lo, [](const TileCandidate& c, uint64_t v) { return c.key < v; });
-        uint64_t prev = ~uint64_t(0);
-        for (; it != candidates.end() && it->key <= hi; ++it) {
-            if (it->key == prev) continue;  // the first (most common) group of each combination
-            prev = it->key;
-            const int g = it->group;
-            if (size_t(g) >= groups.size() || size_t(g) >= edges.size()) continue;
-            const uint16_t ls = uint16_t((it->key >> 44) & 0x3FFFF), rs = uint16_t((it->key >> 26) & 0x3FFFF);
-            if (ls == leftShape) setA.push_back(edgesA(g));
-            if (bKey(table.corners(ls), table.corners(rs)) == want) setB.push_back(edgesB(g));
-        }
-        if (setA.empty() || setB.empty()) return -1;
-        std::vector<std::pair<uint64_t, int>> found;  // (-uses, group)
-        for (size_t g = size_t(half); g < groups.size() && g < edges.size() && g < 1024; g += 2) {
-            if (!edges[g].art) continue;
-            if (std::find(setA.begin(), setA.end(), edgesA(int(g))) == setA.end()) continue;
-            if (std::find(setB.begin(), setB.end(), edgesB(int(g))) == setB.end()) continue;
-            found.push_back({~uint64_t(uses(int(g))), int(g)});
-        }
-        if (found.empty()) return -1;
-        std::sort(found.begin(), found.end());
-        const int leftHalf = half ^ 1;
-        for (int pass = 0; pass < 2; ++pass)
-            for (const auto& f : found)
-                if (fits(f.second, above, pass == 0 ? left : -1, leftHalf)) return f.second;
-        return found.front().second;
-    }
-    // How often Blizzard's maps use a group (summed over the candidates).
-    uint32_t uses(int g) const {
-        static std::mutex m;
-        std::lock_guard lock(m);
-        if (useCounts.empty()) {
-            useCounts.assign(groups.size(), 0);
-            for (const auto& c : candidates)
-                if (c.group < useCounts.size()) useCounts[c.group] += c.count;
-        }
-        return size_t(g) < useCounts.size() ? useCounts[g] : 0;
-    }
-    // The candidates for an ISOM combination, then their CV5 siblings (other stack connections).
-    std::vector<int> candidatesAndSiblings(int parity, int half, uint16_t leftShape, uint16_t rightShape) const {
-        std::vector<int> out;
-        for (const auto& c : candidatesFor(parity, half, leftShape, rightShape)) out.push_back(c.group);
-        const size_t n = out.size();
-        for (size_t i = 0; i < n; ++i)
-            for (const auto& s : siblingsOf(out[i]))
-                if (std::find(out.begin(), out.end(), int(s.second)) == out.end()) out.push_back(s.second);
-        return out;
-    }
-    // Groups Blizzard's maps use for an ISOM combination (most common first).
-    std::span<const TileCandidate> candidatesFor(int parity, int half, uint16_t leftShape, uint16_t rightShape) const {
-        uint64_t k = key(parity, half, leftShape, rightShape, 0);
-        auto lo = std::lower_bound(candidates.begin(), candidates.end(), k, [](const TileCandidate& c, uint64_t v) { return c.key < v; });
-        auto hi = lo;
-        while (hi != candidates.end() && hi->key == k) ++hi;
-        return {lo, hi};
-    }
-    // Group for a tile given the group above it (-1 for the top row).
-    int lookup(int parity, int half, uint16_t left, uint16_t right, int above) const {
-        // The tile above only matters when it stacks into this one (cliff pieces). Using it
-        // otherwise lets hand-edited corpus patterns repeat down a column.
-        uint8_t link = stackBottom(above);
-        int g = link ? find(t1, key(parity, half, left, right, uint16_t(above))) : -1;
-        if (g < 0) g = find(t2, key(parity, half, left, right, link));
-        if (g < 0) g = find(t0, key(parity, half, left, right, 0));
-        return g;
-    }
-};
-
-uint32_t hash32(uint32_t x) {
-    x ^= x >> 16;
-    x *= 0x7feb352d;
-    x ^= x >> 15;
-    x *= 0x846ca68b;
-    x ^= x >> 16;
-    return x;
-}
-
-// Subtile for a rect: common variants weighted 10x over rare ones (as seen in the corpus).
-int pickSubtile(const TileGroupInfo& info, uint32_t seed) {
-    int common = std::popcount(info.commonSubtiles), rare = std::popcount(info.rareSubtiles);
-    if (common + rare == 0) return 0;
-    uint32_t r = hash32(seed) % uint32_t(common * 10 + rare);
-    uint16_t mask = r < uint32_t(common * 10) ? info.commonSubtiles : info.rareSubtiles;
-    int n = r < uint32_t(common * 10) ? int(r / 10) : int(r - common * 10);
-    for (int s = 0; s < 16; ++s)
-        if ((mask >> s) & 1 && n-- == 0) return s;
-    return 0;
-}
-
-// Could the ISOM give group `g` to a tile of this rect (parity, half, the rect's two diamond shapes, the group of
-// the tile above)? A learned candidate, or what the rules pick. False for doodad groups and for tiles placed as
-// they are (rectangular terrain, N.7): the correction keeps those unless an edit changes their own rect.
-// A combination Blizzard's maps do not have gives no answer: true.
-bool groupFromIsom(const TileRules& rules, int g, int above, int parity, int half, uint16_t leftShape, uint16_t rightShape) {
+// By the tileset's CV5 (the terrain core's tables): could the ISOM give group g as this half of its rect (shapes left
+// and right, the parity), under the group above (-1: none)? A group StarEdit picks for the rect, or a cliff piece that
+// sits under the stack above (StarEdit keeps those). No group fits the shapes: nothing to compare with (true).
+bool groupFromCv5(const IsomTiles& t, int g, int above, int parity, int half, uint16_t left, uint16_t right) {
     if (g < 0 || g >= 1024) return false;
-    const auto cands = rules.candidatesFor(parity, half, leftShape, rightShape);
-    if (cands.empty()) return true;
-    for (const auto& c : cands)
-        if (c.group == g) return true;
-    // A sibling of a candidate (the same piece with other stack connections: regenerateTiles picks those so cliffs
-    // stack) is the shape's too, not a tile placed by hand.
-    for (const auto& c : cands)
-        for (const auto& sib : rules.siblingsOf(c.group))
-            if (int(sib.second) == g) return true;
-    return rules.lookup(parity, half, leftShape, rightShape, above) == g;
+    const auto& gs = t.groups(parity, left, right);
+    if (gs.empty()) return true;
+    if (std::find(gs.begin(), gs.end(), uint16_t(g - half)) != gs.end()) return true;
+    return above >= 0 && above < 1024 && t.stackTop(uint16_t(g)) != 0 && t.stackTop(uint16_t(g)) == t.stackBottom(uint16_t(above));
 }
 
 }  // namespace
+
+void IsomGrid::setTileset(const Tileset* tileset) {
+    tileset_ = tileset;
+    tiles_ = tileset ? IsomTiles::forTileset(*tileset) : nullptr;
+}
 
 // --- IsomTerrainTable ----------------------------------------------------------------------
 
@@ -493,11 +251,8 @@ bool IsomGrid::rebuildFromTiles(Chk& chk, std::string& error) {
     }
     const uint16_t era = readEra(chk);
     const IsomTerrainTable* table = IsomTerrainTable::forEra(era);
-    const TileRules* rules = TileRules::forEra(era);
-    if (!table || !rules) {
-        error = std::string("no ISOM terrain table for tileset ") + tilesetName(era);
-        return false;
-    }
+    if (!table) return error = std::string("no ISOM terrain table for tileset ") + tilesetName(era), false;
+    if (!tiles_) return error = "the tileset is not loaded", false;
     const TerrainLayer tiles = chk.find("TILE") ? readTerrain(chk, "TILE") : readTerrain(chk, "MTXM");
     if (tiles.tiles.size() < size_t(w) * h) {
         error = "missing tiles (TILE, MTXM)";
@@ -505,20 +260,17 @@ bool IsomGrid::rebuildFromTiles(Chk& chk, std::string& error) {
     }
     const int cols = w / 2 + 1, rows = h + 1;
 
-    // Which ISOM combinations (parity, half, left and right shape) give each tile group, and how often.
+    // Which ISOM combinations (parity, half, left and right shape) give each tile group: the rects StarEdit picks it for
+    // (the tileset's CV5; a solid one weighs more: most ground is).
     struct Use {
         uint8_t parity, half;
         uint16_t left, right;
         double weight;
     };
     std::vector<std::vector<Use>> uses(1024);
-    for (const TileCandidate& c : rules->candidates) {
-        const Use u{uint8_t(c.key >> 63), uint8_t((c.key >> 62) & 1), uint16_t((c.key >> 44) & 0x3FFFF), uint16_t((c.key >> 26) & 0x3FFFF),
-                    1.0 + std::log(1.0 + double(c.count))};
-        if (c.group < 1024) uses[c.group].push_back(u);
-        for (const auto& sib : rules->siblingsOf(c.group))  // the same piece with other stack connections
-            if (sib.second != c.group && sib.second < 1024) uses[sib.second].push_back(u);
-    }
+    for (uint16_t g = 0; g + 1 < 1024; g += 2)
+        for (const IsomTiles::Rect& r : tiles_->rectsOf(g))
+            for (uint8_t half = 0; half < 2; ++half) uses[g + half].push_back({r.parity, half, r.left, r.right, r.left == r.right ? 2.0 : 1.0});
 
     // Each rect's two tiles vote for the shapes of its two diamonds.
     const int gridW = cols + 1;
@@ -612,7 +364,7 @@ bool IsomGrid::rebuildFromTiles(Chk& chk, std::string& error) {
     return load(chk, error);
 }
 
-bool IsomGrid::create(Chk& chk, uint16_t width, uint16_t height, uint16_t era, uint16_t terrain, std::string& error) {
+bool IsomGrid::create(Chk& chk, uint16_t width, uint16_t height, uint16_t era, uint16_t terrain, const Tileset& tileset, std::string& error) {
     const IsomTerrainTable* table = IsomTerrainTable::forEra(era);
     if (!table || !table->isTerrain(terrain)) {
         error = "unsupported tileset or terrain";
@@ -630,7 +382,8 @@ bool IsomGrid::create(Chk& chk, uint16_t width, uint16_t height, uint16_t era, u
     chk.set("ISOM", std::move(isom));
     chk.set("TILE", tiles);
     chk.set("MTXM", std::move(tiles));
-    if (!regenerateTiles(chk, std::vector<uint8_t>(rects, 1), error)) return false;
+    if (!regenerateTiles(chk, std::vector<uint8_t>(rects, 1), tileset, error)) return false;  // (StarEdit's new map)
+    setTileset(&tileset);
     return load(chk, error);
 }
 
@@ -829,19 +582,15 @@ void IsomGrid::setCorner(int x, int y, uint16_t terrain) {
 }
 
 bool IsomGrid::rectTileable(int rx, int ry) const {
-    const TileRules* rules = TileRules::forEra(era_);
-    if (!rules || ry >= rectRows_ - 1) return true;  // last ISOM row has no tiles
+    if (!tiles_ || ry >= rectRows_ - 1) return true;  // last ISOM row has no tiles
     int par = (rx + ry) & 1;
     uint16_t left = par ? shapeAt(rx, ry + 1) : shapeAt(rx, ry);
     uint16_t right = par ? shapeAt(rx + 1, ry) : shapeAt(rx + 1, ry + 1);
-    for (int half = 0; half < 2; ++half)
-        if (TileRules::find(rules->t0, TileRules::key(par, half, left, right, 0)) < 0) return false;
-    return true;
+    return !tiles_->groups(par, left, right).empty();  // (a group StarEdit picks for it: the tileset's CV5)
 }
 
 bool IsomGrid::stacksWithAbove(int rx, int ry) const {
-    const TileRules* rules = TileRules::forEra(era_);
-    if (!rules || ry <= 0 || ry >= rectRows_ - 1 || rx < 0 || rx >= rectCols_) return true;
+    if (!tiles_ || ry <= 0 || ry >= rectRows_ - 1 || rx < 0 || rx >= rectCols_) return true;
     auto slots = [&](int x, int y, uint16_t& l, uint16_t& r) {
         int par = (x + y) & 1;
         l = par ? shapeAt(x, y + 1) : shapeAt(x, y);
@@ -850,16 +599,12 @@ bool IsomGrid::stacksWithAbove(int rx, int ry) const {
     };
     uint16_t al, ar, bl, br;
     int pa = slots(rx, ry - 1, al, ar), pb = slots(rx, ry, bl, br);
+    // Some group for each rect that stacks (CV5's stack connections), for both halves.
+    const auto &above = tiles_->groups(pa, al, ar), &below = tiles_->groups(pb, bl, br);
     for (int half = 0; half < 2; ++half) {
         bool any = false;
-        for (const auto& ca : rules->candidatesFor(pa, half, al, ar)) {
-            for (const auto& cb : rules->candidatesFor(pb, half, bl, br))
-                if (rules->stackBottom(ca.group) == (rules->info(cb.group) ? rules->info(cb.group)->stackTop : 0)) {
-                    any = true;
-                    break;
-                }
-            if (any) break;
-        }
+        for (uint16_t a : above)
+            for (uint16_t b : below) any = any || tiles_->stackBottom(uint16_t(a + half)) == tiles_->stackTop(uint16_t(b + half));
         if (!any) return false;
     }
     return true;
@@ -1063,7 +808,8 @@ bool IsomGrid::store(Chk& chk, std::string& error) {
         for (size_t i = 0; i < touched.size(); ++i) touched[i] |= dirtyRects_[i];
         writeIsom(chk);
         const TerrainLayer before = readTerrain(chk, "TILE");
-        if (!regenerateTiles(chk, dirtyRects_, error, tileset_)) return false;
+        if (!tileset_) return error = "the map's tileset is not loaded", false;
+        if (!regenerateTiles(chk, dirtyRects_, *tileset_, error)) return false;
         {  // tiles that changed beyond the edited rects (down a column, along a row) are part of the edit too
             const TerrainLayer after = readTerrain(chk, "TILE");
             for (int ty = 0; ty < mapHeight_ && size_t(ty) * mapWidth_ < after.tiles.size(); ++ty)
@@ -1143,429 +889,122 @@ void IsomGrid::writeIsom(Chk& chk) const {
 
 std::vector<std::pair<int, int>> IsomGrid::stackBreaks(const Chk& chk, const std::vector<uint8_t>& area) const {
     std::vector<std::pair<int, int>> out;
-    const TileRules* rules = TileRules::forEra(era_);
-    if (!rules) return out;
-    TerrainLayer tile = readTerrain(chk, "TILE");
-    // A tile placed as it is (not from the ISOM) is not the terrain's fault: a change of the terrain cannot fix it.
-    auto placed = [&](int tx, int ty) {
-        const size_t i = size_t(ty) * mapWidth_ + tx;
-        const int rx = tx / 2;
-        auto shape = [&](int k) { return uint16_t(isom_[(size_t(ty) * rectCols_ + rx) * 4 + k] >> 4); };
-        return !groupFromIsom(*rules, tile.tiles[i] >> 4, ty > 0 ? tile.tiles[i - mapWidth_] >> 4 : -1, (rx + ty) & 1, tx & 1, shape(0), shape(2));
-    };
-    for (int ty = 1; ty < mapHeight_; ++ty)
-        for (int tx = 0; tx < mapWidth_; ++tx) {
-            int rx = tx / 2;
-            // Only look at the edited area (and the row just below it).
-            bool near = area[size_t(ty) * rectCols_ + rx] || area[size_t(ty - 1) * rectCols_ + rx];
-            if (!near) continue;
-            if (placed(tx, ty - 1) || placed(tx, ty)) continue;
-            const TileGroupInfo* a = rules->info(tile.tiles[size_t(ty - 1) * mapWidth_ + tx] >> 4);
-            const TileGroupInfo* b = rules->info(tile.tiles[size_t(ty) * mapWidth_ + tx] >> 4);
-            if (a && b && a->stackBottom != b->stackTop) out.push_back({rx, ty});
-        }
-    // Horizontal neighbors whose edge codes never meet in Blizzard maps.
-    for (int ty = 0; ty < mapHeight_; ++ty)
-        for (int tx = 0; tx + 1 < mapWidth_; ++tx) {
-            if (!area[size_t(ty) * rectCols_ + tx / 2] && !area[size_t(ty) * rectCols_ + (tx + 1) / 2]) continue;
-            int l = tile.tiles[size_t(ty) * mapWidth_ + tx] >> 4, r = tile.tiles[size_t(ty) * mapWidth_ + tx + 1] >> 4;
-            if (placed(tx, ty) || placed(tx + 1, ty)) continue;
-            if (rules->info(l) && rules->info(r) && !rules->fits(r, -1, l, tx & 1)) {
-                out.push_back({tx / 2, ty + 1});  // +1: the caller also pushes the rect above
-                out.push_back({(tx + 1) / 2, ty + 1});
+    if (!tiles_) return out;
+    {  // by the tileset's CV5 (the terrain core's tables)
+        TerrainLayer tile = readTerrain(chk, "TILE");
+        auto group = [&](int tx, int ty) { return int(tile.tiles[size_t(ty) * mapWidth_ + tx] >> 4); };
+        auto placed = [&](int tx, int ty) {  // a tile placed as it is: not the terrain's fault
+            const int rx = tx / 2;
+            auto shape = [&](int k) { return uint16_t(isom_[(size_t(ty) * rectCols_ + rx) * 4 + k] >> 4); };
+            return !groupFromCv5(*tiles_, group(tx, ty), ty > 0 ? group(tx, ty - 1) : -1, (rx + ty) & 1, tx & 1, shape(0), shape(2));
+        };
+        for (int ty = 1; ty < mapHeight_; ++ty)
+            for (int tx = 0; tx < mapWidth_; ++tx) {
+                const int rx = tx / 2;
+                if (!area[size_t(ty) * rectCols_ + rx] && !area[size_t(ty - 1) * rectCols_ + rx]) continue;
+                const int a = group(tx, ty - 1), b = group(tx, ty);
+                if (a >= 1024 || b >= 1024 || placed(tx, ty - 1) || placed(tx, ty)) continue;
+                if (tiles_->stackBottom(uint16_t(a)) != tiles_->stackTop(uint16_t(b))) out.push_back({rx, ty});
             }
-        }
+        for (int ty = 0; ty < mapHeight_; ++ty)  // rects side by side that share no diamond shape
+            for (int tx = 1; tx + 1 < mapWidth_; tx += 2) {
+                if (!area[size_t(ty) * rectCols_ + tx / 2] && !area[size_t(ty) * rectCols_ + (tx + 1) / 2]) continue;
+                const int l = group(tx, ty), r = group(tx + 1, ty);
+                if (l >= 1024 || r >= 1024 || placed(tx, ty) || placed(tx + 1, ty)) continue;
+                if (!tiles_->beside(uint16_t(l - 1), uint16_t(r))) out.push_back({tx / 2, ty + 1}), out.push_back({(tx + 1) / 2, ty + 1});
+            }
+        return out;
+    }
     return out;
 }
 
 // --- TILE regeneration -------------------------------------------------------------------------
 
-int solidTileGroup(uint16_t era, uint16_t terrain, int half) {
-    const TileRules* rules = TileRules::forEra(era);
-    return rules ? TileRules::find(rules->t0, TileRules::key(0, half & 1, terrain, terrain, 0)) : -1;
-}
 
-int countTileMisfits(const Chk& chk, std::vector<std::pair<int, int>>* where) {
-    const TileRules* rules = TileRules::forEra(readEra(chk));
-    if (!rules) return 0;
+
+int countTileMisfits(const Chk& chk, const Tileset& tileset, std::vector<std::pair<int, int>>* where) {
+    const IsomTiles* tiles = IsomTiles::forTileset(tileset);
+    if (!tiles) return 0;
     const TerrainLayer t = readTerrain(chk, "TILE");
     int n = 0;
     for (int y = 0; y < t.height; ++y)
         for (int x = 0; x < t.width; ++x) {
-            const int g = t.tiles[size_t(y) * t.width + x] >> 4;
-            if (g >= 1024 || !rules->info(g)) continue;  // doodads: no rule
-            const int above = y > 0 ? t.tiles[size_t(y - 1) * t.width + x] >> 4 : -1, left = x > 0 ? t.tiles[size_t(y) * t.width + x - 1] >> 4 : -1;
-            if (rules->fits(g, above < 1024 ? above : -1, left < 1024 ? left : -1, (x & 1) ^ 1)) continue;
+            const uint16_t g = uint16_t(t.tiles[size_t(y) * t.width + x] >> 4);
+            if (g >= 1024 || tiles->rectsOf(uint16_t(g & ~1u)).empty()) continue;  // doodads, groups the ISOM never gives: no rule
+            const int above = y > 0 ? t.tiles[size_t(y - 1) * t.width + x] >> 4 : 1024, left = x > 0 ? t.tiles[size_t(y) * t.width + x - 1] >> 4 : 1024;
+            const bool stacks = above >= 1024 || tiles->stackBottom(uint16_t(above)) == tiles->stackTop(g);
+            // (a rect's left tile and the right tile of the rect before it; a rect's own two tiles always meet)
+            const bool meets = (x & 1) || left >= 1024 || tiles->beside(uint16_t(left - 1), g);
+            if (stacks && meets) continue;
             ++n;
             if (where) where->push_back({x, y});
         }
     return n;
 }
 
-TileRegenStats& tileRegenStats() {
-    static TileRegenStats s;
-    return s;
-}
 
-bool regenerateTiles(Chk& chk, const std::vector<uint8_t>& dirtyRects, std::string& error, const Tileset* tileset) {
-    if (!tileset || tileset->groups.empty() || (tileset->era & 7) != (readEra(chk) & 7)) return regenerateTiles(chk, dirtyRects, error);
+bool regenerateTiles(Chk& chk, const std::vector<uint8_t>& dirtyRects, const Tileset& tileset, std::string& error) {
+    if (tileset.groups.empty() || (tileset.era & 7) != (readEra(chk) & 7)) return error = "the map's tileset is not loaded", false;
     IsomCore core;
-    std::string coreError;
-    if (!core.load(chk, *tileset, coreError)) return regenerateTiles(chk, dirtyRects, error);
-    std::vector<uint8_t> missed;
-    core.retile(dirtyRects, &missed);
+    if (!core.load(chk, tileset, error)) return false;
+    core.retile(dirtyRects);  // (a rect no tile group fits keeps its tiles)
     core.store(chk);
-    if (std::find(missed.begin(), missed.end(), 1) == missed.end()) return true;
-    return regenerateTiles(chk, missed, error);  // (the rects no tile group fits: the learned rules' choice)
-}
-
-bool regenerateTiles(Chk& chk, const std::vector<uint8_t>& dirtyRects, std::string& error) {
-    uint16_t w = 0, h = 0;
-    if (!readDimensions(chk, w, h)) {
-        error = "missing DIM section";
-        return false;
-    }
-    uint16_t era = readEra(chk);
-    const TileRules* rules = TileRules::forEra(era);
-    const IsomTerrainTable* table = IsomTerrainTable::forEra(era);
-    if (!rules) {
-        error = std::string("no tile rules for tileset ") + tilesetName(era);
-        return false;
-    }
-    const Section* isomSec = chk.find("ISOM");
-    int rectCols = w / 2 + 1, rectRows = h + 1;
-    if (!isomSec || isomSec->data.size() < size_t(rectCols) * rectRows * 8) {
-        error = "ISOM section missing or too small";
-        return false;
-    }
-    if (dirtyRects.size() != size_t(rectCols) * rectRows) {
-        error = "dirty rect mask has the wrong size";
-        return false;
-    }
-
-    TerrainLayer tile = readTerrain(chk, "TILE");
-    TerrainLayer mtxm = readTerrain(chk, "MTXM");
-    auto slotShape = [&](int rx, int ry, int k) {
-        return uint16_t(readU16(isomSec->data, ((size_t(ry) * rectCols + rx) * 4 + k) * 2) >> 4);
-    };
-
-    // A tile placed as it is (rectangular terrain, N.7) stays unless the edit changed the ISOM of its own rect.
-    auto placed = [&](int tx, int ty) {
-        const size_t i = size_t(ty) * w + tx;
-        const int rx = tx / 2;
-        return !groupFromIsom(*rules, tile.tiles[i] >> 4, ty > 0 ? tile.tiles[i - w] >> 4 : -1, (rx + ty) & 1, tx & 1, slotShape(rx, ty, 0),
-                              slotShape(rx, ty, 2));
-    };
-
-    std::vector<uint8_t> touched(size_t(w) * h, 0);  // tiles this call changed (the repair below looks at and next to them)
-    std::vector<uint8_t> pending(w, 0);  // column still differs from the existing tiles
-    std::vector<uint8_t> changedInRow(w, 0);
-    for (int ty = 0; ty < h; ++ty) {
-        for (int tx = 0; tx < w; ++tx) {
-            int rx = tx / 2;
-            bool dirty = dirtyRects[size_t(ty) * rectCols + rx] != 0;
-            bool leftChanged = tx > 0 && changedInRow[tx - 1];
-            changedInRow[tx] = 0;
-            if (!dirty && !pending[tx] && !leftChanged) continue;
-            if (!dirty && placed(tx, ty)) {
-                pending[tx] = 0;
-                continue;
-            }
-            size_t i = size_t(ty) * w + tx;
-            int above = ty > 0 ? tile.tiles[i - w] >> 4 : -1;
-            int left = tx > 0 ? tile.tiles[i - 1] >> 4 : -1;
-            int current = tile.tiles[i] >> 4;
-            // A clean tile next to a changed one only changes if it no longer fits.
-            if (!dirty && !pending[tx] && rules->fits(current, above, left, (tx & 1) ^ 1)) continue;
-            int g = rules->choose((rx + ty) & 1, tx & 1, slotShape(rx, ty, 0), slotShape(rx, ty, 2), above, left);
-            if (g >= 0) ++tileRegenStats().chosen;
-            else if (table && (g = rules->predict(*table, (rx + ty) & 1, tx & 1, slotShape(rx, ty, 0), slotShape(rx, ty, 2), above, left)) >= 0)
-                ++tileRegenStats().predicted;
-            if (g < 0) {
-                ++tileRegenStats().unknown;
-                pending[tx] = 0;  // unknown combination: keep the existing tile
-                continue;
-            }
-            const TileGroupInfo& info = size_t(g) < rules->groups.size() ? rules->groups[g] : rules->groups[0];
-            const uint16_t avail = info.commonSubtiles | info.rareSubtiles;
-            auto has = [&](int sub) { return ((avail >> sub) & 1) != 0; };
-            // Subtile (variant), as StarEdit picks it in Blizzard's maps: a tile stacked under another
-            // (cliff faces) repeats the variant above it (99.3%); the right tile of a rect repeats the
-            // left one (99.5%); otherwise a weighted random variant per rect.
-            int sub = -1;
-            if (above >= 0 && size_t(above) < rules->groups.size() && rules->groups[above].stackBottom && info.stackTop &&
-                has(tile.tiles[i - w] & 15))
-                sub = tile.tiles[i - w] & 15;
-            else if ((tx & 1) && has(tile.tiles[i - 1] & 15) && (tile.tiles[i - 1] >> 4) < 1024)
-                sub = tile.tiles[i - 1] & 15;
-            if (sub < 0) sub = pickSubtile(info, uint32_t(ty) * 65536u + uint32_t(rx));
-            if (!has(sub)) sub = 0;
-            uint16_t value = uint16_t(g << 4 | sub);
-            if (tile.tiles[i] == value) {
-                pending[tx] = 0;
-                continue;
-            }
-            changedInRow[tx] = 1;
-            tile.tiles[i] = value;
-            mtxm.tiles[i] = value;
-            touched[i] = 1;
-            pending[tx] = 1;
-        }
-    }
-
-    // The pass above picks each tile knowing only the tiles above and to the left, so a cliff piece can
-    // end up unable to stack onto the piece chosen above it although their ISOM shapes have pieces that
-    // do (two small cliffs one above the other). Re-pick that pair from their candidates so they stack,
-    // keeping their other neighbors, instead of changing the terrain to suit the tiles.
-    {
-        auto group = [&](int tx, int ty) { return tx >= 0 && ty >= 0 && tx < w && ty < h ? int(tile.tiles[size_t(ty) * w + tx] >> 4) : -1; };
-        auto real = [&](int g) { return g >= 0 && g < 1024 ? g : -1; };  // doodads do not constrain
-        auto keyOf = [&](int tx, int ty, int& par, uint16_t& l, uint16_t& r) {
-            int rx = tx / 2;
-            par = (rx + ty) & 1, l = slotShape(rx, ty, 0), r = slotShape(rx, ty, 2);
-        };
-        auto setTile = [&](int tx, int ty, int g) {
-            size_t i = size_t(ty) * w + tx;
-            const TileGroupInfo* gi = rules->info(g);
-            const uint16_t avail = gi ? gi->commonSubtiles | gi->rareSubtiles : 1;
-            int sub = tile.tiles[i] & 15;
-            const int a = group(tx, ty - 1);
-            if (ty > 0 && rules->info(a) && rules->info(a)->stackBottom && gi && gi->stackTop) sub = tile.tiles[i - w] & 15;  // stacked: as above
-            if (!((avail >> sub) & 1)) sub = 0;
-            tile.tiles[i] = mtxm.tiles[i] = uint16_t(g << 4 | sub);
-            touched[i] = 1;
-        };
-        for (int ty = 1; ty < h; ++ty)
-            for (int tx = 0; tx < w; ++tx) {
-                const int rx = tx / 2;
-                const bool dirtyA = dirtyRects[size_t(ty - 1) * rectCols + rx], dirtyB = dirtyRects[size_t(ty) * rectCols + rx];
-                if (!dirtyA && !dirtyB) continue;
-                if ((!dirtyA && placed(tx, ty - 1)) || (!dirtyB && placed(tx, ty))) continue;  // placed tiles stay
-                const int ga = group(tx, ty - 1), gb = group(tx, ty);
-                const TileGroupInfo *ia = rules->info(ga), *ib = rules->info(gb);
-                if (!ia || !ib || ia->stackBottom == ib->stackTop) continue;
-                int pa, pb;
-                uint16_t la, ra, lb, rb;
-                keyOf(tx, ty - 1, pa, la, ra), keyOf(tx, ty, pb, lb, rb);
-                const int aboveA = real(group(tx, ty - 2)), leftA = real(group(tx - 1, ty - 1)), rightA = real(group(tx + 1, ty - 1));
-                const int leftB = real(group(tx - 1, ty)), rightB = real(group(tx + 1, ty)), belowB = real(group(tx, ty + 1));
-                bool done = false;
-                for (const int ca : rules->candidatesAndSiblings(pa, tx & 1, la, ra)) {
-                    if (!rules->fits(ca, ty >= 2 ? aboveA : -1, leftA, (tx & 1) ^ 1)) continue;
-                    if (rightA >= 0 && !rules->fits(rightA, -1, ca, tx & 1)) continue;
-                    for (const int cb : rules->candidatesAndSiblings(pb, tx & 1, lb, rb)) {
-                        if (!rules->fits(cb, ca, leftB, (tx & 1) ^ 1)) continue;
-                        if (rightB >= 0 && !rules->fits(rightB, -1, cb, tx & 1)) continue;
-                        if (belowB >= 0 && !rules->fits(belowB, cb, -1, 0)) continue;
-                        setTile(tx, ty - 1, ca);
-                        setTile(tx, ty, cb);
-                        // Cliff faces further down repeat this variant.
-                        for (int y = ty + 1; y < h; ++y) {
-                            const TileGroupInfo *up = rules->info(group(tx, y - 1)), *me = rules->info(group(tx, y));
-                            if (!up || !me || !up->stackBottom || !me->stackTop) break;
-                            if (!dirtyRects[size_t(y) * rectCols + rx] && placed(tx, y)) break;
-                            setTile(tx, y, group(tx, y));
-                        }
-                        done = true;
-                        break;
-                    }
-                    if (done) break;
-                }
-            }
-
-        // Then every tile in and around the edit that still does not fit the tile above or to its left (seen as a
-        // glitch; Blizzard's maps have none): re-pick it, else its left or upper neighbor, else it with its left
-        // neighbor, from the pieces Blizzard's maps use for their ISOM shapes, so that every neighbor of the changed
-        // tiles fits too. A small brush makes such spots (two edges close together).
-        auto rectDirty = [&](int tx, int ty) {
-            if (tx < 0 || ty < 0 || tx >= w || ty >= h) return false;
-            return dirtyRects[size_t(ty) * rectCols + tx / 2] != 0;
-        };
-        auto changedAt = [&](int tx, int ty) {
-            return tx >= 0 && ty >= 0 && tx < w && ty < h && (touched[size_t(ty) * w + tx] || rectDirty(tx, ty));
-        };
-        auto near = [&](int tx, int ty) {  // the tile, or one next to it, changed (in the edit, or after it down a column or along a row)
-            return changedAt(tx, ty) || changedAt(tx - 1, ty) || changedAt(tx + 1, ty) || changedAt(tx, ty - 1) || changedAt(tx, ty + 1);
-        };
-        auto mayChange = [&](int tx, int ty) {  // placed tiles (rectangular terrain) stay unless their own rect changed
-            return tx >= 0 && ty >= 0 && tx < w && ty < h && real(group(tx, ty)) >= 0 && (rectDirty(tx, ty) || !placed(tx, ty));
-        };
-        // Group g at (tx, ty) fits the tiles around it (with `skip` taken as it will be: -2 none).
-        auto fitsAround = [&](int tx, int ty, int g) {
-            const int above = real(group(tx, ty - 1)), left = real(group(tx - 1, ty)), right = real(group(tx + 1, ty)), below = real(group(tx, ty + 1));
-            if (!rules->fits(g, above, left, (tx & 1) ^ 1)) return false;
-            if (right >= 0 && !rules->fits(right, real(group(tx + 1, ty - 1)), g, tx & 1)) return false;
-            if (below >= 0 && !rules->fits(below, g, real(group(tx - 1, ty + 1)), (tx & 1) ^ 1)) return false;
-            return true;
-        };
-        auto misfit = [&](int tx, int ty) {
-            const int g = real(group(tx, ty));
-            return g >= 0 && !rules->fits(g, real(group(tx, ty - 1)), real(group(tx - 1, ty)), (tx & 1) ^ 1);
-        };
-        auto candidatesAt = [&](int tx, int ty) {
-            int par;
-            uint16_t l, r;
-            keyOf(tx, ty, par, l, r);
-            std::vector<int> c = rules->candidatesAndSiblings(par, tx & 1, l, r);
-            if (c.empty() && table)  // a shape Blizzard's maps lack: the predicted piece
-                if (const int p = rules->predict(*table, par, tx & 1, l, r, real(group(tx, ty - 1)), real(group(tx - 1, ty))); p >= 0) c.push_back(p);
-            return c;
-        };
-        auto repick = [&](int tx, int ty) {  // one tile: the most common piece that fits all around
-            if (!mayChange(tx, ty)) return false;
-            const int was = group(tx, ty);
-            for (const int c : candidatesAt(tx, ty))
-                if (c != was && fitsAround(tx, ty, c)) return setTile(tx, ty, c), true;
-            return false;
-        };
-        // A block of bw x bh tiles at (x0, y0): pieces for each tile that may change (row by row, from its ISOM
-        // candidates, the one it has first) so that every tile in the block fits the tiles above and to its left, and
-        // the tiles right of and under the block still fit. True: set. A few thousand tries at most.
-        auto solveBlock = [&](int x0, int y0, int bw, int bh) {
-            struct Cell {
-                int x, y;
-                std::vector<int> cands;
-                int keep;
-            };
-            std::vector<Cell> cells;
-            for (int y = y0; y < y0 + bh; ++y)
-                for (int x = x0; x < x0 + bw; ++x) {
-                    if (!mayChange(x, y)) continue;
-                    Cell c{x, y, {group(x, y)}, group(x, y)};
-                    for (const int g : candidatesAt(x, y))
-                        if (g != c.keep) c.cands.push_back(g);
-                    cells.push_back(std::move(c));
-                }
-            if (cells.empty()) return false;
-            auto inBlock = [&](int x, int y) { return x >= x0 && y >= y0 && x < x0 + bw && y < y0 + bh; };
-            auto cellOk = [&](int x, int y) {  // the tile fits above and left; the tiles outside the block right and below fit it
-                const int g = real(group(x, y));
-                if (g < 0) return true;
-                if (!rules->fits(g, real(group(x, y - 1)), real(group(x - 1, y)), (x & 1) ^ 1)) return false;
-                return true;
-            };
-            auto edgesOk = [&]() {
-                for (const Cell& c : cells) {
-                    const int g = real(group(c.x, c.y));
-                    if (!inBlock(c.x + 1, c.y)) {
-                        const int r = real(group(c.x + 1, c.y));
-                        if (r >= 0 && !rules->fits(r, real(group(c.x + 1, c.y - 1)), g, c.x & 1)) return false;
-                    }
-                    if (!inBlock(c.x, c.y + 1)) {
-                        const int b2 = real(group(c.x, c.y + 1));
-                        if (b2 >= 0 && !rules->fits(b2, g, real(group(c.x - 1, c.y + 1)), (c.x & 1) ^ 1)) return false;
-                    }
-                }
-                return true;
-            };
-            int tries = 0;
-            std::function<bool(size_t)> place = [&](size_t i) {
-                if (i == cells.size()) return edgesOk();
-                Cell& c = cells[i];
-                for (const int g : c.cands) {
-                    if (++tries > 4000) return false;
-                    setTile(c.x, c.y, g);
-                    if (cellOk(c.x, c.y) && place(i + 1)) return true;
-                }
-                setTile(c.x, c.y, c.keep);
-                return false;
-            };
-            if (place(0)) return true;
-            for (const Cell& c : cells) setTile(c.x, c.y, c.keep);
-            return false;
-        };
-        for (int pass = 0; pass < 4; ++pass) {
-            bool changed = false;
-            for (int ty = 0; ty < h; ++ty)
-                for (int tx = 0; tx < w; ++tx) {
-                    if (!near(tx, ty) || !misfit(tx, ty)) continue;
-                    if (repick(tx, ty) || repick(tx - 1, ty) || repick(tx, ty - 1)) {
-                        changed = true;
-                        continue;
-                    }
-                    // Else a small block around it (2 x 2, then 3 x 2, then 3 x 3), searched for pieces that all fit.
-                    if (solveBlock(tx - 1, ty - 1, 2, 2) || solveBlock(tx - 1, ty - 1, 3, 2) || solveBlock(tx - 1, ty - 1, 3, 3)) {
-                        changed = true;
-                        continue;
-                    }
-                    if (std::getenv("STARDRAFT_TILE_DEBUG")) {
-                        int par;
-                        uint16_t l, r;
-                        keyOf(tx, ty, par, l, r);
-                        std::fprintf(stderr, "misfit (%d,%d) g=%d above=%d left=%d | shapes %u/%u | cands %zu\n", tx, ty, group(tx, ty), group(tx, ty - 1),
-                                     group(tx - 1, ty), l, r, candidatesAt(tx, ty).size());
-                    }
-                }
-            if (!changed) break;
-        }
-    }
-
-    auto pack = [](const TerrainLayer& t) {
-        Bytes out;
-        out.reserve(t.tiles.size() * 2);
-        for (uint16_t v : t.tiles) appendU16(out, v);
-        return out;
-    };
-    chk.set("TILE", pack(tile));
-    chk.set("MTXM", pack(mtxm));
     return true;
 }
 
-bool tileFromIsom(const Chk& chk, int tx, int ty) { return tileFromIsom(chk, readTerrain(chk, "TILE"), tx, ty); }
 
-bool tileFromIsom(const Chk& chk, const TerrainLayer& tile, int tx, int ty) {
+
+
+bool tileFromIsom(const Chk& chk, const TerrainLayer& tile, int tx, int ty, const Tileset& tileset) {
     const int w = tile.width, h = tile.height;
     if (tx < 0 || ty < 0 || tx >= w || ty >= h || tile.tiles.size() < size_t(w) * h) return true;
-    const TileRules* rules = TileRules::forEra(readEra(chk));
+    const IsomTiles* tiles = IsomTiles::forTileset(tileset);
     const Section* isomSec = chk.find("ISOM");
     const int rectCols = w / 2 + 1, rx = tx / 2;
-    if (!rules || !isomSec || isomSec->data.size() < size_t(rectCols) * (h + 1) * 8) return true;
+    if (!tiles || !isomSec || isomSec->data.size() < size_t(rectCols) * (h + 1) * 8) return true;
     auto shape = [&](int k) { return uint16_t(readU16(isomSec->data, ((size_t(ty) * rectCols + rx) * 4 + k) * 2) >> 4); };
     const size_t i = size_t(ty) * w + tx;
-    return groupFromIsom(*rules, tile.tiles[i] >> 4, ty > 0 ? tile.tiles[i - w] >> 4 : -1, (rx + ty) & 1, tx & 1, shape(0), shape(2));
+    return groupFromCv5(*tiles, tile.tiles[i] >> 4, ty > 0 ? tile.tiles[i - w] >> 4 : -1, (rx + ty) & 1, tx & 1, shape(0), shape(2));
 }
 
-std::vector<std::array<uint16_t, 2>> tileGroupTerrains(uint16_t era, size_t groupCount) {
+int solidTileGroup(const Tileset& tileset, uint16_t terrain, int half) {
+    const IsomTiles* tiles = IsomTiles::forTileset(tileset);
+    if (!tiles) return -1;
+    const auto& gs = tiles->groups(0, terrain, terrain);
+    return gs.empty() ? -1 : int(gs[0]) + (half & 1);
+}
+
+std::vector<std::array<uint16_t, 2>> tileGroupTerrains(const Tileset& tileset) {
+    const size_t groupCount = tileset.groups.size();
     std::vector<std::array<uint16_t, 2>> out(groupCount, {0, 0});
-    const TileRules* rules = TileRules::forEra(era);
-    const IsomTerrainTable* table = IsomTerrainTable::forEra(era);
-    if (!rules || !table) return out;
-    // How often Blizzard's maps use each group with each terrain at a corner of its rect, and in a rect of one
-    // terrain only.
-    std::vector<std::vector<std::pair<uint16_t, uint64_t>>> counts(groupCount), solid(groupCount);
-    std::vector<uint64_t> total(groupCount, 0);
-    auto add = [](std::vector<std::pair<uint16_t, uint64_t>>& v, uint16_t t, uint64_t n) {
-        auto it = std::find_if(v.begin(), v.end(), [t](const auto& p) { return p.first == t; });
-        if (it == v.end()) v.push_back({t, n});
-        else it->second += n;
-    };
-    for (const auto& c : rules->candidates) {
-        if (c.group >= groupCount) continue;
-        const uint16_t shapes[2] = {uint16_t((c.key >> 44) & 0x3FFFF), uint16_t((c.key >> 26) & 0x3FFFF)};
-        std::vector<uint16_t> seen;
-        for (uint16_t s : shapes)
-            for (uint16_t t : table->corners(s))
-                if (t && std::find(seen.begin(), seen.end(), t) == seen.end()) seen.push_back(t);
-        for (uint16_t t : seen) add(counts[c.group], t, c.count);
-        if (seen.size() == 1) add(solid[c.group], seen[0], c.count);
-        total[c.group] += c.count;
-    }
-    auto byCount = [](const auto& a, const auto& b) { return a.second != b.second ? a.second > b.second : a.first < b.first; };
-    for (size_t g = 0; g < groupCount; ++g) {
-        auto& v = counts[g];
-        if (v.empty()) continue;
-        // A tile of one terrain: mostly inside that terrain (its other uses are at the edges of the terrain).
-        std::sort(solid[g].begin(), solid[g].end(), byCount);
-        if (!solid[g].empty() && solid[g][0].second * 3 >= total[g]) {
-            out[g][0] = solid[g][0].first;
-            continue;
+    const IsomTiles* tiles = IsomTiles::forTileset(tileset);
+    const IsomTerrainTable* table = IsomTerrainTable::forEra(tileset.era);
+    if (!tiles || !table) return out;
+    for (size_t g = 0; g + 1 < groupCount && g < 1024; g += 2) {
+        // The terrains at the corners of the rects StarEdit picks this group for: one when it is a rect of one
+        // terrain; else the two most common (a transition).
+        std::vector<std::pair<uint16_t, int>> counts;
+        bool solid = false;
+        for (const IsomTiles::Rect& r : tiles->rectsOf(uint16_t(g))) {
+            std::vector<uint16_t> seen;
+            for (uint16_t s : {r.left, r.right})
+                for (uint16_t t : table->corners(s))
+                    if (t && std::find(seen.begin(), seen.end(), t) == seen.end()) seen.push_back(t);
+            if (seen.size() == 1) solid = true, counts = {{seen[0], 1}};
+            if (solid) break;
+            for (uint16_t t : seen) {
+                auto it = std::find_if(counts.begin(), counts.end(), [t](const auto& p) { return p.first == t; });
+                if (it == counts.end()) counts.push_back({t, 1});
+                else ++it->second;
+            }
         }
-        std::sort(v.begin(), v.end(), byCount);
-        out[g][0] = v[0].first;
-        // A second terrain when the group is a transition (used with it about as often), not a stray use.
-        if (v.size() > 1 && v[1].second * 4 >= v[0].second) out[g][1] = v[1].first;
+        if (counts.empty()) continue;
+        std::sort(counts.begin(), counts.end(), [](const auto& a, const auto& b) { return a.second != b.second ? a.second > b.second : a.first < b.first; });
+        out[g][0] = out[g + 1][0] = counts[0].first;
+        if (!solid && counts.size() > 1) out[g][1] = out[g + 1][1] = counts[1].first;
     }
     return out;
 }
+
 
 }  // namespace stardraft

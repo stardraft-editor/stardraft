@@ -100,7 +100,7 @@ std::vector<GenTerrain> generatorTerrains(uint16_t era, const Tileset& ts) {
         g.role = t == base ? GenTerrain::Base : GenTerrain::Patch;
         // Walkability and elevation of the tile group under solid terrain t (VF4 minitile flags:
         // 0x1 walkable, 0x2 mid ground, 0x4 high ground).
-        int group = solidTileGroup(era, t);
+        int group = solidTileGroup(ts, t);
         if (group >= 0 && size_t(group) < ts.groups.size()) {
             uint16_t mega = ts.groups[size_t(group)].megatiles[0];
             if (mega < ts.minitileFlags.size()) {
@@ -142,6 +142,7 @@ bool generateTerrain(Chk& chk, const Tileset& ts, const TerrainGenParams& p, std
         tLast = now;
     };
     IsomGrid grid;
+    grid.setTileset(&ts);  // (the tiles: the terrain core's, from the tileset's CV5)
     if (!grid.load(chk, error)) return false;
     const uint16_t era = readEra(chk);
     const IsomTerrainTable* table = IsomTerrainTable::forEra(era);

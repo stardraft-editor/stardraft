@@ -17,7 +17,7 @@ StarDraft's own terrain features stay on top of it.
 | Tiles from ISOM (regen), overall match | 0.9498 | 0.9499 |
 | Regen, all 296 maps | 557 ms | 148 ms |
 | New maps vs StarEdit's | 50 of 86 | 50 of 86 (same) |
-| Tables | 6.8 MB learned data | built from CV5 in 2 ms + hand tables |
+| Tables | 6.8 MB learned data (gone since; see Progress) | built from CV5 in 2 ms + hand tables |
 
 Most of our brush difference is one bug: for even sizes, `IsomGrid::paint` grows the brush one diamond up and right,
 StarEdit grows it down and left. The rest: where painted areas meet, or near an existing edge (StarEdit leaves a
@@ -119,9 +119,21 @@ compare with Chkdraft's newer code for fixes worth taking.
   | Old engine, the core's tiles | 0.46 ms | 0 | 0 |
   | Core + repair (the editor) | 0.22 ms | 22 (2) | 0 |
 
-- The old engine's corners stay (the repair, the 0.5 brush, paste, Rectangle mode, the terrain generator, maps without
-  an ISOM and a resize to another tileset use them: StarDraft's own features with no StarEdit equivalent), and so do
-  the learned rules, for less each time: the rects no tile group fits, which rects can be tiled while the old engine
-  corrects corners (`rectTileable`, `stacksWithAbove`: before the edge ids exist, so the core's lookup cannot answer),
-  whether a tile was placed by hand (`tileFromIsom`), and the tiles where no tileset is at hand (a new map's first
-  tiles, the New page's preview).
+- Done: the learned tables are gone (`src/data/*_tile_rules.inc`, `tile_edges.inc`: 6.5 MB). Every question they
+  answered comes from the tileset's CV5 through the core's tables (`IsomTiles`: the groups StarEdit picks for a rect
+  of two diamond shapes, the rects of a group, the stack connections, which rects can sit side by side):
+  - the tiles: `regenerateTiles` is the core's (a rect no tile group fits keeps its tiles);
+  - which rects can be tiled while the old engine corrects corners (`rectTileable`, `stacksWithAbove`), the cliff
+    stacks and side-by-side checks after it (`stackBreaks`), the misfit count (`countTileMisfits`);
+  - whether a tile was placed by hand (`tileFromIsom`), the Tiles palette's terrains (`tileGroupTerrains`), the solid
+    tile of a terrain (`solidTileGroup`), maps without an ISOM (`rebuildFromTiles`).
+  Every `IsomGrid` that stores has the tileset (`IsomGrid::setTileset`, `create`'s new argument); `isom_test` takes the
+  StarCraft folder.
+- Measured without them: isom_test (290 maps, every tile made again) 0.9495 (the learned rules 0.9493), Blizzard's
+  maps 1.0000 on every tileset but jungle (0.9999); maps without an ISOM, corners right 0.9619 (the learned votes
+  0.9341); Blizzard's maps break none of the CV5 rules (2.2 million rect pairs side by side, 4.5 million stacked tiles);
+  paint_stress (189 maps): the old engine 0 misfit tiles at 0.44 ms a call, core + repair 0 at 0.22 ms; the old
+  engine matches StarEdit on 2 of the 10 references.
+- The old engine's corners stay: the repair, the 0.5 brush, paste, Rectangle mode, the terrain generator, maps
+  without an ISOM and a resize to another tileset use them (StarDraft's own features, with no StarEdit equivalent).
+  Its terrain tables (`IsomTerrainTable`: the terrains and their pairs) are hand-written, not learned.

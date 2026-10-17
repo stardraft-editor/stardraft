@@ -1108,7 +1108,7 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
         const TileGroup* g = group(rx * 2, top);
         // Doodads keep their tiles: a doodad's tile is in MTXM (TILE has the terrain under it).
         if (!g || (tile.tiles[size_t(top) * w + rx * 2] >> 4) >= 1024 || (mtxm.tiles[size_t(top) * w + rx * 2] >> 4) >= 1024) continue;
-        if (!tileFromIsom(chk_, tile, rx * 2, top)) continue;                       // and placed tiles theirs
+        if (!tileFromIsom(chk_, tile, rx * 2, top, tileset_)) continue;                       // and placed tiles theirs
         std::vector<int> subs;
         const int cur = tile.tiles[size_t(top) * w + rx * 2] & 15;
         for (int s = 0; s < 16; ++s)
@@ -1121,7 +1121,7 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
             for (int tx = rx * 2; tx <= rx * 2 + 1 && tx < w; ++tx) {
                 if (ty > top && !stacked(tx, ty)) continue;
                 if (!hasSub(tx, ty, sub)) continue;
-                if ((tx != rx * 2 || ty != top) && !tileFromIsom(chk_, tile, tx, ty)) continue;  // placed tiles stay
+                if ((tx != rx * 2 || ty != top) && !tileFromIsom(chk_, tile, tx, ty, tileset_)) continue;  // placed tiles stay
                 size_t i = size_t(ty) * w + tx;
                 if ((mtxm.tiles[i] >> 4) >= 1024) continue;  // under a doodad: the doodad's tile stays
                 uint16_t v = uint16_t((tile.tiles[i] & 0xFFF0) | sub);
@@ -1148,7 +1148,7 @@ const std::vector<Editor::TileGroupEntry>& Editor::tileGroups() const {
     if (tileGroupsEra_ == int(era_) && !tileGroups_.empty()) return tileGroups_;
     tileGroups_.clear();
     tileGroupsEra_ = era_;
-    const auto terrains = tileGroupTerrains(era_, tileset_.groups.size());
+    const auto terrains = tileGroupTerrains(tileset_);
     // The doodad (and its row) that uses each group.
     std::vector<std::pair<int, int>> doodadOf(tileset_.groups.size(), {-1, 0});
     for (const auto& d : doodadTypes_.all())
@@ -1569,7 +1569,9 @@ bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX
         chk_.set("MTXM", chk_.effective("TILE"));
     }
     IsomGrid fresh;
-    if (!viaCore && !fresh.create(chk_, width, height, era, fill, err)) {
+    Tileset otherTileset;  // (a new tileset's tiles: its CV5)
+    const bool tilesetReady = viaCore || era == era_ || otherTileset.load(data_, era, err);
+    if (!viaCore && (!tilesetReady || !fresh.create(chk_, width, height, era, fill, era == era_ ? tileset_ : otherTileset, err))) {
         {
             chk_ = restore(undo_.back());  // as before (inside a stroke: as before the stroke)
             if (!inStroke_) dropLastUndo();

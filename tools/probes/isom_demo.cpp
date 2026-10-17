@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
     {
         Chk chk;
         IsomGrid grid;
-        if (!grid.create(chk, 256, 48, 0, 1, err)) {
+        if (!grid.create(chk, 256, 48, 0, 1, ts, err)) {
             std::fprintf(stderr, "%s\n", err.c_str());
             return 1;
         }
@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
     for (int demo = 0; demo < 4; ++demo) {
         Chk chk;
         IsomGrid grid;
-        grid.create(chk, 128, 128, 0, 1, err);
+        grid.create(chk, 128, 128, 0, 1, ts, err);
         for (int blob = 0; blob < 10; ++blob) {
             int t = terrainsList[demo][rng() % 3];
             if (!t) t = terrainsList[demo][0];

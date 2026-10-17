@@ -92,7 +92,7 @@ bool makeTiles(const Tileset& ts, const TerrainGenParams& p, bool generate, uint
     Chk chk;
     IsomGrid grid;
     std::string err;
-    if (!grid.create(chk, p.width, p.height, p.era, generate ? uint16_t(1) : terrain, err)) return false;
+    if (!grid.create(chk, p.width, p.height, p.era, generate ? uint16_t(1) : terrain, ts, err)) return false;
     if (generate && !generateTerrain(chk, ts, p, err)) return false;
     TerrainLayer t = readTerrain(chk);
     tiles = std::move(t.tiles), tw = t.width, th = t.height;
