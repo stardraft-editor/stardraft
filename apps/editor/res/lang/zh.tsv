@@ -896,6 +896,9 @@ Classic &triggers	经典触发器(&T)
 &Scenario	场景(&S)
 &Do not snap	不对齐(&D)
 Snap to &tiles (32 px)	对齐到图块（32 像素）(&T)
+Snap &buildings to tile edges	建筑对齐到图块边缘(&B)
+Buildings: snap to tile edges	建筑：对齐到图块边缘
+Buildings: do not snap	建筑：不对齐
 Snap to &half tiles (16 px)	对齐到半图块（16 像素）(&H)
 Snap to &quarter tiles (8 px)	对齐到四分之一图块（8 像素）(&Q)
 Place &only where it fits	仅在合适处放置(&O)

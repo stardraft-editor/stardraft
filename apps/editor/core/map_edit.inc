@@ -105,8 +105,8 @@ Rect previewLocationRect(float wx, float wy) {
 }
 
 // Unit snap (Options > Units): placement in the middle of a grid cell, moves in whole cells.
-// Buildings snap to tile edges (snapToGrid) while the unit snap is on, as in StarEdit; with Do not snap they go where
-// they are placed, as other units (setBuildingSnap: core/views_tabs.inc, the snap command).
+// Buildings snap to tile edges (snapToGrid) while Options > Units > Snap buildings to tile edges is on (the default, as in
+// StarEdit); with it off they go where they are placed, as other units (setBuildingSnap: core/views_tabs.inc, the command).
 void snapUnitPoint(float& x, float& y) { x = snapToCell(x, appState().unitGrid), y = snapToCell(y, appState().unitGrid); }
 
 float snapUnitDelta(float d) { return snapRound(d, appState().unitGrid); }

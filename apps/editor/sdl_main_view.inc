@@ -88,6 +88,7 @@ extern NewPageView gNewView;  // the New page (sdl_new_page.inc)
 extern bool gNewOpen;         // the New page is open in the Map workspace (it shows in place of the start page)
 extern bool gStartOpen;       // File > New with a map open: the start page shows in place of the map
 bool newPageEscape();         // (sdl_new_page.inc: Esc closes the New page or that start page)
+bool newPageCovers();         // (sdl_new_page.inc: the New page, or the start page over the open map, holds the Map workspace)
 
 // The panes that have no view on this system yet.
 struct NotHereView final : draw::View {

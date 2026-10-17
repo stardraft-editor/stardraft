@@ -120,6 +120,11 @@ void pageSync() {
     gStartOpen = false;
     shellRelayout();
 }
+// The New page is open, or the start page shows over the open map: it stays in the Map workspace until Create, Cancel
+// (Esc) or a card. The other workspaces and their keys and menu items do nothing then (gray), so nobody edits the
+// project's data, triggers or pages before its map is made.
+bool newPageCovers() { return gNewOpen || (gStartOpen && gState.ed && gState.ed->isOpen()); }
+
 // Esc: the New page closes (as Cancel), or the start page that File > New showed over the open map. False: neither shows.
 bool newPageEscape() {
     if (gNewOpen && gNewView.shown()) return gNewView.cancelPage(), true;

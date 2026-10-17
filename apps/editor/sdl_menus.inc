@@ -230,6 +230,7 @@ bool sdlRuns(int id) {
     case ID_OPT_SNAPVALID:
     case ID_OPT_ILLEGAL:
     case ID_OPT_STACK:
+    case ID_OPT_SNAPBUILDINGS:
     case ID_OPT_DRAGBACK:
     case ID_OPT_ANIMATE:
     case ID_DOODAD_FIT:
@@ -261,6 +262,11 @@ bool sdlEnabled(int id) {
     // The start page or the New page over the open map (File > New, the tabs' +): the map's commands are gray, as on the
     // Windows program's page tabs (a Delete or Paste would change the map nobody sees).
     if (mapCommand(id) && (gStartOpen || gNewOpen) && gWorkspace == Workspace::Map) return false;
+    // ...and the other workspaces (the side bar's items, Ctrl+1 to 9, View and Scenario's pages): the page stays until
+    // Create or Cancel.
+    if (newPageCovers() && ((id > ID_WS_MAP && id <= ID_WS_FILES) || id == ID_SCEN_PROPS || id == ID_SCEN_PLAYERS || id == ID_SCEN_CLASSIC ||
+                            id == ID_SCEN_CLASSICTRIG))
+        return false;
     if (id == ID_PROJ_COMPILE && gBuilding) return false;  // (a build runs)
     if (mapMenuGrayed(id)) return false;                    // (Paste with no copy: core/map_edit_commands.inc)
     return commandForMode(id, projectMode());
@@ -715,6 +721,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
         e.button.button = SDL_BUTTON_LEFT, e.button.down = down, e.button.clicks = clicks, e.button.x = x, e.button.y = y;
         events.push_back(e);
     };
+    gHost->snapshotLayout(*gRoot);  // (the window paints between a user's inputs: the views are placed, a page's fields too)
     move(float(x0), float(y0), false);
     if (!moveOnly) {
         button(true, float(x0), float(y0));
