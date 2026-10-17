@@ -2143,6 +2143,8 @@ constexpr UiText kRows[] = {
     {L"Export the preview", L"\uBBF8\uB9AC \uBCF4\uAE30 \uB0B4\uBCF4\uB0B4\uAE30"},
     {L"Could not export the preview. ", L"\uBBF8\uB9AC \uBCF4\uAE30\uB97C \uB0B4\uBCF4\uB0BC \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. "},
     {L"Exported the preview ", L"\uBBF8\uB9AC \uBCF4\uAE30\uB97C \uB0B4\uBCF4\uB0C4: "},
+    {L"Part %d of %d", L"%d/%d \uBD80\uBD84"},
+    {L"Canceled the map image export", L"\uB9F5 \uC774\uBBF8\uC9C0 \uB0B4\uBCF4\uB0B4\uAE30\uB97C \uCDE8\uC18C\uD568"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

@@ -4,8 +4,10 @@
 // location) as a PNG, at a scale (64 pixels a tile in HD art, 32 in the game's own size, or 1/2, 1/4, 1/8 of it), with
 // the units, the doodads, the sprites, the locations and their names, and the grid that the user selects. The dialog
 // (MapImageView) and the scene of each part of the picture (mapImageScene) are here; the shell draws the parts with the
-// map's renderer into a texture and writes the PNG a band at a time (sdl_map_image.inc: shellRenderMapImage), so a
-// picture of a 256 x 256 map at full size needs one texture of 1024 x 1024 pixels on the GPU.
+// map's renderer into a texture and writes the PNG a band at a time (sdl_map_image.inc: shellMapImageJob), so a
+// picture of a 256 x 256 map at full size needs one texture of 1024 x 1024 pixels on the GPU. The export draws one
+// part at a time while a progress window shows (MapImageProgressView, runMapImageJob): the window stays live, and
+// Cancel stops the export (the file that was there before stays).
 //
 // The New page's larger preview (NewPreviewView): the map of the page's choices in the tileset's tiles, in the art that
 // View > graphics selects (HD2 tiles for the HD art, else the game's tiles), drawn without the GPU (the library's
@@ -159,9 +161,23 @@ inline int mapImageTestUnit(const MapImageOptions& o, int& px, int& py) {
     return found;
 }
 
-// The shell draws the picture of the open map for the options into the PNG file `file` (sdl_map_image.inc). False,
-// with the reason in `err`, when it could not.
-bool shellRenderMapImage(const MapImageOptions& o, const fs::path& file, std::string& err);
+// An export of the open map's picture into a PNG file, one part at a time (the shell's: sdl_map_image.inc).
+struct MapImageJob {
+    virtual ~MapImageJob() = default;  // (not finished: the file stays as it was before the export)
+    virtual int parts() const = 0;     // the parts of the picture (each 1024 x 1024 pixels at most)
+    virtual int done() const = 0;      // the parts drawn
+    // Draws the next part. False when it could not (the reason in `err`).
+    virtual bool step(std::string& err) = 0;
+    // After the last part: completes the file. False when it could not (the reason in `err`).
+    virtual bool finish(std::string& err) = 0;
+};
+// The shell's export of the open map for the options into `file`. Null, with the reason in `err`, when it cannot start.
+std::unique_ptr<MapImageJob> shellMapImageJob(const MapImageOptions& o, const fs::path& file, std::string& err);
+// A test run (a snapshot): the export runs with no progress window; > 0: it stops after that many parts, as a
+// Cancel does (--mapimage cancel=N).
+bool shellMapImageProgressShown();
+int shellMapImageCancelAt();
+void shellMapImageCanceled(const fs::path& file, int done, int parts);
 // The renderer has the HD art (View > High definition, and a GPU that can draw it): the 64 pixels a tile scale.
 bool shellMapImageHd();
 // A picture file was written (the shell's test runs print it: the snapshots' checks read the file).
@@ -293,6 +309,93 @@ inline draw::Point mapImageDialogSetup(stardraft::kit::Dialog& dlg, MapImageView
     return draw::Point{scale(kContentW + 2 * kPad), scale(kWindowH)};
 }
 
+// --- The progress window ---------------------------------------------------------------------------------------------
+
+constexpr int kMapImageDone = 3, kMapImageFailed = 4;
+
+namespace mapImageProgressLayout {
+constexpr int kW = 420, kRowH = 24, kBarY = kRowH + 8, kBarH = 8, kPartY = kBarY + kBarH + 8, kH = kPartY + kRowH;
+}
+
+// The file's name, the progress bar and "Part 3 of 16". The dialog's Cancel stops the export.
+class MapImageProgressView final : public draw::View {
+public:
+    explicit MapImageProgressView(const std::wstring& name) {
+        file_.setText(name);
+        part_.setTone(stardraft::kit::LabelTone::Dim);
+        add(file_, {0, 0, 0, 0});
+        add(bar_, {0, 0, 0, 0});
+        add(part_, {0, 0, 0, 0});
+        setProgress(0, 1);
+    }
+    void setProgress(int done, int parts) {
+        wchar_t b[96];
+        std::swprintf(b, 96, tr(L"Part %d of %d"), std::min(done + 1, parts), parts);
+        part_.setText(b);
+        bar_.setValue(parts > 0 ? float(done) / float(parts) : 0.0f);
+    }
+    const std::wstring& partText() const { return part_.text(); }
+    float value() const { return bar_.value(); }
+
+    std::wstring feedbackName(draw::Point) override { return tr(L"Export map image"); }
+    void paint(draw::Canvas& c) override { c.fill({0, 0, width(), height()}, kBg); }
+    void resized() override {
+        using namespace mapImageProgressLayout;
+        const int w = width();
+        file_.setFrame({0, 0, w, scale(kRowH)});
+        bar_.setFrame({0, scale(kBarY), w, scale(kBarY + kBarH)});
+        part_.setFrame({0, scale(kPartY), w, scale(kPartY + kRowH)});
+    }
+
+private:
+    stardraft::kit::Label file_, part_;
+    stardraft::kit::ProgressBar bar_;
+};
+
+inline draw::Point mapImageProgressSetup(stardraft::kit::Dialog& dlg, MapImageProgressView& view) {
+    using namespace mapImageProgressLayout;
+    dlg.setContent(view);
+    std::vector<stardraft::kit::DialogButton> buttons;
+    buttons.push_back({tr(L"Cancel"), kMapImageCancel, false, true, false, 0});
+    dlg.setButtons(std::move(buttons));
+    const stardraft::kit::DialogInsets in;
+    return draw::Point{scale(kW + in.left + in.right), scale(in.top + kH + in.gap + 28 + in.bottom)};
+}
+
+// Runs the export a part at a time: kMapImageDone, kMapImageCancel (Cancel, or the window closed) or kMapImageFailed
+// (the reason in `err`). A host timer draws each part, so the progress window takes its input between the parts.
+inline int runMapImageJob(draw::View& from, MapImageJob& job, const std::wstring& name, std::string& err) {
+    // (one part: no window, it would only flash; a test run: no window, and cancel=N stops after N parts)
+    if (!shellMapImageProgressShown() || !from.host() || job.parts() <= 1) {
+        const int cancelAt = shellMapImageCancelAt();
+        while (job.done() < job.parts()) {
+            if (cancelAt > 0 && job.done() >= cancelAt) return kMapImageCancel;
+            if (!job.step(err)) return kMapImageFailed;
+        }
+        return job.finish(err) ? kMapImageDone : kMapImageFailed;
+    }
+    draw::Host& host = *from.host();
+    MapImageProgressView view(name);
+    stardraft::kit::Dialog dlg;
+    const draw::Point size = mapImageProgressSetup(dlg, view);
+    view.setProgress(0, job.parts());
+    int timer = 0;
+    std::function<void()> next = [&] {
+        timer = 0;
+        if (dlg.closed()) return;
+        if (job.done() < job.parts()) {
+            if (!job.step(err)) return dlg.close(kMapImageFailed);
+            view.setProgress(job.done(), job.parts());
+        }
+        if (job.done() >= job.parts()) return dlg.close(job.finish(err) ? kMapImageDone : kMapImageFailed);
+        timer = host.timer(1, [&] { next(); });
+    };
+    timer = host.timer(1, [&] { next(); });
+    const int r = dlg.run(from, tr(L"Export map image"), size);
+    if (timer) host.cancelTimer(timer);
+    return r == kMapImageDone || r == kMapImageFailed ? r : kMapImageCancel;
+}
+
 // A PNG file to save (the system's save dialog), starting with `name`. Empty: canceled.
 inline fs::path pickPngFile(const std::wstring& title, const std::wstring& name) {
     ShellFilePick d;
@@ -317,7 +420,17 @@ inline void exportMapImage(draw::View& from) {
     if (file.empty()) return;
     std::string err;
     const draw::Point sz = mapImageSize(o);
-    if (!shellRenderMapImage(o, file, err)) {
+    std::unique_ptr<MapImageJob> job = shellMapImageJob(o, file, err);
+    const int r = job ? runMapImageJob(from, *job, file.filename().wstring(), err) : kMapImageFailed;
+    if (r == kMapImageCancel) {
+        const int done = job->done(), parts = job->parts();
+        job.reset();  // (the file stays as it was before the export)
+        shellMapImageCanceled(file, done, parts);
+        setMessage(tr(L"Canceled the map image export"));
+        return;
+    }
+    job.reset();
+    if (r != kMapImageDone) {
         shellErrorBox(widen(err), tr(L"Could not export the map image"));
         return;
     }

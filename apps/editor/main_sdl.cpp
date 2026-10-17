@@ -98,6 +98,7 @@
 #endif
 #include "dialog.h"  // apps/kit: the map pages' pickers (sdl_map_pages.inc)
 #include "label.h"  // apps/kit: the block dialog's text (core/views_classic_batch.inc)
+#include "progress_bar.h"  // apps/kit: the map image export's progress (core/map_image.inc)
 #include "text_field.h"  // apps/kit: the search boxes (core/views_search.inc)
 #include "rich_field.h"  // apps/kit: the game text editor (core/views_game_text.inc)
 #include "dropdown.h"  // apps/kit: the palette's dropdown (core/views_search.inc)

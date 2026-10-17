@@ -103,6 +103,7 @@ CASES += [
     ("map-dialog-unitprops", ["--dialog", "unitprops"], "map"),
     ("map-dialog-locprops", ["--dialog", "locprops"], "map"),
     ("map-dialog-mapimage", ["--dialog", "mapimage"], "map"),  # File > Export map image (core/map_image.inc)
+    ("map-dialog-mapimage-progress", ["--dialog", "mapimage-progress"], "map"),  # ... its progress window, at part 3 of 16
     ("dialog-newpreview", ["--dialog", "newpreview"], "data"),  # the New page's larger preview of a generated map
     ("map-dialog-prompt", ["--dialog", "prompt"], "map"),
     ("map-dialog-quick", ["--dialog", "quick", "--mode", "units"], "map"),
@@ -411,6 +412,12 @@ CASES += [
                            MAP_IMAGE[0], "8,whole,nounits", *MAP_IMAGE[1:], "{out}/map-image-quarter-nounits.png"], "map"),
     ("map-image-region", [MAP_IMAGE[0], "32,selection,units,sel=50:0:82:24", *MAP_IMAGE[1:], "{out}/map-image-region-units.png",
                           MAP_IMAGE[0], "32,selection,nounits,sel=50:0:82:24", *MAP_IMAGE[1:], "{out}/map-image-region-nounits.png"], "map"),
+    # parts: the whole map at 1/2 (16 pixels a tile: 2048 x 2048, 4 parts in 2 bands; each band goes into the PNG on a
+    # thread while the next is drawn). cancel: the same file at 1/4, then again at 1/2 with cancel=2 (the export stops
+    # after 2 parts, as the progress window's Cancel does): the file of the first export stays, and no .part file.
+    ("map-image-parts", [MAP_IMAGE[0], "16,whole,units", *MAP_IMAGE[1:], "{out}/map-image-parts-map.png"], "map"),
+    ("map-image-cancel", [MAP_IMAGE[0], "8,whole,units", *MAP_IMAGE[1:], "{out}/map-image-cancel-map.png",
+                          MAP_IMAGE[0], "16,whole,units,cancel=2", *MAP_IMAGE[1:], "{out}/map-image-cancel-map.png"], "map"),
     # The New page: Generate, a wait for the preview, Larger preview (the button at the preview's top right), then the
     # dialog's Export at 1/4 (8 pixels a tile) and the save dialog's answer.
     ("newpage-preview-export", ["--newpage", "classic", "--click", "757,299", "--wait", "600", "--click", "1200,346", "--wait", "100",
@@ -2003,6 +2010,62 @@ def check_map_image(want_w, want_h):
     return check
 
 
+def check_map_image_parts(output):
+    """None when the export in 4 parts (2 bands) wrote 2048 x 2048 pixels that decode, and a row of the second band
+    is not one flat color (the band was drawn and written)."""
+    lines = MAP_IMAGE_LINE.findall(output)
+    if len(lines) != 1:
+        return f"{len(lines)} map image lines, not 1"
+    f, w, h, what = lines[0]
+    if (int(w), int(h)) != (2048, 2048):
+        return f"{f}: {w} x {h} pixels, not 2048 x 2048"
+    problem = png_check(f)
+    if problem:
+        return f"{f}: {problem}"
+    got = png_rows_to(f, 1030)
+    if isinstance(got, str):
+        return f"{f}: {got}"
+    width, height, ch, rows = got
+    if (width, height) != (2048, 2048) or len(rows) < 1031:
+        return f"{f}: the PNG is {width} x {height} with {len(rows)} rows read"
+    row = bytes(rows[1030])
+    if row == row[:ch] * width:
+        return f"{f}: row 1030 (the second band) is one flat color"
+    return None
+
+
+def check_map_image_cancel(output):
+    """None when the first export wrote the file (1024 x 1024), and the second stopped after part 2 of 4 with the
+    first file still there (it decodes, at its own size) and no .part file."""
+    lines = MAP_IMAGE_LINE.findall(output)
+    if len(lines) != 1:
+        return f"{len(lines)} map image lines, not 1 (the canceled export must not write one)"
+    f, w, h, _ = lines[0]
+    m = re.search(r"^map image: canceled after part (\d+) of (\d+); (\S+): (there|not there); (\S+): (there|not there)\r?$", output, re.M)
+    if not m:
+        return "no line of a canceled map image export"
+    if (m.group(1), m.group(2)) != ("2", "4"):
+        return f"canceled after part {m.group(1)} of {m.group(2)}, not 2 of 4"
+    if m.group(4) != "there" or m.group(6) != "not there":
+        return f"after the Cancel: {m.group(3)} {m.group(4)}, {m.group(5)} {m.group(6)} (the old file must stay, with no .part file)"
+    got = png_rows_to(f, 0)
+    if isinstance(got, str):
+        return f"{f}: {got}"
+    if (got[0], got[1]) != (1024, 1024):
+        return f"{f}: the PNG is {got[0]} x {got[1]}, not the first export's 1024 x 1024"
+    return png_check(f)
+
+
+def check_map_image_progress(output):
+    """None when the progress window shows part 3 of 16 with the bar at 2 of 16 parts (13 %)."""
+    m = re.search(r"^map image progress: (.*?)\r?$", output, re.M)
+    if not m:
+        return "no progress window"
+    if m.group(1) != "Part 3 of 16, 13%":
+        return f"the progress window shows {m.group(1)!r}, not 'Part 3 of 16, 13%'"
+    return None
+
+
 def check_newpage_preview_export(output):
     """None when the larger preview's Export wrote the generated 128 x 128 map at 8 pixels a tile (1024 x 1024), not
     one flat color."""
@@ -2778,6 +2841,8 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "map-files-search": check_files_search, "map-briefing-add": check_briefing_add,
           "map-image-quarter": check_map_image(1024, 1024), "map-image-region": check_map_image(1024, 768),
           "newpage-preview-export": check_newpage_preview_export,
+          "map-image-parts": check_map_image_parts, "map-image-cancel": check_map_image_cancel,
+          "map-dialog-mapimage-progress": check_map_image_progress,
           "start-noinstall": check_banner(True, "none", False),
           "start-noinstall-nodata": check_banner(True, "That folder has no StarCraft game data.", False),
           "start-noinstall-pick": check_banner(False, "none", True), "start-noinstall-keys": check_start_keys, "start-scale2": check_scale2,
