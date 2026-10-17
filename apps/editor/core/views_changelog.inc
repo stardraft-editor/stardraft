@@ -34,10 +34,15 @@ inline void setHtmlHooks(bool network) {
             }
         if (!network) return false;
         if (!releases::get(url, &bytes, nullptr, "image/*")) return false;
-        if (!kept.empty()) {
+        if (!kept.empty()) {  // (into a .part file, then renamed: a program that stops while it writes leaves no cut image)
             std::error_code ec;
             fs::create_directories(kept.parent_path(), ec);
-            if (std::ofstream out(kept, std::ios::binary); out) out.write(bytes.data(), std::streamsize(bytes.size()));
+            fs::path part = kept;
+            part += ".part";
+            bool written = false;
+            if (std::ofstream out(part, std::ios::binary); out) written = bool(out.write(bytes.data(), std::streamsize(bytes.size())).flush());
+            if (written) fs::rename(part, kept, ec);
+            if (!written || ec) fs::remove(part, ec);
         }
         return true;
     };

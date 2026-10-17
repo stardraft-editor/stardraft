@@ -315,7 +315,9 @@ struct HtmlView::Impl final : litehtml::document_container {
             h.post([self, url, got, bytes = std::move(bytes)] {
                 const std::shared_ptr<Impl> p = self.lock();
                 if (!p) return;  // (the view is gone)
-                Img& im = p->images[url];
+                const auto it = p->images.find(url);
+                if (it == p->images.end()) return;  // (another page shows since: its images are not this one's)
+                Img& im = it->second;
                 im.state = got && decode(bytes, im.bmp) ? Img::Ready : Img::Failed;
                 if (im.state == Img::Ready) p->owner->laidOutWidth_ = -1, p->owner->heights_.clear(), p->owner->layout(p->owner->width());  // (its size changes the layout)
                 p->owner->invalidate();
@@ -396,6 +398,7 @@ std::string HtmlView::themeCss() {
 void HtmlView::setHtml(const std::string& html, const std::string& baseUrl) {
     impl_->doc.reset();
     impl_->fonts.clear();
+    impl_->images.clear();  // (the page before's images: their pixels and the canvas's copies are freed)
     impl_->caption.clear();
     impl_->base = base_ = baseUrl;
     impl_->html_ = html;

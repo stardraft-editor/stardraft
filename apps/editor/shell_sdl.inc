@@ -30,8 +30,9 @@ void shellViewSize(int& w, int& h) {
 // The posted work runs on the UI thread in the frame hook (sdl_main_view.inc: runPosted); the host paints each frame
 // while the editor runs (setAnimating), so the work runs soon.
 void shellPost(std::function<void()> fn) {
-    std::lock_guard<std::mutex> lock(gPostMutex);
-    gPosted.push_back(std::move(fn));
+    PostQueue& q = postQueue();
+    std::lock_guard<std::mutex> lock(q.mutex);
+    q.posted.push_back(std::move(fn));
 }
 
 // The spray held down: a timer every 25 ms while it is on (the host's timers run on the UI thread).
