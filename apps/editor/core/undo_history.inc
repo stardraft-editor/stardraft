@@ -172,6 +172,19 @@ std::wstring dataStepName(const DataEditStep& s) {
     return historyText(L"Change %s", -1, what);
 }
 
+// How many of the Data workspace's Players edits Ctrl+Z (redo: Ctrl+Y) in Data takes before its data steps: from the
+// newest, each one while it is still the map's step at that place (a Map edit between two Players edits stops the count:
+// Data's Undo does not take the Map edit, and the Players edits before it go from the list, views_data_players.inc).
+size_t dataMapStepsShown(bool redo) {
+    if (!dataMapCanUndo(redo)) return 0;
+    const Editor& ed = *shellState().ed;
+    const auto& list = redo ? gDataMapRedo : gDataMapSteps;
+    const size_t can = redo ? ed.redoSteps() : ed.undoSteps();
+    size_t n = 0;
+    while (n < list.size() && n < can && list[list.size() - 1 - n] == (redo ? ed.redoStateId(n) : ed.undoStateId(n))) ++n;
+    return n;
+}
+
 // The history of the workspace that shows: the same steps, in the same order, as Ctrl+Z and Ctrl+Y take them there.
 // Data: the Players steps of the map first (Data's Undo takes them first), then the Data steps.
 UndoHistory workspaceHistory() {
@@ -188,11 +201,11 @@ UndoHistory workspaceHistory() {
     const bool map = app.ed && app.ed->isOpen();
     if (gWorkspace == Workspace::Data) {
         const DataEditHistory& d = dataState().history;
-        const size_t players = dataMapCanUndo(false) ? gDataMapSteps.size() : 0;  // the Players steps that are still the map's last steps
+        const size_t players = dataMapStepsShown(false);
         if (players) h.done = mapHistory(*app.ed, players).done;
         for (size_t i = d.undo.size(); i > 0 && h.done.size() < kHistoryShown; --i) h.done.push_back(dataStepName(d.undo[i - 1]));
         h.more = players + d.undo.size() > h.done.size();
-        if (dataMapCanUndo(true)) h.redo = mapHistory(*app.ed, gDataMapRedo.size()).redo;
+        if (const size_t again = dataMapStepsShown(true)) h.redo = mapHistory(*app.ed, again).redo;
         for (size_t i = d.redo.size(); i > 0 && h.redo.size() < kHistoryShown; --i) h.redo.push_back(dataStepName(d.redo[i - 1]));
         return h;
     }

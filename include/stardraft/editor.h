@@ -501,6 +501,10 @@ public:
     // The map's state: a number that changes with each change, undo and redo (an undo gives back the number the state
     // had). Another part of the program can tell with it whether the map's last step is still the one it made.
     uint64_t stateId() const { return state_; }
+    // The map's state after the step that is k steps back in the undo (redo: the state before the step that is k steps
+    // ahead in the redo); k = 0 is the state now. 0 when there is no such step.
+    uint64_t undoStateId(size_t k) const { return !k ? state_ : k <= undo_.size() ? undo_[undo_.size() - k].state : 0; }
+    uint64_t redoStateId(size_t k) const { return !k ? state_ : k <= redo_.size() ? redo_[redo_.size() - k].state : 0; }
 
 private:
     struct TerrainClip {
