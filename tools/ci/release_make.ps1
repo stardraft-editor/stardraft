@@ -35,15 +35,16 @@ if ($preview) {
   if ($LASTEXITCODE) { throw "No release text for $version" }
   $title = python3 -I tools/release.py title $version
 }
-# A run again (Re-run of a failed run): a release that has its zip stays as it is (people can have that zip, and its
-# symbols match it); a release without its zip gets this build's zip and symbols.
+# A run again (Re-run of a failed run): a release that has its zip keeps it and its symbols (people can have that zip,
+# and its symbols match it), and gets only a disk image or AppImage that it does not have yet (as the macos-release and
+# linux-release jobs did); a release without its zip gets this build's zip and symbols.
 $assets = gh release view $tag --json assets --jq '.assets[].name' 2>$null
 $exists = $LASTEXITCODE -eq 0
 $global:LASTEXITCODE = 0
-if ($exists -and @($assets) -contains $zip) {
-  Write-Output "The release $tag has its zip: nothing changes. A post that did not go: Actions > Post screenshots to Discord."
-  exit 0
-}
+$hasZip = $exists -and @($assets) -contains $zip
+if ($hasZip) {
+  Write-Output "The release $tag has its zip: the zip and the symbols stay as they are. A post that did not go: Actions > Post screenshots to Discord."
+} else {
 # The symbols first (stardraft.pdb), so that the kept symbols match the zip that goes out: a draft release
 # symbols-<tag>, which only the repository's members see, kept for good (an artifact goes after 90 days), to read crash
 # reports' crash.dmp files. Not on the release page.
@@ -69,6 +70,7 @@ if ($exists) {
   gh release create $tag $zip --title $title --latest --verify-tag --notes-file notes.md
 }
 if ($LASTEXITCODE) { throw "The release $tag was not made ($LASTEXITCODE)" }
+}
 
 # A release tag with the repository variable RELEASE_MAC "on", or a preview: the macOS disk image goes on the release,
 # as StarDraft-<version>-macos-arm64.dmg. RELEASE_MAC not "on" (the default): the disk image is only an artifact of the
@@ -89,6 +91,7 @@ if ($test -or $preview -or $env:RELEASE_LINUX -eq 'on') {
   Attach (Resolve-Path dl/appimage/StarDraft-x86_64.AppImage).Path "StarDraft-$version-x86_64.AppImage"
 }
 
+if ($hasZip) { exit 0 }  # (its Discord post went with the first run, or is posted again by hand)
 if ($test) { Write-Output "Test release $tag (a draft) is made: not posted in Discord."; exit 0 }
 if ($preview) { Write-Output "Preview $tag is out (a pre-release): not posted in Discord."; exit 0 }
 # Discord: one post in each channel that has a webhook (a webhook posts in its own channel only), with the screenshots
