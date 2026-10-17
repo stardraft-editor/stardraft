@@ -64,6 +64,11 @@ void diamondAtPixel(int px, int py, int& x, int& y);
 // and left, as StarEdit's does (IsomTerrain's placeIsomTerrain).
 std::vector<std::pair<int, int>> starEditBrushDiamonds(int x, int y, int extent);
 
+// StarEdit's brush at a map pixel, in half-diamond steps: the grid point nearest the pixel is its center. An odd extent
+// is centered on a diamond, an even one on a corner (the middle of starEditBrushDiamonds); both are StarEdit's blocks.
+// Empty when an odd extent's nearest point is a corner (between diamonds: the brush's own footprint, brushCorners).
+std::vector<std::pair<int, int>> starEditBrushAt(int px, int py, int extent);
+
 // A corner of the diamond grid (rect-grid point with x + y odd) and the terrain it should have.
 struct CornerValue {
     int x = 0, y = 0;
