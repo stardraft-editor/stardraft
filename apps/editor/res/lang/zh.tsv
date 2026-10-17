@@ -377,9 +377,6 @@ Left and right, top and bottom	左右、上下
 Inverted left and right	左右反转
 Inverted top and bottom	上下反转
 Inverted on both	两个方向都反转
-Each edge must be in the map	每条边都必须在地图内
-Left and right must be different	左边和右边必须不同
-Top and bottom must be different	上边和下边必须不同
 Changed the location "	已更改位置 "
 Could not change the location: 	无法更改位置: 
 Location properties	位置属性
