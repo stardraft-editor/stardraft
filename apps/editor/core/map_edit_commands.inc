@@ -253,7 +253,6 @@ bool commandMapEdit(AppState& app, int id) {
     if (id >= ID_SNAP_UNITS && id < ID_SNAP_UNITS + 12) {
         const int kind = (id - ID_SNAP_UNITS) / 4, choice = (id - ID_SNAP_UNITS) % 4;
         (kind == 0 ? app.unitGrid : kind == 1 ? app.spriteGrid : app.locationGrid) = kSnapGrids[choice];
-        setBuildingSnap(app.unitGrid != 0);  // (buildings snap to tile edges only with a unit snap)
         static const wchar_t* kinds[] = {L"Units", L"Sprites", L"Locations"};
         static const wchar_t* snaps[] = {L"do not snap", L"snap to tiles (32 px)", L"snap to half tiles (16 px)", L"snap to quarter tiles (8 px)"};
         setMessage(std::wstring(kinds[kind]) + L": " + snaps[choice]);
@@ -334,6 +333,11 @@ bool commandMapEdit(AppState& app, int id) {
         break;
     case ID_EDIT_CORRECTION: app.correction = !app.correction; break;
     case ID_OPT_DRAGBACK: app.dragSnapBack = !app.dragSnapBack; break;
+    case ID_OPT_SNAPBUILDINGS:  // buildings on tile edges, or where they are placed (the unit snap is for the other units)
+        app.snapBuildings = !app.snapBuildings;
+        setBuildingSnap(app.snapBuildings);
+        setMessage(app.snapBuildings ? L"Buildings: snap to tile edges" : L"Buildings: do not snap");
+        break;
     case ID_OPT_STACK:
         app.allowStacking = !app.allowStacking;
         for (auto& d : gDocs)
@@ -430,6 +434,7 @@ int mapMenuCheck(int id) {
     case ID_DOODAD_NEAREST: return app.doodadCheck && app.doodadNearest;
     case ID_DOODAD_ANYWHERE: return !app.doodadCheck;
     case ID_OPT_STACK: return app.allowStacking;
+    case ID_OPT_SNAPBUILDINGS: return app.snapBuildings;
     case ID_OPT_DRAGBACK: return app.dragSnapBack && !app.allowIllegalUnits;
     case ID_EDIT_TERRAINUNITS: return app.copyUnitsWithTerrain;
     case ID_OPT_LOCWRAP: return app.locationWrap;

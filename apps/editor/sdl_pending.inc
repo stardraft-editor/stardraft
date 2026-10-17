@@ -17,6 +17,7 @@ void sdlProjectShown();  // (sdl_project.inc: the Project page reads the project
 void sdlTriggersShown();  // (sdl_triggers.inc: the project's triggers, and the tree made again)
 void setWorkspace(Workspace w) {
     if (w == Workspace::Assets) w = Workspace::Files;  // Assets is part of Files
+    if (w != Workspace::Map && newPageCovers()) return;  // (the New page or the start page holds the Map workspace)
     if (w != Workspace::Files) previewStopSdl();
     if (w != Workspace::Briefing) briefingStopSdl();
     if (!commandInMode(mapPageCommandOf(w))) {
@@ -29,7 +30,6 @@ void setWorkspace(Workspace w) {
     // A map page: its view shows (made from the tab's working copy); another workspace: the page goes (the copy stays).
     if (!sdlWorkspacePage(w) && (w == Workspace::Properties || w == Workspace::Players || w == Workspace::ClassicSettings || w == Workspace::ClassicTriggers)) w = Workspace::Map;
     gWorkspace = w;
-    if (w != Workspace::Map) gStartOpen = false;  // (the start page that File > New showed over the map: Map shows the map again)
     if (w == Workspace::Project) sdlProjectShown();
     if (w == Workspace::Triggers) sdlTriggersShown();
     shellStatusChanged();  // the map's parts show in Map only

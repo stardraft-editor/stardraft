@@ -22,6 +22,7 @@ const std::vector<AppSetting>& appSettings() {
         SD_SETTING("Correction", shellState().correction, bool),
         SD_SETTING("AllowIllegalUnits", shellState().allowIllegalUnits, bool),
         SD_SETTING("AllowStacking", shellState().allowStacking, bool),
+        SD_SETTING("SnapBuildings", shellState().snapBuildings, bool),
         SD_SETTING("DragSnapBack", shellState().dragSnapBack, bool),
         SD_SETTING("Animate", shellState().animate, bool),
         SD_SETTING("DoodadCheck", shellState().doodadCheck, bool),

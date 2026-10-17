@@ -894,6 +894,9 @@ Classic &triggers	Клас&сические триггеры
 &Scenario	&Сценарий
 &Do not snap	&Не привязывать
 Snap to &tiles (32 px)	Привязать к &клеткам (32 пикс.)
+Snap &buildings to tile edges	Привязать &здания к краям клеток
+Buildings: snap to tile edges	Здания: привязка к краям клеток
+Buildings: do not snap	Здания: без привязки
 Snap to &half tiles (16 px)	Привязать к половинам клет&ок (16 пикс.)
 Snap to &quarter tiles (8 px)	Привязать к &четвертям клеток (8 пикс.)
 Place &only where it fits	Размещать &только там, где помещается

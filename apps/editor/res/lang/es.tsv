@@ -931,6 +931,9 @@ Classic &triggers	&Disparadores clásicos
 &Scenario	Es&cenario
 &Do not snap	&No ajustar
 Snap to &tiles (32 px)	Ajustar a &casillas (32 px)
+Snap &buildings to tile edges	Ajustar &edificios a los bordes de las casillas
+Buildings: snap to tile edges	Edificios: ajustar a los bordes de las casillas
+Buildings: do not snap	Edificios: no ajustar
 Snap to &half tiles (16 px)	Ajustar a &medias casillas (16 px)
 Snap to &quarter tiles (8 px)	Ajustar a &cuartos de casilla (8 px)
 Place &only where it fits	Colocar &solo donde quepa

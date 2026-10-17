@@ -931,6 +931,9 @@ Classic &triggers	클래식 트리거(&T)
 &Scenario	시나리오(&S)
 &Do not snap	맞춤 안 함(&D)
 Snap to &tiles (32 px)	타일에 맞춤 (32 px)(&T)
+Snap &buildings to tile edges	건물을 타일 가장자리에 맞춤(&B)
+Buildings: snap to tile edges	건물: 타일 가장자리에 맞춤
+Buildings: do not snap	건물: 맞추지 않음
 Snap to &half tiles (16 px)	반 타일에 맞춤 (16 px)(&H)
 Snap to &quarter tiles (8 px)	1/4 타일에 맞춤 (8 px)(&Q)
 Place &only where it fits	들어맞는 곳에만 배치(&O)
