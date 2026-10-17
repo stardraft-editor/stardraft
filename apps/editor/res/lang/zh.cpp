@@ -1321,6 +1321,7 @@ constexpr UiText kRows[] = {
     {L"Open\u2026", L"\u6253\u5F00\u2026"},
     {L"A project or a map (Ctrl+O)", L"\u9879\u76EE\u6216\u5730\u56FE (Ctrl+O)"},
     {L"The map to copy (.scm or .scx)", L"\u8981\u590D\u5236\u7684\u5730\u56FE\uFF08.scm \u6216 .scx\uFF09"},
+    {L"The map whose terrain to use (.scm or .scx)", L"\u8981\u4F7F\u7528\u5176\u5730\u5F62\u7684\u5730\u56FE\uFF08.scm \u6216 .scx\uFF09"},
     {L"Could not open the page", L"\u65E0\u6CD5\u6253\u5F00\u9875\u9762"},
     {L"Appearance", L"\u5916\u89C2"},
     {L"Theme", L"\u4E3B\u9898"},

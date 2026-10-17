@@ -1401,6 +1401,7 @@ Remove from the list	목록에서 제거
 Open…	열기…
 A project or a map (Ctrl+O)	프로젝트 또는 맵 (Ctrl+O)
 The map to copy (.scm or .scx)	복사할 맵 (.scm 또는 .scx)
+The map whose terrain to use (.scm or .scx)	지형을 사용할 맵 (.scm 또는 .scx)
 Could not open the page	페이지를 열 수 없습니다
 Appearance	모양
 Theme	테마

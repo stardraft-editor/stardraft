@@ -1317,6 +1317,7 @@ Remove from the list	Удалить из списка
 Open…	Открыть…
 A project or a map (Ctrl+O)	Проект или карта (Ctrl+O)
 The map to copy (.scm or .scx)	Карта для копирования (.scm или .scx)
+The map whose terrain to use (.scm or .scx)	Карта, ландшафт которой нужно использовать (.scm или .scx)
 Could not open the page	Не удалось открыть страницу
 Appearance	Оформление
 Theme	Тема

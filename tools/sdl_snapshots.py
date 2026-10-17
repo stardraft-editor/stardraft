@@ -16,7 +16,8 @@ To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (i
 case's options, {map}, {project}, {install} (the --install folder), {root} (the repository), {out} (the --out folder),
 {newdir} (a new empty folder in --out), {kodir} (a new empty folder in --out with Korean letters and spaces in its
 name), {wav} (a short sound that the script writes in --out), {release} (GitHub's answer for the newest release, with a
-download for each system: RELEASE_JSON), {oldsettings} (the settings file of an older release)
+download for each system: RELEASE_JSON), {oldsettings} (the settings file of an older release), {snapsettings} (a settings file with
+the unit snap on: Options > Units > Snap to tiles)
 and {legacyhive} (Windows: a registry file with the settings of the releases before the settings file) are paths, and
 {script:<name>} is the path of the input script SCRIPTS[name] (main_sdl.cpp's --script), written into --out with the
 same paths in it. A run also fails when its output has "(WRONG)", or when the
@@ -1736,6 +1737,103 @@ def check_release_token(output):
     return None
 
 
+# The New page, the start page, the side bars and the building snap (the window's own parts: the "  ui: ..." line after
+# each input, sdl_shot_state.inc: sdlShotUi). Bug reports of 0.6.0-preview.1:
+# The New page has no Back button (Cancel and Esc leave it): a click where Back was does nothing, Esc closes the page.
+# A classic project can start from the terrain of a map (as an EUD project can import a map): Create makes a new map
+# (untitled) with the map's tileset, size, terrain and doodads, and no units; the map file is the case's map ({map}: it is
+# not opened before).
+# File > New (Ctrl+N) and the tabs' + show the start page with a project open (Esc goes back to the map); its EUD card and
+# Create make a new project in a tab of its own (the open project stays).
+# Each side bar is resized by a drag of its edge next to the map (the width cursor over it), from 200 to 640 px.
+# Buildings snap to tile edges only with a unit snap (Options > Units): with Do not snap, a placed or dragged Command
+# Center stays where the mouse put it; with Snap to tiles its box is on the tile grid (x on a tile edge, y 16 px off).
+CASES += [
+    ("newpage-noback", ["--newpage", "eud", "--click", "382,218", "--key", "Esc"], ""),
+    ("map-newpage-classic-terrain", ["--newpage", "classic", "--click", "489,517", "--click", "815,314", "--click", "960,353", "--type", "{map}",
+                                     "--click", "1126,897"], "map"),
+    ("project-newproject", ["--key", "Ctrl+N", "--click", "711,430", "--click", "437,406", "--key", "Ctrl+A", "--type", "{newdir}",
+                            "--click", "1162,815"], "project"),
+    ("project-newpage-esc", ["--key", "Ctrl+N", "--key", "Esc", "--click", "176,84", "--key", "Esc", "--key", "Ctrl+Shift+N", "--key", "Esc"], "project"),
+    ("map-sidebar-resize", ["--move", "341,500", "--drag", "341,500-401,500", "--move", "1323,500", "--drag", "1323,500-1263,500",
+                            "--drag", "401,500-1001,500", "--drag", "701,500-101,500", "--move", "900,500"], "map"),
+    ("map-building-nosnap", ["--mode", "units", "--key", "Q", "--type", "Command Center", "--key", "Enter", "--click", "701,651", "--key", "Esc",
+                             "--drag", "701,651-713,659"], "map"),
+    ("map-building-snap", ["--settings", "{snapsettings}", "--mode", "units", "--key", "Q", "--type", "Command Center", "--key", "Enter",
+                           "--click", "701,651", "--key", "Esc", "--drag", "701,651-713,659"], "map"),
+]
+
+
+def ui_lines(output):
+    """The input lines and the ui line after each: [(input, {name: value})] (the last value of a name that comes twice)."""
+    out, last = [], None
+    for line in output.splitlines():
+        m = STATE_LINE.match(line)
+        if m:
+            last = m.group(1) + " " + m.group(2)
+            out.append((last, {}))
+        elif line.startswith("  ui: ") and out and out[-1][0] == last:
+            out[-1] = (last, dict(kv.split("=", 1) for kv in line[6:].split() if "=" in kv))
+    return out
+
+
+def expect_ui(count, rules):
+    """A check: `count` inputs with a ui line, and each rule (what, function of the [(input, ui)] list) holds."""
+    def check(output):
+        u = ui_lines(output)
+        if len(u) != count or any(not d for _, d in u):
+            return f"{len(u)} inputs ({sum(1 for _, d in u if d)} with a ui line), not {count}"
+        for what, ok in rules:
+            try:
+                good = ok(u)
+            except (KeyError, ValueError, IndexError):
+                good = False
+            if not good:
+                return f"{what}: {u}"
+        return None
+    return check
+
+
+def check_building_snap(snapped):
+    """None when the Command Center that was placed, then dragged, is on the tile grid (`snapped`) or off it each time."""
+    def on_grid(st):
+        x, y = (int(v) for v in re.search(r" lastat=(\d+),(\d+)", st).group(1, 2))
+        return x % 32 == 0 and y % 32 == 16  # (its box, 128 x 96, on tile edges)
+
+    def check(output):
+        s = states(output)
+        if len(s) != 6:
+            return f"{len(s)} input lines, not 6"
+        for i, what in ((3, "placed"), (5, "dragged")):
+            if not re.search(r" lastat=\d+,\d+", s[i][1]):
+                return f"no place of the {what} unit: {s[i][1]}"
+            if on_grid(s[i][1]) != snapped:
+                return f"the {what} Command Center is {'not ' if snapped else ''}on the tile grid: {s[i][1]}"
+        if "59 units" not in output.split("click 701,651:")[1].split("\n")[0]:
+            return "the Command Center was not placed"
+        return None
+    return check
+
+
+def check_classic_terrain(output):
+    """The classic New page offers the terrain of a map; Create makes an untitled map with the map's tileset, size and
+    doodads (the --map: Space Platform, 128 x 128, 50 doodads) and no units."""
+    u, s = ui_lines(output), states(output)
+    if len(u) != 5 or len(s) != 5:
+        return f"{len(u)} inputs, not 5"
+    if "terrain" not in u[0][1].get("offered", "").split(","):
+        return f"the classic New page does not offer the terrain of a map: {u[0][1]}"
+    if u[1][1].get("start") != "terrain":
+        return f"The terrain of a map is not selected: {u[1][1]}"
+    if u[4][1].get("page") != "map" or u[4][1].get("tabs") != "1/1":
+        return f"after Create: {u[4][1]} (not the new map in a tab)"
+    if not s[4][1].startswith("map: Space Platform 128 x 128;") or 'tab="* Untitled"' not in s[4][1]:
+        return f"the new map is not an untitled map with the map's tileset and size: {s[4][1]}"
+    if not re.search(r"^click 1126,897: 0 units, 50 doodads", output, re.M):
+        return "the new map does not have the map's doodads and no units"
+    return None
+
+
 CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
           "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
           "map-doodad-ghost": check_doodad_ghost, "map-sprite-place": check_sprite_place,
@@ -1773,7 +1871,32 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "map-program-files": check_program_files, "map-saveas-tab": check_saveas_tab, "map-undo-midstroke": check_undo_midstroke,
           "map-undo-saved": check_undo_saved, "map-undo-selection": check_undo_selection, "map-props-typing-undo": check_props_typing_undo,
           "data-map-undo": check_data_map_undo, "data-value-insert": check_value_insert, "update-release-older": check_release_older,
-          "update-release-token": check_release_token}
+          "update-release-token": check_release_token,
+          "newpage-noback": expect_ui(2, [
+              ("a click where Back was closed the page (Back is there)", lambda u: u[0][1]["page"] == "new"),
+              ("Esc did not close the New page", lambda u: u[1][1]["page"] == "start")]),
+          "map-newpage-classic-terrain": check_classic_terrain,
+          "project-newproject": expect_ui(6, [
+              ("File > New (Ctrl+N) did not show the start page with a project open", lambda u: u[0][1]["page"] == "start"),
+              ("the EUD project card did not show the New page", lambda u: u[1][1]["page"] == "new" and u[1][1]["new"] == "eud"),
+              ("Create did not make the project in a tab of its own", lambda u: u[5][1]["page"] == "map" and u[5][1]["tabs"] == "2/2"
+               and u[5][1]["project"] == "yes")]),
+          "project-newpage-esc": expect_ui(6, [
+              ("Ctrl+N did not show the start page", lambda u: u[0][1]["page"] == "start"),
+              ("Esc did not close the start page", lambda u: u[1][1]["page"] == "map"),
+              ("the tabs' + did not show the start page", lambda u: u[2][1]["page"] == "start"),
+              ("Esc did not close the start page", lambda u: u[3][1]["page"] == "map"),
+              ("Ctrl+Shift+N did not show the New page", lambda u: u[4][1]["page"] == "new" and u[4][1]["new"] == "eud"),
+              ("Esc did not close the New page", lambda u: u[5][1]["page"] == "map" and u[5][1]["tabs"] == "1/1")]),
+          "map-sidebar-resize": expect_ui(7, [
+              ("no width cursor over the left side bar's edge", lambda u: u[0][1]["cursor"] == "width"),
+              ("the drag did not make the left side bar 60 px wider", lambda u: u[1][1]["left"] == "340" and u[1][1]["right"] == "280"),
+              ("no width cursor over the right side bar's edge", lambda u: u[2][1]["cursor"] == "width"),
+              ("the drag did not make the right side bar 60 px wider", lambda u: u[3][1]["right"] == "340" and u[3][1]["left"] == "340"),
+              ("the left side bar is not at most 640 px", lambda u: u[4][1]["left"] == "640"),
+              ("the left side bar is not at least 200 px", lambda u: u[5][1]["left"] == "200"),
+              ("the width cursor over the map", lambda u: u[6][1]["cursor"] != "width")]),
+          "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True)}
 
 # GitHub's answer for the newest release ({release}; /releases/latest, shortened): a release with a download for each
 # system, as tools/release.py and the macos-release job make it, indented as GitHub gives it to a request without a
@@ -2003,13 +2126,17 @@ def main():
             with open(releaseold, "w", encoding="utf-8") as f:
                 f.write(RELEASE_OLD_JSON)
         oldsettings, legacyhive = os.path.join(a.out, "old-settings.json"), os.path.join(a.out, "legacy-settings.hive")
+        snapsettings = os.path.join(a.out, "snap-settings.json")  # {snapsettings}: a settings file with Options > Units > Snap to tiles
+        if any("{snapsettings}" in x for x in args):
+            with open(snapsettings, "w", encoding="utf-8") as f:
+                json.dump({"Settings/UnitGrid": 32}, f)
         if any("{oldsettings}" in x for x in args):
             write_old_settings(oldsettings, a.out)
         if any("{legacyhive}" in x for x in args):
             write_legacy_hive(legacyhive)
         paths = dict(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
                      kodir=kodir, wav=wav, release=release, oldsettings=oldsettings, legacyhive=legacyhive, pfdir=pfdir,
-                     releaseold=releaseold)
+                     releaseold=releaseold, snapsettings=snapsettings)
 
         def script(m):  # {script:<name>}: SCRIPTS[name] with the paths, as a file in --out
             path = os.path.join(a.out, f"{name}-{m.group(1)}.txt")

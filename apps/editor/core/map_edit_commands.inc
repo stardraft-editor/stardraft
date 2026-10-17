@@ -253,6 +253,7 @@ bool commandMapEdit(AppState& app, int id) {
     if (id >= ID_SNAP_UNITS && id < ID_SNAP_UNITS + 12) {
         const int kind = (id - ID_SNAP_UNITS) / 4, choice = (id - ID_SNAP_UNITS) % 4;
         (kind == 0 ? app.unitGrid : kind == 1 ? app.spriteGrid : app.locationGrid) = kSnapGrids[choice];
+        setBuildingSnap(app.unitGrid != 0);  // (buildings snap to tile edges only with a unit snap)
         static const wchar_t* kinds[] = {L"Units", L"Sprites", L"Locations"};
         static const wchar_t* snaps[] = {L"do not snap", L"snap to tiles (32 px)", L"snap to half tiles (16 px)", L"snap to quarter tiles (8 px)"};
         setMessage(std::wstring(kinds[kind]) + L": " + snaps[choice]);
