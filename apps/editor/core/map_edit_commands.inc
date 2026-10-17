@@ -463,7 +463,7 @@ int mapMenuCheck(int id) {
 }
 
 // The items that the state grays now (their keys do nothing then): Undo and Redo with no step, Paste with nothing copied
-// (Triggers, Briefing and Data paste their own copies), and the drag back of units when units go anywhere.
+// (Triggers, Briefing, Data and Map data paste their own copies), and the drag back of units when units go anywhere.
 bool trigCanUndo(bool redo);  // core/views_triggers_pane.inc
 bool dataCanUndo(bool redo);  // core/data_model.inc
 bool mapMenuGrayed(int id) {
@@ -475,7 +475,8 @@ bool mapMenuGrayed(int id) {
         return !(app.ed && app.ed->isOpen() && (redo ? app.ed->canRedo() : app.ed->canUndo()));
     }
     if (id == ID_EDIT_PASTE) {
-        if (gWorkspace == Workspace::Triggers || gWorkspace == Workspace::Briefing || gWorkspace == Workspace::Data) return false;
+        if (gWorkspace == Workspace::Triggers || gWorkspace == Workspace::Briefing || gWorkspace == Workspace::Data || gWorkspace == Workspace::ClassicSettings)
+            return false;
         const bool open = app.ed && app.ed->isOpen();
         // Every kind of copy (a gray item also stops Ctrl+V): units, terrain, tiles, locations, doodads, sprites (#83).
         return !(open && (app.ed->canPaste() || app.ed->hasTerrainClipboard() || app.ed->hasTileClipboard() || app.hasLocationClip ||

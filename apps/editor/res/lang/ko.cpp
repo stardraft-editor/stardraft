@@ -2050,6 +2050,9 @@ constexpr UiText kRows[] = {
     {L"&Download", L"\uB2E4\uC6B4\uB85C\uB4DC(&D)"},
     {L"Update StarDraft 2 in your software center.", L"\uC18C\uD504\uD2B8\uC6E8\uC5B4 \uC13C\uD130\uC5D0\uC11C StarDraft 2\uB97C \uC5C5\uB370\uC774\uD2B8\uD558\uC2ED\uC2DC\uC624."},
     {L"Download it? The download opens in the browser.", L"\uB2E4\uC6B4\uB85C\uB4DC\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C? \uB2E4\uC6B4\uB85C\uB4DC\uAC00 \uBE0C\uB77C\uC6B0\uC800\uC5D0\uC11C \uC5F4\uB9BD\uB2C8\uB2E4."},
+    {L"Map data: only the changed entries show", L"\uB9F5 \uB370\uC774\uD130: \uBCC0\uACBD\uB41C \uD56D\uBAA9\uB9CC \uD45C\uC2DC\uB429\uB2C8\uB2E4"},
+    {L"Map data: all the entries show", L"\uB9F5 \uB370\uC774\uD130: \uBAA8\uB4E0 \uD56D\uBAA9\uC774 \uD45C\uC2DC\uB429\uB2C8\uB2E4"},
+    {L"Copy the values of an entry on this tab first", L"\uBA3C\uC800 \uC774 \uD0ED\uC5D0 \uC788\uB294 \uD56D\uBAA9\uC758 \uAC12\uC744 \uBCF5\uC0AC\uD558\uC2ED\uC2DC\uC624"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
