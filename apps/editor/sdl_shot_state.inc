@@ -3,7 +3,7 @@
 // self-test reads the same parts of the model): the open map (its tileset and size; then, in the Map workspace, its
 // parts as name=value: shotMapState); the Data workspace's open entry, its changed
 // values and the undo steps; the selected trigger's blocks with their values; the Classic triggers page's triggers and
-// the selected one's players; the Files page's search and how many game sounds it shows; the map's briefings; the New
+// the selected one's players; the Map data page's entry, rows and values; the Files page's search and how many game sounds it shows; the map's briefings; the New
 // page's choices and its preview's maps. Included
 // by main_sdl.cpp after the workspaces' files.
 
@@ -81,6 +81,36 @@ std::string shotClassicState() {
     s += "; the map has " + std::to_string(inMap.triggers.size()) + ":";
     for (const ClassicTrigger& t : inMap.triggers) s += " [players" + players(t) + "]";
     return s;
+}
+
+// The Map data page: the tab and its selected entry, the list's rows (how many, the pinned ones, the first ones, the
+// Changed filter), the entry's values on the page (own: not the game's) and in the map, and the map's undo steps.
+std::string shotMapDataState() {
+    ClassicPageView* v = sdlClassicShownTab();
+    if (!v) return "map data: no page";
+    const int tab = gClassic->tab, e = v->entry();
+    std::string s = "map data: " + narrow(kClassicTabNames[tab]) + " " + std::to_string(e) + "; " + std::to_string(v->shownCount()) + " rows, " +
+                    std::to_string(v->pinnedShown()) + " pinned, changed filter " + (v->changedOnly() ? "on" : "off") + ", first";
+    for (int i = 0; i < v->shownCount() && i < 4; ++i) s += " " + std::to_string(v->shownEntry(i));
+    const bool own = !classicUseDefault(tab, e);
+    s += std::string("; ") + (own ? "own" : "default") + " values";
+    for (int f = 0; f < classicFieldCount(tab); ++f) s += " " + std::to_string(classicFieldValue(tab, e, f, !own));
+    // The map's: its settings as the map has them now (the page's change is in the map).
+    const Editor& ed = *gState.ed;
+    std::string inMap;
+    const size_t i = size_t(e);
+    if (tab == kClassicUnits) {
+        const UnitSettings::Unit& u = ed.unitSettings().units[i];
+        inMap = (u.useDefault ? "default " : "own ") + std::to_string(u.hitPoints >> 8) + " " + std::to_string(u.shields) + " " + std::to_string(u.armor) +
+                " " + std::to_string(u.buildTime) + " " + std::to_string(u.minerals) + " " + std::to_string(u.gas);
+    } else if (tab == kClassicUpgrades) {
+        const UpgradeSettings::Upgrade& g = ed.upgradeSettings().upgrades[i];
+        inMap = (g.useDefault ? "default " : "own ") + std::to_string(g.minerals) + " " + std::to_string(g.gas) + " " + std::to_string(g.time);
+    } else {
+        const TechSettings::Tech& t = ed.techSettings().techs[i];
+        inMap = (t.useDefault ? "default " : "own ") + std::to_string(t.minerals) + " " + std::to_string(t.gas) + " " + std::to_string(t.time);
+    }
+    return s + "; the map has " + inMap + "; undo " + std::to_string(ed.undoSteps());
 }
 
 std::string shotBriefingState() {
@@ -240,6 +270,7 @@ std::string sdlShotState() {
     case Workspace::Data: return activeProject() ? shotDataState() : "";
     case Workspace::Triggers: return activeProject() ? shotTriggersState() : "";
     case Workspace::ClassicTriggers: return map ? shotClassicState() : "";
+    case Workspace::ClassicSettings: return map ? shotMapDataState() : "";
     case Workspace::Files:
         return "files: search \"" + narrow(gFilesPage.searchText()) + "\", " + std::to_string(gFilesPage.gameSoundsShown()) + " game sounds; selected \"" +
                gFilesPage.selected() + "\"; " + std::to_string(gSoundAsks) + " plays, last \"" + gSoundAsked + "\"";
