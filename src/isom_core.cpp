@@ -186,6 +186,30 @@ void IsomCore::updateTiles() {
 
 int IsomCore::untileable() const { return impl_->untileable; }
 
+void IsomCore::retile(const std::vector<uint8_t>& rects, std::vector<uint8_t>* missed) {
+    Impl& m = *impl_;
+    if (!m.cache) return;
+    const size_t w = m.cache->isomWidth, h = m.cache->isomHeight;
+    if (missed) missed->assign(w * h, 0);
+    m.cache->resetChangedArea();
+    // Each marked rect that a tile group fits: Modified (updateTilesFromIsom makes its tiles); one no group fits keeps
+    // its tiles (the core would give it the null tile).
+    for (size_t y = 0; y + 1 < h; ++y)
+        for (size_t x = 0; x + 1 < w; ++x) {
+            const size_t i = y * w + x;
+            if (!rects.empty() && (i >= rects.size() || !rects[i])) continue;
+            ::Chk::IsomRect& r = m.map.isomRects[i];
+            if (!m.cache->hashToTileGroup->count(r.getHash(m.cache->isomLinks))) {
+                if (missed) (*missed)[i] = 1;
+                continue;
+            }
+            r.left |= ::Chk::IsomRect::EditorFlag::Modified;
+            m.cache->changedArea.expandToInclude(x, y);
+        }
+    if (m.cache->changedArea.left <= m.cache->changedArea.right) m.map.updateTilesFromIsom(*m.cache);
+    else m.cache->resetChangedArea();
+}
+
 bool IsomCore::fill(uint16_t fill) {
     Impl& m = *impl_;
     if (!m.cache || !m.terrainType(fill)) return false;

@@ -1,4 +1,5 @@
 #include "stardraft/isom.h"
+#include "stardraft/isom_core.h"
 
 #include <algorithm>
 #include <functional>
@@ -1062,7 +1063,7 @@ bool IsomGrid::store(Chk& chk, std::string& error) {
         for (size_t i = 0; i < touched.size(); ++i) touched[i] |= dirtyRects_[i];
         writeIsom(chk);
         const TerrainLayer before = readTerrain(chk, "TILE");
-        if (!regenerateTiles(chk, dirtyRects_, error)) return false;
+        if (!regenerateTiles(chk, dirtyRects_, error, tileset_)) return false;
         {  // tiles that changed beyond the edited rects (down a column, along a row) are part of the edit too
             const TerrainLayer after = readTerrain(chk, "TILE");
             for (int ty = 0; ty < mapHeight_ && size_t(ty) * mapWidth_ < after.tiles.size(); ++ty)
@@ -1204,6 +1205,18 @@ int countTileMisfits(const Chk& chk, std::vector<std::pair<int, int>>* where) {
 TileRegenStats& tileRegenStats() {
     static TileRegenStats s;
     return s;
+}
+
+bool regenerateTiles(Chk& chk, const std::vector<uint8_t>& dirtyRects, std::string& error, const Tileset* tileset) {
+    if (!tileset || tileset->groups.empty() || (tileset->era & 7) != (readEra(chk) & 7)) return regenerateTiles(chk, dirtyRects, error);
+    IsomCore core;
+    std::string coreError;
+    if (!core.load(chk, *tileset, coreError)) return regenerateTiles(chk, dirtyRects, error);
+    std::vector<uint8_t> missed;
+    core.retile(dirtyRects, &missed);
+    core.store(chk);
+    if (std::find(missed.begin(), missed.end(), 1) == missed.end()) return true;
+    return regenerateTiles(chk, missed, error);  // (the rects no tile group fits: the learned rules' choice)
 }
 
 bool regenerateTiles(Chk& chk, const std::vector<uint8_t>& dirtyRects, std::string& error) {
