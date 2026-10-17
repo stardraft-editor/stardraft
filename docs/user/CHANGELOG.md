@@ -1,6 +1,54 @@
 # StarDraft 2 changelog
 
-StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows (64-bit).
+StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
+
+## 0.6.0
+
+### New
+
+- StarDraft 2 is now for macOS (Apple silicon) and Linux too, with the same features as on Windows.
+- On macOS, the menus are in the menu bar, the shortcuts use Cmd, and save questions show on the window. Pinch and
+  two-finger scroll move and zoom the map, as in Preview, and Alt + pinch sizes the brush.
+- On macOS, drop a map on the Dock icon to open it. Finder shows maps in Quick Look, and the Dock icon shows the
+  progress of a Build.
+- On Linux, an AppImage to download and start, the system's file dialogs, and the desktop's light or dark theme. Maps
+  open from the file manager in the program that is open.
+- Program options > Theme and Accent color can follow the system.
+
+### Map
+
+- Options > Units > Snap buildings to tile edges, on by default. When it is off, buildings stay where you put them.
+- Terrain mode: the keys 1 to 0 pick the first ten terrains of the list.
+- Drag the edge of a side bar to make it wider or narrower.
+- Location properties: type any Left, Top, Right and Bottom. The Type list follows the values, and when you pick a type
+  in it, the values change to match it.
+
+### The program
+
+- New page > Generate terrain: Symmetry is a dropdown.
+- The New page has no Back button. Use Cancel or Esc.
+- Project page > Build options: Freeze protection.
+
+### Fixes
+
+- Quick clicks work on every button. Before, many buttons needed slow clicks.
+- A double click counts only when both clicks are on the same item.
+- When you quit, restart or update, StarDraft 2 asks about the changes in every tab, not only the open tab.
+- Maps, projects and settings are saved to a new file first, so a full disk or a crash during a save does not empty
+  the file.
+- New project and New EUD project work when a project is open.
+- Undo in the middle of a stroke no longer breaks the undo history.
+- Text that you type in a Briefing or a map page is in the next save.
+- Crash reports do not include your user name.
+- If an update does not start, the version that you had stays.
+- The updater no longer offers an older version to a newer build.
+- The program uses less memory over a long session in the Data workspace.
+
+### Known problems
+
+- The text and some controls look a little different from 0.5.
+- StarDraft 2 uses more memory than 0.5 (about 450 MB).
+- On macOS, the app is not signed by Apple yet. The first time, right-click it and select **Open**.
 
 ## 0.5.0.8
 
