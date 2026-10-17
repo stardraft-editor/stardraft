@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <vector>
 
 #include "stardraft/chk.h"
@@ -32,5 +33,7 @@ struct Image {
 Image renderTerrain(const Tileset& tileset, const TerrainLayer& terrain, int downscale = 1);
 
 bool writePng(const char* path, const Image& image);
+// The same with a path in any characters (Windows: not only the ANSI code page).
+bool writePng(const std::filesystem::path& path, const Image& image);
 
 }  // namespace stardraft

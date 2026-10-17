@@ -1,6 +1,7 @@
 #include "stardraft/terrain.h"
 
 #include <algorithm>
+#include <fstream>
 
 #include "byteio.h"
 
@@ -95,14 +96,16 @@ void appendToVector(void* ctx, void* data, int size) {
 }
 }  // namespace
 
-bool writePng(const char* path, const Image& image) {
+bool writePng(const char* path, const Image& image) { return writePng(std::filesystem::path(path), image); }
+
+bool writePng(const std::filesystem::path& path, const Image& image) {
     Bytes png;
     if (!stbi_write_png_to_func(appendToVector, &png, image.width, image.height, 4, image.rgba.data(), image.width * 4))
         return false;
-    FILE* f = std::fopen(path, "wb");
-    if (!f) return false;
-    bool ok = std::fwrite(png.data(), 1, png.size(), f) == png.size();
-    return std::fclose(f) == 0 && ok;
+    std::ofstream out(path, std::ios::binary);
+    out.write(reinterpret_cast<const char*>(png.data()), std::streamsize(png.size()));
+    out.close();
+    return bool(out);
 }
 
 }  // namespace stardraft
