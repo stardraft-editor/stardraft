@@ -320,12 +320,13 @@ void sdlDataMenu(draw::View& from, draw::Point at, const MenuModel& items, std::
 }
 
 // Undo and redo in the Data workspace (Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z while it shows): the step's table or text as it
-// was, at the entry that changed.
-bool sdlDataUndo(bool redo) {
+// was, at the entry that changed. `done`: the status bar's text after it ("Undo: Change Marine (Units)").
+bool sdlDataUndo(bool redo, const std::wstring& done) {
     sdlDataCommitEdit();
     if (dataMapUndo(redo)) {  // the Players section's edits: the map's undo and redo (core/views_data_players.inc)
         updateTitle();
         gSdlDataForm.invalidate();
+        if (!done.empty()) setMessage(done);
         return true;
     }
     DataEditStep s;
@@ -341,7 +342,7 @@ bool sdlDataUndo(bool redo) {
         sdlDataSelect(s.entry);
     }
     sdlDataRebuildList();
-    setMessage(!err.empty() ? widen(err) : redo ? L"Redo" : L"Undo");
+    setMessage(!err.empty() ? widen(err) : !done.empty() ? done : redo ? L"Redo" : L"Undo");
     return true;
 }
 

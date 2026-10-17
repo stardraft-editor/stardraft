@@ -2046,3 +2046,68 @@ Download the new AppImage?	Скачать новый AppImage?
 &Download	&Скачать
 Update StarDraft 2 in your software center.	Обновите StarDraft 2 в центре приложений.
 Download it? The download opens in the browser.	Скачать? Загрузка откроется в браузере.
+# Edit > Undo history: the steps' names
+Undo &history…\tCtrl+Shift+H	&Журнал отмены…\tCtrl+Shift+H
+Search the steps	Поиск шагов
+Start of the history	Начало журнала
+There are no steps to undo or redo	Нет шагов для отмены или повтора
+Undo: %s	Отменить: %s
+Redo: %s	Повторить: %s
+Undo: %d steps	Отменить шаги: %d
+Redo: %d steps	Повторить шаги: %d
+Add %s	Добавить: %s
+Delete %s	Удалить: %s
+Rename %s	Переименовать: %s
+Change %s	Изменить: %s
+Move %s	Переместить: %s
+Change the triggers	Изменить триггеры
+%s: Add %s	%s: добавить %s
+%s: Delete %s	%s: удалить %s
+%s: Change %s	%s: изменить %s
+%s: Move the blocks	%s: переместить блоки
+Change the data	Изменить данные
+Change the map size	Изменить размер карты
+Change the tileset	Изменить тайлсет
+Change the terrain (%d tiles)	Изменить местность (тайлов: %d)
+Change the briefings	Изменить брифинги
+Change the players and forces	Изменить игроков и команды
+Change the unit settings	Изменить настройки юнитов
+Change the upgrade settings	Изменить настройки улучшений
+Change the technology settings	Изменить настройки технологий
+Change the unit properties of the triggers	Изменить свойства юнитов для триггеров
+Change the switch names	Изменить имена переключателей
+Change the sound files	Изменить звуковые файлы
+Change the scenario name and description	Изменить название и описание сценария
+Change the fog of war	Изменить туман войны
+Change the texts	Изменить тексты
+Change the map	Изменить карту
+Add 1 doodad	Добавить 1 декорацию
+Add %d doodads	Добавить декорации: %d
+Delete 1 doodad	Удалить 1 декорацию
+Delete %d doodads	Удалить декорации: %d
+Move 1 doodad	Переместить 1 декорацию
+Move %d doodads	Переместить декорации: %d
+Change 1 doodad	Изменить 1 декорацию
+Change %d doodads	Изменить декорации: %d
+Add 1 sprite	Добавить 1 спрайт
+Add %d sprites	Добавить спрайты: %d
+Delete 1 sprite	Удалить 1 спрайт
+Delete %d sprites	Удалить спрайты: %d
+Move 1 sprite	Переместить 1 спрайт
+Move %d sprites	Переместить спрайты: %d
+Change 1 sprite	Изменить 1 спрайт
+Change %d sprites	Изменить спрайты: %d
+Add 1 unit	Добавить 1 юнит
+Add %d units	Добавить юниты: %d
+Delete 1 unit	Удалить 1 юнит
+Delete %d units	Удалить юниты: %d
+Move 1 unit	Переместить 1 юнит
+Move %d units	Переместить юниты: %d
+Change 1 unit	Изменить 1 юнит
+Change %d units	Изменить юниты: %d
+Add 1 location	Добавить 1 локацию
+Add %d locations	Добавить локации: %d
+Delete 1 location	Удалить 1 локацию
+Delete %d locations	Удалить локации: %d
+Change 1 location	Изменить 1 локацию
+Change %d locations	Изменить локации: %d

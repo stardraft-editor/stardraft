@@ -157,7 +157,9 @@ const stardraft::Command* tableCommand(int id) {
     return it == gCommandIds.end() ? nullptr : gCommands.find(it->second);
 }
 
-bool sdlDataUndo(bool redo);  // (sdl_data.inc: undo and redo in the Data workspace)
+bool sdlDataUndo(bool redo, const std::wstring& done = {});  // (sdl_data.inc: undo and redo in the Data workspace)
+void sdlUndoSteps(bool redo, size_t steps);  // (sdl_history.inc: Undo, Redo and the undo history's jumps)
+void sdlShowUndoHistory();
 
 bool sdlOptionsRuns(int id);     // (sdl_options.inc: the Program options commands)
 bool sdlOptionsCommand(int id);
@@ -173,6 +175,7 @@ bool sdlRuns(int id) {
     case ID_FILE_EXIT:
     case ID_EDIT_UNDO:
     case ID_EDIT_REDO:
+    case ID_EDIT_HISTORY:
     case ID_WS_MAP:
     case ID_WS_DATA:
     case ID_WS_TRIGGERS:
@@ -919,7 +922,7 @@ void sdlPinchShot(const std::string& spec) {
 // enabled (a gray item: "(WRONG)").
 void sdlCommandShot(const std::string& name) {
     static const std::pair<const char*, int> kNames[] = {{"view.towns", ID_VIEW_TOWNS}, {"view.log", ID_VIEW_LOG}, {"scen.check", ID_SCEN_CHECK},
-                                                         {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO},
+                                                         {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO}, {"edit.history", ID_EDIT_HISTORY},
                                                          {"project.open", ID_PROJ_OPEN}, {"project.addscript", ID_PROJ_ADDSCRIPT},
                                                          {"file.exit", ID_FILE_EXIT}, {"options.restart", ID_OPT_RESTART},
                                                          {"options.unitsnap.tiles", ID_SNAP_UNITS + 1}};  // (Options > Units > Snap to tiles)
@@ -1179,29 +1182,8 @@ void commandSdl(int id) {
     case ID_FILE_SAVEAS: saveOpenMap(true); return;
     case ID_FILE_EXIT: requestQuit(); return;
     case ID_EDIT_UNDO:
-    case ID_EDIT_REDO:
-        if (gWorkspace == Workspace::Data) {  // the Data workspace's own steps (sdl_data.inc), as the Windows program has them
-            sdlDataUndo(id == ID_EDIT_REDO);
-            return;
-        }
-        if (gWorkspace == Workspace::Triggers) {  // the Triggers workspace's own steps (core/triggers_model.inc)
-            trigUndo(id == ID_EDIT_REDO);
-            return;
-        }
-        if (gState.ed && gState.ed->isOpen()) {
-            if (gState.ed->inStroke()) return setMessage(L"Release the mouse button to undo or redo");
-            typingFlush();  // a text being typed on a map page is a step of its own first: Undo takes it back
-            const std::vector<Doodad> doodads = gState.ed->doodads();
-            const std::vector<MapSprite> sprites = gState.ed->sprites();
-            if (id == ID_EDIT_REDO) gState.ed->redo();
-            else gState.ed->undo();
-            keepItemSelection(gState, doodads, sprites);
-            gState.terrainRev = 0;
-            rebuildList(gState);
-            gState.dirty = true;
-            updateTitle();
-        }
-        return;
+    case ID_EDIT_REDO: sdlUndoSteps(id == ID_EDIT_REDO, 1); return;  // (sdl_history.inc: the workspace's own steps)
+    case ID_EDIT_HISTORY: sdlShowUndoHistory(); return;
     case ID_WS_ASSETS: setWorkspace(Workspace::Files); return;  // Assets is part of Files
     case ID_SCEN_PROPS: setWorkspace(Workspace::Properties); return;
     case ID_SCEN_PLAYERS: setWorkspace(Workspace::Players); return;

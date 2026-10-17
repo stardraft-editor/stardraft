@@ -2046,3 +2046,68 @@ Download the new AppImage?	¿Descargar la nueva AppImage?
 &Download	&Descargar
 Update StarDraft 2 in your software center.	Actualice StarDraft 2 en su centro de software.
 Download it? The download opens in the browser.	¿Descargarla? La descarga se abre en el navegador.
+# Edit > Undo history: the steps' names
+Undo &history…\tCtrl+Shift+H	&Historial de deshacer…\tCtrl+Shift+H
+Search the steps	Buscar los pasos
+Start of the history	Inicio del historial
+There are no steps to undo or redo	No hay pasos para deshacer ni rehacer
+Undo: %s	Deshacer: %s
+Redo: %s	Rehacer: %s
+Undo: %d steps	Deshacer: %d pasos
+Redo: %d steps	Rehacer: %d pasos
+Add %s	Añadir %s
+Delete %s	Eliminar %s
+Rename %s	Cambiar el nombre de %s
+Change %s	Cambiar %s
+Move %s	Mover %s
+Change the triggers	Cambiar los disparadores
+%s: Add %s	%s: añadir %s
+%s: Delete %s	%s: eliminar %s
+%s: Change %s	%s: cambiar %s
+%s: Move the blocks	%s: mover los bloques
+Change the data	Cambiar los datos
+Change the map size	Cambiar el tamaño del mapa
+Change the tileset	Cambiar el tileset
+Change the terrain (%d tiles)	Cambiar el terreno (%d casillas)
+Change the briefings	Cambiar los briefings
+Change the players and forces	Cambiar los jugadores y las fuerzas
+Change the unit settings	Cambiar los ajustes de las unidades
+Change the upgrade settings	Cambiar los ajustes de las mejoras
+Change the technology settings	Cambiar los ajustes de las tecnologías
+Change the unit properties of the triggers	Cambiar las propiedades de unidad de los disparadores
+Change the switch names	Cambiar los nombres de los interruptores
+Change the sound files	Cambiar los archivos de sonido
+Change the scenario name and description	Cambiar el nombre y la descripción del escenario
+Change the fog of war	Cambiar la niebla de guerra
+Change the texts	Cambiar los textos
+Change the map	Cambiar el mapa
+Add 1 doodad	Añadir 1 decorado
+Add %d doodads	Añadir %d decorados
+Delete 1 doodad	Eliminar 1 decorado
+Delete %d doodads	Eliminar %d decorados
+Move 1 doodad	Mover 1 decorado
+Move %d doodads	Mover %d decorados
+Change 1 doodad	Cambiar 1 decorado
+Change %d doodads	Cambiar %d decorados
+Add 1 sprite	Añadir 1 sprite
+Add %d sprites	Añadir %d sprites
+Delete 1 sprite	Eliminar 1 sprite
+Delete %d sprites	Eliminar %d sprites
+Move 1 sprite	Mover 1 sprite
+Move %d sprites	Mover %d sprites
+Change 1 sprite	Cambiar 1 sprite
+Change %d sprites	Cambiar %d sprites
+Add 1 unit	Añadir 1 unidad
+Add %d units	Añadir %d unidades
+Delete 1 unit	Eliminar 1 unidad
+Delete %d units	Eliminar %d unidades
+Move 1 unit	Mover 1 unidad
+Move %d units	Mover %d unidades
+Change 1 unit	Cambiar 1 unidad
+Change %d units	Cambiar %d unidades
+Add 1 location	Añadir 1 ubicación
+Add %d locations	Añadir %d ubicaciones
+Delete 1 location	Eliminar 1 ubicación
+Delete %d locations	Eliminar %d ubicaciones
+Change 1 location	Cambiar 1 ubicación
+Change %d locations	Cambiar %d ubicaciones

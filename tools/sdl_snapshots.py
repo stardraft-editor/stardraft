@@ -496,6 +496,16 @@ CASES += [
     # Data: a Players setting (Can build), then a unit placed in Map, then Ctrl+Z in Data: the unit stays (Data's Undo
     # does not take back a Map edit that it cannot show).
     ("data-map-undo", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--script", "{script:datamapundo}"], "data"),
+    # Edit > Undo history (Ctrl+Shift+H): four map edits (two Marines placed, a mineral field deleted, all the units
+    # deleted), each with its name in the list (the newest at the top); a pick of the second step goes back two steps
+    # (the map is the map after that step), a pick of the newest step goes forward again; then Ctrl+Z says the step's
+    # name in the status bar. The script's "history" lines give the list, the steps to redo and the map's hash.
+    ("map-undo-history", ["--script", "{script:undohistory}"], "map"),
+    # The same in the Data workspace (Hit points, then Shield enable twice: three steps of the Marine) and in the
+    # Triggers workspace (a new trigger, an action added, its amount, the action deleted): the list has those steps,
+    # and a jump back and forward gives the entry and the trigger as after that step.
+    ("data-undo-history", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--script", "{script:dataundohistory}"], "data"),
+    ("data-triggers-undo-history", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--script", "{script:trigundohistory}"], "data"),
     # The Triggers' value pop-out: Insert value's picker, a click on its row: the value pop-out stays open and takes it.
     ("data-value-insert", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169", "--click", "460,347",
                            "--type", "Display text", "--key", "Enter", "--click", "498,353", "--click", "568,632", "--type", "player's name",
@@ -820,6 +830,72 @@ key Ctrl+A
 type Undo title
 command edit.undo
 wait 700
+""",
+    "undohistory": """mode units
+click 1386,429
+click 700,650
+history
+click 600,700
+history
+key Esc
+click 825,128
+key Del
+history
+key Ctrl+A
+key Del
+history
+key Ctrl+Shift+H
+key Down
+key Down
+key Enter
+history
+command edit.history
+key Up
+key Up
+key Enter
+history
+key Ctrl+Z
+history
+""",
+    "dataundohistory": """click 671,742
+type 50
+key Enter
+history
+click 624,768
+history
+click 624,768
+history
+command edit.history
+key Down
+key Enter
+history
+command edit.history
+key Up
+key Enter
+history
+""",
+    "trigundohistory": """click 433,169
+history
+click 460,347
+type Set resources
+key Enter
+history
+click 827,352
+type 800
+key Enter
+history
+key Del
+history
+command edit.history
+key Down
+key Down
+key Enter
+history
+command edit.history
+key Up
+key Up
+key Enter
+history
 """,
     "datamapundo": """wheel 800,500,0,-300
 click 714,697
@@ -1408,6 +1484,100 @@ def check_trigger_edits(output):
         return f"Delete: {deleted}"
     if len(undos) != 2 or not undos[0].endswith(edited) or not undos[1].endswith(m.group(1) + m.group(2) + ")"):
         return f"Undo: {undos} (not the block with 800, then with {m.group(2)})"
+    return None
+
+
+HISTORY_LINE = re.compile(r"^history: (\d+) done, (\d+) to redo, map ([0-9a-f]+): (.*)$")
+
+
+def history_lines(output):
+    """The script's "history" lines: (steps done, steps to redo, the map's hash, the names (the newest first), the
+    workspace's state line after it)."""
+    out = []
+    for line in output.splitlines():
+        m = HISTORY_LINE.match(line)
+        if m:
+            names = [n for n in m.group(4).split(" | ") if n]
+            out.append([int(m.group(1)), int(m.group(2)), m.group(3), names, ""])
+        elif line.startswith("  history state: ") and out:  # (without the Data state's counts of steps: they are in the line before)
+            out[-1][4] = re.sub(r"; \d+ undo steps, \d+ redo steps", "", line[len("  history state: "):])
+    return out
+
+
+def history_jumps(h, steps, key):
+    """None when the history lines h, after `steps` edits (a line after each), have the jump back to the second step
+    and then the jump forward to the last step: the counts, and the same document (key 2: the map's hash, 4: the
+    workspace's state) as after those steps; else the reason."""
+    if len(h) < steps + 2:
+        return f"{len(h)} history lines, not {steps + 2}"
+    for i in range(steps):
+        if h[i][0] != i + 1 or h[i][1] != 0:
+            return f"after edit {i + 1}: {h[i][0]} steps done, {h[i][1]} to redo"
+        if len(h[i][3]) != i + 1:
+            return f"after edit {i + 1}: {len(h[i][3])} names ({h[i][3]})"
+    back, forward = h[steps], h[steps + 1]
+    if back[0] != 2 or back[1] != steps - 2:
+        return f"the jump to the second step: {back[0]} done, {back[1]} to redo (not 2 and {steps - 2})"
+    if back[key] != h[1][key]:
+        return f"after the jump back, not as after the second step: {back[key]} (not {h[1][key]})"
+    if back[3] != h[1][3]:
+        return f"the names after the jump back: {back[3]} (not {h[1][3]})"
+    if forward[0] != steps or forward[1] != 0 or forward[key] != h[steps - 1][key]:
+        return f"the jump forward: {forward[0]} done, {forward[1]} to redo, {forward[key]} (not as after the last edit: {h[steps - 1][key]})"
+    return None
+
+
+def check_undo_history(output):
+    """None when the map's undo history has the four edits with their names (the newest first), the pick of the second
+    step gives the map after that step, the pick of the newest gives the map after the last edit, and Ctrl+Z says the
+    step's name."""
+    h = history_lines(output)
+    problem = history_jumps(h, 4, 2)
+    if problem:
+        return problem
+    names = h[3][3]
+    if names[1:] != ["Delete 1 unit", "Add 1 unit", "Add 1 unit"] or not re.fullmatch(r"Delete \d+ units", names[0]):
+        return f"the names: {names}"
+    rows = ", ".join(names + ["Start of the history"])
+    if f'picker: search "", {len(names) + 1} rows: {rows}' not in output:
+        return f"the list does not show the steps (the newest at the top) and the start: {rows}"
+    if "Undo: 2 steps" not in output or "Redo: 2 steps" not in output:
+        return "the status bar does not say the jumps (Undo: 2 steps, Redo: 2 steps)"
+    if len(h) < 7 or h[6][0] != 3 or h[6][2] != h[2][2]:
+        return "Ctrl+Z after the jump forward does not give the map after the third edit"
+    if f"Undo: {names[0]}" not in output:
+        return f"the status bar after Ctrl+Z does not say Undo: {names[0]}"
+    return None
+
+
+def check_data_undo_history(output):
+    """None when the Data workspace's undo history has the three edits of the Marine, and the jumps give the entry's
+    values as after the second step and after the last."""
+    h = history_lines(output)
+    problem = history_jumps(h, 3, 4)
+    if problem:
+        return problem
+    names = h[2][3]
+    if not all("(Units): Change " in n for n in names) or not names[2].endswith("Hit Points") or \
+            not all(n.endswith("Shield Enable") for n in names[:2]):
+        return f"the names: {names} (not Shield Enable, Shield Enable, Hit Points of the Marine)"
+    if h[0][4] == h[1][4] or h[1][4] == h[2][4]:
+        return "an edit did not change the entry's state"
+    return None
+
+
+def check_trigger_undo_history(output):
+    """None when the Triggers workspace's undo history has the four edits with their names, and the jumps give the
+    trigger as after the second step and after the last."""
+    h = history_lines(output)
+    problem = history_jumps(h, 4, 4)
+    if problem:
+        return problem
+    names = h[3][3]
+    if names[3] != "Add New trigger" or not all(n.startswith("New trigger: ") for n in names[:3]):
+        return f"the names: {names}"
+    if [n.split(": ", 1)[1].split()[0] for n in names[:3]] != ["Delete", "Change", "Add"]:
+        return f"the block steps: {names[:3]} (not Delete, Change, Add)"
     return None
 
 
@@ -2164,6 +2334,8 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
           "newpage-randomize-quick": check_newpage_randomize, "newpage-symmetry-dropdown": check_newpage_symmetry,
           "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits,
+          "map-undo-history": check_undo_history, "data-undo-history": check_data_undo_history,
+          "data-triggers-undo-history": check_trigger_undo_history,
           "map-files-search": check_files_search, "map-briefing-add": check_briefing_add,
           "start-noinstall": check_banner(True, "none", False),
           "start-noinstall-nodata": check_banner(True, "That folder has no StarCraft game data.", False),
