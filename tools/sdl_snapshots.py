@@ -290,6 +290,8 @@ CASES += [
     ("map-stack-list", ["--mode", "units", "--script", "{script:stacklist}"], "map"),
     ("map-stack-cycle", ["--mode", "units", "--script", "{script:stackcycle}"], "map"),
     ("map-stack-menu", ["--mode", "units", "--script", "{script:stackmenu}"], "map"),
+    # While the Marine is picked for placing, Alt+click on the stack is the pipette (no list, no new unit).
+    ("map-stack-pipette", ["--mode", "units", "--script", "{script:stackpipette}"], "map"),
 ]
 # The map steps of the old Windows self-test with the mouse and the keys. After each input line a second
 # line ("  state: map: <tileset> <size>; name=value ...") says the mode, the player, the sprites, the selected doodad,
@@ -1000,6 +1002,8 @@ stats
     "stacklist": STACK_PLACE + "click 700,650:Alt\nkey Down\nkey Enter\nclick 700,650:Alt\nkey Down\nkey Shift+Enter\n",
     "stackcycle": STACK_PLACE + "click 700,650\nclick 700,650\nclick 700,650\nclick 700,650\nclick 700,650\ndrag 700,650-640,680\n",
     "stackmenu": STACK_PLACE + "click 700,650:Menu10\nkey Down\nkey Enter\n",
+    # The Marine stays picked (no Esc): Alt+click on the stack is the pipette (map-stack-pipette).
+    "stackpipette": "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nclick 700,650:Alt\nkey Esc\n",
 }
 
 
@@ -2706,7 +2710,25 @@ def check_stack_menu(output):
     return None
 
 
+def check_stack_pipette(output):
+    """While the Marine is picked for placing, Alt+click on the stack of three is the pipette: no list, no new unit."""
+    s = stack_steps(output)
+    if len(s) != 6:
+        return f"{len(s)} inputs, not 6"
+    if s[3]["units"] != s[0]["units"] + 3 or s[3].get("stack") != "3":
+        return f"the three clicks did not make a stack of three: {s[0]['units']} -> {s[3]['units']} units, stack={s[3].get('stack')}"
+    alt, esc = s[4], s[5]
+    if alt["rows"] is not None or esc["rows"] is not None:
+        return "Alt+click while placing opened the list of the stack, not the pipette"
+    if alt["units"] != s[3]["units"] or alt["selected"] != 0:
+        return f"Alt+click while placing changed the units or the selection: {alt}"
+    if "Placing Terran Marine" not in alt["message"]:
+        return f"the pipette did not pick the Marine: {alt['message']}"
+    return None
+
+
 CHECKS = {"map-stack-list": check_stack_list, "map-stack-cycle": check_stack_cycle, "map-stack-menu": check_stack_menu,
+          "map-stack-pipette": check_stack_pipette,
           "map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
           "map-drag-select": check_box_select, "map-mode-unselect": check_mode_unselect, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
           "map-doodad-ghost": check_doodad_ghost, "map-sprite-place": check_sprite_place,

@@ -235,8 +235,9 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
     gStackNext = -1;
-    // Alt+click (macOS: Option+click) on two or more units: the list of the units there (on one unit: the pipette).
-    if ((mods & draw::kAlt) && app.mode == Mode::Units && !app.pasting && !modeLayerHidden() && ed.unitsAt(int(wx), int(wy)).size() > 1) {
+    // Alt+click (macOS: Option+click) on two or more units: the list of the units there (on one unit, or while a unit
+    // type is selected for placing: the pipette).
+    if ((mods & draw::kAlt) && app.mode == Mode::Units && app.palette < 0 && !app.pasting && !modeLayerHidden() && ed.unitsAt(int(wx), int(wy)).size() > 1) {
         gStackClickX = gStackClickY = -1000;
         app.drag = Drag::None;
         showUnitStack(wx, wy, sx, sy, (mods & draw::kShift) != 0);
