@@ -329,6 +329,8 @@ CASES += [
     ("map-trackpad-pan", ["--wheel", "700,500,1,-1.5:precise"], "map"),
     ("map-trackpad-ctrl-zoom", ["--wheel", "700,500,0,2:precise:Ctrl"], "map"),
     ("map-pinch", ["--pinch", "700,500,1.5"], "map"),
+    # Alt + pinch with a brush (the terrain brush, B): the brush's size up (fingers apart), then down; the zoom stays.
+    ("map-brush-pinch", ["--mode", "terrain", "--key", "B", "--pinch", "700,500,1.5:Alt", "--pinch", "700,500,0.6:Alt"], "map"),
     # macOS's smart zoom (a double tap with two fingers; --smartzoom feeds the event that mac_input.mm gives): in two
     # times at the mouse, then back to the zoom before.
     ("map-smartzoom", ["--smartzoom", "700,500", "--smartzoom", "700,500"], "map"),
@@ -1555,6 +1557,20 @@ def camera(output, what):
     return (v[0], v[1]), (v[2], v[3], v[4]), (v[5], v[6], v[7])
 
 
+def check_brush_pinch(output):
+    """None when Alt + pinch made the brush larger, then smaller, and the zoom stayed."""
+    sizes = [float(m) for m in re.findall(r"^pinch 700,500,[\d.]+:Alt: .*Brush size ([\d.]+)\r?$", output, re.M)]
+    if len(sizes) != 2:
+        return f"{len(sizes)} brush sizes after the pinches, not 2"
+    if not sizes[0] > 2 or not sizes[1] < sizes[0]:
+        return f"brush sizes {sizes} (not larger than 2, then smaller)"
+    for what in ("pinch 700,500,1.5:Alt", "pinch 700,500,0.6:Alt"):
+        c = camera(output, what)
+        if not c or abs(c[2][2] - c[1][2]) > 1e-4:
+            return f"{what}: the zoom changed"
+    return None
+
+
 def check_zoom_at(what, factor):
     """A check that the zoom changed `factor` times and the map's point under the mouse stayed under it."""
     def check(output):
@@ -2154,7 +2170,7 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
                                          check_zoom_at("wheel 700,500,1,-1.5:precise", 1.2 ** -1.5)),
           "map-trackpad-ctrl-zoom": per_system(check_zoom_at("wheel 700,500,0,2:precise:Ctrl", 1.2 ** 0.5),
                                                check_zoom_at("wheel 700,500,0,2:precise:Ctrl", 1.44)),
-          "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5), "start-menubar": check_menubar,
+          "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5), "map-brush-pinch": check_brush_pinch, "start-menubar": check_menubar,
           "check-window": check_window(False), "check-window-system": check_window(True), "start": check_start,
           "start-trackpad-scroll": check_trackpad_scroll, "map-smartzoom": check_smartzoom, "map-swipe": check_swipe,
           "drop-sound-assets": check_drop("Imported 1 sounds"), "drop-image-assets": check_drop("Did not import atlas-16.png"),
