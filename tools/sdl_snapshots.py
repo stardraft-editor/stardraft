@@ -285,6 +285,16 @@ CASES += [
     ("map-drag-select", ["--mode", "units", "--drag", "780,110-880,150", "--drag", "1225,560-1260,600:Shift", "--key", "Ctrl+Z"], "map"),
     # A click selects the unit; a drag moves it 40 px down (192 map pixels); Undo puts it back.
     ("map-drag-unit", ["--mode", "units", "--click", "825,128", "--drag", "825,128-825,168", "--key", "Ctrl+Z"], "map"),
+    # A stack of units (Options > Units > Can be on top of others): three Marines placed at one point of open ground
+    # (700,650); the status bar counts the three under the mouse. Alt+click there: the list of the three, Down and
+    # Enter select the second; Alt+click again, Down and Shift+Enter add the third. A click again at the same point
+    # selects the next unit of the stack (the top one after the last); a drag moves the selected unit (under the top
+    # one). The map's right-click menu has "Select a unit here..." (item 10): its list, Down and Enter select the second.
+    ("map-stack-list", ["--mode", "units", "--script", "{script:stacklist}"], "map"),
+    ("map-stack-cycle", ["--mode", "units", "--script", "{script:stackcycle}"], "map"),
+    ("map-stack-menu", ["--mode", "units", "--script", "{script:stackmenu}"], "map"),
+    # While the Marine is picked for placing, Alt+click on the stack is the pipette (no list, no new unit).
+    ("map-stack-pipette", ["--mode", "units", "--script", "{script:stackpipette}"], "map"),
 ]
 # The map steps of the old Windows self-test with the mouse and the keys. After each input line a second
 # line ("  state: map: <tileset> <size>; name=value ...") says the mode, the player, the sprites, the selected doodad,
@@ -808,6 +818,8 @@ if sys.platform == "win32":
 # gives the map again as it was) and the save round trip ({n}: the time over); "stats" says the memory and the undo
 # steps. reopen: the project's Data workspace, the project closes and opens again: the pictures of the closed project go.
 # dialogs: F2's prompt renames the location, 300 times (each prompt is a window of the snapshot: more than 255 of them).
+# Options > Units > Can be on top of others, the Marine picked, three clicks at one point, Esc: a stack of three units.
+STACK_PLACE = "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nkey Esc\n"
 SCRIPTS = {
     "dialogs": """key F2
 type Spot {n}
@@ -1024,6 +1036,12 @@ key Esc
 open {project}
 stats
 """,
+    # A stack of three Marines at 700,650 (map-stack-list, map-stack-cycle, map-stack-menu).
+    "stacklist": STACK_PLACE + "click 700,650:Alt\nkey Down\nkey Enter\nclick 700,650:Alt\nkey Down\nkey Shift+Enter\n",
+    "stackcycle": STACK_PLACE + "click 700,650\nclick 700,650\nclick 700,650\nclick 700,650\nclick 700,650\ndrag 700,650-640,680\n",
+    "stackmenu": STACK_PLACE + "click 700,650:Menu10\nkey Down\nkey Enter\n",
+    # The Marine stays picked (no Esc): Alt+click on the stack is the pipette (map-stack-pipette).
+    "stackpipette": "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nclick 700,650:Alt\nkey Esc\n",
 }
 
 
@@ -2944,7 +2962,114 @@ def check_edit_elsewhere(ws, enabled, last_quick="no"):
     return check
 
 
-CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
+STACK_INPUT = re.compile(r"^(key|click|drag) (.*?): (\d+) units, \d+ doodads, (\d+) selected(?: \(the first at (\d+),(\d+)\))?: (.*)$")
+
+
+def stack_steps(output):
+    """The inputs of a stack case, in the order of their lines: input, units, selected, at (the first selected unit's
+    place), message, the state line's stack fields, and the rows of a list picker that is open (None: none). (A click
+    that opens the list writes its line when the list closes: after the keys in the list.)"""
+    out = []
+    for line in output.splitlines():
+        m = STACK_INPUT.match(line)
+        if m:
+            out.append({"input": f"{m.group(1)} {m.group(2)}", "units": int(m.group(3)), "selected": int(m.group(4)),
+                        "at": (int(m.group(5)), int(m.group(6))) if m.group(5) else None, "message": m.group(7), "rows": None})
+        elif line.startswith("  state: ") and out:
+            out[-1].update((k, v.strip('"')) for k, v in STATE_FIELD.findall(line) if k in ("stack", "stacksel", "stackcount"))
+        elif line.startswith("  picker: ") and out:
+            r = re.search(r"(\d+) rows", line)
+            out[-1]["rows"] = int(r.group(1)) if r else None
+    return out
+
+
+def stack_placed(s):
+    """None when the first inputs (the Marine picked, three clicks, Esc) made a stack of three units under the mouse."""
+    if len(s) < 5:
+        return f"{len(s)} inputs"
+    if s[3]["units"] != s[0]["units"] + 3 or s[4].get("stack") != "3":
+        return f"the three clicks did not make a stack of three: {s[0]['units']} -> {s[3]['units']} units, stack={s[4].get('stack')}"
+    if s[4].get("stackcount") != "3":
+        return f"the status bar does not count 3 units under the mouse: stackcount={s[4].get('stackcount')}"
+    return None
+
+
+def check_stack_list(output):
+    """Alt+click: the list of the three units; a pick selects the second; Shift and a pick add the third."""
+    s = stack_steps(output)
+    if (bad := stack_placed(s)):
+        return bad
+    if len(s) != 11:
+        return f"{len(s)} inputs, not 11"
+    clicks = [d for d in s[5:] if d["input"].startswith("click")]
+    keys = [d for d in s[5:] if d["input"].startswith("key")]
+    if len(keys) != 4 or any(k["rows"] != 3 for k in keys):
+        return "the list does not show the three units: " + ", ".join(f"{k['input']}: {k['rows']} rows" for k in keys)
+    if len(clicks) != 2 or clicks[0]["selected"] != 1 or clicks[0].get("stacksel") != "2":
+        return f"the pick did not select the second unit: {clicks[0] if clicks else None}"
+    if clicks[1]["selected"] != 2 or clicks[1].get("stacksel") != "2,3" or "Added unit 3 of 3" not in clicks[1]["message"]:
+        return f"Shift and the pick did not add the third unit: {clicks[1]}"
+    return None
+
+
+def check_stack_cycle(output):
+    """Clicks again at the same point go through the stack (1, 2, 3, then 1 and 2); a drag moves the selected unit."""
+    s = stack_steps(output)
+    if (bad := stack_placed(s)):
+        return bad
+    if len(s) != 11:
+        return f"{len(s)} inputs, not 11"
+    order = [d.get("stacksel") for d in s[5:10]]
+    if order != ["1", "2", "3", "1", "2"] or any(d["selected"] != 1 for d in s[5:10]):
+        return f"the clicks did not go through the stack: the selected unit's place in it after each click: {order}"
+    if "Selected unit 2 of 3 here" not in s[6]["message"]:
+        return f"the status bar does not say which unit: {s[6]['message']}"
+    d, before = s[10], s[9]
+    if d["selected"] != 1 or not d["at"] or not before["at"] or d["at"] == before["at"] or d["units"] != before["units"]:
+        return f"the drag did not move the selected unit: {before['at']} -> {d['at']}"
+    if d.get("stack") != "1":  # (at the drag's end: the moved unit alone; the two others stay)
+        return f"the drag moved more than the selected unit: {d.get('stack')} units at its new place"
+    return None
+
+
+def check_stack_menu(output):
+    """The map's menu on a stack has "Select a unit here..."; its list shows the three units; a pick selects the second."""
+    if "menu: Select a unit here\u2026" not in output:
+        return "the map's menu has no \"Select a unit here...\""
+    s = stack_steps(output)
+    if (bad := stack_placed(s)):
+        return bad
+    if len(s) != 8:
+        return f"{len(s)} inputs, not 8"
+    keys = [d for d in s[5:] if d["input"].startswith("key")]
+    if len(keys) != 2 or any(k["rows"] != 3 for k in keys):
+        return "the list does not show the three units"
+    last = s[-1]
+    if not last["input"].startswith("click") or last["selected"] != 1 or last.get("stacksel") != "2":
+        return f"the pick did not select the second unit: {last}"
+    return None
+
+
+def check_stack_pipette(output):
+    """While the Marine is picked for placing, Alt+click on the stack of three is the pipette: no list, no new unit."""
+    s = stack_steps(output)
+    if len(s) != 6:
+        return f"{len(s)} inputs, not 6"
+    if s[3]["units"] != s[0]["units"] + 3 or s[3].get("stack") != "3":
+        return f"the three clicks did not make a stack of three: {s[0]['units']} -> {s[3]['units']} units, stack={s[3].get('stack')}"
+    alt, esc = s[4], s[5]
+    if alt["rows"] is not None or esc["rows"] is not None:
+        return "Alt+click while placing opened the list of the stack, not the pipette"
+    if alt["units"] != s[3]["units"] or alt["selected"] != 0:
+        return f"Alt+click while placing changed the units or the selection: {alt}"
+    if "Placing Terran Marine" not in alt["message"]:
+        return f"the pipette did not pick the Marine: {alt['message']}"
+    return None
+
+
+CHECKS = {"map-stack-list": check_stack_list, "map-stack-cycle": check_stack_cycle, "map-stack-menu": check_stack_menu,
+          "map-stack-pipette": check_stack_pipette,
+          "map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
           "map-drag-select": check_box_select, "map-mode-unselect": check_mode_unselect, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
           "map-doodad-ghost": check_doodad_ghost, "map-sprite-place": check_sprite_place,
           "map-location-make": check_location_make, "map-terrain-brush": check_terrain_brush,

@@ -2168,3 +2168,12 @@ Could not export the preview. 	无法导出预览。
 Exported the preview 	已导出预览 
 Part %d of %d	第 %d 部分，共 %d 部分
 Canceled the map image export	已取消导出地图图像
+%d units here (Alt+click: list)	此处有 %d 个单位 (Alt+单击: 列表)
+Select a unit &here…	选择此处的单位(&H)…
+Search the units here	搜索此处的单位
+Selected unit 	已选择单位 
+Added unit 	已添加单位 
+ of 	 / 
+ here: 	 (此处): 
+. Click again for the next unit.	。再次单击可选择下一个单位。
+, at 	，位置 

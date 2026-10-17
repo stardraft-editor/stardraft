@@ -1841,6 +1841,20 @@ int Editor::unitAt(int x, int y) const {
     return best;
 }
 
+std::vector<int> Editor::unitsAt(int x, int y) const {
+    std::vector<std::pair<int, int>> hits;  // (the box's area, the unit)
+    for (int i = int(units_.size()) - 1; i >= 0; --i) {
+        const Rect b = unitBox(units_[size_t(i)]);
+        if (b.contains(x, y)) hits.push_back({(b.right - b.left) * (b.bottom - b.top), i});
+    }
+    // The smallest box first (a unit on top of a building), then the unit placed last (as unitAt).
+    std::stable_sort(hits.begin(), hits.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    std::vector<int> out;
+    out.reserve(hits.size());
+    for (const auto& h : hits) out.push_back(h.second);
+    return out;
+}
+
 // --- Selection -------------------------------------------------------------------------------------
 
 bool Editor::isSelected(int unit) const { return std::find(selection_.begin(), selection_.end(), unit) != selection_.end(); }

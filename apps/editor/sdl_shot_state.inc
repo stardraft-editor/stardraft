@@ -157,6 +157,15 @@ std::string shotMapState() {
     if (gLocPropsShown) s += " locprops=" + quoted(narrow(gLocPropsShown->typeText())) + " locedges=" + narrow(gLocPropsShown->edgesText());
     float wx = 0, wy = 0;
     toWorld(app.mouseX, app.mouseY, wx, wy);
+    // The units under the mouse (a stack: the status bar's count), and the places in it of the selected units (1: the top).
+    {
+        const std::vector<int> stack = ed.unitsAt(int(wx), int(wy));
+        std::string at;
+        for (size_t k = 0; k < stack.size(); ++k)
+            if (ed.isSelected(stack[k])) at += (at.empty() ? "" : ",") + std::to_string(k + 1);
+        s += " stack=" + std::to_string(stack.size()) + " stacksel=" + (at.empty() ? std::string("-") : at);
+        s += " stackcount=" + std::to_string(unitStackCount(app));
+    }
     s += " paste=";
     if (app.pasting && ed.canPaste()) {
         int red = 0;

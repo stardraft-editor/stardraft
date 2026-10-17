@@ -989,6 +989,19 @@ int main(int argc, char** argv) {
     ed.selectRect({box.left - 4, box.top - 4, box.right + 4, box.bottom + 4}, false);
     CHECK(ed.isSelected(ccIndex), "box select");
     CHECK(ed.unitAt(ed.units()[marineIndex].x, ed.units()[marineIndex].y) == marineIndex, "hit test finds the marine");
+    {  // A stack: three Marines at one point (units can be on top of others): all three, the top one (the last) first.
+        Editor se(data);
+        std::string serr;
+        if (se.newMap(64, 64, 0, 1, serr)) {
+            se.setAllowStacking(true);
+            for (int k = 0; k < 3; ++k) se.placeUnit(0, 0, 20 * 32, 20 * 32, false);
+            const std::vector<int> stack = se.unitsAt(20 * 32, 20 * 32);
+            CHECK(se.units().size() == 3 && stack.size() == 3, "stack: the hit test finds the three units at the point");
+            CHECK(stack.size() == 3 && stack[0] == se.unitAt(20 * 32, 20 * 32) && stack[0] == 2 && stack[1] == 1 && stack[2] == 0,
+                  "stack: the top unit (the one a click selects) first, then the units under it");
+            CHECK(se.unitsAt(30 * 32, 30 * 32).empty(), "stack: no units at a point with none");
+        } else CHECK(false, "stack: a new map");
+    }
 
     // Move.
     ed.select(marineIndex, false);

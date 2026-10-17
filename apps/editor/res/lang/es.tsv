@@ -2168,3 +2168,12 @@ Could not export the preview. 	No se pudo exportar la vista previa.
 Exported the preview 	Vista previa exportada: 
 Part %d of %d	Parte %d de %d
 Canceled the map image export	Exportación de la imagen del mapa cancelada
+%d units here (Alt+click: list)	%d unidades aquí (Alt+clic: lista)
+Select a unit &here…	Seleccionar una unidad &aquí…
+Search the units here	Buscar las unidades de aquí
+Selected unit 	Unidad seleccionada 
+Added unit 	Unidad añadida 
+ of 	 de 
+ here: 	 aquí: 
+. Click again for the next unit.	. Haga clic otra vez para la unidad siguiente.
+, at 	, en 

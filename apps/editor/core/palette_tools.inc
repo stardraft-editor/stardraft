@@ -37,6 +37,15 @@ void setStatusPart(AppState& app, int i, const wchar_t* text) {
     shellStatusChanged();  // the bar is drawn in full (StatusView::paint)
 }
 
+std::wstring shellKeysText(const std::wstring& s);  // (the host: on macOS, the Mac's symbols of the shortcuts)
+// The units under the mouse in Units mode (a stack: two or more), as the status bar counts them.
+size_t unitStackCount(const AppState& app) {
+    if (app.mode != Mode::Units || !app.mouseIn || !app.ed || !app.ed->isOpen() || app.palette >= 0 || app.pasting) return 0;
+    float wx, wy;
+    toWorld(app, app.mouseX, app.mouseY, wx, wy);
+    return app.ed->unitsAt(int(wx), int(wy)).size();
+}
+
 void updateStatus(AppState& app) {
     if (!shellHasStatusBar()) return;
     wchar_t buf[256];
@@ -47,7 +56,14 @@ void updateStatus(AppState& app) {
                   : app.mode == Mode::Doodads ? kDoodadTools[currentTool(app)] : app.mode == Mode::Sprites ? (app.palette >= 0 ? L"Place" : L"Select") : L"Edit");
     setStatusPart(app, 0, buf);
     std::swprintf(buf, 256, L"%d, %d  (tile %d, %d)", int(wx), int(wy), int(wx) / 32, int(wy) / 32);
-    setStatusPart(app, 1, buf);
+    // Units mode: two or more units under the mouse (a stack) say how many, and how to see them.
+    if (const size_t n = unitStackCount(app); n > 1) {
+        wchar_t more[128];
+        std::swprintf(more, 128, tr(L"%d units here (Alt+click: list)"), int(n));
+        setStatusPart(app, 1, (std::wstring(buf) + L"   " + shellKeysText(more)).c_str());
+    } else {
+        setStatusPart(app, 1, buf);
+    }
     std::swprintf(buf, 256, L"%.0f%%  %ls", app.zoom * 100, widen(qualityName(app.quality)).c_str());
     setStatusPart(app, 2, buf);
     size_t sel = app.ed ? app.ed->selection().size() : 0;

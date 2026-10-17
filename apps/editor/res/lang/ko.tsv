@@ -2168,3 +2168,12 @@ Could not export the preview. 	미리 보기를 내보낼 수 없습니다.
 Exported the preview 	미리 보기를 내보냄: 
 Part %d of %d	%d/%d 부분
 Canceled the map image export	맵 이미지 내보내기를 취소함
+%d units here (Alt+click: list)	여기에 유닛 %d개 (Alt+클릭: 목록)
+Select a unit &here…	여기의 유닛 선택(&H)…
+Search the units here	여기의 유닛 검색
+Selected unit 	선택한 유닛 
+Added unit 	추가한 유닛 
+ of 	 / 
+ here: 	 (이 위치): 
+. Click again for the next unit.	. 다시 클릭하면 다음 유닛을 선택합니다.
+, at 	, 위치 
