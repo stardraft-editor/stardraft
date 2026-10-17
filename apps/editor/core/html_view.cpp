@@ -135,7 +135,7 @@ struct HtmlView::Impl final : litehtml::document_container {
     HtmlView* owner = nullptr;
     draw::Canvas* c = nullptr;  // the canvas of this layout or paint
     float s = 1;                // the display's pixels for each CSS pixel
-    std::string html_, base, caption, cursorName, clicked;
+    std::string html_, base, caption;
     litehtml::document::ptr doc;
     int clipDepth = 0;
 
@@ -317,7 +317,7 @@ struct HtmlView::Impl final : litehtml::document_container {
                 if (!p) return;  // (the view is gone)
                 Img& im = p->images[url];
                 im.state = got && decode(bytes, im.bmp) ? Img::Ready : Img::Failed;
-                if (im.state == Img::Ready) p->owner->laidOutWidth_ = -1, p->owner->layout(p->owner->width());  // (its size changes the layout)
+                if (im.state == Img::Ready) p->owner->laidOutWidth_ = -1, p->owner->heights_.clear(), p->owner->layout(p->owner->width());  // (its size changes the layout)
                 p->owner->invalidate();
             });
         }).detach();
@@ -344,9 +344,9 @@ struct HtmlView::Impl final : litehtml::document_container {
         if (url && *url) base = resolveUrl(base, url);
     }
     void link(const std::shared_ptr<litehtml::document>&, const litehtml::element::ptr&) override {}
-    void on_anchor_click(const char* url, const litehtml::element::ptr&) override { clicked = url ? url : ""; }
+    void on_anchor_click(const char*, const litehtml::element::ptr&) override {}  // (the view follows its links itself: HtmlView::mouse)
     void on_mouse_event(const litehtml::element::ptr&, litehtml::mouse_event) override {}
-    void set_cursor(const char* cur) override { cursorName = cur ? cur : ""; }
+    void set_cursor(const char*) override {}
     void import_css(litehtml::string&, const litehtml::string&, litehtml::string&) override {}  // (a page's own stylesheets: not fetched)
     void get_viewport(litehtml::position& vp) const override {
         vp = litehtml::position(0, 0, pixel_t(owner->width()) / s, pixel_t(owner->parent() ? owner->parent()->height() : owner->height()) / s);
@@ -434,10 +434,12 @@ int HtmlView::layout(int w) {
         m.fonts.clear();
         m.base = base_;
         m.doc = litehtml::document::createFromString(m.html_, &m, litehtml::master_css, themeCss() + extraCss_);
+        heights_.clear();
     }
     if (m.doc) {
         m.doc->render(pixel_t(w) / m.s);
         height_ = int(std::ceil(m.doc->height() * m.s));
+        heights_[w] = height_;
     } else {
         height_ = 0;
     }
@@ -450,8 +452,16 @@ int HtmlView::layout(int w) {
     return height_;
 }
 
+// A scroll view tries the width without its bar, then with it, at each event and paint: a width that was laid out
+// before takes its height at once (the page is laid out at the paint, at the width it keeps).
 void HtmlView::resized() {
-    if (width() != laidOutWidth_) layout(width());
+    if (width() == laidOutWidth_) return;
+    if (const auto it = heights_.find(width()); impl_->doc && it != heights_.end()) {
+        height_ = it->second;
+        if (height() != height_) setSize(width(), height_);
+        return;
+    }
+    layout(width());
 }
 
 void HtmlView::paint(draw::Canvas& c) {
@@ -482,45 +492,41 @@ void HtmlView::paint(draw::Canvas& c) {
     m.c = nullptr;
 }
 
+// The links are the view's own (their boxes from the layout: links_): the mouse on one shows the hand and underlines
+// it, and a press and a release on the same link follow it. (litehtml's own mouse handling is not used: a style that
+// changes under the mouse loses the link's boxes, and its click depends on its hover state.)
 bool HtmlView::mouse(const draw::MouseEvent& e) {
-    Impl& m = *impl_;
-    if (!m.doc) return false;
-    const pixel_t x = pixel_t(e.pt.x) / m.s, y = pixel_t(e.pt.y) / m.s;
-    litehtml::position::vector boxes;
+    if (!impl_->doc) return false;
     switch (e.kind) {
     case draw::MouseKind::Move:
-        if (m.doc->on_mouse_over(x, y, x, y, boxes)) restyled();
         if (const int h = linkAt(e.pt); h != hot_) hot_ = h, invalidate();
         return true;
     case draw::MouseKind::Leave:
-        if (m.doc->on_mouse_leave(boxes)) restyled();
-        m.cursorName.clear();
         if (hot_ >= 0) hot_ = -1, invalidate();
         return true;
     case draw::MouseKind::Down:
     case draw::MouseKind::DoubleClick:
         if (e.button != 0) return false;
-        if (m.doc->on_lbutton_down(x, y, x, y, boxes)) restyled();
+        pressed_ = linkAt(e.pt);
         return true;
     case draw::MouseKind::Up: {
         if (e.button != 0) return false;
-        m.clicked.clear();
-        if (m.doc->on_lbutton_up(x, y, x, y, boxes)) restyled();
-        const std::string href = std::exchange(m.clicked, std::string());
-        if (href.empty()) return true;
-        if (href[0] == '#') {
-            const int at = anchorY(href.substr(1));
-            if (at >= 0 && onScrollTo) onScrollTo(at);
+        const int at = linkAt(e.pt), was = std::exchange(pressed_, -1);
+        if (at < 0 || at != was) return true;
+        const std::string url = links_[size_t(at)].url;  // (a copy: onLink can show another page)
+        if (url[0] == '#') {
+            const int y = anchorY(url.substr(1));
+            if (y >= 0 && onScrollTo) onScrollTo(y);
             return true;
         }
-        if (onLink) onLink(resolveUrl(m.base, href));
+        if (onLink) onLink(url);
         return true;
     }
     default: return false;  // (the wheel: the scroll view)
     }
 }
 
-draw::Cursor HtmlView::cursor(draw::Point) { return impl_->cursorName == "pointer" ? draw::Cursor::Hand : draw::Cursor::Arrow; }
+draw::Cursor HtmlView::cursor(draw::Point p) { return linkAt(p) >= 0 ? draw::Cursor::Hand : draw::Cursor::Arrow; }
 
 std::wstring HtmlView::tip(draw::Point p) {
     const int i = linkAt(p);

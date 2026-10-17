@@ -534,7 +534,8 @@ void sdlChangelogShotLines(const std::string& arg, bool root) {
         const bool pageTook = gHtmlShot->page.mouse(wheel);
         gHtmlShot->scroll.mouse(wheel);
         std::printf("html: the wheel (3 notches) scrolls to %d px%s\n", gHtmlShot->scroll.offsetY(), pageTook ? " (the page took it: WRONG)" : "");
-        for (const stardraft::html::Link& l : gHtmlShot->page.links())
+        const std::vector<stardraft::html::Link> links = gHtmlShot->page.links();  // (a copy: a layout makes them again)
+        for (const stardraft::html::Link& l : links)
             if (l.url == "#a-list") {
                 gHtmlShot->scroll.setOffset(0, gHtmlShot->scroll.maxOffsetY());
                 clickAt(gHtmlShot->page, middle(l.box));
