@@ -1161,6 +1161,36 @@ Json cmdOpen(Session& s) {
     return Obj().add("map", ustr(t.map)).add("work", ustr(w.dir)).add("change", 1).add("summary", summary(ed));
 }
 
+// A new map file: the size, the tileset and the terrain it is filled with. It does not open it.
+Json cmdNew(Session& s) {
+    const fs::path path = fs::absolute(upath(s.args.positional.at(0)));
+    std::error_code ec;
+    if (fs::exists(path, ec) && !s.args.has("force")) fail(ustr(path) + " is there already (--force writes over it)");
+    const std::vector<double> size = numbers(s.args.get("size", "128,128"), 2, "--size");
+    uint16_t era = 0;
+    const std::string tileset = lower(s.args.get("tileset", "badlands"));
+    bool found = false;
+    for (uint16_t e = 0; e < 8; ++e)
+        if (tileset == tilesetName(e)) era = e, found = true;
+    if (!found) fail("--tileset must be badlands, platform, install, ashworld, jungle, desert, ice or twilight");
+    const IsomTerrainTable* table = IsomTerrainTable::forEra(era);
+    if (!table) fail("no terrain table for " + tileset);
+    uint16_t terrain = 0;
+    const std::string want = lower(s.args.get("terrain"));
+    for (uint16_t i = table->terrainCount(); i >= 1; --i)
+        if (table->isTerrain(i) && (want.empty() || lower(table->terrainName(i)) == want)) terrain = i;
+    if (!terrain) fail("no terrain \"" + s.args.get("terrain") + "\" in " + tileset);
+    if (!s.dataOpen) {
+        openGameData(s.data, s.args.get("install"));
+        s.dataOpen = true;
+    }
+    Editor ed(s.data);
+    std::string err;
+    if (!ed.newMap(uint16_t(size[0]), uint16_t(size[1]), era, terrain, err)) fail(err);
+    if (!ed.save(path, err)) fail(err);
+    return Obj().add("map", ustr(path)).add("summary", summary(ed));
+}
+
 Json cmdStatus(Session& s) {
     const Target t = resolve(s.args.positional.at(0));
     Obj o;
@@ -1378,6 +1408,8 @@ const char* kOps = R"OPS([
 
 const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps without a window.
 
+  stardraft-cli new <map> [--size w,h] [--tileset name] [--terrain name] [--force]
+                                            a new map file (default 128x128 badlands, the first terrain)
   stardraft-cli open <map>                  make the working folder <map>.work (the map file does not change)
   stardraft-cli status <map>                the working folder: change number, undo and redo steps, history
   stardraft-cli get <map> [part...]         JSON: summary (default), units, doodads, sprites, locations, players,
@@ -1438,6 +1470,7 @@ static int run(std::vector<std::string> argv) {
             if (s.args.positional.empty()) fail(c + " needs a map");
             if (c == "open") result = cmdOpen(s);
             else if (c == "status") result = cmdStatus(s);
+            else if (c == "new") result = cmdNew(s);
             else if (c == "get") result = cmdGet(s);
             else if (c == "apply") result = cmdApply(s);
             else if (c == "undo") result = cmdUndoRedo(s, true);
