@@ -1,0 +1,55 @@
+# The tests with the game's data (the job linux-data), on the owner's self-hosted runner. A workflow of its own: its
+# runner is usually off, and a run of build.yml (which a release takes its files from, release.yml) never waits for it.
+# It runs for the same pushes as build.yml, for release tags, and by hand.
+name: Data tests
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v[0-9]*']
+    paths:
+      - '**'
+      - '!docs/**'
+      - '!**.md'
+      - 'README.md'
+      - 'docs/user/CHANGELOG.md'
+      - 'docs/user/images/**'
+      - 'tools/preview_notes.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch stops its older run. main and tags always go to the end.
+concurrency:
+  group: data-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  # The tests with the game's data, on a self-hosted runner in WSL Ubuntu on the owner's PC (labels self-hosted, linux,
+  # scdata; research/ports/PLAN.md 1.6). Off until the repository variable STARDRAFT_DATA_RUNNER is "on". The
+  # repository is public: this job never runs for pull requests or forks, only for pushes here and by hand.
+  # The install: $STARDRAFT_SC_INSTALL on the runner, else ~/scmirror (exact-case names, see linux_data_tests.sh).
+  linux-data:
+    if: vars.STARDRAFT_DATA_RUNNER == 'on' && github.event_name != 'pull_request' && github.repository == 'stardraft-editor/stardraft'
+    runs-on: [self-hosted, linux, scdata]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSDL_UNIX_CONSOLE_BUILD=ON  # (no X11 or Wayland needed)
+          cmake --build build --parallel
+
+      - name: Run the tests with game data
+        env:
+          SDL_VIDEODRIVER: offscreen
+        run: bash tools/ci/linux_data_tests.sh build "${STARDRAFT_SC_INSTALL:-$HOME/scmirror}" "$RUNNER_TEMP/data-tests"
+
+      # The editor's snapshots with the game data and a map open (tools/sdl_snapshots.py, from the step above).
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sdl-snapshots-linux-data-${{ github.sha }}
+          path: ${{ runner.temp }}/data-tests/sdl_snapshots
+          if-no-files-found: warn
