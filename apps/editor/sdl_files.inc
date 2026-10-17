@@ -50,6 +50,10 @@ const SdlSound* sdlSound(const std::string& name) {
 
 // The SDL side's playback (the Windows program's openPlayback, main.cpp): a test run (gSilent) plays nothing, and the
 // volume is the one of every sound StarDraft plays. Null: no sound plays (a test run, or no device).
+// The sounds that the program was asked to play or stop (the Assets page's previews, the SFX data's sound) and the
+// last one: a snapshot's state line says them (a test run plays nothing).
+int gSoundAsks = 0;
+std::string gSoundAsked;
 SDL_AudioStream* openPlaybackSdl(const SDL_AudioSpec* spec) {
     if (gSilent) return nullptr;
     if (!SDL_WasInit(SDL_INIT_AUDIO)) SDL_InitSubSystem(SDL_INIT_AUDIO);
@@ -74,6 +78,7 @@ bool previewPlayingSdl(const std::string& name) {
     return gSdlPreview.stream && gSdlPreview.name == name && SDL_GetTicks() - gSdlPreview.started < gSdlPreview.ms + 200;
 }
 void previewToggleSdl(const std::string& name) {
+    ++gSoundAsks, gSoundAsked = name;
     const bool same = previewPlayingSdl(name);
     previewStopSdl();
     if (same) return;

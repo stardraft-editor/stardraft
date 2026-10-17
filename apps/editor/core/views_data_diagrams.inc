@@ -17,8 +17,11 @@ inline draw::Color lit(draw::Color c, bool on) {
 }
 // The diagrams' ground (the Windows widgets' canvas(): a dark box with rounded corners).
 inline void ground(draw::Canvas& c, draw::Rect r, draw::Color bg = draw::rgb(17, 17, 19)) { c.roundBox(r, bg, kBorder, float(scale(4))); }
-// A small square to drag.
+// A small square to drag (each one's point is kept until the form's next paint: a snapshot's state line says whether
+// each handle has a drag; a handle is only for a part that the mouse drags).
+inline std::vector<draw::Point> gHandles;
 inline void handle(draw::Canvas& c, int x, int y, draw::Color col) {
+    gHandles.push_back({x, y});
     const int h = scale(3);
     c.fill({x - h, y - h, x + h + 1, y + h + 1}, col);
 }
@@ -618,7 +621,12 @@ inline int turn(draw::Canvas& c, DataPicturesHost& host, int fl, int x, int y, i
     }
     const bool ht = host.fieldHot("Turn Radius");
     c.polyline(pts.data(), int(pts.size()), lit(draw::rgb(240, 180, 70), ht), ht ? scale(3) : scale(2));
-    if (!pts.empty()) handle(c, pts.back().x, pts.back().y, draw::rgb(240, 180, 70));
+    // The end of the path: a round dot, not a handle (the path is not dragged: Turn Radius is typed in its field, as on
+    // Windows).
+    if (!pts.empty()) {
+        const int r = scale(3), ex = pts.back().x, ey = pts.back().y;
+        c.ellipse({ex - r, ey - r, ex + r + 1, ey + r + 1}, lit(draw::rgb(240, 180, 70), ht), draw::kNone);
+    }
     wchar_t b[128];
     if (step > 0) std::swprintf(b, 128, L"turns back in a curve %.1f tiles wide, in %d frames", (maxY - minY) / 32, frames);
     else std::swprintf(b, 128, L"does not turn");

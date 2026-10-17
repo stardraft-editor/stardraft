@@ -48,6 +48,7 @@ struct PaletteGridView : draw::View {
         invalidate();
     }
     int scrollTop() const { return scroll_; }
+    bool sameItem(draw::Point a, draw::Point b) const override { return rowAt(a) == rowAt(b); }  // (a double click: one row)
     // The row at `p` (the view's coordinates): an item's index, -1 for a heading, the footer or nothing.
     int rowAt(draw::Point p) const {
         if (p.y >= height() - paletteFooterHeight(view()) || (bar_.shown() && p.x >= bar_.frame().left)) return -1;

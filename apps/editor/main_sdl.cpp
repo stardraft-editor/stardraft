@@ -142,6 +142,9 @@ bool gNoBoxes = false;
 bool gFailDeviceArg = false;  // --fail-device: the graphics device is not made (a test of a computer without one)
 // --noactivate: a test with real windows that never take the focus or come to the front (sdl_window_test.inc).
 bool gNoActivate = false;
+// --keysfromopener: a snapshot's pop-out gets its keys and typed text from the window under it, as SDL gives them on
+// Windows (SdlHost::setSnapshotKeysFromOpener).
+bool gKeysFromOpener = false;
 
 // The portable core (the same files the Windows program includes, in the same order, core_check.cpp).
 #include "core/core.inc"
@@ -400,6 +403,7 @@ int main(int argc, char** argv) {
         else if (a == "--fail-device") gFailDeviceArg = true;  // the graphics device is not made, as on a computer without one (a test)
         else if (a == "--settings") gSettingsFileArg = widen(next()), settingsArg = true;  // a settings file: the run reads it as a start reads the user's (a snapshot saves nothing in it), for a snapshot
         else if (a == "--legacyhive") gLegacyHiveArg = widen(next());  // Windows: a registry file in place of HKCU for the settings of the builds before the settings file (with --settings), for a snapshot
+        else if (a == "--keysfromopener") gKeysFromOpener = true;  // a snapshot: a pop-out's keys come from the window under it (as on Windows)
         else if (a == "--noactivate") gNoActivate = true;  // a real window that never takes the focus (a test: sdl_window_test.inc)
         else if (a == "--frames") gFramesArg = std::atoll(next().c_str());  // with --noactivate: the program ends after that many frames
         else if (a == "--wintest") gWinTestMap = next(), gNoActivate = true;  // a map: the real window's checks (sdl_window_test.inc)
@@ -445,6 +449,10 @@ int main(int argc, char** argv) {
     SDL_SetAppMetadata("StarDraft 2", STARDRAFT_VERSION_NAME, stardraft::xdg::kAppId);
     SDL_SetHint(SDL_HINT_APP_ID, stardraft::xdg::kAppId);
 #endif
+    // A second press is a double click only within 4 points of the first (SDL's default is 32, for touch screens: two
+    // quick clicks on two rows of a list or two units of the map were a double click), as the desktop systems' own
+    // distance (Windows: SM_CXDOUBLECLK, 4 pixels).
+    SDL_SetHint(SDL_HINT_MOUSE_DOUBLE_CLICK_RADIUS, "4");
 #ifdef __APPLE__
     SDL_SetHint(SDL_HINT_MAC_SCROLL_MOMENTUM, "1");  // a trackpad's scroll goes on after the fingers lift (its momentum), as in macOS's own programs
 #endif
@@ -503,6 +511,7 @@ int main(int argc, char** argv) {
         gHost = &host;
         host.setScale(scaleArg);  // (0: the display's scale; the views lay out at it)
         host.setNoActivate(gNoActivate);
+        host.setSnapshotKeysFromOpener(gKeysFromOpener);
         host.setWindowMadeHook(sdlTitleBarOfNewWindow);  // (Windows: each window's title bar in the theme)
         kit_sdl::setEmbeddedFiles(sdlEmbeddedFiles());  // (Windows: the atlases, the icon and the Noto Sans fallback are in stardraft.exe too)
         kit_sdl::setUiFontHeight(sdlUiFontHeight());  // (Windows: the system's message font size)
@@ -576,6 +585,7 @@ int main(int argc, char** argv) {
         // system's (in a snapshot only for --check menus) and so are the context menus (a run with a window).
         kit::Menu::setShortcutText([](const std::wstring& s) { return shortcutText(s); });
         if (snapshot.empty() || hasCheck("menus")) sdlUseNativeMenus(snapshot.empty());
+        gCaretCheck = hasCheck("caret");  // (the focus lines of the inputs: sdl_menus.inc)
         rebuildMenus();
         host.setQuitRequest(requestQuit);  // the window's close and the system's quit ask about unsaved changes first
         // Files dropped on the window, and on macOS the maps that Finder opens with StarDraft: as the Windows program's
@@ -641,7 +651,7 @@ int main(int argc, char** argv) {
         // window's, the menu bar's and the Dock's lines come after the snapshot (hasCheck).
         for (const std::string& c : checkArgs) {
             std::string out;
-            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names";
+            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret";
             if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlUpdateCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
             std::printf("%s", out.c_str());
         }

@@ -219,8 +219,8 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
             break;
         }
     if (name == "locprops") {
-        s.loc = std::make_unique<LocationPropsView>(widen(ed.locationName(loc)), ed.locationRect(loc), ed.locationElevation(loc), ed.locationInvertedAxes(loc),
-                                                    loc == kAnywhereLocation, false);
+        s.loc = std::make_unique<LocationPropsView>(widen(ed.locationName(loc)), ed.locationEdges(loc), ed.locationElevation(loc), loc == kAnywhereLocation,
+                                                    false);
         s.size = locPropsDialogSetup(s.dlg, *s.loc), s.view = &s.dlg;
         return true;
     }
