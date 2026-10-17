@@ -20,6 +20,7 @@
 // Coordinates: litehtml lays the page out in CSS pixels; the view draws them at the kit's display scale.
 
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -90,18 +91,13 @@ public:
     struct Impl;
 
 private:
-    // The mouse changed an element's style (a link under it is underlined): the page is laid out again (the boxes of
-    // its words are new) and painted.
-    void restyled() {
-        laidOutWidth_ = -1;
-        layout(width());
-        invalidate();
-    }
     std::vector<Link> findLinks() const;
     int linkAt(draw::Point p) const;  // the link at `p` (-1: none)
     std::shared_ptr<Impl> impl_;
     std::vector<Link> links_;  // the last layout's
-    int hot_ = -1;             // the link under the mouse  // (shared: an image that comes on a thread finds it only while the view is there)
+    int hot_ = -1;             // the link under the mouse
+    int pressed_ = -1;         // the link a press is on
+    std::map<int, int> heights_;  // the page's height at each width it was laid out at (since the page or its images changed)  // (shared: an image that comes on a thread finds it only while the view is there)
     std::string base_, extraCss_;
     int height_ = 0;
     int laidOutWidth_ = -1;
