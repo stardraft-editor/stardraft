@@ -1,0 +1,135 @@
+# The release of a tag, from the files that build.yml built and tested for the same commit:
+#   v<version> (v0.5.0.1; `python -I tools/release.py publish <version> --yes` makes it, with main): the release
+#     "StarDraft 2 - v<version> (build <commit>)", marked Latest, with StarDraft-<version>-win64.zip (stardraft.exe
+#     only: its fonts and icons are in it, so an installed stardraft.exe, also the Windows program of an older release,
+#     updates to it); its text is the "## <version>" section of docs/user/CHANGELOG.md (what is new), then the base
+#     changelog (its last section, what StarDraft is) for new visitors; a post in Discord with the section's pictures.
+#     The macOS disk image (StarDraft-<version>-macos-arm64.dmg) goes on it when the repository variable RELEASE_MAC is
+#     "on", the AppImage (StarDraft-<version>-x86_64.AppImage) when RELEASE_LINUX is "on" (Settings > Secrets and
+#     variables > Actions > Variables; not set: off).
+#   v<version>-preview.<n> (from port/kit): a pre-release for early testers with the files of all three systems, never
+#     Latest, its text tools/preview_notes.md, no Discord post.
+#   ci-test-<n>, ci-test-<n>-preview: a test of this workflow: the same release as a DRAFT (tools/ci/release_make.ps1),
+#     no Discord post. Delete it after the check (gh release delete ci-test-<n> --yes --cleanup-tag, and its
+#     symbols-ci-test-<n>).
+# The symbols (stardraft.pdb) go to a draft release symbols-<tag>. StarDraft's Check for updates reads "(build
+# <commit>)" in the newest release's title.
+#
+# The files: the job "tested" finds build.yml's push run of the tag's commit (the same sha: tools/ci/tested_run.py),
+# waits for it when it is not done, and takes it only when all its jobs passed and it built the tag's version (a tagged
+# commit's push builds as that version: tools/ci/version_name.sh; release.py publish pushes main and the tag
+# together). Then the release job only packs, attaches and posts (a few minutes). No such run (a tag on a commit that
+# was pushed before the tag, or never pushed to a branch): this run builds and tests the commit itself (build.yml as
+# a called workflow), as before.
+name: Release
+
+on:
+  push:
+    tags: ['v[0-9]*', 'ci-test-[0-9]*']
+
+permissions:
+  contents: write  # to make a release
+  actions: read    # to read the tested run's artifacts
+
+# A tag's run always goes to its end.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  tested:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    outputs:
+      run_id: ${{ steps.find.outputs.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # A release tag: the tag is a version, its changelog section and pictures are good, and the commit is on main.
+      # Checked first, so a bad tag stops in seconds. (A preview tag, v<version>-preview.<n>, is made from port/kit
+      # and has no changelog section: not checked here; a ci-test tag is a test.)
+      - name: Check the release tag
+        if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-preview')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 -I tools/release.py ci-check "$GITHUB_REF_NAME"
+
+      - name: Find the tested build of this commit
+        id: find
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          case "$GITHUB_REF_NAME" in
+            ci-test-*) want=(--any-version) ;;
+            *) want=(--version "${GITHUB_REF_NAME#v}") ;;
+          esac
+          id=$(python3 -I tools/ci/tested_run.py --sha "$GITHUB_SHA" "${want[@]}" --wait 100)
+          echo "run_id=$id" >> "$GITHUB_OUTPUT"
+          if [ -n "$id" ]; then
+            echo "The files of run $id: https://github.com/$GITHUB_REPOSITORY/actions/runs/$id" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No tested run of $GITHUB_SHA: this run builds it." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # No tested run: the build and the tests of build.yml, in this run.
+  build:
+    needs: tested
+    if: needs.tested.outputs.run_id == ''
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+
+  release:
+    needs: [tested, build]
+    if: ${{ !cancelled() && needs.tested.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4  # (tools/release.py: the changelog and its pictures at the tag)
+
+      # The files of the tested run (another run), or of this run's build.
+      - name: Download the tested files
+        if: needs.tested.outputs.run_id != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN: ${{ needs.tested.outputs.run_id }}
+        run: |
+          for a in "stardraft-$GITHUB_SHA:dl" "stardraft-symbols-$GITHUB_SHA:dl" "stardraft-dmg-$GITHUB_SHA:dl/dmg" "stardraft-appimage-$GITHUB_SHA:dl/appimage"; do
+            gh run download "$RUN" --repo "$GITHUB_REPOSITORY" --name "${a%%:*}" --dir "${a#*:}"
+          done
+
+      - if: needs.tested.outputs.run_id == ''
+        uses: actions/download-artifact@v4
+        with:
+          name: stardraft-${{ github.sha }}
+          path: dl
+      - if: needs.tested.outputs.run_id == ''
+        uses: actions/download-artifact@v4
+        with:
+          name: stardraft-symbols-${{ github.sha }}
+          path: dl
+      - if: needs.tested.outputs.run_id == ''
+        uses: actions/download-artifact@v4
+        with:
+          name: stardraft-dmg-${{ github.sha }}
+          path: dl/dmg
+      - if: needs.tested.outputs.run_id == ''
+        uses: actions/download-artifact@v4
+        with:
+          name: stardraft-appimage-${{ github.sha }}
+          path: dl/appimage
+
+      - name: Check the files
+        run: |
+          ls -lR dl
+          # The sha check, once more: the program names this commit (STARDRAFT_COMMIT, cmake/build_info.cmake).
+          grep -a -q "${GITHUB_SHA:0:7}" dl/stardraft.exe || { echo "dl/stardraft.exe is not of ${GITHUB_SHA:0:7}"; exit 1; }
+          python3 -I tools/ci/pdb_check.py dl/stardraft.exe dl/stardraft.pdb
+
+      - name: Make the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_MAC: ${{ vars.RELEASE_MAC }}
+          RELEASE_LINUX: ${{ vars.RELEASE_LINUX }}
+          DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}  # a new release is posted in Discord (#updates)
+          DISCORD_GENERAL_WEBHOOK: ${{ secrets.DISCORD_GENERAL_WEBHOOK }}  # and in #general (a webhook of that channel)
+        run: ./tools/ci/release_make.ps1
