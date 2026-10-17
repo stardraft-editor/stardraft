@@ -88,6 +88,7 @@ MenuModel buildMenuModel() {
                    menuItem(ID_FILE_EXIT, L"E&xit")};
     MenuModel edit{menuItem(ID_EDIT_UNDO, L"&Undo", L"Ctrl+Z"),
                    menuItem(ID_EDIT_REDO, L"&Redo", L"Ctrl+Y"),
+                   menuItem(ID_EDIT_HISTORY, L"Undo &history\x2026", L"Ctrl+Shift+H"),
                    menuSeparator(),
                    menuItem(ID_EDIT_CUT, L"Cu&t", L"Ctrl+X"),
                    menuItem(ID_EDIT_COPY, L"&Copy", L"Ctrl+C"),

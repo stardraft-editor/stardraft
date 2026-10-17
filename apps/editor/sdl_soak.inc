@@ -14,6 +14,9 @@
 //   minimap            the minimap's terrain is made again: a line with its time
 //   stats              a line with the memory (the working set, the GPU's, the bitmaps with a texture), the undo
 //                      steps and the frame times since the last stats line
+//   history            a line with the workspace's undo history (Edit > Undo history): the steps done (their names,
+//                      the newest first), the steps to redo and a hash of the map; then what the workspace holds
+//                      (the input lines' state)
 // "{n}" in a value is the number of the time over (1, 2, ...): roundtrip soak{n}.scx makes a new file each time.
 
 // The workspaces' names, in the order of the Workspace enum (--workspace, the script's workspace verb).
@@ -74,7 +77,8 @@ bool sdlReadScript(const std::string& spec, std::vector<std::pair<char, std::str
     static const std::pair<const char*, char> kVerbs[] = {
         {"key", 'k'},     {"type", 't'},    {"click", 'c'},     {"drag", 'd'},      {"lostdrag", 'l'},  {"move", 'm'},
         {"wheel", 'h'},   {"pinch", 'p'},   {"wait", 'w'},      {"command", 'C'},   {"mode", 'M'},      {"rect", 'Q'},
-        {"workspace", 'W'}, {"open", 'O'},  {"roundtrip", 'R'}, {"undocheck", 'U'}, {"stats", 'S'}, {"minimap", 'P'}};
+        {"workspace", 'W'}, {"open", 'O'},  {"roundtrip", 'R'}, {"undocheck", 'U'}, {"stats", 'S'}, {"minimap", 'P'},
+        {"history", 'H'}};
     std::vector<std::pair<char, std::string>> lines;
     int lineNo = 0;
     for (std::string line; std::getline(in, line);) {
@@ -318,6 +322,15 @@ bool sdlScriptStep(char kind, const std::string& value) {
     }
     case 'R': std::printf("%s\n", mapSaveRoundTrip(fs::path(widen(value))).c_str()); return true;
     case 'U': sdlUndoCheck(); return true;
+    case 'H': {  // the undo history of the workspace (core/undo_history.inc): its steps (the newest first) and the map's hash
+        const UndoHistory h = workspaceHistory();
+        std::string names;
+        for (const auto& n : h.done) names += (names.empty() ? "" : " | ") + narrow(n);
+        std::printf("history: %zu done, %zu to redo, map %016llx: %s\n", h.done.size(), h.redo.size(),
+                    gState.ed && gState.ed->isOpen() ? (unsigned long long)sdlMapHash(*gState.ed) : 0ull, names.c_str());
+        if (const std::string state = sdlShotState(); !state.empty()) std::printf("  history state: %s\n", state.c_str());
+        return true;
+    }
     case 'S': sdlSoakStats(); return true;
     default: return false;  // (an input option's verb)
     }

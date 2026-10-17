@@ -325,10 +325,12 @@ bool trigRenameNode(std::vector<int> path, const std::string& name) {
 }
 
 // Undo and redo in the Triggers workspace: the set as it was, with what was selected when it changed.
-// The step itself is trigHistoryStep (core/views_triggers_pane.inc); this saves the file and shows it.
-bool trigUndo(bool redo) {
+// The step itself is trigHistoryStep (core/views_triggers_pane.inc); this saves the file and shows it. `steps`: that
+// many steps at once (the undo history's jump), with one save at the end.
+bool trigUndo(bool redo, size_t steps = 1) {
     std::vector<int> sel;
     if (!trigHistoryStep(redo, sel)) return false;
+    for (size_t done = 1; done < steps && trigHistoryStep(redo, sel);) ++done;
     std::string err;
     if (!gTE.set.newerFormat() && !gTE.set.save(triggersFile(*gTE.project), err)) shellLogError(widen(err));
     trigRecheck();

@@ -489,12 +489,27 @@ public:
     size_t redoSteps() const { return redo_.size(); }
     // Undo and Redo wait for the end of a stroke (a paint, a spray or a place that the mouse button still holds):
     // during one they do nothing. After them, the map is modified unless it is as it was at its last open or save.
-    void undo();
-    void redo();
+    // `steps`: that many steps at once (the undo history's jump), with one reload of the map at the end; the map is
+    // then as after the same number of single undos (redos). More steps than there are: all of them.
+    void undo(size_t steps = 1);
+    void redo(size_t steps = 1);
+    // The name of an undo step, found from the map before and after it: what changed ("Add %d units", "Change the
+    // terrain (%d tiles)"); `count` is the number for the text's %d (-1: the text has no %d). k = 0 is the step that
+    // Undo takes back next (redoStepName: that Redo gives again next), 1 the step before it, and so on.
+    struct StepName {
+        std::string text;
+        int count = -1;
+    };
+    StepName undoStepName(size_t k) const;
+    StepName redoStepName(size_t k) const;
     bool inStroke() const { return inStroke_; }
     // The map's state: a number that changes with each change, undo and redo (an undo gives back the number the state
     // had). Another part of the program can tell with it whether the map's last step is still the one it made.
     uint64_t stateId() const { return state_; }
+    // The map's state after the step that is k steps back in the undo (redo: the state before the step that is k steps
+    // ahead in the redo); k = 0 is the state now. 0 when there is no such step.
+    uint64_t undoStateId(size_t k) const { return !k ? state_ : k <= undo_.size() ? undo_[undo_.size() - k].state : 0; }
+    uint64_t redoStateId(size_t k) const { return !k ? state_ : k <= redo_.size() ? redo_[redo_.size() - k].state : 0; }
 
 private:
     struct TerrainClip {
@@ -607,6 +622,8 @@ private:
     // Takes back the last undo step when the edit it was for changed nothing; the redo steps come back too.
     void dropLastUndo();
     void endStrokeStep();  // the end of a stroke: drops its undo step when the stroke changed nothing
+    void undoOne();  // one step back (forward) without the reload: undo(n) and redo(n) reload once at the end
+    void redoOne();
     std::deque<Snapshot> undo_, redo_;
     std::deque<Snapshot> lastRedo_;  // the redo steps the last undo step cleared (until the next change)
     size_t undoBytes_ = 0;
