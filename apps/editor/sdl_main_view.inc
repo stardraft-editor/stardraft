@@ -316,6 +316,11 @@ void command(int id);
 // The Log at the bottom of the window (core/views_log.inc; shell_sdl.inc adds the lines).
 LogPaneView gLogPane;
 
+// The floating terrain palette (sdl_palette_float.inc): its window opens or closes for the state, and the palette's
+// views move into it or back (true: they are in its window; `slot` is their place in the side bar, in the main window).
+bool floatPaletteSync(bool terrainShown, bool tiles, draw::Rect slot);
+extern FloatPaletteNoteView gFloatNote;  // (in the side bar while the palette is in its window)
+
 // The main window: the menu bar, the top tool bar under it (core/views_topbar.inc), the document tabs, the workspace rail, the status bar, the map view with its minimap and
 // the panes that are not on this system yet, placed by computeLayout.
 struct MainView final : draw::View {
@@ -353,6 +358,7 @@ struct MainView final : draw::View {
         gTilesPanel.holdGrid(gTilesGrid);  // the Tiles panel (core/views_tiles.inc): the grid is in the panel on this system
         add(gTilesPanel, draw::Rect(0, 0, 0, 0));
         add(gLocList, draw::Rect(0, 0, 0, 0));
+        add(gFloatNote, draw::Rect(0, 0, 0, 0));
         add(gPal2List, draw::Rect(0, 0, 0, 0));
         add(notHere, draw::Rect(0, 0, 0, 0));
         add(gStartView, draw::Rect(0, 0, 0, 0));  // the start page (sdl_start.inc): no map open
@@ -620,11 +626,16 @@ struct MainView final : draw::View {
         PaneSlot tilesSlot = L.search;
         tilesSlot.placed = L.search.placed && L.palette.placed;
         tilesSlot.rc = RECT{L.search.rc.left, L.search.rc.top, L.palette.rc.right, L.palette.rc.bottom};
-        apply(gTilesPanel, tilesSlot, tiles);
-        apply(gSearchSdl, L.search, !locs && mapWs && !tiles);
-        apply(gViewBtnSdl, L.viewBtn, !locs && mapWs && !tiles);
+        // The floating terrain palette: in Terrain mode its views are in its own window, and the note is in their place.
+        const bool floated = floatPaletteSync(mapWs && m == Mode::Terrain && tilesSlot.placed, tiles, draw::Rect(tilesSlot.rc));
+        if (!floated) {
+            apply(gTilesPanel, tilesSlot, tiles);
+            apply(gSearchSdl, L.search, !locs && mapWs && !tiles);
+            apply(gViewBtnSdl, L.viewBtn, !locs && mapWs && !tiles);
+            apply(gPalList, L.palette, !locs && mapWs && !tiles);
+        }
+        apply(gFloatNote, tilesSlot, floated);
         apply(gFilterSdl, L.filter, locs && mapWs);
-        apply(gPalList, L.palette, !locs && mapWs && !tiles);
         apply(gLocList, L.list, locs && mapWs);
         apply(gPal2List, L.palette2, L.palette2.visible && mapWs);
         // The workspace area: the registered view of the workspace shown, else the "Not on this system yet" view.

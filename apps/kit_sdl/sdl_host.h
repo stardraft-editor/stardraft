@@ -80,6 +80,9 @@ public:
     draw::View& snapshotTop(draw::View& root, draw::Point& size);
     // The timers that are due (a snapshot has no event loop): within `ms` milliseconds, as SDL fires them.
     void snapshotTimers(int ms);
+    // The close button of the window of `content` (a snapshot's): SDL's SDL_EVENT_WINDOW_CLOSE_REQUESTED for it goes
+    // the way of a window's.
+    void snapshotClose(const draw::View& content);
     // The snapshot's windows go (the views stay the caller's).
     void snapshotInputEnd();
     // While runModal shows a window with no SDL window (a snapshot's): `hook` gets its root view and gives it the
@@ -160,6 +163,9 @@ public:
     void cancelTimer(int id) override;
     void textInput(draw::View& v, bool on, draw::Rect caret) override;
     float scale() const override { return scale_; }
+    // A Tool spec: a utility window (resizable, no task bar button) that SDL_SetWindowParent keeps over the opener's
+    // window; it does not take the keyboard when it shows. In a snapshot it is a window with no SDL window at its place
+    // over the opener (as a pop-out: the mouse goes to it there), and snapshot() paints it over the root.
     void openWindow(draw::View& from, draw::View& content, const draw::WindowSpec& spec, std::function<void()> closed) override;
     void closeWindow(draw::View& content) override;
     // A Dialog spec (or a Menu or Tooltip): a dialog window of its own. A Popup spec: a modal pop-out at spec.at; a

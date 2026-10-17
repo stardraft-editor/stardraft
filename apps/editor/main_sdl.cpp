@@ -156,6 +156,7 @@ bool gKeysFromOpener = false;
 // The SDL shell: the root view and the map view, the functions the core needs, the other workspaces' stand-ins, and the
 // host seam (shell.h).
 #include "sdl_main_view.inc"
+#include "sdl_palette_float.inc"  // the floating terrain palette: the palette in a window of its own (core/views_palette_float.inc)
 #include "sdl_pending.inc"
 #include "sdl_menus.inc"
 #include "sdl_soak.inc"  // --script: a long session's inputs from a file, the memory and the undo steps
@@ -605,6 +606,7 @@ int main(int argc, char** argv) {
             sdlDockWatchBuild();  // (macOS: Build's bar and badge on the Dock icon)
             sdlXdgFrame();  // (Linux: the recently used files, Build's notification and progress: sdl_xdg.inc)
             sdlWinTestPump();  // (--frames, --wintest: sdl_window_test.inc)
+            sdlFloatPaletteFrame();  // (the floating palette's place as the user moves it: sdl_palette_float.inc)
         });
         host.setFrameHook([](SDL_GPUCommandBuffer* cmd) {
             drawMapOfRoot(cmd);
@@ -614,6 +616,7 @@ int main(int argc, char** argv) {
         // as a window's views are: what opens before the first frame (a page's timer that reads the map again after an
         // undo) has the host, and the focus stays from one input to the next.
         if (!snapshot.empty() && !inputArgs.empty()) host.snapshotInput(root, width, height, {});
+        if (!snapshot.empty()) sdlFloatPaletteSetup();  // (a snapshot with input: the floating palette's window shows over the root)
         if (!mapArg.empty()) openAny(widen(mapArg));  // a map, or a project (.eds, .stardraft, its folder): as File > Open does
         bool openLast = false;  // Program options > Open the last project on start (as the Win32 program)
         if (restartPid) restartReopen();  // what the old program had open (the setting Reopen: core/documents.inc)
@@ -661,7 +664,7 @@ int main(int argc, char** argv) {
         for (const std::string& c : checkArgs) {
             std::string out;
             const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform";
-            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
+            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
             std::printf("%s", out.c_str());
         }
 
@@ -800,7 +803,7 @@ int main(int argc, char** argv) {
                 }
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
                 host.setSnapshotModalHook(nullptr);
-                host.snapshotInputEnd();
+                sdlFloatPaletteInputEnd(host, root);  // (host.snapshotInputEnd; the floating palette's window stays in the picture)
             }
             if (!commandArgs.empty()) {  // the menu commands after the first frame, then a frame more
                 for (const std::string& c : commandArgs) sdlCommandShot(c);
@@ -856,6 +859,7 @@ int main(int argc, char** argv) {
                 showW = std::min(width, area.w * 9 / 10), showH = std::min(height, area.h * 9 / 10);
             if (!host.show(root, L"StarDraft", showW, showH)) return std::fprintf(stderr, "could not open a window\n"), 1;
             updateTitle();  // (the window exists now: its title is the open map's)
+            sdlFloatPaletteSetup();  // (the floating terrain palette's window opens over it: sdl_palette_float.inc)
             if (!sizeArg) fitMainWindow(width, height);
             {
                 int n = 0;
