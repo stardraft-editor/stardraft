@@ -350,14 +350,14 @@ CASES += [
     # Generate (a window wide enough for its settings to be beside the preview), then 8 quick clicks (Repeat8: SDL counts
     # them, so all but the first are double clicks) on Randomize seed, Randomize values and Randomize all, a wait after
     # each: each click randomizes, and one map is made, for the last values shown.
-    ("newpage-randomize-quick", ["--size", "2400x1300", "--newpage", "classic", "--click", "894,422", "--wait", "600",
+    ("newpage-randomize-quick", ["--size", "2400x1300", "--newpage", "classic", "--click", "894,394", "--wait", "600",
                                  "--click", "1870,463:Repeat8", "--wait", "600", "--click", "1566,529:Repeat8", "--wait", "600",
                                  "--click", "1679,529:Repeat8", "--wait", "600"], "data"),
     # Generate, then the Symmetry dropdown: a click opens its list, Down twice and Enter pick Mirror top and bottom, and
     # the map is made again with it. Then Blank (the dropdown goes from view) and Down twice: the symmetry stays.
-    ("newpage-symmetry-dropdown", ["--size", "2400x1300", "--newpage", "classic", "--click", "894,422", "--wait", "600",
+    ("newpage-symmetry-dropdown", ["--size", "2400x1300", "--newpage", "classic", "--click", "894,394", "--wait", "600",
                                    "--click", "1822,496", "--key", "Down", "--key", "Down", "--key", "Enter", "--wait", "600",
-                                   "--click", "894,390", "--key", "Down", "--key", "Down"], "data"),
+                                   "--click", "894,362", "--key", "Down", "--key", "Down"], "data"),
     # The Data form of the Marine in a new project: Hit points typed (50, Enter), Shield enable clicked, Unit size picked
     # (Medium in the list picker), then three Undo steps.
     ("data-form-edits", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "671,742", "--type", "50",

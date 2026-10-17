@@ -166,6 +166,7 @@ std::string shotNewPageState() {
     return "new page: " + shown + "; " + std::to_string(gNewView.randomized) + " randomize presses, " + std::to_string(gNewView.generations) +
            " maps made, the last for " + (gNewView.generatedFor == shown ? std::string("the same choices") : "other choices (" + gNewView.generatedFor + ")") +
            "; the symmetry list " + (gNewView.symmetryListOpen() ? "open" : "closed");
+}
 // The window's own parts after an input, on a line of their own ("  ui: ..."): what the Map workspace shows (the map,
 // the start page, the New page or another workspace's view), the workspace, the side bars' widths (the dock settings,
 // 96-dpi pixels), the cursor at the point where the last mouse input left the mouse, the document tabs and whether the
