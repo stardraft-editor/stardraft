@@ -1777,6 +1777,14 @@ CASES += [
     ("project-close-triggers", ["--workspace", "triggers", "--key", "Ctrl+W"], "project"),
     ("project-close-briefing", ["--workspace", "briefing", "--key", "Ctrl+W"], "project"),
     ("map-close-project-data", ["--newproject", "{newdir}", "--key", "Ctrl+2", "--key", "Ctrl+W"], "map"),
+    # The map's Edit commands, the quick picker (Q) and Rename location (F2) do nothing to the map in Data and Triggers
+    # (the units, doodads, locations and the selection stay); the workspace's own Edit commands are enabled, the others
+    # gray (the menu items and the top bar's buttons): Data copies and pastes entries, Triggers cuts, copies, pastes and
+    # duplicates; Q in Data opens the quick picker of its entries (Go to a .dat entry), not the map's.
+    ("project-edit-data", ["--mode", "units", "--key", "Ctrl+A", "--key", "Ctrl+2", "--key", "Ctrl+A", "--key", "Ctrl+C", "--key", "Ctrl+X",
+                           "--key", "Ctrl+D", "--key", "F2", "--key", "Del", "--key", "Q"], "project"),
+    ("project-edit-triggers", ["--mode", "units", "--key", "Ctrl+A", "--key", "Ctrl+3", "--key", "Ctrl+A", "--key", "Del", "--key", "F2",
+                               "--key", "Q", "--key", "1"], "project"),
     ("map-sidebar-resize", ["--move", "341,500", "--drag", "341,500-401,500", "--move", "1323,500", "--drag", "1323,500-1263,500",
                             "--drag", "401,500-1001,500", "--drag", "701,500-101,500", "--move", "900,500"], "map"),
     ("map-building-nosnap", ["--settings", "{nosnapsettings}", "--mode", "units", "--key", "Q", "--type", "Command Center", "--key", "Enter", "--click", "701,651", "--key", "Esc",
@@ -1856,6 +1864,35 @@ def check_new_project_in(case, count, before):
             return f"Create did not make the project: {last}"
         if not re.search(r"Created the project \S+.* in .*" + re.escape(case) + "-", output):
             return "the project is not in the folder typed in Location"
+        return None
+    return check
+
+
+def check_edit_elsewhere(ws, enabled, last_quick="no"):
+    """A check: after Select all on the map, the inputs in workspace `ws` leave the map's units, doodads, locations and
+    selection as they were, the quick picker closed, and the Edit commands in `enabled` on, the others gray."""
+    names = ["cut", "copy", "paste", "dup", "del", "all", "rename", "quick"]
+
+    def check(output):
+        u = ui_lines(output)
+        if len(u) < 3 or any(not d for _, d in u):
+            return f"{len(u)} inputs with a ui line"
+        first = u[0][1]
+        if first.get("ws") != "map" or first.get("sel", "0").startswith("0,"):
+            return f"Select all on the map selected nothing: {first}"
+        for inp, d in u[1:]:
+            if d.get("ws") != ws:
+                return f"{inp}: not in {ws}: {d}"
+            for k in ("units", "doodads", "locations", "sel"):
+                if d.get(k) != first.get(k):
+                    return f"{inp} changed the map's {k}: {first.get(k)} -> {d.get(k)}"
+            want = last_quick if inp == u[-1][0] else "no"
+            if d.get("quickopen") != want:
+                return f"{inp}: the quick picker is {d.get('quickopen')}, not {want}, in {ws}"
+            flags = dict(kv.split(":") for kv in d.get("edit", "").split(",") if ":" in kv)
+            for n in names:
+                if flags.get(n) != ("1" if n in enabled else "0"):
+                    return f"{inp}: Edit's {n} is {'gray' if flags.get(n) == '0' else 'enabled'} in {ws}: {d.get('edit')}"
         return None
     return check
 
@@ -1980,6 +2017,8 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
               ("Ctrl+2 did not show the project's Data", lambda u: u[0][1]["ws"] == "data" and u[0][1]["tabs"] == "2/2"),
               ("the classic map's tab after the project's (closed in Data) does not show its map",
                lambda u: u[1][1]["ws"] == "map" and u[1][1]["page"] == "map" and u[1][1]["tabs"] == "1/1")]),
+          "project-edit-data": check_edit_elsewhere("data", {"copy", "paste", "quick"}, "data"),
+          "project-edit-triggers": check_edit_elsewhere("triggers", {"cut", "copy", "paste", "dup"}),
           "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True)}
 
 # GitHub's answer for the newest release ({release}; /releases/latest, shortened): a release with a download for each

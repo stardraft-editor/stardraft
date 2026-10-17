@@ -176,6 +176,23 @@ std::string sdlShotUi() {
     }
     s += " cursor=" + cur;
     s += " tabs=" + std::to_string(gActive + 1) + "/" + std::to_string(gDocs.size()) + " project=" + (activeProject() ? "yes" : "no");
+    if (gState.ed && gState.ed->isOpen()) {  // the map's parts (they stay when another workspace's commands run)
+        int locs = 0;
+        for (int i = 0; i < gState.ed->locationCount(); ++i) locs += gState.ed->locationUsed(i);
+        s += " units=" + std::to_string(gState.ed->units().size()) + " doodads=" + std::to_string(gState.ed->doodads().size()) +
+             " locations=" + std::to_string(locs) + " sel=" + std::to_string(gState.ed->selection().size()) + "," +
+             std::to_string(gState.selDoodads.size()) + "," + std::to_string(gState.selSprites.size());
+    }
+    // The Edit commands' state (the menu items and the top bar's buttons: 1 enabled, 0 gray), and the quick picker.
+    static const std::pair<const char*, int> kEdit[] = {{"cut", ID_EDIT_CUT},       {"copy", ID_EDIT_COPY},     {"paste", ID_EDIT_PASTE},
+                                                        {"dup", ID_EDIT_DUPLICATE}, {"del", ID_EDIT_DELETE},    {"all", ID_EDIT_SELECTALL},
+                                                        {"rename", ID_EDIT_RENAME}, {"quick", ID_QUICKPICK}};
+    s += " edit=";
+    for (const auto& [n, id] : kEdit) s += std::string(n) + ":" + (sdlEnabled(id) ? "1" : "0") + (id == ID_QUICKPICK ? "" : ",");
+    s += std::string(" quickopen=") + (!gQuickHostSdl.open                               ? "no"
+                                       : gQuickViewSdl.kind() == QuickPickKind::Data ? "data"
+                                       : gQuickViewSdl.kind() == QuickPickKind::Open ? "open"
+                                                                                     : "map");
     if (gNewView.shown()) {
         const char* start = gNewView.copyMap ? "import" : gNewView.terrainOnly ? "terrain" : gNewView.generate ? "generate" : "blank";
         s += std::string(" new=") + (gNewView.project ? "eud" : "classic") + " start=" + start + " offered=" + gNewView.startOffered;
