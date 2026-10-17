@@ -24,7 +24,8 @@ std::string dataTabKey(int tab) {
 std::vector<int>& dataPins(int tab) {
     if (!gDataPinsLoaded) {
         gDataPinsLoaded = true;
-        for (const std::wstring& name : gSelfTest ? std::vector<std::wstring>{} : prefs::names(L"DataPins")) {
+        // (tests and snapshot runs: no pins, as the defaults)
+        for (const std::wstring& name : gSelfTest || gSettingsOff ? std::vector<std::wstring>{} : prefs::names(L"DataPins")) {
             std::wstring value;
             if (!prefs::text(L"DataPins/" + name, value)) continue;
             auto& v = gDataPins[narrow(name)];
@@ -38,12 +39,18 @@ bool dataPinned(int tab, int e) {
     const auto& v = dataPins(tab);
     return std::find(v.begin(), v.end(), e) != v.end();
 }
+// Pins entry `e` of tab `tab` (or unpins it) and saves the pins. True when it is pinned now. (A classic map's Map data
+// page pins its units, upgrades and techs here too: one user's pins in both lists.)
+bool dataPinSave(int tab, int e) {
+    const bool pin = dataPinToggle(dataPins(tab), e);
+    if (!gSelfTest && !gSettingsOff)  // (tests and snapshot runs leave the user's settings alone)
+        prefs::setText(L"DataPins/" + widen(dataTabKey(tab)), dataPinsText(dataPins(tab)));
+    return pin;
+}
 // Pins entry `e` of the open tab (or unpins it), saves the pins and makes the list again; the status says which.
 void dataTogglePin(int e) {
     const int tab = dataState().datTab;
-    const bool pin = dataPinToggle(dataPins(tab), e);
-    if (!gSelfTest)  // (tests leave the user's settings alone)
-        prefs::setText(L"DataPins/" + widen(dataTabKey(tab)), dataPinsText(dataPins(tab)));
+    const bool pin = dataPinSave(tab, e);
     dataRebuildList();
     const std::wstring name = dataEntryName(gDataListProgram, tab, e);
     setMessage(pin ? tr(L"Pinned ") + name + tr(L" to the top of the list") : tr(L"Unpinned ") + name);

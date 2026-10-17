@@ -692,7 +692,8 @@ bool sdlShotInputNext() {
 // clicks at the point, as SDL counts them (clicks 1, 2, ... n: the second and each next press is a double click to the
 // views). Quick in a click's mods: the click comes quickly after the click before it (SDL's clicks 2, anywhere: the
 // system counts it as a double click when it is near the first). Undo in a drag's mods: Ctrl+Z is pressed halfway,
-// while the button is held.
+// while the button is held. Right in a click's mods: the right button; Menu<n>: a right click, and the menu that opens
+// runs its item n (its items go to the output, as --rclick's: sdlMenuShot).
 // The points are the main window's, as a user's mouse is on the screen: a pop-out that an input opened takes the
 // events when the first point is on it, and a press outside it closes it; a dialog takes them in its own pixels.
 // --move x,y: only the mouse comes to the point (no button): a paste's copy follows it there. --lostdrag
@@ -709,8 +710,8 @@ void sdlMouseShot(const std::string& spec, char kind) {
         return void(std::fprintf(stderr, "--%s%s: not %s[:mods]\n", name.c_str(), spec.c_str(), drag ? "x0,y0-x1,y1" : "x,y"));
     if (!drag) x1 = x0, y1 = y0;
     SDL_Keymod held = SDL_KMOD_NONE;
-    bool twice = false, undoHalfway = false;
-    int repeat = 1;
+    bool twice = false, undoHalfway = false, right = false;
+    int repeat = 1, menuPick = -2;
     Uint8 firstClicks = 1;
     std::stringstream in(mods);
     for (std::string m; std::getline(in, m, '+');) {
@@ -725,7 +726,9 @@ void sdlMouseShot(const std::string& spec, char kind) {
         else if (m == "Quick" && !drag && !moveOnly) firstClicks = 2;
         else if (m.rfind("Repeat", 0) == 0 && m.size() > 6 && !drag && !moveOnly) repeat = std::clamp(std::atoi(m.c_str() + 6), 1, 100);
         else if (m == "Undo" && drag) undoHalfway = true;
-        else return void(std::fprintf(stderr, "--%s%s: %s is not Shift, Ctrl, Alt, Double, Quick, Repeat<n> or Undo\n", name.c_str(), spec.c_str(), m.c_str()));
+        else if (m == "Right" && !drag && !moveOnly) right = true;
+        else if (m.rfind("Menu", 0) == 0 && m.size() > 4 && !drag && !moveOnly) right = true, menuPick = std::atoi(m.c_str() + 4);
+        else return void(std::fprintf(stderr, "--%s%s: %s is not Shift, Ctrl, Alt, Double, Quick, Repeat<n>, Right, Menu<n> or Undo\n", name.c_str(), spec.c_str(), m.c_str()));
     }
     std::vector<SDL_Event> events;
     float px = float(x0), py = float(y0);
@@ -740,7 +743,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
     auto button = [&](bool down, float x, float y, Uint8 clicks = 1) {
         SDL_Event e{};
         e.type = down ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
-        e.button.button = SDL_BUTTON_LEFT, e.button.down = down, e.button.clicks = clicks, e.button.x = x, e.button.y = y;
+        e.button.button = right ? SDL_BUTTON_RIGHT : SDL_BUTTON_LEFT, e.button.down = down, e.button.clicks = clicks, e.button.x = x, e.button.y = y;
         events.push_back(e);
     };
     gHost->snapshotLayout(*gRoot);  // (the window paints between a user's inputs: the views are placed, a page's fields too)
@@ -775,9 +778,11 @@ void sdlMouseShot(const std::string& spec, char kind) {
     }
     const SDL_Keymod before = SDL_GetModState();
     SDL_SetModState(held);
+    if (menuPick != -2) kit::Menu::setTestHook(sdlMenuShot), gMenuShotPick = menuPick;  // (Menu<n>: the menu's item n runs)
     gHost->snapshotMouse(*gRoot, events);
     SDL_SetModState(before);
     runPosted();
+    if (menuPick != -2) gMenuShotPick = -2;
     gShotMouse = {x1, y1};
     sdlInputLine(name + spec);
 }

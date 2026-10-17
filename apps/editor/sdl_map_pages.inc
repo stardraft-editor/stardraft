@@ -474,6 +474,9 @@ public:
     bool editUnitName(int u, std::string& text, draw::Point at) override;
     int textWidth(const std::wstring& t) override { return sdlTextWidth(t); }
     void fitSize(int tab, int w, int h) override;
+    void menu(draw::View& from, draw::Point at, const MenuModel& items, std::function<void(int)> pick, const std::wstring& on) override {
+        sdlPopupMenu(from, at, sdlModelItems(items, std::move(pick)), on);
+    }
 };
 
 SdlPropsHost gSdlPropsHost;
@@ -908,6 +911,19 @@ void sdlShowTab(int k) {
     for (int t = 0; t < kClassicTabCount; ++t)
         if (gSdlPage.classic[t]) gSdlPage.classic[t]->setVisible(t == gClassic->tab);
     gSdlMapPages.invalidate();
+}
+
+// Edit > Copy and Edit > Paste on the Map data page (core/commands_core.inc): the selected entry's values of the tab that
+// shows (the page's own menu has them too).
+ClassicPageView* sdlClassicShownTab() {
+    if (gSdlPage.kind != kSdlClassic || !gSdlPage.ready || !gClassic) return nullptr;
+    return gSdlPage.classic[gClassic->tab].get();
+}
+void classicCopySelected() {
+    if (ClassicPageView* v = sdlClassicShownTab()) v->copySelected();
+}
+void classicPasteSelected() {
+    if (ClassicPageView* v = sdlClassicShownTab()) v->pasteSelected();
 }
 
 // Closes the open page (its views go; its copy stays with the tab, and an edit is put into the map first).

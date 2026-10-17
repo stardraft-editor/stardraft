@@ -2050,6 +2050,9 @@ constexpr UiText kRows[] = {
     {L"&Download", L"\u4E0B\u8F7D(&D)"},
     {L"Update StarDraft 2 in your software center.", L"\u8BF7\u5728\u8F6F\u4EF6\u4E2D\u5FC3\u66F4\u65B0 StarDraft 2\u3002"},
     {L"Download it? The download opens in the browser.", L"\u8981\u4E0B\u8F7D\u5417\uFF1F\u4E0B\u8F7D\u5C06\u5728\u6D4F\u89C8\u5668\u4E2D\u6253\u5F00\u3002"},
+    {L"Map data: only the changed entries show", L"\u5730\u56FE\u6570\u636E: \u53EA\u663E\u793A\u5DF2\u66F4\u6539\u7684\u6761\u76EE"},
+    {L"Map data: all the entries show", L"\u5730\u56FE\u6570\u636E: \u663E\u793A\u6240\u6709\u6761\u76EE"},
+    {L"Copy the values of an entry on this tab first", L"\u8BF7\u5148\u590D\u5236\u6B64\u9009\u9879\u5361\u4E2D\u67D0\u4E2A\u6761\u76EE\u7684\u503C"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

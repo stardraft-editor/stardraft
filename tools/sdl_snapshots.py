@@ -202,6 +202,14 @@ CASES += [
 ]
 # The Map data page's unit Rename: the game text pop-out.
 CASES += [("map-textpop-unitname", ["--workspace", "classic", "--textpop", "unitname"], "map")]
+# The Map data page's list, as the Data workspace's (GitHub #146): the Changed filter, pins, and an entry's menu (Copy
+# values, Paste values, Reset to the game's values, Pin to the top: --click x,y:Menu<n> runs item n). Copy the Marine's
+# values, paste them onto the Vulture (one undo step), Ctrl+V onto the Ghost, pin the Vulture, the Changed filter, Reset
+# the Ghost, then Undo (the Ghost has the Marine's values again).
+CASES += [("map-mapdata", ["--workspace", "classic"], "map"),
+          ("map-mapdata-edits", ["--workspace", "classic", "--click", "150,257:Menu0", "--click", "150,313:Menu1", "--click", "150,285",
+                                 "--key", "Ctrl+V", "--click", "150,313:Menu5", "--click", "318,222", "--click", "150,285:Menu3",
+                                 "--key", "Ctrl+Z", "--wait", "700"], "map")]
 # The cursors (the system's cursor is not in a picture): --cursors writes the map view's and a text field's cursors at
 # some points to the case's .txt (lines "cursor: ...", each with "(yes)" or "(WRONG)").
 CASES += [("map-cursors", ["--mode", "units", "--cursors"], "map")]
@@ -1432,6 +1440,36 @@ def check_classic_edits(output):
     return None
 
 
+def check_mapdata_edits(output):
+    """None when Map data's list did as the Data workspace's: Copy, Paste and Ctrl+V gave the Marine's values to the
+    Vulture and the Ghost (each one undo step, in the map), Pin put the Vulture first, the Changed filter showed only the
+    changed units, Reset gave the Ghost the game's values, and Undo gave it the Marine's values again."""
+    s = [st for _, st in states(output)]
+    if len(s) != 9:
+        return f"{len(s)} input lines, not 9"
+    marine = "values 40 100 0 360 50 0"
+    copied, pasted, ghost, ctrlv, pinned, filtered, reset, undone, waited = s
+    if not copied.startswith("map data: Units 0;") or "undo 0" not in copied:
+        return f"Copy: {copied}"
+    if not pasted.startswith("map data: Units 2;") or f"own {marine}" not in pasted or "the map has own 40 " not in pasted or not pasted.endswith("undo 1"):
+        return f"Paste onto the Vulture: {pasted} (not the Marine's values, in the map, one undo step)"
+    if not ghost.startswith("map data: Units 1;") or "default values" not in ghost:
+        return f"the Ghost: {ghost}"
+    if f"own {marine}" not in ctrlv or "the map has own 40 " not in ctrlv or not ctrlv.endswith("undo 2"):
+        return f"Ctrl+V onto the Ghost: {ctrlv}"
+    if "1 pinned" not in pinned or "first 2 0 1 3" not in pinned:
+        return f"Pin the Vulture: {pinned} (not first)"
+    if "changed filter on" not in filtered or "first 2 1;" not in filtered:
+        return f"the Changed filter: {filtered} (not only the Vulture and the Ghost)"
+    if "default values 45 " not in reset or "the map has default 45 " not in reset or "first 2;" not in reset or not reset.endswith("undo 3"):
+        return f"Reset the Ghost: {reset} (not the game's values, or the Ghost still in the Changed list)"
+    if "the map has own 40 " not in undone:
+        return f"Undo: {undone} (the map's Ghost does not have the Marine's values)"
+    if f"own {marine}" not in waited or "first 2 1;" not in waited:
+        return f"after Undo: {waited} (the page does not show the Marine's values)"
+    return None
+
+
 def check_files_search(output):
     """None when the search shows fewer game sounds, and each is one with the text."""
     s = states(output)
@@ -2164,6 +2202,7 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
           "newpage-randomize-quick": check_newpage_randomize, "newpage-symmetry-dropdown": check_newpage_symmetry,
           "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits,
+          "map-mapdata-edits": check_mapdata_edits,
           "map-files-search": check_files_search, "map-briefing-add": check_briefing_add,
           "start-noinstall": check_banner(True, "none", False),
           "start-noinstall-nodata": check_banner(True, "That folder has no StarCraft game data.", False),

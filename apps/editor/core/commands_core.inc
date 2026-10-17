@@ -12,14 +12,17 @@ void trigPaste();
 void trigDuplicate();
 void dataCopySelected();
 void dataPasteSelected();
+void classicCopySelected();  // the Map data page's selected entry (sdl_map_pages.inc)
+void classicPasteSelected();
 void setMessage(const std::wstring& m);
 void shellMenusChanged();
 
 // The Edit commands that act on the map (Cut, Copy, Paste, Duplicate, Delete, Select all, Rename location), the quick
 // picker (Q) and the player keys: the map's versions run only in the Map workspace. Another workspace runs its own
 // version where it has one (as the Windows program's Edit menu followed the workspace): Data copies and pastes the
-// selected entry's values and Q goes to an entry; Triggers cuts, copies, pastes and duplicates triggers and blocks; Briefing edits its rows.
-// Elsewhere (the Project page, Assets, the map pages, and those commands that the workspace has not) they are gray and
+// selected entry's values and Q goes to an entry; Map data copies and pastes the selected entry's values; Triggers cuts,
+// copies, pastes and duplicates triggers and blocks; Briefing edits its rows.
+// Elsewhere (the Project page, Assets, the other map pages, and those commands that the workspace has not) they are gray and
 // do nothing. (A text field with the keyboard takes its own Ctrl+C, Ctrl+V, Ctrl+A first.)
 bool workspaceEditCommand(int id) {
     return id == ID_EDIT_CUT || id == ID_EDIT_COPY || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE || id == ID_EDIT_DELETE ||
@@ -30,6 +33,7 @@ bool editInWorkspace(int id) {
     switch (gWorkspace) {
     case Workspace::Map: return true;
     case Workspace::Data: return id == ID_EDIT_COPY || id == ID_EDIT_PASTE || id == ID_QUICKPICK;  // (Q: go to an entry)
+    case Workspace::ClassicSettings: return id == ID_EDIT_COPY || id == ID_EDIT_PASTE;  // (Map data: the selected entry's values)
     case Workspace::Triggers: return id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE;
     case Workspace::Briefing:
         return id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE || id == ID_EDIT_DELETE ||
@@ -50,6 +54,11 @@ bool commandPortable(AppState& app, int id) {
     if (gWorkspace == Workspace::Data && (id == ID_EDIT_COPY || id == ID_EDIT_PASTE)) {  // the selected entry's values
         if (id == ID_EDIT_COPY) dataCopySelected();
         else dataPasteSelected();
+        return true;
+    }
+    if (gWorkspace == Workspace::ClassicSettings && (id == ID_EDIT_COPY || id == ID_EDIT_PASTE)) {
+        if (id == ID_EDIT_COPY) classicCopySelected();
+        else classicPasteSelected();
         return true;
     }
     if (gWorkspace == Workspace::Briefing && (id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE || id == ID_EDIT_DELETE ||
