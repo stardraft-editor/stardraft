@@ -119,6 +119,9 @@ public:
     // The terrain core (IsomCore) paints the brush where it can (on unless STARDRAFT_TERRAIN_CORE=0: the old engine
     // only, to compare them while the core takes over; docs/dev/isom-terrain-plan.md).
     static bool terrainCoreOn();
+    // Where the core leaves a rect without a tile, the old engine makes the edit (on unless STARDRAFT_TERRAIN_REPAIR=0:
+    // the core's result as StarEdit's, null tiles too).
+    static bool terrainRepairOn();
     // A brush stroke: begin once (one undo step), paint any number of times, end.
     void beginTerrainStroke();
     void paintTerrain(int px, int py, uint16_t terrain, int brushSize);
@@ -507,6 +510,12 @@ private:
     // diamond nearest each symmetric point, then the tiles; the corner model (isom_) loads the result. The editor's
     // undo, doodad and unit checks as applyTerrain's. False when nothing could be painted.
     bool applyCoreBrush(int px, int py, uint16_t terrain, int extent);
+    // The terrain core's part of an edit: `paint` (on core_, loaded from the map), then the map takes its result as
+    // applyTerrain's does (one undo step, the doodads and units it breaks). When it leaves a rect without a tile
+    // (IsomCore::untileable), `repair` makes the edit instead (the old engine). (x0, y0)-(x1, y1): the edit's grid area.
+    bool applyCore(const std::function<bool()>& paint, const std::function<bool()>& repair, int x0, int y0, int x1, int y1);
+    // The old engine's part of an edit (IsomGrid::apply, then store): the corners and their grid area.
+    bool applyOld(const std::vector<CornerValue>& corners, int x0, int y0, int x1, int y1);
     IsomCore core_;
     std::pair<int, int> mirror(int px, int py, int which) const;
     TerrainClip terrainClip_;

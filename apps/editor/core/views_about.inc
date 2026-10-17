@@ -96,6 +96,18 @@ public:
                 y += scale(22);
             }
         }
+        {  // The terrain core (IsomTerrain, MIT): its copyright notice, a link to it.
+            const std::wstring text = L"Isometric terrain: IsomTerrain, Copyright (c) 2023 Justin F (MIT License)";
+            FontDesc d;
+            d.underline = hot == int(links.size());
+            const Font of = c.setFont(c.font(d));
+            const int tw = c.measure(text);
+            const Rect r{(w - tw) / 2, y, (w + tw) / 2, y + scale(22)};
+            c.text(r, text, kAccent, draw::kMiddle);
+            c.setFont(of);
+            links.push_back({r, L"https://github.com/TheNitesWhoSay/IsomTerrain"});
+            y += scale(22);
+        }
         // Not a Blizzard product, and it needs the game's files.
         y += scale(10);
         centered(L"StarDraft 2 is not associated with Blizzard Entertainment.", smallText, kDim, scale(22));

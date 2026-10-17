@@ -101,6 +101,22 @@ int main(int argc, char** argv) {
             groupDiff[s] = a.size() == b.size() ? 0 : std::max(a.size(), b.size());
             for (size_t i = 0; i < std::min(a.size(), b.size()); ++i) groupDiff[s] += (a[i] >> 4) != (b[i] >> 4);
         }
+        // The same strokes as sets of diamonds (paintDiamonds, which StarDraft's other brushes, fill and replace use):
+        // the same map.
+        stardraft::Chk viaSets = stardraft::Chk::parse(raw);
+        size_t setsDiff = 0;
+        {
+            IsomCore sets;
+            sets.load(viaSets, tilesets[era], err);
+            for (const Op& op : c.ops)
+                sets.paintDiamonds(starEditBrushDiamonds(int(op.x), int(op.y), int(op.extent)),
+                                   Sc::Isom::tilesetTerrainTypes[era][op.terrainType].isomValue);
+            sets.store(viaSets);
+            const auto a = u16s(viaSets, "ISOM");
+            for (size_t i = 0; i < std::min(a.size(), isomExpected.size()); ++i) setsDiff += a[i] != isomExpected[i];
+            const auto t = u16s(viaSets, "TILE"), te = u16s(expected, "TILE");
+            for (size_t i = 0; i < std::min(t.size(), te.size()); ++i) setsDiff += (t[i] >> 4) != (te[i] >> 4);
+        }
         // The old engine (IsomGrid: corners and learned tile rules) on the same strokes, for comparison only.
         stardraft::Chk old = stardraft::Chk::parse(raw);
         IsomGrid grid;
@@ -114,10 +130,10 @@ int main(int argc, char** argv) {
             for (size_t i = 0; i < std::min(oldIsom.size(), isomExpected.size()); ++i) oldIsomDiff += (oldIsom[i] >> 4) != (isomExpected[i] >> 4);
             ++(oldIsomDiff ? oldImperfect : oldPerfect);
         }
-        const bool ok = painted && !isomDiff && !groupDiff[0] && !groupDiff[1];
-        std::printf("%s  %-40s %3zu strokes: ISOM %zu, TILE %zu, MTXM %zu differ%s (old engine: %zu ISOM terrains differ)\n",
+        const bool ok = painted && !isomDiff && !groupDiff[0] && !groupDiff[1] && !setsDiff;
+        std::printf("%s  %-40s %3zu strokes: ISOM %zu, TILE %zu, MTXM %zu differ%s; as diamond sets %zu (old engine: %zu ISOM terrains differ)\n",
                     ok ? "ok  " : "FAIL", c.expected, c.ops.size(), isomDiff, groupDiff[0], groupDiff[1], painted ? "" : " (a stroke was refused)",
-                    oldIsomDiff);
+                    setsDiff, oldIsomDiff);
         ok ? ++pass : ++fail;
     }
     std::printf("%d of %zu perfect; %.3f ms a stroke (the old engine: %d of %d with the same ISOM terrains)\n", pass, kCases.size(),

@@ -935,11 +935,67 @@ bool Editor::deleteDoodad(int index) {
     return true;
 }
 
+// The diamonds whose four corners `corners` sets, when they are all one terrain and those diamonds hold every corner
+// (the terrain core paints diamonds); else empty (a corner alone, as a half-size brush sets: the old engine paints it).
+static std::vector<std::pair<int, int>> wholeDiamonds(const IsomGrid& grid, const std::vector<CornerValue>& corners) {
+    std::set<std::pair<int, int>> set;
+    for (const auto& c : corners) {
+        if (c.terrain != corners.front().terrain) return {};
+        if (grid.isCorner(c.x, c.y)) set.insert({c.x, c.y});
+    }
+    auto whole = [&](int x, int y) {
+        return x >= 0 && y >= 0 && x < grid.rectCols() && y < grid.rectRows() && set.count({x - 1, y}) && set.count({x + 1, y}) &&
+               set.count({x, y - 1}) && set.count({x, y + 1});
+    };
+    std::set<std::pair<int, int>> diamonds;
+    for (auto [x, y] : set) {
+        bool held = false;
+        for (auto [dx, dy] : {std::pair{x - 1, y}, {x + 1, y}, {x, y - 1}, {x, y + 1}})
+            if (whole(dx, dy)) diamonds.insert({dx, dy}), held = true;
+        if (!held) return {};
+    }
+    return {diamonds.begin(), diamonds.end()};
+}
+
+bool Editor::terrainRepairOn() {
+    static const bool on = [] {
+        const char* v = std::getenv("STARDRAFT_TERRAIN_REPAIR");
+        return !(v && std::string(v) == "0");
+    }();
+    return on;
+}
+
+bool Editor::applyCore(const std::function<bool()>& paint, const std::function<bool()>& repair, int x0, int y0, int x1, int y1) {
+    std::string err;
+    if (!core_.load(chk_, tileset_, err)) return repair();
+    const std::vector<int> watch = placeableUnitsIn({x0 * 64 - 256, y0 * 32 - 256, x1 * 64 + 256, y1 * 32 + 256});
+    const std::vector<uint8_t> intact = doodadsIntact();
+    if (!paint()) return false;
+    // A rect that no tile group fits (StarEdit's rule leaves the null tile there; on maps whose ISOM StarEdit would not
+    // make): the old engine makes this edit instead, as it keeps every rect tileable. The map is still as it was.
+    if (core_.untileable() && terrainRepairOn()) return repair();
+    core_.store(chk_);
+    if (!isom_.load(chk_, err)) isomOk_ = false;  // (the core writes a full ISOM: this does not fail)
+    commit(true);
+    pruneDoodads(intact);
+    pruneUnits(watch);
+    return true;
+}
+
 bool Editor::applyTerrain(const std::vector<CornerValue>& corners) {
     if (!isomOk_ || corners.empty()) return false;
     // The repair around an edit stays within a few tiles of it.
     int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
     for (const auto& c : corners) x0 = std::min(x0, c.x), y0 = std::min(y0, c.y), x1 = std::max(x1, c.x), y1 = std::max(y1, c.y);
+    // Whole diamonds of one terrain: the terrain core paints them as StarEdit's brush would.
+    if (terrainCoreOn())
+        if (const auto diamonds = wholeDiamonds(isom_, corners); !diamonds.empty())
+            return applyCore([&] { return core_.paintDiamonds(diamonds, corners.front().terrain); }, [&] { return applyOld(corners, x0, y0, x1, y1); },
+                             x0, y0, x1, y1);
+    return applyOld(corners, x0, y0, x1, y1);
+}
+
+bool Editor::applyOld(const std::vector<CornerValue>& corners, int x0, int y0, int x1, int y1) {
     const std::vector<int> watch = placeableUnitsIn({x0 * 64 - 256, y0 * 32 - 256, x1 * 64 + 256, y1 * 32 + 256});
     const std::vector<uint8_t> intact = doodadsIntact();
     if (!isom_.apply(corners)) return false;
@@ -966,8 +1022,6 @@ bool Editor::terrainCoreOn() {
 }
 
 bool Editor::applyCoreBrush(int px, int py, uint16_t terrain, int extent) {
-    std::string err;
-    if (!core_.load(chk_, tileset_, err)) return false;
     std::vector<std::pair<int, int>> diamonds;
     for (auto [x, y] : symmetricPoints(px, py)) {
         int dx = 0, dy = 0;
@@ -976,19 +1030,20 @@ bool Editor::applyCoreBrush(int px, int py, uint16_t terrain, int extent) {
     }
     int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
     for (auto [dx, dy] : diamonds) x0 = std::min(x0, dx), y0 = std::min(y0, dy), x1 = std::max(x1, dx), y1 = std::max(y1, dy);
-    const int reach = extent * 64 + 256;
-    const std::vector<int> watch = placeableUnitsIn({x0 * 64 - reach, y0 * 32 - reach, x1 * 64 + reach, y1 * 32 + reach});
-    const std::vector<uint8_t> intact = doodadsIntact();
-    bool painted = false;
-    for (auto [dx, dy] : diamonds) painted = core_.paint(dx, dy, terrain, extent) || painted;
-    if (!painted) return false;
-    core_.updateTiles();
-    core_.store(chk_);
-    if (!isom_.load(chk_, err)) isomOk_ = false;  // (the core writes a full ISOM: this does not fail)
-    commit(true);
-    pruneDoodads(intact);
-    pruneUnits(watch);
-    return true;
+    const int reach = (extent + 1) / 2 + 1;  // (in grid steps: the brush's half and the diamonds around it)
+    return applyCore(
+        [&] {
+            bool painted = false;
+            for (auto [dx, dy] : diamonds) painted = core_.paint(dx, dy, terrain, extent) || painted;
+            return painted;
+        },
+        [&] {  // (the old engine: the same diamonds' corners)
+            std::vector<CornerValue> corners;
+            for (auto [x, y] : symmetricPoints(px, py))
+                for (auto [cx, cy] : isom_.brushCorners(x, y, Brush{Brush::Diamond, float(extent)})) corners.push_back({cx, cy, terrain});
+            return applyOld(corners, x0 - reach, y0 - reach, x1 + reach, y1 + reach);
+        },
+        x0 - reach, y0 - reach, x1 + reach, y1 + reach);
 }
 
 bool Editor::paintBrush(int px, int py, uint16_t terrain, const Brush& brush) {

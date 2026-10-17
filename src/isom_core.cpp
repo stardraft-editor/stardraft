@@ -44,6 +44,33 @@ const Sc::Terrain_::Tiles* tablesFor(const Tileset& tileset) {
     return cache.emplace(std::move(key), std::move(tiles)).first->second.get();
 }
 
+// ScMap's own steps of placeIsomTerrain are private; paintDiamonds runs them for any set of diamonds. IsomApi.h stays
+// unchanged: they are reached with the explicit-instantiation access idiom (a template instantiated with a pointer to
+// a private member may name it; the friend function hands it out).
+template <typename Tag, typename Tag::type Member>
+struct Reach {
+    friend typename Tag::type reach(Tag) { return Member; }
+};
+struct SetDiamondTag {
+    using type = void (ScMap::*)(::Chk::IsomDiamond, uint16_t, bool, ::Chk::IsomCache&);
+    friend type reach(SetDiamondTag);
+};
+struct RadialUpdateTag {
+    using type = void (ScMap::*)(bool, std::deque<::Chk::IsomDiamond>&, ::Chk::IsomCache&);
+    friend type reach(RadialUpdateTag);
+};
+template struct Reach<SetDiamondTag, &ScMap::setDiamondIsomValues>;
+template struct Reach<RadialUpdateTag, &ScMap::radiallyUpdateTerrain>;
+
+// ScMap::isInBounds and diamondNeedsUpdate (private), from the public ISOM: a diamond on the map, not set by this edit
+// (its Modified flag), with a terrain.
+bool inBounds(const ScMap& map, ::Chk::IsomDiamond d) { return d.x < map.getIsomWidth() && d.y < map.getIsomHeight(); }
+bool needsUpdate(const ScMap& map, ::Chk::IsomDiamond d) {
+    if (!inBounds(map, d)) return false;
+    const ::Chk::IsomRect& r = map.isomRects[d.y * map.getIsomWidth() + d.x];
+    return !r.isLeftModified() && (r.left >> 4) != 0;
+}
+
 std::vector<uint16_t> readU16s(const Chk& chk, SectionName name) {
     const Bytes b = chk.effective(name);
     std::vector<uint16_t> v(b.size() / 2);
@@ -62,6 +89,19 @@ struct IsomCore::Impl {
     const Sc::Terrain_::Tiles* tables = nullptr;
     ScMap map{};
     std::unique_ptr<::Chk::IsomCache> cache;
+    int untileable = 0;
+
+    // The tiles of what changed (updateTilesFromIsom), counting first the changed rects that no tile group fits (the
+    // core gives them the null tile).
+    void updateTiles() {
+        const Sc::BoundingBox a = cache->changedArea;
+        for (size_t y = a.top; y <= a.bottom && y + 1 < cache->isomHeight; ++y)
+            for (size_t x = a.left; x <= a.right && x + 1 < cache->isomWidth; ++x) {
+                const ::Chk::IsomRect& r = map.isomRects[y * cache->isomWidth + x];
+                if (r.isLeftOrRightModified() && !cache->hashToTileGroup->count(r.getHash(cache->isomLinks))) ++untileable;
+            }
+        map.updateTilesFromIsom(*cache);
+    }
 
     // The core's terrain type (an index into its brush table) for an ISOM solid value; 0 for none.
     size_t terrainType(uint16_t isomValue) const {
@@ -79,6 +119,7 @@ bool IsomCore::loaded() const { return impl_->cache != nullptr; }
 bool IsomCore::load(const Chk& chk, const Tileset& tileset, std::string& error) {
     Impl& m = *impl_;
     m.cache.reset();
+    m.untileable = 0;
     uint16_t width = 0, height = 0;
     if (!readDimensions(chk, width, height) || !width || !height) return error = "The map has no size (DIM)", false;
     if (tileset.groups.empty()) return error = "The tileset has no tile groups (CV5)", false;
@@ -107,13 +148,43 @@ bool IsomCore::paint(int x, int y, uint16_t terrain, int extent) {
     const size_t type = m.terrainType(terrain);
     if (!type) return false;
     const ::Chk::IsomDiamond d{size_t(x), size_t(y)};
-    return m.map.placeIsomTerrain(d, type, size_t(extent), *m.cache);
+    if (!m.map.placeIsomTerrain(d, type, size_t(extent), *m.cache)) return false;
+    m.updateTiles();  // (the next paint starts a new changed area)
+    return true;
+}
+
+bool IsomCore::paintDiamonds(const std::vector<std::pair<int, int>>& diamonds, uint16_t terrain) {
+    Impl& m = *impl_;
+    if (!m.cache || !m.terrainType(terrain)) return false;
+    const uint16_t isomValue = terrain;
+    if (size_t(isomValue) >= m.cache->isomLinks.size() || m.cache->isomLinks[isomValue].terrainType == 0) return false;
+    // (placeIsomTerrain's loop, for any set: set each, then update the diamonds around them that are not set)
+    m.cache->resetChangedArea();
+    std::vector<::Chk::IsomDiamond> set;
+    for (auto [x, y] : diamonds) {
+        const ::Chk::IsomDiamond d{size_t(x), size_t(y)};
+        if (x < 0 || y < 0 || !d.isValid() || !inBounds(m.map, d)) continue;
+        (m.map.*reach(SetDiamondTag{}))(d, isomValue, true, *m.cache);
+        set.push_back(d);
+    }
+    if (set.empty()) return false;
+    std::deque<::Chk::IsomDiamond> toUpdate;
+    for (const auto& d : set)
+        for (auto i : ::Chk::IsomDiamond::neighbors) {
+            const ::Chk::IsomDiamond n = d.getNeighbor(i);
+            if (needsUpdate(m.map, n)) toUpdate.push_back(n);
+        }
+    (m.map.*reach(RadialUpdateTag{}))(true, toUpdate, *m.cache);
+    m.updateTiles();  // (the next paint starts a new changed area)
+    return true;
 }
 
 void IsomCore::updateTiles() {
     Impl& m = *impl_;
-    if (m.cache) m.map.updateTilesFromIsom(*m.cache);
+    if (m.cache) m.updateTiles();
 }
+
+int IsomCore::untileable() const { return impl_->untileable; }
 
 void IsomCore::store(Chk& chk) const {
     const Impl& m = *impl_;

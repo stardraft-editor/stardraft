@@ -80,5 +80,24 @@ compare with Chkdraft's newer code for fixes worth taking.
 - Done: StarEdit's brush (a diamond of whole diamonds) paints through the core in the editor (`Editor::applyCoreBrush`);
   `STARDRAFT_TERRAIN_CORE=0` keeps the old engine, to compare. editor_test and the snapshots: the same results with
   both engines.
-- Next: square and circle brushes, fill and replace as diamond sets; tiles from ISOM (regen) through the core; the
-  repair step and the tile variant choice on top; the random brush test; then the old engine's learned tables go.
+- Done: square and circle brushes, other heights, fill and replace paint through the core too, whenever the corners
+  they set are whole diamonds of one terrain (`IsomCore::paintDiamonds`: StarEdit's own loop for any set of diamonds;
+  `isomterrain_test` checks it gives the same 10 maps). A corner alone (the half-size brush) and paste keep the old
+  engine.
+- Done: the repair step. Where the core leaves a rect that no tile group fits (StarEdit's rule writes the null tile; it
+  happens on maps whose ISOM StarEdit would not make, e.g. (4)Zoo Keeper), the old engine makes that edit instead
+  (`IsomCore::untileable`, `Editor::applyCore`; `STARDRAFT_TERRAIN_REPAIR=0` keeps the core's result).
+- Measured (paint_stress, 189 Blizzard maps outside `ladder`, 40 strokes each, through the Editor as the UI paints):
+
+  | | Old engine | Core + repair |
+  |---|---|---|
+  | Time per brush call | 0.76 ms | 0.25 ms |
+  | Misfit tiles, total (most on one map) | 80 (4) | 11 (1) |
+  | Invalid diamonds | 0 | 0 |
+
+  Without the repair the core had 48 misfits, 22 of them null tiles on (4)Zoo Keeper.
+- The old engine stays for now: the repair, the half-size brush, paste and Rectangle mode use it, so its learned tables
+  stay too (point 4 of the setup waits for that).
+- Next: tiles from ISOM (regen: new maps, maps without an ISOM, resize) through the core; the tile variant choice on
+  top (the core picks a random common or rare subtile, as StarEdit); the repair as a setting in Options; paste as ISOM
+  copies (the core's `copyIsomFrom`).
