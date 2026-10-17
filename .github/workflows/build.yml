@@ -39,8 +39,9 @@ jobs:
 
       # A release tag: the tag is a version, its changelog section and pictures are good, and the commit is on main.
       # Checked first, so a bad tag stops in seconds and not after the build.
+      # (a preview tag, v<version>-preview.<n>, is made from port/kit and has no changelog section: not checked here)
       - name: Check the release tag
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-preview')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python -I tools/release.py ci-check $env:GITHUB_REF_NAME
