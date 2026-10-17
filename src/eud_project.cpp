@@ -149,6 +149,12 @@ bool EudProject::read(const fs::path& file, bool eds, std::string& error) {
 
 // The file's text: project.stardraft, or (eds) euddraft's .eds. UTF-8 without BOM, CRLF (as euddraft's own examples
 // and EUD Editor write it).
+// A [freeze] line that turns euddraft's freeze off ("freeze : 0": any value does).
+static bool isFreezeLine(const std::string& line) {
+    std::string k, v;
+    return splitLine(line, k, v) && k == "freeze";
+}
+
 std::string EudProject::text(bool eds) const {
     std::ostringstream o;
     if (!eds) o << "# StarDraft project. Build writes " << name_ << ".eds for euddraft from this file.\r\n\r\n";
@@ -163,7 +169,11 @@ std::string EudProject::text(bool eds) const {
             continue;
         }
         o << '[' << sections_[i].name << "]\r\n";
+        // Freeze where it does not work (freezeWorks): off in the .eds, whatever the project says.
+        const bool freezeOff = eds && !freezeWorks() && sections_[i].name == "freeze";
+        if (freezeOff) o << "freeze : 0\r\n";
         for (const auto& l : sections_[i].lines) {
+            if (freezeOff && isFreezeLine(l)) continue;
             std::string k, v;
             if (eds && i == 0 && splitLine(l, k, v) && (k == "debug" || k == "trace" || k == "remake" || k == "doodadpins")) continue;  // StarDraft's own settings: not for euddraft
             o << l << "\r\n";
@@ -171,6 +181,7 @@ std::string EudProject::text(bool eds) const {
         // A trace build: euddraft's debug mode (any "debug" key turns it on, so it is written only when on).
         if (eds && i == 0 && traceBuild()) o << "debug: 1\r\n";
     }
+    if (eds && !freezeWorks() && !plugin("freeze")) o << "\r\n[freeze]\r\nfreeze : 0\r\n";
     return o.str();
 }
 
@@ -363,6 +374,23 @@ bool EudProject::writeGeneratedScript(const std::string& name, const std::string
 
 bool EudProject::turbo() const {
     return std::any_of(sections_.begin(), sections_.end(), [](const Section& s) { return s.name == "eudTurbo"; });
+}
+bool EudProject::freeze() const {
+    const std::vector<std::string> lines = sectionLines("freeze");
+    return std::none_of(lines.begin(), lines.end(), isFreezeLine);
+}
+void EudProject::setFreeze(bool on) {
+    std::vector<std::string> lines = sectionLines("freeze");  // (its other lines, such as "prompt", stay)
+    lines.erase(std::remove_if(lines.begin(), lines.end(), isFreezeLine), lines.end());
+    if (!on) lines.push_back("freeze : 0");
+    setSectionLines("freeze", std::move(lines));
+}
+bool EudProject::freezeWorks() {
+#ifdef __APPLE__
+    return false;
+#else
+    return true;
+#endif
 }
 bool EudProject::debugBuild() const { return mainValue("debug") == "1"; }
 void EudProject::setDebugBuild(bool on) {

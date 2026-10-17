@@ -377,6 +377,7 @@ public:
         case BuildOption::RemakeUnits: return p->remakeUnits();
         case BuildOption::DebugBuild: return p->debugBuild();
         case BuildOption::TraceBuild: return p->traceBuild();
+        case BuildOption::Freeze: return p->freeze();
         }
         return false;
     }
@@ -407,6 +408,10 @@ public:
         case BuildOption::TraceBuild:
             p->setTraceBuild(!set);
             projectSave(*p, set ? L"Trace build off" : L"Trace build on: build the map again to use epTrace");
+            break;
+        case BuildOption::Freeze:
+            p->setFreeze(!set);
+            projectSave(*p, set ? L"Freeze protection off" : L"Freeze protection on");
             break;
         }
         projectFormRefresh();
