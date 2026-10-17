@@ -85,7 +85,8 @@ std::string shotBriefingState() {
 // spaces in quotes; "-" where there is none): the mode, the placement's player, the first selected unit's owner, the
 // last unit's owner, the palette's pick and the tool, the sprites, the selected doodads and the first one's place, the
 // locations and the selected one, the paste (units: how many of the ghost's units are red), the picked doodad's ghost,
-// the terrain (a hash of its tiles, the tile under the mouse, the terrain selection), the tabs and the quick picker.
+// the terrain (a hash of its tiles, the tile under the mouse, the terrain selection), the tabs, the quick picker and the
+// last unit's place.
 std::string shotMapState() {
     const AppState& app = gState;
     Editor& ed = *app.ed;
@@ -136,6 +137,7 @@ std::string shotMapState() {
     s += " tabs=" + std::to_string(gActive + 1) + "/" + std::to_string(gDocs.size()) + " page=" + std::to_string(activePage()) +
          " tab=" + quoted(narrow(docTitle(gActive, false)));
     s += std::string(" quick=") + (gQuickHostSdl.open ? "open" : "-");  // the quick picker (Q): a pop-out over the map
+    s += " lastat=" + (!ed.units().empty() ? std::to_string(ed.units().back().x) + "," + std::to_string(ed.units().back().y) : std::string("-"));  // the last unit's place
     return s;
 }
 
@@ -164,6 +166,46 @@ std::string shotNewPageState() {
     return "new page: " + shown + "; " + std::to_string(gNewView.randomized) + " randomize presses, " + std::to_string(gNewView.generations) +
            " maps made, the last for " + (gNewView.generatedFor == shown ? std::string("the same choices") : "other choices (" + gNewView.generatedFor + ")") +
            "; the symmetry list " + (gNewView.symmetryListOpen() ? "open" : "closed");
+// The window's own parts after an input, on a line of their own ("  ui: ..."): what the Map workspace shows (the map,
+// the start page, the New page or another workspace's view), the workspace, the side bars' widths (the dock settings,
+// 96-dpi pixels), the cursor at the point where the last mouse input left the mouse, the document tabs and whether the
+// active one is a project; with the New page open, its kind, the Start choice selected and the Start choices it shows.
+const char* sdlCursorName(draw::Cursor c);
+std::string sdlShotUi() {
+    if (!gRoot) return "no window";
+    const char* page = gNewView.shown() ? "new" : gStartView.shown() ? "start" : gRoot->map.shown() ? "map" : "other";
+    const int ws = int(gWorkspace);
+    std::string s = std::string("page=") + page + " ws=" + (ws >= 0 && ws < kWorkspaceNameCount ? kWorkspaceNames[ws] : "?");
+    s += " left=" + std::to_string(gDock.leftW) + " right=" + std::to_string(gDock.rightW);
+    std::string cur = "-";
+    if (gShotMouse.x >= 0) {
+        draw::Router router(*gRoot);
+        cur = sdlCursorName(router.cursor(gShotMouse));
+    }
+    s += " cursor=" + cur;
+    s += " tabs=" + std::to_string(gActive + 1) + "/" + std::to_string(gDocs.size()) + " project=" + (activeProject() ? "yes" : "no");
+    if (gState.ed && gState.ed->isOpen()) {  // the map's parts (they stay when another workspace's commands run)
+        int locs = 0;
+        for (int i = 0; i < gState.ed->locationCount(); ++i) locs += gState.ed->locationUsed(i);
+        s += " units=" + std::to_string(gState.ed->units().size()) + " doodads=" + std::to_string(gState.ed->doodads().size()) +
+             " locations=" + std::to_string(locs) + " sel=" + std::to_string(gState.ed->selection().size()) + "," +
+             std::to_string(gState.selDoodads.size()) + "," + std::to_string(gState.selSprites.size());
+    }
+    // The Edit commands' state (the menu items and the top bar's buttons: 1 enabled, 0 gray), and the quick picker.
+    static const std::pair<const char*, int> kEdit[] = {{"cut", ID_EDIT_CUT},       {"copy", ID_EDIT_COPY},     {"paste", ID_EDIT_PASTE},
+                                                        {"dup", ID_EDIT_DUPLICATE}, {"del", ID_EDIT_DELETE},    {"all", ID_EDIT_SELECTALL},
+                                                        {"rename", ID_EDIT_RENAME}, {"quick", ID_QUICKPICK}};
+    s += " edit=";
+    for (const auto& [n, id] : kEdit) s += std::string(n) + ":" + (sdlEnabled(id) ? "1" : "0") + (id == ID_QUICKPICK ? "" : ",");
+    s += std::string(" quickopen=") + (!gQuickHostSdl.open                               ? "no"
+                                       : gQuickViewSdl.kind() == QuickPickKind::Data ? "data"
+                                       : gQuickViewSdl.kind() == QuickPickKind::Open ? "open"
+                                                                                     : "map");
+    if (gNewView.shown()) {
+        const char* start = gNewView.copyMap ? "import" : gNewView.terrainOnly ? "terrain" : gNewView.generate ? "generate" : "blank";
+        s += std::string(" new=") + (gNewView.project ? "eud" : "classic") + " start=" + start + " offered=" + gNewView.startOffered;
+    }
+    return s;
 }
 
 // The line's state part (empty: none for this workspace).

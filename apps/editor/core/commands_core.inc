@@ -15,6 +15,29 @@ void dataPasteSelected();
 void setMessage(const std::wstring& m);
 void shellMenusChanged();
 
+// The Edit commands that act on the map (Cut, Copy, Paste, Duplicate, Delete, Select all, Rename location), the quick
+// picker (Q) and the player keys: the map's versions run only in the Map workspace. Another workspace runs its own
+// version where it has one (as the Windows program's Edit menu followed the workspace): Data copies and pastes the
+// selected entry's values and Q goes to an entry; Triggers cuts, copies, pastes and duplicates triggers and blocks; Briefing edits its rows.
+// Elsewhere (the Project page, Assets, the map pages, and those commands that the workspace has not) they are gray and
+// do nothing. (A text field with the keyboard takes its own Ctrl+C, Ctrl+V, Ctrl+A first.)
+bool workspaceEditCommand(int id) {
+    return id == ID_EDIT_CUT || id == ID_EDIT_COPY || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE || id == ID_EDIT_DELETE ||
+           id == ID_EDIT_SELECTALL || id == ID_EDIT_RENAME || id == ID_QUICKPICK || (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 10);
+}
+bool editInWorkspace(int id) {
+    if (!workspaceEditCommand(id)) return true;
+    switch (gWorkspace) {
+    case Workspace::Map: return true;
+    case Workspace::Data: return id == ID_EDIT_COPY || id == ID_EDIT_PASTE || id == ID_QUICKPICK;  // (Q: go to an entry)
+    case Workspace::Triggers: return id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE;
+    case Workspace::Briefing:
+        return id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE || id == ID_EDIT_DELETE ||
+               id == ID_EDIT_SELECTALL;
+    default: return false;
+    }
+}
+
 bool commandPortable(AppState& app, int id) {
     // The active mode's layer is hidden (View > Layers): the edits of the map are refused.
     if (gWorkspace == Workspace::Map && modeLayerHidden() &&
@@ -22,18 +45,16 @@ bool commandPortable(AppState& app, int id) {
         return modeLayerHiddenMessage(), true;
     // No map (a page tab): its commands do nothing, also from a shortcut or the top bar (their menu items are gray).
     if (!docOpen() && mapCommand(id)) return true;
-    // A map page shows: the Edit commands are not for the map that does not show (undo and redo are).
-    if (gWorkspace >= Workspace::Properties && (id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE ||
-                                                id == ID_EDIT_DELETE || id == ID_EDIT_SELECTALL))
-        return true;
+    // Another workspace: the map's Edit commands are not for the map that does not show (undo and redo are).
+    if (!editInWorkspace(id)) return true;
     if (gWorkspace == Workspace::Data && (id == ID_EDIT_COPY || id == ID_EDIT_PASTE)) {  // the selected entry's values
         if (id == ID_EDIT_COPY) dataCopySelected();
         else dataPasteSelected();
         return true;
     }
     if (gWorkspace == Workspace::Briefing && (id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE || id == ID_EDIT_DELETE ||
-                                              id == ID_EDIT_SELECTALL) && briefCommand(id))
-        return true;
+                                              id == ID_EDIT_SELECTALL))
+        return briefCommand(id), true;  // (nothing for the map, also when the page has nothing to do)
     if (gWorkspace == Workspace::Triggers && (id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE)) {
         if (id == ID_EDIT_PASTE) trigPaste();
         else if (id == ID_EDIT_DUPLICATE) trigDuplicate();

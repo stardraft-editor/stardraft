@@ -233,8 +233,14 @@ Unit makeUnit(const UnitType& type, uint8_t owner, uint16_t x, uint16_t y) {
     return u;
 }
 
+namespace {
+bool gBuildingSnap = true;
+}
+void setBuildingSnap(bool on) { gBuildingSnap = on; }
+bool buildingSnap() { return gBuildingSnap; }
+
 void snapToGrid(const UnitType& type, uint16_t& x, uint16_t& y) {
-    if (!type.is(UnitFlag::Building)) return;
+    if (!gBuildingSnap || !type.is(UnitFlag::Building)) return;
     auto snap = [](int c, int size) {
         int left = ((c - size / 2) + 16) / 32 * 32;  // nearest tile boundary for the box's left/top
         return uint16_t(std::max(0, left) + size / 2);

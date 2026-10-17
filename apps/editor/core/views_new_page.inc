@@ -1,8 +1,9 @@
 // The New page (portable, core.inc; docs/dev/CONTROLS.md, "New page and start page"): the settings of a kind that a card
 // on the start page selected. Three columns: Project (the name, the folder and the output file, only for an EUD project),
-// Terrain (the tileset and the size) and Start (a blank map filled with a terrain, a generated map, or an imported map),
+// Terrain (the tileset and the size) and Start (a blank map filled with a terrain, a generated map, an imported map (an
+// EUD project) or the terrain of a map (a classic project)),
 // with a preview of the map under the Start choices; with Generate the generator's settings are to the right of the
-// preview. Create makes the map or the project, Cancel and Back leave the page. A view: it paints on a Canvas; its text
+// preview. Create makes the map or the project, Cancel (or Esc) leaves the page. A view: it paints on a Canvas; its text
 // fields are kit text fields (children); the host (new_page.inc on Windows) makes the maps and projects, picks files and
 // folders, shows the list pickers, and switches the tab's page.
 
@@ -33,8 +34,7 @@ public:
     // A list picker under the rectangle `below` (the page's coordinates); `picked` gets the value chosen.
     virtual void pickList(const std::wstring& title, const std::vector<NewListItem>& items, const std::string& current, draw::Rect below,
                           const std::function<void(const std::string&)>& picked) = 0;
-    // Back to the start page, and Cancel (the tab closes or goes back to the start page).
-    virtual void back() = 0;
+    // Cancel: the page closes (the open map or the start page shows again).
     virtual void cancel() = 0;
     // Makes the map (or the project) with the page's choices (NewPageView's members).
     virtual bool make() = 0;
@@ -186,8 +186,7 @@ public:
     // The page's choices (the host reads them to make the map; the self-tests set them).
     bool project = false, generate = false;
     bool copyMap = false;      // an EUD project: Start "Import an existing map" (a copy of the map in fromMap); generate is off then
-    bool terrainOnly = false;  // Start "The terrain of a map": a new map with only the terrain of the map in fromMap
-    bool keep = false;         // Back went to the start page: a card opens the settings with the same choices
+    bool terrainOnly = false;  // a classic project: Start "The terrain of a map" (a new map with only the terrain of the map in fromMap)
     int card = 0;              // the start page's card that the keyboard is on (0 or 1)
     uint16_t era = 0, terrain = 0, w = 128, h = 128;  // terrain 0: the tileset's base ground
     int symmetry = 0, feature = 0;
@@ -233,6 +232,7 @@ public:
 
     // What the last paint showed (the self-tests read these).
     bool genShown = false, projectShown = false, createEnabled = true;
+    std::string startOffered;  // the Start choices shown (blank, generate, import, terrain), joined with commas
     bool fieldShown(const char* which) const {
         if (!std::strcmp(which, "name")) return name_.visible();
         if (!std::strcmp(which, "location")) return location_.visible();
@@ -265,7 +265,7 @@ public:
 
     // The tab's kind and fresh choices (the open map's tileset, 128 x 128, blank). kind: 0 a classic project, 1 an EUD project.
     void reset(int kind) {
-        project = kind == 1, card = kind == 1 ? 1 : 0, keep = false;
+        project = kind == 1, card = kind == 1 ? 1 : 0;
         generate = false, copyMap = false, terrainOnly = false;
         era = openEra_;
         terrain = 0, w = h = 128, symmetry = 0, feature = 0, scroll = 0;
@@ -390,9 +390,8 @@ public:
         if (const std::wstring p = problem(); !p.empty()) return host_.message(p), false;
         return host_.make();
     }
-    // Cancel and Back.
-    void cancelPage() { keep = false, host_.cancel(); }
-    void backToStart() { host_.back(); }
+    // Cancel (and Esc).
+    void cancelPage() { host_.cancel(); }
 
     // Each tileset's picture: a small generated map of it (once).
     void makeSwatches() {
@@ -451,18 +450,11 @@ public:
     void resetScroll() {
         if (scroll) scroll = 0, invalidate();
     }
-    // The page's kind and choices the card selected (the start page's cards: the same choices after Back).
-    void setKind(int kind) {
-        project = kind == 1, card = kind;
-        keep = false, tallest = 0;
-        if (!importing() && !previewMade) schedule(10);
-        invalidate();
-    }
 
     void paint(draw::Canvas& c) override;
     bool mouse(const draw::MouseEvent& e) override;
     bool key(const draw::KeyEvent& e) override {
-        if (e.down && e.key == draw::Key::Escape) return backToStart(), true;
+        if (e.down && e.key == draw::Key::Escape) return cancelPage(), true;
         return false;
     }
     bool vscroll(int code, int pos, int track, int) override;

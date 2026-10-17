@@ -17,6 +17,7 @@ void sdlProjectShown();  // (sdl_project.inc: the Project page reads the project
 void sdlTriggersShown();  // (sdl_triggers.inc: the project's triggers, and the tree made again)
 void setWorkspace(Workspace w) {
     if (w == Workspace::Assets) w = Workspace::Files;  // Assets is part of Files
+    if (w != Workspace::Map && newPageCovers()) return;  // (the New page or the start page holds the Map workspace)
     if (w != Workspace::Files) previewStopSdl();
     if (w != Workspace::Briefing) briefingStopSdl();
     if (!commandInMode(mapPageCommandOf(w))) {

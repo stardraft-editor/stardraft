@@ -931,6 +931,9 @@ Classic &triggers	&Disparadores clásicos
 &Scenario	Es&cenario
 &Do not snap	&No ajustar
 Snap to &tiles (32 px)	Ajustar a &casillas (32 px)
+Snap &buildings to tile edges	Ajustar &edificios a los bordes de las casillas
+Buildings: snap to tile edges	Edificios: ajustar a los bordes de las casillas
+Buildings: do not snap	Edificios: no ajustar
 Snap to &half tiles (16 px)	Ajustar a &medias casillas (16 px)
 Snap to &quarter tiles (8 px)	Ajustar a &cuartos de casilla (8 px)
 Place &only where it fits	Colocar &solo donde quepa
@@ -1400,6 +1403,7 @@ Remove from the list	Quitar de la lista
 Open…	Abrir…
 A project or a map (Ctrl+O)	Un proyecto o un mapa (Ctrl+O)
 The map to copy (.scm or .scx)	El mapa que se copiará (.scm o .scx)
+The map whose terrain to use (.scm or .scx)	El mapa cuyo terreno se usará (.scm o .scx)
 Could not open the page	No se pudo abrir la página
 Appearance	Apariencia
 Theme	Tema

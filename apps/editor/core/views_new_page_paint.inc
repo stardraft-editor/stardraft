@@ -188,7 +188,7 @@ void NewPageView::paint(draw::Canvas& c) {
     const int pad = scale(stardraft::kit::kDialogPad), gap = scale(32), rowH = scale(stardraft::kit::kRowH), fieldH = scale(stardraft::kit::kFieldH);
     const int bh = scale(stardraft::kit::kButtonH);
     const int avail = W - 2 * pad;
-    // The block (Back, the title, the columns, then Create and Cancel) is in the middle of the page, across and up and
+    // The block (the title, the columns, then Create and Cancel) is in the middle of the page, across and up and
     // down; a block taller than the page starts at the top and scrolls. The height is from the last paint.
     const int startY = std::max(pad, (H - blockH) / 2);
     // The text fields stay above the Create and Cancel bar when it is held at the bottom (a tall block).
@@ -198,6 +198,7 @@ void NewPageView::paint(draw::Canvas& c) {
     // under the preview. The width does not change with the Start choice.
     const bool proj = project;
     if (!proj) copyMap = false;  // Import an existing map is for an EUD project (a classic map: File > Open)
+    if (proj) terrainOnly = false;  // The terrain of a map is for a classic project (an EUD project: Import an existing map)
     const bool imp = importing();
     const int gap1 = proj ? gap : 0, pvGap = scale(24), sideMin = scale(300), gwMin = scale(320), gwMax = scale(420);
     int w1 = proj ? scale(300) : 0, w2 = scale(320);
@@ -221,9 +222,6 @@ void NewPageView::paint(draw::Canvas& c) {
     const int x1 = std::max(pad, (W - (w1 + gap1 + w2 + gap + w3)) / 2), x2 = x1 + w1 + gap1, x3 = x2 + w2 + gap;
     const int blockTop = startY - scroll;
     int y = blockTop;
-    // Back to the cards.
-    smallButton(c, x1, y, scale(24), L"Back", [this] { backToStart(); }, L"Select a different kind (Esc)");
-    y += scale(28);
     {
         const IsomTerrainTable* table = IsomTerrainTable::forEra(era);
         std::wstring sub = std::wstring(kTilesetNames[era & 7]) + L"  \x00B7  " + std::to_wstring(w) + L" x " + std::to_wstring(h) + L"  \x00B7  " +
@@ -317,23 +315,28 @@ void NewPageView::paint(draw::Canvas& c) {
         bottom = std::max(bottom, y);
     }
 
-    // Start: a blank map filled with a terrain (the dropdown in its row), generated, or (an EUD project) imported.
+    // Start: a blank map filled with a terrain (the dropdown in its row), generated, or imported: an EUD project copies a
+    // map (Import an existing map), a classic project takes the terrain of a map (as the Windows program had it).
     y = sectionHeader(c, x3, x3 + w3, top, rowH, L"Start");
-    for (int k = 0; k < 3; ++k) {
-        if (k == 2 && !project) continue;  // Import an existing map: a project (a classic map: File > Open)
-        const bool on = k == 2 ? copyMap : !copyMap && !terrainOnly && generate == (k == 1);
+    startOffered.clear();
+    for (int k = 0; k < 4; ++k) {
+        if (k == 2 && !project) continue;  // Import an existing map: an EUD project (a classic map: File > Open)
+        if (k == 3 && project) continue;   // The terrain of a map: a classic project
+        startOffered += std::string(startOffered.empty() ? "" : ",") + (k == 3 ? "terrain" : k == 2 ? "import" : k == 1 ? "generate" : "blank");
+        const bool on = k == 3 ? terrainOnly : k == 2 ? copyMap : !copyMap && !terrainOnly && generate == (k == 1);
         const int hgt = k == 0 ? fieldH + scale(8) : rowH;
         const draw::Rect r{x3, y, x3 + w3, y + hgt};
         const bool over = hot(r);
         radioMark(c, {x3 + scale(2), r.top + (hgt - scale(14)) / 2, x3 + scale(16), r.top + (hgt - scale(14)) / 2 + scale(14)}, on, over);
-        const wchar_t* text = k == 2 ? L"Import an existing map" : k == 1 ? L"Generate" : L"Blank map filled with";
+        const wchar_t* text = k == 3 ? L"The terrain of a map" : k == 2 ? L"Import an existing map" : k == 1 ? L"Generate" : L"Blank map filled with";
         const draw::Rect t{x3 + scale(26), r.top, r.right, r.bottom};
         c.text(t, text, on || over ? kText : kDim, draw::kMiddle);
-        const wchar_t* tipText = k == 2 ? L"A copy of a map that you have (.scm or .scx): its terrain, units, triggers and settings"
+        const wchar_t* tipText = k == 3   ? L"The terrain, tiles and doodads of a map that you have (.scm or .scx); no units, locations or triggers"
+                                 : k == 2 ? L"A copy of a map that you have (.scm or .scx): its terrain, units, triggers and settings"
                                  : k == 1 ? L"Land, water and high ground from a seed and the settings next to the preview"
                                           : L"The terrain on the whole map";
         hitAdd(r, [this, k] {
-            copyMap = k == 2, generate = k == 1, terrainOnly = false;
+            copyMap = k == 2, generate = k == 1, terrainOnly = k == 3;
             changed();
         }, tipText);
         if (k == 0) {  // the terrain, in the same row (after the hit of the row: a click on it opens the list)
@@ -355,10 +358,12 @@ void NewPageView::paint(draw::Canvas& c) {
         }
         y = r.bottom + scale(4);
     }
-    // Import an existing map: the map's file (the copy goes into the project folder; the file stays as it is).
+    // Import an existing map or the terrain of a map: the map's file (the file stays as it is).
     if (copyMap || terrainOnly) {
         y += scale(8);
         const int bw = scale(stardraft::kit::kButtonMinW), fw = std::min(w3, scale(520));
+        const wchar_t* cue = terrainOnly ? L"The map whose terrain to use (.scm or .scx)" : L"The map to copy (.scm or .scx)";
+        if (fromMap_.placeholder() != cue) fromMap_.setPlaceholder(cue);
         placeField(fromMap_, {x3, y + scale(2), x3 + fw - bw - scale(8), y + scale(2) + fieldH}, true, 0, footerTop);
         button(c, {x3 + fw - bw, y, x3 + fw, y + scale(stardraft::kit::kButtonH)}, L"Browse\x2026", false, [this] {
             const std::wstring file = host_.pickMapFile();

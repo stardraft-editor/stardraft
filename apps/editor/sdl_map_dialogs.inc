@@ -176,7 +176,9 @@ void showQuickPickerSdl(bool replace, bool open) {
     const draw::Point size = QuickPickView::windowSize();
     const draw::Rect v = open || !gRoot->map.shown() ? draw::Rect(0, 0, gRoot->width(), gRoot->height()) : gRoot->map.frame();
     const int x = v.left + (v.width() - size.x) / 2, y = v.top + std::max(0, (v.height() - size.y) / 3);
-    gQuickViewSdl.start(gQuickHostSdl, open ? QuickPickKind::Open : QuickPickKind::Map, gState.mode, replace, false, true);
+    // In the Data workspace of a project: its entries (Go to a .dat entry), as the Windows program's; else the map's.
+    const bool data = !open && gWorkspace == Workspace::Data && activeProject();
+    gQuickViewSdl.start(gQuickHostSdl, open ? QuickPickKind::Open : data ? QuickPickKind::Data : QuickPickKind::Map, gState.mode, replace, false, true);
     gQuickHostSdl.open = true;
     gHost->openWindow(*gRoot, gQuickViewSdl, draw::WindowSpec{draw::WindowKind::Popup, draw::Rect(x, y, x + size.x, y + size.y), L""}, [] {
         gQuickHostSdl.open = false;  // a click outside closed it

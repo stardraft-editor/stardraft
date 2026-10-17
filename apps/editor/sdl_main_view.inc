@@ -86,6 +86,9 @@ extern StartView gStartView;
 extern FilesPage gFilesPage;  // (core/views_files.inc)
 extern NewPageView gNewView;  // the New page (sdl_new_page.inc)
 extern bool gNewOpen;         // the New page is open in the Map workspace (it shows in place of the start page)
+extern bool gStartOpen;       // File > New with a map open: the start page shows in place of the map
+bool newPageEscape();         // (sdl_new_page.inc: Esc closes the New page or that start page)
+bool newPageCovers();         // (sdl_new_page.inc: the New page, or the start page over the open map, holds the Map workspace)
 
 // The panes that have no view on this system yet.
 struct NotHereView final : draw::View {
@@ -372,6 +375,9 @@ struct MainView final : draw::View {
         if (e.down && !e.repeat && e.key == draw::Key::Enter && !e.mods && !typing && map.shown() && mapEnterSdl()) return true;
         // Esc while a trigger waits for a unit picked on the map: back to the triggers (the Windows cancelStep).
         if (e.down && e.key == draw::Key::Escape && trigUnitPickActive()) return trigCancelUnitPick(), true;
+        // Esc with the New page (Cancel) or the start page over the open map (File > New): the page closes. (A field of the
+        // New page that has the keyboard gives Esc to the page: core/views_new_page.inc.)
+        if (e.down && !e.repeat && e.key == draw::Key::Escape && !e.mods && newPageEscape()) return true;
         // Space on the map in Terrain mode: the pie palette while it is held (the Windows map's VK_SPACE, also with Shift);
         // its repeats do nothing more, and letting go paints with the slice's terrain, with any keys held. When the program
         // lost the keyboard (Alt+Tab: SDL lets go of the held keys), the ring closes with no change (the Windows
@@ -399,6 +405,7 @@ struct MainView final : draw::View {
         // A swipe of three fingers (macOS's Swipe between pages) that no view took: the next tab (to the left) or the
         // tab before, as Safari goes between its pages (the tabs' strip takes a two-finger swipe too: core/views_tabs.inc).
         if (e.kind == draw::MouseKind::Swipe) return swipeTabs(e.swipe), true;
+        if (splitMouse(e)) return true;
         if (e.kind != draw::MouseKind::Up || e.button != 1) return false;
         auto over = [&](const draw::View& v) { return v.shown() && v.frame().contains(e.pt); };
         const bool mini = over(minimap), tools = !mini && (over(gToolStripView) || over(modes));
@@ -420,6 +427,57 @@ struct MainView final : draw::View {
         sdlPopupMenu(*this, e.pt, sdlModelItems(dockMenuModel(mini, right, gState.mode), [](int id) { command(id); }),
                      mini ? L"the minimap" : sdlFeedbackOn(*this, e.pt, L""));
         return true;
+    }
+
+    // The side bars' drag edges (the layout's splitters: the gap between a side bar and the map, in the Map workspace):
+    // the width cursor over them; a drag with the left button changes the side's width (96-dpi pixels, kMinSideW to
+    // kMaxSideW) while the map keeps its middle in place; the release saves the width in the dock settings (core/
+    // dock_prefs.inc: saveDock), as the Windows main window's WM_LBUTTONDOWN, WM_MOUSEMOVE and WM_LBUTTONUP did.
+    draw::Rect splitters[2] = {};
+    int splitDrag = -1, splitGrab = 0;
+    int splitAt(draw::Point pt) const {
+        for (int i = 0; i < 2; ++i)
+            if (splitters[i].width() > 0 && splitters[i].contains(pt)) return i;
+        return -1;
+    }
+    draw::Cursor cursor(draw::Point pt) override { return splitDrag >= 0 || splitAt(pt) >= 0 ? draw::Cursor::SizeWE : draw::Cursor::Arrow; }
+    bool splitMouse(const draw::MouseEvent& e) {
+        if (e.kind == draw::MouseKind::Down && e.button == 0 && splitDrag < 0) {
+            const int i = splitAt(e.pt);
+            if (i < 0) return false;
+            splitDrag = i, splitGrab = e.pt.x;
+            if (draw::Host* h = host()) h->capture(*this, true);
+            return true;
+        }
+        if (splitDrag < 0) return false;
+        if (e.kind == draw::MouseKind::Move) {
+            const int dpi = int(gDpi), dx = MulDiv(e.pt.x - splitGrab, 96, dpi);
+            int& w = splitDrag == 0 ? gDock.leftW : gDock.rightW;
+            const int nw = std::clamp(w + (splitDrag == 0 ? dx : -dx), kMinSideW, kMaxSideW);
+            if (nw != w) {
+                splitGrab += MulDiv(splitDrag == 0 ? nw - w : w - nw, dpi, 96);
+                const float z = gState.zoom > 0 ? gState.zoom : 1.0f;
+                const float cx = gState.camX + float(map.width()) / 2.0f / z, cy = gState.camY + float(map.height()) / 2.0f / z;
+                w = nw;
+                relayout();
+                gState.camX = cx - float(map.width()) / 2.0f / z, gState.camY = cy - float(map.height()) / 2.0f / z;
+                gState.dirty = true;
+                map.invalidate();
+            }
+            return true;
+        }
+        if (e.kind == draw::MouseKind::Up && e.button == 0) {
+            splitDrag = -1;
+            if (draw::Host* h = host()) h->capture(*this, false);
+            saveDock();
+            return true;
+        }
+        return true;  // (another button while the edge is held)
+    }
+    void captureLost() override {
+        if (splitDrag < 0) return;
+        splitDrag = -1;
+        saveDock();
     }
 
     // The map's own keys (the Windows map's WM_KEYDOWN; the core's functions, core/map_input.inc): Esc stops the step
@@ -496,8 +554,8 @@ struct MainView final : draw::View {
         const bool mapOpen = gState.ed && gState.ed->isOpen();
         // The New page is open in the Map workspace: it shows in place of the start page or the map (as a tab does).
         const bool newShown = gNewOpen && gWorkspace == Workspace::Map;
-        const bool mapWs = gWorkspace == Workspace::Map && mapOpen && !newShown;
-        const bool startShown = gWorkspace == Workspace::Map && !mapOpen && !newShown;
+        const bool startShown = gWorkspace == Workspace::Map && (!mapOpen || gStartOpen) && !newShown;  // (File > New over a map)
+        const bool mapWs = gWorkspace == Workspace::Map && mapOpen && !newShown && !startShown;
         in.mapWs = mapWs;
         in.toolStrip = [](int width) { return toolStripHeight(width, false); };
         in.modeBarH = 0, in.modeBar = modeBarRect();  // (the modes are in the top bar)
@@ -513,6 +571,7 @@ struct MainView final : draw::View {
         in.hasPal2 = true;
         in.pal2Shown = gPal2Shown, in.pal2Mode = gPal2Mode;
         const MainLayout L = computeLayout(in);
+        for (int i = 0; i < 2; ++i) splitters[i] = mapWs ? draw::Rect(L.splitters[i]) : draw::Rect{};
         // The state the layout sets (as the Win32 layout): the sides' tabs, the second palette's mode and its shown state.
         gPanelTab[0] = L.panelTab[0], gPanelTab[1] = L.panelTab[1];
         gPal2Shown = L.palette2.visible;
@@ -603,7 +662,7 @@ struct MainView final : draw::View {
 // The Tiles panel shows in the palette's place while Rectangle mode is on (the core calls this when the tool or the mode
 // changes): the panes are placed again when that changes.
 void tilesSync() {
-    if (gRoot && gTilesShown != (tilesOn() && !gNewOpen)) gRoot->relayout();
+    if (gRoot && gTilesShown != (tilesOn() && !gNewOpen && !gStartOpen)) gRoot->relayout();
     if (gTilesShown) tilesFresh(), gTilesGrid.invalidate();
 }
 

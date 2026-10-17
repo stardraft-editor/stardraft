@@ -230,6 +230,7 @@ bool sdlRuns(int id) {
     case ID_OPT_SNAPVALID:
     case ID_OPT_ILLEGAL:
     case ID_OPT_STACK:
+    case ID_OPT_SNAPBUILDINGS:
     case ID_OPT_DRAGBACK:
     case ID_OPT_ANIMATE:
     case ID_DOODAD_FIT:
@@ -258,6 +259,15 @@ bool sdlRuns(int id) {
 bool sdlEnabled(int id) {
     if (!sdlRuns(id)) return false;
     if (mapCommand(id) && !docOpen()) return false;
+    if (!editInWorkspace(id)) return false;  // (the map's Edit commands in another workspace: core/commands_core.inc)
+    // The start page or the New page over the open map (File > New, the tabs' +): the map's commands are gray, as on the
+    // Windows program's page tabs (a Delete or Paste would change the map nobody sees).
+    if (mapCommand(id) && (gStartOpen || gNewOpen) && gWorkspace == Workspace::Map) return false;
+    // ...and the other workspaces (the side bar's items, Ctrl+1 to 9, View and Scenario's pages): the page stays until
+    // Create or Cancel.
+    if (newPageCovers() && ((id > ID_WS_MAP && id <= ID_WS_FILES) || id == ID_SCEN_PROPS || id == ID_SCEN_PLAYERS || id == ID_SCEN_CLASSIC ||
+                            id == ID_SCEN_CLASSICTRIG))
+        return false;
     if (id == ID_PROJ_COMPILE && gBuilding) return false;  // (a build runs)
     if (mapMenuGrayed(id)) return false;                    // (Paste with no copy: core/map_edit_commands.inc)
     return commandForMode(id, projectMode());
@@ -597,8 +607,11 @@ void sdlImeText(const std::string& spec) {
 // then Undo, gives the units back): the units, the doodads, the selection (the first selected unit's place) and the
 // status bar's text ("no map" in place of the counts when no map is open); then, on a line of its own, what the
 // workspace holds (sdl_shot_state.inc: the map's parts, the Data entry's changed values, the selected trigger's
-// blocks...). This is the only state line.
+// blocks...). This is the only state line. Then a line "  ui: ..." with the window's own parts (sdl_shot_state.inc:
+// sdlShotUi: the page shown, the side bars' widths, the cursor, the New page's choices).
 std::string sdlShotState();
+std::string sdlShotUi();
+draw::Point gShotMouse{-1, -1};  // where the last --click, --drag or --move left the mouse (the ui line's cursor)
 void sdlInputLine(const std::string& what) {
     if (!gState.ed || !gState.ed->isOpen()) {
         std::printf("%s: no map: %s\n", what.c_str(), narrow(gState.message).c_str());
@@ -612,6 +625,7 @@ void sdlInputLine(const std::string& what) {
                     first.c_str(), narrow(gState.message).c_str());
     }
     if (const std::string state = sdlShotState(); !state.empty()) std::printf("  state: %s\n", state.c_str());
+    std::printf("  ui: %s\n", sdlShotUi().c_str());
 }
 
 void sdlMouseShot(const std::string& spec, char kind);
@@ -711,6 +725,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
         e.button.button = SDL_BUTTON_LEFT, e.button.down = down, e.button.clicks = clicks, e.button.x = x, e.button.y = y;
         events.push_back(e);
     };
+    gHost->snapshotLayout(*gRoot);  // (the window paints between a user's inputs: the views are placed, a page's fields too)
     move(float(x0), float(y0), false);
     if (!moveOnly) {
         button(true, float(x0), float(y0));
@@ -745,6 +760,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
     gHost->snapshotMouse(*gRoot, events);
     SDL_SetModState(before);
     runPosted();
+    gShotMouse = {x1, y1};
     sdlInputLine(name + spec);
 }
 
@@ -882,7 +898,8 @@ void sdlCommandShot(const std::string& name) {
     static const std::pair<const char*, int> kNames[] = {{"view.towns", ID_VIEW_TOWNS}, {"view.log", ID_VIEW_LOG}, {"scen.check", ID_SCEN_CHECK},
                                                          {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO},
                                                          {"project.open", ID_PROJ_OPEN}, {"project.addscript", ID_PROJ_ADDSCRIPT},
-                                                         {"file.exit", ID_FILE_EXIT}, {"options.restart", ID_OPT_RESTART}};
+                                                         {"file.exit", ID_FILE_EXIT}, {"options.restart", ID_OPT_RESTART},
+                                                         {"options.unitsnap.tiles", ID_SNAP_UNITS + 1}};  // (Options > Units > Snap to tiles)
     int id = -1;
     for (const auto& [native, cmd] : gCommandIds)
         if (cmd == name) id = native;

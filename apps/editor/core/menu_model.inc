@@ -155,6 +155,9 @@ MenuModel buildMenuModel() {
     };
     MenuModel units, doodads, sprites, locations;
     append(units, snapItems(ID_SNAP_UNITS));
+    units.pop_back();  // (the separator goes after the buildings' snap)
+    units.push_back(menuItem(ID_OPT_SNAPBUILDINGS, L"Snap &buildings to tile edges"));
+    units.push_back(menuSeparator());
     append(units, placeItems(ID_OPT_STRICT, ID_OPT_SNAPVALID, ID_OPT_ILLEGAL));
     units.push_back(menuItem(ID_OPT_STACK, L"&Can be on top of others"));
     units.push_back(menuItem(ID_OPT_DRAGBACK, L"Dragged units go &back to the last place where they fit"));
