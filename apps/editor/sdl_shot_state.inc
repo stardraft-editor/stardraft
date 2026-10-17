@@ -120,7 +120,7 @@ std::string shotMapState() {
     // The selected location's edges as it has them (an inverted one: left more than right, or top more than bottom), and
     // Location properties' type line while it is open.
     s += " edges=" + (loc >= 0 && ed.locationUsed(loc) ? box(ed.locationEdges(loc)) : std::string("-"));
-    if (gLocPropsShown) s += " locprops=" + quoted(narrow(gLocPropsShown->typeText()));
+    if (gLocPropsShown) s += " locprops=" + quoted(narrow(gLocPropsShown->typeText())) + " locedges=" + narrow(gLocPropsShown->edgesText());
     float wx = 0, wy = 0;
     toWorld(app.mouseX, app.mouseY, wx, wy);
     s += " paste=";

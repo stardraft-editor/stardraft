@@ -364,10 +364,8 @@ public:
     // location keeps its edges (it is always the whole map). Edges equal to locationRect(i) keep the location as it
     // is (an inverted location stays inverted). Returns false when nothing changed or the edges are wrong (`error`
     // then says why; nothing changed).
-    // asTyped: `rect` is the edges as the location gets them (Location properties): left more than right inverts it
-    // left and right, top more than bottom inverts it top and bottom. Each edge must be in the map (0 to its width or
-    // height in pixels), and left and right (top and bottom) must be different (edges equal to locationEdges(i) stay as
-    // they are); invertedAxes is not used.
+    // asTyped: `rect` is the edges as the location gets them (Location properties), with no limit but 0: left more
+    // than right inverts it left and right, top more than bottom inverts it top and bottom; invertedAxes is not used.
     struct LocationEdit {
         std::string name;
         Rect rect;

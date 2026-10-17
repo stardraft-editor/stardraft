@@ -362,12 +362,15 @@ CASES += [
     # (its Turn Radius is typed, as on Windows); the weapon's ranges have their handles.
     ("data-turn-nohandle", ["--newproject", "{newdir}", "--workspace", "data", "--data", "flingy:0", "--move", "10,10"], "data"),
     ("data-range-handles", ["--newproject", "{newdir}", "--workspace", "data", "--data", "weapons:0", "--move", "10,10"], "data"),
-    # Location properties: the edges typed as they are (Left 800 more than Right 200: inverted left and right; then
-    # Bottom 100 less than Top 300: inverted on both), the type line under them says it; OK puts the edges in as typed,
-    # and Undo takes them back. The dialog's inputs' lines come before Enter's (the key that opened it).
-    ("map-location-inverted", ["--mode", "locations", "--drag", "520,640-600,700", "--key", "Enter", "--key", "Tab", "--key", "Ctrl+A",
-                               "--type", "800", "--key", "Tab", "--key", "Ctrl+A", "--type", "300", "--key", "Tab", "--key", "Ctrl+A",
-                               "--type", "200", "--key", "Tab", "--key", "Ctrl+A", "--type", "100", "--key", "Enter", "--key", "Ctrl+Z"], "map"),
+    # Location properties, both ways: the edges typed freely set the Type list (0,0,32,32: Normal; 64 in Left: inverted
+    # left and right), and a type picked in the list (Up, Down: the list has the keyboard) swaps the edges to give it,
+    # with the same numbers (Normal: 32,0,64,32; inverted left and right: 64,0,32,32; inverted top and bottom:
+    # 32,32,64,0). OK puts the edges in as they are; Undo takes them back. The dialog's inputs' lines come before
+    # Enter's (the key that opened it).
+    ("map-location-inverted", ["--mode", "locations", "--drag", "520,640-600,700", "--key", "Enter"] +
+     [a for v in ["0", "0", "32", "32"] for a in ("--key", "Tab", "--key", "Ctrl+A", "--type", v)] +
+     ["--key", "Shift+Tab"] * 3 + ["--key", "Ctrl+A", "--type", "64"] + ["--key", "Tab"] * 4 +
+     ["--key", "Up", "--key", "Down", "--key", "Down", "--key", "Shift+Tab", "--key", "Enter", "--key", "Ctrl+Z"], "map"),
     # A list picker's search box takes typing (Unit size of the Marine's Data form), with the keys and the text as SDL
     # gives them on Windows (--keysfromopener: from the main window under the pop-out): the typed letters filter the
     # rows, Korean through the input method (its composition, then the text), Backspace takes a letter back, Esc closes it.
@@ -1197,18 +1200,22 @@ def check_range_handles(output):
 
 
 def check_location_inverted(output):
-    """None when the type line followed the typed edges, OK put them in as typed and Undo took them back."""
+    """None when the Type list followed the typed edges, a picked type swapped the edges (the same numbers), OK put
+    them in as they were and Undo took them back."""
     s = steps(output)
     by = {st["input"]: st for st in s}
-    typed = [st for st in s if st["input"].startswith("type ")]
-    if len(typed) != 4:
-        return f"{len(typed)} typed edges, not 4"
-    types = [st.get("locprops") for st in typed]
-    if types != ["Normal", "Normal", "Inverted left and right", "Inverted on both"]:
-        return f"the type line after each edge: {types}"
+    typed = [(st.get("locedges"), st.get("locprops")) for st in s if st["input"].startswith("type ")]
+    want = [("0,2592,928,2880", "Normal"), ("0,0,928,2880", "Normal"), ("0,0,32,2880", "Normal"), ("0,0,32,32", "Normal"),
+            ("64,0,32,32", "Inverted left and right")]
+    if typed != want:
+        return f"the edges and the Type list after each typed edge: {typed}"
+    picked = [(st.get("locedges"), st.get("locprops")) for st in s if st["input"] in ("key Up", "key Down")]
+    want = [("32,0,64,32", "Normal"), ("64,0,32,32", "Inverted left and right"), ("32,32,64,0", "Inverted top and bottom")]
+    if picked != want:
+        return f"the edges after each type picked in the list: {picked}"
     enter = [st for st in s if st["input"] == "key Enter"]
-    if len(enter) != 2 or enter[1].get("edges") != "800,300,200,100" or "locprops" in enter[1]:
-        return f"after OK: edges {enter[-1].get('edges') if enter else None} (not 800,300,200,100 as typed)"
+    if len(enter) != 2 or enter[1].get("edges") != "32,32,64,0" or "locprops" in enter[1]:
+        return f"after OK: edges {enter[-1].get('edges') if enter else None} (not 32,32,64,0 as in the dialog)"
     undo = by.get("key Ctrl+Z")
     if not undo or undo.get("edges") != s[0].get("edges"):
         return f"Undo: edges {undo.get('edges') if undo else None}, not {s[0].get('edges')}"

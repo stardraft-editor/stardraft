@@ -1,7 +1,8 @@
 // Location properties (double-click a location, Enter, or double-click its row; portable, core.inc): the name, the
-// edges in pixels as the location has them (Left, Top, Right, Bottom, each in the map; left more than right inverts it
-// left and right, top more than bottom inverts it top and bottom), a line with its type (Normal or which inversion) and
-// the elevations in the location (MRGN flags). OK sets all of them as one undo step
+// edges in pixels as the location has them (Left, Top, Right, Bottom, typed freely: left more than right inverts it
+// left and right, top more than bottom inverts it top and bottom), the Type list (Normal or which inversion: it shows
+// the type the edges give, and a type picked in it swaps the edges to give it) and the elevations in the location (MRGN
+// flags). OK sets all of them as one undo step
 // (Editor::editLocation). The dialog is a kit Dialog (Host::runModal); the host (main.cpp: showLocationEdit on Windows)
 // selects the location, sets the owner window and refreshes the list after it.
 
@@ -11,22 +12,20 @@ constexpr int kLocPropsOk = 1, kLocPropsCancel = 2;
 const wchar_t* const kElevationNames[6] = {L"Low ground", L"Medium ground", L"High ground", L"Low air", L"Medium air", L"High air"};
 const wchar_t* const kEdgeNames[4] = {L"Left", L"Top", L"Right", L"Bottom"};
 
-// The type line of a location's edges (as the location has them): which edges are inverted.
-inline const wchar_t* locationTypeText(const Rect& edges) {
-    const bool lr = edges.left > edges.right, tb = edges.top > edges.bottom;
-    return lr && tb ? L"Inverted on both" : lr ? L"Inverted left and right" : tb ? L"Inverted top and bottom" : L"Normal";
-}
+// The Type list's items: the axes on which a location's edges are inverted (1 left and right, 2 top and bottom).
+const wchar_t* const kLocationTypes[4] = {L"Normal", L"Inverted left and right", L"Inverted top and bottom", L"Inverted on both"};
+inline int locationTypeOf(const Rect& edges) { return (edges.left > edges.right ? 1 : 0) | (edges.top > edges.bottom ? 2 : 0); }
 
-// The size line, the type line and the error line for the edges as typed (each a number of up to 9 digits, or not a
-// number). `start`: the edges when the dialog opened (they are right as they are, also out of the map); `mapW`, `mapH`:
-// the map's size in pixels (each edge is 0 to it). The error is empty when the edges are right; the size line is then
-// the size in pixels and in tiles, else a dash.
+// The size line and the error line for the edges as typed (each a number of up to 9 digits, or not a number), and the
+// type they give (locationTypeOf; -1: not numbers). The error is empty when the edges are numbers; the size line is
+// then the size in pixels and in tiles, else a dash.
 struct LocPropsCheck {
     bool ok = false;
     Rect rect;  // the edges as typed (not put in order)
-    std::wstring size, type, error;
+    int type = -1;
+    std::wstring size, error;
 };
-inline LocPropsCheck locPropsCheck(const std::wstring (&edges)[4], const Rect& start, int mapW, int mapH) {
+inline LocPropsCheck locPropsCheck(const std::wstring (&edges)[4]) {
     LocPropsCheck c;
     int v[4];
     bool numbers = true;
@@ -35,20 +34,7 @@ inline LocPropsCheck locPropsCheck(const std::wstring (&edges)[4], const Rect& s
         else v[k] = int(std::wcstol(edges[k].c_str(), nullptr, 10));
     }
     if (!numbers) c.error = L"Type a number in each edge";
-    else {
-        c.rect = {v[0], v[1], v[2], v[3]};
-        const bool same = c.rect.left == start.left && c.rect.top == start.top && c.rect.right == start.right && c.rect.bottom == start.bottom;
-        auto in = [](int e, int most) { return e >= 0 && e <= most; };
-        if (same) {  // (as the location has them: right)
-        } else if (!in(c.rect.left, mapW) || !in(c.rect.right, mapW) || !in(c.rect.top, mapH) || !in(c.rect.bottom, mapH)) {
-            c.error = L"Each edge must be in the map";
-        } else if (c.rect.left == c.rect.right) {
-            c.error = L"Left and right must be different";
-        } else if (c.rect.top == c.rect.bottom) {
-            c.error = L"Top and bottom must be different";
-        }
-    }
-    c.type = numbers ? locationTypeText(c.rect) : L"\x2014";
+    else c.rect = {v[0], v[1], v[2], v[3]}, c.type = locationTypeOf(c.rect);
     if (c.error.empty()) {
         const int w = std::abs(c.rect.right - c.rect.left), h = std::abs(c.rect.bottom - c.rect.top);
         auto tiles = [](int px) {
@@ -94,9 +80,10 @@ constexpr int kErrorW = kContentW - 2 * 88 - 8 - 8;        // the error line: up
 
 class LocationPropsView final : public draw::View {
 public:
-    // `edges`: the location's edges as it has them (Editor::locationEdges); `mapW`, `mapH`: the map's size in pixels.
-    LocationPropsView(const std::wstring& name, const Rect& edges, uint16_t excluded, int mapW, int mapH, bool focusName)
-        : start_(edges), mapW_(mapW), mapH_(mapH), focusName_(focusName) {
+    // `edges`: the location's edges as it has them (Editor::locationEdges). The Anywhere location keeps its edges (its
+    // Type list is off).
+    LocationPropsView(const std::wstring& name, const Rect& edges, uint16_t excluded, bool anywhere, bool focusName)
+        : focusName_(focusName) {
         using stardraft::kit::LabelTone;
         auto label = [&](stardraft::kit::Label& l, const wchar_t* t) {
             l.setText(tr(t)), l.setTone(LabelTone::Dim);  // (the native labels were the dim color)
@@ -121,10 +108,15 @@ public:
         label(labels_[5], L"Size");
         size_.setTone(LabelTone::Dim);
         add(size_, {0, 0, 0, 0});
-        // The type (read only): Normal, or the edges that are inverted (an inverted location holds air units only), from
-        // the edges as typed.
+        // Type: Normal, or the edges that are inverted (an inverted location holds air units only). It follows the
+        // edges as they are typed; a type picked in it swaps the edges (their numbers stay) to give that type.
         label(labels_[6], L"Type");
-        type_.setTone(LabelTone::Dim);
+        std::vector<stardraft::kit::DropdownItem> types;
+        for (const wchar_t* t : kLocationTypes) types.push_back({tr(t), -1, -1});
+        type_.setItems(types);
+        type_.setValue(locationTypeOf(edges));
+        type_.setEnabled(!anywhere);
+        type_.onChange = [this](int t) { pickType(t); };
         add(type_, {0, 0, 0, 0});
         for (int k = 0; k < 6; ++k) {
             elev_[k].setLabel(tr(kElevationNames[k]));
@@ -162,7 +154,12 @@ public:
         check();
     }
     stardraft::kit::CheckBox& elevationBox(int k) { return elev_[k]; }
-    const std::wstring& typeText() const { return type_.text(); }
+    stardraft::kit::Dropdown& typeList() { return type_; }
+    std::wstring edgesText() const { return edge_[0].text() + L"," + edge_[1].text() + L"," + edge_[2].text() + L"," + edge_[3].text(); }
+    std::wstring typeText() const {
+        const int t = type_.value();
+        return t >= 0 && t < int(type_.items().size()) ? type_.items()[size_t(t)].label : L"";
+    }
     bool okOn() const { return valid_; }
     void press(int result) {
         if (dlg_ && (result != kLocPropsOk || valid_)) dlg_->close(result);
@@ -175,7 +172,7 @@ public:
             const draw::Rect f = v.frame();
             return v.visible() && pt.x >= f.left && pt.x < f.right && pt.y >= f.top && pt.y < f.bottom;
         };
-        if (in(type_)) return type_.text();
+        if (in(type_)) return typeText();
         if (in(labels_[0]) || in(name_)) return labels_[0].text();
         for (int k = 0; k < 4; ++k)
             if (in(labels_[1 + k]) || in(edge_[k])) return labels_[1 + k].text();
@@ -221,20 +218,38 @@ private:
     void check() {
         std::wstring t[4];
         for (int k = 0; k < 4; ++k) t[k] = edge_[k].text();
-        const LocPropsCheck c = locPropsCheck(t, start_, mapW_, mapH_);
+        const LocPropsCheck c = locPropsCheck(t);
         valid_ = c.ok, rect_ = c.rect;
         size_.setText(c.size);
-        type_.setText(tr(c.type));
+        if (c.type >= 0) type_.setValue(c.type);  // (the list follows the edges; setValue does not call onChange)
         error_.setText(tr(c.error));
         if (dlg_) dlg_->setEnabledFor(kLocPropsOk, valid_);
     }
 
+    // A type picked in the list: the edges swap where they must to give it (left and right, top and bottom); their
+    // numbers stay. Edges that are the same cannot be inverted: the list shows the type they give.
+    void pickType(int t) {
+        const LocPropsCheck c = [&] {
+            std::wstring e[4];
+            for (int k = 0; k < 4; ++k) e[k] = edge_[k].text();
+            return locPropsCheck(e);
+        }();
+        if (c.type < 0) return check();
+        auto swapEdges = [this](int a, int b) {
+            const std::wstring x = edge_[a].text();
+            edge_[a].setText(edge_[b].text()), edge_[b].setText(x);
+        };
+        if (((t & 1) != 0) != (c.rect.left > c.rect.right) && c.rect.left != c.rect.right) swapEdges(0, 2);
+        if (((t & 2) != 0) != (c.rect.top > c.rect.bottom) && c.rect.top != c.rect.bottom) swapEdges(1, 3);
+        check();
+    }
+
     stardraft::kit::Dialog* dlg_ = nullptr;
-    stardraft::kit::Label labels_[7], size_, type_, error_;
+    stardraft::kit::Label labels_[7], size_, error_;
     stardraft::kit::TextField name_, edge_[4];
+    stardraft::kit::Dropdown type_;
     stardraft::kit::CheckBox elev_[6];
-    Rect rect_, start_;
-    int mapW_ = 0, mapH_ = 0;
+    Rect rect_;
     bool valid_ = false, focusName_ = true, focused_ = false;
 };
 
@@ -262,7 +277,7 @@ inline draw::Point locPropsDialogSetup(stardraft::kit::Dialog& dlg, LocationProp
 inline LocationPropsView* gLocPropsShown = nullptr;  // the dialog while it is open (a snapshot's state line says its type line)
 inline int runLocationPropsDialog(draw::View& from, Editor& ed, int loc, bool focusName, LocationPropsView*& shown) {
     using namespace locPropsLayout;
-    LocationPropsView view(widen(ed.locationName(loc)), ed.locationEdges(loc), ed.locationElevation(loc), ed.width() * 32, ed.height() * 32, focusName);
+    LocationPropsView view(widen(ed.locationName(loc)), ed.locationEdges(loc), ed.locationElevation(loc), loc == kAnywhereLocation, focusName);
     stardraft::kit::Dialog dlg;
     const draw::Point size = locPropsDialogSetup(dlg, view);
     shown = gLocPropsShown = &view;

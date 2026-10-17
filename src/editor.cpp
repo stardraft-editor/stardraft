@@ -2630,16 +2630,9 @@ bool Editor::editLocation(int i, const LocationEdit& edit, std::string* error) {
     const int axes = edit.invertedAxes >= 0 && i != kAnywhereLocation ? (edit.invertedAxes & 3) : locationInvertedAxes(i);
     if (edit.asTyped) {  // the edges as they are (an inverted location: left more than right, or top more than bottom)
         const Rect& r = edit.rect;
-        const Rect now = locationEdges(i);  // (the edges as they are stay as they are, also when a map has them out of range)
-        if (i != kAnywhereLocation && !(r.left == now.left && r.top == now.top && r.right == now.right && r.bottom == now.bottom)) {
-            const int w = int(width_) * 32, h = int(height_) * 32;
-            auto in = [](int v, int most) { return v >= 0 && v <= most; };
-            if (!in(r.left, w) || !in(r.right, w) || !in(r.top, h) || !in(r.bottom, h)) {
-                if (error) *error = "Each edge must be in the map";
-                return false;
-            }
-            if (r.left == r.right || r.top == r.bottom) {
-                if (error) *error = r.left == r.right ? "Left and right must be different" : "Top and bottom must be different";
+        if (i != kAnywhereLocation) {
+            if (r.left < 0 || r.top < 0 || r.right < 0 || r.bottom < 0) {
+                if (error) *error = "An edge is less than 0";
                 return false;
             }
             l.left = uint32_t(r.left), l.top = uint32_t(r.top), l.right = uint32_t(r.right), l.bottom = uint32_t(r.bottom);
