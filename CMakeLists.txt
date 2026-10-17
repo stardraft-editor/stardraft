@@ -87,6 +87,7 @@ add_library(stardraft
     src/wireframes.cpp
     src/triggers.cpp
     src/editor.cpp
+    src/editor_history.cpp
     src/new_map.cpp
     src/terrain_gen.cpp
     src/pathing.cpp

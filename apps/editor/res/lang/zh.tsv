@@ -2046,3 +2046,68 @@ Download the new AppImage?	下载新的 AppImage？
 &Download	下载(&D)
 Update StarDraft 2 in your software center.	请在软件中心更新 StarDraft 2。
 Download it? The download opens in the browser.	要下载吗？下载将在浏览器中打开。
+# Edit > Undo history: the steps' names
+Undo &history…\tCtrl+Shift+H	撤销历史记录(&H)…\tCtrl+Shift+H
+Search the steps	搜索步骤
+Start of the history	历史记录的开头
+There are no steps to undo or redo	没有可以撤销或重做的步骤
+Undo: %s	撤销：%s
+Redo: %s	重做：%s
+Undo: %d steps	撤销：%d 个步骤
+Redo: %d steps	重做：%d 个步骤
+Add %s	添加 %s
+Delete %s	删除 %s
+Rename %s	重命名 %s
+Change %s	更改 %s
+Move %s	移动 %s
+Change the triggers	更改触发器
+%s: Add %s	%s：添加 %s
+%s: Delete %s	%s：删除 %s
+%s: Change %s	%s：更改 %s
+%s: Move the blocks	%s：移动方块
+Change the data	更改数据
+Change the map size	更改地图大小
+Change the tileset	更改图块集
+Change the terrain (%d tiles)	更改地形（%d 个图块）
+Change the briefings	更改简报
+Change the players and forces	更改玩家和队伍
+Change the unit settings	更改单位设置
+Change the upgrade settings	更改升级设置
+Change the technology settings	更改科技设置
+Change the unit properties of the triggers	更改触发器的单位属性
+Change the switch names	更改开关名称
+Change the sound files	更改声音文件
+Change the scenario name and description	更改场景名称和描述
+Change the fog of war	更改战争迷雾
+Change the texts	更改文本
+Change the map	更改地图
+Add 1 doodad	添加 1 个装饰物
+Add %d doodads	添加 %d 个装饰物
+Delete 1 doodad	删除 1 个装饰物
+Delete %d doodads	删除 %d 个装饰物
+Move 1 doodad	移动 1 个装饰物
+Move %d doodads	移动 %d 个装饰物
+Change 1 doodad	更改 1 个装饰物
+Change %d doodads	更改 %d 个装饰物
+Add 1 sprite	添加 1 个精灵
+Add %d sprites	添加 %d 个精灵
+Delete 1 sprite	删除 1 个精灵
+Delete %d sprites	删除 %d 个精灵
+Move 1 sprite	移动 1 个精灵
+Move %d sprites	移动 %d 个精灵
+Change 1 sprite	更改 1 个精灵
+Change %d sprites	更改 %d 个精灵
+Add 1 unit	添加 1 个单位
+Add %d units	添加 %d 个单位
+Delete 1 unit	删除 1 个单位
+Delete %d units	删除 %d 个单位
+Move 1 unit	移动 1 个单位
+Move %d units	移动 %d 个单位
+Change 1 unit	更改 1 个单位
+Change %d units	更改 %d 个单位
+Add 1 location	添加 1 个位置
+Add %d locations	添加 %d 个位置
+Delete 1 location	删除 1 个位置
+Delete %d locations	删除 %d 个位置
+Change 1 location	更改 1 个位置
+Change %d locations	更改 %d 个位置

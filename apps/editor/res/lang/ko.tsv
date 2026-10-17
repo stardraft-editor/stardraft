@@ -2046,3 +2046,68 @@ Download the new AppImage?	새 AppImage를 다운로드하시겠습니까?
 &Download	다운로드(&D)
 Update StarDraft 2 in your software center.	소프트웨어 센터에서 StarDraft 2를 업데이트하십시오.
 Download it? The download opens in the browser.	다운로드하시겠습니까? 다운로드가 브라우저에서 열립니다.
+# Edit > Undo history: the steps' names
+Undo &history…\tCtrl+Shift+H	실행 취소 기록(&H)…\tCtrl+Shift+H
+Search the steps	단계 검색
+Start of the history	기록의 시작
+There are no steps to undo or redo	실행 취소하거나 다시 실행할 단계가 없습니다
+Undo: %s	실행 취소: %s
+Redo: %s	다시 실행: %s
+Undo: %d steps	실행 취소: %d단계
+Redo: %d steps	다시 실행: %d단계
+Add %s	%s 추가
+Delete %s	%s 삭제
+Rename %s	%s 이름 바꾸기
+Change %s	%s 변경
+Move %s	%s 이동
+Change the triggers	트리거 변경
+%s: Add %s	%s: %s 추가
+%s: Delete %s	%s: %s 삭제
+%s: Change %s	%s: %s 변경
+%s: Move the blocks	%s: 블록 이동
+Change the data	데이터 변경
+Change the map size	맵 크기 변경
+Change the tileset	타일셋 변경
+Change the terrain (%d tiles)	지형 변경 (타일 %d개)
+Change the briefings	브리핑 변경
+Change the players and forces	플레이어와 포스 변경
+Change the unit settings	유닛 설정 변경
+Change the upgrade settings	업그레이드 설정 변경
+Change the technology settings	기술 설정 변경
+Change the unit properties of the triggers	트리거의 유닛 속성 변경
+Change the switch names	스위치 이름 변경
+Change the sound files	사운드 파일 변경
+Change the scenario name and description	시나리오 이름과 설명 변경
+Change the fog of war	전장의 안개 변경
+Change the texts	텍스트 변경
+Change the map	맵 변경
+Add 1 doodad	장식물 1개 추가
+Add %d doodads	장식물 %d개 추가
+Delete 1 doodad	장식물 1개 삭제
+Delete %d doodads	장식물 %d개 삭제
+Move 1 doodad	장식물 1개 이동
+Move %d doodads	장식물 %d개 이동
+Change 1 doodad	장식물 1개 변경
+Change %d doodads	장식물 %d개 변경
+Add 1 sprite	스프라이트 1개 추가
+Add %d sprites	스프라이트 %d개 추가
+Delete 1 sprite	스프라이트 1개 삭제
+Delete %d sprites	스프라이트 %d개 삭제
+Move 1 sprite	스프라이트 1개 이동
+Move %d sprites	스프라이트 %d개 이동
+Change 1 sprite	스프라이트 1개 변경
+Change %d sprites	스프라이트 %d개 변경
+Add 1 unit	유닛 1개 추가
+Add %d units	유닛 %d개 추가
+Delete 1 unit	유닛 1개 삭제
+Delete %d units	유닛 %d개 삭제
+Move 1 unit	유닛 1개 이동
+Move %d units	유닛 %d개 이동
+Change 1 unit	유닛 1개 변경
+Change %d units	유닛 %d개 변경
+Add 1 location	위치 1개 추가
+Add %d locations	위치 %d개 추가
+Delete 1 location	위치 1개 삭제
+Delete %d locations	위치 %d개 삭제
+Change 1 location	위치 1개 변경
+Change %d locations	위치 %d개 변경

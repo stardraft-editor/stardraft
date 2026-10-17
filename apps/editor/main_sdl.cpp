@@ -170,6 +170,7 @@ bool gKeysFromOpener = false;
 #include "sdl_tips.inc"  // the hover tooltips (core/views_tip.inc)
 #include "sdl_build.inc"  // Build's parts of this system (core/project_build.inc)
 #include "sdl_triggers.inc"  // the Triggers workspace (the tree, the pane and the block picker are core/views_triggers_*.inc; the model core/triggers_model.inc)
+#include "sdl_history.inc"  // Undo, Redo and Edit > Undo history (the model is core/undo_history.inc)
 #include "sdl_shot_state.inc"  // a snapshot's input lines: what the workspace holds after each input
 #include "sdl_updates.inc"  // Help > Check for updates, the crash reports' choice (core/releases.inc)
 #include "sdl_dock.inc"  // the Dock and Finder (macOS), the sounds dropped in the Assets workspace
