@@ -1,6 +1,6 @@
 // The Map workspace's Edit and Options commands (portable, core.inc; moved from main.cpp's commandBody): copy, cut,
 // paste, duplicate, delete and select all of the active mode, the snap and place rules of each kind, the terrain copy,
-// View > Grid size and the town areas, the player keys (1 to 0), the tool keys (V, B, A, F), the side bar's keys
+// View > Grid size and the town areas, the player keys (1 to 0; in Terrain mode they pick a terrain), the tool keys (V, B, A, F), the side bar's keys
 // (Ctrl+1 to Ctrl+9), File > Close and Close all, the next and previous tab, and Help > Report an issue. Both programs'
 // command() call commandMapEdit after commandPortable. mapMenuCheck and mapMenuGrayed are these items' checks and gray
 // rules for both programs' menus, and kProgramKeys is the keys of the commands (both programs' accelerators).
@@ -238,6 +238,19 @@ bool commandMapEdit(AppState& app, int id) {
         // selected (Units mode), it gives them to that player and nothing else changes. With neither, it
         // picks the player for the next placement.
         const int player = id - ID_PLAYER_1;
+        // Terrain mode: the key picks the palette's terrain at that place (1 the first, 0 the tenth; the headers do not
+        // count), as a click on its row does.
+        if (app.ed && app.mode == Mode::Terrain) {
+            int nth = 0;
+            for (size_t i = 0; i < app.items.size(); ++i)
+                if (app.items[i] >= 0 && nth++ == player) {
+                    pickUnit(app, app.items[i], false);
+                    setListSel(int(i));
+                    shellPaletteReveal(app.items[i]);
+                    return true;
+                }
+            return true;  // (fewer terrains listed: the key does nothing)
+        }
         const bool placing = app.palette >= 0;
         if (app.ed && app.mode == Mode::Units && !placing && !app.ed->selection().empty()) {
             const size_t selected = app.ed->selection().size();

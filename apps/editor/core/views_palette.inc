@@ -48,6 +48,17 @@ struct PaletteGridView : draw::View {
         invalidate();
     }
     int scrollTop() const { return scroll_; }
+    // Scrolls as little as it takes for the row of `value` to show whole (no such row: the scroll stays).
+    void reveal(int value) {
+        const int viewH = std::max(0, height() - paletteFooterHeight(view()));
+        for (size_t i = 0; i < rows.size() && i < rects_.size(); ++i)
+            if (rows[i].value == value) {
+                const draw::Rect& r = rects_[i];
+                if (r.top < scroll_) scrollTo(r.top);
+                else if (r.bottom > scroll_ + viewH) scrollTo(r.bottom - viewH);
+                return;
+            }
+    }
     bool sameItem(draw::Point a, draw::Point b) const override { return rowAt(a) == rowAt(b); }  // (a double click: one row)
     // The row at `p` (the view's coordinates): an item's index, -1 for a heading, the footer or nothing.
     int rowAt(draw::Point p) const {
