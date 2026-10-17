@@ -8,6 +8,8 @@
 #include "stardraft/game_data.h"
 #include "stardraft/hd_assets.h"
 #include "stardraft/sprites.h"
+#include "stardraft/terrain.h"
+#include "stardraft/tileset.h"
 
 namespace stardraft {
 
@@ -168,5 +170,45 @@ bool hdUnitPicture(const GameData& data, const UnitSprites& sprites, uint16_t un
     }
     return true;
 }
+
+// (hd_assets.h)
+Image renderHdTerrain(const Tileset& ts, const HdTiles& hd, const TerrainLayer& terrain, int downscale) {
+    const int size = hd.tileSize, out = std::max(1, size / downscale), step = size / out;
+    Image img;
+    img.width = terrain.width * out;
+    img.height = terrain.height * out;
+    img.rgba.assign(size_t(img.width) * img.height * 4, 255);
+    std::map<int, std::vector<uint8_t>> cache;  // megatile -> its tile at the output size
+    for (int ty = 0; ty < terrain.height; ++ty)
+        for (int tx = 0; tx < terrain.width; ++tx) {
+            const int mega = ts.megatileFor(terrain.tiles[size_t(ty) * terrain.width + tx]);
+            auto it = cache.find(mega);
+            if (it == cache.end()) {
+                std::vector<uint8_t> small(size_t(out) * out * 4, 255);
+                if (mega < 0 || size_t(mega) >= hd.tiles.size()) {
+                    for (size_t i = 0; i < small.size(); i += 4) small[i] = 255, small[i + 1] = 0, small[i + 2] = 255;
+                } else {
+                    DdsTexture t;
+                    t.format = hd.format, t.width = t.height = size, t.data = hd.tiles[size_t(mega)];
+                    std::vector<uint8_t> px;
+                    decodeDds(t, 0, 0, size, size, px);
+                    for (int oy = 0; oy < out; ++oy)
+                        for (int ox = 0; ox < out; ++ox)
+                            for (int c = 0; c < 3; ++c) {
+                                int sum = 0;
+                                for (int sy = 0; sy < step; ++sy)
+                                    for (int sx = 0; sx < step; ++sx) sum += px[(size_t(oy * step + sy) * size + ox * step + sx) * 4 + c];
+                                small[(size_t(oy) * out + ox) * 4 + c] = uint8_t(sum / (step * step));
+                            }
+                }
+                it = cache.emplace(mega, std::move(small)).first;
+            }
+            for (int oy = 0; oy < out; ++oy)
+                std::memcpy(&img.rgba[((size_t(ty) * out + oy) * img.width + size_t(tx) * out) * 4], &it->second[size_t(oy) * out * 4],
+                            size_t(out) * 4);
+        }
+    return img;
+}
+
 
 }  // namespace stardraft

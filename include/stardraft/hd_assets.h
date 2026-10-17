@@ -59,6 +59,12 @@ bool loadHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, Hd
 // Previews drawn without the GPU (src/hd_preview.cpp).
 // Decodes the region (x0, y0, w, h) of a block-compressed texture to RGBA (straight alpha).
 void decodeDds(const DdsTexture& tex, int x0, int y0, int w, int h, std::vector<uint8_t>& rgba);
+// A map's terrain from the HD tiles, box-filtered by `downscale` (1, 2, 4 ...: hd.tileSize / downscale pixels a tile),
+// as the editor shows it. Tiles that do not resolve are magenta.
+struct Image;
+struct Tileset;
+struct TerrainLayer;
+Image renderHdTerrain(const Tileset& ts, const HdTiles& hd, const TerrainLayer& terrain, int downscale);
 // The HD2 command-card icons of units 0..227 (HD2\unit\cmdicons\cmdicons.dds.grp, or the Carbot
 // skin's), decoded; units without an icon (the game's placeholder) get an empty Sprite.
 bool loadHdCommandIcons(const GameData& data, bool carbot, std::vector<Sprite>& icons, std::string& error);

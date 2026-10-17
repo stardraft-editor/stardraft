@@ -2115,3 +2115,28 @@ Delete 1 location	Eliminar 1 ubicación
 Delete %d locations	Eliminar %d ubicaciones
 Change 1 location	Cambiar 1 ubicación
 Change %d locations	Cambiar %d ubicaciones
+&Export map image…\tCtrl+Shift+E	&Exportar imagen del mapa…\tCtrl+Shift+E
+Export map image	Exportar imagen del mapa
+Full size in HD (64 pixels a tile)	Tamaño completo en HD (64 píxeles por ficha)
+Full size (32 pixels a tile)	Tamaño completo (32 píxeles por ficha)
+1/2 (16 pixels a tile)	1/2 (16 píxeles por ficha)
+1/4 (8 pixels a tile)	1/4 (8 píxeles por ficha)
+1/8 (4 pixels a tile)	1/8 (4 píxeles por ficha)
+Area	Área
+Scale	Escala
+Show	Mostrar
+Whole map	Todo el mapa
+Current view	Vista actual
+Selected area	Área seleccionada
+The terrain selection (Terrain mode, Select), else the selected location	La selección de terreno (modo Terreno, Seleccionar); si no, la ubicación seleccionada
+Locations and their names	Ubicaciones y sus nombres
+Grid	Cuadrícula
+pixels	píxeles
+Export…	Exportar…
+Exported the map image 	Imagen del mapa exportada: 
+Could not export the map image	No se pudo exportar la imagen del mapa
+Larger preview	Vista previa grande
+Show the map larger, as it looks in the game	Muestra el mapa más grande, como se ve en el juego
+Export the preview	Exportar la vista previa
+Could not export the preview. 	No se pudo exportar la vista previa. 
+Exported the preview 	Vista previa exportada: 

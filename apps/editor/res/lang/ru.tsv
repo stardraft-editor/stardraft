@@ -2115,3 +2115,28 @@ Delete 1 location	Удалить 1 локацию
 Delete %d locations	Удалить локации: %d
 Change 1 location	Изменить 1 локацию
 Change %d locations	Изменить локации: %d
+&Export map image…\tCtrl+Shift+E	&Экспорт изображения карты…\tCtrl+Shift+E
+Export map image	Экспорт изображения карты
+Full size in HD (64 pixels a tile)	Полный размер в HD (64 пикселя на тайл)
+Full size (32 pixels a tile)	Полный размер (32 пикселя на тайл)
+1/2 (16 pixels a tile)	1/2 (16 пикселей на тайл)
+1/4 (8 pixels a tile)	1/4 (8 пикселей на тайл)
+1/8 (4 pixels a tile)	1/8 (4 пикселя на тайл)
+Area	Область
+Scale	Масштаб
+Show	Показать
+Whole map	Вся карта
+Current view	Текущий вид
+Selected area	Выбранная область
+The terrain selection (Terrain mode, Select), else the selected location	Выделение местности (режим «Местность», «Выбор»), иначе выбранная локация
+Locations and their names	Локации и их имена
+Grid	Сетка
+pixels	пикселей
+Export…	Экспорт…
+Exported the map image 	Изображение карты экспортировано: 
+Could not export the map image	Не удалось экспортировать изображение карты
+Larger preview	Большой предпросмотр
+Show the map larger, as it looks in the game	Показать карту крупнее, как она выглядит в игре
+Export the preview	Экспорт предпросмотра
+Could not export the preview. 	Не удалось экспортировать предпросмотр. 
+Exported the preview 	Предпросмотр экспортирован: 

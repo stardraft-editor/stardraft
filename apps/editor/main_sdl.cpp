@@ -117,6 +117,7 @@
 #include "stardraft/hd_assets.h"
 #include "stardraft/msqc.h"  // the triggers' keys and buttons (core/project_build.inc)
 #include "stardraft/pathing.h"
+#include "stardraft/png_writer.h"  // File > Export map image (core/map_image.inc, sdl_map_image.inc)
 #include "stardraft/portraits.h"  // the portraits' clips (core/data_pictures.inc)
 #include "stardraft/previews.h"  // the terrain and doodad pictures (sdl_pictures.inc)
 #include "stardraft/sprites.h"  // the image player (core/data_pictures.inc)
@@ -165,6 +166,7 @@ bool gKeysFromOpener = false;
 #include "sdl_window.inc"  // the main window as the system's document window, the system's look (mac_window.h)
 #include "sdl_options.inc"  // Program options and Report feedback (core/views_options.inc, core/views_feedback.inc)
 #include "sdl_map_dialogs.inc"  // Unit and Location properties, the text prompt, the quick picker and the map's menu
+#include "sdl_map_image.inc"  // File > Export map image: the picture drawn in parts with the map's renderer (core/map_image.inc)
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
 #include "sdl_data.inc"  // the Data workspace (the model is core/data_list.inc and core/views_data*.inc; the tables are the stock .dat files)
 #include "sdl_tips.inc"  // the hover tooltips (core/views_tip.inc)
@@ -422,6 +424,7 @@ int main(int argc, char** argv) {
         else if (a == "--lostdrag") inputArgs.emplace_back('l', next());  // x0,y0-x1,y1[:mods]: a left drag, then the window loses the focus before the release (Alt+Tab), for a snapshot
         else if (a == "--move") inputArgs.emplace_back('m', next());  // x,y: the mouse moves there (no button), for a snapshot
         else if (a == "--type") inputArgs.emplace_back('t', next());  // text typed into the view with the focus (a search box, a number), for a snapshot
+        else if (a == "--mapimage") gShotMapImages.push_back(next());  // the first options of the next Export map image dialog (sdl_map_image.inc), for a snapshot
         else if (a == "--pick") gShotPicks.push_back(next());  // a path, or cancel: the answer of the next file or folder dialog (none shows; the output says what it asked), for a snapshot
         else if (a == "--ime") inputArgs.emplace_back('i', next());  // text[@caret]: an input method's composition (not committed; empty: it ends) in the view with the focus, for a snapshot
         else if (a == "--wheel") inputArgs.emplace_back('h', next());  // x,y,dx,dy[:precise][:mods][:Repeat<n>]: the wheel there (dy notches away from the user), or a trackpad's scroll (precise), for a snapshot
@@ -710,6 +713,19 @@ int main(int argc, char** argv) {
             else if (dialogArg.rfind("blockhelp:", 0) == 0) shown = &gSdlBlockHelp, gSdlBlockHelp.setBlock(dialogArg.substr(10));  // a block's help page (--size 460x600)
             else if (mapShot.view) shown = mapShot.view;
             else if (valueShot) shown = valueShot.get();
+            // newpreview: the New page's larger preview of a generated map (the default choices, Generate) at 1200 x 900.
+            std::unique_ptr<NewPreviewView> previewShot;
+            stardraft::kit::Dialog previewDlg;
+            if (dialogArg == "newpreview") {
+                gNewView.reset(0);
+                gNewView.generate = true;
+                gNewView.regenerate();
+                TerrainLayer t;
+                t.width = uint16_t(gNewView.tilesW), t.height = uint16_t(gNewView.tilesH), t.tiles = gNewView.tiles;
+                previewShot = std::make_unique<NewPreviewView>(gNewView.tileset, nullptr, t, L"Badlands  \x00B7  128 x 128 tiles");
+                newPreviewDialogSetup(previewDlg, *previewShot, {width, height});
+                shown = &previewDlg, width = 1200, height = 900;
+            }
             msgbox::MessageView messageShot;
             TipView tipShot;
             if (dialogArg == "about") {
