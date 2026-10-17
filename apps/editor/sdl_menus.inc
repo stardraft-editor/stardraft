@@ -502,6 +502,7 @@ draw::View& sdlShotTarget(draw::Point& size) {
 // own: its kind and place (a dialog's Tab order), and for a text field its text, selection and composition, and
 // whether the input method is on with its area at the caret (SDL_SetTextInputArea: the system's composition and
 // candidate windows show there): "(WRONG)" when it is off or not at the caret.
+bool gCaretCheck = false;  // --check caret (main_sdl.cpp)
 void sdlFocusLine() {
     if (!gRoot || !gHost) return;
     draw::Point size;
@@ -533,6 +534,13 @@ void sdlFocusLine() {
         if (ch == '\n') shown += "\\n";
         else if (ch != '\r') shown += ch;
     std::printf("  focus: %s at %d,%d \"%s\"", kind.c_str(), o.x, o.y, shown.c_str());
+    if (gCaretCheck) {  // --check caret: the caret and the end of the drawn letters of its line (the caret at the end)
+        int right = -1;
+        if (const auto* t = dynamic_cast<const kit::TextField*>(f)) right = t->textRight();
+        else if (const auto* r = dynamic_cast<const kit::RichField*>(f)) right = r->textRight();
+        if (right >= 0)
+            std::printf(" [caret at %d, the letters end at %d %s]", caret.left, right, std::abs(caret.left - right) <= 1 ? "(yes)" : "(WRONG)");
+    }
     if (typing) {
         draw::Rect area;
         const bool on = gHost->textInputState(*f, area);

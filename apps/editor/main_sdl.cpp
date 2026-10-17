@@ -584,6 +584,7 @@ int main(int argc, char** argv) {
         // system's (in a snapshot only for --check menus) and so are the context menus (a run with a window).
         kit::Menu::setShortcutText([](const std::wstring& s) { return shortcutText(s); });
         if (snapshot.empty() || hasCheck("menus")) sdlUseNativeMenus(snapshot.empty());
+        gCaretCheck = hasCheck("caret");  // (the focus lines of the inputs: sdl_menus.inc)
         rebuildMenus();
         host.setQuitRequest(requestQuit);  // the window's close and the system's quit ask about unsaved changes first
         // Files dropped on the window, and on macOS the maps that Finder opens with StarDraft: as the Windows program's
@@ -649,7 +650,7 @@ int main(int argc, char** argv) {
         // window's, the menu bar's and the Dock's lines come after the snapshot (hasCheck).
         for (const std::string& c : checkArgs) {
             std::string out;
-            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names";
+            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret";
             if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlUpdateCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
             std::printf("%s", out.c_str());
         }

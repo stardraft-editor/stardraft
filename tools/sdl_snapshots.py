@@ -364,6 +364,13 @@ CASES += [
     ("files-double-click", ["--workspace", "files", "--click", "300,375", "--click", "300,401:Quick", "--click", "300,453:Double"], "map"),
     ("data-sfx-double-click", ["--newproject", "{newdir}", "--workspace", "data", "--data", "sfxdata:1", "--click", "200,239",
                                "--click", "200,265:Quick", "--click", "200,317:Double"], "data"),
+    # The caret is where the drawn letters end, after a long text (51 letters, no spaces) is typed (--check caret: each
+    # focus line has the caret's x and the x where the letters of its line end): Map properties' Title and Description,
+    # the Strings tab's text (a game text field) and the Data list's search box.
+    ("map-props-caret", ["--check", "caret", "--workspace", "props", "--click", "420,214", "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox",
+                         "--click", "420,300", "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox"], "map"),
+    ("data-text-caret", ["--check", "caret", "--newproject", "{newdir}", "--workspace", "data", "--data", "strings:5", "--click", "800,360",
+                         "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox", "--click", "190,152", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox"], "data"),
     # The diagrams' handles (the small squares) are only on parts that the mouse drags: the flingy's turn path has none
     # (its Turn Radius is typed, as on Windows); the weapon's ranges have their handles.
     ("data-turn-nohandle", ["--newproject", "{newdir}", "--workspace", "data", "--data", "flingy:0", "--move", "10,10"], "data"),
@@ -1199,6 +1206,20 @@ def check_double_click_rows(sel, plays):
     return check
 
 
+def check_caret_lines(want):
+    """None when each field's caret is at the end of its drawn letters after the long text, in `want` fields."""
+    def check(output):
+        lines = re.findall(r'focus: (?:text|rich) field at [^"]*"(\w*)" \[caret at (\d+), the letters end at (\d+) \((yes|WRONG)\)\]', output)
+        long_ = [m for m in lines if len(m[0]) >= 40]
+        if len(long_) != want:
+            return f"{len(long_)} fields with the long text, not {want}"
+        for text, caret, end, ok in long_:
+            if ok != "yes":
+                return f"the caret at {caret}, the letters end at {end} (after {len(text)} letters)"
+        return None
+    return check
+
+
 def check_no_still_handles(output):
     """None when no diagram handle is on a part that the mouse cannot drag."""
     m = re.search(r"; (\d+) handles, (\d+) not dragged", output)
@@ -1907,6 +1928,7 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "map-quick-arrow": quick_check(" brush=2x10", "eight clicks on the height's up arrow"),
           "data-turn-nohandle": check_no_still_handles, "data-range-handles": check_range_handles,
           "map-location-inverted": check_location_inverted,
+          "map-props-caret": check_caret_lines(2), "data-text-caret": check_caret_lines(2),
           "files-double-click": check_double_click_rows(('selected "sound\\bullet\\dragbull.wav"', 'selected "sound\\bullet\\laserb.wav"'),
                                                         '1 plays, last "sound\\bullet\\laserb.wav"'),
           "data-sfx-double-click": check_double_click_rows(("list entry 3;", "list entry 5;"), '1 plays, last "sfx 5"'), "data-picker-typing": check_picker_typing}

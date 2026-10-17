@@ -103,6 +103,9 @@ public:
 
     // As last painted: the caret's rectangle and the scroll offsets, in the view's coordinates.
     draw::Rect caretRect() const { return caretRect_; }
+    // As last painted: where the drawn text of the caret's line ends (the view's x; 0: none drawn). With the caret at
+    // the end of its line, the caret is there (a test: the caret and the drawn letters match).
+    int textRight() const { return textRight_; }
     // An input method's text that is not committed yet (shown at the caret, not in the text).
     const std::wstring& composition() const { return comp_; }
     int scrollX() const { return scrollX_; }
@@ -242,6 +245,7 @@ private:
     size_t ensuredCaret_ = kNone, ensuredAnchor_ = kNone;
     unsigned ensuredStyle_ = ~0u;
     draw::Rect caretRect_;
+    int textRight_ = 0;  // textRight
     int goalX_ = -1;  // the x Up and Down keep; -1: none
 };
 
