@@ -787,3 +787,30 @@ KIT_TEST(text_field_context_menu) {
     CHECK(r.host.clipboard == "abc");
     Menu::setTestHook(nullptr);
 }
+
+// A trackpad's exact scroll (macOS) moves a multiline field by the system's own distance and direction (panX, panY:
+// the content moves by them), not by notches; a wheel's notch still moves three lines.
+KIT_TEST(text_field_exact_scroll_follows_the_system) {
+    Rig r(100, 60);
+    r.field.setMultiline(true);
+    r.field.setWrap(false);
+    std::wstring text;
+    for (int i = 0; i < 40; ++i) text += L"line " + std::to_wstring(i) + L" of a long text that goes past the edge\n";
+    r.field.setText(text);
+    r.field.model().setCaret(0);
+    r.host.paint();
+    CHECK(r.field.scrollY() == 0);
+    draw::MouseEvent e;
+    e.kind = draw::MouseKind::Wheel, e.pt = {20, 20}, e.exact = e.precise = true, e.panY = -30;  // the content up by 30 px
+    CHECK(r.host.router.mouse(e));
+    CHECK(r.field.scrollY() == 30);
+    e.panY = 12;  // natural scrolling the other way: the content down by 12 px
+    CHECK(r.host.router.mouse(e));
+    CHECK(r.field.scrollY() == 18);
+    e.panY = 0, e.panX = -25;  // sideways: the content left by 25 px
+    CHECK(r.host.router.mouse(e));
+    CHECK(r.field.scrollX() == 25 && r.field.scrollY() == 18);
+    const int before = r.field.scrollY();
+    r.host.wheel(20, 20, -1);  // a notch toward the user: three lines down
+    CHECK(r.field.scrollY() > before);
+}
