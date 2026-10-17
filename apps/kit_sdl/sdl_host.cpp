@@ -532,6 +532,18 @@ void SdlHost::snapshotClose(const draw::View& content) {
     dispatch(e);
 }
 
+void SdlHost::snapshotScaleChanged(const draw::View& content, float s) {
+    const Win* w = rootWin(content);
+    if (!w || w->sdl) return;
+    const float was = gTestDisplayScale;
+    gTestDisplayScale = s;
+    SDL_Event e{};
+    e.type = SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED;
+    e.window.windowID = w->id;
+    dispatch(e);
+    gTestDisplayScale = was;
+}
+
 void SdlHost::snapshotInputEnd() {
     std::vector<SDL_WindowID> ids;
     for (const auto& w : wins_)
@@ -1003,8 +1015,11 @@ void SdlHost::dispatch(const SDL_Event& e) {
         return;
     case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
         if (Win* w = findWin(wid)) {
-            applyScale(displayScale(w->sdl));  // (the views lay out at the new scale, even at the same pixel size)
-            resize(*w);
+            // (the views lay out at the new scale, even at the same pixel size). The scale is the program's: a tool
+            // window that stays on a screen of another scale (a floating palette) does not change it, the main window
+            // and the dialogs do.
+            if (w->kind != WindowKind::Tool) applyScale(displayScale(w->sdl));
+            if (w->sdl) resize(*w);  // (a snapshot's window keeps its size: snapshotScaleChanged)
         }
         for (const auto& w : wins_) w->dirty = true;
         return;

@@ -145,9 +145,10 @@ void sdlFloatPaletteLine() {
     if (SDL_Window* w = gHost ? gHost->sdlWindow(gFloatPalView) : nullptr) SDL_GetWindowPosition(w, &x, &y);
     draw::Point size;  // (the window that takes a snapshot's keys now: the palette's when it is the last one opened)
     const bool keysHere = gHost && gRoot && &gHost->snapshotTop(*gRoot, size) == &gFloatPalView;
-    std::printf("  palette: floating, window %dx%d px at %d,%d, %s; pick=%d; keys=%s; kept %d,%d %dx%d\n", gFloatPalView.width(), gFloatPalView.height(), x,
-                y, gFloatPalView.tilesShown ? "tiles" : gPalList.parent() == &gFloatPalView ? "list" : "empty (WRONG)", gState.palette,
-                keysHere ? "window" : "main", gFloatPal.x, gFloatPal.y, gFloatPal.w, gFloatPal.h);
+    std::printf("  palette: floating, window %dx%d px at %d,%d, %s; pick=%d; keys=%s; search=\"%s\"%s; kept %d,%d %dx%d\n", gFloatPalView.width(),
+                gFloatPalView.height(), x, y, gFloatPalView.tilesShown ? "tiles" : gPalList.parent() == &gFloatPalView ? "list" : "empty (WRONG)",
+                gState.palette, keysHere ? "window" : "main", narrow(gSearchSdl.field().text()).c_str(),
+                gSearchSdl.field().hasFocus() ? " (typing)" : "", gFloatPal.x, gFloatPal.y, gFloatPal.w, gFloatPal.h);
 }
 
 // --check floatpalette:<folder>: the settings keep the state. A state goes into a new settings file in <folder> and a
@@ -186,9 +187,22 @@ bool sdlFloatPaletteCheck(const std::string& name, std::string& out) {
     return true;
 }
 
-// The script's verb palette (sdl_soak.inc): "close", the window's close button (SDL's close request for it).
+// The script's verb palette (sdl_soak.inc): "close", the window's close button (SDL's close request for it); "scale
+// <percent>", the window moves to a screen of that scale (SDL's scale event for it): a line says the program's scale.
 void sdlFloatPaletteScript(const std::string& what) {
-    if (what != "close") return void(std::printf("palette %s: not close (WRONG)\n", what.c_str()));
+    if (what.rfind("scale ", 0) == 0) {
+        const float s = float(std::atof(what.c_str() + 6)) / 100.0f;
+        // (the screens' scale, not the test's --scale: the program's scale is the main window's screen's, 1 here)
+        const float before = gHost ? gHost->scale() : 0, after = gHost ? (gHost->setScale(0), gHost->scale()) : 0;
+        if (!gFloatPalOpen || !gHost || s <= 0) std::printf("palette %s: no window or no scale (WRONG)\n", what.c_str());
+        else gHost->snapshotScaleChanged(gFloatPalView, s);
+        runPosted();
+        sdlInputLine("palette " + what);
+        std::printf("  palette scale: the program's scale %.2f, %.2f before\n", gHost ? double(gHost->scale()) : 0.0, double(after));
+        if (gHost) gHost->setScale(before);
+        return;
+    }
+    if (what != "close") return void(std::printf("palette %s: not close or scale (WRONG)\n", what.c_str()));
     if (!gFloatPalOpen || !gHost) std::printf("palette close: no window (WRONG)\n");
     else gHost->snapshotClose(gFloatPalView);
     runPosted();
@@ -209,4 +223,14 @@ void sdlFloatPaletteInputEnd(kit_sdl::SdlHost& host, draw::View& root) {
     root.attach(&host);
     gRoot->relayout();
     root.attach(nullptr);
+}
+
+// A pick in the palette's window gives the keyboard to the map (shellFocusView): the window's search box loses it (the
+// window's root has it; the keys that the root does not take go to the main window), and the main window gets the
+// system's keyboard focus when the palette's window had it.
+void floatPaletteKeysToMap() {
+    if (!gFloatPalOpen || !gHost || !gFloatPalView.host()) return;
+    gFloatPalView.focus();
+    SDL_Window* pw = gHost->sdlWindow(gFloatPalView);
+    if (SDL_Window* m = gHost->mainWindow(); pw && m && SDL_GetKeyboardFocus() == pw) SDL_RaiseWindow(m);
 }
