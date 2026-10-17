@@ -303,6 +303,10 @@ CASES += [
     # The quick picker (Q) in Rectangle mode (GitHub #141): its rows are the tile groups, found as the Tiles list's
     # search finds them; Enter picks the first one's tile, as a click in the list does.
     ("map-terrain-rect-quick", ["--rect", "--key", "Q", "--type", "solar array", "--key", "Enter"], "map"),
+    # The quick picker (Q) in Rectangle mode scrolled to its end with the wheel, notch by notch with only the picker's
+    # window painting (as when it scrolls; the Tiles list does not paint): it keeps the pictures of a few tile groups,
+    # not of each group it showed (each is 16 tiles).
+    ("map-terrain-rect-quick-scroll", ["--rect", "--key", "Q", "--wheel", "832,500,0,-1:Repeat200"], "map"),
     # Terrain select (V): a drag selects, Copy, Paste: the copy follows the mouse; a click puts it; Undo; Cut; Undo.
     ("map-terrain-paste", ["--mode", "terrain", "--key", "V", "--drag", "520,640-600,700", "--key", "Ctrl+C", "--key", "Ctrl+V",
                            "--move", "900,800", "--click", "900,800", "--key", "Ctrl+Z", "--key", "Esc", "--key", "V",
@@ -1132,6 +1136,30 @@ def check_rect_quick(output):
         ("Enter picked no tile", lambda s: s[2]["quick"] == "-" and int(s[2]["tilepicked"]) >= 0 and s[0]["tilepicked"] == "-1"),
         ("the pick is not a Solar Array tile", lambda s: re.search(r"^key Enter: .*Placing Group \d+, tile \d+ .*Solar Array", output, re.M)),
     ])
+
+
+def check_rect_quick_scroll(output):
+    """The quick picker of the tile groups went to its end; it kept the pictures of few groups, and no bitmap went in
+    the frame that drew it."""
+    s = state_lines(output)
+    if len(s) < 2:
+        return f"{len(s)} state lines, not 2 (the program stopped?)"
+    try:
+        top = [tuple(int(x) for x in d["quicktop"].split("/")) for d in s]
+        pics = max(int(d["tilepics"]) for d in s)
+        freed = int(s[-1]["freedinframe"])
+    except (KeyError, ValueError):
+        return "no quicktop, tilepics or freedinframe in the state lines"
+    if s[0]["quick"] != "open" or s[-1]["quick"] != "open":
+        return "Q did not open the quick picker, or it closed"
+    last, rows = top[-1]
+    if rows < 300 or last < rows - 20:
+        return f"the picker did not come to its end (row {last} of {rows})"
+    if pics > 100:
+        return f"the picker kept the pictures of {pics} tile groups"
+    if freed:
+        return f"{freed} bitmaps went while the frame that drew them was not drawn yet (GitHub #148)"
+    return None
 
 
 def check_terrain_paste(output):
@@ -2219,7 +2247,7 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "map-location-make": check_location_make, "map-terrain-brush": check_terrain_brush,
           "map-terrain-rect-paint": check_rect_paint, "map-terrain-paste": check_terrain_paste,
           "map-terrain-rect-scroll": check_rect_scroll, "map-terrain-brush-over-tiles": check_brush_over_tiles,
-          "map-terrain-rect-quick": check_rect_quick,
+          "map-terrain-rect-quick": check_rect_quick, "map-terrain-rect-quick-scroll": check_rect_quick_scroll,
           "map-terrain-paste-ghost": check_terrain_paste_ghost, "map-paste-ghost": check_paste_ghost,
           "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed,
           "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click,

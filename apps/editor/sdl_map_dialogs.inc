@@ -153,6 +153,11 @@ struct QuickPickSdl final : QuickPickHost {
         drawPaletteArt(c, *b, box);
         return true;
     }
+    // Rectangle: the rows draw the Tiles list's pictures, which only the paints let go of; the picker's window paints
+    // alone when it scrolls (the Tiles list does not), so its paints let go of them too.
+    void paintStarts(QuickPickKind kind, Mode mode) override {
+        if (kind == QuickPickKind::Map && mode == Mode::Terrain && tilesOn()) tilesPixelsTrim();
+    }
     // After the event that picked (the window goes after it): close, then the pick.
     void closed(int v) override {
         const QuickPickKind kind = gQuickViewSdl.kind();

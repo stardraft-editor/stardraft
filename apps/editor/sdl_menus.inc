@@ -799,16 +799,23 @@ void sdlCameraLine(const std::string& what, const SdlCamera& was, float x, float
 // hasPreciseScrollingDeltas), not a wheel's notches; only macOS tells them apart, so elsewhere (with no mac) it is a
 // smooth wheel's scroll, as the system gives it (a wheel's). mac: as macOS gives it on any system (dx and dy in tenths of
 // points; a precise one is exact: the lists move by its distance). mods: Shift, Ctrl, Alt joined with + (Ctrl is Cmd
-// on macOS). The output's line says the map's camera, and the scroll position of the lists under the point.
+// on macOS). Repeat<n>: n notches in one input, with no frame of the main window between them (a pop-out under the
+// point paints before each, as only its window paints when it scrolls). The output's line says the map's camera, and
+// the scroll position of the lists under the point.
 void sdlWheelShot(const std::string& spec) {
     std::stringstream parts(spec);
     std::string at, word;
     std::getline(parts, at, ':');
     bool precise = false, mac = false;
+    int repeat = 1;
     SDL_Keymod held = SDL_KMOD_NONE;
     while (std::getline(parts, word, ':')) {
         if (word == "precise" || word == "mac") {
             (word == "mac" ? mac : precise) = true;
+            continue;
+        }
+        if (word.rfind("Repeat", 0) == 0) {
+            repeat = std::clamp(std::atoi(word.c_str() + 6), 1, 1000);
             continue;
         }
         std::stringstream keys(word);
@@ -841,7 +848,7 @@ void sdlWheelShot(const std::string& spec) {
 #endif
     gHost->setPreciseScrollHook([precise] { return precise; });
     gHost->setMacScrollTest(mac);
-    gHost->snapshotMouse(*gRoot, events);
+    for (int k = 0; k < repeat; ++k) gHost->snapshotMouse(*gRoot, events);
     gHost->setMacScrollTest(false);
     gHost->setPreciseScrollHook(nullptr);
     SDL_SetModState(before);

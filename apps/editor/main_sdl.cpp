@@ -423,7 +423,7 @@ int main(int argc, char** argv) {
         else if (a == "--type") inputArgs.emplace_back('t', next());  // text typed into the view with the focus (a search box, a number), for a snapshot
         else if (a == "--pick") gShotPicks.push_back(next());  // a path, or cancel: the answer of the next file or folder dialog (none shows; the output says what it asked), for a snapshot
         else if (a == "--ime") inputArgs.emplace_back('i', next());  // text[@caret]: an input method's composition (not committed; empty: it ends) in the view with the focus, for a snapshot
-        else if (a == "--wheel") inputArgs.emplace_back('h', next());  // x,y,dx,dy[:precise][:mods]: the wheel there (dy notches away from the user), or a trackpad's scroll (precise), for a snapshot
+        else if (a == "--wheel") inputArgs.emplace_back('h', next());  // x,y,dx,dy[:precise][:mods][:Repeat<n>]: the wheel there (dy notches away from the user), or a trackpad's scroll (precise), for a snapshot
         else if (a == "--pinch") inputArgs.emplace_back('p', next());  // x,y,scale[:Alt]: a trackpad's pinch there (scale more than 1: the fingers move apart; Alt: the brush's size), for a snapshot
         else if (a == "--smartzoom") inputArgs.emplace_back('z', next());  // x,y: a trackpad's smart zoom (macOS: a double tap with two fingers) there, for a snapshot
         else if (a == "--swipe") inputArgs.emplace_back('g', next());  // x,y,left|right: a swipe of three fingers there (macOS's Swipe between pages), for a snapshot
