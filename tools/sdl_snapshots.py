@@ -162,6 +162,23 @@ CASES += [
     ("project-textpop-tooltip", ["--workspace", "data", "--data", "buttons:0", "--textpop", "tooltip"], "project"),
     # A pick box's open button (go to the value's entry): the requirements' values of Stim Packs (the form's end).
     ("project-data-open", ["--workspace", "data", "--data", "techdata:0:99999"], "project"),
+    # The image player with Play on (--check imageplayer:<animation>:<ticks>: what the stage draws in each tick). The
+    # Missile Turret base idle (Init): its shadow follows the base, and nothing makes the images again (its shadow showed
+    # its first frame for a tick once a second). The Scourge's Air attack repeats on the same images, its shadow under
+    # it. The base's Death: one explosion over it (the images there get Death once each; it made 63).
+    ("project-player-turret-idle", ["--workspace", "data", "--data", "images:296", "--check", "imageplayer:0:72"], "project"),
+    ("project-player-scourge-air", ["--workspace", "data", "--data", "images:0", "--check", "imageplayer:3:72"], "project"),
+    ("project-player-turret-death", ["--workspace", "data", "--data", "images:296", "--check", "imageplayer:1:6"], "project"),
+    # The Data form's columns (--check dataform: its parts and buttons with their rectangles): on a wide form the fields
+    # on the left and each section's pictures beside them (2560 x 1600 at scale 1 and 1.5, 1600 x 1000); on a narrow
+    # one (scale 2) the pictures under the fields. No parts and no buttons go over each other.
+    ("project-form-2560", ["--workspace", "data", "--data", "units:0", "--size", "2560x1600", "--check", "dataform"], "project"),
+    ("project-form-2560-scale15", ["--workspace", "data", "--data", "units:0", "--size", "2560x1600", "--scale", "1.5", "--check", "dataform"], "project"),
+    ("project-form-1600", ["--workspace", "data", "--data", "units:0", "--size", "1600x1000", "--check", "dataform"], "project"),
+    ("project-form-1600-weapon", ["--workspace", "data", "--data", "weapons:0", "--size", "1600x1000", "--check", "dataform"], "project"),
+    ("project-form-1600-image", ["--workspace", "data", "--data", "images:0", "--size", "1600x1000", "--check", "dataform"], "project"),
+    ("project-form-2560-scale2", ["--workspace", "data", "--data", "images:0", "--size", "2560x1600", "--scale", "2", "--check", "dataform"], "project"),
+    ("project-form-1600-scale2", ["--workspace", "data", "--data", "units:0", "--size", "1600x1000", "--scale", "2", "--check", "dataform"], "project"),
     # Keys pressed in the window (--key): Select all and Copy of the doodads (the status bar says how many); Ctrl+2,
     # the rail's second item (Map data in a classic map, as on Windows).
     ("map-key-copy", ["--mode", "doodads", "--key", "Ctrl+A", "--key", "Ctrl+C"], "map"),
@@ -390,15 +407,15 @@ CASES += [
                                    "--click", "894,376", "--key", "Down", "--key", "Down"], "data"),
     # The Data form of the Marine in a new project: Hit points typed (50, Enter), Shield enable clicked, Unit size picked
     # (Medium in the list picker), then three Undo steps.
-    ("data-form-edits", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "671,742", "--type", "50",
-                         "--key", "Enter", "--click", "624,768", "--click", "776,872", "--type", "Medium", "--key", "Enter",
+    ("data-form-edits", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "620,259", "--type", "50",
+                         "--key", "Enter", "--click", "554,285", "--click", "690,389", "--type", "Medium", "--key", "Enter",
                          "--key", "Ctrl+Z", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "data"),
     # Quick clicks (--click x,y:Repeat8: eight clicks, as SDL counts them: the second and each next one is a double
     # click to the views): each one acts, on each kind of control. The damage table's More armor (a diagram's button:
     # armor 8), a check box of the Data form (Shield enable: eight changes, eight undo steps, off again) and the brush
     # height's up arrow (Terrain: 2 to 10).
-    ("data-quick-armor", ["--newproject", "{newdir}", "--workspace", "data", "--data", "weapons:0", "--click", "779,404:Repeat8"], "data"),
-    ("data-quick-toggle", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "624,768:Repeat8"], "data"),
+    ("data-quick-armor", ["--newproject", "{newdir}", "--workspace", "data", "--data", "weapons:0", "--click", "1084,404:Repeat8"], "data"),
+    ("data-quick-toggle", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "554,285:Repeat8"], "data"),
     ("map-quick-arrow", ["--mode", "terrain", "--click", "296,485:Repeat8"], "map"),
     # A double click needs both clicks on the same row (--click x,y:Quick: a click that comes quickly after the one
     # before, which SDL counts as a double click): two quick clicks on two rows select the second one and play nothing;
@@ -429,7 +446,7 @@ CASES += [
     # A list picker's search box takes typing (Unit size of the Marine's Data form), with the keys and the text as SDL
     # gives them on Windows (--keysfromopener: from the main window under the pop-out): the typed letters filter the
     # rows, Korean through the input method (its composition, then the text), Backspace takes a letter back, Esc closes it.
-    ("data-picker-typing", ["--keysfromopener", "--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "776,872",
+    ("data-picker-typing", ["--keysfromopener", "--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "690,389",
                             "--type", "Med", "--ime", "\ud55c", "--type", "\ud55c", "--key", "Backspace", "--key", "Esc"], "data"),
     # The Triggers workspace of a new project: On map start > New trigger, Add an action (the block picker: Set
     # resources), its amount typed in the value's pop-out (800), Delete, then Undo twice (the block, then its amount).
@@ -1376,6 +1393,86 @@ def quick_check(want, what):
             return f"{len(s)} input lines, not 1"
         if want not in s[0][1]:
             return f"{what}: {s[0][1]} (no {want})"
+        return None
+    return check
+
+
+def player_ticks(output):
+    """The image player's ticks (--check imageplayer): for each tick a list of (image, frame, draw function)."""
+    ticks = []
+    for line in re.findall(r"^tick \d+:(.*)$", output, re.M):
+        draws = []
+        for d in line.split():
+            m = re.fullmatch(r"(\d+)/(\d+)(?::df(\d+))?", d)
+            if m:
+                draws.append((int(m.group(1)), int(m.group(2)), int(m.group(3) or 0)))
+        ticks.append(draws)
+    return ticks
+
+
+def check_player_follows(shadow, main, ticks):
+    """None when the player ran `ticks` ticks and, from the second tick on, the shadow image shows the main image's frame
+    in each tick (no tick where the images are made again and the shadow shows its first frame)."""
+    def check(output):
+        t = player_ticks(output)
+        if len(t) != ticks:
+            return f"{len(t)} ticks of the image player, not {ticks}"
+        for n, draws in enumerate(t[1:], 1):
+            s = [f for i, f, _ in draws if i == shadow]
+            m = [f for i, f, _ in draws if i == main]
+            if len(s) != 1 or len(m) != 1:
+                return f"tick {n}: {len(s)} images {shadow} and {len(m)} images {main}, not one each"
+            if s[0] != m[0]:
+                return f"tick {n}: the shadow ({shadow}) shows frame {s[0]}, the image ({main}) frame {m[0]}"
+        return None
+    return check
+
+
+def check_player_count(image, want, ticks):
+    """None when in each of the player's `ticks` ticks the stage draws `image` at most `want` times (and in the first
+    exactly `want` times)."""
+    def check(output):
+        t = player_ticks(output)
+        if len(t) != ticks:
+            return f"{len(t)} ticks of the image player, not {ticks}"
+        for n, draws in enumerate(t):
+            k = sum(1 for i, _, _ in draws if i == image)
+            if k > want or (n == 0 and k != want):
+                return f"tick {n}: image {image} drawn {k} times, not {want}"
+        return None
+    return check
+
+
+def check_data_form(columns):
+    """None when the Data form (--check dataform) has `columns` columns ("two columns" or "one column"), with two
+    columns the pictures right of the fields, its parts' rectangles and its buttons' rectangles do not go over each
+    other, and each part is inside the form's width."""
+    def check(output):
+        m = re.search(r"^data form: (\d+) px wide, (two columns|one column)\s*$", output, re.M)
+        if not m:
+            return "no data form line"
+        width, got = int(m.group(1)), m.group(2)
+        if got != columns:
+            return f"the form ({width} px) has {got}, not {columns}"
+        parts = [(w, tuple(map(int, r.split(",")))) for w, r in re.findall(r"^form part: (.+) (-?\d+,-?\d+,-?\d+,-?\d+)\s*$", output, re.M)]
+        buttons = [(w, tuple(map(int, r.split(",")))) for r, w in re.findall(r"^form button: (-?\d+,-?\d+,-?\d+,-?\d+) ?(.*?)\s*$", output, re.M)]
+        if not parts or not any(w.startswith("pictures") for w, _ in parts):
+            return f"{len(parts)} parts, no pictures"
+
+        def over(a, b):
+            return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+        for kind, items in (("part", parts), ("button", buttons)):
+            for i, (wa, a) in enumerate(items):
+                for wb, b in items[i + 1:]:
+                    if over(a, b):
+                        return f"the {kind}s {wa} {a} and {wb} {b} go over each other"
+        for w, r in parts:
+            if r[0] < 0 or r[2] > width:
+                return f"the part {w} {r} is not inside the form (0 to {width})"
+        if columns == "two columns":
+            for w, r in parts:
+                if w.startswith("pictures") and not all(r[0] >= f[2] for x, f in parts if x.startswith("fields")):
+                    return f"the pictures {w} {r} are not right of the fields"
         return None
     return check
 
@@ -2373,7 +2470,13 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "map-props-caret": check_caret_lines(2), "data-text-caret": check_caret_lines(2),
           "files-double-click": check_double_click_rows(('selected "sound\\bullet\\dragbull.wav"', 'selected "sound\\bullet\\laserb.wav"'),
                                                         '1 plays, last "sound\\bullet\\laserb.wav"'),
-          "data-sfx-double-click": check_double_click_rows(("list entry 3;", "list entry 5;"), '1 plays, last "sfx 5"'), "data-picker-typing": check_picker_typing}
+          "data-sfx-double-click": check_double_click_rows(("list entry 3;", "list entry 5;"), '1 plays, last "sfx 5"'), "data-picker-typing": check_picker_typing,
+          "project-player-turret-idle": check_player_follows(298, 296, 72), "project-player-scourge-air": check_player_follows(1, 0, 72),
+          "project-player-turret-death": check_player_count(334, 1, 6),
+          "project-form-2560": check_data_form("two columns"), "project-form-2560-scale15": check_data_form("two columns"),
+          "project-form-1600": check_data_form("two columns"), "project-form-1600-weapon": check_data_form("two columns"),
+          "project-form-1600-image": check_data_form("two columns"), "project-form-2560-scale2": check_data_form("one column"),
+          "project-form-1600-scale2": check_data_form("one column")}
 
 # GitHub's answer for the newest release ({release}; /releases/latest, shortened): a release with a download for each
 # system, as tools/release.py and the macos-release job make it, indented as GitHub gives it to a request without a

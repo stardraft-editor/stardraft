@@ -484,6 +484,13 @@ static void iscriptPlayerTest(Editor& ed) {
         for (const auto& d : sim.draws()) remnants |= d.image == remnant;
         CHECK(!sim.running() && sim.anyRunning() && remnants, "zergling death: the death ends, the remnants stay");
     }
+    {  // Missile Turret base (image 296) Death: imgol 334 once (one explosion over the base), and its shadow ends.
+        SpriteSim sim(sp, 296, 1, 0, 1, era);
+        int explosions = 0, total = 0;
+        for (const auto& d : sim.draws()) explosions += d.image == 334, ++total;
+        std::printf("      missile turret death: %d explosion images of %d images\n", explosions, total);
+        CHECK(explosions == 1, "missile turret death: one explosion overlay (the images there get Death once each)");
+    }
     {  // The Nexus (image 179) warping in: the warp texture frames 0..19 (script 193), then the warp flash.
         SpriteSim sim(sp, 179, 0, 0, 1, era);
         sim.warpIn();
