@@ -2637,6 +2637,10 @@ bool Editor::editLocation(int i, const LocationEdit& edit, std::string* error) {
             uint32_t* edges[4] = {&l.left, &l.top, &l.right, &l.bottom};
             for (int k = 0; k < 4; ++k) {
                 if (typed[k] == had[k]) continue;
+                if (typed[k] == had[(k + 2) % 4]) {  // the other edge of its axis (the edges swapped): its raw value
+                    *edges[k] = uint32_t(had[(k + 2) % 4]);
+                    continue;
+                }
                 if (typed[k] < 0) {
                     if (error) *error = "An edge is less than 0";
                     return false;

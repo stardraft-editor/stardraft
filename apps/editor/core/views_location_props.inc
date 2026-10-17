@@ -14,7 +14,10 @@ const wchar_t* const kEdgeNames[4] = {L"Left", L"Top", L"Right", L"Bottom"};
 
 // The Type list's items: the axes on which a location's edges are inverted (1 left and right, 2 top and bottom).
 const wchar_t* const kLocationTypes[4] = {L"Normal", L"Inverted left and right", L"Inverted top and bottom", L"Inverted on both"};
-inline int locationTypeOf(const Rect& edges) { return (edges.left > edges.right ? 1 : 0) | (edges.top > edges.bottom ? 2 : 0); }
+// (The edges as the location keeps them: unsigned, as Editor::locationInvertedAxes compares them.)
+inline int locationTypeOf(const Rect& edges) {
+    return (uint32_t(edges.left) > uint32_t(edges.right) ? 1 : 0) | (uint32_t(edges.top) > uint32_t(edges.bottom) ? 2 : 0);
+}
 
 // The size line and the error line for the edges as typed (each a number of up to 9 digits, or not a number), and the
 // type they give (locationTypeOf; -1: not numbers). The error is empty when the edges are numbers; the size line is
@@ -35,13 +38,15 @@ inline LocPropsCheck locPropsCheck(const std::wstring (&edges)[4], const Rect& s
     bool numbers = true;
     for (int k = 0; k < 4; ++k) {
         if (edges[k] == locEdgeText(was[k])) v[k] = was[k];
+        else if (edges[k] == locEdgeText(was[(k + 2) % 4])) v[k] = was[(k + 2) % 4];  // (the type list swapped it)
         else if (edges[k].empty() || edges[k].size() > 9) numbers = false;
         else v[k] = int(std::wcstol(edges[k].c_str(), nullptr, 10));
     }
     if (!numbers) c.error = L"Type a number in each edge";
     else c.rect = {v[0], v[1], v[2], v[3]}, c.type = locationTypeOf(c.rect);
     if (c.error.empty()) {
-        const int w = std::abs(c.rect.right - c.rect.left), h = std::abs(c.rect.bottom - c.rect.top);
+        const auto span = [](int a, int b) { return int(std::min<int64_t>(INT32_MAX, std::llabs(int64_t(uint32_t(b)) - int64_t(uint32_t(a))))); };
+        const int w = span(c.rect.left, c.rect.right), h = span(c.rect.top, c.rect.bottom);
         auto tiles = [](int px) {
             wchar_t b[32];
             if (px % 32) std::swprintf(b, 32, L"%.1f", px / 32.0);
@@ -244,8 +249,9 @@ private:
             const std::wstring x = edge_[a].text();
             edge_[a].setText(edge_[b].text()), edge_[b].setText(x);
         };
-        if (((t & 1) != 0) != (c.rect.left > c.rect.right) && c.rect.left != c.rect.right) swapEdges(0, 2);
-        if (((t & 2) != 0) != (c.rect.top > c.rect.bottom) && c.rect.top != c.rect.bottom) swapEdges(1, 3);
+        const int now = c.type;
+        if (((t ^ now) & 1) && c.rect.left != c.rect.right) swapEdges(0, 2);
+        if (((t ^ now) & 2) && c.rect.top != c.rect.bottom) swapEdges(1, 3);
         check();
     }
 
