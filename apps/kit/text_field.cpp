@@ -1,6 +1,7 @@
 #include "text_field.h"
 
 #include <algorithm>
+#include <cmath>
 #include <unordered_map>
 
 namespace stardraft::kit {
@@ -678,6 +679,16 @@ bool TextField::mouse(const draw::MouseEvent& e) {
         invalidate();
         return true;
     case MouseKind::Wheel: {
+        if (e.exact) {  // the system's own distance on both axes (macOS's trackpad: its direction, its speed, momentum)
+            if (!multiline()) return false;
+            const int oldX = scrollX_, oldY = scrollY_;
+            if (!wrap_) scrollX_ -= int(std::lround(e.panX));
+            scrollY_ -= int(std::lround(e.panY));
+            clampScroll();
+            if (scrollX_ == oldX && scrollY_ == oldY) return false;
+            invalidate();
+            return true;
+        }
         if (e.horizontal) {  // sideways (positive is right): a line that does not wrap
             if (!multiline() || wrap_) return false;
             const int oldX = scrollX_;
@@ -689,7 +700,7 @@ bool TextField::mouse(const draw::MouseEvent& e) {
         }
         if (!multiline()) return false;
         const int old = scrollY_;
-        scrollY_ -= int(e.wheel * 3.0f * float(lineH_));  // three lines a notch; positive is away from the user (up)
+        scrollY_ -= int(std::lround(draw::wheelDistance(e, 3.0f * float(lineH_))));  // three lines a notch; positive is away from the user (up)
         clampScroll();
         if (scrollY_ == old) return false;
         invalidate();
