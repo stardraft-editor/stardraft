@@ -2143,6 +2143,8 @@ constexpr UiText kRows[] = {
     {L"Export the preview", L"Exportar la vista previa"},
     {L"Could not export the preview. ", L"No se pudo exportar la vista previa. "},
     {L"Exported the preview ", L"Vista previa exportada: "},
+    {L"Part %d of %d", L"Parte %d de %d"},
+    {L"Canceled the map image export", L"Exportaci\u00F3n de la imagen del mapa cancelada"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

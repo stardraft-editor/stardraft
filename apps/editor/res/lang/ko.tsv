@@ -2140,3 +2140,5 @@ Show the map larger, as it looks in the game	게임에서 보이는 모습 그�
 Export the preview	미리 보기 내보내기
 Could not export the preview. 	미리 보기를 내보낼 수 없습니다. 
 Exported the preview 	미리 보기를 내보냄: 
+Part %d of %d	%d/%d 부분
+Canceled the map image export	맵 이미지 내보내기를 취소함

@@ -2143,6 +2143,8 @@ constexpr UiText kRows[] = {
     {L"Export the preview", L"\u5BFC\u51FA\u9884\u89C8"},
     {L"Could not export the preview. ", L"\u65E0\u6CD5\u5BFC\u51FA\u9884\u89C8\u3002"},
     {L"Exported the preview ", L"\u5DF2\u5BFC\u51FA\u9884\u89C8 "},
+    {L"Part %d of %d", L"\u7B2C %d \u90E8\u5206\uFF0C\u5171 %d \u90E8\u5206"},
+    {L"Canceled the map image export", L"\u5DF2\u53D6\u6D88\u5BFC\u51FA\u5730\u56FE\u56FE\u50CF"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }
