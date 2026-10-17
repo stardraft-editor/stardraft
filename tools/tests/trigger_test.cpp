@@ -1468,6 +1468,21 @@ H1: 00
                           pr.traceReport().filename().string() == pr.outputMap().filename().string() + ".epmap.prof",
                       "the trace file and epTrace's report are beside the output map");
             }
+            {  // Freeze protection: on in a new project; off is "freeze : 0" in [freeze]; where it does not work (macOS),
+               // the .eds has it off whatever the project says
+                std::string e2;
+                const bool newOn = pr.freeze();
+                pr.setFreeze(false);
+                EudProject again;
+                const bool keptOff = pr.save(e2) && again.open(pr.file(), e2) && !again.freeze();
+                const bool offEds = pr.writeEds(e2) && readText(pr.edsFile()).find("freeze : 0") != std::string::npos;
+                pr.setFreeze(true);
+                pr.writeEds(e2);
+                const std::string eds = readText(pr.edsFile());
+                const bool onEds = EudProject::freezeWorks() ? eds.find("freeze :") == std::string::npos : eds.find("[freeze]\r\nfreeze : 0") != std::string::npos;
+                check(newOn && keptOff && offEds && onEds && pr.freeze() && pr.save(e2),
+                      "Freeze protection is on in a new project, its off is kept, and the .eds has freeze : 0 when it is off or does not work here");
+            }
             // The sample triggers use location 1: a melee map has none, so the test makes it.
             if (!ed.locationUsed(0)) ed.createLocation({0, 0, 256, 256});
             TriggerMapInfo real;

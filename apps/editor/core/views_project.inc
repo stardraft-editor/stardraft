@@ -124,7 +124,7 @@ public:
     virtual void pageResized() = 0;
     // The Build section: euddraft's options and debug builds (on now), and the click that turns one over (set: its state
     // when the page was painted).
-    enum class BuildOption { EudTurbo, MoreUnits, NoAirCollision, RemakeUnits, DebugBuild, TraceBuild };
+    enum class BuildOption { EudTurbo, MoreUnits, NoAirCollision, RemakeUnits, DebugBuild, TraceBuild, Freeze };
     virtual bool buildOption(BuildOption o) = 0;
     virtual void toggleBuildOption(BuildOption o, bool set) = 0;
     // The background music: its plugin on, and the file's name and length in seconds (hasFile: a file is chosen).
@@ -289,7 +289,9 @@ private:
     // The background music's row from y (kProjectMusicAndFiles); returns the y after it.
     int paintMusic(draw::Canvas& c, int y, int x0, int labelW, int rowH, int colRight);
     // A check box with its label: the whole row is its click area.
-    void paintCheck(draw::Canvas& c, draw::Rect r, const std::wstring& label, bool on, const std::wstring& tip, std::function<void()> click);
+    // (not enabled: faint, and a click does nothing)
+    void paintCheck(draw::Canvas& c, draw::Rect r, const std::wstring& label, bool on, const std::wstring& tip, std::function<void()> click,
+                    bool enabled = true);
     // The files in memory from y (kProjectMusicAndFiles); returns the y after them.
     int paintMemory(draw::Canvas& c, int y, int x0, int labelW, int rowH, int colRight);
     // The scripts Build runs, from y (a row moves by its grip); returns the y after them.
@@ -419,12 +421,24 @@ int ProjectPageView::paintBuild(draw::Canvas& c, int y, int x0, int labelW, int 
         {BO::TraceBuild, L"Trace build (epTrace)",
          L"The scripts record each line that they run, and Build writes a trace file beside the map. epTrace reads it while the map "
          L"plays in StarCraft and shows which lines use the most time. The map runs more slowly: turn it off for the map that you release."},
+        {BO::Freeze, L"Freeze protection",
+         L"euddraft's freeze: the built map's file is protected, so that map editors cannot open it and take its triggers. Your "
+         L"project's own files stay as they are."},
     };
     for (const Option& op : options) {
         const bool set = host_.buildOption(op.o);
         const BO o = op.o;
-        paintCheck(c, {x0 + labelW, y, colRight, y + rowH}, op.label, set, op.tip, [this, o, set] { host_.toggleBuildOption(o, set); });
+        // Freeze where euddraft's freeze does not work (EudProject::freezeWorks): off, and a note says why.
+        const bool enabled = o != BO::Freeze || stardraft::EudProject::freezeWorks();
+        paintCheck(c, {x0 + labelW, y, colRight, y + rowH}, op.label, set && enabled, op.tip, [this, o, set] { host_.toggleBuildOption(o, set); },
+                   enabled);
         y += rowH;
+        if (!enabled) {
+            const std::wstring note = L"Off on macOS for now, for compatibility: euddraft's freeze crashes there. Build makes the map without it.";
+            const draw::Rect nr{x0 + labelW + scale(22), y, colRight, y + scale(400)};
+            c.text(nr, note, kDim, draw::kWrap | draw::kLeft);
+            y += c.measureBox(note, nr.width(), draw::kWrap).y + scale(4);
+        }
     }
     y += scale(6);
     if (kProjectMusicAndFiles) y = paintMusic(c, y, x0, labelW, rowH, colRight);
@@ -704,11 +718,17 @@ void ProjectPageView::endDrag() {
 }
 
 void ProjectPageView::paintCheck(draw::Canvas& c, draw::Rect r, const std::wstring& label, bool on, const std::wstring& tip,
-                                 std::function<void()> click) {
+                                 std::function<void()> click, bool enabled) {
     const int s = scale(14);
     const int top = (r.top + r.bottom - s) / 2;
     const draw::Rect b{r.left, top, r.left + s, top + s};
-    const bool over = hot(r);
+    const bool over = enabled && hot(r);
+    if (!enabled) {
+        c.roundBox(b, kReadOnly, kReadOnlyLine, float(scale(3)));
+        c.text({b.right + scale(8), r.top, r.right, r.bottom}, label, kFaint, draw::kMiddle | draw::kEllipsis);
+        hits_.push_back({r, nullptr, tip, draw::Cursor::Arrow});
+        return;
+    }
     // The box: accent when on, its border lit under the mouse.
     c.roundBox(b, on ? kAccentFill : kCtl, on ? kAccent : over ? kBorderHot : kBorderStrong, float(scale(3)));
     if (on) {

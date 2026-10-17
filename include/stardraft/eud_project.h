@@ -87,6 +87,13 @@ public:
     // EUD Turbo: euddraft's eudTurbo plugin ([eudTurbo]), which makes the triggers run every frame. On in new
     // projects. Call save() to keep a change.
     bool turbo() const;
+    // Freeze protection: euddraft's freeze, which protects the built map's file. euddraft turns it on unless [freeze] has
+    // a "freeze" line ("freeze : 0"), so it is on in new projects. Call save() to keep a change.
+    bool freeze() const;
+    void setFreeze(bool on);
+    // Freeze works on this system. Not on macOS for now: euddraft 0.11.0.1's freeze crashes there (its MPQ code casts a
+    // 32-bit size's pointer to unsigned long*), so the .eds that Build writes has "freeze : 0" whatever the project says.
+    static bool freezeWorks();
     // Debug build ("debug: 1" in [project]; not written to the .eds): the triggers' code checks indexes worked out in
     // the game and shows a message for one out of range (TriggerBuildOptions::debug). Call save() to keep a change.
     bool debugBuild() const;
