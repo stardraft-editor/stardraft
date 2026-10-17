@@ -258,6 +258,9 @@ bool sdlRuns(int id) {
 bool sdlEnabled(int id) {
     if (!sdlRuns(id)) return false;
     if (mapCommand(id) && !docOpen()) return false;
+    // The start page or the New page over the open map (File > New, the tabs' +): the map's commands are gray, as on the
+    // Windows program's page tabs (a Delete or Paste would change the map nobody sees).
+    if (mapCommand(id) && (gStartOpen || gNewOpen) && gWorkspace == Workspace::Map) return false;
     if (id == ID_PROJ_COMPILE && gBuilding) return false;  // (a build runs)
     if (mapMenuGrayed(id)) return false;                    // (Paste with no copy: core/map_edit_commands.inc)
     return commandForMode(id, projectMode());

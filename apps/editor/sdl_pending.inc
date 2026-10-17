@@ -29,6 +29,7 @@ void setWorkspace(Workspace w) {
     // A map page: its view shows (made from the tab's working copy); another workspace: the page goes (the copy stays).
     if (!sdlWorkspacePage(w) && (w == Workspace::Properties || w == Workspace::Players || w == Workspace::ClassicSettings || w == Workspace::ClassicTriggers)) w = Workspace::Map;
     gWorkspace = w;
+    if (w != Workspace::Map) gStartOpen = false;  // (the start page that File > New showed over the map: Map shows the map again)
     if (w == Workspace::Project) sdlProjectShown();
     if (w == Workspace::Triggers) sdlTriggersShown();
     shellStatusChanged();  // the map's parts show in Map only

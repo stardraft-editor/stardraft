@@ -346,7 +346,7 @@ CASES += [
 # input that opened it. After each input's line, a line "  state: ..." says what the workspace holds (sdl_shot_state.inc).
 CASES += [
     # The New page: the tileset Ice, then Create makes the map (128 x 128).
-    ("newpage-create", ["--newpage", "classic", "--click", "489,545", "--click", "1126,895"], "data"),
+    ("newpage-create", ["--newpage", "classic", "--click", "489,517", "--click", "1126,895"], "data"),
     # The Data form of the Marine in a new project: Hit points typed (50, Enter), Shield enable clicked, Unit size picked
     # (Medium in the list picker), then three Undo steps.
     ("data-form-edits", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "671,742", "--type", "50",
@@ -1121,7 +1121,7 @@ def check_newpage_create(output):
         return f"{len(s)} input lines, not 2"
     if "click 1126,895" != s[1][0] or not s[1][1].startswith("map: Ice 128 x 128;"):
         return f"after Create: {s[1][1] or 'no map'} (not an Ice map of 128 x 128)"
-    if not re.search(r"^click 489,545: no map:", output, re.M):
+    if not re.search(r"^click 489,517: no map:", output, re.M):
         return "a map was open before Create"
     return None
 
@@ -1754,6 +1754,8 @@ CASES += [
                                      "--click", "1126,897"], "map"),
     ("project-newproject", ["--key", "Ctrl+N", "--click", "711,430", "--click", "437,406", "--key", "Ctrl+A", "--type", "{newdir}",
                             "--click", "1162,815"], "project"),
+    # The map's commands do nothing while the start page shows over the map (Del after Select all deletes no unit).
+    ("map-start-over-map", ["--mode", "units", "--key", "Ctrl+A", "--key", "Ctrl+N", "--key", "Del", "--key", "Esc"], "map"),
     ("project-newpage-esc", ["--key", "Ctrl+N", "--key", "Esc", "--click", "176,84", "--key", "Esc", "--key", "Ctrl+Shift+N", "--key", "Esc"], "project"),
     ("map-sidebar-resize", ["--move", "341,500", "--drag", "341,500-401,500", "--move", "1323,500", "--drag", "1323,500-1263,500",
                             "--drag", "401,500-1001,500", "--drag", "701,500-101,500", "--move", "900,500"], "map"),
@@ -1896,6 +1898,10 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
               ("the left side bar is not at most 640 px", lambda u: u[4][1]["left"] == "640"),
               ("the left side bar is not at least 200 px", lambda u: u[5][1]["left"] == "200"),
               ("the width cursor over the map", lambda u: u[6][1]["cursor"] != "width")]),
+          "map-start-over-map": lambda output: expect_ui(4, [
+              ("Ctrl+N did not show the start page over the map", lambda u: u[1][1]["page"] == "start"),
+              ("Esc did not close the start page", lambda u: u[3][1]["page"] == "map")])(output) or (
+              None if re.search(r"^key Del: 58 units", output, re.M) else "Del deleted units of the map under the start page"),
           "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True)}
 
 # GitHub's answer for the newest release ({release}; /releases/latest, shortened): a release with a download for each
