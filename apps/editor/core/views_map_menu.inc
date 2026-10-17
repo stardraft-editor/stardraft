@@ -58,8 +58,60 @@ void locationMenuPick(int loc, int pick) {
 // already), then Cut, Copy, Paste, Duplicate, Delete and Select all act on the mode's selection and its own copy
 // buffer. Units add Properties; a location adds its own menu (rename, elevations).
 enum { ID_MAPMENU_PROPS = 9001, ID_MAPMENU_SELECT, ID_MAPMENU_REPLACE, ID_MAPMENU_SAMETYPE, ID_MAPMENU_SAMETYPE_PLAYER, ID_MAPMENU_TOTERRAIN,
-       ID_MAPMENU_FILLSEL };
+       ID_MAPMENU_FILLSEL, ID_MAPMENU_STACK };
 int gMapMenuUnit = -1, gMapMenuLocation = -1, gMapMenuDoodad = -1, gMapMenuSprite = -1;
+float gMapMenuWX = 0, gMapMenuWY = 0;  // the map point that the menu opened on
+size_t gMapMenuStack = 0;              // the units at that point (Units mode)
+
+// --- A stack of units: the list of the units at a point -------------------------------------------------------------
+
+// The host shows the list picker at the map view's point (sx, sy) (sdl_map_dialogs.inc): true with the picked value in
+// `out` and the modifier keys held at the pick in `mods`.
+bool shellPickStackUnit(std::vector<ListPickItem> items, const std::string& current, int sx, int sy, std::string& out, unsigned& mods);
+
+// The rows of the list of a stack (Editor::unitsAt: the top unit first): each unit's icon, name, player and place; the
+// value is the unit's index.
+std::vector<ListPickItem> unitStackItems(const Editor& ed, const std::vector<int>& stack) {
+    std::vector<ListPickItem> items;
+    for (const int i : stack) {
+        const Unit& u = ed.units()[size_t(i)];
+        ListPickItem it;
+        it.label = unitDisplayName(u.type) + L", Player " + std::to_wstring(u.owner + 1) + L", at " + std::to_wstring(u.x) + L", " + std::to_wstring(u.y);
+        it.value = std::to_string(i);
+        it.iconDat = "units", it.icon = u.type;
+        items.push_back(std::move(it));
+    }
+    return items;
+}
+
+// Alt+click on a stack, or the map menu's "Select a unit here...": the list of the units at the map point (wx, wy), at
+// the map view's point (sx, sy). A pick selects that unit; with Shift (at the click or at the pick) it is added to the
+// selection. The list opens after the event that asks for it (its loop does not run inside the map's mouse event).
+void showUnitStack(float wx, float wy, int sx, int sy, bool add) {
+    shellPost([wx, wy, sx, sy, add] {
+        AppState& app = appState();
+        if (!app.ed || !app.ed->isOpen()) return;
+        Editor& ed = *app.ed;
+        const std::vector<int> stack = ed.unitsAt(int(wx), int(wy));
+        if (stack.empty()) return;
+        std::string current;  // (the check mark: the selected unit of the stack)
+        for (const int u : stack)
+            if (current.empty() && ed.isSelected(u)) current = std::to_string(u);
+        std::string out;
+        unsigned mods = 0;
+        if (!shellPickStackUnit(unitStackItems(ed, stack), current, sx, sy, out, mods)) return;
+        const int u = std::atoi(out.c_str());
+        const auto at = std::find(stack.begin(), stack.end(), u);
+        if (out.empty() || at == stack.end() || u >= int(ed.units().size())) return;
+        const bool plus = add || (mods & draw::kShift);
+        ed.select(u, plus);
+        if (!plus) gStackChosen = u;  // (a press on it keeps it: a drag moves it)
+        const Unit& un = ed.units()[size_t(u)];
+        setMessage((plus ? L"Added unit " : L"Selected unit ") + std::to_wstring(at - stack.begin() + 1) + L" of " + std::to_wstring(stack.size()) +
+                   L" here: " + unitDisplayName(un.type) + L", Player " + std::to_wstring(un.owner + 1));
+        app.dirty = true;
+    });
+}
 
 // "Select all of this type": every unit (of `forPlayer`: only the same player's), doodad or sprite on the map of the
 // same type as the one the menu was opened on, in place of the mode's selection. Returns how many are selected.
@@ -94,14 +146,17 @@ MenuModel mapMenuModel(float wx, float wy) {
     AppState& app = appState();
     MenuModel m;
     gMapMenuUnit = gMapMenuLocation = gMapMenuDoodad = gMapMenuSprite = -1;
+    gMapMenuStack = 0;
     if (!app.ed || !app.ed->isOpen()) return m;
     Editor& ed = *app.ed;
     bool has = false, canPaste = false;
     switch (app.mode) {
     case Mode::Units: {
-        const int u = ed.unitAt(int(wx), int(wy));
+        // A stack: the unit that a click again or the list selected stays selected; else the top one.
+        const size_t stack = ed.unitsAt(int(wx), int(wy)).size();
+        const int u = stackUnitAt(ed, wx, wy);
         if (u >= 0 && !ed.isSelected(u)) ed.select(u, false);
-        gMapMenuUnit = u;
+        gMapMenuUnit = u, gMapMenuWX = wx, gMapMenuWY = wy, gMapMenuStack = stack;
         has = !ed.selection().empty(), canPaste = ed.canPaste();
         break;
     }
@@ -143,6 +198,7 @@ MenuModel mapMenuModel(float wx, float wy) {
     if (gMapMenuUnit >= 0 || gMapMenuDoodad >= 0 || gMapMenuSprite >= 0) item(ID_MAPMENU_SAMETYPE, L"Select all of this t&ype", L"", true);
     if (gMapMenuUnit >= 0)
         m.push_back(menuItem(ID_MAPMENU_SAMETYPE_PLAYER, L"Select all of this type for Player " + std::to_wstring(ed.units()[size_t(gMapMenuUnit)].owner + 1)));
+    if (gMapMenuStack > 1) item(ID_MAPMENU_STACK, L"Select a unit &here\x2026", L"Alt+click", true);  // (a stack: the list of its units)
     item(ID_MAPMENU_SELECT, L"&Select (no placing)", L"Esc", !inSelection());
     if (gMapMenuUnit >= 0) {
         m.push_back(menuSeparator());
@@ -160,6 +216,7 @@ MenuModel mapMenuModel(float wx, float wy) {
 void mapMenuPick(int pick) {
     AppState& app = appState();
     if (pick == ID_MAPMENU_PROPS && gMapMenuUnit >= 0) showUnitProperties(gMapMenuUnit);
+    else if (pick == ID_MAPMENU_STACK) showUnitStack(gMapMenuWX, gMapMenuWY, app.mouseX, app.mouseY, false);
     else if (pick == ID_MAPMENU_SELECT) enterSelection(), setMessage(std::wstring(kModeNames[int(app.mode)]) + L": select");
     else if (pick == ID_MAPMENU_REPLACE) shellShowQuickPicker(true, false);
     else if (pick == ID_MAPMENU_FILLSEL) tilesFillSelection();

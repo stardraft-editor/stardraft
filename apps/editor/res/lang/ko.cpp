@@ -2171,6 +2171,15 @@ constexpr UiText kRows[] = {
     {L"Exported the preview ", L"\uBBF8\uB9AC \uBCF4\uAE30\uB97C \uB0B4\uBCF4\uB0C4: "},
     {L"Part %d of %d", L"%d/%d \uBD80\uBD84"},
     {L"Canceled the map image export", L"\uB9F5 \uC774\uBBF8\uC9C0 \uB0B4\uBCF4\uB0B4\uAE30\uB97C \uCDE8\uC18C\uD568"},
+    {L"%d units here (Alt+click: list)", L"\uC5EC\uAE30\uC5D0 \uC720\uB2DB %d\uAC1C (Alt+\uD074\uB9AD: \uBAA9\uB85D)"},
+    {L"Select a unit &here\u2026", L"\uC5EC\uAE30\uC758 \uC720\uB2DB \uC120\uD0DD(&H)\u2026"},
+    {L"Search the units here", L"\uC5EC\uAE30\uC758 \uC720\uB2DB \uAC80\uC0C9"},
+    {L"Selected unit ", L"\uC120\uD0DD\uD55C \uC720\uB2DB "},
+    {L"Added unit ", L"\uCD94\uAC00\uD55C \uC720\uB2DB "},
+    {L" of ", L" / "},
+    {L" here: ", L" (\uC774 \uC704\uCE58): "},
+    {L". Click again for the next unit.", L". \uB2E4\uC2DC \uD074\uB9AD\uD558\uBA74 \uB2E4\uC74C \uC720\uB2DB\uC744 \uC120\uD0DD\uD569\uB2C8\uB2E4."},
+    {L", at ", L", \uC704\uCE58 "},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

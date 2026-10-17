@@ -227,6 +227,9 @@ public:
     // Units removed by terrain edits since the last call.
     int takeUnitsRemovedByTerrain() { return std::exchange(removedByTerrain_, 0); }
     int unitAt(int x, int y) const;  // topmost unit whose box contains the point, or -1
+    // Every unit whose box contains the point, the top one first (the one unitAt gives: the smallest box, then the unit
+    // placed last): the units of a stack, in the order a click goes through them.
+    std::vector<int> unitsAt(int x, int y) const;
     Rect unitBox(const Unit& u) const;
 
     // Replace every unit of type `from` (only selected ones if `selectionOnly`) with type `to`,

@@ -939,7 +939,8 @@ void sdlCommandShot(const std::string& name) {
                                                          {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO}, {"edit.history", ID_EDIT_HISTORY},
                                                          {"project.open", ID_PROJ_OPEN}, {"project.addscript", ID_PROJ_ADDSCRIPT},
                                                          {"file.exit", ID_FILE_EXIT}, {"options.restart", ID_OPT_RESTART},
-                                                         {"options.unitsnap.tiles", ID_SNAP_UNITS + 1}};  // (Options > Units > Snap to tiles)
+                                                         {"options.unitsnap.tiles", ID_SNAP_UNITS + 1},  // (Options > Units > Snap to tiles)
+                                                         {"options.stack", ID_OPT_STACK}};  // (Options > Units > Can be on top of others)
     int id = -1;
     for (const auto& [native, cmd] : gCommandIds)
         if (cmd == name) id = native;
