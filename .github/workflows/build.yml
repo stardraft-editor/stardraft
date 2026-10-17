@@ -57,10 +57,13 @@ jobs:
   windows:
     runs-on: windows-latest
     env:
-      SCCACHE_DIR: ${{ runner.temp }}\sccache
       SCCACHE_CACHE_SIZE: 3G
     steps:
       - uses: actions/checkout@v4
+
+      - name: The compiler cache's folder
+        shell: bash
+        run: echo "SCCACHE_DIR=$RUNNER_TEMP\sccache" >> "$GITHUB_ENV"
 
       # The UI text rules (docs/dev/PRINCIPLES.md, "Text"): a new violation stops the build. Needs only Python.
       - name: Check the UI text
@@ -239,11 +242,13 @@ jobs:
   linux:
     runs-on: ubuntu-24.04
     env:
-      CCACHE_DIR: ${{ runner.temp }}/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       CCACHE_MAXSIZE: 2G
     steps:
       - uses: actions/checkout@v4
+
+      - name: The compiler cache's folder
+        run: echo "CCACHE_DIR=$RUNNER_TEMP/ccache" >> "$GITHUB_ENV"
 
       # SDL's build dependencies (its docs/README-linux.md) and Mesa's Vulkan drivers (lavapipe: Vulkan on the CPU).
       - name: Install the build tools
@@ -398,11 +403,13 @@ jobs:
   linux-clang:
     runs-on: ubuntu-24.04
     env:
-      CCACHE_DIR: ${{ runner.temp }}/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       CCACHE_MAXSIZE: 2G
     steps:
       - uses: actions/checkout@v4
+
+      - name: The compiler cache's folder
+        run: echo "CCACHE_DIR=$RUNNER_TEMP/ccache" >> "$GITHUB_ENV"
 
       - name: Install the build tools
         run: |
@@ -455,11 +462,13 @@ jobs:
   linux-appimage:
     runs-on: ubuntu-22.04
     env:
-      CCACHE_DIR: ${{ runner.temp }}/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       CCACHE_MAXSIZE: 1G
     steps:
       - uses: actions/checkout@v4
+
+      - name: The compiler cache's folder
+        run: echo "CCACHE_DIR=$RUNNER_TEMP/ccache" >> "$GITHUB_ENV"
 
       - name: Install the build tools
         run: |
@@ -583,11 +592,13 @@ jobs:
   macos:
     runs-on: macos-15  # arm64, Xcode's clang and libc++
     env:
-      CCACHE_DIR: ${{ runner.temp }}/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       CCACHE_MAXSIZE: 2G
     steps:
       - uses: actions/checkout@v4
+
+      - name: The compiler cache's folder
+        run: echo "CCACHE_DIR=$RUNNER_TEMP/ccache" >> "$GITHUB_ENV"
 
       - uses: actions/cache@v4
         with:
