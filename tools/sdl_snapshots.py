@@ -359,14 +359,14 @@ CASES += [
     # Generate (a window wide enough for its settings to be beside the preview), then 8 quick clicks (Repeat8: SDL counts
     # them, so all but the first are double clicks) on Randomize seed, Randomize values and Randomize all, a wait after
     # each: each click randomizes, and one map is made, for the last values shown.
-    ("newpage-randomize-quick", ["--size", "2400x1300", "--newpage", "classic", "--click", "894,394", "--wait", "600",
-                                 "--click", "1870,463:Repeat8", "--wait", "600", "--click", "1566,529:Repeat8", "--wait", "600",
-                                 "--click", "1679,529:Repeat8", "--wait", "600"], "data"),
+    ("newpage-randomize-quick", ["--size", "2400x1300", "--newpage", "classic", "--click", "894,408", "--wait", "600",
+                                 "--click", "1870,449:Repeat8", "--wait", "600", "--click", "1566,515:Repeat8", "--wait", "600",
+                                 "--click", "1679,515:Repeat8", "--wait", "600"], "data"),
     # Generate, then the Symmetry dropdown: a click opens its list, Down twice and Enter pick Mirror top and bottom, and
     # the map is made again with it. Then Blank (the dropdown goes from view) and Down twice: the symmetry stays.
-    ("newpage-symmetry-dropdown", ["--size", "2400x1300", "--newpage", "classic", "--click", "894,394", "--wait", "600",
-                                   "--click", "1822,496", "--key", "Down", "--key", "Down", "--key", "Enter", "--wait", "600",
-                                   "--click", "894,362", "--key", "Down", "--key", "Down"], "data"),
+    ("newpage-symmetry-dropdown", ["--size", "2400x1300", "--newpage", "classic", "--click", "894,408", "--wait", "600",
+                                   "--click", "1822,482", "--key", "Down", "--key", "Down", "--key", "Enter", "--wait", "600",
+                                   "--click", "894,376", "--key", "Down", "--key", "Down"], "data"),
     # The Data form of the Marine in a new project: Hit points typed (50, Enter), Shield enable clicked, Unit size picked
     # (Medium in the list picker), then three Undo steps.
     ("data-form-edits", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "671,742", "--type", "50",
@@ -2018,8 +2018,6 @@ def check_release_token(output):
 # map's tab after a project's in Data shows its map.
 CASES += [
     ("newpage-noback", ["--newpage", "eud", "--click", "382,218", "--key", "Esc"], ""),
-    ("map-newpage-classic-terrain", ["--newpage", "classic", "--click", "489,517", "--click", "815,314", "--click", "960,353", "--type", "{map}",
-                                     "--click", "1126,897"], "map"),
     ("project-newproject", ["--key", "Ctrl+N", "--click", "711,430", "--click", "437,406", "--key", "Ctrl+A", "--type", "{newdir}",
                             "--click", "1162,815"], "project"),
     # The map's commands do nothing while the start page shows over the map (Del after Select all deletes no unit).
@@ -2155,25 +2153,6 @@ def check_edit_elsewhere(ws, enabled, last_quick="no"):
     return check
 
 
-def check_classic_terrain(output):
-    """The classic New page offers the terrain of a map; Create makes an untitled map with the map's tileset, size and
-    doodads (the --map: Space Platform, 128 x 128, 50 doodads) and no units."""
-    u, s = ui_lines(output), states(output)
-    if len(u) != 5 or len(s) != 5:
-        return f"{len(u)} inputs, not 5"
-    if "terrain" not in u[0][1].get("offered", "").split(","):
-        return f"the classic New page does not offer the terrain of a map: {u[0][1]}"
-    if u[1][1].get("start") != "terrain":
-        return f"The terrain of a map is not selected: {u[1][1]}"
-    if u[4][1].get("page") != "map" or u[4][1].get("tabs") != "1/1":
-        return f"after Create: {u[4][1]} (not the new map in a tab)"
-    if not s[4][1].startswith("map: Space Platform 128 x 128;") or 'tab="* Untitled"' not in s[4][1]:
-        return f"the new map is not an untitled map with the map's tileset and size: {s[4][1]}"
-    if not re.search(r"^click 1126,897: 0 units, 50 doodads", output, re.M):
-        return "the new map does not have the map's doodads and no units"
-    return None
-
-
 CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
           "map-drag-select": check_box_select, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
           "map-doodad-ghost": check_doodad_ghost, "map-sprite-place": check_sprite_place,
@@ -2216,7 +2195,6 @@ CHECKS = {"map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_
           "newpage-noback": expect_ui(2, [
               ("a click where Back was closed the page (Back is there)", lambda u: u[0][1]["page"] == "new"),
               ("Esc did not close the New page", lambda u: u[1][1]["page"] == "start")]),
-          "map-newpage-classic-terrain": check_classic_terrain,
           "project-newproject": lambda output: expect_ui(6, [
               ("File > New (Ctrl+N) did not show the start page with a project open", lambda u: u[0][1]["page"] == "start"),
               ("the EUD project card did not show the New page", lambda u: u[1][1]["page"] == "new" and u[1][1]["new"] == "eud"),

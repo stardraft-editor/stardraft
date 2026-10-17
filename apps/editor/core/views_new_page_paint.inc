@@ -316,12 +316,12 @@ void NewPageView::paint(draw::Canvas& c) {
     }
 
     // Start: a blank map filled with a terrain (the dropdown in its row), generated, or imported: an EUD project copies a
-    // map (Import an existing map), a classic project takes the terrain of a map (as the Windows program had it).
+    // map (Import an existing map). The terrain of a map (k 3) is not offered, as in 0.5.
     y = sectionHeader(c, x3, x3 + w3, top, rowH, L"Start");
     startOffered.clear();
     for (int k = 0; k < 4; ++k) {
         if (k == 2 && !project) continue;  // Import an existing map: an EUD project (a classic map: File > Open)
-        if (k == 3 && project) continue;   // The terrain of a map: a classic project
+        if (k == 3) continue;  // The terrain of a map: not offered (as in 0.5)
         startOffered += std::string(startOffered.empty() ? "" : ",") + (k == 3 ? "terrain" : k == 2 ? "import" : k == 1 ? "generate" : "blank");
         const bool on = k == 3 ? terrainOnly : k == 2 ? copyMap : !copyMap && !terrainOnly && generate == (k == 1);
         const int hgt = k == 0 ? fieldH + scale(8) : rowH;
