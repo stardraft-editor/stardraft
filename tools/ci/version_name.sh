@@ -5,7 +5,7 @@
 # together): that tag's version, so that this run's files are the release's files and the tag's run
 # (.github/workflows/release.yml) takes them as they are. A commit with no tag, a pull request, a run by hand: nothing.
 #
-# usage: tools/ci/version_name.sh   (in the checkout; reads GITHUB_REF, GITHUB_REF_NAME, GITHUB_EVENT_NAME, GITHUB_SHA)
+# usage: bash tools/ci/version_name.sh   (in the checkout; reads GITHUB_REF, GITHUB_REF_NAME, GITHUB_EVENT_NAME, GITHUB_SHA)
 
 set -euo pipefail
 case "${GITHUB_REF:-}" in
