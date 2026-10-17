@@ -597,8 +597,11 @@ void sdlImeText(const std::string& spec) {
 // then Undo, gives the units back): the units, the doodads, the selection (the first selected unit's place) and the
 // status bar's text ("no map" in place of the counts when no map is open); then, on a line of its own, what the
 // workspace holds (sdl_shot_state.inc: the map's parts, the Data entry's changed values, the selected trigger's
-// blocks...). This is the only state line.
+// blocks...). This is the only state line. Then a line "  ui: ..." with the window's own parts (sdl_shot_state.inc:
+// sdlShotUi: the page shown, the side bars' widths, the cursor, the New page's choices).
 std::string sdlShotState();
+std::string sdlShotUi();
+draw::Point gShotMouse{-1, -1};  // where the last --click, --drag or --move left the mouse (the ui line's cursor)
 void sdlInputLine(const std::string& what) {
     if (!gState.ed || !gState.ed->isOpen()) {
         std::printf("%s: no map: %s\n", what.c_str(), narrow(gState.message).c_str());
@@ -612,6 +615,7 @@ void sdlInputLine(const std::string& what) {
                     first.c_str(), narrow(gState.message).c_str());
     }
     if (const std::string state = sdlShotState(); !state.empty()) std::printf("  state: %s\n", state.c_str());
+    std::printf("  ui: %s\n", sdlShotUi().c_str());
 }
 
 void sdlMouseShot(const std::string& spec, char kind);
@@ -741,6 +745,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
     gHost->snapshotMouse(*gRoot, events);
     SDL_SetModState(before);
     runPosted();
+    gShotMouse = {x1, y1};
     sdlInputLine(name + spec);
 }
 
@@ -878,7 +883,8 @@ void sdlCommandShot(const std::string& name) {
     static const std::pair<const char*, int> kNames[] = {{"view.towns", ID_VIEW_TOWNS}, {"view.log", ID_VIEW_LOG}, {"scen.check", ID_SCEN_CHECK},
                                                          {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO},
                                                          {"project.open", ID_PROJ_OPEN}, {"project.addscript", ID_PROJ_ADDSCRIPT},
-                                                         {"file.exit", ID_FILE_EXIT}, {"options.restart", ID_OPT_RESTART}};
+                                                         {"file.exit", ID_FILE_EXIT}, {"options.restart", ID_OPT_RESTART},
+                                                         {"options.unitsnap.tiles", ID_SNAP_UNITS + 1}};  // (Options > Units > Snap to tiles)
     int id = -1;
     for (const auto& [native, cmd] : gCommandIds)
         if (cmd == name) id = native;

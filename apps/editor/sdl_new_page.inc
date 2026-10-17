@@ -1,14 +1,17 @@
 // The New page on this system (core/views_new_page.inc: the view; this file is its SDL host). The settings of a kind that a
 // card on the start page selected (or Project > New EUD project): the Project, Terrain and Start columns, the preview and
 // the generator's settings are the view's. The page shows in the Map workspace in place of the start page (or the map,
-// when a map is open) until Back, Cancel or Create. The folders and files come from the system's dialogs (shell_sdl.inc);
+// when a map is open) until Cancel (or Esc) or Create. The folders and files come from the system's dialogs (shell_sdl.inc);
 // Create makes the map, and for an EUD project the project folder around it (core/project_page.inc: createProject).
 // Included by main_sdl.cpp after sdl_map_pages.inc (sdlPickFromList) and before shell_sdl.inc.
 
 // The New page is open in the Map workspace (File > New closes it: the start page shows).
 bool gNewOpen = false;
+// File > New (and the tabs' +) with a map open: the start page shows in the Map workspace in place of the map, as the
+// Windows program's start page tab did, until a card, Esc, another tab or a map or project that opens.
+bool gStartOpen = false;
 
-// The New page's host on this system: the folders and files, the list pickers, the making of the map, Back and Cancel.
+// The New page's host on this system: the folders and files, the list pickers, the making of the map, and Cancel.
 class NewHostSdl final : public NewPageHost {
 public:
     fs::path defaultFolder() override { return defaultProjectsFolder(); }
@@ -17,7 +20,6 @@ public:
     std::wstring pickMapFile() override;
     void pickList(const std::wstring& title, const std::vector<NewListItem>& items, const std::string& current, draw::Rect below,
                   const std::function<void(const std::string&)>& picked) override;
-    void back() override;
     void cancel() override;
     bool make() override;
     void message(const std::wstring& text) override { setMessage(text); }
@@ -50,15 +52,9 @@ void NewHostSdl::pickList(const std::wstring& title, const std::vector<NewListIt
     if (i >= 0 && i < int(items.size())) picked(items[size_t(i)].value);
 }
 
-// Leaves the page: the start page shows again (the map, when one is open, shows).
-void NewHostSdl::back() {
-    gNewView.card = gNewView.project ? 1 : 0, gNewView.keep = true;  // (a card opens the settings again with the same choices)
-    gNewOpen = false;
-    shellRelayout(), shellMenusChanged();
-}
+// Leaves the page: the map shows again (the start page, when no map is open).
 void NewHostSdl::cancel() {
-    gNewView.keep = false;
-    gNewOpen = false;
+    gNewOpen = false, gStartOpen = false;
     shellRelayout(), shellMenusChanged();
 }
 
@@ -93,19 +89,23 @@ bool NewHostSdl::make() {
     return true;
 }
 
-// File > New (-1) shows the start page; a card or Project > New EUD project (0 classic, 1 EUD project) shows the New page with
-// that kind's choices (fresh ones, or the same ones after Back).
+// File > New (-1) shows the start page (in place of the open map too); a card or Project > New EUD project (0 classic, 1
+// EUD project) shows the New page with that kind's choices. Both show in the Map workspace; Create makes the map or the
+// project in a tab of its own (the open maps and projects stay).
 void openNewPageSdl(int kind) {
+    if (gWorkspace != Workspace::Map) setWorkspace(Workspace::Map);
     if (kind < 0) {
-        gNewOpen = false, gNewView.keep = false;
+        gNewOpen = false, gStartOpen = true;
+        gStartView.resetScroll();
         shellRelayout(), shellMenusChanged();
         return;
     }
-    if (!gNewOpen && !gNewView.keep) {
+    gStartOpen = false;
+    if (!gNewOpen) {
         gNewView.setOpenEra(gState.ed && gState.ed->isOpen() ? uint16_t(gState.ed->era() & 7) : uint16_t(0));
         gNewView.reset(kind);
     }
-    gNewView.keep = false, gNewView.tallest = 0;
+    gNewView.tallest = 0;
     gNewView.project = kind == 1, gNewView.card = kind;
     gNewView.changed(false);
     gNewOpen = true;
@@ -114,8 +114,22 @@ void openNewPageSdl(int kind) {
 }
 
 // The document tabs' page (core/views_tabs.inc: activateDoc). This system has no page tabs: the start page and the New
-// page show in the Map workspace in place of the map (sdl_main_view.inc), so another tab only lays the panes out again.
-void pageSync() { shellRelayout(); }
+// page show in the Map workspace in place of the map (sdl_main_view.inc). Another tab (or a map or project that opens)
+// shows its map: the start page that File > New showed over a map closes.
+void pageSync() {
+    gStartOpen = false;
+    shellRelayout();
+}
+// Esc: the New page closes (as Cancel), or the start page that File > New showed over the open map. False: neither shows.
+bool newPageEscape() {
+    if (gNewOpen && gNewView.shown()) return gNewView.cancelPage(), true;
+    if (gStartOpen && gStartView.shown() && gState.ed && gState.ed->isOpen()) {
+        gStartOpen = false;
+        shellRelayout(), shellMenusChanged();
+        return true;
+    }
+    return false;
+}
 // The last tab closed (core/views_tabs.inc): the start page, as File > New (no map is open, so it shows).
 void openStartPage() { openNewPageSdl(-1); }
 

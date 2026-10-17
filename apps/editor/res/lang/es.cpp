@@ -1404,6 +1404,7 @@ constexpr UiText kRows[] = {
     {L"Open\u2026", L"Abrir\u2026"},
     {L"A project or a map (Ctrl+O)", L"Un proyecto o un mapa (Ctrl+O)"},
     {L"The map to copy (.scm or .scx)", L"El mapa que se copiar\u00E1 (.scm o .scx)"},
+    {L"The map whose terrain to use (.scm or .scx)", L"El mapa cuyo terreno se usar\u00E1 (.scm o .scx)"},
     {L"Could not open the page", L"No se pudo abrir la p\u00E1gina"},
     {L"Appearance", L"Apariencia"},
     {L"Theme", L"Tema"},
