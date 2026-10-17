@@ -745,6 +745,32 @@ void sdlTextPopShot(const std::string& which) {
         }
 }
 
+// --check imageplayer:<anim>:<ticks> (after --data images:<n>): the image player's run of that animation, a line for
+// each tick with what the stage draws (core/data_pictures.inc: imagePlayerRunText). False: not this check.
+bool sdlDataCheck(const std::string& what, std::string& out) {
+    if (what.rfind("imageplayer:", 0) != 0) return false;
+    const int anim = std::atoi(what.c_str() + 12);
+    const size_t colon = what.find(':', 12);
+    const int ticks = colon == std::string::npos ? 48 : std::clamp(std::atoi(what.c_str() + colon + 1), 1, 2000);
+    if (!curTable() || curTable()->schema().name != "images") return out = "image player: no images.dat entry (WRONG)\n", true;
+    out = "image player: image " + std::to_string(gSdlDataState.entry) + " animation " + std::to_string(anim) + "\n" +
+          imagePlayerRunText(gSdlDataState.entry, anim, ticks);
+    return true;
+}
+
+// --check dataform (after the snapshot: the last paint's parts): the Data form's width and columns, its parts
+// (core/views_data_form.inc: DataFormPart) and its buttons (the click areas of the pictures and the links), each
+// with its rectangle in the form.
+void sdlDataFormCheck() {
+    const DataFormLayout lay = dataFormLayout(gSdlDataForm.width());
+    std::printf("data form: %d px wide, %s\n", gSdlDataForm.width(), lay.twoCol ? "two columns" : "one column");
+    for (const DataFormPart& p : gSdlDataForm.parts())
+        std::printf("form part: %s %d,%d,%d,%d\n", p.what.c_str(), p.r.left, p.r.top, p.r.right, p.r.bottom);
+    for (const auto& a : gSdlDataFormHost.areas)
+        if (a.click && !a.drag)
+            std::printf("form button: %d,%d,%d,%d %s\n", a.r.left, a.r.top, a.r.right, a.r.bottom, narrow(a.tip.substr(0, 40)).c_str());
+}
+
 void sdlDataSelect(const std::string& spec) {
     const size_t colon = spec.find(':');
     if (colon == std::string::npos) return;

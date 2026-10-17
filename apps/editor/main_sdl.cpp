@@ -651,8 +651,8 @@ int main(int argc, char** argv) {
         // window's, the menu bar's and the Dock's lines come after the snapshot (hasCheck).
         for (const std::string& c : checkArgs) {
             std::string out;
-            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret";
-            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlUpdateCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
+            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform";
+            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
             std::printf("%s", out.c_str());
         }
 
@@ -814,6 +814,7 @@ int main(int argc, char** argv) {
             if (cursorsArg) sdlCursorChecks();  // (after the picture: it changes the mode and the camera)
             if (hasCheck("menus")) sdlMenuCheck();
             if (hasCheck("names")) sdlNamesCheck();  // (after the inputs: a map saved and opened again)
+            if (hasCheck("dataform")) sdlDataFormCheck();  // (the last paint's parts)
             if (untitledArg) {  // (the project's folder goes: a snapshot leaves nothing)
                 const EudProject* pr = activeProject();
                 std::printf("untitled: an unsaved project %s (%s)\n", isUnsavedProject(pr) ? "yes" : "(WRONG)", pr ? narrow(pr->folder().filename().wstring()).c_str() : "none");
