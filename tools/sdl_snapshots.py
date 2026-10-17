@@ -2460,7 +2460,8 @@ def html_lines(output, what):
 def check_html_view(output):
     """None when the HTML view laid out HTML_PAGE: as wide as the view (less the scroll bar), taller than the view
     (the bar shows), its title and its image, and its four links in the order of the page, each in the page; the wheel
-    scrolls it (3 notches: 3 rows of 26 px each), and the "#a-list" link scrolls to its heading."""
+    scrolls it (3 notches: 3 rows of 26 px each), and the "#a-list" link scrolls to its heading. Another page frees the
+    images of the page before."""
     m = re.search(r"^html: the wheel \(3 notches\) scrolls to (\d+) px\r?$", output, re.M)
     if not m or int(m.group(1)) != 3 * 3 * 26:
         return f"the wheel scrolled to {m.group(1) if m else 'nothing'} (not {3 * 3 * 26} px)"
@@ -2479,6 +2480,9 @@ def check_html_view(output):
         return f"{shown} of {asked} images shown (not 1 of 1)"
     if not re.search(r"^html: scroll bar shown", output, re.M):
         return "the scroll bar does not show for a page taller than the view"
+    m = re.search(r"^html: another page: images (\d+) of (\d+) kept \((\d+) before\)\r?$", output, re.M)
+    if not m or (int(m.group(1)), int(m.group(2)), int(m.group(3))) != (0, 0, 1):
+        return f"another page keeps the images of the page before ({m.group(0) if m else 'no line'})"
     urls = [u for u, _ in links]
     want = ["https://example.com/start", "second.html", "https://github.com/stardraft-editor/stardraft", "#a-list"]
     if len(urls) != 4 or not urls[0] == want[0] or not urls[1].replace("\\", "/").endswith("/" + want[1]) or urls[2] != want[2] or urls[3] != want[3]:

@@ -32,15 +32,23 @@ void releaseMapTexture() {
     gMapEd = nullptr;
 }
 
-// Work for the UI thread, from shellPost (any thread): run by the frame hook, in order.
-std::mutex gPostMutex;
-std::vector<std::function<void()>> gPosted;
+// Work for the UI thread, from shellPost (any thread): run by the frame hook, in order. The queue is never freed: a
+// download thread that ends while the program stops can still post to it (its work then does not run).
+struct PostQueue {
+    std::mutex mutex;
+    std::vector<std::function<void()>> posted;
+};
+PostQueue& postQueue() {
+    static PostQueue* const q = new PostQueue;
+    return *q;
+}
 
 void runPosted() {
     std::vector<std::function<void()>> todo;
     {
-        std::lock_guard<std::mutex> lock(gPostMutex);
-        todo.swap(gPosted);
+        PostQueue& q = postQueue();
+        std::lock_guard<std::mutex> lock(q.mutex);
+        todo.swap(q.posted);
     }
     for (auto& fn : todo) fn();
 }

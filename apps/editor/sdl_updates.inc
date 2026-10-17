@@ -42,6 +42,13 @@ std::wstring sdlInstallRelease(const fs::path& self, const fs::path& fresh, cons
 releases::UpdateWay sdlUpdateWay(const releases::Release& r) { return releases::updateWay(stardraft::platform::programFile(), r, sdlPackaged()); }
 
 void sdlInstallUpdate(const releases::Release& r);
+
+// The cache folder's releases/ (releases::keepRelease); empty when there is no cache folder (a test run, or a system
+// with no folder for it), so that nothing goes into the current folder.
+fs::path sdlReleasesFolder() {
+    const fs::path cache = shellCacheFolder();
+    return cache.empty() ? fs::path() : cache / "releases";
+}
 bool sdlUpdatePreviews();
 void sdlUpdateFound(const releases::Release& r);
 
@@ -55,7 +62,7 @@ void sdlCheckForUpdates() {
                    msgbox::Icon::Warning);
         return;
     }
-    releases::keepRelease(shellCacheFolder() / "releases", r.tag, json);
+    releases::keepRelease(sdlReleasesFolder(), r.tag, json);
     sdlUpdateFound(r);  // (the top bar's Update)
     const std::wstring title = widen(r.title);
     using releases::UpdateWay;
@@ -184,7 +191,7 @@ void sdlLookForUpdate() {
     prefs::flag(L"CheckUpdates", check);
     if (!releases::releaseBuild() || !check || gSilent) return;  // (a test run: no network)
     const bool previews = sdlUpdatePreviews();
-    const fs::path cache = shellCacheFolder() / "releases";
+    const fs::path cache = sdlReleasesFolder();
     std::thread([previews, cache] {
         releases::Release r;
         std::string json;
@@ -233,6 +240,12 @@ void sdlChangelogShow(const releases::Release& r, bool kept) {
 
 void sdlShowChangelog(const std::string& tag);
 
+// The window closed: the notes go, with their images (the pixels and the canvas's copies); the next open sets them again.
+void sdlChangelogClosed() {
+    gChangelogOpen = false;
+    gChangelogView.html().setHtml({}, gChangelogView.page());
+}
+
 // The window's parts: the links, Install, the other releases (once).
 void sdlChangelogWire() {
     static bool wired = false;
@@ -253,7 +266,7 @@ void sdlChangelogWire() {
         gChangelogView.close();
         sdlInstallUpdate(r);
     };
-    gChangelogView.closed = [] { gChangelogOpen = false; };
+    gChangelogView.closed = [] { sdlChangelogClosed(); };
 }
 
 // The release notes of the release with the tag `tag` ("": the newest release of the track; the top bar's Update has
@@ -271,7 +284,7 @@ void sdlShowChangelog(const std::string& tag) {
     else if (gSilent) gChangelogView.setNotReached(tag.empty() ? repo : repo + "/tag/" + tag);  // (a test run: no network)
     else {
         gChangelogView.setLoading(tag.empty() ? repo : repo + "/tag/" + tag);
-        const fs::path cache = shellCacheFolder() / "releases";
+        const fs::path cache = sdlReleasesFolder();
         std::thread([ask, tag, previews, cache, repo] {
             releases::Release r;
             std::string json;
@@ -291,7 +304,7 @@ void sdlShowChangelog(const std::string& tag) {
     const draw::Point sz = ChangelogView::size();
     const int h = std::min(sz.y, std::max(scale(300), gRoot->height() - scale(80)));
     gHost->openWindow(*gRoot, gChangelogView, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect(0, 0, sz.x, h), L"Release notes"},
-                      [] { gChangelogOpen = false; });
+                      [] { sdlChangelogClosed(); });
 }
 
 // --release <file>: the newest release is the one in GitHub's answer in <file> (a test of the top bar's Update and the
@@ -544,6 +557,10 @@ void sdlChangelogShotLines(const std::string& arg, bool root) {
         htmlLines("html", gHtmlShot->page);
         std::printf("html: scroll bar %s, content %d px, view %d px\n", gHtmlShot->scroll.hasVerticalBar() ? "shown" : "not shown", gHtmlShot->page.height(),
                     gHtmlShot->scroll.viewportHeight());
+        // Another page: the images of the page before go (their memory is freed).
+        const int before = gHtmlShot->page.imagesAsked();
+        gHtmlShot->page.setHtml("<p>Another page</p>", gHtmlShot->page.baseUrl());
+        std::printf("html: another page: images %d of %d kept (%d before)\n", gHtmlShot->page.imagesShown(), gHtmlShot->page.imagesAsked(), before);
     }
     if (arg.rfind("changelog", 0) == 0) {
         static const char* const kStates[] = {"loading", "shown", "kept", "not reached"};
