@@ -581,8 +581,9 @@ if(STARDRAFT_RENDERER)
         # (main_sdl.cpp holds the whole editor: more sections than the default allows)
         target_compile_options(${sdlEditor} PRIVATE /W4 /utf-8 /bigobj)
         set_source_files_properties(apps/editor/vorbis.c PROPERTIES COMPILE_OPTIONS /W0)  # (stb_vorbis: not our code)
-        # Symbols for Release, to read crash dumps (stardraft.pdb: a release keeps them in a draft release).
-        target_compile_options(${sdlEditor} PRIVATE $<$<CONFIG:Release>:/Zi>)
+        # Symbols for Release, to read crash dumps (stardraft.pdb: a release keeps them in a draft release). /Z7: the
+        # debug information goes into each .obj (a compiler cache, sccache, can keep it) and the linker writes stardraft.pdb.
+        target_compile_options(${sdlEditor} PRIVATE $<$<CONFIG:Release>:/Z7>)
         target_link_options(${sdlEditor} PRIVATE $<$<CONFIG:Release>:/DEBUG /OPT:REF /OPT:ICF>)
     endif()
 endif()

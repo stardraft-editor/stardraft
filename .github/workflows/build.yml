@@ -1,50 +1,70 @@
-# Builds stardraft.exe (the editor, CMake target stardraft_editor) on every push (and on pull requests) and keeps it as
-# a downloadable artifact. A push to a branch never makes a release.
-# A tag v<version> (v0.5.0.1; `python -I tools/release.py publish <version> --yes` makes it) makes the release of that
-# commit: "StarDraft 2 - v<version> (build <commit>)", with StarDraft-<version>-win64.zip (stardraft.exe only: its fonts
-# and icons are in it, so an installed stardraft.exe, also the Windows program of an older release, updates to it), marked
-# Latest; its text is the "## <version>" section of docs/user/CHANGELOG.md (what is new), then the base changelog (its
-# last section, what StarDraft is) for new visitors. The symbols go to a draft release symbols-v<version>.
-# For now a release has only the Windows build. The macOS disk image (StarDraft-<version>-macos-arm64.dmg: the macos job,
-# tools/ci/mac_dist.sh) is a CI artifact of each run; it goes on the release too when the repository variable
-# RELEASE_MAC is "on" (Settings > Secrets and variables > Actions > Variables; the job macos-release). Not set: off.
-# The Linux build of the linux job (stardraft-linux.tar.gz: Ubuntu 24.04's glibc, no desktop files) is only an
-# artifact: the Linux download of a release is to be the AppImage (built on Ubuntu 22.04), with its own release job.
-# StarDraft's Check for updates reads "(build <commit>)" in the newest release's title. Each release keeps its own
-# download count. Most tests need a StarCraft: Remastered install, so they are not run here. The jobs linux and macos
-# build the library, the tools and the tests on those systems; the job windows-sdl builds stardraft.exe and snapshots it
-# (tools/sdl_snapshots.py).
+# Builds and tests StarDraft on every push (and on pull requests) and keeps the files as artifacts of the run. A push to
+# a branch never makes a release: a tag v<version> does, in .github/workflows/release.yml, from the files of this
+# workflow's run of the same commit (it builds them again here only when there is no good run of that commit).
+# The jobs: windows (stardraft.exe, CMake target stardraft_editor: built with MSVC and Ninja, snapshotted, then all the
+# other targets), linux and linux-clang (the library, the tools and the tests with GCC and with Clang, and the editor's
+# snapshots), linux-appimage (the AppImage), macos (the app and its disk image). Most tests need a StarCraft:
+# Remastered install, so they are not run here (.github/workflows/data.yml: a self-hosted runner with the game data,
+# off by default; a workflow of its own, so that a release never waits for that runner).
+# The heavy extras (flatpak, linux-appimage-run, wine) run only on port/kit, main, tags and runs by hand; the
+# release test of the macOS app (release-test-macos) only on port/kit, the port/t-* branches and by hand.
+# A compiler cache in each build job (Windows: sccache; Linux and macOS: ccache), kept with actions/cache: each run
+# takes the newest cache that it can see (its own branch's, else main's), and the pushes to main, port/kit and the
+# port/ci-* branches keep their caches for the next runs (docs/dev/DEVELOPING.md, "CI").
+# A release tag's version: tools/ci/version_name.sh (a push of a tagged commit builds it as that version).
 name: Build
 
 on:
   push:
     branches: ['**']
-    tags: ['v[0-9]*']
+    # Docs only (docs/, *.md): no run. The files that CI or a release reads still start one: README.md and the
+    # changelog (the UI text check), the changelog's pictures (a release's Discord post), the preview notes.
+    paths:
+      - '**'
+      - '!docs/**'
+      - '!**.md'
+      - 'README.md'
+      - 'docs/user/CHANGELOG.md'
+      - 'docs/user/images/**'
+      - 'tools/preview_notes.md'
   pull_request:
+    paths:
+      - '**'
+      - '!docs/**'
+      - '!**.md'
+      - 'README.md'
+      - 'docs/user/CHANGELOG.md'
+      - 'docs/user/images/**'
+      - 'tools/preview_notes.md'
   workflow_dispatch:
+  workflow_call:  # (release.yml: a tag whose commit has no good run here)
 
 permissions:
-  contents: write  # to make a release
+  contents: read
 
-# A newer push to the same branch stops its older build (only the newest one counts); a tag's run always goes to its end.
+# A newer push to the same branch stops its older run (only the newest one counts). main and tags always go to the end.
 concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  group: build-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  # The compiler caches are kept only by these pushes (a branch's run can read main's cache and its own).
+  KEEP_CACHE: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/heads/port/ci-')) }}
 
 jobs:
+  # The editor on Windows (stardraft.exe): the release's program and its symbols, its snapshots (on Direct3D 12, which
+  # uses WARP, the CPU: GitHub's Windows machines have no GPU; no game data: the shell with no map), the program alone in
+  # a folder as a release has it, then all the other targets.
   windows:
     runs-on: windows-latest
+    env:
+      SCCACHE_CACHE_SIZE: 3G
     steps:
       - uses: actions/checkout@v4
 
-      # A release tag: the tag is a version, its changelog section and pictures are good, and the commit is on main.
-      # Checked first, so a bad tag stops in seconds and not after the build.
-      # (a preview tag, v<version>-preview.<n>, is made from port/kit and has no changelog section: not checked here)
-      - name: Check the release tag
-        if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-preview')
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python -I tools/release.py ci-check $env:GITHUB_REF_NAME
+      - name: The compiler cache's folder
+        shell: bash
+        run: echo "SCCACHE_DIR=$RUNNER_TEMP\sccache" >> "$GITHUB_ENV"
 
       # The UI text rules (docs/dev/PRINCIPLES.md, "Text"): a new violation stops the build. Needs only Python.
       - name: Check the UI text
@@ -62,22 +82,53 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: build/_deps
-          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+          key: deps-ninja-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
 
+      - name: Restore the compiler cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}\sccache
+          key: sccache-windows-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: sccache-windows-
+
+      - uses: mozilla-actions/sccache-action@v0.0.9
+
+      # MSVC's environment for Ninja (cl, link, rc), x64.
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      # A release's commit: the program says the tag's version; other builds keep the version in CMakeLists.txt.
+      - name: The version name
+        id: version
+        shell: bash
+        run: |
+          version=$(bash tools/ci/version_name.sh)
+          echo "Version name: ${version:-(CMakeLists.txt)}"
+          echo "$version" > version-windows.txt
+          echo "name=$version" >> "$GITHUB_OUTPUT"
+
+      # Ninja Multi-Config: the files go to build/Release/, as with Visual Studio's generator.
       - name: Configure
         shell: pwsh
         env:
           STARDRAFT_ISSUES_TOKEN: ${{ secrets.STARDRAFT_ISSUES_TOKEN }}  # crash reports go to Issues (core/releases.inc)
+          VERSION_NAME: ${{ steps.version.outputs.name }}
         run: |
-          # A release tag (v0.5.0.1): the program says that version; other builds keep the version in CMakeLists.txt.
-          if ($env:GITHUB_REF -like 'refs/tags/v*') {
-            cmake -S . -B build -A x64 "-DSTARDRAFT_VERSION_NAME=$($env:GITHUB_REF_NAME.Substring(1))"
-          } else {
-            cmake -S . -B build -A x64  # the newest Visual Studio on the runner
-          }
+          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) { python -m pip install ninja }
+          ninja --version
+          $version = $env:VERSION_NAME
+          $opts = @('-G', 'Ninja Multi-Config', '-DCMAKE_C_COMPILER=cl', '-DCMAKE_CXX_COMPILER=cl',
+                    '-DCMAKE_C_COMPILER_LAUNCHER=sccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=sccache')
+          if ($version) { $opts += "-DSTARDRAFT_VERSION_NAME=$version" }
+          cmake -S . -B build @opts
 
       - name: Build
         run: cmake --build build --config Release --target stardraft_editor --parallel
+
+      # stardraft.pdb is the one of this stardraft.exe (the same GUID and age): crash.dmp files open with it.
+      - name: Check the symbols
+        run: python -I tools/ci/pdb_check.py build/Release/stardraft.exe build/Release/stardraft.pdb
 
       # The program only: a release is this file (its fonts and icons are in it).
       - uses: actions/upload-artifact@v4
@@ -93,126 +144,16 @@ jobs:
           path: build/Release/stardraft.pdb
           retention-days: 90
 
-      # All the other targets (the test programs and tools): compiled only, not run. A target that does not compile
-      # stops the build (and the release); the editor above is already uploaded.
-      - name: Build all targets
-        run: cmake --build build --config Release --parallel
-
-      # For the Wine job: the renderer's test program, built for Windows.
+      # The version name that this build has (empty: CMakeLists.txt's): release.yml takes this run's files only for that
+      # version.
       - uses: actions/upload-artifact@v4
         with:
-          name: wine-test-${{ github.sha }}
-          path: build/Release/render_smoke_test.exe
-          retention-days: 7
-
-      # stardraft-next (the new shell's spike), to try by hand: the program and its fonts. Not in a release.
-      - uses: actions/upload-artifact@v4
-        with:
-          name: stardraft-next-windows-${{ github.sha }}
-          path: |
-            build/Release/stardraft-next.exe
-            build/Release/fonts
-
-      - name: Make the release
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}  # a new release is posted in Discord (#updates)
-          DISCORD_GENERAL_WEBHOOK: ${{ secrets.DISCORD_GENERAL_WEBHOOK }}  # and in #general (a webhook of that channel)
-        run: |
-          $tag = $env:GITHUB_REF_NAME; $version = $tag.Substring(1)
-          $zip = "StarDraft-$version-win64.zip"
-          Compress-Archive -Force -Path build/Release/stardraft.exe -DestinationPath $zip  # the program only (the notes are on the release page)
-          # The text: what is new in this version (its changelog section), then the base changelog (what StarDraft is
-          # and does, how to start) for new visitors; picture paths become addresses at this tag. tools/release.py
-          # makes it, the same text that `release.py notes <version>` shows before a release.
-          # A preview (a tag v<version>-preview.<n>, made from the branch port/kit): a pre-release for early testers on
-          # Windows, macOS and Linux. It is never the latest release, so Check for updates of a release build does not
-          # offer it; its text is tools/preview_notes.md, and it is not posted in Discord.
-          $preview = $tag -like '*-preview*'
-          if ($preview) {
-            Copy-Item tools/preview_notes.md notes.md
-            $title = "StarDraft 2 $version"
-          } else {
-            python -I tools/release.py notes $version --tag $tag --out notes.md
-            if ($LASTEXITCODE) { throw "No release text for $version" }
-            $title = python -I tools/release.py title $version
-          }
-          # A run again (Re-run of a failed run): a release that has its zip stays as it is (people can have that zip,
-          # and its symbols match it); a release without its zip gets this build's zip and symbols.
-          $assets = gh release view $tag --json assets --jq '.assets[].name' 2>$null
-          $exists = $LASTEXITCODE -eq 0
-          if ($exists -and @($assets) -contains $zip) {
-            Write-Output "The release $tag has its zip: nothing changes. A post that did not go: Actions > Post screenshots to Discord."
-            exit 0
-          }
-          # The symbols first (stardraft.pdb), so that the kept symbols match the zip that goes out: a draft release
-          # symbols-<tag>, which only the repository's members see, kept for good (an artifact goes after 90 days), to
-          # read crash reports' crash.dmp files. Not on the release page.
-          $sym = "StarDraft-$version-symbols.zip"
-          Compress-Archive -Force -Path build/Release/stardraft.pdb -DestinationPath $sym
-          $kept = @(gh release list --limit 200 --json tagName --jq '.[].tagName')
-          if ($kept -contains "symbols-$tag") {
-            gh release upload "symbols-$tag" $sym --clobber  # (its zip did not go out: these symbols replace them)
-          } else {
-            gh release create "symbols-$tag" $sym --draft --target $env:GITHUB_SHA --title "Symbols of $title" `
-              --notes "stardraft.pdb of $title, for its crash reports (crash.dmp). A draft: only the repository's members see it."
-          }
-          if ($LASTEXITCODE) { throw "The symbols were not kept ($LASTEXITCODE)" }
-          if ($exists) {
-            gh release upload $tag $zip
-          } else {
-            if ($preview) {
-              gh release create $tag $zip --title $title --prerelease --latest=false --verify-tag --notes-file notes.md
-            } else {
-              gh release create $tag $zip --title $title --latest --verify-tag --notes-file notes.md
-            }
-          }
-          if ($LASTEXITCODE) { throw "The release $tag was not made ($LASTEXITCODE)" }
-          if ($preview) { Write-Output "Preview $tag is out (a pre-release): not posted in Discord."; exit 0 }
-          # Discord: one post in each channel that has a webhook (a webhook posts in its own channel only), with the
-          # screenshots of this version's changelog section as files (at most 10). A post that does not go makes the
-          # run fail after the release is out: post again in that channel with Actions > Post screenshots to Discord.
-          $hooks = @($env:DISCORD_RELEASE_WEBHOOK, $env:DISCORD_GENERAL_WEBHOOK) | Where-Object { $_ }
-          if (-not $hooks) { throw 'No Discord webhook (DISCORD_RELEASE_WEBHOOK, DISCORD_GENERAL_WEBHOOK): the release is out, not posted' }
-          $url = gh release view $tag --json url --jq .url
-          @{ content = "**$title** is out: $url" } | ConvertTo-Json | Set-Content payload.json -Encoding utf8NoBOM
-          $images = @(python -I tools/release.py notes $version --images)
-          $failed = 0
-          foreach ($hook in $hooks) {
-            $form = @('-sS', '--fail-with-body', '-F', 'payload_json=<payload.json')
-            for ($i = 0; $i -lt $images.Count; $i++) { $form += @('-F', "files[$i]=@$($images[$i])") }
-            curl.exe @form $hook
-            if ($LASTEXITCODE -ne 0) {
-              $failed++
-              Write-Warning "The Discord post did not go to $(if ($hook -eq $env:DISCORD_RELEASE_WEBHOOK) { 'updates' } else { 'general' }) ($LASTEXITCODE)"
-            }
-          }
-          if ($failed) { throw "$failed Discord posts did not go: post again with Actions > Post screenshots to Discord" }
-
-  # The editor on Windows (stardraft.exe, CMake target stardraft_editor): the same main_sdl.cpp as on Linux and macOS,
-  # built with MSVC. Its snapshots draw without a window (SDL_VIDEODRIVER=offscreen) on Direct3D 12; GitHub's Windows
-  # machines have no GPU, so Direct3D 12 uses WARP (the CPU). There is no game data here: the snapshots show the shell
-  # with no map. The release's stardraft.exe is the windows job's build of the same target.
-  windows-sdl:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/cache@v4
-        with:
-          path: build/_deps
-          key: deps-sdl-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
-
-      - name: Configure
-        run: cmake -S . -B build -A x64
-
-      - name: Build
-        run: cmake --build build --config Release --target stardraft_editor --parallel
+          name: build-version-windows-${{ github.sha }}
+          path: version-windows.txt
+          retention-days: 90
 
       # A test run (a snapshot) asks nothing, sends nothing and changes no settings or file types. APPDATA and
-      # LOCALAPPDATA point to the run's own folder too. GitHub's machines draw with WARP (D3D12 in software).
+      # LOCALAPPDATA point to the run's own folder too.
       - name: Snapshot the editor
         shell: bash
         env:
@@ -244,7 +185,7 @@ jobs:
         run: |
           export APPDATA="$RUNNER_TEMP\\appdata" LOCALAPPDATA="$RUNNER_TEMP\\localappdata"
           mkdir -p "$RUNNER_TEMP/appdata" "$RUNNER_TEMP/localappdata"
-          python -I tools/sdl_snapshots.py --exe build/Release/stardraft.exe --out sdl-snapshots
+          python -I tools/sdl_snapshots.py --exe build/Release/stardraft.exe --out sdl-snapshots --jobs 3
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -265,19 +206,56 @@ jobs:
             editor-windows*.png
             stardraft-windows.zip
 
-  # The library, the tools and the tests on Linux and macOS (research/ports/PLAN.md, phase 1): built, and the tests
-  # that need no game data run, and the editor is built and snapshotted (its artifact: stardraft-linux.tar.gz, not
-  # on a release).
+      # All the other targets (the test programs and tools): compiled only, not run. A target that does not compile
+      # stops the build (and a release of this commit); the editor above is already uploaded.
+      - name: Build all targets
+        run: cmake --build build --config Release --parallel
+
+      # For the Wine job: the renderer's test program, built for Windows.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wine-test-${{ github.sha }}
+          path: build/Release/render_smoke_test.exe
+          retention-days: 7
+
+      # stardraft-next (the new shell's spike), to try by hand: the program and its fonts. Not in a release.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stardraft-next-windows-${{ github.sha }}
+          path: |
+            build/Release/stardraft-next.exe
+            build/Release/fonts
+
+      - name: The compiler cache
+        if: ${{ !cancelled() }}
+        run: sccache --show-stats
+
+      - name: Keep the compiler cache
+        if: ${{ !cancelled() && env.KEEP_CACHE == 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}\sccache
+          key: sccache-windows-${{ github.run_id }}-${{ github.run_attempt }}
+
+  # The library, the tools and the tests on Linux with GCC (research/ports/PLAN.md, phase 1): built, the tests that
+  # need no game data run, and the editor is built and snapshotted (its artifact: stardraft-linux.tar.gz, not on a
+  # release). The build with Clang is the job linux-clang.
   linux:
     runs-on: ubuntu-24.04
+    env:
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_MAXSIZE: 2G
     steps:
       - uses: actions/checkout@v4
+
+      - name: The compiler cache's folder
+        run: echo "CCACHE_DIR=$RUNNER_TEMP/ccache" >> "$GITHUB_ENV"
 
       # SDL's build dependencies (its docs/README-linux.md) and Mesa's Vulkan drivers (lavapipe: Vulkan on the CPU).
       - name: Install the build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build clang pkg-config mesa-vulkan-drivers libasound2-dev libpulse-dev \
+          sudo apt-get install -y ninja-build ccache pkg-config mesa-vulkan-drivers libasound2-dev libpulse-dev \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
             libxkbcommon-dev libwayland-dev libdecor-0-dev libdrm-dev libgbm-dev libegl1-mesa-dev libdbus-1-dev libudev-dev \
             desktop-file-utils appstream shared-mime-info
@@ -288,14 +266,20 @@ jobs:
 
       - uses: actions/cache@v4
         with:
-          path: |
-            build-gcc/_deps
-            build-clang/_deps
-          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+          path: build-gcc/_deps
+          key: deps-gcc-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Restore the compiler cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-linux-gcc-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ccache-linux-gcc-
 
       - name: Build with GCC
         run: |
           cmake -S . -B build-gcc -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++ -DCMAKE_C_COMPILER=gcc \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DSTARDRAFT_REQUIRE_DBUS=ON  # (SDL with D-Bus: the desktop portal's file dialogs)
           cmake --build build-gcc --parallel
 
@@ -316,11 +300,6 @@ jobs:
           build-gcc/map_preview_test "$RUNNER_TEMP/preview"
           "$inst/usr/bin/stardraft-thumbnailer" -s 128 "file://$RUNNER_TEMP/preview/test.scx" thumbnail-linux.png
           file thumbnail-linux.png | grep -q "PNG image data"
-
-      - name: Build with Clang
-        run: |
-          cmake -S . -B build-clang -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang
-          cmake --build build-clang --parallel
 
       # The UI text rules, trigger_test's checks without the game (the block library, the checker, epScript) and the
       # renderer on Vulkan (lavapipe, no window).
@@ -347,13 +326,6 @@ jobs:
           grep -q "search field: 한국어 입력 中文" next.txt
           build-gcc/stardraft-next --workspace triggers --ime-inline --type "한국어 입" --compose "력" --snapshot next-linux-ime.png | tee ime.txt
           grep -q "composing: 력" ime.txt
-
-      # The kit's tests again with AddressSanitizer and UndefinedBehaviorSanitizer: a widget that uses a view after it
-      # went away (a pop-up closed in its own callback, a removed child) fails here.
-      - name: Kit tests with sanitizers
-        run: |
-          g++ -std=c++20 -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer             -Iapps/common -Iapps/kit -Itools/tests apps/kit/*.cpp tools/tests/kit_test.cpp tools/tests/kit/*.cpp -o kit_test_asan
-          ./kit_test_asan
 
       # The control kit on SDL (apps/kit_sdl): its widgets and the Canvas's drawing in one picture.
       - name: Snapshot the kit demo
@@ -393,7 +365,7 @@ jobs:
       - name: Snapshot each workspace and dialog
         env:
           SDL_VIDEODRIVER: offscreen
-        run: python3 -I tools/sdl_snapshots.py --exe build-gcc/stardraft --out sdl-snapshots
+        run: python3 -I tools/sdl_snapshots.py --exe build-gcc/stardraft --out sdl-snapshots --jobs 3
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -415,17 +387,94 @@ jobs:
             editor-linux-files.png
             stardraft-linux.tar.gz
 
-  # The AppImage (tools/ci/linux_appimage.sh): built on Ubuntu 22.04, the oldest system it is for (its glibc), with
-  # GCC 12 and the C++ library in the program. It is kept with the run.
-  linux-appimage:
-    runs-on: ubuntu-22.04
+      - name: The compiler cache
+        if: ${{ !cancelled() }}
+        run: ccache --show-stats
+
+      - name: Keep the compiler cache
+        if: ${{ !cancelled() && env.KEEP_CACHE == 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-linux-gcc-${{ github.run_id }}-${{ github.run_attempt }}
+
+  # All targets with Clang (its warnings and errors), and the kit's tests with AddressSanitizer and
+  # UndefinedBehaviorSanitizer (GCC): a widget that uses a view after it went away (a pop-up closed in its own
+  # callback, a removed child) fails here. Beside the linux job, at the same time.
+  linux-clang:
+    runs-on: ubuntu-24.04
+    env:
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_MAXSIZE: 2G
     steps:
       - uses: actions/checkout@v4
+
+      - name: The compiler cache's folder
+        run: echo "CCACHE_DIR=$RUNNER_TEMP/ccache" >> "$GITHUB_ENV"
 
       - name: Install the build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build g++-12 pkg-config libasound2-dev libpulse-dev \
+          sudo apt-get install -y ninja-build ccache clang pkg-config libasound2-dev libpulse-dev \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
+            libxkbcommon-dev libwayland-dev libdecor-0-dev libdrm-dev libgbm-dev libegl1-mesa-dev libdbus-1-dev libudev-dev
+
+      - uses: actions/cache@v4
+        with:
+          path: build-clang/_deps
+          key: deps-clang-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Restore the compiler cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-linux-clang-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ccache-linux-clang-
+
+      - name: Build with Clang
+        run: |
+          cmake -S . -B build-clang -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake --build build-clang --parallel
+
+      # (each file compiled on its own, all at once, then linked in the same order as one g++ command would)
+      - name: Kit tests with sanitizers
+        run: |
+          flags="-std=c++20 -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer"
+          mkdir -p kit-asan
+          ls apps/kit/*.cpp tools/tests/kit_test.cpp tools/tests/kit/*.cpp > kit-asan/sources.txt
+          xargs -P "$(nproc)" -I{} sh -c 'ccache g++ $0 -Iapps/common -Iapps/kit -Itools/tests -c "$1" -o "kit-asan/$(echo "$1" | tr / _).o"' "$flags" {} < kit-asan/sources.txt
+          g++ $flags $(sed 's|/|_|g; s|^|kit-asan/|; s|$|.o|' kit-asan/sources.txt) -o kit_test_asan
+          ./kit_test_asan
+
+      - name: The compiler cache
+        if: ${{ !cancelled() }}
+        run: ccache --show-stats
+
+      - name: Keep the compiler cache
+        if: ${{ !cancelled() && env.KEEP_CACHE == 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-linux-clang-${{ github.run_id }}-${{ github.run_attempt }}
+
+  # The AppImage (tools/ci/linux_appimage.sh): built on Ubuntu 22.04, the oldest system it is for (its glibc), with
+  # GCC 12 and the C++ library in the program. It is kept with the run.
+  linux-appimage:
+    runs-on: ubuntu-22.04
+    env:
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_MAXSIZE: 1G
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The compiler cache's folder
+        run: echo "CCACHE_DIR=$RUNNER_TEMP/ccache" >> "$GITHUB_ENV"
+
+      - name: Install the build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build ccache g++-12 pkg-config libasound2-dev libpulse-dev \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
             libxkbcommon-dev libwayland-dev libdecor-0-dev libdrm-dev libgbm-dev libegl1-mesa-dev libdbus-1-dev libudev-dev
 
@@ -434,9 +483,17 @@ jobs:
           path: build/_deps
           key: deps-appimage-${{ hashFiles('CMakeLists.txt') }}
 
+      - name: Restore the compiler cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-appimage-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ccache-appimage-
+
       - name: Build
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-12 -DCMAKE_C_COMPILER=gcc-12 \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DSTARDRAFT_STATIC_LIBSTDCXX=ON -DSTARDRAFT_REQUIRE_DBUS=ON -DSTARDRAFT_NEXT=OFF
           cmake --build build --parallel --target stardraft_editor stardraft_thumbnailer -- -k 0  # (all the errors at once)
 
@@ -449,9 +506,21 @@ jobs:
           path: StarDraft-x86_64.AppImage
           if-no-files-found: error
 
+      - name: The compiler cache
+        if: ${{ !cancelled() }}
+        run: ccache --show-stats
+
+      - name: Keep the compiler cache
+        if: ${{ !cancelled() && env.KEEP_CACHE == 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-appimage-${{ github.run_id }}-${{ github.run_attempt }}
+
   # The AppImage starts on the oldest and on the newest Ubuntu (a container of ubuntu:rolling): a snapshot without a
   # window (Vulkan on the CPU: lavapipe), and what the program finds of the desktop (--check desktop).
   linux-appimage-run:
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/tags/')
     needs: linux-appimage
     strategy:
       fail-fast: false
@@ -506,6 +575,7 @@ jobs:
   # The Flatpak (packaging/flatpak): built with flatpak-builder in the Freedesktop runtime, as Flathub builds it, and
   # kept with the run as a bundle (flatpak install --user stardraft.flatpak).
   flatpak:
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-24.08
@@ -522,23 +592,53 @@ jobs:
 
   macos:
     runs-on: macos-15  # arm64, Xcode's clang and libc++
+    env:
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_MAXSIZE: 2G
     steps:
       - uses: actions/checkout@v4
+
+      - name: The compiler cache's folder
+        run: echo "CCACHE_DIR=$RUNNER_TEMP/ccache" >> "$GITHUB_ENV"
 
       - uses: actions/cache@v4
         with:
           path: build/_deps
           key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
 
-      # A release tag (v0.5.0.1): the app says that version (as the Windows release); the issues token, as there.
+      - name: Restore the compiler cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-macos-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ccache-macos-
+
+      - name: Install ccache
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+        run: brew install ccache
+
+      # A release's commit (v0.5.0.1): the app says that version (as the Windows release); the issues token, as there.
       - name: Build
         env:
           STARDRAFT_ISSUES_TOKEN: ${{ secrets.STARDRAFT_ISSUES_TOKEN }}
         run: |
+          version_name=$(bash tools/ci/version_name.sh)
+          echo "Version name: ${version_name:-(CMakeLists.txt)}"
+          echo "$version_name" > version-macos.txt
           version=()
-          case "$GITHUB_REF" in refs/tags/v*) version=("-DSTARDRAFT_VERSION_NAME=${GITHUB_REF_NAME#v}") ;; esac
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 "${version[@]}"
+          [ -n "$version_name" ] && version=("-DSTARDRAFT_VERSION_NAME=$version_name")
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_OBJC_COMPILER_LAUNCHER=ccache -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache "${version[@]}"
           cmake --build build --parallel
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-version-macos-${{ github.sha }}
+          path: version-macos.txt
+          retention-days: 90
 
       # The editor's app: its Info.plist is good (document types .scm and .scx, exported, the version), its icon is the
       # one that tools/make_icns.py makes from the Windows icon, the map type's name is translated, and the Quick Look
@@ -610,7 +710,7 @@ jobs:
 
       # Each workspace and dialog (tools/sdl_snapshots.py), as on Linux (a failure stops the run: it has passed on GitHub's Metal).
       - name: Snapshot each workspace and dialog (Metal)
-        run: python3 -I tools/sdl_snapshots.py --exe build/stardraft.app/Contents/MacOS/stardraft --out sdl-snapshots
+        run: python3 -I tools/sdl_snapshots.py --exe build/stardraft.app/Contents/MacOS/stardraft --out sdl-snapshots --jobs 2
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -626,6 +726,7 @@ jobs:
       # The download for Mac users (tools/ci/mac_dist.sh): StarDraft.app in a disk image with a background and a link
       # to Applications. Signed with the Developer ID and notarized when the repository has the secrets (forks and pull
       # requests do not: then signed ad hoc, and the log says that signing was skipped). docs/dev/DEVELOPING.md tells how.
+      # A release's commit: StarDraft-<version>-macos-arm64.dmg, the name on the release.
       - name: Make the disk image
         env:
           APPLE_CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
@@ -634,7 +735,8 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          case "$GITHUB_REF" in refs/tags/v*) name="StarDraft-${GITHUB_REF_NAME#v}-macos-arm64.dmg" ;; *) name="StarDraft-macos-arm64.dmg" ;; esac
+          version_name=$(cat version-macos.txt)
+          if [ -n "$version_name" ]; then name="StarDraft-$version_name-macos-arm64.dmg"; else name="StarDraft-macos-arm64.dmg"; fi
           mkdir -p dist
           bash tools/ci/mac_dist.sh build/stardraft.app "dist/$name"
 
@@ -652,6 +754,17 @@ jobs:
             editor-macos.png
             editor-macos-files.png
             stardraft-macos.tar.gz
+
+      - name: The compiler cache
+        if: ${{ !cancelled() }}
+        run: ccache --show-stats
+
+      - name: Keep the compiler cache
+        if: ${{ !cancelled() && env.KEEP_CACHE == 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-macos-${{ github.run_id }}-${{ github.run_attempt }}
 
   # The release test of the macOS app (tools/ci/mac_release_test.py): the macos job's disk image on another of GitHub's
   # macOS machines, as a user gets it: mounted, the app copied to an Applications folder and started from there, its
@@ -689,90 +802,11 @@ jobs:
           path: release-test-macos
           if-no-files-found: warn
 
-  # A release tag with the repository variable RELEASE_MAC "on", or a preview tag: the macOS disk image goes on the release that the
-  # windows job made (it is made first: this job waits for both). A run again leaves a release's disk image as it is, as
-  # the windows job leaves its zip. RELEASE_MAC not "on" (the default): the disk image is only the macos job's artifact.
-  macos-release:
-    if: startsWith(github.ref, 'refs/tags/v') && (vars.RELEASE_MAC == 'on' || contains(github.ref_name, '-preview'))
-    needs: [windows, macos]
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: stardraft-dmg-${{ github.sha }}
-          path: dist
-
-      - name: Attach the disk image to the release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          tag="$GITHUB_REF_NAME"
-          dmg=$(ls dist/*.dmg | head -n 1)
-          name=$(basename "$dmg")
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qxF "$name"; then
-            echo "The release $tag has $name: nothing changes."
-            exit 0
-          fi
-          gh release upload "$tag" "$dmg" --repo "$GITHUB_REPOSITORY"
-
-  # A release tag with the repository variable RELEASE_LINUX "on", or a preview tag: the AppImage goes on the release
-  # that the windows job made, as StarDraft-<version>-x86_64.AppImage (the name Check for updates looks for). A run again
-  # leaves a release's AppImage as it is.
-  linux-release:
-    if: startsWith(github.ref, 'refs/tags/v') && (vars.RELEASE_LINUX == 'on' || contains(github.ref_name, '-preview'))
-    needs: [windows, linux-appimage]
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: stardraft-appimage-${{ github.sha }}
-          path: dist
-
-      - name: Attach the AppImage to the release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          tag="$GITHUB_REF_NAME"
-          name="StarDraft-${tag#v}-x86_64.AppImage"
-          mv dist/StarDraft-x86_64.AppImage "dist/$name"
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qxF "$name"; then
-            echo "The release $tag has $name: nothing changes."
-            exit 0
-          fi
-          gh release upload "$tag" "dist/$name" --repo "$GITHUB_REPOSITORY"
-
-  # The tests with the game's data, on a self-hosted runner in WSL Ubuntu on the owner's PC (labels self-hosted, linux,
-  # scdata; research/ports/PLAN.md 1.6). Off until the repository variable STARDRAFT_DATA_RUNNER is "on". The
-  # repository is public: this job never runs for pull requests or forks, only for pushes here and by hand.
-  # The install: $STARDRAFT_SC_INSTALL on the runner, else ~/scmirror (exact-case names, see linux_data_tests.sh).
-  linux-data:
-    if: vars.STARDRAFT_DATA_RUNNER == 'on' && github.event_name != 'pull_request' && github.repository == 'stardraft-editor/stardraft'
-    runs-on: [self-hosted, linux, scdata]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build
-        run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSDL_UNIX_CONSOLE_BUILD=ON  # (no X11 or Wayland needed)
-          cmake --build build --parallel
-
-      - name: Run the tests with game data
-        env:
-          SDL_VIDEODRIVER: offscreen
-        run: bash tools/ci/linux_data_tests.sh build "${STARDRAFT_SC_INSTALL:-$HOME/scmirror}" "$RUNNER_TEMP/data-tests"
-
-      # The editor's snapshots with the game data and a map open (tools/sdl_snapshots.py, from the step above).
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: sdl-snapshots-linux-data-${{ github.sha }}
-          path: ${{ runner.temp }}/data-tests/sdl_snapshots
-          if-no-files-found: warn
-
   # The Windows build under Wine on Linux (research/ports/PLAN.md, phase 2): the renderer on Vulkan (Wine passes it to
   # the system's Vulkan, here lavapipe) and on Direct3D 12 (Wine's vkd3d makes it Vulkan). Only reports: Wine is a
   # stopgap for Linux users, not a release target.
   wine:
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/tags/')
     needs: windows
     runs-on: ubuntu-24.04
     continue-on-error: true

@@ -2,12 +2,15 @@
 """Snapshots of the SDL program (apps/editor/main_sdl.cpp): one run for each workspace and dialog, with no window.
 
 usage: python3 -I tools/sdl_snapshots.py --exe <stardraft> --out <folder> [--install <folder>] [--map <map>]
-                                          [--project <project>] [--only <name>,...] [--scale <s>] [--list]
+                                          [--project <project>] [--only <name>,...] [--scale <s>] [--jobs <n>] [--list]
 
 Each run is `<exe> [map] --snapshot <out>/<name>.png <args>`, with SDL_VIDEODRIVER=offscreen when it is not set
 (not on macOS: there the offscreen driver gives no GPU device).
 A run passes when it exits with 0 and writes a PNG that is not empty and not one flat color. The PNGs, each run's
 output (<name>.txt) and a summary (summary.txt) go into the --out folder. The script exits with 1 when a run fails.
+--jobs <n>: n runs at the same time (default 1). Each run has its own files in --out (its PNG, its output, its new
+folders); the files that runs share ({wav}, {release}, the settings files) are written once, before the runs start.
+Each run prints its output when it ends; summary.txt has the cases in their order.
 
 A case that needs the game data runs only with --install; one that needs a map, only with --map (and --install);
 one that needs a project, only with --project. The others run everywhere (CI has no game data).
@@ -33,7 +36,9 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import zlib
+from concurrent.futures import ThreadPoolExecutor
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -2451,6 +2456,7 @@ def main():
     ap.add_argument("--only", help="only these cases (names, comma-separated)")
     ap.add_argument("--scale", default="1", help="the UI scale (default 1, so that the sizes are the same everywhere)")
     ap.add_argument("--timeout", type=int, default=120, help="seconds for each run (default 120)")
+    ap.add_argument("--jobs", type=int, default=1, help="runs at the same time (default 1)")
     ap.add_argument("--list", action="store_true", help="show the cases and exit")
     a = ap.parse_args()
 
@@ -2478,13 +2484,20 @@ def main():
     # are the same on each computer.
     env.setdefault("STARDRAFT_FONT", "noto")
 
-    results, failed, skipped, hashes = [], [], [], {}
+    # First each case's command and files, one after the other (the files that runs share are written once); then
+    # the runs, --jobs at the same time.
+    planned, written = [], set()
+
+    def write_once(path, write):
+        if path not in written:
+            write()
+            written.add(path)
+
     for name, args, needs in CASES:
         if only and name not in only:
             continue
         if not have[needs]:
-            skipped.append(name)
-            results.append(f"{name}: skipped (needs {needs})")
+            planned.append((name, None))
             continue
         png = os.path.join(a.out, name + ".png")
         if os.path.exists(png):
@@ -2504,22 +2517,25 @@ def main():
         if any("{wav}" in x for x in args) and not os.path.exists(wav):
             write_wav(wav)
         release = os.path.join(a.out, "release-latest.json")
+
+        def write_text(path, text):
+            def write():
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(text)
+            return write
         if any("{release}" in x for x in args):
-            with open(release, "w", encoding="utf-8") as f:
-                f.write(RELEASE_JSON)
+            write_once(release, write_text(release, RELEASE_JSON))
         releaseold = os.path.join(a.out, "release-older.json")
         if any("{releaseold}" in x for x in args):
-            with open(releaseold, "w", encoding="utf-8") as f:
-                f.write(RELEASE_OLD_JSON)
+            write_once(releaseold, write_text(releaseold, RELEASE_OLD_JSON))
         oldsettings, legacyhive = os.path.join(a.out, "old-settings.json"), os.path.join(a.out, "legacy-settings.hive")
         nosnapsettings = os.path.join(a.out, "nosnap-settings.json")  # {nosnapsettings}: Snap buildings to tile edges off
         if any("{nosnapsettings}" in x for x in args):
-            with open(nosnapsettings, "w", encoding="utf-8") as f:
-                json.dump({"Settings/SnapBuildings": 0}, f)
+            write_once(nosnapsettings, write_text(nosnapsettings, json.dumps({"Settings/SnapBuildings": 0})))
         if any("{oldsettings}" in x for x in args):
-            write_old_settings(oldsettings, a.out)
+            write_once(oldsettings, lambda: write_old_settings(oldsettings, a.out))
         if any("{legacyhive}" in x for x in args):
-            write_legacy_hive(legacyhive)
+            write_once(legacyhive, lambda: write_legacy_hive(legacyhive))
         paths = dict(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
                      kodir=kodir, wav=wav, release=release, oldsettings=oldsettings, legacyhive=legacyhive, pfdir=pfdir,
                      releaseold=releaseold, nosnapsettings=nosnapsettings)
@@ -2538,7 +2554,13 @@ def main():
         if a.install:
             cmd += ["--install", a.install]
         cmd += args
-        print(f"::group::{name}: {' '.join(cmd)}", flush=True)
+        planned.append((name, (cmd, png)))
+
+    lock = threading.Lock()  # (one run's output at a time)
+
+    def run_case(name, cmd, png):
+        if a.jobs <= 1:
+            print(f"::group::{name}: {' '.join(cmd)}", flush=True)
         try:
             run = subprocess.run(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=a.timeout)
             output, code = run.stdout.decode("utf-8", "replace"), run.returncode
@@ -2548,24 +2570,44 @@ def main():
             output, code = f"could not start: {e}", None
         with open(os.path.join(a.out, name + ".txt"), "w", encoding="utf-8") as f:
             f.write(" ".join(cmd) + "\n\n" + output)
-        print(output, end="" if output.endswith("\n") else "\n")
         problem = f"exit code {code}" if code != 0 else png_check(png)
         if not problem and "(WRONG)" in output:  # (a check the run prints, as --cursors)
             problem = "a check printed (WRONG)"
         if not problem and name in CHECKS:
             problem = CHECKS[name](output)
-        print("::endgroup::", flush=True)
-        if problem:
-            failed.append(name)
-            results.append(f"{name}: FAILED ({problem})")
-            print(f"{name}: FAILED ({problem})", flush=True)
+        with lock:
+            if a.jobs > 1:
+                print(f"::group::{name}: {' '.join(cmd)}")
+            print(output, end="" if output.endswith("\n") else "\n")
+            print("::endgroup::", flush=True)
+            print(f"{name}: FAILED ({problem})" if problem else f"{name}: passed", flush=True)
+        return problem
+
+    runs = [(name, plan) for name, plan in planned if plan]
+    if a.jobs <= 1:
+        problems = {name: run_case(name, *plan) for name, plan in runs}
+    else:
+        with ThreadPoolExecutor(max_workers=a.jobs) as pool:
+            futures = {name: pool.submit(run_case, name, *plan) for name, plan in runs}
+            problems = {name: f.result() for name, f in futures.items()}
+
+    # The results in the cases' order (the same picture as an earlier case: by that order too).
+    results, failed, skipped, hashes = [], [], [], {}
+    for name, plan in planned:
+        if not plan:
+            needs = next(n for c, _, n in CASES if c == name)
+            skipped.append(name)
+            results.append(f"{name}: skipped (needs {needs})")
             continue
-        with open(png, "rb") as f:
+        if problems[name]:
+            failed.append(name)
+            results.append(f"{name}: FAILED ({problems[name]})")
+            continue
+        with open(plan[1], "rb") as f:
             digest = hashlib.sha256(f.read()).hexdigest()
         same = hashes.setdefault(digest, name)
         note = f" (the same picture as {same})" if same != name else ""
         results.append(f"{name}: passed{note}")
-        print(f"{name}: passed{note}", flush=True)
 
     summary = "\n".join(results) + f"\n\n{len(results) - len(failed) - len(skipped)} passed, {len(failed)} failed, " \
                                     f"{len(skipped)} skipped\n"

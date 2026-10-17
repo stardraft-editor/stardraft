@@ -56,9 +56,13 @@ snapshot can show. `tools/sdl_snapshots.py` takes one snapshot of each workspace
 
     python -I tools/sdl_snapshots.py --exe build\Release\stardraft.exe --out snapshots
 
-GitHub builds `stardraft.exe` on each push (the jobs windows and windows-sdl), runs `sdl_snapshots.py` on it, takes a
-snapshot of it alone in a folder (as a release has it), and keeps the snapshots (with no game data: no map) and the
-program with the run. GitHub's Windows machines have no GPU: there Direct3D 12 draws on the CPU (WARP).
+`--jobs <n>` runs n cases at the same time (each case has its own files; the shared input files are written once,
+before the runs). With all the data, the 215 cases take about 3.5 minutes one at a time and 1.2 minutes with `--jobs 3`;
+use at most `--jobs 3` on a computer with 8 GB of free memory.
+
+GitHub builds `stardraft.exe` on each push (the job windows), runs `sdl_snapshots.py` on it, takes a snapshot of it
+alone in a folder (as a release has it), and keeps the snapshots (with no game data: no map) and the program with the
+run. GitHub's Windows machines have no GPU: there Direct3D 12 draws on the CPU (WARP).
 
 ### Linux and macOS
 
@@ -156,7 +160,7 @@ Give each test a new, empty scratch folder.
 
 | Test | Command | What it checks |
 |---|---|---|
-| `sdl_snapshots.py` | `python -I tools/sdl_snapshots.py --exe <stardraft.exe> --out <dir> --install <install> --map <map> [--project <project>]` | The real program, with no window: each workspace, mode and dialog, and the cases that drive it with the mouse and the keys (place, select, paste, undo, save, the Data form, the triggers) and check what its output says. Use `(2)Bottleneck.scm`. See "Snapshots" above. |
+| `sdl_snapshots.py` | `python -I tools/sdl_snapshots.py --exe <stardraft.exe> --out <dir> --install <install> --map <map> [--project <project>] [--jobs 3]` | The real program, with no window: each workspace, mode and dialog, and the cases that drive it with the mouse and the keys (place, select, paste, undo, save, the Data form, the triggers) and check what its output says. Use `(2)Bottleneck.scm`. See "Snapshots" above. |
 | `trigger_test` | `trigger_test <dir> <install> <map.scx> [--update-lock]` (a Brood War map, e.g. `Maps\BroodWar\(2)Binary Burghs.scx`) | The block library, the checker, the generated epScript, and that euddraft builds a map with it. Linked .eps files (R5): saved relative, built with what they import, a missing one stops Build, an error names the file and line. |
 | `dat_test` | `dat_test <install> <map.scx> <dir>` | .dat editing, strings, requirements, buttons, unit display; euddraft builds a map with them. |
 | `editor_test` | `editor_test <install> <map> <dir> [sounds]` | The editor document: placement, selection, copy and paste, undo, save and reopen. |
@@ -285,6 +289,63 @@ token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, 
   [options]` does the install with a zip on this computer (no network) in a copy of the program in a temporary
   folder: the zip's program starts with the options after the zip (`--snapshot <png> --check update`).
 
+## CI
+
+`.github/workflows/build.yml` builds and tests each push and pull request; `.github/workflows/release.yml` makes the
+release of a tag. The jobs of build.yml:
+
+| Job | What it does |
+|---|---|
+| windows | The UI text and translation table checks; `stardraft.exe` with MSVC and Ninja (Ninja Multi-Config: the files go to `build/Release/`, as with Visual Studio's generator); the check that `stardraft.pdb` matches the exe (`tools/ci/pdb_check.py`); the snapshots (also of the exe alone in a folder) and `sdl_snapshots.py --jobs 3`; then all the other targets. Its `stardraft.exe` and `stardraft.pdb` are the release's files. |
+| linux | GCC: all targets, the desktop files and the thumbnailer, the tests that need no game data, the snapshots of stardraft-next, the kit demo and the editor. |
+| linux-clang | Clang: all targets; the kit's tests with AddressSanitizer and UndefinedBehaviorSanitizer. |
+| linux-appimage | The AppImage (Ubuntu 22.04, GCC 12). |
+| macos | The app, its checks and tests, the snapshots and the disk image (signed and notarized when the secrets are there). |
+| linux-appimage-run, flatpak, wine | Only on `port/kit`, `main`, tags and runs by hand (Actions > Build > Run workflow). |
+| release-test-macos | Only on `port/kit`, the `port/t-*` branches and runs by hand. |
+
+The tests with the game data (the job linux-data, on the owner's self-hosted runner: repository variable
+`STARDRAFT_DATA_RUNNER`) are a workflow of their own, `.github/workflows/data.yml`: a release never waits for that
+runner.
+
+- A push that changes only docs (`docs/`, `*.md`) starts no run. `README.md`, `docs/user/CHANGELOG.md` (the UI text
+  check reads them), `docs/user/images/` and `tools/preview_notes.md` (a release reads them) still start one.
+- A newer push to a branch stops the older run of that branch. Runs of `main` and of tags always go to their end.
+- Compiler caches: sccache on Windows (the editor has `/Z7`: the debug information is in each .obj, so sccache can keep
+  it; the linker still writes `stardraft.pdb`), ccache on Linux, macOS and the AppImage. Each job keeps its cache with
+  actions/cache (`sccache-windows-`, `ccache-linux-gcc-`, `ccache-linux-clang-`, `ccache-appimage-`, `ccache-macos-`
+  and the run's id). A run takes the newest cache that GitHub lets it see: its own branch's, else `main`'s. Only the
+  pushes to `main`, `port/kit` and the `port/ci-*` branches save a cache (GitHub keeps 10 GB for each repository and
+  removes the oldest). The step "The compiler cache" shows the hits and misses. `main_sdl.cpp` is compiled again in
+  each run: it has the build's time (`__DATE__`, `__TIME__`) and its commit (`build_info.h`).
+- `main_sdl.cpp` is one translation unit (it includes the editor's 45,000 lines of .inc files into one anonymous
+  namespace). It is not split: the parts share internal functions and state, and a split needs headers for all of
+  them.
+
+**Releases from the tested build.** A tagged commit's push builds as that version (`tools/ci/version_name.sh`:
+`release.py publish` pushes `main` and the tag together, so the push run sees the tag). The job `tested` of
+release.yml finds build.yml's push run of the tag's commit (`tools/ci/tested_run.py`: the run's `head_sha` is the
+tag's commit, all its jobs passed, and its `build-version-windows-<commit>` and `build-version-macos-<commit>` files
+name the tag's version). It waits while that run is not done. Then the job `release` downloads that run's files (their
+artifact names have the commit too; the job checks that `stardraft.exe` names the commit and that the pdb matches it)
+and only packs, attaches and posts (`tools/ci/release_make.ps1`). With no such run (a tag on a commit that was pushed
+before the tag, a preview tag pushed after its branch, a run that failed or was stopped), release.yml builds and tests
+the commit itself (build.yml as a called workflow) and releases those files. For a fast preview, push the branch and
+its tag together: `git push --atomic origin port/kit v<version>-preview.<n>`.
+
+A test of the release path: a tag `ci-test-<n>` (or `ci-test-<n>-preview`) on a commit with a passed push run makes the
+same release as a draft (the version is the changelog's newest), with the macOS and Linux files and no Discord post.
+Check its files, then delete it and its symbols: `gh release delete ci-test-<n> --yes --cleanup-tag` and
+`gh release delete symbols-ci-test-<n> --yes`.
+
+**Larger runners (not used).** GitHub's larger runners (more cores: 8, 16 or more vCPUs) need a paid plan with billing
+on the organization; their minutes are not free, also for a public repository. To use them: Settings > Actions >
+Runners > New GitHub-hosted runner (for example Windows 8 cores, Ubuntu 8 cores), then `runs-on: <the runner's name>`
+in the jobs windows, linux, linux-clang and linux-appimage. The gain: the cold builds (5 to 6 minutes on 4 vCPUs) would
+take about half; with a warm compiler cache the gain is small, as most of the time is then `main_sdl.cpp` alone (one
+translation unit: one core) and the steps that are not builds. macOS: the `macos-15-xlarge` runner (M-series, more
+cores) has the same billing.
+
 ## Commits and releases
 
 Commit messages say what changed for the user, in a few lines. Every push builds `stardraft.exe` on GitHub (an
@@ -308,19 +369,21 @@ A release is a tag `v<version>`. The owner says when, and approves the scope and
    pass, and all targets build (in `build`, the testing build).
 5. `release.py publish <version> --yes` checks again, then commits "Changelog <version>" (the section and its
    pictures), tags `v<version>`, and pushes `main` and the tag together as `milestone-dev` (gh's active account stays
-   as it is). Then it waits for CI (about 8 minutes) and confirms the release. `--dry-run` shows the commands only.
+   as it is). Then it waits for the tag's run of `.github/workflows/release.yml` (it waits for the build and tests
+   of main's push, then releases in a few minutes) and confirms the release. `--dry-run` shows the commands only.
 
-CI (`.github/workflows/build.yml`) checks the tag first (`release.py ci-check`: a version, its section, its pictures,
-a commit on `main`). Then it builds that commit as that version and makes the release "StarDraft 2 - v<version> (build
-<commit>)" with `StarDraft-<version>-win64.zip` (only `stardraft.exe`), marked Latest. Its text is the version's
+CI (`.github/workflows/release.yml`) checks the tag first (`release.py ci-check`: a version, its section, its pictures,
+a commit on `main`). Then it takes the files that build.yml built and tested for that commit as that version (see
+"CI": releases from the tested build) and makes the release "StarDraft 2 - v<version> (build <commit>)" with `StarDraft-<version>-win64.zip` (only `stardraft.exe`), marked Latest. Its text is the version's
 section, then the changelog's last section (what StarDraft is), with the pictures as addresses at the tag
 (`release.py notes <version>` shows the text). Discord gets one post with the pictures. The symbols (`stardraft.pdb`)
 go to the draft release `symbols-v<version>`, which only the repository's members see, for crash reports. For now the
 release has only the Windows build. The repository variable `RELEASE_MAC` (Settings > Secrets and variables > Actions >
-Variables), default off, = `on` lets the job `macos-release` attach the macOS disk image
-`StarDraft-<version>-macos-arm64.dmg` (see "The macOS app"); off, it is only an artifact of the run. The linux job's
-`stardraft-linux.tar.gz` is never put on a release (it needs Ubuntu 24.04's glibc and has no desktop files): the Linux
-download is to be the AppImage, built on Ubuntu 22.04, with its own release job. Check for
+Variables), default off, = `on` attaches the macOS disk image `StarDraft-<version>-macos-arm64.dmg` (see "The macOS
+app"); off, it is only an artifact of the run. `RELEASE_LINUX` = `on` attaches the AppImage
+`StarDraft-<version>-x86_64.AppImage` in the same way. A preview tag (`v<version>-preview.<n>`, from `port/kit`) is a
+pre-release with the files of all three systems, never Latest and not posted in Discord. The linux job's
+`stardraft-linux.tar.gz` is never put on a release (it needs Ubuntu 24.04's glibc and has no desktop files). Check for
 updates finds the release. Each release keeps its own download count: `gh api repos/stardraft-editor/stardraft/releases
 --jq '.[] | "\(.tag_name)  \([.assets[].download_count] | add)"'` lists them.
 
