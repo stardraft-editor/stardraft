@@ -165,7 +165,7 @@ void NewPageView::paintSliderRow(draw::Canvas& c, int x, int y, int labelW, int 
     hits.push_back(h);
 }
 
-// The terrain list for the Blank row (the tileset's terrains by name), and the symmetry list.
+// The terrain list for the Blank row (the tileset's terrains by name).
 void NewPageView::pickTerrain(draw::Rect b) {
     copyMap = false, generate = false, terrainOnly = false;  // the dropdown selects Blank too
     changed();
@@ -175,12 +175,6 @@ void NewPageView::pickTerrain(draw::Rect b) {
         if (t->isTerrain(k)) items.push_back({widen(t->terrainName(k)), std::to_string(k)});
     if (!items.empty())
         host_.pickList(L"Terrain", items, std::to_string(terrainId()), b, [this](const std::string& v) { terrain = uint16_t(std::stoi(v)), changed(); });
-}
-
-void NewPageView::pickSymmetry(draw::Rect b) {
-    std::vector<NewListItem> items;
-    for (int i = 0; i < int(std::size(newpage::kSymmetryNames)); ++i) items.push_back({newpage::kSymmetryNames[i], std::to_string(i)});
-    host_.pickList(L"Symmetry", items, std::to_string(symmetry), b, [this](const std::string& v) { symmetry = std::stoi(v), changed(); });
 }
 
 void NewPageView::paint(draw::Canvas& c) {
@@ -405,18 +399,12 @@ void NewPageView::paint(draw::Canvas& c) {
         const int bw = buttonWidth(c, L"Randomize seed");
         c.text({gx, gy, gx + labelW, gy + scale(stardraft::kit::kFormRowH)}, L"Seed", kDim, draw::kMiddle | draw::kEllipsis);
         placeField(seed_, {gx + labelW, gy + scale(4), gr - bw - scale(8), gy + scale(4) + fieldH}, true, 0, footerTop);
-        button(c, {gr - bw, gy + scale(2), gr, gy + scale(2) + scale(stardraft::kit::kButtonH)}, L"Randomize seed", false, [this] {
-            const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-            setSeedText(std::to_wstring((uint64_t(ms) * 2654435761ull >> 8) % 999999 + 1));
-            changed();
-        });
+        button(c, {gr - bw, gy + scale(2), gr, gy + scale(2) + scale(stardraft::kit::kButtonH)}, L"Randomize seed", false, [this] { randomizeSeed(); });
         gy += scale(stardraft::kit::kFormRowH);
         c.text({gx, gy, gx + labelW, gy + scale(stardraft::kit::kFormRowH)}, L"Symmetry", kDim, draw::kMiddle | draw::kEllipsis);
-        {
-            const draw::Rect sr{gx + labelW, gy + scale(4), gr, gy + scale(4) + fieldH};
-            pickBoxFace(c, sr, newpage::kSymmetryNames[symmetry], false, hot(sr));
-            hitAdd(sr, [this, sr] { pickSymmetry(sr); });
-        }
+        // (a kit dropdown: its list opens under it)
+        if (symmetry_.value() != symmetry) symmetry_.setValue(symmetry);
+        placeField(symmetry_, {gx + labelW, gy + scale(4), gr, gy + scale(4) + fieldH}, true, 0, footerTop);
         gy += scale(stardraft::kit::kFormRowH) + scale(4);
         {  // above the sliders: they stay in their place when a tileset has more or fewer sliders
             const int lx = smallButton(c, gx, gy, rowH, L"Randomize values", [this] { randomize(false); }, L"New amounts, shape and seed");
@@ -434,6 +422,7 @@ void NewPageView::paint(draw::Canvas& c) {
         y = std::max(y, gy);
     } else {
         placeField(seed_, {}, false, 0, 0);
+        placeField(symmetry_, {}, false, 0, 0);
     }
     bottom = std::max(bottom, y);
 
@@ -478,7 +467,10 @@ bool NewPageView::mouse(const draw::MouseEvent& e) {
         if (hi != hover_) hover_ = hi, invalidate();
         return false;
     }
-    case draw::MouseKind::Down: {
+    // A quick second press comes as a double click (SDL counts the clicks: the third and the next ones are too): it is
+    // a press as well, so that each of quick presses on Randomize, a radio or a slider acts.
+    case draw::MouseKind::Down:
+    case draw::MouseKind::DoubleClick: {
         if (e.button != 0) return false;
         const int hi = hitAt(e.pt);
         if (hi < 0) return false;

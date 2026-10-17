@@ -171,8 +171,8 @@ these tabs. The tab holds a small blank map until it becomes a document.
     Height as segmented choices of the game's sizes (64, 96, 128, 192, 256); the start terrain (`ui::pickBox`),
     gray with Generate.
   - *Start*: Blank or Generate (radio marks); an EUD project also has Import an existing map: a map file (Browse…), copied into the project folder (the file stays as it is), and then the Terrain column only says that the map has the tileset, size and terrain. With Generate: the preview (a picture of the game: dark in both themes),
-    Seed and New seed, Symmetry, Smallest feature (rows on the 32 px pitch), "Amounts" and "Shape" with
-    `ui::sliderFace` rows, and the links Randomize and Randomize all. With Blank, all of it is hidden.
+    Seed and New seed, Symmetry (a kit dropdown), Smallest feature (rows on the 32 px pitch), "Amounts" and "Shape" with
+    `ui::sliderFace` rows, and the links Randomize and Randomize all (each quick click randomizes: a double click is a click too; the preview is made again once, for the last values). With Blank, all of it is hidden.
   - A footer that does not scroll: a hairline, then Create (Primary, only in the settings) and Cancel at the bottom
     right. Create makes the map or the project in the same tab; Cancel closes the tab (the only tab goes back to the
     start page).

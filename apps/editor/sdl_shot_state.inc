@@ -3,7 +3,8 @@
 // self-test reads the same parts of the model): the open map (its tileset and size; then, in the Map workspace, its
 // parts as name=value: shotMapState); the Data workspace's open entry, its changed
 // values and the undo steps; the selected trigger's blocks with their values; the Classic triggers page's triggers and
-// the selected one's players; the Files page's search and how many game sounds it shows; the map's briefings. Included
+// the selected one's players; the Files page's search and how many game sounds it shows; the map's briefings; the New
+// page's choices and its preview's maps. Included
 // by main_sdl.cpp after the workspaces' files.
 
 namespace {
@@ -156,9 +157,19 @@ void sdlNamesCheck() {
             std::printf("names: unit %d \"%s\" (%s)\n", u, narrow(gameTextPlain(n)).c_str(), kind(n));
 }
 
+// The New page: the choices it shows, the presses of its Randomize buttons, the preview's maps made and the choices of
+// the last one ("the same" when it is made for the choices shown), and whether the Symmetry list is open.
+std::string shotNewPageState() {
+    const std::string shown = gNewView.choicesText();
+    return "new page: " + shown + "; " + std::to_string(gNewView.randomized) + " randomize presses, " + std::to_string(gNewView.generations) +
+           " maps made, the last for " + (gNewView.generatedFor == shown ? std::string("the same choices") : "other choices (" + gNewView.generatedFor + ")") +
+           "; the symmetry list " + (gNewView.symmetryListOpen() ? "open" : "closed");
+}
+
 // The line's state part (empty: none for this workspace).
 std::string sdlShotState() {
     const bool map = gState.ed && gState.ed->isOpen();
+    if (gNewOpen && gWorkspace == Workspace::Map) return shotNewPageState();
     switch (gWorkspace) {
     case Workspace::Data: return activeProject() ? shotDataState() : "";
     case Workspace::Triggers: return activeProject() ? shotTriggersState() : "";
