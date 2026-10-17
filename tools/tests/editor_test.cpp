@@ -33,6 +33,53 @@ static int failures = 0;
         if (!ok_) ++failures;                                    \
     } while (0)
 
+// The town hall distance and the start location (GitHub #148), as StarEdit: a town hall (a resource depot or a start
+// location) keeps 3 tiles between its box and the box of each resource (minerals, a geyser), when the town hall is placed
+// and when the resource is placed. A start location blocks no unit and no unit blocks it; start locations keep out of
+// each other. No terrain: only the units count.
+static void townHallDistance(const UnitTypes& types) {
+    const uint16_t mineral = 176 /* Mineral Field (Type 1) */, geyser = *types.findByName("Vespene Geyser"),
+                   cc = *types.findByName("Terran Command Center"), nexus = *types.findByName("Protoss Nexus"),
+                   start = *types.findByName("Start Location"), marine = *types.findByName("Terran Marine"),
+                   depot = *types.findByName("Terran Supply Depot");
+    auto issues = [&](std::vector<Unit> placed, uint16_t type, int x, int y) {
+        PlacementContext ctx{256, 256, nullptr, nullptr, &types, &placed};
+        Unit u = makeUnit(types[type], 0, uint16_t(x), uint16_t(y));
+        std::string out;
+        for (PlacementIssue i : checkPlacement(ctx, u)) out += std::string(out.empty() ? "" : ",") + placementIssueName(i);
+        std::printf("      %s at %d,%d by a %s: %s\n", types[type].name.c_str(), x, y, types[placed[0].type].name.c_str(),
+                    out.empty() ? "allowed" : out.c_str());
+        return out;
+    };
+    auto one = [&](uint16_t type, int x, int y) { return std::vector<Unit>{makeUnit(types[type], 11, uint16_t(x), uint16_t(y))}; };
+    // A mineral field at 1024,1024: its box is 992..1056 x 1008..1040, so 3 tiles from it is x 1152. A Command Center's
+    // box (128 x 96) with its left edge 2 tiles from the field: center x 1184; 3 tiles: 1216.
+    const auto field = one(mineral, 1024, 1024);
+    CHECK(issues(field, cc, 1184, 1024) == "near_resources", "town hall: a command center 2 tiles from minerals is refused");
+    CHECK(issues(field, cc, 1216, 1024).empty(), "town hall: a command center 3 tiles from minerals is allowed");
+    CHECK(issues(field, start, 1184, 1024) == "near_resources", "town hall: a start location 2 tiles from minerals is refused");
+    CHECK(issues(field, start, 1216, 1024).empty(), "town hall: a start location 3 tiles from minerals is allowed");
+    CHECK(issues(field, depot, 1104, 1024).empty(), "town hall: a supply depot next to minerals is allowed");
+    // The other way: the resource is placed near the town hall (its left edge at 1120).
+    for (uint16_t hallType : {cc, nexus, start}) {
+        const auto hall = one(hallType, 1184, 1024);
+        const std::string name = types[hallType].name;
+        CHECK(issues(hall, mineral, 1024, 1024) == "near_resources", ("town hall: minerals 2 tiles from a " + name + " are refused").c_str());
+        CHECK(issues(hall, mineral, 992, 1024).empty(), ("town hall: minerals 3 tiles from a " + name + " are allowed").c_str());
+        // A geyser (128 x 64) with its right edge 2 tiles from the town hall: center x 992; 3 tiles: 960.
+        CHECK(issues(hall, geyser, 992, 1024) == "near_resources", ("town hall: a geyser 2 tiles from a " + name + " is refused").c_str());
+        CHECK(issues(hall, geyser, 960, 1024).empty(), ("town hall: a geyser 3 tiles from a " + name + " is allowed").c_str());
+    }
+    // The start location has no collision.
+    const auto spot = one(start, 1184, 1024);
+    CHECK(issues(spot, marine, 1184, 1024).empty(), "start location: a marine on a start location is allowed");
+    CHECK(issues(spot, cc, 1184, 1024).empty(), "start location: a command center on a start location is allowed");
+    CHECK(issues(spot, depot, 1184, 1024).empty(), "start location: a supply depot on a start location is allowed");
+    CHECK(issues(one(marine, 1184, 1024), start, 1184, 1024).empty(), "start location: a start location on a marine is allowed");
+    CHECK(issues(one(cc, 1184, 1024), start, 1184, 1024).empty(), "start location: a start location on a command center is allowed");
+    CHECK(issues(spot, start, 1200, 1024) == "overlaps_building", "start location: a start location on another start location is refused");
+}
+
 // N.2: "Units anywhere" (illegal placement) and "Units may overlap" (stacking) hold for paste, move, duplicate and
 // terrain paste with units, as for placing. Off: refused (no correction) or moved to a spot where they fit.
 static void placementOptions(const GameData& data, const char* map) {
@@ -1493,6 +1540,7 @@ int main(int argc, char** argv) {
     }
 
     placementOptions(data, argv[2]);
+    townHallDistance(types);
     soundFileSteps(data, argv[2]);
     placementRules(data, argv[2]);
     // A small brush (size 1) painted in many quick strokes on each tileset: the tiles fit their neighbors as in

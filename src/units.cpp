@@ -267,6 +267,8 @@ const char* placementIssueName(PlacementIssue issue) {
 
 namespace {
 
+constexpr uint16_t kStartLocation = 214;  // units.dat: Start Location
+
 struct Box {
     int left, top, right, bottom;  // pixels, right/bottom exclusive
     bool overlaps(const Box& o) const { return left < o.right && o.left < right && top < o.bottom && o.top < bottom; }
@@ -297,6 +299,11 @@ void collectIssues(const PlacementContext& ctx, const Unit& unit, int self, bool
     const bool flyer = isAir(t, unit);
     const bool building = t.is(UnitFlag::Building) && !flyer;  // a lifted building is an air unit
     const Box box = building ? placementBox(t, unit) : collisionBox(t, unit);
+    const bool start = unit.type == kStartLocation;
+    // A town hall (a resource depot: units.dat gives the start location this flag too) and a resource (minerals, a
+    // geyser) on the ground.
+    const bool hall = building && t.is(UnitFlag::ResourceDepot);
+    const bool resource = building && t.is(UnitFlag::ResourceContainer);
     const int mapPxW = ctx.mapWidth * 32, mapPxH = ctx.mapHeight * 32;
 
     if (box.left < 0 || box.top < 0 || box.right > mapPxW || box.bottom > mapPxH)
@@ -333,6 +340,21 @@ void collectIssues(const PlacementContext& ctx, const Unit& unit, int self, bool
             const UnitType& ot = (*ctx.types)[o.type];
             const bool otherFlyer = isAir(ot, o);
             const bool otherBuilding = ot.is(UnitFlag::Building) && !otherFlyer;
+            const bool otherStart = o.type == kStartLocation;
+            // Town halls and start locations keep 3 tiles between their box and the boxes of resources, both ways: a
+            // town hall near resources, and resources near a town hall (as StarEdit).
+            if (building && otherBuilding) {
+                if ((hall && ot.is(UnitFlag::ResourceContainer)) || (resource && ot.is(UnitFlag::ResourceDepot))) {
+                    const Box res = resource ? box : placementBox(ot, o), other = resource ? placementBox(ot, o) : box;
+                    const Box grown{res.left - 96, res.top - 96, res.right + 96, res.bottom + 96};
+                    if (other.overlaps(grown)) issues.push_back(PlacementIssue::NearResources);
+                }
+            }
+            // A start location blocks no unit and no unit blocks it (as StarEdit); start locations keep out of each other.
+            if (start != otherStart) {
+                if (first && !issues.empty()) return;
+                continue;
+            }
             if (ctx.stacking && !(building && otherBuilding)) continue;
             if (flyer && otherFlyer) {
                 // Air units keep out of each other unless stacking is allowed.
@@ -345,11 +367,6 @@ void collectIssues(const PlacementContext& ctx, const Unit& unit, int self, bool
             } else if (building && otherBuilding) {
                 Box ob = placementBox(ot, o);
                 if (box.overlaps(ob)) issues.push_back(PlacementIssue::OverlapsBuilding);
-                // Town halls must keep 3 tiles between their box and resources.
-                if (t.is(UnitFlag::ResourceDepot) && ot.is(UnitFlag::ResourceContainer)) {
-                    Box grown{ob.left - 96, ob.top - 96, ob.right + 96, ob.bottom + 96};
-                    if (box.overlaps(grown)) issues.push_back(PlacementIssue::NearResources);
-                }
             } else if (!building) {
                 // Ground units may not stand inside other ground units or buildings.
                 Box ob = otherBuilding ? placementBox(ot, o) : collisionBox(ot, o);

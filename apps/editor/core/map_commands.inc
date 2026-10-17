@@ -63,15 +63,11 @@ bool saveMapFileOf(const Editor* asked, const fs::path& path, std::string& err) 
     return saveMapFile(path, err);
 }
 
-// File > Save to the map's own file asks for another place (Save as) when StarDraft cannot write there: a folder under
-// Program Files (Windows lets only an administrator write there, as the default StarCraft install's Maps folder), or a
-// folder that does not take a new file (the save writes <name>.tmp beside the map first).
+// File > Save to the map's own file asks for another place (Save as) only when StarDraft cannot write there: the folder
+// does not take a new file (the save writes <name>.tmp beside the map first; a test file shows it, as a folder under
+// Program Files that only an administrator can write to), or the map's file cannot be written (read-only). A folder
+// that StarDraft can write to is good, also under Program Files (GitHub #148).
 bool saveNeedsOtherPlace(const fs::path& path) {
-    for (const fs::path& part : path.parent_path()) {
-        std::wstring p = part.wstring();
-        std::transform(p.begin(), p.end(), p.begin(), [](wchar_t ch) { return wchar_t(std::towlower(ch)); });
-        if (p == L"program files" || p == L"program files (x86)") return true;
-    }
     std::error_code ec;
     const fs::path dir = path.parent_path();
     if (dir.empty() || !fs::is_directory(dir, ec)) return false;  // (the save says why)
@@ -79,8 +75,18 @@ bool saveNeedsOtherPlace(const fs::path& path) {
     {
         std::ofstream f(probe, std::ios::binary);
         if (!f) return true;
+        f.put('\0');
+        if (!f.flush()) {
+            f.close();
+            fs::remove(probe, ec);
+            return true;
+        }
     }
     fs::remove(probe, ec);
+    if (fs::is_regular_file(path, ec)) {
+        std::fstream f(path, std::ios::binary | std::ios::in | std::ios::out);  // (opened to write, nothing changes)
+        if (!f) return true;
+    }
     return false;
 }
 
