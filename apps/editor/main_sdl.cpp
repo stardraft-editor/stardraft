@@ -266,10 +266,7 @@ void dropFile(const std::string& utf8) {
 // The main window without --size: w x h in the system's points (on a Retina display of macOS 2 pixels each, as the
 // Windows program's 1600 x 1000 at 100 %), at most 90 % of the display's free area, in its middle.
 void fitMainWindow(int w, int h) {
-    int count = 0;
-    SDL_Window** wins = SDL_GetWindows(&count);
-    SDL_Window* win = wins && count > 0 ? wins[0] : nullptr;
-    SDL_free(wins);
+    SDL_Window* win = gHost ? gHost->mainWindow() : nullptr;  // (not SDL_GetWindows' first: that is the newest window)
     SDL_Rect area{};
     if (!win || !SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(win), &area) || area.w <= 0 || area.h <= 0) return;
     SDL_SetWindowSize(win, std::min(w, area.w * 9 / 10), std::min(h, area.h * 9 / 10));
@@ -859,14 +856,9 @@ int main(int argc, char** argv) {
                 showW = std::min(width, area.w * 9 / 10), showH = std::min(height, area.h * 9 / 10);
             if (!host.show(root, L"StarDraft", showW, showH)) return std::fprintf(stderr, "could not open a window\n"), 1;
             updateTitle();  // (the window exists now: its title is the open map's)
-            sdlFloatPaletteSetup();  // (the floating terrain palette's window opens over it: sdl_palette_float.inc)
             if (!sizeArg) fitMainWindow(width, height);
-            {
-                int n = 0;
-                SDL_Window** wins = SDL_GetWindows(&n);
-                if (wins && n > 0) sdlMainWindowShown(wins[0], testRun);  // (macOS: the document window, the sheets)
-                SDL_free(wins);
-            }
+            if (SDL_Window* mw = host.mainWindow()) sdlMainWindowShown(mw, testRun);  // (macOS: the document window, the sheets)
+            sdlFloatPaletteSetup();  // (the floating terrain palette's window opens over it, at its place: sdl_palette_float.inc)
             sdlNativeMenusReset(), rebuildMenus();  // (macOS: the system's menu bar in place of SDL's, now that the window is there)
             sdlWindowsShown(testRun);  // (Windows: the dark title bar, an earlier crash's report, the file types)
             if (!testRun) sdlUpdatesAtStart();  // (a release build: a newer release says so in the status bar)

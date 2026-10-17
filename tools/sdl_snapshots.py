@@ -306,6 +306,9 @@ CASES += [
 CASES += [
     ("map-palette-float", ["--mode", "terrain", "--script", "{script:floatpal}"], "map"),
     ("map-palette-docked", ["--mode", "terrain", "--script", "{script:floatpaldock}"], "map"),
+    # -keys: a pick after typing in the window's search box gives the keyboard to the map (F chooses Fill, the search
+    # keeps "dirt"); the window moved to a screen of 150 % does not change the program's scale.
+    ("map-palette-float-keys", ["--mode", "terrain", "--script", "{script:floatpalkeys}"], "map"),
     ("map-palette-float-settings", ["--settings", "{floatpalsettings}", "--mode", "terrain", "--check", "floatpalette:{newdir}",
                                     "--wait", "0"], "map"),
 ]
@@ -1058,6 +1061,8 @@ stats
     "floatpal": "command view.floatPalette\nwait 0\nclick 510,288\nkey U\nkey T\nclick 590,132\ncommand view.floatPalette\nwait 0\n"
                 "palette close\ncommand view.floatPalette\nwait 0\nrect on\nclick 386,236\n",
     "floatpaldock": "command view.floatPalette\nwait 0\ncommand view.floatPalette\nwait 0\n",
+    # (map-palette-float-keys: the window's search box, then the first row of the list that it filters)
+    "floatpalkeys": "command view.floatPalette\nwait 0\nclick 400,132\ntype plat\nclick 490,245\nkey F\npalette scale 150\n",
     "stackpipette": "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nclick 700,650:Alt\nkey Esc\n",
 }
 
@@ -3085,7 +3090,7 @@ def check_stack_pipette(output):
 
 
 PALETTE_LINE = re.compile(r"^  palette: (docked|floating)(.*)$")
-PALETTE_INPUT = re.compile(r"^(key|click|wait|palette|rect) (.*?): \d+ units, \d+ doodads, \d+ selected")
+PALETTE_INPUT = re.compile(r"^(key|click|wait|palette|rect|type) (.*?): \d+ units, \d+ doodads, \d+ selected")
 
 
 def palette_steps(output):
@@ -3140,6 +3145,36 @@ def check_palette_float(output):
     return None
 
 
+def check_palette_keys(output):
+    """A pick after typing in the window's search box: the search box loses the keyboard, F goes to the map (Fill) and
+    the search keeps its text; the window on a screen of 150 % leaves the program's scale at 1."""
+    s = palette_steps(output)
+    want = ["wait 0", "click 400,132", "type plat", "click 490,245", "key F", "palette scale 150"]
+    got = [d["input"] for d in s]
+    if got != want:
+        return f"the inputs are {got}, not {want}"
+    lines = {}
+    for line in output.splitlines():
+        if line.startswith("  palette: floating"):
+            lines[len(lines)] = line
+    search = [re.search(r'search="([^"]*)"( \(typing\))?', lines.get(i, "")) for i in range(len(s))]
+    if not search[1] or not search[1].group(2):
+        return f"the click did not give the keyboard to the window's search box: {lines.get(1)}"
+    if not search[2] or search[2].group(1) != "plat":
+        return f"the search box does not have the typed text: {lines.get(2)}"
+    pick = s[3]
+    if int(pick.get("palette", -1)) <= 0 or pick.get("tool") != "0" or "High Platform" not in pick["message"]:
+        return f"the click on the filtered list did not pick High Platform for the brush: {pick}"
+    if not search[3] or search[3].group(2):
+        return f"after the pick the search box still has the keyboard: {lines.get(3)}"
+    if s[4].get("tool") != "2" or not search[4] or search[4].group(1) != "plat":
+        return f"F after the pick did not choose Fill (or went into the search box): {s[4]}, {lines.get(4)}"
+    scale = re.search(r"^  palette scale: the program's scale ([\d.]+), ([\d.]+) before\s*$", output, re.M)
+    if not scale or float(scale.group(1)) != float(scale.group(2)):
+        return f"the window on a screen of 150 % changed the program's scale: {scale.group(0) if scale else 'no line'}"
+    return None
+
+
 def check_palette_docked(output):
     """On, then off again: the palette is in the side bar again."""
     s = palette_steps(output)
@@ -3164,7 +3199,7 @@ def check_palette_settings(output):
 
 
 CHECKS = {"map-palette-float": check_palette_float, "map-palette-docked": check_palette_docked,
-          "map-palette-float-settings": check_palette_settings,
+          "map-palette-float-settings": check_palette_settings, "map-palette-float-keys": check_palette_keys,
           "map-stack-list": check_stack_list, "map-stack-cycle": check_stack_cycle, "map-stack-menu": check_stack_menu,
           "map-stack-pipette": check_stack_pipette,
           "map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,

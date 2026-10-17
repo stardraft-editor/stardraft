@@ -83,6 +83,10 @@ public:
     // The close button of the window of `content` (a snapshot's): SDL's SDL_EVENT_WINDOW_CLOSE_REQUESTED for it goes
     // the way of a window's.
     void snapshotClose(const draw::View& content);
+    // The window of `content` (a snapshot's) moves to a display of scale `s`: SDL's SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED
+    // for it goes the way of a window's (the scale of the program changes for the main window and a dialog, not for a
+    // tool window).
+    void snapshotScaleChanged(const draw::View& content, float s);
     // The snapshot's windows go (the views stay the caller's).
     void snapshotInputEnd();
     // While runModal shows a window with no SDL window (a snapshot's): `hook` gets its root view and gives it the
