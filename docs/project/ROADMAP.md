@@ -62,11 +62,6 @@ Accelerated improvements, and the missing features based on early user feedback.
 
 Make StarDraft 2 a more powerful creation suite.
 
-- [ ] **R56 Signed program.** *Tag:* Platform.
-  StarDraft 2 has a code-signing certificate, so that Windows and antivirus programs trust it.
-
-  Windows shows a warning when users start StarDraft 2 for the first time, and some antivirus programs stop it. Users
-  cannot see that the program comes from the StarDraft 2 team.
 - [x] **R55 Stacked units.** *Tag:* Capability.
   Place units on top of each other, as in SCMDraft 2, and see a list of all the units under the cursor.
 
@@ -154,10 +149,13 @@ Make StarDraft 2 a more powerful creation suite.
 
   Done (2026-10-18): the values The tile at a location and The tile at a point give the tile's number or its tile
   group. Still to check in the game: the memory addresses.
-- [ ] **R14 Exact timers.** *Tag:* EUD.
+- [x] **R14 Exact timers.** *Tag:* EUD.
   "After N seconds" and "Every N seconds" blocks that stay exact over a long game.
 
-  Wait stops all the triggers of a player. The timer blocks drift over a long game. Paused.
+  Wait stops all the triggers of a player. The timer blocks drift over a long game.
+
+  Done (2026-10-18): Every so often counts each next time from the last due time, so it does not drift; after more
+  than one interval missed (the trigger was off), it counts from then. Still to check in the game.
 - [x] **R23 Batch trigger generation.** *Tag:* UMS.
   In Classic triggers, blocks of actions that repeat for each player, location or unit type ("For each unit in ..."),
   and that can nest.
@@ -262,6 +260,11 @@ Make StarDraft 2 a more powerful creation suite.
 
 Exploring how to enable the next evolution of StarCraft creations.
 
+- [ ] **R56 Signed program.** *Tag:* Platform.
+  StarDraft 2 has a code-signing certificate, so that Windows and antivirus programs trust it.
+
+  Windows shows a warning when users start StarDraft 2 for the first time, and some antivirus programs stop it. Users
+  cannot see that the program comes from the StarDraft 2 team.
 - [ ] **R31 Replay preview.** *Tag:* Capability.
   Make a replay of the map with computer players, and watch it in StarCraft.
 

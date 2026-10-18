@@ -2628,8 +2628,12 @@ struct Gen {
             const std::string tm = "tm" + std::to_string(++timers), frames = "(" + arg(c, *d, "s") + ") * 24";
             const std::string b = body(c, 0);
             if (id == "act.every") {
+                // The next time counts from the last due time, not from the tick the trigger ran on (triggers do not
+                // run on every tick), so it does not drift over a long game (roadmap R14). The first time, or after
+                // more than one interval missed (the trigger was off), it counts from now: no burst of runs.
                 globals += "var " + tm + " = 0;\n";
-                return "if (getgametick() >= " + tm + ") {" + tag + "\n    " + tm + " = getgametick() + " + frames + ";\n" + b + "}\n";
+                return "if (getgametick() >= " + tm + ") {" + tag + "\n    const " + tm + "f = " + frames + ";\n    if (" + tm + " == 0 || " + tm + " + " + tm +
+                       "f <= getgametick()) " + tm + " = getgametick() + " + tm + "f;\n    else " + tm + " = " + tm + " + " + tm + "f;\n" + b + "}\n";
             }
             globals += "var " + tm + " = 0;\nvar " + tm + "done = 0;\n";
             return "if (" + tm + "done == 0) {" + tag + "\n    if (" + tm + " == 0) " + tm + " = getgametick() + " + frames + ";\n    else if (getgametick() >= " + tm +

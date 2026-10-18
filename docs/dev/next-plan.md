@@ -23,6 +23,7 @@ To check in StarCraft (trigger_test builds them with euddraft, but what they do 
 - R53: how smooth Pan the camera and Shake the camera look.
 - R58: the tile map's addresses (0x5993C4 and 0x57F1D4) for The tile at a location and The tile at a point.
 - R51: the chat conditions, The number in the chat line, Play music and Stop the music.
+- R14: Every so often stays on time over a long game (and after its trigger was off a while).
 - R23: a Classic trigger with more than 64 actions becomes several triggers linked by a switch; does it work for a
   trigger of several players?
 - R52: a project whose texts are larger than the game's stat_txt.tbl (the game reads the project's copy then).
@@ -43,11 +44,9 @@ between high and low ground and have rules for expansions.
 
 ## Not code
 
-- **R56 Signed program.** Needs a Windows code-signing certificate (bought, or a signing service such as Azure Trusted
-  Signing); then sign in the release workflow. The macOS build has its own signing (tools/ci/mac_dist.sh).
-- **R14 Exact timers.** Paused in ROADMAP.md. Note for later: "Every N seconds" (act.every in src/triggers.cpp) sets
-  its next time from the current tick, so it drifts by the cycles it waits; adding the period to the last due time
-  would keep it exact.
+- **R56 Signed program** (Later since 2026-10-18). Needs a Windows code-signing certificate (bought, or a signing
+  service such as Azure Trusted Signing); then sign in the release workflow. The macOS build has its own signing
+  (tools/ci/mac_dist.sh).
 
 ## The website
 
