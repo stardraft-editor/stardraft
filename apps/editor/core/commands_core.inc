@@ -34,13 +34,16 @@ bool editInWorkspace(int id) {
     case Workspace::Map: return true;
     case Workspace::Data: return id == ID_EDIT_COPY || id == ID_EDIT_PASTE || id == ID_QUICKPICK;  // (Q: go to an entry)
     case Workspace::ClassicSettings: return id == ID_EDIT_COPY || id == ID_EDIT_PASTE;  // (Map data: the selected entry's values)
-    case Workspace::Triggers: return id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE;
+    case Workspace::ClassicTriggers: return id == ID_QUICKPICK;  // (Q: Quick add, core/views_trigger_quick.inc)
+    case Workspace::Triggers: return id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE || id == ID_QUICKPICK;
     case Workspace::Briefing:
         return id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE || id == ID_EDIT_DELETE ||
                id == ID_EDIT_SELECTALL;
     default: return false;
     }
 }
+
+void trigQuickAdd();
 
 bool commandPortable(AppState& app, int id) {
     // The active mode's layer is hidden (View > Layers): the edits of the map are refused.
@@ -70,6 +73,7 @@ bool commandPortable(AppState& app, int id) {
         else trigCopy(id == ID_EDIT_CUT);
         return true;
     }
+    if (gWorkspace == Workspace::Triggers && id == ID_QUICKPICK) return trigQuickAdd(), true;  // Q: Quick add (core/views_trigger_quick.inc)
     if (id == ID_QUICKOPEN) return shellShowQuickPicker(false, true), true;
     if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax)) {
         const bool project = id >= ID_RECENT_PROJECT;

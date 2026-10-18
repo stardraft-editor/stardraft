@@ -159,6 +159,7 @@ int shellAskUnapplied(const std::wstring& text, const std::wstring& title);
 void shellRecentMenu(bool projects, const std::vector<std::wstring>& labels, const std::wstring& none);
 // The quick picker (Quick open, or Replace with... for the selection).
 void shellShowQuickPicker(bool replace, bool open);
+void shellShowQuickPickerCustom();  // the quick picker with gQuickCustom's rows (core/views_quick_pick.inc)
 // Whether the file system ignores case (Windows: a/B.scx and a/b.scx are one file), for comparing paths.
 bool shellPathsFoldCase();
 // A map file was opened by itself: asks once whether maps open with StarDraft 2 (Windows only).

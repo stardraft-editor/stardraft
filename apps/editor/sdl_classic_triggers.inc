@@ -366,6 +366,9 @@ void sdlClassicTrigPopShot(const std::string& spec) {
         else ctValuePopout(gSdlTrigHost, param);
     });
 }
+// Q on the Classic triggers page from the Edit menu: Quick add (core/views_trigger_quick.inc).
+void sdlClassicQuickAdd() { ctQuickAdd(gSdlTrigHost); }
+
 void sdlClassicTrigSelect(const std::string& spec) {
     int t = 0, kind = 0, entry = -1;
     if (!gSdlTrigPage || std::sscanf(spec.c_str(), "%d:%d:%d", &t, &kind, &entry) < 1) return;

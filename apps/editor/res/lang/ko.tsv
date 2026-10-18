@@ -2313,3 +2313,7 @@ Terrain flags: buildable (green), not buildable (red)	지형 속성: 건설 가�
 G&raphics	그래픽(&R)
 &Overlays	오버레이(&O)
 &Workspaces	작업 공간(&W)
+Select a trigger first	먼저 트리거를 선택하세요
+Add a block after the selected one	선택한 블록 다음에 블록 추가
+Condition	조건
+Add a condition or an action after the selected one	선택한 항목 다음에 조건이나 동작 추가
