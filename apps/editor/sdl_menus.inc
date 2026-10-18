@@ -1104,13 +1104,27 @@ void showFileDialog(bool save, std::function<void(const fs::path&)> done) {
                                                  {"All files", "*"}};
     static const SDL_DialogFileFilter kSave[] = {{"StarCraft maps", "scx;scm"}, {"Scenario data", "chk"}, {"All files", "*"}};
     auto* call = new DialogCall{std::move(done)};
+    // StarCraft's maps folder, where the game lists the maps (macOS: ~/Library/Application Support/Blizzard/StarCraft/
+    // Maps), when it is there; else "" (the system chooses).
+    auto mapsFolder = []() -> fs::path {
+#ifdef __APPLE__
+        std::error_code ec;
+        if (const char* h = std::getenv("HOME"); h && *h)
+            if (const fs::path d = fs::path(h) / "Library" / "Application Support" / "Blizzard" / "StarCraft" / "Maps"; fs::is_directory(d, ec)) return d;
+#endif
+        return {};
+    };
     if (save) {
-        // The map's own folder and name; a new map: Untitled.scx where the system chooses.
+        // The map's own folder and name; a new map: Untitled.scx in the maps folder (else where the system chooses).
         const fs::path path = gState.ed ? gState.ed->path() : fs::path();
-        const std::string where = path.empty() ? std::string("Untitled.scx") : sdlDialogLocation(path.parent_path(), path.filename().wstring());
+        const fs::path maps = mapsFolder();
+        const std::string where = !path.empty() ? sdlDialogLocation(path.parent_path(), path.filename().wstring())
+                                  : maps.empty() ? std::string("Untitled.scx")
+                                                 : sdlDialogLocation(maps, L"Untitled.scx");
         sdlFileDialog(SDL_FILEDIALOG_SAVEFILE, dialogDone, call, kSave, 3, where, "");
     } else {
-        sdlFileDialog(SDL_FILEDIALOG_OPENFILE, dialogDone, call, kOpen, 5, "", "");
+        const fs::path maps = mapsFolder();
+        sdlFileDialog(SDL_FILEDIALOG_OPENFILE, dialogDone, call, kOpen, 5, maps.empty() ? std::string() : sdlDialogLocation(maps), "");
     }
 }
 
