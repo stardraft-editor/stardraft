@@ -5,7 +5,7 @@
 //     see up, and their attacks up can miss.
 //   - Blocks view: the minitiles that block the line of sight (VF4 flag 0x8).
 //   - Buildable: the tiles (32 px) where buildings can go (green) and the others (red), from the CV5 group.
-// The shapes are made again when the map changes (its revision), the tileset or the view changes.
+// The shapes are made again when the terrain changes (its revision), the tileset or the view changes.
 
 enum class TerrainFlagsView { Off, Walkable, Height, BlocksView, Buildable };
 
@@ -58,10 +58,10 @@ void terrainFlagsFills(const std::vector<uint8_t>& kind, int w, int h, float cel
 
 void makeTerrainFlagsShapes(const Editor& ed) {
     const int key = int(gTerrainFlags.view) | (gLightTheme ? 16 : 0);
-    if (gTerrainFlags.shapesFor == &ed && gTerrainFlags.shapesRev == ed.revision() && gTerrainFlags.tilesetOf == &ed.tileset() &&
+    if (gTerrainFlags.shapesFor == &ed && gTerrainFlags.shapesRev == ed.terrainRevision() && gTerrainFlags.tilesetOf == &ed.tileset() &&
         gTerrainFlags.era == ed.era() && gTerrainFlags.key == key)
         return;
-    gTerrainFlags.shapesFor = &ed, gTerrainFlags.shapesRev = ed.revision(), gTerrainFlags.tilesetOf = &ed.tileset();
+    gTerrainFlags.shapesFor = &ed, gTerrainFlags.shapesRev = ed.terrainRevision(), gTerrainFlags.tilesetOf = &ed.tileset();
     gTerrainFlags.era = ed.era(), gTerrainFlags.key = key;
     gTerrainFlags.fills.clear();
     const TerrainLayer& ter = ed.terrain();

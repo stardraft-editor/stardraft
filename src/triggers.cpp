@@ -2138,18 +2138,23 @@ struct Gen {
             return unitRef(c, d->param("unit"), raw(c, *d, "unit")) + ".setloc(" + arg(c, *d, "where") + ");" + tag + "\n" +
                    (all ? "CenterViewAll(" : "CenterView(") + arg(c, *d, "where") + ");\n";
         if (id == "act.camerapan" || id == "act.camerashake") {  // one step on each trigger cycle, from when the trigger first reaches it
+            // tm: the start (game tick + 1; 0: not started); tmend: the tick + 1 of the last step (inside For each player,
+            // each player gets that step); tmk: the steps so far (the shake's phase, also when triggers do not run on
+            // each frame).
+            if (atMapStart || sequenceDepth)
+                issue(TriggerIssue::Level::Warning, &c, -1,
+                      d->title + " moves one step each time its trigger runs: in On map start or in a Sequence it runs one time. Put it in a trigger in On every trigger cycle");
             helpers.insert("camera");
             const std::string tm = "tm" + std::to_string(++timers), frames = "(" + arg(c, *d, "s") + ") * 24", where = arg(c, *d, "where");
-            globals += "var " + tm + " = 0;\nvar " + tm + "done = 0;\n";
-            std::string step;
+            globals += "var " + tm + " = 0;\nvar " + tm + "end = 0;\nvar " + tm + "k = 0;\n";
+            std::string step = "    var " + tm + "t = getgametick() + 1 - " + tm + ";\n    " + tm + "k += 1;\n    if (" + tm + "t >= " + frames + ") {\n        " + tm + "t = " +
+                               frames + ";\n        " + tm + "end = getgametick() + 1;\n    }\n";
             if (id == "act.camerapan")
-                step = "    var " + tm + "t = getgametick() + 1 - " + tm + ";\n    if (" + tm + "t >= " + frames + ") {\n        " + tm + "t = " + frames + ";\n        " + tm +
-                       "done = 1;\n    }\n    sd_camPan(" + arg(c, *d, "from") + ", " + arg(c, *d, "dest") + ", " + where + ", " + tm + "t, " + frames + ");\n";
+                step += "    sd_camPan(" + arg(c, *d, "from") + ", " + arg(c, *d, "dest") + ", " + where + ", " + tm + "t, " + frames + ");\n";
             else
-                step = "    const " + tm + "t = getgametick() + 1 - " + tm + ";\n    if (" + tm + "t >= " + frames + ") {\n        " + tm + "done = 1;\n        sd_camShake(" +
-                       arg(c, *d, "center") + ", " + where + ", 0, 0);\n    } else sd_camShake(" + arg(c, *d, "center") + ", " + where + ", " + arg(c, *d, "px") + ", " + tm +
-                       "t);\n";
-            return "if (" + tm + "done == 0) {" + tag + "\n    if (" + tm + " == 0) " + tm + " = getgametick() + 1;\n" + step + "    " +
+                step += "    if (" + tm + "end != 0) sd_camShake(" + arg(c, *d, "center") + ", " + where + ", 0, 0);\n    else sd_camShake(" + arg(c, *d, "center") + ", " +
+                        where + ", " + arg(c, *d, "px") + ", " + tm + "k);\n";
+            return "if (" + tm + "end == 0 || " + tm + "end == getgametick() + 1) {" + tag + "\n    if (" + tm + " == 0) " + tm + " = getgametick() + 1;\n" + step + "    " +
                    (all ? "CenterViewAll(" : "CenterView(") + where + ");\n}\n";
         }
         if (id == "act.scrolllock") {  // the scroll speeds of this computer (each computer keeps its own copy)
