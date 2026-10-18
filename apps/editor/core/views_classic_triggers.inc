@@ -383,11 +383,23 @@ inline void ctModelMoveShown(CtModel& m, CtModelHost& h, int from, int to) {
     rest.erase(rest.begin() + from);
     if (rest.empty() || to < 0) return;
     to = std::min(to, int(rest.size()));
-    const int dest = to < int(rest.size()) ? rest[size_t(to)] - (rest[size_t(to)] > src) : rest.back() - (rest.back() > src) + 1;
     auto& v = m.trig.triggers;
-    ClassicTrigger t = v[size_t(src)];
-    v.erase(v.begin() + src);
-    v.insert(v.begin() + dest, std::move(t));
+    // A folded heading moves with the triggers under it (roadmap R59): the rows from it to the next heading.
+    int end = src + 1;
+    if (ctIsHeading(v[size_t(src)]) && m.folded.count(v[size_t(src)].actions[0].text))
+        while (end < int(v.size()) && !ctIsHeading(v[size_t(end)])) ++end;
+    const int n = end - src;
+    int dest = to < int(rest.size()) ? rest[size_t(to)] - (rest[size_t(to)] > src ? n : 0) : int(v.size()) - n;
+    const bool down = to < int(rest.size()) ? rest[size_t(to)] > src : true;
+    std::vector<ClassicTrigger> moved(v.begin() + src, v.begin() + end);
+    v.erase(v.begin() + src, v.begin() + end);
+    if (n > 1) {  // a heading's group goes between two groups, not into one: down after the next group, up before its heading
+        if (down)
+            while (dest < int(v.size()) && !ctIsHeading(v[size_t(dest)])) ++dest;
+        else
+            while (dest > 0 && !ctIsHeading(v[size_t(dest)])) --dest;
+    }
+    v.insert(v.begin() + dest, moved.begin(), moved.end());
     m.sel = dest;
     ctModelFill(m, h);
     h.selectTrigger(dest);

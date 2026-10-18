@@ -645,11 +645,11 @@ inline void ctAddHeading(CtPageHost& h) {
     if (!h.editText(tr(L"Add a heading"), tr(L"Heading"), text) || text.empty()) return;
     CtModel& m = h.model();
     ClassicTrigger n = ClassicTrigger::make();
+    if (m.filter >= 0) n.players[size_t(m.filter)] = 1;  // (it shows under the filter, as Add a trigger's)
     n.addAction(makeClassicAction(kCtCommentType));
-    uint32_t v = 0;
-    for (uint32_t id = 1; id <= m.strings.size() && !v; ++id)
-        if (m.strings.get(id) == text) v = id;
-    if (!v) m.ownStrings.insert(v = m.strings.add(text));
+    // A string of its own: another text with the same words does not change with it, and it folds alone.
+    const uint32_t v = m.strings.add(text);
+    m.ownStrings.insert(v);
     n.actions[0].text = v;
     ctModelInsertTrigger(m, h, std::move(n));
     h.changed();
@@ -1157,14 +1157,20 @@ inline void ctEditComment(CtPageHost& h) {
     int i = ctCommentEntry(*t);
     std::string text = ctCommentText(m, *t);
     if (!h.editText(tr(L"Comment"), tr(L"Comment"), text) || text == ctCommentText(m, *t)) return;
+    m.hold++;  // (the new action and its text: one change, one undo step)
     if (i < 0) {
-        if (text.empty()) return;
-        if (!ctInsertAction(h, makeClassicAction(kCtCommentType), -1)) return h.message(tr(L"The list is full"));
+        if (text.empty() || !ctInsertAction(h, makeClassicAction(kCtCommentType), -1)) {
+            m.hold--;
+            if (!text.empty()) h.message(tr(L"The list is full"));
+            return;
+        }
         i = ctModelSelected(m)->actionCount() - 1;
     }
     h.selectEntry(1, i);  // (the text goes to the selected action)
     if (text.empty()) ctDeleteEntry(h, 1, i);
     else ctSetText(h, 0, text), h.buildEditor();
+    m.hold--;
+    h.changed();
 }
 
 // The head's parts in the head (its coordinates, from 0) at the right column's width `rightW`.
