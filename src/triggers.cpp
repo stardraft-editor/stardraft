@@ -93,6 +93,7 @@ std::map<std::string, TriggerType> makeTypes() {
         {{">=", "at least"}, {"<=", "at most"}, {"==", "exactly"}, {"!=", "not"}, {">", "more than"}, {"<", "less than"}});
     add("Modifier", "change", TriggerPicker::Choice, {{"Add", "add"}, {"Subtract", "subtract"}, {"SetTo", "set to"}});
     add("VarModifier", "change", TriggerPicker::Choice, {{"SetTo", "set to"}, {"Add", "add"}, {"Subtract", "subtract"}});
+    add("TilePart", "tile part", TriggerPicker::Choice, {{"tile", "tile"}, {"group", "tile group"}});  // (val.tileat: roadmap R58)
     add("Resource", "resource", TriggerPicker::Choice, {{"Ore", "minerals"}, {"Gas", "gas"}, {"OreAndGas", "minerals and gas"}});
     add("Score", "score", TriggerPicker::Choice,
         {{"Total", "total"}, {"Units", "units"}, {"Buildings", "buildings"}, {"UnitsAndBuildings", "units and buildings"},
@@ -1540,6 +1541,12 @@ struct Gen {
             helpers.insert("ldir");
             return std::string(id == "val.dirx" ? "sd_ldirX(" : "sd_ldirY(") + arg(c, *d, "d") + ", " + arg(c, *d, "a") + ")";
         }
+        if (id == "val.tileat" || id == "val.tileatxy") {  // the map's tiles in the game's memory (roadmap R58)
+            helpers.insert("tile");
+            const std::string group = raw(c, *d, "part") == "group" ? "1" : "0";
+            if (id == "val.tileat") return "sd_tileAtLoc(" + arg(c, *d, "where") + ", " + group + ")";
+            return "sd_tileAt(" + arg(c, *d, "x") + ", " + arg(c, *d, "y") + ", " + group + ")";
+        }
         if (id == "val.groupsize") {
             const std::string g = raw(c, *d, "group");
             auto it = vars.find(g);
@@ -2852,6 +2859,14 @@ std::string TriggerSet::helperLibrary() {
                "}\n";
     out += "function sd_min(a, b) {\n    if (a < b) return a;\n    return b;\n}\n";
     out += "function sd_locAddr(loc) {  // a location's left, top, right, bottom\n    return 0x58DC60 + 20 * (loc - 1);\n}\n";
+    // The tile at a point (roadmap R58): the map's tile values (MTXM: group x 16 + subtile, 2 bytes each, row by row) at
+    // the address that 0x5993C4 holds; the map's width and height in tiles at 0x57F1D4 and 0x57F1D6 (the EUD Book; EUD
+    // Editor's offsets). A point outside the map takes the nearest edge.
+    out += "function sd_tileAt(x, y, group) {\n    const w = wread(0x57F1D4);\n    const h = wread(0x57F1D6);\n    var tx = x / 32;\n    var ty = y / 32;\n"
+           "    if (tx >= w) tx = w - 1;\n    if (ty >= h) ty = h - 1;\n    const v = wread(dwread(0x5993C4) + 2 * (ty * w + tx));\n"
+           "    if (group) return v / 16;\n    return v;\n}\n"
+           "function sd_tileAtLoc(loc, group) {\n    const a = sd_locAddr(loc);\n"
+           "    return sd_tileAt((dwread(a) + dwread(a + 8)) / 2, (dwread(a + 4) + dwread(a + 12)) / 2, group);\n}\n";
     // The camera's pan and shake: they move the location `where` (its four sides to one point), then the block centers
     // the view on it. The pan: t / n of the way from the center of `src` to the center of `dst` (no negative numbers:
     // the two ways apart). The shake: the center of `center` and an offset of `px` that changes with the cycle k.
@@ -3135,6 +3150,7 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
             {"loc", "sd_locAddr"},
             {"scroll", "sd_scrollLock"},
             {"camera", "sd_camPan sd_camShake"},
+            {"tile", "sd_tileAt sd_tileAtLoc"},
             {"speed", "sd_gameSpeed"}};
         std::string imports;
         for (const auto& [key, list] : kNames)
