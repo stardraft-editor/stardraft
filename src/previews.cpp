@@ -53,7 +53,7 @@ Sprite tilesPicture(const Tileset& ts, int w, int h, const std::vector<uint16_t>
 
 Sprite terrainPicture(const Tileset& ts, uint16_t terrain, const HdTiles* hd) {
     // The solid group of each half of a rect (left, right), as the tile rules give them.
-    int halves[2] = {solidTileGroup(ts.era, terrain, 0), solidTileGroup(ts.era, terrain, 1)};
+    int halves[2] = {solidTileGroup(ts, terrain, 0), solidTileGroup(ts, terrain, 1)};
     if (halves[0] < 0) return {};
     if (halves[1] < 0) halves[1] = halves[0];
     const int w = 4, h = 2;

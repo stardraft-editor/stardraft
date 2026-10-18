@@ -1124,6 +1124,7 @@ int main(int argc, char** argv) {
         Chk noIsom = real;
         noIsom.remove("ISOM");
         IsomGrid rebuilt;
+        rebuilt.setTileset(&ed.tileset());
         const bool ok = rebuilt.rebuildFromTiles(noIsom, e);
         int same = 0, total = 0;
         for (int y = 0; ok && hadIsom && y <= orig.rectRows(); ++y)
@@ -1735,7 +1736,7 @@ int main(int argc, char** argv) {
                 for (int i = 0; i < 40; ++i) t.paintBrush(int(x + dx * i), int(y + dy * i), terrain, Brush{Brush::Diamond, 1.0f});
                 t.endTerrainStroke();
             }
-            misfits += countTileMisfits(t.chk());
+            misfits += countTileMisfits(t.chk(), t.tileset());
         }
         const std::string what = "size 1 brush strokes on every tileset leave few tiles that do not fit (" + std::to_string(misfits) + " in " +
                                  std::to_string(tilesets) + " maps, at most 12)";
@@ -1814,8 +1815,9 @@ int main(int argc, char** argv) {
         {
             const Bytes before = te.chk().effective("ISOM");
             std::vector<uint8_t> foreign(size_t(w) * te.height(), 0);
+            const TerrainLayer placedTiles = readTerrain(te.chk(), "TILE");
             for (int y = y0; y <= y1; ++y)
-                for (int x = x0; x <= x1; ++x) foreign[size_t(y) * w + x] = !tileFromIsom(te.chk(), x, y);
+                for (int x = x0; x <= x1; ++x) foreign[size_t(y) * w + x] = !tileFromIsom(te.chk(), placedTiles, x, y, te.tileset());
             uint16_t other = 1;
             const IsomTerrainTable* table = IsomTerrainTable::forEra(te.era());
             const uint16_t at = te.terrainAt(x0 * 32 - 128, cy * 32);  // a terrain next to it in the terrain tree: a small change
@@ -1928,7 +1930,32 @@ int main(int argc, char** argv) {
             int changed = 0;
             for (size_t i = 0; i < tilesBefore.size(); ++i) changed += same.terrain().tiles[i] != tilesBefore[i];
             std::printf("      brush over its own terrain: %d tiles redrawn (%d changed)\n", rerolled, changed);
-            CHECK(changed > 0 && same.chk().effective("ISOM") == isomBefore, "a brush over its own terrain redraws tiles (new variants), the ISOM the same");
+            // (The terrain of each ISOM slot, bits 4 and up: StarEdit's brush, the terrain core's, writes the edge ids of
+            // the diamonds it touches, bits 1 to 3, also where the terrain stays.)
+            auto isomTerrain = [](const Bytes& b) {
+                std::vector<uint16_t> v(b.size() / 2);
+                for (size_t i = 0; i < v.size(); ++i) v[i] = uint16_t((b[2 * i] | b[2 * i + 1] << 8) >> 4);
+                return v;
+            };
+            CHECK(changed > 0 && isomTerrain(same.chk().effective("ISOM")) == isomTerrain(isomBefore),
+                  "a brush over its own terrain redraws tiles (new variants), the ISOM's terrain the same");
+            {  // Each brush size keeps its shape wherever it is: size 1 is a diamond (snapped to the nearest), also near a
+               // corner; size 2 a 2 x 2 block around the nearest corner; size 0.5 that corner alone (half a diamond)
+                const int gx = (same.width() / 4) & ~1, gy = (same.height() / 2) & ~1;  // a diamond in the middle (gx + gy even)
+                const Brush half{Brush::Diamond, 0.5f}, one{Brush::Diamond, 1}, two{Brush::Diamond, 2};
+                const int cx = (gx + 1) * 64, cy = gy * 32;  // the corner (gx + 1, gy)
+                const auto onDiamond = same.brushCorners(gx * 64, gy * 32, one), nearCorner = same.brushCorners(cx - 8, cy, one);
+                const auto block = same.brushCorners(cx, cy, two), corner = same.brushCorners(cx, cy, half), corner2 = same.brushCorners(gx * 64 + 8, gy * 32, half);
+                CHECK(onDiamond.size() == 4 && nearCorner.size() == 4 && block.size() == 9 && corner.size() == 1 &&
+                          corner[0] == std::make_pair(gx + 1, gy) && corner2.size() == 1,
+                      "brush sizes keep their shape: 1 a diamond (also near a corner), 2 a 2 x 2 block, 0.5 one corner (also near a diamond)");
+                const uint16_t other = same.terrainAt(cx, cy) == 1 ? 2 : 1;
+                const Bytes before = same.chk().effective("ISOM");
+                same.paintBrush(cx, cy, other, half);
+                CHECK(same.chk().effective("ISOM") != before && same.terrainAt(cx, cy) == other && same.invalidTerrain() == 0,
+                      "the 0.5 brush paints one corner (half a diamond), the terrain valid");
+                same.undo();
+            }
             same.undo();
             CHECK(same.terrain().tiles == tilesBefore && same.chk().effective("ISOM") == isomBefore, "one undo gives the map back");
         }

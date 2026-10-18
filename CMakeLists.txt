@@ -90,6 +90,7 @@ add_library(stardraft
     src/tileset.cpp
     src/terrain.cpp
     src/isom.cpp
+    src/isom_core.cpp
     src/units.cpp
     src/sprites.cpp
     src/strings.cpp
@@ -117,6 +118,9 @@ add_library(stardraft
     src/commands.cpp
     src/process.cpp)
 target_include_directories(stardraft PUBLIC include PRIVATE src ${stb_SOURCE_DIR})
+# IsomTerrain (third_party/IsomTerrain, MIT): its IsomApi.h, unchanged, is the isometric terrain core
+# (src/isom_core.cpp); its includes find StarDraft's stand-ins for Chkdraft's headers beside it.
+target_include_directories(stardraft PRIVATE third_party/IsomTerrain/IsomTerrain)
 find_package(Threads REQUIRED)  # std::async; older glibc needs -pthread for it
 target_link_libraries(stardraft PRIVATE storm casc_static vpx PUBLIC Threads::Threads)
 if(WIN32)  # wide-char paths, as StormLib and CascLib are built on Windows (TCHAR = wchar_t)
@@ -142,7 +146,13 @@ target_link_libraries(terrain_check PRIVATE stardraft)
 
 add_executable(isom_test tools/tests/isom_test.cpp)
 target_link_libraries(isom_test PRIVATE stardraft)
+# The isometric terrain core against StarEdit: IsomTerrain's reference brush tests (needs the game data).
+add_executable(isomterrain_test tools/tests/isomterrain_test.cpp)
+target_include_directories(isomterrain_test PRIVATE third_party/IsomTerrain/IsomTerrain)
+target_link_libraries(isomterrain_test PRIVATE stardraft)
 
+add_executable(isom_core_probe tools/probes/isom_core_probe.cpp)
+target_link_libraries(isom_core_probe PRIVATE stardraft)
 add_executable(isom_paint tools/probes/isom_paint.cpp)
 target_link_libraries(isom_paint PRIVATE stardraft)
 

@@ -240,8 +240,6 @@ the tables by hand.
 | `src/data/dat_schema.inc` | EUD Editor 2's .def files and the EUD book's offset table |
 | `src/data/dat_names.inc` | EUD Editor 2's name lists (entries, icons, iscript IDs) |
 | `src/data/dat_extras.inc` | EUD Editor 3's memory dumps |
-| `src/data/<tileset>_tile_rules.inc` | Blizzard maps (corpus) |
-| `src/data/tile_edges.inc` | the CV5 files from CASC |
 | `src/data/eud_names.inc` | eudplib's name tables (in euddraft) |
 | `apps/editor/res/` (icons, UI icon atlases, `ui_icons.h`) | the icon tool (`python tools/import_icons.py`) |
 | `generated/help_pages.cpp` (in the build folder, not in the repository) | `docs/help/*.md`, by `tools/help_build.py` at build time |

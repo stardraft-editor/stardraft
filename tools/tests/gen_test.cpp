@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
         auto gen = [&](TerrainGenParams p, Chk& chk, double& ms) {
             p.era = era;
             IsomGrid g;
-            g.create(chk, p.width, p.height, era, 1, err);
+            g.create(chk, p.width, p.height, era, 1, tileset, err);
             auto t0 = std::chrono::steady_clock::now();
             bool ok = generateTerrain(chk, tileset, p, err);
             ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
@@ -59,6 +59,7 @@ int main(int argc, char** argv) {
         };
         auto load = [&](const Chk& chk) {
             IsomGrid g;
+            g.setTileset(&tileset);
             g.load(chk, err);
             return g;
         };

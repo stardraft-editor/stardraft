@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
                            "Terran Siege Tank"};
     Chk chk;
     IsomGrid grid;
-    grid.create(chk, 32, 16, 0, 1, err);
+    grid.create(chk, 32, 16, 0, 1, ts, err);
     SDL_Init(SDL_INIT_VIDEO);
     render::Renderer r;
     if (!r.initOffscreen(1024, 512, err)) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
