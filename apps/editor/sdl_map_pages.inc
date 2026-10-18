@@ -663,9 +663,10 @@ SdlPageFrameHost gSdlPageFrameHost;
 struct SdlMapPagesView final : draw::View {
     MapPagesView frame{gSdlPageFrameHost};
     MapScrollView scroll{gSdlPageFrameHost};
+    SdlBarFrame scrollFrame{scroll};  // the scroll view with its scroll bar
     SdlMapPagesView() {
         add(frame, draw::Rect(0, 0, 0, 0));
-        add(scroll, draw::Rect(0, 0, 0, 0));
+        add(scrollFrame, draw::Rect(0, 0, 0, 0));
     }
     void resized() override { place(); }
     void paint(draw::Canvas& c) override {
@@ -676,7 +677,7 @@ struct SdlMapPagesView final : draw::View {
     void place() {
         const int top = std::min(height(), frame.headerH());
         setRectIfChanged(frame, draw::Rect(0, 0, width(), height()));
-        setRectIfChanged(scroll, draw::Rect(0, top, width(), height()));
+        setRectIfChanged(scrollFrame, draw::Rect(0, top, width(), height()));
     }
     static void setRectIfChanged(draw::View& v, draw::Rect r) {
         const draw::Rect f = v.frame();

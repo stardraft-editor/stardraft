@@ -157,6 +157,7 @@ public:
 
 SdlFilesHost gFilesHost;
 FilesPage gFilesPage(gFilesHost);  // (declared extern in core/views_files.inc)
+SdlBarFrame gFilesFrame{gFilesPage};  // the page with its scroll bar (the workspace's view)
 
 void SdlFilesHost::soundsChanged() {
     gFilesPage.invalidate();

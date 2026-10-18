@@ -163,6 +163,7 @@ bool gKeysFromOpener = false;
 // The SDL shell: the root view and the map view, the functions the core needs, the other workspaces' stand-ins, and the
 // host seam (shell.h).
 #include "sdl_main_view.inc"
+#include "sdl_bar_frame.inc"  // a kit scroll bar beside a core view that scrolls itself (the pages and the lists)
 #include "sdl_palette_float.inc"  // the floating palettes: a mode's palette in a window of its own (core/views_palette_float.inc)
 #include "sdl_palette_panels.inc"  // the palette panels: palettes of their own in windows of their own, of a map tab
 #include "sdl_pending.inc"
@@ -617,7 +618,7 @@ int main(int argc, char** argv) {
         if (previewArg) gDock.scriptPreview = true;
         if (trigCodeArg) gDock.triggerCode = true;
         registerMapCommands();  // the Map workspace's command table (core/map_commands.inc): the menus and keys read it
-        registerWorkspaceView(Workspace::Files, gFilesPage);  // the Assets / Files workspace (sdl_files.inc)
+        registerWorkspaceView(Workspace::Files, gFilesFrame);  // the Assets / Files workspace (sdl_files.inc), with its scroll bar
         registerMapPages();  // the map pages' workspaces (sdl_map_pages.inc)
         registerWorkspaceView(Workspace::Briefing, gSdlBriefing);  // the Briefing workspace (sdl_briefing.inc)
         registerWorkspaceView(Workspace::Data, gSdlData);  // the Data workspace (sdl_data.inc)
