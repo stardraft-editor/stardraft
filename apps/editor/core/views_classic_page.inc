@@ -373,13 +373,13 @@ inline void ctDeleteEntry(CtPageHost& h, int kind, int i) {
 // chooses the rows from the last click to this one; a plain click chooses none. The chosen ones are of one kind (the
 // selected entry's) in one trigger; Delete and Turn off act on all of them.
 inline std::vector<int> ctMarkedEntries(const CtModel& m) {
-    if (m.markedOf != m.sel || m.markedEntries.empty()) return {};
+    if (m.markedOf != m.sel || m.markedKind != m.kind || m.markedEntries.empty()) return {};
     return std::vector<int>(m.markedEntries.begin(), m.markedEntries.end());
 }
 inline void ctClickEntry(CtPageHost& h, int kind, int i) {
     CtModel& m = h.model();
     const bool ctrl = h.ctrl(), shift = h.shift();
-    if (m.markedOf != m.sel || m.kind != kind) m.markedEntries.clear(), m.markedOf = m.sel;
+    if (m.markedOf != m.sel || m.markedKind != kind) m.markedEntries.clear(), m.markedOf = m.sel, m.markedKind = kind;
     if (shift && m.entryAnchor >= 0) {
         m.markedEntries.clear();
         for (int k = std::min(m.entryAnchor, i); k <= std::max(m.entryAnchor, i); ++k) m.markedEntries.insert(k);
@@ -763,13 +763,15 @@ inline bool ctListKey(CtPageHost& h, bool isList, const draw::KeyEvent& e) {
     const ClassicTrigger* t = ctModelSelected(m);
     if (k != Key::Delete && k != Key::Up && k != Key::Down && !(ctrl && (k == Key::Left || k == Key::Right))) return false;
     if (!t || m.entry < 0) return true;
-    if (k == Key::Delete && ctMarkedEntries(m).size() > 1) {  // the chosen rows (R23): last first, one change
+    if (k != Key::Delete) m.markedEntries.clear();  // (the arrows choose one row again)
+    if (k == Key::Delete && !ctMarkedEntries(m).empty()) {  // the chosen rows (R23): last first, one change
         const std::vector<int> rows = ctMarkedEntries(m);
         m.hold++;
         for (auto it = rows.rbegin(); it != rows.rend(); ++it) ctDeleteEntry(h, m.kind, *it);
         m.hold--;
         m.markedEntries.clear();
         h.changed();
+        if (rows.size() == 1) return true;
         return h.message(std::to_wstring(rows.size()) + (m.kind ? L" actions deleted" : L" conditions deleted")), true;
     }
     if (k == Key::Delete) return ctDeleteEntry(h, m.kind, m.entry), true;
@@ -826,7 +828,7 @@ public:
     void clickEntry(int kind, int i) override { ctClickEntry(h_, kind, i); }
     bool entryMarked(int kind, int i) const override {
         const CtModel& m = h_.model();
-        return m.markedOf == m.sel && m.kind == kind && m.markedEntries.count(i);
+        return m.markedOf == m.sel && m.markedKind == kind && m.kind == kind && m.markedEntries.count(i);
     }
     void toggleEntry(int kind, int i) override { ctToggleEntry(h_, kind, i); }
     void duplicateEntry(int kind, int i) override { ctDuplicateEntry(h_, kind, i); }

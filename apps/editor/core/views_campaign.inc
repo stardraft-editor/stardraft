@@ -62,21 +62,25 @@ public:
         }
     }
     void paint(draw::Canvas& c) override { c.fill({0, 0, width(), height()}, kBg); }
+    // The buttons follow the main window's open map too (the frame hook asks each frame; only a change repaints).
+    void enable() {
+        const int i = selected();
+        const AppState& app = shellState();
+        const bool mapOpen = app.ed && app.ed->isOpen();
+        auto set = [](stardraft::kit::Button& b, bool on) {
+            if (b.enabled() != on) b.setEnabled(on);
+        };
+        set(addOpen_, mapOpen && !app.ed->path().empty());
+        set(up_, i > 0), set(down_, i >= 0 && i + 1 < int(gCampaign.maps.size()));
+        set(remove_, i >= 0), set(open_, i >= 0);
+        set(copyData_, i >= 0 && mapOpen), set(copyTerrain_, i >= 0 && mapOpen);
+    }
 
 private:
     std::vector<stardraft::kit::Button*> buttons() { return {&addOpen_, &addFile_, &up_, &down_, &remove_, &open_, &copyData_, &copyTerrain_}; }
     int selected() const {
         const int i = list_.cursor();
         return i >= 0 && i < int(gCampaign.maps.size()) ? i : -1;
-    }
-    void enable() {
-        const int i = selected();
-        const AppState& app = shellState();
-        const bool mapOpen = app.ed && app.ed->isOpen();
-        addOpen_.setEnabled(mapOpen && !app.ed->path().empty());
-        up_.setEnabled(i > 0), down_.setEnabled(i >= 0 && i + 1 < int(gCampaign.maps.size()));
-        remove_.setEnabled(i >= 0), open_.setEnabled(i >= 0);
-        copyData_.setEnabled(i >= 0 && mapOpen), copyTerrain_.setEnabled(i >= 0 && mapOpen);
     }
     void saved() {
         std::string err;

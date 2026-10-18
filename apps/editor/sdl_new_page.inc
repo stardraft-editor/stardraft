@@ -81,7 +81,10 @@ bool NewHostSdl::make() {
         std::vector<uint16_t> ids;
         for (const DoodadType& t : ed->doodadTypes().all())
             if (t.inPalette) ids.push_back(t.id);
-        ed->decorate(ids, Rect{0, 0, ed->width() * 32, ed->height() * 32}, 6, p.seed);
+        std::vector<Rect> bases;  // (the rules' open ground stays open, roadmap R49)
+        const int r = generatorBaseRadius(p) * 32;
+        for (const GenBase& b : generatorBases(p)) bases.push_back({b.x * 32 - r, b.y * 32 - r, b.x * 32 + r, b.y * 32 + r});
+        ed->decorate(ids, Rect{0, 0, ed->width() * 32, ed->height() * 32}, 6, p.seed, bases);
     }
     const bool project = gNewView.project;
     const std::wstring name = gNewView.nameText(), location = gNewView.locationText(), output = gNewView.outputText();

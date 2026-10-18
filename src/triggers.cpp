@@ -2195,20 +2195,23 @@ struct Gen {
             const int n = ++musics;
             if (!music) {
                 music = true;
-                globals += "var sd_bgm = 0;\nvar sd_bgmNext = 0;\nvar sd_bgmFor = 0;\n";
+                globals += "var sd_bgm = 0;\nvar sd_bgmNext = 0;\nvar sd_bgmFor = 0;\nvar sd_bgmLen = 0;\n";
             }
             // The music's player (afterTriggerExec): the real time of this computer (ms; 0x51CE8C counts down), and the
-            // sound for this computer's player only (a sound is this computer's own: no desync).
+            // sound for this computer's player only (a sound is this computer's own: no desync). The length is read when
+            // the action runs (its value can be the trigger's own); the players are bits, so that For each player plays it
+            // for each of them.
             perCycle += "    if (sd_bgm == " + std::to_string(n) + " && sd_bgmNext <= 0xFFFFFFFF - dwread(0x51CE8C)) {\n"
-                        "        sd_bgmNext = 0xFFFFFFFF - dwread(0x51CE8C) + (" + arg(c, *d, "s") + ") * 1000;\n"
-                        "        if (sd_bgmFor == 8 || sd_bgmFor == getuserplayerid()) {\n            const sd_bgmCp = getcurpl();\n"
+                        "        sd_bgmNext = 0xFFFFFFFF - dwread(0x51CE8C) + sd_bgmLen * 1000;\n"
+                        "        if (sd_bgmFor & (1 << getuserplayerid())) {\n            const sd_bgmCp = getcurpl();\n"
                         "            setcurpl(getuserplayerid());\n            PlayWAV(" + arg(c, *d, "sound") + ");\n            setcurpl(sd_bgmCp);\n        }\n    }\n";
-            return "sd_bgm = " + std::to_string(n) + ";" + tag + "\nsd_bgmNext = 0;\nsd_bgmFor = " + (all ? "8" : "getcurpl()") + ";\n";
+            return "if (sd_bgm != " + std::to_string(n) + ") {" + tag + "\n    sd_bgm = " + std::to_string(n) + ";\n    sd_bgmFor = 0;\n}\nsd_bgmNext = 0;\nsd_bgmLen = " +
+                   arg(c, *d, "s") + ";\nsd_bgmFor = sd_bgmFor | " + (all ? "0xFF" : "(1 << getcurpl())") + ";\n";
         }
         if (id == "act.musicstop") {
             if (!music) {
                 music = true;
-                globals += "var sd_bgm = 0;\nvar sd_bgmNext = 0;\nvar sd_bgmFor = 0;\n";
+                globals += "var sd_bgm = 0;\nvar sd_bgmNext = 0;\nvar sd_bgmFor = 0;\nvar sd_bgmLen = 0;\n";
             }
             return "sd_bgm = 0;" + tag + "\n";
         }
@@ -2916,8 +2919,10 @@ std::string TriggerSet::helperLibrary() {
            "                v = v * 10 + ch - 48;\n                q++;\n            }\n            return v;\n        }\n    }\n    return 0;\n}\n";
     // The tile at a point (roadmap R58): the map's tile values (MTXM: group x 16 + subtile, 2 bytes each, row by row) at
     // the address that 0x5993C4 holds; the map's width and height in tiles at 0x57F1D4 and 0x57F1D6 (the EUD Book; EUD
-    // Editor's offsets). A point outside the map takes the nearest edge.
+    // Editor's offsets). A point outside the map takes the nearest edge (a negative one, an unsigned value of 2^31 or
+    // more, the left or top edge).
     out += "function sd_tileAt(x, y, group) {\n    const w = wread(0x57F1D4);\n    const h = wread(0x57F1D6);\n    var tx = x / 32;\n    var ty = y / 32;\n"
+           "    if (x >= 0x80000000) tx = 0;\n    if (y >= 0x80000000) ty = 0;\n"
            "    if (tx >= w) tx = w - 1;\n    if (ty >= h) ty = h - 1;\n    const v = wread(dwread(0x5993C4) + 2 * (ty * w + tx));\n"
            "    if (group) return v / 16;\n    return v;\n}\n"
            "function sd_tileAtLoc(loc, group) {\n    const a = sd_locAddr(loc);\n"
