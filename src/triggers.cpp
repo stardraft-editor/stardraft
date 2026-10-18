@@ -2137,6 +2137,21 @@ struct Gen {
         if (id == "act.camerafollow")  // the location to the unit, then the view to the location (CenterView knows the screen's size)
             return unitRef(c, d->param("unit"), raw(c, *d, "unit")) + ".setloc(" + arg(c, *d, "where") + ");" + tag + "\n" +
                    (all ? "CenterViewAll(" : "CenterView(") + arg(c, *d, "where") + ");\n";
+        if (id == "act.camerapan" || id == "act.camerashake") {  // one step on each trigger cycle, from when the trigger first reaches it
+            helpers.insert("camera");
+            const std::string tm = "tm" + std::to_string(++timers), frames = "(" + arg(c, *d, "s") + ") * 24", where = arg(c, *d, "where");
+            globals += "var " + tm + " = 0;\nvar " + tm + "done = 0;\n";
+            std::string step;
+            if (id == "act.camerapan")
+                step = "    var " + tm + "t = getgametick() + 1 - " + tm + ";\n    if (" + tm + "t >= " + frames + ") {\n        " + tm + "t = " + frames + ";\n        " + tm +
+                       "done = 1;\n    }\n    sd_camPan(" + arg(c, *d, "from") + ", " + arg(c, *d, "dest") + ", " + where + ", " + tm + "t, " + frames + ");\n";
+            else
+                step = "    const " + tm + "t = getgametick() + 1 - " + tm + ";\n    if (" + tm + "t >= " + frames + ") {\n        " + tm + "done = 1;\n        sd_camShake(" +
+                       arg(c, *d, "center") + ", " + where + ", 0, 0);\n    } else sd_camShake(" + arg(c, *d, "center") + ", " + where + ", " + arg(c, *d, "px") + ", " + tm +
+                       "t);\n";
+            return "if (" + tm + "done == 0) {" + tag + "\n    if (" + tm + " == 0) " + tm + " = getgametick() + 1;\n" + step + "    " +
+                   (all ? "CenterViewAll(" : "CenterView(") + where + ");\n}\n";
+        }
         if (id == "act.scrolllock") {  // the scroll speeds of this computer (each computer keeps its own copy)
             helpers.insert("scroll");
             const std::string m = raw(c, *d, "mode"), mode = m == "Disable" ? "0" : m == "Toggle" ? "2" : "1";
@@ -2832,6 +2847,26 @@ std::string TriggerSet::helperLibrary() {
                "}\n";
     out += "function sd_min(a, b) {\n    if (a < b) return a;\n    return b;\n}\n";
     out += "function sd_locAddr(loc) {  // a location's left, top, right, bottom\n    return 0x58DC60 + 20 * (loc - 1);\n}\n";
+    // The camera's pan and shake: they move the location `where` (its four sides to one point), then the block centers
+    // the view on it. The pan: t / n of the way from the center of `src` to the center of `dst` (no negative numbers:
+    // the two ways apart). The shake: the center of `center` and an offset of `px` that changes with the cycle k.
+    // (One name in each declaration, and no Python keywords as names: epScript's rules.)
+    out += "function sd_locPoint(where, x, y) {\n    const w = sd_locAddr(where);\n    dwwrite(w, x);\n    dwwrite(w + 4, y);\n    dwwrite(w + 8, x);\n"
+           "    dwwrite(w + 12, y);\n}\n"
+           "function sd_camPan(src, dst, where, t, n) {\n    if (n == 0) {\n        t = 1;\n        n = 1;\n    }\n"
+           "    const la = sd_locAddr(src);\n    const lb = sd_locAddr(dst);\n"
+           "    const ax = (dwread(la) + dwread(la + 8)) / 2;\n    const ay = (dwread(la + 4) + dwread(la + 12)) / 2;\n"
+           "    const bx = (dwread(lb) + dwread(lb + 8)) / 2;\n    const bz = (dwread(lb + 4) + dwread(lb + 12)) / 2;\n"
+           "    var x = ax;\n    var y = ay;\n"
+           "    if (bx >= ax) x = ax + (bx - ax) * t / n;\n    else x = ax - (ax - bx) * t / n;\n"
+           "    if (bz >= ay) y = ay + (bz - ay) * t / n;\n    else y = ay - (ay - bz) * t / n;\n"
+           "    sd_locPoint(where, x, y);\n}\n"
+           "function sd_camShake(center, where, px, k) {\n    const c = sd_locAddr(center);\n"
+           "    var x = (dwread(c) + dwread(c + 8)) / 2;\n    var y = (dwread(c + 4) + dwread(c + 12)) / 2;\n"
+           "    const m = k % 4;\n    const half = px / 2;\n"
+           "    if (m == 0 || m == 2) x += px;\n    else if (x >= px) x -= px;\n    else x = 0;\n"
+           "    if (m == 1 || m == 2) y += half;\n    else if (y >= half) y -= half;\n    else y = 0;\n"
+           "    sd_locPoint(where, x, y);\n}\n";
     // Scroll lock (SC:R): the mouse and key scroll speeds, 7 levels of 7 bytes at 0x513B68 (the EUD Book, "Mouse and
     // Keyboard Scroll Speed"); all 0: no scrolling. Saved before they are set to 0, put back after. Each computer has
     // its own copy of these variables, as of the table.
@@ -3089,6 +3124,7 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
             {"min", "sd_min"},
             {"loc", "sd_locAddr"},
             {"scroll", "sd_scrollLock"},
+            {"camera", "sd_camPan sd_camShake"},
             {"speed", "sd_gameSpeed"}};
         std::string imports;
         for (const auto& [key, list] : kNames)
