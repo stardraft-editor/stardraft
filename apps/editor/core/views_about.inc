@@ -20,7 +20,7 @@ public:
     std::function<void()> closed;  // the view closed its window (Close, Esc, Enter)
 
     // The window's size at 100 % (the lines about the name and the EUD tools fit).
-    static draw::Point size() { return {scale(600), scale(636)}; }  // (the thanks, the lines about Blizzard and the links fit)
+    static draw::Point size() { return {scale(600), scale(668)}; }  // (the thanks, the lines about Blizzard and the links fit)
 
     void paint(draw::Canvas& c) override {
         using draw::Color;
@@ -120,9 +120,12 @@ public:
                  {{L"Justin F", L"https://github.com/TheNitesWhoSay"}, {L"IsomTerrain", L"https://github.com/TheNitesWhoSay/IsomTerrain"}});
         centered(L"IsomTerrain: Copyright (c) 2023 Justin F (MIT License)", smallText, kDim, scale(22));
         y += scale(10);
-        linkLine(L"armoha, for euddraft and eudplib, which power the EUD maps",
-                 {{L"armoha", L"https://github.com/armoha"}, {L"euddraft", L"https://github.com/armoha/euddraft"},
+        linkLine(L"Armoha, for euddraft and eudplib, which power the EUD maps",
+                 {{L"Armoha", L"https://github.com/armoha"}, {L"euddraft", L"https://github.com/armoha/euddraft"},
                   {L"eudplib", L"https://github.com/armoha/eudplib"}});
+        y += scale(10);
+        linkLine(L"Buizz, for EUD Editor 3 and its EUD logic",
+                 {{L"Buizz", L"https://github.com/Buizz"}, {L"EUD Editor 3", L"https://github.com/Buizz/EUD-Editor-3"}});
         // Not a Blizzard product, and it needs the game's files.
         y += scale(10);
         centered(L"StarDraft 2 is not associated with Blizzard Entertainment.", smallText, kDim, scale(22));
