@@ -2183,6 +2183,14 @@ constexpr UiText kRows[] = {
     {L"The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.", L"El rombo tiene la forma de los rombos del mapa: su alto sigue a su tama\u00F1o. Para dar un alto, seleccione el cuadrado o el c\u00EDrculo."},
     {L"The diamond has the shape of the map's diamonds: its height follows its size.", L"El rombo tiene la forma de los rombos del mapa: su alto sigue a su tama\u00F1o."},
     {L"Brush height: the diamond has the shape of the map's diamonds, so its height follows its size. To set the height, select the square or the circle.", L"Alto del pincel: el rombo tiene la forma de los rombos del mapa, as\u00ED que su alto sigue a su tama\u00F1o. Para dar un alto, seleccione el cuadrado o el c\u00EDrculo."},
+    {L"&Floating terrain palette", L"Paleta de terreno &flotante"},
+    {L"Terrain palette", L"Paleta de terreno"},
+    {L"Dock", L"Acoplar"},
+    {L"Put the palette back in the side bar", L"Devolver la paleta a la barra lateral"},
+    {L"The terrain palette is in its own window", L"La paleta de terreno est\u00E1 en su propia ventana"},
+    {L"Moved the terrain palette to its own window", L"Se movi\u00F3 la paleta de terreno a su propia ventana"},
+    {L"The terrain palette shows in its own window in Terrain mode", L"En el modo Terreno, la paleta de terreno se muestra en su propia ventana"},
+    {L"Docked the terrain palette", L"Se acopl\u00F3 la paleta de terreno"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

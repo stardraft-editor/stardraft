@@ -2180,3 +2180,11 @@ Added unit 	Добавлен юнит
 The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.	Ромб имеет форму ромбов карты: его высота следует за размером. Чтобы задать высоту, выберите квадрат или круг.
 The diamond has the shape of the map's diamonds: its height follows its size.	Ромб имеет форму ромбов карты: его высота следует за размером.
 Brush height: the diamond has the shape of the map's diamonds, so its height follows its size. To set the height, select the square or the circle.	Высота кисти: ромб имеет форму ромбов карты, поэтому его высота следует за размером. Чтобы задать высоту, выберите квадрат или круг.
+&Floating terrain palette	&Плавающая палитра местности
+Terrain palette	Палитра местности
+Dock	Закрепить
+Put the palette back in the side bar	Вернуть палитру на боковую панель
+The terrain palette is in its own window	Палитра местности в отдельном окне
+Moved the terrain palette to its own window	Палитра местности перемещена в отдельное окно
+The terrain palette shows in its own window in Terrain mode	В режиме «Местность» палитра местности показана в отдельном окне
+Docked the terrain palette	Палитра местности закреплена

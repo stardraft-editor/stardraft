@@ -2183,6 +2183,14 @@ constexpr UiText kRows[] = {
     {L"The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.", L"\u83F1\u5F62\u4E0E\u5730\u56FE\u7684\u83F1\u5F62\u5F62\u72B6\u76F8\u540C\uFF1A\u5176\u9AD8\u5EA6\u968F\u5927\u5C0F\u53D8\u5316\u3002\u8981\u8BBE\u7F6E\u9AD8\u5EA6\uFF0C\u8BF7\u9009\u62E9\u6B63\u65B9\u5F62\u6216\u5706\u5F62\u3002"},
     {L"The diamond has the shape of the map's diamonds: its height follows its size.", L"\u83F1\u5F62\u4E0E\u5730\u56FE\u7684\u83F1\u5F62\u5F62\u72B6\u76F8\u540C\uFF1A\u5176\u9AD8\u5EA6\u968F\u5927\u5C0F\u53D8\u5316\u3002"},
     {L"Brush height: the diamond has the shape of the map's diamonds, so its height follows its size. To set the height, select the square or the circle.", L"\u753B\u7B14\u9AD8\u5EA6\uFF1A\u83F1\u5F62\u4E0E\u5730\u56FE\u7684\u83F1\u5F62\u5F62\u72B6\u76F8\u540C\uFF0C\u56E0\u6B64\u5176\u9AD8\u5EA6\u968F\u5927\u5C0F\u53D8\u5316\u3002\u8981\u8BBE\u7F6E\u9AD8\u5EA6\uFF0C\u8BF7\u9009\u62E9\u6B63\u65B9\u5F62\u6216\u5706\u5F62\u3002"},
+    {L"&Floating terrain palette", L"\u6D6E\u52A8\u5730\u5F62\u8C03\u8272\u677F(&F)"},
+    {L"Terrain palette", L"\u5730\u5F62\u8C03\u8272\u677F"},
+    {L"Dock", L"\u505C\u9760"},
+    {L"Put the palette back in the side bar", L"\u5C06\u8C03\u8272\u677F\u653E\u56DE\u4FA7\u680F"},
+    {L"The terrain palette is in its own window", L"\u5730\u5F62\u8C03\u8272\u677F\u5728\u5355\u72EC\u7684\u7A97\u53E3\u4E2D"},
+    {L"Moved the terrain palette to its own window", L"\u5DF2\u5C06\u5730\u5F62\u8C03\u8272\u677F\u79FB\u5230\u5355\u72EC\u7684\u7A97\u53E3"},
+    {L"The terrain palette shows in its own window in Terrain mode", L"\u5728\u5730\u5F62\u6A21\u5F0F\u4E0B\uFF0C\u5730\u5F62\u8C03\u8272\u677F\u663E\u793A\u5728\u5355\u72EC\u7684\u7A97\u53E3\u4E2D"},
+    {L"Docked the terrain palette", L"\u5DF2\u505C\u9760\u5730\u5F62\u8C03\u8272\u677F"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

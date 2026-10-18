@@ -85,6 +85,10 @@ MenuModel paletteMenuModel(Mode mode, const PaletteView& v, const std::vector<st
     m.push_back(menuSeparator());
     m.push_back(menuItem(ID_PAL_NORMAL, L"&Normal", {}, false, !v.large));
     m.push_back(menuItem(ID_PAL_LARGE, L"L&arge", {}, false, v.large));
+    if (mode == Mode::Terrain) {  // (View > Floating terrain palette: the palette in a window of its own)
+        m.push_back(menuSeparator());
+        m.push_back(menuItem(ID_VIEW_FLOATPAL, L"&Floating terrain palette", {}, false, gFloatPal.floating));
+    }
     if (mode != Mode::Units && mode != Mode::Doodads && mode != Mode::Sprites) return m;
     std::wstring group;
     bool first = true;

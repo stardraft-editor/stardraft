@@ -2180,3 +2180,11 @@ Added unit 	추가한 유닛
 The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.	마름모는 맵의 마름모 모양을 가집니다: 높이는 크기를 따릅니다. 높이를 정하려면 정사각형이나 원을 선택하십시오.
 The diamond has the shape of the map's diamonds: its height follows its size.	마름모는 맵의 마름모 모양을 가집니다: 높이는 크기를 따릅니다.
 Brush height: the diamond has the shape of the map's diamonds, so its height follows its size. To set the height, select the square or the circle.	브러시 높이: 마름모는 맵의 마름모 모양을 가지므로 높이는 크기를 따릅니다. 높이를 정하려면 정사각형이나 원을 선택하십시오.
+&Floating terrain palette	떠 있는 지형 팔레트(&F)
+Terrain palette	지형 팔레트
+Dock	도킹
+Put the palette back in the side bar	팔레트를 사이드바로 되돌립니다
+The terrain palette is in its own window	지형 팔레트가 별도 창에 있습니다
+Moved the terrain palette to its own window	지형 팔레트를 별도 창으로 옮겼습니다
+The terrain palette shows in its own window in Terrain mode	지형 모드에서 지형 팔레트가 별도 창에 표시됩니다
+Docked the terrain palette	지형 팔레트를 도킹했습니다
