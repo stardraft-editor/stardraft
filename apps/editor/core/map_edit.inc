@@ -404,18 +404,12 @@ void modeLayerHiddenMessage() {
 // hidden, a question offers to show it; then the status bar's message only.
 bool shellAskYesNo(const std::wstring& text, const std::wstring& title, const std::wstring& yes, const std::wstring& no);
 void shellMenusChanged();
+int gLayerShows = 0;  // +1 each time a layer shows again (View > Layers): the question asks again after it
 void modeLayerHiddenClick() {
     AppState& app = appState();
-    static bool asked[kModeCount] = {};
-    for (int m = 0; m < kModeCount; ++m)  // (a layer that shows again: it asks again the next time it is hidden)
-        if (m != int(app.mode)) {
-            const Mode was = app.mode;
-            app.mode = Mode(m);
-            if (!modeLayerHidden()) asked[m] = false;
-            app.mode = was;
-        }
-    if (asked[int(app.mode)] || gSelfTest) return modeLayerHiddenMessage();
-    asked[int(app.mode)] = true;
+    static int asked[kModeCount] = {-1, -1, -1, -1, -1};  // the gLayerShows of each mode's last question
+    if (asked[int(app.mode)] == gLayerShows || gSelfTest) return modeLayerHiddenMessage();
+    asked[int(app.mode)] = gLayerShows;
     const std::wstring name = kModeNames[int(app.mode)];
     if (!shellAskYesNo(name + L": this layer is hidden (View > Layers), so you cannot edit it. Show the layer?", L"Hidden layer", L"Show the layer", L"Cancel"))
         return modeLayerHiddenMessage();
@@ -426,7 +420,7 @@ void modeLayerHiddenClick() {
     case Mode::Sprites: gLayers.sprites = true; break;
     case Mode::Locations: app.showLocations = true; break;
     }
-    asked[int(app.mode)] = false;
+    ++gLayerShows;
     shellMenusChanged();
     app.dirty = true;
     setMessage(name + L" show again");

@@ -42,6 +42,8 @@ void toggleLayer(int k) {
     static const wchar_t* const names[4] = {L"Terrain", L"Doodads", L"Sprites", L"Units"};
     bool& on = *layer[k];
     on = !on;
+    extern int gLayerShows;  // (core/map_edit.inc: the hidden layer's question asks again)
+    if (on) ++gLayerShows;
     setMessage(std::wstring(names[k]) + (on ? L" show" : L" are hidden (View > Layers)"));
     shellMenusChanged();
     shellState().dirty = true;
@@ -160,7 +162,11 @@ void registerMapCommands() {
     addCommand(ID_VIEW_CARBOT, "view.carbot", L"&Carbot (cartooned)", "View", L"", [] { setGraphics(GraphicsQuality::HD, true); }, [] { return shellState().carbot; },
                true);
     // View: what shows
-    addCommand(ID_VIEW_LOCATIONS, "view.locations", L"Show &locations", "View", L"", [] { shellState().showLocations = !shellState().showLocations; },
+    addCommand(ID_VIEW_LOCATIONS, "view.locations", L"Show &locations", "View", L"", [] {
+        extern int gLayerShows;
+        shellState().showLocations = !shellState().showLocations;
+        if (shellState().showLocations) ++gLayerShows;
+    },
                [] { return shellState().showLocations; });
     addCommand(ID_VIEW_GRID, "view.grid", L"Show &grid", "View", L"G", [] { shellState().showGrid = !shellState().showGrid, shellState().dirty = true; }, [] { return shellState().showGrid; });
     addCommand(ID_VIEW_RANGES, "view.ranges", L"Show ranges of the selected u&nits", "View", L"", [] {

@@ -217,6 +217,14 @@ inline void ctFind(CtPageHost& h) {
         CtModel& m = h.model();
         if (t.trigger >= int(m.trig.triggers.size())) return;
         if (std::find(m.shown.begin(), m.shown.end(), t.trigger) == m.shown.end()) h.queryCleared();  // (hidden by the filter or the search)
+        if (std::find(m.shown.begin(), m.shown.end(), t.trigger) == m.shown.end()) {  // under a folded heading: it opens
+            for (int j = t.trigger - 1; j >= 0; --j)
+                if (ctIsHeading(m.trig.triggers[size_t(j)])) {
+                    m.folded.erase(m.trig.triggers[size_t(j)].actions[0].text);
+                    break;
+                }
+            ctModelFill(m, h);
+        }
         h.selectTrigger(t.trigger);
         if (t.kind >= 0) h.selectEntry(t.kind, t.entry);
     };
