@@ -79,8 +79,7 @@ MenuModel buildMenuModel() {
                    menuPopup(L"Recent pro&jects", {}, "projects"),
                    menuSeparator(),
                    menuPopup(L"&Project", project),  // EUD projects: new, open, build, settings
-                   menuPopup(L"&Campaign", {menuItem(ID_CAMPAIGN_NEW, L"&New campaign\x2026"), menuItem(ID_CAMPAIGN_OPEN, L"&Open campaign\x2026"),
-                                            menuItem(ID_CAMPAIGN_SHOW, L"&Show the campaign")}),  // (roadmap R25)
+                   // (File > Campaign, roadmap R25: not offered until the campaign editor is ready; core/views_campaign.inc)
                    menuSeparator(),
                    menuItem(ID_FILE_SAVE, L"&Save", L"Ctrl+S"),
                    menuItem(ID_FILE_SAVEAS, L"Save &as\x2026", L"Ctrl+Shift+S"),

@@ -101,6 +101,11 @@ std::vector<MacMenuItem> macItems(const MenuModel& model) {
             m.checked = it.checked || (tc && tc->isChecked()) || mapMenuCheck(it.id) == 1;
             m.enabled = !it.grayed && sdlEnabled(it.id);
             if (!macKeyOf(platformShortcut(it.id, it.shortcut), m.key, m.mods)) m.key.clear(), m.mods = 0;
+            // A key with no modifier (S: Sprites mode, V B A F, Q, Del) is not the system menu's: the menu bar takes it
+            // before the window, also while a text field or the quick picker types. The window's keys run it
+            // (shortcutRun), only when nothing types. (The F keys stay.)
+            if (!m.mods && !m.key.empty() && !(static_cast<unsigned char>(m.key[0]) == 0xEF && m.key.size() == 3 && m.key >= utf8Of(0xF704) && m.key <= utf8Of(0xF726)))
+                m.key.clear();
             break;
         }
         }
