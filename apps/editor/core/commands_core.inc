@@ -44,6 +44,7 @@ bool editInWorkspace(int id) {
 }
 
 void trigQuickAdd();
+void trigFind();
 
 bool commandPortable(AppState& app, int id) {
     // The active mode's layer is hidden (View > Layers): the edits of the map are refused.
@@ -73,7 +74,8 @@ bool commandPortable(AppState& app, int id) {
         else trigCopy(id == ID_EDIT_CUT);
         return true;
     }
-    if (gWorkspace == Workspace::Triggers && id == ID_QUICKPICK) return trigQuickAdd(), true;  // Q: Quick add (core/views_trigger_quick.inc)
+    if (gWorkspace == Workspace::Triggers && id == ID_QUICKPICK) return trigQuickAdd(), true;
+    if (gWorkspace == Workspace::Triggers && id == ID_TRIG_FIND) return trigFind(), true;  // (core/views_trigger_quick.inc)  // Q: Quick add (core/views_trigger_quick.inc)
     if (id == ID_QUICKOPEN) return shellShowQuickPicker(false, true), true;
     if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax)) {
         const bool project = id >= ID_RECENT_PROJECT;

@@ -96,6 +96,7 @@ MenuModel buildMenuModel() {
                    menuItem(ID_EDIT_PASTE, L"&Paste", L"Ctrl+V"),
                    menuItem(ID_EDIT_DUPLICATE, L"&Duplicate", L"Ctrl+D"),
                    menuItem(ID_QUICKPICK, L"&Quick picker (the mode's units, terrains, doodads, sprites or locations; in Data, any entry)\x2026", L"Q"),
+                   menuItem(ID_TRIG_FIND, L"&Find in triggers\x2026", L"Ctrl+Shift+F"),
                    menuItem(ID_EDIT_DELETE, L"&Delete", L"Del"),
                    menuItem(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A"),
                    menuItem(ID_EDIT_RENAME, L"Re&name location", L"F2")};

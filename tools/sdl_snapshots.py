@@ -150,6 +150,10 @@ CASES += [
     ("map-classictrig-value", ["--workspace", "classictriggers", "--classictrig", "1:1:0:3"], "map"),
     # Quick add (roadmap R61, core/views_trigger_quick.inc): Q opens the quick picker with the conditions and actions;
     # "play wav" and Enter add Play WAV after the selected action.
+    # Find in triggers (roadmap R60): a search that hides the trigger, then Ctrl+Shift+F, "always" and Enter: the search
+    # is emptied and the trigger is selected.
+    ("map-classictrig-find", ["--workspace", "classictriggers", "--click", "260,182", "--type", "zzz", "--click", "300,650", "--key", "Ctrl+Shift+F",
+                              "--type", "always", "--key", "Enter"], "map"),
     ("map-classictrig-quickadd", ["--workspace", "classictriggers", "--classictrig", "1:1:0", "--key", "Q", "--type", "play wav", "--key", "Enter"], "map"),
     # The Triggers workspace with a value's pop-out open (--trigpop n: value n of the block --trigsel selects; text: its text's words). The
     # trigger and block numbers are the first trigger of "On map start" (a text with values, the objectives' colors,
@@ -2098,6 +2102,18 @@ def check_trigger_undo_history(output):
     return None
 
 
+def check_classic_find(output):
+    """None when the search hid the trigger (selected 0) and the find selected it again (selected 1)."""
+    s = states(output)
+    if len(s) < 3:
+        return f"{len(s)} input lines"
+    if "selected 0" not in s[1][1]:
+        return "the search did not hide the trigger: " + s[1][1]
+    if "selected 1" not in s[-1][1]:
+        return "the find did not select the trigger: " + s[-1][1]
+    return None
+
+
 def check_classic_quickadd(output):
     """None when Q opened the quick picker (its field has the typed words) and Enter added one action to the trigger."""
     s = states(output)
@@ -3491,7 +3507,7 @@ CHECKS = {**{"map-terrain-flags-" + v: (lambda o, v=v: check_terrain_flags(o, v)
           "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click,
           "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
           "newpage-randomize-quick": check_newpage_randomize, "newpage-symmetry-dropdown": check_newpage_symmetry,
-          "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits, "map-classictrig-quickadd": check_classic_quickadd, "data-triggers-quickadd": lambda o: None if "1 actions: act.gamespeed" in o else "no Set the game speed in the actions",
+          "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits, "map-classictrig-quickadd": check_classic_quickadd, "map-classictrig-find": check_classic_find, "data-triggers-quickadd": lambda o: None if "1 actions: act.gamespeed" in o else "no Set the game speed in the actions",
           "map-mapdata-edits": check_mapdata_edits,
           "map-undo-history": check_undo_history, "data-undo-history": check_data_undo_history,
           "data-triggers-undo-history": check_trigger_undo_history,
