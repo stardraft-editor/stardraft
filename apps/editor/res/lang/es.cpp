@@ -2342,7 +2342,7 @@ constexpr UiText kRows[] = {
     {L"Fog of war is hidden", L"La niebla de guerra est\u00E1 oculta"},
     {L" actions deleted", L" acciones eliminadas"},
     {L" conditions deleted", L" condiciones eliminadas"},
-    {L"&Decorate the terrain", L"&Decorar el terreno"},
+    {L"Decorat&e the terrain", L"&Decorar el terreno"},
     {L"A &few doodads", L"&Pocos doodads"},
     {L"&Some doodads", L"&Algunos doodads"},
     {L"&Many doodads", L"&Muchos doodads"},

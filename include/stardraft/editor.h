@@ -287,7 +287,8 @@ public:
     bool placeDoodad(uint16_t id, int x, int y, bool checkTerrain, std::string* reason = nullptr);
     // Spray `count` doodads (random pick from `ids`) within `radius` px of (x, y): each lands only
     // where it fits the terrain and does not overlap another doodad. Returns doodads placed.
-    // With `checkTerrain` off (Options > Doodads > Place anywhere), the terrain under it is not checked.
+    // With `checkTerrain` off (Options > Doodads > Place anywhere), the terrain under it is not checked; on, it must be
+    // the doodad's own terrain (doodadScatterFits).
     int sprayDoodads(const std::vector<uint16_t>& ids, int x, int y, int radius, int count, uint32_t seed, bool checkTerrain = true);
     // A campaign's maps (roadmap R25): the data of map `from` into this one (the unit, upgrade and technology settings,
     // with the players' upgrades and technologies; the custom unit names stay this map's), or its terrain (the size, the
@@ -295,7 +296,8 @@ public:
     bool copyMapData(const Chk& from, std::string& error);
     bool copyTerrain(const Chk& from, std::string& error);
     // Decorate the terrain (roadmap R37): doodads (a random pick from `ids`) over `area` (px), one in each square of
-    // `spacingTiles` tiles where one fits its tiles (dddata.bin) and overlaps no doodad. One undo step; returns how many.
+    // `spacingTiles` tiles where one fits its tiles and its terrain (doodadScatterFits) and overlaps no doodad. One undo
+    // step; returns how many.
     int decorate(const std::vector<uint16_t>& ids, Rect area, int spacingTiles, uint32_t seed, const std::vector<Rect>& avoid = {});
     // Options > Doodads > Move to the nearest place where it fits: the center (px) nearest (x, y), within `radiusTiles`
     // tiles, where doodad `id` fits (on the map, not on another doodad, dddata.bin when `checkTerrain`), or nullopt.
@@ -358,6 +360,12 @@ public:
     bool doodadTerrainHolds(const Doodad& d, const TerrainLayer& now, const TerrainLayer& before) const;
     // Does a doodad at this origin overlap an existing doodad's footprint?
     bool doodadOverlaps(const DoodadType& t, int tileX, int tileY) const;
+    // Scattered doodads (Spray, Decorate) only where they belong: besides doodadFits, the cells that need no tile group
+    // have the doodad's own terrain under them (the terrains of the groups its other cells need, or an edge between
+    // them); a doodad that needs none lies on one terrain (no edge). `terrains`: tileGroupTerrains of the tileset.
+    // `under`: the terrain without doodads (TILE, else MTXM).
+    bool doodadScatterFits(const DoodadType& t, int tileX, int tileY, const std::vector<std::array<uint16_t, 2>>& terrains,
+                           const TerrainLayer& under) const;
     // Top-left tile a doodad would occupy when centered near (x, y).
     void doodadOrigin(const DoodadType& t, int x, int y, int& tileX, int& tileY) const;
 
