@@ -115,7 +115,11 @@ MenuModel buildMenuModel() {
     view.push_back(menuItem(ID_VIEW_TOWNS, L"Show town a&reas"));
     menuCommand(view, "view.ranges");
     menuCommand(view, "view.minimap");
-    menuCommand(view, "view.floatPalette");
+    {  // each mode's palette in a window of its own (Roadmap R40: core/dock_prefs.inc, kFloatPalNames)
+        MenuModel floating;
+        menuCommands(floating, "View/Floating palettes");
+        view.push_back(menuPopup(L"Floating &palettes", floating));
+    }
     {  // the map's layers that show (GitHub feedback #117)
         MenuModel layers;
         menuCommands(layers, "View/Layers");

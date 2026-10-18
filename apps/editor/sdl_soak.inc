@@ -17,7 +17,7 @@
 //   history            a line with the workspace's undo history (Edit > Undo history): the steps done (their names,
 //                      the newest first), the steps to redo and a hash of the map; then what the workspace holds
 //                      (the input lines' state)
-//   palette close      the floating terrain palette's window gets its close button's click (sdl_palette_float.inc)
+//   palette close      the floating palette's window gets its close button's click (sdl_palette_float.inc)
 // "{n}" in a value is the number of the time over (1, 2, ...): roundtrip soak{n}.scx makes a new file each time.
 
 // The workspaces' names, in the order of the Workspace enum (--workspace, the script's workspace verb).

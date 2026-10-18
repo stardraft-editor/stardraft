@@ -159,7 +159,7 @@ bool gKeysFromOpener = false;
 // The SDL shell: the root view and the map view, the functions the core needs, the other workspaces' stand-ins, and the
 // host seam (shell.h).
 #include "sdl_main_view.inc"
-#include "sdl_palette_float.inc"  // the floating terrain palette: the palette in a window of its own (core/views_palette_float.inc)
+#include "sdl_palette_float.inc"  // the floating palettes: a mode's palette in a window of its own (core/views_palette_float.inc)
 #include "sdl_pending.inc"
 #include "sdl_menus.inc"
 #include "sdl_soak.inc"  // --script: a long session's inputs from a file, the memory and the undo steps
@@ -864,7 +864,7 @@ int main(int argc, char** argv) {
             updateTitle();  // (the window exists now: its title is the open map's)
             if (!sizeArg) fitMainWindow(width, height);
             if (SDL_Window* mw = host.mainWindow()) sdlMainWindowShown(mw, testRun);  // (macOS: the document window, the sheets)
-            sdlFloatPaletteSetup();  // (the floating terrain palette's window opens over it, at its place: sdl_palette_float.inc)
+            sdlFloatPaletteSetup();  // (the floating palette's window opens over it, at its place: sdl_palette_float.inc)
             sdlNativeMenusReset(), rebuildMenus();  // (macOS: the system's menu bar in place of SDL's, now that the window is there)
             sdlWindowsShown(testRun);  // (Windows: the dark title bar, an earlier crash's report, the file types)
             if (!testRun) sdlUpdatesAtStart();  // (a release build: a newer release says so in the status bar)

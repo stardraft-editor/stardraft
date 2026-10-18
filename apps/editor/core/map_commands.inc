@@ -133,9 +133,9 @@ std::string mapSaveRoundTrip(const fs::path& path) {
     return line + " different (WRONG)";
 }
 
-// View > Floating terrain palette: the Terrain palette in a window of its own (on) or in the side bar (off). The
+// View > Floating palettes: the palette of the mode `m` in a window of its own (on) or in the side bar (off). The
 // program's (sdl_palette_float.inc).
-void shellFloatPalette(bool on);
+void shellFloatPalette(Mode m, bool on);
 
 void registerMapCommands() {
     // Mode
@@ -170,8 +170,9 @@ void registerMapCommands() {
         saveDock(), shellRelayout(), shellMenusChanged();
         setMessage(gDock.minimapHidden ? L"The minimap is hidden (View > Show minimap shows it again)" : L"The minimap shows");
     }, [] { return !gDock.minimapHidden; });
-    addCommand(ID_VIEW_FLOATPAL, "view.floatPalette", L"&Floating terrain palette", "View", L"", [] { shellFloatPalette(!gFloatPal.floating); },
-               [] { return gFloatPal.floating; });
+    for (const Mode m : kModeOrder)  // View > Floating palettes: an item for each mode's palette
+        addCommand(ID_VIEW_FLOATPAL + int(m), kFloatPalNames[int(m)].command, kFloatPalNames[int(m)].menu, "View/Floating palettes", L"",
+                   [m] { shellFloatPalette(m, !gFloatPal[int(m)].floating); }, [m] { return gFloatPal[int(m)].floating; });
     addCommand(ID_LAYER, "view.layer.terrain", L"&Terrain", "View/Layers", L"", [] { toggleLayer(0); }, [] { return gLayers.terrain; });
     addCommand(ID_LAYER + 1, "view.layer.doodads", L"&Doodads", "View/Layers", L"", [] { toggleLayer(1); }, [] { return gLayers.doodads; });
     addCommand(ID_LAYER + 2, "view.layer.sprites", L"&Sprites", "View/Layers", L"", [] { toggleLayer(2); }, [] { return gLayers.sprites; });

@@ -2,35 +2,70 @@
 // map grid, the trigger pane's zoom, the volume. Portable: included by core.inc and by main.cpp after recent.inc. Each
 // program loads it once at its start; a change saves it (not in the self-test).
 
-// The floating terrain palette (Roadmap R40, as ScmDraft 2's terrain window): the Terrain mode's palette (the brush's
-// terrains, Rectangle mode's tiles) in a window of its own, or in the side bar (docked). Its place and size are SDL's
-// window coordinates (points; on Windows pixels) on the screens; w 0: no place yet (the program gives one).
+// The floating palettes (Roadmap R40, as ScmDraft 2's terrain window): each map mode's palette (the side bar's part
+// under the mode's tools: Terrain's terrains and Rectangle mode's tiles, the unit, doodad and sprite palettes with
+// their owner and section boxes, the location list with its filter) can be in a window of its own, or in the side bar
+// (docked). Each mode keeps its own state, place and size. The place and the size are SDL's window coordinates (points;
+// on Windows pixels) on the screens; w 0: no place yet (the program gives one).
 struct FloatPalette {
     bool floating = false;
     int x = 0, y = 0, w = 0, h = 0;
     bool operator==(const FloatPalette& o) const { return floating == o.floating && x == o.x && y == o.y && w == o.w && h == o.h; }
 };
-FloatPalette gFloatPal;
+FloatPalette gFloatPal[kModeCount];  // (by int(Mode))
 constexpr int kFloatPalMinW = 160, kFloatPalMinH = 200;  // (the window's smallest size, in points)
 
-// The settings' names (Layout/...).
-FloatPalette floatPaletteLoad(const stardraft::Settings& s) {
+// Each mode's palette: the name of its settings (Layout/<key>Floating, <key>X, <key>Y, <key>Width, <key>Height), of its
+// command and its texts. By int(Mode).
+struct FloatPaletteNames {
+    const char* key;
+    const char* command;
+    const wchar_t* menu;    // View > Floating palettes
+    const wchar_t* title;   // the window's title
+    const wchar_t* note;    // the side bar's text while it floats
+    const wchar_t* tip;     // Dock's tooltip
+    const wchar_t* moved;   // the messages
+    const wchar_t* later;
+    const wchar_t* docked;
+};
+constexpr FloatPaletteNames kFloatPalNames[kModeCount] = {
+    {"TerrainPalette", "view.floatPalette.terrain", L"&Terrain palette", L"Terrain palette", L"The terrain palette is in its own window",
+     L"Put the terrain palette back in the side bar", L"Moved the terrain palette to its own window",
+     L"The terrain palette shows in its own window in Terrain mode", L"Docked the terrain palette"},
+    {"UnitPalette", "view.floatPalette.units", L"&Unit palette", L"Unit palette", L"The unit palette is in its own window",
+     L"Put the unit palette back in the side bar", L"Moved the unit palette to its own window",
+     L"The unit palette shows in its own window in Units mode", L"Docked the unit palette"},
+    {"DoodadPalette", "view.floatPalette.doodads", L"&Doodad palette", L"Doodad palette", L"The doodad palette is in its own window",
+     L"Put the doodad palette back in the side bar", L"Moved the doodad palette to its own window",
+     L"The doodad palette shows in its own window in Doodads mode", L"Docked the doodad palette"},
+    {"LocationList", "view.floatPalette.locations", L"&Location list", L"Location list", L"The location list is in its own window",
+     L"Put the location list back in the side bar", L"Moved the location list to its own window",
+     L"The location list shows in its own window in Locations mode", L"Docked the location list"},
+    {"SpritePalette", "view.floatPalette.sprites", L"&Sprite palette", L"Sprite palette", L"The sprite palette is in its own window",
+     L"Put the sprite palette back in the side bar", L"Moved the sprite palette to its own window",
+     L"The sprite palette shows in its own window in Sprites mode", L"Docked the sprite palette"},
+};
+
+// The settings of the palette of `m`.
+FloatPalette floatPaletteLoad(const stardraft::Settings& s, Mode m) {
     FloatPalette p;
+    const std::string key = std::string("Layout/") + kFloatPalNames[int(m)].key;
     auto get = [&](const char* name, int lo, int hi, int def) {
-        const auto n = s.number(std::string("Layout/") + name);
+        const auto n = s.number(key + name);
         return n ? int(std::clamp<int64_t>(*n, lo, hi)) : def;
     };
-    p.floating = get("PaletteFloating", 0, 1, 0) != 0;
-    p.x = get("PaletteX", -100000, 100000, 0), p.y = get("PaletteY", -100000, 100000, 0);
-    p.w = get("PaletteWidth", 0, 16384, 0), p.h = get("PaletteHeight", 0, 16384, 0);
+    p.floating = get("Floating", 0, 1, 0) != 0;
+    p.x = get("X", -100000, 100000, 0), p.y = get("Y", -100000, 100000, 0);
+    p.w = get("Width", 0, 16384, 0), p.h = get("Height", 0, 16384, 0);
     if (p.w < kFloatPalMinW || p.h < kFloatPalMinH) p.w = p.h = 0;  // (no size kept: the program's)
     return p;
 }
-void floatPaletteSave(stardraft::Settings& s, const FloatPalette& p) {
-    s.set("Layout/PaletteFloating", int64_t(p.floating ? 1 : 0));
+void floatPaletteSave(stardraft::Settings& s, Mode m, const FloatPalette& p) {
+    const std::string key = std::string("Layout/") + kFloatPalNames[int(m)].key;
+    s.set(key + "Floating", int64_t(p.floating ? 1 : 0));
     if (p.w <= 0 || p.h <= 0) return;
-    s.set("Layout/PaletteX", int64_t(p.x)), s.set("Layout/PaletteY", int64_t(p.y));
-    s.set("Layout/PaletteWidth", int64_t(p.w)), s.set("Layout/PaletteHeight", int64_t(p.h));
+    s.set(key + "X", int64_t(p.x)), s.set(key + "Y", int64_t(p.y));
+    s.set(key + "Width", int64_t(p.w)), s.set(key + "Height", int64_t(p.h));
 }
 
 // Whether the kept place is still on a screen (`screens`: their usable areas, in the same coordinates): the window's
@@ -62,7 +97,7 @@ void loadDock() {
     number(L"GridWidth", gDock.gridW, 1, 8192), number(L"GridHeight", gDock.gridH, 1, 8192);
     number(L"GridX", gDock.gridX, 0, 8191), number(L"GridY", gDock.gridY, 0, 8191);
     number(L"TriggerZoom", gDock.triggerZoom, 70, 200);
-    gFloatPal = floatPaletteLoad(prefs::store());
+    for (int m = 0; m < kModeCount; ++m) gFloatPal[m] = floatPaletteLoad(prefs::store(), Mode(m));
 }
 
 void saveDock() {
@@ -79,7 +114,7 @@ void saveDock() {
     put(L"TriggerCode", gDock.triggerCode);
     put(L"ScriptPreview", gDock.scriptPreview);
     put(L"TriggerZoom", gDock.triggerZoom);
-    floatPaletteSave(prefs::store(), gFloatPal);
+    for (int m = 0; m < kModeCount; ++m) floatPaletteSave(prefs::store(), Mode(m), gFloatPal[m]);
 }
 
 // The trigger pane's zoom back to 100% (Ctrl+0): the pane is drawn again (trigPaneRepaint: the Win32 program's trigger

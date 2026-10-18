@@ -306,13 +306,16 @@ CASES += [
     # While the Marine is picked for placing, Alt+click on the stack is the pipette (no list, no new unit).
     ("map-stack-pipette", ["--mode", "units", "--script", "{script:stackpipette}"], "map"),
 ]
-# The floating terrain palette (Roadmap R40; sdl_palette_float.inc): View > Floating terrain palette puts the Terrain
-# palette in a window of its own over the map (a snapshot shows it there); a pick in it paints with that terrain; the
-# map's keys (U, T) work while it has the keyboard, and it closes in another mode and opens again in Terrain mode; Dock
-# and its close button put it back in the side bar; in Rectangle mode it has the Tiles list. After each input a line
-# "  palette: ..." says its state. -docked: on and off again (the side bar has the palette). -settings: the settings
-# file keeps it floating at 320 x 480 (the window opens at the start with that size), and --check floatpalette writes
-# the state into a new settings file and reads it back, with the rule of the kept place on the screens.
+# The floating palettes (Roadmap R40; sdl_palette_float.inc): View > Floating palettes > Terrain palette puts the
+# Terrain palette in a window of its own over the map (a snapshot shows it there); a pick in it paints with that
+# terrain; the map's keys (U, T) work while it has the keyboard, and it closes in another mode (whose palette is docked)
+# and opens again in Terrain mode; Dock and its close button put it back in the side bar; in Rectangle mode it has the
+# Tiles list. After each input a line "  palette: ..." says the active mode's palette's state. -docked: on and off again
+# (the side bar has the palette). -settings: the settings file keeps the terrain palette floating at 320 x 480 and the
+# unit palette at 300 x 420 (each window opens in its mode with its own size; the doodad palette is docked), and --check
+# floatpalette writes two palettes' states into a new settings file and reads them back, with the rule of the kept
+# place on the screens. -units: the unit palette in its window, with the owner and section boxes; a pick in it places
+# that unit type on the map; then the location list floats too, and each mode shows only its own window.
 CASES += [
     ("map-palette-float", ["--mode", "terrain", "--script", "{script:floatpal}"], "map"),
     ("map-palette-docked", ["--mode", "terrain", "--script", "{script:floatpaldock}"], "map"),
@@ -320,7 +323,8 @@ CASES += [
     # keeps "dirt"); the window moved to a screen of 150 % does not change the program's scale.
     ("map-palette-float-keys", ["--mode", "terrain", "--script", "{script:floatpalkeys}"], "map"),
     ("map-palette-float-settings", ["--settings", "{floatpalsettings}", "--mode", "terrain", "--check", "floatpalette:{newdir}",
-                                    "--wait", "0"], "map"),
+                                    "--script", "{script:floatpaltwo}"], "map"),
+    ("map-palette-float-units", ["--mode", "units", "--script", "{script:floatpalunits}"], "map"),
 ]
 # The map steps of the old Windows self-test with the mouse and the keys. After each input line a second
 # line ("  state: map: <tileset> <size>; name=value ...") says the mode, the player, the sprites, the selected doodad,
@@ -1125,11 +1129,17 @@ stats
     "stackmenu": STACK_PLACE + "click 700,650:Menu10\nkey Down\nkey Enter\n",
     # The Marine stays picked (no Esc): Alt+click on the stack is the pipette (map-stack-pipette).
     # (map-palette-float: the window is at 360,114 of the main window: High Platform's row, Dock, the first tile)
-    "floatpal": "command view.floatPalette\nwait 0\nclick 510,288\nkey U\nkey T\nclick 590,132\ncommand view.floatPalette\nwait 0\n"
-                "palette close\ncommand view.floatPalette\nwait 0\nrect on\nclick 386,236\n",
-    "floatpaldock": "command view.floatPalette\nwait 0\ncommand view.floatPalette\nwait 0\n",
+    "floatpal": "command view.floatPalette.terrain\nwait 0\nclick 510,288\nkey U\nkey T\nclick 590,132\ncommand view.floatPalette.terrain\nwait 0\n"
+                "palette close\ncommand view.floatPalette.terrain\nwait 0\nrect on\nclick 386,236\n",
+    "floatpaldock": "command view.floatPalette.terrain\nwait 0\ncommand view.floatPalette.terrain\nwait 0\n",
     # (map-palette-float-keys: the window's search box, then the first row of the list that it filters)
-    "floatpalkeys": "command view.floatPalette\nwait 0\nclick 400,132\ntype plat\nclick 490,245\nkey F\npalette scale 150\n",
+    # (map-palette-float-units: the window over the map at the right side bar: the Marine's row, then the map; then
+    # Locations mode with the location list floating, and back in Units mode)
+    "floatpalunits": "command view.floatPalette.units\nwait 0\nclick 1100,341\nclick 600,500\n"
+                     "command view.floatPalette.locations\nmode locations\nmode units\n",
+    # (map-palette-float-settings: each mode with its own kept window, or none)
+    "floatpaltwo": "wait 0\nmode units\nmode doodads\nmode terrain\n",
+    "floatpalkeys": "command view.floatPalette.terrain\nwait 0\nclick 400,132\ntype plat\nclick 490,245\nkey F\npalette scale 150\n",
     "stackpipette": "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nclick 700,650:Alt\nkey Esc\n",
 }
 
@@ -3272,30 +3282,33 @@ def check_stack_pipette(output):
     return None
 
 
-PALETTE_LINE = re.compile(r"^  palette: (docked|floating)(.*)$")
-PALETTE_INPUT = re.compile(r"^(key|click|wait|palette|rect|type) (.*?): \d+ units, \d+ doodads, \d+ selected")
+PALETTE_LINE = re.compile(r"^  palette: (docked|floating) (\w+)(.*)$")
+PALETTE_INPUT = re.compile(r"^(key|click|wait|palette|rect|type|mode|command) (.*?): (\d+) units, \d+ doodads, \d+ selected")
 
 
 def palette_steps(output):
-    """The inputs of a floating palette case: input, message, the state line's palette (the pick), tool and
-    tilepicked, and the palette line: state (docked, floating, hidden: floating with no window), size (w, h), keys
-    (window or main), shows (list or tiles), side (docked: the palette is in the side bar)."""
+    """The inputs of a floating palette case: input, message, units, the state line's palette (the pick), tool and
+    tilepicked, and the palette line (of the active mode's palette): state (docked, floating, hidden: floating with no
+    window), of (its palette: terrain, units, ...), size (w, h), keys (window or main), shows (list or tiles), side
+    (docked: the palette is in the side bar), floating (the palettes that float)."""
     out = []
     for line in output.splitlines():
         m = PALETTE_INPUT.match(line)
         if m:
-            out.append({"input": f"{m.group(1)} {m.group(2)}", "message": line.split(": ", 2)[-1]})
+            out.append({"input": f"{m.group(1)} {m.group(2)}", "message": line.split(": ", 2)[-1], "units": int(m.group(3))})
         elif line.startswith("  state: ") and out:
             out[-1].update((k, v.strip('"')) for k, v in STATE_FIELD.findall(line) if k in ("palette", "tool", "tilepicked", "mode"))
         elif (p := PALETTE_LINE.match(line)) and out:
-            rest = p.group(2)
+            rest = p.group(3)
             d = out[-1]
             d["state"] = "hidden" if "no window" in rest else p.group(1)
+            d["of"] = p.group(2)
+            d["floating"] = set((re.search(r"floating=([\w,]+)", rest) or [None, "none"])[1].split(",")) - {"none"}
             size = re.search(r"window (\d+)x(\d+) px", rest)
             d["size"] = (int(size.group(1)), int(size.group(2))) if size else None
             d["keys"] = (re.search(r"keys=(\w+)", rest) or [None, None])[1]
             d["shows"] = "tiles" if ", tiles;" in rest else "list" if ", list;" in rest else None
-            d["side"] = "in the side bar" in rest
+            d["side"] = ", in the side bar" in rest
     return out
 
 
@@ -3309,12 +3322,12 @@ def check_palette_float(output):
         return f"the inputs are {got}, not {want}"
     w = s[0]
     if w.get("state") != "floating" or not w["size"] or w["size"][0] < 200 or w["size"][1] < 300 or w["shows"] != "list":
-        return f"View > Floating terrain palette did not open the palette's window with its list: {w}"
+        return f"View > Floating palettes > Terrain palette did not open the palette's window with its list: {w}"
     pick = s[1]
     if pick.get("state") != "floating" or int(pick.get("palette", -1)) <= 0 or pick.get("tool") != "0" or "High Platform" not in pick["message"]:
         return f"the click in the floating palette did not pick High Platform for the brush: {pick}"
-    if s[2].get("mode") != "Units" or s[2].get("state") != "hidden" or s[2].get("keys") is not None:
-        return f"U (from the palette's window) did not go to Units mode and close the window: {s[2]}"
+    if s[2].get("mode") != "Units" or s[2].get("state") != "docked" or not s[2]["side"] or s[2]["floating"] != {"terrain"}:
+        return f"U (from the palette's window) did not go to Units mode (its palette docked) and close the window: {s[2]}"
     if s[3].get("mode") != "Terrain" or s[3].get("state") != "floating" or s[3]["keys"] != "window":
         return f"T did not go back to Terrain mode with the palette's window: {s[3]}"
     if s[4].get("state") != "docked" or not s[4]["side"]:
@@ -3369,22 +3382,52 @@ def check_palette_docked(output):
 
 
 def check_palette_settings(output):
-    """The settings file keeps the palette floating at 320 x 480; the state written to a new file comes back."""
+    """The settings file keeps the terrain palette floating at 320 x 480 and the unit palette at 300 x 420: each mode
+    opens its own window with its own size, the doodad palette is docked; the states of two palettes written to a new
+    file come back."""
     s = palette_steps(output)
-    if len(s) != 1:
-        return f"{len(s)} inputs, not 1"
-    if s[0].get("state") != "floating" or s[0]["size"] != (320, 480):
-        return f"the palette does not float at 320 x 480 from the settings: {s[0]}"
+    got = [d["input"] for d in s]
+    if got != ["wait 0", "mode units", "mode doodads", "mode terrain"]:
+        return f"the inputs are {got}"
+    for d, of, size in ((s[0], "terrain", (320, 480)), (s[1], "units", (300, 420)), (s[3], "terrain", (320, 480))):
+        if d.get("state") != "floating" or d.get("of") != of or d["size"] != size or d["floating"] != {"terrain", "units"}:
+            return f"the {of} palette does not float at {size[0]} x {size[1]} from the settings: {d}"
+    if s[2].get("state") != "docked" or s[2].get("of") != "doodads" or not s[2]["side"]:
+        return f"the doodad palette is not docked in the side bar: {s[2]}"
     lines = [x for x in output.splitlines() if x.startswith("floatpalette: ")]
-    if len(lines) != 3 or not all("(yes)" in x for x in lines):
+    if len(lines) != 4 or not all("(yes)" in x for x in lines):
         return f"--check floatpalette: {lines}"
+    return None
+
+
+def check_palette_units(output):
+    """The unit palette in its window (with the owner and section boxes: as wide as the side bar or more); a pick in it
+    picks the Marine and a click on the map places one; the location list floats too: Locations mode shows its window,
+    Units mode the unit palette's window again."""
+    s = palette_steps(output)
+    want = ["wait 0", "click 1100,341", "click 600,500", "mode locations", "mode units"]  # (a command has no input line)
+    got = [d["input"] for d in s]
+    if got != want:
+        return f"the inputs are {got}, not {want}"
+    w = s[0]
+    if w.get("state") != "floating" or w.get("of") != "units" or not w["size"] or w["size"][0] < 260 or w["shows"] != "list":
+        return f"View > Floating palettes > Unit palette did not open the unit palette's window with its list: {w}"
+    pick = s[1]
+    if pick.get("state") != "floating" or "Marine" not in pick["message"] or int(pick.get("palette", -1)) != 0:
+        return f"the click in the floating unit palette did not pick the Marine: {pick}"
+    if s[2]["units"] != pick["units"] + 1 or "Placed" not in s[2]["message"]:
+        return f"the click on the map did not place the picked unit: {pick['units']} -> {s[2]['units']}, {s[2]['message']}"
+    if s[3].get("of") != "locations" or s[3].get("state") != "floating" or s[3]["shows"] != "list" or s[3]["floating"] != {"units", "locations"}:
+        return f"Locations mode did not show the location list's window (with the unit palette floating too): {s[3]}"
+    if s[4].get("of") != "units" or s[4].get("state") != "floating" or s[4]["size"] != w["size"]:
+        return f"Units mode did not show the unit palette's window again: {s[4]}"
     return None
 
 
 CHECKS = {"map-pathing-layer": lambda o: check_pathing_layer(o, False), "map-pathing-areas": lambda o: check_pathing_layer(o, True),
           "map-pathing-check": check_pathing_check, "map-pathing-fix": check_pathing_fix,
           "map-palette-float": check_palette_float, "map-palette-docked": check_palette_docked,
-          "map-palette-float-settings": check_palette_settings, "map-palette-float-keys": check_palette_keys,
+          "map-palette-float-settings": check_palette_settings, "map-palette-float-units": check_palette_units, "map-palette-float-keys": check_palette_keys,
           "map-stack-list": check_stack_list, "map-stack-cycle": check_stack_cycle, "map-stack-menu": check_stack_menu,
           "map-stack-pipette": check_stack_pipette,
           "map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
@@ -3924,8 +3967,10 @@ def main():
         floatpalsettings = os.path.join(a.out, "floatpal-settings.json")  # {floatpalsettings}: the terrain palette floats
         if any("{floatpalsettings}" in x for x in args):
             write_once(floatpalsettings, write_text(floatpalsettings, json.dumps(
-                {"Layout/PaletteFloating": 1, "Layout/PaletteX": 400, "Layout/PaletteY": 200, "Layout/PaletteWidth": 320,
-                 "Layout/PaletteHeight": 480})))
+                {"Layout/TerrainPaletteFloating": 1, "Layout/TerrainPaletteX": 400, "Layout/TerrainPaletteY": 200,
+                 "Layout/TerrainPaletteWidth": 320, "Layout/TerrainPaletteHeight": 480, "Layout/UnitPaletteFloating": 1,
+                 "Layout/UnitPaletteX": 700, "Layout/UnitPaletteY": 220, "Layout/UnitPaletteWidth": 300,
+                 "Layout/UnitPaletteHeight": 420})))
         if any("{nosnapsettings}" in x for x in args):
             write_once(nosnapsettings, write_text(nosnapsettings, json.dumps({"Settings/SnapBuildings": 0})))
         if any("{oldsettings}" in x for x in args):
