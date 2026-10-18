@@ -106,31 +106,35 @@ Make StarDraft 2 a more powerful creation suite.
   Done: Help > Documentation (F1) has the pages in a side bar with a search, also on the web: Getting started, Values
   and units, and a page for each .dat file's fields, with sources and Send feedback about this page. F1 in the Data
   workspace opens the field's page. More articles (the checkers: R38) can follow.
-- [ ] **R33 Unit range overlay.** *Tag:* Capability.
+- [x] **R33 Unit range overlay.** *Tag:* Capability.
   Show the weapon ranges, sight, detection and psi fields of the selected units on the map.
 
   The map does not show the ranges of units. Mappers must find the values in the data.
 
-  Status (2026-10-18): View > Show ranges of the selected units shows sight, target acquisition and the ground and air
-  weapon ranges. Detection and psi fields are missing.
-- [ ] **R34 Terrain flag overlays.** *Tag:* Terrain.
+  Done (2026-10-18): View > Overlays > Show ranges of the selected units shows sight, target acquisition, the ground
+  and air weapon ranges, the detection range of detectors and the psi field of a Pylon.
+- [x] **R34 Terrain flag overlays.** *Tag:* Terrain.
   Show on the map which terrain is walkable, how high it is, and which terrain gives cover or blocks the line of
   sight.
 
   The map shows terrain only as pictures. The overlays come from the tileset flags (CV5, VF4).
+
+  Done (2026-10-18): View > Overlays has Walkable ground, Ground height (low, middle, high), Ground that blocks the line
+  of sight and Buildable ground.
 - [ ] **R32 Fog of war preview.** *Tag:* Capability.
   Select a player, and see the fog of war of that player at the start of the game.
 
   Mappers cannot see what each player sees at the start of the game.
-- [ ] **R53 Camera controls.** *Tag:* EUD.
+- [x] **R53 Camera controls.** *Tag:* EUD.
   Trigger blocks that move a player's camera: center the view on a location or a unit, follow a unit, pan, and shake
   the screen.
 
   Mappers must make camera effects by hand. The blocks use the game's Center View action: they move a location, then
   center the view on it.
 
-  Status (2026-10-18): "Center the camera" (act.centerview) and "Center the camera on a unit" (act.camerafollow) exist.
-  Pan and shake are missing.
+  Done (2026-10-18): Center the camera, Center the camera on a unit, Pan the camera (from one location to another in a
+  given time) and Shake the camera (around a location). Still to check in the game: how smooth the pan and the shake
+  look.
 - [ ] **R58 EUD terrain info.** *Tag:* EUD.
   Trigger blocks that read the terrain tile at a location or at a point.
 
