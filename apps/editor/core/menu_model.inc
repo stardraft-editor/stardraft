@@ -65,6 +65,7 @@ MenuModel buildMenuModel() {
     MenuModel project{menuItem(ID_PROJ_NEW, L"&New EUD project", L"Ctrl+Shift+N"),
                       menuItem(ID_PROJ_OPEN, L"&Open project\x2026"),
                       menuItem(ID_PROJ_FROMMAP, L"&Make this map a project\x2026"),
+                      menuItem(ID_PROJ_IMPORT, L"&Import a project\x2026"),  // EUD Editor 2, euddraft (roadmap R52)
                       menuSeparator(),
                       menuItem(ID_PROJ_COMPILE, L"&Build", L"Ctrl+B"),
                       menuItem(ID_PROJ_ADDSCRIPT, L"&Add script\x2026"),

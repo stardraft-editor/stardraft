@@ -12,7 +12,11 @@
 #include <set>
 #include <string>
 
+#include <fstream>
 #include "stardraft/campaign.h"
+#include "stardraft/dat_edit.h"
+#include "stardraft/dat_extras.h"
+#include "stardraft/project_import.h"
 #include "stardraft/editor.h"
 #include "stardraft/isom.h"
 #include "stardraft/terrain.h"
@@ -551,6 +555,52 @@ static void campaignTest(const GameData& data, const char* map, const fs::path& 
           "campaign: Copy terrain: the tiles and the doodads");
     Editor small(data);
     CHECK(small.newMap(64, 64, 0, 1, err) && !small.copyTerrain(a.chk(), err), "campaign: Copy terrain needs maps of one size");
+}
+
+// Importing another editor's project (roadmap R52): an EUD Editor 2 .e2s (a .dat value, a text, a plugin) and a
+// euddraft .eds (a script, a plugin section).
+static void importTest(const GameData& data, const char* map, const fs::path& scratch) {
+    std::error_code ec;
+    const fs::path dir = scratch / "editor_test_import";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    {
+        std::ofstream e2s(dir / "Old.e2s", std::ios::binary);
+        e2s << "S_ProjectSET\r\nVersion : 0.17.9.7\r\nInputMap : " << fs::absolute(map).string() << "\r\nE_ProjectSET\r\n"
+            << "S_DatEditSET\r\n0,7,0,10\r\nE_DatEditSET\r\nS_BtnSET\r\nBtnUse0 : True\r\nBtnData0 : 1,2,3\r\nE_BtnSET\r\n"
+            << "S_FileManagerSET\r\nstattextdicCount : 1\r\nstattextdickey0 : 0\r\nstattextdicvalue0 : <4>Hero Marine\r\nE_FileManagerSET\r\n"
+            << "S_PluginSET\r\nunlimiter : True\r\neudTurbo : False\r\nE_PluginSET\r\n";
+    }
+    EudProject pr;
+    ImportReport rep;
+    std::string err;
+    const bool ok = importProject(dir / "Old.e2s", dir, "FromE2s", data, pr, rep, err);
+    CHECK(ok, ("import: an EUD Editor 2 project " + err).c_str());
+    if (ok) {
+        const DatSchema* units = DatSchema::find("units");
+        DatTable t;
+        const bool loaded = units && t.load(data, *units, err) && t.loadEdits(pr.datFile("units"), err);
+        const DatField& shields = units->fields[7];
+        CHECK(loaded && shields.name == "Shield Amount" && t.value(shields, 0) == t.stock(shields, 0) + 10, "import: the .dat value (the game's + the difference)");
+        StatTxt s;
+        CHECK(s.load(data, err) && s.loadEdits(pr.folder() / "dat" / "strings.json", err) && s.text(0) == "\x04Hero Marine", "import: the text, with its color byte");        const auto names = pr.scripts();
+        bool unlimiter = false;
+        for (const auto& sec : pr.sections()) unlimiter |= sec.name == "unlimiter";
+        CHECK(unlimiter, "import: the plugin that was on");
+        CHECK(std::any_of(rep.notImported.begin(), rep.notImported.end(), [](const std::string& l) { return l.find("button sets") != std::string::npos; }),
+              "import: the report says the button sets did not come in");
+    }
+    {
+        std::ofstream eps(dir / "code.eps", std::ios::binary);
+        eps << "function onPluginStart() {}\n";
+        std::ofstream eds(dir / "game.eds", std::ios::binary);
+        eds << "[main]\ninput: " << fs::absolute(map).string() << "\noutput: out.scx\n\n[code.eps]\n\n[MSQC]\nE : Map Revealer, 1\n";
+    }
+    EudProject pe;
+    ImportReport re;
+    const bool ok2 = importProject(dir / "game.eds", dir, "FromEds", data, pe, re, err);
+    CHECK(ok2 && fs::exists(pe.folder() / "scripts" / "code.eps", ec) && pe.sectionLines("MSQC") == std::vector<std::string>{"E : Map Revealer, 1"},
+          "import: a euddraft project: its script and its plugin section");
 }
 
 static void classicSettings(const GameData& data, const char* map, const fs::path& scratch) {
@@ -2066,6 +2116,7 @@ int main(int argc, char** argv) {
     rampsStay(data, argv[1]);
     classicSettings(data, argv[2], fs::path(argv[3]));
     campaignTest(data, argv[2], fs::path(argv[3]));
+    importTest(data, argv[2], fs::path(argv[3]));
     classicTriggersTest(data, argv[2], fs::path(argv[3]));
 
     std::printf("\n%d failures\n", failures);

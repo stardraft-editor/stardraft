@@ -162,6 +162,37 @@ void campaignOpen() {
     gCampaignView.refresh();
     shellShowCampaignWindow();
 }
+// File > Project > Import a project (roadmap R52): an EUD Editor 2 or euddraft project into a new project, then the
+// list of what did not come in.
+void projectImport() {
+    ShellFilePick d;
+    d.filters = {{L"EUD Editor 2 or euddraft projects (*.e2s, *.eds, *.edd)", L"*.e2s;*.eds;*.edd"}};
+    d.title = L"Import a project";
+    const std::filesystem::path file = shellPickFile(d);
+    if (file.empty()) return;
+    const std::wstring parent = shellPickFolder(L"Select the folder for the new project");
+    if (parent.empty()) return;
+    std::error_code ec;
+    std::string name = file.stem().string();
+    for (int n = 2; std::filesystem::exists(std::filesystem::path(parent) / name, ec); ++n) name = file.stem().string() + " " + std::to_string(n);
+    stardraft::EudProject pr;
+    stardraft::ImportReport rep;
+    std::string err;
+    if (!stardraft::importProject(file, std::filesystem::path(parent), name, shellState().data, pr, rep, err))
+        return shellErrorBox(widen(err), tr(L"Import a project"));
+    openProject(pr.folder());
+    std::wstring text = tr(L"Imported:");
+    for (const std::string& l : rep.imported) text += L"\n  \x2022 " + widen(l);
+    if (!rep.notImported.empty()) {
+        text += L"\n\n";
+        text += tr(L"Not imported (do these again in StarDraft):");
+        for (const std::string& l : rep.notImported) text += L"\n  \x2022 " + widen(l);
+        shellWarningBox(text, tr(L"Import a project"));
+    } else {
+        setMessage(tr(L"The project is imported"));
+    }
+}
+
 void campaignShow() {
     if (!gCampaignOpen) return campaignOpen();
     gCampaignView.refresh();
