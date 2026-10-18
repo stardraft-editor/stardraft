@@ -92,6 +92,8 @@ add_library(stardraft
     src/new_map.cpp
     src/terrain_gen.cpp
     src/pathing.cpp
+    src/pathing_regions.cpp
+    src/pathing_check.cpp
     src/settings.cpp
     src/commands.cpp
     src/process.cpp)
@@ -184,6 +186,9 @@ target_link_libraries(briefing_test PRIVATE stardraft)
 
 add_executable(pathing_test tools/tests/pathing_test.cpp)
 target_link_libraries(pathing_test PRIVATE stardraft)
+
+add_executable(pathing_regions_test tools/tests/pathing_regions_test.cpp)
+target_link_libraries(pathing_regions_test PRIVATE stardraft)
 
 add_executable(settings_test tools/tests/settings_test.cpp)
 target_link_libraries(settings_test PRIVATE stardraft)
