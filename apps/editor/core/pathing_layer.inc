@@ -7,11 +7,12 @@
 //     A pick shows the place on the map (the layer goes on, the problem has a mark) and the status bar tells the fix;
 //     "Apply the fix" (a pocket in one tile) changes that tile to one with no walkable minitile there, as one undo step.
 //     The problems stay marked while the layer shows; after a change of the terrain the check runs again.
-// The regions are made on a worker thread from copies of the terrain when the terrain changes (its revision); the map
-// shows the last result until the new one is ready.
+// The regions and the check are made on a worker thread from copies of the terrain and the units when the map changes
+// (its revision); the map shows the last result until the new one is ready.
 
 struct PathingLayerResult {
     PathingRegions regions;
+    PathingCheck check;
 };
 
 struct PathingLayer {
@@ -23,19 +24,16 @@ struct PathingLayer {
     std::future<std::shared_ptr<PathingLayerResult>> job;
     const Editor* jobFor = nullptr;
     uint64_t jobRev = 0;
-    std::shared_ptr<const Tileset> tileset;  // the parts the regions read (groups, megatiles, VF4 flags)
+    std::shared_ptr<const Tileset> tileset;  // the parts the regions and the check read (groups, megatiles, VF4 flags)
     const Tileset* tilesetOf = nullptr;
     int tilesetEra = -1;
     // The shapes, made again when the result, the mode or the theme changes.
     std::vector<render::RectDraw> fills, borders;
     const PathingLayerResult* shapesFor = nullptr;
     int shapesKey = -1;
-    // The check: its result, for the map and terrain revision; the problem picked (-1 none).
-    std::shared_ptr<const PathingCheck> check;
+    // The map that Scenario > Check pathing ran for (its problems show then); the problem picked (-1 none).
     const Editor* checkFor = nullptr;
-    uint64_t checkRev = 0;
     int shown = -1;
-    int hover = -1;  // the region under the mouse
 };
 PathingLayer gPathing;
 
@@ -43,15 +41,20 @@ bool pathingLayerOn() { return gPathing.on; }
 bool pathingLayerAreas() { return gPathing.areas; }
 
 // Is the result for the map that shows (and its size)?
-const PathingRegions* pathingRegions() {
+const PathingLayerResult* pathingResult() {
     const AppState& app = appState();
     if (!app.ed || gPathing.resultFor != app.ed.get() || !gPathing.result) return nullptr;
     const PathingRegions& r = gPathing.result->regions;
     if (r.width != app.ed->width() || r.height != app.ed->height()) return nullptr;
-    return &r;
+    return gPathing.result.get();
+}
+const PathingRegions* pathingRegions() {
+    const PathingLayerResult* r = pathingResult();
+    return r ? &r->regions : nullptr;
 }
 
-// Start the regions when the terrain changed, and take finished ones. `wait`: until they are current (the check, tests).
+// Start the regions and the check when the map changed, and take finished ones. `wait`: until they are current (the
+// check's command, tests).
 void pathingLayerPoll(bool wait = false) {
     AppState& app = appState();
     if (!app.ed || !app.ed->isOpen()) return;
@@ -61,41 +64,36 @@ void pathingLayerPoll(bool wait = false) {
             if (!wait && gPathing.job.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
             gPathing.result = gPathing.job.get();
             gPathing.resultFor = gPathing.jobFor, gPathing.resultRev = gPathing.jobRev;
-            gPathing.hover = -1;
+            gPathing.shown = -1;  // (the problems of the new check are in another order)
             app.dirty = true;
         }
-        if (gPathing.result && gPathing.resultFor == &ed && gPathing.resultRev == ed.terrainRevision()) return;
+        if (gPathing.result && gPathing.resultFor == &ed && gPathing.resultRev == ed.revision()) return;
         const Tileset& ts = ed.tileset();
         if (!gPathing.tileset || gPathing.tilesetOf != &ts || gPathing.tilesetEra != ed.era()) {
             auto slim = std::make_shared<Tileset>();
             slim->groups = ts.groups, slim->megatiles = ts.megatiles, slim->minitileFlags = ts.minitileFlags, slim->era = ts.era;
             gPathing.tileset = slim, gPathing.tilesetOf = &ts, gPathing.tilesetEra = ed.era();
         }
-        gPathing.jobFor = &ed, gPathing.jobRev = ed.terrainRevision();
-        gPathing.job = std::async(std::launch::async, [terrain = ed.terrain(), tileset = gPathing.tileset] {
+        gPathing.jobFor = &ed, gPathing.jobRev = ed.revision();
+        gPathing.job = std::async(std::launch::async, [terrain = ed.terrain(), units = ed.units(), tileset = gPathing.tileset] {
             auto r = std::make_shared<PathingLayerResult>();
             r->regions = computePathingRegions(terrain, *tileset);
+            r->check = checkPathing(r->regions, terrain, *tileset, units);
             return r;
         });
         if (!wait) return;
     }
 }
 
-// The check for the map as it is now, made again after a change of the terrain (only once it has run for this map).
+// The check of the map that shows, once Scenario > Check pathing ran for it (`make`: it runs now, and the result is
+// for the map as it is now). After a change, the last result until the new one is ready.
 const PathingCheck* pathingCheck(bool make = false) {
     AppState& app = appState();
     if (!app.ed || !app.ed->isOpen()) return nullptr;
-    Editor& ed = *app.ed;
-    const bool current = gPathing.check && gPathing.checkFor == &ed && gPathing.checkRev == ed.terrainRevision();
-    if (current) return gPathing.check.get();
-    if (!make && !(gPathing.check && gPathing.checkFor == &ed)) return nullptr;
-    pathingLayerPoll(true);
-    const PathingRegions* r = pathingRegions();
-    if (!r) return nullptr;
-    if (gPathing.checkFor != &ed || gPathing.checkRev != ed.terrainRevision()) gPathing.shown = -1;
-    gPathing.check = std::make_shared<PathingCheck>(checkPathing(*r, ed.terrain(), ed.tileset(), ed.units()));
-    gPathing.checkFor = &ed, gPathing.checkRev = ed.terrainRevision();
-    return gPathing.check.get();
+    if (make) gPathing.checkFor = app.ed.get(), pathingLayerPoll(true);
+    if (gPathing.checkFor != app.ed.get()) return nullptr;
+    const PathingLayerResult* r = pathingResult();
+    return r ? &r->check : nullptr;
 }
 
 // The tint of region (or connected area) k: the hues around the circle, with the theme's lightness.
@@ -361,7 +359,7 @@ void pathingApplyFix(int i) {
         return;
     }
     gPathing.shown = -1;
-    pathingCheck(true);
+    pathingLayerPoll(true);
     app.dirty = true;
     setMessage(pathingFormat(L"Tile %d, %d has no walkable minitile now (Ctrl+Z undoes it)", p.fixTileX, p.fixTileY));
 }
