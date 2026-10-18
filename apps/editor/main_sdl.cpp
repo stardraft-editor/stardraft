@@ -43,6 +43,7 @@
 #include <cctype>
 #include <charconv>  // (core/prefs.inc: std::from_chars; GCC 12 does not include it with the others)
 #include <chrono>
+#include <future>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -335,7 +336,18 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 
 #include "sdl_window_test.inc"  // --noactivate, --frames, --wintest: tests of the real window
 
+// STARDRAFT_START_TIME=1 prints how long each stage of the start took (for speed work).
+void startLap(const char* stage) {
+    static const bool on = std::getenv("STARDRAFT_START_TIME") != nullptr;
+    static auto last = std::chrono::steady_clock::now();
+    if (!on) return;
+    const auto now = std::chrono::steady_clock::now();
+    std::fprintf(stderr, "  start: %-22s %7.1f ms\n", stage, std::chrono::duration<double, std::milli>(now - last).count());
+    last = now;
+}
+
 int main(int argc, char** argv) {
+    startLap("before main");
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     // --update-test <zip> [options]: the update's install with a zip on this computer (sdl_updates.inc), then the end.
     if (argc > 2 && std::string(argv[1]) == "--update-test")
@@ -470,13 +482,22 @@ int main(int argc, char** argv) {
 #ifdef __APPLE__
     SDL_SetHint(SDL_HINT_MAC_SCROLL_MOMENTUM, "1");  // a trackpad's scroll goes on after the fingers lift (its momentum), as in macOS's own programs
 #endif
+    startLap("arguments");
     if (!SDL_Init(SDL_INIT_VIDEO)) return std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()), 1;
+    startLap("SDL_Init");
 #ifdef __APPLE__
     // A map that the user opens from Spotlight while StarDraft is not running comes during the launch: the handler goes
     // on SDL's application delegate now (SDL_Init made it), before the first events. (The work waits for the window:
     // shellPost; not while a dialog or a sheet waits, as the Dock's and Finder's files: sdlUiWaits.)
     if (snapshot.empty()) macHandleSpotlightOpens([](const std::string& path) { shellPost([path] { if (!sdlUiWaits()) dropFile(path); }); });
 #endif
+
+    // The game data opens while the graphics device is made (the driver takes most of the start): it needs no device.
+    // The settings are read once first, so the two threads only read them.
+    std::string dataErr;
+    std::wstring settingsRead;
+    prefs::text(L"StarCraftFolder", settingsRead);
+    std::future<bool> dataOpening = std::async(std::launch::async, [&] { return !noInstallArg && openInstall(installArg, dataErr); });
 
     // The device first (the renderer makes it with its shader formats), then the host on it.
     render::Renderer renderer;
@@ -502,6 +523,7 @@ int main(int argc, char** argv) {
         if (!gNoBoxes) SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "StarDraft 2", narrow(said).c_str(), nullptr);
         return 1;
     }
+    startLap("graphics device");
     sdlRemoveOldProgram();  // (an update's old program file: the new program works here; sdl_updates.inc)
     SDL_GPUDevice* device = renderer.device();
     gRenderer = &renderer;
@@ -529,11 +551,14 @@ int main(int argc, char** argv) {
         host.setWindowMadeHook(sdlTitleBarOfNewWindow);  // (Windows: each window's title bar in the theme)
         kit_sdl::setEmbeddedFiles(sdlEmbeddedFiles());  // (Windows: the atlases, the icon and the Noto Sans fallback are in stardraft.exe too)
         kit_sdl::setUiFontHeight(sdlUiFontHeight());  // (Windows: the system's message font size)
+        startLap("host");
         std::printf("stardraft_editor: fonts %s, scale %.2f\n", kit_sdl::loadFonts(base + "fonts/").c_str(), double(scale));
         // The text sizes at this scale (the snapshots check that the small text grows with the UI's: the rail's labels)
         std::printf("stardraft_editor: text %d px, small text %d px, titles %d px\n", kit::px(15), -(shellUiFontLfHeight() * 5 / 6),
                     -(shellUiFontLfHeight() * 3 / 2));
+        startLap("fonts");
         if (!kit_sdl::loadIconAtlases(device, base + "res/")) std::printf("stardraft_editor: no icon atlases in res/\n");
+        startLap("icons");
         // The atlas cells of the icons at this scale (the snapshots check them: at scale 2 a 16 px icon is 32 px from the
         // 32 px atlas, and the Start page's 32 px card icon 64 px from the 64 px atlas, sharp on a Retina display).
         std::printf("stardraft_editor: icons %d px from the %d px atlas, card icons %d px from the %d px atlas\n", kit::px(16),
@@ -555,8 +580,10 @@ int main(int argc, char** argv) {
 #endif
 
         // The game data (the map needs it), then the map from the command line.
-        std::string dataErr;
-        if (!noInstallArg && openInstall(installArg, dataErr)) gDataOk = true;
+        startLap("hooks");
+        const bool dataOpened = dataOpening.get();
+        startLap("game data (the rest)");
+        if (dataOpened) gDataOk = true;
         else {
             gDataError = "No StarCraft install found: choose the StarCraft folder, or start with --install <folder>, or STARDRAFT_INSTALL";
             if (!dataErr.empty()) gDataError += ". Game data: " + dataErr;
@@ -798,7 +825,9 @@ int main(int argc, char** argv) {
             ti.width = uint32_t(width), ti.height = uint32_t(height), ti.layer_count_or_depth = 1, ti.num_levels = 1;
             SDL_GPUTexture* tex = SDL_CreateGPUTexture(device, &ti);
             if (!tex) return std::fprintf(stderr, "snapshot texture: %s\n", SDL_GetError()), 1;
+            startLap("to the first frame");
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+            startLap("first frame");
             if (!trigSelArg.empty()) sdlTrigFocusFirstValue();  // (the pane's hit areas are the first frame's)
             if (trigPopArg != -1) sdlTrigPopShot(trigPopArg), host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             if (!ctArg.empty()) sdlClassicTrigPopShot(ctArg), host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
