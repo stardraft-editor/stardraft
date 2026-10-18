@@ -121,14 +121,15 @@ MenuModel buildMenuModel() {
         view.push_back(menuPopup(L"G&raphics", graphics));
     }
     view.push_back(menuSeparator());
-    menuCommand(view, "view.grid");
-    {  // the grid's size (GitHub feedback #87)
-        MenuModel sizes;
+    {  // Grid: Show grid, then the grid's sizes (GitHub feedback #87)
+        MenuModel grid;
+        menuCommand(grid, "view.grid");
+        grid.push_back(menuSeparator());
         for (int k = 0; k < int(std::size(kGridPresets)); ++k)
-            sizes.push_back(menuItem(ID_GRID_SIZE + k, std::wstring(kGridPresets[k].name) + L" (" + std::to_wstring(kGridPresets[k].px) + L" pixels)"));
-        sizes.push_back(menuSeparator());
-        sizes.push_back(menuItem(ID_GRID_CUSTOM, L"&Custom\x2026"));
-        view.push_back(menuPopup(L"Grid si&ze", sizes));
+            grid.push_back(menuItem(ID_GRID_SIZE + k, std::wstring(kGridPresets[k].name) + L" (" + std::to_wstring(kGridPresets[k].px) + L" pixels)"));
+        grid.push_back(menuSeparator());
+        grid.push_back(menuItem(ID_GRID_CUSTOM, L"&Custom\x2026"));
+        view.push_back(menuPopup(L"&Grid", grid));
     }
     view.push_back(menuSeparator());
     {  // what shows over the map: the town areas, the ranges, the pathing (core/pathing_layer.inc), the terrain flags

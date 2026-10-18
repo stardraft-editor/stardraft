@@ -2381,3 +2381,5 @@ Take the conditions out of Not	将条件移出“非”
 NOT: true when this condition is not true	NOT：此条件不成立时为真
 T&ools	工具(&O)
 Edit unit type in Map data (	在地图数据中编辑单位类型 (
+Back: the page before (Alt+Left)	后退：上一页 (Alt+Left)
+Forward: the page after (Alt+Right)	前进：下一页 (Alt+Right)

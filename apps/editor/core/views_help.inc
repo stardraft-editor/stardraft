@@ -29,9 +29,10 @@ public:
         list_.paintRow = [this](draw::Canvas& c, int i, draw::Rect r, stardraft::kit::RowState s) { paintRow(c, i, r, s); };
         list_.onSelect = [this] { pick(list_.cursor()); };
         list_.onActivate = [this](int i) { pick(i); };
-        back_.setText(L"Back");
-        back_.setTip(L"Go back to the page before");
-        back_.onClick = [this] { back(); };
+        back_ = stardraft::kit::IconButton(stardraft::kit::IconGlyph::ofIcon(int(UiIcon::Back)), stardraft::kit::IconStyle::Boxed,
+                                           L"Back: the page before (Alt+Left)", [this] { back(); });
+        forward_ = stardraft::kit::IconButton(stardraft::kit::IconGlyph::ofIcon(int(UiIcon::Forward)), stardraft::kit::IconStyle::Boxed,
+                                              L"Forward: the page after (Alt+Right)", [this] { forward(); });
         feedback_.setText(L"Send feedback about this page");
         feedback_.setTip(L"Tell the developers what is not correct or not clear on this page");
         feedback_.onClick = [this] {
@@ -47,7 +48,8 @@ public:
         add(search_, {});
         add(list_, {});
         add(scroll_, {});
-        for (auto* b : {&back_, &feedback_, &online_, &close_}) add(*b, {});
+        add(back_, {}), add(forward_, {});
+        for (auto* b : {&feedback_, &online_, &close_}) add(*b, {});
         fill();
     }
 
@@ -73,7 +75,7 @@ public:
     void show(const std::string& topic, bool remember = true) {
         stardraft::HelpTopic t = stardraft::helpSplitTopic(topic);
         if (!stardraft::helpPage(t.page)) t = {"index", ""};
-        if (remember && !page_.empty() && (t.page != page_ || t.anchor != anchor_)) history_.push_back(page_ + (anchor_.empty() ? "" : "#" + anchor_));
+        if (remember && !page_.empty() && (t.page != page_ || t.anchor != anchor_)) history_.push_back(here()), ahead_.clear();
         if (history_.size() > 50) history_.erase(history_.begin());
         const bool samePage = t.page == page_ && !html_.baseUrl().empty();
         page_ = t.page, anchor_ = t.anchor;
@@ -83,14 +85,25 @@ public:
         if (search_.text().empty()) selectPageRow();
         relayout();
     }
-    // Back: the page before (false: none).
+    // Back: the page before (false: none); the page shown goes to Forward's list.
     bool back() {
         if (history_.empty()) return false;
         const std::string t = history_.back();
         history_.pop_back();
+        ahead_.push_back(here());
         show(t, false);
         return true;
     }
+    // Forward: the page that Back left (false: none).
+    bool forward() {
+        if (ahead_.empty()) return false;
+        const std::string t = ahead_.back();
+        ahead_.pop_back();
+        history_.push_back(here());
+        show(t, false);
+        return true;
+    }
+    std::string here() const { return page_ + (anchor_.empty() ? "" : "#" + anchor_); }
 
     const std::string& page() const { return page_; }
     const std::string& anchor() const { return anchor_; }
@@ -139,13 +152,16 @@ public:
     // The buttons that show, in their order.
     std::vector<std::wstring> buttons() const {
         std::vector<std::wstring> out;
-        for (const auto* b : {&back_, &feedback_, &online_, &close_})
+        if (back_.enabled()) out.push_back(L"Back");
+        if (forward_.enabled()) out.push_back(L"Forward");
+        for (const auto* b : {&feedback_, &online_, &close_})
             if (b->visible() && b->enabled()) out.push_back(b->text());
         return out;
     }
 
     void paint(draw::Canvas& c) override {
         const int w = width(), h = height();
+        placeButtons(&c);  // (their widths on this canvas: the screen's fonts)
         c.fill({0, 0, w, h}, kPanel);
         const draw::Rect side = sideRect(), sr = scroll_.frame();
         c.fill({side.right, 0, side.right + 1, sr.bottom}, kBorder);
@@ -169,6 +185,7 @@ public:
         if (!e.down) return false;
         if (e.key == draw::Key::Escape && !(e.mods & (draw::kAlt | draw::kShift)) && !inWorkspace_) return close(), true;
         if (e.key == draw::Key::Left && (e.mods & draw::kAlt)) return back(), true;
+        if (e.key == draw::Key::Right && (e.mods & draw::kAlt)) return forward(), true;
         if (e.key == static_cast<draw::Key>('F') && (e.mods & draw::kCtrl)) {  // Ctrl+F: the search
             if (host()) host()->focus(search_.field());
             return true;
@@ -237,31 +254,42 @@ private:
         const int pad = scale(stardraft::kit::kDialogPad), bh = scale(stardraft::kit::kButtonH), gap = scale(stardraft::kit::kButtonGap);
         const draw::Rect side = sideRect();
         const int sh = scale(30);
-        search_.setFrame({side.left + scale(10), side.top + scale(10), side.right - scale(10), side.top + scale(10) + sh});
+        // Back and Forward, then the search, in one row at the top of the side bar.
+        const int ib = sh, top = side.top + scale(10);
+        back_.setFrame({side.left + scale(10), top, side.left + scale(10) + ib, top + sh});
+        forward_.setFrame({side.left + scale(14) + ib, top, side.left + scale(14) + 2 * ib, top + sh});
+        back_.setEnabled(!history_.empty()), forward_.setEnabled(!ahead_.empty());
+        search_.setFrame({side.left + scale(22) + 2 * ib, top, side.right - scale(10), top + sh});
         list_.setFrame({side.left, side.top + scale(10) + sh + scale(8), side.right, side.bottom});
         scroll_.setFrame({side.right + 1, 0, w, side.bottom});
-        draw::Canvas* m = shellMeasureCanvas();
+        const bool any = !stardraft::helpPages().empty();
+        feedback_.setVisible(any);
+        close_.setVisible(!inWorkspace_);
+        placeButtons(shellMeasureCanvas());
+        invalidate();
+    }
+    // The buttons under the page, at the right: their widths measured on `m` (paint measures them again on its own
+    // canvas, whose fonts are the screen's: a measuring canvas of another scale gave them too little room).
+    void placeButtons(draw::Canvas* m) {
+        const int w = width(), h = height();
+        const int pad = scale(stardraft::kit::kDialogPad), bh = scale(stardraft::kit::kButtonH), gap = scale(stardraft::kit::kButtonGap);
         auto bw = [&](const stardraft::kit::Button& b) {
             return m ? b.preferredWidth(*m) : std::max(scale(stardraft::kit::kButtonMinW), int(b.text().size()) * scale(8) + scale(32));
         };
         const int y = h - pad - bh;
-        back_.setEnabled(!history_.empty());
-        back_.setFrame({pad, y, pad + bw(back_), y + bh});
-        const bool any = !stardraft::helpPages().empty();
-        feedback_.setVisible(any);
-        close_.setVisible(!inWorkspace_);
         int x = w - pad;
         for (stardraft::kit::Button* b : {&close_, &online_, &feedback_}) {
             if (!b->visible()) continue;
             const int bwid = bw(*b);
-            b->setFrame({x - bwid, y, x, y + bh});
+            const draw::Rect r{x - bwid, y, x, y + bh}, f = b->frame();
+            if (f.left != r.left || f.top != r.top || f.right != r.right || f.bottom != r.bottom) b->setFrame(r);
             x -= bwid + gap;
         }
-        invalidate();
     }
 
     std::string page_, anchor_;
     std::vector<std::string> history_;  // the topics before, the newest last (Back)
+    std::vector<std::string> ahead_;    // the topics that Back left, the nearest last (Forward)
     std::vector<stardraft::HelpHit> hits_;
     bool pendingAnchor_ = false;  // the page's place is to be shown once the page is laid out
     bool inWorkspace_ = false;
@@ -269,5 +297,6 @@ private:
     stardraft::kit::ListView list_;
     stardraft::kit::ScrollView scroll_;
     stardraft::html::HtmlView html_;
-    stardraft::kit::Button back_, feedback_, online_, close_;
+    stardraft::kit::IconButton back_, forward_;
+    stardraft::kit::Button feedback_, online_, close_;
 };
