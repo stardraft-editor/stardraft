@@ -17,6 +17,7 @@ enum : int {
     ID_PLAYER_1 = 600,  // + player index, keys 1-9
     ID_QUICKPICK = 660,
     ID_QUICKOPEN = 661,
+    ID_CAMPAIGN_NEW = 663, ID_CAMPAIGN_OPEN, ID_CAMPAIGN_SHOW,  // File > Campaign (roadmap R25: core/views_campaign.inc)
     ID_TRIG_FIND = 662,  // Edit > Find in triggers (Ctrl+Shift+F): the Triggers workspace and the Classic triggers page (roadmap R60)  // File > Quick open (Ctrl+Shift+O): an open tab, a recent project or map
     ID_PROJ_NEW = 700, ID_PROJ_OPEN, ID_PROJ_COMPILE, ID_PROJ_FOLDER, ID_PROJ_ADDSCRIPT, ID_PROJ_SETTINGS, ID_PROJ_FROMMAP,
     ID_WS_MAP = 720, ID_WS_DATA, ID_WS_TRIGGERS, ID_WS_ASSETS, ID_WS_PROJECT, ID_WS_BRIEFING, ID_WS_FILES,

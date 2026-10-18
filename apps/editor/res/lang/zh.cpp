@@ -2351,6 +2351,20 @@ constexpr UiText kRows[] = {
     {L"No doodad fits the terrain there", L"\u90A3\u91CC\u6CA1\u6709\u9002\u5408\u5730\u5F62\u7684\u88C5\u9970\u7269"},
     {L"Decorate with doodads", L"\u7528\u88C5\u9970\u7269\u88C5\u9970"},
     {L"After the terrain, put doodads where they fit the terrain", L"\u751F\u6210\u5730\u5F62\u540E\uFF0C\u5728\u9002\u5408\u7684\u4F4D\u7F6E\u653E\u7F6E\u88C5\u9970\u7269"},
+    {L"&Campaign", L"\u6218\u5F79(&C)"},
+    {L"&New campaign\u2026", L"\u65B0\u5EFA\u6218\u5F79(&N)\u2026"},
+    {L"&Open campaign\u2026", L"\u6253\u5F00\u6218\u5F79(&O)\u2026"},
+    {L"&Show the campaign", L"\u663E\u793A\u6218\u5F79(&S)"},
+    {L"Add the open map", L"\u6DFB\u52A0\u5DF2\u6253\u5F00\u7684\u5730\u56FE"},
+    {L"Add a map\u2026", L"\u6DFB\u52A0\u5730\u56FE\u2026"},
+    {L"Move up", L"\u4E0A\u79FB"},
+    {L"Move down", L"\u4E0B\u79FB"},
+    {L"Take out", L"\u79FB\u51FA"},
+    {L"Copy its data into the open map", L"\u5C06\u5176\u6570\u636E\u590D\u5236\u5230\u5DF2\u6253\u5F00\u7684\u5730\u56FE"},
+    {L"Copy its terrain into the open map", L"\u5C06\u5176\u5730\u5F62\u590D\u5236\u5230\u5DF2\u6253\u5F00\u7684\u5730\u56FE"},
+    {L"No maps yet: add the open map, or a map file", L"\u8FD8\u6CA1\u6709\u5730\u56FE\uFF1A\u6DFB\u52A0\u5DF2\u6253\u5F00\u7684\u5730\u56FE\u6216\u5730\u56FE\u6587\u4EF6"},
+    {L"Select or make a folder for the campaign", L"\u9009\u62E9\u6216\u65B0\u5EFA\u6218\u5F79\u6587\u4EF6\u5939"},
+    {L"Select the campaign's folder", L"\u9009\u62E9\u6218\u5F79\u6587\u4EF6\u5939"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

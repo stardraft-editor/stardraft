@@ -95,6 +95,7 @@
 #include "views_text_prompt.inc"
 #include "views_map_menu.inc"
 #include "views_quick_pick.inc"
+#include "views_campaign.inc"  // File > Campaign: the campaign's maps (roadmap R25)
 #include "views_trigger_quick.inc"  // Q in the trigger editors: Quick add (roadmap R61)
 #include "views_briefing.inc"
 #include "views_briefing_page.inc"  // the Briefing workspace's page (BriefingPageView; the SDL host is sdl_briefing.inc)

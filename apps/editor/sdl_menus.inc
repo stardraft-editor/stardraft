@@ -205,6 +205,9 @@ bool sdlRuns(int id) {
     case ID_HELP_UPDATES:  // Check for updates (sdl_updates.inc)
     case ID_EDIT_RENAME:  // the location's rename and the quick picker (sdl_map_dialogs.inc)
     case ID_QUICKPICK: return true;
+    case ID_CAMPAIGN_NEW:
+    case ID_CAMPAIGN_OPEN:
+    case ID_CAMPAIGN_SHOW: return true;
     case ID_TRIG_FIND: return gWorkspace == Workspace::Triggers || gWorkspace == Workspace::ClassicTriggers;
     case ID_HELP_ABOUT:  // (sdl_options.inc) and the links
     case ID_VIEW_KIT:

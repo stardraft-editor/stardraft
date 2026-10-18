@@ -44,6 +44,9 @@ bool editInWorkspace(int id) {
 }
 
 void trigQuickAdd();
+void campaignNew();
+void campaignOpen();
+void campaignShow();
 void trigFind();
 
 bool commandPortable(AppState& app, int id) {
@@ -77,6 +80,9 @@ bool commandPortable(AppState& app, int id) {
     if (gWorkspace == Workspace::Triggers && id == ID_QUICKPICK) return trigQuickAdd(), true;
     if (gWorkspace == Workspace::Triggers && id == ID_TRIG_FIND) return trigFind(), true;  // (core/views_trigger_quick.inc)  // Q: Quick add (core/views_trigger_quick.inc)
     if (id == ID_QUICKOPEN) return shellShowQuickPicker(false, true), true;
+    if (id == ID_CAMPAIGN_NEW) return campaignNew(), true;  // File > Campaign (core/views_campaign.inc)
+    if (id == ID_CAMPAIGN_OPEN) return campaignOpen(), true;
+    if (id == ID_CAMPAIGN_SHOW) return campaignShow(), true;
     if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax)) {
         const bool project = id >= ID_RECENT_PROJECT;
         auto& list = project ? gRecentProjects : gRecentMaps;

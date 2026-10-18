@@ -143,7 +143,7 @@ public:
         const UiIcon icons[] = {UiIcon::Map, UiIcon::Project, UiIcon::Folder, UiIcon::Assets};
         cardsEnabled_ = 0;
         for (int k = 0; k < 4; ++k) {
-            const bool enabled = k < 2;  // Campaign project and Mod project: later
+            const bool enabled = k < 3;  // Mod project: later (Campaign project: File > Campaign, roadmap R25)
             const Rect card{x1 + k * (cardW + gap), y, x1 + k * (cardW + gap) + cardW, y + cardH};
             const bool over = enabled && hot(card), focused = enabled && card_ == k && hasFocus();
             if (!enabled) c.roundBox(card, kReadOnly, kReadOnlyLine, float(scale(stardraft::kit::kRadius)));

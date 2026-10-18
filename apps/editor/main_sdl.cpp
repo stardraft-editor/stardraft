@@ -116,6 +116,7 @@
 #include "stardraft/dat_extras.h"
 #include "stardraft/dat_units.h"  // the converted values on the Data form (core/data_model.inc)
 #include "stardraft/help.h"  // the help pages (core/views_help.inc)
+#include "stardraft/campaign.h"
 #include "stardraft/editor.h"
 #include "stardraft/eud_project.h"
 #include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)
@@ -728,6 +729,16 @@ int main(int argc, char** argv) {
             else if (valueShot) shown = valueShot.get();
             else if (draw::View* notes = sdlChangelogShot(dialogArg, width, height)) shown = notes;  // html:<file>, changelog, changelog:offline (sdl_updates.inc)
             else if (draw::View* help = sdlHelpShot(dialogArg, width, height)) shown = help;  // help[:<topic>], help:search:<words> (sdl_help.inc)
+            else if (dialogArg.rfind("campaign:", 0) == 0) {  // campaign:<folder>: the Campaign window of that campaign (core/views_campaign.inc)
+                std::string cerr;
+                gCampaignOpen = gCampaign.load(fs::path(widen(dialogArg.substr(9))), cerr);
+                std::printf("campaign: %s, %zu maps%s\n", gCampaignOpen ? "opened" : "not opened", gCampaign.maps.size(), cerr.empty() ? "" : (" (" + cerr + ")").c_str());
+                gCampaignView.refresh();
+                const draw::Point sz = CampaignView::size();
+                width = sz.x, height = sz.y;
+                gCampaignView.setFrame({0, 0, width, height});
+                shown = &gCampaignView;
+            }
             // newpreview: the New page's larger preview of a generated map (the default choices, Generate) at 1200 x 900.
             std::unique_ptr<NewPreviewView> previewShot;
             stardraft::kit::Dialog previewDlg;
