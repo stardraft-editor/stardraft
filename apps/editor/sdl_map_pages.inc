@@ -904,6 +904,14 @@ void sdlMakeContent() {
     gSdlMapPages.invalidate();
 }
 
+// Map data's Units tab at unit type `type` (Unit properties' Edit unit type on a classic map).
+void sdlMapDataShowUnit(int type) {
+    setWorkspace(Workspace::ClassicSettings);
+    if (gSdlPage.kind != kSdlClassic || !gClassic) return;
+    sdlShowTab(kClassicUnits);
+    if (gSdlPage.classic[kClassicUnits]) gSdlPage.classic[kClassicUnits]->select(type);
+}
+
 // Map data: the tab that shows (the others are hidden).
 void sdlShowTab(int k) {
     if (gSdlPage.kind != kSdlClassic || !gClassic) return;

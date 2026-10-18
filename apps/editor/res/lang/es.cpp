@@ -2382,6 +2382,7 @@ constexpr UiText kRows[] = {
     {L"Take the conditions out of Not", L"Sacar las condiciones de No"},
     {L"NOT: true when this condition is not true", L"NOT: verdadero cuando esta condici\u00F3n no es verdadera"},
     {L"T&ools", L"&Herramientas"},
+    {L"Edit unit type in Map data (", L"Editar el tipo de unidad en Datos del mapa ("},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

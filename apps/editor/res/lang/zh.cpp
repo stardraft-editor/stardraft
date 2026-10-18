@@ -2382,6 +2382,7 @@ constexpr UiText kRows[] = {
     {L"Take the conditions out of Not", L"\u5C06\u6761\u4EF6\u79FB\u51FA\u201C\u975E\u201D"},
     {L"NOT: true when this condition is not true", L"NOT\uFF1A\u6B64\u6761\u4EF6\u4E0D\u6210\u7ACB\u65F6\u4E3A\u771F"},
     {L"T&ools", L"\u5DE5\u5177(&O)"},
+    {L"Edit unit type in Map data (", L"\u5728\u5730\u56FE\u6570\u636E\u4E2D\u7F16\u8F91\u5355\u4F4D\u7C7B\u578B ("},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }
