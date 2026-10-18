@@ -16,7 +16,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Ctrl+Shift+E | Export map image |
 | Ctrl+W | Close the tab |
 | Ctrl+Shift+W | Close all tabs |
-| Ctrl+Tab, Ctrl+Shift+Tab | The next tab, the tab before (macOS: also ⌘\` and ⇧⌘\`) |
+| Ctrl+Tab, Ctrl+Shift+Tab | The next tab, the tab before (macOS: also Command with the key left of 1, and with Shift) |
 | Ctrl+B | Build the map of the EUD project |
 | Ctrl+, | Program options |
 

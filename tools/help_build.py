@@ -387,6 +387,25 @@ footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid var(--line);
 """
 
 SEARCH_JS = """
+// On a Mac, the shortcuts in the page as the Mac shows them (as the program does: Ctrl+Shift+S is \u21e7\u2318S).
+(function () {
+  if (!/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) return;
+  var keys = {Backspace: "\u232b", Plus: "+", Minus: "-", Del: "\u2326", Tab: "\u21e5", Enter: "\u21a9", Esc: "\u238b",
+              Home: "\u2196", End: "\u2198", PgUp: "\u21de", PgDn: "\u21df", Left: "\u2190", Right: "\u2192", Up: "\u2191",
+              Down: "\u2193", Space: "Space"};
+  var re = /(^|[^A-Za-z0-9])((?:(?:Ctrl|Cmd|Shift|Alt)\\+)+)(Backspace|Plus|Minus|Del|Tab|Enter|Esc|Home|End|PgUp|PgDn|Left|Right|Up|Down|Space|click|wheel|drag|arrows|F\\d+|[^\\s])/g;
+  function mac(text) {
+    return text.replace(re, function (all, before, mods, key) {
+      var m = (/Alt\\+/.test(mods) ? "\u2325" : "") + (/Shift\\+/.test(mods) ? "\u21e7" : "") + (/(Ctrl|Cmd)\\+/.test(mods) ? "\u2318" : "");
+      var k = keys[key] || (/^(click|wheel|drag|arrows)$/.test(key) ? "-" + key : key.length == 1 ? key.toUpperCase() : key);
+      return before + m + k;
+    });
+  }
+  var main = document.querySelector("main");
+  if (!main) return;
+  var walk = document.createTreeWalker(main, NodeFilter.SHOW_TEXT), n;
+  while ((n = walk.nextNode())) if (/(Ctrl|Cmd|Shift|Alt)\\+/.test(n.nodeValue)) n.nodeValue = mac(n.nodeValue);
+})();
 (function () {
   var box = document.getElementById("search"), list = document.getElementById("pages"), pages = list.innerHTML;
   var index = null;

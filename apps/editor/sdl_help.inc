@@ -218,6 +218,6 @@ bool sdlHelpCheck(const std::string& what, std::string& out) {
     v.clickRow(0);
     out += "helplinks: the search \"cooldown\" has " + std::to_string(v.rows()) + " rows; the first, " + first + ", shows " + v.page() + "#" + v.anchor() +
            (first == "weapons-dat#weapon-cooldown" && v.anchor() == "weapon-cooldown" ? " (yes)" : " (WRONG)") + "\n";
-    out += "helplinks: the feedback names \"" + narrow(v.feedbackName()) + "\"" + (v.feedbackName() == L"Help page weapons-dat#weapon-cooldown: Weapons (weapons.dat)" ? " (yes)" : " (WRONG)") + "\n";
+    out += "helplinks: the feedback names \"" + narrow(v.feedbackName()) + "\"" + (v.feedbackName() == L"Help page: Weapons (weapons.dat)" ? " (yes)" : " (WRONG)") + "\n";
     return true;
 }

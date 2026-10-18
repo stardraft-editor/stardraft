@@ -3698,7 +3698,7 @@ def check_help_page(page, place, title, opened=None, rows="pages"):
                 return f"the first row is \"{h['row'][0][0]}\", the row {h['selected']} is selected (not {HELP_PAGES.index(page)})"
         if "Send feedback about this page" not in h["buttons"] or "Open in the browser" not in h["buttons"]:
             return f"the buttons are {h['buttons']}"
-        if h["feedback"] != "Help page " + page + ("#" + place if place else "") + ": " + title:
+        if h["feedback"] != "Help page: " + title:
             return f"the feedback names \"{h['feedback']}\""
         if h["links"] < 1:
             return "the page has no links to other help pages"
