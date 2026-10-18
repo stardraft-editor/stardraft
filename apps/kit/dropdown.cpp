@@ -359,6 +359,19 @@ bool Dropdown::mouse(const MouseEvent& e) {
 
 bool Dropdown::key(const KeyEvent& e) {
     if (!e.down || !enabled_) return false;
+    // The open list's keys come here where the system gives the keys to the window under the list (macOS: a pop-up
+    // window does not get the keyboard): the list takes them, and a letter or a digit is its typing (type to jump).
+    if (listOpen_ && list_) {
+        const int k = int(e.key);
+        const bool typed = !(e.mods & (draw::kCtrl | draw::kAlt)) && ((k >= 'A' && k <= 'Z') || (k >= '0' && k <= '9'));
+        if (typed) {
+            draw::TextEvent t;
+            t.utf8 = std::string(1, char(k >= 'A' && k <= 'Z' ? k - 'A' + 'a' : k));
+            list_->text(t);
+            return true;
+        }
+        if (list_->key(e)) return true;
+    }
     switch (e.key) {
     case Key::Up: step(-1); return true;
     case Key::Down:
