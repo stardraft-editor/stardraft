@@ -94,22 +94,10 @@ if ($test -or $preview -or $env:RELEASE_LINUX -eq 'on') {
 if ($hasZip) { exit 0 }  # (its Discord post went with the first run, or is posted again by hand)
 if ($test) { Write-Output "Test release $tag (a draft) is made: not posted in Discord."; exit 0 }
 if ($preview) { Write-Output "Preview $tag is out (a pre-release): not posted in Discord."; exit 0 }
-# Discord: one post in each channel that has a webhook (a webhook posts in its own channel only), with the screenshots
-# of this version's changelog section as files (at most 10). A post that does not go makes the run fail after the
-# release is out: post again in that channel with Actions > Post screenshots to Discord.
-$hooks = @($env:DISCORD_RELEASE_WEBHOOK, $env:DISCORD_GENERAL_WEBHOOK) | Where-Object { $_ }
-if (-not $hooks) { throw 'No Discord webhook (DISCORD_RELEASE_WEBHOOK, DISCORD_GENERAL_WEBHOOK): the release is out, not posted' }
+# Discord: in each channel that has a webhook (a webhook posts in its own channel only), the release's name and link,
+# then each screenshot of this version's changelog section as a message of its own with its text (at most 10): a link
+# alone shows no pictures in the channel. A post that does not go makes the run fail after the release is out: post
+# again in that channel with Actions > Post screenshots to Discord.
 $url = gh release view $tag --json url --jq .url
-@{ content = "**$title** is out: $url" } | ConvertTo-Json | Set-Content payload.json -Encoding utf8NoBOM
-$images = @(python3 -I tools/release.py notes $version --images)
-$failed = 0
-foreach ($hook in $hooks) {
-  $form = @('-sS', '--fail-with-body', '-F', 'payload_json=<payload.json')
-  for ($i = 0; $i -lt $images.Count; $i++) { $form += @('-F', "files[$i]=@$($images[$i])") }
-  curl @form $hook
-  if ($LASTEXITCODE -ne 0) {
-    $failed++
-    Write-Warning "The Discord post did not go to $(if ($hook -eq $env:DISCORD_RELEASE_WEBHOOK) { 'updates' } else { 'general' }) ($LASTEXITCODE)"
-  }
-}
-if ($failed) { throw "$failed Discord posts did not go: post again with Actions > Post screenshots to Discord" }
+python3 -I tools/release.py discord $version --title "$title" --url "$url"
+if ($LASTEXITCODE -ne 0) { throw "Discord posts did not go: post again with Actions > Post screenshots to Discord" }

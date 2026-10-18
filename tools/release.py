@@ -22,6 +22,11 @@ CI uses these (they need only Python and git):
                                 The release text: the version's changelog section, then the base section (the last
                                 one: what StarDraft is). With --tag, picture paths become addresses at that tag.
                                 --images: the version's picture files, one on each line (the Discord post).
+    discord <version> --title <t> --url <u> [--channel all|updates|general] [--screenshots-only]
+                                The Discord post (CI): in each channel with a webhook (DISCORD_RELEASE_WEBHOOK,
+                                DISCORD_GENERAL_WEBHOOK), "**<title>** is out: <url>", then each screenshot of the
+                                version's section as a message of its own with its text (a link alone shows no
+                                pictures). --screenshots-only: the screenshots without the first message.
     title <version>             "StarDraft 2 - v<version> (build <commit>)", the commit of HEAD (7 characters, as
                                 cmake/build_info.cmake writes it: Check for updates compares the two).
     ci-check <tag>              Before the tag's release: the tag is a version and the newest one, its section and
@@ -251,6 +256,80 @@ def cmd_notes(args):
         Path(out).write_text(text + "\n", encoding="utf-8")
     else:
         sys.stdout.buffer.write((text + "\n").encode("utf-8"))
+
+
+def image_alts(lines):
+    """The pictures of a section with their text: [(path, alt)], in their order, each one once."""
+    seen, out = set(), []
+    for m in re.finditer(r"!\[([^\]]*)\]\((images/[^)\s]+)\)", "\n".join(lines)):
+        if m.group(2) not in seen:
+            seen.add(m.group(2))
+            out.append((m.group(2), m.group(1)))
+    return out
+
+
+def discord_send(hook, content, file=None):
+    """One webhook message: its text, and a picture file as its attachment. Waits when Discord says to (429)."""
+    import urllib.error
+    import urllib.request
+    boundary = "----stardraft" + str(int(time.time() * 1000))
+    body = b""
+    def part(headers, data):
+        return (f"--{boundary}\r\n" + "".join(f"{h}\r\n" for h in headers) + "\r\n").encode() + data + b"\r\n"
+    body += part(['Content-Disposition: form-data; name="payload_json"', "Content-Type: application/json"],
+                 json.dumps({"content": content}).encode("utf-8"))
+    if file:
+        body += part([f'Content-Disposition: form-data; name="files[0]"; filename="{Path(file).name}"', "Content-Type: image/png"],
+                     Path(file).read_bytes())
+    body += f"--{boundary}--\r\n".encode()
+    for attempt in range(5):
+        req = urllib.request.Request(hook, data=body, method="POST",
+                                     headers={"Content-Type": f"multipart/form-data; boundary={boundary}", "User-Agent": "StarDraft release"})
+        try:
+            with urllib.request.urlopen(req, timeout=60):
+                return
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < 4:
+                try:
+                    wait = float(json.loads(e.read() or b"{}").get("retry_after", 2))
+                except ValueError:
+                    wait = 2
+                time.sleep(min(30, wait + 0.5))
+                continue
+            raise Fail(f"Discord: {e.code} {e.read()[:300]!r}")
+
+
+def cmd_discord(args):
+    version = args[0]
+    title, url = opt(args, "--title"), opt(args, "--url")
+    channel = opt(args, "--channel") or "all"
+    only_shots = "--screenshots-only" in args
+    if not only_shots and not (title and url):
+        raise Fail("discord needs --title and --url (or --screenshots-only)")
+    _, lines = section_of(version)
+    if lines is None:
+        raise Fail(f"docs/user/CHANGELOG.md has no section \"## {version}\"")
+    shots = [(CHANGELOG.parent / p, alt) for p, alt in image_alts(lines)[:MAX_IMAGES] if (CHANGELOG.parent / p).is_file()]
+    hooks = []
+    if channel in ("all", "updates") and os.environ.get("DISCORD_RELEASE_WEBHOOK"):
+        hooks.append(("updates", os.environ["DISCORD_RELEASE_WEBHOOK"]))
+    if channel in ("all", "general") and os.environ.get("DISCORD_GENERAL_WEBHOOK"):
+        hooks.append(("general", os.environ["DISCORD_GENERAL_WEBHOOK"]))
+    if not hooks:
+        raise Fail(f"no Discord webhook for {channel} (DISCORD_RELEASE_WEBHOOK, DISCORD_GENERAL_WEBHOOK)")
+    failed = []
+    for name, hook in hooks:
+        try:
+            if not only_shots:
+                discord_send(hook, f"**{title}** is out: {url}")
+            for f, alt in shots:  # (one message each: the pictures show in the channel, not only behind the link)
+                time.sleep(1)
+                discord_send(hook, alt, f)
+            print(f"posted in {name}: {'' if only_shots else 'the release and '}{len(shots)} screenshots")
+        except Fail as e:
+            failed.append(f"{name}: {e}")
+    if failed:
+        raise Fail("Discord posts that did not go (post again with Actions > Post screenshots to Discord):\n  " + "\n  ".join(failed))
 
 
 def cmd_title(args):
@@ -531,7 +610,7 @@ def opt(args, name):
     return args[args.index(name) + 1] if name in args and args.index(name) + 1 < len(args) else None
 
 
-COMMANDS = {"pending": (cmd_pending, 0), "notes": (cmd_notes, 1), "title": (cmd_title, 1), "ci-check": (cmd_ci_check, 1),
+COMMANDS = {"pending": (cmd_pending, 0), "notes": (cmd_notes, 1), "discord": (cmd_discord, 1), "title": (cmd_title, 1), "ci-check": (cmd_ci_check, 1),
             "check": (cmd_check, 1), "publish": (cmd_publish, 1), "shots": (cmd_shots, 1), "untag": (cmd_untag, 1)}
 
 
