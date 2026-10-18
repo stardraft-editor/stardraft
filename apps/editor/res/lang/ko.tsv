@@ -2230,3 +2230,15 @@ Walkable pocket of %d minitiles that no unit can use, at tile %d, %d	어떤 유�
 high ground	높은 지대
 low ground	낮은 지대
 middle ground	중간 지대
+&Documentation\tF1	설명서(&D)\tF1
+Search the help	도움말 검색
+No pages have these words	이 단어가 있는 페이지가 없습니다
+Go back to the page before	이전 페이지로 돌아갑니다
+Send feedback about this page	이 페이지에 대한 피드백 보내기
+Tell the developers what is not correct or not clear on this page	이 페이지에서 틀리거나 명확하지 않은 내용을 개발자에게 알립니다
+Open in the browser	브라우저에서 열기
+Open this page on the web	이 페이지를 웹에서 엽니다
+Contents	목차
+Help	도움말
+The help pages are not in this build. Open in the browser shows them on the web.	이 빌드에는 도움말 페이지가 없습니다. 브라우저에서 열기를 누르면 웹에서 볼 수 있습니다.
+Open the help page of this field (F1)	이 필드의 도움말 페이지를 엽니다 (F1)

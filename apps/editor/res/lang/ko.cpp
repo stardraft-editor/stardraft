@@ -2232,6 +2232,18 @@ constexpr UiText kRows[] = {
     {L"high ground", L"\uB192\uC740 \uC9C0\uB300"},
     {L"low ground", L"\uB0AE\uC740 \uC9C0\uB300"},
     {L"middle ground", L"\uC911\uAC04 \uC9C0\uB300"},
+    {L"&Documentation\tF1", L"\uC124\uBA85\uC11C(&D)\tF1"},
+    {L"Search the help", L"\uB3C4\uC6C0\uB9D0 \uAC80\uC0C9"},
+    {L"No pages have these words", L"\uC774 \uB2E8\uC5B4\uAC00 \uC788\uB294 \uD398\uC774\uC9C0\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4"},
+    {L"Go back to the page before", L"\uC774\uC804 \uD398\uC774\uC9C0\uB85C \uB3CC\uC544\uAC11\uB2C8\uB2E4"},
+    {L"Send feedback about this page", L"\uC774 \uD398\uC774\uC9C0\uC5D0 \uB300\uD55C \uD53C\uB4DC\uBC31 \uBCF4\uB0B4\uAE30"},
+    {L"Tell the developers what is not correct or not clear on this page", L"\uC774 \uD398\uC774\uC9C0\uC5D0\uC11C \uD2C0\uB9AC\uAC70\uB098 \uBA85\uD655\uD558\uC9C0 \uC54A\uC740 \uB0B4\uC6A9\uC744 \uAC1C\uBC1C\uC790\uC5D0\uAC8C \uC54C\uB9BD\uB2C8\uB2E4"},
+    {L"Open in the browser", L"\uBE0C\uB77C\uC6B0\uC800\uC5D0\uC11C \uC5F4\uAE30"},
+    {L"Open this page on the web", L"\uC774 \uD398\uC774\uC9C0\uB97C \uC6F9\uC5D0\uC11C \uC5FD\uB2C8\uB2E4"},
+    {L"Contents", L"\uBAA9\uCC28"},
+    {L"Help", L"\uB3C4\uC6C0\uB9D0"},
+    {L"The help pages are not in this build. Open in the browser shows them on the web.", L"\uC774 \uBE4C\uB4DC\uC5D0\uB294 \uB3C4\uC6C0\uB9D0 \uD398\uC774\uC9C0\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uBE0C\uB77C\uC6B0\uC800\uC5D0\uC11C \uC5F4\uAE30\uB97C \uB204\uB974\uBA74 \uC6F9\uC5D0\uC11C \uBCFC \uC218 \uC788\uC2B5\uB2C8\uB2E4."},
+    {L"Open the help page of this field (F1)", L"\uC774 \uD544\uB4DC\uC758 \uB3C4\uC6C0\uB9D0 \uD398\uC774\uC9C0\uB97C \uC5FD\uB2C8\uB2E4 (F1)"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
