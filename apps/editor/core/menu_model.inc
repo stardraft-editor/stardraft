@@ -128,6 +128,8 @@ MenuModel buildMenuModel() {
         menuCommands(overlays, "View/Pathing");
         overlays.push_back(menuSeparator());
         menuCommands(overlays, "View/Terrain flags");
+        overlays.push_back(menuSeparator());
+        menuCommands(overlays, "View/Fog");  // (core/fog_layer.inc)
         view.push_back(menuPopup(L"&Overlays", overlays));
     }
     {  // the map's layers that show (GitHub feedback #117)

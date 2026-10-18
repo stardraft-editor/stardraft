@@ -2339,6 +2339,9 @@ constexpr UiText kRows[] = {
     {L" trigger", L" disparador"},
     {L" triggers", L" disparadores"},
     {L"Click: what the check looks at (Help)", L"Clic: lo que comprueba la verificaci\u00F3n (Ayuda)"},
+    {L"&Fog of war of the selected player", L"&Niebla de guerra del jugador seleccionado"},
+    {L"Fog of war: what the selected player (the Units palette's) sees when the game starts", L"Niebla de guerra: lo que ve el jugador seleccionado (el de la paleta de unidades) al empezar la partida"},
+    {L"Fog of war is hidden", L"La niebla de guerra est\u00E1 oculta"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

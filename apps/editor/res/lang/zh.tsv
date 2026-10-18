@@ -2337,3 +2337,6 @@ Fold the triggers under the heading	折叠标题下的触发器
  trigger	 个触发器
  triggers	 个触发器
 Click: what the check looks at (Help)	单击：此检查查看的内容（帮助）
+&Fog of war of the selected player	所选玩家的战争迷雾(&F)
+Fog of war: what the selected player (the Units palette's) sees when the game starts	战争迷雾：游戏开始时所选玩家（单位面板的）能看到的范围
+Fog of war is hidden	战争迷雾已隐藏

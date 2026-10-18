@@ -271,6 +271,7 @@ std::vector<std::pair<int, uint16_t>> ghostTiles;  // doodad preview tiles, set 
 
 void syncMapUnitGraphics();
 void rangesScene(render::Scene& s, float dx = 0, float dy = 0);
+void addFogLayer(render::Scene& s);
 void tilesScene(render::Scene& s, float wx, float wy);
 
 // The units' paste ghost with the mouse at (wx, wy) in the map: each copied unit where a click puts it, and red when it
@@ -450,6 +451,7 @@ render::Scene buildScene() {
 
     terrainSelScene(s, wx, wy);  // Terrain selection (copy area)
 
+    addFogLayer(s);  // View > Overlays > Fog of war (core/fog_layer.inc)
     if (gShowRanges && app.mode == Mode::Units) rangesScene(s, moveDX, moveDY);  // (they follow a unit being moved)
 
     // Symmetry axes.

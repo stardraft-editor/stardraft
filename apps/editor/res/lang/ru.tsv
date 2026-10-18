@@ -2337,3 +2337,6 @@ Fold the triggers under the heading	Свернуть триггеры под з�
  trigger	 триггер
  triggers	 триггеров
 Click: what the check looks at (Help)	Щелчок: что проверяет проверка (Справка)
+&Fog of war of the selected player	&Туман войны выбранного игрока
+Fog of war: what the selected player (the Units palette's) sees when the game starts	Туман войны: что видит выбранный игрок (из палитры юнитов) в начале игры
+Fog of war is hidden	Туман войны скрыт

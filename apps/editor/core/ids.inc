@@ -52,6 +52,7 @@ enum : int {
     ID_VIEW_MINIMAP = 976,  // View > Show minimap (GitHub feedback #127)
     ID_VIEW_FLOATPAL = 1020,  // + int(Mode): View > Floating palettes (Roadmap R40: a mode's palette in a window of its own)
     ID_LAYER = 990,         // + View > Layers: 0 terrain, 1 doodads, 2 sprites, 3 units, 4 pathing; 5, 6 pathing shows the regions, the connected areas
+    ID_FOG = 1035,  // View > Overlays > Fog of war of the selected player (roadmap R32)
     ID_TERRAIN_FLAGS = 1030,  // + View > Overlays > Terrain flags: 0 walkable, 1 height, 2 blocks view, 3 buildable
     ID_SCEN_PATHCHECK = 997,  // Scenario > Check pathing (core/pathing_layer.inc)
     ID_RAIL_KEY = 1000,     // + n: Ctrl+1 to Ctrl+9, the n-th item of the side bar (the tab's mode: a classic map or a project)
