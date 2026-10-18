@@ -57,6 +57,18 @@ private:
     mutable std::vector<int> distances_;  // firstTransition_^2, filled on first use
 };
 
+// The diamond (rect-grid point with x + y even) nearest a map pixel: grid points are 64 px apart across, 32 down.
+void diamondAtPixel(int px, int py, int& x, int& y);
+
+// The diamonds StarEdit's brush paints: extent x extent diamonds around the diamond (x, y); an even extent grows down
+// and left, as StarEdit's does (IsomTerrain's placeIsomTerrain).
+std::vector<std::pair<int, int>> starEditBrushDiamonds(int x, int y, int extent);
+
+// StarEdit's brush at a map pixel: an odd extent is centered on the nearest diamond, an even one on the nearest corner
+// (the middle of starEditBrushDiamonds), so it moves in half-diamond steps; both are StarEdit's blocks, the same shape
+// wherever the brush is. (Half a diamond, one corner, is the 0.5 brush: not StarEdit's.)
+std::vector<std::pair<int, int>> starEditBrushAt(int px, int py, int extent);
+
 // A corner of the diamond grid (rect-grid point with x + y odd) and the terrain it should have.
 struct CornerValue {
     int x = 0, y = 0;
@@ -70,6 +82,9 @@ struct Brush {
     float size = 1;
     float sizeY = 0;  // its height, when it differs from its width (GitHub #113); 0: the same as size
     float height() const { return sizeY > 0 ? sizeY : size; }
+    // StarEdit's own brush: a diamond of whole diamonds, as wide as high. It paints starEditBrushDiamonds around the
+    // diamond nearest the cursor (the terrain core paints it as StarEdit does).
+    bool starEdit() const { return shape == Diamond && size >= 1 && size == float(int(size)) && height() == size; }
 };
 
 class IsomGrid {
@@ -83,8 +98,9 @@ public:
     bool rebuildFromTiles(Chk& chk, std::string& error);
 
     // Start a new terrain layer: sets DIM, ERA, ISOM (filled with `terrain`, as StarEdit does
-    // for a new map), and generates TILE + MTXM. The grid is then loaded from it.
-    bool create(Chk& chk, uint16_t width, uint16_t height, uint16_t era, uint16_t terrain, std::string& error);
+    // for a new map), and generates TILE + MTXM (the terrain core, from `tileset`, the era's). The grid is then loaded
+    // from it, with that tileset.
+    bool create(Chk& chk, uint16_t width, uint16_t height, uint16_t era, uint16_t terrain, const struct Tileset& tileset, std::string& error);
 
     // Paint `terrain` on the diamond centered at rect-grid point (x, y) (x + y must be even).
     // `brushSize` > 1 paints a larger diamond of brushSize x brushSize diamonds centered there.
@@ -121,8 +137,12 @@ public:
         if (rx >= 0 && ry >= 0 && rx < rectCols_ && ry < rectRows_ && size_t(ry) * rectCols_ + rx < dirtyRects_.size()) dirtyRects_[size_t(ry) * rectCols_ + rx] = 1;
     }
 
-    // Write ISOM back to the chk, and regenerate TILE + MTXM for the changed area.
+    // Write ISOM back to the chk, and regenerate TILE + MTXM for the changed area (with the tileset when it is set:
+    // regenerateTiles through the terrain core).
     bool store(Chk& chk, std::string& error);
+    // The map's tileset: store's tiles and the checks of which tiles fit come from its CV5 (the terrain core's tables,
+    // IsomTiles); none: no tiles can be made (store fails).
+    void setTileset(const struct Tileset* tileset);
 
     int rectCols() const { return rectCols_; }
     int rectRows() const { return rectRows_; }
@@ -150,7 +170,7 @@ private:
     // `stacks`: also require cliff pieces that can stack with the rects above and below.
     // `grow` false: never sets a corner to `prefer` (the painted terrain), so it cannot spread it.
     bool fixRectMinimal(int rx, int ry, uint16_t prefer, bool stacks = false, bool grow = true);
-    // Can some tile for this rect sit under some tile for the rect above (learned candidates)?
+    // Can some tile for this rect sit under some tile for the rect above (the CV5 groups StarEdit picks for each)?
     bool stacksWithAbove(int rx, int ry) const;
     bool pushRect(int rx, int ry) { uint16_t t = sourceNear(rx, ry); return t && pushRectToward(rx, ry, t); }
     void encodeDirty();
@@ -165,6 +185,8 @@ private:
     uint16_t sourceAt(int x, int y) const { return source_[size_t(y + 1) * (rectCols_ + 3) + (x + 1)]; }
 
     const IsomTerrainTable* table_ = nullptr;
+    const struct Tileset* tileset_ = nullptr;
+    const class IsomTiles* tiles_ = nullptr;  // (tileset_'s)
     uint16_t era_ = 0;
     int mapWidth_ = 0, mapHeight_ = 0;  // tiles
     int rectCols_ = 0, rectRows_ = 0;   // width/2 + 1, height + 1
@@ -175,32 +197,25 @@ private:
     std::vector<uint8_t> dirtyRects_;   // per rect
 };
 
-// Regenerate TILE (and MTXM) values for tiles in the given rects from ISOM, top-down,
-// continuing downward in each column while results differ from the existing tiles
-// (cliff pieces stack vertically). Uses corpus-learned rules; returns false if the
-// tileset has no rules.
-bool regenerateTiles(Chk& chk, const std::vector<uint8_t>& dirtyRects, std::string& error);
-// How regenerateTiles found its tiles since the last reset (for tests and paint_stress): from the rules, predicted for a
-// combination the rules lack, or not at all (the old tile stays: a visible glitch).
-struct TileRegenStats {
-    long chosen = 0, predicted = 0, unknown = 0;
-};
-TileRegenStats& tileRegenStats();
-// Tiles that do not fit the tile above them (a cliff stack) or to their left (an edge pair Blizzard's maps never have):
-// seen as glitches. `where` gets their tile positions (x, y) when given.
-int countTileMisfits(const Chk& chk, std::vector<std::pair<int, int>>* where = nullptr);
+// TILE and MTXM of the given rects (per ISOM rect, row-major) made again from the ISOM by the terrain core (IsomCore::
+// retile): StarEdit's tiles, from the tileset's CV5, down the cliff stacks under them. A rect that no tile group fits
+// keeps its tiles. False when the tileset is not the map's.
+bool regenerateTiles(Chk& chk, const std::vector<uint8_t>& dirtyRects, const struct Tileset& tileset, std::string& error);
+// Tiles that do not fit by the tileset's CV5 (IsomTiles): a tile under one it cannot stack under, rects side by side
+// that share no diamond shape. None on Blizzard's maps; seen as glitches. `where` gets their tile positions (x, y).
+int countTileMisfits(const Chk& chk, const struct Tileset& tileset, std::vector<std::pair<int, int>>* where = nullptr);
 
 // Tiles placed as they are (rectangular terrain, roadmap N.7) are in TILE and MTXM, and the ISOM does not give them.
 // The terrain correction (store, regenerateTiles) keeps such a tile unless an edit changes the ISOM of its own rect.
-// tileFromIsom: could the ISOM have given TILE's tile at (tx, ty) (a group Blizzard's maps use for its rect)?
-bool tileFromIsom(const Chk& chk, int tx, int ty);
-bool tileFromIsom(const Chk& chk, const struct TerrainLayer& tile, int tx, int ty);  // with TILE read already
+// tileFromIsom: could the ISOM have given TILE's tile at (tx, ty)? By the tileset's CV5: a group StarEdit picks for its
+// rect, or a cliff piece under the stack above.
+bool tileFromIsom(const Chk& chk, const struct TerrainLayer& tile, int tx, int ty, const struct Tileset& tileset);
 
-// Per tile group of the tileset (CV5 index < groupCount): the ISOM terrains Blizzard's maps use it with (from the
-// learned tile rules). A solid group has one, a transition two; {0, 0} when no Blizzard map uses it.
-std::vector<std::array<uint16_t, 2>> tileGroupTerrains(uint16_t era, size_t groupCount);
+// Per tile group of the tileset: the ISOM terrains StarEdit uses it with (the terrains at the corners of the rects it
+// picks the group for, from the CV5): a group of one terrain has one, a transition two; {0, 0} when none.
+std::vector<std::array<uint16_t, 2>> tileGroupTerrains(const struct Tileset& tileset);
 
-// Tile group Blizzard's maps use under solid `terrain` (from the learned tile rules), or -1.
-int solidTileGroup(uint16_t era, uint16_t terrain, int half = 0);  // half: 0 left, 1 right tile of a rect
+// The tile group StarEdit puts under solid `terrain` (from the CV5), or -1. half: 0 left, 1 right tile of a rect.
+int solidTileGroup(const struct Tileset& tileset, uint16_t terrain, int half = 0);
 
 }  // namespace stardraft

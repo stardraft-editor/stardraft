@@ -5,6 +5,7 @@
 #include "stardraft/isom.h"
 #include "stardraft/locations.h"
 #include "stardraft/strings.h"
+#include "stardraft/tileset.h"
 
 namespace stardraft {
 
@@ -139,9 +140,11 @@ bool createNewScenario(Chk& chk, const GameData& data, uint16_t width, uint16_t 
     strings.write(chk);
     writeLocations(chk, locations);
 
-    // Terrain: ISOM filled with `terrain`, TILE/MTXM generated from it.
+    // Terrain: ISOM filled with `terrain`, TILE/MTXM generated from it (StarEdit's new map, from the tileset's CV5).
+    Tileset tileset;
+    if (!tileset.load(data, era, error)) return false;
     IsomGrid grid;
-    return grid.create(chk, width, height, era, terrain, error);
+    return grid.create(chk, width, height, era, terrain, tileset, error);
 }
 
 }  // namespace stardraft

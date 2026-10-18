@@ -23,6 +23,7 @@
 #include "stardraft/classic_triggers.h"
 #include "stardraft/doodads.h"
 #include "stardraft/isom.h"
+#include "stardraft/isom_core.h"
 #include "stardraft/locations.h"
 #include "stardraft/map_file.h"
 #include "stardraft/sprites.h"
@@ -115,6 +116,9 @@ public:
 
     // --- Terrain --------------------------------------------------------------------------------
     bool canPaintTerrain() const { return isomOk_; }
+    // The terrain core (IsomCore) paints the brush where it can (on unless STARDRAFT_TERRAIN_CORE=0: the old engine
+    // only, to compare them while the core takes over; docs/dev/isom-terrain-plan.md).
+    static bool terrainCoreOn();
     // A brush stroke: begin once (one undo step), paint any number of times, end.
     void beginTerrainStroke();
     void paintTerrain(int px, int py, uint16_t terrain, int brushSize);
@@ -524,7 +528,23 @@ private:
         int width = 0, height = 0;         // pixels
     };
     // engine + store + commit; overPlaced: the tiles placed in Rectangle mode in the rects of the corners are made again
+    // (the brush: GitHub #143)
     bool applyTerrain(const std::vector<CornerValue>& corners, bool overPlaced = false);
+    // StarEdit's brush through the terrain core (IsomCore: IsomTerrain): `terrain` on extent x extent diamonds at the
+    // diamond nearest each symmetric point, then the tiles; the corner model (isom_) loads the result. The editor's
+    // undo, doodad and unit checks as applyTerrain's; it replaces the tiles placed in Rectangle mode as the brush does.
+    // False when nothing could be painted.
+    bool applyCoreBrush(int px, int py, uint16_t terrain, int extent);
+    // The terrain core's part of an edit: `paint` (on core_, loaded from the map), then the map takes its result as
+    // applyTerrain's does (one undo step, the doodads and units it breaks; a doodad stays while its terrain fits it).
+    // When it leaves a rect without a tile (IsomCore::untileable), `repair` makes the edit instead (the old engine).
+    // (x0, y0)-(x1, y1): the edit's grid area. overPlaced: the corners whose rects' placed tiles the core makes again.
+    bool applyCore(const std::function<bool()>& paint, const std::function<bool()>& repair, int x0, int y0, int x1, int y1,
+                   const std::vector<CornerValue>* overPlaced = nullptr);
+    // The old engine's part of an edit (IsomGrid::apply, then store): the corners and their grid area; overPlaced as
+    // applyTerrain's.
+    bool applyOld(const std::vector<CornerValue>& corners, int x0, int y0, int x1, int y1, bool overPlaced = false);
+    IsomCore core_;
     std::pair<int, int> mirror(int px, int py, int which) const;
     TerrainClip terrainClip_;
     struct TileClip {
@@ -586,6 +606,8 @@ private:
     // The tiles of rects that the corners touch and that the ISOM does not give (tiles placed in Rectangle mode, null
     // tiles) are made again from the ISOM on the next store (GitHub #143).
     void markPlacedTilesDirty(const std::vector<CornerValue>& corners);
+    // The rects of those corners whose tiles the ISOM does not give (x, y in the rect grid), by the map's tiles now.
+    std::vector<std::pair<int, int>> placedRects(const std::vector<CornerValue>& corners) const;
     void removeDoodads(const std::vector<int>& indices);  // DD2, overlay sprites, tiles back to TILE
     std::vector<int> placeableUnitsIn(const Rect& area) const;
     void pruneUnits(const std::vector<int>& wasPlaceable);

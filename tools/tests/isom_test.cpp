@@ -1,12 +1,15 @@
 // Validate the ISOM model on every map (all tilesets) under the given directories:
 //  1. decode + store without edits leaves ISOM/TILE/MTXM untouched
 //  2. every decoded diamond is a valid shape
-//  3. regenerating all of TILE from ISOM matches the original TILE
+//  3. regenerating all of TILE from ISOM (the terrain core: StarEdit's tiles from the tileset's CV5) matches the
+//     original TILE
 //  4. random paints leave no invalid diamonds and stack-consistent tiles
 //
-// usage: isom_test <maps dir> [more dirs, e.g. extracted campaign .chk files]
+// usage: isom_test <StarCraft install> <maps dir> [more dirs, e.g. extracted campaign .chk files]
 
+#include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -14,7 +17,9 @@
 #include <random>
 
 #include "stardraft/chk.h"
+#include "stardraft/game_data.h"
 #include "stardraft/isom.h"
+#include "stardraft/isom_core.h"
 #include "stardraft/map_file.h"
 #include "stardraft/terrain.h"
 #include "stardraft/tileset.h"
@@ -23,10 +28,14 @@ namespace fs = std::filesystem;
 using namespace stardraft;
 
 int main(int argc, char** argv) {
-    if (argc < 2) {
-        std::fprintf(stderr, "usage: isom_test <maps dir> [more dirs]\n");
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: isom_test <StarCraft install> <maps dir> [more dirs]\n");
         return 2;
     }
+    GameData data;
+    std::string dataErr;
+    if (!data.open(argv[1], dataErr)) return std::fprintf(stderr, "%s\n", dataErr.c_str()), 2;
+    Tileset tilesets[8];
     int maps = 0, failures = 0, perMaps[8] = {}, perFail[8] = {};
     size_t tilesTotal = 0, tilesSame = 0, perTotal[8] = {}, perSame[8] = {};
     // Blizzard's own maps (what the tile rules must reproduce): "(n)Name" maps outside a "ladder"
@@ -35,7 +44,7 @@ int main(int argc, char** argv) {
     int blizMaps[8] = {};
     std::mt19937 rng(1234);
     std::vector<fs::path> files;
-    for (int d = 1; d < argc; ++d)
+    for (int d = 2; d < argc; ++d)
         for (const auto& entry : fs::recursive_directory_iterator(argv[d])) files.push_back(entry.path());
     for (const auto& path : files) {
         std::string ext = path.extension().string();
@@ -54,8 +63,15 @@ int main(int argc, char** argv) {
         const IsomTerrainTable* table = IsomTerrainTable::forEra(era);
         std::string name = std::string(tilesetName(era)) + "  " + path.filename().string();
         const int failuresBefore = failures;
+        if (tilesets[era & 7].groups.empty() && !tilesets[era & 7].load(data, uint16_t(era & 7), err)) {
+            std::printf("TILESET FAIL %s: %s\n", name.c_str(), err.c_str());
+            ++failures;
+            continue;
+        }
+        const Tileset& tileset = tilesets[era & 7];
 
         IsomGrid grid;
+        grid.setTileset(&tileset);
         if (!grid.load(chk, err)) {
             std::printf("LOAD SKIP %s: %s\n", name.c_str(), err.c_str());  // e.g. a truncated ISOM section
             continue;
@@ -76,7 +92,7 @@ int main(int argc, char** argv) {
         // 3. full regeneration
         Chk regen = chk;
         std::vector<uint8_t> all(size_t(grid.rectCols()) * grid.rectRows(), 1);
-        if (!regenerateTiles(regen, all, err)) {
+        if (!regenerateTiles(regen, all, tileset, err)) {
             std::printf("REGEN FAIL %s: %s\n", name.c_str(), err.c_str());
             ++failures;
             perFail[era] += failures - failuresBefore;
@@ -115,6 +131,7 @@ int main(int argc, char** argv) {
         }
         Chk edited = chk;
         IsomGrid g2;
+        g2.setTileset(&tileset);
         g2.load(edited, err);
         for (int k = 0; k < 20; ++k) {
             int y = int(rng() % grid.rectRows()), x = int(rng() % grid.rectCols());

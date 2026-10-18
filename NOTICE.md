@@ -1,7 +1,7 @@
 # Third-party software and sources
 
-StarDraft is MIT-licensed (see LICENSE). It uses the projects below. They are not copied into this repository: the
-build downloads the libraries (CMakeLists.txt, FetchContent), and the documents and data are linked.
+StarDraft is MIT-licensed (see LICENSE). It uses the projects below. Except for IsomTerrain, they are not copied into
+this repository: the build downloads the libraries (CMakeLists.txt, FetchContent), and the documents and data are linked.
 
 ## Libraries
 
@@ -14,8 +14,13 @@ build downloads the libraries (CMakeLists.txt, FetchContent), and the documents 
 | libvpx | Decodes the game's WebM portraits | BSD-3-Clause | https://github.com/webmproject/libvpx |
 | litehtml | The HTML view (the release notes): lays out HTML and CSS | BSD-3-Clause | https://github.com/litehtml/litehtml |
 | Gumbo (in litehtml) | Parses the HTML for litehtml | Apache-2.0 | https://github.com/litehtml/litehtml/tree/master/src/gumbo |
+| IsomTerrain | The isometric terrain core: StarEdit's brush and tiles (`src/isom_core.cpp`) | MIT, Copyright (c) 2023 Justin F | https://github.com/TheNitesWhoSay/IsomTerrain |
 | Dear ImGui | stardraft-next's UI (the new shell's spike) | MIT | https://github.com/ocornut/imgui |
 | Noto Sans, Noto Sans KR, Noto Sans SC | The fonts (Latin, Korean, Chinese) on macOS and Linux; on Windows only Noto Sans, when Segoe UI is not there | SIL Open Font License 1.1 | https://github.com/notofonts |
+
+`third_party/IsomTerrain/` is IsomTerrain at one commit: its `IsomApi.h`, LICENSE, README and the test maps that its
+reference tests use, unchanged, and StarDraft's stand-ins for the two Chkdraft headers it includes
+(`third_party/IsomTerrain/STARDRAFT.md`).
 
 `third_party/libvpx/` holds only the build configuration that `tools/gen_libvpx.py` makes for libvpx (no libvpx code).
 

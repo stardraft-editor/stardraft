@@ -1,6 +1,7 @@
 #include "stardraft/editor.h"
 
 #include <climits>
+#include <cstdlib>
 #include <cstring>
 #include <tuple>
 #include "byteio.h"
@@ -153,6 +154,12 @@ bool Editor::newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terr
     selectedLocation_ = -1;
     reload();
     open_ = !tileset_.groups.empty();
+    // The terrain core makes the tiles as StarEdit's new map does (unless a rect no tile fits: then they stay).
+    if (open_ && terrainCoreOn() && core_.load(chk_, tileset_, error) && core_.fill(terrain) && !core_.untileable()) {
+        core_.store(chk_);
+        reload();
+    }
+    error.clear();
     modified_ = false;
     state_ = savedState_ = nextRevision();
     if (!open_) {
@@ -243,6 +250,7 @@ void Editor::reload() {
     }
     reloadTerrain();
     std::string err;
+    isom_.setTileset(tileset_.groups.empty() ? nullptr : &tileset_);  // (its tiles: StarEdit's, through the terrain core)
     isomOk_ = isom_.load(chk_, err);
     isomRebuilt_ = false;
     if (!isomOk_ && (!chk_.find("ISOM") || chk_.find("ISOM")->data.empty()))  // no ISOM: made from the tiles, so isometric painting works
@@ -449,7 +457,7 @@ void Editor::paintTerrain(int px, int py, uint16_t terrain, int brushSize) {
         for (int ty = std::max(0, int(py - hh) / 32); ty <= std::min(int(height_) - 1, int(py + hh) / 32); ++ty)
             for (int tx = std::max(0, int(px - hw) / 32); tx <= std::min(int(width_) - 1, int(px + hw) / 32); ++tx) {
                 const float dx = std::abs(tx * 32 + 16 - float(px)) / hw, dy = std::abs(ty * 32 + 16 - float(py)) / hh;
-                if (dx + dy <= 1.0f && size_t(ty) * width_ + tx < before.tiles.size() && !tileFromIsom(chk_, before, tx, ty))
+                if (dx + dy <= 1.0f && size_t(ty) * width_ + tx < before.tiles.size() && !tileFromIsom(chk_, before, tx, ty, tileset_))
                     isom_.markRectDirty(tx / 2, ty);
             }
         std::string err;
@@ -986,11 +994,71 @@ bool Editor::deleteDoodad(int index) {
     return true;
 }
 
+// The diamonds whose four corners `corners` sets, when they are all one terrain and those diamonds hold every corner
+// (the terrain core paints diamonds); else empty (a corner alone, as a half-size brush sets: the old engine paints it).
+static std::vector<std::pair<int, int>> wholeDiamonds(const IsomGrid& grid, const std::vector<CornerValue>& corners) {
+    std::set<std::pair<int, int>> set;
+    for (const auto& c : corners) {
+        if (c.terrain != corners.front().terrain) return {};
+        if (grid.isCorner(c.x, c.y)) set.insert({c.x, c.y});
+    }
+    auto whole = [&](int x, int y) {
+        return x >= 0 && y >= 0 && x < grid.rectCols() && y < grid.rectRows() && set.count({x - 1, y}) && set.count({x + 1, y}) &&
+               set.count({x, y - 1}) && set.count({x, y + 1});
+    };
+    std::set<std::pair<int, int>> diamonds;
+    for (auto [x, y] : set) {
+        bool held = false;
+        for (auto [dx, dy] : {std::pair{x - 1, y}, {x + 1, y}, {x, y - 1}, {x, y + 1}})
+            if (whole(dx, dy)) diamonds.insert({dx, dy}), held = true;
+        if (!held) return {};
+    }
+    return {diamonds.begin(), diamonds.end()};
+}
+
+bool Editor::applyCore(const std::function<bool()>& paint, const std::function<bool()>& repair, int x0, int y0, int x1, int y1,
+                       const std::vector<CornerValue>* overPlaced) {
+    std::string err;
+    if (!core_.load(chk_, tileset_, err)) return repair();
+    const std::vector<int> watch = placeableUnitsIn({x0 * 64 - 256, y0 * 32 - 256, x1 * 64 + 256, y1 * 32 + 256});
+    const std::vector<uint8_t> intact = doodadsIntact();
+    const TerrainLayer before = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
+    // (before the paint: the tiles that the ISOM did not give)
+    const std::vector<std::pair<int, int>> placed = overPlaced ? placedRects(*overPlaced) : std::vector<std::pair<int, int>>{};
+    if (!paint()) return false;
+    // A rect that no tile group fits (StarEdit's rule leaves the null tile there; on maps whose ISOM StarEdit would not
+    // make): the old engine makes this edit instead, as it keeps every rect tileable. The map is still as it was.
+    if (core_.untileable()) return repair();
+    // The brush's tiles replace the tiles placed in Rectangle mode where it paints, also where the ISOM did not change
+    // (GitHub #143): the core makes those rects' tiles again from the ISOM.
+    if (!placed.empty()) {
+        const size_t cols = size_t(width_) / 2 + 1;
+        std::vector<uint8_t> rects(cols * (size_t(height_) + 1), 0);
+        for (auto [rx, ry] : placed) rects[size_t(ry) * cols + size_t(rx)] = 1;
+        core_.retile(rects);
+    }
+    core_.store(chk_);
+    if (!isom_.load(chk_, err)) isomOk_ = false;  // (the core writes a full ISOM: this does not fail)
+    commit(true);
+    pruneDoodads(intact, &before);  // (a doodad stays while the terrain under it still fits it)
+    pruneUnits(watch);
+    return true;
+}
+
 bool Editor::applyTerrain(const std::vector<CornerValue>& corners, bool overPlaced) {
     if (!isomOk_ || corners.empty()) return false;
     // The repair around an edit stays within a few tiles of it.
     int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
     for (const auto& c : corners) x0 = std::min(x0, c.x), y0 = std::min(y0, c.y), x1 = std::max(x1, c.x), y1 = std::max(y1, c.y);
+    // Whole diamonds of one terrain: the terrain core paints them as StarEdit's brush would.
+    if (terrainCoreOn())
+        if (const auto diamonds = wholeDiamonds(isom_, corners); !diamonds.empty())
+            return applyCore([&] { return core_.paintDiamonds(diamonds, corners.front().terrain); },
+                             [&] { return applyOld(corners, x0, y0, x1, y1, overPlaced); }, x0, y0, x1, y1, overPlaced ? &corners : nullptr);
+    return applyOld(corners, x0, y0, x1, y1, overPlaced);
+}
+
+bool Editor::applyOld(const std::vector<CornerValue>& corners, int x0, int y0, int x1, int y1, bool overPlaced) {
     const std::vector<int> watch = placeableUnitsIn({x0 * 64 - 256, y0 * 32 - 256, x1 * 64 + 256, y1 * 32 + 256});
     const std::vector<uint8_t> intact = doodadsIntact();
     const TerrainLayer before = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
@@ -1004,19 +1072,25 @@ bool Editor::applyTerrain(const std::vector<CornerValue>& corners, bool overPlac
     return true;
 }
 
-void Editor::markPlacedTilesDirty(const std::vector<CornerValue>& corners) {
+std::vector<std::pair<int, int>> Editor::placedRects(const std::vector<CornerValue>& corners) const {
     const TerrainLayer tiles = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
     std::set<std::pair<int, int>> rects;
     for (const auto& c : corners)  // a corner gives the ISOM of the four rects around it
         for (int ry = c.y - 1; ry <= c.y; ++ry)
             for (int rx = c.x - 1; rx <= c.x; ++rx)
                 if (rx >= 0 && ry >= 0 && rx * 2 < int(width_) && ry < int(height_)) rects.insert({rx, ry});
+    std::vector<std::pair<int, int>> out;
     for (auto [rx, ry] : rects)
         for (int tx = rx * 2; tx <= rx * 2 + 1 && tx < int(width_); ++tx)
-            if (!tileFromIsom(chk_, tiles, tx, ry)) {
-                isom_.markRectDirty(rx, ry);
+            if (!tileFromIsom(chk_, tiles, tx, ry, tileset_)) {
+                out.push_back({rx, ry});
                 break;
             }
+    return out;
+}
+
+void Editor::markPlacedTilesDirty(const std::vector<CornerValue>& corners) {
+    for (auto [rx, ry] : placedRects(corners)) isom_.markRectDirty(rx, ry);
 }
 
 uint16_t Editor::terrainAt(int px, int py) const {
@@ -1025,14 +1099,55 @@ uint16_t Editor::terrainAt(int px, int py) const {
     return isom_.terrainAt(x, y);
 }
 
+bool Editor::terrainCoreOn() {
+    static const bool on = [] {
+        const char* v = std::getenv("STARDRAFT_TERRAIN_CORE");
+        return !(v && std::string(v) == "0");
+    }();
+    return on;
+}
+
+bool Editor::applyCoreBrush(int px, int py, uint16_t terrain, int extent) {
+    // Each symmetric point's block of diamonds (starEditBrushAt).
+    std::vector<std::vector<std::pair<int, int>>> blocks;
+    for (auto [x, y] : symmetricPoints(px, py)) {
+        auto block = starEditBrushAt(x, y, extent);
+        if (block.empty()) return false;
+        if (std::find(blocks.begin(), blocks.end(), block) == blocks.end()) blocks.push_back(std::move(block));
+    }
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    for (const auto& b : blocks)
+        for (auto [dx, dy] : b) x0 = std::min(x0, dx), y0 = std::min(y0, dy), x1 = std::max(x1, dx), y1 = std::max(y1, dy);
+    const int reach = 1;  // (in grid steps: the diamonds around the blocks)
+    // The same diamonds' corners: for the old engine and for the tiles placed in Rectangle mode that the brush replaces.
+    std::vector<CornerValue> corners;
+    for (auto [x, y] : symmetricPoints(px, py))
+        for (auto [cx, cy] : isom_.brushCorners(x, y, Brush{Brush::Diamond, float(extent)})) corners.push_back({cx, cy, terrain});
+    return applyCore(
+        [&] {
+            bool painted = false;
+            for (const auto& b : blocks) painted = core_.paintDiamonds(b, terrain) || painted;
+            return painted;
+        },
+        [&] { return applyOld(corners, x0 - reach, y0 - reach, x1 + reach, y1 + reach, true); }, x0 - reach, y0 - reach, x1 + reach,
+        y1 + reach, &corners);
+}
+
 bool Editor::paintBrush(int px, int py, uint16_t terrain, const Brush& brush) {
     if (!isomOk_) return false;
     bool own = !inStroke_;
     if (own) beginTerrainStroke();
-    std::vector<CornerValue> corners;
-    for (auto [x, y] : symmetricPoints(px, py))
-        for (auto [cx, cy] : isom_.brushCorners(x, y, brush)) corners.push_back({cx, cy, terrain});
-    bool ok = applyTerrain(corners, true);  // (the brush's tiles replace the tiles placed in Rectangle mode: GitHub #143)
+    bool ok;
+    // The brush's tiles replace the tiles placed in Rectangle mode where it paints (GitHub #143): overPlaced.
+    // StarEdit's own brush (a diamond of whole diamonds, as wide as high): the terrain core paints it as StarEdit does.
+    if (terrainCoreOn() && brush.starEdit()) {
+        ok = applyCoreBrush(px, py, terrain, int(brush.size));
+    } else {
+        std::vector<CornerValue> corners;
+        for (auto [x, y] : symmetricPoints(px, py))
+            for (auto [cx, cy] : isom_.brushCorners(x, y, brush)) corners.push_back({cx, cy, terrain});
+        ok = applyTerrain(corners, true);
+    }
     if (own) endTerrainStroke();
     return ok;
 }
@@ -1080,7 +1195,7 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
         const TileGroup* g = group(rx * 2, top);
         // Doodads keep their tiles: a doodad's tile is in MTXM (TILE has the terrain under it).
         if (!g || (tile.tiles[size_t(top) * w + rx * 2] >> 4) >= 1024 || (mtxm.tiles[size_t(top) * w + rx * 2] >> 4) >= 1024) continue;
-        if (!tileFromIsom(chk_, tile, rx * 2, top)) continue;                       // and placed tiles theirs
+        if (!tileFromIsom(chk_, tile, rx * 2, top, tileset_)) continue;                       // and placed tiles theirs
         std::vector<int> subs;
         const int cur = tile.tiles[size_t(top) * w + rx * 2] & 15;
         for (int s = 0; s < 16; ++s)
@@ -1093,7 +1208,7 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
             for (int tx = rx * 2; tx <= rx * 2 + 1 && tx < w; ++tx) {
                 if (ty > top && !stacked(tx, ty)) continue;
                 if (!hasSub(tx, ty, sub)) continue;
-                if ((tx != rx * 2 || ty != top) && !tileFromIsom(chk_, tile, tx, ty)) continue;  // placed tiles stay
+                if ((tx != rx * 2 || ty != top) && !tileFromIsom(chk_, tile, tx, ty, tileset_)) continue;  // placed tiles stay
                 size_t i = size_t(ty) * w + tx;
                 if ((mtxm.tiles[i] >> 4) >= 1024) continue;  // under a doodad: the doodad's tile stays
                 uint16_t v = uint16_t((tile.tiles[i] & 0xFFF0) | sub);
@@ -1120,7 +1235,7 @@ const std::vector<Editor::TileGroupEntry>& Editor::tileGroups() const {
     if (tileGroupsEra_ == int(era_) && !tileGroups_.empty()) return tileGroups_;
     tileGroups_.clear();
     tileGroupsEra_ = era_;
-    const auto terrains = tileGroupTerrains(era_, tileset_.groups.size());
+    const auto terrains = tileGroupTerrains(tileset_);
     // The doodad (and its row) that uses each group.
     std::vector<std::pair<int, int>> doodadOf(tileset_.groups.size(), {-1, 0});
     for (const auto& d : doodadTypes_.all())
@@ -1538,8 +1653,19 @@ bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX
 
     beginEdit();
     std::string err;
+    // The same tileset: the terrain core resizes as ScmDraft does (the terrain moved, the new ground filled, the edges
+    // between them made; the tiles that stay keep theirs). MTXM is TILE again: the doodads are placed again below.
+    // Else (a new tileset, or a rect no tile fits): the terrain is made again from its corners (below).
+    bool viaCore = terrainCoreOn() && era == era_ && core_.load(chk_, tileset_, err) && core_.resize(width, height, dx * 2, dy, fill) &&
+                   !core_.untileable();
+    if (viaCore) {
+        core_.store(chk_);
+        chk_.set("MTXM", chk_.effective("TILE"));
+    }
     IsomGrid fresh;
-    if (!fresh.create(chk_, width, height, era, fill, err)) {
+    Tileset otherTileset;  // (a new tileset's tiles: its CV5)
+    const bool tilesetReady = viaCore || era == era_ || otherTileset.load(data_, era, err);
+    if (!viaCore && (!tilesetReady || !fresh.create(chk_, width, height, era, fill, era == era_ ? tileset_ : otherTileset, err))) {
         {
             chk_ = restore(undo_.back());  // as before (inside a stroke: as before the stroke)
             if (!inStroke_) dropLastUndo();
@@ -1573,7 +1699,7 @@ bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX
     writeLocations(chk_, locs);
     reload();  // the new tileset, terrain and doodad types
     std::erase_if(corners, [&](const CornerValue& c) { return !isom_.isCorner(c.x, c.y); });
-    if (!isom_.apply(corners) || !isom_.store(chk_, err)) {
+    if (!viaCore && (!isom_.apply(corners) || !isom_.store(chk_, err))) {
         {
             chk_ = restore(undo_.back());  // as before (inside a stroke: as before the stroke)
             if (!inStroke_) dropLastUndo();
