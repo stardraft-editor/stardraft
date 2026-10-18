@@ -2344,6 +2344,13 @@ constexpr UiText kRows[] = {
     {L"Fog of war is hidden", L"\u6218\u4E89\u8FF7\u96FE\u5DF2\u9690\u85CF"},
     {L" actions deleted", L" \u4E2A\u52A8\u4F5C\u5DF2\u5220\u9664"},
     {L" conditions deleted", L" \u4E2A\u6761\u4EF6\u5DF2\u5220\u9664"},
+    {L"&Decorate the terrain", L"\u88C5\u9970\u5730\u5F62(&D)"},
+    {L"A &few doodads", L"\u5C11\u91CF\u88C5\u9970\u7269(&F)"},
+    {L"&Some doodads", L"\u4E00\u4E9B\u88C5\u9970\u7269(&S)"},
+    {L"&Many doodads", L"\u5927\u91CF\u88C5\u9970\u7269(&M)"},
+    {L"No doodad fits the terrain there", L"\u90A3\u91CC\u6CA1\u6709\u9002\u5408\u5730\u5F62\u7684\u88C5\u9970\u7269"},
+    {L"Decorate with doodads", L"\u7528\u88C5\u9970\u7269\u88C5\u9970"},
+    {L"After the terrain, put doodads where they fit the terrain", L"\u751F\u6210\u5730\u5F62\u540E\uFF0C\u5728\u9002\u5408\u7684\u4F4D\u7F6E\u653E\u7F6E\u88C5\u9970\u7269"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

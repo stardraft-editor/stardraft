@@ -2344,6 +2344,13 @@ constexpr UiText kRows[] = {
     {L"Fog of war is hidden", L"La niebla de guerra est\u00E1 oculta"},
     {L" actions deleted", L" acciones eliminadas"},
     {L" conditions deleted", L" condiciones eliminadas"},
+    {L"&Decorate the terrain", L"&Decorar el terreno"},
+    {L"A &few doodads", L"&Pocos doodads"},
+    {L"&Some doodads", L"&Algunos doodads"},
+    {L"&Many doodads", L"&Muchos doodads"},
+    {L"No doodad fits the terrain there", L"Ning\u00FAn doodad encaja en el terreno all\u00ED"},
+    {L"Decorate with doodads", L"Decorar con doodads"},
+    {L"After the terrain, put doodads where they fit the terrain", L"Despu\u00E9s del terreno, poner doodads donde encajan"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

@@ -423,6 +423,18 @@ void NewPageView::paint(draw::Canvas& c) {
         gy = sectionHeader(c, gx, gr, gy, rowH, L"Shape");
         for (auto& sl : shape) paintSliderRow(c, gx, gy, labelW, gr, sl, false), gy += rowH;
         gy += scale(8);
+        {  // Decorate with doodads (roadmap R37): after the terrain, doodads where they fit (Editor::decorate)
+            const draw::Rect row{gx, gy, gr, gy + rowH};
+            const int box = scale(16);
+            const bool over = hot(row);
+            kitpaint::drawCheckMark(c, {gx, gy + (rowH - box) / 2, gx + box, gy + (rowH + box) / 2}, decorate, over, true);
+            c.text({gx + box + scale(8), gy, gr, gy + rowH}, L"Decorate with doodads", kText, draw::kMiddle | draw::kEllipsis);
+            Hit hit;
+            hit.r = row, hit.click = [this] { decorate = !decorate, invalidate(); };
+            hit.tip = L"After the terrain, put doodads where they fit the terrain", hit.cursor = draw::Cursor::Hand;
+            hits.push_back(std::move(hit));
+            gy += rowH + scale(4);
+        }
         genRect = {gx, gTop, gr, gy};
         y = std::max(y, gy);
     } else {

@@ -2344,6 +2344,13 @@ constexpr UiText kRows[] = {
     {L"Fog of war is hidden", L"\uC804\uC7A5\uC758 \uC548\uAC1C\uAC00 \uC228\uACA8\uC84C\uC2B5\uB2C8\uB2E4"},
     {L" actions deleted", L"\uAC1C \uB3D9\uC791\uC744 \uC0AD\uC81C\uD588\uC2B5\uB2C8\uB2E4"},
     {L" conditions deleted", L"\uAC1C \uC870\uAC74\uC744 \uC0AD\uC81C\uD588\uC2B5\uB2C8\uB2E4"},
+    {L"&Decorate the terrain", L"\uC9C0\uD615 \uAFB8\uBBF8\uAE30(&D)"},
+    {L"A &few doodads", L"\uC7A5\uC2DD\uBB3C \uC870\uAE08(&F)"},
+    {L"&Some doodads", L"\uC7A5\uC2DD\uBB3C \uBCF4\uD1B5(&S)"},
+    {L"&Many doodads", L"\uC7A5\uC2DD\uBB3C \uB9CE\uC774(&M)"},
+    {L"No doodad fits the terrain there", L"\uADF8\uACF3\uC758 \uC9C0\uD615\uC5D0 \uB9DE\uB294 \uC7A5\uC2DD\uBB3C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4"},
+    {L"Decorate with doodads", L"\uC7A5\uC2DD\uBB3C\uB85C \uAFB8\uBBF8\uAE30"},
+    {L"After the terrain, put doodads where they fit the terrain", L"\uC9C0\uD615\uC744 \uB9CC\uB4E0 \uB4A4 \uC9C0\uD615\uC5D0 \uB9DE\uB294 \uACF3\uC5D0 \uC7A5\uC2DD\uBB3C\uC744 \uB193\uC2B5\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
