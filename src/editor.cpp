@@ -1016,31 +1016,23 @@ static std::vector<std::pair<int, int>> wholeDiamonds(const IsomGrid& grid, cons
     return {diamonds.begin(), diamonds.end()};
 }
 
-bool Editor::applyCore(const std::function<bool()>& paint, const std::function<bool()>& repair, int x0, int y0, int x1, int y1,
-                       const std::vector<CornerValue>* overPlaced) {
+bool Editor::applyCore(const std::function<bool()>& paint, const std::function<bool()>& repair, int x0, int y0, int x1, int y1) {
     std::string err;
     if (!core_.load(chk_, tileset_, err)) return repair();
     const std::vector<int> watch = placeableUnitsIn({x0 * 64 - 256, y0 * 32 - 256, x1 * 64 + 256, y1 * 32 + 256});
     const std::vector<uint8_t> intact = doodadsIntact();
     const TerrainLayer before = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
-    // (before the paint: the tiles that the ISOM did not give)
-    const std::vector<std::pair<int, int>> placed = overPlaced ? placedRects(*overPlaced) : std::vector<std::pair<int, int>>{};
+    // (The core makes the tiles of each diamond it paints again, also where its terrain does not change: the tiles
+    // placed in Rectangle mode there are replaced as StarEdit replaces them, GitHub #143.)
     if (!paint()) return false;
     // A rect that no tile group fits (StarEdit's rule leaves the null tile there; on maps whose ISOM StarEdit would not
     // make): the old engine makes this edit instead, as it keeps every rect tileable. The map is still as it was.
     if (core_.untileable()) return repair();
-    // The brush's tiles replace the tiles placed in Rectangle mode where it paints, also where the ISOM did not change
-    // (GitHub #143): the core makes those rects' tiles again from the ISOM.
-    if (!placed.empty()) {
-        const size_t cols = size_t(width_) / 2 + 1;
-        std::vector<uint8_t> rects(cols * (size_t(height_) + 1), 0);
-        for (auto [rx, ry] : placed) rects[size_t(ry) * cols + size_t(rx)] = 1;
-        core_.retile(rects);
-    }
     core_.store(chk_);
     if (!isom_.load(chk_, err)) isomOk_ = false;  // (the core writes a full ISOM: this does not fail)
     commit(true);
-    pruneDoodads(intact, &before);  // (a doodad stays while the terrain under it still fits it)
+    // The core does not check doodads: a doodad stays, with its tiles, while the terrain under it still fits it.
+    pruneDoodads(intact, &before);
     pruneUnits(watch);
     return true;
 }
@@ -1054,7 +1046,7 @@ bool Editor::applyTerrain(const std::vector<CornerValue>& corners, bool overPlac
     if (terrainCoreOn())
         if (const auto diamonds = wholeDiamonds(isom_, corners); !diamonds.empty())
             return applyCore([&] { return core_.paintDiamonds(diamonds, corners.front().terrain); },
-                             [&] { return applyOld(corners, x0, y0, x1, y1, overPlaced); }, x0, y0, x1, y1, overPlaced ? &corners : nullptr);
+                             [&] { return applyOld(corners, x0, y0, x1, y1, overPlaced); }, x0, y0, x1, y1);
     return applyOld(corners, x0, y0, x1, y1, overPlaced);
 }
 
@@ -1072,25 +1064,19 @@ bool Editor::applyOld(const std::vector<CornerValue>& corners, int x0, int y0, i
     return true;
 }
 
-std::vector<std::pair<int, int>> Editor::placedRects(const std::vector<CornerValue>& corners) const {
+void Editor::markPlacedTilesDirty(const std::vector<CornerValue>& corners) {
     const TerrainLayer tiles = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
     std::set<std::pair<int, int>> rects;
     for (const auto& c : corners)  // a corner gives the ISOM of the four rects around it
         for (int ry = c.y - 1; ry <= c.y; ++ry)
             for (int rx = c.x - 1; rx <= c.x; ++rx)
                 if (rx >= 0 && ry >= 0 && rx * 2 < int(width_) && ry < int(height_)) rects.insert({rx, ry});
-    std::vector<std::pair<int, int>> out;
     for (auto [rx, ry] : rects)
         for (int tx = rx * 2; tx <= rx * 2 + 1 && tx < int(width_); ++tx)
             if (!tileFromIsom(chk_, tiles, tx, ry, tileset_)) {
-                out.push_back({rx, ry});
+                isom_.markRectDirty(rx, ry);
                 break;
             }
-    return out;
-}
-
-void Editor::markPlacedTilesDirty(const std::vector<CornerValue>& corners) {
-    for (auto [rx, ry] : placedRects(corners)) isom_.markRectDirty(rx, ry);
 }
 
 uint16_t Editor::terrainAt(int px, int py) const {
@@ -1119,18 +1105,19 @@ bool Editor::applyCoreBrush(int px, int py, uint16_t terrain, int extent) {
     for (const auto& b : blocks)
         for (auto [dx, dy] : b) x0 = std::min(x0, dx), y0 = std::min(y0, dy), x1 = std::max(x1, dx), y1 = std::max(y1, dy);
     const int reach = 1;  // (in grid steps: the diamonds around the blocks)
-    // The same diamonds' corners: for the old engine and for the tiles placed in Rectangle mode that the brush replaces.
-    std::vector<CornerValue> corners;
-    for (auto [x, y] : symmetricPoints(px, py))
-        for (auto [cx, cy] : isom_.brushCorners(x, y, Brush{Brush::Diamond, float(extent)})) corners.push_back({cx, cy, terrain});
     return applyCore(
         [&] {
             bool painted = false;
             for (const auto& b : blocks) painted = core_.paintDiamonds(b, terrain) || painted;
             return painted;
         },
-        [&] { return applyOld(corners, x0 - reach, y0 - reach, x1 + reach, y1 + reach, true); }, x0 - reach, y0 - reach, x1 + reach,
-        y1 + reach, &corners);
+        [&] {  // (the old engine: the same diamonds' corners; the brush's tiles replace the placed tiles, GitHub #143)
+            std::vector<CornerValue> corners;
+            for (auto [x, y] : symmetricPoints(px, py))
+                for (auto [cx, cy] : isom_.brushCorners(x, y, Brush{Brush::Diamond, float(extent)})) corners.push_back({cx, cy, terrain});
+            return applyOld(corners, x0 - reach, y0 - reach, x1 + reach, y1 + reach, true);
+        },
+        x0 - reach, y0 - reach, x1 + reach, y1 + reach);
 }
 
 bool Editor::paintBrush(int px, int py, uint16_t terrain, const Brush& brush) {
