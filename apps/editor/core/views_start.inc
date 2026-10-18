@@ -20,8 +20,9 @@ const wchar_t* const kKindCards[] = {
 // The banner when no StarCraft install was found (the start page's top).
 const wchar_t* const kNoInstallText = L"Could not find StarCraft on your system.";
 
-const wchar_t* const kStartNotice = L"StarDraft 2 is alpha software. Errors can occur. Make backup copies of your projects and maps before you edit them. "
-                                    L"Your feedback makes StarDraft 2 better: right-click anything and select \"Report feedback on \x2026\".";
+// (two lines: what to do first, then how to give feedback)
+const wchar_t* const kStartNotice = L"StarDraft 2 is alpha software: back up your maps and projects before you edit them.\n"
+                                    L"Feedback helps: right-click anything and select \"Report feedback on \x2026\".";
 
 // A button of the start page that never takes the keyboard focus (the page's keys are its own: the cards).
 class StartButton final : public stardraft::kit::Button {

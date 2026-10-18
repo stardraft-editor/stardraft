@@ -1403,7 +1403,7 @@ constexpr UiText kRows[] = {
     {L"Make the map in this tab", L"Crear el mapa en esta pesta\u00F1a"},
     {L"Removed ", L"Se quit\u00F3 "},
     {L" from the list", L" de la lista"},
-    {L"StarDraft 2 is alpha software. Errors can occur. Make backup copies of your projects and maps before you edit them. Your feedback makes StarDraft 2 better: right-click anything and select \"Report feedback on \u2026\".", L"StarDraft 2 es un software alfa. Pueden ocurrir errores. Haga copias de seguridad de sus proyectos y mapas antes de editarlos. Sus comentarios mejoran StarDraft 2: haga clic con el bot\u00F3n derecho en cualquier elemento y seleccione \"Enviar comentarios sobre \u2026\"."},
+    {L"StarDraft 2 is alpha software: back up your maps and projects before you edit them.\nFeedback helps: right-click anything and select \"Report feedback on \u2026\".", L"StarDraft 2 es un software alfa: haga copias de seguridad de sus mapas y proyectos antes de editarlos.\nSus comentarios ayudan: haga clic con el bot\u00F3n derecho en cualquier elemento y seleccione \"Enviar comentarios sobre \u2026\"."},
     {L"Coming later", L"Pr\u00F3ximamente"},
     {L"Campaign projects come in a later version", L"Los proyectos de campa\u00F1a llegar\u00E1n en una versi\u00F3n posterior"},
     {L"Mod projects come in a later version", L"Los proyectos de mod llegar\u00E1n en una versi\u00F3n posterior"},
