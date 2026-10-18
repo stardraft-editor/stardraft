@@ -2183,6 +2183,14 @@ constexpr UiText kRows[] = {
     {L"The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.", L"\uB9C8\uB984\uBAA8\uB294 \uB9F5\uC758 \uB9C8\uB984\uBAA8 \uBAA8\uC591\uC744 \uAC00\uC9D1\uB2C8\uB2E4: \uB192\uC774\uB294 \uD06C\uAE30\uB97C \uB530\uB985\uB2C8\uB2E4. \uB192\uC774\uB97C \uC815\uD558\uB824\uBA74 \uC815\uC0AC\uAC01\uD615\uC774\uB098 \uC6D0\uC744 \uC120\uD0DD\uD558\uC2ED\uC2DC\uC624."},
     {L"The diamond has the shape of the map's diamonds: its height follows its size.", L"\uB9C8\uB984\uBAA8\uB294 \uB9F5\uC758 \uB9C8\uB984\uBAA8 \uBAA8\uC591\uC744 \uAC00\uC9D1\uB2C8\uB2E4: \uB192\uC774\uB294 \uD06C\uAE30\uB97C \uB530\uB985\uB2C8\uB2E4."},
     {L"Brush height: the diamond has the shape of the map's diamonds, so its height follows its size. To set the height, select the square or the circle.", L"\uBE0C\uB7EC\uC2DC \uB192\uC774: \uB9C8\uB984\uBAA8\uB294 \uB9F5\uC758 \uB9C8\uB984\uBAA8 \uBAA8\uC591\uC744 \uAC00\uC9C0\uBBC0\uB85C \uB192\uC774\uB294 \uD06C\uAE30\uB97C \uB530\uB985\uB2C8\uB2E4. \uB192\uC774\uB97C \uC815\uD558\uB824\uBA74 \uC815\uC0AC\uAC01\uD615\uC774\uB098 \uC6D0\uC744 \uC120\uD0DD\uD558\uC2ED\uC2DC\uC624."},
+    {L"&Floating terrain palette", L"\uB5A0 \uC788\uB294 \uC9C0\uD615 \uD314\uB808\uD2B8(&F)"},
+    {L"Terrain palette", L"\uC9C0\uD615 \uD314\uB808\uD2B8"},
+    {L"Dock", L"\uB3C4\uD0B9"},
+    {L"Put the palette back in the side bar", L"\uD314\uB808\uD2B8\uB97C \uC0AC\uC774\uB4DC\uBC14\uB85C \uB418\uB3CC\uB9BD\uB2C8\uB2E4"},
+    {L"The terrain palette is in its own window", L"\uC9C0\uD615 \uD314\uB808\uD2B8\uAC00 \uBCC4\uB3C4 \uCC3D\uC5D0 \uC788\uC2B5\uB2C8\uB2E4"},
+    {L"Moved the terrain palette to its own window", L"\uC9C0\uD615 \uD314\uB808\uD2B8\uB97C \uBCC4\uB3C4 \uCC3D\uC73C\uB85C \uC62E\uACBC\uC2B5\uB2C8\uB2E4"},
+    {L"The terrain palette shows in its own window in Terrain mode", L"\uC9C0\uD615 \uBAA8\uB4DC\uC5D0\uC11C \uC9C0\uD615 \uD314\uB808\uD2B8\uAC00 \uBCC4\uB3C4 \uCC3D\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4"},
+    {L"Docked the terrain palette", L"\uC9C0\uD615 \uD314\uB808\uD2B8\uB97C \uB3C4\uD0B9\uD588\uC2B5\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

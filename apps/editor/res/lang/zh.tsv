@@ -2180,3 +2180,11 @@ Added unit 	已添加单位
 The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.	菱形与地图的菱形形状相同：其高度随大小变化。要设置高度，请选择正方形或圆形。
 The diamond has the shape of the map's diamonds: its height follows its size.	菱形与地图的菱形形状相同：其高度随大小变化。
 Brush height: the diamond has the shape of the map's diamonds, so its height follows its size. To set the height, select the square or the circle.	画笔高度：菱形与地图的菱形形状相同，因此其高度随大小变化。要设置高度，请选择正方形或圆形。
+&Floating terrain palette	浮动地形调色板(&F)
+Terrain palette	地形调色板
+Dock	停靠
+Put the palette back in the side bar	将调色板放回侧栏
+The terrain palette is in its own window	地形调色板在单独的窗口中
+Moved the terrain palette to its own window	已将地形调色板移到单独的窗口
+The terrain palette shows in its own window in Terrain mode	在地形模式下，地形调色板显示在单独的窗口中
+Docked the terrain palette	已停靠地形调色板

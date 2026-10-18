@@ -51,7 +51,7 @@ struct SdlHost::Win {
     SDL_WindowID shotBase = 0;
     Rect shotAt;
     bool popup() const { return kind == WindowKind::Popup || kind == WindowKind::Menu; }
-    bool transient() const { return kind != WindowKind::Dialog; }
+    bool transient() const { return kind != WindowKind::Dialog && kind != WindowKind::Tool; }
 };
 
 namespace {
@@ -355,6 +355,15 @@ void SdlHost::snapshot(draw::View& root, SDL_GPUTexture* target, int w, int h, S
             canvas.popView();
         }
     }
+    if (const Win* base = rootWin(root); base && !base->sdl) {  // a snapshot's tool windows (a floating palette), over their opener
+        ImguiCanvas canvas(*list, device_);
+        for (const auto& t : wins_)
+            if (!t->sdl && t->kind == WindowKind::Tool && t->shotBase == base->id) {
+                canvas.pushView(t->shotAt);
+                t->root->paintAll(canvas);
+                canvas.popView();
+            }
+    }
     ImGui::Render();
     SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device_);
     submit(device_, *list, w, h, cmd, target);
@@ -512,6 +521,27 @@ void SdlHost::snapshotTimers(int ms) {
         if (SDL_GetTicks() >= end) break;
         SDL_Delay(1);
     } while (true);
+}
+
+void SdlHost::snapshotClose(const draw::View& content) {
+    const Win* w = rootWin(content);
+    if (!w || w->sdl) return;
+    SDL_Event e{};
+    e.type = SDL_EVENT_WINDOW_CLOSE_REQUESTED;
+    e.window.windowID = w->id;
+    dispatch(e);
+}
+
+void SdlHost::snapshotScaleChanged(const draw::View& content, float s) {
+    const Win* w = rootWin(content);
+    if (!w || w->sdl) return;
+    const float was = gTestDisplayScale;
+    gTestDisplayScale = s;
+    SDL_Event e{};
+    e.type = SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED;
+    e.window.windowID = w->id;
+    dispatch(e);
+    gTestDisplayScale = was;
 }
 
 void SdlHost::snapshotInputEnd() {
@@ -712,7 +742,8 @@ void SdlHost::dismissPopupsExcept(SDL_WindowID keep) {
 void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::WindowSpec& spec, std::function<void()> closed) {
     Win* parent = rootWin(from);
     if (parent && !parent->sdl && spec.kind != WindowKind::Menu) {
-        // A dialog or pop-out from a snapshot's window: a snapshot's window too, in its own pixels (a tooltip: none).
+        // A dialog or pop-out from a snapshot's window: a snapshot's window too, in its own pixels (a tooltip: none). A
+        // tool window is placed as a pop-out: at its place over the opener's window (the mouse goes to it there).
         if (spec.kind == WindowKind::Tooltip) return;
         auto w = std::make_unique<Win>();
         w->id = nextShotId();
@@ -741,7 +772,7 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
         // when the call returns.)
         const draw::View* top = &from;
         while (top->parent()) top = top->parent();
-        if (top->host() != this || spec.kind != WindowKind::Menu) return;
+        if (top->host() != this || (spec.kind != WindowKind::Menu && spec.kind != WindowKind::Tool)) return;
         const Point o = from.origin();
         const int w = std::max(1, spec.at.width()), h = std::max(1, spec.at.height());
         const int x = std::clamp(o.x + spec.at.left, 0, std::max(0, top->width() - w)), y = std::clamp(o.y + spec.at.top, 0, std::max(0, top->height() - h));
@@ -765,6 +796,20 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
         SDL_GetWindowSize(parent->sdl, &pwl, &phl);
         SDL_GetWindowSize(sdl, &dw, &dh);
         SDL_SetWindowPosition(sdl, px + (pwl - dw) / 2, py + (phl - dh) / 2);
+    } else if (spec.kind == WindowKind::Tool) {
+        // A tool window: a window of its own over its opener (a utility window: no task bar button), at `spec.at` in
+        // the opener's view; the user moves it and changes its size.
+        std::wstring shownTitle;  // (uiText)
+        sdl = SDL_CreateWindow(utf8Text(uiText(spec.title, shownTitle)).c_str(), 1, 1,
+                               SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_UTILITY |
+                                   (noActivate_ ? SDL_WINDOW_NOT_FOCUSABLE : 0));
+        if (!sdl) return;
+        sizeInPixels(sdl, width, height);
+        SDL_SetWindowParent(sdl, parent->sdl);
+        const Point o = from.origin();
+        int px = 0, py = 0;
+        SDL_GetWindowPosition(parent->sdl, &px, &py);
+        SDL_SetWindowPosition(sdl, px + toLogical(o.x + spec.at.left, parent->density), py + toLogical(o.y + spec.at.top, parent->density));
     } else {
         // A pop-out, menu or tooltip: at `spec.at` in the opener's view, in the parent window's logical points.
         const Point o = from.origin();
@@ -782,9 +827,19 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
         SDL_DestroyWindow(sdl);
         return;
     }
-    if (spec.kind == WindowKind::Dialog || spec.kind == WindowKind::Popup) setTyping(*w, true);  // (a menu's keys are keys)
-    if (spec.kind == WindowKind::Dialog && windowMade_) windowMade_(sdl);
-    SDL_ShowWindow(sdl);
+    if (spec.kind == WindowKind::Dialog || spec.kind == WindowKind::Popup || spec.kind == WindowKind::Tool) setTyping(*w, true);  // (a menu's keys are keys)
+    if ((spec.kind == WindowKind::Dialog || spec.kind == WindowKind::Tool) && windowMade_) windowMade_(sdl);
+    if (spec.kind == WindowKind::Tool) {
+        // A tool window does not take the keyboard when it shows (the user's keys stay in the window they type in).
+        const char* was = SDL_GetHint(SDL_HINT_WINDOW_ACTIVATE_WHEN_SHOWN);
+        const std::string before = was ? was : "";
+        SDL_SetHint(SDL_HINT_WINDOW_ACTIVATE_WHEN_SHOWN, "0");
+        SDL_ShowWindow(sdl);
+        if (was) SDL_SetHint(SDL_HINT_WINDOW_ACTIVATE_WHEN_SHOWN, before.c_str());
+        else SDL_ResetHint(SDL_HINT_WINDOW_ACTIVATE_WHEN_SHOWN);
+    } else {
+        SDL_ShowWindow(sdl);
+    }
     if (spec.kind == WindowKind::Dialog && !noActivate_) SDL_RaiseWindow(sdl);
     wins_.push_back(std::move(w));
 }
@@ -960,8 +1015,11 @@ void SdlHost::dispatch(const SDL_Event& e) {
         return;
     case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
         if (Win* w = findWin(wid)) {
-            applyScale(displayScale(w->sdl));  // (the views lay out at the new scale, even at the same pixel size)
-            resize(*w);
+            // (the views lay out at the new scale, even at the same pixel size). The scale is the program's: a tool
+            // window that stays on a screen of another scale (a floating palette) does not change it, the main window
+            // and the dialogs do.
+            if (w->kind != WindowKind::Tool) applyScale(displayScale(w->sdl));
+            if (w->sdl) resize(*w);  // (a snapshot's window keeps its size: snapshotScaleChanged)
         }
         for (const auto& w : wins_) w->dirty = true;
         return;
@@ -1036,7 +1094,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
         const bool taken = w->router->mouse(m);
         // A right click that no view of a dialog or a pop-out took: the program's hook (Report feedback).
         if (rightClick_ && !taken && m.kind == MouseKind::Up && button == 1 && wid != mainId_)
-            if (Win* now = findWin(wid); now && (now->kind == WindowKind::Dialog || now->kind == WindowKind::Popup))
+            if (Win* now = findWin(wid); now && (now->kind == WindowKind::Dialog || now->kind == WindowKind::Popup || now->kind == WindowKind::Tool))
                 rightClick_(*now->root, m.pt, now->title);
         // The cursor for what the press or release changed (a drag that starts or ends), before the mouse moves.
         if (Win* now = findWin(wid); now && now->kind != WindowKind::Tooltip) setCursor(now->router->cursor(now->mouse));

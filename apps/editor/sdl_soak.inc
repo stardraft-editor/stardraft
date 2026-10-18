@@ -17,6 +17,7 @@
 //   history            a line with the workspace's undo history (Edit > Undo history): the steps done (their names,
 //                      the newest first), the steps to redo and a hash of the map; then what the workspace holds
 //                      (the input lines' state)
+//   palette close      the floating terrain palette's window gets its close button's click (sdl_palette_float.inc)
 // "{n}" in a value is the number of the time over (1, 2, ...): roundtrip soak{n}.scx makes a new file each time.
 
 // The workspaces' names, in the order of the Workspace enum (--workspace, the script's workspace verb).
@@ -78,7 +79,7 @@ bool sdlReadScript(const std::string& spec, std::vector<std::pair<char, std::str
         {"key", 'k'},     {"type", 't'},    {"click", 'c'},     {"drag", 'd'},      {"lostdrag", 'l'},  {"move", 'm'},
         {"wheel", 'h'},   {"pinch", 'p'},   {"wait", 'w'},      {"command", 'C'},   {"mode", 'M'},      {"rect", 'Q'},
         {"workspace", 'W'}, {"open", 'O'},  {"roundtrip", 'R'}, {"undocheck", 'U'}, {"stats", 'S'}, {"minimap", 'P'},
-        {"history", 'H'}};
+        {"history", 'H'}, {"palette", 'F'}};
     std::vector<std::pair<char, std::string>> lines;
     int lineNo = 0;
     for (std::string line; std::getline(in, line);) {
@@ -332,6 +333,7 @@ bool sdlScriptStep(char kind, const std::string& value) {
         return true;
     }
     case 'S': sdlSoakStats(); return true;
+    case 'F': sdlFloatPaletteScript(value); return true;
     default: return false;  // (an input option's verb)
     }
 }

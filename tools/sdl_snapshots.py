@@ -296,6 +296,22 @@ CASES += [
     # While the Marine is picked for placing, Alt+click on the stack is the pipette (no list, no new unit).
     ("map-stack-pipette", ["--mode", "units", "--script", "{script:stackpipette}"], "map"),
 ]
+# The floating terrain palette (Roadmap R40; sdl_palette_float.inc): View > Floating terrain palette puts the Terrain
+# palette in a window of its own over the map (a snapshot shows it there); a pick in it paints with that terrain; the
+# map's keys (U, T) work while it has the keyboard, and it closes in another mode and opens again in Terrain mode; Dock
+# and its close button put it back in the side bar; in Rectangle mode it has the Tiles list. After each input a line
+# "  palette: ..." says its state. -docked: on and off again (the side bar has the palette). -settings: the settings
+# file keeps it floating at 320 x 480 (the window opens at the start with that size), and --check floatpalette writes
+# the state into a new settings file and reads it back, with the rule of the kept place on the screens.
+CASES += [
+    ("map-palette-float", ["--mode", "terrain", "--script", "{script:floatpal}"], "map"),
+    ("map-palette-docked", ["--mode", "terrain", "--script", "{script:floatpaldock}"], "map"),
+    # -keys: a pick after typing in the window's search box gives the keyboard to the map (F chooses Fill, the search
+    # keeps "dirt"); the window moved to a screen of 150 % does not change the program's scale.
+    ("map-palette-float-keys", ["--mode", "terrain", "--script", "{script:floatpalkeys}"], "map"),
+    ("map-palette-float-settings", ["--settings", "{floatpalsettings}", "--mode", "terrain", "--check", "floatpalette:{newdir}",
+                                    "--wait", "0"], "map"),
+]
 # The map steps of the old Windows self-test with the mouse and the keys. After each input line a second
 # line ("  state: map: <tileset> <size>; name=value ...") says the mode, the player, the sprites, the selected doodad,
 # the locations, the paste, the terrain (a hash of its tiles, the tile under the mouse, the terrain selection) and the
@@ -1068,6 +1084,12 @@ stats
     "stackcycle": STACK_PLACE + "click 700,650\nclick 700,650\nclick 700,650\nclick 700,650\nclick 700,650\ndrag 700,650-640,680\n",
     "stackmenu": STACK_PLACE + "click 700,650:Menu10\nkey Down\nkey Enter\n",
     # The Marine stays picked (no Esc): Alt+click on the stack is the pipette (map-stack-pipette).
+    # (map-palette-float: the window is at 360,114 of the main window: High Platform's row, Dock, the first tile)
+    "floatpal": "command view.floatPalette\nwait 0\nclick 510,288\nkey U\nkey T\nclick 590,132\ncommand view.floatPalette\nwait 0\n"
+                "palette close\ncommand view.floatPalette\nwait 0\nrect on\nclick 386,236\n",
+    "floatpaldock": "command view.floatPalette\nwait 0\ncommand view.floatPalette\nwait 0\n",
+    # (map-palette-float-keys: the window's search box, then the first row of the list that it filters)
+    "floatpalkeys": "command view.floatPalette\nwait 0\nclick 400,132\ntype plat\nclick 490,245\nkey F\npalette scale 150\n",
     "stackpipette": "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nclick 700,650:Alt\nkey Esc\n",
 }
 
@@ -3166,7 +3188,118 @@ def check_stack_pipette(output):
     return None
 
 
-CHECKS = {"map-stack-list": check_stack_list, "map-stack-cycle": check_stack_cycle, "map-stack-menu": check_stack_menu,
+PALETTE_LINE = re.compile(r"^  palette: (docked|floating)(.*)$")
+PALETTE_INPUT = re.compile(r"^(key|click|wait|palette|rect|type) (.*?): \d+ units, \d+ doodads, \d+ selected")
+
+
+def palette_steps(output):
+    """The inputs of a floating palette case: input, message, the state line's palette (the pick), tool and
+    tilepicked, and the palette line: state (docked, floating, hidden: floating with no window), size (w, h), keys
+    (window or main), shows (list or tiles), side (docked: the palette is in the side bar)."""
+    out = []
+    for line in output.splitlines():
+        m = PALETTE_INPUT.match(line)
+        if m:
+            out.append({"input": f"{m.group(1)} {m.group(2)}", "message": line.split(": ", 2)[-1]})
+        elif line.startswith("  state: ") and out:
+            out[-1].update((k, v.strip('"')) for k, v in STATE_FIELD.findall(line) if k in ("palette", "tool", "tilepicked", "mode"))
+        elif (p := PALETTE_LINE.match(line)) and out:
+            rest = p.group(2)
+            d = out[-1]
+            d["state"] = "hidden" if "no window" in rest else p.group(1)
+            size = re.search(r"window (\d+)x(\d+) px", rest)
+            d["size"] = (int(size.group(1)), int(size.group(2))) if size else None
+            d["keys"] = (re.search(r"keys=(\w+)", rest) or [None, None])[1]
+            d["shows"] = "tiles" if ", tiles;" in rest else "list" if ", list;" in rest else None
+            d["side"] = "in the side bar" in rest
+    return out
+
+
+def check_palette_float(output):
+    """Floating: the window, a pick in it (High Platform, the brush), U and T from it, Dock, the close button, Rectangle
+    mode's tiles in it and a tile picked there."""
+    s = palette_steps(output)
+    want = ["wait 0", "click 510,288", "key U", "key T", "click 590,132", "wait 0", "palette close", "wait 0", "rect on", "click 386,236"]
+    got = [d["input"] for d in s]
+    if got != want:
+        return f"the inputs are {got}, not {want}"
+    w = s[0]
+    if w.get("state") != "floating" or not w["size"] or w["size"][0] < 200 or w["size"][1] < 300 or w["shows"] != "list":
+        return f"View > Floating terrain palette did not open the palette's window with its list: {w}"
+    pick = s[1]
+    if pick.get("state") != "floating" or int(pick.get("palette", -1)) <= 0 or pick.get("tool") != "0" or "High Platform" not in pick["message"]:
+        return f"the click in the floating palette did not pick High Platform for the brush: {pick}"
+    if s[2].get("mode") != "Units" or s[2].get("state") != "hidden" or s[2].get("keys") is not None:
+        return f"U (from the palette's window) did not go to Units mode and close the window: {s[2]}"
+    if s[3].get("mode") != "Terrain" or s[3].get("state") != "floating" or s[3]["keys"] != "window":
+        return f"T did not go back to Terrain mode with the palette's window: {s[3]}"
+    if s[4].get("state") != "docked" or not s[4]["side"]:
+        return f"Dock did not put the palette back in the side bar: {s[4]}"
+    if s[5].get("state") != "floating" or s[6].get("state") != "docked" or not s[6]["side"]:
+        return f"the window's close button did not dock the palette: {s[5]} -> {s[6]}"
+    if s[8].get("state") != "floating" or s[8]["shows"] != "tiles":
+        return f"Rectangle mode does not show the Tiles list in the floating palette: {s[8]}"
+    if s[9].get("tilepicked") in (None, "-1") or s[9].get("state") != "floating":
+        return f"the click in the floating Tiles list picked no tile: {s[9]}"
+    return None
+
+
+def check_palette_keys(output):
+    """A pick after typing in the window's search box: the search box loses the keyboard, F goes to the map (Fill) and
+    the search keeps its text; the window on a screen of 150 % leaves the program's scale at 1."""
+    s = palette_steps(output)
+    want = ["wait 0", "click 400,132", "type plat", "click 490,245", "key F", "palette scale 150"]
+    got = [d["input"] for d in s]
+    if got != want:
+        return f"the inputs are {got}, not {want}"
+    lines = {}
+    for line in output.splitlines():
+        if line.startswith("  palette: floating"):
+            lines[len(lines)] = line
+    search = [re.search(r'search="([^"]*)"( \(typing\))?', lines.get(i, "")) for i in range(len(s))]
+    if not search[1] or not search[1].group(2):
+        return f"the click did not give the keyboard to the window's search box: {lines.get(1)}"
+    if not search[2] or search[2].group(1) != "plat":
+        return f"the search box does not have the typed text: {lines.get(2)}"
+    pick = s[3]
+    if int(pick.get("palette", -1)) <= 0 or pick.get("tool") != "0" or "High Platform" not in pick["message"]:
+        return f"the click on the filtered list did not pick High Platform for the brush: {pick}"
+    if not search[3] or search[3].group(2):
+        return f"after the pick the search box still has the keyboard: {lines.get(3)}"
+    if s[4].get("tool") != "2" or not search[4] or search[4].group(1) != "plat":
+        return f"F after the pick did not choose Fill (or went into the search box): {s[4]}, {lines.get(4)}"
+    scale = re.search(r"^  palette scale: the program's scale ([\d.]+), ([\d.]+) before\s*$", output, re.M)
+    if not scale or float(scale.group(1)) != float(scale.group(2)):
+        return f"the window on a screen of 150 % changed the program's scale: {scale.group(0) if scale else 'no line'}"
+    return None
+
+
+def check_palette_docked(output):
+    """On, then off again: the palette is in the side bar again."""
+    s = palette_steps(output)
+    if len(s) != 2:
+        return f"{len(s)} inputs, not 2"
+    if s[0].get("state") != "floating" or s[1].get("state") != "docked" or not s[1]["side"]:
+        return f"the palette did not float and dock again: {s[0]} -> {s[1]}"
+    return None
+
+
+def check_palette_settings(output):
+    """The settings file keeps the palette floating at 320 x 480; the state written to a new file comes back."""
+    s = palette_steps(output)
+    if len(s) != 1:
+        return f"{len(s)} inputs, not 1"
+    if s[0].get("state") != "floating" or s[0]["size"] != (320, 480):
+        return f"the palette does not float at 320 x 480 from the settings: {s[0]}"
+    lines = [x for x in output.splitlines() if x.startswith("floatpalette: ")]
+    if len(lines) != 3 or not all("(yes)" in x for x in lines):
+        return f"--check floatpalette: {lines}"
+    return None
+
+
+CHECKS = {"map-palette-float": check_palette_float, "map-palette-docked": check_palette_docked,
+          "map-palette-float-settings": check_palette_settings, "map-palette-float-keys": check_palette_keys,
+          "map-stack-list": check_stack_list, "map-stack-cycle": check_stack_cycle, "map-stack-menu": check_stack_menu,
           "map-stack-pipette": check_stack_pipette,
           "map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
           "map-drag-select": check_box_select, "map-mode-unselect": check_mode_unselect, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
@@ -3594,6 +3727,11 @@ def main():
             write_once(releaseold, write_text(releaseold, RELEASE_OLD_JSON))
         oldsettings, legacyhive = os.path.join(a.out, "old-settings.json"), os.path.join(a.out, "legacy-settings.hive")
         nosnapsettings = os.path.join(a.out, "nosnap-settings.json")  # {nosnapsettings}: Snap buildings to tile edges off
+        floatpalsettings = os.path.join(a.out, "floatpal-settings.json")  # {floatpalsettings}: the terrain palette floats
+        if any("{floatpalsettings}" in x for x in args):
+            write_once(floatpalsettings, write_text(floatpalsettings, json.dumps(
+                {"Layout/PaletteFloating": 1, "Layout/PaletteX": 400, "Layout/PaletteY": 200, "Layout/PaletteWidth": 320,
+                 "Layout/PaletteHeight": 480})))
         if any("{nosnapsettings}" in x for x in args):
             write_once(nosnapsettings, write_text(nosnapsettings, json.dumps({"Settings/SnapBuildings": 0})))
         if any("{oldsettings}" in x for x in args):
@@ -3602,7 +3740,7 @@ def main():
             write_once(legacyhive, lambda: write_legacy_hive(legacyhive))
         paths = dict(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
                      kodir=kodir, wav=wav, release=release, oldsettings=oldsettings, legacyhive=legacyhive, pfdir=pfdir,
-                     releaseold=releaseold, nosnapsettings=nosnapsettings, htmlpage=htmlpage)
+                     releaseold=releaseold, nosnapsettings=nosnapsettings, floatpalsettings=floatpalsettings, htmlpage=htmlpage)
 
         def script(m):  # {script:<name>}: SCRIPTS[name] with the paths, as a file in --out
             path = os.path.join(a.out, f"{name}-{m.group(1)}.txt")
