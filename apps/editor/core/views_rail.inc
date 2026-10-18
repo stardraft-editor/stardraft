@@ -79,6 +79,7 @@ struct RailView final : stardraft::draw::View {
             {ID_WS_FILES, UiIcon::Assets, L"Assets", L"the Assets workspace", false, Workspace::Files},
             {ID_SCEN_PROPS, UiIcon::Tag, L"Properties", L"Map properties: the title, size and tileset, players and forces (Ctrl+M)", true},
             {ID_WS_PROJECT, UiIcon::Project, L"Project", L"the Project page", false, Workspace::Project},  // after Properties: the classic map's order, then the project's own
+            {ID_WS_HELP, UiIcon::Help, L"Help", L"Help: the documentation (F1)", false, Workspace::Help},  // last, in every tab
         };
         const int m = scale(6), itemH = scale(54);
         int y = scale(8);

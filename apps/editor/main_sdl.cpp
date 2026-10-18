@@ -623,6 +623,7 @@ int main(int argc, char** argv) {
         registerWorkspaceView(Workspace::Data, gSdlData);  // the Data workspace (sdl_data.inc)
         registerWorkspaceView(Workspace::Project, gSdlProject);  // the Project workspace (sdl_project.inc)
         registerWorkspaceView(Workspace::Triggers, gSdlTriggers);  // the Triggers workspace (sdl_triggers.inc)
+        registerWorkspaceView(Workspace::Help, gHelpWsView);  // the Help workspace (sdl_help.inc)
         initStartPage();  // the start page's callbacks (sdl_start.inc)
         MainView root;
         gRoot = &root;

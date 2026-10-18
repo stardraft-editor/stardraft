@@ -51,6 +51,12 @@ public:
         fill();
     }
 
+    // In the Help workspace (the main window), not a window of its own: no Close, and Esc does not close it.
+    void setInWorkspace(bool on) {
+        inWorkspace_ = on;
+        relayout();
+    }
+
     // The window's size at 100 %.
     static draw::Point size() { return {scale(1040), scale(740)}; }
 
@@ -146,7 +152,7 @@ public:
 
     bool key(const draw::KeyEvent& e) override {
         if (!e.down) return false;
-        if (e.key == draw::Key::Escape && !(e.mods & (draw::kAlt | draw::kShift))) return close(), true;
+        if (e.key == draw::Key::Escape && !(e.mods & (draw::kAlt | draw::kShift)) && !inWorkspace_) return close(), true;
         if (e.key == draw::Key::Left && (e.mods & draw::kAlt)) return back(), true;
         if (e.key == static_cast<draw::Key>('F') && (e.mods & draw::kCtrl)) {  // Ctrl+F: the search
             if (host()) host()->focus(search_.field());
@@ -228,6 +234,7 @@ private:
         back_.setFrame({pad, y, pad + bw(back_), y + bh});
         const bool any = !stardraft::helpPages().empty();
         feedback_.setVisible(any);
+        close_.setVisible(!inWorkspace_);
         int x = w - pad;
         for (stardraft::kit::Button* b : {&close_, &online_, &feedback_}) {
             if (!b->visible()) continue;
@@ -242,6 +249,7 @@ private:
     std::vector<std::string> history_;  // the topics before, the newest last (Back)
     std::vector<stardraft::HelpHit> hits_;
     bool pendingAnchor_ = false;  // the page's place is to be shown once the page is laid out
+    bool inWorkspace_ = false;
     SearchBox search_;
     stardraft::kit::ListView list_;
     stardraft::kit::ScrollView scroll_;

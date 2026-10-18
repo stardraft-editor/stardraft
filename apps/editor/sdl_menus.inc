@@ -171,6 +171,7 @@ bool sdlOptionsCommand(int id);
 // Whether the SDL program runs the command now. The others are grayed, and their keys do nothing.
 bool sdlUpdatesRuns(int id);  // (sdl_updates.inc: Look for updates on start, Crash reports, Maps)
 bool sdlHelpRuns(int id);  // (sdl_help.inc: Help > Documentation, F1)
+void sdlShowHelp(const std::string& topic);  // (sdl_help.inc: the Help workspace, or its window)
 bool sdlRuns(int id) {
     if (sdlOptionsRuns(id) || sdlUpdatesRuns(id) || sdlHelpRuns(id)) return true;
     switch (id) {
@@ -189,6 +190,7 @@ bool sdlRuns(int id) {
     case ID_WS_PROJECT:
     case ID_WS_BRIEFING:
     case ID_WS_FILES:
+    case ID_WS_HELP:
     case ID_SCEN_PROPS:  // the map's pages: the rail and the menus open them as the workspaces do
     case ID_SCEN_PLAYERS:
     case ID_SCEN_CLASSIC:
@@ -1283,6 +1285,7 @@ void commandSdl(int id) {
         return;
     default:
         // (the workspaces in their order; a command this system does not run is gray in the menus, and its key does nothing)
+        if (id == ID_WS_HELP) return sdlShowHelp("");  // (the Help workspace; on the start page, the window)
         if (id >= ID_WS_MAP && id <= ID_WS_FILES) return setWorkspace(Workspace(id - ID_WS_MAP));
         return;
     }
