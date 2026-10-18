@@ -2303,6 +2303,15 @@ constexpr UiText kRows[] = {
     {L"Put Sprites back in the side bar", L"\uC2A4\uD504\uB77C\uC774\uD2B8\uC744(\uB97C) \uC0AC\uC774\uB4DC\uBC14\uB85C \uB418\uB3CC\uB9BD\uB2C8\uB2E4"},
     {L"Sprites is in its own window", L"\uC2A4\uD504\uB77C\uC774\uD2B8\uC774(\uAC00) \uBCC4\uB3C4 \uCC3D\uC5D0 \uC788\uC2B5\uB2C8\uB2E4"},
     {L"Sprites is back in the side bar", L"\uC2A4\uD504\uB77C\uC774\uD2B8\uC774(\uAC00) \uC0AC\uC774\uB4DC\uBC14\uB85C \uB3CC\uC544\uC654\uC2B5\uB2C8\uB2E4"},
+    {L"&Walkable ground", L"\uAC78\uC744 \uC218 \uC788\uB294 \uC9C0\uD615(&W)"},
+    {L"Ground &height", L"\uC9C0\uD615 \uB192\uC774(&H)"},
+    {L"Ground that blocks the line of &sight", L"\uC2DC\uC57C\uB97C \uAC00\uB9AC\uB294 \uC9C0\uD615(&S)"},
+    {L"&Buildable ground", L"\uAC74\uC124 \uAC00\uB2A5\uD55C \uC9C0\uD615(&B)"},
+    {L"Terrain flags are hidden (View > Layers)", L"\uC9C0\uD615 \uC18D\uC131\uC774 \uC228\uACA8\uC84C\uC2B5\uB2C8\uB2E4 (\uBCF4\uAE30 > \uB808\uC774\uC5B4)"},
+    {L"Terrain flags: walkable (green), not walkable (red)", L"\uC9C0\uD615 \uC18D\uC131: \uAC78\uC744 \uC218 \uC788\uC74C(\uCD08\uB85D), \uAC78\uC744 \uC218 \uC5C6\uC74C(\uBE68\uAC15)"},
+    {L"Terrain flags: low ground (blue), middle ground (yellow), high ground (red)", L"\uC9C0\uD615 \uC18D\uC131: \uB0AE\uC740 \uC9C0\uD615(\uD30C\uB791), \uC911\uAC04 \uC9C0\uD615(\uB178\uB791), \uB192\uC740 \uC9C0\uD615(\uBE68\uAC15)"},
+    {L"Terrain flags: the ground that blocks the line of sight (purple)", L"\uC9C0\uD615 \uC18D\uC131: \uC2DC\uC57C\uB97C \uAC00\uB9AC\uB294 \uC9C0\uD615(\uBCF4\uB77C)"},
+    {L"Terrain flags: buildable (green), not buildable (red)", L"\uC9C0\uD615 \uC18D\uC131: \uAC74\uC124 \uAC00\uB2A5(\uCD08\uB85D), \uAC74\uC124 \uBD88\uAC00(\uBE68\uAC15)"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

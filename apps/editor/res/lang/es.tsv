@@ -2301,3 +2301,12 @@ Locations is back in the side bar	Ubicaciones vuelve a la barra lateral
 Put Sprites back in the side bar	Devolver Sprites a la barra lateral
 Sprites is in its own window	Sprites está en su propia ventana
 Sprites is back in the side bar	Sprites vuelve a la barra lateral
+&Walkable ground	Terreno &transitable
+Ground &height	&Altura del terreno
+Ground that blocks the line of &sight	Terreno que bloquea la línea de &visión
+&Buildable ground	Terreno &edificable
+Terrain flags are hidden (View > Layers)	Las propiedades del terreno están ocultas (Ver > Capas)
+Terrain flags: walkable (green), not walkable (red)	Propiedades del terreno: transitable (verde), no transitable (rojo)
+Terrain flags: low ground (blue), middle ground (yellow), high ground (red)	Propiedades del terreno: terreno bajo (azul), medio (amarillo), alto (rojo)
+Terrain flags: the ground that blocks the line of sight (purple)	Propiedades del terreno: el terreno que bloquea la línea de visión (morado)
+Terrain flags: buildable (green), not buildable (red)	Propiedades del terreno: edificable (verde), no edificable (rojo)

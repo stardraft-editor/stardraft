@@ -2301,3 +2301,12 @@ Locations is back in the side bar	위치이(가) 사이드바로 돌아왔습니
 Put Sprites back in the side bar	스프라이트을(를) 사이드바로 되돌립니다
 Sprites is in its own window	스프라이트이(가) 별도 창에 있습니다
 Sprites is back in the side bar	스프라이트이(가) 사이드바로 돌아왔습니다
+&Walkable ground	걸을 수 있는 지형(&W)
+Ground &height	지형 높이(&H)
+Ground that blocks the line of &sight	시야를 가리는 지형(&S)
+&Buildable ground	건설 가능한 지형(&B)
+Terrain flags are hidden (View > Layers)	지형 속성이 숨겨졌습니다 (보기 > 레이어)
+Terrain flags: walkable (green), not walkable (red)	지형 속성: 걸을 수 있음(초록), 걸을 수 없음(빨강)
+Terrain flags: low ground (blue), middle ground (yellow), high ground (red)	지형 속성: 낮은 지형(파랑), 중간 지형(노랑), 높은 지형(빨강)
+Terrain flags: the ground that blocks the line of sight (purple)	지형 속성: 시야를 가리는 지형(보라)
+Terrain flags: buildable (green), not buildable (red)	지형 속성: 건설 가능(초록), 건설 불가(빨강)

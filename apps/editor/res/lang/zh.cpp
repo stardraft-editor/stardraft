@@ -2303,6 +2303,15 @@ constexpr UiText kRows[] = {
     {L"Put Sprites back in the side bar", L"\u5C06\u7CBE\u7075\u653E\u56DE\u4FA7\u680F"},
     {L"Sprites is in its own window", L"\u7CBE\u7075\u5728\u5355\u72EC\u7684\u7A97\u53E3\u4E2D"},
     {L"Sprites is back in the side bar", L"\u7CBE\u7075\u5DF2\u56DE\u5230\u4FA7\u680F"},
+    {L"&Walkable ground", L"\u53EF\u884C\u8D70\u5730\u9762(&W)"},
+    {L"Ground &height", L"\u5730\u9762\u9AD8\u5EA6(&H)"},
+    {L"Ground that blocks the line of &sight", L"\u963B\u6321\u89C6\u7EBF\u7684\u5730\u9762(&S)"},
+    {L"&Buildable ground", L"\u53EF\u5EFA\u9020\u5730\u9762(&B)"},
+    {L"Terrain flags are hidden (View > Layers)", L"\u5730\u5F62\u5C5E\u6027\u5DF2\u9690\u85CF\uFF08\u89C6\u56FE > \u56FE\u5C42\uFF09"},
+    {L"Terrain flags: walkable (green), not walkable (red)", L"\u5730\u5F62\u5C5E\u6027\uFF1A\u53EF\u884C\u8D70\uFF08\u7EFF\u8272\uFF09\u3001\u4E0D\u53EF\u884C\u8D70\uFF08\u7EA2\u8272\uFF09"},
+    {L"Terrain flags: low ground (blue), middle ground (yellow), high ground (red)", L"\u5730\u5F62\u5C5E\u6027\uFF1A\u4F4E\u5730\uFF08\u84DD\u8272\uFF09\u3001\u4E2D\u5730\uFF08\u9EC4\u8272\uFF09\u3001\u9AD8\u5730\uFF08\u7EA2\u8272\uFF09"},
+    {L"Terrain flags: the ground that blocks the line of sight (purple)", L"\u5730\u5F62\u5C5E\u6027\uFF1A\u963B\u6321\u89C6\u7EBF\u7684\u5730\u9762\uFF08\u7D2B\u8272\uFF09"},
+    {L"Terrain flags: buildable (green), not buildable (red)", L"\u5730\u5F62\u5C5E\u6027\uFF1A\u53EF\u5EFA\u9020\uFF08\u7EFF\u8272\uFF09\u3001\u4E0D\u53EF\u5EFA\u9020\uFF08\u7EA2\u8272\uFF09"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

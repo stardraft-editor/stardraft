@@ -266,6 +266,12 @@ CASES += [
     # Pathing shows the connected areas: each area that ground units can walk across in its own tint.
     ("map-pathing-layer", ["--command", "view.layer.pathing", "--key", "+", "--key", "+"], "map"),
     ("map-pathing-areas", ["--command", "view.pathing.areas"], "map"),
+    # View > Layers > Terrain flags (core/terrain_flags_layer.inc): walkable ground, the ground's height, the ground
+    # that blocks the line of sight, buildable ground; the status bar tells what the colors are.
+    ("map-terrain-flags-walkable", ["--command", "view.flags.walkable"], "map"),
+    ("map-terrain-flags-height", ["--command", "view.flags.height"], "map"),
+    ("map-terrain-flags-blocksview", ["--command", "view.flags.blocksview", "--key", "+", "--key", "+"], "map"),
+    ("map-terrain-flags-buildable", ["--command", "view.flags.buildable"], "map"),
     # Scenario > Check pathing: the list of the problems (each "pathing" line says the layer, the regions and the check);
     # Enter picks the first one: the layer shows, the problem has its mark in the middle of the view.
     ("map-pathing-check", ["--script", "{script:pathingcheck}"], "map"),
@@ -1212,6 +1218,15 @@ def check_pathing_layer(output, areas):
     if "command view.layer.pathing: ran (yes)" not in output and "command view.pathing.areas: ran (yes)" not in output:
         return "the command did not run"
     if "Pathing: each " + ("connected area" if areas else "pathing region") not in output:
+        return "the status bar does not tell what the colors are"
+    return None
+
+
+def check_terrain_flags(output, view):
+    """None when View > Layers > Terrain flags ran with this view and the status bar tells the colors."""
+    if f"command view.flags.{view}: ran (yes)" not in output:
+        return "the command did not run"
+    if "Terrain flags: " not in output:
         return "the status bar does not tell what the colors are"
     return None
 
@@ -3430,7 +3445,8 @@ def check_palette_units(output):
     return None
 
 
-CHECKS = {"map-pathing-layer": lambda o: check_pathing_layer(o, False), "map-pathing-areas": lambda o: check_pathing_layer(o, True),
+CHECKS = {**{"map-terrain-flags-" + v: (lambda o, v=v: check_terrain_flags(o, v)) for v in ("walkable", "height", "blocksview", "buildable")},
+          "map-pathing-layer": lambda o: check_pathing_layer(o, False), "map-pathing-areas": lambda o: check_pathing_layer(o, True),
           "map-pathing-check": check_pathing_check, "map-pathing-fix": check_pathing_fix,
           "map-palette-float": check_palette_float, "map-palette-docked": check_palette_docked,
           "map-palette-float-settings": check_palette_settings, "map-palette-float-units": check_palette_units, "map-palette-float-keys": check_palette_keys,
