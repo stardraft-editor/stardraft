@@ -108,7 +108,7 @@ std::vector<CtSegment> ctSentenceParts(const E& e, int kind, const ClassicTrigge
 
 // The right-click menus of the page (classic_triggers.inc builds them with the program's menu and runs the command of the
 // pick; the same commands as the rows' buttons and the keys). A text's tab is its shortcut. An item with id 0 is a separator.
-enum : int { kCtmToggle = 1, kCtmDuplicate, kCtmDelete, kCtmCopy, kCtmPaste, kCtmIn, kCtmOut, kCtmBlock };
+enum : int { kCtmToggle = 1, kCtmDuplicate, kCtmDelete, kCtmCopy, kCtmPaste, kCtmIn, kCtmOut, kCtmBlock, kCtmHeading };
 struct CtMenuItem {
     int id = 0;
     std::wstring text;
@@ -122,7 +122,9 @@ inline std::vector<CtMenuItem> ctTriggerMenuItems(bool off, bool canPaste) {
             {kCtmDelete, L"Delete\tDel"},
             {0, L""},
             {kCtmCopy, L"Copy\tCtrl+C"},
-            {kCtmPaste, L"Paste\tCtrl+V", canPaste}};
+            {kCtmPaste, L"Paste\tCtrl+V", canPaste},
+            {0, L""},
+            {kCtmHeading, L"Add a heading\x2026"}};
 }
 // What an entry's menu depends on: a condition or an action, a block (its edit replaces the turn off), the turn off state,
 // the moves (actions only), and whether the clipboard holds this kind of entry.
@@ -179,6 +181,16 @@ inline int ctCommentEntry(const ClassicTrigger& t) {
     for (int i = 0; i < t.actionCount(); ++i)
         if (t.actions[size_t(i)].type == kCtCommentType && t.actions[size_t(i)].depth == 0) return i;
     return -1;
+}
+
+// A heading (roadmap R59): a trigger that holds only a comment (no condition but Always, one Comment action). The list
+// shows it as a heading, and a click on its arrow folds the triggers under it, up to the next heading. The game runs it
+// as any trigger (it does nothing).
+inline bool ctIsHeading(const ClassicTrigger& t) {
+    if (t.actionCount() != 1 || t.actions[0].type != kCtCommentType || !t.actions[0].text) return false;
+    for (int i = 0; i < t.conditionCount(); ++i)
+        if (t.conditions[size_t(i)].type != 22) return false;  // (22: Always)
+    return true;
 }
 
 // The text a search matches, in lower case: the trigger's sentences (its conditions and actions, names of units,
@@ -269,6 +281,7 @@ struct CtModel {
     int anchor = -1;                        // the trigger a Shift click reaches from
     std::set<int> marked;                   // the triggers chosen with Ctrl or Shift click (the list's actions take them all)
     std::set<int> collapsed;                // the action rows of collapsed blocks (by row; cleared when the trigger changes)
+    std::set<uint32_t> folded;              // the folded headings (by their comment's string: it stays when triggers move)
     int hold = 0;                           // > 0: the changes of a batch (a paste of several triggers) go into the map once, at the end
 };
 // What the model's commands ask of the program: the names, the list's repaint, the selection (its entries and head follow),
@@ -304,6 +317,17 @@ inline void ctModelLoad(CtModel& m, Editor& ed) {
 // The list's rows: the triggers that run for the player shown and have every word of the query, in the map's order.
 inline void ctModelFill(CtModel& m, CtModelHost& h) {
     m.shown = ctShownTriggers(m.trig.triggers, m.filter, m.query, h.names());
+    if (m.query.empty() && m.filter < 0 && !m.folded.empty()) {  // the triggers under a folded heading (a search shows them all)
+        std::vector<int> kept;
+        bool hide = false;
+        for (int i : m.shown) {
+            const ClassicTrigger& t = m.trig.triggers[size_t(i)];
+            if (ctIsHeading(t)) hide = m.folded.count(t.actions[0].text) != 0;
+            else if (hide && i != m.sel) continue;
+            kept.push_back(i);
+        }
+        m.shown = std::move(kept);
+    }
     m.marked.clear();  // (the rows changed: the checked ones are not known any more)
     h.filled();
 }
@@ -604,6 +628,8 @@ public:
     virtual std::wstring chipTip(const ClassicParam& p) = 0;
     // Commands (the same as the rows' buttons, the keys and the menus).
     virtual void clickTrigger(int i) = 0;
+    virtual void foldHeading(int i) {}  // a heading's arrow: its triggers fold, or show again
+    virtual bool headingFolded(int i) const { return false; }
     virtual void toggleTrigger(int i) = 0;
     virtual void duplicateTrigger(int i) = 0;
     virtual void deleteTrigger(int i) = 0;
@@ -990,6 +1016,26 @@ private:
             reorderRow(c, 0, r, k, [this](int from, int to) { host_.moveShown(from, to); });
             if (!visible(r)) continue;
             const bool lit = sel || checked;
+            if (ctIsHeading(t)) {  // a heading: its arrow, its comment, and how many triggers it holds
+                const draw::Rect arrow{scale(4), r.top, textX, r.bottom};
+                const bool folded = host_.headingFolded(i);
+                c.icon(arrow, int(folded ? UiIcon::ChevronRight : UiIcon::ChevronDown), textOfRow(lit), scale(12));
+                hit(arrow, [this, i] { host_.foldHeading(i); }, folded ? L"Show the triggers under the heading" : L"Fold the triggers under the heading");
+                int under = 0;
+                for (int j = i + 1; j < int(host_.triggers().size()) && !ctIsHeading(host_.triggers()[size_t(j)]); ++j) ++under;
+                const std::string note = n.string ? n.string(t.actions[0].text) : std::string();
+                const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 6 / 5)}));
+                c.text({textX, r.top, r.right - scale(8) - scale(stardraft::kit::kIconBox) * 3, (r.top + r.bottom) / 2 + scale(3)}, widen(note), textOfRow(lit),
+                       draw::kBottom | draw::kEllipsis);
+                c.setFont(of);
+                c.text({textX, (r.top + r.bottom) / 2 + scale(1), r.right, r.bottom}, std::to_wstring(under) + (under == 1 ? L" trigger" : L" triggers"), kDim, draw::kEllipsis);
+                rowActions(c, r,
+                           {{UiIcon::Power, t.disabled() ? L"Turn on" : L"Turn off", [this, i] { host_.toggleTrigger(i); }, stardraft::kit::Tone::Quiet, t.disabled()},
+                            {UiIcon::Duplicate, L"Duplicate", [this, i] { host_.duplicateTrigger(i); }},
+                            {UiIcon::Delete, L"Delete", [this, i] { host_.deleteTrigger(i); }, stardraft::kit::Tone::Danger}},
+                           lit);
+                continue;
+            }
             const int parts = ctPartsOf(t);  // a trigger too long for 64 slots is several triggers in the map
             const int actionCount = t.actionCount();
             const int right = r.right - scale(8) - scale(stardraft::kit::kIconBox) * 3;

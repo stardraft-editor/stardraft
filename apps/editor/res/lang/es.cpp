@@ -2331,6 +2331,13 @@ constexpr UiText kRows[] = {
     {L"Add a comment", L"A\u00F1adir un comentario"},
     {L"Comment", L"Comentario"},
     {L"The trigger's comment: the text of its Comment action", L"El comentario del disparador: el texto de su acci\u00F3n Comentario"},
+    {L"Add a heading\u2026", L"A\u00F1adir un t\u00EDtulo\u2026"},
+    {L"Add a heading", L"A\u00F1adir un t\u00EDtulo"},
+    {L"Heading", L"T\u00EDtulo"},
+    {L"Show the triggers under the heading", L"Mostrar los disparadores bajo el t\u00EDtulo"},
+    {L"Fold the triggers under the heading", L"Plegar los disparadores bajo el t\u00EDtulo"},
+    {L" trigger", L" disparador"},
+    {L" triggers", L" disparadores"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
