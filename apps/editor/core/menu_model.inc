@@ -171,6 +171,11 @@ MenuModel buildMenuModel() {
                        menuItem(ID_SCEN_CLASSICTRIG, L"Classic &triggers"),
                        menuItem(ID_SCEN_CHECK, L"&Check that StarCraft can start the map")};
     menuCommand(scenario, "scen.checkPathing");
+    {  // (roadmap R37)
+        MenuModel decorate;
+        menuCommands(decorate, "Scenario/Decorate");
+        scenario.push_back(menuPopup(L"&Decorate the terrain", decorate));
+    }
     // Options: the snap and placement rules of each kind (the same items for each; a rule that does not change is
     // grayed), the terrain copy, then the program options (the window).
     auto snapItems = [](int first) {

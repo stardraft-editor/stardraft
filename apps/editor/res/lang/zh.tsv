@@ -2342,3 +2342,10 @@ Fog of war: what the selected player (the Units palette's) sees when the game st
 Fog of war is hidden	战争迷雾已隐藏
  actions deleted	 个动作已删除
  conditions deleted	 个条件已删除
+&Decorate the terrain	装饰地形(&D)
+A &few doodads	少量装饰物(&F)
+&Some doodads	一些装饰物(&S)
+&Many doodads	大量装饰物(&M)
+No doodad fits the terrain there	那里没有适合地形的装饰物
+Decorate with doodads	用装饰物装饰
+After the terrain, put doodads where they fit the terrain	生成地形后，在适合的位置放置装饰物

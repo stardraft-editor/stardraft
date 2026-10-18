@@ -2261,6 +2261,40 @@ int Editor::sprayDoodads(const std::vector<uint16_t>& ids, int x, int y, int rad
     return placed;
 }
 
+int Editor::decorate(const std::vector<uint16_t>& ids, Rect area, int spacingTiles, uint32_t seed) {
+    if (ids.empty() || spacingTiles < 1) return 0;
+    area.left = std::max(0, area.left), area.top = std::max(0, area.top);
+    area.right = std::min(int(width_) * 32, area.right), area.bottom = std::min(int(height_) * 32, area.bottom);
+    std::mt19937 rng(seed);
+    const int cell = spacingTiles * 32;
+    Chk before = chk_;
+    int placed = 0;
+    // A cell of the area at a time: a random place in it, and up to four doodads tried there; one that fits its tiles
+    // (dddata.bin) and overlaps no doodad stays.
+    for (int cy = area.top; cy < area.bottom; cy += cell)
+        for (int cx = area.left; cx < area.right; cx += cell) {
+            const int x = cx + int(rng() % uint32_t(std::max(1, std::min(cell, area.right - cx))));
+            const int y = cy + int(rng() % uint32_t(std::max(1, std::min(cell, area.bottom - cy))));
+            for (int tries = 0; tries < 4; ++tries) {
+                const DoodadType* t = doodadTypes_.find(ids[rng() % ids.size()]);
+                if (!t) continue;
+                int tx, ty;
+                doodadOrigin(*t, x, y, tx, ty);
+                if (!doodadFits(chk_, *t, tx, ty, true) || doodadOverlaps(*t, tx, ty)) continue;
+                if (stardraft::placeDoodad(chk_, *t, tileset_, tx, ty, 0, true)) {
+                    doodads_ = readDoodads(chk_);
+                    ++placed;
+                    break;
+                }
+            }
+        }
+    if (!placed) return 0;
+    pushUndo(before);  // (one undo step for all of them)
+    sprites_ = readSprites(chk_);
+    commit(true);
+    return placed;
+}
+
 bool Editor::placeDoodad(uint16_t id, int x, int y, bool checkTerrain, std::string* reason) {
     const DoodadType* t = doodadTypes_.find(id);
     if (!t) {

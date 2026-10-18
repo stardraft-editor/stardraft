@@ -185,6 +185,7 @@ public:
 
     // The page's choices (the host reads them to make the map; the self-tests set them).
     bool project = false, generate = false;
+    bool decorate = false;     // the generator: doodads after the terrain (roadmap R37)
     bool copyMap = false;      // an EUD project: Start "Import an existing map" (a copy of the map in fromMap); generate is off then
     bool terrainOnly = false;  // a classic project: Start "The terrain of a map" (a new map with only the terrain of the map in fromMap)
     int card = 0;              // the start page's card that the keyboard is on (0 or 1)

@@ -73,6 +73,12 @@ bool NewHostSdl::make() {
         shellErrorBox(widen(err), shellTr(copy ? L"Could not open the map" : gNewView.generate ? L"Could not generate the map" : L"Could not create the map"));
         return false;
     }
+    if (!copy && !gNewView.terrainOnly && gNewView.generate && gNewView.decorate) {  // Decorate with doodads (roadmap R37)
+        std::vector<uint16_t> ids;
+        for (const DoodadType& t : ed->doodadTypes().all())
+            if (t.inPalette) ids.push_back(t.id);
+        ed->decorate(ids, Rect{0, 0, ed->width() * 32, ed->height() * 32}, 6, p.seed);
+    }
     const bool project = gNewView.project;
     const std::wstring name = gNewView.nameText(), location = gNewView.locationText(), output = gNewView.outputText();
     // What it is: the tileset and the size (as the Windows program's message says).
