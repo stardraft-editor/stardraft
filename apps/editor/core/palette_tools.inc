@@ -12,9 +12,11 @@ void shellModeWindows(Mode m);
 std::wstring paletteItemNameOf(Mode mode, int v);
 std::wstring paletteItemName(int v);  // (main.cpp: the palette entry's name; entryName is in the Win32 TU)
 
-// Device pixels for v at the window's dpi (the rounding of MulDiv(v, dpi, 96): halves away from zero).
+// Device pixels for v at the window's dpi (the rounding of MulDiv(v, dpi, 96): halves away from zero). gPaintZoom: a
+// view that paints at its own zoom (percent; the Classic triggers' conditions and actions) sets it while it paints.
+int gPaintZoom = 100;
 int scale(int v) {
-    const long long p = (long long)v * shellDpi();
+    const long long p = (long long)v * shellDpi() * gPaintZoom / 100;
     return int(p >= 0 ? (p + 48) / 96 : -((-p + 48) / 96));
 }
 
