@@ -42,8 +42,10 @@ static void townHallDistance(const UnitTypes& types) {
                    cc = *types.findByName("Terran Command Center"), nexus = *types.findByName("Protoss Nexus"),
                    start = *types.findByName("Start Location"), marine = *types.findByName("Terran Marine"),
                    depot = *types.findByName("Terran Supply Depot");
+    bool keep = true;  // Options > Units > Keep resources 3 tiles from town halls (Discord feedback #97)
     auto issues = [&](std::vector<Unit> placed, uint16_t type, int x, int y) {
         PlacementContext ctx{256, 256, nullptr, nullptr, &types, &placed};
+        ctx.resourceDistance = keep;
         Unit u = makeUnit(types[type], 0, uint16_t(x), uint16_t(y));
         std::string out;
         for (PlacementIssue i : checkPlacement(ctx, u)) out += std::string(out.empty() ? "" : ",") + placementIssueName(i);
@@ -60,6 +62,10 @@ static void townHallDistance(const UnitTypes& types) {
     CHECK(issues(field, start, 1184, 1024) == "near_resources", "town hall: a start location 2 tiles from minerals is refused");
     CHECK(issues(field, start, 1216, 1024).empty(), "town hall: a start location 3 tiles from minerals is allowed");
     CHECK(issues(field, depot, 1104, 1024).empty(), "town hall: a supply depot next to minerals is allowed");
+    keep = false;  // the option off: town halls and resources can be near each other
+    CHECK(issues(field, cc, 1184, 1024).empty(), "town hall: with the option off, a command center 2 tiles from minerals is allowed");
+    CHECK(issues(one(cc, 1184, 1024), mineral, 1024, 1024).empty(), "town hall: with the option off, minerals 2 tiles from a command center are allowed");
+    keep = true;
     // The other way: the resource is placed near the town hall (its left edge at 1120).
     for (uint16_t hallType : {cc, nexus, start}) {
         const auto hall = one(hallType, 1184, 1024);

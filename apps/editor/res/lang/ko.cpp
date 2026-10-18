@@ -2319,6 +2319,9 @@ constexpr UiText kRows[] = {
     {L"Add a block after the selected one", L"\uC120\uD0DD\uD55C \uBE14\uB85D \uB2E4\uC74C\uC5D0 \uBE14\uB85D \uCD94\uAC00"},
     {L"Condition", L"\uC870\uAC74"},
     {L"Add a condition or an action after the selected one", L"\uC120\uD0DD\uD55C \uD56D\uBAA9 \uB2E4\uC74C\uC5D0 \uC870\uAC74\uC774\uB098 \uB3D9\uC791 \uCD94\uAC00"},
+    {L"Keep &resources 3 tiles from town halls", L"\uC790\uC6D0\uC744 \uBCF8\uC9C4 \uAC74\uBB3C\uC5D0\uC11C 3\uD0C0\uC77C \uB5A8\uC5B4\uB728\uB9AC\uAE30(&R)"},
+    {L"Town halls and resources keep 3 tiles apart", L"\uBCF8\uC9C4 \uAC74\uBB3C\uACFC \uC790\uC6D0\uC774 3\uD0C0\uC77C \uB5A8\uC5B4\uC9D1\uB2C8\uB2E4"},
+    {L"Town halls and resources can be near each other", L"\uBCF8\uC9C4 \uAC74\uBB3C\uACFC \uC790\uC6D0\uC744 \uAC00\uAE4C\uC774 \uB458 \uC218 \uC788\uC2B5\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

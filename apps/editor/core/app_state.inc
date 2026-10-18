@@ -47,6 +47,7 @@ struct AppState {
     uint16_t locationClipElevation = 0;        // ... and the elevations it leaves out (MRGN flags)
     bool hasLocationClip = false;
     bool allowStacking = false;     // Options: units may overlap
+    bool resourceDistance = true;   // Options: town halls and resources keep 3 tiles apart
     bool snapBuildings = true;      // Options > Units: buildings snap to tile edges (on every path; other units: unitGrid)
     bool animate = true;             // Options: units play their idle animations
     bool dragSnapBack = true;        // Options: dragged units go back to the last position where they fit

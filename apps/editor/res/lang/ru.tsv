@@ -2317,3 +2317,6 @@ Select a trigger first	Сначала выберите триггер
 Add a block after the selected one	Добавить блок после выбранного
 Condition	Условие
 Add a condition or an action after the selected one	Добавить условие или действие после выбранного
+Keep &resources 3 tiles from town halls	Держать &ресурсы в 3 клетках от главных зданий
+Town halls and resources keep 3 tiles apart	Главные здания и ресурсы держатся в 3 клетках друг от друга
+Town halls and resources can be near each other	Главные здания и ресурсы могут стоять рядом
