@@ -7,6 +7,7 @@ The same pages are in the program (Help > Documentation, or F1) and on the web.
 
 - [Getting started](getting-started.md): open a map, edit it, and save it.
 - [Values and units](values-and-units.md): frames, pixels, tiles and the other units of the game's data.
+- [Keyboard shortcuts](keyboard-shortcuts.md): the keys of the menus, the map, the trigger editors and the lists.
 
 ## Triggers
 
@@ -29,3 +30,7 @@ in the game, how the game keeps its value (the raw value), and the value in a un
 ## Feedback
 
 Each page has "Send feedback about this page". Tell us when a page is not correct or not clear.
+
+## Credits
+
+- [Credits](credits.md): the people and the communities whose work these pages draw on, and the sources.

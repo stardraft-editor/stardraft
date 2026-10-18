@@ -2383,6 +2383,8 @@ constexpr UiText kRows[] = {
     {L"NOT: true when this condition is not true", L"NOT: \uC774 \uC870\uAC74\uC774 \uCC38\uC774 \uC544\uB2D0 \uB54C \uCC38"},
     {L"T&ools", L"\uB3C4\uAD6C(&O)"},
     {L"Edit unit type in Map data (", L"\uB9F5 \uB370\uC774\uD130\uC5D0\uC11C \uC720\uB2DB \uC885\uB958 \uD3B8\uC9D1 ("},
+    {L"Back: the page before (Alt+Left)", L"\uB4A4\uB85C: \uC774\uC804 \uD398\uC774\uC9C0 (Alt+Left)"},
+    {L"Forward: the page after (Alt+Right)", L"\uC55E\uC73C\uB85C: \uB2E4\uC74C \uD398\uC774\uC9C0 (Alt+Right)"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

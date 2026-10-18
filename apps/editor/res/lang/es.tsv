@@ -2381,3 +2381,5 @@ Take the conditions out of Not	Sacar las condiciones de No
 NOT: true when this condition is not true	NOT: verdadero cuando esta condición no es verdadera
 T&ools	&Herramientas
 Edit unit type in Map data (	Editar tipo de unidad en Datos del mapa (
+Back: the page before (Alt+Left)	Atrás: la página anterior (Alt+Left)
+Forward: the page after (Alt+Right)	Adelante: la página siguiente (Alt+Right)

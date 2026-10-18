@@ -2381,3 +2381,5 @@ Take the conditions out of Not	Not에서 조건 꺼내기
 NOT: true when this condition is not true	NOT: 이 조건이 참이 아닐 때 참
 T&ools	도구(&O)
 Edit unit type in Map data (	맵 데이터에서 유닛 종류 편집 (
+Back: the page before (Alt+Left)	뒤로: 이전 페이지 (Alt+Left)
+Forward: the page after (Alt+Right)	앞으로: 다음 페이지 (Alt+Right)

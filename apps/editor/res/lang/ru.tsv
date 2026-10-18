@@ -2381,3 +2381,5 @@ Take the conditions out of Not	Вынуть условия из «Не»
 NOT: true when this condition is not true	NOT: истинно, когда это условие не выполняется
 T&ools	&Инструменты
 Edit unit type in Map data (	Изменить тип юнита в данных карты (
+Back: the page before (Alt+Left)	Назад: предыдущая страница (Alt+Left)
+Forward: the page after (Alt+Right)	Вперёд: следующая страница (Alt+Right)

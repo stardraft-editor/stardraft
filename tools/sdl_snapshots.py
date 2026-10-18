@@ -3643,8 +3643,8 @@ CHECKS = {"map-view-fog": lambda o: None if "command view.fog: ran (yes)" in o a
           "project-form-1600-scale2": check_data_form("one column")}
 
 
-HELP_PAGES = ["index", "getting-started", "values-and-units", "trigger-checks", "units-dat", "weapons-dat", "flingy-dat", "sprites-dat", "images-dat",
-              "upgrades-dat", "techdata-dat", "orders-dat"]  # (docs/help/index.md's order)
+HELP_PAGES = ["index", "getting-started", "values-and-units", "keyboard-shortcuts", "trigger-checks", "units-dat", "weapons-dat", "flingy-dat",
+              "sprites-dat", "images-dat", "upgrades-dat", "techdata-dat", "orders-dat", "credits"]  # (docs/help/index.md's order)
 
 
 def help_lines(output):
