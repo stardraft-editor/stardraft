@@ -190,21 +190,31 @@ public:
         };
         add(filter_, {0, 0, 0, 0});
         add(search_, {0, 0, 0, 0});
+        add(bar_, {0, 0, 0, 0});
+        bar_.onScroll = [](int pos) { tilesScrollTo(pos); };
+    }
+    // The grid's scroll bar follows the grid (its paint calls this): its range, page and place.
+    void syncBar() {
+        bar_.setRange(gTiles.contentH, std::max(1, tilesViewH()));
+        bar_.setPos(gTiles.scroll);
     }
     SearchBox& search() { return search_; }
     stardraft::kit::Dropdown& filter() { return filter_; }
     // The SDL program: the grid is a child of the panel, under the search box (the Win32 program places its window there).
     void holdGrid(TilesGridView& g) { grid_ = &g, add(g, gridRect()); }
-    // Where the grid goes: under the filter box and the search box, to the panel's bottom.
+    // Where the grid goes: under the filter box and the search box, to the panel's bottom; its scroll bar at its right.
     draw::Rect gridRect() const {
         const int y = 2 * (scale(24) + scale(6));
-        return {0, y, width(), std::max(y + 1, height())};
+        return {0, y, std::max(1, width() - barW()), std::max(y + 1, height())};
     }
+    static int barW() { return scale(stardraft::kit::kScrollBarW); }
     void resized() override {
         const int rowH = scale(24), pad = scale(6);
         filter_.setFrame({0, 0, width(), scale(kFilterH)});
         search_.setFrame({0, rowH + pad, width(), rowH + pad + rowH});
         if (grid_) grid_->setFrame(gridRect());
+        const draw::Rect g = gridRect();
+        bar_.setFrame({g.right, g.top, width(), std::max(g.top, g.bottom - tilesFooterH())});  // (beside the tiles, above the footer)
     }
     void paint(draw::Canvas& c) override { c.fill({0, 0, width(), height()}, kBg); }
     std::wstring feedbackName(draw::Point) override { return L"the Tiles list"; }
@@ -214,6 +224,7 @@ public:
 private:
     TilesFilterBox filter_;
     SearchBox search_;
+    stardraft::kit::ScrollBar bar_;  // the grid's scroll bar (the wheel scrolls the grid too)
     TilesGridView* grid_ = nullptr;
 };
 
@@ -371,6 +382,7 @@ void TilesGridView::boxSelect() {
 void TilesGridView::paint(draw::Canvas& c) {
     tilesFresh();
     tilesPixelsTrim();
+    gTilesPanel.syncBar();
     AppState& app = appState();
     const int w = width(), h = height();
     c.fill({0, 0, w, h}, kBg);
