@@ -79,7 +79,7 @@ bool sdlReadScript(const std::string& spec, std::vector<std::pair<char, std::str
         {"key", 'k'},     {"type", 't'},    {"click", 'c'},     {"drag", 'd'},      {"lostdrag", 'l'},  {"move", 'm'},
         {"wheel", 'h'},   {"pinch", 'p'},   {"wait", 'w'},      {"command", 'C'},   {"mode", 'M'},      {"rect", 'Q'},
         {"workspace", 'W'}, {"open", 'O'},  {"roundtrip", 'R'}, {"undocheck", 'U'}, {"stats", 'S'}, {"minimap", 'P'},
-        {"history", 'H'}, {"palette", 'F'}};
+        {"history", 'H'}, {"palette", 'F'}, {"pathing", 'G'}};
     std::vector<std::pair<char, std::string>> lines;
     int lineNo = 0;
     for (std::string line; std::getline(in, line);) {
@@ -332,6 +332,7 @@ bool sdlScriptStep(char kind, const std::string& value) {
         if (const std::string state = sdlShotState(); !state.empty()) std::printf("  history state: %s\n", state.c_str());
         return true;
     }
+    case 'G': std::printf("%s\n", pathingStateLine().c_str()); return true;  // the pathing layer and check (core/pathing_layer.inc)
     case 'S': sdlSoakStats(); return true;
     case 'F': sdlFloatPaletteScript(value); return true;
     default: return false;  // (an input option's verb)
