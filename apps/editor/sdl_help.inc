@@ -1,9 +1,11 @@
-// The help window (core/views_help.inc): Help > Documentation (the index), F1 (the page of what has the focus: in the
-// Data workspace, the field under the mouse or the field clicked last; else the index), and the Data form's help
-// icons. One window: a new topic shows in it. Its links that go outside open in the browser; Send feedback about this
+// Help (core/views_help.inc): Help > Documentation (the index), F1 (the page of what has the focus: in the Data
+// workspace, the field under the mouse or the field clicked last; else the index), the side bar's Help and the Data
+// form's help icons. With a tab open, the pages show in the Help workspace (gHelpWsView, in the main window); on the
+// start page, in the help window (gHelpView). A new topic shows in the one that shows. Its links that go outside open in the browser; Send feedback about this
 // page opens Report feedback with the page named. --dialog help[:<topic>] is its snapshot (sdlHelpShot).
 
-HelpView gHelpView;
+HelpView gHelpView;    // the help window's
+HelpView gHelpWsView;  // the Help workspace's (registerWorkspaceView)
 bool gHelpOpen = false;
 int gHelpOpened = 0;  // the times the window opened in this run (a snapshot's lines: after its windows closed)
 
@@ -15,15 +17,18 @@ void sdlHelpWire() {
     if (wired) return;
     wired = true;
     changelog::setHtmlHooks(!gSilent);  // (the HTML view's measuring canvas and its thread; the help pages have no images)
-    gHelpView.onOpenUrl = [](const std::string& url) {
-        if (gSilent) std::printf("help: the browser opens %s\n", url.c_str());  // (a test run opens no browser)
-        else SDL_OpenURL(url.c_str());
-    };
-    gHelpView.onFeedback = [](const std::wstring& name) {
-        if (gSilent) return void(std::printf("help: Report feedback on \"%s\"\n", narrow(name).c_str()));  // (a test sends nothing)
-        showFeedbackSdl(name, &gHelpView);
-    };
+    for (HelpView* v : {&gHelpView, &gHelpWsView}) {
+        v->onOpenUrl = [](const std::string& url) {
+            if (gSilent) std::printf("help: the browser opens %s\n", url.c_str());  // (a test run opens no browser)
+            else SDL_OpenURL(url.c_str());
+        };
+        v->onFeedback = [v](const std::wstring& name) {
+            if (gSilent) return void(std::printf("help: Report feedback on \"%s\"\n", narrow(name).c_str()));  // (a test sends nothing)
+            showFeedbackSdl(name, v);
+        };
+    }
     gHelpView.closed = [] { gHelpOpen = false; };
+    gHelpWsView.setInWorkspace(true);
 }
 
 // The help window at `topic` ("units-dat#hit-points"; "": the index). With no pages in this build: the page on the web.
@@ -32,6 +37,13 @@ void sdlShowHelp(const std::string& topic) {
     if (stardraft::helpPages().empty()) {
         const stardraft::HelpTopic t = stardraft::helpSplitTopic(topic);
         gHelpView.onOpenUrl(stardraft::helpOnlineUrl(t.page.empty() ? "index" : t.page, t.anchor));
+        return;
+    }
+    if (gRoot && gState.ed && gState.ed->isOpen() && !newPageCovers()) {  // a tab is open: the Help workspace
+        if (gHelpOpen) gHelpView.close();
+        gHelpWsView.show(topic);
+        if (gWorkspace != Workspace::Help) ++gHelpOpened;
+        setWorkspace(Workspace::Help);
         return;
     }
     gHelpView.show(topic);
@@ -83,11 +95,12 @@ draw::View* sdlHelpShot(const std::string& arg, int& w, int& h) {
     return &gHelpView;
 }
 
-// After the picture (and after the inputs): what the help window shows. Its page, the place, the scroll, the list's
+// After the picture (and after the inputs): what the help window shows (the Help workspace's view while it shows; "the
+// window opened" counts both). Its page, the place, the scroll, the list's
 // rows, the buttons, and each link of the page that goes to another help page.
 void sdlHelpShotLines(bool any) {
     if (!any && !gHelpOpened) return;
-    HelpView& v = gHelpView;
+    HelpView& v = gWorkspace == Workspace::Help ? gHelpWsView : gHelpView;
     std::printf("help: the window opened %d times, page %s, place \"%s\", title \"%s\"\n", gHelpOpened, v.page().c_str(), v.anchor().c_str(),
                 v.title().c_str());
     if (!v.anchor().empty())

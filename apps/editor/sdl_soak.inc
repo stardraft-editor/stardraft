@@ -25,7 +25,7 @@
 
 // The workspaces' names, in the order of the Workspace enum (--workspace, the script's workspace verb).
 const char* const kWorkspaceNames[] = {"map",    "data",     "triggers",        "assets",  "project",
-                                       "briefing", "files", "props", "players", "classictriggers", "classic"};
+                                       "briefing", "files", "help", "props", "players", "classictriggers", "classic"};
 constexpr int kWorkspaceNameCount = int(sizeof kWorkspaceNames / sizeof kWorkspaceNames[0]);
 
 bool sdlWorkspaceByName(const std::string& name) {

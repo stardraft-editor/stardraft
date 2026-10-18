@@ -121,6 +121,6 @@ bool mapCommand(int id) {
     return id == ID_FILE_SAVE || id == ID_FILE_SAVEAS || id == ID_FILE_EXPORTIMAGE || (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) ||
            (id >= ID_VIEW_LOCATIONS && id <= ID_PATHSIZE_LARGE) || (id >= ID_MODE_TERRAIN && id <= ID_MODE_SPRITES) ||
            (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 10) || id == ID_QUICKPICK || (id >= ID_PROJ_COMPILE && id <= ID_PROJ_FROMMAP) ||
-           (id >= ID_WS_MAP && id <= ID_WS_FILES) || (id >= ID_DOCK_MINI_LEFT && id <= ID_DOCK_TOOLS_RIGHT) || id == ID_SCEN_PLAYERS ||
+           (id >= ID_WS_MAP && id <= ID_WS_HELP) || (id >= ID_DOCK_MINI_LEFT && id <= ID_DOCK_TOOLS_RIGHT) || id == ID_SCEN_PLAYERS ||
            id == ID_SCEN_CHECK || id == ID_SCEN_PATHCHECK || id == ID_SCEN_PROPS || id == ID_SCEN_CLASSIC || id == ID_SCEN_CLASSICTRIG || id == ID_VIEW_TRIGCODE;
 }

@@ -20,7 +20,7 @@ enum : int {
     ID_CAMPAIGN_NEW = 663, ID_CAMPAIGN_OPEN, ID_CAMPAIGN_SHOW,  // File > Campaign (roadmap R25: core/views_campaign.inc)
     ID_TRIG_FIND = 662,  // Edit > Find in triggers (Ctrl+Shift+F): the Triggers workspace and the Classic triggers page (roadmap R60)  // File > Quick open (Ctrl+Shift+O): an open tab, a recent project or map
     ID_PROJ_NEW = 700, ID_PROJ_OPEN, ID_PROJ_COMPILE, ID_PROJ_FOLDER, ID_PROJ_ADDSCRIPT, ID_PROJ_SETTINGS, ID_PROJ_FROMMAP, ID_PROJ_IMPORT,
-    ID_WS_MAP = 720, ID_WS_DATA, ID_WS_TRIGGERS, ID_WS_ASSETS, ID_WS_PROJECT, ID_WS_BRIEFING, ID_WS_FILES,
+    ID_WS_MAP = 720, ID_WS_DATA, ID_WS_TRIGGERS, ID_WS_ASSETS, ID_WS_PROJECT, ID_WS_BRIEFING, ID_WS_FILES, ID_WS_HELP,
     ID_DOCK_MINI_LEFT = 740, ID_DOCK_MINI_RIGHT, ID_DOCK_TOOLS_LEFT, ID_DOCK_TOOLS_RIGHT,
     ID_SCEN_PLAYERS = 760, ID_SCEN_CHECK, ID_OPT_INSTALL, ID_VIEW_LOG, ID_VIEW_TRIGCODE, ID_VIEW_KIT, ID_SCEN_REPLAY,
     ID_RECENT_MAP = 800,       // + index, up to kRecentMax
@@ -102,5 +102,5 @@ int gSplitDrag = -1, gSplitGrab = 0;  // which strip is being dragged (0 left, 1
 // the end (that crashed saveDock when Sprites came).
 constexpr const wchar_t* kDockSideNames[] = {L"TerrainRight", L"UnitsRight", L"DoodadsRight", L"LocationsRight", L"SpritesRight"};
 static_assert(std::size(kDockSideNames) == kModeCount, "a dock side name for each mode");
-enum class Workspace { Map, Data, Triggers, Assets, Project, Briefing, Files, Properties, Players, ClassicTriggers, ClassicSettings };
+enum class Workspace { Map, Data, Triggers, Assets, Project, Briefing, Files, Help, Properties, Players, ClassicTriggers, ClassicSettings };
 constexpr int kRecentMax = 10;
