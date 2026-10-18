@@ -2180,10 +2180,8 @@ Added unit 	추가한 유닛
 The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.	마름모는 맵의 마름모 모양을 가집니다: 높이는 크기를 따릅니다. 높이를 정하려면 정사각형이나 원을 선택하십시오.
 The diamond has the shape of the map's diamonds: its height follows its size.	마름모는 맵의 마름모 모양을 가집니다: 높이는 크기를 따릅니다.
 Brush height: the diamond has the shape of the map's diamonds, so its height follows its size. To set the height, select the square or the circle.	브러시 높이: 마름모는 맵의 마름모 모양을 가지므로 높이는 크기를 따릅니다. 높이를 정하려면 정사각형이나 원을 선택하십시오.
-&Floating terrain palette	떠 있는 지형 팔레트(&F)
 Terrain palette	지형 팔레트
 Dock	도킹
-Put the palette back in the side bar	팔레트를 사이드바로 되돌립니다
 The terrain palette is in its own window	지형 팔레트가 별도 창에 있습니다
 Moved the terrain palette to its own window	지형 팔레트를 별도 창으로 옮겼습니다
 The terrain palette shows in its own window in Terrain mode	지형 모드에서 지형 팔레트가 별도 창에 표시됩니다
@@ -2242,3 +2240,35 @@ Contents	목차
 Help	도움말
 The help pages are not in this build. Open in the browser shows them on the web.	이 빌드에는 도움말 페이지가 없습니다. 브라우저에서 열기를 누르면 웹에서 볼 수 있습니다.
 Open the help page of this field (F1)	이 필드의 도움말 페이지를 엽니다 (F1)
+Floating &palettes	떠 있는 팔레트(&P)
+&Floating palette	떠 있는 팔레트(&F)
+&Terrain palette	지형 팔레트(&T)
+&Unit palette	유닛 팔레트(&U)
+&Doodad palette	장식물 팔레트(&D)
+&Sprite palette	스프라이트 팔레트(&S)
+&Location list	위치 목록(&L)
+Unit palette	유닛 팔레트
+Doodad palette	장식물 팔레트
+Sprite palette	스프라이트 팔레트
+Location list	위치 목록
+The unit palette is in its own window	유닛 팔레트가 별도 창에 있습니다
+The doodad palette is in its own window	장식물 팔레트가 별도 창에 있습니다
+The sprite palette is in its own window	스프라이트 팔레트가 별도 창에 있습니다
+The location list is in its own window	위치 목록이 별도 창에 있습니다
+Put the terrain palette back in the side bar	지형 팔레트를 사이드바로 되돌립니다
+Put the unit palette back in the side bar	유닛 팔레트를 사이드바로 되돌립니다
+Put the doodad palette back in the side bar	장식물 팔레트를 사이드바로 되돌립니다
+Put the sprite palette back in the side bar	스프라이트 팔레트를 사이드바로 되돌립니다
+Put the location list back in the side bar	위치 목록을 사이드바로 되돌립니다
+Moved the unit palette to its own window	유닛 팔레트를 별도 창으로 옮겼습니다
+Moved the doodad palette to its own window	장식물 팔레트를 별도 창으로 옮겼습니다
+Moved the sprite palette to its own window	스프라이트 팔레트를 별도 창으로 옮겼습니다
+Moved the location list to its own window	위치 목록을 별도 창으로 옮겼습니다
+The unit palette shows in its own window in Units mode	유닛 모드에서 유닛 팔레트가 별도 창에 표시됩니다
+The doodad palette shows in its own window in Doodads mode	장식물 모드에서 장식물 팔레트가 별도 창에 표시됩니다
+The sprite palette shows in its own window in Sprites mode	스프라이트 모드에서 스프라이트 팔레트가 별도 창에 표시됩니다
+The location list shows in its own window in Locations mode	위치 모드에서 위치 목록이 별도 창에 표시됩니다
+Docked the unit palette	유닛 팔레트를 도킹했습니다
+Docked the doodad palette	장식물 팔레트를 도킹했습니다
+Docked the sprite palette	스프라이트 팔레트를 도킹했습니다
+Docked the location list	위치 목록을 도킹했습니다

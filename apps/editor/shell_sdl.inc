@@ -345,7 +345,7 @@ bool shellViewMouse(int& x, int& y) {  // (the map view keeps the mouse in the s
     return true;
 }
 // The map view takes the keyboard focus (the host's focus; the map view is the root's child).
-void floatPaletteKeysToMap();  // (also from the floating terrain palette's window: sdl_palette_float.inc)
+void floatPaletteKeysToMap();  // (also from a floating palette's window: sdl_palette_float.inc)
 void shellFocusView() {
     if (gRoot) gRoot->map.focus();
     floatPaletteKeysToMap();

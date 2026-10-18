@@ -641,7 +641,7 @@ void sdlInputLine(const std::string& what) {
     }
     if (const std::string state = sdlShotState(); !state.empty()) std::printf("  state: %s\n", state.c_str());
     std::printf("  ui: %s\n", sdlShotUi().c_str());
-    sdlFloatPaletteLine();  // (the floating terrain palette, once it is in use: sdl_palette_float.inc)
+    sdlFloatPaletteLine();  // (the floating palettes, once one is in use: sdl_palette_float.inc)
     if (gListPickShown) {  // a list picker is open: its search and the rows it shows
         const auto rows = gListPickShown->shownLabels();
         std::string s;

@@ -1,23 +1,58 @@
-// The floating terrain palette on this system (Roadmap R40, as ScmDraft 2's terrain window): in Terrain mode the
-// palette's views (the search box, the View button, the list; Rectangle mode's Tiles panel) can be in a window of their
+// The floating palettes on this system (Roadmap R40, as ScmDraft 2's terrain window): each map mode's palette (the
+// side bar's views under the mode's tools: core/views_palette_float.inc, FloatPaletteParts) can be in a window of its
 // own, a tool window of the host (kit_sdl/sdl_host.h: WindowKind::Tool) that stays over the main window, can move (also
 // to another screen) and change its size. The kit draws each host window with its own ImGui draw list into its own
 // swapchain, so the palette's window is drawn as the dialogs are (no ImGui multi-viewport).
-// The state, its place and its size are in the settings (core/dock_prefs.inc: gFloatPal, Layout/Palette...); the place
-// comes back at the next start when it is still on a screen. The window does not take the keyboard when it opens; the
-// keys that no view of it takes go to the main window (the map's keys and the menus' shortcuts work from it), and a pick
-// in it gives the keyboard to the map (as a pick in the side bar does). Dock, or the window's close button, puts the
-// views back in the side bar. Included by main_sdl.cpp after sdl_main_view.inc.
+// Each mode's state, place and size are in the settings (core/dock_prefs.inc: gFloatPal, Layout/<Name>...); the place
+// comes back at the next start when it is still on a screen. The modes share the side bar's views, so one window is
+// open at a time: the active mode's, while its palette floats; another mode closes it, and opens its own when its
+// palette floats. The window does not take the keyboard when it opens; the keys that no view of it takes go to the main
+// window (the map's keys and the menus' shortcuts work from it), and a pick in it gives the keyboard to the map (as a
+// pick in the side bar does). Dock, or the window's close button, puts the views back in the side bar. Included by
+// main_sdl.cpp after sdl_main_view.inc.
 
 void sdlInputLine(const std::string& what);  // (sdl_menus.inc)
 
 FloatPaletteView gFloatPalView;
 FloatPaletteNoteView gFloatNote;
 bool gFloatPalOpen = false;      // the window is open, and the palette's views are in it
+Mode gFloatPalMode = Mode::Terrain;  // ... the views of this mode's palette
 bool gFloatPalClosing = false;   // the program closes the window (another mode): the palette stays floating
 bool gFloatPalLines = false;     // a snapshot's input lines have the palette's line (sdlFloatPaletteLine)
 draw::Rect gFloatPalShotAt;      // where the window opened, in the main window's pixels (a snapshot shows it there)
 Uint64 gFloatPalSaveAt = 0;      // the moved or resized window's place is saved then (0: nothing to save)
+
+// The short name of a mode's palette (the end of its command's name: terrain, units, ...).
+std::string floatPaletteShort(Mode m) {
+    const std::string c = kFloatPalNames[int(m)].command;
+    return c.substr(c.rfind('.') + 1);
+}
+
+// The side bar's views of the palette of `m`, as the window holds them (from the top).
+FloatPaletteParts floatPaletteParts(Mode m) {
+    FloatPaletteParts p;
+    if (m == Mode::Locations) {
+        p.rows = {{&gFilterSdl, nullptr}};
+        p.list = &gLocList;
+        return p;
+    }
+    if (m == Mode::Units || m == Mode::Sprites) p.rows.push_back({&gOwnerBox, nullptr});
+    if (m != Mode::Terrain) p.rows.push_back({&gSectionDropSdl, nullptr});
+    p.rows.push_back({&gSearchSdl, &gViewBtnSdl});
+    p.list = &gPalList;
+    if (m == Mode::Terrain) p.alt = &gTilesPanel;  // (Rectangle mode's Tiles panel)
+    return p;
+}
+std::vector<draw::View*> floatPaletteViews(const FloatPaletteParts& p) {
+    std::vector<draw::View*> out;
+    for (auto [fill, button] : p.rows) {
+        if (fill) out.push_back(fill);
+        if (button) out.push_back(button);
+    }
+    if (p.list) out.push_back(p.list);
+    if (p.alt) out.push_back(p.alt);
+    return out;
+}
 
 // The screens' usable areas, in SDL's window coordinates.
 std::vector<RECT> floatPaletteScreens() {
@@ -34,75 +69,97 @@ std::vector<RECT> floatPaletteScreens() {
 
 void floatPaletteClosedByUser();
 
-// The views go back into the main window's side bar (the pie palette stays the last child: over the map).
+// The views go back into the main window's side bar (the pie palette stays the last child: over the map). A place that
+// is not saved yet is saved now.
 void floatPaletteViewsBack() {
+    const std::vector<draw::View*> views = floatPaletteViews(gFloatPalView.parts());
     gFloatPalView.release();
+    if (gFloatPalSaveAt) gFloatPalSaveAt = 0, saveDock();
     if (!gRoot) return;
-    for (draw::View* v : {static_cast<draw::View*>(&gSearchSdl), static_cast<draw::View*>(&gViewBtnSdl), static_cast<draw::View*>(&gPalList),
-                          static_cast<draw::View*>(&gTilesPanel)})
-        gRoot->add(*v, draw::Rect(0, 0, 0, 0));
+    for (draw::View* v : views) gRoot->add(*v, draw::Rect(0, 0, 0, 0));
     gRoot->add(gRoot->pie, gRoot->pie.frame());
 }
 
-// Opens or closes the window for the state (MainView::relayout). `terrainShown`: the Map workspace shows a map in
-// Terrain mode; `tiles`: Rectangle mode's Tiles panel; `slot`: the views' place in the side bar.
-bool floatPaletteSync(bool terrainShown, bool tiles, draw::Rect slot) {
+// The window closes (not by the user: the palette stays floating) and its views go back.
+void floatPaletteClose() {
+    if (!gFloatPalOpen) return;
+    gFloatPalClosing = true;
+    if (gHost) gHost->closeWindow(gFloatPalView);
+    gFloatPalClosing = false;
+    gFloatPalOpen = false;
+    floatPaletteViewsBack();
+}
+
+// Opens or closes the window for the state (MainView::relayout). `m`: the active mode; `shown`: the Map workspace
+// shows a map and the side bar has a place for the palette (`slot`, in the main window); `alt`: Rectangle mode's Tiles
+// panel. True: the palette of `m` is in its window (the side bar shows the note).
+bool floatPaletteSync(Mode m, bool shown, bool alt, draw::Rect slot) {
     static bool busy = false;
-    const bool want = gFloatPal.floating && terrainShown && gHost && gRoot;
-    gFloatPalView.setTilesShown(tiles);
-    if (want == gFloatPalOpen || busy) return gFloatPalOpen;
-    busy = true;
-    if (want) {
-        gFloatPalView.hold(gSearchSdl, gViewBtnSdl, gPalList, gTilesPanel);
-        // The first place: over the map's top left corner, as wide as the side bar or more; the size that the settings
-        // keep (points; a snapshot's window has one pixel to a point).
-        const draw::Rect m = gRoot->map.frame();
-        int w = std::max(slot.width(), scale(260)), h = std::clamp(m.height() - scale(32), scale(300), scale(600));
-        if (gFloatPal.w > 0 && gFloatPal.h > 0) w = gFloatPal.w, h = gFloatPal.h;
-        const int x = std::max(slot.right, m.left) + scale(16), y = m.top + scale(16);
-        gFloatPalShotAt = draw::Rect(x, y, x + w, y + h);
-        gHost->openWindow(*gRoot, gFloatPalView, draw::WindowSpec{draw::WindowKind::Tool, gFloatPalShotAt, L"Terrain palette"}, [] {
-            if (!gFloatPalClosing) floatPaletteClosedByUser();
-        });
-        gFloatPalOpen = gFloatPalView.host() != nullptr;  // (no window: the main window is not shown yet; it opens later)
-        if (!gFloatPalOpen) floatPaletteViewsBack();
-        if (SDL_Window* sw = gFloatPalOpen ? gHost->sdlWindow(gFloatPalView) : nullptr) {
-            SDL_SetWindowMinimumSize(sw, kFloatPalMinW, kFloatPalMinH);
-            if (floatPaletteOnScreens(gFloatPal, floatPaletteScreens())) {  // the kept place, when it is still on a screen
-                SDL_SetWindowSize(sw, gFloatPal.w, gFloatPal.h);
-                SDL_SetWindowPosition(sw, gFloatPal.x, gFloatPal.y);
-            }
-        }
-        if (gFloatPalOpen) gFloatPalView.place();
-    } else {
-        gFloatPalClosing = true;
-        gHost->closeWindow(gFloatPalView);
-        gFloatPalClosing = false;
-        gFloatPalOpen = false;
-        floatPaletteViewsBack();
+    if (busy) return gFloatPalOpen && gFloatPalMode == m;
+    const bool want = gFloatPal[int(m)].floating && shown && gHost && gRoot;
+    if (gFloatPalOpen && (!want || gFloatPalMode != m)) {  // (another mode, or docked: the window closes)
+        busy = true;
+        floatPaletteClose();
+        busy = false;
     }
+    gFloatNote.setPalette(m);  // (the side bar's note, while it floats)
+    if (gFloatPalOpen) {
+        gFloatPalView.setAltShown(alt);
+        return true;
+    }
+    if (!want) return false;
+    busy = true;
+    const FloatPalette& kept = gFloatPal[int(m)];
+    gFloatPalMode = m;
+    gFloatPalView.name = kFloatPalNames[int(m)].title;
+    gFloatPalView.dock.setTip(kFloatPalNames[int(m)].tip);
+    gFloatPalView.altShown = alt;
+    gFloatPalView.hold(floatPaletteParts(m));
+    // The first place: over the map, at the side bar's edge, as wide as the side bar or more; the size that the settings
+    // keep (points; a snapshot's window has one pixel to a point).
+    const draw::Rect map = gRoot->map.frame();
+    int w = std::max(slot.width(), scale(260)), h = std::clamp(map.height() - scale(32), scale(300), scale(600));
+    if (kept.w > 0 && kept.h > 0) w = kept.w, h = kept.h;
+    const bool right = slot.left >= map.right;  // (the palette's side bar is on the right of the map)
+    const int x = right ? std::max(map.left, map.right - scale(16) - w) : std::max(slot.right, map.left) + scale(16), y = map.top + scale(16);
+    gFloatPalShotAt = draw::Rect(x, y, x + w, y + h);
+    gHost->openWindow(*gRoot, gFloatPalView, draw::WindowSpec{draw::WindowKind::Tool, gFloatPalShotAt, kFloatPalNames[int(m)].title}, [] {
+        if (!gFloatPalClosing) floatPaletteClosedByUser();
+    });
+    gFloatPalOpen = gFloatPalView.host() != nullptr;  // (no window: the main window is not shown yet; it opens later)
+    if (!gFloatPalOpen) floatPaletteViewsBack();
+    if (SDL_Window* sw = gFloatPalOpen ? gHost->sdlWindow(gFloatPalView) : nullptr) {
+        SDL_SetWindowMinimumSize(sw, kFloatPalMinW, kFloatPalMinH);
+        if (floatPaletteOnScreens(kept, floatPaletteScreens())) {  // the kept place, when it is still on a screen
+            SDL_SetWindowSize(sw, kept.w, kept.h);
+            SDL_SetWindowPosition(sw, kept.x, kept.y);
+        }
+    }
+    if (gFloatPalOpen) gFloatPalView.place();
     busy = false;
     return gFloatPalOpen;
 }
 
-// View > Floating terrain palette, the palette's View menu, Dock: the state changes, is saved, and the window opens
-// (in Terrain mode) or closes.
-void shellFloatPalette(bool on) {
+// View > Floating palettes, a palette's View menu, Dock: the state of the palette of `m` changes, is saved, and its
+// window opens (in its mode) or closes.
+void shellFloatPalette(Mode m, bool on) {
     gFloatPalLines = true;
-    if (gFloatPal.floating == on) return;
-    gFloatPal.floating = on;
+    FloatPalette& p = gFloatPal[int(m)];
+    if (p.floating == on) return;
+    p.floating = on;
     saveDock();
     if (gRoot) gRoot->relayout();
     shellMenusChanged();
-    if (on) setMessage(gFloatPalOpen ? L"Moved the terrain palette to its own window" : L"The terrain palette shows in its own window in Terrain mode");
-    else setMessage(L"Docked the terrain palette");
+    const FloatPaletteNames& n = kFloatPalNames[int(m)];
+    if (on) setMessage(gFloatPalOpen && gFloatPalMode == m ? n.moved : n.later);
+    else setMessage(n.docked);
 }
 
 // The window's close button: the palette docks (the window is gone; its views go back).
 void floatPaletteClosedByUser() {
     gFloatPalOpen = false;
     floatPaletteViewsBack();
-    shellFloatPalette(false);
+    shellFloatPalette(gFloatPalMode, false);
 }
 
 // Each turn of the event loop: the place and the size of the window as the user moves it; they are saved half a second
@@ -111,19 +168,22 @@ void sdlFloatPaletteFrame() {
     if (!gFloatPalOpen || !gHost) return;
     SDL_Window* w = gHost->sdlWindow(gFloatPalView);
     if (!w) return;
-    FloatPalette now = gFloatPal;
+    FloatPalette& kept = gFloatPal[int(gFloatPalMode)];
+    FloatPalette now = kept;
     SDL_GetWindowPosition(w, &now.x, &now.y);
     SDL_GetWindowSize(w, &now.w, &now.h);
-    if (!(now == gFloatPal)) gFloatPal = now, gFloatPalSaveAt = SDL_GetTicks() + 500;
+    if (!(now == kept)) kept = now, gFloatPalSaveAt = SDL_GetTicks() + 500;
     if (gFloatPalSaveAt && SDL_GetTicks() >= gFloatPalSaveAt) gFloatPalSaveAt = 0, saveDock();
 }
 
 // The wiring, once (main_sdl.cpp, after the main window shows): Dock in the window and in the side bar's note, the
-// keys of the window; then the window opens when the settings keep the palette floating.
+// keys of the window; then the window opens when the settings keep the active mode's palette floating.
 void sdlFloatPaletteSetup() {
-    gFloatPalView.onDock = gFloatNote.onDock = [] { shellPost([] { shellFloatPalette(false); }); };  // (after the click: the window closes)
+    gFloatPalView.onDock = [] { shellPost([] { shellFloatPalette(gFloatPalMode, false); }); };  // (after the click: the window closes)
+    gFloatNote.onDock = [] { shellPost([] { shellFloatPalette(gState.mode, false); }); };
     gFloatPalView.keys = [](const draw::KeyEvent& e) { return gRoot && gRoot->key(e); };
-    if (gFloatPal.floating) gFloatPalLines = true;
+    for (const FloatPalette& p : gFloatPal)
+        if (p.floating) gFloatPalLines = true;
     if (!gRoot) return;
     // (a snapshot with no input: the root is in the host only while a picture is made; the window is a picture over it)
     const bool lone = gHost && !gRoot->host();
@@ -132,51 +192,78 @@ void sdlFloatPaletteSetup() {
     if (lone) gRoot->attach(nullptr);
 }
 
-// A snapshot's line after each input (sdl_menus.inc: sdlInputLine), once the floating palette is in use: its state,
-// the window's size in pixels and its place (a snapshot: in the main window's pixels; else on the screens), the
-// Terrain pick, and the view under the views' root.
+// A snapshot's line after each input (sdl_menus.inc: sdlInputLine), once a floating palette is in use: the active
+// mode's palette, its state, the window's size in pixels and its place (a snapshot: in the main window's pixels; else
+// on the screens), the pick, the view under the views' root, its kept place, and the palettes that float.
 void sdlFloatPaletteLine() {
     if (!gFloatPalLines) return;
-    const bool inSide = gRoot && gPalList.parent() == gRoot && gTilesPanel.parent() == gRoot;
-    if (!gFloatPal.floating)
-        return void(std::printf("  palette: docked, %s; pick=%d\n", inSide ? "in the side bar" : "not in the side bar (WRONG)", gState.palette));
-    if (!gFloatPalOpen) return void(std::printf("  palette: floating, no window (not in Terrain mode); pick=%d\n", gState.palette));
+    const Mode a = gState.mode;
+    std::string floating;
+    for (const Mode m : kModeOrder)
+        if (gFloatPal[int(m)].floating) floating += (floating.empty() ? "" : ",") + floatPaletteShort(m);
+    if (floating.empty()) floating = "none";
+    const std::string name = floatPaletteShort(a);
+    if (!gFloatPal[int(a)].floating) {
+        bool inSide = gRoot != nullptr;
+        for (draw::View* v : floatPaletteViews(floatPaletteParts(a))) inSide = inSide && v->parent() == gRoot;
+        return void(std::printf("  palette: docked %s, %s%s; pick=%d; floating=%s\n", name.c_str(), inSide ? "in the side bar" : "not in the side bar (WRONG)",
+                                gFloatPalOpen ? ", a window is open (WRONG)" : "", gState.palette, floating.c_str()));
+    }
+    if (!gFloatPalOpen || gFloatPalMode != a)
+        return void(std::printf("  palette: floating %s, no window%s; pick=%d; floating=%s\n", name.c_str(),
+                                gFloatPalOpen ? " (WRONG: the window of another mode is open)" : "", gState.palette, floating.c_str()));
     int x = gFloatPalShotAt.left, y = gFloatPalShotAt.top;
     if (SDL_Window* w = gHost ? gHost->sdlWindow(gFloatPalView) : nullptr) SDL_GetWindowPosition(w, &x, &y);
     draw::Point size;  // (the window that takes a snapshot's keys now: the palette's when it is the last one opened)
     const bool keysHere = gHost && gRoot && &gHost->snapshotTop(*gRoot, size) == &gFloatPalView;
-    std::printf("  palette: floating, window %dx%d px at %d,%d, %s; pick=%d; keys=%s; search=\"%s\"%s; kept %d,%d %dx%d\n", gFloatPalView.width(),
-                gFloatPalView.height(), x, y, gFloatPalView.tilesShown ? "tiles" : gPalList.parent() == &gFloatPalView ? "list" : "empty (WRONG)",
-                gState.palette, keysHere ? "window" : "main", narrow(gSearchSdl.field().text()).c_str(),
-                gSearchSdl.field().hasFocus() ? " (typing)" : "", gFloatPal.x, gFloatPal.y, gFloatPal.w, gFloatPal.h);
+    const FloatPaletteParts& parts = gFloatPalView.parts();
+    SearchBox& search = a == Mode::Locations ? gFilterSdl : gSearchSdl;
+    const FloatPalette& kept = gFloatPal[int(a)];
+    std::printf("  palette: floating %s, window %dx%d px at %d,%d, %s; pick=%d; keys=%s; search=\"%s\"%s; kept %d,%d %dx%d; floating=%s\n", name.c_str(),
+                gFloatPalView.width(), gFloatPalView.height(), x, y,
+                gFloatPalView.altShown && parts.alt ? "tiles" : parts.list && parts.list->parent() == &gFloatPalView ? "list" : "empty (WRONG)", gState.palette,
+                keysHere ? "window" : "main", narrow(search.field().text()).c_str(), search.field().hasFocus() ? " (typing)" : "", kept.x, kept.y, kept.w,
+                kept.h, floating.c_str());
 }
 
-// --check floatpalette:<folder>: the settings keep the state. A state goes into a new settings file in <folder> and a
-// second Settings reads it back; then the rule of the kept place: on a screen, on a second screen, off the screens.
+// --check floatpalette:<folder>: the settings keep each palette's state. Two palettes' states (terrain, units) go into a
+// new settings file in <folder> and a second Settings reads them back; one docks again and the other keeps its own;
+// then the rule of the kept place: on a screen, on a second screen, off the screens.
 bool sdlFloatPaletteCheck(const std::string& name, std::string& out) {
     if (name.rfind("floatpalette:", 0) != 0) return false;
     gFloatPalLines = true;
     const fs::path file = fs::path(widen(name.substr(13))) / L"float-settings.json";
-    FloatPalette p;
+    FloatPalette p, q;
     p.floating = true, p.x = 1700, p.y = 120, p.w = 320, p.h = 480;
+    q.floating = true, q.x = 240, q.y = 300, q.w = 300, q.h = 420;
     {
         stardraft::Settings s(file);
-        floatPaletteSave(s, p);
+        floatPaletteSave(s, Mode::Terrain, p);
+        floatPaletteSave(s, Mode::Units, q);
     }
-    const stardraft::Settings again(file);
-    const FloatPalette back = floatPaletteLoad(again);
     char buf[320];
-    std::snprintf(buf, sizeof buf, "floatpalette: saved floating %d at %d,%d %dx%d, read back floating %d at %d,%d %dx%d %s\n", int(p.floating), p.x, p.y,
-                  p.w, p.h, int(back.floating), back.x, back.y, back.w, back.h, back == p ? "(yes)" : "(WRONG)");
-    out += buf;
+    {
+        const stardraft::Settings again(file);
+        for (const auto& [m, want] : {std::pair{Mode::Terrain, p}, std::pair{Mode::Units, q}}) {
+            const FloatPalette back = floatPaletteLoad(again, m);
+            std::snprintf(buf, sizeof buf, "floatpalette: saved %s floating %d at %d,%d %dx%d, read back floating %d at %d,%d %dx%d %s\n",
+                          floatPaletteShort(m).c_str(), int(want.floating), want.x, want.y, want.w, want.h, int(back.floating), back.x, back.y, back.w, back.h,
+                          back == want ? "(yes)" : "(WRONG)");
+            out += buf;
+        }
+        const FloatPalette none = floatPaletteLoad(again, Mode::Doodads);
+        if (!(none == FloatPalette{})) out += "floatpalette: the doodad palette has a state that nobody saved (WRONG)\n";
+    }
     FloatPalette docked = p;
     docked.floating = false;
     {
         stardraft::Settings s(file);
-        floatPaletteSave(s, docked);
+        floatPaletteSave(s, Mode::Terrain, docked);
     }
-    const FloatPalette back2 = floatPaletteLoad(stardraft::Settings(file));
-    out += std::string("floatpalette: docked again, read back ") + (back2 == docked ? "docked with the same place (yes)" : "another state (WRONG)") + "\n";
+    const stardraft::Settings third(file);
+    const FloatPalette back2 = floatPaletteLoad(third, Mode::Terrain), back3 = floatPaletteLoad(third, Mode::Units);
+    out += std::string("floatpalette: the terrain palette docked again, read back ") + (back2 == docked ? "docked with the same place (yes)" : "another state (WRONG)") +
+           "; the unit palette " + (back3 == q ? "still floats at its own place (yes)" : "has another state (WRONG)") + "\n";
     const std::vector<RECT> one{RECT{0, 0, 1600, 900}}, two{RECT{0, 0, 1600, 900}, RECT{1600, 0, 3520, 1080}};
     const bool onSecond = floatPaletteOnScreens(p, two), gone = floatPaletteOnScreens(p, one);
     FloatPalette edge = p;
