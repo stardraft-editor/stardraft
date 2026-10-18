@@ -2324,6 +2324,10 @@ constexpr UiText kRows[] = {
     {L"Town halls and resources can be near each other", L"Los centros de mando y los recursos pueden estar cerca"},
     {L"Hidden layer", L"Capa oculta"},
     {L"Show the layer", L"Mostrar la capa"},
+    {L"&Find in triggers\u2026", L"&Buscar en los disparadores\u2026"},
+    {L"Find a trigger, a condition, an action or a block", L"Buscar un disparador, una condici\u00F3n, una acci\u00F3n o un bloque"},
+    {L"Find a trigger, a condition or an action", L"Buscar un disparador, una condici\u00F3n o una acci\u00F3n"},
+    {L"Trigger", L"Disparador"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

@@ -34,6 +34,8 @@ public:
     virtual int editBlock(BatchHost& bh, ClassicBatch& b, bool editing) = 0;
     // A right-click menu of `items`: `run` gets the id of the item picked (it may run after this returns).
     virtual void menu(const draw::View& from, draw::Point at, const std::vector<CtMenuItem>& items, std::function<void(int)> run) = 0;
+    // The search box is emptied and the filter shows all triggers (Find in triggers goes to a trigger they hide).
+    virtual void queryCleared() {}
 };
 
 // Ctrl+C and Ctrl+V: a trigger, a condition or an action. The texts and sounds are kept as text, so a paste into

@@ -2324,6 +2324,10 @@ constexpr UiText kRows[] = {
     {L"Town halls and resources can be near each other", L"\uBCF8\uC9C4 \uAC74\uBB3C\uACFC \uC790\uC6D0\uC744 \uAC00\uAE4C\uC774 \uB458 \uC218 \uC788\uC2B5\uB2C8\uB2E4"},
     {L"Hidden layer", L"\uC228\uACA8\uC9C4 \uB808\uC774\uC5B4"},
     {L"Show the layer", L"\uB808\uC774\uC5B4 \uD45C\uC2DC"},
+    {L"&Find in triggers\u2026", L"\uD2B8\uB9AC\uAC70\uC5D0\uC11C \uCC3E\uAE30(&F)\u2026"},
+    {L"Find a trigger, a condition, an action or a block", L"\uD2B8\uB9AC\uAC70, \uC870\uAC74, \uB3D9\uC791 \uB610\uB294 \uBE14\uB85D \uCC3E\uAE30"},
+    {L"Find a trigger, a condition or an action", L"\uD2B8\uB9AC\uAC70, \uC870\uAC74 \uB610\uB294 \uB3D9\uC791 \uCC3E\uAE30"},
+    {L"Trigger", L"\uD2B8\uB9AC\uAC70"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

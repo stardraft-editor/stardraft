@@ -164,6 +164,7 @@ void sdlShowUndoHistory();
 
 void sdlExportMapImage();  // (sdl_map_image.inc: File > Export map image)
 void sdlClassicQuickAdd();  // (sdl_classic_triggers.inc: Q on the Classic triggers page)
+void sdlClassicFind();
 bool sdlOptionsRuns(int id);     // (sdl_options.inc: the Program options commands)
 bool sdlOptionsCommand(int id);
 
@@ -204,6 +205,7 @@ bool sdlRuns(int id) {
     case ID_HELP_UPDATES:  // Check for updates (sdl_updates.inc)
     case ID_EDIT_RENAME:  // the location's rename and the quick picker (sdl_map_dialogs.inc)
     case ID_QUICKPICK: return true;
+    case ID_TRIG_FIND: return gWorkspace == Workspace::Triggers || gWorkspace == Workspace::ClassicTriggers;
     case ID_HELP_ABOUT:  // (sdl_options.inc) and the links
     case ID_VIEW_KIT:
     case ID_HELP_DISCORD:
@@ -1229,6 +1231,9 @@ void commandSdl(int id) {
     case ID_HELP_FEEDBACK: showFeedbackSdl(L"StarDraft 2"); return;
     case ID_EDIT_RENAME:
         if (gState.ed && gState.ed->isOpen()) renameSelectedLocation();
+        return;
+    case ID_TRIG_FIND:  // the Classic triggers page (the Triggers workspace's: core/commands_core.inc)
+        if (gWorkspace == Workspace::ClassicTriggers) sdlClassicFind();
         return;
     case ID_QUICKPICK:  // in the trigger editors: Quick add (core/views_trigger_quick.inc)
         if (gWorkspace == Workspace::Triggers) return trigQuickAdd();

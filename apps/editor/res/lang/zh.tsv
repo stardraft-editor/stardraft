@@ -2322,3 +2322,7 @@ Town halls and resources keep 3 tiles apart	主基地与资源保持 3 格距离
 Town halls and resources can be near each other	主基地与资源可以相邻
 Hidden layer	隐藏的图层
 Show the layer	显示图层
+&Find in triggers…	在触发器中查找(&F)…
+Find a trigger, a condition, an action or a block	查找触发器、条件、动作或块
+Find a trigger, a condition or an action	查找触发器、条件或动作
+Trigger	触发器

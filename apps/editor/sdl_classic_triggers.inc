@@ -64,6 +64,7 @@ public:
     void filled() override;
     void selectTrigger(int i) override;
     void updateHeader() override;
+    void queryCleared() override;
     void changed() override;
     void invalidate() override;
     void message(const std::wstring& text) override { setMessage(text); }
@@ -336,6 +337,11 @@ void SdlCtPageHost::selectEntry(int kind, int entry) {
 void SdlCtPageHost::buildEditor() {
     if (gSdlTrigPage) gSdlTrigPage->editorView().show(*this);
 }
+void SdlCtPageHost::queryCleared() {
+    if (!gSdlTrigPage) return;
+    gSdlTrigPage->side().search.setText(L"");  // (its onChange runs the empty search)
+    gSdlTrigPage->side().pickGroup(-1);
+}
 void SdlCtPageHost::resetListScroll() {
     if (gSdlTrigPage) gSdlTrigPage->triggers().resetScroll();
 }
@@ -368,6 +374,7 @@ void sdlClassicTrigPopShot(const std::string& spec) {
 }
 // Q on the Classic triggers page from the Edit menu: Quick add (core/views_trigger_quick.inc).
 void sdlClassicQuickAdd() { ctQuickAdd(gSdlTrigHost); }
+void sdlClassicFind() { ctFind(gSdlTrigHost); }  // Edit > Find in triggers (core/views_trigger_quick.inc)
 
 void sdlClassicTrigSelect(const std::string& spec) {
     int t = 0, kind = 0, entry = -1;
