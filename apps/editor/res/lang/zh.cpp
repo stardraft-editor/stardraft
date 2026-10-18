@@ -2338,6 +2338,7 @@ constexpr UiText kRows[] = {
     {L"Fold the triggers under the heading", L"\u6298\u53E0\u6807\u9898\u4E0B\u7684\u89E6\u53D1\u5668"},
     {L" trigger", L" \u4E2A\u89E6\u53D1\u5668"},
     {L" triggers", L" \u4E2A\u89E6\u53D1\u5668"},
+    {L"Click: what the check looks at (Help)", L"\u5355\u51FB\uFF1A\u6B64\u68C0\u67E5\u67E5\u770B\u7684\u5185\u5BB9\uFF08\u5E2E\u52A9\uFF09"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

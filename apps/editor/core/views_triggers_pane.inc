@@ -32,6 +32,27 @@ TriggerNode* trigSelected() {
 
 void trigQuickAdd();  // Q: Quick add (core/views_trigger_quick.inc)
 void trigEditComment();  // the trigger's comment (core/triggers_values.inc)
+void shellShowHelp(const std::string& topic);  // the help window at a topic ("trigger-checks#desync")
+
+// The part of the help page Trigger checks (docs/help/trigger-checks.md, roadmap R38) that tells about a problem, from
+// its message: the checks' messages fall into the page's parts by their words.
+inline std::string trigIssueTopic(const std::string& message) {
+    auto has = [&](const char* w) { return message.find(w) != std::string::npos; };
+    const char* part = "values";
+    if (has("Run local block") || has("desync")) part = "desync";
+    else if (has("memory") || has("address")) part = "memory";
+    else if (has("Slow") || has("actions each run")) part = "speed";
+    else if (has("Unknown ") || has("cannot build this block")) part = "unknown";
+    else if (has("has a value only") || has("Leave the loop") || has("Pause") || has("For each") || has("Put it in For each player")) part = "scope";
+    else if (has("On map start") || has("Exactly") || has("trigger cycle")) part = "time";
+    else if (has("chat text") || has("{}") || has("value in the text") || has("text variable")) part = "texts";
+    else if (has("never runs") || has("runs itself") || has("Run a trigger") || has("Turn it on") || has("Definitions with the name") ||
+             has("no conditions"))
+        part = "triggers";
+    else if (has("variable") || has("constant") || has("items") || has("name") || has("starting value") || has("default value") || has("size"))
+        part = "variables";
+    return std::string("trigger-checks#") + part;
+}
 
 // --- The pane: one trigger -----------------------------------------------------------------------------------
 // Conditions and Actions, each collapsible. Every block has a grip; drag it to reorder or into or out of a block
@@ -160,6 +181,7 @@ struct TrigPaneState {
     RECT heading[2]{};
     RECT title{};  // the trigger's or variable's name at the top (click to rename)
     RECT comment{};  // the trigger's comment under its name (click to edit; roadmap R62)
+    std::vector<std::pair<RECT, std::string>> issueHelp;  // a block's problem mark and its help topic (click: the help)
     std::vector<std::pair<RECT, int>> addButtons;  // a category or folder: New trigger (0), template (1), folder (2), variable (3)
     RECT codeToggle{};  // </>: the code pane
     bool collapsed[2] = {};
@@ -672,6 +694,8 @@ public:
         auto on = [&](const auto& hits) { return std::any_of(hits.begin(), hits.end(), [&](const auto& h) { return PtInRect(&h.r, pt) != 0; }); };
         if (on(gTP.params) || on(gTP.folds) || on(gTP.adds) || on(gTP.varHits) || on(gTP.rowButtons)) return draw::Cursor::Hand;
         if (PtInRect(&gTP.title, pt) || PtInRect(&gTP.comment, pt) || PtInRect(&gTP.codeToggle, pt)) return draw::Cursor::Hand;
+        for (const auto& [r, topic] : gTP.issueHelp)
+            if (PtInRect(&r, pt)) return draw::Cursor::Hand;
         for (const auto& b : gTP.addButtons)
             if (PtInRect(&b.first, pt)) return draw::Cursor::Hand;
         for (const auto& l : gTP.lines)
@@ -753,6 +777,8 @@ private:
                 const RECT b = br;
                 return host_.addFromPage(action, b);
             }
+        for (const auto& [r, topic] : gTP.issueHelp)
+            if (PtInRect(&r, pt)) return shellShowHelp(topic);
         if (PtInRect(&gTP.title, pt)) return host_.editTitle();
         if (PtInRect(&gTP.comment, pt)) return trigEditComment();
         for (const auto& h : gTP.varHits)
@@ -1123,7 +1149,8 @@ private:
                 const int bx = head.right - scale(28) * 3 - scale(34);
                 RECT badge{bx, head.top + padY - scale(1), bx + scale(24), head.top + padY + scale(23)};
                 glyph(c, badge, tc == kTrigRed ? UiIcon::Error : UiIcon::Warning, tc);
-                gTP.tips.push_back({badge, tt, tc});
+                gTP.tips.push_back({badge, tt + L"\n" + tr(L"Click: what the check looks at (Help)"), tc});
+                gTP.issueHelp.push_back({badge, trigIssueTopic(issues.front()->message)});
             }
             y = head.bottom + scale(5);
             if (container && !call.folded) {
@@ -1271,7 +1298,7 @@ private:
         host_.layoutCheck();
         const RECT rc{0, 0, width(), height()};
         gTP.lines.clear(), gTP.params.clear(), gTP.folds.clear(), gTP.adds.clear(), gTP.varHits.clear(), gTP.rowButtons.clear(), gTP.tips.clear();
-        gTP.title = {}, gTP.comment = {}, gTP.addButtons.clear();
+        gTP.title = {}, gTP.comment = {}, gTP.addButtons.clear(), gTP.issueHelp.clear();
         gTrigFixLinks.clear();
         if (gTE.project) {  // </> at the top right: the code pane
             gTP.codeToggle = {rc.right - scale(44), scale(10), rc.right - scale(14), scale(40)};

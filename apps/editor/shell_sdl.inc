@@ -307,6 +307,8 @@ int shellTabSideMenu(const std::wstring& title, int side, int mode) {
 void shellRecentMenu(bool, const std::vector<std::wstring>&, const std::wstring&) { gMenusDirty = true; }  // (the lists are the menus' own: sdl_menus.inc)
 void shellShowQuickPicker(bool replace, bool open) { showQuickPickerSdl(replace, open); }  // (sdl_map_dialogs.inc)
 void shellShowQuickPickerCustom() { showQuickPickerCustomSdl(); }
+void sdlShowHelp(const std::string& topic);  // (sdl_help.inc)
+void shellShowHelp(const std::string& topic) { sdlShowHelp(topic); }
 // (shellMapFileOpened: shell_sdl_win.inc; the file association is Windows only)
 
 // When the program started (its start-up marks count from here): main() takes it first.

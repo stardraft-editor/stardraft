@@ -2338,6 +2338,7 @@ constexpr UiText kRows[] = {
     {L"Fold the triggers under the heading", L"Plegar los disparadores bajo el t\u00EDtulo"},
     {L" trigger", L" disparador"},
     {L" triggers", L" disparadores"},
+    {L"Click: what the check looks at (Help)", L"Clic: lo que comprueba la verificaci\u00F3n (Ayuda)"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
