@@ -37,21 +37,25 @@ std::wstring unitDisplayName(int u) {
     return withCustomName((own.empty() ? widen(t.name) : own) + (t.subtitle.empty() ? L"" : L" (" + widen(t.subtitle) + L")"), u);
 }
 
-std::wstring paletteItemName(int v) {
+// The name of value `v` of a palette of `mode` (a floating or second palette can be of another mode than the map's).
+std::wstring paletteItemNameOf(Mode mode, int v) {
     AppState& app = shellState();
     if (!app.ed || v < 0) return L"";
-    if (app.mode == Mode::Terrain) {
+    if (mode == Mode::Terrain) {
         const IsomTerrainTable* t = IsomTerrainTable::forEra(app.ed->era());
         return t ? widen(t->terrainName(uint16_t(v))) : L"";
     }
-    if (app.mode == Mode::Doodads) {
+    if (mode == Mode::Doodads) {
         const DoodadType* d = app.ed->doodadTypes().find(uint16_t(v));
         return d ? widen(app.ed->unitTypes().statText(d->groupString - 1u)) + L"  #" + std::to_wstring(v) : L"";
     }
-    if (app.mode == Mode::Sprites) return entryName("sprites", v) + L"  #" + std::to_wstring(v);
+    if (mode == Mode::Sprites) return entryName("sprites", v) + L"  #" + std::to_wstring(v);
+    if (mode == Mode::Locations || v >= int(app.ed->unitTypes().size())) return L"";
     const UnitType& t = app.ed->unitTypes()[uint16_t(v)];
     return widen(t.name) + (t.subtitle.empty() ? L"" : L" (" + widen(t.subtitle) + L")");
 }
+// The name of value `v` of the map's mode's palette.
+std::wstring paletteItemName(int v) { return paletteItemNameOf(shellState().mode, v); }
 // The name of an entry: units from stat_txt.tbl, the rest from the generated lists ("" when unnamed).
 std::wstring buttonSetName(int s);
 std::wstring entryName(const std::string& dat, int v) {
