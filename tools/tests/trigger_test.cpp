@@ -439,6 +439,16 @@ int main(int argc, char** argv) {
             setP.argBlocks[1] = {tp};
             trains.lists[1].push_back(setT);
             trains.lists[1].push_back(setP);
+            // chat parsing and the music (roadmap R51)
+            TriggerCall setC = block("act.setvar", {"SetTo", "0", "gold"});
+            TriggerCall cn = make("val.chatnumber");
+            cn.args = {"\"-give \""};
+            setC.argBlocks.resize(setC.args.size());
+            setC.argBlocks[1] = {cn};
+            TriggerCall chatIf = make("act.if");
+            chatIf.lists[0] = {block("cond.chatstarts", {"\"-give \""}), block("cond.chatcontains", {"\"gg\""})};
+            chatIf.lists[1] = {setC, block("act.musicplay", {"music\\theme.wav", "95", "all"}), block("act.musicstop", {})};
+            trains.lists[1].push_back(chatIf);
         }
         TriggerCall setX = block("act.setvar", {"SetTo", "0", "gold"});
         TriggerCall dx = make("val.dirx");
@@ -1370,8 +1380,13 @@ int main(int argc, char** argv) {
                                                 "msqc_moved.Exactly(1); xy, msqc_localMouseX, msqc_localMouseY : msqc_MouseX, msqc_MouseY",
                                                 "msqc_share1_send.Exactly(1); xy, msqc_share1_local : msqc_share1_recv"},
               "and their [MSQC] lines (keys do not count while typing; the mouse's place when it moves)");
-        check(triggerChatLines(code) == std::vector<std::string>{"__addr__ : sd_chat", "-help : 2"} && code.find("(sd_chat == 2)") != std::string::npos,
+        const auto chatLines = triggerChatLines(code);
+        auto hasLine = [&](const char* l) { return std::find(chatLines.begin(), chatLines.end(), l) != chatLines.end(); };
+        check(chatLines.size() >= 2 && chatLines[0] == "__addr__ : sd_chat" && hasLine("-help : 2") && code.find("(sd_chat == 2)") != std::string::npos,
               "chat commands: the [chatEvent] lines, and the number each sets");
+        check(hasLine("__patternAddr__ : sd_chatpat") && hasLine("^-give .*.*$ : 1") && hasLine("^.*gg.*$ : 2") && hasLine("__ptrAddr__ : sd_chatptr") &&
+                  hasLine("__lenAddr__ : sd_chatlen") && code.find("(sd_chatpat == 1)") != std::string::npos,
+              "chat parsing (roadmap R51): the patterns of Chat line starts with and contains, and the line's address and length");
         check(code.find("msqc_keepMouse();") != std::string::npos && code.find("function beforeTriggerExec()") != std::string::npos,
               "the mouse's place: measured before MSQC sends, kept per player");
         check(msqcGeneratedLine(lines[0]) && !msqcGeneratedLine("KeyDown(A) : v_mine, 1"), "lines StarDraft writes are told from lines written by hand");
