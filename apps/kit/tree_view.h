@@ -73,7 +73,7 @@ public:
     std::function<void(TreeNode*)> onSelect;
     // Enter, or a double click on a node without children.
     std::function<void(TreeNode*)> onActivate;
-    // F2, and Delete: the owner asks to rename or to delete the selected node.
+    // F2 (on macOS also Return, as in the Finder), and Delete: the owner asks to rename or to delete the selected node.
     std::function<void(TreeNode*)> onRename;
     std::function<void(TreeNode*)> onDelete;
     // A drag ends on a place: `node` should become the `index`th child of `parent`, where `index` is its position

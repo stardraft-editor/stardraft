@@ -545,6 +545,9 @@ bool TreeView::key(const draw::KeyEvent& e) {
     }
     case draw::Key::Enter:
         if (!selected_) return false;
+#ifdef __APPLE__
+        if (onRename && !(e.mods & (draw::kCtrl | draw::kAlt | draw::kShift))) return onRename(selected_), true;  // (Return renames, as in the Finder)
+#endif
         if (onActivate) onActivate(selected_);
         return true;
     case draw::Key::F2:

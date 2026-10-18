@@ -1171,6 +1171,14 @@ void SdlHost::dispatch(const SDL_Event& e) {
         k.down = e.type == SDL_EVENT_KEY_DOWN;
         k.repeat = e.key.repeat;
         k.mods = modsOf(e.key.mod);
+#if defined(__APPLE__)
+        // Command+Backspace deletes, as Delete does (the Finder's Move to Trash), where no text field has the keyboard
+        // (in a text field it deletes to the start of the line, as macOS's fields do).
+        if (k.key == Key::Backspace && (e.key.mod & SDL_KMOD_GUI) && !(e.key.mod & (SDL_KMOD_SHIFT | SDL_KMOD_ALT | SDL_KMOD_CTRL))) {
+            const draw::View* f = w->router->focused();
+            if (!f || !f->typesText()) k.key = Key::Delete, k.mods = 0;
+        }
+#endif
         w->router->key(k);
         return;
     }
