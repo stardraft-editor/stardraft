@@ -79,12 +79,18 @@ struct RailView final : stardraft::draw::View {
             {ID_WS_FILES, UiIcon::Assets, L"Assets", L"the Assets workspace", false, Workspace::Files},
             {ID_SCEN_PROPS, UiIcon::Tag, L"Properties", L"Map properties: the title, size and tileset, players and forces (Ctrl+M)", true},
             {ID_WS_PROJECT, UiIcon::Project, L"Project", L"the Project page", false, Workspace::Project},  // after Properties: the classic map's order, then the project's own
-            {ID_WS_HELP, UiIcon::Help, L"Help", L"Help: the documentation (F1)", false, Workspace::Help},  // last, in every tab
         };
         const int m = scale(6), itemH = scale(54);
         int y = scale(8);
-        for (const RailItem& it : items) {
-            if (!it.id || !commandInMode(it.id)) continue;  // only the items of the tab's mode
+        // Help: at the bottom of the side bar, in every tab and with no tab open (then it is the only item: the help
+        // window). Its Ctrl+number is its place among the items, as the others' (core/map_edit_commands.inc).
+        const RailItem help{ID_WS_HELP, UiIcon::Help, L"Help", L"", false, Workspace::Help};
+        const bool noTab = gDocs.empty();
+        for (const RailItem* p = items; p <= items + std::size(items); ++p) {
+            const bool isHelp = p == items + std::size(items);
+            const RailItem& it = isHelp ? help : *p;
+            if (!isHelp && (noTab || !it.id || !commandInMode(it.id))) continue;  // only the items of the tab's mode
+            if (isHelp) y = std::max(y, int(rc.bottom) - scale(8) - itemH);
             RECT r{m, y, rc.right - m - 1, y + itemH};
             const bool on = it.page ? gWorkspace >= Workspace::Properties && mapPageCommandOf(gWorkspace) == it.id : gWorkspace == it.ws,
                        hot = gWsHot == it.id;
@@ -92,7 +98,7 @@ struct RailView final : stardraft::draw::View {
             if (on) c.fill({0, r.top + scale(12), scale(3), r.bottom - scale(12)}, acc);
             item(r, it.icon, it.name, on ? acc : kText, on ? acc : kDim);
             if (it.page && mapPageChangesFor(it.id)) changedDotOn(c, r.right - scale(10), r.top + scale(10));
-            gWsHits.push_back({r, it.id, it.tip});
+            gWsHits.push_back({r, it.id, !isHelp ? it.tip : tr(L"Help: the documentation (F1, Ctrl+") + std::to_wstring(gWsHits.size() + 1) + L")"});
             y += itemH + scale(4);
         }
     }
