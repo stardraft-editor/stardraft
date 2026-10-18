@@ -90,6 +90,7 @@ struct Page {
 };
 extern const Page kPages[];
 extern const int kPageCount;
+extern const long long kPagesStamp;  // the pages' time (tools/help_build.py: pages_stamp)
 }  // namespace help_data
 
 }  // namespace stardraft

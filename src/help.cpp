@@ -70,6 +70,9 @@ bool helpPagesFromJson(const std::string& text, std::vector<HelpPage>& out) {
     JsonParser p{text};
     const Json root = p.value();
     if (!p.ok || root.type != Json::Type::Object || root.integer("format", 0) != 1) return false;
+    // Older pages than the program's own (a pages.json kept from before, or a site not built again yet): not taken.
+    const Json* stamp = root.get("stamp");
+    if (!stamp || stamp->type != Json::Type::Number || (long long)stamp->n < help_data::kPagesStamp) return false;
     const Json* list = root.get("pages");
     if (!list || list->type != Json::Type::Array || list->items.empty()) return false;
     std::vector<HelpPage> pages;
