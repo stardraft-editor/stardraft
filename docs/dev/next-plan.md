@@ -13,44 +13,32 @@ what is missing, and what must be decided first. Update ROADMAP.md (and so the w
 - Trigger blocks (src/data/trigger_blocks.inc, src/triggers.cpp) are checked by build/trigger_test with the game data:
   euddraft builds a map with every block. What a block does in the game needs a test in StarCraft.
 
-## Small and medium: can start now
+## Done on 2026-10-18
 
-| Item | What exists | What is missing |
-|---|---|---|
-| R58 EUD terrain info | Nothing | Blocks that read the tile at a location or a point: the game's tile map in memory (find and check its address), as a condition and as a value |
-| R61 Quick add | Q on the map opens the quick search | Q in the Triggers workspace and on the Classic triggers page: a search box that adds the selected block, condition or action after the selected one |
-| R60 Trigger search | Classic triggers have a text search (since 0.5.0.8) | A pop-up, as Quick open, in both trigger editors: matching triggers, conditions, actions, blocks and comments, each with its trigger; selecting one goes to it; the list is not filtered |
-| R38 Checker documentation | Help > Documentation (docs/help/*.md, built in and on the web); the checkers mark EUD errors and desync risks | A help page per check (the rule, an example, what it does not find), and a link from each mark in the Triggers workspace |
-| R32 Fog of war preview | Nothing | Pick a player; the map dims what that player does not see at the start (the units' sight at their places, as the game reveals it) |
+R61, R60, R62, R59, R38, R32, R58, R23, R37, R25, R52 and R49 (first versions of R25, R52 and R49), and the chat and
+music part of R51. ROADMAP.md tells what each one does.
 
-## Medium: decide first
+To check in StarCraft (trigger_test builds them with euddraft, but what they do needs the game):
 
-- **R62 Trigger comments.** A comment in each trigger's header, and comment rows among the conditions and actions.
-  Decide where a comment between conditions is kept: Classic triggers keep a trigger's comment in the game's Comment
-  action, but conditions have no comment. The project file, or the map (an unused trigger field)?
-- **R23 Batch trigger generation.** On main; the action picker does not offer new blocks yet (kClassicBatchesOffered
-  in core/views_classic_page.inc). The open questions are in ROADMAP.md (the item's text, more than 64 actions for
-  several players, the rail button's name, Ctrl+wheel zoom, players as check boxes or chips, the pop-out's Set
-  button, the sentences, help for the selected action, several selected conditions and actions).
-- **R59 Classic trigger organization.** Quick find, search (R60) and comments that make groups (R62): do R60 and R62
-  first; then decide how a group shows (a heading row that folds its triggers?).
+- R53: how smooth Pan the camera and Shake the camera look.
+- R58: the tile map's addresses (0x5993C4 and 0x57F1D4) for The tile at a location and The tile at a point.
+- R51: the chat conditions, The number in the chat line, Play music and Stop the music.
+- R23: a Classic trigger with more than 64 actions becomes several triggers linked by a switch; does it work for a
+  trigger of several players?
+- R52: a project whose texts are larger than the game's stat_txt.tbl (the game reads the project's copy then).
 
-## Large
+## Left
 
-- **R37 Terrain decoration tools.** Doodads mode has a spray already (map_input.inc). Missing: decoration that follows
-  the terrain (only where a doodad fits its tiles, edges, density rules), and decoration after terrain generation.
 - **R51 Advanced EUD capabilities.** Blocks for EUDQueue and EUDDeque with their methods and loops, EUDByteReader and
-  EUDByteWriter, strcmp, strnstr and memcmp for chat commands, f_parse, drawing and background music.
-- **R42 Map import from scmscx.com.** Search and open a map from scmscx.com. Find out what the site offers (an API or
-  pages to read) and ask its owner.
-- **R25 Campaign projects.** The New page lists Campaign project already, turned off (views_start.inc). A project with
-  the campaign's maps in order, and copying data and terrain between them.
-- **R52 Compatibility import layer.** Read EUD Editor 2 and EUD Editor 3 projects and euddraft projects (.eds and its
-  files) into a StarDraft 2 project, with a list of what could not be imported.
-- **R49 Revamped terrain generation.** Constraint-based generation (for example wave function collapse) with rules for
-  bases, paths and high ground.
-- **R31 Replay preview.** Make a replay of the map with computer players. Needs a way to run the game without a person
-  (or a simulation), so it is the largest.
+  EUDByteWriter, and drawing.
+- **R25, R52, R49: after the first versions.** Campaigns: settings kept the same in all maps. Import: EUD Editor 2's
+  button sets, requirements and trigger editor data (not only the TriggerEditor.eps it writes when it builds), and
+  EUD Editor 3's own project file. Generator: ramps between high and low ground, rules for expansions and other places.
+- **R42 Map import from scmscx.com.** Skipped for now. Needs: what the site offers (an API or pages to read), the
+  owner's permission, then a search window that downloads the map to a cache folder and opens it.
+- **R31 Replay preview.** Skipped for now. Needs: a way to make a replay without a person playing (the game's
+  computer players run only in the game; a replay is the players' commands), so either a simulation of the game
+  (OpenBW) or StarCraft started with the map and computer players, and its replay saved.
 
 ## Not code
 
