@@ -2191,6 +2191,18 @@ constexpr UiText kRows[] = {
     {L"Moved the terrain palette to its own window", L"Se movi\u00F3 la paleta de terreno a su propia ventana"},
     {L"The terrain palette shows in its own window in Terrain mode", L"En el modo Terreno, la paleta de terreno se muestra en su propia ventana"},
     {L"Docked the terrain palette", L"Se acopl\u00F3 la paleta de terreno"},
+    {L"&Documentation\tF1", L"&Documentaci\u00F3n\tF1"},
+    {L"Search the help", L"Buscar en la ayuda"},
+    {L"No pages have these words", L"Ninguna p\u00E1gina tiene estas palabras"},
+    {L"Go back to the page before", L"Volver a la p\u00E1gina anterior"},
+    {L"Send feedback about this page", L"Enviar comentarios sobre esta p\u00E1gina"},
+    {L"Tell the developers what is not correct or not clear on this page", L"Indique a los desarrolladores qu\u00E9 no es correcto o no est\u00E1 claro en esta p\u00E1gina"},
+    {L"Open in the browser", L"Abrir en el navegador"},
+    {L"Open this page on the web", L"Abrir esta p\u00E1gina en la web"},
+    {L"Contents", L"Contenido"},
+    {L"Help", L"Ayuda"},
+    {L"The help pages are not in this build. Open in the browser shows them on the web.", L"Esta compilaci\u00F3n no incluye las p\u00E1ginas de ayuda. Abrir en el navegador las muestra en la web."},
+    {L"Open the help page of this field (F1)", L"Abrir la p\u00E1gina de ayuda de este campo (F1)"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

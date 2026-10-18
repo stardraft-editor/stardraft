@@ -657,6 +657,23 @@ CASES += [
     # The links: the hand on each; the pull request opens in the browser, the release before opens in the window.
     ("changelog-links", ["--release", "{release}", "--dialog", "changelog:links"], ""),
     ("update-topbar", ["--release", "{release}"], ""),
+    # The help window (core/views_help.inc; the pages of docs/help, built into the program by tools/help_build.py): the
+    # index with the list of the pages; a page at a place (units.dat's Hit points: scrolled to its heading); the search's
+    # list; the light theme; and --check helplinks: a link to another page opens it in the window, Back, a row of the
+    # list, the search's first row, and Send feedback about this page names the page.
+    ("help-index", ["--dialog", "help"], ""),
+    ("help-page", ["--dialog", "help:units-dat#hit-points"], ""),
+    ("help-search", ["--dialog", "help:search:cooldown"], ""),
+    ("help-light", ["--dialog", "help:getting-started", "--theme", "light"], ""),
+    ("help-links", ["--check", "helplinks"], ""),
+    # Help > Documentation's key, F1, with no field: the index. In the Data workspace: F1 after a click on the label of
+    # Sight range opens units.dat's page at Sight range; a click on the help icon of the row under the mouse (Hit points)
+    # opens its place. The Data form shows the converted values after the raw values (stardraft/dat_units.h).
+    ("help-f1-start", ["--key", "F1"], ""),
+    ("data-help-f1", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "420,545", "--key", "F1"], "data"),
+    ("data-help-icon", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "420,259", "--click", "529,259"], "data"),
+    ("data-form-units-converted", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--check", "dataform"], "data"),
+    ("data-form-flingy-converted", ["--newproject", "{newdir}", "--workspace", "data", "--data", "flingy:0", "--check", "dataform"], "data"),
 ]
 
 
@@ -3437,6 +3454,114 @@ CHECKS = {"map-palette-float": check_palette_float, "map-palette-docked": check_
           "project-form-1600": check_data_form("two columns"), "project-form-1600-weapon": check_data_form("two columns"),
           "project-form-1600-image": check_data_form("two columns"), "project-form-2560-scale2": check_data_form("one column"),
           "project-form-1600-scale2": check_data_form("one column")}
+
+
+HELP_PAGES = ["index", "getting-started", "values-and-units", "units-dat", "weapons-dat", "flingy-dat", "sprites-dat", "images-dat",
+              "upgrades-dat", "techdata-dat", "orders-dat"]  # (docs/help/index.md's order)
+
+
+def help_lines(output):
+    """The help window's lines (sdl_help.inc: sdlHelpShotLines): its page and place, the scroll, the list's rows, the
+    buttons, the links; None when there are none."""
+    m = re.search(r'^help: the window opened (\d+) times, page (\S+), place "(.*?)", title "(.*?)"\s*$', output, re.M)
+    if not m:
+        return None
+    h = {"opened": int(m.group(1)), "page": m.group(2), "place": m.group(3), "title": m.group(4)}
+    m = re.search(r"^help: the place is at (-?\d+) px, the page scrolled to (\d+) px \(of (\d+)\)\s*$", output, re.M)
+    h["at"], h["scroll"], h["max"] = (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else (None, None, None)
+    m = re.search(r"^help: laid out (\d+) x (\d+) px, online (\S+)\s*$", output, re.M)
+    h["height"], h["online"] = (int(m.group(2)), m.group(3)) if m else (0, "")
+    m = re.search(r"^help: list of (\d+) rows \((search|pages)\), selected (-?\d+)\s*$", output, re.M)
+    h["rows"], h["list"], h["selected"] = (int(m.group(1)), m.group(2), int(m.group(3))) if m else (0, "", -1)
+    h["row"] = re.findall(r'^help: row \d+ "(.*?)" (\S+)\s*$', output, re.M)
+    m = re.search(r'^help: buttons (.*?); feedback names "(.*?)"\s*$', output, re.M)
+    h["buttons"], h["feedback"] = (m.group(1), m.group(2)) if m else ("", "")
+    m = re.search(r"^help: (\d+) links to help pages, (\d+) to other places\s*$", output, re.M)
+    h["links"] = int(m.group(1)) if m else 0
+    return h
+
+
+def check_help_page(page, place, title, opened=None, rows="pages"):
+    """None when the help window shows `page` at `place` (scrolled to its heading, or as far as the page goes), with
+    the list of the pages (each page of docs/help/index.md in its order, the page's row selected) or the search's
+    list, its buttons, and the page's online address."""
+    def check(output):
+        h = help_lines(output)
+        if not h:
+            return "no help window lines"
+        if opened is not None and h["opened"] != opened:
+            return f"the window opened {h['opened']} times, not {opened}"
+        if (h["page"], h["place"], h["title"]) != (page, place, title):
+            return f"the window shows {h['page']}#{h['place']} \"{h['title']}\", not {page}#{place} \"{title}\""
+        if h["height"] < 200:
+            return f"the page is laid out {h['height']} px high"
+        if place:
+            if h["at"] is None or h["at"] < 0:
+                return f"the place {place} is not on the page"
+            if not (abs(h["scroll"] - max(0, h["at"] - 8)) <= 2 or h["scroll"] == h["max"]):
+                return f"the page is at {h['scroll']} px, not at its place ({h['at']} px)"
+        if h["online"] != "https://stardraft-editor.github.io/stardraft/help/" + page + ".html" + ("#" + place if place else ""):
+            return f"the online address is {h['online']}"
+        if h["list"] != rows:
+            return f"the list has the {h['list']}, not the {rows}"
+        if rows == "pages":
+            if [t for _, t in h["row"]] != HELP_PAGES:
+                return f"the list's pages are {[t for _, t in h['row']]}"
+            if h["row"][0][0] != "Contents" or h["selected"] != HELP_PAGES.index(page):
+                return f"the first row is \"{h['row'][0][0]}\", the row {h['selected']} is selected (not {HELP_PAGES.index(page)})"
+        if "Send feedback about this page" not in h["buttons"] or "Open in the browser" not in h["buttons"]:
+            return f"the buttons are {h['buttons']}"
+        if h["feedback"] != "Help page: " + title:
+            return f"the feedback names \"{h['feedback']}\""
+        if h["links"] < 1:
+            return "the page has no links to other help pages"
+        return None
+    return check
+
+
+def check_help_search(output):
+    """None when the search for "cooldown" lists weapons.dat's Weapon cooldown first."""
+    h = help_lines(output)
+    if not h:
+        return "no help window lines"
+    if h["list"] != "search" or not h["row"] or h["row"][0] != ("Weapon cooldown", "weapons-dat#weapon-cooldown"):
+        return f"the search's list: {h['list']}, {h['row'][:3]}"
+    return None
+
+
+def check_help_links(output):
+    """None when --check helplinks has its five lines, each (yes)."""
+    lines = [x for x in output.splitlines() if x.startswith("helplinks: ")]
+    if len(lines) != 5 or not all(x.rstrip().endswith("(yes)") for x in lines):
+        return f"--check helplinks: {lines}"
+    return None
+
+
+def check_converted(want):
+    """None when the Data form (--check dataform) shows each field of `want` ({field: (raw, shown)}) with its converted
+    value after the raw value."""
+    def check(output):
+        got = {f: (int(r), s) for f, r, s in re.findall(r'^form value: (.+?) raw (\d+), shown "(.*?)"\s*$', output, re.M)}
+        for field, value in want.items():
+            if got.get(field) != value:
+                return f"{field}: {got.get(field)}, not {value}"
+        return None
+    return check
+
+
+CHECKS.update({
+    "help-index": check_help_page("index", "", "StarDraft 2 help"),
+    "help-page": check_help_page("units-dat", "hit-points", "Units (units.dat)"),
+    "help-light": check_help_page("getting-started", "", "Getting started"),
+    "help-search": check_help_search, "help-links": check_help_links,
+    "help-f1-start": check_help_page("index", "", "StarDraft 2 help", opened=1),
+    "data-help-f1": check_help_page("units-dat", "sight-range", "Units (units.dat)", opened=1),
+    "data-help-icon": check_help_page("units-dat", "hit-points", "Units (units.dat)", opened=1),
+    "data-form-units-converted": check_converted({"Hit Points": (10240, "= 40 hit points"), "Build Time": (360, "= 15 s (fastest)"),
+                                                  "Sight Range": (7, "= 224 pixels"), "Supply Required": (2, "= 1 supply")}),
+    "data-form-flingy-converted": check_converted({"Speed": (1707, "= 160.031 pixels/s (fastest)"), "Halt Distance": (13616, "= 53.188 pixels"),
+                                                   "Turn Radius": (40, "= 1350 degrees/s (fastest)")}),
+})
 
 # GitHub's answer for the newest release ({release}; /releases/latest, shortened): a release with a download for each
 # system, as tools/release.py and the macos-release job make it, indented as GitHub gives it to a request without a

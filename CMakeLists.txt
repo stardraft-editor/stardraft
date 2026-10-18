@@ -59,7 +59,26 @@ else()
     target_compile_options(vpx PRIVATE -w)
 endif()
 
+# The help pages (docs/help/*.md) in the program: tools/help_build.py makes generated/help_pages.cpp from them (and
+# checks their links: a broken link stops the build). With no Python the program has no pages (Help > Documentation
+# then opens the web pages).
+find_package(Python3 COMPONENTS Interpreter)
+file(GLOB STARDRAFT_HELP_PAGES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/docs/help/*.md)
+set(STARDRAFT_HELP_CPP ${CMAKE_BINARY_DIR}/generated/help_pages.cpp)
+if(Python3_Interpreter_FOUND)
+    add_custom_command(OUTPUT ${STARDRAFT_HELP_CPP}
+                       COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/tools/help_build.py --cpp ${STARDRAFT_HELP_CPP}
+                       DEPENDS ${STARDRAFT_HELP_PAGES} ${CMAKE_SOURCE_DIR}/tools/help_build.py ${CMAKE_SOURCE_DIR}/src/data/dat_schema.inc
+                       COMMENT "Building the help pages" VERBATIM)
+else()
+    message(WARNING "No Python 3: the program is built with no help pages")
+    file(WRITE ${STARDRAFT_HELP_CPP} "#include \"stardraft/help.h\"\nnamespace stardraft::help_data {\nconst Page kPages[1] = {};\nconst int kPageCount = 0;\n}\n")
+endif()
+
 add_library(stardraft
+    ${STARDRAFT_HELP_CPP}
+    src/help.cpp
+    src/dat_units.cpp
     src/chk.cpp
     src/classic_settings.cpp
     src/classic_triggers.cpp
@@ -189,6 +208,8 @@ add_executable(settings_test tools/tests/settings_test.cpp)
 target_link_libraries(settings_test PRIVATE stardraft)
 add_executable(commands_test tools/tests/commands_test.cpp)
 target_link_libraries(commands_test PRIVATE stardraft)
+add_executable(help_test tools/tests/help_test.cpp)
+target_link_libraries(help_test PRIVATE stardraft)
 
 # --- GPU renderer (SDL3 GPU API) -------------------------------------------------------------
 # Direct3D 12 on Windows (Vulkan when asked: STARDRAFT_GPU_DRIVER=vulkan), Vulkan on Linux, Metal on macOS. Off: the

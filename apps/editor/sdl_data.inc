@@ -74,6 +74,7 @@ extern DataRefsPage gSdlDataRefs;
 extern DataNumberEntry gSdlDataEntry;
 void sdlDataRepaint();
 void sdlStringsCommit();
+void sdlShowHelp(const std::string& topic);  // (sdl_help.inc: the help window at a topic)
 bool gSdlDataRevealDue = false;  // the open entry's row is scrolled into the list's view at the next paint
 
 void sdlDataRebuildList() {
@@ -610,6 +611,11 @@ public:
     void fieldMenu(const DatField& f, draw::Point p) override;
     void status(const std::wstring& text) override { setMessage(text); }
     bool travel(int button) override { return sdlDataTravel(button == 1), true; }
+    void help(const DatField& f) override {
+        const stardraft::HelpTopic t = stardraft::helpFieldTopic(dat(), f.name);
+        sdlShowHelp(t.page + (t.anchor.empty() ? "" : "#" + t.anchor));
+    }
+    bool hasHelp(const DatField& f) override { return !stardraft::helpFieldTopic(dat(), f.name).anchor.empty(); }
 
     // The number entry sits on its field's value box, as the last paint placed it (also after a scroll).
     void placeEntry() {
@@ -770,6 +776,13 @@ void sdlDataFormCheck() {
     for (const auto& a : gSdlDataFormHost.areas)
         if (a.click && !a.drag)
             std::printf("form button: %d,%d,%d,%d %s\n", a.r.left, a.r.top, a.r.right, a.r.bottom, narrow(a.tip.substr(0, 40)).c_str());
+    // The converted values after the raw values (stardraft/dat_units.h), as the paint showed them.
+    const DatTable* t = curTable();
+    for (const auto& [name, note] : gSdlDataForm.notes())
+        if (const DatField* f = t ? datFieldNamed(t->schema().name, name) : nullptr; f && *stardraft::datFieldUnit(t->schema().name, name).unit)
+            std::printf("form value: %s raw %u, shown \"%s\"\n", name.c_str(), unsigned(t->value(*f, gSdlDataState.entry)), narrow(note).c_str());
+    if (const draw::Rect hi = gSdlDataForm.helpIcon(); hi.right > hi.left)
+        std::printf("form help icon: %d,%d,%d,%d (the field %s)\n", hi.left, hi.top, hi.right, hi.bottom, gSdlDataForm.helpField().c_str());
 }
 
 void sdlDataSelect(const std::string& spec) {

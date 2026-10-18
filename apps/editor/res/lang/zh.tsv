@@ -2188,3 +2188,15 @@ The terrain palette is in its own window	地形调色板在单独的窗口中
 Moved the terrain palette to its own window	已将地形调色板移到单独的窗口
 The terrain palette shows in its own window in Terrain mode	在地形模式下，地形调色板显示在单独的窗口中
 Docked the terrain palette	已停靠地形调色板
+&Documentation\tF1	文档(&D)\tF1
+Search the help	搜索帮助
+No pages have these words	没有包含这些词的页面
+Go back to the page before	返回上一页
+Send feedback about this page	发送关于此页面的反馈
+Tell the developers what is not correct or not clear on this page	告诉开发者此页面上不正确或不清楚的内容
+Open in the browser	在浏览器中打开
+Open this page on the web	在网上打开此页面
+Contents	目录
+Help	帮助
+The help pages are not in this build. Open in the browser shows them on the web.	此版本不包含帮助页面。“在浏览器中打开”会在网上显示它们。
+Open the help page of this field (F1)	打开此字段的帮助页面 (F1)

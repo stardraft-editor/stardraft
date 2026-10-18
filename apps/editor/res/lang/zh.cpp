@@ -2191,6 +2191,18 @@ constexpr UiText kRows[] = {
     {L"Moved the terrain palette to its own window", L"\u5DF2\u5C06\u5730\u5F62\u8C03\u8272\u677F\u79FB\u5230\u5355\u72EC\u7684\u7A97\u53E3"},
     {L"The terrain palette shows in its own window in Terrain mode", L"\u5728\u5730\u5F62\u6A21\u5F0F\u4E0B\uFF0C\u5730\u5F62\u8C03\u8272\u677F\u663E\u793A\u5728\u5355\u72EC\u7684\u7A97\u53E3\u4E2D"},
     {L"Docked the terrain palette", L"\u5DF2\u505C\u9760\u5730\u5F62\u8C03\u8272\u677F"},
+    {L"&Documentation\tF1", L"\u6587\u6863(&D)\tF1"},
+    {L"Search the help", L"\u641C\u7D22\u5E2E\u52A9"},
+    {L"No pages have these words", L"\u6CA1\u6709\u5305\u542B\u8FD9\u4E9B\u8BCD\u7684\u9875\u9762"},
+    {L"Go back to the page before", L"\u8FD4\u56DE\u4E0A\u4E00\u9875"},
+    {L"Send feedback about this page", L"\u53D1\u9001\u5173\u4E8E\u6B64\u9875\u9762\u7684\u53CD\u9988"},
+    {L"Tell the developers what is not correct or not clear on this page", L"\u544A\u8BC9\u5F00\u53D1\u8005\u6B64\u9875\u9762\u4E0A\u4E0D\u6B63\u786E\u6216\u4E0D\u6E05\u695A\u7684\u5185\u5BB9"},
+    {L"Open in the browser", L"\u5728\u6D4F\u89C8\u5668\u4E2D\u6253\u5F00"},
+    {L"Open this page on the web", L"\u5728\u7F51\u4E0A\u6253\u5F00\u6B64\u9875\u9762"},
+    {L"Contents", L"\u76EE\u5F55"},
+    {L"Help", L"\u5E2E\u52A9"},
+    {L"The help pages are not in this build. Open in the browser shows them on the web.", L"\u6B64\u7248\u672C\u4E0D\u5305\u542B\u5E2E\u52A9\u9875\u9762\u3002\u201C\u5728\u6D4F\u89C8\u5668\u4E2D\u6253\u5F00\u201D\u4F1A\u5728\u7F51\u4E0A\u663E\u793A\u5B83\u4EEC\u3002"},
+    {L"Open the help page of this field (F1)", L"\u6253\u5F00\u6B64\u5B57\u6BB5\u7684\u5E2E\u52A9\u9875\u9762 (F1)"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }
