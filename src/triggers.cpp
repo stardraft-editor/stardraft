@@ -1468,6 +1468,10 @@ struct Gen {
     int localDepth = 0;   // inside Run local block, or an action only this computer sees (text, sound)
     std::set<uint32_t> pickedUnits;
     std::map<std::string, int> chats;  // chat commands (euddraft's chatEvent plugin): the text, and the number it sets
+    std::map<std::string, int> chatPatterns;  // chatEvent's patterns (^start.*middle.*end$), and the number each sets (R51)
+    bool chatLine = false;                     // the chat line itself is read (the number after a text): chatEvent's pointer
+    bool music = false;                        // Play music: the music's player in afterTriggerExec
+    int chatWords = 0, musics = 0;
     int shares = 0;                    // shared values (MSQC sends them): msqc_share<n>_...
     std::string perCycle;              // code for afterTriggerExec, every cycle
     bool debug = false;                // a debug build: indexes worked out in the game are checked
@@ -1540,6 +1544,16 @@ struct Gen {
         if (id == "val.dirx" || id == "val.diry") {  // eudplib's lengthdir_256: 0 is up, as the game's directions
             helpers.insert("ldir");
             return std::string(id == "val.dirx" ? "sd_ldirX(" : "sd_ldirY(") + arg(c, *d, "d") + ", " + arg(c, *d, "a") + ")";
+        }
+        if (id == "val.chatnumber") {  // the digits after the text in the last chat line (chatEvent's pointer and length)
+            std::string text = raw(c, *d, "text");
+            if (text.size() >= 2 && text.front() == '"' && text.back() == '"') text = text.substr(1, text.size() - 2);
+            if (text.empty()) issue(TriggerIssue::Level::Error, &c, d->param("text"), "Type the chat text");
+            helpers.insert("chatnum");
+            chatLine = true;
+            const std::string w = "sd_chatWord" + std::to_string(++chatWords);
+            globals += "const " + w + " = Db(u2utf8(" + quote(text) + "));\n";
+            return "sd_chatNumber(sd_chatptr, sd_chatlen, " + w + ", " + std::to_string(text.size()) + ")";
         }
         if (id == "val.tileat" || id == "val.tileatxy") {  // the map's tiles in the game's memory (roadmap R58)
             helpers.insert("tile");
@@ -1982,6 +1996,19 @@ struct Gen {
             return d->id == "cond.unitalive" ? alive : "!" + alive;
         }
         if (d->id == "cond.listitem") return "(" + listItem(c, *d) + " " + arg(c, *d, "cmp") + " " + arg(c, *d, "value") + ")";
+        if (d->id == "cond.chatstarts" || d->id == "cond.chatcontains") {  // chatEvent's patterns (roadmap R51)
+            std::string text = raw(c, *d, "text");
+            if (text.size() >= 2 && text.front() == '"' && text.back() == '"') text = text.substr(1, text.size() - 2);
+            const auto bad = text.find_first_of(":;=[]");
+            if (text.empty()) issue(TriggerIssue::Level::Error, &c, d->param("text"), "Type the chat text");
+            else if (bad != std::string::npos)
+                issue(TriggerIssue::Level::Error, &c, d->param("text"), std::string("A chat text cannot have \"") + text[bad] + "\" in it");
+            else if (text.size() > 74) issue(TriggerIssue::Level::Error, &c, d->param("text"), "A chat text has at most 74 letters here");
+            const std::string pattern = d->id == "cond.chatstarts" ? "^" + text + ".*.*$" : "^.*" + text + ".*$";
+            auto it = chatPatterns.find(pattern);
+            if (it == chatPatterns.end()) it = chatPatterns.insert({pattern, int(chatPatterns.size()) + 1}).first;
+            return "(sd_chatpat == " + std::to_string(it->second) + ")";
+        }
         if (d->id == "cond.chat") {  // euddraft's chatEvent: a chat line that is the text sets sd_chat to its number
             std::string text = raw(c, *d, "text");
             if (text.size() >= 2 && text.front() == '"' && text.back() == '"') text = text.substr(1, text.size() - 2);
@@ -2163,6 +2190,27 @@ struct Gen {
                         where + ", " + arg(c, *d, "px") + ", " + tm + "k);\n";
             return "if (" + tm + "end == 0 || " + tm + "end == getgametick() + 1) {" + tag + "\n    if (" + tm + " == 0) " + tm + " = getgametick() + 1;\n" + step + "    " +
                    (all ? "CenterViewAll(" : "CenterView(") + where + ");\n}\n";
+        }
+        if (id == "act.musicplay") {  // R51: the sound again each time its length passed, on each computer (as euddraft's bgmplayer)
+            const int n = ++musics;
+            if (!music) {
+                music = true;
+                globals += "var sd_bgm = 0;\nvar sd_bgmNext = 0;\nvar sd_bgmFor = 0;\n";
+            }
+            // The music's player (afterTriggerExec): the real time of this computer (ms; 0x51CE8C counts down), and the
+            // sound for this computer's player only (a sound is this computer's own: no desync).
+            perCycle += "    if (sd_bgm == " + std::to_string(n) + " && sd_bgmNext <= 0xFFFFFFFF - dwread(0x51CE8C)) {\n"
+                        "        sd_bgmNext = 0xFFFFFFFF - dwread(0x51CE8C) + (" + arg(c, *d, "s") + ") * 1000;\n"
+                        "        if (sd_bgmFor == 8 || sd_bgmFor == getuserplayerid()) {\n            const sd_bgmCp = getcurpl();\n"
+                        "            setcurpl(getuserplayerid());\n            PlayWAV(" + arg(c, *d, "sound") + ");\n            setcurpl(sd_bgmCp);\n        }\n    }\n";
+            return "sd_bgm = " + std::to_string(n) + ";" + tag + "\nsd_bgmNext = 0;\nsd_bgmFor = " + (all ? "8" : "getcurpl()") + ";\n";
+        }
+        if (id == "act.musicstop") {
+            if (!music) {
+                music = true;
+                globals += "var sd_bgm = 0;\nvar sd_bgmNext = 0;\nvar sd_bgmFor = 0;\n";
+            }
+            return "sd_bgm = 0;" + tag + "\n";
         }
         if (id == "act.scrolllock") {  // the scroll speeds of this computer (each computer keeps its own copy)
             helpers.insert("scroll");
@@ -2859,6 +2907,13 @@ std::string TriggerSet::helperLibrary() {
                "}\n";
     out += "function sd_min(a, b) {\n    if (a < b) return a;\n    return b;\n}\n";
     out += "function sd_locAddr(loc) {  // a location's left, top, right, bottom\n    return 0x58DC60 + 20 * (loc - 1);\n}\n";
+    // The number after a word in the last chat line (roadmap R51): the line at `p` (`n` bytes, from chatEvent), the word at
+    // `w` (`wl` bytes). The first place of the word, then the spaces, then the digits.
+    out += "function sd_chatNumber(p, n, w, wl) {\n    if (p == 0 || n < wl) return 0;\n    for (var i = 0; i + wl <= n; i++) {\n        var k = 0;\n"
+           "        while (k < wl) {\n            if (bread(p + i + k) != bread(w + k)) break;\n            k++;\n        }\n"
+           "        if (k == wl) {\n            var q = p + i + wl;\n            while (q < p + n && bread(q) == 32) q++;\n            var v = 0;\n"
+           "            while (q < p + n) {\n                const ch = bread(q);\n                if (ch < 48 || ch > 57) break;\n"
+           "                v = v * 10 + ch - 48;\n                q++;\n            }\n            return v;\n        }\n    }\n    return 0;\n}\n";
     // The tile at a point (roadmap R58): the map's tile values (MTXM: group x 16 + subtile, 2 bytes each, row by row) at
     // the address that 0x5993C4 holds; the map's width and height in tiles at 0x57F1D4 and 0x57F1D6 (the EUD Book; EUD
     // Editor's offsets). A point outside the map takes the nearest edge.
@@ -3151,6 +3206,7 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
             {"scroll", "sd_scrollLock"},
             {"camera", "sd_camPan sd_camShake"},
             {"tile", "sd_tileAt sd_tileAtLoc"},
+            {"chatnum", "sd_chatNumber"},
             {"speed", "sd_gameSpeed"}};
         std::string imports;
         for (const auto& [key, list] : kNames)
@@ -3166,10 +3222,19 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
     if (const std::string inputs = msqcDeclarations(stripMarks(functions + calls[1] + calls[2])); !inputs.empty())
         out += "// Keyboard and mouse (sent to every player by euddraft's MSQC plugin; msqc_Here: this computer only)\n" + inputs + "\n";
     if (!pickedDecls.empty() || !g.globals.empty()) out += "// Units picked on the map, timers\n" + pickedDecls + g.globals + "\n";
-    if (!g.chats.empty()) {  // Build writes the [chatEvent] section from these lines
+    if (!g.chats.empty() || !g.chatPatterns.empty() || g.chatLine) {  // Build writes the [chatEvent] section from these lines
         out += "// Chat commands (euddraft's chatEvent plugin sets sd_chat when a chat line is one of them)\nvar sd_chat = 0;\n"
                "const _ns_sd_chat = EUDRegisterObjectToNamespace(\"sd_chat\", sd_chat);\n";
         for (const auto& [text, n] : g.chats) out += "// chatEvent " + std::to_string(n) + " " + text + "\n";
+        if (!g.chatPatterns.empty()) {  // (roadmap R51) the patterns: sd_chatpat in the cycle of a matching line
+            out += "var sd_chatpat = 0;\nconst _ns_sd_chatpat = EUDRegisterObjectToNamespace(\"sd_chatpat\", sd_chatpat);\n"
+                   "// chatEventOpt __patternAddr__ sd_chatpat\n";
+            for (const auto& [pattern, n] : g.chatPatterns) out += "// chatEvent " + std::to_string(n) + " " + pattern + "\n";
+        }
+        if (g.chatLine)  // the last chat line: its address and length
+            out += "var sd_chatptr = 0;\nvar sd_chatlen = 0;\nconst _ns_sd_chatptr = EUDRegisterObjectToNamespace(\"sd_chatptr\", sd_chatptr);\n"
+                   "const _ns_sd_chatlen = EUDRegisterObjectToNamespace(\"sd_chatlen\", sd_chatlen);\n"
+                   "// chatEventOpt __ptrAddr__ sd_chatptr\n// chatEventOpt __lenAddr__ sd_chatlen\n";
         out += "\n";
     }
     if (!g.helpers.empty()) {
@@ -3217,6 +3282,13 @@ std::vector<std::string> triggerChatLines(const std::string& code) {
     std::vector<std::string> out;
     std::istringstream in(code);
     for (std::string line; std::getline(in, line);) {
+        if (line.rfind("// chatEventOpt ", 0) == 0) {  // an option of the plugin: "KEY : VALUE"
+            const size_t sp = line.find(' ', 16);
+            if (sp == std::string::npos) continue;
+            if (out.empty()) out.push_back("__addr__ : sd_chat");
+            out.push_back(line.substr(16, sp - 16) + " : " + line.substr(sp + 1));
+            continue;
+        }
         if (line.rfind("// chatEvent ", 0) != 0) continue;
         const size_t sp = line.find(' ', 13);
         if (sp == std::string::npos) continue;
