@@ -328,9 +328,19 @@ PathingCheck checkPathing(const PathingRegions& R, const TerrainLayer& terrain, 
         std::vector<int32_t> label;
         std::vector<int> size;
         components(w, h, o2, label, size);
+        // (first the areas with more than one connected area: only their minitiles are listed)
+        std::vector<int> firstGroup(size.size(), -1);
+        std::vector<uint8_t> several(size.size(), 0);
+        for (int c = 0; c < w * h; ++c) {
+            const int l = label[size_t(c)], g = groupAt[size_t(c)];
+            if (l < 0 || g < 0) continue;
+            if (firstGroup[size_t(l)] < 0) firstGroup[size_t(l)] = g;
+            else if (firstGroup[size_t(l)] != g) several[size_t(l)] = 1;
+        }
         std::vector<std::map<int, std::vector<int>>> parts(size.size());
         for (int c = 0; c < w * h; ++c)
-            if (label[size_t(c)] >= 0 && groupAt[size_t(c)] >= 0) parts[size_t(label[size_t(c)])][groupAt[size_t(c)]].push_back(c);
+            if (label[size_t(c)] >= 0 && groupAt[size_t(c)] >= 0 && several[size_t(label[size_t(c)])])
+                parts[size_t(label[size_t(c)])][groupAt[size_t(c)]].push_back(c);
         for (auto& byGroup : parts) {
             if (byGroup.size() < 2) continue;
             int own = -1;

@@ -12,10 +12,11 @@
 //     when it was written (no reference of the game's own counts is known: a change shows here);
 //   - a nook made in (2)Bottleneck (one walkable minitile in an unwalkable tile) is a Pocket with a fix, and the fixed
 //     terrain has no such Pocket there;
-//   - a map of 256 x 256 or less takes less than 200 ms.
+//   - the regions and the check of a map of 256 x 256 or less take less than 200 ms.
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -209,7 +210,7 @@ int main(int argc, char** argv) {
     const std::map<std::string, std::pair<size_t, int>> known = {
         {"(2)Bottleneck.scm", {506, 69}}, {"(4)Lost Civilization.scm", {512, 74}}, {"(5)Island Hop.scm", {344, 51}}};
     int maps = 0, seen = 0;
-    double worst = 0;
+    double worst = 0, worstCheck = 0;
     for (int d = 2; d < argc; ++d) {
         std::error_code ec;
         std::vector<fs::path> files;
@@ -229,12 +230,15 @@ int main(int argc, char** argv) {
             const TerrainLayer terrain = readTerrain(chk);
             const std::vector<Unit> units = readUnits(chk);
             const PathingRegions r = computePathingRegions(terrain, ts);
+            const auto t0 = std::chrono::steady_clock::now();
             const PathingCheck c = checkPathing(r, terrain, ts, units);
+            const double checkMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+            worstCheck = std::max(worstCheck, checkMs);
             ++maps;
             const std::string name = path.filename().string();
             worst = std::max(worst, r.ms);
-            std::printf("%-40s %3dx%-3d %4zu regions (%4d first) %3d areas, %.1f ms; pockets %d, gaps %d, small units only %d, closed %d, small regions %d\n",
-                        name.c_str(), terrain.width, terrain.height, r.regions.size(), r.firstRegions, r.groups, r.ms, c.pockets, c.gaps, c.narrow, c.closed,
+            std::printf("%-40s %3dx%-3d %4zu regions (%4d first) %3d areas, %.1f ms (check %.1f ms); pockets %d, gaps %d, small units only %d, closed %d, small regions %d\n",
+                        name.c_str(), terrain.width, terrain.height, r.regions.size(), r.firstRegions, r.groups, r.ms, checkMs, c.pockets, c.gaps, c.narrow, c.closed,
                         c.smallRegions);
             if (std::getenv("PR_DEBUG"))
                 for (const PathingProblem& p : c.problems)
@@ -251,7 +255,7 @@ int main(int argc, char** argv) {
             if (!allTiles || r.regions.size() >= 2500 || r.tooMany || inWalkable < walk * 0.97)
                 check(false, name + ": every tile has a region, walkable ground is in walkable regions, fewer than 2500 regions (" +
                                  std::to_string(inWalkable) + " of " + std::to_string(walk) + ")");
-            if (terrain.width <= 256 && terrain.height <= 256 && r.ms >= 200) check(false, name + ": less than 200 ms");
+            if (terrain.width <= 256 && terrain.height <= 256 && r.ms + checkMs >= 200) check(false, name + ": the regions and the check in less than 200 ms");
             auto startGroups = [&]() {
                 std::vector<int> g;
                 for (const Unit& u : units)
@@ -323,6 +327,6 @@ int main(int argc, char** argv) {
         }
     }
     check(seen == 2, "the maps (2)Bottleneck and (5)Island Hop were there");
-    std::printf("%d maps, the slowest %.1f ms\n%s\n", maps, worst, failures ? "FAILED" : "all passed");
+    std::printf("%d maps, the slowest %.1f ms (the check: %.1f ms)\n%s\n", maps, worst, worstCheck, failures ? "FAILED" : "all passed");
     return failures ? 1 : 0;
 }
