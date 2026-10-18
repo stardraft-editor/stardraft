@@ -30,6 +30,13 @@ struct DoodadType {
     std::vector<uint16_t> required;  // width*height tile groups required underneath (0 = any); dddata.bin rows are width long
     bool inPalette = false;          // has an editor group and tiles (placeholder ids have neither)
     std::shared_ptr<const DoodadGroundInfo> ground;  // the tileset's groups (shared by all types)
+    // Whether any cell needs a tile group: a doodad that needs none could go on any terrain by dddata.bin, so nothing
+    // tells where it belongs (Decorate leaves it out unless it is chosen).
+    bool needsTiles() const {
+        for (uint16_t g : required)
+            if (g) return true;
+        return false;
+    }
 };
 
 class DoodadTypes {

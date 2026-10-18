@@ -75,7 +75,7 @@ Make StarDraft 2 a more powerful creation suite.
 
   The generator makes only terrain. Mappers must place doodads and decoration by hand.
 
-  Done (2026-10-18): Scenario > Decorate the terrain puts a few, some or many doodads in the terrain selection (else
+  Done (2026-10-18): Edit > Decorate the terrain puts a few, some or many doodads in the terrain selection (else
   the whole map), each where it fits its tiles and on no other doodad; the doodads chosen in the Doodads palette, else
   all of the tileset's. One undo step. The New page's generator has Decorate with doodads.
 - [x] **R40 Floating palettes.** *Tag:* UI.

@@ -2232,12 +2232,45 @@ std::optional<std::pair<int, int>> Editor::nearestDoodadFit(uint16_t id, int x, 
     return std::nullopt;
 }
 
+bool Editor::doodadScatterFits(const DoodadType& t, int tx, int ty, const std::vector<std::array<uint16_t, 2>>& terrains,
+                               const TerrainLayer& under) const {
+    auto terrainsOf = [&](uint16_t g) { return g < terrains.size() ? terrains[g] : std::array<uint16_t, 2>{0, 0}; };
+    // The doodad's own terrains: those of the groups its cells need.
+    std::vector<uint16_t> home;
+    for (uint16_t need : t.required)
+        if (need)
+            for (uint16_t k : terrainsOf(need))
+                if (k && std::find(home.begin(), home.end(), k) == home.end()) home.push_back(k);
+    const bool needsNone = std::all_of(t.required.begin(), t.required.end(), [](uint16_t g) { return g == 0; });
+    if (!needsNone && home.empty()) return true;  // (groups of no known terrain: dddata.bin alone decides)
+    for (int r = 0; r < t.height; ++r)
+        for (int c = 0; c < t.width; ++c) {
+            const size_t cell = size_t(r) * t.width + size_t(c);
+            if (cell < t.required.size() && t.required[cell]) continue;  // (doodadFits checks it)
+            const int x = tx + c, y = ty + r;
+            if (x < 0 || y < 0 || x >= under.width || y >= under.height) return false;
+            const std::array<uint16_t, 2> k = terrainsOf(uint16_t(under.tiles[size_t(y) * under.width + size_t(x)] >> 4));
+            if (!k[0]) return false;  // a tile of no terrain (a doodad's, or one that Isometric never places)
+            if (needsNone) {  // one terrain under all of it: that of its first cell, and no edge
+                if (k[1]) return false;
+                if (home.empty()) home.push_back(k[0]);
+                else if (k[0] != home[0]) return false;
+                continue;
+            }
+            for (uint16_t one : k)
+                if (one && std::find(home.begin(), home.end(), one) == home.end()) return false;
+        }
+    return true;
+}
+
 int Editor::sprayDoodads(const std::vector<uint16_t>& ids, int x, int y, int radius, int count, uint32_t seed, bool checkTerrain) {
     if (ids.empty() || count <= 0) return 0;
     std::mt19937 rng(seed);
     std::uniform_real_distribution<double> unit(-1, 1);
     Chk before = chk_;
     int placed = 0;
+    const auto terrains = checkTerrain ? tileGroupTerrains(tileset_) : std::vector<std::array<uint16_t, 2>>{};
+    const TerrainLayer under = checkTerrain ? readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM") : TerrainLayer{};
     for (int i = 0; i < count; ++i) {
         const DoodadType* t = doodadTypes_.find(ids[rng() % ids.size()]);
         if (!t) continue;
@@ -2248,6 +2281,7 @@ int Editor::sprayDoodads(const std::vector<uint16_t>& ids, int x, int y, int rad
             int tx, ty;
             doodadOrigin(*t, px, py, tx, ty);
             if (!doodadFits(chk_, *t, tx, ty, checkTerrain) || doodadOverlaps(*t, tx, ty)) continue;
+            if (checkTerrain && !doodadScatterFits(*t, tx, ty, terrains, under)) continue;
             if (stardraft::placeDoodad(chk_, *t, tileset_, tx, ty, 0, checkTerrain)) {
                 doodads_ = readDoodads(chk_);
                 ++placed;
@@ -2360,6 +2394,8 @@ int Editor::decorate(const std::vector<uint16_t>& ids, Rect area, int spacingTil
         }
     };
     for (const Doodad& d : doodads_) markDoodad(d);
+    const auto terrains = tileGroupTerrains(tileset_);
+    const TerrainLayer under = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");  // (placeDoodad does not change TILE)
     // A cell of the area at a time: a random place in it, and up to four doodads tried there; one that fits its tiles
     // (dddata.bin) and overlaps no doodad stays.
     for (int cy = area.top; cy < area.bottom; cy += cell)
@@ -2372,7 +2408,7 @@ int Editor::decorate(const std::vector<uint16_t>& ids, Rect area, int spacingTil
                 int tx, ty;
                 doodadOrigin(*t, x, y, tx, ty);
                 if (any(blocked, tx, ty, tx + t->width, ty + t->height)) continue;
-                if (!doodadFits(chk_, *t, tx, ty, true)) continue;
+                if (!doodadFits(chk_, *t, tx, ty, true) || !doodadScatterFits(*t, tx, ty, terrains, under)) continue;
                 if (any(busy, tx, ty, tx + t->width, ty + t->height) && doodadOverlaps(*t, tx, ty)) continue;
                 if (stardraft::placeDoodad(chk_, *t, tileset_, tx, ty, 0, true)) {
                     Doodad d;  // (as placeDoodad wrote it: the map is read again once, at the end)

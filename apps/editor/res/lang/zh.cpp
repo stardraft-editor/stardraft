@@ -2342,7 +2342,7 @@ constexpr UiText kRows[] = {
     {L"Fog of war is hidden", L"\u6218\u4E89\u8FF7\u96FE\u5DF2\u9690\u85CF"},
     {L" actions deleted", L" \u4E2A\u52A8\u4F5C\u5DF2\u5220\u9664"},
     {L" conditions deleted", L" \u4E2A\u6761\u4EF6\u5DF2\u5220\u9664"},
-    {L"&Decorate the terrain", L"\u88C5\u9970\u5730\u5F62(&D)"},
+    {L"Decorat&e the terrain", L"\u88C5\u9970\u5730\u5F62(&E)"},
     {L"A &few doodads", L"\u5C11\u91CF\u88C5\u9970\u7269(&F)"},
     {L"&Some doodads", L"\u4E00\u4E9B\u88C5\u9970\u7269(&S)"},
     {L"&Many doodads", L"\u5927\u91CF\u88C5\u9970\u7269(&M)"},

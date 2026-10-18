@@ -103,6 +103,12 @@ MenuModel buildMenuModel() {
                    menuItem(ID_EDIT_DELETE, L"&Delete", L"Del"),
                    menuItem(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A"),
                    menuItem(ID_EDIT_RENAME, L"Re&name location", L"F2")};
+    {  // doodads where they fit (roadmap R37)
+        MenuModel decorate;
+        menuCommands(decorate, "Edit/Decorate");
+        edit.push_back(menuSeparator());
+        edit.push_back(menuPopup(L"Decorat&e the terrain", decorate));
+    }
     // The View menu in groups: the graphics, the grid, what shows on the map (overlays, layers), the zoom, the panels,
     // the workspaces.
     MenuModel view;
@@ -174,11 +180,6 @@ MenuModel buildMenuModel() {
                        menuItem(ID_SCEN_CLASSICTRIG, L"Classic &triggers"),
                        menuItem(ID_SCEN_CHECK, L"&Check that StarCraft can start the map")};
     menuCommand(scenario, "scen.checkPathing");
-    {  // (roadmap R37)
-        MenuModel decorate;
-        menuCommands(decorate, "Scenario/Decorate");
-        scenario.push_back(menuPopup(L"&Decorate the terrain", decorate));
-    }
     // Options: the snap and placement rules of each kind (the same items for each; a rule that does not change is
     // grayed), the terrain copy, then the program options (the window).
     auto snapItems = [](int first) {

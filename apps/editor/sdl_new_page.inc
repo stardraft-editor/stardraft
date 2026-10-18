@@ -80,7 +80,7 @@ bool NewHostSdl::make() {
     if (!copy && !gNewView.terrainOnly && gNewView.generate && gNewView.decorate) {  // Decorate with doodads (roadmap R37)
         std::vector<uint16_t> ids;
         for (const DoodadType& t : ed->doodadTypes().all())
-            if (t.inPalette) ids.push_back(t.id);
+            if (t.inPalette && t.needsTiles()) ids.push_back(t.id);
         std::vector<Rect> bases;  // (the rules' open ground stays open, roadmap R49)
         const int r = generatorBaseRadius(p) * 32;
         for (const GenBase& b : generatorBases(p)) bases.push_back({b.x * 32 - r, b.y * 32 - r, b.x * 32 + r, b.y * 32 + r});

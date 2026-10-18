@@ -33,9 +33,9 @@ void pathingLayerMode(bool areas);
 void fogToggle();  // View > Overlays > Fog of war (core/fog_layer.inc)
 const std::vector<int>& paletteChosen();
 
-// Scenario > Decorate the terrain (roadmap R37): doodads in the terrain selection (else the whole map), one in each
-// square of `spacing` tiles where one fits its tiles. The doodads: those chosen in the Doodads palette (Ctrl+click
-// there), else all of the tileset's. One undo step.
+// Edit > Decorate the terrain (roadmap R37): doodads in the terrain selection (else the whole map), one in each
+// square of `spacing` tiles where one fits its tiles and its terrain (Editor::doodadScatterFits). The doodads: those
+// chosen in the Doodads palette (Ctrl+click there), else all of the tileset's that need tile groups. One undo step.
 void decorateTerrain(int spacing) {
     AppState& app = shellState();
     if (!app.ed || !app.ed->isOpen()) return;
@@ -46,7 +46,7 @@ void decorateTerrain(int spacing) {
             if (v >= 0) ids.push_back(uint16_t(v));
     if (ids.empty())
         for (const DoodadType& t : ed.doodadTypes().all())
-            if (t.inPalette) ids.push_back(t.id);
+            if (t.inPalette && t.needsTiles()) ids.push_back(t.id);
     const Rect area = app.hasTerrainSel ? app.terrainSel.normalized() : Rect{0, 0, ed.width() * 32, ed.height() * 32};
     const int n = ed.decorate(ids, area, spacing, uint32_t(std::chrono::steady_clock::now().time_since_epoch().count()));
     app.dirty = true;
@@ -228,15 +228,15 @@ void registerMapCommands() {
     addCommand(ID_FOG, "view.fog", L"&Fog of war of the selected player", "View/Fog", L"", [] { fogToggle(); }, [] { return gShowFog; });
     addCommand(ID_LAYER + 6, "view.pathing.areas", L"Pathing shows the connected &areas", "View/Pathing", L"", [] { pathingLayerMode(true); },
                [] { return pathingLayerAreas(); }, true);
-    {  // Scenario > Decorate the terrain (roadmap R37): doodads where they fit (Editor::decorate)
+    {  // Edit > Decorate the terrain (roadmap R37): doodads where they fit (Editor::decorate)
         const struct {
             const char* id;
             const wchar_t* label;
             int spacing;
-        } levels[] = {{"scen.decorate.few", L"A &few doodads", 9}, {"scen.decorate.some", L"&Some doodads", 6}, {"scen.decorate.many", L"&Many doodads", 3}};
+        } levels[] = {{"edit.decorate.few", L"A &few doodads", 9}, {"edit.decorate.some", L"&Some doodads", 6}, {"edit.decorate.many", L"&Many doodads", 3}};
         for (int k = 0; k < 3; ++k) {
             const int spacing = levels[k].spacing;
-            addCommand(ID_DECORATE + k, levels[k].id, levels[k].label, "Scenario/Decorate", L"", [spacing] { decorateTerrain(spacing); });
+            addCommand(ID_DECORATE + k, levels[k].id, levels[k].label, "Edit/Decorate", L"", [spacing] { decorateTerrain(spacing); });
         }
     }
     addCommand(ID_SCEN_PATHCHECK, "scen.checkPathing", L"Check &pathing (nooks and crannies)", "Scenario", L"", [] { pathingCheckCommand(); });
