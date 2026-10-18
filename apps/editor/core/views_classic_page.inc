@@ -628,6 +628,33 @@ inline void ctForcesClick(CtPageHost& h, const draw::View& from) {
     ctModelSetForces(m, h, checked);
 }
 
+// --- Headings (roadmap R59) -------------------------------------------------------------------------------------------
+
+// A heading's arrow: the triggers under it fold, or show again (the page's own state: the map does not change).
+inline void ctFoldHeading(CtPageHost& h, int i) {
+    CtModel& m = h.model();
+    if (i < 0 || i >= int(m.trig.triggers.size()) || !ctIsHeading(m.trig.triggers[size_t(i)])) return;
+    const uint32_t key = m.trig.triggers[size_t(i)].actions[0].text;
+    if (!m.folded.erase(key)) m.folded.insert(key);
+    ctModelFill(m, h);
+    h.invalidate();
+}
+// Add a heading: a trigger with only a Comment action of the typed text, after the selected trigger.
+inline void ctAddHeading(CtPageHost& h) {
+    std::string text;
+    if (!h.editText(tr(L"Add a heading"), tr(L"Heading"), text) || text.empty()) return;
+    CtModel& m = h.model();
+    ClassicTrigger n = ClassicTrigger::make();
+    n.addAction(makeClassicAction(kCtCommentType));
+    uint32_t v = 0;
+    for (uint32_t id = 1; id <= m.strings.size() && !v; ++id)
+        if (m.strings.get(id) == text) v = id;
+    if (!v) m.ownStrings.insert(v = m.strings.add(text));
+    n.actions[0].text = v;
+    ctModelInsertTrigger(m, h, std::move(n));
+    h.changed();
+}
+
 // --- The right-click menus and the keys ------------------------------------------------------------------------------
 
 // The right-click menus of the rows (the same commands as the rows' buttons and the keys). A right click on a row that
@@ -644,6 +671,7 @@ inline void ctTriggerMenu(CtPageHost& h, int i, const draw::View& from, draw::Po
         case kCtmDelete: return ctModelDeleteTriggers(mm, h);
         case kCtmCopy: return ctCopy(h, true);
         case kCtmPaste: return ctPaste(h);
+        case kCtmHeading: return ctAddHeading(h);
         }
     });
 }
@@ -748,6 +776,11 @@ public:
     }
     std::wstring chipTip(const ClassicParam& p) override { return ctKindLabel(p.kind, p.name); }
     void clickTrigger(int i) override { ctModelClickTrigger(h_.model(), h_, i); }
+    void foldHeading(int i) override { ctFoldHeading(h_, i); }
+    bool headingFolded(int i) const override {
+        const CtModel& m = h_.model();
+        return i >= 0 && i < int(m.trig.triggers.size()) && ctIsHeading(m.trig.triggers[size_t(i)]) && m.folded.count(m.trig.triggers[size_t(i)].actions[0].text);
+    }
     void toggleTrigger(int i) override { ctModelToggleOne(h_.model(), h_, i); }
     void duplicateTrigger(int i) override { ctModelDuplicateTrigger(h_.model(), h_, i); }
     void deleteTrigger(int i) override { ctModelDeleteTrigger(h_.model(), h_, i); }

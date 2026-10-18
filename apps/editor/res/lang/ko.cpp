@@ -2331,6 +2331,13 @@ constexpr UiText kRows[] = {
     {L"Add a comment", L"\uC8FC\uC11D \uCD94\uAC00"},
     {L"Comment", L"\uC8FC\uC11D"},
     {L"The trigger's comment: the text of its Comment action", L"\uD2B8\uB9AC\uAC70\uC758 \uC8FC\uC11D: \uC8FC\uC11D \uB3D9\uC791\uC758 \uD14D\uC2A4\uD2B8"},
+    {L"Add a heading\u2026", L"\uC81C\uBAA9 \uCD94\uAC00\u2026"},
+    {L"Add a heading", L"\uC81C\uBAA9 \uCD94\uAC00"},
+    {L"Heading", L"\uC81C\uBAA9"},
+    {L"Show the triggers under the heading", L"\uC81C\uBAA9 \uC544\uB798\uC758 \uD2B8\uB9AC\uAC70 \uD45C\uC2DC"},
+    {L"Fold the triggers under the heading", L"\uC81C\uBAA9 \uC544\uB798\uC758 \uD2B8\uB9AC\uAC70 \uC811\uAE30"},
+    {L" trigger", L"\uAC1C \uD2B8\uB9AC\uAC70"},
+    {L" triggers", L"\uAC1C \uD2B8\uB9AC\uAC70"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
