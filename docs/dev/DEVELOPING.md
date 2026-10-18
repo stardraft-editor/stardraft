@@ -391,8 +391,9 @@ a commit on `main`). Then it takes the files that build.yml built and tested for
 "CI": releases from the tested build) and makes the release "StarDraft 2 - v<version> (build <commit>)" with `StarDraft-<version>-win64.zip` (only `stardraft.exe`), marked Latest. Its text is the version's
 section, then the changelog's last section (what StarDraft is), with the pictures as addresses at the tag
 (`release.py notes <version>` shows the text). In Discord (`release.py discord`), each channel gets the release's name
-and link, then each picture as a message of its own with its text, so that the pictures show in the channel (a link
-alone shows none; the owner's requirement). The symbols (`stardraft.pdb`)
+and link, then the version's section as Discord text (`release.py discord-text <version>` shows the messages), then
+each picture as a message of its own with its text, so that the notes and the pictures show in the channel (a link
+alone shows neither; the owner's requirement). The symbols (`stardraft.pdb`)
 go to the draft release `symbols-v<version>`, which only the repository's members see, for crash reports. For now the
 release has only the Windows build. The repository variable `RELEASE_MAC` (Settings > Secrets and variables > Actions >
 Variables), default off, = `on` attaches the macOS disk image `StarDraft-<version>-macos-arm64.dmg` (see "The macOS
@@ -410,7 +411,7 @@ updates finds the release. Each release keeps its own download count: `gh api re
 - The push stops (main moved on GitHub, or no network): publish deletes the tag here and keeps the "Changelog" commit.
   `git pull --rebase`, then publish again.
 - After the release is there (a Discord post did not go; the run is red): post again in that channel with Actions >
-  Post screenshots to Discord (What: screenshots, when the link went but the pictures did not). A re-run of the run changes nothing in a release that has its zip.
+  Post screenshots to Discord (What: all for the whole post again; screenshots, when only the pictures did not go). A re-run of the run changes nothing in a release that has its zip.
 - A release that people have is never moved, and only the newest version is released (CI refuses an older tag): fix
   it in a new version.
 
