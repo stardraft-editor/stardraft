@@ -226,6 +226,16 @@ target_link_libraries(commands_test PRIVATE stardraft)
 add_executable(help_test tools/tests/help_test.cpp)
 target_link_libraries(help_test PRIVATE stardraft)
 
+# The editor without a window, for scripts and agents (docs/dev/CLI.md). It needs no GPU and no SDL.
+add_executable(stardraft_cli apps/cli/main.cpp $<$<BOOL:${WIN32}>:apps/common/install_win32.cpp>)
+set_target_properties(stardraft_cli PROPERTIES OUTPUT_NAME stardraft-cli)
+target_include_directories(stardraft_cli PRIVATE src apps/common)
+target_link_libraries(stardraft_cli PRIVATE stardraft)
+if(MSVC)
+    target_compile_options(stardraft_cli PRIVATE /W4 /utf-8)
+    target_link_options(stardraft_cli PRIVATE /ENTRY:wmainCRTStartup)
+endif()
+
 # --- GPU renderer (SDL3 GPU API) -------------------------------------------------------------
 # Direct3D 12 on Windows (Vulkan when asked: STARDRAFT_GPU_DRIVER=vulkan), Vulkan on Linux, Metal on macOS. Off: the
 # library and its tests build without SDL3.
