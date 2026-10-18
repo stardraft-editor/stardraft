@@ -711,8 +711,8 @@ CASES += [
     # Sight range opens units.dat's page at Sight range; a click on the help icon of the row under the mouse (Hit points)
     # opens its place. The Data form shows the converted values after the raw values (stardraft/dat_units.h).
     ("help-f1-start", ["--key", "F1"], ""),
-    # The Help workspace (the side bar's Help), Q: the quick picker of the help's sections; "sight range" and Enter.
-    ("map-help-quick", ["--click", "30,472", "--key", "Q", "--type", "sight range", "--key", "Enter"], "map"),
+    # The Help workspace (Ctrl+7: the side bar's last item on a classic map, Help), Q: the quick picker of the help's sections; "sight range" and Enter.
+    ("map-help-quick", ["--key", "Ctrl+7", "--key", "Q", "--type", "sight range", "--key", "Enter"], "map"),
     ("data-help-f1", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "420,545", "--key", "F1"], "data"),
     ("data-help-icon", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "420,259", "--click", "529,259"], "data"),
     ("data-form-units-converted", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--check", "dataform"], "data"),
