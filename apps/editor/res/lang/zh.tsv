@@ -2212,7 +2212,7 @@ Gaps	缝隙
 Ground that units can walk onto, but the game's pathing does not connect, at tile %d, %d	单位可以走上去、但游戏寻路未连通的地面，位于图块 %d, %d
 No pathing problems: %d regions, %d connected areas	没有寻路问题：%d 个区域，%d 个连通区域
 Passage that only small units fit through, at tile %d, %d	只有小型单位能通过的通道，位于图块 %d, %d
-Pathing is hidden (View > Layers)	寻路已隐藏（视图 > 图层）
+Pathing is hidden (View > Overlays)	寻路已隐藏（视图 > 叠加层）
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	寻路区域 %d：%d 个图块，%ls；连通区域 %d（%d 个区域）
 Pathing: %d problems (%d regions, %d connected areas). Pick one to show it on the map	寻路：%d 个问题（%d 个区域，%d 个连通区域）。选择一个以在地图上显示
 Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here	寻路：每个连通区域（单位可以走遍的地面）各有其颜色。暗处：单位不能在此行走
@@ -2305,8 +2305,11 @@ Sprites is back in the side bar	精灵已回到侧栏
 Ground &height	地面高度(&H)
 Ground that blocks the line of &sight	阻挡视线的地面(&S)
 &Buildable ground	可建造地面(&B)
-Terrain flags are hidden (View > Layers)	地形属性已隐藏（视图 > 图层）
+Terrain flags are hidden (View > Overlays)	地形属性已隐藏（视图 > 叠加层）
 Terrain flags: walkable (green), not walkable (red)	地形属性：可行走（绿色）、不可行走（红色）
 Terrain flags: low ground (blue), middle ground (yellow), high ground (red)	地形属性：低地（蓝色）、中地（黄色）、高地（红色）
 Terrain flags: the ground that blocks the line of sight (purple)	地形属性：阻挡视线的地面（紫色）
 Terrain flags: buildable (green), not buildable (red)	地形属性：可建造（绿色）、不可建造（红色）
+G&raphics	图形(&R)
+&Overlays	叠加层(&O)
+&Workspaces	工作区(&W)

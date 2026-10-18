@@ -2214,7 +2214,7 @@ constexpr UiText kRows[] = {
     {L"Ground that units can walk onto, but the game's pathing does not connect, at tile %d, %d", L"\u5355\u4F4D\u53EF\u4EE5\u8D70\u4E0A\u53BB\u3001\u4F46\u6E38\u620F\u5BFB\u8DEF\u672A\u8FDE\u901A\u7684\u5730\u9762\uFF0C\u4F4D\u4E8E\u56FE\u5757 %d, %d"},
     {L"No pathing problems: %d regions, %d connected areas", L"\u6CA1\u6709\u5BFB\u8DEF\u95EE\u9898\uFF1A%d \u4E2A\u533A\u57DF\uFF0C%d \u4E2A\u8FDE\u901A\u533A\u57DF"},
     {L"Passage that only small units fit through, at tile %d, %d", L"\u53EA\u6709\u5C0F\u578B\u5355\u4F4D\u80FD\u901A\u8FC7\u7684\u901A\u9053\uFF0C\u4F4D\u4E8E\u56FE\u5757 %d, %d"},
-    {L"Pathing is hidden (View > Layers)", L"\u5BFB\u8DEF\u5DF2\u9690\u85CF\uFF08\u89C6\u56FE > \u56FE\u5C42\uFF09"},
+    {L"Pathing is hidden (View > Overlays)", L"\u5BFB\u8DEF\u5DF2\u9690\u85CF\uFF08\u89C6\u56FE > \u53E0\u52A0\u5C42\uFF09"},
     {L"Pathing region %d: %d tiles, %ls; connected area %d (%d regions)", L"\u5BFB\u8DEF\u533A\u57DF %d\uFF1A%d \u4E2A\u56FE\u5757\uFF0C%ls\uFF1B\u8FDE\u901A\u533A\u57DF %d\uFF08%d \u4E2A\u533A\u57DF\uFF09"},
     {L"Pathing: %d problems (%d regions, %d connected areas). Pick one to show it on the map", L"\u5BFB\u8DEF\uFF1A%d \u4E2A\u95EE\u9898\uFF08%d \u4E2A\u533A\u57DF\uFF0C%d \u4E2A\u8FDE\u901A\u533A\u57DF\uFF09\u3002\u9009\u62E9\u4E00\u4E2A\u4EE5\u5728\u5730\u56FE\u4E0A\u663E\u793A"},
     {L"Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here", L"\u5BFB\u8DEF\uFF1A\u6BCF\u4E2A\u8FDE\u901A\u533A\u57DF\uFF08\u5355\u4F4D\u53EF\u4EE5\u8D70\u904D\u7684\u5730\u9762\uFF09\u5404\u6709\u5176\u989C\u8272\u3002\u6697\u5904\uFF1A\u5355\u4F4D\u4E0D\u80FD\u5728\u6B64\u884C\u8D70"},
@@ -2307,11 +2307,14 @@ constexpr UiText kRows[] = {
     {L"Ground &height", L"\u5730\u9762\u9AD8\u5EA6(&H)"},
     {L"Ground that blocks the line of &sight", L"\u963B\u6321\u89C6\u7EBF\u7684\u5730\u9762(&S)"},
     {L"&Buildable ground", L"\u53EF\u5EFA\u9020\u5730\u9762(&B)"},
-    {L"Terrain flags are hidden (View > Layers)", L"\u5730\u5F62\u5C5E\u6027\u5DF2\u9690\u85CF\uFF08\u89C6\u56FE > \u56FE\u5C42\uFF09"},
+    {L"Terrain flags are hidden (View > Overlays)", L"\u5730\u5F62\u5C5E\u6027\u5DF2\u9690\u85CF\uFF08\u89C6\u56FE > \u53E0\u52A0\u5C42\uFF09"},
     {L"Terrain flags: walkable (green), not walkable (red)", L"\u5730\u5F62\u5C5E\u6027\uFF1A\u53EF\u884C\u8D70\uFF08\u7EFF\u8272\uFF09\u3001\u4E0D\u53EF\u884C\u8D70\uFF08\u7EA2\u8272\uFF09"},
     {L"Terrain flags: low ground (blue), middle ground (yellow), high ground (red)", L"\u5730\u5F62\u5C5E\u6027\uFF1A\u4F4E\u5730\uFF08\u84DD\u8272\uFF09\u3001\u4E2D\u5730\uFF08\u9EC4\u8272\uFF09\u3001\u9AD8\u5730\uFF08\u7EA2\u8272\uFF09"},
     {L"Terrain flags: the ground that blocks the line of sight (purple)", L"\u5730\u5F62\u5C5E\u6027\uFF1A\u963B\u6321\u89C6\u7EBF\u7684\u5730\u9762\uFF08\u7D2B\u8272\uFF09"},
     {L"Terrain flags: buildable (green), not buildable (red)", L"\u5730\u5F62\u5C5E\u6027\uFF1A\u53EF\u5EFA\u9020\uFF08\u7EFF\u8272\uFF09\u3001\u4E0D\u53EF\u5EFA\u9020\uFF08\u7EA2\u8272\uFF09"},
+    {L"G&raphics", L"\u56FE\u5F62(&R)"},
+    {L"&Overlays", L"\u53E0\u52A0\u5C42(&O)"},
+    {L"&Workspaces", L"\u5DE5\u4F5C\u533A(&W)"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

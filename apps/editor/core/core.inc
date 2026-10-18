@@ -52,8 +52,8 @@
 #include "data_model.inc"
 #include "data_nav.inc"  // the Data workspace's pins, back and forward, clipboard, menus and entry pictures
 #include "data_pictures.inc"  // the Data pictures' model: the game's images, the image player, the timeline, the portraits
-#include "pathing_layer.inc"  // View > Layers > Pathing, Scenario > Check pathing (the game's regions, the nooks and crannies)
-#include "terrain_flags_layer.inc"  // View > Layers > Terrain flags (walkable, height, blocks view, buildable)
+#include "pathing_layer.inc"  // View > Overlays > Pathing, Scenario > Check pathing (the game's regions, the nooks and crannies)
+#include "terrain_flags_layer.inc"  // View > Overlays > Terrain flags (walkable, height, blocks view, buildable)
 #include "map_scene.inc"  // the map's scene: the grid, the sprites, the units and their animations, the locations, the selection, the ghosts (buildScene)
 #include "map_image.inc"  // File > Export map image and the New page's larger preview: the options, the dialog, the terrain pictures
 #include "views_data_pictures.inc"  // the Data pictures on the Canvas: the image player, the timeline, the portrait (the SDL form's)

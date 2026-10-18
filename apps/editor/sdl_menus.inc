@@ -962,7 +962,7 @@ void sdlCommandShot(const std::string& name) {
     command(id);
     runPosted();
     pathOverlayPoll(true);  // (a pathing overlay: its analysis is done before the picture)
-    if (pathingLayerOn()) pathingLayerPoll(true);  // (View > Layers > Pathing: its regions too)
+    if (pathingLayerOn()) pathingLayerPoll(true);  // (View > Overlays > Pathing: its regions too)
     std::printf("command %s: ran (yes): %s\n", name.c_str(), narrow(gState.message).c_str());
 }
 

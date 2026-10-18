@@ -2212,7 +2212,7 @@ Gaps	Щели
 Ground that units can walk onto, but the game's pathing does not connect, at tile %d, %d	Земля, на которую юниты могут зайти, но проходимость игры её не соединяет, тайл %d, %d
 No pathing problems: %d regions, %d connected areas	Проблем проходимости нет: регионов %d, связанных областей %d
 Passage that only small units fit through, at tile %d, %d	Проход, в который проходят только малые юниты, тайл %d, %d
-Pathing is hidden (View > Layers)	Проходимость скрыта (Вид > Слои)
+Pathing is hidden (View > Overlays)	Проходимость скрыта (Вид > Наложения)
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	Регион проходимости %d: тайлов %d, %ls; связанная область %d (регионов %d)
 Pathing: %d problems (%d regions, %d connected areas). Pick one to show it on the map	Проходимость: проблем %d (регионов %d, связанных областей %d). Выберите одну, чтобы показать её на карте
 Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here	Проходимость: у каждой связанной области (земли, по которой юниты могут пройти) свой цвет. Тёмное: здесь юниты не ходят
@@ -2305,8 +2305,11 @@ Sprites is back in the side bar	Спрайты снова на боковой п
 Ground &height	&Высота земли
 Ground that blocks the line of &sight	Земля, закрывающая &обзор
 &Buildable ground	&Земля для строительства
-Terrain flags are hidden (View > Layers)	Свойства местности скрыты (Вид > Слои)
+Terrain flags are hidden (View > Overlays)	Свойства местности скрыты (Вид > Наложения)
 Terrain flags: walkable (green), not walkable (red)	Свойства местности: проходимо (зелёный), непроходимо (красный)
 Terrain flags: low ground (blue), middle ground (yellow), high ground (red)	Свойства местности: низина (синий), средний уровень (жёлтый), возвышенность (красный)
 Terrain flags: the ground that blocks the line of sight (purple)	Свойства местности: земля, закрывающая обзор (фиолетовый)
 Terrain flags: buildable (green), not buildable (red)	Свойства местности: можно строить (зелёный), нельзя строить (красный)
+G&raphics	&Графика
+&Overlays	&Наложения
+&Workspaces	&Рабочие области

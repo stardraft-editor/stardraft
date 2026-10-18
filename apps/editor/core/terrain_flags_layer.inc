@@ -1,4 +1,4 @@
-// View > Layers > Terrain flags (roadmap R34; portable, core.inc): what the tileset says about each place of the
+// View > Overlays > Terrain flags (roadmap R34; portable, core.inc): what the tileset says about each place of the
 // terrain, in one of four views:
 //   - Walkable: the minitiles (8 px) that ground units can walk on (green) and the others (red), VF4 flag 0x1.
 //   - Height: low (blue), middle (yellow) and high ground (red), VF4 flags 0x2 and 0x4. Units on lower ground do not
@@ -128,7 +128,7 @@ void terrainFlagsSet(TerrainFlagsView v) {
     shellMenusChanged();
     appState().dirty = true;
     switch (gTerrainFlags.view) {
-    case TerrainFlagsView::Off: setMessage(tr(L"Terrain flags are hidden (View > Layers)")); break;
+    case TerrainFlagsView::Off: setMessage(tr(L"Terrain flags are hidden (View > Overlays)")); break;
     case TerrainFlagsView::Walkable: setMessage(tr(L"Terrain flags: walkable (green), not walkable (red)")); break;
     case TerrainFlagsView::Height: setMessage(tr(L"Terrain flags: low ground (blue), middle ground (yellow), high ground (red)")); break;
     case TerrainFlagsView::BlocksView: setMessage(tr(L"Terrain flags: the ground that blocks the line of sight (purple)")); break;

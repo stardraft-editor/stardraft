@@ -347,8 +347,8 @@ render::Scene buildScene() {
         for (float x = std::ceil((x0 - ox) / gw) * gw + ox; x <= x1; x += gw) s.rects.push_back({x, y0, x + t, y1, rgba, true});
         for (float y = std::ceil((y0 - oy) / gh) * gh + oy; y <= y1; y += gh) s.rects.push_back({x0, y, x1, y + t, rgba, true});
     }
-    // View > Layers > Pathing (core/pathing_layer.inc), then View > Show town areas.
-    addTerrainFlagsLayer(s);  // (View > Layers > Terrain flags: core/terrain_flags_layer.inc)
+    // View > Overlays: Terrain flags, Pathing (core/pathing_layer.inc), then Show town areas.
+    addTerrainFlagsLayer(s);  // (View > Overlays > Terrain flags: core/terrain_flags_layer.inc)
     addPathingLayer(s);
     addPathOverlays(s);
 
