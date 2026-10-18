@@ -570,7 +570,7 @@ CASES += [
     # The Triggers workspace of a new project: On map start > New trigger, Add an action (the block picker: Set
     # resources), its amount typed in the value's pop-out (800), Delete, then Undo twice (the block, then its amount).
     ("data-triggers-edits", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169",
-                             "--click", "460,347", "--type", "Set resources", "--key", "Enter", "--click", "827,352",
+                             "--click", "460,371", "--type", "Set resources", "--key", "Enter", "--click", "827,376",
                              "--type", "800", "--key", "Enter", "--key", "Del", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "data"),
     # Quick add in the Triggers workspace (roadmap R61): a new trigger, then Q in the pane, "game speed" and Enter add
     # Set the game speed to its actions.
@@ -677,9 +677,9 @@ CASES += [
     ("data-map-undo-history", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--script", "{script:datamaphistory}"], "data"),
     ("data-triggers-undo-history", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--script", "{script:trigundohistory}"], "data"),
     # The Triggers' value pop-out: Insert value's picker, a click on its row: the value pop-out stays open and takes it.
-    ("data-value-insert", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169", "--click", "460,347",
-                           "--type", "Display text", "--key", "Enter", "--click", "498,353", "--click", "568,632", "--type", "player's name",
-                           "--click", "556,749", "--click", "996,635"], "data"),
+    ("data-value-insert", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169", "--click", "460,371",
+                           "--type", "Display text", "--key", "Enter", "--click", "498,377", "--click", "568,656", "--type", "player's name",
+                           "--click", "556,773", "--click", "996,659"], "data"),
     # Check for updates: a release published before this build's commit is not newer (a CI build of a later commit is
     # never offered an older release); a token that GitHub refuses (expired) gets the release without it.
     ("update-release-older", ["--check", "release:{releaseold}"], ""),
@@ -1092,11 +1092,11 @@ history
 """,
     "trigundohistory": """click 433,169
 history
-click 460,347
+click 460,371
 type Set resources
 key Enter
 history
-click 827,352
+click 827,376
 type 800
 key Enter
 history
@@ -2001,7 +2001,7 @@ def check_trigger_edits(output):
     if '"New trigger"; 1 conditions: cond.always(); 0 actions' not in lines[0][1]:
         return f"New trigger: {lines[0][1]}"
     by = dict(lines)
-    added, changed, deleted = by.get("click 460,347", ""), by.get("click 827,352", ""), by.get("key Del", "")
+    added, changed, deleted = by.get("click 460,371", ""), by.get("click 827,376", ""), by.get("key Del", "")
     undos = [st for k, st in lines if k == "key Ctrl+Z"]
     m = re.search(r"1 actions: (act\.\w+\([^)]*,)(\d+)\)$", added)  # (the amount is the block's last value)
     if not m:
@@ -2956,7 +2956,7 @@ def check_data_map_history(output):
 
 def check_value_insert(output):
     """None when the value picked with a click in Insert value's picker went into the text (the value pop-out stayed)."""
-    m = re.search(r"^click 498,353: .*\n  state: .*act\.showtext\(([^,]*),", output, re.M)
+    m = re.search(r"^click 498,377: .*\n  state: .*act\.showtext\(([^,]*),", output, re.M)
     if not m or "{name(current player):s}" not in m.group(1):
         return f"the text is {m.group(1) if m else 'not there'}, without the inserted value"
     return None
