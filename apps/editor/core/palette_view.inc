@@ -12,6 +12,20 @@ struct PaletteView {
 // sprites a large grid (their pictures say more than their names).
 PaletteView gViewByMode[kModeCount] = {{false, false, true}, {}, {true, false, true}, {}, {true, false, true}};
 
+// The order of each mode's palette (the View menu's Sort items): by category (the sections, each in the game's order:
+// units by race and group), by name (A to Z, no sections) or by number (the item's id, no sections).
+enum class PaletteSort { Category, Name, Number };
+PaletteSort gSortByMode[kModeCount] = {};
+// The orders as one number (2 bits a mode), as the settings file keeps them.
+int paletteSortBits() {
+    int bits = 0;
+    for (int m = 0; m < kModeCount; ++m) bits |= int(gSortByMode[m]) << (m * 2);
+    return bits;
+}
+void setPaletteSortBits(int v) {
+    for (int m = 0; m < kModeCount; ++m) gSortByMode[m] = PaletteSort(std::clamp((v >> (m * 2)) & 3, 0, 2));
+}
+
 // The views of each mode as one number (3 bits a mode: grid, sprites, large), as the settings file keeps them.
 int paletteViewBits() {
     int bits = 0;
@@ -27,16 +41,17 @@ void setPaletteViewBits(int v) {
 
 // A View menu item (ID_PAL_LIST, ID_PAL_ICONS, ID_PAL_SPRITES, ID_PAL_NORMAL, ID_PAL_LARGE) on the view of `mode`. Only
 // units have sprites: a grid of another mode is a grid of pictures. False: not a view item.
-bool applyPaletteViewCommand(Mode mode, int id) {
-    PaletteView& v = gViewByMode[int(mode)];
+bool applyPaletteViewCommand(Mode mode, int id, PaletteView& v, PaletteSort& sort) {
     if (id == ID_PAL_LIST) v.grid = v.sprites = false;
     else if (id == ID_PAL_ICONS) v.grid = true, v.sprites = false;
     else if (id == ID_PAL_SPRITES) v.grid = v.sprites = true;
     else if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE) v.large = id == ID_PAL_LARGE;
+    else if (id >= ID_PAL_SORT_CATEGORY && id <= ID_PAL_SORT_NUMBER) sort = PaletteSort(id - ID_PAL_SORT_CATEGORY);
     else return false;
     if (mode != Mode::Units) v.sprites = false;
     return true;
 }
+bool applyPaletteViewCommand(Mode mode, int id) { return applyPaletteViewCommand(mode, id, gViewByMode[int(mode)], gSortByMode[int(mode)]); }
 
 // A palette section's group in the View menu (a heading there) and its name under it: units by race ("Terran Ground Units":
 // Terran > Ground Units), sprites as doodads, units and buildings, other; doodads have no group (only the categories).
@@ -68,8 +83,9 @@ std::wstring paletteMenuEscaped(std::wstring t) {
 // The View menu of the palette in `mode` (the View button, or a right click on the palette): Pin to the top or Unpin
 // first (`pin`: -1 none, 0 Pin, 1 Unpin: a doodad of a project), then List and Grid (units: icons or sprites), Normal and
 // Large, then the list's sections under their group headings (units, doodads, sprites; `sections`: the sections' names
-// in the list's order). A section's id is kPalSectionFirst + its index.
-MenuModel paletteMenuModel(Mode mode, const PaletteView& v, const std::vector<std::wstring>& sections, int pin) {
+// in the list's order). A section's id is kPalSectionFirst + its index. `sort`: the order shown checked; `panel`: the menu
+// of a palette panel (Close panel in place of the floating palette's item).
+MenuModel paletteMenuModel(Mode mode, const PaletteView& v, const std::vector<std::wstring>& sections, int pin, PaletteSort sort, bool panel) {
     MenuModel m;
     if (pin >= 0) {
         m.push_back(menuItem(kPalPin, pin ? L"Un&pin" : L"&Pin to the top"));
@@ -85,9 +101,15 @@ MenuModel paletteMenuModel(Mode mode, const PaletteView& v, const std::vector<st
     m.push_back(menuSeparator());
     m.push_back(menuItem(ID_PAL_NORMAL, L"&Normal", {}, false, !v.large));
     m.push_back(menuItem(ID_PAL_LARGE, L"L&arge", {}, false, v.large));
+    m.push_back(menuSeparator());
+    m.push_back(menuItem(ID_PAL_SORT_CATEGORY, L"Sort by &category", {}, false, sort == PaletteSort::Category));
+    m.push_back(menuItem(ID_PAL_SORT_NAME, L"Sort by na&me", {}, false, sort == PaletteSort::Name));
+    m.push_back(menuItem(ID_PAL_SORT_NUMBER, L"Sort by n&umber", {}, false, sort == PaletteSort::Number));
     // (View > Floating palettes: this mode's palette in a window of its own, or back in the side bar)
     m.push_back(menuSeparator());
-    m.push_back(menuItem(ID_VIEW_FLOATPAL + int(mode), floatPaletteMenuLabel(mode)));
+    m.push_back(menuItem(ID_PAL_NEW_PANEL, L"&New panel like this"));
+    if (panel) m.push_back(menuItem(ID_PAL_CLOSE_PANEL, L"&Close panel"));
+    else m.push_back(menuItem(ID_VIEW_FLOATPAL + int(mode), floatPaletteMenuLabel(mode)));
     if (mode != Mode::Units && mode != Mode::Doodads && mode != Mode::Sprites) return m;
     std::wstring group;
     bool first = true;
@@ -114,14 +136,13 @@ struct PaletteRow {
 // project: the pinned ones first, under "Pinned", in the order they were pinned (each stays in its place below too);
 // `pinned` is how many (they are rows 1 to pinned).
 std::vector<PaletteRow> paletteRows(const std::vector<PaletteUnit>& units, Mode mode, const std::wstring& filter, const std::wstring& section,
-                                    int& pinned) {
+                                    int& pinned, PaletteSort sort = PaletteSort::Category) {
     std::vector<PaletteRow> rows;
     const bool literal = paletteLiteralSearch(units, filter);
     auto shown = [&](const PaletteUnit& u) { return paletteUnitShown(u, literal, filter, section); };
     pinned = 0;
     if (mode == Mode::Doodads)
-        if (const EudProject* pr = activeProject())
-            for (uint16_t id : pr->doodadPins())
+        for (uint16_t id : doodadPinsNow())
                 for (const PaletteUnit& u : units)
                     if (u.value == id && shown(u)) {
                         if (!pinned) rows.push_back({-1, shellTr(L"Pinned")});
@@ -129,6 +150,22 @@ std::vector<PaletteRow> paletteRows(const std::vector<PaletteUnit>& units, Mode 
                         ++pinned;
                         break;
                     }
+    if (sort != PaletteSort::Category) {  // one list, no sections: by name (a doodad's: its group's, then its own) or number
+        std::vector<const PaletteUnit*> list;
+        for (const PaletteUnit& u : units)
+            if (shown(u)) list.push_back(&u);
+        auto name = [mode](const PaletteUnit& u) {
+            std::wstring n = mode == Mode::Doodads ? u.section + L" " + u.label : u.label;
+            std::transform(n.begin(), n.end(), n.begin(), ::towlower);
+            return n;
+        };
+        if (sort == PaletteSort::Name)
+            std::stable_sort(list.begin(), list.end(), [&](const PaletteUnit* a, const PaletteUnit* b) { return name(*a) < name(*b); });
+        else
+            std::stable_sort(list.begin(), list.end(), [](const PaletteUnit* a, const PaletteUnit* b) { return a->value < b->value; });
+        for (const PaletteUnit* u : list) rows.push_back({u->value, mode == Mode::Doodads && sort == PaletteSort::Name ? u->section + L"  " + u->label : u->label});
+        return rows;
+    }
     const PaletteUnit* prev = nullptr;
     for (const PaletteUnit& u : units) {
         if (!shown(u)) continue;
@@ -139,26 +176,25 @@ std::vector<PaletteRow> paletteRows(const std::vector<PaletteUnit>& units, Mode 
     return rows;
 }
 
-// The View menu's pin state for the item `value` of `mode`: -1 no pin item (not a doodad, no project), 0 Pin, 1 Unpin.
+// The View menu's pin state for the item `value` of `mode`: -1 no pin item (not a doodad, or no place to keep pins: a map
+// not saved yet), 0 Pin, 1 Unpin.
 int palettePinState(Mode mode, int value) {
-    const EudProject* pr = mode == Mode::Doodads && value >= 0 ? activeProject() : nullptr;  // pins are kept in the project
-    if (!pr) return -1;
-    const std::vector<uint16_t> pins = pr->doodadPins();
+    if (mode != Mode::Doodads || value < 0 || !canPinDoodads()) return -1;  // (the project's, else the map's file: map_prefs.inc)
+    const std::vector<uint16_t> pins = doodadPinsNow();
     return std::find(pins.begin(), pins.end(), uint16_t(value)) != pins.end() ? 1 : 0;
 }
 
-// Pins a doodad to the top of the Doodads palette, or unpins it; kept in the project at once (no project: nothing).
+// Pins a doodad to the top of the Doodads palette, or unpins it; kept at once in the project, else in the map's own file
+// (map_prefs.inc); a map not saved yet has no pins.
 void doodadPinToggle(int value) {
-    EudProject* pr = activeProject();
-    if (!pr || value < 0) return;
-    std::vector<uint16_t> pins = pr->doodadPins();
+    if (value < 0 || !canPinDoodads()) return;
+    std::vector<uint16_t> pins = doodadPinsNow();
     const auto it = std::find(pins.begin(), pins.end(), uint16_t(value));
     const bool was = it != pins.end();
     if (was) pins.erase(it);
     else pins.push_back(uint16_t(value));
-    pr->setDoodadPins(pins);
     std::string err;
-    if (!gSelfTest && !pr->save(err)) shellErrorBox(widen(err), shellTr(L"Could not save the project"));
+    if (!setDoodadPinsNow(pins, err)) shellErrorBox(widen(err), shellTr(activeProject() ? L"Could not save the project" : L"Could not save the map's settings"));
     setMessage(shellTr(was ? L"Unpinned " : L"Pinned to the top: ") + paletteItemName(value));
     shellPaletteRebuilt();
     shellPaletteChanged();

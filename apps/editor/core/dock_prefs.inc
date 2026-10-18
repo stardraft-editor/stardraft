@@ -46,8 +46,12 @@ constexpr FloatPaletteNames kFloatPalNames[kModeCount] = {
      L"The sprite palette shows in its own window in Sprites mode", L"Docked the sprite palette"},
 };
 
+// Does the palette of `m` float in the active tab? (The program: Terrain, Units, Doodads and Sprites float as palettes of
+// the map tab's own, kept with the map's panels, sdl_palette_panels.inc; nothing floats until the user pops it out. Their
+// gFloatPal[m] keeps the place last used, where the next one opens. The location list's window is the program's one.)
+bool paletteFloats(Mode m);
 // The item of a palette's context menus that floats it, or docks it while it floats.
-const wchar_t* floatPaletteMenuLabel(Mode m) { return gFloatPal[int(m)].floating ? L"&Dock in the side bar" : L"Make &floating"; }
+const wchar_t* floatPaletteMenuLabel(Mode m) { return paletteFloats(m) ? L"&Dock in the side bar" : L"Make &floating"; }
 
 // The settings of the palette of `m`.
 FloatPalette floatPaletteLoad(const stardraft::Settings& s, Mode m) {

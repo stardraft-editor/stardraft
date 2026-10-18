@@ -94,7 +94,9 @@ struct PanelTabsView final : stardraft::draw::View {
             if (ms.empty()) return true;
             const int tw = std::max(1, width() / int(ms.size()));
             const Mode m = ms[size_t(std::clamp<int>(e.pt.x / tw, 0, int(ms.size()) - 1))];
-            const int pick = shellTabSideMenu(std::wstring(kModeNames[int(m)]) + L" panel", side);
+            const int pick = shellTabSideMenu(std::wstring(kModeNames[int(m)]) + L" panel", side, int(m));
+            if (pick == 3) return shellFloatPalette(m, !paletteFloats(m)), true;
+            if (pick == 4) return shellNewPalettePanel(int(m)), true;
             if (pick == 1 || pick == 2) {
                 gDock.toolsRight[int(m)] = pick == 2;
                 gLastOnSide[pick == 2 ? 1 : 0] = m;

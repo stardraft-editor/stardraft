@@ -2278,6 +2278,13 @@ constexpr UiText kRows[] = {
     {L"Make &floating", L"\u8BBE\u4E3A\u6D6E\u52A8(&F)"},
     {L"Dock in the side bar", L"\u505C\u9760\u5230\u4FA7\u680F"},
     {L"Make floating", L"\u8BBE\u4E3A\u6D6E\u52A8"},
+    {L"Sort by &category", L"\u6309\u7C7B\u522B\u6392\u5E8F(&C)"},
+    {L"Sort by na&me", L"\u6309\u540D\u79F0\u6392\u5E8F(&M)"},
+    {L"Sort by n&umber", L"\u6309\u7F16\u53F7\u6392\u5E8F(&U)"},
+    {L"&New panel like this", L"\u65B0\u5EFA\u7C7B\u4F3C\u9762\u677F(&N)"},
+    {L"&Close panel", L"\u5173\u95ED\u9762\u677F(&C)"},
+    {L"New palette panel: ", L"\u65B0\u7684\u8C03\u8272\u677F\u9762\u677F\uFF1A"},
+    {L"Could not save the map's settings", L"\u65E0\u6CD5\u4FDD\u5B58\u5730\u56FE\u8BBE\u7F6E"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

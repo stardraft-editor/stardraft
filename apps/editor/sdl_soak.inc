@@ -18,6 +18,9 @@
 //                      the newest first), the steps to redo and a hash of the map; then what the workspace holds
 //                      (the input lines' state)
 //   palette close      the floating palette's window gets its close button's click (sdl_palette_float.inc)
+//   panel <what>       the palette panels (sdl_palette_panels.inc): "new" (one like the mode's palette), "dup" (the last
+//                      panel's duplicate box), "sort category|name|number", "type terrain|units|doodads|sprites",
+//                      "search <text>", "close" (the last panel's close box), "list"; then a line with the panels
 // "{n}" in a value is the number of the time over (1, 2, ...): roundtrip soak{n}.scx makes a new file each time.
 
 // The workspaces' names, in the order of the Workspace enum (--workspace, the script's workspace verb).
@@ -79,7 +82,7 @@ bool sdlReadScript(const std::string& spec, std::vector<std::pair<char, std::str
         {"key", 'k'},     {"type", 't'},    {"click", 'c'},     {"drag", 'd'},      {"lostdrag", 'l'},  {"move", 'm'},
         {"wheel", 'h'},   {"pinch", 'p'},   {"wait", 'w'},      {"command", 'C'},   {"mode", 'M'},      {"rect", 'Q'},
         {"workspace", 'W'}, {"open", 'O'},  {"roundtrip", 'R'}, {"undocheck", 'U'}, {"stats", 'S'}, {"minimap", 'P'},
-        {"history", 'H'}, {"palette", 'F'}, {"pathing", 'G'}};
+        {"history", 'H'}, {"palette", 'F'}, {"pathing", 'G'}, {"panel", 'J'}};
     std::vector<std::pair<char, std::string>> lines;
     int lineNo = 0;
     for (std::string line; std::getline(in, line);) {
@@ -335,6 +338,7 @@ bool sdlScriptStep(char kind, const std::string& value) {
     case 'G': std::printf("%s\n", pathingStateLine().c_str()); return true;  // the pathing layer and check (core/pathing_layer.inc)
     case 'S': sdlSoakStats(); return true;
     case 'F': sdlFloatPaletteScript(value); return true;
+    case 'J': sdlPanelScript(value); return true;
     default: return false;  // (an input option's verb)
     }
 }

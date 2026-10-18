@@ -6,6 +6,8 @@
 
 int paletteViewBits();  // (core/palette_view.inc)
 void setPaletteViewBits(int v);
+int paletteSortBits();
+void setPaletteSortBits(int v);
 
 struct AppSetting {
     const wchar_t* name;
@@ -40,6 +42,7 @@ const std::vector<AppSetting>& appSettings() {
         SD_SETTING("LayerSprites", gLayers.sprites, bool),
         SD_SETTING("LayerUnits", gLayers.units, bool),
         {L"PaletteViews", [] { return paletteViewBits(); }, [](int v) { setPaletteViewBits(v); }},
+        {L"PaletteSorts", [] { return paletteSortBits(); }, [](int v) { setPaletteSortBits(v); }},
     };
 #undef SD_SETTING
     return all;

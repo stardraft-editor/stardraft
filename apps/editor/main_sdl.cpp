@@ -160,6 +160,7 @@ bool gKeysFromOpener = false;
 // host seam (shell.h).
 #include "sdl_main_view.inc"
 #include "sdl_palette_float.inc"  // the floating palettes: a mode's palette in a window of its own (core/views_palette_float.inc)
+#include "sdl_palette_panels.inc"  // the palette panels: palettes of their own in windows of their own, of a map tab
 #include "sdl_pending.inc"
 #include "sdl_menus.inc"
 #include "sdl_soak.inc"  // --script: a long session's inputs from a file, the memory and the undo steps
@@ -574,6 +575,7 @@ int main(int argc, char** argv) {
         gSettingsOff = gSilent && !settingsArg;
         if (loadSettingsTable()) shellRendererGraphics(gState.quality, gState.carbot);  // the menus' options (core/app_settings.inc)
         gSettingsOff = gSilent;  // (snapshots and tests: the defaults, and nothing saved)
+        gMapPrefsOn = !gSilent || settingsArg;  // (the maps' own files: a snapshot's next to its --settings file, core/map_prefs.inc)
         // A settings file that is not JSON (a hand edit): the Log says so; its first save keeps a copy of it.
         if (const std::string& bad = prefs::store().readError(); !bad.empty()) shellLogError(widen(bad));
         cleanUnsavedProjects();  // the unsaved projects' folders of programs that ended (core/documents.inc; not in a test run)
@@ -608,6 +610,7 @@ int main(int argc, char** argv) {
             sdlXdgFrame();  // (Linux: the recently used files, Build's notification and progress: sdl_xdg.inc)
             sdlWinTestPump();  // (--frames, --wintest: sdl_window_test.inc)
             sdlFloatPaletteFrame();  // (the floating palette's place as the user moves it: sdl_palette_float.inc)
+            sdlPalettePanelsFrame();  // (the palette panels of the active tab show, and their places: sdl_palette_panels.inc)
         });
         host.setFrameHook([](SDL_GPUCommandBuffer* cmd) {
             drawMapOfRoot(cmd);

@@ -73,7 +73,10 @@ void shellMapOpened(const std::wstring& path);
 void shellFocusView();
 // The panel tabs' right-click menu: a grayed title line, then Left and Right (the side is checked). Returns 1 (Left),
 // 2 (Right), or 0 when none is picked.
-int shellTabSideMenu(const std::wstring& title, int side);
+// The menu of a side bar tab of mode `mode` (int(Mode); its right click): 1 Left, 2 Right, 3 Make floating (or Dock),
+// 4 New panel like this; 0 none.
+int shellTabSideMenu(const std::wstring& title, int side, int mode);
+void shellNewPalettePanel(int mode);  // a palette panel of the mode (int(Mode)), as its palette (sdl_palette_panels.inc)
 // Runs `fn` on the UI thread, later. Safe to call from any thread; `fn` runs once.
 void shellPost(std::function<void()> fn);
 // The map view's timer for a held spray (25 ms): on starts it, off stops it.

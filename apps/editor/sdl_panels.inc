@@ -58,7 +58,12 @@ kit::Dropdown gOwnerBox;
 SearchBox gFilterSdl;   // the Locations filter
 SearchBox gSearchSdl;   // the palette's search
 DropdownBox gSectionDropSdl;  // the section box (Units, Doodads, Sprites)
-void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int row);
+void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int row, PalettePanelView* panel = nullptr);
+// A palette panel like a palette (sdl_palette_panels.inc): its mode, view and order; `near`: the window it opens by
+// (null: by the side bar).
+void palettePanelNew(Mode m, const PaletteView& v, PaletteSort sort, draw::View* near);
+void palettePanelClose(PalettePanelView& p);
+void palettePanelRebuild(PalettePanelView& p);
 kit::Button gViewBtnSdl{L"View", kit::Tone::Normal, [] {  // the View menu under the button (as the Windows View button)
     paletteMenuSdl(gPalList, gViewBtnSdl, {0, gViewBtnSdl.height()}, -1);
 }};
@@ -106,7 +111,7 @@ bool panelPicture(draw::Canvas& c, Mode what, int value, bool sprites, draw::Rec
 // The View menu (core/palette_view.inc: paletteMenuModel) of the palette `pal` at `at` of `from`: on its item of `row`
 // (-1: none), a doodad of a project gets Pin to the top or Unpin first. A view item changes the view of the palette's
 // mode (saved in the settings), a section scrolls the list to it.
-void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int row) {
+void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int row, PalettePanelView* panel) {
     const int value = row >= 0 && row < int(pal.rows.size()) ? pal.rows[size_t(row)].value : -1;
     const Mode mode = pal.mode;
     std::vector<int> sections;  // the rows of the list's sections (units, doodads, sprites)
@@ -115,17 +120,31 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
             if (pal.rows[i].value < 0) sections.push_back(int(i));
     std::vector<std::wstring> names;
     for (int i : sections) names.push_back(pal.rows[size_t(i)].label);
-    const MenuModel model = paletteMenuModel(mode, gViewByMode[int(mode)], names, palettePinState(mode, value));
-    const std::wstring on = sdlFeedbackOn(from, at, L"the palette");
+    const PaletteView& view = panel ? panel->view : gViewByMode[int(mode)];
+    const PaletteSort sort = panel ? panel->sort : gSortByMode[int(mode)];
+    const MenuModel model = paletteMenuModel(mode, view, names, palettePinState(mode, value), sort, panel && !panel->floating);
+    const std::wstring on = sdlFeedbackOn(from, at, panel ? L"a palette panel" : L"the palette");
     PaletteGridView* p = &pal;
-    sdlPopupMenu(from, at, sdlModelItems(model, [p, value, sections, mode](int id) {
+    sdlPopupMenu(from, at, sdlModelItems(model, [p, value, sections, mode, panel, view, sort](int id) {
         if (id == kPalPin) return doodadPinToggle(value);
-        if (id >= ID_VIEW_FLOATPAL && id < ID_VIEW_FLOATPAL + kModeCount) return shellFloatPalette(Mode(id - ID_VIEW_FLOATPAL), !gFloatPal[id - ID_VIEW_FLOATPAL].floating);
+        if (id == ID_PAL_NEW_PANEL) return palettePanelNew(mode, view, sort, panel);
+        if (id == ID_PAL_CLOSE_PANEL && panel) return shellPost([panel] { palettePanelClose(*panel); });
+        if (id >= ID_VIEW_FLOATPAL && id < ID_VIEW_FLOATPAL + kModeCount) {
+            const Mode fm = Mode(id - ID_VIEW_FLOATPAL);
+            return shellPost([fm] { shellFloatPalette(fm, !paletteFloats(fm)); });
+        }
+        if (panel) {  // the panel's own view and order
+            if (id >= kPalSectionFirst && id < kPalSectionFirst + int(sections.size())) return p->scrollTo(p->rowRect(sections[size_t(id - kPalSectionFirst)]).top);
+            if (applyPaletteViewCommand(mode, id, panel->view, panel->sort)) palettePanelRebuild(*panel);
+            return;
+        }
+        if (id >= ID_VIEW_FLOATPAL && id < ID_VIEW_FLOATPAL + kModeCount) return shellFloatPalette(Mode(id - ID_VIEW_FLOATPAL), !paletteFloats(Mode(id - ID_VIEW_FLOATPAL)));
         if (id >= kPalSectionFirst && id < kPalSectionFirst + int(sections.size())) {
             p->scrollTo(p->rowRect(sections[size_t(id - kPalSectionFirst)]).top);
             return;
         }
         if (applyPaletteViewCommand(mode, id)) {
+            if (id >= ID_PAL_SORT_CATEGORY && id <= ID_PAL_SORT_NUMBER) shellPaletteRebuilt();  // (the rows in the new order)
             gPalList.layout(), gPal2List.layout();  // (both palettes show the view of their mode)
             shellSettingsChanged();
         }
@@ -156,20 +175,48 @@ void locationListPicked() {
     invalidateMapView();
 }
 
-// The palette's rows for the current mode, the section box and the search (the Win32 rebuildUnitPalette).
+// Each mode's palette keeps its place: the scroll, the search and the section it had when another mode took the palette
+// come back with its mode (not saved in the settings).
+struct PaletteMemory {
+    int scroll = 0;
+    std::wstring search, section;
+};
+std::map<int, std::array<PaletteMemory, kModeCount>> gPalMemoryByTab;  // (by the tab's key: Doc::key)
+int gPalRowsMode = -1;         // the mode whose rows the palette has (-1: none yet)
+int gPalRowsTab = -1;          // ... and the tab (its key)
+int activeDocKey();
+bool gPalRestoring = false;    // the search box's text is set back: its change does not scroll or rebuild
+
+// The palette's rows for the current mode, the section box and the search (the Win32 rebuildUnitPalette), in the
+// mode's order (gSortByMode). Another mode than the rows': the old mode's place is kept, the new one's comes back.
 void rebuildPaletteRows() {
+    const int m = int(gState.mode), tab = activeDocKey();
+    const bool switched = m != gPalRowsMode || tab != gPalRowsTab;  // (each tab keeps each mode's place)
+    if (switched) {
+        if (gPalRowsMode >= 0 && gPalRowsMode < kModeCount)
+            gPalMemoryByTab[gPalRowsTab][size_t(gPalRowsMode)] = {gPalList.scrollTop(), gSearchSdl.text(), gPalSection};
+        const PaletteMemory back = m >= 0 && m < kModeCount ? gPalMemoryByTab[tab][size_t(m)] : PaletteMemory{};
+        gPalSection = back.section;
+        if (gSearchSdl.text() != back.search) {
+            gPalRestoring = true;
+            gSearchSdl.setText(back.search);
+            gPalRestoring = false;
+        }
+        gPalRowsMode = m, gPalRowsTab = tab;
+    }
     const std::vector<PaletteUnit> units = paletteUnitsOf(gState.mode);
     fillSectionBox(paletteSectionNames(units));
     int pinned = 0;
     gPalList.searchWords = lowerPanelText(gSearchSdl.text());
-    std::vector<PaletteRow> rows = paletteRows(units, gState.mode, gPalList.searchWords, gPalSection, pinned);
+    std::vector<PaletteRow> rows = paletteRows(units, gState.mode, gPalList.searchWords, gPalSection, pinned, gSortByMode[m]);
     gPalList.setRows(std::move(rows), gState.mode, pinned);
+    if (switched) gPalList.scrollTo(m >= 0 && m < kModeCount ? gPalMemoryByTab[tab][size_t(m)].scroll : 0);
 }
 
 // The second palette's rows: its mode's items, unfiltered (it has no search box).
 void rebuildSecondRows() {
     int pinned = 0;
-    std::vector<PaletteRow> rows = paletteRows(paletteUnitsOf(gPal2Mode), gPal2Mode, std::wstring(), std::wstring(), pinned);
+    std::vector<PaletteRow> rows = paletteRows(paletteUnitsOf(gPal2Mode), gPal2Mode, std::wstring(), std::wstring(), pinned, gSortByMode[int(gPal2Mode)]);
     gPal2List.setRows(std::move(rows), gPal2Mode, pinned);
 }
 
@@ -222,6 +269,7 @@ void initPanels() {
     gFilterSdl.onChange = [] { rebuildList(gState); };
     gSearchSdl.setPlaceholder(L"Search");
     gSearchSdl.onChange = [] {
+        if (gPalRestoring) return;  // (a mode's search set back: rebuildPaletteRows goes on)
         gPalList.scrollTo(0);
         rebuildPaletteRows();
     };

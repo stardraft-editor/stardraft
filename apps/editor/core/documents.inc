@@ -22,6 +22,7 @@ Workspace gWorkspace = Workspace::Map;
 // active one lives in the app state's ed; the others keep theirs here.
 
 struct MapPageCopies;  // map_pages.inc
+inline int gDocKeys = 0;  // (Doc::key's count)
 struct Doc {
     std::unique_ptr<Editor> ed;  // empty while the document is active (it is in the app state then)
     float camX = 0, camY = 0, zoom = 1;
@@ -31,11 +32,13 @@ struct Doc {
     std::shared_ptr<EudProject> project;  // set when the map was opened as (or made into) an EUD project
     int page = 0;  // a page and not a document yet (new_page.inc): kPageNew, kPageStart; `ed` is a small blank map until then
     std::shared_ptr<MapPageCopies> mapPages;  // the map pages' working copies (map_pages.inc)
+    int key = ++gDocKeys;  // the tab's own number while it is open (its place in gDocs changes): its palette panels
 };
 std::vector<Doc> gDocs;
 int gUntitledCount = 0;
 int gActive = -1;
 constexpr int kPageNew = 1, kPageStart = 2;  // Doc::page
+int activeDocKey() { return gActive >= 0 && gActive < int(gDocs.size()) ? gDocs[size_t(gActive)].key : 0; }
 int activePage() { return gActive >= 0 && gActive < int(gDocs.size()) ? gDocs[size_t(gActive)].page : 0; }
 // A real document (a map or a project) is open in the active tab. A page tab (the start page, the New page) holds only
 // a small blank map: the commands that act on a map (mapCommand) are gray there and do nothing.

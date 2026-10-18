@@ -172,7 +172,7 @@ void registerMapCommands() {
     }, [] { return !gDock.minimapHidden; });
     for (const Mode m : kModeOrder)  // View > Floating palettes: an item for each mode's palette
         addCommand(ID_VIEW_FLOATPAL + int(m), kFloatPalNames[int(m)].command, kFloatPalNames[int(m)].menu, "View/Floating palettes", L"",
-                   [m] { shellFloatPalette(m, !gFloatPal[int(m)].floating); }, [m] { return gFloatPal[int(m)].floating; });
+                   [m] { shellFloatPalette(m, !paletteFloats(m)); }, [m] { return paletteFloats(m); });
     addCommand(ID_LAYER, "view.layer.terrain", L"&Terrain", "View/Layers", L"", [] { toggleLayer(0); }, [] { return gLayers.terrain; });
     addCommand(ID_LAYER + 1, "view.layer.doodads", L"&Doodads", "View/Layers", L"", [] { toggleLayer(1); }, [] { return gLayers.doodads; });
     addCommand(ID_LAYER + 2, "view.layer.sprites", L"&Sprites", "View/Layers", L"", [] { toggleLayer(2); }, [] { return gLayers.sprites; });

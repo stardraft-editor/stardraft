@@ -37,6 +37,7 @@
 #include "startup.inc"
 #include "names.inc"
 #include "palette_items.inc"
+#include "map_prefs.inc"  // each map's own settings in the user's folder (Maps next to the settings): doodad pins, panels
 #include "palette_view.inc"  // the palette's views: list or grid, the View menu, the pins, the rows' places, the pie's terrains
 #include "data_list.inc"
 #include "views_data.inc"

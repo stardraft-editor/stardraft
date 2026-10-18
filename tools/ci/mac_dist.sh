@@ -8,6 +8,9 @@
 #   APPLE_CERT_P12       the Developer ID Application certificate and its key, a .p12 file in base64
 #   APPLE_CERT_PASSWORD  the .p12 file's password
 #   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD   the Apple ID, its team and an app-specific password, for notarytool
+#   MAC_SIGN_IDENTITY    (a local build, without the secrets) a code signing identity of the user's keychain, e.g. a
+#                        self-signed "StarDraft Local": the signature stays the same from build to build, so macOS keeps
+#                        what the app was allowed (the Documents folder), not notarized
 # With the certificate: each Quick Look extension (with its sandbox, apps/quicklook/quicklook.entitlements), then the
 # app (apps/editor/stardraft.entitlements) are signed with the Developer ID, the hardened runtime and a timestamp, then
 # the .dmg; with the Apple ID too, the .dmg is notarized and its ticket stapled. Without the certificate: signed ad hoc
@@ -48,6 +51,13 @@ if [ -n "${APPLE_CERT_P12:-}" ] && [ -n "${APPLE_CERT_PASSWORD:-}" ]; then
         exit 1
     fi
     echo "Signing with: $identity"
+elif [ -n "${MAC_SIGN_IDENTITY:-}" ]; then
+    # A local build: a certificate of the user's own keychain (a self-signed code signing one does). Its signature stays
+    # the same from build to build, so macOS keeps what the user allowed the app (its Documents folder: an ad hoc
+    # signature is a new app each build, and the folder's files cannot be read until it is allowed again).
+    identity="$MAC_SIGN_IDENTITY"
+    local_identity=1
+    echo "Signing with the local identity: $identity"
 else
     echo "Signing skipped: the secrets APPLE_CERT_P12 and APPLE_CERT_PASSWORD are not set. The app is signed ad hoc (macOS asks before it opens it the first time)."
 fi
@@ -55,6 +65,8 @@ fi
 sign() {  # <path> <entitlements>
     if [ "$identity" = "-" ]; then
         codesign --force --options runtime --timestamp=none --entitlements "$2" --sign - "$1"
+    elif [ -n "${local_identity:-}" ]; then
+        codesign --force --options runtime --timestamp=none --entitlements "$2" --sign "$identity" "$1"
     else
         codesign --force --options runtime --timestamp --entitlements "$2" --sign "$identity" --keychain "$keychain" "$1"
     fi
@@ -114,7 +126,9 @@ hdiutil detach "$mount" >/dev/null
 [ "$ok" = 1 ]
 
 # --- Signing and notarizing the image -------------------------------------------------------------------------------
-if [ "$identity" != "-" ]; then
+if [ -n "${local_identity:-}" ]; then
+    codesign --force --timestamp=none --sign "$identity" "$dmg"
+elif [ "$identity" != "-" ]; then
     codesign --force --timestamp --sign "$identity" --keychain "$keychain" "$dmg"
     if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ] && [ -n "${APPLE_APP_PASSWORD:-}" ]; then
         xcrun notarytool submit "$dmg" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" \
