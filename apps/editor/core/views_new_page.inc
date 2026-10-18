@@ -186,6 +186,10 @@ public:
     // The page's choices (the host reads them to make the map; the self-tests set them).
     bool project = false, generate = false;
     bool decorate = false;     // the generator: doodads after the terrain (roadmap R37)
+    // The generator's rules (roadmap R49): bases (0: none; their Start Locations too), paths between them, bases on
+    // high ground.
+    NewSlider bases{L"Bases", 0, 8, 0};
+    bool paths = true, basesHigh = false;
     bool copyMap = false;      // an EUD project: Start "Import an existing map" (a copy of the map in fromMap); generate is off then
     bool terrainOnly = false;  // a classic project: Start "The terrain of a map" (a new map with only the terrain of the map in fromMap)
     int card = 0;              // the start page's card that the keyboard is on (0 or 1)
@@ -205,6 +209,7 @@ public:
         p.roughness = shape[3].value / 100.0f;
         p.minFeature = feature == 1 ? 0.5f : 1.0f;
         p.symmetry = GenSymmetry(symmetry);
+        p.bases = bases.value, p.paths = paths, p.basesHigh = basesHigh;
         return p;
     }
     uint32_t seedValue() const { return uint32_t(std::wcstoul(seed_.text().c_str(), nullptr, 10)); }
@@ -270,6 +275,7 @@ public:
         generate = false, copyMap = false, terrainOnly = false;
         era = openEra_;
         terrain = 0, w = h = 128, symmetry = 0, feature = 0, scroll = 0;
+        bases.value = 0, paths = true, basesHigh = false;
         loadedEra = 0xFFFF;
         shape = newpage::kShapeDefaults;
         setNameText(newFreeName(L"MyMap", host_.defaultFolder()));
@@ -325,6 +331,7 @@ public:
         for (const auto& sl : shares) s += " " + std::to_string(sl.value);
         s += " shape";
         for (const auto& sl : shape) s += " " + std::to_string(sl.value);
+        s += " bases " + std::to_string(bases.value) + (paths ? " paths" : "") + (basesHigh ? " high" : "");
         return s;
     }
     bool symmetryListOpen() const { return symmetry_.listOpen(); }
@@ -588,6 +595,17 @@ void NewPageView::paintPreview(draw::Canvas& c, draw::Rect pv) {
         const int bw = int(pw * k), bh2 = int(ph * k);
         c.bitmap(previewBitmap, {0, 0, pw, ph}, {pv.left + (rw - bw) / 2, pv.top + (rh - bh2) / 2, pv.left + (rw - bw) / 2 + bw, pv.top + (rh - bh2) / 2 + bh2},
                  true);
+        // The rules' bases (roadmap R49): a dot in each player's color where its Start Location goes.
+        if (generate && bases.value > 0) {
+            static const COLORREF kPlayer[8] = {RGB(244, 4, 4),   RGB(12, 72, 204),  RGB(44, 180, 148), RGB(136, 64, 156),
+                                                RGB(248, 140, 20), RGB(112, 48, 20), RGB(204, 224, 208), RGB(252, 252, 56)};
+            const int ox = pv.left + (rw - bw) / 2, oy = pv.top + (rh - bh2) / 2, r = scale(6);
+            const std::vector<GenBase> at = generatorBases(params());
+            for (size_t k = 0; k < at.size() && k < 8; ++k) {
+                const int x = ox + at[k].x * bw / tilesW, y = oy + at[k].y * bh2 / tilesH;
+                c.roundBox({x - r, y - r, x + r, y + r}, kPlayer[k], RGB(255, 255, 255), float(r));
+            }
+        }
     }
     c.roundBox(pv, draw::kNone, kBorder, float(scale(2)));
     if (tilesW <= 0 || tilesH <= 0) return;

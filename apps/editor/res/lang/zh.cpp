@@ -2371,6 +2371,12 @@ constexpr UiText kRows[] = {
     {L"Not imported (do these again in StarDraft):", L"\u672A\u5BFC\u5165(\u8BF7\u5728 StarDraft \u4E2D\u91CD\u65B0\u5B8C\u6210):"},
     {L"The project is imported", L"\u9879\u76EE\u5DF2\u5BFC\u5165"},
     {L"Select the folder for the new project", L"\u9009\u62E9\u65B0\u9879\u76EE\u7684\u6587\u4EF6\u5939"},
+    {L"Rules", L"\u89C4\u5219"},
+    {L"Bases", L"\u57FA\u5730"},
+    {L"Paths between the bases", L"\u57FA\u5730\u4E4B\u95F4\u7684\u9053\u8DEF"},
+    {L"Bases on high ground", L"\u57FA\u5730\u5728\u9AD8\u5730\u4E0A"},
+    {L"Ground that units can walk joins each base to the next: no water and no cliffs on it", L"\u5355\u4F4D\u53EF\u4EE5\u884C\u8D70\u7684\u5730\u9762\u628A\u6BCF\u4E2A\u57FA\u5730\u8FDE\u5230\u4E0B\u4E00\u4E2A:\u4E0A\u9762\u6CA1\u6709\u6C34\u548C\u60AC\u5D16"},
+    {L"The bases and the paths are high ground (else low ground)", L"\u57FA\u5730\u548C\u9053\u8DEF\u662F\u9AD8\u5730(\u5426\u5219\u662F\u4F4E\u5730)"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

@@ -2369,3 +2369,9 @@ Imported:	已导入:
 Not imported (do these again in StarDraft):	未导入(请在 StarDraft 中重新完成):
 The project is imported	项目已导入
 Select the folder for the new project	选择新项目的文件夹
+Rules	规则
+Bases	基地
+Paths between the bases	基地之间的道路
+Bases on high ground	基地在高地上
+Ground that units can walk joins each base to the next: no water and no cliffs on it	单位可以行走的地面把每个基地连到下一个:上面没有水和悬崖
+The bases and the paths are high ground (else low ground)	基地和道路是高地(否则是低地)

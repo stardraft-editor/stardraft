@@ -2369,3 +2369,9 @@ Imported:	Импортировано:
 Not imported (do these again in StarDraft):	Не импортировано (сделайте это снова в StarDraft):
 The project is imported	Проект импортирован
 Select the folder for the new project	Выберите папку для нового проекта
+Rules	Правила
+Bases	Базы
+Paths between the bases	Пути между базами
+Bases on high ground	Базы на возвышенности
+Ground that units can walk joins each base to the next: no water and no cliffs on it	Проходимая для юнитов земля соединяет каждую базу со следующей: без воды и без обрывов
+The bases and the paths are high ground (else low ground)	Базы и пути на возвышенности (иначе в низине)

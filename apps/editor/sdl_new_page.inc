@@ -73,6 +73,10 @@ bool NewHostSdl::make() {
         shellErrorBox(widen(err), shellTr(copy ? L"Could not open the map" : gNewView.generate ? L"Could not generate the map" : L"Could not create the map"));
         return false;
     }
+    if (!copy && !gNewView.terrainOnly && gNewView.generate) {  // the rules' bases (roadmap R49): a Start Location on each, player 1 on the first
+        const std::vector<GenBase> bases = generatorBases(p);
+        for (size_t k = 0; k < bases.size() && k < 8; ++k) ed->placeUnit(214, uint8_t(k), bases[k].x * 32, bases[k].y * 32 + 16);
+    }
     if (!copy && !gNewView.terrainOnly && gNewView.generate && gNewView.decorate) {  // Decorate with doodads (roadmap R37)
         std::vector<uint16_t> ids;
         for (const DoodadType& t : ed->doodadTypes().all())

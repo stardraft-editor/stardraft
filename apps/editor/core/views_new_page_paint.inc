@@ -422,19 +422,33 @@ void NewPageView::paint(draw::Canvas& c) {
         gy += scale(12);
         gy = sectionHeader(c, gx, gr, gy, rowH, L"Shape");
         for (auto& sl : shape) paintSliderRow(c, gx, gy, labelW, gr, sl, false), gy += rowH;
-        gy += scale(8);
-        {  // Decorate with doodads (roadmap R37): after the terrain, doodads where they fit (Editor::decorate)
+        // A check box row of the generator; `regenerate`: the preview's map is made again when it changes.
+        auto check = [&](bool& on, const wchar_t* label, const wchar_t* tip, bool enabled, bool regenerate) {
             const draw::Rect row{gx, gy, gr, gy + rowH};
             const int box = scale(16);
-            const bool over = hot(row);
-            kitpaint::drawCheckMark(c, {gx, gy + (rowH - box) / 2, gx + box, gy + (rowH + box) / 2}, decorate, over, true);
-            c.text({gx + box + scale(8), gy, gr, gy + rowH}, L"Decorate with doodads", kText, draw::kMiddle | draw::kEllipsis);
+            const bool over = enabled && hot(row);
+            kitpaint::drawCheckMark(c, {gx, gy + (rowH - box) / 2, gx + box, gy + (rowH + box) / 2}, on, over, enabled);
+            c.text({gx + box + scale(8), gy, gr, gy + rowH}, label, enabled ? kText : kDim, draw::kMiddle | draw::kEllipsis);
             Hit hit;
-            hit.r = row, hit.click = [this] { decorate = !decorate, invalidate(); };
-            hit.tip = L"After the terrain, put doodads where they fit the terrain", hit.cursor = draw::Cursor::Hand;
+            hit.r = row, hit.tip = tip;
+            if (enabled) {
+                bool* p = &on;
+                hit.click = [this, p, regenerate] { *p = !*p, regenerate ? changed() : invalidate(); };
+                hit.cursor = draw::Cursor::Hand;
+            }
             hits.push_back(std::move(hit));
-            gy += rowH + scale(4);
-        }
+            gy += rowH;
+        };
+        gy += scale(12);
+        gy = sectionHeader(c, gx, gr, gy, rowH, L"Rules");  // (roadmap R49)
+        paintSliderRow(c, gx, gy, labelW, gr, bases, false), gy += rowH;
+        check(paths, L"Paths between the bases", L"Ground that units can walk joins each base to the next: no water and no cliffs on it",
+              bases.value > 0, true);
+        check(basesHigh, L"Bases on high ground", L"The bases and the paths are high ground (else low ground)", bases.value > 0, true);
+        gy += scale(8);
+        // Decorate with doodads (roadmap R37): after the terrain, doodads where they fit (Editor::decorate)
+        check(decorate, L"Decorate with doodads", L"After the terrain, put doodads where they fit the terrain", true, false);
+        gy += scale(4);
         genRect = {gx, gTop, gr, gy};
         y = std::max(y, gy);
     } else {
