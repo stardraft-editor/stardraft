@@ -426,6 +426,20 @@ int main(int argc, char** argv) {
         trains.lists[1] = {block("act.unitremove", {"boss"}), block("act.qgc.select", {"P1", "boss"}), block("act.camerafollow", {"boss", "1", "P2"}),
                            block("act.gamespeed", {"200"}), block("act.camerapan", {"1", "1", "3", "1", "all"}),
                            block("act.camerashake", {"1", "1", "8", "1", "P2"})};
+        {  // the tile at a location and at a point (roadmap R58), built by euddraft
+            TriggerCall setT = block("act.setvar", {"SetTo", "0", "gold"});
+            TriggerCall tl = make("val.tileat");
+            tl.args = {"group", "1"};
+            setT.argBlocks.resize(setT.args.size());
+            setT.argBlocks[1] = {tl};
+            TriggerCall setP = block("act.setvar", {"SetTo", "0", "gold"});
+            TriggerCall tp = make("val.tileatxy");
+            tp.args = {"tile", "64", "96"};
+            setP.argBlocks.resize(setP.args.size());
+            setP.argBlocks[1] = {tp};
+            trains.lists[1].push_back(setT);
+            trains.lists[1].push_back(setP);
+        }
         TriggerCall setX = block("act.setvar", {"SetTo", "0", "gold"});
         TriggerCall dx = make("val.dirx");
         dx.args = {"64", "32"};
