@@ -92,6 +92,7 @@ std::wstring platformShortcut(int id, const std::wstring& s) {
     if (id == ID_EDIT_REDO) return L"Ctrl+Shift+Z";
     if (id == ID_EDIT_DELETE) return L"Ctrl+Backspace";
     if (id == ID_SCEN_PROPS) return {};
+    if (id == ID_HELP_DOCS) return {};  // (F1 stays the views' key: the menu bar's key would take it before the Triggers pane's F1)
 #else
     (void)id;
 #endif
@@ -167,8 +168,9 @@ bool sdlOptionsCommand(int id);
 
 // Whether the SDL program runs the command now. The others are grayed, and their keys do nothing.
 bool sdlUpdatesRuns(int id);  // (sdl_updates.inc: Look for updates on start, Crash reports, Maps)
+bool sdlHelpRuns(int id);  // (sdl_help.inc: Help > Documentation, F1)
 bool sdlRuns(int id) {
-    if (sdlOptionsRuns(id) || sdlUpdatesRuns(id)) return true;
+    if (sdlOptionsRuns(id) || sdlUpdatesRuns(id) || sdlHelpRuns(id)) return true;
     switch (id) {
     case ID_FILE_OPEN:
     case ID_FILE_SAVE:
@@ -1180,6 +1182,7 @@ void confirmReplace(std::function<void()> then) {
 // then the commands the core leaves to the shell.
 bool sdlProjectCommand(int id);  // (sdl_project.inc: Open project, New EUD project, Add a script, the folder, the settings)
 bool sdlUpdatesCommand(int id);  // (sdl_updates.inc: Check for updates, Look for updates on start, Crash reports, Maps)
+bool sdlHelpCommand(int id);  // (sdl_help.inc: Help > Documentation, F1)
 void commandSdl(int id);
 void command(int id) {
     commandSdl(id);
@@ -1193,6 +1196,7 @@ void commandSdl(int id) {
     if (sdlProjectCommand(id)) return;
     if (sdlOptionsCommand(id)) return;  // (sdl_options.inc: the theme, the language, the program's options)
     if (sdlUpdatesCommand(id)) return;
+    if (sdlHelpCommand(id)) return;
     switch (id) {
     case ID_FILE_OPEN: confirmReplace([] {
             showFileDialog(false, [](const fs::path& p) {

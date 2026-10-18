@@ -24,7 +24,8 @@ build downloads the libraries (CMakeLists.txt, FetchContent), and the documents 
 | Source | Use | Link |
 |---|---|---|
 | staredit.net wiki: Scenario.chk | The map format | http://staredit.net/wiki/index.php/Scenario.chk |
-| EUD Editor 2 and 3 (MIT) | Default requirements and button sets, decoded once into `src/data/dat_extras.inc` | https://github.com/Buizz/EUD-Editor-3, https://github.com/Buizz/EUDEditor |
+| EUD Editor 2 and 3 (MIT) | Default requirements and button sets, decoded once into `src/data/dat_extras.inc`; the .dat fields, their names and their places in memory (`src/data/dat_schema.inc`, the help pages) | https://github.com/Buizz/EUD-Editor-3, https://github.com/Buizz/EUDEditor |
+| The EUD Book | The .dat fields that a map cannot change (the offset table), and the units of the values on the help pages (`docs/help`, written in StarDraft 2's own words) | https://armoha.github.io/eud-book/ |
 | euddraft and eudplib | Build EUD maps from the triggers; StarDraft downloads euddraft from its releases the first time a project builds | https://github.com/armoha/euddraft, https://github.com/armoha/eudplib |
 
 StarCraft and StarCraft: Remastered are trademarks of Blizzard Entertainment. StarDraft is not affiliated with

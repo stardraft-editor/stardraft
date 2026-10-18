@@ -187,7 +187,9 @@ MenuModel buildMenuModel() {
                       menuItem(ID_EDIT_TERRAINDOODADS, L"Terrain copy includes d&oodads"),
                       menuSeparator(),
                       menuItem(ID_OPT_WINDOW, L"&Program options\x2026", L"Ctrl+,")};
-    MenuModel help{menuItem(ID_HELP_FEEDBACK, L"Report &feedback\x2026"),
+    MenuModel help{menuItem(ID_HELP_DOCS, L"&Documentation", L"F1"),
+                   menuSeparator(),
+                   menuItem(ID_HELP_FEEDBACK, L"Report &feedback\x2026"),
                    menuItem(ID_HELP_ISSUE, L"Report an &issue on GitHub"),
                    menuItem(ID_HELP_DISCORD, L"Join &Discord"),
                    menuItem(ID_HELP_GITHUB, L"StarDraft 2 on &GitHub"),

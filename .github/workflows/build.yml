@@ -18,7 +18,8 @@ on:
   push:
     branches: ['**']
     # Docs only (docs/, *.md): no run. The files that CI or a release reads still start one: README.md and the
-    # changelog (the UI text check), the changelog's pictures (a release's Discord post), the preview notes.
+    # changelog (the UI text check), the changelog's pictures (a release's Discord post), the help pages (built into
+    # the program: tools/help_build.py), the preview notes.
     paths:
       - '**'
       - '!docs/**'
@@ -26,6 +27,7 @@ on:
       - 'README.md'
       - 'docs/user/CHANGELOG.md'
       - 'docs/user/images/**'
+      - 'docs/help/**'
       - 'tools/preview_notes.md'
   pull_request:
     paths:
@@ -35,6 +37,7 @@ on:
       - 'README.md'
       - 'docs/user/CHANGELOG.md'
       - 'docs/user/images/**'
+      - 'docs/help/**'
       - 'tools/preview_notes.md'
   workflow_dispatch:
   workflow_call:  # (release.yml: a tag whose commit has no good run here)
@@ -69,6 +72,11 @@ jobs:
       # The UI text rules (docs/dev/PRINCIPLES.md, "Text"): a new violation stops the build. Needs only Python.
       - name: Check the UI text
         run: python -I tools/ui_text_lint.py
+
+      # The help pages (docs/help): each link goes to a page and a place that are there, and each .dat field has its
+      # place (tools/help_build.py). The build makes the pages for the program with the same checks.
+      - name: Check the help pages
+        run: python -I tools/help_build.py --check
 
       # The translation tables (apps/editor/res/lang/*.cpp) are made from the *.tsv files: a table that is not made
       # again after a change to its .tsv stops the build.
@@ -312,6 +320,7 @@ jobs:
           build-gcc/render_smoke_test "$RUNNER_TEMP/render_smoke.png"
           build-gcc/settings_test "$RUNNER_TEMP"
           build-gcc/commands_test
+          build-gcc/help_test
           build-gcc/platform_test "$RUNNER_TEMP"
           build-gcc/kit_test
 
@@ -662,6 +671,7 @@ jobs:
           build/trigger_test "$RUNNER_TEMP/trigger_test"
           build/settings_test "$RUNNER_TEMP"
           build/commands_test
+          build/help_test
           build/platform_test "$RUNNER_TEMP"
           build/kit_test
           build/map_preview_test "$RUNNER_TEMP/map_preview_test"
