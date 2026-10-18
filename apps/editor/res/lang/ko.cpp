@@ -2338,6 +2338,7 @@ constexpr UiText kRows[] = {
     {L"Fold the triggers under the heading", L"\uC81C\uBAA9 \uC544\uB798\uC758 \uD2B8\uB9AC\uAC70 \uC811\uAE30"},
     {L" trigger", L"\uAC1C \uD2B8\uB9AC\uAC70"},
     {L" triggers", L"\uAC1C \uD2B8\uB9AC\uAC70"},
+    {L"Click: what the check looks at (Help)", L"\uD074\uB9AD: \uAC80\uC0AC\uAC00 \uD655\uC778\uD558\uB294 \uB0B4\uC6A9(\uB3C4\uC6C0\uB9D0)"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

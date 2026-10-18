@@ -571,6 +571,9 @@ CASES += [
                              "--type", "800", "--key", "Enter", "--key", "Del", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "data"),
     # Quick add in the Triggers workspace (roadmap R61): a new trigger, then Q in the pane, "game speed" and Enter add
     # Set the game speed to its actions.
+    # The help of a check (roadmap R38): Leave the loop outside a loop is an error; F1 opens Trigger checks at "scope".
+    ("data-triggers-check-help", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169", "--key", "Enter",
+                                  "--click", "900,700", "--type", "q", "--type", "leave the loop", "--key", "Enter", "--key", "F1"], "data"),
     ("data-triggers-quickadd", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169", "--key", "Enter",
                                 "--click", "900,700", "--type", "q", "--type", "game speed", "--key", "Enter"], "data"),
     # The Classic triggers page: Add a trigger, Player 3, Undo (the page reads the map again after a moment).
@@ -3510,7 +3513,8 @@ CHECKS = {**{"map-terrain-flags-" + v: (lambda o, v=v: check_terrain_flags(o, v)
           "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
           "newpage-randomize-quick": check_newpage_randomize, "newpage-symmetry-dropdown": check_newpage_symmetry,
           "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits, "map-classictrig-quickadd": check_classic_quickadd, "map-classictrig-find": check_classic_find,
-          "map-classictrig-comment": lambda o: None if "0 conditions, 1 actions" in (states(o) or [("", "")])[-1][1] else "no Comment action", "data-triggers-quickadd": lambda o: None if "1 actions: act.gamespeed" in o else "no Set the game speed in the actions",
+          "map-classictrig-comment": lambda o: None if "0 conditions, 1 actions" in (states(o) or [("", "")])[-1][1] else "no Comment action", "data-triggers-check-help": lambda o: None if 'page trigger-checks, place "scope"' in o else "F1 did not open Trigger checks at scope",
+          "data-triggers-quickadd": lambda o: None if "1 actions: act.gamespeed" in o else "no Set the game speed in the actions",
           "map-mapdata-edits": check_mapdata_edits,
           "map-undo-history": check_undo_history, "data-undo-history": check_data_undo_history,
           "data-triggers-undo-history": check_trigger_undo_history,
@@ -3630,7 +3634,7 @@ CHECKS = {**{"map-terrain-flags-" + v: (lambda o, v=v: check_terrain_flags(o, v)
           "project-form-1600-scale2": check_data_form("one column")}
 
 
-HELP_PAGES = ["index", "getting-started", "values-and-units", "units-dat", "weapons-dat", "flingy-dat", "sprites-dat", "images-dat",
+HELP_PAGES = ["index", "getting-started", "values-and-units", "trigger-checks", "units-dat", "weapons-dat", "flingy-dat", "sprites-dat", "images-dat",
               "upgrades-dat", "techdata-dat", "orders-dat"]  # (docs/help/index.md's order)
 
 

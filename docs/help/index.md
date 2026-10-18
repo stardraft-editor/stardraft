@@ -8,6 +8,10 @@ The same pages are in the program (Help > Documentation, or F1) and on the web.
 - [Getting started](getting-started.md): open a map, edit it, and save it.
 - [Values and units](values-and-units.md): frames, pixels, tiles and the other units of the game's data.
 
+## Triggers
+
+- [Trigger checks](trigger-checks.md): what each mark in the Triggers workspace means, and what the checks do not find.
+
 ## The game's data (.dat files)
 
 The Data workspace of an EUD project changes the game's .dat files for your map. Each page tells what each field does

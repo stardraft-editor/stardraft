@@ -46,6 +46,10 @@ void sdlShowHelp(const std::string& topic) {
 // F1: the topic of what has the focus. The Data workspace: the field under the mouse, else the field clicked last
 // (its .dat's page when the field has no place on it); else the index.
 std::string sdlHelpContextTopic() {
+    if (gWorkspace == Workspace::Triggers)  // the selected block's problem: its part of Trigger checks (roadmap R38)
+        if (TriggerNode* t = trigSelected())
+            if (const TriggerCall* c = trigBlock(*t, gTP.sel))
+                if (const auto issues = trigIssuesOf(c); !issues.empty()) return trigIssueTopic(issues.front()->message);
     if (gWorkspace == Workspace::Data && curTable()) {
         const std::string dat = curTable()->schema().name;
         const std::string field = gSdlDataForm.helpField();
