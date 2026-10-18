@@ -446,8 +446,8 @@ void NewPageView::paint(draw::Canvas& c) {
               bases.value > 0, true);
         check(basesHigh, L"Bases on high ground", L"The bases and the paths are high ground (else low ground)", bases.value > 0, true);
         gy += scale(8);
-        // Decorate with doodads (roadmap R37): after the terrain, doodads where they fit (Editor::decorate)
-        check(decorate, L"Decorate with doodads", L"After the terrain, put doodads where they fit the terrain", true, false);
+        // Doodads (roadmap R37): after the terrain, doodads where they fit (Editor::decorate); 0: none.
+        paintSliderRow(c, gx, gy, labelW, gr, doodads, false), gy += rowH;
         gy += scale(4);
         genRect = {gx, gTop, gr, gy};
         y = std::max(y, gy);
@@ -477,6 +477,17 @@ void NewPageView::paint(draw::Canvas& c) {
     footer = {right - cw - bgap - crw, by, right, by + bh};
     const int hgt = natural + bh - blockTop;
     height_ = startY + hgt + pad;
+    // The scroll bar: while the page is taller than its place (the window, or the zoom), at its right edge.
+    const bool bar = height_ > H;
+    if (bar) {
+        const int bw2 = scale(stardraft::kit::kScrollBarW);
+        const draw::Rect br{W - bw2, 0, W, H};
+        const draw::Rect fr = bar_.frame();
+        if (fr.left != br.left || fr.top != br.top || fr.right != br.right || fr.bottom != br.bottom) bar_.setFrame(br);
+        bar_.setRange(height_, H);
+        bar_.setPos(scroll);
+    }
+    if (bar_.visible() != bar) bar_.setVisible(bar);
     if (hgt != blockH) {  // the height changed (Generate, a warning): paint again, in the middle
         blockH = hgt;
         invalidate();
@@ -530,13 +541,16 @@ bool NewPageView::mouse(const draw::MouseEvent& e) {
         return false;
     case draw::MouseKind::Wheel: {
         const int notches = e.wheel > 0 ? 1 : -1;
-        for (const auto& [r, step] : wheels)
-            if (r.contains(e.pt)) {  // over a slider: the wheel changes it
-                step(notches);
-                invalidate();
-                return true;
-            }
-        scroll = std::clamp(scroll - notches * scale(96), 0, std::max(0, height_ - height()));  // three lines a notch
+        if (!e.exact)  // (a trackpad's scroll moves the page: it does not change a slider it passes over)
+            for (const auto& [r, step] : wheels)
+                if (r.contains(e.pt)) {  // over a slider: the wheel changes it
+                    step(notches);
+                    invalidate();
+                    return true;
+                }
+        // The system's own distance (macOS's trackpad, with its speed and direction), else three lines a notch.
+        const int by = e.exact ? -int(std::lround(e.panY)) : -int(std::lround(double(e.wheel) * scale(96)));
+        scroll = std::clamp(scroll + by, 0, std::max(0, height_ - height()));
         invalidate();
         return true;
     }
