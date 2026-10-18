@@ -328,7 +328,8 @@ std::string fileStamp(const fs::path& p) {
     const auto size = fs::file_size(p, ec);
     if (ec) return "missing";
     const auto time = fs::last_write_time(p, ec).time_since_epoch().count();
-    return std::to_string(size) + ":" + std::to_string(time);
+    // (the clock's count is a 128-bit integer on macOS: no to_string takes it)
+    return std::to_string(static_cast<unsigned long long>(size)) + ":" + std::to_string(static_cast<long long>(time));
 }
 
 bool samePath(const fs::path& a, const fs::path& b) {
