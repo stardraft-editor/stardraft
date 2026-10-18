@@ -92,7 +92,7 @@ constexpr UiText kRows[] = {
     {L"Build needs an EUD project. Use File > Project > New project or Open project.", L"\u6784\u5EFA\u9700\u8981 EUD \u9879\u76EE\u3002\u8BF7\u4F7F\u7528 \u6587\u4EF6 > \u9879\u76EE > \u65B0\u5EFA\u9879\u76EE \u6216 \u6253\u5F00\u9879\u76EE\u3002"},
     {L"A build is already running", L"\u6784\u5EFA\u5DF2\u5728\u8FD0\u884C"},
     {L"StarCraft will not start this map:\r\n\r\n", L"StarCraft \u65E0\u6CD5\u542F\u52A8\u6B64\u5730\u56FE\uFF1A\r\n\r\n"},
-    {L"\r\nTo set the players, use Scenario > Players and forces. Build the map anyway?", L"\r\n\u82E5\u8981\u8BBE\u7F6E\u73A9\u5BB6\uFF0C\u8BF7\u4F7F\u7528 \u5267\u672C > \u73A9\u5BB6\u548C\u52BF\u529B\u3002\u4ECD\u8981\u6784\u5EFA\u5730\u56FE\u5417\uFF1F"},
+    {L"\r\nTo set the players, use Players and forces (Ctrl+P). Build the map anyway?", L"\r\n\u82E5\u8981\u8BBE\u7F6E\u73A9\u5BB6\uFF0C\u8BF7\u4F7F\u7528 \u73A9\u5BB6\u548C\u52BF\u529B (Ctrl+P)\u3002\u4ECD\u8981\u6784\u5EFA\u5730\u56FE\u5417\uFF1F"},
     {L"Build", L"\u6784\u5EFA"},
     {L"&Build", L"\u6784\u5EFA(&B)"},
     {L"Do &not build", L"\u4E0D\u6784\u5EFA(&N)"},
@@ -1760,7 +1760,7 @@ constexpr UiText kRows[] = {
     {L"Maps and projects (*.scx;*.scm;*.chk;*.stardraft;*.eds)*.scx;*.scm;*.chk;*.stardraft;*.edsStarCraft maps (*.scx;*.scm)*.scx;*.scmStarDraft projects (*.stardraft;*.eds)*.stardraft;*.edsScenario data (*.chk)*.chkAll files*.*", L"\u5730\u56FE\u548C\u9879\u76EE (*.scx;*.scm;*.chk;*.stardraft;*.eds)*.scx;*.scm;*.chk;*.stardraft;*.edsStarCraft \u5730\u56FE (*.scx;*.scm)*.scx;*.scmStarDraft \u9879\u76EE (*.stardraft;*.eds)*.stardraft;*.eds\u573A\u666F\u6570\u636E (*.chk)*.chk\u6240\u6709\u6587\u4EF6*.*"},
     {L"Cascadia Mono", L"Cascadia Mono"},
     {L"the built map: Build (Ctrl+B) writes it to the Output file", L"\u6784\u5EFA\u540E\u7684\u5730\u56FE\uFF1A\u6784\u5EFA (Ctrl+B) \u4F1A\u5C06\u5176\u5199\u5165\u8F93\u51FA\u6587\u4EF6"},
-    {L". The project's map keeps its classic triggers, unit, upgrade and technology settings, and briefings. Scenario > Classic triggers shows the triggers.", L"\u3002\u9879\u76EE\u7684\u5730\u56FE\u4FDD\u7559\u5176\u7ECF\u5178\u89E6\u53D1\u5668\u3001\u5355\u4F4D\u3001\u5347\u7EA7\u548C\u79D1\u6280\u8BBE\u7F6E\u4EE5\u53CA\u7B80\u62A5\u3002\u573A\u666F > \u7ECF\u5178\u89E6\u53D1\u5668\u4F1A\u663E\u793A\u8FD9\u4E9B\u89E6\u53D1\u5668\u3002"},
+    {L". The project's map keeps its classic triggers, unit, upgrade and technology settings, and briefings. The side bar's Classic shows the triggers.", L"\u3002\u9879\u76EE\u7684\u5730\u56FE\u4FDD\u7559\u5176\u7ECF\u5178\u89E6\u53D1\u5668\u3001\u5355\u4F4D\u3001\u5347\u7EA7\u548C\u79D1\u6280\u8BBE\u7F6E\u4EE5\u53CA\u7B80\u62A5\u3002\u4FA7\u8FB9\u680F\u7684\u201C\u7ECF\u5178\u201D\u4F1A\u663E\u793A\u8FD9\u4E9B\u89E6\u53D1\u5668\u3002"},
     {L"StarCraft Brood War map (*.scx)*.scx", L"StarCraft Brood War \u5730\u56FE (*.scx)*.scx"},
     {L"Project settings need a project. Use File > Project > New EUD project or Open project.", L"\u9879\u76EE\u8BBE\u7F6E\u9700\u8981\u9879\u76EE\u3002\u8BF7\u4F7F\u7528 \u6587\u4EF6 > \u9879\u76EE > \u65B0\u5EFA EUD \u9879\u76EE \u6216 \u6253\u5F00\u9879\u76EE\u3002"},
     {L"epScript (*.eps)*.epseudplib Python (*.py)*.py", L"epScript (*.eps)*.epseudplib Python (*.py)*.py"},
@@ -2342,7 +2342,7 @@ constexpr UiText kRows[] = {
     {L"Fog of war is hidden", L"\u6218\u4E89\u8FF7\u96FE\u5DF2\u9690\u85CF"},
     {L" actions deleted", L" \u4E2A\u52A8\u4F5C\u5DF2\u5220\u9664"},
     {L" conditions deleted", L" \u4E2A\u6761\u4EF6\u5DF2\u5220\u9664"},
-    {L"Decorat&e the terrain", L"\u88C5\u9970\u5730\u5F62(&E)"},
+    {L"&Decorate the terrain", L"\u88C5\u9970\u5730\u5F62(&D)"},
     {L"A &few doodads", L"\u5C11\u91CF\u88C5\u9970\u7269(&F)"},
     {L"&Some doodads", L"\u4E00\u4E9B\u88C5\u9970\u7269(&S)"},
     {L"&Many doodads", L"\u5927\u91CF\u88C5\u9970\u7269(&M)"},
@@ -2381,6 +2381,7 @@ constexpr UiText kRows[] = {
     {L"Set the current player", L"\u8BBE\u7F6E\u5F53\u524D\u73A9\u5BB6"},
     {L"Take the conditions out of Not", L"\u5C06\u6761\u4EF6\u79FB\u51FA\u201C\u975E\u201D"},
     {L"NOT: true when this condition is not true", L"NOT\uFF1A\u6B64\u6761\u4EF6\u4E0D\u6210\u7ACB\u65F6\u4E3A\u771F"},
+    {L"T&ools", L"\u5DE5\u5177(&O)"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

@@ -88,7 +88,7 @@ Log	日志
 Build needs an EUD project. Use File > Project > New project or Open project.	构建需要 EUD 项目。请使用 文件 > 项目 > 新建项目 或 打开项目。
 A build is already running	构建已在运行
 StarCraft will not start this map:\r\n\r\n	StarCraft 无法启动此地图：\r\n\r\n
-\r\nTo set the players, use Scenario > Players and forces. Build the map anyway?	\r\n若要设置玩家，请使用 剧本 > 玩家和势力。仍要构建地图吗？
+\r\nTo set the players, use Players and forces (Ctrl+P). Build the map anyway?	\r\n若要设置玩家，请使用 玩家和势力 (Ctrl+P)。仍要构建地图吗？
 Build	构建
 &Build	构建(&B)
 Do &not build	不构建(&N)
@@ -1756,7 +1756,7 @@ StarCraft maps (*.scx;*.scm)*.scx;*.scmScenario data (*.chk)*.chkAll files*.*	St
 Maps and projects (*.scx;*.scm;*.chk;*.stardraft;*.eds)*.scx;*.scm;*.chk;*.stardraft;*.edsStarCraft maps (*.scx;*.scm)*.scx;*.scmStarDraft projects (*.stardraft;*.eds)*.stardraft;*.edsScenario data (*.chk)*.chkAll files*.*	地图和项目 (*.scx;*.scm;*.chk;*.stardraft;*.eds)*.scx;*.scm;*.chk;*.stardraft;*.edsStarCraft 地图 (*.scx;*.scm)*.scx;*.scmStarDraft 项目 (*.stardraft;*.eds)*.stardraft;*.eds场景数据 (*.chk)*.chk所有文件*.*
 Cascadia Mono	Cascadia Mono
 the built map: Build (Ctrl+B) writes it to the Output file	构建后的地图：构建 (Ctrl+B) 会将其写入输出文件
-. The project's map keeps its classic triggers, unit, upgrade and technology settings, and briefings. Scenario > Classic triggers shows the triggers.	。项目的地图保留其经典触发器、单位、升级和科技设置以及简报。场景 > 经典触发器会显示这些触发器。
+. The project's map keeps its classic triggers, unit, upgrade and technology settings, and briefings. The side bar's Classic shows the triggers.	。项目的地图保留其经典触发器、单位、升级和科技设置以及简报。侧边栏的“经典”会显示这些触发器。
 StarCraft Brood War map (*.scx)*.scx	StarCraft Brood War 地图 (*.scx)*.scx
 Project settings need a project. Use File > Project > New EUD project or Open project.	项目设置需要项目。请使用 文件 > 项目 > 新建 EUD 项目 或 打开项目。
 epScript (*.eps)*.epseudplib Python (*.py)*.py	epScript (*.eps)*.epseudplib Python (*.py)*.py
@@ -2340,7 +2340,7 @@ Fog of war: what the selected player (the Units palette's) sees when the game st
 Fog of war is hidden	战争迷雾已隐藏
  actions deleted	 个动作已删除
  conditions deleted	 个条件已删除
-Decorat&e the terrain	装饰地形(&E)
+&Decorate the terrain	装饰地形(&D)
 A &few doodads	少量装饰物(&F)
 &Some doodads	一些装饰物(&S)
 &Many doodads	大量装饰物(&M)
@@ -2379,3 +2379,4 @@ the Help pages	帮助页面
 Set the current player	设置当前玩家
 Take the conditions out of Not	将条件移出“非”
 NOT: true when this condition is not true	NOT：此条件不成立时为真
+T&ools	工具(&O)

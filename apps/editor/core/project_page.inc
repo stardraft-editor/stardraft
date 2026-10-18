@@ -641,7 +641,7 @@ bool createProject(const fs::path& parent, const std::string& name, bool fromOpe
     // L.4: the map's classic triggers, settings and briefings stay in the project's map (the built map keeps them).
     const bool classic = fromOpenMap && (!app.ed->classicTriggers().triggers.empty() || !app.ed->chk().effective("MBRF").empty());
     setMessage(L"Created the project " + widen(name) + L" in " + pr.folder().wstring() + L" (Build: Ctrl+B)" +
-               (classic ? L". The project's map keeps its classic triggers, unit, upgrade and technology settings, and briefings. Scenario > Classic triggers shows the triggers." : L""));
+               (classic ? L". The project's map keeps its classic triggers, unit, upgrade and technology settings, and briefings. The side bar's Classic shows the triggers." : L""));
     return true;
 }
 

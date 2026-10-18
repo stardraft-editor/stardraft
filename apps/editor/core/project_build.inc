@@ -34,7 +34,7 @@ std::wstring playabilityText() {
 
 // The question before a build of a map that StarCraft will not start (`problems`: playabilityText()): Build or Do not build.
 std::wstring buildAnywayQuestion(const std::wstring& problems) {
-    return L"StarCraft will not start this map:\r\n\r\n" + problems + L"\r\nTo set the players, use Scenario > Players and forces. Build the map anyway?";
+    return L"StarCraft will not start this map:\r\n\r\n" + problems + L"\r\nTo set the players, use Players and forces (Ctrl+P). Build the map anyway?";
 }
 
 // Before a build: the triggers' code into generated/triggers.eps. False (with the problems in the log) when the
