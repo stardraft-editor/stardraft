@@ -732,7 +732,8 @@ static void brushOverPlacedTiles(const GameData& data, const char* map) {
     e.paintBrush(px, py, terrain, brush);
     const TerrainLayer tile = readTerrain(e.chk(), "TILE");
     std::printf("      tile %zu: %u painted, %u placed, %u after the brush with the same terrain (%u)\n", k, painted, other, e.terrain().tiles[k], terrain);
-    CHECK(e.terrain().tiles[k] == painted && k < tile.tiles.size() && tile.tiles[k] == painted,
+    // (the same tile group: StarEdit's brush picks a tile of the group at random, as the terrain core does)
+    CHECK((e.terrain().tiles[k] >> 4) == (painted >> 4) && k < tile.tiles.size() && (tile.tiles[k] >> 4) == (painted >> 4),
           "brush over placed tiles: the brush with the terrain under them gives the terrain's tile again (#143)");
 }
 
@@ -775,13 +776,6 @@ static void rampsStay(const GameData& data, const fs::path& install) {
     const int right = ramp.x + t->width * 16;
     const uint16_t center = e.terrainAt(ramp.x, ramp.y), side = e.terrainAt(right + 3 * 32, ramp.y);
     const Brush brush{Brush::Diamond, 1.0f};
-    // Next to it (3 tiles to its right), the terrain of its middle: its tiles stay as they are.
-    const size_t before = e.doodads().size();
-    e.paintBrush(right + 3 * 32, ramp.y, center, brush);
-    std::printf("      ramp %u at %u,%u: painted terrain %u 3 tiles to its right: %zu of %zu doodads gone\n", ramp.id, ramp.x, ramp.y, center,
-                before - e.doodads().size(), before);
-    CHECK(has() && shown(), "ramps: terrain painted next to a ramp (not under it) leaves the ramp and its tiles");
-    e.undo();
     // Every doodad, with the terrain of the next tile 3 tiles to each side of it: a doodad goes only when its terrain
     // changed. Its terrain here is the ISOM, not the tile groups that the editor compares (this check does not ask the
     // editor's own rule again): a doodad that goes had the ISOM of one of its tiles' rects changed, and a doodad that
@@ -817,6 +811,23 @@ static void rampsStay(const GameData& data, const fs::path& install) {
                 for (const int py : {cy * 32 + 2, cy * 32 + 29}) out.push_back(e.terrainAt(px, py));
         return out;
     };
+    // Next to it, the terrain of its middle: its tiles stay as they are. StarEdit's brush (the terrain core) also changes
+    // the diamonds around the ones it paints: the nearest place to its right (from 3 tiles) where the ISOM of the ramp's
+    // rects stays as it was.
+    const std::vector<uint8_t> rampIsom = isomOf(ramp);
+    int dist = 0;
+    for (int d = 3; d <= 16 && !dist; ++d) {
+        const size_t before = e.doodads().size();
+        e.paintBrush(right + d * 32, ramp.y, center, brush);
+        if (isomOf(ramp) == rampIsom) {
+            dist = d;
+            std::printf("      ramp %u at %u,%u: painted terrain %u %d tiles to its right: %zu of %zu doodads gone\n", ramp.id, ramp.x, ramp.y,
+                        center, d, before - e.doodads().size(), before);
+            CHECK(has() && shown(), "ramps: terrain painted next to a ramp (not under it) leaves the ramp and its tiles");
+        }
+        if (e.canUndo()) e.undo();
+    }
+    CHECK(dist > 0, "ramps: a place next to the ramp where the brush leaves its terrain as it was");
     int tries = 0, went = 0, wentSame = 0, stayed = 0, stayedChanged = 0;
     for (size_t i = 0; i < e.doodads().size(); ++i) {
         const Doodad d = e.doodads()[i];
