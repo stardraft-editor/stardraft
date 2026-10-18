@@ -20,22 +20,21 @@ Accelerated improvements, and the missing features based on early user feedback.
 
   Status (2026-10-14): most of it exists. A failed build selects the block of the error (trigShowBuildError), and the
   epTrace rows open their lines. Only a click on a Log line is missing.
-- [ ] **R39 Tiles in the map's graphics.** *Tag:* Terrain.
+- [x] **R39 Tiles in the map's graphics.** *Tag:* Terrain.
   The Tiles list shows each tile in the graphics of the map: HD, SD or Carbot.
 
   The Tiles list shows the tiles in SD, also when the map shows HD or Carbot. Mappers cannot find a tile by the look
   that the map shows.
 
-  Status (2026-10-14): the Tiles list draws each tile in SD (tilesPixels in tiles_view.inc). The HD and Carbot tiles
-  load already for the terrain palette (loadHdTiles); use them here.
+  Done (2026-10-18): the Tiles grid draws each tile in the map's art, SD, HD or Carbot (tilesPixels in views_tiles.inc).
 - [ ] **R8 Preplaced unit graphics.** *Tag:* EUD.
   Preplaced units show the graphics from the map's data edits.
 
   The game makes preplaced units before the map's data edits run. These units keep the game's graphics. Make them
   again at map start.
 
-  Status (2026-10-14): built, not pushed. The Project page option "New graphics for preplaced units" makes the units
-  again at map start and shows them with the new graphics on the map. Open questions:
+  Status (2026-10-18): on main. The Project page option "New graphics for preplaced units" makes the units again at map
+  start and shows them with the new graphics on the map. Open questions:
   - Check in the game that the units are made again with the new graphics, on their places, with their values.
   - Units that a new unit cannot copy keep the old graphics: cloaked, burrowed, lifted, loaded, hallucinations, units
     linked to an add-on or a Nydus Canal, and units with interceptors or scarabs. Is that acceptable?
@@ -57,7 +56,7 @@ Accelerated improvements, and the missing features based on early user feedback.
   Mappers must write epScript for these tasks, because no block does them yet.
 
   Open question (2026-10-14): "center the screen" exists (act.centerview), and R53 Camera controls covers the camera.
-  Take it out of this item?
+  Take it out of this item? The other tasks have no block yet (2026-10-18).
 
 ## Next
 
@@ -68,38 +67,52 @@ Make StarDraft 2 a more powerful creation suite.
 
   Windows shows a warning when users start StarDraft 2 for the first time, and some antivirus programs stop it. Users
   cannot see that the program comes from the StarDraft 2 team.
-- [ ] **R55 Stacked units.** *Tag:* Capability.
+- [x] **R55 Stacked units.** *Tag:* Capability.
   Place units on top of each other, as in SCMDraft 2, and see a list of all the units under the cursor.
 
   Mappers use stacked units for dense mineral fields and for buildings that attack very fast. StarDraft 2 does not
   let units overlap, and a click selects only the top unit.
+
+  Done: Options > Units > Can be on top of others; the status bar counts the units under the mouse, and Alt+click
+  (Option+click on macOS) lists them to pick one.
 - [ ] **R37 Terrain decoration tools.** *Tag:* Terrain.
   Tools that put doodads and decoration on the terrain, such as a doodad spray that puts doodads only where they fit.
 
   The generator makes only terrain. Mappers must place doodads and decoration by hand.
-- [ ] **R40 Floating palettes.** *Tag:* UI.
+- [x] **R40 Floating palettes.** *Tag:* UI.
   Open each palette (terrain, tiles, units, doodads, sprites) as a floating window. Open several at once, each with
   its own filter.
 
   The palettes are fixed beside the map, and only one of each shows. Mappers with a large screen or two screens
   cannot put them where they want.
+
+  Done (2026-10-18): a mode's whole panel (its tools, its options and its list) pops out into a floating panel, and
+  more panels of a palette open, each with its own type, filter, search and sort. Panels belong to their map's tab and
+  are kept per map.
 - [ ] **R38 Checker documentation.** *Tag:* EUD.
   Help for each EUD and desync check: the rule, an example, and what the check does not find. Each mark in the
   Triggers workspace links to its help.
 
   The Triggers workspace marks EUD errors and desync risks, but mappers cannot see what the checkers look at and what
   they cannot find.
-- [ ] **R54 Built-in help articles.** *Tag:* UI.
+- [x] **R54 Built-in help articles.** *Tag:* UI.
   Help articles in a sidebar of StarDraft 2, which are also on the website. Each article has a feedback button and
   names its sources. The first articles explain the fields of the EUD Book.
 
   Mappers must find help on many websites, and the program does not tell what a value does in the game (for example,
   how build time changes to seconds). Much good help exists in the community (SCRMapDocs, the EUD Book, the euddraft
   wiki, Staredit.net): link to it, with the permission of the authors.
+
+  Done: Help > Documentation (F1) has the pages in a side bar with a search, also on the web: Getting started, Values
+  and units, and a page for each .dat file's fields, with sources and Send feedback about this page. F1 in the Data
+  workspace opens the field's page. More articles (the checkers: R38) can follow.
 - [ ] **R33 Unit range overlay.** *Tag:* Capability.
   Show the weapon ranges, sight, detection and psi fields of the selected units on the map.
 
   The map does not show the ranges of units. Mappers must find the values in the data.
+
+  Status (2026-10-18): View > Show ranges of the selected units shows sight, target acquisition and the ground and air
+  weapon ranges. Detection and psi fields are missing.
 - [ ] **R34 Terrain flag overlays.** *Tag:* Terrain.
   Show on the map which terrain is walkable, how high it is, and which terrain gives cover or blocks the line of
   sight.
@@ -115,6 +128,9 @@ Make StarDraft 2 a more powerful creation suite.
 
   Mappers must make camera effects by hand. The blocks use the game's Center View action: they move a location, then
   center the view on it.
+
+  Status (2026-10-18): "Center the camera" (act.centerview) and "Center the camera on a unit" (act.camerafollow) exist.
+  Pan and shake are missing.
 - [ ] **R58 EUD terrain info.** *Tag:* EUD.
   Trigger blocks that read the terrain tile at a location or at a point.
 
@@ -129,9 +145,10 @@ Make StarDraft 2 a more powerful creation suite.
 
   Mappers make hundreds of triggers that differ in one value. They must make and change each trigger by hand.
 
-  Status (2026-10-14): built, not pushed. Batches are blocks of actions in a trigger ("For each unit in ..."), which
-  can nest; the Classic triggers page has a new layout (search, trigger header, Turn off for triggers, blocks in the
-  action list, pop-outs, right-click menus). Open questions:
+  Status (2026-10-18): on main, but the action picker does not offer new blocks yet (kClassicBatchesOffered); a map's
+  blocks open, show and can be edited. Batches are blocks of actions in a trigger ("For each unit in ..."), which can
+  nest; the Classic triggers page has a new layout (search, trigger header, Turn off for triggers, blocks in the action
+  list, pop-outs, right-click menus). Open questions:
   - The text above says one trigger for each value. Change it to batch blocks (and the Korean text on the website)?
   - Check in the game: a trigger with more than 64 actions becomes several triggers, linked by a switch. Does it work
     for a trigger of several players?
@@ -174,11 +191,14 @@ Make StarDraft 2 a more powerful creation suite.
 
   Each map of a campaign is a separate file. The settings drift between the maps, and mappers cannot see the
   campaign in one place.
-- [ ] **R35 Pathfinder region overlay.** *Tag:* Terrain.
+- [x] **R35 Pathfinder region overlay.** *Tag:* Terrain.
   Show the regions that units use to find their paths, to see why units take a path or get stuck.
 
   The game makes these regions when it loads a map, and mappers cannot see them. Find how the game makes the regions
   (OpenBW may have the code).
+
+  Done: View > Pathing shows the game's pathing regions or the connected areas, and Scenario > Check pathing lists the
+  nooks and crannies where units get stuck.
 - [ ] **R31 Replay preview.** *Tag:* Capability.
   Make a replay of the map with computer players, and watch it in StarCraft.
 
@@ -250,14 +270,18 @@ Exploring how to enable the next evolution of StarCraft creations.
   Two or more people edit the same map or project at the same time.
 
   Only one person can edit a map at a time. Teams send files to each other.
-- [ ] **R28 macOS port.** *Tag:* Platform.
+- [x] **R28 macOS port.** *Tag:* Platform.
   StarDraft 2 on macOS.
 
   StarDraft 2 runs only on Windows.
-- [ ] **R29 Linux port.** *Tag:* Platform.
+
+  Done: 0.6.0 has a macOS disk image (Apple silicon).
+- [x] **R29 Linux port.** *Tag:* Platform.
   StarDraft 2 on Linux.
 
   StarDraft 2 runs only on Windows.
+
+  Done: 0.6.0 has a Linux AppImage; CI also builds a Flatpak.
 - [ ] **R30 Web build.** *Tag:* Platform.
   StarDraft 2 in the browser, with no installation.
 
