@@ -1,6 +1,6 @@
 // The Project workspace on this system (the page is core/views_project.inc; its program parts are core/project_page.inc,
 // the same as the Windows program's): the page fills the workspace, and the script preview sits over its right part
-// when the </> button is on (as the Windows preview window over the page's). The page scrolls with the wheel (no bar).
+// when the </> button is on (as the Windows preview window over the page's). The page scrolls with the wheel and its bar.
 // Also the project commands of the File menu here: Open project, New EUD project (the dialog, core/views_new_project.inc),
 // Add a script, the project's folder and Project settings. Included by main_sdl.cpp after sdl_files.inc (decodeSdlSound)
 // and sdl_new_page.inc.
@@ -8,18 +8,19 @@
 // The workspace's view: the page, and the preview over its right part.
 struct SdlProjectWorkspace final : draw::View {
     SdlProjectWorkspace() {
-        add(gProjView, {0, 0, 0, 0});
+        add(frame_, {0, 0, 0, 0});
         add(gProjPreview, {0, 0, 0, 0});
         gProjPreview.setVisible(false);
     }
     void resized() override {
-        gProjView.setFrame({0, 0, width(), height()});
+        frame_.setFrame({0, 0, width(), height()});
         // The page's pageResized places the preview (and reads the text only when the selection changed). The first
         // size comes after the workspace showed, so that one reads the text again.
         if (!sized_) sized_ = true, projectPreviewRefresh(true);
         else projectPreviewRefresh();
     }
     bool sized_ = false;
+    SdlBarFrame frame_{gProjView};  // the page with its scroll bar
     void paint(draw::Canvas& c) override { c.fill({0, 0, width(), height()}, kBg); }
 };
 SdlProjectWorkspace gSdlProject;

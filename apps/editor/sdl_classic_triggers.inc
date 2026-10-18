@@ -158,10 +158,10 @@ public:
         note_.setWrap(true);
         note_.setText(ctNoteText(m, projectMode()));
         add(side_, {0, 0, 0, 0});
-        add(triggers_, {0, 0, 0, 0});
+        add(triggersFrame_, {0, 0, 0, 0});
         add(note_, {0, 0, 0, 0});
         add(head_, {0, 0, 0, 0});
-        add(entries_, {0, 0, 0, 0});
+        add(entriesFrame_, {0, 0, 0, 0});
         add(editor_, {0, 0, 0, 0});
         m.query.clear(), m.filter = -1, m.marked.clear(), m.anchor = -1;  // the search and the filter start empty, as their boxes do
         ctModelFill(m, gSdlTrigHost);  // the rows of the list (the Windows page fills it in WM_CREATE too)
@@ -225,11 +225,11 @@ public:
         const int step = scale(stardraft::kit::kFormRowH), gap = scale(8);
         const CtPageRects L = ctPageLayout(width(), height(), !note_.text().empty(), entries_.contentHeight(), ctEditorHeight(m_, step, gap));
         setRect(side_, L.side);
-        setRect(triggers_, L.list);
+        setRect(triggersFrame_, L.list);
         setRect(note_, L.note);
         setRect(head_, L.head);
         ctPlaceHead(head_, L.rightW);
-        setRect(entries_, L.entries);
+        setRect(entriesFrame_, L.entries);
         setRect(editor_, L.editor);
     }
 
@@ -292,6 +292,7 @@ private:
     CtSideView side_;
     CtListView triggers_;
     CtListView entries_;
+    SdlBarFrame triggersFrame_{triggers_}, entriesFrame_{entries_};  // the lists with their scroll bars
     CtHeadView head_;
     CtEditorView editor_;
     stardraft::kit::Label note_;
