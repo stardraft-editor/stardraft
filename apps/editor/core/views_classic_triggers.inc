@@ -282,6 +282,8 @@ struct CtModel {
     std::set<int> marked;                   // the triggers chosen with Ctrl or Shift click (the list's actions take them all)
     std::set<int> collapsed;                // the action rows of collapsed blocks (by row; cleared when the trigger changes)
     std::set<uint32_t> folded;              // the folded headings (by their comment's string: it stays when triggers move)
+    std::set<int> markedEntries;            // the conditions (or actions: `kind`) chosen with Ctrl or Shift click (roadmap R23)
+    int markedOf = -1, entryAnchor = -1;    // the trigger they belong to (other: none), the row a Shift click reaches from
     int hold = 0;                           // > 0: the changes of a batch (a paste of several triggers) go into the map once, at the end
 };
 // What the model's commands ask of the program: the names, the list's repaint, the selection (its entries and head follow),
@@ -649,6 +651,8 @@ public:
     virtual void addTrigger() = 0;
     virtual void triggerMenu(int i, draw::Point at) = 0;  // `at`: in the list's coordinates
     virtual void selectEntry(int kind, int i) = 0;
+    virtual void clickEntry(int kind, int i) { selectEntry(kind, i); }  // a click: Ctrl and Shift choose several (R23)
+    virtual bool entryMarked(int kind, int i) const { return false; }
     virtual void toggleEntry(int kind, int i) = 0;
     virtual void duplicateEntry(int kind, int i) = 0;
     virtual void deleteEntry(int kind, int i) = 0;
@@ -684,6 +688,8 @@ struct CtAction {
     bool on = false;
     bool enabled = true;
 };
+
+inline unsigned gCtClickMods = 0;  // the modifiers of the list click that runs now (the hosts' ctrl() and shift() add them)
 
 class CtListView final : public draw::View {
 public:
@@ -763,7 +769,9 @@ public:
                 if (draw::Host* h = host()) h->capture(*this, true);
             } else if (hit->click) {
                 auto click = hit->click;  // (the click may repaint, which clears the hits)
+                gCtClickMods = e.mods;    // (Ctrl and Shift of the click itself, also for a posted click)
                 click();
+                gCtClickMods = 0;
             }
             return true;
         }
@@ -1128,10 +1136,10 @@ private:
                 const int indent = depth * scale(18) + scale(6);  // the chevron's cell; the sentence starts after it
                 const draw::Rect r{0, y, w, y + rowH};
                 y += rowH;
-                const bool sel = host_.entryKind() == kind && host_.entryIndex() == i;
+                const bool sel = (host_.entryKind() == kind && host_.entryIndex() == i) || host_.entryMarked(kind, i);
                 if (visible(r)) {
                     listRow(c, r, sel, hot(r));
-                    CtHit& h = hit(r, [this, kind, i] { host_.selectEntry(kind, i); });
+                    CtHit& h = hit(r, [this, kind, i] { host_.clickEntry(kind, i); });
                     h.context = [this, kind, i](draw::Point p) { host_.entryMenu(kind, i, p); };
                 }
                 reorderRow(c, list, r, i, [this, kind](int from, int to) { host_.moveEntry(kind, from, to); });

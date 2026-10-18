@@ -2342,6 +2342,8 @@ constexpr UiText kRows[] = {
     {L"&Fog of war of the selected player", L"\u6240\u9009\u73A9\u5BB6\u7684\u6218\u4E89\u8FF7\u96FE(&F)"},
     {L"Fog of war: what the selected player (the Units palette's) sees when the game starts", L"\u6218\u4E89\u8FF7\u96FE\uFF1A\u6E38\u620F\u5F00\u59CB\u65F6\u6240\u9009\u73A9\u5BB6\uFF08\u5355\u4F4D\u9762\u677F\u7684\uFF09\u80FD\u770B\u5230\u7684\u8303\u56F4"},
     {L"Fog of war is hidden", L"\u6218\u4E89\u8FF7\u96FE\u5DF2\u9690\u85CF"},
+    {L" actions deleted", L" \u4E2A\u52A8\u4F5C\u5DF2\u5220\u9664"},
+    {L" conditions deleted", L" \u4E2A\u6761\u4EF6\u5DF2\u5220\u9664"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }
