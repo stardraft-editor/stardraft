@@ -168,6 +168,11 @@ public:
                               static_cast<draw::View*>(&seed_), static_cast<draw::View*>(&fromMap_)})
             add(*f, {0, 0, 0, 0}), f->setVisible(false);
         add(symmetry_, {0, 0, 0, 0}), symmetry_.setVisible(false);
+        add(bar_, {0, 0, 0, 0}), bar_.setVisible(false);  // the page's scroll bar: when it is taller than its place
+        bar_.onScroll = [this](int pos) {
+            scroll = std::clamp(pos, 0, std::max(0, height_ - height()));
+            invalidate();
+        };
         std::vector<stardraft::kit::DropdownItem> sym;
         for (const wchar_t* n : newpage::kSymmetryNames) sym.push_back({n, -1, -1});
         symmetry_.setItems(std::move(sym));
@@ -185,7 +190,10 @@ public:
 
     // The page's choices (the host reads them to make the map; the self-tests set them).
     bool project = false, generate = false;
-    bool decorate = false;     // the generator: doodads after the terrain (roadmap R37)
+    // The generator: doodads after the terrain (roadmap R37): 0 none, else 1 (few) to 10 (many); Editor::decorate puts
+    // one in each square of 13 - value tiles where one fits (doodadSpacing).
+    NewSlider doodads{L"Doodads", 0, 10, 0};
+    int doodadSpacing() const { return 13 - doodads.value; }
     // The generator's rules (roadmap R49): bases (0: none; their Start Locations too), paths between them, bases on
     // high ground.
     NewSlider bases{L"Bases", 0, 8, 0};
@@ -275,7 +283,7 @@ public:
         generate = false, copyMap = false, terrainOnly = false;
         era = openEra_;
         terrain = 0, w = h = 128, symmetry = 0, feature = 0, scroll = 0;
-        bases.value = 0, paths = true, basesHigh = false;
+        bases.value = 0, paths = true, basesHigh = false, doodads.value = 0;
         loadedEra = 0xFFFF;
         shape = newpage::kShapeDefaults;
         setNameText(newFreeName(L"MyMap", host_.defaultFolder()));
@@ -565,6 +573,7 @@ private:
     NewPageHost& host_;
     stardraft::kit::TextField name_, location_, output_, seed_, fromMap_;
     NewPageDropdown symmetry_;  // the generator's Symmetry
+    stardraft::kit::ScrollBar bar_;  // at the right edge, while the page is taller than its place
     uint64_t rng_ = 0x9E3779B97F4A7C15ull;
     int timer_ = 0;
     int hover_ = -1;
