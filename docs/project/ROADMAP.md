@@ -156,13 +156,14 @@ Make StarDraft 2 a more powerful creation suite.
 
   Done (2026-10-18): Every so often counts each next time from the last due time, so it does not drift; after more
   than one interval missed (the trigger was off), it counts from then. Still to check in the game.
-- [x] **R23 Batch trigger generation.** *Tag:* UMS.
+- [ ] **R23 Batch trigger generation.** *Tag:* UMS.
   In Classic triggers, blocks of actions that repeat for each player, location or unit type ("For each unit in ..."),
   and that can nest.
 
   Mappers make hundreds of triggers that differ in one value. They must make and change each trigger by hand.
 
-  Done (2026-10-18): the action picker offers the blocks. The Classic triggers page zooms with Ctrl+wheel, puts
+  Status (2026-10-18): the blocks are made, but the action picker does not offer them for now (kClassicBatchesOffered
+  is off again); a map's blocks still show and can be edited. Done with them: the Classic triggers page zooms with Ctrl+wheel, puts
   quotes around locations and switches without a name, shows help for the selected condition or action, and selects
   several conditions or actions (Ctrl+click, Shift+click) to delete them. Still to check in the game: a trigger with
   more than 64 actions becomes several triggers, linked by a switch; does it work for a trigger of several players?

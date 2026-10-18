@@ -50,7 +50,7 @@ std::string jsonText(const std::string& s) {
 // The workspace's name in a report (the crash reports' and the feedback's "Workspace:" line), in English.
 const wchar_t* reportWorkspaceName(Workspace w) {
     static const wchar_t* const names[] = {L"Map",      L"Data",       L"Triggers", L"Assets",  L"Project",          L"Briefing",
-                                           L"Assets",   L"Properties", L"Players",  L"Classic triggers", L"Map data"};
+                                           L"Assets",   L"Help",       L"Properties", L"Players",  L"Classic triggers", L"Map data"};
     const int i = int(w);
     return i >= 0 && i < int(sizeof names / sizeof names[0]) ? names[i] : L"Map";
 }

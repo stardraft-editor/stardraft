@@ -2377,6 +2377,7 @@ constexpr UiText kRows[] = {
     {L"The bases and the paths are high ground (else low ground)", L"\u57FA\u5730\u548C\u9053\u8DEF\u662F\u9AD8\u5730(\u5426\u5219\u662F\u4F4E\u5730)"},
     {L"Help: the documentation (F1, Ctrl+", L"\u5E2E\u52A9\uFF1A\u6587\u6863 (F1, Ctrl+"},
     {L"Help page", L"\u5E2E\u52A9\u9875\u9762"},
+    {L"the Help pages", L"\u5E2E\u52A9\u9875\u9762"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }
