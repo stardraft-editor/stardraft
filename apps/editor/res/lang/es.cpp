@@ -96,7 +96,7 @@ constexpr UiText kRows[] = {
     {L"Build needs an EUD project. Use File > Project > New project or Open project.", L"Compilar necesita un proyecto EUD. Use Archivo > Proyecto > Nuevo proyecto o Abrir proyecto."},
     {L"A build is already running", L"Ya hay una compilaci\u00F3n en curso"},
     {L"StarCraft will not start this map:\r\n\r\n", L"StarCraft no iniciar\u00E1 este mapa:\r\n\r\n"},
-    {L"\r\nTo set the players, use Scenario > Players and forces. Build the map anyway?", L"\r\nPara definir los jugadores, use Escenario > Jugadores y fuerzas. \u00BFCompilar el mapa de todos modos?"},
+    {L"\r\nTo set the players, use Players and forces (Ctrl+P). Build the map anyway?", L"\r\nPara definir los jugadores, use Jugadores y fuerzas (Ctrl+P). \u00BFCompilar el mapa de todos modos?"},
     {L"Build", L"Compilar"},
     {L"&Build", L"&Compilar"},
     {L"Do &not build", L"&No compilar"},
@@ -128,7 +128,7 @@ constexpr UiText kRows[] = {
     {L"Select the folder for the project", L"Seleccione la carpeta del proyecto"},
     {L"Created the project ", L"Proyecto creado: "},
     {L" (Build: Ctrl+B)", L" (Compilar: Ctrl+B)"},
-    {L". The project's map keeps its classic triggers, unit, upgrade and technology settings, and briefings. Scenario > Classic triggers shows the triggers.", L". El mapa del proyecto conserva sus disparadores cl\u00E1sicos, la configuraci\u00F3n de unidades, mejoras y tecnolog\u00EDas, y sus briefings. Escenario > Disparadores cl\u00E1sicos muestra los disparadores."},
+    {L". The project's map keeps its classic triggers, unit, upgrade and technology settings, and briefings. The side bar's Classic shows the triggers.", L". El mapa del proyecto conserva sus disparadores cl\u00E1sicos, la configuraci\u00F3n de unidades, mejoras y tecnolog\u00EDas, y sus briefings. Cl\u00E1sicos, en la barra lateral, muestra los disparadores."},
     {L"New EUD project", L"Nuevo proyecto EUD"},
     {L"Could not create the project", L"No se pudo crear el proyecto"},
     {L"StarCraft Brood War map (*.scx)*.scx", L"Mapa de StarCraft Brood War (*.scx)*.scx"},
@@ -2342,7 +2342,7 @@ constexpr UiText kRows[] = {
     {L"Fog of war is hidden", L"La niebla de guerra est\u00E1 oculta"},
     {L" actions deleted", L" acciones eliminadas"},
     {L" conditions deleted", L" condiciones eliminadas"},
-    {L"Decorat&e the terrain", L"&Decorar el terreno"},
+    {L"&Decorate the terrain", L"&Decorar el terreno"},
     {L"A &few doodads", L"&Pocos doodads"},
     {L"&Some doodads", L"&Algunos doodads"},
     {L"&Many doodads", L"&Muchos doodads"},
@@ -2381,6 +2381,7 @@ constexpr UiText kRows[] = {
     {L"Set the current player", L"Establecer el jugador actual"},
     {L"Take the conditions out of Not", L"Sacar las condiciones de No"},
     {L"NOT: true when this condition is not true", L"NOT: verdadero cuando esta condici\u00F3n no es verdadera"},
+    {L"T&ools", L"&Herramientas"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

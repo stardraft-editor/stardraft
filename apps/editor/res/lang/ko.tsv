@@ -92,7 +92,7 @@ Log	로그
 Build needs an EUD project. Use File > Project > New project or Open project.	빌드에는 EUD 프로젝트가 필요합니다. 파일 > 프로젝트 > 새 프로젝트 또는 프로젝트 열기를 사용하세요.
 A build is already running	이미 빌드가 실행 중입니다
 StarCraft will not start this map:\r\n\r\n	StarCraft에서 이 맵을 시작할 수 없습니다:\r\n\r\n
-\r\nTo set the players, use Scenario > Players and forces. Build the map anyway?	\r\n플레이어를 설정하려면 시나리오 > 플레이어 및 포스를 사용하세요. 그래도 맵을 빌드하시겠습니까?
+\r\nTo set the players, use Players and forces (Ctrl+P). Build the map anyway?	\r\n플레이어를 설정하려면 플레이어 및 포스(Ctrl+P)를 사용하세요. 그래도 맵을 빌드하시겠습니까?
 Build	빌드
 &Build	빌드(&B)
 Do &not build	빌드 안 함(&N)
@@ -124,7 +124,7 @@ Create	만들기
 Select the folder for the project	프로젝트 폴더를 선택하세요
 Created the project 	프로젝트를 만들었습니다: 
  (Build: Ctrl+B)	 (빌드: Ctrl+B)
-. The project's map keeps its classic triggers, unit, upgrade and technology settings, and briefings. Scenario > Classic triggers shows the triggers.	. 프로젝트의 맵은 클래식 트리거, 유닛, 업그레이드, 기술 설정, 브리핑을 유지합니다. 시나리오 > 클래식 트리거에서 트리거를 볼 수 있습니다.
+. The project's map keeps its classic triggers, unit, upgrade and technology settings, and briefings. The side bar's Classic shows the triggers.	. 프로젝트의 맵은 클래식 트리거, 유닛, 업그레이드, 기술 설정, 브리핑을 유지합니다. 사이드바의 클래식에서 트리거를 볼 수 있습니다.
 New EUD project	새 EUD 프로젝트
 Could not create the project	프로젝트를 만들 수 없습니다
 StarCraft Brood War map (*.scx)*.scx	StarCraft Brood War 맵 (*.scx)*.scx
@@ -2340,7 +2340,7 @@ Fog of war: what the selected player (the Units palette's) sees when the game st
 Fog of war is hidden	전장의 안개가 숨겨졌습니다
  actions deleted	개 동작을 삭제했습니다
  conditions deleted	개 조건을 삭제했습니다
-Decorat&e the terrain	지형 꾸미기(&E)
+&Decorate the terrain	지형 꾸미기(&D)
 A &few doodads	장식물 조금(&F)
 &Some doodads	장식물 보통(&S)
 &Many doodads	장식물 많이(&M)
@@ -2379,3 +2379,4 @@ the Help pages	도움말 페이지
 Set the current player	현재 플레이어 설정
 Take the conditions out of Not	Not에서 조건 꺼내기
 NOT: true when this condition is not true	NOT: 이 조건이 참이 아닐 때 참
+T&ools	도구(&O)

@@ -2636,7 +2636,7 @@ def check_menubar(output):
     tips = [l[len("tip: "):] for l in output.splitlines() if l.startswith("tip: ")]
     if not lines or not tips:
         return "no menubar or tip lines"
-    tops = ["File", "Edit", "View", "Mode", "Scenario", "Options", "Help"]
+    tops = ["File", "Edit", "View", "Mode", "Options", "Help"]
     if sys.platform == "darwin":
         if not lines[0].startswith("the system's"):
             return f"not the system's menu bar: {lines[0]}"
@@ -2647,14 +2647,14 @@ def check_menubar(output):
                 "File > Save [cmd+S]", "File > Save as… [shift+cmd+S]", "File > Close [cmd+W]", "File > Recent maps > None",
                 "Edit > Undo [cmd+Z]", "Edit > Redo [shift+cmd+Z]", "Edit > Delete [cmd+Backspace]",
                 "Window > Minimize [cmd+M]", "Window > Zoom", "Window > Next tab [cmd+`]", "Window > Bring all to front"]
-        never = ["File > Exit", "Options > Program options", "Help > About", "Scenario > Map properties (title, size, tileset) [cmd+M"]
+        never = ["File > Exit", "Options > Program options", "Help > About", "Scenario > "]
         tip = "Zoom in (⌘+); ⇧⌘S; ⌘-click; ⌥-drag; Del"
     else:
         if not lines[0].startswith("the window's (shown)"):
             return f"not the window's menu bar: {lines[0]}"
         need = ["File > Save [Ctrl+S]", "File > Save as… [Ctrl+Shift+S]", "File > Exit", "Edit > Undo [Ctrl+Z]",
-                "Edit > Redo [Ctrl+Y]", "Edit > Delete [Del]", "Scenario > Map properties (title, size, tileset) [Ctrl+M]"]
-        never = ["Window > "]
+                "Edit > Redo [Ctrl+Y]", "Edit > Delete [Del]", "Edit > Tools > Check that StarCraft can start the map"]
+        never = ["Window > ", "Scenario > "]
         tip = "Zoom in (Ctrl+Plus); Ctrl+Shift+S; Ctrl+click; Alt+drag; Del"
     for t in tops:
         if t not in lines:
