@@ -27,19 +27,19 @@ To check in StarCraft (trigger_test builds them with euddraft, but what they do 
   trigger of several players?
 - R52: a project whose texts are larger than the game's stat_txt.tbl (the game reads the project's copy then).
 
-## Left
+## Moved to Later (2026-10-18)
 
-- **R51 Advanced EUD capabilities.** Drawing waits until it is clear what it draws (shapes of units or sprites, as
-  Korean EUD maps make them, or text on the screen). EUDQueue, EUDDeque, EUDByteReader and EUDByteWriter are left out
-  for now (2026-10-18).
-- **R25, R52, R49: after the first versions.** Campaigns: settings kept the same in all maps. Import: EUD Editor 2's
-  button sets, requirements and trigger editor data (not only the TriggerEditor.eps it writes when it builds), and
-  EUD Editor 3's own project file. Generator: ramps between high and low ground, rules for expansions and other places.
-- **R42 Map import from scmscx.com.** Skipped for now. Needs: what the site offers (an API or pages to read), the
-  owner's permission, then a search window that downloads the map to a cache folder and opens it.
-- **R31 Replay preview.** Skipped for now. Needs: a way to make a replay without a person playing (the game's
-  computer players run only in the game; a replay is the players' commands), so either a simulation of the game
-  (OpenBW) or StarCraft started with the map and computer players, and its replay saved.
+R31 (replay preview), R42 (map import from scmscx.com) and R63 (drawing, queues and byte readers, the part of R51 that
+was not built) are in the Later section now. What R31 and R42 need:
+
+- **R42.** What the site offers (an API or pages to read), the owner's permission, then a search window that
+  downloads the map to a cache folder and opens it.
+- **R31.** A way to make a replay without a person playing: a simulation of the game (OpenBW), or StarCraft started
+  with the map and computer players, and its replay saved.
+
+After the first versions: campaigns could keep settings the same in all maps; the import could read EUD Editor 2's
+button sets, requirements and trigger editor data, and EUD Editor 3's own project file; the generator could make ramps
+between high and low ground and have rules for expansions.
 
 ## Not code
 
