@@ -10,6 +10,7 @@
 // The analysis runs on a worker thread on copies of the map's data when the map changes (the editor's revision); the
 // map shows the last result until the new one is ready. A legend in the view's bottom-left corner tells what the
 // colors are; the status bar tells the length of the path under the mouse.
+float mapTextScale();  // (core/map_scene.inc: the map font's size on the screen)
 
 struct PathOverlay {
     bool walk = false, paths = false, towns = false;
@@ -206,7 +207,7 @@ void addPathOverlays(render::Scene& s) {
     };
     std::vector<Label> labels;
     auto label = [&](int priority, float x, float y, std::string text, uint32_t rgba, int needs = -1) {
-        labels.push_back({priority, {x, y, std::move(text), rgba}, needs});
+        labels.push_back({priority, {x, y, std::move(text), rgba, true, mapTextScale()}, needs});
         return int(labels.size()) - 1;
     };
     if (gPath.towns) {
