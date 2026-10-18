@@ -72,7 +72,7 @@ if(Python3_Interpreter_FOUND)
                        COMMENT "Building the help pages" VERBATIM)
 else()
     message(WARNING "No Python 3: the program is built with no help pages")
-    file(WRITE ${STARDRAFT_HELP_CPP} "#include \"stardraft/help.h\"\nnamespace stardraft::help_data {\nconst Page kPages[1] = {};\nconst int kPageCount = 0;\n}\n")
+    file(WRITE ${STARDRAFT_HELP_CPP} "#include \"stardraft/help.h\"\nnamespace stardraft::help_data {\nconst Page kPages[1] = {};\nconst int kPageCount = 0;\nconst long long kPagesStamp = 0;\n}\n")
 endif()
 
 add_library(stardraft
