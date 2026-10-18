@@ -424,7 +424,8 @@ int main(int argc, char** argv) {
         TriggerCall trains = make("act.if");
         trains.lists[0] = {block("cond.trains", {"boss", "Terran Marine"}), block("cond.queueempty", {"boss"})};
         trains.lists[1] = {block("act.unitremove", {"boss"}), block("act.qgc.select", {"P1", "boss"}), block("act.camerafollow", {"boss", "1", "P2"}),
-                           block("act.gamespeed", {"200"})};
+                           block("act.gamespeed", {"200"}), block("act.camerapan", {"1", "1", "3", "1", "all"}),
+                           block("act.camerashake", {"1", "1", "8", "1", "P2"})};
         TriggerCall setX = block("act.setvar", {"SetTo", "0", "gold"});
         TriggerCall dx = make("val.dirx");
         dx.args = {"64", "32"};
