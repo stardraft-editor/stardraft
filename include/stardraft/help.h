@@ -31,6 +31,11 @@ struct HelpPage {
 // The pages: the index ("index") first, then the pages in the order of the index's links. Empty when the build had no
 // Python (the help is then only on the web).
 const std::vector<HelpPage>& helpPages();
+// The pages of the web's pages.json (kHelpOnline + "pages.json", made by tools/help_build.py --site), read into `out`;
+// false when the text is not such a file (`out` stays). helpLoadPages: they become helpPages() (the program's thread
+// that shows the help: a HelpPage that was read before is gone).
+bool helpPagesFromJson(const std::string& text, std::vector<HelpPage>& out);
+bool helpLoadPages(const std::string& text);
 const HelpPage* helpPage(const std::string& name);
 // The page's online address (with "#anchor" when it is not "").
 std::string helpOnlineUrl(const std::string& page, const std::string& anchor = "");

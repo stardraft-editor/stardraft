@@ -6,7 +6,8 @@ usage: python3 -I tools/help_build.py [--check] [--cpp <file>] [--site <folder>]
   --check          only the checks (the default when no output is given)
   --cpp <file>     the C++ source with the pages for the program (include/stardraft/help.h, help_data); the build
                    (CMakeLists.txt) makes it. The file is written only when its text changes.
-  --site <folder>  the pages for GitHub Pages: <folder>/<page>.html with the list of pages and a search
+  --site <folder>  the pages for GitHub Pages: <folder>/<page>.html with the list of pages and a search, and
+                   pages.json (the pages for the program, which loads them from the web)
                    (.github/workflows/pages.yml publishes the folder as /help/)
 
 The checks (a problem: exit 1 and no output):
@@ -411,6 +412,11 @@ def write_site(pages, order, folder):
              for n in order]
     with open(os.path.join(folder, "search.json"), "w", encoding="utf-8", newline="\n") as fh:
         json.dump(index, fh, ensure_ascii=False, separators=(",", ":"))
+    # The pages for the program (pages.json): it loads them from here, so that its help is the web's (the pages built
+    # into it are for when it has no network). Format 1: the pages in their order (the index first), each with its body.
+    bundle = {"format": 1, "pages": [dict(entry, html=pages[entry["name"]].html) for entry in index]}
+    with open(os.path.join(folder, "pages.json"), "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(bundle, fh, ensure_ascii=False, separators=(",", ":"))
     for name in order:
         p = pages[name]
         nav = "".join('<li><a href="%s.html"%s>%s</a></li>' % (n, ' class="here"' if n == name else "", html.escape(pages[n].title))

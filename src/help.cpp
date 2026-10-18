@@ -4,6 +4,8 @@
 #include <cctype>
 #include <initializer_list>
 
+#include "json.h"
+
 namespace stardraft {
 
 const char* const kHelpOnline = "https://stardraft-editor.github.io/stardraft/help/";
@@ -42,8 +44,9 @@ bool hasAll(const std::string& text, const std::vector<std::string>& ws) {
 
 }  // namespace
 
-const std::vector<HelpPage>& helpPages() {
-    static const std::vector<HelpPage> pages = [] {
+namespace {
+std::vector<HelpPage>& currentPages() {
+    static std::vector<HelpPage> pages = [] {
         std::vector<HelpPage> out;
         for (int i = 0; i < help_data::kPageCount; ++i) {
             const help_data::Page& d = help_data::kPages[i];
@@ -58,6 +61,36 @@ const std::vector<HelpPage>& helpPages() {
         return out;
     }();
     return pages;
+}
+}  // namespace
+
+const std::vector<HelpPage>& helpPages() { return currentPages(); }
+
+bool helpPagesFromJson(const std::string& text, std::vector<HelpPage>& out) {
+    JsonParser p{text};
+    const Json root = p.value();
+    if (!p.ok || root.type != Json::Type::Object || root.integer("format", 0) != 1) return false;
+    const Json* list = root.get("pages");
+    if (!list || list->type != Json::Type::Array || list->items.empty()) return false;
+    std::vector<HelpPage> pages;
+    for (const Json& j : list->items) {
+        HelpPage page;
+        page.name = j.str("name"), page.title = j.str("title"), page.html = j.str("html");
+        if (page.name.empty() || page.title.empty() || page.html.empty()) return false;
+        if (const Json* ss = j.get("sections"); ss && ss->type == Json::Type::Array)
+            for (const Json& s : ss->items) page.sections.push_back({s.str("id"), s.str("title"), s.str("text"), s.integer("level", 0)});
+        pages.push_back(std::move(page));
+    }
+    if (pages.front().name != "index") return false;
+    out = std::move(pages);
+    return true;
+}
+
+bool helpLoadPages(const std::string& text) {
+    std::vector<HelpPage> pages;
+    if (!helpPagesFromJson(text, pages)) return false;
+    currentPages() = std::move(pages);
+    return true;
 }
 
 const HelpPage* helpPage(const std::string& name) {

@@ -87,6 +87,39 @@ void sdlHelpQuick() {
     shellShowQuickPickerCustom();
 }
 
+// The help from the web (roadmap: the pages are on the web, searchable there): at the start, the pages kept from the
+// last run (the cache folder's help-pages.json), then the web's pages.json on a thread; when they come, they are the
+// pages (and kept for the next start). Without the network: the pages kept, else the ones built into the program.
+void sdlHelpOnlineStart() {
+    if (gSilent) return;  // (a test run: the built-in pages, no network)
+    const fs::path cache = shellCacheFolder();
+    const fs::path kept = cache.empty() ? fs::path() : cache / "help-pages.json";
+    std::error_code ec;
+    if (!kept.empty() && fs::exists(kept, ec)) {
+        std::ifstream in(kept, std::ios::binary);
+        const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        stardraft::helpLoadPages(text);
+    }
+    std::thread([kept] {
+        stardraft::platform::HttpRequest q;
+        q.url = std::string(stardraft::kHelpOnline) + "pages.json";
+        std::string text;
+        const stardraft::platform::HttpReply r = stardraft::platform::httpRequest(q, &text);
+        std::vector<stardraft::HelpPage> check;
+        if (r.status != 200 || !r.complete || !stardraft::helpPagesFromJson(text, check)) return;  // (the pages stay)
+        shellPost([text, kept] {
+            if (!stardraft::helpLoadPages(text)) return;
+            gHelpView.pagesChanged();
+            gHelpWsView.pagesChanged();
+            if (kept.empty()) return;
+            std::error_code e;
+            fs::create_directories(kept.parent_path(), e);
+            std::ofstream out(kept, std::ios::binary | std::ios::trunc);
+            out << text;
+        });
+    }).detach();
+}
+
 // F1: the topic of what has the focus. The Data workspace: the field under the mouse, else the field clicked last
 // (its .dat's page when the field has no place on it); else the index.
 std::string sdlHelpContextTopic() {
