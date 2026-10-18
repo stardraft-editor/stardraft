@@ -9,6 +9,7 @@ void setMode(Mode m);
 // on, with the palette's view of the mode, and the windows that the mode shows (the Map workspace's).
 void shellModeSide(Mode m);
 void shellModeWindows(Mode m);
+std::wstring paletteItemNameOf(Mode mode, int v);
 std::wstring paletteItemName(int v);  // (main.cpp: the palette entry's name; entryName is in the Win32 TU)
 
 // Device pixels for v at the window's dpi (the rounding of MulDiv(v, dpi, 96): halves away from zero).

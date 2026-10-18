@@ -140,7 +140,7 @@ struct PaletteGridView : draw::View {
             c.fill(f, kCtl);
             const int show = hover_ >= 0 && hover_ < int(rows.size()) ? rows[size_t(hover_)].value : units ? pick : -1;
             f.left += scale(6);
-            if (app.ed && show >= 0) c.text(f, paletteItemName(show), kText, draw::kMiddle | draw::kEllipsis);
+            if (app.ed && show >= 0) c.text(f, paletteItemNameOf(mode, show), kText, draw::kMiddle | draw::kEllipsis);  // (the rows' mode: GitHub #101)
         }
     }
     bool mouse(const draw::MouseEvent& e) override {
