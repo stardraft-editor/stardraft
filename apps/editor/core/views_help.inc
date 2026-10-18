@@ -11,7 +11,7 @@
 class HelpView final : public draw::View {
 public:
     std::function<void(const std::string& url)> onOpenUrl;      // the browser
-    std::function<void(const std::wstring& name)> onFeedback;   // Send feedback about this page ("Help page: <title>")
+    std::function<void(const std::wstring& name)> onFeedback;   // Send feedback about this page ("Help page <id>: <title>")
     std::function<void()> closed;                               // the view closed its window (Close, Esc)
 
     HelpView() {
@@ -99,7 +99,14 @@ public:
         return p ? p->title : std::string();
     }
     std::string onlineUrl() const { return stardraft::helpOnlineUrl(page_.empty() ? "index" : page_, anchor_); }
-    std::wstring feedbackName() const { return L"Help page: " + widen(title().empty() ? page_ : title()); }
+    // Report feedback's name for the page: its id with the place shown, then its title ("Help page units-dat#hit-points:
+    // Units (units.dat)"), so the report says which page and where (a name cut short keeps the id).
+    std::wstring feedbackName() const {
+        const std::string id = (page_.empty() ? std::string("index") : page_) + (anchor_.empty() ? "" : "#" + anchor_);
+        return L"Help page " + widen(id) + (title().empty() ? L"" : L": " + widen(title()));
+    }
+    // A right click on the page (Report feedback on ...): the page, where no part under the mouse has a name of its own.
+    std::wstring feedbackName(draw::Point) override { return feedbackName(); }
     size_t historySize() const { return history_.size(); }
 
     // The search's words (as typed: the list follows).

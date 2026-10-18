@@ -20,8 +20,13 @@ std::wstring feedbackShort(std::wstring t) {
     return t;
 }
 
+// The Help workspace's page for Report feedback (sdl_help.inc sets it: "Help page <id>: <title>").
+std::function<std::wstring()> gHelpFeedbackName;
+
 // What "Report feedback on ..." names when nothing at the mouse has a name: the workspace or the map's page.
 std::wstring feedbackWorkspaceName(Workspace w) {
+    if (w == Workspace::Help && gHelpFeedbackName)
+        if (std::wstring n = gHelpFeedbackName(); !n.empty()) return n;
     static const wchar_t* ws[] = {L"the Map workspace", L"the Data workspace", L"the Triggers workspace", L"the Assets workspace",
                                   L"the Project page", L"the Briefing workspace", L"the Assets workspace", L"the Help pages", L"the Properties page",
                                   L"the Players page", L"the Classic triggers page", L"the Map data page"};

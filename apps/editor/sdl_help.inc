@@ -29,6 +29,7 @@ void sdlHelpWire() {
     }
     gHelpView.closed = [] { gHelpOpen = false; };
     gHelpWsView.setInWorkspace(true);
+    gHelpFeedbackName = [] { return gHelpWsView.feedbackName(); };  // (Report feedback in the Help workspace: the page)
 }
 
 // The help window at `topic` ("units-dat#hit-points"; "": the index). With no pages in this build: the page on the web.
@@ -217,6 +218,6 @@ bool sdlHelpCheck(const std::string& what, std::string& out) {
     v.clickRow(0);
     out += "helplinks: the search \"cooldown\" has " + std::to_string(v.rows()) + " rows; the first, " + first + ", shows " + v.page() + "#" + v.anchor() +
            (first == "weapons-dat#weapon-cooldown" && v.anchor() == "weapon-cooldown" ? " (yes)" : " (WRONG)") + "\n";
-    out += "helplinks: the feedback names \"" + narrow(v.feedbackName()) + "\"" + (v.feedbackName() == L"Help page: Weapons (weapons.dat)" ? " (yes)" : " (WRONG)") + "\n";
+    out += "helplinks: the feedback names \"" + narrow(v.feedbackName()) + "\"" + (v.feedbackName() == L"Help page weapons-dat#weapon-cooldown: Weapons (weapons.dat)" ? " (yes)" : " (WRONG)") + "\n";
     return true;
 }
