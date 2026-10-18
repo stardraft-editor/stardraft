@@ -10,10 +10,23 @@
 // The regions and the check are made on a worker thread from copies of the terrain and the units when the map changes
 // (its revision); the map shows the last result until the new one is ready.
 
+// The layer's shapes with no colors (map pixels), for one mode: the fills (kind: the region or the connected area,
+// -1 the ground that units cannot walk on) and the borders between the kinds.
+struct PathingShape {
+    float x0, y0, x1, y1;
+    int kind;
+};
+struct PathingShapes {
+    std::vector<PathingShape> fills, borders;
+};
+
 struct PathingLayerResult {
     PathingRegions regions;
     PathingCheck check;
+    PathingShapes shapes[2];  // [0] the regions, [1] the connected areas (made on the worker thread)
 };
+
+PathingShapes makePathingShapes(const PathingRegions& r, bool areas);
 
 struct PathingLayer {
     bool on = false;
@@ -27,9 +40,10 @@ struct PathingLayer {
     std::shared_ptr<const Tileset> tileset;  // the parts the regions and the check read (groups, megatiles, VF4 flags)
     const Tileset* tilesetOf = nullptr;
     int tilesetEra = -1;
-    // The shapes, made again when the result, the mode or the theme changes.
+    // The shapes with their colors, made again (from the result's shapes) when the result, the mode or the theme changes.
     std::vector<render::RectDraw> fills, borders;
-    const PathingLayerResult* shapesFor = nullptr;
+    uint64_t shapesFor = 0;   // the result's serial
+    uint64_t serial = 0;      // of the result: +1 for each new one
     int shapesKey = -1;
     // The map that Scenario > Check pathing ran for (its problems show then); the problem picked (-1 none).
     const Editor* checkFor = nullptr;
@@ -63,7 +77,7 @@ void pathingLayerPoll(bool wait = false) {
         if (gPathing.job.valid()) {
             if (!wait && gPathing.job.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
             gPathing.result = gPathing.job.get();
-            gPathing.resultFor = gPathing.jobFor, gPathing.resultRev = gPathing.jobRev;
+            gPathing.resultFor = gPathing.jobFor, gPathing.resultRev = gPathing.jobRev, ++gPathing.serial;
             gPathing.shown = -1;  // (the problems of the new check are in another order)
             app.dirty = true;
         }
@@ -79,6 +93,7 @@ void pathingLayerPoll(bool wait = false) {
             auto r = std::make_shared<PathingLayerResult>();
             r->regions = computePathingRegions(terrain, *tileset);
             r->check = checkPathing(r->regions, terrain, *tileset, units);
+            r->shapes[0] = makePathingShapes(r->regions, false), r->shapes[1] = makePathingShapes(r->regions, true);
             return r;
         });
         if (!wait) return;
@@ -104,12 +119,9 @@ uint32_t pathingTint(int k) {
 }
 
 // The fills (runs of minitiles of one kind on each row, joined with the same run of the row above) and the borders
-// between the regions (or the connected areas).
-void makePathingShapes(const PathingRegions& r) {
-    const int key = (gLightTheme ? 1 : 0) | (gPathing.areas ? 2 : 0) | (gAccentIndex << 2);
-    if (gPathing.shapesFor == gPathing.result.get() && gPathing.shapesKey == key) return;
-    gPathing.shapesFor = gPathing.result.get(), gPathing.shapesKey = key;
-    gPathing.fills.clear(), gPathing.borders.clear();
+// between the regions (or the connected areas). It reads no UI state (the worker thread makes them).
+PathingShapes makePathingShapes(const PathingRegions& r, bool areas) {
+    PathingShapes out;
     const int w = r.walkW(), h = r.walkH();
     // Per minitile: -1 not walkable, else its region (or its region's connected area).
     std::vector<int32_t> kind(size_t(w) * h, -1);
@@ -118,19 +130,13 @@ void makePathingShapes(const PathingRegions& r) {
             if (!r.walkable(x, y)) continue;
             const int ri = r.regionAt(x, y);
             if (ri < 0) continue;
-            kind[size_t(y) * w + x] = gPathing.areas ? r.regions[size_t(ri)].group : ri;
+            kind[size_t(y) * w + x] = areas ? r.regions[size_t(ri)].group : ri;
         }
-    const uint32_t shade = rgbaOf(kBg, gLightTheme ? 0xA8 : 0xB8);
     struct Run {
         int x0, x1, kind, y0;
     };
     std::vector<Run> open, row, next;
-    auto emit = [&](const Run& run, int y1) {
-        render::RectDraw d;
-        d.x0 = run.x0 * 8.0f, d.y0 = run.y0 * 8.0f, d.x1 = run.x1 * 8.0f, d.y1 = y1 * 8.0f;
-        d.rgba = run.kind < 0 ? shade : pathingTint(run.kind), d.fill = true;
-        gPathing.fills.push_back(d);
-    };
+    auto emit = [&](const Run& run, int y1) { out.fills.push_back({run.x0 * 8.0f, run.y0 * 8.0f, run.x1 * 8.0f, y1 * 8.0f, run.kind}); };
     for (int y = 0; y <= h; ++y) {
         row.clear();
         if (y < h)
@@ -152,12 +158,7 @@ void makePathingShapes(const PathingRegions& r) {
         std::swap(open, next);
     }
     // The borders: where two walkable minitiles of different kinds meet (the shade shows the edges of the ground).
-    const uint32_t line = gLightTheme ? 0x202020A0u : 0xFFFFFF90u;
-    auto border = [&](float x0, float y0, float x1, float y1) {
-        render::RectDraw d;
-        d.x0 = x0, d.y0 = y0, d.x1 = x1, d.y1 = y1, d.rgba = line, d.line = true, d.thickness = 1;
-        gPathing.borders.push_back(d);
-    };
+    auto border = [&](float x0, float y0, float x1, float y1) { out.borders.push_back({x0, y0, x1, y1, 0}); };
     auto differ = [&](size_t a, size_t b) { return kind[a] >= 0 && kind[b] >= 0 && kind[a] != kind[b]; };
     for (int y = 1; y < h; ++y)
         for (int x = 0; x < w;) {
@@ -181,6 +182,29 @@ void makePathingShapes(const PathingRegions& r) {
             border(x * 8.0f, y * 8.0f, x * 8.0f, e * 8.0f);
             y = e;
         }
+    return out;
+}
+
+// The shapes of the mode that shows, with the theme's colors.
+void colorPathingShapes(const PathingLayerResult& res) {
+    const int key = (gLightTheme ? 1 : 0) | (gPathing.areas ? 2 : 0) | (gAccentIndex << 2);
+    if (gPathing.shapesFor == gPathing.serial && gPathing.shapesKey == key) return;
+    gPathing.shapesFor = gPathing.serial, gPathing.shapesKey = key;
+    const PathingShapes& g = res.shapes[gPathing.areas ? 1 : 0];
+    gPathing.fills.clear(), gPathing.borders.clear();
+    gPathing.fills.reserve(g.fills.size()), gPathing.borders.reserve(g.borders.size());
+    const uint32_t shade = rgbaOf(kBg, gLightTheme ? 0xA8 : 0xB8);
+    const uint32_t line = gLightTheme ? 0x202020A0u : 0xFFFFFF90u;
+    for (const PathingShape& f : g.fills) {
+        render::RectDraw d;
+        d.x0 = f.x0, d.y0 = f.y0, d.x1 = f.x1, d.y1 = f.y1, d.rgba = f.kind < 0 ? shade : pathingTint(f.kind), d.fill = true;
+        gPathing.fills.push_back(d);
+    }
+    for (const PathingShape& b : g.borders) {
+        render::RectDraw d;
+        d.x0 = b.x0, d.y0 = b.y0, d.x1 = b.x1, d.y1 = b.y1, d.rgba = line, d.line = true, d.thickness = 1;
+        gPathing.borders.push_back(d);
+    }
 }
 
 // --- The texts of the problems ---------------------------------------------------------------------------------------
@@ -239,9 +263,10 @@ const wchar_t* pathingSection(PathingProblemKind k) {
 void addPathingLayer(render::Scene& s) {
     if (!gPathing.on) return;
     pathingLayerPoll();
-    const PathingRegions* r = pathingRegions();
-    if (!r) return;
-    makePathingShapes(*r);
+    const PathingLayerResult* res = pathingResult();
+    if (!res) return;
+    const PathingRegions* r = &res->regions;
+    colorPathingShapes(*res);
     const AppState& app = appState();
     int vw, vh;
     viewSize(vw, vh);
@@ -405,6 +430,10 @@ std::string pathingStateLine() {
     std::string s = std::string("pathing: layer ") + (gPathing.on ? "on" : "off") + (gPathing.areas ? ", connected areas" : ", regions");
     if (!r) return s + ", no regions";
     s += ", " + std::to_string(r->regions.size()) + " regions, " + std::to_string(r->groups) + " connected areas";
+    if (const PathingLayerResult* res = pathingResult()) {  // (the shapes of the mode that shows, from the worker thread)
+        const PathingShapes& g = res->shapes[gPathing.areas ? 1 : 0];
+        s += "; shapes " + std::to_string(g.fills.size()) + " fills, " + std::to_string(g.borders.size()) + " borders";
+    }
     if (const PathingCheck* c = pathingCheck()) {
         s += "; check: " + std::to_string(c->problems.size() + c->more) + " problems (pockets " + std::to_string(c->pockets) + ", gaps " +
              std::to_string(c->gaps) + ", small units only " + std::to_string(c->narrow) + ", closed " + std::to_string(c->closed) + ", small regions " +

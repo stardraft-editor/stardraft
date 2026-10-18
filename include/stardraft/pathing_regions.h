@@ -4,8 +4,8 @@
 //
 // computePathingRegions splits the map into regions as StarCraft does when a game starts (from MTXM and the tileset's
 // VF4 flags only: buildings, resources and doodad sprites are not in the regions; creep is not either). The steps
-// follow the open-source reimplementation of the game's region code (OpenBW, bwgame.h: regions_create), written again
-// here:
+// follow the open-source reimplementation of the game's region code (OpenBW, bwgame.h: regions_create; its repository
+// gives no license). Only the steps are taken from it; the code here is StarDraft's own:
 //   1. Each 8x8 minitile is walkable when its VF4 flag says so; the bottom of the map that the game's console covers is
 //      not (the last 4 minitile rows; the 20 minitiles at each end of the 4 rows above them).
 //   2. Each 32x32 tile gets a kind from its 16 minitiles: walkable when more than 12 are walkable (else unwalkable),
@@ -54,7 +54,8 @@ struct PathingRegion {
 struct PathingRegions {
     int width = 0, height = 0;  // in tiles
     std::vector<uint8_t> walk;  // per minitile (width * 4 x height * 4): 1 walkable (step 1), else 0
-    // Per tile: the region (0 or more), or -1 - k for split k.
+    // Per tile: the region (0 or more), -1 - k for split k, or kNoRegion (a tile with no region: only with `tooMany`).
+    static constexpr int32_t kNoRegion = 0x7fffffff;
     std::vector<int32_t> tile;
     struct Split {
         uint16_t mask = 0;  // bit (y * 4 + x) set: that minitile is in `b`, else in `a`
@@ -70,7 +71,7 @@ struct PathingRegions {
     int walkW() const { return width * 4; }
     int walkH() const { return height * 4; }
     bool walkable(int mx, int my) const { return mx >= 0 && my >= 0 && mx < walkW() && my < walkH() && walk[size_t(my) * walkW() + mx]; }
-    // The region of minitile (mx, my), -1 outside the map.
+    // The region of minitile (mx, my), -1 outside the map or with no region (only with `tooMany`).
     int regionAt(int mx, int my) const;
 };
 

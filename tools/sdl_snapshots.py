@@ -1193,9 +1193,12 @@ def check_pathing_check(output):
         return f"{len(lines)} pathing lines (2 expected)"
     if "layer off" not in lines[0] or "check:" in lines[0]:
         return "before the check: " + lines[0]
-    m = re.search(r"layer on, regions, (\d+) regions, (\d+) connected areas; check: (\d+) problems", lines[1])
-    if not m or int(m.group(1)) < 50 or int(m.group(3)) < 1:
+    m = re.search(r"layer on, regions, (\d+) regions, (\d+) connected areas; shapes (\d+) fills, (\d+) borders; check: (\d+) problems", lines[1])
+    if not m or int(m.group(1)) < 50 or int(m.group(5)) < 1:
         return "after the check: " + lines[1]
+    # The worker thread makes the layer's shapes with the regions: the fills and the borders are there.
+    if int(m.group(3)) < 1 or int(m.group(4)) < 1:
+        return "the layer's shapes are missing: " + lines[1]
     if "; shown: " not in lines[1]:
         return "the pick did not show a problem: " + lines[1]
     return None

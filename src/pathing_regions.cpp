@@ -62,7 +62,9 @@ public:
         out.walk.assign(size_t(ww_) * wh_, 0);
         for (size_t i = 0; i < out.walk.size(); ++i) out.walk[i] = unwalk_[i] ? 0 : 1;
         out.tile.resize(idx_.size());
-        for (size_t i = 0; i < idx_.size(); ++i) out.tile[i] = idx_[i] >= kSplitBase ? -1 - (idx_[i] - kSplitBase) : idx_[i];
+        // (A tile left with its kind has no region: only when step 3 stopped at 5000 regions.)
+        for (size_t i = 0; i < idx_.size(); ++i)
+            out.tile[i] = idx_[i] >= kSplitBase ? -1 - (idx_[i] - kSplitBase) : idx_[i] < kMaxRegions ? idx_[i] : PathingRegions::kNoRegion;
         out.splits = splits_;
         out.regions.resize(rs_.size());
         int groups = 0;
@@ -174,38 +176,41 @@ private:
         }
     }
 
-    // The rectangle of tiles of `kind` from (bx, by): grown right and down while the new column and row are all of
-    // that kind, at most 8 x 7, at most 3 times as long as wide.
-    void findArea(int bx, int by, int kind, int& ex, int& ey) {
-        const int maxX = std::min(bx + 8, w_), maxY = std::min(by + 7, h_);
-        ex = bx + 1, ey = by + 1;
-        bool xGood = true, yGood = true, allGood = true;
-        while ((xGood || yGood) && ex != maxX && ey != maxY) {
-            if (xGood)
-                for (int y = by; y < ey; ++y)
-                    if (at(ex, y) != kind) {
-                        xGood = false;
-                        break;
-                    }
-            if (yGood)
-                for (int x = bx; x < ex; ++x)
-                    if (at(x, ey) != kind) {
-                        yGood = false;
-                        break;
-                    }
-            if (at(ex, ey) != kind) allGood = false;
-            if (allGood) {
-                if (yGood) ++ey;
-                if (xGood) ++ex;
-            } else {
-                if (yGood) ++ey;
-                else if (xGood) ++ex;
-            }
+    struct Rect {
+        int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+        int size() const { return (x1 - x0) * (y1 - y0); }
+    };
+
+    bool columnOf(int x, int y0, int y1, int kind) {
+        for (int y = y0; y < y1; ++y)
+            if (at(x, y) != kind) return false;
+        return true;
+    }
+    bool rowOf(int y, int x0, int x1, int kind) {
+        for (int x = x0; x < x1; ++x)
+            if (at(x, y) != kind) return false;
+        return true;
+    }
+
+    // The rectangle of tiles of `kind` from (x, y), at most 8 x 7 and at most 3 times as long as wide. It starts as the
+    // one tile and gets one row and one column more at each step. The next row is added while it is all of the kind.
+    // The next column is added while it is all of the kind, but only when no row can be added or when each corner
+    // tile was of the kind (from the first step on). The growth stops at the limits or when no row or column fits.
+    Rect findArea(int x, int y, int kind) {
+        const int maxW = std::min(8, w_ - x), maxH = std::min(7, h_ - y);
+        int cols = 1, rows = 1;
+        bool canCol = true, canRow = true, corners = true;
+        while ((canCol || canRow) && cols < maxW && rows < maxH) {
+            canCol = canCol && columnOf(x + cols, y, y + rows, kind);
+            canRow = canRow && rowOf(y + rows, x, x + cols, kind);
+            corners = corners && at(x + cols, y + rows) == kind;
+            const bool addCol = canCol && (corners || !canRow);
+            if (canRow) ++rows;
+            if (addCol) ++cols;
         }
-        int width = ex - bx, height = ey - by;
-        if (width > height * 3) width = height * 3;
-        else if (height > width * 3) height = width * 3;
-        ex = bx + width, ey = by + height;
+        cols = std::min(cols, rows * 3);
+        rows = std::min(rows, cols * 3);
+        return Rect{x, y, x + cols, y + rows};
     }
 
     // A region takes the tiles of its kind beside it (two passes over its rectangle and one tile around it).
@@ -224,45 +229,29 @@ private:
                     if (at(x, y) == r.flags && beside(x, y)) at(x, y) = r.index;
     }
 
+    // Step 3. The scan goes on from the right of the last rectangle. A rectangle smaller than the last one is replaced
+    // by the largest one of up to 25 more free tiles further on (the search stops at one as large as the last one).
     void createRegions() {
-        int nextX = 0, nextY = 0;
-        bool grownAll = false;
         const size_t first = rs_.size();
-        int prevSize = 7 * 8;
+        bool grownAll = false;
+        int lastSize = 7 * 8;
+        int fromX = 0, fromY = 0;
         int kind = 0, fx = 0, fy = 0;
-        for (;;) {
-            int sx = nextX, sy = nextY;
-            if (sx >= w_) {
-                sx = 0;
-                if (++sy >= h_) sy = 0;
+        while (findFree(fromX, fromY, kind, fx, fy)) {
+            Rect best = findArea(fx, fy, kind), tried = best;
+            for (int tries = 0; tries < 25 && best.size() < lastSize; ++tries) {
+                if (!findFree(tried.x1, fy, kind, fx, fy)) break;
+                tried = findArea(fx, fy, kind);
+                if (tried.size() > best.size()) best = tried;
             }
-            if (!findFree(sx, sy, kind, fx, fy)) break;
-            int ex, ey;
-            findArea(fx, fy, kind, ex, ey);
-            int ax0 = fx, ay0 = fy, ax1 = ex, ay1 = ey;
-            int size = (ax1 - ax0) * (ay1 - ay0);
-            if (size < prevSize) {  // up to 25 more tries further on: the largest
-                int bx0 = ax0, by0 = ay0, bx1 = ax1, by1 = ay1, best = size;
-                for (int n = 0; n < 25; ++n) {
-                    if (!findFree(ax1, fy, kind, fx, fy)) break;
-                    findArea(fx, fy, kind, ex, ey);
-                    ax0 = fx, ay0 = fy, ax1 = ex, ay1 = ey;
-                    const int s = (ax1 - ax0) * (ay1 - ay0);
-                    if (s > best) {
-                        best = s, bx0 = ax0, by0 = ay0, bx1 = ax1, by1 = ay1;
-                        if (s >= prevSize) break;
-                    }
-                }
-                ax0 = bx0, ay0 = by0, ax1 = bx1, ay1 = by1, size = best;
-            }
-            prevSize = size;
-            nextX = ax1, nextY = ay0;
+            lastSize = best.size();
+            fromX = best.x1, fromY = best.y0;
             if (rs_.size() >= size_t(kMaxRegions)) {
                 tooMany_ = true;
                 break;
             }
-            grow(create(ax0, ay0, ax1, ay1));
-            if (size <= 6 && !grownAll) {
+            grow(create(best.x0, best.y0, best.x1, best.y1));
+            if (lastSize <= 6 && !grownAll) {
                 grownAll = true;
                 for (size_t i = first; i < rs_.size(); ++i) grow(rs_[i]);
             }
@@ -401,69 +390,63 @@ private:
         rs_ = std::move(kept);
     }
 
-    int count4x1(int mx, int my) const { return walkable(mx, my) + walkable(mx + 1, my) + walkable(mx + 2, my) + walkable(mx + 3, my); }
-    int count1x4(int mx, int my) const { return walkable(mx, my) + walkable(mx, my + 1) + walkable(mx, my + 2) + walkable(mx, my + 3); }
+    // The minitiles of a tile's edges, in the order of neighbors(): the 4 sides (4 minitiles each) and the 4 corners
+    // (1 minitile each). `in`: the first minitile of the edge in the tile; `out`: the first one beside it in the
+    // neighbor tile; `step`: to the next minitile of the edge.
+    struct Edge {
+        int inX, inY, outX, outY, stepX, stepY, length;
+    };
+    static constexpr Edge kEdges[8] = {
+        {0, 0, 0, -1, 1, 0, 4}, {0, 0, -1, 0, 0, 1, 4}, {3, 0, 4, 0, 0, 1, 4}, {0, 3, 0, 4, 1, 0, 4},
+        {0, 0, -1, -1, 0, 0, 1}, {3, 0, 4, -1, 0, 0, 1}, {0, 3, -1, 4, 0, 0, 1}, {3, 3, 4, 4, 0, 0, 1},
+    };
+    // The minitiles of the line from (mx, my) that are walkable (`walk`) or not.
+    int countLine(int mx, int my, int stepX, int stepY, int length, bool walk) const {
+        int n = 0;
+        for (int k = 0; k < length; ++k) n += walkable(mx + k * stepX, my + k * stepY) == walk;
+        return n;
+    }
 
-    // The tiles with walkable and unwalkable minitiles: the minitiles of the other kind go to a neighbor region of
-    // that kind (the side or corner with the most of them).
+    // Step 6. A tile of a walkable region with unwalkable minitiles gives them to the unwalkable neighbor region that
+    // has the most unwalkable minitiles on the tile's edge to it (the sides and the corners); a tile of an unwalkable
+    // region gives its walkable minitiles to a walkable neighbor in the same way (the sides only). With equal counts,
+    // the edge that comes last in the order of neighbors() wins. A split neighbor tile counts when its minitiles
+    // beside the edge include some of that kind; its part of that kind is then the region.
     void splitTiles() {
         splits_.clear();
         for (int y = 0; y < h_; ++y)
             for (int x = 0; x < w_; ++x) {
                 const int ti = y * w_ + x;
                 if (!(flags_[size_t(ti)] & kTilePartial)) continue;
-                const auto nb = neighbors(x, y);
                 const int ri = at(x, y);
                 if (ri >= kMaxRegions) continue;  // (no region: only when there are too many)
                 const Region& r = rs_[size_t(ri)];
-                uint16_t mask = 0;
+                const bool give = !r.walkable();  // the kind of minitile that goes to the neighbor (true: walkable)
+                const auto nb = neighbors(x, y);
+                const int mx = x * 4, my = y * 4;
+                int other = -1, most = 0;  // the region that gets the minitiles (an index of rs_), its count
+                const int edges = r.walkable() ? 8 : 4;
+                for (int d = 0; d < edges; ++d) {
+                    const Edge& e = kEdges[d];
+                    const int n = countLine(mx + e.inX, my + e.inY, e.stepX, e.stepY, e.length, give);
+                    if (n == 0 || n < most) continue;
+                    const int ni = nb[size_t(d)];
+                    if (ni == ri) continue;
+                    int to = -1;
+                    if (ni >= kSplitBase) {
+                        if (countLine(mx + e.outX, my + e.outY, e.stepX, e.stepY, e.length, give) > 0) {
+                            const PathingRegions::Split& s = splits_[size_t(ni - kSplitBase)];
+                            to = give ? s.a : s.b;
+                        }
+                    } else if (ni < kMaxRegions && rs_[size_t(ni)].walkable() == give) {
+                        to = ni;
+                    }
+                    if (to >= 0) most = n, other = to;
+                }
+                uint16_t mask = 0;  // the unwalkable minitiles
                 const auto* f = vf4(ti);
                 for (int k = 0; k < 16; ++k)
                     if (!f || !((*f)[size_t(k)] & Tileset::kWalkable)) mask |= uint16_t(1u << k);
-                const int mx = x * 4, my = y * 4;
-                int other = -1;  // the region of the other part (an index of rs_)
-                int best = 0;
-                if (!r.walkable()) {
-                    const int n[4] = {count4x1(mx, my), count1x4(mx, my), count1x4(mx + 3, my), count4x1(mx, my + 3)};
-                    for (int d = 3; d >= 0; --d) {
-                        if (n[d] <= best) continue;
-                        const int ni = nb[size_t(d)];
-                        if (ni == ri) continue;
-                        if (ni < kSplitBase) {
-                            if (ni >= kMaxRegions || !rs_[size_t(ni)].walkable()) continue;
-                            best = n[d], other = ni;
-                        } else {
-                            const bool beyond = (d == 0 && count4x1(mx, my - 1)) || (d == 1 && count1x4(mx - 1, my)) || (d == 2 && count1x4(mx + 4, my)) ||
-                                                (d == 3 && count4x1(mx, my + 4));
-                            if (beyond) best = n[d], other = splits_[size_t(ni - kSplitBase)].a;
-                        }
-                    }
-                } else {
-                    const int n[8] = {4 - count4x1(mx, my), 4 - count1x4(mx, my), 4 - count1x4(mx + 3, my), 4 - count4x1(mx, my + 3),
-                                      !walkable(mx, my), !walkable(mx + 3, my), !walkable(mx, my + 3), !walkable(mx + 3, my + 3)};
-                    for (int d = 7; d >= 0; --d) {
-                        if (n[d] <= best) continue;
-                        const int ni = nb[size_t(d)];
-                        if (ni == ri) continue;
-                        if (ni < kSplitBase) {
-                            if (ni >= kMaxRegions || rs_[size_t(ni)].walkable()) continue;
-                            best = n[d], other = ni;
-                        } else {
-                            bool beyond = false;
-                            switch (d) {
-                            case 0: beyond = count4x1(mx, my - 1) != 4; break;
-                            case 1: beyond = count1x4(mx - 1, my) != 4; break;
-                            case 2: beyond = count1x4(mx + 4, my) != 4; break;
-                            case 3: beyond = count4x1(mx, my + 4) != 4; break;
-                            case 4: beyond = !walkable(mx - 1, my - 1); break;
-                            case 5: beyond = !walkable(mx + 4, my - 1); break;
-                            case 6: beyond = !walkable(mx - 1, my + 4); break;
-                            default: beyond = !walkable(mx + 4, my + 4); break;
-                            }
-                            if (beyond) best = n[d], other = splits_[size_t(ni - kSplitBase)].b;
-                        }
-                    }
-                }
                 if (other < 0 || other == ri) mask = r.walkable() ? 0 : 0xffff;
                 else if (!r.walkable() && !rs_[size_t(other)].walkable()) mask = 0xffff;
                 const int o = other < 0 ? ri : other;
@@ -477,10 +460,14 @@ private:
 
 int PathingRegions::regionAt(int mx, int my) const {
     if (mx < 0 || my < 0 || mx >= walkW() || my >= walkH()) return -1;
-    const int t = tile[size_t(my / 4) * width + mx / 4];
-    if (t >= 0) return t;
+    const size_t ti = size_t(my / 4) * width + mx / 4;
+    if (ti >= tile.size()) return -1;
+    const int t = tile[ti];
+    if (t >= 0) return size_t(t) < regions.size() ? t : -1;
+    if (size_t(-1 - t) >= splits.size()) return -1;
     const Split& s = splits[size_t(-1 - t)];
-    return (s.mask >> ((my & 3) * 4 + (mx & 3))) & 1 ? s.b : s.a;
+    const int r = (s.mask >> ((my & 3) * 4 + (mx & 3))) & 1 ? s.b : s.a;
+    return r >= 0 && size_t(r) < regions.size() ? r : -1;
 }
 
 PathingRegions computePathingRegions(const TerrainLayer& terrain, const Tileset& tileset) {
