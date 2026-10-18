@@ -1648,7 +1648,7 @@ constexpr UiText kRows[] = {
     {L"Player 12", L"\u73A9\u5BB6 12"},
     {L"Show ranges of the selected u&nits", L"\u663E\u793A\u6240\u9009\u5355\u4F4D\u7684\u8303\u56F4(&N)"},
     {L"Ranges are hidden", L"\u8303\u56F4\u5DF2\u9690\u85CF"},
-    {L"Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue)", L"\u6240\u9009\u5355\u4F4D\u7684\u8303\u56F4\uFF1A\u89C6\u91CE\uFF08\u9EC4\u8272\uFF09\u3001\u76EE\u6807\u83B7\u53D6\uFF08\u6A59\u8272\uFF09\u3001\u5730\u9762\u6B66\u5668\uFF08\u7EA2\u8272\uFF09\u3001\u7A7A\u4E2D\u6B66\u5668\uFF08\u84DD\u8272\uFF09"},
+    {L"Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue), detection (green), psi field (purple)", L"\u6240\u9009\u5355\u4F4D\u7684\u8303\u56F4\uFF1A\u89C6\u91CE\uFF08\u9EC4\u8272\uFF09\u3001\u76EE\u6807\u83B7\u53D6\uFF08\u6A59\u8272\uFF09\u3001\u5730\u9762\u6B66\u5668\uFF08\u7EA2\u8272\uFF09\u3001\u7A7A\u4E2D\u6B66\u5668\uFF08\u84DD\u8272\uFF09\u3001\u63A2\u6D4B\uFF08\u7EFF\u8272\uFF09\u3001\u7075\u80FD\u573A\uFF08\u7D2B\u8272\uFF09"},
     {L"Favorites", L"\u6536\u85CF"},
     {L"Add to favorites", L"\u6DFB\u52A0\u5230\u6536\u85CF"},
     {L"Remove from favorites", L"\u4ECE\u6536\u85CF\u4E2D\u79FB\u9664"},

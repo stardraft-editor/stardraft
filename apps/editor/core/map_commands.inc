@@ -160,7 +160,7 @@ void registerMapCommands() {
     addCommand(ID_VIEW_GRID, "view.grid", L"Show &grid", "View", L"G", [] { shellState().showGrid = !shellState().showGrid, shellState().dirty = true; }, [] { return shellState().showGrid; });
     addCommand(ID_VIEW_RANGES, "view.ranges", L"Show ranges of the selected u&nits", "View", L"", [] {
         gShowRanges = !gShowRanges;
-        setMessage(gShowRanges ? L"Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue)"
+        setMessage(gShowRanges ? L"Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue), detection (green), psi field (purple)"
                                : L"Ranges are hidden");
         shellMenusChanged();
         shellState().dirty = true;
