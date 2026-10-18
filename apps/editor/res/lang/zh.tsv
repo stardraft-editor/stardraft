@@ -2180,10 +2180,8 @@ Added unit 	已添加单位
 The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.	菱形与地图的菱形形状相同：其高度随大小变化。要设置高度，请选择正方形或圆形。
 The diamond has the shape of the map's diamonds: its height follows its size.	菱形与地图的菱形形状相同：其高度随大小变化。
 Brush height: the diamond has the shape of the map's diamonds, so its height follows its size. To set the height, select the square or the circle.	画笔高度：菱形与地图的菱形形状相同，因此其高度随大小变化。要设置高度，请选择正方形或圆形。
-&Floating terrain palette	浮动地形调色板(&F)
 Terrain palette	地形调色板
 Dock	停靠
-Put the palette back in the side bar	将调色板放回侧栏
 The terrain palette is in its own window	地形调色板在单独的窗口中
 Moved the terrain palette to its own window	已将地形调色板移到单独的窗口
 The terrain palette shows in its own window in Terrain mode	在地形模式下，地形调色板显示在单独的窗口中
@@ -2242,3 +2240,35 @@ Contents	目录
 Help	帮助
 The help pages are not in this build. Open in the browser shows them on the web.	此版本不包含帮助页面。“在浏览器中打开”会在网上显示它们。
 Open the help page of this field (F1)	打开此字段的帮助页面 (F1)
+Floating &palettes	浮动调色板(&P)
+&Floating palette	浮动调色板(&F)
+&Terrain palette	地形调色板(&T)
+&Unit palette	单位调色板(&U)
+&Doodad palette	装饰物调色板(&D)
+&Sprite palette	精灵调色板(&S)
+&Location list	位置列表(&L)
+Unit palette	单位调色板
+Doodad palette	装饰物调色板
+Sprite palette	精灵调色板
+Location list	位置列表
+The unit palette is in its own window	单位调色板在单独的窗口中
+The doodad palette is in its own window	装饰物调色板在单独的窗口中
+The sprite palette is in its own window	精灵调色板在单独的窗口中
+The location list is in its own window	位置列表在单独的窗口中
+Put the terrain palette back in the side bar	将地形调色板放回侧栏
+Put the unit palette back in the side bar	将单位调色板放回侧栏
+Put the doodad palette back in the side bar	将装饰物调色板放回侧栏
+Put the sprite palette back in the side bar	将精灵调色板放回侧栏
+Put the location list back in the side bar	将位置列表放回侧栏
+Moved the unit palette to its own window	已将单位调色板移到单独的窗口
+Moved the doodad palette to its own window	已将装饰物调色板移到单独的窗口
+Moved the sprite palette to its own window	已将精灵调色板移到单独的窗口
+Moved the location list to its own window	已将位置列表移到单独的窗口
+The unit palette shows in its own window in Units mode	在单位模式下，单位调色板显示在单独的窗口中
+The doodad palette shows in its own window in Doodads mode	在装饰物模式下，装饰物调色板显示在单独的窗口中
+The sprite palette shows in its own window in Sprites mode	在精灵模式下，精灵调色板显示在单独的窗口中
+The location list shows in its own window in Locations mode	在位置模式下，位置列表显示在单独的窗口中
+Docked the unit palette	已停靠单位调色板
+Docked the doodad palette	已停靠装饰物调色板
+Docked the sprite palette	已停靠精灵调色板
+Docked the location list	已停靠位置列表

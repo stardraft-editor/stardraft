@@ -2180,10 +2180,8 @@ Added unit 	Unidad añadida
 The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.	El rombo tiene la forma de los rombos del mapa: su alto sigue a su tamaño. Para dar un alto, seleccione el cuadrado o el círculo.
 The diamond has the shape of the map's diamonds: its height follows its size.	El rombo tiene la forma de los rombos del mapa: su alto sigue a su tamaño.
 Brush height: the diamond has the shape of the map's diamonds, so its height follows its size. To set the height, select the square or the circle.	Alto del pincel: el rombo tiene la forma de los rombos del mapa, así que su alto sigue a su tamaño. Para dar un alto, seleccione el cuadrado o el círculo.
-&Floating terrain palette	Paleta de terreno &flotante
 Terrain palette	Paleta de terreno
 Dock	Acoplar
-Put the palette back in the side bar	Devolver la paleta a la barra lateral
 The terrain palette is in its own window	La paleta de terreno está en su propia ventana
 Moved the terrain palette to its own window	Se movió la paleta de terreno a su propia ventana
 The terrain palette shows in its own window in Terrain mode	En el modo Terreno, la paleta de terreno se muestra en su propia ventana
@@ -2242,3 +2240,35 @@ Contents	Contenido
 Help	Ayuda
 The help pages are not in this build. Open in the browser shows them on the web.	Esta compilación no incluye las páginas de ayuda. Abrir en el navegador las muestra en la web.
 Open the help page of this field (F1)	Abrir la página de ayuda de este campo (F1)
+Floating &palettes	&Paletas flotantes
+&Floating palette	Paleta &flotante
+&Terrain palette	Paleta de &terreno
+&Unit palette	Paleta de &unidades
+&Doodad palette	Paleta de &decorados
+&Sprite palette	Paleta de &sprites
+&Location list	Lista de &ubicaciones
+Unit palette	Paleta de unidades
+Doodad palette	Paleta de decorados
+Sprite palette	Paleta de sprites
+Location list	Lista de ubicaciones
+The unit palette is in its own window	La paleta de unidades está en su propia ventana
+The doodad palette is in its own window	La paleta de decorados está en su propia ventana
+The sprite palette is in its own window	La paleta de sprites está en su propia ventana
+The location list is in its own window	La lista de ubicaciones está en su propia ventana
+Put the terrain palette back in the side bar	Devolver la paleta de terreno a la barra lateral
+Put the unit palette back in the side bar	Devolver la paleta de unidades a la barra lateral
+Put the doodad palette back in the side bar	Devolver la paleta de decorados a la barra lateral
+Put the sprite palette back in the side bar	Devolver la paleta de sprites a la barra lateral
+Put the location list back in the side bar	Devolver la lista de ubicaciones a la barra lateral
+Moved the unit palette to its own window	Se movió la paleta de unidades a su propia ventana
+Moved the doodad palette to its own window	Se movió la paleta de decorados a su propia ventana
+Moved the sprite palette to its own window	Se movió la paleta de sprites a su propia ventana
+Moved the location list to its own window	Se movió la lista de ubicaciones a su propia ventana
+The unit palette shows in its own window in Units mode	En el modo Unidades, la paleta de unidades se muestra en su propia ventana
+The doodad palette shows in its own window in Doodads mode	En el modo Decorados, la paleta de decorados se muestra en su propia ventana
+The sprite palette shows in its own window in Sprites mode	En el modo Sprites, la paleta de sprites se muestra en su propia ventana
+The location list shows in its own window in Locations mode	En el modo Ubicaciones, la lista de ubicaciones se muestra en su propia ventana
+Docked the unit palette	Se acopló la paleta de unidades
+Docked the doodad palette	Se acopló la paleta de decorados
+Docked the sprite palette	Se acopló la paleta de sprites
+Docked the location list	Se acopló la lista de ubicaciones

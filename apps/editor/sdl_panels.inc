@@ -120,7 +120,7 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
     PaletteGridView* p = &pal;
     sdlPopupMenu(from, at, sdlModelItems(model, [p, value, sections, mode](int id) {
         if (id == kPalPin) return doodadPinToggle(value);
-        if (id == ID_VIEW_FLOATPAL) return shellFloatPalette(!gFloatPal.floating);
+        if (id >= ID_VIEW_FLOATPAL && id < ID_VIEW_FLOATPAL + kModeCount) return shellFloatPalette(Mode(id - ID_VIEW_FLOATPAL), !gFloatPal[id - ID_VIEW_FLOATPAL].floating);
         if (id >= kPalSectionFirst && id < kPalSectionFirst + int(sections.size())) {
             p->scrollTo(p->rowRect(sections[size_t(id - kPalSectionFirst)]).top);
             return;
