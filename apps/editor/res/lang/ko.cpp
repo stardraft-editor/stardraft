@@ -2278,6 +2278,13 @@ constexpr UiText kRows[] = {
     {L"Make &floating", L"\uB5A0 \uC788\uAC8C \uD558\uAE30(&F)"},
     {L"Dock in the side bar", L"\uC0AC\uC774\uB4DC\uBC14\uC5D0 \uB3C4\uD0B9"},
     {L"Make floating", L"\uB5A0 \uC788\uAC8C \uD558\uAE30"},
+    {L"Sort by &category", L"\uBD84\uB958\uC21C \uC815\uB82C(&C)"},
+    {L"Sort by na&me", L"\uC774\uB984\uC21C \uC815\uB82C(&M)"},
+    {L"Sort by n&umber", L"\uBC88\uD638\uC21C \uC815\uB82C(&U)"},
+    {L"&New panel like this", L"\uC774\uC640 \uAC19\uC740 \uC0C8 \uD328\uB110(&N)"},
+    {L"&Close panel", L"\uD328\uB110 \uB2EB\uAE30(&C)"},
+    {L"New palette panel: ", L"\uC0C8 \uD314\uB808\uD2B8 \uD328\uB110: "},
+    {L"Could not save the map's settings", L"\uB9F5 \uC124\uC815\uC744 \uC800\uC7A5\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

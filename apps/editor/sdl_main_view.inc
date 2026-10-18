@@ -322,6 +322,7 @@ LogPaneView gLogPane;
 // the palette's views move into it or back (true: they are in its window; `slot` is their place in the side bar, in
 // the main window).
 bool floatPaletteSync(Mode m, bool shown, bool alt, draw::Rect slot);
+void palettePanelsSync();  // (sdl_palette_panels.inc: the active tab's panels show in the Map workspace)
 extern FloatPaletteNoteView gFloatNote;  // (in the side bar while the palette is in its window)
 
 // The main window: the menu bar, the top tool bar under it (core/views_topbar.inc), the document tabs, the workspace rail, the status bar, the map view with its minimap and
@@ -639,6 +640,7 @@ struct MainView final : draw::View {
         PaneSlot noteSlot = tilesSlot;
         noteSlot.rc.top = owners ? L.owner.rc.top : sections ? L.sectionBox.rc.top : L.search.rc.top;
         const bool floated = floatPaletteSync(m, mapWs && noteSlot.placed, tiles, draw::Rect(noteSlot.rc));
+        palettePanelsSync();
         const auto side = [this](draw::View& v, const PaneSlot& s, bool shown) {
             if (v.parent() == this) apply(v, s, shown);
         };

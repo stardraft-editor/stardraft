@@ -28,6 +28,18 @@
     <true/>
     <key>NSSupportsAutomaticGraphicsSwitching</key>
     <true/>
+    <!-- Why StarDraft reads the folders that macOS guards (it asks the user once with this text; without a text the
+         access is refused and a map there cannot be opened: "StormLib error 1"). -->
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>StarDraft opens and saves the maps and projects that you keep in Documents.</string>
+    <key>NSDesktopFolderUsageDescription</key>
+    <string>StarDraft opens and saves the maps and projects that you keep on the Desktop.</string>
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>StarDraft opens the maps that you download.</string>
+    <key>NSRemovableVolumesUsageDescription</key>
+    <string>StarDraft opens and saves maps on removable drives.</string>
+    <key>NSNetworkVolumesUsageDescription</key>
+    <string>StarDraft opens and saves maps on network drives.</string>
     <!-- StarCraft maps (.scm, .scx): StarDraft exports their types, so Finder opens them with StarDraft (an
          SDL_EVENT_DROP_FILE for each file). Their icons are made by the system from the app's icon (the badge) and the
          extension (the text); the Quick Look extensions in PlugIns (apps/quicklook) show each map's own picture. The type's

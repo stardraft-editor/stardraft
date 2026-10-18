@@ -136,12 +136,14 @@ void shellPaletteReveal(int value) { gPalList.reveal(value); }
 void shellPaletteChanged() {
     gPalList.invalidate();
     gPal2List.invalidate();
+    palettePanelsChanged();
     invalidateMapView();
 }
 // The palette's entries are made again: the list of its mode, its section box and the second palette's list.
 void shellPaletteRebuilt() {
     rebuildPaletteRows();
     if (gPal2Shown) rebuildSecondRows();
+    palettePanelsRebuild();
 }
 // The folder of the projects that are not saved yet (core/documents.inc): StarDraft/Unsaved in the user's data folder
 // (%LOCALAPPDATA% on Windows, the Win32 program's folder; ~/Library/Application Support on macOS; $XDG_DATA_HOME or
@@ -266,7 +268,8 @@ int shellAskUnapplied(const std::wstring& text, const std::wstring& title) {
 }
 // A side panel's tab, right-clicked: its menu at the mouse (the title, then Left and Right with the side's check). The
 // call waits for the pick: 1 Left, 2 Right, 0 none.
-int shellTabSideMenu(const std::wstring& title, int side) {
+int shellTabSideMenu(const std::wstring& title, int side, int mode) {
+    const Mode m = Mode(mode);
     if (!gRoot || !gHost) return 0;
     struct Pick {
         bool closed = false;
@@ -278,6 +281,13 @@ int shellTabSideMenu(const std::wstring& title, int side) {
     items[1].separator = true;
     items[2].label = shellTr(L"Left"), items[2].checked = side == 0, items[2].run = [pick] { pick->id = 1; };
     items[3].label = shellTr(L"Right"), items[3].checked = side == 1, items[3].run = [pick] { pick->id = 2; };
+    items.push_back(stardraft::kit::MenuItem{}), items.back().separator = true;
+    items.push_back(stardraft::kit::MenuItem{});
+    items.back().label = accessFree(floatPaletteMenuLabel(m)), items.back().run = [pick] { pick->id = 3; };
+    if (m != Mode::Locations) {
+        items.push_back(stardraft::kit::MenuItem{});
+        items.back().label = accessFree(L"&New panel like this"), items.back().run = [pick] { pick->id = 4; };
+    }
     stardraft::kit::MenuOptions opts;
     opts.closed = [pick](bool) { shellPost([pick] { pick->closed = true; }); };  // (after the picked item ran)
     ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)

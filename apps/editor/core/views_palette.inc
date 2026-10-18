@@ -26,7 +26,8 @@ struct PaletteGridView : draw::View {
     }
     ~PaletteGridView() override { remove(bar_); }
 
-    const PaletteView& view() const { return gViewByMode[int(mode)]; }
+    const PaletteView* ownView = nullptr;  // a palette panel's own view (else the mode's: gViewByMode)
+    const PaletteView& view() const { return ownView ? *ownView : gViewByMode[int(mode)]; }
     // The rows changed (or the view): their places again, the scroll kept where it can be.
     void setRows(std::vector<PaletteRow> r, Mode m, int pins) {
         rows = std::move(r), mode = m, pinned = pins;

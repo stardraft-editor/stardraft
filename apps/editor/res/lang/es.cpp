@@ -2278,6 +2278,13 @@ constexpr UiText kRows[] = {
     {L"Make &floating", L"Hacer &flotante"},
     {L"Dock in the side bar", L"Acoplar en la barra lateral"},
     {L"Make floating", L"Hacer flotante"},
+    {L"Sort by &category", L"Ordenar por &categor\u00EDa"},
+    {L"Sort by na&me", L"Ordenar por no&mbre"},
+    {L"Sort by n&umber", L"Ordenar por n&\u00FAmero"},
+    {L"&New panel like this", L"&Nuevo panel como este"},
+    {L"&Close panel", L"&Cerrar panel"},
+    {L"New palette panel: ", L"Nuevo panel de paleta: "},
+    {L"Could not save the map's settings", L"No se pudieron guardar los ajustes del mapa"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

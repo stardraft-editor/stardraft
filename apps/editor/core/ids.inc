@@ -40,6 +40,8 @@ enum : int {
     ID_SNAP_UNITS = 910, ID_SNAP_SPRITES = 914, ID_SNAP_LOCATIONS = 918, ID_DOODAD_FIT = 922, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE,
     ID_FIXED_DOODAD_SNAP, ID_FIXED_DOODAD_STACK, ID_FIXED_SPRITE_PLACE, ID_FIXED_SPRITE_STACK, ID_FIXED_LOC_PLACE, ID_FIXED_LOC_STACK,
     ID_PAL_LIST = 620, ID_PAL_ICONS, ID_PAL_SPRITES, ID_PAL_NORMAL, ID_PAL_LARGE,
+    ID_PAL_SORT_CATEGORY = 625, ID_PAL_SORT_NAME, ID_PAL_SORT_NUMBER,  // the palette's View menu: its order (PaletteSort)
+    ID_PAL_NEW_PANEL = 628, ID_PAL_CLOSE_PANEL,  // ... a palette panel like it (sdl_palette_panels.inc), a panel's Close
     ID_GRID_SIZE = 950,  // + the preset (kGridPresets); View > Grid size
     ID_GRID_CUSTOM = 958,
     ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese

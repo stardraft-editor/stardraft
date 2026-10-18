@@ -74,6 +74,71 @@ kit::MenuItem sdlPaletteFloatItem(Mode m) {
     return it;
 }
 
+// A palette window inside the main window (the floating palette, the panels: they belong to the map tab): the window
+// moves in when a part of it is outside the main window's area (or as much as fits). False: it was inside.
+bool sdlPanelKeepInside(SDL_Window* w, int* x = nullptr, int* y = nullptr) {
+    SDL_Window* main = gHost ? gHost->mainWindow() : nullptr;
+    if (!w || !main) return false;
+    int mx = 0, my = 0, mw = 0, mh = 0, px = 0, py = 0, pw = 0, ph = 0;
+    SDL_GetWindowPosition(main, &mx, &my), SDL_GetWindowSize(main, &mw, &mh);
+    SDL_GetWindowPosition(w, &px, &py), SDL_GetWindowSize(w, &pw, &ph);
+    if (x) px = *x;
+    if (y) py = *y;
+    const int nx = std::max(mx, std::min(px, mx + mw - pw)), ny = std::max(my, std::min(py, my + mh - ph));
+    int cx = 0, cy = 0;
+    SDL_GetWindowPosition(w, &cx, &cy);
+    if (nx == cx && ny == cy) return false;
+    SDL_SetWindowPosition(w, nx, ny);
+    return !(x && y && nx == *x && ny == *y);
+}
+
+void sdlPanelCollapse(PanelStripView& v, bool on, int& fullH);  // (sdl_palette_panels.inc)
+
+// The height of a palette window's strip (core/views_palette_float.inc: PanelStripView): 32 px and its line.
+int panelStripH() { return scale(32) + 1; }
+
+// The window's hit test: the strip moves the window (the system's drag: smooth; the window comes back inside the main
+// window when the drag ends, sdlPanelKeepInside); on Windows and Linux (no frame of the system's: drawFrame) its edges
+// and corners change its size too.
+SDL_HitTestResult sdlPanelHitTest(SDL_Window* win, const SDL_Point* p, void* data) {
+    const PanelStripView& v = *static_cast<const PanelStripView*>(data);
+    const float d = SDL_GetWindowPixelDensity(win);
+    const draw::Point at{int(p->x * d), int(p->y * d)};
+    const int e = scale(5), w = v.width(), h = v.height();
+    if (!v.collapsed && v.drawFrame) {
+        const bool l = at.x < e, r = at.x >= w - e, t = at.y < e, b = at.y >= h - e;
+        if (t && l) return SDL_HITTEST_RESIZE_TOPLEFT;
+        if (t && r) return SDL_HITTEST_RESIZE_TOPRIGHT;
+        if (b && l) return SDL_HITTEST_RESIZE_BOTTOMLEFT;
+        if (b && r) return SDL_HITTEST_RESIZE_BOTTOMRIGHT;
+        if (l) return SDL_HITTEST_RESIZE_LEFT;
+        if (r) return SDL_HITTEST_RESIZE_RIGHT;
+        if (b) return SDL_HITTEST_RESIZE_BOTTOM;
+        if (t && !v.dragAt(at)) return SDL_HITTEST_RESIZE_TOP;
+    }
+    if (v.dragAt(at)) return SDL_HITTEST_DRAGGABLE;
+    return SDL_HITTEST_NORMAL;
+}
+
+// A palette window's look and drag (the floating palette's, a panel's): the slim strip in place of the system's title
+// bar (core/views_palette_float.inc: PanelStripView; macOS: the title bar shows nothing, macSetupToolWindow; Windows and
+// Linux: no frame of the system's, a line around it, the edges and the strip through the hit test), and a drag on the
+// strip moves the window with the mouse, kept in the main window (Wayland: the system moves it; it cannot be kept in).
+void sdlPanelWindowSetup(PanelStripView& v) {
+    SDL_Window* sw = gHost ? gHost->sdlWindow(v) : nullptr;
+    if (!sw) return;
+    v.titleH = panelStripH();
+    if (!macSetupToolWindow(sw)) {
+        SDL_SetWindowBordered(sw, false);
+        v.drawFrame = true;
+    }
+    SDL_SetWindowHitTest(sw, sdlPanelHitTest, &v);
+}
+// After a drag (no mouse button down): the window back inside the main window.
+void sdlPanelKeepInsideAfterDrag(SDL_Window* w) {
+    if (!(SDL_GetGlobalMouseState(nullptr, nullptr) & SDL_BUTTON_LMASK)) sdlPanelKeepInside(w);
+}
+
 // The screens' usable areas, in SDL's window coordinates.
 std::vector<RECT> floatPaletteScreens() {
     std::vector<RECT> out;
@@ -110,30 +175,47 @@ void floatPaletteClose() {
     floatPaletteViewsBack();
 }
 
-// Opens or closes the window for the state (MainView::relayout). `m`: the active mode; `shown`: the Map workspace
-// shows a map and the side bar has a place for the palette (`slot`, in the main window); `alt`: Rectangle mode's Tiles
-// panel. True: the palette of `m` is in its window (the side bar shows the note).
+// The modes' floating palettes (Terrain, Units, Doodads, Sprites: palettes of their own, sdl_palette_panels.inc) open
+// or close for the state; Terrain's holds the Tiles panel in Rectangle mode. True: the palette of `active` floats.
+bool floatPalettesSync(Mode active, bool shown, bool alt, draw::Rect slot);
+
+// Opens or closes the windows for the state (MainView::relayout): each floating palette shows in every mode while the
+// Map workspace shows a map. `m`: the active mode; `shown`: the Map workspace shows a map and the side bar has a place
+// for the palette (`slot`, in the main window); `alt`: Rectangle mode's Tiles panel. The location list's window holds
+// the side bar's location list and its filter (only Locations mode shows them in the side bar). True: the palette of
+// `m` is in its window (the side bar shows the note).
+bool locationListSync(bool shown, draw::Rect slot);
 bool floatPaletteSync(Mode m, bool shown, bool alt, draw::Rect slot) {
     static bool busy = false;
-    if (busy) return gFloatPalOpen && gFloatPalMode == m;
+    if (busy) return gFloatPal[int(m)].floating;
+    busy = true;
+    const bool others = floatPalettesSync(m, shown, alt, slot);
+    busy = false;
+    gFloatNote.setPalette(m);  // (the side bar's note, while it floats)
+    const bool loc = locationListSync(shown, slot);
+    return m == Mode::Locations ? loc : others;
+}
+
+// The location list's window (gFloatPalView, with the side bar's location views) while the list floats.
+bool locationListSync(bool shown, draw::Rect slot) {
+    const Mode m = Mode::Locations;
+    static bool busy = false;
+    if (busy) return gFloatPalOpen;
     const bool want = gFloatPal[int(m)].floating && shown && gHost && gRoot;
-    if (gFloatPalOpen && (!want || gFloatPalMode != m)) {  // (another mode, or docked: the window closes)
+    if (gFloatPalOpen && !want) {
         busy = true;
         floatPaletteClose();
         busy = false;
     }
-    gFloatNote.setPalette(m);  // (the side bar's note, while it floats)
-    if (gFloatPalOpen) {
-        gFloatPalView.setAltShown(alt);
-        return true;
-    }
+    if (gFloatPalOpen) return true;
     if (!want) return false;
     busy = true;
     const FloatPalette& kept = gFloatPal[int(m)];
     gFloatPalMode = m;
-    gFloatPalView.name = kFloatPalNames[int(m)].title;
+    gFloatPalView.name = kModeNames[int(m)];
     gFloatPalView.dock.setTip(kFloatPalNames[int(m)].tip);
-    gFloatPalView.altShown = alt;
+    gFloatPalView.altShown = false;
+    gFloatPalView.collapsed = false;  // (a window opens whole)
     gFloatPalView.hold(floatPaletteParts(m));
     // The first place: over the map, at the side bar's edge, as wide as the side bar or more; the size that the settings
     // keep (points; a snapshot's window has one pixel to a point).
@@ -143,30 +225,21 @@ bool floatPaletteSync(Mode m, bool shown, bool alt, draw::Rect slot) {
     const bool right = slot.left >= map.right;  // (the palette's side bar is on the right of the map)
     const int x = right ? std::max(map.left, map.right - scale(16) - w) : std::max(slot.right, map.left) + scale(16), y = map.top + scale(16);
     gFloatPalShotAt = draw::Rect(x, y, x + w, y + h);
-    gHost->openWindow(*gRoot, gFloatPalView, draw::WindowSpec{draw::WindowKind::Tool, gFloatPalShotAt, kFloatPalNames[int(m)].title}, [] {
+    gHost->openWindow(*gRoot, gFloatPalView, draw::WindowSpec{draw::WindowKind::Tool, gFloatPalShotAt, kModeNames[int(m)]}, [] {
         if (!gFloatPalClosing) floatPaletteClosedByUser();
     });
     gFloatPalOpen = gFloatPalView.host() != nullptr;  // (no window: the main window is not shown yet; it opens later)
     if (!gFloatPalOpen) floatPaletteViewsBack();
     if (SDL_Window* sw = gFloatPalOpen ? gHost->sdlWindow(gFloatPalView) : nullptr) {
         SDL_SetWindowMinimumSize(sw, kFloatPalMinW, kFloatPalMinH);
-        // macOS: a slim title strip of the palette's own in place of the system's title bar (its buttons, its height);
-        // a drag on the strip moves the window (the hit test: the strip's points in the view's pixels).
-        if (macSetupToolWindow(sw)) {
-            gFloatPalView.titleH = scale(24) + 1;
-            SDL_SetWindowHitTest(sw, [](SDL_Window* win, const SDL_Point* p, void*) {
-                const float d = SDL_GetWindowPixelDensity(win);
-                return gFloatPalView.dragAt({int(p->x * d), int(p->y * d)}) ? SDL_HITTEST_DRAGGABLE : SDL_HITTEST_NORMAL;
-            }, nullptr);
-        }
+        sdlPanelWindowSetup(gFloatPalView);
         if (floatPaletteOnScreens(kept, floatPaletteScreens())) {  // the kept place, when it is still on a screen
             SDL_SetWindowSize(sw, kept.w, kept.h);
             SDL_SetWindowPosition(sw, kept.x, kept.y);
         }
+        sdlPanelKeepInside(sw);
     }
-#ifdef __APPLE__
-    if (gFloatPalOpen && !gHost->sdlWindow(gFloatPalView)) gFloatPalView.titleH = scale(24) + 1;  // (a snapshot: the strip, as in the window)
-#endif
+    if (gFloatPalOpen && !gHost->sdlWindow(gFloatPalView)) gFloatPalView.titleH = panelStripH();  // (a snapshot: the strip, as in the window)
     if (gFloatPalOpen) gFloatPalView.place();
     busy = false;
     return gFloatPalOpen;
@@ -174,16 +247,24 @@ bool floatPaletteSync(Mode m, bool shown, bool alt, draw::Rect slot) {
 
 // View > Floating palettes, a palette's View menu, Dock: the state of the palette of `m` changes, is saved, and its
 // window opens (in its mode) or closes.
+bool floatingPanelSet(Mode m, bool on);  // (sdl_palette_panels.inc: the active tab's floating palette of m)
 void shellFloatPalette(Mode m, bool on) {
     gFloatPalLines = true;
     FloatPalette& p = gFloatPal[int(m)];
+    if (m != Mode::Locations) {  // (a palette of the active tab's own, kept with the map's panels; gFloatPal: its place)
+        if (!floatingPanelSet(m, on)) return;
+        if (gRoot) gRoot->relayout();
+        shellMenusChanged();
+        setMessage(on ? kFloatPalNames[int(m)].moved : kFloatPalNames[int(m)].docked);
+        return;
+    }
     if (p.floating == on) return;
     p.floating = on;
     saveDock();
     if (gRoot) gRoot->relayout();
     shellMenusChanged();
     const FloatPaletteNames& n = kFloatPalNames[int(m)];
-    if (on) setMessage(gFloatPalOpen && gFloatPalMode == m ? n.moved : n.later);
+    if (on) setMessage(n.moved);
     else setMessage(n.docked);
 }
 
@@ -202,8 +283,10 @@ void sdlFloatPaletteFrame() {
     if (!w) return;
     FloatPalette& kept = gFloatPal[int(gFloatPalMode)];
     FloatPalette now = kept;
+    sdlPanelKeepInsideAfterDrag(w);
     SDL_GetWindowPosition(w, &now.x, &now.y);
     SDL_GetWindowSize(w, &now.w, &now.h);
+    if (gFloatPalView.collapsed) now.h = kept.h;  // (its height while collapsed is the strip's: the kept one stays)
     if (!(now == kept)) kept = now, gFloatPalSaveAt = SDL_GetTicks() + 500;
     if (gFloatPalSaveAt && SDL_GetTicks() >= gFloatPalSaveAt) gFloatPalSaveAt = 0, saveDock();
 }
@@ -214,6 +297,19 @@ void sdlFloatPaletteSetup() {
     gFloatPalView.onDock = [] { shellPost([] { shellFloatPalette(gFloatPalMode, false); }); };  // (after the click: the window closes)
     gFloatNote.onDock = [] { shellPost([] { shellFloatPalette(gState.mode, false); }); };
     gFloatPalView.keys = [](const draw::KeyEvent& e) { return gRoot && gRoot->key(e); };
+    // The collapse box: the window becomes its strip, and back (its height is not saved while it is collapsed).
+    gFloatPalView.onCollapse = [] {
+        shellPost([] {
+            static int full = 0;
+            sdlPanelCollapse(gFloatPalView, !gFloatPalView.collapsed, full);
+            gFloatPalView.place();
+        });
+    };
+    // The duplicate box: a panel like the floating palette (its mode, view and order), by its window.
+    gFloatPalView.onDuplicate = [] {
+        const Mode m = gFloatPalMode;
+        shellPost([m] { palettePanelNew(m, gViewByMode[int(m)], gSortByMode[int(m)], &gFloatPalView); });
+    };
     for (const FloatPalette& p : gFloatPal)
         if (p.floating) gFloatPalLines = true;
     if (!gRoot) return;
@@ -224,6 +320,10 @@ void sdlFloatPaletteSetup() {
     if (lone) gRoot->attach(nullptr);
 }
 
+// The window of the active mode's floating palette (the location list's, or the tab's floating palette's), or null.
+draw::View* floatingWindowOf(Mode m);  // (sdl_palette_panels.inc)
+std::string floatingPanelLine(Mode m);  // (sdl_palette_panels.inc: the part of the line for a tab's floating palette)
+
 // A snapshot's line after each input (sdl_menus.inc: sdlInputLine), once a floating palette is in use: the active
 // mode's palette, its state, the window's size in pixels and its place (a snapshot: in the main window's pixels; else
 // on the screens), the pick, the view under the views' root, its kept place, and the palettes that float.
@@ -232,29 +332,26 @@ void sdlFloatPaletteLine() {
     const Mode a = gState.mode;
     std::string floating;
     for (const Mode m : kModeOrder)
-        if (gFloatPal[int(m)].floating) floating += (floating.empty() ? "" : ",") + floatPaletteShort(m);
+        if (paletteFloats(m)) floating += (floating.empty() ? "" : ",") + floatPaletteShort(m);
     if (floating.empty()) floating = "none";
     const std::string name = floatPaletteShort(a);
-    if (!gFloatPal[int(a)].floating) {
+    if (!paletteFloats(a)) {
         bool inSide = gRoot != nullptr;
         for (draw::View* v : floatPaletteViews(floatPaletteParts(a))) inSide = inSide && v->parent() == gRoot;
-        return void(std::printf("  palette: docked %s, %s%s; pick=%d; floating=%s\n", name.c_str(), inSide ? "in the side bar" : "not in the side bar (WRONG)",
-                                gFloatPalOpen ? ", a window is open (WRONG)" : "", gState.palette, floating.c_str()));
+        return void(std::printf("  palette: docked %s, %s; pick=%d; floating=%s\n", name.c_str(), inSide ? "in the side bar" : "not in the side bar (WRONG)",
+                                gState.palette, floating.c_str()));
     }
-    if (!gFloatPalOpen || gFloatPalMode != a)
-        return void(std::printf("  palette: floating %s, no window%s; pick=%d; floating=%s\n", name.c_str(),
-                                gFloatPalOpen ? " (WRONG: the window of another mode is open)" : "", gState.palette, floating.c_str()));
+    if (a != Mode::Locations) return void(std::printf("  palette: floating %s, %s; pick=%d; floating=%s\n", name.c_str(), floatingPanelLine(a).c_str(), gState.palette, floating.c_str()));
+    if (!gFloatPalOpen) return void(std::printf("  palette: floating %s, no window; pick=%d; floating=%s\n", name.c_str(), gState.palette, floating.c_str()));
     int x = gFloatPalShotAt.left, y = gFloatPalShotAt.top;
     if (SDL_Window* w = gHost ? gHost->sdlWindow(gFloatPalView) : nullptr) SDL_GetWindowPosition(w, &x, &y);
     draw::Point size;  // (the window that takes a snapshot's keys now: the palette's when it is the last one opened)
     const bool keysHere = gHost && gRoot && &gHost->snapshotTop(*gRoot, size) == &gFloatPalView;
     const FloatPaletteParts& parts = gFloatPalView.parts();
-    SearchBox& search = a == Mode::Locations ? gFilterSdl : gSearchSdl;
     const FloatPalette& kept = gFloatPal[int(a)];
     std::printf("  palette: floating %s, window %dx%d px at %d,%d, %s; pick=%d; keys=%s; search=\"%s\"%s; kept %d,%d %dx%d; floating=%s\n", name.c_str(),
-                gFloatPalView.width(), gFloatPalView.height(), x, y,
-                gFloatPalView.altShown && parts.alt ? "tiles" : parts.list && parts.list->parent() == &gFloatPalView ? "list" : "empty (WRONG)", gState.palette,
-                keysHere ? "window" : "main", narrow(search.field().text()).c_str(), search.field().hasFocus() ? " (typing)" : "", kept.x, kept.y, kept.w,
+                gFloatPalView.width(), gFloatPalView.height(), x, y, parts.list && parts.list->parent() == &gFloatPalView ? "list" : "empty (WRONG)", gState.palette,
+                keysHere ? "window" : "main", narrow(gFilterSdl.field().text()).c_str(), gFilterSdl.field().hasFocus() ? " (typing)" : "", kept.x, kept.y, kept.w,
                 kept.h, floating.c_str());
 }
 
@@ -313,8 +410,9 @@ void sdlFloatPaletteScript(const std::string& what) {
         const float s = float(std::atof(what.c_str() + 6)) / 100.0f;
         // (the screens' scale, not the test's --scale: the program's scale is the main window's screen's, 1 here)
         const float before = gHost ? gHost->scale() : 0, after = gHost ? (gHost->setScale(0), gHost->scale()) : 0;
-        if (!gFloatPalOpen || !gHost || s <= 0) std::printf("palette %s: no window or no scale (WRONG)\n", what.c_str());
-        else gHost->snapshotScaleChanged(gFloatPalView, s);
+        draw::View* win = floatingWindowOf(gState.mode);
+        if (!win || !gHost || s <= 0) std::printf("palette %s: no window or no scale (WRONG)\n", what.c_str());
+        else gHost->snapshotScaleChanged(*win, s);
         runPosted();
         sdlInputLine("palette " + what);
         std::printf("  palette scale: the program's scale %.2f, %.2f before\n", gHost ? double(gHost->scale()) : 0.0, double(after));
@@ -322,8 +420,9 @@ void sdlFloatPaletteScript(const std::string& what) {
         return;
     }
     if (what != "close") return void(std::printf("palette %s: not close or scale (WRONG)\n", what.c_str()));
-    if (!gFloatPalOpen || !gHost) std::printf("palette close: no window (WRONG)\n");
-    else gHost->snapshotClose(gFloatPalView);
+    draw::View* win = floatingWindowOf(gState.mode);
+    if (!win || !gHost) std::printf("palette close: no window (WRONG)\n");
+    else gHost->snapshotClose(*win);
     runPosted();
     sdlInputLine("palette close");
 }
@@ -331,14 +430,17 @@ void sdlFloatPaletteScript(const std::string& what) {
 // The end of a snapshot's input (SdlHost::snapshotInputEnd): its windows close, the palette's too (not by the user: it
 // stays floating). The window opens again as a picture over the root (the host's snapshot with no window paints it at
 // its place), for the frames after the input.
+void palettePanelsWindowsGone(bool before);  // (sdl_palette_panels.inc)
 void sdlFloatPaletteInputEnd(kit_sdl::SdlHost& host, draw::View& root) {
     const bool was = gFloatPalOpen;
     gFloatPalClosing = true;
+    palettePanelsWindowsGone(true);  // (the palette panels' windows close too; the panels stay and open again)
     host.snapshotInputEnd();
     gFloatPalClosing = false;
-    if (!was || !gRoot) return;
+    const bool panels = (palettePanelsWindowsGone(false), true);
+    if ((!was && !panels) || !gRoot) return;
     gFloatPalOpen = false;
-    floatPaletteViewsBack();
+    if (was) floatPaletteViewsBack();
     root.attach(&host);
     gRoot->relayout();
     root.attach(nullptr);
@@ -347,7 +449,9 @@ void sdlFloatPaletteInputEnd(kit_sdl::SdlHost& host, draw::View& root) {
 // A pick in the palette's window gives the keyboard to the map (shellFocusView): the window's search box loses it (the
 // window's root has it; the keys that the root does not take go to the main window), and the main window gets the
 // system's keyboard focus when the palette's window had it.
+void palettePanelsKeysToMap();  // (sdl_palette_panels.inc: the same for the panels' windows)
 void floatPaletteKeysToMap() {
+    palettePanelsKeysToMap();
     if (!gFloatPalOpen || !gHost || !gFloatPalView.host()) return;
     gFloatPalView.focus();
     SDL_Window* pw = gHost->sdlWindow(gFloatPalView);
