@@ -276,9 +276,9 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
     return p;
 }
 
-// A new panel like a palette (its mode, view and order), of the active tab; by the window `near` (a floating palette or
+// A new panel like a palette (its mode, view and order), of the active tab; by the window `nearView` (a floating palette or
 // a panel: a step down and right of it), else over the map by the side bar.
-void palettePanelNew(Mode m, const PaletteView& view, PaletteSort sort, draw::View* near) {
+void palettePanelNew(Mode m, const PaletteView& view, PaletteSort sort, draw::View* nearView) {
     if (!gRoot || !docOpen() || m == Mode::Locations) return;
     auto p = palettePanelMake(m, view, sort, activeDocKey());
     PalettePanelView& v = *p->view;
@@ -286,10 +286,10 @@ void palettePanelNew(Mode m, const PaletteView& view, PaletteSort sort, draw::Vi
     const int step = scale(24);
     draw::Rect at;
     PanelWindow* from = nullptr;
-    if (auto* nv = dynamic_cast<PalettePanelView*>(near)) from = palettePanelOf(*nv);
+    if (auto* nv = dynamic_cast<PalettePanelView*>(nearView)) from = palettePanelOf(*nv);
     if (from)
         at = from->at;
-    else if (near == &gFloatPalView && gFloatPalOpen) {
+    else if (nearView == &gFloatPalView && gFloatPalOpen) {
         at = gFloatPalShotAt;
         if (SDL_Window* fw = gHost ? gHost->sdlWindow(gFloatPalView) : nullptr) {
             SDL_Window* main = gHost->mainWindow();
@@ -304,7 +304,7 @@ void palettePanelNew(Mode m, const PaletteView& view, PaletteSort sort, draw::Vi
         const int x = std::max(map.left, map.right - scale(16) - w) - step * int(gPanels.size() % 8), y = map.top + scale(16) + step * int(gPanels.size() % 8);
         at = draw::Rect(x, y, x + w, y + h);
     }
-    if (near) at = draw::Rect(at.left + step, at.top + step, at.right + step, at.bottom + step);
+    if (nearView) at = draw::Rect(at.left + step, at.top + step, at.right + step, at.bottom + step);
     p->at = at;
     gPanels.push_back(std::move(p));
     palettePanelOpen(*gPanels.back());

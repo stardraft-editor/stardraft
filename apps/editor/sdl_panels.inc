@@ -59,9 +59,9 @@ SearchBox gFilterSdl;   // the Locations filter
 SearchBox gSearchSdl;   // the palette's search
 DropdownBox gSectionDropSdl;  // the section box (Units, Doodads, Sprites)
 void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int row, PalettePanelView* panel = nullptr);
-// A palette panel like a palette (sdl_palette_panels.inc): its mode, view and order; `near`: the window it opens by
+// A palette panel like a palette (sdl_palette_panels.inc): its mode, view and order; `nearView`: the window it opens by
 // (null: by the side bar).
-void palettePanelNew(Mode m, const PaletteView& v, PaletteSort sort, draw::View* near);
+void palettePanelNew(Mode m, const PaletteView& v, PaletteSort sort, draw::View* nearView);
 void palettePanelClose(PalettePanelView& p);
 void palettePanelRebuild(PalettePanelView& p);
 kit::Button gViewBtnSdl{L"View", kit::Tone::Normal, [] {  // the View menu under the button (as the Windows View button)
