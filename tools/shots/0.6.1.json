@@ -1,0 +1,17 @@
+{
+  "runs": [
+    {"map": "Maps/(2)Bottleneck.scm", "cases": ["map-classictrig-comment", "map-view-fog", "map-terrain-flags-height", "map-palette-float",
+                                               "map-dialog-mapimage", "map-newpage-rules", "map-pathing-check"]},
+    {"cases": ["help-page"]}
+  ],
+  "shots": [
+    {"run": 1, "from": "help-page.png", "to": "help.png", "crop": [0, 0, 1040, 740], "alt": "Help"},
+    {"run": 0, "from": "map-dialog-mapimage.png", "to": "export-map-image.png", "crop": [0, 0, 488, 356], "alt": "Export map image"},
+    {"run": 0, "from": "map-palette-float.png", "to": "floating-palette.png", "crop": [344, 98, 800, 640], "alt": "A floating palette"},
+    {"run": 0, "from": "map-pathing-check.png", "to": "check-pathing.png", "crop": [405, 98, 870, 860], "alt": "Check pathing: the regions and the problems"},
+    {"run": 0, "from": "map-terrain-flags-height.png", "to": "terrain-flags.png", "crop": [405, 98, 855, 855], "alt": "Terrain flags: ground height"},
+    {"run": 0, "from": "map-view-fog.png", "to": "fog-of-war.png", "crop": [405, 98, 855, 855], "alt": "The fog of war of Player 1"},
+    {"run": 0, "from": "map-classictrig-comment.png", "to": "trigger-comment.png", "crop": [64, 100, 1536, 330], "alt": "Classic triggers: a comment and a heading"},
+    {"run": 0, "from": "map-newpage-rules.png", "to": "generator-rules.png", "crop": [528, 228, 1404, 900], "alt": "Generate terrain with rules"}
+  ]
+}
