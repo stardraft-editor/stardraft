@@ -17,9 +17,6 @@ what is missing, and what must be decided first. Update ROADMAP.md (and so the w
 
 | Item | What exists | What is missing |
 |---|---|---|
-| R33 Unit range overlay | View > Show ranges of the selected units (view.ranges, map_commands.inc; rangesScene in map_scene.inc): sight, target acquisition, ground and air weapons | Detection range (detectors) and the psi field (Pylon); then mark done |
-| R34 Terrain flag overlays | View > Pathing (core/pathing_layer.inc) draws an overlay on the map; the tileset's minitile flags are read (src/tileset.cpp, src/pathing.cpp) | Layers for walkable, height (low, middle, high) and cover or line of sight, from the VF4 minitile flags |
-| R53 Camera controls | "Center the camera" (act.centerview) and "Center the camera on a unit" (act.camerafollow) | Pan (move the view over time) and shake; Center View moves a location, then centers on it |
 | R58 EUD terrain info | Nothing | Blocks that read the tile at a location or a point: the game's tile map in memory (find and check its address), as a condition and as a value |
 | R61 Quick add | Q on the map opens the quick search | Q in the Triggers workspace and on the Classic triggers page: a search box that adds the selected block, condition or action after the selected one |
 | R60 Trigger search | Classic triggers have a text search (since 0.5.0.8) | A pop-up, as Quick open, in both trigger editors: matching triggers, conditions, actions, blocks and comments, each with its trigger; selecting one goes to it; the list is not filtered |
