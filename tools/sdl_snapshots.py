@@ -262,6 +262,16 @@ CASES += [
     ("map-save-edited", ["--mode", "units", "--key", "Ctrl+A", "--key", "Del", "--saveas", "{out}/edited.scx"], "map"),
     # A menu command by its name (--command): View > Show town areas (the item is not gray, the areas show).
     ("map-view-towns", ["--command", "view.towns"], "map"),
+    # View > Layers > Pathing (core/pathing_layer.inc): the game's pathing regions, each in its own tint with its borders;
+    # Pathing shows the connected areas: each area that ground units can walk across in its own tint.
+    ("map-pathing-layer", ["--command", "view.layer.pathing", "--key", "+", "--key", "+"], "map"),
+    ("map-pathing-areas", ["--command", "view.pathing.areas"], "map"),
+    # Scenario > Check pathing: the list of the problems (each "pathing" line says the layer, the regions and the check);
+    # Enter picks the first one: the layer shows, the problem has its mark in the middle of the view.
+    ("map-pathing-check", ["--script", "{script:pathingcheck}"], "map"),
+    # (2)Boxer of the install has one pocket with a fix: the list's second row is its "Apply the fix"; the pick changes
+    # the tile (one undo step, no pocket left), Ctrl+Z gives the pocket back.
+    ("map-pathing-fix", ["--script", "{script:pathingfix}"], "map"),
     # The graphics (View > Standard definition, Carbot), zoomed in on the units.
     ("map-view-sd", ["--command", "view.sd", "--key", "+", "--key", "+", "--key", "+"], "map"),
     ("map-view-carbot", ["--command", "view.carbot", "--key", "+", "--key", "+", "--key", "+"], "map"),
@@ -864,6 +874,19 @@ if sys.platform == "win32":
 # Options > Units > Can be on top of others, the Marine picked, three clicks at one point, Esc: a stack of three units.
 STACK_PLACE = "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nkey Esc\n"
 SCRIPTS = {
+    "pathingcheck": """pathing
+command scen.checkPathing
+key Enter
+pathing
+""",
+    "pathingfix": """open {install}/Maps/(2)Boxer.scm
+command scen.checkPathing
+key Down
+key Enter
+pathing
+key Ctrl+Z
+pathing
+""",
     "dialogs": """key F2
 type Spot {n}
 key Enter
@@ -1147,6 +1170,47 @@ def check_undo(output):
         return "the output has no key lines"
     if not before or deleted != 0 or undone != before or redone != 0 or again != before:
         return f"units: {before}, after Delete {deleted}, Undo {undone}, Redo {redone}, Undo {again}"
+    return None
+
+
+def pathing_lines(output):
+    return [line for line in output.splitlines() if line.startswith("pathing: ")]
+
+
+def check_pathing_layer(output, areas):
+    """None when View > Layers > Pathing (or its connected areas) ran and the regions are there."""
+    if "command view.layer.pathing: ran (yes)" not in output and "command view.pathing.areas: ran (yes)" not in output:
+        return "the command did not run"
+    if "Pathing: each " + ("connected area" if areas else "pathing region") not in output:
+        return "the status bar does not tell what the colors are"
+    return None
+
+
+def check_pathing_check(output):
+    """None when Scenario > Check pathing listed the problems and the pick showed the first one."""
+    lines = pathing_lines(output)
+    if len(lines) != 2:
+        return f"{len(lines)} pathing lines (2 expected)"
+    if "layer off" not in lines[0] or "check:" in lines[0]:
+        return "before the check: " + lines[0]
+    m = re.search(r"layer on, regions, (\d+) regions, (\d+) connected areas; check: (\d+) problems", lines[1])
+    if not m or int(m.group(1)) < 50 or int(m.group(3)) < 1:
+        return "after the check: " + lines[1]
+    if "; shown: " not in lines[1]:
+        return "the pick did not show a problem: " + lines[1]
+    return None
+
+
+def check_pathing_fix(output):
+    """None when Apply the fix took the one pocket of (2)Boxer away (one undo step) and Ctrl+Z gave it back."""
+    lines = pathing_lines(output)
+    if len(lines) != 2:
+        return f"{len(lines)} pathing lines (2 expected)"
+    fixed, undone = lines
+    if "(pockets 0," not in fixed or "undo steps 1" not in fixed:
+        return "after the fix: " + fixed
+    if "(pockets 1," not in undone or "undo steps 0" not in undone:
+        return "after Ctrl+Z: " + undone
     return None
 
 
@@ -3297,7 +3361,9 @@ def check_palette_settings(output):
     return None
 
 
-CHECKS = {"map-palette-float": check_palette_float, "map-palette-docked": check_palette_docked,
+CHECKS = {"map-pathing-layer": lambda o: check_pathing_layer(o, False), "map-pathing-areas": lambda o: check_pathing_layer(o, True),
+          "map-pathing-check": check_pathing_check, "map-pathing-fix": check_pathing_fix,
+          "map-palette-float": check_palette_float, "map-palette-docked": check_palette_docked,
           "map-palette-float-settings": check_palette_settings, "map-palette-float-keys": check_palette_keys,
           "map-stack-list": check_stack_list, "map-stack-cycle": check_stack_cycle, "map-stack-menu": check_stack_menu,
           "map-stack-pipette": check_stack_pipette,

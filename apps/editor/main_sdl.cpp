@@ -120,6 +120,7 @@
 #include "stardraft/hd_assets.h"
 #include "stardraft/msqc.h"  // the triggers' keys and buttons (core/project_build.inc)
 #include "stardraft/pathing.h"
+#include "stardraft/pathing_regions.h"
 #include "stardraft/png_writer.h"  // File > Export map image (core/map_image.inc, sdl_map_image.inc)
 #include "stardraft/portraits.h"  // the portraits' clips (core/data_pictures.inc)
 #include "stardraft/previews.h"  // the terrain and doodad pictures (sdl_pictures.inc)

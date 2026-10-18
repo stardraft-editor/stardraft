@@ -2188,3 +2188,45 @@ The terrain palette is in its own window	Палитра местности в о
 Moved the terrain palette to its own window	Палитра местности перемещена в отдельное окно
 The terrain palette shows in its own window in Terrain mode	В режиме «Местность» палитра местности показана в отдельном окне
 Docked the terrain palette	Палитра местности закреплена
+# View > Layers > Pathing, Scenario > Check pathing (core/pathing_layer.inc)
+&Pathing	&Проходимость
+Pathing shows the &regions	Проходимость: &регионы
+Pathing shows the connected &areas	Проходимость: связанные &области
+Check &pathing (nooks and crannies)	Проверить &проходимость (щели и закоулки)
+Search the pathing problems	Поиск проблем проходимости
+%d more problems are not in the list	Ещё %d проблем нет в списке
+A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Rectangle	На этом тайле есть декорация: исправление удалит её. Измените тайл в Местность > Прямоугольник
+Apply the fix: tile %d, %d gets no walkable minitile there	Исправить: в тайле %d, %d там не будет проходимых мини-тайлов
+Closed passages	Закрытые проходы
+Fix: change the tiles here so that the ground connects, or make it unwalkable	Исправление: измените здесь тайлы, чтобы земля соединилась, или сделайте её непроходимой
+Fix: close it with an unwalkable tile or a doodad, or make it 2 minitiles (16 pixels) wide	Исправление: закройте его непроходимым тайлом или декорацией или сделайте шириной 2 мини-тайла (16 пикселей)
+Fix: connect it to the ground beside it, or make it unwalkable	Исправление: соедините её с землёй рядом или сделайте непроходимой
+Fix: make fewer small walkable and unwalkable areas	Исправление: сделайте меньше мелких проходимых и непроходимых участков
+Fix: make it 4 minitiles (32 pixels) wide for medium units, or close it	Исправление: сделайте его шириной 4 мини-тайла (32 пикселя) для средних юнитов или закройте
+Fix: make the ground here one level, or make it unwalkable	Исправление: сделайте здесь землю одного уровня или непроходимой
+Fix: put an unwalkable tile or a doodad here	Исправление: поставьте здесь непроходимый тайл или декорацию
+Fix: use Apply the fix, or put an unwalkable tile or a doodad here	Исправление: используйте «Исправить» или поставьте здесь непроходимый тайл или декорацию
+Gap that no unit fits through, but the game's pathing goes through it, at tile %d, %d	Щель, в которую не проходит ни один юнит, но через неё идёт проходимость игры, тайл %d, %d
+Gaps	Щели
+Ground that units can walk onto, but the game's pathing does not connect, at tile %d, %d	Земля, на которую юниты могут зайти, но проходимость игры её не соединяет, тайл %d, %d
+No pathing problems: %d regions, %d connected areas	Проблем проходимости нет: регионов %d, связанных областей %d
+Passage that only small units fit through, at tile %d, %d	Проход, в который проходят только малые юниты, тайл %d, %d
+Pathing is hidden (View > Layers)	Проходимость скрыта (Вид > Слои)
+Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	Регион проходимости %d: тайлов %d, %ls; связанная область %d (регионов %d)
+Pathing: %d problems (%d regions, %d connected areas). Pick one to show it on the map	Проходимость: проблем %d (регионов %d, связанных областей %d). Выберите одну, чтобы показать её на карте
+Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here	Проходимость: у каждой связанной области (земли, по которой юниты могут пройти) свой цвет. Тёмное: здесь юниты не ходят
+Pathing: each pathing region of the game has its own color. Dark: units cannot walk here	Проходимость: у каждого региона проходимости игры свой цвет. Тёмное: здесь юниты не ходят
+Pathing: units cannot walk here	Проходимость: здесь юниты не ходят
+Pockets	Карманы
+Small pathing region of %d minitiles, at tile %d, %d	Малый регион проходимости из %d мини-тайлов, тайл %d, %d
+Small regions	Малые регионы
+Small units only	Только малые юниты
+The fix did not change the map	Исправление не изменило карту
+Tile %d, %d has no walkable minitile now (Ctrl+Z undoes it)	В тайле %d, %d там больше нет проходимых мини-тайлов (Ctrl+Z отменяет)
+Too many pathing regions: StarCraft does not start the map	Слишком много регионов проходимости: StarCraft не запустит карту
+Too many regions	Слишком много регионов
+Walkable ground of %d minitiles that no start location can reach, at tile %d, %d	Проходимая земля из %d мини-тайлов, до которой не дойти ни с одной стартовой позиции, тайл %d, %d
+Walkable pocket of %d minitiles that no unit can use, at tile %d, %d	Проходимый карман из %d мини-тайлов, которым не может воспользоваться ни один юнит, тайл %d, %d
+high ground	высокая земля
+low ground	низкая земля
+middle ground	средняя земля

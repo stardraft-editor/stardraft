@@ -120,6 +120,8 @@ MenuModel buildMenuModel() {
         MenuModel layers;
         menuCommands(layers, "View/Layers");
         layers.push_back(menuItem(ID_VIEW_LOCATIONS, L"&Locations"));
+        layers.push_back(menuSeparator());
+        menuCommands(layers, "View/Pathing");  // (what View > Layers > Pathing shows: core/pathing_layer.inc)
         view.push_back(menuPopup(L"La&yers", layers));
     }
     view.push_back(menuSeparator());
@@ -143,6 +145,7 @@ MenuModel buildMenuModel() {
                        menuItem(ID_SCEN_CLASSIC, L"Map &data (units, upgrades, technologies)"),
                        menuItem(ID_SCEN_CLASSICTRIG, L"Classic &triggers"),
                        menuItem(ID_SCEN_CHECK, L"&Check that StarCraft can start the map")};
+    menuCommand(scenario, "scen.checkPathing");
     // Options: the snap and placement rules of each kind (the same items for each; a rule that does not change is
     // grayed), the terrain copy, then the program options (the window).
     auto snapItems = [](int first) {

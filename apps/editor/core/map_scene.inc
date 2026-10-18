@@ -347,7 +347,8 @@ render::Scene buildScene() {
         for (float x = std::ceil((x0 - ox) / gw) * gw + ox; x <= x1; x += gw) s.rects.push_back({x, y0, x + t, y1, rgba, true});
         for (float y = std::ceil((y0 - oy) / gh) * gh + oy; y <= y1; y += gh) s.rects.push_back({x0, y, x1, y + t, rgba, true});
     }
-    // View > Show town areas.
+    // View > Layers > Pathing (core/pathing_layer.inc), then View > Show town areas.
+    addPathingLayer(s);
     addPathOverlays(s);
 
     // Doodad overlays and other map sprites (THG2). View > Layers: a doodad's overlay goes with the doodads, the rest with

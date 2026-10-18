@@ -314,6 +314,7 @@ jobs:
           build-gcc/commands_test
           build-gcc/platform_test "$RUNNER_TEMP"
           build-gcc/kit_test
+          build-gcc/pathing_regions_test
 
       # stardraft-next (the new shell's spike) with no window: a snapshot of each workspace, Korean and Chinese typed
       # into a field. The pictures are kept with the run.
@@ -664,6 +665,7 @@ jobs:
           build/commands_test
           build/platform_test "$RUNNER_TEMP"
           build/kit_test
+          build/pathing_regions_test
           build/map_preview_test "$RUNNER_TEMP/map_preview_test"
 
       # The renderer on Metal. GitHub's macOS machines may have no Metal device: a failure here does not stop the run.

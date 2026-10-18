@@ -238,8 +238,8 @@ int main(int argc, char** argv) {
                         c.smallRegions);
             if (std::getenv("PR_DEBUG"))
                 for (const PathingProblem& p : c.problems)
-                    std::printf("    %s at %d, %d (tile %d, %d): %d minitiles, region %d group %d\n", pathingProblemName(p.kind), p.x, p.y, p.x / 32, p.y / 32, p.minitiles,
-                                r.regionAt(p.x / 8, p.y / 8), r.regions[size_t(r.regionAt(p.x / 8, p.y / 8))].group);
+                    std::printf("    %s at %d, %d (tile %d, %d): %d minitiles, region %d group %d%s\n", pathingProblemName(p.kind), p.x, p.y, p.x / 32, p.y / 32, p.minitiles,
+                                r.regionAt(p.x / 8, p.y / 8), r.regions[size_t(r.regionAt(p.x / 8, p.y / 8))].group, p.fixTileX >= 0 ? ", with a fix" : "");
             if (!dump.empty()) dumpPicture(fs::path(dump) / (path.stem().string() + ".png"), ts, terrain, r, c);
             // Every tile has a region; walkable minitiles are in walkable regions (but for the split tiles' fallback).
             bool allTiles = true;

@@ -101,6 +101,17 @@ bool shellPickStackUnit(std::vector<ListPickItem> items, const std::string& curr
     return true;
 }
 
+// Scenario > Check pathing's list (core/pathing_layer.inc): the list picker at the map view's top-left corner. True with
+// the picked row's value.
+bool shellPickPathingProblem(std::vector<ListPickItem> items, std::string& out) {
+    if (!gRoot || items.empty()) return false;
+    const draw::Point o = gRoot->map.origin();
+    ListPickView v(tr(L"Search the pathing problems"), std::move(items), "");
+    if (!runListPick(v, {o.x + scale(16), o.y + scale(16)})) return false;
+    out = v.result();
+    return true;
+}
+
 // The map menu's items as kit items: the core's model with its own enabled states; a pick runs mapMenuPick. The icons
 // are the Win32 menu's (setMenuIcons) for the items that have one.
 std::vector<kit::MenuItem> mapMenuKit(const MenuModel& items) {

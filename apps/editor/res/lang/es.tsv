@@ -2188,3 +2188,45 @@ The terrain palette is in its own window	La paleta de terreno está en su propia
 Moved the terrain palette to its own window	Se movió la paleta de terreno a su propia ventana
 The terrain palette shows in its own window in Terrain mode	En el modo Terreno, la paleta de terreno se muestra en su propia ventana
 Docked the terrain palette	Se acopló la paleta de terreno
+# View > Layers > Pathing, Scenario > Check pathing (core/pathing_layer.inc)
+&Pathing	&Rutas de paso
+Pathing shows the &regions	Las rutas muestran las &regiones
+Pathing shows the connected &areas	Las rutas muestran las &zonas conectadas
+Check &pathing (nooks and crannies)	Comprobar las &rutas (huecos y rincones)
+Search the pathing problems	Buscar los problemas de rutas
+%d more problems are not in the list	Hay %d problemas más que no están en la lista
+A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Rectangle	Hay un decorado en este tile: la corrección lo quitaría. Cambie el tile en Terreno > Rectángulo
+Apply the fix: tile %d, %d gets no walkable minitile there	Aplicar la corrección: el tile %d, %d no tendrá allí minitiles transitables
+Closed passages	Pasos cerrados
+Fix: change the tiles here so that the ground connects, or make it unwalkable	Corrección: cambie aquí los tiles para que el suelo se conecte, o hágalo intransitable
+Fix: close it with an unwalkable tile or a doodad, or make it 2 minitiles (16 pixels) wide	Corrección: ciérrelo con un tile intransitable o un decorado, o hágalo de 2 minitiles (16 píxeles) de ancho
+Fix: connect it to the ground beside it, or make it unwalkable	Corrección: conéctelo con el suelo de al lado, o hágalo intransitable
+Fix: make fewer small walkable and unwalkable areas	Corrección: haga menos zonas pequeñas transitables e intransitables
+Fix: make it 4 minitiles (32 pixels) wide for medium units, or close it	Corrección: hágalo de 4 minitiles (32 píxeles) de ancho para las unidades medianas, o ciérrelo
+Fix: make the ground here one level, or make it unwalkable	Corrección: deje aquí el suelo en un solo nivel, o hágalo intransitable
+Fix: put an unwalkable tile or a doodad here	Corrección: ponga aquí un tile intransitable o un decorado
+Fix: use Apply the fix, or put an unwalkable tile or a doodad here	Corrección: use Aplicar la corrección, o ponga aquí un tile intransitable o un decorado
+Gap that no unit fits through, but the game's pathing goes through it, at tile %d, %d	Hueco por el que no cabe ninguna unidad, pero las rutas del juego pasan por él, en el tile %d, %d
+Gaps	Huecos
+Ground that units can walk onto, but the game's pathing does not connect, at tile %d, %d	Suelo al que las unidades pueden entrar, pero que las rutas del juego no conectan, en el tile %d, %d
+No pathing problems: %d regions, %d connected areas	No hay problemas de rutas: %d regiones, %d zonas conectadas
+Passage that only small units fit through, at tile %d, %d	Paso por el que solo caben las unidades pequeñas, en el tile %d, %d
+Pathing is hidden (View > Layers)	Las rutas están ocultas (Ver > Capas)
+Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	Región de rutas %d: %d tiles, %ls; zona conectada %d (%d regiones)
+Pathing: %d problems (%d regions, %d connected areas). Pick one to show it on the map	Rutas: %d problemas (%d regiones, %d zonas conectadas). Elija uno para verlo en el mapa
+Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here	Rutas: cada zona conectada (el suelo que las unidades pueden recorrer) tiene su color. Oscuro: las unidades no pueden caminar aquí
+Pathing: each pathing region of the game has its own color. Dark: units cannot walk here	Rutas: cada región de rutas del juego tiene su color. Oscuro: las unidades no pueden caminar aquí
+Pathing: units cannot walk here	Rutas: las unidades no pueden caminar aquí
+Pockets	Bolsas
+Small pathing region of %d minitiles, at tile %d, %d	Región de rutas pequeña de %d minitiles, en el tile %d, %d
+Small regions	Regiones pequeñas
+Small units only	Solo unidades pequeñas
+The fix did not change the map	La corrección no cambió el mapa
+Tile %d, %d has no walkable minitile now (Ctrl+Z undoes it)	El tile %d, %d ya no tiene allí minitiles transitables (Ctrl+Z lo deshace)
+Too many pathing regions: StarCraft does not start the map	Demasiadas regiones de rutas: StarCraft no inicia el mapa
+Too many regions	Demasiadas regiones
+Walkable ground of %d minitiles that no start location can reach, at tile %d, %d	Suelo transitable de %d minitiles al que no llega ninguna posición inicial, en el tile %d, %d
+Walkable pocket of %d minitiles that no unit can use, at tile %d, %d	Bolsa transitable de %d minitiles que ninguna unidad puede usar, en el tile %d, %d
+high ground	terreno alto
+low ground	terreno bajo
+middle ground	terreno medio

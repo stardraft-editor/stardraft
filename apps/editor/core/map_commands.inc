@@ -25,6 +25,13 @@ void addCommand(int nativeId, const char* id, const wchar_t* label, const char* 
     gCommands.add(std::move(c));
 }
 
+// View > Layers > Pathing and Scenario > Check pathing (core/pathing_layer.inc).
+bool pathingLayerOn();
+bool pathingLayerAreas();
+void pathingLayerToggle();
+void pathingLayerMode(bool areas);
+void pathingCheckCommand();
+
 void toggleLayer(int k) {
     bool* layer[4] = {&gLayers.terrain, &gLayers.doodads, &gLayers.sprites, &gLayers.units};
     static const wchar_t* const names[4] = {L"Terrain", L"Doodads", L"Sprites", L"Units"};
@@ -169,6 +176,12 @@ void registerMapCommands() {
     addCommand(ID_LAYER + 1, "view.layer.doodads", L"&Doodads", "View/Layers", L"", [] { toggleLayer(1); }, [] { return gLayers.doodads; });
     addCommand(ID_LAYER + 2, "view.layer.sprites", L"&Sprites", "View/Layers", L"", [] { toggleLayer(2); }, [] { return gLayers.sprites; });
     addCommand(ID_LAYER + 3, "view.layer.units", L"&Units", "View/Layers", L"", [] { toggleLayer(3); }, [] { return gLayers.units; });
+    addCommand(ID_LAYER + 4, "view.layer.pathing", L"&Pathing", "View/Pathing", L"", [] { pathingLayerToggle(); }, [] { return pathingLayerOn(); });
+    addCommand(ID_LAYER + 5, "view.pathing.regions", L"Pathing shows the &regions", "View/Pathing", L"", [] { pathingLayerMode(false); },
+               [] { return !pathingLayerAreas(); }, true);
+    addCommand(ID_LAYER + 6, "view.pathing.areas", L"Pathing shows the connected &areas", "View/Pathing", L"", [] { pathingLayerMode(true); },
+               [] { return pathingLayerAreas(); }, true);
+    addCommand(ID_SCEN_PATHCHECK, "scen.checkPathing", L"Check &pathing (nooks and crannies)", "Scenario", L"", [] { pathingCheckCommand(); });
     // View: the camera. + and - are the map view's own keys (they also work with the number pad).
     addCommand(ID_VIEW_ZOOMIN, "view.zoomIn", L"Zoom &in", "View", L"+", [] {
         int w, h;

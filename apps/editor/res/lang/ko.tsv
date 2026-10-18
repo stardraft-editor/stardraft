@@ -2188,3 +2188,45 @@ The terrain palette is in its own window	지형 팔레트가 별도 창에 있�
 Moved the terrain palette to its own window	지형 팔레트를 별도 창으로 옮겼습니다
 The terrain palette shows in its own window in Terrain mode	지형 모드에서 지형 팔레트가 별도 창에 표시됩니다
 Docked the terrain palette	지형 팔레트를 도킹했습니다
+# View > Layers > Pathing, Scenario > Check pathing (core/pathing_layer.inc)
+&Pathing	경로(&P)
+Pathing shows the &regions	경로에 지역 표시(&R)
+Pathing shows the connected &areas	경로에 연결된 영역 표시(&A)
+Check &pathing (nooks and crannies)	경로 검사(&P) (좁은 틈과 구석)
+Search the pathing problems	경로 문제 검색
+%d more problems are not in the list	목록에 없는 문제 %d개가 더 있습니다
+A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Rectangle	이 타일에 장식물이 있습니다: 수정하면 장식물이 지워집니다. 지형 > 사각형에서 타일을 바꾸십시오
+Apply the fix: tile %d, %d gets no walkable minitile there	수정 적용: 타일 %d, %d의 그 자리를 걸을 수 없게 합니다
+Closed passages	닫힌 통로
+Fix: change the tiles here so that the ground connects, or make it unwalkable	수정: 땅이 이어지도록 이곳의 타일을 바꾸거나, 걸을 수 없게 하십시오
+Fix: close it with an unwalkable tile or a doodad, or make it 2 minitiles (16 pixels) wide	수정: 걸을 수 없는 타일이나 장식물로 막거나, 너비를 미니타일 2개(16픽셀)로 하십시오
+Fix: connect it to the ground beside it, or make it unwalkable	수정: 옆의 땅과 잇거나, 걸을 수 없게 하십시오
+Fix: make fewer small walkable and unwalkable areas	수정: 걸을 수 있거나 없는 작은 영역의 수를 줄이십시오
+Fix: make it 4 minitiles (32 pixels) wide for medium units, or close it	수정: 중형 유닛을 위해 너비를 미니타일 4개(32픽셀)로 하거나, 막으십시오
+Fix: make the ground here one level, or make it unwalkable	수정: 이곳의 땅을 한 높이로 하거나, 걸을 수 없게 하십시오
+Fix: put an unwalkable tile or a doodad here	수정: 이곳에 걸을 수 없는 타일이나 장식물을 놓으십시오
+Fix: use Apply the fix, or put an unwalkable tile or a doodad here	수정: 수정 적용을 쓰거나, 이곳에 걸을 수 없는 타일이나 장식물을 놓으십시오
+Gap that no unit fits through, but the game's pathing goes through it, at tile %d, %d	유닛이 지나갈 수 없지만 게임의 경로가 지나가는 틈, 타일 %d, %d
+Gaps	틈
+Ground that units can walk onto, but the game's pathing does not connect, at tile %d, %d	유닛이 걸어 들어갈 수 있지만 게임의 경로가 잇지 않는 땅, 타일 %d, %d
+No pathing problems: %d regions, %d connected areas	경로 문제 없음: 지역 %d개, 연결된 영역 %d개
+Passage that only small units fit through, at tile %d, %d	소형 유닛만 지나갈 수 있는 통로, 타일 %d, %d
+Pathing is hidden (View > Layers)	경로가 숨겨졌습니다 (보기 > 레이어)
+Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	경로 지역 %d: 타일 %d개, %ls; 연결된 영역 %d (지역 %d개)
+Pathing: %d problems (%d regions, %d connected areas). Pick one to show it on the map	경로: 문제 %d개 (지역 %d개, 연결된 영역 %d개). 하나를 고르면 맵에 표시합니다
+Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here	경로: 연결된 영역(유닛이 걸어서 지나갈 수 있는 땅)마다 색이 다릅니다. 어두운 곳: 유닛이 걸을 수 없습니다
+Pathing: each pathing region of the game has its own color. Dark: units cannot walk here	경로: 게임의 경로 지역마다 색이 다릅니다. 어두운 곳: 유닛이 걸을 수 없습니다
+Pathing: units cannot walk here	경로: 유닛이 이곳을 걸을 수 없습니다
+Pockets	고립된 땅
+Small pathing region of %d minitiles, at tile %d, %d	미니타일 %d개의 작은 경로 지역, 타일 %d, %d
+Small regions	작은 지역
+Small units only	소형 유닛만
+The fix did not change the map	수정이 맵을 바꾸지 않았습니다
+Tile %d, %d has no walkable minitile now (Ctrl+Z undoes it)	이제 타일 %d, %d의 그 자리를 걸을 수 없습니다 (Ctrl+Z로 되돌립니다)
+Too many pathing regions: StarCraft does not start the map	경로 지역이 너무 많습니다: 스타크래프트가 맵을 시작하지 않습니다
+Too many regions	지역이 너무 많음
+Walkable ground of %d minitiles that no start location can reach, at tile %d, %d	어느 시작 위치에서도 갈 수 없는 미니타일 %d개의 땅, 타일 %d, %d
+Walkable pocket of %d minitiles that no unit can use, at tile %d, %d	어떤 유닛도 쓸 수 없는 미니타일 %d개의 고립된 땅, 타일 %d, %d
+high ground	높은 지대
+low ground	낮은 지대
+middle ground	중간 지대

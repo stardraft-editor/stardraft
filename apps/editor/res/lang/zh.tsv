@@ -2188,3 +2188,45 @@ The terrain palette is in its own window	地形调色板在单独的窗口中
 Moved the terrain palette to its own window	已将地形调色板移到单独的窗口
 The terrain palette shows in its own window in Terrain mode	在地形模式下，地形调色板显示在单独的窗口中
 Docked the terrain palette	已停靠地形调色板
+# View > Layers > Pathing, Scenario > Check pathing (core/pathing_layer.inc)
+&Pathing	寻路(&P)
+Pathing shows the &regions	寻路显示区域(&R)
+Pathing shows the connected &areas	寻路显示连通区域(&A)
+Check &pathing (nooks and crannies)	检查寻路(&P)（缝隙和角落）
+Search the pathing problems	搜索寻路问题
+%d more problems are not in the list	另有 %d 个问题不在列表中
+A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Rectangle	此图块上有装饰物：修复会将其删除。请在 地形 > 矩形 中更改图块
+Apply the fix: tile %d, %d gets no walkable minitile there	应用修复：图块 %d, %d 的该处不再可行走
+Closed passages	封闭的通道
+Fix: change the tiles here so that the ground connects, or make it unwalkable	修复：更改此处的图块使地面相连，或使其不可行走
+Fix: close it with an unwalkable tile or a doodad, or make it 2 minitiles (16 pixels) wide	修复：用不可行走的图块或装饰物封住它，或使其宽 2 个小图块（16 像素）
+Fix: connect it to the ground beside it, or make it unwalkable	修复：将其与旁边的地面相连，或使其不可行走
+Fix: make fewer small walkable and unwalkable areas	修复：减少可行走和不可行走的小区域
+Fix: make it 4 minitiles (32 pixels) wide for medium units, or close it	修复：使其宽 4 个小图块（32 像素）以供中型单位通过，或将其封住
+Fix: make the ground here one level, or make it unwalkable	修复：使此处地面处于同一高度，或使其不可行走
+Fix: put an unwalkable tile or a doodad here	修复：在此处放置不可行走的图块或装饰物
+Fix: use Apply the fix, or put an unwalkable tile or a doodad here	修复：使用“应用修复”，或在此处放置不可行走的图块或装饰物
+Gap that no unit fits through, but the game's pathing goes through it, at tile %d, %d	没有单位能通过、但游戏寻路经过的缝隙，位于图块 %d, %d
+Gaps	缝隙
+Ground that units can walk onto, but the game's pathing does not connect, at tile %d, %d	单位可以走上去、但游戏寻路未连通的地面，位于图块 %d, %d
+No pathing problems: %d regions, %d connected areas	没有寻路问题：%d 个区域，%d 个连通区域
+Passage that only small units fit through, at tile %d, %d	只有小型单位能通过的通道，位于图块 %d, %d
+Pathing is hidden (View > Layers)	寻路已隐藏（视图 > 图层）
+Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	寻路区域 %d：%d 个图块，%ls；连通区域 %d（%d 个区域）
+Pathing: %d problems (%d regions, %d connected areas). Pick one to show it on the map	寻路：%d 个问题（%d 个区域，%d 个连通区域）。选择一个以在地图上显示
+Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here	寻路：每个连通区域（单位可以走遍的地面）各有其颜色。暗处：单位不能在此行走
+Pathing: each pathing region of the game has its own color. Dark: units cannot walk here	寻路：游戏的每个寻路区域各有其颜色。暗处：单位不能在此行走
+Pathing: units cannot walk here	寻路：单位不能在此行走
+Pockets	孤立地块
+Small pathing region of %d minitiles, at tile %d, %d	%d 个小图块的小寻路区域，位于图块 %d, %d
+Small regions	小区域
+Small units only	仅小型单位
+The fix did not change the map	修复未更改地图
+Tile %d, %d has no walkable minitile now (Ctrl+Z undoes it)	图块 %d, %d 的该处现在不可行走（Ctrl+Z 撤销）
+Too many pathing regions: StarCraft does not start the map	寻路区域过多：《星际争霸》无法开始此地图
+Too many regions	区域过多
+Walkable ground of %d minitiles that no start location can reach, at tile %d, %d	任何起始位置都无法到达的 %d 个小图块的可行走地面，位于图块 %d, %d
+Walkable pocket of %d minitiles that no unit can use, at tile %d, %d	任何单位都无法使用的 %d 个小图块的可行走地块，位于图块 %d, %d
+high ground	高地
+low ground	低地
+middle ground	中地

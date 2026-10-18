@@ -18,6 +18,7 @@ void tilesPick(int value, bool fromMap);
 void tilesReveal(int value);
 void tilesFill(int tx, int ty, bool every);
 void pathOverlayMouseMove(float wx, float wy);
+void pathingLayerMouseMove(float wx, float wy);  // (core/pathing_layer.inc)
 Rect previewLocationRect(float wx, float wy);
 RECT strokeBox(float x, float y);
 void strokeMove(float wx, float wy);
@@ -522,7 +523,7 @@ void mapMouseMove(AppState& app, int sx, int sy) {
     }
     app.dirty = true;
     updateStatus(app);
-    if (app.ed && app.drag == Drag::None) pathOverlayMouseMove(wx, wy);
+    if (app.ed && app.drag == Drag::None) pathOverlayMouseMove(wx, wy), pathingLayerMouseMove(wx, wy);
 }
 
 void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
