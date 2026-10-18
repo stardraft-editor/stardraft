@@ -207,7 +207,8 @@ bool sdlRuns(int id) {
     case ID_QUICKPICK: return true;
     case ID_CAMPAIGN_NEW:
     case ID_CAMPAIGN_OPEN:
-    case ID_CAMPAIGN_SHOW: return true;
+    case ID_CAMPAIGN_SHOW:
+    case ID_PROJ_IMPORT: return true;
     case ID_TRIG_FIND: return gWorkspace == Workspace::Triggers || gWorkspace == Workspace::ClassicTriggers;
     case ID_HELP_ABOUT:  // (sdl_options.inc) and the links
     case ID_VIEW_KIT:
