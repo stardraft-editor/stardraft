@@ -12,6 +12,7 @@
 #include <set>
 #include <string>
 
+#include "stardraft/campaign.h"
 #include "stardraft/editor.h"
 #include "stardraft/isom.h"
 #include "stardraft/terrain.h"
@@ -517,6 +518,39 @@ static void iscriptPlayerTest(Editor& ed) {
         for (int t = 0; t < 80 && sim.warpState() == 2; ++t) sim.tick();
         CHECK(sim.warpState() == 3, "warp-in: the flash ends (63) and gives the order its signal");
     }
+}
+
+// A campaign (roadmap R25): its file keeps the maps in order; a map's data and terrain go into another map.
+static void campaignTest(const GameData& data, const char* map, const fs::path& scratch) {
+    std::string err;
+    const fs::path dir = scratch / "editor_test_campaign";
+    std::error_code ec;
+    fs::remove(dir / Campaign::kFileName, ec);
+    Campaign c;
+    CHECK(c.create(dir, "Test campaign", err), "campaign: a new campaign");
+    CHECK(c.add(dir / "Mission 1.scx") && c.add(scratch / "elsewhere.scx") && !c.add(dir / "Mission 1.scx"), "campaign: maps go in once each");
+    CHECK(c.save(err), "campaign: saved");
+    Campaign back;
+    CHECK(back.load(dir, err) && back.name == "Test campaign" && back.maps.size() == 2 && back.maps[0] == fs::path("Mission 1.scx") &&
+              back.mapFile(1) == scratch / "elsewhere.scx",
+          "campaign: read again, the maps in their order (a map in the folder by its name, another by its whole path)");
+
+    Editor a(data), b(data);
+    if (!a.open(map, err) || !b.newMap(a.width(), a.height(), 0, 1, err) || !a.settingDefaults() || !b.settingDefaults()) {
+        CHECK(false, "campaign: two maps of the same size");
+        return;
+    }
+    UnitSettings s = a.unitSettings();
+    s.units[0].useDefault = false, s.units[0].hitPoints = 99 * 256;
+    a.setUnitSettings(s);
+    CHECK(b.copyMapData(a.chk(), err) && !b.unitSettings().units[0].useDefault && b.unitSettings().units[0].hitPoints == 99 * 256,
+          "campaign: Copy data: the unit settings of one map in the other");
+    b.undo(1);
+    CHECK(b.unitSettings().units[0].useDefault, "campaign: Copy data is one undo step");
+    CHECK(b.copyTerrain(a.chk(), err) && b.terrain().tiles == a.terrain().tiles && b.doodads().size() == a.doodads().size(),
+          "campaign: Copy terrain: the tiles and the doodads");
+    Editor small(data);
+    CHECK(small.newMap(64, 64, 0, 1, err) && !small.copyTerrain(a.chk(), err), "campaign: Copy terrain needs maps of one size");
 }
 
 static void classicSettings(const GameData& data, const char* map, const fs::path& scratch) {
@@ -2031,6 +2065,7 @@ int main(int argc, char** argv) {
     brushOverPlacedTiles(data, argv[2]);
     rampsStay(data, argv[1]);
     classicSettings(data, argv[2], fs::path(argv[3]));
+    campaignTest(data, argv[2], fs::path(argv[3]));
     classicTriggersTest(data, argv[2], fs::path(argv[3]));
 
     std::printf("\n%d failures\n", failures);

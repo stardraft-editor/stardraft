@@ -110,6 +110,7 @@ add_library(stardraft
     src/editor.cpp
     src/editor_history.cpp
     src/new_map.cpp
+    src/campaign.cpp
     src/terrain_gen.cpp
     src/pathing.cpp
     src/pathing_regions.cpp
