@@ -140,7 +140,11 @@ bool doodadFits(const Chk& chk, const DoodadType& type, int tileX, int tileY, bo
     // Only the footprint tiles are read (a spray or a nearest-fit search checks many places).
     const SectionName under = chk.has("TILE") ? "TILE" : "MTXM";
     const DoodadGroundInfo* gi = type.ground.get();
-    for (int r = 0; r < type.height; ++r)
+    // The top row of a doodad taller than one row is not checked: it draws over the ground above the doodad (a cliff's
+    // high ground), and the game's own maps put it over other tiles than dddata.bin names (an Ice cliff's top row on
+    // plain high snow, where it names the cliff's edge: such cliffs fit nowhere else). With it, 95 % of the doodads on
+    // Blizzard's maps fit, against 73 % when it is checked.
+    for (int r = type.height > 1 ? 1 : 0; r < type.height; ++r)
         for (int c = 0; c < type.width; ++c) {
             const size_t cell = size_t(r) * type.width + c;
             const uint16_t need = type.required[cell];

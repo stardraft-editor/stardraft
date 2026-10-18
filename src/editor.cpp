@@ -643,7 +643,8 @@ bool Editor::doodadTerrainHolds(const Doodad& d, const TerrainLayer& now, const 
             const size_t k = size_t(y) * width_ + x;
             if (k >= now.tiles.size() || k >= before.tiles.size()) continue;
             const size_t cell = size_t(r) * t->width + c;
-            const uint16_t need = cell < t->required.size() ? t->required[cell] : 0;
+            // (the top row of a taller doodad: as a cell that needs nothing, as doodadFits does not check it)
+            const uint16_t need = cell < t->required.size() && (r > 0 || t->height == 1) ? t->required[cell] : 0;
             const size_t under = now.tiles[k] >> 4;
             if (need ? !samePiece(under, need) : !samePiece(under, size_t(before.tiles[k] >> 4))) return false;
         }
@@ -2246,7 +2247,7 @@ bool Editor::doodadScatterFits(const DoodadType& t, int tx, int ty, const std::v
     for (int r = 0; r < t.height; ++r)
         for (int c = 0; c < t.width; ++c) {
             const size_t cell = size_t(r) * t.width + size_t(c);
-            if (cell < t.required.size() && t.required[cell]) continue;  // (doodadFits checks it)
+            if (cell < t.required.size() && t.required[cell] && (r > 0 || t.height == 1)) continue;  // (doodadFits checks it)
             const int x = tx + c, y = ty + r;
             if (x < 0 || y < 0 || x >= under.width || y >= under.height) return false;
             const std::array<uint16_t, 2> k = terrainsOf(uint16_t(under.tiles[size_t(y) * under.width + size_t(x)] >> 4));
