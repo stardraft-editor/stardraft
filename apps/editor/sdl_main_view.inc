@@ -316,9 +316,10 @@ void command(int id);
 // The Log at the bottom of the window (core/views_log.inc; shell_sdl.inc adds the lines).
 LogPaneView gLogPane;
 
-// The floating terrain palette (sdl_palette_float.inc): its window opens or closes for the state, and the palette's
-// views move into it or back (true: they are in its window; `slot` is their place in the side bar, in the main window).
-bool floatPaletteSync(bool terrainShown, bool tiles, draw::Rect slot);
+// The floating palettes (sdl_palette_float.inc): the active mode's palette window opens or closes for the state, and
+// the palette's views move into it or back (true: they are in its window; `slot` is their place in the side bar, in
+// the main window).
+bool floatPaletteSync(Mode m, bool shown, bool alt, draw::Rect slot);
 extern FloatPaletteNoteView gFloatNote;  // (in the side bar while the palette is in its window)
 
 // The main window: the menu bar, the top tool bar under it (core/views_topbar.inc), the document tabs, the workspace rail, the status bar, the map view with its minimap and
@@ -618,25 +619,30 @@ struct MainView final : draw::View {
         apply(gToolStripView, L.tool, mapWs);
         apply(gPanelTabsSdl[toolsRight ? 1 : 0], L.panelTabActive, L.panelTabActive.visible && mapWs);
         apply(gPanelTabsSdl[toolsRight ? 0 : 1], L.panelTabOther, L.panelTabOther.visible && mapWs);
-        apply(gOwnerBox, oneRow(L.owner), owners && mapWs);       // (a closed owner list is one row high)
-        apply(gSectionDropSdl, oneRow(L.sectionBox), sections && mapWs);
         // Rectangle mode's Tiles panel takes the palette's place: from its search box down to its end (the Win32 tilesSync).
         const bool tiles = mapWs && tilesOn();
         gTilesShown = tiles;
         PaneSlot tilesSlot = L.search;
         tilesSlot.placed = L.search.placed && L.palette.placed;
         tilesSlot.rc = RECT{L.search.rc.left, L.search.rc.top, L.palette.rc.right, L.palette.rc.bottom};
-        // The floating terrain palette: in Terrain mode its views are in its own window, and the note is in their place.
-        const bool floated = floatPaletteSync(mapWs && m == Mode::Terrain && tilesSlot.placed, tiles, draw::Rect(tilesSlot.rc));
-        if (!floated) {
-            apply(gTilesPanel, tilesSlot, tiles);
-            apply(gSearchSdl, L.search, !locs && mapWs && !tiles);
-            apply(gViewBtnSdl, L.viewBtn, !locs && mapWs && !tiles);
-            apply(gPalList, L.palette, !locs && mapWs && !tiles);
-        }
-        apply(gFloatNote, tilesSlot, floated);
-        apply(gFilterSdl, L.filter, locs && mapWs);
-        apply(gLocList, L.list, locs && mapWs);
+        // The floating palettes (sdl_palette_float.inc): the active mode's palette (its views under the tools: the owner
+        // and section boxes, the search box or the filter, the list) can be in its own window; then the note is in
+        // their place, and the views in the window are not placed here.
+        PaneSlot noteSlot = tilesSlot;
+        noteSlot.rc.top = owners ? L.owner.rc.top : sections ? L.sectionBox.rc.top : L.search.rc.top;
+        const bool floated = floatPaletteSync(m, mapWs && noteSlot.placed, tiles, draw::Rect(noteSlot.rc));
+        const auto side = [this](draw::View& v, const PaneSlot& s, bool shown) {
+            if (v.parent() == this) apply(v, s, shown);
+        };
+        side(gOwnerBox, oneRow(L.owner), owners && mapWs);       // (a closed owner list is one row high)
+        side(gSectionDropSdl, oneRow(L.sectionBox), sections && mapWs);
+        side(gTilesPanel, tilesSlot, tiles);
+        side(gSearchSdl, L.search, !locs && mapWs && !tiles);
+        side(gViewBtnSdl, L.viewBtn, !locs && mapWs && !tiles);
+        side(gPalList, L.palette, !locs && mapWs && !tiles);
+        apply(gFloatNote, noteSlot, floated);
+        side(gFilterSdl, L.filter, locs && mapWs);
+        side(gLocList, L.list, locs && mapWs);
         apply(gPal2List, L.palette2, L.palette2.visible && mapWs);
         // The workspace area: the registered view of the workspace shown, else the "Not on this system yet" view.
         const auto found = gWorkspaceViews.find(gWorkspace);

@@ -2180,10 +2180,8 @@ Added unit 	Добавлен юнит
 The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.	Ромб имеет форму ромбов карты: его высота следует за размером. Чтобы задать высоту, выберите квадрат или круг.
 The diamond has the shape of the map's diamonds: its height follows its size.	Ромб имеет форму ромбов карты: его высота следует за размером.
 Brush height: the diamond has the shape of the map's diamonds, so its height follows its size. To set the height, select the square or the circle.	Высота кисти: ромб имеет форму ромбов карты, поэтому его высота следует за размером. Чтобы задать высоту, выберите квадрат или круг.
-&Floating terrain palette	&Плавающая палитра местности
 Terrain palette	Палитра местности
 Dock	Закрепить
-Put the palette back in the side bar	Вернуть палитру на боковую панель
 The terrain palette is in its own window	Палитра местности в отдельном окне
 Moved the terrain palette to its own window	Палитра местности перемещена в отдельное окно
 The terrain palette shows in its own window in Terrain mode	В режиме «Местность» палитра местности показана в отдельном окне
@@ -2242,3 +2240,35 @@ Contents	Содержание
 Help	Справка
 The help pages are not in this build. Open in the browser shows them on the web.	В этой сборке нет страниц справки. «Открыть в браузере» показывает их в интернете.
 Open the help page of this field (F1)	Открыть страницу справки этого поля (F1)
+Floating &palettes	&Плавающие палитры
+&Floating palette	&Плавающая палитра
+&Terrain palette	Палитра &местности
+&Unit palette	Палитра &юнитов
+&Doodad palette	Палитра &декораций
+&Sprite palette	Палитра &спрайтов
+&Location list	Список &локаций
+Unit palette	Палитра юнитов
+Doodad palette	Палитра декораций
+Sprite palette	Палитра спрайтов
+Location list	Список локаций
+The unit palette is in its own window	Палитра юнитов в отдельном окне
+The doodad palette is in its own window	Палитра декораций в отдельном окне
+The sprite palette is in its own window	Палитра спрайтов в отдельном окне
+The location list is in its own window	Список локаций в отдельном окне
+Put the terrain palette back in the side bar	Вернуть палитру местности на боковую панель
+Put the unit palette back in the side bar	Вернуть палитру юнитов на боковую панель
+Put the doodad palette back in the side bar	Вернуть палитру декораций на боковую панель
+Put the sprite palette back in the side bar	Вернуть палитру спрайтов на боковую панель
+Put the location list back in the side bar	Вернуть список локаций на боковую панель
+Moved the unit palette to its own window	Палитра юнитов перемещена в отдельное окно
+Moved the doodad palette to its own window	Палитра декораций перемещена в отдельное окно
+Moved the sprite palette to its own window	Палитра спрайтов перемещена в отдельное окно
+Moved the location list to its own window	Список локаций перемещён в отдельное окно
+The unit palette shows in its own window in Units mode	В режиме «Юниты» палитра юнитов показана в отдельном окне
+The doodad palette shows in its own window in Doodads mode	В режиме «Декорации» палитра декораций показана в отдельном окне
+The sprite palette shows in its own window in Sprites mode	В режиме «Спрайты» палитра спрайтов показана в отдельном окне
+The location list shows in its own window in Locations mode	В режиме «Локации» список локаций показан в отдельном окне
+Docked the unit palette	Палитра юнитов закреплена
+Docked the doodad palette	Палитра декораций закреплена
+Docked the sprite palette	Палитра спрайтов закреплена
+Docked the location list	Список локаций закреплён
