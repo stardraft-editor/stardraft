@@ -2378,6 +2378,7 @@ constexpr UiText kRows[] = {
     {L"Help: the documentation (F1, Ctrl+", L"\uB3C4\uC6C0\uB9D0: \uBB38\uC11C (F1, Ctrl+"},
     {L"Help page", L"\uB3C4\uC6C0\uB9D0 \uD398\uC774\uC9C0"},
     {L"the Help pages", L"\uB3C4\uC6C0\uB9D0 \uD398\uC774\uC9C0"},
+    {L"Set the current player", L"\uD604\uC7AC \uD50C\uB808\uC774\uC5B4 \uC124\uC815"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
