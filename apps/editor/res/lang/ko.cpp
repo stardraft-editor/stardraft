@@ -2328,6 +2328,8 @@ constexpr UiText kRows[] = {
     {L"Find a trigger, a condition, an action or a block", L"\uD2B8\uB9AC\uAC70, \uC870\uAC74, \uB3D9\uC791 \uB610\uB294 \uBE14\uB85D \uCC3E\uAE30"},
     {L"Find a trigger, a condition or an action", L"\uD2B8\uB9AC\uAC70, \uC870\uAC74 \uB610\uB294 \uB3D9\uC791 \uCC3E\uAE30"},
     {L"Trigger", L"\uD2B8\uB9AC\uAC70"},
+    {L"Add a comment", L"\uC8FC\uC11D \uCD94\uAC00"},
+    {L"Comment", L"\uC8FC\uC11D"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

@@ -2328,6 +2328,8 @@ constexpr UiText kRows[] = {
     {L"Find a trigger, a condition, an action or a block", L"\u67E5\u627E\u89E6\u53D1\u5668\u3001\u6761\u4EF6\u3001\u52A8\u4F5C\u6216\u5757"},
     {L"Find a trigger, a condition or an action", L"\u67E5\u627E\u89E6\u53D1\u5668\u3001\u6761\u4EF6\u6216\u52A8\u4F5C"},
     {L"Trigger", L"\u89E6\u53D1\u5668"},
+    {L"Add a comment", L"\u6DFB\u52A0\u6CE8\u91CA"},
+    {L"Comment", L"\u6CE8\u91CA"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

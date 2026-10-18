@@ -500,6 +500,21 @@ void trigEditTitle() {
     if (trigPopValue(spec, at, out)) trigRenameNode(gTE.sel, out);
 }
 
+// The trigger's comment (roadmap R62): the text pop-out under it; an empty text takes the comment away.
+void trigEditComment() {
+    TriggerNode* n = trigSelected();
+    if (!n) return;
+    ValuePopSpec spec;
+    spec.type = "Text";
+    spec.title = L"Comment";
+    spec.initial = n->comment;
+    const draw::Point at{gTP.comment.left, gTP.comment.bottom};
+    std::string out;
+    if (!trigPopValue(spec, at, out) || out == n->comment) return;
+    n->comment = out;
+    trigChanged();
+}
+
 // The variable form's fields.
 void trigEditVariableField(TrigVarHit h) {
     TriggerNode* v = trigSelectedNode();

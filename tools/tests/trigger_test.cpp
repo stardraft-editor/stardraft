@@ -1546,6 +1546,7 @@ H1: 00
             {  // a mistake that only euddraft finds: its error line selects the block
                 TriggerSet bs = built;
                 TriggerNode t = TriggerSet::newTrigger("Broken");
+                t.comment = "A comment of two lines\nover the trigger's code";  // (its lines go before the code: the line map stays right)
                 t.actions = {block("act.display", {"Before", "all"}), block("act.raw", {"SetResources(P1, Add, 5, Ore;"})};
                 bs.roots[2].children.push_back(t);
                 std::vector<TriggerIssue> bi;

@@ -2328,6 +2328,8 @@ constexpr UiText kRows[] = {
     {L"Find a trigger, a condition, an action or a block", L"Buscar un disparador, una condici\u00F3n, una acci\u00F3n o un bloque"},
     {L"Find a trigger, a condition or an action", L"Buscar un disparador, una condici\u00F3n o una acci\u00F3n"},
     {L"Trigger", L"Disparador"},
+    {L"Add a comment", L"A\u00F1adir un comentario"},
+    {L"Comment", L"Comentario"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
