@@ -2349,3 +2349,17 @@ A &few doodads	少量装饰物(&F)
 No doodad fits the terrain there	那里没有适合地形的装饰物
 Decorate with doodads	用装饰物装饰
 After the terrain, put doodads where they fit the terrain	生成地形后，在适合的位置放置装饰物
+&Campaign	战役(&C)
+&New campaign…	新建战役(&N)…
+&Open campaign…	打开战役(&O)…
+&Show the campaign	显示战役(&S)
+Add the open map	添加已打开的地图
+Add a map…	添加地图…
+Move up	上移
+Move down	下移
+Take out	移出
+Copy its data into the open map	将其数据复制到已打开的地图
+Copy its terrain into the open map	将其地形复制到已打开的地图
+No maps yet: add the open map, or a map file	还没有地图：添加已打开的地图或地图文件
+Select or make a folder for the campaign	选择或新建战役文件夹
+Select the campaign's folder	选择战役文件夹

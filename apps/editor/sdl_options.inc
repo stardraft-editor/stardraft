@@ -342,6 +342,16 @@ void showOptionsSdl() {
 // Help > About StarDraft (core/views_about.inc; one window: a second click does nothing while it is open).
 AboutView gAboutView;
 bool gAboutOpen = false;
+// File > Campaign: the Campaign window (core/views_campaign.inc; one window, it stays open beside the map).
+bool gCampaignWindowOpen = false;
+void shellShowCampaignWindow() {
+    if (!gRoot || !gHost || gCampaignWindowOpen) return;
+    gCampaignWindowOpen = true;
+    const draw::Point sz = CampaignView::size();
+    gHost->openWindow(*gRoot, gCampaignView, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect(0, 0, sz.x, sz.y), L"Campaign"},
+                      [] { gCampaignWindowOpen = false; });
+}
+
 void showAboutSdl() {
     if (!gRoot || gAboutOpen) return;
     gAboutView.hot = -1;

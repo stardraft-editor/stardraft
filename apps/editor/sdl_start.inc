@@ -30,7 +30,10 @@ std::wstring startDateSdl(const fs::path& p) {
 
 // Makes the page's callbacks (the host's part of StartView). Called once, when the root view is made.
 void initStartPage() {
-    gStartView.onCard = [](int kind) { openNewPageSdl(kind); };
+    gStartView.onCard = [](int kind) {
+        if (kind == 2) return command(ID_CAMPAIGN_NEW);  // the Campaign card: a new campaign (core/views_campaign.inc)
+        openNewPageSdl(kind);
+    };
     gStartView.onOpenRecent = [](bool project, size_t i) { command((project ? ID_RECENT_PROJECT : ID_RECENT_MAP) + int(i)); };
     gStartView.onRemoveRecent = [](bool project, size_t i) {
         auto& list = project ? gRecentProjects : gRecentMaps;

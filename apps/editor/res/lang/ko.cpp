@@ -2351,6 +2351,20 @@ constexpr UiText kRows[] = {
     {L"No doodad fits the terrain there", L"\uADF8\uACF3\uC758 \uC9C0\uD615\uC5D0 \uB9DE\uB294 \uC7A5\uC2DD\uBB3C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4"},
     {L"Decorate with doodads", L"\uC7A5\uC2DD\uBB3C\uB85C \uAFB8\uBBF8\uAE30"},
     {L"After the terrain, put doodads where they fit the terrain", L"\uC9C0\uD615\uC744 \uB9CC\uB4E0 \uB4A4 \uC9C0\uD615\uC5D0 \uB9DE\uB294 \uACF3\uC5D0 \uC7A5\uC2DD\uBB3C\uC744 \uB193\uC2B5\uB2C8\uB2E4"},
+    {L"&Campaign", L"\uCEA0\uD398\uC778(&C)"},
+    {L"&New campaign\u2026", L"\uC0C8 \uCEA0\uD398\uC778(&N)\u2026"},
+    {L"&Open campaign\u2026", L"\uCEA0\uD398\uC778 \uC5F4\uAE30(&O)\u2026"},
+    {L"&Show the campaign", L"\uCEA0\uD398\uC778 \uBCF4\uAE30(&S)"},
+    {L"Add the open map", L"\uC5F4\uB9B0 \uB9F5 \uCD94\uAC00"},
+    {L"Add a map\u2026", L"\uB9F5 \uCD94\uAC00\u2026"},
+    {L"Move up", L"\uC704\uB85C"},
+    {L"Move down", L"\uC544\uB798\uB85C"},
+    {L"Take out", L"\uBAA9\uB85D\uC5D0\uC11C \uBE7C\uAE30"},
+    {L"Copy its data into the open map", L"\uC774 \uB9F5\uC758 \uB370\uC774\uD130\uB97C \uC5F4\uB9B0 \uB9F5\uC5D0 \uBCF5\uC0AC"},
+    {L"Copy its terrain into the open map", L"\uC774 \uB9F5\uC758 \uC9C0\uD615\uC744 \uC5F4\uB9B0 \uB9F5\uC5D0 \uBCF5\uC0AC"},
+    {L"No maps yet: add the open map, or a map file", L"\uC544\uC9C1 \uB9F5\uC774 \uC5C6\uC2B5\uB2C8\uB2E4: \uC5F4\uB9B0 \uB9F5\uC774\uB098 \uB9F5 \uD30C\uC77C\uC744 \uCD94\uAC00\uD558\uC138\uC694"},
+    {L"Select or make a folder for the campaign", L"\uCEA0\uD398\uC778 \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uAC70\uB098 \uB9CC\uB4DC\uC138\uC694"},
+    {L"Select the campaign's folder", L"\uCEA0\uD398\uC778 \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

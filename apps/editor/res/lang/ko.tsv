@@ -2349,3 +2349,17 @@ A &few doodads	장식물 조금(&F)
 No doodad fits the terrain there	그곳의 지형에 맞는 장식물이 없습니다
 Decorate with doodads	장식물로 꾸미기
 After the terrain, put doodads where they fit the terrain	지형을 만든 뒤 지형에 맞는 곳에 장식물을 놓습니다
+&Campaign	캠페인(&C)
+&New campaign…	새 캠페인(&N)…
+&Open campaign…	캠페인 열기(&O)…
+&Show the campaign	캠페인 보기(&S)
+Add the open map	열린 맵 추가
+Add a map…	맵 추가…
+Move up	위로
+Move down	아래로
+Take out	목록에서 빼기
+Copy its data into the open map	이 맵의 데이터를 열린 맵에 복사
+Copy its terrain into the open map	이 맵의 지형을 열린 맵에 복사
+No maps yet: add the open map, or a map file	아직 맵이 없습니다: 열린 맵이나 맵 파일을 추가하세요
+Select or make a folder for the campaign	캠페인 폴더를 선택하거나 만드세요
+Select the campaign's folder	캠페인 폴더를 선택하세요

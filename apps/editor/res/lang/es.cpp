@@ -2351,6 +2351,20 @@ constexpr UiText kRows[] = {
     {L"No doodad fits the terrain there", L"Ning\u00FAn doodad encaja en el terreno all\u00ED"},
     {L"Decorate with doodads", L"Decorar con doodads"},
     {L"After the terrain, put doodads where they fit the terrain", L"Despu\u00E9s del terreno, poner doodads donde encajan"},
+    {L"&Campaign", L"&Campa\u00F1a"},
+    {L"&New campaign\u2026", L"&Nueva campa\u00F1a\u2026"},
+    {L"&Open campaign\u2026", L"&Abrir campa\u00F1a\u2026"},
+    {L"&Show the campaign", L"&Mostrar la campa\u00F1a"},
+    {L"Add the open map", L"A\u00F1adir el mapa abierto"},
+    {L"Add a map\u2026", L"A\u00F1adir un mapa\u2026"},
+    {L"Move up", L"Subir"},
+    {L"Move down", L"Bajar"},
+    {L"Take out", L"Quitar"},
+    {L"Copy its data into the open map", L"Copiar sus datos al mapa abierto"},
+    {L"Copy its terrain into the open map", L"Copiar su terreno al mapa abierto"},
+    {L"No maps yet: add the open map, or a map file", L"A\u00FAn no hay mapas: a\u00F1ade el mapa abierto o un archivo de mapa"},
+    {L"Select or make a folder for the campaign", L"Selecciona o crea una carpeta para la campa\u00F1a"},
+    {L"Select the campaign's folder", L"Selecciona la carpeta de la campa\u00F1a"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
