@@ -55,6 +55,38 @@ void sdlShowHelp(const std::string& topic) {
     gHost->openWindow(*gRoot, gHelpView, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect(0, 0, sz.x, h), L"Help"}, [] { gHelpOpen = false; });
 }
 
+// Q in the Help workspace: the quick picker with every section of every page (and each page's top), found by its
+// heading, its page's title and its text (each typed word as it is written); a pick shows it.
+std::vector<std::string> gHelpQuickTopics;  // the rows' topics, by the rows' values
+void sdlHelpQuick() {
+    gQuickCustom.cue = tr(L"Search the help");
+    gQuickCustom.exact = true;
+    gQuickCustom.icon = UiIcon::Help;
+    gQuickCustom.rows = [] {
+        std::vector<PaletteUnit> out;
+        gHelpQuickTopics.clear();
+        auto row = [&](const std::string& topic, const std::wstring& label, const std::wstring& page, const std::string& text) {
+            PaletteUnit u;
+            u.value = int(gHelpQuickTopics.size()), u.label = label, u.section = page;
+            u.hay = label + L" " + page + L" " + widen(text);
+            std::transform(u.hay.begin(), u.hay.end(), u.hay.begin(), ::towlower);
+            gHelpQuickTopics.push_back(topic);
+            out.push_back(std::move(u));
+        };
+        for (const stardraft::HelpPage& p : stardraft::helpPages()) {
+            const std::wstring page = widen(p.title);
+            row(p.name, page, std::wstring(tr(L"Help page")), "");
+            for (const stardraft::HelpSection& s : p.sections)
+                if (!s.id.empty()) row(p.name + "#" + s.id, widen(s.title), page, s.text);
+        }
+        return out;
+    };
+    gQuickCustom.run = [](int v) {
+        if (v >= 0 && v < int(gHelpQuickTopics.size())) sdlShowHelp(gHelpQuickTopics[size_t(v)]);
+    };
+    shellShowQuickPickerCustom();
+}
+
 // F1: the topic of what has the focus. The Data workspace: the field under the mouse, else the field clicked last
 // (its .dat's page when the field has no place on it); else the index.
 std::string sdlHelpContextTopic() {

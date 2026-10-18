@@ -29,6 +29,7 @@ std::vector<PaletteUnit> trigQuickAddRows() {
 void trigQuickAdd() {
     if (!trigSelected()) return setMessage(tr(L"Select a trigger first"));
     gQuickCustom.cue = tr(L"Add a block after the selected one");
+    gQuickCustom.exact = false;
     gQuickCustom.icon = UiIcon::Triggers;
     gQuickCustom.rows = trigQuickAddRows;
     gQuickCustom.run = [](int v) {
@@ -74,6 +75,7 @@ inline std::vector<PaletteUnit> ctQuickAddRows() {
 inline void ctQuickAdd(CtPageHost& h) {
     if (!ctModelSelected(h.model())) return h.message(tr(L"Select a trigger first"));
     gQuickCustom.cue = tr(L"Add a condition or an action after the selected one");
+    gQuickCustom.exact = false;
     gQuickCustom.icon = UiIcon::Triggers;
     gQuickCustom.rows = ctQuickAddRows;
     gQuickCustom.run = [&h](int v) { ctAddAfterSelected(h, v / 256, uint8_t(v % 256)); };
@@ -161,6 +163,7 @@ inline std::vector<PaletteUnit> trigFindRows() {
 
 void trigFind() {
     gQuickCustom.cue = tr(L"Find a trigger, a condition, an action or a block");
+    gQuickCustom.exact = false;
     gQuickCustom.icon = UiIcon::Search;
     gQuickCustom.rows = trigFindRows;
     gQuickCustom.run = [](int v) {
@@ -185,6 +188,7 @@ inline std::vector<CtFindTarget> gCtFindTargets;
 
 inline void ctFind(CtPageHost& h) {
     gQuickCustom.cue = tr(L"Find a trigger, a condition or an action");
+    gQuickCustom.exact = false;
     gQuickCustom.icon = UiIcon::Search;
     gQuickCustom.rows = [&h] {
         std::vector<PaletteUnit> out;

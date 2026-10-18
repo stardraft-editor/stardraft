@@ -25,6 +25,9 @@ struct QuickPickCustom {
     std::function<std::vector<PaletteUnit>()> rows;
     UiIcon icon = UiIcon::Search;
     std::function<void(int)> run;
+    // Each typed word is found as it is written (not its letters apart, as the names' fuzzy match): rows whose words
+    // are long texts (the help's sections). The row that has it nearer the start of its words comes first.
+    bool exact = false;
 };
 QuickPickCustom gQuickCustom;
 
@@ -160,12 +163,13 @@ std::vector<std::wstring> quickPickWords(const std::wstring& typed) {
 
 // The rows that match `words`, best match first (at most 400: enough to scroll; keeps the list quick). Quick open's
 // last row, whatever is typed, is Browse (the Open project window).
-std::vector<PaletteUnit> quickPickFilter(std::vector<PaletteUnit> items, const std::vector<std::wstring>& words, bool open) {
+std::vector<PaletteUnit> quickPickFilter(std::vector<PaletteUnit> items, const std::vector<std::wstring>& words, bool open, bool exact = false) {
     std::vector<std::pair<int, PaletteUnit>> scored;
     for (auto& u : items) {
         int sc = 0;
         for (const auto& w : words) {
-            const int ws = fuzzyScore(u.hay, w);
+            const size_t at = exact ? u.hay.find(w) : 0;
+            const int ws = !exact ? fuzzyScore(u.hay, w) : at == std::wstring::npos ? -1 : std::max(1, 2000 - int(std::min<size_t>(at, 1999)));
             if (ws < 0) {
                 sc = -1;
                 break;
@@ -437,7 +441,7 @@ private:
         std::vector<PaletteUnit> items = kind_ == QuickPickKind::Data                                    ? dataJumpItems()
                                          : kind_ == QuickPickKind::Open || kind_ == QuickPickKind::Custom ? openRows_
                                                                                                           : quickPickItems();
-        shown_ = quickPickFilter(std::move(items), words_, kind_ == QuickPickKind::Open);
+        shown_ = quickPickFilter(std::move(items), words_, kind_ == QuickPickKind::Open, kind_ == QuickPickKind::Custom && gQuickCustom.exact);
         sel_ = shown_.empty() ? -1 : 0;
         top_ = 0;
         place();

@@ -172,6 +172,7 @@ bool sdlOptionsCommand(int id);
 bool sdlUpdatesRuns(int id);  // (sdl_updates.inc: Look for updates on start, Crash reports, Maps)
 bool sdlHelpRuns(int id);  // (sdl_help.inc: Help > Documentation, F1)
 void sdlShowHelp(const std::string& topic);  // (sdl_help.inc: the Help workspace, or its window)
+void sdlHelpQuick();  // (sdl_help.inc: Q in the Help workspace)
 bool sdlRuns(int id) {
     if (sdlOptionsRuns(id) || sdlUpdatesRuns(id) || sdlHelpRuns(id)) return true;
     switch (id) {
@@ -1246,6 +1247,7 @@ void commandSdl(int id) {
     case ID_QUICKPICK:  // in the trigger editors: Quick add (core/views_trigger_quick.inc)
         if (gWorkspace == Workspace::Triggers) return trigQuickAdd();
         if (gWorkspace == Workspace::ClassicTriggers) return sdlClassicQuickAdd();
+        if (gWorkspace == Workspace::Help) return sdlHelpQuick();
         shellShowQuickPicker(false, false);
         return;
     case ID_HELP_ABOUT: showAboutSdl(); return;
