@@ -14,13 +14,13 @@ public:
         draw::Rect rc;
         std::wstring url;
     };
-    std::vector<Link> links;  // from the last paint: IsomTerrain, euddraft, eudplib, the repository, Discord
+    std::vector<Link> links;  // from the last paint: the thanks' names and projects, the repository, Discord
     draw::Rect closeRc;
     int hot = -1;  // link index, or -2 for Close
     std::function<void()> closed;  // the view closed its window (Close, Esc, Enter)
 
     // The window's size at 100 % (the lines about the name and the EUD tools fit).
-    static draw::Point size() { return {scale(600), scale(616)}; }  // (the thanks, the lines about Blizzard and the links fit)
+    static draw::Point size() { return {scale(600), scale(636)}; }  // (the thanks, the lines about Blizzard and the links fit)
 
     void paint(draw::Canvas& c) override {
         using draw::Color;
@@ -55,19 +55,31 @@ public:
             const std::wstring line = tr(english);
             struct Piece {
                 std::wstring text;
-                int link;  // -1: text, else the index in `names`
+                int link;  // -1: text, else the link's place in the line (0 first)
             };
-            std::vector<Piece> pieces;
-            size_t at = 0;
+            // The names where the line has them (a translation may have them in another order).
+            std::vector<std::pair<size_t, int>> found;
             for (size_t k = 0; k < names.size(); ++k) {
-                const size_t f = line.find(names[k].first, at);
+                const size_t f = line.find(names[k].first);
                 if (f == std::wstring::npos) {
                     centered(line, smallText, kDim, scale(22));
                     return;
                 }
+                found.push_back({f, int(k)});
+            }
+            std::sort(found.begin(), found.end());
+            std::vector<Piece> pieces;
+            std::vector<std::wstring> urls;  // the line's links, left to right
+            size_t at = 0;
+            for (const auto& [f, k] : found) {
+                if (f < at) {  // (two names overlap)
+                    centered(line, smallText, kDim, scale(22));
+                    return;
+                }
                 pieces.push_back({line.substr(at, f - at), -1});
-                pieces.push_back({names[k].first, int(k)});
-                at = f + names[k].first.size();
+                pieces.push_back({names[size_t(k)].first, int(urls.size())});
+                urls.push_back(names[size_t(k)].second);
+                at = f + names[size_t(k)].first.size();
             }
             pieces.push_back({line.substr(at), -1});
             const size_t first = links.size();
@@ -92,7 +104,7 @@ public:
                 const Rect r{x, y, x + tw, y + scale(22)};
                 c.text(r, p.text, p.link >= 0 ? kAccent : kDim, draw::kMiddle);
                 c.setFont(of);
-                if (p.link >= 0) links.push_back({r, names[size_t(p.link)].second});
+                if (p.link >= 0) links.push_back({r, urls[size_t(p.link)]});
                 x += tw;
             }
             y += scale(22);
@@ -103,10 +115,14 @@ public:
         centered(L"Thanks", c.font(heading), kText, scale(26));
         centered(L"Camelot Systems, for the original StarDraft (1998), which started the StarCraft modding scene.", smallText, kDim, scale(22));
         centered(L"StarDraft 2 aims to be its spiritual successor.", smallText, kDim, scale(22));
-        linkLine(L"Nites, for IsomTerrain, the isometric terrain", {{L"IsomTerrain", L"https://github.com/TheNitesWhoSay/IsomTerrain"}});
-        linkLine(L"armoha, for euddraft and eudplib, which power the EUD maps",
-                 {{L"euddraft", L"https://github.com/armoha/euddraft"}, {L"eudplib", L"https://github.com/armoha/eudplib"}});
+        y += scale(10);  // (each thanks is a paragraph; a person's name links to their GitHub profile)
+        linkLine(L"Justin F, for IsomTerrain, the isometric terrain",
+                 {{L"Justin F", L"https://github.com/TheNitesWhoSay"}, {L"IsomTerrain", L"https://github.com/TheNitesWhoSay/IsomTerrain"}});
         centered(L"IsomTerrain: Copyright (c) 2023 Justin F (MIT License)", smallText, kDim, scale(22));
+        y += scale(10);
+        linkLine(L"armoha, for euddraft and eudplib, which power the EUD maps",
+                 {{L"armoha", L"https://github.com/armoha"}, {L"euddraft", L"https://github.com/armoha/euddraft"},
+                  {L"eudplib", L"https://github.com/armoha/eudplib"}});
         // Not a Blizzard product, and it needs the game's files.
         y += scale(10);
         centered(L"StarDraft 2 is not associated with Blizzard Entertainment.", smallText, kDim, scale(22));

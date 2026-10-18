@@ -1791,7 +1791,7 @@ constexpr UiText kRows[] = {
     {L"Thanks", L"Agradecimientos"},
     {L"Camelot Systems, for the original StarDraft (1998), which started the StarCraft modding scene.", L"Camelot Systems, por el StarDraft original (1998), que inici\u00F3 la escena de mods de StarCraft."},
     {L"StarDraft 2 aims to be its spiritual successor.", L"StarDraft 2 quiere ser su sucesor espiritual."},
-    {L"Nites, for IsomTerrain, the isometric terrain", L"Nites, por IsomTerrain, el terreno isom\u00E9trico"},
+    {L"Justin F, for IsomTerrain, the isometric terrain", L"Justin F, por IsomTerrain, el terreno isom\u00E9trico"},
     {L"armoha, for euddraft and eudplib, which power the EUD maps", L"armoha, por euddraft y eudplib, que hacen funcionar los mapas EUD"},
     {L"Mouse", L"Rat\u00F3n"},
     {L"The farther the mouse is from where you pressed, the faster the map moves toward it (default)", L"Cuanto m\u00E1s lejos est\u00E1 el rat\u00F3n del punto donde puls\u00F3, m\u00E1s r\u00E1pido se mueve el mapa hacia \u00E9l (predeterminado)"},
