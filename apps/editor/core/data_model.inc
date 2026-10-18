@@ -306,18 +306,9 @@ std::wstring fieldNote(const DatField& f, uint32_t v) {
         return v < icons.size() ? L"icon: " + widen(icons[v]) : L"";
     }
     if (f.name == "Label" && shellState().ed) return v ? L"\x201C" + statString(int(v)) + L"\x201D" : L"None";
-    if (f.name == "Hit Points") {
-        wchar_t b[48];
-        std::swprintf(b, 48, L"= %g hit points", v / 256.0);
-        return b;
-    }
-    if (f.name == "Shield Amount" || f.name == "Mineral Cost" || f.name == "Vespene Cost") return L"";
-    if (f.name == "Build Time" || f.name == "Weapon Cooldown" || f.name == "Remove After" || f.name == "Research Time Base" ||
-        f.name == "Research Time Factor" || f.name == "Resarch Time") {
-        wchar_t b[48];
-        std::swprintf(b, 48, L"= %g s (fastest)", v / 24.0);
-        return b;
-    }
+    // A raw value in a unit that is difficult to read: the value in an easier unit (stardraft/dat_units.h; its help page
+    // says the same), "= 15 s (fastest)".
+    if (const DatTable* t = curTable()) return widen(datConvertedText(t->schema().name, f.name, v));
     return L"";
 }
 

@@ -128,7 +128,7 @@ struct DataFormHit {
     draw::Rect r;
     int field = 0;  // the field's index in its schema
     int bit = 0;    // -1 the value box; >=0 a flag; -2 a reference link; -3 the label; -4 a dropdown; -5 a yes/no value;
-                    // -6 a number's up arrow; -7 its down arrow
+                    // -6 a number's up arrow; -7 its down arrow; -8 the help icon (on the row under the mouse)
 };
 
 // A part of the form from the last paint, for a check (the SDL program's --check dataform): a section's fields or
@@ -194,6 +194,8 @@ public:
     virtual void fieldMenu(const DatField& f, draw::Point pt) = 0;  // the right button on a field (pt: the view's)
     virtual void status(const std::wstring& text) = 0;
     virtual bool travel(int button) = 0;                            // the mouse's back (1) and forward (2) buttons
+    virtual void help(const DatField& f) = 0;                       // the field's help page (its help icon)
+    virtual bool hasHelp(const DatField& f) = 0;                    // the field has a help page
 };
 
 class DataFormView final : public draw::View {
@@ -227,6 +229,9 @@ public:
 
     void paint(draw::Canvas& c) override;
     const std::vector<DataFormPart>& parts() const { return parts_; }
+    // The notes after the value boxes from the last paint: the field (its name in the schema) and the text (a converted
+    // value, "= 40 hit points", or the name of the value), for a check.
+    const std::vector<std::pair<std::string, std::wstring>>& notes() const { return notes_; }
     bool mouse(const draw::MouseEvent& e) override;
     draw::Cursor cursor(draw::Point pt) override;
     std::wstring feedbackName(draw::Point pt) override;
@@ -239,6 +244,23 @@ public:
     void captureLost() override {  // (Alt+Tab during a drag: the value as it is goes in, with its undo step)
         if (std::exchange(pressed_, false)) host_.widgetRelease(true);
     }
+    // The field that F1 opens the help page of: the field under the mouse, else the field that was clicked last on
+    // this entry's form (its name in the schema; "" when none).
+    std::string helpField() const {
+        if (!host_.hotFields().empty()) {
+            if (hoverField_ >= 0)
+                if (const DatField* f = field(hoverField_); f && host_.hotFields().count(f->name)) return f->name;
+            return *host_.hotFields().begin();
+        }
+        if (const DatField* f = field(lastField_)) return f->name;
+        return "";
+    }
+    // The help icon of the row under the mouse (empty: none).
+    draw::Rect helpIcon() const {
+        for (const DataFormHit& h : hits_)
+            if (h.bit == -8) return h.r;
+        return {};
+    }
 
 private:
     void press(draw::Point pt, bool right);
@@ -249,8 +271,11 @@ private:
     std::vector<DataFormHit> hits_;
     std::vector<int> sectionTops_;
     std::vector<DataFormPart> parts_;
+    std::vector<std::pair<std::string, std::wstring>> notes_;
     int height_ = 0;
     bool pressed_ = false;  // a press on a program's part: the mouse is captured until it goes up
+    int lastField_ = -1;    // the field that was clicked last (its index; F1's page when the mouse is on no field)
+    int hoverField_ = -1;   // the field whose row is under the mouse (-1: none)
     std::chrono::steady_clock::time_point lastScroll_{};
 };
 
@@ -270,6 +295,7 @@ inline void DataFormView::paint(draw::Canvas& c) {
     const int labelW = lay.labelW, colW = lay.colW, colRight = x0 + colW;
     const bool twoCol = lay.twoCol;
     parts_.clear();
+    notes_.clear();
     const DatTable* tp = host_.table();
     if (host_.paintExtraTab(c, y)) {
     } else if (!tp) {
@@ -341,7 +367,17 @@ inline void DataFormView::paint(draw::Canvas& c) {
                 const DataFieldRow fr = dataFieldRow(x0, labelW, valW, y, rowH, colRight, s);
                 if (ro) host_.area({x0, y, colRight, y + rowH}, nullptr, readOnlyWhy, draw::Cursor::No);
                 if (hotFields.count(f.name)) c.fill({x0 - scale(8), y, colRight, y + rowH}, kSel);
-                c.text(fr.label, datLabel(f.name), !has || ro ? kFaint : mod ? kGood : kDim, draw::kMiddle | draw::kEllipsis);
+                // The row under the mouse: the help icon at the label's end (a click opens the field's help page).
+                draw::Rect labelText = fr.label;
+                if (hotFields.count(f.name) && host_.hasHelp(f)) {
+                    const int ib = scale(stardraft::kit::kIconBox) - scale(4);
+                    const draw::Rect hi{fr.label.right - scale(6) - ib, y + (rowH - ib) / 2, fr.label.right - scale(6), y + (rowH - ib) / 2 + ib};
+                    kitpaint::drawIconFace(c, hi, UiIcon::Help, kitpaint::Tone::Normal, false, host_.hot(hi));
+                    hits_.push_back({hi, f.index, -8});
+                    host_.area(hi, nullptr, L"Open the help page of this field (F1)", draw::Cursor::Hand);
+                    labelText.right = hi.left - scale(4);
+                }
+                c.text(labelText, datLabel(f.name), !has || ro ? kFaint : mod ? kGood : kDim, draw::kMiddle | draw::kEllipsis);
                 if (!ro) hits_.push_back({fr.label, f.index, -3});
                 // A yes/no value: a checkbox (click: 0 or 1).
                 if (has && fieldIsBool(dat, f)) {
@@ -388,6 +424,7 @@ inline void DataFormView::paint(draw::Canvas& c) {
                 if (has && !ro) hits_.push_back({vb, f.index, -1});
                 const std::wstring note = has ? host_.fieldNote(f, v) : L"not used by this entry";
                 if (!note.empty()) {
+                    notes_.push_back({f.name, note});
                     const draw::Rect nt = fr.note;
                     const DatSchema* target = f.ref.empty() ? nullptr : DatSchema::find(f.ref);
                     const bool isLink = has && target && v < uint32_t(target->entries);
@@ -472,6 +509,11 @@ inline void DataFormView::press(draw::Point pt, bool right) {
         const DatField* f = field(h.field);
         const DatTable* table = host_.table();
         if (!f || !table) break;
+        lastField_ = h.field;
+        if (h.bit == -8) {  // the help icon
+            if (!right) host_.help(*f);
+            break;
+        }
         if (right) {  // a field (its label or value): copy, paste, reset
             host_.fieldMenu(*f, pt);
             break;
@@ -516,10 +558,11 @@ inline void DataFormView::editNeighbour(int editing, int delta) {
 inline void DataFormView::hover(draw::Point pt) {
     std::set<std::string> now;
     if (host_.widgetHover(pt, now)) invalidate();
+    hoverField_ = -1;
     if (now.empty())
         for (const auto& h : hits_)
             if (h.r.contains(pt) || (pt.y >= h.r.top && pt.y < h.r.bottom && h.bit == -3 && pt.x < h.r.right + scale(560))) {
-                if (const DatField* f = field(h.field)) now.insert(f->name);
+                if (const DatField* f = field(h.field)) now.insert(f->name), hoverField_ = h.field;
                 break;
             }
     auto& hot = host_.hotFields();
@@ -571,7 +614,7 @@ inline draw::Cursor DataFormView::cursor(draw::Point pt) {
     draw::Cursor c = draw::Cursor::Arrow;
     if (host_.widgetCursor(pt, c)) return c;
     for (const auto& h : hits_)
-        if (h.r.contains(pt) && h.bit != -3)  // a dropdown (-4) is a hand too
+        if (h.r.contains(pt) && h.bit != -3 && h.bit != -8)  // a dropdown (-4) is a hand too
             return h.bit == -1 ? draw::Cursor::IBeam : h.bit <= -6 ? draw::Cursor::Arrow : draw::Cursor::Hand;
     return draw::Cursor::Arrow;
 }

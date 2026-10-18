@@ -28,6 +28,8 @@ enum : int {
     // Help > What is new (the release notes of this version), the top bar's Update (the newer release's notes), Program
     // options > Updates > Previews (pre-releases too).
     ID_HELP_WHATSNEW = 870, ID_UPDATE_NOTES, ID_OPT_PREVIEWS,
+    // Help > Documentation (the help window at its index) and F1 (the help window at the page of what has the focus).
+    ID_HELP_DOCS = 875, ID_HELP_CONTEXT,
     ID_THEME_DARK = 880, ID_THEME_LIGHT, ID_SCEN_PROPS, ID_SCEN_CLASSIC, ID_SCEN_CLASSICTRIG, ID_ACCENT = 890,  // + accent index (theme::kAccents)
     ID_THEME_SYSTEM = 888,  // Program options > Theme > Automatic: the system's theme (macOS)
     ID_OPT_SNAPVALID = 640, ID_OPT_STRICT, ID_OPT_ILLEGAL, ID_OPT_DRAGBACK, ID_OPT_ANIMATE, ID_OPT_STACK, ID_OPT_LASTPROJECT,

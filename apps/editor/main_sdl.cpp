@@ -113,6 +113,8 @@
 #include "stardraft/commands.h"
 #include "stardraft/dat_edit.h"
 #include "stardraft/dat_extras.h"
+#include "stardraft/dat_units.h"  // the converted values on the Data form (core/data_model.inc)
+#include "stardraft/help.h"  // the help pages (core/views_help.inc)
 #include "stardraft/editor.h"
 #include "stardraft/eud_project.h"
 #include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)
@@ -180,6 +182,7 @@ bool gKeysFromOpener = false;
 #include "sdl_history.inc"  // Undo, Redo and Edit > Undo history (the model is core/undo_history.inc)
 #include "sdl_shot_state.inc"  // a snapshot's input lines: what the workspace holds after each input
 #include "sdl_updates.inc"  // Help > Check for updates, the crash reports' choice (core/releases.inc)
+#include "sdl_help.inc"  // Help > Documentation and F1: the help window (core/views_help.inc)
 #include "sdl_dock.inc"  // the Dock and Finder (macOS), the sounds dropped in the Assets workspace
 #include "shell_sdl.inc"
 #include "sdl_cursor_check.inc"  // --cursors: the window's cursors at some points, as text (a snapshot run)
@@ -662,7 +665,7 @@ int main(int argc, char** argv) {
         for (const std::string& c : checkArgs) {
             std::string out;
             const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform";
-            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
+            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || sdlHelpCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
             std::printf("%s", out.c_str());
         }
 
@@ -720,6 +723,7 @@ int main(int argc, char** argv) {
             else if (mapShot.view) shown = mapShot.view;
             else if (valueShot) shown = valueShot.get();
             else if (draw::View* notes = sdlChangelogShot(dialogArg, width, height)) shown = notes;  // html:<file>, changelog, changelog:offline (sdl_updates.inc)
+            else if (draw::View* help = sdlHelpShot(dialogArg, width, height)) shown = help;  // help[:<topic>], help:search:<words> (sdl_help.inc)
             // newpreview: the New page's larger preview of a generated map (the default choices, Generate) at 1200 x 900.
             std::unique_ptr<NewPreviewView> previewShot;
             stardraft::kit::Dialog previewDlg;
@@ -832,6 +836,7 @@ int main(int argc, char** argv) {
                 std::printf("start page: banner %s; note: %s; game data %s\n", gStartView.bannerShown() ? "shown" : "not shown",
                             gStartView.installNote.empty() ? "none" : narrow(gStartView.installNote).c_str(), gDataOk ? "open" : "not open");
             sdlChangelogShotLines(dialogArg, shown == &root);  // (the HTML view's layout, the release notes, the top bar's Update)
+            sdlHelpShotLines(shown == &gHelpView);  // (the help window: its page, its place, its list)
             if (gOptionsView.tab() >= 0) std::printf("options tab %d: content %d px high\n", gOptionsView.tab(), gOptionsView.contentHeight());
             if (hasCheck("dock")) sdlDockCheck("dock");
             if (midPanArg) sdlMidPanCheck();  // (after the picture: it moves the camera)

@@ -12,7 +12,7 @@ texts follow.
 | `apps/editor/` | The editor. `main_sdl.cpp` is the program (SDL3 on Windows, macOS and Linux); `shell_sdl.inc` and `shell_sdl_win.inc` (its Windows parts: the crash handler, the file types, the files built into the program) are the host's side of `shell.h`; the `sdl_*.inc` files are the windows, the panes and the dialogs. `core/` is the portable core (`core/core.inc`: the commands, the map's tools and every view, drawn on the Canvas of `apps/common/canvas.h`); `core/core_check.cpp` (target `editor_core_check`) compiles it with no Win32 headers. |
 | `src/data/` | Generated tables (see below). Do not edit them by hand. |
 | `tools/` | Tools (each a CMake target) and the UI text lint. `tools/tests/`: the test programs; `tools/probes/`: one-off programs from finding out how the game works. |
-| `docs/` | `dev/`: this guide, the principles, the control kit. `project/`: the roadmap, how feedback is used. `user/`: the changelog. |
+| `docs/` | `dev/`: this guide, the principles, the control kit. `project/`: the roadmap, how feedback is used. `user/`: the changelog. `help/`: the help pages (see "Help pages" below). |
 
 The library knows nothing about Windows; in the editor, only `shell_sdl_win.inc` and `apps/common`'s `*_win32.cpp`
 files are Windows-only. Keep it that way.
@@ -171,6 +171,7 @@ Give each test a new, empty scratch folder.
 | `paint_stress` | | Terrain correction: no cliff-stack breaks. |
 | `terrain_check` | `terrain_check <install> <maps folder>...` | Without the GPU: the HD, HD2 and Carbot tiles of each tileset against the SD megatiles; each map's MTXM tiles resolve; each map sprite (THG2) has graphics and the frame and images the game starts it with. |
 | `commands_test` | `commands_test` | Without game data: the command table (shortcuts, run by id, enabled, checked, menus). |
+| `help_test` | `help_test` | Without game data: the help pages built into the program (`stardraft/help.h`), their links, the place of each .dat field (F1), the search, and the converted values of the Data form (`stardraft/dat_units.h`). |
 | `platform_test` | `platform_test <dir>` | Without game data or network: `apps/common`'s self-update parts (unpacking, replacing a program file) and the crash report's title. |
 | `settings_test` | `settings_test <dir>` | Without game data: the settings file (each kind of value written and read again). |
 | `render_smoke_test` | `render_smoke_test [out.png]` | Without game data: the renderer's device and pipelines (each shader in the GPU API's format), and rectangles, lines and text in an offscreen frame. GitHub runs it on Linux (Vulkan on lavapipe). |
@@ -181,6 +182,20 @@ map (on Terran01: 2 about pasting; more on other maps); `tools_test` fails "2.1 
 checkPlacement".
 
 Run the tests that a change needs; the whole set when the owner asks for it.
+
+### Help pages
+
+The help pages are Markdown files in `docs/help/`, one page per topic; `index.md` links to each page, in the order of
+the help window's list. `python -I tools/help_build.py` checks them (each link goes to a page and a heading that are
+there, each page other than the index has "Sources and credits", and each field of the eight .dat files has a heading
+on its page, `<dat>-dat.md`, with the id that F1 opens). The build runs it to put the pages into the program
+(`generated/help_pages.cpp`: Help > Documentation and F1 work offline), so a broken link stops the build; GitHub runs
+it before the build too, and `.github/workflows/pages.yml` publishes the same pages (`--site`) on GitHub Pages under
+`/help/` after a push to main. Write the pages in the program's own words (ASD-STE100, as the UI texts) and name the
+sources at the end of each page. A heading's id is its text in lower case with a "-" for each run of other
+characters ("Rank/sublabel": `rank-sublabel`); `{#id}` at the end of a heading gives it another id. A .dat field
+whose raw value is in a unit that is difficult to read gets its converted value in `src/dat_units.cpp` (the Data form
+shows it after the value), and its page says the same.
 
 ### UI text
 
@@ -229,6 +244,7 @@ the tables by hand.
 | `src/data/tile_edges.inc` | the CV5 files from CASC |
 | `src/data/eud_names.inc` | eudplib's name tables (in euddraft) |
 | `apps/editor/res/` (icons, UI icon atlases, `ui_icons.h`) | the icon tool (`python tools/import_icons.py`) |
+| `generated/help_pages.cpp` (in the build folder, not in the repository) | `docs/help/*.md`, by `tools/help_build.py` at build time |
 | `shaders/gen/` (SPIR-V and MSL) | `shaders/*.hlsl`, by `python -I tools/gen_shaders.py --shadercross <program>` (its text says which SDL_shadercross). After a change to a shader, run it and commit the result: GitHub checks that `shaders/gen/sources.txt` matches the shaders. |
 
 EUD Editor 2 and 3 are MIT licensed (LeeJungHun); `NOTICE.md` has the credits.

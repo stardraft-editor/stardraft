@@ -1,0 +1,48 @@
+# The help pages on the web: a push to main that changes docs/help (or the build of the pages) builds them with
+# tools/help_build.py (the same pages that the program has: Help > Documentation) and publishes them on this
+# repository's GitHub Pages under /help/ (https://stardraft-editor.github.io/stardraft/help/). The build stops on a
+# broken link between the pages. The repository's Pages setting: Source "GitHub Actions".
+name: Help pages
+
+on:
+  push:
+    branches: [main]
+    paths: [docs/help/**, tools/help_build.py, src/data/dat_schema.inc, .github/workflows/pages.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build the help pages
+        run: |
+          mkdir -p site/help
+          python -I tools/help_build.py --site site/help
+          # (the site's root goes to the help)
+          printf '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=help/"><a href="help/">StarDraft 2 help</a>\n' > site/index.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}help/
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
