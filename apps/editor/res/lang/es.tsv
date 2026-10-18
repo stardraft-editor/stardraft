@@ -2377,3 +2377,5 @@ Help: the documentation (F1, Ctrl+	Ayuda: la documentación (F1, Ctrl+
 Help page	Página de ayuda
 the Help pages	las páginas de ayuda
 Set the current player	Establecer el jugador actual
+Take the conditions out of Not	Sacar las condiciones de No
+NOT: true when this condition is not true	NOT: verdadero cuando esta condición no es verdadera

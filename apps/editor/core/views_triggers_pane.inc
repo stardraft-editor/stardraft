@@ -101,6 +101,26 @@ TriggerCall* trigBlock(TriggerNode& t, const TrigBlockRef& b) {
     std::vector<TriggerCall>* v = trigResolve(t, b.list);
     return v && b.index >= 0 && b.index < int(v->size()) ? &(*v)[size_t(b.index)] : nullptr;
 }
+// A condition's NOT button: the condition goes inside a Not block (true when it is not true); on a Not, its conditions
+// come out of it again (in its place). Returns the block to select (index -1: none, a Not that held nothing).
+TrigBlockRef trigToggleNot(TriggerNode& t, const TrigBlockRef& b) {
+    std::vector<TriggerCall>* v = trigResolve(t, b.list);
+    if (!v || b.index < 0 || b.index >= int(v->size())) return b;
+    TriggerCall& c = (*v)[size_t(b.index)];
+    if (c.def == "cond.not") {
+        const std::vector<TriggerCall> inner = c.lists.empty() ? std::vector<TriggerCall>{} : c.lists[0];
+        v->erase(v->begin() + b.index);
+        v->insert(v->begin() + b.index, inner.begin(), inner.end());
+        return {b.list, inner.empty() ? -1 : b.index};
+    }
+    const TriggerDef* nd = TriggerDef::find("cond.not");
+    if (!nd) return b;
+    TriggerCall n = TriggerCall::make(*nd);
+    if (n.lists.empty()) n.lists.resize(1);
+    n.lists[0] = {c};
+    c = std::move(n);
+    return b;
+}
 TrigListRef trigInside(const TrigBlockRef& b, int n) {
     TrigListRef r = b.list;
     r.via.push_back({b.list.list, b.index});
@@ -802,6 +822,9 @@ private:
                 gTP.sel = btn.ref;
                 if (btn.action == 0) {
                     if (TriggerCall* c = trigBlock(*t, btn.ref)) c->enabled = !c->enabled, host_.changed();
+                } else if (btn.action == 3) {
+                    gTP.sel = trigToggleNot(*t, btn.ref);
+                    host_.changed();
                 } else if (btn.action == 1) {
                     host_.duplicate();
                 } else {
@@ -1107,7 +1130,8 @@ private:
             const int textX = x + scale(26);
             // Measure the sentence (nothing drawn), then draw the block and the text.
             int hgt = scale(22);
-            if (d) hgt = sentence(c, *d, call, textX + (d->lists.empty() ? 0 : scale(18)), 0, w - scale(130) - (d->lists.empty() ? 0 : scale(18)), me, true, false, false);
+            const int notW = cond ? scale(40) : 0;  // a condition's NOT button (before on/off)
+            if (d) hgt = sentence(c, *d, call, textX + (d->lists.empty() ? 0 : scale(18)), 0, w - scale(130) - notW - (d->lists.empty() ? 0 : scale(18)), me, true, false, false);
             const int padY = scale(9);  // room above and below the sentence
             RECT head{x, y, x + w, y + hgt + 2 * padY};
             const bool container = d && !d->lists.empty();
@@ -1123,8 +1147,17 @@ private:
                 const wchar_t* tips[3] = {call.enabled ? L"Turn off" : L"Turn on", L"Duplicate", L"Delete"};
                 const kitpaint::Tone tones[3] = {kitpaint::Tone::Quiet, kitpaint::Tone::Normal, kitpaint::Tone::Danger};
                 const RECT line{head.left, head.top + padY - scale(2), head.right - scale(4), head.top + padY + scale(24)};
+                if (cond) {  // NOT: in a Not block, or out of it (a Not: lit)
+                    const bool isNot = call.def == "cond.not";
+                    const RECT nb4 = toRect(kitpaint::rowActionRect(line, 0, 4));
+                    const RECT br{nb4.right - notW, nb4.top, nb4.right, nb4.bottom};
+                    if (hot(br) || isNot) roundRect(c, br, isNot ? kSel : kCtlHot, isNot ? kAccent : kBorderHot);
+                    text(c, br, L"NOT", isNot ? kAccent : hot(br) ? kText : kDim, draw::kMiddle | draw::kCenter);
+                    gTP.rowButtons.push_back({me, 3, br});
+                    gTP.tips.push_back({br, isNot ? tr(L"Take the conditions out of Not") : tr(L"NOT: true when this condition is not true"), kBorderHot});
+                }
                 for (int k = 0; k < 3; ++k) {
-                    const RECT br = toRect(kitpaint::rowActionRect(line, k, 3));
+                    const RECT br = toRect(kitpaint::rowActionRect(line, cond ? k + 1 : k, cond ? 4 : 3));
                     const draw::Color gc = kitpaint::drawIconFace(c, br, glyphs[k], tones[k], k == 0 && !call.enabled, hot(br));
                     if (glyphs[k].icon < 0) lastText_ = gc;
                     gTP.rowButtons.push_back({me, k, br});
@@ -1139,14 +1172,14 @@ private:
                 gTP.folds.push_back({me, arrow});
                 sx += scale(18);
             }
-            if (d) sentence(c, *d, call, sx, y + padY, w - (sx - x) - scale(100), me, dim, true, true);
+            if (d) sentence(c, *d, call, sx, y + padY, w - (sx - x) - scale(100) - notW, me, dim, true, true);
             else text(c, {textX, y + padY, x + w, y + padY + scale(22)}, L"Unknown block: " + widen(call.def), kTrigRed, draw::kMiddle);
             const size_t lineAt = gTP.lines.size();
             gTP.lines.push_back({me, head, {x, y, x + scale(20), head.bottom}, head, container});
             if (const auto issues = trigIssuesOf(&call); !issues.empty() && !dim) {
                 COLORREF tc;
                 const std::wstring tt = trigIssueText(issues, tc);
-                const int bx = head.right - scale(28) * 3 - scale(34);
+                const int bx = head.right - scale(28) * 3 - scale(34) - notW;
                 RECT badge{bx, head.top + padY - scale(1), bx + scale(24), head.top + padY + scale(23)};
                 glyph(c, badge, tc == kTrigRed ? UiIcon::Error : UiIcon::Warning, tc);
                 gTP.tips.push_back({badge, tt + L"\n" + tr(L"Click: what the check looks at (Help)"), tc});

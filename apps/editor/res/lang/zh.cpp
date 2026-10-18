@@ -2379,6 +2379,8 @@ constexpr UiText kRows[] = {
     {L"Help page", L"\u5E2E\u52A9\u9875\u9762"},
     {L"the Help pages", L"\u5E2E\u52A9\u9875\u9762"},
     {L"Set the current player", L"\u8BBE\u7F6E\u5F53\u524D\u73A9\u5BB6"},
+    {L"Take the conditions out of Not", L"\u5C06\u6761\u4EF6\u79FB\u51FA\u201C\u975E\u201D"},
+    {L"NOT: true when this condition is not true", L"NOT\uFF1A\u6B64\u6761\u4EF6\u4E0D\u6210\u7ACB\u65F6\u4E3A\u771F"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

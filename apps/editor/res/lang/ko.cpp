@@ -2379,6 +2379,8 @@ constexpr UiText kRows[] = {
     {L"Help page", L"\uB3C4\uC6C0\uB9D0 \uD398\uC774\uC9C0"},
     {L"the Help pages", L"\uB3C4\uC6C0\uB9D0 \uD398\uC774\uC9C0"},
     {L"Set the current player", L"\uD604\uC7AC \uD50C\uB808\uC774\uC5B4 \uC124\uC815"},
+    {L"Take the conditions out of Not", L"Not\uC5D0\uC11C \uC870\uAC74 \uAEBC\uB0B4\uAE30"},
+    {L"NOT: true when this condition is not true", L"NOT: \uC774 \uC870\uAC74\uC774 \uCC38\uC774 \uC544\uB2D0 \uB54C \uCC38"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

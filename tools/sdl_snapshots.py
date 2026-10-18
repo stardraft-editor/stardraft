@@ -713,6 +713,9 @@ CASES += [
     ("help-f1-start", ["--key", "F1"], ""),
     # The Help workspace (Ctrl+7: the side bar's last item on a classic map, Help), Q: the quick picker of the help's sections; "sight range" and Enter.
     ("map-help-quick", ["--key", "Ctrl+7", "--key", "Q", "--type", "sight range", "--key", "Enter"], "map"),
+    # A condition's NOT button: New trigger, its Always selected, NOT: it goes inside a Not block.
+    ("data-triggers-not", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169", "--key", "Enter",
+                           "--wait", "600", "--click", "900,232", "--click", "1467,242"], "data"),
     ("data-help-f1", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "420,545", "--key", "F1"], "data"),
     ("data-help-icon", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "420,259", "--click", "529,259"], "data"),
     ("data-form-units-converted", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--check", "dataform"], "data"),
@@ -3107,15 +3110,15 @@ def check_release_token(output):
 # map's tab after a project's in Data shows its map.
 CASES += [
     ("newpage-noback", ["--newpage", "eud", "--click", "382,218", "--key", "Esc"], ""),
-    ("project-newproject", ["--key", "Ctrl+N", "--click", "711,430", "--click", "437,406", "--key", "Ctrl+A", "--type", "{newdir}",
-                            "--click", "1162,815"], "project"),
+    ("project-newproject", ["--key", "Ctrl+N", "--click", "711,430", "--click", "437,421", "--key", "Ctrl+A", "--type", "{newdir}",
+                            "--click", "1162,800"], "project"),
     # The map's commands do nothing while the start page shows over the map (Del after Select all deletes no unit).
     ("map-start-over-map", ["--mode", "units", "--key", "Ctrl+A", "--key", "Ctrl+N", "--key", "Del", "--key", "Esc"], "map"),
     ("project-newpage-esc", ["--key", "Ctrl+N", "--key", "Esc", "--click", "176,84", "--key", "Esc", "--key", "Ctrl+Shift+N", "--key", "Esc"], "project"),
-    ("project-open-new", ["--key", "Ctrl+O", "--pick", "{project}", "--key", "Ctrl+N", "--click", "711,430", "--click", "437,406", "--key", "Ctrl+A", "--type", "{newdir}", "--click", "1162,815"], "project"),
-    ("project-triggers-neweud", ["--workspace", "triggers", "--key", "Ctrl+Shift+N", "--click", "437,406", "--key", "Ctrl+A", "--type", "{newdir}", "--click", "1162,815"], "project"),
+    ("project-open-new", ["--key", "Ctrl+O", "--pick", "{project}", "--key", "Ctrl+N", "--click", "711,430", "--click", "437,421", "--key", "Ctrl+A", "--type", "{newdir}", "--click", "1162,800"], "project"),
+    ("project-triggers-neweud", ["--workspace", "triggers", "--key", "Ctrl+Shift+N", "--click", "437,421", "--key", "Ctrl+A", "--type", "{newdir}", "--click", "1162,800"], "project"),
     ("project-close-new", ["--workspace", "data", "--key", "Ctrl+W", "--click", "711,430", "--click", "30,190", "--key", "Ctrl+2",
-                           "--click", "437,406", "--key", "Ctrl+A", "--type", "{newdir}", "--click", "1162,815"], "project"),
+                           "--click", "437,421", "--key", "Ctrl+A", "--type", "{newdir}", "--click", "1162,800"], "project"),
     ("project-newpage-locked", ["--key", "Ctrl+Shift+N", "--click", "30,190", "--key", "Ctrl+2", "--key", "Ctrl+3", "--key", "Esc",
                                 "--key", "Ctrl+N", "--click", "471,430", "--click", "30,190", "--key", "Esc"], "project"),
     ("project-close-data", ["--workspace", "data", "--key", "Ctrl+W"], "project"),
@@ -3740,6 +3743,7 @@ CHECKS.update({
     "help-search": check_help_search, "help-links": check_help_links,
     "help-f1-start": check_help_page("index", "", "StarDraft 2 help", opened=1),
     "map-help-quick": check_help_page("units-dat", "sight-range", "Units (units.dat)", opened=1),
+    "data-triggers-not": lambda o: None if "1 conditions: cond.not(){cond.always()}" in o else "NOT did not put the condition in a Not block",
     "data-help-f1": check_help_page("units-dat", "sight-range", "Units (units.dat)", opened=1),
     "data-help-icon": check_help_page("units-dat", "hit-points", "Units (units.dat)", opened=1),
     "data-form-units-converted": check_converted({"Hit Points": (10240, "= 40 hit points"), "Build Time": (360, "= 15 s (fastest)"),
