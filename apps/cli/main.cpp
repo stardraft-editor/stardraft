@@ -753,11 +753,22 @@ Json applyOp(Editor& ed, const Json& op, const std::vector<ClassicAiScript>& ai)
         const Brush b = brush(op);
         const Json& points = need(op, "points");
         if (points.type != Json::Type::Array) fail("\"points\" must be a list of [x, y]");
+        // The way between the points is painted too, at most half a brush apart (as a drag in the editor:
+        // core/map_input.inc), so a stroke is one line, not a dab at each point.
+        const float step = std::max(32.0f, std::min(b.size, b.height()) * 32);
         ed.beginTerrainStroke();
+        bool first = true;
+        double lx = 0, ly = 0;
         for (const Json& p : points.items) {
             const std::vector<double> xy = nums(p, "points");
             if (xy.size() != 2) fail("each point must be [x, y]");
+            if (!first) {
+                const double dx = xy[0] - lx, dy = xy[1] - ly;
+                const int n = int(std::hypot(dx, dy) / step);
+                for (int k = 1; k <= n; ++k) ed.paintBrush(int(lx + dx * k / (n + 1)), int(ly + dy * k / (n + 1)), t, b);
+            }
             ed.paintBrush(int(xy[0]), int(xy[1]), t, b);
+            lx = xy[0], ly = xy[1], first = false;
         }
         ed.endTerrainStroke();
         return r.add("units_removed", ed.takeUnitsRemovedByTerrain()).add("doodads_removed", ed.takeDoodadsRemovedByTerrain());
@@ -1490,7 +1501,7 @@ const char* kOps = R"OPS([
   {"op": "place_sprite", "params": {"sprite": "sprites.dat id", "x": "px", "y": "px", "player": "1-12"}},
   {"op": "move_sprite", "params": {"sprite": "index", "x": "px", "y": "px"}},
   {"op": "delete_sprites", "params": {"sprites": "[index]"}},
-  {"op": "paint_terrain", "params": {"terrain": "id or name (get terrains)", "points": "[[x, y], ...] px: one brush stroke", "brush": {"shape": "diamond | square | circle", "size": "in diamonds (128x64 px), default 1"}}},
+  {"op": "paint_terrain", "params": {"terrain": "id or name (get terrains)", "points": "[[x, y], ...] px: one brush stroke (the way between them is painted too)", "brush": {"shape": "diamond | square | circle", "size": "in diamonds (128x64 px), default 1"}}},
   {"op": "paint_area", "params": {"terrain": "id or name", "area": "[left, top, right, bottom] px", "shape": "rect | diamond | ellipse"}},
   {"op": "fill_terrain", "params": {"terrain": "id or name", "x": "px", "y": "px"}},
   {"op": "replace_terrain", "params": {"from": "terrain", "to": "terrain", "area": "[left, top, right, bottom] px (default: the whole map)", "shape": "rect | diamond | ellipse"}},

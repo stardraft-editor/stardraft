@@ -46,6 +46,9 @@ constexpr FloatPaletteNames kFloatPalNames[kModeCount] = {
      L"The sprite palette shows in its own window in Sprites mode", L"Docked the sprite palette"},
 };
 
+// The item of a palette's context menus that floats it, or docks it while it floats.
+const wchar_t* floatPaletteMenuLabel(Mode m) { return gFloatPal[int(m)].floating ? L"&Dock in the side bar" : L"Make &floating"; }
+
 // The settings of the palette of `m`.
 FloatPalette floatPaletteLoad(const stardraft::Settings& s, Mode m) {
     FloatPalette p;

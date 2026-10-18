@@ -117,6 +117,8 @@ void registerWorkspaceView(Workspace w, draw::View& v);
 std::wstring sdlFeedbackOn(draw::View& from, draw::Point at, const std::wstring& pane);
 bool sdlPopupMenu(draw::View& from, draw::Point at, std::vector<kit::MenuItem> items, const std::wstring& on, kit::MenuOptions opts = {});
 std::vector<kit::MenuItem> sdlModelItems(const MenuModel& model, std::function<void(int)> pick);
+std::optional<Mode> floatPaletteDockedAt(const draw::View* v);  // (sdl_palette_float.inc)
+kit::MenuItem sdlPaletteFloatItem(Mode m);
 #include "sdl_pictures.inc"  // the palette's pictures (the terrain, doodad, unit and sprite art from the game data)
 #include "sdl_panels.inc"  // the side panels: the palette, the owner, the filter, the search, the section box, the second palette
 
@@ -428,15 +430,21 @@ struct MainView final : draw::View {
         const bool mini = over(minimap), tools = !mini && (over(gToolStripView) || over(modes));
         if (!mini && !tools) {
             // Nothing took the right click: a menu with only Report feedback (the Windows feedbackAfterRightClick), when
-            // no menu opened for it (a view's menu may open after the event: the check waits for that). The map and the
-            // text fields are left alone.
+            // no menu opened for it (a view's menu may open after the event: the check waits for that); on a mode's
+            // palette in the side bar (the location list, the boxes over a list, the Tiles panel), Make floating first.
+            // The map and the text fields are left alone.
             draw::Point local;
-            for (draw::View* v = viewAt(e.pt, local); v && v != this; v = v->parent())
+            draw::View* under = viewAt(e.pt, local);
+            for (draw::View* v = under; v && v != this; v = v->parent())
                 if (v == &map || dynamic_cast<kit::TextField*>(v)) return false;
             const draw::Point at = e.pt;
             const std::wstring on = sdlFeedbackOn(*this, at, L"");
-            shellPost([this, at, on] {
-                if (!kit::Menu::open()) sdlPopupMenu(*this, at, {}, on);
+            const std::optional<Mode> palette = floatPaletteDockedAt(under);
+            shellPost([this, at, on, palette] {
+                if (kit::Menu::open()) return;
+                std::vector<kit::MenuItem> items;
+                if (palette) items.push_back(sdlPaletteFloatItem(*palette));
+                sdlPopupMenu(*this, at, std::move(items), on);
             });
             return true;
         }

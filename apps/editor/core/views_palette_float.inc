@@ -24,6 +24,16 @@ struct FloatPaletteView final : draw::View {
     std::function<bool(const draw::KeyEvent&)> keys;
     bool altShown = false;  // Rectangle mode: the Tiles panel, not the rows and the list
     std::wstring name = L"palette";  // (the feedback's name: the window's title)
+    // macOS: the window's own slim title strip at the top (the system's title bar shows nothing there): the name, and a
+    // close box at the left that docks the palette; a drag on the rest moves the window (dragAt: the window's hit test).
+    // 0: none (the system's title bar). Its height: an even strip (24 px at 100%) and the line under it.
+    int titleH = 0;
+    draw::Rect closeBox() const {
+        // The strip less its bottom line, less 3 px on each side; as far from the left edge as from the top.
+        const int m = scale(3), s = titleH - 1 - 2 * m;
+        return {m, m, m + s, m + s};
+    }
+    bool dragAt(draw::Point p) const { return titleH > 0 && p.y >= 0 && p.y < titleH && !closeBox().contains(p); }
 
     FloatPaletteView() { add(dock, {}); }
     ~FloatPaletteView() override {
@@ -59,13 +69,14 @@ struct FloatPaletteView final : draw::View {
 
     // The same sizes as the side bar's rows (core/layout.inc: the search row, the View button).
     void place() {
-        const int pad = scale(6), rowH = scale(24), btnW = scale(64), w = width(), h = height();
-        dock.setFrame({w - pad - btnW, pad, w - pad, pad + rowH});
+        const int pad = scale(6), rowH = scale(24), btnW = scale(64), w = width(), h = height(), top = titleH;
+        dock.setFrame({w - pad - btnW, top + pad, w - pad, top + pad + rowH});
+        dock.setVisible(titleH <= 0);  // (with the strip, its close box docks: no Dock button)
         const bool alt = altShown && parts_.alt;
-        int y = pad;
+        int y = top + pad;
         for (size_t i = 0; i < parts_.rows.size(); ++i) {
             auto [fill, button] = parts_.rows[i];
-            int right = w - pad - (i == 0 ? btnW + pad : 0);  // (Dock is at the right end of the first row)
+            int right = w - pad - (i == 0 && titleH <= 0 ? btnW + pad : 0);  // (Dock is at the right end of the first row)
             if (button) {
                 button->setFrame({right - btnW, y, right, y + rowH});
                 right -= btnW + pad;
@@ -74,14 +85,47 @@ struct FloatPaletteView final : draw::View {
             if (fill) fill->setFrame({pad, y, std::max(pad, right), y + rowH}), fill->setVisible(!alt);
             y += rowH + pad;
         }
-        if (parts_.rows.empty()) y = pad + rowH + pad;
+        if (parts_.rows.empty()) y = top + pad + rowH + pad;
         if (parts_.list) parts_.list->setFrame({pad, y, w - pad, std::max(y + 1, h - pad)}), parts_.list->setVisible(!alt);
-        const int below = pad + rowH + pad;
+        const int below = top + pad + rowH + pad;
         if (parts_.alt) parts_.alt->setFrame({pad, below, w - pad, std::max(below + 1, h - pad)}), parts_.alt->setVisible(alt);
         invalidate();
     }
     void resized() override { place(); }
-    void paint(draw::Canvas& c) override { c.fill({0, 0, width(), height()}, kBg); }
+    void paint(draw::Canvas& c) override {
+        c.fill({0, 0, width(), height()}, kBg);
+        if (titleH <= 0) return;
+        c.fill({0, 0, width(), titleH}, kPanel);
+        c.line(0, titleH - 1, width(), titleH - 1, kBorder);
+        const draw::Rect x = closeBox();  // the close box: an x as the tabs' (core/views_tabs.inc), on kHot under the mouse
+        if (closeHot) c.fill(x, kHot);
+        // The name's capitals in the middle of the strip: kMiddle centers the font's whole line (with its descenders'
+        // room), which puts them 1 px low, at 100% and at 200% alike (measured; the strip is macOS's only).
+        auto middle = [](draw::Rect r) { return draw::Rect(r.left, r.top - 1, r.right, r.bottom - 1); };
+        // The x: two lines from the box's middle, the size and weight of the tabs' x glyph (7 px, 1 px lines at 100%),
+        // exactly in the middle at every scale (a glyph's ink is not where its line's middle is).
+        // (The smooth lines land half a pixel right and down of their points, and the x one more pixel right: measured
+        // in snapshots at 100% and 200%; the points are moved back by that.)
+        const float cx = (x.left + x.right) / 2.0f - 1.5f, cy = (x.top + x.bottom) / 2.0f - 0.5f, r = scale(7) / 2.0f,
+                    lw = std::max(1.0f, scale(10) / 10.0f);
+        const draw::Color mark = closeHot ? kText : kDim;
+        c.smoothLine({cx - r, cy - r}, {cx + r, cy + r}, mark, lw);
+        c.smoothLine({cx + r, cy - r}, {cx - r, cy + r}, mark, lw);
+        const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
+        // The name in the middle of the strip (the close box's width kept free on both sides).
+        c.text(middle({x.right + scale(6), 0, width() - x.right - scale(6), titleH - 1}), shellTr(name.c_str()), kDim,
+               draw::kCenter | draw::kMiddle);
+        c.setFont(of);
+    }
+    bool mouse(const draw::MouseEvent& e) override {
+        if (titleH <= 0) return false;
+        const bool hot = closeBox().contains(e.pt);
+        if (hot != closeHot && e.kind != draw::MouseKind::Wheel) closeHot = hot, invalidate();
+        if (e.kind == draw::MouseKind::Leave && closeHot) closeHot = false, invalidate();
+        if (e.kind == draw::MouseKind::Down && e.button == 0 && hot) return onDock ? (onDock(), true) : true;
+        return e.pt.y < titleH;
+    }
+    bool closeHot = false;
     bool key(const draw::KeyEvent& e) override { return keys && keys(e); }
     std::wstring feedbackName(draw::Point) override { return L"the floating window of the " + name; }
 

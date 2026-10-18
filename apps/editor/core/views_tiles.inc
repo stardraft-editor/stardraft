@@ -504,7 +504,9 @@ void TilesGridView::favoritesMenu(int v) {
     auto& fav = tilesFavorites(era);
     const bool in = std::find(fav.begin(), fav.end(), uint16_t(v)) != fav.end();
     const std::wstring n = which.size() > 1 ? L" (" + std::to_wstring(which.size()) + L" tiles)" : L"";
-    const int pick = shellContextMenu({(in ? L"Remove from favorites" : L"Add to favorites") + n, L"Show the favorites"});
+    const int pick = shellContextMenu({(in ? L"Remove from favorites" : L"Add to favorites") + n, L"Show the favorites",
+                                       gFloatPal[int(Mode::Terrain)].floating ? L"Dock in the side bar" : L"Make floating"});
+    if (pick == 3) return shellFloatPalette(Mode::Terrain, !gFloatPal[int(Mode::Terrain)].floating);
     if (pick == 1) {
         for (uint16_t t : which) {
             const auto it = std::find(fav.begin(), fav.end(), t);

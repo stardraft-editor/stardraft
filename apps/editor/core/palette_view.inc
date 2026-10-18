@@ -85,9 +85,9 @@ MenuModel paletteMenuModel(Mode mode, const PaletteView& v, const std::vector<st
     m.push_back(menuSeparator());
     m.push_back(menuItem(ID_PAL_NORMAL, L"&Normal", {}, false, !v.large));
     m.push_back(menuItem(ID_PAL_LARGE, L"L&arge", {}, false, v.large));
-    // (View > Floating palettes: this mode's palette in a window of its own)
+    // (View > Floating palettes: this mode's palette in a window of its own, or back in the side bar)
     m.push_back(menuSeparator());
-    m.push_back(menuItem(ID_VIEW_FLOATPAL + int(mode), L"&Floating palette", {}, false, gFloatPal[int(mode)].floating));
+    m.push_back(menuItem(ID_VIEW_FLOATPAL + int(mode), floatPaletteMenuLabel(mode)));
     if (mode != Mode::Units && mode != Mode::Doodads && mode != Mode::Sprites) return m;
     std::wstring group;
     bool first = true;
