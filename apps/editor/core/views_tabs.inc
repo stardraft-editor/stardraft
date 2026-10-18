@@ -82,6 +82,7 @@ void showActive() {
     app.drag = Drag::None;
     app.ed->setAllowIllegalUnits(app.allowIllegalUnits);
     app.ed->setAllowStacking(app.allowStacking);
+    app.ed->setResourceDistance(app.resourceDistance);
     setBuildingSnap(app.snapBuildings);  // Options > Units > Snap buildings to tile edges
     app.ed->setMirrors(app.symmetryByMode[int(app.mode)]);
     app.terrainRev = 0;

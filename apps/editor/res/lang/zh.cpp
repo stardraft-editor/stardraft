@@ -2319,6 +2319,9 @@ constexpr UiText kRows[] = {
     {L"Add a block after the selected one", L"\u5728\u6240\u9009\u5757\u4E4B\u540E\u6DFB\u52A0\u5757"},
     {L"Condition", L"\u6761\u4EF6"},
     {L"Add a condition or an action after the selected one", L"\u5728\u6240\u9009\u9879\u4E4B\u540E\u6DFB\u52A0\u6761\u4EF6\u6216\u52A8\u4F5C"},
+    {L"Keep &resources 3 tiles from town halls", L"\u8D44\u6E90\u4E0E\u4E3B\u57FA\u5730\u4FDD\u6301 3 \u683C\u8DDD\u79BB(&R)"},
+    {L"Town halls and resources keep 3 tiles apart", L"\u4E3B\u57FA\u5730\u4E0E\u8D44\u6E90\u4FDD\u6301 3 \u683C\u8DDD\u79BB"},
+    {L"Town halls and resources can be near each other", L"\u4E3B\u57FA\u5730\u4E0E\u8D44\u6E90\u53EF\u4EE5\u76F8\u90BB"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

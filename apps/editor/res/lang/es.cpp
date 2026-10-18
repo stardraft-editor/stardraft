@@ -2319,6 +2319,9 @@ constexpr UiText kRows[] = {
     {L"Add a block after the selected one", L"A\u00F1adir un bloque despu\u00E9s del seleccionado"},
     {L"Condition", L"Condici\u00F3n"},
     {L"Add a condition or an action after the selected one", L"A\u00F1adir una condici\u00F3n o una acci\u00F3n despu\u00E9s de la seleccionada"},
+    {L"Keep &resources 3 tiles from town halls", L"Mantener los &recursos a 3 casillas de los centros de mando"},
+    {L"Town halls and resources keep 3 tiles apart", L"Los centros de mando y los recursos se mantienen a 3 casillas"},
+    {L"Town halls and resources can be near each other", L"Los centros de mando y los recursos pueden estar cerca"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

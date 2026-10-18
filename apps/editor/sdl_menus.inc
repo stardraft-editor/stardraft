@@ -238,6 +238,7 @@ bool sdlRuns(int id) {
     case ID_OPT_SNAPVALID:
     case ID_OPT_ILLEGAL:
     case ID_OPT_STACK:
+    case ID_OPT_RESDIST:
     case ID_OPT_SNAPBUILDINGS:
     case ID_OPT_DRAGBACK:
     case ID_OPT_ANIMATE:

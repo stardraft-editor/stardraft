@@ -1724,7 +1724,7 @@ bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX
 // --- Units -----------------------------------------------------------------------------------------
 
 PlacementContext Editor::placementContext(const std::vector<Unit>* units) const {
-    return PlacementContext{width_, height_, &terrain_, &tileset_, &types_, units ? units : &units_, allowStacking_};
+    return PlacementContext{width_, height_, &terrain_, &tileset_, &types_, units ? units : &units_, allowStacking_, resourceDistance_};
 }
 
 Rect Editor::unitBox(const Unit& u) const {

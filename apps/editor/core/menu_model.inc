@@ -188,6 +188,7 @@ MenuModel buildMenuModel() {
     units.push_back(menuSeparator());
     append(units, placeItems(ID_OPT_STRICT, ID_OPT_SNAPVALID, ID_OPT_ILLEGAL));
     units.push_back(menuItem(ID_OPT_STACK, L"&Can be on top of others"));
+    units.push_back(menuItem(ID_OPT_RESDIST, L"Keep &resources 3 tiles from town halls"));
     units.push_back(menuItem(ID_OPT_DRAGBACK, L"Dragged units go &back to the last place where they fit"));
     doodads.push_back(menuItem(ID_FIXED_DOODAD_SNAP, L"Snap to tiles (32 px): always, a doodad is made of tiles", {}, true, true, true));
     doodads.push_back(menuSeparator());

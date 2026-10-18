@@ -351,6 +351,13 @@ bool commandMapEdit(AppState& app, int id) {
         setBuildingSnap(app.snapBuildings);
         setMessage(app.snapBuildings ? L"Buildings: snap to tile edges" : L"Buildings: do not snap");
         break;
+    case ID_OPT_RESDIST:
+        app.resourceDistance = !app.resourceDistance;
+        for (auto& d : gDocs)
+            if (d.ed) d.ed->setResourceDistance(app.resourceDistance);
+        if (app.ed) app.ed->setResourceDistance(app.resourceDistance);
+        setMessage(app.resourceDistance ? L"Town halls and resources keep 3 tiles apart" : L"Town halls and resources can be near each other");
+        break;
     case ID_OPT_STACK:
         app.allowStacking = !app.allowStacking;
         for (auto& d : gDocs)
@@ -447,6 +454,7 @@ int mapMenuCheck(int id) {
     case ID_DOODAD_NEAREST: return app.doodadCheck && app.doodadNearest;
     case ID_DOODAD_ANYWHERE: return !app.doodadCheck;
     case ID_OPT_STACK: return app.allowStacking;
+    case ID_OPT_RESDIST: return app.resourceDistance;
     case ID_OPT_SNAPBUILDINGS: return app.snapBuildings;
     case ID_OPT_DRAGBACK: return app.dragSnapBack && !app.allowIllegalUnits;
     case ID_EDIT_TERRAINUNITS: return app.copyUnitsWithTerrain;

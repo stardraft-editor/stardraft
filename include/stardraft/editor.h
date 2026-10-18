@@ -229,6 +229,9 @@ public:
     // Unit stacking (PlacementContext::stacking) for every placement check.
     void setAllowStacking(bool allow) { allowStacking_ = allow; }
     bool allowStacking() const { return allowStacking_; }
+    // Town halls and resources keep 3 tiles apart (PlacementContext::resourceDistance) for every placement check.
+    void setResourceDistance(bool keep) { resourceDistance_ = keep; }
+    bool resourceDistance() const { return resourceDistance_; }
     bool allowIllegalUnits() const { return allowIllegalUnits_; }
     // Units removed by terrain edits since the last call.
     int takeUnitsRemovedByTerrain() { return std::exchange(removedByTerrain_, 0); }
@@ -596,6 +599,7 @@ private:
     bool allowIllegalUnits_ = false;
     int unitLimit_ = 0;
     bool allowStacking_ = false;
+    bool resourceDistance_ = true;
     int doodadsRemovedByTerrain_ = 0;
     // Per doodad: are all its tiles still in MTXM?
     std::vector<uint8_t> doodadsIntact() const;

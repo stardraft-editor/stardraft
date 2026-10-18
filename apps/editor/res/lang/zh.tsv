@@ -2317,3 +2317,6 @@ Select a trigger first	请先选择一个触发器
 Add a block after the selected one	在所选块之后添加块
 Condition	条件
 Add a condition or an action after the selected one	在所选项之后添加条件或动作
+Keep &resources 3 tiles from town halls	资源与主基地保持 3 格距离(&R)
+Town halls and resources keep 3 tiles apart	主基地与资源保持 3 格距离
+Town halls and resources can be near each other	主基地与资源可以相邻

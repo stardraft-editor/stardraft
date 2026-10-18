@@ -2317,3 +2317,6 @@ Select a trigger first	Primero selecciona un disparador
 Add a block after the selected one	Añadir un bloque después del seleccionado
 Condition	Condición
 Add a condition or an action after the selected one	Añadir una condición o una acción después de la seleccionada
+Keep &resources 3 tiles from town halls	Mantener los &recursos a 3 casillas de los centros de mando
+Town halls and resources keep 3 tiles apart	Los centros de mando y los recursos se mantienen a 3 casillas
+Town halls and resources can be near each other	Los centros de mando y los recursos pueden estar cerca

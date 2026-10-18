@@ -343,7 +343,7 @@ void collectIssues(const PlacementContext& ctx, const Unit& unit, int self, bool
             const bool otherStart = o.type == kStartLocation;
             // Town halls and start locations keep 3 tiles between their box and the boxes of resources, both ways: a
             // town hall near resources, and resources near a town hall (as StarEdit).
-            if (building && otherBuilding) {
+            if (building && otherBuilding && ctx.resourceDistance) {
                 if ((hall && ot.is(UnitFlag::ResourceContainer)) || (resource && ot.is(UnitFlag::ResourceDepot))) {
                     const Box res = resource ? box : placementBox(ot, o), other = resource ? placementBox(ot, o) : box;
                     const Box grown{res.left - 96, res.top - 96, res.right + 96, res.bottom + 96};
