@@ -70,7 +70,7 @@ const Editor::TileGroupEntry* tilesEntryOfGroup(int group) {
     return it != gs.end() && int(it->group) == group ? &*it : nullptr;
 }
 
-// What a group is: a doodad's, a terrain's, or neither (one that Isometric never places: only Rectangle places it).
+// What a group is: a doodad's, a terrain's, or neither (empty).
 std::wstring tilesGroupNote(int group) {
     const Editor::TileGroupEntry* e = tilesEntryOfGroup(group);
     if (!e) return L"Null tiles";
@@ -81,16 +81,15 @@ std::wstring tilesGroupNote(int group) {
         if (d && d->height > 1) s += L", row " + std::to_wstring(e->doodadRow + 1);
         return s;
     }
-    if (const std::wstring t = tilesTerrainNames(*e); !t.empty()) return t;
-    return L"Not used by Isometric";
+    return tilesTerrainNames(*e);
 }
 
 bool tilesIsNull(int value) { return appState().ed && appState().ed->tileset().megatileFor(uint16_t(value)) <= 0; }
 
 std::wstring tilesValueLabel(int value) {
-    std::wstring s = L"Group " + std::to_wstring(value >> 4) + L", tile " + std::to_wstring(value & 15) + L"  \x00B7  ";
-    if (tilesIsNull(value)) return s + L"Null tile";
-    return s + tilesGroupNote(value >> 4);
+    const std::wstring s = L"Group " + std::to_wstring(value >> 4) + L", tile " + std::to_wstring(value & 15);
+    const std::wstring note = tilesIsNull(value) ? L"Null tile" : tilesGroupNote(value >> 4);
+    return note.empty() ? s : s + L"  \x00B7  " + note;
 }
 
 void tilesPick(int value, bool fromMap) {

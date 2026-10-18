@@ -1463,7 +1463,6 @@ constexpr UiText kRows[] = {
     {L"Null tiles", L"\u7A7A\u74E6\u7247"},
     {L"Doodad #", L"\u88C5\u9970\u7269 #"},
     {L", row ", L", \u884C "},
-    {L"Not used by Isometric", L"\u7B49\u8DDD\u6A21\u5F0F\u4E0D\u4F7F\u7528"},
     {L"Group ", L"\u7EC4 "},
     {L", tile ", L", \u74E6\u7247 "},
     {L"Null tile", L"\u7A7A\u74E6\u7247"},

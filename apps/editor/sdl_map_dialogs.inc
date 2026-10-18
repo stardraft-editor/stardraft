@@ -201,6 +201,9 @@ struct QuickPickSdl final : QuickPickHost {
     }
 };
 QuickPickSdl gQuickHostSdl;
+// The quick picker's window is a pop-out that the system does not give the keyboard (macOS): its keys come to the main
+// window, where its letters are typing, not the menus' one-letter keys (S: Sprites mode).
+bool sdlQuickPickTyping() { return gQuickHostSdl.open; }
 
 // Opens the picker (Q: the mode's things; replace: Replace with... for the selection; open: Quick open), or closes it
 // when it is open.

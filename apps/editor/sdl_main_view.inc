@@ -111,6 +111,7 @@ struct NotHereView final : draw::View {
 std::map<Workspace, draw::View*> gWorkspaceViews;
 struct MainView;
 bool sdlMapPageTyping();  // a field of the open map page has the keyboard (sdl_map_pages.inc)
+bool sdlQuickPickTyping();  // the quick picker is open: its field types (sdl_map_dialogs.inc)
 void registerWorkspaceView(Workspace w, draw::View& v);
 
 // The context menus (sdl_menus.inc): the palette's View menu opens one too.
@@ -385,7 +386,7 @@ struct MainView final : draw::View {
     bool key(const draw::KeyEvent& e) override {
         const int k = int(e.key);
         const bool typed = (k >= 'A' && k <= 'Z') || (k >= '0' && k <= '9');
-        const bool typing = gSearchSdl.field().hasFocus() || gFilterSdl.field().hasFocus() || gFilesPage.typing() || sdlMapPageTyping() ||
+        const bool typing = gSearchSdl.field().hasFocus() || gFilterSdl.field().hasFocus() || gFilesPage.typing() || sdlMapPageTyping() || sdlQuickPickTyping() ||
                             typingFocusIn(*this);  // (a kit text field of a view: the New page, Program options)
         // The focused Triggers pane types too: a letter or a digit opens its block picker (from the text event), so the
         // map's keys (the player 1 to 0, the tools V B A F, Q) do not run (Windows: editFocus for the pane).
