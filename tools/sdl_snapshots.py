@@ -400,7 +400,7 @@ CASES += [
     # not of each group it showed (each is 16 tiles).
     ("map-terrain-rect-quick-scroll", ["--rect", "--key", "Q", "--wheel", "832,500,0,-1:Repeat200"], "map"),
     # The Tiles list at the side bar's widths that give it 240, 320 and 480 px ({leftwidth:<n>}: a settings file with
-    # that side width; the list is the side less 6 px at each side), and 480 px at the scale 1.5 (GitHub #128, #139):
+    # that side width; the list is the side less 6 px at each side, and less its scroll bar), and 480 px at the scale 1.5 (GitHub #128, #139):
     # 16 tiles in a row, the tiles scaled to fill the width with 1 px between them; a click at the middle of slot 37
     # (group 2, tile 5) and of slot 63 (group 3, tile 15, the last column) picks that tile.
     ("map-tiles-grid-240", ["--settings", "{leftwidth:252}", "--rect", "--click", "tile37", "--click", "tile63"], "map"),
@@ -3509,8 +3509,9 @@ CHECKS = {"map-view-fog": lambda o: None if "command view.fog: ran (yes)" in o a
           "map-location-make": check_location_make, "map-terrain-brush": check_terrain_brush,
           "map-terrain-rect-paint": check_rect_paint, "map-terrain-paste": check_terrain_paste,
           "map-terrain-rect-scroll": check_rect_scroll, "map-terrain-brush-over-tiles": check_brush_over_tiles,
-          "map-tiles-grid-240": check_tiles_grid(240), "map-tiles-grid-320": check_tiles_grid(320),
-          "map-tiles-grid-480": check_tiles_grid(480), "map-tiles-grid-480-scale15": check_tiles_grid(480),
+          # (the panel less its scroll bar: 12 px, 18 px at the scale 1.5)
+          "map-tiles-grid-240": check_tiles_grid(240 - 12), "map-tiles-grid-320": check_tiles_grid(320 - 12),
+          "map-tiles-grid-480": check_tiles_grid(480 - 12), "map-tiles-grid-480-scale15": check_tiles_grid(480 - 18),
           "map-brush-diamond-locked": check_diamond_locked, "map-tiles-brush-diamond": check_tiles_brush("diamond", True, "3,7,7,3"),
           "map-tiles-brush-circle": check_tiles_brush("circle", True, "3,5,7,7,7,5,3"), "map-tiles-brush-square": check_tiles_brush("square", False, ",".join(["7"] * 7)),
           "map-terrain-select-diamond": check_select_shape("diamond"), "map-terrain-select-circle": check_select_shape("circle"),
