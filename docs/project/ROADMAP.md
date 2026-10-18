@@ -75,10 +75,14 @@ Make StarDraft 2 a more powerful creation suite.
 
   Done: Options > Units > Can be on top of others; the status bar counts the units under the mouse, and Alt+click
   (Option+click on macOS) lists them to pick one.
-- [ ] **R37 Terrain decoration tools.** *Tag:* Terrain.
+- [x] **R37 Terrain decoration tools.** *Tag:* Terrain.
   Tools that put doodads and decoration on the terrain, such as a doodad spray that puts doodads only where they fit.
 
   The generator makes only terrain. Mappers must place doodads and decoration by hand.
+
+  Done (2026-10-18): Scenario > Decorate the terrain puts a few, some or many doodads in the terrain selection (else
+  the whole map), each where it fits its tiles and on no other doodad; the doodads chosen in the Doodads palette, else
+  all of the tileset's. One undo step. The New page's generator has Decorate with doodads.
 - [x] **R40 Floating palettes.** *Tag:* UI.
   Open each palette (terrain, tiles, units, doodads, sprites) as a floating window. Open several at once, each with
   its own filter.
@@ -89,12 +93,15 @@ Make StarDraft 2 a more powerful creation suite.
   Done (2026-10-18): a mode's whole panel (its tools, its options and its list) pops out into a floating panel, and
   more panels of a palette open, each with its own type, filter, search and sort. Panels belong to their map's tab and
   are kept per map.
-- [ ] **R38 Checker documentation.** *Tag:* EUD.
+- [x] **R38 Checker documentation.** *Tag:* EUD.
   Help for each EUD and desync check: the rule, an example, and what the check does not find. Each mark in the
   Triggers workspace links to its help.
 
   The Triggers workspace marks EUD errors and desync risks, but mappers cannot see what the checkers look at and what
   they cannot find.
+
+  Done (2026-10-18): the help page Trigger checks has each check's rule, an example and what it does not find. A click
+  on a mark in the Triggers workspace, or F1 there, opens the check's part of the page.
 - [x] **R54 Built-in help articles.** *Tag:* UI.
   Help articles in a sidebar of StarDraft 2, which are also on the website. Each article has a feedback button and
   names its sources. The first articles explain the fields of the EUD Book.
@@ -121,10 +128,14 @@ Make StarDraft 2 a more powerful creation suite.
 
   Done (2026-10-18): View > Overlays has Walkable ground, Ground height (low, middle, high), Ground that blocks the line
   of sight and Buildable ground.
-- [ ] **R32 Fog of war preview.** *Tag:* Capability.
+- [x] **R32 Fog of war preview.** *Tag:* Capability.
   Select a player, and see the fog of war of that player at the start of the game.
 
   Mappers cannot see what each player sees at the start of the game.
+
+  Done (2026-10-18): View > Overlays > Fog of war of the selected player darkens the map where that player sees
+  nothing when the game starts: the sight of its units, and of its force's units when the force has Shared vision.
+  Ground units do not see higher ground.
 - [x] **R53 Camera controls.** *Tag:* EUD.
   Trigger blocks that move a player's camera: center the view on a location or a unit, follow a unit, pan, and shake
   the screen.
@@ -135,66 +146,74 @@ Make StarDraft 2 a more powerful creation suite.
   Done (2026-10-18): Center the camera, Center the camera on a unit, Pan the camera (from one location to another in a
   given time) and Shake the camera (around a location). Still to check in the game: how smooth the pan and the shake
   look.
-- [ ] **R58 EUD terrain info.** *Tag:* EUD.
+- [x] **R58 EUD terrain info.** *Tag:* EUD.
   Trigger blocks that read the terrain tile at a location or at a point.
 
   No trigger reads the terrain. Mappers must find the tile in the game's memory by hand, for example to make units
   that act on the terrain under them.
+
+  Done (2026-10-18): the values The tile at a location and The tile at a point give the tile's number or its tile
+  group. Still to check in the game: the memory addresses.
 - [ ] **R14 Exact timers.** *Tag:* EUD.
   "After N seconds" and "Every N seconds" blocks that stay exact over a long game.
 
   Wait stops all the triggers of a player. The timer blocks drift over a long game. Paused.
-- [ ] **R23 Batch trigger generation.** *Tag:* UMS.
-  In Classic triggers, make many triggers from one pattern: one trigger for each player, location or unit type.
+- [x] **R23 Batch trigger generation.** *Tag:* UMS.
+  In Classic triggers, blocks of actions that repeat for each player, location or unit type ("For each unit in ..."),
+  and that can nest.
 
   Mappers make hundreds of triggers that differ in one value. They must make and change each trigger by hand.
 
-  Status (2026-10-18): on main, but the action picker does not offer new blocks yet (kClassicBatchesOffered); a map's
-  blocks open, show and can be edited. Batches are blocks of actions in a trigger ("For each unit in ..."), which can
-  nest; the Classic triggers page has a new layout (search, trigger header, Turn off for triggers, blocks in the action
-  list, pop-outs, right-click menus). Open questions:
-  - The text above says one trigger for each value. Change it to batch blocks (and the Korean text on the website)?
-  - Check in the game: a trigger with more than 64 actions becomes several triggers, linked by a switch. Does it work
-    for a trigger of several players?
-  - The rail button says "Triggers". Keep it, or another name?
-  - Ctrl+wheel zoom on the page, as in the Triggers workspace?
-  - Players as check boxes (now) or as chips?
-  - The value pop-out's button says "Set". Keep it, or use the action's name?
-  - Compare the sentences ("Set Switch 2", the quotes around locations) with the game's words.
-  - Help for the selected action, as the info pane of the Triggers workspace.
-  - Select several conditions and actions (now only triggers).
-- [ ] **R59 Classic trigger organization.** *Tag:* UMS.
+  Done (2026-10-18): the action picker offers the blocks. The Classic triggers page zooms with Ctrl+wheel, puts
+  quotes around locations and switches without a name, shows help for the selected condition or action, and selects
+  several conditions or actions (Ctrl+click, Shift+click) to delete them. Still to check in the game: a trigger with
+  more than 64 actions becomes several triggers, linked by a switch; does it work for a trigger of several players?
+- [x] **R59 Classic trigger organization.** *Tag:* UMS.
   Tools that keep Classic triggers in order: quick find, search, and comments that put the triggers into groups.
 
   A map can have hundreds of Classic triggers in one long list. Mappers cannot find a trigger fast, and they cannot
   put notes or headings between the triggers to show their structure.
-- [ ] **R60 Trigger search.** *Tag:* Capability.
+
+  Done (2026-10-18): a heading (a trigger that has only a comment) folds the triggers under it, up to the next
+  heading; Add a heading is in the list's right-click menu. A heading moves with its triggers.
+- [x] **R60 Trigger search.** *Tag:* Capability.
   A search pop-up in the Triggers workspace and on the Classic triggers page, as Quick open: type words, and it lists
   the triggers, conditions, actions and blocks whose text or comments contain them, each with the trigger it is in.
   Select one to go to it: the editor shows and selects it. The list of triggers stays as it is (no filter).
 
   Large maps have many triggers. Mappers cannot find the trigger that changes a value or uses a unit fast. Classic
   triggers can be searched by their text since 0.5.0.8, but not by comments, and the Triggers workspace has no search.
-- [ ] **R61 Quick add.** *Tag:* Capability.
+
+  Done (2026-10-18): Edit > Find in triggers (Ctrl+Shift+F) in the Triggers workspace and on the Classic triggers
+  page. A folded heading opens to show what was found.
+- [x] **R61 Quick add.** *Tag:* Capability.
   Press Q in the Triggers workspace or on the Classic triggers page: a search box opens, and the block, condition or
   action you select goes in after the selected one. On the map, Q opens the quick search already.
 
   To add a block, mappers now go through the Add menu and its groups. Mappers who know the name of the block they need
   want to type it and keep their hands on the keyboard.
-- [ ] **R62 Trigger comments.** *Tag:* Capability.
+
+  Done (2026-10-18): Q in the Triggers workspace and on the Classic triggers page.
+- [x] **R62 Trigger comments.** *Tag:* Capability.
   Comments are fast to write in the Triggers workspace and on the Classic triggers page. Each trigger has a comment in
-  its header: click it and type. A comment can also go between any conditions or actions, as a row of its own.
-  Search (R60) finds the comments.
+  its header: click it and type. In the Triggers workspace, a comment can also go between actions, as a row of its
+  own. Search (R60) finds the comments.
 
   Comments tell other map makers, and the author months later, what a trigger does. The Triggers workspace has a
   Comment action, but it is one more block to find in the Add menu, and it cannot go among the conditions.
-  Open question: Classic triggers keep a trigger's comment in the game's Comment action; where do comments between
-  conditions go (the project, or the map)?
-- [ ] **R25 Campaign projects.** *Tag:* UMS.
+
+  Done (2026-10-18): a trigger's comment in its header (Classic triggers keep it in the game's Comment action, and the
+  list shows it as the trigger's title); comment rows among the actions of the Triggers workspace.
+- [x] **R25 Campaign projects.** *Tag:* UMS.
   Keep all the maps of a campaign in one project, in their order.
 
   Each map of a campaign is a separate file. The settings drift between the maps, and mappers cannot see the
   campaign in one place.
+
+  Done (2026-10-18), a first version: File > Campaign makes a campaign (a folder with campaign.json) or opens one. The
+  Campaign window lists the maps in their order; it adds the open map or a map file, moves a map up or down, takes it
+  out, opens it, and copies a map's unit, upgrade and technology settings or its terrain into the open map. The start
+  page's Campaign card makes a new campaign.
 - [x] **R35 Pathfinder region overlay.** *Tag:* Terrain.
   Show the regions that units use to find their paths, to see why units take a path or get stuck.
 
@@ -215,24 +234,38 @@ Make StarDraft 2 a more powerful creation suite.
   Find a map on [scmscx.com](https://scmscx.com), and open it in StarDraft 2.
 
   To edit a map from scmscx.com, mappers must download it and then open the file.
-- [ ] **R49 Revamped terrain generation.** *Tag:* Terrain.
+- [x] **R49 Revamped terrain generation.** *Tag:* Terrain.
   Generate maps with a constraint-based method, such as wave function collapse: set rules for the terrain, and get
   maps that obey them.
 
   The generator makes terrain from amounts and a shape. Mappers cannot give it rules, such as where bases, paths and
   high ground must be.
-- [ ] **R52 Compatibility import layer.** *Tag:* Capability.
+
+  Done (2026-10-18), a first version: the New page's generator has Rules. Bases (up to 8, round the map, as the
+  symmetry keeps them) are open ground with no water, cliffs or patches, each with a Start Location; Paths between
+  the bases are ground that units can walk; Bases on high ground puts the bases and the paths on high ground. The
+  preview marks the bases. Not yet: ramps from high ground to low ground, and rules for other places.
+- [x] **R52 Compatibility import layer.** *Tag:* Capability.
   Import the projects of other map and EUD editors, such as EUD Editor 2, EUD Editor 3 and euddraft projects, as
   StarDraft 2 projects.
 
   Mappers who use other programs must make their work again to move to StarDraft 2. The import reads their data
   edits, triggers and scripts, and tells what it could not import.
+
+  Done (2026-10-18), a first version: File > Project > Import a project reads an EUD Editor 2 project (.e2s: the
+  map, the .dat edits, the stat_txt texts, the plugins, and TriggerEditor.eps with the modules it imports) or a
+  euddraft project (.eds, .edd: the map, the scripts and the plugin sections; EUD Editor 3 builds through one). A list
+  shows what did not come in: button sets, requirements and FireGraft's settings.
 - [ ] **R51 Advanced EUD capabilities.** *Tag:* EUD.
   Blocks for queues and deques (with their methods and loops), byte readers and writers, text compare and search for
   chat commands, text to number, drawing, and background music.
 
   These need epScript today: EUDQueue and EUDDeque with their methods and loops, EUDByteReader and EUDByteWriter,
   strcmp, strnstr and memcmp (mainly to parse chat commands), f_parse (text to a number), drawing, and BGM.
+
+  Status (2026-10-18): chat commands and background music are done: the conditions Chat line starts with and Chat
+  line contains, the value The number in the chat line after a text, and the actions Play music and Stop the music.
+  Still to check in the game. Queues and deques, byte readers and writers, and drawing are not done.
 
 ## Later
 
