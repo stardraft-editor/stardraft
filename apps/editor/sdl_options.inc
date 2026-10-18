@@ -352,6 +352,10 @@ void shellShowCampaignWindow() {
                       [] { gCampaignWindowOpen = false; });
 }
 
+void sdlCampaignFollow() {
+    if (gCampaignWindowOpen) gCampaignView.enable();
+}
+
 void showAboutSdl() {
     if (!gRoot || gAboutOpen) return;
     gAboutView.hot = -1;

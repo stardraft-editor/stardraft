@@ -2271,14 +2271,27 @@ static void copySections(Chk& to, const Chk& from, std::initializer_list<Section
 
 bool Editor::copyMapData(const Chk& from, std::string& error) {
     if (!from.has("UNIx") && !from.has("UNIS") && !from.has("UPGx") && !from.has("TECx")) return error = "the map has no unit, upgrade or technology settings", false;
+    const SettingDefaults* defaults = settingDefaults();
+    if (!defaults) return error = "the game's unit values did not load", false;
     Chk before = chk_;
-    const Bytes names = chk_.effective("UNIx");  // (the custom unit names: string ids of this map)
+    const UnitSettings ours = readUnitSettings(chk_, *defaults);  // (the custom unit names: string ids of this map)
     copySections(chk_, from, {"UNIS", "UNIx", "UPGS", "UPGx", "TECS", "TECx", "UPGR", "PUPx", "PTEC", "PTEx", "PUNI"});
-    // The names' string ids (228 of 2 bytes after 228 x 14 bytes) stay this map's.
-    constexpr size_t kNames = 228 * 14, kNamesLen = 228 * 2;
-    if (Section* s = chk_.find("UNIx"); s && s->data.size() >= kNames + kNamesLen) {
-        for (size_t i = 0; i < kNamesLen; ++i) s->data[kNames + i] = names.size() >= kNames + kNamesLen ? names[kNames + i] : 0;
+    // The custom names stay this map's, in both sections of the pair (the other map's string ids mean nothing here). A
+    // named unit that the other map leaves at the game's values takes those values, without "use default" (which
+    // would give the game's name too).
+    const UnitSettings now = readUnitSettings(chk_, *defaults);
+    UnitSettings want = now;
+    for (size_t i = 0; i < want.units.size(); ++i) {
+        UnitSettings::Unit& u = want.units[i];
+        const UnitSettings::Unit& o = ours.units[i];
+        if (o.useDefault || !o.nameString) {
+            u.nameString = 0;
+            continue;
+        }
+        if (u.useDefault) u = defaults->units.units[i], u.useDefault = false;
+        u.nameString = o.nameString;
     }
+    writeUnitSettings(chk_, now, want);
     reload();
     pushUndo(before);
     commit(true);
@@ -2290,6 +2303,21 @@ bool Editor::copyTerrain(const Chk& from, std::string& error) {
     readDimensions(from, w, h);
     if (w != width_ || h != height_) return error = "the maps have different sizes", false;
     Chk before = chk_;
+    // The doodads' overlay sprites (THG2, drawn as sprites at their doodad's place) go with the doodads: this map's
+    // out, the other map's in; the other sprites stay.
+    auto overlay = [](const MapSprite& s, const std::vector<Doodad>& dds) {
+        if (!(s.flags & SpriteFlag::DrawAsSprite)) return false;
+        for (const Doodad& d : dds)
+            if (d.x == s.x && d.y == s.y) return true;
+        return false;
+    };
+    std::vector<MapSprite> sprites;
+    const std::vector<Doodad> ours = readDoodads(chk_), theirs = readDoodads(from);
+    for (const MapSprite& s : readSprites(chk_))
+        if (!overlay(s, ours)) sprites.push_back(s);
+    for (const MapSprite& s : readSprites(from))
+        if (overlay(s, theirs)) sprites.push_back(s);
+    writeSprites(chk_, sprites);
     copySections(chk_, from, {"ERA ", "MTXM", "TILE", "ISOM", "DD2 "});
     reload();
     pushUndo(before);
@@ -2297,7 +2325,7 @@ bool Editor::copyTerrain(const Chk& from, std::string& error) {
     return true;
 }
 
-int Editor::decorate(const std::vector<uint16_t>& ids, Rect area, int spacingTiles, uint32_t seed) {
+int Editor::decorate(const std::vector<uint16_t>& ids, Rect area, int spacingTiles, uint32_t seed, const std::vector<Rect>& avoid) {
     if (ids.empty() || spacingTiles < 1) return 0;
     area.left = std::max(0, area.left), area.top = std::max(0, area.top);
     area.right = std::min(int(width_) * 32, area.right), area.bottom = std::min(int(height_) * 32, area.bottom);
@@ -2305,6 +2333,33 @@ int Editor::decorate(const std::vector<uint16_t>& ids, Rect area, int spacingTil
     const int cell = spacingTiles * 32;
     Chk before = chk_;
     int placed = 0;
+    // Tiles that no doodad may cover (the units: a Start Location's 4 x 3 tiles, the tiles round another unit; and
+    // `avoid`, in pixels), and tiles that a doodad's box covers (only there the exact test of doodadOverlaps runs: it
+    // looks at every doodad of the map).
+    const int w = width_, h = height_;
+    std::vector<uint8_t> blocked(size_t(w) * h, 0), busy(size_t(w) * h, 0);
+    auto mark = [&](std::vector<uint8_t>& m, int x0, int y0, int x1, int y1) {  // tiles [x0, x1) x [y0, y1)
+        for (int y = std::max(0, y0); y < std::min(h, y1); ++y)
+            for (int x = std::max(0, x0); x < std::min(w, x1); ++x) m[size_t(y) * w + size_t(x)] = 1;
+    };
+    auto any = [&](const std::vector<uint8_t>& m, int x0, int y0, int x1, int y1) {
+        for (int y = std::max(0, y0); y < std::min(h, y1); ++y)
+            for (int x = std::max(0, x0); x < std::min(w, x1); ++x)
+                if (m[size_t(y) * w + size_t(x)]) return true;
+        return false;
+    };
+    for (const Unit& u : units_) {
+        const int hx = u.type == 214 ? 64 : 32, hy = u.type == 214 ? 48 : 32;
+        mark(blocked, (u.x - hx) / 32, (u.y - hy) / 32, (u.x + hx + 31) / 32, (u.y + hy + 31) / 32);
+    }
+    for (const Rect& r : avoid) mark(blocked, r.left / 32, r.top / 32, (r.right + 31) / 32, (r.bottom + 31) / 32);
+    auto markDoodad = [&](const Doodad& d) {
+        if (const DoodadType* o = doodadTypes_.find(d.id)) {
+            const int ox = (d.x - o->width * 16) / 32, oy = (d.y - o->height * 16) / 32;
+            mark(busy, ox, oy, ox + o->width, oy + o->height);
+        }
+    };
+    for (const Doodad& d : doodads_) markDoodad(d);
     // A cell of the area at a time: a random place in it, and up to four doodads tried there; one that fits its tiles
     // (dddata.bin) and overlaps no doodad stays.
     for (int cy = area.top; cy < area.bottom; cy += cell)
@@ -2316,9 +2371,14 @@ int Editor::decorate(const std::vector<uint16_t>& ids, Rect area, int spacingTil
                 if (!t) continue;
                 int tx, ty;
                 doodadOrigin(*t, x, y, tx, ty);
-                if (!doodadFits(chk_, *t, tx, ty, true) || doodadOverlaps(*t, tx, ty)) continue;
+                if (any(blocked, tx, ty, tx + t->width, ty + t->height)) continue;
+                if (!doodadFits(chk_, *t, tx, ty, true)) continue;
+                if (any(busy, tx, ty, tx + t->width, ty + t->height) && doodadOverlaps(*t, tx, ty)) continue;
                 if (stardraft::placeDoodad(chk_, *t, tileset_, tx, ty, 0, true)) {
-                    doodads_ = readDoodads(chk_);
+                    Doodad d;  // (as placeDoodad wrote it: the map is read again once, at the end)
+                    d.id = t->id, d.x = uint16_t(tx * 32 + t->width * 16), d.y = uint16_t(ty * 32 + t->height * 16), d.owner = 0;
+                    doodads_.push_back(d);
+                    markDoodad(d);
                     ++placed;
                     break;
                 }
@@ -2326,6 +2386,7 @@ int Editor::decorate(const std::vector<uint16_t>& ids, Rect area, int spacingTil
         }
     if (!placed) return 0;
     pushUndo(before);  // (one undo step for all of them)
+    doodads_ = readDoodads(chk_);
     sprites_ = readSprites(chk_);
     commit(true);
     return placed;

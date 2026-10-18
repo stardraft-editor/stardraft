@@ -296,7 +296,7 @@ public:
     bool copyTerrain(const Chk& from, std::string& error);
     // Decorate the terrain (roadmap R37): doodads (a random pick from `ids`) over `area` (px), one in each square of
     // `spacingTiles` tiles where one fits its tiles (dddata.bin) and overlaps no doodad. One undo step; returns how many.
-    int decorate(const std::vector<uint16_t>& ids, Rect area, int spacingTiles, uint32_t seed);
+    int decorate(const std::vector<uint16_t>& ids, Rect area, int spacingTiles, uint32_t seed, const std::vector<Rect>& avoid = {});
     // Options > Doodads > Move to the nearest place where it fits: the center (px) nearest (x, y), within `radiusTiles`
     // tiles, where doodad `id` fits (on the map, not on another doodad, dddata.bin when `checkTerrain`), or nullopt.
     std::optional<std::pair<int, int>> nearestDoodadFit(uint16_t id, int x, int y, bool checkTerrain, int radiusTiles = 8) const;

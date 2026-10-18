@@ -463,7 +463,9 @@ void rebuildMenus() {
 }
 
 // The frame hook's part: the menus are made again when they changed and none is open (an open menu keeps its items).
+void sdlCampaignFollow();  // (sdl_options.inc)
 void menusIfDirty() {
+    sdlCampaignFollow();
     // Undo, Redo and Paste follow the edits (an edit does not say that the menus changed): the menus are made again
     // when one of them goes gray or comes back.
     static int grayed = -1;

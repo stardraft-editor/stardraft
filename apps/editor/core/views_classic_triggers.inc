@@ -284,6 +284,7 @@ struct CtModel {
     std::set<uint32_t> folded;              // the folded headings (by their comment's string: it stays when triggers move)
     std::set<int> markedEntries;            // the conditions (or actions: `kind`) chosen with Ctrl or Shift click (roadmap R23)
     int markedOf = -1, entryAnchor = -1;    // the trigger they belong to (other: none), the row a Shift click reaches from
+    int markedKind = 0;                     // their kind (conditions 0, actions 1); cleared when the triggers change
     int hold = 0;                           // > 0: the changes of a batch (a paste of several triggers) go into the map once, at the end
 };
 // What the model's commands ask of the program: the names, the list's repaint, the selection (its entries and head follow),
@@ -318,6 +319,7 @@ inline void ctModelLoad(CtModel& m, Editor& ed) {
 
 // The list's rows: the triggers that run for the player shown and have every word of the query, in the map's order.
 inline void ctModelFill(CtModel& m, CtModelHost& h) {
+    m.markedEntries.clear();  // (the rows' numbers change with the triggers: a move, a delete, an undo)
     m.shown = ctShownTriggers(m.trig.triggers, m.filter, m.query, h.names());
     if (m.query.empty() && m.filter < 0 && !m.folded.empty()) {  // the triggers under a folded heading (a search shows them all)
         std::vector<int> kept;

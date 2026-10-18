@@ -548,12 +548,25 @@ static void campaignTest(const GameData& data, const char* map, const fs::path& 
     UnitSettings s = a.unitSettings();
     s.units[0].useDefault = false, s.units[0].hitPoints = 99 * 256;
     a.setUnitSettings(s);
+    UnitSettings named = b.unitSettings();  // (b names the Firebat; a leaves it at the game's values)
+    named.units[32].useDefault = false, named.units[32].nameString = 1;
+    b.setUnitSettings(named);
     CHECK(b.copyMapData(a.chk(), err) && !b.unitSettings().units[0].useDefault && b.unitSettings().units[0].hitPoints == 99 * 256,
           "campaign: Copy data: the unit settings of one map in the other");
+    CHECK(!b.unitSettings().units[32].useDefault && b.unitSettings().units[32].nameString == 1 &&
+              b.unitSettings().units[32].hitPoints == b.settingDefaults()->units.units[32].hitPoints,
+          "campaign: Copy data: a custom name stays, with the game's values for a unit the other map leaves at them");
     b.undo(1);
     CHECK(b.unitSettings().units[0].useDefault, "campaign: Copy data is one undo step");
-    CHECK(b.copyTerrain(a.chk(), err) && b.terrain().tiles == a.terrain().tiles && b.doodads().size() == a.doodads().size(),
-          "campaign: Copy terrain: the tiles and the doodads");
+    auto overlays = [](const Editor& e) {
+        int n = 0;
+        for (const MapSprite& s : e.sprites())
+            for (const Doodad& d : e.doodads()) n += (s.flags & SpriteFlag::DrawAsSprite) && d.x == s.x && d.y == s.y;
+        return n;
+    };
+    CHECK(b.copyTerrain(a.chk(), err) && b.terrain().tiles == a.terrain().tiles && b.doodads().size() == a.doodads().size() &&
+              overlays(b) == overlays(a),
+          "campaign: Copy terrain: the tiles, the doodads and their sprites");
     Editor small(data);
     CHECK(small.newMap(64, 64, 0, 1, err) && !small.copyTerrain(a.chk(), err), "campaign: Copy terrain needs maps of one size");
 }
