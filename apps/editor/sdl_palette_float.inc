@@ -210,7 +210,8 @@ void sdlFloatPaletteLine() {
                                 gFloatPalOpen ? ", a window is open (WRONG)" : "", gState.palette, floating.c_str()));
     }
     if (!gFloatPalOpen || gFloatPalMode != a)
-        return void(std::printf("  palette: floating %s, no window; pick=%d; floating=%s\n", name.c_str(), gState.palette, floating.c_str()));
+        return void(std::printf("  palette: floating %s, no window%s; pick=%d; floating=%s\n", name.c_str(),
+                                gFloatPalOpen ? " (WRONG: the window of another mode is open)" : "", gState.palette, floating.c_str()));
     int x = gFloatPalShotAt.left, y = gFloatPalShotAt.top;
     if (SDL_Window* w = gHost ? gHost->sdlWindow(gFloatPalView) : nullptr) SDL_GetWindowPosition(w, &x, &y);
     draw::Point size;  // (the window that takes a snapshot's keys now: the palette's when it is the last one opened)

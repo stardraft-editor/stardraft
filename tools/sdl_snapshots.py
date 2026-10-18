@@ -3308,7 +3308,7 @@ def palette_steps(output):
             d["size"] = (int(size.group(1)), int(size.group(2))) if size else None
             d["keys"] = (re.search(r"keys=(\w+)", rest) or [None, None])[1]
             d["shows"] = "tiles" if ", tiles;" in rest else "list" if ", list;" in rest else None
-            d["side"] = "in the side bar" in rest
+            d["side"] = ", in the side bar" in rest
     return out
 
 
