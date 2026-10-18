@@ -2303,6 +2303,15 @@ constexpr UiText kRows[] = {
     {L"Put Sprites back in the side bar", L"Devolver Sprites a la barra lateral"},
     {L"Sprites is in its own window", L"Sprites est\u00E1 en su propia ventana"},
     {L"Sprites is back in the side bar", L"Sprites vuelve a la barra lateral"},
+    {L"&Walkable ground", L"Terreno &transitable"},
+    {L"Ground &height", L"&Altura del terreno"},
+    {L"Ground that blocks the line of &sight", L"Terreno que bloquea la l\u00EDnea de &visi\u00F3n"},
+    {L"&Buildable ground", L"Terreno &edificable"},
+    {L"Terrain flags are hidden (View > Layers)", L"Las propiedades del terreno est\u00E1n ocultas (Ver > Capas)"},
+    {L"Terrain flags: walkable (green), not walkable (red)", L"Propiedades del terreno: transitable (verde), no transitable (rojo)"},
+    {L"Terrain flags: low ground (blue), middle ground (yellow), high ground (red)", L"Propiedades del terreno: terreno bajo (azul), medio (amarillo), alto (rojo)"},
+    {L"Terrain flags: the ground that blocks the line of sight (purple)", L"Propiedades del terreno: el terreno que bloquea la l\u00EDnea de visi\u00F3n (morado)"},
+    {L"Terrain flags: buildable (green), not buildable (red)", L"Propiedades del terreno: edificable (verde), no edificable (rojo)"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

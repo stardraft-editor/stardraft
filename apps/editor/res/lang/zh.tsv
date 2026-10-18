@@ -2301,3 +2301,12 @@ Locations is back in the side bar	位置已回到侧栏
 Put Sprites back in the side bar	将精灵放回侧栏
 Sprites is in its own window	精灵在单独的窗口中
 Sprites is back in the side bar	精灵已回到侧栏
+&Walkable ground	可行走地面(&W)
+Ground &height	地面高度(&H)
+Ground that blocks the line of &sight	阻挡视线的地面(&S)
+&Buildable ground	可建造地面(&B)
+Terrain flags are hidden (View > Layers)	地形属性已隐藏（视图 > 图层）
+Terrain flags: walkable (green), not walkable (red)	地形属性：可行走（绿色）、不可行走（红色）
+Terrain flags: low ground (blue), middle ground (yellow), high ground (red)	地形属性：低地（蓝色）、中地（黄色）、高地（红色）
+Terrain flags: the ground that blocks the line of sight (purple)	地形属性：阻挡视线的地面（紫色）
+Terrain flags: buildable (green), not buildable (red)	地形属性：可建造（绿色）、不可建造（红色）

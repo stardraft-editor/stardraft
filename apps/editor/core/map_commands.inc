@@ -30,6 +30,9 @@ bool pathingLayerOn();
 bool pathingLayerAreas();
 void pathingLayerToggle();
 void pathingLayerMode(bool areas);
+enum class TerrainFlagsView;  // View > Layers > Terrain flags (core/terrain_flags_layer.inc)
+TerrainFlagsView terrainFlagsView();
+void terrainFlagsSet(TerrainFlagsView v);
 void pathingCheckCommand();
 
 void toggleLayer(int k) {
@@ -180,6 +183,19 @@ void registerMapCommands() {
     addCommand(ID_LAYER + 4, "view.layer.pathing", L"&Pathing", "View/Pathing", L"", [] { pathingLayerToggle(); }, [] { return pathingLayerOn(); });
     addCommand(ID_LAYER + 5, "view.pathing.regions", L"Pathing shows the &regions", "View/Pathing", L"", [] { pathingLayerMode(false); },
                [] { return !pathingLayerAreas(); }, true);
+    {
+        const struct {
+            const char* id;
+            const wchar_t* label;
+            int view;
+        } flags[] = {{"view.flags.walkable", L"&Walkable ground", 1}, {"view.flags.height", L"Ground &height", 2},
+                     {"view.flags.blocksview", L"Ground that blocks the line of &sight", 3}, {"view.flags.buildable", L"&Buildable ground", 4}};
+        for (int k = 0; k < 4; ++k) {
+            const auto v = TerrainFlagsView(flags[k].view);
+            addCommand(ID_TERRAIN_FLAGS + k, flags[k].id, flags[k].label, "View/Terrain flags", L"", [v] { terrainFlagsSet(v); },
+                       [v] { return terrainFlagsView() == v; }, true);
+        }
+    }
     addCommand(ID_LAYER + 6, "view.pathing.areas", L"Pathing shows the connected &areas", "View/Pathing", L"", [] { pathingLayerMode(true); },
                [] { return pathingLayerAreas(); }, true);
     addCommand(ID_SCEN_PATHCHECK, "scen.checkPathing", L"Check &pathing (nooks and crannies)", "Scenario", L"", [] { pathingCheckCommand(); });

@@ -126,6 +126,8 @@ MenuModel buildMenuModel() {
         layers.push_back(menuItem(ID_VIEW_LOCATIONS, L"&Locations"));
         layers.push_back(menuSeparator());
         menuCommands(layers, "View/Pathing");  // (what View > Layers > Pathing shows: core/pathing_layer.inc)
+        layers.push_back(menuSeparator());
+        menuCommands(layers, "View/Terrain flags");  // (core/terrain_flags_layer.inc)
         view.push_back(menuPopup(L"La&yers", layers));
     }
     view.push_back(menuSeparator());
