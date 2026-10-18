@@ -2261,6 +2261,42 @@ int Editor::sprayDoodads(const std::vector<uint16_t>& ids, int x, int y, int rad
     return placed;
 }
 
+// The sections of `from` (all of them, or none: removed) into this map, then the state again from the map. One undo step.
+static void copySections(Chk& to, const Chk& from, std::initializer_list<SectionName> names) {
+    for (const SectionName& n : names) {
+        if (from.has(n)) to.set(n, from.effective(n));
+        else to.remove(n);
+    }
+}
+
+bool Editor::copyMapData(const Chk& from, std::string& error) {
+    if (!from.has("UNIx") && !from.has("UNIS") && !from.has("UPGx") && !from.has("TECx")) return error = "the map has no unit, upgrade or technology settings", false;
+    Chk before = chk_;
+    const Bytes names = chk_.effective("UNIx");  // (the custom unit names: string ids of this map)
+    copySections(chk_, from, {"UNIS", "UNIx", "UPGS", "UPGx", "TECS", "TECx", "UPGR", "PUPx", "PTEC", "PTEx", "PUNI"});
+    // The names' string ids (228 of 2 bytes after 228 x 14 bytes) stay this map's.
+    constexpr size_t kNames = 228 * 14, kNamesLen = 228 * 2;
+    if (Section* s = chk_.find("UNIx"); s && s->data.size() >= kNames + kNamesLen) {
+        for (size_t i = 0; i < kNamesLen; ++i) s->data[kNames + i] = names.size() >= kNames + kNamesLen ? names[kNames + i] : 0;
+    }
+    reload();
+    pushUndo(before);
+    commit(true);
+    return true;
+}
+
+bool Editor::copyTerrain(const Chk& from, std::string& error) {
+    uint16_t w = 0, h = 0;
+    readDimensions(from, w, h);
+    if (w != width_ || h != height_) return error = "the maps have different sizes", false;
+    Chk before = chk_;
+    copySections(chk_, from, {"ERA ", "MTXM", "TILE", "ISOM", "DD2 "});
+    reload();
+    pushUndo(before);
+    commit(true);
+    return true;
+}
+
 int Editor::decorate(const std::vector<uint16_t>& ids, Rect area, int spacingTiles, uint32_t seed) {
     if (ids.empty() || spacingTiles < 1) return 0;
     area.left = std::max(0, area.left), area.top = std::max(0, area.top);

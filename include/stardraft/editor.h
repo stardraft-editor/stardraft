@@ -289,6 +289,11 @@ public:
     // where it fits the terrain and does not overlap another doodad. Returns doodads placed.
     // With `checkTerrain` off (Options > Doodads > Place anywhere), the terrain under it is not checked.
     int sprayDoodads(const std::vector<uint16_t>& ids, int x, int y, int radius, int count, uint32_t seed, bool checkTerrain = true);
+    // A campaign's maps (roadmap R25): the data of map `from` into this one (the unit, upgrade and technology settings,
+    // with the players' upgrades and technologies; the custom unit names stay this map's), or its terrain (the size, the
+    // tileset, the tiles and the doodads; the maps must have the same size). One undo step each; false with `error`.
+    bool copyMapData(const Chk& from, std::string& error);
+    bool copyTerrain(const Chk& from, std::string& error);
     // Decorate the terrain (roadmap R37): doodads (a random pick from `ids`) over `area` (px), one in each square of
     // `spacingTiles` tiles where one fits its tiles (dddata.bin) and overlaps no doodad. One undo step; returns how many.
     int decorate(const std::vector<uint16_t>& ids, Rect area, int spacingTiles, uint32_t seed);
