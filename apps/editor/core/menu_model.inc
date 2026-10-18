@@ -61,6 +61,8 @@ MenuItem menuPopup(std::wstring label, MenuModel items, std::string recent = {})
     return it;
 }
 
+std::vector<std::pair<int, std::wstring>> railMenuItems();  // (core/views_rail.inc: the side bar's items)
+
 MenuModel buildMenuModel() {
     MenuModel project{menuItem(ID_PROJ_NEW, L"&New EUD project", L"Ctrl+Shift+N"),
                       menuItem(ID_PROJ_OPEN, L"&Open project\x2026"),
@@ -166,20 +168,19 @@ MenuModel buildMenuModel() {
     view.push_back(menuItem(ID_VIEW_KIT, L"Control &kit"));
 #endif
     view.push_back(menuSeparator());
-    {
+    {  // the side bar's items, in its order, with their keys (Ctrl+n: the n-th item; core/views_rail.inc)
         MenuModel workspaces;
-        workspaces.push_back(menuItem(ID_WS_MAP, L"&Map workspace", L"Ctrl+1"));
-        workspaces.push_back(menuItem(ID_WS_DATA, L"&Data workspace", L"Ctrl+2"));
-        workspaces.push_back(menuItem(ID_WS_TRIGGERS, L"&Triggers workspace", L"Ctrl+3"));
-        workspaces.push_back(menuItem(ID_WS_BRIEFING, L"&Briefing workspace"));  // (Ctrl+n: the side bar's n-th item)
-        workspaces.push_back(menuItem(ID_WS_FILES, L"&Assets workspace"));
-        workspaces.push_back(menuItem(ID_WS_PROJECT, L"&Project page"));
+        int n = 0;
+        for (const auto& [id, name] : railMenuItems()) {
+            ++n;
+            workspaces.push_back(menuItem(id, L"&" + name, n <= 9 ? L"Ctrl+" + std::to_wstring(n) : L""));
+        }
         view.push_back(menuPopup(L"&Workspaces", workspaces));
     }
     MenuModel mode;
     menuCommands(mode, "Mode");
     // (No Scenario menu: Map properties, Players and forces, Map data and Classic triggers are the side bar's items
-    // (Ctrl+M, Ctrl+P), and the checks are in Edit > Tools.)
+    // (their keys: Ctrl+1 to Ctrl+9; Players and forces is part of Properties), and the checks are in Edit > Tools.)
     // Options: the snap and placement rules of each kind (the same items for each; a rule that does not change is
     // grayed), the terrain copy, then the program options (the window).
     auto snapItems = [](int first) {

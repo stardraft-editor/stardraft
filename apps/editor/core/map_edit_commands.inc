@@ -28,11 +28,9 @@ constexpr ProgramKey kProgramKeys[] = {
     {"B", ID_TOOL_KEY + 1},        {"A", ID_TOOL_KEY + 2},           {"F", ID_TOOL_KEY + 3},             {"Ctrl+1", ID_RAIL_KEY},
     {"Ctrl+2", ID_RAIL_KEY + 1},   {"Ctrl+3", ID_RAIL_KEY + 2},      {"Ctrl+4", ID_RAIL_KEY + 3},        {"Ctrl+5", ID_RAIL_KEY + 4},
     {"Ctrl+6", ID_RAIL_KEY + 5},   {"Ctrl+7", ID_RAIL_KEY + 6},      {"Ctrl+8", ID_RAIL_KEY + 7},        {"Ctrl+9", ID_RAIL_KEY + 8},
-    {"Ctrl+B", ID_PROJ_COMPILE},   {"Ctrl+P", ID_SCEN_PLAYERS},      {"Ctrl+L", ID_VIEW_LOG},            {"F1", ID_HELP_CONTEXT},
-#ifdef __APPLE__  // macOS: Cmd+M is the Window menu's Minimize; Cmd+Delete deletes; Cmd+` (with Shift: back) is the next tab
+    {"Ctrl+B", ID_PROJ_COMPILE},   {"Ctrl+L", ID_VIEW_LOG},            {"F1", ID_HELP_CONTEXT},
+#ifdef __APPLE__  // macOS: Cmd+Delete deletes; Cmd+` (with Shift: back) is the next tab
     {"Ctrl+Backspace", ID_EDIT_DELETE}, {"Ctrl+`", ID_TAB_NEXT},     {"Ctrl+Shift+`", ID_TAB_PREV},
-#else
-    {"Ctrl+M", ID_SCEN_PROPS},
 #endif
     {"Q", ID_QUICKPICK},           {"1", ID_PLAYER_1},               {"2", ID_PLAYER_1 + 1},             {"3", ID_PLAYER_1 + 2},
     {"4", ID_PLAYER_1 + 3},        {"5", ID_PLAYER_1 + 4},           {"6", ID_PLAYER_1 + 5},             {"7", ID_PLAYER_1 + 6},
