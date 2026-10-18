@@ -1564,7 +1564,7 @@ constexpr UiText kRows[] = {
     {L"Null tiles", L"\uB110 \uD0C0\uC77C"},
     {L"Doodad #", L"\uC7A5\uC2DD\uBB3C #"},
     {L", row ", L", \uD589 "},
-    {L"Not in Blizzard's maps", L"\uBE14\uB9AC\uC790\uB4DC \uB9F5\uC5D0 \uC5C6\uC74C"},
+    {L"Not used by Isometric", L"\uC544\uC774\uC18C\uBA54\uD2B8\uB9AD\uC5D0\uC11C \uC0AC\uC6A9\uD558\uC9C0 \uC54A\uC74C"},
     {L"Group ", L"\uADF8\uB8F9 "},
     {L", tile ", L", \uD0C0\uC77C "},
     {L"Null tile", L"\uB110 \uD0C0\uC77C"},

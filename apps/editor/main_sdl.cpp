@@ -479,6 +479,9 @@ int main(int argc, char** argv) {
     // quick clicks on two rows of a list or two units of the map were a double click), as the desktop systems' own
     // distance (Windows: SM_CXDOUBLECLK, 4 pixels).
     SDL_SetHint(SDL_HINT_MOUSE_DOUBLE_CLICK_RADIUS, "4");
+    // The click that activates a window (a floating palette, the main window) also acts in it: one click picks a
+    // palette's item (macOS used it only to activate the window).
+    SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
 #ifdef __APPLE__
     SDL_SetHint(SDL_HINT_MAC_SCROLL_MOMENTUM, "1");  // a trackpad's scroll goes on after the fingers lift (its momentum), as in macOS's own programs
 #endif

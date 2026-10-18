@@ -19,6 +19,7 @@ struct TilesView {
     int listW = 16 * 32 + 15;  // the grid's width for the tiles: the view's, or more (tilesMinCell)
     int picked = -1;        // the tile value to place (group << 4 | subtile), -1: none
     std::vector<uint16_t> chosen;  // Ctrl+click and Shift+click: several tiles; Spray places one of them at random (#81)
+    int anchor = -1;               // the tile a Shift+click's rectangle starts from: the last click without Shift
     int hover = -1;         // the tile value under the mouse in the list
     // A box dragged over the grid selects the tiles in it (GitHub feedback #110): from the press, in content pixels
     // (the scroll added); Ctrl+drag adds to the tiles selected before.
@@ -69,7 +70,7 @@ const Editor::TileGroupEntry* tilesEntryOfGroup(int group) {
     return it != gs.end() && int(it->group) == group ? &*it : nullptr;
 }
 
-// What a group is: a doodad's, a terrain's, or neither.
+// What a group is: a doodad's, a terrain's, or neither (one that Isometric never places: only Rectangle places it).
 std::wstring tilesGroupNote(int group) {
     const Editor::TileGroupEntry* e = tilesEntryOfGroup(group);
     if (!e) return L"Null tiles";
@@ -81,7 +82,7 @@ std::wstring tilesGroupNote(int group) {
         return s;
     }
     if (const std::wstring t = tilesTerrainNames(*e); !t.empty()) return t;
-    return L"Not in Blizzard's maps";
+    return L"Not used by Isometric";
 }
 
 bool tilesIsNull(int value) { return appState().ed && appState().ed->tileset().megatileFor(uint16_t(value)) <= 0; }
@@ -94,6 +95,7 @@ std::wstring tilesValueLabel(int value) {
 
 void tilesPick(int value, bool fromMap) {
     gTiles.picked = value;
+    gTiles.anchor = value;
     gTiles.chosen.clear();
     if (value >= 0) gTiles.chosen.push_back(uint16_t(value));
     if (value >= 0)
