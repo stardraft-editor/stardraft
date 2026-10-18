@@ -721,10 +721,20 @@ public:
         return true;
     }
 
+    // The conditions and actions at the Triggers workspace's zoom (Ctrl+mouse wheel; roadmap R23): sizes (scale) and
+    // the UI font grow or shrink while they paint, as the workspace's pane does. The click areas are recorded as it paints.
     void paint(draw::Canvas& c) override {
         hits_.clear();
-        if (triggers_) paintTriggers(c);
-        else paintEntries(c);
+        if (triggers_) return paintTriggers(c);
+        const int zoom = gDock.triggerZoom;
+        draw::Font of{};
+        if (zoom != 100) {
+            gPaintZoom = zoom;
+            of = c.setFont(c.font({draw::Face::Ui, MulDiv(stardraft::kit::px(15), zoom, 100)}));  // (the UI text's size at the zoom)
+        }
+        paintEntries(c);
+        gPaintZoom = 100;
+        if (of) c.setFont(of);
     }
     bool key(const draw::KeyEvent& e) override { return host_.listKey(triggers_, e); }
 
@@ -773,6 +783,12 @@ public:
             return true;
         }
         case draw::MouseKind::Wheel:
+            if (!triggers_ && !e.horizontal && (e.mods & draw::kCtrl)) {  // Ctrl+wheel: the zoom of the conditions and actions
+                const int z = std::clamp(gDock.triggerZoom + (e.wheel > 0 ? 10 : -10), 70, 200);
+                if (z != gDock.triggerZoom) gDock.triggerZoom = z, saveDock(), invalidate();
+                setMessage(L"Zoom " + std::to_wstring(z) + L"%");
+                return true;
+            }
             scrollTo(scroll_ - int(std::lround(draw::wheelDistance(e, float(scale(26)) * 3.0f))));
             return true;
         default: return false;
@@ -998,7 +1014,11 @@ private:
     // is kept inside it.
     void settle(int y) {
         height_ = y + scroll_;
-        if (!triggers_ && height_ != laid_) laid_ = height_, host_.entriesLaid(height_);
+        if (!triggers_ && height_ != laid_) {  // (the page places its parts at the window's size, not at the list's zoom)
+            const int zoom = std::exchange(gPaintZoom, 100);
+            laid_ = height_, host_.entriesLaid(height_);
+            gPaintZoom = zoom;
+        }
         if (const int most = std::max(0, height_ - height()); scroll_ > most) scroll_ = most, invalidate();
     }
 

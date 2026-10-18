@@ -714,13 +714,13 @@ std::string classicValueText(ClassicKind kind, uint32_t v, const ClassicNames& n
             const std::string n = names.location(v);
             if (!n.empty()) return "'" + n + "'";
         }
-        return "Location " + number(v);
+        return "'Location " + number(v) + "'";  // (quoted, as the game's editor shows a location)
     case K::Switch:
         if (names.switchName) {
             const std::string n = names.switchName(v);
             if (!n.empty()) return "'" + n + "'";
         }
-        return "Switch " + number(v + 1);
+        return "'Switch " + number(v + 1) + "'";
     case K::Text:
     case K::Sound: {
         if (!v) return kind == K::Sound ? "no sound" : "\"\"";

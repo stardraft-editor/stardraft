@@ -567,7 +567,7 @@ public:
         if (zoom != 100) {
             uiLf_ = MulDiv(uiLf_, zoom, 100);
             st.dpi = UINT(MulDiv(int(dpi), zoom, 100));
-            of = c.setFont(c.font({draw::Face::Ui, -uiLf_}));
+            of = c.setFont(c.font({draw::Face::Ui, MulDiv(stardraft::kit::px(15), zoom, 100)}));  // (the UI text's size at the zoom)
         }
         paintAt(c);
         st.dpi = dpi;
