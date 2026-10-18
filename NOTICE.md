@@ -25,7 +25,7 @@ build downloads the libraries (CMakeLists.txt, FetchContent), and the documents 
 |---|---|---|
 | staredit.net wiki: Scenario.chk | The map format | http://staredit.net/wiki/index.php/Scenario.chk |
 | EUD Editor 2 and 3 (MIT) | Default requirements and button sets, decoded once into `src/data/dat_extras.inc` | https://github.com/Buizz/EUD-Editor-3, https://github.com/Buizz/EUDEditor |
-| OpenBW (bwgame.h: regions_create) | The steps of the game's pathing regions (View > Layers > Pathing, Scenario > Check pathing), written again in `src/pathing_regions.cpp` from the steps; no code copied | https://github.com/OpenBW/openbw |
+| OpenBW (bwgame.h: regions_create; its repository gives no license) | Only the facts of how the game makes its pathing regions (the steps, the limits and the game's region values) for View > Layers > Pathing and Scenario > Check pathing. `src/pathing_regions.cpp` is StarDraft's own code (MIT), with its own structure; no OpenBW code is copied | https://github.com/OpenBW/openbw |
 | euddraft and eudplib | Build EUD maps from the triggers; StarDraft downloads euddraft from its releases the first time a project builds | https://github.com/armoha/euddraft, https://github.com/armoha/eudplib |
 
 StarCraft and StarCraft: Remastered are trademarks of Blizzard Entertainment. StarDraft is not affiliated with

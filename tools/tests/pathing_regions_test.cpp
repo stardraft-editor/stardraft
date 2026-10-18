@@ -13,6 +13,7 @@
 //   - a nook made in (2)Bottleneck (one walkable minitile in an unwalkable tile) is a Pocket with a fix, and the fixed
 //     terrain has no such Pocket there;
 //   - the regions and the check of a map of 256 x 256 or less take less than 200 ms.
+// The made-up terrain also has a map with too many regions (a checkerboard of 256 x 256).
 
 #include <algorithm>
 #include <cctype>
@@ -159,6 +160,27 @@ void madeChecks() {
         check(it != c.problems.end() && it->x / 32 >= 15 && it->x / 32 <= 17 && it->y / 32 == 12, "a passage 2 minitiles wide: small units only, at its place");
         // The game's regions do not join the two sides there (the passage's tile is unwalkable): a closed passage.
         check(count(c, PathingProblemKind::ClosedPassage) >= 1, "the passage's tile is unwalkable for the game: a closed passage");
+    }
+    {  // Too many regions: 256 x 256 tiles of walkable and unwalkable ground in turn (a region for each tile). The tiles
+       // with no region give -1, and the check and each region of a minitile are in range.
+        TerrainLayer t = madeTerrain(256, 256, kWalk);
+        for (int y = 0; y < 256; ++y)
+            for (int x = 0; x < 256; ++x)
+                if ((x + y) % 2) t.tiles[size_t(y) * 256 + x] = kWall;
+        const PathingRegions r = computePathingRegions(t, ts);
+        check(r.tooMany, "a checkerboard of 256 x 256: too many regions");
+        int none = 0;
+        bool inRange = true;
+        for (int my = 0; my < r.walkH(); ++my)
+            for (int mx = 0; mx < r.walkW(); ++mx) {
+                const int ri = r.regionAt(mx, my);
+                if (ri < 0) ++none;
+                else inRange &= size_t(ri) < r.regions.size();
+            }
+        std::printf("    %zu regions, %d minitiles with no region\n", r.regions.size(), none);
+        check(inRange && none > 0, "too many regions: each region of a minitile is in range, the others are -1");
+        const PathingCheck c = checkPathing(r, t, ts, std::vector<Unit>{startAt(2, 2), startAt(200, 200)});
+        check(count(c, PathingProblemKind::TooManyRegions) == 1, "too many regions: the check reports it");
     }
 }
 
