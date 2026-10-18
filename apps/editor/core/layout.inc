@@ -35,6 +35,9 @@ struct LayoutInput {
     bool hasPal2 = false;          // the second palette exists (the other side's list)
     bool pal2Shown = false;        // ... and was shown before (for "changed")
     Mode pal2Mode = Mode::Units;   // ... and what it showed before
+    bool hasPal3 = false;          // the third palette exists (the active side's list while the active mode floats)
+    bool pal3Shown = false;        // ... and was shown before (for "changed")
+    Mode pal3Mode = Mode::Terrain; // ... and what it showed before
     bool floats[kModeCount] = {};  // each mode's panel is in a window of its own (no tab, not the other side's list)
 };
 
@@ -43,13 +46,15 @@ struct LayoutInput {
 struct MainLayout {
     PaneSlot status, log, topBar, tabs, wsRail, workspace, minimap, modeBar;
     PaneSlot panelTabActive, tool, owner, sectionBox, search, viewBtn, filter, palette, list;
-    PaneSlot panelTabOther, palette2, view;
+    PaneSlot panelTabOther, palette2, palette3, view;
     RECT splitters[2] = {};
     RECT dockRects[2] = {};
     Mode panelTab[2] = {Mode::Terrain, Mode::Units};  // the tab each side shows
     Mode secondMode = Mode::Units;                    // the mode of the other side's list
     bool secondShown = false;                         // the other side has a list (and a tab)
     bool palette2Changed = false;                     // its mode or its shown state changed (the list is rebuilt)
+    Mode thirdMode = Mode::Terrain;                   // the active side's list while the active mode floats
+    bool palette3Changed = false;                     // its mode or its shown state changed (the list is rebuilt)
 };
 
 // The scale of `v` (96-dpi pixels) at `dpi`: the same rounding as MulDiv (halves away from zero).
@@ -94,11 +99,21 @@ inline MainLayout computeLayout(const LayoutInput& in) {
     Mode second = in.lastOnSide[otherSide];
     if (std::find(others.begin(), others.end(), second) == others.end()) second = others.empty() ? in.mode : others.front();
     const bool secondShown = !others.empty();
-    L.panelTab[toolsRight ? 1 : 0] = in.mode, L.panelTab[otherSide] = second;
-    L.secondMode = second, L.secondShown = secondShown;
+    // The active mode's panel in a window of its own: its side shows another of its tabs' lists, as the other side does
+    // (the one last used there, else the first); a side with no tab left takes no room.
+    const int activeSide = toolsRight ? 1 : 0;
+    const bool floated = in.floats[int(in.mode)];
+    std::vector<Mode> mine;
+    for (Mode m : kModeOrder)
+        if (in.toolsRight[int(m)] == toolsRight && !in.floats[int(m)]) mine.push_back(m);
+    Mode third = in.lastOnSide[activeSide];
+    if (std::find(mine.begin(), mine.end(), third) == mine.end()) third = mine.empty() ? in.mode : mine.front();
+    const bool activeUsed = !floated || !mine.empty();
+    L.panelTab[activeSide] = floated ? third : in.mode, L.panelTab[otherSide] = second;
+    L.secondMode = second, L.secondShown = secondShown, L.thirdMode = third;
     const bool miniShown = !in.minimapHidden;
-    const bool leftUsed = (miniShown && !miniRight) || !toolsRight || (secondShown && otherSide == 0),
-               rightUsed = (miniShown && miniRight) || toolsRight || (secondShown && otherSide == 1);
+    const bool leftUsed = (miniShown && !miniRight) || (!toolsRight && activeUsed) || (secondShown && otherSide == 0),
+               rightUsed = (miniShown && miniRight) || (toolsRight && activeUsed) || (secondShown && otherSide == 1);
     const int leftW = sc(in.leftW), rightW = sc(in.rightW);
     const int lx = left, rx = rcR - rightW;
     const int viewL = left + (leftUsed ? leftW : 0), viewR = rcR - (rightUsed ? rightW : 0);
@@ -122,7 +137,7 @@ inline MainLayout computeLayout(const LayoutInput& in) {
     const int sx = toolsRight ? rx : lx;
     int y = toolsRight == miniRight ? belowMini : mtop + pad;
     const bool hasTabActive = in.hasPanelTab[toolsRight ? 1 : 0];
-    L.panelTabActive = S(sx + pad, y, inner, tabsRowH, hasTabActive, in.mapWs);
+    L.panelTabActive = S(sx + pad, y, inner, tabsRowH, hasTabActive, in.mapWs && activeUsed);
     if (hasTabActive) y += tabsRowH + pad;
     const int stripH = in.toolStrip(inner);
     L.tool = S(sx + pad, y, inner, stripH, true, true);
@@ -141,6 +156,10 @@ inline MainLayout computeLayout(const LayoutInput& in) {
     y += rowH + pad;
     L.palette = S(sx + pad, y, inner, std::max(1, h - y - pad), true, true);
     L.list = S(sx + pad, y, inner, std::max(1, h - y - pad), true, true);
+    const int ty = L.tool.rc.top;  // (the floated mode's tools are not here: the list starts under the tabs)
+    const bool show3 = floated && !mine.empty() && in.mapWs && third != Mode::Locations;
+    L.palette3Changed = third != in.pal3Mode || show3 != in.pal3Shown;
+    L.palette3 = S(sx + pad, ty, inner, std::max(1, h - ty - pad), in.hasPal3 && show3, show3);
 
     // The other side: its tabs, and the list of its tab's mode (a click there goes to that mode and picks).
     const int ox = otherSide ? rx : lx, ow = otherSide ? rightW : leftW;

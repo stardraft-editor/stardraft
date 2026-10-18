@@ -397,8 +397,7 @@ void TilesGridView::paint(draw::Canvas& c) {
                 if (whole < 0) whole = size > 0 && nominal % kTilesPerRow == 0 && (nominal / kTilesPerRow) % size == 0;
                 c.bitmap(px, src, cell, !whole);
                 const bool sel = v == gTiles.picked || (gTiles.chosen.size() > 1 && std::find(gTiles.chosen.begin(), gTiles.chosen.end(), v) != gTiles.chosen.end());
-                if (sel || v == gTiles.hover) marks.push_back({cell, v});
-                else if (tilesIsNull(v)) c.frame(cell, kBorder, 1);  // a null tile: its frame, so it shows on the dark background
+                if (sel || v == gTiles.hover) marks.push_back({cell, v});  // (a null tile has no frame: 1 px between all tiles)
             }
         // The selection: an accent frame on the gaps around the tile and its edge; the tile under the mouse: a line on
         // the gaps around it.

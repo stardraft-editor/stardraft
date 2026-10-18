@@ -22,26 +22,25 @@ struct FloatPaletteNames {
     const char* command;
     const wchar_t* menu;    // View > Floating palettes
     const wchar_t* title;   // the window's title
-    const wchar_t* note;    // the side bar's text while it floats
     const wchar_t* tip;     // Dock's tooltip
     const wchar_t* moved;   // the messages
     const wchar_t* later;
     const wchar_t* docked;
 };
 constexpr FloatPaletteNames kFloatPalNames[kModeCount] = {
-    {"TerrainPalette", "view.floatPalette.terrain", L"&Terrain palette", L"Terrain palette", L"Terrain is in its own window. Dock puts it back here.",
+    {"TerrainPalette", "view.floatPalette.terrain", L"&Terrain palette", L"Terrain palette",
      L"Put Terrain back in the side bar", L"Terrain is in its own window",
      L"The terrain palette shows in its own window in Terrain mode", L"Terrain is back in the side bar"},
-    {"UnitPalette", "view.floatPalette.units", L"&Unit palette", L"Unit palette", L"Units is in its own window. Dock puts it back here.",
+    {"UnitPalette", "view.floatPalette.units", L"&Unit palette", L"Unit palette",
      L"Put Units back in the side bar", L"Units is in its own window",
      L"The unit palette shows in its own window in Units mode", L"Units is back in the side bar"},
-    {"DoodadPalette", "view.floatPalette.doodads", L"&Doodad palette", L"Doodad palette", L"Doodads is in its own window. Dock puts it back here.",
+    {"DoodadPalette", "view.floatPalette.doodads", L"&Doodad palette", L"Doodad palette",
      L"Put Doodads back in the side bar", L"Doodads is in its own window",
      L"The doodad palette shows in its own window in Doodads mode", L"Doodads is back in the side bar"},
-    {"LocationList", "view.floatPalette.locations", L"&Location list", L"Location list", L"Locations is in its own window. Dock puts it back here.",
+    {"LocationList", "view.floatPalette.locations", L"&Location list", L"Location list",
      L"Put Locations back in the side bar", L"Locations is in its own window",
      L"The location list shows in its own window in Locations mode", L"Locations is back in the side bar"},
-    {"SpritePalette", "view.floatPalette.sprites", L"&Sprite palette", L"Sprite palette", L"Sprites is in its own window. Dock puts it back here.",
+    {"SpritePalette", "view.floatPalette.sprites", L"&Sprite palette", L"Sprite palette",
      L"Put Sprites back in the side bar", L"Sprites is in its own window",
      L"The sprite palette shows in its own window in Sprites mode", L"Sprites is back in the side bar"},
 };
