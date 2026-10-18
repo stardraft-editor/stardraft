@@ -631,7 +631,7 @@ render::Scene buildScene() {
 
 // View > Show ranges of the selected units (GitHub feedback #109): around each selected unit (Units mode), its sight
 // (the tiles it sees, yellow), and its target acquisition (orange) and weapons' ranges: ground (red) and air (blue), its
-// turret's too. From units.dat and weapons.dat: the project's (with its edits) or the game's. A range counts from the
+// turret's too; a detector's detection range (green dashes) and a Pylon's psi field (purple tiles). From units.dat and weapons.dat: the project's (with its edits) or the game's. A range counts from the
 // unit's size box, as the game's.
 void dataLoadForProject();
 const DatTable* rangeTable(const std::string& name) {
@@ -665,8 +665,8 @@ void rangesScene(render::Scene& s, float dx, float dy) {
     const DatField *sight = units->field("Sight Range"), *acqF = units->field("Target Acquisition Range"), *ground = units->field("Ground Weapon"),
                    *air = units->field("Air Weapon"), *sub = units->field("Subunit 1"), *range = weapons->field("Maximum Range"),
                    *sl = units->field("Unit Size Left"), *su = units->field("Unit Size Up"), *sr = units->field("Unit Size Right"),
-                   *sd = units->field("Unit Size Down");
-    if (!sight || !acqF || !ground || !air || !sub || !range || !sl || !su || !sr || !sd) return;
+                   *sd = units->field("Unit Size Down"), *flags = units->field("Special Ability Flags");
+    if (!sight || !acqF || !ground || !air || !sub || !range || !sl || !su || !sr || !sd || !flags) return;
     auto shape = [&](RECT box, int r, uint32_t color, float width, bool dashed) {
         if (r <= 0) return;
         const auto pts = rangeShapeAround({int(box.left), int(box.top), int(box.right), int(box.bottom)}, double(r));
@@ -688,6 +688,7 @@ void rangesScene(render::Scene& s, float dx, float dy) {
     const auto& list = ed.units();
     const int mw = ed.width(), mh = ed.height();
     std::vector<uint8_t> seen;  // the map's tiles that a selected unit sees (one area, so many units do not stack)
+    std::vector<uint8_t> psi;   // the map's tiles in the psi field of a selected Pylon
     int shown = 0;
     for (int i : ed.selection()) {
         if (i < 0 || i >= int(list.size()) || ++shown > 64) continue;  // (a big selection: the first 64)
@@ -717,30 +718,50 @@ void rangesScene(render::Scene& s, float dx, float dy) {
         shape(box, acq, 0xF0B446D0u, 1, false);
         shape(box, g, 0xEB5A50F0u, 2, false);
         shape(box, a, 0x5AAAF0F0u, 2, a == g);  // the same range as the ground weapon: blue dashes over the red line
-    }
-    // The sight area: its tiles faintly filled (rows of seen tiles as one rectangle each) and its outline.
-    if (seen.empty()) return;
-    auto at = [&](int x, int y) { return x >= 0 && y >= 0 && x < mw && y < mh && seen[size_t(y) * size_t(mw) + size_t(x)]; };
-    auto edge = [&](float x0, float y0, float x1, float y1) {
-        render::RectDraw l;
-        l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = 0xFFE040C0u, l.thickness = 1, l.line = true;
-        s.rects.push_back(l);
-    };
-    for (int y = 0; y < mh; ++y)
-        for (int x = 0; x < mw; ++x) {
-            if (!at(x, y)) continue;
-            int run = x;
-            while (at(run + 1, y)) ++run;
-            s.rects.push_back({float(x * 32), float(y * 32), float((run + 1) * 32), float(y * 32 + 32), 0xE0E0F014u, true});
-            for (int k = x; k <= run; ++k) {
-                const float X = float(k * 32), Y = float(y * 32);
-                if (!at(k, y - 1)) edge(X, Y, X + 32, Y);
-                if (!at(k, y + 1)) edge(X, Y + 32, X + 32, Y + 32);
-            }
-            edge(float(x * 32), float(y * 32), float(x * 32), float(y * 32 + 32));
-            edge(float((run + 1) * 32), float(y * 32), float((run + 1) * 32), float(y * 32 + 32));
-            x = run;
+        // Detection (green): a detector finds cloaked and burrowed units in its sight range; a detector building only
+        // in 7 tiles (the game's rule). The game measures it from the unit's center.
+        const uint32_t f = uint32_t(units->value(*flags, ut));
+        if (f & 0x8000u) shape({LONG(cx), LONG(cy), LONG(cx + 1), LONG(cy + 1)}, (f & 1u) ? 7 * 32 : int(units->value(*sight, ut)) * 32, 0x50E070F0u, 2, true);
+        // Psi field (purple): the tiles where a Pylon gives power, 16 by 10 tiles around its center (the game's mask).
+        if (ut == 156) {
+            static const char* const kPsi[10] = {"0000011111100000", "0011111111111100", "0111111111111110", "1111111111111111", "1111111111111111",
+                                                 "1111111111111111", "1111111111111111", "0111111111111110", "0011111111111100", "0000011111100000"};
+            if (psi.empty()) psi.assign(size_t(mw) * size_t(mh), 0);
+            const int tx0 = cx / 32 - 8, ty0 = cy / 32 - 5;  // (the Pylon's center is on a tile corner)
+            for (int y = 0; y < 10; ++y)
+                for (int x = 0; x < 16; ++x)
+                    if (kPsi[y][x] == '1' && tx0 + x >= 0 && ty0 + y >= 0 && tx0 + x < mw && ty0 + y < mh)
+                        psi[size_t(ty0 + y) * size_t(mw) + size_t(tx0 + x)] = 1;
         }
+    }
+    // An area of tiles (the sight, the psi field): its tiles faintly filled (rows of tiles as one rectangle each) and
+    // its outline.
+    auto area = [&](const std::vector<uint8_t>& tiles, uint32_t fill, uint32_t line) {
+        if (tiles.empty()) return;
+        auto at = [&](int x, int y) { return x >= 0 && y >= 0 && x < mw && y < mh && tiles[size_t(y) * size_t(mw) + size_t(x)]; };
+        auto edge = [&](float x0, float y0, float x1, float y1) {
+            render::RectDraw l;
+            l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = line, l.thickness = 1, l.line = true;
+            s.rects.push_back(l);
+        };
+        for (int y = 0; y < mh; ++y)
+            for (int x = 0; x < mw; ++x) {
+                if (!at(x, y)) continue;
+                int run = x;
+                while (at(run + 1, y)) ++run;
+                s.rects.push_back({float(x * 32), float(y * 32), float((run + 1) * 32), float(y * 32 + 32), fill, true});
+                for (int k = x; k <= run; ++k) {
+                    const float X = float(k * 32), Y = float(y * 32);
+                    if (!at(k, y - 1)) edge(X, Y, X + 32, Y);
+                    if (!at(k, y + 1)) edge(X, Y + 32, X + 32, Y + 32);
+                }
+                edge(float(x * 32), float(y * 32), float(x * 32), float(y * 32 + 32));
+                edge(float((run + 1) * 32), float(y * 32), float((run + 1) * 32), float(y * 32 + 32));
+                x = run;
+            }
+    };
+    area(psi, 0xA070FF1Cu, 0xB080FFC0u);
+    area(seen, 0xE0E0F014u, 0xFFE040C0u);
 }
 
 

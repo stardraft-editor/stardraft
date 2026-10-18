@@ -1644,7 +1644,7 @@ Player 11	Игрок 11
 Player 12	Игрок 12
 Show ranges of the selected u&nits	Показать дальность выбранных ю&нитов
 Ranges are hidden	Дальность скрыта
-Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue)	Дальность выбранных юнитов: обзор (жёлтый), обнаружение цели (оранжевый), наземное оружие (красный), воздушное оружие (синий)
+Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue), detection (green), psi field (purple)	Дальность выбранных юнитов: обзор (жёлтый), обнаружение цели (оранжевый), наземное оружие (красный), воздушное оружие (синий), обнаружение (зелёный), пси-поле (фиолетовый)
 Favorites	Избранное
 Add to favorites	Добавить в избранное
 Remove from favorites	Удалить из избранного

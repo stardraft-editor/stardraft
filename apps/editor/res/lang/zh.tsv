@@ -1644,7 +1644,7 @@ Player 11	玩家 11
 Player 12	玩家 12
 Show ranges of the selected u&nits	显示所选单位的范围(&N)
 Ranges are hidden	范围已隐藏
-Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue)	所选单位的范围：视野（黄色）、目标获取（橙色）、地面武器（红色）、空中武器（蓝色）
+Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue), detection (green), psi field (purple)	所选单位的范围：视野（黄色）、目标获取（橙色）、地面武器（红色）、空中武器（蓝色）、探测（绿色）、灵能场（紫色）
 Favorites	收藏
 Add to favorites	添加到收藏
 Remove from favorites	从收藏中移除
