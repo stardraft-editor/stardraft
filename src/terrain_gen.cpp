@@ -129,6 +129,43 @@ std::vector<GenTerrain> generatorTerrains(uint16_t era, const Tileset& ts) {
     return out;
 }
 
+// --- Rules (roadmap R49) -----------------------------------------------------------------------------
+
+namespace {
+// The bases' angles round the middle of the map: evenly apart, turned so that the symmetry keeps the set the same.
+struct BaseRing {
+    int n = 0;
+    double offset = 0, cx = 0, cy = 0, rx = 0, ry = 0;
+    double x(int k) const { return cx + rx * std::cos(offset + 2 * 3.14159265358979 * k / n); }
+    double y(int k) const { return cy + ry * std::sin(offset + 2 * 3.14159265358979 * k / n); }
+};
+BaseRing baseRing(const TerrainGenParams& p) {
+    BaseRing r;
+    r.n = std::clamp(p.bases, 0, 8);
+    if (r.n == 0) return r;
+    const bool both = p.symmetry == GenSymmetry::Both || p.symmetry == GenSymmetry::Rotate180;
+    if (r.n % 2 && (both || r.n == 1)) ++r.n;  // (a turn or two mirrors keep only an even number the same)
+    if (both && p.symmetry == GenSymmetry::Both && r.n == 2) r.n = 4;
+    const double pi = 3.14159265358979;
+    if (r.n % 2) r.offset = p.symmetry == GenSymmetry::TopBottom ? 0 : pi / 2;  // a base on the mirror's line
+    else if (r.n == 2) r.offset = p.symmetry == GenSymmetry::TopBottom ? pi / 2 : 0;  // the two across the mirror
+    else r.offset = pi / r.n;
+    const int margin = generatorBaseRadius(p) + 3;
+    r.cx = p.width / 2.0, r.cy = p.height / 2.0;
+    r.rx = std::max(0.0, p.width / 2.0 - margin), r.ry = std::max(0.0, p.height / 2.0 - margin);
+    return r;
+}
+}  // namespace
+
+int generatorBaseRadius(const TerrainGenParams& p) { return std::clamp(std::min<int>(p.width, p.height) / 12, 5, 10); }
+
+std::vector<GenBase> generatorBases(const TerrainGenParams& p) {
+    const BaseRing r = baseRing(p);
+    std::vector<GenBase> out;
+    for (int k = 0; k < r.n; ++k) out.push_back({int(std::lround(r.x(k))), int(std::lround(r.y(k)))});
+    return out;
+}
+
 // --- Generator -------------------------------------------------------------------------------------
 
 bool generateTerrain(Chk& chk, const Tileset& ts, const TerrainGenParams& p, std::string& error) {
@@ -210,10 +247,13 @@ bool generateTerrain(Chk& chk, const Tileset& ts, const TerrainGenParams& p, std
             patchField.push_back(LayeredNoise({{p.detail / 1000.0f * 0.3f, ps, 1.0f}, {p.detail / 1000.0f * 0.9f, ps * 31u + 1u, 0.3f}}));
     }
 
+    const BaseRing ring = baseRing(p);
+    const double baseR = generatorBaseRadius(p);
     struct Corner {
         int x, y;
         float land, massif;
         std::vector<float> f;
+        uint8_t rule = 0;  // the rules (roadmap R49): 1 a base's open ground, 2 a path
     };
     std::vector<Corner> corners;
     auto sample = [&](int x, int y) {
@@ -221,9 +261,42 @@ bool generateTerrain(Chk& chk, const Tileset& ts, const TerrainGenParams& p, std
         // along the border (border tiles are where StarEdit maps are least consistent).
         x = std::clamp(x, 1, cols - 1), y = std::clamp(y, 1, rows - 1);
         float tx = float(x * 2), ty = float(y);
-        Corner c{x, y, land.at(tx, ty), massif.at(tx, ty), {}};
+        Corner c{x, y, land.at(tx, ty), massif.at(tx, ty), {}, 0};
         c.f.resize(nT);
         for (size_t t = 0; t < nT; ++t) c.f[t] = patchField[t].at(tx, ty);
+        // The rules: a base's ground and a path's are above every cut of the sea, and above or below every cut of
+        // the high ground; a base has no patches, a path none that cannot be walked. (The fields are noise in [0, 1].)
+        if (ring.n) {
+            // (Distances across in diamond proportions: a diamond is twice as wide as it is high, so a path that
+            // runs up and down is wider in tiles. Around both a margin without sea: a shore beside high ground
+            // takes a ring of the ground it stands on.)
+            const float level = p.basesHigh ? 3.0f : -3.0f;
+            const double margin = 3;
+            bool open = false, onPath = false, dry = false;
+            for (int k = 0; k < ring.n; ++k) {
+                const double dx = tx - ring.x(k), dy = ty - ring.y(k), d = std::sqrt(dx * dx + dy * dy);
+                if (d < baseR) c.land = 3.0f, c.massif = level, open = true;
+                dry |= d < baseR + margin;
+                if (!p.paths || (ring.n == 2 && k == 1)) continue;
+                const int k2 = (k + 1) % ring.n;
+                const double ax = ring.x(k), ay = ring.y(k), vx = ring.x(k2) - ax, vy = ring.y(k2) - ay;
+                const double len2 = std::max(1e-6, vx * vx + vy * vy);
+                const double u = std::clamp(((tx - ax) * vx + (ty - ay) * vy) / len2, 0.0, 1.0);
+                const double px = (ax + u * vx - tx) * 0.6, py = ay + u * vy - ty, dp = std::sqrt(px * px + py * py);
+                onPath |= dp < kGenPathHalfWidth;
+                dry |= dp < kGenPathHalfWidth + margin;
+            }
+            if (dry) c.land = std::max(c.land, 3.0f);
+            if (onPath) {
+                c.land = 3.0f, c.massif = level, c.rule = 2;
+                for (const auto& g : terr)
+                    if (!g.walkable && g.id < nT) c.f[g.id] = -3.0f;
+            }
+            if (open) {
+                c.rule = 1;
+                for (size_t t = 0; t < nT; ++t) c.f[t] = -3.0f;
+            }
+        }
         return c;
     };
     // Mirror the fields before cutting (as PUDForge does): every corner takes the values of the first
@@ -620,6 +693,19 @@ bool generateTerrain(Chk& chk, const Tileset& ts, const TerrainGenParams& p, std
                         else want[i] = par;
                         taken[i] = 1;
                     }
+            }
+        }
+        // The rules: a base's open ground is its level alone; a path is its level or a patch on it that can be
+        // walked. (A broad patch, a third of the map, can reach them by its share; built terrain placed as blocks,
+        // high platforms, by its blocks.)
+        if (ring.n) {
+            const uint16_t level = p.basesHigh && high ? high : base;
+            for (const auto& c : corners) {
+                uint16_t& t = want[at(c.x, c.y)];
+                if (c.rule == 1) t = level;
+                if (c.rule != 2) continue;
+                if (!inSubtree(t, level) || (level == base && high && inSubtree(t, high))) t = level;
+                while (t != level && !info(t).walkable) t = info(t).parent;
             }
         }
         stage("patches", want);

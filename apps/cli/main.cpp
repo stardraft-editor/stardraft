@@ -30,6 +30,7 @@
 #include "stardraft/isom.h"
 #include "stardraft/map_file.h"
 #include "stardraft/project_import.h"
+#include "stardraft/terrain_gen.h"
 #include "stardraft/settings.h"
 #include "text_codec.h"
 
@@ -154,7 +155,7 @@ struct Args {
 
 // The options that take no value.
 bool isFlag(const std::string& name) {
-    for (const char* f : {"timing", "discard", "reopen", "force", "all", "remove", "dry-run", "locations", "no-units", "no-sprites", "help"})
+    for (const char* f : {"timing", "discard", "reopen", "force", "all", "remove", "dry-run", "locations", "no-units", "no-sprites", "help", "high-bases", "no-paths"})
         if (name == f) return true;
     return false;
 }
@@ -1203,7 +1204,9 @@ Json cmdOpen(Session& s) {
     return Obj().add("map", ustr(t.map)).add("work", ustr(w.dir)).add("change", 1).add("summary", summary(ed));
 }
 
-// A new map file: the size, the tileset and the terrain it is filled with. It does not open it.
+// A new map file: the size, the tileset and the terrain it is filled with; or (--generate <seed>) generated terrain,
+// with the rules --bases <n> (a Start Location on each), --high-bases, --no-paths and --symmetry <0-4>. It does not
+// open it.
 Json cmdNew(Session& s) {
     const fs::path path = fs::absolute(upath(s.args.positional.at(0)));
     std::error_code ec;
@@ -1228,7 +1231,18 @@ Json cmdNew(Session& s) {
     }
     Editor ed(s.data);
     std::string err;
-    if (!ed.newMap(uint16_t(size[0]), uint16_t(size[1]), era, terrain, err)) fail(err);
+    if (s.args.has("generate")) {
+        TerrainGenParams p;
+        p.width = uint16_t(size[0]), p.height = uint16_t(size[1]), p.era = era;
+        p.seed = uint32_t(std::stoul(s.args.get("generate", "12345")));
+        p.symmetry = GenSymmetry(std::clamp(std::stoi(s.args.get("symmetry", "0")), 0, 4));
+        p.bases = std::stoi(s.args.get("bases", "0")), p.basesHigh = s.args.has("high-bases"), p.paths = !s.args.has("no-paths");
+        if (!ed.generateMap(p, err)) fail(err);
+        const std::vector<GenBase> bases = generatorBases(p);
+        for (size_t k = 0; k < bases.size() && k < 8; ++k) ed.placeUnit(214, uint8_t(k), bases[k].x * 32, bases[k].y * 32 + 16);
+    } else if (!ed.newMap(uint16_t(size[0]), uint16_t(size[1]), era, terrain, err)) {
+        fail(err);
+    }
     if (!ed.save(path, err)) fail(err);
     return Obj().add("map", ustr(path)).add("summary", summary(ed));
 }

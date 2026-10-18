@@ -83,7 +83,21 @@ struct TerrainGenParams {
     // ridges and spurs, one-step rims, smaller blocks), like the half-size brush.
     float minFeature = 1.0f;
     GenSymmetry symmetry = GenSymmetry::None;
+    // Rules (roadmap R49). `bases`: that many bases evenly round the map (with a symmetry, as many as it keeps the
+    // same: an even number when it turns or mirrors both ways), each on open ground (no sea, cliffs or patches)
+    // `generatorBaseRadius` tiles round. `paths`: ground joins each base to the next (no sea, no cliffs on it).
+    // `basesHigh`: the bases and the paths are high ground; else they are low ground.
+    int bases = 0;
+    bool paths = true, basesHigh = false;
 };
+
+// Where the rules put the bases: the middle of each, in tiles (the generator's order: round the map).
+struct GenBase {
+    int x = 0, y = 0;
+};
+std::vector<GenBase> generatorBases(const TerrainGenParams& params);
+int generatorBaseRadius(const TerrainGenParams& params);
+constexpr int kGenPathHalfWidth = 4;  // tiles each side of a path's middle line (up and down; across, 1/0.6 times that)
 
 // Generate terrain into `chk`, which must already hold DIM, ERA and ISOM for `tileset` (e.g. from
 // IsomGrid::create or createNewScenario). TILE and MTXM are regenerated.

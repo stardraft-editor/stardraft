@@ -2371,6 +2371,12 @@ constexpr UiText kRows[] = {
     {L"Not imported (do these again in StarDraft):", L"No importado (h\u00E1galo de nuevo en StarDraft):"},
     {L"The project is imported", L"El proyecto est\u00E1 importado"},
     {L"Select the folder for the new project", L"Seleccione la carpeta del nuevo proyecto"},
+    {L"Rules", L"Reglas"},
+    {L"Bases", L"Bases"},
+    {L"Paths between the bases", L"Caminos entre las bases"},
+    {L"Bases on high ground", L"Bases en terreno elevado"},
+    {L"Ground that units can walk joins each base to the next: no water and no cliffs on it", L"Un terreno por el que las unidades pueden caminar une cada base con la siguiente: sin agua ni acantilados"},
+    {L"The bases and the paths are high ground (else low ground)", L"Las bases y los caminos son terreno elevado (si no, terreno bajo)"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

@@ -17,6 +17,7 @@
 #include "stardraft/dat_edit.h"
 #include "stardraft/dat_extras.h"
 #include "stardraft/project_import.h"
+#include "stardraft/terrain_gen.h"
 #include "stardraft/editor.h"
 #include "stardraft/isom.h"
 #include "stardraft/terrain.h"
@@ -555,6 +556,50 @@ static void campaignTest(const GameData& data, const char* map, const fs::path& 
           "campaign: Copy terrain: the tiles and the doodads");
     Editor small(data);
     CHECK(small.newMap(64, 64, 0, 1, err) && !small.copyTerrain(a.chk(), err), "campaign: Copy terrain needs maps of one size");
+}
+
+// The generator's rules (roadmap R49): the bases are open ground of the asked level, and the ground along the paths
+// between them has no sea and no other level.
+static void generatorRulesTest(const GameData& data) {
+    for (const uint16_t era : {0, 1, 2, 3, 4, 5, 6, 7})
+    for (const bool high : {false, true}) {
+        TerrainGenParams p;
+        p.width = p.height = 128, p.era = era, p.seed = 4242, p.bases = 4, p.symmetry = GenSymmetry::Both, p.basesHigh = high;
+        Editor ed(data);
+        std::string err;
+        if (!ed.generateMap(p, err)) {
+            CHECK(false, ("rules: generate " + err).c_str());
+            continue;
+        }
+        const std::vector<GenTerrain> roles = generatorTerrains(era, ed.tileset());
+        uint16_t want = roles[0].id, sea = 0;
+        for (const auto& g : roles) {
+            if (high && g.role == GenTerrain::High) want = g.id;
+            if (g.role == GenTerrain::Sea) sea = g.id;
+        }
+        const std::vector<GenBase> bases = generatorBases(p);
+        bool open = bases.size() == 4, path = true;
+        for (const GenBase& b : bases)
+            for (int dy = -3; dy <= 3; ++dy)
+                for (int dx = -3; dx <= 3; ++dx) open &= ed.terrainAt((b.x + dx) * 32, (b.y + dy) * 32) == want;
+        for (size_t k = 0; k < bases.size(); ++k) {
+            const GenBase a = bases[k], b = bases[(k + 1) % bases.size()];
+            for (int s = 0; s <= 20; ++s) {
+                const int x = (a.x + (b.x - a.x) * s / 20) * 32, y = (a.y + (b.y - a.y) * s / 20) * 32;
+                // The terrain, or a patch on it that can be walked (structure on asphalt on dirt, high grass on high dirt).
+                uint16_t t = ed.terrainAt(x, y);
+                for (bool up = true; up && t != want;) {
+                    up = false;
+                    for (const auto& g : roles)
+                        if (g.id == t && g.role == GenTerrain::Patch && g.walkable) t = g.parent ? g.parent : roles[0].id, up = true;
+                }
+                path &= t == want;
+            }
+        }
+        const std::string on = std::string(" (") + tilesetName(era) + ")";
+        CHECK(open, ((high ? "rules: the bases are open high ground" : "rules: the bases are open low ground") + on).c_str());
+        CHECK(path, ((high ? "rules: the paths between the bases are high ground" : "rules: the paths between the bases are low ground, no sea") + on).c_str());
+    }
 }
 
 // Importing another editor's project (roadmap R52): an EUD Editor 2 .e2s (a .dat value, a text, a plugin) and a
@@ -2117,6 +2162,7 @@ int main(int argc, char** argv) {
     classicSettings(data, argv[2], fs::path(argv[3]));
     campaignTest(data, argv[2], fs::path(argv[3]));
     importTest(data, argv[2], fs::path(argv[3]));
+    generatorRulesTest(data);
     classicTriggersTest(data, argv[2], fs::path(argv[3]));
 
     std::printf("\n%d failures\n", failures);
