@@ -30,6 +30,8 @@ bool pathingLayerOn();
 bool pathingLayerAreas();
 void pathingLayerToggle();
 void pathingLayerMode(bool areas);
+void fogToggle();  // View > Overlays > Fog of war (core/fog_layer.inc)
+extern bool gShowFog;
 enum class TerrainFlagsView;  // View > Overlays > Terrain flags (core/terrain_flags_layer.inc)
 TerrainFlagsView terrainFlagsView();
 void terrainFlagsSet(TerrainFlagsView v);
@@ -196,6 +198,7 @@ void registerMapCommands() {
                        [v] { return terrainFlagsView() == v; }, true);
         }
     }
+    addCommand(ID_FOG, "view.fog", L"&Fog of war of the selected player", "View/Fog", L"", [] { fogToggle(); }, [] { return gShowFog; });
     addCommand(ID_LAYER + 6, "view.pathing.areas", L"Pathing shows the connected &areas", "View/Pathing", L"", [] { pathingLayerMode(true); },
                [] { return pathingLayerAreas(); }, true);
     addCommand(ID_SCEN_PATHCHECK, "scen.checkPathing", L"Check &pathing (nooks and crannies)", "Scenario", L"", [] { pathingCheckCommand(); });

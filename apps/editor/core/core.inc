@@ -54,7 +54,8 @@
 #include "data_pictures.inc"  // the Data pictures' model: the game's images, the image player, the timeline, the portraits
 #include "pathing_layer.inc"  // View > Overlays > Pathing, Scenario > Check pathing (the game's regions, the nooks and crannies)
 #include "terrain_flags_layer.inc"  // View > Overlays > Terrain flags (walkable, height, blocks view, buildable)
-#include "map_scene.inc"  // the map's scene: the grid, the sprites, the units and their animations, the locations, the selection, the ghosts (buildScene)
+#include "map_scene.inc"
+#include "fog_layer.inc"  // View > Overlays > Fog of war of the selected player (roadmap R32)  // the map's scene: the grid, the sprites, the units and their animations, the locations, the selection, the ghosts (buildScene)
 #include "map_image.inc"  // File > Export map image and the New page's larger preview: the options, the dialog, the terrain pictures
 #include "views_data_pictures.inc"  // the Data pictures on the Canvas: the image player, the timeline, the portrait (the SDL form's)
 #include "views_data_diagrams.inc"  // the Data diagrams on the Canvas: footprint, ranges, damage, speed, sprite, sound player, script code

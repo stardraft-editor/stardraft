@@ -277,6 +277,9 @@ CASES += [
     ("map-pathing-areas", ["--command", "view.pathing.areas"], "map"),
     # View > Layers > Terrain flags (core/terrain_flags_layer.inc): walkable ground, the ground's height, the ground
     # that blocks the line of sight, buildable ground; the status bar tells what the colors are.
+    # View > Overlays > Fog of war of the selected player (core/fog_layer.inc, roadmap R32): the map is dark where the
+    # Units palette's player sees nothing when the game starts (here: only a start location, which sees nothing).
+    ("map-view-fog", ["--mode", "units", "--command", "view.fog"], "map"),
     ("map-terrain-flags-walkable", ["--command", "view.flags.walkable"], "map"),
     ("map-terrain-flags-height", ["--command", "view.flags.height"], "map"),
     ("map-terrain-flags-blocksview", ["--command", "view.flags.blocksview", "--key", "+", "--key", "+"], "map"),
@@ -3487,7 +3490,8 @@ def check_palette_units(output):
     return None
 
 
-CHECKS = {**{"map-terrain-flags-" + v: (lambda o, v=v: check_terrain_flags(o, v)) for v in ("walkable", "height", "blocksview", "buildable")},
+CHECKS = {"map-view-fog": lambda o: None if "command view.fog: ran (yes)" in o and "Fog of war: " in o else "the fog did not show",
+          **{"map-terrain-flags-" + v: (lambda o, v=v: check_terrain_flags(o, v)) for v in ("walkable", "height", "blocksview", "buildable")},
           "map-pathing-layer": lambda o: check_pathing_layer(o, False), "map-pathing-areas": lambda o: check_pathing_layer(o, True),
           "map-pathing-check": check_pathing_check, "map-pathing-fix": check_pathing_fix,
           "map-palette-float": check_palette_float, "map-palette-docked": check_palette_docked,
