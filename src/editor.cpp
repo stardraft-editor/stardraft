@@ -1043,10 +1043,21 @@ bool Editor::applyTerrain(const std::vector<CornerValue>& corners, bool overPlac
     int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
     for (const auto& c : corners) x0 = std::min(x0, c.x), y0 = std::min(y0, c.y), x1 = std::max(x1, c.x), y1 = std::max(y1, c.y);
     // Whole diamonds of one terrain: the terrain core paints them as StarEdit's brush would.
-    if (terrainCoreOn())
-        if (const auto diamonds = wholeDiamonds(isom_, corners); !diamonds.empty())
-            return applyCore([&] { return core_.paintDiamonds(diamonds, corners.front().terrain); },
+    // The core makes the tiles of each diamond it paints again: other edits than the brush's (fill, replace) give it only
+    // the diamonds whose terrain changes, so that the tiles placed in Rectangle mode stay where the terrain stays.
+    if (terrainCoreOn()) {
+        auto diamonds = wholeDiamonds(isom_, corners);
+        const uint16_t terrain = corners.front().terrain;
+        if (!overPlaced)
+            std::erase_if(diamonds, [&](const std::pair<int, int>& d) {
+                auto [x, y] = d;
+                return isom_.terrainAt(x - 1, y) == terrain && isom_.terrainAt(x + 1, y) == terrain && isom_.terrainAt(x, y - 1) == terrain &&
+                       isom_.terrainAt(x, y + 1) == terrain;
+            });
+        if (!diamonds.empty())
+            return applyCore([&] { return core_.paintDiamonds(diamonds, terrain); },
                              [&] { return applyOld(corners, x0, y0, x1, y1, overPlaced); }, x0, y0, x1, y1);
+    }
     return applyOld(corners, x0, y0, x1, y1, overPlaced);
 }
 

@@ -735,6 +735,11 @@ static void brushOverPlacedTiles(const GameData& data, const char* map) {
     // (the same tile group: StarEdit's brush picks a tile of the group at random, as the terrain core does)
     CHECK((e.terrain().tiles[k] >> 4) == (painted >> 4) && k < tile.tiles.size() && (tile.tiles[k] >> 4) == (painted >> 4),
           "brush over placed tiles: the brush with the terrain under them gives the terrain's tile again (#143)");
+    // Fill is not the brush: a fill with the terrain that is there already keeps the placed tiles (and the others).
+    e.placeTiles(px / 32, py / 32, px / 32, py / 32, other);
+    const std::vector<uint16_t> placed = e.terrain().tiles;
+    e.fillTerrain(px, py, terrain);
+    CHECK(e.terrain().tiles == placed, "placed tiles: a fill with the terrain under them changes no tile");
 }
 
 // Ramps (and other doodads) stay when terrain is painted near them, as in StarEdit: a doodad goes only when the terrain
