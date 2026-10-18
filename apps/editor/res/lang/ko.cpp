@@ -2274,6 +2274,10 @@ constexpr UiText kRows[] = {
     {L"Docked the doodad palette", L"\uC7A5\uC2DD\uBB3C \uD314\uB808\uD2B8\uB97C \uB3C4\uD0B9\uD588\uC2B5\uB2C8\uB2E4"},
     {L"Docked the sprite palette", L"\uC2A4\uD504\uB77C\uC774\uD2B8 \uD314\uB808\uD2B8\uB97C \uB3C4\uD0B9\uD588\uC2B5\uB2C8\uB2E4"},
     {L"Docked the location list", L"\uC704\uCE58 \uBAA9\uB85D\uC744 \uB3C4\uD0B9\uD588\uC2B5\uB2C8\uB2E4"},
+    {L"&Dock in the side bar", L"\uC0AC\uC774\uB4DC\uBC14\uC5D0 \uB3C4\uD0B9(&D)"},
+    {L"Make &floating", L"\uB5A0 \uC788\uAC8C \uD558\uAE30(&F)"},
+    {L"Dock in the side bar", L"\uC0AC\uC774\uB4DC\uBC14\uC5D0 \uB3C4\uD0B9"},
+    {L"Make floating", L"\uB5A0 \uC788\uAC8C \uD558\uAE30"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

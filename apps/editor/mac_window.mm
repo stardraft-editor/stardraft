@@ -78,6 +78,24 @@ void macSetupWindow(SDL_Window* w) {
     }
 }
 
+bool macSetupToolWindow(SDL_Window* w) {
+    @autoreleasepool {
+        NSWindow* nw = cocoaWindow(w);
+        if (!nw) return false;
+        // The content under a clear title bar that shows nothing: no buttons (the strip's own close box docks the
+        // palette), no title; the edges still change the window's size. Not in full screen or a tab.
+        [nw setStyleMask:[nw styleMask] | NSWindowStyleMaskFullSizeContentView];
+        [nw setTitlebarAppearsTransparent:YES];
+        [nw setTitleVisibility:NSWindowTitleHidden];
+        for (NSWindowButton b : {NSWindowCloseButton, NSWindowMiniaturizeButton, NSWindowZoomButton})
+            [[nw standardWindowButton:b] setHidden:YES];
+        [nw setCollectionBehavior:([nw collectionBehavior] | NSWindowCollectionBehaviorFullScreenAuxiliary) & ~NSWindowCollectionBehaviorFullScreenPrimary];
+        [nw setTabbingMode:NSWindowTabbingModeDisallowed];
+        [nw setMovableByWindowBackground:NO];
+        return true;
+    }
+}
+
 void macSetWindowDocument(SDL_Window* w, const std::string& path, bool edited) {
     @autoreleasepool {
         NSWindow* nw = cocoaWindow(w);

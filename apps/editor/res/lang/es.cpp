@@ -2274,6 +2274,10 @@ constexpr UiText kRows[] = {
     {L"Docked the doodad palette", L"Se acopl\u00F3 la paleta de decorados"},
     {L"Docked the sprite palette", L"Se acopl\u00F3 la paleta de sprites"},
     {L"Docked the location list", L"Se acopl\u00F3 la lista de ubicaciones"},
+    {L"&Dock in the side bar", L"&Acoplar en la barra lateral"},
+    {L"Make &floating", L"Hacer &flotante"},
+    {L"Dock in the side bar", L"Acoplar en la barra lateral"},
+    {L"Make floating", L"Hacer flotante"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

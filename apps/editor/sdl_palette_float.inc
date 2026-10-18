@@ -54,6 +54,26 @@ std::vector<draw::View*> floatPaletteViews(const FloatPaletteParts& p) {
     return out;
 }
 
+// The palette whose side bar views hold `v` (one of them or a view in one), docked in the side bar: its mode; else
+// none. (The main window's right click on it offers Make floating: sdlPaletteFloatItem.)
+std::optional<Mode> floatPaletteDockedAt(const draw::View* v) {
+    const Mode m = gState.mode;
+    if (gFloatPalOpen && gFloatPalMode == m) return std::nullopt;
+    const std::vector<draw::View*> views = floatPaletteViews(floatPaletteParts(m));
+    for (; v; v = v->parent())
+        if (std::find(views.begin(), views.end(), v) != views.end()) return v->shown() ? std::optional<Mode>(m) : std::nullopt;
+    return std::nullopt;
+}
+void shellFloatPalette(Mode m, bool on);
+std::wstring accessFree(std::wstring s);  // (sdl_menus.inc)
+// The context menus' item that floats the palette of `m` (or docks it while it floats).
+kit::MenuItem sdlPaletteFloatItem(Mode m) {
+    kit::MenuItem it;
+    it.label = accessFree(floatPaletteMenuLabel(m));
+    it.run = [m] { shellFloatPalette(m, !gFloatPal[int(m)].floating); };
+    return it;
+}
+
 // The screens' usable areas, in SDL's window coordinates.
 std::vector<RECT> floatPaletteScreens() {
     std::vector<RECT> out;
@@ -130,11 +150,23 @@ bool floatPaletteSync(Mode m, bool shown, bool alt, draw::Rect slot) {
     if (!gFloatPalOpen) floatPaletteViewsBack();
     if (SDL_Window* sw = gFloatPalOpen ? gHost->sdlWindow(gFloatPalView) : nullptr) {
         SDL_SetWindowMinimumSize(sw, kFloatPalMinW, kFloatPalMinH);
+        // macOS: a slim title strip of the palette's own in place of the system's title bar (its buttons, its height);
+        // a drag on the strip moves the window (the hit test: the strip's points in the view's pixels).
+        if (macSetupToolWindow(sw)) {
+            gFloatPalView.titleH = scale(24) + 1;
+            SDL_SetWindowHitTest(sw, [](SDL_Window* win, const SDL_Point* p, void*) {
+                const float d = SDL_GetWindowPixelDensity(win);
+                return gFloatPalView.dragAt({int(p->x * d), int(p->y * d)}) ? SDL_HITTEST_DRAGGABLE : SDL_HITTEST_NORMAL;
+            }, nullptr);
+        }
         if (floatPaletteOnScreens(kept, floatPaletteScreens())) {  // the kept place, when it is still on a screen
             SDL_SetWindowSize(sw, kept.w, kept.h);
             SDL_SetWindowPosition(sw, kept.x, kept.y);
         }
     }
+#ifdef __APPLE__
+    if (gFloatPalOpen && !gHost->sdlWindow(gFloatPalView)) gFloatPalView.titleH = scale(24) + 1;  // (a snapshot: the strip, as in the window)
+#endif
     if (gFloatPalOpen) gFloatPalView.place();
     busy = false;
     return gFloatPalOpen;

@@ -9,6 +9,8 @@
 // - macSystemDark, macSystemAccent, macSidebarColor: the system's appearance, accent color and sidebar color;
 //   macWatchLook starts watching them, macLookChanged is true once after each change (then read them again).
 // - macBeginSheet: an alert sheet (NSAlert) on the window; `done` gets the index of the button that closed it.
+// - macSetupToolWindow: a tool window (a floating palette) without the title bar's buttons and title: its content goes
+//   to the top, where the program draws a slim title strip of its own (false: not done).
 // - macWindowReport: what the window has now (the --check window option).
 // The texts are UTF-8. The functions run on the UI thread.
 
@@ -37,6 +39,7 @@ bool macSidebarColor(bool dark, uint8_t& r, uint8_t& g, uint8_t& b);
 void macWatchLook();
 bool macLookChanged();
 bool macBeginSheet(SDL_Window* w, const MacAlert& alert, std::function<void(int)> done);
+bool macSetupToolWindow(SDL_Window* w);
 std::string macWindowReport(SDL_Window* w);
 #else
 inline void macSetupWindow(SDL_Window*) {}
@@ -48,5 +51,6 @@ inline bool macSidebarColor(bool, uint8_t&, uint8_t&, uint8_t&) { return false; 
 inline void macWatchLook() {}
 inline bool macLookChanged() { return false; }
 inline bool macBeginSheet(SDL_Window*, const MacAlert&, std::function<void(int)>) { return false; }
+inline bool macSetupToolWindow(SDL_Window*) { return false; }
 inline std::string macWindowReport(SDL_Window*) { return "not macOS"; }
 #endif
