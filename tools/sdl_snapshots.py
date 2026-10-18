@@ -711,6 +711,8 @@ CASES += [
     # Sight range opens units.dat's page at Sight range; a click on the help icon of the row under the mouse (Hit points)
     # opens its place. The Data form shows the converted values after the raw values (stardraft/dat_units.h).
     ("help-f1-start", ["--key", "F1"], ""),
+    # The Help workspace (the side bar's Help), Q: the quick picker of the help's sections; "sight range" and Enter.
+    ("map-help-quick", ["--click", "30,472", "--key", "Q", "--type", "sight range", "--key", "Enter"], "map"),
     ("data-help-f1", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "420,545", "--key", "F1"], "data"),
     ("data-help-icon", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--click", "420,259", "--click", "529,259"], "data"),
     ("data-form-units-converted", ["--newproject", "{newdir}", "--workspace", "data", "--data", "units:0", "--check", "dataform"], "data"),
@@ -3737,6 +3739,7 @@ CHECKS.update({
     "help-light": check_help_page("getting-started", "", "Getting started"),
     "help-search": check_help_search, "help-links": check_help_links,
     "help-f1-start": check_help_page("index", "", "StarDraft 2 help", opened=1),
+    "map-help-quick": check_help_page("units-dat", "sight-range", "Units (units.dat)", opened=1),
     "data-help-f1": check_help_page("units-dat", "sight-range", "Units (units.dat)", opened=1),
     "data-help-icon": check_help_page("units-dat", "hit-points", "Units (units.dat)", opened=1),
     "data-form-units-converted": check_converted({"Hit Points": (10240, "= 40 hit points"), "Build Time": (360, "= 15 s (fastest)"),

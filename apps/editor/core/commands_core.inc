@@ -35,6 +35,7 @@ bool editInWorkspace(int id) {
     case Workspace::Data: return id == ID_EDIT_COPY || id == ID_EDIT_PASTE || id == ID_QUICKPICK;  // (Q: go to an entry)
     case Workspace::ClassicSettings: return id == ID_EDIT_COPY || id == ID_EDIT_PASTE;  // (Map data: the selected entry's values)
     case Workspace::ClassicTriggers: return id == ID_QUICKPICK;  // (Q: Quick add, core/views_trigger_quick.inc)
+    case Workspace::Help: return id == ID_QUICKPICK;  // (Q: the help's sections, sdl_help.inc)
     case Workspace::Triggers: return id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE || id == ID_QUICKPICK;
     case Workspace::Briefing:
         return id == ID_EDIT_COPY || id == ID_EDIT_CUT || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE || id == ID_EDIT_DELETE ||
