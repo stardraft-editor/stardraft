@@ -2322,6 +2322,8 @@ constexpr UiText kRows[] = {
     {L"Keep &resources 3 tiles from town halls", L"\u8D44\u6E90\u4E0E\u4E3B\u57FA\u5730\u4FDD\u6301 3 \u683C\u8DDD\u79BB(&R)"},
     {L"Town halls and resources keep 3 tiles apart", L"\u4E3B\u57FA\u5730\u4E0E\u8D44\u6E90\u4FDD\u6301 3 \u683C\u8DDD\u79BB"},
     {L"Town halls and resources can be near each other", L"\u4E3B\u57FA\u5730\u4E0E\u8D44\u6E90\u53EF\u4EE5\u76F8\u90BB"},
+    {L"Hidden layer", L"\u9690\u85CF\u7684\u56FE\u5C42"},
+    {L"Show the layer", L"\u663E\u793A\u56FE\u5C42"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

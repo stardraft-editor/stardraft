@@ -2322,6 +2322,8 @@ constexpr UiText kRows[] = {
     {L"Keep &resources 3 tiles from town halls", L"Mantener los &recursos a 3 casillas de los centros de mando"},
     {L"Town halls and resources keep 3 tiles apart", L"Los centros de mando y los recursos se mantienen a 3 casillas"},
     {L"Town halls and resources can be near each other", L"Los centros de mando y los recursos pueden estar cerca"},
+    {L"Hidden layer", L"Capa oculta"},
+    {L"Show the layer", L"Mostrar la capa"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

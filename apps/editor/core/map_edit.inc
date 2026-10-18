@@ -400,6 +400,38 @@ void modeLayerHiddenMessage() {
     setMessage(std::wstring(kModeNames[int(appState().mode)]) + L": this layer is hidden. View > Layers shows it again (then you can edit it).");
 }
 
+// A click on the map while the mode's layer is hidden (Discord feedback #88): the first time after the layer went
+// hidden, a question offers to show it; then the status bar's message only.
+bool shellAskYesNo(const std::wstring& text, const std::wstring& title, const std::wstring& yes, const std::wstring& no);
+void shellMenusChanged();
+void modeLayerHiddenClick() {
+    AppState& app = appState();
+    static bool asked[kModeCount] = {};
+    for (int m = 0; m < kModeCount; ++m)  // (a layer that shows again: it asks again the next time it is hidden)
+        if (m != int(app.mode)) {
+            const Mode was = app.mode;
+            app.mode = Mode(m);
+            if (!modeLayerHidden()) asked[m] = false;
+            app.mode = was;
+        }
+    if (asked[int(app.mode)] || gSelfTest) return modeLayerHiddenMessage();
+    asked[int(app.mode)] = true;
+    const std::wstring name = kModeNames[int(app.mode)];
+    if (!shellAskYesNo(name + L": this layer is hidden (View > Layers), so you cannot edit it. Show the layer?", L"Hidden layer", L"Show the layer", L"Cancel"))
+        return modeLayerHiddenMessage();
+    switch (app.mode) {
+    case Mode::Terrain: gLayers.terrain = true; break;
+    case Mode::Units: gLayers.units = true; break;
+    case Mode::Doodads: gLayers.doodads = true; break;
+    case Mode::Sprites: gLayers.sprites = true; break;
+    case Mode::Locations: app.showLocations = true; break;
+    }
+    asked[int(app.mode)] = false;
+    shellMenusChanged();
+    app.dirty = true;
+    setMessage(name + L" show again");
+}
+
 // Options: the most units a map may have (GitHub feedback #103): standard maps, and maps of EUD projects.
 
 void outline(render::Scene& s, const Rect& r, uint32_t rgba, float thickness = 1, float dx = 0, float dy = 0) {
