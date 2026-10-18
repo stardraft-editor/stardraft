@@ -140,6 +140,7 @@ void shellPaletteReveal(int value) { gPalList.reveal(value); }
 void shellPaletteChanged() {
     gPalList.invalidate();
     gPal2List.invalidate();
+    gPal3List.invalidate();
     palettePanelsChanged();
     invalidateMapView();
 }
@@ -147,6 +148,7 @@ void shellPaletteChanged() {
 void shellPaletteRebuilt() {
     rebuildPaletteRows();
     if (gPal2Shown) rebuildSecondRows();
+    if (gPal3Shown) rebuildThirdRows();
     palettePanelsRebuild();
 }
 // The folder of the projects that are not saved yet (core/documents.inc): StarDraft/Unsaved in the user's data folder
@@ -199,7 +201,9 @@ bool shellSaveChanges(bool project) {
     return false;
 }
 // The side the mode's tools are docked on (the Win32 rule: the mode last used on that side is remembered).
-void shellModeSide(Mode m) { gLastOnSide[gDock.toolsRight[int(m)] ? 1 : 0] = m; }
+void shellModeSide(Mode m) {  // (a floating mode is not its side's: the side keeps showing its last docked tab)
+    if (!paletteFloats(m)) gLastOnSide[gDock.toolsRight[int(m)] ? 1 : 0] = m;
+}
 void shellModeWindows(Mode) {}  // (the palette, list and player windows are not on this system yet)
 std::wstring shellTr(const wchar_t* english) { return tr(english); }
 std::vector<int>& shellPaletteChosen() {

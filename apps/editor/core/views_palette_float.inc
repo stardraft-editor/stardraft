@@ -2,8 +2,7 @@
 // FloatPaletteView is the root of a palette's own window: the palette's rows from the side bar (an owner box, a section
 // box, the search box with its View button, a filter), Dock at the right end of the first row, then the palette's list;
 // in Rectangle mode the Tiles panel (`alt`) under Dock. The program gives it the views of the active mode's palette
-// (hold): they move from the side bar into the window while it is open, and back when it closes. FloatPaletteNoteView
-// takes their place in the side bar: a text and Dock.
+// (hold): they move from the side bar into the window while it is open, and back when it closes.
 
 // The views of a palette in the window, from the top: rows (a view that fills the row, and a button at its right or
 // none), then the list that fills the rest; `alt` shows in place of the rows and the list while altShown.
@@ -359,32 +358,3 @@ struct PalettePanelView final : PanelStripView {
     std::wstring feedbackName(draw::Point) override { return L"a palette panel (" + name + L")"; }
 };
 
-// In the side bar while the active mode's palette is in its own window: a text and Dock.
-struct FloatPaletteNoteView final : draw::View {
-    stardraft::kit::Label text{L"", stardraft::kit::LabelTone::Dim};
-    stardraft::kit::Button dock{L"Dock", stardraft::kit::Tone::Normal, [this] {
-                                    if (onDock) onDock();
-                                }};
-    std::function<void()> onDock;
-
-    FloatPaletteNoteView() {
-        text.setWrap(true);
-        add(text, {});
-        add(dock, {});
-    }
-    ~FloatPaletteNoteView() override {
-        const auto kids = children();
-        for (View* c : kids) remove(*c);
-    }
-    // The texts of the palette of `m` (kFloatPalNames).
-    void setPalette(Mode m) {
-        text.setText(kFloatPalNames[int(m)].note);
-        dock.setTip(kFloatPalNames[int(m)].tip);
-    }
-    void resized() override {
-        const int rowH = scale(24), textH = scale(40);
-        text.setFrame({0, 0, width(), textH});
-        dock.setFrame({0, textH + scale(6), std::min(width(), scale(64)), textH + scale(6) + rowH});
-    }
-    std::wstring feedbackName(draw::Point) override { return L"the side bar's note of a floating palette"; }
-};

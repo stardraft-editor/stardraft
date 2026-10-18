@@ -323,7 +323,6 @@ LogPaneView gLogPane;
 // the main window).
 bool floatPaletteSync(Mode m, bool shown, bool alt, draw::Rect slot);
 void palettePanelsSync();  // (sdl_palette_panels.inc: the active tab's panels show in the Map workspace)
-extern FloatPaletteNoteView gFloatNote;  // (in the side bar while the palette is in its window)
 
 // The main window: the menu bar, the top tool bar under it (core/views_topbar.inc), the document tabs, the workspace rail, the status bar, the map view with its minimap and
 // the panes that are not on this system yet, placed by computeLayout.
@@ -362,8 +361,8 @@ struct MainView final : draw::View {
         gTilesPanel.holdGrid(gTilesGrid);  // the Tiles panel (core/views_tiles.inc): the grid is in the panel on this system
         add(gTilesPanel, draw::Rect(0, 0, 0, 0));
         add(gLocList, draw::Rect(0, 0, 0, 0));
-        add(gFloatNote, draw::Rect(0, 0, 0, 0));
         add(gPal2List, draw::Rect(0, 0, 0, 0));
+        add(gPal3List, draw::Rect(0, 0, 0, 0));
         add(notHere, draw::Rect(0, 0, 0, 0));
         add(gStartView, draw::Rect(0, 0, 0, 0));  // the start page (sdl_start.inc): no map open
         add(gNewView, draw::Rect(0, 0, 0, 0));    // the New page (sdl_new_page.inc): File > New project, a card
@@ -596,6 +595,8 @@ struct MainView final : draw::View {
         in.hasSectionBox = true;
         in.hasPal2 = true;
         in.pal2Shown = gPal2Shown, in.pal2Mode = gPal2Mode;
+        in.hasPal3 = true;
+        in.pal3Shown = gPal3Shown, in.pal3Mode = gPal3Mode;
         for (int k = 0; k < kModeCount; ++k) in.floats[k] = paletteFloats(Mode(k));  // (a floating panel has no tab)
         const MainLayout L = computeLayout(in);
         for (int i = 0; i < 2; ++i) splitters[i] = mapWs ? draw::Rect(L.splitters[i]) : draw::Rect{};
@@ -605,6 +606,11 @@ struct MainView final : draw::View {
         if (gPal2Shown) {
             gPal2Mode = L.secondMode;
             if (L.palette2Changed) rebuildSecondRows();
+        }
+        gPal3Shown = L.palette3.visible;
+        if (gPal3Shown) {
+            gPal3Mode = L.thirdMode;
+            if (L.palette3Changed) rebuildThirdRows();
         }
         // Which panes show in the mode, as the Windows program shows them (main.cpp's SetMode): the list and the filter
         // in Locations; the palette and the search in the other modes; the owner in Units and Sprites; the section box
@@ -635,8 +641,8 @@ struct MainView final : draw::View {
         tilesSlot.placed = L.search.placed && L.palette.placed;
         tilesSlot.rc = RECT{L.search.rc.left, L.search.rc.top, L.palette.rc.right, L.palette.rc.bottom};
         // The floating panels (sdl_palette_float.inc, sdl_palette_panels.inc): the active mode's whole panel (its tools,
-        // Isometric and Rectangle, its options, its list) can be in a window of its own; then the side bar has the note
-        // in their place (its tab is not in the tabs: it is back when the window closes).
+        // Isometric and Rectangle, its options, its list) can be in a window of its own; then the side bar shows
+        // another tab's list in their place (gPal3List, as the other side's; its tab is not in the tabs: it is back when the window closes).
         PaneSlot noteSlot = tilesSlot;
         noteSlot.rc.top = L.tool.rc.top;
         const bool floated = floatPaletteSync(m, mapWs && noteSlot.placed, tiles, draw::Rect(noteSlot.rc));
@@ -652,10 +658,10 @@ struct MainView final : draw::View {
         side(gSearchSdl, L.search, !locs && here && !tiles);
         side(gViewBtnSdl, L.viewBtn, !locs && here && !tiles);
         side(gPalList, L.palette, !locs && here && !tiles);
-        apply(gFloatNote, noteSlot, floated && mapWs);
         side(gFilterSdl, L.filter, locs && here);
         side(gLocList, L.list, locs && here);
         apply(gPal2List, L.palette2, L.palette2.visible && mapWs);
+        apply(gPal3List, L.palette3, L.palette3.visible && mapWs);
         // The workspace area: the registered view of the workspace shown, else the "Not on this system yet" view.
         const auto found = gWorkspaceViews.find(gWorkspace);
         draw::View* wsView = mapWs || found == gWorkspaceViews.end() ? nullptr : found->second;

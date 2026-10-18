@@ -14,7 +14,6 @@
 void sdlInputLine(const std::string& what);  // (sdl_menus.inc)
 
 FloatPaletteView gFloatPalView;
-FloatPaletteNoteView gFloatNote;
 bool gFloatPalOpen = false;      // the window is open, and the palette's views are in it
 Mode gFloatPalMode = Mode::Terrain;  // ... the views of this mode's palette
 bool gFloatPalClosing = false;   // the program closes the window (another mode): the palette stays floating
@@ -183,7 +182,7 @@ bool floatPalettesSync(Mode active, bool shown, bool alt, draw::Rect slot);
 // Map workspace shows a map. `m`: the active mode; `shown`: the Map workspace shows a map and the side bar has a place
 // for the palette (`slot`, in the main window); `alt`: Rectangle mode's Tiles panel. The location list's window holds
 // the side bar's location list and its filter (only Locations mode shows them in the side bar). True: the palette of
-// `m` is in its window (the side bar shows the note).
+// `m` is in its window.
 bool locationListSync(bool shown, draw::Rect slot);
 bool floatPaletteSync(Mode m, bool shown, bool alt, draw::Rect slot) {
     static bool busy = false;
@@ -191,7 +190,6 @@ bool floatPaletteSync(Mode m, bool shown, bool alt, draw::Rect slot) {
     busy = true;
     const bool others = floatPalettesSync(m, shown, alt, slot);
     busy = false;
-    gFloatNote.setPalette(m);  // (the side bar's note, while it floats)
     const bool loc = locationListSync(shown, slot);
     return m == Mode::Locations ? loc : others;
 }
@@ -292,13 +290,12 @@ void sdlFloatPaletteFrame() {
     if (gFloatPalSaveAt && SDL_GetTicks() >= gFloatPalSaveAt) gFloatPalSaveAt = 0, saveDock();
 }
 
-// The wiring, once (main_sdl.cpp, after the main window shows): Dock in the window and in the side bar's note, the
+// The wiring, once (main_sdl.cpp, after the main window shows): Dock in the window, the
 // keys of the window; then the window opens when the settings keep the active mode's palette floating.
 void palettePanelsSetup();  // (sdl_palette_panels.inc)
 void sdlFloatPaletteSetup() {
     palettePanelsSetup();
     gFloatPalView.onDock = [] { shellPost([] { shellFloatPalette(gFloatPalMode, false); }); };  // (after the click: the window closes)
-    gFloatNote.onDock = [] { shellPost([] { shellFloatPalette(gState.mode, false); }); };
     gFloatPalView.keys = [](const draw::KeyEvent& e) { return gRoot && gRoot->key(e); };
     // The collapse box: the window becomes its strip, and back (its height is not saved while it is collapsed).
     gFloatPalView.onCollapse = [] {

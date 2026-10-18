@@ -10,19 +10,24 @@ Mode gLastOnSide[2] = {Mode::Terrain, Mode::Units};  // the mode last used on ea
 bool gPal2Shown = false;                             // the second palette (the other side) was shown
 Mode gPal2Mode = Mode::Units;                        // ... and the mode it showed
 std::vector<int> gPal2Chosen;                        // the second palette's picks (its own list, as the Win32 program's)
+bool gPal3Shown = false;                             // the third palette (the active side's, while the active mode floats)
+Mode gPal3Mode = Mode::Terrain;                      // ... and the mode it showed
+std::vector<int> gPal3Chosen;                        // ... and its picks
 
 // The second palette's pick runs in its mode with its own picks, and the left palette's mode and pick stay (the Win32
-// program's SecondPaletteScope): the mode and the picks are swapped for the call.
+// program's SecondPaletteScope): the mode and the picks are swapped for the call. The third palette's the same way.
 struct SecondPaletteScope {
+    Mode& mode;
+    std::vector<int>& chosen;
     int savedPalette;
-    SecondPaletteScope() : savedPalette(gState.palette) {
-        std::swap(gState.mode, gPal2Mode);
-        std::swap(shellPaletteChosen(), gPal2Chosen);
+    SecondPaletteScope(Mode& m, std::vector<int>& c) : mode(m), chosen(c), savedPalette(gState.palette) {
+        std::swap(gState.mode, mode);
+        std::swap(shellPaletteChosen(), chosen);
         gState.palette = -1;
     }
     ~SecondPaletteScope() {
-        std::swap(gState.mode, gPal2Mode);
-        std::swap(shellPaletteChosen(), gPal2Chosen);
+        std::swap(gState.mode, mode);
+        std::swap(shellPaletteChosen(), chosen);
         gState.palette = savedPalette;
     }
 };
@@ -52,7 +57,7 @@ struct LocationListPanel final : kit::ListView {
 
 // The palette's list and the second palette, the Locations list, the owner, the filter, the search and the section box,
 // and the View button. The views are the MainView's children (sdl_main_view.inc places them).
-PalettePanel gPalList, gPal2List;
+PalettePanel gPalList, gPal2List, gPal3List;
 LocationListPanel gLocList;
 kit::Dropdown gOwnerBox;
 SearchBox gFilterSdl;   // the Locations filter
@@ -145,7 +150,7 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
         }
         if (applyPaletteViewCommand(mode, id)) {
             if (id >= ID_PAL_SORT_CATEGORY && id <= ID_PAL_SORT_NUMBER) shellPaletteRebuilt();  // (the rows in the new order)
-            gPalList.layout(), gPal2List.layout();  // (both palettes show the view of their mode)
+            gPalList.layout(), gPal2List.layout(), gPal3List.layout();  // (each palette shows the view of its mode)
             shellSettingsChanged();
         }
     }), on);
@@ -213,12 +218,14 @@ void rebuildPaletteRows() {
     if (switched) gPalList.scrollTo(m >= 0 && m < kModeCount ? gPalMemoryByTab[tab][size_t(m)].scroll : 0);
 }
 
-// The second palette's rows: its mode's items, unfiltered (it has no search box).
-void rebuildSecondRows() {
+// The second (or the third) palette's rows: its mode's items, unfiltered (it has no search box).
+void rebuildOtherRows(PalettePanel& list, Mode m) {
     int pinned = 0;
-    std::vector<PaletteRow> rows = paletteRows(paletteUnitsOf(gPal2Mode), gPal2Mode, std::wstring(), std::wstring(), pinned, gSortByMode[int(gPal2Mode)]);
-    gPal2List.setRows(std::move(rows), gPal2Mode, pinned);
+    std::vector<PaletteRow> rows = paletteRows(paletteUnitsOf(m), m, std::wstring(), std::wstring(), pinned, gSortByMode[int(m)]);
+    list.setRows(std::move(rows), m, pinned);
 }
+void rebuildSecondRows() { rebuildOtherRows(gPal2List, gPal2Mode); }
+void rebuildThirdRows() { rebuildOtherRows(gPal3List, gPal3Mode); }
 
 // The views' wiring, once (MainView's constructor): the rows, the look, the changes that rebuild them.
 void initPanels() {
@@ -226,10 +233,11 @@ void initPanels() {
     if (done) return;
     done = true;
     gLocList.setRowHeight(30);
-    gPal2List.second = true;
+    gPal2List.second = gPal3List.second = true;
     gPalList.chosen = &shellPaletteChosen();
     gPal2List.chosen = &gPal2Chosen;
-    gPalList.picture = gPal2List.picture = panelPicture;
+    gPal3List.chosen = &gPal3Chosen;
+    gPalList.picture = gPal2List.picture = gPal3List.picture = panelPicture;
     // A click picks the item (Ctrl adds to the pick; Shift picks every item from the last pick, as on Windows); the second
     // palette picks in its own mode with its own picks (SecondPaletteScope). The keyboard goes to the map after it
     // (Windows: SetFocus on the view), so the map's keys and undo run.
@@ -243,7 +251,7 @@ void initPanels() {
     gPal2List.picked = [](int row, unsigned mods) {
         const int v = gPal2List.rows[size_t(row)].value;
         {
-            SecondPaletteScope scope;
+            SecondPaletteScope scope(gPal2Mode, gPal2Chosen);
             pickUnit(gState, v, (mods & draw::kCtrl) != 0);
         }
         gPal2List.invalidate();
@@ -252,6 +260,17 @@ void initPanels() {
     };
     gPalList.context = [](int row, draw::Point pt) { paletteMenuSdl(gPalList, gPalList, pt, row); };
     gPal2List.context = [](int row, draw::Point pt) { paletteMenuSdl(gPal2List, gPal2List, pt, row); };
+    gPal3List.picked = [](int row, unsigned mods) {
+        const int v = gPal3List.rows[size_t(row)].value;
+        {
+            SecondPaletteScope scope(gPal3Mode, gPal3Chosen);
+            pickUnit(gState, v, (mods & draw::kCtrl) != 0);
+        }
+        gPal3List.invalidate();
+        invalidateMapView();
+        shellFocusView();
+    };
+    gPal3List.context = [](int row, draw::Point pt) { paletteMenuSdl(gPal3List, gPal3List, pt, row); };
     gLocList.label = [](int i) { return i >= 0 && i < int(gListRows.size()) ? gListRows[size_t(i)] : std::wstring(); };
     gLocList.setMode(kit::SelectMode::Multiple);
     gLocList.onSelect = [] { locationListPicked(); };
