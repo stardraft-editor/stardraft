@@ -95,7 +95,7 @@ if ($hasZip) { exit 0 }  # (its Discord post went with the first run, or is post
 if ($test) { Write-Output "Test release $tag (a draft) is made: not posted in Discord."; exit 0 }
 if ($preview) { Write-Output "Preview $tag is out (a pre-release): not posted in Discord."; exit 0 }
 # Discord: in each channel that has a webhook (a webhook posts in its own channel only), the release's name and link,
-# then each screenshot of this version's changelog section as a message of its own with its text (at most 10): a link
+# the version's changelog section as Discord text, then each screenshot of this version's changelog section as a message of its own with its text (at most 10): a link
 # alone shows no pictures in the channel. A post that does not go makes the run fail after the release is out: post
 # again in that channel with Actions > Post screenshots to Discord.
 $url = gh release view $tag --json url --jq .url

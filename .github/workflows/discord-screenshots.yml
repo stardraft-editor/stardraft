@@ -15,7 +15,7 @@ on:
         options: [all, updates, general]
         default: all
       what:
-        description: The release's link and the screenshots, or only the screenshots (the link is there already)
+        description: The release's link, the changelog and the screenshots, or only the screenshots
         type: choice
         options: [all, screenshots]
         default: all

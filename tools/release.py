@@ -24,9 +24,10 @@ CI uses these (they need only Python and git):
                                 --images: the version's picture files, one on each line (the Discord post).
     discord <version> --title <t> --url <u> [--channel all|updates|general] [--screenshots-only]
                                 The Discord post (CI): in each channel with a webhook (DISCORD_RELEASE_WEBHOOK,
-                                DISCORD_GENERAL_WEBHOOK), "**<title>** is out: <url>", then each screenshot of the
-                                version's section as a message of its own with its text (a link alone shows no
-                                pictures). --screenshots-only: the screenshots without the first message.
+                                DISCORD_GENERAL_WEBHOOK), "**<title>** is out: <url>", then the version's section as
+                                Discord text (one or more messages), then each screenshot as a message of its own with
+                                its text (a link alone shows neither). --screenshots-only: the screenshots alone.
+    discord-text <version>      The section as the Discord messages have it (to check it).
     title <version>             "StarDraft 2 - v<version> (build <commit>)", the commit of HEAD (7 characters, as
                                 cmake/build_info.cmake writes it: Check for updates compares the two).
     ci-check <tag>              Before the tag's release: the tag is a version and the newest one, its section and
@@ -268,6 +269,65 @@ def image_alts(lines):
     return out
 
 
+DISCORD_LIMIT = 1900  # a message holds 2000 characters at most
+
+
+def discord_text(lines):
+    """The section as Discord messages: its headings and bullets as Discord markdown, each bullet on one line (the
+    changelog wraps them), no pictures (they go as messages of their own); split at lines into messages that fit."""
+    out = []
+    for raw in lines:
+        line = raw.rstrip()
+        if line.lstrip().startswith("!["):
+            continue
+        if line.startswith("### "):
+            out += ["", "**" + line[4:].strip() + "**"]
+        elif line.startswith("- "):
+            out.append(line)
+        elif line.startswith("  ") and line.strip() and out and out[-1].startswith("- "):
+            out[-1] += " " + line.strip()  # (a wrapped bullet's next line)
+        elif line.strip():
+            out.append(line.strip())
+    # Groups (a heading and its bullets) whole in a message where they fit; a group longer than a message by its lines.
+    groups = []
+    for line in out:
+        if line.startswith("**") or not groups:
+            groups.append([])
+        if line:
+            groups[-1].append(line[:DISCORD_LIMIT - 1] + "\u2026" if len(line) > DISCORD_LIMIT else line)
+    messages, cur = [], ""
+    def put(text):
+        nonlocal cur
+        if cur and len(cur) + 2 + len(text) > DISCORD_LIMIT:
+            messages.append(cur)
+            cur = ""
+        cur = (cur + "\n\n" + text) if cur else text
+    for g in groups:
+        text = "\n".join(g)
+        if len(text) <= DISCORD_LIMIT:
+            put(text)
+            continue
+        part = ""
+        for line in g:
+            if part and len(part) + 1 + len(line) > DISCORD_LIMIT:
+                put(part)
+                part = ""
+            part = (part + "\n" + line) if part else line
+        if part:
+            put(part)
+    if cur:
+        messages.append(cur)
+    return messages
+
+
+def cmd_discord_text(args):
+    _, lines = section_of(args[0])
+    if lines is None:
+        raise Fail(f"docs/user/CHANGELOG.md has no section \"## {args[0]}\"")
+    for i, m in enumerate(discord_text(lines)):
+        sys.stdout.buffer.write((f"--- message {i + 1} ({len(m)} characters)\n{m}\n").encode("utf-8"))
+
+
 def discord_send(hook, content, file=None):
     """One webhook message: its text, and a picture file as its attachment. Waits when Discord says to (429)."""
     import urllib.error
@@ -322,10 +382,13 @@ def cmd_discord(args):
         try:
             if not only_shots:
                 discord_send(hook, f"**{title}** is out: {url}")
+                for text in discord_text(lines):  # (the changelog, as Discord shows text)
+                    time.sleep(1)
+                    discord_send(hook, text)
             for f, alt in shots:  # (one message each: the pictures show in the channel, not only behind the link)
                 time.sleep(1)
                 discord_send(hook, alt, f)
-            print(f"posted in {name}: {'' if only_shots else 'the release and '}{len(shots)} screenshots")
+            print(f"posted in {name}: {'' if only_shots else 'the release, the changelog and '}{len(shots)} screenshots")
         except Fail as e:
             failed.append(f"{name}: {e}")
     if failed:
@@ -610,7 +673,7 @@ def opt(args, name):
     return args[args.index(name) + 1] if name in args and args.index(name) + 1 < len(args) else None
 
 
-COMMANDS = {"pending": (cmd_pending, 0), "notes": (cmd_notes, 1), "discord": (cmd_discord, 1), "title": (cmd_title, 1), "ci-check": (cmd_ci_check, 1),
+COMMANDS = {"pending": (cmd_pending, 0), "notes": (cmd_notes, 1), "discord": (cmd_discord, 1), "discord-text": (cmd_discord_text, 1), "title": (cmd_title, 1), "ci-check": (cmd_ci_check, 1),
             "check": (cmd_check, 1), "publish": (cmd_publish, 1), "shots": (cmd_shots, 1), "untag": (cmd_untag, 1)}
 
 
