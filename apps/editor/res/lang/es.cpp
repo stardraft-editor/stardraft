@@ -2378,6 +2378,7 @@ constexpr UiText kRows[] = {
     {L"Help: the documentation (F1, Ctrl+", L"Ayuda: la documentaci\u00F3n (F1, Ctrl+"},
     {L"Help page", L"P\u00E1gina de ayuda"},
     {L"the Help pages", L"las p\u00E1ginas de ayuda"},
+    {L"Set the current player", L"Establecer el jugador actual"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
