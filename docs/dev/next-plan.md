@@ -29,8 +29,9 @@ To check in StarCraft (trigger_test builds them with euddraft, but what they do 
 
 ## Left
 
-- **R51 Advanced EUD capabilities.** Blocks for EUDQueue and EUDDeque with their methods and loops, EUDByteReader and
-  EUDByteWriter, and drawing.
+- **R51 Advanced EUD capabilities.** Drawing waits until it is clear what it draws (shapes of units or sprites, as
+  Korean EUD maps make them, or text on the screen). EUDQueue, EUDDeque, EUDByteReader and EUDByteWriter are left out
+  for now (2026-10-18).
 - **R25, R52, R49: after the first versions.** Campaigns: settings kept the same in all maps. Import: EUD Editor 2's
   button sets, requirements and trigger editor data (not only the TriggerEditor.eps it writes when it builds), and
   EUD Editor 3's own project file. Generator: ramps between high and low ground, rules for expansions and other places.

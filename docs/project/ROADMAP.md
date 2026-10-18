@@ -265,7 +265,8 @@ Make StarDraft 2 a more powerful creation suite.
 
   Status (2026-10-18): chat commands and background music are done: the conditions Chat line starts with and Chat
   line contains, the value The number in the chat line after a text, and the actions Play music and Stop the music.
-  Still to check in the game. Queues and deques, byte readers and writers, and drawing are not done.
+  Still to check in the game. Drawing waits: what it should draw is being looked into. Queues and deques, and byte
+  readers and writers, are left out for now.
 
 ## Later
 
