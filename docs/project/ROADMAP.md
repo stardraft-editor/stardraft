@@ -222,18 +222,10 @@ Make StarDraft 2 a more powerful creation suite.
 
   Done: View > Pathing shows the game's pathing regions or the connected areas, and Scenario > Check pathing lists the
   nooks and crannies where units get stuck.
-- [ ] **R31 Replay preview.** *Tag:* Capability.
-  Make a replay of the map with computer players, and watch it in StarCraft.
-
-  To see a map in the game, a mapper must start a game and play it.
 - [x] **R44 Unit replace.** *Tag:* Capability.
   Replace all units of one type with a different type, in the map or in the selection.
 
   Mappers must delete each unit and place the new unit by hand.
-- [ ] **R42 Map import from scmscx.com.** *Tag:* Capability.
-  Find a map on [scmscx.com](https://scmscx.com), and open it in StarDraft 2.
-
-  To edit a map from scmscx.com, mappers must download it and then open the file.
 - [x] **R49 Revamped terrain generation.** *Tag:* Terrain.
   Generate maps with a constraint-based method, such as wave function collapse: set rules for the terrain, and get
   maps that obey them.
@@ -256,22 +248,34 @@ Make StarDraft 2 a more powerful creation suite.
   map, the .dat edits, the stat_txt texts, the plugins, and TriggerEditor.eps with the modules it imports) or a
   euddraft project (.eds, .edd: the map, the scripts and the plugin sections; EUD Editor 3 builds through one). A list
   shows what did not come in: button sets, requirements and FireGraft's settings.
-- [ ] **R51 Advanced EUD capabilities.** *Tag:* EUD.
-  Blocks for queues and deques (with their methods and loops), byte readers and writers, text compare and search for
-  chat commands, text to number, drawing, and background music.
+- [x] **R51 Advanced EUD capabilities.** *Tag:* EUD.
+  Blocks for text compare and search for chat commands, text to number, and background music.
 
-  These need epScript today: EUDQueue and EUDDeque with their methods and loops, EUDByteReader and EUDByteWriter,
-  strcmp, strnstr and memcmp (mainly to parse chat commands), f_parse (text to a number), drawing, and BGM.
+  These needed epScript: strcmp, strnstr and memcmp (mainly to parse chat commands), f_parse (text to a number), and
+  BGM.
 
-  Status (2026-10-18): chat commands and background music are done: the conditions Chat line starts with and Chat
-  line contains, the value The number in the chat line after a text, and the actions Play music and Stop the music.
-  Still to check in the game. Drawing waits: what it should draw is being looked into. Queues and deques, and byte
-  readers and writers, are left out for now.
+  Done (2026-10-18): the conditions Chat line starts with and Chat line contains, the value The number in the chat
+  line after a text, and the actions Play music and Stop the music. Still to check in the game. Drawing, queues and
+  byte readers moved to R63 (Later).
 
 ## Later
 
 Exploring how to enable the next evolution of StarCraft creations.
 
+- [ ] **R31 Replay preview.** *Tag:* Capability.
+  Make a replay of the map with computer players, and watch it in StarCraft.
+
+  To see a map in the game, a mapper must start a game and play it.
+- [ ] **R42 Map import from scmscx.com.** *Tag:* Capability.
+  Find a map on [scmscx.com](https://scmscx.com), and open it in StarDraft 2.
+
+  To edit a map from scmscx.com, mappers must download it and then open the file.
+- [ ] **R63 More EUD blocks.** *Tag:* EUD.
+  Blocks for drawing, queues and deques (with their methods and loops), and byte readers and writers.
+
+  These need epScript today: EUDQueue and EUDDeque with their methods and loops, EUDByteReader and EUDByteWriter, and
+  drawing. What drawing should draw (shapes of units or sprites, as Korean EUD maps make them, or text on the screen)
+  is being looked into.
 - [ ] **R57 Custom keyboard shortcuts.** *Tag:* UI.
   A menu where users change the keyboard shortcuts of StarDraft 2.
 
