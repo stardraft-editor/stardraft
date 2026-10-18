@@ -29,8 +29,8 @@ struct PanelTabsView final : stardraft::draw::View {
     // The modes docked on this side, in the order of the tabs.
     std::vector<Mode> modes() const {
         std::vector<Mode> out;
-        for (Mode m : kModeOrder)
-            if (gDock.toolsRight[int(m)] == (side == 1)) out.push_back(m);
+        for (Mode m : kModeOrder)  // (a mode whose panel floats has no tab: its window is its place until it closes)
+            if (gDock.toolsRight[int(m)] == (side == 1) && !paletteFloats(m)) out.push_back(m);
         return out;
     }
     int tabAt(Point p) const {

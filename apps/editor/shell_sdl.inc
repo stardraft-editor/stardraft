@@ -93,7 +93,11 @@ std::vector<int> shellListSelection() { return gLocList.selection(); }
 // The Locations filter's text (the palette's own search is not the list's filter).
 std::wstring shellFilterText() { return gFilterSdl.text(); }
 bool shellViewShown() { return gRoot != nullptr; }
-void shellToolsChanged() { gToolStripView.invalidate(); }
+void palettePanelsToolsChanged();  // (sdl_palette_panels.inc: the floating panels' strips)
+void shellToolsChanged() {
+    gToolStripView.invalidate();
+    palettePanelsToolsChanged();
+}
 // A menu of `items` at `at` of `from` that waits for the pick (the Windows paintedMenu with TPM_RETURNCMD): the item's
 // index, or -1. feedback: "Report feedback on ..." at the end (the Windows popupMenu's context menus).
 int sdlMenuPick(draw::View& from, draw::Point at, const std::vector<std::wstring>& items, int checked, bool feedback) {
@@ -124,7 +128,7 @@ int sdlMenuPick(draw::View& from, draw::Point at, const std::vector<std::wstring
 }
 // The tool strip's dropdown (the brush shape): a menu under the box (x, y: the strip's coordinates), as on Windows.
 int shellPopupPick(const std::vector<std::wstring>& items, int checked, int x, int y) {
-    return sdlMenuPick(gToolStripView, {x, y}, items, checked, false);
+    return sdlMenuPick(gStripInUse && gStripInUse->host() ? *gStripInUse : gToolStripView, {x, y}, items, checked, false);
 }
 // A context menu at the mouse (the Tiles panel's favorites), with Report feedback: the item from 1, 0 for none.
 int shellContextMenu(const std::vector<std::wstring>& items) {

@@ -310,7 +310,8 @@ CASES += [
 # Terrain palette in a window of its own over the map (a snapshot shows it there); a pick in it paints with that
 # terrain; the map's keys (U, T) work while it has the keyboard, and it closes in another mode (whose palette is docked)
 # and opens again in Terrain mode; the close box of its strip (core/views_palette_float.inc: its title bar of its own,
-# 25 px over the palette's rows) and its window's close puts it back in the side bar; in Rectangle mode it has the
+# over the mode's tools and the palette's rows: the whole panel floats) and its window's close puts it back in the side
+# bar; in Rectangle mode it has the
 # Tiles list. After each input a line "  palette: ..." says the active mode's palette's state. -docked: on and off again
 # (the side bar has the palette). -settings: the settings file keeps the terrain palette floating at 320 x 480 and the
 # unit palette at 300 x 420 (each window opens in its mode with its own size; the doodad palette is docked), and --check
@@ -1130,18 +1131,18 @@ stats
     "stackmenu": STACK_PLACE + "click 700,650:Menu10\nkey Down\nkey Enter\n",
     # The Marine stays picked (no Esc): Alt+click on the stack is the pipette (map-stack-pipette).
     # (map-palette-float: the window is at 360,114 of the main window: High Platform's row, Dock, the first tile)
-    "floatpal": "command view.floatPalette.terrain\nwait 0\nclick 510,313\nkey U\nkey T\nclick 371,126\ncommand view.floatPalette.terrain\nwait 0\n"
-                "palette close\ncommand view.floatPalette.terrain\nwait 0\nrect on\nclick 386,261\n",
+    "floatpal": "command view.floatPalette.terrain\nwait 0\nclick 510,452\nkey U\nkey T\nclick 371,126\ncommand view.floatPalette.terrain\nwait 0\n"
+                "palette close\ncommand view.floatPalette.terrain\nwait 0\nrect on\nclick 386,326\n",
     "floatpaldock": "command view.floatPalette.terrain\nwait 0\ncommand view.floatPalette.terrain\nwait 0\n",
     # (map-palette-float-keys: the window's search box, then the first row of the list that it filters)
     # (map-palette-float-units: the window over the map at the right side bar: the Marine's row, then the map; then
     # Locations mode with the location list floating, and back in Units mode)
-    "floatpalunits": "command view.floatPalette.units\nwait 0\nclick 1100,366\nclick 600,500\n"
+    "floatpalunits": "command view.floatPalette.units\nwait 0\nclick 1100,442\nclick 600,500\n"
                      "command view.floatPalette.locations\nmode locations\nmode units\n",
     # (map-palette-float-settings: nothing floats at the start; popped out, each mode's palette opens at its kept size and
     # stays in the other modes)
     "floatpaltwo": "wait 0\ncommand view.floatPalette.terrain\nwait 0\nmode units\ncommand view.floatPalette.units\nwait 0\nmode doodads\nmode terrain\n",
-    "floatpalkeys": "command view.floatPalette.terrain\nwait 0\nclick 400,157\ntype plat\nclick 490,270\nkey F\npalette scale 150\n",
+    "floatpalkeys": "command view.floatPalette.terrain\nwait 0\nclick 400,293\ntype plat\nclick 490,406\nkey F\npalette scale 150\n",
     "stackpipette": "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nclick 700,650:Alt\nkey Esc\n",
 }
 
@@ -3318,7 +3319,7 @@ def check_palette_float(output):
     """Floating: the window, a pick in it (High Platform, the brush), U and T from it, Dock, the close button, Rectangle
     mode's tiles in it and a tile picked there."""
     s = palette_steps(output)
-    want = ["wait 0", "click 510,313", "key U", "key T", "click 371,126", "wait 0", "palette close", "wait 0", "rect on", "click 386,261"]
+    want = ["wait 0", "click 510,452", "key U", "key T", "click 371,126", "wait 0", "palette close", "wait 0", "rect on", "click 386,326"]
     got = [d["input"] for d in s]
     if got != want:
         return f"the inputs are {got}, not {want}"
@@ -3347,7 +3348,7 @@ def check_palette_keys(output):
     """A pick after typing in the window's search box: the search box loses the keyboard, F goes to the map (Fill) and
     the search keeps its text; the window on a screen of 150 % leaves the program's scale at 1."""
     s = palette_steps(output)
-    want = ["wait 0", "click 400,157", "type plat", "click 490,270", "key F", "palette scale 150"]
+    want = ["wait 0", "click 400,293", "type plat", "click 490,406", "key F", "palette scale 150"]
     got = [d["input"] for d in s]
     if got != want:
         return f"the inputs are {got}, not {want}"
@@ -3410,7 +3411,7 @@ def check_palette_units(output):
     picks the Marine and a click on the map places one; the location list floats too: Locations mode shows its window,
     Units mode the unit palette's window again."""
     s = palette_steps(output)
-    want = ["wait 0", "click 1100,366", "click 600,500", "mode locations", "mode units"]  # (a command has no input line)
+    want = ["wait 0", "click 1100,442", "click 600,500", "mode locations", "mode units"]  # (a command has no input line)
     got = [d["input"] for d in s]
     if got != want:
         return f"the inputs are {got}, not {want}"

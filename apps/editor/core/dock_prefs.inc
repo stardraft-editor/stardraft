@@ -29,21 +29,21 @@ struct FloatPaletteNames {
     const wchar_t* docked;
 };
 constexpr FloatPaletteNames kFloatPalNames[kModeCount] = {
-    {"TerrainPalette", "view.floatPalette.terrain", L"&Terrain palette", L"Terrain palette", L"The terrain palette is in its own window",
-     L"Put the terrain palette back in the side bar", L"Moved the terrain palette to its own window",
-     L"The terrain palette shows in its own window in Terrain mode", L"Docked the terrain palette"},
-    {"UnitPalette", "view.floatPalette.units", L"&Unit palette", L"Unit palette", L"The unit palette is in its own window",
-     L"Put the unit palette back in the side bar", L"Moved the unit palette to its own window",
-     L"The unit palette shows in its own window in Units mode", L"Docked the unit palette"},
-    {"DoodadPalette", "view.floatPalette.doodads", L"&Doodad palette", L"Doodad palette", L"The doodad palette is in its own window",
-     L"Put the doodad palette back in the side bar", L"Moved the doodad palette to its own window",
-     L"The doodad palette shows in its own window in Doodads mode", L"Docked the doodad palette"},
-    {"LocationList", "view.floatPalette.locations", L"&Location list", L"Location list", L"The location list is in its own window",
-     L"Put the location list back in the side bar", L"Moved the location list to its own window",
-     L"The location list shows in its own window in Locations mode", L"Docked the location list"},
-    {"SpritePalette", "view.floatPalette.sprites", L"&Sprite palette", L"Sprite palette", L"The sprite palette is in its own window",
-     L"Put the sprite palette back in the side bar", L"Moved the sprite palette to its own window",
-     L"The sprite palette shows in its own window in Sprites mode", L"Docked the sprite palette"},
+    {"TerrainPalette", "view.floatPalette.terrain", L"&Terrain palette", L"Terrain palette", L"Terrain is in its own window. Dock puts it back here.",
+     L"Put Terrain back in the side bar", L"Terrain is in its own window",
+     L"The terrain palette shows in its own window in Terrain mode", L"Terrain is back in the side bar"},
+    {"UnitPalette", "view.floatPalette.units", L"&Unit palette", L"Unit palette", L"Units is in its own window. Dock puts it back here.",
+     L"Put Units back in the side bar", L"Units is in its own window",
+     L"The unit palette shows in its own window in Units mode", L"Units is back in the side bar"},
+    {"DoodadPalette", "view.floatPalette.doodads", L"&Doodad palette", L"Doodad palette", L"Doodads is in its own window. Dock puts it back here.",
+     L"Put Doodads back in the side bar", L"Doodads is in its own window",
+     L"The doodad palette shows in its own window in Doodads mode", L"Doodads is back in the side bar"},
+    {"LocationList", "view.floatPalette.locations", L"&Location list", L"Location list", L"Locations is in its own window. Dock puts it back here.",
+     L"Put Locations back in the side bar", L"Locations is in its own window",
+     L"The location list shows in its own window in Locations mode", L"Locations is back in the side bar"},
+    {"SpritePalette", "view.floatPalette.sprites", L"&Sprite palette", L"Sprite palette", L"Sprites is in its own window. Dock puts it back here.",
+     L"Put Sprites back in the side bar", L"Sprites is in its own window",
+     L"The sprite palette shows in its own window in Sprites mode", L"Sprites is back in the side bar"},
 };
 
 // Does the palette of `m` float in the active tab? (The program: Terrain, Units, Doodads and Sprites float as palettes of
