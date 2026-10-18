@@ -3062,7 +3062,12 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
             std::string cond = g.conditions(n.conditions, "&&");
             const std::string acts = g.actions(n.actions);
             if (n.conditions.empty()) issues.push_back({TriggerIssue::Level::Warning, &n, nullptr, -1, "no conditions: it never runs"});
-            functions += g.nodeMark(n) + "// " + where + n.name + "\nfunction " + fn + "() {\n";
+            functions += g.nodeMark(n) + "// " + where + n.name + "\n";
+            if (!n.comment.empty()) {  // the trigger's comment (roadmap R62), under its name
+                std::istringstream lines(n.comment);
+                for (std::string line; std::getline(lines, line);) functions += "// " + line + "\n";
+            }
+            functions += "function " + fn + "() {\n";
             if (cond.empty()) cond = "Never()";
             if (stripMarks(cond) == "Always()") functions += indentLines(acts, "    ");
             else functions += "    if (" + cond + ") {\n" + indentLines(acts, "        ") + "    }\n";

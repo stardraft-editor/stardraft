@@ -31,6 +31,7 @@ TriggerNode* trigSelected() {
 }
 
 void trigQuickAdd();  // Q: Quick add (core/views_trigger_quick.inc)
+void trigEditComment();  // the trigger's comment (core/triggers_values.inc)
 
 // --- The pane: one trigger -----------------------------------------------------------------------------------
 // Conditions and Actions, each collapsible. Every block has a grip; drag it to reorder or into or out of a block
@@ -158,6 +159,7 @@ struct TrigPaneState {
     std::vector<TrigVarHit> varHits;
     RECT heading[2]{};
     RECT title{};  // the trigger's or variable's name at the top (click to rename)
+    RECT comment{};  // the trigger's comment under its name (click to edit; roadmap R62)
     std::vector<std::pair<RECT, int>> addButtons;  // a category or folder: New trigger (0), template (1), folder (2), variable (3)
     RECT codeToggle{};  // </>: the code pane
     bool collapsed[2] = {};
@@ -669,7 +671,7 @@ public:
         if (gTP.dragging) return draw::Cursor::SizeAll;
         auto on = [&](const auto& hits) { return std::any_of(hits.begin(), hits.end(), [&](const auto& h) { return PtInRect(&h.r, pt) != 0; }); };
         if (on(gTP.params) || on(gTP.folds) || on(gTP.adds) || on(gTP.varHits) || on(gTP.rowButtons)) return draw::Cursor::Hand;
-        if (PtInRect(&gTP.title, pt) || PtInRect(&gTP.codeToggle, pt)) return draw::Cursor::Hand;
+        if (PtInRect(&gTP.title, pt) || PtInRect(&gTP.comment, pt) || PtInRect(&gTP.codeToggle, pt)) return draw::Cursor::Hand;
         for (const auto& b : gTP.addButtons)
             if (PtInRect(&b.first, pt)) return draw::Cursor::Hand;
         for (const auto& l : gTP.lines)
@@ -752,6 +754,7 @@ private:
                 return host_.addFromPage(action, b);
             }
         if (PtInRect(&gTP.title, pt)) return host_.editTitle();
+        if (PtInRect(&gTP.comment, pt)) return trigEditComment();
         for (const auto& h : gTP.varHits)
             if (PtInRect(&h.r, pt)) return host_.editVariable(h);
         TriggerNode* t = trigSelected();
@@ -1082,9 +1085,12 @@ private:
             const int padY = scale(9);  // room above and below the sentence
             RECT head{x, y, x + w, y + hgt + 2 * padY};
             const bool container = d && !d->lists.empty();
-            roundRect(c, head, moving ? kCtlDown : on ? kSel : container ? trigContainerFill() : kCtl, container && !on && !hasError ? trigContainerLine() : border);
-            if (on || trigSameBlock(gTP.hoverRow, me) || moving) grip(c, head, on);  // the drag handle: on the row under the mouse
-            if (!dim) c.fill({head.left + scale(2), head.top + scale(5), head.left + scale(4), head.bottom - scale(5)}, trigCategoryColor(d));
+            // A comment (roadmap R62) is a row with no box of its own: it reads as a note between the blocks.
+            const bool note = d && d->id == "act.comment", rowHot = trigSameBlock(gTP.hoverRow, me);
+            if (note && !on && !moving) roundRect(c, head, kBg, rowHot || hasError ? border : kBg);
+            else roundRect(c, head, moving ? kCtlDown : on ? kSel : container ? trigContainerFill() : kCtl, container && !on && !hasError ? trigContainerLine() : border);
+            if (on || rowHot || moving) grip(c, head, on);  // the drag handle: on the row under the mouse
+            if (!dim && !note) c.fill({head.left + scale(2), head.top + scale(5), head.left + scale(4), head.bottom - scale(5)}, trigCategoryColor(d));
             // On the row under the mouse, or selected: on/off, duplicate, delete.
             if ((on || trigSameBlock(gTP.hoverRow, me)) && !gTP.dragging) {
                 const kitpaint::Ico glyphs[3] = {L"\xE7E8", UiIcon::Duplicate, UiIcon::Delete};
@@ -1172,6 +1178,21 @@ private:
         y += scale(44);
     }
 
+    // The trigger's comment under its name (roadmap R62): what the trigger does, in the author's words. None: "Add a
+    // comment", dim. A click edits it.
+    void drawComment(draw::Canvas& c, const TriggerNode& t, int x0, int w, int& y) {
+        y -= scale(8);
+        const std::wstring shown = t.comment.empty() ? std::wstring(tr(L"Add a comment")) : widen(t.comment);
+        const int tw = std::min(c.measure(shown), w - scale(30));
+        RECT r{x0, y, x0 + tw, y + scale(24)};
+        const bool over = hot(r);
+        text(c, r, shown, over ? kTrigBlue : t.comment.empty() ? kFaint : kDim, draw::kMiddle | draw::kEllipsis);
+        RECT pen{r.right + scale(6), y, r.right + scale(22), y + scale(24)};
+        glyph(c, pen, UiIcon::Edit, over ? kTrigBlue : kFaint);
+        gTP.comment = {r.left, r.top, pen.right, r.bottom};
+        y += scale(32);
+    }
+
     // The variable form: kind, size, starting value, description.
     void drawVariable(draw::Canvas& c, TriggerNode& v, int x0, int w, int& y) {
         auto row = [&](const std::wstring& label, const std::wstring& value, int field, bool link) {
@@ -1250,7 +1271,7 @@ private:
         host_.layoutCheck();
         const RECT rc{0, 0, width(), height()};
         gTP.lines.clear(), gTP.params.clear(), gTP.folds.clear(), gTP.adds.clear(), gTP.varHits.clear(), gTP.rowButtons.clear(), gTP.tips.clear();
-        gTP.title = {}, gTP.addButtons.clear();
+        gTP.title = {}, gTP.comment = {}, gTP.addButtons.clear();
         gTrigFixLinks.clear();
         if (gTE.project) {  // </> at the top right: the code pane
             gTP.codeToggle = {rc.right - scale(44), scale(10), rc.right - scale(14), scale(40)};
@@ -1291,6 +1312,7 @@ private:
             text(c, {x0, scale(40), rc.right - x0, rc.bottom}, gTE.project ? L"" : L"Triggers belong to an EUD project", kDim, draw::kWrap);
         } else {
             drawTitle(c, widen(t->name), x0, w, y);
+            drawComment(c, *t, x0, w, y);
             // A heavy trigger says so; so do problems with the trigger as a whole.
             if (const int cost = TriggerSet::cost(*t); cost > TriggerSet::kHeavy) {
                 text(c, {x0, y, x0 + w, y + scale(20)}, L"\x23F1 about " + std::to_wstring(cost) + L" actions each run", kTrigAmber, draw::kMiddle);
