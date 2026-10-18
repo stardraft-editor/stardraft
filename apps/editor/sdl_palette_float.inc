@@ -216,6 +216,7 @@ bool locationListSync(bool shown, draw::Rect slot) {
     gFloatPalView.dock.setTip(kFloatPalNames[int(m)].tip);
     gFloatPalView.altShown = false;
     gFloatPalView.collapsed = false;  // (a window opens whole)
+    gFloatPalView.toolsMode = Mode::Locations;  // (its whole panel: Locations' tools over the filter and the list)
     gFloatPalView.hold(floatPaletteParts(m));
     // The first place: over the map, at the side bar's edge, as wide as the side bar or more; the size that the settings
     // keep (points; a snapshot's window has one pixel to a point).
@@ -293,7 +294,9 @@ void sdlFloatPaletteFrame() {
 
 // The wiring, once (main_sdl.cpp, after the main window shows): Dock in the window and in the side bar's note, the
 // keys of the window; then the window opens when the settings keep the active mode's palette floating.
+void palettePanelsSetup();  // (sdl_palette_panels.inc)
 void sdlFloatPaletteSetup() {
+    palettePanelsSetup();
     gFloatPalView.onDock = [] { shellPost([] { shellFloatPalette(gFloatPalMode, false); }); };  // (after the click: the window closes)
     gFloatNote.onDock = [] { shellPost([] { shellFloatPalette(gState.mode, false); }); };
     gFloatPalView.keys = [](const draw::KeyEvent& e) { return gRoot && gRoot->key(e); };

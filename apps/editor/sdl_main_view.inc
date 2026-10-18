@@ -596,6 +596,7 @@ struct MainView final : draw::View {
         in.hasSectionBox = true;
         in.hasPal2 = true;
         in.pal2Shown = gPal2Shown, in.pal2Mode = gPal2Mode;
+        for (int k = 0; k < kModeCount; ++k) in.floats[k] = paletteFloats(Mode(k));  // (a floating panel has no tab)
         const MainLayout L = computeLayout(in);
         for (int i = 0; i < 2; ++i) splitters[i] = mapWs ? draw::Rect(L.splitters[i]) : draw::Rect{};
         // The state the layout sets (as the Win32 layout): the sides' tabs, the second palette's mode and its shown state.
@@ -625,7 +626,6 @@ struct MainView final : draw::View {
         apply(map, L.view, mapWs);
         apply(minimap, L.minimap, L.minimap.visible && mapWs);
         apply(modes, L.modeBar, mapWs);
-        apply(gToolStripView, L.tool, mapWs);
         apply(gPanelTabsSdl[toolsRight ? 1 : 0], L.panelTabActive, L.panelTabActive.visible && mapWs);
         apply(gPanelTabsSdl[toolsRight ? 0 : 1], L.panelTabOther, L.panelTabOther.visible && mapWs);
         // Rectangle mode's Tiles panel takes the palette's place: from its search box down to its end (the Win32 tilesSync).
@@ -634,25 +634,27 @@ struct MainView final : draw::View {
         PaneSlot tilesSlot = L.search;
         tilesSlot.placed = L.search.placed && L.palette.placed;
         tilesSlot.rc = RECT{L.search.rc.left, L.search.rc.top, L.palette.rc.right, L.palette.rc.bottom};
-        // The floating palettes (sdl_palette_float.inc): the active mode's palette (its views under the tools: the owner
-        // and section boxes, the search box or the filter, the list) can be in its own window; then the note is in
-        // their place, and the views in the window are not placed here.
+        // The floating panels (sdl_palette_float.inc, sdl_palette_panels.inc): the active mode's whole panel (its tools,
+        // Isometric and Rectangle, its options, its list) can be in a window of its own; then the side bar has the note
+        // in their place (its tab is not in the tabs: it is back when the window closes).
         PaneSlot noteSlot = tilesSlot;
-        noteSlot.rc.top = owners ? L.owner.rc.top : sections ? L.sectionBox.rc.top : L.search.rc.top;
+        noteSlot.rc.top = L.tool.rc.top;
         const bool floated = floatPaletteSync(m, mapWs && noteSlot.placed, tiles, draw::Rect(noteSlot.rc));
         palettePanelsSync();
+        const bool here = mapWs && !floated;  // (the active mode's panel is in the side bar)
+        apply(gToolStripView, L.tool, here);
         const auto side = [this](draw::View& v, const PaneSlot& s, bool shown) {
             if (v.parent() == this) apply(v, s, shown);
         };
-        side(gOwnerBox, oneRow(L.owner), owners && mapWs);       // (a closed owner list is one row high)
-        side(gSectionDropSdl, oneRow(L.sectionBox), sections && mapWs);
-        side(gTilesPanel, tilesSlot, tiles);
-        side(gSearchSdl, L.search, !locs && mapWs && !tiles);
-        side(gViewBtnSdl, L.viewBtn, !locs && mapWs && !tiles);
-        side(gPalList, L.palette, !locs && mapWs && !tiles);
-        apply(gFloatNote, noteSlot, floated);
-        side(gFilterSdl, L.filter, locs && mapWs);
-        side(gLocList, L.list, locs && mapWs);
+        side(gOwnerBox, oneRow(L.owner), owners && here);       // (a closed owner list is one row high)
+        side(gSectionDropSdl, oneRow(L.sectionBox), sections && here);
+        side(gTilesPanel, tilesSlot, tiles && !floated);
+        side(gSearchSdl, L.search, !locs && here && !tiles);
+        side(gViewBtnSdl, L.viewBtn, !locs && here && !tiles);
+        side(gPalList, L.palette, !locs && here && !tiles);
+        apply(gFloatNote, noteSlot, floated && mapWs);
+        side(gFilterSdl, L.filter, locs && here);
+        side(gLocList, L.list, locs && here);
         apply(gPal2List, L.palette2, L.palette2.visible && mapWs);
         // The workspace area: the registered view of the workspace shown, else the "Not on this system yet" view.
         const auto found = gWorkspaceViews.find(gWorkspace);

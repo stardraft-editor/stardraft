@@ -35,6 +35,7 @@ struct LayoutInput {
     bool hasPal2 = false;          // the second palette exists (the other side's list)
     bool pal2Shown = false;        // ... and was shown before (for "changed")
     Mode pal2Mode = Mode::Units;   // ... and what it showed before
+    bool floats[kModeCount] = {};  // each mode's panel is in a window of its own (no tab, not the other side's list)
 };
 
 // The layout's result: every pane's place and state, and the state the layout sets (the sides' tabs, the splitters,
@@ -89,7 +90,7 @@ inline MainLayout computeLayout(const LayoutInput& in) {
     const int otherSide = toolsRight ? 0 : 1;
     std::vector<Mode> others;
     for (Mode m : kModeOrder)
-        if (in.toolsRight[int(m)] == (otherSide == 1)) others.push_back(m);
+        if (in.toolsRight[int(m)] == (otherSide == 1) && !in.floats[int(m)]) others.push_back(m);
     Mode second = in.lastOnSide[otherSide];
     if (std::find(others.begin(), others.end(), second) == others.end()) second = others.empty() ? in.mode : others.front();
     const bool secondShown = !others.empty();

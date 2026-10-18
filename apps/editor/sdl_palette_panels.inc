@@ -509,16 +509,20 @@ bool floatingPanelSet(Mode m, bool on) {
     return true;
 }
 
-// The state of the floating palettes for the layout (sdl_palette_float.inc: floatPaletteSync): Terrain's holds Rectangle
-// mode's Tiles panel while Terrain mode shows it (the side bar shows the note); true: the active mode's palette floats.
-bool floatPalettesSync(Mode active, bool shown, bool alt, draw::Rect) {
+// The state of the floating panels for the layout (sdl_palette_float.inc: floatPaletteSync): Terrain's holds Rectangle
+// mode's Tiles panel while its Rectangle is on, in every mode (its whole panel floats); true: the active mode's floats.
+bool floatPalettesSync(Mode active, bool shown, bool, draw::Rect) {
     const int doc = activeDocKey();
     PanelWindow* terrain = floatingPanelOf(doc, Mode::Terrain);
     for (auto& p : gPanels)
         if (p.get() != terrain) tilesPanelBack(*p->view);
     if (terrain) {
-        if (shown && active == Mode::Terrain && alt) terrain->view->holdAlt(&gTilesPanel, true);
-        else tilesPanelBack(*terrain->view);
+        if (shown && gState.terrainRect && gState.ed && gState.ed->isOpen()) {
+            terrain->view->holdAlt(&gTilesPanel, true);
+            tilesFresh(), gTilesGrid.invalidate();
+        } else {
+            tilesPanelBack(*terrain->view);
+        }
     }
     return active != Mode::Locations && floatingPanelOf(doc, active) != nullptr;
 }
@@ -551,4 +555,35 @@ void palettePanelsKeysToMap() {
         p->view->focus();
         if (SDL_Window* pw = gHost->sdlWindow(*p->view); pw && main && SDL_GetKeyboardFocus() == pw) SDL_RaiseWindow(main);
     }
+}
+
+// A floating panel's strips are drawn again when the tools change (a tool, a size, a mirror; the active mode).
+void palettePanelsToolsChanged() {
+    for (auto& p : gPanels)
+        if (p->open && p->view->floating) p->view->tools.invalidate(), p->view->invalidate();
+    if (gFloatPalOpen) gFloatPalView.tools.invalidate(), gFloatPalView.invalidate();
+}
+
+// A press in a mode's floating panel (its tools, its list, the Tiles panel, its boxes) makes its mode the active one
+// first, before the press goes to the view under it: what it does is always in the active mode (the panel shows it: its
+// strip's line in the accent, the tools not dimmed). An event watch: it runs as the event comes, before it is handled.
+bool SDLCALL palettePanelsPress(void*, SDL_Event* e) {
+    if (e->type != SDL_EVENT_MOUSE_BUTTON_DOWN || !gHost) return true;
+    auto mine = [e](const draw::View& v) {
+        SDL_Window* w = gHost->sdlWindow(v);
+        return w && SDL_GetWindowID(w) == e->button.windowID;
+    };
+    for (auto& p : gPanels)
+        if (p->open && p->view->floating && p->view->mode != gState.mode && mine(*p->view)) {
+            setMode(p->view->mode);
+            return true;
+        }
+    if (gFloatPalOpen && gState.mode != Mode::Locations && mine(gFloatPalView)) setMode(Mode::Locations);
+    return true;
+}
+void palettePanelsSetup() {
+    static bool done = false;
+    if (done) return;
+    done = true;
+    SDL_AddEventWatch(palettePanelsPress, nullptr);
 }

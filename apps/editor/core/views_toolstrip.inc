@@ -188,6 +188,20 @@ void stripToolByKey(int key) {
         if (stripToolKey(it) == key) return pickStripTool(it);
 }
 
+// A mode's floating panel draws its mode's strip while another mode is active: the app's mode is that mode for the call
+// (nothing else changes; the mode's tools, sizes and options are kept by mode).
+struct StripModeScope {
+    AppState& app;
+    Mode saved;
+    bool on;
+    explicit StripModeScope(std::optional<Mode> m) : app(appState()), saved(app.mode), on(m && *m != app.mode) {
+        if (on) app.mode = *m;
+    }
+    ~StripModeScope() {
+        if (on) app.mode = saved;
+    }
+};
+
 int toolStripHeight(int width, bool titled) {
     const AppState& app = appState();
     const int b = scale(30), gap = scale(4);
@@ -197,6 +211,10 @@ int toolStripHeight(int width, bool titled) {
     const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap : 0) + (stripHasDensity() ? scale(26) + gap : 0) +
                       (app.mode == Mode::Terrain ? scale(26) + gap : 0);  // Terrain: Isometric | Rectangle
     return (titled ? scale(24) : 0) + rows * b + (rows - 1) * gap + extra;
+}
+int toolStripHeight(int width, Mode m) {
+    StripModeScope scope(m);
+    return toolStripHeight(width, false);
 }
 
 // --- Drawing helpers (the kit's look, on the canvas) -------------------------------------------------------------------
@@ -267,8 +285,15 @@ void mirrorIcon(Canvas& c, Rect r, int kind, Color col, Color /*ground*/) {
 }  // namespace stripLook
 
 // --- The view -----------------------------------------------------------------------------------------------------
+class ToolStripView;
+extern ToolStripView* gStripInUse;  // the strip of the last mouse event (a dropdown of it opens there)
+
 class ToolStripView final : public draw::View {
 public:
+    // A mode's floating panel's strip: the tools of this mode, whichever mode is active; a press on it makes the mode
+    // active first (core/views_palette_float.inc). Empty: the side bar's strip (the active mode's).
+    std::optional<Mode> fixed;
+
     ToolStripView() {
         field_.onStep = [this](int dir) {
             const int which = editing_;
@@ -307,6 +332,7 @@ public:
 
     void paint(draw::Canvas& c) override {
         using namespace stripLook;
+        StripModeScope scope(fixed);
         AppState& app = appState();
         const draw::Font prevFont = c.setFont(c.font({draw::Face::Ui, 0}));  // the UI font
         const int W = width(), H = height();
@@ -527,6 +553,9 @@ public:
     }
 
     bool mouse(const draw::MouseEvent& e) override {
+        gStripInUse = this;
+        if (fixed && e.kind == draw::MouseKind::Down && appState().mode != *fixed) setMode(*fixed);  // (its mode first)
+        StripModeScope scope(fixed);
         switch (e.kind) {
         case draw::MouseKind::Move: {
             const int before = indexAt(hover_), now = indexAt(e.pt);
@@ -575,11 +604,13 @@ public:
     }
     void captureLost() override { pressed_ = -1; }
     std::wstring tip(draw::Point p) override {
+        StripModeScope scope(fixed);
         const int k = indexAt(p);
         return k < 0 ? std::wstring() : hits_[size_t(k)].tip;
     }
     bool hoverTip() const override { return true; }
     draw::Cursor cursor(draw::Point p) override {
+        StripModeScope scope(fixed);
         const int k = indexAt(p);
         return k < 0 ? draw::Cursor::Arrow : hits_[size_t(k)].cursor;
     }
@@ -632,3 +663,4 @@ private:
 };
 
 ToolStripView gToolStripView;  // the strip (its window shows it: main.cpp, sdl_main_view.inc)
+ToolStripView* gStripInUse = &gToolStripView;
