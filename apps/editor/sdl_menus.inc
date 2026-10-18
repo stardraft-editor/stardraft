@@ -86,12 +86,11 @@ std::wstring shellKeysText(const std::wstring& s) { return shellKeysText(s, fals
 std::wstring shortcutText(const std::wstring& s) { return shellKeysText(s, true); }
 
 // A menu command's shortcut on this system. macOS: Redo is Cmd+Shift+Z, Delete is Cmd+Delete (the Delete key of a Mac
-// keyboard is Backspace), and Map properties has none (Cmd+M is the Window menu's Minimize).
+// keyboard is Backspace).
 std::wstring platformShortcut(int id, const std::wstring& s) {
 #ifdef __APPLE__
     if (id == ID_EDIT_REDO) return L"Ctrl+Shift+Z";
     if (id == ID_EDIT_DELETE) return L"Ctrl+Backspace";
-    if (id == ID_SCEN_PROPS) return {};
     if (id == ID_HELP_DOCS) return {};  // (F1 stays the views' key: the menu bar's key would take it before the Triggers pane's F1)
 #else
     (void)id;

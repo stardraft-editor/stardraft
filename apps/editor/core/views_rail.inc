@@ -37,6 +37,48 @@ int mapPageCommandOf(Workspace w) {
                                                                                                 : ID_WS_MAP + int(w);  // ID_WS_* follow the Workspace order
 }
 
+// The side bar's items for the active tab, in their order (Ctrl+1 to Ctrl+9 are their places; View > Workspaces lists
+// them the same way). One order for a classic map and an EUD project, so each item has the same place: Map, Data,
+// Triggers (a classic map: the classic triggers), then in a project whose map has them the classic triggers, Briefing,
+// Assets, Map properties, and a project's Project; last Help, in every tab and with no tab open (then it is the only
+// item: the help window). An item that the tab's mode does not have is left out. Assets is the Files workspace
+// (Workspace::Files). The map pages (Properties, Players, Map data, classic triggers) are on while their page shows.
+struct RailItem {
+    int id;
+    UiIcon icon;
+    const wchar_t* name;
+    const wchar_t* tip;
+    bool page;  // a map page (else a workspace)
+    Workspace ws = Workspace::Map;
+};
+std::vector<RailItem> railItems() {
+    const bool trigWs = commandInMode(ID_WS_TRIGGERS);
+    const RailItem items[] = {
+        {ID_WS_MAP, UiIcon::Map, L"Map", L"the Map workspace", false, Workspace::Map},
+        {ID_SCEN_CLASSIC, UiIcon::Data, L"Data", L"Data: the map's units, upgrades and technologies", true},
+        {ID_WS_DATA, UiIcon::Data, L"Data", L"the Data workspace", false, Workspace::Data},
+        {trigWs ? 0 : ID_SCEN_CLASSICTRIG, UiIcon::Triggers, L"Triggers", L"Classic triggers", true},
+        {ID_WS_TRIGGERS, UiIcon::Triggers, L"Triggers", L"the Triggers workspace", false, Workspace::Triggers},
+        {trigWs ? ID_SCEN_CLASSICTRIG : 0, UiIcon::Log, L"Classic", L"Classic triggers (the map's own triggers)", true},
+        {ID_WS_BRIEFING, UiIcon::Briefing, L"Briefing", L"the Briefing workspace", false, Workspace::Briefing},
+        {ID_WS_FILES, UiIcon::Assets, L"Assets", L"the Assets workspace", false, Workspace::Files},
+        {ID_SCEN_PROPS, UiIcon::Tag, L"Properties", L"Map properties: the title, size and tileset, players and forces", true},
+        {ID_WS_PROJECT, UiIcon::Project, L"Project", L"the Project page", false, Workspace::Project},  // after Properties: the classic map's order, then the project's own
+    };
+    std::vector<RailItem> out;
+    if (!gDocs.empty())
+        for (const RailItem& it : items)
+            if (it.id && commandInMode(it.id)) out.push_back(it);
+    out.push_back({ID_WS_HELP, UiIcon::Help, L"Help", L"Help: the documentation (also F1)", false, Workspace::Help});
+    return out;
+}
+// View > Workspaces: the side bar's items with their keys (core/menu_model.inc).
+std::vector<std::pair<int, std::wstring>> railMenuItems() {
+    std::vector<std::pair<int, std::wstring>> out;
+    for (const RailItem& it : railItems()) out.push_back({it.id, it.name});
+    return out;
+}
+
 // The rail as a view (apps/common/view.h): its window is a view window (kViewClass) that shows gRail.
 struct RailView final : stardraft::draw::View {
     void paint(stardraft::draw::Canvas& c) override {
@@ -54,42 +96,12 @@ struct RailView final : stardraft::draw::View {
             c.text({r.left, r.top + scale(30), r.right, r.bottom - scale(4)}, name, labelColor, stardraft::draw::kCenter | stardraft::draw::kMiddle);
             c.setFont(of);
         };
-        // One order for a classic map and an EUD project, so each item has the same place: Map, Data, Triggers (a classic
-        // map: the classic triggers), then in a project whose map has them the classic triggers, Briefing, Assets, Map
-        // properties, and last a project's Project. An item that the tab's mode does not have is left out. Assets is the
-        // Files workspace (Workspace::Files). The map pages (Properties, Players, Map data, classic triggers) are on while
-        // their page shows; a dot: the page has changes that are not applied.
-        const bool trigWs = commandInMode(ID_WS_TRIGGERS);
-        struct RailItem {
-            int id;
-            UiIcon icon;
-            const wchar_t* name;
-            std::wstring tip;
-            bool page;  // a map page (else a workspace)
-            Workspace ws = Workspace::Map;
-        };
-        const RailItem items[] = {
-            {ID_WS_MAP, UiIcon::Map, L"Map", L"the Map workspace", false, Workspace::Map},
-            {ID_SCEN_CLASSIC, UiIcon::Data, L"Data", L"Data: the map's units, upgrades and technologies", true},
-            {ID_WS_DATA, UiIcon::Data, L"Data", L"the Data workspace", false, Workspace::Data},
-            {trigWs ? 0 : ID_SCEN_CLASSICTRIG, UiIcon::Triggers, L"Triggers", L"Classic triggers", true},
-            {ID_WS_TRIGGERS, UiIcon::Triggers, L"Triggers", L"the Triggers workspace", false, Workspace::Triggers},
-            {trigWs ? ID_SCEN_CLASSICTRIG : 0, UiIcon::Log, L"Classic", L"Classic triggers (the map's own triggers)", true},
-            {ID_WS_BRIEFING, UiIcon::Briefing, L"Briefing", L"the Briefing workspace", false, Workspace::Briefing},
-            {ID_WS_FILES, UiIcon::Assets, L"Assets", L"the Assets workspace", false, Workspace::Files},
-            {ID_SCEN_PROPS, UiIcon::Tag, L"Properties", L"Map properties: the title, size and tileset, players and forces (Ctrl+M)", true},
-            {ID_WS_PROJECT, UiIcon::Project, L"Project", L"the Project page", false, Workspace::Project},  // after Properties: the classic map's order, then the project's own
-        };
         const int m = scale(6), itemH = scale(54);
         int y = scale(8);
-        // Help: at the bottom of the side bar, in every tab and with no tab open (then it is the only item: the help
-        // window). Its Ctrl+number is its place among the items, as the others' (core/map_edit_commands.inc).
-        const RailItem help{ID_WS_HELP, UiIcon::Help, L"Help", L"", false, Workspace::Help};
-        const bool noTab = gDocs.empty();
-        for (const RailItem* p = items; p <= items + std::size(items); ++p) {
-            const bool isHelp = p == items + std::size(items);
-            const RailItem& it = isHelp ? help : *p;
-            if (!isHelp && (noTab || !it.id || !commandInMode(it.id))) continue;  // only the items of the tab's mode
+        // Help, the last item: at the bottom of the side bar. A map page's item is on while its page shows; a dot: the page
+        // has changes that are not applied. Each item's tip says its key (its place: Ctrl+1 to Ctrl+9).
+        for (const RailItem& it : railItems()) {
+            const bool isHelp = it.id == ID_WS_HELP;
             if (isHelp) y = std::max(y, int(rc.bottom) - scale(8) - itemH);
             RECT r{m, y, rc.right - m - 1, y + itemH};
             const bool on = it.page ? gWorkspace >= Workspace::Properties && mapPageCommandOf(gWorkspace) == it.id : gWorkspace == it.ws,
@@ -98,7 +110,8 @@ struct RailView final : stardraft::draw::View {
             if (on) c.fill({0, r.top + scale(12), scale(3), r.bottom - scale(12)}, acc);
             item(r, it.icon, it.name, on ? acc : kText, on ? acc : kDim);
             if (it.page && mapPageChangesFor(it.id)) changedDotOn(c, r.right - scale(10), r.top + scale(10));
-            gWsHits.push_back({r, it.id, !isHelp ? it.tip : tr(L"Help: the documentation (F1, Ctrl+") + std::to_wstring(gWsHits.size() + 1) + L")"});
+            const size_t n = gWsHits.size() + 1;
+            gWsHits.push_back({r, it.id, std::wstring(tr(it.tip)) + (n <= 9 ? L" (Ctrl+" + std::to_wstring(n) + L")" : L"")});
             y += itemH + scale(4);
         }
     }

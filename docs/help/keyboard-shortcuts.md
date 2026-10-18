@@ -39,9 +39,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 
 | Key | What it does |
 |---|---|
-| Ctrl+1 to Ctrl+9 | The side bar's items in their order (Map, Data, Triggers, ...); Help is the last |
-| Ctrl+M | Map properties (Windows and Linux; on macOS ⌘M minimizes the window) |
-| Ctrl+P | Players and forces |
+| Ctrl+1 to Ctrl+9 | The side bar's items in their order: Map, Data, Triggers, Briefing, Assets, Properties (a project: then Project), and last Help. View > Workspaces lists them with their keys |
 | Ctrl+L | Show or hide the Log |
 | F1 | Help on what has the keyboard: a Data field's page, a trigger check's part, else the contents |
 

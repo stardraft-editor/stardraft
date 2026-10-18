@@ -96,7 +96,7 @@ constexpr UiText kRows[] = {
     {L"Build needs an EUD project. Use File > Project > New project or Open project.", L"\uBE4C\uB4DC\uC5D0\uB294 EUD \uD504\uB85C\uC81D\uD2B8\uAC00 \uD544\uC694\uD569\uB2C8\uB2E4. \uD30C\uC77C > \uD504\uB85C\uC81D\uD2B8 > \uC0C8 \uD504\uB85C\uC81D\uD2B8 \uB610\uB294 \uD504\uB85C\uC81D\uD2B8 \uC5F4\uAE30\uB97C \uC0AC\uC6A9\uD558\uC138\uC694."},
     {L"A build is already running", L"\uC774\uBBF8 \uBE4C\uB4DC\uAC00 \uC2E4\uD589 \uC911\uC785\uB2C8\uB2E4"},
     {L"StarCraft will not start this map:\r\n\r\n", L"StarCraft\uC5D0\uC11C \uC774 \uB9F5\uC744 \uC2DC\uC791\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4:\r\n\r\n"},
-    {L"\r\nTo set the players, use Players and forces (Ctrl+P). Build the map anyway?", L"\r\n\uD50C\uB808\uC774\uC5B4\uB97C \uC124\uC815\uD558\uB824\uBA74 \uD50C\uB808\uC774\uC5B4 \uBC0F \uD3EC\uC2A4(Ctrl+P)\uB97C \uC0AC\uC6A9\uD558\uC138\uC694. \uADF8\uB798\uB3C4 \uB9F5\uC744 \uBE4C\uB4DC\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?"},
+    {L"\r\nTo set the players, use Players and forces on the Properties page. Build the map anyway?", L"\r\n\uD50C\uB808\uC774\uC5B4\uB97C \uC124\uC815\uD558\uB824\uBA74 \uC18D\uC131 \uD398\uC774\uC9C0\uC758 \uD50C\uB808\uC774\uC5B4 \uBC0F \uD3EC\uC2A4\uB97C \uC0AC\uC6A9\uD558\uC138\uC694. \uADF8\uB798\uB3C4 \uB9F5\uC744 \uBE4C\uB4DC\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?"},
     {L"Build", L"\uBE4C\uB4DC"},
     {L"&Build", L"\uBE4C\uB4DC(&B)"},
     {L"Do &not build", L"\uBE4C\uB4DC \uC548 \uD568(&N)"},

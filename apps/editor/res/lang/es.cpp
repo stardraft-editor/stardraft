@@ -96,7 +96,7 @@ constexpr UiText kRows[] = {
     {L"Build needs an EUD project. Use File > Project > New project or Open project.", L"Compilar necesita un proyecto EUD. Use Archivo > Proyecto > Nuevo proyecto o Abrir proyecto."},
     {L"A build is already running", L"Ya hay una compilaci\u00F3n en curso"},
     {L"StarCraft will not start this map:\r\n\r\n", L"StarCraft no iniciar\u00E1 este mapa:\r\n\r\n"},
-    {L"\r\nTo set the players, use Players and forces (Ctrl+P). Build the map anyway?", L"\r\nPara definir los jugadores, use Jugadores y fuerzas (Ctrl+P). \u00BFCompilar el mapa de todos modos?"},
+    {L"\r\nTo set the players, use Players and forces on the Properties page. Build the map anyway?", L"\r\nPara definir los jugadores, use Jugadores y fuerzas, en la p\u00E1gina Propiedades. \u00BFCompilar el mapa de todos modos?"},
     {L"Build", L"Compilar"},
     {L"&Build", L"&Compilar"},
     {L"Do &not build", L"&No compilar"},
