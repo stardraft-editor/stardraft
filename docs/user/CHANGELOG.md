@@ -2,6 +2,104 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.6.1
+
+### New
+
+- Help: a Help workspace (F1, or the last item of the side bar) with pages that explain the program and each field of
+  the .dat files: what it does, its raw value and its value in game units, with the sources. Search the pages, or
+  press Q. In the Data workspace, F1 opens the page of the field under the mouse. The same pages are on the website.
+
+  ![Help](images/0.6.1/help.png)
+- The top bar shows Update when a new release is out. Click it to read the release notes and install. Help > What is
+  new shows the notes of your version.
+- File > Export map image (Ctrl+Shift+E): the whole map, the view or the selection as a PNG, up to full size in HD,
+  with the units, doodads, locations and grid that you select.
+
+  ![Export map image](images/0.6.1/export-map-image.png)
+- Edit > Undo history (Ctrl+Shift+H): the list of undo steps. Click a step to go back or forward to it.
+- File > Project > Import a project (experimental): import an EUD Editor 2 project (.e2s) or a euddraft project (.eds,
+  .edd) as a new project, with its map, .dat edits, texts, plugins and scripts. A list shows what it could not import.
+- Map properties, Players and forces, Map data and Classic triggers are items of the side bar. The Scenario menu is
+  gone: its tools are in Edit > Tools. View > Workspaces lists the side bar's items and their keys.
+
+### Map
+
+- Floating palettes: each palette, or a mode's whole panel, can float in its own window, also on a second screen. Open
+  more panels of a palette, each with its own type, filter, search and sort.
+
+  ![A floating palette](images/0.6.1/floating-palette.png)
+- Stacked units: Options > Units > Can be on top of others. The status bar shows how many units are under the mouse.
+  Alt+click (Option+click on macOS) lists them, so that you can select one.
+- Terrain: the brush paints the same tiles as StarEdit. Brush size 0.5 paints one corner.
+- Rectangle mode: the Tiles list shows one tile group in each row, in the map's graphics (SD, HD or Carbot), with a
+  scroll bar. Shift+click selects a rectangle of tiles.
+- View > Layers > Pathing shows the game's pathing regions. Edit > Tools > Check pathing lists the places where units
+  get stuck, and can fix a pocket of one tile.
+
+  ![Check pathing: the regions and the problems](images/0.6.1/check-pathing.png)
+- View > Overlays: the ranges of the selected units (weapons, sight, detection, a Pylon's psi field), terrain flags
+  (walkable, height, line of sight, buildable) and the fog of war of a player at the start of the game.
+
+  ![Terrain flags: ground height](images/0.6.1/terrain-flags.png)
+
+  ![The fog of war of Player 1](images/0.6.1/fog-of-war.png)
+- The View menu is in groups.
+- Edit > Tools > Decorate the terrain: a few, some or many doodads where they fit the terrain, in the selection or on
+  the whole map. The doodad spray also puts doodads only where they fit.
+- Options > Units > Keep resources 3 tiles from town halls (on by default).
+- Unit properties: Edit unit type works in a classic map too. It opens the unit in Map data.
+- Map data: the Changed filter, pins, copy and paste of an entry's values, and Reset, as in the Data workspace.
+- New page > Generate terrain: Rules for bases (up to 8, each with a Start Location), paths between the bases, and
+  bases on high ground. The preview shows the bases.
+
+  ![Generate terrain with rules](images/0.6.1/generator-rules.png)
+- New page > Generate terrain: Doodads, from 0 (none) to 10 (many).
+- New page > Larger preview: the map in the tileset's own tiles. Export it as a PNG.
+
+### Triggers
+
+- Quick add: press Q in the Triggers workspace or on the Classic triggers page, and type the name of a block, condition
+  or action.
+- Edit > Find in triggers (Ctrl+Shift+F): find triggers, conditions, actions, blocks and comments, and go to them.
+- Trigger comments: each trigger has a comment under its name. Click it to type. In the Triggers workspace, a Comment
+  block is a note between the blocks.
+- Classic triggers: a trigger that has only a comment is a heading. Its arrow folds the triggers under it.
+
+  ![Classic triggers: a comment and a heading](images/0.6.1/trigger-comment.png)
+- Classic triggers: help under the selected condition or action, Ctrl+wheel zoom, and Ctrl+click or Shift+click to
+  select several conditions or actions and delete them. The players of a trigger are in one dropdown.
+- Triggers workspace: a NOT button on each condition.
+- New blocks: Pan the camera, Shake the camera, The tile at a location, The tile at a point, Chat line starts with,
+  Chat line contains, The number in the chat line, Play music, Stop the music, and Set the current player.
+- Every so often stays on time in a long game.
+- Help > Trigger checks: what each check looks for, with an example. Click a check's mark to open its help.
+
+### Data
+
+- The Data form has two columns in windows from about 1280 pixels wide.
+- More values in game units: speed in pixels per second, ranges in pixels or tiles, angles in degrees and times in
+  seconds.
+- A project whose texts are larger than the game's stat_txt.tbl builds.
+
+### The program
+
+- Scroll bars on the Assets page, the Project page and the map pages.
+- On macOS, Open starts in StarCraft's maps folder, Return renames in the Triggers tree, and Cmd+Backspace deletes.
+- About: thanks to the people whose work StarDraft 2 uses.
+- StarDraft 2 starts a little faster.
+
+### Fixes
+
+- Save works for a map in any folder that you can write to, also under Program Files.
+- A palette no longer crashes on Linux and macOS when the map is in another mode.
+- The Tiles list no longer crashes at its end.
+- The quick picker in Rectangle mode no longer fills the memory.
+- A Start Location no longer blocks other units.
+- A map with very many pathing regions no longer stops the program.
+- On macOS, typing in the quick picker no longer switches the mode.
+- A click on the map while the mode's layer is hidden asks if you want to show the layer.
+
 ## 0.6.0
 
 ### New
