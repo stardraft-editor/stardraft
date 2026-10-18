@@ -75,11 +75,12 @@ std::string shotClassicState() {
     std::string s = "classic triggers: the page has " + std::to_string(m.trig.triggers.size()) + ", selected " + std::to_string(m.sel + 1);
     if (m.sel >= 0 && size_t(m.sel) < m.trig.triggers.size()) {
         const ClassicTrigger& t = m.trig.triggers[size_t(m.sel)];
-        s += " (players" + players(t) + "; " + std::to_string(t.conditionCount()) + " conditions, " + std::to_string(t.actionCount()) + " actions)";
+        s += " (players" + players(t) + "; " + std::to_string(t.conditionCount()) + " conditions, " + std::to_string(t.actionCount()) + " actions" +
+             (t.disabled() ? "; off)" : ")");
     }
     const ClassicTriggers inMap = gState.ed->classicTriggers();
     s += "; the map has " + std::to_string(inMap.triggers.size()) + ":";
-    for (const ClassicTrigger& t : inMap.triggers) s += " [players" + players(t) + "]";
+    for (const ClassicTrigger& t : inMap.triggers) s += " [players" + players(t) + (t.disabled() ? "; off]" : "]");
     return s;
 }
 

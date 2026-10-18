@@ -143,7 +143,7 @@ class SdlClassicTrigPage final : public draw::View {
 public:
     explicit SdlClassicTrigPage(SdlClassicTrigModel& m)
         : m_(m), side_(filterNames(m), filterGroups()), triggers_(gSdlTrigList, true), entries_(gSdlTrigList, false),
-          head_(playerLabels(m), headCallbacks()), editor_(editorCallbacks()) {
+          head_(headCallbacks()), editor_(editorCallbacks()) {
         gSdlTrigPage = this;
         gSdlTrigList.list = &triggers_, gSdlTrigList.entries = &entries_;
         side_.onSearch = [](const std::wstring& q) {
@@ -193,7 +193,7 @@ public:
         m_.sel = index >= 0 && index < int(m_.trig.triggers.size()) ? index : -1;
         m_.collapsed.clear();
         const ClassicTrigger* t = ctModelSelected(m_);
-        ctShowPlayers(head_, m_);
+        ctShowPlayers(head_, m_, sdlTrigNames(m_));
         ctUpdateHead(head_, m_);
         entries_.resetScroll();
         const auto at = std::find(m_.shown.begin(), m_.shown.end(), m_.sel);
@@ -249,17 +249,12 @@ private:
         groups.insert(groups.end(), std::begin(kCtGroups), std::end(kCtGroups));
         return groups;
     }
-    // The head's player labels, in the page's order.
-    static std::vector<std::wstring> playerLabels(const SdlClassicTrigModel& m) {
-        const ClassicNames n = sdlTrigNames(m);
-        std::vector<std::wstring> labels;
-        for (int g = 0; g < kCtBoxCount; ++g) labels.push_back(widen(classicPlayerName(uint32_t(kCtBoxGroups[g]), n)));
-        return labels;
-    }
     static CtHeadView::Callbacks headCallbacks() {
         CtHeadView::Callbacks cb;
-        cb.player = [](int box, bool on) {
-            ctModelPlayerBox(gSdlTrigHost.model(), gSdlTrigHost, box, on);
+        cb.players = [] {  // (the core's list picker, as the value lists)
+            if (!gSdlTrigPage) return;
+            ctPlayersClick(gSdlTrigHost, gSdlTrigPage->head().players);
+            ctShowPlayers(gSdlTrigPage->head(), gSdlTrigPage->model(), sdlTrigNames(gSdlTrigPage->model()));
             sdlMapPageChanged();
         };
         cb.turnOff = [] {
@@ -272,10 +267,6 @@ private:
         };
         cb.comment = [] {  // (the text pop-out: core/views_classic_page.inc)
             ctEditComment(gSdlTrigHost);
-            sdlMapPageChanged();
-        };
-        cb.forces = [] {  // (the core's list picker, as the Windows page)
-            if (gSdlTrigPage) ctForcesClick(gSdlTrigHost, gSdlTrigPage->head().forces);
             sdlMapPageChanged();
         };
         return cb;

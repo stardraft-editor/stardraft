@@ -1935,7 +1935,7 @@ Deleted the triggers	Se eliminaron los disparadores
 Deleted the trigger	Se eliminó el disparador
 Duplicated the triggers	Se duplicaron los disparadores
 Duplicated the trigger	Se duplicó el disparador
-Search forces	Buscar fuerzas
+Search players	Buscar jugadores
 Copied the triggers	Se copiaron los disparadores
 Copied the block	Se copió el bloque
 Pasted the triggers	Se pegaron los disparadores
@@ -1976,8 +1976,7 @@ Removed the block	Se quitó el bloque
 Changed the block	Se cambió el bloque
 Added a block	Se añadió un bloque
 Delete the trigger	Eliminar el disparador
-Forces…	Fuerzas…
-Forces: the forces that run the trigger	Fuerzas: las fuerzas que ejecutan el disparador
+Players: the players and forces that run the trigger	Jugadores: los jugadores y las fuerzas que ejecutan el disparador
 The condition or action does nothing in the game (Turn off)	La condición o acción no hace nada en el juego (Desactivar)
 The game's Always display flag for this action	La marca Mostrar siempre del juego para esta acción
 Could not set the classic triggers. A long trigger needs a switch that no trigger uses.	No se pudieron establecer los disparadores clásicos. Un disparador largo necesita un interruptor que ningún disparador use.

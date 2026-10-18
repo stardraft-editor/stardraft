@@ -579,8 +579,8 @@ CASES += [
                                   "--click", "900,700", "--type", "q", "--type", "leave the loop", "--key", "Enter", "--key", "F1"], "data"),
     ("data-triggers-quickadd", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169", "--key", "Enter",
                                 "--click", "900,700", "--type", "q", "--type", "game speed", "--key", "Enter"], "data"),
-    # The Classic triggers page: Add a trigger, Player 3, Undo (the page reads the map again after a moment).
-    ("map-classictrig-edits", ["--workspace", "classictriggers", "--click", "310,250", "--click", "819,221", "--key", "Ctrl+Z",
+    # The Classic triggers page: Add a trigger, Turn off, Undo (the page reads the map again after a moment).
+    ("map-classictrig-edits", ["--workspace", "classictriggers", "--click", "310,250", "--click", "1377,184", "--key", "Ctrl+Z",
                                "--wait", "400"], "map"),
     # The Files workspace: the search box of the game's sounds, "marine" typed.
     ("map-files-search", ["--workspace", "files", "--click", "240,289", "--type", "marine"], "map"),
@@ -2137,23 +2137,23 @@ def check_classic_quickadd(output):
 
 
 def check_classic_edits(output):
-    """None when the trigger was added with Player 3 (on the page and in the map), and Undo took Player 3 out of both."""
+    """None when the trigger was added and turned off (on the page and in the map), and Undo turned it on in both."""
     s = states(output)
     if len(s) != 4:
         return f"{len(s)} input lines, not 4"
-    added, player, undone, waited = (st for _, st in s)
+    added, off, undone, waited = (st for _, st in s)
     m = re.search(r"the page has (\d+), selected (\d+)", added)
     if not m or m.group(1) != m.group(2):
         return f"Add a trigger: {added} (the new trigger is not selected)"
     n = int(m.group(1))
     if f"the map has {n}:" not in added:
         return f"Add a trigger: {added} (not in the map)"
-    if "(players 3;" not in player or not player.endswith("[players 3]"):
-        return f"Player 3: {player}"
+    if "actions; off)" not in off or not off.endswith("; off]"):
+        return f"Turn off: {off}"
     if not undone.endswith("[players none]"):
-        return f"Undo: {undone} (the map's trigger still has Player 3)"
-    if "players 3" in waited:
-        return f"after Undo: {waited} (the page still has Player 3)"
+        return f"Undo: {undone} (the map's trigger is still off)"
+    if "; off" in waited:
+        return f"after Undo: {waited} (the page still has it off)"
     return None
 
 

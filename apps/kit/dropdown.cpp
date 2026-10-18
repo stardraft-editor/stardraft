@@ -233,6 +233,10 @@ void Dropdown::setEnabled(bool e) {
 }
 
 void Dropdown::openList() {
+    if (onOpen) {
+        if (enabled_) onOpen();
+        return;
+    }
     if (listOpen_ || !enabled_ || items_.empty()) return;
     draw::Host* h = host();
     if (!h) return;
@@ -282,7 +286,7 @@ void Dropdown::pick(int i) {
 // Up and Down: the next or the previous item (from none: the first or the last). No wrap.
 void Dropdown::step(int dir) {
     const int n = int(items_.size());
-    if (!n) return;
+    if (!n || onOpen) return;
     const int next = value_ < 0 ? (dir > 0 ? 0 : n - 1) : std::clamp(value_ + dir, 0, n - 1);
     if (next == value_) return;
     value_ = next;

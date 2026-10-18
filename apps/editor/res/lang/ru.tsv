@@ -1936,7 +1936,7 @@ Deleted the triggers	Триггеры удалены
 Deleted the trigger	Триггер удалён
 Duplicated the triggers	Триггеры продублированы
 Duplicated the trigger	Триггер продублирован
-Search forces	Поиск команд
+Search players	Поиск игроков
 Copied the triggers	Триггеры скопированы
 Copied the block	Блок скопирован
 Pasted the triggers	Триггеры вставлены
@@ -1977,8 +1977,7 @@ Removed the block	Блок удалён
 Changed the block	Блок изменён
 Added a block	Блок добавлен
 Delete the trigger	Удалить триггер
-Forces…	Команды…
-Forces: the forces that run the trigger	Команды: команды, которые выполняют триггер
+Players: the players and forces that run the trigger	Игроки: игроки и команды, которые выполняют триггер
 The condition or action does nothing in the game (Turn off)	Условие или действие ничего не делает в игре (Выключить)
 The game's Always display flag for this action	Флаг игры «Всегда показывать» для этого действия
 Could not set the classic triggers. A long trigger needs a switch that no trigger uses.	Не удалось задать классические триггеры. Длинному триггеру нужен переключатель, который не использует ни один триггер.
