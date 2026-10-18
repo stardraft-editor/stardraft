@@ -333,8 +333,8 @@ void SdlCtPageHost::changed() {
 void SdlCtPageHost::invalidate() {
     if (gSdlTrigPage) gSdlTrigPage->invalidateLists();
 }
-bool SdlCtPageHost::ctrl() { return gSdlTrigPage && (gSdlTrigPage->mods() & draw::kCtrl) != 0; }
-bool SdlCtPageHost::shift() { return gSdlTrigPage && (gSdlTrigPage->mods() & draw::kShift) != 0; }
+bool SdlCtPageHost::ctrl() { return gSdlTrigPage && ((gSdlTrigPage->mods() | gCtClickMods) & draw::kCtrl) != 0; }
+bool SdlCtPageHost::shift() { return gSdlTrigPage && ((gSdlTrigPage->mods() | gCtClickMods) & draw::kShift) != 0; }
 void SdlCtPageHost::selectEntry(int kind, int entry) {
     if (gSdlTrigPage) gSdlTrigPage->selectEntry(kind, entry);
 }
