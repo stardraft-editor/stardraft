@@ -108,6 +108,9 @@ CASES += [
     ("map-dialog-prompt", ["--dialog", "prompt"], "map"),
     ("map-dialog-quick", ["--dialog", "quick", "--mode", "units"], "map"),
     ("map-newpage-classic", ["--newpage", "classic"], "map"),
+    # The generator's Rules (roadmap R49): Generate, Bases 4, Bases on high ground; the preview marks the bases.
+    ("map-newpage-rules", ["--size", "2400x1300", "--newpage", "classic", "--click", "894,408", "--wait", "900", "--click", "1824,968",
+                           "--wait", "1500", "--click", "1517,1021", "--wait", "1500"], "map"),
     ("map-dialog-message-build", ["--dialog", "message:build"], "map"),  # Build's question (shellAskYesNo)
     ("map-dialog-message-delete", ["--dialog", "message:delete"], "map"),  # the Triggers' question before Delete
     # A project open.

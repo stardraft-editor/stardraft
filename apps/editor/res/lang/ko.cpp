@@ -2363,7 +2363,6 @@ constexpr UiText kRows[] = {
     {L"No maps yet: add the open map, or a map file", L"\uC544\uC9C1 \uB9F5\uC774 \uC5C6\uC2B5\uB2C8\uB2E4: \uC5F4\uB9B0 \uB9F5\uC774\uB098 \uB9F5 \uD30C\uC77C\uC744 \uCD94\uAC00\uD558\uC138\uC694"},
     {L"Select or make a folder for the campaign", L"\uCEA0\uD398\uC778 \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uAC70\uB098 \uB9CC\uB4DC\uC138\uC694"},
     {L"Select the campaign's folder", L"\uCEA0\uD398\uC778 \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694"},
-    {L"&Import a project\u2026", L"\uD504\uB85C\uC81D\uD2B8 \uAC00\uC838\uC624\uAE30(&I)\u2026"},
     {L"Import a project", L"\uD504\uB85C\uC81D\uD2B8 \uAC00\uC838\uC624\uAE30"},
     {L"Imported:", L"\uAC00\uC838\uC628 \uAC83:"},
     {L"Not imported (do these again in StarDraft):", L"\uAC00\uC838\uC624\uC9C0 \uBABB\uD55C \uAC83 (StarDraft\uC5D0\uC11C \uB2E4\uC2DC \uD558\uC138\uC694):"},
@@ -2385,6 +2384,7 @@ constexpr UiText kRows[] = {
     {L"Edit unit type in Map data (", L"\uB9F5 \uB370\uC774\uD130\uC5D0\uC11C \uC720\uB2DB \uC885\uB958 \uD3B8\uC9D1 ("},
     {L"Back: the page before (Alt+Left)", L"\uB4A4\uB85C: \uC774\uC804 \uD398\uC774\uC9C0 (Alt+Left)"},
     {L"Forward: the page after (Alt+Right)", L"\uC55E\uC73C\uB85C: \uB2E4\uC74C \uD398\uC774\uC9C0 (Alt+Right)"},
+    {L"&Import a project (experimental)\u2026", L"\uD504\uB85C\uC81D\uD2B8 \uAC00\uC838\uC624\uAE30(\uC2E4\uD5D8 \uB2E8\uACC4)(&I)\u2026"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
