@@ -449,18 +449,29 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
         const bool ctrl = (e.mods & draw::kCtrl) != 0, shift = (e.mods & draw::kShift) != 0;
         const int v = hit(e.pt.x, e.pt.y);
         if (v >= 0 && (ctrl || shift) && gTiles.picked >= 0) {  // several tiles, for Spray (#81)
-            if (shift) {  // the tiles from the last pick to this one, in the grid's order
+            if (shift) {  // the rectangle of the grid from the last click without Shift to this tile (Ctrl: added)
                 auto at = [](int value) { return int(std::find(gTiles.values.begin(), gTiles.values.end(), uint16_t(value)) - gTiles.values.begin()); };
-                const int a = std::min(at(gTiles.picked), at(v)), b = std::max(at(gTiles.picked), at(v));
+                const int from = at(gTiles.anchor >= 0 ? gTiles.anchor : gTiles.picked), to = at(v);
+                const int n = int(gTiles.values.size());
                 if (!ctrl) gTiles.chosen.clear();
-                for (int k = a; k <= b && k < int(gTiles.values.size()); ++k)
-                    if (gTiles.values[size_t(k)] != kTilesNone && std::find(gTiles.chosen.begin(), gTiles.chosen.end(), gTiles.values[size_t(k)]) == gTiles.chosen.end())
-                        gTiles.chosen.push_back(gTiles.values[size_t(k)]);
+                if (from < n && to < n) {
+                    const int c0 = std::min(from % kTilesPerRow, to % kTilesPerRow), c1 = std::max(from % kTilesPerRow, to % kTilesPerRow);
+                    const int r0 = std::min(from, to) / kTilesPerRow, r1 = std::max(from, to) / kTilesPerRow;
+                    for (int r = r0; r <= r1; ++r)
+                        for (int c = c0; c <= c1; ++c) {
+                            const int k = r * kTilesPerRow + c;
+                            if (k < n && gTiles.values[size_t(k)] != kTilesNone &&
+                                std::find(gTiles.chosen.begin(), gTiles.chosen.end(), gTiles.values[size_t(k)]) == gTiles.chosen.end())
+                                gTiles.chosen.push_back(gTiles.values[size_t(k)]);
+                        }
+                }
+                if (gTiles.chosen.empty()) gTiles.chosen.push_back(uint16_t(v));
             } else if (auto it = std::find(gTiles.chosen.begin(), gTiles.chosen.end(), uint16_t(v)); it != gTiles.chosen.end()) {
                 if (gTiles.chosen.size() > 1) gTiles.chosen.erase(it);
             } else {
                 gTiles.chosen.push_back(uint16_t(v));
             }
+            if (!shift) gTiles.anchor = v;
             gTiles.picked = gTiles.chosen.back();
             setMessage(L"Selected " + std::to_wstring(gTiles.chosen.size()) + L" tiles: Brush, Spray and Fill place one of them at random");
             invalidate();
