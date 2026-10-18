@@ -35,10 +35,14 @@ void mapFrameDone(AppState& app) {
     updateStatus();
 }
 
-// A location's name in lines that fit in w x h screen pixels (the map font, 1.5 px a unit, lines 12 units apart):
-// words go to the next line; a word too long is cut; lines that do not fit are left out.
+// The map font's size on the screen: 1.5 px a unit at 96 dpi, more on a screen of more pixels (a Retina display: 2x)
+// and at a larger UI scale, so the names on the map read as large as the program's other text.
+float mapTextScale() { return 1.5f * float(shellDpi()) / 96.0f; }
+
+// A location's name in lines that fit in w x h screen pixels (the map font, mapTextScale px a unit, lines 12 units
+// apart): words go to the next line; a word too long is cut; lines that do not fit are left out.
 std::string wrapLocationName(const std::string& name, float w, float h) {
-    const float unit = 1.5f;
+    const float unit = mapTextScale();
     const int maxW = std::max(1, int(w / unit)), maxLines = std::max(1, int(h / (12 * unit)));
     std::vector<std::string> lines(1);
     std::istringstream in(name);
@@ -414,7 +418,7 @@ render::Scene buildScene() {
             outline(s, r, sel ? 0xFFD040FFu : inv ? (active ? 0xFF5050E0u : 0xFF505080u) : (active ? 0x5080FFE0u : 0x5080FF80u), sel ? 2.0f : 1.0f);
             std::string name = narrow(widen(ed.locationName(i)));
             if (app.locationWrap) name = wrapLocationName(name, float(r.right - r.left) * app.zoom - 6, float(r.bottom - r.top) * app.zoom - 6);
-            s.texts.push_back({float(r.left) + 3 / app.zoom, float(r.top) + 3 / app.zoom, name, active ? 0xFFFFFFFFu : 0xFFFFFFA0u});
+            s.texts.push_back({float(r.left) + 3 / app.zoom, float(r.top) + 3 / app.zoom, name, active ? 0xFFFFFFFFu : 0xFFFFFFA0u, true, mapTextScale()});
             if (sel)
                 for (int c = 0; c < 4; ++c) {
                     float hx = (c & 1) ? float(r.right) : float(r.left), hy = (c & 2) ? float(r.bottom) : float(r.top);
