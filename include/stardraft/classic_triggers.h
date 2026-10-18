@@ -237,8 +237,9 @@ struct ClassicBlockKind {
 };
 const std::vector<ClassicBlockKind>& classicBlockKinds();
 const ClassicBlockKind& classicBlockKind(ClassicBatchKind kind);
-// New blocks can be added (the action picker's "Blocks"; roadmap R23, on since 2026-10-18).
-constexpr bool kClassicBatchesOffered = true;
+// New blocks can be added (the action picker's "Blocks"; roadmap R23). Off again (2026-10-18): the blocks (For each
+// unit, player, location) are hidden for now; a map's blocks still show and can be edited.
+constexpr bool kClassicBatchesOffered = false;
 ClassicKind classicBatchValueKind(ClassicBatchKind kind);  // the kind of the values: Unit, Player or Location
 // A name that the header and the sentences can hold: letters, digits, spaces and underscores, at most 24, trimmed;
 // "unit" (the kind's name) when nothing is left.

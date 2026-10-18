@@ -2377,6 +2377,7 @@ constexpr UiText kRows[] = {
     {L"The bases and the paths are high ground (else low ground)", L"Las bases y los caminos son terreno elevado (si no, terreno bajo)"},
     {L"Help: the documentation (F1, Ctrl+", L"Ayuda: la documentaci\u00F3n (F1, Ctrl+"},
     {L"Help page", L"P\u00E1gina de ayuda"},
+    {L"the Help pages", L"las p\u00E1ginas de ayuda"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
