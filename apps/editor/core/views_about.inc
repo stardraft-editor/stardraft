@@ -1,7 +1,7 @@
-// Help > About StarDraft (portable, core.inc): the app icon large, the version, and links to the EUD tools, the GitHub
-// repository and the Discord server. The content is a view (AboutView) in a Dialog window that a host opens with
-// Host::openWindow (one window; it does not stop the program). The Windows host is about.inc; the SDL program opens it
-// from sdl_menus.inc.
+// Help > About StarDraft (portable, core.inc): the app icon large, the version, the thanks (with links to IsomTerrain
+// and the EUD tools), the GitHub repository and the Discord server. The content is a view (AboutView) in a Dialog
+// window that a host opens with Host::openWindow (one window; it does not stop the program). The Windows host is
+// about.inc; the SDL program opens it from sdl_menus.inc.
 //
 // The links open in the browser (shellOpenUrl); the Close button and Esc or Enter close the window.
 
@@ -14,13 +14,13 @@ public:
         draw::Rect rc;
         std::wstring url;
     };
-    std::vector<Link> links;  // from the last paint: euddraft, eudplib, the repository, Discord
+    std::vector<Link> links;  // from the last paint: IsomTerrain, euddraft, eudplib, the repository, Discord
     draw::Rect closeRc;
     int hot = -1;  // link index, or -2 for Close
     std::function<void()> closed;  // the view closed its window (Close, Esc, Enter)
 
     // The window's size at 100 % (the lines about the name and the EUD tools fit).
-    static draw::Point size() { return {scale(600), scale(552)}; }  // (the lines about the name, the EUD tools and Blizzard fit)
+    static draw::Point size() { return {scale(600), scale(616)}; }  // (the thanks, the lines about Blizzard and the links fit)
 
     void paint(draw::Canvas& c) override {
         using draw::Color;
@@ -48,66 +48,65 @@ public:
         const Font smallText = c.font({});
         centered(L"v" + shellVersion() + (shellBuildStamp().empty() ? L"" : L"  (" + shellBuildStamp() + L")"), smallText, kDim, scale(22));
         centered(L"A map creation tool for EUD-powered maps for StarCraft: Remastered", smallText, kDim, scale(22));
-        // The name: a tribute to StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.
-        centered(L"Named after StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.", smallText, kDim, scale(22));
-        centered(L"StarDraft 2 aims to be its spiritual successor for StarCraft makers in 2026 and later.", smallText, kDim, scale(22));
-
-        // The links: underlined when the mouse is on them. First the EUD tools, as two links in one line of text.
+        // The thanks: the program StarDraft 2 is named after, and the projects it is built on. A line's names are links
+        // (underlined when the mouse is on them); a translation without the names shows the text only.
         links.clear();
-        {
-            const std::wstring line = tr(std::wstring(L"StarDraft 2 is powered by euddraft and eudplib"));
-            const std::wstring names[2] = {L"euddraft", L"eudplib"};
-            const wchar_t* urls[2] = {L"https://github.com/armoha/euddraft", L"https://github.com/armoha/eudplib"};
-            const size_t a = line.find(names[0]), b = line.find(names[1]);
-            if (a == std::wstring::npos || b == std::wstring::npos || b < a + names[0].size()) {
-                centered(line, smallText, kDim, scale(22));  // a translation without the names: the text only
-            } else {
-                struct Piece {
-                    std::wstring text;
-                    int link;  // -1: text
-                };
-                const Piece pieces[5] = {{line.substr(0, a), -1}, {names[0], 0}, {line.substr(a + names[0].size(), b - a - names[0].size()), -1},
-                                         {names[1], 1}, {line.substr(b + names[1].size()), -1}};
-                const size_t first = links.size();
-                // The pieces' widths (the link pieces underlined when hot, as they are drawn).
-                auto pieceFont = [&](const Piece& p) {
-                    FontDesc d;
-                    d.underline = p.link >= 0 && hot == int(first) + p.link;
-                    return c.font(d);
-                };
-                int total = 0;
-                for (const Piece& p : pieces) {
-                    if (p.text.empty()) continue;
-                    const Font of = c.setFont(p.link >= 0 ? pieceFont(p) : smallText);
-                    total += c.measure(p.text);
-                    c.setFont(of);
+        auto linkLine = [&](const std::wstring& english, const std::vector<std::pair<std::wstring, std::wstring>>& names) {
+            const std::wstring line = tr(english);
+            struct Piece {
+                std::wstring text;
+                int link;  // -1: text, else the index in `names`
+            };
+            std::vector<Piece> pieces;
+            size_t at = 0;
+            for (size_t k = 0; k < names.size(); ++k) {
+                const size_t f = line.find(names[k].first, at);
+                if (f == std::wstring::npos) {
+                    centered(line, smallText, kDim, scale(22));
+                    return;
                 }
-                int x = (w - total) / 2;
-                for (const Piece& p : pieces) {
-                    if (p.text.empty()) continue;
-                    const Font of = c.setFont(p.link >= 0 ? pieceFont(p) : smallText);
-                    const int tw = c.measure(p.text);
-                    const Rect r{x, y, x + tw, y + scale(22)};
-                    c.text(r, p.text, p.link >= 0 ? kAccent : kDim, draw::kMiddle);
-                    c.setFont(of);
-                    if (p.link >= 0) links.push_back({r, urls[p.link]});
-                    x += tw;
-                }
-                y += scale(22);
+                pieces.push_back({line.substr(at, f - at), -1});
+                pieces.push_back({names[k].first, int(k)});
+                at = f + names[k].first.size();
             }
-        }
-        {  // The terrain core (IsomTerrain, MIT): its copyright notice, a link to it.
-            const std::wstring text = L"Isometric terrain: IsomTerrain, Copyright (c) 2023 Justin F (MIT License)";
-            FontDesc d;
-            d.underline = hot == int(links.size());
-            const Font of = c.setFont(c.font(d));
-            const int tw = c.measure(text);
-            const Rect r{(w - tw) / 2, y, (w + tw) / 2, y + scale(22)};
-            c.text(r, text, kAccent, draw::kMiddle);
-            c.setFont(of);
-            links.push_back({r, L"https://github.com/TheNitesWhoSay/IsomTerrain"});
+            pieces.push_back({line.substr(at), -1});
+            const size_t first = links.size();
+            auto pieceFont = [&](const Piece& p) {
+                if (p.link < 0) return smallText;
+                FontDesc d;
+                d.underline = hot == int(first) + p.link;
+                return c.font(d);
+            };
+            int total = 0;
+            for (const Piece& p : pieces) {
+                if (p.text.empty()) continue;
+                const Font of = c.setFont(pieceFont(p));
+                total += c.measure(p.text);
+                c.setFont(of);
+            }
+            int x = (w - total) / 2;
+            for (const Piece& p : pieces) {
+                if (p.text.empty()) continue;
+                const Font of = c.setFont(pieceFont(p));
+                const int tw = c.measure(p.text);
+                const Rect r{x, y, x + tw, y + scale(22)};
+                c.text(r, p.text, p.link >= 0 ? kAccent : kDim, draw::kMiddle);
+                c.setFont(of);
+                if (p.link >= 0) links.push_back({r, names[size_t(p.link)].second});
+                x += tw;
+            }
             y += scale(22);
-        }
+        };
+        y += scale(12);
+        FontDesc heading;  // the UI font, semibold
+        heading.weight = 600;
+        centered(L"Thanks", c.font(heading), kText, scale(26));
+        centered(L"Camelot Systems, for the original StarDraft (1998), which started the StarCraft modding scene.", smallText, kDim, scale(22));
+        centered(L"StarDraft 2 aims to be its spiritual successor.", smallText, kDim, scale(22));
+        linkLine(L"Nites, for IsomTerrain, the isometric terrain", {{L"IsomTerrain", L"https://github.com/TheNitesWhoSay/IsomTerrain"}});
+        linkLine(L"armoha, for euddraft and eudplib, which power the EUD maps",
+                 {{L"euddraft", L"https://github.com/armoha/euddraft"}, {L"eudplib", L"https://github.com/armoha/eudplib"}});
+        centered(L"IsomTerrain: Copyright (c) 2023 Justin F (MIT License)", smallText, kDim, scale(22));
         // Not a Blizzard product, and it needs the game's files.
         y += scale(10);
         centered(L"StarDraft 2 is not associated with Blizzard Entertainment.", smallText, kDim, scale(22));

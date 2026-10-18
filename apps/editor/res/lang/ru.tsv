@@ -1674,8 +1674,11 @@ Add an &action	Добавить &действие
 &Search…	&Поиск…
 Loops	Циклы
 If	Если
-Named after StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.	Назван в честь StarDraft от Camelot Systems (1998), с которого началась сцена модов для StarCraft.
-StarDraft 2 aims to be its spiritual successor for StarCraft makers in 2026 and later.	StarDraft 2 стремится стать его духовным преемником для создателей карт StarCraft в 2026 году и позже.
+Thanks	Благодарности
+Camelot Systems, for the original StarDraft (1998), which started the StarCraft modding scene.	Camelot Systems — за оригинальный StarDraft (1998), с которого началась сцена модов для StarCraft.
+StarDraft 2 aims to be its spiritual successor.	StarDraft 2 стремится стать его духовным преемником.
+Nites, for IsomTerrain, the isometric terrain	Nites — за IsomTerrain, изометрический ландшафт
+armoha, for euddraft and eudplib, which power the EUD maps	armoha — за euddraft и eudplib, на которых работают EUD-карты
 Mouse	Мышь
 The farther the mouse is from where you pressed, the faster the map moves toward it (default)	Чем дальше мышь от места нажатия, тем быстрее карта движется к ней (по умолчанию)
 The map moves with the mouse	Карта движется вместе с мышью
@@ -1864,7 +1867,6 @@ Brush: place the tile selected in the Tiles list, with the brush's size and shap
 . At the next start, StarDraft 2 asks if you want to send the crash report.	. При следующем запуске StarDraft 2 спросит, хотите ли вы отправить отчёт о сбое.
 &Pin to the top	&Закрепить вверху
 Un&pin	От&крепить
-StarDraft 2 is powered by euddraft and eudplib	StarDraft 2 работает на euddraft и eudplib
 player array	массив игроков
 Player arrays	Массивы игроков
 Select a player array	Выберите массив игроков

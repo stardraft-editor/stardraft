@@ -1785,8 +1785,11 @@ Add an &action	동작 추가(&A)
 &Search…	검색(&S)…
 Loops	반복
 If	If
-Named after StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.	스타크래프트 모딩의 시작이 된 Camelot Systems의 StarDraft(1998)에서 이름을 따왔습니다.
-StarDraft 2 aims to be its spiritual successor for StarCraft makers in 2026 and later.	StarDraft 2는 2026년 이후의 스타크래프트 제작자를 위한 정신적 후속작을 목표로 합니다.
+Thanks	감사의 말
+Camelot Systems, for the original StarDraft (1998), which started the StarCraft modding scene.	스타크래프트 모딩의 시작이 된 원조 StarDraft(1998)를 만든 Camelot Systems
+StarDraft 2 aims to be its spiritual successor.	StarDraft 2는 그 정신적 후속작을 목표로 합니다.
+Nites, for IsomTerrain, the isometric terrain	아이소메트릭 지형 IsomTerrain을 만든 Nites
+armoha, for euddraft and eudplib, which power the EUD maps	EUD 맵을 움직이는 euddraft와 eudplib를 만든 armoha
 Mouse	마우스
 The farther the mouse is from where you pressed, the faster the map moves toward it (default)	마우스가 누른 곳에서 멀수록 맵이 그쪽으로 더 빨리 움직입니다 (기본값)
 The map moves with the mouse	맵이 마우스를 따라 움직입니다
@@ -1864,7 +1867,6 @@ The language of the program's texts	프로그램 텍스트의 언어
 The map has 	맵에 
 The minimap is hidden (View > Show minimap shows it again)	미니맵이 숨겨져 있습니다 (보기 > 미니맵 표시로 다시 표시합니다)
 The minimap shows	미니맵이 표시됩니다
-StarDraft 2 is powered by euddraft and eudplib	StarDraft 2는 euddraft와 eudplib로 작동합니다
 player array	플레이어 배열
 Player arrays	플레이어 배열
 Select a player array	플레이어 배열을 선택하십시오

@@ -1674,8 +1674,11 @@ Add an &action	添加动作(&A)
 &Search…	搜索(&S)…
 Loops	循环
 If	如果
-Named after StarDraft by Camelot Systems (1998), which started the StarCraft modding scene.	名称取自 1998 年 Camelot Systems 的 StarDraft，它开启了 StarCraft 模组圈。
-StarDraft 2 aims to be its spiritual successor for StarCraft makers in 2026 and later.	StarDraft 2 旨在成为它的精神续作，服务 2026 年及以后的 StarCraft 制作者。
+Thanks	致谢
+Camelot Systems, for the original StarDraft (1998), which started the StarCraft modding scene.	Camelot Systems：原版 StarDraft（1998）的作者，它开启了 StarCraft 模组圈。
+StarDraft 2 aims to be its spiritual successor.	StarDraft 2 旨在成为它的精神续作。
+Nites, for IsomTerrain, the isometric terrain	Nites：等距地形库 IsomTerrain 的作者
+armoha, for euddraft and eudplib, which power the EUD maps	armoha：euddraft 和 eudplib 的作者，它们驱动 EUD 地图
 Mouse	鼠标
 The farther the mouse is from where you pressed, the faster the map moves toward it (default)	鼠标离按下位置越远，地图向它移动越快（默认）
 The map moves with the mouse	地图随鼠标移动
@@ -1862,7 +1865,6 @@ Brush: place the tile selected in the Tiles list, with the brush's size and shap
 . At the next start, StarDraft 2 asks if you want to send the crash report.	。下次启动时，StarDraft 2 会询问您是否要发送崩溃报告。
 &Pin to the top	置顶(&P)
 Un&pin	取消置顶(&P)
-StarDraft 2 is powered by euddraft and eudplib	StarDraft 2 由 euddraft 和 eudplib 驱动
 player array	玩家数组
 Player arrays	玩家数组
 Select a player array	请选择玩家数组
