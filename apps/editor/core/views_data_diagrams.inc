@@ -363,11 +363,13 @@ inline int damage(draw::Canvas& c, DataPicturesHost& host, int wpn, int x, int y
     const int upgrade = datValue("weapons", "Damage Upgrade", wpn, 61);
     const int levels = std::clamp(upgrade < 61 ? datValue("upgrades", "Max. Repeats", upgrade, 3) : 0, 0, 6);
     const int hits = std::max(1, datValue("weapons", "Damage Factor", wpn, 1)), cooldown = std::max(1, datValue("weapons", "Weapon Cooldown", wpn, 1));
-    const int rowH = scale(28), headH = scale(26), labelW = scale(70), cellW = std::max(scale(84), std::min((w - labelW) / 3, scale(130)));
+    const int rowH = scale(28), headH = scale(26), labelW = w < scale(320) ? scale(46) : scale(70);
+    const int cellW = std::max(scale(44), std::min((w - labelW) / 3, scale(130)));  // (a narrow column: narrow cells)
     const int cw = labelW + 3 * cellW, ch = headH + (levels + 1) * rowH + scale(44);
     const draw::Rect cr{x, y, x + cw, y + ch};
     ground(c, cr);
-    const wchar_t* sizes[3] = {L"Small", L"Medium", L"Large"};
+    const bool shortHeads = cellW < scale(72);  // the sizes' first letters in narrow cells
+    const wchar_t* sizes[3] = {shortHeads ? L"S" : L"Small", shortHeads ? L"M" : L"Medium", shortHeads ? L"L" : L"Large"};
     for (int s = 0; s < 3; ++s)
         c.text({x + labelW + s * cellW, y + scale(4), x + labelW + (s + 1) * cellW - scale(10), y + headH}, sizes[s], kDim, draw::kMiddle | draw::kRight);
     const double top = hitDamage(wpn, levels, 3, 0) * hits;
@@ -911,17 +913,32 @@ int paintIscriptListing(draw::Canvas& c, DataPicturesHost& host, int image, int 
     return scale(24) + h;
 }
 
-// The diagrams beside a section's fields (main.cpp: dataWidgets). Returns the y under them.
+// The diagrams beside a section's fields (main.cpp: dataWidgets). Returns the y under them. A narrow column (two
+// columns in a small window) makes the pictures smaller, down to kMinPic, and puts side-by-side pictures under each
+// other.
 int paintDataDiagrams(draw::Canvas& c, DataPicturesHost& host, const std::string& dat, int section, int e, int x, int y, int w, bool& moving) {
     using namespace datapics;
     using C = LegendChip;
-    const int gap = scale(12);
+    const int gap = scale(12), kMinPic = scale(140);
     int bottom = y;
     if (dat == "units" && section == 3) {
-        const int dial = scale(120), fw = std::max(scale(240), std::min(w - dial - gap, scale(560))), fh = std::min(scale(380), fw * 3 / 4);
+        const int dial = scale(120), pathW = scale(170);
+        if (w < scale(240) + gap + dial) {  // narrow: the footprint, then the dial and the pathing gap under it
+            const int fw = std::max(kMinPic, std::min(w, scale(560))), fh = fw * 3 / 4;
+            footprint(c, host, e, x, y, fw, fh);
+            direction(c, host, e, x, y + fh + gap, std::min(dial, fw));
+            pathing(c, host, e, x, y + fh + gap + std::min(dial, fw) + gap, std::min(pathW, fw));
+            std::vector<C> chips = {{draw::rgb(120, 230, 140), L"Unit size", {"Unit Size Left", "Unit Size Up", "Unit Size Right", "Unit Size Down"}},
+                                          {draw::rgb(171, 242, 0), L"Placement box", {"StarEdit Placement Box Width", "StarEdit Placement Box Height"}, 1},
+                                          {draw::rgb(240, 160, 60), L"Direction", {"Unit Direction"}}};
+            if (datValue("units", "Special Ability Flags", e) & 2)
+                chips.insert(chips.begin() + 2, C{draw::rgb(240, 120, 100), L"Addon position", {"Addon Horizontal (X) Position", "Addon Vertical (Y) Position"}});
+            const int ly = y + fh + gap + std::min(dial, fw) + gap + std::min(pathW, fw) + scale(8);
+            return ly + legend(c, host, x, ly, fw, chips);
+        }
+        const int fw = std::max(scale(240), std::min(w - dial - gap, scale(560))), fh = std::min(scale(380), fw * 3 / 4);
         footprint(c, host, e, x, y, fw, fh);
         direction(c, host, e, x + fw + gap, y, dial);
-        const int pathW = scale(170);
         if (fh >= dial + gap + pathW) pathing(c, host, e, x + fw + gap, y + dial + gap, pathW);
         else pathing(c, host, e, x + fw + gap + dial + gap, y, pathW);
         const bool isAddon = (datValue("units", "Special Ability Flags", e) & 2) != 0;
@@ -931,7 +948,7 @@ int paintDataDiagrams(draw::Canvas& c, DataPicturesHost& host, const std::string
         chips.push_back({draw::rgb(240, 160, 60), L"Direction", {"Unit Direction"}});
         bottom = y + fh + scale(8) + legend(c, host, x, y + fh + scale(8), fw + gap + dial, chips);
     } else if (dat == "units" && section == 0) {
-        const int s = std::max(scale(240), std::min(w, scale(440)));
+        const int s = std::max(kMinPic, std::min(w, scale(440)));
         unitRanges(c, host, e, x, y, s, s);
         bottom = y + s + scale(8) +
                  legend(c, host, x, y + s + scale(8), s,
@@ -940,7 +957,7 @@ int paintDataDiagrams(draw::Canvas& c, DataPicturesHost& host, const std::string
     } else if (dat == "weapons" && section == 0) {
         bottom = y + damage(c, host, e, x, y, std::min(w, scale(480)));
     } else if (dat == "weapons" && section == 1) {
-        const int cw = std::max(scale(260), std::min(w, scale(520))), ch = cw * 2 / 3;
+        const int cw = std::max(kMinPic, std::min(w, scale(520))), ch = cw * 2 / 3;
         weaponRanges(c, host, e, x, y, cw, ch, host.pictureDragging());
         bottom = y + ch + scale(8) +
                  legend(c, host, x, y + ch + scale(8), cw,
@@ -949,11 +966,14 @@ int paintDataDiagrams(draw::Canvas& c, DataPicturesHost& host, const std::string
                          {draw::rgb(225, 100, 80), L"Medium splash", {"Medium Splash Range"}, 1},
                          {draw::rgb(180, 75, 65), L"Inner splash", {"Inner Splash Range"}, 1}});
     } else if (dat == "weapons" && section == 2) {
-        const int d = scale(180), ow = std::max(scale(200), std::min(w - d - gap, scale(360)));
+        const bool narrow = w < scale(180) + gap + scale(200);  // narrow: the offsets under the dial
+        const int d = narrow ? std::max(kMinPic, std::min(w, scale(180))) : scale(180);
+        const int ow = narrow ? d : std::max(scale(200), std::min(w - d - gap, scale(360)));
         weaponDial(c, host, e, x, y, d);
-        weaponOffsets(c, host, e, x + d + gap, y, ow, d);
-        bottom = y + d + scale(8) +
-                 legend(c, host, x, y + d + scale(8), d + gap + ow,
+        weaponOffsets(c, host, e, narrow ? x : x + d + gap, narrow ? y + d + gap : y, ow, d);
+        const int under = narrow ? y + 2 * d + gap : y + d;
+        bottom = under + scale(8) +
+                 legend(c, host, x, under + scale(8), narrow ? d : d + gap + ow,
                         {{draw::rgb(120, 220, 120), L"Attack angle", {"Attack Angle"}, 1}, {draw::rgb(235, 90, 80), L"Launch spin", {"Launch Spin"}},
                          {draw::rgb(255, 210, 80), L"Start point", {"Forward Offset", "Upward Offset"}}});
     } else if (dat == "flingy" && section == 0) {
@@ -963,7 +983,7 @@ int paintDataDiagrams(draw::Canvas& c, DataPicturesHost& host, const std::string
             c.text(g, L"does not move", kDim, draw::kCenter | draw::kMiddle);
             return y + scale(44);
         }
-        const int cw = std::max(scale(260), std::min(w, scale(560))), ch = scale(180);
+        const int cw = std::max(kMinPic, std::min(w, scale(560))), ch = scale(180);
         speed(c, host, e, x, y, cw, ch);
         int yy = y + ch + scale(8);
         yy += legend(c, host, x, yy, cw,
@@ -974,7 +994,7 @@ int paintDataDiagrams(draw::Canvas& c, DataPicturesHost& host, const std::string
         yy += ch + scale(8);
         bottom = yy + legend(c, host, x, yy, cw, {{draw::rgb(240, 180, 70), L"Turn radius", {"Turn Radius"}}});
     } else if (dat == "sprites" && section == 0) {
-        const int s = std::max(scale(200), std::min(w, scale(320)));
+        const int s = std::max(kMinPic, std::min(w, scale(320)));
         sprite(c, host, e, x, y, s);
         bottom = y + s + scale(8) +
                  legend(c, host, x, y + s + scale(8), s,

@@ -137,7 +137,10 @@ int paintImagePlayer(draw::Canvas& c, DataPicturesHost& host, int image, int x, 
     static int editsSeen = -1;
     if (gImagePlayer.image != image) imagePlayerStart(image, 0), editsSeen = dataState().edits;
     else if (editsSeen != dataState().edits) imagePlayerStart(image, gImagePlayer.anim), editsSeen = dataState().edits;
-    const int listW = std::min(scale(220), w / 3), stage = std::min(w - listW - scale(12), scale(400)), barH = scale(40);
+    // A narrow player (two columns in a small window): the stage, the bar under it, then the list under the bar.
+    const bool narrow = w < scale(360);
+    const int listW = narrow ? w : std::min(scale(220), w / 3), barH = scale(40);
+    const int stage = narrow ? std::min(w, scale(400)) : std::min(w - listW - scale(12), scale(400));
     // The stage.
     const draw::Rect st{x, y, x + stage, y + stage};
     box(c, st, draw::rgb(12, 12, 14));
@@ -192,8 +195,9 @@ int paintImagePlayer(draw::Canvas& c, DataPicturesHost& host, int image, int x, 
     // (The list of the animations beside the stage can be longer than the stage is high: the bar goes under both.)
     int anims = 0;
     for (int a = 0; a < 28; ++a) anims += a == 0 || sp.animOffset(image, a) != 0;
-    const int rowH = scale(28), listBottom = std::max(int(st.bottom), y + scale(8) + anims * rowH);
-    const int barRight = st.right + scale(12) + listW, by = listBottom + scale(8);
+    const int rowH = scale(28);
+    const int barTop = narrow ? int(st.bottom) : std::max(int(st.bottom), y + scale(8) + anims * rowH);
+    const int barRight = narrow ? x + w : st.right + scale(12) + listW, by = barTop + scale(8);
     const int bs = std::max(scale(12), std::min(barH - scale(8), (barRight - x - scale(52)) / 7));
     int bx = x;
     auto next = [&] { bx += bs + scale(6); };
@@ -231,10 +235,11 @@ int paintImagePlayer(draw::Canvas& c, DataPicturesHost& host, int image, int x, 
                          },
                          L"Drag to turn the image. This removes the target.", draw::Cursor::Hand);
     }
-    // The animations: a list beside the stage.
-    const int lx = st.right + scale(12);
-    box(c, {lx, y, lx + listW, listBottom}, draw::rgb(22, 22, 25));
-    int ly = y + scale(4);
+    // The animations: a list beside the stage (narrow: under the bar).
+    const int lx = narrow ? x : st.right + scale(12), listTop = narrow ? by + bs + scale(8) : y;
+    const int listBottom = narrow ? listTop + scale(8) + anims * rowH : barTop;
+    box(c, {lx, listTop, lx + listW, listBottom}, draw::rgb(22, 22, 25));
+    int ly = listTop + scale(4);
     for (int a = 0; a < 28; ++a) {
         if (a > 0 && !sp.animOffset(image, a)) continue;
         const draw::Rect r{lx + 1, ly, lx + listW - 1, ly + rowH};
