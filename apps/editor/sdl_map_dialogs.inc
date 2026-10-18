@@ -10,6 +10,8 @@ bool prompt(const wchar_t* title, std::wstring& text) {
     return runTextPrompt(*gRoot, title, text, true, shown);
 }
 
+void dataGoTo(const std::string& dat, int e);  // (sdl_data.inc: the entry in its tab)
+
 // Unit properties of unit `index` (and the rest of the selection, when it is part of it), as on Windows.
 void showUnitProperties(int index) {
     if (!gRoot || !gState.ed || index < 0 || index >= int(gState.ed->units().size())) return;
@@ -19,9 +21,14 @@ void showUnitProperties(int index) {
     gState.dirty = true;
     UnitPropsView* shown = nullptr;
     const int type = first.type, owner = first.owner;
-    runUnitPropsDialog(*gRoot, *gState.ed, units, first, draw::Image{}, false, shown, [type, owner](draw::Canvas& c, draw::Rect box) {
+    const bool project = activeProject() != nullptr;
+    const int r = runUnitPropsDialog(*gRoot, *gState.ed, units, first, draw::Image{}, project, shown, [type, owner](draw::Canvas& c, draw::Rect box) {
         if (draw::Bitmap* b = paletteBitmap(Mode::Units, type, owner)) drawPaletteArt(c, *b, box);  // (the palette's picture)
     });
+    if (r == kUnitPropsEditType) {  // Edit unit type: the type in Data (a project) or on the Map data page (a classic map)
+        if (project) setWorkspace(Workspace::Data), dataGoTo("units", type);
+        else sdlMapDataShowUnit(type);
+    }
     updateTitle();
     gState.dirty = true;
     invalidateMapView();
@@ -259,7 +266,7 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
     Editor& ed = *gState.ed;
     if (name == "unitprops" && !ed.units().empty()) {
         const Unit first = ed.units()[0];
-        s.unit = std::make_unique<UnitPropsView>(first, std::vector<int>{0}, draw::Image{}, false);
+        s.unit = std::make_unique<UnitPropsView>(first, std::vector<int>{0}, draw::Image{}, activeProject() != nullptr);
         const int type = first.type, owner = first.owner;
         s.unit->paintIcon = [type, owner](draw::Canvas& c, draw::Rect box) {
             if (draw::Bitmap* b = paletteBitmap(Mode::Units, type, owner)) drawPaletteArt(c, *b, box);

@@ -93,9 +93,9 @@ public:
             state_[b] = std::move(cb);
             ++shown_;
         }
-        // The unit's type: in a project, open it in the Data workspace.
-        type_.setText(project ? tr(L"Edit unit type in Data (") + unitDisplayName(u.type) + L")" : tr(L"To edit unit types, use an EUD project (File > Project)"));
-        type_.setEnabled(project);
+        // The unit's type: in a project, open it in the Data workspace; on a classic map, on the Map data page (its unit
+        // settings: hit points, costs, names).
+        type_.setText((project ? tr(L"Edit unit type in Data (") : tr(L"Edit unit type in Map data (")) + unitDisplayName(u.type) + L")");
         type_.onClick = [this] {
             if (dlg_) dlg_->close(kUnitPropsEditType);
         };
