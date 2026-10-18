@@ -30,6 +30,9 @@ public:
     std::function<void(int)> onChange;
     // The item that is already the value was picked again (the list closes, no change): a Custom color's picker opens.
     std::function<void(int)> onSame;
+    // Set: the field opens a picker of its own instead of its list (a click, Alt+Down, Space or Enter calls it; the wheel
+    // and Up and Down do nothing). Its one item is the text the field shows (a multi-pick's checked items).
+    std::function<void()> onOpen;
     // Enter opens the list (the default). Off: a closed list passes Enter on, as a Windows combo box does in a dialog.
     bool enterOpens = true;
 

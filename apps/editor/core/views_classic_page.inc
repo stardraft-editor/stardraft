@@ -641,15 +641,15 @@ inline void ctAddClick(CtPageHost& h, int kind, const draw::View& from, draw::Re
     ctAddEntry(h, kind, uint8_t(std::stoi(picked)));
 }
 
-// Forces: the players of the forces (multi-pick: each force checked or not for the selected trigger), under `from`.
-inline void ctForcesClick(CtPageHost& h, const draw::View& from) {
+// Players: the players and forces that run the selected trigger (multi-pick: each checked or not), under `from`.
+inline void ctPlayersClick(CtPageHost& h, const draw::View& from) {
     CtModel& m = h.model();
     const ClassicTrigger* t = ctModelSelected(m);
     if (!t) return;
     std::set<std::string> checked;
-    std::vector<ListPickItem> items = ctForceItems(*t, h.names(), checked);
-    if (!h.pickMany(L"Search forces", std::move(items), checked, L"Set", from, {0, from.height() + scale(2)})) return;
-    ctModelSetForces(m, h, checked);
+    std::vector<ListPickItem> items = ctPlayerItems(*t, h.names(), checked);
+    if (!h.pickMany(L"Search players", std::move(items), checked, L"Set", from, {0, from.height() + scale(2)})) return;
+    ctModelSetPlayers(m, h, checked);
 }
 
 // --- Headings (roadmap R59) -------------------------------------------------------------------------------------------
@@ -1200,8 +1200,8 @@ inline CtPageRects ctPageLayout(int W, int H, bool noteShown, int entriesContent
     const int listBottom = H - pad - (noteShown ? noteH + gap : 0);
     L.list = {pad, y, pad + leftW, std::max(y, listBottom)};
     L.note = {pad, listBottom + gap, pad + leftW, listBottom + gap + noteH};
-    // Right: the head (the header, the players and Forces), the entries, the editor.
-    const int headH = scale(40) + 2 * step;
+    // Right: the head (the header and the players), the entries, the editor.
+    const int headH = scale(40) + step;
     L.head = {x0, pad, x0 + rightW, pad + headH};
     y = pad + headH + gap;
     const int room = H - pad - editorH - gap - y;
@@ -1252,11 +1252,8 @@ inline void ctPlaceHead(CtHeadView& hv, int rightW) {
     put(hv.comment, scale(310), scale(6), std::max(0, headW - scale(310)), rowH);
     put(hv.deleteTrig, rightW - delW, scale(2), delW, rowH);
     put(hv.turnOff, rightW - delW - gap - turnW, scale(2), turnW, rowH);
-    // The players: check boxes in columns of a fixed width, from the left; All players and Forces in the next row.
-    const int colW = scale(124);
-    for (int g = 0; g < 8; ++g) put(*hv.players[size_t(g)], g * colW, scale(40), colW - gap, rowH);
-    put(*hv.players[8], 0, scale(40) + step, colW - gap, rowH);
-    put(hv.forces, colW, scale(40) + step, scale(120), rowH);
+    // The players: one field under the header, as wide as the head (at most 600 px).
+    put(hv.players, 0, scale(40), std::min(rightW, scale(600)), rowH);
 }
 // The head's texts for the selected trigger: its name, its count, the Turn off button and the buttons' states.
 inline void ctUpdateHead(CtHeadView& h, const CtModel& m) {
@@ -1267,15 +1264,14 @@ inline void ctUpdateHead(CtHeadView& h, const CtModel& m) {
     const std::string comment = t ? ctCommentText(m, *t) : std::string();
     h.comment.setText(!t ? std::wstring() : comment.empty() ? std::wstring(tr(L"Add a comment")) : widen(comment));
     h.comment.setTip(tr(L"The trigger's comment: the text of its Comment action"));
-    for (stardraft::kit::Button* b : {&h.turnOff, &h.deleteTrig, &h.forces}) b->setEnabled(t != nullptr);
+    for (stardraft::kit::Button* b : {&h.turnOff, &h.deleteTrig}) b->setEnabled(t != nullptr);
 }
-// The head's player boxes for the selected trigger.
-inline void ctShowPlayers(CtHeadView& h, const CtModel& m) {
+// The head's Players field for the selected trigger: its players, comma-separated.
+inline void ctShowPlayers(CtHeadView& h, const CtModel& m, const ClassicNames& n) {
     const ClassicTrigger* t = ctModelSelected(m);
-    for (int g = 0; g < kCtBoxCount; ++g) {
-        h.players[size_t(g)]->setOn(t && t->runsFor(kCtBoxGroups[g]));
-        h.players[size_t(g)]->setEnabled(t != nullptr);
-    }
+    h.players.setItems({{t ? ctPlayersText(*t, n) : std::wstring()}});
+    h.players.setValue(0);
+    h.players.setEnabled(t != nullptr);
 }
 // The filter's items: All triggers, then each group by its name.
 inline void ctFilterItems(const ClassicNames& n, std::vector<std::wstring>& names, std::vector<int>& groups) {

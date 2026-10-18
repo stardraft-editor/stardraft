@@ -1936,7 +1936,7 @@ Deleted the triggers	트리거를 삭제했습니다
 Deleted the trigger	트리거를 삭제했습니다
 Duplicated the triggers	트리거를 복제했습니다
 Duplicated the trigger	트리거를 복제했습니다
-Search forces	포스 검색
+Search players	플레이어 검색
 Copied the triggers	트리거를 복사했습니다
 Copied the block	블록을 복사했습니다
 Pasted the triggers	트리거를 붙여넣었습니다
@@ -1977,8 +1977,7 @@ Removed the block	블록을 제거했습니다
 Changed the block	블록을 변경했습니다
 Added a block	블록을 추가했습니다
 Delete the trigger	트리거 삭제
-Forces…	포스…
-Forces: the forces that run the trigger	포스: 트리거를 실행하는 포스
+Players: the players and forces that run the trigger	플레이어: 트리거를 실행하는 플레이어와 포스
 The condition or action does nothing in the game (Turn off)	이 조건 또는 동작은 게임에서 아무것도 하지 않습니다 (끄기)
 The game's Always display flag for this action	이 동작에 대한 게임의 항상 표시 플래그
 Could not set the classic triggers. A long trigger needs a switch that no trigger uses.	클래식 트리거를 설정할 수 없습니다. 긴 트리거에는 어떤 트리거도 사용하지 않는 스위치가 필요합니다.

@@ -260,10 +260,6 @@ inline bool ctCanMoveRow(const ClassicTrigger& t, int i, bool in) {
 // The groups of the filter: players 1-8, all players, forces 1-4.
 constexpr int kCtGroups[] = {0, 1, 2, 3, 4, 5, 6, 7, 17, 18, 19, 20, 21};
 constexpr int kCtGroupCount = int(std::size(kCtGroups));
-// The players with a check box in the row (players 1-8, all players); the forces are in a multi-pick list (Forces).
-constexpr int kCtBoxGroups[] = {0, 1, 2, 3, 4, 5, 6, 7, 17};
-constexpr int kCtBoxCount = int(std::size(kCtBoxGroups));
-constexpr int kCtForceGroups[] = {18, 19, 20, 21};
 
 // The page's working copy of the map's triggers, the selection and the list. The Windows page and the SDL page each hold
 // one; the commands below change it, and the host says what the program shows (the list, the header, the map).
@@ -490,32 +486,32 @@ inline void ctModelDuplicateTriggers(CtModel& m, CtModelHost& h) {
     h.selectTrigger(at - 1);
     h.message(targets.size() > 1 ? L"Duplicated the triggers" : L"Duplicated the trigger");
 }
-// A player's check box of the head: the selected trigger runs (or not) for that player; the list follows.
-inline void ctModelPlayerBox(CtModel& m, CtModelHost& h, int groupIndex, bool on) {
+// Players: the selected trigger runs for the checked groups (players 1-8, all players, forces 1-4, as their numbers).
+inline void ctModelSetPlayers(CtModel& m, CtModelHost& h, const std::set<std::string>& checked) {
     ClassicTrigger* t = ctModelSelectedMut(m);
     if (!t) return;
-    t->players[size_t(kCtBoxGroups[groupIndex])] = on;
+    for (int g : kCtGroups) t->players[size_t(g)] = checked.count(std::to_string(g)) ? 1 : 0;
     ctModelFill(m, h);  // it can leave (or join) the list of the player shown
-}
-// Forces: the forces the selected trigger runs for are the checked ones (the groups as their numbers).
-inline void ctModelSetForces(CtModel& m, CtModelHost& h, const std::set<std::string>& checked) {
-    ClassicTrigger* t = ctModelSelectedMut(m);
-    if (!t) return;
-    for (int g : kCtForceGroups) t->players[size_t(g)] = checked.count(std::to_string(g)) ? 1 : 0;
-    ctModelFill(m, h);
     h.changed();
 }
-// Forces' multi-pick: the forces by their names (the values are the groups' numbers), and in `checked` the ones the
+// Players' multi-pick: the groups by their names (the values are the groups' numbers), and in `checked` the ones the
 // trigger runs for.
-inline std::vector<ListPickItem> ctForceItems(const ClassicTrigger& t, const ClassicNames& n, std::set<std::string>& checked) {
+inline std::vector<ListPickItem> ctPlayerItems(const ClassicTrigger& t, const ClassicNames& n, std::set<std::string>& checked) {
     std::vector<ListPickItem> items;
-    for (int g : kCtForceGroups) {
+    for (int g : kCtGroups) {
         ListPickItem it;
         it.label = widen(classicPlayerName(uint32_t(g), n)), it.value = std::to_string(g);
         items.push_back(std::move(it));
         if (t.runsFor(g)) checked.insert(std::to_string(g));
     }
     return items;
+}
+// The players the trigger runs for, comma-separated (the Players field's text).
+inline std::wstring ctPlayersText(const ClassicTrigger& t, const ClassicNames& n) {
+    std::wstring s;
+    for (int g : kCtGroups)
+        if (t.runsFor(g)) s += (s.empty() ? L"" : L", ") + widen(classicPlayerName(uint32_t(g), n));
+    return s.empty() ? std::wstring(tr(L"No players")) : s;
 }
 // The change's check: a trigger differs from the map's when the page read them.
 inline bool ctModelChanged(const CtModel& m) { return m.trig.triggers != m.before; }
@@ -1217,43 +1213,40 @@ private:
 };
 
 // The page's head (classic_triggers.inc: the head's window is a view window with this view): the selected trigger's name
-// and its count, its Turn off and Delete buttons, its players (one check box per player, in the page's order) and Forces.
+// and its count, its Turn off and Delete buttons, and its players (a field that shows them, comma-separated; a click opens
+// the list of players 1-8, All players and the forces, each checked or not).
 // The kit widgets are the page's; the page places them (ctLayout) and the callbacks are its commands. The page's own
 // changes (setOn, setEnabled, the texts) do not call back; only a click does.
 class CtHeadView final : public draw::View {
 public:
     struct Callbacks {
-        std::function<void(int box, bool on)> player;  // the box's index in the page's order
-        std::function<void()> turnOff, deleteTrig, forces;
+        std::function<void()> players;  // the Players field was clicked: its list
+        std::function<void()> turnOff, deleteTrig;
         std::function<void()> comment;  // the trigger's comment (roadmap R62)
     };
-    CtHeadView(const std::vector<std::wstring>& playerLabels, Callbacks cb)
+    explicit CtHeadView(Callbacks cb)
         : turnOff(L"Turn off", stardraft::kit::Tone::Normal, std::move(cb.turnOff)),
           deleteTrig(L"Delete the trigger", stardraft::kit::Tone::Normal, std::move(cb.deleteTrig)),
-          forces(L"Forces\x2026", stardraft::kit::Tone::Normal, std::move(cb.forces)),
           comment(L"", std::move(cb.comment), stardraft::kit::Tone::Quiet) {
         title.setFont({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)});  // the page's title font (ui::titleFont: 1.5 times the UI size)
         title.setText(L"None");
         count.setTone(stardraft::kit::LabelTone::Dim);  // the old count was the dim static (kCtDim)
-        forces.setTip(L"Forces: the forces that run the trigger");
-        for (size_t i = 0; i < playerLabels.size(); ++i)
-            players.push_back(std::make_unique<stardraft::kit::CheckBox>(playerLabels[i], false, [i, f = cb.player](bool on) {
-                if (f) f(int(i), on);
-            }));
-        for (auto& p : players) p->setPlainLabel(true);  // the native check boxes' labels were in the text color
+        players.onOpen = std::move(cb.players);
+        players.setItems({{L""}});
+        players.setValue(0);
+        players.setTip(L"Players: the players and forces that run the trigger");
         add(title, {0, 0, 0, 0});
         add(count, {0, 0, 0, 0});
         add(turnOff, {0, 0, 0, 0});
         add(deleteTrig, {0, 0, 0, 0});
-        add(forces, {0, 0, 0, 0});
         add(comment, {0, 0, 0, 0});
-        for (auto& p : players) add(*p, {0, 0, 0, 0});
+        add(players, {0, 0, 0, 0});
     }
 
     stardraft::kit::Label title, count;
-    stardraft::kit::Button turnOff, deleteTrig, forces;
+    stardraft::kit::Button turnOff, deleteTrig;
     stardraft::kit::Link comment;  // the trigger's comment: Add a comment, or its text (a click edits it)
-    std::vector<std::unique_ptr<stardraft::kit::CheckBox>> players;
+    stardraft::kit::Dropdown players;  // the players, comma-separated; a click opens their list (ctPlayersClick)
 
     void paint(draw::Canvas& c) override { c.fill({0, 0, width(), height()}, stardraft::kit::theme().bg); }
 };

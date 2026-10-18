@@ -1934,7 +1934,7 @@ Deleted the triggers	已删除触发器
 Deleted the trigger	已删除触发器
 Duplicated the triggers	已创建触发器副本
 Duplicated the trigger	已创建触发器副本
-Search forces	搜索队伍
+Search players	搜索玩家
 Copied the triggers	已复制触发器
 Copied the block	已复制块
 Pasted the triggers	已粘贴触发器
@@ -1975,8 +1975,7 @@ Removed the block	已移除块
 Changed the block	已更改块
 Added a block	已添加块
 Delete the trigger	删除触发器
-Forces…	队伍…
-Forces: the forces that run the trigger	队伍：运行此触发器的队伍
+Players: the players and forces that run the trigger	玩家：运行此触发器的玩家和队伍
 The condition or action does nothing in the game (Turn off)	此条件或动作在游戏中不起作用（关闭）
 The game's Always display flag for this action	游戏中此动作的“始终显示”标志
 Could not set the classic triggers. A long trigger needs a switch that no trigger uses.	无法设置经典触发器。长触发器需要一个没有触发器使用的开关。
