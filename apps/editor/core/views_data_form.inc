@@ -90,9 +90,10 @@ inline DataFormScale dataFormScale() {
 }
 
 // The form's columns for a form `width` px wide. Two columns when the fields and the pictures both have room: the
-// fields on the left (at most 650 px), each section's pictures beside them (at least 320 px). One column: the
-// pictures under the section's fields, so that the values stay in view. A narrow column makes the labels and the
-// dropdowns narrower (to 160 and 240 px; in one column less), so that the parts of a row do not go over the next.
+// fields on the left (at most 650 px), each section's pictures beside them (at least 160 px, so that a window 1280 px
+// wide, as 2560 x 1600 at 200 %, has two columns: Discord feedback #90). One column: the pictures under the section's
+// fields, so that the values stay in view. A narrow column makes the dropdowns narrower first (to 200 px), then the
+// labels (to 160 px; in one column less), so that the parts of a row do not go over the next.
 struct DataFormLayout {
     DataFormScale s;
     int full = 0;              // the width inside the margins
@@ -103,13 +104,13 @@ struct DataFormLayout {
 inline DataFormLayout dataFormLayout(int width) {
     DataFormLayout l;
     l.s = dataFormScale();
-    const int x0 = scale(18), gap = scale(28), picMin = scale(320), colMax = scale(650);
-    const int after = scale(60);  // after a dropdown: its open button and a sound's play button
-    const int colMin = scale(160) + scale(240) + after;
+    const int x0 = scale(18), gap = scale(20), picMin = scale(160), colMax = scale(650);
+    const int after = scale(52);  // after a dropdown: its open button and a sound's play button
+    const int colMin = scale(160) + scale(200) + after;
     l.full = std::max(scale(200), width - 2 * x0);
     l.twoCol = l.full >= colMin + gap + picMin;
     l.colW = l.twoCol ? std::min(std::clamp(l.full * 11 / 20, colMin, colMax), l.full - gap - picMin) : l.full;
-    l.labelW = std::clamp(l.colW - l.s.dropW - after, std::min(scale(160), l.colW / 3), scale(230));
+    l.labelW = std::clamp(l.colW - l.s.dropW - after, std::min(scale(160), l.colW * 2 / 5), scale(230));
     l.s.dropW = std::clamp(l.colW - l.labelW - after, scale(80), l.s.dropW);
     if (l.twoCol) l.picX = x0 + l.colW + gap, l.picW = l.full - l.colW - gap;
     else l.picX = x0 + l.labelW, l.picW = l.full - l.labelW;
