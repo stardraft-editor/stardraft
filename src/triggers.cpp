@@ -2158,16 +2158,20 @@ struct Gen {
             return "dwwrite(0x5187E8 + 12 * (" + u + "), dwread(0x5187E8 + 12 * (" + s + ")));" + tag + "\ndwwrite(0x5187EC + 12 * (" + u + "), dwread(0x5187EC + 12 * (" +
                    s + ")));\n";
         }
-        if (id == "act.refreshbuttons") {  // EUD Editor 3's BtnRefresh: a unit made for an instant has the game build the card again
+        // EUD Editor 3's BtnRefresh: a unit made for an instant has the game build the card again. The unit is a
+        // Kakaru of Player 12 (neutral; EUD Editor 3 makes an Interceptor of Player 8), at Anywhere; its remove timer
+        // takes it away on the next frame. Its StarEdit availability flags (units.dat, 0x661518 + 2 * 94) allow it for
+        // the CreateUnit and are put back after it (made or not). Nothing is made when every unit slot is used.
+        if (id == "act.refreshbuttons") {
             return std::string("if (Memory(0x628438, AtLeast, 0x59CCA8)) {") + tag + "\n"
                    "    const checkCCMU = Memory(0x628438, Exactly, 0);\n"
-                   "    const restoreBtn = SetMemoryX(0x6615AA, SetTo, 0, 0xFFFF0000);\n"
+                   "    const restoreFlags = SetMemoryX(0x6615D4, SetTo, 0, 0xFFFF);\n"
                    "    const setRemoveTimer = SetMemoryXEPD(0, SetTo, 1, 0xFFFF);\n"
-                   "    maskread_epd(EPD(0x6615AA), 0xFFFF0000, ret=list(EPD(restoreBtn) + 5));\n"
+                   "    maskread_epd(EPD(0x6615D4), 0xFFFF, ret=list(EPD(restoreFlags) + 5));\n"
                    "    cunitepdread_epd(EPD(0x628438), ret=list(EPD(checkCCMU) + 2, EPD(setRemoveTimer) + 4));\n"
-                   "    DoActions(list(SetMemoryX(0x6615AA, SetTo, 0x20000, 0xFFFF0000), CreateUnit(1, 73, 64, 7)));\n"
+                   "    DoActions(list(SetMemoryX(0x6615D4, SetTo, 2, 0xFFFF), CreateUnit(1, 94, 64, 11), restoreFlags));\n"
                    "    if (!checkCCMU) {\n"
-                   "        DoActions(list(restoreBtn, SetMemory(setRemoveTimer + 16, Add, 0x110 / 4), setRemoveTimer));\n"
+                   "        DoActions(list(SetMemory(setRemoveTimer + 16, Add, 0x110 / 4), setRemoveTimer));\n"
                    "    }\n"
                    "}\n";
         }
