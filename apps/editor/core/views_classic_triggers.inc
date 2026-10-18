@@ -172,6 +172,15 @@ inline std::wstring ctTriggerLineOf(const ClassicTrigger& t, bool actions, const
     return widen(s);
 }
 
+// The trigger's comment (roadmap R62): its first Comment action at the top level (-1: none). The list shows its text
+// as the trigger's title, as StarEdit does; the head edits it (core/views_classic_page.inc: ctEditComment).
+constexpr uint8_t kCtCommentType = 47;
+inline int ctCommentEntry(const ClassicTrigger& t) {
+    for (int i = 0; i < t.actionCount(); ++i)
+        if (t.actions[size_t(i)].type == kCtCommentType && t.actions[size_t(i)].depth == 0) return i;
+    return -1;
+}
+
 // The text a search matches, in lower case: the trigger's sentences (its conditions and actions, names of units,
 // locations and switches) and the names of its players.
 inline std::wstring ctSearchTextOf(const ClassicTrigger& t, const ClassicNames& n) {
@@ -987,6 +996,10 @@ private:
             const draw::Rect top{textX, r.top, right, (r.top + r.bottom) / 2 + scale(1)}, bottom{textX, top.bottom - scale(2), right, r.bottom};
             // The first condition (Always when there is none), and the Off chip at the right of it.
             std::wstring first = t.conditionCount() ? widen(classicConditionText(t.conditions[0], n)) : L"Always";
+            if (const int ci = ctCommentEntry(t); ci >= 0 && t.actions[size_t(ci)].text && n.string) {  // the comment as its title
+                const std::string note = n.string(t.actions[size_t(ci)].text);
+                if (!note.empty()) first = widen(note);
+            }
             if (parts > 1) first = tr(L"Becomes ") + std::to_wstring(parts) + tr(L" triggers in the map. ") + first;
             int textRight = right;
             if (t.disabled()) {
@@ -1124,11 +1137,13 @@ public:
     struct Callbacks {
         std::function<void(int box, bool on)> player;  // the box's index in the page's order
         std::function<void()> turnOff, deleteTrig, forces;
+        std::function<void()> comment;  // the trigger's comment (roadmap R62)
     };
     CtHeadView(const std::vector<std::wstring>& playerLabels, Callbacks cb)
         : turnOff(L"Turn off", stardraft::kit::Tone::Normal, std::move(cb.turnOff)),
           deleteTrig(L"Delete the trigger", stardraft::kit::Tone::Normal, std::move(cb.deleteTrig)),
-          forces(L"Forces\x2026", stardraft::kit::Tone::Normal, std::move(cb.forces)) {
+          forces(L"Forces\x2026", stardraft::kit::Tone::Normal, std::move(cb.forces)),
+          comment(L"", std::move(cb.comment), stardraft::kit::Tone::Quiet) {
         title.setFont({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)});  // the page's title font (ui::titleFont: 1.5 times the UI size)
         title.setText(L"None");
         count.setTone(stardraft::kit::LabelTone::Dim);  // the old count was the dim static (kCtDim)
@@ -1143,11 +1158,13 @@ public:
         add(turnOff, {0, 0, 0, 0});
         add(deleteTrig, {0, 0, 0, 0});
         add(forces, {0, 0, 0, 0});
+        add(comment, {0, 0, 0, 0});
         for (auto& p : players) add(*p, {0, 0, 0, 0});
     }
 
     stardraft::kit::Label title, count;
     stardraft::kit::Button turnOff, deleteTrig, forces;
+    stardraft::kit::Link comment;  // the trigger's comment: Add a comment, or its text (a click edits it)
     std::vector<std::unique_ptr<stardraft::kit::CheckBox>> players;
 
     void paint(draw::Canvas& c) override { c.fill({0, 0, width(), height()}, stardraft::kit::theme().bg); }

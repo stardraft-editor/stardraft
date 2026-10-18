@@ -1110,6 +1110,30 @@ inline CtPageRects ctPageLayout(int W, int H, bool noteShown, int entriesContent
     L.editor = {x0, ey, x0 + rightW, ey + editorH};
     return L;
 }
+// The trigger's comment (roadmap R62): the text of its first Comment action, the game's own place for it (as StarEdit
+// lists the triggers by it). Edit: the text pop-out; a new comment is a Comment action at the end, an empty text takes
+// the action away.
+inline std::string ctCommentText(const CtModel& m, const ClassicTrigger& t) {
+    const int i = ctCommentEntry(t);
+    return i < 0 || !t.actions[size_t(i)].text ? std::string() : m.strings.get(t.actions[size_t(i)].text);
+}
+inline void ctEditComment(CtPageHost& h) {
+    CtModel& m = h.model();
+    const ClassicTrigger* t = ctModelSelected(m);
+    if (!t) return;
+    int i = ctCommentEntry(*t);
+    std::string text = ctCommentText(m, *t);
+    if (!h.editText(tr(L"Comment"), tr(L"Comment"), text) || text == ctCommentText(m, *t)) return;
+    if (i < 0) {
+        if (text.empty()) return;
+        if (!ctInsertAction(h, makeClassicAction(kCtCommentType), -1)) return h.message(tr(L"The list is full"));
+        i = ctModelSelected(m)->actionCount() - 1;
+    }
+    h.selectEntry(1, i);  // (the text goes to the selected action)
+    if (text.empty()) ctDeleteEntry(h, 1, i);
+    else ctSetText(h, 0, text), h.buildEditor();
+}
+
 // The head's parts in the head (its coordinates, from 0) at the right column's width `rightW`.
 inline void ctPlaceHead(CtHeadView& hv, int rightW) {
     const int rowH = scale(stardraft::kit::kFieldH), step = scale(stardraft::kit::kFormRowH), gap = scale(8);
@@ -1117,7 +1141,8 @@ inline void ctPlaceHead(CtHeadView& hv, int rightW) {
     const int headW = rightW - delW - turnW - 3 * gap;
     auto put = [](draw::View& v, int px, int py, int w, int hh) { v.setFrame({px, py, px + std::max(0, w), py + std::max(0, hh)}); };
     put(hv.title, 0, 0, std::min(headW, scale(150)), scale(28));
-    put(hv.count, scale(160), scale(6), std::max(0, headW - scale(160)), rowH);
+    put(hv.count, scale(160), scale(6), std::min(scale(140), std::max(0, headW - scale(160))), rowH);
+    put(hv.comment, scale(310), scale(6), std::max(0, headW - scale(310)), rowH);
     put(hv.deleteTrig, rightW - delW, scale(2), delW, rowH);
     put(hv.turnOff, rightW - delW - gap - turnW, scale(2), turnW, rowH);
     // The players: check boxes in columns of a fixed width, from the left; All players and Forces in the next row.
@@ -1132,6 +1157,9 @@ inline void ctUpdateHead(CtHeadView& h, const CtModel& m) {
     h.title.setText(t ? tr(L"Trigger ") + std::to_wstring(m.sel + 1) : std::wstring(L"None"));
     h.count.setText(!t ? std::wstring() : widen(std::string(t->disabled() ? "Turned off, " : "") + std::to_string(t->actionCount()) + (t->actionCount() == 1 ? " action" : " actions")));
     h.turnOff.setText(t && t->disabled() ? L"Turn on" : L"Turn off");
+    const std::string comment = t ? ctCommentText(m, *t) : std::string();
+    h.comment.setText(!t ? std::wstring() : comment.empty() ? std::wstring(tr(L"Add a comment")) : widen(comment));
+    h.comment.setTip(tr(L"The trigger's comment: the text of its Comment action"));
     for (stardraft::kit::Button* b : {&h.turnOff, &h.deleteTrig, &h.forces}) b->setEnabled(t != nullptr);
 }
 // The head's player boxes for the selected trigger.
