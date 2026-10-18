@@ -67,6 +67,7 @@
 #include "stardraft/dat_units.h"  // the converted values on the Data form (core/data_model.inc)
 #include "stardraft/help.h"  // the help pages (core/views_help.inc)
 #include "stardraft/campaign.h"
+#include "stardraft/project_import.h"
 #include "stardraft/editor.h"
 #include "stardraft/eud_project.h"
 #include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)

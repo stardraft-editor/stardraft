@@ -2365,6 +2365,12 @@ constexpr UiText kRows[] = {
     {L"No maps yet: add the open map, or a map file", L"A\u00FAn no hay mapas: a\u00F1ade el mapa abierto o un archivo de mapa"},
     {L"Select or make a folder for the campaign", L"Selecciona o crea una carpeta para la campa\u00F1a"},
     {L"Select the campaign's folder", L"Selecciona la carpeta de la campa\u00F1a"},
+    {L"&Import a project\u2026", L"&Importar un proyecto\u2026"},
+    {L"Import a project", L"Importar un proyecto"},
+    {L"Imported:", L"Importado:"},
+    {L"Not imported (do these again in StarDraft):", L"No importado (h\u00E1galo de nuevo en StarDraft):"},
+    {L"The project is imported", L"El proyecto est\u00E1 importado"},
+    {L"Select the folder for the new project", L"Seleccione la carpeta del nuevo proyecto"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

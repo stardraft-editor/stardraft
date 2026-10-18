@@ -37,7 +37,7 @@ public:
     const std::map<int, std::string>& edits() const { return edits_; }
     void setEdits(std::map<int, std::string> e);
 
-    // The rebuilt file. The game copies it over its own copy, so it must not be larger than that (capacity()).
+    // The rebuilt file. The game copies it over its own copy when it fits (capacity()); else the game reads the new one.
     Bytes build() const;
     size_t capacity() const { return stockSize_; }
 

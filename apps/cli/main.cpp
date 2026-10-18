@@ -29,6 +29,7 @@
 #include "stardraft/game_data.h"
 #include "stardraft/isom.h"
 #include "stardraft/map_file.h"
+#include "stardraft/project_import.h"
 #include "stardraft/settings.h"
 #include "text_codec.h"
 
@@ -1267,6 +1268,23 @@ std::vector<ArchiveFile> mapFiles(const Work& w) {
     return files;
 }
 
+// import <project file> <parent folder> <name>: an EUD Editor 2 (.e2s) or euddraft (.eds, .edd) project into a new
+// StarDraft project (roadmap R52), and what did and did not come in.
+Json cmdImport(Session& s) {
+    if (s.args.positional.size() < 3) fail("usage: stardraft-cli import <.e2s, .eds or .edd> <parent folder> <name>");
+    if (!s.dataOpen) openGameData(s.data, s.args.get("install")), s.dataOpen = true;
+    EudProject pr;
+    ImportReport rep;
+    std::string err;
+    if (!importProject(upath(s.args.positional[0]), upath(s.args.positional[1]), s.args.positional[2], s.data, pr, rep, err)) fail(err);
+    Json in = jarr(), out = jarr();
+    for (const std::string& l : rep.imported) in.items.push_back(jstr(l));
+    for (const std::string& l : rep.notImported) out.items.push_back(jstr(l));
+    const auto u8 = pr.file().u8string();
+    return Obj().add("project", std::string(u8.begin(), u8.end()))
+        .add("imported", in).add("notImported", out);
+}
+
 // add-file <map> <name in the map> <file> [--remove]: puts a file (a sound) into the map, or takes one out. It is
 // not an undo step: it stays until `close`.
 Json cmdAddFile(Session& s) {
@@ -1542,6 +1560,7 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
   stardraft-cli render <map> -o <file.png>  a picture of the map, or part of it:
                     [--area l,t,r,b | --center x,y [--size w,h]] [--zoom z] [--size w,h]
                     [--grid px] [--locations] [--no-units] [--no-sprites]
+  stardraft-cli import <file> <folder> <name> an EUD Editor 2 (.e2s) or euddraft (.eds) project into a new project
   stardraft-cli add-file <map> <name> <file> put a file (a sound: sound\\x.wav) into the map; --remove takes one out
   stardraft-cli save <map> [--to <path>]    write the map (.scm, .scx or .chk)
   stardraft-cli close <map> [--discard]     remove the working folder
@@ -1597,6 +1616,7 @@ static int run(std::vector<std::string> argv) {
             else if (c == "status") result = cmdStatus(s);
             else if (c == "new") result = cmdNew(s);
             else if (c == "add-file") result = cmdAddFile(s);
+            else if (c == "import") result = cmdImport(s);
             else if (c == "get") result = cmdGet(s);
             else if (c == "apply") result = cmdApply(s);
             else if (c == "undo") result = cmdUndoRedo(s, true);

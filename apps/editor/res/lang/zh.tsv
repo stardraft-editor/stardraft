@@ -2363,3 +2363,9 @@ Copy its terrain into the open map	将其地形复制到已打开的地图
 No maps yet: add the open map, or a map file	还没有地图：添加已打开的地图或地图文件
 Select or make a folder for the campaign	选择或新建战役文件夹
 Select the campaign's folder	选择战役文件夹
+&Import a project…	导入项目(&I)…
+Import a project	导入项目
+Imported:	已导入:
+Not imported (do these again in StarDraft):	未导入(请在 StarDraft 中重新完成):
+The project is imported	项目已导入
+Select the folder for the new project	选择新项目的文件夹

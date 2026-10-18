@@ -2365,6 +2365,12 @@ constexpr UiText kRows[] = {
     {L"No maps yet: add the open map, or a map file", L"\u8FD8\u6CA1\u6709\u5730\u56FE\uFF1A\u6DFB\u52A0\u5DF2\u6253\u5F00\u7684\u5730\u56FE\u6216\u5730\u56FE\u6587\u4EF6"},
     {L"Select or make a folder for the campaign", L"\u9009\u62E9\u6216\u65B0\u5EFA\u6218\u5F79\u6587\u4EF6\u5939"},
     {L"Select the campaign's folder", L"\u9009\u62E9\u6218\u5F79\u6587\u4EF6\u5939"},
+    {L"&Import a project\u2026", L"\u5BFC\u5165\u9879\u76EE(&I)\u2026"},
+    {L"Import a project", L"\u5BFC\u5165\u9879\u76EE"},
+    {L"Imported:", L"\u5DF2\u5BFC\u5165:"},
+    {L"Not imported (do these again in StarDraft):", L"\u672A\u5BFC\u5165(\u8BF7\u5728 StarDraft \u4E2D\u91CD\u65B0\u5B8C\u6210):"},
+    {L"The project is imported", L"\u9879\u76EE\u5DF2\u5BFC\u5165"},
+    {L"Select the folder for the new project", L"\u9009\u62E9\u65B0\u9879\u76EE\u7684\u6587\u4EF6\u5939"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }
