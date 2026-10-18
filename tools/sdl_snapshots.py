@@ -148,6 +148,9 @@ CASES += [
     # The classic page with the pop-out of the selected action's value (trigger:kind:entry:value): the first action of
     # the first trigger, its value 3 (a map whose first trigger has an action, as Set deaths: the number pop-out).
     ("map-classictrig-value", ["--workspace", "classictriggers", "--classictrig", "1:1:0:3"], "map"),
+    # Quick add (roadmap R61, core/views_trigger_quick.inc): Q opens the quick picker with the conditions and actions;
+    # "play wav" and Enter add Play WAV after the selected action.
+    ("map-classictrig-quickadd", ["--workspace", "classictriggers", "--classictrig", "1:1:0", "--key", "Q", "--type", "play wav", "--key", "Enter"], "map"),
     # The Triggers workspace with a value's pop-out open (--trigpop n: value n of the block --trigsel selects; text: its text's words). The
     # trigger and block numbers are the first trigger of "On map start" (a text with values, the objectives' colors,
     # Set resources) and the third one (Create a unit: the unit types with their icons).
@@ -560,6 +563,10 @@ CASES += [
     ("data-triggers-edits", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169",
                              "--click", "460,347", "--type", "Set resources", "--key", "Enter", "--click", "827,352",
                              "--type", "800", "--key", "Enter", "--key", "Del", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "data"),
+    # Quick add in the Triggers workspace (roadmap R61): a new trigger, then Q in the pane, "game speed" and Enter add
+    # Set the game speed to its actions.
+    ("data-triggers-quickadd", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169", "--key", "Enter",
+                                "--click", "900,700", "--type", "q", "--type", "game speed", "--key", "Enter"], "data"),
     # The Classic triggers page: Add a trigger, Player 3, Undo (the page reads the map again after a moment).
     ("map-classictrig-edits", ["--workspace", "classictriggers", "--click", "310,250", "--click", "819,221", "--key", "Ctrl+Z",
                                "--wait", "400"], "map"),
@@ -2091,6 +2098,20 @@ def check_trigger_undo_history(output):
     return None
 
 
+def check_classic_quickadd(output):
+    """None when Q opened the quick picker (its field has the typed words) and Enter added one action to the trigger."""
+    s = states(output)
+    if len(s) < 3:
+        return f"{len(s)} input lines, not 3"
+    before = re.search(r"selected \d+ \(players [^;]*; \d+ conditions, (\d+) actions\)", s[0][1])
+    after = re.search(r"selected \d+ \(players [^;]*; \d+ conditions, (\d+) actions\)", s[-1][1])
+    if not before or not after:
+        return "no state of the selected trigger"
+    if int(after.group(1)) != int(before.group(1)) + 1:
+        return f"actions {before.group(1)} -> {after.group(1)} (one more expected)"
+    return None
+
+
 def check_classic_edits(output):
     """None when the trigger was added with Player 3 (on the page and in the map), and Undo took Player 3 out of both."""
     s = states(output)
@@ -3470,7 +3491,7 @@ CHECKS = {**{"map-terrain-flags-" + v: (lambda o, v=v: check_terrain_flags(o, v)
           "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click,
           "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
           "newpage-randomize-quick": check_newpage_randomize, "newpage-symmetry-dropdown": check_newpage_symmetry,
-          "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits,
+          "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits, "map-classictrig-quickadd": check_classic_quickadd, "data-triggers-quickadd": lambda o: None if "1 actions: act.gamespeed" in o else "no Set the game speed in the actions",
           "map-mapdata-edits": check_mapdata_edits,
           "map-undo-history": check_undo_history, "data-undo-history": check_data_undo_history,
           "data-triggers-undo-history": check_trigger_undo_history,

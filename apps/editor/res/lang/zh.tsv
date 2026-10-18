@@ -2313,3 +2313,7 @@ Terrain flags: buildable (green), not buildable (red)	地形属性：可建造�
 G&raphics	图形(&R)
 &Overlays	叠加层(&O)
 &Workspaces	工作区(&W)
+Select a trigger first	请先选择一个触发器
+Add a block after the selected one	在所选块之后添加块
+Condition	条件
+Add a condition or an action after the selected one	在所选项之后添加条件或动作

@@ -15,8 +15,18 @@ void replaceSelectionWith(int v);
 // Quick open's rows (value): an open tab is its index; then these plus the index in the recent list; the last row browses.
 constexpr int kRecentProjectRow = 1000, kRecentMapRow = 2000, kBrowseProjectRow = 3000;
 
-// What the picker picks: the map mode's things (or, with replace, what the selection becomes), a .dat entry, or a tab.
-enum class QuickPickKind { Map, Data, Open };
+// What the picker picks: the map mode's things (or, with replace, what the selection becomes), a .dat entry, a tab, or
+// the rows that another view gives (Custom: gQuickCustom, as the trigger editors' Quick add and search).
+enum class QuickPickKind { Map, Data, Open, Custom };
+
+// Custom rows: the cue, the rows (made when the picker opens), their icon, and what a pick does with a row's value.
+struct QuickPickCustom {
+    std::wstring cue;
+    std::function<std::vector<PaletteUnit>()> rows;
+    UiIcon icon = UiIcon::Search;
+    std::function<void(int)> run;
+};
+QuickPickCustom gQuickCustom;
 
 // Replace with...: the selected units (each type of them), doodads or sprites become `v`, as one undo step.
 void replaceSelectionWith(int v) {
@@ -192,6 +202,10 @@ void quickPickRun(QuickPickKind kind, bool replace, int v) {
         if (v >= 0) dataGoTo(DatSchema::all()[size_t(v / 10000)].name, v % 10000);
         return;
     }
+    if (kind == QuickPickKind::Custom) {
+        if (v >= 0 && gQuickCustom.run) gQuickCustom.run(v);
+        return;
+    }
     if (v < 0 || !app.ed) return;
     if (replace) return replaceSelectionWith(v);
     if (tilesOn()) {  // Rectangle: the group's tile is picked, as a click in the Tiles list picks it, and the list shows it
@@ -219,6 +233,7 @@ std::wstring quickPickCue(QuickPickKind kind, bool replace, Mode mode) {
     static const wchar_t* replaceCues[kModeCount] = {L"", L"Replace with a unit", L"Replace with a doodad", L"", L"Replace with a sprite"};
     if (kind == QuickPickKind::Open) return tr(L"Go to an open tab, or open a recent project or map");
     if (kind == QuickPickKind::Data) return L"Go to a .dat entry";
+    if (kind == QuickPickKind::Custom) return gQuickCustom.cue;
     if (!replace && mode == Mode::Terrain && tilesOn()) return tr(L"Place a tile");
     return replace ? replaceCues[int(mode)] : cues[int(mode)];
 }
@@ -267,7 +282,9 @@ public:
     void start(QuickPickHost& host, QuickPickKind kind, Mode mode, bool replace, bool framed, bool focusText) {
         host_ = &host, kind_ = kind, mode_ = mode, replace_ = replace && kind == QuickPickKind::Map, framed_ = framed;
         focusText_ = focusText, focused_ = false, done_ = false;
-        openRows_ = kind == QuickPickKind::Open ? quickOpenItems() : std::vector<PaletteUnit>{};
+        openRows_ = kind == QuickPickKind::Open ? quickOpenItems()
+                    : kind == QuickPickKind::Custom && gQuickCustom.rows ? gQuickCustom.rows()
+                                                                         : std::vector<PaletteUnit>{};
         field_.setText(L"");
         field_.setPlaceholder(quickPickCue(kind_, replace_, mode_));
         field_.setFont({draw::Face::Ui, quickFontPx()});
@@ -417,7 +434,9 @@ private:
 
     void fill() {
         words_ = quickPickWords(field_.text());
-        std::vector<PaletteUnit> items = kind_ == QuickPickKind::Data ? dataJumpItems() : kind_ == QuickPickKind::Open ? openRows_ : quickPickItems();
+        std::vector<PaletteUnit> items = kind_ == QuickPickKind::Data                                    ? dataJumpItems()
+                                         : kind_ == QuickPickKind::Open || kind_ == QuickPickKind::Custom ? openRows_
+                                                                                                          : quickPickItems();
         shown_ = quickPickFilter(std::move(items), words_, kind_ == QuickPickKind::Open);
         sel_ = shown_.empty() ? -1 : 0;
         top_ = 0;
@@ -455,6 +474,8 @@ private:
             const bool project = u.value < kRecentProjectRow ? u.value < int(gDocs.size()) && gDocs[size_t(u.value)].project != nullptr : u.value < kRecentMapRow;
             c.icon(box, int(u.value == kBrowseProjectRow ? UiIcon::Open : project ? UiIcon::Project : UiIcon::Map), u.value < kRecentProjectRow ? kText : kFaint,
                    scale(20));
+        } else if (kind_ == QuickPickKind::Custom) {
+            c.icon(box, int(gQuickCustom.icon), kText, scale(20));
         } else if (!((kind_ == QuickPickKind::Data || mode_ != Mode::Locations) && host_->drawPicture(c, kind_, mode_, u, box))) {
             c.icon(box, int(mode_ == Mode::Locations && kind_ != QuickPickKind::Data ? UiIcon::Locations : UiIcon::Units), kFaint, scale(20));
         }

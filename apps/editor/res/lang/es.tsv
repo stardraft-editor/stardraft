@@ -2313,3 +2313,7 @@ Terrain flags: buildable (green), not buildable (red)	Propiedades del terreno: e
 G&raphics	Grá&ficos
 &Overlays	&Superposiciones
 &Workspaces	&Espacios de trabajo
+Select a trigger first	Primero selecciona un disparador
+Add a block after the selected one	Añadir un bloque después del seleccionado
+Condition	Condición
+Add a condition or an action after the selected one	Añadir una condición o una acción después de la seleccionada

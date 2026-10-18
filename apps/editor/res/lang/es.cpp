@@ -2315,6 +2315,10 @@ constexpr UiText kRows[] = {
     {L"G&raphics", L"Gr\u00E1&ficos"},
     {L"&Overlays", L"&Superposiciones"},
     {L"&Workspaces", L"&Espacios de trabajo"},
+    {L"Select a trigger first", L"Primero selecciona un disparador"},
+    {L"Add a block after the selected one", L"A\u00F1adir un bloque despu\u00E9s del seleccionado"},
+    {L"Condition", L"Condici\u00F3n"},
+    {L"Add a condition or an action after the selected one", L"A\u00F1adir una condici\u00F3n o una acci\u00F3n despu\u00E9s de la seleccionada"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

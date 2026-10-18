@@ -2313,3 +2313,7 @@ Terrain flags: buildable (green), not buildable (red)	Свойства мест�
 G&raphics	&Графика
 &Overlays	&Наложения
 &Workspaces	&Рабочие области
+Select a trigger first	Сначала выберите триггер
+Add a block after the selected one	Добавить блок после выбранного
+Condition	Условие
+Add a condition or an action after the selected one	Добавить условие или действие после выбранного

@@ -2315,6 +2315,10 @@ constexpr UiText kRows[] = {
     {L"G&raphics", L"\u56FE\u5F62(&R)"},
     {L"&Overlays", L"\u53E0\u52A0\u5C42(&O)"},
     {L"&Workspaces", L"\u5DE5\u4F5C\u533A(&W)"},
+    {L"Select a trigger first", L"\u8BF7\u5148\u9009\u62E9\u4E00\u4E2A\u89E6\u53D1\u5668"},
+    {L"Add a block after the selected one", L"\u5728\u6240\u9009\u5757\u4E4B\u540E\u6DFB\u52A0\u5757"},
+    {L"Condition", L"\u6761\u4EF6"},
+    {L"Add a condition or an action after the selected one", L"\u5728\u6240\u9009\u9879\u4E4B\u540E\u6DFB\u52A0\u6761\u4EF6\u6216\u52A8\u4F5C"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

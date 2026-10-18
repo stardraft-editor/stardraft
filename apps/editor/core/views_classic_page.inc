@@ -673,6 +673,7 @@ inline void ctEntryMenu(CtPageHost& h, int kind, int i, const draw::View& from, 
 
 // The keys of a painted list: Delete, Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+D, Ctrl+Up and Ctrl+Down (move), Up and Down (select),
 // Ctrl+Left and Ctrl+Right (an action out of or into a block). True when the key is one of them.
+inline void ctQuickAdd(CtPageHost& h);  // (core/views_trigger_quick.inc)
 inline bool ctListKey(CtPageHost& h, bool isList, const draw::KeyEvent& e) {
     using draw::Key;
     if (!e.down) return false;
@@ -691,6 +692,7 @@ inline bool ctListKey(CtPageHost& h, bool isList, const draw::KeyEvent& e) {
         return ctDeleteEntry(h, m.kind, m.entry), true;
     }
     if (ctrl && k == Key('V')) return ctPaste(h), true;
+    if (!ctrl && !(e.mods & (draw::kAlt | draw::kShift)) && k == Key('Q')) return ctQuickAdd(h), true;  // Quick add (core/views_trigger_quick.inc)
     if (isList) {  // the checked triggers (Ctrl or Shift click) when there are some, else the selected one
         if (k == Key::Delete) return ctModelDeleteTriggers(m, h), true;
         if (ctrl && k == Key('D')) return ctModelDuplicateTriggers(m, h), true;

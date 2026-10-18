@@ -30,6 +30,8 @@ TriggerNode* trigSelected() {
     return n && n->kind == TriggerNode::Kind::Trigger ? n : nullptr;
 }
 
+void trigQuickAdd();  // Q: Quick add (core/views_trigger_quick.inc)
+
 // --- The pane: one trigger -----------------------------------------------------------------------------------
 // Conditions and Actions, each collapsible. Every block has a grip; drag it to reorder or into or out of a block
 // that holds blocks (If, loops, After a delay, Any of). A list is addressed by its path: the trigger's
@@ -648,13 +650,14 @@ public:
         return false;
     }
 
-    // Typing adds a block: the picker opens searching for what was typed.
+    // Typing adds a block: the picker opens searching for what was typed; Q opens Quick add.
     bool text(const draw::TextEvent& e) override {
         const std::wstring w = widen(e.utf8);
         const draw::Host* h = host();
         if (w.size() != 1 || !iswalnum(w[0]) || (h && (h->modifiers() & draw::kCtrl))) return false;
         TriggerNode* t = trigSelected();
         if (!t) return true;
+        if (w[0] == L'q' || w[0] == L'Q') return trigQuickAdd(), true;  // Quick add (core/views_trigger_quick.inc)
         const bool cond = trigBlock(*t, gTP.sel) && trigListIsCondition(*t, gTP.sel.list);
         const std::string id = host_.pickBlock(cond, w);
         if (!id.empty()) host_.addPicked(cond, id);

@@ -163,6 +163,7 @@ void sdlUndoSteps(bool redo, size_t steps);  // (sdl_history.inc: Undo, Redo and
 void sdlShowUndoHistory();
 
 void sdlExportMapImage();  // (sdl_map_image.inc: File > Export map image)
+void sdlClassicQuickAdd();  // (sdl_classic_triggers.inc: Q on the Classic triggers page)
 bool sdlOptionsRuns(int id);     // (sdl_options.inc: the Program options commands)
 bool sdlOptionsCommand(int id);
 
@@ -1228,7 +1229,11 @@ void commandSdl(int id) {
     case ID_EDIT_RENAME:
         if (gState.ed && gState.ed->isOpen()) renameSelectedLocation();
         return;
-    case ID_QUICKPICK: shellShowQuickPicker(false, false); return;
+    case ID_QUICKPICK:  // in the trigger editors: Quick add (core/views_trigger_quick.inc)
+        if (gWorkspace == Workspace::Triggers) return trigQuickAdd();
+        if (gWorkspace == Workspace::ClassicTriggers) return sdlClassicQuickAdd();
+        shellShowQuickPicker(false, false);
+        return;
     case ID_HELP_ABOUT: showAboutSdl(); return;
     case ID_VIEW_KIT: showKitGallerySdl(); return;
     case ID_HELP_DISCORD: shellOpenUrl(kDiscordInvite); return;

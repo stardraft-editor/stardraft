@@ -204,6 +204,21 @@ QuickPickSdl gQuickHostSdl;
 
 // Opens the picker (Q: the mode's things; replace: Replace with... for the selection; open: Quick open), or closes it
 // when it is open.
+// The quick picker with gQuickCustom's rows (the trigger editors' Quick add and search), in the middle of the window.
+void showQuickPickerCustomSdl() {
+    if (!gRoot || !gHost) return;
+    if (gQuickHostSdl.open) return;  // (already open: a key and its text both ask for it)
+    const draw::Point size = QuickPickView::windowSize();
+    const draw::Rect v(0, 0, gRoot->width(), gRoot->height());
+    const int x = v.left + (v.width() - size.x) / 2, y = v.top + std::max(0, (v.height() - size.y) / 3);
+    gQuickViewSdl.start(gQuickHostSdl, QuickPickKind::Custom, gState.mode, false, false, true);
+    gQuickHostSdl.open = true;
+    gHost->openWindow(*gRoot, gQuickViewSdl, draw::WindowSpec{draw::WindowKind::Popup, draw::Rect(x, y, x + size.x, y + size.y), L""}, [] {
+        gQuickHostSdl.open = false;  // a click outside closed it
+    });
+    gQuickViewSdl.field().focus();
+}
+
 void showQuickPickerSdl(bool replace, bool open) {
     if (!gRoot || !gHost) return;
     if (!open && (!gState.ed || !gState.ed->isOpen())) return;
