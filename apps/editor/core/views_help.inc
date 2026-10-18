@@ -51,6 +51,14 @@ public:
         fill();
     }
 
+    // The pages changed (the web's came, stardraft::helpLoadPages): the list again, and the page shown read again.
+    void pagesChanged() {
+        const std::string topic = page_ + (anchor_.empty() ? "" : "#" + anchor_);
+        page_.clear();
+        fill();
+        if (!topic.empty()) show(topic, false);
+    }
+
     // In the Help workspace (the main window), not a window of its own: no Close, and Esc does not close it.
     void setInWorkspace(bool on) {
         inWorkspace_ = on;

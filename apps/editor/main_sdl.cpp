@@ -916,6 +916,7 @@ int main(int argc, char** argv) {
             sdlFloatPaletteSetup();  // (the floating palette's window opens over it, at its place: sdl_palette_float.inc)
             sdlNativeMenusReset(), rebuildMenus();  // (macOS: the system's menu bar in place of SDL's, now that the window is there)
             sdlWindowsShown(testRun);  // (Windows: the dark title bar, an earlier crash's report, the file types)
+            if (!testRun) sdlHelpOnlineStart();  // (sdl_help.inc: the help pages from the web)
             if (!testRun) sdlUpdatesAtStart();  // (a release build: a newer release says so in the status bar)
             sendPendingFeedback();  // feedback that could not go before (core/feedback_send.inc)
             host.setAnimating(true);  // (the map and the posted work need frames; see shellPost)
