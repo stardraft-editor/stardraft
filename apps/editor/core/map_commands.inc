@@ -25,12 +25,12 @@ void addCommand(int nativeId, const char* id, const wchar_t* label, const char* 
     gCommands.add(std::move(c));
 }
 
-// View > Layers > Pathing and Scenario > Check pathing (core/pathing_layer.inc).
+// View > Overlays > Pathing and Scenario > Check pathing (core/pathing_layer.inc).
 bool pathingLayerOn();
 bool pathingLayerAreas();
 void pathingLayerToggle();
 void pathingLayerMode(bool areas);
-enum class TerrainFlagsView;  // View > Layers > Terrain flags (core/terrain_flags_layer.inc)
+enum class TerrainFlagsView;  // View > Overlays > Terrain flags (core/terrain_flags_layer.inc)
 TerrainFlagsView terrainFlagsView();
 void terrainFlagsSet(TerrainFlagsView v);
 void pathingCheckCommand();

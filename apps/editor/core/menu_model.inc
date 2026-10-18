@@ -99,10 +99,15 @@ MenuModel buildMenuModel() {
                    menuItem(ID_EDIT_DELETE, L"&Delete", L"Del"),
                    menuItem(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A"),
                    menuItem(ID_EDIT_RENAME, L"Re&name location", L"F2")};
+    // The View menu in groups: the graphics, the grid, what shows on the map (overlays, layers), the zoom, the panels,
+    // the workspaces.
     MenuModel view;
-    for (const char* id : {"view.hd2", "view.hd", "view.sd", "view.carbot"}) menuCommand(view, id);
+    {
+        MenuModel graphics;
+        for (const char* id : {"view.hd2", "view.hd", "view.sd", "view.carbot"}) menuCommand(graphics, id);
+        view.push_back(menuPopup(L"G&raphics", graphics));
+    }
     view.push_back(menuSeparator());
-    menuCommand(view, "view.locations");
     menuCommand(view, "view.grid");
     {  // the grid's size (GitHub feedback #87)
         MenuModel sizes;
@@ -112,38 +117,49 @@ MenuModel buildMenuModel() {
         sizes.push_back(menuItem(ID_GRID_CUSTOM, L"&Custom\x2026"));
         view.push_back(menuPopup(L"Grid si&ze", sizes));
     }
-    view.push_back(menuItem(ID_VIEW_TOWNS, L"Show town a&reas"));
-    menuCommand(view, "view.ranges");
+    view.push_back(menuSeparator());
+    {  // what shows over the map: the town areas, the ranges, the pathing (core/pathing_layer.inc), the terrain flags
+       // (core/terrain_flags_layer.inc)
+        MenuModel overlays;
+        overlays.push_back(menuItem(ID_VIEW_TOWNS, L"Show town a&reas"));
+        menuCommand(overlays, "view.ranges");
+        overlays.push_back(menuSeparator());
+        menuCommands(overlays, "View/Pathing");
+        overlays.push_back(menuSeparator());
+        menuCommands(overlays, "View/Terrain flags");
+        view.push_back(menuPopup(L"&Overlays", overlays));
+    }
+    {  // the map's layers that show (GitHub feedback #117)
+        MenuModel layers;
+        menuCommands(layers, "View/Layers");
+        layers.push_back(menuItem(ID_VIEW_LOCATIONS, L"&Locations"));
+        view.push_back(menuPopup(L"La&yers", layers));
+    }
+    view.push_back(menuSeparator());
+    for (const char* id : {"view.zoomIn", "view.zoomOut", "view.actualSize", "view.fit"}) menuCommand(view, id);
+    view.push_back(menuSeparator());
     menuCommand(view, "view.minimap");
     {  // each mode's palette in a window of its own (Roadmap R40: core/dock_prefs.inc, kFloatPalNames)
         MenuModel floating;
         menuCommands(floating, "View/Floating palettes");
         view.push_back(menuPopup(L"Floating &palettes", floating));
     }
-    {  // the map's layers that show (GitHub feedback #117)
-        MenuModel layers;
-        menuCommands(layers, "View/Layers");
-        layers.push_back(menuItem(ID_VIEW_LOCATIONS, L"&Locations"));
-        layers.push_back(menuSeparator());
-        menuCommands(layers, "View/Pathing");  // (what View > Layers > Pathing shows: core/pathing_layer.inc)
-        layers.push_back(menuSeparator());
-        menuCommands(layers, "View/Terrain flags");  // (core/terrain_flags_layer.inc)
-        view.push_back(menuPopup(L"La&yers", layers));
-    }
-    view.push_back(menuSeparator());
-    for (const char* id : {"view.zoomIn", "view.zoomOut", "view.actualSize", "view.fit"}) menuCommand(view, id);
     view.push_back(menuItem(ID_VIEW_LOG, L"&Log", L"Ctrl+L"));
     view.push_back(menuItem(ID_VIEW_TRIGCODE, L"Trigger &code pane"));
 #ifndef NDEBUG  // the control kit is for developers: only in debug builds (the kit: datashot opens it in any build)
     view.push_back(menuItem(ID_VIEW_KIT, L"Control &kit"));
 #endif
     view.push_back(menuSeparator());
-    view.push_back(menuItem(ID_WS_MAP, L"&Map workspace", L"Ctrl+1"));
-    view.push_back(menuItem(ID_WS_DATA, L"&Data workspace", L"Ctrl+2"));
-    view.push_back(menuItem(ID_WS_TRIGGERS, L"&Triggers workspace", L"Ctrl+3"));
-    view.push_back(menuItem(ID_WS_BRIEFING, L"&Briefing workspace"));  // (Ctrl+n: the side bar's n-th item)
-    view.push_back(menuItem(ID_WS_FILES, L"&Assets workspace"));
-    view.push_back(menuItem(ID_WS_PROJECT, L"&Project page"));
+    {
+        MenuModel workspaces;
+        workspaces.push_back(menuItem(ID_WS_MAP, L"&Map workspace", L"Ctrl+1"));
+        workspaces.push_back(menuItem(ID_WS_DATA, L"&Data workspace", L"Ctrl+2"));
+        workspaces.push_back(menuItem(ID_WS_TRIGGERS, L"&Triggers workspace", L"Ctrl+3"));
+        workspaces.push_back(menuItem(ID_WS_BRIEFING, L"&Briefing workspace"));  // (Ctrl+n: the side bar's n-th item)
+        workspaces.push_back(menuItem(ID_WS_FILES, L"&Assets workspace"));
+        workspaces.push_back(menuItem(ID_WS_PROJECT, L"&Project page"));
+        view.push_back(menuPopup(L"&Workspaces", workspaces));
+    }
     MenuModel mode;
     menuCommands(mode, "Mode");
     MenuModel scenario{menuItem(ID_SCEN_PROPS, L"&Map properties (title, size, tileset)", L"Ctrl+M"),

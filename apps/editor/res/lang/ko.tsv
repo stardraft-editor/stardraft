@@ -2212,7 +2212,7 @@ Gaps	틈
 Ground that units can walk onto, but the game's pathing does not connect, at tile %d, %d	유닛이 걸어 들어갈 수 있지만 게임의 경로가 잇지 않는 땅, 타일 %d, %d
 No pathing problems: %d regions, %d connected areas	경로 문제 없음: 지역 %d개, 연결된 영역 %d개
 Passage that only small units fit through, at tile %d, %d	소형 유닛만 지나갈 수 있는 통로, 타일 %d, %d
-Pathing is hidden (View > Layers)	경로가 숨겨졌습니다 (보기 > 레이어)
+Pathing is hidden (View > Overlays)	경로가 숨겨졌습니다 (보기 > 오버레이)
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	경로 지역 %d: 타일 %d개, %ls; 연결된 영역 %d (지역 %d개)
 Pathing: %d problems (%d regions, %d connected areas). Pick one to show it on the map	경로: 문제 %d개 (지역 %d개, 연결된 영역 %d개). 하나를 고르면 맵에 표시합니다
 Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here	경로: 연결된 영역(유닛이 걸어서 지나갈 수 있는 땅)마다 색이 다릅니다. 어두운 곳: 유닛이 걸을 수 없습니다
@@ -2305,8 +2305,11 @@ Sprites is back in the side bar	스프라이트이(가) 사이드바로 돌아�
 Ground &height	지형 높이(&H)
 Ground that blocks the line of &sight	시야를 가리는 지형(&S)
 &Buildable ground	건설 가능한 지형(&B)
-Terrain flags are hidden (View > Layers)	지형 속성이 숨겨졌습니다 (보기 > 레이어)
+Terrain flags are hidden (View > Overlays)	지형 속성이 숨겨졌습니다 (보기 > 오버레이)
 Terrain flags: walkable (green), not walkable (red)	지형 속성: 걸을 수 있음(초록), 걸을 수 없음(빨강)
 Terrain flags: low ground (blue), middle ground (yellow), high ground (red)	지형 속성: 낮은 지형(파랑), 중간 지형(노랑), 높은 지형(빨강)
 Terrain flags: the ground that blocks the line of sight (purple)	지형 속성: 시야를 가리는 지형(보라)
 Terrain flags: buildable (green), not buildable (red)	지형 속성: 건설 가능(초록), 건설 불가(빨강)
+G&raphics	그래픽(&R)
+&Overlays	오버레이(&O)
+&Workspaces	작업 공간(&W)

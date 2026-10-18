@@ -2214,7 +2214,7 @@ constexpr UiText kRows[] = {
     {L"Ground that units can walk onto, but the game's pathing does not connect, at tile %d, %d", L"Suelo al que las unidades pueden entrar, pero que las rutas del juego no conectan, en el tile %d, %d"},
     {L"No pathing problems: %d regions, %d connected areas", L"No hay problemas de rutas: %d regiones, %d zonas conectadas"},
     {L"Passage that only small units fit through, at tile %d, %d", L"Paso por el que solo caben las unidades peque\u00F1as, en el tile %d, %d"},
-    {L"Pathing is hidden (View > Layers)", L"Las rutas est\u00E1n ocultas (Ver > Capas)"},
+    {L"Pathing is hidden (View > Overlays)", L"Las rutas est\u00E1n ocultas (Ver > Superposiciones)"},
     {L"Pathing region %d: %d tiles, %ls; connected area %d (%d regions)", L"Regi\u00F3n de rutas %d: %d tiles, %ls; zona conectada %d (%d regiones)"},
     {L"Pathing: %d problems (%d regions, %d connected areas). Pick one to show it on the map", L"Rutas: %d problemas (%d regiones, %d zonas conectadas). Elija uno para verlo en el mapa"},
     {L"Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here", L"Rutas: cada zona conectada (el suelo que las unidades pueden recorrer) tiene su color. Oscuro: las unidades no pueden caminar aqu\u00ED"},
@@ -2307,11 +2307,14 @@ constexpr UiText kRows[] = {
     {L"Ground &height", L"&Altura del terreno"},
     {L"Ground that blocks the line of &sight", L"Terreno que bloquea la l\u00EDnea de &visi\u00F3n"},
     {L"&Buildable ground", L"Terreno &edificable"},
-    {L"Terrain flags are hidden (View > Layers)", L"Las propiedades del terreno est\u00E1n ocultas (Ver > Capas)"},
+    {L"Terrain flags are hidden (View > Overlays)", L"Las propiedades del terreno est\u00E1n ocultas (Ver > Superposiciones)"},
     {L"Terrain flags: walkable (green), not walkable (red)", L"Propiedades del terreno: transitable (verde), no transitable (rojo)"},
     {L"Terrain flags: low ground (blue), middle ground (yellow), high ground (red)", L"Propiedades del terreno: terreno bajo (azul), medio (amarillo), alto (rojo)"},
     {L"Terrain flags: the ground that blocks the line of sight (purple)", L"Propiedades del terreno: el terreno que bloquea la l\u00EDnea de visi\u00F3n (morado)"},
     {L"Terrain flags: buildable (green), not buildable (red)", L"Propiedades del terreno: edificable (verde), no edificable (rojo)"},
+    {L"G&raphics", L"Gr\u00E1&ficos"},
+    {L"&Overlays", L"&Superposiciones"},
+    {L"&Workspaces", L"&Espacios de trabajo"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

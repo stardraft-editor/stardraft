@@ -1,7 +1,7 @@
 // The pathing layer and the pathing check (roadmap R35, feedback #75; portable, core.inc), from the library's regions
 // (stardraft/pathing_regions.h): StarCraft's ground pathing as the game computes it when a game starts.
-//   - View > Layers > Pathing: the walkable minitiles, each region of the game in its own tint with its borders, and
-//     the ground that units cannot walk on dark. View > Layers > Pathing shows the connected areas: each group of
+//   - View > Overlays > Pathing: the walkable minitiles, each region of the game in its own tint with its borders, and
+//     the ground that units cannot walk on dark. View > Overlays > Pathing shows the connected areas: each group of
 //     regions that ground units can go between in its own tint (the game's region groups).
 //   - Scenario > Check pathing: the nooks and crannies (checkPathing) in a list picker, each with its place and a fix.
 //     A pick shows the place on the map (the layer goes on, the problem has a mark) and the status bar tells the fix;
@@ -341,7 +341,7 @@ void pathingLayerToggle() {
     pathingLayerPoll();
     shellMenusChanged();
     appState().dirty = true;
-    setMessage(gPathing.on ? pathingLegendText() : tr(L"Pathing is hidden (View > Layers)"));
+    setMessage(gPathing.on ? pathingLegendText() : tr(L"Pathing is hidden (View > Overlays)"));
 }
 
 void pathingLayerMode(bool areas) {
