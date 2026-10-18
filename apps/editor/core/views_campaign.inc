@@ -9,7 +9,6 @@ bool gCampaignOpen = false;  // a campaign is open (gCampaign holds it)
 
 void shellShowCampaignWindow();  // (the host: the window, once)
 std::wstring shellPickFolder(const std::wstring& title);
-std::filesystem::path shellPickFile(const ShellFilePick& pick);
 void openAny(const std::filesystem::path& path);
 
 class CampaignView final : public draw::View {
