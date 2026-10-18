@@ -2379,6 +2379,8 @@ constexpr UiText kRows[] = {
     {L"Help page", L"P\u00E1gina de ayuda"},
     {L"the Help pages", L"las p\u00E1ginas de ayuda"},
     {L"Set the current player", L"Establecer el jugador actual"},
+    {L"Take the conditions out of Not", L"Sacar las condiciones de No"},
+    {L"NOT: true when this condition is not true", L"NOT: verdadero cuando esta condici\u00F3n no es verdadera"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

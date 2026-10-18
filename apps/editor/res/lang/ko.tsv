@@ -2377,3 +2377,5 @@ Help: the documentation (F1, Ctrl+	도움말: 문서 (F1, Ctrl+
 Help page	도움말 페이지
 the Help pages	도움말 페이지
 Set the current player	현재 플레이어 설정
+Take the conditions out of Not	Not에서 조건 꺼내기
+NOT: true when this condition is not true	NOT: 이 조건이 참이 아닐 때 참

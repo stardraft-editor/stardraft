@@ -2377,3 +2377,5 @@ Help: the documentation (F1, Ctrl+	Справка: документация (F1,
 Help page	Страница справки
 the Help pages	страницы справки
 Set the current player	Задать текущего игрока
+Take the conditions out of Not	Вынуть условия из «Не»
+NOT: true when this condition is not true	NOT: истинно, когда это условие не выполняется

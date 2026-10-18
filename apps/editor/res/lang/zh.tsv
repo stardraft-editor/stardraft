@@ -2377,3 +2377,5 @@ Help: the documentation (F1, Ctrl+	帮助：文档 (F1, Ctrl+
 Help page	帮助页面
 the Help pages	帮助页面
 Set the current player	设置当前玩家
+Take the conditions out of Not	将条件移出“非”
+NOT: true when this condition is not true	NOT：此条件不成立时为真
