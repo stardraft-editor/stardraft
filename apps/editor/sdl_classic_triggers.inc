@@ -270,6 +270,10 @@ private:
             ctModelDeleteTriggers(gSdlTrigHost.model(), gSdlTrigHost);
             sdlMapPageChanged();
         };
+        cb.comment = [] {  // (the text pop-out: core/views_classic_page.inc)
+            ctEditComment(gSdlTrigHost);
+            sdlMapPageChanged();
+        };
         cb.forces = [] {  // (the core's list picker, as the Windows page)
             if (gSdlTrigPage) ctForcesClick(gSdlTrigHost, gSdlTrigPage->head().forces);
             sdlMapPageChanged();

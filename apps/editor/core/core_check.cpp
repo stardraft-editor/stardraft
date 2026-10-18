@@ -53,6 +53,7 @@
 #include "button.h"
 #include "dialog.h"
 #include "label.h"
+#include "link.h"
 #include "progress_bar.h"
 #include "icon_button.h"
 #include "tree_view.h"

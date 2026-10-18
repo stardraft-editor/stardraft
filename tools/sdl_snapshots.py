@@ -154,6 +154,8 @@ CASES += [
     # is emptied and the trigger is selected.
     ("map-classictrig-find", ["--workspace", "classictriggers", "--click", "260,182", "--type", "zzz", "--click", "300,650", "--key", "Ctrl+Shift+F",
                               "--type", "always", "--key", "Enter"], "map"),
+    # The trigger's comment (roadmap R62): Add a comment in the head, a text, Ctrl+Enter: a Comment action with it.
+    ("map-classictrig-comment", ["--workspace", "classictriggers", "--click", "900,188", "--type", "Base defense", "--key", "Ctrl+Enter"], "map"),
     ("map-classictrig-quickadd", ["--workspace", "classictriggers", "--classictrig", "1:1:0", "--key", "Q", "--type", "play wav", "--key", "Enter"], "map"),
     # The Triggers workspace with a value's pop-out open (--trigpop n: value n of the block --trigsel selects; text: its text's words). The
     # trigger and block numbers are the first trigger of "On map start" (a text with values, the objectives' colors,
@@ -3507,7 +3509,8 @@ CHECKS = {**{"map-terrain-flags-" + v: (lambda o, v=v: check_terrain_flags(o, v)
           "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click,
           "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
           "newpage-randomize-quick": check_newpage_randomize, "newpage-symmetry-dropdown": check_newpage_symmetry,
-          "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits, "map-classictrig-quickadd": check_classic_quickadd, "map-classictrig-find": check_classic_find, "data-triggers-quickadd": lambda o: None if "1 actions: act.gamespeed" in o else "no Set the game speed in the actions",
+          "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits, "map-classictrig-quickadd": check_classic_quickadd, "map-classictrig-find": check_classic_find,
+          "map-classictrig-comment": lambda o: None if "0 conditions, 1 actions" in (states(o) or [("", "")])[-1][1] else "no Comment action", "data-triggers-quickadd": lambda o: None if "1 actions: act.gamespeed" in o else "no Set the game speed in the actions",
           "map-mapdata-edits": check_mapdata_edits,
           "map-undo-history": check_undo_history, "data-undo-history": check_data_undo_history,
           "data-triggers-undo-history": check_trigger_undo_history,
