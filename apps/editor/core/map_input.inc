@@ -249,7 +249,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         app.dirty = true;
         return;
     }
-    if (modeLayerHidden()) return modeLayerHiddenMessage();
+    if (modeLayerHidden()) return modeLayerHiddenClick();  // (core/map_edit.inc)
     if (trigUnitPickClick(wx, wy)) return;
     if (app.pasting) {
         // Paste mode stays on (another click pastes again) until a right click or Escape; the pasted
