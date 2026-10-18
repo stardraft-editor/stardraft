@@ -953,6 +953,26 @@ private:
 // The editor under the entries: the selected entry's title, its type, Turn off (and Always show for the actions that
 // have it), and a field for each value (two in a row; a text takes the width under them). A block's row shows its title
 // only. show() reads the selected entry from the page's model; the callbacks are the page's commands.
+// What a Classic condition or action does (roadmap R23): the help of the Triggers workspace's block that uses the same
+// game action (its eudplib name: "Set resources" is SetResources, "Display text message" starts with DisplayText).
+// "": none found.
+inline std::wstring ctEntryHelp(bool condition, const std::string& name) {
+    std::string key;
+    for (char ch : name)
+        if (std::isalnum(static_cast<unsigned char>(ch))) key += char(std::tolower(static_cast<unsigned char>(ch)));
+    const TriggerDef* best = nullptr;
+    size_t bestLen = 0;
+    for (const TriggerDef& d : TriggerDef::all()) {
+        if (d.condition != condition || d.value || d.docs.empty() || d.tier == "hidden") continue;
+        for (const std::string& e : d.eudplib) {
+            std::string k;
+            for (char ch : e) k += char(std::tolower(static_cast<unsigned char>(ch)));
+            if (k.size() >= 5 && k.size() > bestLen && key.rfind(k, 0) == 0) best = &d, bestLen = k.size();
+        }
+    }
+    return best ? widen(best->docs) : std::wstring();
+}
+
 class CtEditorView final : public draw::View {
 public:
     struct Callbacks {
@@ -978,11 +998,15 @@ public:
         add(type, {0, 0, 0, 0});
         add(disabled, {0, 0, 0, 0});
         add(always, {0, 0, 0, 0});
+        help.setTone(stardraft::kit::LabelTone::Dim);
+        help.setWrap(true);
+        add(help, {0, 0, 0, 0});
     }
 
     stardraft::kit::Label title;
     stardraft::kit::Dropdown type;
     stardraft::kit::CheckBox disabled{L"Turn off"}, always{L"Always show"};
+    stardraft::kit::Label help;  // what the selected condition or action does (ctEntryHelp)
 
     // The field of parameter `param` (nullptr: none shows).
     CtPickButton* field(int param) {
@@ -1014,6 +1038,7 @@ public:
         title.setVisible(any || block);
         type.setVisible(any), disabled.setVisible(any);
         always.setVisible(a && !block && (a->type == 7 || a->type == 9));
+        help.setText(L"");
         if (block) {
             title.setText(widen(classicBatchText(*a->batch, h.names())));
             place();
@@ -1042,6 +1067,7 @@ public:
         always.setOn((flags & 4) != 0);
         // The fields: two columns; a text takes the whole width under them.
         const ClassicDef* def = c ? classicConditionDef(t) : classicActionDef(t);
+        help.setText(def ? ctEntryHelp(c != nullptr, def->name) : std::wstring());
         std::vector<int> order;  // the texts last
         if (def) {
             for (int i = 0; i < int(def->params.size()); ++i)
@@ -1101,6 +1127,8 @@ private:
             put(*v.field, x + labelW, y, w, rowH);
             if (++col == 2 || v.text) col = 0, y += step;
         }
+        if (col) y += step;
+        put(help, 0, y + gap, std::min(width(), scale(kTextMaxW) + labelW), std::max(0, height() - y - gap));  // (under the fields)
     }
 
     Callbacks cb_;
