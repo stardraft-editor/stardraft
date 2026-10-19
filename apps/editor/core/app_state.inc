@@ -41,11 +41,15 @@ struct AppState {
     // Doodads and sprites: the copied ones, each from the middle of the group; a paste follows the mouse.
     std::vector<Editor::ItemAt> doodadClip, spriteClip;
     bool pastingItems = false;                 // Doodads or Sprites: the copy follows the mouse; a click places it
-    Rect locationClip{};                       // a location's size and name
-    int locationClipInverted = 0;              // ... and its inverted axes (1 left/right, 2 top/bottom)
-    std::string locationClipName;
-    uint16_t locationClipElevation = 0;        // ... and the elevations it leaves out (MRGN flags)
-    bool hasLocationClip = false;
+    // The copied locations (feedback #135: several at once): each one's rectangle from the group's center, its name,
+    // its inverted axes (1 left/right, 2 top/bottom) and the elevations it leaves out (MRGN flags).
+    struct LocationClip {
+        Rect rect;
+        std::string name;
+        int inverted = 0;
+        uint16_t elevation = 0;
+    };
+    std::vector<LocationClip> locationClips;
     bool allowStacking = false;     // Options: units may overlap
     bool resourceDistance = true;   // Options: town halls and resources keep 3 tiles apart
     bool snapBuildings = true;      // Options > Units: buildings snap to tile edges (on every path; other units: unitGrid)

@@ -413,21 +413,31 @@ render::Scene buildScene() {
         for (int i = 0; i < ed.locationCount(); ++i) {
             if (!ed.locationUsed(i)) continue;
             Rect r = ed.locationRect(i);
-            bool sel = active && ed.selectedLocation() == i;
-            if (sel && (app.drag == Drag::LocMove || app.drag == Drag::LocResize)) r = previewLocationRect(wx, wy);
+            bool sel = active && ed.isLocationSelected(i);
+            // The drag's preview: a lone location's rectangle; a group moves by the dragged location's offset.
+            if (sel && app.drag == Drag::LocResize && i == ed.selectedLocation()) r = previewLocationRect(wx, wy);
+            else if (sel && app.drag == Drag::LocMove && ed.selectedLocations().size() == 1) r = previewLocationRect(wx, wy);
+            else if (sel && app.drag == Drag::LocMove) {
+                const Rect p = previewLocationRect(wx, wy);
+                const int dx = p.left - app.locStart.left, dy = p.top - app.locStart.top;
+                r = Rect{r.left + dx, r.top + dy, r.right + dx, r.bottom + dy};
+            }
             const bool inv = ed.locationInverted(i);  // inverted (holds air units only): red, not blue
             s.rects.push_back({float(r.left), float(r.top), float(r.right), float(r.bottom), inv ? (active ? 0xFF404030u : 0xFF404018u) : active ? 0x2060FF30u : 0x2060FF18u, true});
             outline(s, r, sel ? 0xFFD040FFu : inv ? (active ? 0xFF5050E0u : 0xFF505080u) : (active ? 0x5080FFE0u : 0x5080FF80u), sel ? 2.0f : 1.0f);
             std::string name = narrow(widen(ed.locationName(i)));
             if (app.locationWrap) name = wrapLocationName(name, float(r.right - r.left) * app.zoom - 6, float(r.bottom - r.top) * app.zoom - 6);
             s.texts.push_back({float(r.left) + 3 / app.zoom, float(r.top) + 3 / app.zoom, name, active ? 0xFFFFFFFFu : 0xFFFFFFA0u, true, mapTextScale()});
-            if (sel)
+            if (sel && i == ed.selectedLocation())  // (the handles: on the selected one)
                 for (int c = 0; c < 4; ++c) {
                     float hx = (c & 1) ? float(r.right) : float(r.left), hy = (c & 2) ? float(r.bottom) : float(r.top);
                     float h = 4 / app.zoom;
                     s.rects.push_back({hx - h, hy - h, hx + h, hy + h, 0xFFD040FFu, true});
                 }
         }
+        if (app.drag == Drag::BoxSelect)
+            s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF40FFu, false, 1, true}),
+                s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF4020u, true, 1, true});
         if (app.drag == Drag::LocCreate)  // Ctrl or Shift: it is made inverted (red)
             outline(s, previewLocationRect(wx, wy), shellCtrlOrShiftDown() ? 0xFF5050FFu : 0xFFD040FFu, 2);
     }

@@ -2408,6 +2408,7 @@ constexpr UiText kRows[] = {
     {L"Lifted", L"\u5347\u8D77"},
     {L"Link selected units", L"\u8FDE\u63A5\u6240\u9009\u5355\u4F4D"},
     {L"Jump to linked unit", L"\u8DF3\u5230\u8FDE\u63A5\u7684\u5355\u4F4D"},
+    {L" locations", L" \u4E2A\u4F4D\u7F6E"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

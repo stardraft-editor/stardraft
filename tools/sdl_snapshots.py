@@ -101,6 +101,10 @@ CASES += [
     ("map-terrain-rect", ["--rect"], "map"),
     # The terrain brush with a top and bottom mirror (the mirror row's second button; feedback #134): two strokes, each
     # with its copy, and the mirror's axis across the map.
+    # Several locations (feedback #135): two made by a drag, both picked (a click, then Shift+click) and moved together by
+    # a drag from the first one; the list shows them.
+    ("map-locations-group", ["--mode", "locations", "--drag", "480,280-560,340", "--drag", "620,260-700,320", "--click", "520,310",
+                             "--click", "660,290:Shift", "--drag", "520,310-560,350", "--wait", "300"], "map"),
     ("map-terrain-mirror", ["--mode", "terrain", "--click", "146,521", "--click", "118,459", "--click", "120,667",
                            "--click", "830,300", "--click", "1000,600", "--wait", "500"], "map"),
     ("map-classictrig", ["--workspace", "classictriggers", "--classictrig", "1:1:0"], "map"),

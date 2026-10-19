@@ -436,7 +436,20 @@ public:
     bool editLocation(int i, const LocationEdit& edit, std::string* error = nullptr);
     void deleteLocation(int i);
     int selectedLocation() const { return selectedLocation_; }
-    void selectLocation(int i) { selectedLocation_ = i; }
+    void selectLocation(int i) { selectedLocation_ = i, locationSel_.assign(i >= 0 ? 1 : 0, i); }  // only i (-1: none)
+    // The multi-selection (feedback #135): the locations picked by Shift or Ctrl click and by a box. selectedLocation()
+    // is the one the properties and the list show, the last one picked. Only used locations are picked.
+    const std::vector<int>& selectedLocations() const { return locationSel_; }
+    bool isLocationSelected(int i) const;
+    void toggleLocationSelected(int i);
+    void focusLocation(int i);  // i is the selected one; the selection stays when it holds i, else only i
+    // Locations whose rectangle the box touches: in place of the selection, or added to it.
+    void selectLocationsIn(const Rect& box, bool add);
+    // Moves the locations by (dx, dy) px as one group, one undo step. The group stops at the map's edges as a whole, so
+    // the offset applied is returned. Shapes and inversion stay.
+    std::pair<int, int> moveLocations(const std::vector<int>& locs, int dx, int dy);
+    // Deletes the locations, one undo step.
+    void deleteLocations(std::vector<int> locs);
 
     // --- Players and forces ---------------------------------------------------------------------
     // Players 1-8 (index 0-7): who controls the slot (OWNR, mirrored to IOWN), the race (SIDE) and the
@@ -666,6 +679,7 @@ private:
 
     std::vector<int> selection_;
     int selectedLocation_ = -1;
+    std::vector<int> locationSel_;  // the selected locations (selectedLocation_ is one of them)
     std::vector<Unit> clipboard_;
     // Undo history: snapshots that share every section unchanged since the previous snapshot, so a
     // step costs only what it changed. Kept up to kUndoSteps steps or kUndoBytes of section data.
