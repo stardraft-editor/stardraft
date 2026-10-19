@@ -4,6 +4,7 @@
 // units with placement correction, selection, move, copy/paste, doodads, locations) with
 // undo/redo. GPU-free and UI-free, so it can be driven by any shell, tests or agents.
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <filesystem>
