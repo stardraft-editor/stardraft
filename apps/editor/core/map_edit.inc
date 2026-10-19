@@ -90,12 +90,14 @@ std::vector<AppState::LocationClip> locationClipsOf(const std::vector<int>& locs
     Editor& ed = *appState().ed;
     int left = INT_MAX, top = INT_MAX, right = INT_MIN, bottom = INT_MIN;
     for (int i : locs) {
+        if (!ed.locationUsed(i)) continue;
         const Rect r = ed.locationRect(i);
         left = std::min(left, r.left), top = std::min(top, r.top), right = std::max(right, r.right), bottom = std::max(bottom, r.bottom);
     }
     const int cx = (left + right) / 2, cy = (top + bottom) / 2;
     std::vector<AppState::LocationClip> out;
     for (int i : locs) {
+        if (!ed.locationUsed(i)) continue;
         const Rect r = ed.locationRect(i);
         out.push_back({Rect{r.left - cx, r.top - cy, r.right - cx, r.bottom - cy}, ed.locationName(i), ed.locationInvertedAxes(i),
                        ed.locationElevation(i)});

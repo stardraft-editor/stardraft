@@ -40,7 +40,7 @@ void locationMenuPick(int loc, int pick) {
     AppState& app = appState();
     Editor& ed = *app.ed;
     if (!ed.locationUsed(loc)) return;
-    ed.selectLocation(loc);
+    ed.focusLocation(loc);
     if (pick == ID_LOCMENU_PROPS) showLocationEdit(loc);
     else if (pick == ID_LOCMENU_RENAME) renameSelectedLocation();
     else if (pick == ID_LOCMENU_DELETE) command(ID_EDIT_DELETE);
@@ -173,7 +173,7 @@ MenuModel mapMenuModel(float wx, float wy) {
     case Mode::Locations: {
         const int loc = ed.locationAt(int(wx), int(wy));
         if (loc >= 0) {
-            ed.selectLocation(loc);
+            ed.focusLocation(loc);
             setListSel(int(std::find(app.items.begin(), app.items.end(), loc) - app.items.begin()));
         }
         gMapMenuLocation = loc;

@@ -2410,7 +2410,7 @@ constexpr UiText kRows[] = {
     {L"Jump to linked unit", L"Ir a la unidad enlazada"},
     {L" locations", L" ubicaciones"},
     {L"Turns", L"Giros"},
-    {L"Turns: the copies go round the map's middle in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. - and + and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a square map).", L"Giros: las copias giran alrededor del centro del mapa a pasos iguales. 1: ninguno, 2: media vuelta, 4: cuartos de vuelta, de 1 a 8. Haga clic para escribir un n\u00FAmero. - y + y la rueda del rat\u00F3n lo cambian. En terreno isom\u00E9trico, cada copia va al rombo m\u00E1s cercano, salvo los giros que mantienen los rombos (2, y 4 en un mapa cuadrado)."},
+    {L"Turns: the copies go round the map's middle in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. - and + and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).", L"Giros: las copias giran alrededor del centro del mapa a pasos iguales. 1: ninguno, 2: media vuelta, 4: cuartos de vuelta, de 1 a 8. Haga clic para escribir un n\u00FAmero. - y + y la rueda del rat\u00F3n lo cambian. En terreno isom\u00E9trico, cada copia va al rombo m\u00E1s cercano, salvo los giros que mantienen los rombos (2, y 4 en un mapa con el doble de ancho que de alto)."},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

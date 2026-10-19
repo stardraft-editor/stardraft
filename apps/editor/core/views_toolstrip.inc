@@ -410,7 +410,7 @@ public:
         };
         static const wchar_t* const kSizeTip = L"Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).";
         static const wchar_t* const kTurnsTip =
-            L"Turns: the copies go round the map's middle in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. - and + and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a square map).";
+            L"Turns: the copies go round the map's middle in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. - and + and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).";
         static const wchar_t* const kHeightTip =
             L"Brush height: 1 to 32. Click to type a height (empty: the same as the size). The arrows and the mouse wheel change it.";
         static const wchar_t* const kHeightLockedTip =
@@ -519,7 +519,7 @@ public:
             int mx = 0;
             for (const auto& k : kinds) {
                 const int mask = app.ed->mirrors();
-                const bool on = k.flag ? (mask & k.flag) != 0 : mask == 0;
+                const bool on = k.flag ? (mask & k.flag) != 0 : mask == 0 && app.ed->turns() == 1;
                 const draw::Rect br{mx, y, mx + mb, y + mb};
                 const int flag = k.flag;
                 const bool over = hot(square(br));
@@ -531,6 +531,7 @@ public:
                     if (!a.ed) return;
                     const int m2 = flag ? a.ed->mirrors() ^ flag : 0;
                     a.ed->setMirrors(m2);
+                    if (!flag) a.ed->setTurns(1), a.turnsByMode[int(a.mode)] = 1;  // None turns the turns off too
                     a.symmetryByMode[int(a.mode)] = m2;
                     shellToolsChanged();
                     a.dirty = true;

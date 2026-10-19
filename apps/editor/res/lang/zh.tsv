@@ -2408,4 +2408,4 @@ Link selected units	连接所选单位
 Jump to linked unit	跳到连接的单位
  locations	 个位置
 Turns	旋转次数
-Turns: the copies go round the map's middle in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. - and + and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a square map).	旋转：副本绕地图中心按相等的步距旋转。1：不旋转，2：半圈，4：四分之一圈，1 到 8。单击可输入数字。- 和 + 以及鼠标滚轮可更改数值。在等距地形上，除保持菱形的旋转（2，以及方形地图上的 4）外，每个副本都放在最近的菱形上。
+Turns: the copies go round the map's middle in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. - and + and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	旋转：副本绕地图中心按相等的步距旋转。1：不旋转，2：半圈，4：四分之一圈，1 到 8。单击可输入数字。- 和 + 以及鼠标滚轮可更改数值。在等距地形上，除保持菱形的旋转（2，以及宽度为高度两倍的地图上的 4）外，每个副本都放在最近的菱形上。
