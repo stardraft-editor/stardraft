@@ -406,6 +406,12 @@ CASES += [
     # Floating moves the side bar's panel into its window (its Rectangle and size 3), and docking moves the window's back
     # (its Isometric).
     ("map-panels-float", ["--script", "{script:panelsfloat}"], "map"),
+    # Release pictures (0.6.1.3): a Tiles stamp over the map; Rectangle mode's left-right mirror; a taller minimap.
+    ("map-tiles-stamp-shot", ["--mode", "terrain", "--click", "271,427", "--wait", "300", "--drag", "75,700-160,760", "--move", "700,400",
+                              "--wait", "200"], "map"),
+    ("map-rect-mirror-shot", ["--mode", "terrain", "--click", "271,427", "--wait", "300", "--click", "115,521", "--click", "100,720",
+                              "--move", "600,400", "--wait", "200"], "map"),
+    ("map-minimap-taller", ["--drag", "200,374-200,540", "--wait", "200"], "map"),
     # The palette's Extra large view (GitHub #150): Doodads mode, two big pictures in a row.
     ("map-palette-xlarge", ["--mode", "doodads", "--palview", "xlarge"], "map"),
 ]
