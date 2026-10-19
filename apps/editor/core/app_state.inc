@@ -25,6 +25,7 @@ struct AppState {
     int sprayDensity = 10;  // the active mode's: how many things one spray puts down (kDensityMax at most)
     int densityByMode[kModeCount] = {5, 10, 10, 10, 10};  // each mode keeps its own density and symmetry (setMode swaps them in)
     int symmetryByMode[kModeCount] = {};
+    int turnsByMode[kModeCount] = {1, 1, 1, 1, 1};  // each mode's number of turns (feedback #111)
     uint32_t spraySeed = 1;
     int lastSprayX = -100000, lastSprayY = -100000;
     double sprayHeld = 0, sprayCredit = 0;  // a held spray: the seconds it is held, and the sprays due

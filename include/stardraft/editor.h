@@ -64,10 +64,13 @@ enum class Symmetry { None, Horizontal, Vertical, Both, Rotate180, Diagonal, Ant
 // The Map Revealer unit (units.dat id 101; Edit > Tools > Place map revealers).
 constexpr uint16_t kMapRevealerUnit = 101;
 // Mirrors and turns that combine (as PUDForge's): each edit is repeated at every place the chosen ones give together
-// (the group they make; at most 8 places). Left/right and top/bottom together are "both" (and so 180 too).
+// (the group they make; at most kMaxSymmetricPlaces places). Left/right and top/bottom together are "both" (and so 180
+// too). The turns (feedback #111) are a number: the copies go round the map's middle in equal steps, 1 for none.
 namespace Mirror {
-constexpr int LeftRight = 1, TopBottom = 2, Diagonal = 4, AntiDiagonal = 8, Rotate180 = 16, Rotate90 = 32, All = 63;
+constexpr int LeftRight = 1, TopBottom = 2, Diagonal = 4, AntiDiagonal = 8, All = 15;
 }
+constexpr int kMaxTurns = 8;
+constexpr size_t kMaxSymmetricPlaces = 32;
 const char* symmetryName(Symmetry s);
 
 class Editor {
@@ -211,6 +214,10 @@ public:
     Symmetry symmetry() const;
     void setMirrors(int mask) { mirrors_ = mask & Mirror::All; }
     int mirrors() const { return mirrors_; }
+    // The turns: the number of positions, equally spaced round the map's middle (1: no turn, 2: a half turn, 4: quarter
+    // turns, 3: a third of a turn...), 1 to kMaxTurns. With the mirrors, each turned copy is mirrored too.
+    void setTurns(int n) { turns_ = std::clamp(n, 1, kMaxTurns); }
+    int turns() const { return turns_; }
     // The point itself followed by its mirror images (duplicates removed).
     std::vector<std::pair<int, int>> symmetricPoints(int px, int py) const;
     // The points a terrain brush paints at (a StarEdit brush is centered on its lattice point first; see editor.cpp).
@@ -605,12 +612,16 @@ private:
     bool applyOld(const std::vector<CornerValue>& corners, int x0, int y0, int x1, int y1, bool overPlaced = false);
     IsomCore core_;
     std::pair<int, int> mirror(int px, int py, int which) const;
+    // The point turned `k` steps of 360 / turns() degrees about the map's middle (in the map's proportions: on a square map a
+    // true turn; on another the copies stay in the map's box).
+    std::pair<int, int> turnPoint(int px, int py, int k) const;
     TerrainClip terrainClip_;
     struct TileClip {
         int width = 0, height = 0;     // tiles
         std::vector<uint16_t> values;  // row by row
     } tileClip_;
     int mirrors_ = 0;  // Mirror:: flags
+    int turns_ = 1;    // the turns (setTurns)
     struct SymmetricPlace {
         int x, y;
         bool flipX, flipY;  // a mirror image across a vertical (horizontal) axis: a pasted copy flips that way

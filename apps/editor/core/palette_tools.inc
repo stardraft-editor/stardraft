@@ -406,9 +406,9 @@ void setMode(Mode m) {
     if (app.mode != m) app.palette = -1, app.palette2 = -1, shellPaletteChosen().clear();
     // Density and symmetry are each mode's own.
     app.densityByMode[int(app.mode)] = app.sprayDensity;
-    if (app.ed) app.symmetryByMode[int(app.mode)] = app.ed->mirrors();
+    if (app.ed) app.symmetryByMode[int(app.mode)] = app.ed->mirrors(), app.turnsByMode[int(app.mode)] = app.ed->turns();
     app.sprayDensity = app.densityByMode[int(m)];
-    if (app.ed) app.ed->setMirrors(app.symmetryByMode[int(m)]);
+    if (app.ed) app.ed->setMirrors(app.symmetryByMode[int(m)]), app.ed->setTurns(app.turnsByMode[int(m)]);
     app.mode = m;
     shellModeSide(m);  // the side the mode's tools are docked on, and the palette's view of the mode
     if (shellViewShown()) shellRelayout();  // the toolbar's side, and what the other column shows

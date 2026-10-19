@@ -30,7 +30,7 @@ int brushSizeIndex(float size) {  // the nearest size in the list
 }
 
 // The tool strip's number boxes (Size, Density, the Terrain height and the brush shape, for the wheel).
-enum StripNumber { kNumSize, kNumDensity, kNumHeight, kNumShape };
+enum StripNumber { kNumSize, kNumDensity, kNumHeight, kNumShape, kNumTurns };
 
 // A click area of the strip, as painted: what it does, its tip, its cursor.
 struct StripHit {
@@ -93,6 +93,7 @@ std::wstring stripNumberText(int which) {
     wchar_t t[24];
     if (which == kNumSize) std::swprintf(t, 24, L"%g", app.brushSize);
     else if (which == kNumHeight) std::swprintf(t, 24, L"%g", brushHeightOf(app));  // linked: the size; the Diamond: its own rule
+    else if (which == kNumTurns) std::swprintf(t, 24, L"%d", app.ed ? app.ed->turns() : 1);
     else std::swprintf(t, 24, L"%d", app.sprayDensity);
     return t;
 }
@@ -132,6 +133,8 @@ void stripNumberStep(int which, int dir) {
     } else if (which == kNumHeight) {  // linked: one step from the size, and no longer linked
         if (stripHeightLockedSays()) return;
         app.brushHeight = std::clamp(std::round(app.brushHeight > 0 ? app.brushHeight : app.brushSize) + float(dir), 1.0f, 32.0f);
+    } else if (which == kNumTurns) {
+        if (app.ed) app.ed->setTurns(app.ed->turns() + dir), app.turnsByMode[int(app.mode)] = app.ed->turns();
     } else {
         app.sprayDensity = std::clamp(app.sprayDensity + dir, 1, kDensityMax);
         app.densityByMode[int(app.mode)] = app.sprayDensity;
@@ -158,6 +161,8 @@ bool stripNumberSet(int which, const std::wstring& text) {
         app.brushSize = v < 1 ? 0.5f : float(std::clamp(std::round(v), 1.0, 32.0));
     } else if (which == kNumHeight) {
         app.brushHeight = float(std::clamp(std::round(v), 1.0, 32.0));  // a value of its own (the link turns off)
+    } else if (which == kNumTurns) {
+        if (app.ed) app.ed->setTurns(int(std::lround(std::clamp(v, -1000.0, 1000.0)))), app.turnsByMode[int(app.mode)] = app.ed->turns();
     } else {
         app.sprayDensity = std::clamp(int(std::lround(std::clamp(v, -1000.0, 1000.0))), 1, kDensityMax);
         app.densityByMode[int(app.mode)] = app.sprayDensity;
@@ -208,7 +213,7 @@ int toolStripHeight(int width, bool titled) {
     const int perRow = std::max(1, (width + gap) / (b + gap));
     const int tools = int(stripTools(app.mode).size());
     const int rows = (tools + perRow - 1) / perRow;  // (Terrain: the brush's shape is in its size field)
-    const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap : 0) + (stripHasDensity() ? scale(26) + gap : 0) +
+    const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap + scale(26) + gap : 0) + (stripHasDensity() ? scale(26) + gap : 0) +
                       (app.mode == Mode::Terrain ? scale(26) + gap : 0);  // Terrain: Isometric | Rectangle
     return (titled ? scale(24) : 0) + rows * b + (rows - 1) * gap + extra;
 }
@@ -255,31 +260,19 @@ void iconButtonFace(Canvas& c, Rect r, UiIcon g, bool on, bool over) {
     else if (over) box(c, r, kCtlHot, kNoLine);
     icon(c, r, g, on ? kAccentBright : over ? kText : kDim, 16);  // (a UI icon is always at 16, as the Win32 glyph was)
 }
-// A mirror's picture: a square and its axis; the turns an arc with an arrow head. Smooth, in the button's color (the
-// square's line at 110 of 255).
+// A mirror's picture: a square and its axis. Smooth, in the button's color (the square's line at 110 of 255).
 void mirrorIcon(Canvas& c, Rect r, int kind, Color col, Color /*ground*/) {
     using P = Canvas::PointF;
     const float s = float(scale(14)), x0 = (r.left + r.right - s) / 2.0f, y0 = (r.top + r.bottom - s) / 2.0f;
     const float aw = float(std::max(1, scale(2))) * 0.75f;  // the axis's width
-    if (kind != Mirror::Rotate180 && kind != Mirror::Rotate90) c.smoothFrame(P{x0, y0}, s, s, col, 1.0f, 110);
+    c.smoothFrame(P{x0, y0}, s, s, col, 1.0f, 110);
     switch (kind) {
     case 0: break;  // none: the square only
     case Mirror::LeftRight: c.smoothLine(P{x0 + s / 2, y0 - 1}, P{x0 + s / 2, y0 + s + 1}, col, aw); break;
     case Mirror::TopBottom: c.smoothLine(P{x0 - 1, y0 + s / 2}, P{x0 + s + 1, y0 + s / 2}, col, aw); break;
     case Mirror::Diagonal: c.smoothLine(P{x0, y0}, P{x0 + s, y0 + s}, col, aw); break;
     case Mirror::AntiDiagonal: c.smoothLine(P{x0 + s, y0}, P{x0, y0 + s}, col, aw); break;
-    default: {  // a turn: 180 or 90 degrees of an arc, with a head at its end
-        const float sweep = kind == Mirror::Rotate180 ? 180.0f : 270.0f;
-        c.smoothArc(P{x0 + 1, y0 + 1}, s - 2, s - 2, -90.0f, sweep, col, aw);
-        const float a = float((-90.0 + sweep) * kStripPi / 180.0), cx = x0 + s / 2, cy = y0 + s / 2, rr = (s - 2) / 2;
-        const float ex = cx + rr * std::cos(a), ey = cy + rr * std::sin(a), h = s * 0.28f;
-        const float dx = -std::sin(a), dy = std::cos(a);  // the way the arc goes at its end (clockwise)
-        const P head[3] = {{ex + dx * h * 0.7f, ey + dy * h * 0.7f},
-                           {ex - dx * h * 0.3f - dy * h * 0.6f, ey - dy * h * 0.3f + dx * h * 0.6f},
-                           {ex - dx * h * 0.3f + dy * h * 0.6f, ey - dy * h * 0.3f - dx * h * 0.6f}};
-        c.smoothPolygon(head, 3, col);
-        c.smoothEllipse(P{cx - 1.5f, cy - 1.5f}, 3.0f, 3.0f, col);
-    }
+    default: break;
     }
 }
 }  // namespace stripLook
@@ -416,6 +409,8 @@ public:
             y += h + gap;
         };
         static const wchar_t* const kSizeTip = L"Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).";
+        static const wchar_t* const kTurnsTip =
+            L"Turns: the copies go round the map's middle in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. - and + and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a square map).";
         static const wchar_t* const kHeightTip =
             L"Brush height: 1 to 32. Click to type a height (empty: the same as the size). The arrows and the mouse wheel change it.";
         static const wchar_t* const kHeightLockedTip =
@@ -519,9 +514,7 @@ public:
                          {Mirror::LeftRight, L"Mirror left and right"},
                          {Mirror::TopBottom, L"Mirror top and bottom"},
                          {Mirror::Diagonal, L"Mirror across the diagonal"},
-                         {Mirror::AntiDiagonal, L"Mirror across the other diagonal"},
-                         {Mirror::Rotate180, L"Turn a half turn"},
-                         {Mirror::Rotate90, L"Turn in quarter turns (4 ways)"}};
+                         {Mirror::AntiDiagonal, L"Mirror across the other diagonal"}};
             const int mb = scale(28);
             int mx = 0;
             for (const auto& k : kinds) {
@@ -546,6 +539,7 @@ public:
                 mx += mb + scale(3);
             }
             y += mb + gap;
+            numberRow(kNumTurns, L"Turns", kTurnsTip);
         }
         c.setFont(prevFont);
         // The hits (their tips and cursors) are the last paint's; a hover change repaints.
