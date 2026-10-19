@@ -734,7 +734,10 @@ int Editor::doodadAt(int x, int y) const {
 bool Editor::placeSprite(uint16_t id, int x, int y, uint8_t owner) {
     if (x < 0 || y < 0 || x >= int(width_) * 32 || y >= int(height_) * 32) return false;
     beginEdit();  // one undo step (or part of a stroke: a drag that places many)
-    sprites_.push_back({id, uint16_t(x), uint16_t(y), owner, 0, SpriteFlag::DrawAsSprite});
+    // The sprite and its mirror images and turned copies (as units and doodads: the point itself first).
+    for (auto [px, py] : symmetricPoints(x, y))
+        if (px >= 0 && py >= 0 && px < int(width_) * 32 && py < int(height_) * 32)
+            sprites_.push_back({id, uint16_t(px), uint16_t(py), owner, 0, SpriteFlag::DrawAsSprite});
     writeSprites(chk_, sprites_);
     sprites_ = readSprites(chk_);
     commit(false);

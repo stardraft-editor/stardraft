@@ -66,10 +66,10 @@ bool objectSprayOn() {
 bool stripHasSize() { return appState().mode == Mode::Terrain || objectSprayOn(); }
 // Density: the sprays (Terrain, Units, Doodads, Sprites).
 bool stripHasDensity() { return (appState().mode == Mode::Terrain && currentTool() == TSpray) || objectSprayOn(); }
-// The mirrors: the modes whose edits repeat with them (Rectangle too: its tiles at the mirror images).
+// The mirrors: the modes whose edits repeat with them (Rectangle too: its tiles at the mirror images; sprites as units do).
 bool stripHasMirrors() {
     const AppState& app = appState();
-    return app.mode == Mode::Terrain || app.mode == Mode::Units || app.mode == Mode::Doodads;
+    return app.mode == Mode::Terrain || app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites;
 }
 
 // The Terrain tool strip's Isometric | Rectangle: what the terrain tools work on (ISOM terrains, or tiles as they are).
