@@ -2406,6 +2406,8 @@ constexpr UiText kRows[] = {
     {L"Index", L"\u00CDndice"},
     {L"Unit ID", L"ID de unidad"},
     {L"Lifted", L"Elevada"},
+    {L"Link selected units", L"Enlazar las unidades seleccionadas"},
+    {L"Jump to linked unit", L"Ir a la unidad enlazada"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

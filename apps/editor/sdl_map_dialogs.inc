@@ -327,6 +327,14 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
             std::sscanf(name.c_str() + name.find("move=") + 5, "%d:%d", &from, &before);
             if (from >= 0 && from < int(ed.units().size()) && before >= 0) ed.moveUnits({from}, before);
         }
+        // unitslist:nydus[:linked]: two Nydus canals placed for the links; both selected, or linked with the first selected.
+        if (name.find("nydus") != std::string::npos) {
+            const PlaceResult a = ed.placeUnit(134, 0, 40 * 32, 40 * 32, true), b = ed.placeUnit(134, 0, 48 * 32, 40 * 32, true);
+            if (a.placed && b.placed) {
+                if (name.find("linked") != std::string::npos) ed.linkUnits(a.index, b.index), ed.select(a.index, false);
+                else ed.select(a.index, false), ed.select(b.index, true);
+            }
+        }
         const int u = ed.selection().empty() ? 0 : ed.selection().front();
         if (!ed.isSelected(u)) ed.select(u, false);
         const Unit first = ed.units()[size_t(u)];

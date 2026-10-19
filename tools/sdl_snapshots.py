@@ -302,6 +302,9 @@ CASES += [
     ("map-units-list-drag", ["--script", "{script:unitsdrag}"], "map"),
     # The window after the drop's move (unit 0 before unit 4): the list shows 1, 2, 3, 0, 4 in its index column.
     ("map-units-list-moved", ["--dialog", "unitslist:move=0:4"], "map"),
+    # The links: two Nydus canals selected (Link selected units is on), and the same two linked (Jump to linked unit is on).
+    ("map-units-list-nydus", ["--dialog", "unitslist:nydus"], "map"),
+    ("map-units-list-nydus-linked", ["--dialog", "unitslist:nydus:linked"], "map"),
     ("map-units-list-pick", ["--script", "{script:unitslist}"], "map"),
     # Scenario > Check pathing: the list of the problems (each "pathing" line says the layer, the regions and the check);
     # Enter picks the first one: the layer shows, the problem has its mark in the middle of the view.
