@@ -165,6 +165,7 @@ MenuModel buildMenuModel() {
         menuCommands(floating, "View/Floating palettes");
         view.push_back(menuPopup(L"Floating &palettes", floating));
     }
+    menuCommand(view, "view.unitsList");  // (the Units mode's side bar: the list of the units; Discord feedback #126)
     view.push_back(menuItem(ID_VIEW_LOG, L"&Log", L"Ctrl+L"));
     view.push_back(menuItem(ID_VIEW_TRIGCODE, L"Trigger &code pane"));
 #ifndef NDEBUG  // the control kit is for developers: only in debug builds (the kit: datashot opens it in any build)

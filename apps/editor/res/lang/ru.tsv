@@ -2394,3 +2394,10 @@ Map revealers show	Открыватели карты показываются
 Map revealers are hidden (View > Layers shows them again)	Открыватели карты скрыты (Вид > Слои показывает их снова)
 Nothing placed: each chosen player has a map revealer on every square	Ничего не размещено: у каждого выбранного игрока уже есть открыватель в каждом квадрате
 There are no map revealers on the map	На карте нет открывателей карты
+&Units list	Список &юнитов
+Search the units	Поиск юнитов
+No.	№
+X	X
+Y	Y
+The units list shows in the side bar. A click selects a unit; Delete deletes the selected units.	Список юнитов показан на боковой панели. Щелчок выбирает юнит; Delete удаляет выбранные юниты.
+The palette shows in the side bar again	Палитра снова показана на боковой панели

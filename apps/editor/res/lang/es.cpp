@@ -2396,6 +2396,13 @@ constexpr UiText kRows[] = {
     {L"Map revealers are hidden (View > Layers shows them again)", L"Los reveladores del mapa est\u00E1n ocultos (Ver > Capas los muestra otra vez)"},
     {L"Nothing placed: each chosen player has a map revealer on every square", L"Nada colocado: cada jugador elegido ya tiene un revelador en cada cuadro"},
     {L"There are no map revealers on the map", L"No hay reveladores en el mapa"},
+    {L"&Units list", L"Lista de &unidades"},
+    {L"Search the units", L"Buscar unidades"},
+    {L"No.", L"N\u00BA"},
+    {L"X", L"X"},
+    {L"Y", L"Y"},
+    {L"The units list shows in the side bar. A click selects a unit; Delete deletes the selected units.", L"La lista de unidades se muestra en la barra lateral. Un clic selecciona una unidad; Supr borra las unidades seleccionadas."},
+    {L"The palette shows in the side bar again", L"La paleta vuelve a mostrarse en la barra lateral"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

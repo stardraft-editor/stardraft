@@ -364,6 +364,7 @@ struct MainView final : draw::View {
         add(gLocList, draw::Rect(0, 0, 0, 0));
         add(gPal2List, draw::Rect(0, 0, 0, 0));
         add(gPal3List, draw::Rect(0, 0, 0, 0));
+        add(gUnitsPanel, draw::Rect(0, 0, 0, 0));  // the Units list (View > Units list), in the Units mode's side bar
         add(notHere, draw::Rect(0, 0, 0, 0));
         add(gStartView, draw::Rect(0, 0, 0, 0));  // the start page (sdl_start.inc): no map open
         add(gNewView, draw::Rect(0, 0, 0, 0));    // the New page (sdl_new_page.inc): File > New project, a card
@@ -386,7 +387,7 @@ struct MainView final : draw::View {
     bool key(const draw::KeyEvent& e) override {
         const int k = int(e.key);
         const bool typed = (k >= 'A' && k <= 'Z') || (k >= '0' && k <= '9');
-        const bool typing = gSearchSdl.field().hasFocus() || gFilterSdl.field().hasFocus() || gFilesPage.typing() || sdlMapPageTyping() || sdlQuickPickTyping() ||
+        const bool typing = gSearchSdl.field().hasFocus() || gFilterSdl.field().hasFocus() || gUnitsPanel.searching() || gFilesPage.typing() || sdlMapPageTyping() || sdlQuickPickTyping() ||
                             typingFocusIn(*this);  // (a kit text field of a view: the New page, Program options)
         // The focused Triggers pane types too: a letter or a digit opens its block picker (from the text event), so the
         // map's keys (the player 1 to 0, the tools V B A F, Q) do not run (Windows: editFocus for the pane).
@@ -653,12 +654,15 @@ struct MainView final : draw::View {
         const auto side = [this](draw::View& v, const PaneSlot& s, bool shown) {
             if (v.parent() == this) apply(v, s, shown);
         };
+        // The Units list takes the palette's place in the Units mode (View > Units list): from the search box down.
+        const bool unitsList = here && unitsListOn() && m == Mode::Units;
         side(gOwnerBox, oneRow(L.owner), owners && here);       // (a closed owner list is one row high)
         side(gSectionDropSdl, oneRow(L.sectionBox), sections && here);
         side(gTilesPanel, tilesSlot, tiles && !floated);
-        side(gSearchSdl, L.search, !locs && here && !tiles);
-        side(gViewBtnSdl, L.viewBtn, !locs && here && !tiles);
-        side(gPalList, L.palette, !locs && here && !tiles);
+        side(gUnitsPanel, tilesSlot, unitsList && !tiles);
+        side(gSearchSdl, L.search, !locs && here && !tiles && !unitsList);
+        side(gViewBtnSdl, L.viewBtn, !locs && here && !tiles && !unitsList);
+        side(gPalList, L.palette, !locs && here && !tiles && !unitsList);
         side(gFilterSdl, L.filter, locs && here);
         side(gLocList, L.list, locs && here);
         apply(gPal2List, L.palette2, L.palette2.visible && mapWs);

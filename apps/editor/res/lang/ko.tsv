@@ -2394,3 +2394,10 @@ Map revealers show	맵 리비일러를 표시합니다
 Map revealers are hidden (View > Layers shows them again)	맵 리비일러를 숨겼습니다 (보기 > 레이어에서 다시 표시)
 Nothing placed: each chosen player has a map revealer on every square	배치하지 않음: 고른 플레이어마다 모든 칸에 맵 리비일러가 이미 있습니다
 There are no map revealers on the map	맵에 맵 리비일러가 없습니다
+&Units list	유닛 목록(&U)
+Search the units	유닛 검색
+No.	번호
+X	X
+Y	Y
+The units list shows in the side bar. A click selects a unit; Delete deletes the selected units.	유닛 목록이 사이드 바에 표시됩니다. 유닛을 클릭하면 선택되고, Delete는 선택한 유닛을 지웁니다.
+The palette shows in the side bar again	팔레트가 사이드 바에 다시 표시됩니다
