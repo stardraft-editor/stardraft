@@ -1366,6 +1366,15 @@ static void turnCountTest(const GameData& data) {
     ed.setMirrors(0);
     ed.setTurns(99);
     CHECK(ed.turns() == kMaxTurns, "turns: the number is kept to 1 to 8");
+    // A placed sprite has its mirror image too, in one undo step (Discord feedback #132).
+    ed.setTurns(1);
+    ed.setMirrors(Mirror::LeftRight);
+    const size_t spritesBefore = ed.sprites().size();
+    CHECK(ed.placeSprite(0, cx + 300, cy, 0), "sprites: a sprite placed with a left/right mirror");
+    CHECK(ed.sprites().size() == spritesBefore + 2, "sprites: the placed sprite and its mirror image");
+    ed.undo();
+    CHECK(ed.sprites().size() == spritesBefore, "sprites: one undo step takes both back");
+    ed.setMirrors(0);
 }
 
 // Start locations (the save question's Place them): a player that owns units and has no start location gets one near its
