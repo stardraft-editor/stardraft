@@ -39,7 +39,7 @@ FloatPaletteParts floatPaletteParts(Mode m) {
     if (m != Mode::Terrain) p.rows.push_back({&gSectionDropSdl, nullptr});
     p.rows.push_back({&gSearchSdl, &gViewBtnSdl});
     p.list = &gPalList;
-    if (m == Mode::Terrain) p.alt = &gTilesPanel;  // (Rectangle mode's Tiles panel)
+    if (m == Mode::Terrain) p.alt = &gTilesDockPanel;  // (Rectangle mode's Tiles panel)
     return p;
 }
 std::vector<draw::View*> floatPaletteViews(const FloatPaletteParts& p) {
@@ -215,6 +215,7 @@ bool locationListSync(bool shown, draw::Rect slot) {
     gFloatPalView.altShown = false;
     gFloatPalView.collapsed = false;  // (a window opens whole)
     gFloatPalView.toolsMode = Mode::Locations;  // (its whole panel: Locations' tools over the filter and the list)
+    gFloatPalView.toolsState = &dockedPanel(Mode::Locations);
     gFloatPalView.hold(floatPaletteParts(m));
     // The first place: over the map, at the side bar's edge, as wide as the side bar or more; the size that the settings
     // keep (points; a snapshot's window has one pixel to a point).

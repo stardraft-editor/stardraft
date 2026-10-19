@@ -27,7 +27,6 @@ struct Doc {
     std::unique_ptr<Editor> ed;  // empty while the document is active (it is in the app state then)
     float camX = 0, camY = 0, zoom = 1;
     bool hasTerrainSel = false, pasting = false, terrainPasting = false;
-    bool terrainRect = false;  // the Terrain tool strip's Isometric or Rectangle: each map's own (its file keeps it)
     Rect terrainSel{};
     int untitled = 1;  // "Untitled N" until saved
     std::shared_ptr<EudProject> project;  // set when the map was opened as (or made into) an EUD project
@@ -316,7 +315,6 @@ bool gReplacePage = false;  // addDocument puts the map in the active tab (the N
 
 // Opens `ed` in a new tab. Opening a file (`replaceBlank`) instead takes the place of the active tab
 // when that is the untouched blank map the editor starts with.
-bool mapTerrainRectNow();  // (map_prefs.inc)
 void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank) {
     AppState& app = appState();
     mapPageClose();  // a map page shows the new map's values only after it opens again
@@ -341,7 +339,6 @@ void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank) {
     if (reuse) gDocs[size_t(gActive)].key = ++gDocKeys;
     app.ed = std::move(ed);
     gDocs[size_t(gActive)].page = std::exchange(gNewDocPage, 0);
-    app.terrainRect = mapTerrainRectNow();  // as the map was left (a new map: Isometric)
     if (app.ed->path().empty() && (!reuse || page) && !gDocs[size_t(gActive)].page) gDocs[size_t(gActive)].untitled = ++gUntitledCount;
     app.hasTerrainSel = app.pasting = app.terrainPasting = false;
     startMark("open: add the tab");

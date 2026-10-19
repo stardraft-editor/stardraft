@@ -22,9 +22,7 @@ struct AppState {
     float brushHeight = 0;  // terrain: the brush's height, 1 to 32; 0: the same as its size (GitHub #113)
     Brush::Shape brushShape = Brush::Diamond;
     int toolByMode[kModeCount] = {};
-    int sprayDensity = 10;  // the active mode's: how many things one spray puts down (kDensityMax at most)
-    int densityByMode[kModeCount] = {5, 10, 10, 10, 10};  // each mode keeps its own density and symmetry (setMode swaps them in)
-    int symmetryByMode[kModeCount] = {};
+    int sprayDensity = 10;  // the active panel's: how many things one spray puts down (kDensityMax at most)
     uint32_t spraySeed = 1;
     int lastSprayX = -100000, lastSprayY = -100000;
     double sprayHeld = 0, sprayCredit = 0;  // a held spray: the seconds it is held, and the sprays due

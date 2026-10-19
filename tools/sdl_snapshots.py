@@ -387,6 +387,14 @@ CASES += [
     # Ctrl+V pastes three copies (selected); Del deletes them (one undo step: Ctrl+Z gives them back); Ctrl+A selects
     # every location, Esc none; in the list a click selects one and Ctrl+click adds one.
     ("map-location-multi", ["--script", "{script:locmulti}"], "map"),
+    # Each panel is its own (its pick, tools, brush, Isometric or Rectangle): a new Terrain panel's Rectangle (1231,196)
+    # and its bigger brush (1157,254) are its own (the side bar's Terrain stays Isometric, size 2); a pick in the side bar's
+    # list (Dirt, 200,622) makes the side bar's panel the active one and is its own; the window's + makes the window the
+    # active one again; U, then T, goes back to the Terrain panel used last (the window).
+    ("map-panels-own", ["--script", "{script:panelsown}"], "map"),
+    # Floating moves the side bar's panel into its window (its Rectangle and size 3), and docking moves the window's back
+    # (its Isometric).
+    ("map-panels-float", ["--script", "{script:panelsfloat}"], "map"),
     # The palette's Extra large view (GitHub #150): Doodads mode, two big pictures in a row.
     ("map-palette-xlarge", ["--mode", "doodads", "--palview", "xlarge"], "map"),
 ]
@@ -1244,6 +1252,9 @@ stats
     # (map-palette-float-settings: nothing floats at the start; popped out, each mode's palette opens at its kept size and
     # stays in the other modes)
     "floatpaltwo": "wait 0\ncommand view.floatPalette.terrain\nwait 0\nmode units\ncommand view.floatPalette.units\nwait 0\nmode doodads\nmode terrain\n",
+    "panelsown": "mode terrain\npanel new\nwait 0\nclick 1231,196\nclick 1157,254\nclick 200,622\nclick 1157,254\nkey U\nkey T\n",
+    "panelsfloat": "mode terrain\nclick 271,427\nclick 198,485\ncommand view.floatPalette.terrain\nwait 0\nclick 400,196\n"
+                   "command view.floatPalette.terrain\nwait 0\n",
     "locmulti": "mode locations\ndrag 500,200-600,280\ndrag 650,200-760,300\ndrag 520,500-640,600\nclick 540,240\n"
                 "click 700,250:Ctrl\nclick 560,540:Shift\ndrag 560,540-620,600\nkey Ctrl+C\nmove 900,700\nkey Ctrl+V\nkey Del\n"
                 "key Ctrl+Z\nkey Ctrl+A\nkey Esc\nclick 200,495\nclick 200,525:Ctrl\n",
@@ -3580,6 +3591,27 @@ def check_location_multi(output):
     ])
 
 
+def check_panels_own(output):
+    """Each panel keeps its own Isometric or Rectangle, brush size and pick; the panel used last is the active one."""
+    return expect(output, 7, [
+        ("Rectangle in the window was not the window's own", lambda s: s[1]["active"] == "window1-Terrain" and s[1]["window1"].startswith("rect:") and s[1]["sideT"].startswith("iso:")),
+        ("the window's + did not change only its brush", lambda s: s[2]["window1"].startswith("rect:3:") and s[2]["sideT"].startswith("iso:2:")),
+        ("a pick in the side bar's list was not the side bar panel's", lambda s: s[3]["active"] == "side-Terrain" and s[3]["sideT"] == "iso:2:0:1:-1" and ":-1:" in s[3]["window1"]),
+        ("the window's + did not make the window active again", lambda s: s[4]["active"] == "window1-Terrain" and s[4]["window1"].startswith("rect:4:") and s[4]["brush"].startswith("4x")),
+        ("U did not go to the side bar's Units panel", lambda s: s[5]["active"] == "side-Units"),
+        ("T did not go back to the Terrain panel used last", lambda s: s[6]["active"] == "window1-Terrain" and s[6]["brush"].startswith("4x")),
+    ])
+
+
+def check_panels_float(output):
+    """Floating moves the side bar's panel's state into the window; docking moves the window's back."""
+    return expect(output, 5, [
+        ("the floating window did not take the side bar panel's Rectangle and size", lambda s: s[2]["active"] == "window1-Terrain" and s[2]["window1"].startswith("rect:3:")),
+        ("Isometric in the window was not its own", lambda s: s[3]["window1"].startswith("iso:3:")),
+        ("docking did not bring the window's state back to the side bar", lambda s: s[4]["active"] == "side-Terrain" and s[4]["sideT"].startswith("iso:3:")),
+    ])
+
+
 def check_palette_float_shared(output):
     """The side bar's search goes to the unit palette's window as it floats, and the window's back as it docks."""
     if 'search="marine"' not in output.split("command view.floatPalette.units", 1)[-1].split("panel search", 1)[0]:
@@ -3631,7 +3663,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-pathing-layer": lambda o: check_pathing_layer(o, False), "map-pathing-areas": lambda o: check_pathing_layer(o, True),
           "map-pathing-check": check_pathing_check, "map-pathing-fix": check_pathing_fix,
           "map-palette-float": check_palette_float, "map-palette-docked": check_palette_docked,
-          "map-palette-float-settings": check_palette_settings, "map-palette-float-units": check_palette_units, "map-palette-second-pick": check_palette_second_pick, "map-strip-other-side": check_strip_other_side, "map-palette-float-multi": check_palette_float_multi, "map-palette-float-shared": check_palette_float_shared, "map-location-multi": check_location_multi, "map-palette-float-keys": check_palette_keys,
+          "map-palette-float-settings": check_palette_settings, "map-palette-float-units": check_palette_units, "map-palette-second-pick": check_palette_second_pick, "map-strip-other-side": check_strip_other_side, "map-palette-float-multi": check_palette_float_multi, "map-palette-float-shared": check_palette_float_shared, "map-location-multi": check_location_multi, "map-panels-own": check_panels_own, "map-panels-float": check_panels_float, "map-palette-float-keys": check_palette_keys,
           "map-stack-list": check_stack_list, "map-stack-cycle": check_stack_cycle, "map-stack-menu": check_stack_menu,
           "map-stack-pipette": check_stack_pipette,
           "map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,

@@ -418,33 +418,11 @@ void enterSelection() {
 
 // Switches the mode: its own spray density and symmetry come with it, the palette shows its entries, and the mode's
 // selection is on (a new mode starts in it). The host shows the mode's side and windows (shellModeSide, shellModeWindows).
-void setMode(Mode m) {
-    AppState& app = appState();
-    const bool changed = app.mode != m;
-    if (changed) app.selDoodads.clear(), app.selSprites.clear(), app.pastingItems = false;
-    // The selected units are Units mode's: they show in each mode, so they are let go when another mode starts.
-    if (changed && app.mode == Mode::Units && app.ed) app.ed->clearSelection();
-    if (app.mode != m) app.palette = -1, app.palette2 = -1, shellPaletteChosen().clear();
-    // Density and symmetry are each mode's own.
-    app.densityByMode[int(app.mode)] = app.sprayDensity;
-    if (app.ed) app.symmetryByMode[int(app.mode)] = app.ed->mirrors();
-    app.sprayDensity = app.densityByMode[int(m)];
-    if (app.ed) app.ed->setMirrors(app.symmetryByMode[int(m)]);
-    app.mode = m;
-    shellModeSide(m);  // the side the mode's tools are docked on, and the palette's view of the mode
-    if (shellViewShown()) shellRelayout();  // the toolbar's side, and what the other column shows
-    // Units, terrains and doodads are picked in the palette; in Locations the same place lists the locations.
-    shellModeWindows(m);  // the filter, list, section, search and player windows show for the mode
-    if (shellViewShown()) shellRelayout();
-    fillToolCombo(app);
-    app.terrainPasting = false;
-    // A mode starts in selection: nothing picked, Terrain on Select. Picking a terrain, unit or doodad in the palette
-    // starts placing it.
-    if (changed) enterSelection();
-    rebuildList(app);
-    app.drag = Drag::None;
-    app.dirty = true;
-}
+// The mode becomes the active one: the mode's panel used last (panel_state.inc) is the active panel.
+struct PanelState;
+PanelState* panelHomeOf(Mode m);
+void activatePanel(PanelState* p);
+void setMode(Mode m) { activatePanel(panelHomeOf(m)); }
 
 // The palette's selection: the picked units or terrains (Ctrl+click), else the one picked; in Locations, the rows the
 // list has selected.

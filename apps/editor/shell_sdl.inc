@@ -112,6 +112,14 @@ void shellLocationListSync() {
 std::wstring shellFilterText() { return gFilterSdl.text(); }
 bool shellViewShown() { return gRoot != nullptr; }
 void palettePanelsToolsChanged();  // (sdl_palette_panels.inc: the floating panels' strips)
+void palettePanelsChanged();
+// The active panel changed (panel_state.inc): each panel's strip, list and boxes show their own state again.
+void shellPanelsChanged() {
+    gToolStripView.invalidate(), gToolStripView2.invalidate(), gToolStripView3.invalidate();
+    gPalList.invalidate(), gPal2List.invalidate(), gPal3List.invalidate(), gTilesDockGrid.invalidate();
+    palettePanelsChanged();
+    if (gFloatPalOpen) gFloatPalView.invalidate();
+}
 void shellToolsChanged() {
     gToolStripView.invalidate(), gToolStripView2.invalidate(), gToolStripView3.invalidate();
     palettePanelsToolsChanged();
