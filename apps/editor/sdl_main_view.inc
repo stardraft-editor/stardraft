@@ -463,23 +463,46 @@ struct MainView final : draw::View {
     // the width cursor over them; a drag with the left button changes the side's width (96-dpi pixels, kMinSideW to
     // kMaxSideW) while the map keeps its middle in place; the release saves the width in the dock settings (core/
     // dock_prefs.inc: saveDock), as the Windows main window's WM_LBUTTONDOWN, WM_MOUSEMOVE and WM_LBUTTONUP did.
-    draw::Rect splitters[2] = {};
+    // The minimap's bottom edge (splitter 2): the height cursor; a drag changes its height (more room for the panel
+    // under it, or a bigger minimap); a double click gives it the map's shape again.
+    draw::Rect splitters[3] = {};
     int splitDrag = -1, splitGrab = 0;
     int splitAt(draw::Point pt) const {
-        for (int i = 0; i < 2; ++i)
+        for (int i = 0; i < 3; ++i)
             if (splitters[i].width() > 0 && splitters[i].contains(pt)) return i;
         return -1;
     }
-    draw::Cursor cursor(draw::Point pt) override { return splitDrag >= 0 || splitAt(pt) >= 0 ? draw::Cursor::SizeWE : draw::Cursor::Arrow; }
+    draw::Cursor cursor(draw::Point pt) override {
+        const int i = splitDrag >= 0 ? splitDrag : splitAt(pt);
+        return i == 2 ? draw::Cursor::SizeNS : i >= 0 ? draw::Cursor::SizeWE : draw::Cursor::Arrow;
+    }
     bool splitMouse(const draw::MouseEvent& e) {
+        if (e.kind == draw::MouseKind::DoubleClick && e.button == 0 && splitAt(e.pt) == 2) {
+            gDock.minimapH = 0;  // (the map's shape again)
+            relayout();
+            saveDock();
+            return true;
+        }
         if (e.kind == draw::MouseKind::Down && e.button == 0 && splitDrag < 0) {
             const int i = splitAt(e.pt);
             if (i < 0) return false;
-            splitDrag = i, splitGrab = e.pt.x;
+            splitDrag = i, splitGrab = i == 2 ? e.pt.y : e.pt.x;
+            if (i == 2 && gDock.minimapH <= 0) gDock.minimapH = MulDiv(minimap.height(), 96, int(gDpi));  // (from its height now)
             if (draw::Host* h = host()) h->capture(*this, true);
             return true;
         }
         if (splitDrag < 0) return false;
+        if (e.kind == draw::MouseKind::Move && splitDrag == 2) {
+            const int dpi = int(gDpi), dy = MulDiv(e.pt.y - splitGrab, 96, dpi);
+            const int nh = std::max(40, gDock.minimapH + dy);
+            if (nh != gDock.minimapH) {
+                const int before = minimap.height();
+                gDock.minimapH = nh;
+                relayout();
+                splitGrab += minimap.height() - before;  // (the edge stays under the mouse, also at its limits)
+            }
+            return true;
+        }
         if (e.kind == draw::MouseKind::Move) {
             const int dpi = int(gDpi), dx = MulDiv(e.pt.x - splitGrab, 96, dpi);
             int& w = splitDrag == 0 ? gDock.leftW : gDock.rightW;
@@ -497,6 +520,7 @@ struct MainView final : draw::View {
             return true;
         }
         if (e.kind == draw::MouseKind::Up && e.button == 0) {
+            if (splitDrag == 2) gDock.minimapH = MulDiv(minimap.height(), 96, int(gDpi));  // (as it is: within its limits)
             splitDrag = -1;
             if (draw::Host* h = host()) h->capture(*this, false);
             saveDock();
@@ -595,7 +619,7 @@ struct MainView final : draw::View {
         if (in.mapOpen) in.mapW = gState.ed->width(), in.mapH = gState.ed->height();
         in.minimapHidden = gDock.minimapHidden;
         in.minimapRight = gDock.minimapRight;
-        in.leftW = gDock.leftW, in.rightW = gDock.rightW;
+        in.leftW = gDock.leftW, in.rightW = gDock.rightW, in.minimapH = gDock.minimapH;
         std::copy(gDock.toolsRight, gDock.toolsRight + kModeCount, in.toolsRight);
         in.lastOnSide[0] = gLastOnSide[0], in.lastOnSide[1] = gLastOnSide[1];
         in.hasPanelTab[0] = in.hasPanelTab[1] = true;
@@ -606,7 +630,7 @@ struct MainView final : draw::View {
         in.pal3Shown = gPal3Shown, in.pal3Mode = gPal3Mode;
         for (int k = 0; k < kModeCount; ++k) in.floats[k] = paletteFloats(Mode(k));  // (a floating panel has no tab)
         const MainLayout L = computeLayout(in);
-        for (int i = 0; i < 2; ++i) splitters[i] = mapWs ? draw::Rect(L.splitters[i]) : draw::Rect{};
+        for (int i = 0; i < 3; ++i) splitters[i] = mapWs ? draw::Rect(L.splitters[i]) : draw::Rect{};
         // The state the layout sets (as the Win32 layout): the sides' tabs, the second palette's mode and its shown state.
         gPanelTab[0] = L.panelTab[0], gPanelTab[1] = L.panelTab[1];
         gPal2Shown = L.palette2.visible;
