@@ -307,25 +307,18 @@ struct PalettePanelView final : PanelStripView {
         const int pad = scale(6), rowH = scale(24), btnW = scale(64), w = width(), h = height();
         int y = titleH + pad;
         const int half = std::max(0, w - 3 * pad) / 2;
-        // A mode's floating panel: the mode's tool strip first (the side bar's: its tools, Isometric and Rectangle, the
-        // brush's size, the mirrors), then the rows of its palette.
-        tools.fixed = mode;
-        tools.setVisible(floating && !collapsed);
-        if (floating) {
-            const int th = toolStripHeight(std::max(1, w - 2 * pad), mode);
-            tools.setFrame({pad, y, w - pad, y + th});
-            y += th + pad;
-        }
-        const int rowsTop = y;
-        type.setVisible(!floating);
+        // Every panel has the whole of the side bar's controls: its type, the mode's tool strip (its tools, Isometric
+        // and Rectangle, the brush's size, the mirrors; a press on it makes the mode active), then the rows of its palette.
+        type.setFrame({pad, y, hasOwner() ? pad + half : w - pad, y + rowH});
+        owner.setFrame({pad + half + pad, y, w - pad, y + rowH});
         owner.setVisible(hasOwner());
-        if (floating) {  // (the mode's palette: the owner alone on its row, as in the side bar)
-            if (hasOwner()) owner.setFrame({pad, y, w - pad, y + rowH}), y += rowH + pad;
-        } else {
-            type.setFrame({pad, y, hasOwner() ? pad + half : w - pad, y + rowH});
-            owner.setFrame({pad + half + pad, y, w - pad, y + rowH});
-            y += rowH + pad;
-        }
+        y += rowH + pad;
+        tools.fixed = mode;
+        tools.setVisible(!collapsed);
+        const int th = toolStripHeight(std::max(1, w - 2 * pad), mode);
+        tools.setFrame({pad, y, w - pad, y + th});
+        y += th + pad;
+        const int rowsTop = y;
         sections.setVisible(hasSections());
         if (hasSections()) sections.setFrame({pad, y, w - pad, y + rowH}), y += rowH + pad;
         search.setFrame({pad, y, std::max(pad, w - pad - btnW - pad), y + rowH});
@@ -333,7 +326,7 @@ struct PalettePanelView final : PanelStripView {
         y += rowH + pad;
         list.setFrame({pad, y, w - pad, std::max(y + 1, h - pad)});
         for (draw::View* v : std::initializer_list<draw::View*>{&search, &viewButton, &list}) v->setVisible(!collapsed && !altShown);
-        if (!floating) type.setVisible(!collapsed);
+        type.setVisible(!collapsed);
         if (collapsed || altShown) owner.setVisible(false), sections.setVisible(false);
         if (alt) {  // (Rectangle mode's Tiles panel in place of the rows and the list)
             const int top = rowsTop;
