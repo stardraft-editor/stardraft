@@ -2,6 +2,19 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.6.1.4
+
+### Map
+
+- Rectangle mode: tiles that you copy from the map (Ctrl+C) become the Brush's stamp. A click places them, a drag
+  repeats them in a pattern, Fill fills with them, and Shift places them at random. Ctrl+V pastes them as before.
+
+  ![Tiles copied from the map, placed with the Brush](images/0.6.1.4/copy-stamp.png)
+- Sprites mode has the mirrors and Turns: a placed sprite gets its mirrored and turned copies, as units and doodads do.
+
+  ![Sprites mode with the mirrors and Turns](images/0.6.1.4/sprites-mirror.png)
+- With the mirrors or Turns on, the preview of a unit, doodad or sprite shows each copy where a click places it.
+
 ## 0.6.1.3
 
 ### Map

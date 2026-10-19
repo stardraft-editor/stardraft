@@ -1,0 +1,9 @@
+{
+  "runs": [
+    {"map": "Maps/(2)Bottleneck.scm", "cases": ["map-rect-copy-stamp", "map-sprites-mirror"]}
+  ],
+  "shots": [
+    {"run": 0, "from": "map-rect-copy-stamp.png", "to": "copy-stamp.png", "crop": [64, 98, 1196, 860], "alt": "Tiles copied from the map, placed with the Brush"},
+    {"run": 0, "from": "map-sprites-mirror.png", "to": "sprites-mirror.png", "crop": [64, 98, 1000, 860], "alt": "Sprites mode with the mirrors and Turns"}
+  ]
+}
