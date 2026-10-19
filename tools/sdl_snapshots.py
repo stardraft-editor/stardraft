@@ -329,7 +329,7 @@ CASES += [
     # File > Project > New EUD project (--newproject: the project Sample with a new map, in a new folder {newdir}), then
     # Build (Ctrl+B) when this computer has euddraft (else the output says that the build is skipped); the Log shows
     # euddraft's lines.
-    ("data-newproject-build", ["--newproject", "{newdir}", "--workspace", "project", "--build", "--log"], "data"),
+    ("data-newproject-build", ["--newproject", "{newdir}", "--workspace", "project", "--box", "1", "--build", "--log"], "data"),
 ]
 # The left mouse button (--click x,y[:mods], --drag x0,y0-x1,y1[:mods], in the window's pixels at scale 1, in their order
 # with the --key options): each goes the host's way for a window's events (down, moves, up) and writes the same line as
@@ -708,7 +708,17 @@ CASES += [
     # File > Save of a map in a folder named Program Files that StarDraft can write to (GitHub #148) saves the map in
     # place: no second save dialog. (Save asks for another place only when the folder does not take a new file.)
     ("map-program-files", ["--mode", "units", "--key", "Ctrl+Shift+S", "--pick", "{pfdir}/pf.scx", "--key", "Ctrl+A", "--key", "Del",
-                           "--key", "Ctrl+S"], "map"),
+                           "--box", "1", "--key", "Ctrl+S"], "map"),
+    # A map without start locations (a new project's sample map) on Save as: the question names what is missing and offers
+    # Place them, Save anyway or Cancel (confirmStartLocations). --box n answers it (0 Place them, 1 Save anyway, 2 Cancel).
+    # Cancel: no file dialog and no save. Place them: the two start locations go on the map (one undo step, the state's
+    # units count goes from 0 to 2), then the Save as dialog takes the file. Save anyway: the file, with no start location.
+    ("map-save-start-cancel", ["--newproject", "{newdir}", "--key", "Ctrl+Shift+S", "--box", "2"], "map"),
+    ("map-save-start-place", ["--newproject", "{newdir}", "--key", "Ctrl+Shift+S", "--box", "0", "--pick", "{out}/placed.scx",
+                              "--key", "Ctrl+Z"], "map"),
+    ("map-save-start-anyway", ["--newproject", "{newdir}", "--key", "Ctrl+Shift+S", "--box", "1", "--pick", "{out}/anyway.scx"], "map"),
+    # The same question as a picture (--dialog message:start): the three buttons and the list of what is missing.
+    ("map-save-start-dialog", ["--newproject", "{newdir}", "--dialog", "message:start"], "map"),
     # Save as answers while the program waits (--pick defer:): a tab switch in that time does nothing, and the answer
     # saves the map that asked (not the other tab's map).
     ("map-saveas-tab", ["--newproject", "{newdir}", "--pick", "defer:{out}/asked.scx", "--script", "{script:saveastab}"], "map"),
@@ -1126,7 +1136,6 @@ key Esc
     "saveastab": """key Ctrl+Shift+Tab
 mode units
 key Ctrl+A
-key Del
 key Ctrl+Shift+S
 key Ctrl+Tab
 """,

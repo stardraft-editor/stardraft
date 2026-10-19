@@ -518,8 +518,16 @@ public:
     bool removeSoundReference(const std::string& path);  // one undo step
 
     // Why StarCraft would refuse to start the map (empty when it starts): at least two players (human or
-    // computer), at least one human, and a start location for every player that owns units.
-    std::vector<std::string> playabilityProblems() const;
+    // computer), at least one human, a start location for every player that owns units, and at least two start
+    // locations. `startLocations` false leaves out the start location problems (startLocationProblems).
+    std::vector<std::string> playabilityProblems(bool startLocations = true) const;
+    // The start location problems alone: a player that owns units and has no start location; fewer than two start locations.
+    std::vector<std::string> startLocationProblems() const;
+    // Places the start locations that startLocationProblems names, one undo step: for each player that owns units and has
+    // none, one near the middle of its units (the nearest spot where it fits); then, while the map has fewer than two, one
+    // for the next player in the game without one (humans first) at the spot farthest from the start locations.
+    // Returns how many were placed.
+    int placeStartLocations();
 
     // --- Classic settings (roadmap L.3) ---------------------------------------------------------------------
     // Unit settings (UNIx and UNIS, PUNI), upgrade settings (UPGx and UPGS, PUPx and UPGR) and tech settings (TECx and

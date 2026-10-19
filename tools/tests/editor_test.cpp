@@ -1368,6 +1368,66 @@ static void turnCountTest(const GameData& data) {
     CHECK(ed.turns() == kMaxTurns, "turns: the number is kept to 1 to 8");
 }
 
+// Start locations (the save question's Place them): a player that owns units and has no start location gets one near its
+// units; a map with one start location gets a second one far from it. Each placing is one undo step.
+static void startLocationTest(const GameData& data) {
+    Editor ed(data);
+    std::string err;
+    if (!ed.newMap(64, 64, 0, 1, err)) {
+        CHECK(false, "start locations: a new 64 x 64 map");
+        return;
+    }
+    const uint16_t marine = *ed.unitTypes().findByName("Terran Marine");
+    auto starts = [&]() {
+        std::vector<Unit> out;
+        for (const Unit& u : ed.units())
+            if (u.type == 214) out.push_back(u);
+        return out;
+    };
+    ed.placeUnit(marine, 0, 320, 320);   // player 1's units in the top left corner
+    ed.placeUnit(marine, 1, 1600, 1600);  // player 2's in the bottom right
+    const size_t n0 = ed.units().size();
+    CHECK(ed.startLocationProblems().size() == 3, "start locations: two players without one, and no start location at all");
+    CHECK(ed.placeStartLocations() == 2 && starts().size() == 2, "start locations: one for each of players 1 and 2");
+    bool near = true;
+    for (const Unit& s : starts()) {
+        for (const Unit& u : ed.units()) {
+            if (u.type != marine || u.owner != s.owner) continue;
+            const int dx = int(s.x) - int(u.x), dy = int(s.y) - int(u.y);
+            near = near && dx * dx + dy * dy < 512 * 512;
+        }
+    }
+    CHECK(near, "start locations: each is near the units of its player");
+    CHECK(ed.startLocationProblems().empty() && ed.playabilityProblems(false) == ed.playabilityProblems(),
+          "start locations: none is missing now, and the map has no other problem");
+    CHECK(ed.placeStartLocations() == 0 && starts().size() == 2, "start locations: nothing more to place");
+    ed.undo();
+    CHECK(starts().empty() && ed.units().size() == n0, "start locations: one undo takes back both");
+    ed.redo();
+    CHECK(starts().size() == 2, "start locations: redo places them again");
+
+    // A map with one start location and no other units: the second goes to the opposite side (player 2 is the next).
+    Editor far(data);
+    if (!far.newMap(64, 64, 0, 1, err)) {
+        CHECK(false, "start locations: a second new 64 x 64 map");
+        return;
+    }
+    far.placeUnit(214, 0, 1000, 1000);
+    CHECK(far.startLocationProblems().size() == 1, "start locations: one start location is one problem");
+    CHECK(far.placeStartLocations() == 1, "start locations: the second is placed");
+    int other = -1;
+    for (const Unit& u : far.units())
+        if (u.type == 214 && u.owner != 0) {
+            const int dx = int(u.x) - 1000, dy = int(u.y) - 1000;
+            other = u.owner;
+            CHECK(dx * dx + dy * dy > 1000 * 1000, "start locations: the second is far from the first");
+        }
+    CHECK(other == 1, "start locations: the next player in the game gets it");
+    CHECK(far.startLocationProblems().empty(), "start locations: two start locations are enough");
+    far.undo();
+    CHECK(far.startLocationProblems().size() == 1 && far.units().size() == 1, "start locations: one undo takes the second back");
+}
+
 int main(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: editor_test <install dir> <map> <scratch dir>\n");
@@ -2496,6 +2556,7 @@ int main(int argc, char** argv) {
     mirrorTest(data);
     turnCountTest(data);
     locationGroupTest(data);
+    startLocationTest(data);
     classicTriggersTest(data, argv[2], fs::path(argv[3]));
 
     std::printf("\n%d failures\n", failures);

@@ -237,6 +237,14 @@ int shellAskSaveChanges(bool project) {
                               {shellTr(L"&Save"), shellTr(L"Do &not save"), shellTr(L"Cancel")}, msgbox::Icon::Question);
     return r == 0 ? 0 : r == 1 ? 1 : 2;
 }
+// The start locations question before a save (core/map_commands.inc: confirmStartLocations): 0 Place them, 1 Save anyway,
+// 2 Cancel. Without a window (a test run) the map is saved as it is.
+int shellAskStartLocations(const std::wstring& text) {
+    if (!gRoot) return 1;
+    if (gShotDialogs) std::printf("question: Start locations (the map has no start location for every player)\n");
+    return msgbox::ask(*gRoot, shellTr(L"Start locations"), text, {shellTr(L"&Place them"), shellTr(L"&Save anyway"), shellTr(L"Cancel")},
+                       msgbox::Icon::Question);
+}
 // Save after the question: a map with a file is saved there (true when it was written); an untitled map (or one in a
 // folder StarDraft cannot write to) asks for its file and stays open until it is saved (false: close it again then;
 // a quit goes on once it is saved). An unsaved project asks where it goes.
@@ -244,6 +252,7 @@ bool sdlSaveUnsavedProject();
 bool shellSaveChanges(bool project) {
     if (project) return sdlSaveUnsavedProject();
     if (!gState.ed || !gState.ed->isOpen()) return false;
+    if (!confirmStartLocations()) return false;  // a map StarCraft cannot start for want of start locations: Place them, Save anyway or Cancel
     if (!gState.ed->path().empty() && !saveNeedsOtherPlace(gState.ed->path())) return saveTo(gState.ed->path());
     saveOpenMap(false, [retry = gQuitRetry](bool ok) {
         if (ok && retry) shellPost(retry);

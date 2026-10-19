@@ -17,6 +17,7 @@
 #include <cmath>
 #include <fstream>
 #include <iterator>
+#include <limits>
 #include <set>
 
 #include "stardraft/game_data.h"
@@ -3135,23 +3136,104 @@ bool Editor::removeSoundReference(const std::string& path) {
     return true;
 }
 
-std::vector<std::string> Editor::playabilityProblems() const {
+std::vector<std::string> Editor::startLocationProblems() const {
     std::vector<std::string> out;
-    int playing = 0, humans = 0;
     bool owns[8] = {}, starts[8] = {};
+    int count = 0;
     for (const Unit& u : units_) {
-        if (u.owner >= 8) continue;
-        (u.type == kStartLocationUnit ? starts : owns)[u.owner] = true;
+        count += u.type == kStartLocationUnit;
+        if (u.owner < 8) (u.type == kStartLocationUnit ? starts : owns)[u.owner] = true;
     }
+    for (int p = 0; p < 8; ++p)
+        if (owns[p] && !starts[p]) out.push_back("Player " + std::to_string(p + 1) + " owns units but has no start location");
+    if (count < 2) out.push_back("At least two start locations must be on the map (" + std::to_string(count) + " now)");
+    return out;
+}
+
+std::vector<std::string> Editor::playabilityProblems(bool startLocations) const {
+    std::vector<std::string> out = startLocations ? startLocationProblems() : std::vector<std::string>{};
+    int playing = 0, humans = 0;
     for (int p = 0; p < 8; ++p) {
         const Controller c = player(p).controller;
         playing += c == Controller::Human || c == Controller::Computer;
         humans += c == Controller::Human;
-        if (owns[p] && !starts[p]) out.push_back("Player " + std::to_string(p + 1) + " owns units but has no start location");
     }
     if (playing < 2) out.push_back("At least two players must be human or computer (" + std::to_string(playing) + " now)");
     if (!humans) out.push_back("At least one player must be human");
     return out;
+}
+
+int Editor::placeStartLocations() {
+    if (!isOpen() || kStartLocationUnit >= types_.size()) return 0;
+    const UnitType& t = types_[kStartLocationUnit];
+    const int W = width_ * 32, H = height_ * 32;
+    const int reach = 64 * 32;  // px: a start location for a player's units goes at most this far from their middle
+    auto hasStart = [this](int p) {
+        return std::any_of(units_.begin(), units_.end(), [p](const Unit& u) { return u.type == kStartLocationUnit && u.owner == p; });
+    };
+    auto startCount = [this] { return int(std::count_if(units_.begin(), units_.end(), [](const Unit& u) { return u.type == kStartLocationUnit; })); };
+    // Each start location goes straight into the units: no symmetry copies and no selection change, as placeUnit would make.
+    int placed = 0;
+    auto put = [&](int p, const std::pair<uint16_t, uint16_t>& xy) {
+        if (unitLimit_ > 0 && int(units_.size()) >= unitLimit_) return;
+        Unit u = makeUnit(t, uint8_t(p), xy.first, xy.second);
+        u.serial = nextFreeSerial(units_);
+        units_.push_back(u);
+        ++placed;
+    };
+    const bool own = !inStroke_;  // (inside a mouse stroke, the stroke is one undo step: it goes on)
+    if (own) beginStroke();
+    // A player that owns units and has no start location: the nearest spot to the middle of its units where it fits.
+    for (int p = 0; p < 8; ++p) {
+        int64_t sx = 0, sy = 0, n = 0;
+        for (const Unit& u : units_)
+            if (u.owner == p && u.type != kStartLocationUnit) sx += u.x, sy += u.y, ++n;
+        if (!n || hasStart(p)) continue;
+        const Unit probe = makeUnit(t, uint8_t(p), uint16_t(sx / n), uint16_t(sy / n));
+        if (const auto spot = findValidPosition(probe, reach)) put(p, *spot);
+    }
+    // Fewer than two start locations: the next player in the game without one (the humans first, then the computers) gets
+    // one where the start locations the map has are farthest; the first one, when there is none, near the middle of the map.
+    if (startCount() < 2) {
+        std::vector<int> order;
+        for (Controller c : {Controller::Human, Controller::Computer})
+            for (int p = 0; p < 8; ++p)
+                if (player(p).controller == c && !hasStart(p)) order.push_back(p);
+        for (int p : order) {
+            if (startCount() >= 2) break;
+            std::vector<std::pair<int, int>> at;
+            for (const Unit& u : units_)
+                if (u.type == kStartLocationUnit) at.emplace_back(u.x, u.y);
+            std::optional<std::pair<uint16_t, uint16_t>> spot;
+            if (at.empty()) {
+                spot = findValidPosition(makeUnit(t, uint8_t(p), uint16_t(W / 2), uint16_t(H / 2)), std::max(W, H));
+            } else {
+                std::vector<std::pair<int64_t, std::pair<int, int>>> cand;  // (the squared distance to the nearest, the spot)
+                const int step = 32;  // px: the grid of the candidate spots (a start location is a building: it snaps to 32)
+                for (int y = step / 2; y < H; y += step)
+                    for (int x = step / 2; x < W; x += step) {
+                        int64_t best = std::numeric_limits<int64_t>::max();
+                        for (const auto& [ax, ay] : at) best = std::min(best, int64_t(x - ax) * (x - ax) + int64_t(y - ay) * (y - ay));
+                        cand.push_back({best, {x, y}});
+                    }
+                std::stable_sort(cand.begin(), cand.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+                for (const auto& [d, xy] : cand) {
+                    if (const auto ok = findValidPosition(makeUnit(t, uint8_t(p), uint16_t(xy.first), uint16_t(xy.second)), 0)) {
+                        spot = ok;
+                        break;
+                    }
+                }
+            }
+            if (!spot) break;  // no spot fits: the next player would search as long for nothing
+            put(p, *spot);
+        }
+    }
+    if (placed) {
+        writeUnits(chk_, units_);
+        commit(false);
+    }
+    if (own) endStroke();
+    return placed;
 }
 
 void Editor::renameLocation(int i, const std::string& name) {

@@ -130,6 +130,34 @@ bool saveMapFileOf(const Editor* asked, const fs::path& path, std::string& err) 
     return saveMapFile(path, err);
 }
 
+// The start locations question before a save (shell_sdl.inc): 0 Place them, 1 Save anyway, 2 Cancel.
+int shellAskStartLocations(const std::wstring& text);
+// The start locations question's text: the problems (startLocationProblems), and the offer.
+std::wstring startLocationsQuestion(const std::vector<std::string>& problems) {
+    std::wstring text = std::wstring(tr(L"StarCraft will not start this map:")) + L"\r\n\r\n";
+    for (const std::string& p : problems) text += L"\x2022 " + widen(p) + L"\r\n";
+    return text + L"\r\n" + std::wstring(tr(L"Place the missing start locations?"));
+}
+// Before a save (File > Save, Save as, and the Build's save of the project's map): a map that StarCraft will not start for
+// want of start locations asks Place them (the missing start locations, as one undo step), Save anyway or Cancel. False when
+// the map is not to be saved.
+bool confirmStartLocations() {
+    AppState& app = shellState();
+    for (;;) {
+        if (!app.ed || !app.ed->isOpen()) return true;
+        const std::vector<std::string> problems = app.ed->startLocationProblems();
+        if (problems.empty()) return true;
+        const int r = shellAskStartLocations(startLocationsQuestion(problems));
+        if (r == 2) return false;
+        if (r != 0) return true;  // Save anyway
+        const int n = app.ed->placeStartLocations();
+        app.dirty = true;
+        setMessage(n ? L"Placed " + std::to_wstring(n) + L" start locations" : std::wstring(tr(L"No start location fits the map")));
+        if (!n) return true;  // nothing fits: asking again would only show the same question
+        // Some may still be missing (no spot for one player): the question comes again, with the rest.
+    }
+}
+
 // File > Save to the map's own file asks for another place (Save as) only when StarDraft cannot write there: the folder
 // does not take a new file (the save writes <name>.tmp beside the map first; a test file shows it, as a folder under
 // Program Files that only an administrator can write to), or the map's file cannot be written (read-only). A folder
