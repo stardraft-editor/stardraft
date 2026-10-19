@@ -74,10 +74,13 @@ bool stripHasMirrors() {
 }
 
 // The Terrain tool strip's Isometric | Rectangle: what the terrain tools work on (ISOM terrains, or tiles as they are).
+// Each map's own: its file keeps it (a new map starts in Isometric).
+void setMapTerrainRect(bool rect);  // (map_prefs.inc)
 void setTerrainRect(bool rect) {
     AppState& app = appState();
     if (app.terrainRect == rect) return;
     app.terrainRect = rect;
+    setMapTerrainRect(rect);
     app.terrainPasting = false;
     if (shellViewShown()) shellRelayout();  // the strip's height (no mirrors in Rectangle)
     fillToolCombo(app);  // tilesSync: the Tiles grid or the terrain palette

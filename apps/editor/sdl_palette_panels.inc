@@ -159,7 +159,6 @@ void palettePanelClose(PalettePanelView& v) {
     for (auto it = gPanels.begin(); it != gPanels.end(); ++it)
         if ((*it)->view.get() == &v) {
             const bool floating = v.floating;
-            if (floating && gFloatPal[int(v.mode)].floating) gFloatPal[int(v.mode)].floating = false, saveDock();  // (its close box: docked)
             panelSaveToDocked(v, true);  // (a floating palette: the side bar's palette goes on from where it was)
             tilesPanelBack(v);
             palettePanelHide(**it);
@@ -214,16 +213,7 @@ void palettePanelsLoad(int doc);  // (below: the map's own file's panels, once a
 void palettePanelsSave();
 
 // Shows the panels of the active tab in the Map workspace and hides the others; forgets those of closed tabs.
-// Each mode's palette floats or not in every tab alike, as the location list's window (gFloatPal[m].floating, in the
-// settings): the active tab gets the mode's floating palette, or lets it go. True: a change (the layout is made again).
-PanelWindow* floatingPanelOf(int doc, Mode m);
-bool floatingPanelsFollow() {
-    if (!gRoot || gWorkspace != Workspace::Map || !gRoot->map.shown() || !docOpen()) return false;
-    bool changed = false;
-    for (Mode m : kPanelModes)
-        if (gFloatPal[int(m)].floating != (floatingPanelOf(activeDocKey(), m) != nullptr)) changed |= floatingPanelSet(m, gFloatPal[int(m)].floating);
-    return changed;
-}
+// Each map's palettes float or not as the map was left (its file's panels); a new map's are docked.
 void palettePanelsSync() {
     std::erase_if(gPanels, [](const std::unique_ptr<PanelWindow>& p) {
         for (const Doc& d : gDocs)
@@ -243,7 +233,6 @@ void palettePanelsSync() {
 // Each turn of the event loop: each open panel's place as the user moves it (kept inside the main window), and the
 // active tab's panels in its map's own file when they changed.
 void sdlPalettePanelsFrame() {
-    if (floatingPanelsFollow() && gRoot) gRoot->relayout(), shellMenusChanged();
     palettePanelsSync();
     palettePanelsSave();
     if (gFloatPalSaveAt && SDL_GetTicks() >= gFloatPalSaveAt) gFloatPalSaveAt = 0, saveDock();
@@ -313,8 +302,6 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
             if (SDL_Window* sw = gHost ? gHost->sdlWindow(o) : nullptr) SDL_SetWindowTitle(sw, narrow(shellTr(o.name.c_str())).c_str());
         }
         if (pv->floating) {  // (the panel's mode is the one to work in: the side bar and the menus follow)
-            gFloatPal[int(from)].floating = other != nullptr, gFloatPal[int(to)].floating = true;
-            saveDock();
             setMode(to);
             if (gRoot) gRoot->relayout();
             shellMenusChanged();
