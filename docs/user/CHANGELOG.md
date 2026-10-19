@@ -2,6 +2,56 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.6.1.3
+
+### Map
+
+- Save: when a player that has units has no Start Location, or the map has fewer than 2, StarDraft 2 asks before it
+  saves. Place them puts the missing Start Locations near the players' units, then saves. You can also save the map
+  as it is, or cancel.
+
+  ![Save: place the missing Start Locations](images/0.6.1.3/start-locations.png)
+- Turns: a number from 1 to 8 replaces the half turn and quarter turn buttons. The brush and the placing draw at that
+  many evenly turned places round the middle of the map. On terrain, a copy goes to the nearest diamond when the turn
+  does not fit the diamonds.
+
+  ![Turns: 3, with the top-bottom mirror](images/0.6.1.3/turns.png)
+- Rectangle mode has the mirrors and the turns: the Brush, the stamp, Spray and Fill also place each tile at the
+  mirrored places (the tile itself is not turned).
+
+  ![Rectangle mode with the left-right mirror](images/0.6.1.3/rectangle-mirror.png)
+- Tiles list: drag a box over the grid (or Shift+click) to make a stamp. The Brush places those tiles, and a drag
+  repeats them in a pattern; Fill fills with the pattern. Hold Shift to place them at random.
+
+  ![A stamp of tiles from the Tiles list](images/0.6.1.3/tiles-stamp.png)
+- Tiles list: the filter has sub-categories under each terrain (the terrain alone, then its edges with each other
+  terrain), and the doodads' tiles under each doodad group.
+- Locations: select several locations (Ctrl+click or Shift+click, also in the list, or Alt and drag over the map) and
+  drag one of them to move them all. Delete, copy and paste act on all the selected locations.
+
+  ![Two locations selected, to move them together](images/0.6.1.3/locations-group.png)
+- Palettes: each palette, in the side bar or in a window, keeps its own pick, tool, brush size and shape, spray density,
+  player and mirrors. Palette windows have the type box and the mode's tools, as the side bar has.
+
+  ![A palette window with its type box and tools](images/0.6.1.3/palette-window.png)
+- Palettes: both side bars show their mode's tools over their list.
+
+  ![The tools of both side bars](images/0.6.1.3/tools-both-sides.png)
+- Each map keeps its own palette windows and its Isometric or Rectangle choice.
+- The minimap's bottom edge drags: make the minimap shorter, for more room under it, or taller.
+
+  ![A taller minimap](images/0.6.1.3/minimap-taller.png)
+
+### Fixes
+
+- Isometric terrain: the mirrors and the half turn put the copies on the exact mirrored diamonds, and a stroke at the
+  middle of the map no longer paints more than the brush.
+
+  ![Isometric terrain: a stroke and its mirrored copies](images/0.6.1.3/mirror.png)
+- Typing in a palette window's search box no longer runs the map's one-letter keys.
+- In a floating palette, Shift+click picks every item from the last pick, as the side bar's palette does.
+- On macOS, Command+click and Shift+click in a palette window work, and Command+Z undoes one step, not two.
+
 ## 0.6.1.2
 
 ### Map
