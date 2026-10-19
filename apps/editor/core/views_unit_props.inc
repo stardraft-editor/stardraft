@@ -61,14 +61,65 @@ struct UnitRowsView final : stardraft::kit::ListView {
     std::function<bool(const draw::KeyEvent&)> keyHook;  // true: the key is taken
     bool plainPick = false;                                // the last press was a plain click
     std::function<void(int)> onHeader;  // a click on a header cell: its column
+    // The selected rows can be dragged to another place (the units' order) when the list is in index order: a press on
+    // a selected row, a drag past a few points and a release. The line shows where they go; onDrop gets that row (the
+    // count: the end). A press without a drag is a click, as before.
+    bool draggable = false;
+    std::function<void(int)> onDrop;
     bool mouse(const draw::MouseEvent& e) override {
         if (e.kind == draw::MouseKind::Down && e.button == 0 && onHeader) {
             const int col = columnAt(e.pt);
             if (col >= 0) return onHeader(col), true;
         }
+        if (draggable && e.kind == draw::MouseKind::Down && e.button == 0 && !(e.mods & (draw::kCtrl | draw::kShift))) {
+            const int r = rowAt(e.pt);
+            if (r >= 0 && isSelected(r)) return pressed_ = true, dragging_ = false, down_ = e, true;
+        }
+        if (pressed_ && e.kind == draw::MouseKind::Move) {
+            const int dx = e.pt.x - down_.pt.x, dy = e.pt.y - down_.pt.y;
+            if (!dragging_ && (dx * dx + dy * dy > 16)) dragging_ = true;
+            if (dragging_) {
+                dropAt_ = dropRowAt(e.pt);
+                invalidate();
+            }
+            return true;
+        }
+        if (pressed_ && e.kind == draw::MouseKind::Up && e.button == 0) {
+            pressed_ = false;
+            if (dragging_) {
+                const int at = dropAt_;
+                dragging_ = false, dropAt_ = -1;
+                invalidate();
+                if (onDrop) onDrop(at);
+                return true;
+            }
+            stardraft::kit::ListView::mouse(down_);  // (a click: the press, then the release, as the list gets them)
+            return stardraft::kit::ListView::mouse(e);
+        }
         if (e.kind == draw::MouseKind::Down && e.button == 0) plainPick = !(e.mods & (draw::kCtrl | draw::kShift));
         return stardraft::kit::ListView::mouse(e);
     }
+    // Where a drag would put the rows: before row `r` (the count: after the last one).
+    int dropRowAt(draw::Point pt) const {
+        const int n = count();
+        if (n == 0) return 0;
+        const int r = rowAt(pt);
+        if (r >= 0) {
+            const draw::Rect rr = rowRect(r);
+            return pt.y < (rr.top + rr.bottom) / 2 ? r : r + 1;
+        }
+        return pt.y < rowRect(0).top ? 0 : n;
+    }
+    void paint(draw::Canvas& c) override {
+        stardraft::kit::ListView::paint(c);
+        if (dragging_ && dropAt_ >= 0) {  // the line where the rows go
+            const int y = dropAt_ < count() ? rowRect(dropAt_).top : rowRect(count() - 1).bottom;
+            c.fill({0, y - 1, width(), y + 1}, stardraft::kit::theme().accent);
+        }
+    }
+    bool pressed_ = false, dragging_ = false;
+    int dropAt_ = -1;
+    draw::MouseEvent down_{};
     bool key(const draw::KeyEvent& e) override {
         plainPick = false;
         if (keyHook && keyHook(e)) return true;
@@ -93,6 +144,7 @@ public:
         };
         list_.onSelect = [this] { picked(); };
         list_.onHeader = [this](int col) { sortBy(col); };
+        list_.onDrop = [this](int before) { droppedAt(before); };
         list_.onActivate = [this](int row) {
             if (row < 0 || row >= int(rows_.size())) return;
             selectFromList();
@@ -260,6 +312,16 @@ private:
             cols.push_back({name, widths[k], aligns[k]});
         }
         list_.setColumns(cols);
+        list_.draggable = sortCol_ == 4 && !sortDesc_;  // (the rows move in the index's order only)
+    }
+    // The selected rows go before row `before` (the end when past the last one): the units' order in the map (one undo step).
+    void droppedAt(int before) {
+        std::vector<int> units;
+        for (int r = 0; r < int(rows_.size()); ++r)
+            if (list_.isSelected(r)) units.push_back(rows_[size_t(r)]);
+        if (units.empty()) return;
+        const int target = before < int(rows_.size()) ? rows_[size_t(before)] : int(ed_->units().size());
+        if (ed_->moveUnits(units, target) > 0) rebuild();
     }
 public:
     // The order as a click on a header gives it (the snapshots: --dialog unitslist:<column>[:desc]).

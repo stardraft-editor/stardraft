@@ -321,6 +321,12 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
         return true;
     }
     if ((name == "unitslist" || name.rfind("unitslist:", 0) == 0) && !ed.units().empty()) {  // the window with the Units list (View > Units list): the first selected unit
+        // unitslist:move=<unit>:<before>: a move in the map's order first (one undo step, as a drop in the list gives it).
+        if (name.find("move=") != std::string::npos) {
+            int from = -1, before = -1;
+            std::sscanf(name.c_str() + name.find("move=") + 5, "%d:%d", &from, &before);
+            if (from >= 0 && from < int(ed.units().size()) && before >= 0) ed.moveUnits({from}, before);
+        }
         const int u = ed.selection().empty() ? 0 : ed.selection().front();
         if (!ed.isSelected(u)) ed.select(u, false);
         const Unit first = ed.units()[size_t(u)];

@@ -298,6 +298,10 @@ CASES += [
     # The same window sorted by a header (a click gives the same order): by owner, and by index descending.
     ("map-units-list-owner", ["--dialog", "unitslist:owner"], "map"),
     ("map-units-list-index-desc", ["--dialog", "unitslist:index:desc"], "map"),
+    # A drag of a row in the Units list (index order): the first unit goes before the fourth row; the list shows the new order.
+    ("map-units-list-drag", ["--script", "{script:unitsdrag}"], "map"),
+    # The window after the drop's move (unit 0 before unit 4): the list shows 1, 2, 3, 0, 4 in its index column.
+    ("map-units-list-moved", ["--dialog", "unitslist:move=0:4"], "map"),
     ("map-units-list-pick", ["--script", "{script:unitslist}"], "map"),
     # Scenario > Check pathing: the list of the problems (each "pathing" line says the layer, the regions and the check);
     # Enter picks the first one: the layer shows, the problem has its mark in the middle of the view.
@@ -967,6 +971,10 @@ key Tab
 key Del
 key Tab
 key Ctrl+Z
+""",
+    # The Units list in index order: the first unit (row 0, selected) dragged to the place before row 4 (dialog pixels).
+    "unitsdrag": """command view.unitsList
+drag 100,88-100,150
 """,
     "revealersHidden": """command edit.revealers.place
 key Enter

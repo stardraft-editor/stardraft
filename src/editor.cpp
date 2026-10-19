@@ -1937,6 +1937,38 @@ void Editor::setMapRevealersHidden(bool hidden) {
     revision_ = nextRevision();
 }
 
+int Editor::moveUnits(const std::vector<int>& indices, int target) {
+    const int n = int(units_.size());
+    std::vector<bool> moved(size_t(n), false);
+    int count = 0;
+    for (int i : indices)
+        if (i >= 0 && i < n && !moved[size_t(i)]) moved[size_t(i)] = true, ++count;
+    if (!count) return 0;
+    target = std::clamp(target, 0, n);
+    // The new newOrder: the others in their newOrder, the moved ones (in their newOrder) where `target` was.
+    std::vector<int> newOrder;
+    newOrder.reserve(size_t(n));
+    for (int i = 0; i <= n; ++i) {
+        if (i == target)
+            for (int k = 0; k < n; ++k)
+                if (moved[size_t(k)]) newOrder.push_back(k);
+        if (i < n && !moved[size_t(i)]) newOrder.push_back(i);
+    }
+    if (std::is_sorted(newOrder.begin(), newOrder.end())) return 0;  // the order stays
+    std::vector<int> newIndex(size_t(n), 0);
+    for (int k = 0; k < n; ++k) newIndex[size_t(newOrder[size_t(k)])] = k;
+    beginEdit();
+    std::vector<Unit> out;
+    out.reserve(size_t(n));
+    for (int k = 0; k < n; ++k) out.push_back(units_[size_t(newOrder[size_t(k)])]);
+    units_ = std::move(out);
+    for (int& s : selection_)
+        if (s >= 0 && s < n) s = newIndex[size_t(s)];
+    writeUnits(chk_, units_);
+    commit(false);
+    return count;
+}
+
 int Editor::removeMapRevealers() {
     std::vector<int> newIndex(units_.size(), -1);  // each unit's index after the removal (-1: removed)
     int kept = 0, removed = 0;
