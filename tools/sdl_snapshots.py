@@ -1223,8 +1223,8 @@ stats
     "stackmenu": STACK_PLACE + "click 700,650:Menu10\nkey Down\nkey Enter\n",
     # The Marine stays picked (no Esc): Alt+click on the stack is the pipette (map-stack-pipette).
     # (map-palette-float: the window is at 360,114 of the main window: High Platform's row, Dock, the first tile)
-    "floatpal": "command view.floatPalette.terrain\nwait 0\nclick 510,452\nkey U\nkey T\nclick 371,126\ncommand view.floatPalette.terrain\nwait 0\n"
-                "palette close\ncommand view.floatPalette.terrain\nwait 0\nrect on\nclick 386,326\n",
+    "floatpal": "command view.floatPalette.terrain\nwait 0\nclick 510,482\nkey U\nkey T\nclick 371,126\ncommand view.floatPalette.terrain\nwait 0\n"
+                "palette close\ncommand view.floatPalette.terrain\nwait 0\nrect on\nclick 386,356\n",
     "floatpaldock": "command view.floatPalette.terrain\nwait 0\ncommand view.floatPalette.terrain\nwait 0\n",
     # (map-palette-float-keys: the window's search box, then the first row of the list that it filters)
     # (map-palette-float-units: the window over the map at the right side bar: the Marine's row, then the map; then
@@ -1235,7 +1235,7 @@ stats
     # (map-palette-float-settings: nothing floats at the start; popped out, each mode's palette opens at its kept size and
     # stays in the other modes)
     "floatpaltwo": "wait 0\ncommand view.floatPalette.terrain\nwait 0\nmode units\ncommand view.floatPalette.units\nwait 0\nmode doodads\nmode terrain\n",
-    "floatpalkeys": "command view.floatPalette.terrain\nwait 0\nclick 400,293\ntype plat\nclick 490,406\nkey F\npalette scale 150\n",
+    "floatpalkeys": "command view.floatPalette.terrain\nwait 0\nclick 400,323\ntype plat\nclick 490,436\nkey F\npalette scale 150\n",
     "stackpipette": "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nclick 700,650:Alt\nkey Esc\n",
 }
 
@@ -3447,7 +3447,7 @@ def check_palette_float(output):
     """Floating: the window, a pick in it (High Platform, the brush), U and T from it, Dock, the close button, Rectangle
     mode's tiles in it and a tile picked there."""
     s = palette_steps(output)
-    want = ["wait 0", "click 510,452", "key U", "key T", "click 371,126", "wait 0", "palette close", "wait 0", "rect on", "click 386,326"]
+    want = ["wait 0", "click 510,482", "key U", "key T", "click 371,126", "wait 0", "palette close", "wait 0", "rect on", "click 386,356"]
     got = [d["input"] for d in s]
     if got != want:
         return f"the inputs are {got}, not {want}"
@@ -3476,7 +3476,7 @@ def check_palette_keys(output):
     """A pick after typing in the window's search box: the search box loses the keyboard, F goes to the map (Fill) and
     the search keeps its text; the window on a screen of 150 % leaves the program's scale at 1."""
     s = palette_steps(output)
-    want = ["wait 0", "click 400,293", "type plat", "click 490,406", "key F", "palette scale 150"]
+    want = ["wait 0", "click 400,323", "type plat", "click 490,436", "key F", "palette scale 150"]
     got = [d["input"] for d in s]
     if got != want:
         return f"the inputs are {got}, not {want}"

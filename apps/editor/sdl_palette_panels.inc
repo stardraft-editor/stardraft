@@ -225,13 +225,37 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
     v.type.setItems(std::move(types));
     PalettePanelView* pv = &v;
     v.type.onChange = [pv](int i) {
-        if (i < 0 || i >= int(std::size(kPanelModes))) return;
-        pv->mode = kPanelModes[i];
+        if (i < 0 || i >= int(std::size(kPanelModes)) || kPanelModes[i] == pv->mode) return;
+        const Mode from = pv->mode, to = kPanelModes[i];
+        // A mode's floating palette becomes the new mode's: that mode's floating palette (if it has one) takes the old
+        // mode (the two swap); the old mode's palette is back in the side bar when no window has it.
+        PanelWindow* other = nullptr;
+        if (pv->floating)
+            for (auto& q : gPanels)
+                if (q->view.get() != pv && q->doc == activeDocKey() && q->view->floating && q->view->mode == to) other = q.get();
+        if (pv->floating) tilesPanelBack(*pv);
+        pv->mode = to;
         pv->section.clear();
         if (pv->mode != Mode::Units) pv->view.sprites = false;
+        if (pv->floating) pv->view = gViewByMode[int(to)], pv->sort = gSortByMode[int(to)];
         pv->list.scrollTo(0);
         palettePanelRebuild(*pv);
         if (SDL_Window* sw = gHost ? gHost->sdlWindow(*pv) : nullptr) SDL_SetWindowTitle(sw, narrow(shellTr(pv->name.c_str())).c_str());
+        if (other) {
+            PalettePanelView& o = *other->view;
+            tilesPanelBack(o);
+            o.mode = from, o.section.clear();
+            if (from != Mode::Units) o.view.sprites = false;
+            o.view = gViewByMode[int(from)], o.sort = gSortByMode[int(from)];
+            o.list.scrollTo(0);
+            palettePanelRebuild(o);
+            if (SDL_Window* sw = gHost ? gHost->sdlWindow(o) : nullptr) SDL_SetWindowTitle(sw, narrow(shellTr(o.name.c_str())).c_str());
+        }
+        if (pv->floating) {  // (the panel's mode is the one to work in: the side bar and the menus follow)
+            setMode(to);
+            if (gRoot) gRoot->relayout();
+            shellMenusChanged();
+        }
     };
     v.search.onChange = [pv] {
         pv->list.scrollTo(0);
