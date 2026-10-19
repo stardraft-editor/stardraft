@@ -516,6 +516,21 @@ render::Scene buildScene() {
             uint8_t who = (t.availability & UnitAvail::NonNeutral) ? uint8_t(app.playerOwner) : uint8_t(11);
             Unit u = makeUnit(t, who, ux, uy);
             bool ok = app.allowIllegalUnits || checkPlacement(ed.placementContext(), u).empty();
+            // The copies at the mirror images and turns, where a click would put them (corrected, or left out, as a click does).
+            const auto copies = ed.symmetricPoints(int(gx), int(gy));
+            for (size_t k = 1; k < copies.size(); ++k) {
+                uint16_t mx = uint16_t(std::clamp(copies[k].first, 0, ed.width() * 32 - 1)), my = uint16_t(std::clamp(copies[k].second, 0, ed.height() * 32 - 1));
+                snapToGrid(t, mx, my);
+                Unit m = makeUnit(t, who, mx, my);
+                if (!app.allowIllegalUnits && !checkPlacement(ed.placementContext(), m).empty()) {
+                    if (!app.correction) continue;
+                    auto p = ed.findValidPosition(m);
+                    if (!p) continue;
+                    m.x = p->first, m.y = p->second;
+                }
+                addUnitSprites(s, m, 0, 0, 0.55f);
+                outline(s, ed.unitBox(m), 0x40FF40C0u);
+            }
             if (!ok && app.correction)
                 if (auto p = ed.findValidPosition(u)) {
                     Unit c = u;
@@ -552,7 +567,15 @@ render::Scene buildScene() {
             d.x = x, d.y = y, d.owner = uint8_t(std::min<int>(owner, 11)), d.alpha = 0.6f, d.air = true;
             addImage(s, d);
         };
-        if (app.palette >= 0 && !app.pastingItems && !objectSprayOn()) ghost(uint16_t(app.palette), cx, cy, uint8_t(app.playerOwner));
+        if (app.palette >= 0 && !app.pastingItems && !objectSprayOn()) {
+            ghost(uint16_t(app.palette), cx, cy, uint8_t(app.playerOwner));
+            // The mirror images and turned copies, where a click would put them too.
+            const auto copies = ed.symmetricPoints(int(cx), int(cy));
+            for (size_t k = 1; k < copies.size(); ++k) {
+                ghost(uint16_t(app.palette), float(copies[k].first), float(copies[k].second), uint8_t(app.playerOwner));
+                outline(s, {copies[k].first - 12, copies[k].second - 12, copies[k].first + 12, copies[k].second + 12}, 0x40FF40C0u, 1);
+            }
+        }
         if (app.drag == Drag::MoveSprite && app.dragMoved)
             for (int i : app.selSprites)
                 if (i >= 0 && i < int(ed.sprites().size())) {
@@ -610,6 +633,15 @@ render::Scene buildScene() {
             ghostTiles = std::move(cells);
             s.rects.push_back({float(r.left), float(r.top), float(r.right), float(r.bottom), ok ? 0x40FF4018u : 0xFF404040u, true});
             outline(s, r, ok ? 0x40FF40FFu : 0xFF4040FFu, 1.5f);
+            // The mirror images and turned copies, where a click would put them (not where one overlaps another doodad).
+            const auto copies = ed.symmetricPoints(int(wx), int(wy));
+            for (size_t k = 1; k < copies.size(); ++k) {
+                int cx, cy;
+                ed.doodadOrigin(*d, copies[k].first, copies[k].second, cx, cy);
+                if (ed.doodadOverlaps(*d, cx, cy)) continue;
+                const bool cok = doodadFits(ed.chk(), *d, cx, cy, app.doodadCheck);
+                outline(s, {cx * 32, cy * 32, (cx + d->width) * 32, (cy + d->height) * 32}, cok ? 0x40FF40FFu : 0xFF4040FFu, 1.5f);
+            }
             if (d->overlaySprite) {
                 render::SpriteDraw g;
                 g.image = sp.imageForSprite(d->overlaySprite);
