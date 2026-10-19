@@ -1,0 +1,18 @@
+{
+  "runs": [
+    {"map": "Maps/(2)Bottleneck.scm", "cases": ["map-save-start-dialog", "map-terrain-turns", "map-terrain-mirror", "map-rect-mirror-shot",
+                                               "map-tiles-stamp-shot", "map-locations-group", "map-palette-float", "map-strip-other-side",
+                                               "map-minimap-taller"]}
+  ],
+  "shots": [
+    {"run": 0, "from": "map-save-start-dialog.png", "to": "start-locations.png", "crop": [0, 0, 379, 164], "alt": "Save: place the missing Start Locations"},
+    {"run": 0, "from": "map-terrain-turns.png", "to": "turns.png", "crop": [64, 98, 1196, 860], "alt": "Turns: 3, with the top-bottom mirror"},
+    {"run": 0, "from": "map-terrain-mirror.png", "to": "mirror.png", "crop": [64, 98, 1196, 860], "alt": "Isometric terrain: a stroke and its mirrored copies"},
+    {"run": 0, "from": "map-rect-mirror-shot.png", "to": "rectangle-mirror.png", "crop": [64, 98, 1196, 860], "alt": "Rectangle mode with the left-right mirror"},
+    {"run": 0, "from": "map-tiles-stamp-shot.png", "to": "tiles-stamp.png", "crop": [64, 98, 1196, 860], "alt": "A stamp of tiles from the Tiles list"},
+    {"run": 0, "from": "map-locations-group.png", "to": "locations-group.png", "crop": [64, 98, 1196, 860], "alt": "Two locations selected, to move them together"},
+    {"run": 0, "from": "map-palette-float.png", "to": "palette-window.png", "crop": [64, 98, 800, 640], "alt": "A palette window with its type box and tools"},
+    {"run": 0, "from": "map-strip-other-side.png", "to": "tools-both-sides.png", "crop": [0, 98, 1600, 600], "alt": "The tools of both side bars"},
+    {"run": 0, "from": "map-minimap-taller.png", "to": "minimap-taller.png", "crop": [0, 98, 345, 860], "alt": "A taller minimap"}
+  ]
+}
