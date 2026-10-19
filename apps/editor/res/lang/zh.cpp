@@ -2385,6 +2385,7 @@ constexpr UiText kRows[] = {
     {L"Back: the page before (Alt+Left)", L"\u540E\u9000\uFF1A\u4E0A\u4E00\u9875 (Alt+Left)"},
     {L"Forward: the page after (Alt+Right)", L"\u524D\u8FDB\uFF1A\u4E0B\u4E00\u9875 (Alt+Right)"},
     {L"&Import a project (experimental)\u2026", L"\u5BFC\u5165\u9879\u76EE(\u5B9E\u9A8C\u6027)(&I)\u2026"},
+    {L"E&xtra large", L"\u7279\u5927(&X)"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

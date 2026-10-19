@@ -2385,6 +2385,7 @@ constexpr UiText kRows[] = {
     {L"Back: the page before (Alt+Left)", L"Atr\u00E1s: la p\u00E1gina anterior (Alt+Left)"},
     {L"Forward: the page after (Alt+Right)", L"Adelante: la p\u00E1gina siguiente (Alt+Right)"},
     {L"&Import a project (experimental)\u2026", L"&Importar un proyecto (experimental)\u2026"},
+    {L"E&xtra large", L"E&xtra grande"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

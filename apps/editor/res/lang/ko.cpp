@@ -2385,6 +2385,7 @@ constexpr UiText kRows[] = {
     {L"Back: the page before (Alt+Left)", L"\uB4A4\uB85C: \uC774\uC804 \uD398\uC774\uC9C0 (Alt+Left)"},
     {L"Forward: the page after (Alt+Right)", L"\uC55E\uC73C\uB85C: \uB2E4\uC74C \uD398\uC774\uC9C0 (Alt+Right)"},
     {L"&Import a project (experimental)\u2026", L"\uD504\uB85C\uC81D\uD2B8 \uAC00\uC838\uC624\uAE30(\uC2E4\uD5D8 \uB2E8\uACC4)(&I)\u2026"},
+    {L"E&xtra large", L"\uC544\uC8FC \uD06C\uAC8C(&X)"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
