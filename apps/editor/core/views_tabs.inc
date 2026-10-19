@@ -74,6 +74,7 @@ void stashActive() {
     d.camX = app.camX, d.camY = app.camY, d.zoom = app.zoom;
     d.hasTerrainSel = app.hasTerrainSel, d.terrainSel = app.terrainSel;
     d.pasting = app.pasting, d.terrainPasting = app.terrainPasting;
+    panelsStash();  // (its active panel keeps its state for when the tab is back: panel_state.inc)
     d.ed = std::move(app.ed);
 }
 // Shows the active editor: renderer sources, palette (the tileset may differ), title and tabs.
@@ -84,11 +85,9 @@ void showActive() {
     app.ed->setAllowStacking(app.allowStacking);
     app.ed->setResourceDistance(app.resourceDistance);
     setBuildingSnap(app.snapBuildings);  // Options > Units > Snap buildings to tile edges
-    app.ed->setMirrors(app.symmetryByMode[int(app.mode)]);
-    app.ed->setTurns(app.turnsByMode[int(app.mode)]);
     app.terrainRev = 0;
     shellRendererSources();  // the host's renderer shows this editor's sources (quality, sprites, tileset)
-    setMode(app.mode);
+    panelsShowTab();  // its panel that was active (panel_state.inc), with its state
     updateTitle();
     shellRedrawTabs();
     app.dirty = true;

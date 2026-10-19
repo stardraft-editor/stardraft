@@ -4,7 +4,7 @@
 // box shows all tiles, or only one terrain type's tiles (the terrain types of Isometric mode; a tile group's terrain
 // types come from the tile rules: tileGroupTerrains), the favorites, the doodads' tiles or the null tiles.
 // The views: TilesPanelView (the filter and the search, kit widgets) and TilesGridView (the grid, with its footer: the
-// tile under the mouse). Both programs use the instances below, gTilesPanel and gTilesGrid. The Win32 program shows the
+// tile under the mouse). Both programs use the instances below, gTilesPanel and gTilesGrid-> The Win32 program shows the
 // panel in a view window and the grid in a view window of its own, with the native vertical bar (tiles_view.inc); the SDL
 // program puts the grid in the panel (TilesPanelView::holdGrid) and places the panel (sdl_main_view.inc).
 
@@ -12,15 +12,15 @@ int tilesFooterH() { return scale(26); }
 
 // The grid's places (GitHub #128, #139): always 16 tiles in a row, a tile group in each row (its tiles 0 to 15, as
 // StarEdit and ScmDraft show them), no padding, 1 px between the tiles and between the rows. The tiles scale so that
-// 16 tiles and 15 gaps fill the list's width (gTiles.listW) exactly: column i is from tilesEdge(i) to
+// 16 tiles and 15 gaps fill the list's width (gTiles->listW) exactly: column i is from tilesEdge(i) to
 // tilesEdge(i + 1) - 1, and the pixel after it is the gap (the tiles' widths differ by 1 px at most). Rows use the
 // same edges, so the tiles are square (or 1 px from it). A tile is tilesMinCell() at least: a list narrower than 16 of
 // them and the gaps shows the left part of the rows (the side bar's minimum width has more room than that).
 constexpr int kTilesPerRow = 16;
 int tilesMinCell() { return scale(8); }
-int tilesEdge(int i) { return int(int64_t(i) * (gTiles.listW + 1) / kTilesPerRow); }
+int tilesEdge(int i) { return int(int64_t(i) * (gTiles->listW + 1) / kTilesPerRow); }
 // The column (or row) at content pixel p (the gap after a tile counts as that tile's); p < 0: -1.
-int tilesIndexAt(int p) { return p < 0 ? -1 : int((int64_t(p + 1) * kTilesPerRow - 1) / (gTiles.listW + 1)); }
+int tilesIndexAt(int p) { return p < 0 ? -1 : int((int64_t(p + 1) * kTilesPerRow - 1) / (gTiles->listW + 1)); }
 // The tile's place in the grid's content: the k-th slot of the grid.
 draw::Rect tilesSlotRect(int k) {
     const int col = k % kTilesPerRow, row = k / kTilesPerRow;
@@ -65,17 +65,18 @@ void tilesSaveFavorites(int era) {
 draw::Bitmap& tilesPixels(uint16_t value, draw::Rect& src) {
     AppState& app = appState();
     const int mode = app.carbot ? 2 : app.quality == GraphicsQuality::SD ? 0 : 1;
-    if (mode != gTiles.pixelsMode) gTiles.pixels.clear(), gTiles.pixelsMode = mode;
-    if (mode && (gTiles.hdEra != app.ed->era() || gTiles.hdMode != mode)) {
+    if (mode != gTilesArt.pixelsMode || gTilesArt.forEd != app.ed.get() || gTilesArt.forEra != app.ed->era())
+        gTilesArt.pixels.clear(), gTilesArt.pixelsMode = mode, gTilesArt.forEd = app.ed.get(), gTilesArt.forEra = app.ed->era();
+    if (mode && (gTilesArt.hdEra != app.ed->era() || gTilesArt.hdMode != mode)) {
         std::string err;
-        gTiles.hdEra = app.ed->era(), gTiles.hdMode = mode;
-        if (!loadHdTiles(app.data, app.ed->era(), GraphicsQuality::HD2, gTiles.hd, err, mode == 2)) gTiles.hd = {};
+        gTilesArt.hdEra = app.ed->era(), gTilesArt.hdMode = mode;
+        if (!loadHdTiles(app.data, app.ed->era(), GraphicsQuality::HD2, gTilesArt.hd, err, mode == 2)) gTilesArt.hd = {};
     }
-    auto [it, fresh] = gTiles.pixels.try_emplace(uint16_t(value >> 4));
+    auto [it, fresh] = gTilesArt.pixels.try_emplace(uint16_t(value >> 4));
     draw::Bitmap& b = it->second.bitmap;
-    it->second.used = gTiles.paints;
+    it->second.used = gTilesArt.paints;
     if (fresh) {
-        const HdTiles* hd = mode && !gTiles.hd.tiles.empty() ? &gTiles.hd : nullptr;
+        const HdTiles* hd = mode && !gTilesArt.hd.tiles.empty() ? &gTilesArt.hd : nullptr;
         std::vector<uint16_t> row(16);
         for (int s = 0; s < 16; ++s) row[size_t(s)] = uint16_t((value & 0xFFF0) | s);
         const Sprite pic = mapTilesPicture(app.ed->tileset(), row, 16, 0, 0, 16, 1, hd);
@@ -105,13 +106,37 @@ draw::Bitmap& tilesPixels(uint16_t value, draw::Rect& src) {
 // yet): a new paint, and when many groups have pictures, those that the last two paints did not draw go (a long
 // scroll keeps the memory small).
 void tilesPixelsTrim() {
-    ++gTiles.paints;
-    if (gTiles.pixels.size() <= 64) return;
-    std::erase_if(gTiles.pixels, [](const auto& kv) { return kv.second.used + 2 < gTiles.paints; });
+    ++gTilesArt.paints;
+    if (gTilesArt.pixels.size() <= 64) return;
+    std::erase_if(gTilesArt.pixels, [](const auto& kv) { return kv.second.used + 2 < gTilesArt.paints; });
 }
+
+// The Tiles list in use (gTiles, its grid and its panel): a list's own while it paints or takes the mouse or a key, as
+// the tile functions read them; else the active Terrain panel's (the map's tools place its tiles).
+struct TilesScope {
+    TilesView* t;
+    TilesGridView* g;
+    TilesPanelView* p;
+    const PanelState* active = gActivePanel;
+    TilesScope(TilesView* data, TilesGridView* grid, TilesPanelView* panel) : t(gTiles), g(gTilesGrid), p(gTilesPanel) {
+        if (data && grid && panel) gTiles = data, gTilesGrid = grid, gTilesPanel = panel;
+    }
+    ~TilesScope() {
+        gTiles = t, gTilesGrid = g, gTilesPanel = p;
+        // A panel became the active one in the meantime (a press on its list): its tiles are the ones in use.
+        if (const PanelState* a = gActivePanel; a != active && a && a->tiles && a->tilesGrid && a->tilesPanel)
+            gTiles = a->tiles, gTilesGrid = a->tilesGrid, gTilesPanel = a->tilesPanel;
+    }
+    TilesScope(const TilesScope&) = delete;
+    TilesScope& operator=(const TilesScope&) = delete;
+};
 
 class TilesGridView final : public draw::View {
 public:
+    TilesView* data = &gTilesDocked;  // its tiles (the panel that holds it binds them)
+    TilesPanelView* panel = nullptr;
+    PanelState* state = nullptr;  // its Terrain panel (a press makes it the active panel: panel_state.inc)
+    TilesScope here() { return {data, this, panel}; }
     void paint(draw::Canvas& c) override;
     bool mouse(const draw::MouseEvent& e) override;
     bool sameItem(draw::Point a, draw::Point b) const override {  // (a double click: one tile)
@@ -119,14 +144,17 @@ public:
         return self->hit(a.x, a.y) == self->hit(b.x, b.y);
     }
     void captureLost() override {
-        if (gTiles.boxing) gTiles.boxing = false, invalidate();
+        const TilesScope scope = here();
+        if (gTiles->boxing) gTiles->boxing = false, invalidate();
     }
     void resized() override {
-        if (width() != gTiles.layoutW) tilesRebuild();
-        else tilesScrollTo(gTiles.scroll);
+        const TilesScope scope = here();
+        if (width() != gTiles->layoutW) tilesRebuild();
+        else tilesScrollTo(gTiles->scroll);
     }
     // The window's bar (the Win32 program's grid window): a line is 36 px, a page the visible height.
     bool vscroll(int code, int pos, int track, int page) override {
+        const TilesScope scope = here();
         switch (code) {
         case 0: pos -= scale(36); break;  // SB_LINEUP
         case 1: pos += scale(36); break;  // SB_LINEDOWN
@@ -135,14 +163,15 @@ public:
         case 4:                           // SB_THUMBPOSITION
         case 5: pos = track; break;       // SB_THUMBTRACK
         case 6: pos = 0; break;           // SB_TOP
-        case 7: pos = gTiles.contentH; break;  // SB_BOTTOM
+        case 7: pos = gTiles->contentH; break;  // SB_BOTTOM
         default: return false;
         }
         tilesScrollTo(pos);
         return true;
     }
     bool windowScrollBar(int& range, int& page, int& pos) override {
-        range = std::max(0, gTiles.contentH - 1), page = std::max(1, tilesViewH()), pos = gTiles.scroll;
+        const TilesScope scope = here();
+        range = std::max(0, gTiles->contentH - 1), page = std::max(1, tilesViewH()), pos = gTiles->scroll;
         return true;
     }
     bool windowScrollBarDisables() const override { return true; }
@@ -153,12 +182,13 @@ public:
 
     // The tile value at a point of the grid, or -1 (a gap, a slot with no tile).
     int hit(int x, int y) {
+        const TilesScope scope = here();
         tilesFresh();
-        if (!appState().ed || y < 0 || y >= tilesViewH() || gTiles.values.empty()) return -1;
-        const int cy = y + gTiles.scroll, col = tilesIndexAt(x), row = tilesIndexAt(cy);
+        if (!appState().ed || y < 0 || y >= tilesViewH() || gTiles->values.empty()) return -1;
+        const int cy = y + gTiles->scroll, col = tilesIndexAt(x), row = tilesIndexAt(cy);
         if (col < 0 || row < 0 || col >= kTilesPerRow || x >= tilesEdge(col + 1) - 1 || cy >= tilesEdge(row + 1) - 1) return -1;
         const size_t k = size_t(row) * size_t(kTilesPerRow) + size_t(col);
-        return k < gTiles.values.size() && gTiles.values[k] != kTilesNone ? gTiles.values[k] : -1;
+        return k < gTiles->values.size() && gTiles->values[k] != kTilesNone ? gTiles->values[k] : -1;
     }
 
 private:
@@ -183,25 +213,48 @@ class TilesPanelView final : public draw::View {
 public:
     TilesPanelView() {
         search_.setPlaceholder(L"Search tiles: group number, terrain, doodad");
-        search_.onChange = [] { gTiles.scroll = 0, tilesRebuild(); };
+        search_.onChange = [this] {
+            const TilesScope scope = here();
+            gTiles->search = search_.text(), gTiles->scroll = 0, tilesRebuild();
+        };
         filter_.onChange = [this](int i) {
+            const TilesScope scope = here();
             tilesSetFilter(i);
             if (!filter_.wheeling) shellFocusView();
         };
         add(filter_, {0, 0, 0, 0});
         add(search_, {0, 0, 0, 0});
         add(bar_, {0, 0, 0, 0});
-        bar_.onScroll = [](int pos) { tilesScrollTo(pos); };
+        bar_.onScroll = [this](int pos) {
+            const TilesScope scope = here();
+            tilesScrollTo(pos);
+        };
+    }
+    TilesView* data = &gTilesDocked;  // its tiles: its grid's too (bind)
+    TilesScope here() { return {data, grid_, this}; }
+    // Its tiles become `d`'s: the grid's, the search box's text and the filter box's choice.
+    void bind(TilesView* d) {
+        if (data == d) return;
+        data = d;
+        if (grid_) grid_->data = d;
+        const TilesScope scope = here();
+        std::vector<stardraft::kit::DropdownItem> items;
+        for (const auto& f : d->filters) items.push_back({f.label});
+        filter_.setItems(std::move(items));
+        filter_.setValue(d->filter);
+        if (search_.text() != d->search) search_.setText(d->search);
+        d->layoutW = -1;  // (its grid's width: built again)
+        if (grid_) grid_->invalidate();
     }
     // The grid's scroll bar follows the grid (its paint calls this): its range, page and place.
     void syncBar() {
-        bar_.setRange(gTiles.contentH, std::max(1, tilesViewH()));
-        bar_.setPos(gTiles.scroll);
+        bar_.setRange(gTiles->contentH, std::max(1, tilesViewH()));
+        bar_.setPos(gTiles->scroll);
     }
     SearchBox& search() { return search_; }
     stardraft::kit::Dropdown& filter() { return filter_; }
     // The SDL program: the grid is a child of the panel, under the search box (the Win32 program places its window there).
-    void holdGrid(TilesGridView& g) { grid_ = &g, add(g, gridRect()); }
+    void holdGrid(TilesGridView& g) { grid_ = &g, g.panel = this, g.data = data, add(g, gridRect()); }
     // Where the grid goes: under the filter box and the search box, to the panel's bottom; its scroll bar at its right.
     draw::Rect gridRect() const {
         const int y = 2 * (scale(24) + scale(6));
@@ -228,48 +281,80 @@ private:
     TilesGridView* grid_ = nullptr;
 };
 
-TilesGridView gTilesGrid;
-TilesPanelView gTilesPanel;
+// The side bar's Tiles list (the active map tab's docked Terrain panel's tiles); a palette panel has its own.
+TilesGridView gTilesDockGrid;
+TilesPanelView gTilesDockPanel;
+[[maybe_unused]] const bool gTilesDockIsNow = (gTilesGrid = &gTilesDockGrid, gTilesPanel = &gTilesDockPanel, true);
+TilesGridView* tilesDockGrid() { return &gTilesDockGrid; }
+TilesPanelView* tilesDockPanel() { return &gTilesDockPanel; }
+void tilesDockBind(TilesView* d, PanelState* s) { gTilesDockPanel.bind(d), gTilesDockGrid.state = s; }
 
 // The panel's side of the tile logic (tiles_edit.inc calls these).
-void tilesPanelRepaint() { gTilesGrid.invalidate(); }
-void tilesPanelClearSearch() { gTilesPanel.search().setText(L""); }
-void tilesPanelShowAllFilter() { gTilesPanel.filter().setValue(0); }
+void tilesPanelRepaint() { gTilesGrid->invalidate(); }
+void tilesPanelClearSearch() { gTilesPanel->search().setText(L""); }
+void tilesPanelShowAllFilter() { gTilesPanel->filter().setValue(0); }
 // The search box's text (its change rebuilds the grid).
-void tilesSetSearch(const std::wstring& t) { gTilesPanel.search().setText(t); }
+void tilesSetSearch(const std::wstring& t) { gTilesPanel->search().setText(t); }
 
-// The filter box for the map's tileset: all tiles, each terrain type of Isometric mode that has tiles, the doodads'
-// tiles, the null tiles. The choice stays when its name is in the new list too.
+// The filter box for the map's tileset: all tiles, the favorites; each terrain type of Isometric mode that has tiles,
+// with its sub-categories under it (that terrain alone, then its edges with each other terrain); the doodads' tiles,
+// with each doodad group under them; the null tiles. The choice stays when its name is in the new list too. A panel
+// that took another's tiles fills its own box.
+bool tilesInFilter(uint16_t v);
 void tilesFillFilters() {
     AppState& app = appState();
-    if (!app.ed || !app.ed->isOpen() || gTiles.filtersEra == app.ed->era()) return;
-    gTiles.filtersEra = app.ed->era();
-    const std::wstring was = gTiles.filter < int(gTiles.filters.size()) ? gTiles.filters[size_t(gTiles.filter)].label : L"";
-    gTiles.filters.clear();
-    gTiles.filters.push_back({L"All tiles", 0, 0});
-    gTiles.filters.push_back({L"All tiles but the null tiles", 4, 0});  // (feedback #49)
-    gTiles.filters.push_back({L"Favorites", 5, 0});
-    const IsomTerrainTable* t = IsomTerrainTable::forEra(app.ed->era());
-    const auto& gs = app.ed->tileGroups();
-    if (t)
-        for (uint16_t i = 1; i <= t->terrainCount(); ++i)
-            if (t->isTerrain(i) && std::any_of(gs.begin(), gs.end(), [&](const Editor::TileGroupEntry& e) { return e.terrains[0] == i || e.terrains[1] == i; }))
-                gTiles.filters.push_back({widen(t->terrainName(i)), 1, i});
-    if (std::any_of(gs.begin(), gs.end(), [](const Editor::TileGroupEntry& e) { return e.doodad >= 0; })) gTiles.filters.push_back({L"Doodad tiles", 2, 0});
-    gTiles.filters.push_back({L"Null tiles", 3, 0});
-    gTiles.filter = 0;
-    std::vector<stardraft::kit::DropdownItem> items;
-    for (size_t i = 0; i < gTiles.filters.size(); ++i) {
-        items.push_back({gTiles.filters[i].label});
-        if (gTiles.filters[i].label == was) gTiles.filter = int(i);
+    if (!app.ed || !app.ed->isOpen()) return;
+    if (gTiles->filtersEra == app.ed->era() && gTilesPanel->filter().items().size() == gTiles->filters.size()) return;
+    const std::wstring was = gTiles->filter < int(gTiles->filters.size()) ? gTiles->filters[size_t(gTiles->filter)].label : L"";
+    if (gTiles->filtersEra != app.ed->era()) {
+        gTiles->filtersEra = app.ed->era();
+        auto& fs = gTiles->filters;
+        fs.clear();
+        fs.push_back({L"All tiles", 0, 0});
+        fs.push_back({L"All tiles but the null tiles", 4, 0});  // (feedback #49)
+        fs.push_back({L"Favorites", 5, 0});
+        const std::wstring sub = L"\x2003\x2003";  // (a sub-category: under its category)
+        const IsomTerrainTable* t = IsomTerrainTable::forEra(app.ed->era());
+        const auto& gs = app.ed->tileGroups();
+        if (t)
+            for (uint16_t i = 1; i <= t->terrainCount(); ++i) {
+                if (!t->isTerrain(i) || !std::any_of(gs.begin(), gs.end(), [&](const Editor::TileGroupEntry& e) { return e.terrains[0] == i || e.terrains[1] == i; }))
+                    continue;
+                const std::wstring name = widen(t->terrainName(i));
+                fs.push_back({name, 1, i});
+                if (std::any_of(gs.begin(), gs.end(), [&](const Editor::TileGroupEntry& e) { return e.terrains[0] == i && (!e.terrains[1] || e.terrains[1] == i); }))
+                    fs.push_back({sub + name + L" alone", 6, i});
+                for (uint16_t j = 1; j <= t->terrainCount(); ++j)  // its edges with each other terrain
+                    if (j != i && std::any_of(gs.begin(), gs.end(), [&](const Editor::TileGroupEntry& e) {
+                            return (e.terrains[0] == i && e.terrains[1] == j) || (e.terrains[0] == j && e.terrains[1] == i);
+                        }))
+                        fs.push_back({sub + name + L" / " + widen(t->terrainName(j)), 7, i, j});
+            }
+        if (std::any_of(gs.begin(), gs.end(), [](const Editor::TileGroupEntry& e) { return e.doodad >= 0; })) {
+            fs.push_back({L"Doodad tiles", 2, 0});
+            std::vector<uint16_t> seen;  // each doodad group, in the tileset's order
+            for (const auto& e : gs) {
+                const DoodadType* d = e.doodad >= 0 ? app.ed->doodadTypes().find(uint16_t(e.doodad)) : nullptr;
+                if (!d || !d->groupString || std::find(seen.begin(), seen.end(), d->groupString) != seen.end()) continue;
+                seen.push_back(d->groupString);
+                fs.push_back({sub + L"Doodads: " + widen(app.ed->unitTypes().statText(d->groupString - 1u)), 8, 0, d->groupString});
+            }
+        }
+        fs.push_back({L"Null tiles", 3, 0});
     }
-    gTilesPanel.filter().setItems(std::move(items));
-    gTilesPanel.filter().setValue(gTiles.filter);
+    gTiles->filter = 0;
+    std::vector<stardraft::kit::DropdownItem> items;
+    for (size_t i = 0; i < gTiles->filters.size(); ++i) {
+        items.push_back({gTiles->filters[i].label});
+        if (gTiles->filters[i].label == was) gTiles->filter = int(i);
+    }
+    gTilesPanel->filter().setItems(std::move(items));
+    gTilesPanel->filter().setValue(gTiles->filter);
 }
 // Is the tile value in the filter's set?
 bool tilesInFilter(uint16_t v) {
-    if (gTiles.filter <= 0 || gTiles.filter >= int(gTiles.filters.size())) return true;
-    const auto& f = gTiles.filters[size_t(gTiles.filter)];
+    if (gTiles->filter <= 0 || gTiles->filter >= int(gTiles->filters.size())) return true;
+    const auto& f = gTiles->filters[size_t(gTiles->filter)];
     if (f.kind == 3) return tilesIsNull(v);
     if (f.kind == 5) {
         const auto& fav = tilesFavorites(appState().ed->era());
@@ -280,20 +365,27 @@ bool tilesInFilter(uint16_t v) {
     const Editor::TileGroupEntry* e = tilesEntryOfGroup(v >> 4);
     if (!e) return false;
     if (f.kind == 2) return e->doodad >= 0;
+    if (f.kind == 8) {  // a doodad group
+        const DoodadType* d = e->doodad >= 0 ? appState().ed->doodadTypes().find(uint16_t(e->doodad)) : nullptr;
+        return d && d->groupString == f.other;
+    }
+    if (f.kind == 6) return e->terrains[0] == f.terrain && (!e->terrains[1] || e->terrains[1] == f.terrain);  // the terrain alone
+    if (f.kind == 7)  // its edge with the other terrain
+        return (e->terrains[0] == f.terrain && e->terrains[1] == f.other) || (e->terrains[0] == f.other && e->terrains[1] == f.terrain);
     return e->terrains[0] == f.terrain || e->terrains[1] == f.terrain;
 }
 
 // The grid for the search and the grid's width: every tile of the tileset, in its order.
 void tilesRebuild() {
     AppState& app = appState();
-    gTiles.values.clear();
-    gTiles.hover = -1;
+    gTiles->values.clear();
+    gTiles->hover = -1;
     if (!app.ed || !app.ed->isOpen()) return;
-    const int w = gTilesGrid.width();
-    gTiles.listW = std::max(w, kTilesPerRow * tilesMinCell() + kTilesPerRow - 1);
+    const int w = gTilesGrid->width();
+    gTiles->listW = std::max(w, kTilesPerRow * tilesMinCell() + kTilesPerRow - 1);
     // A row is a tile group (the tiles that the filter hides are empty slots), but the favorites follow one another.
-    const bool byGroup = !(gTiles.filter > 0 && gTiles.filter < int(gTiles.filters.size()) && gTiles.filters[size_t(gTiles.filter)].kind == 5);
-    std::wstring text = gTilesPanel.search().text();
+    const bool byGroup = !(gTiles->filter > 0 && gTiles->filter < int(gTiles->filters.size()) && gTiles->filters[size_t(gTiles->filter)].kind == 5);
+    std::wstring text = gTilesPanel->search().text();
     std::transform(text.begin(), text.end(), text.begin(), ::towlower);
     std::vector<std::wstring> words;
     auto space = [](wchar_t ch) { return ch == L' ' || (ch >= 9 && ch <= 13) || ch == 0x3000; };
@@ -317,21 +409,21 @@ void tilesRebuild() {
         for (int s = 0; s < 16 && !any; ++s) any = tilesInFilter(uint16_t(g << 4 | s));
         if (!any) continue;
         for (int s = 0; s < 16; ++s)
-            if (tilesInFilter(uint16_t(g << 4 | s))) gTiles.values.push_back(uint16_t(g << 4 | s));
-            else if (byGroup) gTiles.values.push_back(kTilesNone);
+            if (tilesInFilter(uint16_t(g << 4 | s))) gTiles->values.push_back(uint16_t(g << 4 | s));
+            else if (byGroup) gTiles->values.push_back(kTilesNone);
     }
-    const int rows = (int(gTiles.values.size()) + kTilesPerRow - 1) / kTilesPerRow;
-    gTiles.contentH = rows ? tilesEdge(rows) - 1 : 0;
-    gTiles.layoutW = w;
-    gTiles.builtFor = app.ed.get(), gTiles.builtEra = app.ed->era();
-    tilesScrollTo(gTiles.scroll);
+    const int rows = (int(gTiles->values.size()) + kTilesPerRow - 1) / kTilesPerRow;
+    gTiles->contentH = rows ? tilesEdge(rows) - 1 : 0;
+    gTiles->layoutW = w;
+    gTiles->builtFor = app.ed.get(), gTiles->builtEra = app.ed->era();
+    tilesScrollTo(gTiles->scroll);
 }
 
-int tilesViewH() { return std::max(0, gTilesGrid.height() - tilesFooterH()); }
+int tilesViewH() { return std::max(0, gTilesGrid->height() - tilesFooterH()); }
 
 void tilesScrollTo(int pos) {
-    gTiles.scroll = std::clamp(pos, 0, std::max(0, gTiles.contentH - tilesViewH()));
-    gTilesGrid.invalidate();  // (the window's bar follows: its host asks windowScrollBar after the paint)
+    gTiles->scroll = std::clamp(pos, 0, std::max(0, gTiles->contentH - tilesViewH()));
+    gTilesGrid->invalidate();  // (the window's bar follows: its host asks windowScrollBar after the paint)
 }
 
 // Where the k-th tile of the grid is, in content coordinates.
@@ -344,157 +436,194 @@ RECT tilesCellRect(int k) {
 // shows (sdl_menus.inc).
 bool tilesSlotCenter(int k, int& x, int& y) {
     tilesFresh();
-    if (k < 0 || k >= int(gTiles.values.size()) || !gTilesGrid.shown()) return false;
+    if (k < 0 || k >= int(gTiles->values.size()) || !gTilesGrid->shown()) return false;
     const draw::Rect r = tilesSlotRect(k);
-    const draw::Point o = gTilesGrid.origin();
-    x = o.x + (r.left + r.right) / 2, y = o.y + (r.top + r.bottom) / 2 - gTiles.scroll;
-    return y - o.y >= 0 && y - o.y < tilesViewH() && x - o.x < gTilesGrid.width();
+    const draw::Point o = gTilesGrid->origin();
+    x = o.x + (r.left + r.right) / 2, y = o.y + (r.top + r.bottom) / 2 - gTiles->scroll;
+    return y - o.y >= 0 && y - o.y < tilesViewH() && x - o.x < gTilesGrid->width();
 }
 
 // The filter box's choice (clamped): the grid shows those tiles.
 void tilesSetFilter(int index) {
-    if (gTiles.filters.empty()) return;
-    gTiles.filter = std::clamp(index, 0, int(gTiles.filters.size()) - 1);
-    gTilesPanel.filter().setValue(gTiles.filter);
-    gTiles.scroll = 0;
+    if (gTiles->filters.empty()) return;
+    gTiles->filter = std::clamp(index, 0, int(gTiles->filters.size()) - 1);
+    gTilesPanel->filter().setValue(gTiles->filter);
+    gTiles->scroll = 0;
     tilesRebuild();
 }
 
-// The box: the tiles whose cells it touches, added to the ones selected before it.
-void TilesGridView::boxSelect() {
-    const int x0 = std::min(gTiles.boxFrom.x, gTiles.boxTo.x), x1 = std::max(gTiles.boxFrom.x, gTiles.boxTo.x);
-    const int y0 = std::min(gTiles.boxFrom.y, gTiles.boxTo.y), y1 = std::max(gTiles.boxFrom.y, gTiles.boxTo.y);
-    const int c0 = std::max(0, tilesIndexAt(x0)), c1 = std::min(kTilesPerRow - 1, tilesIndexAt(x1));
-    const int r0 = std::max(0, tilesIndexAt(y0)), r1 = std::max(0, tilesIndexAt(y1));
-    std::vector<uint16_t> chosen = gTiles.boxBase;
+// The stamp: the grid's slots in rows r0 to r1 and columns c0 to c1, as the grid shows them (tiles_edit.inc). Fewer
+// than 2 tiles: no stamp.
+void tilesMakeStamp(int r0, int r1, int c0, int c1) {
+    gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0;
+    int n = 0;
+    std::vector<uint16_t> stamp;
     for (int r = r0; r <= r1; ++r)
         for (int c = c0; c <= c1; ++c) {
             const size_t k = size_t(r) * size_t(kTilesPerRow) + size_t(c);
-            if (k < gTiles.values.size() && gTiles.values[k] != kTilesNone && std::find(chosen.begin(), chosen.end(), gTiles.values[k]) == chosen.end())
-                chosen.push_back(gTiles.values[k]);
+            const uint16_t v = k < gTiles->values.size() ? gTiles->values[k] : kTilesNone;
+            stamp.push_back(v == kTilesNone ? uint16_t(0xFFFF) : v);
+            n += v != kTilesNone;
+        }
+    if (n < 2) return;
+    gTiles->stamp = std::move(stamp), gTiles->stampW = c1 - c0 + 1, gTiles->stampH = r1 - r0 + 1;
+}
+
+// The box: the tiles whose cells it touches, added to the ones selected before it (Ctrl; else they are the stamp).
+void TilesGridView::boxSelect() {
+    const TilesScope scope = here();
+    const int x0 = std::min(gTiles->boxFrom.x, gTiles->boxTo.x), x1 = std::max(gTiles->boxFrom.x, gTiles->boxTo.x);
+    const int y0 = std::min(gTiles->boxFrom.y, gTiles->boxTo.y), y1 = std::max(gTiles->boxFrom.y, gTiles->boxTo.y);
+    const int c0 = std::max(0, tilesIndexAt(x0)), c1 = std::min(kTilesPerRow - 1, tilesIndexAt(x1));
+    const int r0 = std::max(0, tilesIndexAt(y0)), r1 = std::max(0, tilesIndexAt(y1));
+    std::vector<uint16_t> chosen = gTiles->boxBase;
+    for (int r = r0; r <= r1; ++r)
+        for (int c = c0; c <= c1; ++c) {
+            const size_t k = size_t(r) * size_t(kTilesPerRow) + size_t(c);
+            if (k < gTiles->values.size() && gTiles->values[k] != kTilesNone && std::find(chosen.begin(), chosen.end(), gTiles->values[k]) == chosen.end())
+                chosen.push_back(gTiles->values[k]);
         }
     if (chosen.empty()) return;
-    gTiles.chosen = chosen;
-    gTiles.picked = chosen.back();
+    if (gTiles->boxBase.empty()) tilesMakeStamp(r0, r1, c0, c1);
+    else gTiles->stamp.clear();
+    gTiles->chosen = chosen;
+    gTiles->picked = chosen.back();
     invalidate();
 }
 
 void TilesGridView::paint(draw::Canvas& c) {
+    const TilesScope scope = here();
     tilesFresh();
     tilesPixelsTrim();
-    gTilesPanel.syncBar();
+    gTilesPanel->syncBar();
     AppState& app = appState();
     const int w = width(), h = height();
     c.fill({0, 0, w, h}, kBg);
     const int viewH = tilesViewH();
     if (app.ed && app.ed->isOpen()) {
         c.pushClip({0, 0, w, viewH});
-        const int firstRow = std::max(0, tilesIndexAt(gTiles.scroll)), lastRow = tilesIndexAt(gTiles.scroll + viewH);
+        const int firstRow = std::max(0, tilesIndexAt(gTiles->scroll)), lastRow = tilesIndexAt(gTiles->scroll + viewH);
         // The pictures scale to the tiles: nearest pixels when each tile is a whole number of the picture's pixels (2x,
         // 3x), else filtered (smaller, or a part of a pixel more). One rule for all the tiles of the list.
-        const int nominal = gTiles.listW - (kTilesPerRow - 1);
+        const int nominal = gTiles->listW - (kTilesPerRow - 1);
         int whole = -1;  // (the first tile drawn sets it: the picture's size is the art's)
         std::vector<std::pair<draw::Rect, uint16_t>> marks;  // the outlines go over the tiles next to them: after them
         for (int row = firstRow; row <= lastRow; ++row)
             for (int col = 0; col < kTilesPerRow; ++col) {
                 const size_t k = size_t(row) * size_t(kTilesPerRow) + size_t(col);
-                if (k >= gTiles.values.size()) break;
-                const uint16_t v = gTiles.values[k];
+                if (k >= gTiles->values.size()) break;
+                const uint16_t v = gTiles->values[k];
                 if (v == kTilesNone) continue;
                 const draw::Rect sr = tilesSlotRect(int(k));
-                const draw::Rect cell{sr.left, sr.top - gTiles.scroll, sr.right, sr.bottom - gTiles.scroll};
+                const draw::Rect cell{sr.left, sr.top - gTiles->scroll, sr.right, sr.bottom - gTiles->scroll};
                 draw::Rect src;
                 draw::Bitmap& px = tilesPixels(v, src);
                 const int size = src.right - src.left;
                 if (whole < 0) whole = size > 0 && nominal % kTilesPerRow == 0 && (nominal / kTilesPerRow) % size == 0;
                 c.bitmap(px, src, cell, !whole);
-                const bool sel = v == gTiles.picked || (gTiles.chosen.size() > 1 && std::find(gTiles.chosen.begin(), gTiles.chosen.end(), v) != gTiles.chosen.end());
-                if (sel || v == gTiles.hover) marks.push_back({cell, v});  // (a null tile has no frame: 1 px between all tiles)
+                const bool sel = v == gTiles->picked || (gTiles->chosen.size() > 1 && std::find(gTiles->chosen.begin(), gTiles->chosen.end(), v) != gTiles->chosen.end());
+                if (sel || v == gTiles->hover) marks.push_back({cell, v});  // (a null tile has no frame: 1 px between all tiles)
             }
         // The selection: an accent frame on the gaps around the tile and its edge; the tile under the mouse: a line on
         // the gaps around it.
         for (const auto& [cell, v] : marks) {
-            const bool sel = v == gTiles.picked || std::find(gTiles.chosen.begin(), gTiles.chosen.end(), v) != gTiles.chosen.end();
+            const bool sel = v == gTiles->picked || std::find(gTiles->chosen.begin(), gTiles->chosen.end(), v) != gTiles->chosen.end();
             const draw::Rect around{cell.left - 1, cell.top - 1, cell.right + 1, cell.bottom + 1};
             if (sel) c.frame(around, kAccent, std::max(2, scale(2)));
             else c.frame(around, kBorderStrong, 1);
         }
         c.popClip();
-        if (gTiles.values.empty()) c.text({scale(8), scale(8), w - scale(8), viewH}, shellTr(L"None"), kDim, draw::kLeft);
+        if (gTiles->values.empty()) c.text({scale(8), scale(8), w - scale(8), viewH}, shellTr(L"None"), kDim, draw::kLeft);
     }
-    if (gTiles.boxing && gTiles.boxed) {  // the box being dragged
-        const draw::Rect b{std::min(gTiles.boxFrom.x, gTiles.boxTo.x), std::min(gTiles.boxFrom.y, gTiles.boxTo.y) - gTiles.scroll,
-                           std::max(gTiles.boxFrom.x, gTiles.boxTo.x), std::max(gTiles.boxFrom.y, gTiles.boxTo.y) - gTiles.scroll};
+    if (gTiles->boxing && gTiles->boxed) {  // the box being dragged
+        const draw::Rect b{std::min(gTiles->boxFrom.x, gTiles->boxTo.x), std::min(gTiles->boxFrom.y, gTiles->boxTo.y) - gTiles->scroll,
+                           std::max(gTiles->boxFrom.x, gTiles->boxTo.x), std::max(gTiles->boxFrom.y, gTiles->boxTo.y) - gTiles->scroll};
         c.roundBox(b, draw::kNone, kAccent, float(scale(stardraft::kit::kRadius)));
     }
     // The tile under the mouse (or the picked one).
     c.fill({0, viewH, w, h}, kCtl);
-    const int show = gTiles.hover >= 0 ? gTiles.hover : gTiles.picked;
+    const int show = gTiles->hover >= 0 ? gTiles->hover : gTiles->picked;
     const std::wstring name = !app.ed || !app.ed->isOpen() ? L"" : show >= 0 ? tilesValueLabel(show) : L"Click a tile to place it";
     c.text({scale(6), viewH, w - scale(4), h}, name, show >= 0 ? kText : kDim, draw::kMiddle | draw::kEllipsis);
 }
 
 bool TilesGridView::mouse(const draw::MouseEvent& e) {
+    // A press makes its panel the active one, before its tiles are the ones in use (the side bar's Tiles list while another
+    // mode is active: its pick does, below, as the side bar's layout follows the mode).
+    if (e.kind == draw::MouseKind::Down && state && state != gActivePanel && (state->mode == appState().mode || !isDockedPanel(state))) activatePanel(state);
+    const TilesScope scope = here();
     switch (e.kind) {
     case draw::MouseKind::Pinch: case draw::MouseKind::SmartZoom: case draw::MouseKind::Swipe: return false;
     case draw::MouseKind::Wheel:
         if (e.horizontal) return false;
-        tilesScrollTo(gTiles.scroll - int(draw::wheelDistance(e, float(scale(90)))));
+        tilesScrollTo(gTiles->scroll - int(draw::wheelDistance(e, float(scale(90)))));
         return true;
     case draw::MouseKind::Move: {
-        if (gTiles.boxing) {  // the box: the tiles in it, as it grows
-            gTiles.boxTo = {e.pt.x, e.pt.y + gTiles.scroll};
-            if (std::abs(gTiles.boxTo.x - gTiles.boxFrom.x) + std::abs(gTiles.boxTo.y - gTiles.boxFrom.y) > scale(6)) gTiles.boxed = true;
-            if (gTiles.boxed) boxSelect();
+        if (gTiles->boxing) {  // the box: the tiles in it, as it grows
+            gTiles->boxTo = {e.pt.x, e.pt.y + gTiles->scroll};
+            if (std::abs(gTiles->boxTo.x - gTiles->boxFrom.x) + std::abs(gTiles->boxTo.y - gTiles->boxFrom.y) > scale(6)) gTiles->boxed = true;
+            if (gTiles->boxed) boxSelect();
             invalidate();
         }
         const int v = hit(e.pt.x, e.pt.y);
-        if (v != gTiles.hover) gTiles.hover = v, invalidate();
+        if (v != gTiles->hover) gTiles->hover = v, invalidate();
         return true;
     }
     case draw::MouseKind::Leave:
-        if (gTiles.hover >= 0) gTiles.hover = -1, invalidate();
+        if (gTiles->hover >= 0) gTiles->hover = -1, invalidate();
         return true;
     case draw::MouseKind::Down:
     case draw::MouseKind::DoubleClick: {
         if (e.button != 0) return e.button == 1;
+        if (appState().mode != Mode::Terrain) {  // (the list of Terrain's in another mode: a pick goes to Terrain, as a palette's)
+            const int v = hit(e.pt.x, e.pt.y);
+            if (v < 0) return true;
+            if (state) activatePanel(state);
+            else setMode(Mode::Terrain);
+            tilesPick(v, false);
+            shellFocusView();
+            return true;
+        }
         const bool ctrl = (e.mods & draw::kCtrl) != 0, shift = (e.mods & draw::kShift) != 0;
         const int v = hit(e.pt.x, e.pt.y);
-        if (v >= 0 && (ctrl || shift) && gTiles.picked >= 0) {  // several tiles, for Spray (#81)
+        if (v >= 0 && (ctrl || shift) && gTiles->picked >= 0) {  // several tiles, for Spray (#81)
             if (shift) {  // the rectangle of the grid from the last click without Shift to this tile (Ctrl: added)
-                auto at = [](int value) { return int(std::find(gTiles.values.begin(), gTiles.values.end(), uint16_t(value)) - gTiles.values.begin()); };
-                const int from = at(gTiles.anchor >= 0 ? gTiles.anchor : gTiles.picked), to = at(v);
-                const int n = int(gTiles.values.size());
-                if (!ctrl) gTiles.chosen.clear();
+                auto at = [](int value) { return int(std::find(gTiles->values.begin(), gTiles->values.end(), uint16_t(value)) - gTiles->values.begin()); };
+                const int from = at(gTiles->anchor >= 0 ? gTiles->anchor : gTiles->picked), to = at(v);
+                const int n = int(gTiles->values.size());
+                if (!ctrl) gTiles->chosen.clear();
                 if (from < n && to < n) {
                     const int c0 = std::min(from % kTilesPerRow, to % kTilesPerRow), c1 = std::max(from % kTilesPerRow, to % kTilesPerRow);
                     const int r0 = std::min(from, to) / kTilesPerRow, r1 = std::max(from, to) / kTilesPerRow;
+                    if (!ctrl) tilesMakeStamp(r0, r1, c0, c1);
                     for (int r = r0; r <= r1; ++r)
                         for (int c = c0; c <= c1; ++c) {
                             const int k = r * kTilesPerRow + c;
-                            if (k < n && gTiles.values[size_t(k)] != kTilesNone &&
-                                std::find(gTiles.chosen.begin(), gTiles.chosen.end(), gTiles.values[size_t(k)]) == gTiles.chosen.end())
-                                gTiles.chosen.push_back(gTiles.values[size_t(k)]);
+                            if (k < n && gTiles->values[size_t(k)] != kTilesNone &&
+                                std::find(gTiles->chosen.begin(), gTiles->chosen.end(), gTiles->values[size_t(k)]) == gTiles->chosen.end())
+                                gTiles->chosen.push_back(gTiles->values[size_t(k)]);
                         }
                 }
-                if (gTiles.chosen.empty()) gTiles.chosen.push_back(uint16_t(v));
-            } else if (auto it = std::find(gTiles.chosen.begin(), gTiles.chosen.end(), uint16_t(v)); it != gTiles.chosen.end()) {
-                if (gTiles.chosen.size() > 1) gTiles.chosen.erase(it);
+                if (gTiles->chosen.empty()) gTiles->chosen.push_back(uint16_t(v));
+            } else if (auto it = std::find(gTiles->chosen.begin(), gTiles->chosen.end(), uint16_t(v)); it != gTiles->chosen.end()) {
+                if (gTiles->chosen.size() > 1) gTiles->chosen.erase(it);
             } else {
-                gTiles.chosen.push_back(uint16_t(v));
+                gTiles->chosen.push_back(uint16_t(v));
             }
-            if (!shift) gTiles.anchor = v;
-            gTiles.picked = gTiles.chosen.back();
-            setMessage(L"Selected " + std::to_wstring(gTiles.chosen.size()) + L" tiles: Brush, Spray and Fill place one of them at random");
+            if (!shift) gTiles->anchor = v;
+            if (ctrl) gTiles->stamp.clear();  // (Ctrl: a set of tiles, placed at random)
+            gTiles->picked = gTiles->chosen.back();
+            if (tilesStampOn()) tilesStampChosen();
+            else setMessage(L"Selected " + std::to_wstring(gTiles->chosen.size()) + L" tiles: Brush, Spray and Fill place one of them at random");
             invalidate();
             appState().dirty = true;
         } else if (v >= 0) {
             tilesPick(v, false);
         }
         if (v >= 0 && !shift) {  // a drag from here: a box (Ctrl: added to the tiles selected before)
-            gTiles.boxing = true, gTiles.boxed = false;
-            gTiles.boxFrom = gTiles.boxTo = {e.pt.x, e.pt.y + gTiles.scroll};
-            gTiles.boxBase = ctrl ? gTiles.chosen : std::vector<uint16_t>{};
+            gTiles->boxing = true, gTiles->boxed = false;
+            gTiles->boxFrom = gTiles->boxTo = {e.pt.x, e.pt.y + gTiles->scroll};
+            gTiles->boxBase = ctrl ? gTiles->chosen : std::vector<uint16_t>{};
             if (draw::Host* h = host()) h->capture(*this, true);
         }
         shellFocusView();
@@ -507,11 +636,12 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
             favoritesMenu(v);
             return true;
         }
-        if (e.button == 0 && gTiles.boxing) {
-            gTiles.boxing = false;
+        if (e.button == 0 && gTiles->boxing) {
+            gTiles->boxing = false;
             if (draw::Host* h = host()) h->capture(*this, false);
-            if (gTiles.boxed && gTiles.chosen.size() > 1)
-                setMessage(L"Selected " + std::to_wstring(gTiles.chosen.size()) + L" tiles: Brush, Spray and Fill place one of them at random");
+            if (gTiles->boxed && tilesStampOn()) tilesStampChosen();
+            else if (gTiles->boxed && gTiles->chosen.size() > 1)
+                setMessage(L"Selected " + std::to_wstring(gTiles->chosen.size()) + L" tiles: Brush, Spray and Fill place one of them at random");
             invalidate();
         }
         return true;
@@ -520,8 +650,9 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
 }
 
 void TilesGridView::favoritesMenu(int v) {
+    const TilesScope scope = here();
     std::vector<uint16_t> which{uint16_t(v)};
-    if (gTiles.chosen.size() > 1 && std::find(gTiles.chosen.begin(), gTiles.chosen.end(), uint16_t(v)) != gTiles.chosen.end()) which = gTiles.chosen;
+    if (gTiles->chosen.size() > 1 && std::find(gTiles->chosen.begin(), gTiles->chosen.end(), uint16_t(v)) != gTiles->chosen.end()) which = gTiles->chosen;
     const int era = appState().ed->era();
     auto& fav = tilesFavorites(era);
     const bool in = std::find(fav.begin(), fav.end(), uint16_t(v)) != fav.end();
@@ -538,9 +669,9 @@ void TilesGridView::favoritesMenu(int v) {
         tilesSaveFavorites(era);
         setMessage(std::wstring(in ? L"Removed from the favorites: " : L"Added to the favorites: ") + std::to_wstring(which.size()) +
                    (which.size() == 1 ? L" tile" : L" tiles") + L". The Favorites filter shows them.");
-        if (gTiles.filter < int(gTiles.filters.size()) && gTiles.filters[size_t(gTiles.filter)].kind == 5) tilesRebuild();
+        if (gTiles->filter < int(gTiles->filters.size()) && gTiles->filters[size_t(gTiles->filter)].kind == 5) tilesRebuild();
     } else if (pick == 2) {
-        for (size_t i = 0; i < gTiles.filters.size(); ++i)
-            if (gTiles.filters[i].kind == 5) tilesSetFilter(int(i));
+        for (size_t i = 0; i < gTiles->filters.size(); ++i)
+            if (gTiles->filters[i].kind == 5) tilesSetFilter(int(i));
     }
 }

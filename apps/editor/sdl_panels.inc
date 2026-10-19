@@ -15,12 +15,17 @@ Mode gPal3Mode = Mode::Terrain;                      // ... and the mode it show
 // A pick in the second or the third palette goes to its mode first (the Win32 program's secondPick): that mode becomes the
 // active one, its list is the main palette's, and the item is picked there. (The picks are the active mode's: the other
 // lists show none.)
-void pickInOtherMode(Mode m, int v, bool add) {
-    if (gState.mode != m) setMode(m);
+void pickLocationElsewhere(int v, bool add);
+// A pick in another mode's list in the side bar: its panel (the side bar's of that mode) is the active one, and picks.
+void pickInOtherMode(PanelState* panel, int v, bool add) {
+    if (panel && panel->mode == Mode::Locations) return pickLocationElsewhere(v, add);
+    if (panel) activatePanel(panel);
     pickUnit(gState, v, add);
 }
 
 std::vector<std::wstring> gListRows;  // the Locations list's rows (rebuildList fills them)
+std::vector<int> gLocItems;           // ... and their locations (in every mode: shellListFill)
+void locationListRows(const AppState& app, std::vector<int>& items, std::vector<std::wstring>& rows);
 std::vector<std::wstring> gSectionNames;  // the section box's sections, after its "All ..." entry
 Mode gSectionMode = Mode::Units;          // the mode the section box was filled for
 std::wstring gPalSection;                 // the section the palette shows ("" is every one)
@@ -96,6 +101,7 @@ void fillSectionBox(const std::vector<std::wstring>& names) {
 
 // A palette item's picture (the palette's pictures, sdl_pictures.inc): false when it has none.
 bool panelPicture(draw::Canvas& c, Mode what, int value, bool sprites, draw::Rect box) {
+    if (what == Mode::Locations) return false;  // (a location has no picture)
     draw::Bitmap* b = paletteBitmap(what, value, gState.playerOwner, false, sprites);
     if (b) drawPaletteArt(c, *b, box);
     return b != nullptr;
@@ -104,6 +110,7 @@ bool panelPicture(draw::Canvas& c, Mode what, int value, bool sprites, draw::Rec
 // The View menu (core/palette_view.inc: paletteMenuModel) of the palette `pal` at `at` of `from`: on its item of `row`
 // (-1: none), a doodad of a project gets Pin to the top or Unpin first. A view item changes the view of the palette's
 // mode (saved in the settings), a section scrolls the list to it.
+void palettePanelsViewOf(Mode m);  // (sdl_palette_panels.inc)
 void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int row, PalettePanelView* panel) {
     const int value = row >= 0 && row < int(pal.rows.size()) ? pal.rows[size_t(row)].value : -1;
     const Mode mode = pal.mode;
@@ -126,7 +133,7 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
             const Mode fm = Mode(id - ID_VIEW_FLOATPAL);
             return shellPost([fm] { shellFloatPalette(fm, !paletteFloats(fm)); });
         }
-        if (panel) {  // the panel's own view and order
+        if (panel) {  // a panel's own view and order (each panel's own: panel_state.inc)
             if (id >= kPalSectionFirst && id < kPalSectionFirst + int(sections.size())) return p->scrollTo(p->rowRect(sections[size_t(id - kPalSectionFirst)]).top);
             if (applyPaletteViewCommand(mode, id, panel->view, panel->sort)) palettePanelRebuild(*panel);
             return;
@@ -144,24 +151,33 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
     }), on);
 }
 
-// The Locations list's pick (as the Win32 list's LBN_SELCHANGE): the location is selected and the camera goes to it;
-// elsewhere the item is the palette's pick, and picking a terrain while selecting paints with it.
+// The Locations list's pick (as the Win32 list's LBN_SELCHANGE): the list's selected rows are the selected locations
+// (Ctrl+click and Shift+click: several); the row clicked is the selected one, and the camera goes to it. A pick in the
+// location list's window while another mode is active makes Locations the mode.
 void locationListPicked() {
     const int sel = gLocList.cursor();
-    const int v = sel >= 0 && sel < int(gState.items.size()) ? gState.items[size_t(sel)] : -1;
-    if (gState.mode == Mode::Locations && gState.ed && v >= 0) {
-        gState.ed->selectLocation(v);
-        const auto r = gState.ed->locationRect(v);
+    const int v = sel >= 0 && sel < int(gLocItems.size()) ? gLocItems[size_t(sel)] : -1;
+    if (gState.ed) {
+        std::vector<int> others;
+        for (int row : gLocList.selection())
+            if (row >= 0 && row < int(gLocItems.size()) && row != sel) others.push_back(gLocItems[size_t(row)]);
+        const bool on = v >= 0 && gLocList.isSelected(sel);
+        if (gState.mode != Mode::Locations) setMode(Mode::Locations);  // (its rows: the same locations)
+        Editor& ed = *gState.ed;
+        ed.selectLocation(-1);
+        for (int l : others) ed.addLocationSelection(l);
+        if (!on) {
+            gState.dirty = true;
+            gLocList.invalidate();
+            invalidateMapView();
+            return;
+        }
+        ed.addLocationSelection(v);
+        const auto r = ed.locationRect(v);
         int w = 0, h = 0;
         shellViewSize(w, h);
         gState.camX = (r.left + r.right) / 2.0f - w / 2.0f / gState.zoom;
         gState.camY = (r.top + r.bottom) / 2.0f - h / 2.0f / gState.zoom;
-    } else {
-        gState.palette = v;
-        if (gState.mode == Mode::Terrain && v > 0 && currentTool(gState) == TSelect && !gState.terrainPasting) {
-            gState.toolByMode[int(Mode::Terrain)] = TBrush;
-            fillToolCombo(gState);
-        }
     }
     gState.dirty = true;
     gLocList.invalidate();
@@ -206,14 +222,69 @@ void rebuildPaletteRows() {
     if (switched) gPalList.scrollTo(m >= 0 && m < kModeCount ? gPalMemoryByTab[tab][size_t(m)].scroll : 0);
 }
 
-// The second (or the third) palette's rows: its mode's items, unfiltered (it has no search box).
+// The second (or the third) palette's rows: its mode's items, unfiltered (it has no search box). Locations: the map's
+// locations, by name (as the Locations list).
 void rebuildOtherRows(PalettePanel& list, Mode m) {
     int pinned = 0;
+    if (m == Mode::Locations) {
+        std::vector<PaletteRow> rows;
+        if (gState.ed && gState.ed->isOpen())
+            for (int i = 0; i < gState.ed->locationCount(); ++i)
+                if (gState.ed->locationUsed(i)) rows.push_back({i, widen(gState.ed->locationName(i))});
+        list.setRows(std::move(rows), m, 0);
+        return;
+    }
     std::vector<PaletteRow> rows = paletteRows(paletteUnitsOf(m), m, std::wstring(), std::wstring(), pinned, gSortByMode[int(m)]);
     list.setRows(std::move(rows), m, pinned);
 }
 void rebuildSecondRows() { rebuildOtherRows(gPal2List, gPal2Mode); }
+
+// A mode's palette state in the side bar (its scroll, search and section) of tab `tab`: the side bar's boxes while its
+// palette has that mode's rows, else the mode's memory. A mode's floating palette is that palette in a window: it shows
+// and sets the same state (sdl_palette_panels.inc), so it is the same in the window and in the side bar.
+PaletteMemory dockedPaletteGet(int tab, Mode m) {
+    if (gPalRowsMode == int(m) && gPalRowsTab == tab) return {gPalList.scrollTop(), gSearchSdl.text(), gPalSection};
+    return gPalMemoryByTab[tab][size_t(m)];
+}
+void dockedPaletteSet(int tab, Mode m, const PaletteMemory& s) {
+    if (!(gPalRowsMode == int(m) && gPalRowsTab == tab)) {
+        gPalMemoryByTab[tab][size_t(m)] = s;
+        return;
+    }
+    gPalSection = s.section;
+    if (gSearchSdl.text() != s.search) {
+        gPalRestoring = true;
+        gSearchSdl.setText(s.search);
+        gPalRestoring = false;
+    }
+    const auto it = std::find(gSectionNames.begin(), gSectionNames.end(), gPalSection);
+    if (gSectionMode == m) gSectionDropSdl.dropdown().setValue(it == gSectionNames.end() ? 0 : int(1 + (it - gSectionNames.begin())));
+    if (gState.mode == m && activeDocKey() == tab) rebuildPaletteRows();
+    gPalList.scrollTo(s.scroll);
+}
 void rebuildThirdRows() { rebuildOtherRows(gPal3List, gPal3Mode); }
+// The map's locations changed while another mode is active: a side's list of the locations shows them.
+void shellOtherLocationRows() {
+    if (gState.mode != Mode::Locations) shellListFill({});  // (the location list's window: the locations)
+    if (gPal2Shown && gPal2Mode == Mode::Locations) rebuildSecondRows();
+    if (gPal3Shown && gPal3Mode == Mode::Locations) rebuildThirdRows();
+}
+// A location picked in a side's list of the locations while another mode is active: Locations becomes the mode and the
+// location is selected (Ctrl+click: in or out of the selection), the camera going to it.
+void pickLocationElsewhere(int v, bool add) {
+    if (!gState.ed || !gState.ed->locationUsed(v)) return;
+    if (gState.mode != Mode::Locations) setMode(Mode::Locations);
+    Editor& ed = *gState.ed;
+    if (add && ed.locationSelected(v)) return ed.removeLocationSelection(v);
+    if (add) ed.addLocationSelection(v);
+    else ed.selectLocation(v);
+    const auto r = ed.locationRect(v);
+    int w = 0, h = 0;
+    shellViewSize(w, h);
+    gState.camX = (r.left + r.right) / 2.0f - w / 2.0f / gState.zoom;
+    gState.camY = (r.top + r.bottom) / 2.0f - h / 2.0f / gState.zoom;
+    gState.dirty = true;
+}
 
 // The views' wiring, once (MainView's constructor): the rows, the look, the changes that rebuild them.
 void initPanels() {
@@ -236,7 +307,7 @@ void initPanels() {
     };
     gPal2List.picked = [](int row, unsigned mods) {
         const int v = gPal2List.rows[size_t(row)].value;
-        pickInOtherMode(gPal2Mode, v, (mods & draw::kCtrl) != 0);
+        pickInOtherMode(gPal2List.state, v, (mods & draw::kCtrl) != 0);
         gPal2List.invalidate();
         invalidateMapView();
         shellFocusView();
@@ -245,7 +316,7 @@ void initPanels() {
     gPal2List.context = [](int row, draw::Point pt) { paletteMenuSdl(gPal2List, gPal2List, pt, row); };
     gPal3List.picked = [](int row, unsigned mods) {
         const int v = gPal3List.rows[size_t(row)].value;
-        pickInOtherMode(gPal3Mode, v, (mods & draw::kCtrl) != 0);
+        pickInOtherMode(gPal3List.state, v, (mods & draw::kCtrl) != 0);
         gPal3List.invalidate();
         invalidateMapView();
         shellFocusView();

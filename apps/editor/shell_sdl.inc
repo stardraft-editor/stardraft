@@ -79,23 +79,49 @@ void shellLogError(const std::wstring& line) {
 }
 bool shellHasStatusBar() { return true; }
 int shellSpriteCount() { return gRenderer ? gRenderer->stats().sprites : 0; }
-// The Locations list (sdl_panels.inc): its rows are the rebuildList's, its selection is the core's picks.
+// The Locations list (sdl_panels.inc): its rows are the rebuildList's in Locations, its selection is the core's picks.
+// In another mode it lists the locations still (the location list's window shows it): the other mode's list is not it.
 void shellListSelect(int i) {
+    if (gState.mode != Mode::Locations) return;
     if (i >= 0) gLocList.selectOnly(i);
     else gLocList.clearSelection();
 }
 void shellListFill(const std::vector<std::wstring>& rows) {
-    gListRows = rows;
-    gLocList.setCount(int(rows.size()));
+    if (gState.mode == Mode::Locations) gListRows = rows, gLocItems = gState.items;
+    else locationListRows(gState, gLocItems, gListRows);
+    gLocList.setCount(int(gListRows.size()));
     gLocList.invalidate();
 }
 std::vector<int> shellListSelection() { return gLocList.selection(); }
+void shellLocationListSync() {
+    if (!gState.ed) return;
+    std::vector<int> rows;
+    int cursor = -1;
+    for (int l : gState.ed->selectedLocations())
+        if (const auto it = std::find(gLocItems.begin(), gLocItems.end(), l); it != gLocItems.end())
+            (l == gState.ed->selectedLocation() ? cursor : rows.emplace_back()) = int(it - gLocItems.begin());
+    if (cursor >= 0) rows.push_back(cursor);
+    std::vector<int> want = rows;
+    std::sort(want.begin(), want.end());
+    if (want == gLocList.selection()) return;
+    gLocList.clearSelection();
+    for (int r : rows) gLocList.toggle(r);
+    if (!rows.empty()) gLocList.ensureVisible(rows.back());
+}
 // The Locations filter's text (the palette's own search is not the list's filter).
 std::wstring shellFilterText() { return gFilterSdl.text(); }
 bool shellViewShown() { return gRoot != nullptr; }
 void palettePanelsToolsChanged();  // (sdl_palette_panels.inc: the floating panels' strips)
+void palettePanelsChanged();
+// The active panel changed (panel_state.inc): each panel's strip, list and boxes show their own state again.
+void shellPanelsChanged() {
+    gToolStripView.invalidate(), gToolStripView2.invalidate(), gToolStripView3.invalidate();
+    gPalList.invalidate(), gPal2List.invalidate(), gPal3List.invalidate(), gTilesDockGrid.invalidate();
+    palettePanelsChanged();
+    if (gFloatPalOpen) gFloatPalView.invalidate();
+}
 void shellToolsChanged() {
-    gToolStripView.invalidate();
+    gToolStripView.invalidate(), gToolStripView2.invalidate(), gToolStripView3.invalidate();
     palettePanelsToolsChanged();
 }
 // A menu of `items` at `at` of `from` that waits for the pick (the Windows paintedMenu with TPM_RETURNCMD): the item's
@@ -135,8 +161,17 @@ int shellContextMenu(const std::vector<std::wstring>& items) {
     if (!gRoot || !gHost) return 0;
     return sdlMenuPick(*gRoot, gHost->mouse(*gRoot), items, -1, true) + 1;
 }
-void shellOwnerSelect(int i) { gOwnerBox.setValue(i); }  // (the owner dropdown shows player i; no change is sent)
-void shellPaletteReveal(int value) { gPalList.reveal(value); }
+void palettePanelsOwner(int i);
+void palettePanelsReveal(int value);
+// (the owner dropdowns show player i, the side bar's and the palette windows'; no change is sent)
+void shellOwnerSelect(int i) {
+    gOwnerBox.setValue(i);
+    palettePanelsOwner(i);
+}
+void shellPaletteReveal(int value) {
+    gPalList.reveal(value);
+    palettePanelsReveal(value);  // (the active mode's palette windows too)
+}
 bool shellPaletteStep(int dir) {
     if (gPalList.mode != gState.mode || gState.palette < 0) return false;
     const std::vector<PaletteRow>& rows = gPalList.rows;
@@ -149,7 +184,7 @@ bool shellPaletteStep(int dir) {
     while (i >= 0 && i < n && rows[size_t(i)].value < 0) i += dir;  // (past the headings)
     if (i < 0 || i >= n) return true;  // (the first or the last: it stays)
     pickUnit(gState, rows[size_t(i)].value, false);
-    gPalList.reveal(rows[size_t(i)].value);
+    shellPaletteReveal(rows[size_t(i)].value);
     return true;
 }
 void shellPaletteChanged() {

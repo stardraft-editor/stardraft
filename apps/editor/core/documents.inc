@@ -335,6 +335,8 @@ void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank) {
         gDocs.emplace_back();
         gActive = int(gDocs.size()) - 1;
     }
+    // A map in the place of the blank tab is a tab of its own: its own palette windows and palettes (none of the blank's).
+    if (reuse) gDocs[size_t(gActive)].key = ++gDocKeys;
     app.ed = std::move(ed);
     gDocs[size_t(gActive)].page = std::exchange(gNewDocPage, 0);
     if (app.ed->path().empty() && (!reuse || page) && !gDocs[size_t(gActive)].page) gDocs[size_t(gActive)].untitled = ++gUntitledCount;

@@ -22,10 +22,7 @@ struct AppState {
     float brushHeight = 0;  // terrain: the brush's height, 1 to 32; 0: the same as its size (GitHub #113)
     Brush::Shape brushShape = Brush::Diamond;
     int toolByMode[kModeCount] = {};
-    int sprayDensity = 10;  // the active mode's: how many things one spray puts down (kDensityMax at most)
-    int densityByMode[kModeCount] = {5, 10, 10, 10, 10};  // each mode keeps its own density and symmetry (setMode swaps them in)
-    int symmetryByMode[kModeCount] = {};
-    int turnsByMode[kModeCount] = {1, 1, 1, 1, 1};  // each mode's number of turns (feedback #111)
+    int sprayDensity = 10;  // the active panel's: how many things one spray puts down (kDensityMax at most)
     uint32_t spraySeed = 1;
     int lastSprayX = -100000, lastSprayY = -100000;
     double sprayHeld = 0, sprayCredit = 0;  // a held spray: the seconds it is held, and the sprays due
@@ -42,15 +39,15 @@ struct AppState {
     // Doodads and sprites: the copied ones, each from the middle of the group; a paste follows the mouse.
     std::vector<Editor::ItemAt> doodadClip, spriteClip;
     bool pastingItems = false;                 // Doodads or Sprites: the copy follows the mouse; a click places it
-    // The copied locations (feedback #135: several at once): each one's rectangle from the group's center, its name,
-    // its inverted axes (1 left/right, 2 top/bottom) and the elevations it leaves out (MRGN flags).
-    struct LocationClip {
-        Rect rect;
-        std::string name;
+    // The copied locations: each one's edges, inverted axes (1 left/right, 2 top/bottom), name and the elevations it
+    // leaves out (MRGN flags).
+    struct LocationCopy {
+        Rect rect{};
         int inverted = 0;
+        std::string name;
         uint16_t elevation = 0;
     };
-    std::vector<LocationClip> locationClips;
+    std::vector<LocationCopy> locationClip;
     bool allowStacking = false;     // Options: units may overlap
     bool resourceDistance = true;   // Options: town halls and resources keep 3 tiles apart
     bool snapBuildings = true;      // Options > Units: buildings snap to tile edges (on every path; other units: unitGrid)
@@ -76,6 +73,7 @@ struct AppState {
     int dragSX = 0, dragSY = 0;    // screen point where the drag started
     bool dragMoved = false;
     int locEdges = 0;  // 1 left, 2 top, 4 right, 8 bottom
+    int locToggle = -1;  // Ctrl or Shift pressed on this location: a click takes it in or out of the selection
     bool pasting = false;  // paste mode: the clipboard follows the cursor until a click places it
     Rect locStart;
     bool dirty = true;

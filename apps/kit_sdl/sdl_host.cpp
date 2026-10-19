@@ -118,6 +118,30 @@ draw::Key keyOf(SDL_Keycode k) {
     }
 }
 
+#if defined(__APPLE__)
+#include <objc/message.h>
+#include <objc/runtime.h>
+#endif
+
+// The keys held down now, for a mouse event. SDL's state is of the window with the keyboard: on macOS a click in
+// another window of the program (a floating palette) makes it the key window, and SDL empties its key state as the
+// old window loses the keyboard, so a Command+click or Shift+click there came without its keys. macOS's own state
+// ([NSEvent modifierFlags]) is the keys as they are; SDL's is added.
+SDL_Keymod mouseModState() {
+#if defined(__APPLE__)
+    using Flags = unsigned long (*)(id, SEL);
+    const unsigned long f = reinterpret_cast<Flags>(objc_msgSend)(reinterpret_cast<id>(objc_getClass("NSEvent")), sel_registerName("modifierFlags"));
+    SDL_Keymod m = 0;
+    if (f & (1ul << 17)) m |= SDL_KMOD_SHIFT;  // NSEventModifierFlagShift
+    if (f & (1ul << 18)) m |= SDL_KMOD_CTRL;   // Control
+    if (f & (1ul << 19)) m |= SDL_KMOD_ALT;    // Option
+    if (f & (1ul << 20)) m |= SDL_KMOD_GUI;    // Command
+    return m | SDL_GetModState();  // (and SDL's: the keys a snapshot's input holds)
+#else
+    return SDL_GetModState();
+#endif
+}
+
 unsigned modsOf(SDL_Keymod m) {
     unsigned r = 0;
     if (m & SDL_KMOD_SHIFT) r |= draw::kShift;
@@ -1065,7 +1089,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
         MouseEvent m;
         m.kind = MouseKind::Move;
         m.pt = w->mouse;
-        m.mods = modsOf(SDL_GetModState());
+        m.mods = modsOf(mouseModState());
         w->router->mouse(m);
         if (Win* now = findWin(wid)) {  // (the view may have closed the window)
             setCursor(now->router->cursor(now->mouse));
@@ -1093,7 +1117,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
         m.pt = {toPixels(e.button.x, w->density), toPixels(e.button.y, w->density)};
         w->mouse = m.pt;
         m.button = button;
-        m.mods = modsOf(SDL_GetModState());
+        m.mods = modsOf(mouseModState());
         if (e.type == SDL_EVENT_MOUSE_BUTTON_UP) m.kind = MouseKind::Up;
         else m.kind = e.button.clicks >= 2 ? MouseKind::DoubleClick : MouseKind::Down;
         const bool taken = w->router->mouse(m);
@@ -1136,7 +1160,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
             m.panX = std::trunc(exactRestX_), m.panY = std::trunc(exactRestY_);
             exactRestX_ -= m.panX, exactRestY_ -= m.panY;
         }
-        m.mods = modsOf(SDL_GetModState());
+        m.mods = modsOf(mouseModState());
         w->router->mouse(m);
         return;
     }
@@ -1159,7 +1183,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
         m.kind = MouseKind::Pinch;
         m.pt = w->mouse;  // (a trackpad's pinch is around the mouse)
         m.pinch = change;
-        m.mods = modsOf(SDL_GetModState());
+        m.mods = modsOf(mouseModState());
         w->router->mouse(m);
         return;
     }
@@ -1216,7 +1240,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
             m.kind = MouseKind(e.user.code);
             m.pt = w->mouse;  // (a trackpad's gesture is at the mouse)
             m.swipe = int(reinterpret_cast<intptr_t>(e.user.data1));
-            m.mods = modsOf(SDL_GetModState());
+            m.mods = modsOf(mouseModState());
             w->router->mouse(m);
         }
         return;

@@ -20,6 +20,14 @@ struct TilesView {
     int picked = -1;        // the tile value to place (group << 4 | subtile), -1: none
     std::vector<uint16_t> chosen;  // Ctrl+click and Shift+click: several tiles; Spray places one of them at random (#81)
     int anchor = -1;               // the tile a Shift+click's rectangle starts from: the last click without Shift
+    // The stamp: a rectangle of the grid (a box dragged over it, or Shift+click), its tiles as the grid shows them
+    // (stampW x stampH, 0xFFFF: a slot with no tile). The Brush places them as they are, and a drag repeats them in a
+    // pattern from the press (stampX, stampY: the pattern's top-left tile); Fill fills with the pattern. With Shift on
+    // the map, the Brush places the tiles at random instead (scatter). Spray is always random.
+    std::vector<uint16_t> stamp;
+    int stampW = 0, stampH = 0, stampX = 0, stampY = 0;
+    bool scatter = false;  // the Brush stroke under way: Shift was held at its press
+    int lastX = 0, lastY = 0;  // the Brush stroke's last tile
     int hover = -1;         // the tile value under the mouse in the list
     // A box dragged over the grid selects the tiles in it (GitHub feedback #110): from the press, in content pixels
     // (the scroll added); Ctrl+drag adds to the tiles selected before.
@@ -28,29 +36,43 @@ struct TilesView {
     std::vector<uint16_t> boxBase;
     const Editor* builtFor = nullptr;
     int builtEra = -1;
-    // The tiles' pictures, per tile group: its 16 tiles in a row (32 px each in SD, 64 in HD2 and Carbot), for
-    // builtFor's tileset, in pixelsMode's art. `used`: the grid's paint that drew it last (tilesPixelsTrim).
-    struct GroupPicture {
-        draw::Bitmap bitmap;
-        uint32_t used = 0;
-    };
-    std::map<uint16_t, GroupPicture> pixels;
-    uint32_t paints = 0;                // the grid's paints
-    int pixelsMode = -1;                // the map's art: 0 SD, 1 HD, 2 Carbot
-    HdTiles hd;                         // HD2 or Carbot megatiles (pixelsMode 1, 2) of hdEra
-    int hdEra = -1, hdMode = -1;
     bool shown = false;
     // The filter box's entries: kind 0 all, 1 a terrain type (terrain), 2 doodad tiles, 3 null tiles, 4 all but null.
     struct Filter {
         std::wstring label;
         int kind = 0;
         uint16_t terrain = 0;
+        uint16_t other = 0;  // kind 7: the other terrain; kind 8: the doodads' group (its string)
     };
     std::vector<Filter> filters;
     int filter = 0;  // the filters' index that the grid shows
+    std::wstring search;  // the search box's text
     int filtersEra = -1;
 };
-TilesView gTiles;
+// The tiles' pictures, shared by every Tiles list: per tile group, its 16 tiles in a row (32 px each in SD, 64 in HD2
+// and Carbot), for forEd's tileset (of forEra), in pixelsMode's art. `used`: the paint that drew it last (tilesPixelsTrim).
+struct TilesArt {
+    struct GroupPicture {
+        draw::Bitmap bitmap;
+        uint32_t used = 0;
+    };
+    std::map<uint16_t, GroupPicture> pixels;
+    uint32_t paints = 0;                // the grids' paints
+    int pixelsMode = -1;                // the map's art: 0 SD, 1 HD, 2 Carbot
+    HdTiles hd;                         // HD2 or Carbot megatiles (pixelsMode 1, 2) of hdEra
+    int hdEra = -1, hdMode = -1;
+    const Editor* forEd = nullptr;
+    int forEra = -1;
+};
+TilesArt gTilesArt;
+// Each Tiles list has its own tiles (its pick, stamp, filter, search and scroll: a palette panel's own); gTiles is the
+// one in use: the active Terrain panel's, or the list that paints or takes the mouse (TilesScope, views_tiles.inc).
+TilesView gTilesDocked;
+TilesView* gTiles = &gTilesDocked;
+class TilesGridView;
+class TilesPanelView;
+TilesGridView* gTilesGrid = nullptr;  // (its views)
+TilesPanelView* gTilesPanel = nullptr;
 
 bool tilesOn() { return appState().ed && appState().ed->isOpen() && gWorkspace == Workspace::Map && appState().mode == Mode::Terrain && appState().terrainRect; }
 
@@ -92,11 +114,67 @@ std::wstring tilesValueLabel(int value) {
     return note.empty() ? s : s + L"  \x00B7  " + note;
 }
 
+bool tilesStampOn() { return gTiles->stamp.size() > 1; }
+
+// From Select, a pick in the grid starts placing: the Brush.
+void tilesToBrush() {
+    AppState& app = appState();
+    app.terrainPasting = false;
+    if (app.mode == Mode::Terrain && currentTool(app) == TSelect) {
+        app.toolByMode[int(Mode::Terrain)] = TBrush;
+        fillToolCombo(app);
+    }
+}
+
+// The stamp's tile at map tile (x, y) of the pattern that starts at (stampX, stampY); 0xFFFF: none.
+uint16_t tilesStampAt(int x, int y) {
+    const int w = gTiles->stampW, h = gTiles->stampH;
+    if (w <= 0 || h <= 0) return 0xFFFF;
+    const int sx = ((x - gTiles->stampX) % w + w) % w, sy = ((y - gTiles->stampY) % h + h) % h;
+    return gTiles->stamp[size_t(sy) * size_t(w) + size_t(sx)];
+}
+
+// The stamp's top-left tile for the mouse at tile (tx, ty): before a stroke, the stamp around the mouse; in a Brush
+// stroke, the pattern's block that has the mouse.
+void tilesStampOrigin(int tx, int ty, int& x0, int& y0) {
+    const int w = std::max(1, gTiles->stampW), h = std::max(1, gTiles->stampH);
+    if (appState().drag != Drag::Tiles) {
+        x0 = tx - (w - 1) / 2, y0 = ty - (h - 1) / 2;
+        return;
+    }
+    auto down = [](int a, int b) { return a >= 0 ? a / b : -((-a + b - 1) / b); };
+    x0 = gTiles->stampX + down(tx - gTiles->stampX, w) * w, y0 = gTiles->stampY + down(ty - gTiles->stampY, h) * h;
+}
+
+// The stamp's tiles with their top-left tile at (x0, y0), in the map.
+std::vector<Editor::TileAt> tilesStampCells(int x0, int y0) {
+    std::vector<Editor::TileAt> cells;
+    const Editor& ed = *appState().ed;
+    for (int y = 0; y < gTiles->stampH; ++y)
+        for (int x = 0; x < gTiles->stampW; ++x) {
+            const uint16_t v = gTiles->stamp[size_t(y) * size_t(gTiles->stampW) + size_t(x)];
+            if (v != 0xFFFF && x0 + x >= 0 && y0 + y >= 0 && x0 + x < ed.width() && y0 + y < ed.height()) cells.push_back({x0 + x, y0 + y, v});
+        }
+    return cells;
+}
+
+// The grid's selection became a stamp (a box, or Shift+click): the Brush places it.
+void tilesStampChosen() {
+    int n = 0;
+    for (uint16_t v : gTiles->stamp) n += v != 0xFFFF;
+    tilesToBrush();
+    setMessage(L"Brush: the " + std::to_wstring(gTiles->stampW) + L" x " + std::to_wstring(gTiles->stampH) + L" tiles you selected (" + std::to_wstring(n) +
+               L" tiles). Click to place them; drag to repeat them. Hold Shift to place them at random");
+    appState().dirty = true;
+}
+
 void tilesPick(int value, bool fromMap) {
-    gTiles.picked = value;
-    gTiles.anchor = value;
-    gTiles.chosen.clear();
-    if (value >= 0) gTiles.chosen.push_back(uint16_t(value));
+    gTiles->picked = value;
+    gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0;
+    if (!fromMap && value >= 0) tilesToBrush();
+    gTiles->anchor = value;
+    gTiles->chosen.clear();
+    if (value >= 0) gTiles->chosen.push_back(uint16_t(value));
     if (value >= 0)
         setMessage((fromMap ? L"Selected " : L"Placing ") + tilesValueLabel(value) + L": click or drag to place it (the brush's size and shape)");
     tilesPanelRepaint();
@@ -106,31 +184,53 @@ void tilesPick(int value, bool fromMap) {
 // Scrolls the grid so the tile shows (clears the search and the filter if they hide it).
 void tilesReveal(int value) {
     if (value < 0) return;
-    auto find = [&] { return int(std::find(gTiles.values.begin(), gTiles.values.end(), uint16_t(value)) - gTiles.values.begin()); };
+    auto find = [&] { return int(std::find(gTiles->values.begin(), gTiles->values.end(), uint16_t(value)) - gTiles->values.begin()); };
     int k = find();
-    if (k >= int(gTiles.values.size())) {
+    if (k >= int(gTiles->values.size())) {
         tilesPanelClearSearch();  // (its change rebuilds the grid)
-        gTiles.filter = 0;
+        gTiles->filter = 0;
         tilesPanelShowAllFilter();
         tilesRebuild();
         k = find();
     }
-    if (k >= int(gTiles.values.size())) return;
+    if (k >= int(gTiles->values.size())) return;
     const RECT c = tilesCellRect(k);
-    if (c.top < gTiles.scroll || c.bottom > gTiles.scroll + tilesViewH()) tilesScrollTo(c.top - scale(8));
+    if (c.top < gTiles->scroll || c.bottom > gTiles->scroll + tilesViewH()) tilesScrollTo(c.top - scale(8));
 }
 
 // The grid is for the open map's tileset (another map, or Map properties changed the tileset: build it again).
 void tilesFresh() {
-    if (!appState().ed || !appState().ed->isOpen() || (gTiles.builtFor == appState().ed.get() && gTiles.builtEra == appState().ed->era())) return;
-    if (gTiles.builtEra != appState().ed->era()) gTiles.picked = -1, gTiles.scroll = 0;
-    gTiles.pixels.clear();
+    if (!appState().ed || !appState().ed->isOpen() || (gTiles->builtFor == appState().ed.get() && gTiles->builtEra == appState().ed->era())) return;
+    if (gTiles->builtEra != appState().ed->era()) gTiles->picked = -1, gTiles->scroll = 0;
     tilesRebuild();
 }
 
 void tilesAt(float wx, float wy, int& tx, int& ty) {
     tx = std::clamp(int(std::floor(wx / 32)), 0, std::max(0, int(appState().ed->width()) - 1));
     ty = std::clamp(int(std::floor(wy / 32)), 0, std::max(0, int(appState().ed->height()) - 1));
+}
+
+// The tool strip's mirrors and turns in Rectangle mode, as Isometric's brush has them: each tile is placed at the images of
+// its middle too (the same tile: a tile is not turned). The tiles themselves first, then their images where no tile of
+// the stroke is.
+std::vector<Editor::TileAt> tilesMirrored(const std::vector<Editor::TileAt>& cells) {
+    const Editor& ed = *appState().ed;
+    if (!ed.mirrors() && ed.turns() == 1) return cells;  // (the turns too: a tile is not turned, its images are)
+    std::vector<Editor::TileAt> out = cells;
+    std::set<std::pair<int, int>> taken;
+    for (const auto& c : cells) taken.insert({c.x, c.y});
+    for (const auto& c : cells)
+        for (auto [px, py] : ed.symmetricPoints(c.x * 32 + 16, c.y * 32 + 16)) {
+            const int x = int(std::floor(px / 32.0)), y = int(std::floor(py / 32.0));
+            if (x >= 0 && y >= 0 && x < ed.width() && y < ed.height() && taken.insert({x, y}).second) out.push_back({x, y, c.value});
+        }
+    return out;
+}
+int tilesPut(const std::vector<Editor::TileAt>& cells) { return appState().ed->placeTileValues(tilesMirrored(cells)); }
+int tilesPutCells(const std::vector<std::pair<int, int>>& cells, uint16_t value) {
+    std::vector<Editor::TileAt> v;
+    for (const auto& [x, y] : cells) v.push_back({x, y, value});
+    return tilesPut(v);
 }
 
 // The tiles a brush of the tool strip's size and shape covers around tile (cx, cy): size 0.5 and 1 one tile, then a
@@ -178,7 +278,7 @@ void tilesPlacedMessage(int n, const wchar_t* verb) {
 // One spray in Rectangle mode: the picked tile on random tiles of the brush's footprint (as many as the density's
 // dabs). Part of the spray's stroke.
 void tilesSprayAt(float wx, float wy) {
-    if (!appState().ed || gTiles.picked < 0) return;
+    if (!appState().ed || gTiles->picked < 0) return;
     int tx, ty;
     tilesAt(wx, wy, tx, ty);
     const auto foot = tilesFootprint(tx, ty);
@@ -187,23 +287,31 @@ void tilesSprayAt(float wx, float wy) {
     // Each dab: one of the selected tiles, at random (Ctrl+click or Shift+click in the grid; one tile: that tile).
     std::vector<Editor::TileAt> cells;
     for (int i = 0; i < sprayDabs(); ++i) {
-        const uint16_t v = gTiles.chosen.size() > 1 ? gTiles.chosen[rng() % gTiles.chosen.size()] : uint16_t(gTiles.picked);
+        const uint16_t v = gTiles->chosen.size() > 1 ? gTiles->chosen[rng() % gTiles->chosen.size()] : uint16_t(gTiles->picked);
         const auto [x, y] = foot[rng() % foot.size()];
         cells.push_back({x, y, v});
     }
-    gTilesStrokePlaced += appState().ed->placeTileValues(cells);
+    gTilesStrokePlaced += tilesPut(cells);
 }
 
 // The picked tile in `cells` (one undo step); with several tiles picked (Shift+click in the list), each cell gets one of
 // them at random.
-int tilesPlaceRandom(const std::vector<std::pair<int, int>>& cells) {
+// With a stamp: its pattern from (ox, oy).
+int tilesPlaceRandom(const std::vector<std::pair<int, int>>& cells, int ox = 0, int oy = 0) {
     Editor& ed = *appState().ed;
-    if (gTiles.chosen.size() < 2) return ed.placeTileCells(cells, uint16_t(gTiles.picked));
-    std::mt19937 rng(appState().spraySeed++);
     std::vector<Editor::TileAt> values;
-    for (const auto& [x, y] : cells) values.push_back({x, y, gTiles.chosen[rng() % gTiles.chosen.size()]});
+    if (tilesStampOn()) {
+        gTiles->stampX = ox, gTiles->stampY = oy;
+        for (const auto& [x, y] : cells)
+            if (const uint16_t v = tilesStampAt(x, y); v != 0xFFFF) values.push_back({x, y, v});
+    } else if (gTiles->chosen.size() < 2) {
+        return tilesPutCells(cells, uint16_t(gTiles->picked));
+    }
+    std::mt19937 rng(appState().spraySeed++);
+    if (!tilesStampOn())
+        for (const auto& [x, y] : cells) values.push_back({x, y, gTiles->chosen[rng() % gTiles->chosen.size()]});
     ed.beginStroke();
-    const int n = ed.placeTileValues(values);
+    const int n = tilesPut(values);
     ed.endStroke();
     return n;
 }
@@ -242,12 +350,12 @@ void tilesFill(int tx, int ty, bool every) {
         }
     }
     ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
-    tilesPlacedMessage(tilesPlaceRandom(cells), every ? L"Replaced" : L"Filled");
+    tilesPlacedMessage(tilesPlaceRandom(cells, tx, ty), every ? L"Replaced" : L"Filled");
 }
 
 // Fill selection (Rectangle mode; GitHub feedback #114): every tile in the selection (in its shape), one undo step.
 void tilesFillSelection() {
-    if (!appState().ed || !appState().hasTerrainSel || gTiles.picked < 0) return;
+    if (!appState().ed || !appState().hasTerrainSel || gTiles->picked < 0) return;
     Editor& ed = *appState().ed;
     const int w = ed.width(), h = ed.height();
     std::vector<std::pair<int, int>> cells;
@@ -255,17 +363,31 @@ void tilesFillSelection() {
         for (int x = std::max(0, appState().terrainSel.left / 32); x <= std::min(w - 1, (appState().terrainSel.right - 1) / 32); ++x)
             if (Editor::inSelectShape(appState().terrainSel, selectShape(), x * 32 + 16, y * 32 + 16)) cells.push_back({x, y});
     ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
-    tilesPlacedMessage(tilesPlaceRandom(cells), L"Filled the selection:");
+    tilesPlacedMessage(tilesPlaceRandom(cells, std::max(0, appState().terrainSel.left / 32), std::max(0, appState().terrainSel.top / 32)), L"Filled the selection:");
 }
 
 // The brush at a tile (part of its stroke): the picked tile in the footprint; with several tiles selected in the list,
 // a scatter: each tile of the footprint one of them at random (GitHub feedback #120).
 int tilesBrushAt(int tx, int ty) {
-    if (gTiles.chosen.size() < 2) return appState().ed->placeTileCells(tilesFootprint(tx, ty), uint16_t(gTiles.picked));
+    if (tilesStampOn() && !gTiles->scatter) {  // the stamp: its block of the pattern at the mouse
+        int x0, y0;
+        tilesStampOrigin(tx, ty, x0, y0);
+        return tilesPut(tilesStampCells(x0, y0));
+    }
+    if (tilesStampOn()) {  // Shift: the stamp's tiles at random in the footprint
+        std::mt19937 rng(appState().spraySeed++);
+        std::vector<uint16_t> any;
+        for (uint16_t v : gTiles->stamp)
+            if (v != 0xFFFF) any.push_back(v);
+        std::vector<Editor::TileAt> cells;
+        for (const auto& [x, y] : tilesFootprint(tx, ty)) cells.push_back({x, y, any[rng() % any.size()]});
+        return tilesPut(cells);
+    }
+    if (gTiles->chosen.size() < 2) return tilesPutCells(tilesFootprint(tx, ty), uint16_t(gTiles->picked));
     std::mt19937 rng(appState().spraySeed++);
     std::vector<Editor::TileAt> cells;
-    for (const auto& [x, y] : tilesFootprint(tx, ty)) cells.push_back({x, y, gTiles.chosen[rng() % gTiles.chosen.size()]});
-    return appState().ed->placeTileValues(cells);
+    for (const auto& [x, y] : tilesFootprint(tx, ty)) cells.push_back({x, y, gTiles->chosen[rng() % gTiles->chosen.size()]});
+    return tilesPut(cells);
 }
 
 // A click on the map in Rectangle mode. Select: a rectangle of tiles, or a paste of the copied tiles. Ctrl: pick the
@@ -296,7 +418,7 @@ bool tilesMouseDown(float wx, float wy, unsigned mods) {
         appState().drag = Drag::None;
         return true;
     }
-    if (gTiles.picked < 0) {
+    if (gTiles->picked < 0) {
         setMessage(L"Select a tile in the Tiles list first (or Ctrl+click a tile on the map)");
         appState().drag = Drag::None;
         return true;
@@ -320,17 +442,33 @@ bool tilesMouseDown(float wx, float wy, unsigned mods) {
         appState().drag = Drag::Spray;
         return true;
     }
-    gTilesStrokePlaced = tilesBrushAt(tx, ty);
+    gTiles->scatter = (mods & draw::kShift) != 0;
+    if (tilesStampOn()) tilesStampOrigin(tx, ty, gTiles->stampX, gTiles->stampY);  // the pattern starts at the press
     appState().drag = Drag::Tiles;
+    gTilesStrokePlaced = tilesBrushAt(tx, ty);
+    gTiles->lastX = tx, gTiles->lastY = ty;
     return true;
 }
 
-// The drag: the footprint at the mouse.
+// The drag: the footprint at the mouse; the stamp: each block of its pattern along the way from the last tile (a fast
+// drag leaves no gaps).
 void tilesMouseMove(float wx, float wy) {
-    if (!appState().ed || gTiles.picked < 0) return;
+    if (!appState().ed || gTiles->picked < 0) return;
     int tx, ty;
     tilesAt(wx, wy, tx, ty);
-    gTilesStrokePlaced += tilesBrushAt(tx, ty);
+    if (tilesStampOn() && !gTiles->scatter) {
+        const int steps = std::max(std::abs(tx - gTiles->lastX), std::abs(ty - gTiles->lastY));
+        int bx = INT_MIN, by = INT_MIN;
+        for (int i = 1; i <= steps; ++i) {
+            const int x = gTiles->lastX + (tx - gTiles->lastX) * i / steps, y = gTiles->lastY + (ty - gTiles->lastY) * i / steps;
+            int x0, y0;
+            tilesStampOrigin(x, y, x0, y0);
+            if (x0 != bx || y0 != by) bx = x0, by = y0, gTilesStrokePlaced += tilesPut(tilesStampCells(x0, y0));
+        }
+    } else {
+        gTilesStrokePlaced += tilesBrushAt(tx, ty);
+    }
+    gTiles->lastX = tx, gTiles->lastY = ty;
 }
 
 // The end of a Brush or Spray stroke in Rectangle mode.

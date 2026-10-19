@@ -31,7 +31,9 @@ void mapFrameDone(AppState& app) {
         app.editorRev = app.ed->revision();
         updateTitle();
         if (app.mode == Mode::Locations) rebuildList(app);
+        else shellOtherLocationRows();  // (a side's list of the locations)
     }
+    shellLocationListSync();  // (the location list shows the map's selected locations)
     updateStatus();
 }
 
@@ -410,25 +412,25 @@ render::Scene buildScene() {
     // Locations.
     if (app.showLocations || app.mode == Mode::Locations) {
         bool active = app.mode == Mode::Locations;
+        // A move: each selected location by the selected one's way; a resize: the selected one.
+        int moveX = 0, moveY = 0;
+        if (app.drag == Drag::LocMove && ed.locationUsed(ed.selectedLocation())) {
+            const Rect to = previewLocationRect(wx, wy);
+            moveX = to.left - app.locStart.left, moveY = to.top - app.locStart.top;
+        }
         for (int i = 0; i < ed.locationCount(); ++i) {
             if (!ed.locationUsed(i)) continue;
             Rect r = ed.locationRect(i);
-            bool sel = active && ed.isLocationSelected(i);
-            // The drag's preview: a lone location's rectangle; a group moves by the dragged location's offset.
-            if (sel && app.drag == Drag::LocResize && i == ed.selectedLocation()) r = previewLocationRect(wx, wy);
-            else if (sel && app.drag == Drag::LocMove && ed.selectedLocations().size() == 1) r = previewLocationRect(wx, wy);
-            else if (sel && app.drag == Drag::LocMove) {
-                const Rect p = previewLocationRect(wx, wy);
-                const int dx = p.left - app.locStart.left, dy = p.top - app.locStart.top;
-                r = Rect{r.left + dx, r.top + dy, r.right + dx, r.bottom + dy};
-            }
+            const bool sel = active && ed.locationSelected(i), main = sel && ed.selectedLocation() == i;
+            if (sel && app.drag == Drag::LocMove) r = {r.left + moveX, r.top + moveY, r.right + moveX, r.bottom + moveY};
+            if (main && app.drag == Drag::LocResize) r = previewLocationRect(wx, wy);
             const bool inv = ed.locationInverted(i);  // inverted (holds air units only): red, not blue
             s.rects.push_back({float(r.left), float(r.top), float(r.right), float(r.bottom), inv ? (active ? 0xFF404030u : 0xFF404018u) : active ? 0x2060FF30u : 0x2060FF18u, true});
             outline(s, r, sel ? 0xFFD040FFu : inv ? (active ? 0xFF5050E0u : 0xFF505080u) : (active ? 0x5080FFE0u : 0x5080FF80u), sel ? 2.0f : 1.0f);
             std::string name = narrow(widen(ed.locationName(i)));
             if (app.locationWrap) name = wrapLocationName(name, float(r.right - r.left) * app.zoom - 6, float(r.bottom - r.top) * app.zoom - 6);
             s.texts.push_back({float(r.left) + 3 / app.zoom, float(r.top) + 3 / app.zoom, name, active ? 0xFFFFFFFFu : 0xFFFFFFA0u, true, mapTextScale()});
-            if (sel && i == ed.selectedLocation())  // (the handles: on the selected one)
+            if (main)  // (the edges of the selected one resize)
                 for (int c = 0; c < 4; ++c) {
                     float hx = (c & 1) ? float(r.right) : float(r.left), hy = (c & 2) ? float(r.bottom) : float(r.top);
                     float h = 4 / app.zoom;
@@ -844,27 +846,42 @@ void tilesScene(render::Scene& s, float wx, float wy) {
         cells.push_back({y * ed.width() + x, v});
         x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
     };
+    // The mirrors' images of the brush's tiles (tilesMirrored): ghosts too, outside the brush's frame.
+    auto addMirrors = [&](const std::vector<Editor::TileAt>& brush) {
+        const std::vector<Editor::TileAt> all = tilesMirrored(brush);
+        for (size_t i = brush.size(); i < all.size(); ++i) cells.push_back({all[i].y * ed.width() + all[i].x, all[i].value});
+    };
     const int tool = currentTool();
     if (tool == TSelect) {
         if (!app.terrainPasting || !ed.hasTileClipboard()) return;
         const int cw = ed.tileClipboardWidth();
         for (int y = 0; y < ed.tileClipboardHeight(); ++y)
             for (int x = 0; x < cw; ++x) add(cx + x, cy + y, ed.tileClipboard()[size_t(y) * cw + x]);
+    } else if (tool == TBrush && tilesStampOn() && !(appState().drag == Drag::Tiles && gTiles->scatter)) {  // the stamp at the mouse
+        int sx, sy;
+        tilesStampOrigin(cx, cy, sx, sy);
+        const std::vector<Editor::TileAt> stamp = tilesStampCells(sx, sy);
+        for (const auto& t : stamp) add(t.x, t.y, t.value);
+        addMirrors(stamp);
     } else if (tool == TBrush || tool == TSpray) {
-        if (gTiles.picked < 0 || !ed.tileset().groupFor(uint16_t(gTiles.picked))) return;
+        if (gTiles->picked < 0 || !ed.tileset().groupFor(uint16_t(gTiles->picked))) return;
         if (app.brushShape != Brush::Square) {  // the Circle and the Diamond: their outline on the tile edges (#135, #136)
             std::vector<std::pair<int, int>> tiles;
+            std::vector<Editor::TileAt> foot;
             for (auto [x, y] : tilesFootprint(cx, cy))
-                if (x >= 0 && y >= 0 && x < ed.width() && y < ed.height()) tiles.push_back({x, y});
+                if (x >= 0 && y >= 0 && x < ed.width() && y < ed.height()) foot.push_back({x, y, 0});
+            for (const auto& t : tilesMirrored(foot)) tiles.push_back({t.x, t.y});  // (and the mirrors' images)
             ghostTiles.clear();
             const size_t before = s.rects.size();
             tileOutline(s, tiles, tool == TSpray ? 0xFFD040E0u : 0x40FF40FFu);
             gTilesPreview.lines = s.rects.size() - before;
             return;
         }
+        std::vector<Editor::TileAt> foot;
         for (auto [x, y] : tilesFootprint(cx, cy))
-            if (tool == TBrush) add(x, y, uint16_t(gTiles.picked));
+            if (tool == TBrush) add(x, y, uint16_t(gTiles->picked)), foot.push_back({x, y, uint16_t(gTiles->picked)});
             else x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);  // the spray: its area only
+        addMirrors(foot);
     } else {
         return;
     }

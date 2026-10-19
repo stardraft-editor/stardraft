@@ -49,6 +49,9 @@ void pathOverlaySize(int id);
 void saveDock();
 void setMode(Mode m);
 void renameSelectedLocation();
+AppState::LocationCopy locationCopyOf(const Editor& ed, int l);
+std::wstring locationsText(const Editor& ed, const std::vector<int>& locs);
+void deleteSelectedLocations();
 bool spriteIsOverlay(const AppState& app, int i);
 bool closeDoc(int i);
 void activateDoc(int i);
@@ -98,7 +101,7 @@ void pasteMapCopy(AppState& app) {
         return;
     }
     if (app.ed && app.mode == Mode::Locations) {  // a copy of the location, at the mouse
-        if (app.locationClips.empty()) return setMessage(L"Nothing copied: select a location and press Ctrl+C");
+        if (app.locationClip.empty()) return setMessage(L"Nothing copied: select a location and press Ctrl+C");
         // At the mouse; the mouse not over the map (Ctrl+V after a click in the list): in the middle of the view.
         int mx = 0, my = 0;
         if (!shellViewMouse(mx, my)) {
@@ -108,26 +111,30 @@ void pasteMapCopy(AppState& app) {
         }
         float wx, wy;
         toWorld(mx, my, wx, wy);
-        // The group's middle at the mouse; each copy keeps its place in it and snaps as a location does (Options > Locations).
-        // Each copy has its size, name, inversion and elevations; the copies are one undo step and are selected.
-        app.ed->beginStroke();
-        int gl = INT_MAX, gt = INT_MAX;  // the group's corner: snapped once, the copies keep their offsets from it
-        for (const AppState::LocationClip& c : app.locationClips) gl = std::min(gl, c.rect.left), gt = std::min(gt, c.rect.top);
-        const int baseX = int(snapRound(wx + gl, app.locationGrid)), baseY = int(snapRound(wy + gt, app.locationGrid));
+        // The copy's middle at the mouse (its top left snapped: Options > Locations snap), each location where it was in it.
+        Rect box = app.locationClip.front().rect;
+        for (const auto& c : app.locationClip)
+            box = {std::min(box.left, c.rect.left), std::min(box.top, c.rect.top), std::max(box.right, c.rect.right), std::max(box.bottom, c.rect.bottom)};
+        const int w = box.right - box.left, hgt = box.bottom - box.top;
+        const int left = int(snapRound(wx - w / 2.0f, app.locationGrid)), top = int(snapRound(wy - hgt / 2.0f, app.locationGrid));
+        const int dx = left - box.left, dy = top - box.top;
+        // Each whole location (its size, name, inversion and elevations); one undo step. The pasted ones are selected.
         std::vector<int> made;
-        for (const AppState::LocationClip& c : app.locationClips) {
-            const int left = baseX + c.rect.left - gl, top = baseY + c.rect.top - gt;
-            const Rect r{left, top, left + c.rect.right - c.rect.left, top + c.rect.bottom - c.rect.top};
+        app.ed->beginStroke();
+        for (const auto& c : app.locationClip) {
+            const Rect r{c.rect.left + dx, c.rect.top + dy, c.rect.right + dx, c.rect.bottom + dy};
             const int i = app.ed->createLocation(r, c.inverted != 0, c.inverted, c.name + " copy", c.elevation);
-            if (i >= 0) made.push_back(i);
+            if (i < 0) break;
+            made.push_back(i);
         }
         app.ed->endStroke();
-        if (made.empty()) return setMessage(L"All location slots are in use");
-        app.ed->selectLocation(made[0]);
-        for (size_t k = 1; k < made.size(); ++k) app.ed->toggleLocationSelected(made[k]);
+        app.ed->selectLocation(-1);
+        for (int i : made) app.ed->addLocationSelection(i);
         rebuildList(app);
         app.dirty = true;
-        setMessage(made.size() == 1 ? L"Pasted " + widen(app.ed->locationName(made[0])) : L"Pasted " + std::to_wstring(made.size()) + L" locations");
+        if (made.empty()) return setMessage(L"All location slots are in use");
+        setMessage(L"Pasted " + locationsText(*app.ed, made) +
+                   (made.size() < app.locationClip.size() ? L" (all location slots are in use: " + std::to_wstring(app.locationClip.size() - made.size()) + L" not pasted)" : L""));
         return;
     }
     if (app.ed && app.mode == Mode::Terrain) {
@@ -188,12 +195,11 @@ void copyMapSelection(AppState& app) {
         (dd ? app.doodadClip : app.spriteClip) = items;
         setMessage(L"Copied " + std::to_wstring(items.size()) + (dd ? L" doodads" : L" sprites"));
     } else if (app.mode == Mode::Locations) {
-        if (app.ed->selectedLocations().empty()) {
-            setMessage(L"First, select a location");
-        } else {
-            app.locationClips = locationClipsOf(app.ed->selectedLocations());
-            setMessage(app.locationClips.size() == 1 ? L"Copied the location" : L"Copied " + std::to_wstring(app.locationClips.size()) + L" locations");
-        }
+        const std::vector<int> locs = app.ed->selectedLocations();
+        if (locs.empty()) return setMessage(L"First, select a location");
+        app.locationClip.clear();
+        for (int l : locs) app.locationClip.push_back(locationCopyOf(*app.ed, l));
+        setMessage(L"Copied " + locationsText(*app.ed, locs));
     } else {
         app.ed->copySelection(), setMessage(L"Copied " + std::to_wstring(app.ed->selection().size()) + L" units");
     }
@@ -330,7 +336,7 @@ bool commandMapEdit(AppState& app, int id) {
         break;
     case ID_EDIT_DELETE:
         if (!open) break;
-        if (app.mode == Mode::Locations) app.ed->deleteLocations(app.ed->selectedLocations()), rebuildList(app);
+        if (app.mode == Mode::Locations) deleteSelectedLocations();
         else if (app.mode == Mode::Sprites) {
             if (app.ed->deleteSprites(app.selSprites)) setMessage(L"Deleted " + std::to_wstring(app.selSprites.size()) + L" sprites");
             app.selSprites.clear();
@@ -351,6 +357,12 @@ bool commandMapEdit(AppState& app, int id) {
                 if (!spriteIsOverlay(app, i)) app.selSprites.push_back(i);
             setMessage(L"Selected " + std::to_wstring(app.selSprites.size()) + L" sprites");
         } else if (app.mode == Mode::Units) app.ed->selectAll();
+        else if (app.mode == Mode::Locations) {
+            app.ed->selectLocation(-1);
+            for (int i = 0; i < app.ed->locationCount(); ++i)
+                if (i != kAnywhereLocation) app.ed->addLocationSelection(i);
+            setMessage(L"Selected " + std::to_wstring(app.ed->selectedLocations().size()) + L" locations");
+        }
         break;
     case ID_EDIT_CORRECTION: app.correction = !app.correction; break;
     case ID_OPT_DRAGBACK: app.dragSnapBack = !app.dragSnapBack; break;
@@ -496,7 +508,7 @@ bool mapMenuGrayed(int id) {
             return false;
         const bool open = app.ed && app.ed->isOpen();
         // Every kind of copy (a gray item also stops Ctrl+V): units, terrain, tiles, locations, doodads, sprites (#83).
-        return !(open && (app.ed->canPaste() || app.ed->hasTerrainClipboard() || app.ed->hasTileClipboard() || !app.locationClips.empty() ||
+        return !(open && (app.ed->canPaste() || app.ed->hasTerrainClipboard() || app.ed->hasTileClipboard() || !app.locationClip.empty() ||
                           !app.doodadClip.empty() || !app.spriteClip.empty()));
     }
     if (id == ID_OPT_DRAGBACK) return app.allowIllegalUnits;  // (not used when units go anywhere)
