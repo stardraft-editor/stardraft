@@ -39,7 +39,7 @@ FloatPaletteParts floatPaletteParts(Mode m) {
     if (m != Mode::Terrain) p.rows.push_back({&gSectionDropSdl, nullptr});
     p.rows.push_back({&gSearchSdl, &gViewBtnSdl});
     p.list = &gPalList;
-    if (m == Mode::Terrain) p.alt = &gTilesPanel;  // (Rectangle mode's Tiles panel)
+    if (m == Mode::Terrain) p.alt = &gTilesDockPanel;  // (Rectangle mode's Tiles panel)
     return p;
 }
 std::vector<draw::View*> floatPaletteViews(const FloatPaletteParts& p) {
@@ -69,7 +69,7 @@ std::wstring accessFree(std::wstring s);  // (sdl_menus.inc)
 kit::MenuItem sdlPaletteFloatItem(Mode m) {
     kit::MenuItem it;
     it.label = accessFree(floatPaletteMenuLabel(m));
-    it.run = [m] { shellFloatPalette(m, !gFloatPal[int(m)].floating); };
+    it.run = [m] { shellFloatPalette(m, !paletteFloats(m)); };
     return it;
 }
 
@@ -215,6 +215,7 @@ bool locationListSync(bool shown, draw::Rect slot) {
     gFloatPalView.altShown = false;
     gFloatPalView.collapsed = false;  // (a window opens whole)
     gFloatPalView.toolsMode = Mode::Locations;  // (its whole panel: Locations' tools over the filter and the list)
+    gFloatPalView.toolsState = &dockedPanel(Mode::Locations);
     gFloatPalView.hold(floatPaletteParts(m));
     // The first place: over the map, at the side bar's edge, as wide as the side bar or more; the size that the settings
     // keep (points; a snapshot's window has one pixel to a point).
@@ -250,7 +251,7 @@ bool floatingPanelSet(Mode m, bool on);  // (sdl_palette_panels.inc: the active 
 void shellFloatPalette(Mode m, bool on) {
     gFloatPalLines = true;
     FloatPalette& p = gFloatPal[int(m)];
-    if (m != Mode::Locations) {  // (a palette of the active tab's own, kept with the map's panels; gFloatPal: its place)
+    if (m != Mode::Locations) {  // (a palette window of the active tab: each map's own, kept with the map's panels)
         if (!floatingPanelSet(m, on)) return;
         if (gRoot) gRoot->relayout();
         shellMenusChanged();
@@ -305,11 +306,8 @@ void sdlFloatPaletteSetup() {
             gFloatPalView.place();
         });
     };
-    // The duplicate box: a panel like the floating palette (its mode, view and order), by its window.
-    gFloatPalView.onDuplicate = [] {
-        const Mode m = gFloatPalMode;
-        shellPost([m] { palettePanelNew(m, gViewByMode[int(m)], gSortByMode[int(m)], &gFloatPalView); });
-    };
+    // (No duplicate box: the window is the location list's, and the locations have no palette panels.)
+    gFloatPalView.onDuplicate = nullptr;
     for (const FloatPalette& p : gFloatPal)
         if (p.floating) gFloatPalLines = true;
     if (!gRoot) return;
@@ -338,7 +336,8 @@ void sdlFloatPaletteLine() {
     if (!paletteFloats(a)) {
         bool inSide = gRoot != nullptr;
         for (draw::View* v : floatPaletteViews(floatPaletteParts(a))) inSide = inSide && v->parent() == gRoot;
-        return void(std::printf("  palette: docked %s, %s; pick=%d; floating=%s\n", name.c_str(), inSide ? "in the side bar" : "not in the side bar (WRONG)",
+        return void(std::printf("  palette: docked %s, %s, search=\"%s\" section=\"%s\"; pick=%d; floating=%s\n", name.c_str(),
+                                inSide ? "in the side bar" : "not in the side bar (WRONG)", narrow(gSearchSdl.text()).c_str(), narrow(gPalSection).c_str(),
                                 gState.palette, floating.c_str()));
     }
     if (a != Mode::Locations) return void(std::printf("  palette: floating %s, %s; pick=%d; floating=%s\n", name.c_str(), floatingPanelLine(a).c_str(), gState.palette, floating.c_str()));

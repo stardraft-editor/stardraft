@@ -155,6 +155,13 @@ std::string shotMapState() {
     // The selected location's edges as it has them (an inverted one: left more than right, or top more than bottom), and
     // Location properties' type line while it is open.
     s += " edges=" + (loc >= 0 && ed.locationUsed(loc) ? box(ed.locationEdges(loc)) : std::string("-"));
+    // The selected locations (several: they move, copy and delete together) and the location list's selected rows.
+    auto ints = [](const std::vector<int>& v) {
+        std::string t;
+        for (int i : v) t += (t.empty() ? "" : ",") + std::to_string(i);
+        return t.empty() ? std::string("-") : t;
+    };
+    s += " locsel=" + ints(ed.selectedLocations()) + " listsel=" + ints(shellListSelection());
     if (gLocPropsShown) s += " locprops=" + quoted(narrow(gLocPropsShown->typeText())) + " locedges=" + narrow(gLocPropsShown->edgesText());
     float wx = 0, wy = 0;
     toWorld(app.mouseX, app.mouseY, wx, wy);
@@ -216,14 +223,29 @@ std::string shotMapState() {
     s += std::string(" brushshape=") + kShapes[int(app.brushShape) % 3] + " tilepreview=" + std::to_string(gTilesPreview.tiles) + "/" + std::to_string(gTilesPreview.lines);  // (Rectangle: the brush preview's tiles and lines)
     // The Tiles list (Rectangle): its scroll, its pictures kept, the tile picked; and the bitmaps that went while the
     // frame that drew them was not yet drawn by the GPU (none should: GitHub #148).
-    s += " tilescroll=" + std::to_string(gTiles.scroll) + "/" + std::to_string(std::max(0, gTiles.contentH - tilesViewH())) +
-         " tilepics=" + std::to_string(gTiles.pixels.size()) + " tilepicked=" + std::to_string(gTiles.picked) +
+    s += " tilescroll=" + std::to_string(gTiles->scroll) + "/" + std::to_string(std::max(0, gTiles->contentH - tilesViewH())) +
+         " tilepics=" + std::to_string(gTilesArt.pixels.size()) + " tilepicked=" + std::to_string(gTiles->picked) +
          " freedinframe=" + std::to_string(kit_sdl::bitmapsFreedInFrame());
     // The Tiles list's width and its columns' left edges (and the right end + 1): a tile is from an edge to the next
     // edge - 1 (views_tiles.inc: tilesEdge); and its slots (a row is 16).
-    s += " tilegrid=" + std::to_string(gTilesGrid.width()) + ":";
+    s += " tilegrid=" + std::to_string(gTilesGrid->width()) + ":";
     for (int i = 0; i <= 16; ++i) s += (i ? "," : "") + std::to_string(tilesEdge(i));
-    s += " tileslots=" + std::to_string(gTiles.values.size());
+    s += " tileslots=" + std::to_string(gTiles->values.size());
+    // The panels (panel_state.inc): the active one (the side bar's of a mode, or the n-th palette window's), and each one's
+    // own Isometric or Rectangle, brush size, tool and pick: "side" the side bar's Terrain panel, then each window's.
+    std::string active = "-";
+    if (isDockedPanel(gActivePanel)) active = "side-" + narrow(kModeNames[int(gActivePanel->mode)]);
+    for (size_t i = 0; i < gPanels.size(); ++i)
+        for (PanelState& st : gPanels[i]->view->states)
+            if (&st == gActivePanel) active = "window" + std::to_string(i + 1) + "-" + narrow(kModeNames[int(st.mode)]);
+    auto one = [](PanelState& st) {
+        panelFresh(st);
+        char b[96];
+        std::snprintf(b, sizeof b, "%s:%g:%d:%d:%d", st.terrainRect ? "rect" : "iso", st.brushSize, st.tool, st.palette, st.tiles ? st.tiles->picked : -1);
+        return std::string(b);
+    };
+    s += " active=" + active + " sideT=" + one(dockedPanel(Mode::Terrain));
+    for (size_t i = 0; i < gPanels.size(); ++i) s += " window" + std::to_string(i + 1) + "=" + one(gPanels[i]->view->state());
     return s;
 }
 

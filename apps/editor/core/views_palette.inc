@@ -12,6 +12,7 @@ struct PaletteGridView : draw::View {
     Mode mode = Mode::Units;   // the mode of the rows (their pictures are of it)
     bool second = false;       // the second palette: no pick of its own shows (its picks are its own list)
     std::vector<int>* chosen = nullptr;  // the picks it shows (the first palette: the shell's; the second: its own)
+    PanelState* state = nullptr;  // its panel (panel_state.inc): its picks show, whichever panel is active
     std::wstring searchWords;  // the search's text (lower case): its words are in the accent in a list
     // The item's picture in `box` (false: none; a terrain then gets an empty swatch).
     std::function<bool(draw::Canvas&, Mode, int value, bool sprites, draw::Rect box)> picture;
@@ -74,13 +75,16 @@ struct PaletteGridView : draw::View {
 
     void resized() override { layout(); }
     void paint(draw::Canvas& c) override {
+        const PanelScope scope(state);  // (its panel's picks)
+        const bool own = state != nullptr;
+        const std::vector<int>* chosen = own ? &shellPaletteChosen() : this->chosen;
         const AppState& app = shellState();
         const PaletteView& v = view();
         const int viewH = height() - paletteFooterHeight(v);
         c.fill({0, 0, width(), height()}, kPanel);
         c.pushClip({0, 0, width(), viewH});
         const bool units = app.ed && mode != Mode::Locations;  // the picked item shows
-        const int pick = second ? -1 : app.palette;
+        const int pick = second && !own ? -1 : app.palette;
         std::vector<std::wstring> words;
         {
             std::wistringstream in(searchWords);
@@ -99,9 +103,11 @@ struct PaletteGridView : draw::View {
                 c.fill({t.left + c.measure(tr(e.label)) + scale(8), mid, r.right - scale(6), mid + 1}, kBorder);
                 continue;
             }
-            const bool isPick = units && e.value == pick;
-            const bool isChosen = units && chosen && std::find(chosen->begin(), chosen->end(), e.value) != chosen->end();
-            const bool isSecond = units && !second && mode == Mode::Terrain && !app.terrainRect && e.value == app.palette2;  // Shift's
+            const bool locs = mode == Mode::Locations;  // (a side's list of the locations: the selected ones)
+            const bool isPick = (units && e.value == pick) || (locs && e.value == app.ed->selectedLocation());
+            const bool isChosen = (units && chosen && std::find(chosen->begin(), chosen->end(), e.value) != chosen->end()) ||
+                                  (locs && app.ed->locationSelected(e.value));
+            const bool isSecond = units && (own || !second) && mode == Mode::Terrain && !app.terrainRect && e.value == app.palette2;  // Shift's
             if (isPick || isChosen || isSecond || int(i) == hover_) {
                 const draw::Rect f{r.left + 1, r.top + 1, r.right - 1, r.bottom - 1};
                 if (isPick) kitpaint::drawListRow(c, f, true, false);
@@ -144,6 +150,9 @@ struct PaletteGridView : draw::View {
         }
     }
     bool mouse(const draw::MouseEvent& e) override {
+        // A press makes its panel the active one (another mode's list in the side bar: its pick does, as the side bar's
+        // layout follows the mode).
+        if (e.kind == draw::MouseKind::Down && state && state != gActivePanel && (state->mode == appState().mode || !isDockedPanel(state))) activatePanel(state);
         switch (e.kind) {
         case draw::MouseKind::Move: {
             const int h = rowAt(e.pt);

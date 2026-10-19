@@ -66,14 +66,14 @@ bool objectSprayOn() {
 bool stripHasSize() { return appState().mode == Mode::Terrain || objectSprayOn(); }
 // Density: the sprays (Terrain, Units, Doodads, Sprites).
 bool stripHasDensity() { return (appState().mode == Mode::Terrain && currentTool() == TSpray) || objectSprayOn(); }
-// The mirrors: the modes whose edits repeat with them.
-// (Not in Rectangle: tiles do not mirror.)
+// The mirrors: the modes whose edits repeat with them (Rectangle too: its tiles at the mirror images).
 bool stripHasMirrors() {
     const AppState& app = appState();
-    return (app.mode == Mode::Terrain && !app.terrainRect) || app.mode == Mode::Units || app.mode == Mode::Doodads;
+    return app.mode == Mode::Terrain || app.mode == Mode::Units || app.mode == Mode::Doodads;
 }
 
 // The Terrain tool strip's Isometric | Rectangle: what the terrain tools work on (ISOM terrains, or tiles as they are).
+// Each map's own: its file keeps it (a new map starts in Isometric).
 void setTerrainRect(bool rect) {
     AppState& app = appState();
     if (app.terrainRect == rect) return;
@@ -134,10 +134,9 @@ void stripNumberStep(int which, int dir) {
         if (stripHeightLockedSays()) return;
         app.brushHeight = std::clamp(std::round(app.brushHeight > 0 ? app.brushHeight : app.brushSize) + float(dir), 1.0f, 32.0f);
     } else if (which == kNumTurns) {
-        if (app.ed) app.ed->setTurns(app.ed->turns() + dir), app.turnsByMode[int(app.mode)] = app.ed->turns();
+        if (app.ed) app.ed->setTurns(app.ed->turns() + dir);
     } else {
         app.sprayDensity = std::clamp(app.sprayDensity + dir, 1, kDensityMax);
-        app.densityByMode[int(app.mode)] = app.sprayDensity;
     }
     stripNumberChanged();
 }
@@ -162,10 +161,9 @@ bool stripNumberSet(int which, const std::wstring& text) {
     } else if (which == kNumHeight) {
         app.brushHeight = float(std::clamp(std::round(v), 1.0, 32.0));  // a value of its own (the link turns off)
     } else if (which == kNumTurns) {
-        if (app.ed) app.ed->setTurns(int(std::lround(std::clamp(v, -1000.0, 1000.0)))), app.turnsByMode[int(app.mode)] = app.ed->turns();
+        if (app.ed) app.ed->setTurns(int(std::lround(std::clamp(v, -1000.0, 1000.0))));
     } else {
         app.sprayDensity = std::clamp(int(std::lround(std::clamp(v, -1000.0, 1000.0))), 1, kDensityMax);
-        app.densityByMode[int(app.mode)] = app.sprayDensity;
     }
     stripNumberChanged();
     return true;
@@ -193,20 +191,6 @@ void stripToolByKey(int key) {
         if (stripToolKey(it) == key) return pickStripTool(it);
 }
 
-// A mode's floating panel draws its mode's strip while another mode is active: the app's mode is that mode for the call
-// (nothing else changes; the mode's tools, sizes and options are kept by mode).
-struct StripModeScope {
-    AppState& app;
-    Mode saved;
-    bool on;
-    explicit StripModeScope(std::optional<Mode> m) : app(appState()), saved(app.mode), on(m && *m != app.mode) {
-        if (on) app.mode = *m;
-    }
-    ~StripModeScope() {
-        if (on) app.mode = saved;
-    }
-};
-
 int toolStripHeight(int width, bool titled) {
     const AppState& app = appState();
     const int b = scale(30), gap = scale(4);
@@ -217,8 +201,9 @@ int toolStripHeight(int width, bool titled) {
                       (app.mode == Mode::Terrain ? scale(26) + gap : 0);  // Terrain: Isometric | Rectangle
     return (titled ? scale(24) : 0) + rows * b + (rows - 1) * gap + extra;
 }
-int toolStripHeight(int width, Mode m) {
-    StripModeScope scope(m);
+// The strip's height for a panel (its tools, its sizes, its options: panel_state.inc).
+int toolStripHeight(int width, PanelState* panel) {
+    PanelScope scope(panel);
     return toolStripHeight(width, false);
 }
 
@@ -283,9 +268,9 @@ extern ToolStripView* gStripInUse;  // the strip of the last mouse event (a drop
 
 class ToolStripView final : public draw::View {
 public:
-    // A mode's floating panel's strip: the tools of this mode, whichever mode is active; a press on it makes the mode
-    // active first (core/views_palette_float.inc). Empty: the side bar's strip (the active mode's).
-    std::optional<Mode> fixed;
+    // Its panel's tools (panel_state.inc), whichever panel is active; a press on it makes the panel active first. Empty:
+    // the active panel's.
+    PanelState* state = nullptr;
 
     ToolStripView() {
         field_.onStep = [this](int dir) {
@@ -325,7 +310,7 @@ public:
 
     void paint(draw::Canvas& c) override {
         using namespace stripLook;
-        StripModeScope scope(fixed);
+        PanelScope scope(state);
         AppState& app = appState();
         const draw::Font prevFont = c.setFont(c.font({draw::Face::Ui, 0}));  // the UI font
         const int W = width(), H = height();
@@ -531,8 +516,7 @@ public:
                     if (!a.ed) return;
                     const int m2 = flag ? a.ed->mirrors() ^ flag : 0;
                     a.ed->setMirrors(m2);
-                    if (!flag) a.ed->setTurns(1), a.turnsByMode[int(a.mode)] = 1;  // None turns the turns off too
-                    a.symmetryByMode[int(a.mode)] = m2;
+                    if (!flag) a.ed->setTurns(1);  // None turns the turns off too
                     shellToolsChanged();
                     a.dirty = true;
                     shellFocusView();
@@ -549,8 +533,20 @@ public:
 
     bool mouse(const draw::MouseEvent& e) override {
         gStripInUse = this;
-        if (fixed && e.kind == draw::MouseKind::Down && appState().mode != *fixed) setMode(*fixed);  // (its mode first)
-        StripModeScope scope(fixed);
+        const bool overNumber = std::any_of(numbers_.begin(), numbers_.end(), [&](const auto& n) { return n.first.contains(e.pt); });
+        if (state && state != gActivePanel && (e.kind == draw::MouseKind::Down || (e.kind == draw::MouseKind::Wheel && overNumber))) {  // (its panel first)
+            // The press makes the panel active, which may move this strip (the side bar's strips follow the active mode):
+            // the pressed box does its work now (the release would find another strip under the mouse).
+            const int k = e.kind == draw::MouseKind::Down && e.button == 0 ? indexAt(e.pt) : -1;
+            const std::function<void()> click = k >= 0 ? hits_[size_t(k)].click : nullptr;
+            activatePanel(state);
+            if (k >= 0) {
+                if (click) click();
+                invalidate();
+                return true;
+            }
+        }
+        PanelScope scope(state);
         switch (e.kind) {
         case draw::MouseKind::Move: {
             const int before = indexAt(hover_), now = indexAt(e.pt);
@@ -599,13 +595,13 @@ public:
     }
     void captureLost() override { pressed_ = -1; }
     std::wstring tip(draw::Point p) override {
-        StripModeScope scope(fixed);
+        PanelScope scope(state);
         const int k = indexAt(p);
         return k < 0 ? std::wstring() : hits_[size_t(k)].tip;
     }
     bool hoverTip() const override { return true; }
     draw::Cursor cursor(draw::Point p) override {
-        StripModeScope scope(fixed);
+        PanelScope scope(state);
         const int k = indexAt(p);
         return k < 0 ? draw::Cursor::Arrow : hits_[size_t(k)].cursor;
     }
@@ -659,3 +655,6 @@ private:
 
 ToolStripView gToolStripView;  // the strip (its window shows it: main.cpp, sdl_main_view.inc)
 ToolStripView* gStripInUse = &gToolStripView;
+// The side bar's other strips (sdl_main_view.inc): the other side's mode's tools, and the tools of the list that shows
+// in the active side while the active mode is in a window of its own.
+ToolStripView gToolStripView2, gToolStripView3;

@@ -890,6 +890,42 @@ static void brushOverPlacedTiles(const GameData& data, const char* map) {
     CHECK(e.terrain().tiles == placed, "placed tiles: a fill with the terrain under them changes no tile");
 }
 
+// A doodad that terrain painted over takes away comes back with an undo, as the terrain under it does (the owner's
+// steps: a new Badlands map, a Dirt doodad on the dirt, grass painted over it, Undo).
+static void doodadBackOnUndo(const GameData& data) {
+    Editor e(data);
+    std::string err;
+    if (!e.newMap(64, 64, 0, 1, err)) {
+        CHECK(false, "doodad undo: a new Badlands map");
+        return;
+    }
+    const int px = 32 * 32, py = 32 * 32;
+    bool placed = false;
+    uint16_t id = 0;
+    for (const DoodadType& t : e.doodadTypes().all()) {
+        if (!t.groupString || e.unitTypes().statText(t.groupString - 1u) != "Dirt") continue;
+        if (e.placeDoodad(t.id, px, py, true)) {
+            placed = true, id = t.id;
+            break;
+        }
+    }
+    CHECK(placed && e.doodads().size() == 1, "doodad undo: a Dirt doodad placed on the dirt");
+    if (!placed) return;
+    const std::vector<uint16_t> withDoodad = e.terrain().tiles;
+    const IsomTerrainTable* tt = IsomTerrainTable::forEra(e.era());
+    uint16_t grass = 0;
+    for (uint16_t i = 1; tt && i <= tt->terrainCount(); ++i)
+        if (tt->isTerrain(i) && tt->terrainName(i) == "Grass") grass = i;
+    e.beginTerrainStroke();
+    e.paintBrush(px, py, grass, Brush{Brush::Diamond, 4.0f});
+    e.endTerrainStroke();
+    std::printf("      doodad %u; after the grass: %zu doodads\n", id, e.doodads().size());
+    CHECK(e.doodads().empty(), "doodad undo: grass painted over the doodad takes it away");
+    e.undo();
+    CHECK(e.doodads().size() == 1, "doodad undo: Undo gives the doodad back");
+    CHECK(e.terrain().tiles == withDoodad, "doodad undo: Undo gives its tiles back");
+}
+
 // Ramps (and other doodads) stay when terrain is painted near them, as in StarEdit: a doodad goes only when the terrain
 // under its tiles no longer fits it (the owner's note: ramps went too often). A Blizzard map with ramps on cliffs:
 // (4)Lost Civilization (jungle), doodad 1 (a ramp of the Cliff group, 4 x 4 tiles).
@@ -1277,8 +1313,8 @@ static void mirrorTest(const GameData& data) {
     }
 }
 
-// Locations as a group (feedback #135): the selected locations move together by one offset, one undo step; the group stops
-// at the map's edge as a whole; the delete removes them all, one undo step; a box picks the locations it touches.
+// Locations as a group (feedback #135, on main's selection): the selection holds several locations, a new location replaces
+// it, and a delete of all the selected ones is one undo step (the app's group move and paste are checked by the snapshots).
 static void locationGroupTest(const GameData& data) {
     Editor ed(data);
     std::string err;
@@ -1286,53 +1322,24 @@ static void locationGroupTest(const GameData& data) {
         CHECK(false, "location group: a new 64 x 64 map");
         return;
     }
-    auto same = [](const Rect& a, const Rect& b) { return a.left == b.left && a.top == b.top && a.right == b.right && a.bottom == b.bottom; };
     const int a = ed.createLocation(Rect{64, 64, 128, 128}), b = ed.createLocation(Rect{256, 64, 320, 128});
-    const int c = ed.createLocation(Rect{512, 512, 600, 600}, true, 3);  // (an inverted one: it stays inverted)
+    const int c = ed.createLocation(Rect{512, 512, 600, 600}, true, 3);  // (an inverted one)
     CHECK(a >= 0 && b >= 0 && c >= 0, "location group: three locations");
+    CHECK(ed.selectedLocations().size() == 1 && ed.selectedLocation() == c, "location group: a new location is the selection");
     ed.selectLocation(a);
-    ed.toggleLocationSelected(b);
-    CHECK(ed.selectedLocations().size() == 2 && ed.isLocationSelected(a) && ed.isLocationSelected(b) && !ed.isLocationSelected(c) &&
-              ed.selectedLocation() == b,
-          "location group: Shift or Ctrl picks add to the selection; the last one picked is the selected one");
-    ed.toggleLocationSelected(b);
-    CHECK(ed.selectedLocations().size() == 1 && ed.selectedLocation() == a, "location group: a second pick takes the location out");
-    ed.toggleLocationSelected(b);
-    auto [dx, dy] = ed.moveLocations(ed.selectedLocations(), 32, 16);
-    CHECK(dx == 32 && dy == 16 && same(ed.locationRect(a), Rect{96, 80, 160, 144}) && same(ed.locationRect(b), Rect{288, 80, 352, 144}) &&
-              same(ed.locationRect(c), Rect{512, 512, 600, 600}),
-          "location group: both move by the same offset, the third stays");
-    ed.undo();
-    CHECK(same(ed.locationRect(a), Rect{64, 64, 128, 128}) && same(ed.locationRect(b), Rect{256, 64, 320, 128}),
-          "location group: one undo takes the group move back");
-    ed.redo();
-    CHECK(same(ed.locationRect(b), Rect{288, 80, 352, 144}), "location group: redo gives the move again");
-    ed.undo();
-    auto [ex, ey] = ed.moveLocations(ed.selectedLocations(), 100000, 0);
-    CHECK(ex == 2048 - 320 && ey == 0 && same(ed.locationRect(b), Rect{1984, 64, 2048, 128}) && same(ed.locationRect(a), Rect{1792, 64, 1856, 128}),
-          "location group: the group stops at the map's right edge as a whole");
-    ed.undo();
-    auto [wx, wy] = ed.moveLocations(ed.selectedLocations(), -100000, 0);
-    CHECK(wx == -64 && same(ed.locationRect(a), Rect{0, 64, 64, 128}), "location group: and at the left edge");
-    ed.undo();
-    ed.selectLocation(c);
-    ed.toggleLocationSelected(a);
-    ed.moveLocations(ed.selectedLocations(), 0, 32);
-    CHECK(ed.locationInverted(c) && ed.locationInvertedAxes(c) == 3 && same(ed.locationRect(c), Rect{512, 544, 600, 632}),
-          "location group: an inverted location moves as it is");
-    ed.undo();
-    ed.selectLocationsIn(Rect{0, 0, 400, 200}, false);
-    CHECK(ed.selectedLocations().size() == 2 && ed.isLocationSelected(a) && ed.isLocationSelected(b), "location group: a box picks the locations it touches");
-    ed.selectLocationsIn(Rect{500, 500, 700, 700}, true);
-    CHECK(ed.selectedLocations().size() == 3 && ed.isLocationSelected(c), "location group: a box with Shift adds to the selection");
-    ed.deleteLocations(ed.selectedLocations());
-    CHECK(!ed.locationUsed(a) && !ed.locationUsed(b) && !ed.locationUsed(c) && ed.selectedLocations().empty() && ed.selectedLocation() == -1,
+    ed.addLocationSelection(b);
+    CHECK(ed.selectedLocations().size() == 2 && ed.locationSelected(a) && ed.locationSelected(b) && !ed.locationSelected(c) && ed.selectedLocation() == b,
+          "location group: a pick adds to the selection; the last one picked is the selected one");
+    ed.removeLocationSelection(b);
+    CHECK(ed.selectedLocations().size() == 1 && ed.selectedLocation() == a, "location group: a removed pick leaves the others selected");
+    ed.addLocationSelection(b);
+    ed.beginStroke();
+    for (int l : ed.selectedLocations()) ed.deleteLocation(l);
+    ed.endStroke();
+    CHECK(!ed.locationUsed(a) && !ed.locationUsed(b) && ed.selectedLocations().empty() && ed.selectedLocation() == -1,
           "location group: delete removes all the selected locations");
     ed.undo();
-    CHECK(ed.locationUsed(a) && ed.locationUsed(b) && ed.locationUsed(c), "location group: one undo brings them all back");
-    const int d = ed.createLocation(Rect{100, 1000, 160, 1060});  // a new location is the selection (not the old group)
-    CHECK(ed.selectedLocations().size() == 1 && ed.isLocationSelected(d) && ed.selectedLocation() == d,
-          "location group: a new location replaces the selection");
+    CHECK(ed.locationUsed(a) && ed.locationUsed(b), "location group: one undo brings them all back");
 }
 
 // The turns (feedback #111): n copies of a point, equally spaced round the map's middle; with a mirror, the mirror's copies
@@ -1390,6 +1397,7 @@ int main(int argc, char** argv) {
     if (argc > 4 && std::string(argv[4]) == "terrain") {  // only the brush and doodad checks (GitHub #143, ramps)
         brushOverPlacedTiles(data, argv[2]);
         rampsStay(data, argv[1]);
+        doodadBackOnUndo(data);
         std::printf("\n%d failures\n", failures);
         return failures ? 1 : 0;
     }

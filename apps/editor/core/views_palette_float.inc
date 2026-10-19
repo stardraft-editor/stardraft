@@ -155,6 +155,7 @@ struct FloatPaletteView final : PanelStripView {
     bool altShown = false;  // Rectangle mode: the Tiles panel, not the rows and the list
     ToolStripView tools;    // the mode's tools over the rows (the location list's window: Locations' tools)
     std::optional<Mode> toolsMode;
+    PanelState* toolsState = nullptr;  // (their panel: the side bar's of the mode)
 
     FloatPaletteView() {
         add(tools, {});
@@ -202,10 +203,10 @@ struct FloatPaletteView final : PanelStripView {
         dock.setVisible(titleH <= 0);  // (with the strip, its close box docks: no Dock button)
         const bool alt = altShown && parts_.alt;
         int y = top + pad;
-        tools.fixed = toolsMode;
+        tools.state = toolsState;
         tools.setVisible(toolsMode.has_value() && !collapsed);
         if (toolsMode) {  // (the mode's tools first, as in the side bar)
-            const int th = toolStripHeight(std::max(1, w - 2 * pad), *toolsMode);
+            const int th = toolStripHeight(std::max(1, w - 2 * pad), toolsState);
             tools.setFrame({pad, y, w - pad, y + th});
             y += th + pad;
         }
@@ -231,11 +232,10 @@ struct FloatPaletteView final : PanelStripView {
     void resized() override { place(); }
     void paint(draw::Canvas& c) override {
         c.fill({0, 0, width(), height()}, kBg);
-        activeLine = toolsMode && *toolsMode == appState().mode;
+        activeLine = toolsMode && (toolsState ? toolsState == gActivePanel : *toolsMode == appState().mode);
         paintStrip(c);
     }
-    void paintOver(draw::Canvas& c) override {  // (another mode is active: the tools are dimmed)
-        if (toolsMode && *toolsMode != appState().mode && tools.shown()) c.fill(tools.frame(), kBg, 150);
+    void paintOver(draw::Canvas& c) override {  // (another mode active: its tools show as they are; a press makes it active)
         paintFrame(c);
     }
     std::wstring feedbackName(draw::Point) override { return L"the floating window of the " + name; }
@@ -269,8 +269,15 @@ struct PalettePanelView final : PanelStripView {
                                           if (onView) onView();
                                       }};
     PaletteGridView list;
-    ToolStripView tools;  // a mode's floating panel: the mode's tools, sizes and options (the side bar's strip)
+    ToolStripView tools;  // its mode's tools, sizes and options (the side bar's strip), as its state has them
     Mode mode = Mode::Units;
+    // Its own state for each mode it shows (panel_state.inc): its pick, tools, brush, player, mirrors, Isometric or
+    // Rectangle; Terrain's tiles are its own Tiles list's (shown in place of the rows and the list in Rectangle).
+    std::array<PanelState, kModeCount> states;
+    TilesView tilesData;
+    TilesGridView tilesGrid;
+    TilesPanelView tilesPanel;
+    PanelState& state() { return states[size_t(mode)]; }
     PaletteView view;
     PaletteSort sort = PaletteSort::Category;
     std::wstring section;          // the section it shows ("": all)
@@ -291,6 +298,12 @@ struct PalettePanelView final : PanelStripView {
     }
 
     PalettePanelView() {
+        for (int k = 0; k < kModeCount; ++k) states[size_t(k)] = panelNew(Mode(k));
+        PanelState& t = states[size_t(Mode::Terrain)];
+        t.tiles = &tilesData, t.tilesGrid = &tilesGrid, t.tilesPanel = &tilesPanel;
+        tilesGrid.state = &t;
+        tilesPanel.holdGrid(tilesGrid);
+        tilesPanel.bind(&tilesData);
         list.ownView = &view;
         for (draw::View* v : std::initializer_list<draw::View*>{&tools, &type, &owner, &sections, &search, &viewButton, &list}) add(*v, {});
         search.setPlaceholder(L"Search");
@@ -308,25 +321,18 @@ struct PalettePanelView final : PanelStripView {
         const int pad = scale(6), rowH = scale(24), btnW = scale(64), w = width(), h = height();
         int y = titleH + pad;
         const int half = std::max(0, w - 3 * pad) / 2;
-        // A mode's floating panel: the mode's tool strip first (the side bar's: its tools, Isometric and Rectangle, the
-        // brush's size, the mirrors), then the rows of its palette.
-        tools.fixed = mode;
-        tools.setVisible(floating && !collapsed);
-        if (floating) {
-            const int th = toolStripHeight(std::max(1, w - 2 * pad), mode);
-            tools.setFrame({pad, y, w - pad, y + th});
-            y += th + pad;
-        }
-        const int rowsTop = y;
-        type.setVisible(!floating);
+        // Every panel has the whole of the side bar's controls: its type, the mode's tool strip (its tools, Isometric
+        // and Rectangle, the brush's size, the mirrors; a press on it makes the mode active), then the rows of its palette.
+        type.setFrame({pad, y, hasOwner() ? pad + half : w - pad, y + rowH});
+        owner.setFrame({pad + half + pad, y, w - pad, y + rowH});
         owner.setVisible(hasOwner());
-        if (floating) {  // (the mode's palette: the owner alone on its row, as in the side bar)
-            if (hasOwner()) owner.setFrame({pad, y, w - pad, y + rowH}), y += rowH + pad;
-        } else {
-            type.setFrame({pad, y, hasOwner() ? pad + half : w - pad, y + rowH});
-            owner.setFrame({pad + half + pad, y, w - pad, y + rowH});
-            y += rowH + pad;
-        }
+        y += rowH + pad;
+        tools.state = &state(), list.state = &state();
+        tools.setVisible(!collapsed);
+        const int th = toolStripHeight(std::max(1, w - 2 * pad), &state());
+        tools.setFrame({pad, y, w - pad, y + th});
+        y += th + pad;
+        const int rowsTop = y;
         sections.setVisible(hasSections());
         if (hasSections()) sections.setFrame({pad, y, w - pad, y + rowH}), y += rowH + pad;
         search.setFrame({pad, y, std::max(pad, w - pad - btnW - pad), y + rowH});
@@ -334,7 +340,7 @@ struct PalettePanelView final : PanelStripView {
         y += rowH + pad;
         list.setFrame({pad, y, w - pad, std::max(y + 1, h - pad)});
         for (draw::View* v : std::initializer_list<draw::View*>{&search, &viewButton, &list}) v->setVisible(!collapsed && !altShown);
-        if (!floating) type.setVisible(!collapsed);
+        type.setVisible(!collapsed);
         if (collapsed || altShown) owner.setVisible(false), sections.setVisible(false);
         if (alt) {  // (Rectangle mode's Tiles panel in place of the rows and the list)
             const int top = rowsTop;
@@ -346,13 +352,12 @@ struct PalettePanelView final : PanelStripView {
     void resized() override { place(); }
     void paint(draw::Canvas& c) override {
         c.fill({0, 0, width(), height()}, kBg);
-        activeLine = floating && mode == appState().mode;
+        activeLine = &state() == gActivePanel;
         paintStrip(c);
     }
-    // Another mode is active: the tools are dimmed (they show the mode's tool, not the active one's; a press makes the
-    // mode active), and the strip's line is the accent's only while this mode is active.
+    // Another mode is active: the tools show the mode's tool as they are (a press makes the mode active); the strip's
+    // line is the accent's only while this mode is active.
     void paintOver(draw::Canvas& c) override {
-        if (floating && !collapsed && tools.shown() && mode != appState().mode) c.fill(tools.frame(), kBg, 150);
         paintFrame(c);
     }
     std::wstring feedbackName(draw::Point) override { return L"a palette panel (" + name + L")"; }

@@ -40,7 +40,8 @@ void locationMenuPick(int loc, int pick) {
     AppState& app = appState();
     Editor& ed = *app.ed;
     if (!ed.locationUsed(loc)) return;
-    ed.focusLocation(loc);
+    if (ed.locationSelected(loc)) ed.addLocationSelection(loc);  // (Delete: the selected locations, as Del)
+    else ed.selectLocation(loc);
     if (pick == ID_LOCMENU_PROPS) showLocationEdit(loc);
     else if (pick == ID_LOCMENU_RENAME) renameSelectedLocation();
     else if (pick == ID_LOCMENU_DELETE) command(ID_EDIT_DELETE);
@@ -172,12 +173,10 @@ MenuModel mapMenuModel(float wx, float wy) {
     }
     case Mode::Locations: {
         const int loc = ed.locationAt(int(wx), int(wy));
-        if (loc >= 0) {
-            ed.focusLocation(loc);
-            setListSel(int(std::find(app.items.begin(), app.items.end(), loc) - app.items.begin()));
-        }
+        if (loc >= 0 && ed.locationSelected(loc)) ed.addLocationSelection(loc);  // (one of the selected: they stay selected)
+        else if (loc >= 0) ed.selectLocation(loc);
         gMapMenuLocation = loc;
-        has = ed.selectedLocation() >= 0, canPaste = !app.locationClips.empty();
+        has = ed.selectedLocation() >= 0, canPaste = !app.locationClip.empty();
         break;
     }
     case Mode::Terrain: has = app.hasTerrainSel, canPaste = ed.hasTileClipboard() || ed.hasTerrainClipboard(); break;  // either copy (#83)
@@ -191,9 +190,9 @@ MenuModel mapMenuModel(float wx, float wy) {
     item(ID_EDIT_DELETE, L"&Delete", L"Del", has && !terrain);
     item(ID_MAPMENU_REPLACE, L"&Replace with\x2026", L"", has && (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites));
     if (app.mode == Mode::Doodads) item(ID_MAPMENU_TOTERRAIN, L"Convert to t&errain", L"", has);
-    if (terrain && app.terrainRect) item(ID_MAPMENU_FILLSEL, L"&Fill selection with the selected tiles", L"", has && gTiles.picked >= 0);  // (#114)
+    if (terrain && app.terrainRect) item(ID_MAPMENU_FILLSEL, L"&Fill selection with the selected tiles", L"", has && gTiles->picked >= 0);  // (#114)
     m.push_back(menuSeparator());
-    item(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A", !terrain && app.mode != Mode::Locations);
+    item(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A", !terrain);
     // On a unit, doodad or sprite: all of its type on the map (units: also only its player's).
     if (gMapMenuUnit >= 0 || gMapMenuDoodad >= 0 || gMapMenuSprite >= 0) item(ID_MAPMENU_SAMETYPE, L"Select all of this t&ype", L"", true);
     if (gMapMenuUnit >= 0)

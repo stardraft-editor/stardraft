@@ -23,6 +23,7 @@
 #include "views_stub.inc"
 #include "map_edit.inc"
 #include "tiles_edit.inc"
+#include "panel_state.inc"  // each palette panel's own pick, tools, brush, player, mirrors, Isometric or Rectangle and tiles
 #include "path_overlay.inc"
 #include "map_input.inc"
 #include "views_rail.inc"

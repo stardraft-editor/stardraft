@@ -85,26 +85,6 @@ Editor::SelectShape selectShape() {
     return appState().brushShape == Brush::Diamond ? Editor::SelectShape::Diamond : appState().brushShape == Brush::Circle ? Editor::SelectShape::Ellipse : Editor::SelectShape::Rect;
 }
 
-// The locations' copies: each rectangle from the middle of the group's box.
-std::vector<AppState::LocationClip> locationClipsOf(const std::vector<int>& locs) {
-    Editor& ed = *appState().ed;
-    int left = INT_MAX, top = INT_MAX, right = INT_MIN, bottom = INT_MIN;
-    for (int i : locs) {
-        if (!ed.locationUsed(i)) continue;
-        const Rect r = ed.locationRect(i);
-        left = std::min(left, r.left), top = std::min(top, r.top), right = std::max(right, r.right), bottom = std::max(bottom, r.bottom);
-    }
-    const int cx = (left + right) / 2, cy = (top + bottom) / 2;
-    std::vector<AppState::LocationClip> out;
-    for (int i : locs) {
-        if (!ed.locationUsed(i)) continue;
-        const Rect r = ed.locationRect(i);
-        out.push_back({Rect{r.left - cx, r.top - cy, r.right - cx, r.bottom - cy}, ed.locationName(i), ed.locationInvertedAxes(i),
-                       ed.locationElevation(i)});
-    }
-    return out;
-}
-
 Rect previewLocationRect(float wx, float wy) {
     Rect r = appState().locStart;
     float dx = wx - appState().dragWX, dy = wy - appState().dragWY;
@@ -204,6 +184,52 @@ Rect terrainSelectRect(float wx, float wy) {
     const int x0 = std::clamp(r.left / 32, 0, w - 1), y0 = std::clamp(r.top / 32, 0, h - 1);
     const int x1 = std::clamp((r.right - 1) / 32, x0, w - 1), y1 = std::clamp((r.bottom - 1) / 32, y0, h - 1);
     return Rect{x0 * 32, y0 * 32, (x1 + 1) * 32, (y1 + 1) * 32};
+}
+
+// Several locations selected (Editor::selectedLocations): they move, copy and delete together, each one undo step.
+AppState::LocationCopy locationCopyOf(const Editor& ed, int l) {
+    return {ed.locationRect(l), ed.locationInvertedAxes(l), ed.locationName(l), ed.locationElevation(l)};
+}
+std::wstring locationsText(const Editor& ed, const std::vector<int>& locs) {
+    return locs.size() == 1 ? widen(ed.locationName(locs[0])) : std::to_wstring(locs.size()) + L" locations";
+}
+void rebuildList(AppState& app);
+void moveSelectedLocations(int dx, int dy) {
+    AppState& app = appState();
+    Editor& ed = *app.ed;
+    const std::vector<int> locs = ed.selectedLocations();
+    if (locs.empty() || (!dx && !dy)) return;
+    // The group stops at the map's edges as a whole (feedback #135): the offset shrinks so that every one stays inside.
+    int left = INT_MAX, top = INT_MAX, right = INT_MIN, bottom = INT_MIN;
+    for (int l : locs) {
+        if (l == kAnywhereLocation) continue;
+        const Rect r = ed.locationRect(l);
+        left = std::min(left, r.left), top = std::min(top, r.top), right = std::max(right, r.right), bottom = std::max(bottom, r.bottom);
+    }
+    if (left > right) return;
+    dx = std::max(std::min(dx, int(ed.width()) * 32 - right), -left);
+    dy = std::max(std::min(dy, int(ed.height()) * 32 - bottom), -top);
+    if (!dx && !dy) return;
+    ed.beginStroke();
+    for (int l : locs) {
+        if (l == kAnywhereLocation) continue;  // (always the whole map)
+        const Rect r = ed.locationRect(l);
+        ed.setLocationRect(l, {r.left + dx, r.top + dy, r.right + dx, r.bottom + dy});
+    }
+    ed.endStroke();
+    if (locs.size() > 1) setMessage(L"Moved " + locationsText(ed, locs));
+}
+void deleteSelectedLocations() {
+    AppState& app = appState();
+    Editor& ed = *app.ed;
+    const std::vector<int> locs = ed.selectedLocations();
+    if (locs.empty()) return setMessage(L"First, select a location");
+    const std::wstring what = locationsText(ed, locs);
+    ed.beginStroke();
+    for (int l : locs) ed.deleteLocation(l);
+    ed.endStroke();
+    rebuildList(app);
+    setMessage(L"Deleted " + what);
 }
 
 int locationEdgesAt(float wx, float wy) {
