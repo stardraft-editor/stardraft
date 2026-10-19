@@ -1103,6 +1103,33 @@ static void unitOrderTest(const GameData& data) {
     CHECK(serials() == s0, "unit order: one undo again");
 }
 
+// Links (Discord feedback #126: the Nydus and add-on links of the Units list): two Nydus canals link to each other, an
+// add-on links to its building (the link the placing makes), a linked unit does not link again, and linking is one undo.
+static void linkTest(const GameData& data) {
+    Editor ed(data);
+    std::string err;
+    if (!ed.newMap(64, 64, 0, 1, err)) {
+        CHECK(false, "links: a new 64 x 64 map");
+        return;
+    }
+    const uint16_t nydus = 134, comsat = 107;  // (Zerg Nydus Canal, Comsat Station)
+    const uint16_t cc = *ed.unitTypes().findByName("Terran Command Center");
+    PlaceResult n1 = ed.placeUnit(nydus, 0, 40 * 32, 40 * 32, false), n2 = ed.placeUnit(nydus, 0, 48 * 32, 40 * 32, false);
+    CHECK(n1.placed && n2.placed && ed.canLinkUnits(n1.index, n2.index), "links: two Nydus canals can be linked");
+    CHECK(ed.linkUnits(n1.index, n2.index) && ed.linkedUnit(n1.index) == n2.index && ed.linkedUnit(n2.index) == n1.index,
+          "links: the Nydus canals link to each other (the first unit of a map, serial 0, too)");
+    CHECK(!ed.canLinkUnits(n1.index, n2.index) && !ed.linkUnits(n1.index, n2.index), "links: a linked canal does not link again");
+    ed.undo();
+    CHECK(ed.linkedUnit(n1.index) == -1 && ed.linkedUnit(n2.index) == -1, "links: one undo takes the link back");
+    PlaceResult b = ed.placeUnit(cc, 0, 20 * 32, 20 * 32, false), s = ed.placeUnit(comsat, 0, 60 * 32, 60 * 32, false);
+    CHECK(b.placed && s.placed, "links: a building and an add-on placed apart");
+    CHECK(!ed.canLinkUnits(b.index, n1.index), "links: a building and a Nydus canal cannot be linked");
+    CHECK(ed.linkUnits(s.index, b.index) && ed.linkedUnit(s.index) == b.index && ed.linkedUnit(b.index) == s.index,
+          "links: an add-on links to its building");
+    ed.undo();
+    CHECK(ed.linkedUnit(s.index) == -1, "links: one undo takes the add-on link back");
+}
+
 static void mapRevealerTest(const GameData& data) {
     Editor ed(data);
     std::string err;
@@ -2266,6 +2293,7 @@ int main(int argc, char** argv) {
     generatorRulesTest(data);
     mapRevealerTest(data);
     unitOrderTest(data);
+    linkTest(data);
     classicTriggersTest(data, argv[2], fs::path(argv[3]));
 
     std::printf("\n%d failures\n", failures);

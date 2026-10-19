@@ -309,6 +309,12 @@ public:
     int placeMapRevealers(const std::vector<uint8_t>& owners, int spacingTiles);
     // Removes every Map Revealer, of every player (the selection keeps the other units). One undo step; returns how many.
     int removeMapRevealers();
+    // Links: two Nydus canals (the Nydus link), or an add-on and its building (the add-on link), as the placing of an
+    // add-on links them. canLinkUnits: both are free of links and can be linked. linkUnits: one undo step. linkedUnit:
+    // the index of the unit that `unit` is linked to, -1 for none.
+    bool canLinkUnits(int a, int b) const;
+    bool linkUnits(int a, int b);
+    int linkedUnit(int unit) const;
     // Moves units to another place in the map's UNIT order (the index, which the game and the triggers use): the units
     // `indices` keep their order among themselves and go before unit `target` (the unit there now; units().size(): to the
     // end). The selection stays on the same units. One undo step; 0 (nothing changed, no step) when the order stays.

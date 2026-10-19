@@ -1937,6 +1937,48 @@ void Editor::setMapRevealersHidden(bool hidden) {
     revision_ = nextRevision();
 }
 
+namespace {
+constexpr uint16_t kNydusCanalUnit = 134;  // units.dat id of Zerg Nydus Canal
+}
+
+bool Editor::canLinkUnits(int a, int b) const {
+    const int n = int(units_.size());
+    if (a == b || a < 0 || b < 0 || a >= n || b >= n) return false;
+    const Unit& ua = units_[size_t(a)];
+    const Unit& ub = units_[size_t(b)];
+    if (ua.relatedSerial || ub.relatedSerial) return false;  // linked already
+    if (ua.type == kNydusCanalUnit && ub.type == kNydusCanalUnit) return true;
+    auto addonOf = [&](const Unit& add, const Unit& bld) {
+        const int pt = addonParent(add.type);
+        return pt >= 0 && pt == int(bld.type) && bld.owner == add.owner;
+    };
+    return addonOf(ua, ub) || addonOf(ub, ua);
+}
+
+bool Editor::linkUnits(int a, int b) {
+    if (!canLinkUnits(a, b)) return false;
+    const uint16_t bit = units_[size_t(a)].type == kNydusCanalUnit ? UnitLink::Nydus : UnitLink::Addon;
+    beginEdit();
+    // (A serial of 0 means "no link" to the links: such a unit gets a serial first.)
+    if (!units_[size_t(a)].serial) units_[size_t(a)].serial = nextFreeSerial(units_);
+    if (!units_[size_t(b)].serial) units_[size_t(b)].serial = nextFreeSerial(units_);
+    Unit& ua = units_[size_t(a)];
+    Unit& ub = units_[size_t(b)];
+    ua.links |= bit, ua.relatedSerial = ub.serial;
+    ub.links |= bit, ub.relatedSerial = ua.serial;
+    writeUnits(chk_, units_);
+    commit(false);
+    return true;
+}
+
+int Editor::linkedUnit(int unit) const {
+    if (unit < 0 || unit >= int(units_.size()) || !units_[size_t(unit)].relatedSerial) return -1;
+    const uint32_t serial = units_[size_t(unit)].relatedSerial;
+    for (int i = 0; i < int(units_.size()); ++i)
+        if (units_[size_t(i)].serial == serial) return i;
+    return -1;
+}
+
 int Editor::moveUnits(const std::vector<int>& indices, int target) {
     const int n = int(units_.size());
     std::vector<bool> moved(size_t(n), false);

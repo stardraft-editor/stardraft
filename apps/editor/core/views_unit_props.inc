@@ -208,6 +208,13 @@ public:
             if (dlg_) dlg_->close(kUnitPropsEditType);
         };
         add(type_, {0, 0, 0, 0});
+        link_.setText(std::wstring(tr(L"Link selected units")));
+        link_.onClick = [this] { linkSelected(); };
+        add(link_, {0, 0, 0, 0});
+        jump_.setText(std::wstring(tr(L"Jump to linked unit")));
+        jump_.onClick = [this] { jumpToLinked(); };
+        add(jump_, {0, 0, 0, 0});
+        link_.setEnabled(false), jump_.setEnabled(false);  // (greyed until a link applies)
     }
 
     // The dialog this view is in (Edit unit type closes it).
@@ -268,6 +275,7 @@ public:
         c.fill({0, 0, width(), height()}, kBg);
         // The unit's picture and name over the fields.
         sync();
+        refreshLinks();
         if (focusSearch_ && !focused_ && host()) focused_ = true, search_.field().focus();  // the search has the keyboard: type to find a unit
         const int rightPx = width() - scale(kContentW);  // (the fields' column: at the right edge, as resized lays it out)
         const draw::Rect pic{rightPx, scale(kPad), rightPx + scale(kIcon), scale(kPad + kIcon)};
@@ -301,10 +309,46 @@ public:
         // The states: Invincible and Burrowed at the left, Hallucinated, Cloaked and Lifted at the right (SCMDraft's order).
         static const int stateCol[5] = {1, 0, 1, 1, 0}, stateRow[5] = {1, 1, 2, 0, 0};  // (by the state bit: Cloaked, Burrowed, Lifted, Hallucinated, Invincible)
         for (int b = 0; b < 5; ++b) put(*state_[b], stateCol[b] * kStateColX, kStatesY + stateRow[b] * kStateStepY, kStateW, kRowH);
+        put(link_, 0, linkY(), kContentW / 2 - 4, kButtonH), put(jump_, kContentW / 2 + 4, linkY(), kContentW / 2 - 4, kButtonH);
         put(type_, 0, typeY(), kContentW, kButtonH);
     }
 
 private:
+    // The index of the unit this window shows (by its serial), -1 when it is gone.
+    int shownUnit() const {
+        for (int i = 0; i < int(ed_->units().size()); ++i)
+            if (ed_->units()[size_t(i)].serial == first_.serial) return i;
+        return -1;
+    }
+    // The units the list has selected, in the list's order.
+    std::vector<int> selectedUnits() const {
+        std::vector<int> out;
+        for (int r = 0; r < int(rows_.size()); ++r)
+            if (list_.isSelected(r)) out.push_back(rows_[size_t(r)]);
+        return out;
+    }
+    // Link selected units is on for two selected units that can be linked; Jump to linked unit for a shown unit with a link.
+    void refreshLinks() {
+        const std::vector<int> sel = selectedUnits();
+        const bool link = sel.size() == 2 && ed_->canLinkUnits(sel[0], sel[1]);
+        const bool jump = ed_->linkedUnit(shownUnit()) >= 0;
+        if (link != linkOn_) link_.setEnabled(link), linkOn_ = link;
+        if (jump != jumpOn_) jump_.setEnabled(jump), jumpOn_ = jump;
+    }
+    // Link selected units: the two selected units are linked (one undo step); the rows follow.
+    void linkSelected() {
+        const std::vector<int> sel = selectedUnits();
+        if (sel.size() == 2 && ed_->linkUnits(sel[0], sel[1])) rebuild();
+    }
+    // Jump to linked unit: the window shows the linked unit next, and the view goes to it.
+    void jumpToLinked() {
+        const int other = ed_->linkedUnit(shownUnit());
+        if (other < 0) return;
+        next_ = other;
+        unitsListCenter(other);
+        closeWith(kUnitPropsPick);
+    }
+
     // The header: the five columns, the sorted one with its arrow. The list is in the index's order at first.
     void setHeaders() {
         static const wchar_t* const names[5] = {L"Unit type", L"Owner", L"X", L"Y", L"Index"};
@@ -428,9 +472,13 @@ private:
         return false;
     }
 
-    int typeY() const {
+    int linkY() const {
         using namespace unitPropsLayout;
         return kStatesY + 3 * kStateStepY + kGap;
+    }
+    int typeY() const {
+        using namespace unitPropsLayout;
+        return linkY() + kButtonH + kGap;
     }
 
     Unit first_;
@@ -449,6 +497,8 @@ private:
     std::unique_ptr<stardraft::kit::CheckBox> state_[5];
     int shown_ = 0;
     stardraft::kit::Button type_;
+    stardraft::kit::Button link_, jump_;  // Nydus / add-on link (below the states)
+    bool linkOn_ = false, jumpOn_ = false;
     Editor* ed_ = nullptr;
     SearchBox search_;
     UnitRowsView list_;
