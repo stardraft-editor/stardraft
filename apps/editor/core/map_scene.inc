@@ -389,7 +389,9 @@ render::Scene buildScene() {
         for (size_t i = 0; i < units.size(); ++i)
             if (!moving[i]) others.push_back(units[i]);
     }
+    ed.setMapRevealersHidden(!gLayers.revealers);  // (the layer's state: the revealers are not picked while hidden)
     for (size_t i = 0; i < units.size() && gLayers.units; ++i) {
+        if (!gLayers.revealers && units[i].type == kMapRevealerUnit) continue;
         bool sel = (moveDX || moveDY) && moving[i];
         bool red = false;
         if (sel) {

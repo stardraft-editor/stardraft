@@ -2385,3 +2385,12 @@ Forward: the page after (Alt+Right)	前进：下一页 (Alt+Right)
 &Import a project (experimental)…	导入项目(实验性)(&I)…
 E&xtra large	特大(&X)
 . This build cannot send it: attach report.txt to a report on GitHub or Discord.	。此版本无法发送:请将 report.txt 附加到 GitHub 或 Discord 上的报告中。
+Map &revealers	地图揭示器(&R)
+Place &map revealers…	放置地图揭示器(&M)…
+&Remove all map revealers	删除所有地图揭示器(&R)
+Place map revealers	放置地图揭示器
+One map revealer on each square of 8 x 8 tiles.	每个 8 x 8 格的方格放置一个地图揭示器。
+Map revealers show	显示地图揭示器
+Map revealers are hidden (View > Layers shows them again)	地图揭示器已隐藏（视图 > 图层可再次显示）
+Nothing placed: each chosen player has a map revealer on every square	未放置：所选玩家的每个方格都已有地图揭示器
+There are no map revealers on the map	地图上没有地图揭示器

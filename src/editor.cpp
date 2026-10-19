@@ -1890,6 +1890,69 @@ int Editor::sprayUnits(const std::vector<uint16_t>& types, uint8_t owner, int x,
     return int(added.size());
 }
 
+int Editor::placeMapRevealers(const std::vector<uint8_t>& owners, int spacingTiles) {
+    if (spacingTiles < 1 || owners.empty() || kMapRevealerUnit >= types_.size()) return 0;
+    const UnitType& t = types_[kMapRevealerUnit];
+    // The middle of each square of the grid, the last one clamped to the map's edge (the revealer's sight is 10 tiles, so
+    // squares of 8 tiles leave no gap: the farthest point of a square is 5.7 tiles from its middle).
+    const int cell = spacingTiles * 32;
+    auto centers = [cell](int tiles) {
+        std::vector<int> out;
+        for (int c = 0; c < tiles * 32; c += cell) out.push_back(std::min(c + cell / 2, tiles * 32 - 1));
+        return out;
+    };
+    const std::vector<int> xs = centers(width_), ys = centers(height_);
+    // The revealers the map has: a player's place that has one is skipped (the key: owner, x, y).
+    auto key = [](int owner, int x, int y) { return (uint64_t(owner) << 32) | (uint64_t(uint16_t(x)) << 16) | uint16_t(y); };
+    std::set<uint64_t> have;
+    for (const Unit& u : units_)
+        if (u.type == kMapRevealerUnit) have.insert(key(u.owner, u.x, u.y));
+    std::vector<Unit> all = units_;
+    SerialCounter serials(all);
+    std::vector<Unit> added;
+    for (uint8_t owner : owners) {
+        if (owner > 7) continue;  // Player 1 to Player 8
+        for (int y : ys)
+            for (int x : xs) {
+                if (unitLimit_ > 0 && int(all.size()) >= unitLimit_) break;
+                if (!have.insert(key(owner, x, y)).second) continue;
+                Unit u = makeUnit(t, owner, uint16_t(x), uint16_t(y));
+                u.serial = serials.take();
+                all.push_back(u);
+                added.push_back(u);
+            }
+    }
+    if (added.empty()) return 0;
+    beginEdit();
+    units_.insert(units_.end(), added.begin(), added.end());
+    writeUnits(chk_, units_);
+    commit(false);
+    return int(added.size());
+}
+
+int Editor::removeMapRevealers() {
+    std::vector<int> newIndex(units_.size(), -1);  // each unit's index after the removal (-1: removed)
+    int kept = 0, removed = 0;
+    for (size_t i = 0; i < units_.size(); ++i) {
+        if (units_[i].type == kMapRevealerUnit) ++removed;
+        else newIndex[i] = kept++;
+    }
+    if (!removed) return 0;
+    beginEdit();
+    std::vector<Unit> out;
+    out.reserve(size_t(kept));
+    for (size_t i = 0; i < units_.size(); ++i)
+        if (newIndex[i] >= 0) out.push_back(units_[i]);
+    units_ = std::move(out);
+    std::vector<int> sel;  // the selection stays on the units that are left
+    for (int i : selection_)
+        if (i >= 0 && i < int(newIndex.size()) && newIndex[size_t(i)] >= 0) sel.push_back(newIndex[size_t(i)]);
+    selection_ = std::move(sel);
+    writeUnits(chk_, units_);
+    commit(false);
+    return removed;
+}
+
 PlaceResult Editor::placeUnit(uint16_t type, uint8_t owner, int x, int y, bool correct) {
     PlaceResult r;
     if (type >= types_.size()) {
@@ -1965,6 +2028,7 @@ int Editor::unitAt(int x, int y) const {
     int best = -1;
     int bestArea = 1 << 30;
     for (int i = int(units_.size()) - 1; i >= 0; --i) {
+        if (!pickable(i)) continue;
         Rect b = unitBox(units_[i]);
         if (!b.contains(x, y)) continue;
         int area = (b.right - b.left) * (b.bottom - b.top);  // prefer the smallest (unit on top of a building)
@@ -1976,6 +2040,7 @@ int Editor::unitAt(int x, int y) const {
 std::vector<int> Editor::unitsAt(int x, int y) const {
     std::vector<std::pair<int, int>> hits;  // (the box's area, the unit)
     for (int i = int(units_.size()) - 1; i >= 0; --i) {
+        if (!pickable(i)) continue;
         const Rect b = unitBox(units_[size_t(i)]);
         if (b.contains(x, y)) hits.push_back({(b.right - b.left) * (b.bottom - b.top), i});
     }
@@ -2009,12 +2074,13 @@ void Editor::selectRect(const Rect& rect, bool add) {
     Rect r = rect.normalized();
     if (!add) selection_.clear();
     for (int i = 0; i < int(units_.size()); ++i)
-        if (r.intersects(unitBox(units_[i])) && !isSelected(i)) selection_.push_back(i);
+        if (pickable(i) && r.intersects(unitBox(units_[i])) && !isSelected(i)) selection_.push_back(i);
     revision_ = nextRevision();
 }
 void Editor::selectAll() {
     selection_.clear();
-    for (int i = 0; i < int(units_.size()); ++i) selection_.push_back(i);
+    for (int i = 0; i < int(units_.size()); ++i)
+        if (pickable(i)) selection_.push_back(i);
     revision_ = nextRevision();
 }
 

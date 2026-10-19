@@ -1066,6 +1066,60 @@ static void soundFileSteps(const GameData& data, const char* map) {
     CHECK(!has(a) && !has(b) && !plays(a) && e.archiveFiles().size() == files0, "sound files: undo to the start");
 }
 
+// Map revealers (Discord feedback #125; Edit > Tools): players 1 and 2 on a new 64 x 64 map get a revealer at the middle of
+// each 8-tile square (64 each), a second run adds none, one undo step each for place and remove all, and a hidden
+// revealer is not picked.
+static void mapRevealerTest(const GameData& data) {
+    Editor ed(data);
+    std::string err;
+    if (!ed.newMap(64, 64, 0, 1, err)) {
+        CHECK(false, "map revealers: a new 64 x 64 map");
+        return;
+    }
+    auto revealers = [&](int owner) {
+        int c = 0;
+        for (const Unit& u : ed.units())
+            if (u.type == kMapRevealerUnit && (owner < 0 || u.owner == owner)) ++c;
+        return c;
+    };
+    const size_t n0 = ed.units().size();
+    CHECK(ed.placeMapRevealers({0, 1}, 8) == 128 && revealers(0) == 64 && revealers(1) == 64, "map revealers: 64 for each of players 1 and 2");
+    bool grid = true;
+    for (const Unit& u : ed.units())
+        if (u.type == kMapRevealerUnit) grid = grid && u.x % 256 == 128 && u.y % 256 == 128;
+    CHECK(grid, "map revealers: each at the middle of its 8-tile square");
+    CHECK(ed.placeMapRevealers({0, 1}, 8) == 0 && ed.units().size() == n0 + 128, "map revealers: a second run adds no duplicates");
+    CHECK(ed.placeMapRevealers({0, 2}, 8) == 64 && revealers(0) == 64 && revealers(2) == 64, "map revealers: player 3 gets its own, player 1's are kept");
+    ed.undo();
+    CHECK(ed.units().size() == n0 + 128 && revealers(2) == 0, "map revealers: one undo takes back the last place");
+    ed.undo();
+    CHECK(ed.units().size() == n0 && revealers(-1) == 0, "map revealers: one undo takes back the place for players 1 and 2");
+    ed.redo();
+    CHECK(revealers(-1) == 128, "map revealers: redo places them again");
+    CHECK(ed.removeMapRevealers() == 128 && revealers(-1) == 0 && ed.units().size() == n0, "map revealers: remove all leaves none");
+    ed.undo();
+    CHECK(revealers(-1) == 128, "map revealers: one undo takes the removal back");
+    ed.setMapRevealersHidden(true);
+    int hidden = -1;
+    for (size_t i = 0; i < ed.units().size() && hidden < 0; ++i)
+        if (ed.units()[i].type == kMapRevealerUnit) hidden = int(i);
+    if (hidden >= 0) {
+        const Unit h = ed.units()[size_t(hidden)];
+        CHECK(ed.unitAt(h.x, h.y) != hidden && ed.unitsAt(h.x, h.y).empty(), "map revealers: a hidden revealer is not picked by a click");
+    }
+    ed.selectAll();
+    bool none = true;
+    for (int i : ed.selection()) none = none && ed.units()[size_t(i)].type != kMapRevealerUnit;
+    CHECK(none, "map revealers: a hidden revealer is not selected by Select all");
+    ed.setMapRevealersHidden(false);
+    if (hidden >= 0) {  // (players 1 and 2 share each place: the stack has both)
+        const Unit h = ed.units()[size_t(hidden)];
+        const std::vector<int> stack = ed.unitsAt(h.x, h.y);
+        CHECK(std::find(stack.begin(), stack.end(), hidden) != stack.end(), "map revealers: shown again, a click picks it");
+    }
+    ed.clearSelection();
+}
+
 int main(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: editor_test <install dir> <map> <scratch dir>\n");
@@ -2176,6 +2230,7 @@ int main(int argc, char** argv) {
     campaignTest(data, argv[2], fs::path(argv[3]));
     importTest(data, argv[2], fs::path(argv[3]));
     generatorRulesTest(data);
+    mapRevealerTest(data);
     classicTriggersTest(data, argv[2], fs::path(argv[3]));
 
     std::printf("\n%d failures\n", failures);

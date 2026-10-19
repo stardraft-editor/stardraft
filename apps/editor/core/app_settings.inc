@@ -42,6 +42,7 @@ const std::vector<AppSetting>& appSettings() {
         SD_SETTING("LayerDoodads", gLayers.doodads, bool),
         SD_SETTING("LayerSprites", gLayers.sprites, bool),
         SD_SETTING("LayerUnits", gLayers.units, bool),
+        SD_SETTING("LayerRevealers", gLayers.revealers, bool),
         {L"PaletteViews", [] { return paletteViewBits(); }, [](int v) { setPaletteViewBits(v); }},
         {L"PaletteSorts", [] { return paletteSortBits(); }, [](int v) { setPaletteSortBits(v); }},
     };

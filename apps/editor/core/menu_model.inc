@@ -111,6 +111,9 @@ MenuModel buildMenuModel() {
         MenuModel decorate;
         menuCommands(decorate, "Edit/Decorate");
         tools.push_back(menuPopup(L"&Decorate the terrain", decorate));
+        tools.push_back(menuSeparator());  // the map revealers (Discord feedback #125)
+        menuCommand(tools, "edit.revealers.place");
+        menuCommand(tools, "edit.revealers.removeAll");
         edit.push_back(menuSeparator());
         edit.push_back(menuPopup(L"T&ools", tools));
     }

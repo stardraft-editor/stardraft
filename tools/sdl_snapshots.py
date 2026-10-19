@@ -287,6 +287,11 @@ CASES += [
     ("map-terrain-flags-height", ["--command", "view.flags.height"], "map"),
     ("map-terrain-flags-blocksview", ["--command", "view.flags.blocksview", "--key", "+", "--key", "+"], "map"),
     ("map-terrain-flags-buildable", ["--command", "view.flags.buildable"], "map"),
+    # Edit > Tools > Place map revealers (the players' dialog, as it is shown), then the revealers placed for All players
+    # (they show on the map), then View > Layers > Map revealers: the layer is hidden and the revealers are not drawn.
+    ("map-dialog-revealers", ["--dialog", "revealers"], "map"),
+    ("map-revealers-place", ["--script", "{script:revealers}"], "map"),
+    ("map-revealers-hidden", ["--script", "{script:revealersHidden}"], "map"),
     # Scenario > Check pathing: the list of the problems (each "pathing" line says the layer, the regions and the check);
     # Enter picks the first one: the layer shows, the problem has its mark in the middle of the view.
     ("map-pathing-check", ["--script", "{script:pathingcheck}"], "map"),
@@ -937,6 +942,14 @@ if sys.platform == "win32":
 # Options > Units > Can be on top of others, the Marine picked, three clicks at one point, Esc: a stack of three units.
 STACK_PLACE = "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nkey Esc\n"
 SCRIPTS = {
+    # Edit > Tools > Place map revealers: Enter places them for All players; then View > Layers > Map revealers hides them.
+    "revealers": """command edit.revealers.place
+key Enter
+""",
+    "revealersHidden": """command edit.revealers.place
+key Enter
+command view.layer.revealers
+""",
     "pathingcheck": """pathing
 command scen.checkPathing
 key Enter
@@ -3514,7 +3527,9 @@ def check_palette_units(output):
     return None
 
 
-CHECKS = {"map-view-fog": lambda o: None if "command view.fog: ran (yes)" in o and "Fog of war: " in o else "the fog did not show",
+CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place: ran (yes)" in o else "the place command did not run",
+          "map-revealers-hidden": lambda o: None if "command view.layer.revealers: ran (yes)" in o else "the layer command did not run",
+          "map-view-fog": lambda o: None if "command view.fog: ran (yes)" in o and "Fog of war: " in o else "the fog did not show",
           **{"map-terrain-flags-" + v: (lambda o, v=v: check_terrain_flags(o, v)) for v in ("walkable", "height", "blocksview", "buildable")},
           "map-pathing-layer": lambda o: check_pathing_layer(o, False), "map-pathing-areas": lambda o: check_pathing_layer(o, True),
           "map-pathing-check": check_pathing_check, "map-pathing-fix": check_pathing_fix,

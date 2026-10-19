@@ -3,6 +3,12 @@
 // the map's right-click menu (core/views_map_menu.inc) as a kit Menu. The Windows hosts are main.cpp's showUnitProperties,
 // showLocationEdit, prompt and mapMenu. Included by main_sdl.cpp after sdl_options.inc.
 
+// Edit > Tools > Place map revealers: the players' dialog over the window (core/views_revealers_dialog.inc). True with the
+// chosen players in `owners`.
+bool showMapRevealersDialog(std::vector<uint8_t>& owners) {
+    return gRoot && runRevealersDialog(*gRoot, owners);
+}
+
 // The prompt (Rename location, a sound's name): OK puts the typed text into `text` and returns true.
 bool prompt(const wchar_t* title, std::wstring& text) {
     if (!gRoot) return false;
@@ -257,6 +263,7 @@ struct MapDialogShot {
     std::unique_ptr<TextPromptView> prompt;
     std::unique_ptr<MapImageView> image;  // mapimage: File > Export map image (core/map_image.inc)
     std::unique_ptr<MapImageProgressView> progress;  // mapimage-progress: its progress window, at part 3 of 16
+    std::unique_ptr<RevealersView> revealers;        // revealers: Edit > Tools > Place map revealers
     stardraft::kit::Dialog dlg;
     draw::View* view = nullptr;
     draw::Point size;
@@ -292,6 +299,11 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
         s.prompt->setDialog(&s.dlg);
         s.dlg.setInsets({0, 0, 0, 0, 0, 0});  // (as runTextPrompt: the view places its field and buttons)
         s.size = {scale(promptLayout::kW), scale(promptLayout::kH)}, s.view = &s.dlg;
+        return true;
+    }
+    if (name == "revealers") {
+        s.revealers = std::make_unique<RevealersView>();
+        s.size = revealersDialogSetup(s.dlg, *s.revealers), s.view = &s.dlg;
         return true;
     }
     if (name == "mapimage") {

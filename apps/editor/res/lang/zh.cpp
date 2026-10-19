@@ -2387,6 +2387,15 @@ constexpr UiText kRows[] = {
     {L"&Import a project (experimental)\u2026", L"\u5BFC\u5165\u9879\u76EE(\u5B9E\u9A8C\u6027)(&I)\u2026"},
     {L"E&xtra large", L"\u7279\u5927(&X)"},
     {L". This build cannot send it: attach report.txt to a report on GitHub or Discord.", L"\u3002\u6B64\u7248\u672C\u65E0\u6CD5\u53D1\u9001:\u8BF7\u5C06 report.txt \u9644\u52A0\u5230 GitHub \u6216 Discord \u4E0A\u7684\u62A5\u544A\u4E2D\u3002"},
+    {L"Map &revealers", L"\u5730\u56FE\u63ED\u793A\u5668(&R)"},
+    {L"Place &map revealers\u2026", L"\u653E\u7F6E\u5730\u56FE\u63ED\u793A\u5668(&M)\u2026"},
+    {L"&Remove all map revealers", L"\u5220\u9664\u6240\u6709\u5730\u56FE\u63ED\u793A\u5668(&R)"},
+    {L"Place map revealers", L"\u653E\u7F6E\u5730\u56FE\u63ED\u793A\u5668"},
+    {L"One map revealer on each square of 8 x 8 tiles.", L"\u6BCF\u4E2A 8 x 8 \u683C\u7684\u65B9\u683C\u653E\u7F6E\u4E00\u4E2A\u5730\u56FE\u63ED\u793A\u5668\u3002"},
+    {L"Map revealers show", L"\u663E\u793A\u5730\u56FE\u63ED\u793A\u5668"},
+    {L"Map revealers are hidden (View > Layers shows them again)", L"\u5730\u56FE\u63ED\u793A\u5668\u5DF2\u9690\u85CF\uFF08\u89C6\u56FE > \u56FE\u5C42\u53EF\u518D\u6B21\u663E\u793A\uFF09"},
+    {L"Nothing placed: each chosen player has a map revealer on every square", L"\u672A\u653E\u7F6E\uFF1A\u6240\u9009\u73A9\u5BB6\u7684\u6BCF\u4E2A\u65B9\u683C\u90FD\u5DF2\u6709\u5730\u56FE\u63ED\u793A\u5668"},
+    {L"There are no map revealers on the map", L"\u5730\u56FE\u4E0A\u6CA1\u6709\u5730\u56FE\u63ED\u793A\u5668"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }
